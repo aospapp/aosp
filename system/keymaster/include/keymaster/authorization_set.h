@@ -17,7 +17,7 @@
 #ifndef SYSTEM_KEYMASTER_AUTHORIZATION_SET_H_
 #define SYSTEM_KEYMASTER_AUTHORIZATION_SET_H_
 
-#include <UniquePtr.h>
+#include <keymaster/UniquePtr.h>
 
 #include <hardware/keymaster_defs.h>
 #include <keymaster/keymaster_tags.h>

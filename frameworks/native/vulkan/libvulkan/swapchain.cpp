@@ -22,6 +22,7 @@
 #include <sync/sync.h>
 #include <utils/StrongPointer.h>
 #include <utils/Vector.h>
+#include <system/window.h>
 
 #include "driver.h"
 
@@ -429,6 +430,8 @@ android_dataspace GetNativeDataspace(VkColorSpaceKHR colorspace) {
             return HAL_DATASPACE_DISPLAY_P3;
         case VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT:
             return HAL_DATASPACE_V0_SCRGB_LINEAR;
+        case VK_COLOR_SPACE_EXTENDED_SRGB_NONLINEAR_EXT:
+            return HAL_DATASPACE_V0_SCRGB;
         case VK_COLOR_SPACE_DCI_P3_LINEAR_EXT:
             return HAL_DATASPACE_DCI_P3_LINEAR;
         case VK_COLOR_SPACE_DCI_P3_NONLINEAR_EXT:
@@ -637,9 +640,9 @@ VkResult GetPhysicalDeviceSurfaceFormatsKHR(VkPhysicalDevice pdev,
         instance_data.hook_extensions.test(ProcHook::EXT_swapchain_colorspace);
 
     const VkSurfaceFormatKHR kWideColorFormats[] = {
-        {VK_FORMAT_R16G16B16A16_SFLOAT,
-         VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT},
-        {VK_FORMAT_A2R10G10B10_UNORM_PACK32,
+        {VK_FORMAT_R8G8B8A8_UNORM,
+         VK_COLOR_SPACE_DISPLAY_P3_NONLINEAR_EXT},
+        {VK_FORMAT_R8G8B8A8_SRGB,
          VK_COLOR_SPACE_DISPLAY_P3_NONLINEAR_EXT},
     };
     const uint32_t kNumWideColorFormats =
@@ -1014,7 +1017,7 @@ VkResult CreateSwapchainKHR(VkDevice device,
             return VK_ERROR_SURFACE_LOST_KHR;
         }
     }
-    err = native_window_set_usage(surface.window.get(), gralloc_usage);
+    err = native_window_set_usage(surface.window.get(), uint64_t(gralloc_usage));
     if (err != 0) {
         // TODO(jessehall): Improve error reporting. Can we enumerate possible
         // errors and translate them to valid Vulkan result codes?
@@ -1091,8 +1094,8 @@ VkResult CreateSwapchainKHR(VkDevice device,
         image_native_buffer.handle = img.buffer->handle;
         image_native_buffer.stride = img.buffer->stride;
         image_native_buffer.format = img.buffer->format;
-        image_native_buffer.usage = img.buffer->usage;
-        android_convertGralloc0To1Usage(img.buffer->usage,
+        image_native_buffer.usage = int(img.buffer->usage);
+        android_convertGralloc0To1Usage(int(img.buffer->usage),
             &image_native_buffer.usage2.producer,
             &image_native_buffer.usage2.consumer);
 

@@ -898,4 +898,92 @@ public class PasspointProviderTest {
         assertEquals(passpointConfig, PasspointProvider.convertFromWifiConfig(wifiConfig));
     }
 
+    /**
+     * Verify that {@link PasspointProvider#isSimCredential} will return true for provider that's
+     * backed by a SIM credential.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void providerBackedBySimCredential() throws Exception {
+        // Test data.
+        String fqdn = "test.com";
+        String friendlyName = "Friendly Name";
+        long[] rcOIs = new long[] {0x1234L, 0x2345L};
+        String realm = "realm.com";
+        String imsi = "1234*";
+
+        // Create provider with SIM credential.
+        PasspointConfiguration config = new PasspointConfiguration();
+        HomeSp homeSp = new HomeSp();
+        homeSp.setFqdn(fqdn);
+        homeSp.setFriendlyName(friendlyName);
+        homeSp.setRoamingConsortiumOis(rcOIs);
+        config.setHomeSp(homeSp);
+        Credential credential = new Credential();
+        credential.setRealm(realm);
+        Credential.SimCredential simCredential = new Credential.SimCredential();
+        simCredential.setImsi(imsi);
+        simCredential.setEapType(EAPConstants.EAP_SIM);
+        credential.setSimCredential(simCredential);
+        config.setCredential(credential);
+        mProvider = createProvider(config);
+
+        assertTrue(mProvider.isSimCredential());
+    }
+
+    /**
+     * Verify that {@link PasspointProvider#isSimCredential} will return false for provider that's
+     * not backed by a SIM credential.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void providerNotBackedBySimCredential() throws Exception {
+        // Test data.
+        String fqdn = "test.com";
+        String friendlyName = "Friendly Name";
+        long[] rcOIs = new long[] {0x1234L, 0x2345L};
+        String realm = "realm.com";
+
+        // Create provider with certificate credential.
+        PasspointConfiguration config = new PasspointConfiguration();
+        HomeSp homeSp = new HomeSp();
+        homeSp.setFqdn(fqdn);
+        homeSp.setFriendlyName(friendlyName);
+        homeSp.setRoamingConsortiumOis(rcOIs);
+        config.setHomeSp(homeSp);
+        Credential credential = new Credential();
+        Credential.CertificateCredential certCredential = new Credential.CertificateCredential();
+        certCredential.setCertType(Credential.CertificateCredential.CERT_TYPE_X509V3);
+        credential.setCertCredential(certCredential);
+        credential.setRealm(realm);
+        config.setCredential(credential);
+        mProvider = createProvider(config);
+
+        assertFalse(mProvider.isSimCredential());
+    }
+
+    /**
+     * Verify that hasEverConnected flag is set correctly using
+     * {@link PasspointProvider#setHasEverConnected}.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void setHasEverConnected() throws Exception {
+        PasspointConfiguration config = new PasspointConfiguration();
+        HomeSp homeSp = new HomeSp();
+        homeSp.setFqdn("test1");
+        config.setHomeSp(homeSp);
+        Credential credential = new Credential();
+        credential.setUserCredential(new Credential.UserCredential());
+        config.setCredential(credential);
+        mProvider = createProvider(config);
+        verifyInstalledConfig(config, true);
+
+        assertFalse(mProvider.getHasEverConnected());
+        mProvider.setHasEverConnected(true);
+        assertTrue(mProvider.getHasEverConnected());
+    }
 }

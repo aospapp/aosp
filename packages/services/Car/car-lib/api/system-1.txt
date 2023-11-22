@@ -77,9 +77,9 @@ package android.car {
   public final class CarProjectionManager {
     method public void onCarDisconnected();
     method public void registerProjectionRunner(android.content.Intent) throws android.car.CarNotConnectedException;
-    method public void regsiterProjectionListener(android.car.CarProjectionManager.CarProjectionListener, int) throws android.car.CarNotConnectedException;
+    method public void registerProjectionListener(android.car.CarProjectionManager.CarProjectionListener, int) throws android.car.CarNotConnectedException;
     method public void unregisterProjectionRunner(android.content.Intent);
-    method public void unregsiterProjectionListener();
+    method public void unregisterProjectionListener();
     field public static final int PROJECTION_LONG_PRESS_VOICE_SEARCH = 2; // 0x2
     field public static final int PROJECTION_VOICE_SEARCH = 1; // 0x1
   }

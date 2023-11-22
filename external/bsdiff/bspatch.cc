@@ -28,7 +28,7 @@
 __FBSDID("$FreeBSD: src/usr.bin/bsdiff/bspatch/bspatch.c,v 1.1 2005/08/06 01:59:06 cperciva Exp $");
 #endif
 
-#include "bspatch.h"
+#include "bsdiff/bspatch.h"
 
 #include <bzlib.h>
 #include <errno.h>
@@ -45,11 +45,11 @@ __FBSDID("$FreeBSD: src/usr.bin/bsdiff/bspatch/bspatch.c,v 1.1 2005/08/06 01:59:
 #include <limits>
 #include <vector>
 
+#include "bsdiff/extents_file.h"
+#include "bsdiff/file_interface.h"
 #include "buffer_file.h"
 #include "extents.h"
-#include "extents_file.h"
 #include "file.h"
-#include "file_interface.h"
 #include "memory_file.h"
 #include "sink_file.h"
 

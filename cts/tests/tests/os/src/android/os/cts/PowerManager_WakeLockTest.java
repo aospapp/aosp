@@ -19,6 +19,7 @@ package android.os.cts;
 import android.content.Context;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
+import android.os.SystemClock;
 import android.test.AndroidTestCase;
 
 public class PowerManager_WakeLockTest extends AndroidTestCase {
@@ -65,5 +66,15 @@ public class PowerManager_WakeLockTest extends AndroidTestCase {
         assertTrue(wl.isHeld());
         Thread.sleep(PowerManagerTest.TIME + PowerManagerTest.MORE_TIME);
         assertFalse(wl.isHeld());
+    }
+
+    public void testWakeLockTimeout() throws Exception {
+        final PowerManager pm = getContext().getSystemService(PowerManager.class);
+
+        final WakeLock lock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, TAG);
+        lock.acquire(2000);
+        SystemClock.sleep(4000);
+
+        lock.release();
     }
 }

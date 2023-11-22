@@ -15,9 +15,10 @@
  */
 package com.android.compatibility.common.tradefed.build;
 
-import com.android.compatibility.common.util.DynamicConfigHostSide;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.build.IFolderBuildInfo;
+import com.android.tradefed.build.VersionedFile;
+import com.android.tradefed.util.FileUtil;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -43,7 +44,13 @@ public class CompatibilityBuildHelper {
 
     private static final String ROOT_DIR2 = "ROOT_DIR2";
     private static final String DYNAMIC_CONFIG_OVERRIDE_URL = "DYNAMIC_CONFIG_OVERRIDE_URL";
+    private static final String BUSINESS_LOGIC_HOST_FILE = "BUSINESS_LOGIC_HOST_FILE";
     private static final String RETRY_COMMAND_LINE_ARGS = "retry_command_line_args";
+    private static final String ALT_HOST_TESTCASE_DIR = "ANDROID_HOST_OUT_TESTCASES";
+    private static final String ALT_TARGET_TESTCASE_DIR = "ANDROID_TARGET_OUT_TESTCASES";
+
+    private static final String CONFIG_PATH_PREFIX = "DYNAMIC_CONFIG_FILE:";
+
     private final IBuildInfo mBuildInfo;
 
     /**
@@ -104,23 +111,37 @@ public class CompatibilityBuildHelper {
     }
 
     public void addDynamicConfigFile(String moduleName, File configFile) {
-        mBuildInfo.addBuildAttribute(DynamicConfigHostSide.CONFIG_PATH_PREFIX + moduleName,
-                configFile.getAbsolutePath());
+        // If invocation fails and ResultReporter never moves this file into the result,
+        // using setFile() ensures BuildInfo will delete upon cleanUp().
+        mBuildInfo.setFile(configFile.getName(), configFile,
+                CONFIG_PATH_PREFIX + moduleName /* version */);
+    }
+
+    public void setBusinessLogicHostFile(File hostFile) {
+        mBuildInfo.addBuildAttribute(BUSINESS_LOGIC_HOST_FILE, hostFile.getAbsolutePath());
     }
 
     public void setModuleIds(String[] moduleIds) {
         mBuildInfo.addBuildAttribute(MODULE_IDS, String.join(",", moduleIds));
     }
 
+    /**
+     * Returns the map of the dynamic config files downloaded.
+     */
     public Map<String, File> getDynamicConfigFiles() {
         Map<String, File> configMap = new HashMap<>();
-        for (String key : mBuildInfo.getBuildAttributes().keySet()) {
-            if (key.startsWith(DynamicConfigHostSide.CONFIG_PATH_PREFIX)) {
-                configMap.put(key.substring(DynamicConfigHostSide.CONFIG_PATH_PREFIX.length()),
-                        new File(mBuildInfo.getBuildAttributes().get(key)));
+        for (VersionedFile vFile : mBuildInfo.getFiles()) {
+            if (vFile.getVersion().startsWith(CONFIG_PATH_PREFIX)) {
+                configMap.put(
+                        vFile.getVersion().substring(CONFIG_PATH_PREFIX.length()),
+                        vFile.getFile());
             }
         }
         return configMap;
+    }
+
+    public File getBusinessLogicHostFile() {
+        return new File(mBuildInfo.getBuildAttributes().get(BUSINESS_LOGIC_HOST_FILE));
     }
 
     /**
@@ -199,16 +220,56 @@ public class CompatibilityBuildHelper {
     }
 
     /**
+     * @return a {@link File} representing the directory to store screenshots taken while testing.
+     * @throws FileNotFoundException if the directory structure is not valid.
+     */
+    public File getScreenshotsDir() throws FileNotFoundException {
+        File screenshotsDir = new File(getResultDir(), "screenshots");
+        if (!screenshotsDir.exists()) {
+            screenshotsDir.mkdirs();
+        }
+        return screenshotsDir;
+    }
+
+    /**
      * @return a {@link File} representing the test modules directory.
      * @throws FileNotFoundException if the directory structure is not valid.
      */
     public File getTestsDir() throws FileNotFoundException {
-        File testsDir = new File(getDir(), "testcases");
+        // We have 3 options that can be the test modules dir (and we're going
+        // look for them in the following order):
+        //   1. ../android-*ts/testcases/
+        //   2. ALT_HOST_TESTCASE_DIR
+        //   3. ALT_TARGET_TESTCASE_DIR (we'll skip this since if #2 fails, this
+        //      will inevitably fail as well.)
+
+        File testsDir = null;
+        try {
+            testsDir = new File(getDir(), "testcases");
+        } catch (FileNotFoundException | NullPointerException e) {
+            // Ok, no root dir for us to get, moving on to the next option.
+            testsDir = null;
+        }
+
+        if (testsDir == null) {
+            String altTestsDir = System.getenv().get(ALT_HOST_TESTCASE_DIR);
+            if (altTestsDir != null) {
+                testsDir = new File(altTestsDir);
+            }
+        }
+
+        // This just means we have no signs of where to check for the test dir.
+        if (testsDir == null) {
+            throw new FileNotFoundException(
+                String.format("No Compatibility tests folder set, did you run lunch?"));
+        }
+
         if (!testsDir.exists()) {
             throw new FileNotFoundException(String.format(
                     "Compatibility tests folder %s does not exist",
                     testsDir.getAbsolutePath()));
         }
+
         return testsDir;
     }
 
@@ -217,12 +278,38 @@ public class CompatibilityBuildHelper {
      * @throws FileNotFoundException if the test file cannot be found
      */
     public File getTestFile(String filename) throws FileNotFoundException {
-        File testFile = new File(getTestsDir(), filename);
-        if (!testFile.exists()) {
-            throw new FileNotFoundException(String.format(
-                    "Compatibility test file %s does not exist", filename));
+        // We have a lot of places to check for the test file.
+        //   1. ../android-*ts/testcases/
+        //   2. ALT_HOST_TESTCASE_DIR/
+        //   3. ALT_TARGET_TESTCASE_DIR/
+
+        // Our search depends on our run env, if we're in *ts, then we only want
+        // to check #1.  If we're in gen tf, then we only want to check #2/3.
+        // In *ts mode, getTestsDir will return #1, in gen tf mode, it'll return
+        // #2.  In the event we're in *ts mode and the file isn't in #1, #2 or
+        // #3, then the user probably needs to run lunch to setup the env.
+        String altTargetTestDir = System.getenv().get(ALT_TARGET_TESTCASE_DIR);
+        if (altTargetTestDir == null) {
+            altTargetTestDir = "";
         }
-        return testFile;
+        String[] testDirs = {getTestsDir().toString(), altTargetTestDir};
+
+        File testFile;
+        for (String testDir: testDirs) {
+            testFile = new File(getTestsDir(), filename);
+            if (testFile.exists()) {
+                return testFile;
+            }
+            // The file may be in a subdirectory so do a more through search
+            // if it did not exist.
+            testFile = FileUtil.findFile(new File(testDir), filename);
+            if (testFile != null) {
+                return testFile;
+            }
+        }
+
+        throw new FileNotFoundException(String.format(
+                "Compatibility test file %s does not exist", filename));
     }
 
     /**

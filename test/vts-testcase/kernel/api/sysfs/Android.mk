@@ -20,4 +20,4 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := VtsKernelApiSysfsTest
 VTS_CONFIG_SRC_DIR := testcases/kernel/api/sysfs
-include test/vts/tools/build/Android.host_config.mk
+-include test/vts/tools/build/Android.host_config.mk

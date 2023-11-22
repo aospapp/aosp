@@ -85,37 +85,36 @@ int32_t VtsDriverSocketClient::LoadHal(const string& file_path,
 
   VtsDriverControlResponseMessage response_message;
   if (!VtsSocketRecvMessage(&response_message)) return -1;
-  cout << __func__ << " response code: " << response_message.response_code()
-       << endl;
-  return response_message.response_code();
+  if (response_message.response_code() != VTS_DRIVER_RESPONSE_SUCCESS) {
+    cerr << __func__ << "Failed to load the selected HAL." << endl;
+    return -1;
+  }
+  cout << __func__ << "Loaded the selected HAL." << endl;
+  return response_message.return_value();
 }
 
-const char* VtsDriverSocketClient::GetFunctions() {
+string VtsDriverSocketClient::GetFunctions() {
   cout << "[agent->driver] LIST_FUNCTIONS" << endl;
 
   VtsDriverControlCommandMessage command_message;
   command_message.set_command_type(LIST_FUNCTIONS);
-  if (!VtsSocketSendMessage(command_message)) return NULL;
+  if (!VtsSocketSendMessage(command_message)) {
+    return {};
+  }
 
   VtsDriverControlResponseMessage response_message;
-  if (!VtsSocketRecvMessage(&response_message)) return NULL;
-
-  char* result =
-      (char*)malloc(strlen(response_message.return_message().c_str()) + 1);
-  if (!result) {
-    cerr << __func__ << " ERROR result is NULL" << endl;
-    return NULL;
+  if (!VtsSocketRecvMessage(&response_message)) {
+    return {};
   }
-  strcpy(result, response_message.return_message().c_str());
-  return result;
+
+  return response_message.return_message();
 }
 
-const char* VtsDriverSocketClient::ReadSpecification(
-    const string& component_name,
-    int target_class,
-    int target_type,
-    float target_version,
-    const string& target_package) {
+string VtsDriverSocketClient::ReadSpecification(const string& component_name,
+                                                int target_class,
+                                                int target_type,
+                                                float target_version,
+                                                const string& target_package) {
   cout << "[agent->driver] LIST_FUNCTIONS" << endl;
 
   VtsDriverControlCommandMessage command_message;
@@ -127,72 +126,64 @@ const char* VtsDriverSocketClient::ReadSpecification(
   command_message.set_target_version(target_version);
   command_message.set_target_package(target_package);
 
-  if (!VtsSocketSendMessage(command_message)) return NULL;
+  if (!VtsSocketSendMessage(command_message)) {
+    return {};
+  }
 
   VtsDriverControlResponseMessage response_message;
-  if (!VtsSocketRecvMessage(&response_message)) return NULL;
-
-  char* result =
-      (char*)malloc(strlen(response_message.return_message().c_str()) + 1);
-  if (!result) {
-    cerr << __func__ << " ERROR result is NULL" << endl;
-    return NULL;
+  if (!VtsSocketRecvMessage(&response_message)) {
+    return {};
   }
-  strcpy(result, response_message.return_message().c_str());
-  return result;
+
+  return response_message.return_message();
 }
 
-const char* VtsDriverSocketClient::Call(const string& arg, const string& uid) {
+string VtsDriverSocketClient::Call(const string& arg, const string& uid) {
   VtsDriverControlCommandMessage command_message;
   command_message.set_command_type(CALL_FUNCTION);
   command_message.set_arg(arg);
   command_message.set_driver_caller_uid(uid);
-  if (!VtsSocketSendMessage(command_message)) return NULL;
+  if (!VtsSocketSendMessage(command_message)) {
+    return {};
+  }
 
   VtsDriverControlResponseMessage response_message;
-  if (!VtsSocketRecvMessage(&response_message)) return NULL;
-
-  char* result =
-      (char*)malloc(strlen(response_message.return_message().c_str()) + 1);
-  if (!result) {
-    cerr << __func__ << " ERROR result is NULL" << endl;
-    return NULL;
+  if (!VtsSocketRecvMessage(&response_message)) {
+    return {};
   }
-  strcpy(result, response_message.return_message().c_str());
-  return result;
+
+  cout << __func__ << " result: " << response_message.return_message() << endl;
+  return response_message.return_message();
 }
 
-const char* VtsDriverSocketClient::GetAttribute(const string& arg) {
+string VtsDriverSocketClient::GetAttribute(const string& arg) {
   VtsDriverControlCommandMessage command_message;
   command_message.set_command_type(GET_ATTRIBUTE);
   command_message.set_arg(arg);
-  if (!VtsSocketSendMessage(command_message)) return NULL;
+  if (!VtsSocketSendMessage(command_message)) {
+    return {};
+  }
 
   VtsDriverControlResponseMessage response_message;
-  if (!VtsSocketRecvMessage(&response_message)) return NULL;
-
-  char* result =
-      (char*)malloc(strlen(response_message.return_message().c_str()) + 1);
-  if (!result) {
-    cerr << __func__ << " ERROR result is NULL" << endl;
-    return NULL;
+  if (!VtsSocketRecvMessage(&response_message)) {
+    return {};
   }
-  strcpy(result, response_message.return_message().c_str());
-  return result;
+
+  return response_message.return_message();
 }
 
-VtsDriverControlResponseMessage* VtsDriverSocketClient::ExecuteShellCommand(
+unique_ptr<VtsDriverControlResponseMessage>
+VtsDriverSocketClient::ExecuteShellCommand(
     const ::google::protobuf::RepeatedPtrField<::std::string> shell_command) {
   VtsDriverControlCommandMessage command_message;
   command_message.set_command_type(EXECUTE_COMMAND);
   for (const auto& cmd : shell_command) {
     command_message.add_shell_command(cmd);
   }
-  if (!VtsSocketSendMessage(command_message)) return NULL;
+  if (!VtsSocketSendMessage(command_message)) return nullptr;
 
-  VtsDriverControlResponseMessage* response_message =
-      new VtsDriverControlResponseMessage();
-  if (!VtsSocketRecvMessage(response_message)) return NULL;
+  auto response_message = make_unique<VtsDriverControlResponseMessage>();
+  if (!VtsSocketRecvMessage(response_message.get())) return nullptr;
 
   return response_message;
 }

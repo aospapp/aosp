@@ -23,8 +23,8 @@
 class ConfigManager {
 public:
     struct CameraInfo {
-        std::string cameraId = 0;   // The name of the camera from the point of view of the HAL
-        std::string function = 0;   // The expected use for this camera ("reverse", "left", "right")
+        std::string cameraId = "";  // The name of the camera from the point of view of the HAL
+        std::string function = "";  // The expected use for this camera ("reverse", "left", "right")
         float position[3] = {0};    // x, y, z -> right, fwd, up in the units of car space
         float yaw   = 0;    // radians positive to the left (right hand rule about global z axis)
         float pitch = 0;    // positive upward (ie: right hand rule about local x axis)
@@ -56,7 +56,7 @@ public:
     };
     float getDisplayRightLocation(float aspectRatio) const   {
         // Given the display aspect ratio (width over height), how far can we see to the right?
-        return (getDisplayTopLocation() - getDisplayBottomLocation()) * 0.5f / aspectRatio;
+        return (getDisplayTopLocation() - getDisplayBottomLocation()) * 0.5f * aspectRatio;
     };
     float getDisplayLeftLocation(float aspectRatio) const {
         // Given the display aspect ratio (width over height), how far can we see to the left?
@@ -83,8 +83,6 @@ private:
     float mRearExtent;
 
     // Display information
-    unsigned mPixelWidth;
-    unsigned mPixelHeight;
     float    mFrontRangeInCarSpace;     // How far the display extends in front of the car
     float    mRearRangeInCarSpace;      // How far the display extends behind the car
 

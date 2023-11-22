@@ -18,8 +18,6 @@ TESTS = [
     'screenshot_sync',
     'trace_test',
     'webgl_conformance'
-    # TODO(ihf): Reevaluate robustness once crbug.com/379397 is fixed.
-    # 'webgl_robustness'
 ]
 
 CONTROLFILE_TEMPLATE = """\

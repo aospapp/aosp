@@ -67,6 +67,7 @@ uint8_t write_memory(handle_t *handle, uint32_t addr, uint32_t length, uint8_t *
 #define CMD_WRITE_UNPROTECT_NS		0x74
 #define CMD_BUSY			0x76
 #define CMD_ACK				0x79
+#define CMD_UART_ENABLE			0x7F
 #define CMD_READOUT_PROTECT		0x82
 #define CMD_READOUT_PROTECT_NS		0x83
 #define CMD_READOUT_UNPROTECT		0x92

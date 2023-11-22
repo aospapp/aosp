@@ -35,8 +35,11 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <sys/time.h>
+#ifdef HAVE_SYS_SELECT_H
+#include <sys/select.h>
+#endif
 
 #include "xf86drm.h"
 #include "xf86drmMode.h"
@@ -120,7 +123,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	fd = util_open(module, device);
+	fd = util_open(device, module);
 	if (fd < 0)
 		return 1;
 

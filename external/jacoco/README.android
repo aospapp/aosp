@@ -14,3 +14,5 @@ is the list of the changes:
 
 1) Remove the creation of JmxRegistration in org.jacoco.agent.rt.internal.Agent.
 2) Change default OutputMode to none in org.jacoco.core.runtime.AgentOptions
+3) Merge https://github.com/jacoco/jacoco/pull/525
+4) Update the build process to match #3: evaluate jacoco.properties, and add MANIFEST.MF

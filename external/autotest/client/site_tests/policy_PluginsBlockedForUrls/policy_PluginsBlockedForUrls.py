@@ -84,7 +84,7 @@ class policy_PluginsBlockedForUrls(
 
         @param timeout_sec: maximum seconds to wait for processes to die.
         @raises: error.AutoservPidAlreadyDeadError if Flash process is dead.
-        @raises: site_utils.TimeoutError if Flash processes are still running
+        @raises: utils.TimeoutError if Flash processes are still running
                  after timeout_sec.
         """
         def kill_flash_process():

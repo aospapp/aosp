@@ -115,6 +115,8 @@ class RemoteHost(base_classes.Host):
         Args:
                 timeout - How long to wait for the reboot.
                 wait - Should we wait to see if the machine comes back up.
+                       If this is set to True, ignores reboot_cmd's error
+                       even if occurs.
                 fastsync - Don't wait for the sync to complete, just start one
                         and move on. This is for cases where rebooting prompty
                         is more important than data integrity and/or the
@@ -142,9 +144,17 @@ class RemoteHost(base_classes.Host):
 
                 self.run_background(reboot_cmd)
             except error.AutoservRunError:
-                self.record("ABORT", None, "reboot.start",
-                              "reboot command failed")
-                raise
+                # If wait is set, ignore the error here, and rely on the
+                # wait_for_restart() for stability, instead.
+                # reboot_cmd sometimes causes an error even if reboot is
+                # successfully in progress. This is difficult to be avoided,
+                # because we have no much control on remote machine after
+                # "reboot" starts.
+                if not wait:
+                    # TODO(b/37652392): Revisit no-wait case, later.
+                    self.record("ABORT", None, "reboot.start",
+                                "reboot command failed")
+                    raise
             if wait:
                 self.wait_for_restart(timeout, old_boot_id=current_boot_id,
                                       **dargs)
@@ -326,10 +336,9 @@ class RemoteHost(base_classes.Host):
         for label_function in self._LABEL_FUNCTIONS:
             try:
                 label = label_function(self)
-            except Exception as e:
-                logging.error('Label function %s failed; ignoring it.',
-                              label_function.__name__)
-                logging.exception(e)
+            except Exception:
+                logging.exception('Label function %s failed; ignoring it.',
+                                  label_function.__name__)
                 label = None
             if label:
                 if type(label) is str:

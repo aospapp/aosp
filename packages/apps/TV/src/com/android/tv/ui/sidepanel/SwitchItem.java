@@ -31,6 +31,11 @@ public class SwitchItem extends CompoundButtonItem {
         super(checkedTitle, uncheckedTitle, description);
     }
 
+    public SwitchItem(String checkedTitle, String uncheckedTitle, String description,
+            int maxLines) {
+        super(checkedTitle, uncheckedTitle, description, maxLines);
+    }
+
     @Override
     protected int getResourceId() {
         return R.layout.option_item_switch;

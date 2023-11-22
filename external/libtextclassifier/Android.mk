@@ -71,8 +71,6 @@ LOCAL_STATIC_LIBRARIES += libtextclassifier_protos
 LOCAL_SHARED_LIBRARIES += libprotobuf-cpp-lite
 LOCAL_SHARED_LIBRARIES += liblog
 LOCAL_SHARED_LIBRARIES += libicuuc libicui18n
-LOCAL_REQUIRED_MODULES := textclassifier.langid.model
-LOCAL_REQUIRED_MODULES += textclassifier.smartselection.en.model
 
 LOCAL_ADDITIONAL_DEPENDENCIES += $(LOCAL_PATH)/jni.lds
 LOCAL_LDFLAGS += -Wl,-version-script=$(LOCAL_PATH)/jni.lds
@@ -86,6 +84,7 @@ include $(BUILD_SHARED_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libtextclassifier_tests
+LOCAL_COMPATIBILITY_SUITE := device-tests
 LOCAL_MODULE_TAGS := tests
 
 LOCAL_CPP_EXTENSION := .cc
@@ -204,10 +203,10 @@ LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
 include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
-LOCAL_MODULE        := textclassifier.smartselection.pt-PT.model
+LOCAL_MODULE        := textclassifier.smartselection.pt.model
 LOCAL_MODULE_CLASS  := ETC
 LOCAL_MODULE_OWNER  := google
-LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.pt-PT.model
+LOCAL_SRC_FILES     := ./models/textclassifier.smartselection.pt.model
 LOCAL_MODULE_PATH   := $(TARGET_OUT_ETC)/textclassifier
 include $(BUILD_PREBUILT)
 

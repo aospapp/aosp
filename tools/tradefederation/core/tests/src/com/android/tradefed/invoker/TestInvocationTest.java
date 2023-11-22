@@ -18,9 +18,12 @@ package com.android.tradefed.invoker;
 import static org.mockito.Mockito.doReturn;
 
 import com.android.ddmlib.IDevice;
+import com.android.ddmlib.testrunner.TestIdentifier;
+import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.build.BuildRetrievalError;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.build.IBuildProvider;
+import com.android.tradefed.build.IDeviceBuildInfo;
 import com.android.tradefed.build.IDeviceBuildProvider;
 import com.android.tradefed.command.CommandOptions;
 import com.android.tradefed.command.CommandRunner.ExitCode;
@@ -42,6 +45,9 @@ import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.ITestDevice.RecoveryMode;
 import com.android.tradefed.device.StubDevice;
 import com.android.tradefed.device.TestDeviceOptions;
+import com.android.tradefed.device.metric.BaseDeviceMetricCollector;
+import com.android.tradefed.device.metric.IMetricCollector;
+import com.android.tradefed.device.metric.DeviceMetricData;
 import com.android.tradefed.invoker.shard.IShardHelper;
 import com.android.tradefed.invoker.shard.ShardHelper;
 import com.android.tradefed.invoker.shard.StrictShardHelper;
@@ -70,6 +76,8 @@ import com.android.tradefed.testtype.IResumableTest;
 import com.android.tradefed.testtype.IRetriableTest;
 import com.android.tradefed.testtype.IShardableTest;
 import com.android.tradefed.testtype.IStrictShardableTest;
+import com.android.tradefed.testtype.StubTest;
+import com.android.tradefed.util.FileUtil;
 
 import com.google.common.util.concurrent.SettableFuture;
 
@@ -80,6 +88,7 @@ import org.easymock.Capture;
 import org.easymock.EasyMock;
 import org.mockito.Mockito;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -309,6 +318,7 @@ public class TestInvocationTest extends TestCase {
         mMockLogRegistry.unregisterLogger();
         mMockLogRegistry.dumpToGlobalLog(mMockLogger);
         mMockLogger.closeLog();
+        mMockBuildProvider.cleanUp(mMockBuildInfo);
         replayMocks(test, mockRescheduler);
         mTestInvocation.invoke(mStubInvocationMetadata, mStubConfiguration, mockRescheduler);
         verifyMocks(test, mockRescheduler);
@@ -323,8 +333,8 @@ public class TestInvocationTest extends TestCase {
         EasyMock.expect(mMockBuildProvider.getBuild()).andReturn(null);
         IRemoteTest test = EasyMock.createMock(IRemoteTest.class);
         mStubConfiguration.setTest(test);
+        mMockBuildProvider.cleanUp(mMockBuildInfo);
         mMockLogRegistry.dumpToGlobalLog(mMockLogger);
-        EasyMock.expectLastCall().times(2);
         setupInvoke();
         replayMocks(test, mockRescheduler);
         mTestInvocation.invoke(mStubInvocationMetadata, mStubConfiguration, mockRescheduler);
@@ -345,8 +355,9 @@ public class TestInvocationTest extends TestCase {
         mStubConfiguration.setTest(test);
         mStubConfiguration.getCommandOptions().setLoopMode(false);
         mMockLogRegistry.dumpToGlobalLog(mMockLogger);
-        EasyMock.expectLastCall().times(2);
+        EasyMock.expectLastCall().times(1);
         setupInvoke();
+        mMockBuildProvider.cleanUp(mMockBuildInfo);
         replayMocks(test);
         EasyMock.replay(mockRescheduler);
         mTestInvocation.invoke(mStubInvocationMetadata, mStubConfiguration, mockRescheduler);
@@ -546,6 +557,7 @@ public class TestInvocationTest extends TestCase {
         EasyMock.expect(mockRescheduler.scheduleConfig(EasyMock.capture(capturedConfig)))
                 .andReturn(Boolean.TRUE);
         mMockBuildProvider.cleanUp(mMockBuildInfo);
+        EasyMock.expectLastCall().times(2);
         mMockDevice.clearLastConnectedWifiNetwork();
         mMockDevice.stopLogcat();
 
@@ -610,6 +622,7 @@ public class TestInvocationTest extends TestCase {
         mMockLogSaver.invocationEnded(EasyMock.anyLong());
         EasyMock.expect(resumeListener.getSummary()).andReturn(null);
         mMockBuildInfo.cleanUp();
+        EasyMock.expectLastCall().times(2);
         mMockLogger.closeLog();
         EasyMock.expectLastCall().times(3);
         mMockDevice.clearLastConnectedWifiNetwork();
@@ -943,6 +956,7 @@ public class TestInvocationTest extends TestCase {
         EasyMock.expect(mMockLogger.getLog()).andReturn(EMPTY_STREAM_SOURCE);
         mMockBuildInfo.setDeviceSerial(SERIAL);
         mMockBuildProvider.cleanUp(mMockBuildInfo);
+        EasyMock.expectLastCall().times(2);
         setupMockSuccessListeners();
         EasyMock.expect(mMockBuildProvider.getBuild()).andReturn(mMockBuildInfo);
         mMockBuildInfo.addBuildAttribute("command_line_args", "run empty");
@@ -973,6 +987,7 @@ public class TestInvocationTest extends TestCase {
         EasyMock.expect(mMockLogger.getLog()).andReturn(EMPTY_STREAM_SOURCE);
         mMockBuildInfo.setDeviceSerial(SERIAL);
         mMockBuildProvider.cleanUp(mMockBuildInfo);
+        EasyMock.expectLastCall().times(2);
         setupMockSuccessListeners();
         EasyMock.expect(mMockBuildProvider.getBuild()).andReturn(mMockBuildInfo);
         mMockBuildInfo.addBuildAttribute("command_line_args", "run empty");
@@ -1000,6 +1015,7 @@ public class TestInvocationTest extends TestCase {
         EasyMock.expect(mMockLogger.getLog()).andReturn(EMPTY_STREAM_SOURCE);
         mMockBuildInfo.setDeviceSerial(SERIAL);
         mMockBuildProvider.cleanUp(mMockBuildInfo);
+        EasyMock.expectLastCall().times(2);
         setupMockSuccessListeners();
         EasyMock.expect(mMockBuildProvider.getBuild()).andReturn(mMockBuildInfo);
         mMockBuildInfo.addBuildAttribute("command_line_args", "run empty");
@@ -1049,6 +1065,7 @@ public class TestInvocationTest extends TestCase {
         mockProvider.setInvocationContext((IInvocationContext)EasyMock.anyObject());
         EasyMock.expect(mockProvider.getBuild(mMockDevice)).andReturn(mMockBuildInfo);
         mockProvider.cleanUp(mMockBuildInfo);
+        EasyMock.expectLastCall().times(2);
         mMockLogRegistry.dumpToGlobalLog(mMockLogger);
         mMockLogRegistry.unregisterLogger();
         mMockLogger.closeLog();
@@ -1118,6 +1135,7 @@ public class TestInvocationTest extends TestCase {
         EasyMock.expect(mMockLogger.getLog()).andReturn(EMPTY_STREAM_SOURCE);
         mMockBuildInfo.setDeviceSerial(SERIAL);
         mMockBuildProvider.cleanUp(mMockBuildInfo);
+        EasyMock.expectLastCall().anyTimes();
         mMockBuildInfo.setTestTag(EasyMock.eq("stub"));
         EasyMock.expectLastCall();
         EasyMock.expect(mMockBuildInfo.getTestTag()).andStubReturn("");
@@ -1286,7 +1304,7 @@ public class TestInvocationTest extends TestCase {
         EasyMock.expect(test.split()).andReturn(shards);
         mStubConfiguration.setTest(test);
         mStubConfiguration.setCommandLine(commandLine);
-
+        mMockBuildProvider.cleanUp(mMockBuildInfo);
         setupInvoke();
         setupNShardInvocation(shardCount, command);
         mMockLogRegistry.dumpToGlobalLog(mMockLogger);
@@ -1326,11 +1344,16 @@ public class TestInvocationTest extends TestCase {
         doReturn(future).when(idevice).getBattery(Mockito.anyLong(), Mockito.any());
         EasyMock.expect(device1.getSerialNumber()).andReturn("serial1");
         context.addAllocatedDevice("device1", device1);
+        context.addDeviceBuildInfo("device1", new BuildInfo());
         EasyMock.replay(device1);
         mTestInvocation.logDeviceBatteryLevel(context, fakeEvent);
         EasyMock.verify(device1);
-        assertEquals(1, context.getAttributes().size());
-        assertEquals("50", context.getAttributes().get("serial1-battery-" + fakeEvent).get(0));
+        assertEquals(1, context.getBuildInfo("device1").getBuildAttributes().size());
+        assertEquals(
+                "50",
+                context.getBuildInfo("device1")
+                        .getBuildAttributes()
+                        .get("serial1-battery-" + fakeEvent));
     }
 
     /**
@@ -1351,13 +1374,24 @@ public class TestInvocationTest extends TestCase {
         EasyMock.expect(device2.getIDevice()).andReturn(idevice);
         EasyMock.expect(device2.getSerialNumber()).andReturn("serial2");
         context.addAllocatedDevice("device1", device1);
+        context.addDeviceBuildInfo("device1", new BuildInfo());
         context.addAllocatedDevice("device2", device2);
+        context.addDeviceBuildInfo("device2", new BuildInfo());
         EasyMock.replay(device1, device2);
         mTestInvocation.logDeviceBatteryLevel(context, fakeEvent);
         EasyMock.verify(device1, device2);
-        assertEquals(2, context.getAttributes().size());
-        assertEquals("50", context.getAttributes().get("serial1-battery-" + fakeEvent).get(0));
-        assertEquals("50", context.getAttributes().get("serial2-battery-" + fakeEvent).get(0));
+        assertEquals(1, context.getBuildInfo("device1").getBuildAttributes().size());
+        assertEquals(1, context.getBuildInfo("device2").getBuildAttributes().size());
+        assertEquals(
+                "50",
+                context.getBuildInfo("device1")
+                        .getBuildAttributes()
+                        .get("serial1-battery-" + fakeEvent));
+        assertEquals(
+                "50",
+                context.getBuildInfo("device2")
+                        .getBuildAttributes()
+                        .get("serial2-battery-" + fakeEvent));
     }
 
     /**
@@ -1382,15 +1416,26 @@ public class TestInvocationTest extends TestCase {
         ITestDevice device4 = EasyMock.createMock(ITestDevice.class);
         EasyMock.expect(device1.getIDevice()).andStubReturn(new StubDevice("stub2"));
         context.addAllocatedDevice("device1", device1);
+        context.addDeviceBuildInfo("device1", new BuildInfo());
         context.addAllocatedDevice("device2", device2);
+        context.addDeviceBuildInfo("device2", new BuildInfo());
         context.addAllocatedDevice("device3", device3);
         context.addAllocatedDevice("device4", device4);
         EasyMock.replay(device1, device2);
         mTestInvocation.logDeviceBatteryLevel(context, fakeEvent);
         EasyMock.verify(device1, device2);
-        assertEquals(2, context.getAttributes().size());
-        assertEquals("50", context.getAttributes().get("serial1-battery-" + fakeEvent).get(0));
-        assertEquals("50", context.getAttributes().get("serial2-battery-" + fakeEvent).get(0));
+        assertEquals(1, context.getBuildInfo("device1").getBuildAttributes().size());
+        assertEquals(1, context.getBuildInfo("device2").getBuildAttributes().size());
+        assertEquals(
+                "50",
+                context.getBuildInfo("device1")
+                        .getBuildAttributes()
+                        .get("serial1-battery-" + fakeEvent));
+        assertEquals(
+                "50",
+                context.getBuildInfo("device2")
+                        .getBuildAttributes()
+                        .get("serial2-battery-" + fakeEvent));
     }
 
     /** Helper to set the expectation for N number of shards. */
@@ -1493,7 +1538,7 @@ public class TestInvocationTest extends TestCase {
                 (InputStreamSource) EasyMock.anyObject());
 
         EasyMock.replay(device1, listener);
-        mTestInvocation.doSetup(mStubConfiguration, context, listener);
+        mTestInvocation.doSetup(context, mStubConfiguration, listener);
         EasyMock.verify(device1, listener);
     }
 
@@ -1524,7 +1569,147 @@ public class TestInvocationTest extends TestCase {
                 (InputStreamSource) EasyMock.anyObject());
 
         EasyMock.replay(device1, listener);
-        mTestInvocation.doSetup(mStubConfiguration, context, listener);
+        mTestInvocation.doSetup(context, mStubConfiguration, listener);
         EasyMock.verify(device1, listener);
+    }
+
+    /**
+     * Test when a {@link IDeviceBuildInfo} is passing through we do not attempt to add any external
+     * directories when there is none coming from environment.
+     */
+    public void testInvoke_deviceInfoBuild_noEnv() throws Throwable {
+        mMockBuildInfo = EasyMock.createMock(IDeviceBuildInfo.class);
+        IRemoteTest test = EasyMock.createNiceMock(IRemoteTest.class);
+        ITargetCleaner mockCleaner = EasyMock.createMock(ITargetCleaner.class);
+        mockCleaner.setUp(mMockDevice, mMockBuildInfo);
+        mockCleaner.tearDown(mMockDevice, mMockBuildInfo, null);
+        mStubConfiguration.getTargetPreparers().add(mockCleaner);
+
+        File tmpTestsDir = FileUtil.createTempDir("invocation-tests-dir");
+        try {
+            EasyMock.expect(((IDeviceBuildInfo) mMockBuildInfo).getTestsDir())
+                    .andReturn(tmpTestsDir);
+            setupMockSuccessListeners();
+            setupNormalInvoke(test);
+            EasyMock.replay(mockCleaner, mockRescheduler);
+            mTestInvocation.invoke(mStubInvocationMetadata, mStubConfiguration, mockRescheduler);
+            verifyMocks(mockCleaner, mockRescheduler);
+            verifySummaryListener();
+        } finally {
+            FileUtil.recursiveDelete(tmpTestsDir);
+        }
+    }
+
+    /**
+     * Test when a {@link IDeviceBuildInfo} is passing through we attempt to add the external
+     * directories to it when they are available.
+     */
+    public void testInvoke_deviceInfoBuild_withEnv() throws Throwable {
+        File tmpTestsDir = FileUtil.createTempDir("invocation-tests-dir");
+        File tmpExternalTestsDir = FileUtil.createTempDir("external-tf-dir");
+        File tmpTestsFile = FileUtil.createTempFile("testsfile", "txt", tmpExternalTestsDir);
+        try {
+            mTestInvocation =
+                    new TestInvocation() {
+                        @Override
+                        ILogRegistry getLogRegistry() {
+                            return mMockLogRegistry;
+                        }
+
+                        @Override
+                        protected IShardHelper createShardHelper() {
+                            return new ShardHelper();
+                        }
+
+                        @Override
+                        protected void setExitCode(ExitCode code, Throwable stack) {
+                            // empty on purpose
+                        }
+
+                        @Override
+                        List<File> getExternalTestCasesDirs() {
+                            List<File> list = new ArrayList<>();
+                            list.add(tmpExternalTestsDir);
+                            return list;
+                        }
+                    };
+            mMockBuildInfo = EasyMock.createMock(IDeviceBuildInfo.class);
+            IRemoteTest test = EasyMock.createNiceMock(IRemoteTest.class);
+            ITargetCleaner mockCleaner = EasyMock.createMock(ITargetCleaner.class);
+            mockCleaner.setUp(mMockDevice, mMockBuildInfo);
+            mockCleaner.tearDown(mMockDevice, mMockBuildInfo, null);
+            mStubConfiguration.getTargetPreparers().add(mockCleaner);
+
+            EasyMock.expect(((IDeviceBuildInfo) mMockBuildInfo).getTestsDir())
+                    .andReturn(tmpTestsDir);
+
+            setupMockSuccessListeners();
+            setupNormalInvoke(test);
+            EasyMock.replay(mockCleaner, mockRescheduler);
+            mTestInvocation.invoke(mStubInvocationMetadata, mStubConfiguration, mockRescheduler);
+            verifyMocks(mockCleaner, mockRescheduler);
+            verifySummaryListener();
+            // Check that the external directory was copied in the testsDir.
+            assertTrue(tmpTestsDir.listFiles().length == 1);
+            // external-tf-dir
+            assertEquals(tmpExternalTestsDir.getName(), tmpTestsDir.listFiles()[0].getName());
+            // testsfile.txt
+            assertTrue(tmpTestsDir.listFiles()[0].listFiles().length == 1);
+            assertEquals(
+                    tmpTestsFile.getName(), tmpTestsDir.listFiles()[0].listFiles()[0].getName());
+        } finally {
+            FileUtil.recursiveDelete(tmpTestsDir);
+            FileUtil.recursiveDelete(tmpExternalTestsDir);
+        }
+    }
+
+    private class TestableCollector extends BaseDeviceMetricCollector {
+
+        private String mName;
+
+        public TestableCollector(String name) {
+            mName = name;
+        }
+
+        @Override
+        public void onTestRunEnd(DeviceMetricData runData) {
+            runData.addStringMetric(mName, mName);
+        }
+    }
+
+    /**
+     * Test that when {@link IMetricCollector} are used, they wrap and call in sequence the listener
+     * so all metrics end up on the final receiver.
+     */
+    public void testMetricCollectionChain() throws Exception {
+        IConfiguration configuration = new Configuration("test", "description");
+        StubTest test = new StubTest();
+        OptionSetter setter = new OptionSetter(test);
+        setter.setOptionValue("run-a-test", "true");
+        configuration.setTest(test);
+
+        List<IMetricCollector> collectors = new ArrayList<>();
+        collectors.add(new TestableCollector("collector1"));
+        collectors.add(new TestableCollector("collector2"));
+        collectors.add(new TestableCollector("collector3"));
+        collectors.add(new TestableCollector("collector4"));
+        configuration.setDeviceMetricCollectors(collectors);
+
+        mMockTestListener.testRunStarted("TestStub", 1);
+        TestIdentifier testId = new TestIdentifier("StubTest", "StubMethod");
+        mMockTestListener.testStarted(EasyMock.eq(testId), EasyMock.anyLong());
+        mMockTestListener.testEnded(
+                EasyMock.eq(testId), EasyMock.anyLong(), EasyMock.eq(Collections.emptyMap()));
+        Capture<Map<String, String>> captured = new Capture<>();
+        mMockTestListener.testRunEnded(EasyMock.anyLong(), EasyMock.capture(captured));
+        EasyMock.replay(mMockTestListener);
+        mTestInvocation.runTests(mStubInvocationMetadata, configuration, mMockTestListener);
+        EasyMock.verify(mMockTestListener);
+        // The collectors are called in sequence
+        List<String> listKeys = new ArrayList<>(captured.getValue().keySet());
+        assertEquals("collector4", listKeys.get(0));
+        assertEquals("collector3", listKeys.get(1));
+        assertEquals("collector2", listKeys.get(2));
+        assertEquals("collector1", listKeys.get(3));
     }
 }

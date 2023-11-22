@@ -17,6 +17,7 @@
 #include <fcntl.h>
 
 #include "../fio.h"
+#include "../optgroup.h"
 
 #ifndef EXT4_IOC_MOVE_EXT
 #define EXT4_IOC_MOVE_EXT               _IOWR('f', 15, struct move_extent)
@@ -44,6 +45,7 @@ struct e4defrag_options {
 static struct fio_option options[] = {
 	{
 		.name	= "donorname",
+		.lname	= "Donor Name",
 		.type	= FIO_OPT_STR_STORE,
 		.off1	= offsetof(struct e4defrag_options, donor_name),
 		.help	= "File used as a block donor",
@@ -52,6 +54,7 @@ static struct fio_option options[] = {
 	},
 	{
 		.name	= "inplace",
+		.lname	= "In Place",
 		.type	= FIO_OPT_INT,
 		.off1	= offsetof(struct e4defrag_options, inplace),
 		.minval	= 0,
@@ -92,7 +95,7 @@ static int fio_e4defrag_init(struct thread_data *td)
 	ed->donor_fd = open(donor_name, O_CREAT|O_WRONLY, 0644);
 	if (ed->donor_fd < 0) {
 		td_verror(td, errno, "io_queue_init");
-		log_err("Can't open donor file %s err:%d", donor_name, ed->donor_fd);
+		log_err("Can't open donor file %s err:%d\n", donor_name, ed->donor_fd);
 		free(ed);
 		return 1;
 	}
@@ -108,7 +111,7 @@ static int fio_e4defrag_init(struct thread_data *td)
 		goto err;
 
 	ed->bsz = stub.st_blksize;
-	td->io_ops->data = ed;
+	td->io_ops_data = ed;
 	return 0;
 err:
 	td_verror(td, errno, "io_queue_init");
@@ -119,7 +122,7 @@ err:
 
 static void fio_e4defrag_cleanup(struct thread_data *td)
 {
-	struct e4defrag_data *ed = td->io_ops->data;
+	struct e4defrag_data *ed = td->io_ops_data;
 	if (ed) {
 		if (ed->donor_fd >= 0)
 			close(ed->donor_fd);
@@ -135,7 +138,7 @@ static int fio_e4defrag_queue(struct thread_data *td, struct io_u *io_u)
 	unsigned long long len;
 	struct move_extent me;
 	struct fio_file *f = io_u->file;
-	struct e4defrag_data *ed = td->io_ops->data;
+	struct e4defrag_data *ed = td->io_ops_data;
 	struct e4defrag_options *o = td->eo;
 
 	fio_ro_check(td, io_u);
@@ -169,8 +172,13 @@ static int fio_e4defrag_queue(struct thread_data *td, struct io_u *io_u)
 		len = io_u->xfer_buflen;
 
 	if (len != io_u->xfer_buflen) {
-		io_u->resid = io_u->xfer_buflen - len;
-		io_u->error = 0;
+		if (len) {
+			io_u->resid = io_u->xfer_buflen - len;
+			io_u->error = 0;
+		} else {
+			/* access beyond i_size */
+			io_u->error = EINVAL;
+		}
 	}
 	if (ret)
 		io_u->error = errno;

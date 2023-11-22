@@ -29,8 +29,12 @@ class network_WiFi_HiddenScan(wifi_cell_test_base.WiFiCellTestBase):
         test_ssid=self.context.router.get_ssid()
         assoc_params = xmlrpc_datatypes.AssociationParameters(
                 ssid=test_ssid, is_hidden=True)
-        self.context.assert_connect_wifi(assoc_params)
-        results = self.context.capture_host.stop_capture()
+
+        # We're looking for the MAC address, so disable randomization.
+        with self.context.client.mac_address_randomization(False):
+            self.context.assert_connect_wifi(assoc_params)
+            results = self.context.capture_host.stop_capture()
+
         if len(results) != 1:
             raise error.TestError('Expected to generate one packet '
                                   'capture but got %d instead.' %

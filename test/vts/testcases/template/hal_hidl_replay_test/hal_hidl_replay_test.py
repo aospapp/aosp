@@ -23,7 +23,7 @@ from vts.runners.host import test_runner
 from vts.testcases.template.binary_test import binary_test
 from vts.testcases.template.hal_hidl_replay_test import hal_hidl_replay_test_case
 from vts.utils.python.common import vintf_utils
-from vts.utils.python.controllers import android_device
+
 from vts.utils.python.os import path_utils
 
 
@@ -53,32 +53,18 @@ class HalHidlReplayTest(binary_test.BinaryTest):
                                           "hal-hidl-trace", trace_path),
                 path_utils.JoinTargetPath(self.DEVICE_TMP_DIR,
                                           "vts_replay_trace", trace_file_name))
+        if self.coverage.enabled:
+            # enable passthrough mode to measure code coverage.
+            self.shell.Execute('setprop vts.hidl.get_stub true')
 
     def getServiceName(self):
         """Get service name(s) for the given hal."""
-        service_names = set()
-        vintf_xml = self._dut.getVintfXml()
-        if not vintf_xml:
-            logging.error("fail to get vintf xml file")
-            return service_names
-        hwbinder_hals, passthrough_hals = vintf_utils.GetHalDescriptions(
-            vintf_xml)
-        if not hwbinder_hals and not passthrough_hals:
-            logging.error("fail to get hal descriptions")
-            return service_names
-        hwbinder_hal_info = hwbinder_hals.get(self.hal_hidl_package_name)
-        passthrough_hal_info = passthrough_hals.get(self.hal_hidl_package_name)
-        if not hwbinder_hal_info and not passthrough_hal_info:
-            logging.error("hal %s does not exit", self.hal_hidl_package_name)
-            return service_names
-        if hwbinder_hal_info:
-            for hal_interface in hwbinder_hal_info.hal_interfaces:
-                for hal_interface_instance in hal_interface.hal_interface_instances:
-                    service_names.add(hal_interface_instance)
-        if passthrough_hal_info:
-            for hal_interface in passthrough_hal_info.hal_interfaces:
-                for hal_interface_instance in hal_interface.hal_interface_instances:
-                    service_names.add(hal_interface_instance)
+        cmd = "lshal --neat -i | grep -oP %s::[a-zA-Z]+/.+ | sort -u" % \
+              self.hal_hidl_package_name
+        out = str(self._dut.adb.shell(cmd)).split()
+        service_names = map(lambda x: x[x.find('/') + 1:], out)
+        logging.info("registered service: %s with name: %s" %
+                     (self.hal_hidl_package_name, ' '.join(service_names)))
         return service_names
 
     # @Override
@@ -97,14 +83,11 @@ class HalHidlReplayTest(binary_test.BinaryTest):
         self.trace_paths = map(str, self.hal_hidl_replay_test_trace_paths)
 
         target_package, target_version = self.hal_hidl_package_name.split("@")
-        custom_ld_library_path = path_utils.JoinTargetPath(self.DEVICE_TMP_DIR,
-                                                           self.abi_bitness)
+        custom_ld_library_path = path_utils.JoinTargetPath(
+            self.DEVICE_TMP_DIR, self.abi_bitness)
         driver_binary_path = path_utils.JoinTargetPath(
             self.DEVICE_TMP_DIR, self.abi_bitness,
-            "fuzzer%s" % self.abi_bitness)
-        target_vts_driver_file_path = path_utils.JoinTargetPath(
-            self.DEVICE_TMP_DIR, self.abi_bitness,
-            "%s@%s-vts.driver.so" % (target_package, target_version))
+            "vts_hal_replayer%s" % self.abi_bitness)
 
         if not self._skip_all_testcases:
             service_names = self.getServiceName()
@@ -113,7 +96,6 @@ class HalHidlReplayTest(binary_test.BinaryTest):
 
         test_suite = ''
         for trace_path in self.trace_paths:
-            logging.info("trace_path: %s", trace_path)
             trace_file_name = str(os.path.basename(trace_path))
             trace_path = path_utils.JoinTargetPath(
                 self.DEVICE_TMP_DIR, "vts_replay_trace", trace_file_name)
@@ -123,7 +105,6 @@ class HalHidlReplayTest(binary_test.BinaryTest):
                     test_name += "_" + service_name
                 test_case = hal_hidl_replay_test_case.HalHidlReplayTestCase(
                     trace_path,
-                    target_vts_driver_file_path,
                     service_name,
                     test_suite,
                     test_name,
@@ -139,11 +120,32 @@ class HalHidlReplayTest(binary_test.BinaryTest):
                 trace_file_name = str(os.path.basename(trace_path))
                 target_trace_path = path_utils.JoinTargetPath(
                     self.DEVICE_TMP_DIR, "vts_replay_trace", trace_file_name)
-                cmd_results = self.shell.Execute("rm -f %s" % target_trace_path)
+                cmd_results = self.shell.Execute(
+                    "rm -f %s" % target_trace_path)
                 if not cmd_results or any(cmd_results[const.EXIT_CODE]):
                     logging.warning("Failed to remove: %s", cmd_results)
 
+        if self.coverage.enabled:
+            # disable passthrough mode.
+            self.shell.Execute('setprop vts.hidl.get_stub false')
         super(HalHidlReplayTest, self).tearDownClass()
+
+    def setUp(self):
+        """Setup for code coverage for each test case."""
+        super(HalHidlReplayTest, self).setUp()
+        if self.coverage.enabled and not self.coverage.global_coverage:
+            # enable passthrough mode to measure code coverage.
+            self.shell.Execute('setprop vts.hidl.get_stub true')
+            self.coverage.LoadArtifacts()
+            self.coverage.InitializeDeviceCoverage(self._dut)
+
+    def tearDown(self):
+        """Generate the coverage data for each test case."""
+        if self.coverage.enabled and not self.coverage.global_coverage:
+            self.coverage.SetCoverageData(dut=self._dut, isGlobal=False)
+            # disable passthrough mode.
+            self.shell.Execute('setprop vts.hidl.get_stub false')
+        super(HalHidlReplayTest, self).tearDown()
 
 
 if __name__ == "__main__":

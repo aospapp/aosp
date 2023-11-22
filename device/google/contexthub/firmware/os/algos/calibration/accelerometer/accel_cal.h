@@ -42,6 +42,9 @@ extern "C" {
 
 // Data struct for the accel stillness detection.
 struct AccelStillDet {
+  // Start timer for a new still detection (in ns).
+  uint64_t start_time;
+
   // Save accumulate variables to calc. mean and var.
   float acc_x, acc_y, acc_z;
   float acc_xx, acc_yy, acc_zz;
@@ -52,9 +55,6 @@ struct AccelStillDet {
 
   // # of samples used in the stillness detector.
   uint32_t nsamples;
-
-  // Start timer for a new still detection (in ns).
-  uint64_t start_time;
 
   // Controling the Stillness algo with T0 and Th
   // time the sensor must be still to trigger still detection.
@@ -138,6 +138,9 @@ struct AccelCal {
   // Offsets are only updated while the accelerometer is not running. Hence need
   // to store a new offset, which gets updated during a power down event.
   float x_bias_new, y_bias_new, z_bias_new;
+
+  // Average temperature of the bias update.
+  float average_temperature_celsius;
 
   // Offset values that get subtracted from live data
   float x_bias, y_bias, z_bias;

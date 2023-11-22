@@ -736,7 +736,7 @@ public class DatagramSocketTest extends TestCaseWithRules {
             // now create one that is not connected and validate that we get the
             // right answer
             try (DatagramSocket theSocket = new DatagramSocket(null)) {
-                theSocket.bind(new InetSocketAddress(InetAddress.getLocalHost(), 0));
+                theSocket.bind(new InetSocketAddress(Inet6Address.LOOPBACK, 0));
                 assertNull(theSocket.getRemoteSocketAddress());
 
                 // now connect and validate we get the right answer

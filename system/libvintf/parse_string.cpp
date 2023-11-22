@@ -97,6 +97,7 @@ DEFINE_PARSE_STREAMIN_FOR_ENUM(Arch);
 DEFINE_PARSE_STREAMIN_FOR_ENUM(KernelConfigType);
 DEFINE_PARSE_STREAMIN_FOR_ENUM(Tristate);
 DEFINE_PARSE_STREAMIN_FOR_ENUM(SchemaType);
+DEFINE_PARSE_STREAMIN_FOR_ENUM(XmlSchemaFormat);
 
 std::ostream &operator<<(std::ostream &os, const KernelConfigTypedValue &kctv) {
     switch (kctv.mType) {
@@ -165,6 +166,21 @@ bool parseKernelConfigValue(const std::string &s, KernelConfigTypedValue *kctv) 
         case KernelConfigType::TRISTATE:
             return parse(s, &kctv->mTristateValue);
     }
+}
+
+bool parseKernelConfigTypedValue(const std::string& s, KernelConfigTypedValue* kctv) {
+    if (parseKernelConfigInt(s, &kctv->mIntegerValue)) {
+        kctv->mType = KernelConfigType::INTEGER;
+        return true;
+    }
+    if (parse(s, &kctv->mTristateValue)) {
+        kctv->mType = KernelConfigType::TRISTATE;
+        return true;
+    }
+    // Do not test for KernelConfigType::RANGE.
+    kctv->mType = KernelConfigType::STRING;
+    kctv->mStringValue = s;
+    return true;
 }
 
 bool parse(const std::string &s, Version *ver) {

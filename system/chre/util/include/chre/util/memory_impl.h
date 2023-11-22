@@ -22,6 +22,8 @@
 #include <type_traits>
 #include <utility>
 
+#include "chre/util/container_support.h"
+
 namespace chre {
 
 template<typename ElementType>
@@ -105,6 +107,16 @@ inline void uninitializedMoveOrCopy(ElementType *source, size_t count,
   uninitializedMoveOrCopy(
       source, count, dest, typename std::is_trivial<ElementType>::type());
       //typename std::is_trivially_copy_constructible<ElementType>::type());
+}
+
+template<typename T, typename... Args>
+inline T *memoryAlloc(Args&&... args) {
+  auto *storage = static_cast<T *>(memoryAlloc(sizeof(T)));
+  if (storage != nullptr) {
+    new(storage) T(std::forward<Args>(args)...);
+  }
+
+  return storage;
 }
 
 }  // namespace chre

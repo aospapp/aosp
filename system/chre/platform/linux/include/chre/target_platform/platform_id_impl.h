@@ -27,9 +27,6 @@ constexpr uint64_t kVendorId = kVendorIdGoogle;
 //! The platform ID of the Google-provided SLPI platform.
 constexpr uint32_t kPlatformId = kGoogleLinuxPlatformId;
 
-//! The patch level of the Google-provided SLPI platform.
-constexpr uint16_t kPatchVersion = 0x0001;
-
 }  // namespace chre
 
 #endif  // CHRE_PLATFORM_LINUX_PLATFORM_ID_IMPL_H_

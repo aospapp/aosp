@@ -237,7 +237,7 @@ public class MetaKeyKeyListenerTest extends KeyListenerTestCase {
                 event));
 
         event = new KeyEvent(0, 0, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_0, 0,
-                KeyEvent.META_SYM_LOCKED);
+                MetaKeyKeyListener.META_SYM_LOCKED);
 
         assertEquals(2, MetaKeyKeyListener.getMetaState("", MetaKeyKeyListener.META_SYM_ON,
                 event));

@@ -47,12 +47,6 @@ public class CarouselView extends ViewGroup {
      */
     private static final float DEFAULT_VIEW_ALPHA = 0.24f;
 
-    /**
-     * The number of additional views to bind other than the ones that fit on the screen. These
-     * additional views will allow for a smooth animation when the carousel is shifted.
-     */
-    private static final int EXTRA_VIEWS_TO_BIND = 2;
-
     private CarouselView.Adapter mAdapter;
     private int mTopOffset;
     private int mItemMargin;
@@ -135,14 +129,6 @@ public class CarouselView extends ViewGroup {
             mScrapViews.ensureCapacity(adapter.getItemCount());
             mAdapter.registerObserver(this);
         }
-    }
-
-    /**
-     * Sets the position within the data set of this carousel's adapter that will be displayed as
-     * the first item in the carousel.
-     */
-    public void setStartPosition(int position) {
-        mStartPosition = position;
     }
 
     /**

@@ -23,7 +23,6 @@ cc_binary {
     init_rc: ["android.hidl.allocator@1.0-service.rc"],
 
     shared_libs: [
-        "android.hidl.base@1.0",
         "android.hidl.allocator@1.0",
         "libhidlbase",
         "libhidltransport",

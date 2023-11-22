@@ -1,4 +1,4 @@
-:: Copyright (C) 2017 Google Inc.
+:: Copyright (C) 2017 The Android Open Source Project
 ::
 :: Licensed under the Apache License, Version 2.0 (the "License");
 :: you may not use this file except in compliance with the License.
@@ -26,9 +26,16 @@ where %ADB% || (echo Unable to find %ADB% && goto:eof)
 where %JAVA% || (echo Unable to find %JAVA% && goto:eof)
 
 :: check java version
-%JAVA% -version 2>&1 | findstr /R "version\ \"1\.[678].*\"$" || (
-    echo Wrong java version. 1.6, 1.7 or 1.8 is required.
-    goto:eof
+if [%EXPERIMENTAL_USE_OPENJDK9%] == [] (
+    %JAVA% -version 2>&1 | findstr /R "version\ \"1\.[678].*\"$" || (
+        echo Wrong java version. 1.6, 1.7 or 1.8 is required.
+        goto:eof
+    )
+) else (
+    %JAVA% -version 2>&1 | findstr /R "java .*\"9.*\"$" || (
+        echo Wrong java version. Version 9 is required.
+        goto:eof
+    )
 )
 
 :: check debug flag and set up remote debugging
@@ -69,8 +76,8 @@ set JAR_PATH=%TRADEFED_JAR%
 :: other required jars
 set JARS=^
   hosttestlib^
-  compatibility-host-util^
-  vts-tradefed
+  vts-tradefed^
+  compatibility-host-util
 for %%J in (%JARS%) do (
     set JAR=%JAR_DIR%\%%J.jar
     if not exist "!JAR!" ( echo Unable to locate !JAR! && goto:eof )
@@ -97,9 +104,7 @@ for %%J in (%OPTIONAL_JARS%) do (
 :: skip loading shared libraries for host-side executables
 
 :: include any host-side test jars
-for %%F in ("%VTS_ROOT%\android-vts\testcases\*.jar") do (
-    set JAR_PATH=!JAR_PATH!;%%F
-)
+set JAR_PATH=%JAR_PATH%;%VTS_ROOT%\android-vts\testcases\*
 echo JAR_PATH=%JAR_PATH%
 
 cd %VTS_ROOT%/android-vts/testcases

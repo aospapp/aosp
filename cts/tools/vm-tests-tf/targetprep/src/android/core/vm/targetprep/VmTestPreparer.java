@@ -82,7 +82,7 @@ public class VmTestPreparer implements ITargetCleaner {
         try {
             File tmpDir = new File(System.getProperty("java.io.tmpdir"));
             File localTmpDir = FileUtil.createTempDir("cts-vm", tmpDir);
-            File jarFile = new File(ctsBuild.getTestsDir(), JAR_FILE);
+            File jarFile = ctsBuild.getTestFile(JAR_FILE);
             if (!jarFile.exists()) {
                 CLog.e("Missing jar file %s", jarFile.getPath());
                 return false;

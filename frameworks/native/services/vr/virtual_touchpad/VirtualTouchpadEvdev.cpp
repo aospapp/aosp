@@ -28,6 +28,12 @@ static constexpr int32_t kWidth = 0x10000;
 static constexpr int32_t kHeight = 0x10000;
 static constexpr int32_t kSlots = 2;
 
+static constexpr float kScrollScale = 100.0f;
+
+int32_t scale_relative_scroll(float x) {
+  return kScrollScale * x;
+}
+
 }  // anonymous namespace
 
 std::unique_ptr<VirtualTouchpad> VirtualTouchpadEvdev::Create() {
@@ -66,6 +72,8 @@ status_t VirtualTouchpadEvdev::Attach() {
     touchpad.injector->ConfigureInputProperty(INPUT_PROP_DIRECT);
     touchpad.injector->ConfigureMultiTouchXY(0, 0, kWidth - 1, kHeight - 1);
     touchpad.injector->ConfigureAbsSlots(kSlots);
+    touchpad.injector->ConfigureRel(REL_WHEEL);
+    touchpad.injector->ConfigureRel(REL_HWHEEL);
     touchpad.injector->ConfigureKey(BTN_TOUCH);
     touchpad.injector->ConfigureKey(BTN_BACK);
     touchpad.injector->ConfigureEnd();
@@ -84,9 +92,6 @@ status_t VirtualTouchpadEvdev::Detach() {
 int VirtualTouchpadEvdev::Touch(int touchpad_id, float x, float y,
                                 float pressure) {
   if (touchpad_id < 0 || touchpad_id >= kTouchpads) {
-    return EINVAL;
-  }
-  if ((x < 0.0f) || (x >= 1.0f) || (y < 0.0f) || (y >= 1.0f)) {
     return EINVAL;
   }
   int32_t device_x = x * kWidth;
@@ -159,6 +164,33 @@ int VirtualTouchpadEvdev::ButtonState(int touchpad_id, int buttons) {
     touchpad.injector->SendSynReport();
   }
   touchpad.last_motion_event_buttons = buttons;
+  return touchpad.injector->GetError();
+}
+
+int VirtualTouchpadEvdev::Scroll(int touchpad_id, float x, float y) {
+  if (touchpad_id < 0 || touchpad_id >= kTouchpads) {
+    return EINVAL;
+  }
+  if ((x < -1.0f) || (x > 1.0f) || (y < -1.0f) || (y > 1.0f)) {
+    return EINVAL;
+  }
+  Touchpad& touchpad = touchpad_[touchpad_id];
+  if (!touchpad.injector) {
+    return EvdevInjector::ERROR_SEQUENCING;
+  }
+  touchpad.injector->ResetError();
+  const int32_t scaled_x = scale_relative_scroll(x);
+  const int32_t scaled_y = scale_relative_scroll(y);
+  ALOGV("(%f,%f) -> (%" PRId32 ",%" PRId32 ")", x, y, scaled_x, scaled_y);
+  if (scaled_x) {
+    touchpad.injector->SendRel(REL_HWHEEL, scaled_x);
+  }
+  if (scaled_y) {
+    touchpad.injector->SendRel(REL_WHEEL, scaled_y);
+  }
+  if (scaled_x || scaled_y) {
+    touchpad.injector->SendSynReport();
+  }
   return touchpad.injector->GetError();
 }
 

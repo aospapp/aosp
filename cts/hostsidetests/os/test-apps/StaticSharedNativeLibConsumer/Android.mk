@@ -31,7 +31,7 @@ LOCAL_PACKAGE_NAME := CtsStaticSharedNativeLibConsumer
 
 LOCAL_MULTILIB := both
 
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)
 

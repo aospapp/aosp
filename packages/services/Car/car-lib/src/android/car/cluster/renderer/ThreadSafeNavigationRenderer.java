@@ -18,6 +18,7 @@ package android.car.cluster.renderer;
 import android.annotation.Nullable;
 import android.car.navigation.CarNavigationInstrumentCluster;
 import android.graphics.Bitmap;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -38,6 +39,7 @@ import java.util.concurrent.CountDownLatch;
     private final static int MSG_NAV_STOP = 2;
     private final static int MSG_NAV_NEXT_TURN = 3;
     private final static int MSG_NAV_NEXT_TURN_DISTANCE = 4;
+    private final static int MSG_EVENT = 5;
 
     /** Creates thread-safe {@link NavigationRenderer}. Returns null if renderer == null */
     @Nullable
@@ -90,6 +92,11 @@ import java.util.concurrent.CountDownLatch;
         mHandler.sendMessage(mHandler.obtainMessage(MSG_NAV_NEXT_TURN_DISTANCE, distance));
     }
 
+    @Override
+    public void onEvent(int eventType, Bundle bundle) {
+        mHandler.sendMessage(mHandler.obtainMessage(MSG_EVENT, eventType, 0, bundle));
+    }
+
     private static class NavigationRendererHandler extends RendererHandler<NavigationRenderer> {
 
         NavigationRendererHandler(Looper looper, NavigationRenderer renderer) {
@@ -114,6 +121,10 @@ import java.util.concurrent.CountDownLatch;
                     ManeuverDistance d = (ManeuverDistance) msg.obj;
                     renderer.onNextTurnDistanceChanged(
                             d.meters, d.seconds, d.displayDistanceMillis, d.displayDistanceUnit);
+                    break;
+                case MSG_EVENT:
+                    Bundle bundle = (Bundle) msg.obj;
+                    renderer.onEvent(msg.arg1, bundle);
                     break;
                 default:
                     throw new IllegalArgumentException("Msg: " + msg.what);

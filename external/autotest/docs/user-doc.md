@@ -278,6 +278,12 @@ setting up KVM with cros images) be aware of the following:
 
         $ ssh -p 9222 root@localhost
 
+-   Warning: After
+    [crbug/710629](https://bugs.chromium.org/p/chromium/issues/detail?id=710629),
+    'betty' is the only board regularly run through pre-CQ and CQ VMTest and so
+    is the most likely to work at ToT. 'betty' is based on 'amd64-generic',
+    though, so 'amd64-generic' is likely to also work for most (non-ARC) tests.
+
 
 ## Result log layout structure
 

@@ -1,0 +1,28 @@
+# Copyright 2017 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+AUTHOR = 'bettyzhou, jaineelm, krisr'
+NAME = 'android_ACTS.Telephony_Reston_VZW_VT'
+TIME = 'LONG'
+TEST_TYPE = 'Server'
+ATTRIBUTES = 'suite:android_telephony_nightly'
+DEPENDENCIES = 'carrier:verizon,telephony:vt,location:reston'
+
+DOC = """
+This test runs telephony sanity against an phones with Verizon SIMs.
+"""
+
+def run(machine):
+    job.run_test('android_ACTS',
+                 testbed=hosts.create_testbed(machine),
+                 config_file='android1758-telephony-test-station.config',
+                 test_file='telephony_vzw_vt',
+                 additional_configs=['simcard_list.json'],
+                 override_build_url='git_master-release/sailfish-userdebug/latest',
+                 testtracker_project_id=11349,
+                 testtracker_owner='android-comms-tvc@google.com',
+                 testtracker_extra_env="verizon_reston",
+                 acts_timeout=25200)
+
+parallel_simple(run, machines)

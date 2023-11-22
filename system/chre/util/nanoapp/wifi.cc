@@ -27,7 +27,7 @@ bool parseSsidToStr(char *buffer, size_t bufferLen,
                     const uint8_t *ssid, uint8_t ssidLen) {
   // Ensure that there is enough space in the buffer to copy the SSID and
   // null-terminate it.
-  bool success = (bufferLen >= (ssidLen + 1));
+  bool success = (bufferLen >= static_cast<size_t>(ssidLen + 1));
 
   if (success) {
     // Verify that the ssid is entirely printable characters and ASCII spaces.

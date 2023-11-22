@@ -20,9 +20,8 @@
     <string name="audio_channel_mono" msgid="8812941280022167428">"mono"</string>
     <string name="audio_channel_stereo" msgid="5798223286366598036">"stereo"</string>
     <string name="menu_title_play_controls" msgid="2490237359425190652">"Play-kontroller"</string>
-    <string name="menu_title_channels" msgid="1801845517674690003">"Nylige kanaler"</string>
+    <string name="menu_title_channels" msgid="1949045451672990132">"Kanaler"</string>
     <string name="menu_title_options" msgid="7184594626814914022">"TV-alternativer"</string>
-    <string name="menu_title_pip_options" msgid="4252934960762407689">"PIP-alternativer"</string>
     <string name="play_controls_unavailable" msgid="8900698593131693148">"Play-kontroller er ikke tilgjengelige for denne kanalen"</string>
     <string name="play_controls_description_play_pause" msgid="7225542861669250558">"Spill av eller sett på pause"</string>
     <string name="play_controls_description_fast_forward" msgid="4414963867482448652">"Spol fremover"</string>
@@ -35,33 +34,15 @@
     <string name="options_item_closed_caption" msgid="5945274655046367170">"Teksting"</string>
     <string name="options_item_display_mode" msgid="7989243076748680140">"Visningsmodus"</string>
     <string name="options_item_pip" msgid="3951350386626879645">"PIP"</string>
-    <string name="options_item_pip_on" msgid="4647247480009077381">"På"</string>
-    <string name="options_item_pip_off" msgid="8799500161592387451">"Av"</string>
     <string name="options_item_multi_audio" msgid="5118851311937896923">"Flere lydspor"</string>
     <string name="options_item_more_channels" msgid="971040969622943300">"Få flere kanaler"</string>
     <string name="options_item_settings" msgid="7623205838542400074">"Innstillinger"</string>
-    <string name="pip_options_item_source" msgid="1050948525825308652">"Kilde"</string>
-    <string name="pip_options_item_swap" msgid="7245362207353732048">"Bytt"</string>
-    <string name="pip_options_item_swap_on" msgid="5647182616484983505">"På"</string>
-    <string name="pip_options_item_swap_off" msgid="3023597229417709768">"Av"</string>
-    <string name="pip_options_item_sound" msgid="3107034283791231648">"Lyd"</string>
-    <string name="pip_options_item_sound_main" msgid="1063937534112558691">"Hovedkontroll"</string>
-    <string name="pip_options_item_sound_pip_window" msgid="435064142351853008">"PIP-vindu"</string>
-    <string name="pip_options_item_layout" msgid="5126206342060967651">"Utforming"</string>
-    <string name="pip_options_item_layout_bottom_right" msgid="5256839015192920238">"Nede til høyre"</string>
-    <string name="pip_options_item_layout_top_right" msgid="3585067214787055279">"Oppe til høyre"</string>
-    <string name="pip_options_item_layout_top_left" msgid="2173997010201637462">"Oppe til venstre"</string>
-    <string name="pip_options_item_layout_bottom_left" msgid="1727197877968915329">"Nede til venstre"</string>
-    <string name="pip_options_item_layout_side_by_side" msgid="9009784972740915779">"Side om side"</string>
-    <string name="pip_options_item_size" msgid="5662894110243750158">"Størrelse"</string>
-    <string name="pip_options_item_size_big" msgid="6303301565563444718">"Stor"</string>
-    <string name="pip_options_item_size_small" msgid="7393731186585004206">"Liten"</string>
-    <string name="side_panel_title_pip_input_source" msgid="8722544967592970296">"Inndatakilde"</string>
     <string name="input_long_label_for_tuner" msgid="3423514011918382209">"TV (antenne/kabel)"</string>
     <string name="no_program_information" msgid="1049844207745145132">"Ingen programinformasjon"</string>
     <string name="program_title_for_no_information" msgid="384451471906070101">"Ingen informasjon"</string>
     <string name="program_title_for_blocked_channel" msgid="5358005891746983819">"Blokkert kanal"</string>
-    <string name="default_language" msgid="4122326459624337928">"Ukjent språk"</string>
+    <string name="multi_audio_unknown_language" msgid="8639884627225598143">"Ukjent språk"</string>
+    <string name="closed_caption_unknown_language" msgid="4745445516930229353">"Teksting %1$d"</string>
     <string name="side_panel_title_closed_caption" msgid="2513905054082568780">"Teksting for hørselshemmede"</string>
     <string name="closed_caption_option_item_off" msgid="4824009036785647753">"Av"</string>
     <string name="closed_caption_system_settings" msgid="1856974607743827178">"Tilpass formatering"</string>
@@ -83,6 +64,7 @@
     <string name="edit_channels_group_divider_for_sd" msgid="5846195382266436167">"SD"</string>
     <string name="side_panel_title_group_by" msgid="1783176601425788939">"Gruppér etter"</string>
     <string name="program_guide_content_locked" msgid="198056836554559553">"Dette programmet er blokkert."</string>
+    <string name="program_guide_content_locked_unrated" msgid="8665707501827594275">"Dette programmet har ingen vurdering"</string>
     <string name="program_guide_content_locked_format" msgid="514915272862967389">"Dette programmet er vurdert som <xliff:g id="RATING">%1$s</xliff:g>."</string>
     <string name="msg_no_setup_activity" msgid="7746893144640239857">"Inngang støtter ikke auto-kanalsøk"</string>
     <string name="msg_unable_to_start_setup_activity" msgid="8402612466599977855">"Kunne ikke starte automatisk skanning for «<xliff:g id="TV_INPUT">%s</xliff:g>»"</string>
@@ -92,7 +74,6 @@
       <item quantity="one">%1$d kanal er lagt til</item>
     </plurals>
     <string name="msg_no_channel_added" msgid="2882586037409921925">"Ingen kanaler er lagt til"</string>
-    <string name="input_selector_tuner_label" msgid="6631205039926880892">"Tuner"</string>
     <string name="menu_parental_controls" msgid="2474294054521345840">"Foreldrekontroll"</string>
     <string name="option_toggle_parental_controls_on" msgid="9122851821454622696">"På"</string>
     <string name="option_toggle_parental_controls_off" msgid="7797910199040440618">"Av"</string>
@@ -108,6 +89,8 @@
     <string name="other_countries" msgid="8342216398676184749">"Andre land"</string>
     <string name="option_no_locked_channel" msgid="2543094883927978444">"Ingen"</string>
     <string name="option_no_enabled_rating_system" msgid="4139765018454678381">"Ingen"</string>
+    <string name="unrated_rating_name" msgid="1387302638048393814">"Ingen vurdering"</string>
+    <string name="option_block_unrated_programs" msgid="1108474218158184706">"Blokkér program uten vurdering"</string>
     <string name="option_rating_none" msgid="5204552587760414879">"Ingen"</string>
     <string name="option_rating_high" msgid="8898400296730158893">"Høye begrensninger"</string>
     <string name="option_rating_medium" msgid="6455853836426497151">"Medium begrensninger"</string>
@@ -124,6 +107,7 @@
     <string name="pin_enter_unlock_channel" msgid="4797922378296393173">"Skriv inn PIN-koden din for å se på denne kanalen"</string>
     <string name="pin_enter_unlock_program" msgid="7311628843209871203">"Skriv inn PIN-koden din for å se på dette programmet"</string>
     <string name="pin_enter_unlock_dvr" msgid="1637468108723176684">"Dette programmet er vurdert som <xliff:g id="RATING">%1$s</xliff:g>. Skriv inn PIN-koden din for å se dette programmet"</string>
+    <string name="pin_enter_unlock_dvr_unrated" msgid="3911986002480028829">"Dette programmet har ingen vurdering. Skriv inn PIN-koden din for å se dette programmet"</string>
     <string name="pin_enter_pin" msgid="249314665028035038">"Skriv inn PIN-koden din"</string>
     <string name="pin_enter_create_pin" msgid="3385754356793309946">"For å konfigurere foreldrekontroll, angi en PIN-kode"</string>
     <string name="pin_enter_new_pin" msgid="1739471585849790384">"Skriv inn en ny PIN-kode"</string>
@@ -135,22 +119,31 @@
     </plurals>
     <string name="pin_toast_wrong" msgid="2126295626095048746">"Prøv på nytt, PIN-koden er feil."</string>
     <string name="pin_toast_not_match" msgid="4283624338659521768">"Prøv på nytt, PIN-koden er feil"</string>
+    <string name="postal_code_guidance_title" msgid="4144793072363879833">"Skriv inn postnummeret ditt."</string>
+    <string name="postal_code_guidance_description" msgid="4224511147377561572">"Direkte-TV-appen bruker postnummeret til å oppgi en fullstendig programoversikt for TV-kanalene."</string>
+    <string name="postal_code_action_description" msgid="4428720607051109105">"Skriv inn postnummeret ditt"</string>
+    <string name="postal_code_invalid_warning" msgid="923373584458340746">"Ugyldig postnummer"</string>
     <string name="side_panel_title_settings" msgid="8244327316510918755">"Innstillinger"</string>
     <string name="settings_channel_source_item_customize_channels" msgid="6115770679732624593">"Tilpass kanallisten"</string>
     <string name="settings_channel_source_item_customize_channels_description" msgid="8966243790328235580">"Velg kanaler for programoversikten din"</string>
     <string name="settings_channel_source_item_setup" msgid="4566190088656419070">"Kanalkilder"</string>
     <string name="settings_channel_source_item_setup_new_inputs" msgid="4845822152617430787">"Nye kanaler er tilgjengelig"</string>
     <string name="settings_parental_controls" msgid="5449397921700749317">"Foreldrekontroll"</string>
+    <string name="settings_trickplay" msgid="7762730842781251582">"Tidsforskyvning"</string>
+    <string name="settings_trickplay_description" msgid="3060323976172182519">"Ta opp mens du ser på direktesendte programmer, så du kan sette dem på pause eller spole bakover.\nAdvarsel: Dette kan redusere levetiden til den interne lagringen på grunn av intensiv bruk av lagringen."</string>
     <string name="settings_menu_licenses" msgid="1257646083838406103">"Lisenser for åpen kildekode"</string>
-    <string name="dialog_title_licenses" msgid="4471754920475076623">"Åpen kildekode-lisenser"</string>
+    <string name="settings_send_feedback" msgid="6897217561193701829">"Send tilbakemelding"</string>
     <string name="settings_menu_version" msgid="2604030372029921403">"Versjon"</string>
     <string name="tvview_channel_locked" msgid="6486375335718400728">"For å se på denne kanalen, trykk til høyre og skriv inn PIN-koden din"</string>
     <string name="tvview_content_locked" msgid="391823084917017730">"For å se på dette programmet, trykk til høyre og skriv inn PIN-koden din"</string>
+    <string name="tvview_content_locked_unrated" msgid="2273799245001356782">"Dette programmet har ingen vurdering.\nFor å se dette programmet, trykk på knappen til høyre og skriv inn PIN-koden din"</string>
     <string name="tvview_content_locked_format" msgid="3741874636031338247">"Dette programmet har vurderingen <xliff:g id="RATING">%1$s</xliff:g>.\nFor å se på dette programmet, trykk til høyre og skriv inn PIN-koden din."</string>
     <string name="tvview_channel_locked_no_permission" msgid="677653135227590620">"For å se på denne kanalen, bruk Live TV-appen som er angitt som standard."</string>
     <string name="tvview_content_locked_no_permission" msgid="2279126235895507764">"For å se dette programmet, bruk Live TV-appen som er angitt som standard."</string>
+    <string name="tvview_content_locked_unrated_no_permission" msgid="4056090982858455110">"Dette programmet har ingen vurdering.\nFor å se dette programmet, bruk Live TV-appen som er angitt som standard."</string>
     <string name="tvview_content_locked_format_no_permission" msgid="5690794624572767106">"Dette programmet er vurdert som <xliff:g id="RATING">%1$s</xliff:g>.\nFor å se dette programmet, bruk Live TV-appen som er angitt som standard."</string>
     <string name="shrunken_tvview_content_locked" msgid="7686397981042364446">"Programmet er blokkert"</string>
+    <string name="shrunken_tvview_content_locked_unrated" msgid="4586881678635960742">"Dette programmet har ingen vurdering"</string>
     <string name="shrunken_tvview_content_locked_format" msgid="3720284198877900916">"Dette programmet er vurdert som <xliff:g id="RATING">%1$s</xliff:g>."</string>
     <string name="tvview_msg_audio_only" msgid="1356866203687173329">"Bare lyd"</string>
     <string name="tvview_msg_weak_signal" msgid="1095050812622908976">"Svakt signal"</string>
@@ -181,8 +174,6 @@
     <string name="intro_description" msgid="7806473686446937307"><b>"Trykk på «SELECT» (VELG)"</b>" for å åpne TV-menyen."</string>
     <string name="msg_no_input" msgid="3897674146985427865">"Kunne ikke finne noen TV-inngang"</string>
     <string name="msg_no_specific_input" msgid="2688885987104249852">"Kunne ikke finne TV-inngangen"</string>
-    <string name="msg_no_pip_support" msgid="161508628996629445">"PIP støttes ikke"</string>
-    <string name="msg_no_available_input_by_pip" msgid="7038191654524679666">"Det finnes ingen tilgjengelige inndata som kan vises med PIP"</string>
     <string name="msg_not_passthrough_input" msgid="4502101097091087411">"Tuner-typen kan ikke brukes. Kjør Live TV-appen med tuner-typen for TV-inndata."</string>
     <string name="msg_tune_failed" msgid="3277419551849972252">"Justering mislyktes."</string>
     <string name="msg_missing_app" msgid="8291542072400042076">"Kunne ikke finne noen app som kan håndtere denne handlingen."</string>
@@ -226,6 +217,8 @@
       <item quantity="other">%1$d planlagte opptak</item>
       <item quantity="one">%1$d planlagt opptak</item>
     </plurals>
+    <string name="dvr_detail_cancel_recording" msgid="542538232330174145">"Avbryt opptak"</string>
+    <string name="dvr_detail_stop_recording" msgid="3599488040374849367">"Stopp opptak"</string>
     <string name="dvr_detail_watch" msgid="7085694764364338215">"Se på"</string>
     <string name="dvr_detail_play_from_beginning" msgid="8475543568260411836">"Spill av fra begynnelsen"</string>
     <string name="dvr_detail_resume_play" msgid="875591300274416373">"Gjenoppta avspilling"</string>
@@ -258,9 +251,6 @@
     <string name="dvr_priority_description" msgid="8362040921417154645">"Når det er for mange programmer som skal tas opp samtidig, blir bare programmene med høyere prioritet tatt opp."</string>
     <string name="dvr_priority_button_action_save" msgid="4773524273649733008">"Lagre"</string>
     <string name="dvr_priority_action_one_time_recording" msgid="8174297042282719478">"Engangsopptak har høyeste prioritet"</string>
-    <string name="dvr_action_cancel" msgid="8094060199570272625">"Avbryt"</string>
-    <string name="dvr_action_error_cancel" msgid="6822474458738023531">"Avbryt"</string>
-    <string name="dvr_action_error_forget_storage" msgid="5869994565663655638">"Glem"</string>
     <string name="dvr_action_stop" msgid="1378723485295471381">"Stopp"</string>
     <string name="dvr_action_view_schedules" msgid="7442990695392774263">"Se tidsplanen for opptak"</string>
     <string name="dvr_action_record_episode" msgid="8596182676610326327">"Bare dette programmet"</string>
@@ -270,25 +260,28 @@
     <string name="dvr_action_record_instead" msgid="6821164728752215738">"Spill inn dette i stedet"</string>
     <string name="dvr_action_record_cancel" msgid="8644254745772185288">"Kanseller dette opptaket"</string>
     <string name="dvr_action_watch_now" msgid="7181211920959075976">"Se nå"</string>
+    <string name="dvr_action_delete_recordings" msgid="850785346795261671">"Slett opptak …"</string>
     <string name="dvr_epg_program_recordable" msgid="609229576209476903">"Opptaksbar"</string>
     <string name="dvr_epg_program_recording_scheduled" msgid="1367741844291055016">"Opptak planlagt"</string>
     <string name="dvr_epg_program_recording_conflict" msgid="4827911748865195373">"Opptakskonflikt"</string>
     <string name="dvr_epg_program_recording_in_progress" msgid="2158340443975313745">"Tar opp"</string>
     <string name="dvr_epg_program_recording_failed" msgid="5589124519442328896">"Opptaket mislyktes"</string>
-    <string name="dvr_schedule_progress_message_reading_programs" msgid="6502513156469172313">"Leser av programmer for å opprette tidsplaner for opptak"</string>
-    <string name="dvr_series_schedules_progress_message_reading_programs" msgid="7221275889560136115">"Leser av programmer"</string>
-    <!-- no translation found for dvr_series_schedules_progress_message_updating_programs (6670286486601662465) -->
-    <skip />
+    <string name="dvr_series_progress_message_reading_programs" msgid="2961615820635219355">"Leser av programmer"</string>
+    <string name="dvr_error_insufficient_space_action_view_recent_recordings" msgid="137918938589787623">"Se nylige opptak"</string>
+    <string name="dvr_error_insufficient_space_title_one_recording" msgid="759510175792505150">"Opptaket av <xliff:g id="PROGRAMNAME">%1$s</xliff:g> er ufullstendig."</string>
+    <string name="dvr_error_insufficient_space_title_two_recordings" msgid="5518578722556227631">"Opptakene av <xliff:g id="PROGRAMNAME_1">%1$s</xliff:g> og <xliff:g id="PROGRAMNAME_2">%2$s</xliff:g> er ufullstendige."</string>
+    <string name="dvr_error_insufficient_space_title_three_or_more_recordings" msgid="5104901174884754363">"Opptakene av <xliff:g id="PROGRAMNAME_1">%1$s</xliff:g>, <xliff:g id="PROGRAMNAME_2">%2$s</xliff:g> og <xliff:g id="PROGRAMNAME_3">%3$s</xliff:g> er ufullstendige."</string>
+    <string name="dvr_error_insufficient_space_description_one_recording" msgid="9092549220659026111">"Opptaket av <xliff:g id="PROGRAMNAME">%1$s</xliff:g> ble ikke fullført på grunn av utilstrekkelig lagringsplass."</string>
+    <string name="dvr_error_insufficient_space_description_two_recordings" msgid="7712799694720979003">"Opptakene av <xliff:g id="PROGRAMNAME_1">%1$s</xliff:g> og <xliff:g id="PROGRAMNAME_2">%2$s</xliff:g> ble ikke fullført på grunn av utilstrekkelig lagringsplass."</string>
+    <string name="dvr_error_insufficient_space_description_three_or_more_recordings" msgid="7877855707777832128">"Opptakene av <xliff:g id="PROGRAMNAME_1">%1$s</xliff:g>, <xliff:g id="PROGRAMNAME_2">%2$s</xliff:g> og <xliff:g id="PROGRAMNAME_3">%3$s</xliff:g> ble ikke fullført på grunn av utilstrekkelig lagringsplass."</string>
     <string name="dvr_error_small_sized_storage_title" msgid="5020225460011469011">"DVR trenger mer lagringsplass"</string>
-    <string name="dvr_error_small_sized_storage_description" msgid="8909789097974895119">"Det kommer til å være mulig til å ta opp programmer med DVR. Det er imidlertid ikke nok lagringsplass på enheten din til at DVR kan fungere. Koble til en ekstern stasjon på <xliff:g id="STORAGE_SIZE">%1$s</xliff:g> GB eller mer, og følg trinnene for å formatere den som lagringsenhet."</string>
+    <string name="dvr_error_small_sized_storage_description" msgid="8909789097974895119">"Det kommer til å være mulig til å ta opp programmer med DVR. Det er imidlertid ikke nok lagringsplass på enheten din til at DVR kan fungere. Koble til en ekstern stasjon på <xliff:g id="STORAGE_SIZE">%1$d</xliff:g> GB eller mer, og følg trinnene for å formatere den som lagringsenhet."</string>
+    <string name="dvr_error_no_free_space_title" msgid="881897873932403512">"Ikke nok lagringsplass"</string>
+    <string name="dvr_error_no_free_space_description" msgid="6406038381803431564">"Dette programmet blir ikke tatt opp fordi det ikke er nok lagringsplass. Prøv å slette noen eksisterende opptak."</string>
     <string name="dvr_error_missing_storage_title" msgid="691914341845362669">"Manglende lagringsplass"</string>
-    <string name="dvr_error_missing_storage_description" msgid="1036680750969954236">"Noe av lagringsplassen som brukes av DVR, mangler. Koble til den eksterne disken du bruke tidligere, for å slå på DVR igjen. Eventuelt kan du velge å glemme lagringsplassen hvis den ikke er tilgjengelig lenger."</string>
-    <string name="dvr_error_forget_storage_title" msgid="4996547357826788002">"Vil du glemme lagring?"</string>
-    <string name="dvr_error_forget_storage_description" msgid="3973761741009546142">"Alt innspilt innhold og alle tidsplanene går tapt."</string>
     <string name="dvr_stop_recording_dialog_title" msgid="2587018956502704278">"Vil du stoppe opptaket?"</string>
     <string name="dvr_stop_recording_dialog_description" msgid="4637830189399967761">"Det innspilte innholdet blir lagret."</string>
-    <!-- no translation found for dvr_stop_recording_dialog_description_on_conflict (7876857267536083760) -->
-    <skip />
+    <string name="dvr_stop_recording_dialog_description_on_conflict" msgid="7876857267536083760">"Opptaket av <xliff:g id="PROGRAMNAME">%1$s</xliff:g> stoppes fordi det har konflikter med dette programmet. Det innspilte innholdet blir lagret."</string>
     <string name="dvr_program_conflict_dialog_title" msgid="109323740107060379">"Opptak er planlagt, men har konflikter"</string>
     <string name="dvr_channel_conflict_dialog_title" msgid="7461033430572027786">"Opptak har startet, men har konflikter"</string>
     <string name="dvr_program_conflict_dialog_description_prefix" msgid="5520062013211648196">"<xliff:g id="PROGRAMNAME">%1$s</xliff:g> blir tatt opp."</string>
@@ -306,17 +299,29 @@
     <string name="dvr_already_scheduled_dialog_description" msgid="8170126125996414810">"Det samme programmet er allerede planlagt for opptak <xliff:g id="PROGRAMSTARTTIME">%1$s</xliff:g>."</string>
     <string name="dvr_already_recorded_dialog_title" msgid="2760294707162057216">"Allerede tatt opp"</string>
     <string name="dvr_already_recorded_dialog_description" msgid="8966051583682746434">"Dette programmet er allerede tatt opp. Det er tilgjengelig i DVR-biblioteket."</string>
-    <!-- no translation found for dvr_series_recording_dialog_title (3521956660855853797) -->
-    <skip />
-    <!-- no translation found for dvr_series_recording_scheduled_no_conflict (2796926724821316879) -->
-    <!-- no translation found for dvr_series_recording_scheduled_only_this_series_conflict (2800805130979023066) -->
-    <!-- no translation found for dvr_series_recording_scheduled_this_and_other_series_one_conflict (3632394665556633158) -->
-    <!-- no translation found for dvr_series_recording_scheduled_this_and_other_series_conflict (2331412040101938479) -->
-    <!-- no translation found for dvr_series_recording_scheduled_only_other_series_one_conflict (5213169239215104024) -->
-    <!-- no translation found for dvr_series_recording_scheduled_only_other_series_conflict (5159645486201045330) -->
+    <string name="dvr_series_recording_dialog_title" msgid="3521956660855853797">"Opptak av serie er planlagt"</string>
+    <plurals name="dvr_series_scheduled_no_conflict" formatted="false" msgid="6909096418632555251">
+      <item quantity="other"><xliff:g id="NUMBEROFRECORDINGS_2">%1$d</xliff:g> opptak er planlagt for <xliff:g id="SERIESNAME_3">%2$s</xliff:g>.</item>
+      <item quantity="one"><xliff:g id="NUMBEROFRECORDINGS_0">%1$d</xliff:g> opptak er planlagt for <xliff:g id="SERIESNAME_1">%2$s</xliff:g>.</item>
+    </plurals>
+    <plurals name="dvr_series_recording_scheduled_only_this_series_conflict" formatted="false" msgid="2341548158607418515">
+      <item quantity="other"><xliff:g id="NUMBEROFRECORDINGS_2">%1$d</xliff:g> opptak er planlagt for <xliff:g id="SERIESNAME_3">%2$s</xliff:g>. <xliff:g id="NUMBEROFCONFLICTRECORDINGS">%3$d</xliff:g> av dem blir ikke tatt opp på grunn av konflikter.</item>
+      <item quantity="one"><xliff:g id="NUMBEROFRECORDINGS_0">%1$d</xliff:g> opptak er planlagt for <xliff:g id="SERIESNAME_1">%2$s</xliff:g>. Det blir ikke tatt opp på grunn av konflikter.</item>
+    </plurals>
+    <plurals name="dvr_series_scheduled_this_and_other_series_conflict" formatted="false" msgid="6123651855499916154">
+      <item quantity="other"><xliff:g id="NUMBEROFRECORDINGS_3">%1$d</xliff:g> opptak er planlagt for <xliff:g id="SERIESNAME_4">%2$s</xliff:g>. <xliff:g id="NUMBEROFCONFLICTEPISODES_5">%3$d</xliff:g> episoder av denne serien og andre serier blir ikke tatt opp på grunn av konflikter.</item>
+      <item quantity="one"><xliff:g id="NUMBEROFRECORDINGS_0">%1$d</xliff:g> opptak er planlagt for <xliff:g id="SERIESNAME_1">%2$s</xliff:g>. <xliff:g id="NUMBEROFCONFLICTEPISODES_2">%3$d</xliff:g> episoder av denne serien og andre serier blir ikke tatt opp på grunn av konflikter.</item>
+    </plurals>
+    <plurals name="dvr_series_scheduled_only_other_series_one_conflict" formatted="false" msgid="8628389493339609682">
+      <item quantity="other"><xliff:g id="NUMBEROFRECORDINGS_2">%1$d</xliff:g> opptak er planlagt for <xliff:g id="SERIESNAME_3">%2$s</xliff:g>. Én episode av andre serier blir ikke tatt opp på grunn av konflikter.</item>
+      <item quantity="one"><xliff:g id="NUMBEROFRECORDINGS_0">%1$d</xliff:g> opptak er planlagt for <xliff:g id="SERIESNAME_1">%2$s</xliff:g>. Én episode av andre serier blir ikke tatt opp på grunn av konflikter.</item>
+    </plurals>
+    <plurals name="dvr_series_scheduled_only_other_series_many_conflicts" formatted="false" msgid="1601104768354168073">
+      <item quantity="other"><xliff:g id="NUMBEROFRECORDINGS_3">%1$d</xliff:g> opptak er planlagt for <xliff:g id="SERIESNAME_4">%2$s</xliff:g>. <xliff:g id="NUMBEROFCONFLICTEPISODES_5">%3$d</xliff:g> episoder av andre serier blir ikke tatt opp på grunn av konflikter.</item>
+      <item quantity="one"><xliff:g id="NUMBEROFRECORDINGS_0">%1$d</xliff:g> opptak er planlagt for <xliff:g id="SERIESNAME_1">%2$s</xliff:g>. <xliff:g id="NUMBEROFCONFLICTEPISODES_2">%3$d</xliff:g> episoder av andre serier blir ikke tatt opp på grunn av konflikter.</item>
+    </plurals>
     <string name="dvr_program_not_found" msgid="3282879532038010202">"Finner ikke programopptaket."</string>
     <string name="dvr_playback_related_recordings" msgid="6978658039329924961">"Relaterte opptak"</string>
-    <string name="dvr_msg_no_program_description" msgid="2521723281247322645">"(Ingen programbeskrivelse)"</string>
     <plurals name="dvr_schedules_section_subtitle" formatted="false" msgid="9180744010405976007">
       <item quantity="other">%1$d opptak</item>
       <item quantity="one">%1$d opptak</item>
@@ -336,6 +341,7 @@
     <string name="dvr_series_schedules_stop_dialog_title" msgid="4975886236535334420">"Vil du stoppe opptaket av serien?"</string>
     <string name="dvr_series_schedules_stop_dialog_description" msgid="7547266283366940085">"Episoder som er tatt opp, er fremdeles tilgjengelige i DVR-biblioteket."</string>
     <string name="dvr_series_schedules_stop_dialog_action_stop" msgid="2351839914865142478">"Stopp"</string>
+    <string name="dvr_series_schedules_stopped_empty_state" msgid="1464244804664395151">"Ingen episoder er på luften nå."</string>
     <string name="dvr_series_schedules_empty_state" msgid="3407962945399698707">"Ingen episoder er tilgjengelige.\nDe blir tatt opp når de er tilgjengelige."</string>
     <plurals name="dvr_schedules_recording_duration" formatted="false" msgid="3701771573063918552">
       <item quantity="other">(%1$d minutter)</item>
@@ -347,4 +353,5 @@
     <string name="dvr_date_today_time" msgid="8359696776305244535">"<xliff:g id="TIME_RANGE">%1$s</xliff:g> i dag"</string>
     <string name="dvr_date_tomorrow_time" msgid="8364654556105292594">"<xliff:g id="TIME_RANGE">%1$s</xliff:g> i morgen"</string>
     <string name="program_guide_critic_score" msgid="340530743913585150">"Poengsum"</string>
+    <string name="recorded_programs_preview_channel" msgid="890404366427245812">"Programmer som er tatt opp"</string>
 </resources>

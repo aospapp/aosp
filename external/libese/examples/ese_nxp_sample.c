@@ -62,7 +62,7 @@ const struct ApduSession kGetCplcSession = {
 };
 
 const struct ApduSession kEmptySession = {
-    .count = 0, .desc = "Empty session (cooldown only)", .apdus = {},
+    .count = 0, .desc = "Empty session (hw close only)", .apdus = {},
 };
 
 /* Define the loader service sessions here! */

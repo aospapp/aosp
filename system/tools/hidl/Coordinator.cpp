@@ -44,9 +44,11 @@ namespace android {
 
 Coordinator::Coordinator(
         const std::vector<std::string> &packageRootPaths,
-        const std::vector<std::string> &packageRoots)
+        const std::vector<std::string> &packageRoots,
+        const std::string &rootPath)
     : mPackageRootPaths(packageRootPaths),
-      mPackageRoots(packageRoots) {
+      mPackageRoots(packageRoots),
+      mRootPath(rootPath) {
     // empty
 }
 
@@ -54,7 +56,15 @@ Coordinator::~Coordinator() {
     // empty
 }
 
-AST *Coordinator::parse(const FQName &fqName, std::set<AST *> *parsedASTs, bool enforce) {
+void Coordinator::addDefaultPackagePath(const std::string& root, const std::string& path) {
+    if (std::find(mPackageRoots.begin(), mPackageRoots.end(), root) == mPackageRoots.end()) {
+        mPackageRoots.push_back(root);
+        mPackageRootPaths.push_back(path);
+    }
+}
+
+AST* Coordinator::parse(const FQName& fqName, std::set<AST*>* parsedASTs,
+                        Enforce enforcement) const {
     CHECK(fqName.isFullyQualified());
 
     auto it = mCache.find(fqName);
@@ -76,13 +86,13 @@ AST *Coordinator::parse(const FQName &fqName, std::set<AST *> *parsedASTs, bool 
     if (fqName.name() != "types") {
         // Any interface file implicitly imports its package's types.hal.
         FQName typesName = fqName.getTypesForPackage();
-        // Do not enforce on imports.
-        typesAST = parse(typesName, parsedASTs, false /* enforce */);
+        // Do not enforce on imports. Do not add imports' imports to this AST.
+        typesAST = parse(typesName, nullptr, Enforce::NONE);
 
         // fall through.
     }
 
-    std::string path = getPackagePath(fqName);
+    std::string path = getAbsolutePackagePath(fqName);
 
     path.append(fqName.name());
     path.append(".hal");
@@ -98,8 +108,6 @@ AST *Coordinator::parse(const FQName &fqName, std::set<AST *> *parsedASTs, bool 
     status_t err = parseFile(ast);
 
     if (err != OK) {
-        // LOG(ERROR) << "parsing '" << path << "' FAILED.";
-
         delete ast;
         ast = nullptr;
 
@@ -115,17 +123,16 @@ AST *Coordinator::parse(const FQName &fqName, std::set<AST *> *parsedASTs, bool 
 
         err = UNKNOWN_ERROR;
     } else {
-        std::string ifaceName;
-        if (ast->isInterface(&ifaceName)) {
+        if (ast->isInterface()) {
             if (fqName.name() == "types") {
                 fprintf(stderr,
                         "ERROR: File at '%s' declares an interface '%s' "
                         "instead of the expected types common to the package.\n",
                         path.c_str(),
-                        ifaceName.c_str());
+                        ast->getInterface()->localName().c_str());
 
                 err = UNKNOWN_ERROR;
-            } else if (ifaceName != fqName.name()) {
+            } else if (ast->getInterface()->localName() != fqName.name()) {
                 fprintf(stderr,
                         "ERROR: File at '%s' does not declare interface type "
                         "'%s'.\n",
@@ -165,15 +172,13 @@ AST *Coordinator::parse(const FQName &fqName, std::set<AST *> *parsedASTs, bool 
     // parse fqName.
     mCache[fqName] = ast;
 
-    if (enforce) {
-        // For each .hal file that hidl-gen parses, the whole package will be checked.
-        err = enforceRestrictionsOnPackage(fqName);
-        if (err != OK) {
-            mCache[fqName] = nullptr;
-            delete ast;
-            ast = nullptr;
-            return nullptr;
-        }
+    // For each .hal file that hidl-gen parses, the whole package will be checked.
+    err = enforceRestrictionsOnPackage(fqName, enforcement);
+    if (err != OK) {
+        mCache[fqName] = nullptr;
+        delete ast;
+        ast = nullptr;
+        return nullptr;
     }
 
     return ast;
@@ -182,7 +187,6 @@ AST *Coordinator::parse(const FQName &fqName, std::set<AST *> *parsedASTs, bool 
 std::vector<std::string>::const_iterator
 Coordinator::findPackageRoot(const FQName &fqName) const {
     CHECK(!fqName.package().empty());
-    CHECK(!fqName.version().empty());
 
     // Find the right package prefix and path for this FQName.  For
     // example, if FQName is "android.hardware.nfc@1.0::INfc", and the
@@ -208,6 +212,16 @@ Coordinator::findPackageRoot(const FQName &fqName) const {
         << "Unable to find package root for " << fqName.string();
 
     return ret;
+}
+
+std::string Coordinator::getAbsolutePackagePath(const FQName& fqName) const {
+    const std::string packagePath = getPackagePath(fqName);
+
+    if (StringHelper::StartsWith(packagePath, "/") || mRootPath.empty()) {
+        return packagePath;
+    }
+
+    return StringHelper::RTrim(mRootPath, "/") + "/" + packagePath;
 }
 
 std::string Coordinator::getPackageRoot(const FQName &fqName) const {
@@ -274,12 +288,16 @@ status_t Coordinator::getPackageInterfaceFiles(
         std::vector<std::string> *fileNames) const {
     fileNames->clear();
 
-    const std::string packagePath = getPackagePath(package);
+    const std::string packagePath = getAbsolutePackagePath(package);
 
     DIR *dir = opendir(packagePath.c_str());
 
     if (dir == NULL) {
-        LOG(ERROR) << "Could not open package path: " << packagePath;
+        fprintf(stderr,
+                "ERROR: Could not open package path %s for package %s:\n%s\n",
+                getPackagePath(package).c_str(),
+                package.string().c_str(),
+                packagePath.c_str());
         return -errno;
     }
 
@@ -363,8 +381,11 @@ std::string Coordinator::convertPackageRootToPath(const FQName &fqName) const {
     return packageRoot; // now converted to a path
 }
 
+status_t Coordinator::enforceRestrictionsOnPackage(const FQName& fqName,
+                                                   Enforce enforcement) const {
+    CHECK(enforcement == Enforce::FULL || enforcement == Enforce::NO_HASH ||
+          enforcement == Enforce::NONE);
 
-status_t Coordinator::enforceRestrictionsOnPackage(const FQName &fqName) {
     // need fqName to be something like android.hardware.foo@1.0.
     // name and valueName is ignored.
     if (fqName.package().empty() || fqName.version().empty()) {
@@ -372,6 +393,11 @@ status_t Coordinator::enforceRestrictionsOnPackage(const FQName &fqName) {
                    << ": package or version is missing.";
         return BAD_VALUE;
     }
+
+    if (enforcement == Enforce::NONE) {
+        return OK;
+    }
+
     FQName package = fqName.getPackageAndVersion();
     // look up cache.
     if (mPackagesEnforced.find(package) != mPackagesEnforced.end()) {
@@ -386,9 +412,11 @@ status_t Coordinator::enforceRestrictionsOnPackage(const FQName &fqName) {
         return err;
     }
 
-    err = enforceHashes(package);
-    if (err != OK) {
-        return err;
+    if (enforcement != Enforce::NO_HASH) {
+        err = enforceHashes(package);
+        if (err != OK) {
+            return err;
+        }
     }
 
     // cache it so that it won't need to be enforced again.
@@ -396,7 +424,7 @@ status_t Coordinator::enforceRestrictionsOnPackage(const FQName &fqName) {
     return OK;
 }
 
-status_t Coordinator::enforceMinorVersionUprevs(const FQName &currentPackage) {
+status_t Coordinator::enforceMinorVersionUprevs(const FQName &currentPackage) const {
     if(!currentPackage.hasVersion()) {
         LOG(ERROR) << "Cannot enforce minor version uprevs for " << currentPackage.string()
                    << ": missing version.";
@@ -408,10 +436,10 @@ status_t Coordinator::enforceMinorVersionUprevs(const FQName &currentPackage) {
     }
 
     bool hasPrevPackage = false;
-    FQName prevPacakge = currentPackage;
-    while (prevPacakge.getPackageMinorVersion() > 0) {
-        prevPacakge = prevPacakge.downRev();
-        if (existdir(getPackagePath(prevPacakge).c_str())) {
+    FQName prevPackage = currentPackage;
+    while (prevPackage.getPackageMinorVersion() > 0) {
+        prevPackage = prevPackage.downRev();
+        if (existdir(getAbsolutePackagePath(prevPackage).c_str())) {
             hasPrevPackage = true;
             break;
         }
@@ -421,9 +449,9 @@ status_t Coordinator::enforceMinorVersionUprevs(const FQName &currentPackage) {
         return OK;
     }
 
-    if (prevPacakge != currentPackage.downRev()) {
+    if (prevPackage != currentPackage.downRev()) {
         LOG(ERROR) << "Cannot enforce minor version uprevs for " << currentPackage.string()
-                   << ": Found package " << prevPacakge.string() << " but missing "
+                   << ": Found package " << prevPackage.string() << " but missing "
                    << currentPackage.downRev().string() << "; you cannot skip a minor version.";
         return UNKNOWN_ERROR;
     }
@@ -440,8 +468,7 @@ status_t Coordinator::enforceMinorVersionUprevs(const FQName &currentPackage) {
         if (currentFQName.name() == "types") {
             continue; // ignore types.hal
         }
-        // Assume that currentFQName == android.hardware.foo@2.2::IFoo.
-        // Then prevFQName == android.hardware.foo@2.1::IFoo.
+
         const Interface *iface = nullptr;
         AST *currentAST = parse(currentFQName);
         if (currentAST != nullptr) {
@@ -460,31 +487,40 @@ status_t Coordinator::enforceMinorVersionUprevs(const FQName &currentPackage) {
             continue;
         }
 
-        // android.hardware.foo@2.2::IFoo exists. Now make sure
-        // @2.2::IFoo extends @2.1::IFoo. If any interface IFoo in @2.2
-        // ensures this, @2.2 passes the enforcement.
-        FQName prevFQName(prevPacakge.package(), prevPacakge.version(),
-                currentFQName.name());
         if (iface->superType() == nullptr) {
-            // @2.2::IFoo doesn't extend anything. (This is probably IBase.)
-            continue;
-        }
-        if (iface->superType()->fqName() != prevFQName) {
-            // @2.2::IFoo doesn't extend @2.1::IFoo.
-            if (iface->superType()->fqName().getPackageAndVersion() ==
-                    prevPacakge.getPackageAndVersion()) {
-                LOG(ERROR) << "Cannot enforce minor version uprevs for " << currentPackage.string()
-                           << ": " << iface->fqName().string() << " extends "
-                           << iface->superType()->fqName().string() << ", which is not allowed.";
-                return UNKNOWN_ERROR;
-            }
-            // @2.2::IFoo extends something from a package with a different package name.
-            // Check the next interface.
+            CHECK(iface->isIBase());
             continue;
         }
 
-        // @2.2::IFoo passes. Check next interface.
-        extendedInterface = true;
+        // Assume that currentFQName == android.hardware.foo@2.2::IFoo.
+        FQName lastFQName(prevPackage.package(), prevPackage.version(),
+                currentFQName.name());
+        AST *lastAST = parse(lastFQName);
+
+        for (; lastFQName.getPackageMinorVersion() > 0 &&
+               (lastAST == nullptr || lastAST->getInterface() == nullptr)
+             ; lastFQName = lastFQName.downRev(), lastAST = parse(lastFQName)) {
+            // nothing
+        }
+
+        // Then lastFQName == android.hardware.foo@2.1::IFoo or
+        //      lastFQName == android.hardware.foo@2.0::IFoo if 2.1 doesn't exist.
+
+        bool lastFQNameExists = lastAST != nullptr && lastAST->getInterface() != nullptr;
+
+        if (iface->superType()->fqName() != lastFQName && lastFQNameExists) {
+            LOG(ERROR) << "Cannot enforce minor version uprevs for " << currentPackage.string()
+                       << ": " << iface->fqName().string() << " extends "
+                       << iface->superType()->fqName().string()
+                       << ", which is not allowed. It must extend " << lastFQName.string();
+            return UNKNOWN_ERROR;
+        }
+
+        // at least one interface must extend the previous version
+        if (lastFQName.getPackageAndVersion() == prevPackage.getPackageAndVersion()) {
+            extendedInterface = true;
+        }
+
         LOG(VERBOSE) << "enforceMinorVersionUprevs: " << currentFQName.string() << " passes.";
     }
 
@@ -492,14 +528,14 @@ status_t Coordinator::enforceMinorVersionUprevs(const FQName &currentPackage) {
         // No interface extends the interface with the same name in @x.(y-1).
         LOG(ERROR) << currentPackage.string() << " doesn't pass minor version uprev requirement. "
                    << "Requires at least one interface to extend an interface with the same name "
-                   << "from " << prevPacakge.string() << ".";
+                   << "from " << prevPackage.string() << ".";
         return UNKNOWN_ERROR;
     }
 
     return OK;
 }
 
-status_t Coordinator::enforceHashes(const FQName &currentPackage) {
+status_t Coordinator::enforceHashes(const FQName &currentPackage) const {
     status_t err = OK;
     std::vector<FQName> packageInterfaces;
     err = appendPackageInterfacesToVector(currentPackage, &packageInterfaces);
@@ -544,7 +580,6 @@ status_t Coordinator::enforceHashes(const FQName &currentPackage) {
     return err;
 }
 
-// static
 bool Coordinator::MakeParentHierarchy(const std::string &path) {
     static const mode_t kMode = 0755;
 

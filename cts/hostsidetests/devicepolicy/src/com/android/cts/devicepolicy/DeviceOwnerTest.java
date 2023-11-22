@@ -32,6 +32,8 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
     private static final String MANAGED_PROFILE_ADMIN =
             MANAGED_PROFILE_PKG + ".BaseManagedProfileTest$BasicAdminReceiver";
 
+    private static final String FEATURE_BACKUP = "android.software.backup";
+
     private static final String INTENT_RECEIVER_PKG = "com.android.cts.intent.receiver";
     private static final String INTENT_RECEIVER_APK = "CtsIntentReceiverApp.apk";
 
@@ -372,6 +374,35 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
         }
     }
 
+    public void testLockTaskAfterReboot_deviceOwnerUser() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+
+        try {
+            // Just start kiosk mode
+            runDeviceTestsAsUser(DEVICE_OWNER_PKG, ".LockTaskHostDrivenTest", "startLockTask",
+                    mPrimaryUserId);
+
+            // Reboot while in kiosk mode and then unlock the device
+            getDevice().reboot();
+
+            // Check that kiosk mode is working and can't be interrupted
+            runDeviceTestsAsUser(DEVICE_OWNER_PKG, ".LockTaskHostDrivenTest",
+                    "testLockTaskIsActiveAndCantBeInterrupted", mPrimaryUserId);
+
+            // Try to open settings via adb
+            executeShellCommand("am start -a android.settings.SETTINGS");
+
+            // Check again
+            runDeviceTestsAsUser(DEVICE_OWNER_PKG, ".LockTaskHostDrivenTest",
+                    "testLockTaskIsActiveAndCantBeInterrupted", mPrimaryUserId);
+        } finally {
+            runDeviceTestsAsUser(DEVICE_OWNER_PKG, ".LockTaskHostDrivenTest",
+                    "clearDefaultHomeIntentReceiver", mPrimaryUserId);
+        }
+    }
+
     public void testLockTask_unaffiliatedUser() throws Exception {
         if (!mHasFeature || !canCreateAdditionalUsers(1)) {
             return;
@@ -409,6 +440,7 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
         setProfileOwnerOrFail(DEVICE_OWNER_COMPONENT, userId);
 
         switchUser(userId);
+        wakeupAndDismissKeyguard();
 
         // Setting the same affiliation ids on both users and running the lock task tests.
         runDeviceTestsAsUser(
@@ -492,9 +524,18 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
         // This case runs when DO is provisioned
         // mHasFeature == true and provisioned, can't provision DO again.
         executeDeviceTestMethod(".PreDeviceOwnerTest", "testIsProvisioningAllowedFalse");
-        // Can provision Managed Profile when DO is on
-        // STOPSHIP: Only allow creating a managed profile if allowed by the device owner.
-        // b/31952368
+    }
+
+    /**
+     * Can provision Managed Profile when DO is set by default if they are the same admin.
+     */
+    public void testIsManagedProfileProvisioningAllowed_deviceOwnerIsSet() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        if (!hasDeviceFeature("android.software.managed_users")) {
+            return;
+        }
         executeDeviceTestMethod(".PreDeviceOwnerTest",
                 "testIsProvisioningAllowedTrueForManagedProfileAction");
     }
@@ -544,7 +585,9 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
     }
 
     public void testBackupServiceEnabling() throws Exception {
-        if (!mHasFeature) {
+        final boolean hasBackupService = getDevice().hasFeature(FEATURE_BACKUP);
+        // The backup service cannot be enabled if the backup feature is not supported.
+        if (!mHasFeature || !hasBackupService) {
             return;
         }
         executeDeviceOwnerTest("BackupServiceEnabledTest");

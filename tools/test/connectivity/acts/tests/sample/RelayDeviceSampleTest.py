@@ -17,6 +17,7 @@ from acts import base_test
 from acts import test_runner
 from acts.controllers.relay_lib.relay import SynchronizeRelays
 
+
 class RelayDeviceSampleTest(base_test.BaseTestClass):
     """ Demonstrates example usage of a configurable access point."""
 
@@ -27,7 +28,7 @@ class RelayDeviceSampleTest(base_test.BaseTestClass):
         # You can use this workaround to get devices by name:
 
         relay_rig = self.relay_devices[0].rig
-        #self.other_relay_device = relay_rig.devices['UniqueDeviceName']
+        self.other_relay_device = relay_rig.devices['UniqueDeviceName']
         # Note: If the "devices" key from the config is missing
         # a GenericRelayDevice that contains every switch in the config
         # will be stored in relay_devices[0]. Its name will be
@@ -43,13 +44,61 @@ class RelayDeviceSampleTest(base_test.BaseTestClass):
         # Unless overridden, the default state is all switches set to off.
         self.relay_device.clean_up()
 
+    # Typical use of a GenericRelayDevice looks like this:
+    def test_relay_device(self):
+
+        # This function call will sleep until .25 seconds are up.
+        # Blocking_nc_for will emulate a button press, which turns on the relay
+        # (or stays on if it already was on) for the given time, and then turns
+        # off.
+        self.relay_device.relays['BT_Power_Button'].set_nc_for(.25)
+
+        # do_something_after_turning_on_bt_power()
+
+        # Note that the relays are mechanical switches, and do take real time
+        # to go from one state to the next.
+
+        self.relay_device.relays['BT_Pair'].set_nc()
+
+        # do_something_while_holding_down_the_pair_button()
+
+        self.relay_device.relays['BT_Pair'].set_no()
+
+        # do_something_after_releasing_bt_pair()
+
+        # Note that although cleanup sets the relays to the 'NO' state after
+        # each test, they do not press things like the power button to turn
+        # off whatever hardware is attached. When using a GenericRelayDevice,
+        # you'll have to do this manually.
+        # Other RelayDevices may handle this for you in their clean_up() call.
+        self.relay_device.relays['BT_Power_Button'].set_nc_for(.25)
 
     def test_toggling(self):
         # This test just spams the toggle on each relay.
-        ## print(self.relay_device.relays.mac_address)
-        print("--->" + self.relay_device.mac_address + "<---")
         for _ in range(0, 2):
-            self.relay_device.relays['Play'].toggle()
+            self.relay_device.relays['BT_Power_Button'].toggle()
+            self.relay_device.relays['BT_Pair'].toggle()
+            self.relay_device.relays['BT_Reset'].toggle()
+            self.relay_device.relays['BT_SomethingElse'].toggle()
+
+    def test_synchronize_relays(self):
+        """Toggles relays using SynchronizeRelays().
+
+        This makes each relay do it's action at the same time, without waiting
+        after each relay to swap. Instead, all relays swap at the same time, and
+        the wait is done after exiting the with statement.
+        """
+        for _ in range(0, 10):
+            with SynchronizeRelays():
+                self.relay_device.relays['BT_Power_Button'].toggle()
+                self.relay_device.relays['BT_Pair'].toggle()
+                self.relay_device.relays['BT_Reset'].toggle()
+                self.relay_device.relays['BT_SomethingElse'].toggle()
+
+        # For more fine control over the wait time of relays, you can set
+        # Relay.transition_wait_time. This is not recommended unless you are
+        # using solid state relays, or async calls.
+
 
 if __name__ == "__main__":
     test_runner.main()

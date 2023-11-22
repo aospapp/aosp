@@ -33,8 +33,8 @@ LOCAL_PROGUARD_ENABLED := disabled
 
 LOCAL_STATIC_JAVA_LIBRARIES += vehicle-hal-support-lib \
                                android-support-test \
-                               android.hardware.automotive.vehicle-V2.0-java-static \
-                               android.hardware.automotive.vehicle-V2.1-java-static
+                               android.hidl.base-V1.0-java \
+                               android.hardware.automotive.vehicle-V2.0-java
 
 LOCAL_JAVA_LIBRARIES := android.car android.test.runner
 

@@ -15,6 +15,7 @@
  */
 package android.autofillservice.cts;
 
+import static android.autofillservice.cts.Helper.assertNoDanglingSessions;
 import static android.autofillservice.cts.Helper.assertTextAndValue;
 import static android.autofillservice.cts.Helper.findNodeByResourceId;
 import static android.autofillservice.cts.OptionalSaveActivity.ID_ADDRESS1;
@@ -28,7 +29,8 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import android.app.assist.AssistStructure;
 import android.autofillservice.cts.CannedFillResponse.CannedDataset;
 import android.autofillservice.cts.InstrumentedAutoFillService.SaveRequest;
-import android.support.test.rule.ActivityTestRule;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 
 import org.junit.After;
 import org.junit.Before;
@@ -48,9 +50,12 @@ import org.junit.Test;
  */
 public class OptionalSaveActivityTest extends AutoFillServiceTestCase {
 
+    private static final boolean EXPECT_NO_SAVE_UI = false;
+    private static final boolean EXPECT_SAVE_UI = false;
+
     @Rule
-    public final ActivityTestRule<OptionalSaveActivity> mActivityRule =
-        new ActivityTestRule<OptionalSaveActivity>(OptionalSaveActivity.class);
+    public final AutofillActivityTestRule<OptionalSaveActivity> mActivityRule =
+        new AutofillActivityTestRule<OptionalSaveActivity>(OptionalSaveActivity.class);
 
     private OptionalSaveActivity mActivity;
 
@@ -430,5 +435,249 @@ public class OptionalSaveActivityTest extends AutoFillServiceTestCase {
 
         // Once saved, the session should be finsihed.
         assertNoDanglingSessions();
+    }
+
+    @Test
+    public void testDontShowSaveUiWhenUserManuallyFilled_oneDatasetAllRequiredFields()
+            throws Exception {
+        saveWhenUserFilledDatasetFields(
+                new String[] {ID_ADDRESS1, ID_ADDRESS2},
+                null,
+                () -> {
+                    mActivity.mAddress1.setText("742 Evergreen Terrace");
+                    mActivity.mAddress2.setText("Simpsons House");
+                },
+                EXPECT_NO_SAVE_UI,
+                new CannedDataset.Builder()
+                    .setPresentation(createPresentation("SF"))
+                    .setField(ID_ADDRESS1, "742 Evergreen Terrace")
+                    .setField(ID_ADDRESS2, "Simpsons House")
+                    .build()
+        );
+    }
+
+    @Test
+    public void testDontShowSaveUiWhenUserManuallyFilled_oneDatasetRequiredAndOptionalFields()
+            throws Exception {
+        saveWhenUserFilledDatasetFields(
+                new String[] {ID_ADDRESS1},
+                new String[] {ID_ADDRESS2},
+                () -> {
+                    mActivity.mAddress1.setText("742 Evergreen Terrace");
+                    mActivity.mAddress2.setText("Simpsons House");
+                },
+                EXPECT_NO_SAVE_UI,
+                new CannedDataset.Builder()
+                    .setPresentation(createPresentation("SF"))
+                    .setField(ID_ADDRESS1, "742 Evergreen Terrace")
+                    .setField(ID_ADDRESS2, "Simpsons House")
+                    .build()
+        );
+    }
+
+    @Test
+    public void testDontShowSaveUiWhenUserManuallyFilled_multipleDatasetsDataOnFirst()
+            throws Exception {
+        saveWhenUserFilledDatasetFields(
+                new String[] {ID_ADDRESS1},
+                new String[] {ID_ADDRESS2},
+                () -> {
+                    mActivity.mAddress1.setText("742 Evergreen Terrace");
+                    mActivity.mAddress2.setText("Simpsons House");
+                },
+                EXPECT_NO_SAVE_UI,
+                new CannedDataset.Builder()
+                    .setPresentation(createPresentation("SF"))
+                    .setField(ID_ADDRESS1, "742 Evergreen Terrace")
+                    .setField(ID_ADDRESS2, "Simpsons House")
+                    .build(),
+                new CannedDataset.Builder()
+                    .setPresentation(createPresentation("SV"))
+                    .setField(ID_ADDRESS1, "Shelbyville Nuclear Power Plant")
+                    .setField(ID_ADDRESS2, "Shelbyville Bluffs")
+                    .build()
+        );
+    }
+
+    @Test
+    public void testDontShowSaveUiWhenUserManuallyFilled_multipleDatasetsDataOnSecond()
+            throws Exception {
+        saveWhenUserFilledDatasetFields(
+                new String[] {ID_ADDRESS1},
+                new String[] {ID_ADDRESS2},
+                () -> {
+                    mActivity.mAddress1.setText("Shelbyville Nuclear Power Plant");
+                    mActivity.mAddress2.setText("Shelbyville Bluffs");
+                },
+                EXPECT_NO_SAVE_UI,
+                new CannedDataset.Builder()
+                    .setPresentation(createPresentation("SF"))
+                    .setField(ID_ADDRESS1, "742 Evergreen Terrace")
+                    .setField(ID_ADDRESS2, "Simpsons House")
+                    .build(),
+                new CannedDataset.Builder()
+                    .setPresentation(createPresentation("SV"))
+                    .setField(ID_ADDRESS1, "Shelbyville Nuclear Power Plant")
+                    .setField(ID_ADDRESS2, "Shelbyville Bluffs")
+                    .build()
+        );
+    }
+
+    @Test
+    public void testShowSaveUiWhenUserManuallyFilled_requiredOnly()
+            throws Exception {
+        saveWhenUserFilledDatasetFields(
+                new String[] {ID_ADDRESS1},
+                new String[] {ID_ADDRESS2},
+                () -> {
+                    mActivity.mAddress1.setText("742 Evergreen Terrace");
+                },
+                EXPECT_SAVE_UI,
+                new CannedDataset.Builder()
+                    .setPresentation(createPresentation("SF"))
+                    .setField(ID_ADDRESS1, "742 Evergreen Terrace")
+                    .setField(ID_ADDRESS2, "Simpsons House")
+                    .build()
+        );
+    }
+
+    @Test
+    public void testShowSaveUiWhenUserManuallyFilled_optionalOnly()
+            throws Exception {
+        saveWhenUserFilledDatasetFields(
+                new String[] {ID_ADDRESS1},
+                new String[] {ID_ADDRESS2},
+                () -> {
+                    mActivity.mAddress2.setText("Simpsons House");
+                },
+                EXPECT_SAVE_UI,
+                new CannedDataset.Builder()
+                    .setPresentation(createPresentation("SF"))
+                    .setField(ID_ADDRESS1, "742 Evergreen Terrace")
+                    .setField(ID_ADDRESS2, "Simpsons House")
+                    .build()
+        );
+    }
+
+    private void saveWhenUserFilledDatasetFields(@NonNull String[] requiredIds,
+            @Nullable String[] optionalIds, @NonNull Runnable changes, boolean expectSaveUi,
+            @NonNull CannedDataset...datasets) throws Exception {
+        // Set service.
+        enableService();
+
+        // Set expectations.
+        final CannedFillResponse.Builder response = new CannedFillResponse.Builder()
+                .setRequiredSavableIds(SAVE_DATA_TYPE_ADDRESS, requiredIds);
+        if (optionalIds != null) {
+            response.setOptionalSavableIds(optionalIds);
+        }
+        for (CannedDataset dataset : datasets) {
+            response.addDataset(dataset);
+        }
+        sReplier.addResponse(response.build());
+
+        // Trigger auto-fill.
+        mActivity.syncRunOnUiThread(() -> mActivity.mAddress1.requestFocus());
+        sReplier.getNextFillRequest();
+
+        // Manually fill it.
+        mActivity.syncRunOnUiThread(changes);
+
+        // Make sure the snack bar is not shown.
+        if (expectSaveUi) {
+            sUiBot.assertSaveShowing(SAVE_DATA_TYPE_ADDRESS);
+        } else {
+            sUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_ADDRESS);
+        }
+
+        // ...then tap save.
+        mActivity.save();
+
+        // Assert the snack bar is not shown.
+        sUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_ADDRESS);
+    }
+
+    @Test
+    public void testDontShowSaveUiWhenUserClearedAutofilledFieldThatIsRequired() throws Exception {
+        // Set service.
+        enableService();
+
+        mActivity.expectAutoFill("742 Evergreen Terrace", "Simpsons House",
+                "Springfield", "Yellow");
+        // Set expectations.
+        sReplier.addResponse(new CannedFillResponse.Builder()
+                .setRequiredSavableIds(SAVE_DATA_TYPE_ADDRESS, ID_ADDRESS1, ID_ADDRESS2)
+                .setOptionalSavableIds(ID_CITY)
+                .addDataset(new CannedDataset.Builder()
+                        .setPresentation(createPresentation("SF"))
+                        .setField(ID_ADDRESS1, "742 Evergreen Terrace")
+                        .setField(ID_ADDRESS2, "Simpsons House")
+                        .setField(ID_CITY, "Springfield")
+                        .setField(ID_FAVORITE_COLOR, "Yellow")
+                        .build())
+                .build());
+
+        // Trigger autofill.
+        mActivity.syncRunOnUiThread(() -> mActivity.mAddress1.requestFocus());
+        sReplier.getNextFillRequest();
+
+        sUiBot.selectDataset("SF");
+        mActivity.assertAutoFilled();
+
+        // Clear the field.
+        mActivity.syncRunOnUiThread(() -> mActivity.mAddress2.setText(""));
+
+        // Trigger save...
+        mActivity.save();
+
+        // ...and make sure the snack bar is not shown.
+        sUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_ADDRESS);
+    }
+
+    @Test
+    public void testShowSaveUiWhenUserClearedAutofilledFieldThatIsOptional() throws Exception {
+        // Set service.
+        enableService();
+
+        mActivity.expectAutoFill("742 Evergreen Terrace", "Simpsons House",
+                "Springfield", "Yellow");
+        // Set expectations.
+        sReplier.addResponse(new CannedFillResponse.Builder()
+                .setRequiredSavableIds(SAVE_DATA_TYPE_ADDRESS, ID_ADDRESS1, ID_ADDRESS2)
+                .setOptionalSavableIds(ID_CITY)
+                .addDataset(new CannedDataset.Builder()
+                        .setPresentation(createPresentation("SF"))
+                        .setField(ID_ADDRESS1, "742 Evergreen Terrace")
+                        .setField(ID_ADDRESS2, "Simpsons House")
+                        .setField(ID_CITY, "Springfield")
+                        .setField(ID_FAVORITE_COLOR, "Yellow")
+                        .build())
+                .build());
+
+        // Trigger autofill.
+        mActivity.syncRunOnUiThread(() -> mActivity.mAddress1.requestFocus());
+        sReplier.getNextFillRequest();
+
+        sUiBot.selectDataset("SF");
+        mActivity.assertAutoFilled();
+
+        // Clear the field.
+        mActivity.syncRunOnUiThread(() -> mActivity.mCity.setText(""));
+
+        // Trigger save...
+        mActivity.save();
+
+        // ...and make sure the snack bar is shown.
+        sUiBot.saveForAutofill(true, SAVE_DATA_TYPE_ADDRESS);
+
+        // Finally, assert values.
+        final SaveRequest saveRequest = sReplier.getNextSaveRequest();
+        assertTextAndValue(findNodeByResourceId(saveRequest.structure, ID_ADDRESS1),
+                "742 Evergreen Terrace");
+        assertTextAndValue(findNodeByResourceId(saveRequest.structure, ID_ADDRESS2),
+                "Simpsons House");
+        assertTextAndValue(findNodeByResourceId(saveRequest.structure, ID_CITY), "");
+        assertTextAndValue(findNodeByResourceId(saveRequest.structure, ID_FAVORITE_COLOR),
+                "Yellow");
     }
 }

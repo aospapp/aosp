@@ -12,13 +12,14 @@
 #include "SkTemplates.h"
 
 GrDrawPathOpBase::GrDrawPathOpBase(uint32_t classID, const SkMatrix& viewMatrix, GrPaint&& paint,
-                                   GrPathRendering::FillType fill, GrAA aa)
+                                   GrPathRendering::FillType fill, GrAAType aaType)
         : INHERITED(classID)
         , fViewMatrix(viewMatrix)
-        , fProcessorSet(std::move(paint))
-        , fAnalysis(paint.getColor())
+        , fInputColor(paint.getColor())
         , fFillType(fill)
-        , fAA(aa) {}
+        , fAAType(aaType)
+        , fPipelineSRGBFlags(GrPipeline::SRGBFlagsFromPaint(paint))
+        , fProcessorSet(std::move(paint)) {}
 
 SkString GrDrawPathOp::dumpInfo() const {
     SkString string;
@@ -27,8 +28,7 @@ SkString GrDrawPathOp::dumpInfo() const {
     return string;
 }
 
-GrPipelineOptimizations GrDrawPathOpBase::initPipeline(const GrOpFlushState& state,
-                                                       GrPipeline* pipeline) {
+void GrDrawPathOpBase::initPipeline(const GrOpFlushState& state, GrPipeline* pipeline) {
     static constexpr GrUserStencilSettings kCoverPass{
             GrUserStencilSettings::StaticInit<
                     0x0000,
@@ -40,14 +40,16 @@ GrPipelineOptimizations GrDrawPathOpBase::initPipeline(const GrOpFlushState& sta
     };
     GrPipeline::InitArgs args;
     args.fProcessors = &this->processors();
-    args.fFlags = GrAA::kYes == fAA ? GrPipeline::kHWAntialias_Flag : 0;
+    args.fFlags = fPipelineSRGBFlags;
+    if (GrAATypeIsHW(fAAType)) {
+        args.fFlags |= GrPipeline::kHWAntialias_Flag;
+    }
     args.fUserStencil = &kCoverPass;
     args.fAppliedClip = state.drawOpArgs().fAppliedClip;
     args.fRenderTarget = state.drawOpArgs().fRenderTarget;
     args.fCaps = &state.caps();
-    args.fDstTexture = state.drawOpArgs().fDstTexture;
-    args.fAnalysis =
-            &this->doFragmentProcessorAnalysis(state.caps(), state.drawOpArgs().fAppliedClip);
+    args.fResourceProvider = state.resourceProvider();
+    args.fDstProxy = state.drawOpArgs().fDstProxy;
 
     return pipeline->init(args);
 }
@@ -65,11 +67,9 @@ void init_stencil_pass_settings(const GrOpFlushState& flushState,
 //////////////////////////////////////////////////////////////////////////////
 
 void GrDrawPathOp::onExecute(GrOpFlushState* state) {
-    GrColor color = this->color();
     GrPipeline pipeline;
-    GrPipelineOptimizations optimizations = this->initPipeline(*state, &pipeline);
-    optimizations.getOverrideColorIfSet(&color);
-    sk_sp<GrPathProcessor> pathProc(GrPathProcessor::Create(color, this->viewMatrix()));
+    this->initPipeline(*state, &pipeline);
+    sk_sp<GrPathProcessor> pathProc(GrPathProcessor::Create(this->color(), this->viewMatrix()));
 
     GrStencilSettings stencil;
     init_stencil_pass_settings(*state, this->fillType(), &stencil);
@@ -92,9 +92,9 @@ SkString GrDrawPathRangeOp::dumpInfo() const {
 
 GrDrawPathRangeOp::GrDrawPathRangeOp(const SkMatrix& viewMatrix, SkScalar scale, SkScalar x,
                                      SkScalar y, GrPaint&& paint, GrPathRendering::FillType fill,
-                                     GrAA aa, GrPathRange* range, const InstanceData* instanceData,
-                                     const SkRect& bounds)
-        : INHERITED(ClassID(), viewMatrix, std::move(paint), fill, aa)
+                                     GrAAType aaType, GrPathRange* range,
+                                     const InstanceData* instanceData, const SkRect& bounds)
+        : INHERITED(ClassID(), viewMatrix, std::move(paint), fill, aaType)
         , fPathRange(range)
         , fTotalPathCount(instanceData->count())
         , fScale(scale) {
@@ -114,6 +114,9 @@ bool GrDrawPathRangeOp::onCombineIfPossible(GrOp* t, const GrCaps& caps) {
         return false;
     }
     if (this->processors() != that->processors()) {
+        return false;
+    }
+    if (this->pipelineSRGBFlags() != that->pipelineSRGBFlags()) {
         return false;
     }
     switch (fDraws.head()->fInstanceData->transformType()) {
@@ -148,13 +151,7 @@ bool GrDrawPathRangeOp::onCombineIfPossible(GrOp* t, const GrCaps& caps) {
         GrPathRendering::kWinding_FillType != that->fillType()) {
         return false;
     }
-    // If we have non-clipping coverage processors we don't try to merge as its unclear whether it
-    // will be correct. We don't expect this to happen in practice.
-    if (this->processors().numCoverageFragmentProcessors()) {
-        return false;
-    }
-    bool opaque = this->fragmentProcessorAnalysis().isOutputColorOpaque();
-    if (!GrXPFactory::CanCombineOverlappedStencilAndCover(this->processors().xpFactory(), opaque)) {
+    if (!this->processorAnalysis().canCombineOverlappedStencilAndCover()) {
         return false;
     }
     fTotalPathCount += that->fTotalPathCount;

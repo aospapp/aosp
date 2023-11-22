@@ -18,7 +18,9 @@
 
 #include <sys/uio.h>
 
+#include <memory>
 #include <set>
+#include <vector>
 
 #include "android-base/stringprintf.h"
 
@@ -26,9 +28,10 @@
 #include "art_field-inl.h"
 #include "art_method-inl.h"
 #include "base/enums.h"
+#include "base/strlcpy.h"
 #include "base/time_utils.h"
-#include "class_linker.h"
 #include "class_linker-inl.h"
+#include "class_linker.h"
 #include "dex_file-inl.h"
 #include "dex_file_annotations.h"
 #include "dex_instruction.h"
@@ -36,27 +39,28 @@
 #include "gc/accounting/card_table-inl.h"
 #include "gc/allocation_record.h"
 #include "gc/scoped_gc_critical_section.h"
+#include "gc/space/bump_pointer_space-walk-inl.h"
 #include "gc/space/large_object_space.h"
 #include "gc/space/space-inl.h"
-#include "handle_scope.h"
+#include "handle_scope-inl.h"
 #include "jdwp/jdwp_priv.h"
 #include "jdwp/object_registry.h"
 #include "jni_internal.h"
 #include "jvalue-inl.h"
-#include "mirror/class.h"
 #include "mirror/class-inl.h"
+#include "mirror/class.h"
 #include "mirror/class_loader.h"
 #include "mirror/object-inl.h"
 #include "mirror/object_array-inl.h"
 #include "mirror/string-inl.h"
 #include "mirror/throwable.h"
+#include "nativehelper/ScopedLocalRef.h"
+#include "nativehelper/ScopedPrimitiveArray.h"
 #include "obj_ptr-inl.h"
 #include "reflection.h"
 #include "safe_map.h"
 #include "scoped_thread_state_change-inl.h"
-#include "ScopedLocalRef.h"
-#include "ScopedPrimitiveArray.h"
-#include "handle_scope-inl.h"
+#include "stack.h"
 #include "thread_list.h"
 #include "utf.h"
 #include "well_known_classes.h"
@@ -77,25 +81,10 @@ static uint16_t CappedAllocRecordCount(size_t alloc_record_count) {
   return alloc_record_count;
 }
 
-// Takes a method and returns a 'canonical' one if the method is default (and therefore potentially
-// copied from some other class). This ensures that the debugger does not get confused as to which
-// method we are in.
-static ArtMethod* GetCanonicalMethod(ArtMethod* m)
-    REQUIRES_SHARED(Locks::mutator_lock_) {
-  if (LIKELY(!m->IsDefault())) {
-    return m;
-  } else {
-    mirror::Class* declaring_class = m->GetDeclaringClass();
-    return declaring_class->FindDeclaredVirtualMethod(declaring_class->GetDexCache(),
-                                                      m->GetDexMethodIndex(),
-                                                      kRuntimePointerSize);
-  }
-}
-
 class Breakpoint : public ValueObject {
  public:
   Breakpoint(ArtMethod* method, uint32_t dex_pc, DeoptimizationRequest::Kind deoptimization_kind)
-    : method_(GetCanonicalMethod(method)),
+    : method_(method->GetCanonicalMethod(kRuntimePointerSize)),
       dex_pc_(dex_pc),
       deoptimization_kind_(deoptimization_kind) {
     CHECK(deoptimization_kind_ == DeoptimizationRequest::kNothing ||
@@ -125,7 +114,7 @@ class Breakpoint : public ValueObject {
   // Returns true if the method of this breakpoint and the passed in method should be considered the
   // same. That is, they are either the same method or they are copied from the same method.
   bool IsInMethod(ArtMethod* m) const REQUIRES_SHARED(Locks::mutator_lock_) {
-    return method_ == GetCanonicalMethod(m);
+    return method_ == m->GetCanonicalMethod(kRuntimePointerSize);
   }
 
  private:
@@ -149,7 +138,9 @@ class DebugInstrumentationListener FINAL : public instrumentation::Instrumentati
   DebugInstrumentationListener() {}
   virtual ~DebugInstrumentationListener() {}
 
-  void MethodEntered(Thread* thread, mirror::Object* this_object, ArtMethod* method,
+  void MethodEntered(Thread* thread,
+                     Handle<mirror::Object> this_object,
+                     ArtMethod* method,
                      uint32_t dex_pc)
       OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
     if (method->IsNative()) {
@@ -171,12 +162,15 @@ class DebugInstrumentationListener FINAL : public instrumentation::Instrumentati
       // also group it with other events for this location like BREAKPOINT or SINGLE_STEP.
       thread->SetDebugMethodEntry();
     } else {
-      Dbg::UpdateDebugger(thread, this_object, method, 0, Dbg::kMethodEntry, nullptr);
+      Dbg::UpdateDebugger(thread, this_object.Get(), method, 0, Dbg::kMethodEntry, nullptr);
     }
   }
 
-  void MethodExited(Thread* thread, mirror::Object* this_object, ArtMethod* method,
-                    uint32_t dex_pc, const JValue& return_value)
+  void MethodExited(Thread* thread,
+                    Handle<mirror::Object> this_object,
+                    ArtMethod* method,
+                    uint32_t dex_pc,
+                    const JValue& return_value)
       OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
     if (method->IsNative()) {
       // TODO: post location events is a suspension point and native method entry stubs aren't.
@@ -189,18 +183,22 @@ class DebugInstrumentationListener FINAL : public instrumentation::Instrumentati
       events |= Dbg::kMethodEntry;
       thread->ClearDebugMethodEntry();
     }
-    Dbg::UpdateDebugger(thread, this_object, method, dex_pc, events, &return_value);
+    Dbg::UpdateDebugger(thread, this_object.Get(), method, dex_pc, events, &return_value);
   }
 
-  void MethodUnwind(Thread* thread ATTRIBUTE_UNUSED, mirror::Object* this_object ATTRIBUTE_UNUSED,
-                    ArtMethod* method, uint32_t dex_pc)
+  void MethodUnwind(Thread* thread ATTRIBUTE_UNUSED,
+                    Handle<mirror::Object> this_object ATTRIBUTE_UNUSED,
+                    ArtMethod* method,
+                    uint32_t dex_pc)
       OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
     // We're not recorded to listen to this kind of event, so complain.
     LOG(ERROR) << "Unexpected method unwind event in debugger " << ArtMethod::PrettyMethod(method)
                << " " << dex_pc;
   }
 
-  void DexPcMoved(Thread* thread, mirror::Object* this_object, ArtMethod* method,
+  void DexPcMoved(Thread* thread,
+                  Handle<mirror::Object> this_object,
+                  ArtMethod* method,
                   uint32_t new_dex_pc)
       OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
     if (IsListeningToMethodExit() && IsReturn(method, new_dex_pc)) {
@@ -217,26 +215,33 @@ class DebugInstrumentationListener FINAL : public instrumentation::Instrumentati
         events = Dbg::kMethodEntry;
         thread->ClearDebugMethodEntry();
       }
-      Dbg::UpdateDebugger(thread, this_object, method, new_dex_pc, events, nullptr);
+      Dbg::UpdateDebugger(thread, this_object.Get(), method, new_dex_pc, events, nullptr);
     }
   }
 
-  void FieldRead(Thread* thread ATTRIBUTE_UNUSED, mirror::Object* this_object,
-                 ArtMethod* method, uint32_t dex_pc, ArtField* field)
+  void FieldRead(Thread* thread ATTRIBUTE_UNUSED,
+                 Handle<mirror::Object> this_object,
+                 ArtMethod* method,
+                 uint32_t dex_pc,
+                 ArtField* field)
       OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
-    Dbg::PostFieldAccessEvent(method, dex_pc, this_object, field);
+    Dbg::PostFieldAccessEvent(method, dex_pc, this_object.Get(), field);
   }
 
-  void FieldWritten(Thread* thread ATTRIBUTE_UNUSED, mirror::Object* this_object,
-                    ArtMethod* method, uint32_t dex_pc, ArtField* field,
+  void FieldWritten(Thread* thread ATTRIBUTE_UNUSED,
+                    Handle<mirror::Object> this_object,
+                    ArtMethod* method,
+                    uint32_t dex_pc,
+                    ArtField* field,
                     const JValue& field_value)
       OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
-    Dbg::PostFieldModificationEvent(method, dex_pc, this_object, field, &field_value);
+    Dbg::PostFieldModificationEvent(method, dex_pc, this_object.Get(), field, &field_value);
   }
 
-  void ExceptionCaught(Thread* thread ATTRIBUTE_UNUSED, mirror::Throwable* exception_object)
+  void ExceptionCaught(Thread* thread ATTRIBUTE_UNUSED,
+                       Handle<mirror::Throwable> exception_object)
       OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
-    Dbg::PostException(exception_object);
+    Dbg::PostException(exception_object.Get());
   }
 
   // We only care about branches in the Jit.
@@ -248,10 +253,10 @@ class DebugInstrumentationListener FINAL : public instrumentation::Instrumentati
 
   // We only care about invokes in the Jit.
   void InvokeVirtualOrInterface(Thread* thread ATTRIBUTE_UNUSED,
-                                mirror::Object*,
+                                Handle<mirror::Object> this_object ATTRIBUTE_UNUSED,
                                 ArtMethod* method,
                                 uint32_t dex_pc,
-                                ArtMethod*)
+                                ArtMethod* target ATTRIBUTE_UNUSED)
       OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
     LOG(ERROR) << "Unexpected invoke event in debugger " << ArtMethod::PrettyMethod(method)
                << " " << dex_pc;
@@ -1351,7 +1356,8 @@ JDWP::FieldId Dbg::ToFieldId(const ArtField* f) {
 
 static JDWP::MethodId ToMethodId(ArtMethod* m)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  return static_cast<JDWP::MethodId>(reinterpret_cast<uintptr_t>(GetCanonicalMethod(m)));
+  return static_cast<JDWP::MethodId>(
+      reinterpret_cast<uintptr_t>(m->GetCanonicalMethod(kRuntimePointerSize)));
 }
 
 static ArtField* FromFieldId(JDWP::FieldId fid)
@@ -2444,7 +2450,7 @@ JDWP::JdwpError Dbg::SuspendThread(JDWP::ObjectId thread_id, bool request_suspen
   ThreadList* thread_list = Runtime::Current()->GetThreadList();
   Thread* thread = thread_list->SuspendThreadByPeer(peer.get(),
                                                     request_suspension,
-                                                    /* debug_suspension */ true,
+                                                    SuspendReason::kForDebugger,
                                                     &timed_out);
   if (thread != nullptr) {
     return JDWP::ERR_NONE;
@@ -2475,7 +2481,8 @@ void Dbg::ResumeThread(JDWP::ObjectId thread_id) {
     needs_resume = thread->GetDebugSuspendCount() > 0;
   }
   if (needs_resume) {
-    Runtime::Current()->GetThreadList()->Resume(thread, true);
+    bool resumed = Runtime::Current()->GetThreadList()->Resume(thread, SuspendReason::kForDebugger);
+    DCHECK(resumed);
   }
 }
 
@@ -2871,7 +2878,7 @@ static void SetEventLocation(JDWP::EventLocation* location, ArtMethod* m, uint32
   if (m == nullptr) {
     memset(location, 0, sizeof(*location));
   } else {
-    location->method = GetCanonicalMethod(m);
+    location->method = m->GetCanonicalMethod(kRuntimePointerSize);
     location->dex_pc = (m->IsNative() || m->IsProxyMethod()) ? static_cast<uint32_t>(-1) : dex_pc;
   }
 }
@@ -2911,7 +2918,8 @@ void Dbg::PostLocationEvent(ArtMethod* m, int dex_pc, mirror::Object* this_objec
 
 void Dbg::PostFieldAccessEvent(ArtMethod* m, int dex_pc,
                                mirror::Object* this_object, ArtField* f) {
-  if (!IsDebuggerActive()) {
+  // TODO We should send events for native methods.
+  if (!IsDebuggerActive() || m->IsNative()) {
     return;
   }
   DCHECK(m != nullptr);
@@ -2925,7 +2933,8 @@ void Dbg::PostFieldAccessEvent(ArtMethod* m, int dex_pc,
 void Dbg::PostFieldModificationEvent(ArtMethod* m, int dex_pc,
                                      mirror::Object* this_object, ArtField* f,
                                      const JValue* field_value) {
-  if (!IsDebuggerActive()) {
+  // TODO We should send events for native methods.
+  if (!IsDebuggerActive() || m->IsNative()) {
     return;
   }
   DCHECK(m != nullptr);
@@ -3690,7 +3699,7 @@ class ScopedDebuggerThreadSuspension {
           ThreadList* const thread_list = Runtime::Current()->GetThreadList();
           suspended_thread = thread_list->SuspendThreadByPeer(thread_peer,
                                                               /* request_suspension */ true,
-                                                              /* debug_suspension */ true,
+                                                              SuspendReason::kForDebugger,
                                                               &timed_out);
         }
         if (suspended_thread == nullptr) {
@@ -3714,7 +3723,9 @@ class ScopedDebuggerThreadSuspension {
 
   ~ScopedDebuggerThreadSuspension() {
     if (other_suspend_) {
-      Runtime::Current()->GetThreadList()->Resume(thread_, true);
+      bool resumed = Runtime::Current()->GetThreadList()->Resume(thread_,
+                                                                 SuspendReason::kForDebugger);
+      DCHECK(resumed);
     }
   }
 
@@ -4036,7 +4047,8 @@ JDWP::JdwpError Dbg::PrepareInvokeMethod(uint32_t request_id, JDWP::ObjectId thr
     thread_list->UndoDebuggerSuspensions();
   } else {
     VLOG(jdwp) << "      Resuming event thread only";
-    thread_list->Resume(targetThread, true);
+    bool resumed = thread_list->Resume(targetThread, SuspendReason::kForDebugger);
+    DCHECK(resumed);
   }
 
   return JDWP::ERR_NONE;
@@ -4802,13 +4814,6 @@ class HeapChunkContext {
   DISALLOW_COPY_AND_ASSIGN(HeapChunkContext);
 };
 
-static void BumpPointerSpaceCallback(mirror::Object* obj, void* arg)
-    REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(Locks::heap_bitmap_lock_) {
-  const size_t size = RoundUp(obj->SizeOf(), kObjectAlignment);
-  HeapChunkContext::HeapChunkJavaCallback(
-      obj, reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(obj) + size), size, arg);
-}
-
 void Dbg::DdmSendHeapSegments(bool native) {
   Dbg::HpsgWhen when = native ? gDdmNhsgWhen : gDdmHpsgWhen;
   Dbg::HpsgWhat what = native ? gDdmNhsgWhat : gDdmHpsgWhat;
@@ -4828,6 +4833,12 @@ void Dbg::DdmSendHeapSegments(bool native) {
 
   // Send a series of heap segment chunks.
   HeapChunkContext context(what == HPSG_WHAT_MERGED_OBJECTS, native);
+  auto bump_pointer_space_visitor = [&](mirror::Object* obj)
+      REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(Locks::heap_bitmap_lock_) {
+    const size_t size = RoundUp(obj->SizeOf(), kObjectAlignment);
+    HeapChunkContext::HeapChunkJavaCallback(
+        obj, reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(obj) + size), size, &context);
+  };
   if (native) {
     UNIMPLEMENTED(WARNING) << "Native heap inspection is not supported";
   } else {
@@ -4850,7 +4861,7 @@ void Dbg::DdmSendHeapSegments(bool native) {
       } else if (space->IsBumpPointerSpace()) {
         ReaderMutexLock mu(self, *Locks::heap_bitmap_lock_);
         context.SetChunkOverhead(0);
-        space->AsBumpPointerSpace()->Walk(BumpPointerSpaceCallback, &context);
+        space->AsBumpPointerSpace()->Walk(bump_pointer_space_visitor);
         HeapChunkContext::HeapChunkJavaCallback(nullptr, nullptr, 0, &context);
       } else if (space->IsRegionSpace()) {
         heap->IncrementDisableMovingGC(self);
@@ -4859,7 +4870,7 @@ void Dbg::DdmSendHeapSegments(bool native) {
           ScopedSuspendAll ssa(__FUNCTION__);
           ReaderMutexLock mu(self, *Locks::heap_bitmap_lock_);
           context.SetChunkOverhead(0);
-          space->AsRegionSpace()->Walk(BumpPointerSpaceCallback, &context);
+          space->AsRegionSpace()->Walk(bump_pointer_space_visitor);
           HeapChunkContext::HeapChunkJavaCallback(nullptr, nullptr, 0, &context);
         }
         heap->DecrementDisableMovingGC(self);
@@ -4918,24 +4929,81 @@ void Dbg::DumpRecentAllocations() {
 }
 
 class StringTable {
+ private:
+  struct Entry {
+    explicit Entry(const char* data_in)
+        : data(data_in), hash(ComputeModifiedUtf8Hash(data_in)), index(0) {
+    }
+    Entry(const Entry& entry) = default;
+    Entry(Entry&& entry) = default;
+
+    // Pointer to the actual string data.
+    const char* data;
+
+    // The hash of the data.
+    const uint32_t hash;
+
+    // The index. This will be filled in on Finish and is not part of the ordering, so mark it
+    // mutable.
+    mutable uint32_t index;
+
+    bool operator==(const Entry& other) const {
+      return strcmp(data, other.data) == 0;
+    }
+  };
+  struct EntryHash {
+    size_t operator()(const Entry& entry) const {
+      return entry.hash;
+    }
+  };
+
  public:
-  StringTable() {
+  StringTable() : finished_(false) {
   }
 
-  void Add(const std::string& str) {
-    table_.insert(str);
+  void Add(const char* str, bool copy_string) {
+    DCHECK(!finished_);
+    if (UNLIKELY(copy_string)) {
+      // Check whether it's already there.
+      Entry entry(str);
+      if (table_.find(entry) != table_.end()) {
+        return;
+      }
+
+      // Make a copy.
+      size_t str_len = strlen(str);
+      char* copy = new char[str_len + 1];
+      strlcpy(copy, str, str_len + 1);
+      string_backup_.emplace_back(copy);
+      str = copy;
+    }
+    Entry entry(str);
+    table_.insert(entry);
   }
 
-  void Add(const char* str) {
-    table_.insert(str);
+  // Update all entries and give them an index. Note that this is likely not the insertion order,
+  // as the set will with high likelihood reorder elements. Thus, Add must not be called after
+  // Finish, and Finish must be called before IndexOf. In that case, WriteTo will walk in
+  // the same order as Finish, and indices will agree. The order invariant, as well as indices,
+  // are enforced through debug checks.
+  void Finish() {
+    DCHECK(!finished_);
+    finished_ = true;
+    uint32_t index = 0;
+    for (auto& entry : table_) {
+      entry.index = index;
+      ++index;
+    }
   }
 
   size_t IndexOf(const char* s) const {
-    auto it = table_.find(s);
+    DCHECK(finished_);
+    Entry entry(s);
+    auto it = table_.find(entry);
     if (it == table_.end()) {
       LOG(FATAL) << "IndexOf(\"" << s << "\") failed";
     }
-    return std::distance(table_.begin(), it);
+    return it->index;
   }
 
   size_t Size() const {
@@ -4943,17 +5011,24 @@ class StringTable {
   }
 
   void WriteTo(std::vector<uint8_t>& bytes) const {
-    for (const std::string& str : table_) {
-      const char* s = str.c_str();
-      size_t s_len = CountModifiedUtf8Chars(s);
+    DCHECK(finished_);
+    uint32_t cur_index = 0;
+    for (const auto& entry : table_) {
+      DCHECK_EQ(cur_index++, entry.index);
+
+      size_t s_len = CountModifiedUtf8Chars(entry.data);
       std::unique_ptr<uint16_t[]> s_utf16(new uint16_t[s_len]);
-      ConvertModifiedUtf8ToUtf16(s_utf16.get(), s);
+      ConvertModifiedUtf8ToUtf16(s_utf16.get(), entry.data);
       JDWP::AppendUtf16BE(bytes, s_utf16.get(), s_len);
     }
   }
 
  private:
-  std::set<std::string> table_;
+  std::unordered_set<Entry, EntryHash> table_;
+  std::vector<std::unique_ptr<char[]>> string_backup_;
+
+  bool finished_;
+
   DISALLOW_COPY_AND_ASSIGN(StringTable);
 };
 
@@ -5034,20 +5109,39 @@ jbyteArray Dbg::GetRecentAllocations() {
     StringTable method_names;
     StringTable filenames;
 
+    VLOG(jdwp) << "Collecting StringTables.";
+
     const uint16_t capped_count = CappedAllocRecordCount(records->GetRecentAllocationSize());
     uint16_t count = capped_count;
+    size_t alloc_byte_count = 0;
     for (auto it = records->RBegin(), end = records->REnd();
          count > 0 && it != end; count--, it++) {
       const gc::AllocRecord* record = &it->second;
       std::string temp;
-      class_names.Add(record->GetClassDescriptor(&temp));
+      const char* class_descr = record->GetClassDescriptor(&temp);
+      class_names.Add(class_descr, !temp.empty());
+
+      // Size + tid + class name index + stack depth.
+      alloc_byte_count += 4u + 2u + 2u + 1u;
+
       for (size_t i = 0, depth = record->GetDepth(); i < depth; i++) {
         ArtMethod* m = record->StackElement(i).GetMethod();
-        class_names.Add(m->GetDeclaringClassDescriptor());
-        method_names.Add(m->GetName());
-        filenames.Add(GetMethodSourceFile(m));
+        class_names.Add(m->GetDeclaringClassDescriptor(), false);
+        method_names.Add(m->GetName(), false);
+        filenames.Add(GetMethodSourceFile(m), false);
       }
+
+      // Depth * (class index + method name index + file name index + line number).
+      alloc_byte_count += record->GetDepth() * (2u + 2u + 2u + 2u);
     }
+
+    class_names.Finish();
+    method_names.Finish();
+    filenames.Finish();
+    VLOG(jdwp) << "Done collecting StringTables:" << std::endl
+               << "  ClassNames: " << class_names.Size() << std::endl
+               << "  MethodNames: " << method_names.Size() << std::endl
+               << "  Filenames: " << filenames.Size();
 
     LOG(INFO) << "recent allocation records: " << capped_count;
     LOG(INFO) << "allocation records all objects: " << records->Size();
@@ -5077,6 +5171,12 @@ jbyteArray Dbg::GetRecentAllocations() {
     JDWP::Append2BE(bytes, class_names.Size());
     JDWP::Append2BE(bytes, method_names.Size());
     JDWP::Append2BE(bytes, filenames.Size());
+
+    VLOG(jdwp) << "Dumping allocations with stacks";
+
+    // Enlarge the vector for the allocation data.
+    size_t reserve_size = bytes.size() + alloc_byte_count;
+    bytes.reserve(reserve_size);
 
     std::string temp;
     count = capped_count;
@@ -5115,6 +5215,9 @@ jbyteArray Dbg::GetRecentAllocations() {
       }
     }
 
+    CHECK_EQ(bytes.size(), reserve_size);
+    VLOG(jdwp) << "Dumping tables.";
+
     // (xb) class name strings
     // (xb) method name strings
     // (xb) source file strings
@@ -5122,6 +5225,8 @@ jbyteArray Dbg::GetRecentAllocations() {
     class_names.WriteTo(bytes);
     method_names.WriteTo(bytes);
     filenames.WriteTo(bytes);
+
+    VLOG(jdwp) << "GetRecentAllocations: data created. " << bytes.size();
   }
   JNIEnv* env = self->GetJniEnv();
   jbyteArray result = env->NewByteArray(bytes.size());

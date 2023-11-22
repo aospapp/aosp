@@ -133,20 +133,14 @@ public class KeyAgreementSpi
         try
         {
             result = agreement.calculateAgreement(pubKey);
-        // BEGIN android-changed
-        // Was:
-        // } catch (final Exception e) {
-        //     throw new InvalidKeyException("calculation failed: " + e.getMessage())
-        //     {
-        //         public Throwable getCause()
-        //                     {
-        //                         return e;
-        //                     }
-        //     };
-        // }
-        // END android-changed
-        } catch (IllegalStateException e) {
-            throw new InvalidKeyException("Invalid public key");
+        } catch (final Exception e) {
+            throw new InvalidKeyException("calculation failed: " + e.getMessage())
+            {
+                public Throwable getCause()
+                            {
+                                return e;
+                            }
+            };
         }
         return null;
     }

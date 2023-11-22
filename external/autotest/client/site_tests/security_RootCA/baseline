@@ -19,8 +19,6 @@
             "QuoVadis Root CA 3",
           "22:D5:D8:DF:8F:02:31:D1:8D:F7:9D:B7:CF:8A:2D:64:C9:3F:6C:3A":
             "VeriSign Class 3 Public Primary Certification Authority - G4",
-          "23:88:C9:D3:71:CC:9E:96:3D:FF:7D:3C:A7:CE:FC:D6:25:EC:19:0D":
-            "Microsec e-Szigno Root CA",
           "27:96:BA:E6:3F:18:01:E2:77:26:1B:A0:D7:77:70:02:8F:20:EE:E4":
             "Go Daddy Class 2 CA",
           "29:36:21:02:8B:20:ED:02:F5:66:C5:32:D1:D6:ED:90:9F:45:00:2F":
@@ -99,8 +97,6 @@
             "GlobalSign Root CA - R2",
           "78:6A:74:AC:76:AB:14:7F:9C:6A:30:50:BA:9E:A8:7E:FE:9A:CE:3C":
             "Chambers of Commerce Root - 2008",
-          "7F:8A:B0:CF:D0:51:87:6A:66:F3:36:0F:47:C8:8D:8C:D3:35:FC:74":
-            "ApplicationCA - Japanese Government",
           "85:A4:08:C0:9C:19:3E:5D:51:58:7D:CD:D6:13:30:FD:8C:DE:37:BF":
             "Deutsche Telekom Root CA 2",
           "87:82:C6:C3:04:35:3B:CF:D2:96:92:D2:59:3E:7D:44:D9:34:FF:11":
@@ -177,8 +173,6 @@
             "Comodo Trusted Services root",
           "E6:21:F3:35:43:79:05:9A:4B:68:30:9D:8A:2F:74:22:15:87:EC:79":
             "GeoTrust Universal CA",
-          "E7:B4:F6:9D:61:EC:90:69:DB:7E:90:A7:40:1A:3C:F4:7D:4F:E8:EE":
-            "WellsSecure Public Root Certificate Authority",
           "F1:8B:53:8D:1B:E9:03:B6:A6:F0:56:43:5B:17:15:89:CA:F3:6B:F2":
             "thawte Primary Root CA - G3",
           "F3:73:B3:87:06:5A:28:84:8A:F2:F3:4A:CE:19:2B:DD:C7:8E:9C:AC":
@@ -271,8 +265,6 @@
             "TÜRKTRUST Elektronik Sertifika Hizmet Sağlayıcısı H5",
           "BA:29:41:60:77:98:3F:F4:F3:EF:F2:31:05:3B:2E:EA:6D:4D:45:FD":
             "IdenTrust Public Sector Root CA 1",
-          "8A:5C:8C:EE:A5:03:E6:05:56:BA:D8:1B:D4:F6:C9:B0:ED:E5:2F:E0":
-            "TÜRKTRUST Elektronik Sertifika Hizmet Sağlayıcısı H6",
           "E2:B8:29:4B:55:84:AB:6B:58:C2:90:46:6C:AC:3F:B8:39:8F:84:83":
             "CFCA EV ROOT",
           "DF:71:7E:AA:4A:D9:4E:C9:55:84:99:60:2D:48:DE:5F:BC:F0:3A:25":
@@ -316,7 +308,9 @@
           "F6:10:84:07:D6:F8:BB:67:98:0C:C2:E2:44:C2:EB:AE:1C:EF:63:BE":
             "Amazon Root CA 4",
           "8D:A7:F9:65:EC:5E:FC:37:91:0F:1C:6E:59:FD:C1:CC:6A:6E:DE:16":
-            "Amazon Root CA 1"
+            "Amazon Root CA 1",
+          "31:43:64:9B:EC:CE:27:EC:ED:3A:3F:0B:8F:0D:E4:E8:91:DD:EE:CA":
+            "TUBITAK Kamu SM SSL Kok Sertifikasi - Surum 1"
         },
  "openssl": {
           "39:4F:F6:85:0B:06:BE:52:E5:18:56:CC:10:E1:80:E8:82:B3:85:CC":
@@ -410,6 +404,12 @@
           "40:9D:4B:D9:17:B5:5C:27:B6:9B:64:CB:98:22:44:0D:CD:09:B8:89":
             "Juur-SK",
           "A0:A1:AB:90:C9:FC:84:7B:3B:12:61:E8:97:7D:5F:D3:22:61:D3:CC":
-            "Buypass Class 2 CA 1"
+            "Buypass Class 2 CA 1",
+          "E7:B4:F6:9D:61:EC:90:69:DB:7E:90:A7:40:1A:3C:F4:7D:4F:E8:EE":
+            "WellsSecure Public Root Certificate Authority",
+          "7F:8A:B0:CF:D0:51:87:6A:66:F3:36:0F:47:C8:8D:8C:D3:35:FC:74":
+            "ApplicationCA - Japanese Government",
+          "23:88:C9:D3:71:CC:9E:96:3D:FF:7D:3C:A7:CE:FC:D6:25:EC:19:0D":
+            "Microsec e-Szigno Root CA"
         }
 }

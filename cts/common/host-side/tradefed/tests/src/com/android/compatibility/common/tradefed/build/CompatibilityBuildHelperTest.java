@@ -174,6 +174,40 @@ public class CompatibilityBuildHelperTest extends TestCase {
     }
 
     /**
+     * Test that adding dynamic config to be tracked for reporting is backed by {@link File}
+     * references and not absolute path. When sharding, path are invalidated but Files are copied.
+     */
+    public void testAddDynamicFiles() throws Exception {
+        File tmpDynamicFile = FileUtil.createTempFile("cts-test-file", ".dynamic");
+        FileUtil.writeToFile("test string", tmpDynamicFile);
+        try {
+            mHelper.addDynamicConfigFile("CtsModuleName", tmpDynamicFile);
+            File currentDynamicFile = mHelper.getDynamicConfigFiles().get("CtsModuleName");
+            assertNotNull(currentDynamicFile);
+            assertEquals(tmpDynamicFile, currentDynamicFile);
+            // In case of sharding the underlying build info will be cloned, and old build cleaned.
+            IBuildInfo clone = mBuild.clone();
+            try {
+                mBuild.cleanUp();
+                // With cleanup the current dynamic file tracked are cleaned
+                assertFalse(currentDynamicFile.exists());
+                CompatibilityBuildHelper helperShard = new CompatibilityBuildHelper(clone);
+                File newDynamicFile = helperShard.getDynamicConfigFiles().get("CtsModuleName");
+                assertNotNull(newDynamicFile);
+                // the cloned build has the infos but backed by other file
+                assertFalse(
+                        tmpDynamicFile.getAbsolutePath().equals(newDynamicFile.getAbsolutePath()));
+                // content has also followed.
+                assertEquals("test string", FileUtil.readStringFromFile(newDynamicFile));
+            } finally {
+                clone.cleanUp();
+            }
+        } finally {
+            FileUtil.deleteFile(tmpDynamicFile);
+        }
+    }
+
+    /**
      * Sets the *_ROOT property of the build's installation location.
      *
      * @param value the value to set, or null to clear the property.

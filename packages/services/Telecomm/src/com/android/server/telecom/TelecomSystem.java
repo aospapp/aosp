@@ -22,7 +22,6 @@ import com.android.server.telecom.bluetooth.BluetoothRouteManager;
 import com.android.server.telecom.components.UserCallIntentProcessor;
 import com.android.server.telecom.components.UserCallIntentProcessorFactory;
 import com.android.server.telecom.ui.IncomingCallNotifier;
-import com.android.server.telecom.ui.IncomingCallNotifier.IncomingCallNotifierFactory;
 import com.android.server.telecom.ui.MissedCallNotifierImpl.MissedCallNotifierImplFactory;
 import com.android.server.telecom.BluetoothPhoneServiceImpl.BluetoothPhoneServiceImplFactory;
 import com.android.server.telecom.CallAudioManager.AudioServiceFactory;
@@ -189,7 +188,9 @@ public class TelecomSystem {
             Timeouts.Adapter timeoutsAdapter,
             AsyncRingtonePlayer asyncRingtonePlayer,
             PhoneNumberUtilsAdapter phoneNumberUtilsAdapter,
-            IncomingCallNotifier incomingCallNotifier) {
+            IncomingCallNotifier incomingCallNotifier,
+            InCallTonePlayer.ToneGeneratorFactory toneGeneratorFactory,
+            ClockProxy clockProxy) {
         mContext = context.getApplicationContext();
         LogUtils.initLogging(mContext);
         DefaultDialerManagerAdapter defaultDialerAdapter =
@@ -253,7 +254,9 @@ public class TelecomSystem {
                 timeoutsAdapter,
                 asyncRingtonePlayer,
                 phoneNumberUtilsAdapter,
-                emergencyCallHelper);
+                emergencyCallHelper,
+                toneGeneratorFactory,
+                clockProxy);
 
         mIncomingCallNotifier = incomingCallNotifier;
         incomingCallNotifier.setCallsManagerProxy(new IncomingCallNotifier.CallsManagerProxy() {

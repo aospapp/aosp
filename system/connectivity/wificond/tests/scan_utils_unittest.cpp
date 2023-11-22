@@ -32,8 +32,10 @@ using std::placeholders::_1;
 using std::placeholders::_2;
 using std::unique_ptr;
 using std::vector;
+using testing::AllOf;
 using testing::Invoke;
 using testing::NiceMock;
+using testing::Not;
 using testing::Return;
 using testing::_;
 
@@ -106,6 +108,11 @@ MATCHER_P(DoesNL80211PacketMatchCommand, command,
   return arg.GetCommand() == command;
 }
 
+MATCHER_P(DoesNL80211PacketHaveAttribute, attr,
+          "Check if the netlink packet has atttribute |attr|") {
+  return arg.HasAttribute(attr);
+}
+
 TEST_F(ScanUtilsTest, CanGetScanResult) {
   vector<NativeScanResult> scan_results;
   EXPECT_CALL(
@@ -130,7 +137,9 @@ TEST_F(ScanUtilsTest, CanSendScanRequest) {
               WillOnce(Invoke(bind(
                   AppendMessageAndReturn, response, true, _1, _2)));
 
-  EXPECT_TRUE(scan_utils_.Scan(kFakeInterfaceIndex, kFakeUseRandomMAC, {}, {}));
+  int errno_ignored;
+  EXPECT_TRUE(scan_utils_.Scan(kFakeInterfaceIndex, kFakeUseRandomMAC, {}, {},
+                               &errno_ignored));
   // TODO(b/34231420): Add validation of requested scan ssids, threshold,
   // and frequencies.
 }
@@ -143,7 +152,10 @@ TEST_F(ScanUtilsTest, CanHandleScanRequestFailure) {
           DoesNL80211PacketMatchCommand(NL80211_CMD_TRIGGER_SCAN), _)).
               WillOnce(Invoke(bind(
                   AppendMessageAndReturn, response, true, _1, _2)));
-  EXPECT_FALSE(scan_utils_.Scan(kFakeInterfaceIndex, kFakeUseRandomMAC, {}, {}));
+  int error_code;
+  EXPECT_FALSE(scan_utils_.Scan(kFakeInterfaceIndex, kFakeUseRandomMAC, {}, {},
+                                &error_code));
+  EXPECT_EQ(kFakeErrorCode, error_code);
 }
 
 TEST_F(ScanUtilsTest, CanSendSchedScanRequest) {
@@ -154,10 +166,11 @@ TEST_F(ScanUtilsTest, CanSendSchedScanRequest) {
            DoesNL80211PacketMatchCommand(NL80211_CMD_START_SCHED_SCAN), _)).
               WillOnce(Invoke(bind(
                   AppendMessageAndReturn, response, true, _1, _2)));
+  int errno_ignored;
   EXPECT_TRUE(scan_utils_.StartScheduledScan(
       kFakeInterfaceIndex,
-      kFakeScheduledScanIntervalMs,
-      kFakeRssiThreshold, kFakeUseRandomMAC, {}, {}, {}));
+      SchedScanIntervalSetting(),
+      kFakeRssiThreshold, kFakeUseRandomMAC, {}, {}, {}, &errno_ignored));
   // TODO(b/34231420): Add validation of requested scan ssids, threshold,
   // and frequencies.
 }
@@ -170,10 +183,112 @@ TEST_F(ScanUtilsTest, CanHandleSchedScanRequestFailure) {
            DoesNL80211PacketMatchCommand(NL80211_CMD_START_SCHED_SCAN), _)).
               WillOnce(Invoke(bind(
                   AppendMessageAndReturn, response, true, _1, _2)));
+  int error_code;
   EXPECT_FALSE(scan_utils_.StartScheduledScan(
       kFakeInterfaceIndex,
-      kFakeScheduledScanIntervalMs,
-      kFakeRssiThreshold, kFakeUseRandomMAC, {}, {}, {}));
+      SchedScanIntervalSetting(),
+      kFakeRssiThreshold, kFakeUseRandomMAC, {}, {}, {}, &error_code));
+  EXPECT_EQ(kFakeErrorCode, error_code);
+}
+
+TEST_F(ScanUtilsTest, CanSpecifyScanPlansForSchedScanRequest) {
+  EXPECT_CALL(
+      netlink_manager_,
+       SendMessageAndGetResponses(
+           AllOf(
+               DoesNL80211PacketMatchCommand(NL80211_CMD_START_SCHED_SCAN),
+               DoesNL80211PacketHaveAttribute(NL80211_ATTR_SCHED_SCAN_PLANS),
+               Not(DoesNL80211PacketHaveAttribute(
+                   NL80211_ATTR_SCHED_SCAN_INTERVAL))),
+           _));
+  int errno_ignored;
+  SchedScanIntervalSetting interval_setting{
+      {{kFakeScheduledScanIntervalMs, 10 /* repeated times */}},
+      kFakeScheduledScanIntervalMs * 3 /* interval for infinite scans */};
+
+  scan_utils_.StartScheduledScan(
+      kFakeInterfaceIndex,
+      interval_setting,
+      kFakeRssiThreshold, kFakeUseRandomMAC, {}, {}, {}, &errno_ignored);
+}
+
+TEST_F(ScanUtilsTest, CanSpecifySingleIntervalForSchedScanRequest) {
+  EXPECT_CALL(
+      netlink_manager_,
+       SendMessageAndGetResponses(
+           AllOf(
+               DoesNL80211PacketMatchCommand(NL80211_CMD_START_SCHED_SCAN),
+               DoesNL80211PacketHaveAttribute(NL80211_ATTR_SCHED_SCAN_INTERVAL),
+               Not(DoesNL80211PacketHaveAttribute(
+                   NL80211_ATTR_SCHED_SCAN_PLANS))),
+           _));
+  int errno_ignored;
+  SchedScanIntervalSetting interval_setting{{}, kFakeScheduledScanIntervalMs};
+
+  scan_utils_.StartScheduledScan(
+      kFakeInterfaceIndex,
+      interval_setting,
+      kFakeRssiThreshold, kFakeUseRandomMAC, {}, {}, {}, &errno_ignored);
+}
+
+TEST_F(ScanUtilsTest, CanPrioritizeLastSeenSinceBootNetlinkAttribute) {
+  constexpr uint64_t kLastSeenTimestampNanoSeconds = 123456;
+  constexpr uint64_t kBssTsfTimestampMicroSeconds = 654321;
+  NL80211NestedAttr bss(NL80211_ATTR_BSS);
+  bss.AddAttribute(
+      NL80211Attr<uint64_t>(NL80211_BSS_LAST_SEEN_BOOTTIME,
+                            kLastSeenTimestampNanoSeconds));
+  bss.AddAttribute(
+      NL80211Attr<uint64_t>(NL80211_BSS_TSF, kBssTsfTimestampMicroSeconds));
+  uint64_t timestamp_microseconds;
+  EXPECT_TRUE(scan_utils_.GetBssTimestampForTesting(
+      bss, &timestamp_microseconds));
+  EXPECT_EQ(kLastSeenTimestampNanoSeconds/1000, timestamp_microseconds);
+}
+
+TEST_F(ScanUtilsTest, CanHandleMissingLastSeenSinceBootNetlinkAttribute) {
+  constexpr uint64_t kBssTsfTimestampMicroSeconds = 654321;
+  NL80211NestedAttr bss(NL80211_ATTR_BSS);
+  bss.AddAttribute(
+      NL80211Attr<uint64_t>(NL80211_BSS_TSF, kBssTsfTimestampMicroSeconds));
+  uint64_t timestamp_microseconds;
+  EXPECT_TRUE(scan_utils_.GetBssTimestampForTesting(
+      bss, &timestamp_microseconds));
+  EXPECT_EQ(kBssTsfTimestampMicroSeconds, timestamp_microseconds);
+}
+
+// Probe TSF is newer.
+TEST_F(ScanUtilsTest, CanPickMostRecentTimestampBetweenBetweenProbeAndBeacon1) {
+  constexpr uint64_t kBssBeaconTsfTimestampMicroSeconds = 654321;
+  constexpr uint64_t kBssTsfTimestampMicroSeconds =
+      kBssBeaconTsfTimestampMicroSeconds + 2000;
+  NL80211NestedAttr bss(NL80211_ATTR_BSS);
+  bss.AddAttribute(
+      NL80211Attr<uint64_t>(NL80211_BSS_BEACON_TSF,
+                            kBssBeaconTsfTimestampMicroSeconds));
+  bss.AddAttribute(
+      NL80211Attr<uint64_t>(NL80211_BSS_TSF, kBssTsfTimestampMicroSeconds));
+  uint64_t timestamp_microseconds;
+  EXPECT_TRUE(scan_utils_.GetBssTimestampForTesting(
+      bss, &timestamp_microseconds));
+  EXPECT_EQ(kBssTsfTimestampMicroSeconds, timestamp_microseconds);
+}
+
+// Beacon TSF is newer.
+TEST_F(ScanUtilsTest, CanPickMostRecentTimestampBetweenBetweenProbeAndBeacon2) {
+  constexpr uint64_t kBssTsfTimestampMicroSeconds = 654321;
+  constexpr uint64_t kBssBeaconTsfTimestampMicroSeconds =
+      kBssTsfTimestampMicroSeconds + 2000;
+  NL80211NestedAttr bss(NL80211_ATTR_BSS);
+  bss.AddAttribute(
+      NL80211Attr<uint64_t>(NL80211_BSS_BEACON_TSF,
+                            kBssBeaconTsfTimestampMicroSeconds));
+  bss.AddAttribute(
+      NL80211Attr<uint64_t>(NL80211_BSS_TSF, kBssTsfTimestampMicroSeconds));
+  uint64_t timestamp_microseconds;
+  EXPECT_TRUE(scan_utils_.GetBssTimestampForTesting(
+      bss, &timestamp_microseconds));
+  EXPECT_EQ(kBssBeaconTsfTimestampMicroSeconds, timestamp_microseconds);
 }
 
 }  // namespace wificond

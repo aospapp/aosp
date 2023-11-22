@@ -10,15 +10,14 @@ import android.os.Looper;
 import android.support.annotation.MainThread;
 import android.support.annotation.NonNull;
 import android.support.annotation.VisibleForTesting;
+import android.support.annotation.WorkerThread;
 import android.util.Log;
 
 import com.android.tv.common.SharedPreferencesUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Scanner;
 import java.util.concurrent.TimeUnit;
@@ -28,15 +27,15 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>When there is no access to watched table of TvProvider,
  * this class is used to build up watched history and to compute recent channels.
+ * <p>Note that this class is not thread safe. Please use this on one thread.
  */
 public class WatchedHistoryManager {
     private final static String TAG = "WatchedHistoryManager";
-    private final boolean DEBUG = false;
+    private final static boolean DEBUG = false;
 
     private static final int MAX_HISTORY_SIZE = 10000;
     private static final String PREF_KEY_LAST_INDEX = "last_index";
     private static final long MIN_DURATION_MS = TimeUnit.SECONDS.toMillis(10);
-    private static final long RECENT_CHANNEL_THRESHOLD_MS = TimeUnit.MINUTES.toMillis(5);
 
     private final List<WatchedRecord> mWatchedHistory = new ArrayList<>();
     private final List<WatchedRecord> mPendingRecords = new ArrayList<>();
@@ -92,11 +91,7 @@ public class WatchedHistoryManager {
     WatchedHistoryManager(Context context, int maxHistorySize) {
         mContext = context.getApplicationContext();
         mMaxHistorySize = maxHistorySize;
-        if (Looper.myLooper() == null) {
-            mHandler = new Handler(Looper.getMainLooper());
-        } else {
-            mHandler = new Handler();
-        }
+        mHandler = new Handler();
     }
 
     /**
@@ -107,56 +102,70 @@ public class WatchedHistoryManager {
             return;
         }
         mStarted = true;
-        new AsyncTask<Void, Void, Void>() {
-            @Override
-            protected Void doInBackground(Void... params) {
-                mSharedPreferences = mContext.getSharedPreferences(
-                        SharedPreferencesUtils.SHARED_PREF_WATCHED_HISTORY, Context.MODE_PRIVATE);
-                mLastIndex = mSharedPreferences.getLong(PREF_KEY_LAST_INDEX, -1);
-                if (mLastIndex >= 0 && mLastIndex < mMaxHistorySize) {
-                    for (int i = 0; i <= mLastIndex; ++i) {
-                        WatchedRecord record =
-                                decode(mSharedPreferences.getString(getSharedPreferencesKey(i),
-                                        null));
-                        if (record != null) {
-                            mWatchedHistory.add(record);
-                        }
-                    }
-                } else if (mLastIndex >= mMaxHistorySize) {
-                    for (long i = mLastIndex - mMaxHistorySize + 1; i <= mLastIndex; ++i) {
-                        WatchedRecord record = decode(mSharedPreferences.getString(
-                                getSharedPreferencesKey(i), null));
-                        if (record != null) {
-                            mWatchedHistory.add(record);
-                        }
-                    }
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            new AsyncTask<Void, Void, Void>() {
+                @Override
+                protected Void doInBackground(Void... params) {
+                    loadWatchedHistory();
+                    return null;
                 }
-                return null;
-            }
 
-            @Override
-            protected void onPostExecute(Void params) {
-                mLoaded = true;
-                if (DEBUG) {
-                    Log.d(TAG, "Loaded: size=" + mWatchedHistory.size() + " index=" + mLastIndex);
+                @Override
+                protected void onPostExecute(Void params) {
+                    onLoadFinished();
                 }
-                if (!mPendingRecords.isEmpty()) {
-                    Editor editor = mSharedPreferences.edit();
-                    for (WatchedRecord record : mPendingRecords) {
-                        mWatchedHistory.add(record);
-                        ++mLastIndex;
-                        editor.putString(getSharedPreferencesKey(mLastIndex), encode(record));
-                    }
-                    editor.putLong(PREF_KEY_LAST_INDEX, mLastIndex).apply();
-                    mPendingRecords.clear();
+            }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        } else {
+            loadWatchedHistory();
+            onLoadFinished();
+        }
+    }
+
+    @WorkerThread
+    private void loadWatchedHistory() {
+        mSharedPreferences = mContext.getSharedPreferences(
+                SharedPreferencesUtils.SHARED_PREF_WATCHED_HISTORY, Context.MODE_PRIVATE);
+        mLastIndex = mSharedPreferences.getLong(PREF_KEY_LAST_INDEX, -1);
+        if (mLastIndex >= 0 && mLastIndex < mMaxHistorySize) {
+            for (int i = 0; i <= mLastIndex; ++i) {
+                WatchedRecord record =
+                        decode(mSharedPreferences.getString(getSharedPreferencesKey(i),
+                                null));
+                if (record != null) {
+                    mWatchedHistory.add(record);
                 }
-                if (mListener != null) {
-                    mListener.onLoadFinished();
-                }
-                mSharedPreferences.registerOnSharedPreferenceChangeListener(
-                        mOnSharedPreferenceChangeListener);
             }
-        }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        } else if (mLastIndex >= mMaxHistorySize) {
+            for (long i = mLastIndex - mMaxHistorySize + 1; i <= mLastIndex; ++i) {
+                WatchedRecord record = decode(mSharedPreferences.getString(
+                        getSharedPreferencesKey(i), null));
+                if (record != null) {
+                    mWatchedHistory.add(record);
+                }
+            }
+        }
+    }
+
+    private void onLoadFinished() {
+        mLoaded = true;
+        if (DEBUG) {
+            Log.d(TAG, "Loaded: size=" + mWatchedHistory.size() + " index=" + mLastIndex);
+        }
+        if (!mPendingRecords.isEmpty()) {
+            Editor editor = mSharedPreferences.edit();
+            for (WatchedRecord record : mPendingRecords) {
+                mWatchedHistory.add(record);
+                ++mLastIndex;
+                editor.putString(getSharedPreferencesKey(mLastIndex), encode(record));
+            }
+            editor.putLong(PREF_KEY_LAST_INDEX, mLastIndex).apply();
+            mPendingRecords.clear();
+        }
+        if (mListener != null) {
+            mListener.onLoadFinished();
+        }
+        mSharedPreferences.registerOnSharedPreferenceChangeListener(
+                mOnSharedPreferenceChangeListener);
     }
 
     @VisibleForTesting
@@ -202,52 +211,6 @@ public class WatchedHistoryManager {
     @NonNull
     public List<WatchedRecord> getWatchedHistory() {
         return Collections.unmodifiableList(mWatchedHistory);
-    }
-
-    /**
-     * Returns the list of recently watched channels.
-     */
-    public List<Channel> buildRecentChannel(ChannelDataManager channelDataManager, int maxCount) {
-        List<Channel> list = new ArrayList<>();
-        Map<Long, Long> durationMap = new HashMap<>();
-        for (int i = mWatchedHistory.size() - 1; i >= 0; --i) {
-            WatchedRecord record = mWatchedHistory.get(i);
-            long channelId = record.channelId;
-            Channel channel = channelDataManager.getChannel(channelId);
-            if (channel == null || !channel.isBrowsable()) {
-                continue;
-            }
-            Long duration = durationMap.get(channelId);
-            if (duration == null) {
-                duration = 0L;
-            }
-            if (duration >= RECENT_CHANNEL_THRESHOLD_MS) {
-                continue;
-            }
-            if (list.isEmpty()) {
-                // We put the first recent channel regardless of RECENT_CHANNEL_THREASHOLD.
-                // It has the similar functionality as the previous channel in a usual remote
-                // controller.
-                list.add(channel);
-                durationMap.put(channelId, RECENT_CHANNEL_THRESHOLD_MS);
-            } else {
-                duration += record.duration;
-                durationMap.put(channelId, duration);
-                if (duration >= RECENT_CHANNEL_THRESHOLD_MS) {
-                    list.add(channel);
-                }
-            }
-            if (list.size() >= maxCount) {
-                break;
-            }
-        }
-        if (DEBUG) {
-            Log.d(TAG, "Build recent channel");
-            for (Channel channel : list) {
-                Log.d(TAG, "recent channel: " + channel);
-            }
-        }
-        return list;
     }
 
     @VisibleForTesting

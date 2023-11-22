@@ -20,7 +20,9 @@
 
 #include "arch/context.h"
 #include "art_method-inl.h"
+#include "art_field-inl.h"
 #include "atomic.h"
+#include "base/callee_save_type.h"
 #include "class_linker.h"
 #include "debugger.h"
 #include "dex_file-inl.h"
@@ -31,6 +33,7 @@
 #include "interpreter/interpreter.h"
 #include "jit/jit.h"
 #include "jit/jit_code_cache.h"
+#include "jvalue-inl.h"
 #include "mirror/class-inl.h"
 #include "mirror/dex_cache.h"
 #include "mirror/object_array-inl.h"
@@ -44,6 +47,30 @@ namespace art {
 namespace instrumentation {
 
 constexpr bool kVerboseInstrumentation = false;
+
+void InstrumentationListener::MethodExited(Thread* thread,
+                                           Handle<mirror::Object> this_object,
+                                           ArtMethod* method,
+                                           uint32_t dex_pc,
+                                           Handle<mirror::Object> return_value) {
+  DCHECK_EQ(method->GetInterfaceMethodIfProxy(kRuntimePointerSize)->GetReturnTypePrimitive(),
+            Primitive::kPrimNot);
+  JValue v;
+  v.SetL(return_value.Get());
+  MethodExited(thread, this_object, method, dex_pc, v);
+}
+
+void InstrumentationListener::FieldWritten(Thread* thread,
+                                           Handle<mirror::Object> this_object,
+                                           ArtMethod* method,
+                                           uint32_t dex_pc,
+                                           ArtField* field,
+                                           Handle<mirror::Object> field_value) {
+  DCHECK(!field->IsPrimitiveType());
+  JValue v;
+  v.SetL(field_value.Get());
+  FieldWritten(thread, this_object, method, dex_pc, field, v);
+}
 
 // Instrumentation works on non-inlined frames by updating returned PCs
 // of compiled frames.
@@ -357,7 +384,7 @@ static void InstrumentationRestoreStack(Thread* thread, void* arg)
             LOG(INFO) << "  Removing exit stub in " << DescribeLocation();
           }
           if (instrumentation_frame.interpreter_entry_) {
-            CHECK(m == Runtime::Current()->GetCalleeSaveMethod(Runtime::kSaveRefsAndArgs));
+            CHECK(m == Runtime::Current()->GetCalleeSaveMethod(CalleeSaveType::kSaveRefsAndArgs));
           } else {
             CHECK(m == instrumentation_frame.method_) << ArtMethod::PrettyMethod(m);
           }
@@ -916,48 +943,75 @@ const void* Instrumentation::GetQuickCodeFor(ArtMethod* method, PointerSize poin
   return class_linker->GetQuickOatCodeFor(method);
 }
 
-void Instrumentation::MethodEnterEventImpl(Thread* thread, mirror::Object* this_object,
+void Instrumentation::MethodEnterEventImpl(Thread* thread,
+                                           ObjPtr<mirror::Object> this_object,
                                            ArtMethod* method,
                                            uint32_t dex_pc) const {
   if (HasMethodEntryListeners()) {
+    Thread* self = Thread::Current();
+    StackHandleScope<1> hs(self);
+    Handle<mirror::Object> thiz(hs.NewHandle(this_object));
     for (InstrumentationListener* listener : method_entry_listeners_) {
       if (listener != nullptr) {
-        listener->MethodEntered(thread, this_object, method, dex_pc);
+        listener->MethodEntered(thread, thiz, method, dex_pc);
       }
     }
   }
 }
 
-void Instrumentation::MethodExitEventImpl(Thread* thread, mirror::Object* this_object,
+void Instrumentation::MethodExitEventImpl(Thread* thread,
+                                          ObjPtr<mirror::Object> this_object,
                                           ArtMethod* method,
-                                          uint32_t dex_pc, const JValue& return_value) const {
+                                          uint32_t dex_pc,
+                                          const JValue& return_value) const {
   if (HasMethodExitListeners()) {
-    for (InstrumentationListener* listener : method_exit_listeners_) {
-      if (listener != nullptr) {
-        listener->MethodExited(thread, this_object, method, dex_pc, return_value);
+    Thread* self = Thread::Current();
+    StackHandleScope<2> hs(self);
+    Handle<mirror::Object> thiz(hs.NewHandle(this_object));
+    if (method->GetInterfaceMethodIfProxy(kRuntimePointerSize)
+              ->GetReturnTypePrimitive() != Primitive::kPrimNot) {
+      for (InstrumentationListener* listener : method_exit_listeners_) {
+        if (listener != nullptr) {
+          listener->MethodExited(thread, thiz, method, dex_pc, return_value);
+        }
+      }
+    } else {
+      Handle<mirror::Object> ret(hs.NewHandle(return_value.GetL()));
+      for (InstrumentationListener* listener : method_exit_listeners_) {
+        if (listener != nullptr) {
+          listener->MethodExited(thread, thiz, method, dex_pc, ret);
+        }
       }
     }
   }
 }
 
-void Instrumentation::MethodUnwindEvent(Thread* thread, mirror::Object* this_object,
+void Instrumentation::MethodUnwindEvent(Thread* thread,
+                                        mirror::Object* this_object,
                                         ArtMethod* method,
                                         uint32_t dex_pc) const {
   if (HasMethodUnwindListeners()) {
+    Thread* self = Thread::Current();
+    StackHandleScope<1> hs(self);
+    Handle<mirror::Object> thiz(hs.NewHandle(this_object));
     for (InstrumentationListener* listener : method_unwind_listeners_) {
       if (listener != nullptr) {
-        listener->MethodUnwind(thread, this_object, method, dex_pc);
+        listener->MethodUnwind(thread, thiz, method, dex_pc);
       }
     }
   }
 }
 
-void Instrumentation::DexPcMovedEventImpl(Thread* thread, mirror::Object* this_object,
+void Instrumentation::DexPcMovedEventImpl(Thread* thread,
+                                          ObjPtr<mirror::Object> this_object,
                                           ArtMethod* method,
                                           uint32_t dex_pc) const {
+  Thread* self = Thread::Current();
+  StackHandleScope<1> hs(self);
+  Handle<mirror::Object> thiz(hs.NewHandle(this_object));
   for (InstrumentationListener* listener : dex_pc_listeners_) {
     if (listener != nullptr) {
-      listener->DexPcMoved(thread, this_object, method, dex_pc);
+      listener->DexPcMoved(thread, thiz, method, dex_pc);
     }
   }
 }
@@ -974,36 +1028,56 @@ void Instrumentation::BranchImpl(Thread* thread,
 }
 
 void Instrumentation::InvokeVirtualOrInterfaceImpl(Thread* thread,
-                                                   mirror::Object* this_object,
+                                                   ObjPtr<mirror::Object> this_object,
                                                    ArtMethod* caller,
                                                    uint32_t dex_pc,
                                                    ArtMethod* callee) const {
-  // We cannot have thread suspension since that would cause the this_object parameter to
-  // potentially become a dangling pointer. An alternative could be to put it in a handle instead.
-  ScopedAssertNoThreadSuspension ants(__FUNCTION__);
+  Thread* self = Thread::Current();
+  StackHandleScope<1> hs(self);
+  Handle<mirror::Object> thiz(hs.NewHandle(this_object));
   for (InstrumentationListener* listener : invoke_virtual_or_interface_listeners_) {
     if (listener != nullptr) {
-      listener->InvokeVirtualOrInterface(thread, this_object, caller, dex_pc, callee);
+      listener->InvokeVirtualOrInterface(thread, thiz, caller, dex_pc, callee);
     }
   }
 }
 
-void Instrumentation::FieldReadEventImpl(Thread* thread, mirror::Object* this_object,
-                                         ArtMethod* method, uint32_t dex_pc,
+void Instrumentation::FieldReadEventImpl(Thread* thread,
+                                         ObjPtr<mirror::Object> this_object,
+                                         ArtMethod* method,
+                                         uint32_t dex_pc,
                                          ArtField* field) const {
+  Thread* self = Thread::Current();
+  StackHandleScope<1> hs(self);
+  Handle<mirror::Object> thiz(hs.NewHandle(this_object));
   for (InstrumentationListener* listener : field_read_listeners_) {
     if (listener != nullptr) {
-      listener->FieldRead(thread, this_object, method, dex_pc, field);
+      listener->FieldRead(thread, thiz, method, dex_pc, field);
     }
   }
 }
 
-void Instrumentation::FieldWriteEventImpl(Thread* thread, mirror::Object* this_object,
-                                         ArtMethod* method, uint32_t dex_pc,
-                                         ArtField* field, const JValue& field_value) const {
-  for (InstrumentationListener* listener : field_write_listeners_) {
-    if (listener != nullptr) {
-      listener->FieldWritten(thread, this_object, method, dex_pc, field, field_value);
+void Instrumentation::FieldWriteEventImpl(Thread* thread,
+                                          ObjPtr<mirror::Object> this_object,
+                                          ArtMethod* method,
+                                          uint32_t dex_pc,
+                                          ArtField* field,
+                                          const JValue& field_value) const {
+  Thread* self = Thread::Current();
+  StackHandleScope<2> hs(self);
+  Handle<mirror::Object> thiz(hs.NewHandle(this_object));
+  if (field->IsPrimitiveType()) {
+    for (InstrumentationListener* listener : field_write_listeners_) {
+      if (listener != nullptr) {
+        listener->FieldWritten(thread, thiz, method, dex_pc, field, field_value);
+      }
+    }
+  } else {
+    Handle<mirror::Object> val(hs.NewHandle(field_value.GetL()));
+    for (InstrumentationListener* listener : field_write_listeners_) {
+      if (listener != nullptr) {
+        listener->FieldWritten(thread, thiz, method, dex_pc, field, val);
+      }
     }
   }
 }
@@ -1018,7 +1092,7 @@ void Instrumentation::ExceptionCaughtEvent(Thread* thread,
     thread->ClearException();
     for (InstrumentationListener* listener : exception_caught_listeners_) {
       if (listener != nullptr) {
-        listener->ExceptionCaught(thread, h_exception.Get());
+        listener->ExceptionCaught(thread, h_exception);
       }
     }
     thread->SetException(h_exception.Get());
@@ -1049,25 +1123,40 @@ static void CheckStackDepth(Thread* self, const InstrumentationStackFrame& instr
 void Instrumentation::PushInstrumentationStackFrame(Thread* self, mirror::Object* this_object,
                                                     ArtMethod* method,
                                                     uintptr_t lr, bool interpreter_entry) {
-  // We have a callee-save frame meaning this value is guaranteed to never be 0.
-  size_t frame_id = StackVisitor::ComputeNumFrames(self, kInstrumentationStackWalk);
+  DCHECK(!self->IsExceptionPending());
   std::deque<instrumentation::InstrumentationStackFrame>* stack = self->GetInstrumentationStack();
   if (kVerboseInstrumentation) {
     LOG(INFO) << "Entering " << ArtMethod::PrettyMethod(method) << " from PC "
               << reinterpret_cast<void*>(lr);
   }
-  instrumentation::InstrumentationStackFrame instrumentation_frame(this_object, method, lr,
+
+  // We send the enter event before pushing the instrumentation frame to make cleanup easier. If the
+  // event causes an exception we can simply send the unwind event and return.
+  StackHandleScope<1> hs(self);
+  Handle<mirror::Object> h_this(hs.NewHandle(this_object));
+  if (!interpreter_entry) {
+    MethodEnterEvent(self, h_this.Get(), method, 0);
+    if (self->IsExceptionPending()) {
+      MethodUnwindEvent(self, h_this.Get(), method, 0);
+      return;
+    }
+  }
+
+  // We have a callee-save frame meaning this value is guaranteed to never be 0.
+  DCHECK(!self->IsExceptionPending());
+  size_t frame_id = StackVisitor::ComputeNumFrames(self, kInstrumentationStackWalk);
+
+  instrumentation::InstrumentationStackFrame instrumentation_frame(h_this.Get(), method, lr,
                                                                    frame_id, interpreter_entry);
   stack->push_front(instrumentation_frame);
-
-  if (!interpreter_entry) {
-    MethodEnterEvent(self, this_object, method, 0);
-  }
 }
 
-TwoWordReturn Instrumentation::PopInstrumentationStackFrame(Thread* self, uintptr_t* return_pc,
-                                                            uint64_t gpr_result,
-                                                            uint64_t fpr_result) {
+TwoWordReturn Instrumentation::PopInstrumentationStackFrame(Thread* self,
+                                                            uintptr_t* return_pc,
+                                                            uint64_t* gpr_result,
+                                                            uint64_t* fpr_result) {
+  DCHECK(gpr_result != nullptr);
+  DCHECK(fpr_result != nullptr);
   // Do the pop.
   std::deque<instrumentation::InstrumentationStackFrame>* stack = self->GetInstrumentationStack();
   CHECK_GT(stack->size(), 0U);
@@ -1083,13 +1172,20 @@ TwoWordReturn Instrumentation::PopInstrumentationStackFrame(Thread* self, uintpt
   uint32_t length;
   const PointerSize pointer_size = Runtime::Current()->GetClassLinker()->GetImagePointerSize();
   char return_shorty = method->GetInterfaceMethodIfProxy(pointer_size)->GetShorty(&length)[0];
+  bool is_ref = return_shorty == '[' || return_shorty == 'L';
+  StackHandleScope<1> hs(self);
+  MutableHandle<mirror::Object> res(hs.NewHandle<mirror::Object>(nullptr));
   JValue return_value;
   if (return_shorty == 'V') {
     return_value.SetJ(0);
   } else if (return_shorty == 'F' || return_shorty == 'D') {
-    return_value.SetJ(fpr_result);
+    return_value.SetJ(*fpr_result);
   } else {
-    return_value.SetJ(gpr_result);
+    return_value.SetJ(*gpr_result);
+  }
+  if (is_ref) {
+    // Take a handle to the return value so we won't lose it if we suspend.
+    res.Assign(return_value.GetL());
   }
   // TODO: improve the dex pc information here, requires knowledge of current PC as opposed to
   //       return_pc.
@@ -1106,6 +1202,10 @@ TwoWordReturn Instrumentation::PopInstrumentationStackFrame(Thread* self, uintpt
   bool deoptimize = (visitor.caller != nullptr) &&
                     (interpreter_stubs_installed_ || IsDeoptimized(visitor.caller) ||
                     Dbg::IsForcedInterpreterNeededForUpcall(self, visitor.caller));
+  if (is_ref) {
+    // Restore the return value if it's a reference since it might have moved.
+    *reinterpret_cast<mirror::Object**>(gpr_result) = res.Get();
+  }
   if (deoptimize && Runtime::Current()->IsAsyncDeoptimizeable(*return_pc)) {
     if (kVerboseInstrumentation) {
       LOG(INFO) << "Deoptimizing "
@@ -1140,9 +1240,8 @@ uintptr_t Instrumentation::PopMethodForUnwind(Thread* self, bool is_deoptimizati
   // Do the pop.
   std::deque<instrumentation::InstrumentationStackFrame>* stack = self->GetInstrumentationStack();
   CHECK_GT(stack->size(), 0U);
+  size_t idx = stack->size();
   InstrumentationStackFrame instrumentation_frame = stack->front();
-  // TODO: bring back CheckStackDepth(self, instrumentation_frame, 2);
-  stack->pop_front();
 
   ArtMethod* method = instrumentation_frame.method_;
   if (is_deoptimization) {
@@ -1160,6 +1259,10 @@ uintptr_t Instrumentation::PopMethodForUnwind(Thread* self, bool is_deoptimizati
     uint32_t dex_pc = DexFile::kDexNoIndex;
     MethodUnwindEvent(self, instrumentation_frame.this_object_, method, dex_pc);
   }
+  // TODO: bring back CheckStackDepth(self, instrumentation_frame, 2);
+  CHECK_EQ(stack->size(), idx);
+  DCHECK(instrumentation_frame.method_ == stack->front().method_);
+  stack->pop_front();
   return instrumentation_frame.return_pc_;
 }
 

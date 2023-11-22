@@ -243,7 +243,11 @@ public class HvacController extends Service {
     }
 
     void handleHvacPowerOn(boolean isOn) {
-        if (mDataStore.shouldPropagateHvacPowerUpdate(isOn)) {
+        boolean shouldPropagate = mDataStore.shouldPropagateHvacPowerUpdate(isOn);
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "Hvac Power On: " + isOn + " should propagate: " + shouldPropagate);
+        }
+        if (shouldPropagate) {
             synchronized (mCallbacks) {
                 for (int i = 0; i < mCallbacks.size(); i++) {
                     mCallbacks.get(i).onHvacPowerChange(isOn);
@@ -253,7 +257,12 @@ public class HvacController extends Service {
     }
 
     void handleSeatWarmerUpdate(int zone, int level) {
-        if (mDataStore.shouldPropagateSeatWarmerLevelUpdate(zone, level)) {
+        boolean shouldPropagate = mDataStore.shouldPropagateSeatWarmerLevelUpdate(zone, level);
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "Seat Warmer Update, zone: " + zone + " level: " + level +
+                    " should propagate: " + shouldPropagate);
+        }
+        if (shouldPropagate) {
             synchronized (mCallbacks) {
                 for (int i = 0; i < mCallbacks.size(); i++) {
                     if (zone == VehicleZone.ZONE_ROW_1_LEFT) {
@@ -267,7 +276,13 @@ public class HvacController extends Service {
     }
 
     private void handleAirCirculationUpdate(boolean airCirculationState) {
-        if (mDataStore.shouldPropagateAirCirculationUpdate(airCirculationState)) {
+        boolean shouldPropagate
+                = mDataStore.shouldPropagateAirCirculationUpdate(airCirculationState);
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "Air Circulation Update: " + airCirculationState +
+                    " should propagate: " + shouldPropagate);
+        }
+        if (shouldPropagate) {
             synchronized (mCallbacks) {
                 for (int i = 0; i < mCallbacks.size(); i++) {
                     mCallbacks.get(i).onAirCirculationChange(airCirculationState);
@@ -277,7 +292,12 @@ public class HvacController extends Service {
     }
 
     private void handleAutoModeUpdate(boolean autoModeState) {
-        if (mDataStore.shouldPropagateAutoModeUpdate(autoModeState)) {
+        boolean shouldPropagate = mDataStore.shouldPropagateAutoModeUpdate(autoModeState);
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "AutoMode Update, id: " + autoModeState +
+                    " should propagate: " + shouldPropagate);
+        }
+        if (shouldPropagate) {
             synchronized (mCallbacks) {
                 for (int i = 0; i < mCallbacks.size(); i++) {
                     mCallbacks.get(i).onAutoModeChange(autoModeState);
@@ -287,7 +307,12 @@ public class HvacController extends Service {
     }
 
     private void handleAcStateUpdate(boolean acState) {
-        if (mDataStore.shouldPropagateAcUpdate(acState)) {
+        boolean shouldPropagate = mDataStore.shouldPropagateAcUpdate(acState);
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "AC State Update, id: " + acState +
+                    " should propagate: " + shouldPropagate);
+        }
+        if (shouldPropagate) {
             synchronized (mCallbacks) {
                 for (int i = 0; i < mCallbacks.size(); i++) {
                     mCallbacks.get(i).onAcStateChange(acState);
@@ -298,7 +323,12 @@ public class HvacController extends Service {
 
     private void handleFanPositionUpdate(int zone, int position) {
         int index = fanPositionToAirflowIndex(position);
-        if (mDataStore.shouldPropagateFanPositionUpdate(zone, index)) {
+        boolean shouldPropagate = mDataStore.shouldPropagateFanPositionUpdate(zone, index);
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "Fan Position Update, zone: " + zone + " position: " + position +
+                    " should propagate: " + shouldPropagate);
+        }
+        if (shouldPropagate) {
             synchronized (mCallbacks) {
                 for (int i = 0; i < mCallbacks.size(); i++) {
                     mCallbacks.get(i).onFanDirectionChange(position);
@@ -308,7 +338,12 @@ public class HvacController extends Service {
     }
 
     private void handleFanSpeedUpdate(int zone, int speed) {
-        if (mDataStore.shouldPropagateFanSpeedUpdate(zone, speed)) {
+        boolean shouldPropagate = mDataStore.shouldPropagateFanSpeedUpdate(zone, speed);
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "Fan Speed Update, zone: " + zone + " speed: " + speed +
+                    " should propagate: " + shouldPropagate);
+        }
+        if (shouldPropagate) {
             synchronized (mCallbacks) {
                 for (int i = 0; i < mCallbacks.size(); i++) {
                     mCallbacks.get(i).onFanSpeedChange(speed);
@@ -318,7 +353,12 @@ public class HvacController extends Service {
     }
 
     private void handleTempUpdate(int zone, float temp) {
-        if (mDataStore.shouldPropagateTempUpdate(zone, temp)) {
+        boolean shouldPropagate = mDataStore.shouldPropagateTempUpdate(zone, temp);
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "Temp Update, zone: " + zone + " temp: " + temp +
+                    " should propagate: " + shouldPropagate);
+        }
+        if (shouldPropagate) {
             int userTemperature =  mPolicy.hardwareToUserTemp(temp);
             synchronized (mCallbacks) {
                 for (int i = 0; i < mCallbacks.size(); i++) {
@@ -335,7 +375,12 @@ public class HvacController extends Service {
     }
 
     private void handleDefrosterUpdate(int zone, boolean defrosterState) {
-        if (mDataStore.shouldPropagateDefrosterUpdate(zone, defrosterState)) {
+        boolean shouldPropagate = mDataStore.shouldPropagateDefrosterUpdate(zone, defrosterState);
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "Defroster Update, zone: " + zone + " state: " + defrosterState +
+                    " should propagate: " + shouldPropagate);
+        }
+        if (shouldPropagate) {
             synchronized (mCallbacks) {
                 for (int i = 0; i < mCallbacks.size(); i++) {
                     if (zone == VehicleWindow.WINDOW_FRONT_WINDSHIELD) {
@@ -345,7 +390,6 @@ public class HvacController extends Service {
                     }
                 }
             }
-
         }
     }
 

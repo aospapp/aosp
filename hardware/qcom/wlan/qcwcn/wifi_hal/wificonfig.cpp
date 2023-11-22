@@ -32,6 +32,7 @@
 #include <time.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include "wificonfigcommand.h"
 
 /* Implementation of the API functions exposed in wifi_config.h */
@@ -100,7 +101,7 @@ wifi_error wifi_extended_dtim_config_set(wifi_request_id id,
 
 cleanup:
     delete wifiConfigCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /* Set the country code to driver. */
@@ -151,7 +152,7 @@ wifi_error wifi_set_country_code(wifi_interface_handle iface,
 
 cleanup:
     delete wifiConfigCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 wifi_error wifi_set_beacon_wifi_iface_stats_averaging_factor(
@@ -219,7 +220,7 @@ wifi_error wifi_set_beacon_wifi_iface_stats_averaging_factor(
 
 cleanup:
     delete wifiConfigCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 wifi_error wifi_set_guard_time(wifi_request_id id,
@@ -283,7 +284,135 @@ wifi_error wifi_set_guard_time(wifi_request_id id,
 
 cleanup:
     delete wifiConfigCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
+}
+
+wifi_error wifi_select_tx_power_scenario(wifi_interface_handle handle,
+                                         wifi_power_scenario scenario)
+{
+    int ret = 0;
+    WiFiConfigCommand *wifiConfigCommand;
+    struct nlattr *nlData;
+    interface_info *ifaceInfo = getIfaceInfo(handle);
+    wifi_handle wifiHandle = getWifiHandle(handle);
+    u32 bdf_file = 0;
+
+    ALOGV("%s : power scenario:%d", __FUNCTION__, scenario);
+
+    wifiConfigCommand = new WiFiConfigCommand(
+                            wifiHandle,
+                            1,
+                            OUI_QCA,
+                            QCA_NL80211_VENDOR_SUBCMD_SET_SAR_LIMITS);
+    if (wifiConfigCommand == NULL) {
+        ALOGE("%s: Error wifiConfigCommand NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
+
+    /* Create the NL message. */
+    ret = wifiConfigCommand->create();
+    if (ret < 0) {
+        ALOGE("wifi_select_tx_power_scenario: failed to create NL msg. Error:%d", ret);
+        goto cleanup;
+    }
+
+    /* Set the interface Id of the message. */
+    ret = wifiConfigCommand->set_iface_id(ifaceInfo->name);
+    if (ret < 0) {
+        ALOGE("wifi_select_tx_power_scenario: failed to set iface id. Error:%d", ret);
+        goto cleanup;
+    }
+
+    /* Add the vendor specific attributes for the NL command. */
+    nlData = wifiConfigCommand->attr_start(NL80211_ATTR_VENDOR_DATA);
+    if (!nlData) {
+        ALOGE("wifi_select_tx_power_scenario: failed attr_start for VENDOR_DATA. "
+            "Error:%d", ret);
+        goto cleanup;
+    }
+
+    if (scenario == WIFI_POWER_SCENARIO_VOICE_CALL) {
+        bdf_file = QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT_BDF0;
+    } else {
+        ALOGE("wifi_select_tx_power_scenario: invalid scenario %d", scenario);
+        ret = WIFI_ERROR_INVALID_ARGS;
+        goto cleanup;
+    }
+    if (wifiConfigCommand->put_u32(
+                      QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SAR_ENABLE,
+                      bdf_file)) {
+        ALOGE("failed to put SAR_ENABLE");
+        goto cleanup;
+    }
+    wifiConfigCommand->attr_end(nlData);
+
+    ret = wifiConfigCommand->requestEvent();
+    if (ret != 0) {
+        ALOGE("wifi_select_tx_power_scenario(): requestEvent Error:%d", ret);
+        goto cleanup;
+    }
+
+cleanup:
+    delete wifiConfigCommand;
+    return mapErrorKernelToWifiHAL(ret);
+}
+
+wifi_error wifi_reset_tx_power_scenario(wifi_interface_handle handle)
+{
+    int ret = 0;
+    WiFiConfigCommand *wifiConfigCommand;
+    struct nlattr *nlData;
+    interface_info *ifaceInfo = getIfaceInfo(handle);
+    wifi_handle wifiHandle = getWifiHandle(handle);
+
+    wifiConfigCommand = new WiFiConfigCommand(
+                            wifiHandle,
+                            1,
+                            OUI_QCA,
+                            QCA_NL80211_VENDOR_SUBCMD_SET_SAR_LIMITS);
+    if (wifiConfigCommand == NULL) {
+        ALOGE("%s: Error wifiConfigCommand NULL", __FUNCTION__);
+        return WIFI_ERROR_UNKNOWN;
+    }
+
+    /* Create the NL message. */
+    ret = wifiConfigCommand->create();
+    if (ret < 0) {
+        ALOGE("wifi_reset_tx_power_scenario: failed to create NL msg. Error:%d", ret);
+        goto cleanup;
+    }
+
+    /* Set the interface Id of the message. */
+    ret = wifiConfigCommand->set_iface_id(ifaceInfo->name);
+    if (ret < 0) {
+        ALOGE("wifi_reset_tx_power_scenario: failed to set iface id. Error:%d", ret);
+        goto cleanup;
+    }
+
+    /* Add the vendor specific attributes for the NL command. */
+    nlData = wifiConfigCommand->attr_start(NL80211_ATTR_VENDOR_DATA);
+    if (!nlData) {
+        ALOGE("wifi_reset_tx_power_scenario: failed attr_start for VENDOR_DATA. "
+            "Error:%d", ret);
+        goto cleanup;
+    }
+
+    if (wifiConfigCommand->put_u32(QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SAR_ENABLE,
+                               QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT_NONE)) {
+        ALOGE("failed to put SAR_ENABLE or NUM_SPECS");
+        goto cleanup;
+    }
+    wifiConfigCommand->attr_end(nlData);
+
+    ret = wifiConfigCommand->requestEvent();
+    if (ret != 0) {
+        ALOGE("wifi_reset_tx_power_scenario(): requestEvent Error:%d", ret);
+        goto cleanup;
+    }
+
+cleanup:
+    delete wifiConfigCommand;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 WiFiConfigCommand::WiFiConfigCommand(wifi_handle handle,

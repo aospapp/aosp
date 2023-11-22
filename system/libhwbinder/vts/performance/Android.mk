@@ -83,7 +83,7 @@ LOCAL_MODULE := libhwbinder_latency
 
 LOCAL_MODULE_TAGS := eng tests
 
-LOCAL_SRC_FILES := Latency.cpp
+LOCAL_SRC_FILES := Latency.cpp PerfTest.cpp
 LOCAL_SHARED_LIBRARIES := \
     libhwbinder \
     libhidlbase \

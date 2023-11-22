@@ -59,12 +59,18 @@ func makeVarsProvider(ctx android.MakeVarsContext) {
 		ctx.Strict("BOARD_VNDK_VERSION", "")
 	}
 
-	ctx.Strict("ADDRESS_SANITIZER_CONFIG_EXTRA_CFLAGS", asanCflags)
-	ctx.Strict("ADDRESS_SANITIZER_CONFIG_EXTRA_LDFLAGS", asanLdflags)
-	ctx.Strict("ADDRESS_SANITIZER_CONFIG_EXTRA_STATIC_LIBRARIES", asanLibs)
+	ctx.Strict("VNDK_CORE_LIBRARIES", strings.Join(vndkCoreLibraries, " "))
+	ctx.Strict("VNDK_SAMEPROCESS_LIBRARIES", strings.Join(vndkSpLibraries, " "))
+	ctx.Strict("LLNDK_LIBRARIES", strings.Join(llndkLibraries, " "))
 
-	ctx.Strict("CFI_EXTRA_CFLAGS", cfiCflags)
-	ctx.Strict("CFI_EXTRA_LDFLAGS", cfiLdflags)
+	ctx.Strict("ADDRESS_SANITIZER_CONFIG_EXTRA_CFLAGS", strings.Join(asanCflags, " "))
+	ctx.Strict("ADDRESS_SANITIZER_CONFIG_EXTRA_LDFLAGS", strings.Join(asanLdflags, " "))
+	ctx.Strict("ADDRESS_SANITIZER_CONFIG_EXTRA_STATIC_LIBRARIES", strings.Join(asanLibs, " "))
+
+	ctx.Strict("CFI_EXTRA_CFLAGS", strings.Join(cfiCflags, " "))
+	ctx.Strict("CFI_EXTRA_LDFLAGS", strings.Join(cfiLdflags, " "))
+
+	ctx.Strict("INTEGER_OVERFLOW_EXTRA_CFLAGS", strings.Join(intOverflowCflags, " "))
 
 	ctx.Strict("DEFAULT_C_STD_VERSION", config.CStdVersion)
 	ctx.Strict("DEFAULT_CPP_STD_VERSION", config.CppStdVersion)
@@ -78,7 +84,19 @@ func makeVarsProvider(ctx android.MakeVarsContext) {
 
 	ctx.Strict("AIDL_CPP", "${aidlCmd}")
 
-	includeFlags, err := ctx.Eval("${config.CommonGlobalIncludes} ${config.CommonGlobalSystemIncludes}")
+	ctx.Strict("RS_GLOBAL_INCLUDES", "${config.RsGlobalIncludes}")
+
+	nativeHelperIncludeFlags, err := ctx.Eval("${config.CommonNativehelperInclude}")
+	if err != nil {
+		panic(err)
+	}
+	nativeHelperIncludes, nativeHelperSystemIncludes := splitSystemIncludes(ctx, nativeHelperIncludeFlags)
+	if len(nativeHelperSystemIncludes) > 0 {
+		panic("native helper may not have any system includes")
+	}
+	ctx.Strict("JNI_H_INCLUDE", strings.Join(nativeHelperIncludes, " "))
+
+	includeFlags, err := ctx.Eval("${config.CommonGlobalIncludes}")
 	if err != nil {
 		panic(err)
 	}
@@ -209,6 +227,7 @@ func makeVarsToolchain(ctx android.MakeVarsContext, secondPrefix string,
 		if target.Os.Class == android.Device {
 			ctx.Strict(secondPrefix+"ADDRESS_SANITIZER_RUNTIME_LIBRARY", strings.TrimSuffix(config.AddressSanitizerRuntimeLibrary(toolchain), ".so"))
 			ctx.Strict(secondPrefix+"UBSAN_RUNTIME_LIBRARY", strings.TrimSuffix(config.UndefinedBehaviorSanitizerRuntimeLibrary(toolchain), ".so"))
+			ctx.Strict(secondPrefix+"TSAN_RUNTIME_LIBRARY", strings.TrimSuffix(config.ThreadSanitizerRuntimeLibrary(toolchain), ".so"))
 		}
 
 		// This is used by external/gentoo/...

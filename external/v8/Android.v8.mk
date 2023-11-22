@@ -23,7 +23,7 @@ LOCAL_SRC_FILES := \
 	src/assembler.cc \
 	src/assert-scope.cc \
 	src/ast/ast-expression-rewriter.cc \
-	src/ast/ast-literal-reindexer.cc \
+	src/ast/ast-function-literal-id-reindexer.cc \
 	src/ast/ast-numbering.cc \
 	src/ast/ast-types.cc \
 	src/ast/ast-value-factory.cc \
@@ -32,7 +32,6 @@ LOCAL_SRC_FILES := \
 	src/ast/context-slot-cache.cc \
 	src/ast/modules.cc \
 	src/ast/prettyprinter.cc \
-	src/ast/scopeinfo.cc \
 	src/ast/scopes.cc \
 	src/ast/variables.cc \
 	src/background-parsing-task.cc \
@@ -43,11 +42,16 @@ LOCAL_SRC_FILES := \
 	src/bit-vector.cc \
 	src/bootstrapper.cc \
 	src/builtins/builtins-api.cc \
+	src/builtins/builtins-arguments.cc \
 	src/builtins/builtins-array.cc \
 	src/builtins/builtins-arraybuffer.cc \
+	src/builtins/builtins-async-function.cc \
+	src/builtins/builtins-async-iterator.cc \
+	src/builtins/builtins-async.cc \
 	src/builtins/builtins-boolean.cc \
 	src/builtins/builtins-call.cc \
 	src/builtins/builtins-callsite.cc \
+	src/builtins/builtins-constructor.cc \
 	src/builtins/builtins-conversion.cc \
 	src/builtins/builtins-dataview.cc \
 	src/builtins/builtins-date.cc \
@@ -57,9 +61,9 @@ LOCAL_SRC_FILES := \
 	src/builtins/builtins-generator.cc \
 	src/builtins/builtins-global.cc \
 	src/builtins/builtins-handler.cc \
+	src/builtins/builtins-ic.cc \
 	src/builtins/builtins-internal.cc \
 	src/builtins/builtins-interpreter.cc \
-	src/builtins/builtins-iterator.cc \
 	src/builtins/builtins-json.cc \
 	src/builtins/builtins-math.cc \
 	src/builtins/builtins-number.cc \
@@ -72,6 +76,7 @@ LOCAL_SRC_FILES := \
 	src/builtins/builtins-string.cc \
 	src/builtins/builtins-symbol.cc \
 	src/builtins/builtins-typedarray.cc \
+	src/builtins/builtins-wasm.cc \
 	src/builtins/builtins.cc \
 	src/cached-powers.cc \
 	src/cancelable-task.cc \
@@ -87,6 +92,7 @@ LOCAL_SRC_FILES := \
 	src/compilation-statistics.cc \
 	src/compiler-dispatcher/compiler-dispatcher-job.cc \
 	src/compiler-dispatcher/compiler-dispatcher-tracer.cc \
+	src/compiler-dispatcher/compiler-dispatcher.cc \
 	src/compiler-dispatcher/optimizing-compile-dispatcher.cc \
 	src/compiler.cc \
 	src/compiler/access-builder.cc \
@@ -96,9 +102,9 @@ LOCAL_SRC_FILES := \
 	src/compiler/ast-loop-assignment-analyzer.cc \
 	src/compiler/basic-block-instrumentor.cc \
 	src/compiler/branch-elimination.cc \
-	src/compiler/bytecode-branch-analysis.cc \
+	src/compiler/bytecode-analysis.cc \
 	src/compiler/bytecode-graph-builder.cc \
-	src/compiler/bytecode-loop-analysis.cc \
+	src/compiler/bytecode-liveness-map.cc \
 	src/compiler/c-linkage.cc \
 	src/compiler/checkpoint-elimination.cc \
 	src/compiler/code-assembler.cc \
@@ -118,6 +124,7 @@ LOCAL_SRC_FILES := \
 	src/compiler/frame-states.cc \
 	src/compiler/frame.cc \
 	src/compiler/gap-resolver.cc \
+	src/compiler/graph-assembler.cc \
 	src/compiler/graph-reducer.cc \
 	src/compiler/graph-replay.cc \
 	src/compiler/graph-trimmer.cc \
@@ -133,13 +140,13 @@ LOCAL_SRC_FILES := \
 	src/compiler/js-create-lowering.cc \
 	src/compiler/js-frame-specialization.cc \
 	src/compiler/js-generic-lowering.cc \
-	src/compiler/js-global-object-specialization.cc \
 	src/compiler/js-graph.cc \
 	src/compiler/js-inlining-heuristic.cc \
 	src/compiler/js-inlining.cc \
 	src/compiler/js-intrinsic-lowering.cc \
 	src/compiler/js-native-context-specialization.cc \
 	src/compiler/js-operator.cc \
+	src/compiler/js-type-hint-lowering.cc \
 	src/compiler/js-typed-lowering.cc \
 	src/compiler/jump-threading.cc \
 	src/compiler/linkage.cc \
@@ -182,7 +189,6 @@ LOCAL_SRC_FILES := \
 	src/compiler/store-store-elimination.cc \
 	src/compiler/tail-call-optimization.cc \
 	src/compiler/type-cache.cc \
-	src/compiler/type-hint-analyzer.cc \
 	src/compiler/typed-optimization.cc \
 	src/compiler/typer.cc \
 	src/compiler/types.cc \
@@ -225,6 +231,7 @@ LOCAL_SRC_FILES := \
 	src/crankshaft/typing.cc \
 	src/date.cc \
 	src/dateparser.cc \
+	src/debug/debug-coverage.cc \
 	src/debug/debug-evaluate.cc \
 	src/debug/debug-frames.cc \
 	src/debug/debug-scopes.cc \
@@ -249,6 +256,8 @@ LOCAL_SRC_FILES := \
 	src/factory.cc \
 	src/fast-accessor-assembler.cc \
 	src/fast-dtoa.cc \
+	src/feedback-vector.cc \
+	src/ffi/ffi-compiler.cc \
 	src/field-type.cc \
 	src/fixed-dtoa.cc \
 	src/flags.cc \
@@ -260,6 +269,7 @@ LOCAL_SRC_FILES := \
 	src/handles.cc \
 	src/heap/array-buffer-tracker.cc \
 	src/heap/code-stats.cc \
+	src/heap/embedder-tracing.cc \
 	src/heap/gc-idle-time-handler.cc \
 	src/heap/gc-tracer.cc \
 	src/heap/heap.cc \
@@ -275,18 +285,21 @@ LOCAL_SRC_FILES := \
 	src/heap/store-buffer.cc \
 	src/i18n.cc \
 	src/ic/access-compiler.cc \
+	src/ic/accessor-assembler.cc \
 	src/ic/call-optimization.cc \
 	src/ic/handler-compiler.cc \
-	src/ic/ic-compiler.cc \
 	src/ic/ic-state.cc \
+	src/ic/ic-stats.cc \
 	src/ic/ic.cc \
 	src/ic/keyed-store-generic.cc \
 	src/ic/stub-cache.cc \
 	src/icu_util.cc \
 	src/identity-map.cc \
 	src/interface-descriptors.cc \
+	src/interpreter/bytecode-array-accessor.cc \
 	src/interpreter/bytecode-array-builder.cc \
 	src/interpreter/bytecode-array-iterator.cc \
+	src/interpreter/bytecode-array-random-iterator.cc \
 	src/interpreter/bytecode-array-writer.cc \
 	src/interpreter/bytecode-dead-code-optimizer.cc \
 	src/interpreter/bytecode-decoder.cc \
@@ -315,18 +328,23 @@ LOCAL_SRC_FILES := \
 	src/lookup-cache.cc \
 	src/lookup.cc \
 	src/machine-type.cc \
+	src/map-updater.cc \
 	src/messages.cc \
 	src/objects-debug.cc \
 	src/objects-printer.cc \
 	src/objects.cc \
+	src/objects/literal-objects.cc \
+	src/objects/scope-info.cc \
 	src/ostreams.cc \
 	src/parsing/duplicate-finder.cc \
 	src/parsing/func-name-inferrer.cc \
 	src/parsing/parameter-initializer-rewriter.cc \
 	src/parsing/parse-info.cc \
 	src/parsing/parser.cc \
+	src/parsing/parsing.cc \
 	src/parsing/pattern-rewriter.cc \
 	src/parsing/preparse-data.cc \
+	src/parsing/preparsed-scope-data.cc \
 	src/parsing/preparser.cc \
 	src/parsing/rewriter.cc \
 	src/parsing/scanner-character-streams.cc \
@@ -344,7 +362,6 @@ LOCAL_SRC_FILES := \
 	src/profiler/strings-storage.cc \
 	src/profiler/tick-sample.cc \
 	src/profiler/tracing-cpu-profiler.cc \
-	src/promise-utils.cc \
 	src/property-descriptor.cc \
 	src/property.cc \
 	src/regexp/interpreter-irregexp.cc \
@@ -384,7 +401,6 @@ LOCAL_SRC_FILES := \
 	src/runtime/runtime-proxy.cc \
 	src/runtime/runtime-regexp.cc \
 	src/runtime/runtime-scopes.cc \
-	src/runtime/runtime-simd.cc \
 	src/runtime/runtime-strings.cc \
 	src/runtime/runtime-symbol.cc \
 	src/runtime/runtime-test.cc \
@@ -405,13 +421,13 @@ LOCAL_SRC_FILES := \
 	src/source-position.cc \
 	src/startup-data-util.cc \
 	src/string-builder.cc \
+	src/string-case.cc \
 	src/string-stream.cc \
 	src/strtod.cc \
 	src/tracing/trace-event.cc \
 	src/tracing/traced-value.cc \
 	src/tracing/tracing-category-observer.cc \
 	src/transitions.cc \
-	src/type-feedback-vector.cc \
 	src/type-hints.cc \
 	src/type-info.cc \
 	src/unicode-decoder.cc \
@@ -422,9 +438,10 @@ LOCAL_SRC_FILES := \
 	src/v8threads.cc \
 	src/value-serializer.cc \
 	src/version.cc \
-	src/wasm/ast-decoder.cc \
+	src/wasm/function-body-decoder.cc \
 	src/wasm/module-decoder.cc \
 	src/wasm/signature-map.cc \
+	src/wasm/wasm-code-specialization.cc \
 	src/wasm/wasm-debug.cc \
 	src/wasm/wasm-external-refs.cc \
 	src/wasm/wasm-interpreter.cc \
@@ -434,6 +451,7 @@ LOCAL_SRC_FILES := \
 	src/wasm/wasm-objects.cc \
 	src/wasm/wasm-opcodes.cc \
 	src/wasm/wasm-result.cc \
+	src/wasm/wasm-text.cc \
 	src/zone/accounting-allocator.cc \
 	src/zone/zone-segment.cc \
 	src/zone/zone.cc
@@ -463,8 +481,6 @@ LOCAL_SRC_FILES_arm += \
 	src/ic/arm/access-compiler-arm.cc \
 	src/ic/arm/handler-compiler-arm.cc \
 	src/ic/arm/ic-arm.cc \
-	src/ic/arm/ic-compiler-arm.cc \
-	src/ic/arm/stub-cache-arm.cc \
 	src/regexp/arm/regexp-macro-assembler-arm.cc
 LOCAL_SRC_FILES_arm64 += \
 	src/arm64/assembler-arm64.cc \
@@ -496,8 +512,6 @@ LOCAL_SRC_FILES_arm64 += \
 	src/ic/arm64/access-compiler-arm64.cc \
 	src/ic/arm64/handler-compiler-arm64.cc \
 	src/ic/arm64/ic-arm64.cc \
-	src/ic/arm64/ic-compiler-arm64.cc \
-	src/ic/arm64/stub-cache-arm64.cc \
 	src/regexp/arm64/regexp-macro-assembler-arm64.cc
 LOCAL_SRC_FILES_mips += \
 	src/builtins/mips/builtins-mips.cc \
@@ -511,9 +525,7 @@ LOCAL_SRC_FILES_mips += \
 	src/full-codegen/mips/full-codegen-mips.cc \
 	src/ic/mips/access-compiler-mips.cc \
 	src/ic/mips/handler-compiler-mips.cc \
-	src/ic/mips/ic-compiler-mips.cc \
 	src/ic/mips/ic-mips.cc \
-	src/ic/mips/stub-cache-mips.cc \
 	src/mips/assembler-mips.cc \
 	src/mips/code-stubs-mips.cc \
 	src/mips/codegen-mips.cc \
@@ -538,9 +550,7 @@ LOCAL_SRC_FILES_mips64 += \
 	src/full-codegen/mips64/full-codegen-mips64.cc \
 	src/ic/mips64/access-compiler-mips64.cc \
 	src/ic/mips64/handler-compiler-mips64.cc \
-	src/ic/mips64/ic-compiler-mips64.cc \
 	src/ic/mips64/ic-mips64.cc \
-	src/ic/mips64/stub-cache-mips64.cc \
 	src/mips64/assembler-mips64.cc \
 	src/mips64/code-stubs-mips64.cc \
 	src/mips64/codegen-mips64.cc \
@@ -575,9 +585,7 @@ LOCAL_SRC_FILES_x86 += \
 	src/ia32/simulator-ia32.cc \
 	src/ic/ia32/access-compiler-ia32.cc \
 	src/ic/ia32/handler-compiler-ia32.cc \
-	src/ic/ia32/ic-compiler-ia32.cc \
 	src/ic/ia32/ic-ia32.cc \
-	src/ic/ia32/stub-cache-ia32.cc \
 	src/regexp/ia32/regexp-macro-assembler-ia32.cc
 LOCAL_SRC_FILES_x86_64 += \
 	src/builtins/x64/builtins-x64.cc \
@@ -592,9 +600,7 @@ LOCAL_SRC_FILES_x86_64 += \
 	src/full-codegen/x64/full-codegen-x64.cc \
 	src/ic/x64/access-compiler-x64.cc \
 	src/ic/x64/handler-compiler-x64.cc \
-	src/ic/x64/ic-compiler-x64.cc \
 	src/ic/x64/ic-x64.cc \
-	src/ic/x64/stub-cache-x64.cc \
 	src/regexp/x64/regexp-macro-assembler-x64.cc \
 	src/x64/assembler-x64.cc \
 	src/x64/code-stubs-x64.cc \

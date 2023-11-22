@@ -19,6 +19,7 @@ Test the HFP profile for calling and connection management.
 
 import time
 
+from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.BluetoothCarHfpBaseTest import BluetoothCarHfpBaseTest
 from acts.test_utils.bt import BtEnum
@@ -57,7 +58,7 @@ class BtCarHfpConnectionTest(BluetoothCarHfpBaseTest):
         self.hf.droid.bluetoothDisconnectConnected(
             self.ag.droid.bluetoothGetLocalAddress())
 
-    #@BluetoothTest(UUID=a6669f9b-fb49-4bd8-aa9c-9d6369e34442)
+    @test_tracker_info(uuid='a6669f9b-fb49-4bd8-aa9c-9d6369e34442')
     @BluetoothBaseTest.bt_test_wrap
     def test_call_transfer_disconnect_connect(self):
         """
@@ -96,8 +97,9 @@ class BtCarHfpConnectionTest(BluetoothCarHfpBaseTest):
             return False
 
         # Now connect the devices.
-        if not bt_test_utils.connect_pri_to_sec(self.hf, self.ag, set(
-            [BtEnum.BluetoothProfile.HEADSET_CLIENT.value])):
+        if not bt_test_utils.connect_pri_to_sec(
+                self.hf, self.ag,
+                set([BtEnum.BluetoothProfile.HEADSET_CLIENT.value])):
             self.log.error("Could not connect HF and AG {} {}".format(
                 self.hf.serial, self.ag.serial))
             return False
@@ -116,7 +118,7 @@ class BtCarHfpConnectionTest(BluetoothCarHfpBaseTest):
 
         return ret
 
-    #@BluetoothTest(UUID=97727b64-a590-4d84-a257-1facd8aafd16)
+    @test_tracker_info(uuid='97727b64-a590-4d84-a257-1facd8aafd16')
     @BluetoothBaseTest.bt_test_wrap
     def test_call_transfer_off_on(self):
         """
@@ -140,8 +142,9 @@ class BtCarHfpConnectionTest(BluetoothCarHfpBaseTest):
         Priority: 1
         """
         # Connect HF & AG
-        if not bt_test_utils.connect_pri_to_sec(self.hf, self.ag, set(
-            [BtEnum.BluetoothProfile.HEADSET_CLIENT.value])):
+        if not bt_test_utils.connect_pri_to_sec(
+                self.hf, self.ag,
+                set([BtEnum.BluetoothProfile.HEADSET_CLIENT.value])):
             self.log.error("Could not connect HF and AG {} {}".format(
                 self.hf.serial, self.ag.serial))
             return False
@@ -195,7 +198,7 @@ class BtCarHfpConnectionTest(BluetoothCarHfpBaseTest):
 
         return ret
 
-    #@BluetoothTest(UUID=95f76e2c-1cdd-4a7c-8e26-863b4c4242be)
+    @test_tracker_info(uuid='95f76e2c-1cdd-4a7c-8e26-863b4c4242be')
     @BluetoothBaseTest.bt_test_wrap
     def test_call_transfer_connect_disconnect_connect(self):
         """
@@ -221,8 +224,9 @@ class BtCarHfpConnectionTest(BluetoothCarHfpBaseTest):
         Priority: 1
         """
         # Now connect the devices.
-        if not bt_test_utils.connect_pri_to_sec(self.hf, self.ag, set(
-            [BtEnum.BluetoothProfile.HEADSET_CLIENT.value])):
+        if not bt_test_utils.connect_pri_to_sec(
+                self.hf, self.ag,
+                set([BtEnum.BluetoothProfile.HEADSET_CLIENT.value])):
             self.log.error("Could not connect HF and AG {} {}".format(
                 self.hf.serial, self.ag.serial))
             return False
@@ -267,8 +271,9 @@ class BtCarHfpConnectionTest(BluetoothCarHfpBaseTest):
             return False
 
         # Now connect the devices.
-        if not bt_test_utils.connect_pri_to_sec(self.hf, self.ag, set(
-            [BtEnum.BluetoothProfile.HEADSET_CLIENT.value])):
+        if not bt_test_utils.connect_pri_to_sec(
+                self.hf, self.ag,
+                set([BtEnum.BluetoothProfile.HEADSET_CLIENT.value])):
             self.log.error("Could not connect HF and AG {} {}".format(
                 self.hf.serial, self.ag.serial))
             # Additional profile connection check for b/

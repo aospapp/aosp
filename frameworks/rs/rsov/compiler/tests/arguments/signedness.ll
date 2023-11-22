@@ -1,16 +1,16 @@
 ; RUN: rs2spirv_lit_driver.sh %s | FileCheck %s
 
-; CHECK: OpDecorate [[InVar1:%.*]] Binding 2
-; CHECK: OpDecorate [[OutVar1:%.*]] Binding 1
+; CHECK: OpDecorate [[InVar1:%.*]] Binding 3
+; CHECK: OpDecorate [[OutVar1:%.*]] Binding 2
 
-; CHECK: OpDecorate [[InVar2:%.*]] Binding 2
-; CHECK: OpDecorate [[OutVar2:%.*]] Binding 1
+; CHECK: OpDecorate [[InVar2:%.*]] Binding 3
+; CHECK: OpDecorate [[OutVar2:%.*]] Binding 2
 
-; CHECK: OpDecorate [[InVar3:%.*]] Binding 2
-; CHECK: OpDecorate [[OutVar3:%.*]] Binding 1
+; CHECK: OpDecorate [[InVar3:%.*]] Binding 3
+; CHECK: OpDecorate [[OutVar3:%.*]] Binding 2
 
-; CHECK: OpDecorate [[InVar4:%.*]] Binding 2
-; CHECK: OpDecorate [[OutVar4:%.*]] Binding 1
+; CHECK: OpDecorate [[InVar4:%.*]] Binding 3
+; CHECK: OpDecorate [[OutVar4:%.*]] Binding 2
 
 ; CHECK: [[MemberTy1:%.*]] = OpTypeRuntimeArray %v4uint
 ; CHECK: [[Struct1:%.*]] = OpTypeStruct [[MemberTy1]]

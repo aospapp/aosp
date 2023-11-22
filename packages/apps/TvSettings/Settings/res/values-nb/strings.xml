@@ -59,7 +59,7 @@
     <string name="device_storage_clear_cache_title" msgid="3365635664766067643">"Vil du slette bufrede data?"</string>
     <string name="device_storage_clear_cache_message" msgid="6495570470005696210">"Dette sletter bufrede data for alle apper."</string>
     <string name="apps_downloaded" msgid="4222190849854323480">"Nedlastede apper"</string>
-    <string name="apps_system" msgid="2499191125802829425">"System-apper"</string>
+    <string name="apps_system" msgid="2499191125802829425">"Systemapper"</string>
     <string name="apps_running" msgid="6430310491739956228">"Kjørende apper"</string>
     <string name="accessories_add" msgid="1347802656349218830">"Legg til tilbehør"</string>
     <string name="accessory_state_pairing" msgid="7501989679637780963">"Kobler til ..."</string>
@@ -319,7 +319,7 @@
     <string name="learn_more_action" msgid="7015991954404958779">"Finn ut mer"</string>
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"Prøv på nytt"</string>
     <string name="wifi_wps_title" msgid="1872305810119408482">"Søker etter WPS-ruter …"</string>
-    <string name="wifi_wps_instructions" msgid="3618110962669110034">"Trykk på Beskyttet Wi-Fi-konfigurasjon-knappen på ruteren din.\nDen kan være merket WPS eller symbolet til venstre."</string>
+    <string name="wifi_wps_instructions" msgid="3618110962669110034">"Trykk på Beskyttet Wi-Fi-konfigurasjon-knappen på ruteren din.\nDen kan være merket med WPS eller symbolet til venstre."</string>
     <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"Skriv inn PIN-koden <xliff:g id="NUMBER">%1$s</xliff:g> på Wi-Fi-ruteren din"</string>
     <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"Etter at du har skrevet inn PIN-koden, kan konfigurasjonen ta opptil to minutter å fullføre"</string>
     <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"Fant ikke Wi-Fi-ruteren"</string>
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"Tjenester"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Tjenesteinnstillinger"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Tekst med høy kontrast"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Tilgjengelighetssnarvei"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Slå på tilgjengelighetssnarveien"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Snarveitjeneste"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Når snarveien er på, kan du trykke på både tilbake- og ned-knappen i tre sekunder for å starte en tilgjengelighetsfunksjon."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Teksting"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Innstillinger for å legge over teksting på videoer"</string>
     <string name="captions_display" msgid="735692527287125548">"Visning"</string>
@@ -566,9 +570,9 @@
     <string name="app_not_supported_in_limited" msgid="6818309827329010677">"Denne appen støttes ikke i begrensede profiler"</string>
     <string name="app_sees_restricted_accounts" msgid="1967195038085624916">"Denne appen har tilgang til kontoene dine"</string>
     <string name="restriction_location_enable_title" msgid="2575116135395354938">"Posisjon"</string>
-    <string name="restriction_location_enable_summary" msgid="4195349388342385870">"Tillat at apper bruke posisjonsinformasjonen din"</string>
-    <string name="restricted_profile_switch_to" msgid="1926433350907032138">"Angi den begrensede profilen"</string>
-    <string name="restricted_profile_switch_out" msgid="1893784095623209495">"Lukk den begrensede profilen"</string>
+    <string name="restriction_location_enable_summary" msgid="4195349388342385870">"Tillat apper å bruke posisjonsinformasjonen din"</string>
+    <string name="restricted_profile_switch_to" msgid="1926433350907032138">"Gå til den begrensede profilen"</string>
+    <string name="restricted_profile_switch_out" msgid="1893784095623209495">"Gå ut av den begrensede profilen"</string>
     <string name="restricted_profile_delete_title" msgid="3445944923018324707">"Slett den begrensede profilen"</string>
     <string name="restricted_profile_create_title" msgid="1392190365829029390">"Opprett en begrenset profil"</string>
     <string name="restricted_profile_configure_title" msgid="4684188123147519620">"Innstillinger"</string>
@@ -603,7 +607,7 @@
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"Avinstaller"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Avinstaller oppdateringer"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"Alle oppdateringer i denne Android-systemappen blir avinstallert."</string>
-    <string name="device_apps_app_management_disable" msgid="6136528600052941589">"Slå av"</string>
+    <string name="device_apps_app_management_disable" msgid="6136528600052941589">"Deaktiver"</string>
     <string name="device_apps_app_management_disable_desc" msgid="1295507373252301108">"Vil du deaktivere denne appen?"</string>
     <string name="device_apps_app_management_enable" msgid="3246823119203444608">"Slå på"</string>
     <string name="device_apps_app_management_enable_desc" msgid="7490219375247065314">"Vil du aktivere denne appen?"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Henter feilrapporten"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Tilgjengelige virtuelle tastaturer"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Administrer tastaturer"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Tillatt"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Ikke tillatt"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Brukstilgang"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Med brukstilgang kan apper spore hvilke andre apper du bruker, og hvor ofte du bruker dem. Operatør, språkinnstillinger og annen informasjon kan også spores med brukstilgang."</string>
 </resources>

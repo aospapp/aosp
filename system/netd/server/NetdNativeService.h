@@ -47,6 +47,19 @@ class NetdNativeService : public BinderService<NetdNativeService>, public BnNetd
     binder::Status getResolverInfo(int32_t netId, std::vector<std::string>* servers,
             std::vector<std::string>* domains, std::vector<int32_t>* params,
             std::vector<int32_t>* stats) override;
+    binder::Status addPrivateDnsServer(const std::string& server, int32_t port,
+            const std::string& fingerprintAlgorithm,
+            const std::vector<std::string>& fingerprints) override;
+    binder::Status removePrivateDnsServer(const std::string& server) override;
+
+    binder::Status setIPv6AddrGenMode(const std::string& ifName, int32_t mode) override;
+
+    // NFLOG-related commands
+    binder::Status wakeupAddInterface(const std::string& ifName, const std::string& prefix,
+                                      int32_t mark, int32_t mask) override;
+
+    binder::Status wakeupDelInterface(const std::string& ifName, const std::string& prefix,
+                                      int32_t mark, int32_t mask) override;
 
     // Tethering-related commands.
     binder::Status tetherApplyDnsInterfaces(bool *ret) override;
@@ -88,8 +101,7 @@ class NetdNativeService : public BinderService<NetdNativeService>, public BnNetd
             int32_t cryptTruncBits,
             int32_t encapType,
             int32_t encapLocalPort,
-            int32_t encapRemotePort,
-            int32_t* allocatedSpi);
+            int32_t encapRemotePort);
 
     binder::Status ipSecDeleteSecurityAssociation(
             int32_t transformId,
@@ -108,7 +120,6 @@ class NetdNativeService : public BinderService<NetdNativeService>, public BnNetd
 
     binder::Status ipSecRemoveTransportModeTransform(
             const android::base::unique_fd& socket);
-
 };
 
 }  // namespace net

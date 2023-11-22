@@ -119,7 +119,6 @@ CtsProtoTestCases
 CtsProviderTestCases
 CtsRenderscriptLegacyTestCases
 CtsRenderscriptTestCases
-CtsRetailDemoHostTestCases
 CtsRsBlasTestCases
 CtsRsCppTestCases
 CtsSampleDeviceTestCases

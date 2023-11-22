@@ -25,6 +25,7 @@ import android.content.pm.PackageInstaller;
 import android.content.pm.ResolveInfo;
 import android.os.Process;
 import android.os.UserHandle;
+import android.os.UserManager;
 import android.text.TextUtils;
 
 import java.util.concurrent.CountDownLatch;
@@ -48,7 +49,7 @@ public class SessionCommitBroadcastTest extends BasePackageInstallTest {
         mThisAppLauncher = new ComponentName(mContext, LauncherActivity.class);
     }
 
-    public void testBroadcastReceivedForDifferentLauncher() throws Exception {
+    public void testBroadcastNotReceivedForDifferentLauncher() throws Exception {
         if (!mHasFeature) {
             return;
         }
@@ -107,7 +108,7 @@ public class SessionCommitBroadcastTest extends BasePackageInstallTest {
     }
 
     public void testBroadcastReceivedForEnablingApp() throws Exception {
-        if (!mHasFeature) {
+        if (!mHasFeature || !UserManager.supportsMultipleUsers()) {
             return;
         }
         setLauncher(mThisAppLauncher.flattenToString());

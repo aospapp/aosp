@@ -378,6 +378,7 @@ static int path_apply(struct audio_route *ar, struct mixer_path *path)
     struct mixer_ctl *ctl;
     enum mixer_ctl_type type;
 
+    ALOGD("Apply path: %s", path->name != NULL ? path->name : "none");
     for (i = 0; i < path->length; i++) {
         ctl_index = path->setting[i].ctl_index;
         ctl = index_to_ctl(ar, ctl_index);
@@ -399,6 +400,7 @@ static int path_reset(struct audio_route *ar, struct mixer_path *path)
     struct mixer_ctl *ctl;
     enum mixer_ctl_type type;
 
+    ALOGV("Reset path: %s", path->name != NULL ? path->name : "none");
     for (i = 0; i < path->length; i++) {
         ctl_index = path->setting[i].ctl_index;
         ctl = index_to_ctl(ar, ctl_index);

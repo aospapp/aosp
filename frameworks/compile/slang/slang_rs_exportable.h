@@ -17,6 +17,7 @@
 #ifndef _FRAMEWORKS_COMPILE_SLANG_SLANG_RS_EXPORTABLE_H_  // NOLINT
 #define _FRAMEWORKS_COMPILE_SLANG_SLANG_RS_EXPORTABLE_H_
 
+#include "clang/Basic/SourceLocation.h"
 #include "slang_rs_context.h"
 
 namespace slang {
@@ -36,24 +37,29 @@ class RSExportable {
 
   Kind mK;
 
+  clang::SourceLocation mLoc;
+
  protected:
-  RSExportable(RSContext *Context, RSExportable::Kind K)
+  RSExportable(RSContext *Context, RSExportable::Kind K, clang::SourceLocation Loc)
       : mContext(Context),
-        mK(K) {
+        mK(K),
+        mLoc(Loc) {
     Context->newExportable(this);
   }
 
  public:
-  inline Kind getKind() const { return mK; }
+  Kind getKind() const { return mK; }
+
+  clang::SourceLocation getLocation() const { return mLoc; }
 
   // When keep() is invoked, mKeep will set to true and the associated RSContext
   // won't free this RSExportable object in its destructor. The deallocation
   // responsibility is then transferred to the object who invoked this function.
   // Return false if the exportable is kept or failed to keep.
   virtual bool keep();
-  inline bool isKeep() const { return (mContext == nullptr); }
+  bool isKeep() const { return (mContext == nullptr); }
 
-  inline RSContext *getRSContext() const { return mContext; }
+  RSContext *getRSContext() const { return mContext; }
 
   virtual ~RSExportable() { }
 };

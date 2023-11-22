@@ -402,9 +402,7 @@ public class TvProviderSearch implements SearchInterface {
     }
 
     private String buildIntentData(long channelId) {
-        return TvContract.buildChannelUri(channelId).buildUpon()
-                .appendQueryParameter(Utils.PARAM_SOURCE, SOURCE_TV_SEARCH)
-                .build().toString();
+        return TvContract.buildChannelUri(channelId).toString();
     }
 
     private boolean isRatingBlocked(String ratings) {
@@ -432,6 +430,9 @@ public class TvProviderSearch implements SearchInterface {
 
         // Find exact matches first.
         for (TvInputInfo input : inputList) {
+            if (input.getType() == TvInputInfo.TYPE_TUNER) {
+                continue;
+            }
             String label = canonicalizeLabel(input.loadLabel(mContext));
             String customLabel = canonicalizeLabel(input.loadCustomLabel(mContext));
             if (TextUtils.equals(query, label) || TextUtils.equals(query, customLabel)) {
@@ -449,6 +450,9 @@ public class TvProviderSearch implements SearchInterface {
 
         // Then look for partial matches.
         for (TvInputInfo input : inputList) {
+            if (input.getType() == TvInputInfo.TYPE_TUNER) {
+                continue;
+            }
             String label = canonicalizeLabel(input.loadLabel(mContext));
             String customLabel = canonicalizeLabel(input.loadCustomLabel(mContext));
             if ((label != null && label.contains(query)) ||

@@ -24,16 +24,16 @@ namespace android {
 
 StringType::StringType() {}
 
-void StringType::addNamedTypesToSet(std::set<const FQName> &) const {
-    // do nothing
-}
-
 bool StringType::isString() const {
     return true;
 }
 
 bool StringType::canCheckEquality() const {
     return true;
+}
+
+std::string StringType::typeName() const {
+    return "string";
 }
 
 std::string StringType::getCppType(StorageMode mode,

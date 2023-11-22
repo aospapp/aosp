@@ -73,9 +73,11 @@ public class ItemDragListener<H extends DragHost> implements OnDragListener {
                 handleLocationEvent(v, event.getX(), event.getY());
                 return true;
             case DragEvent.ACTION_DRAG_EXITED:
-                mDragHost.onDragExited(v, event.getLocalState());
-                // fall through
+                mDragHost.onDragExited(v);
+                handleExitedEndedEvent(v, event);
+                return true;
             case DragEvent.ACTION_DRAG_ENDED:
+                mDragHost.onDragEnded();
                 handleExitedEndedEvent(v, event);
                 return true;
             case DragEvent.ACTION_DROP:
@@ -86,9 +88,9 @@ public class ItemDragListener<H extends DragHost> implements OnDragListener {
     }
 
     private void handleEnteredEvent(View v, DragEvent event) {
-        mDragHost.onDragEntered(v, event.getLocalState());
+        mDragHost.onDragEntered(v);
         @Nullable TimerTask task = createOpenTask(v, event);
-        mDragHost.setDropTargetHighlight(v, event.getLocalState(), true);
+        mDragHost.setDropTargetHighlight(v, true);
         if (task == null) {
             return;
         }
@@ -104,7 +106,7 @@ public class ItemDragListener<H extends DragHost> implements OnDragListener {
     }
 
     private void handleExitedEndedEvent(View v, DragEvent event) {
-        mDragHost.setDropTargetHighlight(v, event.getLocalState(), false);
+        mDragHost.setDropTargetHighlight(v, false);
         TimerTask task = (TimerTask) v.getTag(R.id.drag_hovering_tag);
         if (task != null) {
             task.cancel();
@@ -160,11 +162,14 @@ public class ItemDragListener<H extends DragHost> implements OnDragListener {
 
         /**
          * Highlights/unhighlights the view to visually indicate this view is being hovered.
+         *
+         * Called after {@link #onDragEntered(View)}, {@link #onDragExited(View)}
+         * or {@link #onDragEnded()}.
+         *
          * @param v the view being hovered
-         * @param localState the Local state object  given by DragEvent
          * @param highlight true if highlight the view; false if unhighlight it
          */
-        void setDropTargetHighlight(View v, Object localState, boolean highlight);
+        void setDropTargetHighlight(View v, boolean highlight);
 
         /**
          * Notifies hovering timeout has elapsed
@@ -175,15 +180,18 @@ public class ItemDragListener<H extends DragHost> implements OnDragListener {
         /**
          * Notifies right away when drag shadow enters the view
          * @param v the view which drop shadow just entered
-         * @param localState the Local state object given by DragEvent
          */
-        void onDragEntered(View v, Object localState);
+        void onDragEntered(View v);
 
         /**
          * Notifies right away when drag shadow exits the view
          * @param v the view which drop shadow just exited
-         * @param localState the Local state object given by DragEvent
          */
-        void onDragExited(View v, Object localState);
+        void onDragExited(View v);
+
+        /**
+         * Notifies when the drag and drop has ended.
+         */
+        void onDragEnded();
     }
 }

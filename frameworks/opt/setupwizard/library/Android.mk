@@ -36,10 +36,10 @@ LOCAL_MANIFEST_FILE := main/AndroidManifest.xml
 LOCAL_MODULE := setup-wizard-lib-gingerbread-compat
 LOCAL_RESOURCE_DIR := \
     $(LOCAL_PATH)/main/res \
-    $(LOCAL_PATH)/eclair-mr1/res \
-    $(LOCAL_PATH)/full-support/res
+    $(LOCAL_PATH)/gingerbread/res \
+    $(LOCAL_PATH)/recyclerview/res
 LOCAL_SDK_VERSION := current
-LOCAL_SRC_FILES := $(call all-java-files-under, main/src eclair-mr1/src full-support/src)
+LOCAL_SRC_FILES := $(call all-java-files-under, main/src gingerbread/src recyclerview/src)
 
 ifdef LOCAL_USE_AAPT2
 

@@ -21,6 +21,9 @@
 
 package examples;
 
+import android.os.Build;
+import android.os.Process;
+import java.lang.reflect.Field;
 import android.renderscript.*;
 import examples.reduce_general_examples_explicitBitCode;
 

@@ -16,6 +16,7 @@
 package com.android.cts.delegate;
 
 import static android.app.admin.DevicePolicyManager.DELEGATION_CERT_INSTALL;
+import static com.android.cts.delegate.DelegateTestUtils.assertExpectException;
 
 import android.app.admin.DevicePolicyManager;
 import android.content.BroadcastReceiver;
@@ -121,23 +122,16 @@ public class CertInstallDelegateTest extends InstrumentationTestCase {
 
     public void testCannotAccessApis() {
         assertFalse(amICertInstallDelegate());
-        try {
-            mDpm.installCaCert(null, null);
-            fail("Expected SecurityException not thrown");
-        } catch (SecurityException expected) {
-            MoreAsserts.assertContainsRegex(
-                    "Neither user \\d+ nor current process has "
-                    + "android.permission.MANAGE_CA_CERTIFICATES",
-                    expected.getMessage());
-        }
-        try {
-            mDpm.removeKeyPair(null, "alias");
-            fail("Expected SecurityException not thrown");
-        } catch (SecurityException expected) {
-            MoreAsserts.assertContainsRegex(
-                    "Caller with uid \\d+ is not a delegate of scope delegation-cert-install.",
-                    expected.getMessage());
-        }
+
+        assertExpectException(SecurityException.class,
+                "Neither user \\d+ nor current process has", () -> {
+                    mDpm.installCaCert(null, null);
+                });
+
+        assertExpectException(SecurityException.class,
+                "Caller with uid \\d+ is not a delegate of scope", () -> {
+                    mDpm.removeKeyPair(null, "alias");
+                });
     }
 
     public void testCanAccessApis() throws Exception {

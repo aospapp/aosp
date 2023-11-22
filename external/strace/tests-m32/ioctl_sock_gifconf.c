@@ -2,6 +2,7 @@
  * Check decoding of SIOCGIFCONF command of ioctl syscall.
  *
  * Copyright (c) 2016 Eugene Syromyatnikov <evgsyr@gmail.com>
+ * Copyright (c) 2016-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -104,7 +105,7 @@ print_ifconf(struct ifconf *ifc, int in_len, char *in_buf, long rc)
 static void
 gifconf_ioctl(int fd, struct ifconf *ifc, bool ifc_valid)
 {
-	const char * errstr;
+	const char *errstr;
 	int in_len;
 	char *in_buf;
 	long rc;
@@ -134,7 +135,7 @@ int
 main(int argc, char *argv[])
 {
 	struct ifreq *ifr = tail_alloc(2 * sizeof(*ifr));
-	struct ifconf *ifc = tail_alloc(sizeof(*ifc));
+	TAIL_ALLOC_OBJECT_CONST_PTR(struct ifconf, ifc);
 
 	struct sockaddr_in addr;
 	int fd;

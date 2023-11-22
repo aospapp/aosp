@@ -697,7 +697,18 @@ public final class IoBridge {
 
     public static InetSocketAddress getLocalInetSocketAddress(FileDescriptor fd) throws SocketException {
         try {
-            return (InetSocketAddress) Libcore.os.getsockname(fd);
+            SocketAddress socketAddress = Libcore.os.getsockname(fd);
+            // When a Socket is pending closure because socket.close() was called but other threads
+            // are still using it, the FileDescriptor can be dup2'ed to an AF_UNIX one; see the
+            // deferred close logic in PlainSocketImpl.socketClose0(true) for details.
+            // If socketAddress is not the expected type then we assume that the socket is being
+            // closed, so we throw a SocketException (just like in the case of an ErrnoException).
+            // http://b/64209834
+            if ((socketAddress != null) && !(socketAddress instanceof InetSocketAddress)) {
+                throw new SocketException("Socket assumed to be pending closure: Expected sockname "
+                        + "to be an InetSocketAddress, got " + socketAddress.getClass());
+            }
+            return (InetSocketAddress) socketAddress;
         } catch (ErrnoException errnoException) {
             throw errnoException.rethrowAsSocketException();
         }

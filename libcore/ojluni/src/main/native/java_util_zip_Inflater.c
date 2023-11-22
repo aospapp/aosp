@@ -31,7 +31,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
-#include "JNIHelp.h"
+#include <nativehelper/JNIHelp.h>
 #include "jlong.h"
 #include "jni.h"
 #include "jvm.h"

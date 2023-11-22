@@ -13,7 +13,7 @@ TEST_TYPE = 'server'
 TIME = 'LENGTHY'
 
 DOC = ('Run module CtsUiRenderingTestCases of the '
-       'Android 7.1_r3 Compatibility Test Suite (CTS), build 3764431,'
+       'Android 7.1_r7 Compatibility Test Suite (CTS), build 4120758,'
        'using arm ABI in the ARC++ container.')
 
 def run_CTS(machine):
@@ -27,6 +27,7 @@ def run_CTS(machine):
         tag='CtsUiRenderingTestCases',
         target_module='CtsUiRenderingTestCases',
         bundle='arm',
+        warn_on_test_retry=False,
         timeout=3600)
 
 parallel_simple(run_CTS, machines)

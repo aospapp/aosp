@@ -23,17 +23,23 @@ import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionCopier;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.ITestLoggerReceiver;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.suite.checker.ISystemStatusChecker;
 import com.android.tradefed.suite.checker.ISystemStatusCheckerReceiver;
 import com.android.tradefed.testtype.IBuildReceiver;
 import com.android.tradefed.testtype.IDeviceTest;
+import com.android.tradefed.testtype.IInvocationContextReceiver;
+import com.android.tradefed.testtype.IMultiDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
+import com.android.tradefed.testtype.IRuntimeHintProvider;
 import com.android.tradefed.testtype.IShardableTest;
 import com.android.tradefed.testtype.ITestCollector;
+import com.android.tradefed.util.TimeUtil;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -52,7 +58,9 @@ public abstract class ITestSuite
                 IBuildReceiver,
                 ISystemStatusCheckerReceiver,
                 IShardableTest,
-                ITestCollector {
+                ITestCollector,
+                IInvocationContextReceiver,
+                IRuntimeHintProvider {
 
     public static final String MODULE_CHECKER_PRE = "PreModuleChecker";
     public static final String MODULE_CHECKER_POST = "PostModuleChecker";
@@ -109,6 +117,7 @@ public abstract class ITestSuite
     private ITestDevice mDevice;
     private IBuildInfo mBuildInfo;
     private List<ISystemStatusChecker> mSystemStatusCheckers;
+    private IInvocationContext mContext;
 
     // Sharding attributes
     private boolean mIsSharded = false;
@@ -139,6 +148,7 @@ public abstract class ITestSuite
             // If we are sharded and already know what to run then we just do it.
             runModules.add(mDirectModule);
             mDirectModule.setDevice(mDevice);
+            mDirectModule.setDeviceInfos(mContext.getDeviceBuildMap());
             mDirectModule.setBuild(mBuildInfo);
             return runModules;
         }
@@ -157,9 +167,15 @@ public abstract class ITestSuite
                                         "Configuration %s cannot be run in a suite.",
                                         config.getValue().getName())));
             }
-            ModuleDefinition module = new ModuleDefinition(config.getKey(),
-                    config.getValue().getTests(), config.getValue().getTargetPreparers());
+            ModuleDefinition module =
+                    new ModuleDefinition(
+                            config.getKey(),
+                            config.getValue().getTests(),
+                            config.getValue().getTargetPreparers(),
+                            config.getValue().getMultiTargetPreparers(),
+                            config.getValue().getConfigurationDescription());
             module.setDevice(mDevice);
+            module.setDeviceInfos(mContext.getDeviceBuildMap());
             module.setBuild(mBuildInfo);
             runModules.add(module);
         }
@@ -178,11 +194,18 @@ public abstract class ITestSuite
             return;
         }
 
+        // Allow checkers to log files for easier debbuging.
+        for (ISystemStatusChecker checker : mSystemStatusCheckers) {
+            if (checker instanceof ITestLoggerReceiver) {
+                ((ITestLoggerReceiver) checker).setTestLogger(listener);
+            }
+        }
+
         /** Setup a special listener to take actions on test failures. */
         TestFailureListener failureListener =
                 new TestFailureListener(
                         listener,
-                        getDevice(),
+                        mContext.getDevices(),
                         mBugReportOnFailure,
                         mLogcatOnFailure,
                         mScreenshotOnFailure,
@@ -208,7 +231,22 @@ public abstract class ITestSuite
                 if (module.hasTests()) {
                     continue;
                 }
-                runSingleModule(module, listener, failureListener);
+
+                try {
+                    listener.testModuleStarted(module.getModuleInvocationContext());
+                    // Populate the module context with devices and builds
+                    for (String deviceName : mContext.getDeviceConfigNames()) {
+                        module.getModuleInvocationContext()
+                                .addAllocatedDevice(deviceName, mContext.getDevice(deviceName));
+                        module.getModuleInvocationContext()
+                                .addDeviceBuildInfo(deviceName, mContext.getBuildInfo(deviceName));
+                    }
+                    runSingleModule(module, listener, failureListener);
+                } finally {
+                    // clear out module invocation context since we are now done with module
+                    // execution
+                    listener.testModuleEnded();
+                }
             }
         } catch (DeviceNotAvailableException e) {
             CLog.e(
@@ -284,12 +322,12 @@ public abstract class ITestSuite
         if (!failures.isEmpty()) {
             CLog.w("There are failed system status checkers: %s capturing a bugreport",
                     failures.toString());
-            InputStreamSource bugSource = device.getBugreport();
-            listener.testLog(
-                    String.format("bugreport-checker-pre-module-%s", moduleName),
-                    LogDataType.BUGREPORT,
-                    bugSource);
-            bugSource.cancel();
+            try (InputStreamSource bugSource = device.getBugreport()) {
+                listener.testLog(
+                        String.format("bugreport-checker-pre-module-%s", moduleName),
+                        LogDataType.BUGREPORT,
+                        bugSource);
+            }
         }
 
         // We report System checkers like tests.
@@ -319,12 +357,12 @@ public abstract class ITestSuite
         if (!failures.isEmpty()) {
             CLog.w("There are failed system status checkers: %s capturing a bugreport",
                     failures.toString());
-            InputStreamSource bugSource = device.getBugreport();
-            listener.testLog(
-                    String.format("bugreport-checker-post-module-%s", moduleName),
-                    LogDataType.BUGREPORT,
-                    bugSource);
-            bugSource.cancel();
+            try (InputStreamSource bugSource = device.getBugreport()) {
+                listener.testLog(
+                        String.format("bugreport-checker-post-module-%s", moduleName),
+                        LogDataType.BUGREPORT,
+                        bugSource);
+            }
         }
 
         // We report System checkers like tests.
@@ -399,6 +437,9 @@ public abstract class ITestSuite
                 if (test instanceof IDeviceTest) {
                     ((IDeviceTest) test).setDevice(mDevice);
                 }
+                if (test instanceof IMultiDeviceTest) {
+                    ((IMultiDeviceTest) test).setDeviceInfos(mContext.getDeviceBuildMap());
+                }
             }
         }
     }
@@ -455,5 +496,32 @@ public abstract class ITestSuite
      */
     public void setShouldMakeDynamicModule(boolean dynamicModule) {
         mShouldMakeDynamicModule = dynamicModule;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setInvocationContext(IInvocationContext invocationContext) {
+        mContext = invocationContext;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long getRuntimeHint() {
+        if (mDirectModule != null) {
+            CLog.d(
+                    "    %s: %s",
+                    mDirectModule.getId(),
+                    TimeUtil.formatElapsedTime(mDirectModule.getRuntimeHint()));
+            return mDirectModule.getRuntimeHint();
+        }
+        return 0l;
+    }
+
+    /**
+     * Returns the {@link ModuleDefinition} to be executed directly, or null if none yet (when the
+     * ITestSuite has not been sharded yet).
+     */
+    public ModuleDefinition getDirectModule() {
+        return mDirectModule;
     }
 }

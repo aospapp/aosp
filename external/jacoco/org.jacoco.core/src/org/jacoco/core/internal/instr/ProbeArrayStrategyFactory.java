@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -28,7 +28,8 @@ public final class ProbeArrayStrategyFactory {
 
 	/**
 	 * Creates a suitable strategy instance for the class described by the given
-	 * reader.
+	 * reader. Created instance must be used only to process a class or
+	 * interface for which it has been created and must be used only once.
 	 * 
 	 * @param reader
 	 *            reader to get information about the class
@@ -50,16 +51,15 @@ public final class ProbeArrayStrategyFactory {
 				return new NoneProbeArrayStrategy();
 			}
 			if (version >= Opcodes.V1_8 && counter.hasMethods()) {
-				return new FieldProbeArrayStrategy(className, classId,
-						withFrames, InstrSupport.DATAFIELD_INTF_ACC,
-						accessorGenerator);
+				return new InterfaceFieldProbeArrayStrategy(className, classId,
+						counter.getCount(), accessorGenerator);
 			} else {
 				return new LocalProbeArrayStrategy(className, classId,
 						counter.getCount(), accessorGenerator);
 			}
 		} else {
-			return new FieldProbeArrayStrategy(className, classId, withFrames,
-					InstrSupport.DATAFIELD_ACC, accessorGenerator);
+			return new ClassFieldProbeArrayStrategy(className, classId,
+					withFrames, accessorGenerator);
 		}
 	}
 

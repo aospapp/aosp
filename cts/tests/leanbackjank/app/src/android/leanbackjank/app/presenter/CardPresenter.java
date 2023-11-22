@@ -17,11 +17,15 @@
 package android.leanbackjank.app.presenter;
 
 import android.graphics.drawable.Drawable;
+import android.net.Uri;
 import android.support.v17.leanback.widget.ImageCardView;
 import android.support.v17.leanback.widget.Presenter;
 import android.view.ViewGroup;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.resource.drawable.GlideDrawable;
+import com.bumptech.glide.request.RequestListener;
+import com.bumptech.glide.request.target.Target;
 import android.leanbackjank.app.R;
 import android.leanbackjank.app.model.Movie;
 
@@ -46,23 +50,15 @@ public class CardPresenter extends Presenter {
         ImageCardView cardView = new ImageCardView(parent.getContext()) {
             @Override
             public void setSelected(boolean selected) {
-                updateCardBackgroundColor(this, selected);
+                findViewById(R.id.info_field).setBackgroundColor(
+                        selected ? sSelectedBackgroundColor : sDefaultBackgroundColor);
                 super.setSelected(selected);
             }
         };
 
         cardView.setFocusable(true);
         cardView.setFocusableInTouchMode(true);
-        updateCardBackgroundColor(cardView, false);
         return new ViewHolder(cardView);
-    }
-
-    private static void updateCardBackgroundColor(ImageCardView view, boolean selected) {
-        int color = selected ? sSelectedBackgroundColor : sDefaultBackgroundColor;
-        // Both background colors should be set because the view's background is temporarily visible
-        // during animations.
-        view.setBackgroundColor(color);
-        view.findViewById(R.id.info_field).setBackgroundColor(color);
     }
 
     @Override
@@ -73,10 +69,27 @@ public class CardPresenter extends Presenter {
         cardView.setTitleText(movie.getTitle());
         cardView.setContentText(movie.getStudio());
         cardView.setMainImageDimensions(CARD_WIDTH, CARD_HEIGHT);
+        cardView.setBackgroundColor(sDefaultBackgroundColor);
+
         Glide.with(viewHolder.view.getContext())
                 .load(R.drawable.gradation)
                 .centerCrop()
                 .error(mDefaultCardImage)
+                .listener(new RequestListener<Integer, GlideDrawable>() {
+                    @Override
+                    public boolean onException(Exception e, Integer i, Target<GlideDrawable> target,
+                            boolean b) {
+                        return false;
+                    }
+
+                    @Override
+                    public boolean onResourceReady(GlideDrawable glideDrawable, Integer i,
+                            Target<GlideDrawable> target, boolean b, boolean b1) {
+                        // Remove the background color to reduce overdraw.
+                        cardView.setBackground(null);
+                        return false;
+                    }
+                })
                 .into(cardView.getMainImageView());
     }
 

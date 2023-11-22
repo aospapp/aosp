@@ -30,7 +30,7 @@ and emoji-variation-sequences.txt. Currently at external/unicode/.
 - additions/emoji-zwj-sequences.txt: Includes emojis that are not defined in Unicode files, but are
 in the Android font. Resides in framework and currently under external/unicode/.
 
-- ../third_party/unicode/emoji_metadata.txt: The file that includes the id, codepoints, the first
+- data/emoji_metadata.txt: The file that includes the id, codepoints, the first
 Android OS version that the emoji was added (sdkAdded), and finally the first EmojiCompat font
 version that the emoji was added (compatAdded). Updated when the script is executed.
 
@@ -47,6 +47,8 @@ from __future__ import print_function
 
 import contextlib
 import csv
+import hashlib
+import itertools
 import json
 import os
 import shutil
@@ -54,11 +56,12 @@ import sys
 import tempfile
 from fontTools import ttLib
 
-
 ########### UPDATE OR CHECK WHEN A NEW FONT IS BEING GENERATED ###########
 # Last Android SDK Version
 SDK_VERSION = 26
-# metadata version that will be embedded into font.
+# metadata version that will be embedded into font. If there are updates to the font that would
+# cause data/emoji_metadata.txt to change, this integer number should be incremented. This number
+# defines in which EmojiCompat metadata version the emoji is added to the font.
 METADATA_VERSION = 2
 
 ####### main directories where output files are created #######
@@ -401,7 +404,7 @@ def inject_meta_into_font(ttf, flatbuffer_bin_filename):
     if not 'meta' in ttf:
         ttf['meta'] = ttLib.getTableClass('meta')()
     meta = ttf['meta']
-    with contextlib.closing(open(flatbuffer_bin_filename)) as flatbuffer_bin_file:
+    with open(flatbuffer_bin_filename) as flatbuffer_bin_file:
         meta.data[EMOJI_META_TAG_NAME] = flatbuffer_bin_file.read()
 
     # sort meta tables for faster access
@@ -423,6 +426,19 @@ def validate_input_files(font_path, unicode_path):
     for emoji_filename in emoji_filenames:
         if not os.path.isfile(emoji_filename):
             raise ValueError("Unicode emoji data file does not exist: " + emoji_filename)
+
+
+def add_file_to_sha(sha_algo, file_path):
+    with open(file_path, 'rb') as input_file:
+        for data in iter(lambda: input_file.read(8192), ''):
+            sha_algo.update(data)
+
+def create_sha_from_source_files(font_paths):
+    """Creates a SHA from the given font files"""
+    sha_algo = hashlib.sha256()
+    for file_path in font_paths:
+        add_file_to_sha(sha_algo, file_path)
+    return sha_algo.hexdigest()
 
 
 class EmojiFontCreator(object):
@@ -478,17 +494,63 @@ class EmojiFontCreator(object):
         gsub = ttf['GSUB']
         for lookup in gsub.table.LookupList.Lookup:
             for subtable in lookup.SubTable:
-                if hasattr(subtable, 'ligatures'):
-                    for name, ligatures in subtable.ligatures.iteritems():
-                        for ligature in ligatures:
-                            glyph_names = [name] + ligature.Component
-                            codepoints = [glyph_to_codepoint_map[x] for x in glyph_names]
-                            self.update_emoji_data(codepoints, ligature.LigGlyph)
+                if subtable.LookupType == 5:
+                    self.add_gsub_context_subtable(subtable, gsub.table.LookupList,
+                                                   glyph_to_codepoint_map)
+                elif subtable.LookupType == 4:
+                    self.add_gsub_ligature_subtable(subtable, glyph_to_codepoint_map)
+
+    def add_gsub_context_subtable(self, subtable, lookup_list, glyph_to_codepoint_map):
+        """Add substitutions defined as OpenType Context Substitution"""
+        for sub_class_set in subtable.SubClassSet:
+            if sub_class_set:
+                for sub_class_rule in sub_class_set.SubClassRule:
+                    # prepare holder for substitution list. each rule will have a list that is added
+                    # to the subs_list.
+                    subs_list = len(sub_class_rule.SubstLookupRecord) * [None]
+                    for record in sub_class_rule.SubstLookupRecord:
+                        subs_list[record.SequenceIndex] = self.get_substitutions(lookup_list,
+                                                                            record.LookupListIndex)
+                    # create combinations or all lists. the combinations will be filtered by
+                    # emoji_data_map. the first element that contain as a valid glyph will be used
+                    # as the final glyph
+                    combinations = list(itertools.product(*subs_list))
+                    for seq in combinations:
+                        glyph_names = [x["input"] for x in seq]
+                        codepoints = [glyph_to_codepoint_map[x] for x in glyph_names]
+                        outputs = [x["output"] for x in seq if x["output"]]
+                        nonempty_outputs = filter(lambda x: x.strip() , outputs)
+                        if len(nonempty_outputs) == 0:
+                            print("Warning: no output glyph is set for " + str(glyph_names))
+                            continue
+                        elif len(nonempty_outputs) > 1:
+                            print(
+                                "Warning: multiple glyph is set for "
+                                    + str(glyph_names) + ", will use the first one")
+
+                        glyph = nonempty_outputs[0]
+                        self.update_emoji_data(codepoints, glyph)
+
+    def get_substitutions(self, lookup_list, index):
+        result = []
+        for x in lookup_list.Lookup[index].SubTable:
+            for input, output in x.mapping.iteritems():
+                result.append({"input": input, "output": output})
+        return result
+
+    def add_gsub_ligature_subtable(self, subtable, glyph_to_codepoint_map):
+        for name, ligatures in subtable.ligatures.iteritems():
+            for ligature in ligatures:
+                glyph_names = [name] + ligature.Component
+                codepoints = [glyph_to_codepoint_map[x] for x in glyph_names]
+                self.update_emoji_data(codepoints, ligature.LigGlyph)
 
     def write_metadata_json(self, output_json_file_path):
         """Writes the emojis into a json file"""
         output_json = {}
         output_json['version'] = METADATA_VERSION
+        output_json['sourceSha'] = create_sha_from_source_files(
+            [self.font_path, OUTPUT_META_FILE, FLATBUFFER_SCHEMA])
         output_json['list'] = []
 
         emoji_data_list = sorted(self.emoji_data_map.values(), key=lambda x: x.emoji_id)
@@ -549,12 +611,15 @@ class EmojiFontCreator(object):
             # add all new codepoint to glyph mappings
             cmap12_table.cmap.update(self.remapped_codepoints)
 
+            # final metadata csv will be used to generate the sha, therefore write it before
+            # metadata json is written.
+            self.write_metadata_csv()
+
             output_json_file = os.path.join(tmp_dir, OUTPUT_JSON_FILE_NAME)
             flatbuffer_bin_file = os.path.join(tmp_dir, FLATBUFFER_BIN)
             flatbuffer_java_dir = os.path.join(tmp_dir, FLATBUFFER_JAVA_PATH)
 
             total_emoji_count = self.write_metadata_json(output_json_file)
-            self.write_metadata_csv()
 
             # create the flatbuffers binary and java classes
             sys_command = 'flatc -o {0} -b -j {1} {2}'

@@ -33,14 +33,12 @@
 #include "dex_file-inl.h"
 #include "dex_instruction-inl.h"
 #include "dex_instruction_utils.h"
-#include "dex_instruction_visitor.h"
 #include "experimental_flags.h"
 #include "gc/accounting/card_table-inl.h"
 #include "handle_scope-inl.h"
 #include "indenter.h"
 #include "intern_table.h"
 #include "leb128.h"
-#include "method_resolution_kind.h"
 #include "mirror/class.h"
 #include "mirror/class-inl.h"
 #include "mirror/dex_cache-inl.h"
@@ -51,6 +49,7 @@
 #include "register_line-inl.h"
 #include "runtime.h"
 #include "scoped_thread_state_change-inl.h"
+#include "stack.h"
 #include "utils.h"
 #include "verifier_deps.h"
 #include "verifier_compiler_binding.h"
@@ -230,7 +229,7 @@ MethodVerifier::FailureData MethodVerifier::VerifyMethods(Thread* self,
     }
     previous_method_idx = method_idx;
     InvokeType type = it->GetMethodInvokeType(class_def);
-    ArtMethod* method = linker->ResolveMethod<ClassLinker::kNoICCECheckForCache>(
+    ArtMethod* method = linker->ResolveMethod<ClassLinker::ResolveMode::kNoChecks>(
         *dex_file, method_idx, dex_cache, class_loader, nullptr, type);
     if (method == nullptr) {
       DCHECK(self->IsExceptionPending());
@@ -300,9 +299,7 @@ FailureKind MethodVerifier::VerifyClass(Thread* self,
     return FailureKind::kNoFailure;
   }
   ClassDataItemIterator it(*dex_file, class_data);
-  while (it.HasNextStaticField() || it.HasNextInstanceField()) {
-    it.Next();
-  }
+  it.SkipAllFields();
   ClassLinker* linker = Runtime::Current()->GetClassLinker();
   // Direct methods.
   MethodVerifier::FailureData data1 = VerifyMethods<true>(self,
@@ -884,10 +881,13 @@ bool MethodVerifier::Verify() {
                             InstructionFlags());
   // Run through the instructions and see if the width checks out.
   bool result = ComputeWidthsAndCountOps();
+  bool allow_runtime_only_instructions = !Runtime::Current()->IsAotCompiler() || verify_to_dump_;
   // Flag instructions guarded by a "try" block and check exception handlers.
   result = result && ScanTryCatchBlocks();
   // Perform static instruction verification.
-  result = result && VerifyInstructions();
+  result = result && (allow_runtime_only_instructions
+                          ? VerifyInstructions<true>()
+                          : VerifyInstructions<false>());
   // Perform code-flow analysis and return.
   result = result && VerifyCodeFlow();
 
@@ -1103,6 +1103,7 @@ bool MethodVerifier::ScanTryCatchBlocks() {
   return true;
 }
 
+template <bool kAllowRuntimeOnlyInstructions>
 bool MethodVerifier::VerifyInstructions() {
   const Instruction* inst = Instruction::At(code_item_->insns_);
 
@@ -1112,7 +1113,7 @@ bool MethodVerifier::VerifyInstructions() {
 
   uint32_t insns_size = code_item_->insns_size_in_code_units_;
   for (uint32_t dex_pc = 0; dex_pc < insns_size;) {
-    if (!VerifyInstruction(inst, dex_pc)) {
+    if (!VerifyInstruction<kAllowRuntimeOnlyInstructions>(inst, dex_pc)) {
       DCHECK_NE(failures_.size(), 0U);
       return false;
     }
@@ -1139,8 +1140,9 @@ bool MethodVerifier::VerifyInstructions() {
   return true;
 }
 
+template <bool kAllowRuntimeOnlyInstructions>
 bool MethodVerifier::VerifyInstruction(const Instruction* inst, uint32_t code_offset) {
-  if (UNLIKELY(inst->IsExperimental())) {
+  if (Instruction::kHaveExperimentalInstructions && UNLIKELY(inst->IsExperimental())) {
     // Experimental instructions don't yet have verifier support implementation.
     // While it is possible to use them by themselves, when we try to use stable instructions
     // with a virtual register that was created by an experimental instruction,
@@ -1248,7 +1250,7 @@ bool MethodVerifier::VerifyInstruction(const Instruction* inst, uint32_t code_of
       result = false;
       break;
   }
-  if (inst->GetVerifyIsRuntimeOnly() && Runtime::Current()->IsAotCompiler() && !verify_to_dump_) {
+  if (!kAllowRuntimeOnlyInstructions && inst->GetVerifyIsRuntimeOnly()) {
     Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "opcode only expected at runtime " << inst->Name();
     result = false;
   }
@@ -1256,7 +1258,7 @@ bool MethodVerifier::VerifyInstruction(const Instruction* inst, uint32_t code_of
 }
 
 inline bool MethodVerifier::CheckRegisterIndex(uint32_t idx) {
-  if (idx >= code_item_->registers_size_) {
+  if (UNLIKELY(idx >= code_item_->registers_size_)) {
     Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "register index out of range (" << idx << " >= "
                                       << code_item_->registers_size_ << ")";
     return false;
@@ -1265,7 +1267,7 @@ inline bool MethodVerifier::CheckRegisterIndex(uint32_t idx) {
 }
 
 inline bool MethodVerifier::CheckWideRegisterIndex(uint32_t idx) {
-  if (idx + 1 >= code_item_->registers_size_) {
+  if (UNLIKELY(idx + 1 >= code_item_->registers_size_)) {
     Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "wide register index out of range (" << idx
                                       << "+1 >= " << code_item_->registers_size_ << ")";
     return false;
@@ -1274,7 +1276,7 @@ inline bool MethodVerifier::CheckWideRegisterIndex(uint32_t idx) {
 }
 
 inline bool MethodVerifier::CheckFieldIndex(uint32_t idx) {
-  if (idx >= dex_file_->GetHeader().field_ids_size_) {
+  if (UNLIKELY(idx >= dex_file_->GetHeader().field_ids_size_)) {
     Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "bad field index " << idx << " (max "
                                       << dex_file_->GetHeader().field_ids_size_ << ")";
     return false;
@@ -1283,7 +1285,7 @@ inline bool MethodVerifier::CheckFieldIndex(uint32_t idx) {
 }
 
 inline bool MethodVerifier::CheckMethodIndex(uint32_t idx) {
-  if (idx >= dex_file_->GetHeader().method_ids_size_) {
+  if (UNLIKELY(idx >= dex_file_->GetHeader().method_ids_size_)) {
     Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "bad method index " << idx << " (max "
                                       << dex_file_->GetHeader().method_ids_size_ << ")";
     return false;
@@ -1292,17 +1294,17 @@ inline bool MethodVerifier::CheckMethodIndex(uint32_t idx) {
 }
 
 inline bool MethodVerifier::CheckNewInstance(dex::TypeIndex idx) {
-  if (idx.index_ >= dex_file_->GetHeader().type_ids_size_) {
+  if (UNLIKELY(idx.index_ >= dex_file_->GetHeader().type_ids_size_)) {
     Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "bad type index " << idx.index_ << " (max "
                                       << dex_file_->GetHeader().type_ids_size_ << ")";
     return false;
   }
   // We don't need the actual class, just a pointer to the class name.
   const char* descriptor = dex_file_->StringByTypeIdx(idx);
-  if (descriptor[0] != 'L') {
+  if (UNLIKELY(descriptor[0] != 'L')) {
     Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "can't call new-instance on type '" << descriptor << "'";
     return false;
-  } else if (strcmp(descriptor, "Ljava/lang/Class;") == 0) {
+  } else if (UNLIKELY(strcmp(descriptor, "Ljava/lang/Class;") == 0)) {
     // An unlikely new instance on Class is not allowed. Fall back to interpreter to ensure an
     // exception is thrown when this statement is executed (compiled code would not do that).
     Fail(VERIFY_ERROR_INSTANTIATION);
@@ -1311,7 +1313,7 @@ inline bool MethodVerifier::CheckNewInstance(dex::TypeIndex idx) {
 }
 
 inline bool MethodVerifier::CheckPrototypeIndex(uint32_t idx) {
-  if (idx >= dex_file_->GetHeader().proto_ids_size_) {
+  if (UNLIKELY(idx >= dex_file_->GetHeader().proto_ids_size_)) {
     Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "bad prototype index " << idx << " (max "
                                       << dex_file_->GetHeader().proto_ids_size_ << ")";
     return false;
@@ -1320,7 +1322,7 @@ inline bool MethodVerifier::CheckPrototypeIndex(uint32_t idx) {
 }
 
 inline bool MethodVerifier::CheckStringIndex(uint32_t idx) {
-  if (idx >= dex_file_->GetHeader().string_ids_size_) {
+  if (UNLIKELY(idx >= dex_file_->GetHeader().string_ids_size_)) {
     Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "bad string index " << idx << " (max "
                                       << dex_file_->GetHeader().string_ids_size_ << ")";
     return false;
@@ -1329,7 +1331,7 @@ inline bool MethodVerifier::CheckStringIndex(uint32_t idx) {
 }
 
 inline bool MethodVerifier::CheckTypeIndex(dex::TypeIndex idx) {
-  if (idx.index_ >= dex_file_->GetHeader().type_ids_size_) {
+  if (UNLIKELY(idx.index_ >= dex_file_->GetHeader().type_ids_size_)) {
     Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "bad type index " << idx.index_ << " (max "
                                       << dex_file_->GetHeader().type_ids_size_ << ")";
     return false;
@@ -1338,7 +1340,7 @@ inline bool MethodVerifier::CheckTypeIndex(dex::TypeIndex idx) {
 }
 
 bool MethodVerifier::CheckNewArray(dex::TypeIndex idx) {
-  if (idx.index_ >= dex_file_->GetHeader().type_ids_size_) {
+  if (UNLIKELY(idx.index_ >= dex_file_->GetHeader().type_ids_size_)) {
     Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "bad type index " << idx.index_ << " (max "
                                       << dex_file_->GetHeader().type_ids_size_ << ")";
     return false;
@@ -1349,12 +1351,12 @@ bool MethodVerifier::CheckNewArray(dex::TypeIndex idx) {
   while (*cp++ == '[') {
     bracket_count++;
   }
-  if (bracket_count == 0) {
+  if (UNLIKELY(bracket_count == 0)) {
     /* The given class must be an array type. */
     Fail(VERIFY_ERROR_BAD_CLASS_HARD)
         << "can't new-array class '" << descriptor << "' (not an array)";
     return false;
-  } else if (bracket_count > 255) {
+  } else if (UNLIKELY(bracket_count > 255)) {
     /* It is illegal to create an array of more than 255 dimensions. */
     Fail(VERIFY_ERROR_BAD_CLASS_HARD)
         << "can't new-array class '" << descriptor << "' (exceeds limit)";
@@ -1372,8 +1374,8 @@ bool MethodVerifier::CheckArrayData(uint32_t cur_offset) {
   DCHECK_LT(cur_offset, insn_count);
   /* make sure the start of the array data table is in range */
   array_data_offset = insns[1] | (static_cast<int32_t>(insns[2]) << 16);
-  if (static_cast<int32_t>(cur_offset) + array_data_offset < 0 ||
-      cur_offset + array_data_offset + 2 >= insn_count) {
+  if (UNLIKELY(static_cast<int32_t>(cur_offset) + array_data_offset < 0 ||
+               cur_offset + array_data_offset + 2 >= insn_count)) {
     Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "invalid array data start: at " << cur_offset
                                       << ", data offset " << array_data_offset
                                       << ", count " << insn_count;
@@ -1382,14 +1384,14 @@ bool MethodVerifier::CheckArrayData(uint32_t cur_offset) {
   /* offset to array data table is a relative branch-style offset */
   array_data = insns + array_data_offset;
   // Make sure the table is at an even dex pc, that is, 32-bit aligned.
-  if (!IsAligned<4>(array_data)) {
+  if (UNLIKELY(!IsAligned<4>(array_data))) {
     Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "unaligned array data table: at " << cur_offset
                                       << ", data offset " << array_data_offset;
     return false;
   }
   // Make sure the array-data is marked as an opcode. This ensures that it was reached when
   // traversing the code item linearly. It is an approximation for a by-spec padding value.
-  if (!GetInstructionFlags(cur_offset + array_data_offset).IsOpcode()) {
+  if (UNLIKELY(!GetInstructionFlags(cur_offset + array_data_offset).IsOpcode())) {
     Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "array data table at " << cur_offset
                                       << ", data offset " << array_data_offset
                                       << " not correctly visited, probably bad padding.";
@@ -1400,7 +1402,7 @@ bool MethodVerifier::CheckArrayData(uint32_t cur_offset) {
   uint32_t value_count = *reinterpret_cast<const uint32_t*>(&array_data[2]);
   uint32_t table_size = 4 + (value_width * value_count + 1) / 2;
   /* make sure the end of the switch is in range */
-  if (cur_offset + array_data_offset + table_size > insn_count) {
+  if (UNLIKELY(cur_offset + array_data_offset + table_size > insn_count)) {
     Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "invalid array data end: at " << cur_offset
                                       << ", data offset " << array_data_offset << ", end "
                                       << cur_offset + array_data_offset + table_size
@@ -1416,23 +1418,23 @@ bool MethodVerifier::CheckBranchTarget(uint32_t cur_offset) {
   if (!GetBranchOffset(cur_offset, &offset, &isConditional, &selfOkay)) {
     return false;
   }
-  if (!selfOkay && offset == 0) {
+  if (UNLIKELY(!selfOkay && offset == 0)) {
     Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "branch offset of zero not allowed at"
                                       << reinterpret_cast<void*>(cur_offset);
     return false;
   }
   // Check for 32-bit overflow. This isn't strictly necessary if we can depend on the runtime
   // to have identical "wrap-around" behavior, but it's unwise to depend on that.
-  if (((int64_t) cur_offset + (int64_t) offset) != (int64_t) (cur_offset + offset)) {
+  if (UNLIKELY(((int64_t) cur_offset + (int64_t) offset) != (int64_t) (cur_offset + offset))) {
     Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "branch target overflow "
                                       << reinterpret_cast<void*>(cur_offset) << " +" << offset;
     return false;
   }
   const uint32_t insn_count = code_item_->insns_size_in_code_units_;
   int32_t abs_offset = cur_offset + offset;
-  if (abs_offset < 0 ||
-      (uint32_t) abs_offset >= insn_count ||
-      !GetInstructionFlags(abs_offset).IsOpcode()) {
+  if (UNLIKELY(abs_offset < 0 ||
+               (uint32_t) abs_offset >= insn_count ||
+               !GetInstructionFlags(abs_offset).IsOpcode())) {
     Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "invalid branch target " << offset << " (-> "
                                       << reinterpret_cast<void*>(abs_offset) << ") at "
                                       << reinterpret_cast<void*>(cur_offset);
@@ -1485,8 +1487,8 @@ bool MethodVerifier::CheckSwitchTargets(uint32_t cur_offset) {
   const uint16_t* insns = code_item_->insns_ + cur_offset;
   /* make sure the start of the switch is in range */
   int32_t switch_offset = insns[1] | (static_cast<int32_t>(insns[2]) << 16);
-  if (static_cast<int32_t>(cur_offset) + switch_offset < 0 ||
-      cur_offset + switch_offset + 2 > insn_count) {
+  if (UNLIKELY(static_cast<int32_t>(cur_offset) + switch_offset < 0 ||
+               cur_offset + switch_offset + 2 > insn_count)) {
     Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "invalid switch start: at " << cur_offset
                                       << ", switch offset " << switch_offset
                                       << ", count " << insn_count;
@@ -1495,14 +1497,14 @@ bool MethodVerifier::CheckSwitchTargets(uint32_t cur_offset) {
   /* offset to switch table is a relative branch-style offset */
   const uint16_t* switch_insns = insns + switch_offset;
   // Make sure the table is at an even dex pc, that is, 32-bit aligned.
-  if (!IsAligned<4>(switch_insns)) {
+  if (UNLIKELY(!IsAligned<4>(switch_insns))) {
     Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "unaligned switch table: at " << cur_offset
                                       << ", switch offset " << switch_offset;
     return false;
   }
   // Make sure the switch data is marked as an opcode. This ensures that it was reached when
   // traversing the code item linearly. It is an approximation for a by-spec padding value.
-  if (!GetInstructionFlags(cur_offset + switch_offset).IsOpcode()) {
+  if (UNLIKELY(!GetInstructionFlags(cur_offset + switch_offset).IsOpcode())) {
     Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "switch table at " << cur_offset
                                       << ", switch offset " << switch_offset
                                       << " not correctly visited, probably bad padding.";
@@ -1524,14 +1526,14 @@ bool MethodVerifier::CheckSwitchTargets(uint32_t cur_offset) {
     expected_signature = Instruction::kSparseSwitchSignature;
   }
   uint32_t table_size = targets_offset + switch_count * 2;
-  if (switch_insns[0] != expected_signature) {
+  if (UNLIKELY(switch_insns[0] != expected_signature)) {
     Fail(VERIFY_ERROR_BAD_CLASS_HARD)
         << StringPrintf("wrong signature for switch table (%x, wanted %x)",
                         switch_insns[0], expected_signature);
     return false;
   }
   /* make sure the end of the switch is in range */
-  if (cur_offset + switch_offset + table_size > (uint32_t) insn_count) {
+  if (UNLIKELY(cur_offset + switch_offset + table_size > (uint32_t) insn_count)) {
     Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "invalid switch end: at " << cur_offset
                                       << ", switch offset " << switch_offset
                                       << ", end " << (cur_offset + switch_offset + table_size)
@@ -1546,7 +1548,7 @@ bool MethodVerifier::CheckSwitchTargets(uint32_t cur_offset) {
       int32_t first_key = switch_insns[keys_offset] | (switch_insns[keys_offset + 1] << 16);
       int32_t max_first_key =
           std::numeric_limits<int32_t>::max() - (static_cast<int32_t>(switch_count) - 1);
-      if (first_key > max_first_key) {
+      if (UNLIKELY(first_key > max_first_key)) {
         Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "invalid packed switch: first_key=" << first_key
                                           << ", switch_count=" << switch_count;
         return false;
@@ -1558,7 +1560,7 @@ bool MethodVerifier::CheckSwitchTargets(uint32_t cur_offset) {
         int32_t key =
             static_cast<int32_t>(switch_insns[keys_offset + targ * 2]) |
             static_cast<int32_t>(switch_insns[keys_offset + targ * 2 + 1] << 16);
-        if (key <= last_key) {
+        if (UNLIKELY(key <= last_key)) {
           Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "invalid sparse switch: last key=" << last_key
                                             << ", this=" << key;
           return false;
@@ -1572,9 +1574,9 @@ bool MethodVerifier::CheckSwitchTargets(uint32_t cur_offset) {
     int32_t offset = static_cast<int32_t>(switch_insns[targets_offset + targ * 2]) |
                      static_cast<int32_t>(switch_insns[targets_offset + targ * 2 + 1] << 16);
     int32_t abs_offset = cur_offset + offset;
-    if (abs_offset < 0 ||
-        abs_offset >= static_cast<int32_t>(insn_count) ||
-        !GetInstructionFlags(abs_offset).IsOpcode()) {
+    if (UNLIKELY(abs_offset < 0 ||
+                 abs_offset >= static_cast<int32_t>(insn_count) ||
+                 !GetInstructionFlags(abs_offset).IsOpcode())) {
       Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "invalid switch target " << offset
                                         << " (-> " << reinterpret_cast<void*>(abs_offset) << ") at "
                                         << reinterpret_cast<void*>(cur_offset)
@@ -1589,7 +1591,7 @@ bool MethodVerifier::CheckSwitchTargets(uint32_t cur_offset) {
 bool MethodVerifier::CheckVarArgRegs(uint32_t vA, uint32_t arg[]) {
   uint16_t registers_size = code_item_->registers_size_;
   for (uint32_t idx = 0; idx < vA; idx++) {
-    if (arg[idx] >= registers_size) {
+    if (UNLIKELY(arg[idx] >= registers_size)) {
       Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "invalid reg index (" << arg[idx]
                                         << ") in non-range invoke (>= " << registers_size << ")";
       return false;
@@ -1603,7 +1605,7 @@ bool MethodVerifier::CheckVarArgRangeRegs(uint32_t vA, uint32_t vC) {
   uint16_t registers_size = code_item_->registers_size_;
   // vA/vC are unsigned 8-bit/16-bit quantities for /range instructions, so there's no risk of
   // integer overflow when adding them here.
-  if (vA + vC > registers_size) {
+  if (UNLIKELY(vA + vC > registers_size)) {
     Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "invalid reg index " << vA << "+" << vC
                                       << " in range invoke (> " << registers_size << ")";
     return false;
@@ -1981,10 +1983,7 @@ static uint32_t GetFirstFinalInstanceFieldIndex(const DexFile& dex_file, dex::Ty
   const uint8_t* class_data = dex_file.GetClassData(*class_def);
   DCHECK(class_data != nullptr);
   ClassDataItemIterator it(dex_file, class_data);
-  // Skip static fields.
-  while (it.HasNextStaticField()) {
-    it.Next();
-  }
+  it.SkipStaticFields();
   while (it.HasNextInstanceField()) {
     if ((it.GetFieldAccessFlags() & kAccFinal) != 0) {
       return it.GetMemberIndex();
@@ -3821,21 +3820,6 @@ const RegType& MethodVerifier::GetCaughtExceptionType() {
   return *common_super;
 }
 
-inline static MethodResolutionKind GetMethodResolutionKind(
-    MethodType method_type, bool is_interface) {
-  if (method_type == METHOD_DIRECT || method_type == METHOD_STATIC) {
-    return kDirectMethodResolution;
-  } else if (method_type == METHOD_INTERFACE) {
-    return kInterfaceMethodResolution;
-  } else if (method_type == METHOD_SUPER && is_interface) {
-    return kInterfaceMethodResolution;
-  } else {
-    DCHECK(method_type == METHOD_VIRTUAL || method_type == METHOD_SUPER
-           || method_type == METHOD_POLYMORPHIC);
-    return kVirtualMethodResolution;
-  }
-}
-
 ArtMethod* MethodVerifier::ResolveMethodAndCheckAccess(
     uint32_t dex_method_idx, MethodType method_type) {
   const DexFile::MethodId& method_id = dex_file_->GetMethodId(dex_method_idx);
@@ -3849,47 +3833,51 @@ ArtMethod* MethodVerifier::ResolveMethodAndCheckAccess(
   if (klass_type.IsUnresolvedTypes()) {
     return nullptr;  // Can't resolve Class so no more to do here
   }
-  mirror::Class* klass = klass_type.GetClass();
+  ObjPtr<mirror::Class> klass = klass_type.GetClass();
   const RegType& referrer = GetDeclaringClass();
   auto* cl = Runtime::Current()->GetClassLinker();
   auto pointer_size = cl->GetImagePointerSize();
-  MethodResolutionKind res_kind = GetMethodResolutionKind(method_type, klass->IsInterface());
 
   ArtMethod* res_method = dex_cache_->GetResolvedMethod(dex_method_idx, pointer_size);
-  bool stash_method = false;
   if (res_method == nullptr) {
-    const char* name = dex_file_->GetMethodName(method_id);
-    const Signature signature = dex_file_->GetMethodSignature(method_id);
-
-    if (res_kind == kDirectMethodResolution) {
-      res_method = klass->FindDirectMethod(name, signature, pointer_size);
-    } else if (res_kind == kVirtualMethodResolution) {
-      res_method = klass->FindVirtualMethod(name, signature, pointer_size);
+    // Try to find the method with the appropriate lookup for the klass type (interface or not).
+    // If this lookup does not match `method_type`, errors shall be reported below.
+    if (klass->IsInterface()) {
+      res_method = klass->FindInterfaceMethod(dex_cache_.Get(), dex_method_idx, pointer_size);
     } else {
-      DCHECK_EQ(res_kind, kInterfaceMethodResolution);
-      res_method = klass->FindInterfaceMethod(name, signature, pointer_size);
+      res_method = klass->FindClassMethod(dex_cache_.Get(), dex_method_idx, pointer_size);
     }
-
     if (res_method != nullptr) {
-      stash_method = true;
-    } else {
-      // If a virtual or interface method wasn't found with the expected type, look in
-      // the direct methods. This can happen when the wrong invoke type is used or when
-      // a class has changed, and will be flagged as an error in later checks.
-      // Note that in this case, we do not put the resolved method in the Dex cache
-      // because it was not discovered using the expected type of method resolution.
-      if (res_kind != kDirectMethodResolution) {
-        // Record result of the initial resolution attempt.
-        VerifierDeps::MaybeRecordMethodResolution(*dex_file_, dex_method_idx, res_kind, nullptr);
-        // Change resolution type to 'direct' and try to resolve again.
-        res_kind = kDirectMethodResolution;
-        res_method = klass->FindDirectMethod(name, signature, pointer_size);
-      }
+      dex_cache_->SetResolvedMethod(dex_method_idx, res_method, pointer_size);
     }
   }
 
-  // Record result of method resolution attempt.
-  VerifierDeps::MaybeRecordMethodResolution(*dex_file_, dex_method_idx, res_kind, res_method);
+  // Record result of method resolution attempt. The klass resolution has recorded whether
+  // the class is an interface or not and therefore the type of the lookup performed above.
+  // TODO: Maybe we should not record dependency if the invoke type does not match the lookup type.
+  VerifierDeps::MaybeRecordMethodResolution(*dex_file_, dex_method_idx, res_method);
+
+  bool must_fail = false;
+  // This is traditional and helps with screwy bytecode. It will tell you that, yes, a method
+  // exists, but that it's called incorrectly. This significantly helps debugging, as locally it's
+  // hard to see the differences.
+  // If we don't have res_method here we must fail. Just use this bool to make sure of that with a
+  // DCHECK.
+  if (res_method == nullptr) {
+    must_fail = true;
+    // Try to find the method also with the other type for better error reporting below
+    // but do not store such bogus lookup result in the DexCache or VerifierDeps.
+    if (klass->IsInterface()) {
+      // NB This is normally not really allowed but we want to get any static or private object
+      // methods for error message purposes. This will never be returned.
+      // TODO We might want to change the verifier to not require this.
+      res_method = klass->FindClassMethod(dex_cache_.Get(), dex_method_idx, pointer_size);
+    } else {
+      // If there was an interface method with the same signature,
+      // we would have found it also in the "copied" methods.
+      DCHECK(klass->FindInterfaceMethod(dex_cache_.Get(), dex_method_idx, pointer_size) == nullptr);
+    }
+  }
 
   if (res_method == nullptr) {
     Fail(VERIFY_ERROR_NO_METHOD) << "couldn't find method "
@@ -3940,11 +3928,20 @@ ArtMethod* MethodVerifier::ResolveMethodAndCheckAccess(
     }
   }
 
-  // Only stash after the above passed. Otherwise the method wasn't guaranteed to be correct.
-  if (stash_method) {
-    dex_cache_->SetResolvedMethod(dex_method_idx, res_method, pointer_size);
+  // Check specifically for non-public object methods being provided for interface dispatch. This
+  // can occur if we failed to find a method with FindInterfaceMethod but later find one with
+  // FindClassMethod for error message use.
+  if (method_type == METHOD_INTERFACE &&
+      res_method->GetDeclaringClass()->IsObjectClass() &&
+      !res_method->IsPublic()) {
+    Fail(VERIFY_ERROR_NO_METHOD) << "invoke-interface " << klass->PrettyDescriptor() << "."
+                                 << dex_file_->GetMethodName(method_id) << " "
+                                 << dex_file_->GetMethodSignature(method_id) << " resolved to "
+                                 << "non-public object method " << res_method->PrettyMethod() << " "
+                                 << "but non-public Object methods are excluded from interface "
+                                 << "method resolution.";
+    return nullptr;
   }
-
   // Check if access is allowed.
   if (!referrer.CanAccessMember(res_method->GetDeclaringClass(), res_method->GetAccessFlags())) {
     Fail(VERIFY_ERROR_ACCESS_METHOD) << "illegal method access (call "
@@ -3973,6 +3970,13 @@ ArtMethod* MethodVerifier::ResolveMethodAndCheckAccess(
                                        "type of " << res_method->PrettyMethod();
     return nullptr;
   }
+  // Make sure we weren't expecting to fail.
+  DCHECK(!must_fail) << "invoke type (" << method_type << ")"
+                     << klass->PrettyDescriptor() << "."
+                     << dex_file_->GetMethodName(method_id) << " "
+                     << dex_file_->GetMethodSignature(method_id) << " unexpectedly resolved to "
+                     << res_method->PrettyMethod() << " without error. Initially this method was "
+                     << "not found so we were expecting to fail for some reason.";
   return res_method;
 }
 
@@ -4159,7 +4163,8 @@ bool MethodVerifier::CheckCallSite(uint32_t call_site_idx) {
   const DexFile::MethodHandleItem& mh = dex_file_->GetMethodHandle(method_handle_idx);
   if (mh.method_handle_type_ != static_cast<uint16_t>(DexFile::MethodHandleType::kInvokeStatic)) {
     Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "Call site #" << call_site_idx
-                                      << " argument 0 method handle type is not InvokeStatic";
+                                      << " argument 0 method handle type is not InvokeStatic: "
+                                      << mh.method_handle_type_;
     return false;
   }
 
@@ -4345,7 +4350,7 @@ ArtMethod* MethodVerifier::VerifyInvocationArgs(
     }
   }
 
-  if (method_type == METHOD_POLYMORPHIC) {
+  if (UNLIKELY(method_type == METHOD_POLYMORPHIC)) {
     // Process the signature of the calling site that is invoking the method handle.
     DexFileParameterIterator it(*dex_file_, dex_file_->GetProtoId(inst->VRegH()));
     return VerifyInvocationArgsFromIterator(&it, inst, method_type, is_range, res_method);

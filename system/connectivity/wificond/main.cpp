@@ -26,6 +26,8 @@
 #include <binder/IServiceManager.h>
 #include <binder/ProcessState.h>
 #include <cutils/properties.h>
+#include <hwbinder/IPCThreadState.h>
+#include <hwbinder/ProcessState.h>
 #include <libminijail.h>
 #include <utils/String16.h>
 #include <wifi_system/interface_tool.h>
@@ -89,6 +91,16 @@ int SetupBinderOrCrash() {
   return binder_fd;
 }
 
+// Setup our interface to the hw Binder driver or die trying.
+int SetupHwBinderOrCrash() {
+  int binder_fd = -1;
+  android::hardware::ProcessState::self()->setThreadPoolConfiguration(1, true);
+  int err = android::hardware::IPCThreadState::self()->setupPolling(&binder_fd);
+  CHECK_EQ(err, 0) << "Error setting up hw binder polling: " << strerror(-err);
+  CHECK_GE(binder_fd, 0) << "Invalid hw binder FD: " << binder_fd;
+  return binder_fd;
+}
+
 void RegisterServiceOrCrash(const android::sp<android::IBinder>& service) {
   android::sp<android::IServiceManager> sm = android::defaultServiceManager();
   CHECK_EQ(sm != NULL, true) << "Could not obtain IServiceManager";
@@ -101,6 +113,10 @@ void RegisterServiceOrCrash(const android::sp<android::IBinder>& service) {
 
 void OnBinderReadReady(int fd) {
   android::IPCThreadState::self()->handlePolledCommands();
+}
+
+void OnHwBinderReadReady(int fd) {
+  android::hardware::IPCThreadState::self()->handlePolledCommands();
 }
 
 int main(int argc, char** argv) {
@@ -117,8 +133,15 @@ int main(int argc, char** argv) {
       android::wificond::EventLoop::kModeInput,
       &OnBinderReadReady)) << "Failed to watch binder FD";
 
+  int hw_binder_fd = SetupHwBinderOrCrash();
+  CHECK(event_dispatcher->WatchFileDescriptor(
+      hw_binder_fd, android::wificond::EventLoop::kModeInput,
+      &OnHwBinderReadReady)) << "Failed to watch Hw Binder FD";
+
   android::wificond::NetlinkManager netlink_manager(event_dispatcher.get());
-  CHECK(netlink_manager.Start()) << "Failed to start netlink manager";
+  if (!netlink_manager.Start()) {
+    LOG(ERROR) << "Failed to start netlink manager";
+  }
   android::wificond::NetlinkUtils netlink_utils(&netlink_manager);
   android::wificond::ScanUtils scan_utils(&netlink_manager);
 

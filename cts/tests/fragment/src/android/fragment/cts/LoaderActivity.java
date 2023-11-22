@@ -23,6 +23,8 @@ import android.os.Bundle;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
+import java.util.concurrent.CountDownLatch;
+
 /**
  * This Activity sets the text when loading completes. It also tracks the Activity in
  * a static variable, so it must be cleared in test tear down.
@@ -30,6 +32,7 @@ import android.widget.TextView;
 public class LoaderActivity extends RecreatedActivity {
     public TextView textView;
     public TextView textViewB;
+    public CountDownLatch loadFinished = new CountDownLatch(1);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,6 +62,7 @@ public class LoaderActivity extends RecreatedActivity {
         @Override
         public void onLoadFinished(Loader<String> loader, String data) {
             textView.setText(data);
+            loadFinished.countDown();
         }
 
         @Override
@@ -82,3 +86,4 @@ public class LoaderActivity extends RecreatedActivity {
         }
     }
 }
+

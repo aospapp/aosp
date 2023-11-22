@@ -87,7 +87,7 @@ public class BluetoothToggleActivity extends PassFailButtons.Activity {
     }
 
     private void enableBluetooth() {
-        mDisablingDialog.hide();
+        mDisablingDialog.dismiss();
         mToggleButton.setEnabled(false);
         Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
         startActivityForResult(intent, START_ENABLE_BLUETOOTH_REQUEST);
@@ -109,7 +109,7 @@ public class BluetoothToggleActivity extends PassFailButtons.Activity {
         mDisablingDialog.show();
         mToggleButton.setEnabled(false);
         if (!mBluetoothAdapter.disable()) {
-            mDisablingDialog.hide();
+            mDisablingDialog.dismiss();
             mToggleButton.setEnabled(true);
             new AlertDialog.Builder(this)
                 .setIcon(android.R.drawable.ic_dialog_alert)
@@ -139,7 +139,7 @@ public class BluetoothToggleActivity extends PassFailButtons.Activity {
             }
 
             if (BluetoothAdapter.STATE_OFF == newState) {
-                mDisablingDialog.hide();
+                mDisablingDialog.dismiss();
                 mToggleButton.setEnabled(true);
             }
 

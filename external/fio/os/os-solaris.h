@@ -16,7 +16,6 @@
 #include "../file.h"
 
 #define FIO_HAVE_CPU_AFFINITY
-#define FIO_HAVE_PSHARED_MUTEX
 #define FIO_HAVE_CHARDEV_SIZE
 #define FIO_USE_GENERIC_BDEV_SIZE
 #define FIO_USE_GENERIC_INIT_RANDOM_STATE
@@ -61,7 +60,7 @@ static inline int chardev_size(struct fio_file *f, unsigned long long *bytes)
 
 static inline int blockdev_invalidate_cache(struct fio_file *f)
 {
-	return 0;
+	return ENOTSUP;
 }
 
 static inline unsigned long long os_phys_mem(void)

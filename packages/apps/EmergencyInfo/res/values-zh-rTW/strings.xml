@@ -17,6 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"緊急救援資訊"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"醫療資訊"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"編輯資訊"</string>
     <string name="edit_info" msgid="5973929805855224805">"編輯緊急資訊"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"資訊"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"聯絡人"</string>
@@ -96,12 +98,12 @@
     <string name="cancel" msgid="7401575239009060939">"取消"</string>
     <string name="ok" msgid="163967937451981024">"確定"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"緊急資訊"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"你在這裡輸入的資訊可協助第一線處理人員在發生緊急事件時提供相關協助。這項資訊只會儲存在你的裝置上；任何人都能透過緊急撥號器讀取這項資訊，而不需將手機解鎖。"</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"繼續"</string>
     <string name="no_info_provided" msgid="716200382010821001">"沒有任何關於手機擁有者的資訊"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"如果這是你的手機，輕觸鉛筆圖示就能新增緊急救援資訊並顯示在這裡，以備不時之需"</string>
     <string name="clear_all" msgid="8899013032870561633">"全部清除"</string>
     <string name="clear" msgid="3648880442502887163">"清除"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"要清除所有資訊和聯絡人嗎？"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"新增醫療資訊和緊急聯絡人，以便第一線救援人員在發生緊急事件時提供相關協助。\n\n任何人不必先將手機解鎖，都能在鎖定畫面上查看這項資訊，而且只要輕觸緊急聯絡人姓名，即可撥打對方號碼。"</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"新增緊急救援資訊"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"協助第一線處理人員找到重要資訊"</string>
 </resources>

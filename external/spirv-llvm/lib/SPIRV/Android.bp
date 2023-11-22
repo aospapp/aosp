@@ -101,6 +101,11 @@ cc_library_shared {
         "-Wno-unused-parameter",
     ],
 
+    clang_cflags: [
+        // Temporarily suppress the warnings http://b/37867503
+        "-Wno-error=user-defined-warnings",
+    ],
+
     product_variables: {
         unbundled_build: {
             // Don't build for unbundled branches

@@ -17,6 +17,7 @@
 package com.android.car;
 
 import android.car.Car;
+import android.car.hardware.CarSensorConfig;
 import android.car.hardware.CarSensorEvent;
 import android.car.hardware.CarSensorManager;
 import android.car.hardware.ICarSensor;
@@ -420,6 +421,7 @@ public class CarSensorService extends ICarSensor.Stub
         switch (sensorType) {
             case CarSensorManager.SENSOR_TYPE_CAR_SPEED:
             case CarSensorManager.SENSOR_TYPE_RPM:
+            case CarSensorManager.SENSOR_TYPE_WHEEL_TICK_DISTANCE:
                 return true;
             case CarSensorManager.SENSOR_TYPE_ODOMETER:
             case CarSensorManager.SENSOR_TYPE_FUEL_LEVEL:
@@ -454,6 +456,7 @@ public class CarSensorService extends ICarSensor.Stub
         String permission = null;
         switch (sensorType) {
             case CarSensorManager.SENSOR_TYPE_CAR_SPEED:
+            case CarSensorManager.SENSOR_TYPE_WHEEL_TICK_DISTANCE:
                 permission = Car.PERMISSION_SPEED;
                 break;
             case CarSensorManager.SENSOR_TYPE_ODOMETER:
@@ -461,6 +464,10 @@ public class CarSensorService extends ICarSensor.Stub
                 break;
             case CarSensorManager.SENSOR_TYPE_FUEL_LEVEL:
                 permission = Car.PERMISSION_FUEL;
+                break;
+            case CarSensorManager.SENSOR_TYPE_ABS_ACTIVE:
+            case CarSensorManager.SENSOR_TYPE_TRACTION_CONTROL_ACTIVE:
+                permission = Car.PERMISSION_VEHICLE_DYNAMICS_STATE;
                 break;
             default:
                 break;
@@ -557,6 +564,22 @@ public class CarSensorService extends ICarSensor.Stub
         } else if (shouldRestartSensor) {
             startSensor(record, sensorType, newRate);
         }
+    }
+
+    @Override
+    public CarSensorConfig getSensorConfig(int sensorType) {
+        if (Binder.getCallingUid() != Process.myUid()) {
+            switch (getSensorPermission(sensorType)) {
+                case PackageManager.PERMISSION_DENIED:
+                    throw new SecurityException("client does not have permission:"
+                        + getPermissionName(sensorType)
+                        + " pid:" + Binder.getCallingPid()
+                        + " uid:" + Binder.getCallingUid());
+                case PackageManager.PERMISSION_GRANTED:
+                    break;
+            }
+        }
+        return(mSensorHal.getSensorConfig(sensorType));
     }
 
     private void stopSensor(SensorRecord record, int sensorType) {

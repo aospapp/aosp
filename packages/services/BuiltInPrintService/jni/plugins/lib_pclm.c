@@ -273,6 +273,10 @@ static int _end_page(pcl_job_info_t *job_info, int page_number) {
     if (page_number == -1) {
         LOGI("_end_page(): writing blank page");
         _start_page(job_info, 0, 0);
+        unsigned char blank_data[1] = {0xFF};
+        PCLmEncapsulate(job_info->pclmgen_obj, (void *) blank_data, 1, 1,
+                (void **) &job_info->pclm_output_buffer, &outBuffSize);
+        _WRITE(job_info, (const char *) job_info->pclm_output_buffer, outBuffSize);
     }
     LOGI("_end_page()");
     PCLmEndPage(job_info->pclmgen_obj, (void **) &job_info->pclm_output_buffer, &outBuffSize);

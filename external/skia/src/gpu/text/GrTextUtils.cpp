@@ -50,6 +50,25 @@ bool GrTextUtils::Paint::toGrPaint(GrMaskFormat maskFormat, GrRenderTargetContex
     }
 }
 
+void GrTextUtils::Paint::initFilteredColor() {
+    // This mirrors the logic in skpaint_to_grpaint_impl for handling paint colors
+    if (fDstColorSpace) {
+        GrColor4f filteredColor = SkColorToUnpremulGrColor4f(fPaint->getColor(), fDstColorSpace,
+                                                             fColorXformFromSRGB);
+        if (fPaint->getColorFilter()) {
+            filteredColor = GrColor4f::FromSkColor4f(
+                fPaint->getColorFilter()->filterColor4f(filteredColor.toSkColor4f()));
+        }
+        fFilteredPremulColor = filteredColor.premul().toGrColor();
+    } else {
+        SkColor filteredSkColor = fPaint->getColor();
+        if (fPaint->getColorFilter()) {
+            filteredSkColor = fPaint->getColorFilter()->filterColor(filteredSkColor);
+        }
+        fFilteredPremulColor = SkColorToPremulGrColor(filteredSkColor);
+    }
+}
+
 bool GrTextUtils::RunPaint::modifyForRun(const SkTextBlobRunIterator& run) {
     if (!fModifiedPaint.isValid()) {
         fModifiedPaint.init(fOriginalPaint->skPaint());
@@ -99,7 +118,7 @@ void GrTextUtils::DrawBmpText(GrAtlasTextBlob* blob, int runIndex, GrAtlasGlyphC
              BmpAppendGlyph(
                  blob, runIndex, fontCache, &currStrike, glyph,
                  SkScalarFloorToInt(position.fX), SkScalarFloorToInt(position.fY),
-                 paint.filteredPremulGrColor(), cache);
+                 paint.filteredPremulColor(), cache);
         }
     );
 
@@ -135,7 +154,7 @@ void GrTextUtils::DrawBmpPosText(GrAtlasTextBlob* blob, int runIndex, GrAtlasGly
             BmpAppendGlyph(
                 blob, runIndex, fontCache, &currStrike, glyph,
                 SkScalarFloorToInt(position.fX), SkScalarFloorToInt(position.fY),
-                paint.filteredPremulGrColor(), cache);
+                paint.filteredPremulColor(), cache);
         }
     );
 
@@ -178,27 +197,24 @@ void GrTextUtils::BmpAppendGlyph(GrAtlasTextBlob* blob, int runIndex,
 
 bool GrTextUtils::CanDrawAsDistanceFields(const SkPaint& skPaint, const SkMatrix& viewMatrix,
                                           const SkSurfaceProps& props, const GrShaderCaps& caps) {
-    // TODO: support perspective (need getMaxScale replacement)
-    if (viewMatrix.hasPerspective()) {
-        return false;
-    }
+    if (!viewMatrix.hasPerspective()) {
+        SkScalar maxScale = viewMatrix.getMaxScale();
+        SkScalar scaledTextSize = maxScale * skPaint.getTextSize();
+        // Hinted text looks far better at small resolutions
+        // Scaling up beyond 2x yields undesireable artifacts
+        if (scaledTextSize < kMinDFFontSize ||
+            scaledTextSize > kLargeDFFontLimit) {
+            return false;
+        }
 
-    SkScalar maxScale = viewMatrix.getMaxScale();
-    SkScalar scaledTextSize = maxScale * skPaint.getTextSize();
-    // Hinted text looks far better at small resolutions
-    // Scaling up beyond 2x yields undesireable artifacts
-    if (scaledTextSize < kMinDFFontSize ||
-        scaledTextSize > kLargeDFFontLimit) {
-        return false;
-    }
-
-    bool useDFT = props.isUseDeviceIndependentFonts();
+        bool useDFT = props.isUseDeviceIndependentFonts();
 #if SK_FORCE_DISTANCE_FIELD_TEXT
-    useDFT = true;
+        useDFT = true;
 #endif
 
-    if (!useDFT && scaledTextSize < kLargeDFFontSize) {
-        return false;
+        if (!useDFT && scaledTextSize < kLargeDFFontSize) {
+            return false;
+        }
     }
 
     // rasterizers and mask filters modify alpha, which doesn't
@@ -219,16 +235,21 @@ void GrTextUtils::InitDistanceFieldPaint(GrAtlasTextBlob* blob,
                                          SkPaint* skPaint,
                                          SkScalar* textRatio,
                                          const SkMatrix& viewMatrix) {
-    // getMaxScale doesn't support perspective, so neither do we at the moment
-    SkASSERT(!viewMatrix.hasPerspective());
-    SkScalar maxScale = viewMatrix.getMaxScale();
     SkScalar textSize = skPaint->getTextSize();
     SkScalar scaledTextSize = textSize;
-    // if we have non-unity scale, we need to choose our base text size
-    // based on the SkPaint's text size multiplied by the max scale factor
-    // TODO: do we need to do this if we're scaling down (i.e. maxScale < 1)?
-    if (maxScale > 0 && !SkScalarNearlyEqual(maxScale, SK_Scalar1)) {
-        scaledTextSize *= maxScale;
+
+    if (viewMatrix.hasPerspective()) {
+        // for perspective, we simply force to the medium size
+        // TODO: compute a size based on approximate screen area
+        scaledTextSize = kMediumDFFontLimit;
+    } else {
+        SkScalar maxScale = viewMatrix.getMaxScale();
+        // if we have non-unity scale, we need to choose our base text size
+        // based on the SkPaint's text size multiplied by the max scale factor
+        // TODO: do we need to do this if we're scaling down (i.e. maxScale < 1)?
+        if (maxScale > 0 && !SkScalarNearlyEqual(maxScale, SK_Scalar1)) {
+            scaledTextSize *= maxScale;
+        }
     }
 
     // We have three sizes of distance field text, and within each size 'bucket' there is a floor
@@ -262,6 +283,7 @@ void GrTextUtils::InitDistanceFieldPaint(GrAtlasTextBlob* blob,
     SkASSERT(dfMaskScaleFloor <= scaledTextSize && scaledTextSize <= dfMaskScaleCeil);
     blob->setMinAndMaxScale(dfMaskScaleFloor / scaledTextSize, dfMaskScaleCeil / scaledTextSize);
 
+    skPaint->setAntiAlias(true);
     skPaint->setLCDRenderText(false);
     skPaint->setAutohinted(false);
     skPaint->setHinting(SkPaint::kNormal_Hinting);
@@ -365,7 +387,8 @@ void GrTextUtils::DrawDFPosText(GrAtlasTextBlob* blob, int runIndex, GrAtlasGlyp
     SkPaint dfPaint(paint);
     GrTextUtils::InitDistanceFieldPaint(blob, &dfPaint, &textRatio, viewMatrix);
     blob->setHasDistanceField();
-    blob->setSubRunHasDistanceFields(runIndex, paint.skPaint().isLCDRenderText());
+    blob->setSubRunHasDistanceFields(runIndex, paint.skPaint().isLCDRenderText(),
+                                     paint.skPaint().isAntiAlias());
 
     GrAtlasTextStrike* currStrike = nullptr;
 
@@ -390,7 +413,7 @@ void GrTextUtils::DrawDFPosText(GrAtlasTextBlob* blob, int runIndex, GrAtlasGlyp
                 SkScalar y = offset.y() + (2 == scalarsPerPosition ? pos[1] : 0);
 
                 if (!DfAppendGlyph(blob, runIndex, fontCache, &currStrike, glyph, x, y,
-                                   paint.filteredPremulGrColor(), cache, textRatio, viewMatrix)) {
+                                   paint.filteredPremulColor(), cache, textRatio, viewMatrix)) {
                     // couldn't append, send to fallback
                     fallbackTxt.append(SkToInt(text-lastText), lastText);
                     *fallbackPos.append() = pos[0];
@@ -417,7 +440,7 @@ void GrTextUtils::DrawDFPosText(GrAtlasTextBlob* blob, int runIndex, GrAtlasGlyp
                 SkScalar advanceY = SkFloatToScalar(glyph.fAdvanceY) * alignMul * textRatio;
 
                 if (!DfAppendGlyph(blob, runIndex, fontCache, &currStrike, glyph, x - advanceX,
-                                   y - advanceY, paint.filteredPremulGrColor(), cache, textRatio,
+                                   y - advanceY, paint.filteredPremulColor(), cache, textRatio,
                                    viewMatrix)) {
                     // couldn't append, send to fallback
                     fallbackTxt.append(SkToInt(text-lastText), lastText);

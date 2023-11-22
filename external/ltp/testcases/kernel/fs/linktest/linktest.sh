@@ -21,36 +21,21 @@
 #  FILE(s)     : linktest.sh README
 #  DESCRIPTION : Regression test for max links per file
 #  USE         : linktest.sh <number of symlinks> <number of hardlinks>
-#  AUTHOR      : Garrett Cooper (yanegomi@gmail.com)
+#  AUTHOR      : Ngie Cooper (yaneurabeya@gmail.com)
 #  HISTORY     :
 #	A rewrite of testcases/kernel/fs/linktest.pl
 
 export TCID=linker01
 export TST_TOTAL=2
 export TST_COUNT=1
+. test.sh
 
 if [ $# -ne 2 ]; then
-	tst_res TBROK "" "usage: $0 {softlink count} {hardlink count}"
+	tst_resm TBROK "usage: $0 {softlink count} {hardlink count}"
 	exit 1
 fi
 
-# TMPDIR not specified.
-if [ "x$TMPDIR" = x -o ! -d "$TMPDIR" ] ; then
-
-	if ! TMPDIR=$(mktemp -d) ; then
-		tst_res TBROK "" 'Failed to create $TMPDIR'
-		exit 1
-	fi
-	# We created the directory, so we have the power to delete it as well.
-	trap "rm -Rf '$TMPDIR'" EXIT
-
-# Most likely runltp provided; don't delete $TMPDIR, but instead delete the
-# files under it belonging to this process.
-else
-	trap "rm -Rf '$TMPDIR/[hs]link.$$'" EXIT
-fi
-
-cd "$TMPDIR" || tst_res TBROK "" "Failed to cd to $TMPDIR"
+tst_tmpdir
 
 mkdir hlink.$$ slink.$$ && touch hlink.$$/hfile slink.$$/sfile
 
@@ -79,7 +64,7 @@ do_link() {
 		RTYPE=TFAIL
 	fi
 
-	tst_res $RTYPE "" "$prefix_msg Link Errors: $lerrors"
+	tst_resm $RTYPE "$prefix_msg Link Errors: $lerrors"
 
 	: $(( TST_COUNT += 1 ))
 
@@ -89,3 +74,6 @@ do_link s "-s" ${1} "Symbolic"
 do_link h   "" ${2} "Hard"
 
 rm -Rf hlink.$$ slink.$$
+
+tst_rmdir
+tst_exit

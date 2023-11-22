@@ -7,13 +7,17 @@ known_tests=(
   net_test_btcore
   net_test_bta
   net_test_btif
+  net_test_btif_profile_queue
   net_test_device
   net_test_hci
   net_test_stack
   net_test_stack_multi_adv
   net_test_stack_ad_parser
   net_test_stack_smp
+  net_test_types
+  net_test_btu_message_loop
   net_test_osi
+  performance_test
 )
 
 known_remote_tests=(

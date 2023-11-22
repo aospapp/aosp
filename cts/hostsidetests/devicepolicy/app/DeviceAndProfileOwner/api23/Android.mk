@@ -24,7 +24,7 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_SRC_FILES := $(call all-java-files-under, ../src)
 
-LOCAL_JAVA_LIBRARIES = conscrypt
+LOCAL_JAVA_LIBRARIES = conscrypt legacy-android-test
 
 LOCAL_STATIC_JAVA_LIBRARIES = android-support-v4 compatibility-device-util ctstestrunner ub-uiautomator
 
@@ -33,6 +33,6 @@ LOCAL_SDK_VERSION := test_current
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/../res
 
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 include $(BUILD_CTS_PACKAGE)

@@ -4,7 +4,7 @@
    This file is part of MemCheck, a heavyweight Valgrind tool for
    detecting memory errors.
 
-   Copyright (C) 2012-2015  Florian Krohm
+   Copyright (C) 2012-2017  Florian Krohm
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License as
@@ -51,7 +51,8 @@ new_iricb(const irop_t *op, test_data_t *data)
 
    cb.num_operands = get_num_operands(op->op);
 
-   cb.shift_amount_is_immediate = op->shift_amount_is_immediate;
+   cb.immediate_index = op->immediate_index;
+   cb.immediate_type  = op->immediate_type;
 
    return cb;
 }

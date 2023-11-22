@@ -28,7 +28,6 @@ import android.telecom.Log;
 import android.telecom.Logging.Session;
 
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.util.Preconditions;
 
 // TODO: Needed for move to system service: import com.android.internal.R;
 
@@ -86,37 +85,41 @@ public class DtmfLocalTonePlayer {
 
         @Override
         public void handleMessage(Message msg) {
-            if (msg.obj instanceof Session) {
-                Log.continueSession((Session) msg.obj, "DLTP.TH");
-            }
+            try {
+                if (msg.obj instanceof Session) {
+                    Log.continueSession((Session) msg.obj, "DLTP.TH");
+                }
 
-            switch(msg.what) {
-                case EVENT_START_SESSION:
-                    mToneGeneratorProxy.create();
-                    break;
-                case EVENT_END_SESSION:
-                    mToneGeneratorProxy.release();
-                    break;
-                case EVENT_PLAY_TONE:
-                    char c = (char) msg.arg1;
-                    if (!mToneGeneratorProxy.isPresent()) {
-                        Log.d(this, "playTone: no tone generator, %c.", c);
-                    } else {
-                        Log.d(this, "starting local tone: %c.", c);
-                        int tone = getMappedTone(c);
-                        if (tone != ToneGenerator.TONE_UNKNOWN) {
-                            mToneGeneratorProxy.startTone(tone, -1 /* toneDuration */);
+                switch (msg.what) {
+                    case EVENT_START_SESSION:
+                        mToneGeneratorProxy.create();
+                        break;
+                    case EVENT_END_SESSION:
+                        mToneGeneratorProxy.release();
+                        break;
+                    case EVENT_PLAY_TONE:
+                        char c = (char) msg.arg1;
+                        if (!mToneGeneratorProxy.isPresent()) {
+                            Log.d(this, "playTone: no tone generator, %c.", c);
+                        } else {
+                            Log.d(this, "starting local tone: %c.", c);
+                            int tone = getMappedTone(c);
+                            if (tone != ToneGenerator.TONE_UNKNOWN) {
+                                mToneGeneratorProxy.startTone(tone, -1 /* toneDuration */);
+                            }
                         }
-                    }
-                    break;
-                case EVENT_STOP_TONE:
-                    if (mToneGeneratorProxy.isPresent()) {
-                        mToneGeneratorProxy.stopTone();
-                    }
-                    break;
-                default:
-                    Log.w(this, "Unknown message: %d", msg.what);
-                    break;
+                        break;
+                    case EVENT_STOP_TONE:
+                        if (mToneGeneratorProxy.isPresent()) {
+                            mToneGeneratorProxy.stopTone();
+                        }
+                        break;
+                    default:
+                        Log.w(this, "Unknown message: %d", msg.what);
+                        break;
+                }
+            } finally {
+                Log.endSession();
             }
         }
     }

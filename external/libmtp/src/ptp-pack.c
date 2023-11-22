@@ -1,11 +1,38 @@
+/* ptp-pack.c
+ *
+ * Copyright (C) 2001-2004 Mariusz Woloszyn <emsi@ipartners.pl>
+ * Copyright (C) 2003-2016 Marcus Meissner <marcus@jet.franken.de>
+ * Copyright (C) 2006-2008 Linus Walleij <triad@df.lth.se>
+ * Copyright (C) 2007 Tero Saarni <tero.saarni@gmail.com>
+ * Copyright (C) 2009 Axel Waggershauser <awagger@web.de>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA  02110-1301  USA
+ */
+
 /* currently this file is included into ptp.c */
 
-#ifdef HAVE_ICONV
+#ifdef HAVE_LIMITS_H
+#include <limits.h>
+#endif
+#ifndef UINT_MAX
+# define UINT_MAX 0xFFFFFFFF
+#endif
+#if defined(HAVE_ICONV) && defined(HAVE_LANGINFO_H)
 #include <iconv.h>
 #endif
-
-extern void
-ptp_debug (PTPParams *params, const char *format, ...);
 
 static inline uint16_t
 htod16p (PTPParams *params, uint16_t var)
@@ -24,7 +51,7 @@ htod16ap (PTPParams *params, unsigned char *a, uint16_t val)
 {
 	if (params->byteorder==PTP_DL_LE)
 		htole16a(a,val);
-	else 
+	else
 		htobe16a(a,val);
 }
 
@@ -33,7 +60,7 @@ htod32ap (PTPParams *params, unsigned char *a, uint32_t val)
 {
 	if (params->byteorder==PTP_DL_LE)
 		htole32a(a,val);
-	else 
+	else
 		htobe32a(a,val);
 }
 
@@ -42,7 +69,7 @@ htod64ap (PTPParams *params, unsigned char *a, uint64_t val)
 {
 	if (params->byteorder==PTP_DL_LE)
 		htole64a(a,val);
-	else 
+	else
 		htobe64a(a,val);
 }
 
@@ -100,34 +127,40 @@ dtoh64ap (PTPParams *params, const unsigned char *a)
 
 
 static inline char*
-ptp_unpack_string(PTPParams *params, unsigned char* data, uint16_t offset, uint8_t *len)
+ptp_unpack_string(PTPParams *params, unsigned char* data, uint16_t offset, uint32_t total, uint8_t *len)
 {
 	uint8_t length;
 	uint16_t string[PTP_MAXSTRLEN+1];
 	/* allow for UTF-8: max of 3 bytes per UCS-2 char, plus final null */
-	char loclstr[PTP_MAXSTRLEN*3+1]; 
+	char loclstr[PTP_MAXSTRLEN*3+1];
 	size_t nconv, srclen, destlen;
 	char *src, *dest;
+
+	if (offset + 1 >= total)
+		return NULL;
 
 	length = dtoh8a(&data[offset]);	/* PTP_MAXSTRLEN == 255, 8 bit len */
 	*len = length;
 	if (length == 0)		/* nothing to do? */
-		return(NULL);
+		return NULL;
+
+	if (offset + 1 + length*sizeof(string[0]) > total)
+		return NULL;
 
 	/* copy to string[] to ensure correct alignment for iconv(3) */
 	memcpy(string, &data[offset+1], length * sizeof(string[0]));
 	string[length] = 0x0000U;   /* be paranoid!  add a terminator. */
 	loclstr[0] = '\0';
-    
+
 	/* convert from camera UCS-2 to our locale */
 	src = (char *)string;
 	srclen = length * sizeof(string[0]);
 	dest = loclstr;
 	destlen = sizeof(loclstr)-1;
 	nconv = (size_t)-1;
-#ifdef HAVE_ICONV
-	nconv = iconv(params->cd_ucs2_to_locale, &src, &srclen, 
-			&dest, &destlen);
+#if defined(HAVE_ICONV) && defined(HAVE_LANGINFO_H)
+	if (params->cd_ucs2_to_locale != (iconv_t)-1)
+		nconv = iconv(params->cd_ucs2_to_locale, &src, &srclen, &dest, &destlen);
 #endif
 	if (nconv == (size_t) -1) { /* do it the hard way */
 		int i;
@@ -148,7 +181,7 @@ ptp_unpack_string(PTPParams *params, unsigned char* data, uint16_t offset, uint8
 static inline int
 ucs2strlen(uint16_t const * const unicstr)
 {
-	int length;
+	int length = 0;
 	
 	/* Unicode strings are terminated with 2 * 0x00 */
 	for(length = 0; unicstr[length] != 0x0000U; length ++);
@@ -159,15 +192,15 @@ ucs2strlen(uint16_t const * const unicstr)
 static inline void
 ptp_pack_string(PTPParams *params, char *string, unsigned char* data, uint16_t offset, uint8_t *len)
 {
-	int packedlen;
+	int packedlen = 0;
 	uint16_t ucs2str[PTP_MAXSTRLEN+1];
 	char *ucs2strp = (char *) ucs2str;
 	size_t convlen = strlen(string);
 
 	/* Cannot exceed 255 (PTP_MAXSTRLEN) since it is a single byte, duh ... */
 	memset(ucs2strp, 0, sizeof(ucs2str));  /* XXX: necessary? */
-#ifdef HAVE_ICONV
-	{ 
+#if defined(HAVE_ICONV) && defined(HAVE_LANGINFO_H)
+	if (params->cd_locale_to_ucs2 != (iconv_t)-1) {
 		size_t nconv;
 		size_t convmax = PTP_MAXSTRLEN * 2; /* Includes the terminator */
 		char *stringp = string;
@@ -176,16 +209,16 @@ ptp_pack_string(PTPParams *params, char *string, unsigned char* data, uint16_t o
 			&ucs2strp, &convmax);
 		if (nconv == (size_t) -1)
 			ucs2str[0] = 0x0000U;
-	}
-#else
+	} else
+#endif
 	{
-		int i;
+		unsigned int i;
+
 		for (i=0;i<convlen;i++) {
 			ucs2str[i] = string[i];
 		}
 		ucs2str[convlen] = 0;
 	}
-#endif
 	/*
 	 * XXX: isn't packedlen just ( (uint16_t *)ucs2strp - ucs2str )?
 	 *      why do we need ucs2strlen()?
@@ -231,16 +264,36 @@ ptp_get_packed_stringcopy(PTPParams *params, char *string, uint32_t *packed_size
 }
 
 static inline uint32_t
-ptp_unpack_uint32_t_array(PTPParams *params, unsigned char* data, uint16_t offset, uint32_t **array)
+ptp_unpack_uint32_t_array(PTPParams *params, unsigned char* data, unsigned int offset, unsigned int datalen, uint32_t **array)
 {
 	uint32_t n, i=0;
 
+	if (!data)
+		return 0;
+
+	if (offset >= datalen)
+		return 0;
+
+	if (offset + sizeof(uint32_t) > datalen)
+		return 0;
+
+	*array = NULL;
 	n=dtoh32a(&data[offset]);
-	*array = malloc (n*sizeof(uint32_t));
-	while (n>i) {
-		(*array)[i]=dtoh32a(&data[offset+(sizeof(uint32_t)*(i+1))]);
-		i++;
+	if (n >= UINT_MAX/sizeof(uint32_t))
+		return 0;
+	if (!n)
+		return 0;
+
+	if (offset + sizeof(uint32_t)*(n+1) > datalen) {
+		ptp_debug (params ,"array runs over datalen bufferend (%d vs %d)", offset + sizeof(uint32_t)*(n+1) , datalen);
+		return 0;
 	}
+
+	*array = malloc (n*sizeof(uint32_t));
+	if (!*array)
+		return 0;
+	for (i=0;i<n;i++)
+		(*array)[i]=dtoh32a(&data[offset+(sizeof(uint32_t)*(i+1))]);
 	return n;
 }
 
@@ -250,6 +303,8 @@ ptp_pack_uint32_t_array(PTPParams *params, uint32_t *array, uint32_t arraylen, u
 	uint32_t i=0;
 
 	*data = malloc ((arraylen+1)*sizeof(uint32_t));
+	if (!*data)
+		return 0;
 	htod32a(&(*data)[0],arraylen);
 	for (i=0;i<arraylen;i++)
 		htod32a(&(*data)[sizeof(uint32_t)*(i+1)], array[i]);
@@ -257,16 +312,29 @@ ptp_pack_uint32_t_array(PTPParams *params, uint32_t *array, uint32_t arraylen, u
 }
 
 static inline uint32_t
-ptp_unpack_uint16_t_array(PTPParams *params, unsigned char* data, uint16_t offset, uint16_t **array)
+ptp_unpack_uint16_t_array(PTPParams *params, unsigned char* data, unsigned int offset, unsigned int datalen, uint16_t **array)
 {
 	uint32_t n, i=0;
 
+	if (!data)
+		return 0;
+	*array = NULL;
 	n=dtoh32a(&data[offset]);
-	*array = malloc (n*sizeof(uint16_t));
-	while (n>i) {
-		(*array)[i]=dtoh16a(&data[offset+(sizeof(uint16_t)*(i+2))]);
-		i++;
+	if (n >= UINT_MAX/sizeof(uint16_t))
+		return 0;
+	if (!n)
+		return 0;
+	if (offset + sizeof(uint32_t) > datalen)
+		return 0;
+	if (offset + sizeof(uint32_t)+sizeof(uint16_t)*n > datalen) {
+		ptp_debug (params ,"array runs over datalen bufferend (%d vs %d)", offset + sizeof(uint32_t)+n*sizeof(uint16_t) , datalen);
+		return 0;
 	}
+	*array = malloc (n*sizeof(uint16_t));
+	if (!*array)
+		return 0;
+	for (i=0;i<n;i++)
+		(*array)[i]=dtoh16a(&data[offset+(sizeof(uint16_t)*(i+2))]);
 	return n;
 }
 
@@ -279,102 +347,138 @@ ptp_unpack_uint16_t_array(PTPParams *params, unsigned char* data, uint16_t offse
 #define PTP_di_FunctionalMode		 8
 #define PTP_di_OperationsSupported	10
 
-static inline void
+static inline int
 ptp_unpack_DI (PTPParams *params, unsigned char* data, PTPDeviceInfo *di, unsigned int datalen)
 {
 	uint8_t len;
 	unsigned int totallen;
 
-	if (!data) return;
-	if (datalen < 12) return;
+	if (!data) return 0;
+	if (datalen < 12) return 0;
+	memset (di, 0, sizeof(*di));
 	di->StandardVersion = dtoh16a(&data[PTP_di_StandardVersion]);
 	di->VendorExtensionID =
 		dtoh32a(&data[PTP_di_VendorExtensionID]);
 	di->VendorExtensionVersion =
 		dtoh16a(&data[PTP_di_VendorExtensionVersion]);
-	di->VendorExtensionDesc = 
+	di->VendorExtensionDesc =
 		ptp_unpack_string(params, data,
-		PTP_di_VendorExtensionDesc, &len); 
+		PTP_di_VendorExtensionDesc,
+		datalen,
+		&len);
 	totallen=len*2+1;
-	di->FunctionalMode = 
+	if (datalen <= totallen) return 0;
+	di->FunctionalMode =
 		dtoh16a(&data[PTP_di_FunctionalMode+totallen]);
 	di->OperationsSupported_len = ptp_unpack_uint16_t_array(params, data,
 		PTP_di_OperationsSupported+totallen,
+		datalen,
 		&di->OperationsSupported);
 	totallen=totallen+di->OperationsSupported_len*sizeof(uint16_t)+sizeof(uint32_t);
+	if (datalen <= totallen+PTP_di_OperationsSupported) return 0;
 	di->EventsSupported_len = ptp_unpack_uint16_t_array(params, data,
 		PTP_di_OperationsSupported+totallen,
+		datalen,
 		&di->EventsSupported);
 	totallen=totallen+di->EventsSupported_len*sizeof(uint16_t)+sizeof(uint32_t);
+	if (datalen <= totallen+PTP_di_OperationsSupported) return 0;
 	di->DevicePropertiesSupported_len =
 		ptp_unpack_uint16_t_array(params, data,
 		PTP_di_OperationsSupported+totallen,
+		datalen,
 		&di->DevicePropertiesSupported);
 	totallen=totallen+di->DevicePropertiesSupported_len*sizeof(uint16_t)+sizeof(uint32_t);
+	if (datalen <= totallen+PTP_di_OperationsSupported) return 0;
 	di->CaptureFormats_len = ptp_unpack_uint16_t_array(params, data,
 		PTP_di_OperationsSupported+totallen,
+		datalen,
 		&di->CaptureFormats);
 	totallen=totallen+di->CaptureFormats_len*sizeof(uint16_t)+sizeof(uint32_t);
+	if (datalen <= totallen+PTP_di_OperationsSupported) return 0;
 	di->ImageFormats_len = ptp_unpack_uint16_t_array(params, data,
 		PTP_di_OperationsSupported+totallen,
+		datalen,
 		&di->ImageFormats);
 	totallen=totallen+di->ImageFormats_len*sizeof(uint16_t)+sizeof(uint32_t);
+	if (datalen <= totallen+PTP_di_OperationsSupported) return 0;
 	di->Manufacturer = ptp_unpack_string(params, data,
 		PTP_di_OperationsSupported+totallen,
+		datalen,
 		&len);
 	totallen+=len*2+1;
+	/* be more relaxed ... as these are optional its ok if they are not here */
+	if (datalen <= totallen+PTP_di_OperationsSupported) return 1;
 	di->Model = ptp_unpack_string(params, data,
 		PTP_di_OperationsSupported+totallen,
+		datalen,
 		&len);
 	totallen+=len*2+1;
+	/* be more relaxed ... as these are optional its ok if they are not here */
+	if (datalen <= totallen+PTP_di_OperationsSupported) return 1;
 	di->DeviceVersion = ptp_unpack_string(params, data,
 		PTP_di_OperationsSupported+totallen,
+		datalen,
 		&len);
 	totallen+=len*2+1;
+	/* be more relaxed ... as these are optional its ok if they are not here */
+	if (datalen <= totallen+PTP_di_OperationsSupported) return 1;
 	di->SerialNumber = ptp_unpack_string(params, data,
 		PTP_di_OperationsSupported+totallen,
+		datalen,
 		&len);
+	return 1;
 }
 
-static void
+inline static void
 ptp_free_DI (PTPDeviceInfo *di) {
-	if (di->SerialNumber) free (di->SerialNumber);
-	if (di->DeviceVersion) free (di->DeviceVersion);
-	if (di->Model) free (di->Model);
-	if (di->Manufacturer) free (di->Manufacturer);
-	if (di->ImageFormats) free (di->ImageFormats);
-	if (di->CaptureFormats) free (di->CaptureFormats);
-	if (di->VendorExtensionDesc) free (di->VendorExtensionDesc);
-	if (di->OperationsSupported) free (di->OperationsSupported);
-	if (di->EventsSupported) free (di->EventsSupported);
-	if (di->DevicePropertiesSupported) free (di->DevicePropertiesSupported);
+	free (di->SerialNumber);
+	free (di->DeviceVersion);
+	free (di->Model);
+	free (di->Manufacturer);
+	free (di->ImageFormats);
+	free (di->CaptureFormats);
+	free (di->VendorExtensionDesc);
+	free (di->OperationsSupported);
+	free (di->EventsSupported);
+	free (di->DevicePropertiesSupported);
+	memset(di, 0, sizeof(*di));
 }
 
 /* EOS Device Info unpack */
-static inline void
+static inline int
 ptp_unpack_EOS_DI (PTPParams *params, unsigned char* data, PTPCanonEOSDeviceInfo *di, unsigned int datalen)
 {
-	int totallen = 4;
-	if (datalen < 8) return;
+	unsigned int totallen = 4;
+
+	memset (di,0, sizeof(*di));
+	if (datalen < 8) return 0;
 
 	/* uint32_t struct len - ignore */
 	di->EventsSupported_len = ptp_unpack_uint32_t_array(params, data,
-		totallen, &di->EventsSupported);
-	if (!di->EventsSupported) return;
+		totallen, datalen, &di->EventsSupported);
+	if (!di->EventsSupported) return 0;
 	totallen += di->EventsSupported_len*sizeof(uint32_t)+4;
-	if (totallen >= datalen) return;
+	if (totallen >= datalen) return 0;
 
 	di->DevicePropertiesSupported_len = ptp_unpack_uint32_t_array(params, data,
-		totallen, &di->DevicePropertiesSupported);
-	if (!di->DevicePropertiesSupported) return;
+		totallen, datalen, &di->DevicePropertiesSupported);
+	if (!di->DevicePropertiesSupported) return 0;
 	totallen += di->DevicePropertiesSupported_len*sizeof(uint32_t)+4;
-	if (totallen >= datalen) return;
+	if (totallen >= datalen) return 0;
 
 	di->unk_len = ptp_unpack_uint32_t_array(params, data,
-		totallen, &di->unk);
-	if (!di->unk) return;
+		totallen, datalen, &di->unk);
+	if (!di->unk) return 0;
 	totallen += di->unk_len*sizeof(uint32_t)+4;
-	return;
+	return 1;
+}
+
+static inline void
+ptp_free_EOS_DI (PTPCanonEOSDeviceInfo *di)
+{
+	free (di->EventsSupported);
+	free (di->DevicePropertiesSupported);
+	free (di->unk);
 }
 	
 /* ObjectHandles array pack/unpack */
@@ -385,7 +489,7 @@ static inline void
 ptp_unpack_OH (PTPParams *params, unsigned char* data, PTPObjectHandles *oh, unsigned int len)
 {
 	if (len) {
-		oh->n = ptp_unpack_uint32_t_array(params, data, PTP_oh, &oh->Handler);
+		oh->n = ptp_unpack_uint32_t_array(params, data, PTP_oh, len, &oh->Handler);
 	} else {
 		oh->n = 0;
 		oh->Handler = NULL;
@@ -399,8 +503,13 @@ ptp_unpack_OH (PTPParams *params, unsigned char* data, PTPObjectHandles *oh, uns
 static inline void
 ptp_unpack_SIDs (PTPParams *params, unsigned char* data, PTPStorageIDs *sids, unsigned int len)
 {
-	sids->n = ptp_unpack_uint32_t_array(params, data, PTP_sids,
-	&sids->Storage);
+	sids->n = 0;
+	sids->Storage = NULL;
+
+	if (!data || !len)
+		return;
+
+	sids->n = ptp_unpack_uint32_t_array(params, data, PTP_sids, len, &sids->Storage);
 }
 
 /* StorageInfo pack/unpack */
@@ -413,22 +522,29 @@ ptp_unpack_SIDs (PTPParams *params, unsigned char* data, PTPStorageIDs *sids, un
 #define PTP_si_FreeSpaceInImages	22
 #define PTP_si_StorageDescription	26
 
-static inline void
+static inline int
 ptp_unpack_SI (PTPParams *params, unsigned char* data, PTPStorageInfo *si, unsigned int len)
 {
 	uint8_t storagedescriptionlen;
 
+	if (len < 26) return 0;
 	si->StorageType=dtoh16a(&data[PTP_si_StorageType]);
 	si->FilesystemType=dtoh16a(&data[PTP_si_FilesystemType]);
 	si->AccessCapability=dtoh16a(&data[PTP_si_AccessCapability]);
 	si->MaxCapability=dtoh64a(&data[PTP_si_MaxCapability]);
 	si->FreeSpaceInBytes=dtoh64a(&data[PTP_si_FreeSpaceInBytes]);
 	si->FreeSpaceInImages=dtoh32a(&data[PTP_si_FreeSpaceInImages]);
+
+	/* FIXME: check more lengths here */
 	si->StorageDescription=ptp_unpack_string(params, data,
-		PTP_si_StorageDescription, &storagedescriptionlen);
+		PTP_si_StorageDescription,
+		len,
+		&storagedescriptionlen);
 	si->VolumeLabel=ptp_unpack_string(params, data,
 		PTP_si_StorageDescription+storagedescriptionlen*2+1,
+		len,
 		&storagedescriptionlen);
+	return 1;
 }
 
 /* ObjectInfo pack/unpack */
@@ -462,16 +578,19 @@ ptp_pack_OI (PTPParams *params, PTPObjectInfo *oi, unsigned char** oidataptr)
 	uint8_t filenamelen;
 	uint8_t capturedatelen=0;
 	/* let's allocate some memory first; correct assuming zero length dates */
-	oidata=malloc(PTP_oi_MaxLen);
+	oidata=malloc(PTP_oi_MaxLen + params->ocs64*4);
+	*oidataptr=oidata;
 	/* the caller should free it after use! */
 #if 0
 	char *capture_date="20020101T010101"; /* XXX Fake date */
 #endif
-	memset (oidata, 0, PTP_oi_MaxLen);
+	memset (oidata, 0, PTP_oi_MaxLen + params->ocs64*4);
 	htod32a(&oidata[PTP_oi_StorageID],oi->StorageID);
 	htod16a(&oidata[PTP_oi_ObjectFormat],oi->ObjectFormat);
 	htod16a(&oidata[PTP_oi_ProtectionStatus],oi->ProtectionStatus);
 	htod32a(&oidata[PTP_oi_ObjectCompressedSize],oi->ObjectCompressedSize);
+	if (params->ocs64)
+		oidata += 4;
 	htod16a(&oidata[PTP_oi_ThumbFormat],oi->ThumbFormat);
 	htod32a(&oidata[PTP_oi_ThumbCompressedSize],oi->ThumbCompressedSize);
 	htod32a(&oidata[PTP_oi_ThumbPixWidth],oi->ThumbPixWidth);
@@ -512,16 +631,14 @@ ptp_pack_OI (PTPParams *params, PTPObjectInfo *oi, unsigned char** oidataptr)
 	}
 #endif
 	/* XXX this function should return dataset length */
-	
-	*oidataptr=oidata;
-	return (PTP_oi_Filename+filenamelen*2+(capturedatelen+1)*3);
+	return (PTP_oi_Filename+filenamelen*2+(capturedatelen+1)*3)+params->ocs64*4;
 }
 
 static time_t
 ptp_unpack_PTPTIME (const char *str) {
 	char ptpdate[40];
 	char tmp[5];
-	int  ptpdatelen;
+	size_t  ptpdatelen;
 	struct tm tm;
 
 	if (!str)
@@ -531,11 +648,12 @@ ptp_unpack_PTPTIME (const char *str) {
 		/*ptp_debug (params ,"datelen is larger then size of buffer", ptpdatelen, (int)sizeof(ptpdate));*/
 		return 0;
 	}
-	strcpy (ptpdate, str);
 	if (ptpdatelen<15) {
 		/*ptp_debug (params ,"datelen is less than 15 (%d)", ptpdatelen);*/
 		return 0;
 	}
+	strncpy (ptpdate, str, sizeof(ptpdate));
+	ptpdate[sizeof(ptpdate) - 1] = '\0';
 
 	memset(&tm,0,sizeof(tm));
 	strncpy (tmp, ptpdate, 4);
@@ -556,9 +674,7 @@ ptp_unpack_PTPTIME (const char *str) {
 	strncpy (tmp, ptpdate + 13, 2);
 	tmp[2] = 0;
 	tm.tm_sec = atoi (tmp);
-
 	tm.tm_isdst = -1;
-
 	return mktime (&tm);
 }
 
@@ -569,10 +685,22 @@ ptp_unpack_OI (PTPParams *params, unsigned char* data, PTPObjectInfo *oi, unsign
 	uint8_t capturedatelen;
 	char *capture_date;
 
+	if (len < PTP_oi_SequenceNumber)
+		return;
+
+	oi->Filename = oi->Keywords = NULL;
+
+	/* FIXME: also handle length with all the strings at the end */
 	oi->StorageID=dtoh32a(&data[PTP_oi_StorageID]);
 	oi->ObjectFormat=dtoh16a(&data[PTP_oi_ObjectFormat]);
 	oi->ProtectionStatus=dtoh16a(&data[PTP_oi_ProtectionStatus]);
 	oi->ObjectCompressedSize=dtoh32a(&data[PTP_oi_ObjectCompressedSize]);
+
+	/* Stupid Samsung Galaxy developers emit a 64bit objectcompressedsize */
+	if ((data[PTP_oi_filenamelen] == 0) && (data[PTP_oi_filenamelen+4] != 0)) {
+		params->ocs64 = 1;
+		data += 4;
+	}
 	oi->ThumbFormat=dtoh16a(&data[PTP_oi_ThumbFormat]);
 	oi->ThumbCompressedSize=dtoh32a(&data[PTP_oi_ThumbCompressedSize]);
 	oi->ThumbPixWidth=dtoh32a(&data[PTP_oi_ThumbPixWidth]);
@@ -584,10 +712,11 @@ ptp_unpack_OI (PTPParams *params, unsigned char* data, PTPObjectInfo *oi, unsign
 	oi->AssociationType=dtoh16a(&data[PTP_oi_AssociationType]);
 	oi->AssociationDesc=dtoh32a(&data[PTP_oi_AssociationDesc]);
 	oi->SequenceNumber=dtoh32a(&data[PTP_oi_SequenceNumber]);
-	oi->Filename= ptp_unpack_string(params, data, PTP_oi_filenamelen, &filenamelen);
+
+	oi->Filename= ptp_unpack_string(params, data, PTP_oi_filenamelen, len, &filenamelen);
 
 	capture_date = ptp_unpack_string(params, data,
-		PTP_oi_filenamelen+filenamelen*2+1, &capturedatelen);
+		PTP_oi_filenamelen+filenamelen*2+1, len, &capturedatelen);
 	/* subset of ISO 8601, without '.s' tenths of second and 
 	 * time zone
 	 */
@@ -597,7 +726,7 @@ ptp_unpack_OI (PTPParams *params, unsigned char* data, PTPObjectInfo *oi, unsign
 	/* now the modification date ... */
 	capture_date = ptp_unpack_string(params, data,
 		PTP_oi_filenamelen+filenamelen*2
-		+capturedatelen*2+2,&capturedatelen);
+		+capturedatelen*2+2, len, &capturedatelen);
 	oi->ModificationDate = ptp_unpack_PTPTIME(capture_date);
 	free(capture_date);
 }
@@ -611,12 +740,16 @@ ptp_unpack_OI (PTPParams *params, unsigned char* data, PTPObjectInfo *oi, unsign
 }
 
 #define RARR(val,member,func)	{			\
-	int n,j;					\
+	unsigned int n,j;				\
 	if (total - *offset < sizeof(uint32_t))		\
 		return 0;				\
 	n = dtoh32a (&data[*offset]);			\
 	*offset += sizeof(uint32_t);			\
 							\
+	if (n >= UINT_MAX/sizeof(val->a.v[0]))		\
+		return 0;				\
+	if (n > (total - (*offset))/sizeof(val->a.v[0]))\
+		return 0;				\
 	val->a.count = n;				\
 	val->a.v = malloc(sizeof(val->a.v[0])*n);	\
 	if (!val->a.v) return 0;			\
@@ -624,11 +757,14 @@ ptp_unpack_OI (PTPParams *params, unsigned char* data, PTPObjectInfo *oi, unsign
 		CTVAL(val->a.v[j].member, func);	\
 }
 
-static inline int
+static inline unsigned int
 ptp_unpack_DPV (
-	PTPParams *params, unsigned char* data, int *offset, int total,
+	PTPParams *params, unsigned char* data, unsigned int *offset, unsigned int total,
 	PTPPropertyValue* value, uint16_t datatype
 ) {
+	if (*offset >= total)	/* we are at the end or over the end of the buffer */
+		return 0;
+
 	switch (datatype) {
 	case PTP_DTC_INT8:
 		CTVAL(value->i8,dtoh8a);
@@ -695,7 +831,11 @@ ptp_unpack_DPV (
 	case PTP_DTC_STR: {
 		uint8_t len;
 		/* XXX: max size */
-		value->str = ptp_unpack_string(params,data,*offset,&len);
+
+		if (*offset >= total+1)
+			return 0;
+
+		value->str = ptp_unpack_string(params,data,*offset,total,&len);
 		*offset += len*2+1;
 		if (!value->str)
 			return 1;
@@ -708,7 +848,6 @@ ptp_unpack_DPV (
 }
 
 /* Device Property pack/unpack */
-
 #define PTP_dpd_DevicePropertyCode	0
 #define PTP_dpd_DataType		2
 #define PTP_dpd_GetSet			4
@@ -717,9 +856,11 @@ ptp_unpack_DPV (
 static inline int
 ptp_unpack_DPD (PTPParams *params, unsigned char* data, PTPDevicePropDesc *dpd, unsigned int dpdlen)
 {
-	int offset=0, ret;
+	unsigned int offset = 0, ret;
 
 	memset (dpd, 0, sizeof(*dpd));
+	if (dpdlen <= 5)
+		return 0;
 	dpd->DevicePropertyCode=dtoh16a(&data[PTP_dpd_DevicePropertyCode]);
 	dpd->DataType=dtoh16a(&data[PTP_dpd_DataType]);
 	dpd->GetSet=dtoh8a(&data[PTP_dpd_GetSet]);
@@ -787,7 +928,163 @@ outofmemory:
 	return 0;
 }
 
-/* (MTP) Object Property pack/unpack */
+/* Device Property pack/unpack */
+#define PTP_dpd_Sony_DevicePropertyCode	0
+#define PTP_dpd_Sony_DataType		2
+#define PTP_dpd_Sony_GetSet		4
+#define PTP_dpd_Sony_Unknown		5
+#define PTP_dpd_Sony_FactoryDefaultValue	6
+
+static inline int
+ptp_unpack_Sony_DPD (PTPParams *params, unsigned char* data, PTPDevicePropDesc *dpd, unsigned int dpdlen, unsigned int *poffset)
+{
+	unsigned int ret;
+#if 0
+	unsigned int unk1, unk2;
+#endif
+
+	memset (dpd, 0, sizeof(*dpd));
+	dpd->DevicePropertyCode=dtoh16a(&data[PTP_dpd_Sony_DevicePropertyCode]);
+	dpd->DataType=dtoh16a(&data[PTP_dpd_Sony_DataType]);
+
+#if 0
+	/* get set ? */
+	unk1 = dtoh8a(&data[PTP_dpd_Sony_GetSet]);
+	unk2 = dtoh8a(&data[PTP_dpd_Sony_Unknown]);
+	ptp_debug (params, "prop 0x%04x, datatype 0x%04x, unk1 %d unk2 %d", dpd->DevicePropertyCode, dpd->DataType, unk1, unk2);
+#endif
+	dpd->GetSet=1;
+
+	dpd->FormFlag=PTP_DPFF_None;
+
+	*poffset = PTP_dpd_Sony_FactoryDefaultValue;
+	ret = ptp_unpack_DPV (params, data, poffset, dpdlen, &dpd->FactoryDefaultValue, dpd->DataType);
+	if (!ret) goto outofmemory;
+	if ((dpd->DataType == PTP_DTC_STR) && (*poffset == dpdlen))
+		return 1;
+	ret = ptp_unpack_DPV (params, data, poffset, dpdlen, &dpd->CurrentValue, dpd->DataType);
+	if (!ret) goto outofmemory;
+
+	/* if offset==0 then Data Type format is not supported by this
+	   code or the Data Type is a string (with two empty strings as
+	   values). In both cases Form Flag should be set to 0x00 and FORM is
+	   not present. */
+
+	if (*poffset==PTP_dpd_Sony_FactoryDefaultValue)
+		return 1;
+
+	dpd->FormFlag=dtoh8a(&data[*poffset]);
+	*poffset+=sizeof(uint8_t);
+
+	switch (dpd->FormFlag) {
+	case PTP_DPFF_Range:
+		ret = ptp_unpack_DPV (params, data, poffset, dpdlen, &dpd->FORM.Range.MinimumValue, dpd->DataType);
+		if (!ret) goto outofmemory;
+		ret = ptp_unpack_DPV (params, data, poffset, dpdlen, &dpd->FORM.Range.MaximumValue, dpd->DataType);
+		if (!ret) goto outofmemory;
+		ret = ptp_unpack_DPV (params, data, poffset, dpdlen, &dpd->FORM.Range.StepSize, dpd->DataType);
+		if (!ret) goto outofmemory;
+		break;
+	case PTP_DPFF_Enumeration: {
+		int i;
+#define N	dpd->FORM.Enum.NumberOfValues
+		N = dtoh16a(&data[*poffset]);
+		*poffset+=sizeof(uint16_t);
+		dpd->FORM.Enum.SupportedValue = malloc(N*sizeof(dpd->FORM.Enum.SupportedValue[0]));
+		if (!dpd->FORM.Enum.SupportedValue)
+			goto outofmemory;
+
+		memset (dpd->FORM.Enum.SupportedValue,0 , N*sizeof(dpd->FORM.Enum.SupportedValue[0]));
+		for (i=0;i<N;i++) {
+			ret = ptp_unpack_DPV (params, data, poffset, dpdlen, &dpd->FORM.Enum.SupportedValue[i], dpd->DataType);
+
+			/* Slightly different handling here. The HP PhotoSmart 120
+			 * specifies an enumeration with N in wrong endian
+			 * 00 01 instead of 01 00, so we count the enum just until the
+			 * the end of the packet.
+			 */
+			if (!ret) {
+				if (!i)
+					goto outofmemory;
+				dpd->FORM.Enum.NumberOfValues = i;
+				break;
+			}
+		}
+		}
+	}
+#undef N
+	return 1;
+outofmemory:
+	ptp_free_devicepropdesc(dpd);
+	return 0;
+}
+
+static inline void
+duplicate_PropertyValue (const PTPPropertyValue *src, PTPPropertyValue *dst, uint16_t type) {
+	if (type == PTP_DTC_STR) {
+		if (src->str)
+			dst->str = strdup(src->str);
+		else
+			dst->str = NULL;
+		return;
+	}
+
+	if (type & PTP_DTC_ARRAY_MASK) {
+		unsigned int i;
+
+		dst->a.count = src->a.count;
+		dst->a.v = malloc (sizeof(src->a.v[0])*src->a.count);
+		for (i=0;i<src->a.count;i++)
+			duplicate_PropertyValue (&src->a.v[i], &dst->a.v[i], type & ~PTP_DTC_ARRAY_MASK);
+		return;
+	}
+	switch (type & ~PTP_DTC_ARRAY_MASK) {
+	case PTP_DTC_INT8:	dst->i8 = src->i8; break;
+	case PTP_DTC_UINT8:	dst->u8 = src->u8; break;
+	case PTP_DTC_INT16:	dst->i16 = src->i16; break;
+	case PTP_DTC_UINT16:	dst->u16 = src->u16; break;
+	case PTP_DTC_INT32:	dst->i32 = src->i32; break;
+	case PTP_DTC_UINT32:	dst->u32 = src->u32; break;
+	case PTP_DTC_UINT64:	dst->u64 = src->u64; break;
+	case PTP_DTC_INT64:	dst->i64 = src->i64; break;
+#if 0
+	case PTP_DTC_INT128:	dst->i128 = src->i128; break;
+	case PTP_DTC_UINT128:	dst->u128 = src->u128; break;
+#endif
+	default:		break;
+	}
+	return;
+}
+
+static inline void
+duplicate_DevicePropDesc(const PTPDevicePropDesc *src, PTPDevicePropDesc *dst) {
+	int i;
+
+	dst->DevicePropertyCode	= src->DevicePropertyCode;
+	dst->DataType		= src->DataType;
+	dst->GetSet		= src->GetSet;
+	
+	duplicate_PropertyValue (&src->FactoryDefaultValue, &dst->FactoryDefaultValue, src->DataType);
+	duplicate_PropertyValue (&src->CurrentValue, &dst->CurrentValue, src->DataType);
+
+	dst->FormFlag		= src->FormFlag;
+	switch (src->FormFlag) {
+	case PTP_DPFF_Range:
+		duplicate_PropertyValue (&src->FORM.Range.MinimumValue, &dst->FORM.Range.MinimumValue, src->DataType);
+		duplicate_PropertyValue (&src->FORM.Range.MaximumValue, &dst->FORM.Range.MaximumValue, src->DataType);
+		duplicate_PropertyValue (&src->FORM.Range.StepSize,     &dst->FORM.Range.StepSize,     src->DataType);
+		break;
+	case PTP_DPFF_Enumeration:
+		dst->FORM.Enum.NumberOfValues = src->FORM.Enum.NumberOfValues;
+		dst->FORM.Enum.SupportedValue = malloc (sizeof(dst->FORM.Enum.SupportedValue[0])*src->FORM.Enum.NumberOfValues);
+		for (i = 0; i<src->FORM.Enum.NumberOfValues ; i++)
+			duplicate_PropertyValue (&src->FORM.Enum.SupportedValue[i], &dst->FORM.Enum.SupportedValue[i], src->DataType);
+		break;
+	case PTP_DPFF_None:
+		break;
+	}
+}
+
 #define PTP_opd_ObjectPropertyCode	0
 #define PTP_opd_DataType		2
 #define PTP_opd_GetSet			4
@@ -796,7 +1093,7 @@ outofmemory:
 static inline int
 ptp_unpack_OPD (PTPParams *params, unsigned char* data, PTPObjectPropDesc *opd, unsigned int opdlen)
 {
-	int offset=0, ret;
+	unsigned int offset=0, ret;
 
 	memset (opd, 0, sizeof(*opd));
 	opd->ObjectPropertyCode=dtoh16a(&data[PTP_opd_ObjectPropertyCode]);
@@ -823,7 +1120,7 @@ ptp_unpack_OPD (PTPParams *params, unsigned char* data, PTPObjectPropDesc *opd, 
 		if (!ret) goto outofmemory;
 		break;
 	case PTP_OPFF_Enumeration: {
-		int i;
+		unsigned int i;
 #define N	opd->FORM.Enum.NumberOfValues
 		N = dtoh16a(&data[offset]);
 		offset+=sizeof(uint16_t);
@@ -862,7 +1159,7 @@ ptp_pack_DPV (PTPParams *params, PTPPropertyValue* value, unsigned char** dpvptr
 {
 	unsigned char* dpv=NULL;
 	uint32_t size=0;
-	int	i;
+	unsigned int i;
 
 	switch (datatype) {
 	case PTP_DTC_INT8:
@@ -1043,10 +1340,13 @@ ptp_unpack_OPL (PTPParams *params, unsigned char* data, MTPProperties **pprops, 
 { 
 	uint32_t prop_count = dtoh32a(data);
 	MTPProperties *props = NULL;
-	int offset = 0, i;
+	unsigned int offset = 0, i;
 
-	if (prop_count == 0) {
-		*pprops = NULL;
+	*pprops = NULL;
+	if (prop_count == 0)
+		return 0;
+	if (prop_count >= INT_MAX/sizeof(MTPProperties)) {
+		ptp_debug (params ,"prop_count %d is too large", prop_count);
 		return 0;
 	}
 	ptp_debug (params ,"Unpacking MTP OPL, size %d (prop_count %d)", len, prop_count);
@@ -1057,7 +1357,7 @@ ptp_unpack_OPL (PTPParams *params, unsigned char* data, MTPProperties **pprops, 
 	for (i = 0; i < prop_count; i++) {
 		if (len <= 0) {
 			ptp_debug (params ,"short MTP Object Property List at property %d (of %d)", i, prop_count);
-			ptp_debug (params ,"device probably needs DEVICE_FLAG_BROKEN_MTPGETOBJPROPLIST_ALL", i);
+			ptp_debug (params ,"device probably needs DEVICE_FLAG_BROKEN_MTPGETOBJPROPLIST_ALL");
 			ptp_debug (params ,"or even DEVICE_FLAG_BROKEN_MTPGETOBJPROPLIST", i);
 			qsort (props, i, sizeof(MTPProperties),_compare_func);
 			*pprops = props;
@@ -1076,7 +1376,12 @@ ptp_unpack_OPL (PTPParams *params, unsigned char* data, MTPProperties **pprops, 
 		len -= sizeof(uint16_t);
 
 		offset = 0;
-		ptp_unpack_DPV(params, data, &offset, len, &props[i].propval, props[i].datatype);
+		if (!ptp_unpack_DPV(params, data, &offset, len, &props[i].propval, props[i].datatype)) {
+			ptp_debug (params ,"unpacking DPV of property %d encountered insufficient buffer. attack?", i);
+			qsort (props, i, sizeof(MTPProperties),_compare_func);
+			*pprops = props;
+			return i;
+		}
 		data += offset;
 		len -= offset;
 	}
@@ -1101,13 +1406,18 @@ ptp_unpack_OPL (PTPParams *params, unsigned char* data, MTPProperties **pprops, 
 static inline void
 ptp_unpack_EC (PTPParams *params, unsigned char* data, PTPContainer *ec, unsigned int len)
 {
-	int	length;
+	unsigned int	length;
 	int	type;
 
 	if (data==NULL)
 		return;
 	memset(ec,0,sizeof(*ec));
+
 	length=dtoh32a(&data[PTP_ec_Length]);
+	if (length > len) {
+		ptp_debug (params, "length %d in container, but data only %d bytes?!", length, len);
+		return;
+	}
 	type = dtoh16a(&data[PTP_ec_Type]);
 
 	ec->Code=dtoh16a(&data[PTP_ec_Code]);
@@ -1157,17 +1467,92 @@ ptp_unpack_Canon_FE (PTPParams *params, unsigned char* data, PTPCANONFolderEntry
 		fe->Filename[i]=(char)dtoh8a(&data[PTP_cfe_Filename+i]);
 }
 
+/*
+    PTP Canon EOS Folder Entry unpack
+0: 00 00 08 a0     objectid
+4: 01 00 02 00     storageid
+8: 01 30 00 00     ofc
+12: 01 00
+14: 00 00
+16: 11 00 00 00
+20: 00 00 00 00
+24: 00 00 00 80
+28: 00 00 08 a0
+32: 4d 49 53 43-00 00 00 00 00 00 00 00     name
+00 00 00 00
+84 bc 74 46     objectime
+
+
+(normal PTP GetObjectInfo)
+ObjectInfo for 'IMG_0199.JPG':
+  Object ID: 0x92740c72
+  StorageID: 0x00020001
+  ObjectFormat: 0x3801
+  ProtectionStatus: 0x0000
+  ObjectCompressedSize: 2217241
+  ThumbFormat: 0x3808
+  ThumbCompressedSize: 5122
+  ThumbPixWidth: 160
+  ThumbPixHeight: 120
+  ImagePixWidth: 4000
+  ImagePixHeight: 3000
+  ImageBitDepth: 24
+  ParentObject: 0x92740000
+  AssociationType: 0x0000
+  AssociationDesc: 0x00000000
+  SequenceNumber: 0x00000000
+  ModificationDate: 0x4d985ff0
+  CaptureDate: 0x4d985ff0
+
+0010  38 00 00 00  Size of this entry
+0014  72 0c 74 92  OID
+0018  01 00 02 00  StorageID
+001c  01 38 00 00  OFC
+0020  00 00 00 00 ??
+0024  21 00 00 00  flags (4 bytes? 1 byte?)
+0028  19 d5 21 00  Size
+002c  00 00 74 92  ?
+0030  70 0c 74 92  OID
+0034  49 4d 47 5f-30 31 39 39 2e 4a 50 47  IMG_0199.JPG
+0040  00 00 00 00
+0044  10 7c 98 4d Time
+
+
+*/
+#define PTP_cefe_ObjectHandle		0
+#define PTP_cefe_StorageID		4
+#define PTP_cefe_ObjectFormatCode	8
+#define PTP_cefe_Flags			16
+#define PTP_cefe_ObjectSize		20
+#define PTP_cefe_Filename		32
+#define PTP_cefe_Time			48
+
+static inline void
+ptp_unpack_Canon_EOS_FE (PTPParams *params, unsigned char* data, PTPCANONFolderEntry *fe)
+{
+	int i;
+
+	fe->ObjectHandle=dtoh32a(&data[PTP_cefe_ObjectHandle]);
+	fe->ObjectFormatCode=dtoh16a(&data[PTP_cefe_ObjectFormatCode]);
+	fe->Flags=dtoh8a(&data[PTP_cefe_Flags]);
+	fe->ObjectSize=dtoh32a((unsigned char*)&data[PTP_cefe_ObjectSize]);
+	fe->Time=(time_t)dtoh32a(&data[PTP_cefe_Time]);
+	for (i=0; i<PTP_CANON_FilenameBufferLen; i++)
+		fe->Filename[i]=(char)data[PTP_cefe_Filename+i];
+}
+
+
 static inline uint16_t
 ptp_unpack_EOS_ImageFormat (PTPParams* params, unsigned char** data )
 {
 	/*
-	  EOS ImageFormat entries (of at least the 5DMII and the 400D ) look like this:
+	  EOS ImageFormat entries (of at least the 5DM2 and the 400D) look like this:
 		uint32: number of entries / generated files (1 or 2)
 		uint32: size of this entry in bytes (most likely allways 0x10)
 		uint32: image type (1 == JPG, 6 == RAW)
-		uint32: image size (0 == Large, 1 == Medium, 2 == Small)
+		uint32: image size (0 == Large, 1 == Medium, 2 == Small, 0xe == S1, 0xf == S2, 0x10 == S3)
 		uint32: image compression (2 == Standard/JPG, 3 == Fine/JPG, 4 == Lossles/RAW)
-	  If number of entries is 2 the last uint32 repeat.
+	  If the number of entries is 2 the last 4 uint32 repeat.
 
 	  example:
 		0: 0x       1
@@ -1176,11 +1561,14 @@ ptp_unpack_EOS_ImageFormat (PTPParams* params, unsigned char** data )
 		3: 0x       1
 		4: 0x       4
 
-	  The idea is to simply 'condense' these values to just one uint16 to be able to conveniontly
+	  The idea is to simply 'condense' these values to just one uint16 to be able to conveniently
 	  use the available enumeration facilities (look-up table). The image size and compression
 	  values fully describe the image format. Hence we generate a uint16 with the four nibles set
 	  as follows: entry 1 size | entry 1 compression | entry 2 size | entry 2 compression.
 	  The above example would result in the value 0x1400.
+
+	  The EOS 5D Mark III (and possibly other high-end EOS as well) added the extra fancy S1, S2
+	  and S3 JPEG options. S1 replaces the old Small. -1 the S1/S2/S3 to prevent the 0x10 overflow.
 	  */
 
 	const unsigned char* d = *data;
@@ -1215,6 +1603,12 @@ ptp_unpack_EOS_ImageFormat (PTPParams* params, unsigned char** data )
 
 	*data = (unsigned char*) d+4;
 
+	/* deal with S1/S2/S3 JPEG sizes, see above. */
+	if( s1 >= 0xe )
+		s1--;
+	if( s2 >= 0xe )
+		s2--;
+
 	return ((s1 & 0xF) << 12) | ((c1 & 0xF) << 8) | ((s2 & 0xF) << 4) | ((c2 & 0xF) << 0);
 }
 
@@ -1227,17 +1621,162 @@ ptp_pack_EOS_ImageFormat (PTPParams* params, unsigned char* data, uint16_t value
 	if( !data )
 		return s;
 
+#define PACK_5DM3_SMALL_JPEG_SIZE( X ) (X) >= 0xd ? (X)+1 : (X)
+
 	htod32a(data+=0, n);
 	htod32a(data+=4, 0x10);
 	htod32a(data+=4, ((value >> 8) & 0xF) == 4 ? 6 : 1);
-	htod32a(data+=4, (value >> 12) & 0xF);
+	htod32a(data+=4, PACK_5DM3_SMALL_JPEG_SIZE((value >> 12) & 0xF));
 	htod32a(data+=4, (value >> 8) & 0xF);
 
 	if (n==2) {
 		htod32a(data+=4, 0x10);
 		htod32a(data+=4, ((value >> 0) & 0xF) == 4 ? 6 : 1);
-		htod32a(data+=4, (value >> 4) & 0xF);
+		htod32a(data+=4, PACK_5DM3_SMALL_JPEG_SIZE((value >> 4) & 0xF));
 		htod32a(data+=4, (value >> 0) & 0xF);
+	}
+
+#undef PACK_5DM3_SMALL_JPEG_SIZE
+
+	return s;
+}
+
+/* 00: 32 bit size
+ * 04: 16 bit subsize
+ * 08: 16 bit version (?)
+ * 0c: 16 bit focus_points_in_struct
+ * 10: 16 bit focus_points_in_use
+ * 14: variable arrays:
+ * 	16 bit sizex, 16 bit sizey
+ * 	16 bit othersizex, 16 bit othersizey
+ * 	16 bit array height[focus_points_in_struct]
+ * 	16 bit array width[focus_points_in_struct]
+ * 	16 bit array offsetheight[focus_points_in_struct] middle is 0
+ * 	16 bit array offsetwidth[focus_points_in_struct] middle is ?
+ * bitfield of selected focus points, starting with 0 [size focus_points_in_struct in bits]
+ * unknown stuff , likely which are active
+ * 16 bit 0xffff
+ *
+ * size=NxN,size2=NxN,points={NxNxNxN,NxNxNxN,...},selected={0,1,2}
+ */
+static inline char*
+ptp_unpack_EOS_FocusInfoEx (PTPParams* params, unsigned char** data, uint32_t datasize )
+{
+	uint32_t size 			= dtoh32a( *data );
+	uint32_t halfsize		= dtoh16a( (*data) + 4);
+	uint32_t version		= dtoh16a( (*data) + 6);
+	uint32_t focus_points_in_struct	= dtoh16a( (*data) + 8);
+	uint32_t focus_points_in_use	= dtoh16a( (*data) + 10);
+	uint32_t sizeX			= dtoh16a( (*data) + 12);
+	uint32_t sizeY			= dtoh16a( (*data) + 14);
+	uint32_t size2X			= dtoh16a( (*data) + 16);
+	uint32_t size2Y			= dtoh16a( (*data) + 18);
+	uint32_t i;
+	uint32_t maxlen;
+	char	*str, *p;
+
+	if ((size >= datasize) || (size < 20))
+		return strdup("bad size 1");
+	/* every focuspoint gets 4 (16 bit number possible "-" sign and a x) and a ,*/
+	/* inital things around lets say 100 chars at most. 
+	 * FIXME: check selected when we decode it
+	 */
+	if (size < focus_points_in_struct*8) {
+		ptp_error(params, "focus_points_in_struct %d is too large vs size %d", focus_points_in_struct, size);
+		return strdup("bad size 2");
+	}
+	if (focus_points_in_use > focus_points_in_struct) {
+		ptp_error(params, "focus_points_in_use %d is larger than focus_points_in_struct %d", focus_points_in_use, focus_points_in_struct);
+		return strdup("bad size 3");
+	}
+
+	maxlen = focus_points_in_use*32 + 100 + (size - focus_points_in_struct*8)*2;
+	if (halfsize != size-4) {
+		ptp_error(params, "halfsize %d is not expected %d", halfsize, size-4);
+		return strdup("bad size 4");
+	}
+	if (20 + focus_points_in_struct*8 + (focus_points_in_struct+7)/8 > size) {
+		ptp_error(params, "size %d is too large for fp in struct %d", focus_points_in_struct*8 + 20 + (focus_points_in_struct+7)/8, size);
+		return strdup("bad size 5");
+	}
+#if 0
+	ptp_debug(params,"d1d3 content:");
+	for (i=0;i<size;i+=2)
+		ptp_debug(params,"%d: %02x %02x", i, (*data)[i], (*data)[i+1]);
+#endif
+	ptp_debug(params,"d1d3 version %d", version);
+	ptp_debug(params,"d1d3 size %d", size);
+	ptp_debug(params,"d1d3 focus points in struct %d, in use %d", focus_points_in_struct, focus_points_in_use);
+
+	str = (char*)malloc( maxlen );
+	if (!str)
+		return NULL;
+	p = str;
+
+	p += sprintf(p,"eosversion=%d,size=%dx%d,size2=%dx%d,points={", version, sizeX, sizeY, size2X, size2Y);
+	for (i=0;i<focus_points_in_use;i++) {
+		int16_t x = dtoh16a((*data) + focus_points_in_struct*4 + 20 + 2*i);
+		int16_t y = dtoh16a((*data) + focus_points_in_struct*6 + 20 + 2*i);
+		int16_t w = dtoh16a((*data) + focus_points_in_struct*2 + 20 + 2*i);
+		int16_t h = dtoh16a((*data) + focus_points_in_struct*0 + 20 + 2*i);
+
+		p += sprintf(p,"{%d,%d,%d,%d}",x,y,w,h);
+
+		if (i<focus_points_in_use-1)
+			p += sprintf(p,",");
+	}
+	p += sprintf(p,"},select={");
+	for (i=0;i<focus_points_in_use;i++) {
+		if ((1<<(i%8)) & ((*data)[focus_points_in_struct*8+20+i/8]))
+			p+=sprintf(p,"%d,", i);
+	}
+
+	p += sprintf(p,"},unknown={");
+	for (i=focus_points_in_struct*8+(focus_points_in_struct+7)/8+20;i<size;i++) {
+		if ((p-str) > maxlen - 4)
+			break;
+		p+=sprintf(p,"%02x", (*data)[i]);
+	}
+	p += sprintf(p,"}");
+	return str;
+}
+
+
+static inline char*
+ptp_unpack_EOS_CustomFuncEx (PTPParams* params, unsigned char** data )
+{
+	uint32_t s = dtoh32a( *data );
+	uint32_t n = s/4, i;
+	char	*str, *p;
+
+	if (s > 1024) {
+		ptp_debug (params, "customfuncex data is larger than 1k / %d... unexpected?", s);
+		return strdup("bad length");
+	}
+	str = (char*)malloc( s*2+s/4+1 ); /* n is size in uint32, maximum %x len is 8 chars and \0*/
+	if (!str)
+		return strdup("malloc failed");
+
+	p = str;
+	for (i=0; i < n; ++i)
+		p += sprintf(p, "%x,", dtoh32a( *data + 4*i ));
+	return str;
+}
+
+static inline uint32_t
+ptp_pack_EOS_CustomFuncEx (PTPParams* params, unsigned char* data, char* str)
+{
+	uint32_t s = strtoul(str, NULL, 16);
+	uint32_t n = s/4, i, v;
+
+	if (!data)
+		return s;
+
+	for (i=0; i<n; i++)
+	{
+		v = strtoul(str, &str, 16);
+		str++; /* skip the ',' delimiter */
+		htod32a(data + i*4, v);
 	}
 
 	return s;
@@ -1269,61 +1808,168 @@ ptp_pack_EOS_ImageFormat (PTPParams* params, unsigned char* data, uint16_t value
 #define PTP_ece_OA_Parent	0x20
 #define PTP_ece_OA_Name		0x28
 
+#define PTP_ece2_OA_ObjectID	8	/* OK */
+#define PTP_ece2_OA_StorageID	0x0c	/* OK */
+#define PTP_ece2_OA_OFC		0x10	/* OK */
+#define PTP_ece2_OA_Size	0x1c	/* OK, might be 64 bit now? */
+#define PTP_ece2_OA_Parent	0x24
+#define PTP_ece2_OA_2ndOID	0x28
+#define PTP_ece2_OA_Name	0x2c	/* OK */
+
+/* for PTP_EC_CANON_EOS_ObjectAddedNew */
+#define PTP_ece_OAN_OFC		0x0c
+#define PTP_ece_OAN_Size	0x14
+
+static PTPDevicePropDesc*
+_lookup_or_allocate_canon_prop(PTPParams *params, uint16_t proptype)
+{
+	unsigned int j;
+
+	for (j=0;j<params->nrofcanon_props;j++)
+		if (params->canon_props[j].proptype == proptype)
+			break;
+	if (j<params->nrofcanon_props)
+		return &params->canon_props[j].dpd;
+
+	if (j)
+		params->canon_props = realloc(params->canon_props, sizeof(params->canon_props[0])*(j+1));
+	else
+		params->canon_props = malloc(sizeof(params->canon_props[0]));
+	params->canon_props[j].proptype = proptype;
+	params->canon_props[j].size = 0;
+	params->canon_props[j].data = NULL;
+	memset (&params->canon_props[j].dpd,0,sizeof(params->canon_props[j].dpd));
+	params->canon_props[j].dpd.GetSet = 1;
+	params->canon_props[j].dpd.FormFlag = PTP_DPFF_None;
+	params->nrofcanon_props = j+1;
+	return &params->canon_props[j].dpd;
+}
+
+
 static inline int
-ptp_unpack_CANON_changes (PTPParams *params, unsigned char* data, int datasize, PTPCanon_changes_entry **ce)
+ptp_unpack_CANON_changes (PTPParams *params, unsigned char* data, int datasize, PTPCanon_changes_entry **pce)
 {
 	int	i = 0, entries = 0;
 	unsigned char	*curdata = data;
+	PTPCanon_changes_entry *ce;
 
 	if (data==NULL)
 		return 0;
-	while (curdata - data < datasize) {
+	while (curdata - data + 8 < datasize) {
 		uint32_t	size = dtoh32a(&curdata[PTP_ece_Size]);
 		uint32_t	type = dtoh32a(&curdata[PTP_ece_Type]);
 
-		curdata += size;
+		if (size > datasize) {
+			ptp_debug (params, "size %d is larger than datasize %d", size, datasize);
+			break;
+		}
+		if (size < 8) {
+			ptp_debug (params, "size %d is smaller than 8.", size);
+			break;
+		}
 		if ((size == 8) && (type == 0))
 			break;
+		if ((curdata - data) + size >= datasize) {
+			ptp_debug (params, "canon eos event decoder ran over supplied data, skipping entries");
+			break;
+		}
+		if (type == PTP_EC_CANON_EOS_OLCInfoChanged) {
+			unsigned int j;
+
+			entries++;
+			if (size >= 12+2) {
+				for (j=0;j<31;j++)
+					if (dtoh16a(curdata+12) & (1<<j))
+						entries++;
+			}
+		}
+		curdata += size;
 		entries++;
 	}
-	*ce = malloc (sizeof(PTPCanon_changes_entry)*(entries+1));
-	if (!*ce) return 0;
+	ce = malloc (sizeof(PTPCanon_changes_entry)*(entries+1));
+	if (!ce) return 0;
 
 	curdata = data;
-	while (curdata - data < datasize) {
+	while (curdata - data  + 8 < datasize) {
 		uint32_t	size = dtoh32a(&curdata[PTP_ece_Size]);
 		uint32_t	type = dtoh32a(&curdata[PTP_ece_Type]);
 
-		(*ce)[i].type = PTP_CANON_EOS_CHANGES_TYPE_UNKNOWN;
-		switch (type) {
-		case  PTP_EC_CANON_EOS_ObjectAddedEx:
-			(*ce)[i].type = PTP_CANON_EOS_CHANGES_TYPE_OBJECTINFO;
-			(*ce)[i].u.object.oid    		= dtoh32a(&curdata[PTP_ece_OA_ObjectID]);
-			(*ce)[i].u.object.oi.StorageID 		= dtoh32a(&curdata[PTP_ece_OA_StorageID]);
-			(*ce)[i].u.object.oi.ParentObject	= dtoh32a(&curdata[PTP_ece_OA_Parent]);
-			(*ce)[i].u.object.oi.ObjectFormat 	= dtoh16a(&curdata[PTP_ece_OA_OFC]);
-			(*ce)[i].u.object.oi.ObjectCompressedSize= dtoh32a(&curdata[PTP_ece_OA_Size]);
-			(*ce)[i].u.object.oi.Filename 		= strdup(((char*)&curdata[PTP_ece_OA_Name]));
-			ptp_debug (params, "event %d: objectinfo added oid %08lx, parent %08lx, ofc %04x, size %d, filename %s", i, (*ce)[i].u.object.oid, (*ce)[i].u.object.oi.ParentObject, (*ce)[i].u.object.oi.ObjectFormat, (*ce)[i].u.object.oi.ObjectCompressedSize, (*ce)[i].u.object.oi.Filename);
+		if (size > datasize) {
+			ptp_debug (params, "size %d is larger than datasize %d", size, datasize);
 			break;
-		case  PTP_EC_CANON_EOS_RequestObjectTransfer:
-			(*ce)[i].type = PTP_CANON_EOS_CHANGES_TYPE_OBJECTTRANSFER;
-			(*ce)[i].u.object.oid    		= dtoh32a(&curdata[PTP_ece_OI_ObjectID]);
-			(*ce)[i].u.object.oi.StorageID 		= 0; /* use as marker */
-			(*ce)[i].u.object.oi.ObjectFormat 	= dtoh16a(&curdata[PTP_ece_OI_OFC]);
-			(*ce)[i].u.object.oi.ParentObject	= 0; /* check, but use as marker */
-			(*ce)[i].u.object.oi.ObjectCompressedSize = dtoh32a(&curdata[PTP_ece_OI_Size]);
-			(*ce)[i].u.object.oi.Filename 		= strdup(((char*)&curdata[PTP_ece_OI_Name]));
+		}
+		if (size < 8) {
+			ptp_debug (params, "size %d is smaller than 8", size);
+			break;
+		}
 
-			ptp_debug (params, "event %d: request object transfer oid %08lx, ofc %04x, size %d, filename %s", i, (*ce)[i].u.object.oid, (*ce)[i].u.object.oi.ObjectFormat, (*ce)[i].u.object.oi.ObjectCompressedSize, (*ce)[i].u.object.oi.Filename);
+		if ((size == 8) && (type == 0))
 			break;
-		case  PTP_EC_CANON_EOS_AvailListChanged: {	/* property desc */
+
+		if ((curdata - data) + size >= datasize) {
+			ptp_debug (params, "canon eos event decoder ran over supplied data, skipping entries");
+			break;
+		}
+
+		ce[i].type = PTP_CANON_EOS_CHANGES_TYPE_UNKNOWN;
+		ce[i].u.info = NULL;
+		switch (type) {
+		case PTP_EC_CANON_EOS_ObjectAddedEx:
+			if (size < PTP_ece_OA_Name+1) {
+				ptp_debug (params, "size %d is smaller than %d", size, PTP_ece_OA_Name+1);
+				break;
+			}
+			ce[i].type = PTP_CANON_EOS_CHANGES_TYPE_OBJECTINFO;
+			ce[i].u.object.oid    		= dtoh32a(&curdata[PTP_ece_OA_ObjectID]);
+			ce[i].u.object.oi.StorageID	= dtoh32a(&curdata[PTP_ece_OA_StorageID]);
+			ce[i].u.object.oi.ParentObject	= dtoh32a(&curdata[PTP_ece_OA_Parent]);
+			ce[i].u.object.oi.ObjectFormat 	= dtoh16a(&curdata[PTP_ece_OA_OFC]);
+			ce[i].u.object.oi.ObjectCompressedSize= dtoh32a(&curdata[PTP_ece_OA_Size]);
+			ce[i].u.object.oi.Filename 	= strdup(((char*)&curdata[PTP_ece_OA_Name]));
+			ptp_debug (params, "event %d: objectinfo added oid %08lx, parent %08lx, ofc %04x, size %d, filename %s", i, ce[i].u.object.oid, ce[i].u.object.oi.ParentObject, ce[i].u.object.oi.ObjectFormat, ce[i].u.object.oi.ObjectCompressedSize, ce[i].u.object.oi.Filename);
+			break;
+                case PTP_EC_CANON_EOS_ObjectAddedUnknown:	/* FIXME: review if the data used is correct */
+			if (size < PTP_ece2_OA_Name+1) {
+				ptp_debug (params, "size %d is smaller than %d", size, PTP_ece2_OA_Name+1);
+				break;
+			}
+			ce[i].type = PTP_CANON_EOS_CHANGES_TYPE_OBJECTINFO;
+			ce[i].u.object.oid    		= dtoh32a(&curdata[PTP_ece2_OA_ObjectID]);
+			ce[i].u.object.oi.StorageID	= dtoh32a(&curdata[PTP_ece2_OA_StorageID]);
+			ce[i].u.object.oi.ParentObject	= dtoh32a(&curdata[PTP_ece2_OA_Parent]);
+			ce[i].u.object.oi.ObjectFormat 	= dtoh16a(&curdata[PTP_ece2_OA_OFC]);
+			ce[i].u.object.oi.ObjectCompressedSize= dtoh32a(&curdata[PTP_ece2_OA_Size]);	/* FIXME: might be 64bit now */
+			ce[i].u.object.oi.Filename 	= strdup(((char*)&curdata[PTP_ece2_OA_Name]));
+			ptp_debug (params, "event %d: objectinfo added oid %08lx, parent %08lx, ofc %04x, size %d, filename %s", i, ce[i].u.object.oid, ce[i].u.object.oi.ParentObject, ce[i].u.object.oi.ObjectFormat, ce[i].u.object.oi.ObjectCompressedSize, ce[i].u.object.oi.Filename);
+			break;
+		case PTP_EC_CANON_EOS_RequestObjectTransfer:
+		case PTP_EC_CANON_EOS_RequestObjectTransferNew: /* FIXME: confirm */
+			if (size < PTP_ece_OI_Name+1) {
+				ptp_debug (params, "size %d is smaller than %d", size, PTP_ece_OI_Name+1);
+				break;
+			}
+			ce[i].type = PTP_CANON_EOS_CHANGES_TYPE_OBJECTTRANSFER;
+			ce[i].u.object.oid    		= dtoh32a(&curdata[PTP_ece_OI_ObjectID]);
+			ce[i].u.object.oi.StorageID 	= 0; /* use as marker */
+			ce[i].u.object.oi.ObjectFormat 	= dtoh16a(&curdata[PTP_ece_OI_OFC]);
+			ce[i].u.object.oi.ParentObject	= 0; /* check, but use as marker */
+			ce[i].u.object.oi.ObjectCompressedSize = dtoh32a(&curdata[PTP_ece_OI_Size]);
+			ce[i].u.object.oi.Filename 	= strdup(((char*)&curdata[PTP_ece_OI_Name]));
+
+			ptp_debug (params, "event %d: request object transfer oid %08lx, ofc %04x, size %d, filename %p", i, ce[i].u.object.oid, ce[i].u.object.oi.ObjectFormat, ce[i].u.object.oi.ObjectCompressedSize, ce[i].u.object.oi.Filename);
+			break;
+		case PTP_EC_CANON_EOS_AvailListChanged: {	/* property desc */
 			uint32_t	proptype = dtoh32a(&curdata[PTP_ece_Prop_Subtype]);
 			uint32_t	propxtype = dtoh32a(&curdata[PTP_ece_Prop_Desc_Type]);
 			uint32_t	propxcnt = dtoh32a(&curdata[PTP_ece_Prop_Desc_Count]);
-			unsigned char	*data = &curdata[PTP_ece_Prop_Desc_Data];
-			int		j;
+			unsigned char	*xdata = &curdata[PTP_ece_Prop_Desc_Data];
+			unsigned int	j;
 			PTPDevicePropDesc	*dpd;
+
+			if (size < PTP_ece_Prop_Desc_Data) {
+				ptp_debug (params, "size %d is smaller than %d", size, PTP_ece_Prop_Desc_Data);
+				break;
+			}
 
 			ptp_debug (params, "event %d: EOS prop %04x desc record, datasize %d, propxtype %d", i, proptype, size-PTP_ece_Prop_Desc_Data, propxtype);
 			for (j=0;j<params->nrofcanon_props;j++)
@@ -1339,18 +1985,21 @@ ptp_unpack_CANON_changes (PTPParams *params, unsigned char* data, int datasize, 
 			 * 7 - string?
 			 */
 			if (propxtype != 3) {
-				ptp_debug (params, "event %d: propxtype is %x for %04x, unhandled.", i, propxtype, proptype);
+				ptp_debug (params, "event %d: propxtype is %x for %04x, unhandled, size %d", i, propxtype, proptype, size);
 				for (j=0;j<size-PTP_ece_Prop_Desc_Data;j++)
-					ptp_debug (params, "    %d: %02x", j, data[j]);
+					ptp_debug (params, "    %d: %02x", j, xdata[j]);
 				break;
 			}
 			if (! propxcnt)
+				break;
+			if (propxcnt >= 2<<16) /* buggy or exploit */
 				break;
 
 			ptp_debug (params, "event %d: propxtype is %x, prop is 0x%04x, data type is 0x%04x, propxcnt is %d.",
 				   i, propxtype, proptype, dpd->DataType, propxcnt);
 			dpd->FormFlag = PTP_DPFF_Enumeration;
 			dpd->FORM.Enum.NumberOfValues = propxcnt;
+			free (dpd->FORM.Enum.SupportedValue);
 			dpd->FORM.Enum.SupportedValue = malloc (sizeof (PTPPropertyValue)*propxcnt);
 
 			switch (proptype) {
@@ -1361,7 +2010,7 @@ ptp_unpack_CANON_changes (PTPParams *params, unsigned char* data, int datasize, 
 				/* special handling of ImageFormat properties */
 				for (j=0;j<propxcnt;j++) {
 					dpd->FORM.Enum.SupportedValue[j].u16 =
-							dtoh16( ptp_unpack_EOS_ImageFormat( params, &data ) );
+							ptp_unpack_EOS_ImageFormat( params, &xdata );
 					ptp_debug (params, "event %d: suppval[%d] of %x is 0x%x.", i, j, proptype, dpd->FORM.Enum.SupportedValue[j].u16);
 				}
 				break;
@@ -1369,10 +2018,14 @@ ptp_unpack_CANON_changes (PTPParams *params, unsigned char* data, int datasize, 
 				/* 'normal' enumerated types */
 				switch (dpd->DataType) {
 #define XX( TYPE, CONV )\
-					for (j=0;j<propxcnt;j++) { \
-						dpd->FORM.Enum.SupportedValue[j].TYPE = CONV(data); \
-						ptp_debug (params, "event %d: suppval[%d] of %x is 0x%x.", i, j, proptype, CONV(data)); \
-						data += 4; /* might only be for propxtype 3 */ \
+					if (sizeof(dpd->FORM.Enum.SupportedValue[j].TYPE)*propxcnt + PTP_ece_Prop_Desc_Data > size) {	\
+						ptp_debug (params, "size %d does not match needed %d", sizeof(dpd->FORM.Enum.SupportedValue[j].TYPE)*propxcnt + PTP_ece_Prop_Desc_Data, size);	\
+						break;							\
+					}								\
+					for (j=0;j<propxcnt;j++) { 					\
+						dpd->FORM.Enum.SupportedValue[j].TYPE = CONV(xdata); 	\
+						ptp_debug (params, "event %d: suppval[%d] of %x is 0x%x.", i, j, proptype, CONV(xdata)); \
+						xdata += 4; /* might only be for propxtype 3 */ \
 					} \
 					break;
 
@@ -1382,9 +2035,12 @@ ptp_unpack_CANON_changes (PTPParams *params, unsigned char* data, int datasize, 
 				case PTP_DTC_UINT8:	XX( u8,  dtoh8a );
 #undef XX
 				default:
-					ptp_debug (params ,"event %d: data type 0x%04x of %x unhandled, raw values:", i, dpd->DataType, proptype, dtoh32a(data));
-					for (j=0;j<(size-PTP_ece_Prop_Desc_Data)/4;j++, data+=4) /* 4 is good for propxtype 3 */
-						ptp_debug (params, "    %3d: 0x%8x", j, dtoh32a(data));
+					free (dpd->FORM.Enum.SupportedValue);
+					dpd->FORM.Enum.SupportedValue = NULL;
+					dpd->FORM.Enum.NumberOfValues = 0;
+					ptp_debug (params ,"event %d: data type 0x%04x of %x unhandled, size %d, raw values:", i, dpd->DataType, proptype, dtoh32a(xdata), size);
+					for (j=0;j<(size-PTP_ece_Prop_Desc_Data)/4;j++, xdata+=4) /* 4 is good for propxtype 3 */
+						ptp_debug (params, "    %3d: 0x%8x", j, dtoh32a(xdata));
 					break;
 				}
 			}
@@ -1392,37 +2048,44 @@ ptp_unpack_CANON_changes (PTPParams *params, unsigned char* data, int datasize, 
 		}
 		case PTP_EC_CANON_EOS_PropValueChanged:
 			if (size >= 0xc) {	/* property info */
-				int j;
+				unsigned int j;
 				uint32_t	proptype = dtoh32a(&curdata[PTP_ece_Prop_Subtype]);
-				unsigned char	*data = &curdata[PTP_ece_Prop_Val_Data];
+				unsigned char	*xdata = &curdata[PTP_ece_Prop_Val_Data];
 				PTPDevicePropDesc	*dpd;
 
+				if (size < PTP_ece_Prop_Val_Data) {
+					ptp_debug (params, "size %d is smaller than %d", size, PTP_ece_Prop_Val_Data);
+					break;
+				}
 				ptp_debug (params, "event %d: EOS prop %04x info record, datasize is %d", i, proptype, size-PTP_ece_Prop_Val_Data);
 				for (j=0;j<params->nrofcanon_props;j++)
 					if (params->canon_props[j].proptype == proptype)
 						break;
 				if (j<params->nrofcanon_props) {
 					if (	(params->canon_props[j].size != size) ||
-						(memcmp(params->canon_props[j].data,data,size-PTP_ece_Prop_Val_Data))) {
+						(memcmp(params->canon_props[j].data,xdata,size-PTP_ece_Prop_Val_Data))) {
 						params->canon_props[j].data = realloc(params->canon_props[j].data,size-PTP_ece_Prop_Val_Data);
-						memcpy (params->canon_props[j].data,data,size-PTP_ece_Prop_Val_Data);
+						params->canon_props[j].size = size;
+						memcpy (params->canon_props[j].data,xdata,size-PTP_ece_Prop_Val_Data);
 					}
 				} else {
 					if (j)
 						params->canon_props = realloc(params->canon_props, sizeof(params->canon_props[0])*(j+1));
 					else
 						params->canon_props = malloc(sizeof(params->canon_props[0]));
-					params->canon_props[j].type = type;
 					params->canon_props[j].proptype = proptype;
 					params->canon_props[j].size = size;
 					params->canon_props[j].data = malloc(size-PTP_ece_Prop_Val_Data);
-					memcpy(params->canon_props[j].data, data, size-PTP_ece_Prop_Val_Data);
+					memcpy(params->canon_props[j].data, xdata, size-PTP_ece_Prop_Val_Data);
 					memset (&params->canon_props[j].dpd,0,sizeof(params->canon_props[j].dpd));
 					params->canon_props[j].dpd.GetSet = 1;
 					params->canon_props[j].dpd.FormFlag = PTP_DPFF_None;
 					params->nrofcanon_props = j+1;
 				}
 				dpd = &params->canon_props[j].dpd;
+
+				ce[i].type = PTP_CANON_EOS_CHANGES_TYPE_PROPERTY;
+				ce[i].u.propid = proptype;
 
 				/* fix GetSet value */
 				switch (proptype) {
@@ -1463,36 +2126,51 @@ ptp_unpack_CANON_changes (PTPParams *params, unsigned char* data, int datasize, 
 				/* set DataType */
 				switch (proptype) {
 				case PTP_DPC_CANON_EOS_CameraTime:
-				case PTP_DPC_CANON_EOS_EVFOutputDevice:
+				case PTP_DPC_CANON_EOS_UTCTime:
+				case PTP_DPC_CANON_EOS_Summertime: /* basical the DST flag */
 				case PTP_DPC_CANON_EOS_AvailableShots:
 				case PTP_DPC_CANON_EOS_CaptureDestination:
 				case PTP_DPC_CANON_EOS_WhiteBalanceXA:
 				case PTP_DPC_CANON_EOS_WhiteBalanceXB:
-				case PTP_DPC_CANON_EOS_QuickReviewTime:
 				case PTP_DPC_CANON_EOS_CurrentStorage:
 				case PTP_DPC_CANON_EOS_CurrentFolder:
 				case PTP_DPC_CANON_EOS_ShutterCounter:
 				case PTP_DPC_CANON_EOS_ModelID:
 				case PTP_DPC_CANON_EOS_LensID:
 				case PTP_DPC_CANON_EOS_StroboFiring:
+				case PTP_DPC_CANON_EOS_AFSelectFocusArea:
+				case PTP_DPC_CANON_EOS_ContinousAFMode:
+				case PTP_DPC_CANON_EOS_MirrorUpSetting:
 					dpd->DataType = PTP_DTC_UINT32;
+					break;
+				/* enumeration for AEM is never provided, but is available to set */
+				case PTP_DPC_CANON_EOS_AutoExposureMode:
+					dpd->DataType = PTP_DTC_UINT16;
+					dpd->FormFlag = PTP_DPFF_Enumeration;
+					dpd->FORM.Enum.NumberOfValues = 0;
 					break;
 				case PTP_DPC_CANON_EOS_Aperture:
 				case PTP_DPC_CANON_EOS_ShutterSpeed:
 				case PTP_DPC_CANON_EOS_ISOSpeed:
 				case PTP_DPC_CANON_EOS_FocusMode:
-				case PTP_DPC_CANON_EOS_AutoExposureMode:
 				case PTP_DPC_CANON_EOS_ColorSpace:
 				case PTP_DPC_CANON_EOS_BatteryPower:
+				case PTP_DPC_CANON_EOS_BatterySelect:
 				case PTP_DPC_CANON_EOS_PTPExtensionVersion:
 				case PTP_DPC_CANON_EOS_DriveMode:
 				case PTP_DPC_CANON_EOS_AEB:
+				case PTP_DPC_CANON_EOS_BracketMode:
+				case PTP_DPC_CANON_EOS_QuickReviewTime:
+				case PTP_DPC_CANON_EOS_EVFMode:
+				case PTP_DPC_CANON_EOS_EVFOutputDevice:
+				case PTP_DPC_CANON_EOS_AutoPowerOff:
+				case PTP_DPC_CANON_EOS_EVFRecordStatus:
 					dpd->DataType = PTP_DTC_UINT16;
 					break;
 				case PTP_DPC_CANON_EOS_PictureStyle:
 				case PTP_DPC_CANON_EOS_WhiteBalance:
 				case PTP_DPC_CANON_EOS_MeteringMode:
-				case PTP_DPC_CANON_EOS_ExpCompensation: /* actually int8 if you calculate */
+				case PTP_DPC_CANON_EOS_ExpCompensation:
 					dpd->DataType = PTP_DTC_UINT8;
 					break;
 				case PTP_DPC_CANON_EOS_Owner:
@@ -1507,14 +2185,11 @@ ptp_unpack_CANON_changes (PTPParams *params, unsigned char* data, int datasize, 
 					dpd->DataType = PTP_DTC_INT16;
 					break;
 				/* unknown props, listed from dump.... all 16 bit, but vals might be smaller */
-				case PTP_DPC_CANON_EOS_BatterySelect:
-				case 0xd114:
 				case PTP_DPC_CANON_EOS_DPOFVersion:
-				case PTP_DPC_CANON_EOS_BracketMode:
 					dpd->DataType = PTP_DTC_UINT16;
 					ptp_debug (params, "event %d: Unknown EOS property %04x, datasize is %d, using uint16", i ,proptype, size-PTP_ece_Prop_Val_Data);
 					for (j=0;j<size-PTP_ece_Prop_Val_Data;j++)
-						ptp_debug (params, "    %d: %02x", j, data[j]);
+						ptp_debug (params, "    %d: %02x", j, xdata[j]);
 					break;
 				case PTP_DPC_CANON_EOS_CustomFunc1:
 				case PTP_DPC_CANON_EOS_CustomFunc2:
@@ -1530,9 +2205,9 @@ ptp_unpack_CANON_changes (PTPParams *params, unsigned char* data, int datasize, 
 					dpd->DataType = PTP_DTC_UINT8;
 					ptp_debug (params, "event %d: Unknown EOS property %04x, datasize is %d, using uint8", i ,proptype, size-PTP_ece_Prop_Val_Data);
 					for (j=0;j<size-PTP_ece_Prop_Val_Data;j++)
-						ptp_debug (params, "    %d: %02x", j, data[j]);
+						ptp_debug (params, "    %d: %02x", j, xdata[j]);
 					/* custom func entries look like this on the 400D: '5 0 0 0 ?' = 4 bytes size + 1 byte data */
-					data += 4;
+					xdata += 4;
 					break;
 				/* yet unknown 32bit props */
 				case PTP_DPC_CANON_EOS_ColorTemperature:
@@ -1541,51 +2216,64 @@ ptp_unpack_CANON_changes (PTPParams *params, unsigned char* data, int datasize, 
 				case PTP_DPC_CANON_EOS_CardExtension:
 				case PTP_DPC_CANON_EOS_TempStatus:
 				case PTP_DPC_CANON_EOS_PhotoStudioMode:
-				case PTP_DPC_CANON_EOS_EVFMode:
 				case PTP_DPC_CANON_EOS_DepthOfFieldPreview:
 				case PTP_DPC_CANON_EOS_EVFSharpness:
 				case PTP_DPC_CANON_EOS_EVFWBMode:
 				case PTP_DPC_CANON_EOS_EVFClickWBCoeffs:
 				case PTP_DPC_CANON_EOS_EVFColorTemp:
-				case PTP_DPC_CANON_EOS_EVFRecordStatus:
 				case PTP_DPC_CANON_EOS_ExposureSimMode:
 				case PTP_DPC_CANON_EOS_LvAfSystem:
 				case PTP_DPC_CANON_EOS_MovSize:
 				case PTP_DPC_CANON_EOS_DepthOfField:
 				case PTP_DPC_CANON_EOS_LvViewTypeSelect:
+				case PTP_DPC_CANON_EOS_AloMode:
+				case PTP_DPC_CANON_EOS_Brightness:
+					dpd->DataType = PTP_DTC_UINT32;
+					ptp_debug (params, "event %d: Unknown EOS property %04x, datasize is %d, using uint32", i ,proptype, size-PTP_ece_Prop_Val_Data);
+					if ((size-PTP_ece_Prop_Val_Data) % sizeof(uint32_t) != 0)
+						ptp_debug (params, "event %d: Warning: datasize modulo sizeof(uint32) is not 0: ", i, (size-PTP_ece_Prop_Val_Data) % sizeof(uint32_t) );
+					for (j=0;j<(size-PTP_ece_Prop_Val_Data)/sizeof(uint32_t);j++)
+						ptp_debug (params, "    %d: 0x%8x", j, dtoh32a(xdata+j*4));
+					break;
+				/* ImageFormat properties have to be ignored here, see special handling below */
 				case PTP_DPC_CANON_EOS_ImageFormat:
 				case PTP_DPC_CANON_EOS_ImageFormatCF:
 				case PTP_DPC_CANON_EOS_ImageFormatSD:
 				case PTP_DPC_CANON_EOS_ImageFormatExtHD:
 				case PTP_DPC_CANON_EOS_CustomFuncEx:
-//					dpd->DataType = PTP_DTC_UINT32;
-					ptp_debug (params, "event %d: Unknown EOS property %04x, datasize is %d, using uint32", i ,proptype, size-PTP_ece_Prop_Val_Data);
-					if ((size-PTP_ece_Prop_Val_Data) % sizeof(uint32_t) != 0)
-						ptp_debug (params, "event %d: Warning: datasize modulo sizeof(uint32) is not 0: ", i, (size-PTP_ece_Prop_Val_Data) % sizeof(uint32_t) );
-					for (j=0;j<(size-PTP_ece_Prop_Val_Data)/sizeof(uint32_t);j++)
-						ptp_debug (params, "    %d: 0x%8x", j, ((uint32_t*)data)[j]);
+				case PTP_DPC_CANON_EOS_FocusInfoEx:
 					break;
 				default:
 					ptp_debug (params, "event %d: Unknown EOS property %04x, datasize is %d", i ,proptype, size-PTP_ece_Prop_Val_Data);
 					for (j=0;j<size-PTP_ece_Prop_Val_Data;j++)
-						ptp_debug (params, "    %d: %02x", j, data[j]);
+						ptp_debug (params, "    %d: %02x", j, xdata[j]);
 					break;
 				}
 				switch (dpd->DataType) {
 				case PTP_DTC_UINT32:
-					dpd->FactoryDefaultValue.u32	= dtoh32a(data);
-					dpd->CurrentValue.u32		= dtoh32a(data);
+					dpd->FactoryDefaultValue.u32	= dtoh32a(xdata);
+					dpd->CurrentValue.u32		= dtoh32a(xdata);
 					ptp_debug (params ,"event %d: currentvalue of %x is %x", i, proptype, dpd->CurrentValue.u32);
 					break;
+				case PTP_DTC_INT16:
+					dpd->FactoryDefaultValue.i16	= dtoh16a(xdata);
+					dpd->CurrentValue.i16		= dtoh16a(xdata);
+					ptp_debug (params,"event %d: currentvalue of %x is %d", i, proptype, dpd->CurrentValue.i16);
+					break;
 				case PTP_DTC_UINT16:
-					dpd->FactoryDefaultValue.u16	= dtoh16a(data);
-					dpd->CurrentValue.u16		= dtoh16a(data);
+					dpd->FactoryDefaultValue.u16	= dtoh16a(xdata);
+					dpd->CurrentValue.u16		= dtoh16a(xdata);
 					ptp_debug (params,"event %d: currentvalue of %x is %x", i, proptype, dpd->CurrentValue.u16);
 					break;
 				case PTP_DTC_UINT8:
-					dpd->FactoryDefaultValue.u8	= dtoh8a(data);
-					dpd->CurrentValue.u8		= dtoh8a(data);
+					dpd->FactoryDefaultValue.u8	= dtoh8a(xdata);
+					dpd->CurrentValue.u8		= dtoh8a(xdata);
 					ptp_debug (params,"event %d: currentvalue of %x is %x", i, proptype, dpd->CurrentValue.u8);
+					break;
+				case PTP_DTC_INT8:
+					dpd->FactoryDefaultValue.i8	= dtoh8a(xdata);
+					dpd->CurrentValue.i8		= dtoh8a(xdata);
+					ptp_debug (params,"event %d: currentvalue of %x is %x", i, proptype, dpd->CurrentValue.i8);
 					break;
 				case PTP_DTC_STR: {
 #if 0 /* 5D MII and 400D aktually store plain ASCII in their string properties */
@@ -1593,8 +2281,11 @@ ptp_unpack_CANON_changes (PTPParams *params, unsigned char* data, int datasize, 
 					dpd->FactoryDefaultValue.str	= ptp_unpack_string(params, data, 0, &len);
 					dpd->CurrentValue.str		= ptp_unpack_string(params, data, 0, &len);
 #else
-					dpd->FactoryDefaultValue.str	= strdup( (char*)data );
-					dpd->CurrentValue.str		= strdup( (char*)data );
+					free (dpd->FactoryDefaultValue.str);
+					dpd->FactoryDefaultValue.str	= strdup( (char*)xdata );
+
+					free (dpd->CurrentValue.str);
+					dpd->CurrentValue.str		= strdup( (char*)xdata );
 #endif
 					ptp_debug (params,"event %d: currentvalue of %x is %s", i, proptype, dpd->CurrentValue.str);
 					break;
@@ -1604,37 +2295,282 @@ ptp_unpack_CANON_changes (PTPParams *params, unsigned char* data, int datasize, 
 					break;
 				}
 
-				/* ImageFormat special handling */
+				/* ImageFormat and customFuncEx special handling (WARNING: dont move this in front of the dpd->DataType switch!) */
 				switch (proptype) {
 				case PTP_DPC_CANON_EOS_ImageFormat:
 				case PTP_DPC_CANON_EOS_ImageFormatCF:
 				case PTP_DPC_CANON_EOS_ImageFormatSD:
 				case PTP_DPC_CANON_EOS_ImageFormatExtHD:
 					dpd->DataType = PTP_DTC_UINT16;
-					dpd->FactoryDefaultValue.u16	= ptp_unpack_EOS_ImageFormat( params, &data );
+					dpd->FactoryDefaultValue.u16	= ptp_unpack_EOS_ImageFormat( params, &xdata );
 					dpd->CurrentValue.u16		= dpd->FactoryDefaultValue.u16;
-					ptp_debug (params,"event %d: currentvalue of %x is %x", i, proptype, dpd->CurrentValue.u8);
+					ptp_debug (params,"event %d: decoded imageformat, currentvalue of %x is %x", i, proptype, dpd->CurrentValue.u16);
+					break;
+				case PTP_DPC_CANON_EOS_CustomFuncEx:
+					dpd->DataType = PTP_DTC_STR;
+					free (dpd->FactoryDefaultValue.str);
+					free (dpd->CurrentValue.str);
+					dpd->FactoryDefaultValue.str	= ptp_unpack_EOS_CustomFuncEx( params, &xdata );
+					dpd->CurrentValue.str		= strdup( (char*)dpd->FactoryDefaultValue.str );
+					ptp_debug (params,"event %d: decoded custom function, currentvalue of %x is %s", i, proptype, dpd->CurrentValue.str);
+					break;
+				case PTP_DPC_CANON_EOS_FocusInfoEx:
+					dpd->DataType = PTP_DTC_STR;
+					free (dpd->FactoryDefaultValue.str);
+					free (dpd->CurrentValue.str);
+					dpd->FactoryDefaultValue.str	= ptp_unpack_EOS_FocusInfoEx( params, &xdata, size );
+					dpd->CurrentValue.str		= strdup( (char*)dpd->FactoryDefaultValue.str );
+					ptp_debug (params,"event %d: decoded focus info, currentvalue of %x is %s", i, proptype, dpd->CurrentValue.str);
 					break;
 				}
 
 				break;
 		}
+		/* one more information record handed to us */
+		case PTP_EC_CANON_EOS_OLCInfoChanged: {
+			uint32_t		len, curoff;
+			uint16_t		mask,proptype;
+			PTPDevicePropDesc	*dpd;
+
+			/* unclear what OLC stands for */
+			ptp_debug (params, "event %d: EOS event OLCInfoChanged (size %d)", i, size);
+			if (size >= 0x8) {	/* event info */
+				unsigned int k;
+				for (k=8;k<size;k++)
+					ptp_debug (params, "    %d: %02x", k-8, curdata[k]);
+			}
+			len = dtoh32a(curdata+8);
+			if ((len != size-8) && (len != size-4)) {
+				ce[i].type = PTP_CANON_EOS_CHANGES_TYPE_UNKNOWN;
+				ce[i].u.info = strdup("OLC size unexpected");
+				ptp_debug (params, "event %d: OLC unexpected size %d for blob len %d (not -4 nor -8)", i, size, len);
+				break;
+			}
+			mask = dtoh16a(curdata+8+4);
+			if (size < 14) {
+				ce[i].type = PTP_CANON_EOS_CHANGES_TYPE_UNKNOWN;
+				ce[i].u.info = strdup("OLC size too small");
+				ptp_debug (params, "event %d: OLC unexpected size %d", i, size);
+				break;
+			}
+			curoff = 8+4+4;
+			if (mask & CANON_EOS_OLC_BUTTON) {
+				ce[i].type = PTP_CANON_EOS_CHANGES_TYPE_UNKNOWN;
+				ce[i].u.info = malloc(strlen("Button 1234567"));
+				sprintf(ce[i].u.info, "Button %d",  dtoh16a(curdata+curoff));
+				i++;
+				curoff += 2;
+			}
+			
+			if (mask & CANON_EOS_OLC_SHUTTERSPEED) {
+				/* 6 bytes: 01 01 98 10 00 60 */
+				/* this seesm to be the shutter speed record */
+				proptype = PTP_DPC_CANON_EOS_ShutterSpeed;
+				dpd = _lookup_or_allocate_canon_prop(params, proptype);
+				dpd->CurrentValue.u16 = curdata[curoff+5]; /* just use last byte */
+
+				ce[i].type = PTP_CANON_EOS_CHANGES_TYPE_PROPERTY;
+				ce[i].u.propid = proptype;
+				curoff += 6;
+				i++;
+			}
+			if (mask & CANON_EOS_OLC_APERTURE) {
+				/* 5 bytes: 01 01 5b 30 30 */
+				/* this seesm to be the aperture record */
+				proptype = PTP_DPC_CANON_EOS_Aperture;
+				dpd = _lookup_or_allocate_canon_prop(params, proptype);
+				dpd->CurrentValue.u16 = curdata[curoff+4]; /* just use last byte */
+
+				ce[i].type = PTP_CANON_EOS_CHANGES_TYPE_PROPERTY;
+				ce[i].u.propid = proptype;
+				curoff += 5;
+				i++;
+			}
+			if (mask & CANON_EOS_OLC_ISO) {
+				/* 5 bytes: 01 01 00 78 */
+				/* this seesm to be the aperture record */
+				proptype = PTP_DPC_CANON_EOS_ISOSpeed;
+				dpd = _lookup_or_allocate_canon_prop(params, proptype);
+				dpd->CurrentValue.u16 = curdata[curoff+3]; /* just use last byte */
+
+				ce[i].type = PTP_CANON_EOS_CHANGES_TYPE_PROPERTY;
+				ce[i].u.propid = proptype;
+				curoff += 4;
+				i++;
+			}
+			if (mask & 0x0010) {
+				/* mask 0x0010: 4 bytes, 04 00 00 00 observed */
+				ce[i].type = PTP_CANON_EOS_CHANGES_TYPE_UNKNOWN;
+				ce[i].u.info = malloc(strlen("OLCInfo event 0x0010 content 01234567")+1); 
+				sprintf(ce[i].u.info,"OLCInfo event 0x0010 content %02x%02x%02x%02x",
+					curdata[curoff],
+					curdata[curoff+1],
+					curdata[curoff+2],
+					curdata[curoff+3]
+				);
+				curoff += 4;
+				i++;
+			}
+			if (mask & 0x0020) {
+				/* mask 0x0020: 6 bytes, 00 00 00 00 00 00 observed */
+				ce[i].type = PTP_CANON_EOS_CHANGES_TYPE_UNKNOWN;
+				ce[i].u.info = malloc(strlen("OLCInfo event 0x0020 content 0123456789ab")+1); 
+				sprintf(ce[i].u.info,"OLCInfo event 0x0020 content %02x%02x%02x%02x%02x%02x",
+					curdata[curoff],
+					curdata[curoff+1],
+					curdata[curoff+2],
+					curdata[curoff+3],
+					curdata[curoff+4],
+					curdata[curoff+5]
+				);
+				curoff += 6;
+				i++;
+			}
+			if (mask & 0x0040) {
+				int	value = (signed char)curdata[curoff+2];
+				/* mask 0x0040: 7 bytes, 01 01 00 00 00 00 00 observed */
+				/* exposure indicator */
+				ce[i].type = PTP_CANON_EOS_CHANGES_TYPE_UNKNOWN;
+				ce[i].u.info = malloc(strlen("OLCInfo exposure indicator 012345678901234567890123456789abcd")+1); 
+				sprintf(ce[i].u.info,"OLCInfo exposure indicator %d,%d,%d.%d (%02x%02x%02x%02x)",
+					curdata[curoff],
+					curdata[curoff+1],
+					value/10,abs(value)%10,
+					curdata[curoff+3],
+					curdata[curoff+4],
+					curdata[curoff+5],
+					curdata[curoff+6]
+				);
+				curoff += 7;
+				i++;
+			}
+			if (mask & 0x0080) {
+				/* mask 0x0080: 4 bytes, 00 00 00 00 observed */
+				ce[i].type = PTP_CANON_EOS_CHANGES_TYPE_UNKNOWN;
+				ce[i].u.info = malloc(strlen("OLCInfo event 0x0080 content 01234567")+1); 
+				sprintf(ce[i].u.info,"OLCInfo event 0x0080 content %02x%02x%02x%02x",
+					curdata[curoff],
+					curdata[curoff+1],
+					curdata[curoff+2],
+					curdata[curoff+3]
+				);
+				curoff += 4;
+				i++;
+			}
+			if (mask & 0x0100) {
+				/* mask 0x0100: 6 bytes, 00 00 00 00 00 00 (before focus) and 00 00 00 00 01 00 (on focus) observed */
+				ce[i].type = PTP_CANON_EOS_CHANGES_TYPE_FOCUSINFO;
+				ce[i].u.info = malloc(strlen("0123456789ab")+1); 
+				sprintf(ce[i].u.info,"%02x%02x%02x%02x%02x%02x",
+					curdata[curoff],
+					curdata[curoff+1],
+					curdata[curoff+2],
+					curdata[curoff+3],
+					curdata[curoff+4],
+					curdata[curoff+5]
+				);
+				curoff += 6;
+				i++;
+			}
+			if (mask & 0x0200) {
+				/* mask 0x0200: 7 bytes, 00 00 00 00 00 00 00 observed */
+				ce[i].type = PTP_CANON_EOS_CHANGES_TYPE_FOCUSMASK;
+				ce[i].u.info = malloc(strlen("0123456789abcd0123456789abcdef")+1); 
+				sprintf(ce[i].u.info,"%02x%02x%02x%02x%02x%02x%02x",
+					curdata[curoff],
+					curdata[curoff+1],
+					curdata[curoff+2],
+					curdata[curoff+3],
+					curdata[curoff+4],
+					curdata[curoff+5],
+					curdata[curoff+6]
+				);
+				curoff += 7;
+				i++;
+			}
+			if (mask & 0x0400) {
+				/* mask 0x0400: 7 bytes, 00 00 00 00 00 00 00 observed */
+				ce[i].type = PTP_CANON_EOS_CHANGES_TYPE_UNKNOWN;
+				ce[i].u.info = malloc(strlen("OLCInfo event 0x0400 content 0123456789abcd")+1); 
+				sprintf(ce[i].u.info,"OLCInfo event 0x0400 content %02x%02x%02x%02x%02x%02x%02x",
+					curdata[curoff],
+					curdata[curoff+1],
+					curdata[curoff+2],
+					curdata[curoff+3],
+					curdata[curoff+4],
+					curdata[curoff+5],
+					curdata[curoff+6]
+				);
+				curoff += 7;
+				i++;
+			}
+			if (mask & 0x0800) {
+				/* mask 0x0800: 8 bytes, 00 00 00 00 00 00 00 00 and 19 01 00 00 00 00 00 00 and others observed */
+				/*   might be mask of focus points selected */
+				ce[i].type = PTP_CANON_EOS_CHANGES_TYPE_UNKNOWN;
+				ce[i].u.info = malloc(strlen("OLCInfo event 0x0800 content 0123456789abcdef")+1); 
+				sprintf(ce[i].u.info,"OLCInfo event 0x0800 content %02x%02x%02x%02x%02x%02x%02x%02x",
+					curdata[curoff],
+					curdata[curoff+1],
+					curdata[curoff+2],
+					curdata[curoff+3],
+					curdata[curoff+4],
+					curdata[curoff+5],
+					curdata[curoff+6],
+					curdata[curoff+7]
+				);
+				curoff += 8;
+				i++;
+			}
+			if (mask & 0x1000) {
+				/* mask 0x1000: 1 byte, 00 observed */
+				ce[i].type = PTP_CANON_EOS_CHANGES_TYPE_UNKNOWN;
+				ce[i].u.info = malloc(strlen("OLCInfo event 0x1000 content 01")+1); 
+				sprintf(ce[i].u.info,"OLCInfo event 0x1000 content %02x",
+					curdata[curoff]
+				);
+				curoff += 1;
+				i++;
+			}
+			/* handle more masks */
+			ce[i].type = PTP_CANON_EOS_CHANGES_TYPE_UNKNOWN;
+			ce[i].u.info = malloc(strlen("OLCInfo event mask 0123456789")+1);
+			sprintf(ce[i].u.info, "OLCInfo event mask=%x",  mask);
+			break;
+		}
+		case PTP_EC_CANON_EOS_CameraStatusChanged:
+			ce[i].type = PTP_CANON_EOS_CHANGES_TYPE_CAMERASTATUS;
+			ce[i].u.status =  dtoh32a(curdata+8);
+			ptp_debug (params, "event %d: EOS event CameraStatusChanged (size %d) = %d", i, size, dtoh32a(curdata+8));
+			params->eos_camerastatus = dtoh32a(curdata+8);
+			break;
 		case 0: /* end marker */
 			if (size == 8) /* no output */
 				break;
 			ptp_debug (params, "event %d: EOS event 0, but size %d", i, size);
 			break;
+		case PTP_EC_CANON_EOS_BulbExposureTime:
+			ce[i].type = PTP_CANON_EOS_CHANGES_TYPE_UNKNOWN;
+			ce[i].u.info = malloc(strlen("BulbExposureTime 123456789012345678"));
+			sprintf (ce[i].u.info, "BulbExposureTime %d",  dtoh32a(curdata+8));
+			break;
+		case PTP_EC_CANON_EOS_ObjectRemoved:
+			ce[i].type = PTP_CANON_EOS_CHANGES_TYPE_OBJECTREMOVED;
+			ce[i].u.object.oid = dtoh32a(curdata+8);
+			break;
 		default:
 			switch (type) {
-#define XX(x)		case PTP_EC_CANON_EOS_##x: ptp_debug (params, "event %d: unhandled EOS event "#x" (size %d)", i, size);break;
+#define XX(x)		case PTP_EC_CANON_EOS_##x: 								\
+				ptp_debug (params, "event %d: unhandled EOS event "#x" (size %d)", i, size); 	\
+				ce[i].u.info = malloc(strlen("unhandled EOS event "#x" (size 123456789)"));	\
+				sprintf (ce[i].u.info, "unhandled EOS event "#x" (size %d)",  size);		\
+				break;
 			XX(RequestGetEvent)
-			XX(ObjectRemoved)
 			XX(RequestGetObjectInfoEx)
 			XX(StorageStatusChanged)
 			XX(StorageInfoChanged)
 			XX(ObjectInfoChangedEx)
 			XX(ObjectContentChanged)
-			XX(CameraStatusChanged)
 			XX(WillSoonShutdown)
 			XX(ShutdownTimerUpdated)
 			XX(RequestCancelTransfer)
@@ -1652,20 +2588,26 @@ ptp_unpack_CANON_changes (PTPParams *params, unsigned char* data, int datasize, 
 				break;
 			}
 			if (size >= 0x8) {	/* event info */
-				int j;
+				unsigned int j;
+				/*ptp_debug (params, "data=%p, curdata=%p, datsize=%d, size=%d", data, curdata, datasize, size);*/
 				for (j=8;j<size;j++)
 					ptp_debug (params, "    %d: %02x", j, curdata[j]);
 			}
-			(*ce)[i].type = PTP_CANON_EOS_CHANGES_TYPE_UNKNOWN;
+			ce[i].type = PTP_CANON_EOS_CHANGES_TYPE_UNKNOWN;
 			break;
 		}
 		curdata += size;
 		i++;
-		if ((size == 8) && (type == 0))
-			break;
+		if (i >= entries) {
+			ptp_debug (params, "BAD: i %d, entries %d", i, entries);
+		}
 	}
-
-	return entries;
+	if (!i) {
+		free (ce);
+		ce = NULL;
+	}
+	*pce = ce;
+	return i;
 }
 
 /*
@@ -1676,9 +2618,9 @@ ptp_unpack_CANON_changes (PTPParams *params, unsigned char* data, int datasize, 
 #define PTP_nikon_ec_Param1		4
 #define PTP_nikon_ec_Size		6
 static inline void
-ptp_unpack_Nikon_EC (PTPParams *params, unsigned char* data, unsigned int len, PTPContainer **ec, int *cnt)
+ptp_unpack_Nikon_EC (PTPParams *params, unsigned char* data, unsigned int len, PTPContainer **ec, unsigned int *cnt)
 {
-	int i;
+	unsigned int i;
 
 	*ec = NULL;
 	if (data == NULL)
@@ -1686,8 +2628,13 @@ ptp_unpack_Nikon_EC (PTPParams *params, unsigned char* data, unsigned int len, P
 	if (len < PTP_nikon_ec_Code)
 		return;
 	*cnt = dtoh16a(&data[PTP_nikon_ec_Length]);
-	if (*cnt > (len-PTP_nikon_ec_Code)/PTP_nikon_ec_Size) /* broken cnt? */
+	if (*cnt > (len-PTP_nikon_ec_Code)/PTP_nikon_ec_Size) { /* broken cnt? */
+		*cnt = 0;
 		return;
+	}
+	if (!*cnt)
+		return;
+
 	*ec = malloc(sizeof(PTPContainer)*(*cnt));
 	
 	for (i=0;i<*cnt;i++) {
@@ -1779,11 +2726,11 @@ ptp_unpack_canon_directory (
 	for (i=0;i<cnt;i++)
 		if (ISOBJECT(dir+i*0x4c)) nrofobs++;
 	handles->n = nrofobs;
-	handles->Handler = calloc(sizeof(handles->Handler[0]),nrofobs);
+	handles->Handler = calloc(nrofobs,sizeof(handles->Handler[0]));
 	if (!handles->Handler) return PTP_RC_GeneralError;
-	*oinfos = calloc(sizeof((*oinfos)[0]),nrofobs);
+	*oinfos = calloc(nrofobs,sizeof((*oinfos)[0]));
 	if (!*oinfos) return PTP_RC_GeneralError;
-	*flags  = calloc(sizeof((*flags)[0]),nrofobs);
+	*flags  = calloc(nrofobs,sizeof((*flags)[0]));
 	if (!*flags) return PTP_RC_GeneralError;
 
 	/* Migrate data into objects ids, handles into
@@ -1824,7 +2771,7 @@ ptp_unpack_canon_directory (
 	}
 	/* Walk over all objects and distribute the storage ids */
 	while (1) {
-		int changed = 0;
+		unsigned int changed = 0;
 		for (i=0;i<cnt;i++) {
 			unsigned char	*cur = dir+i*0x4c;
 			uint32_t	oid = dtoh32a(cur + ptp_canon_dir_objectid);

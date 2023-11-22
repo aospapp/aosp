@@ -18,6 +18,7 @@ package com.android.storagemanager.deletionhelper;
 
 import android.app.usage.UsageStats;
 import android.app.usage.UsageStatsManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
@@ -61,6 +62,7 @@ public class AppsAsyncLoaderTest {
     private static final String PACKAGE_NAME = "package.mcpackageface";
     public static final String PACKAGE_CLEARABLE = "package.clearable";
     public static final String PACKAGE_TOO_NEW_TO_DELETE = "package.tooNewToDelete";
+    public static final String PACKAGE_DEFAULT_LAUNCHER = "package.launcherface";
 
     @Mock private UsageStatsManager mUsageStatsManager;
     @Mock private StorageStatsSource mStorageStatsSource;
@@ -89,6 +91,8 @@ public class AppsAsyncLoaderTest {
         // Set up the loader to return our fake list of apps.
         mInfo = new ArrayList<>();
         when(mPackageManager.getInstalledApplicationsAsUser(anyInt(), anyInt())).thenReturn(mInfo);
+        when(mPackageManager.getHomeActivities(any(List.class)))
+                .thenReturn(new ComponentName(PACKAGE_DEFAULT_LAUNCHER, ""));
 
         AppsAsyncLoader.FILTER_USAGE_STATS.init();
 
@@ -332,6 +336,22 @@ public class AppsAsyncLoaderTest {
         when(secondary.getLastTimeUsed()).thenReturn(1000L);
         assertThat(mLoader.getGreaterUsageStats(PACKAGE_NAME, primary, secondary))
                 .isEqualTo(secondary);
+    }
+
+    @Test
+    public void test_defaultLauncherDisallowedFromDeletion() {
+        mLoader.mFilter = AppsAsyncLoader.FILTER_USAGE_STATS;
+        mLoader.mFilter.init();
+        AppsAsyncLoader.PackageInfo defaultLauncher =
+                createPackage(
+                        PACKAGE_DEFAULT_LAUNCHER,
+                        TimeUnit.DAYS.toMillis(800),
+                        TimeUnit.DAYS.toMillis(800));
+        registerLastUse(PACKAGE_DEFAULT_LAUNCHER, TimeUnit.DAYS.toMillis(800));
+        registerApp(defaultLauncher, 0, TimeUnit.DAYS.toMillis(800));
+        List<AppsAsyncLoader.PackageInfo> infos = mLoader.loadInBackground();
+
+        assertThat(containsPackage(infos, PACKAGE_DEFAULT_LAUNCHER)).isFalse();
     }
 
     private AppsAsyncLoader.PackageInfo createPackage(

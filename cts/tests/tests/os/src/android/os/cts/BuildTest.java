@@ -241,8 +241,11 @@ public class BuildTest extends TestCase {
                     // should at least be a conscious decision.
                     assertEquals(10000, fieldValue);
                 } else if (fieldName.equals(CODENAME) && !CODENAME.equals("REL")) {
-                    // This is the current development version.
-                    assertEquals(CUR_DEVELOPMENT, fieldValue);
+                    // This is the current development version. Note that fieldName can
+                    // become < CUR_DEVELOPMENT before CODENAME becomes "REL", so we
+                    // can't assertEquals(CUR_DEVELOPMENT, fieldValue) here.
+                    assertTrue("Expected " + fieldName + " value to be <= " + CUR_DEVELOPMENT
+                            + ", got " + fieldValue, fieldValue <= CUR_DEVELOPMENT);
                 } else {
                     assertTrue("Expected " + fieldName + " value to be < " + CUR_DEVELOPMENT
                             + ", got " + fieldValue, fieldValue < CUR_DEVELOPMENT);

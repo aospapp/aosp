@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,7 +11,7 @@
  *******************************************************************************/
 package org.jacoco.core.internal.flow;
 
-import org.jacoco.core.JaCoCo;
+import org.jacoco.core.internal.instr.InstrSupport;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.commons.JSRInlinerAdapter;
@@ -33,7 +33,7 @@ class MethodSanitizer extends JSRInlinerAdapter {
 	MethodSanitizer(final MethodVisitor mv, final int access,
 			final String name, final String desc, final String signature,
 			final String[] exceptions) {
-		super(JaCoCo.ASM_API_VERSION, mv, access, name, desc, signature,
+		super(InstrSupport.ASM_API_VERSION, mv, access, name, desc, signature,
 				exceptions);
 	}
 

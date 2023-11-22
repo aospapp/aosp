@@ -18,6 +18,7 @@ import android.app.UiAutomation;
 import android.graphics.RectF;
 import android.os.Bundle;
 import android.os.Debug;
+import android.os.Message;
 import android.os.Parcelable;
 import android.text.SpannableString;
 import android.text.Spanned;
@@ -25,7 +26,10 @@ import android.text.TextUtils;
 import android.text.style.ClickableSpan;
 import android.text.style.URLSpan;
 import android.view.View;
+import android.view.accessibility.AccessibilityManager;
 import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.accessibility.AccessibilityNodeProvider;
+import android.view.accessibility.AccessibilityRequestPreparer;
 import android.widget.EditText;
 import android.widget.TextView;
 
@@ -34,10 +38,21 @@ import android.accessibilityservice.cts.R;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static android.view.accessibility.AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_LENGTH;
 import static android.view.accessibility.AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_START_INDEX;
 import static android.view.accessibility.AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 /**
  * Test cases for actions taken on text views.
@@ -193,25 +208,10 @@ public class AccessibilityTextActionTest extends
                 textAvailableExtraData.contains(EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY));
         assertNull("Text locations should not be populated by default",
                 text.getExtras().get(EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY));
-        Bundle getTextArgs = new Bundle();
-        getTextArgs.putInt(EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_START_INDEX, 0);
-        getTextArgs.putInt(EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_LENGTH,
-                text.getText().length());
+        final Bundle getTextArgs = getTextLocationArguments(text);
         assertTrue("Refresh failed", text.refreshWithExtraData(
                 AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY, getTextArgs));
-        final Parcelable[] parcelables = text.getExtras()
-                .getParcelableArray(EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY);
-        final RectF[] locations = Arrays.copyOf(parcelables, parcelables.length, RectF[].class);
-        assertEquals(text.getText().length(), locations.length);
-        // The text should all be on one line, running left to right
-        for (int i = 0; i < locations.length; i++) {
-            assertEquals(locations[0].top, locations[i].top);
-            assertEquals(locations[0].bottom, locations[i].bottom);
-            assertTrue(locations[i].right > locations[i].left);
-            if (i > 0) {
-                assertTrue(locations[i].left > locations[i-1].left);
-            }
-        }
+        assertNodeContainsTextLocationInfoOnOneLineLTR(text);
     }
 
     public void testTextLocations_textOutsideOfViewBounds_locationsShouldBeNull() {
@@ -223,12 +223,9 @@ public class AccessibilityTextActionTest extends
         List<String> textAvailableExtraData = text.getAvailableExtraData();
         assertTrue("Text view should offer text location to accessibility",
                 textAvailableExtraData.contains(EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY));
-        Bundle getTextArgs = new Bundle();
-        getTextArgs.putInt(EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_START_INDEX, 0);
-        getTextArgs.putInt(EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_LENGTH,
-                text.getText().length());
+        final Bundle getTextArgs = getTextLocationArguments(text);
         assertTrue("Refresh failed", text.refreshWithExtraData(
-                AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY, getTextArgs));
+                EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY, getTextArgs));
         Parcelable[] parcelables = text.getExtras()
                 .getParcelableArray(EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY);
         final RectF[] locationsBeforeScroll = Arrays.copyOf(
@@ -255,7 +252,7 @@ public class AccessibilityTextActionTest extends
         getInstrumentation().runOnMainSync(() -> editText.scrollTo(0, (int) oneLineDownY + 1));
 
         assertTrue("Refresh failed", text.refreshWithExtraData(
-                AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY, getTextArgs));
+                EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY, getTextArgs));
         parcelables = text.getExtras()
                 .getParcelableArray(EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY);
         final RectF[] locationsAfterScroll = Arrays.copyOf(
@@ -264,6 +261,135 @@ public class AccessibilityTextActionTest extends
         assertNull(locationsAfterScroll[0]);
         // The first character that was off the screen should now be on it
         assertNotNull(locationsAfterScroll[firstNullRectIndex]);
+    }
+
+    public void testTextLocations_withRequestPreparer_shouldHoldOffUntilReady() {
+        final TextView textView = (TextView) getActivity().findViewById(R.id.text);
+        makeTextViewVisibleAndSetText(textView, getString(R.string.a_b));
+
+        final AccessibilityNodeInfo text = mUiAutomation.getRootInActiveWindow()
+                .findAccessibilityNodeInfosByText(getString(R.string.a_b)).get(0);
+        final List<String> textAvailableExtraData = text.getAvailableExtraData();
+        final Bundle getTextArgs = getTextLocationArguments(text);
+
+        // Register a request preparer that will capture the message indicating that preparation
+        // is complete
+        final AtomicReference<Message> messageRefForPrepare = new AtomicReference<>(null);
+        // Use mockito's asynchronous signaling
+        Runnable mockRunnableForPrepare = mock(Runnable.class);
+
+        AccessibilityManager a11yManager =
+                getActivity().getSystemService(AccessibilityManager.class);
+        AccessibilityRequestPreparer requestPreparer = new AccessibilityRequestPreparer(
+                textView, AccessibilityRequestPreparer.REQUEST_TYPE_EXTRA_DATA) {
+            @Override
+            public void onPrepareExtraData(int virtualViewId,
+                    String extraDataKey, Bundle args, Message preparationFinishedMessage) {
+                assertEquals(AccessibilityNodeProvider.HOST_VIEW_ID, virtualViewId);
+                assertEquals(EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY, extraDataKey);
+                assertEquals(0, args.getInt(EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_START_INDEX));
+                assertEquals(text.getText().length(),
+                        args.getInt(EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_LENGTH));
+                messageRefForPrepare.set(preparationFinishedMessage);
+                mockRunnableForPrepare.run();
+            }
+        };
+        a11yManager.addAccessibilityRequestPreparer(requestPreparer);
+        verify(mockRunnableForPrepare, times(0)).run();
+
+        // Make the extra data request in another thread
+        Runnable mockRunnableForData = mock(Runnable.class);
+        new Thread() {
+            @Override
+            public void run() {
+                assertTrue("Refresh failed", text.refreshWithExtraData(
+                        EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY, getTextArgs));
+                mockRunnableForData.run();
+            }
+        }.start();
+
+        // The extra data request should trigger the request preparer
+        verify(mockRunnableForPrepare, timeout(TIMEOUT_ASYNC_PROCESSING)).run();
+        // Verify that the request for extra data didn't return. This is a bit racy, as we may still
+        // not catch it if it does return prematurely, but it does provide some protection.
+        getInstrumentation().waitForIdleSync();
+        verify(mockRunnableForData, times(0)).run();
+
+        // Declare preparation for the request complete, and verify that it runs to completion
+        messageRefForPrepare.get().sendToTarget();
+        verify(mockRunnableForData, timeout(TIMEOUT_ASYNC_PROCESSING)).run();
+        assertNodeContainsTextLocationInfoOnOneLineLTR(text);
+        a11yManager.removeAccessibilityRequestPreparer(requestPreparer);
+    }
+
+    public void testTextLocations_withUnresponsiveRequestPreparer_shouldTimeout() {
+        final TextView textView = (TextView) getActivity().findViewById(R.id.text);
+        makeTextViewVisibleAndSetText(textView, getString(R.string.a_b));
+
+        final AccessibilityNodeInfo text = mUiAutomation.getRootInActiveWindow()
+                .findAccessibilityNodeInfosByText(getString(R.string.a_b)).get(0);
+        final List<String> textAvailableExtraData = text.getAvailableExtraData();
+        final Bundle getTextArgs = getTextLocationArguments(text);
+
+        // Use mockito's asynchronous signaling
+        Runnable mockRunnableForPrepare = mock(Runnable.class);
+
+        AccessibilityManager a11yManager =
+                getActivity().getSystemService(AccessibilityManager.class);
+        AccessibilityRequestPreparer requestPreparer = new AccessibilityRequestPreparer(
+                textView, AccessibilityRequestPreparer.REQUEST_TYPE_EXTRA_DATA) {
+            @Override
+            public void onPrepareExtraData(int virtualViewId,
+                    String extraDataKey, Bundle args, Message preparationFinishedMessage) {
+                mockRunnableForPrepare.run();
+            }
+        };
+        a11yManager.addAccessibilityRequestPreparer(requestPreparer);
+        verify(mockRunnableForPrepare, times(0)).run();
+
+        // Make the extra data request in another thread
+        Runnable mockRunnableForData = mock(Runnable.class);
+        new Thread() {
+            @Override
+            public void run() {
+                /*
+                 * Don't worry about the return value, as we're timing out. We're just making
+                 * sure that we don't hang the system.
+                 */
+                text.refreshWithExtraData(EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY, getTextArgs);
+                mockRunnableForData.run();
+            }
+        }.start();
+
+        // The extra data request should trigger the request preparer
+        verify(mockRunnableForPrepare, timeout(TIMEOUT_ASYNC_PROCESSING)).run();
+
+        // Declare preparation for the request complete, and verify that it runs to completion
+        verify(mockRunnableForData, timeout(TIMEOUT_ASYNC_PROCESSING)).run();
+        a11yManager.removeAccessibilityRequestPreparer(requestPreparer);
+    }
+
+    private Bundle getTextLocationArguments(AccessibilityNodeInfo info) {
+        Bundle args = new Bundle();
+        args.putInt(EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_START_INDEX, 0);
+        args.putInt(EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_LENGTH, info.getText().length());
+        return args;
+    }
+
+    private void assertNodeContainsTextLocationInfoOnOneLineLTR(AccessibilityNodeInfo info) {
+        final Parcelable[] parcelables = info.getExtras()
+                .getParcelableArray(EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY);
+        final RectF[] locations = Arrays.copyOf(parcelables, parcelables.length, RectF[].class);
+        assertEquals(info.getText().length(), locations.length);
+        // The text should all be on one line, running left to right
+        for (int i = 0; i < locations.length; i++) {
+            assertEquals(locations[0].top, locations[i].top);
+            assertEquals(locations[0].bottom, locations[i].bottom);
+            assertTrue(locations[i].right > locations[i].left);
+            if (i > 0) {
+                assertTrue(locations[i].left > locations[i-1].left);
+            }
+        }
     }
 
     private void onClickCallback() {

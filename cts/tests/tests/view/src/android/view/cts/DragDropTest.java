@@ -61,6 +61,7 @@ public class DragDropTest {
 
     private DragDropActivity mActivity;
 
+    private CountDownLatch mStartReceived;
     private CountDownLatch mEndReceived;
 
     private static boolean equal(ClipDescription d1, ClipDescription d2) {
@@ -141,6 +142,9 @@ public class DragDropTest {
     }
 
     private void logEvent(View v, DragEvent ev) {
+        if (ev.getAction() == DragEvent.ACTION_DRAG_STARTED) {
+            mStartReceived.countDown();
+        }
         if (ev.getAction() == DragEvent.ACTION_DRAG_ENDED) {
             mEndReceived.countDown();
         }
@@ -277,7 +281,11 @@ public class DragDropTest {
     @Before
     public void setUp() {
         mActivity = mActivityRule.getActivity();
+        mStartReceived = new CountDownLatch(1);
         mEndReceived = new CountDownLatch(1);
+
+        // Wait for idle
+        mInstrumentation.waitForIdleSync();
     }
 
     @After
@@ -315,6 +323,13 @@ public class DragDropTest {
             assertTrue("Couldn't start drag",
                     v.startDragAndDrop(createClipData(), new View.DragShadowBuilder(v), null, 0));
         });
+
+        try {
+            assertTrue("Timeout while waiting for START event",
+                    mStartReceived.await(1, TimeUnit.SECONDS));
+        } catch (InterruptedException e) {
+            fail("Got InterruptedException while waiting for START event");
+        }
     }
 
     /**

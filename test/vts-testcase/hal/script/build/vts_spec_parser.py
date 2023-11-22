@@ -101,12 +101,8 @@ class VtsSpecParser(object):
             return
         hidl_gen_cmd = (
             'hidl-gen -o {TEMP_DIR} -L vts '
-            '-r android.hardware:{HW_IFACE_DIR} '
-            '-r android.hidl:{ANDROID_BUILD_TOP}/system/libhidl/transport '
             'android.hardware.{HAL_NAME}@{HAL_VERSION}').format(
                 TEMP_DIR=self._tmp_dir,
-                HW_IFACE_DIR=self.HW_IFACE_DIR,
-                ANDROID_BUILD_TOP=ANDROID_BUILD_TOP,
                 HAL_NAME=hal_name,
                 HAL_VERSION=hal_version)
         subprocess.call(hidl_gen_cmd, shell=True)

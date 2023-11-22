@@ -42,21 +42,15 @@ public final class MainTargetRunner implements TargetRunner {
         }
     }
 
-    public boolean run(Profiler profiler) {
+    public boolean run() {
         monitor.outcomeStarted(mainClass.getName() + "#main");
         try {
-            if (profiler != null) {
-                profiler.start();
-            }
             main.invoke(null, new Object[] { args });
             monitor.outcomeFinished(Result.SUCCESS);
         } catch (Throwable ex) {
             ex.printStackTrace();
             monitor.outcomeFinished(Result.EXEC_FAILED);
         } finally {
-            if (profiler != null) {
-                profiler.stop();
-            }
         }
         return true;
     }

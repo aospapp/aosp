@@ -17,6 +17,7 @@
 #include <memory>
 
 #include "base/arena_allocator.h"
+#include "base/callee_save_type.h"
 #include "base/enums.h"
 #include "class_linker.h"
 #include "common_runtime_test.h"
@@ -101,12 +102,14 @@ class ExceptionTest : public CommonRuntimeTest {
       CHECK_ALIGNED(stack_maps_offset, 2);
     }
 
-    method_f_ = my_klass_->FindVirtualMethod("f", "()I", kRuntimePointerSize);
+    method_f_ = my_klass_->FindClassMethod("f", "()I", kRuntimePointerSize);
     ASSERT_TRUE(method_f_ != nullptr);
+    ASSERT_FALSE(method_f_->IsDirect());
     method_f_->SetEntryPointFromQuickCompiledCode(code_ptr);
 
-    method_g_ = my_klass_->FindVirtualMethod("g", "(I)V", kRuntimePointerSize);
+    method_g_ = my_klass_->FindClassMethod("g", "(I)V", kRuntimePointerSize);
     ASSERT_TRUE(method_g_ != nullptr);
+    ASSERT_FALSE(method_g_->IsDirect());
     method_g_->SetEntryPointFromQuickCompiledCode(code_ptr);
   }
 
@@ -170,7 +173,7 @@ TEST_F(ExceptionTest, StackTraceElement) {
   Runtime* r = Runtime::Current();
   r->SetInstructionSet(kRuntimeISA);
   ArtMethod* save_method = r->CreateCalleeSaveMethod();
-  r->SetCalleeSaveMethod(save_method, Runtime::kSaveAllCalleeSaves);
+  r->SetCalleeSaveMethod(save_method, CalleeSaveType::kSaveAllCalleeSaves);
   QuickMethodFrameInfo frame_info = r->GetRuntimeMethodFrameInfo(save_method);
 
   ASSERT_EQ(kStackAlignment, 16U);

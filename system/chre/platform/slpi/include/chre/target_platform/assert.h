@@ -17,14 +17,12 @@
 #ifndef CHRE_PLATFORM_SLPI_ASSERT_H_
 #define CHRE_PLATFORM_SLPI_ASSERT_H_
 
-// TODO: Replace this with something more intelligent. This implementation
-// is a no-op that just logs a message. We will need to spawn a thread for CHRE
-// to run in and then request that it be stopped when an assertion fails.
+#include "chre/platform/fatal_error.h"
 
-#define CHRE_ASSERT(condition) do {                         \
-  if (!(condition)) {                                       \
-    LOGE("Assertion failure at %s:%d", __FILE__, __LINE__); \
-  }                                                         \
+#define CHRE_ASSERT(condition) do {                                \
+  if (!(condition)) {                                              \
+    FATAL_ERROR("Assertion failure at %s:%d", __FILE__, __LINE__); \
+  }                                                                \
 } while (0)
 
 #endif  // CHRE_PLATFORM_SLPI_ASSERT_H_

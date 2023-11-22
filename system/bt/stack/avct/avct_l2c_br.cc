@@ -70,8 +70,8 @@
 #define AVCT_BR_FCR_OPT_MONITOR_TOUT 12000
 
 /* callback function declarations */
-void avct_l2c_br_connect_ind_cback(BD_ADDR bd_addr, uint16_t lcid, uint16_t psm,
-                                   uint8_t id);
+void avct_l2c_br_connect_ind_cback(const RawAddress& bd_addr, uint16_t lcid,
+                                   uint16_t psm, uint8_t id);
 void avct_l2c_br_connect_cfm_cback(uint16_t lcid, uint16_t result);
 void avct_l2c_br_config_cfm_cback(uint16_t lcid, tL2CAP_CFG_INFO* p_cfg);
 void avct_l2c_br_config_ind_cback(uint16_t lcid, tL2CAP_CFG_INFO* p_cfg);
@@ -116,7 +116,7 @@ const tL2CAP_FCR_OPTS avct_l2c_br_fcr_opts_def = {
  * Returns          void
  *
  ******************************************************************************/
-void avct_l2c_br_connect_ind_cback(BD_ADDR bd_addr, uint16_t lcid,
+void avct_l2c_br_connect_ind_cback(const RawAddress& bd_addr, uint16_t lcid,
                                    UNUSED_ATTR uint16_t psm, uint8_t id) {
   tAVCT_LCB* p_lcb;
   uint16_t result = L2CAP_CONN_NO_RESOURCES;
@@ -131,7 +131,7 @@ void avct_l2c_br_connect_ind_cback(BD_ADDR bd_addr, uint16_t lcid,
   if (p_lcb != NULL) {
     /* control channel exists */
     p_bcb = avct_bcb_by_lcb(p_lcb);
-    memcpy(p_bcb->peer_addr, bd_addr, BD_ADDR_LEN);
+    p_bcb->peer_addr = bd_addr;
 
     if (p_bcb->allocated == 0) {
       /* browsing channel does not exist yet and the browsing channel is
@@ -192,7 +192,9 @@ void avct_l2c_br_connect_cfm_cback(uint16_t lcid, uint16_t result) {
 
   if (result != L2CAP_CONN_OK) {
     /* failure */
-    avct_bcb_event(p_lcb, AVCT_LCB_LL_CLOSE_EVT, (tAVCT_LCB_EVT*)&result);
+    tAVCT_LCB_EVT avct_lcb_evt;
+    avct_lcb_evt.result = result;
+    avct_bcb_event(p_lcb, AVCT_LCB_LL_CLOSE_EVT, &avct_lcb_evt);
     return;
   }
 
@@ -342,7 +344,9 @@ void avct_l2c_br_disconnect_ind_cback(uint16_t lcid, bool ack_needed) {
     L2CA_DisconnectRsp(lcid);
   }
 
-  avct_bcb_event(p_lcb, AVCT_LCB_LL_CLOSE_EVT, (tAVCT_LCB_EVT*)&result);
+  tAVCT_LCB_EVT avct_lcb_evt;
+  avct_lcb_evt.result = result;
+  avct_bcb_event(p_lcb, AVCT_LCB_LL_CLOSE_EVT, &avct_lcb_evt);
 }
 
 /*******************************************************************************
@@ -367,7 +371,9 @@ void avct_l2c_br_disconnect_cfm_cback(uint16_t lcid, uint16_t result) {
   res = (p_lcb->ch_result != 0) ? p_lcb->ch_result : result;
   p_lcb->ch_result = 0;
 
-  avct_bcb_event(p_lcb, AVCT_LCB_LL_CLOSE_EVT, (tAVCT_LCB_EVT*)&res);
+  tAVCT_LCB_EVT avct_lcb_evt;
+  avct_lcb_evt.result = res;
+  avct_bcb_event(p_lcb, AVCT_LCB_LL_CLOSE_EVT, &avct_lcb_evt);
 }
 
 /*******************************************************************************
@@ -387,7 +393,9 @@ void avct_l2c_br_congestion_ind_cback(uint16_t lcid, bool is_congested) {
   p_lcb = avct_bcb_by_lcid(lcid);
   if (p_lcb == NULL) return;
 
-  avct_bcb_event(p_lcb, AVCT_LCB_LL_CONG_EVT, (tAVCT_LCB_EVT*)&is_congested);
+  tAVCT_LCB_EVT avct_lcb_evt;
+  avct_lcb_evt.cong = is_congested;
+  avct_bcb_event(p_lcb, AVCT_LCB_LL_CONG_EVT, &avct_lcb_evt);
 }
 
 /*******************************************************************************

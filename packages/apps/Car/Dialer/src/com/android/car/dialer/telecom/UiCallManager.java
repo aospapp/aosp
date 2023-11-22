@@ -15,42 +15,49 @@
  */
 package com.android.car.dialer.telecom;
 
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
+import android.content.ServiceConnection;
 import android.database.Cursor;
+import android.net.Uri;
+import android.os.IBinder;
 import android.provider.CallLog;
 import android.telecom.Call;
+import android.telecom.CallAudioState;
+import android.telecom.DisconnectCause;
+import android.telecom.GatewayInfo;
+import android.telecom.InCallService;
+import android.telecom.TelecomManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.KeyEvent;
-import com.android.car.dialer.ClassFactory;
+
 import com.android.car.dialer.R;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * The entry point for all interactions between UI and telecom.
  */
-public abstract class UiCallManager {
+public class UiCallManager {
     private static String TAG = "Em.TelecomMgr";
-
-    private static Object sInstanceLock = new Object();
-    private static UiCallManager sInstance;
-
-    private long mLastPlacedCallTimeMs = 0;
 
     // Rate limit how often you can place outgoing calls.
     private static final long MIN_TIME_BETWEEN_CALLS_MS = 3000;
-
     private static final List<Integer> sCallStateRank = new ArrayList<>();
 
-    protected Context mContext;
-
-    protected TelephonyManager mTelephonyManager;
+    // Used to assign id's to UiCall objects as they're created.
+    private static int nextCarPhoneCallId = 0;
 
     static {
         // States should be added from lowest rank to highest
@@ -65,69 +72,365 @@ public abstract class UiCallManager {
         sCallStateRank.add(Call.STATE_RINGING);
     }
 
-    public static UiCallManager getInstance(Context context) {
-        synchronized (sInstanceLock) {
-            if (sInstance == null) {
-                if (Log.isLoggable(TAG, Log.DEBUG)) {
-                    Log.d(TAG, "Creating an instance of CarTelecomManager");
-                }
-                sInstance = ClassFactory.getFactory().createCarTelecomManager();
-                sInstance.setUp(context.getApplicationContext());
-            }
-        }
-        return sInstance;
-    }
+    private Context mContext;
+    private TelephonyManager mTelephonyManager;
+    private long mLastPlacedCallTimeMs;
 
-    protected UiCallManager() {}
+    private TelecomManager mTelecomManager;
+    private InCallServiceImpl mInCallService;
+    private final Map<UiCall, Call> mCallMapping = new HashMap<>();
+    private final List<CallListener> mCallListeners = new CopyOnWriteArrayList<>();
 
-    protected void setUp(Context context) {
+    public UiCallManager(Context context) {
         if (Log.isLoggable(TAG, Log.DEBUG)) {
             Log.d(TAG, "SetUp");
         }
 
         mContext = context;
         mTelephonyManager = (TelephonyManager) mContext.getSystemService(Context.TELEPHONY_SERVICE);
+
+        mTelecomManager = (TelecomManager) context.getSystemService(Context.TELECOM_SERVICE);
+        Intent intent = new Intent(context, InCallServiceImpl.class);
+        intent.setAction(InCallServiceImpl.ACTION_LOCAL_BIND);
+        context.bindService(intent, mInCallServiceConnection, Context.BIND_AUTO_CREATE);
     }
 
-    public abstract void tearDown();
+    private final ServiceConnection mInCallServiceConnection = new ServiceConnection() {
 
-    public abstract void addListener(CallListener listener);
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder binder) {
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "onServiceConnected: " + name + ", service: " + binder);
+            }
+            mInCallService = ((InCallServiceImpl.LocalBinder) binder).getService();
+            mInCallService.registerCallback(mInCallServiceCallback);
 
-    public abstract void removeListener(CallListener listener);
+            // The InCallServiceImpl could be bound when we already have some active calls, let's
+            // notify UI about these calls.
+            for (Call telecomCall : mInCallService.getCalls()) {
+                UiCall uiCall = doTelecomCallAdded(telecomCall);
+                onStateChanged(uiCall, uiCall.getState());
+            }
+        }
 
-    protected abstract void placeCall(String number);
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "onServiceDisconnected: " + name);
+            }
+            mInCallService.unregisterCallback(mInCallServiceCallback);
+        }
 
-    public abstract void answerCall(UiCall call);
+        private InCallServiceImpl.Callback mInCallServiceCallback =
+                new InCallServiceImpl.Callback() {
+                    @Override
+                    public void onTelecomCallAdded(Call telecomCall) {
+                        doTelecomCallAdded(telecomCall);
+                    }
 
-    public abstract void rejectCall(UiCall call, boolean rejectWithMessage, String textMessage);
+                    @Override
+                    public void onTelecomCallRemoved(Call telecomCall) {
+                        doTelecomCallRemoved(telecomCall);
+                    }
 
-    public abstract void disconnectCall(UiCall call);
+                    @Override
+                    public void onCallAudioStateChanged(CallAudioState audioState) {
+                        doCallAudioStateChanged(audioState);
+                    }
+                };
+    };
 
-    public abstract List<UiCall> getCalls();
+    public void tearDown() {
+        if (mInCallService != null) {
+            mContext.unbindService(mInCallServiceConnection);
+            mInCallService = null;
+        }
+        mCallMapping.clear();
+    }
 
-    public abstract boolean getMuted();
+    public void addListener(CallListener listener) {
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "addListener: " + listener);
+        }
+        mCallListeners.add(listener);
+    }
 
-    public abstract void setMuted(boolean muted);
+    public void removeListener(CallListener listener) {
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "removeListener: " + listener);
+        }
+        mCallListeners.remove(listener);
+    }
 
-    public abstract int getSupportedAudioRouteMask();
+    protected void placeCall(String number) {
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "placeCall: " + number);
+        }
+        Uri uri = Uri.fromParts("tel", number, null);
+        Log.d(TAG, "android.telecom.TelecomManager#placeCall: " + uri);
+        mTelecomManager.placeCall(uri, null);
+    }
 
-    public abstract int getAudioRoute();
+    public void answerCall(UiCall uiCall) {
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "answerCall: " + uiCall);
+        }
 
-    public abstract void setAudioRoute(int audioRoute);
+        Call telecomCall = mCallMapping.get(uiCall);
+        if (telecomCall != null) {
+            telecomCall.answer(0);
+        }
+    }
 
-    public abstract void holdCall(UiCall call);
+    public void rejectCall(UiCall uiCall, boolean rejectWithMessage, String textMessage) {
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "rejectCall: " + uiCall + ", rejectWithMessage: " + rejectWithMessage
+                    + "textMessage: " + textMessage);
+        }
 
-    public abstract void unholdCall(UiCall call);
+        Call telecomCall = mCallMapping.get(uiCall);
+        if (telecomCall != null) {
+            telecomCall.reject(rejectWithMessage, textMessage);
+        }
+    }
 
-    public abstract void playDtmfTone(UiCall call, char digit);
+    public void disconnectCall(UiCall uiCall) {
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "disconnectCall: " + uiCall);
+        }
 
-    public abstract void stopDtmfTone(UiCall call);
+        Call telecomCall = mCallMapping.get(uiCall);
+        if (telecomCall != null) {
+            telecomCall.disconnect();
+        }
+    }
 
-    public abstract void postDialContinue(UiCall call, boolean proceed);
+    public List<UiCall> getCalls() {
+        return new ArrayList<>(mCallMapping.keySet());
+    }
 
-    public abstract void conference(UiCall call, UiCall otherCall);
+    public boolean getMuted() {
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "getMuted");
+        }
+        if (mInCallService == null) {
+            return false;
+        }
+        CallAudioState audioState = mInCallService.getCallAudioState();
+        return audioState != null && audioState.isMuted();
+    }
 
-    public abstract void splitFromConference(UiCall call);
+    public void setMuted(boolean muted) {
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "setMuted: " + muted);
+        }
+        if (mInCallService == null) {
+            return;
+        }
+        mInCallService.setMuted(muted);
+    }
+
+    public int getSupportedAudioRouteMask() {
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "getSupportedAudioRouteMask");
+        }
+
+        CallAudioState audioState = getCallAudioStateOrNull();
+        return audioState != null ? audioState.getSupportedRouteMask() : 0;
+    }
+
+    public int getAudioRoute() {
+        CallAudioState audioState = getCallAudioStateOrNull();
+        int audioRoute = audioState != null ? audioState.getRoute() : 0;
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "getAudioRoute " + audioRoute);
+        }
+        return audioRoute;
+    }
+
+    public void setAudioRoute(int audioRoute) {
+        // In case of embedded where the CarKitt is always connected to one kind of speaker we
+        // should simply ignore any setAudioRoute requests.
+        Log.w(TAG, "setAudioRoute ignoring request " + audioRoute);
+    }
+
+    public void holdCall(UiCall uiCall) {
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "holdCall: " + uiCall);
+        }
+
+        Call telecomCall = mCallMapping.get(uiCall);
+        if (telecomCall != null) {
+            telecomCall.hold();
+        }
+    }
+
+    public void unholdCall(UiCall uiCall) {
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "unholdCall: " + uiCall);
+        }
+
+        Call telecomCall = mCallMapping.get(uiCall);
+        if (telecomCall != null) {
+            telecomCall.unhold();
+        }
+    }
+
+    public void playDtmfTone(UiCall uiCall, char digit) {
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "playDtmfTone: call: " + uiCall + ", digit: " + digit);
+        }
+
+        Call telecomCall = mCallMapping.get(uiCall);
+        if (telecomCall != null) {
+            telecomCall.playDtmfTone(digit);
+        }
+    }
+
+    public void stopDtmfTone(UiCall uiCall) {
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "stopDtmfTone: call: " + uiCall);
+        }
+
+        Call telecomCall = mCallMapping.get(uiCall);
+        if (telecomCall != null) {
+            telecomCall.stopDtmfTone();
+        }
+    }
+
+    public void postDialContinue(UiCall uiCall, boolean proceed) {
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "postDialContinue: call: " + uiCall + ", proceed: " + proceed);
+        }
+
+        Call telecomCall = mCallMapping.get(uiCall);
+        if (telecomCall != null) {
+            telecomCall.postDialContinue(proceed);
+        }
+    }
+
+    public void conference(UiCall uiCall, UiCall otherUiCall) {
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "conference: call: " + uiCall + ", otherCall: " + otherUiCall);
+        }
+
+        Call telecomCall = mCallMapping.get(uiCall);
+        Call otherTelecomCall = mCallMapping.get(otherUiCall);
+        if (telecomCall != null) {
+            telecomCall.conference(otherTelecomCall);
+        }
+    }
+
+    public void splitFromConference(UiCall uiCall) {
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "splitFromConference: call: " + uiCall);
+        }
+
+        Call telecomCall = mCallMapping.get(uiCall);
+        if (telecomCall != null) {
+            telecomCall.splitFromConference();
+        }
+    }
+
+    private UiCall doTelecomCallAdded(final Call telecomCall) {
+        Log.d(TAG, "doTelecomCallAdded: " + telecomCall);
+
+        UiCall uiCall = getOrCreateCallContainer(telecomCall);
+        telecomCall.registerCallback(new TelecomCallListener(this, uiCall));
+        for (CallListener listener : mCallListeners) {
+            listener.onCallAdded(uiCall);
+        }
+        Log.d(TAG, "Call backs registered");
+
+        if (telecomCall.getState() == Call.STATE_SELECT_PHONE_ACCOUNT) {
+            // TODO(b/26189994): need to show Phone Account picker to let user choose a phone
+            // account. It should be an account from TelecomManager#getCallCapablePhoneAccounts
+            // list.
+            Log.w(TAG, "Need to select phone account for the given call: " + telecomCall + ", "
+                    + "but this feature is not implemented yet.");
+            telecomCall.disconnect();
+        }
+        return uiCall;
+    }
+
+    private void doTelecomCallRemoved(Call telecomCall) {
+        UiCall uiCall = getOrCreateCallContainer(telecomCall);
+
+        mCallMapping.remove(uiCall);
+
+        for (CallListener listener : mCallListeners) {
+            listener.onCallRemoved(uiCall);
+        }
+    }
+
+    private void doCallAudioStateChanged(CallAudioState audioState) {
+        for (CallListener listener : mCallListeners) {
+            listener.onAudioStateChanged(audioState.isMuted(), audioState.getRoute(),
+                    audioState.getSupportedRouteMask());
+        }
+    }
+
+    private void onStateChanged(UiCall uiCall, int state) {
+        for (CallListener listener : mCallListeners) {
+            listener.onStateChanged(uiCall, state);
+        }
+    }
+
+    private void onCallUpdated(UiCall uiCall) {
+        for (CallListener listener : mCallListeners) {
+            listener.onCallUpdated(uiCall);
+        }
+    }
+
+    private UiCall getOrCreateCallContainer(Call telecomCall) {
+        for (Map.Entry<UiCall, Call> entry : mCallMapping.entrySet()) {
+            if (entry.getValue() == telecomCall) {
+                return entry.getKey();
+            }
+        }
+
+        UiCall uiCall = new UiCall(nextCarPhoneCallId++);
+        updateCallContainerFromTelecom(uiCall, telecomCall);
+        mCallMapping.put(uiCall, telecomCall);
+        return uiCall;
+    }
+
+    private static void updateCallContainerFromTelecom(UiCall uiCall, Call telecomCall) {
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "updateCallContainerFromTelecom: call: " + uiCall + ", telecomCall: "
+                    + telecomCall);
+        }
+
+        uiCall.setState(telecomCall.getState());
+        uiCall.setHasChildren(!telecomCall.getChildren().isEmpty());
+        uiCall.setHasParent(telecomCall.getParent() != null);
+
+        Call.Details details = telecomCall.getDetails();
+        if (details == null) {
+            return;
+        }
+
+        uiCall.setConnectTimeMillis(details.getConnectTimeMillis());
+
+        DisconnectCause cause = details.getDisconnectCause();
+        uiCall.setDisconnectCause(cause == null ? null : cause.getLabel());
+
+        GatewayInfo gatewayInfo = details.getGatewayInfo();
+        uiCall.setGatewayInfoOriginalAddress(
+                gatewayInfo == null ? null : gatewayInfo.getOriginalAddress());
+
+        String number = "";
+        if (gatewayInfo != null) {
+            number = gatewayInfo.getOriginalAddress().getSchemeSpecificPart();
+        } else if (details.getHandle() != null) {
+            number = details.getHandle().getSchemeSpecificPart();
+        }
+        uiCall.setNumber(number);
+    }
+
+    private CallAudioState getCallAudioStateOrNull() {
+        return mInCallService != null ? mInCallService.getCallAudioState() : null;
+    }
 
     public static class CallListener {
         @SuppressWarnings("unused")
@@ -306,5 +609,70 @@ public abstract class UiCallManager {
                 return otherCarCallRank - carCallRank;
             }
         };
+    }
+
+    private static class TelecomCallListener extends Call.Callback {
+        private final WeakReference<UiCallManager> mCarTelecomMangerRef;
+        private final WeakReference<UiCall> mCallContainerRef;
+
+        TelecomCallListener(UiCallManager carTelecomManager, UiCall uiCall) {
+            mCarTelecomMangerRef = new WeakReference<>(carTelecomManager);
+            mCallContainerRef = new WeakReference<>(uiCall);
+        }
+
+        @Override
+        public void onStateChanged(Call telecomCall, int state) {
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "onStateChanged: " + state);
+            }
+            UiCallManager manager = mCarTelecomMangerRef.get();
+            UiCall call = mCallContainerRef.get();
+            if (manager != null && call != null) {
+                call.setState(state);
+                manager.onStateChanged(call, state);
+            }
+        }
+
+        @Override
+        public void onParentChanged(Call telecomCall, Call parent) {
+            doCallUpdated(telecomCall);
+        }
+
+        @Override
+        public void onCallDestroyed(Call telecomCall) {
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "onCallDestroyed");
+            }
+        }
+
+        @Override
+        public void onDetailsChanged(Call telecomCall, Call.Details details) {
+            doCallUpdated(telecomCall);
+        }
+
+        @Override
+        public void onVideoCallChanged(Call telecomCall, InCallService.VideoCall videoCall) {
+            doCallUpdated(telecomCall);
+        }
+
+        @Override
+        public void onCannedTextResponsesLoaded(Call telecomCall,
+                List<String> cannedTextResponses) {
+            doCallUpdated(telecomCall);
+        }
+
+        @Override
+        public void onChildrenChanged(Call telecomCall, List<Call> children) {
+            doCallUpdated(telecomCall);
+        }
+
+        private void doCallUpdated(Call telecomCall) {
+            UiCallManager manager = mCarTelecomMangerRef.get();
+            UiCall uiCall = mCallContainerRef.get();
+            if (manager != null && uiCall != null) {
+                updateCallContainerFromTelecom(uiCall, telecomCall);
+                manager.onCallUpdated(uiCall);
+            }
+        }
     }
 }

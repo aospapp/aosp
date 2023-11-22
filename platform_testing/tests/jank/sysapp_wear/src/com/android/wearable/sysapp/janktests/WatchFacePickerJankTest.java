@@ -20,14 +20,8 @@ import android.os.Bundle;
 import android.support.test.jank.GfxMonitor;
 import android.support.test.jank.JankTest;
 import android.support.test.jank.JankTestBase;
-import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.UiDevice;
-import android.support.test.uiautomator.UiObject2;
 import android.util.Log;
-
-import junit.framework.Assert;
-
-import java.util.List;
 
 /**
  * Jank tests for watchFace picker on clockwork device
@@ -35,13 +29,11 @@ import java.util.List;
 public class WatchFacePickerJankTest extends JankTestBase {
 
     private static final String WEARABLE_APP_PACKAGE = "com.google.android.wearable.app";
-    private static final String WATCHFACE_PREVIEW_NAME = "preview_image";
-    private static final String WATCHFACE_SHOW_ALL_BTN_NAME = "show_all_btn";
-    private static final String WATCHFACE_PICKER_ALL_LIST_NAME = "watch_face_picker_all_list";
     private static final String WATCHFACE_PICKER_FAVORITE_LIST_NAME = "watch_face_picker_list";
     private static final String TAG = "WatchFacePickerJankTest";
     private UiDevice mDevice;
     private SysAppTestHelper mHelper;
+    private WatchFaceHelper mWfHelper;
 
     /*
      * (non-Javadoc)
@@ -50,7 +42,8 @@ public class WatchFacePickerJankTest extends JankTestBase {
     @Override
     protected void setUp() throws Exception {
         mDevice = UiDevice.getInstance(getInstrumentation());
-        mHelper = SysAppTestHelper.getInstance(mDevice, this.getInstrumentation());
+        mHelper = SysAppTestHelper.getInstance(mDevice, getInstrumentation());
+        mWfHelper = WatchFaceHelper.getInstance(mDevice, getInstrumentation());
         mDevice.wakeUp();
         super.setUp();
     }
@@ -62,7 +55,7 @@ public class WatchFacePickerJankTest extends JankTestBase {
             expectedFrames = SysAppTestHelper.EXPECTED_FRAMES_WATCHFACE_PICKER_TEST)
     @GfxMonitor(processName = WEARABLE_APP_PACKAGE)
     public void testOpenWatchFacePicker() {
-        openPicker();
+        mWfHelper.openPicker();
     }
 
     /**
@@ -73,7 +66,7 @@ public class WatchFacePickerJankTest extends JankTestBase {
             expectedFrames = SysAppTestHelper.EXPECTED_FRAMES_WATCHFACE_PICKER_TEST_ADD_FAVORITE)
     @GfxMonitor(processName = WEARABLE_APP_PACKAGE)
     public void testSelectWatchFaceFromFullList() {
-        selectWatchFaceFromFullList(0);
+        mWfHelper.selectWatchFaceFromFullList(0);
     }
 
     /**
@@ -115,25 +108,23 @@ public class WatchFacePickerJankTest extends JankTestBase {
     }
 
     public void startFromWatchFacePicker() {
-        Log.v(TAG, "Starting from watchface picker ...");
-        startFromHome();
-        openPicker();
+        mWfHelper.startFromWatchFacePicker();
     }
 
     public void startFromWatchFacePickerFull() {
         Log.v(TAG, "Starting from watchface picker full list ...");
         startFromHome();
-        openPicker();
-        openPickerAllList();
+        mWfHelper.openPicker();
+        mWfHelper.openPickerAllList();
     }
 
     public void startWithTwoWatchFaces() {
         Log.v(TAG, "Starting with two watchfaces ...");
         for (int i = 0; i < 2; ++i) {
             startFromHome();
-            openPicker();
-            openPickerAllList();
-            selectWatchFaceFromFullList(i);
+            mWfHelper.openPicker();
+            mWfHelper.openPickerAllList();
+            mWfHelper.selectWatchFaceFromFullList(i);
         }
     }
 
@@ -141,26 +132,14 @@ public class WatchFacePickerJankTest extends JankTestBase {
         Log.v(TAG, "Starting with four watchfaces ...");
         for (int i = 0; i < 4; ++i) {
             startFromHome();
-            openPicker();
-            openPickerAllList();
-            selectWatchFaceFromFullList(i);
+            mWfHelper.openPicker();
+            mWfHelper.openPickerAllList();
+            mWfHelper.selectWatchFaceFromFullList(i);
         }
     }
 
-    // Ensuring that we head back to the first screen before launching the app again
-    public void goBackHome(Bundle metrics) {
-        Log.v(TAG, "Going back Home ...");
-        startFromHome();
-        super.afterTest(metrics);
-    }
-
     public void removeAllButOneWatchFace(Bundle metrics) {
-        int count = 0;
-        do {
-            Log.v(TAG, "Removing all but one watch faces ...");
-            startFromWatchFacePicker();
-            removeWatchFaceFromFavorites();
-        } while (isOnlyOneWatchFaceInFavorites() && count++ < 5);
+        mWfHelper.removeAllButOneWatchFace();
         super.afterTest(metrics);
     }
 
@@ -179,85 +158,15 @@ public class WatchFacePickerJankTest extends JankTestBase {
         startWithTwoWatchFaces();
     }
 
-    /**
-     * Check if there is only one watch face in favorites list.
-     *
-     * @return True is +id/show_all_btn is on the screen. False otherwise.
-     */
-    private boolean isOnlyOneWatchFaceInFavorites() {
-        // Make sure we are not at the last watch face.
-        mHelper.swipeRight();
-        return mHelper.waitForSysAppUiObject2(WATCHFACE_SHOW_ALL_BTN_NAME) != null;
+    public void removeWatchFaceFromFavorites() {
+        mWfHelper.removeWatchFaceFromFavorites();
     }
 
-    private void openPicker() {
-        // Try 5 times in case WFP is not ready
-        for (int i = 0; i < 5; i ++) {
-            mHelper.swipeLeft();
-            if (mHelper.waitForSysAppUiObject2(WATCHFACE_PREVIEW_NAME) != null) {
-                return;
-            }
-        }
-        Assert.fail("Still cannot open WFP after several attempts");
-    }
-
-    private void openPickerAllList() {
-        // Assume the screen is on WatchFace picker for favorites.
-        // Swipe to the end of the list.
-        while (mHelper.waitForSysAppUiObject2(WATCHFACE_SHOW_ALL_BTN_NAME) == null) {
-            Log.v(TAG, "Swiping to the end of favorites list ...");
-            mHelper.flingLeft();
-        }
-
-        UiObject2 showAllButton = mHelper.waitForSysAppUiObject2(WATCHFACE_SHOW_ALL_BTN_NAME);
-        Assert.assertNotNull(showAllButton);
-        Log.v(TAG, "Tapping to show all watchfaces ...");
-        showAllButton.click();
-        UiObject2 watchFacePickerAllList =
-                mHelper.waitForSysAppUiObject2(WATCHFACE_PICKER_ALL_LIST_NAME);
-        Assert.assertNotNull(watchFacePickerAllList);
-    }
-
-    private void selectWatchFaceFromFullList(int index) {
-        // Assume the screen is on watch face picker for all faces.
-        UiObject2 watchFacePickerAllList = mHelper.waitForSysAppUiObject2(
-                WATCHFACE_PICKER_ALL_LIST_NAME);
-        Assert.assertNotNull(watchFacePickerAllList);
-        int swipes = index / 4; // Showing 4 for each scroll.
-        for (int i = 0; i < swipes; ++i) {
-            mHelper.swipeDown();
-        }
-        List<UiObject2> watchFaces = watchFacePickerAllList.getChildren();
-        Assert.assertNotNull(watchFaces);
-        int localIndex = index % 4;
-        if (watchFaces.size() <= localIndex) {
-            mDevice.pressBack();
-            return;
-        }
-
-        Log.v(TAG, "Tapping the " + localIndex + " watchface on screen ...");
-        watchFaces.get(localIndex).click();
-        // Verify the watchface is selected properly.
-        UiObject2 watchFacePickerList =
-                mHelper.waitForSysAppUiObject2(WATCHFACE_PICKER_FAVORITE_LIST_NAME);
-        Assert.assertNotNull(watchFacePickerList);
-    }
-
-    private void removeWatchFaceFromFavorites() {
-        mHelper.flingRight();
-
-        // Assume the favorites list has at least 2 watch faces.
-        UiObject2 watchFacePicker =
-                mHelper.waitForSysAppUiObject2(WATCHFACE_PICKER_FAVORITE_LIST_NAME);
-        Assert.assertNotNull(watchFacePicker);
-        List<UiObject2> watchFaces = watchFacePicker.getChildren();
-        Assert.assertNotNull(watchFaces);
-        if (isOnlyOneWatchFaceInFavorites()) {
-            return;
-        }
-
-        Log.v(TAG, "Removing first watch face from favorites ...");
-        watchFaces.get(0).swipe(Direction.DOWN, 1.0f);
+    // Ensuring that we head back to the first screen before launching the app again
+    public void goBackHome(Bundle metrics) {
+        Log.v(TAG, "Going back Home ...");
+        startFromHome();
+        super.afterTest(metrics);
     }
 
     private void flingWatchFacePicker(int iterations) {

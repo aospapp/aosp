@@ -34,14 +34,15 @@
 #include "art_method-inl.h"
 #include "base/stl_util.h"
 #include "base/unix_file/fd_file.h"
-#include "class_linker.h"
 #include "class_linker-inl.h"
+#include "class_linker.h"
 #include "debug/elf_debug_writer.h"
 #include "debug/method_debug_info.h"
 #include "dex_file-inl.h"
 #include "dex_instruction-inl.h"
 #include "disassembler.h"
 #include "elf_builder.h"
+#include "gc/accounting/space_bitmap-inl.h"
 #include "gc/space/image_space.h"
 #include "gc/space/large_object_space.h"
 #include "gc/space/space-inl.h"
@@ -56,13 +57,14 @@
 #include "mirror/dex_cache-inl.h"
 #include "mirror/object-inl.h"
 #include "mirror/object_array-inl.h"
+#include "nativehelper/ScopedLocalRef.h"
 #include "oat.h"
 #include "oat_file-inl.h"
 #include "oat_file_manager.h"
 #include "os.h"
 #include "safe_map.h"
 #include "scoped_thread_state_change-inl.h"
-#include "ScopedLocalRef.h"
+#include "stack.h"
 #include "stack_map.h"
 #include "string_reference.h"
 #include "thread_list.h"
@@ -125,9 +127,12 @@ class OatSymbolizer FINAL {
     std::unique_ptr<const InstructionSetFeatures> features = InstructionSetFeatures::FromBitmap(
         isa, oat_file_->GetOatHeader().GetInstructionSetFeaturesBitmap());
 
-    File* elf_file = OS::CreateEmptyFile(output_name_.c_str());
-    std::unique_ptr<BufferedOutputStream> output_stream(
-        MakeUnique<BufferedOutputStream>(MakeUnique<FileOutputStream>(elf_file)));
+    std::unique_ptr<File> elf_file(OS::CreateEmptyFile(output_name_.c_str()));
+    if (elf_file == nullptr) {
+      return false;
+    }
+    std::unique_ptr<BufferedOutputStream> output_stream =
+        std::make_unique<BufferedOutputStream>(std::make_unique<FileOutputStream>(elf_file.get()));
     builder_.reset(new ElfBuilder<ElfTypes>(isa, features.get(), output_stream.get()));
 
     builder_->Start();
@@ -167,6 +172,7 @@ class OatSymbolizer FINAL {
                                     rodata_size,
                                     text_size,
                                     oat_file_->BssSize(),
+                                    oat_file_->BssMethodsOffset(),
                                     oat_file_->BssRootsOffset());
     builder_->WriteDynamicSection();
 
@@ -182,7 +188,17 @@ class OatSymbolizer FINAL {
 
     builder_->End();
 
-    return builder_->Good();
+    bool ret_value = builder_->Good();
+
+    builder_.reset();
+    output_stream.reset();
+
+    if (elf_file->FlushCloseOrErase() != 0) {
+      return false;
+    }
+    elf_file.reset();
+
+    return ret_value;
   }
 
   void Walk() {
@@ -231,8 +247,7 @@ class OatSymbolizer FINAL {
     //       might be a static initializer.
     ClassDataItemIterator it(dex_file, class_data);
     uint32_t class_method_idx = 0;
-    for (; it.HasNextStaticField(); it.Next()) { /* skip */ }
-    for (; it.HasNextInstanceField(); it.Next()) { /* skip */ }
+    it.SkipAllFields();
     for (; it.HasNextDirectMethod() || it.HasNextVirtualMethod(); it.Next()) {
       WalkOatMethod(oat_class.GetOatMethod(class_method_idx++),
                     dex_file,
@@ -483,6 +498,13 @@ class OatDumper {
       os << "Dex file data for " << dex_file->GetLocation() << "\n";
       data.Dump(os);
       os << "\n";
+      const DexLayoutSections* const layout_sections = oat_dex_file->GetDexLayoutSections();
+      if (layout_sections != nullptr) {
+        os << "Layout data\n";
+        os << *layout_sections;
+        os << "\n";
+      }
+
       cumulative.Add(data);
     }
     os << "Cumulative dex file data\n";
@@ -754,7 +776,7 @@ class OatDumper {
         const uint8_t* class_data = dex_file->GetClassData(class_def);
         if (class_data != nullptr) {
           ClassDataItemIterator it(*dex_file, class_data);
-          SkipAllFields(it);
+          it.SkipAllFields();
           uint32_t class_method_index = 0;
           while (it.HasNextDirectMethod()) {
             AddOffsets(oat_class.GetOatMethod(class_method_index++));
@@ -841,7 +863,7 @@ class OatDumper {
         return;
       }
       ClassDataItemIterator it(dex_file, class_data);
-      SkipAllFields(it);
+      it.SkipAllFields();
       while (it.HasNextDirectMethod()) {
         WalkCodeItem(dex_file, it.GetMethodCodeItem());
         it.Next();
@@ -1061,15 +1083,6 @@ class OatDumper {
     return true;
   }
 
-  static void SkipAllFields(ClassDataItemIterator& it) {
-    while (it.HasNextStaticField()) {
-      it.Next();
-    }
-    while (it.HasNextInstanceField()) {
-      it.Next();
-    }
-  }
-
   bool DumpOatClass(VariableIndentationOutputStream* vios,
                     const OatFile::OatClass& oat_class, const DexFile& dex_file,
                     const DexFile::ClassDef& class_def, bool* stop_analysis) {
@@ -1081,7 +1094,7 @@ class OatDumper {
       return success;
     }
     ClassDataItemIterator it(dex_file, class_data);
-    SkipAllFields(it);
+    it.SkipAllFields();
     uint32_t class_method_index = 0;
     while (it.HasNextDirectMethod()) {
       if (!DumpOatMethod(vios, class_def, class_method_index, oat_class, dex_file,
@@ -1390,6 +1403,54 @@ class OatDumper {
                    method_info);
   }
 
+  static int GetOutVROffset(uint16_t out_num, InstructionSet isa) {
+    // According to stack model, the first out is above the Method referernce.
+    return static_cast<size_t>(InstructionSetPointerSize(isa)) + out_num * sizeof(uint32_t);
+  }
+
+  static uint32_t GetVRegOffsetFromQuickCode(const DexFile::CodeItem* code_item,
+                                             uint32_t core_spills,
+                                             uint32_t fp_spills,
+                                             size_t frame_size,
+                                             int reg,
+                                             InstructionSet isa) {
+    PointerSize pointer_size = InstructionSetPointerSize(isa);
+    if (kIsDebugBuild) {
+      auto* runtime = Runtime::Current();
+      if (runtime != nullptr) {
+        CHECK_EQ(runtime->GetClassLinker()->GetImagePointerSize(), pointer_size);
+      }
+    }
+    DCHECK_ALIGNED(frame_size, kStackAlignment);
+    DCHECK_NE(reg, -1);
+    int spill_size = POPCOUNT(core_spills) * GetBytesPerGprSpillLocation(isa)
+        + POPCOUNT(fp_spills) * GetBytesPerFprSpillLocation(isa)
+        + sizeof(uint32_t);  // Filler.
+    int num_regs = code_item->registers_size_ - code_item->ins_size_;
+    int temp_threshold = code_item->registers_size_;
+    const int max_num_special_temps = 1;
+    if (reg == temp_threshold) {
+      // The current method pointer corresponds to special location on stack.
+      return 0;
+    } else if (reg >= temp_threshold + max_num_special_temps) {
+      /*
+       * Special temporaries may have custom locations and the logic above deals with that.
+       * However, non-special temporaries are placed relative to the outs.
+       */
+      int temps_start = code_item->outs_size_ * sizeof(uint32_t)
+          + static_cast<size_t>(pointer_size) /* art method */;
+      int relative_offset = (reg - (temp_threshold + max_num_special_temps)) * sizeof(uint32_t);
+      return temps_start + relative_offset;
+    } else if (reg < num_regs) {
+      int locals_start = frame_size - spill_size - num_regs * sizeof(uint32_t);
+      return locals_start + (reg * sizeof(uint32_t));
+    } else {
+      // Handle ins.
+      return frame_size + ((reg - num_regs) * sizeof(uint32_t))
+          + static_cast<size_t>(pointer_size) /* art method */;
+    }
+  }
+
   void DumpVregLocations(std::ostream& os, const OatFile::OatMethod& oat_method,
                          const DexFile::CodeItem* code_item) {
     if (code_item != nullptr) {
@@ -1409,13 +1470,12 @@ class OatDumper {
           os << "\n\tlocals:";
         }
 
-        uint32_t offset = StackVisitor::GetVRegOffsetFromQuickCode(
-            code_item,
-            oat_method.GetCoreSpillMask(),
-            oat_method.GetFpSpillMask(),
-            oat_method.GetFrameSizeInBytes(),
-            reg,
-            GetInstructionSet());
+        uint32_t offset = GetVRegOffsetFromQuickCode(code_item,
+                                                     oat_method.GetCoreSpillMask(),
+                                                     oat_method.GetFpSpillMask(),
+                                                     oat_method.GetFrameSizeInBytes(),
+                                                     reg,
+                                                     GetInstructionSet());
         os << " v" << reg << "[sp + #" << offset << "]";
       }
 
@@ -1424,7 +1484,7 @@ class OatDumper {
           os << "\n\touts:";
         }
 
-        uint32_t offset = StackVisitor::GetOutVROffset(out_reg, GetInstructionSet());
+        uint32_t offset = GetOutVROffset(out_reg, GetInstructionSet());
         os << " v" << out_reg << "[sp + #" << offset << "]";
       }
 
@@ -1878,9 +1938,12 @@ class ImageDumper {
           }
         }
       }
+      auto dump_visitor = [&](mirror::Object* obj) REQUIRES_SHARED(Locks::mutator_lock_) {
+        DumpObject(obj);
+      };
       ReaderMutexLock mu(self, *Locks::heap_bitmap_lock_);
       // Dump the normal objects before ArtMethods.
-      image_space_.GetLiveBitmap()->Walk(ImageDumper::Callback, this);
+      image_space_.GetLiveBitmap()->Walk(dump_visitor);
       indent_os << "\n";
       // TODO: Dump fields.
       // Dump methods after.
@@ -1889,7 +1952,7 @@ class ImageDumper {
                                           image_space_.Begin(),
                                           image_header_.GetPointerSize());
       // Dump the large objects separately.
-      heap->GetLargeObjectsSpace()->GetLiveBitmap()->Walk(ImageDumper::Callback, this);
+      heap->GetLargeObjectsSpace()->GetLiveBitmap()->Walk(dump_visitor);
       indent_os << "\n";
     }
     os << "STATS:\n" << std::flush;
@@ -2104,20 +2167,18 @@ class ImageDumper {
     return oat_code_begin + GetQuickOatCodeSize(m);
   }
 
-  static void Callback(mirror::Object* obj, void* arg) REQUIRES_SHARED(Locks::mutator_lock_) {
+  void DumpObject(mirror::Object* obj) REQUIRES_SHARED(Locks::mutator_lock_) {
     DCHECK(obj != nullptr);
-    DCHECK(arg != nullptr);
-    ImageDumper* state = reinterpret_cast<ImageDumper*>(arg);
-    if (!state->InDumpSpace(obj)) {
+    if (!InDumpSpace(obj)) {
       return;
     }
 
     size_t object_bytes = obj->SizeOf();
     size_t alignment_bytes = RoundUp(object_bytes, kObjectAlignment) - object_bytes;
-    state->stats_.object_bytes += object_bytes;
-    state->stats_.alignment_bytes += alignment_bytes;
+    stats_.object_bytes += object_bytes;
+    stats_.alignment_bytes += alignment_bytes;
 
-    std::ostream& os = state->vios_.Stream();
+    std::ostream& os = vios_.Stream();
 
     mirror::Class* obj_class = obj->GetClass();
     if (obj_class->IsArrayClass()) {
@@ -2134,9 +2195,9 @@ class ImageDumper {
     } else {
       os << StringPrintf("%p: %s\n", obj, obj_class->PrettyDescriptor().c_str());
     }
-    ScopedIndentation indent1(&state->vios_);
+    ScopedIndentation indent1(&vios_);
     DumpFields(os, obj, obj_class);
-    const PointerSize image_pointer_size = state->image_header_.GetPointerSize();
+    const PointerSize image_pointer_size = image_header_.GetPointerSize();
     if (obj->IsObjectArray()) {
       auto* obj_array = obj->AsObjectArray<mirror::Object>();
       for (int32_t i = 0, length = obj_array->GetLength(); i < length; i++) {
@@ -2163,32 +2224,31 @@ class ImageDumper {
       mirror::Class* klass = obj->AsClass();
       if (klass->NumStaticFields() != 0) {
         os << "STATICS:\n";
-        ScopedIndentation indent2(&state->vios_);
+        ScopedIndentation indent2(&vios_);
         for (ArtField& field : klass->GetSFields()) {
           PrintField(os, &field, field.GetDeclaringClass());
         }
       }
     } else {
-      auto it = state->dex_caches_.find(obj);
-      if (it != state->dex_caches_.end()) {
+      auto it = dex_caches_.find(obj);
+      if (it != dex_caches_.end()) {
         auto* dex_cache = down_cast<mirror::DexCache*>(obj);
-        const auto& field_section = state->image_header_.GetImageSection(
+        const auto& field_section = image_header_.GetImageSection(
             ImageHeader::kSectionArtFields);
-        const auto& method_section = state->image_header_.GetMethodsSection();
+        const auto& method_section = image_header_.GetMethodsSection();
         size_t num_methods = dex_cache->NumResolvedMethods();
         if (num_methods != 0u) {
           os << "Methods (size=" << num_methods << "):\n";
-          ScopedIndentation indent2(&state->vios_);
-          auto* resolved_methods = dex_cache->GetResolvedMethods();
+          ScopedIndentation indent2(&vios_);
+          mirror::MethodDexCacheType* resolved_methods = dex_cache->GetResolvedMethods();
           for (size_t i = 0, length = dex_cache->NumResolvedMethods(); i < length; ++i) {
-            auto* elem = mirror::DexCache::GetElementPtrSize(resolved_methods,
-                                                             i,
-                                                             image_pointer_size);
+            ArtMethod* elem = mirror::DexCache::GetNativePairPtrSize(
+                resolved_methods, i, image_pointer_size).object;
             size_t run = 0;
             for (size_t j = i + 1;
-                 j != length && elem == mirror::DexCache::GetElementPtrSize(resolved_methods,
-                                                                            j,
-                                                                            image_pointer_size);
+                 j != length &&
+                 elem == mirror::DexCache::GetNativePairPtrSize(
+                     resolved_methods, j, image_pointer_size).object;
                  ++j) {
               ++run;
             }
@@ -2202,7 +2262,7 @@ class ImageDumper {
             if (elem == nullptr) {
               msg = "null";
             } else if (method_section.Contains(
-                reinterpret_cast<uint8_t*>(elem) - state->image_space_.Begin())) {
+                reinterpret_cast<uint8_t*>(elem) - image_space_.Begin())) {
               msg = reinterpret_cast<ArtMethod*>(elem)->PrettyMethod();
             } else {
               msg = "<not in method section>";
@@ -2213,10 +2273,10 @@ class ImageDumper {
         size_t num_fields = dex_cache->NumResolvedFields();
         if (num_fields != 0u) {
           os << "Fields (size=" << num_fields << "):\n";
-          ScopedIndentation indent2(&state->vios_);
+          ScopedIndentation indent2(&vios_);
           auto* resolved_fields = dex_cache->GetResolvedFields();
           for (size_t i = 0, length = dex_cache->NumResolvedFields(); i < length; ++i) {
-            auto* elem = mirror::DexCache::GetNativePairPtrSize(
+            ArtField* elem = mirror::DexCache::GetNativePairPtrSize(
                 resolved_fields, i, image_pointer_size).object;
             size_t run = 0;
             for (size_t j = i + 1;
@@ -2236,7 +2296,7 @@ class ImageDumper {
             if (elem == nullptr) {
               msg = "null";
             } else if (field_section.Contains(
-                reinterpret_cast<uint8_t*>(elem) - state->image_space_.Begin())) {
+                reinterpret_cast<uint8_t*>(elem) - image_space_.Begin())) {
               msg = reinterpret_cast<ArtField*>(elem)->PrettyField();
             } else {
               msg = "<not in field section>";
@@ -2247,7 +2307,7 @@ class ImageDumper {
         size_t num_types = dex_cache->NumResolvedTypes();
         if (num_types != 0u) {
           os << "Types (size=" << num_types << "):\n";
-          ScopedIndentation indent2(&state->vios_);
+          ScopedIndentation indent2(&vios_);
           auto* resolved_types = dex_cache->GetResolvedTypes();
           for (size_t i = 0; i < num_types; ++i) {
             auto pair = resolved_types[i].load(std::memory_order_relaxed);
@@ -2279,7 +2339,7 @@ class ImageDumper {
       }
     }
     std::string temp;
-    state->stats_.Update(obj_class->GetDescriptor(&temp), object_bytes);
+    stats_.Update(obj_class->GetDescriptor(&temp), object_bytes);
   }
 
   void DumpMethod(ArtMethod* method, std::ostream& indent_os)
@@ -2842,14 +2902,14 @@ static int DumpOat(Runtime* runtime, const char* oat_filename, OatDumperOptions*
 
 static int SymbolizeOat(const char* oat_filename, std::string& output_name, bool no_bits) {
   std::string error_msg;
-  OatFile* oat_file = OatFile::Open(oat_filename,
-                                    oat_filename,
-                                    nullptr,
-                                    nullptr,
-                                    false,
-                                    /*low_4gb*/false,
-                                    nullptr,
-                                    &error_msg);
+  std::unique_ptr<OatFile> oat_file(OatFile::Open(oat_filename,
+                                                  oat_filename,
+                                                  nullptr,
+                                                  nullptr,
+                                                  false,
+                                                  /*low_4gb*/false,
+                                                  nullptr,
+                                                  &error_msg));
   if (oat_file == nullptr) {
     fprintf(stderr, "Failed to open oat file from '%s': %s\n", oat_filename, error_msg.c_str());
     return EXIT_FAILURE;
@@ -2859,10 +2919,10 @@ static int SymbolizeOat(const char* oat_filename, std::string& output_name, bool
   // Try to produce an ELF file of the same type. This is finicky, as we have used 32-bit ELF
   // files for 64-bit code in the past.
   if (Is64BitInstructionSet(oat_file->GetOatHeader().GetInstructionSet())) {
-    OatSymbolizer<ElfTypes64> oat_symbolizer(oat_file, output_name, no_bits);
+    OatSymbolizer<ElfTypes64> oat_symbolizer(oat_file.get(), output_name, no_bits);
     result = oat_symbolizer.Symbolize();
   } else {
-    OatSymbolizer<ElfTypes32> oat_symbolizer(oat_file, output_name, no_bits);
+    OatSymbolizer<ElfTypes32> oat_symbolizer(oat_file.get(), output_name, no_bits);
     result = oat_symbolizer.Symbolize();
   }
   if (!result) {
@@ -3414,7 +3474,7 @@ struct OatdumpArgs : public CmdlineArgs {
         "      Example: --image=/system/framework/boot.art\n"
         "\n"
         "  --app-image=<file.art>: specifies an input app image. Must also have a specified\n"
-        " boot image and app oat file.\n"
+        " boot image (with --image) and app oat file (with --app-oat).\n"
         "      Example: --app-image=app.art\n"
         "\n"
         "  --app-oat=<file.odex>: specifies an input app oat.\n"

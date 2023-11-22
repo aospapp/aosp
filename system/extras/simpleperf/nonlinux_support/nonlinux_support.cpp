@@ -28,3 +28,7 @@ std::vector<uint64_t> UnwindCallChain(int, const ThreadEntry&, const RegSet&,
 bool GetKernelBuildId(BuildId*) {
   return false;
 }
+
+bool CanRecordRawData() {
+  return false;
+}

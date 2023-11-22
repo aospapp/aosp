@@ -60,6 +60,7 @@ import sun.security.util.DerInputStream;
 import sun.security.util.DerOutputStream;
 import sun.security.util.DerValue;
 import sun.security.util.DisabledAlgorithmConstraints;
+import sun.security.util.KeyUtil;
 import sun.security.util.ObjectIdentifier;
 import sun.security.x509.AlgorithmId;
 import sun.security.x509.X500Name;
@@ -424,7 +425,9 @@ public class SignerInfo implements DerEncoder {
             // check if the public key is restricted
             if (!JAR_DISABLED_CHECK.permits(SIG_PRIMITIVE_SET, key)) {
                 throw new SignatureException("Public key check failed. " +
-                        "Disabled algorithm used: " + key.getAlgorithm());
+                        "Disabled key used: " +
+                        KeyUtil.getKeySize(key) + " bit " +
+                        key.getAlgorithm());
             }
 
             if (cert.hasUnsupportedCriticalExtension()) {
@@ -530,6 +533,23 @@ public class SignerInfo implements DerEncoder {
         return unauthenticatedAttributes;
     }
 
+    /**
+     * Returns the timestamp PKCS7 data unverified.
+     * @return a PKCS7 object
+     */
+    public PKCS7 getTsToken() throws IOException {
+        if (unauthenticatedAttributes == null) {
+            return null;
+        }
+        PKCS9Attribute tsTokenAttr =
+                unauthenticatedAttributes.getAttribute(
+                        PKCS9Attribute.SIGNATURE_TIMESTAMP_TOKEN_OID);
+        if (tsTokenAttr == null) {
+            return null;
+        }
+        return new PKCS7((byte[])tsTokenAttr.getValue());
+    }
+
     /*
      * Extracts a timestamp from a PKCS7 SignerInfo.
      *
@@ -558,19 +578,12 @@ public class SignerInfo implements DerEncoder {
         if (timestamp != null || !hasTimestamp)
             return timestamp;
 
-        if (unauthenticatedAttributes == null) {
-            hasTimestamp = false;
-            return null;
-        }
-        PKCS9Attribute tsTokenAttr =
-            unauthenticatedAttributes.getAttribute(
-                PKCS9Attribute.SIGNATURE_TIMESTAMP_TOKEN_OID);
-        if (tsTokenAttr == null) {
+        PKCS7 tsToken = getTsToken();
+        if (tsToken == null) {
             hasTimestamp = false;
             return null;
         }
 
-        PKCS7 tsToken = new PKCS7((byte[])tsTokenAttr.getValue());
         // Extract the content (an encoded timestamp token info)
         byte[] encTsTokenInfo = tsToken.getContentInfo().getData();
         // Extract the signer (the Timestamping Authority)

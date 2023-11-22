@@ -20,12 +20,14 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #define LOG_TAG "IptablesRestoreControllerTest"
 #include <cutils/log.h>
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
+#include <netdutils/MockSyscalls.h>
 
 #include "IptablesRestoreController.h"
 #include "NetdConstants.h"
@@ -37,6 +39,9 @@
 
 using android::base::Join;
 using android::base::StringPrintf;
+using android::netdutils::ScopedMockSyscalls;
+using testing::Return;
+using testing::StrictMock;
 
 class IptablesRestoreControllerTest : public ::testing::Test {
 public:
@@ -58,6 +63,10 @@ public:
     con.MAX_RETRIES = mDefaultMaxRetries;
     con.POLL_TIMEOUT_MS = mDefaultPollTimeoutMs;
     deleteTestChain();
+  }
+
+  void Init() {
+    con.Init();
   }
 
   pid_t getIpRestorePid(const IptablesRestoreController::IptablesProcessType type) {
@@ -258,15 +267,30 @@ TEST_F(IptablesRestoreControllerTest, TestUidRuleBenchmark) {
         float timeTaken = s.getTimeAndReset();
         fprintf(stderr, "    Add/del %d UID rules via restore: %.1fms (%.2fms per operation)\n",
                 iterations, timeTaken, timeTaken / 2 / iterations);
-
-        for (int i = 0; i < iterations; i++) {
-            EXPECT_EQ(0, execIptables(V4V6, "-I", "fw_powersave", "-m", "owner",
-                                      "--uid-owner", "2000000000", "-j", "RETURN", nullptr));
-            EXPECT_EQ(0, execIptables(V4V6, "-D", "fw_powersave", "-m", "owner",
-                                      "--uid-owner", "2000000000", "-j", "RETURN", nullptr));
-        }
-        timeTaken = s.getTimeAndReset();
-        fprintf(stderr, "    Add/del %d UID rules via iptables: %.1fms (%.2fms per operation)\n",
-                iterations, timeTaken, timeTaken / 2 / iterations);
     }
+}
+
+TEST_F(IptablesRestoreControllerTest, TestStartup) {
+  // Tests that IptablesRestoreController::Init never sets its processes to null pointers if
+  // fork() succeeds.
+  {
+    // Mock fork(), and check that initializing 100 times never results in a null pointer.
+    constexpr int NUM_ITERATIONS = 100;  // Takes 100-150ms on angler.
+    constexpr pid_t FAKE_PID = 2000000001;
+    StrictMock<ScopedMockSyscalls> sys;
+
+    EXPECT_CALL(sys, fork()).Times(NUM_ITERATIONS * 2).WillRepeatedly(Return(FAKE_PID));
+    for (int i = 0; i < NUM_ITERATIONS; i++) {
+      Init();
+      EXPECT_NE(0, getIpRestorePid(IptablesRestoreController::IPTABLES_PROCESS));
+      EXPECT_NE(0, getIpRestorePid(IptablesRestoreController::IP6TABLES_PROCESS));
+    }
+  }
+
+  // The controller is now in an invalid state: the pipes are connected to working iptables
+  // processes, but the PIDs are set to FAKE_PID. Send a malformed command to ensure that the
+  // processes terminate and close the pipes, then send a valid command to have the controller
+  // re-initialize properly now that fork() is no longer mocked.
+  EXPECT_EQ(-1, con.execute(V4V6, "malformed command\n", nullptr));
+  EXPECT_EQ(0, con.execute(V4V6, "#Test\n", nullptr));
 }

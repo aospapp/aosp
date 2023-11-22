@@ -245,6 +245,18 @@ public class MediaUtils {
         return getCodecNames(true /* isEncoder */, null /* isGoog */, formats);
     }
 
+    public static String[] getDecoderNamesForMime(String mime) {
+        MediaFormat format = new MediaFormat();
+        format.setString(MediaFormat.KEY_MIME, mime);
+        return getCodecNames(false /* isEncoder */, null /* isGoog */, format);
+    }
+
+    public static String[] getEncoderNamesForMime(String mime) {
+        MediaFormat format = new MediaFormat();
+        format.setString(MediaFormat.KEY_MIME, mime);
+        return getCodecNames(true /* isEncoder */, null /* isGoog */, format);
+    }
+
     public static void verifyNumCodecs(
             int count, boolean isEncoder, Boolean isGoog, MediaFormat... formats) {
         String desc = (isEncoder ? "encoders" : "decoders") + " for "

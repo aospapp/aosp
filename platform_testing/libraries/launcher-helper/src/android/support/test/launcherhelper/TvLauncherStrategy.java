@@ -18,7 +18,9 @@ package android.support.test.launcherhelper;
 
 import android.app.Instrumentation;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.NameNotFoundException;
 import android.graphics.Point;
 import android.os.RemoteException;
 import android.os.SystemClock;
@@ -42,10 +44,17 @@ public class TvLauncherStrategy implements ILeanbackLauncherStrategy {
 
     private static final String LOG_TAG = TvLauncherStrategy.class.getSimpleName();
     private static final String PACKAGE_LAUNCHER = "com.google.android.tvlauncher";
+    private static final String PACKAGE_SETTINGS = "com.android.tv.settings";
+    private static final String CHANNEL_TITLE_WATCH_NEXT = "Watch Next";
 
-    private static final int APP_LAUNCH_TIMEOUT = 10000;
-    private static final int SHORT_WAIT_TIME = 5000;    // 5 sec
-    private static final int UI_TRANSITION_WAIT_TIME = 1000;
+    // Build version
+    private static final int BUILD_INT_BANDGAP = 1010100000;
+
+    // Wait time
+    private static final int UI_APP_LAUNCH_WAIT_TIME_MS = 10000;
+    private static final int UI_WAIT_TIME_MS = 5000;
+    private static final int UI_TRANSITION_WAIT_TIME_MS = 1000;
+    private static final int NO_WAIT = 0;
 
     // Note that the selector specifies criteria for matching an UI element from/to a focused item
     private static final BySelector SELECTOR_TOP_ROW = By.res(PACKAGE_LAUNCHER, "top_row");
@@ -56,10 +65,60 @@ public class TvLauncherStrategy implements ILeanbackLauncherStrategy {
             By.res(PACKAGE_LAUNCHER, "channel_logo").focused(true).descContains("Apps");
     private static final BySelector SELECTOR_CONFIG_CHANNELS_ROW =
             By.res(PACKAGE_LAUNCHER, "configure_channels_row");
+    private static final BySelector SELECTOR_CONTROLLER_MOVE = By.res(PACKAGE_LAUNCHER, "move");
+    private static final BySelector SELECTOR_CONTROLLER_REMOVE = By.res(PACKAGE_LAUNCHER, "remove");
+    private static final BySelector SELECTOR_NOTIFICATIONS_ROW = By.res(PACKAGE_LAUNCHER,
+            "notifications_row");
 
     protected UiDevice mDevice;
     protected DPadUtil mDPadUtil;
     private Instrumentation mInstrumentation;
+
+    /** A {@link UiCondition} is a condition to be satisfied by BaseView or UI actions. */
+    public interface UiCondition {
+        boolean apply(UiObject2 focus);
+    }
+
+    /**
+     * State of an item in Apps row or channel row on the Home Screen.
+     */
+    public enum HomeRowState {
+        /**
+         * State of a row when this or some other items in Apps row or channel row is not selected
+         */
+        DEFAULT,
+        /**
+         * State of a row when this or some other items in Apps row or channel row is selected.
+         */
+        SELECTED,
+        /**
+         * State of an item when one of the zoomed out states is focused:
+         * zoomed_out, channel_actions, move
+         */
+        ZOOMED_OUT
+    }
+
+    /**
+     * State of an item in the HomeAppState.ZOOMED_OUT mode
+     */
+    public enum HomeControllerState {
+        /**
+         * Default state of an app. one of the program cards or non-channel rows is selected
+         */
+        DEFAULT,
+        /**
+         * One of the channel logos is selected, the channel title is zoomed out
+         */
+        CHANNEL_LOGO,
+        /**
+         * State when a channel is selected and showing channel actions (remove and move).
+         */
+        CHANNEL_ACTIONS,
+        /**
+         * State when a channel is being moved.
+         */
+        MOVE_CHANNEL
+    }
 
     /**
      * A TvLauncherUnsupportedOperationException is an exception specific to TV Launcher. This will
@@ -85,7 +144,6 @@ public class TvLauncherStrategy implements ILeanbackLauncherStrategy {
     /**
      * {@inheritDoc}
      */
-    // TODO(hyungtaekim): Move this common implementation to abstract class for TV launchers
     @Override
     public void setUiDevice(UiDevice uiDevice) {
         mDevice = uiDevice;
@@ -101,7 +159,7 @@ public class TvLauncherStrategy implements ILeanbackLauncherStrategy {
         if (!mDevice.hasObject(getWorkspaceSelector())) {
             mDPadUtil.pressHome();
             // ensure launcher is shown
-            if (!mDevice.wait(Until.hasObject(getWorkspaceSelector()), SHORT_WAIT_TIME)) {
+            if (!mDevice.wait(Until.hasObject(getWorkspaceSelector()), UI_WAIT_TIME_MS)) {
                 // HACK: dump hierarchy to logcat
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 try {
@@ -128,13 +186,61 @@ public class TvLauncherStrategy implements ILeanbackLauncherStrategy {
      */
     @Override
     public UiObject2 openAllApps(boolean longpress) {
-        if (longpress) {
-            mDPadUtil.longPressKeyCode(KeyEvent.KEYCODE_HOME);
-        } else {
-            Assert.assertNotNull("Could not find all apps logo", selectAppsLogo());
-            mDPadUtil.pressDPadCenter();
+        if (!mDevice.hasObject(getAllAppsSelector())) {
+            if (longpress) {
+                mDPadUtil.longPressKeyCode(KeyEvent.KEYCODE_HOME);
+            } else {
+                Assert.assertNotNull("Could not find all apps logo", selectAllAppsLogo());
+                mDPadUtil.pressDPadCenter();
+            }
         }
-        return mDevice.wait(Until.findObject(getAllAppsSelector()), SHORT_WAIT_TIME);
+        return mDevice.wait(Until.findObject(getAllAppsSelector()), UI_WAIT_TIME_MS);
+    }
+
+    public boolean openSettings() {
+        Assert.assertNotNull(selectTopRow());
+        Assert.assertNotNull(selectBidirect(By.res(getSupportedLauncherPackage(), "settings"),
+                Direction.RIGHT));
+        mDPadUtil.pressDPadCenter();
+        return mDevice.wait(
+                Until.hasObject(By.res(PACKAGE_SETTINGS, "decor_title").text("Settings")),
+                UI_WAIT_TIME_MS);
+    }
+
+    public boolean openCustomizeChannels() {
+        Assert.assertNotNull(selectCustomizeChannelsRow());
+        Assert.assertNotNull(
+                select(By.res(getSupportedLauncherPackage(), "button"), Direction.RIGHT,
+                        UI_WAIT_TIME_MS));
+        mDPadUtil.pressDPadCenter();
+        return mDevice.wait(
+                Until.hasObject(By.res(PACKAGE_LAUNCHER, "decor_title").text("Customize channels")),
+                UI_WAIT_TIME_MS);
+    }
+
+    /**
+     * Get the launcher's version code.
+     * @return the version code. -1 if the launcher package is not found.
+     */
+    public int getVersionCode() {
+        String pkg = getSupportedLauncherPackage();
+        if (null == pkg || pkg.isEmpty()) {
+            throw new RuntimeException("Can't find version of empty package");
+        }
+        if (mInstrumentation == null) {
+            Log.w(LOG_TAG, "Instrumentation is null. setInstrumentation should be called "
+                    + "to get the version code");
+            return -1;
+        }
+        PackageManager pm = mInstrumentation.getContext().getPackageManager();
+        PackageInfo pInfo = null;
+        try {
+            pInfo = pm.getPackageInfo(pkg, 0);
+            return pInfo.versionCode;
+        } catch (NameNotFoundException e) {
+            Log.w(LOG_TAG, String.format("package name is not found: %s", pkg));
+            return -1;
+        }
     }
 
     /**
@@ -194,14 +300,113 @@ public class TvLauncherStrategy implements ILeanbackLauncherStrategy {
      * Returns a {@link BySelector} describing a given favorite app
      */
     public BySelector getFavoriteAppSelector(String appName) {
-        return By.res(getSupportedLauncherPackage(), "favorite_app_banner").text(appName);
+        return By.res(getSupportedLauncherPackage(), "favorite_app_banner").desc(appName);
     }
 
     /**
      * Returns a {@link BySelector} describing a given app in Apps View
      */
     public BySelector getAppInAppsViewSelector(String appName) {
+        if (getVersionCode() > BUILD_INT_BANDGAP) {
+            // bandgap or higher
+            return By.res(getSupportedLauncherPackage(), "banner_image").desc(appName);
+        }
         return By.res(getSupportedLauncherPackage(), "app_title").text(appName);
+    }
+
+    // Return a {@link BySelector} indicating a channel logo (in either zoom-in or default mode)
+    public BySelector getChannelLogoSelector() {
+        return By.res(getSupportedLauncherPackage(), "channel_logo");
+    }
+    public BySelector getChannelLogoSelector(String channelTitle) {
+        return getChannelLogoSelector().desc(channelTitle);
+    }
+
+    // Return the list of rows including "top_row", "apps_row", "channel"
+    // and "configure_channels_row"
+    public BySelector getRowListSelector() {
+        return By.res(getSupportedLauncherPackage(), "home_row_list");
+    }
+
+    public HomeRowState getHomeRowState() {
+        HomeRowState state = HomeRowState.DEFAULT;
+        if (isAppsRowSelected() || isChannelRowSelected()) {
+            if (getHomeControllerState() != HomeControllerState.DEFAULT) {
+                state = HomeRowState.ZOOMED_OUT;
+            } else {
+                state = HomeRowState.SELECTED;
+            }
+        }
+        Log.d(LOG_TAG, String.format("[HomeRowState]%s", state));
+        return state;
+    }
+
+    public HomeControllerState getHomeControllerState() {
+        HomeControllerState state = HomeControllerState.DEFAULT;
+        UiObject2 focus = findFocus();
+        if (focus.hasObject(getChannelLogoSelector())) {
+            state = HomeControllerState.CHANNEL_LOGO;
+        } else if (focus.hasObject(SELECTOR_CONTROLLER_MOVE)) {
+            state = HomeControllerState.MOVE_CHANNEL;
+        } else if (focus.hasObject(SELECTOR_CONTROLLER_REMOVE)) {
+            state = HomeControllerState.CHANNEL_ACTIONS;
+        }
+        Log.d(LOG_TAG, String.format("[HomeControllerState]%s", state));
+        return state;
+    }
+
+    // Return an index of a focused app or program in the Row. 0-based.
+    public int getFocusedItemIndexInRow() {
+        UiObject2 focusedChannel = mDevice.wait(Until.findObject(
+                By.res(getSupportedLauncherPackage(), "items_list")
+                        .hasDescendant(By.focused(true))), UI_WAIT_TIME_MS);
+        if (focusedChannel == null) {
+            Log.w(LOG_TAG, "getFocusedItemIndexInRow: no channel has a focused item. "
+                    + "A focus may be at a logo or the top row.");
+            return -1;
+        }
+        int index = 0;
+        for (UiObject2 program : focusedChannel.getChildren()) {
+            if (findFocus(program, NO_WAIT) != null) {
+                break;
+            }
+            ++index;
+        }
+        Log.d(LOG_TAG, String.format("getFocusedItemIndexInRow [index]%d", index));
+        return index;
+    }
+
+    /**
+     * Return true if any item in Channel row is selected. eg, program, zoomed out, channel actions
+     */
+    public boolean isChannelRowSelected(String channelTitle) {
+        return isChannelRowSelected(getChannelLogoSelector(channelTitle));
+    }
+    public boolean isChannelRowSelected() {
+        return isChannelRowSelected(getChannelLogoSelector());
+    }
+    protected boolean isChannelRowSelected(final BySelector channelSelector) {
+        UiObject2 rowList = mDevice.findObject(getRowListSelector());
+        for (UiObject2 row : rowList.getChildren()) {
+            if (findFocus(row, NO_WAIT) != null) {
+                return row.hasObject(channelSelector);
+            }
+        }
+        return false;
+    }
+
+    public boolean isOnHomeScreen() {
+        if (!isAppOpen(getSupportedLauncherPackage())) {
+            Log.w(LOG_TAG, "This launcher is not in foreground");
+        }
+        return mDevice.hasObject(getWorkspaceSelector());
+    }
+
+    public boolean isFirstAppSelected() {
+        if (!isAppsRowSelected()) {
+            return false;
+        }
+        return (getFocusedItemIndexInRow() == 0);
     }
 
     /**
@@ -209,6 +414,7 @@ public class TvLauncherStrategy implements ILeanbackLauncherStrategy {
      */
     @Override
     public long launch(String appName, String packageName) {
+        Log.d(LOG_TAG, String.format("launching [name]%s [package]%s", appName, packageName));
         return launchApp(this, appName, packageName, isGame(packageName));
     }
 
@@ -237,18 +443,76 @@ public class TvLauncherStrategy implements ILeanbackLauncherStrategy {
      */
     @Override
     public UiObject2 selectAppsRow() {
-        return selectBidirect(getAppsRowSelector().hasDescendant(By.focused(true)),
-                Direction.DOWN);
+        return selectAppsRow(false);
     }
 
-    public UiObject2 selectChannelsRow(String channelName) {
-        // TODO:
-        return null;
+    public UiObject2 selectAppsRow(boolean useHomeKey) {
+        Log.d(LOG_TAG, "selectAppsRow");
+        if (!isOnHomeScreen()) {
+            Log.w(LOG_TAG, "selectAppsRow should be called on Home screen");
+            open();
+        }
+
+        if (useHomeKey) {
+            // Press the HOME key to move a focus to the first app in the Apps row.
+            mDPadUtil.pressHome();
+        } else {
+            selectBidirect(getAppsRowSelector().hasDescendant(By.focused(true)),
+                    Direction.DOWN);
+        }
+        return isAppsRowSelected() ? findFocus() : null;
     }
 
-    public UiObject2 selectAppsLogo() {
-        Assert.assertNotNull("Could not find all apps row", selectAppsRow());
-        return selectBidirect(getAllAppsLogoSelector().hasDescendant(By.focused(true)),
+    /**
+     * Select a channel row that matches a given name.
+     */
+    public UiObject2 selectChannelRow(final String channelTitle) {
+        Log.d(LOG_TAG, String.format("selectChannelRow [channel]%s", channelTitle));
+
+        // Move out if any channel action button (eg, remove, move) is focused, so that
+        // it can scroll vertically to find a given row.
+        selectBidirect(
+                new UiCondition() {
+                    @Override
+                    public boolean apply(UiObject2 focus) {
+                        HomeControllerState state = getHomeControllerState();
+                        return !(state == HomeControllerState.CHANNEL_ACTIONS
+                                || state == HomeControllerState.MOVE_CHANNEL);
+                    }
+                }, Direction.RIGHT);
+
+        // Then scroll vertically to find a given row
+        UiObject2 focused = selectBidirect(
+                new UiCondition() {
+                    @Override
+                    public boolean apply(UiObject2 focus) {
+                        return isChannelRowSelected(channelTitle);
+                    }
+                }, Direction.DOWN);
+        return focused;
+    }
+
+    /**
+     * Select the All Apps logo (or icon).
+     */
+    public UiObject2 selectAllAppsLogo() {
+        Log.d(LOG_TAG, "selectAllAppsLogo");
+        return selectChannelLogo("Apps");
+    }
+
+    public UiObject2 selectChannelLogo(final String channelTitle) {
+        Log.d(LOG_TAG, String.format("selectChannelLogo [channel]%s", channelTitle));
+
+        if (!isChannelRowSelected(channelTitle)) {
+            Assert.assertNotNull(selectChannelRow(channelTitle));
+        }
+        return selectBidirect(
+                new UiCondition() {
+                    @Override
+                    public boolean apply(UiObject2 focus) {
+                        return getHomeControllerState() == HomeControllerState.CHANNEL_LOGO;
+                    }
+                },
                 Direction.LEFT);
     }
 
@@ -257,17 +521,54 @@ public class TvLauncherStrategy implements ILeanbackLauncherStrategy {
      * @return
      */
     public UiObject2 selectTopRow() {
-        return select(getSearchRowSelector().hasDescendant(By.focused(true)),
-                Direction.UP, UI_TRANSITION_WAIT_TIME);
+        open();
+        mDPadUtil.pressHome();
+        // Move up until it reaches the top.
+        int maxAttempts = 3;
+        while (maxAttempts-- > 0 && move(Direction.UP)) {
+            SystemClock.sleep(UI_TRANSITION_WAIT_TIME_MS);
+        }
+        return mDevice.wait(
+                Until.findObject(getSearchRowSelector().hasDescendant(By.focused(true))),
+                UI_TRANSITION_WAIT_TIME_MS);
     }
 
     /**
-     * Returns a {@link UiObject2} describing the Config Channels row on TV Launcher
+     * Returns a {@link UiObject2} describing the Notification row on TV Launcher
      * @return
      */
-    public UiObject2 selectConfigChannelsRow() {
-        return select(SELECTOR_CONFIG_CHANNELS_ROW.hasDescendant(By.focused(true)),
-                Direction.DOWN, UI_TRANSITION_WAIT_TIME);
+    public UiObject2 selectNotificationRow() {
+        return selectBidirect(By.copy(SELECTOR_NOTIFICATIONS_ROW).hasDescendant(By.focused(true)),
+                Direction.UP);
+    }
+
+    /**
+     * Returns a {@link UiObject2} describing the customize channel row on TV Launcher
+     * @return
+     */
+    public UiObject2 selectCustomizeChannelsRow() {
+        return select(By.copy(SELECTOR_CONFIG_CHANNELS_ROW).hasDescendant(By.focused(true)),
+                Direction.DOWN, UI_TRANSITION_WAIT_TIME_MS);
+    }
+
+    public UiObject2 selectWatchNextRow() {
+        return selectChannelRow(CHANNEL_TITLE_WATCH_NEXT);
+    }
+
+    /**
+     * Select the first app icon in the Apps row
+     */
+    public UiObject2 selectFirstAppIcon() {
+        if (!isFirstAppSelected()) {
+            Assert.assertNotNull("The Apps row must be selected.",
+                    selectAppsRow(/*useHomeKey*/ true));
+            mDPadUtil.pressBack();
+            if (getHomeRowState() == HomeRowState.ZOOMED_OUT) {
+                mDPadUtil.pressDPadRight();
+            }
+        }
+        Assert.assertTrue("The first app in Apps row must be selected.", isFirstAppSelected());
+        return findFocus();
     }
 
     /**
@@ -285,23 +586,23 @@ public class TvLauncherStrategy implements ILeanbackLauncherStrategy {
      * down to the next row like a zigzag pattern until the app is found.
      */
     protected UiObject2 selectAppInAllApps(BySelector appSelector, String packageName) {
-        openAllApps(true);
+        Assert.assertTrue(mDevice.hasObject(getAllAppsSelector()));
 
         // Assume that the focus always starts at the top left of the Apps view.
         final int maxScrollAttempts = 20;
-        final int margin = 10;
+        final int margin = 30;
         int attempts = 0;
         UiObject2 focused = null;
         UiObject2 expected = null;
         while (attempts++ < maxScrollAttempts) {
-            focused = mDevice.wait(Until.findObject(By.focused(true)), SHORT_WAIT_TIME);
-            expected = mDevice.wait(Until.findObject(appSelector), SHORT_WAIT_TIME);
+            focused = mDevice.wait(Until.findObject(By.focused(true)), UI_WAIT_TIME_MS);
+            expected = mDevice.wait(Until.findObject(appSelector), UI_WAIT_TIME_MS);
 
             if (expected == null) {
                 mDPadUtil.pressDPadDown();
                 continue;
-            } else if (focused.getVisibleCenter().equals(expected.getVisibleCenter())) {
-                // The app icon is on the screen, and selected.
+            } else if (focused.hasObject(appSelector)) {
+                // The app icon is selected.
                 Log.i(LOG_TAG, String.format("The app %s is selected", packageName));
                 break;
             } else {
@@ -311,6 +612,7 @@ public class TvLauncherStrategy implements ILeanbackLauncherStrategy {
                 Point targetPosition = expected.getVisibleCenter();
                 int dx = targetPosition.x - currentPosition.x;
                 int dy = targetPosition.y - currentPosition.y;
+                Log.d(LOG_TAG, String.format("selectAppInAllApps: [dx,dx][%d,%d]", dx, dy));
                 if (dy > margin) {
                     mDPadUtil.pressDPadDown();
                     continue;
@@ -340,17 +642,60 @@ public class TvLauncherStrategy implements ILeanbackLauncherStrategy {
      * Search from left to right, and down to the next row, from right to left, and
      * down to the next row like a zigzag pattern until it founds a given app.
      */
-    public UiObject2 selectAppInAllAppsZigZag(BySelector appSelector, String packageName) {
+    protected UiObject2 selectAppInAllAppsZigZag(BySelector appSelector, String packageName) {
+        Assert.assertTrue(mDevice.hasObject(getAllAppsSelector()));
         Direction direction = Direction.RIGHT;
-        UiObject2 app = select(appSelector, direction, UI_TRANSITION_WAIT_TIME);
+        UiObject2 app = select(appSelector, direction, UI_TRANSITION_WAIT_TIME_MS);
         while (app == null && move(Direction.DOWN)) {
             direction = Direction.reverse(direction);
-            app = select(appSelector, direction, UI_TRANSITION_WAIT_TIME);
+            app = select(appSelector, direction, UI_TRANSITION_WAIT_TIME_MS);
         }
         if (app != null) {
             Log.i(LOG_TAG, String.format("The app %s is selected", packageName));
         }
         return app;
+    }
+
+    /**
+     * Select the given app in All Apps using the versioned BySelector for the app
+     */
+    public UiObject2 selectAppInAllApps(String appName, String packageName) {
+        UiObject2 app = null;
+        int versionCode = getVersionCode();
+        if (versionCode > BUILD_INT_BANDGAP) {
+            // bandgap or higher
+            Log.i(LOG_TAG,
+                    String.format("selectAppInAllApps: app banner has app name [versionCode]%d",
+                            versionCode));
+            app = selectAppInAllApps(getAppInAppsViewSelector(appName), packageName);
+        } else {
+            app = selectAppInAllAppsZigZag(getAppInAppsViewSelector(appName), packageName);
+        }
+        return app;
+    }
+
+    /**
+     * Launch the given app in the Apps view.
+     */
+    public boolean launchAppInAppsView(String appName, String packageName) {
+        Log.d(LOG_TAG, String.format("launching in apps view [appName]%s [packageName]%s",
+                appName, packageName));
+        openAllApps(true);
+        UiObject2 app = selectAppInAllApps(appName, packageName);
+        if (app == null) {
+            throw new RuntimeException(
+                "Failed to navigate to the app icon in the Apps view: " + packageName);
+        }
+
+        // The app icon is already found and focused. Then wait for it to open.
+        BySelector appMain = By.pkg(packageName).depth(0);
+        mDPadUtil.pressDPadCenter();
+        if (!mDevice.wait(Until.hasObject(appMain), UI_APP_LAUNCH_WAIT_TIME_MS)) {
+            Log.w(LOG_TAG, String.format(
+                    "No UI element with package name %s detected.", packageName));
+            return false;
+        }
+        return true;
     }
 
     protected long launchApp(ILauncherStrategy launcherStrategy, String appName,
@@ -371,12 +716,10 @@ public class TvLauncherStrategy implements ILeanbackLauncherStrategy {
         UiObject2 app = null;
         BySelector favAppSelector = getFavoriteAppSelector(appName);
         if (mDevice.hasObject(favAppSelector)) {
-            app = selectBidirect(By.focused(true).hasDescendant(favAppSelector), Direction.RIGHT);
+            app = selectBidirect(By.copy(favAppSelector).focused(true), Direction.RIGHT);
         } else {
             openAllApps(true);
-            // Find app in Apps View in zigzag mode with app selector for Apps View
-            // because the app title no longer appears until focused.
-            app = selectAppInAllAppsZigZag(getAppInAppsViewSelector(appName), packageName);
+            app = selectAppInAllApps(appName, packageName);
         }
         if (app == null) {
             throw new RuntimeException(
@@ -385,9 +728,10 @@ public class TvLauncherStrategy implements ILeanbackLauncherStrategy {
 
         // The app icon is already found and focused. Then wait for it to open.
         long ready = SystemClock.uptimeMillis();
+        BySelector appMain = By.pkg(packageName).depth(0);
         mDPadUtil.pressDPadCenter();
         if (packageName != null) {
-            if (!mDevice.wait(Until.hasObject(By.pkg(packageName).depth(0)), APP_LAUNCH_TIMEOUT)) {
+            if (!mDevice.wait(Until.hasObject(appMain), UI_APP_LAUNCH_WAIT_TIME_MS)) {
                 Log.w(LOG_TAG, String.format(
                     "No UI element with package name %s detected.", packageName));
                 return ILauncherStrategy.LAUNCH_FAILED_TIMESTAMP;
@@ -445,7 +789,7 @@ public class TvLauncherStrategy implements ILeanbackLauncherStrategy {
                 isGame = (appInfo.metaData != null && appInfo.metaData.getBoolean("isGame", false))
                         || ((appInfo.flags & ApplicationInfo.FLAG_IS_GAME) != 0);
                 Log.i(LOG_TAG, String.format("The package %s isGame: %b", packageName, isGame));
-            } catch (PackageManager.NameNotFoundException e) {
+            } catch (NameNotFoundException e) {
                 Log.w(LOG_TAG,
                         String.format("No package found: %s, error:%s", packageName, e.toString()));
                 return false;
@@ -480,25 +824,35 @@ public class TvLauncherStrategy implements ILeanbackLauncherStrategy {
      * @param timeoutMs timeout in milliseconds to select
      * @return a UiObject2 which represents the matched element
      */
-    public UiObject2 select(BySelector selector, Direction direction, long timeoutMs) {
-        UiObject2 focus = mDevice.wait(Until.findObject(By.focused(true)), SHORT_WAIT_TIME);
-        while (!mDevice.wait(Until.hasObject(selector), timeoutMs)) {
-            Log.d(LOG_TAG, String.format("select: moving a focus from %s to %s", focus, direction));
+    public UiObject2 select(final BySelector selector, Direction direction, long timeoutMs) {
+        return select(new UiCondition() {
+            @Override
+            public boolean apply(UiObject2 focus) {
+                return mDevice.hasObject(selector);
+            }
+        }, direction, timeoutMs);
+    }
+
+    public UiObject2 select(UiCondition condition, Direction direction, long timeoutMs) {
+        UiObject2 focus = findFocus(null, timeoutMs);
+        while (!condition.apply(focus)) {
+            Log.d(LOG_TAG, String.format("conditional select: moving a focus from %s to %s",
+                    focus, direction));
             UiObject2 focused = focus;
             mDPadUtil.pressDPad(direction);
-            focus = mDevice.wait(Until.findObject(By.focused(true)), SHORT_WAIT_TIME);
+            focus = findFocus();
             // Hack: A focus might be lost in some UI. Take one more step forward.
             if (focus == null) {
                 mDPadUtil.pressDPad(direction);
-                focus = mDevice.wait(Until.findObject(By.focused(true)), SHORT_WAIT_TIME);
+                focus = findFocus(null, timeoutMs);
             }
             // Check if it reaches to an end where it no longer moves a focus to next element
             if (focused.equals(focus)) {
-                Log.d(LOG_TAG, "select: not found until it reaches to an end.");
+                Log.d(LOG_TAG, "conditional select: not found until it reaches to an end.");
                 return null;
             }
         }
-        Log.i(LOG_TAG, String.format("select: %s is selected", focus));
+        Log.i(LOG_TAG, String.format("conditional select: selected", focus));
         return focus;
     }
 
@@ -507,9 +861,17 @@ public class TvLauncherStrategy implements ILeanbackLauncherStrategy {
      */
     public UiObject2 selectBidirect(BySelector selector, Direction direction) {
         Log.d(LOG_TAG, String.format("selectBidirect [direction]%s", direction));
-        UiObject2 object = select(selector, direction, UI_TRANSITION_WAIT_TIME);
+        UiObject2 object = select(selector, direction, UI_TRANSITION_WAIT_TIME_MS);
         if (object == null) {
-            object = select(selector, Direction.reverse(direction), UI_TRANSITION_WAIT_TIME);
+            object = select(selector, Direction.reverse(direction), UI_TRANSITION_WAIT_TIME_MS);
+        }
+        return object;
+    }
+
+    public UiObject2 selectBidirect(UiCondition condition, Direction direction) {
+        UiObject2 object = select(condition, direction, UI_WAIT_TIME_MS);
+        if (object == null) {
+            object = select(condition, Direction.reverse(direction), UI_WAIT_TIME_MS);
         }
         return object;
     }
@@ -538,12 +900,29 @@ public class TvLauncherStrategy implements ILeanbackLauncherStrategy {
                     direction));
         }
         UiObject2 focus = mDevice.wait(Until.findObject(By.focused(true)),
-                UI_TRANSITION_WAIT_TIME);
+                UI_TRANSITION_WAIT_TIME_MS);
         mDPadUtil.pressKeyCodeAndWait(keyCode);
         return !focus.equals(mDevice.wait(Until.findObject(By.focused(true)),
-                UI_TRANSITION_WAIT_TIME));
+                UI_TRANSITION_WAIT_TIME_MS));
     }
 
+    /**
+     * Return the {@link UiObject2} that has a focused element searching through the entire view
+     * hierarchy.
+     */
+    public UiObject2 findFocus(UiObject2 fromObject, long timeoutMs) {
+        UiObject2 focused;
+        if (fromObject == null) {
+            focused = mDevice.wait(Until.findObject(By.focused(true)), timeoutMs);
+        } else {
+            focused = fromObject.wait(Until.findObject(By.focused(true)), timeoutMs);
+        }
+        return focused;
+    }
+
+    public UiObject2 findFocus() {
+        return findFocus(null, UI_WAIT_TIME_MS);
+    }
 
     // Unsupported methods
 
@@ -569,12 +948,6 @@ public class TvLauncherStrategy implements ILeanbackLauncherStrategy {
     @Override
     public BySelector getNowPlayingCardSelector() {
         throw new TvLauncherUnsupportedOperationException("No Now Playing Card");
-    }
-
-    @SuppressWarnings("unused")
-    @Override
-    public UiObject2 selectNotificationRow() {
-        throw new TvLauncherUnsupportedOperationException("No Notification row");
     }
 
     @SuppressWarnings("unused")

@@ -53,8 +53,6 @@ _BUG_TEMPLATE = {
     'cc': ['chromeos-installer-alerts@google.com']
 }
 
-# TODO(sosa): Really should skip_reimage but suite logic does not currently
-# work without reimaging.
 args_dict['max_runtime_mins'] = 60
 args_dict['name'] = NAME
 args_dict['job'] = job

@@ -17,7 +17,6 @@
 #include "code_generator.h"
 
 #ifdef ART_ENABLE_CODEGEN_arm
-#include "code_generator_arm.h"
 #include "code_generator_arm_vixl.h"
 #endif
 
@@ -41,6 +40,8 @@
 #include "code_generator_mips64.h"
 #endif
 
+#include "base/bit_utils.h"
+#include "base/bit_utils_iterator.h"
 #include "bytecode_utils.h"
 #include "class_linker.h"
 #include "compiled_method.h"
@@ -58,7 +59,7 @@
 #include "parallel_move_resolver.h"
 #include "ssa_liveness_analysis.h"
 #include "scoped_thread_state_change-inl.h"
-#include "thread-inl.h"
+#include "thread-current-inl.h"
 #include "utils/assembler.h"
 
 namespace art {
@@ -145,7 +146,7 @@ size_t CodeGenerator::GetCacheOffset(uint32_t index) {
 }
 
 size_t CodeGenerator::GetCachePointerOffset(uint32_t index) {
-  auto pointer_size = InstructionSetPointerSize(GetInstructionSet());
+  PointerSize pointer_size = InstructionSetPointerSize(GetInstructionSet());
   return static_cast<size_t>(pointer_size) * index;
 }
 
@@ -337,7 +338,7 @@ void CodeGenerator::CreateCommonInvokeLocationSummary(
       case HInvokeStaticOrDirect::MethodLoadKind::kRecursive:
         locations->SetInAt(call->GetSpecialInputIndex(), visitor->GetMethodLocation());
         break;
-      case HInvokeStaticOrDirect::MethodLoadKind::kDexCacheViaMethod:
+      case HInvokeStaticOrDirect::MethodLoadKind::kRuntimeCall:
         locations->AddTemp(visitor->GetMethodLocation());
         locations->SetInAt(call->GetSpecialInputIndex(), Location::RequiresRegister());
         break;
@@ -350,6 +351,34 @@ void CodeGenerator::CreateCommonInvokeLocationSummary(
   }
 }
 
+void CodeGenerator::GenerateInvokeStaticOrDirectRuntimeCall(
+    HInvokeStaticOrDirect* invoke, Location temp, SlowPathCode* slow_path) {
+  MoveConstant(temp, invoke->GetDexMethodIndex());
+
+  // The access check is unnecessary but we do not want to introduce
+  // extra entrypoints for the codegens that do not support some
+  // invoke type and fall back to the runtime call.
+
+  // Initialize to anything to silent compiler warnings.
+  QuickEntrypointEnum entrypoint = kQuickInvokeStaticTrampolineWithAccessCheck;
+  switch (invoke->GetInvokeType()) {
+    case kStatic:
+      entrypoint = kQuickInvokeStaticTrampolineWithAccessCheck;
+      break;
+    case kDirect:
+      entrypoint = kQuickInvokeDirectTrampolineWithAccessCheck;
+      break;
+    case kSuper:
+      entrypoint = kQuickInvokeSuperTrampolineWithAccessCheck;
+      break;
+    case kVirtual:
+    case kInterface:
+      LOG(FATAL) << "Unexpected invoke type: " << invoke->GetInvokeType();
+      UNREACHABLE();
+  }
+
+  InvokeRuntime(entrypoint, invoke, invoke->GetDexPc(), slow_path);
+}
 void CodeGenerator::GenerateInvokeUnresolvedRuntimeCall(HInvokeUnresolved* invoke) {
   MoveConstant(invoke->GetLocations()->GetTemp(0), invoke->GetDexMethodIndex());
 
@@ -508,7 +537,7 @@ void CodeGenerator::GenerateUnresolvedFieldAccess(
 void CodeGenerator::CreateLoadClassRuntimeCallLocationSummary(HLoadClass* cls,
                                                               Location runtime_type_index_location,
                                                               Location runtime_return_location) {
-  DCHECK_EQ(cls->GetLoadKind(), HLoadClass::LoadKind::kDexCacheViaMethod);
+  DCHECK_EQ(cls->GetLoadKind(), HLoadClass::LoadKind::kRuntimeCall);
   DCHECK_EQ(cls->InputCount(), 1u);
   LocationSummary* locations = new (cls->GetBlock()->GetGraph()->GetArena()) LocationSummary(
       cls, LocationSummary::kCallOnMainOnly);
@@ -518,7 +547,7 @@ void CodeGenerator::CreateLoadClassRuntimeCallLocationSummary(HLoadClass* cls,
 }
 
 void CodeGenerator::GenerateLoadClassRuntimeCall(HLoadClass* cls) {
-  DCHECK_EQ(cls->GetLoadKind(), HLoadClass::LoadKind::kDexCacheViaMethod);
+  DCHECK_EQ(cls->GetLoadKind(), HLoadClass::LoadKind::kRuntimeCall);
   LocationSummary* locations = cls->GetLocations();
   MoveConstant(locations->GetTemp(0), cls->GetTypeIndex().index_);
   if (cls->NeedsAccessCheck()) {
@@ -557,6 +586,9 @@ void CodeGenerator::BlockIfInRegister(Location location, bool is_out) const {
 }
 
 void CodeGenerator::AllocateLocations(HInstruction* instruction) {
+  for (HEnvironment* env = instruction->GetEnvironment(); env != nullptr; env = env->GetParent()) {
+    env->AllocateLocations();
+  }
   instruction->Accept(GetLocationBuilder());
   DCHECK(CheckTypeConsistency(instruction));
   LocationSummary* locations = instruction->GetLocations();
@@ -594,19 +626,11 @@ std::unique_ptr<CodeGenerator> CodeGenerator::Create(HGraph* graph,
 #ifdef ART_ENABLE_CODEGEN_arm
     case kArm:
     case kThumb2: {
-      if (kArmUseVIXL32) {
-        return std::unique_ptr<CodeGenerator>(
-            new (arena) arm::CodeGeneratorARMVIXL(graph,
-                                                  *isa_features.AsArmInstructionSetFeatures(),
-                                                  compiler_options,
-                                                  stats));
-      } else {
-          return std::unique_ptr<CodeGenerator>(
-            new (arena) arm::CodeGeneratorARM(graph,
-                                              *isa_features.AsArmInstructionSetFeatures(),
-                                              compiler_options,
-                                              stats));
-      }
+      return std::unique_ptr<CodeGenerator>(
+          new (arena) arm::CodeGeneratorARMVIXL(graph,
+                                                *isa_features.AsArmInstructionSetFeatures(),
+                                                compiler_options,
+                                                stats));
     }
 #endif
 #ifdef ART_ENABLE_CODEGEN_arm64
@@ -1398,20 +1422,6 @@ void CodeGenerator::CreateSystemArrayCopyLocationSummary(HInvoke* invoke) {
   locations->AddTemp(Location::RequiresRegister());
   locations->AddTemp(Location::RequiresRegister());
   locations->AddTemp(Location::RequiresRegister());
-}
-
-uint32_t CodeGenerator::GetReferenceSlowFlagOffset() const {
-  ScopedObjectAccess soa(Thread::Current());
-  mirror::Class* klass = mirror::Reference::GetJavaLangRefReference();
-  DCHECK(klass->IsInitialized());
-  return klass->GetSlowPathFlagOffset().Uint32Value();
-}
-
-uint32_t CodeGenerator::GetReferenceDisableFlagOffset() const {
-  ScopedObjectAccess soa(Thread::Current());
-  mirror::Class* klass = mirror::Reference::GetJavaLangRefReference();
-  DCHECK(klass->IsInitialized());
-  return klass->GetDisableIntrinsicFlagOffset().Uint32Value();
 }
 
 void CodeGenerator::EmitJitRoots(uint8_t* code,

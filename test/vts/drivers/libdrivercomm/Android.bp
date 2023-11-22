@@ -24,6 +24,7 @@ cc_library_shared {
     ],
 
     shared_libs: [
+        "libbase",
         "libcutils",
         "libprotobuf-cpp-full",
         "libvts_multidevice_proto",

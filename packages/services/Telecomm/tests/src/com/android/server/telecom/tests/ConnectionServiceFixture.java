@@ -50,7 +50,6 @@ import com.google.android.collect.Lists;
 
 import java.lang.Override;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -410,6 +409,7 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
         IVideoProvider videoProvider;
         int videoState;
         long connectTimeMillis;
+        long connectElapsedTimeMillis;
         StatusHints statusHints;
         Bundle extras;
     }
@@ -640,6 +640,7 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
                 c.videoProvider,
                 c.videoState,
                 c.connectTimeMillis,
+                c.connectElapsedTimeMillis,
                 c.statusHints,
                 c.extras);
     }
@@ -660,6 +661,7 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
                 false, /* ringback requested */
                 false, /* voip audio mode */
                 0, /* Connect Time for conf call on this connection */
+                0, /* Connect Real Time comes from conference call */
                 c.statusHints,
                 c.disconnectCause,
                 c.conferenceableConnectionIds,

@@ -27,9 +27,9 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"Aplikazio honek profila atzitu beharko du:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Aplikazio honek kudeatuko du zure gailua:"</string>
     <string name="next" msgid="1004321437324424398">"Hurrengoa"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"Work profila konfiguratzen…"</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"Laneko profila konfiguratzen…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"Administratzaileak gainbegiratu eta kudeatu egin ditzake ezarpenak, enpresa-sarbidea, aplikazioak, baimenak eta profilarekin erlazionatutako datuak (hala nola sareko jarduerak, gailuaren kokapena, deien historia eta kontaktuen bilaketa-historia).<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Informazio gehiago lortzeko (esaterako, erakundearen pribatutasun-gidalerroak), jarri administratzailearekin harremanetan."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"Administratzaileak gainbegiratu eta kudeatu egin ditzake ezarpenak, enpresa-sarbidea, aplikazioak, baimenak eta gailuarekin erlazionatutako datuak (hala nola sareko jarduerak, gailuaren kokapena, deien historia eta kontaktuen bilaketa-historia).<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Informazio gehiago lortzeko (esaterako, erakundearen pribatutasun-gidalerroak), jarri administratzailearekin harremanetan."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"Ezarpenak, enpresen sarbide-baimenak, aplikazioak, baimenak eta gailuarekin erlazionatutako datuak gainbegiratu eta kudea ditzake administratzaileak (hala nola sareko jarduerak, gailuaren kokapena, deien historia eta kontaktuen bilaketa-historia).<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Informazio gehiago lortzeko (esaterako, erakundearen pribatutasun-gidalerroei buruzko informazioa), jarri harremanetan administratzailearekin."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Lapurreten aurkako babesaren eginbideak erabiltzeko, pasahitzez babestutako pantaila-blokeoa izan behar duzu gailuan."</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Informazio gehiago lortzeko (baita erakundearen pribatutasun-gidalerroei buruzkoa ere), jarri administratzailearekin harremanetan."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Lortu informazio gehiago"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Laneko profila"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"Erabiltzaile nagusia"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Dagoen profila ezabatu nahi duzu?"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"Dagoeneko badaukazu aplikazio honen bidez kudeatzen den laneko profil bat:"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Dagoeneko baduzu laneko profil bat. Aplikazio honen bidez kudeatzen da:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Aurrera egin aurretik, "<a href="#read_this_link">"irakurri hau"</a>"."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Aurrera eginez gero, profileko aplikazio eta datu guztiak ezabatuko dira."</string>
     <string name="delete_profile" msgid="2299218578684663459">"Ezabatu"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"Laneko profila konfiguratzen jarraitzeko, sakatu hau"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Ezin izan da konfiguratu laneko profila. Jarri informatika-sailarekin harremanetan edo saiatu berriro geroago."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Ezin da gehitu laneko profila"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"Erabiltzaile honek ezin du izan laneko profilik. Laguntza lortzeko, jarri administratzailearekin harremanetan."</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"Erabiltzaile honek ezin du izan laneko profilik. Jarri administratzailearekin harremanetan."</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"Ezin da konfiguratu laneko profilik kudeatutako gailuetan"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"Agian erabiltzaile gehiegik darabilte gailua. Kendu erabiltzaile bat eta saiatu berriro."</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Ezin da ordeztu edo kendu lan profila"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"Ezin da gehitu laneko profila gailu honetan. Zalantzarik baduzu, jarri administratzailearekin harremanetan."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Aldatu gailu-abiarazlea"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Abiarazle hau ezin da erabili laneko profilarekin"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Utzi"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"Ados"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Ez da konfiguratu erabiltzailea"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Laneko gailuaren erabiltzailea"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"Konfiguratu laneko gailua"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"Laneko gailua konfiguratzen…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Konfigurazio-datuak prozesatzen…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Wi-Fi sarera konektatzen…"</string>
     <string name="progress_download" msgid="3522436271691064624">"Administrazio-aplikazioa deskargatzen…"</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"Utzi"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"Berrezarri gailua"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> eta <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> eta <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> eta <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

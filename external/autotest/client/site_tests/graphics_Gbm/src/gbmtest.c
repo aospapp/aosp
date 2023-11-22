@@ -622,7 +622,8 @@ static int test_gem_map()
 	bo = gbm_bo_create(gbm, width, height, GBM_FORMAT_ARGB8888, GBM_BO_USE_LINEAR);
 	CHECK(check_bo(bo));
 
-	addr = gbm_bo_map(bo, 0, 0, width, height, 0, &stride, &map_data, 0);
+	addr = gbm_bo_map(bo, 0, 0, width, height, GBM_BO_TRANSFER_READ_WRITE, &stride,
+		          &map_data, 0);
 
 	CHECK(addr != MAP_FAILED);
 	CHECK(map_data);
@@ -638,7 +639,8 @@ static int test_gem_map()
 	stride = 0;
 	addr = map_data = NULL;
 
-	addr = gbm_bo_map(bo, 0, 0, width, height, 0, &stride, &map_data, 0);
+	addr = gbm_bo_map(bo, 0, 0, width, height, GBM_BO_TRANSFER_READ_WRITE, &stride,
+		          &map_data, 0);
 
 	CHECK(addr != MAP_FAILED);
 	CHECK(map_data);

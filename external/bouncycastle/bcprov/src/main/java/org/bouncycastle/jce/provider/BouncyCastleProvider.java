@@ -7,6 +7,7 @@ import java.security.PrivilegedAction;
 import java.security.Provider;
 import java.security.PublicKey;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
@@ -44,7 +45,7 @@ import org.bouncycastle.jcajce.provider.util.AsymmetricKeyInfoConverter;
 public final class BouncyCastleProvider extends Provider
     implements ConfigurableProvider
 {
-    private static String info = "BouncyCastle Security Provider v1.56";
+    private static String info = "BouncyCastle Security Provider v1.57";
 
     public static final String PROVIDER_NAME = "BC";
 
@@ -74,7 +75,7 @@ public final class BouncyCastleProvider extends Provider
     private static final String[] SYMMETRIC_CIPHERS =
     {
         // BEGIN android-removed
-        // "AES", "ARC4", "Blowfish", "Camellia", "CAST5", "CAST6", "ChaCha", "DES", "DESede",
+        // "AES", "ARC4", "ARIA", "Blowfish", "Camellia", "CAST5", "CAST6", "ChaCha", "DES", "DESede",
         // "GOST28147", "Grainv1", "Grain128", "HC128", "HC256", "IDEA", "Noekeon", "RC2", "RC5",
         // "RC6", "Rijndael", "Salsa20", "SEED", "Serpent", "Shacal2", "Skipjack", "SM4", "TEA", "Twofish", "Threefish",
         // "VMPC", "VMPCKSA3", "XTEA", "XSalsa20", "OpenSSLPBKDF"
@@ -104,7 +105,7 @@ public final class BouncyCastleProvider extends Provider
     private static final String[] ASYMMETRIC_CIPHERS =
     {
         // BEGIN android-removed
-        // "DSA", "DH", "EC", "RSA", "GOST", "ECGOST", "ElGamal", "DSTU4145"
+        // "DSA", "DH", "EC", "RSA", "GOST", "ECGOST", "ElGamal", "DSTU4145", "GM"
         // END android-removed
         // BEGIN android-added
         "DSA", "DH", "EC", "RSA",
@@ -152,7 +153,7 @@ public final class BouncyCastleProvider extends Provider
      */
     public BouncyCastleProvider()
     {
-        super(PROVIDER_NAME, 1.56, info);
+        super(PROVIDER_NAME, 1.57, info);
 
         AccessController.doPrivileged(new PrivilegedAction()
         {
@@ -302,6 +303,21 @@ public final class BouncyCastleProvider extends Provider
         synchronized (keyInfoConverters)
         {
             keyInfoConverters.put(oid, keyInfoConverter);
+        }
+    }
+
+    public void addAttributes(String key, Map<String, String> attributeMap)
+    {
+        for (Iterator it = attributeMap.keySet().iterator(); it.hasNext();)
+        {
+            String attributeName = (String)it.next();
+            String attributeKey = key + " " + attributeName;
+            if (containsKey(attributeKey))
+            {
+                throw new IllegalStateException("duplicate provider attribute key (" + attributeKey + ") found");
+            }
+
+            put(attributeKey, attributeMap.get(attributeName));
         }
     }
 

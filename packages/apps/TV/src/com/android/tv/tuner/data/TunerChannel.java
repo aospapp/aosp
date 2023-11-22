@@ -24,7 +24,7 @@ import com.android.tv.tuner.data.nano.Channel.TunerChannelProto;
 import com.android.tv.tuner.data.nano.Track.AtscAudioTrack;
 import com.android.tv.tuner.data.nano.Track.AtscCaptionTrack;
 import com.android.tv.tuner.util.Ints;
-import com.android.tv.tuner.util.StringUtils;
+import com.android.tv.util.StringUtils;
 import com.google.protobuf.nano.MessageNano;
 
 import java.io.IOException;
@@ -39,6 +39,11 @@ import java.util.Objects;
  */
 public class TunerChannel implements Comparable<TunerChannel>, PsipData.TvTracksInterface {
     private static final String TAG = "TunerChannel";
+
+    /**
+     * Channel number separator between major number and minor number.
+     */
+    public static final char CHANNEL_NUMBER_SEPARATOR = '-';
 
     // See ATSC Code Points Registry.
     private static final String[] ATSC_SERVICE_TYPE_NAMES = new String[] {
@@ -63,6 +68,7 @@ public class TunerChannel implements Comparable<TunerChannel>, PsipData.TvTracks
     // According to ISO13818-1, Mpeg2 StreamType has a range from 0x00 to 0xff.
     public static final int INVALID_STREAMTYPE = -1;
 
+    // @GuardedBy(this) Writing operations and toByteArray will be guarded. b/34197766
     private final TunerChannelProto mProto;
 
     private TunerChannel(PsipData.VctItem channel, int programNumber,
@@ -88,6 +94,10 @@ public class TunerChannel implements Comparable<TunerChannel>, PsipData.TvTracks
             }
             mProto.serviceType = channel.getServiceType();
         }
+        initProto(pmtItems, type);
+    }
+
+    private void initProto(List<PsiData.PmtItem> pmtItems, int type) {
         mProto.type = type;
         mProto.channelId = -1L;
         mProto.frequency = INVALID_FREQUENCY;
@@ -129,12 +139,42 @@ public class TunerChannel implements Comparable<TunerChannel>, PsipData.TvTracks
         mProto.audioTrackIndex = (audioPids.size() > 0) ? 0 : -1;
     }
 
+    private TunerChannel(int programNumber, int type, PsipData.SdtItem channel,
+            List<PsiData.PmtItem> pmtItems) {
+        mProto = new TunerChannelProto();
+        mProto.tsid = 0;
+        mProto.virtualMajor = 0;
+        mProto.virtualMinor = 0;
+        if (channel == null) {
+            mProto.shortName = "";
+            mProto.programNumber = programNumber;
+        } else {
+            mProto.shortName = channel.getServiceName();
+            mProto.programNumber = channel.getServiceId();
+            mProto.serviceType = channel.getServiceType();
+        }
+        initProto(pmtItems, type);
+    }
+
+    /**
+     * Initialize tuner channel with VCT items and PMT items.
+     */
     public TunerChannel(PsipData.VctItem channel, List<PsiData.PmtItem> pmtItems) {
         this(channel, 0, pmtItems, Channel.TYPE_TUNER);
     }
 
+    /**
+     * Initialize tuner channel with program number and PMT items.
+     */
     public TunerChannel(int programNumber, List<PsiData.PmtItem> pmtItems) {
         this(null, programNumber, pmtItems, Channel.TYPE_TUNER);
+    }
+
+    /**
+     * Initialize tuner channel with SDT items and PMT items.
+     */
+    public TunerChannel(PsipData.SdtItem channel, List<PsiData.PmtItem> pmtItems) {
+        this(0, Channel.TYPE_TUNER, channel, pmtItems);
     }
 
     private TunerChannel(TunerChannelProto tunerChannelProto) {
@@ -143,6 +183,50 @@ public class TunerChannel implements Comparable<TunerChannel>, PsipData.TvTracks
 
     public static TunerChannel forFile(PsipData.VctItem channel, List<PsiData.PmtItem> pmtItems) {
         return new TunerChannel(channel, 0, pmtItems, Channel.TYPE_FILE);
+    }
+
+    public static TunerChannel forDvbFile(
+            PsipData.SdtItem channel, List<PsiData.PmtItem> pmtItems) {
+        return new TunerChannel(0, Channel.TYPE_FILE, channel, pmtItems);
+    }
+
+    /**
+     * Create a TunerChannel object suitable for network tuners
+     * @param major Channel number major
+     * @param minor Channel number minor
+     * @param programNumber Program number
+     * @param shortName Short name
+     * @param recordingProhibited Recording prohibition info
+     * @param videoFormat Video format. Should be {@code null} or one of the followings:
+     *                    {@link android.media.tv.TvContract.Channels#VIDEO_FORMAT_240P},
+     *                    {@link android.media.tv.TvContract.Channels#VIDEO_FORMAT_360P},
+     *                    {@link android.media.tv.TvContract.Channels#VIDEO_FORMAT_480I},
+     *                    {@link android.media.tv.TvContract.Channels#VIDEO_FORMAT_480P},
+     *                    {@link android.media.tv.TvContract.Channels#VIDEO_FORMAT_576I},
+     *                    {@link android.media.tv.TvContract.Channels#VIDEO_FORMAT_576P},
+     *                    {@link android.media.tv.TvContract.Channels#VIDEO_FORMAT_720P},
+     *                    {@link android.media.tv.TvContract.Channels#VIDEO_FORMAT_1080I},
+     *                    {@link android.media.tv.TvContract.Channels#VIDEO_FORMAT_1080P},
+     *                    {@link android.media.tv.TvContract.Channels#VIDEO_FORMAT_2160P},
+     *                    {@link android.media.tv.TvContract.Channels#VIDEO_FORMAT_4320P}
+     * @return a TunerChannel object
+     */
+    public static TunerChannel forNetwork(int major, int minor, int programNumber,
+            String shortName, boolean recordingProhibited, String videoFormat) {
+        TunerChannel tunerChannel = new TunerChannel(
+                null, programNumber, Collections.EMPTY_LIST, Channel.TYPE_NETWORK);
+        tunerChannel.setVirtualMajor(major);
+        tunerChannel.setVirtualMinor(minor);
+        tunerChannel.setShortName(shortName);
+        // Set audio and video pids in order to work around the audio-only channel check.
+        tunerChannel.setAudioPids(new ArrayList<>(Arrays.asList(0)));
+        tunerChannel.selectAudioTrack(0);
+        tunerChannel.setVideoPid(0);
+        tunerChannel.setRecordingProhibited(recordingProhibited);
+        if (videoFormat != null) {
+            tunerChannel.setVideoFormat(videoFormat);
+        }
+        return tunerChannel;
     }
 
     public String getName() {
@@ -193,7 +277,7 @@ public class TunerChannel implements Comparable<TunerChannel>, PsipData.TvTracks
         return mProto.videoPid;
     }
 
-    public void setVideoPid(int videoPid) {
+    synchronized public void setVideoPid(int videoPid) {
         mProto.videoPid = videoPid;
     }
 
@@ -219,7 +303,7 @@ public class TunerChannel implements Comparable<TunerChannel>, PsipData.TvTracks
         return Ints.asList(mProto.audioPids);
     }
 
-    public void setAudioPids(List<Integer> audioPids) {
+    synchronized public void setAudioPids(List<Integer> audioPids) {
         mProto.audioPids = Ints.toArray(audioPids);
     }
 
@@ -227,7 +311,7 @@ public class TunerChannel implements Comparable<TunerChannel>, PsipData.TvTracks
         return Ints.asList(mProto.audioStreamTypes);
     }
 
-    public void setAudioStreamTypes(List<Integer> audioStreamTypes) {
+    synchronized public void setAudioStreamTypes(List<Integer> audioStreamTypes) {
         mProto.audioStreamTypes = Ints.toArray(audioStreamTypes);
     }
 
@@ -239,32 +323,32 @@ public class TunerChannel implements Comparable<TunerChannel>, PsipData.TvTracks
         return mProto.type;
     }
 
-    public void setFilepath(String filepath) {
-        mProto.filepath = filepath;
+    synchronized public void setFilepath(String filepath) {
+        mProto.filepath = filepath == null ? "" : filepath;
     }
 
     public String getFilepath() {
         return mProto.filepath;
     }
 
-    public void setVirtualMajor(int virtualMajor) {
+    synchronized public void setVirtualMajor(int virtualMajor) {
         mProto.virtualMajor = virtualMajor;
     }
 
-    public void setVirtualMinor(int virtualMinor) {
+    synchronized public void setVirtualMinor(int virtualMinor) {
         mProto.virtualMinor = virtualMinor;
     }
 
-    public void setShortName(String shortName) {
-        mProto.shortName = shortName;
+    synchronized public void setShortName(String shortName) {
+        mProto.shortName = shortName == null ? "" : shortName;
     }
 
-    public void setFrequency(int frequency) {
+    synchronized public void setFrequency(int frequency) {
         mProto.frequency = frequency;
     }
 
-    public void setModulation(String modulation) {
-        mProto.modulation = modulation;
+    synchronized public void setModulation(String modulation) {
+        mProto.modulation = modulation == null ? "" : modulation;
     }
 
     public boolean hasVideo() {
@@ -279,13 +363,18 @@ public class TunerChannel implements Comparable<TunerChannel>, PsipData.TvTracks
         return mProto.channelId;
     }
 
-    public void setChannelId(long channelId) {
+    synchronized public void setChannelId(long channelId) {
         mProto.channelId = channelId;
     }
 
     public String getDisplayNumber() {
-        if (mProto.virtualMajor != 0 && mProto.virtualMinor != 0) {
-            return String.format("%d-%d", mProto.virtualMajor, mProto.virtualMinor);
+        return getDisplayNumber(true);
+    }
+
+    public String getDisplayNumber(boolean ignoreZeroMinorNumber) {
+        if (mProto.virtualMajor != 0 && (mProto.virtualMinor != 0 || !ignoreZeroMinorNumber)) {
+            return String.format("%d%c%d", mProto.virtualMajor, CHANNEL_NUMBER_SEPARATOR,
+                    mProto.virtualMinor);
         } else if (mProto.virtualMajor != 0) {
             return Integer.toString(mProto.virtualMajor);
         } else {
@@ -298,7 +387,7 @@ public class TunerChannel implements Comparable<TunerChannel>, PsipData.TvTracks
     }
 
     @Override
-    public void setHasCaptionTrack() {
+    synchronized public void setHasCaptionTrack() {
         mProto.hasCaptionTrack = true;
     }
 
@@ -312,7 +401,7 @@ public class TunerChannel implements Comparable<TunerChannel>, PsipData.TvTracks
         return Collections.unmodifiableList(Arrays.asList(mProto.audioTracks));
     }
 
-    public void setAudioTracks(List<AtscAudioTrack> audioTracks) {
+    synchronized public void setAudioTracks(List<AtscAudioTrack> audioTracks) {
         mProto.audioTracks = audioTracks.toArray(new AtscAudioTrack[audioTracks.size()]);
     }
 
@@ -321,16 +410,32 @@ public class TunerChannel implements Comparable<TunerChannel>, PsipData.TvTracks
         return Collections.unmodifiableList(Arrays.asList(mProto.captionTracks));
     }
 
-    public void setCaptionTracks(List<AtscCaptionTrack> captionTracks) {
+    synchronized public void setCaptionTracks(List<AtscCaptionTrack> captionTracks) {
         mProto.captionTracks = captionTracks.toArray(new AtscCaptionTrack[captionTracks.size()]);
     }
 
-    public void selectAudioTrack(int index) {
+    synchronized public void selectAudioTrack(int index) {
         if (0 <= index && index < mProto.audioPids.length) {
             mProto.audioTrackIndex = index;
         } else {
             mProto.audioTrackIndex = -1;
         }
+    }
+
+    synchronized public void setRecordingProhibited(boolean recordingProhibited) {
+        mProto.recordingProhibited = recordingProhibited;
+    }
+
+    public boolean isRecordingProhibited() {
+        return mProto.recordingProhibited;
+    }
+
+    synchronized public void setVideoFormat(String videoFormat) {
+        mProto.videoFormat = videoFormat == null ? "" : videoFormat;
+    }
+
+    public String getVideoFormat() {
+        return mProto.videoFormat;
     }
 
     @Override
@@ -359,7 +464,10 @@ public class TunerChannel implements Comparable<TunerChannel>, PsipData.TvTracks
         if (ret != 0) {
             return ret;
         }
-
+        ret = StringUtils.compare(getName(), channel.getName());
+        if (ret != 0) {
+            return ret;
+        }
         // For FileTsStreamer, file paths should be compared.
         return StringUtils.compare(getFilepath(), channel.getFilepath());
     }
@@ -374,12 +482,19 @@ public class TunerChannel implements Comparable<TunerChannel>, PsipData.TvTracks
 
     @Override
     public int hashCode() {
-        return Objects.hash(getFrequency(), getProgramNumber(), getFilepath());
+        return Objects.hash(getFrequency(), getProgramNumber(), getName(), getFilepath());
     }
 
     // Serialization
-    public byte[] toByteArray() {
-        return MessageNano.toByteArray(mProto);
+    synchronized public byte[] toByteArray() {
+        try {
+            return MessageNano.toByteArray(mProto);
+        } catch (Exception e) {
+            // Retry toByteArray. b/34197766
+            Log.w(TAG, "TunerChannel or its variables are modified in multiple thread without lock",
+                    e);
+            return MessageNano.toByteArray(mProto);
+        }
     }
 
     public static TunerChannel parseFrom(byte[] data) {

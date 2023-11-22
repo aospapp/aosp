@@ -52,9 +52,9 @@ const char *netcmds[] = {
 const char *EXPECTED_REGEXPS[] = {
 #define CMD "^" SYSTEM_DIRNAME
     // Create, delete, and manage OEM networks.
-    CMD "ndc network (create|destroy) oem[0-9]+( |$)",
-    CMD "ndc network interface (add|remove) oem[0-9]+ " VENDOR_IFACE,
-    CMD "ndc network route (add|remove) oem[0-9]+ ",
+    CMD "ndc network (create|destroy) (oem|handle)[0-9]+( |$)",
+    CMD "ndc network interface (add|remove) (oem|handle)[0-9]+ " VENDOR_IFACE,
+    CMD "ndc network route (add|remove) (oem|handle)[0-9]+ ",
     CMD "ndc ipfwd (enable|disable) ",
     CMD "ndc ipfwd (add|remove) .*" VENDOR_IFACE,
 

@@ -111,6 +111,7 @@ public class CtsSyncAccountAccessSameCertTestCases {
             assertTrue(latch.await(SYNC_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS));
         } finally {
             accountManager.removeAccount(addedAccount, activity, null, null);
+            activity.finish();
         }
     }
 

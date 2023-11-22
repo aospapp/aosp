@@ -42,13 +42,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
-#include "test.h"
-#include <libclone.h>
 #include "pidns_helper.h"
+#include "test.h"
 
 char *TCID = "pidns12";
 int TST_TOTAL = 1;
-int errno;
 int pipefd[2];
 
 #define CHILD_PID       1

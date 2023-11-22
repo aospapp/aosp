@@ -40,7 +40,11 @@
 namespace sdm {
 
 DisplayError SetCSC(const private_handle_t *pvt_handle, ColorMetaData *color_metadata);
-
+bool GetColorPrimary(const int32_t &dataspace, ColorPrimaries *color_primary);
+bool GetTransfer(const int32_t &dataspace, GammaTransfer *gamma_transfer);
+void GetRange(const int32_t &dataspace, ColorRange *color_range);
+bool GetSDMColorSpace(const int32_t &dataspace, ColorMetaData *color_metadata);
+bool IsBT2020(const ColorPrimaries &color_primary);
 enum GeometryChanges {
   kNone         = 0x000,
   kBlendMode    = 0x001,
@@ -52,6 +56,7 @@ enum GeometryChanges {
   kZOrder       = 0x040,
   kAdded        = 0x080,
   kRemoved      = 0x100,
+  kBufferGeometry = 0x200,
 };
 
 class HWCLayer {
@@ -78,10 +83,15 @@ class HWCLayer {
   HWC2::Composition GetClientRequestedCompositionType() { return client_requested_; }
   void UpdateClientCompositionType(HWC2::Composition type) { client_requested_ = type; }
   HWC2::Composition GetDeviceSelectedCompositionType() { return device_selected_; }
+  int32_t GetLayerDataspace() { return dataspace_; }
   uint32_t GetGeometryChanges() { return geometry_changes_; }
   void ResetGeometryChanges() { geometry_changes_ = GeometryChanges::kNone; }
   void PushReleaseFence(int32_t fence);
   int32_t PopReleaseFence(void);
+  bool ValidateAndSetCSC();
+  bool SupportLocalConversion(ColorPrimaries working_primaries);
+  void ResetValidation() { needs_validate_ = false; }
+  bool NeedsValidation() { return (needs_validate_ || geometry_changes_); }
 
  private:
   Layer *layer_ = nullptr;
@@ -92,6 +102,8 @@ class HWCLayer {
   std::queue<int32_t> release_fences_;
   int ion_fd_ = -1;
   HWCBufferAllocator *buffer_allocator_ = NULL;
+  int32_t dataspace_ =  HAL_DATASPACE_UNKNOWN;
+  bool needs_validate_ = true;
 
   // Composition requested by client(SF)
   HWC2::Composition client_requested_ = HWC2::Composition::Device;
@@ -110,7 +122,7 @@ class HWCLayer {
 };
 
 struct SortLayersByZ {
-  bool operator()(const HWCLayer *lhs, const HWCLayer *rhs) {
+  bool operator()(const HWCLayer *lhs, const HWCLayer *rhs) const {
     return lhs->GetZ() < rhs->GetZ();
   }
 };

@@ -384,6 +384,18 @@ public class TimeZoneTest extends TestCase {
         }
     }
 
+    // http://b/33197219
+    public void testDisplayNameForNonCanonicalTimezones() {
+        TimeZone canonical = TimeZone.getTimeZone("Europe/London");
+        TimeZone nonCanonical = TimeZone.getTimeZone("GB");
+
+        // verify that GB is actually an alias for Europe/London
+        assertTrue(canonical.hasSameRules(nonCanonical));
+
+        assertEquals(canonical.getDisplayName(true, TimeZone.LONG, Locale.ENGLISH),
+                nonCanonical.getDisplayName(true, TimeZone.LONG, Locale.ENGLISH));
+    }
+
     // http://b/30937209
     public void testSetDefaultDeadlock() throws InterruptedException, BrokenBarrierException {
         // Since this tests a deadlock, the test has two fundamental problems:

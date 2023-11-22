@@ -27,9 +27,7 @@
 
 #include "EmulatedFakeCamera2.h"
 #include "EmulatedCameraFactory.h"
-#include <ui/Rect.h>
-#include <ui/GraphicBufferMapper.h>
-#include "gralloc_cb.h"
+#include "GrallocModule.h"
 
 #define ERROR_CAMERA_NOT_PRESENT (-EPIPE)
 
@@ -51,7 +49,7 @@ const uint32_t EmulatedFakeCamera2::kAvailableFormats[4] = {
 
 const uint32_t EmulatedFakeCamera2::kAvailableRawSizes[2] = {
     640, 480
-    //    Sensor::kResolution[0], Sensor::kResolution[1]
+    //    mSensorWidth, mSensorHeight
 };
 
 const uint64_t EmulatedFakeCamera2::kAvailableRawMinDurations[1] = {
@@ -60,12 +58,12 @@ const uint64_t EmulatedFakeCamera2::kAvailableRawMinDurations[1] = {
 
 const uint32_t EmulatedFakeCamera2::kAvailableProcessedSizesBack[4] = {
     640, 480, 320, 240
-    //    Sensor::kResolution[0], Sensor::kResolution[1]
+    //    mSensorWidth, mSensorHeight
 };
 
 const uint32_t EmulatedFakeCamera2::kAvailableProcessedSizesFront[4] = {
     320, 240, 160, 120
-    //    Sensor::kResolution[0], Sensor::kResolution[1]
+    //    mSensorWidth, mSensorHeight
 };
 
 const uint64_t EmulatedFakeCamera2::kAvailableProcessedMinDurations[1] = {
@@ -74,12 +72,12 @@ const uint64_t EmulatedFakeCamera2::kAvailableProcessedMinDurations[1] = {
 
 const uint32_t EmulatedFakeCamera2::kAvailableJpegSizesBack[2] = {
     640, 480
-    //    Sensor::kResolution[0], Sensor::kResolution[1]
+    //    mSensorWidth, mSensorHeight
 };
 
 const uint32_t EmulatedFakeCamera2::kAvailableJpegSizesFront[2] = {
     320, 240
-    //    Sensor::kResolution[0], Sensor::kResolution[1]
+    //    mSensorWidth, mSensorHeight
 };
 
 
@@ -111,6 +109,24 @@ EmulatedFakeCamera2::~EmulatedFakeCamera2() {
 
 status_t EmulatedFakeCamera2::Initialize() {
     status_t res;
+
+    // Find max width/height
+    int32_t width = 0, height = 0;
+    size_t rawSizeCount = sizeof(kAvailableRawSizes)/sizeof(kAvailableRawSizes[0]);
+    for (size_t index = 0; index + 1 < rawSizeCount; index += 2) {
+        if (width <= kAvailableRawSizes[index] &&
+            height <= kAvailableRawSizes[index+1]) {
+            width = kAvailableRawSizes[index];
+            height = kAvailableRawSizes[index+1];
+        }
+    }
+
+    if (width < 640 || height < 480) {
+        width = 640;
+        height = 480;
+    }
+    mSensorWidth = width;
+    mSensorHeight = height;
 
     res = constructStaticInfo(&mCameraInfo, true);
     if (res != OK) {
@@ -156,7 +172,7 @@ status_t EmulatedFakeCamera2::connectCamera(hw_device_t** device) {
     mConfigureThread = new ConfigureThread(this);
     mReadoutThread = new ReadoutThread(this);
     mControlThread = new ControlThread(this);
-    mSensor = new Sensor();
+    mSensor = new Sensor(mSensorWidth, mSensorHeight);
     mJpegCompressor = new JpegCompressor();
 
     mNextStreamId = 1;
@@ -479,17 +495,6 @@ int EmulatedFakeCamera2::registerStreamBuffers(
                 __FUNCTION__, stream_id, num_buffers);
         return BAD_VALUE;
     }
-    const cb_handle_t *streamBuffer =
-            reinterpret_cast<const cb_handle_t*>(buffers[0]);
-
-    int finalFormat = streamBuffer->format;
-
-    if (finalFormat == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED) {
-        ALOGE("%s: Stream %d: Bad final pixel format "
-                "HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED; "
-                "concrete pixel format required!", __FUNCTION__, stream_id);
-        return BAD_VALUE;
-    }
 
     ssize_t streamIndex = mStreams.indexOfKey(stream_id);
     if (streamIndex < 0) {
@@ -498,6 +503,12 @@ int EmulatedFakeCamera2::registerStreamBuffers(
     }
 
     Stream &stream = mStreams.editValueAt(streamIndex);
+
+    int finalFormat = stream.format;
+
+    if (finalFormat == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED) {
+        finalFormat = HAL_PIXEL_FORMAT_RGBA_8888;
+    }
 
     ALOGV("%s: Stream %d format set to %x, previously %x",
             __FUNCTION__, stream_id, finalFormat, stream.format);
@@ -1058,11 +1069,11 @@ bool EmulatedFakeCamera2::ConfigureThread::getBuffers() {
             }
 
             /* Lock the buffer from the perspective of the graphics mapper */
-            const Rect rect(s.width, s.height);
-
-            res = GraphicBufferMapper::get().lock(*(b.buffer),
+            res = GrallocModule::getInstance().lock(*(b.buffer),
                     GRALLOC_USAGE_HW_CAMERA_WRITE,
-                    rect, (void**)&(b.img) );
+                    0, 0, s.width, s.height,
+                    (void**)&(b.img));
+
 
             if (res != NO_ERROR) {
                 ALOGE("%s: grbuffer_mapper.lock failure: %s (%d)",
@@ -1086,11 +1097,10 @@ bool EmulatedFakeCamera2::ConfigureThread::getBuffers() {
             }
 
             /* Lock the buffer from the perspective of the graphics mapper */
-            const Rect rect(s.width, s.height);
-
-            res = GraphicBufferMapper::get().lock(*(b.buffer),
+            res = GrallocModule::getInstance().lock(*(b.buffer),
                     GRALLOC_USAGE_HW_CAMERA_READ,
-                    rect, (void**)&(b.img) );
+                    0, 0, s.width, s.height,
+                    (void**)&(b.img) );
             if (res != NO_ERROR) {
                 ALOGE("%s: grbuffer_mapper.lock failure: %s (%d)",
                         __FUNCTION__, strerror(-res), res);
@@ -1366,7 +1376,7 @@ bool EmulatedFakeCamera2::ReadoutThread::threadLoop() {
             } else {
                 ALOGV("Readout:    Sending image buffer %zu (%p) to output stream %d",
                         i, (void*)*(b.buffer), b.streamId);
-                GraphicBufferMapper::get().unlock(*(b.buffer));
+                GrallocModule::getInstance().unlock(*(b.buffer));
                 const Stream &s = mParent->getStreamInfo(b.streamId);
                 res = s.ops->enqueue_buffer(s.ops, captureTime, b.buffer);
                 if (res != OK) {
@@ -1410,7 +1420,7 @@ void EmulatedFakeCamera2::ReadoutThread::onJpegDone(
     ALOGV("%s: Compression complete, pushing to stream %d", __FUNCTION__,
             jpegBuffer.streamId);
 
-    GraphicBufferMapper::get().unlock(*(jpegBuffer.buffer));
+    GrallocModule::getInstance().unlock(*(jpegBuffer.buffer));
     const Stream &s = mParent->getStreamInfo(jpegBuffer.streamId);
     res = s.ops->enqueue_buffer(s.ops, mJpegTimestamp, jpegBuffer.buffer);
 }
@@ -1418,7 +1428,7 @@ void EmulatedFakeCamera2::ReadoutThread::onJpegDone(
 void EmulatedFakeCamera2::ReadoutThread::onJpegInputDone(
         const StreamBuffer &inputBuffer) {
     status_t res;
-    GraphicBufferMapper::get().unlock(*(inputBuffer.buffer));
+    GrallocModule::getInstance().unlock(*(inputBuffer.buffer));
     const ReprocessStream &s =
             mParent->getReprocessStreamInfo(-inputBuffer.streamId);
     res = s.ops->release_buffer(s.ops, inputBuffer.buffer);
@@ -1455,15 +1465,15 @@ status_t EmulatedFakeCamera2::ReadoutThread::collectStatisticsMetadata(
     // the rectangles don't line up quite right.
     const size_t numFaces = 2;
     int32_t rects[numFaces * 4] = {
-        static_cast<int32_t>(Sensor::kResolution[0] * 10 / 20),
-        static_cast<int32_t>(Sensor::kResolution[1] * 15 / 20),
-        static_cast<int32_t>(Sensor::kResolution[0] * 12 / 20),
-        static_cast<int32_t>(Sensor::kResolution[1] * 17 / 20),
+        static_cast<int32_t>(mParent->mSensorWidth * 10 / 20),
+        static_cast<int32_t>(mParent->mSensorHeight * 15 / 20),
+        static_cast<int32_t>(mParent->mSensorWidth * 12 / 20),
+        static_cast<int32_t>(mParent->mSensorHeight * 17 / 20),
 
-        static_cast<int32_t>(Sensor::kResolution[0] * 16 / 20),
-        static_cast<int32_t>(Sensor::kResolution[1] * 15 / 20),
-        static_cast<int32_t>(Sensor::kResolution[0] * 18 / 20),
-        static_cast<int32_t>(Sensor::kResolution[1] * 17 / 20)
+        static_cast<int32_t>(mParent->mSensorWidth * 16 / 20),
+        static_cast<int32_t>(mParent->mSensorHeight * 15 / 20),
+        static_cast<int32_t>(mParent->mSensorWidth * 18 / 20),
+        static_cast<int32_t>(mParent->mSensorHeight * 17 / 20)
     };
     // To simulate some kind of real detection going on, we jitter the rectangles on
     // each frame by a few pixels in each dimension.
@@ -1496,19 +1506,19 @@ status_t EmulatedFakeCamera2::ReadoutThread::collectStatisticsMetadata(
     // coordinates in order are (leftEyeX, leftEyeY, rightEyeX, rightEyeY,
     // mouthX, mouthY). The mapping is the same as the face rectangles.
     int32_t features[numFaces * 6] = {
-        static_cast<int32_t>(Sensor::kResolution[0] * 10.5 / 20),
-        static_cast<int32_t>(Sensor::kResolution[1] * 16 / 20),
-        static_cast<int32_t>(Sensor::kResolution[0] * 11.5 / 20),
-        static_cast<int32_t>(Sensor::kResolution[1] * 16 / 20),
-        static_cast<int32_t>(Sensor::kResolution[0] * 11 / 20),
-        static_cast<int32_t>(Sensor::kResolution[1] * 16.5 / 20),
+        static_cast<int32_t>(mParent->mSensorWidth * 10.5 / 20),
+        static_cast<int32_t>(mParent->mSensorHeight * 16 / 20),
+        static_cast<int32_t>(mParent->mSensorWidth * 11.5 / 20),
+        static_cast<int32_t>(mParent->mSensorHeight * 16 / 20),
+        static_cast<int32_t>(mParent->mSensorWidth * 11 / 20),
+        static_cast<int32_t>(mParent->mSensorHeight * 16.5 / 20),
 
-        static_cast<int32_t>(Sensor::kResolution[0] * 16.5 / 20),
-        static_cast<int32_t>(Sensor::kResolution[1] * 16 / 20),
-        static_cast<int32_t>(Sensor::kResolution[0] * 17.5 / 20),
-        static_cast<int32_t>(Sensor::kResolution[1] * 16 / 20),
-        static_cast<int32_t>(Sensor::kResolution[0] * 17 / 20),
-        static_cast<int32_t>(Sensor::kResolution[1] * 16.5 / 20),
+        static_cast<int32_t>(mParent->mSensorWidth * 16.5 / 20),
+        static_cast<int32_t>(mParent->mSensorHeight * 16 / 20),
+        static_cast<int32_t>(mParent->mSensorWidth * 17.5 / 20),
+        static_cast<int32_t>(mParent->mSensorHeight * 16 / 20),
+        static_cast<int32_t>(mParent->mSensorWidth * 17 / 20),
+        static_cast<int32_t>(mParent->mSensorHeight * 16.5 / 20),
     };
     // Jitter these a bit less than the rects
     for (size_t i = 0; i < numFaces * 6; i++) {
@@ -2124,11 +2134,12 @@ status_t EmulatedFakeCamera2::constructStaticInfo(
     ADD_OR_SIZE(ANDROID_SENSOR_INFO_PHYSICAL_SIZE,
             sensorPhysicalSize, 2);
 
+    const int32_t pixelArray[] = {mSensorWidth, mSensorHeight};
     ADD_OR_SIZE(ANDROID_SENSOR_INFO_PIXEL_ARRAY_SIZE,
-            Sensor::kResolution, 2);
+            pixelArray, 2);
 
     ADD_OR_SIZE(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE,
-            Sensor::kResolution, 2);
+            pixelArray, 2);
 
     ADD_OR_SIZE(ANDROID_SENSOR_INFO_WHITE_LEVEL,
             &Sensor::kMaxRawValue, 1);
@@ -2498,7 +2509,7 @@ status_t EmulatedFakeCamera2::constructDefaultRequest(
 
     /** android.scaler */
     static const int32_t cropRegion[3] = {
-        0, 0, static_cast<int32_t>(Sensor::kResolution[0])
+        0, 0, static_cast<int32_t>(mSensorWidth)
     };
     ADD_OR_SIZE(ANDROID_SCALER_CROP_REGION, cropRegion, 3);
 
@@ -2586,8 +2597,8 @@ status_t EmulatedFakeCamera2::constructDefaultRequest(
 
     static const int32_t controlRegions[5] = {
         0, 0,
-        static_cast<int32_t>(Sensor::kResolution[0]),
-        static_cast<int32_t>(Sensor::kResolution[1]),
+        static_cast<int32_t>(mSensorWidth),
+        static_cast<int32_t>(mSensorHeight),
         1000
     };
     ADD_OR_SIZE(ANDROID_CONTROL_AE_REGIONS, controlRegions, 5);

@@ -16,6 +16,13 @@
 
 package com.android.cellbroadcastreceiver;
 
+import static com.android.cellbroadcastreceiver.CellBroadcastAlertAudio.ALERT_AUDIO_TONE_TYPE;
+import static com.android.cellbroadcastreceiver.CellBroadcastAlertService.SHOW_NEW_ALERT_ACTION;
+
+import static org.junit.Assert.assertArrayEquals;
+import static org.mockito.Matchers.anyInt;
+import static org.mockito.Mockito.doReturn;
+
 import android.content.Intent;
 import android.os.PersistableBundle;
 import android.provider.Telephony;
@@ -25,7 +32,6 @@ import android.telephony.SmsCbCmasInfo;
 import android.telephony.SmsCbEtwsInfo;
 import android.telephony.SmsCbLocation;
 import android.telephony.SmsCbMessage;
-import android.util.Log;
 
 import com.android.internal.telephony.gsm.SmsCbConstants;
 
@@ -33,12 +39,6 @@ import org.junit.After;
 import org.junit.Before;
 
 import java.util.ArrayList;
-
-import static com.android.cellbroadcastreceiver.CellBroadcastAlertAudio.ALERT_AUDIO_TONE_TYPE;
-import static com.android.cellbroadcastreceiver.CellBroadcastAlertService.SHOW_NEW_ALERT_ACTION;
-import static org.junit.Assert.assertArrayEquals;
-import static org.mockito.Matchers.anyInt;
-import static org.mockito.Mockito.doReturn;
 
 public class CellBroadcastAlertServiceTest extends
         CellBroadcastServiceTestCase<CellBroadcastAlertService> {
@@ -134,7 +134,7 @@ public class CellBroadcastAlertServiceTest extends
         // verify audio service intent
         assertEquals(CellBroadcastAlertAudio.ACTION_START_ALERT_AUDIO,
                 mServiceIntentToVerify.getAction());
-        assertEquals(CellBroadcastAlertAudio.ToneType.CMAS_DEFAULT,
+        assertEquals(CellBroadcastAlertService.AlertType.CMAS_DEFAULT,
                 mServiceIntentToVerify.getSerializableExtra(ALERT_AUDIO_TONE_TYPE));
         assertEquals(message.getMessageBody(),
                 mServiceIntentToVerify.getStringExtra(

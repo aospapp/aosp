@@ -146,9 +146,12 @@ typedef uint8_t tNFA_PMID;
 #define NFA_TECHNOLOGY_MASK_A 0x01        /* NFC Technology A             */
 #define NFA_TECHNOLOGY_MASK_B 0x02        /* NFC Technology B             */
 #define NFA_TECHNOLOGY_MASK_F 0x04        /* NFC Technology F             */
-#define NFA_TECHNOLOGY_MASK_ISO15693 0x08 /* Proprietary Technology       */
+/* TECHNOLOGY_MASK_V in NCI2.0 and TECHNOLOGY_MASK_15693 proprietary in NCI1.0*/
+#define NFA_TECHNOLOGY_MASK_V 0x08
 #define NFA_TECHNOLOGY_MASK_B_PRIME 0x10  /* Proprietary Technology       */
 #define NFA_TECHNOLOGY_MASK_KOVIO 0x20    /* Proprietary Technology       */
+/* NFC technology NFC-DEP protocol active mode */
+#define NFA_TECHNOLOGY_MASK_ACTIVE 0x40
 /* NFC Technology A active mode */
 #define NFA_TECHNOLOGY_MASK_A_ACTIVE 0x40
 /* NFC Technology F active mode */
@@ -168,7 +171,8 @@ typedef uint8_t tNFA_TECHNOLOGY_MASK;
 #define NFA_PROTOCOL_ISO_DEP NFC_PROTOCOL_ISO_DEP
 /* NFCDEP/LLCP - NFC-A or NFC-F */
 #define NFA_PROTOCOL_NFC_DEP NFC_PROTOCOL_NFC_DEP
-#define NFA_PROTOCOL_ISO15693 NFC_PROTOCOL_15693
+/* NFC_PROTOCOL_T5T in NCI2.0 and NFC_PROTOCOL_ISO15693 proprietary in NCI1.0*/
+#define NFA_PROTOCOL_T5T NFC_PROTOCOL_T5T
 #define NFA_PROTOCOL_B_PRIME NFC_PROTOCOL_B_PRIME
 #define NFA_PROTOCOL_KOVIO NFC_PROTOCOL_KOVIO
 #define NFA_PROTOCOL_MIFARE NFC_PROTOCOL_MIFARE
@@ -200,7 +204,8 @@ typedef uint8_t tNFA_PROTOCOL_MASK;
 #define NFA_DM_NFCC_TIMEOUT_EVT 6
 /* NCI Tranport error               */
 #define NFA_DM_NFCC_TRANSPORT_ERR_EVT 7
-
+/* Result of NFA_SetPowerSubStateForScreenState */
+#define NFA_DM_SET_POWER_SUB_STATE_EVT 11
 /* T1T HR length            */
 #define NFA_T1T_HR_LEN T1T_HR_LEN
 /* Max UID length of T1/T2  */
@@ -245,6 +250,29 @@ typedef struct {
   uint8_t param_tlvs[1]; /* TLV (Parameter ID-Len-Value byte stream) */
 } tNFA_GET_CONFIG;
 
+/* Structure to store screen state */
+typedef enum screen_state {
+  NFA_SCREEN_STATE_UNKNOWN = 0x00,
+  NFA_SCREEN_STATE_OFF_UNLOCKED = 0x01,
+  NFA_SCREEN_STATE_OFF_LOCKED = 0x02,
+  NFA_SCREEN_STATE_ON_LOCKED = 0x04,
+  NFA_SCREEN_STATE_ON_UNLOCKED = 0x08
+} eScreenState_t;
+
+typedef enum power_substate {
+  SCREEN_STATE_ON_UNLOCKED = 0x00,
+  SCREEN_STATE_OFF_UNLOCKED,
+  SCREEN_STATE_ON_LOCKED,
+  SCREEN_STATE_OFF_LOCKED,
+} epower_substate_t;
+
+#define NFA_SCREEN_STATE_MASK 0x0F
+
+/* CONN_DISCOVER_PARAM */
+#define NFA_LISTEN_DH_NFCEE_ENABLE_MASK NCI_LISTEN_DH_NFCEE_ENABLE_MASK
+#define NFA_LISTEN_DH_NFCEE_DISABLE_MASK NCI_LISTEN_DH_NFCEE_DISABLE_MASK
+#define NFA_POLLING_DH_DISABLE_MASK NCI_POLLING_DH_DISABLE_MASK
+#define NFA_POLLING_DH_ENABLE_MASK NCI_POLLING_DH_ENABLE_MASK
 #define NFA_DM_PWR_MODE_FULL 0x04
 #define NFA_DM_PWR_MODE_OFF_SLEEP 0x00
 
@@ -267,6 +295,11 @@ typedef struct {
   uint8_t rf_field_status;
 } tNFA_DM_RF_FIELD;
 
+typedef struct {
+  tNFA_STATUS status;  /* NFA_STATUS_OK if successful  */
+  uint8_t power_state; /* current screen/power state */
+} tNFA_DM_POWER_STATE;
+
 /* Union of all DM callback structures */
 typedef union {
   tNFA_STATUS status;                 /* NFA_DM_ENABLE_EVT        */
@@ -275,10 +308,24 @@ typedef union {
   tNFA_DM_PWR_MODE_CHANGE power_mode; /* NFA_DM_PWR_MODE_CHANGE_EVT   */
   tNFA_DM_RF_FIELD rf_field;          /* NFA_DM_RF_FIELD_EVT      */
   void* p_vs_evt_data;                /* Vendor-specific evt data */
+  tNFA_DM_POWER_STATE power_sub_state; /* power sub state */
 } tNFA_DM_CBACK_DATA;
 
 /* NFA_DM callback */
 typedef void(tNFA_DM_CBACK)(uint8_t event, tNFA_DM_CBACK_DATA* p_data);
+
+/* NFA Enable DTA Type Mode */
+typedef enum {
+  NFA_DTA_DEFAULT_MODE = 0x00000001,
+  NFA_DTA_LLCP_MODE = 0x00000002,
+  NFA_DTA_SNEP_MODE = 0x00000003,
+  NFA_DTA_HCEF_MODE = 0x00000004,
+  NFA_DTA_CR8 = 0x00000080,
+  NFA_DTA_CR9 = 0x00000090,
+  NFA_DTA_CR10 = 0x000000A0,
+  NFA_DTA_CR11 = 0x000000B0,
+  NFA_DTA_CR12 = 0x000000C0,
+} tNFA_eDtaModes;
 
 /* NFA Connection Callback Events */
 #define NFA_POLL_ENABLED_EVT 0  /* Polling enabled event */
@@ -570,6 +617,7 @@ typedef struct {
   uint8_t pk;   /* Frequency for Proprietary Technology/Kovio   */
   uint8_t paa;  /* Frequency for NFC Technology A active mode   */
   uint8_t pfa;  /* Frequency for NFC Technology F active mode   */
+  uint8_t pacm; /* Frequency for NFC Technology active mode     */
 } tNFA_DM_DISC_FREQ_CFG;
 
 /* definitions for tNFA_DM_CFG.presence_check_option */
@@ -1350,6 +1398,27 @@ extern tNFA_STATUS NFA_SendVsCommand(uint8_t oid, uint8_t cmd_params_len,
 
 /*******************************************************************************
 **
+** Function         NFA_SendRawVsCommand
+**
+** Description      This function is called to send raw vendor specific
+**                  command to NFCC.
+**
+**                  cmd_params_len  - The command parameter len
+**                  p_cmd_params    - The command parameter
+**                  p_cback         - The callback function to receive the
+**                                    command
+**
+** Returns          NFA_STATUS_OK if successfully initiated
+**                  NFA_STATUS_FAILED otherwise
+**
+*******************************************************************************/
+
+extern tNFA_STATUS NFA_SendRawVsCommand(uint8_t cmd_params_len,
+                                        uint8_t* p_cmd_params,
+                                        tNFA_VSC_CBACK* p_cback);
+
+/*******************************************************************************
+**
 ** Function         NFA_SetTraceLevel
 **
 ** Description      This function sets the trace level for NFA.  If called with
@@ -1359,6 +1428,27 @@ extern tNFA_STATUS NFA_SendVsCommand(uint8_t oid, uint8_t cmd_params_len,
 **
 *******************************************************************************/
 extern uint8_t NFA_SetTraceLevel(uint8_t new_level);
+
+/*******************************************************************************
+**
+** Function:        NFA_EnableDTA_TypeMode
+**
+** Description:     Initialize and get global DTA type mode from .conf
+**
+** Returns:         none:
+**
+*******************************************************************************/
+extern void NFA_EnableDtamode(tNFA_eDtaModes eDtaMode);
+
+/*******************************************************************************
+** Function:        NFA_SetPowerSubStateForScreenState
+**
+** Description:     This function send the current screen state
+**
+** Returns:        NFA_STATUS_OK if successfully initiated
+**                  NFA_STATUS_FAILED otherwise
+*******************************************************************************/
+extern tNFA_STATUS NFA_SetPowerSubStateForScreenState(uint8_t ScreenState);
 
 #ifdef __cplusplus
 }

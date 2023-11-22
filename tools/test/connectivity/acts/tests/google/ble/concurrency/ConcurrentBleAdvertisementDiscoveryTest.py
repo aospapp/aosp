@@ -23,17 +23,18 @@ import os
 import time
 
 from queue import Empty
+from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
-from acts.test_utils.bt.BleEnum import AdvertiseSettingsAdvertiseMode
-from acts.test_utils.bt.BleEnum import ScanSettingsCallbackType
-from acts.test_utils.bt.BleEnum import ScanSettingsScanMode
+from acts.test_utils.bt.bt_constants import ble_advertise_settings_modes
+from acts.test_utils.bt.bt_constants import ble_scan_settings_callback_types
+from acts.test_utils.bt.bt_constants import ble_scan_settings_modes
+from acts.test_utils.bt.bt_constants import adv_succ
+from acts.test_utils.bt.bt_constants import scan_result
 from acts.test_utils.bt.bt_test_utils import BtTestUtilsError
-from acts.test_utils.bt.bt_test_utils import adv_succ
 from acts.test_utils.bt.bt_test_utils import generate_ble_advertise_objects
 from acts.test_utils.bt.bt_test_utils import generate_ble_scan_objects
 from acts.test_utils.bt.bt_test_utils import get_advanced_droid_list
 from acts.test_utils.bt.bt_test_utils import reset_bluetooth
-from acts.test_utils.bt.bt_test_utils import scan_result
 from acts.test_utils.bt.bt_test_utils import setup_n_advertisements
 from acts.test_utils.bt.bt_test_utils import take_btsnoop_logs
 from acts.test_utils.bt.bt_test_utils import teardown_n_advertisements
@@ -74,6 +75,7 @@ class ConcurrentBleAdvertisementDiscoveryTest(BluetoothBaseTest):
         return True
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='e02d6ca6-4db3-4a1d-adaf-98db7c7c2c7a')
     def test_max_advertisements_defaults(self):
         """Test scan integrity after BT state is reset
 
@@ -100,11 +102,12 @@ class ConcurrentBleAdvertisementDiscoveryTest(BluetoothBaseTest):
         TAGS: LE, Advertising, Concurrency, Scanning
         Priority: 2
         """
+        filter_list = self.scn_ad.droid.bleGenFilterList()
         self.scn_ad.droid.bleBuildScanFilter(filter_list)
         self.scn_ad.droid.bleSetScanSettingsCallbackType(
-            ScanSettingsCallbackType.CALLBACK_TYPE_ALL_MATCHES.value)
-        self.scn_ad.droid.bleSetScanSettingsScanMode(
-            ScanSettingsScanMode.SCAN_MODE_LOW_LATENCY.value)
+            ble_scan_settings_callback_types['all_matches'])
+        self.scn_ad.droid.bleSetScanSettingsScanMode(ble_scan_settings_modes[
+            'low_latency'])
         iterations = 20
         for _ in range(iterations):
             self.log.info("Verify all advertisements found")

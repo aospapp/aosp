@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -18,7 +18,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Loads a single class from a byte array.
+ * Loads given classes from a byte arrays.
  */
 public class TargetLoader extends ClassLoader {
 
@@ -38,10 +38,6 @@ public class TargetLoader extends ClassLoader {
 		return add(name.getName(), bytes);
 	}
 
-	public Class<?> add(final Class<?> source) throws IOException {
-		return add(source.getName(), getClassDataAsBytes(source));
-	}
-
 	private Class<?> load(final String sourcename) {
 		try {
 			return loadClass(sourcename);
@@ -52,13 +48,24 @@ public class TargetLoader extends ClassLoader {
 	}
 
 	public static InputStream getClassData(Class<?> clazz) {
-		final String resource = "/" + clazz.getName().replace('.', '/')
-				+ ".class";
-		return clazz.getResourceAsStream(resource);
+		return getClassData(clazz.getClassLoader(), clazz.getName());
+	}
+
+	public static InputStream getClassData(ClassLoader loader, String name) {
+		final String resource = name.replace('.', '/') + ".class";
+		return loader.getResourceAsStream(resource);
+	}
+
+	public static byte[] getClassDataAsBytes(ClassLoader loader, String name)
+			throws IOException {
+		return readBytes(getClassData(loader, name));
 	}
 
 	public static byte[] getClassDataAsBytes(Class<?> clazz) throws IOException {
-		InputStream in = getClassData(clazz);
+		return readBytes(getClassData(clazz));
+	}
+
+	private static byte[] readBytes(InputStream in) throws IOException {
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
 		byte[] buffer = new byte[0x100];
 		int len;

@@ -29,6 +29,7 @@
 #include <openssl/ec.h>
 #include <openssl/ecdsa.h>
 #include <openssl/ec_key.h>
+#include <openssl/evp.h>
 #include <openssl/nid.h>
 #include <openssl/rand.h>
 #include <openssl/rsa.h>
@@ -283,7 +284,6 @@ static bool SpeedAEAD(const EVP_AEAD *aead, const std::string &name,
                         evp_aead_seal);
 }
 
-#if !defined(OPENSSL_SMALL)
 static bool SpeedAEADOpen(const EVP_AEAD *aead, const std::string &name,
                           size_t ad_len, const std::string &selected) {
   if (!selected.empty() && name.find(selected) == std::string::npos) {
@@ -297,7 +297,6 @@ static bool SpeedAEADOpen(const EVP_AEAD *aead, const std::string &name,
          SpeedAEADChunk(aead, name + " (8192 bytes)", 8192, ad_len,
                         evp_aead_open);
 }
-#endif  /* !SMALL */
 
 static bool SpeedHashChunk(const EVP_MD *md, const std::string &name,
                            size_t chunk_len) {
@@ -578,6 +577,41 @@ static bool SpeedSPAKE2(const std::string &selected) {
   return true;
 }
 
+static bool SpeedScrypt(const std::string &selected) {
+  if (!selected.empty() && selected.find("scrypt") == std::string::npos) {
+    return true;
+  }
+
+  TimeResults results;
+
+  static const char kPassword[] = "password";
+  static const uint8_t kSalt[] = "NaCl";
+
+  if (!TimeFunction(&results, [&]() -> bool {
+        uint8_t out[64];
+        return !!EVP_PBE_scrypt(kPassword, sizeof(kPassword) - 1, kSalt,
+                                sizeof(kSalt) - 1, 1024, 8, 16, 0 /* max_mem */,
+                                out, sizeof(out));
+      })) {
+    fprintf(stderr, "scrypt failed.\n");
+    return false;
+  }
+  results.Print("scrypt (N = 1024, r = 8, p = 16)");
+
+  if (!TimeFunction(&results, [&]() -> bool {
+        uint8_t out[64];
+        return !!EVP_PBE_scrypt(kPassword, sizeof(kPassword) - 1, kSalt,
+                                sizeof(kSalt) - 1, 16384, 8, 1, 0 /* max_mem */,
+                                out, sizeof(out));
+      })) {
+    fprintf(stderr, "scrypt failed.\n");
+    return false;
+  }
+  results.Print("scrypt (N = 16384, r = 8, p = 1)");
+
+  return true;
+}
+
 static const struct argument kArguments[] = {
     {
      "-filter", kOptionalArgument,
@@ -620,18 +654,6 @@ bool Speed(const std::vector<std::string> &args) {
     return false;
   }
 
-  key.reset(RSA_private_key_from_bytes(kDERRSAPrivate3Prime2048,
-                                       kDERRSAPrivate3Prime2048Len));
-  if (key == nullptr) {
-    fprintf(stderr, "Failed to parse RSA key.\n");
-    ERR_print_errors_fp(stderr);
-    return false;
-  }
-
-  if (!SpeedRSA("RSA 2048 (3 prime, e=3)", key.get(), selected)) {
-    return false;
-  }
-
   key.reset(
       RSA_private_key_from_bytes(kDERRSAPrivate4096, kDERRSAPrivate4096Len));
   if (key == nullptr) {
@@ -665,7 +687,6 @@ bool Speed(const std::vector<std::string> &args) {
                  kLegacyADLen, selected) ||
       !SpeedAEAD(EVP_aead_aes_256_cbc_sha1_tls(), "AES-256-CBC-SHA1",
                  kLegacyADLen, selected) ||
-#if !defined(OPENSSL_SMALL)
       !SpeedAEAD(EVP_aead_aes_128_gcm_siv(), "AES-128-GCM-SIV", kTLSADLen,
                  selected) ||
       !SpeedAEAD(EVP_aead_aes_256_gcm_siv(), "AES-256-GCM-SIV", kTLSADLen,
@@ -674,7 +695,6 @@ bool Speed(const std::vector<std::string> &args) {
                      selected) ||
       !SpeedAEADOpen(EVP_aead_aes_256_gcm_siv(), "AES-256-GCM-SIV", kTLSADLen,
                      selected) ||
-#endif
       !SpeedHash(EVP_sha1(), "SHA-1", selected) ||
       !SpeedHash(EVP_sha256(), "SHA-256", selected) ||
       !SpeedHash(EVP_sha512(), "SHA-512", selected) ||
@@ -682,7 +702,8 @@ bool Speed(const std::vector<std::string> &args) {
       !SpeedECDH(selected) ||
       !SpeedECDSA(selected) ||
       !Speed25519(selected) ||
-      !SpeedSPAKE2(selected)) {
+      !SpeedSPAKE2(selected) ||
+      !SpeedScrypt(selected)) {
     return false;
   }
 

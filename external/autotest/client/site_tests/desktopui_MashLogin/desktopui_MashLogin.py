@@ -4,7 +4,7 @@
 
 import logging
 
-from autotest_lib.client.bin import site_utils, test, utils
+from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib.cros import chrome
 
 
@@ -16,18 +16,12 @@ class desktopui_MashLogin(test.test):
     def run_once(self):
         """Entry point of this test."""
 
-        # Mash requires a connected display to start chrome. Chromebox and
-        # Chromebit devices in the lab run without a connected display.
-        # Limit this test to devices with a built-in display until we can fix
-        # mash. http://crbug.com/673561
-        if site_utils.get_board_type() not in ['CHROMEBOOK', 'CHROMEBASE']:
-            logging.warning('chrome --mash requires a display, skipping test.')
-            return
-
-        # The test is sometimes flaky on these boards. Mash doesn't target
-        # hardware this old, so skip the test. http://crbug.com/679213
+        # The test is flaky on x86-* boards. Mash doesn't target hardware this
+        # old, so skip the test. http://crbug.com/679213
+        # The test is also flaky on nyan_* boards. Temporarily skip the test
+        # until this can be fixed. http://crbug.com/717275
         boards_to_skip = ['x86-mario', 'x86-alex', 'x86-alex_he', 'x86-zgb',
-                          'x86-zgb_he']
+                          'x86-zgb_he', 'nyan_big', 'nyan_kitty', 'nyan_blaze']
         if utils.get_current_board() in boards_to_skip:
           logging.warning('Skipping test run on this board.')
           return

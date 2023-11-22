@@ -81,7 +81,7 @@ qemu_pipe_open(const char*  pipeName)
 {
     char  buff[256];
     int   buffLen;
-    int   fd, ret;
+    int   fd;
 
     if (pipeName == NULL || pipeName[0] == '\0') {
         errno = EINVAL;

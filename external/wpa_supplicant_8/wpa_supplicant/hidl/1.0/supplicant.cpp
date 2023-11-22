@@ -111,6 +111,9 @@ Supplicant::getInterfaceInternal(const IfaceInfo& iface_info)
 			return {{SupplicantStatusCode::FAILURE_UNKNOWN, ""},
 				iface};
 		}
+		// Set this flag true here, since there is no HIDL initialize method for the p2p
+		// config, and the supplicant interface is not ready when the p2p iface is created.
+		wpa_s->conf->persistent_reconnect = true;
 		return {{SupplicantStatusCode::SUCCESS, ""}, iface};
 	} else {
 		android::sp<ISupplicantStaIface> iface;

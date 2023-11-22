@@ -113,10 +113,11 @@
     <string name="open_kb_button">Hide/Show Input</string>
 
     <!-- instrument cluster -->
-    <string name="cluster_start">Start Nav</string>
-    <string name="cluster_turn_left">Turn left</string>
-    <string name="cluster_stop">Stop Nav</string>
+    <string name="cluster_start">Start metadata</string>
+    <string name="cluster_turn_left">Send turn-by-turn</string>
+    <string name="cluster_stop">Stop metadata</string>
     <string name="cluster_nav_app_context_loss">Navigation app context lost!</string>
+    <string name="cluster_start_activity">Start Nav Activity</string>
 
     <!--  input test -->
     <string name="volume_up">Volume +</string>
@@ -140,6 +141,8 @@
     <!-- radio test -->
     <string name="radio_open">Open</string>
     <string name="radio_close">Close</string>
+    <string name="radio_muted">Muted</string>
+    <string name="radio_unmuted">Unmuted</string>
     <string name="radio_get_radio_focus">Get Radio focus</string>
     <string name="radio_release_radio_focus">Release Radio focus</string>
     <string name="radio_get_focus">Get Audio focus</string>
@@ -147,6 +150,10 @@
     <string name="radio_next">Next</string>
     <string name="radio_prev">Previous</string>
     <string name="radio_scan_cancel">Cancel scan</string>
+    <string name="radio_tune_to_station">Tune to Station</string>
+    <string name="radio_step_up">Step Up</string>
+    <string name="radio_step_down">Step Down</string>
+    <string name="radio_enter_station_hint">Enter Station Frequency (kHz)</string>
     <string name="radio_get_program_info">getProgramInformation</string>
     <string name="radio_am">AM</string>
     <string name="radio_fm">FM</string>
@@ -156,24 +163,28 @@
     <string name="radio_artist_info">Artist info: %1$s</string>
     <string name="radio_na">N/A</string>
 
-    <!-- sensorts test -->
+    <!-- sensors test -->
     <string name="sensor_na">N/A</string>
 
     <string name="sensor_environment">Environment[%1$s]: temperature=%2$s, pressure=%3$s</string>
     <string name="sensor_night">Night[%1$s]: isNight=%2$s</string>
     <string name="sensor_gear">Gear[%1$s]: gear=%2$s</string>
-    <string name="sensor_parking_break">Parking break[%1$s]: isEngaged=%2$s</string>
-    <string name="sensor_fuel_level">Fuel level[%1$s]: lebel=%2$s, range=%3$s, lowFuelWarning=%4$s</string>
+    <string name="sensor_parking_brake">Parking brake[%1$s]: isEngaged=%2$s</string>
+    <string name="sensor_fuel_level">Fuel level[%1$s]: level=%2$s, range=%3$s, lowFuelWarning=%4$s</string>
     <string name="sensor_odometer">Odometer[%1$s]: kms=%2$s</string>
-    <string name="sensor_rpm">Rpm[%1$s]: rpm=%2$s</string>
+    <string name="sensor_rpm">RPM[%1$s]: rpm=%2$s</string>
     <string name="sensor_speed">Speed[%1$s]: speed=%2$s</string>
     <string name="sensor_driving_status">Driving status[%1$s]: status=%2$s [bin=%3$s]</string>
     <string name="sensor_compass">Compass[%1$s]: bear=%2$s, pitch=%3$s, roll=%4$s</string>
     <string name="sensor_accelerometer">Accelerometer[%1$s]: x=%2$s, y=%3$s, z=%4$s</string>
-    <string name="sensor_gyroscope">Gyroscpoe[%1$s]: x=%2$s, y=%3$s, z=%4$s</string>
+    <string name="sensor_gyroscope">Gyroscope[%1$s]: x=%2$s, y=%3$s, z=%4$s</string>
     <string name="sensor_location">Location[%1$s]: lat=%2$s, lon=%3$s, accuracy=%4$s, altitude=%5$s, speed=%6$s, bearing=%7$s</string>
     <string name="sensor_gps">GPS Satellites[%1$s]: inView: %2$s, inUse: %3$s. %4$s</string>
     <string name="sensor_single_gps_satellite">(%1$s): usedInFix: %2$s, prn: %3$s, snr: %4$s, azimuth: %5$s, elevation: %6$s</string>
+    <string name="sensor_wheel_ticks">Wheel Distance[%1$s]: reset=%2$s, FL=%3$s, FR=%4$s, RL=%5$s, RR=%6$s</string>
+    <string name="sensor_wheel_ticks_cfg">Wheel Distance Config: Wheels=%1$s, FL=%2$s, FR=%3$s, RL=%4$s, RR=%5$s</string>
+    <string name="sensor_abs_is_active">ABS[%1$s]: isActive=%2$s</string>
+    <string name="sensor_traction_control_is_active">Traction Control[%1$s]: isActive=%2$s</string>
 
     <string name="volume_test">Volume Test</string>
     <string name="volume_up_logical">Vol +</string>
@@ -201,6 +212,7 @@
     <string name="bluetooth_sco_disconnect">SCO disconnect</string>
     <string name="bluetooth_pick_device">Pick Device</string>
     <string name="bluetooth_quiet_mode_enable">Quiet Mode</string>
+    <string name="bluetooth_hold_call">Hold call</string>
 
     <!--Car Service Settings-->
     <string name="garage_title">Garage Mode</string>

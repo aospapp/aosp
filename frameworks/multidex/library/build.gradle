@@ -21,9 +21,6 @@ android {
 
     defaultConfig {
         minSdkVersion 4
-
-        // Update the version meta-data in Manifest.
-        addManifestPlaceholders(["multidex-version": project.rootProject.ext.multidexVersion])
     }
 
     sourceSets {

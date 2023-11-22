@@ -755,7 +755,7 @@ bool RSExportReduce::analyzeTranslationUnit() {
 
   StateOfAnalyzeTranslationUnit S(
       RSC, PP, RSC.getASTContext(),
-      [&RSC, &PP, this] (const char *Key, const std::string &Name) {
+      [&PP, this] (const char *Key, const std::string &Name) {
         std::ostringstream Description;
         Description
             << Key << " " << Name << "()"

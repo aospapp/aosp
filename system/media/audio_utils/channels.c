@@ -32,7 +32,7 @@ static inline int32_t clamp24(int32_t sample)
 /*
  * Converts a uint8x3_t into an int32_t
  */
-inline int32_t uint8x3_to_int32(uint8x3_t val) {
+static inline int32_t uint8x3_to_int32(uint8x3_t val) {
 #if HAVE_BIG_ENDIAN
     int32_t temp = (val.c[0] << 24 | val.c[1] << 16 | val.c[2] << 8) >> 8;
 #else
@@ -44,7 +44,7 @@ inline int32_t uint8x3_to_int32(uint8x3_t val) {
 /*
  * Converts an int32_t to a uint8x3_t
  */
-inline uint8x3_t int32_to_uint8x3(int32_t in) {
+static inline uint8x3_t int32_to_uint8x3(int32_t in) {
     uint8x3_t out;
 #if HAVE_BIG_ENDIAN
     out.c[2] = in;

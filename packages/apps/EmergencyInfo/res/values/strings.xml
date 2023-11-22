@@ -16,6 +16,10 @@
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!-- The name of the app. [CHAR_LIMIT=30] -->
     <string name="app_label">Emergency information</string>
+    <!-- The title of the medical information preferences category -->
+    <string name="medical_info_title">Medical information</string>
+    <!-- The title of the action to edit the medical information preferences -->
+    <string name="edit_medical_info">Edit information</string>
     <!-- The description of the pencil icon, for talkback. [CHAR_LIMIT=NONE] -->
     <string name="edit_info">Edit emergency information</string>
     <!-- The title of the emergency info tab. [CHAR_LIMIT=15] -->
@@ -197,12 +201,6 @@
     <string name="phone_type_and_phone_number">
         <xliff:g id="phone_type" example="Mobile">%1$s</xliff:g> • <xliff:g id="phone_number" example="333-444-5566">%2$s</xliff:g>
     </string>
-    <!-- Title of dialog shown to the user to confirm that he understands that emergency information is shown in emergency dialer [CHAR LIMIT=30] -->
-    <string name="user_emergency_info_title">Emergency information</string>
-    <!-- Message of dialog shown to user to confirm that he understands that emergency information is shown in emergency dialer [CHAR LIMIT=none] -->
-    <string name="user_emergency_info_consent">Information you enter here can help first responders in an emergency. It is stored on your device only, and anyone can read it from the emergency dialer without unlocking your phone.</string>
-    <!-- Label for button in confirmation dialog when the user clicks on emergency information [CHAR LIMIT=15] -->
-    <string name="emergency_info_continue">Continue</string>
     <!-- Message shown when no emergency information has been provided by the user [CHAR LIMIT=NONE] -->
     <string name="no_info_provided">No information about the phone\'s owner</string>
     <!-- Extra message to indicate to the user that they can add emergency information [CHAR LIMIT=NONE] -->
@@ -213,4 +211,11 @@
     <string name="clear">Clear</string>
     <!-- Message of dialog shown to clear all information and contacts [CHAR LIMIT=NONE] -->
     <string name="clear_all_message">Clear all information and contacts?</string>
+    <!-- Information footer describing the use of emergency information. [CHAR LIMIT=NONE] -->
+    <string name="emergency_info_footer">Adding medical information and emergency contacts can help first responders in an emergency.\n\nAnyone can read this information from your lock screen, and dial your contacts by tapping their names, without unlocking your phone.</string>
+    <!-- Title for a suggestion to a user to set up their emergency information [CHAR_LIMIT=60] -->
+    <string name="settings_suggestion_title">Add emergency information</string>
+    <!-- Explanatory text for a suggestion to a user to set up their emergency information [CHAR_LIMIT=NONE] -->
+    <string name="settings_suggestion_body">Help first responders find important information</string>
+
 </resources>

@@ -24,6 +24,9 @@ cc_library_static {
         "include",
     ],
     export_include_dirs: ["include"],
+    header_libs: [
+        "libhardware_headers",
+    ],
     include_dirs: [
         "system/bt",
         "system/bt/utils/include",
@@ -36,6 +39,9 @@ cc_library_static {
         "libchrome",
         "liblog",
     ],
+    static_libs: [
+        "libbluetooth-types",
+    ]
 }
 
 // test-vendor unit tests for host
@@ -49,9 +55,13 @@ cc_test_host {
         "src/event_packet.cc",
         "src/packet.cc",
         "src/packet_stream.cc",
+        "src/l2cap_packet.cc",
+        "src/l2cap_sdu.cc",
         "test/async_manager_unittest.cc",
         "test/bt_address_unittest.cc",
         "test/packet_stream_unittest.cc",
+        "test/l2cap_test.cc",
+        "test/l2cap_sdu_test.cc",
     ],
     local_include_dirs: [
         "include",
@@ -65,6 +75,9 @@ cc_test_host {
     shared_libs: [
         "liblog",
         "libchrome",
+    ],
+    static_libs: [
+        "libbluetooth-types",
     ],
     cflags: [
         "-fvisibility=hidden",

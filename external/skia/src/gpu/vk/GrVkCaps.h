@@ -29,6 +29,8 @@ public:
     GrVkCaps(const GrContextOptions& contextOptions, const GrVkInterface* vkInterface,
              VkPhysicalDevice device, uint32_t featureFlags, uint32_t extensionFlags);
 
+    int getSampleCount(int requestedCount, GrPixelConfig config) const override;
+
     bool isConfigTexturable(GrPixelConfig config) const override {
         return SkToBool(ConfigInfo::kTextureable_Flag & fConfigTable[config].fOptimalFlags);
     }
@@ -90,11 +92,11 @@ public:
         return fMustSleepOnTearDown;
     }
 
-    // Returns true if while adding commands to secondary command buffers, we must make a new
-    // secondary command buffer everytime we want to bind a new VkPipeline. This is to work around a
-    // driver bug specifically on AMD.
-    bool newSecondaryCBOnPipelineChange() const {
-        return fNewSecondaryCBOnPipelineChange;
+    // Returns true if while adding commands to command buffers, we must make a new command buffer
+    // everytime we want to bind a new VkPipeline. This is true for both primary and secondary
+    // command buffers. This is to work around a driver bug specifically on AMD.
+    bool newCBOnPipelineChange() const {
+        return fNewCBOnPipelineChange;
     }
 
     /**
@@ -104,7 +106,8 @@ public:
         return fPreferedStencilFormat;
     }
 
-    bool initDescForDstCopy(const GrRenderTarget* src, GrSurfaceDesc* desc) const override;
+    bool initDescForDstCopy(const GrRenderTargetProxy* src, GrSurfaceDesc* desc,
+                            bool* rectsMustMatch, bool* disallowSubrect) const override;
 
 private:
     enum VkVendor {
@@ -131,6 +134,7 @@ private:
 
         void init(const GrVkInterface*, VkPhysicalDevice, VkFormat);
         static void InitConfigFlags(VkFormatFeatureFlags, uint16_t* flags);
+        void initSampleCounts(const GrVkInterface*, VkPhysicalDevice, VkFormat);
 
         enum {
             kTextureable_Flag = 0x1,
@@ -141,6 +145,8 @@ private:
 
         uint16_t fOptimalFlags;
         uint16_t fLinearFlags;
+
+        SkTDArray<int> fColorSampleCounts;
     };
     ConfigInfo fConfigTable[kGrPixelConfigCnt];
 
@@ -156,7 +162,7 @@ private:
 
     bool fMustSleepOnTearDown;
 
-    bool fNewSecondaryCBOnPipelineChange;
+    bool fNewCBOnPipelineChange;
 
     typedef GrCaps INHERITED;
 };

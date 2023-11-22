@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2016-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,12 +38,17 @@
 #include "xlat/statfs_flags.h"
 
 #define PRINT_NUM(arg)							\
-	if (sizeof(b->arg) == sizeof(int))				\
-		printf(", %s=%u", #arg, (unsigned int) b->arg);		\
-	else if (sizeof(b->arg) == sizeof(long))				\
-		printf(", %s=%lu", #arg, (unsigned long) b->arg);	\
-	else								\
-		printf(", %s=%llu", #arg, (unsigned long long) b->arg)
+	do {								\
+		if (sizeof(b->arg) == sizeof(int))			\
+			printf(", %s=%u", #arg,				\
+			       (unsigned int) b->arg);			\
+		else if (sizeof(b->arg) == sizeof(long))		\
+			printf(", %s=%lu", #arg,			\
+			       (unsigned long) b->arg);			\
+		else							\
+			printf(", %s=%llu", #arg,			\
+			       (unsigned long long) b->arg);		\
+	} while (0)
 
 static void
 print_statfs_type(const char *const prefix, const unsigned int magic)
@@ -62,9 +68,9 @@ print_statfs(const char *const sample, const char *magic_str)
 {
 	int fd = open(sample, O_RDONLY);
 	if (fd < 0)
-		perror_msg_and_fail("open: %s", sample);
+		perror_msg_and_skip("open: %s", sample);
 
-	STRUCT_STATFS *const b = tail_alloc(sizeof(*b));
+	TAIL_ALLOC_OBJECT_CONST_PTR(STRUCT_STATFS, b);
 	long rc = SYSCALL_INVOKE(sample, fd, b, sizeof(*b));
 	if (rc)
 		perror_msg_and_skip(SYSCALL_NAME);

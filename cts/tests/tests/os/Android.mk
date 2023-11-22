@@ -39,12 +39,13 @@ LOCAL_SRC_FILES := \
     src/android/os/cts/IParcelFileDescriptorPeer.aidl \
     src/android/os/cts/IEmptyService.aidl \
     src/android/os/cts/ISeccompIsolatedService.aidl \
-    src/android/os/cts/ISecondary.aidl
+    src/android/os/cts/ISecondary.aidl \
+    src/android/os/cts/ISharedMemoryService.aidl
 
 LOCAL_PACKAGE_NAME := CtsOsTestCases
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 # uncomment when b/13282254 is fixed
 #LOCAL_SDK_VERSION := current
@@ -66,7 +67,7 @@ LOCAL_MODULE_CLASS := ETC
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 cts_platform_version_path := cts/tests/tests/os/assets/platform_versions.txt
 cts_platform_version_string := $(shell cat $(cts_platform_version_path))

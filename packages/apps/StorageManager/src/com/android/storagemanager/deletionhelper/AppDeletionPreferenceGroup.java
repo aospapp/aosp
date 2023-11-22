@@ -34,6 +34,7 @@ import java.util.List;
  */
 public class AppDeletionPreferenceGroup extends CollapsibleCheckboxPreferenceGroup
         implements AppDeletionType.AppListener, Preference.OnPreferenceChangeListener {
+    private static final int ORDER_OFFSET = 100;
     private AppDeletionType mBackend;
 
     @VisibleForTesting PreferenceScreen mScreen;
@@ -70,7 +71,7 @@ public class AppDeletionPreferenceGroup extends CollapsibleCheckboxPreferenceGro
             }
             addThresholdDependentPreference(preference, isNoThreshold());
             preference.setChecked(mBackend.isChecked(packageName));
-            preference.setOrder(i);
+            preference.setOrder(i + ORDER_OFFSET);
             preference.updateSummary();
         }
         cache.removeCachedPrefs();

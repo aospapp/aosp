@@ -25,9 +25,6 @@ LOCAL_SRC_FILES := crash-jni.c
 
 LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 
-# Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
-
 LOCAL_SDK_VERSION := current
 
 include $(BUILD_SHARED_LIBRARY)

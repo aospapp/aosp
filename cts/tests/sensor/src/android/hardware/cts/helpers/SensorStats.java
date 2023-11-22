@@ -64,6 +64,8 @@ public class SensorStats {
     public static final String STANDARD_DEVIATION_KEY = "standard_deviation";
     public static final String MAGNITUDE_KEY = "magnitude";
     public static final String DELAYED_BATCH_DELIVERY = "delayed_batch_delivery";
+    public static final String INITIAL_MEAN_KEY = "initial_mean";
+    public static final String LATER_MEAN_KEY = "later_mean";
 
     private final Map<String, Object> mValues = new HashMap<>();
     private final Map<String, SensorStats> mSensorStats = new HashMap<>();

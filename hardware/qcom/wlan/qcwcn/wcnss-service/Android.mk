@@ -5,6 +5,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := wcnss_service
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/common/inc/
 LOCAL_SRC_FILES := wcnss_service.c
+LOCAL_PROPRIETARY_MODULE := true
 ifeq ($(strip $(TARGET_USES_QCOM_WCNSS_QMI)),true)
 LOCAL_CFLAGS += -DWCNSS_QMI
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/qmi/inc

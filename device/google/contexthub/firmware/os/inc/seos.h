@@ -174,6 +174,7 @@ bool osDefer(OsDeferCbkF callback, void *cookie, bool urgent);
 bool osTidById(uint64_t *appId, uint32_t *tid);
 bool osAppInfoById(uint64_t appId, uint32_t *appIdx, uint32_t *appVer, uint32_t *appSize);
 bool osAppInfoByIndex(uint32_t appIdx, uint64_t *appId, uint32_t *appVer, uint32_t *appSize);
+bool osExtAppInfoByIndex(uint32_t appIdx, uint64_t *appId, uint32_t *appVer, uint32_t *appSize);
 uint32_t osGetCurrentTid();
 uint32_t osSetCurrentTid(uint32_t);
 
@@ -270,13 +271,14 @@ bool osAppIsChre(uint16_t tid);
 
 /* Logging */
 enum LogLevel {
-    LOG_ERROR = 'E',
-    LOG_WARN  = 'W',
-    LOG_INFO  = 'I',
-    LOG_DEBUG = 'D',
+    LOG_ERROR   = 'E',
+    LOG_WARN    = 'W',
+    LOG_INFO    = 'I',
+    LOG_DEBUG   = 'D',
+    LOG_VERBOSE = 'V',
 };
 
-void osLogv(char clevel, const char *str, va_list vl);
+void osLogv(char clevel, uint32_t flags, const char *str, va_list vl);
 void osLog(enum LogLevel level, const char *str, ...) PRINTF_ATTRIBUTE(2, 3);
 
 #ifndef INTERNAL_APP_INIT

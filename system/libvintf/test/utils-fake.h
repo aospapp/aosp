@@ -68,9 +68,14 @@ class MockPartitionMounter : public PartitionMounter {
     bool systemMounted() const { return systemMounted_; }
     bool vendorMounted() const { return vendorMounted_; }
 
+    void reset() {
+        systemMounted_ = false;
+        vendorMounted_ = false;
+    }
+
    private:
-     bool systemMounted_;
-     bool vendorMounted_;
+    bool systemMounted_;
+    bool vendorMounted_;
 };
 
 }  // namespace details

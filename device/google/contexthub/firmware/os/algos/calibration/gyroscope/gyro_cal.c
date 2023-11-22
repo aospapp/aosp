@@ -21,32 +21,27 @@
 #include <string.h>
 
 #include "calibration/util/cal_log.h"
-#include "common/math/vec.h"
+#include "common/math/macros.h"
 
 /////// DEFINITIONS AND MACROS ///////////////////////////////////////
 
 // Maximum gyro bias correction (should be set based on expected max bias
 // of the given sensor).
-#define MAX_GYRO_BIAS (0.1f)  // [rad/sec]
+#define MAX_GYRO_BIAS (0.2f)  // [rad/sec]
 
-// Converts units of radians to milli-degrees.
-#define RAD_TO_MILLI_DEGREES (float)(1e3f * 180.0f / NANO_PI)
+// Watchdog timeout value (5 seconds). Monitors dropouts in sensor data and
+// resets when exceeded.
+#define GYRO_WATCHDOG_TIMEOUT_NANOS (SEC_TO_NANOS(5))
 
 #ifdef GYRO_CAL_DBG_ENABLED
 // The time value used to throttle debug messaging.
-#define GYROCAL_WAIT_TIME_NANOS (300000000)
-
-// Unit conversion: nanoseconds to seconds.
-#define NANOS_TO_SEC (1.0e-9f)
+#define GYROCAL_WAIT_TIME_NANOS (MSEC_TO_NANOS(100))
 
 // A debug version label to help with tracking results.
-#define GYROCAL_DEBUG_VERSION_STRING "[Jan 20, 2017]"
+#define GYROCAL_DEBUG_VERSION_STRING "[July 05, 2017]"
 
 // Debug log tag string used to identify debug report output data.
 #define GYROCAL_REPORT_TAG "[GYRO_CAL:REPORT]"
-
-// Debug log tag string used to identify debug tuning output data.
-#define GYROCAL_TUNE_TAG "[GYRO_CAL:TUNE]"
 #endif  // GYRO_CAL_DBG_ENABLED
 
 /////// FORWARD DECLARATIONS /////////////////////////////////////////
@@ -109,7 +104,7 @@ enum DebugPrintData {
 };
 
 /*
- * Updates running calculation of the gyro's mean sampling rate.
+ * Updates the running calculation of the gyro's mean sampling rate.
  *
  * Behavior:
  *   1)  If 'debug_mean_sampling_rate_hz' pointer is not NULL then the local
@@ -119,11 +114,13 @@ enum DebugPrintData {
  *   3)  Otherwise, the local estimate of the mean sampling rates is updated.
  *
  * INPUTS:
- *   debug_mean_sampling_rate_hz:   Pointer to the mean sampling rate to update.
+ *   sample_rate_estimator:  Pointer to the estimator data structure.
+ *   debug_mean_sampling_rate_hz:  Pointer to the mean sampling rate to update.
  *   timestamp_nanos:  Time stamp (nanoseconds).
  *   reset_stats:  Flag that signals a reset of the sampling rate estimate.
  */
-static void gyroSamplingRateUpdate(float* debug_mean_sampling_rate_hz,
+static void gyroSamplingRateUpdate(struct SampleRateData* sample_rate_estimator,
+                                   float* debug_mean_sampling_rate_hz,
                                    uint64_t timestamp_nanos, bool reset_stats);
 
 // Updates the information used for debug printouts.
@@ -142,17 +139,11 @@ static float floatFromUint64(uint64_t v)
     uint32_t hi = v >> 32, lo = v;
 
     if (!hi) //this is very fast for cases where we fit into a uint32_t
-        return(float)lo;
+        return (float)lo;
     else {
         return ((float)hi) * 4294967296.0f + (float)lo;
     }
 }
-
-#ifdef GYRO_CAL_DBG_TUNE_ENABLED
-// Prints debug information useful for tuning the GyroCal parameters.
-static void gyroCalTuneDebugPrint(const struct GyroCal* gyro_cal,
-                                  uint64_t timestamp_nanos);
-#endif  // GYRO_CAL_DBG_TUNE_ENABLED
 #endif  // GYRO_CAL_DBG_ENABLED
 
 /////// FUNCTION DEFINITIONS /////////////////////////////////////////
@@ -194,8 +185,7 @@ void gyroCalInit(struct GyroCal* gyro_cal, uint64_t min_still_duration_nanos,
   gyro_cal->window_time_duration_nanos = window_time_duration_nanos;
 
   // Set the watchdog timeout duration.
-  gyro_cal->gyro_watchdog_timeout_duration_nanos =
-      2 * window_time_duration_nanos;
+  gyro_cal->gyro_watchdog_timeout_duration_nanos = GYRO_WATCHDOG_TIMEOUT_NANOS;
 
   // Load the last valid cal from system memory.
   gyro_cal->bias_x = bias_x;  // [rad/sec]
@@ -225,9 +215,6 @@ void gyroCalInit(struct GyroCal* gyro_cal, uint64_t min_still_duration_nanos,
   gyroTemperatureStatsTracker(gyro_cal, 0.0f, DO_RESET);
 
 #ifdef GYRO_CAL_DBG_ENABLED
-  CAL_DEBUG_LOG("[GYRO_CAL:MEMORY]", "sizeof(struct GyroCal): %lu",
-                (unsigned long int)sizeof(struct GyroCal));
-
   if (gyro_cal->gyro_calibration_enable) {
     CAL_DEBUG_LOG("[GYRO_CAL:INIT]", "Online gyroscope calibration ENABLED.");
   } else {
@@ -235,7 +222,8 @@ void gyroCalInit(struct GyroCal* gyro_cal, uint64_t min_still_duration_nanos,
   }
 
   // Ensures that the gyro sampling rate estimate is reset.
-  gyroSamplingRateUpdate(NULL, 0, /*reset_stats=*/true);
+  gyroSamplingRateUpdate(&gyro_cal->sample_rate_estimator, NULL, 0,
+                         /*reset_stats=*/true);
 #endif  // GYRO_CAL_DBG_ENABLED
 }
 
@@ -263,11 +251,11 @@ void gyroCalSetBias(struct GyroCal* gyro_cal, float bias_x, float bias_y,
   gyro_cal->calibration_time_nanos = calibration_time_nanos;
 
 #ifdef GYRO_CAL_DBG_ENABLED
-  CAL_DEBUG_LOG("[GYRO_CAL:RECALL]",
-                "Gyro Bias Calibration [mdps]: %s%d.%06d, %s%d.%06d, %s%d.%06d",
-                CAL_ENCODE_FLOAT(gyro_cal->bias_x * RAD_TO_MILLI_DEGREES, 6),
-                CAL_ENCODE_FLOAT(gyro_cal->bias_y * RAD_TO_MILLI_DEGREES, 6),
-                CAL_ENCODE_FLOAT(gyro_cal->bias_z * RAD_TO_MILLI_DEGREES, 6));
+  CAL_DEBUG_LOG("[GYRO_CAL:SET BIAS]",
+                "Gyro Bias Calibration [mDPS]: " CAL_FORMAT_3DIGITS_TRIPLET,
+                CAL_ENCODE_FLOAT(gyro_cal->bias_x * RAD_TO_MDEG, 3),
+                CAL_ENCODE_FLOAT(gyro_cal->bias_y * RAD_TO_MDEG, 3),
+                CAL_ENCODE_FLOAT(gyro_cal->bias_z * RAD_TO_MDEG, 3));
 #endif  // GYRO_CAL_DBG_ENABLED
 }
 
@@ -295,8 +283,6 @@ bool gyroCalNewBiasAvailable(struct GyroCal* gyro_cal) {
 // Update the gyro calibration with gyro data [rad/sec].
 void gyroCalUpdateGyro(struct GyroCal* gyro_cal, uint64_t sample_time_nanos,
                        float x, float y, float z, float temperature_celsius) {
-  static float latest_temperature_celsius = 0.0f;
-
   // Make sure that a valid window end-time is set, and start the watchdog
   // timer.
   if (gyro_cal->stillness_win_endtime_nanos <= 0) {
@@ -307,14 +293,13 @@ void gyroCalUpdateGyro(struct GyroCal* gyro_cal, uint64_t sample_time_nanos,
     gyro_cal->gyro_watchdog_start_nanos = sample_time_nanos;
   }
 
-  // Update the temperature statistics (only on a temperature change).
-  if (NANO_ABS(temperature_celsius - latest_temperature_celsius) > FLT_MIN) {
-    gyroTemperatureStatsTracker(gyro_cal, temperature_celsius, DO_UPDATE_DATA);
-  }
+  // Update the temperature statistics.
+  gyroTemperatureStatsTracker(gyro_cal, temperature_celsius, DO_UPDATE_DATA);
 
 #ifdef GYRO_CAL_DBG_ENABLED
   // Update the gyro sampling rate estimate.
-  gyroSamplingRateUpdate(NULL, sample_time_nanos, /*reset_stats=*/false);
+  gyroSamplingRateUpdate(&gyro_cal->sample_rate_estimator, NULL,
+                         sample_time_nanos, /*reset_stats=*/false);
 #endif  // GYRO_CAL_DBG_ENABLED
 
   // Pass gyro data to stillness detector
@@ -356,7 +341,7 @@ void gyroCalUpdateAccel(struct GyroCal* gyro_cal, uint64_t sample_time_nanos,
   deviceStillnessCheck(gyro_cal, sample_time_nanos);
 }
 
-// TODO(davejacobs): Consider breaking this function up to improve readability.
+// TODO: Consider breaking this function up to improve readability.
 // Checks the state of all stillness detectors to determine
 // whether the device is "still".
 void deviceStillnessCheck(struct GyroCal* gyro_cal,
@@ -411,7 +396,7 @@ void deviceStillnessCheck(struct GyroCal* gyro_cal,
 
   // Determines if the device is currently still.
   device_is_still = (conf_still > gyro_cal->stillness_threshold) &&
-      !mean_not_stable && !min_max_temp_exceeded ;
+      !mean_not_stable && !min_max_temp_exceeded;
 
   if (device_is_still) {
     // Device is "still" logic:
@@ -429,9 +414,8 @@ void deviceStillnessCheck(struct GyroCal* gyro_cal,
 
     // Check to see if current stillness period exceeds the desired limit.
     stillness_duration_exceeded =
-        ((gyro_cal->gyro_stillness_detect.last_sample_time -
-          gyro_cal->start_still_time_nanos) >
-         gyro_cal->max_still_duration_nanos);
+        (gyro_cal->gyro_stillness_detect.last_sample_time >=
+         gyro_cal->start_still_time_nanos + gyro_cal->max_still_duration_nanos);
 
     // Track the new stillness mean and temperature data.
     gyroStillMeanTracker(gyro_cal, DO_STORE_DATA);
@@ -458,7 +442,8 @@ void deviceStillnessCheck(struct GyroCal* gyro_cal,
 
 #ifdef GYRO_CAL_DBG_ENABLED
       // Resets the sampling rate estimate.
-      gyroSamplingRateUpdate(NULL, sample_time_nanos, /*reset_stats=*/true);
+      gyroSamplingRateUpdate(&gyro_cal->sample_rate_estimator, NULL,
+                             sample_time_nanos, /*reset_stats=*/true);
 #endif  // GYRO_CAL_DBG_ENABLED
 
       // Update stillness flag. Force the start of a new stillness period.
@@ -482,9 +467,8 @@ void deviceStillnessCheck(struct GyroCal* gyro_cal,
     // If device was previously still and the total stillness duration is not
     // "too short", then do a calibration with the data accumulated thus far.
     stillness_duration_too_short =
-        ((gyro_cal->gyro_stillness_detect.window_start_time -
-          gyro_cal->start_still_time_nanos) <
-         gyro_cal->min_still_duration_nanos);
+        (gyro_cal->gyro_stillness_detect.window_start_time <
+         gyro_cal->start_still_time_nanos + gyro_cal->min_still_duration_nanos);
 
     if (gyro_cal->prev_still && !stillness_duration_too_short) {
       computeGyroCal(gyro_cal,
@@ -502,7 +486,8 @@ void deviceStillnessCheck(struct GyroCal* gyro_cal,
 
 #ifdef GYRO_CAL_DBG_ENABLED
     // Resets the sampling rate estimate.
-    gyroSamplingRateUpdate(NULL, sample_time_nanos, /*reset_stats=*/true);
+    gyroSamplingRateUpdate(&gyro_cal->sample_rate_estimator, NULL,
+                           sample_time_nanos, /*reset_stats=*/true);
 #endif  // GYRO_CAL_DBG_ENABLED
 
     // Update stillness flag.
@@ -516,27 +501,25 @@ void deviceStillnessCheck(struct GyroCal* gyro_cal,
 // Calculates a new gyro bias offset calibration value.
 void computeGyroCal(struct GyroCal* gyro_cal, uint64_t calibration_time_nanos) {
   // Check to see if new calibration values is within acceptable range.
-  if (!(gyro_cal->gyro_stillness_detect.prev_mean_x < MAX_GYRO_BIAS &&
+  if (!(gyro_cal->gyro_stillness_detect.prev_mean_x <  MAX_GYRO_BIAS &&
         gyro_cal->gyro_stillness_detect.prev_mean_x > -MAX_GYRO_BIAS &&
-        gyro_cal->gyro_stillness_detect.prev_mean_y < MAX_GYRO_BIAS &&
+        gyro_cal->gyro_stillness_detect.prev_mean_y <  MAX_GYRO_BIAS &&
         gyro_cal->gyro_stillness_detect.prev_mean_y > -MAX_GYRO_BIAS &&
-        gyro_cal->gyro_stillness_detect.prev_mean_z < MAX_GYRO_BIAS &&
+        gyro_cal->gyro_stillness_detect.prev_mean_z <  MAX_GYRO_BIAS &&
         gyro_cal->gyro_stillness_detect.prev_mean_z > -MAX_GYRO_BIAS)) {
 #ifdef GYRO_CAL_DBG_ENABLED
-    CAL_DEBUG_LOG("[GYRO_CAL:REJECT]",
-                  "Offset|Temp|Time [mdps|C|nsec]: %s%d.%06d, %s%d.%06d, "
-                  "%s%d.%06d, %s%d.%06d, %llu",
-                  CAL_ENCODE_FLOAT(gyro_cal->gyro_stillness_detect.prev_mean_x *
-                                       RAD_TO_MILLI_DEGREES,
-                                   6),
-                  CAL_ENCODE_FLOAT(gyro_cal->gyro_stillness_detect.prev_mean_y *
-                                       RAD_TO_MILLI_DEGREES,
-                                   6),
-                  CAL_ENCODE_FLOAT(gyro_cal->gyro_stillness_detect.prev_mean_z *
-                                       RAD_TO_MILLI_DEGREES,
-                                   6),
-                  CAL_ENCODE_FLOAT(gyro_cal->temperature_mean_celsius, 6),
-                  (unsigned long long int)calibration_time_nanos);
+    CAL_DEBUG_LOG(
+        "[GYRO_CAL:REJECT]",
+        "Offset|Temp|Time [mDPS|C|nsec]: " CAL_FORMAT_3DIGITS_TRIPLET
+        ", " CAL_FORMAT_3DIGITS ", %llu",
+        CAL_ENCODE_FLOAT(
+            gyro_cal->gyro_stillness_detect.prev_mean_x * RAD_TO_MDEG, 3),
+        CAL_ENCODE_FLOAT(
+            gyro_cal->gyro_stillness_detect.prev_mean_y * RAD_TO_MDEG, 3),
+        CAL_ENCODE_FLOAT(
+            gyro_cal->gyro_stillness_detect.prev_mean_z * RAD_TO_MDEG, 3),
+        CAL_ENCODE_FLOAT(gyro_cal->temperature_mean_celsius, 3),
+        (unsigned long long int)calibration_time_nanos);
 #endif  // GYRO_CAL_DBG_ENABLED
 
     // Outside of range. Ignore, reset, and continue.
@@ -582,14 +565,39 @@ void checkWatchdog(struct GyroCal* gyro_cal, uint64_t sample_time_nanos) {
     return;
   }
 
-  // Check for the watchdog timeout condition (i.e., the time elapsed since the
-  // last received sample has exceeded the allowed watchdog duration).
+  // Checks for the following watchdog timeout conditions:
+  //    i.  The current timestamp has exceeded the allowed watchdog duration.
+  //    ii. A timestamp was received that has jumped backwards by more than the
+  //        allowed watchdog duration (e.g., timestamp clock roll-over).
   watchdog_timeout =
       (sample_time_nanos > gyro_cal->gyro_watchdog_timeout_duration_nanos +
-                               gyro_cal->gyro_watchdog_start_nanos);
+                               gyro_cal->gyro_watchdog_start_nanos) ||
+      (sample_time_nanos + gyro_cal->gyro_watchdog_timeout_duration_nanos <
+       gyro_cal->gyro_watchdog_start_nanos);
 
   // If a timeout occurred then reset to known good state.
   if (watchdog_timeout) {
+#ifdef GYRO_CAL_DBG_ENABLED
+    gyro_cal->debug_watchdog_count++;
+    if (sample_time_nanos < gyro_cal->gyro_watchdog_start_nanos) {
+      CAL_DEBUG_LOG(
+          "[GYRO_CAL:WATCHDOG]",
+          "Total#, Timestamp | Delta [nsec]: %lu, %llu, -%llu",
+          (unsigned long int)gyro_cal->debug_watchdog_count,
+          (unsigned long long int)sample_time_nanos,
+          (unsigned long long int)(gyro_cal->gyro_watchdog_start_nanos -
+                                   sample_time_nanos));
+    } else {
+      CAL_DEBUG_LOG(
+          "[GYRO_CAL:WATCHDOG]",
+          "Total#, Timestamp | Delta  [nsec]: %lu, %llu, %llu",
+          (unsigned long int)gyro_cal->debug_watchdog_count,
+          (unsigned long long int)sample_time_nanos,
+          (unsigned long long int)(sample_time_nanos -
+                                   gyro_cal->gyro_watchdog_start_nanos));
+    }
+#endif  // GYRO_CAL_DBG_ENABLED
+
     // Reset stillness detectors and restart data capture.
     gyroStillDetReset(&gyro_cal->accel_stillness_detect, /*reset_stats=*/true);
     gyroStillDetReset(&gyro_cal->gyro_stillness_detect, /*reset_stats=*/true);
@@ -601,7 +609,8 @@ void checkWatchdog(struct GyroCal* gyro_cal, uint64_t sample_time_nanos) {
 
 #ifdef GYRO_CAL_DBG_ENABLED
     // Resets the sampling rate estimate.
-    gyroSamplingRateUpdate(NULL, sample_time_nanos, /*reset_stats=*/true);
+    gyroSamplingRateUpdate(&gyro_cal->sample_rate_estimator, NULL,
+                           sample_time_nanos, /*reset_stats=*/true);
 #endif  // GYRO_CAL_DBG_ENABLED
 
     // Resets the stillness window end-time.
@@ -624,69 +633,83 @@ void checkWatchdog(struct GyroCal* gyro_cal, uint64_t sample_time_nanos) {
     // Assert watchdog timeout flags.
     gyro_cal->gyro_watchdog_timeout |= watchdog_timeout;
     gyro_cal->gyro_watchdog_start_nanos = 0;
-#ifdef GYRO_CAL_DBG_ENABLED
-    gyro_cal->debug_watchdog_count++;
-    CAL_DEBUG_LOG("[GYRO_CAL:WATCHDOG]", "Total#, Timestamp [nsec]: %lu, %llu",
-                  (unsigned long int)gyro_cal->debug_watchdog_count,
-                  (unsigned long long int)sample_time_nanos);
-#endif  // GYRO_CAL_DBG_ENABLED
   }
 }
 
-// TODO(davejacobs) -- Combine the following two functions into one or consider
+// TODO -- Combine the following two functions into one or consider
 // implementing a separate helper module for tracking the temperature and mean
 // statistics.
 bool gyroTemperatureStatsTracker(struct GyroCal* gyro_cal,
                                  float temperature_celsius,
                                  enum GyroCalTrackerCommand do_this) {
-  // This is used for local calculations of the running mean.
-  static float mean_accumulator = 0.0f;
-  static float temperature_min_max_celsius[2] = {0.0f, 0.0f};
-  static size_t num_points = 0;
   bool min_max_temp_exceeded = false;
 
   switch (do_this) {
     case DO_RESET:
       // Resets the mean accumulator.
-      num_points = 0;
-      mean_accumulator = 0.0f;
+      gyro_cal->temperature_mean_tracker.num_points = 0;
+      gyro_cal->temperature_mean_tracker.mean_accumulator = 0.0f;
 
       // Initializes the min/max temperatures values.
-      temperature_min_max_celsius[0] = FLT_MAX;
-      temperature_min_max_celsius[1] = -1.0f * (FLT_MAX - 1.0f);
+      gyro_cal->temperature_mean_tracker.temperature_min_celsius = FLT_MAX;
+      gyro_cal->temperature_mean_tracker.temperature_max_celsius = -FLT_MAX;
       break;
 
     case DO_UPDATE_DATA:
       // Does the mean accumulation.
-      mean_accumulator += temperature_celsius;
-      num_points++;
+      gyro_cal->temperature_mean_tracker.mean_accumulator +=
+          temperature_celsius;
+      gyro_cal->temperature_mean_tracker.num_points++;
 
-      // Tracks the min and max temperature values.
-      if (temperature_min_max_celsius[0] > temperature_celsius) {
-        temperature_min_max_celsius[0] = temperature_celsius;
+      // Tracks the min, max, and latest temperature values.
+      gyro_cal->temperature_mean_tracker.latest_temperature_celsius =
+          temperature_celsius;
+      if (gyro_cal->temperature_mean_tracker.temperature_min_celsius >
+          temperature_celsius) {
+        gyro_cal->temperature_mean_tracker.temperature_min_celsius =
+            temperature_celsius;
       }
-      if (temperature_min_max_celsius[1] < temperature_celsius) {
-        temperature_min_max_celsius[1] = temperature_celsius;
+      if (gyro_cal->temperature_mean_tracker.temperature_max_celsius <
+          temperature_celsius) {
+        gyro_cal->temperature_mean_tracker.temperature_max_celsius =
+            temperature_celsius;
       }
       break;
 
     case DO_STORE_DATA:
-      // Store the most recent "stillness" mean data to the GyroCal data
+      // Store the most recent temperature statistics data to the GyroCal data
       // structure. This functionality allows previous results to be recalled
       // when the device suddenly becomes "not still".
-      if (num_points > 0) {
-        memcpy(gyro_cal->temperature_min_max_celsius,
-               temperature_min_max_celsius, 2 * sizeof(float));
-        gyro_cal->temperature_mean_celsius = mean_accumulator / num_points;
+      if (gyro_cal->temperature_mean_tracker.num_points > 0) {
+        gyro_cal->temperature_mean_celsius =
+            gyro_cal->temperature_mean_tracker.mean_accumulator /
+            gyro_cal->temperature_mean_tracker.num_points;
+      } else {
+        gyro_cal->temperature_mean_celsius =
+            gyro_cal->temperature_mean_tracker.latest_temperature_celsius;
+#ifdef GYRO_CAL_DBG_ENABLED
+        CAL_DEBUG_LOG("[GYRO_CAL:TEMP_GATE]",
+                      "Insufficient statistics (num_points = 0), using latest "
+                      "measured temperature as the mean value.");
+#endif  // GYRO_CAL_DBG_ENABLED
       }
+#ifdef GYRO_CAL_DBG_ENABLED
+      // Records the min/max and mean temperature values for debug purposes.
+      gyro_cal->debug_gyro_cal.temperature_mean_celsius =
+          gyro_cal->temperature_mean_celsius;
+      gyro_cal->debug_gyro_cal.temperature_min_celsius =
+          gyro_cal->temperature_mean_tracker.temperature_min_celsius;
+      gyro_cal->debug_gyro_cal.temperature_max_celsius =
+          gyro_cal->temperature_mean_tracker.temperature_max_celsius;
+#endif
       break;
 
     case DO_EVALUATE:
       // Determines if the min/max delta exceeded the set limit.
-      if (num_points > 0) {
+      if (gyro_cal->temperature_mean_tracker.num_points > 0) {
         min_max_temp_exceeded =
-            (temperature_min_max_celsius[1] -
-             temperature_min_max_celsius[0]) >
+            (gyro_cal->temperature_mean_tracker.temperature_max_celsius -
+             gyro_cal->temperature_mean_tracker.temperature_min_celsius) >
             gyro_cal->temperature_delta_limit_celsius;
 
 #ifdef GYRO_CAL_DBG_ENABLED
@@ -708,41 +731,50 @@ bool gyroTemperatureStatsTracker(struct GyroCal* gyro_cal,
 
 bool gyroStillMeanTracker(struct GyroCal* gyro_cal,
                           enum GyroCalTrackerCommand do_this) {
-  static float gyro_winmean_min[3] = {0.0f, 0.0f, 0.0f};
-  static float gyro_winmean_max[3] = {0.0f, 0.0f, 0.0f};
   bool mean_not_stable = false;
-  size_t i;
 
   switch (do_this) {
     case DO_RESET:
       // Resets the min/max window mean values to a default value.
-      for (i = 0; i < 3; i++) {
-        gyro_winmean_min[i] = FLT_MAX;
-        gyro_winmean_max[i] = -1.0f * (FLT_MAX - 1.0f);
+      for (size_t i = 0; i < 3; i++) {
+        gyro_cal->window_mean_tracker.gyro_winmean_min[i] = FLT_MAX;
+        gyro_cal->window_mean_tracker.gyro_winmean_max[i] = -FLT_MAX;
       }
       break;
 
     case DO_UPDATE_DATA:
       // Computes the min/max window mean values.
-      if (gyro_winmean_min[0] > gyro_cal->gyro_stillness_detect.win_mean_x) {
-        gyro_winmean_min[0] = gyro_cal->gyro_stillness_detect.win_mean_x;
+      if (gyro_cal->window_mean_tracker.gyro_winmean_min[0] >
+          gyro_cal->gyro_stillness_detect.win_mean_x) {
+        gyro_cal->window_mean_tracker.gyro_winmean_min[0] =
+            gyro_cal->gyro_stillness_detect.win_mean_x;
       }
-      if (gyro_winmean_max[0] < gyro_cal->gyro_stillness_detect.win_mean_x) {
-        gyro_winmean_max[0] = gyro_cal->gyro_stillness_detect.win_mean_x;
-      }
-
-      if (gyro_winmean_min[1] > gyro_cal->gyro_stillness_detect.win_mean_y) {
-        gyro_winmean_min[1] = gyro_cal->gyro_stillness_detect.win_mean_y;
-      }
-      if (gyro_winmean_max[1] < gyro_cal->gyro_stillness_detect.win_mean_y) {
-        gyro_winmean_max[1] = gyro_cal->gyro_stillness_detect.win_mean_y;
+      if (gyro_cal->window_mean_tracker.gyro_winmean_max[0] <
+          gyro_cal->gyro_stillness_detect.win_mean_x) {
+        gyro_cal->window_mean_tracker.gyro_winmean_max[0] =
+            gyro_cal->gyro_stillness_detect.win_mean_x;
       }
 
-      if (gyro_winmean_min[2] > gyro_cal->gyro_stillness_detect.win_mean_z) {
-        gyro_winmean_min[2] = gyro_cal->gyro_stillness_detect.win_mean_z;
+      if (gyro_cal->window_mean_tracker.gyro_winmean_min[1] >
+          gyro_cal->gyro_stillness_detect.win_mean_y) {
+        gyro_cal->window_mean_tracker.gyro_winmean_min[1] =
+            gyro_cal->gyro_stillness_detect.win_mean_y;
       }
-      if (gyro_winmean_max[2] < gyro_cal->gyro_stillness_detect.win_mean_z) {
-        gyro_winmean_max[2] = gyro_cal->gyro_stillness_detect.win_mean_z;
+      if (gyro_cal->window_mean_tracker.gyro_winmean_max[1] <
+          gyro_cal->gyro_stillness_detect.win_mean_y) {
+        gyro_cal->window_mean_tracker.gyro_winmean_max[1] =
+            gyro_cal->gyro_stillness_detect.win_mean_y;
+      }
+
+      if (gyro_cal->window_mean_tracker.gyro_winmean_min[2] >
+          gyro_cal->gyro_stillness_detect.win_mean_z) {
+        gyro_cal->window_mean_tracker.gyro_winmean_min[2] =
+            gyro_cal->gyro_stillness_detect.win_mean_z;
+      }
+      if (gyro_cal->window_mean_tracker.gyro_winmean_max[2] <
+          gyro_cal->gyro_stillness_detect.win_mean_z) {
+        gyro_cal->window_mean_tracker.gyro_winmean_max[2] =
+            gyro_cal->gyro_stillness_detect.win_mean_z;
       }
       break;
 
@@ -750,22 +782,45 @@ bool gyroStillMeanTracker(struct GyroCal* gyro_cal,
       // Store the most recent "stillness" mean data to the GyroCal data
       // structure. This functionality allows previous results to be recalled
       // when the device suddenly becomes "not still".
-      memcpy(gyro_cal->gyro_winmean_min, gyro_winmean_min, 3 * sizeof(float));
-      memcpy(gyro_cal->gyro_winmean_max, gyro_winmean_max, 3 * sizeof(float));
-    break;
+      memcpy(gyro_cal->gyro_winmean_min,
+             gyro_cal->window_mean_tracker.gyro_winmean_min,
+             sizeof(gyro_cal->window_mean_tracker.gyro_winmean_min));
+      memcpy(gyro_cal->gyro_winmean_max,
+             gyro_cal->window_mean_tracker.gyro_winmean_max,
+             sizeof(gyro_cal->window_mean_tracker.gyro_winmean_max));
+      break;
 
     case DO_EVALUATE:
       // Performs the stability check and returns the 'true' if the difference
       // between min/max window mean value is outside the stable range.
-      for (i = 0; i < 3; i++) {
-        mean_not_stable |= (gyro_winmean_max[i] - gyro_winmean_min[i]) >
+      for (size_t i = 0; i < 3; i++) {
+        mean_not_stable |= (gyro_cal->window_mean_tracker.gyro_winmean_max[i] -
+                            gyro_cal->window_mean_tracker.gyro_winmean_min[i]) >
                            gyro_cal->stillness_mean_delta_limit;
       }
 #ifdef GYRO_CAL_DBG_ENABLED
       if (mean_not_stable) {
-        CAL_DEBUG_LOG("[GYRO_CAL:MEAN_STABILITY_GATE]",
-                      "Exceeded the max variation in the gyro's stillness "
-                      "window mean values.");
+        CAL_DEBUG_LOG(
+            "[GYRO_CAL:MEAN_STABILITY_GATE]",
+            "Variation Limit|Delta [mDPS]: " CAL_FORMAT_3DIGITS
+            " | " CAL_FORMAT_3DIGITS_TRIPLET,
+            CAL_ENCODE_FLOAT(gyro_cal->stillness_mean_delta_limit * RAD_TO_MDEG,
+                             3),
+            CAL_ENCODE_FLOAT(
+                (gyro_cal->window_mean_tracker.gyro_winmean_max[0] -
+                 gyro_cal->window_mean_tracker.gyro_winmean_min[0]) *
+                    RAD_TO_MDEG,
+                3),
+            CAL_ENCODE_FLOAT(
+                (gyro_cal->window_mean_tracker.gyro_winmean_max[1] -
+                 gyro_cal->window_mean_tracker.gyro_winmean_min[1]) *
+                    RAD_TO_MDEG,
+                3),
+            CAL_ENCODE_FLOAT(
+                (gyro_cal->window_mean_tracker.gyro_winmean_max[2] -
+                 gyro_cal->window_mean_tracker.gyro_winmean_min[2]) *
+                    RAD_TO_MDEG,
+                3));
       }
 #endif  // GYRO_CAL_DBG_ENABLED
       break;
@@ -778,21 +833,19 @@ bool gyroStillMeanTracker(struct GyroCal* gyro_cal,
 }
 
 #ifdef GYRO_CAL_DBG_ENABLED
-void gyroSamplingRateUpdate(float* debug_mean_sampling_rate_hz,
+void gyroSamplingRateUpdate(struct SampleRateData* sample_rate_estimator,
+                            float* debug_mean_sampling_rate_hz,
                             uint64_t timestamp_nanos, bool reset_stats) {
-  // This is used for local calculations of average sampling rate.
-  static uint64_t last_timestamp_nanos = 0;
-  static uint64_t time_delta_accumulator = 0;
-  static size_t num_samples = 0;
-
   // If 'debug_mean_sampling_rate_hz' is not NULL then this function just reads
   // out the estimate of the sampling rate.
   if (debug_mean_sampling_rate_hz) {
-    if (num_samples > 1 && time_delta_accumulator > 0) {
+    if (sample_rate_estimator->num_samples > 1 &&
+        sample_rate_estimator->time_delta_accumulator > 0) {
       // Computes the final mean calculation.
       *debug_mean_sampling_rate_hz =
-          num_samples /
-          (floatFromUint64(time_delta_accumulator) * NANOS_TO_SEC);
+          sample_rate_estimator->num_samples /
+          (floatFromUint64(sample_rate_estimator->time_delta_accumulator) *
+           NANOS_TO_SEC);
     } else {
       // Not enough samples to compute a valid sample rate estimate. Indicate
       // this with a -1 value.
@@ -803,26 +856,28 @@ void gyroSamplingRateUpdate(float* debug_mean_sampling_rate_hz,
 
   // Resets the sampling rate mean estimator data.
   if (reset_stats) {
-    last_timestamp_nanos = 0;
-    time_delta_accumulator = 0;
-    num_samples = 0;
+    sample_rate_estimator->last_timestamp_nanos = 0;
+    sample_rate_estimator->time_delta_accumulator = 0;
+    sample_rate_estimator->num_samples = 0;
     return;
   }
 
   // Skip adding this data to the accumulator if:
   //   1. A bad timestamp was received (i.e., time not monotonic).
   //   2. 'last_timestamp_nanos' is zero.
-  if (timestamp_nanos <= last_timestamp_nanos || last_timestamp_nanos == 0) {
-    last_timestamp_nanos = timestamp_nanos;
+  if (timestamp_nanos <= sample_rate_estimator->last_timestamp_nanos ||
+      sample_rate_estimator->last_timestamp_nanos == 0) {
+    sample_rate_estimator->last_timestamp_nanos = timestamp_nanos;
     return;
   }
 
   // Increments the number of samples.
-  num_samples++;
+  sample_rate_estimator->num_samples++;
 
   // Accumulate the time steps.
-  time_delta_accumulator += timestamp_nanos - last_timestamp_nanos;
-  last_timestamp_nanos = timestamp_nanos;
+  sample_rate_estimator->time_delta_accumulator +=
+      timestamp_nanos - sample_rate_estimator->last_timestamp_nanos;
+  sample_rate_estimator->last_timestamp_nanos = timestamp_nanos;
 }
 
 void gyroCalUpdateDebug(struct GyroCal* gyro_cal) {
@@ -858,20 +913,15 @@ void gyroCalUpdateDebug(struct GyroCal* gyro_cal) {
   gyro_cal->debug_gyro_cal.calibration[2] = gyro_cal->bias_z;
 
   // Records the mean gyroscope sampling rate.
-  gyroSamplingRateUpdate(&gyro_cal->debug_gyro_cal.mean_sampling_rate_hz, 0,
+  gyroSamplingRateUpdate(&gyro_cal->sample_rate_estimator,
+                         &gyro_cal->debug_gyro_cal.mean_sampling_rate_hz, 0,
                          /*reset_stats=*/true);
-
-  // Records the min/max and mean temperature values.
-  gyro_cal->debug_gyro_cal.temperature_mean_celsius =
-      gyro_cal->temperature_mean_celsius;
-  memcpy(gyro_cal->debug_gyro_cal.temperature_min_max_celsius,
-         gyro_cal->temperature_min_max_celsius, 2 * sizeof(float));
 
   // Records the min/max gyroscope window stillness mean values.
   memcpy(gyro_cal->debug_gyro_cal.gyro_winmean_min, gyro_cal->gyro_winmean_min,
-         3 * sizeof(float));
+         sizeof(gyro_cal->gyro_winmean_min));
   memcpy(gyro_cal->debug_gyro_cal.gyro_winmean_max, gyro_cal->gyro_winmean_max,
-         3 * sizeof(float));
+         sizeof(gyro_cal->gyro_winmean_max));
 
   // Records the previous stillness window means.
   gyro_cal->debug_gyro_cal.accel_mean[0] =
@@ -930,23 +980,21 @@ void gyroCalDebugPrintData(const struct GyroCal* gyro_cal, char* debug_tag,
   float mag_data;
   switch (print_data) {
     case OFFSET:
-      CAL_DEBUG_LOG(debug_tag,
-                    "Cal#|Offset|Temp|Time [mdps|C|nsec]: %lu, %s%d.%06d, "
-                    "%s%d.%06d, %s%d.%06d, %s%d.%03d, %llu",
-                    (unsigned long int)gyro_cal->debug_calibration_count,
-                    CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.calibration[0] *
-                                         RAD_TO_MILLI_DEGREES,
-                                     6),
-                    CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.calibration[1] *
-                                         RAD_TO_MILLI_DEGREES,
-                                     6),
-                    CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.calibration[2] *
-                                         RAD_TO_MILLI_DEGREES,
-                                     6),
-                    CAL_ENCODE_FLOAT(
-                        gyro_cal->debug_gyro_cal.temperature_mean_celsius, 3),
-                    (unsigned long long int)
-                        gyro_cal->debug_gyro_cal.end_still_time_nanos);
+      CAL_DEBUG_LOG(
+          debug_tag,
+          "Cal#|Offset|Temp|Time [mDPS|C|nsec]: "
+          "%lu, " CAL_FORMAT_3DIGITS_TRIPLET ", " CAL_FORMAT_3DIGITS ", %llu",
+          (unsigned long int)gyro_cal->debug_calibration_count,
+          CAL_ENCODE_FLOAT(
+              gyro_cal->debug_gyro_cal.calibration[0] * RAD_TO_MDEG, 3),
+          CAL_ENCODE_FLOAT(
+              gyro_cal->debug_gyro_cal.calibration[1] * RAD_TO_MDEG, 3),
+          CAL_ENCODE_FLOAT(
+              gyro_cal->debug_gyro_cal.calibration[2] * RAD_TO_MDEG, 3),
+          CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.temperature_mean_celsius,
+                           3),
+          (unsigned long long int)
+              gyro_cal->debug_gyro_cal.end_still_time_nanos);
       break;
 
     case STILLNESS_DATA:
@@ -955,12 +1003,13 @@ void gyroCalDebugPrintData(const struct GyroCal* gyro_cal, char* debug_tag,
                      : -1.0f;  // Signals that magnetometer was not used.
       CAL_DEBUG_LOG(
           debug_tag,
-          "Cal#|Start|End|Confidence [nsec]: %lu, %llu, %llu, "
-          "%s%d.%03d, %s%d.%03d, %s%d.%03d",
+          "Cal#|Stillness|Confidence [nsec]: %lu, "
+          "%llu, " CAL_FORMAT_3DIGITS_TRIPLET,
           (unsigned long int)gyro_cal->debug_calibration_count,
-          (unsigned long long int)
-              gyro_cal->debug_gyro_cal.start_still_time_nanos,
-          (unsigned long long int)gyro_cal->debug_gyro_cal.end_still_time_nanos,
+          (unsigned long long int)(gyro_cal->debug_gyro_cal
+                                       .end_still_time_nanos -
+                                   gyro_cal->debug_gyro_cal
+                                       .start_still_time_nanos),
           CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.gyro_stillness_conf, 3),
           CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.accel_stillness_conf, 3),
           CAL_ENCODE_FLOAT(mag_data, 3));
@@ -969,85 +1018,90 @@ void gyroCalDebugPrintData(const struct GyroCal* gyro_cal, char* debug_tag,
     case SAMPLE_RATE_AND_TEMPERATURE:
       CAL_DEBUG_LOG(
           debug_tag,
-          "Cal#|Mean|Min|Max|Delta|Sample Rate [C|Hz]: %lu, %s%d.%03d, "
-          "%s%d.%03d, %s%d.%03d, %s%d.%04d, %s%d.%03d",
+          "Cal#|Mean|Min|Max|Delta|Sample Rate [C|Hz]: "
+          "%lu, " CAL_FORMAT_3DIGITS_TRIPLET ", " CAL_FORMAT_3DIGITS
+          ", " CAL_FORMAT_3DIGITS,
           (unsigned long int)gyro_cal->debug_calibration_count,
           CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.temperature_mean_celsius,
                            3),
-          CAL_ENCODE_FLOAT(
-              gyro_cal->debug_gyro_cal.temperature_min_max_celsius[0], 3),
-          CAL_ENCODE_FLOAT(
-              gyro_cal->debug_gyro_cal.temperature_min_max_celsius[1], 3),
-          CAL_ENCODE_FLOAT(
-              gyro_cal->debug_gyro_cal.temperature_min_max_celsius[1] -
-                  gyro_cal->debug_gyro_cal.temperature_min_max_celsius[0],
-              4),
+          CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.temperature_min_celsius, 3),
+          CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.temperature_max_celsius, 3),
+          CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.temperature_max_celsius -
+                               gyro_cal->debug_gyro_cal.temperature_min_celsius,
+                           3),
           CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.mean_sampling_rate_hz, 3));
       break;
 
     case GYRO_MINMAX_STILLNESS_MEAN:
       CAL_DEBUG_LOG(
           debug_tag,
-          "Cal#|Gyro Peak Stillness Variation [mdps]: %lu, %s%d.%06d, "
-          "%s%d.%06d, %s%d.%06d",
+          "Cal#|Gyro Peak Stillness Variation [mDPS]: "
+          "%lu, " CAL_FORMAT_3DIGITS_TRIPLET,
           (unsigned long int)gyro_cal->debug_calibration_count,
           CAL_ENCODE_FLOAT((gyro_cal->debug_gyro_cal.gyro_winmean_max[0] -
                             gyro_cal->debug_gyro_cal.gyro_winmean_min[0]) *
-                               RAD_TO_MILLI_DEGREES,
-                           6),
+                               RAD_TO_MDEG,
+                           3),
           CAL_ENCODE_FLOAT((gyro_cal->debug_gyro_cal.gyro_winmean_max[1] -
                             gyro_cal->debug_gyro_cal.gyro_winmean_min[1]) *
-                               RAD_TO_MILLI_DEGREES,
-                           6),
+                               RAD_TO_MDEG,
+                           3),
           CAL_ENCODE_FLOAT((gyro_cal->debug_gyro_cal.gyro_winmean_max[2] -
                             gyro_cal->debug_gyro_cal.gyro_winmean_min[2]) *
-                               RAD_TO_MILLI_DEGREES,
-                           6));
+                               RAD_TO_MDEG,
+                           3));
       break;
 
     case ACCEL_STATS:
-      CAL_DEBUG_LOG(
-          debug_tag,
-          "Cal#|Accel Mean|Var [m/sec^2|(m/sec^2)^2]: %lu, "
-          "%s%d.%06d, %s%d.%06d, %s%d.%06d, %s%d.%08d, %s%d.%08d, %s%d.%08d",
-          (unsigned long int)gyro_cal->debug_calibration_count,
-          CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.accel_mean[0], 6),
-          CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.accel_mean[1], 6),
-          CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.accel_mean[2], 6),
-          CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.accel_var[0], 8),
-          CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.accel_var[1], 8),
-          CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.accel_var[2], 8));
+      CAL_DEBUG_LOG(debug_tag,
+                    "Cal#|Accel Mean|Var [m/sec^2|(m/sec^2)^2]: "
+                    "%lu, " CAL_FORMAT_3DIGITS_TRIPLET
+                    ", " CAL_FORMAT_6DIGITS_TRIPLET,
+                    (unsigned long int)gyro_cal->debug_calibration_count,
+                    CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.accel_mean[0], 3),
+                    CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.accel_mean[1], 3),
+                    CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.accel_mean[2], 3),
+                    CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.accel_var[0], 6),
+                    CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.accel_var[1], 6),
+                    CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.accel_var[2], 6));
       break;
 
     case GYRO_STATS:
       CAL_DEBUG_LOG(
           debug_tag,
-          "Cal#|Gyro Mean|Var [mdps|(rad/sec)^2]: %lu, %s%d.%06d, "
-          "%s%d.%06d, %s%d.%06d, %s%d.%08d, %s%d.%08d, %s%d.%08d",
+          "Cal#|Gyro Mean|Var [mDPS|mDPS^2]: %lu, " CAL_FORMAT_3DIGITS_TRIPLET
+          ", " CAL_FORMAT_3DIGITS_TRIPLET,
           (unsigned long int)gyro_cal->debug_calibration_count,
+          CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.gyro_mean[0] * RAD_TO_MDEG,
+                           3),
+          CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.gyro_mean[1] * RAD_TO_MDEG,
+                           3),
+          CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.gyro_mean[2] * RAD_TO_MDEG,
+                           3),
           CAL_ENCODE_FLOAT(
-              gyro_cal->debug_gyro_cal.gyro_mean[0] * RAD_TO_MILLI_DEGREES, 6),
+              gyro_cal->debug_gyro_cal.gyro_var[0] * RAD_TO_MDEG * RAD_TO_MDEG,
+              3),
           CAL_ENCODE_FLOAT(
-              gyro_cal->debug_gyro_cal.gyro_mean[1] * RAD_TO_MILLI_DEGREES, 6),
+              gyro_cal->debug_gyro_cal.gyro_var[1] * RAD_TO_MDEG * RAD_TO_MDEG,
+              3),
           CAL_ENCODE_FLOAT(
-              gyro_cal->debug_gyro_cal.gyro_mean[2] * RAD_TO_MILLI_DEGREES, 6),
-          CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.gyro_var[0], 8),
-          CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.gyro_var[1], 8),
-          CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.gyro_var[2], 8));
+              gyro_cal->debug_gyro_cal.gyro_var[2] * RAD_TO_MDEG * RAD_TO_MDEG,
+              3));
       break;
 
     case MAG_STATS:
       if (gyro_cal->debug_gyro_cal.using_mag_sensor) {
-        CAL_DEBUG_LOG(debug_tag,
-                      "Cal#|Mag Mean|Var [uT|uT^2]: %lu, %s%d.%06d, "
-                      "%s%d.%06d, %s%d.%06d, %s%d.%08d, %s%d.%08d, %s%d.%08d",
-                      (unsigned long int)gyro_cal->debug_calibration_count,
-                      CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.mag_mean[0], 6),
-                      CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.mag_mean[1], 6),
-                      CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.mag_mean[2], 6),
-                      CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.mag_var[0], 8),
-                      CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.mag_var[1], 8),
-                      CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.mag_var[2], 8));
+        CAL_DEBUG_LOG(
+            debug_tag,
+            "Cal#|Mag Mean|Var [uT|uT^2]: %lu, " CAL_FORMAT_3DIGITS_TRIPLET
+            ", " CAL_FORMAT_6DIGITS_TRIPLET,
+            (unsigned long int)gyro_cal->debug_calibration_count,
+            CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.mag_mean[0], 3),
+            CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.mag_mean[1], 3),
+            CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.mag_mean[2], 3),
+            CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.mag_var[0], 6),
+            CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.mag_var[1], 6),
+            CAL_ENCODE_FLOAT(gyro_cal->debug_gyro_cal.mag_var[2], 6));
       } else {
         CAL_DEBUG_LOG(debug_tag,
                       "Cal#|Mag Mean|Var [uT|uT^2]: %lu, 0, 0, 0, -1.0, -1.0, "
@@ -1056,67 +1110,12 @@ void gyroCalDebugPrintData(const struct GyroCal* gyro_cal, char* debug_tag,
       }
       break;
 
-#ifdef GYRO_CAL_DBG_TUNE_ENABLED
-    case ACCEL_STATS_TUNING:
-      CAL_DEBUG_LOG(
-          debug_tag,
-          "Accel Mean|Var [m/sec^2|(m/sec^2)^2]: %s%d.%06d, "
-          "%s%d.%06d, %s%d.%06d, %s%d.%08d, %s%d.%08d, %s%d.%08d",
-          CAL_ENCODE_FLOAT(gyro_cal->accel_stillness_detect.prev_mean_x, 6),
-          CAL_ENCODE_FLOAT(gyro_cal->accel_stillness_detect.prev_mean_y, 6),
-          CAL_ENCODE_FLOAT(gyro_cal->accel_stillness_detect.prev_mean_z, 6),
-          CAL_ENCODE_FLOAT(gyro_cal->accel_stillness_detect.win_var_x, 8),
-          CAL_ENCODE_FLOAT(gyro_cal->accel_stillness_detect.win_var_y, 8),
-          CAL_ENCODE_FLOAT(gyro_cal->accel_stillness_detect.win_var_z, 8));
-      break;
-
-    case GYRO_STATS_TUNING:
-      CAL_DEBUG_LOG(
-          debug_tag,
-          "Gyro Mean|Var [mdps|(rad/sec)^2]: %s%d.%06d, %s%d.%06d, %s%d.%06d, "
-          "%s%d.%08d, %s%d.%08d, %s%d.%08d",
-          CAL_ENCODE_FLOAT(gyro_cal->gyro_stillness_detect.prev_mean_x *
-                               RAD_TO_MILLI_DEGREES,
-                           6),
-          CAL_ENCODE_FLOAT(gyro_cal->gyro_stillness_detect.prev_mean_y *
-                               RAD_TO_MILLI_DEGREES,
-                           6),
-          CAL_ENCODE_FLOAT(gyro_cal->gyro_stillness_detect.prev_mean_z *
-                               RAD_TO_MILLI_DEGREES,
-                           6),
-          CAL_ENCODE_FLOAT(gyro_cal->gyro_stillness_detect.win_var_x, 8),
-          CAL_ENCODE_FLOAT(gyro_cal->gyro_stillness_detect.win_var_y, 8),
-          CAL_ENCODE_FLOAT(gyro_cal->gyro_stillness_detect.win_var_z, 8));
-      break;
-
-    case MAG_STATS_TUNING:
-      if (gyro_cal->using_mag_sensor) {
-        CAL_DEBUG_LOG(
-            debug_tag,
-            "Mag Mean|Var [uT|uT^2]: %s%d.%06d, %s%d.%06d, %s%d.%06d, "
-            "%s%d.%08d, %s%d.%08d, %s%d.%08d",
-            CAL_ENCODE_FLOAT(gyro_cal->mag_stillness_detect.prev_mean_x, 6),
-            CAL_ENCODE_FLOAT(gyro_cal->mag_stillness_detect.prev_mean_y, 6),
-            CAL_ENCODE_FLOAT(gyro_cal->mag_stillness_detect.prev_mean_z, 6),
-            CAL_ENCODE_FLOAT(gyro_cal->mag_stillness_detect.win_var_x, 8),
-            CAL_ENCODE_FLOAT(gyro_cal->mag_stillness_detect.win_var_y, 8),
-            CAL_ENCODE_FLOAT(gyro_cal->mag_stillness_detect.win_var_z, 8));
-      } else {
-        CAL_DEBUG_LOG(GYROCAL_TUNE_TAG,
-                      "Mag Mean|Var [uT|uT^2]: 0, 0, 0, -1.0, -1.0, -1.0");
-      }
-      break;
-#endif  // GYRO_CAL_DBG_TUNE_ENABLED
-
     default:
       break;
   }
 }
 
 void gyroCalDebugPrint(struct GyroCal* gyro_cal, uint64_t timestamp_nanos) {
-  static enum GyroCalDebugState next_state = GYRO_IDLE;
-  static uint64_t wait_timer_nanos = 0;
-
   // This is a state machine that controls the reporting out of debug data.
   switch (gyro_cal->debug_state) {
     case GYRO_IDLE:
@@ -1134,141 +1133,70 @@ void gyroCalDebugPrint(struct GyroCal* gyro_cal, uint64_t timestamp_nanos) {
 
     case GYRO_WAIT_STATE:
       // This helps throttle the print statements.
-      if (timestamp_nanos >= GYROCAL_WAIT_TIME_NANOS + wait_timer_nanos) {
-        gyro_cal->debug_state = next_state;
+      if (NANO_TIMER_CHECK_T1_GEQUAL_T2_PLUS_DELTA(timestamp_nanos,
+                                                   gyro_cal->wait_timer_nanos,
+                                                   GYROCAL_WAIT_TIME_NANOS)) {
+        gyro_cal->debug_state = gyro_cal->next_state;
       }
       break;
 
     case GYRO_PRINT_OFFSET:
       gyroCalDebugPrintData(gyro_cal, GYROCAL_REPORT_TAG, OFFSET);
-      wait_timer_nanos = timestamp_nanos;       // Starts the wait timer.
-      next_state = GYRO_PRINT_STILLNESS_DATA;   // Sets the next state.
+      gyro_cal->wait_timer_nanos = timestamp_nanos;  // Starts the wait timer.
+      gyro_cal->next_state = GYRO_PRINT_STILLNESS_DATA;  // Sets the next state.
       gyro_cal->debug_state = GYRO_WAIT_STATE;  // First, go to wait state.
       break;
 
     case GYRO_PRINT_STILLNESS_DATA:
       gyroCalDebugPrintData(gyro_cal, GYROCAL_REPORT_TAG, STILLNESS_DATA);
-      wait_timer_nanos = timestamp_nanos;       // Starts the wait timer.
-      next_state = GYRO_PRINT_SAMPLE_RATE_AND_TEMPERATURE;  // Sets next state.
-      gyro_cal->debug_state = GYRO_WAIT_STATE;  // First, go to wait state.
+      gyro_cal->wait_timer_nanos = timestamp_nanos;  // Starts the wait timer.
+      gyro_cal->next_state =
+          GYRO_PRINT_SAMPLE_RATE_AND_TEMPERATURE;  // Sets next state.
+      gyro_cal->debug_state = GYRO_WAIT_STATE;     // First, go to wait state.
       break;
 
     case GYRO_PRINT_SAMPLE_RATE_AND_TEMPERATURE:
       gyroCalDebugPrintData(gyro_cal, GYROCAL_REPORT_TAG,
                             SAMPLE_RATE_AND_TEMPERATURE);
-      wait_timer_nanos = timestamp_nanos;       // Starts the wait timer.
-      next_state = GYRO_PRINT_GYRO_MINMAX_STILLNESS_MEAN;  // Sets next state.
-      gyro_cal->debug_state = GYRO_WAIT_STATE;  // First, go to wait state.
+      gyro_cal->wait_timer_nanos = timestamp_nanos;  // Starts the wait timer.
+      gyro_cal->next_state =
+          GYRO_PRINT_GYRO_MINMAX_STILLNESS_MEAN;  // Sets next state.
+      gyro_cal->debug_state = GYRO_WAIT_STATE;    // First, go to wait state.
       break;
 
     case GYRO_PRINT_GYRO_MINMAX_STILLNESS_MEAN:
       gyroCalDebugPrintData(gyro_cal, GYROCAL_REPORT_TAG,
                             GYRO_MINMAX_STILLNESS_MEAN);
-      wait_timer_nanos = timestamp_nanos;       // Starts the wait timer.
-      next_state = GYRO_PRINT_ACCEL_STATS;      // Sets the next state.
+      gyro_cal->wait_timer_nanos = timestamp_nanos;   // Starts the wait timer.
+      gyro_cal->next_state = GYRO_PRINT_ACCEL_STATS;  // Sets the next state.
       gyro_cal->debug_state = GYRO_WAIT_STATE;  // First, go to wait state.
       break;
 
     case GYRO_PRINT_ACCEL_STATS:
       gyroCalDebugPrintData(gyro_cal, GYROCAL_REPORT_TAG, ACCEL_STATS);
-      wait_timer_nanos = timestamp_nanos;       // Starts the wait timer.
-      next_state = GYRO_PRINT_GYRO_STATS;       // Sets the next state.
-      gyro_cal->debug_state = GYRO_WAIT_STATE;  // First, go to wait state.
+      gyro_cal->wait_timer_nanos = timestamp_nanos;  // Starts the wait timer.
+      gyro_cal->next_state = GYRO_PRINT_GYRO_STATS;  // Sets the next state.
+      gyro_cal->debug_state = GYRO_WAIT_STATE;       // First, go to wait state.
       break;
 
     case GYRO_PRINT_GYRO_STATS:
       gyroCalDebugPrintData(gyro_cal, GYROCAL_REPORT_TAG, GYRO_STATS);
-      wait_timer_nanos = timestamp_nanos;       // Starts the wait timer.
-      next_state = GYRO_PRINT_MAG_STATS;        // Sets the next state.
-      gyro_cal->debug_state = GYRO_WAIT_STATE;  // First, go to wait state.
+      gyro_cal->wait_timer_nanos = timestamp_nanos;  // Starts the wait timer.
+      gyro_cal->next_state = GYRO_PRINT_MAG_STATS;   // Sets the next state.
+      gyro_cal->debug_state = GYRO_WAIT_STATE;       // First, go to wait state.
       break;
 
     case GYRO_PRINT_MAG_STATS:
       gyroCalDebugPrintData(gyro_cal, GYROCAL_REPORT_TAG, MAG_STATS);
-      wait_timer_nanos = timestamp_nanos;       // Starts the wait timer.
-      next_state = GYRO_IDLE;                   // Sets the next state.
-      gyro_cal->debug_state = GYRO_WAIT_STATE;  // First, go to wait state.
+      gyro_cal->wait_timer_nanos = timestamp_nanos;  // Starts the wait timer.
+      gyro_cal->next_state = GYRO_IDLE;              // Sets the next state.
+      gyro_cal->debug_state = GYRO_WAIT_STATE;       // First, go to wait state.
       break;
 
     default:
       // Sends this state machine to its idle state.
-      wait_timer_nanos = timestamp_nanos;       // Starts the wait timer.
-      gyro_cal->debug_state = GYRO_WAIT_STATE;  // First, go to wait state.
-  }
-
-#ifdef GYRO_CAL_DBG_TUNE_ENABLED
-  if (gyro_cal->debug_state == GYRO_IDLE) {
-    // This check keeps the tuning printout from interleaving with the above
-    // debug print data.
-    gyroCalTuneDebugPrint(gyro_cal, timestamp_nanos);
-  }
-#endif  // GYRO_CAL_DBG_TUNE_ENABLED
-}
-
-#ifdef GYRO_CAL_DBG_TUNE_ENABLED
-void gyroCalTuneDebugPrint(const struct GyroCal* gyro_cal,
-                           uint64_t timestamp_nanos) {
-  static enum GyroCalDebugState debug_state = GYRO_IDLE;
-  static enum GyroCalDebugState next_state = GYRO_IDLE;
-  static uint64_t wait_timer_nanos = 0;
-
-  // Output sensor variance levels to assist with tuning thresholds.
-  //   i.  Within the first 300 seconds of boot: output interval = 5
-  //       seconds.
-  //   ii. Thereafter: output interval is 60 seconds.
-  bool condition_i =
-      ((timestamp_nanos <= 300000000000) &&
-       (timestamp_nanos > 5000000000 + wait_timer_nanos));  // nsec
-  bool condition_ii = (timestamp_nanos > 60000000000 + wait_timer_nanos);
-
-  // This is a state machine that controls the reporting out of tuning data.
-  switch (debug_state) {
-    case GYRO_IDLE:
-      // Wait for a trigger and start the data tuning printout sequence.
-      if (condition_i || condition_ii) {
-        CAL_DEBUG_LOG(GYROCAL_TUNE_TAG, "Temp [C]: %s%d.%03d",
-                      CAL_ENCODE_FLOAT(gyro_cal->temperature_mean_celsius, 3));
-        wait_timer_nanos = timestamp_nanos;   // Starts the wait timer.
-        next_state = GYRO_PRINT_ACCEL_STATS;  // Sets the next state.
-        debug_state = GYRO_WAIT_STATE;        // First, go to wait state.
-      } else {
-        debug_state = GYRO_IDLE;
-      }
-      break;
-
-    case GYRO_WAIT_STATE:
-      // This helps throttle the print statements.
-      if (timestamp_nanos >= GYROCAL_WAIT_TIME_NANOS + wait_timer_nanos) {
-        debug_state = next_state;
-      }
-      break;
-
-    case GYRO_PRINT_ACCEL_STATS:
-      gyroCalDebugPrintData(gyro_cal, GYROCAL_TUNE_TAG, ACCEL_STATS_TUNING);
-      wait_timer_nanos = timestamp_nanos;  // Starts the wait timer.
-      next_state = GYRO_PRINT_GYRO_STATS;  // Sets the next state.
-      debug_state = GYRO_WAIT_STATE;       // First, go to wait state.
-      break;
-
-    case GYRO_PRINT_GYRO_STATS:
-      gyroCalDebugPrintData(gyro_cal, GYROCAL_TUNE_TAG, GYRO_STATS_TUNING);
-      wait_timer_nanos = timestamp_nanos;  // Starts the wait timer.
-      next_state = GYRO_PRINT_MAG_STATS;   // Sets the next state.
-      debug_state = GYRO_WAIT_STATE;       // First, go to wait state.
-      break;
-
-    case GYRO_PRINT_MAG_STATS:
-      gyroCalDebugPrintData(gyro_cal, GYROCAL_TUNE_TAG, MAG_STATS_TUNING);
-      wait_timer_nanos = timestamp_nanos;  // Starts the wait timer.
-      next_state = GYRO_IDLE;              // Sets the next state.
-      debug_state = GYRO_WAIT_STATE;       // First, go to wait state.
-      break;
-
-    default:
-      // Sends this state machine to its idle state.
-      wait_timer_nanos = timestamp_nanos;  // Starts the wait timer.
-      debug_state = GYRO_IDLE;
+      gyro_cal->wait_timer_nanos = timestamp_nanos;  // Starts the wait timer.
+      gyro_cal->debug_state = GYRO_IDLE;             // Go to idle state.
   }
 }
-#endif  // GYRO_CAL_DBG_TUNE_ENABLED
 #endif  // GYRO_CAL_DBG_ENABLED

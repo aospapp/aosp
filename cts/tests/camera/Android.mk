@@ -29,7 +29,7 @@ LOCAL_SRC_FILES := \
 LOCAL_MODULE := CtsCameraUtils
 
 LOCAL_SDK_VERSION := current
-
+-include cts/error_prone_rules_tests.mk
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
 # CtsCameraTestCases package
@@ -58,7 +58,7 @@ LOCAL_SRC_FILES := \
 	$(call all-renderscript-files-under, src)
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 LOCAL_PACKAGE_NAME := CtsCameraTestCases
 

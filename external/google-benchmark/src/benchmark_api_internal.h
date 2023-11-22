@@ -24,9 +24,11 @@ struct Benchmark::Instance {
   bool use_manual_time;
   BigO complexity;
   BigOFunc* complexity_lambda;
+  UserCounters counters;
   bool last_benchmark_instance;
   int repetitions;
   double min_time;
+  size_t iterations;
   int threads;  // Number of concurrent threads to us
 };
 
@@ -34,13 +36,10 @@ bool FindBenchmarksInternal(const std::string& re,
                             std::vector<Benchmark::Instance>* benchmarks,
                             std::ostream* Err);
 
-namespace {
+bool IsZero(double n);
 
-bool IsZero(double n) {
-  return std::abs(n) < std::numeric_limits<double>::epsilon();
-}
+ConsoleReporter::OutputOptions GetOutputOptions(bool force_no_color = false);
 
-}  // end namespace
 }  // end namespace internal
 }  // end namespace benchmark
 

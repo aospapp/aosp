@@ -27,9 +27,9 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"Aplikasi berikut perlu mengakses profil ini:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Aplikasi berikut akan mengelola perangkat Anda:"</string>
     <string name="next" msgid="1004321437324424398">"Berikutnya"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"Menyiapkan profil kerja..."</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"Menyiapkan profil kerja..."</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"Admin dapat memantau dan mengelola setelan, akses korporat, aplikasi, izin, dan data terkait profil ini, termasuk aktivitas jaringan, serta lokasi, histori panggilan, dan histori penelusuran kontak dari perangkat.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Hubungi admin untuk mengetahui informasi selengkapnya, termasuk kebijakan privasi organisasi."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"Admin dapat memantau dan mengelola setelan, akses korporat, aplikasi, izin, dan data terkait perangkat ini, termasuk aktivitas jaringan, serta lokasi, histori panggilan, dan histori penelusuran kontak dari perangkat.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Hubungi admin untuk mengetahui informasi selengkapnya, termasuk kebijakan privasi organisasi."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"Admin dapat memantau dan mengelola setelan, akses korporat, aplikasi, izin, dan data terkait perangkat ini, termasuk aktivitas jaringan, serta lokasi, histori panggilan dan histori penelusuran kontak perangkat.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Hubungi admin untuk mengetahui informasi selengkapnya, termasuk kebijakan privasi organisasi Anda."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Untuk menggunakan fitur perlindungan dari pencurian, Anda harus memiliki kunci layar yang dilindungi sandi untuk perangkat."</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Hubungi admin untuk informasi selengkapnya, termasuk kebijakan privasi organisasi."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Pelajari lebih lanjut"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Profil kerja"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"Pengguna utama"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Hapus profil yang ada?"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"Anda telah memiliki profil kerja yang dikelola menggunakan aplikasi berikut:"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Anda telah memiliki profil kerja. profil tersebut dikelola menggunakan aplikasi berikut:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Sebelum melanjutkan, "<a href="#read_this_link">"baca ini"</a>"."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Jika Anda melanjutkan, semua aplikasi dan data dalam profil ini akan dihapus."</string>
     <string name="delete_profile" msgid="2299218578684663459">"Hapus"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"Ketuk untuk melanjutkan penyiapan profil kerja"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Tidak dapat menyiapkan profil kerja Anda. Hubungi departemen TI atau coba lagi nanti."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Tidak dapat menambahkan profil kerja"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"Pengguna ini tidak dapat memiliki profil kerja. Hubungi admin untuk meminta bantuan."</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"Pengguna ini tidak dapat memiliki profil kerja. Harap hubungi admin."</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"Profil kerja tidak dapat disiapkan di perangkat yang dikelola"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"Mungkin ada terlalu banyak pengguna di perangkat ini. Hapus salah satu pengguna, lalu coba lagi."</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Tidak dapat menggantikan atau menghapus profil kerja"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"Profil kerja tidak dapat ditambahkan ke perangkat ini. Jika ada pertanyaan, hubungi admin."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Ubah peluncur perangkat"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Aplikasi peluncur ini tidak dapat digunakan oleh profil kerja"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Batal"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"Oke"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Penyiapan Pelanggan Belum Selesai"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Pengguna perangkat kerja"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"Siapkan perangkat kerja"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"Menyiapkan perangkat kerja…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Memproses data penyiapan..."</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Menyambungkan ke Wi-Fi..."</string>
     <string name="progress_download" msgid="3522436271691064624">"Mendownload aplikasi admin..."</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"Batal"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"Setel ulang perangkat"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> dan <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> dan <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g>, dan <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

@@ -15,9 +15,11 @@
  */
 package com.android.tv;
 
+import static android.support.test.InstrumentationRegistry.getInstrumentation;
+
 import android.content.Context;
 import android.os.SystemClock;
-import android.test.ActivityInstrumentationTestCase2;
+import android.support.test.rule.ActivityTestRule;
 import android.text.TextUtils;
 
 import com.android.tv.data.Channel;
@@ -28,41 +30,40 @@ import com.android.tv.testing.testinput.TestInputControlConnection;
 import com.android.tv.testing.testinput.TestInputControlUtils;
 import com.android.tv.testing.testinput.TvTestInputConstants;
 
+import org.junit.Before;
+import org.junit.Rule;
+
 import java.util.List;
 
 /**
  * Base TestCase for tests that need a {@link MainActivity}.
  */
-public abstract class BaseMainActivityTestCase
-        extends ActivityInstrumentationTestCase2<MainActivity> {
+public abstract class BaseMainActivityTestCase {
     private static final String TAG = "BaseMainActivityTest";
     private static final int CHANNEL_LOADING_CHECK_INTERVAL_MS = 10;
+
+    @Rule
+    public ActivityTestRule<MainActivity> mActivityTestRule =
+            new ActivityTestRule<>(MainActivity.class);
 
     protected final TestInputControlConnection mConnection = new TestInputControlConnection();
 
     protected MainActivity mActivity;
 
-    public BaseMainActivityTestCase(Class<MainActivity> activityClass) {
-        super(activityClass);
-    }
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() {
+        mActivity = mActivityTestRule.getActivity();
         // TODO: ensure the SampleInputs are setup.
-        setActivityInitialTouchMode(false);
-        mActivity = getActivity();
-        getInstrumentation().getContext()
+        getInstrumentation().getTargetContext()
                 .bindService(TestInputControlUtils.createIntent(), mConnection,
                         Context.BIND_AUTO_CREATE);
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @Before
+    public void tearDown() {
         if (mConnection.isBound()) {
-            getInstrumentation().getContext().unbindService(mConnection);
+            getInstrumentation().getTargetContext().unbindService(mConnection);
         }
-        super.tearDown();
     }
 
     /**
@@ -72,16 +73,12 @@ public abstract class BaseMainActivityTestCase
      */
     protected void tuneToChannel(final Channel channel) {
         // Run on UI thread so views can be modified
-        try {
-            runTestOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    mActivity.tuneToChannel(channel);
-                }
-            });
-        } catch (Throwable throwable) {
-            throw new RuntimeException(throwable);
-        }
+        getInstrumentation().runOnMainSync(new Runnable() {
+            @Override
+            public void run() {
+                mActivity.tuneToChannel(channel);
+            }
+        });
     }
 
     /**
@@ -130,13 +127,17 @@ public abstract class BaseMainActivityTestCase
 
     private Channel findChannelWithName(String displayName) {
         waitUntilChannelLoadingFinish();
-        List<Channel> channelList = mActivity.getChannelDataManager().getChannelList();
+        Channel channel = null;
+        List <Channel> channelList = mActivity.getChannelDataManager().getChannelList();
         for (Channel c : channelList) {
             if (TextUtils.equals(c.getDisplayName(), displayName)) {
-                return c;
+                channel = c;
+                break;
             }
         }
-        throw new AssertionError("'" + displayName + "' channel not found");
+        if (channel == null) {
+            throw new AssertionError("'" + displayName + "' channel not found");
+        }
+        return channel;
     }
-
 }

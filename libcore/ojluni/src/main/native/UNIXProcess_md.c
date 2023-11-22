@@ -31,7 +31,7 @@
 #include "jvm_md.h"
 #include "jni_util.h"
 #include "io_util.h"
-#include "JNIHelp.h"
+#include <nativehelper/JNIHelp.h>
 
 #define NATIVE_METHOD(className, functionName, signature) \
 { #functionName, signature, (void*)(className ## _ ## functionName) }

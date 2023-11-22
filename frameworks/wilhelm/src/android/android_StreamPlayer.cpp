@@ -24,7 +24,7 @@
 #include <media/stagefright/foundation/ADebug.h>
 #include <binder/IPCThreadState.h>
 
-#include "mpeg2ts/ATSParser.h"
+#include <ATSParser.h>
 
 //--------------------------------------------------------------------------------------------------
 namespace android {

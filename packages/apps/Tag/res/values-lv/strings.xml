@@ -28,4 +28,5 @@
     <string name="import_vcard" msgid="5104299047930666528">"Importēt ^1"</string>
     <string name="mime_display_name" msgid="5926357152623764485">"Dati no NFC atzīmes"</string>
     <string name="vcard_title" msgid="7122634780732426007">"Kontaktinformācija: ^1"</string>
+    <string name="call_phone_permission_denied" msgid="8515177111984654599">"Šai lietojumprogrammai ir nepieciešama tālruņa atļauja, lai veiktu zvanus. Taga atļaujas varat pārvaldīt iestatījumos."</string>
 </resources>

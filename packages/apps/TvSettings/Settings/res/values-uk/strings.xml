@@ -68,12 +68,12 @@
     <string name="accessory_state_canceled" msgid="4419328837733619447">"Скасовано"</string>
     <string name="accessory_state_paired" msgid="1959238931866401476">"Пару створено"</string>
     <string name="accessory_options" msgid="4799658564005710297">"Пристрій"</string>
-    <string name="accessory_unpair" msgid="8242725516604465355">"Скасувати пару"</string>
+    <string name="accessory_unpair" msgid="8242725516604465355">"Скасувати створення пари"</string>
     <string name="accessory_battery" msgid="7021788232835772126">"Заряд акумулятора: <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"Скасування пари…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Під’єднано"</string>
     <string name="accessory_change_name" msgid="8958916008739792785">"Змінити назву"</string>
-    <string name="accessory_change_name_title" msgid="4630819456923061184">"Введіть нову назву цього аксесуара"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"Введіть нову назву"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Пошук пристроїв…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Перш ніж підключати пристрої Bluetooth, переконайтеся, що на них увімкнено режим підключення"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"Знайдено пристрій. Підключення почнеться за <xliff:g id="COUNTDOWN">%1$s</xliff:g> с"</string>
@@ -97,17 +97,17 @@
     <string name="system_security" msgid="8230080273993484407">"Безпека й обмеження"</string>
     <string name="system_speech" msgid="8128688499687306982">"Мовлення"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Джерела вхідного сигналу"</string>
-    <string name="system_accessibility" msgid="6215431399759498005">"Доступність"</string>
+    <string name="system_accessibility" msgid="6215431399759498005">"Спеціальні можливості"</string>
     <string name="system_developer_options" msgid="3237985523474863638">"Параметри розробника"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Немає"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"Використання та діагностика"</string>
     <string name="tutorials" msgid="3731493987558093244">"Навчальні посібники"</string>
     <string name="about_system_update" msgid="7282772247661356586">"Оновлення системи"</string>
-    <string name="about_preference" msgid="4131396784531360434">"Інфо"</string>
+    <string name="about_preference" msgid="4131396784531360434">"Про пристрій"</string>
     <string name="device_name" msgid="2670488158531273028">"Назва пристрою"</string>
     <string name="restart_button_label" msgid="8153112858638352970">"Перезапустити"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"Правова інформація"</string>
-    <string name="about_legal_license" msgid="7867205982113209033">"Ліцензії з відкритим кодом"</string>
+    <string name="about_legal_license" msgid="7867205982113209033">"Ліцензії відкритого коду"</string>
     <string name="about_terms_of_service" msgid="7743088207977334874">"Юридичні умови Google"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"Дані ліцензії недоступні"</string>
     <string name="about_model" msgid="6625269442206323995">"Модель"</string>
@@ -370,6 +370,10 @@
     <string name="system_services" msgid="7230571820151215779">"Служби"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Налаштування служби"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Висококонтрастний текст"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Ярлик спеціальних можливостей"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Увімкнути ярлик спеціальних можливостей"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Служба, пов’язана з ярликом"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Якщо цю комбінацію кнопок увімкнено, ви можете активувати спеціальні можливості, утримуючи кнопки \"Назад\" і \"Униз\" протягом 3 секунд."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Субтитри"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Параметри накладання тексту прихованих субтитрів на відео"</string>
     <string name="captions_display" msgid="735692527287125548">"Показ"</string>
@@ -480,11 +484,11 @@
     <string name="agree" msgid="1235622082275451350">"Приймаю"</string>
     <string name="disagree" msgid="9170636026862400981">"Не приймаю"</string>
     <string name="security_unknown_sources_title" msgid="769762478057744545">"Невідомі джерела"</string>
-    <string name="security_unknown_sources_desc" msgid="7197053279914817124">"Дозволити встановлення програм не лише з магазину Play"</string>
+    <string name="security_unknown_sources_desc" msgid="7197053279914817124">"Дозволити встановлення додатків не лише з Google Play"</string>
     <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"Дозволити невідомі джерела"</string>
-    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"Ваш пристрій і особисті дані більш уразливі до атак програм із невідомих джерел. Ви погоджуєтеся, що несете особисту відповідальність за будь-яку заподіяну вашому пристрою шкоду чи втрату даних унаслідок використання таких програм."</string>
-    <string name="security_verify_apps_title" msgid="5787946958632254988">"Перевіряти програми"</string>
-    <string name="security_verify_apps_desc" msgid="1456317893117818733">"Заборонити встановлення шкідливих програм або попереджати про них."</string>
+    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"Ваш пристрій і особисті дані більш уразливі до атак із боку додатків із невідомих джерел. Ви погоджуєтеся, що несете особисту відповідальність за будь-яку заподіяну вашому пристрою шкоду чи втрату даних унаслідок використання таких додатків."</string>
+    <string name="security_verify_apps_title" msgid="5787946958632254988">"Перевіряти додатки"</string>
+    <string name="security_verify_apps_desc" msgid="1456317893117818733">"Заборонити встановлення шкідливих додатків або попереджати про них."</string>
     <string name="system_hdcp_checking_never" msgid="1758043078676276985">"Ніколи"</string>
     <string name="system_hdcp_checking_drm" msgid="8563220452241389905">"Для вмісту, захищеного DRM"</string>
     <string name="system_hdcp_checking_always" msgid="7264575337360957746">"Завжди"</string>
@@ -529,7 +533,7 @@
     <string name="alwaysUseQuestion" msgid="7128459989232213727">"Завжди використовувати цей параметр для цієї дії?"</string>
     <string name="alwaysUseOption" msgid="1057645533268907906">"Завжди використовувати"</string>
     <string name="justOnceOption" msgid="6051458702672920102">"Лише цього разу"</string>
-    <string name="noApplications" msgid="4197983402774959346">"Жодна програма не може виконати цю дію."</string>
+    <string name="noApplications" msgid="4197983402774959346">"Жодний додаток не може виконати цю дію."</string>
     <string name="noAppsGoBack" msgid="5663180241276177314">"Назад"</string>
     <string name="inputs_inputs" msgid="4249080110281833521">"Джерела вхідного сигналу"</string>
     <string name="inputs_header_cec" msgid="3701104827756278489">"Керування побутовою електронікою (CEC)"</string>
@@ -665,9 +669,9 @@
     <string name="keep_settings" msgid="6798327196645732517">"Не змінювати"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"Дозволи"</string>
     <string name="device_apps_permissions" msgid="2966387603529725982">"Дозволи додатків"</string>
-    <string name="app_permissions_group_summary" msgid="7906834786705287901">"Дозволено додатків: <xliff:g id="COUNT_0">%d</xliff:g> з <xliff:g id="COUNT_1">%d</xliff:g>"</string>
+    <string name="app_permissions_group_summary" msgid="7906834786705287901">"Додатки з дозволом: <xliff:g id="COUNT_0">%d</xliff:g> з <xliff:g id="COUNT_1">%d</xliff:g>"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"Запит на дозвіл вмикати Bluetooth"</string>
-    <string name="security_patch" msgid="2131617390189164481">"Рівень виправлень системи безпеки Android"</string>
+    <string name="security_patch" msgid="2131617390189164481">"Дата виправлення системи безпеки Android"</string>
     <string name="choose_application" msgid="5662960665577780353">"Виберіть додаток"</string>
     <string name="experimental_preference" msgid="1137673985823581797">"(Експериментальна функція)"</string>
     <string name="reboot_safemode_action" msgid="8129550438717110406">"Перезапустити в безпечному режимі"</string>
@@ -676,4 +680,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Створюється повідомлення про помилку"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Доступні віртуальні клавіатури"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Керувати клавіатурами"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Дозволено"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Не дозволено"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Доступ до історії використання"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Завдяки доступу до історії використання додаток може відстежувати, які додатки ви використовуєте та як часто, а також визначати назву вашого оператора, налаштування мови й інші відомості."</string>
 </resources>

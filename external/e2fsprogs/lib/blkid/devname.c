@@ -36,6 +36,9 @@
 #if HAVE_SYS_MKDEV_H
 #include <sys/mkdev.h>
 #endif
+#ifdef HAVE_SYS_SYSMACROS_H
+#include <sys/sysmacros.h>
+#endif
 #include <time.h>
 
 #include "blkidP.h"
@@ -394,7 +397,7 @@ static int probe_all(blkid_cache cache, int only_if_new)
 {
 	FILE *proc;
 	char line[1024];
-	char ptname0[128], ptname1[128], *ptname = 0;
+	char ptname0[129], ptname1[129], *ptname = 0;
 	char *ptnames[2];
 	dev_t devs[2];
 	int ma, mi;

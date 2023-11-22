@@ -51,15 +51,19 @@
     <!-- Enable device idle mode -->
     <bool name="config_enableAutoPowerModes">true</bool>
 
+    <!-- If true, enables verification of the lockscreen credential in the factory reset protection
+        flow. This should be true if gatekeeper / weaver credentials can still be checked after a
+        factory reset.
+
+        dragon's gatekeeper does not preserve credentials across factory resets. -->
+    <bool name="config_enableCredentialFactoryResetProtection">false</bool>
+
     <!-- Flag indicating whether the we should enable the automatic brightness in Settings.
          Software implementation will be used if config_hardware_auto_brightness_available is not set -->
     <bool name="config_automatic_brightness_available">true</bool>
 
     <!-- Boolean indicating whether the wifi chipset has dual frequency band support -->
     <bool translatable="false" name="config_wifi_dual_band_support">true</bool>
-
-    <!-- Boolean indicating whether Hotspot 2.0/Passpoint and ANQP queries is enabled -->
-    <bool translatable="false" name="config_wifi_hotspot2_enabled">true</bool>
 
     <!-- Boolean indicating whether the wifi chipset has background scan support -->
     <bool translatable="false" name="config_wifi_background_scan_support">true</bool>

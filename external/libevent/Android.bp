@@ -16,6 +16,9 @@ cc_library {
     name: "libevent",
     host_supported: true,
     vendor_available: true,
+    vndk: {
+        enabled: true,
+    },
     unique_host_soname: true,
 
     arch: {

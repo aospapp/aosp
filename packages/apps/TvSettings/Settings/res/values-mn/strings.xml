@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"Үйлчилгээ"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Үйлчилгээний тохиргоо"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Өндөр ялгаралтай текст"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Хүртээмжийн товчлол"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Хүртээмжийн товчлолыг идэвхжүүлэх"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Товчлолын үйлчилгээ"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Товчлолыг асаасан үед буцах болон доод товчлуурыг хамтад нь 3 секунд дарж хүртээмжийн онцлогийг эхлүүлэх боломжтой."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Титрүүд"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Видеон дээрх текст титрийн тохиргоо"</string>
     <string name="captions_display" msgid="735692527287125548">"Дэлгэц"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Алдааны тайланг илрүүлж байна"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Боломжтой виртуал гар"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Гарыг удирдах"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Зөвшөөрсөн"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Зөвшөөрөөгүй"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Ашиглалтын хандалт"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Хэрэглээний хандалт нь таныг бусад ямар аппыг хэр тогтмол ашиглаж байгааг болон таны оператор компани, хэлний тохиргоо, бусад мэдээллийг хянах зөвшөөрлийг аппад олгодог."</string>
 </resources>

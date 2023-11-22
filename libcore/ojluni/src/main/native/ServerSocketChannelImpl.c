@@ -45,7 +45,7 @@ typedef size_t socklen_t;       /* New in SunOS 5.7, so need this for 5.6 */
 #include "nio.h"
 #include "nio_util.h"
 
-#include "JNIHelp.h"
+#include <nativehelper/JNIHelp.h>
 
 
 #define NATIVE_METHOD(className, functionName, signature) \

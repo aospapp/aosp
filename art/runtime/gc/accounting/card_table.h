@@ -47,10 +47,11 @@ template<size_t kAlignment> class SpaceBitmap;
 // WriteBarrier, and from there to here.
 class CardTable {
  public:
-  static constexpr size_t kCardShift = 7;
+  static constexpr size_t kCardShift = 10;
   static constexpr size_t kCardSize = 1 << kCardShift;
   static constexpr uint8_t kCardClean = 0x0;
   static constexpr uint8_t kCardDirty = 0x70;
+  static constexpr uint8_t kCardAged = kCardDirty - 1;
 
   static CardTable* Create(const uint8_t* heap_begin, size_t heap_capacity);
   ~CardTable();
@@ -154,6 +155,14 @@ class CardTable {
 };
 
 }  // namespace accounting
+
+class AgeCardVisitor {
+ public:
+  uint8_t operator()(uint8_t card) const {
+    return (card == accounting::CardTable::kCardDirty) ? card - 1 : 0;
+  }
+};
+
 }  // namespace gc
 }  // namespace art
 

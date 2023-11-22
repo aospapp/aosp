@@ -12,6 +12,7 @@ PURPOSE = "Real-world integration test for tlsdate"
 CRITERIA = """
 Fail if tlsdate fails to actually work.
 """
+ATTRIBUTES = "suite:bvt-perbuild"
 TEST_CLASS = "platform"
 TEST_CATEGORY = "Functional"
 TEST_TYPE = "client"

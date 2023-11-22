@@ -178,7 +178,7 @@ static inline int stmSpiEnable(struct StmSpiDev *pdev,
         if (!mode->speed)
             return -EINVAL;
 
-        uint32_t pclk = pwrGetBusSpeed(PERIPH_BUS_AHB1);
+        uint32_t pclk = pwrGetBusSpeed(pdev->cfg->clockBus);
         div = pclk / mode->speed;
         if (div > SPI_CR1_BR_MAX)
             return -EINVAL;

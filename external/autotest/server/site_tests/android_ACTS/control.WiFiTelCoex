@@ -1,0 +1,25 @@
+# Copyright 2017 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+AUTHOR = 'krisr, bmahadev, gmoturu'
+NAME = 'android_ACTS.WiFiTelCoex'
+TIME = 'MEDIUM'
+TEST_TYPE = 'Server'
+ATTRIBUTES = 'suite:android_wifi_tel_coex'
+
+DOC = """
+This test runs WiFi Tel Coex tests.
+
+"""
+
+def run(machine):
+    job.run_test('android_ACTS',
+                 testbed=hosts.create_testbed(machine),
+                 config_file='android1758-test-station-48-coex.config',
+                 testtracker_owner='android-comms-tvc@google.com',
+                 test_file='wifi_tel_coex',
+                 testtracker_project_id=733,
+                 acts_timeout=18000)
+
+parallel_simple(run, machines)

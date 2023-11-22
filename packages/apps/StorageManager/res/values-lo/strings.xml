@@ -55,9 +55,12 @@
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"ເປີດ"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"ຮູບພາບ ແລະ ວິດີໂອທີ່ສຳຮອງຂໍ້ມູນແລ້ວ"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"ກຳລັງຊອກຫາລາຍການ…"</string>
+    <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"ສະແດງລາຍການທັງໝົດ"</string>
+    <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"ເຊື່ອງລາຍການຫຼ້າສຸດ"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="386144597646356521">"<xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> ຈະຖືກລຶບອອກຈາກອຸປະກອນຂອງທ່ານ"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"ຕອນນີ້ອຸປະກອນຂອງທ່ານຖືກຈັດການໂດຍຕົວຈັດການບ່ອນຈັດເກັບຂໍ້ມູນແລ້ວ."</string>
     <string name="empty_state_title" msgid="4033285438176545309">"ບໍ່ມີຫຍັງໃຫ້ລຶບໄດ້ແລ້ວ"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"ກວດສອບລາຍການຫຼ້າສຸດ"</string>
     <string name="empty_state_summary" msgid="8439893007424243790">"ບໍ່ມີໄຟລ໌ທີ່ເກົ່າກວ່າໃຫ້ລຶບແລ້ວ. ເພື່ອສ້າງບ່ອນຫວ່າງ, ໃຫ້ລຶບຮູບພາບ, ວິດີໂອ ແລະ ແອັບຫຼ້າສຸດແທນ."</string>
+    <string name="app_requesting_space" msgid="857425181289960167">"<xliff:g id="APP">%1$s</xliff:g> ຕ້ອງການບ່ອນຈັດເກັບຂໍ້ມູນ <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g>"</string>
 </resources>

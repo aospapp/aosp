@@ -278,7 +278,8 @@ PRODUCT_COPY_FILES += \
     device/asus/fugu/gpio-keys.kl:system/usr/keylayout/gpio-keys.kl \
     device/asus/fugu/gpio-keys.kcm:system/usr/keychars/gpio-keys.kcm \
     device/asus/fugu/Spike.kl:system/usr/keylayout/Spike.kl \
-    device/asus/fugu/Nexus_Remote.kl:system/usr/keylayout/Nexus_Remote.kl
+    device/asus/fugu/Nexus_Remote.kl:system/usr/keylayout/Nexus_Remote.kl \
+    device/asus/fugu/Generic.kl:system/usr/keylayout/Generic.kl
 
 #GFX Config
 PRODUCT_COPY_FILES += \
@@ -317,18 +318,6 @@ PRODUCT_COPY_FILES += \
     device/asus/fugu/init.fugu.diag.rc.userdebug:root/init.fugu.diag.rc
 endif
 
-# In userdebug, add minidebug info the the boot image and the system server to support
-# diagnosing native crashes.
-ifneq (,$(filter userdebug, $(TARGET_BUILD_VARIANT)))
-    # Boot image.
-    PRODUCT_DEX_PREOPT_BOOT_FLAGS += --generate-mini-debug-info
-    # System server and some of its services. This is just here for completeness and consistency,
-    # as we currently only compile the boot image.
-    # Note: we cannot use PRODUCT_SYSTEM_SERVER_JARS, as it has not been expanded at this point.
-    $(call add-product-dex-preopt-module-config,services,--generate-mini-debug-info)
-    $(call add-product-dex-preopt-module-config,wifi-service,--generate-mini-debug-info)
-endif
-
 $(call inherit-product-if-exists, vendor/asus/fugu/device-vendor.mk)
 $(call inherit-product-if-exists, vendor/intel/PRIVATE/fugu/device-vendor.mk)
 $(call inherit-product-if-exists, vendor/intel/moorefield/prebuilts/houdini/houdini.mk)
@@ -345,10 +334,6 @@ PRODUCT_COPY_FILES += \
 # Wifi country code
 PRODUCT_COPY_FILES += \
     device/asus/fugu/init.fugu.countrycode.sh:system/bin/init.fugu.countrycode.sh
-
-# Vendor Interface Manifest
-PRODUCT_COPY_FILES += \
-    $(LOCAL_PATH)/manifest.xml:system/vendor/manifest.xml
 
 # Some CTS tests will be skipped based on what the initial API level that
 # shipped on device was.

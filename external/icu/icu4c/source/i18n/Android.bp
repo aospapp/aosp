@@ -251,16 +251,3 @@ cc_library_shared {
         "-lpthread",
     ],
 }
-
-//
-// Build as a static library against the NDK
-//
-cc_library_static {
-    name: "libicui18n_static",
-    defaults: ["libicui18n_defaults"],
-    sdk_version: "9",
-    stl: "stlport_static",
-    static_libs: ["libicuuc_static"],
-
-    cflags: ["-Os"], // Using -Os over -O3 actually cuts down the final executable size by a few dozen kilobytes
-}

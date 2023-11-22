@@ -44,8 +44,8 @@ import com.android.tv.analytics.Tracker;
 import com.android.tv.common.feature.CommonFeatures;
 import com.android.tv.data.Channel;
 import com.android.tv.dvr.DvrManager;
-import com.android.tv.dvr.DvrUiHelper;
-import com.android.tv.dvr.ScheduledRecording;
+import com.android.tv.dvr.data.ScheduledRecording;
+import com.android.tv.dvr.ui.DvrUiHelper;
 import com.android.tv.guide.ProgramManager.TableEntry;
 import com.android.tv.util.ToastUtils;
 import com.android.tv.util.Utils;
@@ -73,6 +73,7 @@ public class ProgramItemView extends TextView {
     private static TextAppearanceSpan sEpisodeTitleStyle;
     private static TextAppearanceSpan sGrayedOutEpisodeTitleStyle;
 
+    private ProgramGuide mProgramGuide;
     private DvrManager mDvrManager;
     private TableEntry mTableEntry;
     private int mMaxWidthForRipple;
@@ -106,18 +107,19 @@ public class ProgramItemView extends TextView {
                 }, entry.getWidth() > ((ProgramItemView) view).mMaxWidthForRipple ? 0
                         : view.getResources()
                                 .getInteger(R.integer.program_guide_ripple_anim_duration));
-            } else if (CommonFeatures.DVR.isEnabled(view.getContext())) {
+            } else if (entry.program != null && CommonFeatures.DVR.isEnabled(view.getContext())) {
                 DvrManager dvrManager = singletons.getDvrManager();
                 if (entry.entryStartUtcMillis > System.currentTimeMillis()
                         && dvrManager.isProgramRecordable(entry.program)) {
                     if (entry.scheduledRecording == null) {
-                        if (DvrUiHelper.checkStorageStatusAndShowErrorMessage(tvActivity,
-                                channel.getInputId())
-                                && DvrUiHelper.handleCreateSchedule(tvActivity, entry.program)) {
-                            String msg = view.getContext().getString(
-                                    R.string.dvr_msg_program_scheduled, entry.program.getTitle());
-                            ToastUtils.show(view.getContext(), msg, Toast.LENGTH_SHORT);
-                        }
+                        DvrUiHelper.checkStorageStatusAndShowErrorMessage(tvActivity,
+                                channel.getInputId(), new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        DvrUiHelper.requestRecordingFutureProgram(tvActivity,
+                                                entry.program, false);
+                                    }
+                                });
                     } else {
                         dvrManager.removeScheduledRecording(entry.scheduledRecording);
                         String msg = view.getResources().getString(
@@ -158,6 +160,11 @@ public class ProgramItemView extends TextView {
             }
             if (entry.isCurrentProgram()) {
                 Drawable background = getBackground();
+                if (!mProgramGuide.isActive() || mProgramGuide.isRunningAnimation()) {
+                    // If program guide is not active or is during showing/hiding,
+                    // the animation is unnecessary, skip it.
+                    background.jumpToCurrentState();
+                }
                 int progress = getProgress(entry.entryStartUtcMillis, entry.entryEndUtcMillis);
                 setProgress(background, R.id.reverse_progress, MAX_PROGRESS - progress);
             }
@@ -247,8 +254,9 @@ public class ProgramItemView extends TextView {
     }
 
     @SuppressLint("SwitchIntDef")
-    public void setValues(TableEntry entry, int selectedGenreId, long fromUtcMillis,
-            long toUtcMillis, String gapTitle) {
+    public void setValues(ProgramGuide programGuide, TableEntry entry, int selectedGenreId,
+            long fromUtcMillis, long toUtcMillis, String gapTitle) {
+        mProgramGuide = programGuide;
         mTableEntry = entry;
 
         ViewGroup.LayoutParams layoutParams = getLayoutParams();
@@ -376,6 +384,7 @@ public class ProgramItemView extends TextView {
         }
 
         setTag(null);
+        mProgramGuide = null;
         mTableEntry = null;
     }
 

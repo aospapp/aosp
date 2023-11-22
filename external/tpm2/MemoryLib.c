@@ -75,15 +75,15 @@ MemoryEqual(
       UINT32            size                 // IN: size of bytes being compared
       )
 {
-      BOOL          equal = TRUE;
+      BOOL          diff = FALSE;
       const BYTE   *b1, *b2;
       b1 = (BYTE *)buffer1;
       b2 = (BYTE *)buffer2;
       // Compare all bytes so that there is no leakage of information
       // due to timing differences.
       for(; size > 0; size--)
-          equal = (*b1++ == *b2++) && equal;
-      return equal;
+          diff |= *b1++ ^ *b2++;
+      return !diff;
 }
 //
 //

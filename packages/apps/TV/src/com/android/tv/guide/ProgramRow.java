@@ -21,9 +21,11 @@ import android.graphics.Rect;
 import android.support.v7.widget.LinearLayoutManager;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.util.Range;
 import android.view.View;
 import android.view.ViewTreeObserver.OnGlobalLayoutListener;
 
+import com.android.tv.MainActivity;
 import com.android.tv.data.Channel;
 import com.android.tv.guide.ProgramManager.TableEntry;
 import com.android.tv.util.Utils;
@@ -37,6 +39,7 @@ public class ProgramRow extends TimelineGridView {
     private static final long ONE_HOUR_MILLIS = TimeUnit.HOURS.toMillis(1);
     private static final long HALF_HOUR_MILLIS = ONE_HOUR_MILLIS / 2;
 
+    private ProgramGuide mProgramGuide;
     private ProgramManager mProgramManager;
 
     private boolean mKeepFocusToCurrentProgram;
@@ -44,8 +47,8 @@ public class ProgramRow extends TimelineGridView {
 
     interface ChildFocusListener {
         /**
-         * Is called after focus is moved. It used {@link ChildFocusListener#isChild} to decide if
-         * old and new focuses are listener's children.
+         * Is called after focus is moved. Caller should check if old and new focuses are
+         * listener's children.
          * See {@code ProgramRow#setChildFocusListener(ChildFocusListener)}.
          */
         void onChildFocus(View oldFocus, View newFocus);
@@ -213,7 +216,6 @@ public class ProgramRow extends TimelineGridView {
                 // so give focus back in onChildAttachedToWindow().
                 mKeepFocusToCurrentProgram = true;
             }
-            // TODO: Try to keep focus for non-current program.
         }
         super.onChildDetachedFromWindow(child);
     }
@@ -237,16 +239,18 @@ public class ProgramRow extends TimelineGridView {
 
     @Override
     public boolean onRequestFocusInDescendants(int direction, Rect previouslyFocusedRect) {
-        // Give focus to the current program by default.
-        // Note that this logic is used only if requestFocus() is called to the ProgramRow,
-        // so focus finding logic will not be blocked by this.
-        View currentProgram = getCurrentProgramView();
-        if (currentProgram != null) {
-            return currentProgram.requestFocus();
+        ProgramGrid programGrid = mProgramGuide.getProgramGrid();
+
+        // Give focus according to the previous focused range
+        Range<Integer> focusRange = programGrid.getFocusRange();
+        View nextFocus = GuideUtils.findNextFocusedProgram(this, focusRange.getLower(),
+                focusRange.getUpper(), programGrid.isKeepCurrentProgramFocused());
+
+        if (nextFocus != null) {
+            return nextFocus.requestFocus();
         }
 
         if (DEBUG) Log.d(TAG, "onRequestFocusInDescendants");
-
         boolean result = super.onRequestFocusInDescendants(direction, previouslyFocusedRect);
         if (!result) {
             // The default focus search logic of LeanbackLibrary is sometimes failed.
@@ -276,10 +280,11 @@ public class ProgramRow extends TimelineGridView {
     }
 
     /**
-     * Sets the instance of {@link ProgramManager}
+     * Sets the instance of {@link ProgramGuide}
      */
-    public void setProgramManager(ProgramManager programManager) {
-        mProgramManager = programManager;
+    public void setProgramGuide(ProgramGuide programGuide) {
+        mProgramGuide = programGuide;
+        mProgramManager = programGuide.getProgramManager();
     }
 
     /**
@@ -300,7 +305,7 @@ public class ProgramRow extends TimelineGridView {
                     .scrollToPositionWithOffset(position, offset);
             // Workaround to b/31598505. When a program's duration is too long,
             // RecyclerView.onScrolled() will not be called after scrollToPositionWithOffset().
-            // Therefore we have to update children's visible areas by ourselves in theis case.
+            // Therefore we have to update children's visible areas by ourselves in this case.
             // Since scrollToPositionWithOffset() will call requestLayout(), we can listen to this
             // behavior to ensure program items' visible areas are correctly updated after layouts
             // are adjusted, i.e., scrolling is over.

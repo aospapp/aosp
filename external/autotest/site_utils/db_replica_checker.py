@@ -108,7 +108,7 @@ def ShowStatus(options, master_result, slave_result, msg):
       email_cc.extend(
           '%s@google.com' % cc.strip() for cc in options.cc.split(','))
     if getpass.getuser() == SYSTEM_USER and not options.testmode:
-      email_cc.append('chromeos-test-cron@google.com')
+      email_cc.append('chromeos-build-alerts+db-replica-checker@google.com')
     body = ('%s\n\n'
             'Master (%s) status:\n%s\n\n'
             'Slave (%s) status:\n%s' % (summary, DATABASE_HOST, master_result,

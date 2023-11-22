@@ -19,7 +19,6 @@ import ctypes.util
 import os
 import socket
 import struct
-import sys
 
 import cstruct
 
@@ -27,8 +26,8 @@ import cstruct
 # Data structures.
 # These aren't constants, they're classes. So, pylint: disable=invalid-name
 CMsgHdr = cstruct.Struct("cmsghdr", "@Lii", "len level type")
-Iovec = cstruct.Struct("iovec", "@LL", "base len")
-MsgHdr = cstruct.Struct("msghdr", "@LLLLLLi",
+Iovec = cstruct.Struct("iovec", "@PL", "base len")
+MsgHdr = cstruct.Struct("msghdr", "@LLPLPLi",
                         "name namelen iov iovlen control msg_controllen flags")
 SockaddrIn = cstruct.Struct("sockaddr_in", "=HH4sxxxxxxxx", "family port addr")
 SockaddrIn6 = cstruct.Struct("sockaddr_in6", "=HHI16sI",
@@ -84,6 +83,10 @@ def LinuxVersion():
   # using < and >, since tuples are compared lexicographically.
   version = tuple(int(i) for i in version.split("."))
   return version
+
+
+def VoidPointer(s):
+  return ctypes.cast(s.CPointer(), ctypes.c_void_p)
 
 
 def PaddedLength(length):
@@ -186,14 +189,14 @@ def _ParseMsgControl(buf):
 
 def Bind(s, to):
   """Python wrapper for bind."""
-  ret = libc.bind(s.fileno(), to.CPointer(), len(to))
+  ret = libc.bind(s.fileno(), VoidPointer(to), len(to))
   MaybeRaiseSocketError(ret)
   return ret
 
 
 def Connect(s, to):
   """Python wrapper for connect."""
-  ret = libc.connect(s.fileno(), to.CPointer(), len(to))
+  ret = libc.connect(s.fileno(), VoidPointer(to), len(to))
   MaybeRaiseSocketError(ret)
   return ret
 
@@ -305,7 +308,7 @@ def Recvmsg(s, buflen, controllen, flags, addrlen=len(SockaddrStorage)):
 
   msghdr = MsgHdr((msg_name, msg_namelen, msg_iov, msg_iovlen,
                    msg_control, msg_controllen, flags))
-  ret = libc.recvmsg(s.fileno(), msghdr.CPointer(), flags)
+  ret = libc.recvmsg(s.fileno(), VoidPointer(msghdr), flags)
   MaybeRaiseSocketError(ret)
 
   data = buf.raw[:ret]

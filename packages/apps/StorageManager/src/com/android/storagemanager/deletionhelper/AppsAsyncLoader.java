@@ -18,9 +18,11 @@ package com.android.storagemanager.deletionhelper;
 
 import android.app.usage.UsageStats;
 import android.app.usage.UsageStatsManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.graphics.drawable.Drawable;
 import android.os.SystemProperties;
 import android.os.UserHandle;
@@ -144,7 +146,7 @@ public class AppsAsyncLoader extends AsyncLoader<List<PackageInfo>> {
                             .setLabel(mPackageManager.loadLabel(app))
                             .build();
             seenUid.add(app.uid);
-            if (mFilter.filterApp(extraInfo)) {
+            if (mFilter.filterApp(extraInfo) && !isDefaultLauncher(mPackageManager, extraInfo)) {
                 stats.add(extraInfo);
             }
         }
@@ -202,6 +204,24 @@ public class AppsAsyncLoader extends AsyncLoader<List<PackageInfo>> {
 
     @Override
     protected void onDiscardResult(List<PackageInfo> result) {}
+
+    private static boolean isDefaultLauncher(
+            PackageManagerWrapper packageManager, PackageInfo info) {
+        if (packageManager == null) {
+            return false;
+        }
+
+        final List<ResolveInfo> homeActivities = new ArrayList<>();
+        ComponentName defaultActivity = packageManager.getHomeActivities(homeActivities);
+        if (defaultActivity != null) {
+            String packageName = defaultActivity.getPackageName();
+            return packageName == null
+                    ? false
+                    : defaultActivity.getPackageName().equals(info.packageName);
+        }
+
+        return false;
+    }
 
     public static class Builder {
         private Context mContext;

@@ -42,7 +42,7 @@
 #include <sys/stat.h>
 #include <dlfcn.h>
 
-#include <UniquePtr.h>
+#include <nativehelper/UniquePtr.h>
 
 #include "QSEEComAPI.h"
 #include "keymaster_qcom.h"

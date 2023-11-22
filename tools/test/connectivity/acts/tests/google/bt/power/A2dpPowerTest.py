@@ -30,11 +30,12 @@ from acts import logger
 from acts.controllers import monsoon
 from acts.keys import Config
 from acts.test_decorators import test_tracker_info
-from acts.test_utils.bt.BleEnum import ScanSettingsScanMode
+from acts.test_utils.bt.bt_constants import ble_scan_settings_modes
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.PowerBaseTest import PowerBaseTest
 from acts.test_utils.bt.bt_test_utils import bluetooth_enabled_check
 from acts.test_utils.bt.bt_test_utils import disable_bluetooth
+from acts.controllers.relay_lib.sony_xb2_speaker import SonyXB2Speaker
 
 
 def push_file_to_device(ad, file_path, device_path, config_path):
@@ -44,6 +45,8 @@ def push_file_to_device(ad, file_path, device_path, config_path):
         ad: Device for file push
         file_path: File path for the file to be pushed to the device
         device_path: File path on the device as destination
+        config_path: File path to the config file.  This is only used when
+                     a relative path is passed via the ACTS config.
 
     Returns:
         True if successful, False if unsuccessful.
@@ -98,12 +101,8 @@ class A2dpPowerTest(PowerBaseTest):
     # LDAC playback quality constant for the codecs other than LDAC
     LDACBT_NONE = 0
 
-    def setup_class(self):
-
-        self.ad = self.android_devices[0]
-
+    def _pair_by_config(self):
         bt_device_address = self.user_params["bt_device_address"]
-
         # Push the bt_config.conf file to Android device
         # if it is specified in config file
         # so it can pair and connect automatically.
@@ -123,40 +122,19 @@ class A2dpPowerTest(PowerBaseTest):
             if not push_file_to_device(
                     self.ad, bt_config_path, bt_conf_path_dut,
                     self.user_params[Config.key_config_path]):
-                self.log.error("Unable to push file {} to DUT.".format(
-                    bt_config_path))
+                self.log.error(
+                    "Unable to push file {} to DUT.".format(bt_config_path))
 
             self.log.info("Reboot")
             self.ad.reboot()
-
-        # Add music files to the Android device
-        music_path_dut = "/sdcard/Music/"
-        self.cd_quality_music_file = self.user_params["cd_quality_music_file"]
-        self.log.info("Push CD quality music file {}".format(
-            self.cd_quality_music_file))
-        if not push_file_to_device(self.ad, self.cd_quality_music_file,
-                                   music_path_dut,
-                                   self.user_params[Config.key_config_path]):
-            self.log.error("Unable to push file {} to DUT.".format(
-                self.cd_quality_music_file))
-
-        self.hi_res_music_file = self.user_params["hi_res_music_file"]
-        self.log.info("Push Hi Res quality music file {}".format(
-            self.hi_res_music_file))
-        if not push_file_to_device(self.ad, self.hi_res_music_file,
-                                   music_path_dut,
-                                   self.user_params[Config.key_config_path]):
-            self.log.error("Unable to find file {}.".format(
-                self.hi_res_music_file))
 
         if not bluetooth_enabled_check(self.ad):
             self.log.error("Failed to enable Bluetooth on DUT")
             return False
 
         # Verify Bluetooth device is connected
-        self.log.info(
-            "Waiting up to {} seconds for device to reconnect.".format(
-                self.WAIT_TIME))
+        self.log.info("Waiting up to {} seconds for device to reconnect.".
+                      format(self.WAIT_TIME))
         start_time = time.time()
         result = False
         while time.time() < start_time + self.WAIT_TIME:
@@ -166,20 +144,102 @@ class A2dpPowerTest(PowerBaseTest):
                 break
 
             try:
-                self.ad.droid.bluetoothConnectBonded(self.user_params[
-                    "bt_device_address"])
+                self.ad.droid.bluetoothConnectBonded(
+                    self.user_params["bt_device_address"])
             except Exception as err:
                 self.log.error(
                     "Failed to connect bonded device. Err: {}".format(err))
 
-        if not result:
+        if result is False:
             self.log.error("No headset is connected")
             return False
+        return True
+
+    def _discover_and_pair(self):
+        self.ad.droid.bluetoothStartDiscovery()
+        time.sleep(5)
+        self.ad.droid.bluetoothCancelDiscovery()
+        for device in self.ad.droid.bluetoothGetDiscoveredDevices():
+            if device['address'] == self.a2dp_speaker.mac_address:
+                self.ad.droid.bluetoothDiscoverAndBond(
+                    self.a2dp_speaker.mac_address)
+                end_time = time.time() + 20
+                self.log.info("Verifying devices are bonded")
+                while (time.time() < end_time):
+                    bonded_devices = self.ad.droid.bluetoothGetBondedDevices()
+                    for d in bonded_devices:
+                        if d['address'] == self.a2dp_speaker.mac_address:
+                            self.log.info("Successfully bonded to device.")
+                            self.log.info(
+                                "Bonded devices:\n{}".format(bonded_devices))
+                            return True
+        return False
+
+    def setup_class(self):
+        self.ad = self.android_devices[0]
+        self.ad.droid.bluetoothFactoryReset()
+        # Factory reset requires a short delay to take effect
+        time.sleep(3)
+
+        self.ad.log.info("Making sure BT phone is enabled here during setup")
+        if not bluetooth_enabled_check(self.ad):
+            self.log.error("Failed to turn Bluetooth on DUT")
+        # Give a breathing time of short delay to take effect
+        time.sleep(3)
+
+        # Determine if we have a relay-based device
+        self.a2dp_speaker = None
+        if self.relay_devices[0]:
+            self.a2dp_speaker = self.relay_devices[0]
+            self.a2dp_speaker.setup()
+            # The device may be on, enter pairing mode.
+            self.a2dp_speaker.enter_pairing_mode()
+            if self._discover_and_pair() is False:
+                # The device is probably off, turn it on
+                self.a2dp_speaker.power_on()
+                time.sleep(0.25)
+                self.a2dp_speaker.enter_pairing_mode()
+                if self._discover_and_pair() is False:
+                    self.log.info("Unable to pair to relay based device.")
+                    return False
+            if len(self.ad.droid.bluetoothGetConnectedDevices()) == 0:
+                self.log.info("Not connected to relay based device.")
+                return False
+        else:
+            # No relay-based device used config
+            if self._pair_by_config() is False:
+                return False
+
+        # Add music files to the Android device
+        music_path_dut = "/sdcard/Music/"
+        self.cd_quality_music_file = self.user_params["cd_quality_music_file"][
+            0]
+        self.log.info(
+            "Push CD quality music file {}".format(self.cd_quality_music_file))
+        if not push_file_to_device(self.ad, self.cd_quality_music_file,
+                                   music_path_dut,
+                                   self.user_params[Config.key_config_path]):
+            self.log.error("Unable to push file {} to DUT.".format(
+                self.cd_quality_music_file))
+
+        self.hi_res_music_file = self.user_params["hi_res_music_file"][0]
+        self.log.info(
+            "Push Hi Res quality music file {}".format(self.hi_res_music_file))
+        if not push_file_to_device(self.ad, self.hi_res_music_file,
+                                   music_path_dut,
+                                   self.user_params[Config.key_config_path]):
+            self.log.error(
+                "Unable to find file {}.".format(self.hi_res_music_file))
 
         # Then do other power testing setup in the base class
         # including start PMC etc
         super(A2dpPowerTest, self).setup_class()
         return True
+
+    def teardown_class(self):
+        if self.a2dp_speaker is not None:
+            self.a2dp_speaker.power_off()
+            self.a2dp_speaker.clean_up()
 
     def _main_power_test_function_for_codec(self,
                                             codec_type,
@@ -221,13 +281,13 @@ class A2dpPowerTest(PowerBaseTest):
             # Get the base name of music file
             music_name = os.path.basename(music_file)
             self.music_url = "file:///sdcard/Music/{}".format(music_name)
-            play_time = self.MEASURE_TIME + self.DELAY_MEASURE_TIME
-            +self.DELAY_STOP_TIME
+            play_time = (self.MEASURE_TIME + self.DELAY_MEASURE_TIME +
+                         self.DELAY_STOP_TIME)
             play_msg = "%s --es MusicURL %s --es PlayTime %d" % (
                 self.PMC_BASE_CMD, self.music_url, play_time)
 
             if bt_off_mute == True:
-                msg = "%s --es BT_OFF_Mute %d" % (playing_msg, 1)
+                msg = "%s --es BT_OFF_Mute %d" % (play_msg, 1)
             else:
                 codec1_msg = "%s --es CodecType %d --es SampleRate %d" % (
                     play_msg, codec_type, sample_rate)
@@ -235,14 +295,17 @@ class A2dpPowerTest(PowerBaseTest):
                                                           bits_per_sample)
                 if codec_type == self.CODEC_LDAC:
                     msg = "%s --es LdacPlaybackQuality %d" % (
-                        play_msg, ldac_playback_quality)
+                        codec_msg, ldac_playback_quality)
                 else:
                     msg = codec_msg
 
         self.ad.log.info("Send broadcast message: %s", msg)
         self.ad.adb.shell(msg)
         # Check if PMC is ready
-        if not self.check_pmc_status(self.LOG_FILE, "READY",
+        status_msg = "READY"
+        if bt_on_not_play == True:
+            status_msg = "SUCCEED"
+        if not self.check_pmc_status(self.LOG_FILE, status_msg,
                                      "PMC is not ready"):
             return
 

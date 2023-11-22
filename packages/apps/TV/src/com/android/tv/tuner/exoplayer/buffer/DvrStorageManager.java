@@ -17,7 +17,11 @@
 package com.android.tv.tuner.exoplayer.buffer;
 
 import android.media.MediaFormat;
+import android.util.Log;
 import android.util.Pair;
+
+import com.android.tv.tuner.data.nano.Track.AtscCaptionTrack;
+import com.google.protobuf.nano.MessageNano;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -28,18 +32,25 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.SortedMap;
 
 /**
  * Manages DVR storage.
  */
 public class DvrStorageManager implements BufferManager.StorageManager {
+    private static final String TAG = "DvrStorageManager";
 
     // TODO: make serializable classes and use protobuf after internal data structure is finalized.
     private static final String KEY_PIXEL_WIDTH_HEIGHT_RATIO =
             "com.google.android.videos.pixelWidthHeightRatio";
+    private static final String META_FILE_TYPE_AUDIO = "audio";
+    private static final String META_FILE_TYPE_VIDEO = "video";
+    private static final String META_FILE_TYPE_CAPTION = "caption";
     private static final String META_FILE_SUFFIX = ".meta";
     private static final String IDX_FILE_SUFFIX = ".idx";
+    private static final String IDX_FILE_SUFFIX_V2 = IDX_FILE_SUFFIX + "2";
 
     // Size of minimum reserved storage buffer which will be used to save meta files
     // and index files after actual recording finished.
@@ -56,18 +67,6 @@ public class DvrStorageManager implements BufferManager.StorageManager {
         mBufferDir = file;
         mBufferDir.mkdirs();
         mIsRecording = isRecording;
-    }
-
-    @Override
-    public void clearStorage() {
-        if (mIsRecording) {
-            File[] files = mBufferDir.listFiles();
-            if (files != null && files.length > 0) {
-                for (File file : files) {
-                    file.delete();
-                }
-            }
-        }
     }
 
     @Override
@@ -132,6 +131,17 @@ public class DvrStorageManager implements BufferManager.StorageManager {
         }
     }
 
+    private void readFormatStringOptional(DataInputStream in, MediaFormat format, String key) {
+        try {
+            String str = readString(in);
+            if (str != null) {
+                format.setString(key, str);
+            }
+        } catch (IOException e) {
+            // Since we are reading optional field, ignore the exception.
+        }
+    }
+
     private ByteBuffer readByteBuffer(DataInputStream in) throws IOException {
         int len = in.readInt();
         if (len <= 0) {
@@ -155,36 +165,101 @@ public class DvrStorageManager implements BufferManager.StorageManager {
     }
 
     @Override
-    public Pair<String, MediaFormat> readTrackInfoFile(boolean isAudio) throws IOException {
-        File file = new File(getBufferDir(), (isAudio ? "audio" : "video") + META_FILE_SUFFIX);
-        try (DataInputStream in = new DataInputStream(new FileInputStream(file))) {
-            String name = readString(in);
-            MediaFormat format = new MediaFormat();
-            readFormatString(in, format, MediaFormat.KEY_MIME);
-            readFormatInt(in, format, MediaFormat.KEY_MAX_INPUT_SIZE);
-            readFormatInt(in, format, MediaFormat.KEY_WIDTH);
-            readFormatInt(in, format, MediaFormat.KEY_HEIGHT);
-            readFormatInt(in, format, MediaFormat.KEY_CHANNEL_COUNT);
-            readFormatInt(in, format, MediaFormat.KEY_SAMPLE_RATE);
-            readFormatFloat(in, format, KEY_PIXEL_WIDTH_HEIGHT_RATIO);
-            for (int i = 0; i < 3; ++i) {
-                readFormatByteBuffer(in, format, "csd-" + i);
+    public List<BufferManager.TrackFormat> readTrackInfoFiles(boolean isAudio) {
+        List<BufferManager.TrackFormat> trackFormatList = new ArrayList<>();
+        int index = 0;
+        boolean trackNotFound = false;
+        do {
+            String fileName = (isAudio ? META_FILE_TYPE_AUDIO : META_FILE_TYPE_VIDEO)
+                    + ((index == 0) ? META_FILE_SUFFIX : (index + META_FILE_SUFFIX));
+            File file = new File(getBufferDir(), fileName);
+            try (DataInputStream in = new DataInputStream(new FileInputStream(file))) {
+                String name = readString(in);
+                MediaFormat format = new MediaFormat();
+                readFormatString(in, format, MediaFormat.KEY_MIME);
+                readFormatInt(in, format, MediaFormat.KEY_MAX_INPUT_SIZE);
+                readFormatInt(in, format, MediaFormat.KEY_WIDTH);
+                readFormatInt(in, format, MediaFormat.KEY_HEIGHT);
+                readFormatInt(in, format, MediaFormat.KEY_CHANNEL_COUNT);
+                readFormatInt(in, format, MediaFormat.KEY_SAMPLE_RATE);
+                readFormatFloat(in, format, KEY_PIXEL_WIDTH_HEIGHT_RATIO);
+                for (int i = 0; i < 3; ++i) {
+                    readFormatByteBuffer(in, format, "csd-" + i);
+                }
+                readFormatLong(in, format, MediaFormat.KEY_DURATION);
+
+                // This is optional since language field is added later.
+                readFormatStringOptional(in, format, MediaFormat.KEY_LANGUAGE);
+                trackFormatList.add(new BufferManager.TrackFormat(name, format));
+            } catch (IOException e) {
+                trackNotFound = true;
             }
-            readFormatLong(in, format, MediaFormat.KEY_DURATION);
-            return new Pair<>(name, format);
+            index++;
+        } while(!trackNotFound);
+        return trackFormatList;
+    }
+
+    /**
+     * Reads caption information from files.
+     *
+     * @return a list of {@link AtscCaptionTrack} objects which store caption information.
+     */
+    public List<AtscCaptionTrack> readCaptionInfoFiles() {
+        List<AtscCaptionTrack> tracks = new ArrayList<>();
+        int index = 0;
+        boolean trackNotFound = false;
+        do {
+            String fileName = META_FILE_TYPE_CAPTION +
+                    ((index == 0) ? META_FILE_SUFFIX : (index + META_FILE_SUFFIX));
+            File file = new File(getBufferDir(), fileName);
+            try (DataInputStream in = new DataInputStream(new FileInputStream(file))) {
+                byte[] data = new byte[(int) file.length()];
+                in.read(data);
+                tracks.add(AtscCaptionTrack.parseFrom(data));
+            } catch (IOException e) {
+                trackNotFound = true;
+            }
+            index++;
+        } while(!trackNotFound);
+        return tracks;
+    }
+
+    private ArrayList<BufferManager.PositionHolder> readOldIndexFile(File indexFile)
+            throws IOException {
+        ArrayList<BufferManager.PositionHolder> indices = new ArrayList<>();
+        try (DataInputStream in = new DataInputStream(new FileInputStream(indexFile))) {
+            long count = in.readLong();
+            for (long i = 0; i < count; ++i) {
+                long positionUs = in.readLong();
+                indices.add(new BufferManager.PositionHolder(positionUs, positionUs, 0));
+            }
+            return indices;
+        }
+    }
+
+    private ArrayList<BufferManager.PositionHolder> readNewIndexFile(File indexFile)
+            throws IOException {
+        ArrayList<BufferManager.PositionHolder> indices = new ArrayList<>();
+        try (DataInputStream in = new DataInputStream(new FileInputStream(indexFile))) {
+            long count = in.readLong();
+            for (long i = 0; i < count; ++i) {
+                long positionUs = in.readLong();
+                long basePositionUs = in.readLong();
+                int offset = in.readInt();
+                indices.add(new BufferManager.PositionHolder(positionUs, basePositionUs, offset));
+            }
+            return indices;
         }
     }
 
     @Override
-    public ArrayList<Long> readIndexFile(String trackId) throws IOException {
-        ArrayList<Long> indices = new ArrayList<>();
-        File file = new File(getBufferDir(), trackId + IDX_FILE_SUFFIX);
-        try (DataInputStream in = new DataInputStream(new FileInputStream(file))) {
-            long count = in.readLong();
-            for (long i = 0; i < count; ++i) {
-                indices.add(in.readLong());
-            }
-            return indices;
+    public ArrayList<BufferManager.PositionHolder> readIndexFile(String trackId)
+            throws IOException {
+        File file = new File(getBufferDir(), trackId + IDX_FILE_SUFFIX_V2);
+        if (file.exists()) {
+            return readNewIndexFile(file);
+        } else {
+            return readOldIndexFile(new File(getBufferDir(),trackId + IDX_FILE_SUFFIX));
         }
     }
 
@@ -254,33 +329,63 @@ public class DvrStorageManager implements BufferManager.StorageManager {
     }
 
     @Override
-    public void writeTrackInfoFile(String trackId, MediaFormat format, boolean isAudio)
+    public void writeTrackInfoFiles(List<BufferManager.TrackFormat> formatList, boolean isAudio)
             throws IOException {
-        File file = new File(getBufferDir(), (isAudio ? "audio" : "video") + META_FILE_SUFFIX);
-        try (DataOutputStream out = new DataOutputStream(new FileOutputStream(file))) {
-            writeString(out, trackId);
-            writeFormatString(out, format, MediaFormat.KEY_MIME);
-            writeFormatInt(out, format, MediaFormat.KEY_MAX_INPUT_SIZE);
-            writeFormatInt(out, format, MediaFormat.KEY_WIDTH);
-            writeFormatInt(out, format, MediaFormat.KEY_HEIGHT);
-            writeFormatInt(out, format, MediaFormat.KEY_CHANNEL_COUNT);
-            writeFormatInt(out, format, MediaFormat.KEY_SAMPLE_RATE);
-            writeFormatFloat(out, format, KEY_PIXEL_WIDTH_HEIGHT_RATIO);
-            for (int i = 0; i < 3; ++i) {
-                writeFormatByteBuffer(out, format, "csd-" + i);
+        for (int i = 0; i < formatList.size() ; ++i) {
+            BufferManager.TrackFormat trackFormat = formatList.get(i);
+            String fileName = (isAudio ? META_FILE_TYPE_AUDIO : META_FILE_TYPE_VIDEO)
+                    + ((i == 0) ? META_FILE_SUFFIX : (i + META_FILE_SUFFIX));
+            File file = new File(getBufferDir(), fileName);
+            try (DataOutputStream out = new DataOutputStream(new FileOutputStream(file))) {
+                writeString(out, trackFormat.trackId);
+                writeFormatString(out, trackFormat.format, MediaFormat.KEY_MIME);
+                writeFormatInt(out, trackFormat.format, MediaFormat.KEY_MAX_INPUT_SIZE);
+                writeFormatInt(out, trackFormat.format, MediaFormat.KEY_WIDTH);
+                writeFormatInt(out, trackFormat.format, MediaFormat.KEY_HEIGHT);
+                writeFormatInt(out, trackFormat.format, MediaFormat.KEY_CHANNEL_COUNT);
+                writeFormatInt(out, trackFormat.format, MediaFormat.KEY_SAMPLE_RATE);
+                writeFormatFloat(out, trackFormat.format, KEY_PIXEL_WIDTH_HEIGHT_RATIO);
+                for (int j = 0; j < 3; ++j) {
+                    writeFormatByteBuffer(out, trackFormat.format, "csd-" + j);
+                }
+                writeFormatLong(out, trackFormat.format, MediaFormat.KEY_DURATION);
+                writeFormatString(out, trackFormat.format, MediaFormat.KEY_LANGUAGE);
             }
-            writeFormatLong(out, format, MediaFormat.KEY_DURATION);
+        }
+    }
+
+    /**
+     * Writes caption information to files.
+     *
+     * @param tracks a list of {@link AtscCaptionTrack} objects which store caption information.
+     */
+    public void writeCaptionInfoFiles(List<AtscCaptionTrack> tracks) {
+        if (tracks == null || tracks.isEmpty()) {
+            return;
+        }
+        for (int i = 0; i < tracks.size(); i++) {
+            AtscCaptionTrack track = tracks.get(i);
+            String fileName = META_FILE_TYPE_CAPTION +
+                    ((i == 0) ? META_FILE_SUFFIX : (i + META_FILE_SUFFIX));
+            File file = new File(getBufferDir(), fileName);
+            try (DataOutputStream out = new DataOutputStream(new FileOutputStream(file))) {
+                out.write(MessageNano.toByteArray(track));
+            } catch (Exception e) {
+                Log.e(TAG, "Fail to write caption info to files", e);
+            }
         }
     }
 
     @Override
-    public void writeIndexFile(String trackName, SortedMap<Long, SampleChunk> index)
+    public void writeIndexFile(String trackName, SortedMap<Long, Pair<SampleChunk, Integer>> index)
             throws IOException {
-        File indexFile  = new File(getBufferDir(), trackName + IDX_FILE_SUFFIX);
+        File indexFile  = new File(getBufferDir(), trackName + IDX_FILE_SUFFIX_V2);
         try (DataOutputStream out = new DataOutputStream(new FileOutputStream(indexFile))) {
             out.writeLong(index.size());
-            for (Long key : index.keySet()) {
-                out.writeLong(key);
+            for (Map.Entry<Long, Pair<SampleChunk, Integer>> entry : index.entrySet()) {
+                out.writeLong(entry.getKey());
+                out.writeLong(entry.getValue().first.getStartPositionUs());
+                out.writeInt(entry.getValue().second);
             }
         }
     }

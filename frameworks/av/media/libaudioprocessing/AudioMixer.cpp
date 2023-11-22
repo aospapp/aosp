@@ -27,7 +27,6 @@
 #include <utils/Errors.h>
 #include <utils/Log.h>
 
-#include <cutils/bitops.h>
 #include <cutils/compiler.h>
 #include <utils/Debug.h>
 
@@ -115,7 +114,7 @@ AudioMixer::AudioMixer(size_t frameCount, uint32_t sampleRate, uint32_t maxNumTr
     mState.hook         = process__nop;
     mState.outputTemp   = NULL;
     mState.resampleTemp = NULL;
-    mState.mLog         = &mDummyLog;
+    mState.mNBLogWriter = &mDummyLogWriter;
     // mState.reserved
 
     // FIXME Most of the following initialization is probably redundant since
@@ -146,9 +145,9 @@ AudioMixer::~AudioMixer()
     delete [] mState.resampleTemp;
 }
 
-void AudioMixer::setLog(NBLog::Writer *log)
+void AudioMixer::setNBLogWriter(NBLog::Writer *logWriter)
 {
-    mState.mLog = log;
+    mState.mNBLogWriter = logWriter;
 }
 
 static inline audio_format_t selectMixerInFormat(audio_format_t inputFormat __unused) {

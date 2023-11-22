@@ -39,7 +39,6 @@ vts_func_fuzzer_packages := \
   android.hardware.automotive.evs@1.0-vts.func_fuzzer.EvsDisplay \
   android.hardware.automotive.evs@1.0-vts.func_fuzzer.EvsEnumerator \
   android.hardware.automotive.vehicle@2.0-vts.func_fuzzer.Vehicle \
-  android.hardware.automotive.vehicle@2.1-vts.func_fuzzer.Vehicle \
   android.hardware.benchmarks.msgq@1.0-vts.func_fuzzer.BenchmarkMsgQ \
   android.hardware.biometrics.fingerprint@2.1-vts.func_fuzzer.BiometricsFingerprint \
   android.hardware.bluetooth@1.0-vts.func_fuzzer.BluetoothHci \

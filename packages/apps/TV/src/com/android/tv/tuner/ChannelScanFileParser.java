@@ -90,10 +90,6 @@ public class ChannelScanFileParser {
                 if (tokens.length != 3 && tokens.length != 4) {
                     continue;
                 }
-                if (!tokens[0].equals("A")) {
-                    // Only support ATSC
-                    continue;
-                }
                 scanChannelList.add(ScanChannel.forTuner(Integer.parseInt(tokens[1]), tokens[2],
                         tokens.length == 4 ? Integer.parseInt(tokens[3]) : null));
             }

@@ -15,6 +15,7 @@
  */
 #include "impl/vr_hwc.h"
 
+#include <cutils/properties.h>
 #include <private/dvr/display_client.h>
 #include <ui/Fence.h>
 
@@ -132,13 +133,14 @@ void HwcDisplay::GetChangedCompositionTypes(
               return lhs.info.z_order < rhs.info.z_order;
             });
 
-  int first_client_layer = -1, last_client_layer = -1;
+  const size_t no_layer = std::numeric_limits<size_t>::max();
+  size_t first_client_layer = no_layer, last_client_layer = no_layer;
   for (size_t i = 0; i < layers_.size(); ++i) {
     switch (layers_[i].composition_type) {
       case IComposerClient::Composition::SOLID_COLOR:
       case IComposerClient::Composition::CURSOR:
       case IComposerClient::Composition::SIDEBAND:
-        if (first_client_layer < 0)
+        if (first_client_layer == no_layer)
           first_client_layer = i;
 
         last_client_layer = i;
@@ -336,11 +338,30 @@ Error VrHwc::getDisplayAttribute(Display display, Config config,
       *outValue = display_ptr->height();
       break;
     case IComposerClient::Attribute::VSYNC_PERIOD:
-      *outValue = 1000 * 1000 * 1000 / 30;  // 30fps
+      {
+        int error = 0;
+        auto display_client = display::DisplayClient::Create(&error);
+        if (!display_client) {
+          ALOGE("Could not connect to display service : %s(%d)",
+                strerror(error), error);
+          // Return a default value of 30 fps
+          *outValue = 1000 * 1000 * 1000 / 30;
+        } else {
+          auto metrics = display_client->GetDisplayMetrics();
+          *outValue = metrics.get().vsync_period_ns;
+        }
+      }
       break;
     case IComposerClient::Attribute::DPI_X:
     case IComposerClient::Attribute::DPI_Y:
-      *outValue = 300 * 1000;  // 300dpi
+      {
+        constexpr int32_t kDefaultDPI = 300;
+        int32_t dpi = property_get_int32("ro.vr.hwc.dpi", kDefaultDPI);
+        if (dpi <= 0) {
+          dpi = kDefaultDPI;
+        }
+        *outValue = 1000 * dpi;
+      }
       break;
     default:
       return Error::BAD_PARAMETER;
@@ -820,7 +841,6 @@ Return<void> VrHwc::createClient(createClient_cb hidl_cb) {
   sp<VrComposerClient> client;
   if (client_ == nullptr) {
     client = new VrComposerClient(*this);
-    client->initialize();
   } else {
     ALOGE("Already have a client");
     status = Error::NO_RESOURCES;
@@ -829,6 +849,14 @@ Return<void> VrHwc::createClient(createClient_cb hidl_cb) {
   client_ = client;
   hidl_cb(status, client);
   return Void();
+}
+
+void VrHwc::ForceDisplaysRefresh() {
+  std::lock_guard<std::mutex> guard(mutex_);
+  if (client_ != nullptr) {
+    for (const auto& pair : displays_)
+      client_.promote()->onRefresh(pair.first);
+  }
 }
 
 void VrHwc::RegisterObserver(Observer* observer) {
@@ -851,13 +879,6 @@ HwcDisplay* VrHwc::FindDisplay(Display display) {
   auto iter = displays_.find(display);
   return iter == displays_.end() ? nullptr : iter->second.get();
 }
-
-ComposerView* GetComposerViewFromIComposer(
-    hardware::graphics::composer::V2_1::IComposer* composer) {
-  return static_cast<VrHwc*>(composer);
-}
-
-IComposer* HIDL_FETCH_IComposer(const char*) { return new VrHwc(); }
 
 }  // namespace dvr
 }  // namespace android

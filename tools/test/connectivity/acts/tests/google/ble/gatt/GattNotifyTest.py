@@ -20,11 +20,11 @@ This test script exercises GATT notify/indicate procedures.
 from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.GattConnectedBaseTest import GattConnectedBaseTest
-from acts.test_utils.bt.GattEnum import GattCharacteristic
-from acts.test_utils.bt.GattEnum import GattDescriptor
-from acts.test_utils.bt.GattEnum import MtuSize
-from acts.test_utils.bt.GattEnum import GattEvent
-from acts.test_utils.bt.GattEnum import GattCbStrings
+from acts.test_utils.bt.bt_constants import gatt_characteristic
+from acts.test_utils.bt.bt_constants import gatt_descriptor
+from acts.test_utils.bt.bt_constants import gatt_event
+from acts.test_utils.bt.bt_constants import gatt_cb_strings
+from acts.test_utils.bt.bt_constants import gatt_char_desc_uuids
 from math import ceil
 
 
@@ -57,19 +57,20 @@ class GattNotifyTest(GattConnectedBaseTest):
         self.cen_ad.droid.gattClientDescriptorSetValue(
             self.bluetooth_gatt, self.discovered_services_index,
             self.test_service_index, self.NOTIFIABLE_CHAR_UUID,
-            self.CCC_DESC_UUID, GattDescriptor.ENABLE_NOTIFICATION_VALUE.value)
+            gatt_char_desc_uuids['client_char_cfg'],
+            gatt_descriptor['enable_notification_value'])
 
         self.cen_ad.droid.gattClientWriteDescriptor(
             self.bluetooth_gatt, self.discovered_services_index,
             self.test_service_index, self.NOTIFIABLE_CHAR_UUID,
-            self.CCC_DESC_UUID)
+            gatt_char_desc_uuids['client_char_cfg'])
 
         #enable notifications in app
         self.cen_ad.droid.gattClientSetCharacteristicNotification(
             self.bluetooth_gatt, self.discovered_services_index,
             self.test_service_index, self.NOTIFIABLE_CHAR_UUID, True)
 
-        event = self._server_wait(GattEvent.DESC_WRITE_REQ)
+        event = self._server_wait(gatt_event['desc_write_req'])
 
         request_id = event['data']['requestId']
         bt_device_id = 0
@@ -78,7 +79,7 @@ class GattNotifyTest(GattConnectedBaseTest):
         self.per_ad.droid.gattServerSendResponse(
             self.gatt_server, bt_device_id, request_id, status, 0, [])
         #wait for client to get response
-        event = self._client_wait(GattEvent.DESC_WRITE)
+        event = self._client_wait(gatt_event['desc_write'])
 
         #set notified value
         notified_value = [1, 5, 9, 7, 5, 3, 6, 4, 8, 2]
@@ -90,7 +91,7 @@ class GattNotifyTest(GattConnectedBaseTest):
             self.gatt_server, bt_device_id, self.notifiable_char_index, False)
 
         #wait for client to receive the notification
-        event = self._client_wait(GattEvent.CHAR_CHANGE)
+        event = self._client_wait(gatt_event['char_change'])
         self.assertEqual(notified_value, event["data"]["CharacteristicValue"])
 
         return True

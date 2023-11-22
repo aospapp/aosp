@@ -57,15 +57,9 @@
         <item name="android:textSize">16sp</item>
     </style>
 
-    <style name="Widget.Setup.GuidedActionsListStyle" parent="Widget.Leanback.GuidedActionsListStyle">
-        <item name="android:elevation">0dp</item>
-    </style>
-
     <style name="Widget.Setup.GuidedActionItemContainerStyle" parent="Widget.Leanback.GuidedActionItemContainerStyle">
         <item name="android:layout_height">64dp</item>
         <item name="android:paddingBottom">@dimen/setup_guidedactions_vertical_padding</item>
-        <item name="android:paddingEnd">@dimen/setup_guidedactions_item_container_padding_end</item>
-        <item name="android:paddingStart">@dimen/setup_guidedactions_item_container_padding_start</item>
         <item name="android:paddingTop">@dimen/setup_guidedactions_vertical_padding</item>
         <item name="android:transitionGroup">true</item>
     </style>

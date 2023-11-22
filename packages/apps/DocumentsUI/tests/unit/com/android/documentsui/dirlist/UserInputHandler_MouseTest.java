@@ -85,13 +85,30 @@ public final class UserInputHandler_MouseTest {
                 mGestureSelectHandler::accept,
                 () -> mPerformHapticFeedback.accept(null));
 
-        mEvent = TestEvent.builder().mouse();
+        mEvent = TestEvent.builder().mouse().overDocIcon();
     }
 
     @Test
     public void testConfirmedClick_StartsSelection() {
         mInputHandler.onSingleTapConfirmed(mEvent.at(11).build());
         mSelection.assertSelection(11);
+    }
+
+    @Test
+    public void testClickOnIconWithExistingSelection_AddsToSelection() {
+        mInputHandler.onSingleTapConfirmed(mEvent.at(11).build());
+        mInputHandler.onSingleTapUp(mEvent.at(10).build());
+        mSelection.assertSelected(10, 11);
+    }
+
+    @Test
+    public void testClickOnIconOfSelectedItem_RemovesFromSelection() {
+        mInputHandler.onSingleTapConfirmed(mEvent.at(8).build());
+        mInputHandler.onSingleTapUp(mEvent.at(11).shift().build());
+        mSelection.assertSelected(8, 9, 10, 11);
+
+        mInputHandler.onSingleTapUp(mEvent.at(9).unshift().build());
+        mSelection.assertSelected(8, 10, 11);
     }
 
     @Test
@@ -114,14 +131,6 @@ public final class UserInputHandler_MouseTest {
     @Test
     public void testScroll_NoTrapForTwoFinger() {
         assertFalse(mInputHandler.onScroll(mEvent.at(0).action(MotionEvent.ACTION_MOVE).build()));
-    }
-
-    @Test
-    public void testUnconfirmedClick_DoesNotAddToExistingSelection() {
-        mInputHandler.onSingleTapConfirmed(mEvent.at(7).build());
-
-        mInputHandler.onSingleTapUp(mEvent.at(11).build());
-        mSelection.assertSelection(11);
     }
 
     @Test
@@ -203,6 +212,34 @@ public final class UserInputHandler_MouseTest {
     public void testClickOff_ClearsSelection() {
         mInputHandler.onSingleTapConfirmed(mEvent.at(11).build());
         mInputHandler.onSingleTapUp(mEvent.at(RecyclerView.NO_POSITION).build());
+        mSelection.assertNoSelection();
+    }
+
+    @Test
+    public void testClick_Focuses() {
+        int id = 11;
+        mInputHandler.onSingleTapConfirmed(mEvent.at(id).notOverDocIcon().build());
+        assertTrue(mFocusHandler.getFocusModelId().equals(Integer.toString(id)));
+    }
+
+    @Test
+    public void testClickOff_ClearsFocus() {
+        int id = 11;
+        mInputHandler.onSingleTapConfirmed(mEvent.at(id).notOverDocIcon().build());
+        assertTrue(mFocusHandler.hasFocusedItem());
+        mInputHandler.onSingleTapUp(mEvent.at(RecyclerView.NO_POSITION).build());
+        assertFalse(mFocusHandler.hasFocusedItem());
+    }
+
+    @Test
+    public void testClickOffSelection_RemovesSelectionAndFocuses() {
+        mInputHandler.onSingleTapConfirmed(mEvent.at(1).build());
+        mInputHandler.onSingleTapUp(mEvent.at(5).shift().build());
+        mSelection.assertSelection(1, 2, 3, 4, 5);
+
+        int id = 11;
+        mInputHandler.onSingleTapUp(mEvent.at(id).unshift().notOverDocIcon().build());
+        assertTrue(mFocusHandler.getFocusModelId().equals(Integer.toString(id)));
         mSelection.assertNoSelection();
     }
 }

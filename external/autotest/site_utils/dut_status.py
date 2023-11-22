@@ -390,18 +390,19 @@ def _parse_command(argv):
             prog=argv[0],
             description='Report DUT status and execution history',
             epilog='You can specify one or two of --since, --until, '
-                   'and --duration, but not all three.\n'
-                   'The date/time format is "YYYY-MM-DD HH:MM:SS".')
+                   'and --duration, but not all three.')
     parser.add_argument('-s', '--since', type=status_history.parse_time,
                         metavar='DATE/TIME',
-                        help='starting time for history display')
+                        help=('Starting time for history display. '
+                              'Format: "YYYY-MM-DD HH:MM:SS"'))
     parser.add_argument('-u', '--until', type=status_history.parse_time,
                         metavar='DATE/TIME',
-                        help='ending time for history display'
-                             ' (default: now)')
+                        help=('Ending time for history display. '
+                              'Format: "YYYY-MM-DD HH:MM:SS" '
+                              'Default: now'))
     parser.add_argument('-d', '--duration', type=int,
                         metavar='HOURS',
-                        help='number of hours of history to display'
+                        help='Number of hours of history to display'
                              ' (default: %d)' % _DEFAULT_DURATION)
 
     format_group = parser.add_mutually_exclusive_group()
@@ -430,7 +431,7 @@ def _parse_command(argv):
                              +', or '+ lab_inventory.MANAGED_POOLS[-1] +'.')
     parser.add_argument('hostnames',
                         nargs='*',
-                        help='host names of DUTs to report on')
+                        help='Host names of DUTs to report on')
     parser.add_argument('--web',
                         help='Master autotest frontend hostname. If no value '
                              'is given, the one in global config will be used.',

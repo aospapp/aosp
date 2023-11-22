@@ -7,7 +7,7 @@ NAME = 'autotest_SyncCount'
 SYNC_COUNT = 2
 TIME = 'MEDIUM'
 TEST_TYPE = 'Server'
-ATTRIBUTES = 'suite:push_to_prod'
+ATTRIBUTES = 'suite:push_to_prod, suite:bvt-perbuild'
 
 DOC = """
 Tests that SYNC_COUNT schedules 2 hosts.

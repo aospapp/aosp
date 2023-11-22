@@ -35,15 +35,17 @@
 #include <binder/IServiceManager.h>
 #include <binder/ProcessState.h>
 
-#include "Controllers.h"
 #include "CommandListener.h"
+#include "Controllers.h"
+#include "DnsProxyListener.h"
+#include "FwmarkServer.h"
+#include "MDnsSdListener.h"
+#include "NFLogListener.h"
 #include "NetdConstants.h"
+#include "NetdHwService.h"
 #include "NetdNativeService.h"
 #include "NetlinkManager.h"
 #include "Stopwatch.h"
-#include "DnsProxyListener.h"
-#include "MDnsSdListener.h"
-#include "FwmarkServer.h"
 
 using android::status_t;
 using android::sp;
@@ -53,8 +55,11 @@ using android::defaultServiceManager;
 using android::net::CommandListener;
 using android::net::DnsProxyListener;
 using android::net::FwmarkServer;
+using android::net::NetdHwService;
 using android::net::NetdNativeService;
 using android::net::NetlinkManager;
+using android::net::NFLogListener;
+using android::net::makeNFLogListener;
 
 static void remove_pid_file();
 static bool write_pid_file();
@@ -74,6 +79,16 @@ int main() {
 
     blockSigpipe();
 
+    // Before we do anything that could fork, mark CLOEXEC the UNIX sockets that we get from init.
+    // FrameworkListener does this on initialization as well, but we only initialize these
+    // components after having initialized other subsystems that can fork.
+    for (const auto& sock : { CommandListener::SOCKET_NAME,
+                              DnsProxyListener::SOCKET_NAME,
+                              FwmarkServer::SOCKET_NAME,
+                              MDnsSdListener::SOCKET_NAME }) {
+        setCloseOnExec(sock);
+    }
+
     NetlinkManager *nm = NetlinkManager::Instance();
     if (nm == nullptr) {
         ALOGE("Unable to create NetlinkManager");
@@ -89,6 +104,21 @@ int main() {
     if (nm->start()) {
         ALOGE("Unable to start NetlinkManager (%s)", strerror(errno));
         exit(1);
+    }
+
+    std::unique_ptr<NFLogListener> logListener;
+    {
+        auto result = makeNFLogListener();
+        if (!isOk(result)) {
+            ALOGE("Unable to create NFLogListener: %s", toString(result).c_str());
+            exit(1);
+        }
+        logListener = std::move(result.value());
+        auto status = gCtls->wakeupCtrl.init(logListener.get());
+        if (!isOk(result)) {
+            ALOGE("Unable to init WakeupController: %s", toString(result).c_str());
+            // We can still continue without wakeup packet logging.
+        }
     }
 
     // Set local DNS mode, to prevent bionic from proxying
@@ -131,6 +161,15 @@ int main() {
     ALOGI("Starting CommandListener: %.1fms", subTime.getTimeAndReset());
 
     write_pid_file();
+
+    // Now that netd is ready to process commands, advertise service
+    // availability for HAL clients.
+    NetdHwService mHwSvc;
+    if ((ret = mHwSvc.start()) != android::OK) {
+        ALOGE("Unable to start NetdHwService: %d", ret);
+        exit(1);
+    }
+    ALOGI("Registering NetdHwService: %.1fms", subTime.getTimeAndReset());
 
     ALOGI("Netd started in %dms", static_cast<int>(s.timeTaken()));
 

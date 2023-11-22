@@ -22,9 +22,6 @@
 extern "C" {
 #endif
 
-#define __NVIC_PRIO_BITS 4
-#define __FPU_PRESENT 1
-
 #include <cpu/cmsis/core_cm4.h>
 
 #ifdef __cplusplus

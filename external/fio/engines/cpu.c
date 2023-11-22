@@ -6,6 +6,7 @@
  *
  */
 #include "../fio.h"
+#include "../optgroup.h"
 
 struct cpu_options {
 	void *pad;
@@ -21,7 +22,7 @@ static struct fio_option options[] = {
 		.type	= FIO_OPT_INT,
 		.off1	= offsetof(struct cpu_options, cpuload),
 		.help	= "Use this percentage of CPU",
-		.category = FIO_OPT_C_GENERAL,
+		.category = FIO_OPT_C_ENGINE,
 		.group	= FIO_OPT_G_INVALID,
 	},
 	{
@@ -33,7 +34,7 @@ static struct fio_option options[] = {
 		.def	= "50000",
 		.parent = "cpuload",
 		.hide	= 1,
-		.category = FIO_OPT_C_GENERAL,
+		.category = FIO_OPT_C_ENGINE,
 		.group	= FIO_OPT_G_INVALID,
 	},
 	{
@@ -43,7 +44,7 @@ static struct fio_option options[] = {
 		.off1	= offsetof(struct cpu_options, exit_io_done),
 		.help	= "Exit when IO threads finish",
 		.def	= "0",
-		.category = FIO_OPT_C_GENERAL,
+		.category = FIO_OPT_C_ENGINE,
 		.group	= FIO_OPT_G_INVALID,
 	},
 	{
@@ -87,8 +88,8 @@ static int fio_cpuio_init(struct thread_data *td)
 
 	o->nr_files = o->open_files = 1;
 
-	log_info("%s: ioengine=cpu, cpuload=%u, cpucycle=%u\n", td->o.name,
-						co->cpuload, co->cpucycle);
+	log_info("%s: ioengine=%s, cpuload=%u, cpucycle=%u\n",
+		td->o.name, td->io_ops->name, co->cpuload, co->cpucycle);
 
 	return 0;
 }

@@ -45,35 +45,9 @@ using namespace SPIRV;
 
 namespace rs2spirv {
 
-namespace {
-
-void HandleTargetTriple(llvm::Module &M) {
-  Triple TT(M.getTargetTriple());
-  auto Arch = TT.getArch();
-
-  StringRef NewTriple;
-  switch (Arch) {
-  default:
-    llvm_unreachable("Unrecognized architecture");
-    break;
-  case Triple::arm:
-    NewTriple = "spir-unknown-unknown";
-    break;
-  case Triple::aarch64:
-    NewTriple = "spir64-unknown-unknown";
-    break;
-  case Triple::spir:
-  case Triple::spir64:
-    DEBUG(dbgs() << "!!! Already a spir triple !!!\n");
-  }
-
-  DEBUG(dbgs() << "New triple:\t" << NewTriple << "\n");
-  M.setTargetTriple(NewTriple);
-}
-
-} // namespace
-
 void addPassesForRS2SPIRV(llvm::legacy::PassManager &PassMgr) {
+  PassMgr.add(createGlobalMergePass());
+
   PassMgr.add(createInlinePreparationPass());
   PassMgr.add(createAlwaysInlinerPass());
   PassMgr.add(createRemoveNonkernelsPass());
@@ -83,7 +57,6 @@ void addPassesForRS2SPIRV(llvm::legacy::PassManager &PassMgr) {
   PassMgr.add(createStripDeadDebugInfoPass());
   // Remove dead func decls.
   PassMgr.add(createStripDeadPrototypesPass());
-  PassMgr.add(createGlobalMergePass());
   // Transform global allocations and accessors (rs[GS]etElementAt)
   PassMgr.add(createGlobalAllocPass());
   // Removed dead MemCpys in 64-bit targets after global alloc pass
@@ -100,17 +73,8 @@ void addPassesForRS2SPIRV(llvm::legacy::PassManager &PassMgr) {
   PassMgr.add(createSPIRVLowerBool());
 }
 
-bool WriteSPIRV(llvm::Module *M, std::unique_ptr<bcinfo::MetadataExtractor> ME,
+bool WriteSPIRV(Context &Ctxt, Module *M,
                 llvm::raw_ostream &OS, std::string &ErrMsg) {
-  HandleTargetTriple(*M);
-
-  Context &Ctxt = Context::getInstance();
-
-  if (!Ctxt.Initialize(std::move(ME))) {
-    ErrMsg = "Failed to intialize rs2spirv";
-    return false;
-  }
-
   llvm::legacy::PassManager PassMgr;
   addPassesForRS2SPIRV(PassMgr);
 

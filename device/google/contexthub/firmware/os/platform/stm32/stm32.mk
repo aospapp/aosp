@@ -26,7 +26,7 @@ OS_FILE = $(OUT)/os.checked.bin
 DELIVERABLES += showsizes
 FLAGS += -I. -fno-unwind-tables -fstack-reuse=all -ffunction-sections -fdata-sections
 FLAGS += -Wl,--gc-sections -nostartfiles
-FLAGS_os += -nostdlib
+FLAGS += -nostdlib
 
 #platform bootloader
 SRCS_bl += os/platform/$(PLATFORM)/bl.c
@@ -75,7 +75,7 @@ FLAGS += -DPLATFORM_HW_VER=0
 OBJCOPY_PARAMS = -I elf32-littlearm -O binary
 
 $(OUT)/bl.%.bin : $(OUT)/bl.%.elf
-	$(OBJCOPY) -j .bl -j .blrodata -j .eedata $(OBJCOPY_PARAMS) $< $@
+	$(OBJCOPY) -j .bl -j .data -j .eedata $(OBJCOPY_PARAMS) $< $@
 
 $(OUT)/os.%.bin : $(OUT)/os.%.elf
 	$(OBJCOPY) -j .data -j .text $(OBJCOPY_PARAMS) $< $@

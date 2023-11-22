@@ -27,7 +27,7 @@ limitations under the License.
     <string name="lb_control_display_rewind_multiplier" msgid="3097220783222910245">"%1$dX"</string>
     <string name="lb_playback_controls_play" msgid="731953341987346903">"Oyun"</string>
     <string name="lb_playback_controls_pause" msgid="6189521112079849518">"Pauza"</string>
-    <string name="lb_playback_controls_fast_forward" msgid="8569951318244687220">"İrəli Ötürmə"</string>
+    <string name="lb_playback_controls_fast_forward" msgid="8569951318244687220">"İrəli ötürmə"</string>
     <string name="lb_playback_controls_fast_forward_multiplier" msgid="1058753672110224526">"İrəli sarı %1$dX"</string>
     <string name="lb_playback_controls_rewind" msgid="2227196334132350684">"Geri ötürmə"</string>
     <string name="lb_playback_controls_rewind_multiplier" msgid="1640629531440849942">"Geri sarı %1$dX"</string>
@@ -53,8 +53,6 @@ limitations under the License.
     <string name="lb_playback_controls_hidden" msgid="8940984081242033574">"Media idarəetmələri gizlidir, göstərmək üçün d-pad\'i basın"</string>
     <string name="lb_guidedaction_finish_title" msgid="4015190340667946245">"Bitir"</string>
     <string name="lb_guidedaction_continue_title" msgid="8842094924543063706">"Davam edin"</string>
-    <string name="lb_date_separator" msgid="2440386660906697298">"/"</string>
-    <string name="lb_time_separator" msgid="2763247350845477227">":"</string>
     <string name="lb_media_player_error" msgid="3650250994187305396">"Media Pleyer xəta kodu %1$d əlavə %2$d"</string>
     <string name="lb_onboarding_get_started" msgid="6961440391306351139">"BAŞLAYIN"</string>
     <string name="lb_onboarding_accessibility_next" msgid="2918313444257732434">"Növbəti"</string>

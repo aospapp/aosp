@@ -21,6 +21,12 @@
         <item name="android:layout_weight">3</item>
     </style>
 
+    <style name="DialpadNoSpaceStyle">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:visibility">gone</item>
+    </style>
+
     <style name="DialpadKeyNumberStyle">
         <item name="android:textColor">?attr/dialpad_text_color_primary</item>
         <item name="android:textSize">@dimen/dialpad_key_numbers_size</item>
@@ -92,14 +98,32 @@
         <item name="dialpad_icon_tint">@color/dialpad_icon_tint</item>
         <item name="dialpad_voicemail_tint">@color/dialpad_voicemail_tint</item>
         <item name="dialpad_background">@color/background_dialpad</item>
+        <item name="dialpad_separator_color">#e3e3e3</item>
+        <item name="dialpad_margin_style">@style/DialpadSpaceStyle</item>
+        <item name="dialpad_delete_padding">@dimen/dialpad_digits_padding</item>
     </style>
 
-    <style name="Dialpad_Dark">
-        <item name="dialpad_text_color">@android:color/white</item>
-        <item name="dialpad_text_color_primary">@android:color/white</item>
-        <item name="dialpad_text_color_secondary">#ffd4d6d7</item>
+    <style name="Dialpad_LightTransparent">
+        <item name="dialpad_text_color">?android:textColorPrimaryInverse</item>
+        <item name="dialpad_text_color_primary">?android:textColorPrimaryInverse</item>
+        <item name="dialpad_text_color_secondary">?android:textColorSecondaryInverse</item>
+        <item name="dialpad_icon_tint">@color/dialpad_icon_tint_dark</item>
+        <item name="dialpad_voicemail_tint">@color/dialpad_icon_tint_dark</item>
+        <item name="dialpad_background">@android:color/transparent</item>
+        <item name="dialpad_separator_color">@color/dialpad_icon_tint_dark</item>
+        <item name="dialpad_margin_style">@style/DialpadNoSpaceStyle</item>
+        <item name="dialpad_delete_padding">1dp</item>
+    </style>
+
+    <style name="Dialpad_DarkTransparent">
+        <item name="dialpad_text_color">?android:textColorPrimary</item>
+        <item name="dialpad_text_color_primary">?android:textColorPrimary</item>
+        <item name="dialpad_text_color_secondary">?android:textColorSecondary</item>
         <item name="dialpad_icon_tint">@android:color/white</item>
-        <item name="dialpad_voicemail_tint">?attr/dialpad_text_color_secondary</item>
-        <item name="dialpad_background">#00000000</item>
+        <item name="dialpad_voicemail_tint">@color/dialpad_icon_tint</item>
+        <item name="dialpad_background">@android:color/transparent</item>
+        <item name="dialpad_separator_color">@color/dialpad_icon_tint</item>
+        <item name="dialpad_margin_style">@style/DialpadNoSpaceStyle</item>
+        <item name="dialpad_delete_padding">1dp</item>
     </style>
 </resources>

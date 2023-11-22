@@ -17,7 +17,5 @@
 
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="oval" >
-    <size android:width="@dimen/play_controls_time_indicator_width"
-        android:height="@dimen/play_controls_time_indicator_height" />
     <solid android:color="@color/play_controls_progress_time_indicator_color" />
 </shape>

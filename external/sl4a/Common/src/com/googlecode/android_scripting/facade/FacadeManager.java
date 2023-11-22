@@ -89,6 +89,12 @@ public class FacadeManager extends RpcReceiverManager {
         String packageName = mService.getApplication().getPackageName();
         return mService.getResources().getIdentifier("script_logo_48", "drawable", packageName);
       }
+      @Override
+      public int getStringId(String identifier) {
+        // TODO(markdr): Figure out what the TODO above wants to do.
+        String packageName = mService.getApplication().getPackageName();
+        return mService.getResources().getIdentifier(identifier, "string", packageName);
+      }
     };
   }
 }

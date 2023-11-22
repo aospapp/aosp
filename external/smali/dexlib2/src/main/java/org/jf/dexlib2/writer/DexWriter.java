@@ -53,11 +53,7 @@ import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
 import org.jf.dexlib2.iface.instruction.ReferenceInstruction;
 import org.jf.dexlib2.iface.instruction.formats.*;
-import org.jf.dexlib2.iface.reference.FieldReference;
-import org.jf.dexlib2.iface.reference.MethodProtoReference;
-import org.jf.dexlib2.iface.reference.MethodReference;
-import org.jf.dexlib2.iface.reference.StringReference;
-import org.jf.dexlib2.iface.reference.TypeReference;
+import org.jf.dexlib2.iface.reference.*;
 import org.jf.dexlib2.util.InstructionUtil;
 import org.jf.dexlib2.util.MethodUtil;
 import org.jf.dexlib2.util.ReferenceUtil;
@@ -92,7 +88,18 @@ public abstract class DexWriter<
         TypeListKey,
         FieldKey, MethodKey,
         EncodedValue,
-        AnnotationElement extends org.jf.dexlib2.iface.AnnotationElement> {
+        AnnotationElement extends org.jf.dexlib2.iface.AnnotationElement,
+        StringSectionType extends StringSection<StringKey, StringRef>,
+        TypeSectionType extends TypeSection<StringKey, TypeKey, TypeRef>,
+        ProtoSectionType extends ProtoSection<StringKey, TypeKey, ProtoRefKey, TypeListKey>,
+        FieldSectionType extends FieldSection<StringKey, TypeKey, FieldRefKey, FieldKey>,
+        MethodSectionType extends MethodSection<StringKey, TypeKey, ProtoRefKey, MethodRefKey, MethodKey>,
+        ClassSectionType extends ClassSection<StringKey, TypeKey, TypeListKey, ClassKey, FieldKey, MethodKey,
+                AnnotationSetKey, EncodedValue>,
+        TypeListSectionType extends TypeListSection<TypeKey, TypeListKey>,
+        AnnotationSectionType extends AnnotationSection<StringKey, TypeKey, AnnotationKey, AnnotationElement,
+                EncodedValue>,
+        AnnotationSetSectionType extends AnnotationSetSection<AnnotationKey, AnnotationSetKey>> {
     public static final int NO_INDEX = -1;
     public static final int NO_OFFSET = 0;
 
@@ -124,42 +131,33 @@ public abstract class DexWriter<
     protected int numCodeItemItems = 0;
     protected int numClassDataItems = 0;
 
-    protected final StringSection<StringKey, StringRef> stringSection;
-    protected final TypeSection<StringKey, TypeKey, TypeRef> typeSection;
-    protected final ProtoSection<StringKey, TypeKey, ProtoRefKey, TypeListKey> protoSection;
-    protected final FieldSection<StringKey, TypeKey, FieldRefKey, FieldKey> fieldSection;
-    protected final MethodSection<StringKey, TypeKey, ProtoRefKey, MethodRefKey, MethodKey> methodSection;
-    protected final ClassSection<StringKey, TypeKey, TypeListKey, ClassKey, FieldKey, MethodKey, AnnotationSetKey,
-            EncodedValue> classSection;
+    public final StringSectionType stringSection;
+    public final TypeSectionType typeSection;
+    public final ProtoSectionType protoSection;
+    public final FieldSectionType fieldSection;
+    public final MethodSectionType methodSection;
+    public final ClassSectionType classSection;
     
-    protected final TypeListSection<TypeKey, TypeListKey> typeListSection;
-    protected final AnnotationSection<StringKey, TypeKey, AnnotationKey, AnnotationElement, EncodedValue> annotationSection;
-    protected final AnnotationSetSection<AnnotationKey, AnnotationSetKey> annotationSetSection;
+    public final TypeListSectionType typeListSection;
+    public final AnnotationSectionType annotationSection;
+    public final AnnotationSetSectionType annotationSetSection;
 
-    protected DexWriter(Opcodes opcodes,
-                        StringSection<StringKey, StringRef> stringSection,
-                        TypeSection<StringKey, TypeKey, TypeRef> typeSection,
-                        ProtoSection<StringKey, TypeKey, ProtoRefKey, TypeListKey> protoSection,
-                        FieldSection<StringKey, TypeKey, FieldRefKey, FieldKey> fieldSection,
-                        MethodSection<StringKey, TypeKey, ProtoRefKey, MethodRefKey, MethodKey> methodSection,
-                        ClassSection<StringKey, TypeKey, TypeListKey, ClassKey, FieldKey, MethodKey, AnnotationSetKey,
-                                EncodedValue> classSection,
-                        TypeListSection<TypeKey, TypeListKey> typeListSection,
-                        AnnotationSection<StringKey, TypeKey, AnnotationKey, AnnotationElement,
-                                EncodedValue> annotationSection,
-                        AnnotationSetSection<AnnotationKey, AnnotationSetKey> annotationSetSection) {
+    protected DexWriter(Opcodes opcodes) {
         this.opcodes = opcodes;
 
-        this.stringSection = stringSection;
-        this.typeSection = typeSection;
-        this.protoSection = protoSection;
-        this.fieldSection = fieldSection;
-        this.methodSection = methodSection;
-        this.classSection = classSection;
-        this.typeListSection = typeListSection;
-        this.annotationSection = annotationSection;
-        this.annotationSetSection = annotationSetSection;
+        SectionProvider sectionProvider = getSectionProvider();
+        this.stringSection = sectionProvider.getStringSection();
+        this.typeSection = sectionProvider.getTypeSection();
+        this.protoSection = sectionProvider.getProtoSection();
+        this.fieldSection = sectionProvider.getFieldSection();
+        this.methodSection = sectionProvider.getMethodSection();
+        this.classSection = sectionProvider.getClassSection();
+        this.typeListSection = sectionProvider.getTypeListSection();
+        this.annotationSection = sectionProvider.getAnnotationSection();
+        this.annotationSetSection = sectionProvider.getAnnotationSetSection();
     }
+
+    @Nonnull protected abstract SectionProvider getSectionProvider();
 
     protected abstract void writeEncodedValue(@Nonnull InternalEncodedValueWriter writer,
                                               @Nonnull EncodedValue encodedValue) throws IOException;
@@ -192,12 +190,12 @@ public abstract class DexWriter<
 
     private int getDataSectionOffset() {
         return HeaderItem.ITEM_SIZE +
-                stringSection.getItems().size() * StringIdItem.ITEM_SIZE +
-                typeSection.getItems().size() * TypeIdItem.ITEM_SIZE +
-                protoSection.getItems().size() * ProtoIdItem.ITEM_SIZE +
-                fieldSection.getItems().size() * FieldIdItem.ITEM_SIZE +
-                methodSection.getItems().size() * MethodIdItem.ITEM_SIZE +
-                classSection.getItems().size() * ClassDefItem.ITEM_SIZE;
+                stringSection.getItemCount() * StringIdItem.ITEM_SIZE +
+                typeSection.getItemCount() * TypeIdItem.ITEM_SIZE +
+                protoSection.getItemCount() * ProtoIdItem.ITEM_SIZE +
+                fieldSection.getItemCount() * FieldIdItem.ITEM_SIZE +
+                methodSection.getItemCount() * MethodIdItem.ITEM_SIZE +
+                classSection.getItemCount() * ClassDefItem.ITEM_SIZE;
     }
 
     @Nonnull
@@ -225,6 +223,22 @@ public abstract class DexWriter<
             classReferences.add(typeReference.getKey().toString());
         }
         return classReferences;
+    }
+
+    /**
+     * Checks whether any of the size-sensitive constant pools have overflowed.
+     *
+     * This checks whether the type, method, field pools are larger than 64k entries.
+     *
+     * Note that even if this returns true, it may still be possible to successfully write the dex file, if the
+     * overflowed items are not referenced anywhere that uses a 16-bit index
+     *
+     * @return true if any of the size-sensitive constant pools have overflowed
+     */
+    public boolean hasOverflowed() {
+        return methodSection.getItemCount() > (1 << 16) ||
+                typeSection.getItemCount() > (1 << 16) ||
+                fieldSection.getItemCount() > (1 << 16);
     }
 
     public void writeTo(@Nonnull DexDataStore dest) throws IOException {
@@ -801,7 +815,14 @@ public abstract class DexWriter<
 
                 int debugItemOffset = writeDebugItem(offsetWriter, debugWriter,
                         classSection.getParameterNames(methodKey), debugItems);
-                int codeItemOffset = writeCodeItem(codeWriter, ehBuf, methodKey, tryBlocks, instructions, debugItemOffset);
+                int codeItemOffset;
+                try {
+                    codeItemOffset = writeCodeItem(
+                            codeWriter, ehBuf, methodKey, tryBlocks, instructions, debugItemOffset);
+                } catch (RuntimeException ex) {
+                    throw new ExceptionWithContext(ex, "Exception occurred while writing code_item for method %s",
+                            methodSection.getMethodReference(methodKey));
+                }
 
                 if (codeItemOffset != -1) {
                     codeOffsets.add(new CodeItemOffset<MethodKey>(methodKey, codeItemOffset));
@@ -950,105 +971,111 @@ public abstract class DexWriter<
                             methodSection, protoSection);
 
             writer.writeInt(codeUnitCount);
+            int codeOffset = 0;
             for (Instruction instruction: instructions) {
-                switch (instruction.getOpcode().format) {
-                    case Format10t:
-                        instructionWriter.write((Instruction10t)instruction);
-                        break;
-                    case Format10x:
-                        instructionWriter.write((Instruction10x)instruction);
-                        break;
-                    case Format11n:
-                        instructionWriter.write((Instruction11n)instruction);
-                        break;
-                    case Format11x:
-                        instructionWriter.write((Instruction11x)instruction);
-                        break;
-                    case Format12x:
-                        instructionWriter.write((Instruction12x)instruction);
-                        break;
-                    case Format20bc:
-                        instructionWriter.write((Instruction20bc)instruction);
-                        break;
-                    case Format20t:
-                        instructionWriter.write((Instruction20t)instruction);
-                        break;
-                    case Format21c:
-                        instructionWriter.write((Instruction21c)instruction);
-                        break;
-                    case Format21ih:
-                        instructionWriter.write((Instruction21ih)instruction);
-                        break;
-                    case Format21lh:
-                        instructionWriter.write((Instruction21lh)instruction);
-                        break;
-                    case Format21s:
-                        instructionWriter.write((Instruction21s)instruction);
-                        break;
-                    case Format21t:
-                        instructionWriter.write((Instruction21t)instruction);
-                        break;
-                    case Format22b:
-                        instructionWriter.write((Instruction22b)instruction);
-                        break;
-                    case Format22c:
-                        instructionWriter.write((Instruction22c)instruction);
-                        break;
-                    case Format22s:
-                        instructionWriter.write((Instruction22s)instruction);
-                        break;
-                    case Format22t:
-                        instructionWriter.write((Instruction22t)instruction);
-                        break;
-                    case Format22x:
-                        instructionWriter.write((Instruction22x)instruction);
-                        break;
-                    case Format23x:
-                        instructionWriter.write((Instruction23x)instruction);
-                        break;
-                    case Format30t:
-                        instructionWriter.write((Instruction30t)instruction);
-                        break;
-                    case Format31c:
-                        instructionWriter.write((Instruction31c)instruction);
-                        break;
-                    case Format31i:
-                        instructionWriter.write((Instruction31i)instruction);
-                        break;
-                    case Format31t:
-                        instructionWriter.write((Instruction31t)instruction);
-                        break;
-                    case Format32x:
-                        instructionWriter.write((Instruction32x)instruction);
-                        break;
-                    case Format35c:
-                        instructionWriter.write((Instruction35c)instruction);
-                        break;
-                    case Format3rc:
-                        instructionWriter.write((Instruction3rc)instruction);
-                        break;
-                    case Format45cc:
-                        instructionWriter.write((Instruction45cc) instruction);
-                        break;
-                    case Format4rcc:
-                        instructionWriter.write((Instruction4rcc) instruction);
-                        break;
-                    case Format51l:
-                        instructionWriter.write((Instruction51l)instruction);
-                        break;
-                    case ArrayPayload:
-                        instructionWriter.write((ArrayPayload)instruction);
-                        break;
-                    case PackedSwitchPayload:
-                        instructionWriter.write((PackedSwitchPayload)instruction);
-                        break;
-                    case SparseSwitchPayload:
-                        instructionWriter.write((SparseSwitchPayload)instruction);
-                        break;
-                    default:
-                        throw new ExceptionWithContext("Unsupported instruction format: %s",
-                                instruction.getOpcode().format);
+                try {
+                    switch (instruction.getOpcode().format) {
+                        case Format10t:
+                            instructionWriter.write((Instruction10t)instruction);
+                            break;
+                        case Format10x:
+                            instructionWriter.write((Instruction10x)instruction);
+                            break;
+                        case Format11n:
+                            instructionWriter.write((Instruction11n)instruction);
+                            break;
+                        case Format11x:
+                            instructionWriter.write((Instruction11x)instruction);
+                            break;
+                        case Format12x:
+                            instructionWriter.write((Instruction12x)instruction);
+                            break;
+                        case Format20bc:
+                            instructionWriter.write((Instruction20bc)instruction);
+                            break;
+                        case Format20t:
+                            instructionWriter.write((Instruction20t)instruction);
+                            break;
+                        case Format21c:
+                            instructionWriter.write((Instruction21c)instruction);
+                            break;
+                        case Format21ih:
+                            instructionWriter.write((Instruction21ih)instruction);
+                            break;
+                        case Format21lh:
+                            instructionWriter.write((Instruction21lh)instruction);
+                            break;
+                        case Format21s:
+                            instructionWriter.write((Instruction21s)instruction);
+                            break;
+                        case Format21t:
+                            instructionWriter.write((Instruction21t)instruction);
+                            break;
+                        case Format22b:
+                            instructionWriter.write((Instruction22b)instruction);
+                            break;
+                        case Format22c:
+                            instructionWriter.write((Instruction22c)instruction);
+                            break;
+                        case Format22s:
+                            instructionWriter.write((Instruction22s)instruction);
+                            break;
+                        case Format22t:
+                            instructionWriter.write((Instruction22t)instruction);
+                            break;
+                        case Format22x:
+                            instructionWriter.write((Instruction22x)instruction);
+                            break;
+                        case Format23x:
+                            instructionWriter.write((Instruction23x)instruction);
+                            break;
+                        case Format30t:
+                            instructionWriter.write((Instruction30t)instruction);
+                            break;
+                        case Format31c:
+                            instructionWriter.write((Instruction31c)instruction);
+                            break;
+                        case Format31i:
+                            instructionWriter.write((Instruction31i)instruction);
+                            break;
+                        case Format31t:
+                            instructionWriter.write((Instruction31t)instruction);
+                            break;
+                        case Format32x:
+                            instructionWriter.write((Instruction32x)instruction);
+                            break;
+                        case Format35c:
+                            instructionWriter.write((Instruction35c)instruction);
+                            break;
+                        case Format3rc:
+                            instructionWriter.write((Instruction3rc)instruction);
+                            break;
+                        case Format45cc:
+                            instructionWriter.write((Instruction45cc)instruction);
+                            break;
+                        case Format4rcc:
+                            instructionWriter.write((Instruction4rcc)instruction);
+                            break;
+                        case Format51l:
+                            instructionWriter.write((Instruction51l)instruction);
+                            break;
+                        case ArrayPayload:
+                            instructionWriter.write((ArrayPayload)instruction);
+                            break;
+                        case PackedSwitchPayload:
+                            instructionWriter.write((PackedSwitchPayload)instruction);
+                            break;
+                        case SparseSwitchPayload:
+                            instructionWriter.write((SparseSwitchPayload)instruction);
+                            break;
+                        default:
+                            throw new ExceptionWithContext("Unsupported instruction format: %s",
+                                    instruction.getOpcode().format);
+                    }
+                } catch (RuntimeException ex) {
+                    throw new ExceptionWithContext(ex, "Error while writing instruction at code offset 0x%x", codeOffset);
                 }
+                codeOffset += instruction.getCodeUnits();
             }
 
             if (tryBlocks.size() > 0) {
@@ -1273,5 +1300,17 @@ public abstract class DexWriter<
         // which is triggered by NO_OFFSET in parameter annotation list.
         // (https://code.google.com/p/android/issues/detail?id=35304)
         return (opcodes.api < 17);
+    }
+
+    public abstract class SectionProvider {
+        @Nonnull public abstract StringSectionType getStringSection();
+        @Nonnull public abstract TypeSectionType getTypeSection();
+        @Nonnull public abstract ProtoSectionType getProtoSection();
+        @Nonnull public abstract FieldSectionType getFieldSection();
+        @Nonnull public abstract MethodSectionType getMethodSection();
+        @Nonnull public abstract ClassSectionType getClassSection();
+        @Nonnull public abstract TypeListSectionType getTypeListSection();
+        @Nonnull public abstract AnnotationSectionType getAnnotationSection();
+        @Nonnull public abstract AnnotationSetSectionType getAnnotationSetSection();
     }
 }

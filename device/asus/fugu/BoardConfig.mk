@@ -82,10 +82,8 @@ TARGET_SUPPORT_HDMI_PRIMARY := true
 BOARD_USES_LIBDRM := true
 
 TARGET_USES_HWC2 := true
+NUM_FRAMEBUFFER_SURFACE_BUFFERS := 3
 SF_START_GRAPHICS_ALLOCATOR_SERVICE := true
-VSYNC_EVENT_PHASE_OFFSET_NS := 2000000
-SF_VSYNC_EVENT_PHASE_OFFSET_NS := 6000000
-
 
 # Audio
 BOARD_USES_ALSA_AUDIO := true
@@ -146,3 +144,6 @@ USE_CLANG_PLATFORM_BUILD := true
 # Don't dex preopt prebuilt apps that will be updated from Play Store
 DONT_DEXPREOPT_PREBUILTS := true
 
+# Vendor Interface Manifest
+DEVICE_MANIFEST_FILE := device/asus/fugu/manifest.xml
+DEVICE_MATRIX_FILE := device/asus/fugu/compatibility_matrix.xml

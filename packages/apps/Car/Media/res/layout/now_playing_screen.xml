@@ -20,6 +20,19 @@
     android:layout_height="match_parent"
     android:animateLayoutChanges="true" >
 
+    <com.android.car.media.CrossfadeImageView
+        android:id="@+id/album_art"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop" />
+
+    <View
+        android:id="@+id/scrim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/black"
+        android:alpha="@dimen/media_scrim_alpha" />
+
     <View
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -52,7 +65,7 @@
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:fontFamily="sans-serif-medium"
-                    android:maxLines="2"
+                    android:maxLines="@integer/media_title_max_lines"
                     style="@style/CarHeadline1.Light" />
                 <TextView
                     android:id="@+id/artist"
@@ -60,7 +73,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
-                    android:singleLine="true"
+                    android:maxLines="@integer/media_artist_max_lines"
                     style="@style/CarHeadline1.Light" />
             </LinearLayout>
         </FrameLayout>

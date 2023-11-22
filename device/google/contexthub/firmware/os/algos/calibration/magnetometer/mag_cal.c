@@ -15,9 +15,11 @@
  */
 
 #include "calibration/magnetometer/mag_cal.h"
+
 #include <errno.h>
-#include <nanohub_math.h>
 #include <string.h>
+
+#include "calibration/util/cal_log.h"
 
 #ifdef MAG_CAL_ORIGINAL_TUNING
 #define MAX_EIGEN_RATIO 25.0f
@@ -25,7 +27,6 @@
 #define MIN_EIGEN_MAG 10.0f          // uT
 #define MAX_FIT_MAG 80.0f
 #define MIN_FIT_MAG 10.0f
-#define MIN_BATCH_WINDOW 1000000UL   // 1 sec
 #define MAX_BATCH_WINDOW 15000000UL  // 15 sec
 #define MIN_BATCH_SIZE 25            // samples
 #else
@@ -34,13 +35,19 @@
 #define MIN_EIGEN_MAG 20.0f          // uT
 #define MAX_FIT_MAG 70.0f
 #define MIN_FIT_MAG 20.0f
-#define MIN_BATCH_WINDOW 3000000UL   // 3 sec
 #define MAX_BATCH_WINDOW 15000000UL  // 15 sec
 #define MIN_BATCH_SIZE 25            // samples
 #endif
 
 #ifdef DIVERSITY_CHECK_ENABLED
 #define MAX_DISTANCE_VIOLATIONS 2
+#ifdef SPHERE_FIT_ENABLED
+# define MAX_ITERATIONS 30
+# define INITIAL_U_SCALE 1.0e-4f
+# define GRADIENT_THRESHOLD 1.0e-16f
+# define RELATIVE_STEP_THRESHOLD 1.0e-7f
+# define FROM_MICRO_SEC_TO_SEC 1.0e-6f
+#endif
 #endif
 
 // eigen value magnitude and ratio test
@@ -64,7 +71,10 @@ static int moc_eigen_test(struct KasaFit *kasa) {
   float evmin = (eigenvals.x < eigenvals.y) ? eigenvals.x : eigenvals.y;
   evmin = (eigenvals.z < evmin) ? eigenvals.z : evmin;
 
-  float evmag = sqrtf(eigenvals.x + eigenvals.y + eigenvals.z);
+  float eigenvals_sum = eigenvals.x + eigenvals.y + eigenvals.z;
+
+  // Testing for negative number.
+  float evmag = (eigenvals_sum > 0) ? sqrtf(eigenvals_sum) : 0;
 
   int eigen_pass = (evmin * MAX_EIGEN_RATIO > evmax) &&
                    (evmag > MIN_EIGEN_MAG) && (evmag < MAX_EIGEN_MAG);
@@ -112,7 +122,8 @@ int magKasaFit(struct KasaFit *kasa, struct Vec3 *bias, float *radius) {
   initVec3(&v, out.x, out.y, out.z);
   vec3ScalarMul(&v, -0.5f);
 
-  float r = sqrtf(vec3Dot(&v, &v) - out.w);
+  float r_square = vec3Dot(&v, &v) - out.w;
+  float r = (r_square > 0) ? sqrtf(r_square) : 0;
 
   initVec3(bias, v.x, v.y, v.z);
   *radius = r;
@@ -140,12 +151,13 @@ void magCalReset(struct MagCal *moc) {
   diversityCheckerReset(&moc->diversity_checker);
 #endif
   moc->start_time = 0;
+  moc->kasa_batching = false;
 }
 
 static int moc_batch_complete(struct MagCal *moc, uint64_t sample_time_us) {
   int complete = 0;
 
-  if ((sample_time_us - moc->start_time > MIN_BATCH_WINDOW) &&
+  if ((sample_time_us - moc->start_time > moc->min_batch_window_in_micros) &&
       (moc->kasa.nsamples > MIN_BATCH_SIZE)) {
     complete = 1;
 
@@ -164,7 +176,8 @@ void initKasa(struct KasaFit *kasa) {
 
 void initMagCal(struct MagCal *moc, float x_bias, float y_bias, float z_bias,
                 float c00, float c01, float c02, float c10, float c11,
-                float c12, float c20, float c21, float c22
+                float c12, float c20, float c21, float c22,
+                uint32_t min_batch_window_in_micros
 #ifdef DIVERSITY_CHECK_ENABLED
                 ,size_t min_num_diverse_vectors
                 ,size_t max_num_max_distance
@@ -177,6 +190,7 @@ void initMagCal(struct MagCal *moc, float x_bias, float y_bias, float z_bias,
                 ) {
   magCalReset(moc);
   moc->update_time = 0;
+  moc->min_batch_window_in_micros = min_batch_window_in_micros;
   moc->radius = 0.0f;
 
   moc->x_bias = x_bias;
@@ -193,8 +207,13 @@ void initMagCal(struct MagCal *moc, float x_bias, float y_bias, float z_bias,
   moc->c21 = c21;
   moc->c22 = c22;
 
+#ifdef MAG_CAL_DEBUG_ENABLE
+  moc->mag_dbg.mag_trigger_count = 0;
+  moc->mag_dbg.kasa_count = 0;
+#endif
+
 #ifdef DIVERSITY_CHECK_ENABLED
-  // Diversity Checker Init
+  // Diversity Checker
   diversityCheckerInit(&moc->diversity_checker,
                        min_num_diverse_vectors,
                        max_num_max_distance,
@@ -208,9 +227,9 @@ void initMagCal(struct MagCal *moc, float x_bias, float y_bias, float z_bias,
 
 void magCalDestroy(struct MagCal *moc) { (void)moc; }
 
-bool magCalUpdate(struct MagCal *moc, uint64_t sample_time_us, float x, float y,
-                  float z) {
-  bool new_bias = false;
+enum MagUpdate magCalUpdate(struct MagCal *moc, uint64_t sample_time_us,
+                            float x, float y, float z) {
+  enum MagUpdate new_bias = NO_UPDATE;
 
 #ifdef DIVERSITY_CHECK_ENABLED
   // Diversity Checker Update.
@@ -239,6 +258,7 @@ bool magCalUpdate(struct MagCal *moc, uint64_t sample_time_us, float x, float y,
 
   if (++moc->kasa.nsamples == 1) {
     moc->start_time = sample_time_us;
+    moc->kasa_batching = true;
   }
 
   // 2. batch has enough samples?
@@ -268,15 +288,68 @@ bool magCalUpdate(struct MagCal *moc, uint64_t sample_time_us, float x, float y,
       float radius;
       // 4. Kasa sphere fitting
       if (magKasaFit(&moc->kasa, &bias, &radius)) {
+
+#ifdef MAG_CAL_DEBUG_ENABLE
+        moc->mag_dbg.kasa_count++;
+        CAL_DEBUG_LOG("[MAG_CAL:KASA UPDATE] :,",
+                      "%s%d.%03d, %s%d.%03d, %s%d.%03d, %s%d.%03d, %lu, %lu",
+                      CAL_ENCODE_FLOAT(bias.x, 3),
+                      CAL_ENCODE_FLOAT(bias.y, 3),
+                      CAL_ENCODE_FLOAT(bias.z, 3),
+                      CAL_ENCODE_FLOAT(radius, 3),
+                      (unsigned long int)moc->mag_dbg.kasa_count,
+                      (unsigned long int)moc->mag_dbg.mag_trigger_count);
+#endif
+
 #ifdef DIVERSITY_CHECK_ENABLED
+        // Update the local field.
         diversityCheckerLocalFieldUpdate(&moc->diversity_checker,
                                          radius);
+
+        // checking if data is diverse.
         if (diversityCheckerNormQuality(&moc->diversity_checker,
                                         bias.x,
                                         bias.y,
                                         bias.z) &&
             moc->diversity_checker.num_max_dist_violations
             <= MAX_DISTANCE_VIOLATIONS) {
+
+          // DEBUG PRINT OUT.
+#ifdef MAG_CAL_DEBUG_ENABLE
+          moc->mag_dbg.mag_trigger_count++;
+#ifdef DIVERSE_DEBUG_ENABLE
+          moc->diversity_checker.diversity_dbg.new_trigger = 1;
+          CAL_DEBUG_LOG("[MAG_CAL:BIAS UPDATE] :, ",
+                        "%s%d.%03d, %s%d.%03d, %s%d.%03d, %s%d.%03d, %s%d.%06d,"
+                        "%s%d.%03d, %s%d.%03d, %s%d.%03d, %zu, %s%d.%03d, "
+                        "%s%d.%03d, %lu, %lu, %llu, %s%d.%03d, %s%d.%03d, "
+                        "%s%d.%03d, %llu",
+                        CAL_ENCODE_FLOAT(bias.x, 3),
+                        CAL_ENCODE_FLOAT(bias.y, 3),
+                        CAL_ENCODE_FLOAT(bias.z, 3),
+                        CAL_ENCODE_FLOAT(radius, 3),
+                        CAL_ENCODE_FLOAT(
+                            moc->diversity_checker.diversity_dbg.var_log, 6),
+                        CAL_ENCODE_FLOAT(
+                            moc->diversity_checker.diversity_dbg.mean_log, 3),
+                        CAL_ENCODE_FLOAT(
+                            moc->diversity_checker.diversity_dbg.max_log, 3),
+                        CAL_ENCODE_FLOAT(
+                            moc->diversity_checker.diversity_dbg.min_log, 3),
+                        moc->diversity_checker.num_points,
+                        CAL_ENCODE_FLOAT(
+                            moc->diversity_checker.threshold, 3),
+                        CAL_ENCODE_FLOAT(
+                            moc->diversity_checker.max_distance, 3),
+                        (unsigned long int)moc->mag_dbg.mag_trigger_count,
+                        (unsigned long int)moc->mag_dbg.kasa_count,
+                        (unsigned long long int)sample_time_us,
+                        CAL_ENCODE_FLOAT(moc->x_bias, 3),
+                        CAL_ENCODE_FLOAT(moc->y_bias, 3),
+                        CAL_ENCODE_FLOAT(moc->z_bias, 3),
+                        (unsigned long long int)moc->update_time);
+#endif
+#endif
 #endif
           moc->x_bias = bias.x;
           moc->y_bias = bias.y;
@@ -285,7 +358,8 @@ bool magCalUpdate(struct MagCal *moc, uint64_t sample_time_us, float x, float y,
           moc->radius = radius;
           moc->update_time = sample_time_us;
 
-          new_bias = true;
+          new_bias = UPDATE_BIAS;
+
 #ifdef DIVERSITY_CHECK_ENABLED
         }
 #endif
@@ -338,3 +412,109 @@ void magCalRemoveSoftiron(struct MagCal *moc, float xi, float yi, float zi,
   *yo = moc->c10 * xi + moc->c11 * yi + moc->c12 * zi;
   *zo = moc->c20 * xi + moc->c21 * yi + moc->c22 * zi;
 }
+
+#if defined MAG_CAL_DEBUG_ENABLE && defined DIVERSE_DEBUG_ENABLE
+// This function prints every second sample parts of the dbg diverse_data_log,
+// which ensures that all the messages get printed into the log file.
+void magLogPrint(struct DiversityChecker* diverse_data, float temp) {
+  // Sample counter.
+  static size_t sample_counter = 0;
+  const float* data_log_ptr =
+      &diverse_data->diversity_dbg.diverse_data_log[0];
+  if (diverse_data->diversity_dbg.new_trigger == 1) {
+    sample_counter++;
+    if (sample_counter == 2) {
+      CAL_DEBUG_LOG("[MAG_CAL:MEMORY X] :,",
+                    "%lu, %s%d.%03d, %s%d.%03d, %s%d.%03d, %s%d.%03d, %s%d.%03d"
+                    ", %s%d.%03d, %s%d.%03d, %s%d.%03d, %s%d.%03d, %s%d.%03d, "
+                    "%s%d.%03d, %s%d.%03d, %s%d.%03d, %s%d.%03d, %s%d.%03d, "
+                    "%s%d.%03d, %s%d.%03d, %s%d.%03d, %s%d.%03d, %s%d.%03d, "
+                    "%s%d.%03d",
+                    (unsigned long int)diverse_data->
+                    diversity_dbg.diversity_count,
+                    CAL_ENCODE_FLOAT(data_log_ptr[0*3], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[1*3], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[2*3], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[3*3], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[4*3], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[5*3], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[6*3], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[7*3], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[8*3], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[9*3], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[10*3], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[11*3], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[12*3], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[13*3], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[14*3], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[15*3], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[16*3], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[17*3], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[18*3], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[19*3], 3),
+                    CAL_ENCODE_FLOAT(temp, 3));
+    }
+
+    if (sample_counter == 4) {
+      CAL_DEBUG_LOG("[MAG_CAL:MEMORY Y] :,",
+                    "%lu, %s%d.%03d, %s%d.%03d, %s%d.%03d, %s%d.%03d, %s%d.%03d"
+                    ", %s%d.%03d, %s%d.%03d, %s%d.%03d, %s%d.%03d, %s%d.%03d, "
+                    "%s%d.%03d, %s%d.%03d, %s%d.%03d, %s%d.%03d, %s%d.%03d, "
+                    "%s%d.%03d, %s%d.%03d, %s%d.%03d, %s%d.%03d, %s%d.%03d, ",
+                    (unsigned long int)diverse_data->
+                    diversity_dbg.diversity_count,
+                    CAL_ENCODE_FLOAT(data_log_ptr[0*3+1], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[1*3+1], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[2*3+1], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[3*3+1], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[4*3+1], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[5*3+1], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[6*3+1], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[7*3+1], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[8*3+1], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[9*3+1], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[10*3+1], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[11*3+1], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[12*3+1], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[13*3+1], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[14*3+1], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[15*3+1], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[16*3+1], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[17*3+1], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[18*3+1], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[19*3+1], 3));
+    }
+    if (sample_counter == 6) {
+      CAL_DEBUG_LOG("[MAG_CAL:MEMORY Z] :,",
+                    "%lu, %s%d.%03d, %s%d.%03d, %s%d.%03d, %s%d.%03d, %s%d.%03d"
+                    ", %s%d.%03d, %s%d.%03d, %s%d.%03d, %s%d.%03d, %s%d.%03d, "
+                    "%s%d.%03d, %s%d.%03d, %s%d.%03d, %s%d.%03d, %s%d.%03d, "
+                    "%s%d.%03d, %s%d.%03d, %s%d.%03d, %s%d.%03d, %s%d.%03d, ",
+                    (unsigned long int)diverse_data->
+                    diversity_dbg.diversity_count,
+                    CAL_ENCODE_FLOAT(data_log_ptr[0*3+2], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[1*3+2], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[2*3+2], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[3*3+2], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[4*3+2], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[5*3+2], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[6*3+2], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[7*3+2], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[8*3+2], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[9*3+2], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[10*3+2], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[11*3+2], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[12*3+2], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[13*3+2], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[14*3+2], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[15*3+2], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[16*3+2], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[17*3+2], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[18*3+2], 3),
+                    CAL_ENCODE_FLOAT(data_log_ptr[19*3+2], 3));
+      sample_counter = 0;
+      diverse_data->diversity_dbg.new_trigger = 0;
+    }
+  }
+}
+#endif

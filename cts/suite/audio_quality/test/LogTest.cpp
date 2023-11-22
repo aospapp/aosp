@@ -14,6 +14,7 @@
  * the License.
  */
 
+#include <inttypes.h>
 #include <stdint.h>
 #include <gtest/gtest.h>
 
@@ -46,12 +47,14 @@ TEST_F(LogTest, logTest) {
     int64_t d = 3;
     int64_t e = 4;
     int64_t f = 5;
-    printf("printf %lld %lld %lld %lld %lld %lld\n", a, b, c, d, e, f);
-    LOGD(  "logd   %lld %lld %lld %lld %lld %lld", a, b, c, d, e, f);
-    LOGV(  "logv   %lld %lld %lld %lld %lld %lld", a, b, c, d, e, f);
-    LOGI(  "logi   %lld %lld %lld %lld %lld %lld", a, b, c, d, e, f);
-    LOGW(  "logw   %lld %lld %lld %lld %lld %lld", a, b, c, d, e, f);
-    LOGE(  "loge   %lld %lld %lld %lld %lld %lld", a, b, c, d, e, f);
+#define PrintABCDEF "%" PRId64 " %" PRId64 " %" PRId64 " %" PRId64 " %" PRId64 \
+    " %" PRId64
+    printf("printf " PrintABCDEF "\n", a, b, c, d, e, f);
+    LOGD(  "logd   " PrintABCDEF, a, b, c, d, e, f);
+    LOGV(  "logv   " PrintABCDEF, a, b, c, d, e, f);
+    LOGI(  "logi   " PrintABCDEF, a, b, c, d, e, f);
+    LOGW(  "logw   " PrintABCDEF, a, b, c, d, e, f);
+    LOGE(  "loge   " PrintABCDEF, a, b, c, d, e, f);
 
     Log::Instance()->setLogLevel(level);
 }

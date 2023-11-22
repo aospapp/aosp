@@ -20,6 +20,7 @@
 #include "fdlibm.h"
 #include <errno.h>
 
+#ifndef _IEEE_LIBM
 #ifdef __STDC__
 static const float
 #else
@@ -27,6 +28,7 @@ static float
 #endif
 o_threshold=  8.8721679688e+01,  /* 0x42b17180 */
 u_threshold= -1.0397208405e+02;  /* 0xc2cff1b5 */
+#endif
 
 #ifdef __STDC__
 	float expf(float x)		/* wrapper expf */

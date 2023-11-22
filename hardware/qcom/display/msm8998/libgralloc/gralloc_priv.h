@@ -26,6 +26,14 @@
 #include <errno.h>
 #include <unistd.h>
 
+
+/* DEPRECATION NOTICE: This file is no longer used, please use the new
+ * implementation in libgralloc1
+ */
+
+
+
+
 #include <cutils/native_handle.h>
 
 #include <cutils/log.h>
@@ -120,6 +128,7 @@
 #define HAL_PIXEL_FORMAT_YCbCr_420_P010          0x11F
 #define HAL_PIXEL_FORMAT_CbYCrY_422_I            0x120
 #define HAL_PIXEL_FORMAT_BGR_888                 0x121
+#define HAL_PIXEL_FORMAT_RAW8                    0x123
 
 #define HAL_PIXEL_FORMAT_INTERLACE               0x180
 

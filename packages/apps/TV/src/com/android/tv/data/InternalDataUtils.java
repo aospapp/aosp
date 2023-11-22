@@ -21,7 +21,7 @@ import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.tv.data.Program.CriticScore;
-import com.android.tv.dvr.RecordedProgram;
+import com.android.tv.dvr.data.RecordedProgram;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;

@@ -17,8 +17,6 @@
 package com.android.tradefed.testtype;
 
 import com.android.ddmlib.testrunner.TestIdentifier;
-import com.android.tradefed.config.ConfigurationException;
-import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
@@ -28,8 +26,7 @@ import junit.framework.TestCase;
 
 import org.easymock.EasyMock;
 
-import java.util.Map;
-
+/** Unit tests for {@link PythonUnitTestRunner}. */
 public class PythonUnitTestRunnerTest extends TestCase {
 
     private static final String[] TEST_PASS_STDERR = {
@@ -181,19 +178,18 @@ public class PythonUnitTestRunnerTest extends TestCase {
                     (TestIdentifier) EasyMock.anyObject(), (String) EasyMock.anyObject());
             EasyMock.expectLastCall().times(1);
         }
-        mMockListener.testEnded(
-                (TestIdentifier) EasyMock.anyObject(), (Map<String, String>) EasyMock.anyObject());
+        mMockListener.testEnded((TestIdentifier) EasyMock.anyObject(), EasyMock.anyObject());
         EasyMock.expectLastCall().times(1);
         if (!testPass) {
             mMockListener.testRunFailed((String) EasyMock.anyObject());
             EasyMock.expectLastCall().times(1);
         }
-        mMockListener.testRunEnded(EasyMock.anyLong(), (Map<String, String>) EasyMock.anyObject());
+        mMockListener.testRunEnded(EasyMock.anyLong(), EasyMock.anyObject());
         EasyMock.expectLastCall().times(1);
     }
 
     /** Test execution succeeds and all test cases pass. */
-    public void testRunPass() throws DeviceNotAvailableException, ConfigurationException {
+    public void testRunPass() {
         IRunUtil mockRunUtil = getMockRunUtil(UnitTestResult.PASS);
         setMockListenerExpectTestPass(true);
         EasyMock.replay(mMockListener, mockRunUtil);
@@ -202,7 +198,7 @@ public class PythonUnitTestRunnerTest extends TestCase {
     }
 
     /** Test execution succeeds and some test cases fail. */
-    public void testRunFail() throws DeviceNotAvailableException, ConfigurationException {
+    public void testRunFail() {
         IRunUtil mockRunUtil = getMockRunUtil(UnitTestResult.FAIL);
         setMockListenerExpectTestPass(false);
         EasyMock.replay(mMockListener, mockRunUtil);
@@ -211,7 +207,7 @@ public class PythonUnitTestRunnerTest extends TestCase {
     }
 
     /** Test execution fails. */
-    public void testRunExecutionFail() throws DeviceNotAvailableException, ConfigurationException {
+    public void testRunExecutionFail() {
         IRunUtil mockRunUtil = getMockRunUtil(UnitTestResult.EXECUTION_FAIL);
         EasyMock.replay(mockRunUtil);
         try {
@@ -224,7 +220,7 @@ public class PythonUnitTestRunnerTest extends TestCase {
     }
 
     /** Test execution times out. */
-    public void testRunTimeout() throws DeviceNotAvailableException, ConfigurationException {
+    public void testRunTimeout() {
         IRunUtil mockRunUtil = getMockRunUtil(UnitTestResult.TIMEOUT);
         EasyMock.replay(mockRunUtil);
         try {

@@ -23,16 +23,17 @@
 #include <gtest/gtest.h>
 
 #include <android-base/strings.h>
+#include <android-base/stringprintf.h>
 
 #include "FirewallController.h"
 #include "IptablesBaseTest.h"
 
+using android::base::Join;
+using android::base::StringPrintf;
 
 class FirewallControllerTest : public IptablesBaseTest {
 protected:
     FirewallControllerTest() {
-        FirewallController::execIptables = fakeExecIptables;
-        FirewallController::execIptablesSilently = fakeExecIptables;
         FirewallController::execIptablesRestore = fakeExecIptablesRestore;
     }
     FirewallController mFw;
@@ -212,4 +213,78 @@ TEST_F(FirewallControllerTest, TestEnableChildChains) {
     };
     EXPECT_EQ(0, mFw.enableChildChains(POWERSAVE, false));
     expectIptablesRestoreCommands(expected);
+}
+
+TEST_F(FirewallControllerTest, TestFirewall) {
+    std::vector<std::string> enableCommands = {
+        "*filter\n"
+        "-A fw_INPUT -j DROP\n"
+        "-A fw_OUTPUT -j REJECT\n"
+        "-A fw_FORWARD -j REJECT\n"
+        "COMMIT\n"
+    };
+    std::vector<std::string> disableCommands = {
+        "*filter\n"
+        ":fw_INPUT -\n"
+        ":fw_OUTPUT -\n"
+        ":fw_FORWARD -\n"
+        "COMMIT\n"
+    };
+    std::vector<std::string> noCommands = {};
+
+    EXPECT_EQ(0, mFw.disableFirewall());
+    expectIptablesRestoreCommands(disableCommands);
+
+    EXPECT_EQ(0, mFw.disableFirewall());
+    expectIptablesRestoreCommands(disableCommands);
+
+    EXPECT_EQ(0, mFw.enableFirewall(BLACKLIST));
+    expectIptablesRestoreCommands(disableCommands);
+
+    EXPECT_EQ(0, mFw.enableFirewall(BLACKLIST));
+    expectIptablesRestoreCommands(noCommands);
+
+    std::vector<std::string> disableEnableCommands;
+    disableEnableCommands.insert(
+            disableEnableCommands.end(), disableCommands.begin(), disableCommands.end());
+    disableEnableCommands.insert(
+            disableEnableCommands.end(), enableCommands.begin(), enableCommands.end());
+
+    EXPECT_EQ(0, mFw.enableFirewall(WHITELIST));
+    expectIptablesRestoreCommands(disableEnableCommands);
+
+    std::vector<std::string> ifaceCommands = {
+        "*filter\n"
+        "-I fw_INPUT -i rmnet_data0 -j RETURN\n"
+        "-I fw_OUTPUT -o rmnet_data0 -j RETURN\n"
+        "COMMIT\n"
+    };
+    EXPECT_EQ(0, mFw.setInterfaceRule("rmnet_data0", ALLOW));
+    expectIptablesRestoreCommands(ifaceCommands);
+
+    EXPECT_EQ(0, mFw.setInterfaceRule("rmnet_data0", ALLOW));
+    expectIptablesRestoreCommands(noCommands);
+
+    ifaceCommands = {
+        "*filter\n"
+        "-D fw_INPUT -i rmnet_data0 -j RETURN\n"
+        "-D fw_OUTPUT -o rmnet_data0 -j RETURN\n"
+        "COMMIT\n"
+    };
+    EXPECT_EQ(0, mFw.setInterfaceRule("rmnet_data0", DENY));
+    expectIptablesRestoreCommands(ifaceCommands);
+
+    EXPECT_EQ(0, mFw.setInterfaceRule("rmnet_data0", DENY));
+    expectIptablesRestoreCommands(noCommands);
+
+    EXPECT_EQ(0, mFw.enableFirewall(WHITELIST));
+    expectIptablesRestoreCommands(noCommands);
+
+    EXPECT_EQ(0, mFw.disableFirewall());
+    expectIptablesRestoreCommands(disableCommands);
+
+    // TODO: calling disableFirewall and then enableFirewall(WHITELIST) does
+    // nothing. This seems like a clear bug.
+    EXPECT_EQ(0, mFw.enableFirewall(WHITELIST));
+    expectIptablesRestoreCommands(noCommands);
 }

@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+syntax = "proto2";
+
 package com.android.tv.tuner.data;
 
 option java_package = "com.android.tv.tuner.data";

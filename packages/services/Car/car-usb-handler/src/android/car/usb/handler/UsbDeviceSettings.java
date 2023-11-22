@@ -17,7 +17,6 @@ package android.car.usb.handler;
 
 import android.content.ComponentName;
 import android.hardware.usb.UsbDevice;
-import com.android.internal.util.Preconditions;
 
 /**
  * Settings for USB device.
@@ -34,8 +33,6 @@ public final class UsbDeviceSettings {
     private boolean mDefaultHandler;
 
     UsbDeviceSettings(String serialNumber, int vid, int pid) {
-        Preconditions.checkNotNull(serialNumber);
-
         mSerialNumber = serialNumber;
         mVid = vid;
         mPid = pid;
@@ -96,7 +93,15 @@ public final class UsbDeviceSettings {
      * Checks if setting matches {@code UsbDevice}.
      */
     public boolean matchesDevice(UsbDevice device) {
-        return getSerialNumber().equals(device.getSerialNumber());
+        String deviceSerial = device.getSerialNumber();
+        if (AoapInterface.isDeviceInAoapMode(device)) {
+            return mAoap && deviceSerial.equals(mSerialNumber);
+        } else if (deviceSerial == null) {
+            return mVid == device.getVendorId() && mPid == device.getProductId();
+        } else {
+            return mVid == device.getVendorId() && mPid == device.getProductId()
+                    && deviceSerial.equals(mSerialNumber);
+        }
     }
 
     /**

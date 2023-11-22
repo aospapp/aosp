@@ -16,6 +16,7 @@
 package com.android.server.wifi;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.*;
 
@@ -29,10 +30,16 @@ import android.os.Handler;
 import android.os.test.TestLooper;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.util.Base64;
+import android.util.Pair;
 
-
+import com.android.server.wifi.aware.WifiAwareMetrics;
 import com.android.server.wifi.hotspot2.NetworkDetail;
+import com.android.server.wifi.hotspot2.PasspointManager;
+import com.android.server.wifi.hotspot2.PasspointMatch;
+import com.android.server.wifi.hotspot2.PasspointProvider;
 import com.android.server.wifi.nano.WifiMetricsProto;
+import com.android.server.wifi.nano.WifiMetricsProto.ConnectToNetworkNotificationAndActionCount;
+import com.android.server.wifi.nano.WifiMetricsProto.PnoScanMetrics;
 import com.android.server.wifi.nano.WifiMetricsProto.StaEvent;
 
 import org.junit.Before;
@@ -57,17 +64,24 @@ import java.util.regex.Pattern;
 public class WifiMetricsTest {
 
     WifiMetrics mWifiMetrics;
-    WifiMetricsProto.WifiLog mDeserializedWifiMetrics;
+    WifiMetricsProto.WifiLog mDecodedProto;
     TestLooper mTestLooper;
     @Mock Clock mClock;
+    @Mock WifiConfigManager mWcm;
+    @Mock PasspointManager mPpm;
+    @Mock WifiNetworkSelector mWns;
 
     @Before
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
-        mDeserializedWifiMetrics = null;
+        mDecodedProto = null;
         when(mClock.getElapsedSinceBootMillis()).thenReturn((long) 0);
         mTestLooper = new TestLooper();
-        mWifiMetrics = new WifiMetrics(mClock, mTestLooper.getLooper());
+        mWifiMetrics = new WifiMetrics(mClock, mTestLooper.getLooper(),
+                new WifiAwareMetrics(mClock));
+        mWifiMetrics.setWifiConfigManager(mWcm);
+        mWifiMetrics.setPasspointManager(mPpm);
+        mWifiMetrics.setWifiNetworkSelector(mWns);
     }
 
     /**
@@ -95,10 +109,9 @@ public class WifiMetricsTest {
 
     private static final long TEST_RECORD_DURATION_SEC = 12 * 60 * 60;
     private static final long TEST_RECORD_DURATION_MILLIS = TEST_RECORD_DURATION_SEC * 1000;
-
     /**
      * Simulate how dumpsys gets the proto from mWifiMetrics, filter the proto bytes out and
-     * deserialize them into mDeserializedWifiMetrics
+     * deserialize them into mDecodedProto
      */
     public void dumpProtoAndDeserialize() throws Exception {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
@@ -117,12 +130,12 @@ public class WifiMetricsTest {
                 matcher.find());
         String protoByteString = matcher.group(1);
         byte[] protoBytes = Base64.decode(protoByteString, Base64.DEFAULT);
-        mDeserializedWifiMetrics = WifiMetricsProto.WifiLog.parseFrom(protoBytes);
+        mDecodedProto = WifiMetricsProto.WifiLog.parseFrom(protoBytes);
     }
 
     /**
      * Gets the 'clean dump' proto bytes from mWifiMetrics & deserializes it into
-     * mDeserializedWifiMetrics
+     * mDecodedProto
      */
     public void cleanDumpProtoAndDeserialize() throws Exception {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
@@ -136,7 +149,7 @@ public class WifiMetricsTest {
         writer.flush();
         String protoByteString = stream.toString();
         byte[] protoBytes = Base64.decode(protoByteString, Base64.DEFAULT);
-        mDeserializedWifiMetrics = WifiMetricsProto.WifiLog.parseFrom(protoBytes);
+        mDecodedProto = WifiMetricsProto.WifiLog.parseFrom(protoBytes);
     }
 
     /** Verifies that dump() includes the expected header */
@@ -235,6 +248,31 @@ public class WifiMetricsTest {
     private static final int NUM_WIFICOND_CRASHES = 12;
     private static final int NUM_WIFI_ON_FAILURE_DUE_TO_HAL = 13;
     private static final int NUM_WIFI_ON_FAILURE_DUE_TO_WIFICOND = 14;
+    private static final int NUM_PASSPOINT_PROVIDERS = 4;
+    private static final int NUM_PASSPOINT_PROVIDER_INSTALLATION = 5;
+    private static final int NUM_PASSPOINT_PROVIDER_INSTALL_SUCCESS = 4;
+    private static final int NUM_PASSPOINT_PROVIDER_UNINSTALLATION = 3;
+    private static final int NUM_PASSPOINT_PROVIDER_UNINSTALL_SUCCESS = 2;
+    private static final int NUM_PASSPOINT_PROVIDERS_SUCCESSFULLY_CONNECTED = 1;
+    private static final int NUM_PARTIAL_SCAN_RESULTS = 73;
+    private static final int NUM_PNO_SCAN_ATTEMPTS = 20;
+    private static final int NUM_PNO_SCAN_FAILED = 5;
+    private static final int NUM_PNO_SCAN_STARTED_OVER_OFFLOAD = 17;
+    private static final int NUM_PNO_SCAN_FAILED_OVER_OFFLOAD = 8;
+    private static final int NUM_PNO_FOUND_NETWORK_EVENTS = 10;
+    /** Number of notifications per "Connect to Network" notification type. */
+    private static final int[] NUM_CONNECT_TO_NETWORK_NOTIFICATIONS = {0, 10, 20, 30, 40};
+    /** Number of notifications per "Connect to Network notification type and action type. */
+    private static final int[][] NUM_CONNECT_TO_NETWORK_NOTIFICATION_ACTIONS = {
+            {0, 1, 2, 3, 4},
+            {10, 11, 12, 13, 14},
+            {20, 21, 22, 23, 24},
+            {30, 31, 32, 33, 34},
+            {40, 41, 42, 43, 44}};
+    private static final int SIZE_OPEN_NETWORK_RECOMMENDER_BLACKLIST = 10;
+    private static final boolean IS_WIFI_NETWORKS_AVAILABLE_NOTIFICATION_ON = true;
+    private static final int NUM_OPEN_NETWORK_CONNECT_MESSAGE_FAILED_TO_SEND = 5;
+    private static final int NUM_OPEN_NETWORK_RECOMMENDATION_UPDATES = 8;
 
     private ScanDetail buildMockScanDetail(boolean hidden, NetworkDetail.HSRelease hSRelease,
             String capabilities) {
@@ -246,6 +284,30 @@ public class WifiMetricsTest {
         when(mockNetworkDetail.isHiddenBeaconFrame()).thenReturn(hidden);
         when(mockNetworkDetail.getHSRelease()).thenReturn(hSRelease);
         mockScanResult.capabilities = capabilities;
+        return mockScanDetail;
+    }
+
+    private ScanDetail buildMockScanDetail(String ssid, String bssid, boolean isOpen,
+            boolean isSaved, boolean isProvider, boolean isWeakRssi) {
+        ScanDetail mockScanDetail = mock(ScanDetail.class);
+        NetworkDetail mockNetworkDetail = mock(NetworkDetail.class);
+        ScanResult scanResult = new ScanResult();
+        scanResult.SSID = ssid;
+        scanResult.BSSID = bssid;
+        when(mockScanDetail.getNetworkDetail()).thenReturn(mockNetworkDetail);
+        when(mockScanDetail.getScanResult()).thenReturn(scanResult);
+        when(mWns.isSignalTooWeak(eq(scanResult))).thenReturn(isWeakRssi);
+        scanResult.capabilities = isOpen ? "" : "PSK";
+        if (isSaved) {
+            when(mWcm.getConfiguredNetworkForScanDetail(eq(mockScanDetail)))
+                    .thenReturn(mock(WifiConfiguration.class));
+        }
+        if (isProvider) {
+            PasspointProvider provider = mock(PasspointProvider.class);
+            Pair<PasspointProvider, PasspointMatch> providerMatch = Pair.create(provider, null);
+            when(mockNetworkDetail.isInterworking()).thenReturn(true);
+            when(mPpm.matchProvider(eq(scanResult))).thenReturn(providerMatch);
+        }
         return mockScanDetail;
     }
 
@@ -286,6 +348,8 @@ public class WifiMetricsTest {
      */
     public void setAndIncrementMetrics() throws Exception {
         mWifiMetrics.updateSavedNetworks(buildSavedNetworkList());
+        mWifiMetrics.updateSavedPasspointProfiles(NUM_PASSPOINT_PROVIDERS,
+                NUM_PASSPOINT_PROVIDERS_SUCCESSFULLY_CONNECTED);
         mWifiMetrics.setIsLocationEnabled(TEST_VAL_IS_LOCATION_ENABLED);
         mWifiMetrics.setIsScanningAlwaysEnabled(IS_SCANNING_ALWAYS_ENABLED);
 
@@ -419,43 +483,92 @@ public class WifiMetricsTest {
         for (int i = 0; i < NUM_WIFI_ON_FAILURE_DUE_TO_WIFICOND; i++) {
             mWifiMetrics.incrementNumWifiOnFailureDueToWificond();
         }
+        for (int i = 0; i < NUM_PASSPOINT_PROVIDER_INSTALLATION; i++) {
+            mWifiMetrics.incrementNumPasspointProviderInstallation();
+        }
+        for (int i = 0; i < NUM_PASSPOINT_PROVIDER_INSTALL_SUCCESS; i++) {
+            mWifiMetrics.incrementNumPasspointProviderInstallSuccess();
+        }
+        for (int i = 0; i < NUM_PASSPOINT_PROVIDER_UNINSTALLATION; i++) {
+            mWifiMetrics.incrementNumPasspointProviderUninstallation();
+        }
+        for (int i = 0; i < NUM_PASSPOINT_PROVIDER_UNINSTALL_SUCCESS; i++) {
+            mWifiMetrics.incrementNumPasspointProviderUninstallSuccess();
+        }
+
+        // increment pno scan metrics
+        for (int i = 0; i < NUM_PNO_SCAN_ATTEMPTS; i++) {
+            mWifiMetrics.incrementPnoScanStartAttempCount();
+        }
+        for (int i = 0; i < NUM_PNO_SCAN_FAILED; i++) {
+            mWifiMetrics.incrementPnoScanFailedCount();
+        }
+        for (int i = 0; i < NUM_PNO_SCAN_STARTED_OVER_OFFLOAD; i++) {
+            mWifiMetrics.incrementPnoScanStartedOverOffloadCount();
+        }
+        for (int i = 0; i < NUM_PNO_SCAN_FAILED_OVER_OFFLOAD; i++) {
+            mWifiMetrics.incrementPnoScanFailedOverOffloadCount();
+        }
+        for (int i = 0; i < NUM_PNO_FOUND_NETWORK_EVENTS; i++) {
+            mWifiMetrics.incrementPnoFoundNetworkEventCount();
+        }
+
+        // set and increment "connect to network" notification metrics
+        for (int i = 0; i < NUM_CONNECT_TO_NETWORK_NOTIFICATIONS.length; i++) {
+            int count = NUM_CONNECT_TO_NETWORK_NOTIFICATIONS[i];
+            for (int j = 0; j < count; j++) {
+                mWifiMetrics.incrementConnectToNetworkNotification(i);
+            }
+        }
+        for (int i = 0; i < NUM_CONNECT_TO_NETWORK_NOTIFICATION_ACTIONS.length; i++) {
+            int[] actions = NUM_CONNECT_TO_NETWORK_NOTIFICATION_ACTIONS[i];
+            for (int j = 0; j < actions.length; j++) {
+                int count = actions[j];
+                for (int k = 0; k < count; k++) {
+                    mWifiMetrics.incrementConnectToNetworkNotificationAction(i, j);
+                }
+            }
+        }
+        mWifiMetrics.setOpenNetworkRecommenderBlacklistSize(
+                SIZE_OPEN_NETWORK_RECOMMENDER_BLACKLIST);
+        mWifiMetrics.setIsWifiNetworksAvailableNotificationEnabled(
+                IS_WIFI_NETWORKS_AVAILABLE_NOTIFICATION_ON);
+        for (int i = 0; i < NUM_OPEN_NETWORK_RECOMMENDATION_UPDATES; i++) {
+            mWifiMetrics.incrementNumOpenNetworkRecommendationUpdates();
+        }
+        for (int i = 0; i < NUM_OPEN_NETWORK_CONNECT_MESSAGE_FAILED_TO_SEND; i++) {
+            mWifiMetrics.incrementNumOpenNetworkConnectMessageFailedToSend();
+        }
     }
 
     /**
      * Assert that values in deserializedWifiMetrics match those set in 'setAndIncrementMetrics'
      */
     public void assertDeserializedMetricsCorrect() throws Exception {
-        assertEquals("mDeserializedWifiMetrics.numSavedNetworks == NUM_SAVED_NETWORKS",
-                mDeserializedWifiMetrics.numSavedNetworks, NUM_SAVED_NETWORKS);
-        assertEquals("mDeserializedWifiMetrics.numOpenNetworks == NUM_OPEN_NETWORKS",
-                mDeserializedWifiMetrics.numOpenNetworks, NUM_OPEN_NETWORKS);
-        assertEquals("mDeserializedWifiMetrics.numPersonalNetworks == NUM_PERSONAL_NETWORKS",
-                mDeserializedWifiMetrics.numPersonalNetworks, NUM_PERSONAL_NETWORKS);
-        assertEquals("mDeserializedWifiMetrics.numEnterpriseNetworks "
-                        + "== NUM_ENTERPRISE_NETWORKS",
-                mDeserializedWifiMetrics.numEnterpriseNetworks, NUM_ENTERPRISE_NETWORKS);
-        assertEquals("mDeserializedWifiMetrics.numNetworksAddedByUser "
-                        + "== NUM_NETWORKS_ADDED_BY_USER",
-                mDeserializedWifiMetrics.numNetworksAddedByUser, NUM_NETWORKS_ADDED_BY_USER);
-        assertEquals(NUM_HIDDEN_NETWORKS, mDeserializedWifiMetrics.numHiddenNetworks);
-        assertEquals(NUM_PASSPOINT_NETWORKS, mDeserializedWifiMetrics.numPasspointNetworks);
-        assertEquals("mDeserializedWifiMetrics.numNetworksAddedByApps "
-                        + "== NUM_NETWORKS_ADDED_BY_APPS",
-                mDeserializedWifiMetrics.numNetworksAddedByApps, NUM_NETWORKS_ADDED_BY_APPS);
-        assertEquals("mDeserializedWifiMetrics.isLocationEnabled == TEST_VAL_IS_LOCATION_ENABLED",
-                mDeserializedWifiMetrics.isLocationEnabled, TEST_VAL_IS_LOCATION_ENABLED);
-        assertEquals("mDeserializedWifiMetrics.isScanningAlwaysEnabled "
-                        + "== IS_SCANNING_ALWAYS_ENABLED",
-                mDeserializedWifiMetrics.isScanningAlwaysEnabled, IS_SCANNING_ALWAYS_ENABLED);
-        assertEquals("mDeserializedWifiMetrics.numEmptyScanResults == NUM_EMPTY_SCAN_RESULTS",
-                mDeserializedWifiMetrics.numEmptyScanResults, NUM_EMPTY_SCAN_RESULTS);
-        assertEquals("mDeserializedWifiMetrics.numNonEmptyScanResults == "
-                        + "NUM_NON_EMPTY_SCAN_RESULTS",
-                mDeserializedWifiMetrics.numNonEmptyScanResults, NUM_NON_EMPTY_SCAN_RESULTS);
-        assertScanReturnEntryEquals(WifiMetricsProto.WifiLog.SCAN_UNKNOWN,
-                NUM_SCAN_UNKNOWN);
-        assertScanReturnEntryEquals(WifiMetricsProto.WifiLog.SCAN_SUCCESS,
-                NUM_SCAN_SUCCESS);
+        assertEquals("mDecodedProto.numSavedNetworks == NUM_SAVED_NETWORKS",
+                mDecodedProto.numSavedNetworks, NUM_SAVED_NETWORKS);
+        assertEquals("mDecodedProto.numOpenNetworks == NUM_OPEN_NETWORKS",
+                mDecodedProto.numOpenNetworks, NUM_OPEN_NETWORKS);
+        assertEquals("mDecodedProto.numPersonalNetworks == NUM_PERSONAL_NETWORKS",
+                mDecodedProto.numPersonalNetworks, NUM_PERSONAL_NETWORKS);
+        assertEquals("mDecodedProto.numEnterpriseNetworks == NUM_ENTERPRISE_NETWORKS",
+                mDecodedProto.numEnterpriseNetworks, NUM_ENTERPRISE_NETWORKS);
+        assertEquals("mDecodedProto.numNetworksAddedByUser == NUM_NETWORKS_ADDED_BY_USER",
+                mDecodedProto.numNetworksAddedByUser, NUM_NETWORKS_ADDED_BY_USER);
+        assertEquals(NUM_HIDDEN_NETWORKS, mDecodedProto.numHiddenNetworks);
+        assertEquals(NUM_PASSPOINT_NETWORKS, mDecodedProto.numPasspointNetworks);
+        assertEquals("mDecodedProto.numNetworksAddedByApps == NUM_NETWORKS_ADDED_BY_APPS",
+                mDecodedProto.numNetworksAddedByApps, NUM_NETWORKS_ADDED_BY_APPS);
+        assertEquals("mDecodedProto.isLocationEnabled == TEST_VAL_IS_LOCATION_ENABLED",
+                mDecodedProto.isLocationEnabled, TEST_VAL_IS_LOCATION_ENABLED);
+        assertEquals("mDecodedProto.isScanningAlwaysEnabled == IS_SCANNING_ALWAYS_ENABLED",
+                mDecodedProto.isScanningAlwaysEnabled, IS_SCANNING_ALWAYS_ENABLED);
+        assertEquals("mDecodedProto.numEmptyScanResults == NUM_EMPTY_SCAN_RESULTS",
+                mDecodedProto.numEmptyScanResults, NUM_EMPTY_SCAN_RESULTS);
+        assertEquals("mDecodedProto.numNonEmptyScanResults == NUM_NON_EMPTY_SCAN_RESULTS",
+                mDecodedProto.numNonEmptyScanResults, NUM_NON_EMPTY_SCAN_RESULTS);
+        assertScanReturnEntryEquals(WifiMetricsProto.WifiLog.SCAN_UNKNOWN, NUM_SCAN_UNKNOWN);
+        assertScanReturnEntryEquals(WifiMetricsProto.WifiLog.SCAN_SUCCESS, NUM_SCAN_SUCCESS);
         assertScanReturnEntryEquals(WifiMetricsProto.WifiLog.SCAN_FAILURE_INTERRUPTED,
                 NUM_SCAN_FAILURE_INTERRUPTED);
         assertScanReturnEntryEquals(WifiMetricsProto.WifiLog.SCAN_FAILURE_INVALID_CONFIGURATION,
@@ -468,108 +581,151 @@ public class WifiMetricsTest {
                 WifiMetricsProto.WifiLog.WIFI_ASSOCIATED, false, NUM_WIFI_ASSOCIATED_SCREEN_OFF);
         assertSystemStateEntryEquals(WifiMetricsProto.WifiLog.WIFI_ASSOCIATED, true,
                 NUM_WIFI_ASSOCIATED_SCREEN_ON);
-        assertEquals(mDeserializedWifiMetrics.numConnectivityWatchdogPnoGood,
+        assertEquals(mDecodedProto.numConnectivityWatchdogPnoGood,
                 NUM_CONNECTIVITY_WATCHDOG_PNO_GOOD);
-        assertEquals(mDeserializedWifiMetrics.numConnectivityWatchdogPnoBad,
+        assertEquals(mDecodedProto.numConnectivityWatchdogPnoBad,
                 NUM_CONNECTIVITY_WATCHDOG_PNO_BAD);
-        assertEquals(mDeserializedWifiMetrics.numConnectivityWatchdogBackgroundGood,
+        assertEquals(mDecodedProto.numConnectivityWatchdogBackgroundGood,
                 NUM_CONNECTIVITY_WATCHDOG_BACKGROUND_GOOD);
-        assertEquals(mDeserializedWifiMetrics.numConnectivityWatchdogBackgroundBad,
+        assertEquals(mDecodedProto.numConnectivityWatchdogBackgroundBad,
                 NUM_CONNECTIVITY_WATCHDOG_BACKGROUND_BAD);
         assertEquals(NUM_LAST_RESORT_WATCHDOG_TRIGGERS,
-                mDeserializedWifiMetrics.numLastResortWatchdogTriggers);
+                mDecodedProto.numLastResortWatchdogTriggers);
         assertEquals(NUM_LAST_RESORT_WATCHDOG_BAD_ASSOCIATION_NETWORKS_TOTAL,
-                mDeserializedWifiMetrics.numLastResortWatchdogBadAssociationNetworksTotal);
+                mDecodedProto.numLastResortWatchdogBadAssociationNetworksTotal);
         assertEquals(NUM_LAST_RESORT_WATCHDOG_BAD_AUTHENTICATION_NETWORKS_TOTAL,
-                mDeserializedWifiMetrics.numLastResortWatchdogBadAuthenticationNetworksTotal);
+                mDecodedProto.numLastResortWatchdogBadAuthenticationNetworksTotal);
         assertEquals(NUM_LAST_RESORT_WATCHDOG_BAD_DHCP_NETWORKS_TOTAL,
-                mDeserializedWifiMetrics.numLastResortWatchdogBadDhcpNetworksTotal);
+                mDecodedProto.numLastResortWatchdogBadDhcpNetworksTotal);
         assertEquals(NUM_LAST_RESORT_WATCHDOG_BAD_OTHER_NETWORKS_TOTAL,
-                mDeserializedWifiMetrics.numLastResortWatchdogBadOtherNetworksTotal);
+                mDecodedProto.numLastResortWatchdogBadOtherNetworksTotal);
         assertEquals(NUM_LAST_RESORT_WATCHDOG_AVAILABLE_NETWORKS_TOTAL,
-                mDeserializedWifiMetrics.numLastResortWatchdogAvailableNetworksTotal);
+                mDecodedProto.numLastResortWatchdogAvailableNetworksTotal);
         assertEquals(NUM_LAST_RESORT_WATCHDOG_TRIGGERS_WITH_BAD_ASSOCIATION,
-                mDeserializedWifiMetrics.numLastResortWatchdogTriggersWithBadAssociation);
+                mDecodedProto.numLastResortWatchdogTriggersWithBadAssociation);
         assertEquals(NUM_LAST_RESORT_WATCHDOG_TRIGGERS_WITH_BAD_AUTHENTICATION,
-                mDeserializedWifiMetrics.numLastResortWatchdogTriggersWithBadAuthentication);
+                mDecodedProto.numLastResortWatchdogTriggersWithBadAuthentication);
         assertEquals(NUM_LAST_RESORT_WATCHDOG_TRIGGERS_WITH_BAD_DHCP,
-                mDeserializedWifiMetrics.numLastResortWatchdogTriggersWithBadDhcp);
+                mDecodedProto.numLastResortWatchdogTriggersWithBadDhcp);
         assertEquals(NUM_LAST_RESORT_WATCHDOG_TRIGGERS_WITH_BAD_OTHER,
-                mDeserializedWifiMetrics.numLastResortWatchdogTriggersWithBadOther);
+                mDecodedProto.numLastResortWatchdogTriggersWithBadOther);
         assertEquals(NUM_LAST_RESORT_WATCHDOG_SUCCESSES,
-                mDeserializedWifiMetrics.numLastResortWatchdogSuccesses);
+                mDecodedProto.numLastResortWatchdogSuccesses);
         assertEquals(TEST_RECORD_DURATION_SEC,
-                mDeserializedWifiMetrics.recordDurationSec);
+                mDecodedProto.recordDurationSec);
         for (int i = 0; i < NUM_RSSI_LEVELS_TO_INCREMENT; i++) {
-            assertEquals(MIN_RSSI_LEVEL + i, mDeserializedWifiMetrics.rssiPollRssiCount[i].rssi);
-            assertEquals(i + 1, mDeserializedWifiMetrics.rssiPollRssiCount[i].count);
+            assertEquals(MIN_RSSI_LEVEL + i, mDecodedProto.rssiPollRssiCount[i].rssi);
+            assertEquals(i + 1, mDecodedProto.rssiPollRssiCount[i].count);
         }
         StringBuilder sb_rssi = new StringBuilder();
-        sb_rssi.append("Number of RSSIs = " + mDeserializedWifiMetrics.rssiPollRssiCount.length);
-        assertTrue(sb_rssi.toString(), (mDeserializedWifiMetrics.rssiPollRssiCount.length
+        sb_rssi.append("Number of RSSIs = " + mDecodedProto.rssiPollRssiCount.length);
+        assertTrue(sb_rssi.toString(), (mDecodedProto.rssiPollRssiCount.length
                      <= (MAX_RSSI_LEVEL - MIN_RSSI_LEVEL + 1)));
-        assertEquals(2, mDeserializedWifiMetrics.alertReasonCount[0].count);  // Clamped reasons.
-        assertEquals(3, mDeserializedWifiMetrics.alertReasonCount[1].count);
-        assertEquals(1, mDeserializedWifiMetrics.alertReasonCount[2].count);
-        assertEquals(3, mDeserializedWifiMetrics.alertReasonCount.length);
+        assertEquals(2, mDecodedProto.alertReasonCount[0].count);  // Clamped reasons.
+        assertEquals(3, mDecodedProto.alertReasonCount[1].count);
+        assertEquals(1, mDecodedProto.alertReasonCount[2].count);
+        assertEquals(3, mDecodedProto.alertReasonCount.length);
         assertEquals(NUM_TOTAL_SCAN_RESULTS * NUM_SCANS,
-                mDeserializedWifiMetrics.numTotalScanResults);
+                mDecodedProto.numTotalScanResults);
         assertEquals(NUM_OPEN_NETWORK_SCAN_RESULTS * NUM_SCANS,
-                mDeserializedWifiMetrics.numOpenNetworkScanResults);
+                mDecodedProto.numOpenNetworkScanResults);
         assertEquals(NUM_PERSONAL_NETWORK_SCAN_RESULTS * NUM_SCANS,
-                mDeserializedWifiMetrics.numPersonalNetworkScanResults);
+                mDecodedProto.numPersonalNetworkScanResults);
         assertEquals(NUM_ENTERPRISE_NETWORK_SCAN_RESULTS * NUM_SCANS,
-                mDeserializedWifiMetrics.numEnterpriseNetworkScanResults);
+                mDecodedProto.numEnterpriseNetworkScanResults);
         assertEquals(NUM_HIDDEN_NETWORK_SCAN_RESULTS * NUM_SCANS,
-                mDeserializedWifiMetrics.numHiddenNetworkScanResults);
+                mDecodedProto.numHiddenNetworkScanResults);
         assertEquals(NUM_HOTSPOT2_R1_NETWORK_SCAN_RESULTS * NUM_SCANS,
-                mDeserializedWifiMetrics.numHotspot2R1NetworkScanResults);
+                mDecodedProto.numHotspot2R1NetworkScanResults);
         assertEquals(NUM_HOTSPOT2_R2_NETWORK_SCAN_RESULTS * NUM_SCANS,
-                mDeserializedWifiMetrics.numHotspot2R2NetworkScanResults);
+                mDecodedProto.numHotspot2R2NetworkScanResults);
         assertEquals(NUM_SCANS,
-                mDeserializedWifiMetrics.numScans);
+                mDecodedProto.numScans);
         for (int score_index = 0; score_index < NUM_WIFI_SCORES_TO_INCREMENT; score_index++) {
             assertEquals(WIFI_SCORE_RANGE_MIN + score_index,
-                    mDeserializedWifiMetrics.wifiScoreCount[score_index].score);
+                    mDecodedProto.wifiScoreCount[score_index].score);
             assertEquals(score_index + 1,
-                    mDeserializedWifiMetrics.wifiScoreCount[score_index].count);
+                    mDecodedProto.wifiScoreCount[score_index].count);
         }
         StringBuilder sb_wifi_score = new StringBuilder();
-        sb_wifi_score.append("Number of wifi_scores = "
-                + mDeserializedWifiMetrics.wifiScoreCount.length);
-        assertTrue(sb_wifi_score.toString(), (mDeserializedWifiMetrics.wifiScoreCount.length
+        sb_wifi_score.append("Number of wifi_scores = " + mDecodedProto.wifiScoreCount.length);
+        assertTrue(sb_wifi_score.toString(), (mDecodedProto.wifiScoreCount.length
                 <= (WIFI_SCORE_RANGE_MAX - WIFI_SCORE_RANGE_MIN + 1)));
         StringBuilder sb_wifi_limits = new StringBuilder();
         sb_wifi_limits.append("Wifi Score limit is " +  NetworkAgent.WIFI_BASE_SCORE
                 + ">= " + WIFI_SCORE_RANGE_MAX);
         assertTrue(sb_wifi_limits.toString(), NetworkAgent.WIFI_BASE_SCORE <= WIFI_SCORE_RANGE_MAX);
-        assertEquals(MAX_NUM_SOFTAP_RETURN_CODES, mDeserializedWifiMetrics.softApReturnCode.length);
+        assertEquals(MAX_NUM_SOFTAP_RETURN_CODES, mDecodedProto.softApReturnCode.length);
         assertEquals(WifiMetricsProto.SoftApReturnCodeCount.SOFT_AP_STARTED_SUCCESSFULLY,
-                     mDeserializedWifiMetrics.softApReturnCode[0].startResult);
-        assertEquals(NUM_SOFTAP_START_SUCCESS, mDeserializedWifiMetrics.softApReturnCode[0].count);
+                     mDecodedProto.softApReturnCode[0].startResult);
+        assertEquals(NUM_SOFTAP_START_SUCCESS, mDecodedProto.softApReturnCode[0].count);
         assertEquals(WifiMetricsProto.SoftApReturnCodeCount.SOFT_AP_FAILED_GENERAL_ERROR,
-                     mDeserializedWifiMetrics.softApReturnCode[1].startResult);
+                     mDecodedProto.softApReturnCode[1].startResult);
         assertEquals(NUM_SOFTAP_FAILED_GENERAL_ERROR,
-                     mDeserializedWifiMetrics.softApReturnCode[1].count);
+                     mDecodedProto.softApReturnCode[1].count);
         assertEquals(WifiMetricsProto.SoftApReturnCodeCount.SOFT_AP_FAILED_NO_CHANNEL,
-                     mDeserializedWifiMetrics.softApReturnCode[2].startResult);
+                     mDecodedProto.softApReturnCode[2].startResult);
         assertEquals(NUM_SOFTAP_FAILED_NO_CHANNEL,
-                     mDeserializedWifiMetrics.softApReturnCode[2].count);
-        assertEquals(NUM_HAL_CRASHES, mDeserializedWifiMetrics.numHalCrashes);
-        assertEquals(NUM_WIFICOND_CRASHES, mDeserializedWifiMetrics.numWificondCrashes);
-        assertEquals(NUM_WIFI_ON_FAILURE_DUE_TO_HAL,
-                mDeserializedWifiMetrics.numWifiOnFailureDueToHal);
+                     mDecodedProto.softApReturnCode[2].count);
+        assertEquals(NUM_HAL_CRASHES, mDecodedProto.numHalCrashes);
+        assertEquals(NUM_WIFICOND_CRASHES, mDecodedProto.numWificondCrashes);
+        assertEquals(NUM_WIFI_ON_FAILURE_DUE_TO_HAL, mDecodedProto.numWifiOnFailureDueToHal);
         assertEquals(NUM_WIFI_ON_FAILURE_DUE_TO_WIFICOND,
-                mDeserializedWifiMetrics.numWifiOnFailureDueToWificond);
+                mDecodedProto.numWifiOnFailureDueToWificond);
+        assertEquals(NUM_PASSPOINT_PROVIDERS, mDecodedProto.numPasspointProviders);
+        assertEquals(NUM_PASSPOINT_PROVIDER_INSTALLATION,
+                mDecodedProto.numPasspointProviderInstallation);
+        assertEquals(NUM_PASSPOINT_PROVIDER_INSTALL_SUCCESS,
+                mDecodedProto.numPasspointProviderInstallSuccess);
+        assertEquals(NUM_PASSPOINT_PROVIDER_UNINSTALLATION,
+                mDecodedProto.numPasspointProviderUninstallation);
+        assertEquals(NUM_PASSPOINT_PROVIDER_UNINSTALL_SUCCESS,
+                mDecodedProto.numPasspointProviderUninstallSuccess);
+        assertEquals(NUM_PASSPOINT_PROVIDERS_SUCCESSFULLY_CONNECTED,
+                mDecodedProto.numPasspointProvidersSuccessfullyConnected);
+
+        PnoScanMetrics pno_metrics = mDecodedProto.pnoScanMetrics;
+        assertNotNull(pno_metrics);
+        assertEquals(NUM_PNO_SCAN_ATTEMPTS, pno_metrics.numPnoScanAttempts);
+        assertEquals(NUM_PNO_SCAN_FAILED, pno_metrics.numPnoScanFailed);
+        assertEquals(NUM_PNO_SCAN_STARTED_OVER_OFFLOAD, pno_metrics.numPnoScanStartedOverOffload);
+        assertEquals(NUM_PNO_SCAN_FAILED_OVER_OFFLOAD, pno_metrics.numPnoScanFailedOverOffload);
+        assertEquals(NUM_PNO_FOUND_NETWORK_EVENTS, pno_metrics.numPnoFoundNetworkEvents);
+
+        for (ConnectToNetworkNotificationAndActionCount notificationCount
+                : mDecodedProto.connectToNetworkNotificationCount) {
+            assertEquals(NUM_CONNECT_TO_NETWORK_NOTIFICATIONS[notificationCount.notification],
+                    notificationCount.count);
+            assertEquals(ConnectToNetworkNotificationAndActionCount.RECOMMENDER_OPEN,
+                    notificationCount.recommender);
+        }
+        for (ConnectToNetworkNotificationAndActionCount notificationActionCount
+                : mDecodedProto.connectToNetworkNotificationActionCount) {
+            assertEquals(NUM_CONNECT_TO_NETWORK_NOTIFICATION_ACTIONS
+                            [notificationActionCount.notification]
+                            [notificationActionCount.action],
+                    notificationActionCount.count);
+            assertEquals(ConnectToNetworkNotificationAndActionCount.RECOMMENDER_OPEN,
+                    notificationActionCount.recommender);
+        }
+
+        assertEquals(SIZE_OPEN_NETWORK_RECOMMENDER_BLACKLIST,
+                mDecodedProto.openNetworkRecommenderBlacklistSize);
+        assertEquals(IS_WIFI_NETWORKS_AVAILABLE_NOTIFICATION_ON,
+                mDecodedProto.isWifiNetworksAvailableNotificationOn);
+        assertEquals(NUM_OPEN_NETWORK_RECOMMENDATION_UPDATES,
+                mDecodedProto.numOpenNetworkRecommendationUpdates);
+        assertEquals(NUM_OPEN_NETWORK_CONNECT_MESSAGE_FAILED_TO_SEND,
+                mDecodedProto.numOpenNetworkConnectMessageFailedToSend);
     }
 
     /**
      *  Assert deserialized metrics Scan Return Entry equals count
      */
     public void assertScanReturnEntryEquals(int returnCode, int count) {
-        for (int i = 0; i < mDeserializedWifiMetrics.scanReturnEntries.length; i++) {
-            if (mDeserializedWifiMetrics.scanReturnEntries[i].scanReturnCode == returnCode) {
-                assertEquals(mDeserializedWifiMetrics.scanReturnEntries[i].scanResultsCount, count);
+        for (int i = 0; i < mDecodedProto.scanReturnEntries.length; i++) {
+            if (mDecodedProto.scanReturnEntries[i].scanReturnCode == returnCode) {
+                assertEquals(mDecodedProto.scanReturnEntries[i].scanResultsCount, count);
                 return;
             }
         }
@@ -580,10 +736,10 @@ public class WifiMetricsTest {
      *  Assert deserialized metrics SystemState entry equals count
      */
     public void assertSystemStateEntryEquals(int state, boolean screenOn, int count) {
-        for (int i = 0; i < mDeserializedWifiMetrics.wifiSystemStateEntries.length; i++) {
-            if (mDeserializedWifiMetrics.wifiSystemStateEntries[i].wifiState == state
-                    && mDeserializedWifiMetrics.wifiSystemStateEntries[i].isScreenOn == screenOn) {
-                assertEquals(mDeserializedWifiMetrics.wifiSystemStateEntries[i].wifiStateCount,
+        for (int i = 0; i < mDecodedProto.wifiSystemStateEntries.length; i++) {
+            if (mDecodedProto.wifiSystemStateEntries[i].wifiState == state
+                    && mDecodedProto.wifiSystemStateEntries[i].isScreenOn == screenOn) {
+                assertEquals(mDecodedProto.wifiSystemStateEntries[i].wifiStateCount,
                         count);
                 return;
             }
@@ -600,8 +756,8 @@ public class WifiMetricsTest {
         startAndEndConnectionEventSucceeds();
         dumpProtoAndDeserialize();
         assertDeserializedMetricsCorrect();
-        assertEquals("mDeserializedWifiMetrics.connectionEvent.length",
-                2, mDeserializedWifiMetrics.connectionEvent.length);
+        assertEquals("mDecodedProto.connectionEvent.length",
+                2, mDecodedProto.connectionEvent.length);
         //<TODO> test individual connectionEvents for correctness,
         // check scanReturnEntries & wifiSystemStateEntries counts and individual elements
         // pending their implementation</TODO>
@@ -650,19 +806,19 @@ public class WifiMetricsTest {
                 WifiMetrics.ConnectionEvent.FAILURE_NONE,
                 WifiMetricsProto.ConnectionEvent.HLF_NONE);
 
-        //Dump proto from mWifiMetrics and deserialize it to mDeserializedWifiMetrics
+        //Dump proto from mWifiMetrics and deserialize it to mDecodedProto
         dumpProtoAndDeserialize();
 
         //Check that the correct values are being flowed through
-        assertEquals(mDeserializedWifiMetrics.connectionEvent.length, 2);
-        assertEquals(mDeserializedWifiMetrics.connectionEvent[0].routerFingerprint.dtim,
+        assertEquals(mDecodedProto.connectionEvent.length, 2);
+        assertEquals(mDecodedProto.connectionEvent[0].routerFingerprint.dtim,
                 CONFIG_DTIM);
-        assertEquals(mDeserializedWifiMetrics.connectionEvent[0].signalStrength, SCAN_RESULT_LEVEL);
-        assertEquals(mDeserializedWifiMetrics.connectionEvent[1].routerFingerprint.dtim,
+        assertEquals(mDecodedProto.connectionEvent[0].signalStrength, SCAN_RESULT_LEVEL);
+        assertEquals(mDecodedProto.connectionEvent[1].routerFingerprint.dtim,
                 NETWORK_DETAIL_DTIM);
-        assertEquals(mDeserializedWifiMetrics.connectionEvent[1].signalStrength,
+        assertEquals(mDecodedProto.connectionEvent[1].signalStrength,
                 SCAN_RESULT_LEVEL);
-        assertEquals(mDeserializedWifiMetrics.connectionEvent[1].routerFingerprint.routerTechnology,
+        assertEquals(mDecodedProto.connectionEvent[1].routerFingerprint.routerTechnology,
                 NETWORK_DETAIL_WIFIMODE);
     }
 
@@ -697,9 +853,9 @@ public class WifiMetricsTest {
         //This should clear all the metrics in mWifiMetrics,
         dumpProtoAndDeserialize();
         //Check there are only 3 connection events
-        assertEquals(mDeserializedWifiMetrics.connectionEvent.length, 4);
-        assertEquals(mDeserializedWifiMetrics.rssiPollRssiCount.length, 0);
-        assertEquals(mDeserializedWifiMetrics.alertReasonCount.length, 0);
+        assertEquals(mDecodedProto.connectionEvent.length, 4);
+        assertEquals(mDecodedProto.rssiPollRssiCount.length, 0);
+        assertEquals(mDecodedProto.alertReasonCount.length, 0);
 
         // Create 2 ConnectionEvents
         mWifiMetrics.startConnectionEvent(null,  "BLUE",
@@ -716,7 +872,7 @@ public class WifiMetricsTest {
         //Dump proto and deserialize
         dumpProtoAndDeserialize();
         //Check there are only 2 connection events
-        assertEquals(mDeserializedWifiMetrics.connectionEvent.length, 2);
+        assertEquals(mDecodedProto.connectionEvent.length, 2);
     }
 
     /**
@@ -729,8 +885,8 @@ public class WifiMetricsTest {
         startAndEndConnectionEventSucceeds();
         cleanDumpProtoAndDeserialize();
         assertDeserializedMetricsCorrect();
-        assertEquals("mDeserializedWifiMetrics.connectionEvent.length",
-                2, mDeserializedWifiMetrics.connectionEvent.length);
+        assertEquals("mDecodedProto.connectionEvent.length",
+                2, mDecodedProto.connectionEvent.length);
     }
 
     private static final int NUM_REPEATED_DELTAS = 7;
@@ -758,13 +914,13 @@ public class WifiMetricsTest {
         generateRssiDelta(MIN_RSSI_LEVEL, SINGLE_GOOD_DELTA,
                 WifiMetrics.TIMEOUT_RSSI_DELTA_MILLIS);
         dumpProtoAndDeserialize();
-        assertEquals(2, mDeserializedWifiMetrics.rssiPollDeltaCount.length);
+        assertEquals(2, mDecodedProto.rssiPollDeltaCount.length);
         // Check the repeated deltas
-        assertEquals(NUM_REPEATED_DELTAS, mDeserializedWifiMetrics.rssiPollDeltaCount[0].count);
-        assertEquals(REPEATED_DELTA, mDeserializedWifiMetrics.rssiPollDeltaCount[0].rssi);
+        assertEquals(NUM_REPEATED_DELTAS, mDecodedProto.rssiPollDeltaCount[0].count);
+        assertEquals(REPEATED_DELTA, mDecodedProto.rssiPollDeltaCount[0].rssi);
         // Check the single delta
-        assertEquals(1, mDeserializedWifiMetrics.rssiPollDeltaCount[1].count);
-        assertEquals(SINGLE_GOOD_DELTA, mDeserializedWifiMetrics.rssiPollDeltaCount[1].rssi);
+        assertEquals(1, mDecodedProto.rssiPollDeltaCount[1].count);
+        assertEquals(SINGLE_GOOD_DELTA, mDecodedProto.rssiPollDeltaCount[1].rssi);
     }
 
     /**
@@ -779,7 +935,7 @@ public class WifiMetricsTest {
         generateRssiDelta(MIN_RSSI_LEVEL, SINGLE_TIMEOUT_DELTA,
                 WifiMetrics.TIMEOUT_RSSI_DELTA_MILLIS + 1);
         dumpProtoAndDeserialize();
-        assertEquals(0, mDeserializedWifiMetrics.rssiPollDeltaCount.length);
+        assertEquals(0, mDecodedProto.rssiPollDeltaCount.length);
     }
 
     /**
@@ -792,11 +948,11 @@ public class WifiMetricsTest {
         generateRssiDelta(MAX_RSSI_LEVEL, MIN_DELTA_LEVEL,
                 WifiMetrics.TIMEOUT_RSSI_DELTA_MILLIS);
         dumpProtoAndDeserialize();
-        assertEquals(2, mDeserializedWifiMetrics.rssiPollDeltaCount.length);
-        assertEquals(MIN_DELTA_LEVEL, mDeserializedWifiMetrics.rssiPollDeltaCount[0].rssi);
-        assertEquals(1, mDeserializedWifiMetrics.rssiPollDeltaCount[0].count);
-        assertEquals(MAX_DELTA_LEVEL, mDeserializedWifiMetrics.rssiPollDeltaCount[1].rssi);
-        assertEquals(1, mDeserializedWifiMetrics.rssiPollDeltaCount[1].count);
+        assertEquals(2, mDecodedProto.rssiPollDeltaCount.length);
+        assertEquals(MIN_DELTA_LEVEL, mDecodedProto.rssiPollDeltaCount[0].rssi);
+        assertEquals(1, mDecodedProto.rssiPollDeltaCount[0].count);
+        assertEquals(MAX_DELTA_LEVEL, mDecodedProto.rssiPollDeltaCount[1].rssi);
+        assertEquals(1, mDecodedProto.rssiPollDeltaCount[1].count);
     }
 
     /**
@@ -810,7 +966,7 @@ public class WifiMetricsTest {
         generateRssiDelta(MAX_RSSI_LEVEL, MIN_DELTA_LEVEL - 1,
                 WifiMetrics.TIMEOUT_RSSI_DELTA_MILLIS);
         dumpProtoAndDeserialize();
-        assertEquals(0, mDeserializedWifiMetrics.rssiPollDeltaCount.length);
+        assertEquals(0, mDecodedProto.rssiPollDeltaCount.length);
     }
 
     /**
@@ -827,7 +983,7 @@ public class WifiMetricsTest {
         );
 
         dumpProtoAndDeserialize();
-        assertEquals(0, mDeserializedWifiMetrics.rssiPollDeltaCount.length);
+        assertEquals(0, mDecodedProto.rssiPollDeltaCount.length);
     }
 
     /**
@@ -843,9 +999,9 @@ public class WifiMetricsTest {
                 true // dontDeserializeBeforePoll
         );
         dumpProtoAndDeserialize();
-        assertEquals(1, mDeserializedWifiMetrics.rssiPollDeltaCount.length);
-        assertEquals(ARBITRARY_DELTA_LEVEL, mDeserializedWifiMetrics.rssiPollDeltaCount[0].rssi);
-        assertEquals(1, mDeserializedWifiMetrics.rssiPollDeltaCount[0].count);
+        assertEquals(1, mDecodedProto.rssiPollDeltaCount.length);
+        assertEquals(ARBITRARY_DELTA_LEVEL, mDecodedProto.rssiPollDeltaCount[0].rssi);
+        assertEquals(1, mDecodedProto.rssiPollDeltaCount[0].count);
     }
 
     /**
@@ -861,7 +1017,7 @@ public class WifiMetricsTest {
                 true // dontDeserializeBeforePoll
         );
         dumpProtoAndDeserialize();
-        assertEquals(0, mDeserializedWifiMetrics.rssiPollDeltaCount.length);
+        assertEquals(0, mDecodedProto.rssiPollDeltaCount.length);
     }
 
     /**
@@ -877,7 +1033,7 @@ public class WifiMetricsTest {
                 false // dontDeserializeBeforePoll
         );
         dumpProtoAndDeserialize();
-        assertEquals(0, mDeserializedWifiMetrics.rssiPollDeltaCount.length);
+        assertEquals(0, mDecodedProto.rssiPollDeltaCount.length);
     }
 
     private static final int DEAUTH_REASON = 7;
@@ -1015,7 +1171,7 @@ public class WifiMetricsTest {
     public void testStaEventsLogSerializeDeserialize() throws Exception {
         generateStaEvents(mWifiMetrics);
         dumpProtoAndDeserialize();
-        verifyDeserializedStaEvents(mDeserializedWifiMetrics);
+        verifyDeserializedStaEvents(mDecodedProto);
     }
 
     /**
@@ -1028,7 +1184,7 @@ public class WifiMetricsTest {
             mWifiMetrics.logStaEvent(StaEvent.TYPE_CMD_START_CONNECT);
         }
         dumpProtoAndDeserialize();
-        assertEquals(WifiMetrics.MAX_STA_EVENTS, mDeserializedWifiMetrics.staEventList.length);
+        assertEquals(WifiMetrics.MAX_STA_EVENTS, mDecodedProto.staEventList.length);
     }
 
     /**
@@ -1037,6 +1193,128 @@ public class WifiMetricsTest {
     @Test
     public void testDumpNullArg() {
         mWifiMetrics.dump(new FileDescriptor(), new PrintWriter(new StringWriter()), null);
+    }
+
+    /**
+     * Test the generation of 'NumConnectableNetwork' histograms from two scans of different
+     * ScanDetails produces the correct histogram values, and relevant bounds are observed
+     */
+    @Test
+    public void testNumConnectableNetworksGeneration() throws Exception {
+        List<ScanDetail> scan = new ArrayList<ScanDetail>();
+        //                                ssid, bssid, isOpen, isSaved, isProvider, isWeakRssi)
+        scan.add(buildMockScanDetail("PASSPOINT_1", "bssid0", false, false, true, false));
+        scan.add(buildMockScanDetail("PASSPOINT_2", "bssid1", false, false, true, false));
+        scan.add(buildMockScanDetail("SSID_B", "bssid2", true, true, false, false));
+        scan.add(buildMockScanDetail("SSID_B", "bssid3", true, true, false, false));
+        scan.add(buildMockScanDetail("SSID_C", "bssid4", true, false, false, false));
+        scan.add(buildMockScanDetail("SSID_D", "bssid5", false, true, false, false));
+        scan.add(buildMockScanDetail("SSID_E", "bssid6", false, true, false, false));
+        scan.add(buildMockScanDetail("SSID_F", "bssid7", false, false, false, false));
+        scan.add(buildMockScanDetail("SSID_G_WEAK", "bssid9", false, false, false, true));
+        scan.add(buildMockScanDetail("SSID_H_WEAK", "bssid10", false, false, false, true));
+        mWifiMetrics.incrementAvailableNetworksHistograms(scan, true);
+        scan.add(buildMockScanDetail("SSID_B", "bssid8", true, true, false, false));
+        mWifiMetrics.incrementAvailableNetworksHistograms(scan, true);
+        for (int i = 0; i < NUM_PARTIAL_SCAN_RESULTS; i++) {
+            mWifiMetrics.incrementAvailableNetworksHistograms(scan, false);
+        }
+        dumpProtoAndDeserialize();
+        verifyHist(mDecodedProto.totalSsidsInScanHistogram, 1,                    a(7),    a(2));
+        verifyHist(mDecodedProto.totalBssidsInScanHistogram, 2,                   a(8, 9), a(1, 1));
+        verifyHist(mDecodedProto.availableOpenSsidsInScanHistogram, 1,            a(2),    a(2));
+        verifyHist(mDecodedProto.availableOpenBssidsInScanHistogram, 2,           a(3, 4), a(1, 1));
+        verifyHist(mDecodedProto.availableSavedSsidsInScanHistogram, 1,           a(3),    a(2));
+        verifyHist(mDecodedProto.availableSavedBssidsInScanHistogram, 2,          a(4, 5), a(1, 1));
+        verifyHist(mDecodedProto.availableOpenOrSavedSsidsInScanHistogram, 1,     a(4),    a(2));
+        verifyHist(mDecodedProto.availableOpenOrSavedBssidsInScanHistogram, 2,    a(5, 6), a(1, 1));
+        verifyHist(mDecodedProto.availableSavedPasspointProviderProfilesInScanHistogram, 1,
+                                                                                  a(2),    a(2));
+        verifyHist(mDecodedProto.availableSavedPasspointProviderBssidsInScanHistogram, 1,
+                                                                                  a(2),    a(2));
+        assertEquals(2, mDecodedProto.fullBandAllSingleScanListenerResults);
+        assertEquals(NUM_PARTIAL_SCAN_RESULTS, mDecodedProto.partialAllSingleScanListenerResults);
+
+        // Check Bounds
+        scan.clear();
+        int lotsOfSSids = Math.max(WifiMetrics.MAX_TOTAL_SCAN_RESULT_SSIDS_BUCKET,
+                WifiMetrics.MAX_CONNECTABLE_SSID_NETWORK_BUCKET) + 5;
+        for (int i = 0; i < lotsOfSSids; i++) {
+            scan.add(buildMockScanDetail("SSID_" + i, "bssid_" + i, true, true, false, false));
+        }
+        mWifiMetrics.incrementAvailableNetworksHistograms(scan, true);
+        dumpProtoAndDeserialize();
+        verifyHist(mDecodedProto.totalSsidsInScanHistogram, 1,
+                a(WifiMetrics.MAX_TOTAL_SCAN_RESULT_SSIDS_BUCKET), a(1));
+        verifyHist(mDecodedProto.availableOpenSsidsInScanHistogram, 1,
+                a(WifiMetrics.MAX_CONNECTABLE_SSID_NETWORK_BUCKET), a(1));
+        verifyHist(mDecodedProto.availableSavedSsidsInScanHistogram, 1,
+                a(WifiMetrics.MAX_CONNECTABLE_SSID_NETWORK_BUCKET), a(1));
+        verifyHist(mDecodedProto.availableOpenOrSavedSsidsInScanHistogram, 1,
+                a(WifiMetrics.MAX_CONNECTABLE_SSID_NETWORK_BUCKET), a(1));
+        scan.clear();
+        int lotsOfBssids = Math.max(WifiMetrics.MAX_TOTAL_SCAN_RESULTS_BUCKET,
+                WifiMetrics.MAX_CONNECTABLE_BSSID_NETWORK_BUCKET) + 5;
+        for (int i = 0; i < lotsOfBssids; i++) {
+            scan.add(buildMockScanDetail("SSID", "bssid_" + i, true, true, false, false));
+        }
+        mWifiMetrics.incrementAvailableNetworksHistograms(scan, true);
+        dumpProtoAndDeserialize();
+        verifyHist(mDecodedProto.totalBssidsInScanHistogram, 1,
+                a(WifiMetrics.MAX_TOTAL_SCAN_RESULTS_BUCKET), a(1));
+        verifyHist(mDecodedProto.availableOpenBssidsInScanHistogram, 1,
+                a(WifiMetrics.MAX_CONNECTABLE_BSSID_NETWORK_BUCKET), a(1));
+        verifyHist(mDecodedProto.availableSavedBssidsInScanHistogram, 1,
+                a(WifiMetrics.MAX_CONNECTABLE_BSSID_NETWORK_BUCKET), a(1));
+        verifyHist(mDecodedProto.availableOpenOrSavedBssidsInScanHistogram, 1,
+                a(WifiMetrics.MAX_CONNECTABLE_BSSID_NETWORK_BUCKET), a(1));
+    }
+
+    /**
+     * Test Open Network Notification blacklist size and feature state are not cleared when proto
+     * is dumped.
+     */
+    public void testOpenNetworkNotificationBlacklistSizeAndFeatureStateNotCleared()
+            throws Exception {
+        mWifiMetrics.setOpenNetworkRecommenderBlacklistSize(
+                SIZE_OPEN_NETWORK_RECOMMENDER_BLACKLIST);
+        mWifiMetrics.setIsWifiNetworksAvailableNotificationEnabled(
+                IS_WIFI_NETWORKS_AVAILABLE_NOTIFICATION_ON);
+        for (int i = 0; i < NUM_OPEN_NETWORK_RECOMMENDATION_UPDATES; i++) {
+            mWifiMetrics.incrementNumOpenNetworkRecommendationUpdates();
+        }
+
+        // This should clear most metrics in mWifiMetrics
+        dumpProtoAndDeserialize();
+        assertEquals(SIZE_OPEN_NETWORK_RECOMMENDER_BLACKLIST,
+                mDecodedProto.openNetworkRecommenderBlacklistSize);
+        assertEquals(IS_WIFI_NETWORKS_AVAILABLE_NOTIFICATION_ON,
+                mDecodedProto.isWifiNetworksAvailableNotificationOn);
+        assertEquals(NUM_OPEN_NETWORK_RECOMMENDATION_UPDATES,
+                mDecodedProto.numOpenNetworkRecommendationUpdates);
+
+        // Check that blacklist size and feature state persist on next dump but
+        // others do not.
+        dumpProtoAndDeserialize();
+        assertEquals(SIZE_OPEN_NETWORK_RECOMMENDER_BLACKLIST,
+                mDecodedProto.openNetworkRecommenderBlacklistSize);
+        assertEquals(IS_WIFI_NETWORKS_AVAILABLE_NOTIFICATION_ON,
+                mDecodedProto.isWifiNetworksAvailableNotificationOn);
+        assertEquals(0, mDecodedProto.numOpenNetworkRecommendationUpdates);
+    }
+
+    /** short hand for instantiating an anonymous int array, instead of 'new int[]{a1, a2, ...}' */
+    private int[] a(int... element) {
+        return element;
+    }
+
+    private void verifyHist(WifiMetricsProto.NumConnectableNetworksBucket[] hist, int size,
+            int[] keys, int[] counts) throws Exception {
+        assertEquals(size, hist.length);
+        for (int i = 0; i < keys.length; i++) {
+            assertEquals(keys[i], hist[i].numConnectableNetworks);
+            assertEquals(counts[i], hist[i].count);
+        }
     }
 
     /**
@@ -1081,6 +1359,7 @@ public class WifiMetricsTest {
         }
         mWifiMetrics.incrementRssiPollRssiCount(scanRssi + rssiDelta);
     }
+
     /**
      * Generate an RSSI delta event, with all extra conditions set to true.
      */

@@ -19,6 +19,7 @@ package android.widget.cts;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
@@ -38,6 +39,7 @@ import android.support.test.rule.ActivityTestRule;
 import android.support.test.runner.AndroidJUnit4;
 import android.util.SparseArray;
 import android.view.View;
+import android.view.autofill.AutofillValue;
 import android.widget.DatePicker;
 
 import org.junit.Before;
@@ -47,6 +49,7 @@ import org.junit.runner.RunWith;
 
 import java.util.Calendar;
 import java.util.GregorianCalendar;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Test {@link DatePicker}.
@@ -88,13 +91,22 @@ public class DatePickerTest {
     @UiThreadTest
     @Test
     public void testSetEnabled() {
-        assertTrue(mDatePickerCalendarMode.isEnabled());
+        verifySetEnabled(mDatePickerSpinnerMode);
+        verifySetEnabled(mDatePickerCalendarMode);
+    }
 
-        mDatePickerCalendarMode.setEnabled(false);
-        assertFalse(mDatePickerCalendarMode.isEnabled());
+    private void verifySetEnabled(DatePicker datePicker) {
+        assertTrue(datePicker.isEnabled());
 
-        mDatePickerCalendarMode.setEnabled(true);
-        assertTrue(mDatePickerCalendarMode.isEnabled());
+        datePicker.setEnabled(false);
+        assertFalse(datePicker.isEnabled());
+        assertNull(datePicker.getAutofillValue());
+        assertEquals(View.AUTOFILL_TYPE_NONE, datePicker.getAutofillType());
+
+        datePicker.setEnabled(true);
+        assertTrue(datePicker.isEnabled());
+        assertNotNull(datePicker.getAutofillValue());
+        assertEquals(View.AUTOFILL_TYPE_DATE, datePicker.getAutofillType());
     }
 
     private void verifyInit(DatePicker datePicker) {
@@ -102,9 +114,7 @@ public class DatePickerTest {
                 mock(DatePicker.OnDateChangedListener.class);
 
         datePicker.init(2000, 10, 15, mockDateChangeListener);
-        assertEquals(2000, datePicker.getYear());
-        assertEquals(10, datePicker.getMonth());
-        assertEquals(15, datePicker.getDayOfMonth());
+        assertValues(datePicker, 2000, 10, 15);
 
         verifyZeroInteractions(mockDateChangeListener);
     }
@@ -121,16 +131,12 @@ public class DatePickerTest {
                 mock(DatePicker.OnDateChangedListener.class);
 
         datePicker.init(2000, 10, 15, mockDateChangeListener);
-        assertEquals(2000, datePicker.getYear());
-        assertEquals(10, datePicker.getMonth());
-        assertEquals(15, datePicker.getDayOfMonth());
+        assertValues(datePicker, 2000, 10, 15);
         verify(mockDateChangeListener, never()).onDateChanged(any(DatePicker.class), anyInt(),
                 anyInt(), anyInt());
 
         datePicker.updateDate(1989, 9, 19);
-        assertEquals(1989, datePicker.getYear());
-        assertEquals(9, datePicker.getMonth());
-        assertEquals(19, datePicker.getDayOfMonth());
+        assertValues(datePicker, 1989, 9, 19);
         verify(mockDateChangeListener, times(1)).onDateChanged(datePicker, 1989, 9, 19);
 
         verifyNoMoreInteractions(mockDateChangeListener);
@@ -151,17 +157,13 @@ public class DatePickerTest {
 
         datePicker.init(2000, 10, 15, mockDateChangeListener1);
         datePicker.updateDate(1989, 9, 19);
-        assertEquals(1989, datePicker.getYear());
-        assertEquals(9, datePicker.getMonth());
-        assertEquals(19, datePicker.getDayOfMonth());
+        assertValues(datePicker, 1989, 9, 19);
         verify(mockDateChangeListener1, times(1)).onDateChanged(datePicker, 1989, 9, 19);
         verify(mockDateChangeListener2, times(0)).onDateChanged(datePicker, 1989, 9, 19);
 
         datePicker.setOnDateChangedListener(mockDateChangeListener2);
         datePicker.updateDate(2000, 10, 15);
-        assertEquals(2000, datePicker.getYear());
-        assertEquals(10, datePicker.getMonth());
-        assertEquals(15, datePicker.getDayOfMonth());
+        assertValues(datePicker, 2000, 10, 15);
         verify(mockDateChangeListener1, times(0)).onDateChanged(datePicker, 2000, 10, 15);
         verify(mockDateChangeListener2, times(1)).onDateChanged(datePicker, 2000, 10, 15);
     }
@@ -175,9 +177,7 @@ public class DatePickerTest {
 
     private void verifyUpdateDate(DatePicker datePicker) {
         datePicker.updateDate(1989, 9, 19);
-        assertEquals(1989, datePicker.getYear());
-        assertEquals(9, datePicker.getMonth());
-        assertEquals(19, datePicker.getDayOfMonth());
+        assertValues(datePicker, 1989, 9, 19);
     }
 
     @UiThreadTest
@@ -295,10 +295,62 @@ public class DatePickerTest {
         datePicker.setId(99);
         assertFalse(datePicker.hasCalledOnRestoreInstanceState());
         datePicker.dispatchRestoreInstanceState(container);
-        assertEquals(2008, datePicker.getYear());
-        assertEquals(9, datePicker.getMonth());
-        assertEquals(10, datePicker.getDayOfMonth());
+        assertValues(datePicker, 2008, 9, 10);
         assertTrue(datePicker.hasCalledOnRestoreInstanceState());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testAutofill() {
+        verifyAutofill(mDatePickerSpinnerMode);
+        verifyAutofill(mDatePickerCalendarMode);
+    }
+
+    private void verifyAutofill(DatePicker datePicker) {
+        datePicker.setEnabled(true);
+
+        final AtomicInteger numberOfListenerCalls = new AtomicInteger();
+        datePicker.setOnDateChangedListener(
+                (v, y, m, d) -> numberOfListenerCalls.incrementAndGet());
+
+        final Calendar calendar = new GregorianCalendar();
+        calendar.set(2012, Calendar.DECEMBER, 21);
+
+        final AutofillValue autofilledValue = AutofillValue.forDate(calendar.getTimeInMillis());
+        datePicker.autofill(autofilledValue);
+        assertEquals(autofilledValue, datePicker.getAutofillValue());
+        assertValues(datePicker, 2012, Calendar.DECEMBER, 21);
+        assertEquals(1, numberOfListenerCalls.get());
+
+        // Make sure autofill() is ignored when value is null.
+        numberOfListenerCalls.set(0);
+        datePicker.autofill((AutofillValue) null);
+        assertEquals(autofilledValue, datePicker.getAutofillValue());
+        assertValues(datePicker, 2012, Calendar.DECEMBER, 21);
+        assertEquals(datePicker.getAutofillValue(), autofilledValue);
+        assertEquals(0, numberOfListenerCalls.get());
+
+        // Make sure autofill() is ignored when value is not a date.
+        numberOfListenerCalls.set(0);
+        datePicker.autofill(AutofillValue.forText("Y U NO IGNORE ME?"));
+        assertEquals(autofilledValue, datePicker.getAutofillValue());
+        assertValues(datePicker, 2012, Calendar.DECEMBER, 21);
+        assertEquals(datePicker.getAutofillValue(), autofilledValue);
+        assertEquals(0, numberOfListenerCalls.get());
+
+        // Make sure getAutofillValue() is reset when value is manually filled.
+        datePicker.autofill(autofilledValue); // 2012-12-21
+        datePicker.updateDate(2000, Calendar.JANUARY, 1);
+        calendar.setTimeInMillis(datePicker.getAutofillValue().getDateValue());
+        assertEquals(2000, calendar.get(Calendar.YEAR));
+        assertEquals(Calendar.JANUARY, calendar.get(Calendar.MONTH));
+        assertEquals(1, calendar.get(Calendar.DAY_OF_MONTH));
+    }
+
+    private void assertValues(DatePicker datePicker, int year, int month, int dayOfMonth) {
+        assertEquals(year, datePicker.getYear());
+        assertEquals(month, datePicker.getMonth());
+        assertEquals(dayOfMonth, datePicker.getDayOfMonth());
     }
 
     private class MockDatePicker extends DatePicker {

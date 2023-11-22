@@ -749,8 +749,6 @@ HRESULT SkXPSDevice::createXpsImageBrush(
         if (SkShader::kClamp_TileMode == xy[0] &&
             SkShader::kClamp_TileMode == xy[1]) {
 
-            SkAutoLockPixels alp(bitmap);
-
             const SkColor tlColor = bitmap.getColor(0,0);
             const SkRect tlArea = SkRect::MakeLTRB(-BIG, -BIG, 0, 0);
             HR(this->cornerOfClamp(tlArea, tlColor, brushVisuals.get()));
@@ -1782,7 +1780,9 @@ HRESULT SkXPSDevice::clipToPath(IXpsOMVisual* xpsVisual,
 }
 
 void SkXPSDevice::drawBitmap(const SkBitmap& bitmap,
-                             const SkMatrix& matrix, const SkPaint& paint) {
+                             SkScalar x,
+                             SkScalar y,
+                             const SkPaint& paint) {
     if (this->cs().isEmpty(size(*this))) {
         return;
     }
@@ -1809,7 +1809,7 @@ void SkXPSDevice::drawBitmap(const SkBitmap& bitmap,
     HRVM(shadedGeometry->GetFigures(&shadedFigures),
          "Could not get the figures for bitmap.");
 
-    SkMatrix transform = matrix;
+    SkMatrix transform = SkMatrix::MakeTrans(x, y);
     transform.postConcat(this->ctm());
 
     SkTScopedComPtr<IXpsOMMatrixTransform> xpsTransform;

@@ -13,9 +13,10 @@ logger
 login
 nacl_helper
 nacl_helper_boo
+nacl_helper_non
 ping
-ps
 ply-image
+ps
 sleep
 sshd
 sudo
@@ -42,3 +43,7 @@ laptop_mode
 # daemons.  Plus, it usually runs as root so it can drop privs for daemons.
 minijail0
 minijail-init
+
+# When systemd starts an additional serial-getty, the process name is initially
+# '(agetty)', and it takes some time until the name changes to 'agetty'.
+(agetty)

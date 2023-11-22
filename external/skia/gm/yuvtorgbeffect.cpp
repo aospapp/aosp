@@ -119,8 +119,7 @@ protected:
 
             for (int i = 0; i < 6; ++i) {
                 sk_sp<GrFragmentProcessor> fp(
-                        GrYUVEffect::MakeYUVToRGB(context->resourceProvider(),
-                                                  proxy[indices[i][0]],
+                        GrYUVEffect::MakeYUVToRGB(proxy[indices[i][0]],
                                                   proxy[indices[i][1]],
                                                   proxy[indices[i][2]],
                                                   sizes,
@@ -132,10 +131,9 @@ protected:
                     grPaint.addColorFragmentProcessor(std::move(fp));
                     SkMatrix viewMatrix;
                     viewMatrix.setTranslate(x, y);
-                    std::unique_ptr<GrMeshDrawOp> op(GrRectOpFactory::MakeNonAAFill(
-                            GrColor_WHITE, viewMatrix, renderRect, nullptr, nullptr));
-                    renderTargetContext->priv().testingOnly_addMeshDrawOp(
-                            std::move(grPaint), GrAAType::kNone, std::move(op));
+                    renderTargetContext->priv().testingOnly_addDrawOp(
+                            GrRectOpFactory::MakeNonAAFill(std::move(grPaint), viewMatrix,
+                                                           renderRect, GrAAType::kNone));
                 }
                 x += renderRect.width() + kTestPad;
             }
@@ -250,17 +248,14 @@ protected:
             GrPaint grPaint;
             grPaint.setXPFactory(GrPorterDuffXPFactory::Get(SkBlendMode::kSrc));
             sk_sp<GrFragmentProcessor> fp(
-                GrYUVEffect::MakeYUVToRGB(context->resourceProvider(),
-                                          proxy[0], proxy[1], proxy[2], sizes,
+                GrYUVEffect::MakeYUVToRGB(proxy[0], proxy[1], proxy[2], sizes,
                                           static_cast<SkYUVColorSpace>(space), true));
             if (fp) {
                 SkMatrix viewMatrix;
                 viewMatrix.setTranslate(x, y);
                 grPaint.addColorFragmentProcessor(fp);
-                std::unique_ptr<GrMeshDrawOp> op(GrRectOpFactory::MakeNonAAFill(
-                        GrColor_WHITE, viewMatrix, renderRect, nullptr, nullptr));
-                renderTargetContext->priv().testingOnly_addMeshDrawOp(
-                        std::move(grPaint), GrAAType::kNone, std::move(op));
+                renderTargetContext->priv().testingOnly_addDrawOp(GrRectOpFactory::MakeNonAAFill(
+                        std::move(grPaint), viewMatrix, renderRect, GrAAType::kNone));
             }
         }
     }

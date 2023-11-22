@@ -8,13 +8,14 @@
 #include "lib/zipf.h"
 #include "lib/axmap.h"
 #include "lib/lfsr.h"
+#include "lib/gauss.h"
 
 /*
  * The type of object we are working on
  */
 enum fio_filetype {
 	FIO_TYPE_FILE = 1,		/* plain file */
-	FIO_TYPE_BD,			/* block device */
+	FIO_TYPE_BLOCK,			/* block device */
 	FIO_TYPE_CHAR,			/* character device */
 	FIO_TYPE_PIPE,			/* pipe */
 };
@@ -38,13 +39,20 @@ enum file_lock_mode {
 };
 
 /*
- * roundrobin available files, or choose one at random, or do each one
- * serially.
+ * How fio chooses what file to service next. Choice of uniformly random, or
+ * some skewed random variants, or just sequentially go through them or
+ * roundrobing.
  */
 enum {
-	FIO_FSERVICE_RANDOM	= 1,
-	FIO_FSERVICE_RR		= 2,
-	FIO_FSERVICE_SEQ	= 3,
+	FIO_FSERVICE_RANDOM		= 1,
+	FIO_FSERVICE_RR			= 2,
+	FIO_FSERVICE_SEQ		= 3,
+	__FIO_FSERVICE_NONUNIFORM	= 0x100,
+	FIO_FSERVICE_ZIPF		= __FIO_FSERVICE_NONUNIFORM | 4,
+	FIO_FSERVICE_PARETO		= __FIO_FSERVICE_NONUNIFORM | 5,
+	FIO_FSERVICE_GAUSS		= __FIO_FSERVICE_NONUNIFORM | 6,
+
+	FIO_FSERVICE_SHIFT		= 10,
 };
 
 /*
@@ -75,12 +83,14 @@ struct fio_file {
 	/*
 	 * filename and possible memory mapping
 	 */
-	char *file_name;
 	unsigned int major, minor;
 	int fileno;
+	int bs;
+	char *file_name;
 
 	/*
 	 * size of the file, offset into file, and io size from that offset
+	 * (be aware io_size is different from thread_options::io_size)
 	 */
 	uint64_t real_file_size;
 	uint64_t file_offset;
@@ -96,9 +106,19 @@ struct fio_file {
 	uint64_t last_write;
 
 	/*
-	 * For use by the io engine
+	 * Tracks the last iodepth number of completed writes, if data
+	 * verification is enabled
 	 */
-	uint64_t engine_data;
+	uint64_t *last_write_comp;
+	unsigned int last_write_idx;
+
+	/*
+	 * For use by the io engine for offset or private data storage
+	 */
+	union {
+		uint64_t engine_pos;
+		void *engine_data;
+	};
 
 	/*
 	 * if io is protected by a semaphore, this is set
@@ -119,7 +139,10 @@ struct fio_file {
 	/*
 	 * Used for zipf random distribution
 	 */
-	struct zipf_state zipf;
+	union {
+		struct zipf_state zipf;
+		struct gauss_state gauss;
+	};
 
 	int references;
 	enum fio_file_flags flags;
@@ -127,14 +150,8 @@ struct fio_file {
 	struct disk_util *du;
 };
 
-#define FILE_ENG_DATA(f)	((void *) (uintptr_t) (f)->engine_data)
-#define FILE_SET_ENG_DATA(f, data)	\
-	((f)->engine_data = (uintptr_t) (data))
-
-struct file_name {
-	struct flist_head list;
-	char *filename;
-};
+#define FILE_ENG_DATA(f)		((f)->engine_data)
+#define FILE_SET_ENG_DATA(f, data)	((f)->engine_data = (data))
 
 #define FILE_FLAG_FNS(name)						\
 static inline void fio_file_set_##name(struct fio_file *f)		\
@@ -175,6 +192,7 @@ extern int __must_check generic_close_file(struct thread_data *, struct fio_file
 extern int __must_check generic_get_file_size(struct thread_data *, struct fio_file *);
 extern int __must_check file_lookup_open(struct fio_file *f, int flags);
 extern int __must_check pre_read_files(struct thread_data *);
+extern unsigned long long get_rand_file_size(struct thread_data *td);
 extern int add_file(struct thread_data *, const char *, int, int);
 extern int add_file_exclusive(struct thread_data *, const char *);
 extern void get_file(struct fio_file *);
@@ -189,7 +207,8 @@ extern void dup_files(struct thread_data *, struct thread_data *);
 extern int get_fileno(struct thread_data *, const char *);
 extern void free_release_files(struct thread_data *);
 extern void filesetup_mem_free(void);
-void fio_file_reset(struct thread_data *, struct fio_file *);
-int fio_files_done(struct thread_data *);
+extern void fio_file_reset(struct thread_data *, struct fio_file *);
+extern bool fio_files_done(struct thread_data *);
+extern bool exists_and_not_regfile(const char *);
 
 #endif

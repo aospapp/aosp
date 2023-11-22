@@ -23,7 +23,6 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     ub-uiautomator \
     ub-janktesthelper \
     legacy-android-test
-LOCAK_SDK_VERSION := 22
 
 LOCAL_COMPATIBILITY_SUITE := device-tests
 

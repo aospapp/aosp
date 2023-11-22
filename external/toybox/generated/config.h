@@ -32,6 +32,8 @@
 #define USE_TOYBOX_NORECURSE(...) __VA_ARGS__
 #define CFG_TOYBOX_ON_ANDROID 1
 #define USE_TOYBOX_ON_ANDROID(...) __VA_ARGS__
+#define CFG_TOYBOX_ANDROID_SCHEDPOLICY 1
+#define USE_TOYBOX_ANDROID_SCHEDPOLICY(...) __VA_ARGS__
 #define CFG_TOYBOX_PEDANTIC_ARGS 0
 #define USE_TOYBOX_PEDANTIC_ARGS(...)
 #define CFG_TOYBOX_SELINUX 1
@@ -140,8 +142,8 @@
 #define USE_DHCPD(...)
 #define CFG_DHCP 0
 #define USE_DHCP(...)
-#define CFG_DIFF 0
-#define USE_DIFF(...)
+#define CFG_DIFF 1
+#define USE_DIFF(...) __VA_ARGS__
 #define CFG_DIRNAME 1
 #define USE_DIRNAME(...) __VA_ARGS__
 #define CFG_DMESG 1
@@ -216,12 +218,10 @@
 #define USE_GROUPDEL(...)
 #define CFG_GROUPS 1
 #define USE_GROUPS(...) __VA_ARGS__
-#define CFG_GUNZIP 0
-#define USE_GUNZIP(...)
-#define CFG_GZIP_D 0
-#define USE_GZIP_D(...)
-#define CFG_GZIP 0
-#define USE_GZIP(...)
+#define CFG_GUNZIP 1
+#define USE_GUNZIP(...) __VA_ARGS__
+#define CFG_GZIP 1
+#define USE_GZIP(...) __VA_ARGS__
 #define CFG_HEAD 1
 #define USE_HEAD(...) __VA_ARGS__
 #define CFG_HELLO 0
@@ -304,10 +304,10 @@
 #define USE_LSMOD(...) __VA_ARGS__
 #define CFG_LSOF 1
 #define USE_LSOF(...) __VA_ARGS__
-#define CFG_LSPCI 0
-#define USE_LSPCI(...)
-#define CFG_LSPCI_TEXT 1
-#define USE_LSPCI_TEXT(...) __VA_ARGS__
+#define CFG_LSPCI 1
+#define USE_LSPCI(...) __VA_ARGS__
+#define CFG_LSPCI_TEXT 0
+#define USE_LSPCI_TEXT(...)
 #define CFG_LSUSB 1
 #define USE_LSUSB(...) __VA_ARGS__
 #define CFG_LS 1
@@ -630,5 +630,5 @@
 #define USE_XZCAT(...)
 #define CFG_YES 1
 #define USE_YES(...) __VA_ARGS__
-#define CFG_ZCAT 0
-#define USE_ZCAT(...)
+#define CFG_ZCAT 1
+#define USE_ZCAT(...) __VA_ARGS__

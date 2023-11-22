@@ -93,12 +93,18 @@ public class ShortcutManagerBackupTest extends BaseShortcutManagerHostTest {
         super.tearDown();
     }
 
-    private void doBackup() throws DeviceNotAvailableException {
+    private void doBackup() throws Exception {
         CLog.i("Backing up package android...");
+
+        waitUntilBroadcastsDrain(); // b/64203677
+
+        CLog.i("Making sure the local transport is selected...");
         assertContainsRegex(
                 "^Selected transport android/com.android.internal.backup.LocalTransport",
                 executeShellCommandWithLog(
                         "bmgr transport android/com.android.internal.backup.LocalTransport"));
+
+        executeShellCommandWithLog("dumpsys backup");
 
         assertContainsRegex(
                 "Wiped",

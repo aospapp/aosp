@@ -57,7 +57,7 @@ class IVtsFuzzer : public IInterface {
   virtual int32_t Status(int32_t type) = 0;
 
   // Requests to call the specified function using the provided arguments.
-  virtual const char* Call(const string& call_payload) = 0;
+  virtual string Call(const string& call_payload) = 0;
 
   virtual const char* GetFunctions() = 0;
 
@@ -73,7 +73,7 @@ class BpVtsFuzzer : public BpInterface<IVtsFuzzer> {
   int32_t LoadHal(const string& path, int target_class, int target_type,
                   float target_version, const string& module_name);
   int32_t Status(int32_t type);
-  const char* Call(const string& call_payload);
+  string Call(const string& call_payload);
   const char* GetFunctions();
 };
 

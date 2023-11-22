@@ -47,7 +47,6 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <sys/mman.h>
 #ifdef _ANDROID_
-#include <binder/MemoryHeapBase.h>
 #ifdef _ANDROID_ICS_
 #include "QComOMXMetadata.h"
 #endif
@@ -68,17 +67,11 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <dlfcn.h>
 #include "C2DColorConverter.h"
 #include "vidc_debug.h"
+#include <vector>
+#include "vidc_vendor_extensions.h"
 
 #ifdef _ANDROID_
 using namespace android;
-// local pmem heap object
-class VideoHeap : public MemoryHeapBase
-{
-    public:
-        VideoHeap(int fd, size_t size, void* base);
-        virtual ~VideoHeap() {}
-};
-
 #include <utils/Log.h>
 
 #endif // _ANDROID_
@@ -585,6 +578,15 @@ class omx_video: public qc_omx_component
         bool is_conv_needed(int, int);
         void print_debug_color_aspects(ColorAspects *aspects, const char *prefix);
 
+        OMX_ERRORTYPE get_vendor_extension_config(
+                OMX_CONFIG_ANDROID_VENDOR_EXTENSIONTYPE *ext);
+        OMX_ERRORTYPE set_vendor_extension_config(
+                OMX_CONFIG_ANDROID_VENDOR_EXTENSIONTYPE *ext);
+        void init_vendor_extensions(VendorExtensionStore&);
+        // Extensions-store is immutable after initialization (i.e cannot add/remove/change
+        //  extensions once added !)
+        const VendorExtensionStore mVendorExtensionStore;
+
 #ifdef USE_ION
         int alloc_map_ion_memory(int size,
                                  struct ion_allocation_data *alloc_data,
@@ -674,6 +676,7 @@ class omx_video: public qc_omx_component
         DescribeColorAspectsParams m_sConfigColorAspects;
         OMX_VIDEO_PARAM_ANDROID_TEMPORALLAYERINGTYPE m_sParamTemporalLayers;
         OMX_VIDEO_CONFIG_ANDROID_TEMPORALLAYERINGTYPE m_sConfigTemporalLayers;
+        QOMX_ENABLETYPE m_sParamAVTimerTimestampMode;   // use VT-timestamps in gralloc-handle
 
         // fill this buffer queue
         omx_cmd_queue m_ftb_q;
@@ -703,10 +706,6 @@ class omx_video: public qc_omx_component
         uint64_t m_etb_count;
         uint64_t m_fbd_count;
         OMX_TICKS m_etb_timestamp;
-#ifdef _ANDROID_
-        // Heap pointer to frame buffers
-        sp<MemoryHeapBase>    m_heap_ptr;
-#endif //_ANDROID_
         // to know whether Event Port Settings change has been triggered or not.
         bool m_event_port_settings_sent;
         OMX_U8                m_cRole[OMX_MAX_STRINGNAME_SIZE];

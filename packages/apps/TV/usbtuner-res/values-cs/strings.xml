@@ -19,20 +19,18 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="bt_app_name" msgid="5515382901862469770">"Televizní tuner"</string>
     <string name="ut_app_name" msgid="8557698013780762454">"Televizní tuner USB"</string>
-    <string name="ut_setup_on" msgid="7755608253387551795">"Zapnout"</string>
-    <string name="ut_setup_off" msgid="1333878787059290524">"Vypnout"</string>
+    <string name="nt_app_name" msgid="4627006858832620833">"Síťový televizní tuner (BETA)"</string>
     <string name="ut_setup_cancel" msgid="5318292052302751909">"Vyčkejte prosím, než bude zpracování dokončeno"</string>
-    <string name="ut_select_channel_map" msgid="4831940000362338865">"Vyberte zdroj kanálu"</string>
-    <string name="ut_no_signal" msgid="7390099185275997984">"Žádný signál"</string>
-    <string name="ut_fail_to_tune" msgid="2964582177222053143">"Kanál <xliff:g id="CHANNEL_NAME">%s</xliff:g> se nepodařilo naladit"</string>
-    <string name="ut_fail_to_tune_to_unknown_channel" msgid="7078953579048783762">"Nelze naladit"</string>
     <string name="ut_rescan_needed" msgid="2273655435759849436">"Software tuneru byl nedávno aktualizován. Vyhledejte prosím kanály znovu."</string>
     <string name="ut_surround_sound_disabled" msgid="6465044734143962900">"Chcete-li zapnout zvuk, v nastavení systémového zvuku povolte prostorový zvuk"</string>
+    <string name="audio_passthrough_not_supported" msgid="8766302073295760976">"Zvuk nelze přehrát. Zkuste použít jinou televizi."</string>
     <string name="ut_setup_breadcrumb" msgid="2810318605327367247">"Nastavení tuneru kanálů"</string>
     <string name="bt_setup_new_title" msgid="8447554965697762891">"Nastavení televizního tuneru"</string>
     <string name="ut_setup_new_title" msgid="2118880835101453405">"Nastavení tuneru kanálů USB"</string>
+    <string name="nt_setup_new_title" msgid="2996573474450060002">"Nastavení síťového tuneru"</string>
     <string name="bt_setup_new_description" msgid="256690722062003128">"Zkontrolujte, zda je televize připojena ke zdroji televizního signálu.\n\nPokud používáte bezdrátovou anténu, možná budete muset za účelem příjmu co největšího počtu kanálů upravit její umístění nebo nasměrování. Nejlepších výsledků dosáhnete, pokud ji umístíte vysoko a blízko okna."</string>
     <string name="ut_setup_new_description" msgid="2610122936163002137">"Zkontrolujte, zda je tuner USB připojen k zařízení a ke zdroji televizního signálu.\n\nPokud používáte bezdrátovou anténu, možná budete muset za účelem příjmu co největšího počtu kanálů upravit její umístění nebo nasměrování. Nejlepších výsledků dosáhnete, pokud ji umístíte vysoko a blízko okna."</string>
+    <string name="nt_setup_new_description" msgid="8315318180352515751">"Zkontrolujte, zda je síťový tuner zapnut a připojen ke zdroji televizního signálu.\n\nPokud používáte bezdrátovou anténu, možná budete muset za účelem příjmu co největšího počtu kanálů upravit její umístění nebo nasměrování. Nejlepších výsledků dosáhnete, pokud ji umístíte vysoko a blízko okna."</string>
   <string-array name="ut_setup_new_choices">
     <item msgid="8728069574888601683">"Pokračovat"</item>
     <item msgid="727245208787621142">"Teď ne"</item>
@@ -40,6 +38,7 @@
     <string name="bt_setup_again_title" msgid="884713873101099572">"Znovu spustit nastavení kanálů?"</string>
     <string name="bt_setup_again_description" msgid="1247792492948741337">"Tímto odstraníte kanály nalezené pomocí televizního tuneru a znovu vyhledáte nové kanály.\n\nZkontrolujte, zda je televize připojena ke zdroji televizního signálu.\n\nPokud používáte bezdrátovou anténu, možná budete muset za účelem příjmu co největšího počtu kanálů upravit její umístění nebo nasměrování. Nejlepších výsledků dosáhnete, pokud ji umístíte vysoko a blízko okna."</string>
     <string name="ut_setup_again_description" msgid="7837706010887799255">"Tímto odstraníte kanály nalezené pomocí tuneru USB a znovu vyhledáte nové kanály.\n\nZkontrolujte, zda je tuner USB připojen k zařízení a ke zdroji televizního signálu.\n\nPokud používáte bezdrátovou anténu, možná budete muset za účelem příjmu co největšího počtu kanálů upravit její umístění nebo nasměrování. Nejlepších výsledků dosáhnete, pokud ji umístíte vysoko a blízko okna."</string>
+    <string name="nt_setup_again_description" msgid="681642895365018072">"Tímto odstraníte kanály nalezené pomocí síťového tuneru a znovu vyhledáte nové kanály.\n\nZkontrolujte, zda je síťový tuner zapnut a připojen ke zdroji televizního signálu.\n\nPokud používáte bezdrátovou anténu, možná budete muset za účelem příjmu co největšího počtu kanálů upravit její umístění nebo nasměrování. Nejlepších výsledků dosáhnete, pokud ji umístíte vysoko a blízko okna."</string>
   <string-array name="ut_setup_again_choices">
     <item msgid="2557527790311851317">"Pokračovat"</item>
     <item msgid="235450158666155406">"Zrušit"</item>
@@ -54,6 +53,7 @@
   </string-array>
     <string name="bt_channel_scan" msgid="3291924771702347469">"Nastavení televizního tuneru"</string>
     <string name="ut_channel_scan" msgid="6100090671500464604">"Nastavení tuneru kanálů USB"</string>
+    <string name="nt_channel_scan" msgid="30206992732534178">"Nastavení kanálů síťového tuneru"</string>
     <string name="ut_channel_scan_time" msgid="1844845425359642393">"Tato akce může trvat několik minut."</string>
     <string name="ut_channel_scan_tuner_unavailable" msgid="3135723754380409658">"Tuner dočasně není k dispozici, případně je právě používán k nahrávání."</string>
     <plurals name="ut_channel_scan_message" formatted="false" msgid="3131606783282632056">
@@ -82,12 +82,15 @@
     <string name="ut_result_not_found_title" msgid="4649533929056795595">"Nebyly nalezeny žádné kanály"</string>
     <string name="bt_result_not_found_description" msgid="7378208337325024042">"Při vyhledávání nebyly nalezeny žádné kanály. Zkontrolujte, zda je televize připojena ke zdroji televizního signálu.\n\nPokud používáte bezdrátovou anténu, upravte její umístění nebo nasměrování. Nejlepších výsledků dosáhnete, pokud ji umístíte vysoko a blízko okna. Poté spusťte vyhledávání znovu."</string>
     <string name="ut_result_not_found_description" msgid="1080746285957681414">"Při vyhledávání nebyly nalezeny žádné kanály. Zkontrolujte, zda je tuner USB připojen k zařízení a ke zdroji televizního signálu.\n\nPokud používáte bezdrátovou anténu, upravte její umístění nebo nasměrování. Nejlepších výsledků dosáhnete, pokud ji umístíte vysoko a blízko okna. Poté spusťte vyhledávání znovu."</string>
+    <string name="nt_result_not_found_description" msgid="2177919867285510855">"Při vyhledávání nebyly nalezeny žádné kanály. Zkontrolujte, zda je síťový tuner zapnut a připojen ke zdroji televizního signálu.\n\nPokud používáte bezdrátovou anténu, upravte její umístění nebo nasměrování. Nejlepších výsledků dosáhnete, pokud ji umístíte vysoko a blízko okna. Poté spusťte vyhledávání znovu."</string>
   <string-array name="ut_result_not_found_choices">
     <item msgid="5436884968471542030">"Znovu vyhledat"</item>
     <item msgid="2092797862490235174">"Hotovo"</item>
   </string-array>
-    <string name="ut_setup_recommendation_card_focused_title" msgid="7434151993964505386">"Vyhledejte televizní kanály"</string>
-    <string name="bt_setup_recommendation_card_title" msgid="1026906771141769829">"Nastavení televizního tuneru"</string>
-    <string name="ut_setup_recommendation_card_title" msgid="1093869817128338226">"Nastavení televizního tuneru USB"</string>
-    <string name="msg_usb_device_detached" msgid="5123930566630230724">"Televizní tuner USB byl odpojen."</string>
+    <string name="ut_setup_notification_content_title" msgid="3439301313253273422">"Vyhledejte televizní kanály"</string>
+    <string name="bt_setup_notification_content_text" msgid="7578820978070596694">"Nastavení televizního tuneru"</string>
+    <string name="ut_setup_notification_content_text" msgid="1656697878628557384">"Nastavení televizního tuneru USB"</string>
+    <string name="nt_setup_notification_content_text" msgid="1186152789699583895">"Nastavení síťového televizního tuneru"</string>
+    <string name="msg_usb_tuner_disconnected" msgid="1206606328815245830">"Televizní tuner USB byl odpojen."</string>
+    <string name="msg_network_tuner_disconnected" msgid="7103193099674978964">"Síťový tuner byl odpojen."</string>
 </resources>

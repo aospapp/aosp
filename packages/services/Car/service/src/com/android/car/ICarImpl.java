@@ -24,18 +24,20 @@ import android.car.cluster.renderer.IInstrumentClusterNavigation;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.hardware.automotive.vehicle.V2_0.IVehicle;
-import android.hardware.automotive.vehicle.V2_0.VehicleAreaDoor;
-import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
+import android.os.Binder;
 import android.os.IBinder;
+import android.os.Process;
+import android.os.Trace;
 import android.util.Log;
-
+import android.util.Slog;
+import android.util.TimingsTraceLog;
 import com.android.car.cluster.InstrumentClusterService;
 import com.android.car.hal.VehicleHal;
 import com.android.car.internal.FeatureConfiguration;
 import com.android.car.internal.FeatureUtil;
 import com.android.car.pm.CarPackageManagerService;
 import com.android.internal.annotations.GuardedBy;
-
+import com.android.internal.car.ICarServiceHelper;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -69,18 +71,21 @@ public class ICarImpl extends ICar.Stub {
     private final CarVendorExtensionService mCarVendorExtensionService;
     private final CarBluetoothService mCarBluetoothService;
     private final PerUserCarServiceHelper mPerUserCarServiceHelper;
-    @FutureFeature
     private CarDiagnosticService mCarDiagnosticService;
-    @FutureFeature
-    private VmsSubscriberService mVmsSubscriberService;
-    @FutureFeature
-    private VmsPublisherService mVmsPublisherService;
 
     private final CarServiceBase[] mAllServices;
+
+    private static final String TAG = "ICarImpl";
+    private static final String VHAL_TIMING_TAG = "VehicleHalTiming";
+    private static final TimingsTraceLog mBootTiming = new TimingsTraceLog(VHAL_TIMING_TAG,
+        Trace.TRACE_TAG_HAL);
 
     /** Test only service. Populate it only when necessary. */
     @GuardedBy("this")
     private CarTestService mCarTestService;
+
+    @GuardedBy("this")
+    private ICarServiceHelper mICarServiceHelper;
 
     public ICarImpl(Context serviceContext, IVehicle vehicle, SystemInterface systemInterface,
             CanBusErrorNotifier errorNotifier) {
@@ -112,14 +117,7 @@ public class ICarImpl extends ICar.Stub {
         mPerUserCarServiceHelper = new PerUserCarServiceHelper(serviceContext);
         mCarBluetoothService = new CarBluetoothService(serviceContext, mCarCabinService,
                 mCarSensorService, mPerUserCarServiceHelper);
-        if (FeatureConfiguration.ENABLE_VEHICLE_MAP_SERVICE) {
-            mVmsSubscriberService = new VmsSubscriberService(serviceContext, mHal.getVmsHal());
-            mVmsPublisherService = new VmsPublisherService(serviceContext, mHal.getVmsHal());
-        }
-        if (FeatureConfiguration.ENABLE_DIAGNOSTIC) {
-            mCarDiagnosticService = new CarDiagnosticService(serviceContext,
-                    mHal.getDiagnosticHal());
-        }
+        mCarDiagnosticService = new CarDiagnosticService(serviceContext, mHal.getDiagnosticHal());
 
         // Be careful with order. Service depending on other service should be inited later.
         List<CarServiceBase> allServices = new ArrayList<>(Arrays.asList(
@@ -141,23 +139,21 @@ public class ICarImpl extends ICar.Stub {
                 mSystemStateControllerService,
                 mCarVendorExtensionService,
                 mCarBluetoothService,
+                mCarDiagnosticService,
                 mPerUserCarServiceHelper
         ));
-        if (FeatureConfiguration.ENABLE_VEHICLE_MAP_SERVICE) {
-            allServices.add(mVmsSubscriberService);
-            allServices.add(mVmsPublisherService);
-        }
-        if (FeatureConfiguration.ENABLE_DIAGNOSTIC) {
-            allServices.add(mCarDiagnosticService);
-        }
         mAllServices = allServices.toArray(new CarServiceBase[0]);
     }
 
     public void init() {
+        traceBegin("VehicleHal.init");
         mHal.init();
+        traceEnd();
+        traceBegin("CarService.initAllServices");
         for (CarServiceBase service : mAllServices) {
             service.init();
         }
+        traceEnd();
     }
 
     public void release() {
@@ -172,6 +168,17 @@ public class ICarImpl extends ICar.Stub {
         mHal.vehicleHalReconnected(vehicle);
         for (CarServiceBase service : mAllServices) {
             service.vehicleHalReconnected();
+        }
+    }
+
+    @Override
+    public void setCarServiceHelper(IBinder helper) {
+        int uid = Binder.getCallingUid();
+        if (uid != Process.SYSTEM_UID) {
+            throw new SecurityException("Only allowed from system");
+        }
+        synchronized (this) {
+            mICarServiceHelper = ICarServiceHelper.Stub.asInterface(helper);
         }
     }
 
@@ -192,11 +199,8 @@ public class ICarImpl extends ICar.Stub {
                 assertCabinPermission(mContext);
                 return mCarCabinService;
             case Car.DIAGNOSTIC_SERVICE:
-                FeatureUtil.assertFeature(FeatureConfiguration.ENABLE_DIAGNOSTIC);
-                if (FeatureConfiguration.ENABLE_DIAGNOSTIC) {
-                    assertAnyDiagnosticPermission(mContext);
-                    return mCarDiagnosticService;
-                }
+                assertAnyDiagnosticPermission(mContext);
+                return mCarDiagnosticService;
             case Car.HVAC_SERVICE:
                 assertHvacPermission(mContext);
                 return mCarHvacService;
@@ -208,18 +212,15 @@ public class ICarImpl extends ICar.Stub {
                 IInstrumentClusterNavigation navService =
                         mInstrumentClusterService.getNavigationService();
                 return navService == null ? null : navService.asBinder();
+            case Car.CAR_INSTRUMENT_CLUSTER_SERVICE:
+                assertClusterManagerPermission(mContext);
+                return mInstrumentClusterService.getManagerService();
             case Car.PROJECTION_SERVICE:
                 assertProjectionPermission(mContext);
                 return mCarProjectionService;
             case Car.VENDOR_EXTENSION_SERVICE:
                 assertVendorExtensionPermission(mContext);
                 return mCarVendorExtensionService;
-            case Car.VMS_SUBSCRIBER_SERVICE:
-                FeatureUtil.assertFeature(FeatureConfiguration.ENABLE_VEHICLE_MAP_SERVICE);
-                if (FeatureConfiguration.ENABLE_VEHICLE_MAP_SERVICE) {
-                    assertVmsSubscriberPermission(mContext);
-                    return mVmsSubscriberService;
-                }
             case Car.TEST_SERVICE: {
                 assertPermission(mContext, Car.PERMISSION_CAR_TEST_SERVICE);
                 synchronized (this) {
@@ -229,6 +230,8 @@ public class ICarImpl extends ICar.Stub {
                     return mCarTestService;
                 }
             }
+            case Car.BLUETOOTH_SERVICE:
+                return mCarBluetoothService;
             default:
                 Log.w(CarLog.TAG_SERVICE, "getCarService for unknown service:" + serviceName);
                 return null;
@@ -265,6 +268,10 @@ public class ICarImpl extends ICar.Stub {
         assertPermission(context, Car.PERMISSION_CAR_NAVIGATION_MANAGER);
     }
 
+    public static void assertClusterManagerPermission(Context context) {
+        assertPermission(context, Car.PERMISSION_CAR_INSTRUMENT_CLUSTER_CONTROL);
+    }
+
     public static void assertHvacPermission(Context context) {
         assertPermission(context, Car.PERMISSION_CAR_HVAC);
     }
@@ -281,21 +288,10 @@ public class ICarImpl extends ICar.Stub {
         assertPermission(context, Car.PERMISSION_VENDOR_EXTENSION);
     }
 
-    @FutureFeature
     public static void assertAnyDiagnosticPermission(Context context) {
         assertAnyPermission(context,
-                Car.PERMISSION_CAR_DIAGNOSTIC_READ,
+                Car.PERMISSION_CAR_DIAGNOSTIC_READ_ALL,
                 Car.PERMISSION_CAR_DIAGNOSTIC_CLEAR);
-    }
-
-    @FutureFeature
-    public static void assertVmsPublisherPermission(Context context) {
-        assertPermission(context, Car.PERMISSION_VMS_PUBLISHER);
-    }
-
-    @FutureFeature
-    public static void assertVmsSubscriberPermission(Context context) {
-        assertPermission(context, Car.PERMISSION_VMS_SUBSCRIBER);
     }
 
     public static void assertPermission(Context context, String permission) {
@@ -330,6 +326,15 @@ public class ICarImpl extends ICar.Stub {
 
     void execShellCmd(String[] args, PrintWriter writer) {
         new CarShellCommand().exec(args, writer);
+    }
+
+    private static void traceBegin(String name) {
+        Slog.i(TAG, name);
+        mBootTiming.traceBegin(name);
+    }
+
+    private static void traceEnd() {
+        mBootTiming.traceEnd();
     }
 
     private class CarShellCommand {

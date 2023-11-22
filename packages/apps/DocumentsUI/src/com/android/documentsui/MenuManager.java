@@ -28,7 +28,6 @@ import com.android.documentsui.base.Menus;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.State;
 import com.android.documentsui.dirlist.DirectoryFragment;
-import com.android.documentsui.files.FilesActivity;
 import com.android.documentsui.queries.SearchViewManager;
 import com.android.documentsui.sidebar.RootsFragment;
 import com.android.internal.annotations.VisibleForTesting;
@@ -53,30 +52,32 @@ public abstract class MenuManager {
 
     /** @see ActionModeController */
     public void updateActionMenu(Menu menu, SelectionDetails selection) {
-        updateOpenInActionMode(menu.findItem(R.id.menu_open), selection);
-        updateOpenWith(menu.findItem(R.id.menu_open_with), selection);
-        updateDelete(menu.findItem(R.id.menu_delete), selection);
-        updateShare(menu.findItem(R.id.menu_share), selection);
-        updateRename(menu.findItem(R.id.menu_rename), selection);
-        updateSelectAll(menu.findItem(R.id.menu_select_all));
-        updateMoveTo(menu.findItem(R.id.menu_move_to), selection);
-        updateCopyTo(menu.findItem(R.id.menu_copy_to), selection);
-        updateCompress(menu.findItem(R.id.menu_compress), selection);
-        updateExtractTo(menu.findItem(R.id.menu_extract_to), selection);
-        updateViewInOwner(menu.findItem(R.id.menu_view_in_owner), selection);
+        updateOpenInActionMode(menu.findItem(R.id.action_menu_open), selection);
+        updateOpenWith(menu.findItem(R.id.action_menu_open_with), selection);
+        updateDelete(menu.findItem(R.id.action_menu_delete), selection);
+        updateShare(menu.findItem(R.id.action_menu_share), selection);
+        updateRename(menu.findItem(R.id.action_menu_rename), selection);
+        updateSelectAll(menu.findItem(R.id.action_menu_select_all));
+        updateMoveTo(menu.findItem(R.id.action_menu_move_to), selection);
+        updateCopyTo(menu.findItem(R.id.action_menu_copy_to), selection);
+        updateCompress(menu.findItem(R.id.action_menu_compress), selection);
+        updateExtractTo(menu.findItem(R.id.action_menu_extract_to), selection);
+        updateViewInOwner(menu.findItem(R.id.action_menu_view_in_owner), selection);
+        updateInspector(menu.findItem(R.id.action_menu_inspector), selection);
 
         Menus.disableHiddenItems(menu);
     }
 
     /** @see BaseActivity#onPrepareOptionsMenu */
     public void updateOptionMenu(Menu menu) {
-        updateCreateDir(menu.findItem(R.id.menu_create_dir));
-        updateSettings(menu.findItem(R.id.menu_settings));
-        updateSelectAll(menu.findItem(R.id.menu_select_all));
-        updateNewWindow(menu.findItem(R.id.menu_new_window));
-        updateModePicker(menu.findItem(R.id.menu_grid), menu.findItem(R.id.menu_list));
-        updateAdvanced(menu.findItem(R.id.menu_advanced));
-        updateDebug(menu.findItem(R.id.menu_debug));
+        updateCreateDir(menu.findItem(R.id.option_menu_create_dir));
+        updateSettings(menu.findItem(R.id.option_menu_settings));
+        updateSelectAll(menu.findItem(R.id.option_menu_select_all));
+        updateNewWindow(menu.findItem(R.id.option_menu_new_window));
+        updateModePicker(menu.findItem(R.id.option_menu_grid),
+                menu.findItem(R.id.option_menu_list));
+        updateAdvanced(menu.findItem(R.id.option_menu_advanced));
+        updateDebug(menu.findItem(R.id.option_menu_debug));
 
         Menus.disableHiddenItems(menu);
     }
@@ -116,11 +117,11 @@ public abstract class MenuManager {
     public void updateContextMenuForFiles(Menu menu, SelectionDetails selectionDetails) {
         assert(selectionDetails != null);
 
-        MenuItem share = menu.findItem(R.id.menu_share);
-        MenuItem open = menu.findItem(R.id.menu_open);
-        MenuItem openWith = menu.findItem(R.id.menu_open_with);
-        MenuItem rename = menu.findItem(R.id.menu_rename);
-        MenuItem viewInOwner = menu.findItem(R.id.menu_view_in_owner);
+        MenuItem share = menu.findItem(R.id.dir_menu_share);
+        MenuItem open = menu.findItem(R.id.dir_menu_open);
+        MenuItem openWith = menu.findItem(R.id.dir_menu_open_with);
+        MenuItem rename = menu.findItem(R.id.dir_menu_rename);
+        MenuItem viewInOwner = menu.findItem(R.id.dir_menu_view_in_owner);
 
         updateShare(share, selectionDetails);
         updateOpenInContextMenu(open, selectionDetails);
@@ -145,9 +146,9 @@ public abstract class MenuManager {
     public void updateContextMenuForDirs(Menu menu, SelectionDetails selectionDetails) {
         assert(selectionDetails != null);
 
-        MenuItem openInNewWindow = menu.findItem(R.id.menu_open_in_new_window);
-        MenuItem rename = menu.findItem(R.id.menu_rename);
-        MenuItem pasteInto = menu.findItem(R.id.menu_paste_into_folder);
+        MenuItem openInNewWindow = menu.findItem(R.id.dir_menu_open_in_new_window);
+        MenuItem rename = menu.findItem(R.id.dir_menu_rename);
+        MenuItem pasteInto = menu.findItem(R.id.dir_menu_paste_into_folder);
 
         updateOpenInNewWindow(openInNewWindow, selectionDetails);
         updateRename(rename, selectionDetails);
@@ -165,9 +166,9 @@ public abstract class MenuManager {
     public void updateContextMenu(Menu menu, SelectionDetails selectionDetails) {
         assert(selectionDetails != null);
 
-        MenuItem cut = menu.findItem(R.id.menu_cut_to_clipboard);
-        MenuItem copy = menu.findItem(R.id.menu_copy_to_clipboard);
-        MenuItem delete = menu.findItem(R.id.menu_delete);
+        MenuItem cut = menu.findItem(R.id.dir_menu_cut_to_clipboard);
+        MenuItem copy = menu.findItem(R.id.dir_menu_copy_to_clipboard);
+        MenuItem delete = menu.findItem(R.id.dir_menu_delete);
 
         final boolean canCopy =
                 selectionDetails.size() > 0 && !selectionDetails.containsPartialFiles();
@@ -184,9 +185,9 @@ public abstract class MenuManager {
      */
     @VisibleForTesting
     public void updateContextMenuForContainer(Menu menu) {
-        MenuItem paste = menu.findItem(R.id.menu_paste_from_clipboard);
-        MenuItem selectAll = menu.findItem(R.id.menu_select_all);
-        MenuItem createDir = menu.findItem(R.id.menu_create_dir);
+        MenuItem paste = menu.findItem(R.id.dir_menu_paste_from_clipboard);
+        MenuItem selectAll = menu.findItem(R.id.dir_menu_select_all);
+        MenuItem createDir = menu.findItem(R.id.dir_menu_create_dir);
 
         paste.setEnabled(mDirDetails.hasItemsToPaste() && mDirDetails.canCreateDoc());
         updateSelectAll(selectAll);
@@ -197,10 +198,10 @@ public abstract class MenuManager {
      * @see RootsFragment#onCreateContextMenu
      */
     public void updateRootContextMenu(Menu menu, RootInfo root, DocumentInfo docInfo) {
-        MenuItem eject = menu.findItem(R.id.menu_eject_root);
-        MenuItem pasteInto = menu.findItem(R.id.menu_paste_into_folder);
-        MenuItem openInNewWindow = menu.findItem(R.id.menu_open_in_new_window);
-        MenuItem settings = menu.findItem(R.id.menu_settings);
+        MenuItem eject = menu.findItem(R.id.root_menu_eject_root);
+        MenuItem pasteInto = menu.findItem(R.id.root_menu_paste_into_folder);
+        MenuItem openInNewWindow = menu.findItem(R.id.root_menu_open_in_new_window);
+        MenuItem settings = menu.findItem(R.id.root_menu_settings);
 
         updateEject(eject, root);
         updatePasteInto(pasteInto, root, docInfo);
@@ -272,6 +273,10 @@ public abstract class MenuManager {
         rename.setVisible(false);
     }
 
+    protected void updateInspector(MenuItem properties, SelectionDetails selectionDetails) {
+        properties.setVisible(false);
+    }
+
     protected void updateViewInOwner(MenuItem view, SelectionDetails selectionDetails) {
         view.setVisible(false);
     }
@@ -316,6 +321,8 @@ public abstract class MenuManager {
         int size();
 
         boolean containsPartialFiles();
+
+        boolean containsFilesInArchive();
 
         // TODO: Update these to express characteristics instead of answering concrete questions,
         // since the answer to those questions is (or can be) activity specific.

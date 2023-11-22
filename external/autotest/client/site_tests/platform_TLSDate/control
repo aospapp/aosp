@@ -12,6 +12,7 @@ PURPOSE = "Regression and integration tests of tlsdate{,d}."
 CRITERIA = """
 Fail if any of the tlsdate{,d} features fail.
 """
+ATTRIBUTES = "suite:bvt-perbuild"
 TEST_CLASS = "platform"
 TEST_CATEGORY = "Functional"
 TEST_TYPE = "client"

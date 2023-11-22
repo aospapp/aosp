@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All Rights Reserved.
+// Copyright 2015 The Gemmlowp Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -86,9 +86,13 @@
 #define GEMMLOWP_NEON_64
 #endif
 
-// Detect SSE4.
-#if defined __SSE4_1__
+// Detect SSE.
+#ifdef __SSE4_1__
 #define GEMMLOWP_SSE4
+#endif
+
+#ifdef __SSE3__
+#define GEMMLOWP_SSE3
 #endif
 
 // Convenience SSE4 tokens for 32-bit or 64-bit
@@ -96,8 +100,16 @@
 #define GEMMLOWP_SSE4_32
 #endif
 
+#if defined(GEMMLOWP_SSE3) && defined(GEMMLOWP_X86_32)
+#define GEMMLOWP_SSE3_32
+#endif
+
 #if defined(GEMMLOWP_SSE4) && defined(GEMMLOWP_X86_64)
 #define GEMMLOWP_SSE4_64
+#endif
+
+#if defined(GEMMLOWP_SSE3) && defined(GEMMLOWP_X86_64)
+#define GEMMLOWP_SSE3_64
 #endif
 
 #endif  // GEMMLOWP_ALLOW_INLINE_ASM
@@ -105,7 +117,7 @@
 // Detect Android. Don't conflate with ARM - we care about tuning
 // for non-ARM Android devices too. This can be used in conjunction
 // with x86 to tune differently for mobile x86 CPUs (Atom) vs. desktop x86 CPUs.
-#if defined(__ANDROID__) || defined(ANDROID)
+#if defined(__ANDROID__)
 #define GEMMLOWP_ANDROID
 #endif
 
@@ -134,8 +146,13 @@ const int kDefaultCacheLineSize = 64;
 // Of course, these values are in principle too low for typical x86 CPUs
 // where we should set the L2 value to (L3 cache size / number of cores) at
 // least.
-#if defined(GEMMLOWP_ARM) || defined(GEMMLOWP_ANDROID)
-// ARM or ARM-like hardware (Android implies ARM-like) so here it's OK
+//
+#if defined(GEMMLOWP_ARM) && defined(__APPLE__)
+// iPhone/iPad
+const int kDefaultL1CacheSize = 48 * 1024;
+const int kDefaultL2CacheSize = 2 * 1024 * 1024;
+#elif defined(GEMMLOWP_ARM) || defined(GEMMLOWP_ANDROID)
+// Other ARM or ARM-like hardware (Android implies ARM-like) so here it's OK
 // to tune for ARM, although on x86 Atom we might be able to query
 // cache sizes at runtime, which would be better.
 const int kDefaultL1CacheSize = 16 * 1024;
@@ -180,13 +197,17 @@ const float kDefaultL2RhsFactor = 0.75f;
 // are consistent with this value.
 const int kRegisterSize = 16;
 
-// Requantization to less-than-8-bit is costly, so it only worth
-// doing if the GEMM width is large enough
-const int kMinimumWidthForRequantization = 100;
-
 // Hints the CPU to prefetch the cache line containing ptr.
 inline void Prefetch(const void* ptr) {
-#ifdef __GNUC__  // Clang and GCC define __GNUC__ and have __builtin_prefetch.
+#if defined GEMMLOWP_ARM_64 && defined GEMMLOWP_ALLOW_INLINE_ASM
+  // Aarch64 has very detailed prefetch instructions, that compilers
+  // can't know how to map __builtin_prefetch to, and as a result, don't,
+  // leaving __builtin_prefetch a no-op on this architecture.
+  // For our purposes, "pldl1keep" is usually what we want, meaning:
+  // "prefetch for load, into L1 cache, using each value multiple times".
+  asm volatile("prfm pldl1keep, [%[ptr]]\n" ::[ptr] "r"(ptr) : );
+#elif defined \
+    __GNUC__  // Clang and GCC define __GNUC__ and have __builtin_prefetch.
   __builtin_prefetch(ptr);
 #else
   (void)ptr;

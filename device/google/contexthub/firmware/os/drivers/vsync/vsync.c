@@ -49,6 +49,10 @@
 #error "VSYNC_IRQ is not defined; please define in variant.h"
 #endif
 
+#define VERBOSE_PRINT(fmt, ...) do { \
+        osLog(LOG_VERBOSE, "%s " fmt, "[VSYNC]", ##__VA_ARGS__); \
+    } while (0);
+
 #define INFO_PRINT(fmt, ...) do { \
         osLog(LOG_INFO, "%s " fmt, "[VSYNC]", ##__VA_ARGS__); \
     } while (0);
@@ -149,7 +153,7 @@ static const struct SensorInfo mSensorInfo =
 
 static bool vsyncPower(bool on, void *cookie)
 {
-    INFO_PRINT("power %d\n", on);
+    VERBOSE_PRINT("power %d\n", on);
 
     if (on) {
         extiClearPendingGpio(mTask.pin);
@@ -171,13 +175,13 @@ static bool vsyncFirmwareUpload(void *cookie)
 
 static bool vsyncSetRate(uint32_t rate, uint64_t latency, void *cookie)
 {
-    INFO_PRINT("setRate\n");
+    VERBOSE_PRINT("setRate\n");
     return sensorSignalInternalEvt(mTask.sensorHandle, SENSOR_INTERNAL_EVT_RATE_CHG, rate, latency);
 }
 
 static bool vsyncFlush(void *cookie)
 {
-    INFO_PRINT("flush\n");
+    VERBOSE_PRINT("flush\n");
     return osEnqueueEvt(sensorGetMyEventType(SENS_TYPE_VSYNC), SENSOR_DATA_EVENT_FLUSH, NULL);
 }
 

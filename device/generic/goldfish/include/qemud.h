@@ -36,7 +36,10 @@
  * that sends its formatted string argument(s) to the log.
  * If not, ignore the traces.
  */
-#  define  D(...) ((void)0)
+#ifndef D
+#  define  D(...)   do{}while(0)
+#endif
+
 
 static __inline__ int
 qemud_channel_open(const char*  name)
@@ -108,7 +111,7 @@ static __inline__ int
 qemud_channel_recv(int  fd, void*  msg, int  msgsize)
 {
     char  header[5];
-    int   size, avail;
+    int   size;
 
     if (!ReadFully(fd, header, 4)) {
         D("can't read qemud frame header: %s", strerror(errno));

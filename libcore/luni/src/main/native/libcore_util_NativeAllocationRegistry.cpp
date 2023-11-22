@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "JniConstants.h"
+#include <nativehelper/JniConstants.h>
 
 typedef void (*FreeFunction)(void*);
 

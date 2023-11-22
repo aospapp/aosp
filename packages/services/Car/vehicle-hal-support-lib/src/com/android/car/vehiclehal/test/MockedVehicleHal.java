@@ -21,8 +21,6 @@ import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertNotNull;
 import static junit.framework.Assert.fail;
 
-import com.google.android.collect.Lists;
-
 import android.hardware.automotive.vehicle.V2_0.IVehicle;
 import android.hardware.automotive.vehicle.V2_0.IVehicleCallback;
 import android.hardware.automotive.vehicle.V2_0.StatusCode;
@@ -31,6 +29,9 @@ import android.hardware.automotive.vehicle.V2_0.VehiclePropConfig;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropertyAccess;
 import android.os.RemoteException;
+import android.os.SystemClock;
+
+import com.google.android.collect.Lists;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -72,6 +73,23 @@ public class MockedVehicleHal extends IVehicle.Stub {
     public synchronized void addStaticProperty(VehiclePropConfig config,
             VehiclePropValue value) {
         addProperty(config, new StaticPropertyHandler(value));
+    }
+
+    public boolean waitForSubscriber(int propId, long timeoutMillis) {
+        long startTime = SystemClock.elapsedRealtime();
+        try {
+            synchronized (this) {
+                while (mSubscribers.get(propId) == null) {
+                    long waitMillis = startTime - SystemClock.elapsedRealtime() + timeoutMillis;
+                    if (waitMillis < 0) break;
+                    wait(waitMillis);
+                }
+
+                return mSubscribers.get(propId) != null;
+            }
+        } catch (InterruptedException e) {
+            return false;
+        }
     }
 
     public synchronized void injectEvent(VehiclePropValue value) {
@@ -156,6 +174,7 @@ public class MockedVehicleHal extends IVehicle.Stub {
             if (subscribers == null) {
                 subscribers = new ArrayList<>();
                 mSubscribers.put(opt.propId, subscribers);
+                notifyAll();
             }
             subscribers.add(callback);
         }

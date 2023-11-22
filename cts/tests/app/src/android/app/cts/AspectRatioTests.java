@@ -16,6 +16,7 @@
 
 package android.app.cts;
 
+import android.app.stubs.MetaDataMaxAspectRatioActivity;
 import com.android.appSdk25.Sdk25MaxAspectRatioActivity;
 
 import org.junit.After;
@@ -77,6 +78,11 @@ public class AspectRatioTests {
                     false /* initialTouchMode */, false /* launchActivity */);
 
     @Rule
+    public ActivityTestRule<MetaDataMaxAspectRatioActivity> mMetaDataMaxAspectRatioActivity =
+        new ActivityTestRule<>(MetaDataMaxAspectRatioActivity.class,
+            false /* initialTouchMode */, false /* launchActivity */);
+
+    @Rule
     public ActivityTestRule<MaxAspectRatioUnsetActivity> mMaxAspectRatioUnsetActivity =
             new ActivityTestRule<>(MaxAspectRatioUnsetActivity.class,
                     false /* initialTouchMode */, false /* launchActivity */);
@@ -102,6 +108,7 @@ public class AspectRatioTests {
         finishActivity(mMaxAspectRatioResizeableActivity);
         finishActivity(mSdk25MaxAspectRatioActivity);
         finishActivity(mMaxAspectRatioUnsetActivity);
+        finishActivity(mMetaDataMaxAspectRatioActivity);
     }
 
     @Test
@@ -133,6 +140,16 @@ public class AspectRatioTests {
                     if (MAX_ASPECT_RATIO >= actual) return;
                     fail("actual=" + actual + " is greater than expected=" + MAX_ASPECT_RATIO);
                 });
+    }
+
+    @Test
+    @Presubmit
+    public void testMetaDataMaxAspectRatio() throws Exception {
+        runTest(launchActivity(mMetaDataMaxAspectRatioActivity),
+            actual -> {
+                if (MAX_ASPECT_RATIO >= actual) return;
+                fail("actual=" + actual + " is greater than expected=" + MAX_ASPECT_RATIO);
+            });
     }
 
     @Test

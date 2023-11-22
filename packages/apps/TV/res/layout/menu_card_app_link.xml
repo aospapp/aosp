@@ -33,13 +33,6 @@
             android:layout_gravity="top"
             android:scaleType="centerCrop"/>
 
-        <View android:id="@+id/image_gradient"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_gravity="center_horizontal"
-            android:background="@drawable/card_image_gradient"
-            android:visibility="gone" />
-
         <TextView android:id="@+id/app_info"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

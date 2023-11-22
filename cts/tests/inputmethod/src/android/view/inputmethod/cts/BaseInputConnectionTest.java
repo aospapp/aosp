@@ -59,6 +59,9 @@ import org.junit.runner.RunWith;
 @MediumTest
 @RunWith(AndroidJUnit4.class)
 public class BaseInputConnectionTest {
+    /** Extended timeout in case the system is sluggish */
+    private static final long WINDOW_FOCUS_TIMEOUT = 10000;
+
     private Instrumentation mInstrumentation;
     private InputMethodCtsActivity mActivity;
     private Window mWindow;
@@ -73,7 +76,7 @@ public class BaseInputConnectionTest {
     public void setup() {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mActivity = mActivityRule.getActivity();
-        PollingCheck.waitFor(mActivity::hasWindowFocus);
+        PollingCheck.waitFor(WINDOW_FOCUS_TIMEOUT, mActivity::hasWindowFocus);
         mWindow = mActivity.getWindow();
         mView = (EditText) mWindow.findViewById(R.id.entry);
         mConnection = new BaseInputConnection(mView, true);

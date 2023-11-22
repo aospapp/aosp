@@ -31,11 +31,13 @@ class Workload {
     NotYetCreateNewProcess,
     NotYetStartNewProcess,
     Started,
+    Finished,
   };
 
  public:
   static std::unique_ptr<Workload> CreateWorkload(const std::vector<std::string>& args);
   static std::unique_ptr<Workload> CreateWorkload(const std::function<void ()>& function);
+  static bool RunCmd(const std::vector<std::string>& args, bool report_error = true);
 
   ~Workload();
 
@@ -47,20 +49,19 @@ class Workload {
     return work_pid_;
   }
 
- private:
-  explicit Workload(const std::vector<std::string>& args,
-                    const std::function<void ()>& function)
-      : work_state_(NotYetCreateNewProcess),
-        child_proc_args_(args),
-        child_proc_function_(function),
-        work_pid_(-1),
-        start_signal_fd_(-1),
-        exec_child_fd_(-1) {
+  bool WaitChildProcess(int* exit_code);
+
+  // Set the function used to kill the workload process in ~Workload().
+  void SetKillFunction(const std::function<void (pid_t)>& kill_function) {
+    kill_function_ = kill_function;
   }
+
+ private:
+  explicit Workload(const std::vector<std::string>& args, const std::function<void ()>& function);
 
   bool CreateNewProcess();
   void ChildProcessFn(int start_signal_fd, int exec_child_fd);
-  bool WaitChildProcess(bool wait_forever, bool is_child_killed);
+  bool WaitChildProcess(bool wait_forever, bool is_child_killed, int* exit_code);
 
   WorkState work_state_;
   // The child process either executes child_proc_args or run child_proc_function.
@@ -69,6 +70,7 @@ class Workload {
   pid_t work_pid_;
   int start_signal_fd_;  // The parent process writes 1 to start workload in the child process.
   int exec_child_fd_;    // The child process writes 1 to notify that execvp() failed.
+  std::function<void (pid_t)> kill_function_;
 
   DISALLOW_COPY_AND_ASSIGN(Workload);
 };

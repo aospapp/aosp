@@ -18,6 +18,7 @@
 #define __NAN_H__
 
 #include <net/if.h>
+#include <stdbool.h>
 #include "wifi_hal.h"
 
 #ifdef __cplusplus
@@ -962,6 +963,16 @@ typedef struct {
       BIT2 - Disable Joined Cluster Event.
     */
     u8 discovery_indication_cfg;  // default value 0x0
+    /*
+       BIT 0 is used to specify to include Service IDs in Sync/Discovery beacons
+       0 - Do not include SIDs in any beacons
+       1 - Include SIDs in all beacons.
+       Rest 7 bits are count field which allows control over the number of SIDs
+       included in the Beacon.  0 means to include as many SIDs that fit into
+       the maximum allow Beacon frame size
+    */
+    u8 config_subscribe_sid_beacon;
+    u32 subscribe_sid_beacon_val; // default value 0x0
 } NanEnableRequest;
 
 /*
@@ -1046,6 +1057,7 @@ typedef struct {
       BIT0 - Disable publish termination indication.
       BIT1 - Disable match expired indication.
       BIT2 - Disable followUp indication received (OTA).
+      BIT3 - Disable publishReplied indication.
     */
     u8 recv_indication_cfg;
     /*
@@ -1341,11 +1353,11 @@ typedef struct {
       determine whether configuration is to be passed or not.
     */
     /*
-       2 byte quantity which defines the window size over
+       1 byte quantity which defines the window size over
        which the “average RSSI” will be calculated over.
     */
     u8 config_rssi_window_size;
-    u16 rssi_window_size_val; // default value 0x08
+    u8 rssi_window_size_val; // default value 0x08
     /*
        If set to 1, the Discovery Engine will enclose the Cluster
        Attribute only sent in Beacons in a Vendor Specific Attribute
@@ -1399,6 +1411,16 @@ typedef struct {
       BIT2 - Disable Joined Cluster Event.
     */
     u8 discovery_indication_cfg; // default value of 0
+    /*
+       BIT 0 is used to specify to include Service IDs in Sync/Discovery beacons
+       0 - Do not include SIDs in any beacons
+       1 - Include SIDs in all beacons.
+       Rest 7 bits are count field which allows control over the number of SIDs
+       included in the Beacon.  0 means to include as many SIDs that fit into
+       the maximum allow Beacon frame size
+    */
+    u8 config_subscribe_sid_beacon;
+    u32 subscribe_sid_beacon_val; // default value 0x0
 } NanConfigRequest;
 
 /*
@@ -1589,6 +1611,7 @@ typedef struct
     u32 discBeaconTxFailures;
     u32 amHopCountExpireCount;
     u32 ndpChannelFreq;
+    u32 ndpChannelFreq2;
 } NanSyncStats;
 
 /* NAN Misc DE Statistics */
@@ -1669,6 +1692,27 @@ typedef struct {
         NanCapabilities nan_capabilities;
     } body;
 } NanResponseMsg;
+
+/*
+  Publish Replied Indication
+  The PublishRepliedInd Message is sent by the DE when an Active Subscribe is
+  received over the air and it matches a Solicited PublishServiceReq which had
+  been created with the replied_event_flag set.
+*/
+typedef struct {
+    /*
+       A 32 bit Requestor Instance Id which is sent to the Application.
+       This Id will be sent in any subsequent UnmatchInd/FollowupInd
+       messages
+    */
+    u32 requestor_instance_id;
+    u8 addr[NAN_MAC_ADDR_LEN];
+    /*
+       If RSSI filtering was configured in NanPublishRequest then this
+       field will contain the received RSSI value. 0 if not
+    */
+    u8 rssi_value;
+} NanPublishRepliedInd;
 
 /*
   Publish Terminated
@@ -2214,6 +2258,7 @@ typedef struct {
     /* NotifyResponse invoked to notify the status of the Request */
     void (*NotifyResponse)(transaction_id id, NanResponseMsg* rsp_data);
     /* Callbacks for various Events */
+    void (*EventPublishReplied)(NanPublishRepliedInd *event);
     void (*EventPublishTerminated)(NanPublishTerminatedInd* event);
     void (*EventMatch) (NanMatchInd* event);
     void (*EventMatchExpired) (NanMatchExpiredInd* event);

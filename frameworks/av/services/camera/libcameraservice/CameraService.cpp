@@ -73,6 +73,7 @@ namespace android {
 using binder::Status;
 using hardware::ICamera;
 using hardware::ICameraClient;
+using hardware::ICameraServiceProxy;
 using hardware::ICameraServiceListener;
 using hardware::camera::common::V1_0::CameraDeviceStatus;
 using hardware::camera::common::V1_0::TorchModeStatus;
@@ -231,29 +232,33 @@ status_t CameraService::enumerateProviders() {
 
     for (auto& cameraId : mCameraProviderManager->getCameraDeviceIds()) {
         String8 id8 = String8(cameraId.c_str());
+        bool cameraFound = false;
         {
+
             Mutex::Autolock lock(mCameraStatesLock);
             auto iter = mCameraStates.find(id8);
             if (iter != mCameraStates.end()) {
-                continue;
+                cameraFound = true;
             }
         }
 
-        hardware::camera::common::V1_0::CameraResourceCost cost;
-        res = mCameraProviderManager->getResourceCost(cameraId, &cost);
-        if (res != OK) {
-            ALOGE("Failed to query device resource cost: %s (%d)", strerror(-res), res);
-            continue;
-        }
-        std::set<String8> conflicting;
-        for (size_t i = 0; i < cost.conflictingDevices.size(); i++) {
-            conflicting.emplace(String8(cost.conflictingDevices[i].c_str()));
-        }
+        if (!cameraFound) {
+            hardware::camera::common::V1_0::CameraResourceCost cost;
+            res = mCameraProviderManager->getResourceCost(cameraId, &cost);
+            if (res != OK) {
+                ALOGE("Failed to query device resource cost: %s (%d)", strerror(-res), res);
+                continue;
+            }
+            std::set<String8> conflicting;
+            for (size_t i = 0; i < cost.conflictingDevices.size(); i++) {
+                conflicting.emplace(String8(cost.conflictingDevices[i].c_str()));
+            }
 
-        {
-            Mutex::Autolock lock(mCameraStatesLock);
-            mCameraStates.emplace(id8,
-                std::make_shared<CameraState>(id8, cost.resourceCost, conflicting));
+            {
+                Mutex::Autolock lock(mCameraStatesLock);
+                mCameraStates.emplace(id8,
+                    std::make_shared<CameraState>(id8, cost.resourceCost, conflicting));
+            }
         }
 
         onDeviceStatusChanged(id8, CameraDeviceStatus::PRESENT);
@@ -2209,7 +2214,7 @@ status_t CameraService::BasicClient::startCameraOps() {
 
     // Transition device state to OPEN
     sCameraService->updateProxyDeviceState(ICameraServiceProxy::CAMERA_STATE_OPEN,
-            mCameraIdStr);
+            mCameraIdStr, mCameraFacing, mClientPackageName);
 
     return OK;
 }
@@ -2233,7 +2238,7 @@ status_t CameraService::BasicClient::finishCameraOps() {
 
         // Transition device state to CLOSED
         sCameraService->updateProxyDeviceState(ICameraServiceProxy::CAMERA_STATE_CLOSED,
-                mCameraIdStr);
+                mCameraIdStr, mCameraFacing, mClientPackageName);
     }
     // Always stop watching, even if no camera op is active
     if (mOpsCallback != NULL) {
@@ -2737,12 +2742,12 @@ void CameraService::CameraState::updateStatus(StatusInternal status,
     onStatusUpdatedLocked(cameraId, status);
 }
 
-void CameraService::updateProxyDeviceState(ICameraServiceProxy::CameraState newState,
-        const String8& cameraId) {
+void CameraService::updateProxyDeviceState(int newState,
+        const String8& cameraId, int facing, const String16& clientName) {
     sp<ICameraServiceProxy> proxyBinder = getCameraServiceProxy();
     if (proxyBinder == nullptr) return;
     String16 id(cameraId);
-    proxyBinder->notifyCameraState(id, newState);
+    proxyBinder->notifyCameraState(id, newState, facing, clientName);
 }
 
 status_t CameraService::getTorchStatusLocked(

@@ -13,7 +13,7 @@ TEST_TYPE = 'server'
 TIME = 'LENGTHY'
 
 DOC = ('Run package GtsNetTestCases of the '
-       'Android 4.1_r1 Google Test Suite (GTS), build 3556119,'
+       'Android 4.1_r2 Google Test Suite (GTS), build 3911033,'
        'in the ARC++ container.')
 
 def run_GTS(machine):

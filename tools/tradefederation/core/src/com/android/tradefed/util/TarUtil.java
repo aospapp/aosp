@@ -37,6 +37,7 @@ import java.io.OutputStream;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 /**
  * Utility to manipulate a tar file. It wraps the commons-compress in order to provide tar support.
@@ -118,6 +119,32 @@ public class TarUtil {
             in = new GZIPInputStream(new FileInputStream(inputFile));
             out = new FileOutputStream(outputFile);
             IOUtils.copy(in, out);
+        } finally {
+            StreamUtil.close(in);
+            StreamUtil.close(out);
+        }
+        return outputFile;
+    }
+
+    /**
+     * Utility function to gzip (.gz) a file. the .gz extension will be added to base file name.
+     *
+     * @param inputFile the {@link File} to be gzipped.
+     * @return the gzipped file.
+     * @throws IOException
+     */
+    public static File gzip(final File inputFile) throws IOException {
+        File outputFile = FileUtil.createTempFile(inputFile.getName(), ".gz");
+        GZIPOutputStream out = null;
+        FileInputStream in = null;
+        try {
+            out = new GZIPOutputStream(new FileOutputStream(outputFile));
+            in = new FileInputStream(inputFile);
+            IOUtils.copy(in, out);
+        } catch (IOException e) {
+            // delete the tmp file if we failed to gzip.
+            FileUtil.deleteFile(outputFile);
+            throw e;
         } finally {
             StreamUtil.close(in);
             StreamUtil.close(out);

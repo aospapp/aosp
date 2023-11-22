@@ -14,11 +14,15 @@
      limitations under the License.
 -->
 <configuration description="Common config for Compatibility suites">
+    <option name="dynamic-sharding" value="false" />
     <device_recovery class="com.android.tradefed.device.WaitDeviceRecovery" />
     <build_provider class="com.android.compatibility.common.tradefed.build.CompatibilityBuildProvider" />
     <test class="com.android.compatibility.common.tradefed.testtype.CompatibilityTest" />
     <option name="compatibility:test-arg" value="com.android.tradefed.testtype.AndroidJUnitTest:rerun-from-file:true" />
     <option name="compatibility:test-arg" value="com.android.tradefed.testtype.AndroidJUnitTest:fallback-to-serial-rerun:false" />
+    <option name="compatibility:test-arg" value="com.android.compatibility.testtype.LibcoreTest:rerun-from-file:true" />
+    <option name="compatibility:test-arg" value="com.android.compatibility.testtype.LibcoreTest:fallback-to-serial-rerun:false" />
+
     <logger class="com.android.tradefed.log.FileLogger">
         <option name="log-level-display" value="WARN" />
     </logger>

@@ -32,8 +32,13 @@ import java.util.function.Predicate;
  */
 public final class DocumentFilters {
 
+    private static int MOVABLE_MASK = Document.FLAG_SUPPORTS_REMOVE
+            | Document.FLAG_SUPPORTS_DELETE
+            | Document.FLAG_SUPPORTS_MOVE;
+
     public static final Predicate<Cursor> ANY = (Cursor c) -> { return true; };
     public static final Predicate<Cursor> VIRTUAL  = DocumentFilters::isVirtual;
+    public static final Predicate<Cursor> NOT_MOVABLE = DocumentFilters::isNotMovable;
     private static final Predicate<Cursor> O_SHARABLE = DocumentFilters::isSharableInO;
     private static final Predicate<Cursor> PREO_SHARABLE = DocumentFilters::isSharablePreO;
 
@@ -69,5 +74,13 @@ public final class DocumentFilters {
     private static final boolean isVirtual(Cursor c) {
         int flags = getCursorInt(c, Document.COLUMN_FLAGS);
         return (flags & Document.FLAG_VIRTUAL_DOCUMENT) != 0;
+    }
+
+    /**
+     * Filter that passes (returns true) for files that can not be moved.
+     */
+    private static final boolean isNotMovable(Cursor c) {
+        int flags = getCursorInt(c, Document.COLUMN_FLAGS);
+        return (flags & MOVABLE_MASK) == 0;
     }
 }

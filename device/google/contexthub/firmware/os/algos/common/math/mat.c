@@ -604,7 +604,7 @@ void matMultiplyVec(float *out, const float *A, const float *v,
   size_t i;
   for (i = 0; i < nrows; ++i) {
     const float *row = &A[i * ncols];
-    out[i] = vecDot(row, v, (int)ncols);
+    out[i] = vecDot(row, v, ncols);
   }
 }
 

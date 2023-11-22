@@ -44,7 +44,7 @@ LOCAL_POST_LINK_CMD =  \
   $($(LOCAL_2ND_ARCH_VAR_PREFIX)TARGET_OBJCOPY) --add-section .testzipdata=$$TMP_FILE $(linked_module) && \
   rm -f $$TMP_FILE
 
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 LOCAL_CTS_TEST_PACKAGE := android.simpleperf
 LOCAL_FORCE_STATIC_EXECUTABLE := true

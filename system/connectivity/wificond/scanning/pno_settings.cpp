@@ -28,6 +28,9 @@ namespace server {
 namespace wifi {
 namespace wificond {
 
+const uint32_t PnoSettings::kFastScanIterations = 3;
+const uint32_t PnoSettings::kSlowScanIntervalMultiplier = 3;
+
 status_t PnoSettings::writeToParcel(::android::Parcel* parcel) const {
   RETURN_IF_FAILED(parcel->writeInt32(interval_ms_));
   RETURN_IF_FAILED(parcel->writeInt32(min_2g_rssi_));

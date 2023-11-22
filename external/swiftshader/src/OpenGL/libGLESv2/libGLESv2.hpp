@@ -29,6 +29,7 @@ enum Format : unsigned char;
 
 namespace egl
 {
+class Display;
 class Context;
 class Image;
 class Config;
@@ -158,6 +159,7 @@ public:
 	                         GLenum format, GLenum type, GLsizei bufSize, GLvoid *data);
 	void (*glReadPixels)(GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLvoid* pixels);
 	void (*glReleaseShaderCompiler)(void);
+	void (*glRenderbufferStorageMultisample)(GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height);
 	void (*glRenderbufferStorageMultisampleANGLE)(GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height);
 	void (*glRenderbufferStorage)(GLenum target, GLenum internalformat, GLsizei width, GLsizei height);
 	void (*glSampleCoverage)(GLclampf value, GLboolean invert);
@@ -240,11 +242,11 @@ public:
 	void (*glGenerateMipmapOES)(GLenum target);
 	void (*glDrawBuffersEXT)(GLsizei n, const GLenum *bufs);
 
-	egl::Context *(*es2CreateContext)(const egl::Config *config, const egl::Context *shareContext, int clientVersion);
+	egl::Context *(*es2CreateContext)(egl::Display *display, const egl::Context *shareContext, int clientVersion, const egl::Config *config);
 	__eglMustCastToProperFunctionPointerType (*es2GetProcAddress)(const char *procname);
-	egl::Image *(*createBackBuffer)(int width, int height, const egl::Config *config);
-	egl::Image *(*createDepthStencil)(unsigned int width, unsigned int height, sw::Format format, int multiSampleDepth, bool discard);
-	sw::FrameBuffer *(*createFrameBuffer)(void *display, EGLNativeWindowType window, int width, int height);
+	egl::Image *(*createBackBuffer)(int width, int height, sw::Format format, int multiSampleDepth);
+	egl::Image *(*createDepthStencil)(int width, int height, sw::Format format, int multiSampleDepth);
+	sw::FrameBuffer *(*createFrameBuffer)(void *nativeDisplay, EGLNativeWindowType window, int width, int height);
 };
 
 class LibGLESv2
@@ -296,9 +298,9 @@ private:
 				#endif
 			#elif defined(__APPLE__)
 				#if defined(__LP64__)
-					const char *libGLESv2_lib[] = {"lib64GLES_V2_translator.dylib", "libGLESv2.dylib"};
+					const char *libGLESv2_lib[] = {"lib64GLES_V2_translator.dylib", "libGLESv2.dylib", "libswiftshader_libGLESv2.dylib"};
 				#else
-					const char *libGLESv2_lib[] = {"libGLES_V2_translator.dylib", "libGLESv2.dylib"};
+					const char *libGLESv2_lib[] = {"libGLES_V2_translator.dylib", "libGLESv2.dylib", "libswiftshader_libGLESv2.dylib"};
 				#endif
 			#else
 				#error "libGLESv2::loadExports unimplemented for this platform"

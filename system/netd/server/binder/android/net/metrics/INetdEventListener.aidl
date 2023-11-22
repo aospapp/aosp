@@ -60,4 +60,14 @@ oneway interface INetdEventListener {
      * @param uid the UID of the application that performed the connection.
      */
     void onConnectEvent(int netId, int error, int latencyMs, String ipAddr, int port, int uid);
+
+    /**
+     * Logs a single RX packet which caused the main CPU to exit sleep state.
+     * @param prefix arbitrary string provided via wakeupAddInterface()
+     * @param UID of the destination process or -1 if no UID is available.
+     * @param GID of the destination process or -1 if no GID is available.
+     * @param receive timestamp for the offending packet. In units of nanoseconds and
+     *        synchronized to CLOCK_MONOTONIC.
+     */
+    void onWakeupEvent(String prefix, int uid, int gid, long timestampNs);
 }

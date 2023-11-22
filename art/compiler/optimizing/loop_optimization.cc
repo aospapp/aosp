@@ -31,6 +31,9 @@ namespace art {
 // Enables vectorization (SIMDization) in the loop optimizer.
 static constexpr bool kEnableVectorization = true;
 
+// All current SIMD targets want 16-byte alignment.
+static constexpr size_t kAlignedBase = 16;
+
 // Remove the instruction from the graph. A bit more elaborate than the usual
 // instruction removal, since there may be a cycle in the use structure.
 static void RemoveFromCycle(HInstruction* instruction) {
@@ -71,7 +74,7 @@ static bool IsSignExtensionAndGet(HInstruction* instruction,
   // extension when represented in the *width* of the given narrower data type
   // (the fact that char normally zero extends does not matter here).
   int64_t value = 0;
-  if (IsInt64AndGet(instruction, &value)) {
+  if (IsInt64AndGet(instruction, /*out*/ &value)) {
     switch (type) {
       case Primitive::kPrimByte:
         if (std::numeric_limits<int8_t>::min() <= value &&
@@ -119,7 +122,7 @@ static bool IsZeroExtensionAndGet(HInstruction* instruction,
   // extension when represented in the *width* of the given narrower data type
   // (the fact that byte/short normally sign extend does not matter here).
   int64_t value = 0;
-  if (IsInt64AndGet(instruction, &value)) {
+  if (IsInt64AndGet(instruction, /*out*/ &value)) {
     switch (type) {
       case Primitive::kPrimByte:
         if (std::numeric_limits<uint8_t>::min() <= value &&
@@ -173,6 +176,84 @@ static bool IsZeroExtensionAndGet(HInstruction* instruction,
   return false;
 }
 
+// Detect situations with same-extension narrower operands.
+// Returns true on success and sets is_unsigned accordingly.
+static bool IsNarrowerOperands(HInstruction* a,
+                               HInstruction* b,
+                               Primitive::Type type,
+                               /*out*/ HInstruction** r,
+                               /*out*/ HInstruction** s,
+                               /*out*/ bool* is_unsigned) {
+  if (IsSignExtensionAndGet(a, type, r) && IsSignExtensionAndGet(b, type, s)) {
+    *is_unsigned = false;
+    return true;
+  } else if (IsZeroExtensionAndGet(a, type, r) && IsZeroExtensionAndGet(b, type, s)) {
+    *is_unsigned = true;
+    return true;
+  }
+  return false;
+}
+
+// As above, single operand.
+static bool IsNarrowerOperand(HInstruction* a,
+                              Primitive::Type type,
+                              /*out*/ HInstruction** r,
+                              /*out*/ bool* is_unsigned) {
+  if (IsSignExtensionAndGet(a, type, r)) {
+    *is_unsigned = false;
+    return true;
+  } else if (IsZeroExtensionAndGet(a, type, r)) {
+    *is_unsigned = true;
+    return true;
+  }
+  return false;
+}
+
+// Detect up to two instructions a and b, and an acccumulated constant c.
+static bool IsAddConstHelper(HInstruction* instruction,
+                             /*out*/ HInstruction** a,
+                             /*out*/ HInstruction** b,
+                             /*out*/ int64_t* c,
+                             int32_t depth) {
+  static constexpr int32_t kMaxDepth = 8;  // don't search too deep
+  int64_t value = 0;
+  if (IsInt64AndGet(instruction, &value)) {
+    *c += value;
+    return true;
+  } else if (instruction->IsAdd() && depth <= kMaxDepth) {
+    return IsAddConstHelper(instruction->InputAt(0), a, b, c, depth + 1) &&
+           IsAddConstHelper(instruction->InputAt(1), a, b, c, depth + 1);
+  } else if (*a == nullptr) {
+    *a = instruction;
+    return true;
+  } else if (*b == nullptr) {
+    *b = instruction;
+    return true;
+  }
+  return false;  // too many non-const operands
+}
+
+// Detect a + b + c for an optional constant c.
+static bool IsAddConst(HInstruction* instruction,
+                       /*out*/ HInstruction** a,
+                       /*out*/ HInstruction** b,
+                       /*out*/ int64_t* c) {
+  if (instruction->IsAdd()) {
+    // Try to find a + b and accumulated c.
+    if (IsAddConstHelper(instruction->InputAt(0), a, b, c, /*depth*/ 0) &&
+        IsAddConstHelper(instruction->InputAt(1), a, b, c, /*depth*/ 0) &&
+        *b != nullptr) {
+      return true;
+    }
+    // Found a + b.
+    *a = instruction->InputAt(0);
+    *b = instruction->InputAt(1);
+    *c = 0;
+    return true;
+  }
+  return false;
+}
+
 // Test vector restrictions.
 static bool HasVectorRestrictions(uint64_t restrictions, uint64_t tested) {
   return (restrictions & tested) != 0;
@@ -205,6 +286,9 @@ HLoopOptimization::HLoopOptimization(HGraph* graph,
       simplified_(false),
       vector_length_(0),
       vector_refs_(nullptr),
+      vector_peeling_candidate_(nullptr),
+      vector_runtime_test_a_(nullptr),
+      vector_runtime_test_b_(nullptr),
       vector_map_(nullptr) {
 }
 
@@ -344,23 +428,6 @@ void HLoopOptimization::TraverseLoopsInnerToOuter(LoopNode* node) {
 // Optimization.
 //
 
-bool HLoopOptimization::CanRemoveCycle() {
-  for (HInstruction* i : *iset_) {
-    // We can never remove instructions that have environment
-    // uses when we compile 'debuggable'.
-    if (i->HasEnvironmentUses() && graph_->IsDebuggable()) {
-      return false;
-    }
-    // A deoptimization should never have an environment input removed.
-    for (const HUseListNode<HEnvironment*>& use : i->GetEnvUses()) {
-      if (use.GetUser()->GetHolder()->IsDeoptimize()) {
-        return false;
-      }
-    }
-  }
-  return true;
-}
-
 void HLoopOptimization::SimplifyInduction(LoopNode* node) {
   HBasicBlock* header = node->loop_info->GetHeader();
   HBasicBlock* preheader = node->loop_info->GetPreHeader();
@@ -443,6 +510,7 @@ void HLoopOptimization::OptimizeInnerLoop(LoopNode* node) {
       body = it.Current();
     }
   }
+  CHECK(body != nullptr);
   // Ensure there is only a single exit point.
   if (header->GetSuccessors().size() != 2) {
     return;
@@ -486,7 +554,7 @@ void HLoopOptimization::OptimizeInnerLoop(LoopNode* node) {
   if (kEnableVectorization) {
     iset_->clear();  // prepare phi induction
     if (TrySetSimpleLoopHeader(header) &&
-        CanVectorize(node, body, trip_count) &&
+        ShouldVectorize(node, body, trip_count) &&
         TryAssignLastValue(node->loop_info, phi, preheader, /*collect_loop_uses*/ true)) {
       Vectorize(node, body, exit, trip_count);
       graph_->SetHasSIMD(true);  // flag SIMD usage
@@ -501,10 +569,11 @@ void HLoopOptimization::OptimizeInnerLoop(LoopNode* node) {
 // Intel Press, June, 2004 (http://www.aartbik.com/).
 //
 
-bool HLoopOptimization::CanVectorize(LoopNode* node, HBasicBlock* block, int64_t trip_count) {
+bool HLoopOptimization::ShouldVectorize(LoopNode* node, HBasicBlock* block, int64_t trip_count) {
   // Reset vector bookkeeping.
   vector_length_ = 0;
   vector_refs_->clear();
+  vector_peeling_candidate_ = nullptr;
   vector_runtime_test_a_ =
   vector_runtime_test_b_= nullptr;
 
@@ -521,12 +590,9 @@ bool HLoopOptimization::CanVectorize(LoopNode* node, HBasicBlock* block, int64_t
     }
   }
 
-  // Heuristics. Does vectorization seem profitable?
-  // TODO: refine
-  if (vector_length_ == 0) {
-    return false;  // nothing found
-  } else if (0 < trip_count && trip_count < vector_length_) {
-    return false;  // insufficient iterations
+  // Does vectorization seem profitable?
+  if (!IsVectorizationProfitable(trip_count)) {
+    return false;
   }
 
   // Data dependence analysis. Find each pair of references with same type, where
@@ -554,17 +620,23 @@ bool HLoopOptimization::CanVectorize(LoopNode* node, HBasicBlock* block, int64_t
           // Conservatively assume a potential loop-carried data dependence otherwise, avoided by
           // generating an explicit a != b disambiguation runtime test on the two references.
           if (x != y) {
-            // For now, we reject after one test to avoid excessive overhead.
-            if (vector_runtime_test_a_ != nullptr) {
-              return false;
+            // To avoid excessive overhead, we only accept one a != b test.
+            if (vector_runtime_test_a_ == nullptr) {
+              // First test found.
+              vector_runtime_test_a_ = a;
+              vector_runtime_test_b_ = b;
+            } else if ((vector_runtime_test_a_ != a || vector_runtime_test_b_ != b) &&
+                       (vector_runtime_test_a_ != b || vector_runtime_test_b_ != a)) {
+              return false;  // second test would be needed
             }
-            vector_runtime_test_a_ = a;
-            vector_runtime_test_b_ = b;
           }
         }
       }
     }
   }
+
+  // Consider dynamic loop peeling for alignment.
+  SetPeelingCandidate(trip_count);
 
   // Success!
   return true;
@@ -578,28 +650,52 @@ void HLoopOptimization::Vectorize(LoopNode* node,
   HBasicBlock* header = node->loop_info->GetHeader();
   HBasicBlock* preheader = node->loop_info->GetPreHeader();
 
-  // A cleanup is needed for any unknown trip count or for a known trip count
-  // with remainder iterations after vectorization.
-  bool needs_cleanup = trip_count == 0 || (trip_count % vector_length_) != 0;
+  // Pick a loop unrolling factor for the vector loop.
+  uint32_t unroll = GetUnrollingFactor(block, trip_count);
+  uint32_t chunk = vector_length_ * unroll;
+
+  // A cleanup loop is needed, at least, for any unknown trip count or
+  // for a known trip count with remainder iterations after vectorization.
+  bool needs_cleanup = trip_count == 0 || (trip_count % chunk) != 0;
 
   // Adjust vector bookkeeping.
   iset_->clear();  // prepare phi induction
   bool is_simple_loop_header = TrySetSimpleLoopHeader(header);  // fills iset_
   DCHECK(is_simple_loop_header);
+  vector_header_ = header;
+  vector_body_ = block;
 
-  // Generate preheader:
+  // Generate dynamic loop peeling trip count, if needed:
+  // ptc = <peeling-needed-for-candidate>
+  HInstruction* ptc = nullptr;
+  if (vector_peeling_candidate_ != nullptr) {
+    DCHECK_LT(vector_length_, trip_count) << "dynamic peeling currently requires known trip count";
+    //
+    // TODO: Implement this. Compute address of first access memory location and
+    //       compute peeling factor to obtain kAlignedBase alignment.
+    //
+    needs_cleanup = true;
+  }
+
+  // Generate loop control:
   // stc = <trip-count>;
-  // vtc = stc - stc % VL;
+  // vtc = stc - (stc - ptc) % chunk;
+  // i = 0;
   HInstruction* stc = induction_range_.GenerateTripCount(node->loop_info, graph_, preheader);
   HInstruction* vtc = stc;
   if (needs_cleanup) {
-    DCHECK(IsPowerOfTwo(vector_length_));
+    DCHECK(IsPowerOfTwo(chunk));
+    HInstruction* diff = stc;
+    if (ptc != nullptr) {
+      diff = Insert(preheader, new (global_allocator_) HSub(induc_type, stc, ptc));
+    }
     HInstruction* rem = Insert(
         preheader, new (global_allocator_) HAnd(induc_type,
-                                                stc,
-                                                graph_->GetIntConstant(vector_length_ - 1)));
+                                                diff,
+                                                graph_->GetIntConstant(chunk - 1)));
     vtc = Insert(preheader, new (global_allocator_) HSub(induc_type, stc, rem));
   }
+  vector_index_ = graph_->GetIntConstant(0);
 
   // Generate runtime disambiguation test:
   // vtc = a != b ? vtc : 0;
@@ -612,16 +708,31 @@ void HLoopOptimization::Vectorize(LoopNode* node,
     needs_cleanup = true;
   }
 
-  // Generate vector loop:
-  // for (i = 0; i < vtc; i += VL)
+  // Generate dynamic peeling loop for alignment, if needed:
+  // for ( ; i < ptc; i += 1)
+  //    <loop-body>
+  if (ptc != nullptr) {
+    vector_mode_ = kSequential;
+    GenerateNewLoop(node,
+                    block,
+                    graph_->TransformLoopForVectorization(vector_header_, vector_body_, exit),
+                    vector_index_,
+                    ptc,
+                    graph_->GetIntConstant(1),
+                    /*unroll*/ 1);
+  }
+
+  // Generate vector loop, possibly further unrolled:
+  // for ( ; i < vtc; i += chunk)
   //    <vectorized-loop-body>
   vector_mode_ = kVector;
   GenerateNewLoop(node,
                   block,
-                  graph_->TransformLoopForVectorization(header, block, exit),
-                  graph_->GetIntConstant(0),
+                  graph_->TransformLoopForVectorization(vector_header_, vector_body_, exit),
+                  vector_index_,
                   vtc,
-                  graph_->GetIntConstant(vector_length_));
+                  graph_->GetIntConstant(vector_length_),  // increment per unroll
+                  unroll);
   HLoopInformation* vloop = vector_header_->GetLoopInformation();
 
   // Generate cleanup loop, if needed:
@@ -632,9 +743,10 @@ void HLoopOptimization::Vectorize(LoopNode* node,
     GenerateNewLoop(node,
                     block,
                     graph_->TransformLoopForVectorization(vector_header_, vector_body_, exit),
-                    vector_phi_,
+                    vector_index_,
                     stc,
-                    graph_->GetIntConstant(1));
+                    graph_->GetIntConstant(1),
+                    /*unroll*/ 1);
   }
 
   // Remove the original loop by disconnecting the body block
@@ -643,8 +755,9 @@ void HLoopOptimization::Vectorize(LoopNode* node,
   while (!header->GetFirstInstruction()->IsGoto()) {
     header->RemoveInstruction(header->GetFirstInstruction());
   }
-  // Update loop hierarchy: the old header now resides in the
-  // same outer loop as the old preheader.
+  // Update loop hierarchy: the old header now resides in the same outer loop
+  // as the old preheader. Note that we don't bother putting sequential
+  // loops back in the hierarchy at this point.
   header->SetLoopInformation(preheader->GetLoopInformation());  // outward
   node->loop_info = vloop;
 }
@@ -654,44 +767,64 @@ void HLoopOptimization::GenerateNewLoop(LoopNode* node,
                                         HBasicBlock* new_preheader,
                                         HInstruction* lo,
                                         HInstruction* hi,
-                                        HInstruction* step) {
+                                        HInstruction* step,
+                                        uint32_t unroll) {
+  DCHECK(unroll == 1 || vector_mode_ == kVector);
   Primitive::Type induc_type = Primitive::kPrimInt;
   // Prepare new loop.
-  vector_map_->clear();
   vector_preheader_ = new_preheader,
   vector_header_ = vector_preheader_->GetSingleSuccessor();
   vector_body_ = vector_header_->GetSuccessors()[1];
-  vector_phi_ = new (global_allocator_) HPhi(global_allocator_,
-                                             kNoRegNumber,
-                                             0,
-                                             HPhi::ToPhiType(induc_type));
+  HPhi* phi = new (global_allocator_) HPhi(global_allocator_,
+                                           kNoRegNumber,
+                                           0,
+                                           HPhi::ToPhiType(induc_type));
   // Generate header and prepare body.
   // for (i = lo; i < hi; i += step)
   //    <loop-body>
-  HInstruction* cond = new (global_allocator_) HAboveOrEqual(vector_phi_, hi);
-  vector_header_->AddPhi(vector_phi_);
+  HInstruction* cond = new (global_allocator_) HAboveOrEqual(phi, hi);
+  vector_header_->AddPhi(phi);
   vector_header_->AddInstruction(cond);
   vector_header_->AddInstruction(new (global_allocator_) HIf(cond));
-  for (HInstructionIterator it(block->GetInstructions()); !it.Done(); it.Advance()) {
-    bool vectorized_def = VectorizeDef(node, it.Current(), /*generate_code*/ true);
-    DCHECK(vectorized_def);
-  }
-  // Generate body from the instruction map, but in original program order.
-  HEnvironment* env = vector_header_->GetFirstInstruction()->GetEnvironment();
-  for (HInstructionIterator it(block->GetInstructions()); !it.Done(); it.Advance()) {
-    auto i = vector_map_->find(it.Current());
-    if (i != vector_map_->end() && !i->second->IsInBlock()) {
-      Insert(vector_body_, i->second);
-      // Deal with instructions that need an environment, such as the scalar intrinsics.
-      if (i->second->NeedsEnvironment()) {
-        i->second->CopyEnvironmentFromWithLoopPhiAdjustment(env, vector_header_);
+  vector_index_ = phi;
+  for (uint32_t u = 0; u < unroll; u++) {
+    // Clear map, leaving loop invariants setup during unrolling.
+    if (u == 0) {
+      vector_map_->clear();
+    } else {
+      for (auto i = vector_map_->begin(); i != vector_map_->end(); ) {
+        if (i->second->IsVecReplicateScalar()) {
+          DCHECK(node->loop_info->IsDefinedOutOfTheLoop(i->first));
+          ++i;
+        } else {
+          i = vector_map_->erase(i);
+        }
       }
     }
+    // Generate instruction map.
+    for (HInstructionIterator it(block->GetInstructions()); !it.Done(); it.Advance()) {
+      bool vectorized_def = VectorizeDef(node, it.Current(), /*generate_code*/ true);
+      DCHECK(vectorized_def);
+    }
+    // Generate body from the instruction map, but in original program order.
+    HEnvironment* env = vector_header_->GetFirstInstruction()->GetEnvironment();
+    for (HInstructionIterator it(block->GetInstructions()); !it.Done(); it.Advance()) {
+      auto i = vector_map_->find(it.Current());
+      if (i != vector_map_->end() && !i->second->IsInBlock()) {
+        Insert(vector_body_, i->second);
+        // Deal with instructions that need an environment, such as the scalar intrinsics.
+        if (i->second->NeedsEnvironment()) {
+          i->second->CopyEnvironmentFromWithLoopPhiAdjustment(env, vector_header_);
+        }
+      }
+    }
+    vector_index_ = new (global_allocator_) HAdd(induc_type, vector_index_, step);
+    Insert(vector_body_, vector_index_);
   }
-  // Finalize increment and phi.
-  HInstruction* inc = new (global_allocator_) HAdd(induc_type, vector_phi_, step);
-  vector_phi_->AddInput(lo);
-  vector_phi_->AddInput(Insert(vector_body_, inc));
+  // Finalize phi for the loop index.
+  phi->AddInput(lo);
+  phi->AddInput(vector_index_);
+  vector_index_ = phi;
 }
 
 // TODO: accept reductions at left-hand-side, mixed-type store idioms, etc.
@@ -712,11 +845,11 @@ bool HLoopOptimization::VectorizeDef(LoopNode* node,
     HInstruction* offset = nullptr;
     if (TrySetVectorType(type, &restrictions) &&
         node->loop_info->IsDefinedOutOfTheLoop(base) &&
-        induction_range_.IsUnitStride(instruction, index, &offset) &&
+        induction_range_.IsUnitStride(instruction, index, graph_, &offset) &&
         VectorizeUse(node, value, generate_code, type, restrictions)) {
       if (generate_code) {
         GenerateVecSub(index, offset);
-        GenerateVecMem(instruction, vector_map_->Get(index), vector_map_->Get(value), type);
+        GenerateVecMem(instruction, vector_map_->Get(index), vector_map_->Get(value), offset, type);
       } else {
         vector_refs_->insert(ArrayReference(base, offset, type, /*lhs*/ true));
       }
@@ -733,7 +866,7 @@ bool HLoopOptimization::VectorizeDef(LoopNode* node,
   return !IsUsedOutsideLoop(node->loop_info, instruction) && !instruction->DoesAnyWrite();
 }
 
-// TODO: more operations and intrinsics, detect saturation arithmetic, etc.
+// TODO: saturation arithmetic.
 bool HLoopOptimization::VectorizeUse(LoopNode* node,
                                      HInstruction* instruction,
                                      bool generate_code,
@@ -755,10 +888,9 @@ bool HLoopOptimization::VectorizeUse(LoopNode* node,
     }
     return true;
   } else if (instruction->IsArrayGet()) {
-    // Strings are different, with a different offset to the actual data
-    // and some compressed to save memory. For now, all cases are rejected
-    // to avoid the complexity.
-    if (instruction->AsArrayGet()->IsStringCharAt()) {
+    // Deal with vector restrictions.
+    if (instruction->AsArrayGet()->IsStringCharAt() &&
+        HasVectorRestrictions(restrictions, kNoStringCharAt)) {
       return false;
     }
     // Accept a right-hand-side array base[index] for
@@ -771,10 +903,10 @@ bool HLoopOptimization::VectorizeUse(LoopNode* node,
     HInstruction* offset = nullptr;
     if (type == instruction->GetType() &&
         node->loop_info->IsDefinedOutOfTheLoop(base) &&
-        induction_range_.IsUnitStride(instruction, index, &offset)) {
+        induction_range_.IsUnitStride(instruction, index, graph_, &offset)) {
       if (generate_code) {
         GenerateVecSub(index, offset);
-        GenerateVecMem(instruction, vector_map_->Get(index), nullptr, type);
+        GenerateVecMem(instruction, vector_map_->Get(index), nullptr, offset, type);
       } else {
         vector_refs_->insert(ArrayReference(base, offset, type, /*lhs*/ false));
       }
@@ -850,30 +982,38 @@ bool HLoopOptimization::VectorizeUse(LoopNode* node,
       return true;
     }
     // Deal with vector restrictions.
+    HInstruction* opa = instruction->InputAt(0);
+    HInstruction* opb = instruction->InputAt(1);
+    HInstruction* r = opa;
+    bool is_unsigned = false;
     if ((HasVectorRestrictions(restrictions, kNoShift)) ||
         (instruction->IsShr() && HasVectorRestrictions(restrictions, kNoShr))) {
       return false;  // unsupported instruction
-    } else if ((instruction->IsShr() || instruction->IsUShr()) &&
-               HasVectorRestrictions(restrictions, kNoHiBits)) {
-      return false;  // hibits may impact lobits; TODO: we can do better!
+    } else if (HasVectorRestrictions(restrictions, kNoHiBits)) {
+      // Shifts right need extra care to account for higher order bits.
+      // TODO: less likely shr/unsigned and ushr/signed can by flipping signess.
+      if (instruction->IsShr() &&
+          (!IsNarrowerOperand(opa, type, &r, &is_unsigned) || is_unsigned)) {
+        return false;  // reject, unless all operands are sign-extension narrower
+      } else if (instruction->IsUShr() &&
+                 (!IsNarrowerOperand(opa, type, &r, &is_unsigned) || !is_unsigned)) {
+        return false;  // reject, unless all operands are zero-extension narrower
+      }
     }
     // Accept shift operator for vectorizable/invariant operands.
     // TODO: accept symbolic, albeit loop invariant shift factors.
-    HInstruction* opa = instruction->InputAt(0);
-    HInstruction* opb = instruction->InputAt(1);
-    int64_t value = 0;
-    if (VectorizeUse(node, opa, generate_code, type, restrictions) && IsInt64AndGet(opb, &value)) {
-      // Make sure shift distance only looks at lower bits, as defined for sequential shifts.
-      int64_t mask = (instruction->GetType() == Primitive::kPrimLong)
-          ? kMaxLongShiftDistance
-          : kMaxIntShiftDistance;
-      int64_t distance = value & mask;
+    DCHECK(r != nullptr);
+    if (generate_code && vector_mode_ != kVector) {  // de-idiom
+      r = opa;
+    }
+    int64_t distance = 0;
+    if (VectorizeUse(node, r, generate_code, type, restrictions) &&
+        IsInt64AndGet(opb, /*out*/ &distance)) {
       // Restrict shift distance to packed data type width.
       int64_t max_distance = Primitive::ComponentSize(type) * 8;
       if (0 <= distance && distance < max_distance) {
         if (generate_code) {
-          HInstruction* s = graph_->GetIntConstant(distance);
-          GenerateVecOp(instruction, vector_map_->Get(opa), s, type);
+          GenerateVecOp(instruction, vector_map_->Get(r), opb, type);
         }
         return true;
       }
@@ -887,16 +1027,59 @@ bool HLoopOptimization::VectorizeUse(LoopNode* node,
       case Intrinsics::kMathAbsFloat:
       case Intrinsics::kMathAbsDouble: {
         // Deal with vector restrictions.
-        if (HasVectorRestrictions(restrictions, kNoAbs) ||
-            HasVectorRestrictions(restrictions, kNoHiBits)) {
-          // TODO: we can do better for some hibits cases.
+        HInstruction* opa = instruction->InputAt(0);
+        HInstruction* r = opa;
+        bool is_unsigned = false;
+        if (HasVectorRestrictions(restrictions, kNoAbs)) {
           return false;
+        } else if (HasVectorRestrictions(restrictions, kNoHiBits) &&
+                   (!IsNarrowerOperand(opa, type, &r, &is_unsigned) || is_unsigned)) {
+          return false;  // reject, unless operand is sign-extension narrower
         }
         // Accept ABS(x) for vectorizable operand.
-        HInstruction* opa = instruction->InputAt(0);
-        if (VectorizeUse(node, opa, generate_code, type, restrictions)) {
+        DCHECK(r != nullptr);
+        if (generate_code && vector_mode_ != kVector) {  // de-idiom
+          r = opa;
+        }
+        if (VectorizeUse(node, r, generate_code, type, restrictions)) {
           if (generate_code) {
-            GenerateVecOp(instruction, vector_map_->Get(opa), nullptr, type);
+            GenerateVecOp(instruction, vector_map_->Get(r), nullptr, type);
+          }
+          return true;
+        }
+        return false;
+      }
+      case Intrinsics::kMathMinIntInt:
+      case Intrinsics::kMathMinLongLong:
+      case Intrinsics::kMathMinFloatFloat:
+      case Intrinsics::kMathMinDoubleDouble:
+      case Intrinsics::kMathMaxIntInt:
+      case Intrinsics::kMathMaxLongLong:
+      case Intrinsics::kMathMaxFloatFloat:
+      case Intrinsics::kMathMaxDoubleDouble: {
+        // Deal with vector restrictions.
+        HInstruction* opa = instruction->InputAt(0);
+        HInstruction* opb = instruction->InputAt(1);
+        HInstruction* r = opa;
+        HInstruction* s = opb;
+        bool is_unsigned = false;
+        if (HasVectorRestrictions(restrictions, kNoMinMax)) {
+          return false;
+        } else if (HasVectorRestrictions(restrictions, kNoHiBits) &&
+                   !IsNarrowerOperands(opa, opb, type, &r, &s, &is_unsigned)) {
+          return false;  // reject, unless all operands are same-extension narrower
+        }
+        // Accept MIN/MAX(x, y) for vectorizable operands.
+        DCHECK(r != nullptr && s != nullptr);
+        if (generate_code && vector_mode_ != kVector) {  // de-idiom
+          r = opa;
+          s = opb;
+        }
+        if (VectorizeUse(node, r, generate_code, type, restrictions) &&
+            VectorizeUse(node, s, generate_code, type, restrictions)) {
+          if (generate_code) {
+            GenerateVecOp(
+                instruction, vector_map_->Get(r), vector_map_->Get(s), type, is_unsigned);
           }
           return true;
         }
@@ -914,6 +1097,23 @@ bool HLoopOptimization::TrySetVectorType(Primitive::Type type, uint64_t* restric
   switch (compiler_driver_->GetInstructionSet()) {
     case kArm:
     case kThumb2:
+      // Allow vectorization for all ARM devices, because Android assumes that
+      // ARM 32-bit always supports advanced SIMD.
+      switch (type) {
+        case Primitive::kPrimBoolean:
+        case Primitive::kPrimByte:
+          *restrictions |= kNoDiv;
+          return TrySetVectorLength(8);
+        case Primitive::kPrimChar:
+        case Primitive::kPrimShort:
+          *restrictions |= kNoDiv | kNoStringCharAt;
+          return TrySetVectorLength(4);
+        case Primitive::kPrimInt:
+          *restrictions |= kNoDiv;
+          return TrySetVectorLength(2);
+        default:
+          break;
+      }
       return false;
     case kArm64:
       // Allow vectorization for all ARM devices, because Android assumes that
@@ -921,17 +1121,17 @@ bool HLoopOptimization::TrySetVectorType(Primitive::Type type, uint64_t* restric
       switch (type) {
         case Primitive::kPrimBoolean:
         case Primitive::kPrimByte:
-          *restrictions |= kNoDiv | kNoAbs;
+          *restrictions |= kNoDiv;
           return TrySetVectorLength(16);
         case Primitive::kPrimChar:
         case Primitive::kPrimShort:
-          *restrictions |= kNoDiv | kNoAbs;
+          *restrictions |= kNoDiv;
           return TrySetVectorLength(8);
         case Primitive::kPrimInt:
           *restrictions |= kNoDiv;
           return TrySetVectorLength(4);
         case Primitive::kPrimLong:
-          *restrictions |= kNoDiv | kNoMul;
+          *restrictions |= kNoDiv | kNoMul | kNoMinMax;
           return TrySetVectorLength(2);
         case Primitive::kPrimFloat:
           return TrySetVectorLength(4);
@@ -957,11 +1157,13 @@ bool HLoopOptimization::TrySetVectorType(Primitive::Type type, uint64_t* restric
             *restrictions |= kNoDiv;
             return TrySetVectorLength(4);
           case Primitive::kPrimLong:
-            *restrictions |= kNoMul | kNoDiv | kNoShr | kNoAbs;
+            *restrictions |= kNoMul | kNoDiv | kNoShr | kNoAbs | kNoMinMax;
             return TrySetVectorLength(2);
           case Primitive::kPrimFloat:
+            *restrictions |= kNoMinMax;  // -0.0 vs +0.0
             return TrySetVectorLength(4);
           case Primitive::kPrimDouble:
+            *restrictions |= kNoMinMax;  // -0.0 vs +0.0
             return TrySetVectorLength(2);
           default:
             break;
@@ -969,8 +1171,60 @@ bool HLoopOptimization::TrySetVectorType(Primitive::Type type, uint64_t* restric
       }
       return false;
     case kMips:
+      if (features->AsMipsInstructionSetFeatures()->HasMsa()) {
+        switch (type) {
+          case Primitive::kPrimBoolean:
+          case Primitive::kPrimByte:
+            *restrictions |= kNoDiv;
+            return TrySetVectorLength(16);
+          case Primitive::kPrimChar:
+          case Primitive::kPrimShort:
+            *restrictions |= kNoDiv | kNoStringCharAt;
+            return TrySetVectorLength(8);
+          case Primitive::kPrimInt:
+            *restrictions |= kNoDiv;
+            return TrySetVectorLength(4);
+          case Primitive::kPrimLong:
+            *restrictions |= kNoDiv;
+            return TrySetVectorLength(2);
+          case Primitive::kPrimFloat:
+            *restrictions |= kNoMinMax;  // min/max(x, NaN)
+            return TrySetVectorLength(4);
+          case Primitive::kPrimDouble:
+            *restrictions |= kNoMinMax;  // min/max(x, NaN)
+            return TrySetVectorLength(2);
+          default:
+            break;
+        }  // switch type
+      }
+      return false;
     case kMips64:
-      // TODO: implement MIPS SIMD.
+      if (features->AsMips64InstructionSetFeatures()->HasMsa()) {
+        switch (type) {
+          case Primitive::kPrimBoolean:
+          case Primitive::kPrimByte:
+            *restrictions |= kNoDiv;
+            return TrySetVectorLength(16);
+          case Primitive::kPrimChar:
+          case Primitive::kPrimShort:
+            *restrictions |= kNoDiv | kNoStringCharAt;
+            return TrySetVectorLength(8);
+          case Primitive::kPrimInt:
+            *restrictions |= kNoDiv;
+            return TrySetVectorLength(4);
+          case Primitive::kPrimLong:
+            *restrictions |= kNoDiv;
+            return TrySetVectorLength(2);
+          case Primitive::kPrimFloat:
+            *restrictions |= kNoMinMax;  // min/max(x, NaN)
+            return TrySetVectorLength(4);
+          case Primitive::kPrimDouble:
+            *restrictions |= kNoMinMax;  // min/max(x, NaN)
+            return TrySetVectorLength(2);
+          default:
+            break;
+        }  // switch type
+      }
       return false;
     default:
       return false;
@@ -1006,8 +1260,9 @@ void HLoopOptimization::GenerateVecInv(HInstruction* org, Primitive::Type type) 
 
 void HLoopOptimization::GenerateVecSub(HInstruction* org, HInstruction* offset) {
   if (vector_map_->find(org) == vector_map_->end()) {
-    HInstruction* subscript = vector_phi_;
-    if (offset != nullptr) {
+    HInstruction* subscript = vector_index_;
+    int64_t value = 0;
+    if (!IsInt64AndGet(offset, &value) || value != 0) {
       subscript = new (global_allocator_) HAdd(Primitive::kPrimInt, subscript, offset);
       if (org->IsPhi()) {
         Insert(vector_body_, subscript);  // lacks layout placeholder
@@ -1020,17 +1275,27 @@ void HLoopOptimization::GenerateVecSub(HInstruction* org, HInstruction* offset) 
 void HLoopOptimization::GenerateVecMem(HInstruction* org,
                                        HInstruction* opa,
                                        HInstruction* opb,
+                                       HInstruction* offset,
                                        Primitive::Type type) {
   HInstruction* vector = nullptr;
   if (vector_mode_ == kVector) {
     // Vector store or load.
+    HInstruction* base = org->InputAt(0);
     if (opb != nullptr) {
       vector = new (global_allocator_) HVecStore(
-          global_allocator_, org->InputAt(0), opa, opb, type, vector_length_);
+          global_allocator_, base, opa, opb, type, vector_length_);
     } else  {
       bool is_string_char_at = org->AsArrayGet()->IsStringCharAt();
       vector = new (global_allocator_) HVecLoad(
-          global_allocator_, org->InputAt(0), opa, type, vector_length_, is_string_char_at);
+          global_allocator_, base, opa, type, vector_length_, is_string_char_at);
+    }
+    // Known dynamically enforced alignment?
+    // TODO: detect offset + constant differences.
+    // TODO: long run, static alignment analysis?
+    if (vector_peeling_candidate_ != nullptr &&
+        vector_peeling_candidate_->base == base &&
+        vector_peeling_candidate_->offset == offset) {
+      vector->AsVecMemoryOperation()->SetAlignment(Alignment(kAlignedBase, 0));
     }
   } else {
     // Scalar store or load.
@@ -1058,13 +1323,14 @@ void HLoopOptimization::GenerateVecMem(HInstruction* org,
 void HLoopOptimization::GenerateVecOp(HInstruction* org,
                                       HInstruction* opa,
                                       HInstruction* opb,
-                                      Primitive::Type type) {
+                                      Primitive::Type type,
+                                      bool is_unsigned) {
   if (vector_mode_ == kSequential) {
-    // Scalar code follows implicit integral promotion.
-    if (type == Primitive::kPrimBoolean ||
-        type == Primitive::kPrimByte ||
-        type == Primitive::kPrimChar ||
-        type == Primitive::kPrimShort) {
+    // Non-converting scalar code follows implicit integral promotion.
+    if (!org->IsTypeConversion() && (type == Primitive::kPrimBoolean ||
+                                     type == Primitive::kPrimByte ||
+                                     type == Primitive::kPrimChar ||
+                                     type == Primitive::kPrimShort)) {
       type = Primitive::kPrimInt;
     }
   }
@@ -1141,6 +1407,22 @@ void HLoopOptimization::GenerateVecOp(HInstruction* org,
             DCHECK(opb == nullptr);
             vector = new (global_allocator_) HVecAbs(global_allocator_, opa, type, vector_length_);
             break;
+          case Intrinsics::kMathMinIntInt:
+          case Intrinsics::kMathMinLongLong:
+          case Intrinsics::kMathMinFloatFloat:
+          case Intrinsics::kMathMinDoubleDouble: {
+            vector = new (global_allocator_)
+                HVecMin(global_allocator_, opa, opb, type, vector_length_, is_unsigned);
+            break;
+          }
+          case Intrinsics::kMathMaxIntInt:
+          case Intrinsics::kMathMaxLongLong:
+          case Intrinsics::kMathMaxFloatFloat:
+          case Intrinsics::kMathMaxDoubleDouble: {
+            vector = new (global_allocator_)
+                HVecMax(global_allocator_, opa, opb, type, vector_length_, is_unsigned);
+            break;
+          }
           default:
             LOG(FATAL) << "Unsupported SIMD intrinsic";
             UNREACHABLE();
@@ -1150,9 +1432,10 @@ void HLoopOptimization::GenerateVecOp(HInstruction* org,
         // corresponding new scalar instructions in the loop. The instruction will get an
         // environment while being inserted from the instruction map in original program order.
         DCHECK(vector_mode_ == kSequential);
+        size_t num_args = invoke->GetNumberOfArguments();
         HInvokeStaticOrDirect* new_invoke = new (global_allocator_) HInvokeStaticOrDirect(
             global_allocator_,
-            invoke->GetNumberOfArguments(),
+            num_args,
             invoke->GetType(),
             invoke->GetDexPc(),
             invoke->GetDexMethodIndex(),
@@ -1162,8 +1445,14 @@ void HLoopOptimization::GenerateVecOp(HInstruction* org,
             invoke->GetTargetMethod(),
             invoke->GetClinitCheckRequirement());
         HInputsRef inputs = invoke->GetInputs();
-        for (size_t index = 0; index < inputs.size(); ++index) {
-          new_invoke->SetArgumentAt(index, vector_map_->Get(inputs[index]));
+        size_t num_inputs = inputs.size();
+        DCHECK_LE(num_args, num_inputs);
+        DCHECK_EQ(num_inputs, new_invoke->GetInputs().size());  // both invokes agree
+        for (size_t index = 0; index < num_inputs; ++index) {
+          HInstruction* new_input = index < num_args
+              ? vector_map_->Get(inputs[index])
+              : inputs[index];  // beyond arguments: just pass through
+          new_invoke->SetArgumentAt(index, new_input);
         }
         new_invoke->SetIntrinsic(invoke->GetIntrinsic(),
                                  kNeedsEnvironmentOrCache,
@@ -1200,34 +1489,30 @@ bool HLoopOptimization::VectorizeHalvingAddIdiom(LoopNode* node,
                                                  Primitive::Type type,
                                                  uint64_t restrictions) {
   // Test for top level arithmetic shift right x >> 1 or logical shift right x >>> 1
-  // (note whether the sign bit in higher precision is shifted in has no effect
+  // (note whether the sign bit in wider precision is shifted in has no effect
   // on the narrow precision computed by the idiom).
-  int64_t value = 0;
+  int64_t distance = 0;
   if ((instruction->IsShr() ||
        instruction->IsUShr()) &&
-      IsInt64AndGet(instruction->InputAt(1), &value) && value == 1) {
-    //
-    // TODO: make following code less sensitive to associativity and commutativity differences.
-    //
-    HInstruction* x = instruction->InputAt(0);
-    // Test for an optional rounding part (x + 1) >> 1.
-    bool is_rounded = false;
-    if (x->IsAdd() && IsInt64AndGet(x->InputAt(1), &value) && value == 1) {
-      x = x->InputAt(0);
-      is_rounded = true;
-    }
-    // Test for a core addition (a + b) >> 1 (possibly rounded), either unsigned or signed.
-    if (x->IsAdd()) {
-      HInstruction* a = x->InputAt(0);
-      HInstruction* b = x->InputAt(1);
+      IsInt64AndGet(instruction->InputAt(1), /*out*/ &distance) && distance == 1) {
+    // Test for (a + b + c) >> 1 for optional constant c.
+    HInstruction* a = nullptr;
+    HInstruction* b = nullptr;
+    int64_t       c = 0;
+    if (IsAddConst(instruction->InputAt(0), /*out*/ &a, /*out*/ &b, /*out*/ &c)) {
+      DCHECK(a != nullptr && b != nullptr);
+      // Accept c == 1 (rounded) or c == 0 (not rounded).
+      bool is_rounded = false;
+      if (c == 1) {
+        is_rounded = true;
+      } else if (c != 0) {
+        return false;
+      }
+      // Accept consistent zero or sign extension on operands a and b.
       HInstruction* r = nullptr;
       HInstruction* s = nullptr;
       bool is_unsigned = false;
-      if (IsZeroExtensionAndGet(a, type, &r) && IsZeroExtensionAndGet(b, type, &s)) {
-        is_unsigned = true;
-      } else if (IsSignExtensionAndGet(a, type, &r) && IsSignExtensionAndGet(b, type, &s)) {
-        is_unsigned = false;
-      } else {
+      if (!IsNarrowerOperands(a, b, type, &r, &s, &is_unsigned)) {
         return false;
       }
       // Deal with vector restrictions.
@@ -1238,6 +1523,10 @@ bool HLoopOptimization::VectorizeHalvingAddIdiom(LoopNode* node,
       // Accept recognized halving add for vectorizable operands. Vectorized code uses the
       // shorthand idiomatic operation. Sequential code uses the original scalar expressions.
       DCHECK(r != nullptr && s != nullptr);
+      if (generate_code && vector_mode_ != kVector) {  // de-idiom
+        r = instruction->InputAt(0);
+        s = instruction->InputAt(1);
+      }
       if (VectorizeUse(node, r, generate_code, type, restrictions) &&
           VectorizeUse(node, s, generate_code, type, restrictions)) {
         if (generate_code) {
@@ -1251,12 +1540,7 @@ bool HLoopOptimization::VectorizeHalvingAddIdiom(LoopNode* node,
                 is_unsigned,
                 is_rounded));
           } else {
-            VectorizeUse(node, instruction->InputAt(0), generate_code, type, restrictions);
-            VectorizeUse(node, instruction->InputAt(1), generate_code, type, restrictions);
-            GenerateVecOp(instruction,
-                          vector_map_->Get(instruction->InputAt(0)),
-                          vector_map_->Get(instruction->InputAt(1)),
-                          type);
+            GenerateVecOp(instruction, vector_map_->Get(r), vector_map_->Get(s), type);
           }
         }
         return true;
@@ -1267,10 +1551,57 @@ bool HLoopOptimization::VectorizeHalvingAddIdiom(LoopNode* node,
 }
 
 //
+// Vectorization heuristics.
+//
+
+bool HLoopOptimization::IsVectorizationProfitable(int64_t trip_count) {
+  // Current heuristic: non-empty body with sufficient number
+  // of iterations (if known).
+  // TODO: refine by looking at e.g. operation count, alignment, etc.
+  if (vector_length_ == 0) {
+    return false;  // nothing found
+  } else if (0 < trip_count && trip_count < vector_length_) {
+    return false;  // insufficient iterations
+  }
+  return true;
+}
+
+void HLoopOptimization::SetPeelingCandidate(int64_t trip_count ATTRIBUTE_UNUSED) {
+  // Current heuristic: none.
+  // TODO: implement
+}
+
+uint32_t HLoopOptimization::GetUnrollingFactor(HBasicBlock* block, int64_t trip_count) {
+  // Current heuristic: unroll by 2 on ARM64/X86 for large known trip
+  // counts and small loop bodies.
+  // TODO: refine with operation count, remaining iterations, etc.
+  //       Artem had some really cool ideas for this already.
+  switch (compiler_driver_->GetInstructionSet()) {
+    case kArm64:
+    case kX86:
+    case kX86_64: {
+      size_t num_instructions = block->GetInstructions().CountSize();
+      if (num_instructions <= 10 && trip_count >= 4 * vector_length_) {
+        return 2;
+      }
+      return 1;
+    }
+    default:
+      return 1;
+  }
+}
+
+//
 // Helpers.
 //
 
 bool HLoopOptimization::TrySetPhiInduction(HPhi* phi, bool restrict_uses) {
+  // Special case Phis that have equivalent in a debuggable setup. Our graph checker isn't
+  // smart enough to follow strongly connected components (and it's probably not worth
+  // it to make it so). See b/33775412.
+  if (graph_->IsDebuggable() && phi->HasEquivalentPhi()) {
+    return false;
+  }
   DCHECK(iset_->empty());
   ArenaSet<HInstruction*>* set = induction_range_.LookupCycle(phi);
   if (set != nullptr) {
@@ -1399,8 +1730,8 @@ bool HLoopOptimization::TryReplaceWithLastValue(HLoopInformation* loop_info,
       size_t index = it->GetIndex();
       ++it;  // increment before replacing
       if (iset_->find(user->GetHolder()) == iset_->end()) {  // not excluded?
-        HLoopInformation* other_loop_info = user->GetHolder()->GetBlock()->GetLoopInformation();
         // Only update environment uses after the loop.
+        HLoopInformation* other_loop_info = user->GetHolder()->GetBlock()->GetLoopInformation();
         if (other_loop_info == nullptr || !other_loop_info->IsIn(*loop_info)) {
           user->RemoveAsUserOfInput(index);
           user->SetRawEnvAt(index, replacement);
@@ -1435,6 +1766,23 @@ void HLoopOptimization::RemoveDeadInstructions(const HInstructionList& list) {
       instruction->GetBlock()->RemoveInstructionOrPhi(instruction);
     }
   }
+}
+
+bool HLoopOptimization::CanRemoveCycle() {
+  for (HInstruction* i : *iset_) {
+    // We can never remove instructions that have environment
+    // uses when we compile 'debuggable'.
+    if (i->HasEnvironmentUses() && graph_->IsDebuggable()) {
+      return false;
+    }
+    // A deoptimization should never have an environment input removed.
+    for (const HUseListNode<HEnvironment*>& use : i->GetEnvUses()) {
+      if (use.GetUser()->GetHolder()->IsDeoptimize()) {
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 }  // namespace art

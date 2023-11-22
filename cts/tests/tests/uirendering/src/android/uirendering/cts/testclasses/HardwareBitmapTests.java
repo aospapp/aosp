@@ -109,11 +109,6 @@ public class HardwareBitmapTests extends ActivityTestBase {
     }
 
     @Test
-    public void testBitmapConfigFromIndex8() {
-        testBitmapCopy(R.drawable.index_8, null, Bitmap.Config.HARDWARE);
-    }
-
-    @Test
     public void testBitmapConfigFromHardwareToHardware() {
         testBitmapCopy(R.drawable.robot, Bitmap.Config.HARDWARE, Bitmap.Config.HARDWARE);
     }

@@ -23,6 +23,11 @@
 
 using android::aidl::CppOptions;
 
+// aidl is leaky. Turn off LeakSanitizer by default. b/37749857
+extern "C" const char *__asan_default_options() {
+    return "detect_leaks=0";
+}
+
 int main(int argc, char** argv) {
   android::base::InitLogging(argv);
   LOG(DEBUG) << "aidl starting";

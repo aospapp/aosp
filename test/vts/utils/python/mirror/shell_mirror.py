@@ -32,11 +32,13 @@ class ShellMirror(object):
         _host_command_port: int, the host-side port for command-response
                             sessions.
         _shell_mirrors: dict, key is instance name, value is mirror object.
+        enabled: bool, whether remote shell feature is enabled for the device.
     """
 
     def __init__(self, host_command_port):
         self._shell_mirrors = {}
         self._host_command_port = host_command_port
+        self.enabled = True
 
     def __del__(self):
         for instance_name in self._shell_mirrors:
@@ -66,7 +68,8 @@ class ShellMirror(object):
         if not instance_name:
             raise error.ComponentLoadingError("instance_name is None")
         if bits not in [32, 64]:
-            raise error.ComponentLoadingError("Invalid value for bits: %s" % bits)
+            raise error.ComponentLoadingError(
+                "Invalid value for bits: %s" % bits)
 
         client = vts_tcp_client.VtsTcpClient()
         client.Connect(command_port=self._host_command_port)
@@ -85,4 +88,34 @@ class ShellMirror(object):
         self._shell_mirrors[instance_name] = mirror_object
 
     def __getattr__(self, name):
-        return self._shell_mirrors[name]
+        """Get shell sessions through attribute.
+
+        When a session is retrieved here, the 'enabled' flag of the shell mirror
+        object is checked and synchronized with shell mirror.
+
+        Args:
+            name: string, session name
+
+        Returns:
+            ShellMirrorObject, a remote shell session.
+
+        Raises:
+            KeyError when attribute does not exist.
+        """
+        res = self._shell_mirrors[name]
+
+        if res.enabled != self.enabled:
+            res.enabled = self.enabled
+        return res
+
+    @property
+    def default(self):
+        """returns a default shell mirror object that can execute a shell command"""
+        name = '_default'
+        if not hasattr(self, name):
+            self.InvokeTerminal(name)
+        return getattr(self, name)
+
+    def Execute(self, command, no_except=False):
+        """Execute a shell command with default shell terminal"""
+        return self.default.Execute(command, no_except)

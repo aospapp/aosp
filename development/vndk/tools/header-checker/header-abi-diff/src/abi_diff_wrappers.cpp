@@ -144,7 +144,8 @@ bool Diff<VTableComponent>(const VTableComponent &old_element,
   bool kind_comparison = old_element.kind() != new_element.kind();
   bool mangled_name_comparison = old_element.mangled_component_name() !=
       new_element.mangled_component_name();
-  bool value_comparison = old_element.value() != new_element.value();
+  bool value_comparison =
+      old_element.component_value() != new_element.component_value();
   return kind_comparison || mangled_name_comparison || value_comparison;
 }
 
@@ -241,8 +242,8 @@ template <>
 std::unique_ptr<RecordDeclDiff>
 DiffWrapper<RecordDecl, RecordDeclDiff>::Get() {
   std::unique_ptr<RecordDeclDiff> record_diff(new RecordDeclDiff());
-  assert(oldp_->mangled_record_name() ==
-         newp_->mangled_record_name());
+  assert(oldp_->basic_abi().linker_set_key() ==
+         newp_->basic_abi().linker_set_key());
   record_diff->set_name(oldp_->basic_abi().name());
   google::protobuf::RepeatedPtrField<RecordFieldDeclDiff> *fdiffs =
       record_diff->mutable_field_diffs();

@@ -180,6 +180,9 @@ class CustomDocStringChecker(base.DocStringChecker):
                 node.parent.frame().ancestors())):
             return
 
+        if _is_test_case_method(node):
+            return
+
         super(CustomDocStringChecker, self).visit_function(node)
 
 
@@ -395,6 +398,21 @@ def check_committed_files(work_tree_files, commit, pylint_base_opts):
     finally:
         if tempdir:
             tempdir.clean()
+
+
+def _is_test_case_method(node):
+    """Determine if the given function node is a method of a TestCase.
+
+    We simply check for 'TestCase' being one of the parent classes in the mro of
+    the containing class.
+
+    @params node: A function node.
+    """
+    if not hasattr(node.parent.frame(), 'ancestors'):
+        return False
+
+    parent_class_names = {x.name for x in node.parent.frame().ancestors()}
+    return 'TestCase' in parent_class_names
 
 
 def main():

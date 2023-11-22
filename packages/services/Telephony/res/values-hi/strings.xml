@@ -78,7 +78,6 @@
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"वॉइसमेल (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"VM:"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"नोटिफ़िकेशन"</string>
-    <string name="networks" msgid="8873030692174541976">"नेटवर्क ऑपरेटर"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"आपातकालीन प्रसारण"</string>
     <string name="call_settings" msgid="6112441768261754562">"कॉल सेटिंग"</string>
     <string name="additional_gsm_call_settings" msgid="1391795981938800617">"अतिरिक्त सेटिंग"</string>
@@ -93,8 +92,8 @@
     <string name="sum_show_caller_id" msgid="6768534125447290401">"आउटगोइंग कॉल में प्रदर्शित किया गया नंबर"</string>
     <string name="sum_default_caller_id" msgid="1954518825510901365">"आउटगोइंग कॉल में मेरा नंबर दिखाने के लिए सामान्य ऑपरेटर सेटिंग का उपयोग करें"</string>
     <string name="labelCW" msgid="6120513814915920200">"कॉल प्रतीक्षा"</string>
-    <string name="sum_cw_enabled" msgid="8083061901633671397">"कॉल के दौरान, मुझे इनकमिंग कॉल की नोटिफिकेशन दें"</string>
-    <string name="sum_cw_disabled" msgid="3648693907300104575">"कॉल के दौरान, मुझे इनकमिंग कॉल की नोटिफिकेशन दें"</string>
+    <string name="sum_cw_enabled" msgid="8083061901633671397">"कॉल के दौरान, मुझे इनकमिंग कॉल की नोटिफ़िकेशन दें"</string>
+    <string name="sum_cw_disabled" msgid="3648693907300104575">"कॉल के दौरान, मुझे इनकमिंग कॉल की नोटिफ़िकेशन दें"</string>
     <string name="call_forwarding_settings" msgid="3378927671091537173">"कॉल आगे भेजने की सेटिंग"</string>
     <string name="call_forwarding_settings_with_label" msgid="8569489414006897127">"कॉल आगे भेजने की सेटिंग (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="labelCF" msgid="2574386948026924737">"कॉल आगे भेजना"</string>
@@ -164,20 +163,18 @@
     <string name="label_available" msgid="1181658289009300430">"उपलब्ध नेटवर्क"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"खोज रहा है..."</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"कोई नेटवर्क नहीं मिला."</string>
-    <string name="search_networks" msgid="1601136049300882441">"नेटवर्क खोजें"</string>
     <string name="network_query_error" msgid="6828516148953325006">"नेटवर्क खोज के दौरान गड़बड़ी."</string>
     <string name="register_on_network" msgid="9055203954040805084">"<xliff:g id="NETWORK">%s</xliff:g> पर पंजीकरण कर रहा है…"</string>
     <string name="not_allowed" msgid="5613353860205691579">"आपका सिम कार्ड इस नेटवर्क पर कनेक्शन की अनुमति नहीं देता है."</string>
     <string name="connect_later" msgid="2308119155752343975">"अभी इस नेटवर्क से कनेक्ट नहीं कर सकते. बाद में पुन: प्रयास करें."</string>
     <string name="registration_done" msgid="495135664535876612">"नेटवर्क पर पंजीकृत."</string>
-    <string name="sum_carrier_select" msgid="3494252551249882718">"कोई नेटवर्क ऑपरेटर चुनें"</string>
-    <string name="sum_search_networks" msgid="2921092249873272715">"सभी उपलब्ध नेटवर्क खोजें"</string>
-    <string name="select_automatically" msgid="5628402124471810174">"अपने आप चुनें"</string>
-    <string name="sum_select_automatically" msgid="5614890115123292400">"पसंदीदा नेटवर्क अपने आप चुनें"</string>
+    <string name="select_automatically" msgid="1046727200631770962">"अपने आप नेटवर्क चुनें"</string>
+    <string name="network_select_title" msgid="7733107364757544558">"नेटवर्क"</string>
     <string name="register_automatically" msgid="6017849844573519637">"स्वचालित पंजीकरण..."</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"पसंदीदा नेटवर्क प्रकार"</string>
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"नेटवर्क संचालन मोड बदलें"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"पसंदीदा नेटवर्क प्रकार"</string>
+    <string name="forbidden_network" msgid="4384929668343563440">"(मना है)"</string>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"पसंदीदा नेटवर्क मोड: WCDMA को प्राथमिकता"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"पसंदीदा नेटवर्क मोड: केवल GSM"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"पसंदीदा नेटवर्क मोड: केवल WCDMA"</string>
@@ -210,18 +207,34 @@
     <item msgid="1524224863879435516">"केवल GSM"</item>
     <item msgid="3817924849415716259">"GSM/WCDMA पसंदीदा"</item>
   </string-array>
+    <string name="call_category" msgid="5863978196309462052">"कॉलिंग"</string>
+    <string name="network_operator_category" msgid="4830701959205735636">"नेटवर्क"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"उन्नत 4G LTE मोड"</string>
     <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"उन्नत कॉलिंग"</string>
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"ध्‍वनि और अन्‍य संचारों को बेहतर बनाने हेतु LTE सेवाओं का उपयोग करें (अनुशंसित)"</string>
     <string name="data_enabled" msgid="5972538663568715366">"डेटा सक्षम किया गया"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"डेटा उपयोग करने दें"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"ध्यान दें"</string>
-    <string name="roaming" msgid="8871412572928323707">"रोमिंग डेटा"</string>
+    <string name="roaming" msgid="7894878421600247140">"रोमिंग"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"रोमिंग के समय डेटा सेवाएं कनेक्ट करें"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"रोमिंग के समय डेटा सेवाएं कनेक्ट करें"</string>
     <string name="roaming_reenable_message" msgid="8913735676127858115">"आपकी डेटा कनेक्टिविटी खो गई है क्योंकि आप डेटा रोमिंग बंद करके अपने होम नेटवर्क से बाहर आ गए हैं."</string>
     <string name="roaming_warning" msgid="1603164667540144353">"आपको बहुत अधिक शुल्‍क देना पड़ सकता है."</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"डेटा रोमिंग की अनुमति दें?"</string>
+    <string name="data_usage_title" msgid="8759619109516889802">"डेटा उपयोग"</string>
+    <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_2">%2$s</xliff:g> में <xliff:g id="ID_1">%1$s</xliff:g> मोबाइल डेटा का उपयोग किया गया"</string>
+    <string name="advanced_options_title" msgid="8074895510265488035">"उन्नत"</string>
+    <string name="carrier_settings_euicc" msgid="6714062862127226405">"वाहक"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"वाहक, esim, sim, euicc"</string>
+    <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> — <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
+    <string name="mobile_data_settings_title" msgid="4661165467914727157">"मोबाइल डेटा"</string>
+    <string name="mobile_data_settings_summary" msgid="5087255915840576895">"मोबाइल नेटवर्क का उपयोग करके डेटा एक्सेस करें"</string>
+    <string name="data_usage_disable_mobile" msgid="3577275288809667615">"मोबाइल डेटा बंद करना चाहते हैं?"</string>
+    <string name="sim_selection_required_pref" msgid="7049424902961844236">"चुनना ज़रूरी है"</string>
+    <string name="sim_change_data_title" msgid="5332425991853799280">"डेटा सिम बदलें?"</string>
+    <string name="sim_change_data_message" msgid="2163963581444907496">"मोबाइल डेटा के लिए <xliff:g id="OLD_SIM">%2$s</xliff:g> के बजाय <xliff:g id="NEW_SIM">%1$s</xliff:g> का उपयोग करना चाहते हैं?"</string>
+    <string name="wifi_calling_settings_title" msgid="7741961465416430470">"वाई-फ़ाई कॉलिंग"</string>
+    <string name="video_calling_settings_title" msgid="539714564273795574">"वाहक वीडियो कॉलिंग"</string>
     <string name="gsm_umts_options" msgid="6538311689850981686">"GSM/UMTS विकल्प"</string>
     <string name="cdma_options" msgid="4016822858172249884">"CDMA विकल्प"</string>
     <string name="throttle_data_usage" msgid="3715677828160555808">"डेटा उपयोग"</string>
@@ -452,7 +465,7 @@
     <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"मोबाइल नेटवर्क उपलब्‍ध नहीं है. कॉल करने के लिए किसी वायरलेस नेटवर्क से कनेक्‍ट करें."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"कॉल करने के लिए, मान्‍य नंबर डालें."</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"कॉल विफल."</string>
-    <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"इस समय कॉल नहीं जोड़ा जा सकता."</string>
+    <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"अभी कॉल जोड़ा नहीं जा सकता. आप संदेश भेजकर संपर्क करने की कोशिश कर सकते हैं."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"सेवा समर्थित नहीं है"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"कॉल स्‍विच नहीं किए जा सकते."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"कॉल अलग नहीं किया जा सकता."</string>
@@ -572,6 +585,8 @@
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"बहुत अधिक कॉल सक्रिय हैं. नया कॉल करने से पहले कृपया मौजूदा कॉल समाप्त करें या उन्हें मिला दें."</string>
     <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"कनेक्ट नहीं हो पा रहा है, कृपया कोई मान्य SIM कार्ड डालें."</string>
     <string name="callFailed_wifi_lost" msgid="5968076625137297184">"वाई-फ़ाई कनेक्शन चला गया. कॉल समाप्त हो गया."</string>
+    <string name="dialFailed_low_battery" msgid="8760548177088774268">"बैटरी कम होने के कारण आप वीडियो कॉल नहीं कर सकते."</string>
+    <string name="callFailed_low_battery" msgid="4913582435905872616">"बैटरी कम होने के कारण वीडियो कॉल समाप्त हो गया."</string>
     <string name="change_pin_title" msgid="7790232089699034029">"वॉइसमेल पिन बदलें"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"जारी रखें"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"अभी नहीं"</string>
@@ -584,4 +599,18 @@
     <string name="change_pin_confirm_pins_dont_match" msgid="4795052654904027909">"पिन का मिलान नहीं हो रहा"</string>
     <string name="change_pin_succeeded" msgid="2022852286442211151">"वॉइसमेल पिन अपडेट किया गया"</string>
     <string name="change_pin_system_error" msgid="8308462387154257840">"पिन सेट कर पाने में असमर्थ"</string>
+    <string name="mobile_data_status_roaming_turned_off_subtext" msgid="935636805765823307">"डेटा रोमिंग बंद है"</string>
+    <string name="mobile_data_status_roaming_turned_on_subtext" msgid="1335176927083781041">"डेटा रोमिंग चालू है"</string>
+    <string name="mobile_data_status_roaming_without_plan_subtext" msgid="3568412513831673037">"इस समय रोमिंग पर है, डेटा योजना की ज़रूरत है"</string>
+    <string name="mobile_data_status_roaming_with_plan_subtext" msgid="8721998948811064377">"इस समय रोमिंग पर है, डेटा योजना सक्रिय है"</string>
+    <string name="mobile_data_status_no_plan_subtext" msgid="4887747337017565725">"कोई मोबाइल डेटा नहीं बचा है"</string>
+    <string name="mobile_data_activate_prepaid" msgid="7447025165850512683">"कोई मोबाइल डेटा नहीं बचा है"</string>
+    <string name="mobile_data_activate_prepaid_summary" msgid="5705389791791637666">"<xliff:g id="PROVIDER_NAME">%s</xliff:g> के ज़रिए मोबाइल डेटा जोड़ें"</string>
+    <string name="mobile_data_activate_roaming_plan" msgid="5998161536947086264">"कोई रोमिंग योजना नहीं है"</string>
+    <string name="mobile_data_activate_roaming_plan_summary" msgid="511202908883425459">"<xliff:g id="PROVIDER_NAME">%s</xliff:g> के ज़रिए रोमिंग योजना जोड़ें"</string>
+    <string name="mobile_data_activate_footer" msgid="5979019929980140594">"आप अपने वाहक, <xliff:g id="PROVIDER_NAME">%s</xliff:g> के ज़रिए मोबाइल डेटा या रोमिंग योजना जोड़ सकते हैं."</string>
+    <string name="mobile_data_activate_diag_title" msgid="9044252207707864493">"डेटा जोड़ें?"</string>
+    <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"हो सकता है कि आपको <xliff:g id="PROVIDER_NAME">%s</xliff:g> के ज़रिए डेटा जोड़ना पड़े"</string>
+    <string name="mobile_data_activate_button" msgid="3682400969184405446">"डेटा जोड़ें"</string>
+    <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"रद्द करें"</string>
 </resources>

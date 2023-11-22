@@ -96,14 +96,16 @@ if [ "$usage" = "yes" ]; then
     exit 1
 fi
 
-td_info="$testdir"/"$info"
-td_run="$testdir"/"$run"
-td_expected="$testdir"/"$expected"
+td_info="${testdir}/${info}"
+td_run="${testdir}/${run}"
+td_expected="${testdir}/${expected}"
 
-if [ '!' '(' -r "$td_info" -a -r "$td_run" -a -r "$td_expected" ')' ]; then
-    echo "${testdir}: missing files" 1>&2
-    exit 1
-fi
+for td_file in "$td_info" "$td_run" "$td_expected"; do
+    if [[ ! -r "$td_file" ]]; then
+        echo "${testdir}: missing file $td_file" 1>&2
+        exit 1
+    fi
+done
 
 # copy the test to a temp dir and run it
 if [ -d "$tmpdir" ]; then
@@ -122,8 +124,15 @@ if [ "$dev_mode" = "yes" ]; then
     echo "exit status: $?" 1>&2
     good="yes"
 elif [ "$update_mode" = "yes" ]; then
-    "./$run" >"${progdir}/$td_expected" 2>&1
-    good="yes"
+    "./$run" >"$output" 2>&1
+    if [[ $? == 0 ]]; then
+        good="yes"
+        mv "$output" "${progdir}/${td_expected}"
+    else
+        echo "Test failed during update."
+        good="no"
+    fi
+
 else
     "./$run" >"$output" 2>&1
     cmp -s "$expected" "$output"

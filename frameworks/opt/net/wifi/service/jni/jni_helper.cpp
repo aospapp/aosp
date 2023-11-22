@@ -18,7 +18,6 @@
 
 #include <hardware_legacy/wifi_hal.h>
 #include <nativehelper/ScopedUtfChars.h>
-#include <nativehelper/jni.h>
 #include <utils/Log.h>
 #include <utils/String16.h>
 #include <utils/misc.h>

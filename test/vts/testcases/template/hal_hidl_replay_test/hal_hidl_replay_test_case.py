@@ -32,11 +32,10 @@ class HalHidlReplayTestCase(binary_test_case.BinaryTestCase):
 
     DEVICE_VTS_SPEC_FILE_PATH = "/data/local/tmp/spec"
 
-    def __init__(self, trace_path, target_vts_driver_file_path, service_name,
+    def __init__(self, trace_path, service_name,
                  *args, **kwargs):
         super(HalHidlReplayTestCase, self).__init__(*args, **kwargs)
         self._trace_path = trace_path
-        self._target_vts_driver_file_path = target_vts_driver_file_path
         self._service_name = service_name
 
     # @Override
@@ -49,12 +48,10 @@ class HalHidlReplayTestCase(binary_test_case.BinaryTestCase):
 
         cmd = ("LD_LIBRARY_PATH=%s:$LD_LIBRARY_PATH "
                "%s "
-               "--mode=replay "
-               "--trace_path=%s "
-               "--spec_path=%s "
+               "--spec_dir_path=%s "
                "--hal_service_name=%s "
-               "%s" % (self.ld_library_path, self.path, self._trace_path,
+               "%s" % (self.ld_library_path, self.path,
                        self.DEVICE_VTS_SPEC_FILE_PATH, self._service_name,
-                       self._target_vts_driver_file_path))
+                       self._trace_path))
 
         return cmd

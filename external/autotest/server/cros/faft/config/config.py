@@ -46,7 +46,7 @@ class Config(object):
         self._precedence_list = [DEFAULTS.Values()]
         # Overrides are optional, and not an error.
         try:
-            config_name = platform.rsplit('_', 1)[-1].lower()
+            config_name = platform.rsplit('_', 1)[-1].lower().replace("-", "_")
             overrides = __import__(config_name, globals(), locals())
             overrides = overrides.Values()
             # Add overrides to the first position in the list

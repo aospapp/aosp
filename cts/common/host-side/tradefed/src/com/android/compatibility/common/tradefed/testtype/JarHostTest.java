@@ -83,7 +83,7 @@ public class JarHostTest extends HostTest {
         for (String jarName : mJars) {
             JarFile jarFile = null;
             try {
-                File file = new File(helper.getTestsDir(), jarName);
+                File file = helper.getTestFile(jarName);
                 jarFile = new JarFile(file);
                 Enumeration<JarEntry> e = jarFile.entries();
                 URL[] urls = {

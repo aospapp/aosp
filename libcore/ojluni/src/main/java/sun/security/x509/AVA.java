@@ -150,9 +150,6 @@ public class AVA implements DerEncoder {
 
     /**
      * Parse an AVA string formatted according to format.
-     *
-     * XXX format RFC1779 should only allow RFC1779 syntax but is
-     * actually DEFAULT with RFC1779 keywords.
      */
     AVA(Reader in, int format) throws IOException {
         this(in, format, Collections.<String, String>emptyMap());
@@ -272,7 +269,7 @@ public class AVA implements DerEncoder {
                 break;
             }
 
-            // Android-changed: Skip trailing whitespace.
+            // BEGIN Android-added: AVA: Support DerValue hex strings that contain ' ' or '\n'
             if (c == ' ' || c == '\n') {
                 do {
                     if (c != ' ' && c != '\n') {
@@ -282,7 +279,7 @@ public class AVA implements DerEncoder {
                 } while (!isTerminator(c, format));
                 break;
             }
-
+            // END Android-added: AVA: Support DerValue hex strings that contain ' ' or '\n'
             int cVal = hexDigits.indexOf(Character.toUpperCase((char)c));
 
             if (cVal == -1) {
@@ -384,11 +381,17 @@ public class AVA implements DerEncoder {
                 PRESERVE_OLD_DC_ENCODING == false)) {
             // EmailAddress and DomainComponent must be IA5String
             return new DerValue(DerValue.tag_IA5String,
+            // Android-changed: Do not trim() DerValue strings.
+            //                            temp.toString().trim());
                                         temp.toString());
         } else if (isPrintableString) {
+            // Android-changed: Do not trim() DerValue strings.
+            //return new DerValue(temp.toString().trim());
             return new DerValue(temp.toString());
         } else {
             return new DerValue(DerValue.tag_UTF8String,
+            // Android-changed: Do not trim() DerValue strings.
+            //                            temp.toString().trim());
                                         temp.toString());
         }
     }
@@ -900,6 +903,8 @@ public class AVA implements DerEncoder {
          * the dotted-decimal form.
          */
         if ((typeAndValue.charAt(0) >= '0' && typeAndValue.charAt(0) <= '9') ||
+            // Android-changed: AVA: Support DerValue hex strings that contain ' ' or '\n'
+            //!isDerString(value, true))
             (!isDerString(value, true) && value.tag != DerValue.tag_T61String))
         {
             byte[] data = null;

@@ -31,6 +31,8 @@ extern int register_android_os_cts_NoExecutePermissionTest(JNIEnv*);
 
 extern int register_android_os_cts_SeccompTest(JNIEnv*);
 
+extern int register_android_os_cts_SharedMemoryTest(JNIEnv*);
+
 jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     JNIEnv *env = NULL;
 
@@ -59,6 +61,10 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     }
 
     if (register_android_os_cts_SeccompTest(env)) {
+        return JNI_ERR;
+    }
+
+    if (register_android_os_cts_SharedMemoryTest(env)) {
         return JNI_ERR;
     }
 

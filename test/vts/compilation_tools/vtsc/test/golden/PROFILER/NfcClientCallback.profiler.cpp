@@ -1,4 +1,8 @@
-#include "test/vts/specification/hal/NfcClientCallback.vts.h"
+#include "android/hardware/nfc/1.0/NfcClientCallback.vts.h"
+#include <cutils/ashmem.h>
+#include <fcntl.h>
+#include <fmq/MessageQueue.h>
+#include <sys/stat.h>
 
 using namespace android::hardware::nfc::V1_0;
 using namespace android::hardware;
@@ -9,12 +13,12 @@ namespace android {
 namespace vts {
 
 void HIDL_INSTRUMENTATION_FUNCTION_android_hardware_nfc_V1_0_INfcClientCallback(
-        details::HidlInstrumentor::InstrumentationEvent event,
+        details::HidlInstrumentor::InstrumentationEvent event __attribute__((__unused__)),
         const char* package,
         const char* version,
         const char* interface,
-        const char* method,
-        std::vector<void *> *args) {
+        const char* method __attribute__((__unused__)),
+        std::vector<void *> *args __attribute__((__unused__))) {
     if (strcmp(package, "android.hardware.nfc") != 0) {
         LOG(WARNING) << "incorrect package.";
         return;
@@ -48,12 +52,12 @@ void HIDL_INSTRUMENTATION_FUNCTION_android_hardware_nfc_V1_0_INfcClientCallback(
                         LOG(ERROR) << "Number of arguments does not match. expect: 2, actual: " << (*args).size() << ", method name: sendEvent, event type: " << event;
                         break;
                     }
-                    auto *arg_0 = msg.add_arg();
-                    ::android::hardware::nfc::V1_0::NfcEvent *arg_val_0 = reinterpret_cast<::android::hardware::nfc::V1_0::NfcEvent*> ((*args)[0]);
+                    auto *arg_0 __attribute__((__unused__)) = msg.add_arg();
+                    ::android::hardware::nfc::V1_0::NfcEvent *arg_val_0 __attribute__((__unused__)) = reinterpret_cast<::android::hardware::nfc::V1_0::NfcEvent*> ((*args)[0]);
                     arg_0->set_type(TYPE_ENUM);
                     profile____android__hardware__nfc__V1_0__NfcEvent(arg_0, (*arg_val_0));
-                    auto *arg_1 = msg.add_arg();
-                    ::android::hardware::nfc::V1_0::NfcStatus *arg_val_1 = reinterpret_cast<::android::hardware::nfc::V1_0::NfcStatus*> ((*args)[1]);
+                    auto *arg_1 __attribute__((__unused__)) = msg.add_arg();
+                    ::android::hardware::nfc::V1_0::NfcStatus *arg_val_1 __attribute__((__unused__)) = reinterpret_cast<::android::hardware::nfc::V1_0::NfcStatus*> ((*args)[1]);
                     arg_1->set_type(TYPE_ENUM);
                     profile____android__hardware__nfc__V1_0__NfcStatus(arg_1, (*arg_val_1));
                     break;
@@ -92,12 +96,12 @@ void HIDL_INSTRUMENTATION_FUNCTION_android_hardware_nfc_V1_0_INfcClientCallback(
                         LOG(ERROR) << "Number of arguments does not match. expect: 1, actual: " << (*args).size() << ", method name: sendData, event type: " << event;
                         break;
                     }
-                    auto *arg_0 = msg.add_arg();
-                    ::android::hardware::hidl_vec<uint8_t> *arg_val_0 = reinterpret_cast<::android::hardware::hidl_vec<uint8_t>*> ((*args)[0]);
+                    auto *arg_0 __attribute__((__unused__)) = msg.add_arg();
+                    ::android::hardware::hidl_vec<uint8_t> *arg_val_0 __attribute__((__unused__)) = reinterpret_cast<::android::hardware::hidl_vec<uint8_t>*> ((*args)[0]);
                     arg_0->set_type(TYPE_VECTOR);
                     arg_0->set_vector_size((*arg_val_0).size());
                     for (int i = 0; i < (int)(*arg_val_0).size(); i++) {
-                        auto *arg_0_vector_i = arg_0->add_vector_value();
+                        auto *arg_0_vector_i __attribute__((__unused__)) = arg_0->add_vector_value();
                         arg_0_vector_i->set_type(TYPE_SCALAR);
                         arg_0_vector_i->mutable_scalar_value()->set_uint8_t((*arg_val_0)[i]);
                     }

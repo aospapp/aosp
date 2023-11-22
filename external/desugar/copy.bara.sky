@@ -1,5 +1,5 @@
 # Copybara project config for importing desugar tool from bazel
-import_url = "rpc://github/bazelbuild/bazel"
+import_url = "rpc://github.googlesource.com/bazelbuild/bazel"
 
 core.workflow(
     name = "default",
@@ -19,7 +19,7 @@ core.workflow(
         ],
     ),
     destination = git.gerrit_destination(
-        url = "sso://android-review/platform/external/desugar",
+        url = "rpc://android-review.googlesource.com/platform/external/desugar",
         fetch = "upstream-master",
         push_to_refs_for = "upstream-master",
     ),

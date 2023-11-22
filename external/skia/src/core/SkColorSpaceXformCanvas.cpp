@@ -8,9 +8,11 @@
 #include "SkColorFilter.h"
 #include "SkColorSpaceXformCanvas.h"
 #include "SkColorSpaceXformer.h"
+#include "SkDrawShadowRec.h"
 #include "SkGradientShader.h"
-#include "SkImage_Base.h"
+#include "SkImageFilter.h"
 #include "SkImagePriv.h"
+#include "SkImage_Base.h"
 #include "SkMakeUnique.h"
 #include "SkNoDrawCanvas.h"
 #include "SkSurface.h"
@@ -38,7 +40,7 @@ public:
     {
         // Set the matrix and clip to match |fTarget|.  Otherwise, we'll answer queries for
         // bounds/matrix differently than |fTarget| would.
-        SkCanvas::onClipRect(SkRect::MakeFromIRect(fTarget->getDeviceClipBounds()),
+        SkCanvas::onClipRect(SkRect::Make(fTarget->getDeviceClipBounds()),
                              SkClipOp::kIntersect, kHard_ClipEdgeStyle);
         SkCanvas::setMatrix(fTarget->getTotalMatrix());
     }
@@ -216,8 +218,11 @@ public:
         fTarget->drawImageLattice(fXformer->apply(bitmap).get(), lattice, dst,
                                   MaybePaint(paint, fXformer.get()));
     }
-
-    // TODO: May not be ideal to unfurl pictures.
+    void onDrawShadowRec(const SkPath& path, const SkDrawShadowRec& rec) override {
+        SkDrawShadowRec newRec(rec);
+        newRec.fColor = fXformer->apply(rec.fColor);
+        fTarget->private_draw_shadow_rec(path, newRec);
+    }
     void onDrawPicture(const SkPicture* pic,
                        const SkMatrix* matrix,
                        const SkPaint* paint) override {
@@ -228,10 +233,14 @@ public:
     }
 
     SaveLayerStrategy getSaveLayerStrategy(const SaveLayerRec& rec) override {
+        sk_sp<SkImageFilter> backdrop = rec.fBackdrop ? fXformer->apply(rec.fBackdrop) : nullptr;
+        sk_sp<SkImage> clipMask = rec.fClipMask ? fXformer->apply(rec.fClipMask) : nullptr;
         fTarget->saveLayer({
             rec.fBounds,
             MaybePaint(rec.fPaint, fXformer.get()),
-            rec.fBackdrop,  // TODO: this is an image filter
+            backdrop.get(),
+            clipMask.get(),
+            rec.fClipMatrix,
             rec.fSaveLayerFlags,
         });
         return kNoLayer_SaveLayerStrategy;
@@ -294,6 +303,7 @@ public:
         return false;
     }
 
+    GrContext* getGrContext() override { return fTarget->getGrContext(); }
     bool onGetProps(SkSurfaceProps* props) const override { return fTarget->getProps(props); }
     void onFlush() override { return fTarget->flush(); }
 

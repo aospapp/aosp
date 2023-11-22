@@ -19,10 +19,37 @@
 
 extern "C" {
 
-// TODO: Investigate switching to utimer.h. The symbols are not currently
-// exported by the static image. I have tested a static image with utimer
-// symbols exported but an SLPI crash occurs when the callback is invoked.
+#ifdef CHRE_SLPI_UIMG_ENABLED
+#include "utimer.h"
+
+typedef utimer_type SlpiTimerHandle;
+typedef utimer_cb_data_type SlpiTimerCallbackDataType;
+typedef utimer_timetick_type SlpiTimerTickType;
+typedef utimer_error_type SlpiTimerErrorType;
+
+#define SlpiTimerTickUnit UT_TICK
+#define SlpiTimerMicroUnit UT_USEC
+#define SLPI_TIMER_SUCCESS UTE_SUCCESS
+#define slpiTimerClr64 utimer_clr_64
+#define slpiTimerGet64 utimer_get_64
+#define slpiTimerSet64 utimer_set_64
+#define slpiTimerUndef utimer_undef
+#else
 #include "timer.h"
+
+typedef timer_type SlpiTimerHandle;
+typedef timer_cb_data_type SlpiTimerCallbackDataType;
+typedef time_timetick_type SlpiTimerTickType;
+typedef timer_error_type SlpiTimerErrorType;
+
+#define SlpiTimerTickUnit T_TICK
+#define SlpiTimerMicroUnit T_USEC
+#define SLPI_TIMER_SUCCESS TE_SUCCESS
+#define slpiTimerClr64 timer_clr_64
+#define slpiTimerGet64 timer_get_64
+#define slpiTimerSet64 timer_set_64
+#define slpiTimerUndef timer_undef
+#endif  // CHRE_SLPI_UIMG_ENABLED
 
 }  // extern "C"
 
@@ -31,13 +58,13 @@ namespace chre {
 class SystemTimerBase {
  public:
   //! The underlying QURT timer.
-  timer_type mTimerHandle;
+  SlpiTimerHandle mTimerHandle;
 
   //! Tracks whether the timer has been initialized correctly.
   bool mInitialized = false;
 
   //! A static method that is invoked by the underlying QURT timer.
-  static void systemTimerNotifyCallback(timer_cb_data_type data);
+  static void systemTimerNotifyCallback(SlpiTimerCallbackDataType data);
 };
 
 }  // namespace chre

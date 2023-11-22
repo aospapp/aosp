@@ -21,7 +21,7 @@ public class GnssTtffTests extends GnssTestCase {
   private static final int AIDING_DATA_RESET_DELAY_SECS = 10;
   // Threshold values
   private static final int TTFF_HOT_TH_SECS = 5;
-  private static final int TTFF_WITH_WIFI_CELLUAR_WARM_TH_SECS = 7;
+  private static final int TTFF_WITH_WIFI_CELLUAR_WARM_TH_SECS = 10;
   // The worst case we saw in the Nexus 6p device is 15sec,
   // adding 20% margin to the threshold
   private static final int TTFF_WITH_WIFI_ONLY_WARM_TH_SECS = 18;

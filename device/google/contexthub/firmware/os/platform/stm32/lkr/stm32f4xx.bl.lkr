@@ -41,13 +41,13 @@ SECTIONS
 	} > eedata = 0xff
 
 	/* at least a byte of code is needed, or ld cannot locate "__code_start" symbol properly */
-	.codeplaceholder : {
+	.codeplaceholder (NOLOAD) : {
 
 		BYTE (0xff) ;
 
 	} > code
 
-	.stack : {
+	.stack (NOLOAD) : {
 		. = ALIGN(4);
 		__stack_bottom = ABSOLUTE(.);
 		KEEP ( *(.stack) );
@@ -63,7 +63,7 @@ SECTIONS
 		*(.data.*);
 		. = ALIGN(4);
 		__data_end = ABSOLUTE(.);
-	 } > ram AT > code
+	 } > ram AT > bl
 
 	.bss : {
 		. = ALIGN(4);
@@ -74,4 +74,4 @@ SECTIONS
 	} > ram
 }
 
-ENTRY(_BL)
+ENTRY(__blEntry)

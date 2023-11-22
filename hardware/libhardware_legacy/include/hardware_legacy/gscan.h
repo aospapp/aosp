@@ -3,6 +3,16 @@
 #ifndef __WIFI_HAL_GSCAN_H__
 #define __WIFI_HAL_GSCAN_H__
 
+// Define static_assert() unless already defined by compiler.
+#ifndef __has_feature
+    #define __has_feature(__x) 0
+#endif
+#if !(__has_feature(cxx_static_assert)) && !defined(static_assert)
+        #define static_assert(__b, __m) \
+                extern int compile_time_assert_failed[ ( __b ) ? 1 : -1 ]  \
+                                                                   __attribute__( ( unused ) );
+#endif
+
 /* AP Scans */
 
 typedef enum {

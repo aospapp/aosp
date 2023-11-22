@@ -18,14 +18,16 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
-# Garrett Cooper, September 2009
+# Ngie Cooper, September 2009
 #
 
 top_srcdir		?= ../../..
 
 include $(top_srcdir)/include/mk/env_pre.mk
 
-CFLAGS			+= -D_GNU_SOURCE -I../include/
+CFLAGS			+= -D_GNU_SOURCE\
+			   -I$(top_srcdir)/testcases/realtime/include/\
+			   -I$(top_builddir)/testcases/realtime/include/
 
 LDLIBS			+= -lpthread -lrt -lm
 

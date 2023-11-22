@@ -339,7 +339,8 @@ struct errorCode errorCodeTranslation[] = {
 
 void NanCommand::NanErrorTranslation(NanInternalStatusType firmwareErrorRecvd,
                                      u32 valueRcvd,
-                                     void* pResponse)
+                                     void* pResponse,
+                                     bool is_ndp_rsp)
 {
     int i = 0, j = 0;
     u16 msg_id; /* Based on the message_id in the header determine the Indication type */
@@ -347,8 +348,9 @@ void NanCommand::NanErrorTranslation(NanInternalStatusType firmwareErrorRecvd,
     NanPublishTerminatedInd* pRspInd;
     NanDisabledInd* pRspdInd;
     char tlvInfo[NAN_ERROR_STR_LEN];
+    tlvInfo[0] = '\0';
 
-    if (isNanResponse()) {
+    if (isNanResponse() || (is_ndp_rsp == true)){
         pRsp = (NanResponseMsg*)pResponse;
         for (i = 0; i < (int)(sizeof(errorCodeTranslation)/ sizeof(errorCode)); i++) {
             if (errorCodeTranslation[i].firmwareError == firmwareErrorRecvd) {
@@ -426,7 +428,7 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
             pNanErrorRspMsg pFwRsp = \
                 (pNanErrorRspMsg)mNanVendorEvent;
             *id = (transaction_id)pFwRsp->fwHeader.transactionId;
-            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, pFwRsp->value, pRsp);
+            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, pFwRsp->value, pRsp, false);
             pRsp->response_type = NAN_RESPONSE_ERROR;
             break;
         }
@@ -435,7 +437,7 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
             pNanConfigurationRspMsg pFwRsp = \
                 (pNanConfigurationRspMsg)mNanVendorEvent;
             *id = (transaction_id)pFwRsp->fwHeader.transactionId;
-            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, pFwRsp->value, pRsp);
+            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, pFwRsp->value, pRsp, false);
             pRsp->response_type = NAN_RESPONSE_CONFIG;
         }
         break;
@@ -444,7 +446,7 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
             pNanPublishServiceCancelRspMsg pFwRsp = \
                 (pNanPublishServiceCancelRspMsg)mNanVendorEvent;
             *id = (transaction_id)pFwRsp->fwHeader.transactionId;
-            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, pFwRsp->value, pRsp);
+            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, pFwRsp->value, pRsp, false);
             pRsp->response_type = NAN_RESPONSE_PUBLISH_CANCEL;
             pRsp->body.publish_response.publish_id = \
                 pFwRsp->fwHeader.handle;
@@ -455,7 +457,7 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
             pNanPublishServiceRspMsg pFwRsp = \
                 (pNanPublishServiceRspMsg)mNanVendorEvent;
             *id = (transaction_id)pFwRsp->fwHeader.transactionId;
-            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, pFwRsp->value, pRsp);
+            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, pFwRsp->value, pRsp, false);
             pRsp->response_type = NAN_RESPONSE_PUBLISH;
             pRsp->body.publish_response.publish_id = \
                 pFwRsp->fwHeader.handle;
@@ -466,7 +468,7 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
             pNanSubscribeServiceRspMsg pFwRsp = \
                 (pNanSubscribeServiceRspMsg)mNanVendorEvent;
             *id = (transaction_id)pFwRsp->fwHeader.transactionId;
-            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, pFwRsp->value, pRsp);
+            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, pFwRsp->value, pRsp, false);
             pRsp->response_type = NAN_RESPONSE_SUBSCRIBE;
             pRsp->body.subscribe_response.subscribe_id = \
                 pFwRsp->fwHeader.handle;
@@ -477,7 +479,7 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
             pNanSubscribeServiceCancelRspMsg pFwRsp = \
                 (pNanSubscribeServiceCancelRspMsg)mNanVendorEvent;
             *id = (transaction_id)pFwRsp->fwHeader.transactionId;
-            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, pFwRsp->value, pRsp);
+            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, pFwRsp->value, pRsp, false);
             pRsp->response_type = NAN_RESPONSE_SUBSCRIBE_CANCEL;
             pRsp->body.subscribe_response.subscribe_id = \
                 pFwRsp->fwHeader.handle;
@@ -488,7 +490,7 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
             pNanTransmitFollowupRspMsg pFwRsp = \
                 (pNanTransmitFollowupRspMsg)mNanVendorEvent;
             *id = (transaction_id)pFwRsp->fwHeader.transactionId;
-            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, pFwRsp->value, pRsp);
+            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, pFwRsp->value, pRsp, false);
             pRsp->response_type = NAN_RESPONSE_TRANSMIT_FOLLOWUP;
             break;
         }
@@ -498,7 +500,7 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
                 (pNanStatsRspMsg)mNanVendorEvent;
             *id = (transaction_id)pFwRsp->fwHeader.transactionId;
             NanErrorTranslation((NanInternalStatusType)pFwRsp->statsRspParams.status,
-                                            pFwRsp->statsRspParams.value, pRsp);
+                                            pFwRsp->statsRspParams.value, pRsp, false);
             pRsp->response_type = NAN_RESPONSE_STATS;
             pRsp->body.stats_response.stats_type = \
                 (NanStatsType)pFwRsp->statsRspParams.statsType;
@@ -531,7 +533,7 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
             pNanEnableRspMsg pFwRsp = \
                 (pNanEnableRspMsg)mNanVendorEvent;
             *id = (transaction_id)pFwRsp->fwHeader.transactionId;
-            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, pFwRsp->value, pRsp);
+            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, pFwRsp->value, pRsp, false);
             pRsp->response_type = NAN_RESPONSE_ENABLED;
             break;
         }
@@ -540,7 +542,7 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
             pNanDisableRspMsg pFwRsp = \
                 (pNanDisableRspMsg)mNanVendorEvent;
             *id = (transaction_id)pFwRsp->fwHeader.transactionId;
-            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, 0, pRsp);
+            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, 0, pRsp, false);
             pRsp->response_type = NAN_RESPONSE_DISABLED;
             break;
         }
@@ -549,7 +551,7 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
             pNanTcaRspMsg pFwRsp = \
                 (pNanTcaRspMsg)mNanVendorEvent;
             *id = (transaction_id)pFwRsp->fwHeader.transactionId;
-            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, pFwRsp->value, pRsp);
+            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, pFwRsp->value, pRsp, false);
             pRsp->response_type = NAN_RESPONSE_TCA;
             break;
         }
@@ -558,7 +560,7 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
             pNanBeaconSdfPayloadRspMsg pFwRsp = \
                 (pNanBeaconSdfPayloadRspMsg)mNanVendorEvent;
             *id = (transaction_id)pFwRsp->fwHeader.transactionId;
-            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, 0, pRsp);
+            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, 0, pRsp, false);
             pRsp->response_type = NAN_RESPONSE_BEACON_SDF_PAYLOAD;
             break;
         }
@@ -567,7 +569,7 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
             pNanCapabilitiesRspMsg pFwRsp = \
                 (pNanCapabilitiesRspMsg)mNanVendorEvent;
             *id = (transaction_id)pFwRsp->fwHeader.transactionId;
-            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, pFwRsp->value, pRsp);
+            NanErrorTranslation((NanInternalStatusType)pFwRsp->status, pFwRsp->value, pRsp, false);
             pRsp->response_type = NAN_GET_CAPABILITIES;
             pRsp->body.nan_capabilities.max_concurrent_nan_clusters = \
                         pFwRsp->max_concurrent_nan_clusters;
@@ -867,6 +869,7 @@ void NanCommand::handleNanStatsResponse(NanStatsType stats_type,
         sync_stats.discBeaconTxFailures = pSyncStats->discBeaconTxFailures;
         sync_stats.amHopCountExpireCount = pSyncStats->amHopCountExpireCount;
         sync_stats.ndpChannelFreq = pSyncStats->ndpChannelFreq;
+        sync_stats.ndpChannelFreq2 = pSyncStats->ndpChannelFreq2;
         memcpy(&pRsp->data, &sync_stats, sizeof(NanSyncStats));
     } else if (stats_type == NAN_STATS_ID_DE) {
         NanDeStats de_stats;
@@ -936,7 +939,7 @@ int NanCommand::handleNdpResponse(NanResponseType ndpCmdType,
     ALOGD("%s: Transaction id : val %d", __FUNCTION__, id);
 
     NanErrorTranslation((NanInternalStatusType)nla_get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_DRV_RESPONSE_STATUS_TYPE]),
-                        nla_get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_DRV_RETURN_VALUE]), &rsp_data);
+                        nla_get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_DRV_RETURN_VALUE]), &rsp_data, true);
     rsp_data.response_type = ndpCmdType;
 
     if (ndpCmdType == NAN_DP_INITIATOR_RESPONSE)

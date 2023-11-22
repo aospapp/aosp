@@ -78,7 +78,6 @@
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"ശബ്ദമെയിൽ(<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"VM:"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"അറിയിപ്പുകൾ"</string>
-    <string name="networks" msgid="8873030692174541976">"നെറ്റ്‌വർക്ക് ഓപ്പറേറ്റർമാർ"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"അടിയന്തര പ്രക്ഷേപണങ്ങൾ"</string>
     <string name="call_settings" msgid="6112441768261754562">"കോൾ ക്രമീകരണങ്ങൾ"</string>
     <string name="additional_gsm_call_settings" msgid="1391795981938800617">"അധിക ക്രമീകരണങ്ങൾ"</string>
@@ -164,20 +163,18 @@
     <string name="label_available" msgid="1181658289009300430">"ലഭ്യമായ നെറ്റ്‌വർക്കുകൾ"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"തിരയുന്നു…"</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"നെറ്റ്‌വർക്കുകളൊന്നും കണ്ടെത്തിയില്ല."</string>
-    <string name="search_networks" msgid="1601136049300882441">"നെറ്റ്‌വർക്കുകൾ തിരയുക"</string>
     <string name="network_query_error" msgid="6828516148953325006">"നെറ്റ്‌വർക്കുകൾക്കായി തിരയുമ്പോൾ പിശക്."</string>
     <string name="register_on_network" msgid="9055203954040805084">"<xliff:g id="NETWORK">%s</xliff:g> എന്നതിൽ രജിസ്റ്റർ ചെയ്യുന്നു…"</string>
     <string name="not_allowed" msgid="5613353860205691579">"നിങ്ങളുടെ സിം കാർഡ് ഈ നെറ്റ്‌വർക്കിലേക്ക് ഒരു കണക്ഷൻ അനുവദിക്കുന്നില്ല."</string>
     <string name="connect_later" msgid="2308119155752343975">"ഈ നെറ്റ്‌വർക്കിൽ ഇപ്പോൾ കണക്റ്റുചെയ്യാനാകുന്നില്ല. പിന്നീട് വീണ്ടും ശ്രമിക്കുക."</string>
     <string name="registration_done" msgid="495135664535876612">"ഒരു നെറ്റ്‌വർക്കിൽ രജിസ്റ്റർ ചെയ്‌തു."</string>
-    <string name="sum_carrier_select" msgid="3494252551249882718">"ഒരു നെ‌റ്റ്‌വർക്ക് ഓപ്പറേറ്ററെ തിരഞ്ഞെടുക്കുക"</string>
-    <string name="sum_search_networks" msgid="2921092249873272715">"ലഭ്യമായ എല്ലാ നെറ്റ്‌വർക്കുകൾക്കായും തിരയുക"</string>
-    <string name="select_automatically" msgid="5628402124471810174">"സ്വയമേവ തിരഞ്ഞെടുക്കൂ"</string>
-    <string name="sum_select_automatically" msgid="5614890115123292400">"താൽപ്പര്യമുള്ള നെറ്റ്‌വർക്ക് സ്വയമേവ തിരഞ്ഞെടുക്കൂ"</string>
+    <string name="select_automatically" msgid="1046727200631770962">"സ്വയമേവ നെറ്റ്‌വർക്ക് തിരഞ്ഞെടുക്കുക"</string>
+    <string name="network_select_title" msgid="7733107364757544558">"നെറ്റ്‌വർക്ക്"</string>
     <string name="register_automatically" msgid="6017849844573519637">"യാന്ത്രിക രജിസ്‌ട്രേഷൻ…"</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"തിരഞ്ഞെടുത്ത നെറ്റ്‌വർക്ക് തരം"</string>
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"നെറ്റ്‌വർക്ക് ഓപ്പറേറ്റുചെയ്യൽ മോഡ് മാറ്റുക"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"തിരഞ്ഞെടുത്ത നെറ്റ്‌വർക്ക് തരം"</string>
+    <string name="forbidden_network" msgid="4384929668343563440">"(നിരോധിക്കപ്പെട്ടത്)"</string>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"തിരഞ്ഞെടുത്ത നെറ്റ്‌വർക്ക് മോഡ്: WCDMA തിരഞ്ഞെടുത്തു"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"തിരഞ്ഞെടുത്ത നെറ്റ്‌വർക്ക് മോഡ്: GSM മാത്രം"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"തിരഞ്ഞെടുത്ത നെറ്റ്‌വർക്ക് മോഡ്: WCDMA മാത്രം"</string>
@@ -210,18 +207,34 @@
     <item msgid="1524224863879435516">"GSM മാത്രം"</item>
     <item msgid="3817924849415716259">"GSM/WCDMA തിരഞ്ഞെടുത്തത്"</item>
   </string-array>
+    <string name="call_category" msgid="5863978196309462052">"കോൾചെയ്യുന്നു"</string>
+    <string name="network_operator_category" msgid="4830701959205735636">"നെറ്റ്‌വർക്ക്"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"മെച്ചപ്പെടുത്തിയ 4G LTE മോഡ്"</string>
     <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"വിപുലമായ കോളിംഗ്"</string>
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"വോയ്‌സ്, മറ്റ് ആശയവിനിമയങ്ങൾ (ശുപാർശിതം) എന്നിവ മികച്ചതാക്കുന്നതിന് LTE സേവനങ്ങൾ ഉപയോഗിക്കുക"</string>
     <string name="data_enabled" msgid="5972538663568715366">"ഡാറ്റ പ്രവർത്തനക്ഷമമാക്കി"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"ഡാറ്റ ഉപയോഗം അനുവദിക്കുക"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"ശ്രദ്ധിക്കുക"</string>
-    <string name="roaming" msgid="8871412572928323707">"ഡാറ്റ റോമിംഗ്"</string>
+    <string name="roaming" msgid="7894878421600247140">"റോമിംഗ്"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"റോമിംഗിലാകുമ്പോൾ ഡാറ്റ സേവനങ്ങളുമായി കണ‌ക്റ്റുചെയ്യുക"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"റോമിംഗിലാകുമ്പോൾ ഡാറ്റ സേവനങ്ങളുമായി കണ‌ക്റ്റുചെയ്യുക"</string>
     <string name="roaming_reenable_message" msgid="8913735676127858115">"നിങ്ങൾ ഡാറ്റ റോമിംഗ് ഓഫുചെയ്‌തതിനൊപ്പം നിങ്ങളുടെ ഹോം നെ‌റ്റ്‌വർക്കും വിട്ടതിനാൽ നിങ്ങൾക്ക് ഡാറ്റ കണക്റ്റിവിറ്റി നഷ്‌ടപ്പെട്ടു."</string>
     <string name="roaming_warning" msgid="1603164667540144353">"നിങ്ങളിൽ നിന്ന് നിർദ്ദിഷ്‌ട നിരക്കുകൾ ഈടാക്കിയേക്കാം."</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"ഡാറ്റ റോമിംഗ് അനുവദിക്കണോ?"</string>
+    <string name="data_usage_title" msgid="8759619109516889802">"ഡാറ്റ ഉപയോഗം"</string>
+    <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_2">%2$s</xliff:g> തീയതികൾക്കിടയിൽ <xliff:g id="ID_1">%1$s</xliff:g> മൊബൈൽ ഡാറ്റ ഉപയോഗിച്ചു"</string>
+    <string name="advanced_options_title" msgid="8074895510265488035">"വിപുലമായത്"</string>
+    <string name="carrier_settings_euicc" msgid="6714062862127226405">"കാരിയര്‍"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"കാരിയർ, ഇ-സിം, സിം, euicc"</string>
+    <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> — <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
+    <string name="mobile_data_settings_title" msgid="4661165467914727157">"മൊബൈൽ ഡാറ്റ"</string>
+    <string name="mobile_data_settings_summary" msgid="5087255915840576895">"മൊബൈൽ നെറ്റ്‌വർക്ക് ഉപയോഗിച്ച് ഡാറ്റ ആക്‌സസ് ചെയ്യുക"</string>
+    <string name="data_usage_disable_mobile" msgid="3577275288809667615">"മൊബൈൽ ഡാറ്റ ഓഫാക്കണോ?"</string>
+    <string name="sim_selection_required_pref" msgid="7049424902961844236">"തിരഞ്ഞെടുക്കൽ ആവശ്യമാണ്"</string>
+    <string name="sim_change_data_title" msgid="5332425991853799280">"ഡാറ്റ SIM മാറ്റണോ?"</string>
+    <string name="sim_change_data_message" msgid="2163963581444907496">"മൊബൈൽ ഡാറ്റയ്ക്ക് <xliff:g id="OLD_SIM">%2$s</xliff:g>-ന് പകരം <xliff:g id="NEW_SIM">%1$s</xliff:g> ഉപയോഗിക്കണോ?"</string>
+    <string name="wifi_calling_settings_title" msgid="7741961465416430470">"വൈഫൈ കോളിംഗ്"</string>
+    <string name="video_calling_settings_title" msgid="539714564273795574">"സേവനദായക വീഡിയോ കോളിംഗ്"</string>
     <string name="gsm_umts_options" msgid="6538311689850981686">"GSM/UMTS ഓപ്‌ഷനുകൾ"</string>
     <string name="cdma_options" msgid="4016822858172249884">"CDMA ഓപ്‌ഷനുകൾ"</string>
     <string name="throttle_data_usage" msgid="3715677828160555808">"ഡാറ്റ ഉപയോഗം"</string>
@@ -452,7 +465,7 @@
     <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"മൊബൈൽ നെറ്റ്‌വർക്ക് ലഭ്യമല്ല. കോൾ വിളിക്കാൻ വയർലെസ്സ് നെറ്റ്‌വർക്കിലേക്ക് കണക്റ്റുചെയ്യുക."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"ഒരു കോൾ ചെയ്യുന്നതിന്, സാധുതയുള്ള നമ്പർ നൽകുക."</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"കോൾ ചെയ്യാനായില്ല."</string>
-    <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"കോൾ ഇപ്പോൾ ചേർക്കാനാകില്ല."</string>
+    <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"ഇപ്പോൾ കോൾ ചേർക്കാനാവില്ല. നിങ്ങൾക്കൊരു സന്ദേശമയച്ചുകൊണ്ട് ബന്ധപ്പെടാൻ ശ്രമിക്കാം."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"സേവനം പിന്തുണയ്‌ക്കുന്നില്ല"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"കോളുകൾ മാറാനാവില്ല."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"കോൾ വേർതിരിക്കാനാവില്ല."</string>
@@ -572,6 +585,8 @@
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"നിരവധി കോളുകൾ നിലവിൽ സജീവമായുണ്ട്. പുതിയ കോൾ വിളിക്കുന്നതിനുമുമ്പ് നിലവിലുള്ള കോളുകൾ അവസാനിപ്പിക്കുകയോ ലയിപ്പിക്കുകയോ ചെയ്യുക."</string>
     <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"കണക്റ്റുചെയ്യാനാകുന്നില്ല, ഉപയോഗിക്കാനാകുന്ന ഒരു സിം കാർഡ് ഇടുക."</string>
     <string name="callFailed_wifi_lost" msgid="5968076625137297184">"Wi-Fi കണക്ഷൻ പോയതിനാൽ കോൾ അവസാനിച്ചു."</string>
+    <string name="dialFailed_low_battery" msgid="8760548177088774268">"ബാറ്ററിയി ചാർജ്ജ് കുറവായതിനാൽ വീഡിയോ കോൾ ചെയ്യാനായില്ല."</string>
+    <string name="callFailed_low_battery" msgid="4913582435905872616">"ബാറ്ററി ചാർജ്ജ് കുറവായതിനാൽ വീഡിയോ കോൾ അവസാനിച്ചു."</string>
     <string name="change_pin_title" msgid="7790232089699034029">"വോയ്‌സ്മെയിൽ പിൻ മാറ്റുക"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"തുടരുക"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"റദ്ദാക്കുക"</string>
@@ -584,4 +599,18 @@
     <string name="change_pin_confirm_pins_dont_match" msgid="4795052654904027909">"PIN-കൾ പൊരുത്തപ്പെടുന്നില്ല"</string>
     <string name="change_pin_succeeded" msgid="2022852286442211151">"വോയ്‌സ്‌മെയിൽ പിൻ അപ്‌ഡേറ്റുചെയ്‌തു"</string>
     <string name="change_pin_system_error" msgid="8308462387154257840">"പിൻ സജ്ജമാക്കാൻ കഴിയുന്നില്ല"</string>
+    <string name="mobile_data_status_roaming_turned_off_subtext" msgid="935636805765823307">"ഡാറ്റ റോമിംഗ് ഓഫാക്കി"</string>
+    <string name="mobile_data_status_roaming_turned_on_subtext" msgid="1335176927083781041">"ഡാറ്റ റോമിംഗ് ഓണാക്കി"</string>
+    <string name="mobile_data_status_roaming_without_plan_subtext" msgid="3568412513831673037">"നിലവിൽ റോമിംഗിലായതിനാൽ, ഡാറ്റ പ്ലാൻ ആവശ്യമാണ്"</string>
+    <string name="mobile_data_status_roaming_with_plan_subtext" msgid="8721998948811064377">"നിലവിൽ റോമിംഗിലാണെങ്കിലും, ഡാറ്റ പ്ലാൻ സജീവമാണ്"</string>
+    <string name="mobile_data_status_no_plan_subtext" msgid="4887747337017565725">"മൊബൈൽ ഡാറ്റ തീർന്നു"</string>
+    <string name="mobile_data_activate_prepaid" msgid="7447025165850512683">"മൊബൈൽ ഡാറ്റ തീർന്നു"</string>
+    <string name="mobile_data_activate_prepaid_summary" msgid="5705389791791637666">"<xliff:g id="PROVIDER_NAME">%s</xliff:g> വഴി മൊബൈൽ ഡാറ്റ ചേർക്കുക"</string>
+    <string name="mobile_data_activate_roaming_plan" msgid="5998161536947086264">"റോമിംഗ് പ്ലാൻ ഇല്ല"</string>
+    <string name="mobile_data_activate_roaming_plan_summary" msgid="511202908883425459">"<xliff:g id="PROVIDER_NAME">%s</xliff:g> വഴി റോമിംഗ് പ്ലാൻ ചേർക്കുക"</string>
+    <string name="mobile_data_activate_footer" msgid="5979019929980140594">"നിങ്ങളുടെ സേവനദായകൻ വഴി മൊബൈൽ ഡാറ്റയോ റോമിംഗ് പ്ലാനോ ചേർക്കാനാവും, <xliff:g id="PROVIDER_NAME">%s</xliff:g>."</string>
+    <string name="mobile_data_activate_diag_title" msgid="9044252207707864493">"ഡാറ്റ ചേർക്കണോ?"</string>
+    <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"നിങ്ങൾക്ക് <xliff:g id="PROVIDER_NAME">%s</xliff:g> വഴി ഡാറ്റ ചേർക്കേണ്ടി വന്നേക്കാം"</string>
+    <string name="mobile_data_activate_button" msgid="3682400969184405446">"ഡാറ്റ ചേർക്കുക"</string>
+    <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"റദ്ദാക്കുക"</string>
 </resources>

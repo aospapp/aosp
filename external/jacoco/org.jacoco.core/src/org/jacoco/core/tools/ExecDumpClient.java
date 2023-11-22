@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -123,7 +123,10 @@ public class ExecDumpClient {
 					.setExecutionDataVisitor(loader.getExecutionDataStore());
 
 			remoteWriter.visitDumpCommand(dump, reset);
-			remoteReader.read();
+
+			if (!remoteReader.read()) {
+				throw new IOException("Socket closed unexpectedly.");
+			}
 
 		} finally {
 			socket.close();

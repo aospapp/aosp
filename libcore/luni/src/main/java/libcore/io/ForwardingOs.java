@@ -28,6 +28,7 @@ import android.system.StructIfaddrs;
 import android.system.StructLinger;
 import android.system.StructPasswd;
 import android.system.StructPollfd;
+import android.system.StructRlimit;
 import android.system.StructStat;
 import android.system.StructStatVfs;
 import android.system.StructTimeval;
@@ -98,6 +99,7 @@ public class ForwardingOs implements Os {
     public int getppid() { return os.getppid(); }
     public StructPasswd getpwnam(String name) throws ErrnoException { return os.getpwnam(name); }
     public StructPasswd getpwuid(int uid) throws ErrnoException { return os.getpwuid(uid); }
+    public StructRlimit getrlimit(int resource) throws ErrnoException { return os.getrlimit(resource); }
     public SocketAddress getsockname(FileDescriptor fd) throws ErrnoException { return os.getsockname(fd); }
     public int getsockoptByte(FileDescriptor fd, int level, int option) throws ErrnoException { return os.getsockoptByte(fd, level, option); }
     public InetAddress getsockoptInAddr(FileDescriptor fd, int level, int option) throws ErrnoException { return os.getsockoptInAddr(fd, level, option); }

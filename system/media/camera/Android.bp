@@ -3,6 +3,9 @@ subdirs = ["tests"]
 cc_library_shared {
     name: "libcamera_metadata",
     vendor_available: true,
+    vndk: {
+        enabled: true,
+    },
     srcs: ["src/camera_metadata.c"],
 
     include_dirs: ["system/media/private/camera/include"],

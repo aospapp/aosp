@@ -137,6 +137,20 @@ public class SoftApManagerTest {
         startSoftApAndVerifyEnabled(config);
     }
 
+
+    /**
+     * Verifies startSoftAp will start with the hiddenSSID param set when it is set to true in the
+     * supplied config.
+     */
+    @Test
+    public void startSoftApWithHiddenSsidTrueInConfig() throws Exception {
+        WifiConfiguration config = new WifiConfiguration();
+        config.apBand = WifiConfiguration.AP_BAND_2GHZ;
+        config.SSID = TEST_SSID;
+        config.hiddenSSID = true;
+        startSoftApAndVerifyEnabled(config);
+    }
+
     /** Tests softap startup if default config fails to load. **/
     @Test
     public void startSoftApDefaultConfigFailedToLoad() throws Exception {
@@ -200,6 +214,7 @@ public class SoftApManagerTest {
     /** Starts soft AP and verifies that it is enabled successfully. */
     protected void startSoftApAndVerifyEnabled(WifiConfiguration config) throws Exception {
         String expectedSSID;
+        boolean expectedHiddenSsid;
         InOrder order = inOrder(mListener, mApInterfaceBinder, mApInterface, mNmService);
 
         when(mWifiNative.isHalStarted()).thenReturn(false);
@@ -210,16 +225,19 @@ public class SoftApManagerTest {
         if (config == null) {
             when(mWifiApConfigStore.getApConfiguration()).thenReturn(mDefaultApConfig);
             expectedSSID = mDefaultApConfig.SSID;
+            expectedHiddenSsid = mDefaultApConfig.hiddenSSID;
         } else {
             expectedSSID = config.SSID;
+            expectedHiddenSsid = config.hiddenSSID;
         }
+
         mSoftApManager.start();
         mLooper.dispatchAll();
         order.verify(mListener).onStateChanged(WifiManager.WIFI_AP_STATE_ENABLING, 0);
         order.verify(mApInterfaceBinder).linkToDeath(mDeathListenerCaptor.capture(), eq(0));
         order.verify(mNmService).registerObserver(mNetworkObserverCaptor.capture());
         order.verify(mApInterface).writeHostapdConfig(
-                eq(expectedSSID.getBytes(StandardCharsets.UTF_8)), anyBoolean(),
+                eq(expectedSSID.getBytes(StandardCharsets.UTF_8)), eq(expectedHiddenSsid),
                 anyInt(), anyInt(), any());
         order.verify(mApInterface).startHostapd();
         mNetworkObserverCaptor.getValue().interfaceLinkStateChanged(TEST_INTERFACE_NAME, true);

@@ -14,12 +14,12 @@
      limitations under the License.
 -->
 <resources>
-    <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
-        <item name="android:preferenceCategoryStyle">@style/AppTheme.PreferenceCategoryStyle</item>
+    <style name="AppTheme" parent="@android:style/Theme.DeviceDefault.Settings">
         <item name="colorPrimaryDark">@color/primary_dark_color</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="tabIndicatorColor">@color/accent_color_dark</item>
         <item name="textColorActionBar">?android:attr/textColorPrimary</item>
+        <item name="preferenceTheme">@style/PreferenceTheme</item>
     </style>
 
     <!-- Base emergency theme. -->
@@ -27,9 +27,9 @@
         <item name="android:preferenceCategoryStyle">@style/AppTheme.PreferenceCategoryStyle</item>
         <item name="colorPrimaryDark">@color/emergency_primary_dark</item>
         <item name="colorPrimary">@color/emergency_primary</item>
-        <item name="colorAccent">@color/emergency_accent</item>
         <item name="textColorActionBar">@color/tab_text_color</item>
         <item name="tabIndicatorColor">@color/emergency_accent</item>
+        <item name="preferenceTheme">@style/PreferenceTheme</item>
     </style>
 
     <!-- ActionBar -->
@@ -57,5 +57,22 @@
     <!-- Preferences -->
     <style name="AppTheme.PreferenceCategoryStyle" parent="Preference.Category">
         <item name="android:layout">@layout/custom_preference_category_layout</item>
+    </style>
+
+    <style name="PreferenceTheme" parent="@style/PreferenceThemeOverlay.v14.Material">
+        <!-- Parent path frameworks/support/v14/preference/res/values/themes.xml -->
+        <item name="android:scrollbars">vertical</item>
+        <item name="footerPreferenceStyle">@style/FooterPreference</item>
+        <item name="preferenceCategoryStyle">@style/PreferenceCategory</item>
+    </style>
+
+    <style name="FooterPreference" parent="PreferenceTheme">
+        <item name="android:layout">@layout/preference_footer</item>
+        <item name="allowDividerAbove">true</item>
+    </style>
+
+    <style name="PreferenceCategory" parent="@style/Preference.Category.Material">
+        <item name="allowDividerAbove">true</item>
+        <item name="android:layout">@layout/preference_category_material_settings</item>
     </style>
 </resources>

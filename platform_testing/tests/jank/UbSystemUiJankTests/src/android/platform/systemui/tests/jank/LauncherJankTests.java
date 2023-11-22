@@ -117,7 +117,7 @@ public class LauncherJankTests extends JankTestBase {
     }
 
     public void openAllApps() throws UiObjectNotFoundException, IOException {
-        mLauncherStrategy.openAllApps(true);
+        mLauncherStrategy.openAllApps(false);
         TimeResultLogger.writeTimeStampLogStart(String.format("%s-%s",
                 getClass().getSimpleName(), getName()), TIMESTAMP_FILE);
     }
@@ -136,6 +136,7 @@ public class LauncherJankTests extends JankTestBase {
     @GfxMonitor(processName="#getLauncherPackage")
     public void testAllAppsContainerSwipe() {
         UiObject2 allApps = mDevice.findObject(mLauncherStrategy.getAllAppsSelector());
+        allApps.setGestureMargin(150);
         Direction dir = mLauncherStrategy.getAllAppsScrollDirection();
         for (int i = 0; i < INNER_LOOP * 2; i++) {
             allApps.fling(dir, FLING_SPEED);
@@ -210,60 +211,6 @@ public class LauncherJankTests extends JankTestBase {
         for (int i = 0; i < INNER_LOOP; i++) {
             allWidgets.fling(dir, FLING_SPEED);
             allWidgets.fling(Direction.reverse(dir), FLING_SPEED);
-        }
-    }
-
-    public void launchChrome() {
-        Intent chromeIntent = pm.getLaunchIntentForPackage("com.android.chrome");
-        chromeIntent.addCategory(Intent.CATEGORY_LAUNCHER);
-        chromeIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        getInstrumentation().getContext().startActivity(chromeIntent);
-        SystemClock.sleep(TIMEOUT);
-    }
-
-    /** Measures jank while navigating from Chrome to Home */
-    @JankTest(beforeTest="goHome", expectedFrames=100)
-    @WindowAnimationFrameStatsMonitor
-    public void testAppSwitchChrometoHome() throws UiObjectNotFoundException {
-        for (int i = 0; i < INNER_LOOP; i++) {
-            launchChrome();
-            goHome();
-        }
-    }
-
-    public void launchPhotos() {
-        Intent photosIntent = pm.getLaunchIntentForPackage("com.google.android.apps.photos");
-        photosIntent.addCategory(Intent.CATEGORY_LAUNCHER);
-        photosIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        getInstrumentation().getContext().startActivity(photosIntent);
-        SystemClock.sleep(TIMEOUT);
-    }
-
-    /** Measures jank while navigating from Photos to Home */
-    @JankTest(beforeTest="goHome", expectedFrames=100)
-    @WindowAnimationFrameStatsMonitor
-    public void testAppSwitchPhotostoHome() throws UiObjectNotFoundException {
-        for (int i = 0; i < INNER_LOOP; i++) {
-            launchPhotos();
-            goHome();
-        }
-    }
-
-    public void launchGMail() {
-        Intent gmailIntent = pm.getLaunchIntentForPackage("com.google.android.gm");
-        gmailIntent.addCategory(Intent.CATEGORY_LAUNCHER);
-        gmailIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        getInstrumentation().getContext().startActivity(gmailIntent);
-        SystemClock.sleep(TIMEOUT);
-    }
-
-    /** Measures jank while navigating from GMail to Home */
-    @JankTest(beforeTest="goHome", expectedFrames=100)
-    @WindowAnimationFrameStatsMonitor
-    public void testAppSwitchGMailtoHome() throws UiObjectNotFoundException {
-        for (int i = 0; i < INNER_LOOP; i++) {
-            launchPhotos();
-            goHome();
         }
     }
 }

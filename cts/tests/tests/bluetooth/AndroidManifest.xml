@@ -25,6 +25,7 @@
 
     <application>
         <uses-library android:name="android.test.runner" />
+        <receiver android:name=".BluetoothScanReceiver" />
     </application>
 
     <!-- This is a self-instrumenting test package. -->

@@ -12,6 +12,7 @@ TEST_TYPE = "server"
 DEPENDENCIES = "rpm, power:battery, hw_video_acc_vp8"
 BUG_TEMPLATE = {
     "labels": ["OS-Chrome", "VideoTestFailure"],
+    "cc": ["chromeos-video-test-failures@google.com"],
 }
 
 DOC = """

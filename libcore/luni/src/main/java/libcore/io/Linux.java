@@ -28,6 +28,7 @@ import android.system.StructIfaddrs;
 import android.system.StructLinger;
 import android.system.StructPasswd;
 import android.system.StructPollfd;
+import android.system.StructRlimit;
 import android.system.StructStat;
 import android.system.StructStatVfs;
 import android.system.StructTimeval;
@@ -89,6 +90,7 @@ public final class Linux implements Os {
     public native int getppid();
     public native StructPasswd getpwnam(String name) throws ErrnoException;
     public native StructPasswd getpwuid(int uid) throws ErrnoException;
+    public native StructRlimit getrlimit(int resource) throws ErrnoException;
     public native SocketAddress getsockname(FileDescriptor fd) throws ErrnoException;
     public native int getsockoptByte(FileDescriptor fd, int level, int option) throws ErrnoException;
     public native InetAddress getsockoptInAddr(FileDescriptor fd, int level, int option) throws ErrnoException;

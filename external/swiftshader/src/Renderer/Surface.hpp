@@ -217,7 +217,7 @@ namespace sw
 		LOCK_DISCARD
 	};
 
-	class Surface
+	class [[clang::lto_visibility_public]] Surface
 	{
 	private:
 		struct Buffer
@@ -250,11 +250,15 @@ namespace sw
 			bool dirty;
 		};
 
-	public:
+	protected:
 		Surface(int width, int height, int depth, Format format, void *pixels, int pitch, int slice);
 		Surface(Resource *texture, int width, int height, int depth, Format format, bool lockable, bool renderTarget, int pitchP = 0);
 
-		virtual ~Surface();
+	public:
+		static Surface *create(int width, int height, int depth, Format format, void *pixels, int pitch, int slice);
+		static Surface *create(Resource *texture, int width, int height, int depth, Format format, bool lockable, bool renderTarget, int pitchP = 0);
+
+		virtual ~Surface() = 0;
 
 		inline void *lock(int x, int y, int z, Lock lock, Accessor client, bool internal = false);
 		inline void unlock(bool internal = false);
@@ -275,24 +279,28 @@ namespace sw
 		inline int getExternalSliceB() const;
 		inline int getExternalSliceP() const;
 
-		virtual void *lockInternal(int x, int y, int z, Lock lock, Accessor client);
-		virtual void unlockInternal();
+		virtual void *lockInternal(int x, int y, int z, Lock lock, Accessor client) = 0;
+		virtual void unlockInternal() = 0;
 		inline Format getInternalFormat() const;
 		inline int getInternalPitchB() const;
 		inline int getInternalPitchP() const;
 		inline int getInternalSliceB() const;
 		inline int getInternalSliceP() const;
 
-		void *lockStencil(int front, Accessor client);
+		void *lockStencil(int x, int y, int front, Accessor client);
 		void unlockStencil();
+		inline Format getStencilFormat() const;
 		inline int getStencilPitchB() const;
 		inline int getStencilSliceB() const;
+
+		void sync();                      // Wait for lock(s) to be released.
+		inline bool isUnlocked() const;   // Only reliable after sync().
 
 		inline int getMultiSampleCount() const;
 		inline int getSuperSampleCount() const;
 
-		bool isEntire(const SliceRect& rect) const;
-		SliceRect getRect() const;
+		bool isEntire(const Rect& rect) const;
+		Rect getRect() const;
 		void clearDepth(float depth, int x0, int y0, int width, int height);
 		void clearStencil(unsigned char stencil, unsigned char mask, int x0, int y0, int width, int height);
 		void fill(const Color<float> &color, int x0, int y0, int width, int height);
@@ -326,6 +334,7 @@ namespace sw
 
 		static bool isStencil(Format format);
 		static bool isDepth(Format format);
+		static bool hasQuadLayout(Format format);
 		static bool isPalette(Format format);
 
 		static bool isFloatFormat(Format format);
@@ -333,15 +342,17 @@ namespace sw
 		static bool isSRGBreadable(Format format);
 		static bool isSRGBwritable(Format format);
 		static bool isCompressed(Format format);
+		static bool isSignedNonNormalizedInteger(Format format);
+		static bool isUnsignedNonNormalizedInteger(Format format);
 		static bool isNonNormalizedInteger(Format format);
+		static bool isNormalizedInteger(Format format);
 		static int componentCount(Format format);
 
 		static void setTexturePalette(unsigned int *palette);
 
-	protected:
+	private:
 		sw::Resource *resource;
 
-	private:
 		typedef unsigned char byte;
 		typedef unsigned short word;
 		typedef unsigned int dword;
@@ -510,7 +521,7 @@ namespace sw
 
 	int Surface::getPitchP(bool internal) const
 	{
-		return internal ? getInternalPitchP() : getExternalPitchB();
+		return internal ? getInternalPitchP() : getExternalPitchP();
 	}
 
 	int Surface::getSliceB(bool internal) const
@@ -520,7 +531,7 @@ namespace sw
 
 	int Surface::getSliceP(bool internal) const
 	{
-		return internal ? getInternalSliceP() : getExternalSliceB();
+		return internal ? getInternalSliceP() : getExternalSliceP();
 	}
 
 	Format Surface::getExternalFormat() const
@@ -573,6 +584,11 @@ namespace sw
 		return internal.sliceP;
 	}
 
+	Format Surface::getStencilFormat() const
+	{
+		return stencil.format;
+	}
+
 	int Surface::getStencilPitchB() const
 	{
 		return stencil.pitchB;
@@ -591,6 +607,13 @@ namespace sw
 	int Surface::getSuperSampleCount() const
 	{
 		return internal.depth > 4 ? internal.depth / 4 : 1;
+	}
+
+	bool Surface::isUnlocked() const
+	{
+		return external.lock == LOCK_UNLOCKED &&
+		       internal.lock == LOCK_UNLOCKED &&
+		       stencil.lock == LOCK_UNLOCKED;
 	}
 
 	bool Surface::isExternalDirty() const

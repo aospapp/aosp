@@ -41,7 +41,6 @@ _BUG_TEMPLATE = {
     'status': None,
     'summary': None,
     'title': None,
-    'cc': ['chromeos-lab-errors@google.com']
 }
 
 args_dict['max_runtime_mins'] = 20

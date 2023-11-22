@@ -1,17 +1,6 @@
-//
-// WARNING: Modifying this file will NOT automatically regenerate build.ninja.in!
-//
-// Before modifying this file make sure minibp is up to date:
-//    1) "repo sync build/soong" to make sure you have the latest build.ninja.in
-//    2) build minibp, which builds automicatically through the normal build steps. For example:
-//
-// After modifying this file regenerate build.ninja.in and build your changes:
-//    1) In your build directory, execute "../bootstrap.bash -r" to regenerate build.ninja.in
-//    2) Build again
-//
-
 subdirs = [
     "androidmk",
+    "bpfix",
     "cmd/*",
     "third_party/zip",
     "ui/*",
@@ -47,6 +36,7 @@ bootstrap_go_package {
     ],
     srcs: [
         "android/androidmk.go",
+        "android/api_levels.go",
         "android/arch.go",
         "android/config.go",
         "android/defaults.go",
@@ -61,6 +51,7 @@ bootstrap_go_package {
         "android/paths.go",
         "android/prebuilt.go",
         "android/register.go",
+        "android/testing.go",
         "android/util.go",
         "android/variable.go",
 
@@ -126,12 +117,14 @@ bootstrap_go_package {
         "cc/prebuilt.go",
         "cc/proto.go",
         "cc/relocation_packer.go",
+        "cc/rs.go",
         "cc/sanitize.go",
         "cc/sabi.go",
         "cc/stl.go",
         "cc/strip.go",
         "cc/tidy.go",
         "cc/util.go",
+        "cc/vndk.go",
 
         "cc/cmakelists.go",
         "cc/compiler.go",
@@ -150,6 +143,8 @@ bootstrap_go_package {
         "cc/ndk_sysroot.go",
 
         "cc/llndk_library.go",
+
+        "cc/kernel_headers.go",
     ],
     testSrcs: [
         "cc/cc_test.go",
@@ -166,6 +161,7 @@ bootstrap_go_package {
         "blueprint-pathtools",
         "soong",
         "soong-android",
+        "soong-shared",
     ],
     srcs: [
         "genrule/filegroup.go",
@@ -196,6 +192,7 @@ bootstrap_go_package {
         "soong",
         "soong-android",
         "soong-genrule",
+        "soong-java-config",
     ],
     srcs: [
         "java/androidmk.go",
@@ -206,7 +203,53 @@ bootstrap_go_package {
         "java/java.go",
         "java/resources.go",
     ],
+    testSrcs: [
+        "java/java_test.go",
+    ],
     pluginFor: ["soong_build"],
+}
+
+bootstrap_go_package {
+    name: "soong-java-config",
+    pkgPath: "android/soong/java/config",
+    deps: [
+        "blueprint-proptools",
+        "soong-android",
+    ],
+    srcs: [
+        "java/config/config.go",
+        "java/config/makevars.go",
+    ],
+}
+
+bootstrap_go_package {
+    name: "soong-python",
+    pkgPath: "android/soong/python",
+    deps: [
+        "blueprint",
+        "soong-android",
+    ],
+    srcs: [
+        "python/androidmk.go",
+        "python/binary.go",
+        "python/builder.go",
+        "python/installer.go",
+        "python/library.go",
+        "python/python.go",
+        "python/test.go",
+    ],
+    testSrcs: [
+        "python/python_test.go",
+    ],
+    pluginFor: ["soong_build"],
+}
+
+bootstrap_go_package {
+    name: "soong-shared",
+    pkgPath: "android/soong/shared",
+    srcs: [
+        "shared/paths.go",
+    ],
 }
 
 //
@@ -271,4 +314,9 @@ toolchain_library {
             instruction_set: "arm",
         },
     },
+}
+
+kernel_headers {
+    name: "device_kernel_headers",
+    vendor: true,
 }

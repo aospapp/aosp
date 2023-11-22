@@ -8,7 +8,7 @@ PURPOSE = "Verify that simultaneous playback works fine in all opened tabs."
 CRITERIA = """
 This test will fail if video playback fails in any tab.
 """
-ATTRIBUTES = "suite:experimental"
+ATTRIBUTES = "suite:bvt-perbuild"
 TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"

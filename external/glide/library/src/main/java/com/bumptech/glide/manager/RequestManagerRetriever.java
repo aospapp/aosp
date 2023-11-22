@@ -172,7 +172,7 @@ public class RequestManagerRetriever implements Handler.Callback {
         }
         RequestManager requestManager = current.getRequestManager();
         if (requestManager == null) {
-            requestManager = new RequestManager(context, current.getLifecycle());
+            requestManager = new RequestManager(context, current.getGlideLifecycle());
             current.setRequestManager(requestManager);
         }
         return requestManager;
@@ -192,7 +192,7 @@ public class RequestManagerRetriever implements Handler.Callback {
         }
         RequestManager requestManager = current.getRequestManager();
         if (requestManager == null) {
-            requestManager = new RequestManager(context, current.getLifecycle());
+            requestManager = new RequestManager(context, current.getGlideLifecycle());
             current.setRequestManager(requestManager);
         }
         return requestManager;

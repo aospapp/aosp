@@ -44,6 +44,11 @@ public class MultiDiscovery extends Discovery {
         mChildListener = new Listener() {
             @Override
             public void onPrinterFound(DiscoveredPrinter printer) {
+                DiscoveredPrinter oldPrinter = getPrinter(printer.getUri());
+                if (oldPrinter != null) {
+                    printer = printer.bestOf(oldPrinter);
+                }
+
                 MultiDiscovery.this.printerFound(printer);
             }
 

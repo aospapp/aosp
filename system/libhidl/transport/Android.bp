@@ -17,6 +17,7 @@ subdirs = [
     "allocator/1.0/default",
     "base/1.0",
     "manager/1.0",
+    "manager/1.1",
     "memory/1.0",
     "memory/1.0/default",
     "token/1.0",
@@ -26,6 +27,11 @@ subdirs = [
 cc_library_shared {
     name: "libhidltransport",
     vendor_available: true,
+    vndk: {
+        enabled: true,
+        support_system_process: true,
+    },
+    defaults: ["hidl-module-defaults"],
     cflags: libhidl_flags,
     shared_libs: [
         "libbase",
@@ -34,6 +40,7 @@ cc_library_shared {
         "libhidlbase",
         "libhwbinder",
         "libcutils",
+        "libvndksupport",
     ],
     export_shared_lib_headers: [
         "libbase",
@@ -45,20 +52,24 @@ cc_library_shared {
 
     generated_sources: [
         "android.hidl.manager@1.0_genc++",
+        "android.hidl.manager@1.1_genc++",
         "android.hidl.base@1.0_genc++"
     ],
     generated_headers: [
         "android.hidl.manager@1.0_genc++_headers",
+        "android.hidl.manager@1.1_genc++_headers",
         "android.hidl.base@1.0_genc++_headers"
     ],
     export_generated_headers: [
         "android.hidl.manager@1.0_genc++_headers",
+        "android.hidl.manager@1.1_genc++_headers",
         "android.hidl.base@1.0_genc++_headers"
     ],
 
     srcs: [
         "HidlBinderSupport.cpp",
         "HidlTransportSupport.cpp",
+        "HidlTransportUtils.cpp",
         "ServiceManagement.cpp",
         "Static.cpp"
     ],

@@ -21,18 +21,23 @@
 
     Protocol Buffer:
         This module relies on VehicleHalProto_pb2.py being in sync with the protobuf in the VHAL.
-        If the VehicleHalProto.proto file has changed, re-generate the python version using:
-
+        If the VehicleHalProto.proto file has changed, re-generate the python version using
+        a command of the form:
             protoc -I=<proto_dir> --python_out=<out_dir> <proto_dir>/VehicleHalProto.proto
-            protoc -I=proto --python_out=proto proto/VehicleHalProto.proto
+        For example:
+            protoDir=~/android/master/hardware/interfaces/automotive/vehicle/2.0/default/impl/vhal_v2_0/proto
+            outDir=~/android/master/packages/services/Car/tools/emulator
+            protoc -I=$protoDir --python_out=$outDir $protoDir/VehicleHalProto.proto
 """
+
+from __future__ import print_function
 
 # Suppress .pyc files
 import sys
 sys.dont_write_bytecode = True
 
 import VehicleHalProto_pb2
-import vhal_consts_2_0
+import vhal_consts_2_1
 import vhal_emulator
 import logging
 
@@ -42,6 +47,16 @@ class VhalTest:
     _configs = 0                    # List of configs from DUT
     _log = 0                        # Logger module
     _vhal = 0                       # Handle to VHAL object that communicates over socket to DUT
+    # TODO: b/38203109 - Fix OBD2 values, implement handling for complex properties
+    _skipProps = [
+                    vhal_consts_2_1.VEHICLEPROPERTY_OBD2_LIVE_FRAME,
+                    vhal_consts_2_1.VEHICLEPROPERTY_OBD2_FREEZE_FRAME,
+                    vhal_consts_2_1.VEHICLEPROPERTY_OBD2_FREEZE_FRAME_INFO,
+                    vhal_consts_2_1.VEHICLEPROPERTY_OBD2_FREEZE_FRAME_CLEAR,
+                    vhal_consts_2_1.VEHICLEPROPERTY_VEHICLE_MAP_SERVICE,
+                    vhal_consts_2_1.VEHICLEPROPERTY_WHEEL_TICK,     # Need to support complex properties
+                    0x21E00666      # FakeDataControllingProperty - an internal test property
+                 ]
 
     def _getMidpoint(self, minVal, maxVal):
         retVal =  minVal + (maxVal - minVal)/2
@@ -54,8 +69,8 @@ class VhalTest:
             testValue = "test string"
         elif valType in self._types.TYPE_BYTES:
             # Generate array of integers counting from 0
-            testValue = range(len(origValue))
-        elif valType == vhal_consts_2_0.VEHICLE_VALUE_TYPE_BOOLEAN:
+            testValue = list(range(len(origValue)))
+        elif valType == vhal_consts_2_1.VEHICLEPROPERTYTYPE_BOOLEAN:
             testValue = origValue ^ 1
         elif valType in self._types.TYPE_INT32:
             try:
@@ -82,7 +97,7 @@ class VhalTest:
             testValue = "%.5f" % testValue
             testValue = float(testValue)
         else:
-            self._log.error("generateTestValue:  valType=%d is not handled", valType)
+            self._log.error("generateTestValue:  valType=0x%X is not handled", valType)
             testValue = None
         return testValue
 
@@ -98,7 +113,7 @@ class VhalTest:
                 value = rxMsg.value[0].string_value
             elif valType in self._types.TYPE_BYTES:
                 value = rxMsg.value[0].bytes_value
-            elif valType == vhal_consts_2_0.VEHICLE_VALUE_TYPE_BOOLEAN:
+            elif valType == vhal_consts_2_1.VEHICLEPROPERTYTYPE_BOOLEAN:
                 value = rxMsg.value[0].int32_values[0]
             elif valType in self._types.TYPE_INT32:
                 value = rxMsg.value[0].int32_values[0]
@@ -110,7 +125,7 @@ class VhalTest:
                 value = "%.5f" % value
                 value = float(value)
             else:
-                self._log.error("getValuesFromMsg:  valType=%d is not handled", valType)
+                self._log.error("getValueFromMsg:  valType=0x%X is not handled", valType)
                 value = None
         return value
 
@@ -121,10 +136,10 @@ class VhalTest:
         retVal = 1
         rxMsg = self._vhal.rxMsg()
         if rxMsg.msg_type != expectedType:
-            self._log.error("rxMsg Type expected: %d, received: %d", expectedType, rxMsg.msg_type)
+            self._log.error("rxMsg Type expected: 0x%X, received: 0x%X", expectedType, rxMsg.msg_type)
             retVal = 0
         if rxMsg.status != expectedStatus:
-            self._log.error("rxMsg Status expected: %d, received: %d", expectedStatus, rxMsg.status)
+            self._log.error("rxMsg Status expected: 0x%X, received: 0x%X", expectedStatus, rxMsg.status)
             retVal = 0
         return rxMsg, retVal
 
@@ -133,13 +148,13 @@ class VhalTest:
     def testGetConfig(self):
         self._log.info("Starting testGetConfig...")
         for cfg in self._configs:
-            self._log.debug("  Getting config for propId=%d", cfg.prop)
+            self._log.debug("  Getting config for propId=0x%X", cfg.prop)
             self._vhal.getConfig(cfg.prop)
             rxMsg, retVal = self._rxMsgAndValidate(VehicleHalProto_pb2.GET_CONFIG_RESP,
                                                    VehicleHalProto_pb2.RESULT_OK)
             if retVal:
                 if rxMsg.config[0] != cfg:
-                    self._log.error("testGetConfig failed.  prop=%d, expected:\n%s\nreceived:\n%s",
+                    self._log.error("testGetConfig failed.  prop=0x%X, expected:\n%s\nreceived:\n%s",
                                cfg.prop, str(cfg), str(rxMsg.config))
         self._log.info("  Finished testGetConfig!")
 
@@ -147,13 +162,13 @@ class VhalTest:
     def testGetBadConfig(self):
         self._log.info("Starting testGetBadConfig...")
         for prop in self._badProps:
-            self._log.debug("  Testing bad propId=%d", prop)
+            self._log.debug("  Testing bad propId=0x%X", prop)
             self._vhal.getConfig(prop)
             rxMsg, retVal = self._rxMsgAndValidate(VehicleHalProto_pb2.GET_CONFIG_RESP,
                                                    VehicleHalProto_pb2.ERROR_INVALID_PROPERTY)
             if retVal:
                 for cfg in rxMsg.config:
-                    self._log.error("testGetBadConfig  prop=%d, expected:None, received:\n%s",
+                    self._log.error("testGetBadConfig  prop=0x%X, expected:None, received:\n%s",
                                     cfg.prop, str(rxMsg.config))
         self._log.info("  Finished testGetBadConfig!")
 
@@ -172,6 +187,11 @@ class VhalTest:
     def testGetSet(self):
         self._log.info("Starting testGetSet()...")
         for cfg in self._configs:
+            if cfg.prop in self._skipProps:
+                # Skip properties that cannot be handled properly by this test.
+                self._log.warning("  Skipping propId=0x%X", cfg.prop)
+                continue
+
             areas = cfg.supported_areas
             idx = -1
             while (idx == -1) | (areas != 0):
@@ -183,7 +203,7 @@ class VhalTest:
                 # Remove the area from areas
                 areas ^= area
 
-                self._log.debug("  Testing propId=%d, area=%d", cfg.prop, area)
+                self._log.debug("  Testing propId=0x%X, area=0x%X", cfg.prop, area)
 
                 # Get the current value
                 self._vhal.getProperty(cfg.prop, area)
@@ -193,21 +213,21 @@ class VhalTest:
                 # Save the original value
                 origValue = self._getValueFromMsg(rxMsg)
                 if origValue == None:
-                    self._log.error("testGetSet:  Could not get value for prop=%d, area=%d",
+                    self._log.error("testGetSet:  Could not get value for prop=0x%X, area=0x%X",
                                     cfg.prop, area)
                     continue
 
                 # Generate the test value
                 testValue = self._generateTestValue(cfg, idx, origValue)
                 if testValue == None:
-                    self._log.error("testGetSet:  Cannot generate test value for prop=%d, area=%d",
+                    self._log.error("testGetSet:  Cannot generate test value for prop=0x%X, area=0x%X",
                                     cfg.prop, area)
                     continue
 
                 # Send the new value
                 self._vhal.setProperty(cfg.prop, area, testValue)
                 rxMsg, retVal = self._rxMsgAndValidate(VehicleHalProto_pb2.SET_PROPERTY_RESP,
-                                                       VehicleHalProto_pb2.RESULT_OK)
+                                                        VehicleHalProto_pb2.RESULT_OK)
 
                 # Get the new value and verify it
                 self._vhal.getProperty(cfg.prop, area)
@@ -215,8 +235,8 @@ class VhalTest:
                                                        VehicleHalProto_pb2.RESULT_OK)
                 newValue = self._getValueFromMsg(rxMsg)
                 if newValue != testValue:
-                    self._log.error("testGetSet: set failed for propId=%d, area=%d", cfg.prop, area)
-                    print "testValue= ", testValue, "newValue= ", newValue
+                    self._log.error("testGetSet: set failed for propId=0x%X, area=0x%X", cfg.prop, area)
+                    print("testValue= ", testValue, "newValue= ", newValue)
                     continue
 
                 # Reset the value to what it was before
@@ -228,13 +248,13 @@ class VhalTest:
     def testGetBadProperty(self):
         self._log.info("Starting testGetBadProperty()...")
         for prop in self._badProps:
-            self._log.debug("  Testing bad propId=%d", prop)
+            self._log.debug("  Testing bad propId=0x%X", prop)
             self._vhal.getProperty(prop, 0)
             rxMsg, retVal = self._rxMsgAndValidate(VehicleHalProto_pb2.GET_PROPERTY_RESP,
                                                    VehicleHalProto_pb2.ERROR_INVALID_PROPERTY)
             if retVal:
                 for value in rxMsg.value:
-                    self._log.error("testGetBadProperty  prop=%d, expected:None, received:\n%s",
+                    self._log.error("testGetBadProperty  prop=0x%X, expected:None, received:\n%s",
                                     prop, str(rxMsg))
         self._log.info("  Finished testGetBadProperty()!")
 
@@ -243,12 +263,12 @@ class VhalTest:
         area = 1
         value = 100
         for prop in self._badProps:
-            self._log.debug("  Testing bad propId=%d", prop)
+            self._log.debug("  Testing bad propId=0x%X", prop)
             area = area + 1
             value = value + 1
             try:
                 self._vhal.setProperty(prop, area, value)
-                self._log.error("testGetBadProperty failed.  prop=%d, area=%d, value=%d",
+                self._log.error("testGetBadProperty failed.  prop=0x%X, area=0x%X, value=%d",
                                 prop, area, value)
             except ValueError as e:
                 # Received expected error
@@ -285,6 +305,5 @@ class VhalTest:
         self._configs = self._vhal.rxMsg().config
 
 if __name__ == '__main__':
-    v = VhalTest(vhal_consts_2_0.vhal_types_2_0)
+    v = VhalTest(vhal_consts_2_1.vhal_types_2_0)
     v.runTests()
-

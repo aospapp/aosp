@@ -14,11 +14,14 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS Pdf test cases">
+    <option name="not-shardable" value="true" />
     <option name="config-descriptor:metadata" key="component" value="framework" />
+
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsPdfTestCases.apk" />
     </target_preparer>
+
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.graphics.pdf.cts" />
         <option name="runtime-hint" value="5m" />

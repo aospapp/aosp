@@ -33,4 +33,5 @@ This is a wrapper test for Chrome video_decode_accelerator_unittest.
 # the bots green.
 videos = ['test-25fps.h264:320:240:250:258:35:150:1']
 
-job.run_test('video_VideoDecodeAccelerator', videos=videos)
+args_dict = utils.args_to_dict(args)
+job.run_test('video_VideoDecodeAccelerator', videos=videos, **args_dict)

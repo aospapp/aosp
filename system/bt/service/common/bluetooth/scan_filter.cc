@@ -14,9 +14,7 @@
 //  limitations under the License.
 //
 
-#include "service/common/bluetooth/scan_filter.h"
-
-#include "service/common/bluetooth/util/address_helper.h"
+#include "bluetooth/scan_filter.h"
 
 namespace bluetooth {
 
@@ -48,7 +46,7 @@ ScanFilter& ScanFilter::operator=(const ScanFilter& other) {
 }
 
 bool ScanFilter::SetDeviceAddress(const std::string& device_address) {
-  if (!util::IsAddressValid(device_address)) return false;
+  if (!RawAddress::IsValidAddress(device_address)) return false;
 
   device_address_ = device_address;
   return true;

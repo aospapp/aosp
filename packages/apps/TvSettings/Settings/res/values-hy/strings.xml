@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"Ծառայություններ"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Ծառայության կարգավորումներ"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Ցայտուն տեքստ"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Մատչելիության դյուրանցում"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Միացնել մատչելիության դյուրացումը"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Դյուրանցման ծառայություն"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Եթե դյուրանցումը միացված է, ապա հետ և ներքև կոճակները միասին 3 վայրկյան սեղմած պահելով կարող եք գործարկել մատչելիության գործառույթը:"</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Ենթագրեր"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Տեսանյութի խորագրերի կարգավորում"</string>
     <string name="captions_display" msgid="735692527287125548">"Էկրան"</string>
@@ -626,7 +630,7 @@
     <string name="device_daydreams_select" msgid="2112338101206187695">"Էկրանապահ"</string>
     <string name="device_daydreams_test" msgid="9038920213402659591">"Սկսել"</string>
     <string name="device_daydreams_sleep" msgid="7676938708373592766">"Երբ սկսել"</string>
-    <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"Էկրանի խնայարարը միանում է այս ժամանակահատվածում սարքը չօգտագործելու դեպքում: Էկրանը կանջատվի, եթե էկրանի խնայարարը ընտրված չէ:"</string>
+    <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"Էկրանապահը միանում է՝ այս ժամանակահատվածում սարքը չօգտագործելու դեպքում: Եթե էկրանապահ ընտրված չէ, էկրանը կանջատվի։"</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"Սարքը չօգտագործելուց <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> հետո"</string>
     <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Սարքն անցկացնել քնի ռեժիմ"</string>
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"Էկրանը կանջատվի, եթե այս ժամանակահատվածում չակտիվացվի:"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Վրիպակների հաշվետվության ստեղծում"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Հասանելի վիրտուալ ստեղնաշարեր"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Կառավարել ստեղնաշարերը"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Թույլատրված է"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Արգելված է"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Սարքի օգտագործման պատմություն"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Սարքի օգտագործման պատմությունը հավելվածին թույլ է տալիս հետևել թե ինչ հավելվածներից եք օգտվում և որքան հաճախ, իմանալ ձեր լեզվական կարգավորումները, տեղեկություններ օպերատորի մասին և այլ մանրամասներ։"</string>
 </resources>

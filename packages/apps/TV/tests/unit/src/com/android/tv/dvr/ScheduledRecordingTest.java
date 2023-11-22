@@ -16,34 +16,37 @@
 
 package com.android.tv.dvr;
 
-import static com.android.tv.testing.dvr.RecordingTestUtils
-        .createTestRecordingWithIdAndPeriod;
+import static com.android.tv.testing.dvr.RecordingTestUtils.createTestRecordingWithIdAndPeriod;
 import static com.android.tv.testing.dvr.RecordingTestUtils.normalizePriority;
+import static junit.framework.TestCase.assertEquals;
 
+import android.os.Build;
+import android.support.test.filters.SdkSuppress;
 import android.support.test.filters.SmallTest;
 import android.test.MoreAsserts;
 import android.util.Range;
 
 import com.android.tv.data.Channel;
 import com.android.tv.data.Program;
+import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.testing.dvr.RecordingTestUtils;
 
-import junit.framework.TestCase;
+import org.junit.Test;
 
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Tests for {@link ScheduledRecordingTest}
- */
+/** Tests for {@link ScheduledRecordingTest} */
 @SmallTest
-public class ScheduledRecordingTest extends TestCase {
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.N)
+public class ScheduledRecordingTest {
     private static final String INPUT_ID = "input_id";
     private static final int CHANNEL_ID = 273;
 
-    public void testIsOverLapping() throws Exception {
+    @Test
+    public void testIsOverLapping() {
         ScheduledRecording r = createTestRecordingWithIdAndPeriod(1, INPUT_ID, CHANNEL_ID,
                 10L, 20L);
         assertOverLapping(false, 1L, 9L, r);
@@ -59,6 +62,7 @@ public class ScheduledRecordingTest extends TestCase {
         assertOverLapping(false, 21L, 29L, r);
     }
 
+    @Test
     public void testBuildProgram() {
         Channel c = new Channel.Builder().build();
         Program p = new Program.Builder().build();
@@ -67,12 +71,14 @@ public class ScheduledRecordingTest extends TestCase {
         assertEquals("type", ScheduledRecording.TYPE_PROGRAM, actual.getType());
     }
 
+    @Test
     public void testBuildTime() {
         ScheduledRecording actual = createTestRecordingWithIdAndPeriod(1, INPUT_ID, CHANNEL_ID,
                 10L, 20L);
         assertEquals("type", ScheduledRecording.TYPE_TIMED, actual.getType());
     }
 
+    @Test
     public void testBuildFrom() {
         ScheduledRecording expected = createTestRecordingWithIdAndPeriod(1, INPUT_ID, CHANNEL_ID,
                 10L, 20L);
@@ -80,6 +86,7 @@ public class ScheduledRecordingTest extends TestCase {
         RecordingTestUtils.assertRecordingEquals(expected, actual);
     }
 
+    @Test
     public void testBuild_priority() {
         ScheduledRecording a = normalizePriority(
                 createTestRecordingWithIdAndPeriod(1, INPUT_ID, CHANNEL_ID, 10L, 20L));

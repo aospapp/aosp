@@ -28,6 +28,7 @@
 // TODO: Add inl file and avoid including inl.
 #include "obj_ptr-inl.h"
 #include "os.h"
+#include "scoped_thread_state_change-inl.h"
 
 namespace art {
 
@@ -98,8 +99,11 @@ class CommonRuntimeTestImpl {
   // Returns bin directory which contains host's prebuild tools.
   static std::string GetAndroidHostToolsDir();
 
-  // Returns bin directory wahich contains target's prebuild tools.
+  // Returns bin directory which contains target's prebuild tools.
   static std::string GetAndroidTargetToolsDir(InstructionSet isa);
+
+  // Retuerns the filename for a test dex (i.e. XandY or ManyMethods).
+  std::string GetTestDexFileName(const char* name) const;
 
  protected:
   // Allow subclases such as CommonCompilerTest to add extra options.
@@ -123,20 +127,27 @@ class CommonRuntimeTestImpl {
 
   std::unique_ptr<const DexFile> LoadExpectSingleDexFile(const char* location);
 
-  void ClearDirectory(const char* dirpath);
+  void ClearDirectory(const char* dirpath, bool recursive = true);
 
   std::string GetTestAndroidRoot();
 
-  std::string GetTestDexFileName(const char* name) const;
-
   std::vector<std::unique_ptr<const DexFile>> OpenTestDexFiles(const char* name);
 
-  std::unique_ptr<const DexFile> OpenTestDexFile(const char* name)
-      REQUIRES_SHARED(Locks::mutator_lock_);
+  std::unique_ptr<const DexFile> OpenTestDexFile(const char* name);
 
+  // Loads the test dex file identified by the given dex_name into a PathClassLoader.
+  // Returns the created class loader.
   jobject LoadDex(const char* dex_name) REQUIRES_SHARED(Locks::mutator_lock_);
+  // Loads the test dex file identified by the given first_dex_name and second_dex_name
+  // into a PathClassLoader. Returns the created class loader.
   jobject LoadMultiDex(const char* first_dex_name, const char* second_dex_name)
       REQUIRES_SHARED(Locks::mutator_lock_);
+
+  jobject LoadDexInPathClassLoader(const std::string& dex_name, jobject parent_loader);
+  jobject LoadDexInDelegateLastClassLoader(const std::string& dex_name, jobject parent_loader);
+  jobject LoadDexInWellKnownClassLoader(const std::string& dex_name,
+                                        jclass loader_class,
+                                        jobject parent_loader);
 
   std::string android_data_;
   std::string dalvik_cache_;
@@ -149,9 +160,12 @@ class CommonRuntimeTestImpl {
   const DexFile* java_lang_dex_file_;
   std::vector<const DexFile*> boot_class_path_;
 
-  // Get the dex files from a PathClassLoader. This in order of the dex elements and their dex
-  // arrays.
+  // Get the dex files from a PathClassLoader or DelegateLastClassLoader.
+  // This only looks into the current class loader and does not recurse into the parents.
   std::vector<const DexFile*> GetDexFiles(jobject jclass_loader);
+  std::vector<const DexFile*> GetDexFiles(ScopedObjectAccess& soa,
+                                          Handle<mirror::ClassLoader> class_loader)
+    REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Get the first dex file from a PathClassLoader. Will abort if it is null.
   const DexFile* GetFirstDexFile(jobject jclass_loader);
@@ -165,6 +179,15 @@ class CommonRuntimeTestImpl {
   // Called to finish up runtime creation and filling test fields. By default runs root
   // initializers, initialize well-known classes, and creates the heap thread pool.
   virtual void FinalizeSetup();
+
+  // Creates the class path string for the given dex files (the list of dex file locations
+  // separated by ':').
+  std::string CreateClassPath(
+      const std::vector<std::unique_ptr<const DexFile>>& dex_files);
+  // Same as CreateClassPath but add the dex file checksum after each location. The separator
+  // is '*'.
+  std::string CreateClassPathWithChecksums(
+      const std::vector<std::unique_ptr<const DexFile>>& dex_files);
 
  private:
   static std::string GetCoreFileLocation(const char* suffix);
@@ -237,20 +260,30 @@ class CheckJniAbortCatcher {
     return; \
   }
 
+#define TEST_DISABLED_WITHOUT_BAKER_READ_BARRIERS() \
+  if (!kEmitCompilerReadBarrier || !kUseBakerReadBarrier) { \
+    printf("WARNING: TEST DISABLED FOR GC WITHOUT BAKER READ BARRIER\n"); \
+    return; \
+  }
+
 #define TEST_DISABLED_FOR_NON_STATIC_HOST_BUILDS() \
   if (!kHostStaticBuildEnabled) { \
     printf("WARNING: TEST DISABLED FOR NON-STATIC HOST BUILDS\n"); \
     return; \
   }
 
+#define TEST_DISABLED_FOR_MEMORY_TOOL() \
+  if (RUNNING_ON_MEMORY_TOOL > 0) { \
+    printf("WARNING: TEST DISABLED FOR MEMORY TOOL\n"); \
+    return; \
+  }
+
+#define TEST_DISABLED_FOR_MEMORY_TOOL_ASAN() \
+  if (RUNNING_ON_MEMORY_TOOL > 0 && !kMemoryToolIsValgrind) { \
+    printf("WARNING: TEST DISABLED FOR MEMORY TOOL ASAN\n"); \
+    return; \
+  }
+
 }  // namespace art
-
-namespace std {
-
-// TODO: isn't gtest supposed to be able to print STL types for itself?
-template <typename T>
-std::ostream& operator<<(std::ostream& os, const std::vector<T>& rhs);
-
-}  // namespace std
 
 #endif  // ART_RUNTIME_COMMON_RUNTIME_TEST_H_

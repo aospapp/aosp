@@ -165,8 +165,10 @@ func (t *tblgen) GeneratedSourceFiles() android.Paths {
 	return t.generatedHeaders
 }
 
-func clangTblgenFactory() (blueprint.Module, []interface{}) {
+func clangTblgenFactory() android.Module {
 	t := &tblgen{}
 
-	return android.InitAndroidModule(t, &t.properties)
+	t.AddProperties(&t.properties)
+	android.InitAndroidModule(t)
+	return t
 }

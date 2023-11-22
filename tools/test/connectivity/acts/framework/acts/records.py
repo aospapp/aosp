@@ -20,6 +20,7 @@ import json
 import logging
 import pprint
 
+from acts import logger
 from acts import signals
 from acts import utils
 
@@ -35,6 +36,8 @@ class TestResultEnums(object):
     RECORD_CLASS = "Test Class"
     RECORD_BEGIN_TIME = "Begin Time"
     RECORD_END_TIME = "End Time"
+    RECORD_LOG_BEGIN_TIME = "Log Begin Time"
+    RECORD_LOG_END_TIME = "Log End Time"
     RECORD_RESULT = "Result"
     RECORD_UID = "UID"
     RECORD_EXTRAS = "Extras"
@@ -65,6 +68,8 @@ class TestResultRecord(object):
         self.test_class = t_class
         self.begin_time = None
         self.end_time = None
+        self.log_begin_time = None
+        self.log_end_time = None
         self.uid = None
         self.result = None
         self.extras = None
@@ -77,6 +82,8 @@ class TestResultRecord(object):
         Sets the begin_time of this record.
         """
         self.begin_time = utils.get_current_epoch_time()
+        self.log_begin_time = logger.epoch_to_log_line_timestamp(
+            self.begin_time)
 
     def _test_end(self, result, e):
         """Class internal function to signal the end of a test case execution.
@@ -88,6 +95,7 @@ class TestResultRecord(object):
                 acts.signals.TestSignal.
         """
         self.end_time = utils.get_current_epoch_time()
+        self.log_end_time = logger.epoch_to_log_line_timestamp(self.end_time)
         self.result = result
         if self.extra_errors:
             self.result = TestResultEnums.TEST_RESULT_UNKNOWN
@@ -177,6 +185,8 @@ class TestResultRecord(object):
         d[TestResultEnums.RECORD_CLASS] = self.test_class
         d[TestResultEnums.RECORD_BEGIN_TIME] = self.begin_time
         d[TestResultEnums.RECORD_END_TIME] = self.end_time
+        d[TestResultEnums.RECORD_LOG_BEGIN_TIME] = self.log_begin_time
+        d[TestResultEnums.RECORD_LOG_END_TIME] = self.log_end_time
         d[TestResultEnums.RECORD_RESULT] = self.result
         d[TestResultEnums.RECORD_UID] = self.uid
         d[TestResultEnums.RECORD_EXTRAS] = self.extras

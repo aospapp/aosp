@@ -13,7 +13,7 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<ttFont sfntVersion="\x00\x01\x00\x00" ttLibVersion="3.0">
+<ttFont sfntVersion="\x00\x01\x00\x00" ttLibVersion="3.9">
 
   <GlyphOrder>
     <!-- The 'id' attribute is only for humans; it is ignored when parsed. -->
@@ -24,6 +24,7 @@
     <GlyphID id="4" name="0"/>
     <GlyphID id="5" name="U+1F470"/>
     <GlyphID id="6" name="U+203C_VS16"/>
+    <GlyphID id="7" name="U+200D"/>
   </GlyphOrder>
 
   <head>
@@ -36,10 +37,10 @@
     <unitsPerEm value="1000"/>
     <created value="Wed Sep  9 08:01:17 2015"/>
     <modified value="Wed Sep  9 08:48:07 2015"/>
-    <xMin value="30"/>
-    <yMin value="-200"/>
-    <xMax value="629"/>
-    <yMax value="800"/>
+    <xMin value="0"/>
+    <yMin value="0"/>
+    <xMax value="0"/>
+    <yMax value="0"/>
     <macStyle value="00000000 00000000"/>
     <lowestRecPPEM value="7"/>
     <fontDirectionHint value="2"/>
@@ -48,14 +49,14 @@
   </head>
 
   <hhea>
-    <tableVersion value="1.0"/>
+    <tableVersion value="0x00010000"/>
     <ascent value="1000"/>
     <descent value="-200"/>
     <lineGap value="0"/>
-    <advanceWidthMax value="659"/>
+    <advanceWidthMax value="500"/>
     <minLeftSideBearing value="0"/>
-    <minRightSideBearing value="30"/>
-    <xMaxExtent value="629"/>
+    <minRightSideBearing value="0"/>
+    <xMaxExtent value="0"/>
     <caretSlopeRise value="1"/>
     <caretSlopeRun value="0"/>
     <caretOffset value="0"/>
@@ -64,15 +65,15 @@
     <reserved2 value="0"/>
     <reserved3 value="0"/>
     <metricDataFormat value="0"/>
-    <numberOfHMetrics value="18"/>
+    <numberOfHMetrics value="1"/>
   </hhea>
 
   <maxp>
     <!-- Most of this table will be recalculated by the compiler -->
     <tableVersion value="0x10000"/>
-    <numGlyphs value="54"/>
-    <maxPoints value="73"/>
-    <maxContours value="10"/>
+    <numGlyphs value="8"/>
+    <maxPoints value="0"/>
+    <maxContours value="0"/>
     <maxCompositePoints value="0"/>
     <maxCompositeContours value="0"/>
     <maxZones value="2"/>
@@ -123,8 +124,8 @@
     <ulUnicodeRange4 value="00000000 00000000 00000000 00000000"/>
     <achVendID value="UKWN"/>
     <fsSelection value="00000000 01000000"/>
-    <usFirstCharIndex value="32"/>
-    <usLastCharIndex value="122"/>
+    <usFirstCharIndex value="48"/>
+    <usLastCharIndex value="65535"/>
     <sTypoAscender value="800"/>
     <sTypoDescender value="-200"/>
     <sTypoLineGap value="200"/>
@@ -147,15 +148,17 @@
     <mtx name="0" width="500" lsb="93"/>
     <mtx name="U+1F470" width="500" lsb="93"/>
     <mtx name="U+203C_VS16" width="500" lsb="93"/>
+    <mtx name="U+200D" width="500" lsb="93"/>
   </hmtx>
 
   <cmap>
     <tableVersion version="0"/>
-    <cmap_format_12 format="12" reserved="0" length="3" nGroups="1" platformID="3" platEncID="1" language="0">
-      <map code="0x1F469" name="U+1F469" />
-      <map code="0x1F467" name="U+1F467" />
-      <map code="0x20E3" name="U+20E3" />
+    <cmap_format_12 format="12" reserved="0" length="3" nGroups="6" platformID="3" platEncID="1" language="0">
       <map code="0x0030" name="0" />
+      <map code="0x200D" name="U+200D" />
+      <map code="0x20E3" name="U+20E3" />
+      <map code="0x1F467" name="U+1F467" />
+      <map code="0x1F469" name="U+1F469" />
       <map code="0x1F470" name="U+1F470" />
     </cmap_format_12>
     <cmap_format_14 format="14" platformID="0" platEncID="5" length="30" numVarSelectorRecords="1">
@@ -172,43 +175,24 @@
     <!-- The xMin, yMin, xMax and yMax values
          will be recalculated by the compiler. -->
 
-    <TTGlyph name=".notdef" xMin="0" yMin="0" xMax="0" yMax="0">
-      <contour></contour><instructions><assembly></assembly></instructions>
-    </TTGlyph>
+    <TTGlyph name=".notdef"/><!-- contains no outline data -->
 
-    <TTGlyph name="U+1F469" xMin="0" yMin="0" xMax="0" yMax="0">
-      <contour></contour><instructions><assembly></assembly></instructions>
-    </TTGlyph>
-    <TTGlyph name="U+1F467" xMin="0" yMin="0" xMax="0" yMax="0">
-      <contour></contour><instructions><assembly></assembly></instructions>
-    </TTGlyph>
-    <TTGlyph name="U+20E3" xMin="0" yMin="0" xMax="0" yMax="0">
-      <contour></contour><instructions><assembly></assembly></instructions>
-    </TTGlyph>
-    <TTGlyph name="0" xMin="0" yMin="0" xMax="0" yMax="0">
-      <contour></contour><instructions><assembly></assembly></instructions>
-    </TTGlyph>
-    <TTGlyph name="U+1F470" xMin="0" yMin="0" xMax="0" yMax="0">
-      <contour></contour><instructions><assembly></assembly></instructions>
-    </TTGlyph>
-    <TTGlyph name="U+203C_VS16" xMin="0" yMin="0" xMax="0" yMax="0">
-      <contour></contour><instructions><assembly></assembly></instructions>
-    </TTGlyph>
+    <TTGlyph name="U+1F469"/><!-- contains no outline data -->
+
+    <TTGlyph name="U+1F467"/><!-- contains no outline data -->
+
+    <TTGlyph name="U+20E3"/><!-- contains no outline data -->
+
+    <TTGlyph name="0"/><!-- contains no outline data -->
+
+    <TTGlyph name="U+1F470"/><!-- contains no outline data -->
+
+    <TTGlyph name="U+203C_VS16"/><!-- contains no outline data -->
+
+    <TTGlyph name="U+200D"/><!-- contains no outline data -->
   </glyf>
 
   <name>
-    <namerecord nameID="1" platformID="1" platEncID="0" langID="0x0" unicode="True">
-      EmojiFont Test
-    </namerecord>
-    <namerecord nameID="2" platformID="1" platEncID="0" langID="0x0" unicode="True">
-      Regular
-    </namerecord>
-    <namerecord nameID="4" platformID="1" platEncID="0" langID="0x0" unicode="True">
-      EmojiFont Test
-    </namerecord>
-    <namerecord nameID="6" platformID="1" platEncID="0" langID="0x0" unicode="True">
-      EmojiFontTest-Regular
-    </namerecord>
     <namerecord nameID="1" platformID="3" platEncID="1" langID="0x409">
       EmojiFont Test
     </namerecord>

@@ -25,7 +25,9 @@ public class SeedTest extends AbstractMonkeyTest {
         String out1 = mDevice.executeShellCommand(cmd1);
         String out2 = mDevice.executeShellCommand(cmd1);
         assertOutputs(out1, out2);
+    }
 
+    public void testSeed2() throws Exception {
         String cmd2 = MONKEY_CMD + " -s 3007 -v -p " + PKGS[0] + " 125";
         String out3 = mDevice.executeShellCommand(cmd2);
         String out4 = mDevice.executeShellCommand(cmd2);

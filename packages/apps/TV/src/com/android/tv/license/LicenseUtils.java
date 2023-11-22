@@ -26,21 +26,9 @@ import java.io.InputStream;
  * Utilities for showing open source licenses.
  */
 public final class LicenseUtils {
-    public final static String LICENSE_FILE = "file:///android_asset/licenses.html";
     public final static String RATING_SOURCE_FILE =
             "file:///android_asset/rating_sources.html";
-    private final static File licenseFile = new File(LICENSE_FILE);
 
-    /**
-     * Checks if the license.html asset is include in the apk.
-     */
-    public static boolean hasLicenses(AssetManager am) {
-        try (InputStream is = am.open("licenses.html")) {
-            return true;
-        } catch (IOException e) {
-            return false;
-        }
-    }
 
     /**
      * Checks if the rating_attribution.html asset is include in the apk.

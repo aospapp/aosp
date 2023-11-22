@@ -3,7 +3,7 @@
 
 /*-
  * Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
- *		 2011, 2012, 2013, 2014, 2015, 2016
+ *		 2011, 2012, 2013, 2014, 2015, 2016, 2017
  *	mirabilos <m@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
@@ -30,7 +30,7 @@
 #include <grp.h>
 #endif
 
-__RCSID("$MirOS: src/bin/mksh/misc.c,v 1.249 2016/11/11 23:31:35 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/misc.c,v 1.255 2017/04/12 16:46:22 tg Exp $");
 
 #define KSH_CHVT_FLAG
 #ifdef MKSH_SMALL
@@ -39,10 +39,6 @@ __RCSID("$MirOS: src/bin/mksh/misc.c,v 1.249 2016/11/11 23:31:35 tg Exp $");
 #ifdef TIOCSCTTY
 #define KSH_CHVT_CODE
 #define KSH_CHVT_FLAG
-#endif
-#ifdef MKSH_LEGACY_MODE
-#undef KSH_CHVT_CODE
-#undef KSH_CHVT_FLAG
 #endif
 
 /* type bits for unsigned char */
@@ -93,11 +89,10 @@ setctypes(const char *s, int t)
 void
 initctypes(void)
 {
-	setctypes(letters_uc, C_ALPHA);
-	setctypes(letters_lc, C_ALPHA);
-	chtypes['_'] |= C_ALPHA;
+	setctypes(letters_uc, C_ALPHX);
+	setctypes(letters_lc, C_ALPHX);
+	chtypes['_'] |= C_ALPHX;
 	setctypes("0123456789", C_DIGIT);
-	/* \0 added automatically */
 	setctypes(TC_LEX1, C_LEX1);
 	setctypes("*@#!$-?", C_VAR1);
 	setctypes(TC_IFSWS, C_IFSWS);
@@ -506,7 +501,7 @@ parse_args(const char **argv,
 	if (arrayset) {
 		const char *ccp = NULL;
 
-		if (*array)
+		if (array && *array)
 			ccp = skip_varname(array, false);
 		if (!ccp || !(!ccp[0] || (ccp[0] == '+' && !ccp[1]))) {
 			bi_errorf(Tf_sD_s, array, Tnot_ident);
@@ -1541,12 +1536,11 @@ do_realpath(const char *upath)
 				/* symlink target is an absolute path */
 				xp = Xstring(xs, xp);
  beginning_of_a_pathname:
-				/* assert: (ip == ipath)[0] == '/' */
+				/* assert: mksh_cdirsep((ip == ipath)[0]) */
 				/* assert: xp == xs.beg => start of path */
 
 				/* exactly two leading slashes? (SUSv4 3.266) */
-				/* @komh do NOT use mksh_cdirsep() here */
-				if (ip[1] == '/' && ip[2] != '/') {
+				if (ip[1] == ip[0] && !mksh_cdirsep(ip[2])) {
 					/* keep them, e.g. for UNC pathnames */
 					Xput(xs, xp, '/');
 				}
@@ -1711,15 +1705,13 @@ simplify_path(char *p)
 	case 0:
 		return;
 	case '/':
-		/* exactly two leading slashes? (SUSv4 3.266) */
-		/* @komh no mksh_cdirsep() here! */
-		if (p[1] == '/' && p[2] != '/')
-			/* keep them, e.g. for UNC pathnames */
-			++p;
-#ifdef __OS2__
-		/* FALLTHROUGH */
+#ifdef MKSH_DOSPATH
 	case '\\':
 #endif
+		/* exactly two leading slashes? (SUSv4 3.266) */
+		if (p[1] == p[0] && !mksh_cdirsep(p[2]))
+			/* keep them, e.g. for UNC pathnames */
+			++p;
 		needslash = true;
 		break;
 	default:
@@ -2157,7 +2149,7 @@ getrusage(int what, struct rusage *ru)
 int
 unbksl(bool cstyle, int (*fg)(void), void (*fp)(int))
 {
-	int wc, i, c, fc;
+	int wc, i, c, fc, n;
 
 	fc = (*fg)();
 	switch (fc) {
@@ -2245,7 +2237,8 @@ unbksl(bool cstyle, int (*fg)(void), void (*fp)(int))
 		 *	four (U: eight) digits; convert to Unicode
 		 */
 		wc = 0;
-		while (i--) {
+		n = 0;
+		while (n < i || i == -1) {
 			wc <<= 4;
 			if ((c = (*fg)()) >= ord('0') && c <= ord('9'))
 				wc += ksh_numdig(c);
@@ -2258,7 +2251,10 @@ unbksl(bool cstyle, int (*fg)(void), void (*fp)(int))
 				(*fp)(c);
 				break;
 			}
+			++n;
 		}
+		if (!n)
+			goto unknown_escape;
 		if ((cstyle && wc > 0xFF) || fc != 'x')
 			/* Unicode marker */
 			wc += 0x100;

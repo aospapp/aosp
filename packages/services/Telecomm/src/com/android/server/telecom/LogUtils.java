@@ -126,6 +126,12 @@ public class LogUtils {
         public static final String PROPERTY_CHANGE = "PROPERTY_CHANGE";
         public static final String CAPABILITY_CHANGE = "CAPABILITY_CHANGE";
         public static final String CONNECTION_EVENT = "CONNECTION_EVENT";
+        public static final String CALL_EVENT = "CALL_EVENT";
+        public static final String HANDOVER_REQUEST = "HANDOVER_REQUEST";
+        public static final String START_HANDOVER = "START_HANDOVER";
+        public static final String ACCEPT_HANDOVER = "ACCEPT_HANDOVER";
+        public static final String HANDOVER_COMPLETE = "HANDOVER_COMPLETE";
+        public static final String HANDOVER_FAILED = "HANDOVER_FAILED";
 
         public static class Timings {
             public static final String ACCEPT_TIMING = "accept";

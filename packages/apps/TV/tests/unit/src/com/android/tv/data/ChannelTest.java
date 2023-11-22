@@ -16,17 +16,21 @@
 
 package com.android.tv.data;
 
+import static org.junit.Assert.assertEquals;
+
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.NameNotFoundException;
 import android.support.test.filters.SmallTest;
-import android.test.AndroidTestCase;
 
 import com.android.tv.testing.ComparatorTester;
 import com.android.tv.util.TvInputManagerHelper;
 
+import org.junit.Before;
+import org.junit.Test;
 import org.mockito.Matchers;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
@@ -38,7 +42,7 @@ import java.util.Comparator;
  * Tests for {@link Channel}.
  */
 @SmallTest
-public class ChannelTest extends AndroidTestCase {
+public class ChannelTest {
     // Used for testing TV inputs with invalid input package. This could happen when a TV input is
     // uninstalled while drawing an app link card.
     private static final String INVALID_TV_INPUT_PACKAGE_NAME =
@@ -59,9 +63,8 @@ public class ChannelTest extends AndroidTestCase {
     private Intent mInvalidIntent;
     private Intent mValidIntent;
 
-    @Override
-    public void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws NameNotFoundException {
         mInvalidIntent = new Intent(Intent.ACTION_VIEW);
         mInvalidIntent.setComponent(new ComponentName(INVALID_TV_INPUT_PACKAGE_NAME, ".test"));
         mValidIntent = new Intent(Intent.ACTION_VIEW);
@@ -103,6 +106,7 @@ public class ChannelTest extends AndroidTestCase {
         Mockito.when(mMockContext.getPackageManager()).thenReturn(mockPackageManager);
     }
 
+    @Test
     public void testGetAppLinkType_NoText_NoIntent() {
         assertAppLinkType(Channel.APP_LINK_TYPE_NONE, INVALID_TV_INPUT_PACKAGE_NAME, null, null);
         assertAppLinkType(Channel.APP_LINK_TYPE_NONE, LIVE_CHANNELS_PACKAGE_NAME, null, null);
@@ -226,7 +230,6 @@ public class ChannelTest extends AndroidTestCase {
      * See <a href="http://b/23031603">b/23031603</a>.
      */
     public void testComparatorLabel() {
-
         TvInputManagerHelper manager = Mockito.mock(TvInputManagerHelper.class);
         Mockito.when(manager.isPartnerInput(Matchers.anyString())).thenAnswer(
                 new Answer<Boolean>() {
@@ -252,6 +255,29 @@ public class ChannelTest extends AndroidTestCase {
                 new Channel.Builder().setDescription("B").setInputId("1").build());
 
         comparatorTester.test();
+    }
+
+    public void testNormalizeChannelNumber() {
+        assertNormalizedDisplayNumber(null, null);
+        assertNormalizedDisplayNumber("", "");
+        assertNormalizedDisplayNumber("1", "1");
+        assertNormalizedDisplayNumber("abcde", "abcde");
+        assertNormalizedDisplayNumber("1-1", "1-1");
+        assertNormalizedDisplayNumber("1.1", "1-1");
+        assertNormalizedDisplayNumber("1 1", "1-1");
+        assertNormalizedDisplayNumber("1\u058a1", "1-1");
+        assertNormalizedDisplayNumber("1\u05be1", "1-1");
+        assertNormalizedDisplayNumber("1\u14001", "1-1");
+        assertNormalizedDisplayNumber("1\u18061", "1-1");
+        assertNormalizedDisplayNumber("1\u20101", "1-1");
+        assertNormalizedDisplayNumber("1\u20111", "1-1");
+        assertNormalizedDisplayNumber("1\u20121", "1-1");
+        assertNormalizedDisplayNumber("1\u20131", "1-1");
+        assertNormalizedDisplayNumber("1\u20141", "1-1");
+    }
+
+    private void assertNormalizedDisplayNumber(String displayNumber, String normalized) {
+        assertEquals(normalized, Channel.normalizeDisplayNumber(displayNumber));
     }
 
     private class TestChannelComparator extends Channel.DefaultComparator {

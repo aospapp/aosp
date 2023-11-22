@@ -78,7 +78,6 @@
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"Voicemail (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"VM:"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"Meldingen"</string>
-    <string name="networks" msgid="8873030692174541976">"Mobiele providers"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"Nooduitzendingen"</string>
     <string name="call_settings" msgid="6112441768261754562">"Oproepinstellingen"</string>
     <string name="additional_gsm_call_settings" msgid="1391795981938800617">"Aanvullende instellingen"</string>
@@ -164,20 +163,18 @@
     <string name="label_available" msgid="1181658289009300430">"Beschikbare netwerken"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"Zoeken..."</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"Geen netwerken gevonden."</string>
-    <string name="search_networks" msgid="1601136049300882441">"Netwerken zoeken"</string>
     <string name="network_query_error" msgid="6828516148953325006">"Fout tijdens zoeken naar netwerken."</string>
     <string name="register_on_network" msgid="9055203954040805084">"Registreren op <xliff:g id="NETWORK">%s</xliff:g>…"</string>
     <string name="not_allowed" msgid="5613353860205691579">"Je simkaart staat geen verbinding met dit netwerk toe."</string>
     <string name="connect_later" msgid="2308119155752343975">"Kan nu geen verbinding maken met dit netwerk. Probeer het later opnieuw."</string>
     <string name="registration_done" msgid="495135664535876612">"Geregistreerd op netwerk."</string>
-    <string name="sum_carrier_select" msgid="3494252551249882718">"Een mobiele provider kiezen"</string>
-    <string name="sum_search_networks" msgid="2921092249873272715">"Alle beschikbare netwerken zoeken"</string>
-    <string name="select_automatically" msgid="5628402124471810174">"Automatisch kiezen"</string>
-    <string name="sum_select_automatically" msgid="5614890115123292400">"Voorkeursnetwerk automatisch selecteren"</string>
+    <string name="select_automatically" msgid="1046727200631770962">"Netwerk automatisch selecteren"</string>
+    <string name="network_select_title" msgid="7733107364757544558">"Netwerk"</string>
     <string name="register_automatically" msgid="6017849844573519637">"Automatische registratie..."</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"Voorkeursnetwerktype"</string>
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"De netwerkgebruiksmodus wijzigen"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"Voorkeursnetwerktype"</string>
+    <string name="forbidden_network" msgid="4384929668343563440">"(niet toegestaan)"</string>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"Voorkeursnetwerkmodus: voorkeur voor WCDMA"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"Voorkeursnetwerkmodus: alleen GSM"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"Voorkeursnetwerkmodus: alleen WCDMA"</string>
@@ -210,18 +207,34 @@
     <item msgid="1524224863879435516">"Alleen GSM"</item>
     <item msgid="3817924849415716259">"Voorkeur voor GSM/WCDMA"</item>
   </string-array>
+    <string name="call_category" msgid="5863978196309462052">"Bellen"</string>
+    <string name="network_operator_category" msgid="4830701959205735636">"Netwerk"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"Geoptimaliseerde 4G LTE-modus"</string>
     <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"Geavanceerd bellen"</string>
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"LTE-services gebruiken voor betere spraak- en andere communicatie (aanbevolen)"</string>
     <string name="data_enabled" msgid="5972538663568715366">"Gegevenstoegang aan"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"Gegevensgebruik toestaan"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"Let op"</string>
-    <string name="roaming" msgid="8871412572928323707">"Gegevensroaming"</string>
+    <string name="roaming" msgid="7894878421600247140">"Roaming"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"Verbinding maken met gegevensservices tijdens roaming"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"Verbinding maken met gegevensservices tijdens roaming"</string>
     <string name="roaming_reenable_message" msgid="8913735676127858115">"De gegevensverbinding is verbroken, omdat je je thuisnetwerk hebt verlaten terwijl gegevensroaming was uitgeschakeld."</string>
     <string name="roaming_warning" msgid="1603164667540144353">"Er kunnen hoge roamingkosten in rekening worden gebracht."</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"Gegevensroaming toestaan?"</string>
+    <string name="data_usage_title" msgid="8759619109516889802">"Datagebruik"</string>
+    <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_1">%1$s</xliff:g> mobiele data gebruikt van <xliff:g id="ID_2">%2$s</xliff:g>"</string>
+    <string name="advanced_options_title" msgid="8074895510265488035">"Geavanceerd"</string>
+    <string name="carrier_settings_euicc" msgid="6714062862127226405">"Provider"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"provider, esim, sim, euicc"</string>
+    <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> — <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
+    <string name="mobile_data_settings_title" msgid="4661165467914727157">"Mobiele data"</string>
+    <string name="mobile_data_settings_summary" msgid="5087255915840576895">"Datatoegang via mobiel netwerk"</string>
+    <string name="data_usage_disable_mobile" msgid="3577275288809667615">"Mobiele data uitschakelen?"</string>
+    <string name="sim_selection_required_pref" msgid="7049424902961844236">"Selectie vereist"</string>
+    <string name="sim_change_data_title" msgid="5332425991853799280">"Sim voor gegevens wijzigen?"</string>
+    <string name="sim_change_data_message" msgid="2163963581444907496">"<xliff:g id="NEW_SIM">%1$s</xliff:g> in plaats van <xliff:g id="OLD_SIM">%2$s</xliff:g> gebruiken voor mobiele data?"</string>
+    <string name="wifi_calling_settings_title" msgid="7741961465416430470">"Bellen via wifi"</string>
+    <string name="video_calling_settings_title" msgid="539714564273795574">"Provider videogesprekken"</string>
     <string name="gsm_umts_options" msgid="6538311689850981686">"GSM-/UMTS-opties"</string>
     <string name="cdma_options" msgid="4016822858172249884">"CDMA-opties"</string>
     <string name="throttle_data_usage" msgid="3715677828160555808">"Datagebruik"</string>
@@ -452,7 +465,7 @@
     <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"Mobiel netwerk is niet beschikbaar. Maak verbinding met een draadloos netwerk om te bellen."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"Als je wilt bellen, moet je een geldig nummer invoeren."</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"Oproep mislukt."</string>
-    <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"Oproep kan momenteel niet worden toegevoegd."</string>
+    <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"Oproep kan op dit moment niet worden toegevoegd. Je kunt contact opnemen door een bericht te sturen."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"Service wordt niet ondersteund"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"Kan niet overschakelen tussen oproepen."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"Kan oproep niet scheiden."</string>
@@ -572,6 +585,8 @@
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"Er zijn te veel actieve oproepen. Beëindig bestaande oproepen of voeg ze samen voordat je een nieuwe oproep start."</string>
     <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"Kan geen verbinding maken. Plaats een geldige simkaart."</string>
     <string name="callFailed_wifi_lost" msgid="5968076625137297184">"Wifi-verbinding verbroken. Oproep beëindigd."</string>
+    <string name="dialFailed_low_battery" msgid="8760548177088774268">"Je videogesprek kan niet worden gestart omdat de batterij bijna leeg is."</string>
+    <string name="callFailed_low_battery" msgid="4913582435905872616">"Videogesprek beëindigd omdat batterij bijna leeg is."</string>
     <string name="change_pin_title" msgid="7790232089699034029">"Voicemailpincode wijzigen"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"Doorgaan"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"Annuleren"</string>
@@ -584,4 +599,18 @@
     <string name="change_pin_confirm_pins_dont_match" msgid="4795052654904027909">"Pincodes komen niet overeen"</string>
     <string name="change_pin_succeeded" msgid="2022852286442211151">"Voicemailpincode geüpdatet"</string>
     <string name="change_pin_system_error" msgid="8308462387154257840">"Kan pincode niet instellen"</string>
+    <string name="mobile_data_status_roaming_turned_off_subtext" msgid="935636805765823307">"Dataroaming is uitgeschakeld"</string>
+    <string name="mobile_data_status_roaming_turned_on_subtext" msgid="1335176927083781041">"Dataroaming is ingeschakeld"</string>
+    <string name="mobile_data_status_roaming_without_plan_subtext" msgid="3568412513831673037">"Momenteel aan het roamen, data-abonnement nodig"</string>
+    <string name="mobile_data_status_roaming_with_plan_subtext" msgid="8721998948811064377">"Momenteel aan het roamen, data-abonnement is actief"</string>
+    <string name="mobile_data_status_no_plan_subtext" msgid="4887747337017565725">"Geen mobiele data meer"</string>
+    <string name="mobile_data_activate_prepaid" msgid="7447025165850512683">"Geen mobiele data meer"</string>
+    <string name="mobile_data_activate_prepaid_summary" msgid="5705389791791637666">"Mobiele data toevoegen via <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
+    <string name="mobile_data_activate_roaming_plan" msgid="5998161536947086264">"Geen roaming-abonnement"</string>
+    <string name="mobile_data_activate_roaming_plan_summary" msgid="511202908883425459">"Roaming-abonnement toevoegen via <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
+    <string name="mobile_data_activate_footer" msgid="5979019929980140594">"Je kunt mobiele data of een roaming-abonnement toevoegen via je provider, <xliff:g id="PROVIDER_NAME">%s</xliff:g>."</string>
+    <string name="mobile_data_activate_diag_title" msgid="9044252207707864493">"Data toevoegen?"</string>
+    <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"Je moet mogelijk data toevoegen via <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
+    <string name="mobile_data_activate_button" msgid="3682400969184405446">"DATA TOEVOEGEN"</string>
+    <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"ANNULEREN"</string>
 </resources>

@@ -88,7 +88,6 @@ LOCAL_COPY_HEADERS      += inc/OMX_VideoExt.h
 LOCAL_COPY_HEADERS      += inc/QOMX_StreamingExtensions.h
 LOCAL_COPY_HEADERS      += inc/QCMediaDefs.h
 LOCAL_COPY_HEADERS      += inc/QCMetaData.h
-LOCAL_COPY_HEADERS      += inc/OMX_Skype_VideoExtensions.h
 
 #===============================================================================
 #             LIBRARY for Android apps
@@ -99,6 +98,7 @@ LOCAL_C_INCLUDES        += $(LOCAL_PATH)/inc
 LOCAL_PRELINK_MODULE    := false
 LOCAL_MODULE            := libOmxCore
 LOCAL_MODULE_TAGS       := optional
+LOCAL_VENDOR_MODULE     := true
 LOCAL_SHARED_LIBRARIES  := liblog libdl libcutils
 LOCAL_CFLAGS            := $(OMXCORE_CFLAGS)
 
@@ -127,6 +127,7 @@ LOCAL_C_INCLUDES        += $(LOCAL_PATH)/inc
 LOCAL_PRELINK_MODULE    := false
 LOCAL_MODULE            := libmm-omxcore
 LOCAL_MODULE_TAGS       := optional
+LOCAL_VENDOR_MODULE     := true
 LOCAL_SHARED_LIBRARIES  := liblog libdl libcutils
 LOCAL_CFLAGS            := $(OMXCORE_CFLAGS)
 

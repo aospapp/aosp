@@ -21,7 +21,7 @@
 
 #include <keymaster/serializable.h>
 
-#include <UniquePtr.h>
+#include <keymaster/UniquePtr.h>
 
 namespace keymaster {
 

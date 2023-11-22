@@ -369,6 +369,10 @@
     <string name="system_services" msgid="7230571820151215779">"Usluge"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Postavke usluge"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Tekst s visokim kontrastom"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Prečac pristupačnosti"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Omogući prečac pristupačnosti"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Usluga prečaca"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Kada je taj prečac uključen, možete pritisnuti tipke za natrag i dolje na 3 sekunde da biste pokrenuli značajku pristupačnosti."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Titlovi"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Postavke za preklapanje teksta titlova u videozapisu"</string>
     <string name="captions_display" msgid="735692527287125548">"Zaslon"</string>
@@ -463,7 +467,7 @@
     <string name="system_desc_hdcp_checking" msgid="6879753401058891183">"Upotrijebi samo za DRM sadržaj"</string>
     <string name="system_desc_hdmi_optimization" msgid="4400727262768931480">"Optimiziranje zaslona za maksimalnu rezoluciju ili maksimalan broj sličica u sekundi. To utječe samo na Ultra HD zaslone. Promjena te postavke izazvat će ponovno pokretanje uređaja."</string>
     <string name="system_desc_bt_hci_log" msgid="4219265203570411773">"Omogući zapisnik funkcije \"snoop\" za Bluetooth HCI"</string>
-    <string name="system_desc_usb_debugging" msgid="5168830368191788731">"Otklanjanje pogrešaka s priključenim USB-om"</string>
+    <string name="system_desc_usb_debugging" msgid="5168830368191788731">"Otklanjanje pogrešaka putem USB-a"</string>
     <string name="system_desc_wait_for_debugger" msgid="2342968959255039368">"Aplikacija čeka program za otklanjanje pogrešaka"</string>
     <string name="system_desc_show_layout_bounds" msgid="3449386884226708985">"Za isječak prikaži granice, margine itd."</string>
     <string name="system_desc_show_gpu_view_updates" msgid="8045162296029336710">"Bljeskanje prikaza u prozorima pri crtanju GPU-om"</string>
@@ -660,7 +664,7 @@
     <string name="keep_settings" msgid="6798327196645732517">"Nemoj promijeniti"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"Dopuštenja"</string>
     <string name="device_apps_permissions" msgid="2966387603529725982">"Dopuštenja aplikacija"</string>
-    <string name="app_permissions_group_summary" msgid="7906834786705287901">"Broj aplikacija s dopuštenjem: <xliff:g id="COUNT_0">%d</xliff:g> od <xliff:g id="COUNT_1">%d</xliff:g>"</string>
+    <string name="app_permissions_group_summary" msgid="7906834786705287901">"Aplikacije s dopuštenjem: <xliff:g id="COUNT_0">%d</xliff:g> od <xliff:g id="COUNT_1">%d</xliff:g>"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"Zatraženo je Bluetooth dopuštenje"</string>
     <string name="security_patch" msgid="2131617390189164481">"Razina Androidove sigurnosne zakrpe"</string>
     <string name="choose_application" msgid="5662960665577780353">"Odaberite aplikaciju"</string>
@@ -671,4 +675,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Snimanje izvješća o programskoj pogrešci"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Dostupne virtualne tipkovnice"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Upravljaj tipkovnicama"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Dopušteno"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Nije dopušteno"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Podaci o upotrebi"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Podaci o upotrebi omogućuje aplikaciji praćenje drugih aplikacija koje upotrebljavate i učestalosti njihove upotrebe, kao i praćenje mobilnog operatera, postavki jezika i ostalih pojedinosti."</string>
 </resources>

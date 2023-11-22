@@ -66,7 +66,8 @@ void help_exit(char *msg, ...)
 {
   va_list va;
 
-  if (CFG_TOYBOX_HELP) show_help(stderr);
+  if (CFG_TOYBOX_HELP)
+    fprintf(stderr, "See %s --help\n", toys.which->name);
 
   if (msg) {
     va_start(va, msg);
@@ -289,20 +290,22 @@ long long xstrtol(char *str, char **end, int base)
   return l;
 }
 
-// atol() with the kilo/mega/giga/tera/peta/exa extensions.
+// atol() with the kilo/mega/giga/tera/peta/exa extensions, plus word and block.
 // (zetta and yotta don't fit in 64 bits.)
 long long atolx(char *numstr)
 {
-  char *c = numstr, *suffixes="cbkmgtpe", *end;
+  char *c = numstr, *suffixes="cwbkmgtpe", *end;
   long long val;
 
   val = xstrtol(numstr, &c, 0);
   if (c != numstr && *c && (end = strchr(suffixes, tolower(*c)))) {
     int shift = end-suffixes-2;
 
-    if (shift >= 0) {
-      if (toupper(*++c)=='d') do val *= 1000; while (shift--);
-      else val *= 1024LL<<(shift*10);
+    if (shift==-1) val *= 2;
+    if (!shift) val *= 512;
+    else if (shift>0) {
+      if (toupper(*++c)=='d') while (shift--) val *= 1000;
+      else val *= 1LL<<(shift*10);
     }
   }
   while (isspace(*c)) c++;
@@ -390,6 +393,17 @@ int unescape(char c)
   int idx = stridx(from, c);
 
   return (idx == -1) ? 0 : to[idx];
+}
+
+// If string ends with suffix return pointer to start of suffix in string,
+// else NULL
+char *strend(char *str, char *suffix)
+{
+  long a = strlen(str), b = strlen(suffix);
+
+  if (a>b && !strcmp(str += a-b, suffix)) return str;
+
+  return 0;
 }
 
 // If *a starts with b, advance *a past it and return 1, else return 0;
@@ -501,6 +515,16 @@ void msleep(long miliseconds)
   ts.tv_sec = miliseconds/1000;
   ts.tv_nsec = (miliseconds%1000)*1000000;
   nanosleep(&ts, &ts);
+}
+
+// return 1<<x of highest bit set
+int highest_bit(unsigned long l)
+{
+  int i;
+
+  for (i = 0; l; i++) l >>= 1;
+
+  return i-1;
 }
 
 // Inefficient, but deals with unaligned access

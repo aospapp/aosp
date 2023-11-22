@@ -20,9 +20,8 @@
     <string name="audio_channel_mono" msgid="8812941280022167428">"मोनो"</string>
     <string name="audio_channel_stereo" msgid="5798223286366598036">"स्टीरियो"</string>
     <string name="menu_title_play_controls" msgid="2490237359425190652">"चलाने के नियंत्रण"</string>
-    <string name="menu_title_channels" msgid="1801845517674690003">"हाल ही के चैनल"</string>
+    <string name="menu_title_channels" msgid="1949045451672990132">"चैनल"</string>
     <string name="menu_title_options" msgid="7184594626814914022">"टीवी विकल्प"</string>
-    <string name="menu_title_pip_options" msgid="4252934960762407689">"PIP विकल्‍प"</string>
     <string name="play_controls_unavailable" msgid="8900698593131693148">"इस चैनल के लिए चलाने के नियंत्रण अनुपलब्‍ध हैं"</string>
     <string name="play_controls_description_play_pause" msgid="7225542861669250558">"चलाएं या रोकें"</string>
     <string name="play_controls_description_fast_forward" msgid="4414963867482448652">"फ़ास्ट फ़ॉरवर्ड करें"</string>
@@ -35,33 +34,15 @@
     <string name="options_item_closed_caption" msgid="5945274655046367170">"उपशीर्षक"</string>
     <string name="options_item_display_mode" msgid="7989243076748680140">"प्रदर्शन मोड"</string>
     <string name="options_item_pip" msgid="3951350386626879645">"PIP"</string>
-    <string name="options_item_pip_on" msgid="4647247480009077381">"चालू"</string>
-    <string name="options_item_pip_off" msgid="8799500161592387451">"बंद"</string>
     <string name="options_item_multi_audio" msgid="5118851311937896923">"एकाधिक-ऑडियो"</string>
     <string name="options_item_more_channels" msgid="971040969622943300">"अधिक चैनल पाएं"</string>
     <string name="options_item_settings" msgid="7623205838542400074">"सेटिंग"</string>
-    <string name="pip_options_item_source" msgid="1050948525825308652">"स्रोत"</string>
-    <string name="pip_options_item_swap" msgid="7245362207353732048">"स्वैप करें"</string>
-    <string name="pip_options_item_swap_on" msgid="5647182616484983505">"चालू"</string>
-    <string name="pip_options_item_swap_off" msgid="3023597229417709768">"बंद"</string>
-    <string name="pip_options_item_sound" msgid="3107034283791231648">"ध्वनि"</string>
-    <string name="pip_options_item_sound_main" msgid="1063937534112558691">"मुख्‍य"</string>
-    <string name="pip_options_item_sound_pip_window" msgid="435064142351853008">"PIP विंडो"</string>
-    <string name="pip_options_item_layout" msgid="5126206342060967651">"लेआउट"</string>
-    <string name="pip_options_item_layout_bottom_right" msgid="5256839015192920238">"नीचे दाएं"</string>
-    <string name="pip_options_item_layout_top_right" msgid="3585067214787055279">"ऊपर दाएं"</string>
-    <string name="pip_options_item_layout_top_left" msgid="2173997010201637462">"ऊपर बाएं"</string>
-    <string name="pip_options_item_layout_bottom_left" msgid="1727197877968915329">"नीचे बाएं"</string>
-    <string name="pip_options_item_layout_side_by_side" msgid="9009784972740915779">"साथ-साथ"</string>
-    <string name="pip_options_item_size" msgid="5662894110243750158">"आकार"</string>
-    <string name="pip_options_item_size_big" msgid="6303301565563444718">"बड़ा"</string>
-    <string name="pip_options_item_size_small" msgid="7393731186585004206">"छोटा"</string>
-    <string name="side_panel_title_pip_input_source" msgid="8722544967592970296">"इनपुट स्रोत"</string>
     <string name="input_long_label_for_tuner" msgid="3423514011918382209">"टीवी (एंटिना/केबल)"</string>
     <string name="no_program_information" msgid="1049844207745145132">"कोई कार्यक्रम जानकारी नहीं"</string>
     <string name="program_title_for_no_information" msgid="384451471906070101">"कोई सूचना नहीं"</string>
     <string name="program_title_for_blocked_channel" msgid="5358005891746983819">"अवरोधित चैनल"</string>
-    <string name="default_language" msgid="4122326459624337928">"अज्ञात भाषा"</string>
+    <string name="multi_audio_unknown_language" msgid="8639884627225598143">"अज्ञात भाषा"</string>
+    <string name="closed_caption_unknown_language" msgid="4745445516930229353">"बंद कैप्शन %1$d"</string>
     <string name="side_panel_title_closed_caption" msgid="2513905054082568780">"उपशीर्षक"</string>
     <string name="closed_caption_option_item_off" msgid="4824009036785647753">"बंद"</string>
     <string name="closed_caption_system_settings" msgid="1856974607743827178">"प्रारूपण कस्टमाइज़ करें"</string>
@@ -83,6 +64,7 @@
     <string name="edit_channels_group_divider_for_sd" msgid="5846195382266436167">"SD"</string>
     <string name="side_panel_title_group_by" msgid="1783176601425788939">"इसके द्वारा समूहीकृत"</string>
     <string name="program_guide_content_locked" msgid="198056836554559553">"यह कार्यक्रम अवरोधित है"</string>
+    <string name="program_guide_content_locked_unrated" msgid="8665707501827594275">"इस कार्यक्रम को रेट नहीं किया गया है"</string>
     <string name="program_guide_content_locked_format" msgid="514915272862967389">"इस कार्यक्रम को <xliff:g id="RATING">%1$s</xliff:g> रेट किया गया है"</string>
     <string name="msg_no_setup_activity" msgid="7746893144640239857">"इनपुट ऑटो-स्कैन का समर्थन नहीं करता है"</string>
     <string name="msg_unable_to_start_setup_activity" msgid="8402612466599977855">"\'<xliff:g id="TV_INPUT">%s</xliff:g>\' के लिए स्वतः स्कैन प्रारंभ करने में असमर्थ"</string>
@@ -92,7 +74,6 @@
       <item quantity="other">%1$d चैनल जोड़े गए</item>
     </plurals>
     <string name="msg_no_channel_added" msgid="2882586037409921925">"कोई चैनल नहीं जोड़ा गया"</string>
-    <string name="input_selector_tuner_label" msgid="6631205039926880892">"ट्यूनर"</string>
     <string name="menu_parental_controls" msgid="2474294054521345840">"अभिभावकीय नियंत्रण"</string>
     <string name="option_toggle_parental_controls_on" msgid="9122851821454622696">"चालू"</string>
     <string name="option_toggle_parental_controls_off" msgid="7797910199040440618">"बंद"</string>
@@ -108,6 +89,8 @@
     <string name="other_countries" msgid="8342216398676184749">"अन्य देश"</string>
     <string name="option_no_locked_channel" msgid="2543094883927978444">"कोई नहीं"</string>
     <string name="option_no_enabled_rating_system" msgid="4139765018454678381">"कोई नहीं"</string>
+    <string name="unrated_rating_name" msgid="1387302638048393814">"रेट नहीं किया गया"</string>
+    <string name="option_block_unrated_programs" msgid="1108474218158184706">"रेट नहीं किए गए कार्यक्रम ब्लॉक करें"</string>
     <string name="option_rating_none" msgid="5204552587760414879">"कोई नहीं"</string>
     <string name="option_rating_high" msgid="8898400296730158893">"उच्च प्रतिबंध"</string>
     <string name="option_rating_medium" msgid="6455853836426497151">"मध्यम प्रतिबंध"</string>
@@ -124,6 +107,7 @@
     <string name="pin_enter_unlock_channel" msgid="4797922378296393173">"इस चैनल को देखने के लिए अपना पिन डालें"</string>
     <string name="pin_enter_unlock_program" msgid="7311628843209871203">"इस कार्यक्रम को देखने के लिए अपना पिन डालें"</string>
     <string name="pin_enter_unlock_dvr" msgid="1637468108723176684">"इस कार्यक्रम को <xliff:g id="RATING">%1$s</xliff:g> रेट किया गया है. यह कार्यक्रम देखने के लिए अपना पिन डालें"</string>
+    <string name="pin_enter_unlock_dvr_unrated" msgid="3911986002480028829">"इस कार्यक्रम को रेट नहीं किया गया है. इसे देखने के लिए अपना पिन डालें"</string>
     <string name="pin_enter_pin" msgid="249314665028035038">"अपना पिन डालें"</string>
     <string name="pin_enter_create_pin" msgid="3385754356793309946">"अभिभावकीय नियंत्रण सेट करने के लिए, पिन बनाएं"</string>
     <string name="pin_enter_new_pin" msgid="1739471585849790384">"नया पिन डालें"</string>
@@ -135,22 +119,31 @@
     </plurals>
     <string name="pin_toast_wrong" msgid="2126295626095048746">"वह पिन गलत था. पुन: प्रयास करें."</string>
     <string name="pin_toast_not_match" msgid="4283624338659521768">"फिर से प्रयास करें, पिन का मिलान नहीं हुआ"</string>
+    <string name="postal_code_guidance_title" msgid="4144793072363879833">"अपना ज़िप कोड डालें."</string>
+    <string name="postal_code_guidance_description" msgid="4224511147377561572">"लाइव चैनल ऐप्लिकेशन ज़िप कोड का उपयोग करके टीवी चैनल के लिए पूरी कार्यक्रम मार्गदर्शिका देगा."</string>
+    <string name="postal_code_action_description" msgid="4428720607051109105">"अपना ज़िप कोड डालें"</string>
+    <string name="postal_code_invalid_warning" msgid="923373584458340746">"अमान्य ज़िप कोड"</string>
     <string name="side_panel_title_settings" msgid="8244327316510918755">"सेटिंग"</string>
     <string name="settings_channel_source_item_customize_channels" msgid="6115770679732624593">"चैनल सूची कस्टमाइज़ करें"</string>
     <string name="settings_channel_source_item_customize_channels_description" msgid="8966243790328235580">"कार्यक्रम मार्गदर्शिका के लिए चैनल चुनें"</string>
     <string name="settings_channel_source_item_setup" msgid="4566190088656419070">"चैनल के स्रोत"</string>
     <string name="settings_channel_source_item_setup_new_inputs" msgid="4845822152617430787">"नए चैनल उपलब्‍ध हैं"</string>
     <string name="settings_parental_controls" msgid="5449397921700749317">"अभिभावकीय नियंत्रण"</string>
+    <string name="settings_trickplay" msgid="7762730842781251582">"टाइमशिफ़्ट"</string>
+    <string name="settings_trickplay_description" msgid="3060323976172182519">"देखते समय रिकॉर्ड करें ताकि आप लाइव कार्यक्रमों को रोक सकें या उन्हें रिवाइंड कर पाएं.\nचेतावनी: यह जगह का बहुत ज़्यादा उपयोग करके आंतरिक जगह का जीवनकाल घटा सकता है."</string>
     <string name="settings_menu_licenses" msgid="1257646083838406103">"ओपन सोर्स लाइसेंस"</string>
-    <string name="dialog_title_licenses" msgid="4471754920475076623">"ओपन सोर्स लाइसेंस"</string>
+    <string name="settings_send_feedback" msgid="6897217561193701829">"फ़ीडबैक भेजें"</string>
     <string name="settings_menu_version" msgid="2604030372029921403">"वर्शन"</string>
     <string name="tvview_channel_locked" msgid="6486375335718400728">"इस चैनल को देखने के लिए, दाईं ओर दबाएं और अपना पिन डालें"</string>
     <string name="tvview_content_locked" msgid="391823084917017730">"इस कार्यक्रम को देखने के लिए, दाईं ओर दबाएं और अपना पिन डालें"</string>
+    <string name="tvview_content_locked_unrated" msgid="2273799245001356782">"इस कार्यक्रम को रेट नहीं किया गया है.\nइसे देखने के लिए, कृपया दायां दबाएं और अपना पिन डालें"</string>
     <string name="tvview_content_locked_format" msgid="3741874636031338247">"इस कार्यक्रम को <xliff:g id="RATING">%1$s</xliff:g> रेट किया गया है.\nइस कार्यक्रम को देखने के लिए, Right दबाएं और अपना पिन डालें."</string>
     <string name="tvview_channel_locked_no_permission" msgid="677653135227590620">"इस चैनल को देखने के लिए, डिफ़ॉल्ट लाइव टीवी ऐप का उपयोग करें."</string>
     <string name="tvview_content_locked_no_permission" msgid="2279126235895507764">"इस कार्यक्रम को देखने के लिए, डिफ़ॉल्ट लाइव टीवी ऐप का उपयोग करें."</string>
+    <string name="tvview_content_locked_unrated_no_permission" msgid="4056090982858455110">"इस कार्यक्रम को रेट नहीं किया गया है.\nइसे देखने के लिए, डिफ़ॉल्ट Live TV ऐप्लिकेशन का उपयोग करें."</string>
     <string name="tvview_content_locked_format_no_permission" msgid="5690794624572767106">"इस कार्यक्रम को <xliff:g id="RATING">%1$s</xliff:g> रेट किया गया है.\nइस कार्यक्रम को देखने के लिए, डिफ़ॉल्ट लाइव टीवी ऐप का उपयोग करें."</string>
     <string name="shrunken_tvview_content_locked" msgid="7686397981042364446">"यह कार्यक्रम बंद कर दिया गया है"</string>
+    <string name="shrunken_tvview_content_locked_unrated" msgid="4586881678635960742">"इस कार्यक्रम को रेट नहीं किया गया है"</string>
     <string name="shrunken_tvview_content_locked_format" msgid="3720284198877900916">"इस कार्यक्रम को <xliff:g id="RATING">%1$s</xliff:g> रेट किया गया है"</string>
     <string name="tvview_msg_audio_only" msgid="1356866203687173329">"केवल ऑडियो"</string>
     <string name="tvview_msg_weak_signal" msgid="1095050812622908976">"कमज़ोर सिग्नल"</string>
@@ -181,8 +174,6 @@
     <string name="intro_description" msgid="7806473686446937307">"टीवी मेनू ऐक्‍सेस करने के लिए "<b>"चुनें"</b>" दबाएं."</string>
     <string name="msg_no_input" msgid="3897674146985427865">"कोई टीवी इनपुट नहीं मिला"</string>
     <string name="msg_no_specific_input" msgid="2688885987104249852">"टीवी इनपुट नहीं मिल पा रहा है"</string>
-    <string name="msg_no_pip_support" msgid="161508628996629445">"PIP समर्थित नहीं है"</string>
-    <string name="msg_no_available_input_by_pip" msgid="7038191654524679666">"कोई उपलब्ध इनपुट नहीं है जिसे PIP के साथ दिखाया जा सके"</string>
     <string name="msg_not_passthrough_input" msgid="4502101097091087411">"ट्यूनर प्रकार उपयुक्‍त नहीं है. कृपया ट्यूनर प्रकार टीवी इनपुट के लिए Live TV ऐप लॉन्‍च करें."</string>
     <string name="msg_tune_failed" msgid="3277419551849972252">"ट्यून विफल रहा"</string>
     <string name="msg_missing_app" msgid="8291542072400042076">"यह कार्रवाई प्रबंधित करने के लिए कोई ऐप नहीं मिला."</string>
@@ -226,6 +217,8 @@
       <item quantity="one">%1$d रिकॉर्डिंग शेड्यूल की गईं</item>
       <item quantity="other">%1$d रिकॉर्डिंग शेड्यूल की गईं</item>
     </plurals>
+    <string name="dvr_detail_cancel_recording" msgid="542538232330174145">"रिकॉर्डिंग रद्द करें"</string>
+    <string name="dvr_detail_stop_recording" msgid="3599488040374849367">"रिकॉर्डिंग बंद करें"</string>
     <string name="dvr_detail_watch" msgid="7085694764364338215">"देखें"</string>
     <string name="dvr_detail_play_from_beginning" msgid="8475543568260411836">"शुरू से चलाएं"</string>
     <string name="dvr_detail_resume_play" msgid="875591300274416373">"चलाना फिर शुरू करें"</string>
@@ -258,9 +251,6 @@
     <string name="dvr_priority_description" msgid="8362040921417154645">"जब एक ही समय पर कई सारे कार्यक्रम रिकॉर्ड करने हों, तो केवल उच्च प्राथमिकता वाले कार्यक्रम रिकॉर्ड किए जाएंगे."</string>
     <string name="dvr_priority_button_action_save" msgid="4773524273649733008">"सहेजें"</string>
     <string name="dvr_priority_action_one_time_recording" msgid="8174297042282719478">"एक बार की रिकॉर्डिंग को उच्च प्राथमिकता दी जाती है"</string>
-    <string name="dvr_action_cancel" msgid="8094060199570272625">"रद्द करें"</string>
-    <string name="dvr_action_error_cancel" msgid="6822474458738023531">"रद्द करें"</string>
-    <string name="dvr_action_error_forget_storage" msgid="5869994565663655638">"भूल जाएं"</string>
     <string name="dvr_action_stop" msgid="1378723485295471381">"रोकें"</string>
     <string name="dvr_action_view_schedules" msgid="7442990695392774263">"रिकॉर्डिंग शेड्यूल देखें"</string>
     <string name="dvr_action_record_episode" msgid="8596182676610326327">"यह एक ही कार्यक्रम"</string>
@@ -270,25 +260,28 @@
     <string name="dvr_action_record_instead" msgid="6821164728752215738">"उसके बजाय इसे रिकॉर्ड करें"</string>
     <string name="dvr_action_record_cancel" msgid="8644254745772185288">"यह रिकॉर्डिंग रद्द करें"</string>
     <string name="dvr_action_watch_now" msgid="7181211920959075976">"अभी देखें"</string>
+    <string name="dvr_action_delete_recordings" msgid="850785346795261671">"रिकॉर्डिंग हटाएं…"</string>
     <string name="dvr_epg_program_recordable" msgid="609229576209476903">"रिकॉर्ड करने योग्य"</string>
     <string name="dvr_epg_program_recording_scheduled" msgid="1367741844291055016">"रिकॉर्डिंग शेड्यूल की गई"</string>
     <string name="dvr_epg_program_recording_conflict" msgid="4827911748865195373">"रिकॉर्डिंग संबंधी विरोध"</string>
     <string name="dvr_epg_program_recording_in_progress" msgid="2158340443975313745">"रिकॉर्ड हो रहा है"</string>
     <string name="dvr_epg_program_recording_failed" msgid="5589124519442328896">"रिकॉर्डिंग विफल रही"</string>
-    <string name="dvr_schedule_progress_message_reading_programs" msgid="6502513156469172313">"रिकॉर्डिंग शेड्यूल बनाने के लिए कार्यक्रम पढ़े जा रहे हैं"</string>
-    <string name="dvr_series_schedules_progress_message_reading_programs" msgid="7221275889560136115">"प्रोग्राम पढ़े जा रहे हैं"</string>
-    <!-- no translation found for dvr_series_schedules_progress_message_updating_programs (6670286486601662465) -->
-    <skip />
+    <string name="dvr_series_progress_message_reading_programs" msgid="2961615820635219355">"कार्यक्रम पढ़े जा रहे हैं"</string>
+    <string name="dvr_error_insufficient_space_action_view_recent_recordings" msgid="137918938589787623">"हाल ही की रिकॉर्डिंग देखें"</string>
+    <string name="dvr_error_insufficient_space_title_one_recording" msgid="759510175792505150">"<xliff:g id="PROGRAMNAME">%1$s</xliff:g> की रिकॉर्डिंग अधूरी है."</string>
+    <string name="dvr_error_insufficient_space_title_two_recordings" msgid="5518578722556227631">"<xliff:g id="PROGRAMNAME_1">%1$s</xliff:g> और <xliff:g id="PROGRAMNAME_2">%2$s</xliff:g> की रिकॉर्डिंग अधूरी है."</string>
+    <string name="dvr_error_insufficient_space_title_three_or_more_recordings" msgid="5104901174884754363">"<xliff:g id="PROGRAMNAME_1">%1$s</xliff:g>, <xliff:g id="PROGRAMNAME_2">%2$s</xliff:g> और <xliff:g id="PROGRAMNAME_3">%3$s</xliff:g> की रिकॉर्डिंग अधूरी है."</string>
+    <string name="dvr_error_insufficient_space_description_one_recording" msgid="9092549220659026111">"पर्याप्त जगह नहीं होने के कारण <xliff:g id="PROGRAMNAME">%1$s</xliff:g> की रिकॉर्डिंग पूरी नहीं हुई."</string>
+    <string name="dvr_error_insufficient_space_description_two_recordings" msgid="7712799694720979003">"पर्याप्त जगह नहीं होने के कारण <xliff:g id="PROGRAMNAME_1">%1$s</xliff:g> और <xliff:g id="PROGRAMNAME_2">%2$s</xliff:g> की रिकॉर्डिंग पूरी नहीं हुई."</string>
+    <string name="dvr_error_insufficient_space_description_three_or_more_recordings" msgid="7877855707777832128">"पर्याप्त जगह नहीं होने के कारण <xliff:g id="PROGRAMNAME_1">%1$s</xliff:g>, <xliff:g id="PROGRAMNAME_2">%2$s</xliff:g> और <xliff:g id="PROGRAMNAME_3">%3$s</xliff:g> की रिकॉर्डिंग पूरी नहीं हुई."</string>
     <string name="dvr_error_small_sized_storage_title" msgid="5020225460011469011">"DVR को अधिक जगह की आवश्यकता है"</string>
-    <string name="dvr_error_small_sized_storage_description" msgid="8909789097974895119">"आप DVR से प्रोग्राम रिकॉर्ड कर पाएंगे. हालांकि इस समय आपके डिवाइस पर DVR के काम करने के लिए पर्याप्त जगह नहीं है. कृपया एक बाहरी डिवाइस कनेक्ट करें जिसमें <xliff:g id="STORAGE_SIZE">%1$s</xliff:g> GB या उससे अधिक जगह हो और उसे डिवाइस जगह के रूप में फ़ॉर्मेट करने के चरणों का अनुसरण करें."</string>
+    <string name="dvr_error_small_sized_storage_description" msgid="8909789097974895119">"आप DVR से प्रोग्राम रिकॉर्ड कर पाएंगे. हालांकि इस समय आपके डिवाइस पर DVR के काम करने के लिए पर्याप्त जगह नहीं है. कृपया एक बाहरी डिवाइस कनेक्ट करें जिसमें <xliff:g id="STORAGE_SIZE">%1$d</xliff:g> GB या उससे अधिक जगह हो और उसे डिवाइस जगह के रूप में फ़ॉर्मेट करने के चरणों का अनुसरण करें."</string>
+    <string name="dvr_error_no_free_space_title" msgid="881897873932403512">"पर्याप्‍त जगह नहीं है"</string>
+    <string name="dvr_error_no_free_space_description" msgid="6406038381803431564">"इस कार्यक्रम को रिकॉर्ड नहीं किया जाएगा क्योंकि पर्याप्त जगह उपलब्ध नहीं है. कुछ मौजूदा रिकॉर्डिंग हटाकर देखें."</string>
     <string name="dvr_error_missing_storage_title" msgid="691914341845362669">"जगह मिल नहीं रही है"</string>
-    <string name="dvr_error_missing_storage_description" msgid="1036680750969954236">"DVR द्वारा उपयोग की गई कुछ जगह मिल नहीं रही है. कृपया DVR को दोबारा सक्षम करने से पहले अपनी उपयोग की हुई बाहरी डिस्क कनेक्ट करें. वैकल्पिक रूप से, यदि जगह अब उपलब्ध नहीं है तो आप उसे भूल जाना चुन सकते हैं."</string>
-    <string name="dvr_error_forget_storage_title" msgid="4996547357826788002">"जगह को भूल जाएं?"</string>
-    <string name="dvr_error_forget_storage_description" msgid="3973761741009546142">"आपकी रिकॉर्ड की हुई सभी सामग्री और शेड्यूल खो जाएंगे."</string>
     <string name="dvr_stop_recording_dialog_title" msgid="2587018956502704278">"रिकॉर्डिंग बंद करें?"</string>
     <string name="dvr_stop_recording_dialog_description" msgid="4637830189399967761">"रिकॉर्ड की गई सामग्री सहेज ली जाएगी."</string>
-    <!-- no translation found for dvr_stop_recording_dialog_description_on_conflict (7876857267536083760) -->
-    <skip />
+    <string name="dvr_stop_recording_dialog_description_on_conflict" msgid="7876857267536083760">"<xliff:g id="PROGRAMNAME">%1$s</xliff:g> की रिकॉर्डिंग रोक दी जाएगी क्योंकि यह इस प्रोग्राम का विरोध करता है. रिकॉर्ड की गई सामग्री सहेज ली जाएगी."</string>
     <string name="dvr_program_conflict_dialog_title" msgid="109323740107060379">"रिकॉर्डिंग शेड्यूल की गई लेकिन विरोध मौजूद हैं"</string>
     <string name="dvr_channel_conflict_dialog_title" msgid="7461033430572027786">"रिकॉर्डिंग शुरू हो गई है लेकिन उसमें विरोध मौजूद हैं"</string>
     <string name="dvr_program_conflict_dialog_description_prefix" msgid="5520062013211648196">"<xliff:g id="PROGRAMNAME">%1$s</xliff:g> रिकॉर्ड किया जाएगा."</string>
@@ -306,17 +299,29 @@
     <string name="dvr_already_scheduled_dialog_description" msgid="8170126125996414810">"इसी कार्यक्रम को <xliff:g id="PROGRAMSTARTTIME">%1$s</xliff:g> बजे रिकॉर्ड करने के लिए पहले ही शेड्यूल किया जा चुका है."</string>
     <string name="dvr_already_recorded_dialog_title" msgid="2760294707162057216">"पहले ही रिकॉर्ड हो चुका है"</string>
     <string name="dvr_already_recorded_dialog_description" msgid="8966051583682746434">"यह कार्यक्रम पहले ही रिकॉर्ड हो चुका है. वह DVR लाइब्रेरी में उपलब्ध है."</string>
-    <!-- no translation found for dvr_series_recording_dialog_title (3521956660855853797) -->
-    <skip />
-    <!-- no translation found for dvr_series_recording_scheduled_no_conflict (2796926724821316879) -->
-    <!-- no translation found for dvr_series_recording_scheduled_only_this_series_conflict (2800805130979023066) -->
-    <!-- no translation found for dvr_series_recording_scheduled_this_and_other_series_one_conflict (3632394665556633158) -->
-    <!-- no translation found for dvr_series_recording_scheduled_this_and_other_series_conflict (2331412040101938479) -->
-    <!-- no translation found for dvr_series_recording_scheduled_only_other_series_one_conflict (5213169239215104024) -->
-    <!-- no translation found for dvr_series_recording_scheduled_only_other_series_conflict (5159645486201045330) -->
+    <string name="dvr_series_recording_dialog_title" msgid="3521956660855853797">"सीरीज़ रिकॉर्डिंग शेड्यूल की गई"</string>
+    <plurals name="dvr_series_scheduled_no_conflict" formatted="false" msgid="6909096418632555251">
+      <item quantity="one"><xliff:g id="SERIESNAME_3">%2$s</xliff:g> के लिए <xliff:g id="NUMBEROFRECORDINGS_2">%1$d</xliff:g> रिकॉर्डिंग शेड्यूल कर दी गई हैं.</item>
+      <item quantity="other"><xliff:g id="SERIESNAME_3">%2$s</xliff:g> के लिए <xliff:g id="NUMBEROFRECORDINGS_2">%1$d</xliff:g> रिकॉर्डिंग शेड्यूल कर दी गई हैं.</item>
+    </plurals>
+    <plurals name="dvr_series_recording_scheduled_only_this_series_conflict" formatted="false" msgid="2341548158607418515">
+      <item quantity="one"><xliff:g id="SERIESNAME_3">%2$s</xliff:g> के लिए <xliff:g id="NUMBEROFRECORDINGS_2">%1$d</xliff:g> रिकॉर्डिंग शेड्यूल कर दी गई हैं. अन्य शेड्यूल से विरोधों के कारण उनमें से <xliff:g id="NUMBEROFCONFLICTRECORDINGS">%3$d</xliff:g> को रिकॉर्ड नहीं किया जाएगा.</item>
+      <item quantity="other"><xliff:g id="SERIESNAME_3">%2$s</xliff:g> के लिए <xliff:g id="NUMBEROFRECORDINGS_2">%1$d</xliff:g> रिकॉर्डिंग शेड्यूल कर दी गई हैं. अन्य शेड्यूल से विरोधों के कारण उनमें से <xliff:g id="NUMBEROFCONFLICTRECORDINGS">%3$d</xliff:g> को रिकॉर्ड नहीं किया जाएगा.</item>
+    </plurals>
+    <plurals name="dvr_series_scheduled_this_and_other_series_conflict" formatted="false" msgid="6123651855499916154">
+      <item quantity="one"><xliff:g id="SERIESNAME_4">%2$s</xliff:g> के लिए <xliff:g id="NUMBEROFRECORDINGS_3">%1$d</xliff:g> रिकॉर्डिंग शेड्यूल कर दी गई हैं. अन्य शेड्यूल और दूसरे सीरीज़ के एपिसोड से विरोधों के कारण इस सीरीज़ और अन्य सीरीज़ के <xliff:g id="NUMBEROFCONFLICTEPISODES_5">%3$d</xliff:g> एपिसोड रिकॉर्ड नहीं किए जाएंगे.</item>
+      <item quantity="other"><xliff:g id="SERIESNAME_4">%2$s</xliff:g> के लिए <xliff:g id="NUMBEROFRECORDINGS_3">%1$d</xliff:g> रिकॉर्डिंग शेड्यूल कर दी गई हैं. अन्य शेड्यूल और दूसरे सीरीज़ के एपिसोड से विरोधों के कारण इस सीरीज़ और अन्य सीरीज़ के <xliff:g id="NUMBEROFCONFLICTEPISODES_5">%3$d</xliff:g> एपिसोड रिकॉर्ड नहीं किए जाएंगे.</item>
+    </plurals>
+    <plurals name="dvr_series_scheduled_only_other_series_one_conflict" formatted="false" msgid="8628389493339609682">
+      <item quantity="one"><xliff:g id="SERIESNAME_3">%2$s</xliff:g> के लिए <xliff:g id="NUMBEROFRECORDINGS_2">%1$d</xliff:g> रिकॉर्डिंग शेड्यूल कर दी गई हैं. इस सीरीज़ से विरोधों के कारण अन्य सीरीज़ का 1 एपिसोड रिकॉर्ड नहीं किया जाएगा.</item>
+      <item quantity="other"><xliff:g id="SERIESNAME_3">%2$s</xliff:g> के लिए <xliff:g id="NUMBEROFRECORDINGS_2">%1$d</xliff:g> रिकॉर्डिंग शेड्यूल कर दी गई हैं. इस सीरीज़ से विरोधों के कारण अन्य सीरीज़ का 1 एपिसोड रिकॉर्ड नहीं किया जाएगा.</item>
+    </plurals>
+    <plurals name="dvr_series_scheduled_only_other_series_many_conflicts" formatted="false" msgid="1601104768354168073">
+      <item quantity="one"><xliff:g id="SERIESNAME_4">%2$s</xliff:g> के लिए <xliff:g id="NUMBEROFRECORDINGS_3">%1$d</xliff:g> रिकॉर्डिंग शेड्यूल कर दी गई हैं. इस सीरीज़ से विरोधों के कारण अन्य सीरीज़ के <xliff:g id="NUMBEROFCONFLICTEPISODES_5">%3$d</xliff:g> एपिसोड रिकॉर्ड नहीं किए जाएंगे.</item>
+      <item quantity="other"><xliff:g id="SERIESNAME_4">%2$s</xliff:g> के लिए <xliff:g id="NUMBEROFRECORDINGS_3">%1$d</xliff:g> रिकॉर्डिंग शेड्यूल कर दी गई हैं. इस सीरीज़ से विरोधों के कारण अन्य सीरीज़ के <xliff:g id="NUMBEROFCONFLICTEPISODES_5">%3$d</xliff:g> एपिसोड रिकॉर्ड नहीं किए जाएंगे.</item>
+    </plurals>
     <string name="dvr_program_not_found" msgid="3282879532038010202">"रिकॉर्ड किया गया प्रोग्राम नहीं मिला."</string>
     <string name="dvr_playback_related_recordings" msgid="6978658039329924961">"संबंधित रिकॉर्डिंग"</string>
-    <string name="dvr_msg_no_program_description" msgid="2521723281247322645">"(कोई कार्यक्रम वर्णन नहीं)"</string>
     <plurals name="dvr_schedules_section_subtitle" formatted="false" msgid="9180744010405976007">
       <item quantity="one">%1$d रिकॉर्डिंग</item>
       <item quantity="other">%1$d रिकॉर्डिंग</item>
@@ -336,6 +341,7 @@
     <string name="dvr_series_schedules_stop_dialog_title" msgid="4975886236535334420">"श्रृंखला की रिकॉर्डिंग रोकें?"</string>
     <string name="dvr_series_schedules_stop_dialog_description" msgid="7547266283366940085">"रिकॉर्ड किए गए एपिसोड DVR लाइब्रेरी में उपलब्ध रहेंगे."</string>
     <string name="dvr_series_schedules_stop_dialog_action_stop" msgid="2351839914865142478">"रोकें"</string>
+    <string name="dvr_series_schedules_stopped_empty_state" msgid="1464244804664395151">"इस समय कोई भी एपिसोड प्रसारित नहीं हो रहा है."</string>
     <string name="dvr_series_schedules_empty_state" msgid="3407962945399698707">"कोई भी एपिसोड उपलब्ध नहीं है.\nएपिसोड उपलब्ध होने पर उन्हें रिकॉर्ड कर लिया जाएगा."</string>
     <plurals name="dvr_schedules_recording_duration" formatted="false" msgid="3701771573063918552">
       <item quantity="one">(%1$d मिनट)</item>
@@ -347,4 +353,5 @@
     <string name="dvr_date_today_time" msgid="8359696776305244535">"<xliff:g id="TIME_RANGE">%1$s</xliff:g> आज"</string>
     <string name="dvr_date_tomorrow_time" msgid="8364654556105292594">"<xliff:g id="TIME_RANGE">%1$s</xliff:g> कल"</string>
     <string name="program_guide_critic_score" msgid="340530743913585150">"स्कोर"</string>
+    <string name="recorded_programs_preview_channel" msgid="890404366427245812">"रिकॉर्ड किए गए कार्यक्रम"</string>
 </resources>

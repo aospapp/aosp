@@ -30,11 +30,13 @@ namespace spirit {
 class ModuleTest : public ::testing::Test {
 protected:
   virtual void SetUp() {
+    mWordsGlobal = readWords("global.spv");
     mWordsGreyscale = readWords("greyscale.spv");
     mWordsGreyscale2 = readWords("greyscale2.spv");
     mWordsInvert = readWords("invert.spv");
   }
 
+  std::vector<uint32_t> mWordsGlobal;
   std::vector<uint32_t> mWordsGreyscale;
   std::vector<uint32_t> mWordsGreyscale2;
   std::vector<uint32_t> mWordsInvert;
@@ -182,6 +184,17 @@ TEST_F(ModuleTest, testGetSize) {
   EXPECT_EQ(4UL, m->getSize(m->getIntType(32, 0)));
   EXPECT_EQ(4UL, m->getSize(m->getFloatType(32)));
   EXPECT_EQ(16UL, m->getSize(m->getVectorType(m->getFloatType(32), 4)));
+}
+
+TEST_F(ModuleTest, testFindStringOfPrefix) {
+  Module *m = Deserialize<Module>(mWordsGlobal);
+
+  ASSERT_NE(nullptr, m);
+
+  std::unique_ptr<Module> mDeleter(m);
+  ASSERT_STREQ(".rsov.ExportedVars:0;",
+               m->findStringOfPrefix(".rsov.ExportedVars:").c_str());
+
 }
 
 } // namespace spirit

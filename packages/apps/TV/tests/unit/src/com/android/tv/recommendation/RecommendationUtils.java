@@ -34,7 +34,6 @@ import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 
 public class RecommendationUtils {
-    private static final String TAG = "RecommendationUtils";
     private static final long INVALID_CHANNEL_ID = -1;
 
     /**

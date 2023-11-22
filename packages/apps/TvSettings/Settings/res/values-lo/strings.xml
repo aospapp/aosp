@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"ບໍລິການ"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"​ການ​ຕັ້ງ​ຄ່າ​ບໍ​ລິ​ການ"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"ຂໍ້ຄວາມທີ່ມີຄວາມຄົມຊັດສູງ"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"ປຸ່ມລັດ​ສຳລັບ​ການ​ເຂົ້າ​ເຖິງ"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"ເປີດໃຊ້ປຸ່ມລັດການຊ່ວຍເຂົ້າເຖິງ"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"ບໍລິການປຸ່ມທາງລັດ"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"ເມື່ອເປີດປຸ່ມລັດແລ້ວ, ທ່ານສາມາດກົດປຸ່ມກັບຄືນ ແລະ ປຸ່ມລົງພ້ອມກັນຄ້າງໄວ້ 3 ວິນາທີເພື່ອເປັນການເປີດຄຸນສົມບັດຊ່ວຍເຂົ້າເຖິງ"</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"ຄຳບັນຍາຍ"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"​ການ​ຕັ້ງ​ຄ່າ​ສຳ​ລັບ​ຂໍ້​ຄວາມ​ຄຳ​ບັນ​ຍາຍ​ຢູ່​ເທິງວິ​ດີ​ໂອ"</string>
     <string name="captions_display" msgid="735692527287125548">"ການສະແດງຜົນ"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"ກຳລັງຖ່າຍຮູບລາຍງານຂໍ້ຜິດພາດ"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"ແປ້ນພິມສະເໝືອນທີ່ສາມາດໃຊ້ໄດ້"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"ຈັດການແປ້ນພິມ"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"ອະນຸຍາດແລ້ວ"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"ບໍ່ອະນຸຍາດ"</string>
+    <string name="usage_access" msgid="1914242907684452328">"ການເຂົ້າເຖິງການນຳໃຊ້"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"ການເຂົ້າເຖິງການນຳໃຊ້ອະນຸຍາດໃຫ້ແອັບຕິດຕາມວ່າ ແອັບອື່ນໆທີ່ທ່ານກຳລັງນຳໃຊ້ ແລະ ໃຊ້ເລື້ອຍປານໃດ, ພ້ອມທັງຜູ້ໃຫ້ບໍລິການເຄືອຂ່າຍ, ພາສາ, ການຕັ້ງຄ່າ ແລະ ລາຍລະອຽດອື່ນໆຂອງທ່ານ."</string>
 </resources>

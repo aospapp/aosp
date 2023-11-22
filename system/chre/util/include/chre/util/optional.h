@@ -17,6 +17,8 @@
 #ifndef UTIL_CHRE_OPTIONAL_H_
 #define UTIL_CHRE_OPTIONAL_H_
 
+#include <type_traits>
+
 namespace chre {
 
 /**
@@ -26,10 +28,15 @@ namespace chre {
 template<typename ObjectType>
 class Optional {
  public:
+  // Per the standard, a program that instantiates template optional for a
+  // reference type is ill-formed
+  static_assert(!std::is_reference<ObjectType>::value,
+                "Optional references are not allowed");
+
   /**
    * Default constructs the optional object with no initial value.
    */
-  Optional();
+  Optional() = default;
 
   /**
    * Constructs an optional instance with an initial value.
@@ -46,16 +53,23 @@ class Optional {
   Optional(ObjectType&& object);
 
   /**
-   * @return Returns true if the object tracked by this container has been
-   * assigned.
+   * @return Returns true if this container holds an object
    */
   bool has_value() const;
 
   /**
-   * Resets the optional container by invoking the destructor on the underlying
-   * object.
+   * Destroys any contained object, and marks this Optional as empty (i.e.
+   * has_value() will return false after this function returns)
    */
   void reset();
+
+  /**
+   * Gets a reference to the contained object. Does not check that this optional
+   * contains a value, so this object will be uninitialized if has_value() is
+   * false.
+   */
+  ObjectType& value();
+  const ObjectType& value() const;
 
   /**
    * Performs a move assignment operation to the underlying object managed by
@@ -67,8 +81,9 @@ class Optional {
   Optional<ObjectType>& operator=(ObjectType&& other);
 
   /**
-   * Performs a move assignment from one optional to another. The other is left
-   * in a state with no value.
+   * Performs a move assignment from one optional to another. Note that the
+   * other object still holds a value, but it is left in the moved-from state
+   * (as is the case in std::optional).
    *
    * @param other The other object to move.
    * @return Returns a reference to this object.
@@ -130,10 +145,17 @@ class Optional {
 
  private:
   //! The optional object being tracked by this container.
-  ObjectType mObject;
+  typename std::aligned_storage<sizeof(ObjectType), alignof(ObjectType)>::type
+      mObject;
 
   //! Whether or not the object is set.
   bool mHasValue = false;
+
+  ObjectType& object();
+  const ObjectType& object() const;
+
+  ObjectType *objectAddr();
+  const ObjectType *objectAddr() const;
 };
 
 }  // namespace chre

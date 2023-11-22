@@ -15,9 +15,11 @@
 package cc
 
 import (
-	"android/soong/android"
+	"strings"
+
 	"github.com/google/blueprint"
 
+	"android/soong/android"
 	"android/soong/cc/config"
 )
 
@@ -40,13 +42,37 @@ func (sabimod *sabi) deps(ctx BaseModuleContext, deps Deps) Deps {
 	return deps
 }
 
+func inListWithPrefixSearch(flag string, filter []string) bool {
+	// Assuming the filter is small enough.
+	// If the suffix of a filter element is *, try matching prefixes as well.
+	for _, f := range filter {
+		if (f == flag) || (strings.HasSuffix(f, "*") && strings.HasPrefix(flag, strings.TrimSuffix(f, "*"))) {
+			return true
+		}
+	}
+	return false
+}
+
+func filterOutWithPrefix(list []string, filter []string) (remainder []string) {
+	// Go through the filter, matching and optionally doing a prefix search for list elements.
+	for _, l := range list {
+		if !inListWithPrefixSearch(l, filter) {
+			remainder = append(remainder, l)
+		}
+	}
+	return
+}
+
 func (sabimod *sabi) flags(ctx ModuleContext, flags Flags) Flags {
+	// Assuming that the cflags which clang LibTooling tools cannot
+	// understand have not been converted to ninja variables yet.
+	flags.ToolingCFlags = filterOutWithPrefix(flags.CFlags, config.ClangLibToolingUnknownCflags)
 	return flags
 }
 
 func sabiDepsMutator(mctx android.TopDownMutatorContext) {
 	if c, ok := mctx.Module().(*Module); ok &&
-		(Bool(c.Properties.Vendor_available) || (inList(c.Name(), config.LLndkLibraries())) ||
+		(c.isVndk() || inList(c.Name(), llndkLibraries) ||
 			(c.sabi != nil && c.sabi.Properties.CreateSAbiDumps)) {
 		mctx.VisitDirectDeps(func(m blueprint.Module) {
 			tag := mctx.OtherModuleDependencyTag(m)

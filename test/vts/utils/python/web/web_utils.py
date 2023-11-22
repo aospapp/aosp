@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import base64
 import getpass
 import logging
 import os
@@ -42,10 +43,8 @@ class WebFeature(feature_utils.Feature):
     _REQUIRED_PARAMS = [
         keys.ConfigKeys.IKEY_DASHBOARD_POST_COMMAND,
         keys.ConfigKeys.IKEY_SERVICE_JSON_PATH,
-        keys.ConfigKeys.KEY_TESTBED_NAME,
-        keys.ConfigKeys.IKEY_BUILD,
-        keys.ConfigKeys.IKEY_ANDROID_DEVICE,
-        keys.ConfigKeys.IKEY_ABI_NAME,
+        keys.ConfigKeys.KEY_TESTBED_NAME, keys.ConfigKeys.IKEY_BUILD,
+        keys.ConfigKeys.IKEY_ANDROID_DEVICE, keys.ConfigKeys.IKEY_ABI_NAME,
         keys.ConfigKeys.IKEY_ABI_BITNESS
     ]
     _OPTIONAL_PARAMS = []
@@ -68,7 +67,8 @@ class WebFeature(feature_utils.Feature):
 
         # Initialize the dashboard client
         post_cmd = getattr(self, keys.ConfigKeys.IKEY_DASHBOARD_POST_COMMAND)
-        service_json_path = str(getattr(self, keys.ConfigKeys.IKEY_SERVICE_JSON_PATH))
+        service_json_path = str(
+            getattr(self, keys.ConfigKeys.IKEY_SERVICE_JSON_PATH))
         self.rest_client = dashboard_rest_client.DashboardRestClient(
             post_cmd, service_json_path)
         if not self.rest_client.Initialize():
@@ -360,17 +360,30 @@ class WebFeature(feature_utils.Feature):
             log_msg.url = url
             log_msg.name = os.path.basename(url)
 
-    def Upload(self, requested, executed):
+    def GetTestModuleKeys(self):
+        """Returns the test module name and start timestamp.
+
+        Those two values can be used to find the corresponding entry
+        in a used nosql database without having to lock all the data
+        (which is infesiable) thus are essential for strong consistency.
+        """
+        return self.report_msg.test, self.report_msg.start_timestamp
+
+    def GenerateReportMessage(self, requested, executed):
         """Uploads the result to the web service.
 
         Requires the feature to be enabled; no-op otherwise.
 
         Args:
-            requested: list, A list of test case names requested to run
-            executed: list, A list of test case names that were executed
+            requested: list, A list of test case records requested to run
+            executed: list, A list of test case records that were executed
+
+        Returns:
+            binary string, serialized report message.
+            None if web is not enabled.
         """
         if not self.enabled:
-            return
+            return None
 
         # Handle case when runner fails, tests aren't executed
         if (executed and executed[-1].test_name == "setup_class"):
@@ -382,7 +395,7 @@ class WebFeature(feature_utils.Feature):
 
         for test in requested[start_index:]:
             msg = self.report_msg.test_case.add()
-            msg.name = test
+            msg.name = test.test_name
             msg.start_timestamp = feature_utils.GetTimestamp()
             msg.end_timestamp = msg.start_timestamp
             msg.test_result = ReportMsg.TEST_CASE_RESULT_FAIL
@@ -397,14 +410,21 @@ class WebFeature(feature_utils.Feature):
         logging.info("_tearDownClass hook: start (username: %s)",
                      getpass.getuser())
 
-        if len(self.report_msg.test_case) > 0:
-            post_msg = ReportMsg.DashboardPostMessage()
-            post_msg.test_report.extend([self.report_msg])
-
-            # Post new data to the dashboard
-            self.rest_client.PostData(post_msg)
-
-            logging.info("_tearDownClass hook: status upload time stamp %s",
-                         str(self.report_msg.start_timestamp))
-        else:
+        if len(self.report_msg.test_case) == 0:
             logging.info("_tearDownClass hook: skip uploading (no test case)")
+            return ''
+
+        post_msg = ReportMsg.DashboardPostMessage()
+        post_msg.test_report.extend([self.report_msg])
+
+        self.rest_client.AddAuthToken(post_msg)
+
+        message_b = base64.b64encode(post_msg.SerializeToString())
+
+        logging.info('Result proto message generated. size: %s',
+                     len(message_b))
+
+        logging.info("_tearDownClass hook: status upload time stamp %s",
+                     str(self.report_msg.start_timestamp))
+
+        return message_b

@@ -26,6 +26,7 @@
 #include "base/scoped_flock.h"
 #include "base/unix_file/fd_file.h"
 #include "compiler_filter.h"
+#include "class_loader_context.h"
 #include "oat_file.h"
 #include "os.h"
 
@@ -147,13 +148,25 @@ class OatFileAssistant {
   bool Lock(std::string* error_msg);
 
   // Return what action needs to be taken to produce up-to-date code for this
-  // dex location that is at least as good as an oat file generated with the
-  // given compiler filter. profile_changed should be true to indicate the
-  // profile has recently changed for this dex location.
+  // dex location. If "downgrade" is set to false, it verifies if the current
+  // compiler filter is at least as good as an oat file generated with the
+  // given compiler filter otherwise, if its set to true, it checks whether
+  // the oat file generated with the target filter will be downgraded as
+  // compared to the current state. For example, if the current compiler filter is
+  // quicken, and target filter is verify, it will recommend to dexopt, while
+  // if the target filter is speed profile, it will recommend to keep it in its
+  // current state.
+  // profile_changed should be true to indicate the profile has recently changed
+  // for this dex location.
+  // If the purpose of the dexopt is to downgrade the compiler filter,
+  // set downgrade to true.
   // Returns a positive status code if the status refers to the oat file in
   // the oat location. Returns a negative status code if the status refers to
   // the oat file in the odex location.
-  int GetDexOptNeeded(CompilerFilter::Filter target_compiler_filter, bool profile_changed = false);
+  int GetDexOptNeeded(CompilerFilter::Filter target_compiler_filter,
+                      bool profile_changed = false,
+                      bool downgrade = false,
+                      ClassLoaderContext* context = nullptr);
 
   // Returns true if there is up-to-date code for this dex location,
   // irrespective of the compiler filter of the up-to-date code.
@@ -174,12 +187,17 @@ class OatFileAssistant {
   // profile_changed should be true to indicate the profile has recently
   // changed for this dex location.
   //
+  // If the dex files need to be made up to date, class_loader_context will be
+  // passed to dex2oat.
+  //
   // Returns the result of attempting to update the code.
   //
   // If the result is not kUpdateSucceeded, the value of error_msg will be set
   // to a string describing why there was a failure or the update was not
   // attempted. error_msg must not be null.
-  ResultOfAttemptToUpdate MakeUpToDate(bool profile_changed, std::string* error_msg);
+  ResultOfAttemptToUpdate MakeUpToDate(bool profile_changed,
+                                       ClassLoaderContext* class_loader_context,
+                                       std::string* error_msg);
 
   // Returns an oat file that can be used for loading dex files.
   // Returns null if no suitable oat file was found.
@@ -206,6 +224,13 @@ class OatFileAssistant {
   // dex_files will only remain valid as long as the oat_file is valid.
   static std::vector<std::unique_ptr<const DexFile>> LoadDexFiles(
       const OatFile& oat_file, const char* dex_location);
+
+  // Same as `std::vector<std::unique_ptr<const DexFile>> LoadDexFiles(...)` with the difference:
+  //   - puts the dex files in the given vector
+  //   - returns whether or not all dex files were successfully opened
+  static bool LoadDexFiles(const OatFile& oat_file,
+                           const std::string& dex_location,
+                           std::vector<std::unique_ptr<const DexFile>>* out_dex_files);
 
   // Returns true if there are dex files in the original dex location that can
   // be compiled with dex2oat for this dex location.
@@ -303,8 +328,12 @@ class OatFileAssistant {
     // given target_compilation_filter.
     // profile_changed should be true to indicate the profile has recently
     // changed for this dex location.
+    // downgrade should be true if the purpose of dexopt is to downgrade the
+    // compiler filter.
     DexOptNeeded GetDexOptNeeded(CompilerFilter::Filter target_compiler_filter,
-                                 bool profile_changed);
+                                 bool profile_changed,
+                                 bool downgrade,
+                                 ClassLoaderContext* context);
 
     // Returns the loaded file.
     // Loads the file if needed. Returns null if the file failed to load.
@@ -337,7 +366,11 @@ class OatFileAssistant {
     // least as good as the given target filter. profile_changed should be
     // true to indicate the profile has recently changed for this dex
     // location.
-    bool CompilerFilterIsOkay(CompilerFilter::Filter target, bool profile_changed);
+    // downgrade should be true if the purpose of dexopt is to downgrade the
+    // compiler filter.
+    bool CompilerFilterIsOkay(CompilerFilter::Filter target, bool profile_changed, bool downgrade);
+
+    bool ClassLoaderContextIsOkay(ClassLoaderContext* context);
 
     // Release the loaded oat file.
     // Returns null if the oat file hasn't been loaded.
@@ -366,7 +399,8 @@ class OatFileAssistant {
   };
 
   // Generate the oat file for the given info from the dex file using the
-  // current runtime compiler options and the specified filter.
+  // current runtime compiler options, the specified filter and class loader
+  // context.
   // This does not check the current status before attempting to generate the
   // oat file.
   //
@@ -375,6 +409,7 @@ class OatFileAssistant {
   // attempted. error_msg must not be null.
   ResultOfAttemptToUpdate GenerateOatFileNoChecks(OatFileInfo& info,
                                                   CompilerFilter::Filter target,
+                                                  const ClassLoaderContext* class_loader_context,
                                                   std::string* error_msg);
 
   // Return info for the best oat file.

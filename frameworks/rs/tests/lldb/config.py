@@ -68,12 +68,12 @@ class Config(object):
 
     @property
     def log_file_path(self):
-        '''The path to the folder where the log file will be placed.'''
+        '''The path to the file where the log will be written.'''
         return os.path.join(os.getcwd(), 'LLDBTestsuiteLog.txt')
 
     @property
     def results_file_path(self):
-        '''Output folder where junit results.xml file will be placed.'''
+        '''The path to the file where junit results.xml will be written.'''
         return os.path.join(os.getcwd(), 'results.xml')
 
     @property

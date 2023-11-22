@@ -66,7 +66,22 @@ public class AccessibilityWindowQueryTest
                     return (event.getEventType() == AccessibilityEvent.TYPE_WINDOWS_CHANGED);
                 }
             };
-
+    private final UiAutomation.AccessibilityEventFilter mDividerPresentFilter =
+            new UiAutomation.AccessibilityEventFilter() {
+                @Override
+                public boolean accept(AccessibilityEvent event) {
+                    return (event.getEventType() == AccessibilityEvent.TYPE_WINDOWS_CHANGED &&
+                            isDividerWindowPresent(getInstrumentation().getUiAutomation())    );
+                }
+            };
+    private final UiAutomation.AccessibilityEventFilter mDividerAbsentFilter =
+            new UiAutomation.AccessibilityEventFilter() {
+                @Override
+                public boolean accept(AccessibilityEvent event) {
+                    return (event.getEventType() == AccessibilityEvent.TYPE_WINDOWS_CHANGED &&
+                            !isDividerWindowPresent(getInstrumentation().getUiAutomation())   );
+                }
+            };
 
     public AccessibilityWindowQueryTest() {
         super(AccessibilityWindowQueryActivity.class);
@@ -620,14 +635,11 @@ public class AccessibilityWindowQueryTest
             }
         };
 
-        uiAutomation.executeAndWaitForEvent(toggleSplitScreenRunnable, mWindowsChangedFilter,
+        uiAutomation.executeAndWaitForEvent(toggleSplitScreenRunnable, mDividerPresentFilter,
                 TIMEOUT_ASYNC_PROCESSING);
-        waitForIdle();
-        assertTrue(isDividerWindowPresent(uiAutomation));
-        uiAutomation.executeAndWaitForEvent(toggleSplitScreenRunnable, mWindowsChangedFilter,
+
+        uiAutomation.executeAndWaitForEvent(toggleSplitScreenRunnable, mDividerAbsentFilter,
                 TIMEOUT_ASYNC_PROCESSING);
-        waitForIdle();
-        assertFalse(isDividerWindowPresent(uiAutomation));
     }
 
     public void testFindPictureInPictureWindow() throws Exception {

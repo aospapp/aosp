@@ -29,12 +29,8 @@
         <option name="binary-test-disable-framework" value="true"/>
         <option name="binary-test-stop-native-servers" value="true"/>
         <option name="precondition-lshal" value="android.hardware.radio@1.0"/>
-        <option name="exclude-filter" value="RadioHidlTest.getDataCallList" />
-        <option name="exclude-filter" value="RadioHidlTest.setRadioCapability" />
-        <option name="exclude-filter" value="RadioHidlTest.sendCDMAFeatureCode" />
-        <option name="exclude-filter" value="RadioHidlTest.setSimCardPower" />
-        <option name="exclude-filter" value="SapHidlTest.transferAtrReq" />
-        <option name="exclude-filter" value="RadioHidlTest.dial" />
         <option name="test-timeout" value="15m"/>
+        <!-- The following test is disabled due to b/64734869 -->
+        <option name="exclude-filter" value="RadioHidlTest.requestShutdown" />
     </test>
 </configuration>

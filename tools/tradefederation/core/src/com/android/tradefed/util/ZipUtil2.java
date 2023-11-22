@@ -72,6 +72,20 @@ public class ZipUtil2 {
     }
 
     /**
+     * Utility method to extract a zip file into a given directory. The zip file being presented as
+     * a {@link File}.
+     *
+     * @param zipFile a {@link File} pointing to a zip file.
+     * @param destDir the local dir to extract file to
+     * @throws IOException if failed to extract file
+     */
+    public static void extractZip(File zipFile, File destDir) throws IOException {
+        try (ZipFile zip = new ZipFile(zipFile)) {
+            extractZip(zip, destDir);
+        }
+    }
+
+    /**
      * Utility method to extract one specific file from zip file into a tmp file
      *
      * @param zipFile the {@link ZipFile} to extract

@@ -1,0 +1,131 @@
+// This file was auto-generated. Do not edit manually.
+// Use test/vts-testcase/hal/update_makefiles.py to generate this file.
+
+// Generate .vts spec files.
+hal2vts {
+    name: "android.hardware.tetheroffload.config@1.0-vts.spec",
+    srcs: [
+        ":android.hardware.tetheroffload.config@1.0_hal",
+    ],
+    out: [
+        "android/hardware/tetheroffload/config/1.0/OffloadConfig.vts",
+    ],
+}
+
+// Build VTS driver.
+genrule {
+    name: "android.hardware.tetheroffload.config@1.0-vts.driver_genc++",
+    tools: ["hidl-gen", "vtsc"],
+    cmd: "$(location hidl-gen) -o $(genDir) -Lvts -randroid.hardware:hardware/interfaces -randroid.hidl:system/libhidl/transport android.hardware.tetheroffload.config@1.0 && $(location vtsc) -mDRIVER -tSOURCE -b$(genDir) android/hardware/tetheroffload/config/1.0/ $(genDir)/android/hardware/tetheroffload/config/1.0/",
+    srcs: [
+        ":android.hardware.tetheroffload.config@1.0_hal",
+    ],
+    out: [
+        "android/hardware/tetheroffload/config/1.0/OffloadConfig.vts.cpp",
+    ],
+}
+
+genrule {
+    name: "android.hardware.tetheroffload.config@1.0-vts.driver_genc++_headers",
+    tools: ["hidl-gen", "vtsc"],
+    cmd: "$(location hidl-gen) -o $(genDir) -Lvts -randroid.hardware:hardware/interfaces -randroid.hidl:system/libhidl/transport android.hardware.tetheroffload.config@1.0 && $(location vtsc) -mDRIVER -tHEADER -b$(genDir) android/hardware/tetheroffload/config/1.0/ $(genDir)/android/hardware/tetheroffload/config/1.0/",
+    srcs: [
+        ":android.hardware.tetheroffload.config@1.0_hal",
+    ],
+    out: [
+        "android/hardware/tetheroffload/config/1.0/OffloadConfig.vts.h",
+    ],
+}
+
+cc_library_shared {
+    name: "android.hardware.tetheroffload.config@1.0-vts.driver",
+    generated_sources: ["android.hardware.tetheroffload.config@1.0-vts.driver_genc++"],
+    generated_headers: ["android.hardware.tetheroffload.config@1.0-vts.driver_genc++_headers"],
+    export_generated_headers: ["android.hardware.tetheroffload.config@1.0-vts.driver_genc++_headers"],
+    shared_libs: [
+        "libcamera_metadata",
+        "libcutils",
+        "libfmq",
+        "libhidlbase",
+        "libhidltransport",
+        "libhwbinder",
+        "liblog",
+        "libprotobuf-cpp-full",
+        "libutils",
+        "libvts_common",
+        "libvts_datatype",
+        "libvts_drivercomm",
+        "libvts_measurement",
+        "libvts_multidevice_proto",
+        "android.hidl.allocator@1.0",
+        "android.hardware.tetheroffload.config@1.0",
+        
+    ],
+    export_shared_lib_headers: [
+        
+    ],
+    cflags: [
+        "-Wall",
+        "-Werror",
+
+        // These warnings are in code generated with vtsc
+        // b/31362043
+        "-Wno-duplicate-decl-specifier",
+        "-Wno-implicitly-unsigned-literal",
+    ],
+}
+
+// Build VTS profiler.
+genrule {
+    name: "android.hardware.tetheroffload.config@1.0-vts.profiler_genc++",
+    tools: ["hidl-gen", "vtsc"],
+    cmd: "$(location hidl-gen) -o $(genDir) -Lvts -randroid.hardware:hardware/interfaces -randroid.hidl:system/libhidl/transport android.hardware.tetheroffload.config@1.0 && $(location vtsc) -mPROFILER -tSOURCE -b$(genDir) android/hardware/tetheroffload/config/1.0/ $(genDir)/android/hardware/tetheroffload/config/1.0/",
+    srcs: [
+        ":android.hardware.tetheroffload.config@1.0_hal",
+    ],
+    out: [
+        "android/hardware/tetheroffload/config/1.0/OffloadConfig.vts.cpp",
+    ],
+}
+
+genrule {
+    name: "android.hardware.tetheroffload.config@1.0-vts.profiler_genc++_headers",
+    tools: ["hidl-gen", "vtsc"],
+    cmd: "$(location hidl-gen) -o $(genDir) -Lvts -randroid.hardware:hardware/interfaces -randroid.hidl:system/libhidl/transport android.hardware.tetheroffload.config@1.0 && $(location vtsc) -mPROFILER -tHEADER -b$(genDir) android/hardware/tetheroffload/config/1.0/ $(genDir)/android/hardware/tetheroffload/config/1.0/",
+    srcs: [
+        ":android.hardware.tetheroffload.config@1.0_hal",
+    ],
+    out: [
+        "android/hardware/tetheroffload/config/1.0/OffloadConfig.vts.h",
+    ],
+}
+
+cc_library_shared {
+    name: "android.hardware.tetheroffload.config@1.0-vts.profiler",
+    generated_sources: ["android.hardware.tetheroffload.config@1.0-vts.profiler_genc++"],
+    generated_headers: ["android.hardware.tetheroffload.config@1.0-vts.profiler_genc++_headers"],
+    export_generated_headers: ["android.hardware.tetheroffload.config@1.0-vts.profiler_genc++_headers"],
+    shared_libs: [
+        "libbase",
+        "libcutils",
+        "libfmq",
+        "libhidlbase",
+        "libhidltransport",
+        "libvts_common",
+        "libvts_profiling",
+        "libvts_multidevice_proto",
+        "libprotobuf-cpp-full",
+        "android.hardware.tetheroffload.config@1.0",
+        
+    ],
+    cflags: [
+        "-Wall",
+        "-Werror",
+
+        // These warnings are in code generated with vtsc
+        // b/31362043
+        "-Wno-duplicate-decl-specifier",
+        "-Wno-implicitly-unsigned-literal",
+    ],
+}
+

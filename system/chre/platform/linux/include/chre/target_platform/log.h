@@ -17,15 +17,28 @@
 #ifndef CHRE_PLATFORM_LINUX_LOG_H_
 #define CHRE_PLATFORM_LINUX_LOG_H_
 
-#include <stdio.h>
 
 #ifndef __FILENAME__
 #define __FILENAME__ __FILE__
 #endif
 
-#define CHRE_LINUX_LOG(level, color, fmt, ...) \
-  printf("\e[" color "m%s %s:%d\t" fmt "\e[0m\n", \
-         level, __FILENAME__, __LINE__, ##__VA_ARGS__)
+#ifdef GTEST
+// When using GoogleTest, just output to stdout since tests are single-threaded.
+// GoogleTest complains about multiple threads if the PlatformLogSingleton is
+// used.
+#include <stdio.h>
+
+#define CHRE_LINUX_LOG(level, color, fmt, ...)           \
+    printf("\e[" color "m%s %s:%d\t" fmt "\e[0m\n",      \
+           level, __FILENAME__, __LINE__, ##__VA_ARGS__)
+#else
+#include "chre/platform/shared/platform_log.h"
+
+#define CHRE_LINUX_LOG(level, color, fmt, ...)      \
+  ::chre::PlatformLogSingleton::get()->log(         \
+      "\e[" color "m%s %s:%d\t" fmt "\e[0m",        \
+      level, __FILENAME__, __LINE__, ##__VA_ARGS__)
+#endif
 
 #define LOGE(fmt, ...) CHRE_LINUX_LOG("E", "91", fmt, ##__VA_ARGS__)
 #define LOGW(fmt, ...) CHRE_LINUX_LOG("W", "93", fmt, ##__VA_ARGS__)

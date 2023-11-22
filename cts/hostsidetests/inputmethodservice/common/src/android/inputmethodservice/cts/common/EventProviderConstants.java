@@ -58,6 +58,9 @@ public final class EventProviderConstants {
         // This is constants holding class, can't instantiate.
         private EventTableConstants() {}
 
+        /** Column name of the table that holds Event extras in json format. */
+        public static final String EXTRAS = "extras";
+
         /** Name of the table in content provider and database. */
         public static final String NAME = "events";
 

@@ -15,12 +15,11 @@
 #include "../verify.h"
 
 /*
- * Limits us to 1GB of mapped files in total
+ * Limits us to 1GiB of mapped files in total
  */
 #define MMAP_TOTAL_SZ	(1 * 1024 * 1024 * 1024UL)
 
 static unsigned long mmap_map_size;
-static unsigned long mmap_map_mask;
 
 struct fio_mmap_data {
 	void *mmap_ptr;
@@ -68,10 +67,9 @@ static int fio_mmap_file(struct thread_data *td, struct fio_file *f,
 	}
 
 #ifdef FIO_MADV_FREE
-	if (f->filetype == FIO_TYPE_BD)
+	if (f->filetype == FIO_TYPE_BLOCK)
 		(void) posix_madvise(fmd->mmap_ptr, fmd->mmap_sz, FIO_MADV_FREE);
 #endif
-
 
 err:
 	if (td->error && fmd->mmap_ptr)
@@ -208,26 +206,15 @@ static int fio_mmapio_queue(struct thread_data *td, struct io_u *io_u)
 static int fio_mmapio_init(struct thread_data *td)
 {
 	struct thread_options *o = &td->o;
-	unsigned long shift, mask;
 
-	if ((td->o.rw_min_bs & page_mask) &&
+	if ((o->rw_min_bs & page_mask) &&
 	    (o->odirect || o->fsync_blocks || o->fdatasync_blocks)) {
 		log_err("fio: mmap options dictate a minimum block size of "
 			"%llu bytes\n", (unsigned long long) page_size);
 		return 1;
 	}
 
-	mmap_map_size = MMAP_TOTAL_SZ / td->o.nr_files;
-	mask = mmap_map_size;
-	shift = 0;
-	do {
-		mask >>= 1;
-		if (!mask)
-			break;
-		shift++;
-	} while (1);
-
-	mmap_map_mask = 1UL << shift;
+	mmap_map_size = MMAP_TOTAL_SZ / o->nr_files;
 	return 0;
 }
 
@@ -242,8 +229,8 @@ static int fio_mmapio_open_file(struct thread_data *td, struct fio_file *f)
 
 	fmd = calloc(1, sizeof(*fmd));
 	if (!fmd) {
-		int fio_unused ret;
-		ret = generic_close_file(td, f);
+		int fio_unused __ret;
+		__ret = generic_close_file(td, f);
 		return 1;
 	}
 

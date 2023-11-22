@@ -1293,7 +1293,7 @@ wifi_error wifi_set_link_stats(wifi_interface_handle iface,
     }
 
 cleanup:
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 //Implementation of the functions exposed in LLStats.h
@@ -1356,7 +1356,7 @@ wifi_error wifi_get_link_stats(wifi_request_id id,
     }
 
 cleanup:
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 
@@ -1413,5 +1413,5 @@ wifi_error wifi_clear_link_stats(wifi_interface_handle iface,
 
 cleanup:
     delete LLCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }

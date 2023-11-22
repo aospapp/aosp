@@ -60,7 +60,7 @@ VariableInst *AddGAMetadata(Builder &b, Module *m) {
   VariableInst *MetadataVar =
       b.MakeVariable(MetadataPtrTy, StorageClass::Uniform);
   MetadataVar->decorate(Decoration::DescriptorSet)->addExtraOperand(0);
-  MetadataVar->decorate(Decoration::Binding)->addExtraOperand(0);
+  MetadataVar->decorate(Decoration::Binding)->addExtraOperand(1);
   m->addVariable(MetadataVar);
 
   return MetadataVar;

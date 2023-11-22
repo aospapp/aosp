@@ -42,8 +42,6 @@
 
 #if (SDP_SERVER_ENABLED == TRUE)
 
-extern fixed_queue_t* btu_general_alarm_queue;
-
 /* Maximum number of bytes to reserve out of SDP MTU for response data */
 #define SDP_MAX_SERVICE_RSPHDR_LEN 12
 #define SDP_MAX_SERVATTR_RSPHDR_LEN 10
@@ -120,8 +118,8 @@ void sdp_server_handle_client_req(tCONN_CB* p_ccb, BT_HDR* p_msg) {
   uint16_t trans_num, param_len;
 
   /* Start inactivity timer */
-  alarm_set_on_queue(p_ccb->sdp_conn_timer, SDP_INACT_TIMEOUT_MS,
-                     sdp_conn_timer_timeout, p_ccb, btu_general_alarm_queue);
+  alarm_set_on_mloop(p_ccb->sdp_conn_timer, SDP_INACT_TIMEOUT_MS,
+                     sdp_conn_timer_timeout, p_ccb);
 
   /* The first byte in the message is the pdu type */
   pdu_id = *p_req++;
@@ -218,7 +216,7 @@ static void process_service_search(tCONN_CB* p_ccb, uint16_t trans_num,
     }
     BE_STREAM_TO_UINT16(cont_offset, p_req);
 
-    if (cont_offset != p_ccb->cont_offset) {
+    if (cont_offset != p_ccb->cont_offset || num_rsp_handles < cont_offset) {
       sdpu_build_n_send_error(p_ccb, trans_num, SDP_INVALID_CONT_STATE,
                               SDP_TEXT_BAD_CONT_INX);
       return;

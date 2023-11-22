@@ -32,6 +32,9 @@ namespace wificond {
 
 class PnoSettings : public ::android::Parcelable {
  public:
+  static const uint32_t kFastScanIterations;
+  static const uint32_t kSlowScanIntervalMultiplier;
+
   PnoSettings()
       : interval_ms_(0),
         min_2g_rssi_(0),

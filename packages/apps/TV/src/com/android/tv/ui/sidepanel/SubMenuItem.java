@@ -21,20 +21,11 @@ public abstract class SubMenuItem extends ActionItem {
     private final SideFragmentManager mSideFragmentManager;
 
     public SubMenuItem(String title, SideFragmentManager fragmentManager) {
-        this(title, null, 0, fragmentManager);
+        this(title, null, fragmentManager);
     }
 
     public SubMenuItem(String title, String description, SideFragmentManager fragmentManager) {
-        this(title, description, 0, fragmentManager);
-    }
-
-    public SubMenuItem(String title, int iconId, SideFragmentManager fragmentManager) {
-        this(title, null, iconId, fragmentManager);
-    }
-
-    public SubMenuItem(String title, String description, int iconId,
-            SideFragmentManager fragmentManager) {
-        super(title, description, iconId);
+        super(title, description);
         mSideFragmentManager = fragmentManager;
     }
 

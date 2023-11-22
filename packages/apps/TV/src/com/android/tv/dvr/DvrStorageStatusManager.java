@@ -25,6 +25,7 @@ import android.content.IntentFilter;
 import android.content.OperationApplicationException;
 import android.database.Cursor;
 import android.media.tv.TvContract;
+import android.media.tv.TvInputInfo;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Environment;
@@ -36,8 +37,11 @@ import android.support.annotation.IntDef;
 import android.support.annotation.WorkerThread;
 import android.util.Log;
 
+import com.android.tv.TvApplication;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.common.feature.CommonFeatures;
+import com.android.tv.tuner.tvinput.TunerTvInputService;
+import com.android.tv.util.TvInputManagerHelper;
 import com.android.tv.util.Utils;
 
 import java.io.File;
@@ -294,7 +298,7 @@ public class DvrStorageStatusManager {
                 storageMounted, storageMountedDir, storageMountedCapacity);
     }
 
-    private class CleanUpDbTask extends AsyncTask<Void, Void, Void> {
+    private class CleanUpDbTask extends AsyncTask<Void, Void, Boolean> {
         private final ContentResolver mContentResolver;
 
         private CleanUpDbTask() {
@@ -302,13 +306,15 @@ public class DvrStorageStatusManager {
         }
 
         @Override
-        protected Void doInBackground(Void... params) {
+        protected Boolean doInBackground(Void... params) {
             @DvrStorageStatusManager.StorageStatus int storageStatus = getDvrStorageStatus();
             if (storageStatus == DvrStorageStatusManager.STORAGE_STATUS_MISSING) {
                 return null;
             }
-            List<ContentProviderOperation> ops = getDeleteOps(storageStatus
-                    == DvrStorageStatusManager.STORAGE_STATUS_TOTAL_CAPACITY_TOO_SMALL);
+            if (storageStatus == DvrStorageStatusManager.STORAGE_STATUS_TOTAL_CAPACITY_TOO_SMALL) {
+                return true;
+            }
+            List<ContentProviderOperation> ops = getDeleteOps();
             if (ops == null || ops.isEmpty()) {
                 return null;
             }
@@ -329,13 +335,28 @@ public class DvrStorageStatusManager {
         }
 
         @Override
-        protected void onPostExecute(Void result) {
+        protected void onPostExecute(Boolean forgetStorage) {
+            if (forgetStorage != null && forgetStorage == true) {
+                DvrManager dvrManager = TvApplication.getSingletons(mContext).getDvrManager();
+                TvInputManagerHelper tvInputManagerHelper =
+                        TvApplication.getSingletons(mContext).getTvInputManagerHelper();
+                List<TvInputInfo> tvInputInfoList =
+                        tvInputManagerHelper.getTvInputInfos(true, false);
+                if (tvInputInfoList == null || tvInputInfoList.isEmpty()) {
+                    return;
+                }
+                for (TvInputInfo info : tvInputInfoList) {
+                    if (Utils.isBundledInput(info.getId())) {
+                        dvrManager.forgetStorage(info.getId());
+                    }
+                }
+            }
             if (mCleanUpDbTask == this) {
                 mCleanUpDbTask = null;
             }
         }
 
-        private List<ContentProviderOperation> getDeleteOps(boolean deleteAll) {
+        private List<ContentProviderOperation> getDeleteOps() {
             List<ContentProviderOperation> ops = new ArrayList<>();
 
             try (Cursor c = mContentResolver.query(
@@ -364,7 +385,7 @@ public class DvrStorageStatusManager {
                         continue;
                     }
                     File recordedProgramDir = new File(dataUri.getPath());
-                    if (deleteAll || !recordedProgramDir.exists()) {
+                    if (!recordedProgramDir.exists()) {
                         ops.add(ContentProviderOperation.newDelete(
                                 TvContract.buildRecordedProgramUri(Long.parseLong(id))).build());
                     }

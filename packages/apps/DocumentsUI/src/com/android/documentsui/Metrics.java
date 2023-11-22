@@ -319,6 +319,7 @@ public final class Metrics {
     public static final int USER_ACTION_COMPRESS = 27;
     public static final int USER_ACTION_EXTRACT_TO = 28;
     public static final int USER_ACTION_VIEW_IN_APPLICATION = 29;
+    public static final int USER_ACTION_INSPECTOR = 30;
 
     @IntDef(flag = false, value = {
             USER_ACTION_OTHER,
@@ -349,7 +350,8 @@ public final class Metrics {
             USER_ACTION_CUT_CLIPBOARD,
             USER_ACTION_COMPRESS,
             USER_ACTION_EXTRACT_TO,
-            USER_ACTION_VIEW_IN_APPLICATION
+            USER_ACTION_VIEW_IN_APPLICATION,
+            USER_ACTION_INSPECTOR
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface UserAction {}

@@ -28,6 +28,10 @@ hidl_flags = [
 // This configuration is inherited by all hidl-gen-generated modules.
 cc_defaults {
     name: "hidl-module-defaults",
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
     product_variables: {
         debuggable: {
             cflags: ["-D__ANDROID_DEBUGGABLE__"]
@@ -41,7 +45,7 @@ cc_defaults {
 //
 // libhidl-gen-hash
 //
-cc_library_shared {
+cc_library {
     name: "libhidl-gen-hash",
     host_supported: true,
     cflags: hidl_flags,

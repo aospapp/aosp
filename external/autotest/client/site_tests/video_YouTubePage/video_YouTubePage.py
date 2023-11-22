@@ -10,6 +10,7 @@ import time
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
+from autotest_lib.client.cros.video import helper_logger
 
 
 class video_YouTubePage(test.test):
@@ -310,6 +311,7 @@ class video_YouTubePage(test.test):
         self.verify_last_second_playback()
 
 
+    @helper_logger.video_log_wrapper
     def run_once(self, subtest_name):
         """Main runner for the test.
 
@@ -326,7 +328,9 @@ class video_YouTubePage(test.test):
             extension_paths.append(extension_path)
 
 
-        with chrome.Chrome(extension_paths=extension_paths) as cr:
+        with chrome.Chrome(
+                extra_browser_args=helper_logger.chrome_vmodule_flag(),
+                extension_paths=extension_paths) as cr:
             self.initialize_test(cr, self.TEST_PAGE)
 
             if subtest_name is 'playing':

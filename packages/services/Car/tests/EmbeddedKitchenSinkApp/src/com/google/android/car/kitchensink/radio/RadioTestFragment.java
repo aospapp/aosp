@@ -41,6 +41,7 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.CompoundButton.OnCheckedChangeListener;
+import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.ToggleButton;
 
@@ -92,7 +93,7 @@ public class RadioTestFragment extends Fragment {
             }
             mArtist = metadata.getString(RadioMetadata.METADATA_KEY_ARTIST);
             mSong = metadata.getString(RadioMetadata.METADATA_KEY_TITLE);
-            mStation = metadata.getString(RadioMetadata.METADATA_KEY_RDS_PI);
+            mStation = metadata.getString(RadioMetadata.METADATA_KEY_RDS_PS);
             updateMessages();
         }
 
@@ -117,6 +118,11 @@ public class RadioTestFragment extends Fragment {
     private Button mRadioPrev;
     private Button mRadioScanCancel;
     private Button mRadioGetProgramInfo;
+    private Button mRadioTuneToStation;
+    private Button mRadioStepUp;
+    private Button mRadioStepDown;
+    private EditText mStationFrequency;
+    private ToggleButton mToggleMuteRadio;
     private ToggleButton mRadioBand;
     private TextView mStationInfo;
     private TextView mChannelInfo;
@@ -166,6 +172,14 @@ public class RadioTestFragment extends Fragment {
         mRadioPrev = (Button) view.findViewById(R.id.button_radio_prev);
         mRadioScanCancel = (Button) view.findViewById(R.id.button_radio_scan_cancel);
         mRadioGetProgramInfo = (Button) view.findViewById(R.id.button_radio_get_program_info);
+        mRadioTuneToStation = (Button) view.findViewById(R.id.button_radio_tune_to_station);
+        mRadioStepUp = (Button) view.findViewById(R.id.button_radio_step_up);
+        mRadioStepDown = (Button) view.findViewById(R.id.button_radio_step_down);
+
+        mStationFrequency = (EditText) view.findViewById(R.id.edittext_station_frequency);
+
+        mToggleMuteRadio = (ToggleButton) view.findViewById(R.id.togglebutton_mute_radio);
+        mToggleMuteRadio.setChecked(true);
         mRadioBand = (ToggleButton) view.findViewById(R.id.button_band_selection);
 
         mStationInfo = (TextView) view.findViewById(R.id.radio_station_info);
@@ -211,8 +225,7 @@ public class RadioTestFragment extends Fragment {
             }
         });
         mCar.connect();
-        mAudioManager = (AudioManager) getContext().getSystemService(
-                Context.AUDIO_SERVICE);
+        mAudioManager = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
         initializeRadio();
     }
 
@@ -240,11 +253,11 @@ public class RadioTestFragment extends Fragment {
                 Log.d(TAG, "loading band: " + band.toString());
             }
 
-            if (mFmDescriptor == null && band.getType() == RadioManager.BAND_FM) {
+            if (mFmDescriptor == null && band.isFmBand()) {
                 mFmDescriptor = (RadioManager.FmBandDescriptor) band;
             }
 
-            if (mAmDescriptor == null && band.getType() == RadioManager.BAND_AM) {
+            if (mAmDescriptor == null && band.isAmBand()) {
                 mAmDescriptor = (RadioManager.AmBandDescriptor) band;
             }
         }
@@ -273,6 +286,17 @@ public class RadioTestFragment extends Fragment {
             @Override
             public void onClick(View v) {
                 handleRadioEnd();
+                mToggleMuteRadio.setChecked(true);
+                updateStates();
+            }
+        });
+        mToggleMuteRadio.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (DBG) {
+                    Log.i(TAG, "Toggle mute radio");
+                }
+                mRadioTuner.setMute(!mRadioTuner.getMute());
                 updateStates();
             }
         });
@@ -362,6 +386,49 @@ public class RadioTestFragment extends Fragment {
                 updateStates();
             }
         });
+        mRadioTuneToStation.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (DBG) {
+                    Log.i(TAG, "Tuning to station");
+                }
+                String station = mStationFrequency.getText().toString().trim();
+                if (mRadioTuner != null && !(station.equals(""))) {
+                    mRadioTuner.tune(Integer.parseInt(station), 0);
+                }
+                resetMessages();
+                updateMessages();
+                updateStates();
+            }
+        });
+        mRadioStepUp.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (DBG) {
+                    Log.i(TAG, "Step up");
+                }
+                if (mRadioTuner != null) {
+                    mRadioTuner.step(RadioTuner.DIRECTION_UP, false);
+                }
+                resetMessages();
+                updateMessages();
+                updateStates();
+            }
+        });
+        mRadioStepDown.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (DBG) {
+                    Log.i(TAG, "Step down");
+                }
+                if (mRadioTuner != null) {
+                    mRadioTuner.step(RadioTuner.DIRECTION_DOWN, false);
+                }
+                resetMessages();
+                updateMessages();
+                updateStates();
+            }
+        });
         mRadioGetProgramInfo.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -394,6 +461,7 @@ public class RadioTestFragment extends Fragment {
     private void updateStates() {
         mOpenRadio.setEnabled(mRadioTuner == null);
         mCloseRadio.setEnabled(mRadioTuner != null);
+        mToggleMuteRadio.setEnabled(mRadioTuner != null);
         mGetRadioFocus.setEnabled(!mHasRadioFocus);
         mReleaseRadioFocus.setEnabled(mHasRadioFocus);
         mGetFocus.setEnabled(!mHasSecondaryFocus);
@@ -402,6 +470,10 @@ public class RadioTestFragment extends Fragment {
         mRadioPrev.setEnabled(mRadioTuner != null);
         mRadioBand.setEnabled(mRadioTuner != null);
         mRadioScanCancel.setEnabled(mRadioTuner != null);
+        mRadioTuneToStation.setEnabled(mRadioTuner != null);
+        mRadioStepUp.setEnabled(mRadioTuner != null);
+        mRadioStepDown.setEnabled(mRadioTuner != null);
+        mStationFrequency.setEnabled(mRadioTuner != null);
         mRadioGetProgramInfo.setEnabled(mRadioTuner != null);
     }
 

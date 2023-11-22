@@ -15,7 +15,7 @@
  */
 
 #include <jni.h>
-#include "JNIHelp.h"
+#include <nativehelper/JNIHelp.h>
 
 extern "C" jlong Java_libcore_java_nio_BufferTest_jniGetDirectBufferAddress(
     JNIEnv* env, jobject /* clazz */, jobject buffer) {
@@ -25,4 +25,11 @@ extern "C" jlong Java_libcore_java_nio_BufferTest_jniGetDirectBufferAddress(
 extern "C" jlong Java_libcore_java_nio_BufferTest_jniGetDirectBufferCapacity(
     JNIEnv* env, jobject /* clazz */, jobject buffer) {
   return reinterpret_cast<jlong>(env->GetDirectBufferCapacity(buffer));
+}
+
+extern "C" jobject Java_libcore_java_nio_BufferTest_jniNewDirectByteBuffer(
+    JNIEnv* env, jobject /* clazz */) {
+  // We use (nullptr, 0) here because a DirectByteBuffer is allowed to wrap
+  // nullptr providing the buffer is zero length.
+  return env->NewDirectByteBuffer(nullptr, 0);
 }

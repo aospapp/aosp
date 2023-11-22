@@ -25,6 +25,7 @@ import android.car.CarLibLog;
 import android.car.CarManagerBase;
 import android.car.CarNotConnectedException;
 import android.content.Context;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.RemoteException;
@@ -48,22 +49,22 @@ import java.util.function.Consumer;
  */
 public final class CarSensorManager implements CarManagerBase {
     /** @hide */
-    public static final int SENSOR_TYPE_RESERVED1           = 1;
+    public static final int SENSOR_TYPE_RESERVED1                   = 1;
     /**
      * This sensor represents vehicle speed in m/s.
      * Sensor data in {@link CarSensorEvent} is a float which will be >= 0.
      * This requires {@link Car#PERMISSION_SPEED} permission.
      */
-    public static final int SENSOR_TYPE_CAR_SPEED         = 2;
+    public static final int SENSOR_TYPE_CAR_SPEED                   = 2;
     /**
      * Represents engine RPM of the car. Sensor data in {@link CarSensorEvent} is a float.
      */
-    public static final int SENSOR_TYPE_RPM               = 3;
+    public static final int SENSOR_TYPE_RPM                         = 3;
     /**
      * Total travel distance of the car in Kilometer. Sensor data is a float.
      * This requires {@link Car#PERMISSION_MILEAGE} permission.
      */
-    public static final int SENSOR_TYPE_ODOMETER          = 4;
+    public static final int SENSOR_TYPE_ODOMETER                    = 4;
     /**
      * Indicates fuel level of the car.
      * In {@link CarSensorEvent}, floatValues[{@link CarSensorEvent#INDEX_FUEL_LEVEL_IN_PERCENTILE}]
@@ -74,67 +75,84 @@ public final class CarSensorManager implements CarManagerBase {
      * condition.
      * This requires {@link Car#PERMISSION_FUEL} permission.
      */
-    public static final int SENSOR_TYPE_FUEL_LEVEL        = 5;
+    public static final int SENSOR_TYPE_FUEL_LEVEL                  = 5;
     /**
      * Represents the current status of parking brake. Sensor data in {@link CarSensorEvent} is an
      * intValues[0]. Value of 1 represents parking brake applied while 0 means the other way
      * around. For this sensor, rate in {@link #registerListener(OnSensorChangedListener, int, int)}
      * will be ignored and all changes will be notified.
      */
-    public static final int SENSOR_TYPE_PARKING_BRAKE     = 6;
+    public static final int SENSOR_TYPE_PARKING_BRAKE               = 6;
     /**
      * This represents the current position of transmission gear. Sensor data in
      * {@link CarSensorEvent} is an intValues[0]. For the meaning of the value, check
      * {@link CarSensorEvent#GEAR_NEUTRAL} and other GEAR_*.
      */
-    public static final int SENSOR_TYPE_GEAR              = 7;
+    public static final int SENSOR_TYPE_GEAR                        = 7;
     /** @hide */
-    public static final int SENSOR_TYPE_RESERVED8         = 8;
+    public static final int SENSOR_TYPE_RESERVED8                   = 8;
     /**
      * Day/night sensor. Sensor data is intValues[0].
      */
-    public static final int SENSOR_TYPE_NIGHT             = 9;
+    public static final int SENSOR_TYPE_NIGHT                       = 9;
     /** @hide */
-    public static final int SENSOR_TYPE_RESERVED10        = 10;
+    public static final int SENSOR_TYPE_RESERVED10                  = 10;
     /**
      * Represents the current driving status of car. Different user interaction should be used
      * depending on the current driving status. Driving status is intValues[0].
      */
-    public static final int SENSOR_TYPE_DRIVING_STATUS    = 11;
+    public static final int SENSOR_TYPE_DRIVING_STATUS              = 11;
     /**
      * Environment like temperature and pressure.
      */
-    public static final int SENSOR_TYPE_ENVIRONMENT       = 12;
+    public static final int SENSOR_TYPE_ENVIRONMENT                 = 12;
     /** @hide */
-    public static final int SENSOR_TYPE_RESERVED13        = 13;
+    public static final int SENSOR_TYPE_RESERVED13                  = 13;
     /** @hide */
-    public static final int SENSOR_TYPE_RESERVED14        = 14;
+    public static final int SENSOR_TYPE_RESERVED14                  = 14;
     /** @hide */
-    public static final int SENSOR_TYPE_RESERVED15        = 15;
+    public static final int SENSOR_TYPE_RESERVED15                  = 15;
     /** @hide */
-    public static final int SENSOR_TYPE_RESERVED16        = 16;
+    public static final int SENSOR_TYPE_RESERVED16                  = 16;
     /** @hide */
-    public static final int SENSOR_TYPE_RESERVED17        = 17;
+    public static final int SENSOR_TYPE_RESERVED17                  = 17;
     /** @hide */
-    public static final int SENSOR_TYPE_RESERVED18        = 18;
+    public static final int SENSOR_TYPE_RESERVED18                  = 18;
     /** @hide */
-    public static final int SENSOR_TYPE_RESERVED19        = 19;
+    public static final int SENSOR_TYPE_RESERVED19                  = 19;
     /** @hide */
-    public static final int SENSOR_TYPE_RESERVED20        = 20;
+    public static final int SENSOR_TYPE_RESERVED20                  = 20;
     /** @hide */
-    public static final int SENSOR_TYPE_RESERVED21        = 21;
-
+    public static final int SENSOR_TYPE_RESERVED21                  = 21;
     /**
      * Represents ignition state. The value should be one of the constants that starts with
      * IGNITION_STATE_* in {@link CarSensorEvent}.
      */
-    public static final int SENSOR_TYPE_IGNITION_STATE    = 22;
+    public static final int SENSOR_TYPE_IGNITION_STATE              = 22;
+    /**
+     * Represents wheel distance in millimeters.  Some cars may not have individual sensors on each
+     * wheel.  If a value is not available, Long.MAX_VALUE will be reported.  The wheel distance
+     * accumulates over time.  It increments on forward movement, and decrements on reverse.  Wheel
+     * distance shall be reset to zero each time a vehicle is started by the user.
+     * This requires {@link Car#PERMISSION_SPEED} permission.
+     */
+    public static final int SENSOR_TYPE_WHEEL_TICK_DISTANCE         = 23;
+    /**
+     * Set to true when ABS is active.  This sensor is event driven.
+     * This requires {@link Car#PERMISSION_VEHICLE_DYNAMICS_STATE} permission.
+     */
+    public static final int SENSOR_TYPE_ABS_ACTIVE                  = 24;
+    /**
+     * Set to true when traction control is active.  This sensor is event driven.
+     * This requires {@link Car#PERMISSION_VEHICLE_DYNAMICS_STATE} permission.
+     */
+    public static final int SENSOR_TYPE_TRACTION_CONTROL_ACTIVE     = 25;
 
     /**
      * Sensor type bigger than this is invalid. Always update this after adding a new sensor.
      * @hide
      */
-    private static final int SENSOR_TYPE_MAX = SENSOR_TYPE_IGNITION_STATE;
+    private static final int SENSOR_TYPE_MAX = SENSOR_TYPE_TRACTION_CONTROL_ACTIVE;
 
     /**
      * Sensors defined in this range [{@link #SENSOR_TYPE_VENDOR_EXTENSION_START},
@@ -162,6 +180,9 @@ public final class CarSensorManager implements CarManagerBase {
         SENSOR_TYPE_DRIVING_STATUS,
         SENSOR_TYPE_ENVIRONMENT,
         SENSOR_TYPE_IGNITION_STATE,
+        SENSOR_TYPE_WHEEL_TICK_DISTANCE,
+        SENSOR_TYPE_ABS_ACTIVE,
+        SENSOR_TYPE_TRACTION_CONTROL_ACTIVE,
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface SensorType {}
@@ -291,9 +312,11 @@ public final class CarSensorManager implements CarManagerBase {
      * If the same listener is registered again for the same sensor, it will be either ignored or
      * updated depending on the rate.
      * <p>
-     * Requires {@link Car#PERMISSION_SPEED} for {@link #SENSOR_TYPE_CAR_SPEED},
-     *  {@link Car#PERMISSION_MILEAGE} for {@link #SENSOR_TYPE_ODOMETER},
-     *  or {@link Car#PERMISSION_FUEL} for {@link #SENSOR_TYPE_FUEL_LEVEL}.
+     * Requires {@link Car#PERMISSION_SPEED} for {@link #SENSOR_TYPE_CAR_SPEED} and
+     *  {@link #SENSOR_TYPE_WHEEL_TICK_DISTANCE}, {@link Car#PERMISSION_MILEAGE} for
+     *  {@link #SENSOR_TYPE_ODOMETER}, {@link Car#PERMISSION_FUEL} for
+     *  {@link #SENSOR_TYPE_FUEL_LEVEL}, or {@link Car#PERMISSION_VEHICLE_DYNAMICS_STATE} for
+     *  {@link #SENSOR_TYPE_ABS_ACTIVE} and {@link #SENSOR_TYPE_TRACTION_CONTROL_ACTIVE}
      *
      * @param listener
      * @param sensorType sensor type to subscribe.
@@ -310,7 +333,8 @@ public final class CarSensorManager implements CarManagerBase {
      * @throws SecurityException if missing the appropriate permission
      */
     @RequiresPermission(anyOf={Manifest.permission.ACCESS_FINE_LOCATION, Car.PERMISSION_SPEED,
-            Car.PERMISSION_MILEAGE, Car.PERMISSION_FUEL}, conditional=true)
+            Car.PERMISSION_MILEAGE, Car.PERMISSION_FUEL, Car.PERMISSION_VEHICLE_DYNAMICS_STATE},
+            conditional=true)
     public boolean registerListener(OnSensorChangedListener listener, @SensorType int sensorType,
             @SensorRate int rate) throws CarNotConnectedException, IllegalArgumentException {
         assertSensorType(sensorType);
@@ -489,5 +513,29 @@ public final class CarSensorManager implements CarManagerBase {
                 }
             });
         }
+    }
+
+    /**
+     * Get the config data for the given type.
+     *
+     * A CarSensorConfig object is returned for every sensor type.  However, if there is no
+     * config, the data will be empty.
+     *
+     * @param sensor type to request
+     * @return CarSensorConfig object
+     * @throws CarNotConnectedException if the connection to the car service has been lost.
+     * @hide
+     */
+    public CarSensorConfig getSensorConfig(@SensorType int type)
+        throws CarNotConnectedException {
+        assertSensorType(type);
+        try {
+            return mService.getSensorConfig(type);
+        } catch (IllegalStateException e) {
+            CarApiUtil.checkCarNotConnectedExceptionFromCarService(e);
+        } catch(RemoteException e) {
+            handleCarServiceRemoteExceptionAndThrow(e);
+        }
+        return new CarSensorConfig(0, Bundle.EMPTY);
     }
 }

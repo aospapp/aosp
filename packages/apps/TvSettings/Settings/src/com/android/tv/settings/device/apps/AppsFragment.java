@@ -16,8 +16,6 @@
 
 package com.android.tv.settings.device.apps;
 
-import android.content.Context;
-import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.os.Bundle;
 import android.os.Handler;
@@ -25,9 +23,7 @@ import android.os.SystemClock;
 import android.support.annotation.NonNull;
 import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceCategory;
 import android.support.v7.preference.PreferenceGroup;
-import android.support.v7.preference.PreferenceScreen;
 import android.text.TextUtils;
 import android.util.ArrayMap;
 import android.util.ArraySet;
@@ -135,37 +131,19 @@ public class AppsFragment extends LeanbackPreferenceFragment {
 
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
-        final Context context = getPreferenceManager().getContext();
-
-        final PreferenceScreen screen =
-                getPreferenceManager().createPreferenceScreen(context);
-        screen.setTitle(R.string.device_apps);
         // TODO: show volume name somewhere?
+
+        setPreferencesFromResource(R.xml.apps, null);
 
         final String volumeUuid = getArguments().getString(AppsActivity.EXTRA_VOLUME_UUID);
 
-        if (TextUtils.isEmpty(volumeUuid)) {
-            final Preference permissionsPreference = new Preference(context);
-            permissionsPreference.setKey("Permissions");
-            permissionsPreference.setTitle(R.string.device_apps_permissions);
-            permissionsPreference.setIntent(new Intent(Intent.ACTION_MANAGE_PERMISSIONS));
-            screen.addPreference(permissionsPreference);
-        }
-        mDownloadedPreferenceGroup = new PreferenceCategory(context);
-        mDownloadedPreferenceGroup.setKey("DownloadedPreferenceGroup");
-        mDownloadedPreferenceGroup.setTitle(R.string.apps_downloaded);
-        screen.addPreference(mDownloadedPreferenceGroup);
-        mDownloadedPreferenceGroup.setOrderingAsAdded(false);
+        final Preference permissionPreference = findPreference("Permissions");
+        permissionPreference.setVisible(TextUtils.isEmpty(volumeUuid));
 
-        if (TextUtils.isEmpty(volumeUuid)) {
-            mSystemPreferenceGroup = new PreferenceCategory(context);
-            mSystemPreferenceGroup.setKey("SystemPreferenceGroup");
-            mSystemPreferenceGroup.setTitle(R.string.apps_system);
-            screen.addPreference(mSystemPreferenceGroup);
-            mSystemPreferenceGroup.setOrderingAsAdded(false);
-        }
+        mDownloadedPreferenceGroup = (PreferenceGroup) findPreference("DownloadedPreferenceGroup");
 
-        setPreferenceScreen(screen);
+        mSystemPreferenceGroup = (PreferenceGroup) findPreference("SystemPreferenceGroup");
+        mSystemPreferenceGroup.setVisible(TextUtils.isEmpty(volumeUuid));
     }
 
     @Override

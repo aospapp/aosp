@@ -36,8 +36,14 @@ LOCAL_SHARED_LIBRARIES := \
   libutils \
   libbinder \
 
+LOCAL_STATIC_LIBRARIES := \
+  android.hardware.drm@1.0-helper \
+
 LOCAL_C_INCLUDES := \
   hardware/interfaces/drm
+
+LOCAL_HEADER_LIBRARIES := \
+  media_plugin_headers
 
 # TODO(b/18948909) Some legacy DRM plugins only support 32-bit. They need to be
 # migrated to 64-bit. Once all of a device's legacy DRM plugins support 64-bit,
@@ -71,9 +77,11 @@ LOCAL_SHARED_LIBRARIES := \
     libhidlmemory \
     libhidltransport \
     liblog \
-    libmediadrm \
     libstagefright_foundation \
     libutils \
+
+LOCAL_STATIC_LIBRARIES := \
+    android.hardware.drm@1.0-helper \
 
 LOCAL_C_INCLUDES := \
     frameworks/native/include \

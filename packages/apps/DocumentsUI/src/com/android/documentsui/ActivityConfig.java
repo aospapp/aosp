@@ -20,7 +20,7 @@ import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.base.State;
 
 /**
- * Providers support for specializing the DirectoryFragment to the "host" Activity.
+ * Provides support for specializing the DirectoryFragment to the "host" Activity.
  * Feel free to expand the role of this class to handle other specializations.
  */
 public abstract class ActivityConfig {

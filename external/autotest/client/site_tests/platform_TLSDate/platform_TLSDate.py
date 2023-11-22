@@ -2,7 +2,11 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import os, pwd, subprocess, tempfile
+import logging
+import os
+import pwd
+import subprocess
+import tempfile
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
@@ -29,7 +33,7 @@ class TLSDate:
 
 
     def start(self, subprog):
-        print 'running with %s' % self._test_obj.srcdir + '/' + subprog
+        logging.info('running with %s/%s', self._test_obj.srcdir, subprog)
         self._subprog = subprog
         # Make sure the tlsdate user can access the files
         fake_tlsdate = self._test_obj.srcdir + '/' + subprog

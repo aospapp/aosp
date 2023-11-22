@@ -19,12 +19,10 @@ package com.android.tv.menu;
 import android.content.Context;
 import android.util.AttributeSet;
 
-import com.android.tv.data.Channel;
-
 /**
  * A view to render a guide card.
  */
-public class SimpleCardView extends BaseCardView<Channel> {
+public class SimpleCardView extends BaseCardView<ChannelsRowItem> {
 
     public SimpleCardView(Context context) {
         this(context, null, 0);

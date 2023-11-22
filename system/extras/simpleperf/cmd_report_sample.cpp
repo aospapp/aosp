@@ -88,14 +88,14 @@ class ReportSampleCommand : public Command {
   bool DumpProtobufReport(const std::string& filename);
   bool ProcessRecord(std::unique_ptr<Record> record);
   bool PrintSampleRecordInProtobuf(const SampleRecord& record);
-  void GetCallEntry(const ThreadEntry* thread, bool in_kernel, uint64_t ip,
-                    uint64_t* pvaddr_in_file, uint32_t* pfile_id,
-                    int32_t* psymbol_id);
-  void GetCallEntry(const ThreadEntry* thread, bool in_kernel, uint64_t ip,
-                    uint64_t* pvaddr_in_file, Dso** pdso,
-                    const Symbol** psymbol);
+  bool GetCallEntry(const ThreadEntry* thread, bool in_kernel, uint64_t ip, bool omit_unknown_dso,
+                    uint64_t* pvaddr_in_file, uint32_t* pfile_id, int32_t* psymbol_id);
+  bool GetCallEntry(const ThreadEntry* thread, bool in_kernel, uint64_t ip, bool omit_unknown_dso,
+                    uint64_t* pvaddr_in_file, Dso** pdso, const Symbol** psymbol);
+  bool WriteRecordInProtobuf(proto::Record& proto_record);
   bool PrintLostSituationInProtobuf();
   bool PrintFileInfoInProtobuf();
+  bool PrintThreadInfoInProtobuf();
   bool PrintSampleRecord(const SampleRecord& record);
   void PrintLostSituation();
 
@@ -180,13 +180,15 @@ bool ReportSampleCommand::Run(const std::vector<std::string>& args) {
     if (!PrintFileInfoInProtobuf()) {
       return false;
     }
+    if (!PrintThreadInfoInProtobuf()) {
+      return false;
+    }
     coded_os_->WriteLittleEndian32(0);
     if (coded_os_->HadError()) {
       LOG(ERROR) << "print protobuf report failed";
       return false;
     }
     protobuf_coded_os.reset(nullptr);
-    google::protobuf::ShutdownProtobufLibrary();
   } else {
     PrintLostSituation();
     fflush(report_fp_);
@@ -276,6 +278,7 @@ bool ReportSampleCommand::DumpProtobufReport(const std::string& filename) {
       static size_t sample_count = 0;
       FprintIndented(report_fp_, 0, "sample %zu:\n", ++sample_count);
       FprintIndented(report_fp_, 1, "time: %" PRIu64 "\n", sample.time());
+      FprintIndented(report_fp_, 1, "event_count: %" PRIu64 "\n", sample.event_count());
       FprintIndented(report_fp_, 1, "thread_id: %d\n", sample.thread_id());
       FprintIndented(report_fp_, 1, "callchain:\n");
       for (int i = 0; i < sample.callchain_size(); ++i) {
@@ -315,6 +318,12 @@ bool ReportSampleCommand::DumpProtobufReport(const std::string& filename) {
         return false;
       }
       files.push_back(file.symbol_size());
+    } else if (proto_record.has_thread()) {
+      auto& thread = proto_record.thread();
+      FprintIndented(report_fp_, 0, "thread:\n");
+      FprintIndented(report_fp_, 1, "thread_id: %u\n", thread.thread_id());
+      FprintIndented(report_fp_, 1, "process_id: %u\n", thread.process_id());
+      FprintIndented(report_fp_, 1, "thread_name: %s\n", thread.thread_name().c_str());
     } else {
       LOG(ERROR) << "unexpected record type ";
       return false;
@@ -332,7 +341,6 @@ bool ReportSampleCommand::DumpProtobufReport(const std::string& filename) {
       return false;
     }
   }
-  google::protobuf::ShutdownProtobufLibrary();
   return true;
 }
 
@@ -359,13 +367,15 @@ bool ReportSampleCommand::PrintSampleRecordInProtobuf(const SampleRecord& r) {
   proto::Record proto_record;
   proto::Sample* sample = proto_record.mutable_sample();
   sample->set_time(r.time_data.time);
+  sample->set_event_count(r.period_data.period);
   sample->set_thread_id(r.tid_data.tid);
 
   bool in_kernel = r.InKernel();
   const ThreadEntry* thread =
       thread_tree_.FindThreadOrNew(r.tid_data.pid, r.tid_data.tid);
-  GetCallEntry(thread, in_kernel, r.ip_data.ip, &vaddr_in_file, &file_id,
-               &symbol_id);
+  bool ret = GetCallEntry(thread, in_kernel, r.ip_data.ip, false, &vaddr_in_file, &file_id,
+                          &symbol_id);
+  CHECK(ret);
   proto::Sample_CallChainEntry* callchain = sample->add_callchain();
   callchain->set_vaddr_in_file(vaddr_in_file);
   callchain->set_file_id(file_id);
@@ -395,8 +405,9 @@ bool ReportSampleCommand::PrintSampleRecordInProtobuf(const SampleRecord& r) {
             continue;
           }
         }
-        GetCallEntry(thread, in_kernel, ip, &vaddr_in_file, &file_id,
-                     &symbol_id);
+        if (!GetCallEntry(thread, in_kernel, ip, true, &vaddr_in_file, &file_id, &symbol_id)) {
+          break;
+        }
         callchain = sample->add_callchain();
         callchain->set_vaddr_in_file(vaddr_in_file);
         callchain->set_file_id(file_id);
@@ -404,22 +415,29 @@ bool ReportSampleCommand::PrintSampleRecordInProtobuf(const SampleRecord& r) {
       }
     }
   }
+  return WriteRecordInProtobuf(proto_record);
+}
+
+bool ReportSampleCommand::WriteRecordInProtobuf(proto::Record& proto_record) {
   coded_os_->WriteLittleEndian32(proto_record.ByteSize());
   if (!proto_record.SerializeToCodedStream(coded_os_)) {
-    LOG(ERROR) << "failed to write sample to protobuf";
+    LOG(ERROR) << "failed to write record to protobuf";
     return false;
   }
   return true;
 }
 
-void ReportSampleCommand::GetCallEntry(const ThreadEntry* thread,
+bool ReportSampleCommand::GetCallEntry(const ThreadEntry* thread,
                                        bool in_kernel, uint64_t ip,
+                                       bool omit_unknown_dso,
                                        uint64_t* pvaddr_in_file,
                                        uint32_t* pfile_id,
                                        int32_t* psymbol_id) {
   Dso* dso;
   const Symbol* symbol;
-  GetCallEntry(thread, in_kernel, ip, pvaddr_in_file, &dso, &symbol);
+  if (!GetCallEntry(thread, in_kernel, ip, omit_unknown_dso, pvaddr_in_file, &dso, &symbol)) {
+    return false;
+  }
   if (!dso->GetDumpId(pfile_id)) {
     *pfile_id = dso->CreateDumpId();
   }
@@ -430,18 +448,24 @@ void ReportSampleCommand::GetCallEntry(const ThreadEntry* thread,
   } else {
     *psymbol_id = -1;
   }
+  return true;
 }
 
-void ReportSampleCommand::GetCallEntry(const ThreadEntry* thread,
+bool ReportSampleCommand::GetCallEntry(const ThreadEntry* thread,
                                        bool in_kernel, uint64_t ip,
+                                       bool omit_unknown_dso,
                                        uint64_t* pvaddr_in_file, Dso** pdso,
                                        const Symbol** psymbol) {
   const MapEntry* map = thread_tree_.FindMap(thread, ip, in_kernel);
+  if (omit_unknown_dso && thread_tree_.IsUnknownDso(map->dso)) {
+    return false;
+  }
   *psymbol = thread_tree_.FindSymbol(map, ip, pvaddr_in_file, pdso);
   // If we can't find symbol, use the dso shown in the map.
   if (*psymbol == thread_tree_.UnknownSymbol()) {
     *pdso = map->dso;
   }
+  return true;
 }
 
 bool ReportSampleCommand::PrintLostSituationInProtobuf() {
@@ -449,12 +473,7 @@ bool ReportSampleCommand::PrintLostSituationInProtobuf() {
   proto::LostSituation* lost = proto_record.mutable_lost();
   lost->set_sample_count(sample_count_);
   lost->set_lost_count(lost_count_);
-  coded_os_->WriteLittleEndian32(proto_record.ByteSize());
-  if (!proto_record.SerializeToCodedStream(coded_os_)) {
-    LOG(ERROR) << "failed to write lost situation to protobuf";
-    return false;
-  }
-  return true;
+  return WriteRecordInProtobuf(proto_record);
 }
 
 static bool CompareDsoByDumpId(Dso* d1, Dso* d2) {
@@ -491,9 +510,26 @@ bool ReportSampleCommand::PrintFileInfoInProtobuf() {
       std::string* symbol = file->add_symbol();
       *symbol = sym->DemangledName();
     }
-    coded_os_->WriteLittleEndian32(proto_record.ByteSize());
-    if (!proto_record.SerializeToCodedStream(coded_os_)) {
-      LOG(ERROR) << "failed to write file info to protobuf";
+    if (!WriteRecordInProtobuf(proto_record)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool ReportSampleCommand::PrintThreadInfoInProtobuf() {
+  std::vector<const ThreadEntry*> threads = thread_tree_.GetAllThreads();
+  auto compare_thread_id = [](const ThreadEntry* t1, const ThreadEntry* t2) {
+    return t1->tid < t2->tid;
+  };
+  std::sort(threads.begin(), threads.end(), compare_thread_id);
+  for (auto& thread : threads) {
+    proto::Record proto_record;
+    proto::Thread* proto_thread = proto_record.mutable_thread();
+    proto_thread->set_thread_id(thread->tid);
+    proto_thread->set_process_id(thread->pid);
+    proto_thread->set_thread_name(thread->comm);
+    if (!WriteRecordInProtobuf(proto_record)) {
       return false;
     }
   }
@@ -507,11 +543,13 @@ bool ReportSampleCommand::PrintSampleRecord(const SampleRecord& r) {
 
   FprintIndented(report_fp_, 0, "sample:\n");
   FprintIndented(report_fp_, 1, "time: %" PRIu64 "\n", r.time_data.time);
+  FprintIndented(report_fp_, 1, "event_count: %" PRIu64 "\n", r.period_data.period);
   FprintIndented(report_fp_, 1, "thread_id: %d\n", r.tid_data.tid);
   bool in_kernel = r.InKernel();
   const ThreadEntry* thread =
       thread_tree_.FindThreadOrNew(r.tid_data.pid, r.tid_data.tid);
-  GetCallEntry(thread, in_kernel, r.ip_data.ip, &vaddr_in_file, &dso, &symbol);
+  bool ret = GetCallEntry(thread, in_kernel, r.ip_data.ip, false, &vaddr_in_file, &dso, &symbol);
+  CHECK(ret);
   FprintIndented(report_fp_, 1, "vaddr_in_file: %" PRIx64 "\n", vaddr_in_file);
   FprintIndented(report_fp_, 1, "file: %s\n", dso->Path().c_str());
   FprintIndented(report_fp_, 1, "symbol: %s\n", symbol->DemangledName());
@@ -541,7 +579,9 @@ bool ReportSampleCommand::PrintSampleRecord(const SampleRecord& r) {
             continue;
           }
         }
-        GetCallEntry(thread, in_kernel, ip, &vaddr_in_file, &dso, &symbol);
+        if (!GetCallEntry(thread, in_kernel, ip, true, &vaddr_in_file, &dso, &symbol)) {
+          break;
+        }
         FprintIndented(report_fp_, 2, "vaddr_in_file: %" PRIx64 "\n",
                        vaddr_in_file);
         FprintIndented(report_fp_, 2, "file: %s\n", dso->Path().c_str());

@@ -15,6 +15,8 @@
  */
 package com.android.tradefed.util;
 
+import com.android.tradefed.build.BuildSerializedVersion;
+
 import com.google.common.base.Objects;
 
 import java.io.Serializable;
@@ -27,6 +29,7 @@ import java.util.Set;
 /** A {@link Map} that supports multiple values per key. */
 public class MultiMap<K, V> implements Serializable {
 
+    private static final long serialVersionUID = BuildSerializedVersion.VERSION;
     private final Map<K, List<V>> mInternalMap;
 
     public MultiMap() {

@@ -27,8 +27,9 @@ import optparse, os, sys
 logging.basicConfig(level=logging.INFO)
 
 import common
-from autotest_lib.client.common_lib.cros import dev_server
-from autotest_lib.server.cros.dynamic_suite.suite import Suite
+import autotest_lib.client.common_lib.cros as cros_lib
+import autotest_lib.server.cros.dynamic_suite.suite as suite_lib
+
 
 def parse_options():
     """Parse command line for arguments including autotest directory, suite
@@ -60,23 +61,24 @@ def main():
         parser.print_help()
         return
 
-    fs_getter = Suite.create_fs_getter(options.autotest_dir)
-    devserver = dev_server.ImageServer('')
+    fs_getter = suite_lib.create_fs_getter(options.autotest_dir)
+    devserver = cros_lib.dev_server.ImageServer('')
     if options.listall:
-        for suite in Suite.list_all_suites('', devserver, fs_getter):
+        for suite in suite_lib.list_all_suites('', devserver, fs_getter):
             print suite
         return
 
-    suite = Suite.create_from_name(args[0], {}, '', devserver, fs_getter)
+    suite = suite_lib.Suite.create_from_name(args[0], {}, '', devserver,
+                                             fs_getter)
     # If in test list, print firmware_FAFTSetup before other tests
     # NOTE: the test.name value can be *different* from the directory
     # name that appears in test.path
     PRETEST_LIST = ['firmware_FAFTSetup',]
     for test in filter(lambda test: test.name in \
-                              PRETEST_LIST, suite.stable_tests):
+                              PRETEST_LIST, suite.tests):
         print test.path
     for test in filter(lambda test: test.name not in \
-                       PRETEST_LIST, suite.stable_tests):
+                       PRETEST_LIST, suite.tests):
         print test.path
 
     # Check if test_suites/control.suite_name exists.

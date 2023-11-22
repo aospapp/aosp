@@ -1,0 +1,16 @@
+cc_binary {
+    name: "mpeg2dec",
+
+    cflags: [
+        "-DPROFILE_ENABLE",
+        "-DMD5_DISABLE",
+        "-DARM",
+        "-fPIC",
+    ],
+    local_include_dirs: [
+        "decoder/",
+    ],
+    srcs: ["decoder/main.c"],
+    static_libs: ["libmpeg2dec"],
+    shared_libs: ["liblog"],
+}

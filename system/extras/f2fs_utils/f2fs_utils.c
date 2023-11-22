@@ -42,15 +42,12 @@ struct selabel_handle;
 
 extern void flush_sparse_buffs();
 
-struct f2fs_configuration config;
+struct f2fs_configuration c;
 struct sparse_file *f2fs_sparse_file;
 extern int dlopenf2fs();
 
 static void reset_f2fs_info() {
-	// Reset all the global data structures used by make_f2fs so it
-	// can be called again.
-	memset(&config, 0, sizeof(config));
-	config.fd = -1;
+	memset(&c, 0, sizeof(c));
 	if (f2fs_sparse_file) {
 		sparse_file_destroy(f2fs_sparse_file);
 		f2fs_sparse_file = NULL;
@@ -64,10 +61,11 @@ int make_f2fs_sparse_fd(int fd, long long len,
 		return -1;
 	}
 	reset_f2fs_info();
-	f2fs_init_configuration(&config);
+	f2fs_init_configuration();
 	len &= ~((__u64)(F2FS_BLKSIZE - 1));
-	config.total_sectors = len / config.sector_size;
-	config.start_sector = 0;
+	c.sector_size = DEFAULT_SECTOR_SIZE;
+	c.total_sectors = len / c.sector_size;
+	c.start_sector = 0;
 	f2fs_sparse_file = sparse_file_new(F2FS_BLKSIZE, len);
 	f2fs_format_device();
 	sparse_file_write(f2fs_sparse_file, fd, /*gzip*/0, /*sparse*/1, /*crc*/0);

@@ -104,8 +104,8 @@ public class UtilsTest extends AndroidTestCase {
                 createApplicationInfo(TEST_PACKAGE_NAME_1, false),
                 createApplicationInfo(TEST_PACKAGE_NAME_2, true));
         when(mockIPackageManager.getInstalledApplications(
-                PackageManager.GET_UNINSTALLED_PACKAGES, TEST_USER_ID))
-                .thenReturn(new ParceledListSlice(appList));
+                PackageManager.MATCH_UNINSTALLED_PACKAGES, TEST_USER_ID))
+                .thenReturn(new ParceledListSlice<ApplicationInfo>(appList));
         // WHEN requesting the current system apps
         Set<String> res = mUtils.getCurrentSystemApps(mockIPackageManager, TEST_USER_ID);
         // THEN the one system app should be returned

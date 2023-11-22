@@ -67,8 +67,6 @@ public class MenuRowFactory {
         } else if (TvOptionsRow.class.equals(key)) {
             return new TvOptionsRow(mMainActivity, menu, mTvCustomizationManager
                     .getCustomActions(TvCustomizationManager.ID_OPTIONS_ROW));
-        } else if (PipOptionsRow.class.equals(key)) {
-            return new PipOptionsRow(mMainActivity, menu);
         }
         return null;
     }
@@ -77,35 +75,14 @@ public class MenuRowFactory {
      * A menu row which represents the TV options row.
      */
     public static class TvOptionsRow extends ItemListRow {
+        /**
+         * The ID of the row.
+         */
+        public static final String ID = TvOptionsRow.class.getName();
+
         private TvOptionsRow(Context context, Menu menu, List<CustomAction> customActions) {
             super(context, menu, R.string.menu_title_options, R.dimen.action_card_height,
                     new TvOptionsRowAdapter(context, customActions));
-        }
-
-        @Override
-        public void onStreamInfoChanged() {
-            if (getMenu().isActive()) {
-                update();
-            }
-        }
-    }
-
-    /**
-     * A menu row which represents the PIP options row.
-     */
-    public static class PipOptionsRow extends ItemListRow {
-        private final MainActivity mMainActivity;
-
-        private PipOptionsRow(Context context, Menu menu) {
-            super(context, menu, R.string.menu_title_pip_options, R.dimen.action_card_height,
-                    new PipOptionsRowAdapter(context));
-            mMainActivity = (MainActivity) context;
-        }
-
-        @Override
-        public boolean isVisible() {
-            // TODO: Remove the dependency on MainActivity.
-            return super.isVisible() && mMainActivity.isPipEnabled();
         }
     }
 

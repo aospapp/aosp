@@ -298,6 +298,9 @@ public class BleClientService extends Service {
     // Handler for communicating task with peer.
     private TestTaskQueue mTaskQueue;
 
+    // Lock for synchronization during notification request test.
+    private final Object mRequestNotificationLock = new Object();
+
     private enum ReliableWriteState {
         RELIABLE_WRITE_NONE,
         RELIABLE_WRITE_WRITE_1ST_DATA,
@@ -386,37 +389,37 @@ public class BleClientService extends Service {
                         public void run() {
                             mNotifyCount = 16;
                             setNotification(UPDATE_CHARACTERISTIC_UUID, true);
-                            sleep(1000);
+                            waitForDisableNotificationCompletion();
                             setNotification(SERVICE_UUID_ADDITIONAL, UPDATE_CHARACTERISTIC_UUID_1, true);
-                            sleep(1000);
+                            waitForDisableNotificationCompletion();
                             setNotification(SERVICE_UUID_ADDITIONAL, UPDATE_CHARACTERISTIC_UUID_2, true);
-                            sleep(1000);
+                            waitForDisableNotificationCompletion();
                             setNotification(SERVICE_UUID_ADDITIONAL, UPDATE_CHARACTERISTIC_UUID_3, true);
-                            sleep(1000);
+                            waitForDisableNotificationCompletion();
                             setNotification(SERVICE_UUID_ADDITIONAL, UPDATE_CHARACTERISTIC_UUID_4, true);
-                            sleep(1000);
+                            waitForDisableNotificationCompletion();
                             setNotification(SERVICE_UUID_ADDITIONAL, UPDATE_CHARACTERISTIC_UUID_5, true);
-                            sleep(1000);
+                            waitForDisableNotificationCompletion();
                             setNotification(UPDATE_CHARACTERISTIC_UUID_6, true);
-                            sleep(1000);
+                            waitForDisableNotificationCompletion();
                             setNotification(UPDATE_CHARACTERISTIC_UUID_7, true);
-                            sleep(1000);
+                            waitForDisableNotificationCompletion();
                             setNotification(UPDATE_CHARACTERISTIC_UUID_8, true);
-                            sleep(1000);
+                            waitForDisableNotificationCompletion();
                             setNotification(UPDATE_CHARACTERISTIC_UUID_9, true);
-                            sleep(1000);
+                            waitForDisableNotificationCompletion();
                             setNotification(UPDATE_CHARACTERISTIC_UUID_10, true);
-                            sleep(1000);
+                            waitForDisableNotificationCompletion();
                             setNotification(SERVICE_UUID_ADDITIONAL, UPDATE_CHARACTERISTIC_UUID_11, true);
-                            sleep(1000);
+                            waitForDisableNotificationCompletion();
                             setNotification(SERVICE_UUID_ADDITIONAL, UPDATE_CHARACTERISTIC_UUID_12, true);
-                            sleep(1000);
+                            waitForDisableNotificationCompletion();
                             setNotification(SERVICE_UUID_ADDITIONAL, UPDATE_CHARACTERISTIC_UUID_13, true);
-                            sleep(1000);
+                            waitForDisableNotificationCompletion();
                             setNotification(SERVICE_UUID_ADDITIONAL, UPDATE_CHARACTERISTIC_UUID_14, true);
-                            sleep(1000);
+                            waitForDisableNotificationCompletion();
                             setNotification(SERVICE_UUID_ADDITIONAL, UPDATE_CHARACTERISTIC_UUID_15, true);
-                            sleep(1000);
+                            waitForDisableNotificationCompletion();
                         }
                     });
                 break;
@@ -580,6 +583,22 @@ public class BleClientService extends Service {
         }
     }
 
+    private void notifyDisableNotificationCompletion() {
+        synchronized (mRequestNotificationLock) {
+            mRequestNotificationLock.notify();
+        }
+    }
+
+    private void waitForDisableNotificationCompletion() {
+        synchronized (mRequestNotificationLock) {
+            try {
+                mRequestNotificationLock.wait();
+            } catch (InterruptedException e) {
+                Log.e(TAG, "Error in waitForDisableNotificationCompletion" + e);
+            }
+        }
+    }
+
     private void setNotification(BluetoothGattCharacteristic characteristic, boolean enable) {
         if (characteristic != null) {
             mBluetoothGatt.setCharacteristicNotification(characteristic, enable);
@@ -594,13 +613,6 @@ public class BleClientService extends Service {
                 descriptor.setValue(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE);
             }
             mBluetoothGatt.writeDescriptor(descriptor);
-        }
-    }
-
-    private void setNotification(boolean enable) {
-        BluetoothGattCharacteristic characteristic = getCharacteristic(UPDATE_CHARACTERISTIC_UUID);
-        if (characteristic != null) {
-            setNotification(characteristic, enable);
         }
     }
 
@@ -1107,6 +1119,9 @@ public class BleClientService extends Service {
             if ((status == BluetoothGatt.GATT_SUCCESS)) {
                 if (uid.equals(UPDATE_DESCRIPTOR_UUID)) {
                     Log.d(TAG, "write in update descriptor.");
+                    if (descriptor.getValue() == BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE) {
+                        notifyDisableNotificationCompletion();
+                    }
                 } else if (uid.equals(DESCRIPTOR_UUID)) {
                     // verify
                     if (Arrays.equals(WRITE_VALUE.getBytes(), descriptor.getValue())) {

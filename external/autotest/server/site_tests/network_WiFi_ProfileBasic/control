@@ -6,8 +6,8 @@ AUTHOR = 'wiley, pstew, quiche'
 NAME = 'network_WiFi_ProfileBasic'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
-ATTRIBUTES = ('suite:wifi_matfunc, suite:wifi_matfunc_bcm4371, '
-              'suite:wificell-pre-cq')
+ATTRIBUTES = ('suite:wifi_matfunc, suite:wifi_matfunc_noservo,'
+              'suite:wifi_matfunc_bcm4371, suite:wificell-pre-cq')
 DEPENDENCIES = 'wificell'
 
 DOC = """

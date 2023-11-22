@@ -6,8 +6,6 @@
     "rearExtent" : 40
   },
   "display" : {
-    "width" : 640,
-    "height" : 480,
     "frontRange" : 100,
     "rearRange" : 100
   },
@@ -17,57 +15,37 @@
   },
   "cameras" : [
     {
-      "name" : "rightFront",
-      "x" : 36.0,
-      "y" : 90.0,
-      "z" : 36,
-      "yaw" : -45,
-      "pitch" : -25,
-      "hfov" : 60,
-      "vfov" : 40
+      "cameraId" : "/dev/video32",
+      "function" : "reverse,park",
+      "x" : 0.0,
+      "y" : -40.0,
+      "z" : 48,
+      "yaw" : 180,
+      "pitch" : -30,
+      "hfov" : 125,
+      "vfov" :103 
     },
     {
-      "name" : "rightRear",
-      "function" : "right",
-      "x" : 36.0,
-      "y" : -10,
-      "z" : 36,
-      "yaw" : -135,
-      "pitch" : -25,
-      "hfov" : 60,
-      "vfov" : 40
-    },
-    {
-      "name" : "left",
-      "function" : "left",
-      "x" : -36.0,
-      "y" : 80,
-      "z" : 30,
-      "yaw" : 90,
-      "pitch" : -45,
-      "hfov" : 90,
-      "vfov" : 90
-    },
-    {
-      "name" : "front",
+      "cameraId" : "/dev/video45",
+      "function" : "front,park",
       "x" : 0.0,
       "y" : 100.0,
       "z" : 48,
       "yaw" : 0,
       "pitch" : -10,
-      "hfov" : 60,
-      "vfov" : 42
+      "hfov" : 70,
+      "vfov" : 43
     },
     {
-      "name" : "rear",
-      "function" : "rear",
-      "x" : 0.0,
-      "y" : -40,
-      "z" : 30,
-      "yaw" : 180,
-      "pitch" : -45,
-      "hfov" : 90,
-      "vfov" : 60
+      "cameraId" : "/dev/video0",
+      "function" : "right,park",
+      "x" : 36.0,
+      "y" : 60.0,
+      "z" : 32,
+      "yaw" : -90,
+      "pitch" : -30,
+      "hfov" : 60,
+      "vfov" : 42
     }
   ]
 }

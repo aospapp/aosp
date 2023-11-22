@@ -100,7 +100,7 @@
     <string name="system_accessibility" msgid="6215431399759498005">"Hjælpefunktioner"</string>
     <string name="system_developer_options" msgid="3237985523474863638">"Valgmuligheder for udviklere"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Ingen"</string>
-    <string name="system_diagnostic" msgid="7269638365915225701">"Forbrug og diagnostik"</string>
+    <string name="system_diagnostic" msgid="7269638365915225701">"Brug og diagnostik"</string>
     <string name="tutorials" msgid="3731493987558093244">"Selvstudier"</string>
     <string name="about_system_update" msgid="7282772247661356586">"Systemopdatering"</string>
     <string name="about_preference" msgid="4131396784531360434">"Om"</string>
@@ -232,7 +232,7 @@
     <string name="proxy_error_invalid_port" msgid="1434922103959603993">"Porten er ikke gyldig"</string>
     <string name="proxy_warning_limited_support" msgid="6160239282535986523">"HTTP-proxyen anvendes af browseren, men må ikke bruges af andre apps."</string>
     <string name="proxy_port_description" msgid="6791098212244367568">"Angiv en gyldig port.\nEksempel: <xliff:g id="ID_1">8080</xliff:g>"</string>
-    <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"Indtast en kommasepareret liste over udelukkede domæner, eller lad feltet stå tomt.\nEksempel: <xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g>"</string>
+    <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"Indtast en kommasepareret liste over udelukkede domæner, eller lad feltet stå tomt. Eksempel: <xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g> \n"</string>
     <string name="proxy_hostname_description" msgid="5824391500254472447">"Indtast et gyldigt hostnavn.\nEksempel: <xliff:g id="ID_1">proxy.example.com</xliff:g>"</string>
     <string name="wifi_summary_title_connected" msgid="8329216588732277139">"Der er forbindelse til netværket"</string>
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"Netværket er ikke tilsluttet"</string>
@@ -352,7 +352,7 @@
     <string name="location_no_recent_apps" msgid="4218851908476344030">"Ingen apps har anmodet om placering for nylig"</string>
     <string name="location_high_battery_use" msgid="576143332793626088">"Højt batteriforbrug"</string>
     <string name="location_low_battery_use" msgid="5756040390248358148">"Lavt batteriforbrug"</string>
-    <string name="location_mode_wifi_description" msgid="2778774510654527264">"Brug Wi-Fi til at fastlægge placering"</string>
+    <string name="location_mode_wifi_description" msgid="2778774510654527264">"Brug Wi-Fi til at fastslå placering"</string>
     <string name="location_status" msgid="3456414279428237558">"Placeringsstatus"</string>
     <string name="location_services" msgid="5441085185119797200">"Placeringstjenester"</string>
     <string name="on" msgid="6683600681314500652">"Til"</string>
@@ -368,9 +368,13 @@
     <string name="system_services" msgid="7230571820151215779">"Tjenester"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Tjenesteindstillinger"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Tekst med stor kontrast"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Genvej til hjælpefunktion"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Aktivér genvej til Hjælpefunktioner"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Genvejstjeneste"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Når genvejen er slået til, kan du starte en hjælpefunktion ved at holde både pil ned og tilbageknappen nede i tre sekunder."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Undertekster"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Indstillinger for tekstoverlejring af undertekster på video"</string>
-    <string name="captions_display" msgid="735692527287125548">"Visning"</string>
+    <string name="captions_display" msgid="735692527287125548">"Vis undertekster"</string>
     <string name="captions_display_on" msgid="1989009878719500520">"Til"</string>
     <string name="captions_display_off" msgid="496953007835201523">"Fra"</string>
     <string name="display_options" msgid="5504549024985225774">"Valgmuligheder for visning"</string>
@@ -633,8 +637,8 @@
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"Der er i øjeblikket ikke nogen konto, der lagrer sikkerhedskopierede data"</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
     <string name="backup_erase_dialog_message" msgid="2608496013975068701">"Vil du stoppe sikkerhedskopieringen af dine Wi-Fi-adgangskoder, bogmærker, andre indstillinger og appdata samt rydde alle kopier på Google-servere?"</string>
-    <string name="privacy_backup_data" msgid="1796662583830120812">"Sikkerhedskopier mine data"</string>
-    <string name="privacy_backup_account" msgid="9059939814827165020">"Konto til sikkerhedskopiering"</string>
+    <string name="privacy_backup_data" msgid="1796662583830120812">"Sikkerhedskopiér mine data"</string>
+    <string name="privacy_backup_account" msgid="9059939814827165020">"Konto til backup"</string>
     <string name="privacy_automatic_restore" msgid="1409885318093199628">"Automatisk gendannelse"</string>
     <string name="factory_reset_device" msgid="7422459553658815011">"Nulstil enheden"</string>
     <string name="factory_reset_description" msgid="5381170999141355891">"Dette medfører sletning af alle data fra enhedens interne lager, herunder din Google-konto, data og indstillinger for system og apps samt downloadede apps"</string>
@@ -645,14 +649,14 @@
   <string-array name="rooms">
     <item msgid="9056203990862307284">"Android TV"</item>
     <item msgid="7449352861592960712">"Fjernsyn i stuen"</item>
-    <item msgid="8122798759665439456">"Fjernsyn i opholdsstuen"</item>
+    <item msgid="8122798759665439456">"Fjernsyn i køkkenet"</item>
     <item msgid="1389347662738182100">"Fjernsyn i soveværelset"</item>
   </string-array>
     <string name="custom_room" msgid="8655516733933892458">"Angiv et tilpasset navn…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"Omdøb denne <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"Denne <xliff:g id="DEVICEMODEL">%1$s</xliff:g> har i øjeblikket navnet \"<xliff:g id="DEVICENAME">%2$s</xliff:g>\""</string>
     <string name="change_setting" msgid="2047402388786162246">"Skift"</string>
-    <string name="keep_settings" msgid="6798327196645732517">"Skift ikke ejer"</string>
+    <string name="keep_settings" msgid="6798327196645732517">"Skift ikke"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"Tilladelser"</string>
     <string name="device_apps_permissions" msgid="2966387603529725982">"Apptilladelser"</string>
     <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_0">%d</xliff:g> ud af <xliff:g id="COUNT_1">%d</xliff:g> apps har tilladelse"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Opretter fejlrapport"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Tilgængelige virtuelle tastaturer"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Administrer tastaturer"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Tilladt"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Ikke tilladt"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Adgang til forbrug"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Med adgang til forbrug kan en app se, hvilke andre apps du anvender og hvor ofte, samt dit mobilselskab, dine sprogindstillinger og andre oplysninger."</string>
 </resources>

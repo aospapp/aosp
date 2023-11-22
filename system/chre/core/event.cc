@@ -16,7 +16,6 @@
 
 #include "chre/core/event.h"
 
-#include "chre/platform/assert.h"
 
 namespace chre {
 
@@ -26,19 +25,5 @@ Event::Event(uint16_t eventType_, void *eventData_,
     : eventType(eventType_), eventData(eventData_), freeCallback(freeCallback_),
       senderInstanceId(senderInstanceId_),
       targetInstanceId(targetInstanceId_) {}
-
-void Event::incrementRefCount() {
-  mRefCount++;
-  CHRE_ASSERT(mRefCount != 0);
-}
-
-void Event::decrementRefCount() {
-  CHRE_ASSERT(mRefCount > 0);
-  mRefCount--;
-}
-
-bool Event::isUnreferenced() const {
-  return (mRefCount == 0);
-}
 
 }  // namespace chre

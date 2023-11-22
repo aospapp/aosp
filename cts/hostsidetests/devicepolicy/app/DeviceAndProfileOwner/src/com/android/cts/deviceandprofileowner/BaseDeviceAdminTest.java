@@ -85,4 +85,19 @@ public class BaseDeviceAdminTest extends InstrumentationTestCase {
             throw new RuntimeException("Command '" + command + "' failed: ", e);
         }
     }
+
+    protected void assertPasswordSufficiency(boolean expectPasswordSufficient) {
+        int retries = 15;
+        // isActivePasswordSufficient() gets the result asynchronously so let's retry a few times
+        while (retries >= 0
+                && mDevicePolicyManager.isActivePasswordSufficient() != expectPasswordSufficient) {
+            retries--;
+            try {
+                Thread.sleep(200);
+            } catch (InterruptedException e) {
+                break;
+            }
+        }
+        assertEquals(expectPasswordSufficient, mDevicePolicyManager.isActivePasswordSufficient());
+    }
 }

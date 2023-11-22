@@ -35,6 +35,7 @@
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
+#include <android-base/unique_fd.h>
 
 #include <cutils/properties.h>
 
@@ -153,9 +154,28 @@ static bool readFileToString(const std::string& filename, std::string* result) {
 }
 
 static bool writeStringToFile(const std::string& payload, const std::string& filename) {
-    if (!android::base::WriteStringToFile(payload, filename)) {
-        PLOG(ERROR) << "Failed to write to " << filename;
+    android::base::unique_fd fd(TEMP_FAILURE_RETRY(
+        open(filename.c_str(), O_WRONLY | O_CREAT | O_NOFOLLOW | O_TRUNC | O_CLOEXEC, 0666)));
+    if (fd == -1) {
+        PLOG(ERROR) << "Failed to open " << filename;
         return false;
+    }
+    if (!android::base::WriteStringToFd(payload, fd)) {
+        PLOG(ERROR) << "Failed to write to " << filename;
+        unlink(filename.c_str());
+        return false;
+    }
+    // fsync as close won't guarantee flush data
+    // see close(2), fsync(2) and b/68901441
+    if (fsync(fd) == -1) {
+        if (errno == EROFS || errno == EINVAL) {
+            PLOG(WARNING) << "Skip fsync " << filename
+                          << " on a file system does not support synchronization";
+        } else {
+            PLOG(ERROR) << "Failed to fsync " << filename;
+            unlink(filename.c_str());
+            return false;
+        }
     }
     return true;
 }
@@ -195,7 +215,7 @@ static KeymasterOperation begin(Keymaster& keymaster, const std::string& dir,
 
 static bool encryptWithKeymasterKey(Keymaster& keymaster, const std::string& dir,
                                     const AuthorizationSet &keyParams,
-                                    const std::string& message, std::string* ciphertext) {
+                                    const KeyBuffer& message, std::string* ciphertext) {
     AuthorizationSet opParams;
     AuthorizationSet outParams;
     auto opHandle = begin(keymaster, dir, KeyPurpose::ENCRYPT, keyParams, opParams, &outParams);
@@ -220,7 +240,7 @@ static bool encryptWithKeymasterKey(Keymaster& keymaster, const std::string& dir
 
 static bool decryptWithKeymasterKey(Keymaster& keymaster, const std::string& dir,
                                     const AuthorizationSet &keyParams,
-                                    const std::string& ciphertext, std::string* message) {
+                                    const std::string& ciphertext, KeyBuffer* message) {
     auto nonce = ciphertext.substr(0, GCM_NONCE_BYTES);
     auto bodyAndMac = ciphertext.substr(GCM_NONCE_BYTES);
     auto opParams = AuthorizationSetBuilder()
@@ -305,7 +325,7 @@ static void logOpensslError() {
 }
 
 static bool encryptWithoutKeymaster(const std::string& preKey,
-                                    const std::string& plaintext, std::string* ciphertext) {
+                                    const KeyBuffer& plaintext, std::string* ciphertext) {
     auto key = hashWithPrefix(kHashPrefix_keygen, preKey);
     key.resize(AES_KEY_BYTES);
     if (!readRandomBytesOrLog(GCM_NONCE_BYTES, ciphertext)) return false;
@@ -351,7 +371,7 @@ static bool encryptWithoutKeymaster(const std::string& preKey,
 }
 
 static bool decryptWithoutKeymaster(const std::string& preKey,
-                                    const std::string& ciphertext, std::string* plaintext) {
+                                    const std::string& ciphertext, KeyBuffer* plaintext) {
     if (ciphertext.size() < GCM_NONCE_BYTES + GCM_MAC_BYTES) {
         LOG(ERROR) << "GCM ciphertext too small: " << ciphertext.size();
         return false;
@@ -370,7 +390,7 @@ static bool decryptWithoutKeymaster(const std::string& preKey,
         logOpensslError();
         return false;
     }
-    plaintext->resize(ciphertext.size() - GCM_NONCE_BYTES - GCM_MAC_BYTES);
+    *plaintext = KeyBuffer(ciphertext.size() - GCM_NONCE_BYTES - GCM_MAC_BYTES);
     int outlen;
     if (1 != EVP_DecryptUpdate(ctx.get(),
         reinterpret_cast<uint8_t*>(&(*plaintext)[0]), &outlen,
@@ -400,7 +420,11 @@ static bool decryptWithoutKeymaster(const std::string& preKey,
     return true;
 }
 
-bool storeKey(const std::string& dir, const KeyAuthentication& auth, const std::string& key) {
+bool pathExists(const std::string& path) {
+    return access(path.c_str(), F_OK) == 0;
+}
+
+bool storeKey(const std::string& dir, const KeyAuthentication& auth, const KeyBuffer& key) {
     if (TEMP_FAILURE_RETRY(mkdir(dir.c_str(), 0700)) == -1) {
         PLOG(ERROR) << "key mkdir " << dir;
         return false;
@@ -437,7 +461,26 @@ bool storeKey(const std::string& dir, const KeyAuthentication& auth, const std::
     return true;
 }
 
-bool retrieveKey(const std::string& dir, const KeyAuthentication& auth, std::string* key) {
+bool storeKeyAtomically(const std::string& key_path, const std::string& tmp_path,
+                        const KeyAuthentication& auth, const KeyBuffer& key) {
+    if (pathExists(key_path)) {
+        LOG(ERROR) << "Already exists, cannot create key at: " << key_path;
+        return false;
+    }
+    if (pathExists(tmp_path)) {
+        LOG(DEBUG) << "Already exists, destroying: " << tmp_path;
+        destroyKey(tmp_path);  // May be partially created so ignore errors
+    }
+    if (!storeKey(tmp_path, auth, key)) return false;
+    if (rename(tmp_path.c_str(), key_path.c_str()) != 0) {
+        PLOG(ERROR) << "Unable to move new key to location: " << key_path;
+        return false;
+    }
+    LOG(DEBUG) << "Created key: " << key_path;
+    return true;
+}
+
+bool retrieveKey(const std::string& dir, const KeyAuthentication& auth, KeyBuffer* key) {
     std::string version;
     if (!readFileToString(dir + "/" + kFn_version, &version)) return false;
     if (version != kCurrentVersion) {

@@ -42,7 +42,7 @@
         android:fontFamily="@string/option_item_secondary_text_font"
         android:textSize="@dimen/option_item_secondary_text_size"
         android:textColor="@color/option_item_secondary_text_color"
-        android:maxLines="3"
+        android:maxLines="@integer/option_item_description_max_lines"
         android:ellipsize="end"
         android:focusable="false" />
 

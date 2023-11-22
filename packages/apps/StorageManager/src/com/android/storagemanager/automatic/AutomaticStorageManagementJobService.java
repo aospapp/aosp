@@ -18,11 +18,15 @@ package com.android.storagemanager.automatic;
 
 import android.app.job.JobParameters;
 import android.app.job.JobService;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.os.storage.StorageManager;
 import android.provider.Settings;
 import android.util.Log;
+
+import com.android.internal.annotations.VisibleForTesting;
+import com.android.settingslib.Utils;
 import com.android.settingslib.deviceinfo.PrivateStorageInfo;
 import com.android.settingslib.deviceinfo.StorageManagerVolumeProvider;
 import com.android.settingslib.deviceinfo.StorageVolumeProvider;
@@ -40,15 +44,22 @@ public class AutomaticStorageManagementJobService extends JobService {
 
     private StorageManagementJobProvider mProvider;
     private StorageVolumeProvider mVolumeProvider;
+    private Clock mClock;
 
     @Override
     public boolean onStartJob(JobParameters args) {
-        // We need to double-check the precondition shere because they are not enforced for a
+        // We need to double-check the preconditions here because they are not enforced for a
         // periodic job.
         if (!preconditionsFulfilled()) {
             // By telling the system to re-schedule the job, it will attempt to execute again at a
             // later idle window -- possibly one where we are charging.
             jobFinished(args, true);
+            return false;
+        }
+
+        mProvider = FeatureFactory.getFactory(this).getStorageManagementJobProvider();
+        if (maybeDisableDueToPolicy(mProvider, getContentResolver(), getClock())) {
+            jobFinished(args, false);
             return false;
         }
 
@@ -74,7 +85,6 @@ public class AutomaticStorageManagementJobService extends JobService {
             return false;
         }
 
-        mProvider = FeatureFactory.getFactory(this).getStorageManagementJobProvider();
         if (mProvider != null) {
             return mProvider.onStartJob(this, args, getDaysToRetain());
         }
@@ -97,9 +107,10 @@ public class AutomaticStorageManagementJobService extends JobService {
     }
 
     private int getDaysToRetain() {
-        return Settings.Secure.getInt(getContentResolver(),
+        return Settings.Secure.getInt(
+                getContentResolver(),
                 Settings.Secure.AUTOMATIC_STORAGE_MANAGER_DAYS_TO_RETAIN,
-                Settings.Secure.AUTOMATIC_STORAGE_MANAGER_DAYS_TO_RETAIN_DEFAULT);
+                Utils.getDefaultStorageManagerDaysToRetain(getResources()));
     }
 
     private boolean volumeNeedsManagement() {
@@ -120,5 +131,51 @@ public class AutomaticStorageManagementJobService extends JobService {
         // idle. For more information, see PowerManager.isDeviceIdleMode().
         Context context = getApplicationContext();
         return JobPreconditions.isCharging(context);
+    }
+
+    /** Returns if ASM was disabled due to policy. * */
+    @VisibleForTesting
+    static boolean maybeDisableDueToPolicy(
+            StorageManagementJobProvider provider, ContentResolver cr, Clock clock) {
+        if (provider == null || cr == null) {
+            return false;
+        }
+
+        final long disabledThresholdMillis = provider.getDisableThresholdMillis(cr);
+        final long currentTime = clock.currentTimeMillis();
+        final boolean disabledByPolicyInThePast =
+                Settings.Secure.getInt(
+                                cr,
+                                Settings.Secure.AUTOMATIC_STORAGE_MANAGER_TURNED_OFF_BY_POLICY,
+                                0)
+                        != 0;
+        if (currentTime > disabledThresholdMillis && !disabledByPolicyInThePast) {
+            Settings.Secure.putInt(
+                    cr, Settings.Secure.AUTOMATIC_STORAGE_MANAGER_TURNED_OFF_BY_POLICY, 1);
+            Settings.Secure.putInt(cr, Settings.Secure.AUTOMATIC_STORAGE_MANAGER_ENABLED, 0);
+            return true;
+        }
+
+        return false;
+    }
+
+    private Clock getClock() {
+        if (mClock == null) {
+            mClock = new Clock();
+        }
+        return mClock;
+    }
+
+    @VisibleForTesting
+    void setClock(Clock clock) {
+        mClock = clock;
+    }
+
+    /** Clock provides the current time. */
+    protected static class Clock {
+        /** Returns the current time in milliseconds. */
+        public long currentTimeMillis() {
+            return System.currentTimeMillis();
+        }
     }
 }

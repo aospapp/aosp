@@ -19,6 +19,7 @@ package org.apache.harmony.tests.java.io;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.FilterOutputStream;
 import java.io.InputStreamReader;
 import java.io.DataInputStream;
 import java.io.File;
@@ -27,9 +28,16 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.Locale;
+import libcore.io.IoUtils;
 
 public class PrintStreamTest extends junit.framework.TestCase {
+    private static final String UNICODE_STRING =
+            "K\u03B1\u03BB\u03B7\u00B5\u03B5\u00B4\u03C1\u03B1 \u03BA\u03BF\u00B4\u03C3\u00B5\u03B5";
 
     ByteArrayOutputStream bos = new ByteArrayOutputStream();
 
@@ -70,25 +78,36 @@ public class PrintStreamTest extends junit.framework.TestCase {
      * {@link java.io.PrintStream#PrintStream(String)}
      */
     public void test_Constructor_Ljava_lang_String() throws IOException {
-        MockPrintStream os = new MockPrintStream(testFilePath);
-        assertNotNull(os);
+        PrintStream os = new PrintStream(testFilePath);
+        os.print(UNICODE_STRING);
         os.close();
+        assertFileContents(UNICODE_STRING.getBytes(Charset.defaultCharset()), testFile);
     }
 
     /**
      * {@link java.io.PrintStream#PrintStream(String, String)}
      */
     public void test_Constructor_Ljava_lang_String_Ljava_lang_String() throws Exception {
-        MockPrintStream os = new MockPrintStream(testFilePath, "utf-8");
-        assertNotNull(os);
-        os.close();
-
         // Test that a bogus charset is mentioned in the exception
         try {
             new PrintStream(testFilePath, "Bogus");
             fail("Exception expected");
         } catch (UnsupportedEncodingException e) {
             assertNotNull(e.getMessage());
+        }
+
+        {
+            PrintStream os = new PrintStream(testFilePath, "utf-8");
+            os.print(UNICODE_STRING);
+            os.close();
+            assertFileContents(UNICODE_STRING.getBytes(StandardCharsets.UTF_8), testFile);
+        }
+
+        {
+            PrintStream os = new PrintStream(testFilePath, "utf-16");
+            os.print(UNICODE_STRING);
+            os.close();
+            assertFileContents(UNICODE_STRING.getBytes(StandardCharsets.UTF_16), testFile);
         }
     }
 
@@ -124,13 +143,31 @@ public class PrintStreamTest extends junit.framework.TestCase {
     /**
      * java.io.PrintStream#PrintStream(java.io.OutputStream, boolean, String)
      */
-    public void test_ConstructorLjava_io_OutputStreamZLjava_lang_String() {
+    public void test_ConstructorLjava_io_OutputStreamZLjava_lang_String() throws Exception {
         try {
             new PrintStream(new ByteArrayOutputStream(), false,
                     "%Illegal_name!");
             fail("Expected UnsupportedEncodingException");
         } catch (UnsupportedEncodingException e) {
             // expected
+        }
+
+        {
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            PrintStream printStream = new PrintStream(bos, true /* autoFlush */, "utf-8");
+            printStream.print(UNICODE_STRING);
+            printStream.close();
+            assertByteArraysEqual(UNICODE_STRING.getBytes(StandardCharsets.UTF_8),
+                    bos.toByteArray());
+        }
+
+        {
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            PrintStream printStream = new PrintStream(bos, true /* autoFlush */, "utf-16");
+            printStream.print(UNICODE_STRING);
+            printStream.close();
+            assertByteArraysEqual(UNICODE_STRING.getBytes(StandardCharsets.UTF_16),
+                    bos.toByteArray());
         }
     }
 
@@ -626,6 +663,59 @@ public class PrintStreamTest extends junit.framework.TestCase {
     }
 
     /**
+     * Tests that a PrintStream with {@code autoFlush == true} will call
+     * {@link OutputStream#flush()} at least once, after the last byte
+     * was written.
+     */
+    public void test_autoFlush_flushesEverything() {
+        CountFlushOutputStream counter = new CountFlushOutputStream(new ByteArrayOutputStream());
+        PrintStream printStream = new PrintStream(counter, true /* autoFlush */);
+        printStream.print("Hello, world!");
+        assertTrue(counter.hasBeenFlushedSinceLastWrite());
+        printStream.print(Math.PI);
+        assertTrue(counter.hasBeenFlushedSinceLastWrite());
+        printStream.print("\n");
+        assertTrue(counter.hasBeenFlushedSinceLastWrite());
+        printStream.println();
+        assertTrue(counter.hasBeenFlushedSinceLastWrite());
+        printStream.println("Lots\nof\nnewlines\n");
+        assertTrue(counter.hasBeenFlushedSinceLastWrite());
+        printStream.print("Line 1\nLine 2\n".toCharArray());
+        assertTrue(counter.hasBeenFlushedSinceLastWrite());
+
+        byte[] bytes = "Line without a newline".getBytes(StandardCharsets.UTF_8);
+        printStream.write(bytes, 0, bytes.length);
+        assertTrue(counter.hasBeenFlushedSinceLastWrite());
+    }
+
+    /**
+     * Tests that a PrintStream with {@code autoFlush == false} will not
+     * call {@link OutputStream#flush()} in regular (non-error) operation.
+     */
+    public void test_noAutoFlush() {
+        CountFlushOutputStream counter = new CountFlushOutputStream(new ByteArrayOutputStream());
+        PrintStream printStream = new PrintStream(counter, false /* autoFlush */);
+        printStream.print("Hello, world!");
+        printStream.print(Math.PI);
+        printStream.print("\n");
+        printStream.println();
+        printStream.println("Lots\nof\nnewlines\n");
+        printStream.print("Line 1\nLine 2\n".toCharArray());
+        byte[] bytes = "Line without a newline".getBytes(StandardCharsets.UTF_8);
+        printStream.write(bytes, 0, bytes.length);
+        assertFalse(counter.hasEverBeenFlushed());
+        assertFalse(counter.hasBeenFlushedSinceLastWrite());
+
+        // checkError() still causes the PrintStream to flush(), even when autoFlush == false.
+        printStream.checkError();
+        assertTrue(counter.hasEverBeenFlushed());
+        assertTrue(counter.hasBeenFlushedSinceLastWrite());
+        printStream.print("This data\nwill not be flushed.");
+        assertTrue(counter.hasEverBeenFlushed());
+        assertFalse(counter.hasBeenFlushedSinceLastWrite());
+    }
+
+    /**
      * java.io.PrintStream#printf(java.lang.String, java.lang.Object...)
      */
     public void test_printfLjava_lang_String$Ljava_lang_Object() {
@@ -669,5 +759,47 @@ public class PrintStreamTest extends junit.framework.TestCase {
         super.tearDown();
     }
 
+    private static void assertByteArraysEqual(byte[] expected, byte[] actual) {
+        String message = "Expected " + Base64.getEncoder().encodeToString(expected) + ", got: "
+                + Base64.getEncoder().encodeToString(actual);
+        assertTrue(message, Arrays.equals(actual, expected));
+    }
+
+    private static void assertFileContents(byte[] expected, File file) throws IOException {
+        byte[] actual = IoUtils.readFileAsByteArray(file.getAbsolutePath());
+        assertByteArraysEqual(expected, actual);
+    }
+
+    static class CountFlushOutputStream extends FilterOutputStream {
+        private boolean hasBeenFlushedSinceLastWrite = false;
+        private boolean hasEverBeenFlushed = false;
+
+        public CountFlushOutputStream(OutputStream delegate) {
+            super(delegate);
+        }
+
+        @Override
+        public void write(int b) throws IOException {
+            super.write(b);
+            hasBeenFlushedSinceLastWrite = false;
+        }
+
+        @Override
+        public void flush() throws IOException {
+            super.flush();
+            hasBeenFlushedSinceLastWrite = true;
+            hasEverBeenFlushed = true;
+        }
+
+        /** Whether {@link #flush()} has been called since the last write. */
+        public boolean hasBeenFlushedSinceLastWrite() {
+            return hasBeenFlushedSinceLastWrite;
+        }
+
+        /** Whether {@link #flush()} has ever been called after this stream was constructed. */
+        public boolean hasEverBeenFlushed() {
+            return hasEverBeenFlushed;
+        }
+    }
 
 }

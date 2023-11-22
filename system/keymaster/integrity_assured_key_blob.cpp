@@ -18,7 +18,7 @@
 
 #include <assert.h>
 
-#include <new>
+#include <keymaster/new>
 
 #include <openssl/hmac.h>
 #include <openssl/mem.h>

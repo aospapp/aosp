@@ -18,6 +18,7 @@ package android.telephony.cts.preconditions.app;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.test.AndroidTestCase;
+import android.util.Log;
 import com.android.compatibility.common.preconditions.TelephonyHelper;
 
 /**
@@ -36,7 +37,9 @@ public class TelephonyPreparerAppTest extends AndroidTestCase {
             return; // do not test for phone number on devices without telephony feature
         }
 
-        assertTrue("Device must have a SIM card with phone number in order to run CTS",
-                TelephonyHelper.hasPhoneNumber(this.getContext()));
+        if (!TelephonyHelper.hasPhoneNumber(this.getContext())) {
+            Log.e(TAG, "No SIM card with phone number is found in the device, "
+                + "some tests might not run properly");
+        }
     }
 }

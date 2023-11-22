@@ -16,7 +16,7 @@
 
 package com.android.tv.testing.dvr;
 
-import com.android.tv.dvr.ScheduledRecording;
+import com.android.tv.dvr.data.ScheduledRecording;
 
 import junit.framework.Assert;
 

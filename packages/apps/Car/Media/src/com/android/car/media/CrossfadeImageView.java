@@ -21,13 +21,12 @@ import android.graphics.Color;
 import android.graphics.ColorFilter;
 import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
-import android.support.car.ui.AnimationListenerAdapter;
-import android.support.car.ui.LogDecelerateInterpolator;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 
@@ -88,14 +87,19 @@ public class CrossfadeImageView extends FrameLayout {
         mInactiveImageView = mImageView2;
 
         mImageInAnimation = AnimationUtils.loadAnimation(context, R.anim.image_in);
-        mImageInAnimation.setInterpolator(new LogDecelerateInterpolator(100, 0));
+        mImageInAnimation.setInterpolator(new DecelerateInterpolator());
         mImageOutAnimation = AnimationUtils.loadAnimation(context, R.anim.image_out);
     }
 
     public void setImageBitmap(Bitmap bitmap, boolean showAnimation) {
-        if (bitmap != null && bitmap.sameAs(mCurrentBitmap)) {
+        if (bitmap == null) {
             return;
         }
+
+        if (mCurrentBitmap != null && bitmap.sameAs(mCurrentBitmap)) {
+            return;
+        }
+
         mCurrentBitmap = bitmap;
         mCurrentColor = null;
         mInactiveImageView.setImageBitmap(bitmap);
@@ -131,14 +135,21 @@ public class CrossfadeImageView extends FrameLayout {
         mImageView2.setColorFilter(cf);
     }
 
-    private final Animation.AnimationListener mAnimationListener = new AnimationListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animation animation) {
-                    if (mInactiveImageView != null) {
-                        mInactiveImageView.setVisibility(View.GONE);
-                    }
-                }
-            };
+    private final Animation.AnimationListener mAnimationListener =
+            new Animation.AnimationListener() {
+        @Override
+        public void onAnimationEnd(Animation animation) {
+            if (mInactiveImageView != null) {
+                mInactiveImageView.setVisibility(View.GONE);
+            }
+        }
+
+        @Override
+        public void onAnimationStart(Animation animation) { }
+
+        @Override
+        public void onAnimationRepeat(Animation animation) { }
+    };
 
     private void animateViews() {
         mInactiveImageView.setVisibility(View.VISIBLE);

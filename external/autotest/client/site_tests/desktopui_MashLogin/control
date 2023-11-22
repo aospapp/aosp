@@ -6,12 +6,9 @@ AUTHOR = "jamescook@chromium.org, mustash-team@google.com"
 NAME = "desktopui_MashLogin"
 PURPOSE = "Verify chrome --mash (for mustash) starts and logs in."
 CRITERIA = "Fails if chrome --mash does not start."
-# Part of bvt-cq so it runs on the Chrome ToT informational builders.
-# Most failures are due to bad chrome CLs. If you need to disable this
-# test please put it back in bvt-perbuild so we can tell from the nightly
-# builds when chrome is good again.
-ATTRIBUTES = "suite:bvt-perbuild"
-JOB_RETRIES = 2
+ATTRIBUTES = "suite:chrome-informational, suite:bvt-perbuild"
+# TODO(jamescook): Add retries if this goes into bvt-cq.
+JOB_RETRIES = 0
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "desktopui"
@@ -19,7 +16,7 @@ TEST_TYPE = "client"
 BUG_TEMPLATE = {
   'components': ['Internals>Mus'],
   'labels': ['Proj-Mustash'],
-  'cc': ['jamescook@chromium.org'],
+  'cc': ['mustash-autotest-bugs@google.com'],
 }
 
 DOC = """

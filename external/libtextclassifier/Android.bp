@@ -1,0 +1,17 @@
+cc_library_headers {
+    name: "libtextclassifier_hash_headers",
+    vendor_available: true,
+    export_include_dirs: ["."],
+}
+
+cc_library_shared {
+    name: "libtextclassifier_hash",
+    vendor_available: true,
+    srcs: [
+        "util/hash/farmhash.cc",
+        "util/hash/hash.cc"
+    ],
+    cflags: [
+        "-DNAMESPACE_FOR_HASH_FUNCTIONS=farmhash"
+    ],
+}

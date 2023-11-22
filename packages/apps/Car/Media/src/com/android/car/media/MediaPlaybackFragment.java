@@ -30,33 +30,31 @@ import android.media.session.MediaController;
 import android.media.session.MediaSession;
 import android.media.session.PlaybackState;
 import android.net.Uri;
-import android.os.BadParcelableException;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.support.annotation.DrawableRes;
+import android.support.annotation.IntDef;
 import android.support.annotation.Nullable;
-import android.support.car.ui.ColorChecker;
 import android.support.v4.app.Fragment;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Log;
-import android.util.Pair;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.widget.ImageButton;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.TextView;
-
 import com.android.car.apps.common.BitmapDownloader;
 import com.android.car.apps.common.BitmapWorkerOptions;
+import com.android.car.apps.common.ColorChecker;
 import com.android.car.apps.common.util.Assert;
-import com.android.car.media.util.widgets.MusicPanelLayout;
 import com.android.car.media.util.widgets.PlayPauseStopImageView;
 
 import java.util.List;
@@ -68,95 +66,149 @@ import java.util.Objects;
 public class MediaPlaybackFragment extends Fragment implements MediaPlaybackModel.Listener {
     private static final String TAG = "MediaPlayback";
 
-    private static final String[] PREFERRED_BITMAP_ORDER = {
+    /**
+     * The preferred ordering for bitmap to fetch. The metadata at lower indexes are preferred to
+     * those at higher indexes.
+     */
+    private static final String[] PREFERRED_BITMAP_TYPE_ORDER = {
             MediaMetadata.METADATA_KEY_ALBUM_ART,
             MediaMetadata.METADATA_KEY_ART,
             MediaMetadata.METADATA_KEY_DISPLAY_ICON
     };
 
+    /**
+     * The preferred ordering for metadata URIs to fetch. The metadata at lower indexes are
+     * preferred to those at higher indexes.
+     */
     private static final String[] PREFERRED_URI_ORDER = {
             MediaMetadata.METADATA_KEY_ALBUM_ART_URI,
             MediaMetadata.METADATA_KEY_ART_URI,
             MediaMetadata.METADATA_KEY_DISPLAY_ICON_URI
     };
 
+    // The different types of Views that are contained within this Fragment.
+    private static final int NO_CONTENT_VIEW = 0;
+    private static final int PLAYBACK_CONTROLS_VIEW = 1;
+    private static final int LOADING_VIEW = 2;
+    @IntDef({NO_CONTENT_VIEW, PLAYBACK_CONTROLS_VIEW, LOADING_VIEW})
+    private @interface ViewType{}
+
+    /**
+     * The amount of time between seek bar updates.
+     */
     private static final long SEEK_BAR_UPDATE_TIME_INTERVAL_MS = 500;
+
+    /**
+     * The delay time before automatically closing the overflow controls view.
+     */
     private static final long DELAY_CLOSE_OVERFLOW_MS = 3500;
-    // delay showing the no content view for 3 second -- when the media app cold starts, it
-    // usually takes a moment to load the last played song from database. So we will wait for
-    // 3 sec, before we show the no content view, instead of showing it and immediately
-    // switch to playback view when the metadata loads.
+
+    /**
+     * Delay before showing any content. When the media app cold starts, it usually takes a
+     * moment to load the last played song from database. So wait for three seconds before showing
+     * the no content view rather than showing it and immediately switching to the playback view
+     * when the metadata loads.
+     */
     private static final long DELAY_SHOW_NO_CONTENT_VIEW_MS = 3000;
     private static final long FEEDBACK_MESSAGE_DISPLAY_TIME_MS = 6000;
+    private static final int MEDIA_SCRIM_FADE_DURATION_MS = 400;
+    private static final int OVERFLOW_MENU_FADE_DURATION_MS = 250;
+    private static final int NUM_OF_CUSTOM_ACTION_BUTTONS = 4;
 
-    private MediaActivity mActivity;
+    // The default width and height for an image. These are used if the mAlbumArtView has not laid
+    // out by the time a Bitmap needs to be created to fit in it.
+    private static final int DEFAULT_ALBUM_ART_WIDTH = 800;
+    private static final int DEFAULT_ALBUM_ART_HEIGHT = 400;
+
     private MediaPlaybackModel mMediaPlaybackModel;
     private final Handler mHandler = new Handler();
 
+    private View mScrimView;
+    private float mDefaultScrimAlpha;
+    private float mDarkenedScrimAlpha;
+
+    private CrossfadeImageView mAlbumArtView;
+
     private TextView mTitleView;
     private TextView mArtistView;
+
     private ImageButton mPrevButton;
     private PlayPauseStopImageView mPlayPauseStopButton;
     private ImageButton mNextButton;
     private ImageButton mPlayQueueButton;
-    private MusicPanelLayout mMusicPanel;
-    private LinearLayout mControlsView;
-    private LinearLayout mOverflowView;
+
+    private View mMusicPanel;
+    private View mControlsView;
+    private View mOverflowView;
     private ImageButton mOverflowOnButton;
     private ImageButton mOverflowOffButton;
-    private final ImageButton[] mCustomActionButtons = new ImageButton[4];
+    private boolean mIsOverflowVisible;
+    private final ImageButton[] mCustomActionButtons =
+            new ImageButton[NUM_OF_CUSTOM_ACTION_BUTTONS];
+
     private SeekBar mSeekBar;
     private ProgressBar mSpinner;
-    private boolean mOverflowVisibility;
     private long mStartProgress;
     private long mStartTime;
     private MediaDescription mCurrentTrack;
     private boolean mShowingMessage;
+
     private View mInitialNoContentView;
     private View mMetadata;
-    private ImageView mMusicErrorIcon;
+    private View mMusicErrorIcon;
     private TextView mTapToSelectText;
     private ProgressBar mAppConnectingSpinner;
+
     private boolean mDelayedResetTitleInProgress;
-    private int mAlbumArtWidth = 800;
-    private int mAlbumArtHeight = 400;
-    private int mShowTitleDelayMs = 250;
+    private int mAlbumArtWidth = DEFAULT_ALBUM_ART_WIDTH;
+    private int mAlbumArtHeight = DEFAULT_ALBUM_ART_HEIGHT;
+    private int mShowTitleDelayMs;
+
     private TelephonyManager mTelephonyManager;
-    private boolean mInCall = false;
+    private boolean mInCall;
+
     private BitmapDownloader mDownloader;
-    private boolean mReturnFromOnStop = false;
+    private boolean mReturnFromOnStop;
+    @ViewType private int mCurrentView;
+    private PlayQueueRevealer mPlayQueueRevealer;
 
-    private enum ViewType {
-        NO_CONTENT_VIEW,
-        PLAYBACK_CONTROLS_VIEW,
-        LOADING_VIEW,
-    }
-
-    private ViewType mCurrentView;
-
-    public MediaPlaybackFragment() {
-      super();
+    /**
+     * An interface that is responsible for displaying a list of the items in the user's currently
+     * playing queue.
+     */
+    interface PlayQueueRevealer {
+        void showPlayQueue();
     }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        mActivity = (MediaActivity) getHost();
-        mShowTitleDelayMs =
-                mActivity.getResources().getInteger(R.integer.new_album_art_fade_in_offset);
-        mMediaPlaybackModel = new MediaPlaybackModel(mActivity, null /* browserExtras */);
+
+        Context context = getContext();
+        mMediaPlaybackModel = new MediaPlaybackModel(context, null /* browserExtras */);
         mMediaPlaybackModel.addListener(this);
         mTelephonyManager =
-                (TelephonyManager) mActivity.getSystemService(Context.TELEPHONY_SERVICE);
+                (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
+
+        Resources res = context.getResources();
+        mShowTitleDelayMs = res.getInteger(R.integer.new_album_art_fade_in_duration);
+        mDefaultScrimAlpha = res.getFloat(R.dimen.media_scrim_alpha);
+        mDarkenedScrimAlpha = res.getFloat(R.dimen.media_scrim_darkened_alpha);
+    }
+
+    /**
+     * Sets the object that is responsible for displaying the current list of items in the user's
+     * play queue.
+     */
+    void setPlayQueueRevealer(PlayQueueRevealer revealer) {
+        mPlayQueueRevealer = revealer;
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        mCurrentView = null;
         mTelephonyManager.listen(mPhoneStateListener, PhoneStateListener.LISTEN_NONE);
         mMediaPlaybackModel = null;
-        mActivity = null;
         // Calling this with null will clear queue of callbacks and message.
         mHandler.removeCallbacksAndMessages(null);
         mDelayedResetTitleInProgress = false;
@@ -166,70 +218,63 @@ public class MediaPlaybackFragment extends Fragment implements MediaPlaybackMode
     public View onCreateView(LayoutInflater inflater, final ViewGroup container,
             Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.now_playing_screen, container, false);
-        mTitleView = (TextView) v.findViewById(R.id.title);
-        mArtistView = (TextView) v.findViewById(R.id.artist);
-        mSeekBar = (SeekBar) v.findViewById(R.id.seek_bar);
-        // In L setEnabled(false) will make the tint color wrong, but not in M.
-        mSeekBar.setOnTouchListener(new View.OnTouchListener() {
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                // Eat up touch events from users as we set progress programmatically only.
-                return true;
-            }
+        mScrimView = v.findViewById(R.id.scrim);
+        mAlbumArtView = v.findViewById(R.id.album_art);
+        mAlbumArtView.getViewTreeObserver().addOnGlobalLayoutListener(
+                new ViewTreeObserver.OnGlobalLayoutListener() {
+                    @Override
+                    public void onGlobalLayout() {
+                        mAlbumArtWidth = mAlbumArtView.getWidth();
+                        mAlbumArtHeight = mAlbumArtView.getHeight();
+                        mAlbumArtView.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                    }
+                });
+
+        setBackgroundColor(getContext().getColor(R.color.music_default_artwork));
+
+        mTitleView = v.findViewById(R.id.title);
+        mArtistView = v.findViewById(R.id.artist);
+        mSeekBar = v.findViewById(R.id.seek_bar);
+        mSeekBar.setOnTouchListener((v1, event) -> {
+            // Eat up touch events from users as we set progress programmatically only.
+            return true;
         });
-        mControlsView = (LinearLayout) v.findViewById(R.id.controls);
-        mPlayQueueButton = (ImageButton) v.findViewById(R.id.play_queue);
-        mPrevButton = (ImageButton) v.findViewById(R.id.prev);
-        mPlayPauseStopButton = (PlayPauseStopImageView) v.findViewById(R.id.play_pause);
-        mNextButton = (ImageButton) v.findViewById(R.id.next);
-        mOverflowOnButton = (ImageButton) v.findViewById(R.id.overflow_on);
-        mOverflowView = (LinearLayout) v.findViewById(R.id.overflow_items);
-        mOverflowOffButton = (ImageButton) v.findViewById(R.id.overflow_off);
-        setActionDrawable(mOverflowOffButton, R.drawable.ic_overflow_activated, getResources());
-        mMusicPanel = (MusicPanelLayout) v.findViewById(R.id.music_panel);
-        mMusicPanel.setDefaultFocus(mPlayPauseStopButton);
-        mSpinner = (ProgressBar) v.findViewById(R.id.spinner);
+        mControlsView = v.findViewById(R.id.controls);
+        mOverflowView = v.findViewById(R.id.overflow_items);
+        mMusicPanel = v.findViewById(R.id.music_panel);
+        mSpinner = v.findViewById(R.id.spinner);
         mInitialNoContentView = v.findViewById(R.id.initial_view);
         mMetadata = v.findViewById(R.id.metadata);
 
-        mMusicErrorIcon = (ImageView) v.findViewById(R.id.error_icon);
-        mTapToSelectText = (TextView) v.findViewById(R.id.tap_to_select_item);
-        mAppConnectingSpinner = (ProgressBar) v.findViewById(R.id.loading_spinner);
+        mMusicErrorIcon = v.findViewById(R.id.error_icon);
+        mTapToSelectText = v.findViewById(R.id.tap_to_select_item);
+        mAppConnectingSpinner = v.findViewById(R.id.loading_spinner);
 
-        mCustomActionButtons[0] = (ImageButton) v.findViewById(R.id.custom_action_1);
-        mCustomActionButtons[1] = (ImageButton) v.findViewById(R.id.custom_action_2);
-        mCustomActionButtons[2] = (ImageButton) v.findViewById(R.id.custom_action_3);
-        mCustomActionButtons[3] = (ImageButton) v.findViewById(R.id.custom_action_4);
+        mCustomActionButtons[0] = v.findViewById(R.id.custom_action_1);
+        mCustomActionButtons[1] = v.findViewById(R.id.custom_action_2);
+        mCustomActionButtons[2] = v.findViewById(R.id.custom_action_3);
+        mCustomActionButtons[3] = v.findViewById(R.id.custom_action_4);
 
-        mPrevButton.setOnClickListener(mControlsClickListener);
-        mNextButton.setOnClickListener(mControlsClickListener);
-        // Yes they both need it. The layout is not focusable so it will never get the click.
-        // You can't make the layout focusable because then the button wont highlight.
-        v.findViewById(R.id.play_pause_container).setOnClickListener(mControlsClickListener);
-        mPlayPauseStopButton.setOnClickListener(mControlsClickListener);
-        mPlayQueueButton.setOnClickListener(mControlsClickListener);
-        mOverflowOnButton.setOnClickListener(mControlsClickListener);
-        mOverflowOffButton.setOnClickListener(mControlsClickListener);
-
-        // If touch mode is enabled, we disable focus from buttons.
-        if (getResources().getBoolean(R.bool.has_touch)) {
-            setControlsFocusability(false);
-            setOverflowFocusability(false);
-        }
+        setupMediaButtons(v);
 
         return v;
     }
 
-    @Override
-    public void onViewCreated(View view, Bundle savedInstanceState) {
-        super.onViewCreated(view, savedInstanceState);
-        Pair<Integer, Integer> albumArtSize = mActivity.getAlbumArtSize();
-        if (albumArtSize != null) {
-            if (albumArtSize.first > 0 && albumArtSize.second > 0) {
-                mAlbumArtWidth = albumArtSize.first;
-                mAlbumArtHeight = albumArtSize.second;
-            }
-        }
+    private void setupMediaButtons(View parentView) {
+        mPlayQueueButton = parentView.findViewById(R.id.play_queue);
+        mPrevButton = parentView.findViewById(R.id.prev);
+        mNextButton = parentView.findViewById(R.id.next);
+        mPlayPauseStopButton = parentView.findViewById(R.id.play_pause);
+        mOverflowOnButton = parentView.findViewById(R.id.overflow_on);
+        mOverflowOffButton = parentView.findViewById(R.id.overflow_off);
+        setActionDrawable(mOverflowOffButton, R.drawable.ic_overflow_activated, getResources());
+
+        mPlayQueueButton.setOnClickListener(mControlsClickListener);
+        mPrevButton.setOnClickListener(mControlsClickListener);
+        mNextButton.setOnClickListener(mControlsClickListener);
+        mPlayPauseStopButton.setOnClickListener(mControlsClickListener);
+        mOverflowOnButton.setOnClickListener(mControlsClickListener);
+        mOverflowOffButton.setOnClickListener(mControlsClickListener);
     }
 
     @Override
@@ -269,7 +314,7 @@ public class MediaPlaybackFragment extends Fragment implements MediaPlaybackMode
         int overflowViewColor = mMediaPlaybackModel.getPrimaryColorDark();
         mOverflowView.getBackground().setColorFilter(overflowViewColor, PorterDuff.Mode.SRC_IN);
         // Tint the overflow actions light or dark depending on contrast.
-        int overflowTintColor = ColorChecker.getTintColor(mActivity, overflowViewColor);
+        int overflowTintColor = ColorChecker.getTintColor(getContext(), overflowViewColor);
         for (ImageView v : mCustomActionButtons) {
             v.setColorFilter(overflowTintColor, PorterDuff.Mode.SRC_IN);
         }
@@ -309,7 +354,8 @@ public class MediaPlaybackFragment extends Fragment implements MediaPlaybackMode
     @Override
     public void onMediaConnectionFailed(CharSequence failedClientName) {
         Assert.isMainThread();
-        showInitialNoContentView(getString(R.string.cannot_connect_to_app, failedClientName), true);
+        showInitialNoContentView(getString(R.string.cannot_connect_to_app, failedClientName),
+                true /* isError */);
         mReturnFromOnStop = false;
     }
 
@@ -321,7 +367,7 @@ public class MediaPlaybackFragment extends Fragment implements MediaPlaybackMode
             Log.v(TAG, "onPlaybackStateChanged; state: "
                     + (state == null ? "<< NULL >>" : state.toString()));
         }
-        MediaMetadata metadata = mMediaPlaybackModel.getMetadata();
+
         if (state == null) {
             return;
         }
@@ -330,9 +376,10 @@ public class MediaPlaybackFragment extends Fragment implements MediaPlaybackMode
             if (Log.isLoggable(TAG, Log.DEBUG)) {
                 Log.d(TAG, "ERROR: " + state.getErrorMessage());
             }
-            showInitialNoContentView(state.getErrorMessage() != null ?
-                    state.getErrorMessage().toString() :
-                    mActivity.getString(R.string.unknown_error), true);
+            String message = TextUtils.isEmpty(state.getErrorMessage())
+                    ? getString(R.string.unknown_error)
+                    : state.getErrorMessage().toString();
+            showInitialNoContentView(message, true /* isError */);
             return;
         }
 
@@ -366,7 +413,7 @@ public class MediaPlaybackFragment extends Fragment implements MediaPlaybackMode
 
         updateActions(state.getActions(), state.getCustomActions());
 
-        if (metadata == null) {
+        if (mMediaPlaybackModel.getMetadata() == null) {
             return;
         }
         showMediaPlaybackControlsView();
@@ -405,10 +452,10 @@ public class MediaPlaybackFragment extends Fragment implements MediaPlaybackMode
             // Fade out the old background and then fade in the new one when the new album art
             // starts, but don't need to show the fade out and fade in animations when come back
             // from switching apps.
-            mActivity.setBackgroundBitmap(scaledIcon, !mReturnFromOnStop /* showAnimation */);
+            setBackgroundBitmap(scaledIcon, !mReturnFromOnStop /* showAnimation */);
         } else if (iconUri != null) {
             if (mDownloader == null) {
-                mDownloader = new BitmapDownloader(mActivity);
+                mDownloader = new BitmapDownloader(getContext());
             }
             final int flags = BitmapWorkerOptions.CACHE_FLAG_DISK_DISABLED
                     | BitmapWorkerOptions.CACHE_FLAG_MEM_DISABLED;
@@ -416,18 +463,22 @@ public class MediaPlaybackFragment extends Fragment implements MediaPlaybackMode
                 Log.v(TAG, "Album art size " + mAlbumArtWidth + "x" + mAlbumArtHeight);
             }
 
-            mDownloader.getBitmap(new BitmapWorkerOptions.Builder(mActivity).resource(iconUri)
-                            .height(mAlbumArtHeight).width(mAlbumArtWidth).cacheFlag(flags).build(),
+            BitmapWorkerOptions bitmapWorkerOptions = new BitmapWorkerOptions.Builder(getContext())
+                    .resource(iconUri)
+                    .height(mAlbumArtHeight)
+                    .width(mAlbumArtWidth)
+                    .cacheFlag(flags)
+                    .build();
+
+            mDownloader.getBitmap(bitmapWorkerOptions,
                     new BitmapDownloader.BitmapCallback() {
                         @Override
                         public void onBitmapRetrieved(Bitmap bitmap) {
-                            if (mActivity != null) {
-                                mActivity.setBackgroundBitmap(bitmap, true /* showAnimation */);
-                            }
+                            setBackgroundBitmap(bitmap, true /* showAnimation */);
                         }
                     });
         } else {
-            mActivity.setBackgroundColor(mMediaPlaybackModel.getPrimaryColorDark());
+            setBackgroundColor(mMediaPlaybackModel.getPrimaryColorDark());
         }
 
         mSeekBar.setMax((int) metadata.getLong(MediaMetadata.METADATA_KEY_DURATION));
@@ -436,109 +487,120 @@ public class MediaPlaybackFragment extends Fragment implements MediaPlaybackMode
     @Override
     public void onQueueChanged(List<MediaSession.QueueItem> queue) {
         Assert.isMainThread();
-        if (queue.isEmpty()) {
-            mPlayQueueButton.setVisibility(View.INVISIBLE);
-        } else {
-            mPlayQueueButton.setVisibility(View.VISIBLE);
-        }
+        mPlayQueueButton.setVisibility(queue.isEmpty() ? View.INVISIBLE : View.VISIBLE);
     }
 
     @Override
     public void onSessionDestroyed(CharSequence destroyedMediaClientName) {
         Assert.isMainThread();
         mHandler.removeCallbacks(mSeekBarRunnable);
-        if (mActivity != null) {
-            showInitialNoContentView(
-                    getString(R.string.cannot_connect_to_app, destroyedMediaClientName), true);
-        }
+        showInitialNoContentView(
+                getString(R.string.cannot_connect_to_app, destroyedMediaClientName), true);
     }
 
+    /**
+     * Sets the given {@link Bitmap} as the background of this playback fragment. If
+     *
+     * @param showAnimation {@code true} if the bitmap should be faded in.
+     */
+    private void setBackgroundBitmap(Bitmap bitmap, boolean showAnimation) {
+        mAlbumArtView.setImageBitmap(bitmap, showAnimation);
+    }
 
-    public void showMessage(String msg) {
+    /**
+     * Sets the given color as the background color of the view.
+     */
+    private void setBackgroundColor(int color) {
+        mAlbumArtView.setBackgroundColor(color);
+    }
+
+    /**
+     * Darkens the scrim's alpha level.
+     */
+    private void darkenScrim() {
+        mScrimView.animate()
+                .alpha(mDarkenedScrimAlpha)
+                .setDuration(MEDIA_SCRIM_FADE_DURATION_MS);
+    }
+
+    /**
+     * Sets whether or not the scrim is visible. The scrim is a semi-transparent View that darkens
+     * an album art so that does not overpower any text that is over it.
+     */
+    private void setScrimVisible(boolean visible) {
+        float alpha = visible ? mDefaultScrimAlpha : 0.f;
+        mScrimView.animate()
+                .alpha(alpha)
+                .setDuration(MEDIA_SCRIM_FADE_DURATION_MS);
+    }
+
+    /**
+     * Displays the given message to the user. The message is displayed in the field that
+     * normally displays the title of the currently playing media item.
+     */
+    private void showMessage(String message) {
         if (Log.isLoggable(TAG, Log.VERBOSE)) {
-            Log.v(TAG, "showMessage(); msg: " + msg);
+            Log.v(TAG, "showMessage(); message: " + message);
         }
-        // New messages will always be displayed regardless of if a feedback message is being shown.
+
         mHandler.removeCallbacks(mResetTitleRunnable);
-        mActivity.darkenScrim(true);
-        mTitleView.setSingleLine(false);
-        mTitleView.setMaxLines(2);
+        darkenScrim();
+        mTitleView.setText(message);
         mArtistView.setVisibility(View.GONE);
-        mTitleView.setText(msg);
         mShowingMessage = true;
     }
 
-    boolean isOverflowMenuVisible() {
-        return mOverflowVisibility;
-    }
-
+    /**
+     * Checks if the user is on the overflow view of the media controls. If they are, then this
+     * view is closed, and the user is switched back to the usual controls (usually the play
+     * controls).
+     */
     void closeOverflowMenu() {
-        mHandler.removeCallbacks(mCloseOverflowRunnable);
-        setOverflowMenuVisibility(false);
+        if (mIsOverflowVisible) {
+            mHandler.removeCallbacks(mCloseOverflowRunnable);
+            setOverflowMenuVisible(false);
+        }
     }
 
-    void setOverflowMenuVisibility(boolean visibility) {
-        if (mOverflowVisibility == visibility) {
+    /**
+     * Hides the view for overflow controls over the regular media controls. The media controls will
+     * fade in over the overflow view.
+     */
+    private void hideOverflowView() {
+        mOverflowView.animate()
+                .alpha(0f)
+                .setDuration(OVERFLOW_MENU_FADE_DURATION_MS)
+                .withStartAction(() -> mControlsView.setVisibility(View.VISIBLE))
+                .withEndAction(() -> mOverflowView.setVisibility(View.GONE));
+    }
+
+    /**
+     * Displays the view for overflow controls over the regular media controls. The overflow view
+     * fades in over the media controls.
+     */
+    private void showOverflowView() {
+        mOverflowView.animate()
+                .alpha(1f)
+                .setDuration(OVERFLOW_MENU_FADE_DURATION_MS)
+                .withStartAction(() -> mOverflowView.setVisibility(View.VISIBLE))
+                .withEndAction(() -> mControlsView.setVisibility(View.GONE));
+    }
+
+    private void setOverflowMenuVisible(boolean isVisible) {
+        if (mIsOverflowVisible == isVisible) {
             return;
         }
-        mOverflowVisibility = visibility;
-        if (visibility) {
-            // Make the view invisible to let request focus work. Or else it will make b/23679226.
-            mOverflowView.setVisibility(View.INVISIBLE);
-            if (!getResources().getBoolean(R.bool.has_touch)) {
-                setOverflowFocusability(true);
-                setControlsFocusability(false);
-            }
-            mMusicPanel.setDefaultFocus(mOverflowOffButton);
-            mOverflowOffButton.requestFocus();
-            // After requesting focus is done, make the view to be visible.
-            mOverflowView.setVisibility(View.VISIBLE);
-            mOverflowView.animate().alpha(1f).setDuration(250)
-                    .withEndAction(new Runnable() {
-                        @Override
-                        public void run() {
-                            mControlsView.setVisibility(View.GONE);
-                        }
-                    });
-
-            int tint = ColorChecker.getTintColor(mActivity,
+        mIsOverflowVisible = isVisible;
+        if (mIsOverflowVisible) {
+            showOverflowView();
+            int tint = ColorChecker.getTintColor(getContext(),
                     mMediaPlaybackModel.getPrimaryColorDark());
             mSeekBar.getProgressDrawable().setColorFilter(tint, PorterDuff.Mode.SRC_IN);
         } else {
-            mControlsView.setVisibility(View.INVISIBLE);
-            if (!getResources().getBoolean(R.bool.has_touch)) {
-                setControlsFocusability(true);
-                setOverflowFocusability(false);
-            }
-            mMusicPanel.setDefaultFocus(mPlayPauseStopButton);
-            mOverflowOnButton.requestFocus();
-            mControlsView.setVisibility(View.VISIBLE);
-            mOverflowView.animate().alpha(0f).setDuration(250)
-                    .withEndAction(new Runnable() {
-                        @Override
-                        public void run() {
-                            mOverflowView.setVisibility(View.GONE);
-                        }
-                    });
+            hideOverflowView();
             mSeekBar.getProgressDrawable().setColorFilter(
                     mMediaPlaybackModel.getAccentColor(), PorterDuff.Mode.SRC_IN);
         }
-    }
-
-    private void setControlsFocusability(boolean focusable) {
-        mPlayQueueButton.setFocusable(focusable);
-        mPrevButton.setFocusable(focusable);
-        mPlayPauseStopButton.setFocusable(focusable);
-        mNextButton.setFocusable(focusable);
-        mOverflowOnButton.setFocusable(focusable);
-    }
-
-    private void setOverflowFocusability(boolean focusable) {
-        mCustomActionButtons[0].setFocusable(focusable);
-        mCustomActionButtons[1].setFocusable(focusable);
-        mCustomActionButtons[2].setFocusable(focusable);
-        mCustomActionButtons[3].setFocusable(focusable);
-        mOverflowOffButton.setFocusable(focusable);
     }
 
     /**
@@ -546,6 +608,7 @@ public class MediaPlaybackFragment extends Fragment implements MediaPlaybackMode
      * based on the slot being reserved and the corresponding action being enabled.
      * If the slot is not reserved and the corresponding action is disabled,
      * then the next available custom action is assigned to the button.
+     *
      * @param button The button corresponding to the slot
      * @param originalResId The drawable resource ID for the original button,
      * only used if the original action is not replaced by a custom action.
@@ -562,27 +625,29 @@ public class MediaPlaybackFragment extends Fragment implements MediaPlaybackMode
             setActionDrawable(button, originalResId, getResources());
             button.setVisibility(isOriginalEnabled ? View.VISIBLE : View.INVISIBLE);
             button.setTag(null);
-        } else {
-            if (customActions.isEmpty()) {
-                button.setVisibility(View.INVISIBLE);
-            } else {
-                PlaybackState.CustomAction customAction = customActions.remove(0);
-                Bundle extras = customAction.getExtras();
-                boolean repeatedAction = false;
-                try {
-                    repeatedAction = (extras != null && extras.getBoolean(
-                            MediaConstants.EXTRA_REPEATED_CUSTOM_ACTION_BUTTON, false));
-                } catch (BadParcelableException e) {
-                    Log.e(TAG, "custom parcelable in custom action extras.", e);
-                }
-                if (repeatedAction) {
-                    button.setOnTouchListener(mControlsTouchListener);
-                } else {
-                    button.setOnClickListener(mControlsClickListener);
-                }
-                setCustomAction(button, customAction);
-            }
+            return;
         }
+
+        if (customActions.isEmpty()) {
+            button.setVisibility(View.INVISIBLE);
+            return;
+        }
+
+        PlaybackState.CustomAction customAction = customActions.remove(0);
+        Bundle extras = customAction.getExtras();
+        boolean repeatedAction = (extras != null && extras.getBoolean(
+                MediaConstants.EXTRA_REPEATED_CUSTOM_ACTION_BUTTON, false));
+
+        if (repeatedAction) {
+            button.setOnTouchListener(mControlsTouchListener);
+        } else {
+            button.setOnClickListener(mControlsClickListener);
+        }
+
+        button.setVisibility(View.VISIBLE);
+        setActionDrawable(button, customAction.getIcon(),
+                mMediaPlaybackModel.getPackageResources());
+        button.setTag(customAction);
     }
 
     /**
@@ -590,7 +655,8 @@ public class MediaPlaybackFragment extends Fragment implements MediaPlaybackMode
      * controls card (or hides ones that aren't available).
      *
      * @param actions A bit mask of active actions (android.media.session.PlaybackState#ACTION_*).
-     * @param customActions A list of custom actions specified by the {@link android.media.session.MediaSession}.
+     * @param customActions A list of custom actions specified by the
+     *                      {@link android.media.session.MediaSession}.
      */
     private void updateActions(long actions, List<PlaybackState.CustomAction> customActions) {
         List<MediaSession.QueueItem> mediaQueue = mMediaPlaybackModel.getQueue();
@@ -626,27 +692,21 @@ public class MediaPlaybackFragment extends Fragment implements MediaPlaybackMode
         }
     }
 
-    private void setCustomAction(ImageButton imageButton, PlaybackState.CustomAction customAction) {
-        imageButton.setVisibility(View.VISIBLE);
-        setActionDrawable(imageButton, customAction.getIcon(),
-                mMediaPlaybackModel.getPackageResources());
-        imageButton.setTag(customAction);
-    }
-
     private void showInitialNoContentView(String msg, boolean isError) {
-        if (Log.isLoggable(TAG, Log.VERBOSE)) {
-            Log.v(TAG, "showInitialNoContentView()");
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "showInitialNoContentView()");
         }
-        if (!needViewChange(ViewType.NO_CONTENT_VIEW)) {
+        if (mCurrentView == NO_CONTENT_VIEW) {
             return;
         }
+        mCurrentView = NO_CONTENT_VIEW;
         mAppConnectingSpinner.setVisibility(View.GONE);
-        mActivity.setScrimVisibility(false);
+        setScrimVisible(false);
         if (isError) {
-            mActivity.setBackgroundColor(getResources().getColor(R.color.car_error_screen));
+            setBackgroundColor(getContext().getColor(R.color.car_error_screen));
             mMusicErrorIcon.setVisibility(View.VISIBLE);
         } else {
-            mActivity.setBackgroundColor(getResources().getColor(R.color.car_dark_blue_grey_800));
+            setBackgroundColor(getContext().getColor(R.color.car_dark_blue_grey_800));
             mMusicErrorIcon.setVisibility(View.INVISIBLE);
         }
         mTapToSelectText.setVisibility(View.VISIBLE);
@@ -660,16 +720,14 @@ public class MediaPlaybackFragment extends Fragment implements MediaPlaybackMode
         if (Log.isLoggable(TAG, Log.VERBOSE)) {
             Log.v(TAG, "showMediaPlaybackControlsView()");
         }
-        if (!needViewChange(ViewType.PLAYBACK_CONTROLS_VIEW)) {
+        if (mCurrentView == PLAYBACK_CONTROLS_VIEW) {
             return;
         }
-        if (mPlayPauseStopButton != null && getResources().getBoolean(R.bool.has_wheel)) {
-            mPlayPauseStopButton.requestFocusFromTouch();
-        }
-
+        mCurrentView = PLAYBACK_CONTROLS_VIEW;
         if (!mShowingMessage) {
-            mActivity.setScrimVisibility(true);
+            setScrimVisible(true);
         }
+        mTapToSelectText.setVisibility(View.GONE);
         mInitialNoContentView.setVisibility(View.GONE);
         mMetadata.setVisibility(View.VISIBLE);
         mMusicPanel.setVisibility(View.VISIBLE);
@@ -679,11 +737,11 @@ public class MediaPlaybackFragment extends Fragment implements MediaPlaybackMode
         if (Log.isLoggable(TAG, Log.VERBOSE)) {
             Log.v(TAG, "showLoadingView()");
         }
-        if (!needViewChange(ViewType.LOADING_VIEW)) {
+        if (mCurrentView == LOADING_VIEW) {
             return;
         }
-        mActivity.setBackgroundColor(
-                getResources().getColor(R.color.music_loading_view_background));
+        mCurrentView = LOADING_VIEW;
+        setBackgroundColor(getContext().getColor(R.color.music_loading_view_background));
         mAppConnectingSpinner.setVisibility(View.VISIBLE);
         mMusicErrorIcon.setVisibility(View.GONE);
         mTapToSelectText.setVisibility(View.GONE);
@@ -692,21 +750,13 @@ public class MediaPlaybackFragment extends Fragment implements MediaPlaybackMode
         mMusicPanel.setVisibility(View.GONE);
     }
 
-    private boolean needViewChange(ViewType newView) {
-        if (mCurrentView != null && mCurrentView == newView) {
-            return false;
-        }
-        mCurrentView = newView;
-        return true;
-    }
-
     private void resetTitle() {
         if (Log.isLoggable(TAG, Log.VERBOSE)) {
             Log.v(TAG, "resetTitle()");
         }
         if (!mShowingMessage) {
             if (Log.isLoggable(TAG, Log.DEBUG)) {
-                Log.d(TAG, "message not currently shown, not resetting title");
+                Log.d(TAG, "Message not currently shown; not resetting title");
             }
             return;
         }
@@ -714,13 +764,11 @@ public class MediaPlaybackFragment extends Fragment implements MediaPlaybackMode
         // the display interval expires.
         if (mDelayedResetTitleInProgress) {
             if (Log.isLoggable(TAG, Log.DEBUG)) {
-                Log.d(TAG, "delay reset title is in progress, not resetting title now");
+                Log.d(TAG, "Delayed reset title is in progress; not resetting title now");
             }
             return;
         }
-        // This will set scrim visible and alpha value back to normal.
-        mActivity.setScrimVisibility(true);
-        mTitleView.setSingleLine(true);
+        setScrimVisible(true);
         mArtistView.setVisibility(View.VISIBLE);
         if (mCurrentTrack != null) {
             mTitleView.setText(mCurrentTrack.getTitle());
@@ -739,13 +787,14 @@ public class MediaPlaybackFragment extends Fragment implements MediaPlaybackMode
         int startY = height > mAlbumArtHeight ? (height - mAlbumArtHeight) / 2 : 0;
         int newWidth = width > mAlbumArtWidth ? mAlbumArtWidth : width;
         int newHeight = height > mAlbumArtHeight ? mAlbumArtHeight : height;
+
         return Bitmap.createBitmap(icon, startX, startY, newWidth, newHeight);
     }
 
     private Bitmap getMetadataBitmap(MediaMetadata metadata) {
         // Get the best art bitmap we can find
-        for (int i = 0; i < PREFERRED_BITMAP_ORDER.length; i++) {
-            Bitmap bitmap = metadata.getBitmap(PREFERRED_BITMAP_ORDER[i]);
+        for (String bitmapType : PREFERRED_BITMAP_TYPE_ORDER) {
+            Bitmap bitmap = metadata.getBitmap(bitmapType);
             if (bitmap != null) {
                 return bitmap;
             }
@@ -755,8 +804,8 @@ public class MediaPlaybackFragment extends Fragment implements MediaPlaybackMode
 
     private Uri getMetadataIconUri(MediaMetadata metadata) {
         // Get the best Uri we can find
-        for (int i = 0; i < PREFERRED_URI_ORDER.length; i++) {
-            String iconUri = metadata.getString(PREFERRED_URI_ORDER[i]);
+        for (String bitmapUri : PREFERRED_URI_ORDER) {
+            String iconUri = metadata.getString(bitmapUri);
             if (!TextUtils.isEmpty(iconUri)) {
                 return Uri.parse(iconUri);
             }
@@ -764,17 +813,24 @@ public class MediaPlaybackFragment extends Fragment implements MediaPlaybackMode
         return null;
     }
 
-    private void setActionDrawable(ImageButton button, int resId, Resources resources) {
+    /**
+     * Sets the drawable given by the {@code resId} on the specified {@link ImageButton}.
+     *
+     * @param resources The {@link Resources} to retrieve the Drawable from. This may be different
+     *                  from the Resources of this Fragment.
+     */
+    private void setActionDrawable(ImageButton button, @DrawableRes int resId,
+            Resources resources) {
         if (resources == null) {
             Log.e(TAG, "Resources is null. Icons will not show up.");
             return;
         }
 
         Resources myResources = getResources();
-        // the resources may be from another package. we need to update the configuration using
+        // The resources may be from another package. We need to update the configuration using
         // the context from the activity so we get the drawable from the correct DPI bucket.
-        resources.updateConfiguration(
-                myResources.getConfiguration(), myResources.getDisplayMetrics());
+        resources.updateConfiguration(myResources.getConfiguration(),
+                myResources.getDisplayMetrics());
         try {
             Drawable icon = resources.getDrawable(resId, null);
             int inset = myResources.getDimensionPixelSize(R.dimen.music_action_icon_inset);
@@ -786,22 +842,18 @@ public class MediaPlaybackFragment extends Fragment implements MediaPlaybackMode
     }
 
     private void checkAndDisplayFeedbackMessage(PlaybackState.CustomAction ca) {
-        try {
-            Bundle extras = ca.getExtras();
-            if (extras != null) {
-                String feedbackMessage = extras.getString(
-                        MediaConstants.EXTRA_CUSTOM_ACTION_STATUS, "");
-                if (!TextUtils.isEmpty(feedbackMessage)) {
-                    // Show feedback message that appears for a time interval unless a new
-                    // message is shown.
-                    showMessage(feedbackMessage);
-                    mDelayedResetTitleInProgress = true;
-                    mHandler.postDelayed(mResetTitleRunnable, FEEDBACK_MESSAGE_DISPLAY_TIME_MS);
-                }
-            }
-        } catch (BadParcelableException e) {
-            Log.e(TAG, "Custom parcelable was added to extras, unable " +
-                    "to check for feedback message.", e);
+        Bundle extras = ca.getExtras();
+        if (extras == null) {
+            return;
+        }
+
+        String feedbackMessage = extras.getString(MediaConstants.EXTRA_CUSTOM_ACTION_STATUS, "");
+        if (!TextUtils.isEmpty(feedbackMessage)) {
+            // Show feedback message that appears for a time interval unless a new
+            // message is shown.
+            showMessage(feedbackMessage);
+            mDelayedResetTitleInProgress = true;
+            mHandler.postDelayed(mResetTitleRunnable, FEEDBACK_MESSAGE_DISPLAY_TIME_MS);
         }
     }
 
@@ -813,6 +865,7 @@ public class MediaPlaybackFragment extends Fragment implements MediaPlaybackMode
                         + ". The MediaPlaybackModel is not connected.");
                 return true;
             }
+
             boolean onDown;
             switch (event.getAction() & MotionEvent.ACTION_MASK) {
                 case MotionEvent.ACTION_DOWN:
@@ -825,16 +878,12 @@ public class MediaPlaybackFragment extends Fragment implements MediaPlaybackMode
                     return true;
             }
 
-            if (v.getTag() != null && v.getTag() instanceof PlaybackState.CustomAction) {
+            if (v.getTag() instanceof PlaybackState.CustomAction) {
                 PlaybackState.CustomAction ca = (PlaybackState.CustomAction) v.getTag();
                 checkAndDisplayFeedbackMessage(ca);
                 Bundle extras = ca.getExtras();
-                try {
-                    extras.putBoolean(
-                            MediaConstants.EXTRA_REPEATED_CUSTOM_ACTION_BUTTON_ON_DOWN, onDown);
-                } catch (BadParcelableException e) {
-                    Log.e(TAG, "unable to on down notification for custom action.", e);
-                }
+                extras.putBoolean(
+                        MediaConstants.EXTRA_REPEATED_CUSTOM_ACTION_BUTTON_ON_DOWN, onDown);
                 MediaController.TransportControls transportControls =
                         mMediaPlaybackModel.getTransportControls();
                 transportControls.sendCustomAction(ca, extras);
@@ -855,58 +904,72 @@ public class MediaPlaybackFragment extends Fragment implements MediaPlaybackMode
                         + ". The MediaPlaybackModel is not connected.");
                 return;
             }
+
             MediaController.TransportControls transportControls =
                     mMediaPlaybackModel.getTransportControls();
-            if (v.getTag() != null && v.getTag() instanceof PlaybackState.CustomAction) {
+
+            if (v.getTag() instanceof PlaybackState.CustomAction) {
                 PlaybackState.CustomAction ca = (PlaybackState.CustomAction) v.getTag();
                 checkAndDisplayFeedbackMessage(ca);
                 transportControls.sendCustomAction(ca, ca.getExtras());
                 mHandler.removeCallbacks(mCloseOverflowRunnable);
                 mHandler.postDelayed(mCloseOverflowRunnable, DELAY_CLOSE_OVERFLOW_MS);
-            } else {
-                switch (v.getId()) {
-                    case R.id.play_queue:
-                        mActivity.showQueueInDrawer();
-                        break;
-                    case R.id.prev:
-                        transportControls.skipToPrevious();
-                        break;
-                    case R.id.play_pause:
-                    case R.id.play_pause_container:
-                        PlaybackState playbackState = mMediaPlaybackModel.getPlaybackState();
-                        if (playbackState == null) {
-                            break;
-                        }
-                        long transportControlFlags = playbackState.getActions();
-                        if (playbackState.getState() == PlaybackState.STATE_PLAYING) {
-                            if ((transportControlFlags & PlaybackState.ACTION_PAUSE) != 0) {
-                                transportControls.pause();
-                            } else if ((transportControlFlags & PlaybackState.ACTION_STOP) != 0) {
-                                transportControls.stop();
-                            }
-                        } else if (playbackState.getState() == PlaybackState.STATE_BUFFERING) {
-                            if ((transportControlFlags & PlaybackState.ACTION_STOP) != 0) {
-                                transportControls.stop();
-                            } else if ((transportControlFlags & PlaybackState.ACTION_PAUSE) != 0) {
-                                transportControls.pause();
-                            }
-                        } else {
-                            transportControls.play();
-                        }
-                        break;
-                    case R.id.next:
-                        transportControls.skipToNext();
-                        break;
-                    case R.id.overflow_off:
-                        mHandler.removeCallbacks(mCloseOverflowRunnable);
-                        setOverflowMenuVisibility(false);
-                        break;
-                    case R.id.overflow_on:
-                        setOverflowMenuVisibility(true);
-                        break;
-                    default:
-                        throw new IllegalStateException("Unknown button press: " + v);
-                }
+                return;
+            }
+
+            switch (v.getId()) {
+                case R.id.play_queue:
+                    if (mPlayQueueRevealer != null) {
+                        mPlayQueueRevealer.showPlayQueue();
+                    }
+                    break;
+                case R.id.prev:
+                    transportControls.skipToPrevious();
+                    break;
+                case R.id.play_pause:
+                case R.id.play_pause_container:
+                    handlePlaybackStateForPlay(mMediaPlaybackModel.getPlaybackState(),
+                            transportControls);
+                    break;
+                case R.id.next:
+                    transportControls.skipToNext();
+                    break;
+                case R.id.overflow_off:
+                    closeOverflowMenu();
+                    break;
+                case R.id.overflow_on:
+                    setOverflowMenuVisible(true);
+                    break;
+                default:
+                    throw new IllegalStateException("Unknown button press: " + v);
+            }
+        }
+
+        /**
+         * Plays, pauses or stops the music playback depending on the state given in
+         * {@link PlaybackState}.
+         */
+        private void handlePlaybackStateForPlay(PlaybackState playbackState,
+                MediaController.TransportControls transportControls) {
+            if (playbackState == null) {
+                return;
+            }
+
+            switch (playbackState.getState()) {
+                // Only if the music is currently playing does this method need to handle pausing
+                // and stopping of media.
+                case PlaybackState.STATE_PLAYING:
+                case PlaybackState.STATE_BUFFERING:
+                    long actions = playbackState.getActions();
+                    if ((actions & PlaybackState.ACTION_PAUSE) != 0) {
+                        transportControls.pause();
+                    } else if ((actions & PlaybackState.ACTION_STOP) != 0) {
+                        transportControls.stop();
+                    }
+                    break;
+
+                default:
+                    transportControls.play();
             }
         }
     };
@@ -915,7 +978,7 @@ public class MediaPlaybackFragment extends Fragment implements MediaPlaybackMode
         @Override
         public void onCallStateChanged(int state, String incomingNumber) {
             switch (state) {
-                case TelephonyManager.CALL_STATE_RINGING: // falls through
+                case TelephonyManager.CALL_STATE_RINGING:
                 case TelephonyManager.CALL_STATE_OFFHOOK:
                     mPlayPauseStopButton
                             .setPlayState(PlayPauseStopImageView.PLAYBACKSTATE_DISABLED);
@@ -928,10 +991,13 @@ public class MediaPlaybackFragment extends Fragment implements MediaPlaybackMode
                         PlaybackState playbackState = mMediaPlaybackModel.getPlaybackState();
                         if (playbackState != null) {
                             mPlayPauseStopButton.setPlayState(playbackState.getState());
-                            mPlayPauseStopButton.setMode((
-                                    (playbackState.getActions() & PlaybackState.ACTION_STOP) != 0) ?
-                                    PlayPauseStopImageView.MODE_STOP :
-                                    PlayPauseStopImageView.MODE_PAUSE);
+
+                            boolean isStopAction =
+                                    (playbackState.getActions() & PlaybackState.ACTION_STOP) != 0;
+
+                            mPlayPauseStopButton.setMode(isStopAction
+                                    ? PlayPauseStopImageView.MODE_STOP
+                                    : PlayPauseStopImageView.MODE_PAUSE);
                             mPlayPauseStopButton.refreshDrawableState();
                         }
                         mInCall = false;
@@ -951,33 +1017,18 @@ public class MediaPlaybackFragment extends Fragment implements MediaPlaybackMode
         }
     };
 
-    private final Runnable mCloseOverflowRunnable = new Runnable() {
-        @Override
-        public void run() {
-            setOverflowMenuVisibility(false);
-        }
+    private final Runnable mCloseOverflowRunnable = () -> setOverflowMenuVisible(false);
+
+    private final Runnable mShowNoContentViewRunnable =
+            () -> showInitialNoContentView(getString(R.string.nothing_to_play), false);
+
+    private final Runnable mResetTitleRunnable = () -> {
+        mDelayedResetTitleInProgress = false;
+        resetTitle();
     };
 
-    private final Runnable mShowNoContentViewRunnable = new Runnable() {
-        @Override
-        public void run() {
-            showInitialNoContentView(getString(R.string.nothing_to_play), false);
-        }
-    };
-
-    private final Runnable mResetTitleRunnable = new Runnable() {
-        @Override
-        public void run() {
-            mDelayedResetTitleInProgress = false;
-            resetTitle();
-        }
-    };
-
-    private final Runnable mSetTitleRunnable = new Runnable() {
-        @Override
-        public void run() {
-            mTitleView.setText(mCurrentTrack.getTitle());
-            mArtistView.setText(mCurrentTrack.getSubtitle());
-        }
+    private final Runnable mSetTitleRunnable = () -> {
+        mTitleView.setText(mCurrentTrack.getTitle());
+        mArtistView.setText(mCurrentTrack.getSubtitle());
     };
 }

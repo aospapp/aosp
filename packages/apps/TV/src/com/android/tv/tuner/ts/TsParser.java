@@ -25,6 +25,7 @@ import com.android.tv.tuner.data.PsiData.PmtItem;
 import com.android.tv.tuner.data.PsipData.EitItem;
 import com.android.tv.tuner.data.PsipData.EttItem;
 import com.android.tv.tuner.data.PsipData.MgtItem;
+import com.android.tv.tuner.data.PsipData.SdtItem;
 import com.android.tv.tuner.data.PsipData.VctItem;
 import com.android.tv.tuner.data.TunerChannel;
 import com.android.tv.tuner.ts.SectionParser.OutputListener;
@@ -46,6 +47,8 @@ public class TsParser {
 
     public static final int ATSC_SI_BASE_PID = 0x1ffb;
     public static final int PAT_PID = 0x0000;
+    public static final int DVB_SDT_PID = 0x0011;
+    public static final int DVB_EIT_PID = 0x0012;
     private static final int TS_PACKET_START_CODE = 0x47;
     private static final int TS_PACKET_TEI_MASK = 0x80;
     private static final int TS_PACKET_SIZE = 188;
@@ -64,6 +67,7 @@ public class TsParser {
     private final Map<Integer, VctItem> mProgramNumberToVctItemMap = new HashMap<>();
     private final Map<Integer, List<PmtItem>> mProgramNumberToPMTMap = new HashMap<>();
     private final Map<Integer, List<EitItem>> mSourceIdToEitMap = new HashMap<>();
+    private final Map<Integer, SdtItem> mProgramNumberToSdtItemMap = new HashMap<>();
     private final Map<EventSourceEntry, List<EitItem>> mEitMap = new HashMap<>();
     private final Map<EventSourceEntry, List<EttItem>> mETTMap = new HashMap<>();
     private final TreeSet<Integer> mEITPids = new TreeSet<>();
@@ -71,6 +75,7 @@ public class TsParser {
     private final SparseBooleanArray mProgramNumberHandledStatus = new SparseBooleanArray();
     private final SparseBooleanArray mVctItemHandledStatus = new SparseBooleanArray();
     private final TsOutputListener mListener;
+    private final boolean mIsDvbSignal;
 
     private int mVctItemCount;
     private int mHandledVctItemCount;
@@ -84,6 +89,7 @@ public class TsParser {
         void onEitItemParsed(VctItem channel, List<EitItem> items);
         void onEttPidDetected(int pid);
         void onAllVctItemsParsed();
+        void onSdtItemParsed(SdtItem channel, List<PmtItem> pmtItems);
     }
 
     private abstract class Stream {
@@ -102,6 +108,7 @@ public class TsParser {
         }
 
         protected abstract void handleData(byte[] data, boolean startIndicator);
+        protected abstract void resetDataVersions();
     }
 
     private class SectionStream extends Stream {
@@ -138,6 +145,11 @@ public class TsParser {
             mSectionParser.parseSections(mPacket);
         }
 
+        @Override
+        protected void resetDataVersions() {
+            mSectionParser.resetVersionNumbers();
+        }
+
         private final OutputListener mSectionListener = new OutputListener() {
             @Override
             public void onPatParsed(List<PatItem> items) {
@@ -172,6 +184,12 @@ public class TsParser {
                                 && mListener != null) {
                             mListener.onAllVctItemsParsed();
                         }
+                    }
+                    SdtItem sdtItem = mProgramNumberToSdtItemMap.get(programNumber);
+                    if (sdtItem != null) {
+                        // When PMT is parsed later than SDT.
+                        mProgramNumberHandledStatus.put(programNumber, true);
+                        handleSdtItem(sdtItem, items);
                     }
                 }
             }
@@ -276,6 +294,24 @@ public class TsParser {
                 mETTMap.put(entry, descriptions);
                 handleEvents(sourceId);
             }
+
+            @Override
+            public void onSdtParsed(List<SdtItem> sdtItems) {
+                for (SdtItem sdtItem : sdtItems) {
+                    if (DEBUG) Log.d(TAG, "onSdtParsed " + sdtItem);
+                    int programNumber = sdtItem.getServiceId();
+                    mProgramNumberToSdtItemMap.put(programNumber, sdtItem);
+                    List<PmtItem> pmtList = mProgramNumberToPMTMap.get(programNumber);
+                    if (pmtList != null) {
+                        mProgramNumberHandledStatus.put(programNumber, true);
+                        handleSdtItem(sdtItem, pmtList);
+                    } else {
+                        mProgramNumberHandledStatus.put(programNumber, false);
+                        Log.i(TAG, "onSdtParsed, but PMT for programNo " + programNumber
+                                + " is not found yet.");
+                    }
+                }
+            }
         };
     }
 
@@ -335,6 +371,15 @@ public class TsParser {
         }
     }
 
+    private void handleSdtItem(SdtItem channel, List<PmtItem> pmtItems) {
+        if (DEBUG) {
+            Log.d(TAG, "handleSdtItem " + channel);
+        }
+        if (mListener != null) {
+            mListener.onSdtItemParsed(channel, pmtItems);
+        }
+    }
+
     private void handleEvents(int sourceId) {
         Map<Integer, EitItem> itemSet = new HashMap<>();
         for (int pid : mEITPids) {
@@ -367,17 +412,26 @@ public class TsParser {
             handleEitItems(channel, items);
         } else {
             mVctItemHandledStatus.put(sourceId, false);
-            Log.i(TAG, "onEITParsed, but VCT for sourceId " + sourceId + " is not found yet.");
+            if (!mIsDvbSignal) {
+                // Log only when zapping to non-DVB channels, since there is not VCT in DVB signal.
+                Log.i(TAG, "onEITParsed, but VCT for sourceId " + sourceId + " is not found yet.");
+            }
         }
     }
 
     /**
      * Creates MPEG-2 TS parser.
+     *
      * @param listener TsOutputListener
      */
-    public TsParser(TsOutputListener listener) {
-        startListening(ATSC_SI_BASE_PID);
+    public TsParser(TsOutputListener listener, boolean isDvbSignal) {
         startListening(PAT_PID);
+        startListening(ATSC_SI_BASE_PID);
+        mIsDvbSignal = isDvbSignal;
+        if (isDvbSignal) {
+            startListening(DVB_EIT_PID);
+            startListening(DVB_SDT_PID);
+        }
         mListener = listener;
     }
 
@@ -412,7 +466,7 @@ public class TsParser {
             // We are not interested in this packet.
             return false;
         }
-        if (payloadPos > pos + TS_PACKET_SIZE) {
+        if (payloadPos >= pos + TS_PACKET_SIZE) {
             if (DEBUG) Log.d(TAG, "Payload should be included in a single TS packet.");
             return false;
         }
@@ -450,5 +504,17 @@ public class TsParser {
             }
         }
         return incompleteChannels;
+    }
+
+    /**
+     * Reset the versions so that data with old version number can be handled.
+     */
+    public void resetDataVersions() {
+        for (int eitPid : mEITPids) {
+            Stream stream = mStreamMap.get(eitPid);
+            if (stream != null) {
+                stream.resetDataVersions();
+            }
+        }
     }
 }

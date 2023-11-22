@@ -5,7 +5,7 @@
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib import site_utils
+from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.cros import site_eap_certs
 from autotest_lib.client.common_lib.cros import virtual_ethernet_pair
 from autotest_lib.client.cros import certificate_util
@@ -250,4 +250,4 @@ class network_VPNConnect(test.test):
 
                 with self.get_vpn_server() as server:
                     self.connect_vpn()
-                    site_utils.ping(server.SERVER_IP_ADDRESS, tries=3)
+                    utils.ping(server.SERVER_IP_ADDRESS, tries=3)

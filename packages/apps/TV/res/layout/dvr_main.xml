@@ -16,6 +16,6 @@
   -->
 <fragment xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/dvr_frame"
-    android:name="com.android.tv.dvr.ui.DvrBrowseFragment"
+    android:name="com.android.tv.dvr.ui.browse.DvrBrowseFragment"
     android:layout_width="match_parent"
     android:layout_height="match_parent" />

@@ -18,7 +18,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
           package="android.server.FrameTestApp">
-    <application>
+    <application android:theme="@android:style/Theme.Material">
         <activity android:name=".DialogTestActivity"
                 android:exported="true"
         />

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2017 Google Inc.
+<!-- Copyright (C) 2017 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -14,8 +14,23 @@
      limitations under the License.
 -->
 <configuration description="VTS Main Test Plan">
-  <include name="everything" />
+  <device_recovery class="com.android.tradefed.device.WaitDeviceRecovery" />
+
+  <option name="compatibility:test-arg" value="com.android.tradefed.testtype.AndroidJUnitTest:rerun-from-file:true" />
+  <option name="compatibility:test-arg" value="com.android.tradefed.testtype.AndroidJUnitTest:fallback-to-serial-rerun:false" />
+  <logger class="com.android.tradefed.log.FileLogger">
+    <option name="log-level-display" value="WARN" />
+  </logger>
   <option name="compatibility:skip-all-system-status-check" value="true" />
-  <target_preparer class="com.android.tradefed.targetprep.VtsDeviceInfoCollector" />
+  <option name="max-log-size" value="200" />
+  <object type="vts-vendor-config" class="com.android.tradefed.util.VtsVendorConfigFileUtil" />
+  <result_reporter class="com.android.compatibility.common.tradefed.result.ConsoleReporter" />
+  <result_reporter class="com.android.compatibility.common.tradefed.result.VtsResultReporter" />
+
   <template-include name="reporters" default="basic-reporters" />
+  <target_preparer class="com.android.tradefed.targetprep.VtsTestPlanResultReporter" />
+  <test class="com.android.compatibility.common.tradefed.testtype.CompatibilityTest" />
+
+  <build_provider class="com.android.compatibility.common.tradefed.build.CompatibilityBuildProvider" />
+  <target_preparer class="com.android.tradefed.targetprep.VtsDeviceInfoCollector" />
 </configuration>

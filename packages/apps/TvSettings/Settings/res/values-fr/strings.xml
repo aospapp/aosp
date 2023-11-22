@@ -73,7 +73,7 @@
     <string name="accessory_unpairing" msgid="7568241162181184667">"Dissociation de l\'appareil en cours…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Connecté"</string>
     <string name="accessory_change_name" msgid="8958916008739792785">"Changer de nom"</string>
-    <string name="accessory_change_name_title" msgid="4630819456923061184">"Saisir un nouveau nom pour cet accessoire"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"Saisir nouveau nom d\'accessoire"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Recherche d\'accessoires…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Avant d\'associer vos appareils Bluetooth, assurez-vous qu\'ils sont en mode d\'association."</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"Un appareil a été détecté. L\'association aura automatiquement lieu dans <xliff:g id="COUNTDOWN">%1$s</xliff:g> secondes."</string>
@@ -166,7 +166,7 @@
     <string name="not_connected" msgid="6858480380326923017">"Non connecté"</string>
     <string name="wifi_setting_header_other_options" msgid="3638677601577777216">"Autres options"</string>
     <string name="wifi_setting_see_all" msgid="3217814666041974878">"Tout afficher"</string>
-    <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"Voir moins"</string>
+    <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"Moins"</string>
     <string name="wifi_setting_available_networks" msgid="6713791371350513043">"Réseaux disponibles"</string>
     <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"Connexion via WPS"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"Ajouter un réseau"</string>
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"Services"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Paramètres du service"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Texte avec contraste élevé"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Raccourci d\'accessibilité"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Activer le raccourci d\'accessibilité"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Service associé au raccourci"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Lorsque le raccourci est activé, vous pouvez appuyer sur le bouton \"Précédent\" et le bouton \"Volume -\" pendant trois secondes pour lancer une fonctionnalité d\'accessibilité."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Sous-titres"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Paramètres de superposition du texte des sous-titres sur la vidéo"</string>
     <string name="captions_display" msgid="735692527287125548">"Affichage"</string>
@@ -593,8 +597,8 @@
     <string name="pin_enter_wrong_seconds" msgid="7541208202846169755">"Vous avez saisi un code d\'accès incorrect à cinq reprises.\nVeuillez réessayer dans <xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g> secondes."</string>
     <string name="pin_toast_wrong" msgid="4628358195224633248">"Le code d\'accès est incorrect. Veuillez réessayer."</string>
     <string name="pin_toast_not_match" msgid="5886041789737632996">"Le code d\'accès est incorrect. Veuillez réessayer."</string>
-    <string name="wifi_setup_input_password" msgid="1596168874369038536">"Saisissez le mot de passe associé au réseau <xliff:g id="SSID">%1$s</xliff:g>."</string>
-    <string name="wifi_setup_connection_success" msgid="3846993789166071184">"Connexion établie."</string>
+    <string name="wifi_setup_input_password" msgid="1596168874369038536">"Saisissez le mot de passe associé au réseau <xliff:g id="SSID">%1$s</xliff:g>"</string>
+    <string name="wifi_setup_connection_success" msgid="3846993789166071184">"Connexion établie"</string>
     <string name="wifi_setup_save_success" msgid="4785799603638549254">"Configuration enregistrée."</string>
     <string name="device_apps_app_management_version" msgid="2267065043941006486">"Version <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
     <string name="device_apps_app_management_open" msgid="8009823973422120839">"Ouvrir"</string>
@@ -608,7 +612,7 @@
     <string name="device_apps_app_management_enable" msgid="3246823119203444608">"Activer"</string>
     <string name="device_apps_app_management_enable_desc" msgid="7490219375247065314">"Voulez-vous activer cette application ?"</string>
     <string name="device_apps_app_management_storage_used" msgid="4611351576179140634">"Espace de stockage utilisé"</string>
-    <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"Utilisation de la <xliff:g id="VOLUME">%2$s</xliff:g> : <xliff:g id="SIZE">%1$s</xliff:g>"</string>
+    <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"<xliff:g id="SIZE">%1$s</xliff:g> utilisés dans <xliff:g id="VOLUME">%2$s</xliff:g>"</string>
     <string name="device_apps_app_management_clear_data" msgid="4439114679323274127">"Effacer les données"</string>
     <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"Toutes les données de cette application vont être définitivement supprimées,\ny compris tous les fichiers, les paramètres, les comptes, les bases de données, etc."</string>
     <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"Effacer les valeurs par défaut"</string>
@@ -625,7 +629,7 @@
     <string name="device_daydreams_none" msgid="2767107052779579259">"Éteindre l\'écran"</string>
     <string name="device_daydreams_select" msgid="2112338101206187695">"Économiseur d\'écran"</string>
     <string name="device_daydreams_test" msgid="9038920213402659591">"Activer maintenant"</string>
-    <string name="device_daydreams_sleep" msgid="7676938708373592766">"Durée écoulée avant l\'activation"</string>
+    <string name="device_daydreams_sleep" msgid="7676938708373592766">"Durée avant activation"</string>
     <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"L\'économiseur d\'écran s\'active après cette période d\'inactivité. Si aucun économiseur d\'écran n\'est sélectionné, l\'écran s\'éteint."</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"Après <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> d\'inactivité"</string>
     <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Mettre l\'appareil en veille"</string>
@@ -657,7 +661,7 @@
     <string name="device_apps_permissions" msgid="2966387603529725982">"Autorisations applis"</string>
     <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_0">%d</xliff:g> applications autorisées sur <xliff:g id="COUNT_1">%d</xliff:g>"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"Demande d\'autorisation Bluetooth"</string>
-    <string name="security_patch" msgid="2131617390189164481">"Niveau du correctif de sécurité Android"</string>
+    <string name="security_patch" msgid="2131617390189164481">"Mise à jour du correctif de sécurité Android"</string>
     <string name="choose_application" msgid="5662960665577780353">"Sélectionner une application"</string>
     <string name="experimental_preference" msgid="1137673985823581797">"(Expérimental)"</string>
     <string name="reboot_safemode_action" msgid="8129550438717110406">"Redémarrer en mode sans échec"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Génération d\'un rapport de bug…"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Claviers virtuels disponibles"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Gérer les claviers"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Autorisée"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Non autorisée"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Accès aux données d\'utilisation"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"L\'accès aux données d\'utilisation permet à une application d\'effectuer le suivi des applications que vous utilisez, de la fréquence d\'utilisation, de l\'opérateur, des paramètres de langue et d\'autres détails."</string>
 </resources>

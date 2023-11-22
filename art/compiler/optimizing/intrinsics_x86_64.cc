@@ -31,7 +31,7 @@
 #include "mirror/reference.h"
 #include "mirror/string.h"
 #include "scoped_thread_state_change-inl.h"
-#include "thread-inl.h"
+#include "thread-current-inl.h"
 #include "utils/x86_64/assembler_x86_64.h"
 #include "utils/x86_64/constants_x86_64.h"
 
@@ -105,8 +105,7 @@ class ReadBarrierSystemArrayCopySlowPathX86_64 : public SlowPathCode {
     // No need to save live registers; it's taken care of by the
     // entrypoint. Also, there is no need to update the stack mask,
     // as this runtime call will not trigger a garbage collection.
-    int32_t entry_point_offset =
-        CodeGenerator::GetReadBarrierMarkEntryPointsOffset<kX86_64PointerSize>(TMP);
+    int32_t entry_point_offset = Thread::ReadBarrierMarkEntryPointsOffset<kX86_64PointerSize>(TMP);
     // This runtime call does not require a stack map.
     x86_64_codegen->InvokeRuntimeWithoutRecordingPcInfo(entry_point_offset, instruction_, this);
     __ MaybePoisonHeapReference(CpuRegister(TMP));
@@ -567,7 +566,6 @@ static void InvokeOutOfLineIntrinsic(CodeGeneratorX86_64* codegen, HInvoke* invo
   DCHECK(invoke->IsInvokeStaticOrDirect());
   codegen->GenerateStaticOrDirectCall(
       invoke->AsInvokeStaticOrDirect(), Location::RegisterLocation(RDI));
-  codegen->RecordPcInfo(invoke, invoke->GetDexPc());
 
   // Copy the result back to the expected output.
   Location out = invoke->GetLocations()->Out();
@@ -759,7 +757,7 @@ static void CreateFPToFPCallLocations(ArenaAllocator* arena,
   // We have to ensure that the native code doesn't clobber the XMM registers which are
   // non-volatile for ART, but volatile for Native calls.  This will ensure that they are
   // saved in the prologue and properly restored.
-  for (auto fp_reg : non_volatile_xmm_regs) {
+  for (FloatRegister fp_reg : non_volatile_xmm_regs) {
     locations->AddTemp(Location::FpuRegisterLocation(fp_reg));
   }
 }
@@ -898,7 +896,7 @@ static void CreateFPFPToFPCallLocations(ArenaAllocator* arena,
   // We have to ensure that the native code doesn't clobber the XMM registers which are
   // non-volatile for ART, but volatile for Native calls.  This will ensure that they are
   // saved in the prologue and properly restored.
-  for (auto fp_reg : non_volatile_xmm_regs) {
+  for (FloatRegister fp_reg : non_volatile_xmm_regs) {
     locations->AddTemp(Location::FpuRegisterLocation(fp_reg));
   }
 }
@@ -2959,65 +2957,6 @@ void IntrinsicCodeGeneratorX86_64::VisitLongNumberOfTrailingZeros(HInvoke* invok
   GenTrailingZeros(GetAssembler(), codegen_, invoke, /* is_long */ true);
 }
 
-void IntrinsicLocationsBuilderX86_64::VisitReferenceGetReferent(HInvoke* invoke) {
-  if (kEmitCompilerReadBarrier) {
-    // Do not intrinsify this call with the read barrier configuration.
-    return;
-  }
-  LocationSummary* locations = new (arena_) LocationSummary(invoke,
-                                                            LocationSummary::kCallOnSlowPath,
-                                                            kIntrinsified);
-  locations->SetInAt(0, Location::RequiresRegister());
-  locations->SetOut(Location::SameAsFirstInput());
-  locations->AddTemp(Location::RequiresRegister());
-}
-
-void IntrinsicCodeGeneratorX86_64::VisitReferenceGetReferent(HInvoke* invoke) {
-  DCHECK(!kEmitCompilerReadBarrier);
-  LocationSummary* locations = invoke->GetLocations();
-  X86_64Assembler* assembler = GetAssembler();
-
-  CpuRegister obj = locations->InAt(0).AsRegister<CpuRegister>();
-  CpuRegister out = locations->Out().AsRegister<CpuRegister>();
-
-  SlowPathCode* slow_path = new (GetAllocator()) IntrinsicSlowPathX86_64(invoke);
-  codegen_->AddSlowPath(slow_path);
-
-  // Load ArtMethod first.
-  HInvokeStaticOrDirect* invoke_direct = invoke->AsInvokeStaticOrDirect();
-  DCHECK(invoke_direct != nullptr);
-  Location temp_loc = codegen_->GenerateCalleeMethodStaticOrDirectCall(
-      invoke_direct, locations->GetTemp(0));
-  DCHECK(temp_loc.Equals(locations->GetTemp(0)));
-  CpuRegister temp = temp_loc.AsRegister<CpuRegister>();
-
-  // Now get declaring class.
-  __ movl(temp, Address(temp, ArtMethod::DeclaringClassOffset().Int32Value()));
-
-  uint32_t slow_path_flag_offset = codegen_->GetReferenceSlowFlagOffset();
-  uint32_t disable_flag_offset = codegen_->GetReferenceDisableFlagOffset();
-  DCHECK_NE(slow_path_flag_offset, 0u);
-  DCHECK_NE(disable_flag_offset, 0u);
-  DCHECK_NE(slow_path_flag_offset, disable_flag_offset);
-
-  // Check static flags preventing us for using intrinsic.
-  if (slow_path_flag_offset == disable_flag_offset + 1) {
-    __ cmpw(Address(temp, disable_flag_offset), Immediate(0));
-    __ j(kNotEqual, slow_path->GetEntryLabel());
-  } else {
-    __ cmpb(Address(temp, disable_flag_offset), Immediate(0));
-    __ j(kNotEqual, slow_path->GetEntryLabel());
-    __ cmpb(Address(temp, slow_path_flag_offset), Immediate(0));
-    __ j(kNotEqual, slow_path->GetEntryLabel());
-  }
-
-  // Fast path.
-  __ movl(out, Address(obj, mirror::Reference::ReferentOffset().Int32Value()));
-  codegen_->MaybeRecordImplicitNullCheck(invoke);
-  __ MaybeUnpoisonHeapReference(out);
-  __ Bind(slow_path->GetExitLabel());
-}
-
 void IntrinsicLocationsBuilderX86_64::VisitIntegerValueOf(HInvoke* invoke) {
   InvokeRuntimeCallingConvention calling_convention;
   IntrinsicVisitor::ComputeIntegerValueOfLocations(
@@ -3085,6 +3024,28 @@ void IntrinsicCodeGeneratorX86_64::VisitIntegerValueOf(HInvoke* invoke) {
   }
 }
 
+void IntrinsicLocationsBuilderX86_64::VisitThreadInterrupted(HInvoke* invoke) {
+  LocationSummary* locations = new (arena_) LocationSummary(invoke,
+                                                            LocationSummary::kNoCall,
+                                                            kIntrinsified);
+  locations->SetOut(Location::RequiresRegister());
+}
+
+void IntrinsicCodeGeneratorX86_64::VisitThreadInterrupted(HInvoke* invoke) {
+  X86_64Assembler* assembler = GetAssembler();
+  CpuRegister out = invoke->GetLocations()->Out().AsRegister<CpuRegister>();
+  Address address = Address::Absolute
+      (Thread::InterruptedOffset<kX86_64PointerSize>().Int32Value(), /* no_rip */ true);
+  NearLabel done;
+  __ gs()->movl(out, address);
+  __ testl(out, out);
+  __ j(kEqual, &done);
+  __ gs()->movl(address, Immediate(0));
+  codegen_->MemoryFence();
+  __ Bind(&done);
+}
+
+UNIMPLEMENTED_INTRINSIC(X86_64, ReferenceGetReferent)
 UNIMPLEMENTED_INTRINSIC(X86_64, FloatIsInfinite)
 UNIMPLEMENTED_INTRINSIC(X86_64, DoubleIsInfinite)
 

@@ -19,7 +19,6 @@ from vts.runners.host import asserts
 from vts.runners.host import base_test
 from vts.runners.host import test_runner
 from vts.runners.host import utils
-from vts.utils.python.controllers import android_device
 
 
 class RebootTest(base_test.BaseTestClass):
@@ -28,8 +27,9 @@ class RebootTest(base_test.BaseTestClass):
     Attributes:
         dut: AndroidDevice, the device under test as config
     """
+
     def setUpClass(self):
-        self.dut = self.registerController(android_device)[0]
+        self.dut = self.android_devices[0]
 
     def testReboot(self):
         """Tests if device is still responsive after reboot."""

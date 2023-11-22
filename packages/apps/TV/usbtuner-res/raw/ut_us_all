@@ -1,5 +1,4 @@
 # US ATSC center frequencies
-# TODO: Verify this.
 
 A  57028615 8VSB 2
 A  63028615 8VSB 3
@@ -71,7 +70,6 @@ A 797028615 8VSB 68
 A 803028615 8VSB 69
 # US EIA/NCTA Standard Cable center frequencies
 # Channels are in ascending EIA/NCTA channel designation order
-# TODO: Verify this.
 
 #2
 A  57000000 QAM256

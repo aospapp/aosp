@@ -28,6 +28,7 @@ import android.view.ViewGroup;
 
 import com.android.tv.MainActivity;
 import com.android.tv.R;
+import com.android.tv.util.ViewCache;
 
 import java.util.Collections;
 import java.util.List;
@@ -69,6 +70,8 @@ public class ItemListRowView extends MenuRowView implements OnChildSelectedListe
     protected void onFinishInflate() {
         super.onFinishInflate();
         mListView = (HorizontalGridView) getContentsView();
+        // Disable the position change animation of the cards.
+        mListView.setItemAnimator(null);
     }
 
     @Override
@@ -194,9 +197,24 @@ public class ItemListRowView extends MenuRowView implements OnChildSelectedListe
             return mItemList.size();
         }
 
+        /**
+         * Returns the position of the item.
+         */
+        protected int getItemPosition(T item) {
+            return mItemList.indexOf(item);
+        }
+
+        /**
+         * Returns {@code true} if the item list contains the item, otherwise {@code false}.
+         */
+        protected boolean containsItem(T item) {
+            return mItemList.contains(item);
+        }
+
         @Override
         public MyViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-            View view = mLayoutInflater.inflate(getLayoutResId(viewType), parent, false);
+            View view = ViewCache.getInstance().getOrCreateView(
+                    mLayoutInflater, getLayoutResId(viewType), parent);
             return new MyViewHolder(view);
         }
 

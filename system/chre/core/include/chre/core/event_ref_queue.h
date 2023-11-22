@@ -34,7 +34,9 @@ class EventRefQueue {
   /**
    * @return true if there are no events in the queue
    */
-  bool empty() const;
+  bool empty() const {
+    return mQueue.empty();
+  }
 
   /**
    * Adds an event to the queue, and increments its reference counter

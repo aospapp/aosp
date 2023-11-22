@@ -5054,8 +5054,8 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           in android.request.availableCapabilities.
           </details>
           <hal_details>
-          Vendor tags must not be listed here. Use the vendor tag metadata
-          extensions C api instead (refer to camera3.h for more details).
+          Vendor tags can be listed here. Vendor tag metadata should also
+          use the extensions C api (refer to camera3.h for more details).
 
           Setting/getting vendor tags will be checked against the metadata
           vendor extensions API and not against this field.
@@ -5098,8 +5098,8 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           even if that size is 0 elements. Only array-type tags (e.g. lists,
           matrices, strings) are allowed to have 0 elements.
 
-          Vendor tags must not be listed here. Use the vendor tag metadata
-          extensions C api instead (refer to camera3.h for more details).
+          Vendor tags can be listed here. Vendor tag metadata should also
+          use the extensions C api (refer to camera3.h for more details).
 
           Setting/getting vendor tags will be checked against the metadata
           vendor extensions API and not against this field.
@@ -5128,8 +5128,8 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           even if that size is 0 elements. Only array-type tags (e.g. lists,
           matrices, strings) are allowed to have 0 elements.
 
-          Vendor tags must not be listed here. Use the vendor tag metadata
-          extensions C api instead (refer to camera3.h for more details).
+          Vendor tags can listed here. Vendor tag metadata should also use
+          the extensions C api (refer to camera3.h for more details).
 
           Setting/getting vendor tags will be checked against the metadata
           vendor extensions API and not against this field.

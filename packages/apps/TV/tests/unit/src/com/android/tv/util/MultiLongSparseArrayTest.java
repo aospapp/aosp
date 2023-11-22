@@ -16,10 +16,13 @@
 
 package com.android.tv.util;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
+
 import android.support.test.filters.SmallTest;
 import android.test.MoreAsserts;
 
-import junit.framework.TestCase;
+import org.junit.Test;
 
 import java.util.Collections;
 
@@ -27,19 +30,21 @@ import java.util.Collections;
  * Tests for {@link MultiLongSparseArray}.
  */
 @SmallTest
-public class MultiLongSparseArrayTest extends TestCase {
-
+public class MultiLongSparseArrayTest {
+    @Test
     public void testEmpty() {
         MultiLongSparseArray<String> sparseArray = new MultiLongSparseArray<>();
         assertSame(Collections.EMPTY_SET, sparseArray.get(0));
     }
 
+    @Test
     public void testOneElement() {
         MultiLongSparseArray<String> sparseArray = new MultiLongSparseArray<>();
         sparseArray.put(0, "foo");
         MoreAsserts.assertContentsInAnyOrder(sparseArray.get(0), "foo");
     }
 
+    @Test
     public void testTwoElements() {
         MultiLongSparseArray<String> sparseArray = new MultiLongSparseArray<>();
         sparseArray.put(0, "foo");
@@ -48,6 +53,7 @@ public class MultiLongSparseArrayTest extends TestCase {
     }
 
 
+    @Test
     public void testClearEmptyCache() {
         MultiLongSparseArray<String> sparseArray = new MultiLongSparseArray<>();
         sparseArray.clearEmptyCache();
@@ -59,6 +65,7 @@ public class MultiLongSparseArrayTest extends TestCase {
         assertEquals(0, sparseArray.getEmptyCacheSize());
     }
 
+    @Test
     public void testMaxEmptyCacheSize() {
         MultiLongSparseArray<String> sparseArray = new MultiLongSparseArray<>();
         sparseArray.clearEmptyCache();
@@ -75,6 +82,7 @@ public class MultiLongSparseArrayTest extends TestCase {
         assertEquals(0, sparseArray.getEmptyCacheSize());
     }
 
+    @Test
     public void testReuseEmptySets() {
         MultiLongSparseArray<String> sparseArray = new MultiLongSparseArray<>();
         sparseArray.clearEmptyCache();

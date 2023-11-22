@@ -49,12 +49,15 @@ import com.android.internal.app.AlertController;
  */
 public class BluetoothOppBtEnableActivity extends AlertActivity implements
         DialogInterface.OnClickListener {
+    private BluetoothOppManager mOppManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         // Set up the "dialog"
+        mOppManager = BluetoothOppManager.getInstance(this);
+        mOppManager.mSendingFlag = false;
         final AlertController.AlertParams p = mAlertParams;
         p.mIconAttrId = android.R.attr.alertDialogIcon;
         p.mTitle = getString(R.string.bt_enable_title);
@@ -78,7 +81,6 @@ public class BluetoothOppBtEnableActivity extends AlertActivity implements
     public void onClick(DialogInterface dialog, int which) {
         switch (which) {
             case DialogInterface.BUTTON_POSITIVE:
-                BluetoothOppManager mOppManager = BluetoothOppManager.getInstance(this);
                 mOppManager.enableBluetooth(); // this is an asyn call
                 mOppManager.mSendingFlag = true;
 
@@ -95,6 +97,15 @@ public class BluetoothOppBtEnableActivity extends AlertActivity implements
             case DialogInterface.BUTTON_NEGATIVE:
                 finish();
                 break;
+        }
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+
+        if (!mOppManager.mSendingFlag) {
+            mOppManager.cleanUpSendingFileInfo();
         }
     }
 }

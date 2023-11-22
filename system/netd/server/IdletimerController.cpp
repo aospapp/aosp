@@ -95,6 +95,10 @@
 
 #define LOG_NDEBUG 0
 
+#include <string>
+#include <vector>
+
+#include <stdint.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <sys/socket.h>
@@ -106,6 +110,9 @@
 #include <string.h>
 #include <cutils/properties.h>
 
+#include <android-base/strings.h>
+#include <android-base/stringprintf.h>
+
 #define LOG_TAG "IdletimerController"
 #include <cutils/log.h>
 #include <logwrap/logwrap.h>
@@ -113,37 +120,18 @@
 #include "IdletimerController.h"
 #include "NetdConstants.h"
 
+using android::base::Join;
+using android::base::StringPrintf;
+
 const char* IdletimerController::LOCAL_RAW_PREROUTING = "idletimer_raw_PREROUTING";
 const char* IdletimerController::LOCAL_MANGLE_POSTROUTING = "idletimer_mangle_POSTROUTING";
+
+auto IdletimerController::execIptablesRestore = ::execIptablesRestore;
 
 IdletimerController::IdletimerController() {
 }
 
 IdletimerController::~IdletimerController() {
-}
-/* return 0 or non-zero */
-int IdletimerController::runIpxtablesCmd(int argc, const char **argv) {
-    int resIpv4, resIpv6;
-
-    // Running for IPv4
-    argv[0] = IPTABLES_PATH;
-    resIpv4 = android_fork_execvp(argc, (char **)argv, NULL, false, false);
-
-    // Running for IPv6
-    argv[0] = IP6TABLES_PATH;
-    resIpv6 = android_fork_execvp(argc, (char **)argv, NULL, false, false);
-
-#if !LOG_NDEBUG
-    std::string full_cmd = argv[0];
-    argc--; argv++;
-    for (; argc; argc--, argv++) {
-        full_cmd += " ";
-        full_cmd += argv[0];
-    }
-    ALOGV("runCmd(%s) res_ipv4=%d, res_ipv6=%d", full_cmd.c_str(), resIpv4, resIpv6);
-#endif
-
-    return (resIpv4 == 0 && resIpv6 == 0) ? 0 : -1;
 }
 
 bool IdletimerController::setupIptablesHooks() {
@@ -151,31 +139,16 @@ bool IdletimerController::setupIptablesHooks() {
 }
 
 int IdletimerController::setDefaults() {
-  int res;
-  const char *cmd1[] = {
-      NULL, // To be filled inside runIpxtablesCmd
-      "-w",
-      "-t",
-      "raw",
-      "-F",
-      LOCAL_RAW_PREROUTING
-  };
-  res = runIpxtablesCmd(ARRAY_SIZE(cmd1), cmd1);
+    std::vector<std::string> cmds = {
+        "*raw",
+        StringPrintf(":%s -", LOCAL_RAW_PREROUTING),
+        "COMMIT",
+        "*mangle",
+        StringPrintf(":%s -", LOCAL_MANGLE_POSTROUTING),
+        "COMMIT\n",
+    };
 
-  if (res)
-    return res;
-
-  const char *cmd2[] = {
-      NULL, // To be filled inside runIpxtablesCmd
-      "-w",
-      "-t",
-      "mangle",
-      "-F",
-      LOCAL_MANGLE_POSTROUTING
-  };
-  res = runIpxtablesCmd(ARRAY_SIZE(cmd2), cmd2);
-
-  return res;
+    return execIptablesRestore(V4V6, Join(cmds, '\n'));
 }
 
 int IdletimerController::enableIdletimerControl() {
@@ -191,70 +164,34 @@ int IdletimerController::disableIdletimerControl() {
 int IdletimerController::modifyInterfaceIdletimer(IptOp op, const char *iface,
                                                   uint32_t timeout,
                                                   const char *classLabel) {
-  int res;
-  char timeout_str[11]; //enough to store any 32-bit unsigned decimal
+    if (!isIfaceName(iface)) {
+        errno = ENOENT;
+        return -1;
+    }
 
-  if (!isIfaceName(iface)) {
-    errno = ENOENT;
-    return -1;
-  }
+    const char *addRemove = (op == IptOpAdd) ? "-A" : "-D";
+    std::vector<std::string> cmds = {
+        "*raw",
+        StringPrintf("%s %s -i %s -j IDLETIMER --timeout %u --label %s --send_nl_msg 1",
+                    addRemove, LOCAL_RAW_PREROUTING, iface, timeout, classLabel),
+        "COMMIT",
+        "*mangle",
+        StringPrintf("%s %s -o %s -j IDLETIMER --timeout %u --label %s --send_nl_msg 1",
+                    addRemove, LOCAL_MANGLE_POSTROUTING, iface, timeout, classLabel),
+        "COMMIT\n",
+    };
 
-  snprintf(timeout_str, sizeof(timeout_str), "%u", timeout);
-
-  const char *cmd1[] = {
-      NULL, // To be filled inside runIpxtablesCmd
-      "-w",
-      "-t",
-      "raw",
-      (op == IptOpAdd) ? "-A" : "-D",
-      LOCAL_RAW_PREROUTING,
-      "-i",
-      iface,
-      "-j",
-      "IDLETIMER",
-      "--timeout",
-      timeout_str,
-      "--label",
-      classLabel,
-      "--send_nl_msg",
-      "1"
-  };
-  res = runIpxtablesCmd(ARRAY_SIZE(cmd1), cmd1);
-
-  if (res)
-    return res;
-
-  const char *cmd2[] = {
-      NULL, // To be filled inside runIpxtablesCmd
-      "-w",
-      "-t",
-      "mangle",
-      (op == IptOpAdd) ? "-A" : "-D",
-      LOCAL_MANGLE_POSTROUTING,
-      "-o",
-      iface,
-      "-j",
-      "IDLETIMER",
-      "--timeout",
-      timeout_str,
-      "--label",
-      classLabel,
-      "--send_nl_msg",
-      "1"
-  };
-  res = runIpxtablesCmd(ARRAY_SIZE(cmd2), cmd2);
-
-  return res;
+    return execIptablesRestore(V4V6, Join(cmds, '\n'));
 }
 
 int IdletimerController::addInterfaceIdletimer(const char *iface,
                                                uint32_t timeout,
                                                const char *classLabel) {
-  return modifyInterfaceIdletimer(IptOpAdd, iface, timeout, classLabel);
+    return modifyInterfaceIdletimer(IptOpAdd, iface, timeout, classLabel);
 }
 
 int IdletimerController::removeInterfaceIdletimer(const char *iface,
                                                   uint32_t timeout,
                                                   const char *classLabel) {
-  return modifyInterfaceIdletimer(IptOpDelete, iface, timeout, classLabel);
+    return modifyInterfaceIdletimer(IptOpDelete, iface, timeout, classLabel);
 }

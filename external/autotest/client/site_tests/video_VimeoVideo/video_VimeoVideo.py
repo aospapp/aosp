@@ -10,6 +10,7 @@ import time
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
+from autotest_lib.client.cros.video import helper_logger
 
 
 class video_VimeoVideo(test.test):
@@ -107,7 +108,10 @@ class video_VimeoVideo(test.test):
             playback = playback + 1
 
 
+    @helper_logger.video_log_wrapper
     def run_once(self):
-        with chrome.Chrome(init_network_controller=True) as cr:
+        with chrome.Chrome(
+                extra_browser_args=helper_logger.chrome_vmodule_flag(),
+                init_network_controller=True) as cr:
             cr.browser.platform.SetHTTPServerDirectories(self.bindir)
             self.run_vimeo_tests(cr.browser)

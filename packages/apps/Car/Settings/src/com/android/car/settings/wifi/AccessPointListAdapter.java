@@ -16,14 +16,10 @@
 package com.android.car.settings.wifi;
 
 import android.content.Context;
-import android.content.Intent;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.StateListDrawable;
 import android.net.wifi.WifiManager;
-import android.os.Bundle;
-import android.support.car.ui.PagedListView;
 import android.support.v7.widget.RecyclerView;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.annotation.NonNull;
@@ -35,7 +31,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.android.car.settings.R;
-import com.android.car.settings.wifi.AccessPointListAdapter.ViewHolder;
+import com.android.car.settings.common.BaseFragment;
+import com.android.car.view.PagedListView;
 import com.android.settingslib.wifi.AccessPoint;
 
 import java.util.List;
@@ -47,6 +44,9 @@ public class AccessPointListAdapter
         extends RecyclerView.Adapter<AccessPointListAdapter.ViewHolder>
         implements PagedListView.ItemCap {
     private static final String TAG = "AccessPointListAdapter";
+    private static final int NETWORK_ROW_TYPE = 1;
+    private static final int ADD_NETWORK_ROW_TYPE = 2;
+
     private static final int[] STATE_SECURED = {
             com.android.settingslib.R.attr.state_encrypted
     };
@@ -55,14 +55,19 @@ public class AccessPointListAdapter
 
     private final StateListDrawable mWifiSld;
     private final Context mContext;
+    private final BaseFragment.FragmentController mFragmentController;
     private final CarWifiManager mCarWifiManager;
     private final WifiManager.ActionListener mConnectionListener;
 
     private List<AccessPoint> mAccessPoints;
 
-    public AccessPointListAdapter(@NonNull Context context, CarWifiManager carWifiManager,
-            @NonNull List<AccessPoint> accesssPoints) {
+    public AccessPointListAdapter(
+            @NonNull Context context,
+            CarWifiManager carWifiManager,
+            @NonNull List<AccessPoint> accesssPoints,
+            BaseFragment.FragmentController fragmentController) {
         mContext = context;
+        mFragmentController = fragmentController;
         mCarWifiManager = carWifiManager;
         mAccessPoints = accesssPoints;
         mWifiSld = (StateListDrawable) context.getTheme()
@@ -92,6 +97,7 @@ public class AccessPointListAdapter
 
     public class ViewHolder extends RecyclerView.ViewHolder {
         private final ImageView mIcon;
+        private final ImageView mRightChevron;
         private final TextView mWifiName;
         private final TextView mWifiDesc;
 
@@ -100,6 +106,7 @@ public class AccessPointListAdapter
             mWifiName = (TextView) view.findViewById(R.id.title);
             mWifiDesc = (TextView) view.findViewById(R.id.desc);
             mIcon = (ImageView) view.findViewById(R.id.icon);
+            mRightChevron = (ImageView) view.findViewById(R.id.right_chevron);
         }
     }
 
@@ -116,29 +123,45 @@ public class AccessPointListAdapter
             if (mAccessPoint.getSecurity() == AccessPoint.SECURITY_NONE &&
                     !mAccessPoint.isSaved() && !mAccessPoint.isActive()) {
                 mCarWifiManager.connectToPublicWifi(mAccessPoint, mConnectionListener);
+            } else if (mAccessPoint.isSaved()) {
+                mFragmentController.launchFragment(WifiDetailFragment.getInstance(mAccessPoint));
             } else {
-                Intent intent = mAccessPoint.isSaved()
-                        ? new Intent(mContext , WifiDetailActivity.class)
-                        : new Intent(mContext, AddWifiActivity.class);
-                Bundle accessPointState = new Bundle();
-                mAccessPoint.saveWifiState(accessPointState);
-                intent.putExtras(accessPointState);
-                mContext.startActivity(intent);
+                mFragmentController.launchFragment(AddWifiFragment.getInstance(mAccessPoint));
             }
         }
     };
 
     @Override
+    public int getItemViewType(int position) {
+        // the last row is the add device row
+        if (position == mAccessPoints.size()) {
+            return ADD_NETWORK_ROW_TYPE;
+        }
+        return NETWORK_ROW_TYPE;
+    }
+
+    @Override
     public AccessPointListAdapter.ViewHolder onCreateViewHolder(ViewGroup parent,
             int viewType) {
-        View v = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.list_item, parent, false);
-        ViewHolder vh = new ViewHolder(v);
-        return vh;
+        ViewHolder viewHolder = new ViewHolder(LayoutInflater.from(parent.getContext())
+                .inflate(R.layout.icon_text_line_item, parent, false));
+        if (viewType == ADD_NETWORK_ROW_TYPE) {
+            viewHolder.mIcon.setImageResource(R.drawable.ic_add);
+            viewHolder.mWifiDesc.setVisibility(View.GONE);
+            viewHolder.mWifiName.setText(R.string.wifi_setup_add_network);
+            viewHolder.itemView.setOnClickListener(v -> {
+                mFragmentController.launchFragment(AddWifiFragment.getInstance(null));
+            });
+        }
+        return viewHolder;
     }
 
     @Override
     public void onBindViewHolder(ViewHolder holder, int position) {
+        // for the last row, it's the "add network button", no more binding needed.
+        if (position >= mAccessPoints.size()) {
+            return;
+        }
         AccessPoint accessPoint = mAccessPoints.get(position);
         holder.itemView.setOnClickListener(new AccessPointClickListener(accessPoint));
         holder.mWifiName.setText(accessPoint.getConfigName());
@@ -150,11 +173,18 @@ public class AccessPointListAdapter
         } else {
             holder.mWifiDesc.setVisibility(View.GONE);
         }
+        if (accessPoint.getSecurity() == accessPoint.SECURITY_NONE &&
+                !accessPoint.isSaved() && !accessPoint.isActive()) {
+            holder.mRightChevron.setVisibility(View.GONE);
+        } else {
+            holder.mRightChevron.setVisibility(View.VISIBLE);
+        }
     }
 
     @Override
     public int getItemCount() {
-        return mAccessPoints.size();
+        // number of rows include one per device and a row for add network.
+        return mAccessPoints.size() + 1;
     }
 
     @Override

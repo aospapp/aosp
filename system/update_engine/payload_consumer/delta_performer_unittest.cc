@@ -87,60 +87,6 @@ const uint8_t kXzCompressedData[] = {
     0x00, 0x00, 0x59, 0x5a,
 };
 
-// Gzipped 'abc', generated with:
-// echo -n abc | minigzip | hexdump -v -e '"    " 12/1 "0x%02x, " "\n"'
-const uint8_t kSourceGzippedData[] = {
-    0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x4b, 0x4c,
-    0x4a, 0x06, 0x00, 0xc2, 0x41, 0x24, 0x35, 0x03, 0x00, 0x00, 0x00,
-};
-
-// Gzipped 'def', generated with:
-// echo -n def | minigzip | hexdump -v -e '"    " 12/1 "0x%02x, " "\n"'
-const uint8_t kTargetGzippedData[] = {
-    0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x4b, 0x49,
-    0x4d, 0x03, 0x00, 0x61, 0xe1, 0xc4, 0x0c, 0x03, 0x00, 0x00, 0x00,
-};
-
-// Imgdiff data, generated with:
-// echo -n abc | minigzip > abc && truncate -s 4096 abc
-// echo -n def | minigzip > def && truncate -s 4096 def
-// imgdiff abc def patch && hexdump -v -e '"    " 12/1 "0x%02x, " "\n"' patch
-const uint8_t kImgdiffData[] = {
-    0x49, 0x4d, 0x47, 0x44, 0x49, 0x46, 0x46, 0x32, 0x03, 0x00, 0x00, 0x00,
-    0x03, 0x00, 0x00, 0x00, 0x0a, 0x00, 0x00, 0x00, 0x1f, 0x8b, 0x08, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x02, 0x00, 0x00, 0x00, 0x0a, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x7a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0xf1, 0xff,
-    0xff, 0xff, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x0f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf1, 0x0f,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf8, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x42, 0x53, 0x44, 0x49, 0x46, 0x46, 0x34, 0x30, 0x2a, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0e, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x42, 0x5a,
-    0x68, 0x39, 0x31, 0x41, 0x59, 0x26, 0x53, 0x59, 0xc3, 0xc8, 0xfb, 0x1f,
-    0x00, 0x00, 0x01, 0x40, 0x00, 0x5c, 0x00, 0x20, 0x00, 0x30, 0xcd, 0x34,
-    0x12, 0x34, 0x54, 0x60, 0x5c, 0xce, 0x2e, 0xe4, 0x8a, 0x70, 0xa1, 0x21,
-    0x87, 0x91, 0xf6, 0x3e, 0x42, 0x5a, 0x68, 0x39, 0x17, 0x72, 0x45, 0x38,
-    0x50, 0x90, 0x00, 0x00, 0x00, 0x00, 0x42, 0x5a, 0x68, 0x39, 0x31, 0x41,
-    0x59, 0x26, 0x53, 0x59, 0x42, 0x3c, 0xb0, 0xf9, 0x00, 0x00, 0x00, 0x01,
-    0x00, 0x07, 0x00, 0x20, 0x00, 0x21, 0x98, 0x19, 0x84, 0x61, 0x77, 0x24,
-    0x53, 0x85, 0x09, 0x04, 0x23, 0xcb, 0x0f, 0x90, 0x42, 0x53, 0x44, 0x49,
-    0x46, 0x46, 0x34, 0x30, 0x31, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x35, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf1, 0x0f, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x42, 0x5a, 0x68, 0x39, 0x31, 0x41, 0x59, 0x26,
-    0x53, 0x59, 0x6f, 0x02, 0x77, 0xf3, 0x00, 0x00, 0x07, 0x40, 0x41, 0xe0,
-    0x10, 0xc0, 0x00, 0x00, 0x02, 0x20, 0x00, 0x20, 0x00, 0x21, 0x29, 0xa3,
-    0x10, 0x86, 0x03, 0x84, 0x04, 0xae, 0x5f, 0x17, 0x72, 0x45, 0x38, 0x50,
-    0x90, 0x6f, 0x02, 0x77, 0xf3, 0x42, 0x5a, 0x68, 0x39, 0x31, 0x41, 0x59,
-    0x26, 0x53, 0x59, 0x71, 0x62, 0xbd, 0xa7, 0x00, 0x00, 0x20, 0x40, 0x32,
-    0xc0, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x80, 0x00, 0x48, 0x20, 0x00,
-    0x30, 0xc0, 0x02, 0xa5, 0x19, 0xa5, 0x92, 0x6f, 0xc2, 0x5d, 0xac, 0x0e,
-    0x17, 0x72, 0x45, 0x38, 0x50, 0x90, 0x71, 0x62, 0xbd, 0xa7, 0x42, 0x5a,
-    0x68, 0x39, 0x17, 0x72, 0x45, 0x38, 0x50, 0x90, 0x00, 0x00, 0x00, 0x00,
-};
-
 }  // namespace
 
 class DeltaPerformerTest : public ::testing::Test {
@@ -157,7 +103,7 @@ class DeltaPerformerTest : public ::testing::Test {
                              uint64_t major_version,
                              InstallPayloadType payload_type,
                              ErrorCode expected) {
-    install_plan_.payload_type = payload_type;
+    payload_.type = payload_type;
 
     // The Manifest we are validating.
     performer_.manifest_.CopyFrom(manifest);
@@ -218,7 +164,7 @@ class DeltaPerformerTest : public ::testing::Test {
     string private_key =
         sign_payload ? GetBuildArtifactsPath(kUnittestPrivateKeyPath) : "";
     EXPECT_TRUE(payload.WritePayload(
-        payload_path, blob_path, private_key, &install_plan_.metadata_size));
+        payload_path, blob_path, private_key, &payload_.metadata_size));
 
     brillo::Blob payload_data;
     EXPECT_TRUE(utils::ReadFile(payload_path, &payload_data));
@@ -285,7 +231,7 @@ class DeltaPerformerTest : public ::testing::Test {
     uint64_t version = htobe64(kChromeOSMajorPayloadVersion);
     EXPECT_TRUE(performer_.Write(&version, 8));
 
-    install_plan_.metadata_size = expected_metadata_size;
+    payload_.metadata_size = expected_metadata_size;
     ErrorCode error_code;
     // When filling in size in manifest, exclude the size of the 20-byte header.
     uint64_t size_in_manifest = htobe64(actual_metadata_size - 20);
@@ -322,13 +268,13 @@ class DeltaPerformerTest : public ::testing::Test {
     // Fill up the metadata signature in install plan according to the test.
     switch (metadata_signature_test) {
       case kEmptyMetadataSignature:
-        install_plan_.metadata_signature.clear();
+        payload_.metadata_signature.clear();
         expected_result = DeltaPerformer::kMetadataParseError;
         expected_error = ErrorCode::kDownloadMetadataSignatureMissingError;
         break;
 
       case kInvalidMetadataSignature:
-        install_plan_.metadata_signature = kBogusMetadataSignature1;
+        payload_.metadata_signature = kBogusMetadataSignature1;
         expected_result = DeltaPerformer::kMetadataParseError;
         expected_error = ErrorCode::kDownloadMetadataSignatureMismatch;
         break;
@@ -340,10 +286,10 @@ class DeltaPerformerTest : public ::testing::Test {
         // then we can get to manifest signature checks.
         ASSERT_TRUE(PayloadSigner::GetMetadataSignature(
             payload.data(),
-            install_plan_.metadata_size,
+            payload_.metadata_size,
             GetBuildArtifactsPath(kUnittestPrivateKeyPath),
-            &install_plan_.metadata_signature));
-        EXPECT_FALSE(install_plan_.metadata_signature.empty());
+            &payload_.metadata_signature));
+        EXPECT_FALSE(payload_.metadata_signature.empty());
         expected_result = DeltaPerformer::kMetadataParseSuccess;
         expected_error = ErrorCode::kSuccess;
         break;
@@ -371,7 +317,7 @@ class DeltaPerformerTest : public ::testing::Test {
 
     // Check that the parsed metadata size is what's expected. This test
     // implicitly confirms that the metadata signature is valid, if required.
-    EXPECT_EQ(install_plan_.metadata_size, performer_.GetMetadataSize());
+    EXPECT_EQ(payload_.metadata_size, performer_.GetMetadataSize());
   }
 
   void SetSupportedMajorVersion(uint64_t major_version) {
@@ -379,15 +325,20 @@ class DeltaPerformerTest : public ::testing::Test {
   }
   FakePrefs prefs_;
   InstallPlan install_plan_;
+  InstallPlan::Payload payload_;
   FakeBootControl fake_boot_control_;
   FakeHardware fake_hardware_;
   MockDownloadActionDelegate mock_delegate_;
-  DeltaPerformer performer_{
-      &prefs_, &fake_boot_control_, &fake_hardware_, &mock_delegate_, &install_plan_};
+  DeltaPerformer performer_{&prefs_,
+                            &fake_boot_control_,
+                            &fake_hardware_,
+                            &mock_delegate_,
+                            &install_plan_,
+                            &payload_};
 };
 
 TEST_F(DeltaPerformerTest, FullPayloadWriteTest) {
-  install_plan_.payload_type = InstallPayloadType::kFull;
+  payload_.type = InstallPayloadType::kFull;
   brillo::Blob expected_data = brillo::Blob(std::begin(kRandomString),
                                             std::end(kRandomString));
   expected_data.resize(4096);  // block size
@@ -406,7 +357,7 @@ TEST_F(DeltaPerformerTest, FullPayloadWriteTest) {
 }
 
 TEST_F(DeltaPerformerTest, ShouldCancelTest) {
-  install_plan_.payload_type = InstallPayloadType::kFull;
+  payload_.type = InstallPayloadType::kFull;
   brillo::Blob expected_data = brillo::Blob(std::begin(kRandomString),
                                             std::end(kRandomString));
   expected_data.resize(4096);  // block size
@@ -532,33 +483,6 @@ TEST_F(DeltaPerformerTest, SourceCopyOperationTest) {
                                expected_data.size()));
 
   EXPECT_EQ(expected_data, ApplyPayload(payload_data, source_path, true));
-}
-
-TEST_F(DeltaPerformerTest, ImgdiffOperationTest) {
-  brillo::Blob imgdiff_data(std::begin(kImgdiffData), std::end(kImgdiffData));
-
-  AnnotatedOperation aop;
-  *(aop.op.add_src_extents()) = ExtentForRange(0, 1);
-  *(aop.op.add_dst_extents()) = ExtentForRange(0, 1);
-  aop.op.set_data_offset(0);
-  aop.op.set_data_length(imgdiff_data.size());
-  aop.op.set_type(InstallOperation::IMGDIFF);
-
-  brillo::Blob payload_data = GeneratePayload(imgdiff_data, {aop}, false);
-
-  string source_path;
-  EXPECT_TRUE(utils::MakeTempFile("Source-XXXXXX", &source_path, nullptr));
-  ScopedPathUnlinker path_unlinker(source_path);
-  brillo::Blob source_data(std::begin(kSourceGzippedData),
-                           std::end(kSourceGzippedData));
-  source_data.resize(4096);  // block size
-  EXPECT_TRUE(utils::WriteFile(
-      source_path.c_str(), source_data.data(), source_data.size()));
-
-  brillo::Blob target_data(std::begin(kTargetGzippedData),
-                           std::end(kTargetGzippedData));
-  target_data.resize(4096);  // block size
-  EXPECT_EQ(target_data, ApplyPayload(payload_data, source_path, true));
 }
 
 TEST_F(DeltaPerformerTest, SourceHashMismatchTest) {
@@ -747,7 +671,7 @@ TEST_F(DeltaPerformerTest, BrilloVerifyMetadataSignatureTest) {
   install_plan_.hash_checks_mandatory = true;
   // Just set these value so that we can use ValidateMetadataSignature directly.
   performer_.major_payload_version_ = kBrilloMajorPayloadVersion;
-  performer_.metadata_size_ = install_plan_.metadata_size;
+  performer_.metadata_size_ = payload_.metadata_size;
   uint64_t signature_length;
   EXPECT_TRUE(PayloadSigner::SignatureBlobLength(
       {GetBuildArtifactsPath(kUnittestPrivateKeyPath)}, &signature_length));

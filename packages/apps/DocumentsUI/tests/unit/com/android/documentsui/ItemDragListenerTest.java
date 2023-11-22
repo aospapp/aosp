@@ -18,6 +18,7 @@ package com.android.documentsui;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
@@ -179,7 +180,7 @@ public class ItemDragListenerTest {
         assertSame(dropEvent, mListener.mLastDropEvent);
     }
 
-    protected boolean triggerDragEvent(int actionId) {
+    private boolean triggerDragEvent(int actionId) {
         final DragEvent testEvent = DragEvents.createTestDragEvent(actionId);
 
         return mListener.onDrag(mTestView, testEvent);
@@ -218,7 +219,7 @@ public class ItemDragListenerTest {
         private View mLastExitedView;
 
         @Override
-        public void setDropTargetHighlight(View v, Object localState, boolean highlight) {
+        public void setDropTargetHighlight(View v, boolean highlight) {
             mHighlightedView = highlight ? v : null;
         }
 
@@ -233,13 +234,16 @@ public class ItemDragListenerTest {
         }
 
         @Override
-        public void onDragEntered(View v, Object localState) {
+        public void onDragEntered(View v) {
             mLastEnteredView = v;
         }
 
         @Override
-        public void onDragExited(View v, Object localState) {
+        public void onDragExited(View v) {
             mLastExitedView = v;
         }
+
+        @Override
+        public void onDragEnded() {}
     }
 }

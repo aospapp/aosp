@@ -4,12 +4,22 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <sys/cdefs.h>
 #include <unistd.h>
+#include <cstdio>
 
-#include <dvr/dvr_hardware_composer_defs.h>
+#include <dvr/dvr_display_types.h>
+#include <dvr/dvr_hardware_composer_types.h>
+#include <dvr/dvr_pose.h>
 
-__BEGIN_DECLS
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#ifdef __GNUC__
+#define ALIGNED_DVR_STRUCT(x) __attribute__((packed, aligned(x)))
+#else
+#define ALIGNED_DVR_STRUCT(x)
+#endif
 
 typedef struct ANativeWindow ANativeWindow;
 
@@ -18,7 +28,8 @@ typedef struct DvrPoseAsync DvrPoseAsync;
 typedef uint64_t DvrSurfaceUpdateFlags;
 typedef struct DvrDisplayManager DvrDisplayManager;
 typedef struct DvrSurfaceState DvrSurfaceState;
-typedef struct DvrPose DvrPose;
+typedef struct DvrPoseClient DvrPoseClient;
+typedef struct DvrPoseDataCaptureRequest DvrPoseDataCaptureRequest;
 typedef struct DvrVSyncClient DvrVSyncClient;
 typedef struct DvrVirtualTouchpad DvrVirtualTouchpad;
 
@@ -29,23 +40,49 @@ typedef struct AHardwareBuffer AHardwareBuffer;
 
 typedef struct DvrReadBufferQueue DvrReadBufferQueue;
 typedef struct DvrWriteBufferQueue DvrWriteBufferQueue;
+typedef struct DvrNativeBufferMetadata DvrNativeBufferMetadata;
 
 typedef struct DvrSurface DvrSurface;
 typedef uint64_t DvrSurfaceAttributeType;
 typedef int32_t DvrSurfaceAttributeKey;
+typedef int32_t DvrGlobalBufferKey;
 
 typedef struct DvrSurfaceAttributeValue DvrSurfaceAttributeValue;
 typedef struct DvrSurfaceAttribute DvrSurfaceAttribute;
 
+// Note: To avoid breaking others during active development, only modify this
+// struct by appending elements to the end.
+// If you do feel we should to re-arrange or remove elements, please make a
+// note of it, and wait until we're about to finalize for an API release to do
+// so.
+typedef struct DvrNativeDisplayMetrics {
+  uint32_t display_width;
+  uint32_t display_height;
+  uint32_t display_x_dpi;
+  uint32_t display_y_dpi;
+  uint32_t vsync_period_ns;
+} DvrNativeDisplayMetrics;
+
+// native_handle contains the fds for the underlying ION allocations inside
+// the gralloc buffer. This is needed temporarily while GPU vendors work on
+// better support for AHardwareBuffer via glBindSharedBuffer APIs. See
+// b/37207909. For now we can declare the native_handle struct where it is
+// used for GPU late latching. See cutils/native_handle.h for the struct layout.
 struct native_handle;
+
+// Device metrics data type enums.
+enum {
+  // Request the device lens metrics protobuf. This matches cardboard protos.
+  DVR_CONFIGURATION_DATA_LENS_METRICS = 0,
+  // Request the device metrics protobuf.
+  DVR_CONFIGURATION_DATA_DEVICE_METRICS = 1,
+  // Request the per device configuration data file.
+  DVR_CONFIGURATION_DATA_DEVICE_CONFIG = 2,
+};
 
 // dvr_display_manager.h
 typedef int (*DvrDisplayManagerCreatePtr)(DvrDisplayManager** client_out);
 typedef void (*DvrDisplayManagerDestroyPtr)(DvrDisplayManager* client);
-typedef int (*DvrDisplayManagerSetupNamedBufferPtr)(DvrDisplayManager* client,
-                                                    const char* name,
-                                                    size_t size, uint64_t usage,
-                                                    DvrBuffer** buffer_out);
 typedef int (*DvrDisplayManagerGetEventFdPtr)(DvrDisplayManager* client);
 typedef int (*DvrDisplayManagerTranslateEpollEventMaskPtr)(
     DvrDisplayManager* client, int in_events, int* out_events);
@@ -54,6 +91,9 @@ typedef int (*DvrDisplayManagerGetSurfaceStatePtr)(
 typedef int (*DvrDisplayManagerGetReadBufferQueuePtr)(
     DvrDisplayManager* client, int surface_id, int queue_id,
     DvrReadBufferQueue** queue_out);
+typedef int (*DvrConfigurationDataGetPtr)(int config_type, uint8_t** data,
+                                          size_t* data_size);
+typedef void (*DvrConfigurationDataDestroyPtr)(uint8_t* data);
 typedef int (*DvrSurfaceStateCreatePtr)(DvrSurfaceState** surface_state);
 typedef void (*DvrSurfaceStateDestroyPtr)(DvrSurfaceState* surface_state);
 typedef int (*DvrSurfaceStateGetSurfaceCountPtr)(DvrSurfaceState* surface_state,
@@ -122,15 +162,24 @@ typedef const struct native_handle* (*DvrReadBufferGetNativeHandlePtr)(
 typedef void (*DvrBufferDestroyPtr)(DvrBuffer* buffer);
 typedef int (*DvrBufferGetAHardwareBufferPtr)(
     DvrBuffer* buffer, AHardwareBuffer** hardware_buffer);
+typedef int (*DvrBufferGlobalLayoutVersionGetPtr)();
 typedef const struct native_handle* (*DvrBufferGetNativeHandlePtr)(
     DvrBuffer* buffer);
 
 // dvr_buffer_queue.h
+typedef int (*DvrWriteBufferQueueCreatePtr)(uint32_t width, uint32_t height,
+                                            uint32_t format,
+                                            uint32_t layer_count,
+                                            uint64_t usage, size_t capacity,
+                                            size_t metadata_size,
+                                            DvrWriteBufferQueue** queue_out);
 typedef void (*DvrWriteBufferQueueDestroyPtr)(DvrWriteBufferQueue* write_queue);
 typedef ssize_t (*DvrWriteBufferQueueGetCapacityPtr)(
     DvrWriteBufferQueue* write_queue);
 typedef int (*DvrWriteBufferQueueGetIdPtr)(DvrWriteBufferQueue* write_queue);
 typedef int (*DvrWriteBufferQueueGetExternalSurfacePtr)(
+    DvrWriteBufferQueue* write_queue, ANativeWindow** out_window);
+typedef int (*DvrWriteBufferQueueGetANativeWindowPtr)(
     DvrWriteBufferQueue* write_queue, ANativeWindow** out_window);
 typedef int (*DvrWriteBufferQueueCreateReadQueuePtr)(
     DvrWriteBufferQueue* write_queue, DvrReadBufferQueue** out_read_queue);
@@ -138,10 +187,20 @@ typedef int (*DvrWriteBufferQueueDequeuePtr)(DvrWriteBufferQueue* write_queue,
                                              int timeout,
                                              DvrWriteBuffer* out_buffer,
                                              int* out_fence_fd);
+typedef int (*DvrWriteBufferQueueGainBufferPtr)(
+    DvrWriteBufferQueue* write_queue, int timeout,
+    DvrWriteBuffer** out_write_buffer, DvrNativeBufferMetadata* out_meta,
+    int* out_fence_fd);
+typedef int (*DvrWriteBufferQueuePostBufferPtr)(
+    DvrWriteBufferQueue* write_queue, DvrWriteBuffer* write_buffer,
+    const DvrNativeBufferMetadata* meta, int ready_fence_fd);
+typedef int (*DvrWriteBufferQueueResizeBufferPtr)(
+    DvrWriteBufferQueue* write_queue, uint32_t width, uint32_t height);
 typedef void (*DvrReadBufferQueueDestroyPtr)(DvrReadBufferQueue* read_queue);
 typedef ssize_t (*DvrReadBufferQueueGetCapacityPtr)(
     DvrReadBufferQueue* read_queue);
 typedef int (*DvrReadBufferQueueGetIdPtr)(DvrReadBufferQueue* read_queue);
+typedef int (*DvrReadBufferQueueGetEventFdPtr)(DvrReadBufferQueue* read_queue);
 typedef int (*DvrReadBufferQueueCreateReadQueuePtr)(
     DvrReadBufferQueue* read_queue, DvrReadBufferQueue** out_read_queue);
 typedef int (*DvrReadBufferQueueDequeuePtr)(DvrReadBufferQueue* read_queue,
@@ -149,9 +208,31 @@ typedef int (*DvrReadBufferQueueDequeuePtr)(DvrReadBufferQueue* read_queue,
                                             DvrReadBuffer* out_buffer,
                                             int* out_fence_fd, void* out_meta,
                                             size_t meta_size_bytes);
+typedef int (*DvrReadBufferQueueAcquireBufferPtr)(
+    DvrReadBufferQueue* read_queue, int timeout,
+    DvrReadBuffer** out_read_buffer, DvrNativeBufferMetadata* out_meta,
+    int* out_fence_fd);
+typedef int (*DvrReadBufferQueueReleaseBufferPtr)(
+    DvrReadBufferQueue* read_queue, DvrReadBuffer* read_buffer,
+    const DvrNativeBufferMetadata* meta, int release_fence_fd);
+typedef void (*DvrReadBufferQueueBufferAvailableCallback)(void* context);
+typedef int (*DvrReadBufferQueueSetBufferAvailableCallbackPtr)(
+    DvrReadBufferQueue* read_queue,
+    DvrReadBufferQueueBufferAvailableCallback callback, void* context);
+typedef void (*DvrReadBufferQueueBufferRemovedCallback)(DvrReadBuffer* buffer,
+                                                        void* context);
+typedef int (*DvrReadBufferQueueSetBufferRemovedCallbackPtr)(
+    DvrReadBufferQueue* read_queue,
+    DvrReadBufferQueueBufferRemovedCallback callback, void* context);
+typedef int (*DvrReadBufferQueueHandleEventsPtr)(
+    DvrReadBufferQueue* read_queue);
 
 // dvr_surface.h
-typedef int (*DvrGetNamedBufferPtr)(const char* name, DvrBuffer** out_buffer);
+typedef int (*DvrSetupGlobalBufferPtr)(DvrGlobalBufferKey key, size_t size,
+                                       uint64_t usage, DvrBuffer** buffer_out);
+typedef int (*DvrDeleteGlobalBufferPtr)(DvrGlobalBufferKey key);
+typedef int (*DvrGetGlobalBufferPtr)(DvrGlobalBufferKey key,
+                                     DvrBuffer** out_buffer);
 typedef int (*DvrSurfaceCreatePtr)(const DvrSurfaceAttribute* attributes,
                                    size_t attribute_count,
                                    DvrSurface** surface_out);
@@ -162,10 +243,12 @@ typedef int (*DvrSurfaceSetAttributesPtr)(DvrSurface* surface,
                                           size_t attribute_count);
 typedef int (*DvrSurfaceCreateWriteBufferQueuePtr)(
     DvrSurface* surface, uint32_t width, uint32_t height, uint32_t format,
-    uint32_t layer_count, uint64_t usage, size_t capacity,
+    uint32_t layer_count, uint64_t usage, size_t capacity, size_t metadata_size,
     DvrWriteBufferQueue** queue_out);
+typedef int (*DvrGetNativeDisplayMetricsPtr)(size_t sizeof_metrics,
+                                             DvrNativeDisplayMetrics* metrics);
 
-// vsync_client_api.h
+// dvr_vsync.h
 typedef int (*DvrVSyncClientCreatePtr)(DvrVSyncClient** client_out);
 typedef void (*DvrVSyncClientDestroyPtr)(DvrVSyncClient* client);
 typedef int (*DvrVSyncClientGetSchedInfoPtr)(DvrVSyncClient* client,
@@ -173,18 +256,36 @@ typedef int (*DvrVSyncClientGetSchedInfoPtr)(DvrVSyncClient* client,
                                              int64_t* next_timestamp_ns,
                                              uint32_t* next_vsync_count);
 
-// pose_client.h
-typedef DvrPose* (*DvrPoseCreatePtr)(void);
-typedef void (*DvrPoseDestroyPtr)(DvrPose* client);
-typedef int (*DvrPoseGetPtr)(DvrPose* client, uint32_t vsync_count,
-                             DvrPoseAsync* out_pose);
-typedef uint32_t (*DvrPoseGetVsyncCountPtr)(DvrPose* client);
-typedef int (*DvrPoseGetControllerPtr)(DvrPose* client, int32_t controller_id,
-                                       uint32_t vsync_count,
-                                       DvrPoseAsync* out_pose);
+// libs/vr/libvrsensor/include/dvr/pose_client.h
+typedef DvrPoseClient* (*DvrPoseClientCreatePtr)();
+typedef void (*DvrPoseClientDestroyPtr)(DvrPoseClient* client);
+typedef int (*DvrPoseClientGetPtr)(DvrPoseClient* client, uint32_t vsync_count,
+                                   DvrPoseAsync* out_pose);
+typedef uint32_t (*DvrPoseClientGetVsyncCountPtr)(DvrPoseClient* client);
+typedef int (*DvrPoseClientGetControllerPtr)(DvrPoseClient* client,
+                                             int32_t controller_id,
+                                             uint32_t vsync_count,
+                                             DvrPoseAsync* out_pose);
+typedef int (*DvrPoseClientSensorsEnablePtr)(DvrPoseClient* client,
+                                             bool enabled);
+typedef int (*DvrPoseClientDataCapturePtr)(DvrPoseClient* client,
+    const DvrPoseDataCaptureRequest* request);
+typedef int (*DvrPoseClientDataReaderDestroyPtr)(DvrPoseClient* client,
+                                                 uint64_t data_type);
 
-// virtual_touchpad_client.h
-typedef DvrVirtualTouchpad* (*DvrVirtualTouchpadCreatePtr)(void);
+// dvr_pose.h
+typedef int (*DvrPoseClientGetDataReaderPtr)(DvrPoseClient* client,
+                                             uint64_t data_type,
+                                             DvrReadBufferQueue** read_queue);
+
+// services/vr/virtual_touchpad/include/dvr/virtual_touchpad_client.h
+
+// Touchpad IDs for *Touch*() and *ButtonState*() calls.
+enum {
+  DVR_VIRTUAL_TOUCHPAD_PRIMARY = 0,
+  DVR_VIRTUAL_TOUCHPAD_VIRTUAL = 1,
+};
+typedef DvrVirtualTouchpad* (*DvrVirtualTouchpadCreatePtr)();
 typedef void (*DvrVirtualTouchpadDestroyPtr)(DvrVirtualTouchpad* client);
 typedef int (*DvrVirtualTouchpadAttachPtr)(DvrVirtualTouchpad* client);
 typedef int (*DvrVirtualTouchpadDetachPtr)(DvrVirtualTouchpad* client);
@@ -193,6 +294,8 @@ typedef int (*DvrVirtualTouchpadTouchPtr)(DvrVirtualTouchpad* client,
                                           float pressure);
 typedef int (*DvrVirtualTouchpadButtonStatePtr)(DvrVirtualTouchpad* client,
                                                 int touchpad, int buttons);
+typedef int (*DvrVirtualTouchpadScrollPtr)(DvrVirtualTouchpad* client,
+                                           int touchpad, float x, float y);
 
 // dvr_hardware_composer_client.h
 typedef struct DvrHwcClient DvrHwcClient;
@@ -260,13 +363,34 @@ typedef DvrHwcRecti (*DvrHwcFrameGetLayerDamagedRegionPtr)(DvrHwcFrame* frame,
                                                            size_t layer_index,
                                                            size_t index);
 
+// dvr_performance.h
+typedef int (*DvrPerformanceSetSchedulerPolicyPtr)(
+    pid_t task_id, const char* scheduler_policy);
+
 // The buffer metadata that an Android Surface (a.k.a. ANativeWindow)
 // will populate. A DvrWriteBufferQueue must be created with this metadata iff
 // ANativeWindow access is needed. Please do not remove, modify, or reorder
 // existing data members. If new fields need to be added, please take extra care
 // to make sure that new data field is padded properly the size of the struct
 // stays same.
-struct DvrNativeBufferMetadata {
+struct ALIGNED_DVR_STRUCT(8) DvrNativeBufferMetadata {
+#ifdef __cplusplus
+  DvrNativeBufferMetadata()
+      : timestamp(0),
+        is_auto_timestamp(0),
+        dataspace(0),
+        crop_left(0),
+        crop_top(0),
+        crop_right(0),
+        crop_bottom(0),
+        scaling_mode(0),
+        transform(0),
+        index(0),
+        user_metadata_size(0),
+        user_metadata_ptr(0),
+        release_fence_mask(0),
+        reserved{0} {}
+#endif
   // Timestamp of the frame.
   int64_t timestamp;
 
@@ -290,15 +414,36 @@ struct DvrNativeBufferMetadata {
   // android/native_window.h
   int32_t transform;
 
-  // Reserved bytes for so that the struct is forward compatible.
-  int32_t reserved[16];
+  // The index of the frame.
+  int64_t index;
+
+  // Size of additional metadata requested by user.
+  uint64_t user_metadata_size;
+
+  // Raw memory address of the additional user defined metadata. Only valid when
+  // user_metadata_size is non-zero.
+  uint64_t user_metadata_ptr;
+
+  // Only applicable for metadata retrieved from GainAsync. This indicates which
+  // consumer has pending fence that producer should epoll on.
+  uint64_t release_fence_mask;
+
+  // Reserved bytes for so that the struct is forward compatible and padding to
+  // 104 bytes so the size is a multiple of 8.
+  int32_t reserved[8];
 };
+
+#ifdef __cplusplus
+// Warning: DvrNativeBufferMetadata is part of the DVR API and changing its size
+// will cause compatiblity issues between different DVR API releases.
+static_assert(sizeof(DvrNativeBufferMetadata) == 104,
+              "Unexpected size for DvrNativeBufferMetadata");
+#endif
 
 struct DvrApi_v1 {
 // Defines an API entry for V1 (no version suffix).
 #define DVR_V1_API_ENTRY(name) Dvr##name##Ptr name
 
-// Include file with API entries.
 #include "dvr_api_entries.h"
 
 // Undefine macro definitions to play nice with Google3 style rules.
@@ -307,6 +452,8 @@ struct DvrApi_v1 {
 
 int dvrGetApi(void* api, size_t struct_size, int version);
 
-__END_DECLS
+#ifdef __cplusplus
+}  // extern "C"
+#endif
 
 #endif  // ANDROID_DVR_API_H_

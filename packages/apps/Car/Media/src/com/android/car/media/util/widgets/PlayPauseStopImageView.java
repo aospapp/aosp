@@ -19,12 +19,13 @@ import android.content.Context;
 import android.graphics.PorterDuff;
 import android.media.session.PlaybackState;
 import android.support.annotation.IntDef;
-import android.support.car.ui.ColorChecker;
-import android.support.car.ui.FabDrawable;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.widget.ImageView;
 import com.android.car.media.R;
+
+import com.android.car.apps.common.ColorChecker;
+import com.android.car.apps.common.FabDrawable;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -38,12 +39,15 @@ import java.lang.annotation.RetentionPolicy;
  */
 public class PlayPauseStopImageView extends ImageView {
     private static final String TAG = "GH.PlayPauseImageView";
-    /** All existing play states in {@link android.media.session.PlaybackState} are positive integers. */
+    /**
+     * All existing play states in {@link android.media.session.PlaybackState} are
+     * positive integers.
+     */
     public static final int PLAYBACKSTATE_DISABLED = -2;
 
     @Retention(RetentionPolicy.SOURCE)
     @IntDef({MODE_PAUSE, MODE_STOP})
-    public @interface ActionModes {}
+    @interface ActionModes {}
     public static final int MODE_PAUSE = 1;
     public static final int MODE_STOP = 2;
 
@@ -64,6 +68,11 @@ public class PlayPauseStopImageView extends ImageView {
         setBackground(new FabDrawable(context));
     }
 
+    /**
+     * Sets the current play state to be represented by this Button.
+     *
+     * @param playState One of the values returned by {@link PlaybackState#getState()}.
+     */
     public void setPlayState(int playState) {
         mPlaybackState = playState;
     }

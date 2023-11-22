@@ -22,10 +22,11 @@ import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+
 import com.android.car.radio.service.RadioStation;
 
 /**
- * A fragment that allows the user to manuall input a radio station to tune to.
+ * A fragment that allows the user to manually input a radio station to tune to.
  */
 public class ManualTunerFragment extends Fragment implements
         ManualTunerController.ManualTunerClickListener {

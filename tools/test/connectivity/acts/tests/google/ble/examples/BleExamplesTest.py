@@ -21,8 +21,8 @@ import pprint
 
 from acts.controllers import android_devices
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
-from acts.test_utils.bt.bt_test_utils import adv_succ
-from acts.test_utils.bt.bt_test_utils import scan_result
+from acts.test_utils.bt.bt_constants import adv_succ
+from acts.test_utils.bt.bt_constants import scan_result
 from acts.test_utils.bt.bt_test_utils import cleanup_scanners_and_advertisers
 from acts.test_utils.bt.bt_test_utils import reset_bluetooth
 
@@ -52,9 +52,8 @@ class BleExamplesTest(BluetoothBaseTest):
     # on_exception in base_test. If the test throws an
     # unexpected exception, you can customise it.
     def on_exception(self, test_name, begin_time):
-        self.log.debug(
-            "Test {} failed. Gathering bugreport and btsnoop logs".format(
-                test_name))
+        self.log.debug("Test {} failed. Gathering bugreport and btsnoop logs".
+                       format(test_name))
         android_devices.take_bug_reports(self.android_devices, test_name,
                                          begin_time)
 
@@ -102,8 +101,8 @@ class BleExamplesTest(BluetoothBaseTest):
         event_name = scan_result.format(scan_callback)
         try:
             event = self.scn_ed.pop_event(event_name, self.default_timeout)
-            self.log.info("Found scan result: {}".format(pprint.pformat(
-                event)))
+            self.log.info("Found scan result: {}".format(
+                pprint.pformat(event)))
         except Exception:
             self.log.info("Didn't find any scan results.")
         return True

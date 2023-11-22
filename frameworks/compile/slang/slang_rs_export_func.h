@@ -33,10 +33,6 @@ namespace llvm {
   class StructType;
 }
 
-namespace clang {
-  class FunctionDecl;
-}   // namespace clang
-
 namespace slang {
 
 class RSContext;
@@ -52,7 +48,7 @@ class RSExportFunc : public RSExportable {
 
   RSExportFunc(RSContext *Context, const llvm::StringRef &Name,
                const clang::FunctionDecl *FD)
-    : RSExportable(Context, RSExportable::EX_FUNC),
+    : RSExportable(Context, RSExportable::EX_FUNC, FD->getLocation()),
       mName(Name.data(), Name.size()),
       mMangledName(),
       mShouldMangle(false),

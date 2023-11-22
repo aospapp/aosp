@@ -260,7 +260,7 @@ public class CallSite {
         }
     }
 
-    /* Android-changed: not used. */
+    // Android-changed: not used.
     // /** This guy is rolled into the default target if a MethodType is supplied to the constructor. */
     // /*package-private*/
     // static Empty uninitializedCallSite() {
@@ -292,7 +292,7 @@ public class CallSite {
         UNSAFE.putObjectVolatile(this, TARGET_OFFSET, newTarget);
     }
 
-    /* Android-changed: not used. */
+    // Android-changed: not used.
     // this implements the upcall from the JVM, MethodHandleNatives.makeDynamicCallSite:
     // static CallSite makeSite(MethodHandle bootstrapMethod,
     //                          // Callee information:

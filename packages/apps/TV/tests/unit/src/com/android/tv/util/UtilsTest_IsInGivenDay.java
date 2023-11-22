@@ -16,8 +16,12 @@
 
 package com.android.tv.util;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import android.support.test.filters.SmallTest;
-import android.test.AndroidTestCase;
+
+import org.junit.Test;
 
 import java.util.Calendar;
 import java.util.GregorianCalendar;
@@ -27,19 +31,22 @@ import java.util.TimeZone;
  * Tests for {@link com.android.tv.util.Utils#isInGivenDay}.
  */
 @SmallTest
-public class UtilsTest_IsInGivenDay extends AndroidTestCase {
+public class UtilsTest_IsInGivenDay {
+    @Test
     public void testIsInGivenDay() {
         assertTrue(Utils.isInGivenDay(
                 new GregorianCalendar(2015, Calendar.JANUARY, 1).getTimeInMillis(),
                 new GregorianCalendar(2015, Calendar.JANUARY, 1, 0, 30).getTimeInMillis()));
     }
 
+    @Test
     public void testIsNotInGivenDay() {
         assertFalse(Utils.isInGivenDay(
                 new GregorianCalendar(2015, Calendar.JANUARY, 1).getTimeInMillis(),
                 new GregorianCalendar(2015, Calendar.JANUARY, 2).getTimeInMillis()));
     }
 
+    @Test
     public void testIfTimeZoneApplied() {
         TimeZone timeZone = TimeZone.getDefault();
 

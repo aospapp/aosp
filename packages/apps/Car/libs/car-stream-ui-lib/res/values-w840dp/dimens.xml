@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 <resources>
+    <dimen name="car_drawer_button_container_width">@dimen/stream_content_keyline_1</dimen>
     <dimen name="stream_margin_size">40dp</dimen>
     <dimen name="stream_gutter_size">24dp</dimen>
     <dimen name="stream_content_keyline_1">40dp</dimen>

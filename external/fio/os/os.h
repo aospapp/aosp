@@ -9,6 +9,7 @@
 #include <stdlib.h>
 
 #include "../arch/arch.h"
+#include "../lib/types.h"
 
 enum {
 	os_linux = 1,
@@ -65,7 +66,11 @@ typedef struct aiocb os_aiocb_t;
 #endif
 
 #ifndef CONFIG_STRSEP
-#include "../lib/strsep.h"
+#include "../oslib/strsep.h"
+#endif
+
+#ifndef CONFIG_STRLCAT
+#include "../oslib/strlcat.h"
 #endif
 
 #ifdef MSG_DONTWAIT
@@ -76,15 +81,32 @@ typedef struct aiocb os_aiocb_t;
 #define POSIX_FADV_DONTNEED	(0)
 #define POSIX_FADV_SEQUENTIAL	(0)
 #define POSIX_FADV_RANDOM	(0)
+#define POSIX_FADV_NORMAL	(0)
 #endif
 
 #ifndef FIO_HAVE_CPU_AFFINITY
-#define fio_setaffinity(pid, mask)	(0)
-#define fio_getaffinity(pid, mask)	do { } while (0)
 #define fio_cpu_clear(mask, cpu)	do { } while (0)
-#define fio_cpuset_exit(mask)		(-1)
-#define fio_cpus_split(mask, cpu)	(0)
 typedef unsigned long os_cpu_mask_t;
+
+static inline int fio_setaffinity(int pid, os_cpu_mask_t cpumask)
+{
+	return 0;
+}
+
+static inline int fio_getaffinity(int pid, os_cpu_mask_t *cpumask)
+{
+	return -1;
+}
+
+static inline int fio_cpuset_exit(os_cpu_mask_t *mask)
+{
+	return -1;
+}
+
+static inline int fio_cpus_split(os_cpu_mask_t *mask, unsigned int cpu_index)
+{
+	return 0;
+}
 #else
 extern int fio_cpus_split(os_cpu_mask_t *mask, unsigned int cpu);
 #endif
@@ -134,7 +156,7 @@ extern int fio_cpus_split(os_cpu_mask_t *mask, unsigned int cpu);
 #endif
 
 #ifndef FIO_PREFERRED_ENGINE
-#define FIO_PREFERRED_ENGINE	"sync"
+#define FIO_PREFERRED_ENGINE	"psync"
 #endif
 
 #ifndef FIO_OS_PATH_SEPARATOR
@@ -150,7 +172,7 @@ extern int fio_cpus_split(os_cpu_mask_t *mask, unsigned int cpu);
 #endif
 
 #ifndef FIO_MAX_JOBS
-#define FIO_MAX_JOBS		2048
+#define FIO_MAX_JOBS		4096
 #endif
 
 #ifndef CONFIG_SOCKLEN_T
@@ -320,9 +342,17 @@ static inline int init_random_state(struct thread_data *td, unsigned long *rand_
 #endif
 
 #ifndef FIO_HAVE_FS_STAT
-static inline unsigned long long get_fs_size(const char *path)
+static inline unsigned long long get_fs_free_size(const char *path)
 {
 	return 0;
+}
+#endif
+
+#ifdef __powerpc64__
+#define FIO_HAVE_CPU_ONLINE_SYSCONF
+static inline unsigned int cpus_online(void)
+{
+        return sysconf(_SC_NPROCESSORS_CONF);
 }
 #endif
 
@@ -353,6 +383,13 @@ static inline int CPU_COUNT(os_cpu_mask_t *mask)
 static inline int gettid(void)
 {
 	return getpid();
+}
+#endif
+
+#ifndef FIO_HAVE_SHM_ATTACH_REMOVED
+static inline int shm_attach_to_open_removed(void)
+{
+	return 0;
 }
 #endif
 

@@ -23,8 +23,10 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
+import android.app.Instrumentation;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
+import android.support.test.InstrumentationRegistry;
 import android.support.test.annotation.UiThreadTest;
 import android.support.test.filters.MediumTest;
 import android.support.test.rule.ActivityTestRule;
@@ -52,6 +54,7 @@ import org.junit.runner.RunWith;
 public class TabWidgetTest {
     private TabHostCtsActivity mActivity;
     private TabWidget mTabWidget;
+    private Instrumentation mInstrumentation;
 
     @Rule
     public ActivityTestRule<TabHostCtsActivity> mActivityRule =
@@ -59,6 +62,7 @@ public class TabWidgetTest {
 
     @Before
     public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mActivity = mActivityRule.getActivity();
         mTabWidget = mActivity.getTabWidget();
     }
@@ -289,38 +293,55 @@ public class TabWidgetTest {
         assertFalse(mTabWidget.isStripEnabled());
     }
 
-    @UiThreadTest
     @Test
-    public void testStripDrawables() {
+    public void testStripDrawables() throws Throwable {
+        mTabWidget.setStripEnabled(true);
+
         // Test setting left strip drawable
-        mTabWidget.setLeftStripDrawable(R.drawable.icon_green);
+        mActivityRule.runOnUiThread(() -> mTabWidget.setLeftStripDrawable(R.drawable.icon_green));
         Drawable leftStripDrawable = mTabWidget.getLeftStripDrawable();
         assertNotNull(leftStripDrawable);
         TestUtils.assertAllPixelsOfColor("Left strip green", leftStripDrawable,
                 leftStripDrawable.getIntrinsicWidth(), leftStripDrawable.getIntrinsicHeight(),
                 true, 0xFF00FF00, 1, false);
 
-        mTabWidget.setLeftStripDrawable(mActivity.getDrawable(R.drawable.icon_red));
+        mActivityRule.runOnUiThread(() -> mTabWidget.setLeftStripDrawable(
+                mActivity.getDrawable(R.drawable.icon_red)));
         leftStripDrawable = mTabWidget.getLeftStripDrawable();
         assertNotNull(leftStripDrawable);
         TestUtils.assertAllPixelsOfColor("Left strip red", leftStripDrawable,
                 leftStripDrawable.getIntrinsicWidth(), leftStripDrawable.getIntrinsicHeight(),
                 true, 0xFFFF0000, 1, false);
 
+        mActivityRule.runOnUiThread(() -> mTabWidget.setLeftStripDrawable(null));
+        leftStripDrawable = mTabWidget.getLeftStripDrawable();
+        assertNull(leftStripDrawable);
+
+        // Wait for draw.
+        mInstrumentation.waitForIdleSync();
+
         // Test setting right strip drawable
-        mTabWidget.setRightStripDrawable(R.drawable.icon_red);
+        mActivityRule.runOnUiThread(() -> mTabWidget.setRightStripDrawable(R.drawable.icon_red));
         Drawable rightStripDrawable = mTabWidget.getRightStripDrawable();
         assertNotNull(rightStripDrawable);
         TestUtils.assertAllPixelsOfColor("Right strip red", rightStripDrawable,
                 rightStripDrawable.getIntrinsicWidth(), rightStripDrawable.getIntrinsicHeight(),
                 true, 0xFFFF0000, 1, false);
 
-        mTabWidget.setRightStripDrawable(mActivity.getDrawable(R.drawable.icon_green));
+        mActivityRule.runOnUiThread(() -> mTabWidget.setRightStripDrawable(
+                mActivity.getDrawable(R.drawable.icon_green)));
         rightStripDrawable = mTabWidget.getRightStripDrawable();
         assertNotNull(rightStripDrawable);
         TestUtils.assertAllPixelsOfColor("Left strip green", rightStripDrawable,
                 rightStripDrawable.getIntrinsicWidth(), rightStripDrawable.getIntrinsicHeight(),
                 true, 0xFF00FF00, 1, false);
+
+        mActivityRule.runOnUiThread(() -> mTabWidget.setRightStripDrawable(null));
+        rightStripDrawable = mTabWidget.getRightStripDrawable();
+        assertNull(rightStripDrawable);
+
+        // Wait for draw.
+        mInstrumentation.waitForIdleSync();
     }
 
     @UiThreadTest

@@ -18,6 +18,7 @@
 #define LOG_TAG "OMXVideoDecoder"
 #include <wrs_omxil_core/log.h>
 
+#include <nativebase/nativebase.h>
 #include <hardware/gralloc.h>
 #include <va/va_android.h>
 

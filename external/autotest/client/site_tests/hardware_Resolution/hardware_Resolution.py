@@ -62,18 +62,7 @@ class hardware_Resolution(test.test):
 
         return None
 
-    def run_x(self):
-        xrandr_output = graphics_utils.call_xrandr().split('\n')
-
-        res = self.get_current_res(xrandr_output)
-        if not res or not re.match(r'\d+x\d+$', res):
-            raise error.TestFail('%s is not a valid resolution' % res)
-
-        if self.is_lvds_res(res, xrandr_output) and \
-           res not in _SUPPORTED_LVDS_RESOLUTIONS:
-            raise error.TestFail(_LVDS_UNSUPPORTED_MESSAGE % res)
-
-    def run_freon(self):
+    def run_once(self):
         modetest_output = utils.system_output(_MODETEST_COMMAND)
         logging.info('modetest output: \n{0}'.format(modetest_output))
 
@@ -96,9 +85,3 @@ class hardware_Resolution(test.test):
                                            int(mode_match.group(2)))
                     if res not in _SUPPORTED_LVDS_RESOLUTIONS:
                         raise error.TestFail(_LVDS_UNSUPPORTED_MESSAGE % res)
-
-    def run_once(self):
-        if utils.is_freon():
-            self.run_freon()
-        else:
-            self.run_x()

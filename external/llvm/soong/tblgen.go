@@ -147,8 +147,9 @@ func (t *tblgen) GeneratedSourceFiles() android.Paths {
 	return t.generatedHeaders
 }
 
-func llvmTblgenFactory() (blueprint.Module, []interface{}) {
+func llvmTblgenFactory() android.Module {
 	t := &tblgen{}
-
-	return android.InitAndroidModule(t, &t.properties)
+	t.AddProperties(&t.properties)
+	android.InitAndroidModule(t)
+	return t
 }

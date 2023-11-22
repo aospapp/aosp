@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#include "Exif.h"
-
 #define LOG_NDEBUG 0
 #define LOG_TAG "EmulatedCamera_Exif"
 #include <cutils/log.h>
@@ -24,7 +22,13 @@
 #include <math.h>
 #include <stdint.h>
 
-#include <camera/CameraParameters.h>
+#include <CameraParameters.h>
+
+using ::android::hardware::camera::common::V1_0::helper::CameraParameters;
+using ::android::hardware::camera::common::V1_0::helper::Size;
+
+#include "Exif.h"
+
 #include <libexif/exif-data.h>
 #include <libexif/exif-entry.h>
 #include <libexif/exif-ifd.h>
@@ -280,10 +284,15 @@ ExifData* createExifData(const CameraParameters& params) {
     float triplet[3];
     float floatValue = 0.0f;
     const char* stringValue;
+    int64_t degrees;
 
     // Datetime, creating and initializing a datetime tag will automatically
     // set the current date and time in the tag so just do that.
     createEntry(exifData, EXIF_IFD_0, EXIF_TAG_DATE_TIME);
+
+    // Make and model
+    createEntry(exifData, EXIF_IFD_0, EXIF_TAG_MAKE, "Emulator-Goldfish");
+    createEntry(exifData, EXIF_IFD_0, EXIF_TAG_MODEL, "Emulator-Goldfish");
 
     // Picture size
     int width = -1, height = -1;
@@ -293,6 +302,38 @@ ExifData* createExifData(const CameraParameters& params) {
                     EXIF_TAG_PIXEL_X_DIMENSION, width);
         createEntry(exifData, EXIF_IFD_EXIF,
                     EXIF_TAG_PIXEL_Y_DIMENSION, height);
+    }
+    // Orientation
+    if (getCameraParam(params,
+                       CameraParameters::KEY_ROTATION,
+                       &degrees)) {
+        // Exif orientation values, please refer to
+        // http://www.exif.org/Exif2-2.PDF, Section 4.6.4-A-Orientation
+        // Or these websites:
+        // http://sylvana.net/jpegcrop/exif_orientation.html
+        // http://www.impulseadventure.com/photo/exif-orientation.html
+        enum {
+            EXIF_ROTATE_CAMERA_CW0 = 1,
+            EXIF_ROTATE_CAMERA_CW90 = 6,
+            EXIF_ROTATE_CAMERA_CW180 = 3,
+            EXIF_ROTATE_CAMERA_CW270 = 8,
+        };
+        uint16_t exifOrien = 1;
+        switch (degrees) {
+            case 0:
+                exifOrien = EXIF_ROTATE_CAMERA_CW0;
+                break;
+            case 90:
+                exifOrien = EXIF_ROTATE_CAMERA_CW90;
+                break;
+            case 180:
+                exifOrien = EXIF_ROTATE_CAMERA_CW180;
+                break;
+            case 270:
+                exifOrien = EXIF_ROTATE_CAMERA_CW270;
+                break;
+        }
+        createEntry(exifData, EXIF_IFD_0, EXIF_TAG_ORIENTATION, exifOrien);
     }
     // Focal length
     if (getCameraParam(params,

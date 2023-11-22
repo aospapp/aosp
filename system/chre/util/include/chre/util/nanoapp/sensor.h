@@ -27,7 +27,7 @@ namespace chre {
  * @param eventType the type of a sensor sample event.
  * @return the name of the sensor that produced this event type.
  */
-const char *getSensorNameForEventType(uint32_t eventType);
+const char *getSensorNameForEventType(uint16_t eventType);
 
 }  // namespace chre
 

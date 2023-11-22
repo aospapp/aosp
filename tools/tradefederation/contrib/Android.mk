@@ -22,6 +22,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_JAVA_RESOURCE_DIRS := res
 
 LOCAL_JAVACFLAGS += -g -Xlint
+-include tools/tradefederation/core/error_prone_rules.mk
 
 LOCAL_MODULE := tradefed-contrib
 

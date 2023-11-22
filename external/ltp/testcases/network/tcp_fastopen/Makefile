@@ -1,4 +1,4 @@
-# Copyright (c) 2014 Oracle and/or its affiliates. All Rights Reserved.
+# Copyright (c) 2014-2016 Oracle and/or its affiliates. All Rights Reserved.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -19,6 +19,5 @@ top_srcdir		?= ../../..
 include $(top_srcdir)/include/mk/testcases.mk
 
 INSTALL_TARGETS		:= tcp_fastopen_run.sh
-LDLIBS			+= -lpthread -lrt
 
 include $(top_srcdir)/include/mk/generic_leaf_target.mk

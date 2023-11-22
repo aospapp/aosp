@@ -23,6 +23,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.hardware.fingerprint.FingerprintManager;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -124,10 +125,12 @@ public class TurnOffWorkActivity extends DialogTestListActivity {
                 R.string.provisioning_byod_turn_off_work_icon_instruction,
                 new Intent(Settings.ACTION_SETTINGS)));
 
-        adapter.add(new DialogTestListItem(this, R.string.provisioning_byod_turn_off_work_launcher,
-                "BYOD_TurnOffWorkStartApps",
-                R.string.provisioning_byod_turn_off_work_launcher_instruction,
-                homeIntent));
+        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
+            adapter.add(new DialogTestListItem(this, R.string.provisioning_byod_turn_off_work_launcher,
+                    "BYOD_TurnOffWorkStartApps",
+                    R.string.provisioning_byod_turn_off_work_launcher_instruction,
+                    homeIntent));
+        }
 
         mTurnOnWorkTest = new DialogTestListItem(this,
                 R.string.provisioning_byod_turn_off_work_turned_on,
@@ -146,9 +149,11 @@ public class TurnOffWorkActivity extends DialogTestListActivity {
                 R.string.provisioning_byod_turn_on_work_icon_instruction,
                 new Intent(Settings.ACTION_SETTINGS)));
 
-        adapter.add(new DialogTestListItem(this, R.string.provisioning_byod_turn_on_work_launcher,
-                "BYOD_TurnOnWorkStartApps",
-                R.string.provisioning_byod_turn_on_work_launcher_instruction,
-                homeIntent));
+        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
+            adapter.add(new DialogTestListItem(this, R.string.provisioning_byod_turn_on_work_launcher,
+                    "BYOD_TurnOnWorkStartApps",
+                    R.string.provisioning_byod_turn_on_work_launcher_instruction,
+                    homeIntent));
+        }
     }
 }

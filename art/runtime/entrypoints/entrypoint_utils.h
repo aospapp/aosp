@@ -20,6 +20,7 @@
 #include <jni.h>
 #include <stdint.h>
 
+#include "base/callee_save_type.h"
 #include "base/macros.h"
 #include "base/mutex.h"
 #include "dex_instruction.h"
@@ -28,7 +29,6 @@
 #include "handle.h"
 #include "invoke_type.h"
 #include "jvalue.h"
-#include "runtime.h"
 
 namespace art {
 
@@ -137,11 +137,10 @@ inline ArtField* FindFieldFast(uint32_t field_idx,
     REQUIRES_SHARED(Locks::mutator_lock_);
 
 // Fast path method resolution that can't throw exceptions.
+template <InvokeType type, bool access_check>
 inline ArtMethod* FindMethodFast(uint32_t method_idx,
                                  ObjPtr<mirror::Object> this_object,
-                                 ArtMethod* referrer,
-                                 bool access_check,
-                                 InvokeType type)
+                                 ArtMethod* referrer)
     REQUIRES_SHARED(Locks::mutator_lock_);
 
 inline mirror::Class* ResolveVerifyAndClinit(dex::TypeIndex type_idx,
@@ -178,7 +177,7 @@ template <typename INT_TYPE, typename FLOAT_TYPE>
 inline INT_TYPE art_float_to_integral(FLOAT_TYPE f);
 
 ArtMethod* GetCalleeSaveMethodCaller(ArtMethod** sp,
-                                     Runtime::CalleeSaveType type,
+                                     CalleeSaveType type,
                                      bool do_caller_check = false)
     REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -187,11 +186,10 @@ struct CallerAndOuterMethod {
   ArtMethod* outer_method;
 };
 
-CallerAndOuterMethod GetCalleeSaveMethodCallerAndOuterMethod(Thread* self,
-                                                             Runtime::CalleeSaveType type)
+CallerAndOuterMethod GetCalleeSaveMethodCallerAndOuterMethod(Thread* self, CalleeSaveType type)
     REQUIRES_SHARED(Locks::mutator_lock_);
 
-ArtMethod* GetCalleeSaveOuterMethod(Thread* self, Runtime::CalleeSaveType type)
+ArtMethod* GetCalleeSaveOuterMethod(Thread* self, CalleeSaveType type)
     REQUIRES_SHARED(Locks::mutator_lock_);
 
 }  // namespace art

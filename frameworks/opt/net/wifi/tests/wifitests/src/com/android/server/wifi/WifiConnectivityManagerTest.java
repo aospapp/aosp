@@ -25,6 +25,7 @@ import static org.mockito.Mockito.*;
 import android.app.test.MockAnswerUtil.AnswerWithArguments;
 import android.app.test.TestAlarmManager;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.net.NetworkScoreManager;
 import android.net.wifi.ScanResult;
@@ -40,6 +41,7 @@ import android.net.wifi.WifiScanner.ScanData;
 import android.net.wifi.WifiScanner.ScanListener;
 import android.net.wifi.WifiScanner.ScanSettings;
 import android.net.wifi.WifiSsid;
+import android.os.Process;
 import android.os.SystemClock;
 import android.os.WorkSource;
 import android.os.test.TestLooper;
@@ -50,7 +52,6 @@ import com.android.internal.R;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
@@ -63,6 +64,7 @@ import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 
 /**
  * Unit tests for {@link com.android.server.wifi.WifiConnectivityManager}.
@@ -90,6 +92,10 @@ public class WifiConnectivityManagerTest {
         verify(mWifiConfigManager).setOnSavedNetworkUpdateListener(anyObject());
         mWifiConnectivityManager.setWifiEnabled(true);
         when(mClock.getElapsedSinceBootMillis()).thenReturn(SystemClock.elapsedRealtime());
+        mFullScanMaxTxPacketRate = mResource.getInteger(
+                R.integer.config_wifi_framework_max_tx_rate_for_full_scan);
+        mFullScanMaxRxPacketRate = mResource.getInteger(
+                R.integer.config_wifi_framework_max_rx_rate_for_full_scan);
     }
 
     /**
@@ -118,12 +124,15 @@ public class WifiConnectivityManagerTest {
     @Mock private NetworkScoreManager mNetworkScoreManager;
     @Mock private Clock mClock;
     @Mock private WifiLastResortWatchdog mWifiLastResortWatchdog;
+    @Mock private OpenNetworkNotifier mOpenNetworkNotifier;
     @Mock private WifiMetrics mWifiMetrics;
     @Mock private WifiNetworkScoreCache mScoreCache;
     @Captor ArgumentCaptor<ScanResult> mCandidateScanResultCaptor;
     @Captor ArgumentCaptor<ArrayList<String>> mBssidBlacklistCaptor;
     @Captor ArgumentCaptor<ArrayList<String>> mSsidWhitelistCaptor;
     private MockResources mResources;
+    private int mFullScanMaxTxPacketRate;
+    private int mFullScanMaxRxPacketRate;
 
     private static final int CANDIDATE_NETWORK_ID = 0;
     private static final String CANDIDATE_SSID = "\"AnSsid\"";
@@ -145,6 +154,10 @@ public class WifiConnectivityManagerTest {
                 .thenReturn(-60);
         when(resource.getInteger(
                 R.integer.config_wifi_framework_current_network_boost)).thenReturn(16);
+        when(resource.getInteger(
+                R.integer.config_wifi_framework_max_tx_rate_for_full_scan)).thenReturn(8);
+        when(resource.getInteger(
+                R.integer.config_wifi_framework_max_rx_rate_for_full_scan)).thenReturn(16);
         return resource;
     }
 
@@ -154,6 +167,7 @@ public class WifiConnectivityManagerTest {
         when(context.getResources()).thenReturn(mResource);
         when(context.getSystemService(Context.ALARM_SERVICE)).thenReturn(
                 mAlarmManager.getAlarmManager());
+        when(context.getPackageManager()).thenReturn(mock(PackageManager.class));
 
         return context;
     }
@@ -281,8 +295,8 @@ public class WifiConnectivityManagerTest {
     WifiConnectivityManager createConnectivityManager() {
         return new WifiConnectivityManager(mContext, mWifiStateMachine, mWifiScanner,
                 mWifiConfigManager, mWifiInfo, mWifiNS, mWifiConnectivityHelper,
-                mWifiLastResortWatchdog, mWifiMetrics, mLooper.getLooper(), mClock,
-                mLocalLog, true, mFrameworkFacade, null, null, null);
+                mWifiLastResortWatchdog, mOpenNetworkNotifier, mWifiMetrics,
+                mLooper.getLooper(), mClock, mLocalLog, true, mFrameworkFacade, null, null, null);
     }
 
     /**
@@ -301,7 +315,8 @@ public class WifiConnectivityManagerTest {
         mWifiConnectivityManager.handleConnectionStateChanged(
                 WifiConnectivityManager.WIFI_STATE_DISCONNECTED);
 
-        verify(mWifiStateMachine).startConnectToNetwork(CANDIDATE_NETWORK_ID, CANDIDATE_BSSID);
+        verify(mWifiStateMachine).startConnectToNetwork(
+                CANDIDATE_NETWORK_ID, Process.WIFI_UID, CANDIDATE_BSSID);
     }
 
     /**
@@ -320,7 +335,8 @@ public class WifiConnectivityManagerTest {
         mWifiConnectivityManager.handleConnectionStateChanged(
                 WifiConnectivityManager.WIFI_STATE_CONNECTED);
 
-        verify(mWifiStateMachine).startConnectToNetwork(CANDIDATE_NETWORK_ID, CANDIDATE_BSSID);
+        verify(mWifiStateMachine).startConnectToNetwork(
+                CANDIDATE_NETWORK_ID, Process.WIFI_UID, CANDIDATE_BSSID);
     }
 
     /**
@@ -340,7 +356,7 @@ public class WifiConnectivityManagerTest {
         mWifiConnectivityManager.handleScreenStateChanged(true);
 
         verify(mWifiStateMachine, atLeastOnce()).startConnectToNetwork(
-                CANDIDATE_NETWORK_ID, CANDIDATE_BSSID);
+                CANDIDATE_NETWORK_ID, Process.WIFI_UID, CANDIDATE_BSSID);
     }
 
     /**
@@ -360,7 +376,7 @@ public class WifiConnectivityManagerTest {
         mWifiConnectivityManager.handleScreenStateChanged(true);
 
         verify(mWifiStateMachine, atLeastOnce()).startConnectToNetwork(
-                CANDIDATE_NETWORK_ID, CANDIDATE_BSSID);
+                CANDIDATE_NETWORK_ID, Process.WIFI_UID, CANDIDATE_BSSID);
     }
 
     /**
@@ -387,7 +403,7 @@ public class WifiConnectivityManagerTest {
         mWifiConnectivityManager.handleScreenStateChanged(true);
 
         verify(mWifiStateMachine, times(0)).startConnectToNetwork(
-                CANDIDATE_NETWORK_ID, CANDIDATE_BSSID);
+                CANDIDATE_NETWORK_ID, Process.WIFI_UID, CANDIDATE_BSSID);
     }
 
     /**
@@ -425,7 +441,7 @@ public class WifiConnectivityManagerTest {
 
         // Verify that we attempt to connect upto the rate.
         verify(mWifiStateMachine, times(numAttempts)).startConnectToNetwork(
-                CANDIDATE_NETWORK_ID, CANDIDATE_BSSID);
+                CANDIDATE_NETWORK_ID, Process.WIFI_UID, CANDIDATE_BSSID);
     }
 
     /**
@@ -466,7 +482,7 @@ public class WifiConnectivityManagerTest {
 
         // Verify that all the connection attempts went through
         verify(mWifiStateMachine, times(numAttempts)).startConnectToNetwork(
-                CANDIDATE_NETWORK_ID, CANDIDATE_BSSID);
+                CANDIDATE_NETWORK_ID, Process.WIFI_UID, CANDIDATE_BSSID);
     }
 
     /**
@@ -510,7 +526,7 @@ public class WifiConnectivityManagerTest {
 
         // Verify that all the connection attempts went through
         verify(mWifiStateMachine, times(numAttempts)).startConnectToNetwork(
-                CANDIDATE_NETWORK_ID, CANDIDATE_BSSID);
+                CANDIDATE_NETWORK_ID, Process.WIFI_UID, CANDIDATE_BSSID);
     }
 
     /**
@@ -521,7 +537,6 @@ public class WifiConnectivityManagerTest {
      * because of their low RSSI values.
      */
     @Test
-    @Ignore("b/32977707")
     public void pnoRetryForLowRssiNetwork() {
         when(mWifiNS.selectNetwork(anyObject(), anyObject(), anyObject(), anyBoolean(),
                 anyBoolean(), anyBoolean())).thenReturn(null);
@@ -553,7 +568,6 @@ public class WifiConnectivityManagerTest {
      * a candidate while watchdog single scan did.
      */
     @Test
-    @Ignore("b/32977707")
     public void watchdogBitePnoBadIncrementsMetrics() {
         // Set screen to off
         mWifiConnectivityManager.handleScreenStateChanged(false);
@@ -577,7 +591,6 @@ public class WifiConnectivityManagerTest {
      * a candidate which was the same with watchdog single scan.
      */
     @Test
-    @Ignore("b/32977707")
     public void watchdogBitePnoGoodIncrementsMetrics() {
         // Qns returns no candidate after watchdog single scan.
         when(mWifiNS.selectNetwork(anyObject(), anyObject(), anyObject(), anyBoolean(),
@@ -596,6 +609,119 @@ public class WifiConnectivityManagerTest {
 
         verify(mWifiMetrics).incrementNumConnectivityWatchdogPnoGood();
         verify(mWifiMetrics, never()).incrementNumConnectivityWatchdogPnoBad();
+    }
+
+    /**
+     * {@link OpenNetworkNotifier} handles scan results on network selection.
+     *
+     * Expected behavior: ONA handles scan results
+     */
+    @Test
+    public void wifiDisconnected_noConnectionCandidate_openNetworkNotifierScanResultsHandled() {
+        // no connection candidate selected
+        when(mWifiNS.selectNetwork(anyObject(), anyObject(), anyObject(), anyBoolean(),
+                anyBoolean(), anyBoolean())).thenReturn(null);
+
+        List<ScanDetail> expectedOpenNetworks = new ArrayList<>();
+        expectedOpenNetworks.add(
+                new ScanDetail(
+                        new ScanResult(WifiSsid.createFromAsciiEncoded(CANDIDATE_SSID),
+                                CANDIDATE_SSID, CANDIDATE_BSSID, 1245, 0, "some caps", -78, 2450,
+                                1025, 22, 33, 20, 0, 0, true), null));
+
+        when(mWifiNS.getFilteredScanDetailsForOpenUnsavedNetworks())
+                .thenReturn(expectedOpenNetworks);
+
+        // Set WiFi to disconnected state to trigger PNO scan
+        mWifiConnectivityManager.handleConnectionStateChanged(
+                WifiConnectivityManager.WIFI_STATE_DISCONNECTED);
+
+        verify(mOpenNetworkNotifier).handleScanResults(expectedOpenNetworks);
+    }
+
+    /**
+     * When wifi is connected, {@link OpenNetworkNotifier} handles the Wi-Fi connected behavior.
+     *
+     * Expected behavior: ONA handles connected behavior
+     */
+    @Test
+    public void wifiConnected_openNetworkNotifierHandlesConnection() {
+        // Set WiFi to connected state
+        mWifiConnectivityManager.handleConnectionStateChanged(
+                WifiConnectivityManager.WIFI_STATE_CONNECTED);
+
+        verify(mOpenNetworkNotifier).handleWifiConnected();
+    }
+
+    /**
+     * When wifi is connected, {@link OpenNetworkNotifier} handles connection state
+     * change.
+     *
+     * Expected behavior: ONA does not clear pending notification.
+     */
+    @Test
+    public void wifiDisconnected_openNetworkNotifierDoesNotClearPendingNotification() {
+        // Set WiFi to disconnected state
+        mWifiConnectivityManager.handleConnectionStateChanged(
+                WifiConnectivityManager.WIFI_STATE_DISCONNECTED);
+
+        verify(mOpenNetworkNotifier, never()).clearPendingNotification(anyBoolean());
+    }
+
+    /**
+     * When a Wi-Fi connection attempt ends, {@link OpenNetworkNotifier} handles the connection
+     * failure. A failure code that is not {@link WifiMetrics.ConnectionEvent#FAILURE_NONE}
+     * represents a connection failure.
+     *
+     * Expected behavior: ONA handles connection failure.
+     */
+    @Test
+    public void wifiConnectionEndsWithFailure_openNetworkNotifierHandlesConnectionFailure() {
+        mWifiConnectivityManager.handleConnectionAttemptEnded(
+                WifiMetrics.ConnectionEvent.FAILURE_CONNECT_NETWORK_FAILED);
+
+        verify(mOpenNetworkNotifier).handleConnectionFailure();
+    }
+
+    /**
+     * When a Wi-Fi connection attempt ends, {@link OpenNetworkNotifier} does not handle connection
+     * failure after a successful connection. {@link WifiMetrics.ConnectionEvent#FAILURE_NONE}
+     * represents a successful connection.
+     *
+     * Expected behavior: ONA does nothing.
+     */
+    @Test
+    public void wifiConnectionEndsWithSuccess_openNetworkNotifierDoesNotHandleConnectionFailure() {
+        mWifiConnectivityManager.handleConnectionAttemptEnded(
+                WifiMetrics.ConnectionEvent.FAILURE_NONE);
+
+        verify(mOpenNetworkNotifier, never()).handleConnectionFailure();
+    }
+
+    /**
+     * When Wi-Fi is disabled, clear the pending notification and reset notification repeat delay.
+     *
+     * Expected behavior: clear pending notification and reset notification repeat delay
+     * */
+    @Test
+    public void openNetworkNotifierClearsPendingNotificationOnWifiDisabled() {
+        mWifiConnectivityManager.setWifiEnabled(false);
+
+        verify(mOpenNetworkNotifier).clearPendingNotification(true /* resetRepeatDelay */);
+    }
+
+    /**
+     * Verify that the ONA controller tracks screen state changes.
+     */
+    @Test
+    public void openNetworkNotifierTracksScreenStateChanges() {
+        mWifiConnectivityManager.handleScreenStateChanged(false);
+
+        verify(mOpenNetworkNotifier).handleScreenStateChanged(false);
+
+        mWifiConnectivityManager.handleScreenStateChanged(true);
+
+        verify(mOpenNetworkNotifier).handleScreenStateChanged(true);
     }
 
     /**
@@ -906,8 +1032,8 @@ public class WifiConnectivityManagerTest {
      */
     @Test
     public void checkSingleScanSettingsWhenConnectedWithHighDataRate() {
-        mWifiInfo.txSuccessRate = WifiConnectivityManager.MAX_TX_PACKET_FOR_FULL_SCANS * 2;
-        mWifiInfo.rxSuccessRate = WifiConnectivityManager.MAX_RX_PACKET_FOR_FULL_SCANS * 2;
+        mWifiInfo.txSuccessRate = mFullScanMaxTxPacketRate * 2;
+        mWifiInfo.rxSuccessRate = mFullScanMaxRxPacketRate * 2;
 
         final HashSet<Integer> channelList = new HashSet<>();
         channelList.add(1);
@@ -948,8 +1074,8 @@ public class WifiConnectivityManagerTest {
      */
     @Test
     public void checkSingleScanSettingsWhenConnectedWithHighDataRateNotInCache() {
-        mWifiInfo.txSuccessRate = WifiConnectivityManager.MAX_TX_PACKET_FOR_FULL_SCANS * 2;
-        mWifiInfo.rxSuccessRate = WifiConnectivityManager.MAX_RX_PACKET_FOR_FULL_SCANS * 2;
+        mWifiInfo.txSuccessRate = mFullScanMaxTxPacketRate * 2;
+        mWifiInfo.rxSuccessRate = mFullScanMaxRxPacketRate * 2;
 
         final HashSet<Integer> channelList = new HashSet<>();
 
@@ -1029,7 +1155,8 @@ public class WifiConnectivityManagerTest {
 
         // Verify that WCM receives the scan results and initiates a connection
         // to the network.
-        verify(mWifiStateMachine).startConnectToNetwork(CANDIDATE_NETWORK_ID, CANDIDATE_BSSID);
+        verify(mWifiStateMachine).startConnectToNetwork(
+                CANDIDATE_NETWORK_ID, Process.WIFI_UID, CANDIDATE_BSSID);
     }
 
     /**
@@ -1051,21 +1178,22 @@ public class WifiConnectivityManagerTest {
 
         // Force a connectivity scan which enables WifiConnectivityManager
         // to wait for full band scan results.
-        mWifiConnectivityManager.forceConnectivityScan();
+        mWifiConnectivityManager.forceConnectivityScan(WIFI_WORK_SOURCE);
 
         // No roaming because no full band scan results.
         verify(mWifiStateMachine, times(0)).startConnectToNetwork(
-                CANDIDATE_NETWORK_ID, CANDIDATE_BSSID);
+                CANDIDATE_NETWORK_ID, Process.WIFI_UID, CANDIDATE_BSSID);
 
         // Set up as full band scan results.
         when(mScanData.isAllChannelsScanned()).thenReturn(true);
 
         // Force a connectivity scan which enables WifiConnectivityManager
         // to wait for full band scan results.
-        mWifiConnectivityManager.forceConnectivityScan();
+        mWifiConnectivityManager.forceConnectivityScan(WIFI_WORK_SOURCE);
 
         // Roaming attempt because full band scan results are available.
-        verify(mWifiStateMachine).startConnectToNetwork(CANDIDATE_NETWORK_ID, CANDIDATE_BSSID);
+        verify(mWifiStateMachine).startConnectToNetwork(
+                CANDIDATE_NETWORK_ID, Process.WIFI_UID, CANDIDATE_BSSID);
     }
 
     /**
@@ -1158,14 +1286,14 @@ public class WifiConnectivityManagerTest {
         // its blacklist expiration time hasn't reached yet.
         when(mClock.getElapsedSinceBootMillis()).thenReturn(SystemClock.elapsedRealtime()
                 + WifiConnectivityManager.BSSID_BLACKLIST_EXPIRE_TIME_MS / 2);
-        mWifiConnectivityManager.forceConnectivityScan();
+        mWifiConnectivityManager.forceConnectivityScan(WIFI_WORK_SOURCE);
         assertTrue(mWifiConnectivityManager.isBssidDisabled(bssid));
 
         // Force another connectivity scan at BSSID_BLACKLIST_EXPIRE_TIME_MS from when the
         // BSSID was blacklisted. Verify that the blacklisted BSSId is freed.
         when(mClock.getElapsedSinceBootMillis()).thenReturn(SystemClock.elapsedRealtime()
                 + WifiConnectivityManager.BSSID_BLACKLIST_EXPIRE_TIME_MS);
-        mWifiConnectivityManager.forceConnectivityScan();
+        mWifiConnectivityManager.forceConnectivityScan(WIFI_WORK_SOURCE);
 
         // Verify the BSSID is no longer blacklisted.
         assertFalse(mWifiConnectivityManager.isBssidDisabled(bssid));
@@ -1318,7 +1446,7 @@ public class WifiConnectivityManagerTest {
                 WifiConnectivityManager.WIFI_STATE_DISCONNECTED);
 
         verify(mWifiStateMachine).startConnectToNetwork(
-                CANDIDATE_NETWORK_ID, WifiStateMachine.SUPPLICANT_BSSID_ANY);
+                CANDIDATE_NETWORK_ID, Process.WIFI_UID, WifiStateMachine.SUPPLICANT_BSSID_ANY);
     }
 
     /*
@@ -1354,7 +1482,8 @@ public class WifiConnectivityManagerTest {
         mWifiConnectivityManager.handleConnectionStateChanged(
                 WifiConnectivityManager.WIFI_STATE_DISCONNECTED);
 
-        verify(mWifiStateMachine).startConnectToNetwork(CANDIDATE_NETWORK_ID, CANDIDATE_BSSID);
+        verify(mWifiStateMachine).startConnectToNetwork(
+                CANDIDATE_NETWORK_ID, Process.WIFI_UID, CANDIDATE_BSSID);
     }
 
     /*
@@ -1374,7 +1503,8 @@ public class WifiConnectivityManagerTest {
         mWifiConnectivityManager.handleConnectionStateChanged(
                 WifiConnectivityManager.WIFI_STATE_DISCONNECTED);
 
-        verify(mWifiStateMachine).startConnectToNetwork(CANDIDATE_NETWORK_ID, CANDIDATE_BSSID);
+        verify(mWifiStateMachine).startConnectToNetwork(
+                CANDIDATE_NETWORK_ID, Process.WIFI_UID, CANDIDATE_BSSID);
     }
 
     /*
@@ -1406,7 +1536,8 @@ public class WifiConnectivityManagerTest {
         mWifiConnectivityManager.handleConnectionStateChanged(
                 WifiConnectivityManager.WIFI_STATE_DISCONNECTED);
 
-        verify(mWifiStateMachine).startConnectToNetwork(CANDIDATE_NETWORK_ID, CANDIDATE_BSSID);
+        verify(mWifiStateMachine).startConnectToNetwork(
+                CANDIDATE_NETWORK_ID, Process.WIFI_UID, CANDIDATE_BSSID);
     }
 
     /**
@@ -1496,7 +1627,7 @@ public class WifiConnectivityManagerTest {
                 WifiConnectivityManager.WIFI_STATE_DISCONNECTED);
 
         verify(mWifiStateMachine, times(0)).startConnectToNetwork(
-                CANDIDATE_NETWORK_ID, CANDIDATE_BSSID);
+                CANDIDATE_NETWORK_ID, Process.WIFI_UID, CANDIDATE_BSSID);
     }
 
     /*
@@ -1553,5 +1684,20 @@ public class WifiConnectivityManagerTest {
         PrintWriter pw = new PrintWriter(sw);
         mWifiConnectivityManager.dump(new FileDescriptor(), pw, new String[]{});
         assertTrue(sw.toString().contains(localLogMessage));
+    }
+
+    /**
+     *  Dump ONA controller.
+     *
+     * Expected behavior: {@link OpenNetworkNotifier#dump(FileDescriptor, PrintWriter,
+     * String[])} is invoked.
+     */
+    @Test
+    public void dumpNotificationController() {
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        mWifiConnectivityManager.dump(new FileDescriptor(), pw, new String[]{});
+
+        verify(mOpenNetworkNotifier).dump(any(), any(), any());
     }
 }

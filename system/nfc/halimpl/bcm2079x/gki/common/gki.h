@@ -363,7 +363,7 @@ extern uint8_t GKI_create_task(TASKPTR, uint8_t, int8_t*, uint16_t*, uint16_t,
 extern void GKI_exit_task(uint8_t);
 extern uint8_t GKI_get_taskid(void);
 extern void GKI_init(void);
-extern uint8_t* GKI_map_taskname(uint8_t);
+extern int8_t* GKI_map_taskname(uint8_t);
 extern uint8_t GKI_resume_task(uint8_t);
 extern void GKI_run(void*);
 extern void GKI_stop(void);

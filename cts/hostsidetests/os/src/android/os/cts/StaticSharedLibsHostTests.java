@@ -56,6 +56,9 @@ public class StaticSharedLibsHostTests extends DeviceTestCase implements IBuildR
     private static final String STATIC_LIB_PROVIDER6_APK = "CtsStaticSharedLibProviderApp6.apk";
     private static final String STATIC_LIB_PROVIDER6_PKG = "android.os.lib.provider";
 
+    private static final String STATIC_LIB_PROVIDER7_APK = "CtsStaticSharedLibProviderApp7.apk";
+    private static final String STATIC_LIB_PROVIDER7_PKG = "android.os.lib.provider";
+
     private static final String STATIC_LIB_NATIVE_PROVIDER_APK =
             "CtsStaticSharedNativeLibProvider.apk";
     private static final String STATIC_LIB_NATIVE_PROVIDER_PKG =
@@ -71,6 +74,9 @@ public class StaticSharedLibsHostTests extends DeviceTestCase implements IBuildR
 
     private static final String STATIC_LIB_CONSUMER2_APK = "CtsStaticSharedLibConsumerApp2.apk";
     private static final String STATIC_LIB_CONSUMER2_PKG = "android.os.lib.consumer2";
+
+    private static final String STATIC_LIB_CONSUMER3_APK = "CtsStaticSharedLibConsumerApp3.apk";
+    private static final String STATIC_LIB_CONSUMER3_PKG = "android.os.lib.consumer3";
 
     private static final String STATIC_LIB_NATIVE_CONSUMER_APK
             = "CtsStaticSharedNativeLibConsumer.apk";
@@ -444,6 +450,27 @@ public class StaticSharedLibsHostTests extends DeviceTestCase implements IBuildR
                     STATIC_LIB_NATIVE_PROVIDER_APK1), false, false));
         } finally {
             getDevice().uninstallPackage(STATIC_LIB_NATIVE_PROVIDER_PKG1);
+        }
+    }
+
+    public void testLoadCodeAndResourcesFromSharedLibrarySignedWithTwoCerts()
+            throws Exception {
+        getDevice().uninstallPackage(STATIC_LIB_CONSUMER3_PKG);
+        getDevice().uninstallPackage(STATIC_LIB_PROVIDER7_PKG);
+        try {
+            // Install the library
+            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
+                    STATIC_LIB_PROVIDER7_APK), false, false));
+            // Install the client
+            assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
+                    STATIC_LIB_CONSUMER3_APK), false, false));
+            // Try to load code and resources
+            runDeviceTests(STATIC_LIB_CONSUMER3_PKG,
+                    "android.os.lib.consumer3.UseSharedLibraryTest",
+                    "testLoadCodeAndResources");
+        } finally {
+            getDevice().uninstallPackage(STATIC_LIB_CONSUMER3_PKG);
+            getDevice().uninstallPackage(STATIC_LIB_PROVIDER7_PKG);
         }
     }
 

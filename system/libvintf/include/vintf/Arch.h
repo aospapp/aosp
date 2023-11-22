@@ -49,6 +49,15 @@ inline bool has64(Arch arch) {
     return arch == Arch::ARCH_64 || arch == Arch::ARCH_32_64;
 }
 
+inline constexpr Arch operator|(Arch lft, Arch rgt) {
+    return static_cast<Arch>(static_cast<size_t>(lft) | static_cast<size_t>(rgt));
+}
+static_assert((Arch::ARCH_32 | Arch::ARCH_64) == Arch::ARCH_32_64, "bad Arch::operator|");
+
+inline Arch& operator|=(Arch& lft, Arch rgt) {
+    return (lft = lft | rgt);
+}
+
 } // namespace vintf
 } // namespace android
 

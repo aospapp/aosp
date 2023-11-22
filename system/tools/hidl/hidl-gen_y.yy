@@ -25,6 +25,7 @@
 #include "Interface.h"
 #include "Location.h"
 #include "Method.h"
+#include "Scope.h"
 #include "VectorType.h"
 #include "RefType.h"
 
@@ -37,9 +38,17 @@
 
 using namespace android;
 
-extern int yylex(yy::parser::semantic_type *, yy::parser::location_type *, void *);
+extern int yylex(yy::parser::semantic_type*, yy::parser::location_type*, void*);
 
-#define scanner ast->scanner()
+void enterScope(AST* /* ast */, Scope** scope, Scope* container) {
+    CHECK(container->parent() == (*scope));
+    *scope = container;
+}
+
+void leaveScope(AST* ast, Scope** scope) {
+    CHECK((*scope) != ast->getRootScope());
+    *scope = (*scope)->parent();
+}
 
 ::android::Location convertYYLoc(const yy::parser::location_type &loc) {
     return ::android::Location(
@@ -48,11 +57,14 @@ extern int yylex(yy::parser::semantic_type *, yy::parser::location_type *, void 
     );
 }
 
-bool isValidInterfaceField(const char *identifier, std::string *errorMsg) {
+bool isValidInterfaceField(const std::string& identifier, std::string *errorMsg) {
     static const std::vector<std::string> reserved({
-        // Injected names to interfaces by auto-generated code
+        // Injected names to C++ interfaces by auto-generated code
         "isRemote", "descriptor", "hidlStaticBlock", "onTransact",
-        "castFrom", "Proxy", "Stub",
+        "castFrom", "Proxy", "Stub", "getService",
+
+        // Injected names to Java interfaces by auto-generated code
+        "asInterface", "castFrom", "getService", "toString",
 
         // Inherited methods from IBase is detected in addMethod. Not added here
         // because we need hidl-gen to compile IBase.
@@ -61,30 +73,39 @@ bool isValidInterfaceField(const char *identifier, std::string *errorMsg) {
         "onAsBinder", "asBinder", "queryLocalInterface", "getInterfaceDescriptor", "isBinderAlive",
         "pingBinder", "dump", "transact", "checkSubclass", "attachObject", "findObject",
         "detachObject", "localBinder", "remoteBinder", "mImpl",
+
+        // Inherited names from HidlInstrumentor
+        "InstrumentationEvent", "configureInstrumentation", "registerInstrumentationCallbacks",
+        "isInstrumentationLib", "mInstrumentationCal1lbacks", "mEnableInstrumentation",
+        "mInstrumentationLibPackage", "mInterfaceName",
+
+        // Collide with names in BsFoo
+        "mImpl", "addOnewayTask", "mOnewayQueue",
+
+        // Inherited names from Java IHwInterface
+        "asBinder",
     });
-    std::string idstr(identifier);
-    if (std::find(reserved.begin(), reserved.end(), idstr) != reserved.end()) {
-        *errorMsg = idstr + " cannot be a name inside an interface";
+    if (std::find(reserved.begin(), reserved.end(), identifier) != reserved.end()) {
+        *errorMsg = identifier + " cannot be a name inside an interface";
         return false;
     }
     return true;
 }
 
-bool isValidStructField(const char *identifier, std::string *errorMsg) {
+bool isValidStructField(const std::string& identifier, std::string *errorMsg) {
     static const std::vector<std::string> reserved({
         // Injected names to structs and unions by auto-generated code
         "readEmbeddedFromParcel", "writeEmbeddedToParcel", "readVectorFromParcel",
         "writeVectorToParcel", "writeEmbeddedToBlob",
     });
-    std::string idstr(identifier);
-    if (std::find(reserved.begin(), reserved.end(), idstr) != reserved.end()) {
-        *errorMsg = idstr + " cannot be a name inside an struct or union";
+    if (std::find(reserved.begin(), reserved.end(), identifier) != reserved.end()) {
+        *errorMsg = identifier + " cannot be a name inside an struct or union";
         return false;
     }
     return true;
 }
 
-bool isValidIdentifier(const char *identifier, std::string *errorMsg) {
+bool isValidIdentifier(const std::string& identifier, std::string *errorMsg) {
     static const std::vector<std::string> keywords({
         "uint8_t", "uint16_t", "uint32_t", "uint64_t",
         "int8_t", "int16_t", "int32_t", "int64_t", "bool", "float", "double",
@@ -116,52 +137,59 @@ bool isValidIdentifier(const char *identifier, std::string *errorMsg) {
     });
     static const std::vector<std::string> cppCollide({
         "size_t", "offsetof",
-        "DECLARE_SERVICE_MANAGER_INTERACTIONS", "IMPLEMENT_HWBINDER_META_INTERFACE",
-        "IMPLEMENT_SERVICE_MANAGER_INTERACTIONS"
-    });
-    static const std::vector<std::string> hidlReserved({
-        // Part of HidlSupport
-        "hidl_string", "hidl_vec", "hidl_array", "hidl_version", "toBinder", "castInterface",
-        "make_hidl_version"
     });
 
     // errors
-    std::string idstr(identifier);
-    if (std::find(keywords.begin(), keywords.end(), idstr) != keywords.end()) {
-        *errorMsg = idstr + " is a HIDL keyword "
+    if (std::find(keywords.begin(), keywords.end(), identifier) != keywords.end()) {
+        *errorMsg = identifier + " is a HIDL keyword "
             "and is therefore not a valid identifier";
         return false;
     }
-    if (std::find(cppKeywords.begin(), cppKeywords.end(), idstr) != cppKeywords.end()) {
-        *errorMsg = idstr + " is a C++ keyword "
+    if (std::find(cppKeywords.begin(), cppKeywords.end(), identifier) != cppKeywords.end()) {
+        *errorMsg = identifier + " is a C++ keyword "
             "and is therefore not a valid identifier";
         return false;
     }
-    if (std::find(javaKeywords.begin(), javaKeywords.end(), idstr) != javaKeywords.end()) {
-        *errorMsg = idstr + " is a Java keyword "
+    if (std::find(javaKeywords.begin(), javaKeywords.end(), identifier) != javaKeywords.end()) {
+        *errorMsg = identifier + " is a Java keyword "
             "and is therefore not a valid identifier";
         return false;
     }
-    if (std::find(cppCollide.begin(), cppCollide.end(), idstr) != cppCollide.end()) {
-        *errorMsg = idstr + " collides with reserved names in C++ code "
+    if (std::find(cppCollide.begin(), cppCollide.end(), identifier) != cppCollide.end()) {
+        *errorMsg = identifier + " collides with reserved names in C++ code "
             "and is therefore not a valid identifier";
         return false;
     }
-    if (StringHelper::StartsWith(idstr, "_hidl_")) {
-        *errorMsg = idstr + " starts with _hidl_ "
+    if (StringHelper::StartsWith(identifier, "_hidl_")) {
+        *errorMsg = identifier + " starts with _hidl_ "
             "and is therefore not a valid identifier";
         return false;
     }
-    if (StringHelper::EndsWith(idstr, "_cb")) {
-        *errorMsg = idstr + " ends with _cb "
+    if (StringHelper::StartsWith(identifier, "hidl_")) {
+        *errorMsg = identifier + " starts with hidl_ "
+            "and is therefore not a valid identifier";
+        return false;
+    }
+    if (StringHelper::EndsWith(identifier, "_cb")) {
+        *errorMsg = identifier + " ends with _cb "
             "and is therefore not a valid identifier";
         return false;
     }
 
-    // warnings
-    if (std::find(hidlReserved.begin(), hidlReserved.end(), idstr) != hidlReserved.end()) {
-        *errorMsg = idstr + " is a name reserved by HIDL and should be avoided";
+    return true;
+}
+
+// Return true if identifier is an acceptable name for an UDT.
+bool isValidTypeName(const std::string& identifier, std::string *errorMsg) {
+    if (!isValidIdentifier(identifier, errorMsg)) {
+        return false;
     }
+
+    if (identifier == "toString") {
+        *errorMsg = identifier + " is not a valid type name";
+        return false;
+    }
+
     return true;
 }
 
@@ -173,31 +201,34 @@ bool isValidIdentifier(const char *identifier, std::string *errorMsg) {
         const_cast<std::string *>(&ast->getFilename());
 }
 
-%parse-param { android::AST *ast }
-%lex-param { void *scanner }
+%parse-param { void* scanner }
+%parse-param { android::AST* const ast }
+%parse-param { android::Scope** const scope }
+%lex-param { void* scanner }
 %pure-parser
 %glr-parser
 %skeleton "glr.cc"
 
 %expect-rr 0
+%error-verbose
 
-%token<str> ENUM
-%token<str> EXTENDS
-%token<str> FQNAME
-%token<str> GENERATES
-%token<str> IDENTIFIER
-%token<str> IMPORT
-%token<str> INTEGER
-%token<str> FLOAT
-%token<str> INTERFACE
-%token<str> PACKAGE
-%token<type> TYPE
-%token<str> STRUCT
-%token<str> STRING_LITERAL
-%token<str> TYPEDEF
-%token<str> UNION
-%token<templatedType> TEMPLATED
-%token<void> ONEWAY
+%token<str> ENUM "keyword `enum`"
+%token<str> EXTENDS "keyword `extends`"
+%token<str> FQNAME "fully-qualified name"
+%token<str> GENERATES "keyword `generates`"
+%token<str> IDENTIFIER "identifier"
+%token<str> IMPORT "keyword `import`"
+%token<str> INTEGER "integer value"
+%token<str> FLOAT "float value"
+%token<str> INTERFACE "keyword `interface`"
+%token<str> PACKAGE "keyword `package`"
+%token<type> TYPE "type"
+%token<str> STRUCT "keyword `struct`"
+%token<str> STRING_LITERAL "string literal"
+%token<str> TYPEDEF "keyword `typedef`"
+%token<str> UNION "keyword `union`"
+%token<templatedType> TEMPLATED "templated type"
+%token<void> ONEWAY "keyword `oneway`"
 
 /* Operator precedence and associativity, as per
  * http://en.cppreference.com/w/cpp/language/operator_precedence */
@@ -223,11 +254,11 @@ bool isValidIdentifier(const char *identifier, std::string *errorMsg) {
 /* Precedence level 3, RTL; but we have to use %left here */
 %left UNARY_MINUS UNARY_PLUS '!' '~'
 
-%type<str> error_stmt opt_error_stmt error
+%type<str> error_stmt error
 %type<str> package
 %type<fqName> fqname
 %type<type> fqtype
-%type<str> valid_identifier
+%type<str> valid_identifier valid_type_name
 
 %type<type> type enum_storage_type
 %type<type> array_type_base
@@ -281,6 +312,12 @@ bool isValidIdentifier(const char *identifier, std::string *errorMsg) {
 
 %%
 
+program
+    : package
+      imports
+      type_declarations
+    ;
+
 valid_identifier
     : IDENTIFIER
       {
@@ -289,8 +326,17 @@ valid_identifier
             std::cerr << "ERROR: " << errorMsg << " at " << @1 << "\n";
             YYERROR;
         }
-        if (!errorMsg.empty()) {
-            std::cerr << "WARNING: " << errorMsg << " at " << @1 << "\n";
+        $$ = $1;
+      }
+    ;
+
+valid_type_name
+    : IDENTIFIER
+      {
+        std::string errorMsg;
+        if (!isValidTypeName($1, &errorMsg)) {
+            std::cerr << "ERROR: " << errorMsg << " at " << @1 << "\n";
+            YYERROR;
         }
         $$ = $1;
       }
@@ -399,13 +445,7 @@ error_stmt
     {
       $$ = $1;
       ast->addSyntaxError();
-      // std::cerr << "WARNING: skipping errors until " << @2 << ".\n";
     }
-  ;
-
-opt_error_stmt
-  : /* empty */ { $$ = NULL; }
-  | error_stmt  { $$ = $1; }
   ;
 
 require_semicolon
@@ -415,13 +455,6 @@ require_semicolon
           std::cerr << "ERROR: missing ; at " << @$ << "\n";
           ast->addSyntaxError();
       }
-    ;
-
-program
-    : opt_error_stmt
-      package
-      imports
-      body
     ;
 
 fqname
@@ -435,7 +468,7 @@ fqname
               YYERROR;
           }
       }
-    | valid_identifier
+    | valid_type_name
       {
           $$ = new FQName($1);
           if(!$$->isValid()) {
@@ -450,7 +483,7 @@ fqname
 fqtype
     : fqname
       {
-          $$ = ast->lookupType(*($1));
+          $$ = ast->lookupType(*($1), *scope);
           if ($$ == NULL) {
               std::cerr << "ERROR: Failed to lookup type '" << $1->string() << "' at "
                         << @1
@@ -475,6 +508,13 @@ package
               YYERROR;
           }
       }
+    | error
+    {
+      std::cerr << "ERROR: Package statement must be at the beginning of the file (" << @1 << ")\n";
+      $$ = $1;
+      ast->addSyntaxError();
+    }
+    ;
 
 import_stmt
     : IMPORT FQNAME require_semicolon
@@ -485,7 +525,7 @@ import_stmt
               ast->addSyntaxError();
           }
       }
-    | IMPORT valid_identifier require_semicolon
+    | IMPORT valid_type_name require_semicolon
       {
           if (!ast->addImport($2)) {
               std::cerr << "ERROR: Unable to import '" << $2 << "' at " << @2
@@ -505,10 +545,6 @@ imports
 opt_extends
     : /* empty */ { $$ = NULL; }
     | EXTENDS fqtype { $$ = $2; }
-
-body
-    : type_declarations
-    ;
 
 interface_declarations
     : /* empty */
@@ -535,13 +571,13 @@ interface_declarations
           }
 
           if ($2 != nullptr) {
-            if (!ast->scope()->isInterface()) {
+            if (!(*scope)->isInterface()) {
                 std::cerr << "ERROR: unknown error in interface declaration at "
                     << @2 << "\n";
                 YYERROR;
             }
 
-            Interface *iface = static_cast<Interface *>(ast->scope());
+            Interface *iface = static_cast<Interface *>(*scope);
             if (!iface->addMethod($2)) {
                 std::cerr << "ERROR: Unable to add method '" << $2->name()
                           << "' at " << @2 << "\n";
@@ -585,11 +621,11 @@ type_declaration_body
     ;
 
 interface_declaration
-    : INTERFACE valid_identifier opt_extends
+    : INTERFACE valid_type_name opt_extends
       {
           Type *parent = $3;
 
-          if (ast->package() != gIBasePackageFqName) {
+          if (ast->package().package() != gIBasePackageFqName.string()) {
               if (!ast->addImport(gIBaseFqName.string().c_str())) {
                   std::cerr << "ERROR: Unable to automatically import '"
                             << gIBaseFqName.string()
@@ -598,7 +634,7 @@ interface_declaration
                   YYERROR;
               }
               if (parent == nullptr) {
-                parent = ast->lookupType(gIBaseFqName);
+                parent = ast->lookupType(gIBaseFqName, *scope);
               }
           }
 
@@ -616,44 +652,53 @@ interface_declaration
               YYERROR;
           }
 
-          Interface *iface = new Interface($2, convertYYLoc(@2), static_cast<Interface *>(parent));
+          if (*scope != ast->getRootScope()) {
+              std::cerr << "ERROR: All interface must declared in "
+                        << "global scope. at " << @2 << "\n";
+
+              YYERROR;
+          }
+
+          Interface* iface = new Interface(
+              $2, convertYYLoc(@2), *scope,
+              static_cast<Interface *>(parent));
 
           // Register interface immediately so it can be referenced inside
           // definition.
           std::string errorMsg;
-          if (!ast->addScopedType(iface, &errorMsg)) {
+          if (!ast->addScopedType(iface, &errorMsg, *scope)) {
               std::cerr << "ERROR: " << errorMsg << " at " << @2 << "\n";
               YYERROR;
           }
 
-          ast->enterScope(iface);
+          enterScope(ast, scope, iface);
       }
       '{' interface_declarations '}'
       {
-          if (!ast->scope()->isInterface()) {
+          if (!(*scope)->isInterface()) {
               std::cerr << "ERROR: unknown error in interface declaration at "
                   << @5 << "\n";
               YYERROR;
           }
 
-          Interface *iface = static_cast<Interface *>(ast->scope());
+          Interface *iface = static_cast<Interface *>(*scope);
           if (!iface->addAllReservedMethods()) {
               std::cerr << "ERROR: unknown error in adding reserved methods at "
                   << @5 << "\n";
               YYERROR;
           }
 
-          ast->leaveScope();
+          leaveScope(ast, scope);
 
           $$ = iface;
       }
     ;
 
 typedef_declaration
-    : TYPEDEF type valid_identifier
+    : TYPEDEF type valid_type_name
       {
           std::string errorMsg;
-          if (!ast->addTypeDef($3, $2, convertYYLoc(@3), &errorMsg)) {
+          if (!ast->addTypeDef($3, $2, convertYYLoc(@3), &errorMsg, *scope)) {
               std::cerr << "ERROR: " << errorMsg << " at " << @3 << "\n";
               YYERROR;
           }
@@ -674,7 +719,7 @@ const_expr
           }
           if($1->isIdentifier()) {
               std::string identifier = $1->name();
-              LocalIdentifier *iden = ast->scope()->lookupIdentifier(identifier);
+              LocalIdentifier *iden = (*scope)->lookupIdentifier(identifier);
               if(!iden) {
                   std::cerr << "ERROR: identifier " << $1->string()
                             << " could not be found at " << @1 << ".\n";
@@ -689,7 +734,7 @@ const_expr
                       *(static_cast<EnumValue *>(iden)->constExpr()), $1->string());
           } else {
               std::string errorMsg;
-              EnumValue *v = ast->lookupEnumValue(*($1), &errorMsg);
+              EnumValue *v = ast->lookupEnumValue(*($1), &errorMsg, *scope);
               if(v == nullptr) {
                   std::cerr << "ERROR: " << errorMsg << " at " << @1 << ".\n";
                   YYERROR;
@@ -783,19 +828,19 @@ struct_or_union_keyword
     ;
 
 named_struct_or_union_declaration
-    : struct_or_union_keyword valid_identifier
+    : struct_or_union_keyword valid_type_name
       {
-          CompoundType *container = new CompoundType($1, $2, convertYYLoc(@2));
-          ast->enterScope(container);
+          CompoundType *container = new CompoundType($1, $2, convertYYLoc(@2), *scope);
+          enterScope(ast, scope, container);
       }
       struct_or_union_body
       {
-          if (!ast->scope()->isCompoundType()) {
+          if (!(*scope)->isCompoundType()) {
               std::cerr << "ERROR: unknown error in struct or union declaration at "
                   << @4 << "\n";
               YYERROR;
           }
-          CompoundType *container = static_cast<CompoundType *>(ast->scope());
+          CompoundType *container = static_cast<CompoundType *>(*scope);
 
           std::string errorMsg;
           if (!container->setFields($4, &errorMsg)) {
@@ -803,9 +848,9 @@ named_struct_or_union_declaration
               YYERROR;
           }
 
-          ast->leaveScope();
+          leaveScope(ast, scope);
 
-          if (!ast->addScopedType(container, &errorMsg)) {
+          if (!ast->addScopedType(container, &errorMsg, *scope)) {
               std::cerr << "ERROR: " << errorMsg << " at " << @2 << "\n";
               YYERROR;
           }
@@ -835,8 +880,8 @@ field_declaration
     | type valid_identifier require_semicolon
       {
         std::string errorMsg;
-        if (ast->scope()->isCompoundType() &&
-            static_cast<CompoundType *>(ast->scope())->style() == CompoundType::STYLE_STRUCT &&
+        if ((*scope)->isCompoundType() &&
+            static_cast<CompoundType *>(*scope)->style() == CompoundType::STYLE_STRUCT &&
             !isValidStructField($2, &errorMsg)) {
             std::cerr << "ERROR: " << errorMsg << " at "
                       << @2 << "\n";
@@ -847,8 +892,8 @@ field_declaration
     | annotated_compound_declaration ';'
       {
         std::string errorMsg;
-        if (ast->scope()->isCompoundType() &&
-            static_cast<CompoundType *>(ast->scope())->style() == CompoundType::STYLE_STRUCT &&
+        if ((*scope)->isCompoundType() &&
+            static_cast<CompoundType *>(*scope)->style() == CompoundType::STYLE_STRUCT &&
             $1 != nullptr &&
             $1->isNamedType() &&
             !isValidStructField(static_cast<NamedType *>($1)->localName().c_str(), &errorMsg)) {
@@ -879,7 +924,9 @@ enum_storage_type
           $$ = $2;
 
           if ($$ != NULL && !$$->isValidEnumStorageType()) {
-              std::cerr << "ERROR: Invalid enum storage type specified. at "
+              std::cerr << "ERROR: Invalid enum storage type ("
+                        << $2->typeName()
+                        << ") specified. at "
                         << @2 << "\n";
 
               YYERROR;
@@ -893,23 +940,23 @@ opt_comma
     ;
 
 named_enum_declaration
-    : ENUM valid_identifier enum_storage_type
+    : ENUM valid_type_name enum_storage_type
       {
-          ast->enterScope(new EnumType($2, convertYYLoc(@2), $3));
+          enterScope(ast, scope, new EnumType($2, convertYYLoc(@2), $3, *scope));
       }
       enum_declaration_body
       {
-          if (!ast->scope()->isEnum()) {
+          if (!(*scope)->isEnum()) {
               std::cerr << "ERROR: unknown error in enum declaration at "
                   << @5 << "\n";
               YYERROR;
           }
 
-          EnumType *enumType = static_cast<EnumType *>(ast->scope());
-          ast->leaveScope();
+          EnumType *enumType = static_cast<EnumType *>(*scope);
+          leaveScope(ast, scope);
 
           std::string errorMsg;
-          if (!ast->addScopedType(enumType, &errorMsg)) {
+          if (!ast->addScopedType(enumType, &errorMsg, *scope)) {
               std::cerr << "ERROR: " << errorMsg << " at " << @2 << "\n";
               YYERROR;
           }
@@ -932,23 +979,23 @@ enum_values
       { /* do nothing */ }
     | enum_value
       {
-          if (!ast->scope()->isEnum()) {
+          if (!(*scope)->isEnum()) {
               std::cerr << "ERROR: unknown error in enum declaration at "
                   << @1 << "\n";
               YYERROR;
           }
 
-          static_cast<EnumType *>(ast->scope())->addValue($1);
+          static_cast<EnumType *>(*scope)->addValue($1);
       }
     | enum_values ',' enum_value
       {
-          if (!ast->scope()->isEnum()) {
+          if (!(*scope)->isEnum()) {
               std::cerr << "ERROR: unknown error in enum declaration at "
                   << @3 << "\n";
               YYERROR;
           }
 
-          static_cast<EnumType *>(ast->scope())->addValue($3);
+          static_cast<EnumType *>(*scope)->addValue($3);
       }
     ;
 
@@ -1014,9 +1061,9 @@ type
     | INTERFACE
       {
           // "interface" is a synonym of android.hidl.base@1.0::IBase
-          $$ = ast->lookupType(gIBaseFqName);
+          $$ = ast->lookupType(gIBaseFqName, *scope);
           if ($$ == nullptr) {
-              std::cerr << "FATAL: Cannot find "
+              std::cerr << "ERROR: Cannot find "
                         << gIBaseFqName.string()
                         << " at " << @1 << "\n";
 

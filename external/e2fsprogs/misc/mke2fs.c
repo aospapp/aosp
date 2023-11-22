@@ -43,7 +43,9 @@ extern int optind;
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
 #endif
+#ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
+#endif
 #include <libgen.h>
 #include <limits.h>
 #include <blkid/blkid.h>
@@ -103,6 +105,7 @@ static int	proceed_delay = -1;
 static blk64_t	dev_size;
 
 static struct ext2_super_block fs_param;
+static __u32 zero_buf[4];
 static char *fs_uuid = NULL;
 static char *creator_os;
 static char *volume_label;
@@ -831,6 +834,19 @@ static void parse_extended_opts(struct ext2_super_block *param,
 				continue;
 			}
 			param->s_desc_size = desc_size;
+		} else if (strcmp(token, "hash_seed") == 0) {
+			if (!arg) {
+				r_usage++;
+				badopt = token;
+				continue;
+			}
+			if (uuid_parse(arg,
+				(unsigned char *)param->s_hash_seed) != 0) {
+				fprintf(stderr,
+					_("Invalid hash seed: %s\n"), arg);
+				r_usage++;
+				continue;
+			}
 		} else if (strcmp(token, "offset") == 0) {
 			if (!arg) {
 				r_usage++;
@@ -1896,10 +1912,15 @@ profile_error:
 		dev_size = fs_blocks_count;
 		retval = 0;
 	} else
+#ifndef _WIN32
 		retval = ext2fs_get_device_size2(device_name,
 						 EXT2_BLOCK_SIZE(&fs_param),
 						 &dev_size);
-
+#else
+		retval = ext2fs_get_device_size(device_name,
+						EXT2_BLOCK_SIZE(&fs_param),
+						&dev_size);
+#endif
 	if (retval && (retval != EXT2_ET_UNIMPLEMENTED)) {
 		com_err(program_name, retval, "%s",
 			_("while trying to determine filesystem size"));
@@ -2820,7 +2841,7 @@ int main (int argc, char *argv[])
 				_("in malloc for android_sparse_params"));
 			exit(1);
 		}
-		snprintf(android_sparse_params, PATH_MAX + 32, "%s:%u:%u",
+		snprintf(android_sparse_params, PATH_MAX + 32, "(%s):%u:%u",
 			 device_name, fs_param.s_blocks_count,
 			 1024 << fs_param.s_log_block_size);
 		retval = ext2fs_initialize(android_sparse_params, flags,
@@ -2937,7 +2958,13 @@ int main (int argc, char *argv[])
 	free(hash_alg_str);
 	fs->super->s_def_hash_version = (hash_alg >= 0) ? hash_alg :
 		EXT2_HASH_HALF_MD4;
-	uuid_generate((unsigned char *) fs->super->s_hash_seed);
+
+	if (memcmp(fs_param.s_hash_seed, zero_buf,
+		sizeof(fs_param.s_hash_seed)) != 0) {
+		memcpy(fs->super->s_hash_seed, fs_param.s_hash_seed,
+			sizeof(fs->super->s_hash_seed));
+	} else
+		uuid_generate((unsigned char *) fs->super->s_hash_seed);
 
 	/*
 	 * Periodic checks can be enabled/disabled via config file.

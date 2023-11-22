@@ -28,6 +28,7 @@ from autotest_lib.server.hosts import factory
 from autotest_lib.server import autoserv_utils
 from autotest_lib.server import server_logging_config
 from autotest_lib.server import utils
+from autotest_lib.utils import labellib
 
 
 _autoserv_proc = None
@@ -141,7 +142,7 @@ def fetch_local_suite(autotest_path, suite_predicate, afe, test_arg, remote,
     @returns: A suite.Suite object.
 
     """
-    fs_getter = suite.Suite.create_fs_getter(autotest_path)
+    fs_getter = suite.create_fs_getter(autotest_path)
     devserver = dev_server.ImageServer('')
     my_suite = suite.Suite.create_from_predicates([suite_predicate],
             {provision.CROS_VERSION_PREFIX: build},
@@ -154,7 +155,7 @@ def fetch_local_suite(autotest_path, suite_predicate, afe, test_arg, remote,
                 get_predicate_for_possible_test_arg(test_arg))
         logging.error('No test found, searching for possible tests with %s',
                       similarity_description)
-        possible_tests = suite.Suite.find_possible_tests(fs_getter,
+        possible_tests = suite.find_possible_tests(fs_getter,
                                                          similarity_predicate)
         raise ValueError('Found no tests. Check your suite name, test name, '
                          'or test matching wildcard.\nDid you mean any of '
@@ -336,17 +337,17 @@ def get_predicate_for_test_arg(test):
     file_pattern_match = re.match(r'f:(.*)', test)
     if suitematch:
         suitename = suitematch.group(1)
-        return (suite.Suite.name_in_tag_predicate(suitename),
+        return (suite.name_in_tag_predicate(suitename),
                 'suite named %s' % suitename)
     if name_pattern_match:
         pattern = '^%s$' % name_pattern_match.group(1)
-        return (suite.Suite.test_name_matches_pattern_predicate(pattern),
+        return (suite.test_name_matches_pattern_predicate(pattern),
                 'suite to match name pattern %s' % pattern)
     if file_pattern_match:
         pattern = '^%s$' % file_pattern_match.group(1)
-        return (suite.Suite.test_file_matches_pattern_predicate(pattern),
+        return (suite.test_file_matches_pattern_predicate(pattern),
                 'suite to match file name pattern %s' % pattern)
-    return (suite.Suite.test_name_equals_predicate(test),
+    return (suite.test_name_equals_predicate(test),
             'job named %s' % test)
 
 
@@ -366,17 +367,17 @@ def get_predicate_for_possible_test_arg(test):
     file_pattern_match = re.match(r'f:(.*)', test)
     if suitematch:
         suitename = suitematch.group(1)
-        return (suite.Suite.name_in_tag_similarity_predicate(suitename),
+        return (suite.name_in_tag_similarity_predicate(suitename),
                 'suite name similar to %s' % suitename)
     if name_pattern_match:
         pattern = '^%s$' % name_pattern_match.group(1)
-        return (suite.Suite.test_name_similarity_predicate(pattern),
+        return (suite.test_name_similarity_predicate(pattern),
                 'job name similar to %s' % pattern)
     if file_pattern_match:
         pattern = '^%s$' % file_pattern_match.group(1)
-        return (suite.Suite.test_file_similarity_predicate(pattern),
+        return (suite.test_file_similarity_predicate(pattern),
                 'suite to match file name similar to %s' % pattern)
-    return (suite.Suite.test_name_similarity_predicate(test),
+    return (suite.test_name_similarity_predicate(test),
             'job name similar to %s' % test)
 
 
@@ -476,7 +477,9 @@ def perform_local_run(afe, autotest_path, tests, remote, fast_mode,
               provision failed prior to running any jobs.
     """
     # Create host in afe, add board and build labels.
-    cros_version_label = provision.cros_version_to_label(build)
+    cros_version_label = labellib.format_keyval_label(
+        labellib.KeyvalLabel(labellib.Key.CROS_VERSION, build))
+
     build_label = afe.create_label(cros_version_label)
     board_label = afe.create_label(constants.BOARD_PREFIX + board)
     new_host = afe.create_host(remote)
@@ -519,8 +522,7 @@ def perform_local_run(afe, autotest_path, tests, remote, fast_mode,
         for suite, description in suites_and_descriptions:
             logging.info('Scheduling suite for %s...', description)
             ntests = suite.schedule(
-                    lambda log_entry, log_in_subdir=False: None,
-                    add_experimental=not no_experimental)
+                    lambda log_entry, log_in_subdir=False: None)
             logging.info('... scheduled %s job(s).', ntests)
 
     if not afe.get_jobs():

@@ -1,0 +1,139 @@
+// This file was auto-generated. Do not edit manually.
+// Use test/vts-testcase/hal/update_makefiles.py to generate this file.
+
+// Generate .vts spec files.
+hal2vts {
+    name: "android.hardware.power@1.1-vts.spec",
+    srcs: [
+        ":android.hardware.power@1.1_hal",
+    ],
+    out: [
+        "android/hardware/power/1.1/Power.vts",
+        "android/hardware/power/1.1/types.vts",
+    ],
+}
+
+// Build VTS driver.
+genrule {
+    name: "android.hardware.power@1.1-vts.driver_genc++",
+    tools: ["hidl-gen", "vtsc"],
+    cmd: "$(location hidl-gen) -o $(genDir) -Lvts -randroid.hardware:hardware/interfaces -randroid.hidl:system/libhidl/transport android.hardware.power@1.1 && $(location vtsc) -mDRIVER -tSOURCE -b$(genDir) android/hardware/power/1.1/ $(genDir)/android/hardware/power/1.1/",
+    srcs: [
+        ":android.hardware.power@1.1_hal",
+    ],
+    out: [
+        "android/hardware/power/1.1/Power.vts.cpp",
+        "android/hardware/power/1.1/types.vts.cpp",
+    ],
+}
+
+genrule {
+    name: "android.hardware.power@1.1-vts.driver_genc++_headers",
+    tools: ["hidl-gen", "vtsc"],
+    cmd: "$(location hidl-gen) -o $(genDir) -Lvts -randroid.hardware:hardware/interfaces -randroid.hidl:system/libhidl/transport android.hardware.power@1.1 && $(location vtsc) -mDRIVER -tHEADER -b$(genDir) android/hardware/power/1.1/ $(genDir)/android/hardware/power/1.1/",
+    srcs: [
+        ":android.hardware.power@1.1_hal",
+    ],
+    out: [
+        "android/hardware/power/1.1/Power.vts.h",
+        "android/hardware/power/1.1/types.vts.h",
+    ],
+}
+
+cc_library_shared {
+    name: "android.hardware.power@1.1-vts.driver",
+    generated_sources: ["android.hardware.power@1.1-vts.driver_genc++"],
+    generated_headers: ["android.hardware.power@1.1-vts.driver_genc++_headers"],
+    export_generated_headers: ["android.hardware.power@1.1-vts.driver_genc++_headers"],
+    shared_libs: [
+        "libcamera_metadata",
+        "libcutils",
+        "libfmq",
+        "libhidlbase",
+        "libhidltransport",
+        "libhwbinder",
+        "liblog",
+        "libprotobuf-cpp-full",
+        "libutils",
+        "libvts_common",
+        "libvts_datatype",
+        "libvts_drivercomm",
+        "libvts_measurement",
+        "libvts_multidevice_proto",
+        "android.hidl.allocator@1.0",
+        "android.hardware.power@1.1",
+        "android.hardware.power@1.0",
+        "android.hardware.power@1.0-vts.driver",
+    ],
+    export_shared_lib_headers: [
+        "android.hardware.power@1.0",
+        "android.hardware.power@1.0-vts.driver",
+    ],
+    cflags: [
+        "-Wall",
+        "-Werror",
+
+        // These warnings are in code generated with vtsc
+        // b/31362043
+        "-Wno-duplicate-decl-specifier",
+        "-Wno-implicitly-unsigned-literal",
+    ],
+}
+
+// Build VTS profiler.
+genrule {
+    name: "android.hardware.power@1.1-vts.profiler_genc++",
+    tools: ["hidl-gen", "vtsc"],
+    cmd: "$(location hidl-gen) -o $(genDir) -Lvts -randroid.hardware:hardware/interfaces -randroid.hidl:system/libhidl/transport android.hardware.power@1.1 && $(location vtsc) -mPROFILER -tSOURCE -b$(genDir) android/hardware/power/1.1/ $(genDir)/android/hardware/power/1.1/",
+    srcs: [
+        ":android.hardware.power@1.1_hal",
+    ],
+    out: [
+        "android/hardware/power/1.1/Power.vts.cpp",
+        "android/hardware/power/1.1/types.vts.cpp",
+    ],
+}
+
+genrule {
+    name: "android.hardware.power@1.1-vts.profiler_genc++_headers",
+    tools: ["hidl-gen", "vtsc"],
+    cmd: "$(location hidl-gen) -o $(genDir) -Lvts -randroid.hardware:hardware/interfaces -randroid.hidl:system/libhidl/transport android.hardware.power@1.1 && $(location vtsc) -mPROFILER -tHEADER -b$(genDir) android/hardware/power/1.1/ $(genDir)/android/hardware/power/1.1/",
+    srcs: [
+        ":android.hardware.power@1.1_hal",
+    ],
+    out: [
+        "android/hardware/power/1.1/Power.vts.h",
+        "android/hardware/power/1.1/types.vts.h",
+    ],
+}
+
+cc_library_shared {
+    name: "android.hardware.power@1.1-vts.profiler",
+    generated_sources: ["android.hardware.power@1.1-vts.profiler_genc++"],
+    generated_headers: ["android.hardware.power@1.1-vts.profiler_genc++_headers"],
+    export_generated_headers: ["android.hardware.power@1.1-vts.profiler_genc++_headers"],
+    shared_libs: [
+        "libbase",
+        "libcutils",
+        "libfmq",
+        "libhidlbase",
+        "libhidltransport",
+        "libvts_common",
+        "libvts_profiling",
+        "libvts_multidevice_proto",
+        "libprotobuf-cpp-full",
+        "android.hardware.power@1.1",
+        "android.hardware.power@1.0",
+        "android.hardware.power@1.0-vts.profiler",
+    ],
+    cflags: [
+        "-Wall",
+        "-Werror",
+
+        // These warnings are in code generated with vtsc
+        // b/31362043
+        "-Wno-duplicate-decl-specifier",
+        "-Wno-implicitly-unsigned-literal",
+    ],
+}
+

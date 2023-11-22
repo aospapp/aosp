@@ -44,7 +44,7 @@ enum VtsCompileFileType {
 
 class CodeGenBase {
  public:
-  explicit CodeGenBase(const char* input_vts_file_path, const string& vts_name);
+  explicit CodeGenBase(const char* input_vts_file_path);
   virtual ~CodeGenBase();
 
   // Generate both a C/C++ file and its header file.
@@ -63,15 +63,11 @@ class CodeGenBase {
     return input_vts_file_path_;
   }
 
-  const string& vts_name() const {
-    return vts_name_;
-  }
-
  protected:
   const char* input_vts_file_path_;
-  const string& vts_name_;
 };
 
+// TODO(zhuoyao): move these methods to util files.
 // Translates the VTS proto file to C/C++ code and header files.
 void Translate(VtsCompileMode mode,
                const char* input_vts_file_path,

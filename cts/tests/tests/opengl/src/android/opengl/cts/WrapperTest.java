@@ -190,9 +190,12 @@ public class WrapperTest extends AndroidTestCase {
         // zero out the refcount.
         //
         // Before we can terminate we need to be sure that the display has been initialized
-        // at least once. Also includes the 1s sleep to work-around a suspected race condition
-        // where it seems that some earlier tests may not have completed clean-up of all activities.
-        Thread.sleep(1000);
+        // at least once so call eglSetup first.
+        //
+        // IMPORTANT NOTE: If a previous test in this test group fails to cleanup its
+        // GLSurfaceView there may be a crash here on some platforms due to an object destruction
+        // race condition. The solution is to make sure all previous tests override onPause()
+        // and call their GLSurfaceView's onPause() function there. See b/37118199 for history.
         eglSetup(2, 1, 1);
         for (int i = 0; i < 100; i++) {
             EGL14.eglTerminate(mEGLDisplay);

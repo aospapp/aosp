@@ -17,6 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Πληροφορίες έκτακτης ανάγκης"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"Ιατρικές πληροφορίες"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"Επεξεργασία πληροφοριών"</string>
     <string name="edit_info" msgid="5973929805855224805">"Επεξεργασία πληροφοριών έκτακτης ανάγκης"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Πληροφορίες"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Επαφές"</string>
@@ -96,12 +98,12 @@
     <string name="cancel" msgid="7401575239009060939">"Ακύρωση"</string>
     <string name="ok" msgid="163967937451981024">"ΟΚ"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"Πληροφορίες έκτακτης ανάγκης"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"Οι πληροφορίες που εισάγετε εδώ μπορούν να βοηθήσουν τα άτομα που θα ανταποκριθούν πρώτα σε περίπτωση έκτακτης ανάγκης. Αποθηκεύονται μόνο στη συσκευή σας και μπορούν να τα διαβάσουν όλοι από το πρόγραμμα κλήσης έκτακτης ανάγκης χωρίς να ξεκλειδώσουν το τηλέφωνό σας."</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"Συνέχεια"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Δεν υπάρχουν πληροφορίες σχετικά με τον κάτοχο του τηλεφώνου"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"Εάν αυτό είναι το τηλέφωνό σας, πατήστε στο εικονίδιο με το μολύβι για να προσθέσετε πληροφορίες οι οποίες θα εμφανιστούν εδώ σε περίπτωση έκτακτης ανάγκης"</string>
     <string name="clear_all" msgid="8899013032870561633">"Διαγραφή όλων"</string>
     <string name="clear" msgid="3648880442502887163">"Διαγραφή"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Να διαγραφούν όλες οι πληροφορίες και οι επαφές;"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"Η προσθήκη ιατρικών πληροφοριών και επαφών έκτακτης ανάγκης μπορεί να βοηθήσει τα άτομα που ανταποκρίνονται πρώτα σε περίπτωση έκτακτης ανάγκης.\n\nΟποιοσδήποτε μπορεί να διαβάσει αυτές τις πληροφορίες από την οθόνη κλειδώματος και να καλέσει τις επαφές σας πατώντας στα ονόματά τους, χωρίς να ξεκλειδώσει το τηλέφωνό σας."</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"Προσθήκη πληροφοριών έκτακτης ανάγκης"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"Βοηθήστε τα άτομα που ανταποκρίνονται πρώτα σε έκτακτα περιστατικά να βρουν σημαντικές πληροφορίες"</string>
 </resources>

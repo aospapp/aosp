@@ -26,6 +26,11 @@ constexpr bool sensorModeIsActive(SensorMode sensorMode) {
       || sensorMode == SensorMode::ActiveOneShot);
 }
 
+constexpr bool sensorModeIsPassive(SensorMode sensorMode) {
+  return (sensorMode == SensorMode::PassiveContinuous
+      || sensorMode == SensorMode::PassiveOneShot);
+}
+
 constexpr bool sensorModeIsContinuous(SensorMode sensorMode) {
   return (sensorMode == SensorMode::ActiveContinuous
       || sensorMode == SensorMode::PassiveContinuous);

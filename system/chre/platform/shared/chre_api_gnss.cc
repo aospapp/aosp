@@ -17,11 +17,29 @@
 #include "chre_api/chre/gnss.h"
 
 #include "chre/core/event_loop_manager.h"
+#include "chre/util/macros.h"
+#include "chre/util/time.h"
 
 using chre::EventLoopManager;
 using chre::EventLoopManagerSingleton;
+using chre::Milliseconds;
 
-uint32_t chreGnssGetCapabilities() {
+DLL_EXPORT uint32_t chreGnssGetCapabilities() {
   return chre::EventLoopManagerSingleton::get()->getGnssRequestManager()
       .getCapabilities();
+}
+
+DLL_EXPORT bool chreGnssLocationSessionStartAsync(uint32_t minIntervalMs,
+                                                  uint32_t minTimeToNextFixMs,
+                                                  const void *cookie) {
+  chre::Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
+  return chre::EventLoopManagerSingleton::get()->getGnssRequestManager()
+      .startLocationSession(nanoapp, Milliseconds(minIntervalMs),
+                            Milliseconds(minTimeToNextFixMs), cookie);
+}
+
+DLL_EXPORT bool chreGnssLocationSessionStopAsync(const void *cookie) {
+  chre::Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
+  return chre::EventLoopManagerSingleton::get()->getGnssRequestManager()
+      .stopLocationSession(nanoapp, cookie);
 }

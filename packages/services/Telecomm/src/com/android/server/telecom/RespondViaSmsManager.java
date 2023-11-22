@@ -135,7 +135,7 @@ public class RespondViaSmsManager extends CallsManagerListenerBase {
             int subId = mCallsManager.getPhoneAccountRegistrar().getSubscriptionIdForPhoneAccount(
                     call.getTargetPhoneAccount());
             rejectCallWithMessage(call.getContext(), call.getHandle().getSchemeSpecificPart(),
-                    textMessage, subId);
+                    textMessage, subId, call.getName());
         }
     }
 
@@ -174,7 +174,7 @@ public class RespondViaSmsManager extends CallsManagerListenerBase {
      * Reject the call with the specified message. If message is null this call is ignored.
      */
     private void rejectCallWithMessage(Context context, String phoneNumber, String textMessage,
-            int subId) {
+            int subId, String contactName) {
         if (TextUtils.isEmpty(textMessage)) {
             Log.w(RespondViaSmsManager.this, "Couldn't send SMS message: empty text message. ");
             return;
@@ -191,7 +191,7 @@ public class RespondViaSmsManager extends CallsManagerListenerBase {
                     null /*deliveryIntent*/);
 
             SomeArgs args = SomeArgs.obtain();
-            args.arg1 = phoneNumber;
+            args.arg1 = !TextUtils.isEmpty(contactName) ? contactName : phoneNumber;
             args.arg2 = context;
             mHandler.obtainMessage(MSG_SHOW_SENT_TOAST, args).sendToTarget();
         } catch (IllegalArgumentException e) {

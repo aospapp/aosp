@@ -52,13 +52,13 @@
     <string name="blocked_numbers" msgid="2751843139572970579">"Blokerede telefonnumre"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"Du modtager ikke opkald og sms-beskeder fra blokerede numre."</string>
     <string name="block_number" msgid="1101252256321306179">"Tilføj et nummer"</string>
-    <string name="unblock_dialog_body" msgid="1614238499771862793">"Vil du ophæve blokeringen af <xliff:g id="NUMBER_TO_BLOCK">%1$s</xliff:g>?"</string>
-    <string name="unblock_button" msgid="3078048901972674170">"Ophæv blokeringen"</string>
+    <string name="unblock_dialog_body" msgid="1614238499771862793">"Vil du fjerne blokeringen af <xliff:g id="NUMBER_TO_BLOCK">%1$s</xliff:g>?"</string>
+    <string name="unblock_button" msgid="3078048901972674170">"Fjern blokeringen"</string>
     <string name="add_blocked_dialog_body" msgid="9030243212265516828">"Bloker opkald og sms-beskeder fra"</string>
     <string name="add_blocked_number_hint" msgid="6847675097085433553">"Telefonnummer"</string>
     <string name="block_button" msgid="8822290682524373357">"Bloker"</string>
     <string name="non_primary_user" msgid="5180129233352533459">"Det er kun ejeren af en enhed, der kan se og administrere blokerede numre."</string>
-    <string name="delete_icon_description" msgid="8903995728252556724">"Ophæv blokering"</string>
+    <string name="delete_icon_description" msgid="8903995728252556724">"Fjern blokering"</string>
     <string name="blocked_numbers_butter_bar_title" msgid="438170866438793182">"Blokering er midlertidigt slået fra"</string>
     <string name="blocked_numbers_butter_bar_body" msgid="2223244484319442431">"Når du har ringet eller sendt en sms-besked til alarmcentralen, bliver blokering slået fra for at sikre, at alarmcentralen kan komme i kontakt med dig."</string>
     <string name="blocked_numbers_butter_bar_button" msgid="2197943354922010696">"Genaktiver nu"</string>

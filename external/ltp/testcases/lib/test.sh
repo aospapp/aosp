@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (c) Linux Test Project, 2014
+# Copyright (c) Linux Test Project, 2014-2017
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -25,6 +25,8 @@ export LTP_RET_VAL=0
 export TST_COUNT=1
 export TST_LIB_LOADED=1
 
+. tst_ansi_color.sh
+
 # Exit values map
 tst_flag2mask()
 {
@@ -41,13 +43,18 @@ tst_flag2mask()
 
 tst_resm()
 {
-	tst_flag2mask "$1"
+	local ttype="$1"
+
+	tst_flag2mask "$ttype"
 	local mask=$?
 	LTP_RET_VAL=$((LTP_RET_VAL|mask))
 
 	local ret=$1
 	shift
-	echo "$TCID $TST_COUNT $ret : $@"
+
+	printf "$TCID $TST_COUNT "
+	tst_print_colored $ret "$ret:"
+	echo " $@"
 
 	case "$ret" in
 	TPASS|TFAIL)
@@ -96,7 +103,7 @@ tst_require_root()
 
 tst_exit()
 {
-	if [ -n "$TST_CLEANUP" ]; then
+	if [ -n "$TST_CLEANUP" -a -z "$TST_NO_CLEANUP" ]; then
 		$TST_CLEANUP
 	fi
 
@@ -134,6 +141,7 @@ tst_rmdir()
 #
 tst_check_cmds()
 {
+	local cmd
 	for cmd in $*; do
 		if ! command -v $cmd > /dev/null 2>&1; then
 			tst_brkm TCONF "'$cmd' not found"
@@ -219,7 +227,7 @@ ROD_SILENT()
 	fi
 }
 
-ROD()
+ROD_BASE()
 {
 	local cmd
 	local arg
@@ -249,57 +257,34 @@ ROD()
 	else
 		$@
 	fi
+}
 
+ROD()
+{
+	ROD_BASE "$@"
 	if [ $? -ne 0 ]; then
 		tst_brkm TBROK "$@ failed"
 	fi
 }
 
-tst_acquire_device()
+EXPECT_PASS()
 {
-	if [ -z ${TST_TMPDIR} ]; then
-		tst_brkm "Use 'tst_tmpdir' before 'tst_acquire_device'"
+	ROD_BASE "$@"
+	if [ $? -eq 0 ]; then
+		tst_resm TPASS "$@ passed as expected"
+	else
+		tst_resm TFAIL "$@ failed unexpectedly"
 	fi
-
-	if [ -n "${LTP_DEV}" ]; then
-		tst_resm TINFO "Using test device LTP_DEV='${LTP_DEV}'"
-		if [ ! -b ${LTP_DEV} ]; then
-			tst_brkm TBROK "${LTP_DEV} is not a block device"
-		fi
-
-		ROD_SILENT dd if=/dev/zero of="${LTP_DEV}" bs=1024 count=512
-
-		TST_DEVICE=${LTP_DEV}
-		TST_DEVICE_FLAG=0
-		return
-	fi
-
-	ROD_SILENT dd if=/dev/zero of=test_dev.img bs=1024 count=102400
-
-	TST_DEVICE=$(losetup -f)
-	if [ $? -ne 0 ]; then
-		tst_brkm TBROK "Couldn't find free loop device"
-	fi
-
-	tst_resm TINFO "Found free device '${TST_DEVICE}'"
-
-	ROD_SILENT losetup ${TST_DEVICE} test_dev.img
-
-	TST_DEVICE_FLAG=1
 }
 
-tst_release_device()
+EXPECT_FAIL()
 {
-	if [ ${TST_DEVICE_FLAG} -eq 0 ]; then
-		return
-	fi
-
-	losetup -a | grep -q ${TST_DEVICE}
-	if [ $? -eq 0 ]; then
-		losetup -d ${TST_DEVICE}
-		if [ $? -ne 0 ];then
-			tst_resm TWARN "'losetup -d ${TST_DEVICE}' failed"
-		fi
+	# redirect stderr since we expect the command to fail
+	ROD_BASE "$@" 2> /dev/null
+	if [ $? -ne 0 ]; then
+		tst_resm TPASS "$@ failed as expected"
+	else
+		tst_resm TFAIL "$@ passed unexpectedly"
 	fi
 }
 

@@ -157,3 +157,29 @@ TEST_F(RecordFileTest, record_more_than_one_attr) {
     ASSERT_EQ(attrs[i].ids, attr_ids_[i].ids);
   }
 }
+
+TEST_F(RecordFileTest, write_meta_info_feature_section) {
+  // Write to a record file.
+  std::unique_ptr<RecordFileWriter> writer = RecordFileWriter::CreateInstance(tmpfile_.path);
+  ASSERT_TRUE(writer != nullptr);
+  AddEventType("cpu-cycles");
+  ASSERT_TRUE(writer->WriteAttrSection(attr_ids_));
+
+  // Write meta_info feature section.
+  ASSERT_TRUE(writer->BeginWriteFeatures(1));
+  std::unordered_map<std::string, std::string> info_map;
+  for (int i = 0; i < 100; ++i) {
+    std::string s = std::to_string(i);
+    info_map[s] = s + s;
+  }
+  ASSERT_TRUE(writer->WriteMetaInfoFeature(info_map));
+  ASSERT_TRUE(writer->EndWriteFeatures());
+  ASSERT_TRUE(writer->Close());
+
+  // Read from a record file.
+  std::unique_ptr<RecordFileReader> reader = RecordFileReader::CreateInstance(tmpfile_.path);
+  ASSERT_TRUE(reader != nullptr);
+  std::unordered_map<std::string, std::string> read_info_map;
+  ASSERT_TRUE(reader->ReadMetaInfoFeature(&read_info_map));
+  ASSERT_EQ(read_info_map, info_map);
+}

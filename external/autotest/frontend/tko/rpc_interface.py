@@ -1,10 +1,12 @@
-import pickle, datetime, itertools, operator
+import itertools
+import operator
 from django.db import models as dbmodels
 from autotest_lib.client.common_lib import priorities
 from autotest_lib.frontend.afe import rpc_utils, model_logic
 from autotest_lib.frontend.afe import models as afe_models, readonly_connection
-from autotest_lib.frontend.tko import models, tko_rpc_utils, graphing_utils
+from autotest_lib.frontend.tko import models, tko_rpc_utils
 from autotest_lib.frontend.tko import preconfigs
+
 
 # table/spreadsheet view support
 
@@ -299,13 +301,10 @@ def get_hosts_and_tests():
 
 def create_metrics_plot(queries, plot, invert, drilldown_callback,
                         normalize=None):
-    return graphing_utils.create_metrics_plot(
-        queries, plot, invert, normalize, drilldown_callback=drilldown_callback)
-
+    raise NotImplementedError()
 
 def create_qual_histogram(query, filter_string, interval, drilldown_callback):
-    return graphing_utils.create_qual_histogram(
-        query, filter_string, interval, drilldown_callback=drilldown_callback)
+    raise NotImplementedError()
 
 
 # TODO(showard) - this extremely generic RPC is used only by one place in the
@@ -322,25 +321,11 @@ def get_preconfig(name, type):
 
 
 def get_embedding_id(url_token, graph_type, params):
-    try:
-        model = models.EmbeddedGraphingQuery.objects.get(url_token=url_token)
-    except models.EmbeddedGraphingQuery.DoesNotExist:
-        params_str = pickle.dumps(params)
-        now = datetime.datetime.now()
-        model = models.EmbeddedGraphingQuery(url_token=url_token,
-                                             graph_type=graph_type,
-                                             params=params_str,
-                                             last_updated=now)
-        model.cached_png = graphing_utils.create_embedded_plot(model,
-                                                               now.ctime())
-        model.save()
-
-    return model.id
+    raise NotImplementedError()
 
 
 def get_embedded_query_url_token(id):
-    model = models.EmbeddedGraphingQuery.objects.get(id=id)
-    return model.url_token
+    raise NotImplementedError()
 
 
 # test label management

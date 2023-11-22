@@ -361,9 +361,7 @@ public class DatagramSocketAdaptor
         return dc;
     }
 
-    /*
-     * Android-added: for testing and internal use.
-     */
+    // Android-added: for testing and internal use.
     @Override
     public final FileDescriptor getFileDescriptor$() {
         return dc.fd;

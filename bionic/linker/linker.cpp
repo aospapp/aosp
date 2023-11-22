@@ -44,8 +44,11 @@
 #include <unordered_map>
 #include <vector>
 
+#include <android-base/scopeguard.h>
+
+#include <async_safe/log.h>
+
 // Private C library headers.
-#include "private/ScopeGuard.h"
 
 #include "linker.h"
 #include "linker_block_allocator.h"
@@ -343,7 +346,7 @@ static void parse_LD_LIBRARY_PATH(const char* path) {
 
 static bool realpath_fd(int fd, std::string* realpath) {
   std::vector<char> buf(PATH_MAX), proc_self_fd(PATH_MAX);
-  __libc_format_buffer(&proc_self_fd[0], proc_self_fd.size(), "/proc/self/fd/%d", fd);
+  async_safe_format_buffer(&proc_self_fd[0], proc_self_fd.size(), "/proc/self/fd/%d", fd);
   if (readlink(&proc_self_fd[0], &buf[0], buf.size()) == -1) {
     PRINT("readlink(\"%s\") failed: %s [fd=%d]", &proc_self_fd[0], strerror(errno), fd);
     return false;
@@ -362,16 +365,14 @@ static bool realpath_fd(int fd, std::string* realpath) {
 //
 // Intended to be called by libc's __gnu_Unwind_Find_exidx().
 _Unwind_Ptr do_dl_unwind_find_exidx(_Unwind_Ptr pc, int* pcount) {
-  uintptr_t addr = reinterpret_cast<uintptr_t>(pc);
-
   for (soinfo* si = solist_get_head(); si != 0; si = si->next) {
-    if ((addr >= si->base) && (addr < (si->base + si->size))) {
+    if ((pc >= si->base) && (pc < (si->base + si->size))) {
         *pcount = si->ARM_exidx_count;
         return reinterpret_cast<_Unwind_Ptr>(si->ARM_exidx);
     }
   }
   *pcount = 0;
-  return nullptr;
+  return 0;
 }
 
 #endif
@@ -494,7 +495,7 @@ ProtectedDataGuard::ProtectedDataGuard() {
   }
 
   if (ref_count_ == 0) { // overflow
-    __libc_fatal("Too many nested calls to dlopen()");
+    async_safe_fatal("Too many nested calls to dlopen()");
   }
 }
 
@@ -557,9 +558,10 @@ class LoadTask {
 
   static LoadTask* create(const char* name,
                           soinfo* needed_by,
+                          android_namespace_t* start_from,
                           std::unordered_map<const soinfo*, ElfReader>* readers_map) {
     LoadTask* ptr = TypeBasedAllocator<LoadTask>::alloc();
-    return new (ptr) LoadTask(name, needed_by, readers_map);
+    return new (ptr) LoadTask(name, needed_by, start_from, readers_map);
   }
 
   const char* get_name() const {
@@ -611,6 +613,11 @@ class LoadTask {
     is_dt_needed_ = is_dt_needed;
   }
 
+  // returns the namespace from where we need to start loading this.
+  const android_namespace_t* get_start_from() const {
+    return start_from_;
+  }
+
   const ElfReader& get_elf_reader() const {
     CHECK(si_ != nullptr);
     return (*elf_readers_map_)[si_];
@@ -649,10 +656,11 @@ class LoadTask {
  private:
   LoadTask(const char* name,
            soinfo* needed_by,
+           android_namespace_t* start_from,
            std::unordered_map<const soinfo*, ElfReader>* readers_map)
     : name_(name), needed_by_(needed_by), si_(nullptr),
       fd_(-1), close_fd_(false), file_offset_(0), elf_readers_map_(readers_map),
-      is_dt_needed_(false) {}
+      is_dt_needed_(false), start_from_(start_from) {}
 
   ~LoadTask() {
     if (fd_ != -1 && close_fd_) {
@@ -671,6 +679,7 @@ class LoadTask {
   // TODO(dimitry): needed by workaround for http://b/26394120 (the grey-list)
   bool is_dt_needed_;
   // END OF WORKAROUND
+  const android_namespace_t* const start_from_;
 
   DISALLOW_IMPLICIT_CONSTRUCTORS(LoadTask);
 };
@@ -993,7 +1002,7 @@ static int open_library_in_zipfile(ZipArchiveCache* zip_archive_cache,
 }
 
 static bool format_path(char* buf, size_t buf_size, const char* path, const char* name) {
-  int n = __libc_format_buffer(buf, buf_size, "%s/%s", path, name);
+  int n = async_safe_format_buffer(buf, buf_size, "%s/%s", path, name);
   if (n < 0 || n >= static_cast<int>(buf_size)) {
     PRINT("Warning: ignoring very long library path: %s/%s", path, name);
     return false;
@@ -1040,7 +1049,7 @@ static int open_library(android_namespace_t* ns,
                         ZipArchiveCache* zip_archive_cache,
                         const char* name, soinfo *needed_by,
                         off64_t* file_offset, std::string* realpath) {
-  TRACE("[ opening %s ]", name);
+  TRACE("[ opening %s at namespace %s]", name, ns->get_name());
 
   // If the name contains a slash, we should attempt to open it directly and not search the paths.
   if (strchr(name, '/') != nullptr) {
@@ -1127,6 +1136,27 @@ static bool find_loaded_library_by_inode(android_namespace_t* ns,
            si->get_st_ino() == file_stat.st_ino &&
            si->get_file_offset() == file_offset;
   };
+
+  *candidate = ns->soinfo_list().find_if(predicate);
+
+  if (*candidate == nullptr && search_linked_namespaces) {
+    for (auto& link : ns->linked_namespaces()) {
+      android_namespace_t* linked_ns = link.linked_namespace();
+      soinfo* si = linked_ns->soinfo_list().find_if(predicate);
+
+      if (si != nullptr && link.is_accessible(si->get_soname())) {
+        *candidate = si;
+        return true;
+      }
+    }
+  }
+
+  return *candidate != nullptr;
+}
+
+static bool find_loaded_library_by_realpath(android_namespace_t* ns, const char* realpath,
+                                            bool search_linked_namespaces, soinfo** candidate) {
+  auto predicate = [&](soinfo* si) { return strcmp(realpath, si->get_realpath()) == 0; };
 
   *candidate = ns->soinfo_list().find_if(predicate);
 
@@ -1272,7 +1302,7 @@ static bool load_library(android_namespace_t* ns,
   }
 
   for_each_dt_needed(task->get_elf_reader(), [&](const char* name) {
-    load_tasks->push_back(LoadTask::create(name, si, task->get_readers_map()));
+    load_tasks->push_back(LoadTask::create(name, si, ns, task->get_readers_map()));
   });
 
   return true;
@@ -1367,8 +1397,7 @@ static bool find_loaded_library_by_soname(android_namespace_t* ns,
 }
 
 static bool find_library_in_linked_namespace(const android_namespace_link_t& namespace_link,
-                                             LoadTask* task,
-                                             int rtld_flags) {
+                                             LoadTask* task) {
   android_namespace_t* ns = namespace_link.linked_namespace();
 
   soinfo* candidate;
@@ -1393,29 +1422,10 @@ static bool find_library_in_linked_namespace(const android_namespace_link_t& nam
     return true;
   }
 
-  // try to load the library - once namespace boundary is crossed
-  // we need to load a library within separate load_group
-  // to avoid using symbols from foreign namespace while.
-  //
-  // All symbols during relocation should be resolved within a
-  // namespace to preserve library locality to a namespace.
-  const char* name = task->get_name();
-  if (find_libraries(ns,
-                     task->get_needed_by(),
-                     &name,
-                     1,
-                     &candidate,
-                     nullptr /* ld_preloads */,
-                     0 /* ld_preload_count*/,
-                     rtld_flags,
-                     nullptr /* extinfo*/,
-                     false /* add_as_children */,
-                     false /* search_linked_namespaces */)) {
-    task->set_soinfo(candidate);
-    return true;
-  }
-
-  return false;
+  // returning true with empty soinfo means that the library is okay to be
+  // loaded in the namespace buy has not yet been loaded there before.
+  task->set_soinfo(nullptr);
+  return true;
 }
 
 static bool find_library_internal(android_namespace_t* ns,
@@ -1444,9 +1454,24 @@ static bool find_library_internal(android_namespace_t* ns,
     // if a library was not found - look into linked namespaces
     for (auto& linked_namespace : ns->linked_namespaces()) {
       if (find_library_in_linked_namespace(linked_namespace,
-                                           task,
-                                           rtld_flags)) {
-        return true;
+                                           task)) {
+        if (task->get_soinfo() == nullptr) {
+          // try to load the library - once namespace boundary is crossed
+          // we need to load a library within separate load_group
+          // to avoid using symbols from foreign namespace while.
+          //
+          // However, actual linking is deferred until when the global group
+          // is fully identified and is applied to all namespaces.
+          // Otherwise, the libs in the linked namespace won't get symbols from
+          // the global group.
+          if (load_library(linked_namespace.linked_namespace(), task, zip_archive_cache, load_tasks, rtld_flags, false)) {
+            return true;
+          }
+          // lib was not found in the namespace. Try next linked namespace.
+        } else {
+          // lib is already loaded
+          return true;
+        }
       }
     }
   }
@@ -1456,44 +1481,6 @@ static bool find_library_internal(android_namespace_t* ns,
 
 static void soinfo_unload(soinfo* si);
 static void soinfo_unload(soinfo* soinfos[], size_t count);
-
-// TODO: this is slightly unusual way to construct
-// the global group for relocation. Not every RTLD_GLOBAL
-// library is included in this group for backwards-compatibility
-// reasons.
-//
-// This group consists of the main executable, LD_PRELOADs
-// and libraries with the DF_1_GLOBAL flag set.
-static soinfo_list_t make_global_group(android_namespace_t* ns) {
-  soinfo_list_t global_group;
-  ns->soinfo_list().for_each([&](soinfo* si) {
-    if ((si->get_dt_flags_1() & DF_1_GLOBAL) != 0) {
-      global_group.push_back(si);
-    }
-  });
-
-  return global_group;
-}
-
-// This function provides a list of libraries to be shared
-// by the namespace. For the default namespace this is the global
-// group (see make_global_group). For all others this is a group
-// of RTLD_GLOBAL libraries (which includes the global group from
-// the default namespace).
-static soinfo_list_t get_shared_group(android_namespace_t* ns) {
-  if (ns == &g_default_namespace) {
-    return make_global_group(ns);
-  }
-
-  soinfo_list_t shared_group;
-  ns->soinfo_list().for_each([&](soinfo* si) {
-    if ((si->get_rtld_flags() & RTLD_GLOBAL) != 0) {
-      shared_group.push_back(si);
-    }
-  });
-
-  return shared_group;
-}
 
 static void shuffle(std::vector<LoadTask*>* v) {
   for (size_t i = 0, size = v->size(); i < size; ++i) {
@@ -1517,18 +1504,16 @@ bool find_libraries(android_namespace_t* ns,
                     int rtld_flags,
                     const android_dlextinfo* extinfo,
                     bool add_as_children,
-                    bool search_linked_namespaces) {
+                    bool search_linked_namespaces,
+                    std::unordered_map<const soinfo*, ElfReader>& readers_map,
+                    std::vector<android_namespace_t*>* namespaces) {
   // Step 0: prepare.
   LoadTaskList load_tasks;
-  std::unordered_map<const soinfo*, ElfReader> readers_map;
 
   for (size_t i = 0; i < library_names_count; ++i) {
     const char* name = library_names[i];
-    load_tasks.push_back(LoadTask::create(name, start_with, &readers_map));
+    load_tasks.push_back(LoadTask::create(name, start_with, ns, &readers_map));
   }
-
-  // Construct global_group.
-  soinfo_list_t global_group = make_global_group(ns);
 
   // If soinfos array is null allocate one on stack.
   // The array is needed in case of failure; for example
@@ -1546,13 +1531,13 @@ bool find_libraries(android_namespace_t* ns,
   // list of libraries to link - see step 2.
   size_t soinfos_count = 0;
 
-  auto scope_guard = make_scope_guard([&]() {
+  auto scope_guard = android::base::make_scope_guard([&]() {
     for (LoadTask* t : load_tasks) {
       LoadTask::deleter(t);
     }
   });
 
-  auto failure_guard = make_scope_guard([&]() {
+  auto failure_guard = android::base::make_scope_guard([&]() {
     // Housekeeping
     soinfo_unload(soinfos, soinfos_count);
   });
@@ -1569,7 +1554,12 @@ bool find_libraries(android_namespace_t* ns,
     task->set_extinfo(is_dt_needed ? nullptr : extinfo);
     task->set_dt_needed(is_dt_needed);
 
-    if (!find_library_internal(ns,
+    // try to find the load.
+    // Note: start from the namespace that is stored in the LoadTask. This namespace
+    // is different from the current namespace when the LoadTask is for a transitive
+    // dependency and the lib that created the LoadTask is not found in the
+    // current namespace but in one of the linked namespace.
+    if (!find_library_internal(const_cast<android_namespace_t*>(task->get_start_from()),
                                task,
                                &zip_archive_cache,
                                &load_tasks,
@@ -1628,18 +1618,61 @@ bool find_libraries(android_namespace_t* ns,
     }
   }
 
-  // Step 4: Add LD_PRELOADed libraries to the global group for
-  // future runs. There is no need to explicitly add them to
-  // the global group for this run because they are going to
-  // appear in the local group in the correct order.
+  // Step 4: Construct the global group. Note: DF_1_GLOBAL bit of a library is
+  // determined at step 3.
+
+  // Step 4-1: DF_1_GLOBAL bit is force set for LD_PRELOADed libs because they
+  // must be added to the global group
   if (ld_preloads != nullptr) {
     for (auto&& si : *ld_preloads) {
       si->set_dt_flags_1(si->get_dt_flags_1() | DF_1_GLOBAL);
     }
   }
 
+  // Step 4-2: Gather all DF_1_GLOBAL libs which were newly loaded during this
+  // run. These will be the new member of the global group
+  soinfo_list_t new_global_group_members;
+  for (auto&& task : load_tasks) {
+    soinfo* si = task->get_soinfo();
+    if (!si->is_linked() && (si->get_dt_flags_1() & DF_1_GLOBAL) != 0) {
+      new_global_group_members.push_back(si);
+    }
+  }
 
-  // Step 5: link libraries.
+  // Step 4-3: Add the new global group members to all the linked namespaces
+  for (auto si : new_global_group_members) {
+    for (auto linked_ns : *namespaces) {
+      if (si->get_primary_namespace() != linked_ns) {
+        linked_ns->add_soinfo(si);
+        si->add_secondary_namespace(linked_ns);
+      }
+    }
+  }
+
+  // Step 5: link libraries that are not destined to this namespace.
+  // Do this by recursively calling find_libraries on the namespace where the lib
+  // was found during Step 1.
+  for (auto&& task : load_tasks) {
+    soinfo* si = task->get_soinfo();
+    if (si->get_primary_namespace() != ns) {
+      const char* name = task->get_name();
+      if (find_libraries(si->get_primary_namespace(), task->get_needed_by(), &name, 1,
+                         nullptr /* soinfos */, nullptr /* ld_preloads */, 0 /* ld_preload_count */,
+                         rtld_flags, nullptr /* extinfo */, false /* add_as_children */,
+                         false /* search_linked_namespaces */, readers_map, namespaces)) {
+        // If this lib is directly needed by one of the libs in this namespace,
+        // then increment the count
+        soinfo* needed_by = task->get_needed_by();
+        if (needed_by != nullptr && needed_by->get_primary_namespace() == ns && si->is_linked()) {
+          si->increment_ref_count();
+        }
+      } else {
+        return false;
+      }
+    }
+  }
+
+  // Step 6: link libraries in this namespace
   soinfo_list_t local_group;
   walk_dependencies_tree(
       (start_with != nullptr && add_as_children) ? &start_with : soinfos,
@@ -1653,6 +1686,7 @@ bool find_libraries(android_namespace_t* ns,
     }
   });
 
+  soinfo_list_t global_group = ns->get_global_group();
   bool linked = local_group.visit([&](soinfo* si) {
     if (!si->is_linked()) {
       if (!si->link_image(global_group, local_group, extinfo) ||
@@ -1671,7 +1705,7 @@ bool find_libraries(android_namespace_t* ns,
       }
     });
 
-    failure_guard.disable();
+    failure_guard.Disable();
   }
 
   return linked;
@@ -1683,6 +1717,9 @@ static soinfo* find_library(android_namespace_t* ns,
                             soinfo* needed_by) {
   soinfo* si;
 
+  // readers_map is shared across recursive calls to find_libraries.
+  // However, the map is not shared across different threads.
+  std::unordered_map<const soinfo*, ElfReader> readers_map;
   if (name == nullptr) {
     si = solist_get_somain();
   } else if (!find_libraries(ns,
@@ -1695,7 +1732,8 @@ static soinfo* find_library(android_namespace_t* ns,
                              rtld_flags,
                              extinfo,
                              false /* add_as_children */,
-                             true /* search_linked_namespaces */)) {
+                             true /* search_linked_namespaces */,
+                             readers_map)) {
     return nullptr;
   }
 
@@ -1782,7 +1820,7 @@ static void soinfo_unload(soinfo* soinfos[], size_t count) {
       }
     } else {
 #if !defined(__work_around_b_24465209__)
-      __libc_fatal("soinfo for \"%s\"@%p has no version", si->get_realpath(), si);
+      async_safe_fatal("soinfo for \"%s\"@%p has no version", si->get_realpath(), si);
 #else
       PRINT("warning: soinfo for \"%s\"@%p has no version", si->get_realpath(), si);
       for_each_dt_needed(si, [&] (const char* library_name) {
@@ -1856,8 +1894,8 @@ void do_android_get_LD_LIBRARY_PATH(char* buffer, size_t buffer_size) {
   }
 
   if (buffer_size < required_size) {
-    __libc_fatal("android_get_LD_LIBRARY_PATH failed, buffer too small: "
-                 "buffer len %zu, required len %zu", buffer_size, required_size);
+    async_safe_fatal("android_get_LD_LIBRARY_PATH failed, buffer too small: "
+                     "buffer len %zu, required len %zu", buffer_size, required_size);
   }
 
   char* end = buffer;
@@ -1914,9 +1952,8 @@ void* do_dlopen(const char* name, int flags,
          ns == nullptr ? "(null)" : ns->get_name(),
          ns);
 
-  auto failure_guard = make_scope_guard([&]() {
-    LD_LOG(kLogDlopen, "... dlopen failed: %s", linker_get_error_buffer());
-  });
+  auto failure_guard = android::base::make_scope_guard(
+      [&]() { LD_LOG(kLogDlopen, "... dlopen failed: %s", linker_get_error_buffer()); });
 
   if ((flags & ~(RTLD_NOW|RTLD_LAZY|RTLD_LOCAL|RTLD_GLOBAL|RTLD_NODELETE|RTLD_NOLOAD)) != 0) {
     DL_ERR("invalid flags to dlopen: %x", flags);
@@ -1956,12 +1993,18 @@ void* do_dlopen(const char* name, int flags,
 
   const char* translated_name = name;
   if (g_is_asan && translated_name != nullptr && translated_name[0] == '/') {
-    char translated_path[PATH_MAX];
-    if (realpath(translated_name, translated_path) != nullptr) {
-      asan_name_holder = std::string(kAsanLibDirPrefix) + translated_path;
+    char original_path[PATH_MAX];
+    if (realpath(name, original_path) != nullptr) {
+      asan_name_holder = std::string(kAsanLibDirPrefix) + original_path;
       if (file_exists(asan_name_holder.c_str())) {
-        translated_name = asan_name_holder.c_str();
-        PRINT("linker_asan dlopen translating \"%s\" -> \"%s\"", name, translated_name);
+        soinfo* si = nullptr;
+        if (find_loaded_library_by_realpath(ns, original_path, true, &si)) {
+          PRINT("linker_asan dlopen NOT translating \"%s\" -> \"%s\": library already loaded", name,
+                asan_name_holder.c_str());
+        } else {
+          PRINT("linker_asan dlopen translating \"%s\" -> \"%s\"", name, translated_name);
+          translated_name = asan_name_holder.c_str();
+        }
       }
     }
   }
@@ -1976,7 +2019,7 @@ void* do_dlopen(const char* name, int flags,
            "... dlopen calling constructors: realpath=\"%s\", soname=\"%s\", handle=%p",
            si->get_realpath(), si->get_soname(), handle);
     si->call_constructors();
-    failure_guard.disable();
+    failure_guard.Disable();
     LD_LOG(kLogDlopen,
            "... dlopen successful: realpath=\"%s\", soname=\"%s\", handle=%p",
            si->get_realpath(), si->get_soname(), handle);
@@ -2054,9 +2097,8 @@ bool do_dlsym(void* handle,
          ns == nullptr ? "(null)" : ns->get_name(),
          ns);
 
-  auto failure_guard = make_scope_guard([&]() {
-    LD_LOG(kLogDlsym, "... dlsym failed: %s", linker_get_error_buffer());
-  });
+  auto failure_guard = android::base::make_scope_guard(
+      [&]() { LD_LOG(kLogDlsym, "... dlsym failed: %s", linker_get_error_buffer()); });
 
   if (sym_name == nullptr) {
     DL_ERR("dlsym failed: symbol name is null");
@@ -2087,7 +2129,7 @@ bool do_dlsym(void* handle,
 
     if ((bind == STB_GLOBAL || bind == STB_WEAK) && sym->st_shndx != 0) {
       *symbol = reinterpret_cast<void*>(found->resolve_symbol_address(sym));
-      failure_guard.disable();
+      failure_guard.Disable();
       LD_LOG(kLogDlsym,
              "... dlsym successful: sym_name=\"%s\", sym_ver=\"%s\", found in=\"%s\", address=%p",
              sym_name, sym_ver, found->get_soname(), *symbol);
@@ -2209,7 +2251,7 @@ android_namespace_t* create_namespace(const void* caller_addr,
     }
   } else {
     // If not shared - copy only the shared group
-    add_soinfos_to_namespace(get_shared_group(parent_namespace), ns);
+    add_soinfos_to_namespace(parent_namespace->get_shared_group(), ns);
   }
 
   ns->set_ld_library_paths(std::move(ld_library_paths));
@@ -3280,13 +3322,16 @@ bool soinfo::link_image(const soinfo_list_t& global_group, const soinfo_list_t& 
   if (has_text_relocations) {
     // Fail if app is targeting M or above.
     if (get_application_target_sdk_version() >= __ANDROID_API_M__) {
-      DL_ERR_AND_LOG("\"%s\" has text relocations", get_realpath());
+      DL_ERR_AND_LOG("\"%s\" has text relocations (https://android.googlesource.com/platform/"
+                     "bionic/+/master/android-changes-for-ndk-developers.md#Text-Relocations-"
+                     "Enforced-for-API-level-23)", get_realpath());
       return false;
     }
     // Make segments writable to allow text relocations to work properly. We will later call
     // phdr_table_protect_segments() after all of them are applied.
-    DL_WARN("\"%s\" has text relocations. This is wasting memory and prevents "
-            "security hardening. Please fix.", get_realpath());
+    DL_WARN("\"%s\" has text relocations (https://android.googlesource.com/platform/"
+            "bionic/+/master/android-changes-for-ndk-developers.md#Text-Relocations-Enforced-"
+            "for-API-level-23)", get_realpath());
     add_dlwarning(get_realpath(), "text relocations");
     if (phdr_table_unprotect_segments(phdr, phnum, load_bias) < 0) {
       DL_ERR("can't unprotect loadable segments for \"%s\": %s",
@@ -3411,7 +3456,7 @@ bool soinfo::protect_relro() {
   return true;
 }
 
-static void init_default_namespace_no_config(bool is_asan) {
+static std::vector<android_namespace_t*> init_default_namespace_no_config(bool is_asan) {
   g_default_namespace.set_isolated(false);
   auto default_ld_paths = is_asan ? kAsanDefaultLdPaths : kDefaultLdPaths;
 
@@ -3426,9 +3471,13 @@ static void init_default_namespace_no_config(bool is_asan) {
   }
 
   g_default_namespace.set_default_library_paths(std::move(ld_default_paths));
+
+  std::vector<android_namespace_t*> namespaces;
+  namespaces.push_back(&g_default_namespace);
+  return namespaces;
 }
 
-void init_default_namespace(const char* executable_path) {
+std::vector<android_namespace_t*> init_default_namespaces(const char* executable_path) {
   g_default_namespace.set_name("(default)");
 
   soinfo* somain = solist_get_somain();
@@ -3445,14 +3494,24 @@ void init_default_namespace(const char* executable_path) {
 
   std::string error_msg;
 
-  if (!Config::read_binary_config(kLdConfigFilePath,
+  const char* config_file = kLdConfigFilePath;
+#ifdef USE_LD_CONFIG_FILE
+  // This is a debugging/testing only feature. Must not be available on
+  // production builds.
+  const char* ld_config_file = getenv("LD_CONFIG_FILE");
+  if (ld_config_file != nullptr && file_exists(ld_config_file)) {
+    config_file = ld_config_file;
+  }
+#endif
+
+  if (!Config::read_binary_config(config_file,
                                   executable_path,
                                   g_is_asan,
                                   &config,
                                   &error_msg)) {
     if (!error_msg.empty()) {
       DL_WARN("error reading config file \"%s\" for \"%s\" (will use default configuration): %s",
-              kLdConfigFilePath,
+              config_file,
               executable_path,
               error_msg.c_str());
     }
@@ -3460,8 +3519,7 @@ void init_default_namespace(const char* executable_path) {
   }
 
   if (config == nullptr) {
-    init_default_namespace_no_config(g_is_asan);
-    return;
+    return init_default_namespace_no_config(g_is_asan);
   }
 
   const auto& namespace_configs = config->namespace_configs();
@@ -3475,6 +3533,9 @@ void init_default_namespace(const char* executable_path) {
   g_default_namespace.set_permitted_paths(default_ns_config->permitted_paths());
 
   namespaces[default_ns_config->name()] = &g_default_namespace;
+  if (default_ns_config->visible()) {
+    g_exported_namespaces[default_ns_config->name()] = &g_default_namespace;
+  }
 
   // 2. Initialize other namespaces
 
@@ -3512,10 +3573,17 @@ void init_default_namespace(const char* executable_path) {
   soinfo* ld_android_so = solist_get_head();
   for (auto it : namespaces) {
     it.second->add_soinfo(ld_android_so);
-    // TODO (dimitry): somain and ld_preloads should probably be added to all of these namespaces too?
+    // somain and ld_preloads are added to these namespaces after LD_PRELOAD libs are linked
   }
 
   set_application_target_sdk_version(config->target_sdk_version());
+
+  std::vector<android_namespace_t*> created_namespaces;
+  created_namespaces.reserve(namespaces.size());
+  for (auto kv : namespaces) {
+    created_namespaces.push_back(kv.second);
+  }
+  return created_namespaces;
 }
 
 // This function finds a namespace exported in ld.config.txt by its name.

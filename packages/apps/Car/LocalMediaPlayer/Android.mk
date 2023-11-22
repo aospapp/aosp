@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+ifneq ($(TARGET_BUILD_PDK), true)
+
 LOCAL_PATH:= $(call my-dir)
 
 # Proto dependencies
@@ -69,3 +71,5 @@ LOCAL_DEX_PREOPT := false
 include packages/services/Car/car-support-lib/car-support.mk
 
 include $(BUILD_PACKAGE)
+
+endif

@@ -75,25 +75,53 @@ public abstract class CalendarSystem {
 
     /////////////////////// Calendar Factory Methods /////////////////////////
 
+    // BEGIN Android-changed: avoid reflection for loading calendar classes.
+    // // Map of calendar names and calendar class names
+    // private static ConcurrentMap<String, String> names;
     // Map of calendar names and calendar classes;
     private static final Map<String, Class<?>> names;
 
-    // Android-changed: Don't use reflection for Class.forName every time.
+    // Map of calendar names and CalendarSystem instances
+    private static final ConcurrentMap<String, CalendarSystem> calendars =
+            new ConcurrentHashMap<>();
 
     static {
         names = new HashMap<>();
         names.put("gregorian", Gregorian.class);
         names.put("japanese", LocalGregorianCalendar.class);
         names.put("julian", JulianCalendar.class);
-        // names.put("hebrew", "HebrewCalendar");
-        // names.put("iso8601", "ISOCalendar");
-        // names.put("taiwanese", "LocalGregorianCalendar");
-        // names.put("thaibuddhist", "LocalGregorianCalendar");
+    // END Android-changed: avoid reflection for loading calendar classes.
+        /*
+        "hebrew", "HebrewCalendar",
+        "iso8601", "ISOCalendar",
+        "taiwanese", "LocalGregorianCalendar",
+        "thaibuddhist", "LocalGregorianCalendar",
+        */
     }
 
-    // Map of calendar names and CalendarSystem instances
-    private static final ConcurrentMap<String, CalendarSystem> calendars =
-            new ConcurrentHashMap<>();
+    // BEGIN Android-removed: avoid reflection for loading calendar classes.
+    /*
+    private static void initNames() {
+        ConcurrentMap<String,String> nameMap = new ConcurrentHashMap<>();
+
+        // Associate a calendar name with its class name and the
+        // calendar class name with its date class name.
+        StringBuilder clName = new StringBuilder();
+        for (int i = 0; i < namePairs.length; i += 2) {
+            clName.setLength(0);
+            String cl = clName.append(PACKAGE_NAME).append(namePairs[i+1]).toString();
+            nameMap.put(namePairs[i], cl);
+        }
+        synchronized (CalendarSystem.class) {
+            if (!initialized) {
+                names = nameMap;
+                calendars = new ConcurrentHashMap<>();
+                initialized = true;
+            }
+        }
+    }
+    */
+    // END Android-removed: avoid reflection for loading calendar classes.
 
     private final static Gregorian GREGORIAN_INSTANCE = new Gregorian();
 
@@ -122,7 +150,7 @@ public abstract class CalendarSystem {
             return GREGORIAN_INSTANCE;
         }
 
-        //Android-changed: remove lazy initialization, use classes instead of class names.
+        // Android-changed: remove lazy initialization, use classes instead of class names.
 
         CalendarSystem cal = calendars.get(calendarName);
         if (cal != null) {
@@ -141,13 +169,12 @@ public abstract class CalendarSystem {
             try {
                 cal = (CalendarSystem) calendarClass.newInstance();
             } catch (Exception e) {
-                throw new RuntimeException("internal error", e);
+                throw new InternalError(e);
             }
         }
         if (cal == null) {
             return null;
         }
-
         CalendarSystem cs =  calendars.putIfAbsent(calendarName, cal);
         return (cs == null) ? cal : cs;
     }
@@ -161,7 +188,7 @@ public abstract class CalendarSystem {
      *                                  Unicode escape sequences
      */
     public static Properties getCalendarProperties() throws IOException {
-        // Android-changed: load from resources.
+        // Android-changed: load calendar Properties from resources.
         Properties calendarProps = new Properties();
         try (InputStream is = ClassLoader.getSystemResourceAsStream("calendars.properties")) {
             calendarProps.load(is);

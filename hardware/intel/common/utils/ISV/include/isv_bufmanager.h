@@ -141,6 +141,8 @@ private:
 #endif
 };
 
+struct ANativeWindowBuffer;
+
 class ISVBufferManager: public RefBase
 {
 public:

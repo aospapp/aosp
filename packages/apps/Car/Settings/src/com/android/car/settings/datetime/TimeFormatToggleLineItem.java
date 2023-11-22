@@ -78,4 +78,9 @@ class TimeFormatToggleLineItem extends ToggleLineItem {
         return DateFormat.getTimeFormat(mContext)
                 .format(mTimeFormatDemoDate.getTime());
     }
+
+    @Override
+    public boolean isExpandable() {
+        return false;
+    }
 }

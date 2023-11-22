@@ -45,4 +45,7 @@ public interface RemoteConfig {
      * Gets value as a boolean corresponding to the specified key.
      */
     boolean getBoolean(String key);
+
+    /** Gets value as a long corresponding to the specified key. */
+    long getLong(String key);
 }

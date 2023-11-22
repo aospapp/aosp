@@ -208,12 +208,6 @@
                     android:src="@drawable/ic_dialpad"
                     android:tint="@color/car_tint"
                     android:background="@drawable/ongoing_call_action_background" />
-                <include
-                    android:id="@+id/rotary_dialpad"
-                    android:layout_width="@dimen/ongoing_call_rotary_dialpad_width"
-                    android:layout_height="match_parent"
-                    android:visibility="gone"
-                    layout="@layout/rotary_in_call_dialpad" />
             </LinearLayout>
         </FrameLayout>
     </FrameLayout>

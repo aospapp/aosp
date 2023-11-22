@@ -38,7 +38,7 @@ if [ $? -ne 0 ]; then
   exit -1
 fi
 
-eval spirv-dis "$output_folder/$script.spv"
+eval spirv-dis --no-color "$output_folder/$script.spv"
 
 RET=$?
 

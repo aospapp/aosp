@@ -30,10 +30,12 @@ import junit.framework.TestCase;
 
 public final class BaseDexClassLoaderTest extends TestCase {
     private static class Reporter implements BaseDexClassLoader.Reporter {
+        public List<BaseDexClassLoader> classLoaders = new ArrayList<>();
         public List<String> loadedDexPaths = new ArrayList<>();
 
         @Override
-        public void report(List<String> dexPaths) {
+        public void report(List<BaseDexClassLoader> loaders, List<String> dexPaths) {
+            classLoaders.addAll(loaders);
             loadedDexPaths.addAll(dexPaths);
         }
     }
@@ -51,11 +53,19 @@ public final class BaseDexClassLoaderTest extends TestCase {
         Reporter reporter = new Reporter();
         BaseDexClassLoader.setReporter(reporter);
         // Load the jar file using a PathClassLoader.
-        BaseDexClassLoader cl1 = new PathClassLoader(jar.getPath(), pcl);
+        BaseDexClassLoader cl1 = new PathClassLoader(jar.getPath(),
+            ClassLoader.getSystemClassLoader());
 
         // Verify the reporter files.
-        assertEquals(1, reporter.loadedDexPaths.size());
+        assertEquals(2, reporter.loadedDexPaths.size());
+        assertEquals(2, reporter.classLoaders.size());
+
+        // First class loader should be the one loading the files
         assertEquals(jar.getPath(), reporter.loadedDexPaths.get(0));
+        assertEquals(cl1, reporter.classLoaders.get(0));
+        // Second class loader should be the system class loader.
+        // Don't check the actual classpath as that might vary based on system properties.
+        assertEquals(ClassLoader.getSystemClassLoader(), reporter.classLoaders.get(1));
 
         // Reset the reporter and check we don't report anymore.
         BaseDexClassLoader.setReporter(null);
@@ -64,8 +74,12 @@ public final class BaseDexClassLoaderTest extends TestCase {
         BaseDexClassLoader cl2 = new PathClassLoader(jar.getPath(), pcl);
 
         // Verify the list reporter files did not change.
-        assertEquals(1, reporter.loadedDexPaths.size());
+        assertEquals(2, reporter.loadedDexPaths.size());
+        assertEquals(2, reporter.classLoaders.size());
+
         assertEquals(jar.getPath(), reporter.loadedDexPaths.get(0));
+        assertEquals(cl1, reporter.classLoaders.get(0));
+        assertEquals(ClassLoader.getSystemClassLoader(), reporter.classLoaders.get(1));
 
         // Clean up the extracted jar file.
         assertTrue(jar.delete());

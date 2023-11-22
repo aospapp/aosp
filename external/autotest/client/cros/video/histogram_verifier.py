@@ -4,9 +4,27 @@
 
 
 import re
-
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
+
+
+def loaded(tab, histogram_name, pattern):
+     """
+     Checks if the histogram page has been fully loaded.
+
+     @param tab: object, Chrome tab instance
+     @param histogram_name: string, name of the histogram
+     @param pattern: string, required text to look for
+     @returns re.MatchObject if the given pattern is found in the text
+              None otherwise
+
+     """
+     docEle = 'document.documentElement'
+     tab.Navigate('chrome://histograms/%s' % histogram_name)
+     tab.WaitForDocumentReadyStateToBeComplete()
+     raw_text = tab.EvaluateJavaScript(
+          '{0} && {0}.innerText'.format(docEle))
+     return re.search(pattern, raw_text)
 
 
 def  verify(cr, histogram_name, histogram_bucket_value):
@@ -25,21 +43,9 @@ def  verify(cr, histogram_name, histogram_bucket_value):
      error_msg_format = ('{} not loaded or histogram bucket not found '
                          'or histogram bucket found at < 100%')
      tab = cr.browser.tabs.New()
-
-     def loaded():
-          """
-          Checks if the histogram page has been fully loaded.
-
-          """
-          docEle = 'document.documentElement'
-          tab.Navigate('chrome://histograms/%s' % histogram_name)
-          tab.WaitForDocumentReadyStateToBeComplete()
-          raw_text = tab.EvaluateJavaScript(
-                  "{0} && {0}.innerText".format(docEle))
-          return re.search(bucket_pattern, raw_text)
-
      msg = error_msg_format.format(histogram_name)
-     utils.poll_for_condition(loaded,
+     utils.poll_for_condition(lambda : loaded(tab, histogram_name,
+                                              bucket_pattern),
                               exception=error.TestError(msg),
                               sleep_interval=1)
 
@@ -61,3 +67,46 @@ def is_bucket_present(cr,histogram_name, histogram_bucket_value):
           return False
      else:
           return True
+
+
+def is_histogram_present(cr, histogram_name):
+     """
+     This checks if the given histogram is present and non-zero.
+
+     @param cr: object, the Chrome instance
+     @param histogram_name: string, name of the histogram
+     @returns True if histogram page was loaded and the histogram is present
+              False otherwise
+
+     """
+     histogram_pattern = 'Histogram: '+ histogram_name + ' recorded ' + \
+                         r'[1-9][0-9]*' + ' samples'
+     tab = cr.browser.tabs.New()
+     try:
+          utils.poll_for_condition(lambda : loaded(tab, histogram_name,
+                                                   histogram_pattern),
+                                   timeout=2,
+                                   sleep_interval=0.1)
+          return True
+     except utils.TimeoutError:
+          # the histogram is not present, and then returns false
+          return False
+
+
+def get_histogram(cr, histogram_name):
+     """"
+     This returns contents of the given histogram.
+     @param cr: object, the Chrome instance
+     @param histogram_name: string, name of the histogram
+     @returns string: contents of the histogram
+
+     """
+     tab = cr.browser.tabs.New()
+     docEle = 'document.documentElement'
+     tab.Navigate('chrome://histograms/%s' % histogram_name)
+     tab.WaitForDocumentReadyStateToBeComplete()
+     raw_text = tab.EvaluateJavaScript(
+          '{0} && {0}.innerText'.format(docEle))
+     # extract the contents of the histogram
+     histogram = raw_text[raw_text.find('Histogram:'):]
+     return histogram

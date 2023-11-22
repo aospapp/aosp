@@ -19,7 +19,7 @@ package android.platform.test.helpers;
 
 import android.app.Instrumentation;
 
-public abstract class AbstractAutoRadioHelper extends AbstractStandardAppHelper{
+public abstract class AbstractAutoRadioHelper extends AbstractStandardAppHelper {
 
     public AbstractAutoRadioHelper(Instrumentation instr) {
         super(instr);
@@ -29,7 +29,6 @@ public abstract class AbstractAutoRadioHelper extends AbstractStandardAppHelper{
      * Setup expectations: Radio app is open
      *
      * This method is used to play Radio.
-     *
      */
     public abstract void playRadio();
 
@@ -37,7 +36,6 @@ public abstract class AbstractAutoRadioHelper extends AbstractStandardAppHelper{
      * Setup expectations: Radio app is open.
      *
      * This method is used to pause radio.
-     *
      */
     public abstract void pauseRadio();
 
@@ -45,7 +43,6 @@ public abstract class AbstractAutoRadioHelper extends AbstractStandardAppHelper{
      * Setup expectations: Radio app is open.
      *
      * This method is used to select next station.
-     *
      */
     public abstract void clickNextStation();
 
@@ -53,7 +50,6 @@ public abstract class AbstractAutoRadioHelper extends AbstractStandardAppHelper{
      * Setup expectations: Radio app is open.
      *
      * This method is used to select previous station.
-     *
      */
     public abstract void clickPreviousStation();
 
@@ -61,15 +57,20 @@ public abstract class AbstractAutoRadioHelper extends AbstractStandardAppHelper{
      * Setup expectations: Radio app is open.
      *
      * This method is used to save current station.
-     *
      */
     public abstract void saveCurrentStation();
 
     /**
-     * Setup expectations: Radio app is open.
+     * Setup expectations: Radio app is open
+     *
+     * This method is used to unsave current station.
+     */
+    public abstract void unsaveCurrentStation();
+
+    /**
+     * Setup expectations: Radio app is open
      *
      * This method is used to open saved station list.
-     *
      */
     public abstract void openSavedStationList();
 
@@ -77,7 +78,6 @@ public abstract class AbstractAutoRadioHelper extends AbstractStandardAppHelper{
      * Setup expectations: Radio app is open.
      *
      * This method is used to select AM from menu.
-     *
      */
     public abstract void clickAmFromMenu();
 
@@ -85,7 +85,6 @@ public abstract class AbstractAutoRadioHelper extends AbstractStandardAppHelper{
      * Setup expectations: Radio app is open.
      *
      * This method is used to select FM from menu.
-     *
      */
     public abstract void clickFmFromMenu();
 
@@ -95,10 +94,9 @@ public abstract class AbstractAutoRadioHelper extends AbstractStandardAppHelper{
      * This method is used to tune station manually.
      *
      * @param stationType - to select AM or FM.
-     * @param band - band to tune in.
-     *
+     * @param band        - band to tune in.
      */
-    public abstract void setStation(String stationType,double band);
+    public abstract void setStation(String stationType, double band);
 
     /**
      * Setup expectations: Radio app is open.
@@ -107,4 +105,37 @@ public abstract class AbstractAutoRadioHelper extends AbstractStandardAppHelper{
      */
     public abstract String getStationBand();
 
+    /**
+     * Setup expectations: Radio app is open and
+     * Favourite/saved station list should be open.
+     *
+     * This method is used to pause radio from current station card
+     */
+    public abstract void pauseCurrentStationCard();
+
+    /**
+     * Setup expectations: Radio app is open and
+     * Favourite/saved station list should be open
+     *
+     * This method is used to play radio from current station card
+     */
+    public abstract void playCurrentStationCard();
+
+    /**
+     * Setup expectations: Radio app is open and
+     * Favourite/saved station list should be open
+     *
+     * This method is used to exit current station card
+     */
+    public abstract void exitCurrentStationCard();
+
+    /**
+     * Setup expectations: Radio app is open and
+     * Favourite/saved station list should be open
+     *
+     * This method is used to find and play the provided channelName from the list of saved stations
+     *
+     * @param channelName : the channel name to be played
+     */
+    public abstract void playFavoriteStation(String channelName);
 }

@@ -52,7 +52,7 @@
     <string name="device_surround_sound" msgid="6272196310566546860">"الصوت المحيطي"</string>
     <string name="device_sound_effects" msgid="7793281745920228622">"أصوات النظام"</string>
     <string name="device_apps" msgid="9180435229638772838">"التطبيقات"</string>
-    <string name="device_storage_reset" msgid="1425978936501134425">"سعة التخزين وإعادة التعيين"</string>
+    <string name="device_storage_reset" msgid="1425978936501134425">"سعة التخزين وإعادة الضبط"</string>
     <string name="device_backup_restore" msgid="5627523987587511884">"النسخ الاحتياطي والاستعادة"</string>
     <string name="device_reset" msgid="2827002349560023125">"إعادة الضبط بحسب بيانات المصنع"</string>
     <string name="device_calibration" msgid="8632962533376605191">"المعايرة"</string>
@@ -68,7 +68,7 @@
     <string name="accessory_state_canceled" msgid="4419328837733619447">"تم الإلغاء"</string>
     <string name="accessory_state_paired" msgid="1959238931866401476">"تم الإقران"</string>
     <string name="accessory_options" msgid="4799658564005710297">"ملحق"</string>
-    <string name="accessory_unpair" msgid="8242725516604465355">"إلغاء الاقتران"</string>
+    <string name="accessory_unpair" msgid="8242725516604465355">"إلغاء الإقران"</string>
     <string name="accessory_battery" msgid="7021788232835772126">"البطارية <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"جارٍ إلغاء إقران الجهاز…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"متصل"</string>
@@ -105,9 +105,9 @@
     <string name="about_system_update" msgid="7282772247661356586">"تحديث النظام"</string>
     <string name="about_preference" msgid="4131396784531360434">"حول"</string>
     <string name="device_name" msgid="2670488158531273028">"اسم الجهاز"</string>
-    <string name="restart_button_label" msgid="8153112858638352970">"إعادة تشغيل"</string>
+    <string name="restart_button_label" msgid="8153112858638352970">"إعادة التشغيل"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"المعلومات القانونية"</string>
-    <string name="about_legal_license" msgid="7867205982113209033">"تراخيص برامج مفتوحة مصدر"</string>
+    <string name="about_legal_license" msgid="7867205982113209033">"تراخيص البرامج مفتوحة المصدر"</string>
     <string name="about_terms_of_service" msgid="7743088207977334874">"معلومات قانونية من Google"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"بيانات الترخيص غير متاحة"</string>
     <string name="about_model" msgid="6625269442206323995">"الطراز"</string>
@@ -151,7 +151,7 @@
     <string name="legal_information" msgid="2346024659831852038">"المعلومات القانونية"</string>
     <string name="copyright_title" msgid="5564228453228549353">"حقوق الطبع والنشر"</string>
     <string name="license_title" msgid="4482927105870812604">"الترخيص"</string>
-    <string name="terms_title" msgid="8480859222932736291">"البنود والشروط"</string>
+    <string name="terms_title" msgid="8480859222932736291">"الأحكام والشروط"</string>
     <string name="webview_license_title" msgid="8843666223583780825">"ترخيص WebView للنظام"</string>
     <string name="wallpaper_attributions" msgid="8622098625739634898">"الخلفيات"</string>
     <string name="wallpaper_attributions_values" msgid="1565931506291182879">"الشركات الموفرة لصور القمر الصناعي:\nBREAK‎©2014 CNES / Astrium، وDigitalGlobe وBluesky"</string>
@@ -164,7 +164,7 @@
     <string name="title_mac_address" msgid="3428401680168668544">"عنوان Mac"</string>
     <string name="title_signal_strength" msgid="205478650262078041">"قوة الإشارة"</string>
     <string name="title_ip_address" msgid="4533523100923004711">"عنوان IP"</string>
-    <string name="title_ssid" msgid="4858945903642469730">"أدخل اسم شبكة Wi-Fi"</string>
+    <string name="title_ssid" msgid="4858945903642469730">"يُرجى إدخال اسم شبكة Wi-Fi"</string>
     <string name="title_internet_connection" msgid="8710084774588697646">"اتصال الإنترنت"</string>
     <string name="connected" msgid="7563100162902079938">"متصل"</string>
     <string name="not_connected" msgid="6858480380326923017">"غير متصل"</string>
@@ -172,10 +172,10 @@
     <string name="wifi_setting_see_all" msgid="3217814666041974878">"عرض الكل"</string>
     <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"عرض أقل"</string>
     <string name="wifi_setting_available_networks" msgid="6713791371350513043">"الشبكات المتاحة"</string>
-    <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"اتصال عبر WPS"</string>
+    <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"الاتصال عبر WPS"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"إضافة شبكة جديدة"</string>
     <string name="security_type" msgid="524443802004143058">"نوع الأمان"</string>
-    <string name="wps_network" msgid="1052148085426051873">"اتصال عبر WPS"</string>
+    <string name="wps_network" msgid="1052148085426051873">"الاتصال عبر WPS"</string>
     <string name="other_network" msgid="3539704463099544488">"شبكة أخرى..."</string>
     <string name="skip_network" msgid="6380260543776712357">"تخطي"</string>
     <string name="wifi_security_type_none" msgid="6622722325237471927">"بدون"</string>
@@ -209,10 +209,10 @@
     <string name="wifi_connect" msgid="8570424816865506077">"الاتصال"</string>
     <string name="wifi_forget_network" msgid="7302755141573045803">"حذف الشبكة"</string>
     <string name="wifi_forget_network_description" msgid="3328285160018330334">"يؤدي هذا إلى محو المعلومات المستخدمة للاتصال بهذه الشبكة، بما في ذلك كلمات المرور المحفوظة"</string>
-    <string name="wifi_action_ok" msgid="5932500664228395779">"موافق"</string>
+    <string name="wifi_action_ok" msgid="5932500664228395779">"موافقة"</string>
     <string name="wifi_action_change_network" msgid="5196215981075986148">"تغيير"</string>
     <string name="wifi_action_dont_change_network" msgid="1449920958930251977">"عدم التغيير"</string>
-    <string name="wifi_action_advanced_yes" msgid="8586473568311558982">"موافق"</string>
+    <string name="wifi_action_advanced_yes" msgid="8586473568311558982">"موافقة"</string>
     <string name="wifi_action_advanced_no" msgid="8165601242122651326">"لا (مستحسن)"</string>
     <string name="wifi_action_proxy_none" msgid="4457231399674182650">"بدون"</string>
     <string name="wifi_action_proxy_manual" msgid="8402002777441261064">"يدوي"</string>
@@ -242,7 +242,7 @@
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"الشبكة غير متصلة"</string>
     <string name="wifi_summary_description_connected_to_wifi_network" msgid="7583498018733069053">"أنت متصل من قبل بـ <xliff:g id="SSID">%1$s</xliff:g>. هل تريد الاتصال بشبكة أخرى؟"</string>
     <string name="wifi_summary_unknown_network" msgid="7903601448928422642">"شبكة غير معروفة"</string>
-    <string name="title_ok" msgid="1021329453788761592">"موافق"</string>
+    <string name="title_ok" msgid="1021329453788761592">"موافقة"</string>
     <string name="title_cancel" msgid="4846143417666038604">"إلغاء"</string>
     <string name="storage_title" msgid="2132026108559493394">"وحدة التخزين"</string>
     <string name="storage_available" msgid="1241005580092138871">"المساحة المتوفرة"</string>
@@ -267,7 +267,7 @@
     <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"لاستخدام التطبيقات أو البيانات التي يتضمنها محرك الأقراص هذا، عليك إعادة توصيله بالجهاز. ويمكنك بدلاً من ذلك حذف وحدة التخزين هذه إذا لم يكن محرك الأقراص متاحًا.\n\nإذا اخترت \"حذف\"، فسيتم فقد كل البيانات التي يتضمنها محرك الأقراص للأبد.\n\nيمكنك إعادة تثبيت التطبيقات لاحقًا، ولكن سيتم فقد البيانات المخزنة على محرك الأقراص هذا."</string>
     <string name="storage_device_storage_section" msgid="7797805634316822741">"السعة التخزينية للجهاز"</string>
     <string name="storage_removable_storage_section" msgid="3264955106565590076">"وحدة التخزين القابلة للنقل"</string>
-    <string name="storage_reset_section" msgid="7324235036547192861">"إعادة تعيين"</string>
+    <string name="storage_reset_section" msgid="7324235036547192861">"إعادة الضبط"</string>
     <string name="storage_mount_success" msgid="4624254886950093443">"تم تحميل <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_mount_failure" msgid="2469026716895846633">"تعذر تحميل <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_mount_adopted" msgid="3360994581083675640">"تم إعادة توصيل وحدة تخزين USB"</string>
@@ -281,7 +281,7 @@
     <string name="storage_wizard_format_as_public_title" msgid="977475385015522171">"المحو والتهيئة"</string>
     <string name="storage_wizard_format_as_public_description" msgid="184405877453834449">"بعد التهيئة، يمكنك استخدام محرك أقراص USB هذا على أجهزة أخرى. سيتم محو جميع البيانات. جرِّب الاحتفاظ بنسخة احتياطية أولاً من خلال نقل التطبيقات إلى سعة تخزين أخرى على الجهاز."</string>
     <string name="storage_wizard_format_progress_title" msgid="143911640282435570">"جارٍ تهيئة محرك أقراص USB…"</string>
-    <string name="storage_wizard_format_progress_description" msgid="5320980721352781920">"قد يستغرق هذا دقيقة. الرجاء عدم إزالة محرك الأقراص."</string>
+    <string name="storage_wizard_format_progress_description" msgid="5320980721352781920">"قد يستغرق هذا دقيقة. يُرجى عدم إزالة محرك الأقراص."</string>
     <string name="storage_wizard_migrate_choose_title" msgid="4247584708563925746">"اختيار سعة تخزين لترحيل البيانات إليها"</string>
     <string name="storage_wizard_migrate_confirm_title" msgid="369820166257265495">"نقل البيانات إلى <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_wizard_migrate_confirm_description" msgid="2916497196106413598">"يمكنك نقل الصور والملفات وبيانات التطبيقات إلى <xliff:g id="NAME">%1$s</xliff:g>، قد يستغرق هذا بضع دقائق علمًا بأن بعض التطبيقات لن تعمل بشكل صحيح أثناء النقل."</string>
@@ -303,7 +303,7 @@
     <string name="storage_wizard_eject_progress_title" msgid="8823133087157003820">"جارٍ إخراج <xliff:g id="NAME">%1$s</xliff:g>…"</string>
     <string name="storage_wizard_move_app_title" msgid="37057801779891287">"السعة التخزينية المستخدمة"</string>
     <string name="storage_wizard_move_app_progress_title" msgid="7807062446517628864">"جارٍ نقل <xliff:g id="NAME">%1$s</xliff:g>…"</string>
-    <string name="storage_wizard_move_app_progress_description" msgid="3693104566187904724">"الرجاء عدم إزالة محرك الأقراص أثناء النقل.\nلن يكون تطبيق <xliff:g id="APPNAME">%1$s</xliff:g> على هذا الجهاز متاحًا حتى اكتمال النقل."</string>
+    <string name="storage_wizard_move_app_progress_description" msgid="3693104566187904724">"يُرجى عدم إزالة محرك الأقراص أثناء النقل.\nلن يكون تطبيق <xliff:g id="APPNAME">%1$s</xliff:g> على هذا الجهاز متاحًا حتى اكتمال النقل."</string>
     <string name="storage_wizard_forget_confirm_title" msgid="4321200084208420221">"هل تريد تجاهل سعة تخزين الجهاز؟"</string>
     <string name="storage_wizard_forget_confirm_description" msgid="4264263982217111372">"سيتم فقد كل بياناتك المخزنة على محرك الأقراص هذا للأبد عند استخدام خيار \"حذف\". هل تريد المتابعة؟"</string>
     <string name="storage_wizard_forget_action" msgid="2532812620271112355">"حذف"</string>
@@ -323,7 +323,7 @@
     <string name="learn_more_action" msgid="7015991954404958779">"مزيد من المعلومات"</string>
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"إعادة المحاولة"</string>
     <string name="wifi_wps_title" msgid="1872305810119408482">"جارٍ البحث عن جهاز توجيه WPS…"</string>
-    <string name="wifi_wps_instructions" msgid="3618110962669110034">"اضغط على زر Wi-Fi Protected Setup على جهاز التوجيه.\nربما يطلق عليه \"WPS\" أو يحتوي على الرمز على اليسار."</string>
+    <string name="wifi_wps_instructions" msgid="3618110962669110034">"يُرجى الضغط على زر Wi-Fi Protected Setup على جهاز التوجيه.\nقد يحمل اسم \"WPS\" أو يحتوي على الرمز على اليسار."</string>
     <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"أدخل رقم التعريف الشخصي <xliff:g id="NUMBER">%1$s</xliff:g> على جهاز توجيه Wi-Fi."</string>
     <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"بعد إدخال رقم التعريف الشخصي، قد تستغرق عملية الإعداد ما يصل إلى دقيقتين حتى تكتمل"</string>
     <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"تعذر العثور على جهاز توجيه Wi-Fi"</string>
@@ -372,8 +372,12 @@
     <string name="system_services" msgid="7230571820151215779">"الخدمات"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"إعدادات الخدمات"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"النص ذو درجة التباين العالية"</string>
-    <string name="accessibility_captions" msgid="6133896463407851079">"التسميات التوضيحية"</string>
-    <string name="accessibility_captions_description" msgid="4290317621720499628">"إعدادات تركيب نص التسميات التوضيحية المغلقة على الفيديو"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"اختصار إمكانية الوصول"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"تمكين اختصار إمكانية الوصول"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"خدمة الاختصار"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"عند تشغيل الاختصار، يمكنك الضغط على الزرين \"رجوع\" و\"لأسفل\" معًا لمدة 3 ثوانٍ لبدء ميزة إمكانية الوصول."</string>
+    <string name="accessibility_captions" msgid="6133896463407851079">"الترجمة والشرح"</string>
+    <string name="accessibility_captions_description" msgid="4290317621720499628">"إعدادات تركيب نص الترجمة والشرح على الفيديو"</string>
     <string name="captions_display" msgid="735692527287125548">"العرض"</string>
     <string name="captions_display_on" msgid="1989009878719500520">"تشغيل"</string>
     <string name="captions_display_off" msgid="496953007835201523">"إيقاف"</string>
@@ -382,7 +386,7 @@
     <string name="captions_language" msgid="2835554055388996343">"اللغة"</string>
     <string name="captions_language_default" msgid="8113979489252033676">"الافتراضية"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"حجم النص"</string>
-    <string name="captions_captionstyle" msgid="7423638523487868230">"نمط التسمية التوضيحية"</string>
+    <string name="captions_captionstyle" msgid="7423638523487868230">"شكل الترجمة والشرح"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"خيارات مخصصة"</string>
     <string name="captions_fontfamily" msgid="6840670778173003604">"مجموعة الخطوط"</string>
     <string name="captions_textcolor" msgid="3233568269335050287">"لون النص"</string>
@@ -391,7 +395,7 @@
     <string name="captions_backgroundshow" msgid="9177987321551275698">"إظهار الخلفية"</string>
     <string name="captions_backgroundcolor" msgid="448518890988125453">"لون الخلفية"</string>
     <string name="captions_backgroundopacity" msgid="2643722493273126220">"تعتيم الخلفية"</string>
-    <string name="captioning_preview_text" msgid="72080729155950127">"ستبدو التسميات التوضيحية بالشكل التالي"</string>
+    <string name="captioning_preview_text" msgid="72080729155950127">"ستبدو الترجمة والشرح بالشكل التالي"</string>
     <string name="captions_textopacity" msgid="5536765490446288641">"تعتيم النص"</string>
     <string name="captions_windowshow" msgid="5716898740522196707">"عرض النافذة"</string>
     <string name="captions_windowcolor" msgid="8986165172260903279">"لون النافذة"</string>
@@ -482,9 +486,9 @@
     <string name="agree" msgid="1235622082275451350">"موافق"</string>
     <string name="disagree" msgid="9170636026862400981">"غير موافق"</string>
     <string name="security_unknown_sources_title" msgid="769762478057744545">"مصادر غير معروفة"</string>
-    <string name="security_unknown_sources_desc" msgid="7197053279914817124">"السماح بتثبيت التطبيقات من مصادر أخرى بخلاف متجر Play"</string>
+    <string name="security_unknown_sources_desc" msgid="7197053279914817124">"السماح بتثبيت التطبيقات من مصادر أخرى غير متجر Play"</string>
     <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"السماح بالمصادر غير المعروفة"</string>
-    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"تكون بيانات جهازك وبياناتك الشخصية أكثر عرضة للهجوم من خلال التطبيقات مجهولة المصادر. أنت توافق على أنك المسؤول الوحيد عن أي ضرر لجهازك أو أي فقدان للبيانات ينتج عن استخدام هذه التطبيقات."</string>
+    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"يعد جهازك وبياناتك الشخصية أكثر عرضة للهجوم من خلال التطبيقات مجهولة المصادر، ولذلك يُرجى الموافقة على أنك المسؤول الوحيد عن أي ضرر يلحق بالجهاز أو أي فقدان للبيانات نتيجة استخدام هذه التطبيقات."</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"التحقق من التطبيقات"</string>
     <string name="security_verify_apps_desc" msgid="1456317893117818733">"عدم السماح أو التحذير قبل تثبيت التطبيقات التي قد تؤدي إلى حدوث ضرر"</string>
     <string name="system_hdcp_checking_never" msgid="1758043078676276985">"مطلقًا"</string>
@@ -600,7 +604,7 @@
     <string name="restricted_profile_allowed" msgid="2903829140619950232">"مسموح بها"</string>
     <string name="restricted_profile_not_allowed" msgid="1622620680118897330">"غير مسموح بها"</string>
     <string name="restricted_profile_customize_restrictions" msgid="8418415019078825537">"تخصيص القيود"</string>
-    <string name="restricted_profile_configure_apps_description_loading" msgid="5269477581791409700">"الرجاء الانتظار لحظة…"</string>
+    <string name="restricted_profile_configure_apps_description_loading" msgid="5269477581791409700">"يُرجى الانتظار لحظة…"</string>
     <string name="restricted_profile_change_password_title" msgid="2848537651211816659">"تغيير رقم التعريف الشخصي"</string>
     <string name="restriction_description" msgid="3104855945910233028">"<xliff:g id="DESCRIPTION">%1$s</xliff:g>\n<xliff:g id="VALUE">%2$s</xliff:g>"</string>
     <string name="app_sees_restricted_accounts_and_controlled_by" msgid="6677671440081319908">"يمكن لهذا التطبيق الدخول إلى حساباتك. يتم التحكم فيه بواسطة <xliff:g id="APP">%1$s</xliff:g>"</string>
@@ -619,7 +623,7 @@
     <string name="device_apps_app_management_version" msgid="2267065043941006486">"الإصدار <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
     <string name="device_apps_app_management_open" msgid="8009823973422120839">"فتح"</string>
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"فرض الإيقاف"</string>
-    <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"في حالة فرض إيقاف التطبيق، ربما لا يعمل بشكل صحيح."</string>
+    <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"قد لا يعمل التطبيق بشكل صحيح في حال فرض إيقافه."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"إزالة"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"إزالة التحديثات"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"ستتم إزالة جميع تحديثات تطبيق نظام Android هذا."</string>
@@ -630,15 +634,15 @@
     <string name="device_apps_app_management_storage_used" msgid="4611351576179140634">"السعة التخزينية المستخدمة"</string>
     <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"تم استخدام <xliff:g id="SIZE">%1$s</xliff:g> في <xliff:g id="VOLUME">%2$s</xliff:g>"</string>
     <string name="device_apps_app_management_clear_data" msgid="4439114679323274127">"محو البيانات"</string>
-    <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"سيتم حذف جميع بيانات هذا التطبيق نهائيًا.\nيتضمن ذلك جميع الملفات والإعدادات والحسابات وقواعد البيانات، وما إلى ذلك."</string>
-    <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"محو الإعدادات الافتراضية"</string>
+    <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"سيتم حذف جميع بيانات هذا التطبيق نهائيًا.\nويتضمن ذلك جميع الملفات والإعدادات والحسابات وقواعد البيانات، وما إلى ذلك."</string>
+    <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"محو الإعدادات التلقائية"</string>
     <string name="device_apps_app_management_clear_default_set" msgid="4191720055364731307">"تعيين تشغيل هذا التطبيق لبعض الإجراءات"</string>
-    <string name="device_apps_app_management_clear_default_none" msgid="196932966641339141">"لم يتم تعيين إعدادات افتراضية"</string>
+    <string name="device_apps_app_management_clear_default_none" msgid="196932966641339141">"لم يتم تعيين إعدادات تلقائية"</string>
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"محو ذاكرة التخزين المؤقت"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"الإشعارات"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"الأذونات"</string>
     <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"التطبيق غير متاح"</string>
-    <string name="settings_ok" msgid="3321630456511355983">"موافق"</string>
+    <string name="settings_ok" msgid="3321630456511355983">"موافقة"</string>
     <string name="settings_cancel" msgid="304280412158061225">"إلغاء"</string>
     <string name="settings_on" msgid="6892236264945435013">"تشغيل"</string>
     <string name="settings_off" msgid="449272161738237637">"إيقاف"</string>
@@ -684,6 +688,10 @@
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"هل تريد إعادة التشغيل في الوضع الآمن؟"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"سيؤدي هذا إلى تعطيل كل تطبيقات الجهات الخارجية التي ثبَّتَها. وستتم استعادتها بعد إعادة التشغيل مرة أخرى."</string>
     <string name="capturing_bugreport" msgid="3291125403411239592">"جارٍ تسجيل تقرير الأخطاء"</string>
-    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"لوحات المفاتيح الظاهرية المتاحة"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"لوحات المفاتيح الافتراضية المتاحة"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"إدارة لوحات المفاتيح"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"مسموح به"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"غير مسموح به"</string>
+    <string name="usage_access" msgid="1914242907684452328">"الدخول إلى الاستخدام"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"يتيح الدخول إلى الاستخدام للتطبيق تتبع التطبيقات الأخرى التي تستخدمها ومدى تكرار استخدامها ومشغِّل شبكة الجوّال وإعدادات اللغة بالإضافة إلى تفاصيل أخرى."</string>
 </resources>

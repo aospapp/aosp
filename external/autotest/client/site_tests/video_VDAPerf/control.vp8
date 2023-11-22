@@ -36,4 +36,5 @@ constraints = [
     'crowd1080_vp8_frame_drop_rate == 0',
     'crowd720_vp8_frame_drop_rate == 0']
 
-job.run_test('video_VDAPerf', test_cases=test_cases, constraints=constraints)
+job.run_test('video_VDAPerf', test_cases=test_cases, constraints=constraints,
+             tag='vp8')

@@ -65,6 +65,7 @@ class AndroidKeymaster {
                                 SupportedExportFormatsResponse* response);
 
     void AddRngEntropy(const AddEntropyRequest& request, AddEntropyResponse* response);
+    void Configure(const ConfigureRequest& request, ConfigureResponse* response);
     void GenerateKey(const GenerateKeyRequest& request, GenerateKeyResponse* response);
     void GetKeyCharacteristics(const GetKeyCharacteristicsRequest& request,
                                GetKeyCharacteristicsResponse* response);

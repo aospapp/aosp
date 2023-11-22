@@ -87,11 +87,11 @@ public class SensorBatchingTests extends SensorTestCase {
         runBatchingSensorTest(Sensor.TYPE_ACCELEROMETER_UNCALIBRATED, RATE_50HZ, BATCHING_PERIOD);
     }
 
-    public void tesAccelUncalibrated_fastest_flush() throws Throwable {
+    public void testAccelUncalibrated_fastest_flush() throws Throwable {
         runFlushSensorTest(Sensor.TYPE_ACCELEROMETER_UNCALIBRATED, RATE_FASTEST, BATCHING_PERIOD);
     }
 
-    public void tesAccelUncalibrated_50hz_flush() throws Throwable {
+    public void testAccelUncalibrated_50hz_flush() throws Throwable {
         runFlushSensorTest(Sensor.TYPE_ACCELEROMETER_UNCALIBRATED, RATE_50HZ, BATCHING_PERIOD);
     }
 

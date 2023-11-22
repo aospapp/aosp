@@ -33,9 +33,32 @@
 // GTEST_OS_STACK_TRACE_GETTER_  - The name of an implementation of
 //                                 OsStackTraceGetterInterface.
 //
+// GTEST_CUSTOM_TEMPDIR_FUNCTION_ - An override for testing::TempDir().
+//                                  See testing::TempDir for semantics and
+//                                  signature.
+// 
 // ** Custom implementation starts here **
 
 #ifndef GTEST_INCLUDE_GTEST_INTERNAL_CUSTOM_GTEST_H_
 #define GTEST_INCLUDE_GTEST_INTERNAL_CUSTOM_GTEST_H_
+
+#define GTEST_CUSTOM_TEMPDIR_FUNCTION_ GetAndroidTempDir
+static inline std::string GetAndroidTempDir() {
+  // Android doesn't have /tmp, and /sdcard is no longer accessible from
+  // an app context starting from Android O. On Android, /data/local/tmp
+  // is usually used as the temporary directory, so try that first...
+  if (access("/data/local/tmp", R_OK | W_OK | X_OK) == 0) return "/data/local/tmp/";
+
+  // Processes running in an app context can't write to /data/local/tmp,
+  // so fall back to the current directory...
+  std::string result = "./";
+  char* cwd = getcwd(NULL, 0);
+  if (cwd != NULL) {
+    result = cwd;
+    result += "/";
+    free(cwd);
+  }
+  return result;
+}
 
 #endif  // GTEST_INCLUDE_GTEST_INTERNAL_CUSTOM_GTEST_H_

@@ -14,7 +14,7 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-from acts.controllers.android import Android
+from acts.controllers.sl4a_client import Sl4aClient
 import json
 import os
 import socket
@@ -46,13 +46,12 @@ def IDCounter():
         i += 1
 
 
-class NativeAndroid(Android):
+class NativeAndroid(Sl4aClient):
     COUNTER = IDCounter()
 
     def _rpc(self, method, *args):
-        self.lock.acquire()
-        apiid = next(NativeAndroid.COUNTER)
-        self.lock.release()
+        with self._lock:
+            apiid = next(self._counter)
         data = {'id': apiid, 'method': method, 'params': args}
         request = json.dumps(data)
         self.client.write(request.encode("utf8") + b'\n')
@@ -61,9 +60,8 @@ class NativeAndroid(Android):
         if not response:
             raise SL4NProtocolError(SL4NProtocolError.NO_RESPONSE_FROM_SERVER)
         #TODO: (tturney) fix the C side from sending \x00 char over the socket.
-        result = json.loads(str(response,
-                                encoding="utf8").rstrip().replace("\x00", ""))
-
+        result = json.loads(
+            str(response, encoding="utf8").rstrip().replace("\x00", ""))
         if result['error']:
             raise SL4NAPIError(result['error'])
         if result['id'] != apiid:

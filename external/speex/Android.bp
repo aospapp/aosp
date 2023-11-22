@@ -50,6 +50,9 @@ cc_library_shared {
     name: "libspeexresampler",
 
     vendor_available: true,
+    vndk: {
+        enabled: true,
+    },
 
     arch: {
         arm: {

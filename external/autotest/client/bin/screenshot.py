@@ -16,7 +16,6 @@ args = argparser.parse_args()
 sys.path.insert(0, "/usr/local/autotest")
 
 # This import can't be moved to before the sys.path alteration.
-from cros.graphics.drm import crtcScreenshot
-
+from cros.graphics.gbm import crtcScreenshot
 image = crtcScreenshot(args.crtc)
 image.save(args.path)

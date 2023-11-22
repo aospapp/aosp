@@ -22,6 +22,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <atomic>
 
 namespace android {
 
@@ -120,8 +121,18 @@ void LockfreeBuffer::write(const sensors_event_t *ev, size_t size) {
     }
 
     while(size--) {
-        mData[mWritePos] = *(ev++);
+        // part before reserved0 field
+        memcpy(&mData[mWritePos], ev, offsetof(sensors_event_t, reserved0));
+        // part after reserved0 field
+        memcpy(reinterpret_cast<char *>(&mData[mWritePos]) + offsetof(sensors_event_t, timestamp),
+               reinterpret_cast<const char *>(ev) + offsetof(sensors_event_t, timestamp),
+               sizeof(sensors_event_t) - offsetof(sensors_event_t, timestamp));
+        // barrier before writing the atomic counter
+        std::atomic_thread_fence(std::memory_order_release);
         mData[mWritePos].reserved0 = mCounter++;
+        // barrier after writing the atomic counter
+        std::atomic_thread_fence(std::memory_order_release);
+        ++ev;
 
         if (++mWritePos >= mSize) {
             mWritePos = 0;

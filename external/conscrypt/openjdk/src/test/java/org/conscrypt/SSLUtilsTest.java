@@ -16,8 +16,13 @@
 
 package org.conscrypt;
 
+import static org.conscrypt.TestUtils.UTF_8;
 import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
+import java.util.Arrays;
+import java.util.HashSet;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -25,7 +30,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class SSLUtilsTest {
     private static final byte[] VALID_CHARACTERS =
-            "0123456789abcdefghijklmnopqrstuvwxyz".getBytes();
+            "0123456789abcdefghijklmnopqrstuvwxyz".getBytes(UTF_8);
 
     @Test
     public void noProtocolsShouldSucceed() {
@@ -41,7 +46,7 @@ public class SSLUtilsTest {
 
     @Test(expected = IllegalArgumentException.class)
     public void longProtocolShouldThrow() {
-        SSLUtils.toLengthPrefixedList(new String(newValidProtocol(256)));
+        SSLUtils.toLengthPrefixedList(new String(newValidProtocol(256), UTF_8));
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -52,20 +57,52 @@ public class SSLUtilsTest {
     @Test
     public void validProtocolsShouldSucceed() {
         byte[][] protocols = new byte[][]{
-                "protocol-1".getBytes(),
-                "protocol-2".getBytes(),
-                "protocol-3".getBytes(),
+                "protocol-1".getBytes(UTF_8),
+                "protocol-2".getBytes(UTF_8),
+                "protocol-3".getBytes(UTF_8),
         };
         byte[] expected = getExpectedEncodedBytes(protocols);
         byte[] actual = SSLUtils.toLengthPrefixedList(toStrings(protocols));
         assertArrayEquals(expected, actual);
     }
 
+    @Test
+    public void testGetClientKeyType() throws Exception {
+        // See http://www.ietf.org/assignments/tls-parameters/tls-parameters.xml
+        byte b = Byte.MIN_VALUE;
+        do {
+            String byteString = Byte.toString(b);
+            String keyType = SSLUtils.getClientKeyType(b);
+            switch (b) {
+                case 1:
+                    assertEquals(byteString, "RSA", keyType);
+                    break;
+                case 64:
+                    assertEquals(byteString, "EC", keyType);
+                    break;
+                default:
+                    assertNull(byteString, keyType);
+            }
+            b++;
+        } while (b != Byte.MIN_VALUE);
+    }
+
+    @Test
+    public void testGetSupportedClientKeyTypes() throws Exception {
+        // Create an array with all possible values. Also, duplicate all values.
+        byte[] allClientCertificateTypes = new byte[512];
+        for (int i = 0; i < allClientCertificateTypes.length; i++) {
+            allClientCertificateTypes[i] = (byte) i;
+        }
+        assertEquals(new HashSet<String>(Arrays.asList("RSA", "EC")),
+                SSLUtils.getSupportedClientKeyTypes(allClientCertificateTypes));
+    }
+
     private static String[] toStrings(byte[][] protocols) {
         int numProtocols = protocols.length;
         String[] out = new String[numProtocols];
         for(int i = 0; i < numProtocols; ++i) {
-            out[i] = new String(protocols[i]);
+            out[i] = new String(protocols[i], UTF_8);
         }
         return out;
     }

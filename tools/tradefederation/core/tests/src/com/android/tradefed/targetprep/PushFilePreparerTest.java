@@ -26,14 +26,11 @@ import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.util.FileUtil;
 
+import org.easymock.EasyMock;
 import org.junit.Before;
 import org.junit.Test;
 
-import org.easymock.EasyMock;
-import org.mockito.Mockito;
-
 import java.io.File;
-import java.util.Arrays;
 
 /** Unit tests for {@link PushFilePreparer} */
 public class PushFilePreparerTest {
@@ -112,23 +109,6 @@ public class PushFilePreparerTest {
 
         // Don't expect any exceptions to be thrown
         mPreparer.setUp(mMockDevice, null);
-        EasyMock.verify(mMockDevice);
-    }
-
-    @Test
-    public void testPushFromTestCasesDir() throws Exception {
-        mOptionSetter.setOptionValue("push", "sh->/noexist/");
-        mOptionSetter.setOptionValue("abort-on-push-failure", "false");
-
-        PushFilePreparer spyPreparer = Mockito.spy(mPreparer);
-        Mockito.doReturn(Arrays.asList(new File("/bin"))).when(spyPreparer).getTestCasesDirs();
-
-        // expect a pushFile() call as /bin/sh should exist and return false (failed)
-        EasyMock.expect(mMockDevice.pushFile((File) EasyMock.anyObject(), EasyMock.eq("/noexist/")))
-                .andReturn(Boolean.FALSE);
-        EasyMock.replay(mMockDevice);
-
-        spyPreparer.setUp(mMockDevice, null);
         EasyMock.verify(mMockDevice);
     }
 

@@ -1,7 +1,7 @@
 [VTS-Example] 07-01 08:54:59.495 INFO ==========> SampleLightFuzzTest <==========
 [VTS-Example] 07-01 08:55:01.215 INFO Exception occurred in command: killall vts_hal_agent > /dev/null 2&>1
-[VTS-Example] 07-01 08:55:01.258 INFO Exception occurred in command: killall fuzzer32 > /dev/null 2&>1
-[VTS-Example] 07-01 08:55:01.296 INFO Exception occurred in command: killall fuzzer64 > /dev/null 2&>1
+[VTS-Example] 07-01 08:55:01.258 INFO Exception occurred in command: killall vts_hal_driver32 > /dev/null 2&>1
+[VTS-Example] 07-01 08:55:01.296 INFO Exception occurred in command: killall vts_hal_driver64 > /dev/null 2&>1
 [VTS-Example] 07-01 08:55:02.299 INFO sending a command (type SET_HOST_INFO)
 [VTS-Example] 07-01 08:55:02.312 INFO resp 2 bytes
 [VTS-Example] 07-01 08:55:02.313 INFO TcpServer Thread-2 started (127.0.0.1:5365)

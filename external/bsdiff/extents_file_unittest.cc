@@ -2,14 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "extents_file.h"
+#include "bsdiff/extents_file.h"
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <string>
 #include <vector>
 
-#include "file_interface.h"
+#include "bsdiff/file_interface.h"
 
 using std::string;
 using std::vector;

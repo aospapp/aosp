@@ -25,18 +25,16 @@
 #include "allocator_type.h"
 #include "arch/instruction_set.h"
 #include "atomic.h"
+#include "base/mutex.h"
 #include "base/time_utils.h"
-#include "gc/accounting/atomic_stack.h"
-#include "gc/accounting/card_table.h"
-#include "gc/accounting/read_barrier_table.h"
 #include "gc/gc_cause.h"
 #include "gc/collector/gc_type.h"
+#include "gc/collector/iteration.h"
 #include "gc/collector_type.h"
 #include "gc/space/large_object_space.h"
 #include "globals.h"
 #include "handle.h"
 #include "obj_ptr.h"
-#include "object_callbacks.h"
 #include "offsets.h"
 #include "process_state.h"
 #include "safe_map.h"
@@ -45,7 +43,9 @@
 namespace art {
 
 class ConditionVariable;
+class IsMarkedVisitor;
 class Mutex;
+class RootVisitor;
 class StackVisitor;
 class Thread;
 class ThreadPool;
@@ -67,8 +67,12 @@ class TaskProcessor;
 class Verification;
 
 namespace accounting {
+  template <typename T> class AtomicStack;
+  typedef AtomicStack<mirror::Object> ObjectStack;
+  class CardTable;
   class HeapBitmap;
   class ModUnionTable;
+  class ReadBarrierTable;
   class RememberedSet;
 }  // namespace accounting
 
@@ -98,13 +102,6 @@ namespace space {
   class Space;
   class ZygoteSpace;
 }  // namespace space
-
-class AgeCardVisitor {
- public:
-  uint8_t operator()(uint8_t card) const {
-    return (card == accounting::CardTable::kCardDirty) ? card - 1 : 0;
-  }
-};
 
 enum HomogeneousSpaceCompactResult {
   // Success.
@@ -251,10 +248,12 @@ class Heap {
   }
 
   // Visit all of the live objects in the heap.
-  void VisitObjects(ObjectCallback callback, void* arg)
+  template <typename Visitor>
+  ALWAYS_INLINE void VisitObjects(Visitor&& visitor)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::heap_bitmap_lock_, !*gc_complete_lock_);
-  void VisitObjectsPaused(ObjectCallback callback, void* arg)
+  template <typename Visitor>
+  ALWAYS_INLINE void VisitObjectsPaused(Visitor&& visitor)
       REQUIRES(Locks::mutator_lock_, !Locks::heap_bitmap_lock_, !*gc_complete_lock_);
 
   void CheckPreconditionsForAllocObject(ObjPtr<mirror::Class> c, size_t byte_count)
@@ -1008,9 +1007,6 @@ class Heap {
 
   size_t GetPercentFree();
 
-  static void VerificationCallback(mirror::Object* obj, void* arg)
-      REQUIRES_SHARED(Locks::heap_bitmap_lock_);
-
   // Swap the allocation stack with the live stack.
   void SwapStacks() REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -1052,10 +1048,12 @@ class Heap {
   // Trim 0 pages at the end of reference tables.
   void TrimIndirectReferenceTables(Thread* self);
 
-  void VisitObjectsInternal(ObjectCallback callback, void* arg)
+  template <typename Visitor>
+  ALWAYS_INLINE void VisitObjectsInternal(Visitor&& visitor)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::heap_bitmap_lock_, !*gc_complete_lock_);
-  void VisitObjectsInternalRegionSpace(ObjectCallback callback, void* arg)
+  template <typename Visitor>
+  ALWAYS_INLINE void VisitObjectsInternalRegionSpace(Visitor&& visitor)
       REQUIRES(Locks::mutator_lock_, !Locks::heap_bitmap_lock_, !*gc_complete_lock_);
 
   void UpdateGcCountRateHistograms() REQUIRES(gc_complete_lock_);
@@ -1089,6 +1087,8 @@ class Heap {
     // registered native allocations rather than absolute.
     return growth_limit_ / 2;
   }
+
+  void TraceHeapSize(size_t heap_size);
 
   // All-known continuous spaces, where objects lie within fixed bounds.
   std::vector<space::ContinuousSpace*> continuous_spaces_ GUARDED_BY(Locks::mutator_lock_);
@@ -1190,8 +1190,11 @@ class Heap {
   // Task processor, proxies heap trim requests to the daemon threads.
   std::unique_ptr<TaskProcessor> task_processor_;
 
-  // True while the garbage collector is running.
+  // Collector type of the running GC.
   volatile CollectorType collector_type_running_ GUARDED_BY(gc_complete_lock_);
+
+  // Cause of the last running GC.
+  volatile GcCause last_gc_cause_ GUARDED_BY(gc_complete_lock_);
 
   // The thread currently running the GC.
   volatile Thread* thread_running_gc_ GUARDED_BY(gc_complete_lock_);
@@ -1237,10 +1240,20 @@ class Heap {
   // old_native_bytes_allocated_ and new_native_bytes_allocated_.
   Atomic<size_t> old_native_bytes_allocated_;
 
-  // Used for synchronization of blocking GCs triggered by
-  // RegisterNativeAllocation.
+  // Used for synchronization when multiple threads call into
+  // RegisterNativeAllocation and require blocking GC.
+  // * If a previous blocking GC is in progress, all threads will wait for
+  // that GC to complete, then wait for one of the threads to complete another
+  // blocking GC.
+  // * If a blocking GC is assigned but not in progress, a thread has been
+  // assigned to run a blocking GC but has not started yet. Threads will wait
+  // for the assigned blocking GC to complete.
+  // * If a blocking GC is not assigned nor in progress, the first thread will
+  // run a blocking GC and signal to other threads that blocking GC has been
+  // assigned.
   Mutex* native_blocking_gc_lock_ DEFAULT_MUTEX_ACQUIRED_AFTER;
   std::unique_ptr<ConditionVariable> native_blocking_gc_cond_ GUARDED_BY(native_blocking_gc_lock_);
+  bool native_blocking_gc_is_assigned_ GUARDED_BY(native_blocking_gc_lock_);
   bool native_blocking_gc_in_progress_ GUARDED_BY(native_blocking_gc_lock_);
   uint32_t native_blocking_gcs_finished_ GUARDED_BY(native_blocking_gc_lock_);
 

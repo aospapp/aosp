@@ -16,13 +16,13 @@
 
 package com.android.cts.deviceandprofileowner;
 
+import static com.android.cts.deviceandprofileowner.vpn.VpnTestHelper.TEST_ADDRESS;
+import static com.android.cts.deviceandprofileowner.vpn.VpnTestHelper.VPN_PACKAGE;
+
 import android.os.Bundle;
 import android.os.UserManager;
 
 import com.android.cts.deviceandprofileowner.vpn.VpnTestHelper;
-
-import static com.android.cts.deviceandprofileowner.vpn.VpnTestHelper.VPN_PACKAGE;
-import static com.android.cts.deviceandprofileowner.vpn.VpnTestHelper.TEST_ADDRESS;
 
 /**
  * Validates that a device owner or profile owner can set an always-on VPN without user action.
@@ -46,6 +46,8 @@ public class AlwaysOnVpnTest extends BaseDeviceAdminTest {
     @Override
     public void setUp() throws Exception {
         super.setUp();
+        // always-on is null by default
+        assertNull(mDevicePolicyManager.getAlwaysOnVpnPackage(ADMIN_RECEIVER_COMPONENT));
         mPackageName = mContext.getPackageName();
     }
 
@@ -60,7 +62,7 @@ public class AlwaysOnVpnTest extends BaseDeviceAdminTest {
         // test always-on is null by default
         assertNull(mDevicePolicyManager.getAlwaysOnVpnPackage(ADMIN_RECEIVER_COMPONENT));
 
-        VpnTestHelper.setAndWaitForVpn(mContext, VPN_PACKAGE, /* usable */ true);
+        VpnTestHelper.waitForVpn(mContext, VPN_PACKAGE, /* usable */ true);
         VpnTestHelper.checkPing(TEST_ADDRESS);
     }
 
@@ -81,7 +83,7 @@ public class AlwaysOnVpnTest extends BaseDeviceAdminTest {
         restrictions.putStringArray(RESTRICTION_ALLOWED, new String[] {mPackageName});
         mDevicePolicyManager.setApplicationRestrictions(ADMIN_RECEIVER_COMPONENT, VPN_PACKAGE,
                 restrictions);
-        VpnTestHelper.setAndWaitForVpn(mContext, VPN_PACKAGE, /* usable */ true);
+        VpnTestHelper.waitForVpn(mContext, VPN_PACKAGE, /* usable */ true);
         assertTrue(VpnTestHelper.isNetworkVpn(mContext));
     }
 
@@ -90,14 +92,11 @@ public class AlwaysOnVpnTest extends BaseDeviceAdminTest {
         restrictions.putStringArray(RESTRICTION_DISALLOWED, new String[] {mPackageName});
         mDevicePolicyManager.setApplicationRestrictions(ADMIN_RECEIVER_COMPONENT, VPN_PACKAGE,
                 restrictions);
-        VpnTestHelper.setAndWaitForVpn(mContext, VPN_PACKAGE, /* usable */ false);
+        VpnTestHelper.waitForVpn(mContext, VPN_PACKAGE, /* usable */ false);
         assertFalse(VpnTestHelper.isNetworkVpn(mContext));
     }
 
     public void testSetNonVpnAlwaysOn() throws Exception {
-        // test always-on is null by default
-        assertNull(mDevicePolicyManager.getAlwaysOnVpnPackage(ADMIN_RECEIVER_COMPONENT));
-
         // Treat this CTS DPC as an non-vpn app, since it doesn't register
         // android.net.VpnService intent filter in AndroidManifest.xml.
         try {

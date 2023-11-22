@@ -97,7 +97,7 @@ public class DSA
                 // END android-changed
 
                 registerOid(provider, DSAUtil.dsaOids[i], "DSA", keyFact);
-                registerOidAlgorithmParameters(provider, DSAUtil.dsaOids[i], "DSA");
+                registerOidAlgorithmParameterGenerator(provider, DSAUtil.dsaOids[i], "DSA");
             }
         }
     }

@@ -41,7 +41,7 @@ public class JobTable extends DynamicTable {
     public JobTable(String[][] jobColumns) {
         super(jobColumns, new RpcDataSource("get_jobs_summary", "get_num_jobs"));
         this.jobColumns = jobColumns;
-        sortOnColumn("id", SortDirection.DESCENDING);
+        sortOnColumn("created_on", SortDirection.DESCENDING);
     }
 
     @Override
@@ -63,7 +63,7 @@ public class JobTable extends DynamicTable {
         Double priorityValue = row.get("priority").isNumber().getValue();
         String priorityName = staticData.getPriorityName(priorityValue);
         row.put("priority", new JSONString(priorityName));
-        
+
         // remove seconds from created time
         AfeUtils.removeSecondsFromDateField(row, "created_on", CREATED_TEXT);
     }

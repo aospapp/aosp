@@ -16,7 +16,11 @@
 package com.android.tradefed.testtype;
 
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.config.Option;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.result.InputStreamSource;
+import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.testtype.MetricTestCase.LogHolder;
 
 import org.junit.rules.ExternalResource;
 import org.junit.rules.TestRule;
@@ -26,18 +30,23 @@ import org.junit.runners.model.InitializationError;
 import org.junit.runners.model.Statement;
 
 import java.lang.annotation.Annotation;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
- * JUnit4 test runner that also accommodate {@link IDeviceTest}.
- * Should be specify above JUnit4 Test with the RunWith annotation.
+ * JUnit4 test runner that also accommodate {@link IDeviceTest}. Should be specify above JUnit4 Test
+ * with the RunWith annotation.
  */
-public class DeviceJUnit4ClassRunner extends BlockJUnit4ClassRunner implements IDeviceTest,
-        IBuildReceiver, IAbiReceiver {
+public class DeviceJUnit4ClassRunner extends BlockJUnit4ClassRunner
+        implements IDeviceTest, IBuildReceiver, IAbiReceiver, ISetOptionReceiver {
     private ITestDevice mDevice;
     private IBuildInfo mBuildInfo;
     private IAbi mAbi;
+
+    @Option(name = HostTest.SET_OPTION_NAME, description = HostTest.SET_OPTION_DESC)
+    private List<String> mKeyValueOptions = new ArrayList<>();
 
     public DeviceJUnit4ClassRunner(Class<?> klass) throws InitializationError {
         super(klass);
@@ -65,6 +74,8 @@ public class DeviceJUnit4ClassRunner extends BlockJUnit4ClassRunner implements I
         if (testObj instanceof IAbiReceiver) {
             ((IAbiReceiver) testObj).setAbi(mAbi);
         }
+        // Set options of test object
+        HostTest.setOptionToLoadedObject(testObj, mKeyValueOptions);
         return testObj;
     }
 
@@ -159,6 +170,66 @@ public class DeviceJUnit4ClassRunner extends BlockJUnit4ClassRunner implements I
 
         public MetricAnnotation(Map<String, String> metrics) {
             mMetrics.putAll(metrics);
+        }
+
+        @Override
+        public Class<? extends Annotation> annotationType() {
+            return null;
+        }
+    }
+
+    /**
+     * Implementation of {@link ExternalResource} and {@link TestRule}. This rule allows to log logs
+     * during a test case (inside @Test). It guarantees that the log list is cleaned between tests,
+     * so the same rule object can be re-used.
+     *
+     * <pre>Example:
+     * &#064;Rule
+     * public TestLogData logs = new TestLogData();
+     *
+     * &#064;Test
+     * public void testFoo() {
+     *     logs.addTestLog("logcat", LogDataType.LOGCAT, new FileInputStreamSource(logcatFile));
+     * }
+     *
+     * &#064;Test
+     * public void testFoo2() {
+     *     logs.addTestLog("logcat2", LogDataType.LOGCAT, new FileInputStreamSource(logcatFile2));
+     * }
+     * </pre>
+     */
+    public static class TestLogData extends ExternalResource {
+        private Description mDescription;
+        private List<LogHolder> mLogs = new ArrayList<>();
+
+        @Override
+        public Statement apply(Statement base, Description description) {
+            mDescription = description;
+            return super.apply(base, description);
+        }
+
+        public final void addTestLog(
+                String dataName, LogDataType dataType, InputStreamSource dataStream) {
+            mLogs.add(new LogHolder(dataName, dataType, dataStream));
+        }
+
+        @Override
+        protected void after() {
+            // we inject a Description with an annotation carrying metrics.
+            // We have to go around, since Description cannot be extended and RunNotifier
+            // does not give us a lot of flexibility to find our metrics back.
+            mDescription.addChild(
+                    Description.createTestDescription("LOGS", "LOGS", new LogAnnotation(mLogs)));
+        }
+    }
+
+    /** Fake annotation meant to carry logs to the reporters. */
+    public static class LogAnnotation implements Annotation {
+
+        public List<LogHolder> mLogs = new ArrayList<>();
+
+        public LogAnnotation(List<LogHolder> logs) {
+            mLogs.addAll(logs);
         }
 
         @Override

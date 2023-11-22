@@ -42,12 +42,6 @@ public class TestRunnerRule implements TestRule {
         if (testRunnerProperties != null) {
             properties = new Properties();
             setProperty(TestProperties.MONITOR_PORT, testRunnerProperties.monitorPort());
-            setProperty(TestProperties.PROFILE, testRunnerProperties.profile());
-            setProperty(TestProperties.PROFILE_DEPTH, testRunnerProperties.profileDepth());
-            setProperty(TestProperties.PROFILE_FILE, testRunnerProperties.profileFile());
-            setProperty(TestProperties.PROFILE_INTERVAL, testRunnerProperties.profileInterval());
-            setProperty(TestProperties.PROFILE_THREAD_GROUP,
-                    testRunnerProperties.profileThreadGroup());
             String testClassOrPackage = treatEmptyAsNull(testRunnerProperties.testClassOrPackage());
             if (testClassOrPackage == null) {
                 Class<?> testClass = testRunnerProperties.testClass();

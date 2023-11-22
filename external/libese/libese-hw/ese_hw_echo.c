@@ -152,8 +152,9 @@ static const struct Teq1ProtocolOptions kTeq1Options = {
     .preprocess = &echo_preprocess,
 };
 
-uint32_t echo_transceive(struct EseInterface *ese, const uint8_t *const tx_buf,
-                         uint32_t tx_len, uint8_t *rx_buf, uint32_t rx_len) {
+uint32_t echo_transceive(struct EseInterface *ese,
+                         const struct EseSgBuffer *tx_buf, uint32_t tx_len,
+                         struct EseSgBuffer *rx_buf, uint32_t rx_len) {
   return teq1_transceive(ese, &kTeq1Options, tx_buf, tx_len, rx_buf, rx_len);
 }
 

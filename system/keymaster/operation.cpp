@@ -17,6 +17,7 @@
 #include "operation.h"
 
 #include <keymaster/authorization_set.h>
+#include <keymaster/keymaster_context.h>
 
 #include "key.h"
 
@@ -132,6 +133,11 @@ bool OperationFactory::GetAndValidateDigest(const AuthorizationSet& begin_params
     }
     *error = KM_ERROR_OK;
     return true;
+}
+
+keymaster_error_t Operation::CreateOperationHandle(const KeymasterContext& context,
+                                                   keymaster_operation_handle_t* op_handle) {
+    return context.GenerateRandom(reinterpret_cast<uint8_t*>(op_handle), sizeof(*op_handle));
 }
 
 keymaster_error_t Operation::UpdateForFinish(const AuthorizationSet& input_params,

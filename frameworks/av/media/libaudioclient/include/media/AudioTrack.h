@@ -35,7 +35,7 @@ class StaticAudioTrackClientProxy;
 
 // ----------------------------------------------------------------------------
 
-class AudioTrack : public RefBase
+class AudioTrack : public AudioSystem::AudioDeviceCallback
 {
 public:
 
@@ -326,7 +326,7 @@ public:
      * This includes the latency due to AudioTrack buffer size, AudioMixer (if any)
      * and audio hardware driver.
      */
-            uint32_t    latency() const     { return mLatency; }
+            uint32_t    latency();
 
     /* Returns the number of application-level buffer underruns
      * since the AudioTrack was created.
@@ -564,6 +564,12 @@ public:
      */
             status_t    reload();
 
+    /**
+     * @param transferType
+     * @return text string that matches the enum name
+     */
+            static const char * convertTransferToText(transfer_type transferType);
+
     /* Returns a handle on the audio output used by this AudioTrack.
      *
      * Parameters:
@@ -599,7 +605,11 @@ public:
 
      /* Returns the ID of the audio device actually used by the output to which this AudioTrack is
       * attached.
-      * A value of AUDIO_PORT_HANDLE_NONE indicates the audio track is not attached to any output.
+      * When the AudioTrack is inactive, the device ID returned can be either:
+      * - AUDIO_PORT_HANDLE_NONE if the AudioTrack is not attached to any output.
+      * - The device ID used before paused or stopped.
+      * - The device ID selected by audio policy manager of setOutputDevice() if the AudioTrack
+      * has not been started yet.
       *
       * Parameters:
       *  none.
@@ -839,6 +849,12 @@ public:
             status_t removeAudioDeviceCallback(
                     const sp<AudioSystem::AudioDeviceCallback>& callback);
 
+            // AudioSystem::AudioDeviceCallback> virtuals
+            virtual void onAudioDeviceUpdate(audio_io_handle_t audioIo,
+                                             audio_port_handle_t deviceId);
+
+
+
     /* Obtain the pending duration in milliseconds for playback of pure PCM
      * (mixable without embedded timing) data remaining in AudioTrack.
      *
@@ -927,6 +943,8 @@ protected:
 
             // caller must hold lock on mLock for all _l methods
 
+            void updateLatency_l(); // updates mAfLatency and mLatency from AudioSystem cache
+
             status_t createTrack_l();
 
             // can only be called when mState != STATE_ACTIVE
@@ -962,9 +980,11 @@ protected:
             Modulo<uint32_t> updateAndGetPosition_l();
 
             // check sample rate and speed is compatible with AudioTrack
-            bool     isSampleRateSpeedAllowed_l(uint32_t sampleRate, float speed) const;
+            bool     isSampleRateSpeedAllowed_l(uint32_t sampleRate, float speed);
 
             void     restartIfDisabled();
+
+            void     updateRoutedDeviceId_l();
 
     // Next 4 fields may be changed if IAudioTrack is re-created, but always != 0
     sp<IAudioTrack>         mAudioTrack;
@@ -1077,8 +1097,10 @@ protected:
                                                     // reset by stop() but continues monotonically
                                                     // after new IAudioTrack to restore mPosition,
                                                     // and could be easily widened to uint64_t
-    int64_t                 mStartUs;               // the start time after flush or stop.
+    int64_t                 mStartFromZeroUs;       // the start time after flush or stop,
+                                                    // when position should be 0.
                                                     // only used for offloaded and direct tracks.
+    int64_t                 mStartNs;               // the time when start() is called.
     ExtendedTimestamp       mStartEts;              // Extended timestamp at start for normal
                                                     // AudioTracks.
     AudioTimestamp          mStartTs;               // Timestamp at start for offloaded or direct
@@ -1133,7 +1155,10 @@ protected:
 
     // For Device Selection API
     //  a value of AUDIO_PORT_HANDLE_NONE indicated default (AudioPolicyManager) routing.
-    audio_port_handle_t     mSelectedDeviceId;
+    audio_port_handle_t    mSelectedDeviceId; // Device requested by the application.
+    audio_port_handle_t    mRoutedDeviceId;   // Device actually selected by audio policy manager:
+                                              // May not match the app selection depending on other
+                                              // activity and connected devices.
 
     sp<VolumeHandler>       mVolumeHandler;
 
@@ -1152,7 +1177,7 @@ private:
     uid_t                   mClientUid;
     pid_t                   mClientPid;
 
-    sp<AudioSystem::AudioDeviceCallback> mDeviceCallback;
+    wp<AudioSystem::AudioDeviceCallback> mDeviceCallback;
     audio_port_handle_t     mPortId;  // unique ID allocated by audio policy
 };
 

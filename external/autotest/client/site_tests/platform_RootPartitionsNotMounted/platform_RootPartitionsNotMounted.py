@@ -5,7 +5,8 @@
 import logging
 import os
 
-from autotest_lib.client.bin import site_utils, test
+from autotest_lib.client.bin import utils as bin_utils
+from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error, utils
 
 class platform_RootPartitionsNotMounted(test.test):
@@ -95,7 +96,7 @@ class platform_RootPartitionsNotMounted(test.test):
             if not os.path.isfile(path):
                 raise error.TestNAError('%s not found' % path)
 
-        root_device = site_utils.get_root_device()
+        root_device = bin_utils.get_root_device()
         if not root_device:
             raise error.TestNAError('Could not find the root device')
         logging.debug('Root device: %s' % root_device)

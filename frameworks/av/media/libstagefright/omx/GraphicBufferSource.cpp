@@ -22,7 +22,9 @@
 
 #define STRINGIFY_ENUMS // for asString in HardwareAPI.h/VideoAPI.h
 
-#include "GraphicBufferSource.h"
+#include <media/stagefright/omx/GraphicBufferSource.h>
+#include <media/stagefright/omx/FrameDropper.h>
+#include <media/stagefright/omx/OMXUtils.h>
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/foundation/AMessage.h>
 #include <media/stagefright/foundation/ColorUtils.h>
@@ -31,14 +33,12 @@
 #include <media/hardware/MetadataBufferType.h>
 #include <ui/GraphicBuffer.h>
 #include <gui/BufferItem.h>
-#include <HardwareAPI.h>
-#include "omx/OMXUtils.h"
-#include <OMX_Component.h>
-#include <OMX_IndexExt.h>
-#include "OMXBuffer.h"
+#include <media/hardware/HardwareAPI.h>
+#include <media/openmax/OMX_Component.h>
+#include <media/openmax/OMX_IndexExt.h>
+#include <media/OMXBuffer.h>
 
 #include <inttypes.h>
-#include "FrameDropper.h"
 
 #include <functional>
 #include <memory>
@@ -264,6 +264,7 @@ GraphicBufferSource::GraphicBufferSource() :
     mLastDataspace(HAL_DATASPACE_UNKNOWN),
     mExecuting(false),
     mSuspended(false),
+    mLastFrameTimestampUs(-1),
     mStopTimeUs(-1),
     mLastActionTimeUs(-1ll),
     mSkipFramesBeforeNs(-1ll),
@@ -649,6 +650,7 @@ bool GraphicBufferSource::fillCodecBuffer_l() {
         }
         ALOGV("buffer submitted [slot=%d, useCount=%ld] acquired=%d",
                 item.mBuffer->getSlot(), item.mBuffer.use_count(), mNumOutstandingAcquires);
+        mLastFrameTimestampUs = itemTimeUs;
     }
 
     return true;
@@ -731,7 +733,7 @@ bool GraphicBufferSource::calculateCodecTimestamp_l(
         } else {
             // snap to nearest capture point
             int64_t nFrames = std::llround(
-                    (timeUs - mPrevCaptureUs) * mCaptureFps);
+                    (timeUs - mPrevCaptureUs) * mCaptureFps / 1000000);
             if (nFrames <= 0) {
                 // skip this frame as it's too close to previous capture
                 ALOGV("skipping frame, timeUs %lld", static_cast<long long>(timeUs));
@@ -739,9 +741,9 @@ bool GraphicBufferSource::calculateCodecTimestamp_l(
             }
             mFrameCount += nFrames;
             mPrevCaptureUs = mBaseCaptureUs + std::llround(
-                    mFrameCount / mCaptureFps);
+                    mFrameCount * 1000000 / mCaptureFps);
             mPrevFrameUs = mBaseFrameUs + std::llround(
-                    mFrameCount / mFps);
+                    mFrameCount * 1000000 / mFps);
         }
 
         ALOGV("timeUs %lld, captureUs %lld, frameUs %lld",
@@ -954,28 +956,40 @@ void GraphicBufferSource::onBuffersReleased() {
     Mutex::Autolock lock(mMutex);
 
     uint64_t slotMask;
-    if (mConsumer->getReleasedBuffers(&slotMask) != NO_ERROR) {
-        ALOGW("onBuffersReleased: unable to get released buffer set");
+    uint64_t releaseMask;
+    if (mConsumer->getReleasedBuffers(&releaseMask) != NO_ERROR) {
         slotMask = 0xffffffffffffffffULL;
+        ALOGW("onBuffersReleased: unable to get released buffer set");
+    } else {
+        slotMask = releaseMask;
+        ALOGV("onBuffersReleased: 0x%016" PRIx64, slotMask);
     }
 
-    ALOGV("onBuffersReleased: 0x%016" PRIx64, slotMask);
-
+    AString unpopulated;
     for (int i = 0; i < BufferQueue::NUM_BUFFER_SLOTS; i++) {
         if ((slotMask & 0x01) != 0) {
-            discardBufferInSlot_l(i);
+            if (!discardBufferInSlot_l(i)) {
+                if (!unpopulated.empty()) {
+                    unpopulated.append(", ");
+                }
+                unpopulated.append(i);
+            }
         }
         slotMask >>= 1;
     }
+    if (!unpopulated.empty()) {
+        ALOGW("released unpopulated slots: [%s]", unpopulated.c_str());
+    }
 }
 
-void GraphicBufferSource::discardBufferInSlot_l(GraphicBufferSource::slot_id i) {
+bool GraphicBufferSource::discardBufferInSlot_l(GraphicBufferSource::slot_id i) {
     ssize_t bsi = mBufferSlots.indexOfKey(i);
     if (bsi < 0) {
-        ALOGW("releasing an unpopulated slot: %d", i);
+        return false;
     } else {
         discardBufferAtSlotIndex_l(bsi);
         mBufferSlots.removeItemsAt(bsi);
+        return true;
     }
 }
 
@@ -1220,10 +1234,21 @@ status_t GraphicBufferSource::setStopTimeUs(int64_t stopTimeUs) {
     return OK;
 }
 
+status_t GraphicBufferSource::getStopTimeOffsetUs(int64_t *stopTimeOffsetUs) {
+    ALOGV("getStopTimeOffsetUs");
+    Mutex::Autolock autoLock(mMutex);
+    if (mStopTimeUs == -1) {
+        ALOGW("Fail to return stopTimeOffsetUs as stop time is not set");
+        return INVALID_OPERATION;
+    }
+    *stopTimeOffsetUs =
+        mLastFrameTimestampUs == -1 ? 0 : mStopTimeUs - mLastFrameTimestampUs;
+    return OK;
+}
+
 status_t GraphicBufferSource::setTimeLapseConfig(double fps, double captureFps) {
     ALOGV("setTimeLapseConfig: fps=%lg, captureFps=%lg",
             fps, captureFps);
-
     Mutex::Autolock autoLock(mMutex);
 
     if (mExecuting || !(fps > 0) || !(captureFps > 0)) {

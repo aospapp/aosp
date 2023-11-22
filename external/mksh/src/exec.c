@@ -2,7 +2,7 @@
 
 /*-
  * Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
- *		 2011, 2012, 2013, 2014, 2015, 2016
+ *		 2011, 2012, 2013, 2014, 2015, 2016, 2017
  *	mirabilos <m@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
@@ -23,7 +23,7 @@
 
 #include "sh.h"
 
-__RCSID("$MirOS: src/bin/mksh/exec.c,v 1.186 2016/11/11 23:31:34 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/exec.c,v 1.196 2017/04/12 16:46:21 tg Exp $");
 
 #ifndef MKSH_DEFAULT_EXECSHELL
 #define MKSH_DEFAULT_EXECSHELL	MKSH_UNIXROOT "/bin/sh"
@@ -376,9 +376,8 @@ execute(struct op * volatile t,
 		if (t->right == NULL)
 			/* should be error */
 			break;
-		rv = execute(t->left, XERROK, NULL) == 0 ?
-		    execute(t->right->left, flags & XERROK, xerrok) :
-		    execute(t->right->right, flags & XERROK, xerrok);
+		rv = execute(execute(t->left, XERROK, NULL) == 0 ?
+		    t->right->left : t->right->right, flags & XERROK, xerrok);
 		break;
 
 	case TCASE:
@@ -806,7 +805,7 @@ comexec(struct op *t, struct tbl * volatile tp, const char **ap,
 			/* NOTREACHED */
 		default:
 			quitenv(NULL);
-			internal_errorf(Tf_sd, "CFUNC", i);
+			internal_errorf(Tunexpected_type, Tunwind, Tfunction, i);
 		}
 		break;
 	}
@@ -889,6 +888,9 @@ scriptexec(struct op *tp, const char **ap)
 		unsigned short m;
 		ssize_t n;
 
+#if defined(__OS2__) && defined(MKSH_WITH_TEXTMODE)
+		setmode(fd, O_TEXT);
+#endif
 		/* read first couple of octets from file */
 		n = read(fd, buf, sizeof(buf) - 1);
 		close(fd);
@@ -944,6 +946,17 @@ scriptexec(struct op *tp, const char **ap)
 			if (*cp)
 				*tp->args-- = (char *)cp;
 		}
+#ifdef __OS2__
+		/*
+		 * Search shell/interpreter name without directory in PATH
+		 * if specified path does not exist
+		 */
+		if (mksh_vdirsep(sh) && !search_path(sh, path, X_OK, NULL)) {
+			cp = search_path(_getname(sh), path, X_OK, NULL);
+			if (cp)
+				sh = cp;
+		}
+#endif
 		goto nomagic;
  noshebang:
 		m = buf[0] << 8 | buf[1];
@@ -964,6 +977,19 @@ scriptexec(struct op *tp, const char **ap)
 		    buf[4] == 'Z') || (m == /* 7zip */ 0x377A) ||
 		    (m == /* gzip */ 0x1F8B) || (m == /* .Z */ 0x1F9D))
 			errorf("%s: not executable: magic %04X", tp->str, m);
+#ifdef __OS2__
+		cp = _getext(tp->str);
+		if (cp && (!stricmp(cp, ".cmd") || !stricmp(cp, ".bat"))) {
+			/* execute .cmd and .bat with OS2_SHELL, usually CMD.EXE */
+			sh = str_val(global("OS2_SHELL"));
+			*tp->args-- = "/c";
+			/* convert slahes to backslashes */
+			for (cp = tp->str; *cp; cp++) {
+				if (*cp == '/')
+					*cp = '\\';
+			}
+		}
+#endif
  nomagic:
 		;
 	}
@@ -978,13 +1004,17 @@ scriptexec(struct op *tp, const char **ap)
 	errorf(Tf_sD_sD_s, tp->str, sh, cstrerror(errno));
 }
 
+/* actual 'builtin' built-in utility call is handled in comexec() */
 int
-shcomexec(const char **wp)
+c_builtin(const char **wp)
 {
-	struct tbl *tp;
+	return (call_builtin(get_builtin(*wp), wp, Tbuiltin, false));
+}
 
-	tp = ktsearch(&builtins, *wp, hash(*wp));
-	return (call_builtin(tp, wp, "shcomexec", false));
+struct tbl *
+get_builtin(const char *s)
+{
+	return (s && *s ? ktsearch(&builtins, s, hash(s)) : NULL);
 }
 
 /*
@@ -1090,6 +1120,14 @@ builtin(const char *name, int (*func) (const char **))
 		/* external utility overrides built-in utility, with flags */
 		flag |= LOW_BI;
 		break;
+	case '-':
+		/* is declaration utility if argv[1] is one (POSIX: command) */
+		flag |= DECL_FWDR;
+		break;
+	case '^':
+		/* is declaration utility (POSIX: export, readonly) */
+		flag |= DECL_UTIL;
+		break;
 	default:
 		goto flags_seen;
 	}
@@ -1123,7 +1161,11 @@ findcom(const char *name, int flags)
 	char *fpath;
 	union mksh_cchack npath;
 
-	if (mksh_vdirsep(name)) {
+	if (mksh_vdirsep(name)
+#ifdef MKSH_DOSPATH
+	    && (strcmp(name, T_builtin) != 0)
+#endif
+	    ) {
 		insert = 0;
 		/* prevent FPATH search below */
 		flags &= ~FC_FUNC;
@@ -1242,7 +1284,7 @@ search_access(const char *fn, int mode)
 	}
 #ifdef __OS2__
 	/* treat all files as executable on OS/2 */
-	sb.st_mode &= S_IXUSR | S_IXGRP | S_IXOTH;
+	sb.st_mode |= S_IXUSR | S_IXGRP | S_IXOTH;
 #endif
 	if (mode == X_OK && (!S_ISREG(sb.st_mode) ||
 	    !(sb.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH))))
@@ -1250,6 +1292,13 @@ search_access(const char *fn, int mode)
 		return (S_ISDIR(sb.st_mode) ? EISDIR : EACCES);
 	return (0);
 }
+
+#ifdef __OS2__
+/* check if path is something we want to find, adding executable extensions */
+#define search_access(fn, mode)	access_ex((search_access), (fn), (mode))
+#else
+#define search_access(fn, mode)	(search_access)((fn), (mode))
+#endif
 
 /*
  * search for command with PATH
@@ -1272,7 +1321,11 @@ search_path(const char *name, const char *lpath,
  search_path_ok:
 			if (errnop)
 				*errnop = 0;
+#ifndef __OS2__
 			return (name);
+#else
+			return (real_exec_name(name));
+#endif
 		}
 		goto search_path_err;
 	}
@@ -1289,6 +1342,10 @@ search_path(const char *name, const char *lpath,
 			XcheckN(xs, xp, p - sp);
 			memcpy(xp, sp, p - sp);
 			xp += p - sp;
+#ifdef __OS2__
+			if (xp > Xstring(xs, xp) && mksh_cdirsep(xp[-1]))
+				xp--;
+#endif
 			*xp++ = '/';
 		}
 		sp = p;
@@ -1319,9 +1376,7 @@ call_builtin(struct tbl *tp, const char **wp, const char *where, bool resetspec)
 	if (!tp)
 		internal_errorf(Tf_sD_s, where, wp[0]);
 	builtin_argv0 = wp[0];
-	builtin_spec = tobool(!resetspec &&
-	    /*XXX odd use of KEEPASN */
-	    ((tp->flag & SPEC_BI) || (Flag(FPOSIX) && (tp->flag & KEEPASN))));
+	builtin_spec = tobool(!resetspec && (tp->flag & SPEC_BI));
 	shf_reopen(1, SHF_WR, shl_stdout);
 	shl_stdout_ok = true;
 	ksh_getopt_reset(&builtin_opt, GF_ERROR);
@@ -1450,8 +1505,11 @@ iosetup(struct ioword *iop, struct tbl *tp)
 		/* herein() may already have printed message */
 		if (u == -1) {
 			u = errno;
-			warningf(true, Tf_cant,
+			warningf(true, Tf_cant_ss_s,
+#if 0
+			    /* can't happen */
 			    iotype == IODUP ? "dup" :
+#endif
 			    (iotype == IOREAD || iotype == IOHERE) ?
 			    Topen : Tcreate, cp, cstrerror(u));
 		}

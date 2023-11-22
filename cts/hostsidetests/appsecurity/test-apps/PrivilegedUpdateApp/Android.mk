@@ -25,7 +25,7 @@ LOCAL_MODULE_TAGS := tests
 LOCAL_SDK_VERSION := current
 LOCAL_STATIC_JAVA_LIBRARIES := android-support-test compatibility-device-util ctstestrunner
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 LOCAL_PROGUARD_ENABLED := disabled
 LOCAL_DEX_PREOPT := false
 LOCAL_PACKAGE_NAME := CtsPrivilegedUpdateTests
@@ -46,9 +46,11 @@ LOCAL_MODULE_CLASS := APPS
 LOCAL_BUILT_MODULE_STEM := package.apk
 # Make sure the build system doesn't try to resign the APK
 LOCAL_CERTIFICATE := PRESIGNED
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
-LOCAL_SRC_FILES := CtsShimPrivUpgrade.apk
+my_archs := arm x86
+my_src_arch := $(call get-prebuilt-src-arch, $(my_archs))
+LOCAL_REPLACE_PREBUILT_APK_INSTALLED := $(LOCAL_PATH)/apk/$(my_src_arch)/CtsShimPrivUpgrade.apk
 
 include $(BUILD_PREBUILT)
 
@@ -63,8 +65,10 @@ LOCAL_MODULE_CLASS := APPS
 LOCAL_BUILT_MODULE_STEM := package.apk
 # Make sure the build system doesn't try to resign the APK
 LOCAL_CERTIFICATE := PRESIGNED
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
-LOCAL_SRC_FILES := CtsShimPrivUpgradeWrongSHA.apk
+my_archs := arm x86
+my_src_arch := $(call get-prebuilt-src-arch, $(my_archs))
+LOCAL_REPLACE_PREBUILT_APK_INSTALLED := $(LOCAL_PATH)/apk/$(my_src_arch)/CtsShimPrivUpgradeWrongSHA.apk
 
 include $(BUILD_PREBUILT)

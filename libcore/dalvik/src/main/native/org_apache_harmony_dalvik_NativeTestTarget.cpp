@@ -16,8 +16,8 @@
 
 #define LOG_TAG "NativeTestTarget"
 
-#include "JNIHelp.h"
-#include "JniConstants.h"
+#include <nativehelper/JNIHelp.h>
+#include <nativehelper/JniConstants.h>
 
 static void NativeTestTarget_emptyJniStaticSynchronizedMethod0(JNIEnv*, jclass) { }
 static void NativeTestTarget_emptyJniSynchronizedMethod0(JNIEnv*, jclass) { }

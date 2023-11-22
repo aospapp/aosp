@@ -20,6 +20,7 @@
 #define HCI_UART_H
 
 #include <asm-generic/ioctls.h>
+#include <termios.h>
 
 /* Variables to identify the platform */
 /*BT HS UART TTY DEVICE */

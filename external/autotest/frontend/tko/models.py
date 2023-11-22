@@ -309,25 +309,6 @@ class SavedQuery(dbmodels.Model, model_logic.ModelExtensions):
         db_table = 'tko_saved_queries'
 
 
-class EmbeddedGraphingQuery(dbmodels.Model, model_logic.ModelExtensions):
-    """Models an embedded graphing query."""
-    url_token = dbmodels.TextField(null=False, blank=False)
-    graph_type = dbmodels.CharField(max_length=16, null=False, blank=False)
-    params = dbmodels.TextField(null=False, blank=False)
-    last_updated = dbmodels.DateTimeField(null=False, blank=False,
-                                          editable=False)
-    # refresh_time shows the time at which a thread is updating the cached
-    # image, or NULL if no one is updating the image. This is used so that only
-    # one thread is updating the cached image at a time (see
-    # graphing_utils.handle_plot_request).
-    refresh_time = dbmodels.DateTimeField(editable=False)
-    cached_png = dbmodels.TextField(editable=False)
-
-    class Meta:
-        """Metadata for class EmbeddedGraphingQuery."""
-        db_table = 'tko_embedded_graphing_queries'
-
-
 # Views.
 
 class TestViewManager(TempManager):

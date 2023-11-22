@@ -24,6 +24,7 @@ import java.io.IOException;
  * An {@link OtaDeviceBuildInfo} that also contains an otatools directory.
  */
 public class OtaToolsDeviceBuildInfo extends OtaDeviceBuildInfo {
+    private static final long serialVersionUID = BuildSerializedVersion.VERSION;
     private File mOtaToolsDir;
 
     /**

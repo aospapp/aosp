@@ -526,6 +526,7 @@ static void sensorInternalRateChanged(void *evtP)
     if (s && s->currentRate != SENSOR_RATE_OFF && s->currentRate < SENSOR_RATE_POWERING_ON) {
         s->currentRate = evt->value1;
         s->currentLatency = evt->value2;
+        sensorReconfig(s, sensorCalcHwRate(s, 0, 0), sensorCalcHwLatency(s));
         osEnqueueEvtOrFree(sensorGetMyCfgEventType(s->si->sensorType), evt, sensorInternalEvtFreeF);
     } else {
         slabAllocatorFree(mInternalEvents, evt);

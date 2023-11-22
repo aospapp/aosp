@@ -32,6 +32,7 @@ import android.telecom.Log;
 import android.telecom.Logging.Session;
 import android.util.SparseArray;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.IState;
 import com.android.internal.util.IndentingPrintWriter;
 import com.android.internal.util.State;
@@ -115,7 +116,12 @@ public class CallAudioRouteStateMachine extends StateMachine {
     public static final int ACTIVE_FOCUS = 2;
     public static final int RINGING_FOCUS = 3;
 
-    private static final SparseArray<String> AUDIO_ROUTE_TO_LOG_EVENT = new SparseArray<String>() {{
+    /** Valid values for the argument for SWITCH_BASELINE_ROUTE */
+    public static final int NO_INCLUDE_BLUETOOTH_IN_BASELINE = 0;
+    public static final int INCLUDE_BLUETOOTH_IN_BASELINE = 1;
+
+    @VisibleForTesting
+    public static final SparseArray<String> AUDIO_ROUTE_TO_LOG_EVENT = new SparseArray<String>() {{
         put(CallAudioState.ROUTE_BLUETOOTH, LogUtils.Events.AUDIO_ROUTE_BT);
         put(CallAudioState.ROUTE_EARPIECE, LogUtils.Events.AUDIO_ROUTE_EARPIECE);
         put(CallAudioState.ROUTE_SPEAKER, LogUtils.Events.AUDIO_ROUTE_SPEAKER);
@@ -186,6 +192,10 @@ public class CallAudioRouteStateMachine extends StateMachine {
             super.enter();
             Log.addEvent(mCallsManager.getForegroundCall(), LogUtils.Events.AUDIO_ROUTE,
                     "Entering state " + getName());
+            if (isActive()) {
+                Log.addEvent(mCallsManager.getForegroundCall(),
+                        AUDIO_ROUTE_TO_LOG_EVENT.get(getRouteCode(), LogUtils.Events.AUDIO_ROUTE));
+            }
         }
 
         @Override
@@ -226,10 +236,12 @@ public class CallAudioRouteStateMachine extends StateMachine {
                     removedRoutes |= ROUTE_BLUETOOTH;
                     break;
                 case SWITCH_BASELINE_ROUTE:
-                    sendInternalMessage(calculateBaselineRouteMessage(false));
+                    sendInternalMessage(calculateBaselineRouteMessage(false,
+                            msg.arg1 == INCLUDE_BLUETOOTH_IN_BASELINE));
                     return HANDLED;
                 case USER_SWITCH_BASELINE_ROUTE:
-                    sendInternalMessage(calculateBaselineRouteMessage(true));
+                    sendInternalMessage(calculateBaselineRouteMessage(true,
+                            msg.arg1 == INCLUDE_BLUETOOTH_IN_BASELINE));
                     return HANDLED;
                 case SWITCH_FOCUS:
                     mAudioFocusType = msg.arg1;
@@ -250,6 +262,7 @@ public class CallAudioRouteStateMachine extends StateMachine {
         // Behavior will depend on whether the state is an active one or a quiescent one.
         abstract public void updateSystemAudioState();
         abstract public boolean isActive();
+        abstract public int getRouteCode();
     }
 
     class ActiveEarpieceRoute extends EarpieceRoute {
@@ -387,6 +400,11 @@ public class CallAudioRouteStateMachine extends StateMachine {
     }
 
     abstract class EarpieceRoute extends AudioState {
+        @Override
+        public int getRouteCode() {
+            return CallAudioState.ROUTE_EARPIECE;
+        }
+
         @Override
         public boolean processMessage(Message msg) {
             if (super.processMessage(msg) == HANDLED) {
@@ -566,6 +584,11 @@ public class CallAudioRouteStateMachine extends StateMachine {
 
     abstract class HeadsetRoute extends AudioState {
         @Override
+        public int getRouteCode() {
+            return CallAudioState.ROUTE_WIRED_HEADSET;
+        }
+
+        @Override
         public boolean processMessage(Message msg) {
             if (super.processMessage(msg) == HANDLED) {
                 return HANDLED;
@@ -594,7 +617,7 @@ public class CallAudioRouteStateMachine extends StateMachine {
                     if (mWasOnSpeaker) {
                         sendInternalMessage(SWITCH_SPEAKER);
                     } else {
-                        sendInternalMessage(SWITCH_BASELINE_ROUTE);
+                        sendInternalMessage(SWITCH_BASELINE_ROUTE, INCLUDE_BLUETOOTH_IN_BASELINE);
                     }
                     return HANDLED;
                 case BT_AUDIO_DISCONNECT:
@@ -684,7 +707,7 @@ public class CallAudioRouteStateMachine extends StateMachine {
                     }
                     return HANDLED;
                 case BT_AUDIO_DISCONNECT:
-                    sendInternalMessage(SWITCH_BASELINE_ROUTE);
+                    sendInternalMessage(SWITCH_BASELINE_ROUTE, NO_INCLUDE_BLUETOOTH_IN_BASELINE);
                     return HANDLED;
                 default:
                     return NOT_HANDLED;
@@ -765,7 +788,7 @@ public class CallAudioRouteStateMachine extends StateMachine {
                     return HANDLED;
                 case BT_AUDIO_DISCONNECT:
                     // BT SCO might be connected when in-band ringing is enabled
-                    sendInternalMessage(SWITCH_BASELINE_ROUTE);
+                    sendInternalMessage(SWITCH_BASELINE_ROUTE, NO_INCLUDE_BLUETOOTH_IN_BASELINE);
                     return HANDLED;
                 default:
                     return NOT_HANDLED;
@@ -846,6 +869,11 @@ public class CallAudioRouteStateMachine extends StateMachine {
 
     abstract class BluetoothRoute extends AudioState {
         @Override
+        public int getRouteCode() {
+            return CallAudioState.ROUTE_BLUETOOTH;
+        }
+
+        @Override
         public boolean processMessage(Message msg) {
             if (super.processMessage(msg) == HANDLED) {
                 return HANDLED;
@@ -860,7 +888,7 @@ public class CallAudioRouteStateMachine extends StateMachine {
                     // in the bluetooth route.
                     return HANDLED;
                 case DISCONNECT_BLUETOOTH:
-                    sendInternalMessage(SWITCH_BASELINE_ROUTE);
+                    sendInternalMessage(SWITCH_BASELINE_ROUTE, NO_INCLUDE_BLUETOOTH_IN_BASELINE);
                     mWasOnSpeaker = false;
                     return HANDLED;
                 case DISCONNECT_WIRED_HEADSET:
@@ -1032,6 +1060,11 @@ public class CallAudioRouteStateMachine extends StateMachine {
 
     abstract class SpeakerRoute extends AudioState {
         @Override
+        public int getRouteCode() {
+            return CallAudioState.ROUTE_SPEAKER;
+        }
+
+        @Override
         public boolean processMessage(Message msg) {
             if (super.processMessage(msg) == HANDLED) {
                 return HANDLED;
@@ -1064,7 +1097,7 @@ public class CallAudioRouteStateMachine extends StateMachine {
                     // Nothing to do here
                     return HANDLED;
                 case DISCONNECT_DOCK:
-                    sendInternalMessage(SWITCH_BASELINE_ROUTE);
+                    sendInternalMessage(SWITCH_BASELINE_ROUTE, INCLUDE_BLUETOOTH_IN_BASELINE);
                     return HANDLED;
                default:
                     return NOT_HANDLED;
@@ -1338,11 +1371,6 @@ public class CallAudioRouteStateMachine extends StateMachine {
             Log.i(this, "setSystemAudioState: changing from %s to %s", mLastKnownCallAudioState,
                     newCallAudioState);
             if (force || !newCallAudioState.equals(mLastKnownCallAudioState)) {
-                if (newCallAudioState.getRoute() != mLastKnownCallAudioState.getRoute()) {
-                    Log.addEvent(mCallsManager.getForegroundCall(),
-                            AUDIO_ROUTE_TO_LOG_EVENT.get(newCallAudioState.getRoute(),
-                                    LogUtils.Events.AUDIO_ROUTE));
-                }
 
                 mCallsManager.onCallAudioStateChanged(mLastKnownCallAudioState, newCallAudioState);
                 updateAudioForForegroundCall(newCallAudioState);
@@ -1375,6 +1403,10 @@ public class CallAudioRouteStateMachine extends StateMachine {
     }
 
     private void sendInternalMessage(int messageCode) {
+        sendInternalMessage(messageCode, 0);
+    }
+
+    private void sendInternalMessage(int messageCode, int arg1) {
         // Internal messages are messages which the state machine sends to itself in the
         // course of processing externally-sourced messages. We want to send these messages at
         // the front of the queue in order to make actions appear atomic to the user and to
@@ -1389,9 +1421,9 @@ public class CallAudioRouteStateMachine extends StateMachine {
         // 7. State machine handler processes SWITCH_HEADSET.
         Session subsession = Log.createSubsession();
         if(subsession != null) {
-            sendMessageAtFrontOfQueue(messageCode, subsession);
+            sendMessageAtFrontOfQueue(messageCode, arg1, 0, subsession);
         } else {
-            sendMessageAtFrontOfQueue(messageCode);
+            sendMessageAtFrontOfQueue(messageCode, arg1);
         }
     }
 
@@ -1444,7 +1476,8 @@ public class CallAudioRouteStateMachine extends StateMachine {
         return true;
     }
 
-    private int calculateBaselineRouteMessage(boolean isExplicitUserRequest) {
+    private int calculateBaselineRouteMessage(boolean isExplicitUserRequest,
+            boolean includeBluetooth) {
         boolean isSkipEarpiece = false;
         if (!isExplicitUserRequest) {
             synchronized (mLock) {
@@ -1453,7 +1486,11 @@ public class CallAudioRouteStateMachine extends StateMachine {
                 isSkipEarpiece = mCallsManager.hasVideoCall();
             }
         }
-        if ((mAvailableRoutes & ROUTE_EARPIECE) != 0 && !isSkipEarpiece) {
+        if ((mAvailableRoutes & ROUTE_BLUETOOTH) != 0
+                && !mHasUserExplicitlyLeftBluetooth
+                && includeBluetooth) {
+            return isExplicitUserRequest ? USER_SWITCH_BLUETOOTH : SWITCH_BLUETOOTH;
+        } else if ((mAvailableRoutes & ROUTE_EARPIECE) != 0 && !isSkipEarpiece) {
             return isExplicitUserRequest ? USER_SWITCH_EARPIECE : SWITCH_EARPIECE;
         } else if ((mAvailableRoutes & ROUTE_WIRED_HEADSET) != 0) {
             return isExplicitUserRequest ? USER_SWITCH_HEADSET : SWITCH_HEADSET;
@@ -1481,7 +1518,7 @@ public class CallAudioRouteStateMachine extends StateMachine {
 
         // Move to baseline route in the case the current route is no longer available.
         if ((mAvailableRoutes & currentState.getRoute()) == 0) {
-            sendInternalMessage(calculateBaselineRouteMessage(false));
+            sendInternalMessage(calculateBaselineRouteMessage(false, true));
         }
     }
 

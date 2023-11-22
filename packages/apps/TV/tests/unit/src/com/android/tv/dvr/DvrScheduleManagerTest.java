@@ -16,32 +16,39 @@
 
 package com.android.tv.dvr;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
+
+import android.os.Build;
+import android.support.test.filters.SdkSuppress;
 import android.support.test.filters.SmallTest;
 import android.test.MoreAsserts;
 import android.util.Range;
 
+import com.android.tv.dvr.DvrScheduleManager.ConflictInfo;
+import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.testing.dvr.RecordingTestUtils;
 
-import junit.framework.TestCase;
+import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
-/**
- * Tests for {@link DvrScheduleManager}
- */
+/** Tests for {@link DvrScheduleManager} */
 @SmallTest
-public class DvrScheduleManagerTest extends TestCase {
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.N)
+public class DvrScheduleManagerTest {
     private static final String INPUT_ID = "input_id";
 
+    @Test
     public void testGetConflictingSchedules_emptySchedule() {
         List<ScheduledRecording> schedules = new ArrayList<>();
         MoreAsserts.assertEmpty(DvrScheduleManager.getConflictingSchedules(schedules, 1));
     }
 
+    @Test
     public void testGetConflictingSchedules_noConflict() {
         long priority = 0;
         long channelId = 0;
@@ -68,6 +75,7 @@ public class DvrScheduleManagerTest extends TestCase {
         MoreAsserts.assertEmpty(DvrScheduleManager.getConflictingSchedules(schedules, 3));
     }
 
+    @Test
     public void testGetConflictingSchedules_noTuner() {
         long priority = 0;
         long channelId = 0;
@@ -82,6 +90,7 @@ public class DvrScheduleManagerTest extends TestCase {
         assertEquals(schedules, DvrScheduleManager.getConflictingSchedules(schedules, 0));
     }
 
+    @Test
     public void testGetConflictingSchedules_conflict() {
         long priority = 0;
         long channelId = 0;
@@ -160,6 +169,7 @@ public class DvrScheduleManagerTest extends TestCase {
         MoreAsserts.assertEmpty(DvrScheduleManager.getConflictingSchedules(schedules, 5));
     }
 
+    @Test
     public void testGetConflictingSchedules_conflict2() {
         // The case when there is a long schedule.
         long priority = 0;
@@ -186,6 +196,7 @@ public class DvrScheduleManagerTest extends TestCase {
         MoreAsserts.assertEmpty(DvrScheduleManager.getConflictingSchedules(schedules, 2));
     }
 
+    @Test
     public void testGetConflictingSchedules_reverseOrder() {
         long priority = 0;
         long channelId = 0;
@@ -264,6 +275,7 @@ public class DvrScheduleManagerTest extends TestCase {
         MoreAsserts.assertEmpty(DvrScheduleManager.getConflictingSchedules(schedules, 5));
     }
 
+    @Test
     public void testGetConflictingSchedules_period1() {
         long priority = 0;
         long channelId = 0;
@@ -281,6 +293,7 @@ public class DvrScheduleManagerTest extends TestCase {
                 Collections.singletonList(new Range<>(110L, 120L))), r1);
     }
 
+    @Test
     public void testGetConflictingSchedules_period2() {
         long priority = 0;
         long channelId = 0;
@@ -298,6 +311,7 @@ public class DvrScheduleManagerTest extends TestCase {
                 Collections.singletonList(new Range<>(110L, 120L))), r1);
     }
 
+    @Test
     public void testGetConflictingSchedules_period3() {
         long priority = 0;
         long channelId = 0;
@@ -328,6 +342,7 @@ public class DvrScheduleManagerTest extends TestCase {
                 ranges), r2, r1);
     }
 
+    @Test
     public void testGetConflictingSchedules_addSchedules1() {
         long priority = 0;
         long channelId = 0;
@@ -351,6 +366,7 @@ public class DvrScheduleManagerTest extends TestCase {
                 schedules, 1), r1);
     }
 
+    @Test
     public void testGetConflictingSchedules_addSchedules2() {
         long priority = 0;
         long channelId = 0;
@@ -374,6 +390,7 @@ public class DvrScheduleManagerTest extends TestCase {
                 schedules, 1), r2, r1);
     }
 
+    @Test
     public void testGetConflictingSchedules_addLowestPriority() {
         long priority = 0;
         long channelId = 0;
@@ -394,6 +411,7 @@ public class DvrScheduleManagerTest extends TestCase {
                 schedules, 1), r1);
     }
 
+    @Test
     public void testGetConflictingSchedules_sameChannel() {
         long priority = 0;
         long channelId = 1;
@@ -405,6 +423,7 @@ public class DvrScheduleManagerTest extends TestCase {
         MoreAsserts.assertEmpty(DvrScheduleManager.getConflictingSchedules(schedules, 3));
     }
 
+    @Test
     public void testGetConflictingSchedule_startEarlyAndFail() {
         long priority = 0;
         long channelId = 0;
@@ -423,6 +442,7 @@ public class DvrScheduleManagerTest extends TestCase {
                 r2);
     }
 
+    @Test
     public void testGetConflictingSchedule_startLate() {
         long priority = 0;
         long channelId = 0;
@@ -441,6 +461,7 @@ public class DvrScheduleManagerTest extends TestCase {
                 r2, r1);
     }
 
+    @Test
     public void testGetConflictingSchedulesForTune_canTune() {
         // Can tune to the recorded channel if tuner count is 1.
         long priority = 0;
@@ -452,6 +473,7 @@ public class DvrScheduleManagerTest extends TestCase {
                 channelId, 0L, priority + 1, schedules, 1));
     }
 
+    @Test
     public void testGetConflictingSchedulesForTune_cannotTune() {
         // Can't tune to a channel if other channel is recording and tuner count is 1.
         long priority = 0;
@@ -463,6 +485,7 @@ public class DvrScheduleManagerTest extends TestCase {
                 INPUT_ID, channelId + 1, 0L, priority + 1, schedules, 1), schedules.get(0));
     }
 
+    @Test
     public void testGetConflictingSchedulesForWatching_otherChannels() {
         // The other channels are to be recorded.
         long priority = 0;
@@ -481,6 +504,7 @@ public class DvrScheduleManagerTest extends TestCase {
                 INPUT_ID, channelToWatch, 0L, ++priority, schedules, 2), r1);
     }
 
+    @Test
     public void testGetConflictingSchedulesForWatching_sameChannel1() {
         long priority = 0;
         long channelToWatch = 1;
@@ -498,6 +522,7 @@ public class DvrScheduleManagerTest extends TestCase {
                 INPUT_ID, channelToWatch, 0L, ++priority, schedules, 1), r2);
     }
 
+    @Test
     public void testGetConflictingSchedulesForWatching_sameChannel2() {
         long priority = 0;
         long channelToWatch = 1;
@@ -515,6 +540,7 @@ public class DvrScheduleManagerTest extends TestCase {
                 INPUT_ID, channelToWatch, 0L, ++priority, schedules, 1), r1);
     }
 
+    @Test
     public void testGetConflictingSchedulesForWatching_sameChannelConflict1() {
         long priority = 0;
         long channelToWatch = 1;
@@ -537,6 +563,7 @@ public class DvrScheduleManagerTest extends TestCase {
                 INPUT_ID, channelToWatch, 0L, ++priority, schedules, 1), r2, r1);
     }
 
+    @Test
     public void testGetConflictingSchedulesForWatching_sameChannelConflict2() {
         long priority = 0;
         long channelToWatch = 1;
@@ -559,6 +586,7 @@ public class DvrScheduleManagerTest extends TestCase {
                 INPUT_ID, channelToWatch, 0L, ++priority, schedules, 1), r3, r1);
     }
 
+    @Test
     public void testPartiallyConflictingSchedules() {
         long priority = 100;
         long channelId = 0;
@@ -586,49 +614,80 @@ public class DvrScheduleManagerTest extends TestCase {
                 RecordingTestUtils.createTestRecordingWithPriorityAndPeriod(++channelId,
                         --priority, 50L, 900L)
         ));
-        Map<ScheduledRecording, Boolean> conflictsInfo = DvrScheduleManager
-                .getConflictingSchedulesInfo(schedules, 1);
+        List<ConflictInfo> conflicts = DvrScheduleManager.getConflictingSchedulesInfo(schedules, 1);
 
-        assertNull(conflictsInfo.get(schedules.get(0)));
-        assertFalse(conflictsInfo.get(schedules.get(1)));
-        assertTrue(conflictsInfo.get(schedules.get(2)));
-        assertTrue(conflictsInfo.get(schedules.get(3)));
-        assertNull(conflictsInfo.get(schedules.get(4)));
-        assertTrue(conflictsInfo.get(schedules.get(5)));
-        assertNull(conflictsInfo.get(schedules.get(6)));
-        assertFalse(conflictsInfo.get(schedules.get(7)));
-        assertFalse(conflictsInfo.get(schedules.get(8)));
-        assertFalse(conflictsInfo.get(schedules.get(9)));
-        assertFalse(conflictsInfo.get(schedules.get(10)));
+        assertNotInList(schedules.get(0), conflicts);
+        assertFullConflict(schedules.get(1), conflicts);
+        assertPartialConflict(schedules.get(2), conflicts);
+        assertPartialConflict(schedules.get(3), conflicts);
+        assertNotInList(schedules.get(4), conflicts);
+        assertPartialConflict(schedules.get(5), conflicts);
+        assertNotInList(schedules.get(6), conflicts);
+        assertFullConflict(schedules.get(7), conflicts);
+        assertFullConflict(schedules.get(8), conflicts);
+        assertFullConflict(schedules.get(9), conflicts);
+        assertFullConflict(schedules.get(10), conflicts);
 
-        conflictsInfo = DvrScheduleManager
-                .getConflictingSchedulesInfo(schedules, 2);
+        conflicts = DvrScheduleManager.getConflictingSchedulesInfo(schedules, 2);
 
-        assertNull(conflictsInfo.get(schedules.get(0)));
-        assertNull(conflictsInfo.get(schedules.get(1)));
-        assertNull(conflictsInfo.get(schedules.get(2)));
-        assertNull(conflictsInfo.get(schedules.get(3)));
-        assertNull(conflictsInfo.get(schedules.get(4)));
-        assertNull(conflictsInfo.get(schedules.get(5)));
-        assertNull(conflictsInfo.get(schedules.get(6)));
-        assertFalse(conflictsInfo.get(schedules.get(7)));
-        assertFalse(conflictsInfo.get(schedules.get(8)));
-        assertFalse(conflictsInfo.get(schedules.get(9)));
-        assertTrue(conflictsInfo.get(schedules.get(10)));
+        assertNotInList(schedules.get(0), conflicts);
+        assertNotInList(schedules.get(1), conflicts);
+        assertNotInList(schedules.get(2), conflicts);
+        assertNotInList(schedules.get(3), conflicts);
+        assertNotInList(schedules.get(4), conflicts);
+        assertNotInList(schedules.get(5), conflicts);
+        assertNotInList(schedules.get(6), conflicts);
+        assertFullConflict(schedules.get(7), conflicts);
+        assertFullConflict(schedules.get(8), conflicts);
+        assertFullConflict(schedules.get(9), conflicts);
+        assertPartialConflict(schedules.get(10), conflicts);
 
-        conflictsInfo = DvrScheduleManager
-                .getConflictingSchedulesInfo(schedules, 3);
+        conflicts = DvrScheduleManager.getConflictingSchedulesInfo(schedules, 3);
 
-        assertNull(conflictsInfo.get(schedules.get(0)));
-        assertNull(conflictsInfo.get(schedules.get(1)));
-        assertNull(conflictsInfo.get(schedules.get(2)));
-        assertNull(conflictsInfo.get(schedules.get(3)));
-        assertNull(conflictsInfo.get(schedules.get(4)));
-        assertNull(conflictsInfo.get(schedules.get(5)));
-        assertNull(conflictsInfo.get(schedules.get(6)));
-        assertNull(conflictsInfo.get(schedules.get(7)));
-        assertTrue(conflictsInfo.get(schedules.get(8)));
-        assertNull(conflictsInfo.get(schedules.get(9)));
-        assertTrue(conflictsInfo.get(schedules.get(10)));
+        assertNotInList(schedules.get(0), conflicts);
+        assertNotInList(schedules.get(1), conflicts);
+        assertNotInList(schedules.get(2), conflicts);
+        assertNotInList(schedules.get(3), conflicts);
+        assertNotInList(schedules.get(4), conflicts);
+        assertNotInList(schedules.get(5), conflicts);
+        assertNotInList(schedules.get(6), conflicts);
+        assertNotInList(schedules.get(7), conflicts);
+        assertPartialConflict(schedules.get(8), conflicts);
+        assertNotInList(schedules.get(9), conflicts);
+        assertPartialConflict(schedules.get(10), conflicts);
+    }
+
+    private void assertNotInList(ScheduledRecording schedule, List<ConflictInfo> conflicts) {
+        for (ConflictInfo conflictInfo : conflicts) {
+            if (conflictInfo.schedule.equals(schedule)) {
+                fail(schedule + " conflicts with others.");
+            }
+        }
+    }
+
+    private void assertPartialConflict(ScheduledRecording schedule, List<ConflictInfo> conflicts) {
+        for (ConflictInfo conflictInfo : conflicts) {
+            if (conflictInfo.schedule.equals(schedule)) {
+                if (conflictInfo.partialConflict) {
+                    return;
+                } else {
+                    fail(schedule + " fully conflicts with others.");
+                }
+            }
+        }
+        fail(schedule + " doesn't conflict");
+    }
+
+    private void assertFullConflict(ScheduledRecording schedule, List<ConflictInfo> conflicts) {
+        for (ConflictInfo conflictInfo : conflicts) {
+            if (conflictInfo.schedule.equals(schedule)) {
+                if (!conflictInfo.partialConflict) {
+                    return;
+                } else {
+                    fail(schedule + " partially conflicts with others.");
+                }
+            }
+        }
+        fail(schedule + " doesn't conflict");
     }
 }

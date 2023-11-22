@@ -7,7 +7,6 @@ import time
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.server import autotest, test
-from autotest_lib.server.cros.servo import chrome_cr50
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
 
 
@@ -33,12 +32,13 @@ class firmware_Cr50DeepSleepStress(FirmwareTest):
     def initialize(self, host, cmdline_args):
         super(firmware_Cr50DeepSleepStress, self).initialize(host, cmdline_args)
         if not hasattr(self, "cr50"):
-          raise error.TestError('Test needs to be run through CCD')
+            raise error.TestNAError('Test can only be run on devices with '
+                                    'access to the Cr50 console')
 
     def check_deep_sleep_count(self):
         self.cr50.ccd_enable()
         count = self.cr50.get_deep_sleep_count()
-        logging.debug("Cr50 resumed from sleep %d times", count)
+        logging.debug("Cr50 resumed from deep sleep %d times", count)
         return count
 
     def cleanup(self):
@@ -58,7 +58,6 @@ class firmware_Cr50DeepSleepStress(FirmwareTest):
         logging.info("Clear Cr50 deep sleep count")
         self.cr50.clear_deep_sleep_count()
         # Disable CCD so Cr50 can enter deep sleep
-        logging.info("Disable CCD")
         self.cr50.ccd_disable()
 
         self.client_at = autotest.Autotest(host)

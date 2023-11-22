@@ -170,7 +170,7 @@ static inline void closeSocket(const int socketFd) {
     }
 }
 
-static inline bool sendConnectionEvent(const bool connected, const uint8_t type) {
+static inline bool sendConnectionEvent(const bool connected, const int8_t type) {
     int socketFd = createSocket();
     if (socketFd < 0) {
         LOC_LOGe("XTRA unreachable. sending failed.");
@@ -1063,8 +1063,7 @@ static void loc_agps_ril_ni_message(uint8_t *msg, size_t len) {}
 static void loc_agps_ril_update_network_state(int connected, int type, int roaming, const char* extra_info) {
     ENTRY_LOG();
     // for XTRA
-    sendConnectionEvent((connected != 0) ? true : false,
-                        (uint8_t)type);
+    sendConnectionEvent((connected != 0) ? true : false, type);
 
     EXIT_LOG(%s, VOID_RET);
 }

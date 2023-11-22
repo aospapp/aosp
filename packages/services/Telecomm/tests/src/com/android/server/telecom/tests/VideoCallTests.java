@@ -18,9 +18,12 @@ package com.android.server.telecom.tests;
 
 import org.mockito.ArgumentCaptor;
 
+import android.os.Process;
 import android.os.RemoteException;
 import android.telecom.CallAudioState;
+import android.telecom.DisconnectCause;
 import android.telecom.VideoProfile;
+import android.test.suitebuilder.annotation.LargeTest;
 import android.test.suitebuilder.annotation.MediumTest;
 
 import com.android.server.telecom.CallAudioModeStateMachine;
@@ -124,6 +127,93 @@ public class VideoCallTests extends TelecomSystemTest {
                 VideoProfile.STATE_AUDIO_ONLY);
 
         verifyAudioRoute(CallAudioState.ROUTE_EARPIECE);
+    }
+
+    /**
+     * Ensure that when an incoming video call is missed, the video state history still includes
+     * video calling. This is important for the call log.
+     */
+    @LargeTest
+    public void testIncomingVideoCallMissedCheckVideoHistory() throws Exception {
+        IdPair ids = startIncomingPhoneCall("650-555-1212", mPhoneAccountA0.getAccountHandle(),
+                VideoProfile.STATE_BIDIRECTIONAL, mConnectionServiceFixtureA);
+        com.android.server.telecom.Call call = mTelecomSystem.getCallsManager().getCalls()
+                .iterator().next();
+
+        mConnectionServiceFixtureA.sendSetDisconnected(ids.mConnectionId, DisconnectCause.MISSED);
+
+        assertTrue(VideoProfile.isVideo(call.getVideoStateHistory()));
+    }
+
+    /**
+     * Ensure that when an incoming video call is rejected, the video state history still includes
+     * video calling. This is important for the call log.
+     */
+    @LargeTest
+    public void testIncomingVideoCallRejectedCheckVideoHistory() throws Exception {
+        IdPair ids = startIncomingPhoneCall("650-555-1212", mPhoneAccountA0.getAccountHandle(),
+                VideoProfile.STATE_BIDIRECTIONAL, mConnectionServiceFixtureA);
+        com.android.server.telecom.Call call = mTelecomSystem.getCallsManager().getCalls()
+                .iterator().next();
+
+        mConnectionServiceFixtureA.sendSetDisconnected(ids.mConnectionId, DisconnectCause.REJECTED);
+
+        assertTrue(VideoProfile.isVideo(call.getVideoStateHistory()));
+    }
+
+
+    /**
+     * Ensure that when an outgoing video call is canceled, the video state history still includes
+     * video calling. This is important for the call log.
+     */
+    @LargeTest
+    public void testOutgoingVideoCallCanceledCheckVideoHistory() throws Exception {
+        IdPair ids = startOutgoingPhoneCall("650-555-1212", mPhoneAccountA0.getAccountHandle(),
+                mConnectionServiceFixtureA, Process.myUserHandle(),
+                VideoProfile.STATE_BIDIRECTIONAL);
+        com.android.server.telecom.Call call = mTelecomSystem.getCallsManager().getCalls()
+                .iterator().next();
+
+        mConnectionServiceFixtureA.sendSetDisconnected(ids.mConnectionId, DisconnectCause.LOCAL);
+
+        assertTrue(VideoProfile.isVideo(call.getVideoStateHistory()));
+    }
+
+    /**
+     * Ensure that when an outgoing video call is rejected, the video state history still includes
+     * video calling. This is important for the call log.
+     */
+    @LargeTest
+    public void testOutgoingVideoCallRejectedCheckVideoHistory() throws Exception {
+        IdPair ids = startOutgoingPhoneCall("650-555-1212", mPhoneAccountA0.getAccountHandle(),
+                mConnectionServiceFixtureA, Process.myUserHandle(),
+                VideoProfile.STATE_BIDIRECTIONAL);
+        com.android.server.telecom.Call call = mTelecomSystem.getCallsManager().getCalls()
+                .iterator().next();
+
+        mConnectionServiceFixtureA.sendSetDisconnected(ids.mConnectionId, DisconnectCause.REMOTE);
+
+        assertTrue(VideoProfile.isVideo(call.getVideoStateHistory()));
+    }
+
+    /**
+     * Ensure that when an outgoing video call is answered as audio only, the video state history
+     * shows that the call was audio only. This is important for the call log.
+     */
+    @LargeTest
+    public void testOutgoingVideoCallAnsweredAsAudio() throws Exception {
+        IdPair ids = startOutgoingPhoneCall("650-555-1212", mPhoneAccountA0.getAccountHandle(),
+                mConnectionServiceFixtureA, Process.myUserHandle(),
+                VideoProfile.STATE_BIDIRECTIONAL);
+        com.android.server.telecom.Call call = mTelecomSystem.getCallsManager().getCalls()
+                .iterator().next();
+
+        mConnectionServiceFixtureA.mConnectionById.get(ids.mConnectionId).videoState
+                = VideoProfile.STATE_AUDIO_ONLY;
+        mConnectionServiceFixtureA.sendSetVideoState(ids.mConnectionId);
+        mConnectionServiceFixtureA.sendSetActive(ids.mConnectionId);
+
+        assertFalse(VideoProfile.isVideo(call.getVideoStateHistory()));
     }
 
     /**

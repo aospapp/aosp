@@ -21,7 +21,7 @@ $(call inherit-product-if-exists, frameworks/native/build/tablet-10in-xhdpi-2048
 DEVICE_PACKAGE_OVERLAYS := device/linaro/hikey/overlay
 
 # Add openssh support for remote debugging and job submission
-PRODUCT_PACKAGES += ssh sftp scp sshd ssh-keygen sshd_config start-ssh uim
+PRODUCT_PACKAGES += ssh sftp scp sshd ssh-keygen sshd_config start-ssh
 
 # Add wifi-related packages
 PRODUCT_PACKAGES += libwpa_client wpa_supplicant hostapd wificond wifilogd
@@ -40,7 +40,6 @@ PRODUCT_PACKAGES += audio.a2dp.default \
 PRODUCT_PACKAGES += \
     android.hardware.audio@2.0-impl \
     android.hardware.audio.effect@2.0-impl \
-    android.hardware.bluetooth@1.0-service.hikey \
     android.hardware.broadcastradio@1.0-impl \
     android.hardware.soundtrigger@2.0-impl
 
@@ -61,6 +60,13 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES +=	TIInit_11.8.32.bts \
 			wl18xx-fw-4.bin \
 			wl18xx-conf.bin
+
+
+ifeq ($(HIKEY_USE_LEGACY_TI_BLUETOOTH), true)
+PRODUCT_PACKAGES += android.hardware.bluetooth@1.0-service.hikey uim
+else
+PRODUCT_PACKAGES += android.hardware.bluetooth@1.0-service.btlinux
+endif
 
 # PowerHAL
 PRODUCT_PACKAGES += android.hardware.power@1.0-impl
@@ -89,7 +95,6 @@ PRODUCT_COPY_FILES += \
         frameworks/native/data/etc/android.hardware.wifi.xml:system/etc/permissions/android.hardware.wifi.xml \
         frameworks/native/data/etc/android.hardware.bluetooth.xml:system/etc/permissions/android.hardware.bluetooth.xml \
         frameworks/native/data/etc/android.hardware.bluetooth_le.xml:system/etc/permissions/android.hardware.bluetooth_le.xml \
-        device/linaro/hikey/manifest.xml:system/vendor/manifest.xml \
         device/linaro/hikey/wpa_supplicant.conf:system/etc/wifi/wpa_supplicant.conf \
         device/linaro/hikey/audio/audio_policy.conf:system/etc/audio_policy.conf
 

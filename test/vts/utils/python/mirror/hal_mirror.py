@@ -25,42 +25,48 @@ from vts.runners.host.tcp_client import vts_tcp_client
 from vts.runners.host.tcp_server import callback_server
 from vts.utils.python.mirror import mirror_object
 
-COMPONENT_CLASS_DICT = {"hal_conventional": 1,
-                        "hal_conventional_submodule": 2,
-                        "hal_legacy": 3,
-                        "hal_hidl": 4,
-                        "hal_hidl_wrapped_conventional": 5,
-                        "lib_shared": 11}
+COMPONENT_CLASS_DICT = {
+    "hal_conventional": 1,
+    "hal_conventional_submodule": 2,
+    "hal_legacy": 3,
+    "hal_hidl": 4,
+    "hal_hidl_wrapped_conventional": 5,
+    "lib_shared": 11
+}
 
-COMPONENT_TYPE_DICT = {"audio": 1,
-                       "camera": 2,
-                       "gps": 3,
-                       "light": 4,
-                       "wifi": 5,
-                       "mobile": 6,
-                       "bluetooth": 7,
-                       "nfc": 8,
-                       "vibrator": 12,
-                       "thermal": 13,
-                       "tv_input": 14,
-                       "tv_cec": 15,
-                       "sensors": 16,
-                       "vehicle": 17,
-                       "vr": 18,
-                       "graphics_allocator": 19,
-                       "graphics_mapper": 20,
-                       "radio": 21,
-                       "contexthub": 22,
-                       "graphics_composer": 23,
-                       "media_omx": 24,
-                       "bionic_libm": 1001,
-                       "bionic_libc": 1002,
-                       "vndk_libcutils": 1101}
+COMPONENT_TYPE_DICT = {
+    "audio": 1,
+    "camera": 2,
+    "gps": 3,
+    "gnss": 3,
+    "light": 4,
+    "wifi": 5,
+    "mobile": 6,
+    "bluetooth": 7,
+    "nfc": 8,
+    "vibrator": 12,
+    "thermal": 13,
+    "tv_input": 14,
+    "tv_cec": 15,
+    "sensors": 16,
+    "vehicle": 17,
+    "vr": 18,
+    "graphics_allocator": 19,
+    "graphics_mapper": 20,
+    "radio": 21,
+    "contexthub": 22,
+    "graphics_composer": 23,
+    "media_omx": 24,
+    "bionic_libm": 1001,
+    "bionic_libc": 1002,
+    "vndk_libcutils": 1101
+}
 
 VTS_CALLBACK_SERVER_TARGET_SIDE_PORT = 5010
 
 _DEFAULT_TARGET_BASE_PATHS = ["/system/lib64/hw"]
 _DEFAULT_HWBINDER_SERVICE = "default"
+
 
 class HalMirror(object):
     """The class that acts as the mirror to an Android device's HAL layer.
@@ -124,13 +130,14 @@ class HalMirror(object):
                           by default.
             bits: integer, processor architecture indicator: 32 or 64.
         """
-        self._CreateMirrorObject("hal_conventional",
-                                 target_type,
-                                 target_version,
-                                 target_package=target_package,
-                                 target_basepaths=target_basepaths,
-                                 handler_name=handler_name,
-                                 bits=bits)
+        self._CreateMirrorObject(
+            "hal_conventional",
+            target_type,
+            target_version,
+            target_package=target_package,
+            target_basepaths=target_basepaths,
+            handler_name=handler_name,
+            bits=bits)
 
     def InitLegacyHal(self,
                       target_type,
@@ -152,12 +159,13 @@ class HalMirror(object):
                           by default.
             bits: integer, processor architecture indicator: 32 or 64.
         """
-        self._CreateMirrorObject("hal_legacy",
-                                 target_type,
-                                 target_version,
-                                 target_basepaths=target_basepaths,
-                                 handler_name=handler_name,
-                                 bits=bits)
+        self._CreateMirrorObject(
+            "hal_legacy",
+            target_type,
+            target_version,
+            target_basepaths=target_basepaths,
+            handler_name=handler_name,
+            bits=bits)
 
     def InitHidlHal(self,
                     target_type,
@@ -184,15 +192,16 @@ class HalMirror(object):
             hw_binder_service_name: string, the name of a HW binder service.
             bits: integer, processor architecture indicator: 32 or 64.
         """
-        self._CreateMirrorObject("hal_hidl",
-                                 target_type,
-                                 target_version,
-                                 target_package=target_package,
-                                 target_component_name=target_component_name,
-                                 target_basepaths=target_basepaths,
-                                 handler_name=handler_name,
-                                 hw_binder_service_name=hw_binder_service_name,
-                                 bits=bits)
+        self._CreateMirrorObject(
+            "hal_hidl",
+            target_type,
+            target_version,
+            target_package=target_package,
+            target_component_name=target_component_name,
+            target_basepaths=target_basepaths,
+            handler_name=handler_name,
+            hw_binder_service_name=hw_binder_service_name,
+            bits=bits)
 
     def RemoveHal(self, handler_name):
         self._hal_level_mirrors[handler_name].CleanUp()
@@ -249,8 +258,9 @@ class HalMirror(object):
                                               bits)
         self._StartCallbackServer()
         self._client = vts_tcp_client.VtsTcpClient()
-        self._client.Connect(command_port=self._host_command_port,
-                             callback_port=self._host_callback_port)
+        self._client.Connect(
+            command_port=self._host_command_port,
+            callback_port=self._host_callback_port)
         if not handler_name:
             handler_name = target_type
         service_name = "vts_driver_%s" % handler_name
@@ -292,7 +302,7 @@ class HalMirror(object):
             "hal_hidl": ASysCtrlMsg.VTS_DRIVER_TYPE_HAL_HIDL
         }.get(target_class)
 
-        launched = self._client.LaunchDriverService(
+        driver_id = self._client.LaunchDriverService(
             driver_type=driver_type,
             service_name=service_name,
             bits=bits,
@@ -304,7 +314,7 @@ class HalMirror(object):
             target_component_name=target_component_name,
             hw_binder_service_name=hw_binder_service_name)
 
-        if not launched:
+        if driver_id == -1:
             raise errors.ComponentLoadingError(
                 "Failed to launch driver service %s from file path %s" %
                 (target_type, target_filename))
@@ -314,19 +324,19 @@ class HalMirror(object):
         if not found_api_spec:
             raise errors.ComponentLoadingError("No API found for %s" %
                                                service_name)
-        logging.debug("Found %d APIs for %s:\n%s", len(found_api_spec),
-                      service_name, found_api_spec)
+        logging.debug("Found %d APIs for %s:\n%s",
+                      len(found_api_spec), service_name, found_api_spec)
         if_spec_msg = CompSpecMsg.ComponentSpecificationMessage()
         text_format.Merge(found_api_spec, if_spec_msg)
 
         # Instantiate a MirrorObject and return it.
-        hal_mirror = mirror_object.MirrorObject(self._client, if_spec_msg,
-                                                self._callback_server)
+        hal_mirror = mirror_object.MirrorObject(
+            self._client, if_spec_msg, self._callback_server, driver_id)
         self._hal_level_mirrors[handler_name] = hal_mirror
 
     def __getattr__(self, name):
         return self._hal_level_mirrors[name]
 
     def Ping(self):
-      """Returns true iff pinging the agent is successful, False otherwise."""
-      return self._client.Ping()
+        """Returns true iff pinging the agent is successful, False otherwise."""
+        return self._client.Ping()

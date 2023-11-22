@@ -4499,8 +4499,6 @@ public abstract class Calendar implements Serializable, Cloneable, Comparable<Ca
      * @param date the date and time
      * @return true if the given date and time is part of the
      * weekend
-     * @see #getDayOfWeekType
-     * @see #getWeekendTransition
      * @see #isWeekend()
      */
     public boolean isWeekend(Date date) {
@@ -4513,8 +4511,6 @@ public abstract class Calendar implements Serializable, Cloneable, Comparable<Ca
      * this calendar system.
      * @return true if the given date and time is part of the
      * weekend
-     * @see #getDayOfWeekType
-     * @see #getWeekendTransition
      * @see #isWeekend(Date)
      */
     public boolean isWeekend() {

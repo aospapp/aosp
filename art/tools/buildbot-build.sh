@@ -30,8 +30,13 @@ else
   out_dir=${OUT_DIR}
 fi
 
+using_jack=true
+if [[ $ANDROID_COMPILE_WITH_JACK == false ]]; then
+  using_jack=false
+fi
+
 java_libraries_dir=${out_dir}/target/common/obj/JAVA_LIBRARIES
-common_targets="vogar core-tests apache-harmony-jdwp-tests-hostdex jsr166-tests mockito-target ${out_dir}/host/linux-x86/bin/jack"
+common_targets="vogar core-tests apache-harmony-jdwp-tests-hostdex jsr166-tests mockito-target"
 mode="target"
 j_arg="-j$(nproc)"
 showcommands=
@@ -58,8 +63,12 @@ while true; do
   fi
 done
 
+if $using_jack; then
+  common_targets="$common_targets ${out_dir}/host/linux-x86/bin/jack"
+fi
+
 if [[ $mode == "host" ]]; then
-  make_command="make $j_arg $showcommands build-art-host-tests $common_targets"
+  make_command="make $j_arg $showcommands build-art-host-tests $common_targets dx-tests"
   make_command+=" ${out_dir}/host/linux-x86/lib/libjavacoretests.so "
   make_command+=" ${out_dir}/host/linux-x86/lib64/libjavacoretests.so"
 elif [[ $mode == "target" ]]; then

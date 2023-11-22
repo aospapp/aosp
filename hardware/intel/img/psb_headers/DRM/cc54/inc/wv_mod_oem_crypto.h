@@ -32,6 +32,16 @@ enum drm_wv_mod_rsa_padding_scheme
     DRM_WV_MOD_RSA_PADDING_SCHEME_MAX_VALUE
 };
 
+enum drm_wv_mod_usage_entry_status
+{
+    k_free = -1,
+    k_unused = 0,
+    k_active = 1,
+    k_inactive = 2, // deprecated in v13
+    k_inactive_used = 3,
+    k_inactive_unused = 4
+};
+
 struct drm_wv_mod_key_object
 {
     const uint8_t *key_id;

@@ -28,6 +28,8 @@ package org.apache.harmony.jpda.tests.jdwp.ObjectReference;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 import org.apache.harmony.jpda.tests.share.SyncDebuggee;
 
+import java.util.Arrays;
+
 public class SetValues004Debuggee extends SyncDebuggee {
     
     static String passedStatus = "PASSED";
@@ -63,8 +65,8 @@ public class SetValues004Debuggee extends SyncDebuggee {
         testedObject.classLoaderField = testedObject.classField.getClassLoader();
 
         logWriter.println("\n--> Debuggee: SetValues004Debuggee: Before ObjectReference::SetValues command:");
-        logWriter.println("--> intArrayField value = " + testedObject.intArrayField);
-        logWriter.println("--> objectArrayField value = " + testedObject.objectArrayField);
+        logWriter.println("--> intArrayField value = " + Arrays.toString(testedObject.intArrayField));
+        logWriter.println("--> objectArrayField value = " + Arrays.toString(testedObject.objectArrayField));
         logWriter.println("--> objectField value = " + testedObject.objectField);
         logWriter.println("--> stringField value = " + testedObject.stringField);
         logWriter.println("--> threadField value = " + testedObject.threadField);
@@ -76,7 +78,7 @@ public class SetValues004Debuggee extends SyncDebuggee {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
 
         logWriter.println("\n--> Debuggee: SetValues004Debuggee: After ObjectReference::SetValues command:");
-        logWriter.println("--> intArrayField value = " + testedObject.intArrayField);
+        logWriter.println("--> intArrayField value = " + Arrays.toString(testedObject.intArrayField));
         if ( testedObject.intArrayField != null ) {
             logWriter.println("##> Debuggee: FAILURE: Unexpected value");
             logWriter.println("##> Expected value = " + null);
@@ -85,7 +87,7 @@ public class SetValues004Debuggee extends SyncDebuggee {
             logWriter.println("--> Debuggee: OK. Expected value");
         }
 
-        logWriter.println("--> objectArrayField value = " + testedObject.objectArrayField);
+        logWriter.println("--> objectArrayField value = " + Arrays.toString(testedObject.objectArrayField));
         if ( testedObject.objectArrayField != null ) {
             logWriter.println("##> Debuggee: FAILURE: Unexpected value");
             logWriter.println("##> Expected value = " + null);

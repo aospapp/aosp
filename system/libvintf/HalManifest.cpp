@@ -55,11 +55,13 @@ bool HalManifest::shouldAdd(const ManifestHal& hal) const {
     return true;
 }
 
-bool HalManifest::add(ManifestHal&& hal) {
-    if (!shouldAdd(hal)) {
-        return false;
+bool HalManifest::shouldAddXmlFile(const ManifestXmlFile& xmlFile) const {
+    auto existingXmlFiles = getXmlFiles(xmlFile.name());
+    for (auto it = existingXmlFiles.first; it != existingXmlFiles.second; ++it) {
+        if (xmlFile.version() == it->second.version()) {
+            return false;
+        }
     }
-    mHals.emplace(hal.name, std::move(hal));  // always succeed
     return true;
 }
 
@@ -91,14 +93,6 @@ std::set<std::string> HalManifest::getInterfaceNames(const std::string &name) co
     return interfaceNames;
 }
 
-ManifestHal *HalManifest::getAnyHal(const std::string &name) {
-    auto it = mHals.find(name);
-    if (it == mHals.end()) {
-        return nullptr;
-    }
-    return &(it->second);
-}
-
 std::vector<const ManifestHal *> HalManifest::getHals(const std::string &name) const {
     std::vector<const ManifestHal *> ret;
     auto range = mHals.equal_range(name);
@@ -120,7 +114,14 @@ Transport HalManifest::getTransport(const std::string &package, const Version &v
             const std::string &interfaceName, const std::string &instanceName) const {
 
     for (const ManifestHal *hal : getHals(package)) {
-        if (std::find(hal->versions.begin(), hal->versions.end(), v) == hal->versions.end()) {
+        bool found = false;
+        for (auto& ver : hal->versions) {
+            if (ver.majorVer == v.majorVer && ver.minorVer >= v.minorVer) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
             LOG(DEBUG) << "HalManifest::getTransport(" << to_string(mType) << "): Cannot find "
                       << to_string(v) << " in supported versions of " << package;
             continue;
@@ -147,7 +148,7 @@ Transport HalManifest::getTransport(const std::string &package, const Version &v
 }
 
 ConstMultiMapValueIterable<std::string, ManifestHal> HalManifest::getHals() const {
-    return ConstMultiMapValueIterable<std::string, ManifestHal>(mHals);
+    return HalGroup<ManifestHal>::getHals();
 }
 
 std::set<Version> HalManifest::getSupportedVersions(const std::string &name) const {
@@ -373,13 +374,29 @@ const std::vector<Vndk> &HalManifest::vndks() const {
     return framework.mVndks;
 }
 
+std::string HalManifest::getXmlFilePath(const std::string& xmlFileName,
+                                        const Version& version) const {
+    using std::literals::string_literals::operator""s;
+    auto range = getXmlFiles(xmlFileName);
+    for (auto it = range.first; it != range.second; ++it) {
+        const ManifestXmlFile& manifestXmlFile = it->second;
+        if (manifestXmlFile.version() == version) {
+            if (!manifestXmlFile.overriddenPath().empty()) {
+                return manifestXmlFile.overriddenPath();
+            }
+            return "/"s + (type() == SchemaType::DEVICE ? "vendor" : "system") + "/etc/" +
+                   xmlFileName + "_V" + std::to_string(version.majorVer) + "_" +
+                   std::to_string(version.minorVer) + ".xml";
+        }
+    }
+    return "";
+}
+
 bool operator==(const HalManifest &lft, const HalManifest &rgt) {
-    return lft.mType == rgt.mType &&
-           lft.mHals == rgt.mHals &&
-           (lft.mType != SchemaType::DEVICE || (
-                lft.device.mSepolicyVersion == rgt.device.mSepolicyVersion)) &&
-           (lft.mType != SchemaType::FRAMEWORK || (
-                lft.framework.mVndks == rgt.framework.mVndks));
+    return lft.mType == rgt.mType && lft.mHals == rgt.mHals && lft.mXmlFiles == rgt.mXmlFiles &&
+           (lft.mType != SchemaType::DEVICE ||
+            (lft.device.mSepolicyVersion == rgt.device.mSepolicyVersion)) &&
+           (lft.mType != SchemaType::FRAMEWORK || (lft.framework.mVndks == rgt.framework.mVndks));
 }
 
 } // namespace vintf

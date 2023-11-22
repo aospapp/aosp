@@ -115,6 +115,13 @@ class RSoVScript : RsdCpuReference::CpuScript {
                   const std::vector<RSoVAllocation *> &input,
                   RSoVAllocation *output);
 
+  // Gets the offset for the global variable with the given slot number in
+  // the global buffer
+  uint32_t GetExportedVarOffset(uint32_t slot) const {
+    // High-level Java or C++ API has verified that slot is in range
+    return mExportedVarOffsets[slot];
+  }
+
   static constexpr int CPU_SCRIPT_MAGIC_NUMBER = 0x60000;
 
   RSoVContext *mRSoV;
@@ -132,6 +139,8 @@ class RSoVScript : RsdCpuReference::CpuScript {
   std::vector<VkDescriptorSet> mDescSet;
   // For kernel names
   const bcinfo::MetadataExtractor *mME;
+  std::unique_ptr<RSoVBuffer> mGlobals;
+  std::vector<uint32_t> mExportedVarOffsets;
   // Metadata of global allocations
   std::unique_ptr<RSoVBuffer> mGlobalAllocationMetadata;
   // Mapping of global allocation to rsov-assigned ID

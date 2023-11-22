@@ -311,9 +311,11 @@ class NativeInterface {
             Log.d(TAG, "onVolumeChange: address " + address + " event "  + event);
         }
         HeadsetClientService service = HeadsetClientService.getHeadsetClientService();
-        // Ignore volume changes from the Phone. This is to avoid the scenario where we may have two
-        // phones connected each tries to set different volumes.
-        Log.w(TAG, "onVolumeChange: Ignoring message: " + event);
+        if (service != null) {
+            service.messageFromNative(event);
+        } else {
+            Log.w(TAG, "onVolumeChange: Ignoring message because service not available: " + event);
+        }
     }
 
     private void onCmdResult(int type, int cme, byte[] address) {

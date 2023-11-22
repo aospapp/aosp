@@ -19,11 +19,12 @@
 
 #include "concurrent_copying.h"
 
+#include "gc/accounting/atomic_stack.h"
 #include "gc/accounting/space_bitmap-inl.h"
 #include "gc/heap.h"
 #include "gc/space/region_space.h"
-#include "mirror/object-readbarrier-inl.h"
 #include "lock_word.h"
+#include "mirror/object-readbarrier-inl.h"
 
 namespace art {
 namespace gc {
@@ -152,7 +153,8 @@ inline mirror::Object* ConcurrentCopying::Mark(mirror::Object* from_ref,
 
 inline mirror::Object* ConcurrentCopying::MarkFromReadBarrier(mirror::Object* from_ref) {
   mirror::Object* ret;
-  if (from_ref == nullptr) {
+  // We can get here before marking starts since we gray immune objects before the marking phase.
+  if (from_ref == nullptr || !Thread::Current()->GetIsGcMarking()) {
     return from_ref;
   }
   // TODO: Consider removing this check when we are done investigating slow paths. b/30162165

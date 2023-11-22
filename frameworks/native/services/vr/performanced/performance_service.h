@@ -1,12 +1,14 @@
 #ifndef ANDROID_DVR_PERFORMANCED_PERFORMANCE_SERVICE_H_
 #define ANDROID_DVR_PERFORMANCED_PERFORMANCE_SERVICE_H_
 
+#include <functional>
 #include <string>
 #include <unordered_map>
 
 #include <pdx/service.h>
 
 #include "cpu_set.h"
+#include "task.h"
 
 namespace android {
 namespace dvr {
@@ -27,25 +29,46 @@ class PerformanceService : public pdx::ServiceBase<PerformanceService> {
 
   PerformanceService();
 
-  int OnSetCpuPartition(pdx::Message& message, pid_t task_id,
-                        const std::string& partition);
-  int OnSetSchedulerClass(pdx::Message& message, pid_t task_id,
-                          const std::string& scheduler_class);
-  std::string OnGetCpuPartition(pdx::Message& message, pid_t task_id);
+  pdx::Status<void> OnSetSchedulerPolicy(pdx::Message& message, pid_t task_id,
+                                         const std::string& scheduler_class);
+
+  pdx::Status<void> OnSetCpuPartition(pdx::Message& message, pid_t task_id,
+                                      const std::string& partition);
+  pdx::Status<void> OnSetSchedulerClass(pdx::Message& message, pid_t task_id,
+                                        const std::string& scheduler_class);
+  pdx::Status<std::string> OnGetCpuPartition(pdx::Message& message,
+                                             pid_t task_id);
 
   CpuSetManager cpuset_;
 
   int sched_fifo_min_priority_;
   int sched_fifo_max_priority_;
 
-  // Scheduler class config type.
-  struct SchedulerClassConfig {
+  struct SchedulerPolicyConfig {
     unsigned long timer_slack;
     int scheduler_policy;
     int priority;
+    std::function<bool(const pdx::Message& message, const Task& task)>
+        permission_check;
+    std::string cpuset;
+
+    // Check the permisison of the given task to use this scheduler class. If a
+    // permission check function is not set then operations are only allowed on
+    // tasks in the sender's process.
+    bool IsAllowed(const pdx::Message& sender, const Task& task) const {
+      if (permission_check)
+        return permission_check(sender, task);
+      else if (!task || task.thread_group_id() != sender.GetProcessId())
+        return false;
+      else
+        return true;
+    }
   };
 
-  std::unordered_map<std::string, SchedulerClassConfig> scheduler_classes_;
+  std::unordered_map<std::string, SchedulerPolicyConfig> scheduler_policies_;
+
+  std::function<bool(const pdx::Message& message, const Task& task)>
+      partition_permission_check_;
 
   PerformanceService(const PerformanceService&) = delete;
   void operator=(const PerformanceService&) = delete;

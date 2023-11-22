@@ -34,12 +34,13 @@
 #include "class_linker-inl.h"
 #include "dex_file-inl.h"
 #include "fault_handler.h"
-#include "gc_root.h"
 #include "gc/accounting/card_table-inl.h"
+#include "gc_root.h"
 #include "indirect_reference_table-inl.h"
 #include "interpreter/interpreter.h"
-#include "jni_env_ext.h"
 #include "java_vm_ext.h"
+#include "jni_env_ext.h"
+#include "jvalue-inl.h"
 #include "mirror/class-inl.h"
 #include "mirror/class_loader.h"
 #include "mirror/field-inl.h"
@@ -48,21 +49,113 @@
 #include "mirror/object_array-inl.h"
 #include "mirror/string-inl.h"
 #include "mirror/throwable.h"
+#include "nativehelper/ScopedLocalRef.h"
 #include "parsed_options.h"
 #include "reflection.h"
 #include "runtime.h"
 #include "safe_map.h"
 #include "scoped_thread_state_change-inl.h"
-#include "ScopedLocalRef.h"
 #include "thread.h"
 #include "utf.h"
 #include "well_known_classes.h"
+
+namespace {
+// Frees the given va_list upon destruction.
+// This also guards the returns from inside of the CHECK_NON_NULL_ARGUMENTs.
+struct ScopedVAArgs {
+  explicit ScopedVAArgs(va_list* args): args(args) {}
+  ScopedVAArgs(const ScopedVAArgs&) = delete;
+  ScopedVAArgs(ScopedVAArgs&&) = delete;
+  ~ScopedVAArgs() { va_end(*args); }
+
+ private:
+  va_list* args;
+};
+}  // namespace
 
 namespace art {
 
 // Consider turning this on when there is errors which could be related to JNI array copies such as
 // things not rendering correctly. E.g. b/16858794
 static constexpr bool kWarnJniAbort = false;
+
+// Helpers to call instrumentation functions for fields. These take jobjects so we don't need to set
+// up handles for the rare case where these actually do something. Once these functions return it is
+// possible there will be a pending exception if the instrumentation happens to throw one.
+static void NotifySetObjectField(ArtField* field, jobject obj, jobject jval)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  DCHECK_EQ(field->GetTypeAsPrimitiveType(), Primitive::kPrimNot);
+  instrumentation::Instrumentation* instrumentation = Runtime::Current()->GetInstrumentation();
+  if (UNLIKELY(instrumentation->HasFieldWriteListeners())) {
+    Thread* self = Thread::Current();
+    ArtMethod* cur_method = self->GetCurrentMethod(/*dex_pc*/ nullptr,
+                                                   /*check_suspended*/ true,
+                                                   /*abort_on_error*/ false);
+
+    if (cur_method == nullptr) {
+      // Set/Get Fields can be issued without a method during runtime startup/teardown. Ignore all
+      // of these changes.
+      return;
+    }
+    DCHECK(cur_method->IsNative());
+    JValue val;
+    val.SetL(self->DecodeJObject(jval));
+    instrumentation->FieldWriteEvent(self,
+                                     self->DecodeJObject(obj).Ptr(),
+                                     cur_method,
+                                     0,  // dex_pc is always 0 since this is a native method.
+                                     field,
+                                     val);
+  }
+}
+
+static void NotifySetPrimitiveField(ArtField* field, jobject obj, JValue val)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  DCHECK_NE(field->GetTypeAsPrimitiveType(), Primitive::kPrimNot);
+  instrumentation::Instrumentation* instrumentation = Runtime::Current()->GetInstrumentation();
+  if (UNLIKELY(instrumentation->HasFieldWriteListeners())) {
+    Thread* self = Thread::Current();
+    ArtMethod* cur_method = self->GetCurrentMethod(/*dex_pc*/ nullptr,
+                                                   /*check_suspended*/ true,
+                                                   /*abort_on_error*/ false);
+
+    if (cur_method == nullptr) {
+      // Set/Get Fields can be issued without a method during runtime startup/teardown. Ignore all
+      // of these changes.
+      return;
+    }
+    DCHECK(cur_method->IsNative());
+    instrumentation->FieldWriteEvent(self,
+                                     self->DecodeJObject(obj).Ptr(),
+                                     cur_method,
+                                     0,  // dex_pc is always 0 since this is a native method.
+                                     field,
+                                     val);
+  }
+}
+
+static void NotifyGetField(ArtField* field, jobject obj)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  instrumentation::Instrumentation* instrumentation = Runtime::Current()->GetInstrumentation();
+  if (UNLIKELY(instrumentation->HasFieldReadListeners())) {
+    Thread* self = Thread::Current();
+    ArtMethod* cur_method = self->GetCurrentMethod(/*dex_pc*/ nullptr,
+                                                   /*check_suspended*/ true,
+                                                   /*abort_on_error*/ false);
+
+    if (cur_method == nullptr) {
+      // Set/Get Fields can be issued without a method during runtime startup/teardown. Ignore all
+      // of these changes.
+      return;
+    }
+    DCHECK(cur_method->IsNative());
+    instrumentation->FieldReadEvent(self,
+                                    self->DecodeJObject(obj).Ptr(),
+                                    cur_method,
+                                    0,  // dex_pc is always 0 since this is a native method.
+                                    field);
+  }
+}
 
 // Section 12.3.2 of the JNI spec describes JNI class descriptors. They're
 // separated with slashes but aren't wrapped with "L;" like regular descriptors
@@ -106,10 +199,9 @@ static void ThrowNoSuchMethodError(ScopedObjectAccess& soa,
 static void ReportInvalidJNINativeMethod(const ScopedObjectAccess& soa,
                                          ObjPtr<mirror::Class> c,
                                          const char* kind,
-                                         jint idx,
-                                         bool return_errors)
+                                         jint idx)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  LOG(return_errors ? ::android::base::ERROR : ::android::base::FATAL)
+  LOG(ERROR)
       << "Failed to register native method in " << c->PrettyDescriptor()
       << " in " << c->GetDexCache()->GetLocation()->ToModifiedUtf8()
       << ": " << kind << " is null at index " << idx;
@@ -141,17 +233,10 @@ static jmethodID FindMethodID(ScopedObjectAccess& soa, jclass jni_class,
   }
   ArtMethod* method = nullptr;
   auto pointer_size = Runtime::Current()->GetClassLinker()->GetImagePointerSize();
-  if (is_static) {
-    method = c->FindDirectMethod(name, sig, pointer_size);
-  } else if (c->IsInterface()) {
+  if (c->IsInterface()) {
     method = c->FindInterfaceMethod(name, sig, pointer_size);
   } else {
-    method = c->FindVirtualMethod(name, sig, pointer_size);
-    if (method == nullptr) {
-      // No virtual method matching the signature.  Search declared
-      // private methods and constructors.
-      method = c->FindDeclaredDirectMethod(name, sig, pointer_size);
-    }
+    method = c->FindClassMethod(name, sig, pointer_size);
   }
   if (method == nullptr || method->IsStatic() != is_static) {
     ThrowNoSuchMethodError(soa, c, name, sig, is_static ? "static" : "non-static");
@@ -613,10 +698,10 @@ class JNI {
   static jobject NewObject(JNIEnv* env, jclass java_class, jmethodID mid, ...) {
     va_list args;
     va_start(args, mid);
+    ScopedVAArgs free_args_later(&args);
     CHECK_NON_NULL_ARGUMENT(java_class);
     CHECK_NON_NULL_ARGUMENT(mid);
     jobject result = NewObjectV(env, java_class, mid, args);
-    va_end(args);
     return result;
   }
 
@@ -694,11 +779,11 @@ class JNI {
   static jobject CallObjectMethod(JNIEnv* env, jobject obj, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT(obj);
     CHECK_NON_NULL_ARGUMENT(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeVirtualOrInterfaceWithVarArgs(soa, obj, mid, ap));
-    va_end(ap);
     return soa.AddLocalReference<jobject>(result.GetL());
   }
 
@@ -721,11 +806,11 @@ class JNI {
   static jboolean CallBooleanMethod(JNIEnv* env, jobject obj, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(obj);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeVirtualOrInterfaceWithVarArgs(soa, obj, mid, ap));
-    va_end(ap);
     return result.GetZ();
   }
 
@@ -746,11 +831,11 @@ class JNI {
   static jbyte CallByteMethod(JNIEnv* env, jobject obj, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(obj);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeVirtualOrInterfaceWithVarArgs(soa, obj, mid, ap));
-    va_end(ap);
     return result.GetB();
   }
 
@@ -771,11 +856,11 @@ class JNI {
   static jchar CallCharMethod(JNIEnv* env, jobject obj, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(obj);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeVirtualOrInterfaceWithVarArgs(soa, obj, mid, ap));
-    va_end(ap);
     return result.GetC();
   }
 
@@ -796,11 +881,11 @@ class JNI {
   static jdouble CallDoubleMethod(JNIEnv* env, jobject obj, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(obj);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeVirtualOrInterfaceWithVarArgs(soa, obj, mid, ap));
-    va_end(ap);
     return result.GetD();
   }
 
@@ -821,11 +906,11 @@ class JNI {
   static jfloat CallFloatMethod(JNIEnv* env, jobject obj, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(obj);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeVirtualOrInterfaceWithVarArgs(soa, obj, mid, ap));
-    va_end(ap);
     return result.GetF();
   }
 
@@ -846,11 +931,11 @@ class JNI {
   static jint CallIntMethod(JNIEnv* env, jobject obj, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(obj);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeVirtualOrInterfaceWithVarArgs(soa, obj, mid, ap));
-    va_end(ap);
     return result.GetI();
   }
 
@@ -871,11 +956,11 @@ class JNI {
   static jlong CallLongMethod(JNIEnv* env, jobject obj, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(obj);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeVirtualOrInterfaceWithVarArgs(soa, obj, mid, ap));
-    va_end(ap);
     return result.GetJ();
   }
 
@@ -896,11 +981,11 @@ class JNI {
   static jshort CallShortMethod(JNIEnv* env, jobject obj, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(obj);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeVirtualOrInterfaceWithVarArgs(soa, obj, mid, ap));
-    va_end(ap);
     return result.GetS();
   }
 
@@ -921,11 +1006,11 @@ class JNI {
   static void CallVoidMethod(JNIEnv* env, jobject obj, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT_RETURN_VOID(obj);
     CHECK_NON_NULL_ARGUMENT_RETURN_VOID(mid);
     ScopedObjectAccess soa(env);
     InvokeVirtualOrInterfaceWithVarArgs(soa, obj, mid, ap);
-    va_end(ap);
   }
 
   static void CallVoidMethodV(JNIEnv* env, jobject obj, jmethodID mid, va_list args) {
@@ -945,12 +1030,12 @@ class JNI {
   static jobject CallNonvirtualObjectMethod(JNIEnv* env, jobject obj, jclass, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT(obj);
     CHECK_NON_NULL_ARGUMENT(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeWithVarArgs(soa, obj, mid, ap));
     jobject local_result = soa.AddLocalReference<jobject>(result.GetL());
-    va_end(ap);
     return local_result;
   }
 
@@ -976,11 +1061,11 @@ class JNI {
                                               ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(obj);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeWithVarArgs(soa, obj, mid, ap));
-    va_end(ap);
     return result.GetZ();
   }
 
@@ -1003,11 +1088,11 @@ class JNI {
   static jbyte CallNonvirtualByteMethod(JNIEnv* env, jobject obj, jclass, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(obj);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeWithVarArgs(soa, obj, mid, ap));
-    va_end(ap);
     return result.GetB();
   }
 
@@ -1030,11 +1115,11 @@ class JNI {
   static jchar CallNonvirtualCharMethod(JNIEnv* env, jobject obj, jclass, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(obj);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeWithVarArgs(soa, obj, mid, ap));
-    va_end(ap);
     return result.GetC();
   }
 
@@ -1057,11 +1142,11 @@ class JNI {
   static jshort CallNonvirtualShortMethod(JNIEnv* env, jobject obj, jclass, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(obj);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeWithVarArgs(soa, obj, mid, ap));
-    va_end(ap);
     return result.GetS();
   }
 
@@ -1084,11 +1169,11 @@ class JNI {
   static jint CallNonvirtualIntMethod(JNIEnv* env, jobject obj, jclass, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(obj);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeWithVarArgs(soa, obj, mid, ap));
-    va_end(ap);
     return result.GetI();
   }
 
@@ -1111,11 +1196,11 @@ class JNI {
   static jlong CallNonvirtualLongMethod(JNIEnv* env, jobject obj, jclass, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(obj);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeWithVarArgs(soa, obj, mid, ap));
-    va_end(ap);
     return result.GetJ();
   }
 
@@ -1138,11 +1223,11 @@ class JNI {
   static jfloat CallNonvirtualFloatMethod(JNIEnv* env, jobject obj, jclass, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(obj);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeWithVarArgs(soa, obj, mid, ap));
-    va_end(ap);
     return result.GetF();
   }
 
@@ -1165,11 +1250,11 @@ class JNI {
   static jdouble CallNonvirtualDoubleMethod(JNIEnv* env, jobject obj, jclass, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(obj);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeWithVarArgs(soa, obj, mid, ap));
-    va_end(ap);
     return result.GetD();
   }
 
@@ -1192,11 +1277,11 @@ class JNI {
   static void CallNonvirtualVoidMethod(JNIEnv* env, jobject obj, jclass, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT_RETURN_VOID(obj);
     CHECK_NON_NULL_ARGUMENT_RETURN_VOID(mid);
     ScopedObjectAccess soa(env);
     InvokeWithVarArgs(soa, obj, mid, ap);
-    va_end(ap);
   }
 
   static void CallNonvirtualVoidMethodV(JNIEnv* env, jobject obj, jclass, jmethodID mid,
@@ -1236,8 +1321,9 @@ class JNI {
     CHECK_NON_NULL_ARGUMENT(obj);
     CHECK_NON_NULL_ARGUMENT(fid);
     ScopedObjectAccess soa(env);
-    ObjPtr<mirror::Object> o = soa.Decode<mirror::Object>(obj);
     ArtField* f = jni::DecodeArtField(fid);
+    NotifyGetField(f, obj);
+    ObjPtr<mirror::Object> o = soa.Decode<mirror::Object>(obj);
     return soa.AddLocalReference<jobject>(f->GetObject(o));
   }
 
@@ -1245,6 +1331,7 @@ class JNI {
     CHECK_NON_NULL_ARGUMENT(fid);
     ScopedObjectAccess soa(env);
     ArtField* f = jni::DecodeArtField(fid);
+    NotifyGetField(f, nullptr);
     return soa.AddLocalReference<jobject>(f->GetObject(f->GetDeclaringClass()));
   }
 
@@ -1252,17 +1339,19 @@ class JNI {
     CHECK_NON_NULL_ARGUMENT_RETURN_VOID(java_object);
     CHECK_NON_NULL_ARGUMENT_RETURN_VOID(fid);
     ScopedObjectAccess soa(env);
+    ArtField* f = jni::DecodeArtField(fid);
+    NotifySetObjectField(f, java_object, java_value);
     ObjPtr<mirror::Object> o = soa.Decode<mirror::Object>(java_object);
     ObjPtr<mirror::Object> v = soa.Decode<mirror::Object>(java_value);
-    ArtField* f = jni::DecodeArtField(fid);
     f->SetObject<false>(o, v);
   }
 
   static void SetStaticObjectField(JNIEnv* env, jclass, jfieldID fid, jobject java_value) {
     CHECK_NON_NULL_ARGUMENT_RETURN_VOID(fid);
     ScopedObjectAccess soa(env);
-    ObjPtr<mirror::Object> v = soa.Decode<mirror::Object>(java_value);
     ArtField* f = jni::DecodeArtField(fid);
+    NotifySetObjectField(f, nullptr, java_value);
+    ObjPtr<mirror::Object> v = soa.Decode<mirror::Object>(java_value);
     f->SetObject<false>(f->GetDeclaringClass(), v);
   }
 
@@ -1270,28 +1359,32 @@ class JNI {
   CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(instance); \
   CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(fid); \
   ScopedObjectAccess soa(env); \
-  ObjPtr<mirror::Object> o = soa.Decode<mirror::Object>(instance); \
   ArtField* f = jni::DecodeArtField(fid); \
+  NotifyGetField(f, instance); \
+  ObjPtr<mirror::Object> o = soa.Decode<mirror::Object>(instance); \
   return f->Get ##fn (o)
 
 #define GET_STATIC_PRIMITIVE_FIELD(fn) \
   CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(fid); \
   ScopedObjectAccess soa(env); \
   ArtField* f = jni::DecodeArtField(fid); \
+  NotifyGetField(f, nullptr); \
   return f->Get ##fn (f->GetDeclaringClass())
 
 #define SET_PRIMITIVE_FIELD(fn, instance, value) \
   CHECK_NON_NULL_ARGUMENT_RETURN_VOID(instance); \
   CHECK_NON_NULL_ARGUMENT_RETURN_VOID(fid); \
   ScopedObjectAccess soa(env); \
-  ObjPtr<mirror::Object> o = soa.Decode<mirror::Object>(instance); \
   ArtField* f = jni::DecodeArtField(fid); \
+  NotifySetPrimitiveField(f, instance, JValue::FromPrimitive<decltype(value)>(value)); \
+  ObjPtr<mirror::Object> o = soa.Decode<mirror::Object>(instance); \
   f->Set ##fn <false>(o, value)
 
 #define SET_STATIC_PRIMITIVE_FIELD(fn, value) \
   CHECK_NON_NULL_ARGUMENT_RETURN_VOID(fid); \
   ScopedObjectAccess soa(env); \
   ArtField* f = jni::DecodeArtField(fid); \
+  NotifySetPrimitiveField(f, nullptr, JValue::FromPrimitive<decltype(value)>(value)); \
   f->Set ##fn <false>(f->GetDeclaringClass(), value)
 
   static jboolean GetBooleanField(JNIEnv* env, jobject obj, jfieldID fid) {
@@ -1425,11 +1518,11 @@ class JNI {
   static jobject CallStaticObjectMethod(JNIEnv* env, jclass, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeWithVarArgs(soa, nullptr, mid, ap));
     jobject local_result = soa.AddLocalReference<jobject>(result.GetL());
-    va_end(ap);
     return local_result;
   }
 
@@ -1450,10 +1543,10 @@ class JNI {
   static jboolean CallStaticBooleanMethod(JNIEnv* env, jclass, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeWithVarArgs(soa, nullptr, mid, ap));
-    va_end(ap);
     return result.GetZ();
   }
 
@@ -1472,10 +1565,10 @@ class JNI {
   static jbyte CallStaticByteMethod(JNIEnv* env, jclass, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeWithVarArgs(soa, nullptr, mid, ap));
-    va_end(ap);
     return result.GetB();
   }
 
@@ -1494,10 +1587,10 @@ class JNI {
   static jchar CallStaticCharMethod(JNIEnv* env, jclass, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeWithVarArgs(soa, nullptr, mid, ap));
-    va_end(ap);
     return result.GetC();
   }
 
@@ -1516,10 +1609,10 @@ class JNI {
   static jshort CallStaticShortMethod(JNIEnv* env, jclass, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeWithVarArgs(soa, nullptr, mid, ap));
-    va_end(ap);
     return result.GetS();
   }
 
@@ -1538,10 +1631,10 @@ class JNI {
   static jint CallStaticIntMethod(JNIEnv* env, jclass, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeWithVarArgs(soa, nullptr, mid, ap));
-    va_end(ap);
     return result.GetI();
   }
 
@@ -1560,10 +1653,10 @@ class JNI {
   static jlong CallStaticLongMethod(JNIEnv* env, jclass, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeWithVarArgs(soa, nullptr, mid, ap));
-    va_end(ap);
     return result.GetJ();
   }
 
@@ -1582,10 +1675,10 @@ class JNI {
   static jfloat CallStaticFloatMethod(JNIEnv* env, jclass, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeWithVarArgs(soa, nullptr, mid, ap));
-    va_end(ap);
     return result.GetF();
   }
 
@@ -1604,10 +1697,10 @@ class JNI {
   static jdouble CallStaticDoubleMethod(JNIEnv* env, jclass, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT_RETURN_ZERO(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeWithVarArgs(soa, nullptr, mid, ap));
-    va_end(ap);
     return result.GetD();
   }
 
@@ -1626,10 +1719,10 @@ class JNI {
   static void CallStaticVoidMethod(JNIEnv* env, jclass, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
+    ScopedVAArgs free_args_later(&ap);
     CHECK_NON_NULL_ARGUMENT_RETURN_VOID(mid);
     ScopedObjectAccess soa(env);
     InvokeWithVarArgs(soa, nullptr, mid, ap);
-    va_end(ap);
   }
 
   static void CallStaticVoidMethodV(JNIEnv* env, jclass, jmethodID mid, va_list args) {
@@ -2145,13 +2238,10 @@ class JNI {
                                                                      buf);
   }
 
-  static jint RegisterNatives(JNIEnv* env, jclass java_class, const JNINativeMethod* methods,
+  static jint RegisterNatives(JNIEnv* env,
+                              jclass java_class,
+                              const JNINativeMethod* methods,
                               jint method_count) {
-    return RegisterNativeMethods(env, java_class, methods, method_count, true);
-  }
-
-  static jint RegisterNativeMethods(JNIEnv* env, jclass java_class, const JNINativeMethod* methods,
-                                    jint method_count, bool return_errors) {
     if (UNLIKELY(method_count < 0)) {
       JavaVmExtFromEnv(env)->JniAbortF("RegisterNatives", "negative method count: %d",
                                        method_count);
@@ -2172,13 +2262,13 @@ class JNI {
       const char* sig = methods[i].signature;
       const void* fnPtr = methods[i].fnPtr;
       if (UNLIKELY(name == nullptr)) {
-        ReportInvalidJNINativeMethod(soa, c.Get(), "method name", i, return_errors);
+        ReportInvalidJNINativeMethod(soa, c.Get(), "method name", i);
         return JNI_ERR;
       } else if (UNLIKELY(sig == nullptr)) {
-        ReportInvalidJNINativeMethod(soa, c.Get(), "method signature", i, return_errors);
+        ReportInvalidJNINativeMethod(soa, c.Get(), "method signature", i);
         return JNI_ERR;
       } else if (UNLIKELY(fnPtr == nullptr)) {
-        ReportInvalidJNINativeMethod(soa, c.Get(), "native function", i, return_errors);
+        ReportInvalidJNINativeMethod(soa, c.Get(), "native function", i);
         return JNI_ERR;
       }
       bool is_fast = false;
@@ -2244,19 +2334,15 @@ class JNI {
       }
 
       if (m == nullptr) {
-        c->DumpClass(
-            LOG_STREAM(return_errors
-                           ? ::android::base::ERROR
-                           : ::android::base::FATAL_WITHOUT_ABORT),
-            mirror::Class::kDumpClassFullDetail);
-        LOG(return_errors ? ::android::base::ERROR : ::android::base::FATAL)
+        c->DumpClass(LOG_STREAM(ERROR), mirror::Class::kDumpClassFullDetail);
+        LOG(ERROR)
             << "Failed to register native method "
             << c->PrettyDescriptor() << "." << name << sig << " in "
             << c->GetDexCache()->GetLocation()->ToModifiedUtf8();
         ThrowNoSuchMethodError(soa, c.Get(), name, sig, "static or non-static");
         return JNI_ERR;
       } else if (!m->IsNative()) {
-        LOG(return_errors ? ::android::base::ERROR : ::android::base::FATAL)
+        LOG(ERROR)
             << "Failed to register non-native method "
             << c->PrettyDescriptor() << "." << name << sig
             << " as native";
@@ -2407,18 +2493,18 @@ class JNI {
   static jint EnsureLocalCapacityInternal(ScopedObjectAccess& soa, jint desired_capacity,
                                           const char* caller)
       REQUIRES_SHARED(Locks::mutator_lock_) {
-    // TODO: we should try to expand the table if necessary.
-    if (desired_capacity < 0 || desired_capacity > static_cast<jint>(kLocalsInitial)) {
+    if (desired_capacity < 0) {
       LOG(ERROR) << "Invalid capacity given to " << caller << ": " << desired_capacity;
       return JNI_ERR;
     }
-    // TODO: this isn't quite right, since "capacity" includes holes.
-    const size_t capacity = soa.Env()->locals.Capacity();
-    bool okay = (static_cast<jint>(kLocalsInitial - capacity) >= desired_capacity);
-    if (!okay) {
-      soa.Self()->ThrowOutOfMemoryError(caller);
+
+    std::string error_msg;
+    if (!soa.Env()->locals.EnsureFreeCapacity(static_cast<size_t>(desired_capacity), &error_msg)) {
+      std::string caller_error = android::base::StringPrintf("%s: %s", caller, error_msg.c_str());
+      soa.Self()->ThrowOutOfMemoryError(caller_error.c_str());
+      return JNI_ERR;
     }
-    return okay ? JNI_OK : JNI_ERR;
+    return JNI_OK;
   }
 
   template<typename JniT, typename ArtT>
@@ -3049,15 +3135,6 @@ void (*gJniSleepForeverStub[])()  = {
 
 const JNINativeInterface* GetRuntimeShutdownNativeInterface() {
   return reinterpret_cast<JNINativeInterface*>(&gJniSleepForeverStub);
-}
-
-void RegisterNativeMethods(JNIEnv* env, const char* jni_class_name, const JNINativeMethod* methods,
-                           jint method_count) {
-  ScopedLocalRef<jclass> c(env, env->FindClass(jni_class_name));
-  if (c.get() == nullptr) {
-    LOG(FATAL) << "Couldn't find class: " << jni_class_name;
-  }
-  JNI::RegisterNativeMethods(env, c.get(), methods, method_count, false);
 }
 
 }  // namespace art

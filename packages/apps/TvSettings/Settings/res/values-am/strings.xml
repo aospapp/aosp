@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"አገልግሎቶች"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"የአገልግሎት ቅንብሮች"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"ከፍተኛ ንጽጽር ጽሁፍ"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"የተደራሽነት አቋራጭ"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"የተደራሽነት አቋራጭ ያንቁ"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"የአቋራጭ አገልግሎት"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"አቋራጩ ሲበራ የተደራሽነት ባህሪን ለማስጀመር ሁለቱንም የተመለስ እና የታች አዝራሮች ለ3 ሰከንዶች ተጭነው መያዝ ይችላሉ።"</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"መግለጫ ፅሑፎች"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"በቪዲዮ ላይ ያለ የዝግ ጽሑፍ ተደራቢ ቅንብሮች"</string>
     <string name="captions_display" msgid="735692527287125548">"ማሳያ"</string>
@@ -588,7 +592,7 @@
     <string name="pin_enter_unlock_program" msgid="52453773316071511">"ይህንን ፕሮግራም ለመመልከት ፒን ያስገቡ"</string>
     <string name="pin_enter_pin" msgid="821552376577935497">"ፒን ያስገቡ"</string>
     <string name="pin_enter_new_pin" msgid="4788218421265924211">"አዲስ ፒን ያዘጋጁ"</string>
-    <string name="pin_enter_again" msgid="1510456697040826496">"አደሱን ፒን ደግመው ያስገቡ"</string>
+    <string name="pin_enter_again" msgid="1510456697040826496">"አዲሱን ፒን ደግመው ያስገቡ"</string>
     <string name="pin_enter_old_pin" msgid="851029058127630869">"የድሮውን ፒን ያስገቡ"</string>
     <string name="pin_enter_wrong_seconds" msgid="7541208202846169755">"የተሳሳተ ፒን 5 ጊዜ አስገብተዋል።በ\n<xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g> ሰከንዶች ውስጥ እንደገና ይሞክሩ።"</string>
     <string name="pin_toast_wrong" msgid="4628358195224633248">"የተሳሳተ ፒን፣ እንደገና ይሞክሩ"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"የሳንካ ሪፖርቱን በማግኘት ላይ"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"የሚገኙ ምናባዊ ቁልፍ ሰሌዳዎች"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"የቁልፍ ሰሌዳዎችን ያቀናብሩ"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"ተፈቅዷል"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"አይፈቀድም"</string>
+    <string name="usage_access" msgid="1914242907684452328">"የመጠቀም መዳረሻ"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"የአጠቃቀም መዳረሻ አንድ መተግበሪያ የሚጠቀሟቸውን ሌሎች መተግበሪያዎች እና ምን ያህል ጊዜ እንደሚጠቀሙባቸው፣ እንዲሁም የአገልግሎት አቅራቢዎን፣ የቋንቋ ቅንብሮችዎን እና ሌሎች ዝርዝሮችዎን እንዲከታተል ያስችለዋል።"</string>
 </resources>

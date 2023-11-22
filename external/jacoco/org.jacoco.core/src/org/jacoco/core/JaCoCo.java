@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -12,8 +12,6 @@
 package org.jacoco.core;
 
 import java.util.ResourceBundle;
-
-import org.objectweb.asm.Opcodes;
 
 /**
  * Static Meta information about JaCoCo.
@@ -28,9 +26,6 @@ public final class JaCoCo {
 
 	/** Name of the runtime package of this build */
 	public static final String RUNTIMEPACKAGE;
-
-	/** ASM API version */
-	public static final int ASM_API_VERSION = Opcodes.ASM5;
 
 	static {
 		final ResourceBundle bundle = ResourceBundle

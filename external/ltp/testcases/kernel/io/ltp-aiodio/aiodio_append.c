@@ -28,35 +28,17 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <signal.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
 
 #include <libaio.h>
 
+#include "test.h"
+
 #define NUM_CHILDREN 8
 
-char *check_zero(unsigned char *buf, int size)
-{
-	unsigned char *p;
-
-	p = buf;
-
-	while (size > 0) {
-		if (*buf != 0) {
-			fprintf(stderr,
-				"non zero buffer at buf[%d] => 0x%02x,%02x,%02x,%02x\n",
-				buf - p, (unsigned int)buf[0],
-				size > 1 ? (unsigned int)buf[1] : 0,
-				size > 2 ? (unsigned int)buf[2] : 0,
-				size > 3 ? (unsigned int)buf[3] : 0);
-			fprintf(stderr, "buf %p, p %p\n", buf, p);
-			return buf;
-		}
-		buf++;
-		size--;
-	}
-	return 0;		/* all zeros */
-}
+#include "common_checkzero.h"
 
 int read_eof(char *filename)
 {
@@ -115,8 +97,9 @@ void aiodio_append(char *filename)
 	io_queue_init(NUM_AIO, &myctx);
 
 	for (i = 0; i < NUM_AIO; i++) {
-		if (posix_memalign(&bufptr, 4096, AIO_SIZE)) {
-			perror("cannot malloc aligned memory");
+		TEST(posix_memalign(&bufptr, 4096, AIO_SIZE));
+		if (TEST_RETURN) {
+			tst_resm(TBROK | TRERRNO, "cannot malloc aligned memory");
 			return;
 		}
 		memset(bufptr, 0, AIO_SIZE);

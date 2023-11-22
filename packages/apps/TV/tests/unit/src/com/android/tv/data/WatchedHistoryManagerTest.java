@@ -16,60 +16,57 @@
 
 package com.android.tv.data;
 
-import android.support.test.filters.SmallTest;
-import android.support.test.filters.Suppress;
-import android.test.AndroidTestCase;
-import android.test.UiThreadTest;
+import static android.support.test.InstrumentationRegistry.getTargetContext;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
+import android.os.Looper;
+import android.support.test.filters.MediumTest;
 
 import com.android.tv.data.WatchedHistoryManager.WatchedRecord;
-import com.android.tv.testing.Utils;
 
-import java.util.concurrent.CountDownLatch;
+import org.junit.Before;
+import org.junit.Test;
+
 import java.util.concurrent.TimeUnit;
 
 /**
  * Test for {@link com.android.tv.data.WatchedHistoryManagerTest}
+ * <p>
+ * This is a medium test because it load files which accessing SharedPreferences.
  */
-@SmallTest
-@Suppress // http://b/27156462
-public class WatchedHistoryManagerTest extends AndroidTestCase {
-    private static final boolean DEBUG = false;
-    private static final String TAG = "WatchedHistoryManager";
-
+@MediumTest
+public class WatchedHistoryManagerTest {
     // Wait time for expected success.
-    private static final long WAIT_TIME_OUT_MS = 1000L;
     private static final int MAX_HISTORY_SIZE = 100;
 
     private WatchedHistoryManager mWatchedHistoryManager;
     private TestWatchedHistoryManagerListener mListener;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        Utils.runOnMainSync(new Runnable() {
-            @Override
-            public void run() {
-                mWatchedHistoryManager = new WatchedHistoryManager(getContext(), MAX_HISTORY_SIZE);
-                mListener = new TestWatchedHistoryManagerListener();
-                mWatchedHistoryManager.setListener(mListener);
-            }
-        });
+    @Before
+    public void setUp() {
+        if (Looper.myLooper() == null) {
+            Looper.prepare();
+        }
+        mWatchedHistoryManager = new WatchedHistoryManager(getTargetContext(), MAX_HISTORY_SIZE);
+        mListener = new TestWatchedHistoryManagerListener();
+        mWatchedHistoryManager.setListener(mListener);
     }
 
-    private void startAndWaitForComplete() throws Exception {
+    private void startAndWaitForComplete() throws InterruptedException {
         mWatchedHistoryManager.start();
-        assertTrue(mListener.loadFinishedLatch.await(WAIT_TIME_OUT_MS, TimeUnit.MILLISECONDS));
+        assertTrue(mListener.mLoadFinished);
     }
 
-    @UiThreadTest
-    public void testIsLoaded() throws Exception {
-        assertFalse(mWatchedHistoryManager.isLoaded());
+    @Test
+    public void testIsLoaded() throws InterruptedException {
         startAndWaitForComplete();
         assertTrue(mWatchedHistoryManager.isLoaded());
     }
 
-    @UiThreadTest
-    public void testLogChannelViewStop() throws Exception {
+    @Test
+    public void testLogChannelViewStop() throws InterruptedException {
         startAndWaitForComplete();
         long fakeId = 100000000;
         long time = System.currentTimeMillis();
@@ -86,8 +83,8 @@ public class WatchedHistoryManagerTest extends AndroidTestCase {
         assertEquals(record, recordFromSharedPreferences);
     }
 
-    @UiThreadTest
-    public void testCircularHistoryQueue() throws Exception {
+    @Test
+    public void testCircularHistoryQueue() throws InterruptedException {
         startAndWaitForComplete();
         final long startChannelId = 100000000;
         long time = System.currentTimeMillis();
@@ -111,7 +108,7 @@ public class WatchedHistoryManagerTest extends AndroidTestCase {
                 mWatchedHistoryManager.getRecordFromSharedPreferences(MAX_HISTORY_SIZE));
     }
 
-    @UiThreadTest
+    @Test
     public void testWatchedRecordEquals() {
         assertTrue(new WatchedRecord(1, 2, 3).equals(new WatchedRecord(1, 2, 3)));
         assertFalse(new WatchedRecord(1, 2, 3).equals(new WatchedRecord(1, 2, 4)));
@@ -119,8 +116,8 @@ public class WatchedHistoryManagerTest extends AndroidTestCase {
         assertFalse(new WatchedRecord(1, 2, 3).equals(new WatchedRecord(4, 2, 3)));
     }
 
-    @UiThreadTest
-    public void testEncodeDecodeWatchedRecord() throws Exception {
+    @Test
+    public void testEncodeDecodeWatchedRecord() {
         long fakeId = 100000000;
         long time = System.currentTimeMillis();
         long duration = TimeUnit.MINUTES.toMillis(10);
@@ -131,11 +128,11 @@ public class WatchedHistoryManagerTest extends AndroidTestCase {
     }
 
     private class TestWatchedHistoryManagerListener implements WatchedHistoryManager.Listener {
-        public final CountDownLatch loadFinishedLatch = new CountDownLatch(1);
+        boolean mLoadFinished;
 
         @Override
         public void onLoadFinished() {
-            loadFinishedLatch.countDown();
+            mLoadFinished = true;
         }
 
         @Override

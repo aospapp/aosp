@@ -189,8 +189,8 @@ struct Teq1ProtocolOptions {
 
 uint32_t teq1_transceive(struct EseInterface *ese,
                          const struct Teq1ProtocolOptions *opts,
-                         const uint8_t *const tx_buf, uint32_t tx_len,
-                         uint8_t *rx_buf, uint32_t rx_max);
+                         const struct EseSgBuffer *tx_bufs, uint8_t tx_segs,
+                         struct EseSgBuffer *rx_bufs, uint8_t rx_segs);
 
 uint8_t teq1_compute_LRC(const struct Teq1Frame *frame);
 

@@ -20,12 +20,16 @@ package org.conscrypt;
  *
  * Helper class for dealing with hexadecimal strings.
  *
+ * @hide
  */
+@Internal
 // public for testing by TrustedCertificateStoreTest
-public class Hex {
+// TODO(nathanmittler): Move to InternalUtil?
+public final class Hex {
     private Hex() {}
 
-    private final static char[] DIGITS = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+    private final static char[] DIGITS = {
+            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
 
     public static String bytesToHexString(byte[] bytes) {
         char[] buf = new char[bytes.length * 2];
@@ -48,5 +52,4 @@ public class Hex {
 
         return new String(buf, cursor, bufLen - cursor);
     }
-
 }

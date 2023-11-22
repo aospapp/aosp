@@ -23,8 +23,9 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <fcntl.h>
+#include <unistd.h>
 
-#include <cutils/log.h>
+#include <log/log.h>
 #include <cutils/str_parms.h>
 
 #include <hardware/hardware.h>
@@ -106,7 +107,7 @@ static int out_dump(const struct audio_stream *stream, int fd)
 
     dprintf(fd, "\tout_dump:\n"
                 "\t\tsample rate: %u\n"
-                "\t\tbuffer size: %u\n"
+                "\t\tbuffer size: %zu\n"
                 "\t\tchannel mask: %08x\n"
                 "\t\tformat: %d\n"
                 "\t\tdevice: %08x\n"
@@ -262,7 +263,7 @@ static int in_dump(const struct audio_stream *stream, int fd)
 
     dprintf(fd, "\tin_dump:\n"
                 "\t\tsample rate: %u\n"
-                "\t\tbuffer size: %u\n"
+                "\t\tbuffer size: %zu\n"
                 "\t\tchannel mask: %08x\n"
                 "\t\tformat: %d\n"
                 "\t\tdevice: %08x\n"

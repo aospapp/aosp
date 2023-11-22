@@ -34,10 +34,12 @@ import com.android.tv.data.Program;
 import com.android.tv.parental.ParentalControlSettings;
 import com.android.tv.util.ImageLoader;
 
+import java.util.Objects;
+
 /**
  * A view to render channel card.
  */
-public class ChannelCardView extends BaseCardView<Channel> {
+public class ChannelCardView extends BaseCardView<ChannelsRowItem> {
     private static final String TAG = MenuView.TAG;
     private static final boolean DEBUG = MenuView.DEBUG;
 
@@ -45,11 +47,11 @@ public class ChannelCardView extends BaseCardView<Channel> {
     private final int mCardImageHeight;
 
     private ImageView mImageView;
-    private View mGradientView;
     private TextView mChannelNumberNameView;
     private ProgressBar mProgressBar;
     private Channel mChannel;
     private Program mProgram;
+    private String mPosterArtUri;
     private final MainActivity mMainActivity;
 
     public ChannelCardView(Context context) {
@@ -71,39 +73,72 @@ public class ChannelCardView extends BaseCardView<Channel> {
     protected void onFinishInflate() {
         super.onFinishInflate();
         mImageView = (ImageView) findViewById(R.id.image);
-        mGradientView = findViewById(R.id.image_gradient);
+        mImageView.setBackgroundResource(R.color.channel_card);
         mChannelNumberNameView = (TextView) findViewById(R.id.channel_number_and_name);
         mProgressBar = (ProgressBar) findViewById(R.id.progress);
     }
 
     @Override
-    public void onBind(Channel channel, boolean selected) {
+    public void onBind(ChannelsRowItem item, boolean selected) {
         if (DEBUG) {
-            Log.d(TAG, "onBind(channelName=" + channel.getDisplayName() + ", selected=" + selected
-                    + ")");
+            Log.d(TAG, "onBind(channelName=" + item.getChannel().getDisplayName() + ", selected="
+                    + selected + ")");
         }
-        mChannel = channel;
-        mProgram = null;
-        mChannelNumberNameView.setText(mChannel.getDisplayText());
-        mChannelNumberNameView.setVisibility(VISIBLE);
-        mImageView.setImageResource(R.drawable.ic_recent_thumbnail_default);
-        mImageView.setBackgroundResource(R.color.channel_card);
-        mGradientView.setVisibility(View.GONE);
-        mProgressBar.setVisibility(GONE);
+        updateChannel(item);
+        updateProgram();
+        super.onBind(item, selected);
+    }
 
-        setTextViewEnabled(true);
-        if (mMainActivity.getParentalControlSettings().isParentalControlsEnabled()
-                && mChannel.isLocked()) {
+    private void updateChannel(ChannelsRowItem item) {
+        if (!item.getChannel().equals(mChannel)) {
+            mChannel = item.getChannel();
+            mChannelNumberNameView.setText(mChannel.getDisplayText());
+            mChannelNumberNameView.setVisibility(VISIBLE);
+        }
+    }
+
+    private void updateProgram() {
+        ParentalControlSettings parental = mMainActivity.getParentalControlSettings();
+        if (parental.isParentalControlsEnabled() && mChannel.isLocked()) {
             setText(R.string.program_title_for_blocked_channel);
-            return;
+            mProgram = null;
         } else {
-            setText("");
+            Program currentProgram =
+                    mMainActivity.getProgramDataManager().getCurrentProgram(mChannel.getId());
+            if (!Objects.equals(currentProgram, mProgram)) {
+                mProgram = currentProgram;
+                if (mProgram == null || TextUtils.isEmpty(mProgram.getTitle())) {
+                    setTextViewEnabled(false);
+                    setText(R.string.program_title_for_no_information);
+                } else {
+                    setTextViewEnabled(true);
+                    setText(mProgram.getTitle());
+                }
+            }
         }
-
-        updateProgramInformation();
-        // Call super.onBind() at the end intentionally. In order to correctly handle extension of
-        // text view, text should be set before calling super.onBind.
-        super.onBind(channel, selected);
+        if (mProgram == null) {
+            mProgressBar.setVisibility(GONE);
+            setPosterArt(null);
+        } else {
+            // Update progress.
+            mProgressBar.setVisibility(View.VISIBLE);
+            long startTime = mProgram.getStartTimeUtcMillis();
+            long endTime = mProgram.getEndTimeUtcMillis();
+            long currTime = System.currentTimeMillis();
+            if (currTime <= startTime) {
+                mProgressBar.setProgress(0);
+            } else if (currTime >= endTime) {
+                mProgressBar.setProgress(100);
+            } else {
+                mProgressBar.setProgress(
+                        (int) (100 * (currTime - startTime) / (endTime - startTime)));
+            }
+            // Update image.
+            if (!parental.isParentalControlsEnabled()
+                    || !parental.isRatingBlocked(mProgram.getContentRatings())) {
+                setPosterArt(mProgram.getPosterArtUri());
+            }
+        }
     }
 
     private static ImageLoader.ImageLoaderCallback<ChannelCardView> createProgramPosterArtCallback(
@@ -121,49 +156,20 @@ public class ChannelCardView extends BaseCardView<Channel> {
         };
     }
 
-    private void updatePosterArt(Bitmap posterArt) {
-        mImageView.setImageBitmap(posterArt);
-        mGradientView.setVisibility(View.VISIBLE);
+    private void setPosterArt(String posterArtUri) {
+        if (!TextUtils.equals(mPosterArtUri, posterArtUri)) {
+            mPosterArtUri = posterArtUri;
+            if (posterArtUri == null
+                    || !mProgram.loadPosterArt(getContext(), mCardImageWidth, mCardImageHeight,
+                            createProgramPosterArtCallback(this, mProgram))) {
+                mImageView.setImageResource(R.drawable.ic_recent_thumbnail_default);
+                mImageView.setForeground(null);
+            }
+        }
     }
 
-    private void updateProgramInformation() {
-        if (mChannel == null) {
-            return;
-        }
-        mProgram = mMainActivity.getProgramDataManager().getCurrentProgram(mChannel.getId());
-        if (mProgram == null || TextUtils.isEmpty(mProgram.getTitle())) {
-            setTextViewEnabled(false);
-            setText(R.string.program_title_for_no_information);
-        } else {
-            setText(mProgram.getTitle());
-        }
-
-        if (mProgram == null) {
-            return;
-        }
-
-        long startTime = mProgram.getStartTimeUtcMillis();
-        long endTime = mProgram.getEndTimeUtcMillis();
-        long currTime = System.currentTimeMillis();
-        mProgressBar.setVisibility(View.VISIBLE);
-        if (currTime <= startTime) {
-            mProgressBar.setProgress(0);
-        } else if (currTime >= endTime) {
-            mProgressBar.setProgress(100);
-        } else {
-            mProgressBar.setProgress((int) (100 * (currTime - startTime) / (endTime - startTime)));
-        }
-
-        if (!(getContext() instanceof MainActivity)) {
-            Log.e(TAG, "Fails to check program's content rating.");
-            return;
-        }
-        ParentalControlSettings parental = mMainActivity.getParentalControlSettings();
-        if ((!parental.isParentalControlsEnabled()
-                || !parental.isRatingBlocked(mProgram.getContentRatings()))
-                && !TextUtils.isEmpty(mProgram.getPosterArtUri())) {
-            mProgram.loadPosterArt(getContext(), mCardImageWidth, mCardImageHeight,
-                    createProgramPosterArtCallback(this, mProgram));
-        }
+    private void updatePosterArt(Bitmap posterArt) {
+        mImageView.setImageBitmap(posterArt);
+        mImageView.setForeground(getContext().getDrawable(R.drawable.card_image_gradient));
     }
 }

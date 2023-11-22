@@ -27,9 +27,9 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"የሚከተለው መተግበሪያ ይህን መገለጫ መድረስ ያስፈልገዋል።"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"የሚከተለው መተግበሪያ መሣሪያዎን ያስተዳድረዋል፦"</string>
     <string name="next" msgid="1004321437324424398">"ቀጣይ"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"የስራ መገለጫዎን በማዘጋጀት ላይ…"</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"የሥራ መገለጫን በማቀናበር ላይ…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"የእርስዎ አስተዳዳሪ የአውታረ መረብ እንቅስቃሴዎንና እንዲሁም የመሣሪያዎን አካባቢ፣ የጥሪ ታሪክና የእውቂያ ፍለጋ ታሪክ ጨምሮ ከዚህ መገለጫ ጋር የተጎዳኙ ቅንብሮችን፣ የኮርፖሬት መዳረሻ፣ መተግበሪያዎችን፣ ፈቃዶችን እና ውሂብን የመከታተል እና የማቀናበር ችሎታ አላቸው።<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>ስለድርጅትዎ ግላዊነት መመሪያዎች ጨምሮ ተጨማሪ መረጃ ለማግኘት አስተዳዳሪዎን ያነጋግሩ።"</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"የእርስዎ አስተዳዳሪ የአውታረ መረብ እንቅስቃሴዎንና እንዲሁም የመሣሪያዎን አካባቢ፣ የጥሪ ታሪክና የእውቂያ ፍለጋ ታሪክ ጨምሮ ከዚህ መሣሪያ ጋር የተጎዳኙ ቅንብሮችን፣ የኮርፖሬት መዳረሻ፣ መተግበሪያዎችን፣ ፈቃዶችን እና ውሂብን የመከታተል እና የማቀናበር ችሎታ አላቸው።<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>ስለድርጅትዎ ግላዊነት መመሪያዎች ጨምሮ ተጨማሪ መረጃ ለማግኘት አስተዳዳሪዎን ያነጋግሩ።"</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"የእርስዎ አስተዳዳሪ የአውታረ መረብ እንቅስቃሴዎንና እንዲሁም የመሣሪያዎን አካባቢ፣ የጥሪ ታሪክና የእውቂያ ፍለጋ ታሪክ ጨምሮ ከዚህ መሣሪያ ጋር የተጎዳኙ ቅንብሮችን፣ የኮርፖሬት መዳረሻ፣ መተግበሪያዎችን፣ ፈቃዶችን እና ውሂብን የመከታተል እና የማቀናበር ችሎታ አላቸው።<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>ስለድርጅትዎ ግላዊነት መመሪያዎች ጨምሮ ተጨማሪ መረጃ ለማግኘት አስተዳዳሪዎን ያነጋግሩ።"</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"የስርቆት መከላከያ ባህሪዎችን ለመጠቀም ለእርስዎ መሣሪያ በይለፍ ቃል የተጠበቀ የማያ ገጽ መቆለፊያ ሊኖርዎት ይገባል።"</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"የድርጅትዎ ግላዊነት መመሪያዎችን ጨምሮ ተጨማሪ መረጃ ለማግኘት አስተዳዳሪዎን ያነጋግሩ።"</string>
     <string name="learn_more_link" msgid="3012495805919550043">"ተጨማሪ ለመረዳት"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"የስራ መገለጫ"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"ዋና ተጠቃሚ"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"ነባር መገለጫ ይሰረዝ?"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"በሚከተለው መተግበሪያ የሚተዳደር የሥራ መገለጫ ቀደም ብሎ አለዎት፦"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"የሥራ መገለጫ ቀደም ብሎ አለዎት። የሚከተለውን መተግበሪያ በመጠቀም የሚተዳደር ነው፦"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"ከመቀጠልዎ በፊት "<a href="#read_this_link">"ይህን ያንብቡት"</a>"።"</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"ከቀጠሉ በዚህ መገለጫ ውስጥ ያሉ ሁሉም መተግበሪያዎች እና ውሂብ ይሰረዛሉ።"</string>
     <string name="delete_profile" msgid="2299218578684663459">"ሰርዝ"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"የስራ መገለጫዎን ማዋቀሩን ለመቀጠል ነካ ያድርጉ"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"የስራ መገለጫዎን ማዋቀር አልተቻለም። የአይቲ መምሪያዎን ያነጋግሩ ወይም ቆይተው እንደገና ይሞክሩ።"</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"የሥራ መገለጫ ማከል አይቻልም"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"ይህ ተጠቃሚ የሥራ መገለጫ ሊኖረው አይችልም። እገዛ ለማግኘት የእርስዎን አስተዳዳሪ ያነጋግሩ።"</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"ይህ ተጠቃሚ የሥራ መገለጫዎች ሊኖሩት አይችሉም። የእርስዎን አስተዳዳሪ ያነጋግሩ።"</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"የስራ መገለጫዎች በሚቀናበር መሣሪያ ላይ ሊዋቀሩ አይችሉም"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"በዚህ መሣሪያ ላይ ከልክ በላይ ብዙ ተጠቃሚዎች ሊኖሩ ይችሉ ይሆናል። አንድ ተጠቃሚን ያስወግዱ እና በመቀጠል እንደገና ይሞክሩ።"</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"የሥራ መገለጫን መተካት ወይም ማስወገድ አይቻልም"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"የሥራ መገለጫ ወደዚህ መሣሪያ ሊታከል አይችልም። ጥያቄዎች ካሉዎት አስተዳዳሪዎን ያነጋግሩ።"</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"የመሣሪያ አስጀማሪን ለውጥ"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"ይህ አስጀማሪ መተግበሪያ በእርስዎ የሥራ መገለጫ ጥቅም ላይ ሊውል አይችልም"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"ይቅር"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"እሺ"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"የተጠቃሚ ውቅር አልተጠናቀቀም"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"የስራ መሣሪያ ተጠቃሚ"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"የሥራ መሣሪያን ያዋቅሩ"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"የሥራ መሣሪያ በማቀናበር ላይ…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"የውቅር ውሂብ በመስራት ላይ…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"ከWi-Fi ጋር በመገናኘት ላይ…"</string>
     <string name="progress_download" msgid="3522436271691064624">"የአስተዳዳሪ መተግበሪያውን በማውረድ ላይ…"</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"ተወው"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"መሣሪያ ዳግም አስጀምር"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> እና <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> እና <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g>፣ እና <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>፣ <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>፣ <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

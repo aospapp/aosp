@@ -51,7 +51,8 @@ class FmqPerformanceTest(base_test.BaseTestClass):
     def setUpClass(self):
         self.dut = self.registerController(android_device)[0]
         self.dut.shell.InvokeTerminal("one")
-        self._cpu_freq = cpu_frequency_scaling.CpuFrequencyScalingController(self.dut)
+        self._cpu_freq = cpu_frequency_scaling.CpuFrequencyScalingController(
+            self.dut)
         self._cpu_freq.DisableCpuScaling()
 
     def tearDownClass(self):
@@ -82,11 +83,14 @@ class FmqPerformanceTest(base_test.BaseTestClass):
         logging.info("Start the benchmark service(%s bit mode)", bits)
         binary = "/data/local/tmp/%s/mq_benchmark_service%s" % (bits, bits)
         results = self.dut.shell.one.Execute([
-            "chmod 755 %s" % binary, "LD_LIBRARY_PATH=/data/local/tmp/%s:"
+            "chmod 755 %s" % binary,
+            "VTS_ROOT_PATH=/data/local/tmp TREBLE_TESTING_OVERRIDE=true " \
+            "LD_LIBRARY_PATH=/data/local/tmp/%s:"
             "$LD_LIBRARY_PATH %s&" % (bits, binary)
         ])
         asserts.assertEqual(len(results[const.STDOUT]), 2)
-        asserts.assertFalse(any(results[const.EXIT_CODE]),
+        asserts.assertFalse(
+            any(results[const.EXIT_CODE]),
             "Failed to start the benchmark service.")
 
         # Runs the benchmark.
@@ -94,17 +98,19 @@ class FmqPerformanceTest(base_test.BaseTestClass):
         binary = "/data/local/tmp/%s/mq_benchmark_client%s" % (bits, bits)
 
         results = self.dut.shell.one.Execute([
-            "chmod 755 %s" % binary, "LD_LIBRARY_PATH=/data/local/tmp/%s:"
+            "chmod 755 %s" % binary,
+            "TREBLE_TESTING_OVERRIDE=true LD_LIBRARY_PATH=/data/local/tmp/%s:"
             "$LD_LIBRARY_PATH %s" % (bits, binary)
         ])
 
         # Stop the benchmark service.
-        self.dut.shell.one.Execute("kill -9 `pidof mq_benchmark_service%s`" % bits)
+        self.dut.shell.one.Execute("kill -9 `pidof mq_benchmark_service%s`" %
+                                   bits)
 
         # Parses the result.
         asserts.assertEqual(len(results[const.STDOUT]), 2)
-        asserts.assertFalse(any(results[const.EXIT_CODE]),
-            "FmqPerformanceTest failed.")
+        asserts.assertFalse(
+            any(results[const.EXIT_CODE]), "FmqPerformanceTest failed.")
         read_label = []
         read_latency = []
         write_label = []
@@ -112,16 +118,15 @@ class FmqPerformanceTest(base_test.BaseTestClass):
         stdout_lines = results[const.STDOUT][1].split("\n")
         for line in stdout_lines:
             if line.startswith("Average time to read"):
-                read_result = line.replace(
-                    "Average time to read", "").replace(
+                read_result = line.replace("Average time to read", "").replace(
                     "bytes", "").replace("ns", "")
                 (label, value) = read_result.split(": ")
                 read_label.append(label)
                 read_latency.append(int(value))
             if line.startswith("Average time to write"):
-                write_result = line.replace(
-                    "Average time to write ", "").replace(
-                    "bytes", "").replace("ns", "")
+                write_result = line.replace("Average time to write ",
+                                            "").replace("bytes",
+                                                        "").replace("ns", "")
                 (label, value) = write_result.split(": ")
                 write_label.append(label)
                 write_latency.append(int(value))
@@ -155,6 +160,7 @@ class FmqPerformanceTest(base_test.BaseTestClass):
                     value, self.THRESHOLD[bits][label],
                     "%s ns for %s is longer than the threshold %s ns" % (
                         value, label, self.THRESHOLD[bits][label]))
+
 
 if __name__ == "__main__":
     test_runner.main()

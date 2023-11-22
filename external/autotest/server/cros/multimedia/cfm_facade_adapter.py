@@ -1,4 +1,4 @@
-# Copyright 2016 The Chromium OS Authors. All rights reserved.
+# Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -37,9 +37,34 @@ class CFMFacadeRemoteAdapter(object):
         self._cfm_proxy.restart_chrome_for_cfm()
 
 
+    def skip_oobe_after_enrollment(self):
+        """Skips oobe and goes to the app landing page after enrollment."""
+        self._cfm_proxy.skip_oobe_after_enrollment()
+
+
     def wait_for_telemetry_commands(self):
         """Wait for telemetry commands."""
         self._cfm_proxy.wait_for_telemetry_commands()
+
+
+    def wait_for_hangouts_telemetry_commands(self):
+        """Wait for Hangouts App telemetry commands."""
+        self._cfm_proxy.wait_for_hangouts_telemetry_commands()
+
+
+    def wait_for_meetings_telemetry_commands(self):
+        """Waits for Meet App telemetry commands."""
+        self._cfm_proxy.wait_for_meetings_telemetry_commands()
+
+
+    def wait_for_meetings_in_call_page(self):
+        """Waits for the in-call page to launch."""
+        self._cfm_proxy.wait_for_meetings_in_call_page()
+
+
+    def wait_for_meetings_landing_page(self):
+        """Waits for the landing page screen."""
+        self._cfm_proxy.wait_for_meetings_landing_page()
 
 
     # UI commands/functions
@@ -89,6 +114,24 @@ class CFMFacadeRemoteAdapter(object):
         @return a boolean for hangout session ready state.
         """
         return self._cfm_proxy.is_ready_to_start_hangout_session()
+
+
+    def join_meeting_session(self, session_name):
+        """Join a meeting.
+
+        @param session_name: Name of the meeting session.
+        """
+        self._cfm_proxy.join_meeting_session(session_name)
+
+
+    def start_meeting_session(self):
+        """Start a meeting."""
+        self._cfm_proxy.start_meeting_session()
+
+
+    def end_meeting_session(self):
+        """End current meeting session."""
+        self._cfm_proxy.end_meeting_session()
 
 
     # Diagnostics commands/functions

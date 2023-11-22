@@ -6,8 +6,9 @@ AUTHOR = 'quiche, wiley, pstew'
 NAME = 'network_WiFi_VisibleScan'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
-ATTRIBUTES = 'suite:wifi_matfunc, suite:wifi_matfunc_bcm4371'
-DEPENDENCIES = 'wificell, packet_capture'
+ATTRIBUTES = ('suite:wifi_matfunc, suite:wifi_matfunc_noservo,'
+              'suite:wifi_matfunc_bcm4371')
+DEPENDENCIES = 'wificell'
 
 DOC = """
 This test scans for networks, with a shill profile that does not

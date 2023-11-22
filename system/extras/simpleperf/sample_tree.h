@@ -17,6 +17,8 @@
 #ifndef SIMPLE_PERF_SAMPLE_TREE_H_
 #define SIMPLE_PERF_SAMPLE_TREE_H_
 
+#include <unordered_map>
+
 #include "callchain.h"
 #include "dwarf_unwind.h"
 #include "perf_regs.h"
@@ -157,6 +159,7 @@ class SampleTreeBuilder {
         if (use_caller_as_callchain_root_) {
           std::reverse(callchain.begin(), callchain.end());
         }
+        EntryT* parent = nullptr;
         while (callchain.size() >= 2) {
           EntryT* sample = callchain[0];
           callchain.erase(callchain.begin());
@@ -166,6 +169,8 @@ class SampleTreeBuilder {
           }
           added_set.insert(sample);
           InsertCallChainForSample(sample, callchain, acc_info);
+          UpdateCallChainParentInfo(sample, parent);
+          parent = sample;
         }
       }
     }
@@ -253,15 +258,47 @@ class SampleTreeBuilder {
         });
   }
 
+  void AddCallChainDuplicateInfo() {
+    if (build_callchain_) {
+      for (EntryT* sample : sample_set_) {
+        auto it = callchain_parent_map_.find(sample);
+        if (it != callchain_parent_map_.end() && !it->second.has_multiple_parents) {
+          sample->callchain.duplicated = true;
+        }
+      }
+    }
+  }
+
   std::set<EntryT*, SampleComparator<EntryT>> sample_set_;
   bool accumulate_callchain_;
 
  private:
+  void UpdateCallChainParentInfo(EntryT* sample, EntryT* parent) {
+    if (parent == nullptr) {
+      return;
+    }
+    auto it = callchain_parent_map_.find(sample);
+    if (it == callchain_parent_map_.end()) {
+      CallChainParentInfo info;
+      info.parent = parent;
+      info.has_multiple_parents = false;
+      callchain_parent_map_[sample] = info;
+    } else if (it->second.parent != parent) {
+      it->second.has_multiple_parents = true;
+    }
+  }
+
   const SampleComparator<EntryT> sample_comparator_;
   // If a CallChainSample is filtered out, it is stored in callchain_sample_set_
   // and only used in other EntryT's callchain.
   std::set<EntryT*, SampleComparator<EntryT>> callchain_sample_set_;
   std::vector<std::unique_ptr<EntryT>> sample_storage_;
+
+  struct CallChainParentInfo {
+    EntryT* parent;
+    bool has_multiple_parents;
+  };
+  std::unordered_map<EntryT*, CallChainParentInfo> callchain_parent_map_;
 
   bool use_branch_address_;
   bool build_callchain_;

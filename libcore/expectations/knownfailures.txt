@@ -1,7 +1,48 @@
 /*
- * This file contains expectations for tests that were annotated with @KnownFailure at the time
+ * This file contains test expectations for libcore.
+ * TODO: Rename this file to account for the fact that it has both tags and known failures
  */
 [
+{
+  description: "large tests",
+  result: SUCCESS,
+  names: [
+    /* libcore tests that take over 15 minutes on device because of DHParametersHelper.generateSafePrimes */
+    "org.apache.harmony.crypto.tests.javax.crypto.func.KeyAgreementFunctionalTest",
+    "org.apache.harmony.crypto.tests.javax.crypto.interfaces.DHPrivateKeyTest",
+    "org.apache.harmony.crypto.tests.javax.crypto.interfaces.DHPublicKeyTest",
+    /* non-AOSP tests http://b/8027066 */
+    "java.util.EnumSet.EnumSetBash",
+    "java.io.PipedInputStream.CloseAndAvailableRC",
+    "java.io.PrintStream.OversynchronizedTest",
+    "java.io.PrintWriter.OversynchronizedTest",
+    "java.lang.String.Split",
+    "java.lang.ref.SoftReference.Pin",
+    "java.math.BigInteger.BigIntegerTest",
+    "java.net.MulticastSocket.Test",
+    "java.net.Socket.InheritTimeout",
+    "java.net.Socket.reset.Test",
+    "java.net.URLConnection.TimeoutTest",
+    "java.nio.channels.DatagramChannel.ConnectedSend",
+    "java.nio.channels.FileChannel.ExpandingMap",
+    "java.nio.channels.FileChannel.Transfers",
+    "java.nio.channels.SocketChannel.Open",
+    "java.text.Bidi.Bug6665028",
+    "java.util.Collections.FindSubList",
+    "java.util.Locale.Bug4518797",
+    "java.util.ResourceBundle.Control.StressTest",
+    "java.util.WeakHashMap.GCDuringIteration",
+    "java.util.concurrent.FutureTask.Throw",
+    "java.util.concurrent.locks.ReentrantReadWriteLock.MapLoops",
+    "java.util.zip.LargeZip",
+    "java.util.zip.ZipFile.LargeZipFile",
+    "java.util.zip.ZipFile.ManyEntries",
+    "libcore.java.lang.SystemTest_testArrayCopyConcurrentModification",
+    "sun.nio.cs.FindOneCharEncoderBugs",
+    "sun.nio.cs.SurrogateGB18030Test"
+  ],
+  "tags": [ "large" ]
+},
 {
   description: "can't compile a pattern with negative look-behind and quantifiers with upper bounds",
   result: EXEC_FAILED,
@@ -46,23 +87,6 @@
     "libcore.java.nio.charset.OldCharset_MultiByte_x_windows_950#test_nameMatch"
   ],
   bug: 2985901
-},
-{
-  description: "UTF-16 and UTF-32 encoders don't write big-endian output on little-endian devices",
-  names: [
-    "libcore.java.nio.charset.CharsetEncoderTest#test_defaultReplacementBytesUtf_16",
-    "libcore.java.nio.charset.OldCharset_MultiByte_UTF_16#test_Encode",
-    "org.apache.harmony.tests.java.nio.charset.CharsetTest#test_UTF_16",
-    "org.apache.harmony.tests.java.nio.charset.CharsetTest#test_UTF_16BE",
-    "org.apache.harmony.tests.java.nio.charset.CharsetTest#test_UTF_16LE",
-    "org.apache.harmony.tests.java.nio.charset.CharsetTest#test_UTF_32",
-    "org.apache.harmony.tests.java.nio.charset.CharsetTest#test_UTF_32BE",
-    "org.apache.harmony.tests.java.nio.charset.CharsetTest#test_UTF_32LE",
-    "org.apache.harmony.tests.java.nio.charset.CharsetTest#test_x_UTF_16LE_BOM",
-    "org.apache.harmony.tests.java.nio.charset.CharsetTest#test_X_UTF_32BE_BOM",
-    "org.apache.harmony.tests.java.nio.charset.CharsetTest#test_X_UTF_32LE_BOM"
-  ],
-  bug: 2702411
 },
 {
   description: "It's not allowed to pass null as parent class loader to a new ClassLoader anymore. Maybe we need
@@ -1505,11 +1529,313 @@
   ]
 },
 {
+  description: "Conscrypt produces different exceptions under different circumstances",
+  bug: 36772622,
+  result: EXEC_FAILED,
+  names: [
+    "com.google.security.wycheproof.RsaEncryptionTest#testExceptionsPKCS1",
+    "com.google.security.wycheproof.RsaEncryptionTest#testGetExceptionsOAEP"
+  ]
+},
+{
+  description: "Conscrypt fails these tests in 32-bit mode",
+  bug: 36636626,
+  result: EXEC_FAILED,
+  names: [
+    "com.google.security.wycheproof.EcdhTest#testModifiedPublic",
+    "com.google.security.wycheproof.EcdhTest#testModifiedPublicSpec"
+  ]
+},
+{
   description: "Bullhead kernel does not block send when buffer is supposed to have saturated",
   bug: 36691333,
   result: EXEC_FAILED,
   names: [
     "libcore.java.net.SocketTimeoutTest#testSocketWriteNeverTimeouts"
+  ]
+},
+{
+  description: "Dalvik doesn't support XML Schemas, DTDs or validation",
+  bug: 3268630,
+  name: "libcore.xml.DomTest#testEntityDeclarations",
+  substring: "This implementation does not parse entity declarations"
+},
+{
+  description: "Dalvik doesn't support XML Schemas, DTDs or validation",
+  bug: 3268630,
+  name: "libcore.xml.DomTest#testGetWholeTextWithEntityReference",
+  substring: "This implementation doesn't resolve entity references in getWholeText"
+},
+{
+  description: "Dalvik doesn't support XML Schemas, DTDs or validation",
+  name: "libcore.xml.DomTest#testExpandingEntityReferencesOff",
+  bug: 3268630,
+  substring: "This implementation doesn't include children in entity references"
+},
+{
+  description: "Dalvik doesn't support XML Schemas, DTDs or validation",
+  name: "libcore.xml.DomTest#testExpandingEntityReferencesOn",
+  bug: 3268630,
+  substring: "This implementation doesn't expand entity references"
+},
+{
+  description: "Dalvik doesn't support XML Schemas, DTDs or validation",
+  bug: 3268630,
+  name: "libcore.xml.DomTest#testIsElementContentWhitespaceWithDeclaration",
+  substring: "This implementation does not recognize element content whitespace"
+},
+{
+  description: "Dalvik doesn't support XML Schemas, DTDs or validation",
+  bug: 3268630,
+  name: "libcore.xml.DomTest#testNotations",
+  substring: "This implementation does not parse notations"
+},
+{
+  description: "Dalvik doesn't support XML Schemas, DTDs or validation",
+  bug: 3268630,
+  names: [
+    "tests.org.w3c.dom.HCNotationsRemoveNamedItemNS#testRemoveNamedItemNS",
+    "tests.org.w3c.dom.HCNotationsSetNamedItemNS#testNotationsSetNamedItemNS"
+  ]
+},
+{
+  description: "Dalvik doesn't support XML Schemas, DTDs or validation",
+  bug: 3268630,
+  name: "libcore.xml.DeclarationTest#testGetXmlEncoding",
+  substring: "This implementation doesn't parse the encoding from the XML declaration"
+},
+{
+  description: "Dalvik doesn't support XML Schemas, DTDs or validation",
+  bug: 3268630,
+  name: "libcore.xml.DeclarationTest#testGetXmlStandalone",
+  substring: "This implementation doesn't parse standalone from the XML declaration"
+},
+{
+  description: "Dalvik doesn't support XML Schemas, DTDs or validation",
+  bug: 3268630,
+  name: "libcore.xml.DeclarationTest#testGetXmlVersion",
+  substring: "This implementation doesn't parse the version from the XML declaration"
+},
+{
+  description: "Dalvik doesn't support XML Schemas, DTDs or validation",
+  bug: 3268630,
+  name: "libcore.xml.NormalizeTest#testSchemaTypeDtd",
+  substring: "This implementation's setParameter() supports an unexpected value: schema-type=http://www.w3.org/TR/REC-xml"
+},
+{
+  description: "Dalvik doesn't support XML Schemas, DTDs or validation",
+  bug: 3268630,
+  name: "org.apache.harmony.tests.javax.xml.parsers.DocumentBuilderTest#testSetEntityResolver",
+  substring: "java.lang.ClassCastException: org.apache.harmony.xml.dom.EntityReferenceImpl"
+},
+{
+  description: "many tests attempt to fork a Java executable, but fork the wrong one",
+  result: "EXEC_FAILED",
+  failure: "should fork a dalvikvm, not a JVM",
+  substring: "/system/bin.*IOException"
+},
+{
+  description: "low-impact XML bugs:",
+  result: EXEC_FAILED,
+  name: "libcore.xml.DomTest#testAttributeNamedIdIsNotAnIdByDefault",
+  substring: "This implementation incorrectly interprets the \"id\" attribute as an identifier by default"
+},
+{
+  description: "low-impact XML bugs:",
+  result: EXEC_FAILED,
+  name: "libcore.xml.DomTest#testDocumentAddChild",
+  substring: "Document nodes shouldn't accept child nodes"
+},
+{
+  description: "low-impact XML bugs:",
+  result: EXEC_FAILED,
+  name: "libcore.xml.DomTest#testElementTraversalFeature",
+  substring: "This implementation is expected to support ElementTraversal v. 1.0 but does not."
+},
+{
+  description: "low-impact XML bugs:",
+  result: EXEC_FAILED,
+  name: "libcore.xml.DomTest#testLoadSaveFeature",
+  substring: "This implementation is expected to support LS v. 3.0 but does not."
+},
+{
+  description: "low-impact XML bugs:",
+  result: EXEC_FAILED,
+  name: "libcore.xml.SaxTest#testYesPrefixesYesNamespaces",
+  substring: "The 'namespace-prefix' feature is not supported while the 'namespaces' feature is enabled."
+},
+{
+  description: "low-impact XML bugs:",
+  result: EXEC_FAILED,
+  name: "org.apache.harmony.tests.javax.xml.parsers.SAXParserFactoryTest#test_newInstance",
+  substring: "Expected FactoryConfigurationError was not thrown"
+},
+{
+  description: "low-impact XML bugs:",
+  result: EXEC_FAILED,
+  names: [
+    "org.apache.harmony.tests.javax.xml.parsers.DocumentBuilderFactoryTest#test_isSetXIncludeAware",
+    "org.apache.harmony.tests.javax.xml.parsers.DocumentBuilderTest#testIsXIncludeAware",
+    "org.apache.harmony.tests.javax.xml.parsers.SAXParserFactoryTest#test_setIsXIncludeAware",
+    "org.apache.harmony.tests.javax.xml.parsers.SAXParserTest#testIsXIncludeAware"
+  ],
+  substring: "java.lang.UnsupportedOperationException: This parser does not support specification \"Unknown\" version \"0.0\""
+},
+{
+  description: "a low-impact bug, also present in Crockford's implementation of org.json",
+  result: EXEC_FAILED,
+  name: "org.json.ParsingTest#test64BitHexValues",
+  substring: "Large hex longs shouldn't be yield ints or strings expected:<-1> but was:<0xFFFFFFFFFFFFFFFF>"
+},
+{
+  description: "this test needs to be fixed. We supply optional qnames, but this test doesn't expect them",
+  result: EXEC_FAILED,
+  name: "org.apache.harmony.tests.javax.xml.parsers.SAXParserTest#test_parseLjava_io_InputStreamLorg_xml_sax_helpers_DefaultHandlerLjava_lang_String"
+},
+{
+  description: "BouncyCastle allows unrecognized algorithms, but RI does not, not clear if this is a bug",
+  result: EXEC_FAILED,
+  name: "org.apache.harmony.crypto.tests.javax.crypto.KeyAgreementTest#test_generateSecretLjava_lang_String",
+  substring: "junit.framework.AssertionFailedError: NoSuchAlgorithmException expected"
+},
+{
+  description: "libcore.java.io.OldFileTest#test_deleteOnExit fails on IRM05 mysid-user",
+  name: "libcore.java.io.OldFileTest#test_deleteOnExit",
+  bug: 5834665
+},
+{
+  description: "We're retiring the security manager. Unfortunately, tests all over the place
+                need to check that they're secure, so they all fail when we refuse to install
+                a security manager. This suppresses all of these failures.",
+  result: EXEC_FAILED,
+  failure: "disable securityManager",
+  pattern: ".*java.lang.SecurityException\\s+at java.lang.System.setSecurityManager.*",
+  bug: 2585285
+},
+{
+  description: "ignore compilation errors due to different available APIs",
+  result: COMPILE_FAILED,
+  failure: "ignore compilation errors",
+  pattern: ".*\\.java:\\d+: cannot find symbol.*"
+},
+{
+  description: "the average length of possible UTF-8 sequences is 2 bytes.",
+  result: EXEC_FAILED,
+  name: "org.apache.harmony.tests.java.nio.charset.UTFCharsetEncoderTest#testSpecificDefaultValue",
+  substring: "junit.framework.AssertionFailedError: expected:<1.1> but was:<2.0>"
+},
+{
+  description: "Some tests (ExcludedProxyTest) connect to a public webserver to check that the HTTP client works",
+  result: EXEC_FAILED,
+  failure: "connect to the Internet",
+  pattern: ".*java.net.UnknownHostException:.*jcltest.apache.org.*"
+},
+{
+  description: "Some tests (ExcludedProxyTest) connect to a public webserver to check that the HTTP client works",
+  result: EXEC_FAILED,
+  names: [
+    "com.android.org.apache.harmony.luni.tests.java.net.ExcludedProxyTest"
+  ]
+},
+{
+  description: "Some tests depend on ICU data, which has changed. Others make assumptions about floating point rounding",
+  result: EXEC_FAILED,
+  names: [
+    "org.apache.harmony.tests.java.util.FormatterTest#test_formatLjava_lang_String$Ljava_lang_Object_DateTimeConversion",
+    "org.apache.harmony.tests.java.util.FormatterTest#test_formatLjava_lang_String$Ljava_lang_Object_GeneralConversionOther",
+    "org.apache.harmony.tests.java.util.FormatterTest#test_formatLjava_lang_String$Ljava_lang_Object_LineSeparator",
+    "org.apache.harmony.tests.java.util.FormatterTest#test_formatLjava_lang_String$Ljava_lang_Object_Percent"
+  ]
+},
+{
+  description: "(Needs investigation) Some tests make assertions that don't make sense, others use broken port allocation logic.",
+  result: EXEC_FAILED,
+  names: [
+    "org.apache.harmony.tests.java.net.InetAddressTest#test_isReachableLjava_net_NetworkInterfaceII_loopbackInterface"
+  ]
+},
+{
+  description: "Potentially flakey because they rely on a specific local TCP port being free.",
+  result: EXEC_FAILED,
+  names: [
+      "org.apache.harmony.tests.java.nio.channels.ServerSocketChannelTest#test_bind_explicitPort"
+  ]
+},
+{
+  description: "The ResourceBundle code under test is probably not used much on Android and needs a lot of attention.",
+  modes: [device],
+  bug: 13747957,
+  names: [
+      "org.apache.harmony.tests.java.util.ControlTest#test_needsReload_LStringLLocaleLStringLClassLoaderResourceBundleJ"
+  ]
+},
+{
+  description: "Fails in CTS, passes in CoreTestRunner.",
+  result: EXEC_FAILED,
+  modes: [device],
+  names: [
+      "org.apache.harmony.tests.java.net.URLConnection#test_getContentEncoding",
+      "libcore.java.text.OldNumberFormatTest#test_parseLjava_lang_String",
+      "libcore.java.nio.channels.OldSocketChannelTest#test_writeLjava_nio_ByteBuffer_Nonblocking_HugeData",
+      "org.apache.harmony.tests.java.lang.ProcessManagerTest#testSleep",
+      "libcore.java.security.cert.OldPKIXParametersTest#testPKIXParametersKeyStore04"
+  ]
+},
+{
+  description: "Suffers from DH slowness, disabling for now.",
+  result: EXEC_FAILED,
+  names: [
+      "libcore.java.security.OldDHTest#testDHGen",
+      "libcore.java.security.OldKeyPairGeneratorTestDH#testKeyPairGenerator",
+      "libcore.javax.crypto.spec.KeyPairGeneratorTestDH#testKeyPairGenerator",
+      "libcore.javax.crypto.spec.AlgorithmParametersTestDH#testAlgorithmParameters",
+      "libcore.javax.crypto.spec.AlgorithmParameterGeneratorTestDH#testAlgorithmParameterGenerator"
+  ]
+},
+{
+  description: "Destroys MD5 provider, hurts succeeding tests",
+  result: EXEC_FAILED,
+  names: [
+      "org.apache.harmony.tests.api.javax.security.cert.X509CertificateTest#testVerifyPublicKey",
+      "org.apache.harmony.tests.api.javax.security.cert.X509CertificateTest#testVerifyPublicKeyString"
+  ]
+},
+{
+  description: "Support_TestWebServer requires isolation.",
+  result: EXEC_FAILED,
+  names: [
+      "libcore.java.net.OldURLClassLoaderTest#test_findResourceLjava_lang_String"
+  ]
+},
+{
+  description: "Causes OutOfMemoryError to test finalization",
+  result: EXEC_FAILED,
+  names: [
+      "org.apache.harmony.tests.java.lang.ref.SoftReferenceTest#test_get_SoftReference",
+      "org.apache.harmony.crypto.tests.javax.crypto#ExemptionMechanismTest#test_finalize"
+  ]
+},
+{
+  description: "Causes open dex file error",
+  modes: [device],
+  names: [
+      "org.apache.harmony.tests.java.lang.reflect.GenericSignatureFormatErrorTest#test_signatureFormatError"
+  ]
+},
+{
+  description: "Requires functional Support_Jetty",
+  bug: 28535961,
+  result: EXEC_FAILED,
+  names: [
+      "com.android.org.apache.harmony.luni.tests.java.net.URLClassLoaderTest"
+  ]
+},
+{
+  description: "Unable to execute Support_AvailTest",
+  result: EXEC_FAILED,
+  bug: 28535603,
+  names: [
+      "com.android.org.apache.harmony.luni.tests.internal.process.SystemProcessTest#test_interrupt"
   ]
 }
 ]

@@ -80,7 +80,17 @@ final class MyAutofillCallback extends AutofillCallback {
     void assertUiShownEvent(View expectedView, int expectedChildId) throws InterruptedException {
         final MyEvent event = assertUiShownEvent(expectedView);
         assertWithMessage("Invalid child on event %s", event).that(event.childId)
-            .isSameAs(expectedChildId);
+            .isEqualTo(expectedChildId);
+    }
+
+    /**
+     * Convenience method to assert an UI shown event a virtual view was received.
+     *
+     * @return virtual child id
+     */
+    int assertUiShownEventForVirtualChild(View expectedView) throws InterruptedException {
+        final MyEvent event = assertUiShownEvent(expectedView);
+        return event.childId;
     }
 
     /**
@@ -101,7 +111,7 @@ final class MyAutofillCallback extends AutofillCallback {
     void assertUiHiddenEvent(View expectedView, int expectedChildId) throws InterruptedException {
         final MyEvent event = assertUiHiddenEvent(expectedView);
         assertWithMessage("Invalid child on event %s", event).that(event.childId)
-                .isSameAs(expectedChildId);
+                .isEqualTo(expectedChildId);
     }
 
     /**
@@ -123,7 +133,7 @@ final class MyAutofillCallback extends AutofillCallback {
             throws InterruptedException {
         final MyEvent event = assertUiUnavailableEvent(expectedView);
         assertWithMessage("Invalid child on event %s", event).that(event.childId)
-                .isSameAs(expectedChildId);
+                .isEqualTo(expectedChildId);
     }
 
     private static final class MyEvent {

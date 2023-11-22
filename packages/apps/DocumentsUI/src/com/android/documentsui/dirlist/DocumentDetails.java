@@ -27,4 +27,11 @@ public interface DocumentDetails {
     int getAdapterPosition();
     boolean isInSelectionHotspot(InputEvent event);
     boolean isInDragHotspot(InputEvent event);
+
+    /**
+     * Given a mouse input event, this method does a hit-test to see if the cursor
+     * is currently positioned over the document icon or checkbox in the case where
+     * the document is selected.
+     */
+    boolean isOverDocIcon(InputEvent event);
 }

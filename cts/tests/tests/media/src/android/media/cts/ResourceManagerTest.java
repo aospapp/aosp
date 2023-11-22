@@ -17,8 +17,12 @@
 package android.media.cts;
 
 import android.os.Bundle;
+import android.platform.test.annotations.RequiresDevice;
+import android.support.test.filters.SmallTest;
 import android.test.ActivityInstrumentationTestCase2;
 
+@SmallTest
+@RequiresDevice
 public class ResourceManagerTest
         extends ActivityInstrumentationTestCase2<ResourceManagerStubActivity> {
 

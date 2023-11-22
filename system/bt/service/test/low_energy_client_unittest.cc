@@ -40,10 +40,10 @@ class MockGattHandler
   MockGattHandler(){};
   ~MockGattHandler() override = default;
 
-  MOCK_METHOD1(RegisterClient, bt_status_t(bt_uuid_t*));
+  MOCK_METHOD1(RegisterClient, bt_status_t(const bt_uuid_t&));
   MOCK_METHOD1(UnregisterClient, bt_status_t(int));
-  MOCK_METHOD4(Connect, bt_status_t(int, const bt_bdaddr_t*, bool, int));
-  MOCK_METHOD3(Disconnect, bt_status_t(int, const bt_bdaddr_t*, int));
+  MOCK_METHOD4(Connect, bt_status_t(int, const RawAddress&, bool, int));
+  MOCK_METHOD3(Disconnect, bt_status_t(int, const RawAddress&, int));
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockGattHandler);
@@ -256,7 +256,7 @@ MATCHER_P(BitEq, x, std::string(negation ? "isn't" : "is") +
 }
 
 TEST_F(LowEnergyClientPostRegisterTest, Connect) {
-  const bt_bdaddr_t kTestAddress = {{0x01, 0x02, 0x03, 0x0A, 0x0B, 0x0C}};
+  const RawAddress kTestAddress = {{0x01, 0x02, 0x03, 0x0A, 0x0B, 0x0C}};
   const char kTestAddressStr[] = "01:02:03:0A:0B:0C";
   const bool kTestDirect = false;
   const int connId = 12;
@@ -268,13 +268,13 @@ TEST_F(LowEnergyClientPostRegisterTest, Connect) {
   // success, fix it when it becomes important.
   // These should succeed and result in a HAL call
   EXPECT_CALL(*mock_handler_,
-              Connect(le_client_->GetInstanceId(), Pointee(BitEq(kTestAddress)),
+              Connect(le_client_->GetInstanceId(), BitEq(kTestAddress),
                       kTestDirect, BT_TRANSPORT_LE))
       .Times(1)
-      .WillOnce(DoAll(Invoke([&](int client_id, const bt_bdaddr_t* bd_addr,
+      .WillOnce(DoAll(Invoke([&](int client_id, const RawAddress& bd_addr,
                                  bool is_direct, int transport) {
                         fake_hal_gatt_iface_->NotifyConnectCallback(
-                            connId, BT_STATUS_SUCCESS, client_id, *bd_addr);
+                            connId, BT_STATUS_SUCCESS, client_id, bd_addr);
                       }),
                       Return(BT_STATUS_SUCCESS)));
 
@@ -284,12 +284,12 @@ TEST_F(LowEnergyClientPostRegisterTest, Connect) {
   // TODO(jpawlowski): same as above
   // These should succeed and result in a HAL call
   EXPECT_CALL(*mock_handler_, Disconnect(le_client_->GetInstanceId(),
-                                         Pointee(BitEq(kTestAddress)), connId))
+                                         BitEq(kTestAddress), connId))
       .Times(1)
       .WillOnce(DoAll(
-          Invoke([&](int client_id, const bt_bdaddr_t* bd_addr, int connId) {
+          Invoke([&](int client_id, const RawAddress& bd_addr, int connId) {
             fake_hal_gatt_iface_->NotifyDisconnectCallback(
-                connId, BT_STATUS_SUCCESS, client_id, *bd_addr);
+                connId, BT_STATUS_SUCCESS, client_id, bd_addr);
           }),
           Return(BT_STATUS_SUCCESS)));
 

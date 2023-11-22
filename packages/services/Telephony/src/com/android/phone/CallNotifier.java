@@ -528,14 +528,8 @@ public class CallNotifier extends Handler {
     /**
      * Displays a notification when the phone receives a notice that a supplemental
      * service has failed.
-     * TODO: This is a NOOP if it isn't for conferences or resuming call failures right now.
      */
     private void onSuppServiceFailed(AsyncResult r) {
-        if (r.result != Phone.SuppService.CONFERENCE && r.result != Phone.SuppService.RESUME) {
-            if (DBG) log("onSuppServiceFailed: not a merge or resume failure event");
-            return;
-        }
-
         String mergeFailedString = "";
         if (r.result == Phone.SuppService.CONFERENCE) {
             if (DBG) log("onSuppServiceFailed: displaying merge failure message");
@@ -546,9 +540,30 @@ public class CallNotifier extends Handler {
             mergeFailedString = mApplication.getResources().getString(
                     R.string.incall_error_supp_service_switch);
         } else if (r.result == Phone.SuppService.HOLD) {
+            if (DBG) log("onSuppServiceFailed: displaying hold failure message");
             mergeFailedString = mApplication.getResources().getString(
                     R.string.incall_error_supp_service_hold);
+        } else if (r.result == Phone.SuppService.TRANSFER) {
+            if (DBG) log("onSuppServiceFailed: displaying transfer failure message");
+            mergeFailedString = mApplication.getResources().getString(
+                    R.string.incall_error_supp_service_transfer);
+        } else if (r.result == Phone.SuppService.SEPARATE) {
+            if (DBG) log("onSuppServiceFailed: displaying separate failure message");
+            mergeFailedString = mApplication.getResources().getString(
+                    R.string.incall_error_supp_service_separate);
+        } else if (r.result == Phone.SuppService.SWITCH) {
+            if (DBG) log("onSuppServiceFailed: displaying switch failure message");
+            mApplication.getResources().getString(
+                    R.string.incall_error_supp_service_switch);
+        } else if (r.result == Phone.SuppService.REJECT) {
+            if (DBG) log("onSuppServiceFailed: displaying reject failure message");
+            mApplication.getResources().getString(
+                    R.string.incall_error_supp_service_reject);
+        } else {
+            if (DBG) log("onSuppServiceFailed: unknown failure");
+            return;
         }
+
         PhoneDisplayMessage.displayErrorMessage(mApplication, mergeFailedString);
 
         // start a timer that kills the dialog
@@ -747,7 +762,8 @@ public class CallNotifier extends Handler {
 
         @Override
         public void onCallForwardingIndicatorChanged(boolean visible) {
-            if (VDBG) log("onCallForwardingIndicatorChanged(): " + this.mSubId + " " + visible);
+            Log.i(LOG_TAG, "onCallForwardingIndicatorChanged(): subId=" + this.mSubId
+                    + ", visible=" + (visible ? "Y" : "N"));
             mApplication.notificationMgr.updateCfi(this.mSubId, visible);
         }
     };

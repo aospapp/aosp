@@ -16,12 +16,18 @@
 #
 
 
-def gen_event_type_entry_str(event_type_name, event_type, event_config):
+def gen_event_type_entry_str(event_type_name, event_type, event_config, description='',
+                             limited_arch=''):
   """
-  return string like:
-  {"cpu-cycles", PERF_TYPE_HARDWARE, PERF_COUNT_HW_CPU_CYCLES},
+  return string as below:
+  EVENT_TYPE_TABLE_ENTRY(event_type_name, event_type, event_config, description, limited_arch)
   """
-  return '{"%s", %s, %s},\n' % (event_type_name, event_type, event_config)
+  return 'EVENT_TYPE_TABLE_ENTRY("%s", %s, %s, "%s", "%s")\n' % (
+            event_type_name, event_type, event_config, description, limited_arch)
+
+def gen_arm_event_type_entry_str(event_type_name, event_type, event_config, description):
+  return gen_event_type_entry_str(event_type_name, event_type, event_config, description,
+                                  "arm")
 
 
 def gen_hardware_events():
@@ -105,12 +111,75 @@ def gen_hw_cache_events():
 
   return generated_str
 
-
 def gen_user_space_events():
   generated_str = gen_event_type_entry_str("inplace-sampler",
                                            "SIMPLEPERF_TYPE_USER_SPACE_SAMPLERS",
                                            "SIMPLEPERF_CONFIG_INPLACE_SAMPLER")
   return generated_str
+
+def gen_arm_raw_events():
+  # Refer to "Table D5-7 PMU event numbers" in ARMv8 specification.
+  raw_types = [
+               [0x00, "sw-incr", "software increment"],
+               [0x01, "l1-icache-refill", "level 1 instruction cache refill"],
+               [0x02, "l1-itlb-refill", "level 1 instruction TLB refill"],
+               [0x03, "l1-dcache-refill", "level 1 data cache refill"],
+               [0x04, "l1-dcache", "level 1 data cache access"],
+               [0x05, "l1-dtlb-refill", "level 1 data TLB refill"],
+               [0x06, "load-retired", "load (instruction architecturally executed)"],
+               [0x07, "store-retired", "store (instruction architecturally executed)"],
+               [0x08, "instruction-retired", "instructions (instruction architecturally executed)"],
+               [0x09, "exception-taken", "exception taken"],
+               [0x0a, "exception-return", "exception return (instruction architecturally executed)"],
+               [0x0b, "cid-write-retired", "write to CONTEXIDR (instruction architecturally executed)"],
+               [0x0c, "pc-write-retired", "software change of the PC (instruction architecturally executed)"],
+               [0x0d, "br-immed-retired", "immediate branch (instruction architecturally executed)"],
+               [0x0e, "br-return-retired", "procedure return (instruction architecturally executed)"],
+               [0x0f, "unaligned-ldst-retired", "unaligned load or store (instruction architecturally executed)"],
+               [0x10, "br-mis-pred", "mispredicted or not predicted branch speculatively executed"],
+               [0x11, "cpu-cycles", "cpu cycles"],
+               [0x12, "br-pred", "predictable branch speculatively executed"],
+               [0x13, "mem-access", "data memory access"],
+               [0x14, "l1-icache", "level 1 instruction cache access"],
+               [0x15, "l1-dcache-wb", "level 1 data cache write-back"],
+               [0x16, "l2-dcache", "level 2 data cache access"],
+               [0x17, "l2-dcache-refill", "level 2 data cache refill"],
+               [0x18, "l2-dcache-wb", "level 2 data cache write-back"],
+               [0x19, "bus-access", "bus access"],
+               [0x1a, "memory-error", "local memory error"],
+               [0x1b, "inst-spec", "operation speculatively executed"],
+               [0x1c, "ttbr-write-retired", "write to TTBR (instruction architecturally executed)"],
+               [0x1d, "bus-cycles", "bus cycle"],
+               # [0x1e, "chain", ""], // Not useful in user space.
+               [0x1f, "l1-dcache-allocate", "level 1 data cache allocation without refill"],
+               [0x20, "l2-dcache-allocate", "level 2 data cache allocation without refill"],
+               [0x21, "br-retired", "branch (instruction architecturally executed)"],
+               [0x22, "br-mis-pred-retired", "mispredicted branch (instruction architecturally executed)"],
+               [0x23, "stall-frontend", "no operation issued due to the frontend"],
+               [0x24, "stall-backend", "no operation issued due to the backend"],
+               [0x25, "l1-dtlb", "level 1 data or unified TLB access"],
+               [0x26, "l1-itlb", "level 1 instruction TLB access"],
+               [0x27, "l2-icache", "level 2 instruction cache access"],
+               [0x28, "l2-icache-refill", "level 2 instruction cache refill"],
+               [0x29, "l3-dcache-allocate", "level 3 data or unified cache allocation without refill"],
+               [0x2a, "l3-dcache-refill", "level 3 data or unified cache refill"],
+               [0x2b, "l3-dcache", "level 3 data or unified cache access"],
+               [0x2c, "l3-dcache-wb", "level 3 data or unified cache write-back"],
+               [0x2d, "l2-dtlb-refill", "level 2 data or unified TLB refill"],
+               [0x2e, "l2-itlb-refill", "level 2 instruction TLB refill"],
+               [0x2f, "l2-dtlb", "level 2 data or unified TLB access"],
+               [0x30, "l2-itlb", "level 2 instruction TLB access"],
+               ]
+  generated_str = ""
+  for item in raw_types:
+    event_type = 'PERF_TYPE_RAW'
+    event_type_name = "raw-" + item[1]
+    event_config = '0x%x' % item[0]
+    description = item[2]
+    generated_str += gen_arm_event_type_entry_str(event_type_name, event_type, event_config,
+                                              description)
+  return generated_str
+
 
 def gen_events():
   generated_str = "// This file is auto-generated by generate-event_table.py.\n\n"
@@ -118,6 +187,7 @@ def gen_events():
   generated_str += gen_software_events() + '\n'
   generated_str += gen_hw_cache_events() + '\n'
   generated_str += gen_user_space_events() + '\n'
+  generated_str += gen_arm_raw_events() + '\n'
   return generated_str
 
 generated_str = gen_events()

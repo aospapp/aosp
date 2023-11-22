@@ -17,6 +17,7 @@
 This test is used to test basic functionality of bluetooth adapter by turning it ON/OFF.
 """
 
+from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt import bt_test_utils
 
@@ -31,6 +32,7 @@ class BtCarToggleTest(BluetoothBaseTest):
     def on_fail(self, test_name, begin_time):
         bt_test_utils.take_btsnoop_logs(self.android_devices, self, test_name)
 
+    @test_tracker_info(uuid='290eb41f-6e66-4dc1-8f3e-55783901d116')
     @BluetoothBaseTest.bt_test_wrap
     def test_bluetooth_reset(self):
         """Test resetting bluetooth.

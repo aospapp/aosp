@@ -32,5 +32,9 @@
         android:layout_height="match_parent"
         android:layout_width="match_parent"
         android:divider="@null"
-        android:groupIndicator="@null"/>
+        android:groupIndicator="@null"
+        android:layout_marginLeft="@dimen/terms_screen_margin"
+        android:layout_marginRight="@dimen/terms_screen_margin"
+        android:paddingLeft="@dimen/terms_screen_padding"
+        android:paddingRight="@dimen/terms_screen_padding"/>
 </LinearLayout>

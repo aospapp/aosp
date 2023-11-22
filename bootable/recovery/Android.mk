@@ -22,20 +22,23 @@ RECOVERY_FSTAB_VERSION := 2
 # ===============================
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := fuse_sideload.cpp
-LOCAL_CLANG := true
-LOCAL_CFLAGS := -O2 -g -DADB_HOST=0 -Wall -Wno-unused-parameter -Werror
+LOCAL_CFLAGS := -Wall -Werror
 LOCAL_CFLAGS += -D_XOPEN_SOURCE -D_GNU_SOURCE
 LOCAL_MODULE := libfusesideload
-LOCAL_STATIC_LIBRARIES := libcutils libc libcrypto
+LOCAL_STATIC_LIBRARIES := \
+    libcrypto \
+    libbase
 include $(BUILD_STATIC_LIBRARY)
 
 # libmounts (static library)
 # ===============================
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := mounts.cpp
-LOCAL_CLANG := true
-LOCAL_CFLAGS := -Wall -Wno-unused-parameter -Werror
+LOCAL_CFLAGS := \
+    -Wall \
+    -Werror
 LOCAL_MODULE := libmounts
+LOCAL_STATIC_LIBRARIES := libbase
 include $(BUILD_STATIC_LIBRARY)
 
 # librecovery (static library)
@@ -43,7 +46,7 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \
     install.cpp
-LOCAL_CFLAGS := -Wno-unused-parameter -Werror
+LOCAL_CFLAGS := -Wall -Werror
 LOCAL_CFLAGS += -DRECOVERY_API_VERSION=$(RECOVERY_API_VERSION)
 
 ifeq ($(AB_OTA_UPDATER),true)
@@ -56,7 +59,8 @@ LOCAL_STATIC_LIBRARIES := \
     libvintf_recovery \
     libcrypto_utils \
     libcrypto \
-    libbase
+    libbase \
+    libziparchive \
 
 include $(BUILD_STATIC_LIBRARY)
 
@@ -66,7 +70,6 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := \
     adb_install.cpp \
-    asn1_decoder.cpp \
     device.cpp \
     fuse_sdcard_provider.cpp \
     recovery.cpp \
@@ -74,32 +77,81 @@ LOCAL_SRC_FILES := \
     rotate_logs.cpp \
     screen_ui.cpp \
     ui.cpp \
-    verifier.cpp \
+    vr_ui.cpp \
     wear_ui.cpp \
-    wear_touch.cpp \
 
 LOCAL_MODULE := recovery
 
 LOCAL_FORCE_STATIC_EXECUTABLE := true
 
+LOCAL_REQUIRED_MODULES := e2fsdroid_static mke2fs_static mke2fs.conf
+
 ifeq ($(TARGET_USERIMAGES_USE_F2FS),true)
 ifeq ($(HOST_OS),linux)
-LOCAL_REQUIRED_MODULES := mkfs.f2fs
+LOCAL_REQUIRED_MODULES += mkfs.f2fs
 endif
 endif
 
 LOCAL_CFLAGS += -DRECOVERY_API_VERSION=$(RECOVERY_API_VERSION)
 LOCAL_CFLAGS += -Wno-unused-parameter -Werror
-LOCAL_CLANG := true
+
+ifneq ($(TARGET_RECOVERY_UI_MARGIN_HEIGHT),)
+LOCAL_CFLAGS += -DRECOVERY_UI_MARGIN_HEIGHT=$(TARGET_RECOVERY_UI_MARGIN_HEIGHT)
+else
+LOCAL_CFLAGS += -DRECOVERY_UI_MARGIN_HEIGHT=0
+endif
+
+ifneq ($(TARGET_RECOVERY_UI_MARGIN_WIDTH),)
+LOCAL_CFLAGS += -DRECOVERY_UI_MARGIN_WIDTH=$(TARGET_RECOVERY_UI_MARGIN_WIDTH)
+else
+LOCAL_CFLAGS += -DRECOVERY_UI_MARGIN_WIDTH=0
+endif
+
+ifneq ($(TARGET_RECOVERY_UI_TOUCH_LOW_THRESHOLD),)
+LOCAL_CFLAGS += -DRECOVERY_UI_TOUCH_LOW_THRESHOLD=$(TARGET_RECOVERY_UI_TOUCH_LOW_THRESHOLD)
+else
+LOCAL_CFLAGS += -DRECOVERY_UI_TOUCH_LOW_THRESHOLD=50
+endif
+
+ifneq ($(TARGET_RECOVERY_UI_TOUCH_HIGH_THRESHOLD),)
+LOCAL_CFLAGS += -DRECOVERY_UI_TOUCH_HIGH_THRESHOLD=$(TARGET_RECOVERY_UI_TOUCH_HIGH_THRESHOLD)
+else
+LOCAL_CFLAGS += -DRECOVERY_UI_TOUCH_HIGH_THRESHOLD=90
+endif
+
+ifneq ($(TARGET_RECOVERY_UI_PROGRESS_BAR_BASELINE),)
+LOCAL_CFLAGS += -DRECOVERY_UI_PROGRESS_BAR_BASELINE=$(TARGET_RECOVERY_UI_PROGRESS_BAR_BASELINE)
+else
+LOCAL_CFLAGS += -DRECOVERY_UI_PROGRESS_BAR_BASELINE=259
+endif
+
+ifneq ($(TARGET_RECOVERY_UI_ANIMATION_FPS),)
+LOCAL_CFLAGS += -DRECOVERY_UI_ANIMATION_FPS=$(TARGET_RECOVERY_UI_ANIMATION_FPS)
+else
+LOCAL_CFLAGS += -DRECOVERY_UI_ANIMATION_FPS=30
+endif
+
+ifneq ($(TARGET_RECOVERY_UI_MENU_UNUSABLE_ROWS),)
+LOCAL_CFLAGS += -DRECOVERY_UI_MENU_UNUSABLE_ROWS=$(TARGET_RECOVERY_UI_MENU_UNUSABLE_ROWS)
+else
+LOCAL_CFLAGS += -DRECOVERY_UI_MENU_UNUSABLE_ROWS=9
+endif
+
+ifneq ($(TARGET_RECOVERY_UI_VR_STEREO_OFFSET),)
+LOCAL_CFLAGS += -DRECOVERY_UI_VR_STEREO_OFFSET=$(TARGET_RECOVERY_UI_VR_STEREO_OFFSET)
+else
+LOCAL_CFLAGS += -DRECOVERY_UI_VR_STEREO_OFFSET=0
+endif
 
 LOCAL_C_INCLUDES += \
     system/vold \
-    system/core/adb \
 
 LOCAL_STATIC_LIBRARIES := \
     librecovery \
+    libverifier \
     libbatterymonitor \
     libbootloader_message \
+    libfs_mgr \
     libext4_utils \
     libsparse \
     libziparchive \
@@ -110,7 +162,6 @@ LOCAL_STATIC_LIBRARIES := \
     libfusesideload \
     libminui \
     libpng \
-    libfs_mgr \
     libcrypto_utils \
     libcrypto \
     libvintf_recovery \
@@ -139,7 +190,7 @@ else
 endif
 
 ifeq ($(BOARD_CACHEIMAGE_PARTITION_SIZE),)
-LOCAL_REQUIRED_MODULES := recovery-persist recovery-refresh
+LOCAL_REQUIRED_MODULES += recovery-persist recovery-refresh
 endif
 
 include $(BUILD_EXECUTABLE)
@@ -172,7 +223,6 @@ include $(BUILD_EXECUTABLE)
 # ===============================
 include $(CLEAR_VARS)
 LOCAL_MODULE := libverifier
-LOCAL_MODULE_TAGS := tests
 LOCAL_SRC_FILES := \
     asn1_decoder.cpp \
     verifier.cpp
@@ -183,14 +233,34 @@ LOCAL_STATIC_LIBRARIES := \
 LOCAL_CFLAGS := -Werror
 include $(BUILD_STATIC_LIBRARY)
 
+# Wear default device
+# ===============================
+include $(CLEAR_VARS)
+LOCAL_SRC_FILES := wear_device.cpp
+
+# Should match TARGET_RECOVERY_UI_LIB in BoardConfig.mk.
+LOCAL_MODULE := librecovery_ui_wear
+
+include $(BUILD_STATIC_LIBRARY)
+
+# vr headset default device
+# ===============================
+include $(CLEAR_VARS)
+
+LOCAL_SRC_FILES := vr_device.cpp
+
+# should match TARGET_RECOVERY_UI_LIB set in BoardConfig.mk
+LOCAL_MODULE := librecovery_ui_vr
+
+include $(BUILD_STATIC_LIBRARY)
+
 include \
     $(LOCAL_PATH)/applypatch/Android.mk \
-    $(LOCAL_PATH)/bootloader_message/Android.mk \
+    $(LOCAL_PATH)/boot_control/Android.mk \
     $(LOCAL_PATH)/edify/Android.mk \
     $(LOCAL_PATH)/minadbd/Android.mk \
     $(LOCAL_PATH)/minui/Android.mk \
     $(LOCAL_PATH)/otafault/Android.mk \
-    $(LOCAL_PATH)/otautil/Android.mk \
     $(LOCAL_PATH)/tests/Android.mk \
     $(LOCAL_PATH)/tools/Android.mk \
     $(LOCAL_PATH)/uncrypt/Android.mk \

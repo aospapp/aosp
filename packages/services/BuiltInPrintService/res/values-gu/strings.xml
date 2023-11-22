@@ -29,7 +29,7 @@
     <string name="printer_offline" msgid="9196864753298645066">"ઑફલાઇન"</string>
     <string name="printer_check" msgid="6428369671197132828">"પ્રિન્ટર તપાસો"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"મોકલવાની રાહ જોઇ રહ્યાં છીએ"</string>
-    <string name="wifi_not_connected" msgid="8644760246612043851">"Wi-Fi કનેક્ટ થયું નથી"</string>
+    <string name="wifi_not_connected" msgid="8644760246612043851">"વાઇ-ફાઇ કનેક્ટ થયું નથી"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"દસ્તાવેજ વાંચી શકાતા નથી"</string>
     <string name="media_size_l" msgid="164416542021598181">"L"</string>
     <string name="media_size_5x7in" msgid="1275128379533195285">"5x7 ઇંચ"</string>

@@ -83,18 +83,18 @@ static RSReflectionType gReflectionTypes[] = {
 
 // RS object types are 32 bits in 32-bit RS, but 256 bits in 64-bit RS.
 // This is handled specially by the GetElementSizeInBits() method.
-{ObjectDataType, _,          "RS_ELEMENT",          "ELEMENT", 32,         "Element",         "Element", _, _, _, false},
-{ObjectDataType, _,             "RS_TYPE",             "TYPE", 32,            "Type",            "Type", _, _, _, false},
-{ObjectDataType, _,       "RS_ALLOCATION",       "ALLOCATION", 32,      "Allocation",      "Allocation", _, _, _, false},
-{ObjectDataType, _,          "RS_SAMPLER",          "SAMPLER", 32,         "Sampler",         "Sampler", _, _, _, false},
-{ObjectDataType, _,           "RS_SCRIPT",           "SCRIPT", 32,          "Script",          "Script", _, _, _, false},
-{ObjectDataType, _,             "RS_MESH",             "MESH", 32,            "Mesh",            "Mesh", _, _, _, false},
-{ObjectDataType, _,             "RS_PATH",             "PATH", 32,            "Path",            "Path", _, _, _, false},
-{ObjectDataType, _, "RS_PROGRAM_FRAGMENT", "PROGRAM_FRAGMENT", 32, "ProgramFragment", "ProgramFragment", _, _, _, false},
-{ObjectDataType, _,   "RS_PROGRAM_VERTEX",   "PROGRAM_VERTEX", 32,   "ProgramVertex",   "ProgramVertex", _, _, _, false},
-{ObjectDataType, _,   "RS_PROGRAM_RASTER",   "PROGRAM_RASTER", 32,   "ProgramRaster",   "ProgramRaster", _, _, _, false},
-{ObjectDataType, _,    "RS_PROGRAM_STORE",    "PROGRAM_STORE", 32,    "ProgramStore",    "ProgramStore", _, _, _, false},
-{ObjectDataType, _,             "RS_FONT",             "FONT", 32,            "Font",            "Font", _, _, _, false},
+{ObjectDataType,          "rs_element",          "RS_ELEMENT",          "ELEMENT", 32,         "Element",         "Element", _, _, _, false},
+{ObjectDataType,             "rs_type",             "RS_TYPE",             "TYPE", 32,            "Type",            "Type", _, _, _, false},
+{ObjectDataType,       "rs_allocation",       "RS_ALLOCATION",       "ALLOCATION", 32,      "Allocation",      "Allocation", _, _, _, false},
+{ObjectDataType,          "rs_sampler",          "RS_SAMPLER",          "SAMPLER", 32,         "Sampler",         "Sampler", _, _, _, false},
+{ObjectDataType,           "rs_script",           "RS_SCRIPT",           "SCRIPT", 32,          "Script",          "Script", _, _, _, false},
+{ObjectDataType,             "rs_mesh",             "RS_MESH",             "MESH", 32,            "Mesh",            "Mesh", _, _, _, false},
+{ObjectDataType,             "rs_path",             "RS_PATH",             "PATH", 32,            "Path",            "Path", _, _, _, false},
+{ObjectDataType, "rs_program_fragment", "RS_PROGRAM_FRAGMENT", "PROGRAM_FRAGMENT", 32, "ProgramFragment", "ProgramFragment", _, _, _, false},
+{ObjectDataType,   "rs_program_vertex",   "RS_PROGRAM_VERTEX",   "PROGRAM_VERTEX", 32,   "ProgramVertex",   "ProgramVertex", _, _, _, false},
+{ObjectDataType,   "rs_program_raster",   "RS_PROGRAM_RASTER",   "PROGRAM_RASTER", 32,   "ProgramRaster",   "ProgramRaster", _, _, _, false},
+{ObjectDataType,    "rs_program_store",    "RS_PROGRAM_STORE",    "PROGRAM_STORE", 32,    "ProgramStore",    "ProgramStore", _, _, _, false},
+{ObjectDataType,             "rs_font",             "RS_FONT",             "FONT", 32,            "Font",            "Font", _, _, _, false},
 #undef _
 };
 
@@ -291,13 +291,12 @@ static const clang::Type *TypeExportableHelper(
       }
 
       clang::RecordDecl *RD = T->getAsStructureType()->getDecl();
-      if (RD != nullptr) {
-        RD = RD->getDefinition();
-        if (RD == nullptr) {
-          ReportTypeError(Context, nullptr, T->getAsStructureType()->getDecl(),
-                          "struct is not defined in this module");
-          return nullptr;
-        }
+      slangAssert(RD);
+      RD = RD->getDefinition();
+      if (RD == nullptr) {
+        ReportTypeError(Context, nullptr, T->getAsStructureType()->getDecl(),
+                        "struct is not defined in this module");
+        return nullptr;
       }
 
       if (!TopLevelRecord) {
@@ -537,12 +536,11 @@ static bool ValidateTypeHelper(
         return false;
       }
 
-      if (RD != nullptr) {
-        RD = RD->getDefinition();
-        if (RD == nullptr) {
-          // FIXME
-          return true;
-        }
+      slangAssert(RD);
+      RD = RD->getDefinition();
+      if (RD == nullptr) {
+        // FIXME
+        return true;
       }
 
       // Fast check
@@ -946,8 +944,8 @@ size_t RSExportType::getAllocSize() const {
 
 RSExportType::RSExportType(RSContext *Context,
                            ExportClass Class,
-                           const llvm::StringRef &Name)
-    : RSExportable(Context, RSExportable::EX_TYPE),
+                           const llvm::StringRef &Name, clang::SourceLocation Loc)
+    : RSExportable(Context, RSExportable::EX_TYPE, Loc),
       mClass(Class),
       // Make a copy on Name since memory stored @Name is either allocated in
       // ASTContext or allocated in GetTypeName which will be destroyed later.
@@ -1032,8 +1030,10 @@ bool RSExportPrimitiveType::IsRSObjectType(DataType DT) {
 
 bool RSExportPrimitiveType::IsStructureTypeWithRSObject(const clang::Type *T) {
   bool RSObjectTypeSeen = false;
-  while (T && T->isArrayType()) {
+  slangAssert(T);
+  while (T->isArrayType()) {
     T = T->getArrayElementTypeNoTypeQual();
+    slangAssert(T);
   }
 
   const clang::RecordType *RT = T->getAsStructureType();
@@ -1057,8 +1057,10 @@ bool RSExportPrimitiveType::IsStructureTypeWithRSObject(const clang::Type *T) {
     // declaration for an RS object type (or an array of one).
     const clang::FieldDecl *FD = *FI;
     const clang::Type *FT = RSExportType::GetTypeOfDecl(FD);
-    while (FT && FT->isArrayType()) {
+    slangAssert(FT);
+    while (FT->isArrayType()) {
       FT = FT->getArrayElementTypeNoTypeQual();
+      slangAssert(FT);
     }
 
     DataType DT = GetRSSpecificType(FT);
@@ -1076,9 +1078,6 @@ bool RSExportPrimitiveType::IsStructureTypeWithRSObject(const clang::Type *T) {
         default:
           // Ignore all other primitive types
           break;
-      }
-      while (FT && FT->isArrayType()) {
-        FT = FT->getArrayElementTypeNoTypeQual();
       }
       if (FT->isStructureType()) {
         // Recursively handle structs of structs (even though these can't
@@ -1507,6 +1506,7 @@ RSExportRecordType *RSExportRecordType::Create(RSContext *Context,
   RSExportRecordType *ERT =
       new RSExportRecordType(Context,
                              TypeName,
+                             RD->getLocation(),
                              RD->hasAttr<clang::PackedAttr>(),
                              mIsArtificial,
                              RL->getDataSize().getQuantity(),

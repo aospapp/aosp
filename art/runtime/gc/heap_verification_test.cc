@@ -16,7 +16,8 @@
 
 #include "common_runtime_test.h"
 
-#include "class_linker.h"
+#include "base/memory_tool.h"
+#include "class_linker-inl.h"
 #include "handle_scope-inl.h"
 #include "mirror/object-inl.h"
 #include "mirror/object_array-inl.h"
@@ -53,6 +54,11 @@ TEST_F(VerificationTest, IsValidHeapObjectAddress) {
   Handle<mirror::String> string(
       hs.NewHandle(mirror::String::AllocFromModifiedUtf8(soa.Self(), "test")));
   EXPECT_TRUE(v->IsValidHeapObjectAddress(string.Get()));
+  // Address in the heap that isn't aligned.
+  const void* unaligned_address =
+      reinterpret_cast<const void*>(reinterpret_cast<uintptr_t>(string.Get()) + 1);
+  EXPECT_TRUE(v->IsAddressInHeapSpace(unaligned_address));
+  EXPECT_FALSE(v->IsValidHeapObjectAddress(unaligned_address));
   EXPECT_TRUE(v->IsValidHeapObjectAddress(string->GetClass()));
   const uintptr_t uint_klass = reinterpret_cast<uintptr_t>(string->GetClass());
   // Not actually a valid object but the verification can't know that. Guaranteed to be inside a
@@ -63,7 +69,7 @@ TEST_F(VerificationTest, IsValidHeapObjectAddress) {
       reinterpret_cast<const void*>(&uint_klass)));
 }
 
-TEST_F(VerificationTest, IsValidClass) {
+TEST_F(VerificationTest, IsValidClassOrNotInHeap) {
   ScopedObjectAccess soa(Thread::Current());
   VariableSizedHandleScope hs(soa.Self());
   Handle<mirror::String> string(
@@ -72,14 +78,35 @@ TEST_F(VerificationTest, IsValidClass) {
   EXPECT_FALSE(v->IsValidClass(reinterpret_cast<const void*>(1)));
   EXPECT_FALSE(v->IsValidClass(reinterpret_cast<const void*>(4)));
   EXPECT_FALSE(v->IsValidClass(nullptr));
-  EXPECT_FALSE(v->IsValidClass(string.Get()));
   EXPECT_TRUE(v->IsValidClass(string->GetClass()));
+  EXPECT_FALSE(v->IsValidClass(string.Get()));
+}
+
+TEST_F(VerificationTest, IsValidClassInHeap) {
+  TEST_DISABLED_FOR_MEMORY_TOOL();
+  ScopedObjectAccess soa(Thread::Current());
+  VariableSizedHandleScope hs(soa.Self());
+  Handle<mirror::String> string(
+      hs.NewHandle(mirror::String::AllocFromModifiedUtf8(soa.Self(), "test")));
+  const Verification* const v = Runtime::Current()->GetHeap()->GetVerification();
   const uintptr_t uint_klass = reinterpret_cast<uintptr_t>(string->GetClass());
   EXPECT_FALSE(v->IsValidClass(reinterpret_cast<const void*>(uint_klass - kObjectAlignment)));
   EXPECT_FALSE(v->IsValidClass(reinterpret_cast<const void*>(&uint_klass)));
 }
 
-TEST_F(VerificationTest, DumpObjectInfo) {
+TEST_F(VerificationTest, DumpInvalidObjectInfo) {
+  ScopedLogSeverity sls(LogSeverity::INFO);
+  ScopedObjectAccess soa(Thread::Current());
+  Runtime* const runtime = Runtime::Current();
+  VariableSizedHandleScope hs(soa.Self());
+  const Verification* const v = runtime->GetHeap()->GetVerification();
+  LOG(INFO) << v->DumpObjectInfo(reinterpret_cast<const void*>(1), "obj");
+  LOG(INFO) << v->DumpObjectInfo(reinterpret_cast<const void*>(4), "obj");
+  LOG(INFO) << v->DumpObjectInfo(nullptr, "obj");
+}
+
+TEST_F(VerificationTest, DumpValidObjectInfo) {
+  TEST_DISABLED_FOR_MEMORY_TOOL();
   ScopedLogSeverity sls(LogSeverity::INFO);
   ScopedObjectAccess soa(Thread::Current());
   Runtime* const runtime = Runtime::Current();
@@ -89,9 +116,6 @@ TEST_F(VerificationTest, DumpObjectInfo) {
   Handle<mirror::ObjectArray<mirror::Object>> arr(
       hs.NewHandle(AllocObjectArray<mirror::Object>(soa.Self(), 256)));
   const Verification* const v = runtime->GetHeap()->GetVerification();
-  LOG(INFO) << v->DumpObjectInfo(reinterpret_cast<const void*>(1), "obj");
-  LOG(INFO) << v->DumpObjectInfo(reinterpret_cast<const void*>(4), "obj");
-  LOG(INFO) << v->DumpObjectInfo(nullptr, "obj");
   LOG(INFO) << v->DumpObjectInfo(string.Get(), "test");
   LOG(INFO) << v->DumpObjectInfo(string->GetClass(), "obj");
   const uintptr_t uint_klass = reinterpret_cast<uintptr_t>(string->GetClass());
@@ -102,6 +126,7 @@ TEST_F(VerificationTest, DumpObjectInfo) {
 }
 
 TEST_F(VerificationTest, LogHeapCorruption) {
+  TEST_DISABLED_FOR_MEMORY_TOOL();
   ScopedLogSeverity sls(LogSeverity::INFO);
   ScopedObjectAccess soa(Thread::Current());
   Runtime* const runtime = Runtime::Current();
@@ -119,6 +144,25 @@ TEST_F(VerificationTest, LogHeapCorruption) {
   // Test null holder cases.
   v->LogHeapCorruption(nullptr, MemberOffset(0), string.Get(), false);
   v->LogHeapCorruption(nullptr, MemberOffset(0), arr.Get(), false);
+}
+
+TEST_F(VerificationTest, FindPathFromRootSet) {
+  TEST_DISABLED_FOR_MEMORY_TOOL();
+  ScopedLogSeverity sls(LogSeverity::INFO);
+  ScopedObjectAccess soa(Thread::Current());
+  Runtime* const runtime = Runtime::Current();
+  VariableSizedHandleScope hs(soa.Self());
+  Handle<mirror::ObjectArray<mirror::Object>> arr(
+      hs.NewHandle(AllocObjectArray<mirror::Object>(soa.Self(), 256)));
+  ObjPtr<mirror::String> str = mirror::String::AllocFromModifiedUtf8(soa.Self(), "obj");
+  arr->Set(0, str);
+  const Verification* const v = runtime->GetHeap()->GetVerification();
+  std::string path = v->FirstPathFromRootSet(str);
+  EXPECT_GT(path.length(), 0u);
+  std::ostringstream oss;
+  oss << arr.Get();
+  EXPECT_NE(path.find(oss.str()), std::string::npos);
+  LOG(INFO) << path;
 }
 
 }  // namespace gc

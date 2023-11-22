@@ -873,12 +873,16 @@ public class Console extends Thread {
      */
     @SuppressWarnings("unchecked")
     void executeCmdRunnable(Runnable command, CaptureList groups) {
-        if (command instanceof ArgRunnable) {
-            // FIXME: verify that command implements ArgRunnable<CaptureList> instead
-            // FIXME: of just ArgRunnable
-            ((ArgRunnable<CaptureList>)command).run(groups);
-        } else {
-            command.run();
+        try {
+            if (command instanceof ArgRunnable) {
+                // FIXME: verify that command implements ArgRunnable<CaptureList> instead
+                // FIXME: of just ArgRunnable
+                ((ArgRunnable<CaptureList>) command).run(groups);
+            } else {
+                command.run();
+            }
+        } catch (RuntimeException e) {
+            e.printStackTrace();
         }
     }
 

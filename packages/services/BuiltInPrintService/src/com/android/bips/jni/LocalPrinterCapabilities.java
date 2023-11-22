@@ -25,6 +25,7 @@ import android.text.TextUtils;
 import com.android.bips.BuiltInPrintService;
 import com.android.bips.R;
 
+import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -47,6 +48,8 @@ public class LocalPrinterCapabilities {
     public String mediaDefault;
     public int[] supportedMediaTypes;
     public int[] supportedMediaSizes;
+
+    public InetAddress inetAddress;
 
     /** Bears the underlying native C structure (printer_capabilities_t) or null if not present */
     public byte[] nativeData;
@@ -118,6 +121,7 @@ public class LocalPrinterCapabilities {
                 " mediaDefault=" + mediaDefault +
                 " supportedMediaTypes=" + Arrays.toString(supportedMediaTypes) +
                 " supportedMediaSizes=" + Arrays.toString(supportedMediaSizes) +
+                " inetAddress=" + inetAddress +
                 "}";
     }
 }

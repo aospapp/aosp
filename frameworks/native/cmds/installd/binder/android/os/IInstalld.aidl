@@ -51,12 +51,14 @@ interface IInstalld {
             @nullable @utf8InCpp String outputPath, int dexFlags,
             @utf8InCpp String compilerFilter, @nullable @utf8InCpp String uuid,
             @nullable @utf8InCpp String sharedLibraries,
-            @nullable @utf8InCpp String seInfo);
+            @nullable @utf8InCpp String seInfo, boolean downgrade);
 
     void rmdex(@utf8InCpp String codePath, @utf8InCpp String instructionSet);
 
     boolean mergeProfiles(int uid, @utf8InCpp String packageName);
     boolean dumpProfiles(int uid, @utf8InCpp String packageName, @utf8InCpp String codePaths);
+    boolean copySystemProfile(@utf8InCpp String systemProfile, int uid,
+            @utf8InCpp String packageName);
     void clearAppProfiles(@utf8InCpp String packageName);
     void destroyAppProfiles(@utf8InCpp String packageName);
 

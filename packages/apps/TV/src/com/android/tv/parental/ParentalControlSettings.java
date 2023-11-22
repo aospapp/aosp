@@ -20,6 +20,7 @@ import android.content.Context;
 import android.media.tv.TvContentRating;
 import android.media.tv.TvInputManager;
 
+import com.android.tv.experiments.Experiments;
 import com.android.tv.parental.ContentRatingSystem.Rating;
 import com.android.tv.parental.ContentRatingSystem.SubRating;
 import com.android.tv.util.TvSettings;
@@ -109,6 +110,10 @@ public class ParentalControlSettings {
         @ContentRatingLevel int currentLevel = getContentRatingLevel();
         if (currentLevel != TvSettings.CONTENT_RATING_LEVEL_CUSTOM) {
             mRatings = ContentRatingLevelPolicy.getRatingsForLevel(this, manager, currentLevel);
+            if (currentLevel != TvSettings.CONTENT_RATING_LEVEL_NONE) {
+                // UNRATED contents should be blocked unless the rating level is none or custom
+                mRatings.add(TvContentRating.UNRATED);
+            }
             storeRatings();
         }
     }
@@ -129,6 +134,11 @@ public class ParentalControlSettings {
             }
         } else {
             mRatings = ContentRatingLevelPolicy.getRatingsForLevel(this, manager, level);
+            if (level != TvSettings.CONTENT_RATING_LEVEL_NONE
+                    && Boolean.TRUE.equals(Experiments.ENABLE_UNRATED_CONTENT_SETTINGS.get())) {
+                // UNRATED contents should be blocked unless the rating level is none or custom
+                mRatings.add(TvContentRating.UNRATED);
+            }
         }
         storeRatings();
     }
@@ -136,6 +146,23 @@ public class ParentalControlSettings {
     @ContentRatingLevel
     public int getContentRatingLevel() {
         return TvSettings.getContentRatingLevel(mContext);
+    }
+
+    /** Sets the blocked status of a unrated contents. */
+    public boolean setUnratedBlocked(boolean blocked) {
+        boolean changed;
+        if (blocked) {
+            changed = mRatings.add(TvContentRating.UNRATED);
+            mTvInputManager.addBlockedRating(TvContentRating.UNRATED);
+        } else {
+            changed = mRatings.remove(TvContentRating.UNRATED);
+            mTvInputManager.removeBlockedRating(TvContentRating.UNRATED);
+        }
+        if (changed) {
+            // change to custom level if the blocked status is changed
+            changeToCustomLevel();
+        }
+        return changed;
     }
 
     /**
@@ -172,8 +199,10 @@ public class ParentalControlSettings {
      * @return The {@link TvContentRating} that is blocked.
      */
     public TvContentRating getBlockedRating(TvContentRating[] ratings) {
-        if (ratings == null) {
-            return null;
+        if (ratings == null || ratings.length <= 0) {
+            return mTvInputManager.isRatingBlocked(TvContentRating.UNRATED)
+                    ? TvContentRating.UNRATED
+                    : null;
         }
         for (TvContentRating rating : ratings) {
             if (mTvInputManager.isRatingBlocked(rating)) {

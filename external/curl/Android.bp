@@ -33,6 +33,9 @@ cc_defaults {
 cc_library {
     name: "libcurl",
     vendor_available: true,
+    vndk: {
+        enabled: true,
+    },
     defaults: ["curl_common_defaults"],
     export_include_dirs: ["include"],
     host_supported: true,
@@ -40,6 +43,7 @@ cc_library {
         "-DBUILDING_LIBCURL",
     ],
     srcs:[
+        "lib/rand.c",
         "lib/file.c",
         "lib/timeval.c",
         "lib/base64.c",
@@ -63,7 +67,6 @@ cc_library {
         "lib/netrc.c",
         "lib/getinfo.c",
         "lib/transfer.c",
-        "lib/strequal.c",
         "lib/easy.c",
         "lib/security.c",
         "lib/curl_fnmatch.c",
@@ -97,10 +100,10 @@ cc_library {
         "lib/select.c",
         "lib/tftp.c",
         "lib/splay.c",
+        "lib/strcase.c",
         "lib/strdup.c",
         "lib/socks.c",
         "lib/ssh.c",
-        "lib/rawstr.c",
         "lib/curl_addrinfo.c",
         "lib/socks_gssapi.c",
         "lib/socks_sspi.c",

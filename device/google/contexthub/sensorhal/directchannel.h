@@ -31,6 +31,7 @@ class DirectChannelBase {
 public:
     DirectChannelBase() : mError(NO_INIT), mSize(0), mBase(nullptr) { }
     virtual ~DirectChannelBase() {}
+    virtual bool memoryMatches(const struct sensors_direct_mem_t *mem) const = 0;
 
     bool isValid();
     int getError();
@@ -47,7 +48,8 @@ protected:
 class AshmemDirectChannel : public DirectChannelBase {
 public:
     AshmemDirectChannel(const struct sensors_direct_mem_t *mem);
-    virtual ~AshmemDirectChannel();
+    ~AshmemDirectChannel() override;
+    bool memoryMatches(const struct sensors_direct_mem_t *mem) const override;
 private:
     int mAshmemFd;
 };
@@ -58,6 +60,8 @@ public:
     int unregisterBuffer(const native_handle_t *handle);
     int lock(const native_handle_t *handle, int usage, int l, int t, int w, int h, void **vaddr);
     int unlock(const native_handle_t *handle);
+    bool isSameMemory(const native_handle_t *h1, const native_handle_t *h2);
+    bool unregisterImplyDelete() { return mUnregisterImplyDelete; }
 private:
     friend class Singleton<GrallocHalWrapper>;
     GrallocHalWrapper();
@@ -76,12 +80,15 @@ private:
     GRALLOC1_PFN_RELEASE mPfnRelease;
     GRALLOC1_PFN_LOCK mPfnLock;
     GRALLOC1_PFN_UNLOCK mPfnUnlock;
+    GRALLOC1_PFN_GET_BACKING_STORE mPfnGetBackingStore;
+    bool mUnregisterImplyDelete;
 };
 
 class GrallocDirectChannel : public DirectChannelBase {
 public:
     GrallocDirectChannel(const struct sensors_direct_mem_t *mem);
-    virtual ~GrallocDirectChannel();
+    ~GrallocDirectChannel() override;
+    bool memoryMatches(const struct sensors_direct_mem_t *mem) const override;
 private:
     native_handle_t *mNativeHandle;
 };

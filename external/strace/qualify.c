@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2016-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,6 +28,7 @@
 
 #include "defs.h"
 #include "nsig.h"
+#include <regex.h>
 
 typedef unsigned int number_slot_t;
 #define BITS_PER_SLOT (sizeof(number_slot_t) * 8)
@@ -198,6 +200,48 @@ qualify_syscall_number(const char *s, struct number_set *set)
 	return done;
 }
 
+static void
+regerror_msg_and_die(int errcode, const regex_t *preg,
+		     const char *str, const char *pattern)
+{
+	char buf[512];
+
+	regerror(errcode, preg, buf, sizeof(buf));
+	error_msg_and_die("%s: %s: %s", str, pattern, buf);
+}
+
+static bool
+qualify_syscall_regex(const char *s, struct number_set *set)
+{
+	regex_t preg;
+	int rc;
+
+	if ((rc = regcomp(&preg, s, REG_EXTENDED | REG_NOSUB)) != 0)
+		regerror_msg_and_die(rc, &preg, "regcomp", s);
+
+	unsigned int p;
+	bool found = false;
+	for (p = 0; p < SUPPORTED_PERSONALITIES; ++p) {
+		unsigned int i;
+
+		for (i = 0; i < nsyscall_vec[p]; ++i) {
+			if (!sysent_vec[p][i].sys_name)
+				continue;
+			rc = regexec(&preg, sysent_vec[p][i].sys_name,
+				     0, NULL, 0);
+			if (rc == REG_NOMATCH)
+				continue;
+			else if (rc)
+				regerror_msg_and_die(rc, &preg, "regexec", s);
+			add_number_to_set(i, &set[p]);
+			found = true;
+		}
+	}
+
+	regfree(&preg);
+	return found;
+}
+
 static unsigned int
 lookup_class(const char *s)
 {
@@ -212,6 +256,20 @@ lookup_class(const char *s)
 		{ "signal",	TRACE_SIGNAL	},
 		{ "ipc",	TRACE_IPC	},
 		{ "network",	TRACE_NETWORK	},
+		{ "%desc",	TRACE_DESC	},
+		{ "%file",	TRACE_FILE	},
+		{ "%memory",	TRACE_MEMORY	},
+		{ "%process",	TRACE_PROCESS	},
+		{ "%signal",	TRACE_SIGNAL	},
+		{ "%ipc",	TRACE_IPC	},
+		{ "%network",	TRACE_NETWORK	},
+		{ "%stat",	TRACE_STAT	},
+		{ "%lstat",	TRACE_LSTAT	},
+		{ "%fstat",	TRACE_FSTAT	},
+		{ "%%stat",	TRACE_STAT_LIKE	},
+		{ "%statfs",	TRACE_STATFS	},
+		{ "%fstatfs",	TRACE_FSTATFS	},
+		{ "%%statfs",	TRACE_STATFS_LIKE	},
 	};
 
 	unsigned int i;
@@ -272,10 +330,19 @@ qualify_syscall_name(const char *s, struct number_set *set)
 static bool
 qualify_syscall(const char *token, struct number_set *set)
 {
+	bool ignore_fail = false;
+
+	while (*token == '?') {
+		token++;
+		ignore_fail = true;
+	}
 	if (*token >= '0' && *token <= '9')
-		return qualify_syscall_number(token, set);
+		return qualify_syscall_number(token, set) || ignore_fail;
+	if (*token == '/')
+		return qualify_syscall_regex(token + 1, set) || ignore_fail;
 	return qualify_syscall_class(token, set)
-	       || qualify_syscall_name(token, set);
+	       || qualify_syscall_name(token, set)
+	       || ignore_fail;
 }
 
 /*
@@ -347,18 +414,6 @@ handle_inversion:
 	}
 }
 
-/*
- * Returns NULL if STR does not start with PREFIX,
- * or a pointer to the first char in STR after PREFIX.
- */
-static const char *
-strip_prefix(const char *prefix, const char *str)
-{
-	size_t len = strlen(prefix);
-
-	return strncmp(prefix, str, len) ? NULL : str + len;
-}
-
 static int
 find_errno_by_name(const char *name)
 {
@@ -379,9 +434,9 @@ parse_inject_token(const char *const token, struct inject_opts *const fopts,
 	const char *val;
 	int intval;
 
-	if ((val = strip_prefix("when=", token))) {
+	if ((val = STR_STRIP_PREFIX(token, "when=")) != token) {
 		/*
-		 * 	== 1+1
+		 *	== 1+1
 		 * F	== F+0
 		 * F+	== F+1
 		 * F+S
@@ -409,7 +464,7 @@ parse_inject_token(const char *const token, struct inject_opts *const fopts,
 			/* F == F+0 */
 			fopts->step = 0;
 		}
-	} else if ((val = strip_prefix("error=", token))) {
+	} else if ((val = STR_STRIP_PREFIX(token, "error=")) != token) {
 		if (fopts->rval != INJECT_OPTS_RVAL_DEFAULT)
 			return false;
 		intval = string_to_uint_upto(val, MAX_ERRNO_VALUE);
@@ -418,14 +473,16 @@ parse_inject_token(const char *const token, struct inject_opts *const fopts,
 		if (intval < 1)
 			return false;
 		fopts->rval = -intval;
-	} else if (!fault_tokens_only && (val = strip_prefix("retval=", token))) {
+	} else if (!fault_tokens_only
+		   && (val = STR_STRIP_PREFIX(token, "retval=")) != token) {
 		if (fopts->rval != INJECT_OPTS_RVAL_DEFAULT)
 			return false;
 		intval = string_to_uint(val);
 		if (intval < 0)
 			return false;
 		fopts->rval = intval;
-	} else if (!fault_tokens_only && (val = strip_prefix("signal=", token))) {
+	} else if (!fault_tokens_only
+		   && (val = STR_STRIP_PREFIX(token, "signal=")) != token) {
 		intval = sigstr_to_uint(val);
 		if (intval < 1 || intval > NSIG_BYTES * 8)
 			return false;
@@ -610,14 +667,14 @@ qualify(const char *str)
 	unsigned int i;
 
 	for (i = 0; i < ARRAY_SIZE(qual_options); ++i) {
-		const char *p = qual_options[i].name;
-		unsigned int len = strlen(p);
+		const char *name = qual_options[i].name;
+		const size_t len = strlen(name);
+		const char *val = str_strip_prefix_len(str, name, len);
 
-		if (strncmp(str, p, len) || str[len] != '=')
+		if (val == str || *val != '=')
 			continue;
-
+		str = val + 1;
 		opt = &qual_options[i];
-		str += len + 1;
 		break;
 	}
 

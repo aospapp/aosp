@@ -63,6 +63,12 @@ public class CompressedTextureCtsActivity extends Activity {
     }
 
     @Override
+    protected void onPause() {
+        mCompressedTextureView.onPause();
+        super.onPause();
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         mCompressedTextureView.onResume();

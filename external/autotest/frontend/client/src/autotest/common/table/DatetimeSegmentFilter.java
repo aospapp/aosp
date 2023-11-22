@@ -2,12 +2,14 @@ package autotest.common.table;
 
 import autotest.common.ui.DateTimeBox;
 
+import com.google.gwt.event.logical.shared.ValueChangeEvent;
 import com.google.gwt.event.logical.shared.ValueChangeHandler;
 import com.google.gwt.i18n.client.DateTimeFormat;
 import com.google.gwt.user.client.ui.HorizontalPanel;
 import com.google.gwt.user.client.ui.Label;
 import com.google.gwt.user.client.ui.Panel;
 import com.google.gwt.user.client.ui.Widget;
+import com.google.gwt.user.datepicker.client.CalendarUtil;
 
 import java.util.Date;
 
@@ -17,7 +19,8 @@ public class DatetimeSegmentFilter extends SimpleFilter {
     protected Panel panel;
     protected Label fromLabel;
     protected Label toLabel;
-    private String placeHolderDatetime;
+    private String placeHolderStartDatetime;
+    private String placeHolderEndDatetime;
 
     public DatetimeSegmentFilter() {
         startDatetimeBox = new DateTimeBox();
@@ -32,9 +35,28 @@ public class DatetimeSegmentFilter extends SimpleFilter {
         panel.add(endDatetimeBox);
 
         DateTimeFormat dateTimeFormat = DateTimeFormat.getFormat("yyyy-MM-dd");
-        placeHolderDatetime = dateTimeFormat.format(new Date()) + "T00:00";
-        setStartTimeToPlaceHolderValue();
+        Date placeHolderDate = new Date();
+        // We want all entries from today, so advance end date to tomorrow.
+        CalendarUtil.addDaysToDate(placeHolderDate, 1);
+        placeHolderEndDatetime = dateTimeFormat.format(placeHolderDate) + "T00:00";
         setEndTimeToPlaceHolderValue();
+
+        CalendarUtil.addDaysToDate(placeHolderDate, -7);
+        placeHolderStartDatetime = dateTimeFormat.format(placeHolderDate) + "T00:00";
+        setStartTimeToPlaceHolderValue();
+
+        addValueChangeHandler(
+            new ValueChangeHandler() {
+                public void onValueChange(ValueChangeEvent event) {
+                    notifyListeners();
+                }
+            },
+            new ValueChangeHandler() {
+                public void onValueChange(ValueChangeEvent event) {
+                    notifyListeners();
+                }
+            }
+        );
     }
 
     @Override
@@ -43,11 +65,11 @@ public class DatetimeSegmentFilter extends SimpleFilter {
     }
 
     public void setStartTimeToPlaceHolderValue() {
-        startDatetimeBox.setValue(placeHolderDatetime);
+        startDatetimeBox.setValue(placeHolderStartDatetime);
     }
 
     public void setEndTimeToPlaceHolderValue() {
-        endDatetimeBox.setValue(placeHolderDatetime);
+        endDatetimeBox.setValue(placeHolderEndDatetime);
     }
 
     public void addValueChangeHandler(ValueChangeHandler<String> startTimeHandler,

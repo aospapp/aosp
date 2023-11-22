@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Búsqueda siempre disponible"</string>
-    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Permite al servicio de ubicaciones y a otras apps de Google la búsqueda de redes, incluso con el Wi-Fi desactivado"</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Permite que los servicios de ubicación y otras apps de Google busquen redes aunque la conexión Wi-Fi esté desactivada"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"Protector de pantalla"</string>
     <string name="device_display" msgid="101455384386372747">"Pantalla"</string>
@@ -160,7 +160,7 @@
     <string name="title_mac_address" msgid="3428401680168668544">"Dirección MAC"</string>
     <string name="title_signal_strength" msgid="205478650262078041">"Intensidad de la señal"</string>
     <string name="title_ip_address" msgid="4533523100923004711">"Dirección IP"</string>
-    <string name="title_ssid" msgid="4858945903642469730">"Ingresar el nombre de la red Wi-Fi"</string>
+    <string name="title_ssid" msgid="4858945903642469730">"Ingresa el nombre de la red Wi-Fi"</string>
     <string name="title_internet_connection" msgid="8710084774588697646">"Conexión a Internet"</string>
     <string name="connected" msgid="7563100162902079938">"Conectado"</string>
     <string name="not_connected" msgid="6858480380326923017">"Desconectado"</string>
@@ -318,7 +318,7 @@
     <string name="move_error_device_admin" msgid="2060627704270836951">"No se puede instalar el Administrador de dispositivos en medios externos."</string>
     <string name="learn_more_action" msgid="7015991954404958779">"Más información"</string>
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"Reintentar"</string>
-    <string name="wifi_wps_title" msgid="1872305810119408482">"Buscando ruteador WPS…"</string>
+    <string name="wifi_wps_title" msgid="1872305810119408482">"Buscando router WPS…"</string>
     <string name="wifi_wps_instructions" msgid="3618110962669110034">"Presiona el botón Wi-Fi Protected Setup en el router.\nEs posible que se denomine \"WPS\" o que contenga el símbolo de la izquierda."</string>
     <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"Ingresa el PIN <xliff:g id="NUMBER">%1$s</xliff:g> en el router Wi-Fi"</string>
     <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"Luego de que ingreses el PIN, la configuración puede tardar hasta dos minutos en completarse."</string>
@@ -360,14 +360,18 @@
     <string name="google_location_services_title" msgid="3382840371861269146">"Servicios de ubicación de Google"</string>
     <string name="third_party_location_services_title" msgid="4089136801976399147">"Servicios de ubicación de terceros"</string>
     <string name="location_reporting" msgid="3054236612250063073">"Informes de Ubicación"</string>
-    <string name="location_history" msgid="2946680949724247804">"Historial de Ubicaciones"</string>
+    <string name="location_history" msgid="2946680949724247804">"Historial de ubicaciones"</string>
     <string name="location_reporting_desc" msgid="6256424995139430823">"Google utiliza esta función en ciertos productos, como Google Now y Google Maps. Activar los Informes de Ubicación permite que cualquier producto de Google que utilice esta función pueda almacenar y hacer uso de los datos de ubicación más recientes del dispositivo asociados a la cuenta de Google."</string>
-    <string name="location_history_desc" msgid="3861249867748294369">"Al activar el Historial de Ubicaciones para esta cuenta, Google podrá almacenar los datos de ubicación del dispositivo para que los utilicen las aplicaciones.\n\nPor ejemplo, Google Maps puede ofrecerte rutas y Google Now información sobre el tráfico en tu viaje cotidiano.\n\nPuedes desactivar el Historial de Ubicaciones en cualquier momento, pero esta acción no eliminará el historial. Para consultar y administrar el Historial de Ubicaciones, visita maps.google.com/locationhistory."</string>
-    <string name="delete_location_history_title" msgid="5804802702252280549">"Eliminar Historial de Ubicaciones"</string>
+    <string name="location_history_desc" msgid="3861249867748294369">"Al activar el Historial de ubicaciones para esta cuenta, Google podrá almacenar los datos de ubicación del dispositivo para que los utilicen las aplicaciones.\n\nPor ejemplo, Google Maps puede ofrecerte rutas y Google Now información sobre el tráfico en tu viaje cotidiano.\n\nPuedes desactivar el Historial de ubicaciones en cualquier momento, pero esta acción no eliminará el historial. Para consultar y administrar el Historial de ubicaciones, visita maps.google.com/locationhistory."</string>
+    <string name="delete_location_history_title" msgid="5804802702252280549">"Eliminar Historial de ubicaciones"</string>
     <string name="delete_location_history_desc" msgid="4142806827237093397">"Se borrará Historial Ubicaciones; imposible revertir. Ciertas apl., como Google Now, no funcionarán."</string>
     <string name="system_services" msgid="7230571820151215779">"Servicios"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Configuración del servicio"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Texto de alto contraste"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Acceso directo a accesibilidad"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Habilitar combinación de teclas de accesibilidad"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Servicio de combinación de teclas"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Si la combinación de teclas está activada, puedes presionar los botones hacia atrás y hacia abajo durante 3 segundos para iniciar una función de accesibilidad."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Subtítulos"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Configuración del texto de subtítulos opcionales superpuestos en el video"</string>
     <string name="captions_display" msgid="735692527287125548">"Pantalla"</string>
@@ -408,7 +412,7 @@
     <string name="system_accessibility_status" msgid="6150600992901856367">"Habilitar"</string>
     <string name="system_accessibility_config" msgid="3216531917536720277">"Configuración"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="8200707259067035823">"¿Quieres usar <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
-    <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"<xliff:g id="SERVICE">%1$s</xliff:g> puede recopilar todo el texto que escribes, excepto las contraseñas. Ese texto puede incluir datos personales, como números de tarjetas de crédito."</string>
+    <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"<xliff:g id="SERVICE">%1$s</xliff:g> puede recopilar todo el texto que escribes (excepto las contraseñas), incluidos los datos personales, como los números de tarjetas de crédito."</string>
     <string name="system_accessibility_service_off_confirm_title" msgid="963297812889694832">"¿Quieres detener <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
     <string name="system_accessibility_service_off_confirm_desc" msgid="6714782635926048678">"Si seleccionas Aceptar, <xliff:g id="SERVICE">%1$s</xliff:g> se detendrá."</string>
     <string name="system_accessibility_tts_output" msgid="8905477795536714590">"Texto a voz"</string>
@@ -593,7 +597,7 @@
     <string name="pin_enter_wrong_seconds" msgid="7541208202846169755">"Ingresaste un PIN incorrecto 5 veces.\nVuelve a intentarlo en <xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g> segundos."</string>
     <string name="pin_toast_wrong" msgid="4628358195224633248">"El PIN es incorrecto. Vuelve a intentarlo."</string>
     <string name="pin_toast_not_match" msgid="5886041789737632996">"Vuelve a intentarlo, el PIN no coincide."</string>
-    <string name="wifi_setup_input_password" msgid="1596168874369038536">"Ingresar la contraseña de <xliff:g id="SSID">%1$s</xliff:g>."</string>
+    <string name="wifi_setup_input_password" msgid="1596168874369038536">"Ingresar la contraseña de <xliff:g id="SSID">%1$s</xliff:g>"</string>
     <string name="wifi_setup_connection_success" msgid="3846993789166071184">"Se conectó correctamente"</string>
     <string name="wifi_setup_save_success" msgid="4785799603638549254">"Se guardó correctamente"</string>
     <string name="device_apps_app_management_version" msgid="2267065043941006486">"Versión: <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
@@ -611,7 +615,7 @@
     <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"<xliff:g id="SIZE">%1$s</xliff:g> en uso de <xliff:g id="VOLUME">%2$s</xliff:g>"</string>
     <string name="device_apps_app_management_clear_data" msgid="4439114679323274127">"Borrar datos"</string>
     <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"Se borrarán todos los datos de esta aplicación de forma permanente.\nLos datos incluyen todos los archivos y todas las opciones de configuración, las cuentas, las bases de datos, etc."</string>
-    <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"Eliminar configuraciones predeterminadas"</string>
+    <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"Borrar valores predeterminados"</string>
     <string name="device_apps_app_management_clear_default_set" msgid="4191720055364731307">"Configurar para abrir según acciones"</string>
     <string name="device_apps_app_management_clear_default_none" msgid="196932966641339141">"No hay configuraciones predeterminadas."</string>
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"Borrar memoria caché"</string>
@@ -654,7 +658,7 @@
     <string name="change_setting" msgid="2047402388786162246">"Cambiar"</string>
     <string name="keep_settings" msgid="6798327196645732517">"No cambiar"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"Permisos"</string>
-    <string name="device_apps_permissions" msgid="2966387603529725982">"Permisos de aplic."</string>
+    <string name="device_apps_permissions" msgid="2966387603529725982">"Permisos de apps"</string>
     <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_0">%d</xliff:g> de <xliff:g id="COUNT_1">%d</xliff:g> aplicaciones permitidas"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"Solicitud de permiso de Bluetooth"</string>
     <string name="security_patch" msgid="2131617390189164481">"Nivel de parche de seguridad de Android"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Realizando informe de errores"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Teclados virtuales disponibles"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Administrar teclados"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Permitido"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"No permitido"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Acceso a los datos de uso"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"El acceso a los datos de uso permite que una app registre las otras apps que usas y con qué frecuencia lo haces, además de tu proveedor, la configuración de idioma y otros detalles."</string>
 </resources>

@@ -31,4 +31,6 @@ LOCAL_SHARED_LIBRARIES := libnativehelper_compat_libc++ liblog
 LOCAL_SDK_VERSION := 23
 LOCAL_CPPFLAGS := -std=gnu++11
 
+LOCAL_CFLAGS := -Wno-unused-parameter
+
 include $(BUILD_SHARED_LIBRARY)

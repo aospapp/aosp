@@ -26,7 +26,7 @@
     <string name="header_category_personal" msgid="8893959635328775096">"Личные данные"</string>
     <string name="accounts_category_title" msgid="7591072907146317425">"Аккаунты"</string>
     <string name="add_account" msgid="4098060223200619258">"Добавить аккаунт"</string>
-    <string name="account_header_remove_account" msgid="3288957118207682685">"Удаление аккаунта"</string>
+    <string name="account_header_remove_account" msgid="3288957118207682685">"Удалить аккаунт"</string>
     <string name="account_sync" msgid="773808124331714965">"Выбрать приложения"</string>
     <string name="sync_now" msgid="8732244492880016471">"Синхронизировать"</string>
     <string name="sync_in_progress" msgid="1330721038775646022">"Синхронизация…"</string>
@@ -105,7 +105,7 @@
     <string name="about_system_update" msgid="7282772247661356586">"Обновление системы"</string>
     <string name="about_preference" msgid="4131396784531360434">"Об устройстве"</string>
     <string name="device_name" msgid="2670488158531273028">"Название устройства"</string>
-    <string name="restart_button_label" msgid="8153112858638352970">"Перезапустить"</string>
+    <string name="restart_button_label" msgid="8153112858638352970">"Перезагрузить"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"Юридическая информация"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"Лицензии открытого ПО"</string>
     <string name="about_terms_of_service" msgid="7743088207977334874">"Правовая информация Google"</string>
@@ -168,7 +168,7 @@
     <string name="not_connected" msgid="6858480380326923017">"Нет подключения"</string>
     <string name="wifi_setting_header_other_options" msgid="3638677601577777216">"Другие варианты"</string>
     <string name="wifi_setting_see_all" msgid="3217814666041974878">"Показать все"</string>
-    <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"Скрыть"</string>
+    <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"Свернуть"</string>
     <string name="wifi_setting_available_networks" msgid="6713791371350513043">"Доступные сети"</string>
     <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"Подключение через WPS"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"Добавить сеть"</string>
@@ -188,15 +188,15 @@
     <string name="title_wifi_could_not_connect_ap_reject" msgid="328274688839033015">"Не удалось подключиться к сети Wi-Fi"</string>
     <string name="title_wifi_advanced_options" msgid="5389467736846644832">"Изменить настройки прокси-сервера и IP-адреса для сети <xliff:g id="SSID">%1$s</xliff:g>?"</string>
     <string name="title_wifi_proxy_settings" msgid="7728120764469991303">"Настройки прокси-сервера"</string>
-    <string name="title_wifi_proxy_hostname" msgid="4655634673840885248">"Имя хоста прокси-сервера:"</string>
-    <string name="title_wifi_proxy_port" msgid="9194893429116021337">"Порт прокси-сервера:"</string>
-    <string name="title_wifi_proxy_bypass" msgid="4522775396659538614">"Не использовать прокси-сервер для следующих доменов:"</string>
+    <string name="title_wifi_proxy_hostname" msgid="4655634673840885248">"Имя хоста прокси-сервера"</string>
+    <string name="title_wifi_proxy_port" msgid="9194893429116021337">"Порт прокси-сервера"</string>
+    <string name="title_wifi_proxy_bypass" msgid="4522775396659538614">"Подключаться напрямую"</string>
     <string name="title_wifi_ip_settings" msgid="1176973848286865602">"Настройки IP-адреса"</string>
-    <string name="title_wifi_ip_address" msgid="1176502993805009566">"IP-адрес:"</string>
-    <string name="title_wifi_gateway" msgid="7210935277165358134">"Шлюз:"</string>
-    <string name="title_wifi_network_prefix_length" msgid="4821632382990582038">"Длина префикса сети:"</string>
-    <string name="title_wifi_dns1" msgid="8202712852864206601">"DNS 1:"</string>
-    <string name="title_wifi_dns2" msgid="2673986973918499478">"DNS 2:"</string>
+    <string name="title_wifi_ip_address" msgid="1176502993805009566">"IP-адрес"</string>
+    <string name="title_wifi_gateway" msgid="7210935277165358134">"Шлюз"</string>
+    <string name="title_wifi_network_prefix_length" msgid="4821632382990582038">"Длина префикса сети"</string>
+    <string name="title_wifi_dns1" msgid="8202712852864206601">"DNS 1"</string>
+    <string name="title_wifi_dns2" msgid="2673986973918499478">"DNS 2"</string>
     <string name="title_wifi_proxy_settings_invalid" msgid="7380479044141040849">"Недействительные настройки прокси-сервера"</string>
     <string name="title_wifi_ip_settings_invalid" msgid="7228948551397955678">"Недействительные настройки IP-адреса"</string>
     <string name="title_wifi_known_network" msgid="819998498700202436">"Сеть <xliff:g id="SSID">%1$s</xliff:g> уже сохранена"</string>
@@ -234,7 +234,7 @@
     <string name="proxy_error_invalid_port" msgid="1434922103959603993">"Укажите допустимый номер порта"</string>
     <string name="proxy_warning_limited_support" msgid="6160239282535986523">"Прокси-сервер HTTP используется браузером, но не другими приложениями"</string>
     <string name="proxy_port_description" msgid="6791098212244367568">"Укажите допустимый порт.\nПример: <xliff:g id="ID_1">8080</xliff:g>."</string>
-    <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"Перечислите исключаемые домены через запятую или оставьте поле пустым.\nПример: <xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g>."</string>
+    <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"Введите домены, к которым нужно подключаться без прокси-сервера, или оставьте поле пустым.\nПример: <xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g>."</string>
     <string name="proxy_hostname_description" msgid="5824391500254472447">"Введите допустимое имя хоста.\nПример: <xliff:g id="ID_1">proxy.example.com</xliff:g>."</string>
     <string name="wifi_summary_title_connected" msgid="8329216588732277139">"Установлено подключение к сети"</string>
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"Сеть не подключена"</string>
@@ -306,7 +306,7 @@
     <string name="storage_wizard_forget_confirm_description" msgid="4264263982217111372">"Все данные на диске будут утеряны. Продолжить?"</string>
     <string name="storage_wizard_forget_action" msgid="2532812620271112355">"Удалить"</string>
     <string name="storage_new_title" msgid="3098495209500607438">"USB-накопитель подключен"</string>
-    <string name="storage_new_action_browse" msgid="9041125660441839453">"Поиск"</string>
+    <string name="storage_new_action_browse" msgid="9041125660441839453">"Открыть"</string>
     <string name="storage_new_action_adopt" msgid="880224317112988974">"Использовать как накопитель"</string>
     <string name="storage_new_action_format_public" msgid="5604328981214071670">"Настроить как съемный накопитель"</string>
     <string name="storage_new_action_eject" msgid="4069294152676217949">"Извлечь"</string>
@@ -320,7 +320,7 @@
     <string name="move_error_device_admin" msgid="2060627704270836951">"Нельзя установить администратор устройства на внешнем носителе."</string>
     <string name="learn_more_action" msgid="7015991954404958779">"Подробнее…"</string>
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"Повторить"</string>
-    <string name="wifi_wps_title" msgid="1872305810119408482">"Поиск маршрутизатора WPS…"</string>
+    <string name="wifi_wps_title" msgid="1872305810119408482">"Поиск маршрутизатора с функцией WPS…"</string>
     <string name="wifi_wps_instructions" msgid="3618110962669110034">"Нажмите кнопку безопасной настройки Wi-Fi на маршрутизаторе.\nОна может называться WPS или содержать символ, указанный слева."</string>
     <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"Введите PIN-код <xliff:g id="NUMBER">%1$s</xliff:g> на маршрутизаторе Wi-Fi"</string>
     <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"После ввода PIN-кода завершение настройки займет не более двух минут"</string>
@@ -346,7 +346,7 @@
     <item msgid="2475903014233987786">"Использовать время потока"</item>
     <item msgid="150957081326946463">"Отключить"</item>
   </string-array>
-    <string name="system_location" msgid="502463575930545806">"Страна"</string>
+    <string name="system_location" msgid="502463575930545806">"Местоположение"</string>
     <string name="system_desc_location" msgid="4243551425631207495">"Разрешить приложениям использовать данные о вашем местоположении"</string>
     <string name="system_network_location_confirm" msgid="8435144328428634060">"Сбор геоданных"</string>
     <string name="location_mode_title" msgid="6573195849329396150">"Режим"</string>
@@ -354,7 +354,7 @@
     <string name="location_no_recent_apps" msgid="4218851908476344030">"В последнее время приложения не запрашивали геоданные"</string>
     <string name="location_high_battery_use" msgid="576143332793626088">"Высокий расход заряда батареи"</string>
     <string name="location_low_battery_use" msgid="5756040390248358148">"Низкий расход заряда батареи"</string>
-    <string name="location_mode_wifi_description" msgid="2778774510654527264">"Для определения местоположения используются точки доступа Wi‑Fi"</string>
+    <string name="location_mode_wifi_description" msgid="2778774510654527264">"По точкам доступа Wi‑Fi"</string>
     <string name="location_status" msgid="3456414279428237558">"Определение местоположения"</string>
     <string name="location_services" msgid="5441085185119797200">"Данные о местоположении"</string>
     <string name="on" msgid="6683600681314500652">"Вкл."</string>
@@ -370,6 +370,10 @@
     <string name="system_services" msgid="7230571820151215779">"Сервисы"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Настройки службы"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Высококонтрастный текст"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Быстрое включение"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Быстрое включение"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Быстрое включение сервиса"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Когда эта функция включена, вы можете активировать специальные возможности, одновременно удерживая кнопки \"Назад\" и \"Вниз\" в течение трех секунд."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Субтитры"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Настройки субтитров в видео"</string>
     <string name="captions_display" msgid="735692527287125548">"Экран"</string>
@@ -429,7 +433,7 @@
     <string name="system_stay_awake" msgid="1212296404230848490">"Оставить включенным"</string>
     <string name="system_hdcp_checking" msgid="8470793875143334320">"Проверка HDCP"</string>
     <string name="system_hdmi_optimization" msgid="9120919064234265144">"HDMI-оптимизация"</string>
-    <string name="system_reboot_confirm" msgid="534407910866199191">"Перезагрузить сейчас?"</string>
+    <string name="system_reboot_confirm" msgid="534407910866199191">"Перезагрузить устройство?"</string>
     <string name="system_desc_reboot_confirm" msgid="1367498732529710136">"Чтобы изменения вступили в силу, необходимо перезагрузить устройство"</string>
     <string name="system_never_check" msgid="6666520460705041617">"Никогда не проверять"</string>
     <string name="system_check_for_drm_content_only" msgid="8716366734950874267">"Проверять только содержание DRM"</string>
@@ -658,9 +662,9 @@
     <item msgid="8122798759665439456">"Телевизор в большой комнате"</item>
     <item msgid="1389347662738182100">"Телевизор в спальне"</item>
   </string-array>
-    <string name="custom_room" msgid="8655516733933892458">"Укажите другое помещение…"</string>
+    <string name="custom_room" msgid="8655516733933892458">"Ввести другое название…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"Переименовать устройство <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
-    <string name="device_rename_description" msgid="2461752788563877107">"Название устройства <xliff:g id="DEVICEMODEL">%1$s</xliff:g> – \"<xliff:g id="DEVICENAME">%2$s</xliff:g>\""</string>
+    <string name="device_rename_description" msgid="2461752788563877107">"В данный момент это устройство <xliff:g id="DEVICEMODEL">%1$s</xliff:g> называется \"<xliff:g id="DEVICENAME">%2$s</xliff:g>\"."</string>
     <string name="change_setting" msgid="2047402388786162246">"Изменить"</string>
     <string name="keep_settings" msgid="6798327196645732517">"Не изменять"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"Разрешения"</string>
@@ -676,4 +680,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Создание отчета об ошибке…"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Доступные виртуальные клавиатуры"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Управление клавиатурами"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Разрешено"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Запрещено"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Доступ к истории использования"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Эта настройка разрешает отслеживать данные об использовании других приложений, сведения об операторе связи, языковые настройки и другую информацию."</string>
 </resources>

@@ -65,5 +65,6 @@ void RegisterCommand(const std::string& cmd_name,
 void UnRegisterCommand(const std::string& cmd_name);
 std::unique_ptr<Command> CreateCommandInstance(const std::string& cmd_name);
 const std::vector<std::string> GetAllCommandNames();
+bool RunSimpleperfCmd(int argc, char** argv);
 
 #endif  // SIMPLE_PERF_COMMAND_H_

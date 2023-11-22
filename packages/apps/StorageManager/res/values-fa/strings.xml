@@ -55,9 +55,12 @@
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"روشن کردن"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"پشتیبان‌گیری از عکس‌ها و ویدیوها"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"درحال پیدا کردن موارد…"</string>
+    <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"نمایش همه موارد"</string>
+    <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"پنهان کردن موارد اخیر"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="386144597646356521">"<xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> از دستگاهتان پاک خواهد شد"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"حافظه شما اکنون توسط مدیر حافظه مدیریت می‌شود"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"موردی برای پاک کردن موجود نیست"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"مرور موارد اخیر"</string>
     <string name="empty_state_summary" msgid="8439893007424243790">"فایل قدیمی‌تری برای پاک کردن موجود نیست. برای ایجاد فضای خالی، عکس‌ها، ویدیوها و برنامه‌های اخیر را پاک کنید."</string>
+    <string name="app_requesting_space" msgid="857425181289960167">"<xliff:g id="APP">%1$s</xliff:g> به <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> فضا نیاز دارد"</string>
 </resources>

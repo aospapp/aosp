@@ -1,8 +1,7 @@
-apply plugin: android.support.SupportLibraryPlugin
-archivesBaseName = 'cardview-v7'
+apply plugin: android.support.SupportAndroidLibraryPlugin
 
 dependencies {
-    compile project(':support-annotations')
+    api project(':support-annotations')
 }
 
 android {
@@ -20,6 +19,7 @@ android {
 
 supportLibrary {
     name 'Android Support CardView v7'
+    publish true
     inceptionYear '2011'
     description 'Android Support CardView v7'
 }

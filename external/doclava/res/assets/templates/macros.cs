@@ -274,6 +274,13 @@ if:reference.apilevels && obj.since ?><?cs
 /if ?><?cs
 /def ?><?cs
 
+# print the artifact ?><?cs
+def:artifact_tags(obj) ?><?cs
+if:reference.artifacts && obj.artifact ?>
+  belongs to Maven artifact <?cs var:obj.artifact ?></a><?cs
+/if ?><?cs
+/def ?><?cs
+
 def:federated_refs(obj) ?>
   <?cs if:subcount(obj.federated) ?>
     <div>

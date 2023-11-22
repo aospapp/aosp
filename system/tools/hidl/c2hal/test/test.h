@@ -273,7 +273,7 @@ typedef struct my_other_t {
 
     int (*store_meta_data_in_buffers)(struct camera_device *, int enable);
 
-    typedef void (*scan_result_callback)(bt_bdaddr_t* bda, int rssi, vector<uint8_t> adv_data);
+    typedef void (*scan_result_callback)(FooFooBarFoo* bda, int rssi, vector<uint8_t> adv_data);
 
     pthread_t (* gps_create_thread)(const char* name, void (*start)(void *), void* arg);
 

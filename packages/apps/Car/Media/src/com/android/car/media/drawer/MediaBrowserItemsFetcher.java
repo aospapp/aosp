@@ -15,14 +15,14 @@
  */
 package com.android.car.media.drawer;
 
+import android.content.Context;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
+import android.media.MediaDescription;
 import android.media.browse.MediaBrowser;
-import android.media.session.MediaController;
 import android.media.session.MediaSession;
+import android.support.annotation.Nullable;
 import android.util.Log;
-
-import com.android.car.app.CarDrawerActivity;
 import com.android.car.app.DrawerItemViewHolder;
 import com.android.car.media.MediaPlaybackModel;
 import com.android.car.media.R;
@@ -39,18 +39,27 @@ import java.util.List;
 class MediaBrowserItemsFetcher implements MediaItemsFetcher {
     private static final String TAG = "Media.BrowserFetcher";
 
-    private final CarDrawerActivity mActivity;
+    /**
+     * An id that can be returned from {@link MediaBrowser.MediaItem#getMediaId()} to indicate that
+     * a {@link android.media.browse.MediaBrowser.MediaItem} representing the play queue has been
+     * clicked.
+     */
+    static final String PLAY_QUEUE_MEDIA_ID = "com.android.car.media.drawer.PLAY_QUEUE";
+
+    private final Context mContext;
     private final MediaPlaybackModel mMediaPlaybackModel;
     private final String mMediaId;
     private final boolean mShowQueueItem;
+    private final MediaItemOnClickListener mItemClickListener;
     private ItemsUpdatedCallback mCallback;
     private List<MediaBrowser.MediaItem> mItems = new ArrayList<>();
     private boolean mQueueAvailable;
 
-    MediaBrowserItemsFetcher(CarDrawerActivity activity, MediaPlaybackModel model, String mediaId,
-            boolean showQueueItem) {
-        mActivity = activity;
+    MediaBrowserItemsFetcher(Context context, MediaPlaybackModel model,
+            MediaItemOnClickListener listener, String mediaId, boolean showQueueItem) {
+        mContext = context;
         mMediaPlaybackModel = model;
+        mItemClickListener = listener;
         mMediaId = mediaId;
         mShowQueueItem = showQueueItem;
     }
@@ -108,6 +117,14 @@ class MediaBrowserItemsFetcher implements MediaItemsFetcher {
     }
 
     @Override
+    public boolean usesSmallLayout(int position) {
+        if (mQueueAvailable && position == mItems.size()) {
+            return true;
+        }
+        return MediaItemsFetcher.usesSmallLayout(mItems.get(position).getDescription());
+    }
+
+    @Override
     public void populateViewHolder(DrawerItemViewHolder holder, int position) {
         if (mQueueAvailable && position == mItems.size()) {
             holder.getTitle().setText(mMediaPlaybackModel.getQueueTitle());
@@ -116,11 +133,13 @@ class MediaBrowserItemsFetcher implements MediaItemsFetcher {
         MediaBrowser.MediaItem item = mItems.get(position);
         MediaItemsFetcher.populateViewHolderFrom(holder, item.getDescription());
 
-        // TODO(sriniv): Once we use smallLayout, text and rightIcon fields may be unavailable.
-        // Related to b/36573125.
+        if (holder.getRightIcon() == null) {
+            return;
+        }
+
         if (item.isBrowsable()) {
-            int iconColor = mActivity.getColor(R.color.car_tint);
-            Drawable drawable = mActivity.getDrawable(R.drawable.ic_chevron_right);
+            int iconColor = mContext.getColor(R.color.car_tint);
+            Drawable drawable = mContext.getDrawable(R.drawable.ic_chevron_right);
             drawable.setColorFilter(iconColor, PorterDuff.Mode.SRC_IN);
             holder.getRightIcon().setImageDrawable(drawable);
         } else {
@@ -130,34 +149,29 @@ class MediaBrowserItemsFetcher implements MediaItemsFetcher {
 
     @Override
     public void onItemClick(int position) {
-        if (mQueueAvailable && position == mItems.size()) {
-            MediaItemsFetcher fetcher = new MediaQueueItemsFetcher(mActivity, mMediaPlaybackModel);
-            setupAdapterAndSwitch(fetcher, mMediaPlaybackModel.getQueueTitle());
+        if (mItemClickListener == null) {
             return;
         }
 
-        MediaBrowser.MediaItem item = mItems.get(position);
-        if (item.isBrowsable()) {
-            MediaItemsFetcher fetcher = new MediaBrowserItemsFetcher(
-                    mActivity, mMediaPlaybackModel, item.getMediaId(), false /* showQueueItem */);
-            setupAdapterAndSwitch(fetcher, item.getDescription().getTitle());
-        } else if (item.isPlayable()) {
-            MediaController.TransportControls controls = mMediaPlaybackModel.getTransportControls();
-            if (controls != null) {
-                controls.pause();
-                controls.playFromMediaId(item.getMediaId(), item.getDescription().getExtras());
-            }
-            mActivity.closeDrawer();
-        } else {
-            Log.w(TAG, "Unknown item type; don't know how to handle!");
-        }
+        MediaBrowser.MediaItem item = mQueueAvailable && position == mItems.size()
+                ? createPlayQueueMediaItem()
+                : mItems.get(position);
+
+        mItemClickListener.onMediaItemClicked(item);
     }
 
-    private void setupAdapterAndSwitch(MediaItemsFetcher fetcher, CharSequence title) {
-        MediaDrawerAdapter subAdapter = new MediaDrawerAdapter(mActivity, false /* smallLayout */);
-        subAdapter.setFetcher(fetcher);
-        subAdapter.setTitle(title);
-        mActivity.switchToAdapter(subAdapter);
+    /**
+     * Creates and returns a {@link android.media.browse.MediaBrowser.MediaItem} that represents an
+     * entry for the play queue. A play queue media item will have a media id of
+     * {@link #PLAY_QUEUE_MEDIA_ID} and is {@link MediaBrowser.MediaItem#FLAG_BROWSABLE}.
+     */
+    private MediaBrowser.MediaItem createPlayQueueMediaItem() {
+        MediaDescription description = new MediaDescription.Builder()
+                .setMediaId(PLAY_QUEUE_MEDIA_ID)
+                .setTitle(mMediaPlaybackModel.getQueueTitle())
+                .build();
+
+        return new MediaBrowser.MediaItem(description, MediaBrowser.MediaItem.FLAG_BROWSABLE);
     }
 
     @Override
@@ -165,5 +179,10 @@ class MediaBrowserItemsFetcher implements MediaItemsFetcher {
         mMediaPlaybackModel.removeListener(mModelListener);
         mMediaPlaybackModel.getMediaBrowser().unsubscribe(mMediaId);
         mCallback = null;
+    }
+
+    @Override
+    public int getScrollPosition() {
+        return MediaItemsFetcher.DONT_SCROLL;
     }
 }

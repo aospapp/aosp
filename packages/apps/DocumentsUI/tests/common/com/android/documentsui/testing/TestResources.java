@@ -18,6 +18,7 @@ package com.android.documentsui.testing;
 
 import android.annotation.BoolRes;
 import android.annotation.NonNull;
+import android.annotation.PluralsRes;
 import android.annotation.StringRes;
 import android.content.res.Resources;
 import android.util.SparseArray;
@@ -38,6 +39,7 @@ public abstract class TestResources extends Resources {
 
     public SparseBooleanArray bools;
     public SparseArray<String> strings;
+    public SparseArray<String> plurals;
 
     public TestResources() {
         super(ClassLoader.getSystemClassLoader());
@@ -48,6 +50,7 @@ public abstract class TestResources extends Resources {
                 TestResources.class, Mockito.CALLS_REAL_METHODS);
         res.bools = new SparseBooleanArray();
         res.strings = new SparseArray<>();
+        res.plurals = new SparseArray<>();
 
         res.setProductivityDeviceEnabled(false);
 
@@ -56,11 +59,16 @@ public abstract class TestResources extends Resources {
         // this little hack....QuickViewIntentBuilder will check for this value
         // and ignore
         res.setQuickViewerPackage(QuickViewIntentBuilder.IGNORE_DEBUG_PROP);
+        res.setDefaultDocumentsUri(TestProvidersAccess.DOWNLOADS.getUri().toString());
         return res;
     }
 
     public void setQuickViewerPackage(String packageName) {
         strings.put(R.string.trusted_quick_viewer_package, packageName);
+    }
+
+    public void setDefaultDocumentsUri(String uri) {
+        strings.put(R.string.default_root_uri, uri);
     }
 
     public void setProductivityDeviceEnabled(boolean enabled) {
@@ -81,6 +89,21 @@ public abstract class TestResources extends Resources {
     public final String getString(
             @StringRes int id, Object... formatArgs) throws NotFoundException {
         return getString(id);
+    }
+
+    @Override
+    public final @Nullable String getQuantityString(@PluralsRes int id, int size) {
+        return plurals.get(id);
+    }
+
+    @Override
+    public final @Nullable String getQuantityString(@PluralsRes int id, int size, Object... args) {
+        String format = getQuantityString(id, size);
+        if (format != null) {
+            return String.format(format, args);
+        }
+
+        return null;
     }
 
     public final CharSequence getText(@StringRes int resId) {

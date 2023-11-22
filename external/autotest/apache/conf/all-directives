@@ -3,6 +3,8 @@
 # include other directive files.
 
 DocumentRoot /usr/local/autotest/apache/www/
+
+Include "/usr/local/autotest/apache/conf/logging-directives"
 Include "/usr/local/autotest/apache/conf/cgi-directives"
 Include "/usr/local/autotest/apache/conf/gwt-directives"
 Include "/usr/local/autotest/apache/conf/django-directives"

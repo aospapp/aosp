@@ -61,7 +61,7 @@ public final class MainActivityWrapper {
      * Unsets the main activity instance.
      */
     public void onMainActivityDestroyed(@NonNull MainActivity activity) {
-        if (mActivity != activity) {
+        if (mActivity == activity) {
             mActivity = null;
         }
     }

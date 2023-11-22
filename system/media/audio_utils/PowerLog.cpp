@@ -23,6 +23,7 @@
 #include <math.h>
 #include <sstream>
 #include <stdint.h>
+#include <unistd.h>
 
 #include <audio_utils/clock.h>
 #include <audio_utils/power.h>

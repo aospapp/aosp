@@ -32,7 +32,7 @@ struct CompoundType : public Scope {
         STYLE_UNION,
     };
 
-    CompoundType(Style style, const char *localName, const Location &location);
+    CompoundType(Style style, const char* localName, const Location& location, Scope* parent);
 
     Style style() const;
 
@@ -41,6 +41,8 @@ struct CompoundType : public Scope {
     bool isCompoundType() const override;
 
     bool canCheckEquality() const override;
+
+    std::string typeName() const override;
 
     std::string getCppType(StorageMode mode,
                            bool specifyNamespaces) const override;

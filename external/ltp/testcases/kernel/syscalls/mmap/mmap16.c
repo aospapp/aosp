@@ -48,6 +48,7 @@ static const char *device;
 static const char *fs_type = "ext4";
 static int mount_flag;
 static int chdir_flag;
+static int parentfd = -1;
 
 static int page_size;
 static int bug_reproduced;
@@ -91,7 +92,7 @@ int main(int ac, char **av)
 
 static void do_test(void)
 {
-	int fd, ret, status;
+	int ret, status;
 	pid_t child;
 	char buf[FS_BLOCKSIZE];
 
@@ -105,12 +106,12 @@ static void do_test(void)
 	case 0:
 		do_child();
 	default:
-		fd = SAFE_OPEN(cleanup, "testfilep", O_RDWR);
+		parentfd = SAFE_OPEN(cleanup, "testfilep", O_RDWR);
 		memset(buf, 'a', FS_BLOCKSIZE);
 
 		TST_SAFE_CHECKPOINT_WAIT(cleanup, 0);
 		while (1) {
-			ret = write(fd, buf, FS_BLOCKSIZE);
+			ret = write(parentfd, buf, FS_BLOCKSIZE);
 			if (ret < 0) {
 				if (errno == ENOSPC) {
 					break;
@@ -120,7 +121,7 @@ static void do_test(void)
 				}
 			}
 		}
-		SAFE_CLOSE(cleanup, fd);
+		SAFE_CLOSE(cleanup, parentfd);
 		TST_SAFE_CHECKPOINT_WAKE(cleanup, 0);
 	}
 
@@ -188,7 +189,7 @@ static void do_child(void)
 
 	memset(buf, 'a', FS_BLOCKSIZE);
 	fd = SAFE_OPEN(NULL, "testfilec", O_RDWR);
-	SAFE_PWRITE(NULL, 1, fd, buf, FS_BLOCKSIZE, 0);
+	SAFE_WRITE(NULL, 1, fd, buf, FS_BLOCKSIZE);
 
 	/*
 	 * In case mremap() may fail because that memory area can not be
@@ -219,7 +220,7 @@ static void do_child(void)
 	 * kernel writepage is called, that means data corruption.
 	 */
 	TST_SAFE_CHECKPOINT_WAKE(NULL, 0);
-	TST_SAFE_CHECKPOINT_WAIT(NULL, 0);
+	TST_SAFE_CHECKPOINT_WAIT2(NULL, 0, 60*1000);
 
 	for (offset = FS_BLOCKSIZE; offset < page_size; offset += FS_BLOCKSIZE)
 		addr[offset] = 'a';
@@ -231,6 +232,8 @@ static void do_child(void)
 
 static void cleanup(void)
 {
+	if (parentfd >= 0)
+		close(parentfd);
 	if (chdir_flag && chdir(".."))
 		tst_resm(TWARN | TERRNO, "chdir('..') failed");
 	if (mount_flag && tst_umount(MNTPOINT) < 0)

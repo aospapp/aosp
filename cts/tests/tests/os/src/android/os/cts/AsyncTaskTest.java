@@ -201,7 +201,7 @@ public class AsyncTaskTest extends InstrumentationTestCase {
                 try {
                     command.run();
                     fail("Exception not thrown");
-                } catch (Throwable tr) {
+                } catch (Exception tr) {
                     // expected
                 }
             }

@@ -20,6 +20,7 @@
 #include <vector>
 
 #include <android-base/logging.h>
+#include <android-base/test_utils.h>
 
 #include "command.h"
 #include "environment.h"
@@ -27,17 +28,60 @@
 #include "event_fd.h"
 #include "event_type.h"
 
+static bool IsEventTypeSupported(const EventType& event_type) {
+  if (event_type.type != PERF_TYPE_RAW) {
+    perf_event_attr attr = CreateDefaultPerfEventAttr(event_type);
+    // Exclude kernel to list supported events even when
+    // /proc/sys/kernel/perf_event_paranoid is 2.
+    attr.exclude_kernel = 1;
+    return IsEventAttrSupported(attr);
+  }
+  if (event_type.limited_arch == "arm" && GetBuildArch() != ARCH_ARM &&
+      GetBuildArch() != ARCH_ARM64) {
+    return false;
+  }
+  // Because the kernel may not check whether the raw event is supported by the cpu pmu.
+  // We can't decide whether the raw event is supported by calling perf_event_open().
+  // Instead, we can check if it can collect some real number.
+  perf_event_attr attr = CreateDefaultPerfEventAttr(event_type);
+  std::unique_ptr<EventFd> event_fd = EventFd::OpenEventFile(attr, gettid(), -1, nullptr);
+  if (event_fd == nullptr) {
+    return false;
+  }
+  auto work_function = []() {
+    TemporaryFile tmpfile;
+    FILE* fp = fopen(tmpfile.path, "w");
+    if (fp == nullptr) {
+      return;
+    }
+    for (int i = 0; i < 10; ++i) {
+      fprintf(fp, "output some data\n");
+    }
+    fclose(fp);
+  };
+  work_function();
+  PerfCounter counter;
+  if (!event_fd->ReadCounter(&counter)) {
+    return false;
+  }
+  return (counter.value != 0u);
+}
+
 static void PrintEventTypesOfType(uint32_t type, const std::string& type_name,
                                   const std::vector<EventType>& event_types) {
   printf("List of %s:\n", type_name.c_str());
+  if (type == PERF_TYPE_RAW && (GetBuildArch() == ARCH_ARM || GetBuildArch() == ARCH_ARM64)) {
+    printf("  # Please refer to PMU event numbers listed in ARMv8 manual for details.\n");
+    printf("  # A possible link is https://developer.arm.com/docs/ddi0487/latest/arm-architecture-reference-manual-armv8-for-armv8-a-architecture-profile.\n");
+  }
   for (auto& event_type : event_types) {
     if (event_type.type == type) {
-      perf_event_attr attr = CreateDefaultPerfEventAttr(event_type);
-      // Exclude kernel to list supported events even when
-      // /proc/sys/kernel/perf_event_paranoid is 2.
-      attr.exclude_kernel = 1;
-      if (IsEventAttrSupported(attr)) {
-        printf("  %s\n", event_type.name.c_str());
+      if (IsEventTypeSupported(event_type)) {
+        printf("  %s", event_type.name.c_str());
+        if (!event_type.description.empty()) {
+          printf("\t\t# %s", event_type.description.c_str());
+        }
+        printf("\n");
       }
     }
   }
@@ -48,7 +92,7 @@ class ListCommand : public Command {
  public:
   ListCommand()
       : Command("list", "list available event types",
-                "Usage: simpleperf list [hw|sw|cache|tracepoint]\n"
+                "Usage: simpleperf list [hw|sw|cache|raw|tracepoint]\n"
                 "    List all available perf events on this machine.\n") {
   }
 
@@ -64,6 +108,7 @@ bool ListCommand::Run(const std::vector<std::string>& args) {
       {"hw", {PERF_TYPE_HARDWARE, "hardware events"}},
       {"sw", {PERF_TYPE_SOFTWARE, "software events"}},
       {"cache", {PERF_TYPE_HW_CACHE, "hw-cache events"}},
+      {"raw", {PERF_TYPE_RAW, "raw events provided by cpu pmu"}},
       {"tracepoint", {PERF_TYPE_TRACEPOINT, "tracepoint events"}},
       {"user-space-sampler", {SIMPLEPERF_TYPE_USER_SPACE_SAMPLERS, "user-space samplers"}},
   };

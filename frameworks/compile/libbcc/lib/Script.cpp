@@ -66,6 +66,8 @@ bool Script::LinkRuntime(const char *core_lib) {
   //   violate any compiler version guarantees, so the right thing to
   //   do is retain the compiler version from source, which specifies
   //   which guarantees source (and hence the merged code) satisfies.
+  //   See frameworks/rs/driver/README.txt regarding libclcore_source
+  //   obeying compiler version guarantees.
   // - optimization level in source and libclcore_source is meaningful.
   //   We simply define the optimization level in the linked code to
   //   be the optimization level of source.

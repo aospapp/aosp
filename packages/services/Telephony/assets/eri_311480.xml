@@ -18,8 +18,8 @@
 <!-- Note that IconMode can be only 0, ON or 1, FLASHING
      The icon is turned OFF if then IconIndex = 1 -->
 
-<EriFile VersionNumber="5"
-         NumberOfEriEntries="19"
+<EriFile VersionNumber="7"
+         NumberOfEriEntries="7"
          EriFileType="2">
 
          <CallPromptId Id="0"
@@ -31,30 +31,6 @@
          <CallPromptId Id="2"
                        CallPromptText="CallPromptId2"/>
 
-         <EriInfo RoamingIndicator="0"
-                  IconIndex="0"
-                  IconMode="0"
-                  EriText=""
-                  CallPromptId="0"
-                  AlertId="0"
-                  DataServiceSupport="1"/>
-
-         <EriInfo RoamingIndicator="1"
-                  IconIndex="1"
-                  IconMode="0"
-                  EriText=""
-                  CallPromptId="0"
-                  AlertId="0"
-                  DataServiceSupport="1"/>
-
-         <EriInfo RoamingIndicator="2"
-                  IconIndex="2"
-                  IconMode="1"
-                  EriText=""
-                  CallPromptId="0"
-                  AlertId="0"
-                  DataServiceSupport="1"/>
-
          <EriInfo RoamingIndicator="64"
                   IconIndex="1"
                   IconMode="0"
@@ -64,9 +40,9 @@
                   DataServiceSupport="1"/>
 
          <EriInfo RoamingIndicator="65"
-                  IconIndex="3"
+                  IconIndex="1"
                   IconMode="0"
-                  EriText="Network Extender"
+                  EriText="Verizon"
                   CallPromptId="0"
                   AlertId="0"
                   DataServiceSupport="1"/>
@@ -110,77 +86,5 @@
                   CallPromptId="0"
                   AlertId="5"
                   DataServiceSupport="0"/>
-
-         <EriInfo RoamingIndicator="71"
-                  IconIndex="1"
-                  IconMode="0"
-                  EriText="Extended Network"
-                  CallPromptId="0"
-                  AlertId="4"
-                  DataServiceSupport="1"/>
-
-         <EriInfo RoamingIndicator="72"
-                  IconIndex="0"
-                  IconMode="0"
-                  EriText="Extended Network"
-                  CallPromptId="0"
-                  AlertId="4"
-                  DataServiceSupport="1"/>
-
-         <EriInfo RoamingIndicator="73"
-                  IconIndex="0"
-                  IconMode="0"
-                  EriText="Roaming"
-                  CallPromptId="0"
-                  AlertId="5"
-                  DataServiceSupport="1"/>
-
-         <EriInfo RoamingIndicator="74"
-                  IconIndex="2"
-                  IconMode="0"
-                  EriText="Extended Network"
-                  CallPromptId="0"
-                  AlertId="4"
-                  DataServiceSupport="1"/>
-
-         <EriInfo RoamingIndicator="75"
-                  IconIndex="2"
-                  IconMode="0"
-                  EriText="Roaming"
-                  CallPromptId="0"
-                  AlertId="5"
-                  DataServiceSupport="1"/>
-
-         <EriInfo RoamingIndicator="76"
-                  IconIndex="0"
-                  IconMode="0"
-                  EriText="Verizon"
-                  CallPromptId="0"
-                  AlertId="0"
-                  DataServiceSupport="1"/>
-
-         <EriInfo RoamingIndicator="77"
-                  IconIndex="2"
-                  IconMode="0"
-                  EriText="Verizon"
-                  CallPromptId="0"
-                  AlertId="0"
-                  DataServiceSupport="1"/>
-
-         <EriInfo RoamingIndicator="78"
-                  IconIndex="1"
-                  IconMode="0"
-                  EriText="Network Extender"
-                  CallPromptId="0"
-                  AlertId="1"
-                  DataServiceSupport="1"/>
-
-         <EriInfo RoamingIndicator="79"
-                  IconIndex="3"
-                  IconMode="1"
-                  EriText="Network Extender"
-                  CallPromptId="0"
-                  AlertId="1"
-                  DataServiceSupport="1"/>
 
 </EriFile>

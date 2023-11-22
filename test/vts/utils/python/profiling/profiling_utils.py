@@ -76,6 +76,7 @@ class ProfilingFeature(feature_utils.Feature):
     _OPTIONAL_PARAMS = [
         keys.ConfigKeys.IKEY_PROFILING_TRACING_PATH,
         keys.ConfigKeys.IKEY_TRACE_FILE_TOOL_NAME,
+        keys.ConfigKeys.IKEY_SAVE_TRACE_FILE_REMOTE,
         keys.ConfigKeys.IKEY_ABI_BITNESS,
     ]
 
@@ -97,7 +98,10 @@ class ProfilingFeature(feature_utils.Feature):
             return False
         return True
 
-    def GetTraceFiles(self, dut, host_profiling_trace_path, trace_file_tool):
+    def GetTraceFiles(self,
+                      dut,
+                      host_profiling_trace_path=None,
+                      trace_file_tool=None):
         """Pulls the trace file and save it under the profiling trace path.
 
         Args:
@@ -197,8 +201,8 @@ class ProfilingFeature(feature_utils.Feature):
         api_latencies = {}
 
         data_file_path = getattr(self, keys.ConfigKeys.IKEY_DATA_FILE_PATH)
-        trace_processor_binary = os.path.join(data_file_path,
-                                              "host", "bin", "trace_processor")
+        trace_processor_binary = os.path.join(data_file_path, "host", "bin",
+                                              "trace_processor")
         trace_processor_lib = os.path.join(data_file_path, "host", "lib64")
         trace_processor_cmd = [
             "chmod a+x %s" % trace_processor_binary,
@@ -295,10 +299,18 @@ class ProfilingFeature(feature_utils.Feature):
 
         profiling_data = getattr(self, _PROFILING_DATA)
 
-        trace_files = self.GetTraceFiles(
-            dut,
-            getattr(self, keys.ConfigKeys.IKEY_PROFILING_TRACING_PATH, None),
-            getattr(self, keys.ConfigKeys.IKEY_TRACE_FILE_TOOL_NAME, None))
+        trace_files = []
+        save_trace_remote = getattr(
+            self, keys.ConfigKeys.IKEY_SAVE_TRACE_FILE_REMOTE, False)
+        if save_trace_remote:
+            trace_files = self.GetTraceFiles(
+                dut,
+                getattr(self, keys.ConfigKeys.IKEY_PROFILING_TRACING_PATH,
+                        None),
+                getattr(self, keys.ConfigKeys.IKEY_TRACE_FILE_TOOL_NAME, None))
+        else:
+            trace_files = self.GetTraceFiles(dut)
+
         for file in trace_files:
             logging.info("parsing trace file: %s.", file)
             data = self._ParseTraceData(file)

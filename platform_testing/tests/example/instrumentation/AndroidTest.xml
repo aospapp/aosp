@@ -23,7 +23,7 @@
 
     <option name="test-suite-tag" value="apct" />
     <option name="test-tag" value="SampleInstrumentationTest" />
-    <test class="com.android.tradefed.testtype.InstrumentationTest" >
+    <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.test.example.helloworld" />
         <option name="runner" value="android.support.test.runner.AndroidJUnitRunner" />
     </test>

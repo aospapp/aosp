@@ -17,7 +17,7 @@
 #define PACKAGE "policycoreutils"	/* the name of this package lang translation */
 #endif
 
-void usage(char *progname)
+static __attribute__((__noreturn__)) void usage(const char *progname)
 {
 	fprintf(stderr, _("usage:  %s [-qi]\n"), progname);
 	exit(1);
@@ -65,13 +65,6 @@ int main(int argc, char **argv)
 			argv[0], argv[optind++]);
 	}
 	if (init) {
-		if (is_selinux_enabled() == 1) {
-			/* SELinux is already enabled, we should not do an initial load again */
-			fprintf(stderr,
-					_("%s:  Policy is already loaded and initial load requested\n"),
-					argv[0]);
-			exit(2);
-		}
 		ret = selinux_init_load_policy(&enforce);
 		if (ret != 0 ) {
 			if (enforce > 0) {

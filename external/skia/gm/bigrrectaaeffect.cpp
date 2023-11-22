@@ -81,16 +81,16 @@ protected:
                 SkASSERT(fp);
                 if (fp) {
                     GrPaint grPaint;
+                    grPaint.setColor4f(GrColor4f(0, 0, 0, 1.f));
                     grPaint.setXPFactory(GrPorterDuffXPFactory::Get(SkBlendMode::kSrc));
                     grPaint.addCoverageFragmentProcessor(std::move(fp));
 
                     SkRect bounds = testBounds;
                     bounds.offset(SkIntToScalar(x), SkIntToScalar(y));
 
-                    std::unique_ptr<GrMeshDrawOp> op(GrRectOpFactory::MakeNonAAFill(
-                            0xff000000, SkMatrix::I(), bounds, nullptr, nullptr));
-                    renderTargetContext->priv().testingOnly_addMeshDrawOp(
-                            std::move(grPaint), GrAAType::kNone, std::move(op));
+                    renderTargetContext->priv().testingOnly_addDrawOp(
+                            GrRectOpFactory::MakeNonAAFill(std::move(grPaint), SkMatrix::I(),
+                                                           bounds, GrAAType::kNone));
                 }
             canvas->restore();
             x = x + fTestOffsetX;

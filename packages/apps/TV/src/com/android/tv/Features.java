@@ -16,22 +16,29 @@
 
 package com.android.tv;
 
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.os.Build;
+import android.support.annotation.VisibleForTesting;
+import android.text.TextUtils;
+import android.util.Log;
+
+import com.android.tv.common.feature.Feature;
+import com.android.tv.common.feature.GServiceFeature;
+import com.android.tv.common.feature.PropertyFeature;
+import com.android.tv.config.RemoteConfig;
+import com.android.tv.experiments.Experiments;
+import com.android.tv.util.LocationUtils;
+import com.android.tv.util.PermissionUtils;
+import com.android.tv.util.Utils;
+
+import java.util.Locale;
+
 import static com.android.tv.common.feature.EngOnlyFeature.ENG_ONLY_FEATURE;
 import static com.android.tv.common.feature.FeatureUtils.AND;
 import static com.android.tv.common.feature.FeatureUtils.OFF;
 import static com.android.tv.common.feature.FeatureUtils.ON;
 import static com.android.tv.common.feature.FeatureUtils.OR;
-
-import android.content.Context;
-import android.content.pm.PackageManager;
-import android.os.Build;
-import android.support.annotation.VisibleForTesting;
-import android.support.v4.os.BuildCompat;
-
-import com.android.tv.common.feature.Feature;
-import com.android.tv.common.feature.GServiceFeature;
-import com.android.tv.common.feature.PropertyFeature;
-import com.android.tv.util.PermissionUtils;
 
 /**
  * List of {@link Feature} for the Live TV App.
@@ -39,6 +46,9 @@ import com.android.tv.util.PermissionUtils;
  * <p>Remove the {@code Feature} once it is launched.
  */
 public final class Features {
+    private static final String TAG = "Features";
+    private static final boolean DEBUG = false;
+
     /**
      * UI for opting in to analytics.
      *
@@ -57,17 +67,40 @@ public final class Features {
     public static final Feature EPG_SEARCH =
             new PropertyFeature("feature_tv_use_epg_search", false);
 
-    public static final Feature TUNER = new Feature() {
-        @Override
-        public boolean isEnabled(Context context) {
+    public static final Feature TUNER =
+            new Feature() {
+                @Override
+                public boolean isEnabled(Context context) {
 
-            // This is special handling just for USB Tuner.
-            // It does not require any N API's but relies on a improvements in N for AC3 support
-            // After release, change class to this to just be {@link BuildCompat#isAtLeastN()}.
-            return Build.VERSION.SDK_INT > Build.VERSION_CODES.M || BuildCompat.isAtLeastN();
-        }
+                    if (Utils.isDeveloper()) {
+                        // we enable tuner for developers to test tuner in any platform.
+                        return true;
+                    }
 
-    };
+                    // This is special handling just for USB Tuner.
+                    // It does not require any N API's but relies on a improvements in N for AC3 support
+                    return Build.VERSION.SDK_INT >= Build.VERSION_CODES.N;
+                }
+            };
+
+    /**
+     * Use network tuner if it is available and there is no other tuner types.
+     */
+    public static final Feature NETWORK_TUNER =
+            new Feature() {
+                @Override
+                public boolean isEnabled(Context context) {
+                    if (!TUNER.isEnabled(context)) {
+                        return false;
+                    }
+                    if (Utils.isDeveloper()) {
+                        // Network tuner will be enabled for developers.
+                        return true;
+                    }
+                    return Locale.US.getCountry().equalsIgnoreCase(
+                            LocationUtils.getCurrentCountry(context));
+                }
+            };
 
     private static final String GSERVICE_KEY_UNHIDE = "live_channels_unhide";
     /**
@@ -82,28 +115,86 @@ public final class Features {
                 }
             });
 
-    public static final Feature PICTURE_IN_PICTURE = new Feature() {
-        private Boolean mEnabled;
+    public static final Feature PICTURE_IN_PICTURE =
+            new Feature() {
+                private Boolean mEnabled;
 
-        @Override
-        public boolean isEnabled(Context context) {
-            if (mEnabled == null) {
-                mEnabled = context.getPackageManager().hasSystemFeature(
-                        PackageManager.FEATURE_PICTURE_IN_PICTURE);
-            }
-            return mEnabled;
-        }
-    };
+                @Override
+                public boolean isEnabled(Context context) {
+                    if (mEnabled == null) {
+                        mEnabled =
+                                Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+                                        && context.getPackageManager()
+                                                .hasSystemFeature(
+                                                        PackageManager.FEATURE_PICTURE_IN_PICTURE);
+                    }
+                    return mEnabled;
+                }
+            };
 
-    /**
-     * Enable a conflict dialog between currently watched channel and upcoming recording.
-     */
+    /** Use AC3 software decode. */
+    public static final Feature AC3_SOFTWARE_DECODE =
+            new Feature() {
+                private final String[] SUPPORTED_REGIONS = {};
+
+                private Boolean mEnabled;
+
+                @Override
+                public boolean isEnabled(Context context) {
+                    if (mEnabled == null) {
+                        if (mEnabled == null) {
+                            // We will not cache the result of fallback solution.
+                            String country = LocationUtils.getCurrentCountry(context);
+                            for (int i = 0; i < SUPPORTED_REGIONS.length; ++i) {
+                                if (SUPPORTED_REGIONS[i].equalsIgnoreCase(country)) {
+                                    return true;
+                                }
+                            }
+                            if (DEBUG) Log.d(TAG, "AC3 flag false after country check");
+                            return false;
+                        }
+                    }
+                    if (DEBUG) Log.d(TAG, "AC3 flag " + mEnabled);
+                    return mEnabled;
+                }
+            };
+
+    /** Show postal code fragment before channel scan. */
+    public static final Feature ENABLE_CLOUD_EPG_REGION =
+            new Feature() {
+                private final String[] SUPPORTED_REGIONS = {
+                };
+
+
+                @Override
+                public boolean isEnabled(Context context) {
+                    if (!Experiments.CLOUD_EPG.get()) {
+                        if (DEBUG) Log.d(TAG, "Experiments.CLOUD_EPG is false");
+                        return false;
+                    }
+                    String country = LocationUtils.getCurrentCountry(context);
+                    for (int i = 0; i < SUPPORTED_REGIONS.length; i++) {
+                        if (SUPPORTED_REGIONS[i].equalsIgnoreCase(country)) {
+                            return true;
+                        }
+                    }
+                    if (DEBUG) Log.d(TAG, "EPG flag false after country check");
+                    return false;
+                }
+            };
+
+    /** Enable a conflict dialog between currently watched channel and upcoming recording. */
     public static final Feature SHOW_UPCOMING_CONFLICT_DIALOG = OFF;
 
     /**
      * Use input blacklist to disable partner's tuner input.
      */
     public static final Feature USE_PARTNER_INPUT_BLACKLIST = ON;
+
+    /**
+     * Enable Dvb parsers and listeners.
+     */
+    public static final Feature ENABLE_FILE_DVB = OFF;
 
     @VisibleForTesting
     public static final Feature TEST_FEATURE = new PropertyFeature("test_feature", false);

@@ -16,9 +16,9 @@
 
 cc_test {
     name: "ese_hw_tests",
-    vendor: true,
-    host_supported: true,
+    proprietary: true,
     srcs: ["ese_hw_echo_tests.cpp"],
+    host_supported: true,
     shared_libs: [
         "libese",
         "libese-teq1",

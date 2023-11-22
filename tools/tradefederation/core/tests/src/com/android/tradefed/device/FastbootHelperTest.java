@@ -138,8 +138,12 @@ public class FastbootHelperTest extends TestCase {
         CommandResult fakeRes = new CommandResult(CommandStatus.FAILED);
         fakeRes.setStdout("");
         fakeRes.setStderr("");
-        EasyMock.expect(mMockRunUtil.runTimedCmd(EasyMock.anyLong(),
-                EasyMock.eq("fastboot"), EasyMock.eq("devices"))).andReturn(fakeRes);
+        EasyMock.expect(
+                        mMockRunUtil.runTimedCmdSilently(
+                                EasyMock.anyLong(),
+                                EasyMock.eq("fastboot"),
+                                EasyMock.eq("devices")))
+                .andReturn(fakeRes);
         EasyMock.replay(mMockRunUtil);
         assertTrue(mFastbootHelper.getDevices().isEmpty());
         EasyMock.verify(mMockRunUtil);

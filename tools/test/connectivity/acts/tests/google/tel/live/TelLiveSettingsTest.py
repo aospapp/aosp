@@ -28,12 +28,14 @@ from acts.test_utils.tel.tel_defines import MAX_WAIT_TIME_WFC_ENABLED
 from acts.test_utils.tel.tel_defines import RAT_FAMILY_WLAN
 from acts.test_utils.tel.tel_defines import WFC_MODE_CELLULAR_PREFERRED
 from acts.test_utils.tel.tel_defines import WFC_MODE_DISABLED
+from acts.test_utils.tel.tel_defines import WFC_MODE_WIFI_ONLY
 from acts.test_utils.tel.tel_defines import WFC_MODE_WIFI_PREFERRED
+from acts.test_utils.tel.tel_test_utils import call_setup_teardown
 from acts.test_utils.tel.tel_test_utils import ensure_wifi_connected
 from acts.test_utils.tel.tel_test_utils import is_droid_in_rat_family
 from acts.test_utils.tel.tel_test_utils import is_wfc_enabled
 from acts.test_utils.tel.tel_test_utils import set_wfc_mode
-from acts.test_utils.tel.tel_test_utils import toggle_airplane_mode
+from acts.test_utils.tel.tel_test_utils import toggle_airplane_mode_by_adb
 from acts.test_utils.tel.tel_test_utils import toggle_volte
 from acts.test_utils.tel.tel_test_utils import verify_http_connection
 from acts.test_utils.tel.tel_test_utils import wait_for_ims_registered
@@ -45,11 +47,13 @@ from acts.test_utils.tel.tel_test_utils import wait_for_wfc_enabled
 from acts.test_utils.tel.tel_test_utils import wait_for_wifi_data_connection
 from acts.test_utils.tel.tel_test_utils import wifi_reset
 from acts.test_utils.tel.tel_test_utils import wifi_toggle_state
+from acts.test_utils.tel.tel_voice_utils import is_phone_in_call_volte
 from acts.test_utils.tel.tel_voice_utils import phone_setup_voice_3g
 from acts.test_utils.tel.tel_voice_utils import phone_setup_csfb
 from acts.test_utils.tel.tel_voice_utils import phone_setup_iwlan
 from acts.test_utils.tel.tel_voice_utils import phone_setup_volte
 from acts.test_utils.tel.tel_voice_utils import phone_idle_iwlan
+from acts.test_utils.tel.tel_voice_utils import phone_idle_volte
 
 
 class TelLiveSettingsTest(TelephonyBaseTest):
@@ -196,7 +200,7 @@ class TelLiveSettingsTest(TelephonyBaseTest):
         if not phone_idle_iwlan(self.log, self.ad):
             self.log.error("WFC is not available.")
             return False
-        if not toggle_airplane_mode(self.log, self.ad, False):
+        if not toggle_airplane_mode_by_adb(self.log, self.ad, False):
             self.log.error("Failed to turn off airplane mode")
             return False
         is_wfc_not_available = wait_for_wfc_disabled(self.log, self.ad)
@@ -310,7 +314,7 @@ class TelLiveSettingsTest(TelephonyBaseTest):
         4. DUT WiFi Calling feature bit return False, network rat is not iwlan.
         """
 
-        if not toggle_airplane_mode(self.log, self.ad, True):
+        if not toggle_airplane_mode_by_adb(self.log, self.ad, True):
             self.log.error("Failed to turn on airplane mode")
             return False
         return self._wifi_connected_enable_wfc_teardown_wfc(
@@ -411,7 +415,7 @@ class TelLiveSettingsTest(TelephonyBaseTest):
         4. DUT WiFi Calling feature bit return False, network rat is not iwlan.
         """
 
-        if not toggle_airplane_mode(self.log, self.ad, True):
+        if not toggle_airplane_mode_by_adb(self.log, self.ad, True):
             self.log.error("Failed to turn on airplane mode")
             return False
         return self._wifi_connected_enable_wfc_teardown_wfc(
@@ -558,7 +562,7 @@ class TelLiveSettingsTest(TelephonyBaseTest):
         2. DUT WiFi Calling feature bit return True, network rat is iwlan.
         4. DUT WiFI Calling feature bit return True, network rat is iwlan.
         """
-        if not toggle_airplane_mode(self.log, self.ad, True):
+        if not toggle_airplane_mode_by_adb(self.log, self.ad, True):
             self.log.error("Failed to turn on airplane mode")
             return False
         return self._wifi_connected_set_wfc_mode_change_wfc_mode(
@@ -659,7 +663,7 @@ class TelLiveSettingsTest(TelephonyBaseTest):
         2. DUT WiFi Calling feature bit return True, network rat is iwlan.
         4. DUT WiFI Calling feature bit return True, network rat is iwlan.
         """
-        if not toggle_airplane_mode(self.log, self.ad, True):
+        if not toggle_airplane_mode_by_adb(self.log, self.ad, True):
             self.log.error("Failed to turn on airplane mode")
             return False
         return self._wifi_connected_set_wfc_mode_change_wfc_mode(
@@ -682,7 +686,7 @@ class TelLiveSettingsTest(TelephonyBaseTest):
         3. DUT WiFi Calling feature bit return True, network rat is iwlan.
         5. DUT WiFI Calling feature bit return True, network rat is iwlan.
         """
-        if not toggle_airplane_mode(self.log, self.ad, True):
+        if not toggle_airplane_mode_by_adb(self.log, self.ad, True):
             self.log.error("Failed to turn on airplane mode")
             return False
         return self._wifi_connected_set_wfc_mode_turn_off_apm(
@@ -705,7 +709,7 @@ class TelLiveSettingsTest(TelephonyBaseTest):
         3. DUT WiFi Calling feature bit return True, network rat is iwlan.
         5. DUT WiFI Calling feature bit return False, network rat is not iwlan.
         """
-        if not toggle_airplane_mode(self.log, self.ad, True):
+        if not toggle_airplane_mode_by_adb(self.log, self.ad, True):
             self.log.error("Failed to turn on airplane mode")
             return False
         return self._wifi_connected_set_wfc_mode_turn_off_apm(
@@ -746,7 +750,7 @@ class TelLiveSettingsTest(TelephonyBaseTest):
         }
 
         wifi_reset(self.log, ad)
-        toggle_airplane_mode(self.log, ad, True)
+        toggle_airplane_mode_by_adb(self.log, ad, True)
 
         set_wfc_mode(self.log, ad, WFC_MODE_WIFI_PREFERRED)
 
@@ -947,3 +951,230 @@ class TelLiveSettingsTest(TelephonyBaseTest):
                 self.log.error("Test Failed in iteration: {}.".format(i))
                 return False
         return True
+
+    def verify_volte_on_wfc_off(self):
+        result = True
+        if self.ad.droid.imsGetWfcMode() != WFC_MODE_DISABLED:
+            self.ad.log.error(
+                "WFC mode is not disabled after IMS factory reset")
+            result = False
+        else:
+            self.ad.log.info("WFC mode is disabled as expected")
+        if not self.ad.droid.imsIsEnhanced4gLteModeSettingEnabledByUser():
+            self.ad.log.error("VoLTE mode is not on")
+            result = False
+        else:
+            self.ad.log.info("VoLTE mode is turned on as expected")
+        if not phone_idle_volte(self.log, self.ad):
+            self.ad.log.error("Voice RAT is not in LTE")
+            result = False
+        if not call_setup_teardown(self.log, self.ad, self.android_devices[1],
+                                   self.ad, is_phone_in_call_volte):
+            self.ad.log.error("Voice call in VoLTE failed")
+            result = False
+        return result
+
+    def verify_volte_off_wfc_off(self):
+        result = True
+        if self.ad.droid.imsGetWfcMode() != WFC_MODE_DISABLED:
+            self.ad.log.error(
+                "WFC mode is not disabled after IMS factory reset")
+            result = False
+        else:
+            self.ad.log.info("WFC mode is disabled as expected")
+        if self.ad.droid.imsIsEnhanced4gLteModeSettingEnabledByUser():
+            self.ad.log.error("VoLTE mode is on")
+            result = False
+        else:
+            self.ad.log.info("VoLTE mode is turned off as expected")
+        if not call_setup_teardown(self.log, self.ad, self.android_devices[1],
+                                   self.ad, None):
+            self.ad.log.error("Voice call failed")
+            result = False
+        return result
+
+    def revert_default_telephony_setting(self):
+        toggle_airplane_mode_by_adb(self.log, self.ad, True)
+        default_data_roaming = int(
+            self.ad.adb.getprop("ro.com.android.dataroaming") == 'true')
+        default_network_preference = int(
+            self.ad.adb.getprop("ro.telephony.default_network"))
+        self.ad.log.info("Default data roaming %s, network preference %s",
+                         default_data_roaming, default_network_preference)
+        new_data_roaming = abs(default_data_roaming - 1)
+        new_network_preference = abs(default_network_preference - 1)
+        self.ad.log.info(
+            "Set data roaming = %s, mobile data = 0, network preference = %s",
+            new_data_roaming, new_network_preference)
+        self.ad.adb.shell("settings put global mobile_data 0")
+        self.ad.adb.shell(
+            "settings put global data_roaming %s" % new_data_roaming)
+        self.ad.adb.shell("settings put global preferred_network_mode %s" %
+                          new_network_preference)
+
+    def verify_default_telephony_setting(self):
+        default_data_roaming = int(
+            self.ad.adb.getprop("ro.com.android.dataroaming") == 'true')
+        default_network_preference = int(
+            self.ad.adb.getprop("ro.telephony.default_network"))
+        self.ad.log.info("Default data roaming %s, network preference %s",
+                         default_data_roaming, default_network_preference)
+        data_roaming = int(
+            self.ad.adb.shell("settings get global data_roaming"))
+        mobile_data = int(self.ad.adb.shell("settings get global mobile_data"))
+        network_preference = int(
+            self.ad.adb.shell("settings get global preferred_network_mode"))
+        airplane_mode = int(
+            self.ad.adb.shell("settings get global airplane_mode_on"))
+        result = True
+        self.ad.log.info("data_roaming = %s, mobile_data = %s, "
+                         "network_perference = %s, airplane_mode = %s",
+                         data_roaming, mobile_data, network_preference,
+                         airplane_mode)
+        if airplane_mode:
+            self.ad.log.error("Airplane mode is on")
+            result = False
+        if data_roaming != default_data_roaming:
+            self.ad.log.error("Data roaming is %s, expecting %s", data_roaming,
+                              default_data_roaming)
+            result = False
+        if not mobile_data:
+            self.ad.log.error("Mobile data is off")
+            result = False
+        if network_preference != default_network_preference:
+            self.ad.log.error("preferred_network_mode is %s, expecting %s",
+                              network_preference, default_network_preference)
+            result = False
+        return result
+
+    @TelephonyBaseTest.tel_test_wrap
+    @test_tracker_info(uuid="135301ea-6d00-4233-98fd-cda706d61eb2")
+    def test_ims_factory_reset_to_volte_on_wfc_off(self):
+        """Test VOLTE is enabled WFC is disabled after ims factory reset.
+
+        Steps:
+        1. Setup VoLTE, WFC, APM is various mode.
+        2. Call IMS factory reset.
+        3. Verify VoLTE is on, WFC is off after IMS factory reset.
+        4. Verify VoLTE Voice call can be made successful.
+
+        Expected Results: VoLTE is on, WFC is off after IMS factory reset.
+        """
+        result = True
+        for airplane_mode in (True, False):
+            for volte_mode in (True, False):
+                for wfc_mode in (WFC_MODE_DISABLED,
+                                 WFC_MODE_CELLULAR_PREFERRED,
+                                 WFC_MODE_WIFI_PREFERRED):
+                    self.ad.log.info("Set VoLTE %s, WFC %s, APM %s",
+                                     volte_mode, wfc_mode, airplane_mode)
+                    toggle_airplane_mode_by_adb(self.log, self.ad,
+                                                airplane_mode)
+                    toggle_volte(self.log, self.ad, volte_mode)
+                    set_wfc_mode(self.log, self.ad, wfc_mode)
+                    self.ad.log.info("Call IMS factory reset")
+                    self.ad.droid.imsFactoryReset()
+                    self.ad.log.info("Ensure airplane mode is off")
+                    toggle_airplane_mode_by_adb(self.log, self.ad, False)
+                    if not self.verify_volte_on_wfc_off(): result = False
+        return result
+
+    @TelephonyBaseTest.tel_test_wrap
+    @test_tracker_info(uuid="5318bf7a-4210-4b49-b361-9539d28f3e38")
+    def test_ims_factory_reset_to_volte_off_wfc_off(self):
+        """Test VOLTE is enabled WFC is disabled after ims factory reset.
+
+        Steps:
+        1. Setup VoLTE, WFC, APM is various mode.
+        2. Call IMS factory reset.
+        3. Verify VoLTE is on, WFC is off after IMS factory reset.
+        4. Verify VoLTE Voice call can be made successful.
+
+        Expected Results: VoLTE is on, WFC is off after IMS factory reset.
+        """
+        result = True
+        for airplane_mode in (True, False):
+            for volte_mode in (True, False):
+                for wfc_mode in (WFC_MODE_DISABLED,
+                                 WFC_MODE_CELLULAR_PREFERRED,
+                                 WFC_MODE_WIFI_PREFERRED):
+                    self.ad.log.info("Set VoLTE %s, WFC %s, APM %s",
+                                     volte_mode, wfc_mode, airplane_mode)
+                    toggle_airplane_mode_by_adb(self.log, self.ad,
+                                                airplane_mode)
+                    toggle_volte(self.log, self.ad, volte_mode)
+                    set_wfc_mode(self.log, self.ad, wfc_mode)
+                    self.ad.log.info("Call IMS factory reset")
+                    self.ad.droid.imsFactoryReset()
+                    self.ad.log.info("Ensure airplane mode is off")
+                    toggle_airplane_mode_by_adb(self.log, self.ad, False)
+                    if not self.verify_volte_off_wfc_off(): result = False
+        return result
+
+    @TelephonyBaseTest.tel_test_wrap
+    @test_tracker_info(uuid="c6149bd6-7080-453d-af37-1f9bd350a764")
+    def test_telephony_factory_reset(self):
+        """Test VOLTE is enabled WFC is disabled after telephony factory reset.
+
+        Steps:
+        1. Setup DUT with various dataroaming, mobiledata, and default_network.
+        2. Call telephony factory reset.
+        3. Verify DUT back to factory default.
+
+        Expected Results: dataroaming is off, mobiledata is on, network
+                          preference is back to default.
+        """
+        self.ad.log.info("Call telephony factory reset")
+        self.revert_default_telephony_setting()
+        self.ad.droid.telephonyFactoryReset()
+        return self.verify_default_telephony_setting()
+
+    @TelephonyBaseTest.tel_test_wrap
+    @test_tracker_info(uuid="ce60740f-4d8e-4013-a7cf-65589e8a0893")
+    def test_factory_reset_by_wipe_to_volte_on_wfc_off(self):
+        """Verify the network setting after factory reset by wipe.
+
+        Steps:
+        1. Config VoLTE off, WFC on, APM on, data_roaming on, mobile_data on
+           preferred_network_mode.
+        2. Factory reset by .
+        3. Verify VoLTE is on, WFC is off after IMS factory reset.
+        4. Verify VoLTE Voice call can be made successful.
+
+        Expected Results: VoLTE is on, WFC is off after IMS factory reset.
+        """
+        self.ad.log.info("Set VoLTE off, WFC wifi preferred, APM on")
+        toggle_airplane_mode_by_adb(self.log, self.ad, True)
+        toggle_volte(self.log, self.ad, False)
+        set_wfc_mode(self.log, self.ad, WFC_MODE_WIFI_PREFERRED)
+        self.revert_default_telephony_setting()
+        self.ad.log.info("Wipe in fastboot")
+        self.ad.fastboot_wipe()
+        result = self.verify_volte_on_wfc_off()
+        if not self.verify_default_telephony_setting(): result = False
+        return result
+
+    @TelephonyBaseTest.tel_test_wrap
+    @test_tracker_info(uuid="44e9291e-949b-4db1-a209-c6d41552ec27")
+    def test_factory_reset_by_wipe_to_volte_off_wfc_off(self):
+        """Verify the network setting after factory reset by wipe.
+
+        Steps:
+        1. Config VoLTE on, WFC on, APM on, data_roaming on, mobile_data on
+           preferred_network_mode.
+        2. Factory reset by .
+        3. Verify VoLTE is on, WFC is off after IMS factory reset.
+        4. Verify VoLTE Voice call can be made successful.
+
+        Expected Results: VoLTE is on, WFC is off after IMS factory reset.
+        """
+        self.ad.log.info("Set VoLTE on, WFC wifi preferred, APM on")
+        toggle_airplane_mode_by_adb(self.log, self.ad, True)
+        toggle_volte(self.log, self.ad, True)
+        set_wfc_mode(self.log, self.ad, WFC_MODE_WIFI_PREFERRED)
+        self.revert_default_telephony_setting()
+        self.ad.log.info("Wipe in fastboot")
+        self.ad.fastboot_wipe()
+        result = self.verify_volte_off_wfc_off()
+        if not self.verify_default_telephony_setting(): result = False
+        return result

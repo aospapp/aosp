@@ -57,7 +57,12 @@ class Addr2Line(object):
     """
     def __init__(self, addr2line_path, symfs_dir=None):
         self.dso_dict = dict()
-        self.addr2line_path = addr2line_path
+        if addr2line_path and is_executable_available(addr2line_path):
+            self.addr2line_path = addr2line_path
+        else:
+            self.addr2line_path = find_tool_path('addr2line')
+            if not self.addr2line_path:
+                log_exit("Can't find addr2line.")
         self.symfs_dir = symfs_dir
 
 
@@ -65,7 +70,7 @@ class Addr2Line(object):
         dso = self.dso_dict.get(dso_name)
         if dso is None:
             self.dso_dict[dso_name] = dso = dict()
-        if not dso.has_key(addr):
+        if addr not in dso:
             dso[addr] = None
 
 
@@ -95,7 +100,8 @@ class Addr2Line(object):
         addr_str = '\n'.join(addr_str)
         subproc = subprocess.Popen([self.addr2line_path, '-e', dso_path, '-aifC'],
                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-        (stdoutdata, _) = subproc.communicate(addr_str)
+        (stdoutdata, _) = subproc.communicate(str_to_bytes(addr_str))
+        stdoutdata = bytes_to_str(stdoutdata)
         stdoutdata = stdoutdata.strip().split('\n')
         if len(stdoutdata) < len(addrs):
             log_fatal("addr2line didn't output enough lines")
@@ -106,13 +112,16 @@ class Addr2Line(object):
             out_pos += 1
             assert addr_line[:2] == "0x"
             assert out_pos < len(stdoutdata)
-            assert addrs[addr_pos] == int(addr_line, 16)
             source_lines = []
             while out_pos < len(stdoutdata) and stdoutdata[out_pos][:2] != "0x":
                 function = stdoutdata[out_pos]
                 out_pos += 1
                 assert out_pos < len(stdoutdata)
-                file, line = stdoutdata[out_pos].split(':')
+                # Handle lines like "C:\Users\...\file:32".
+                items = stdoutdata[out_pos].rsplit(':', 1)
+                if len(items) != 2:
+                    continue
+                (file, line) = items
                 line = line.split()[0]  # Remove comments after line number
                 out_pos += 1
                 if file.find('?') != -1:
@@ -124,8 +133,8 @@ class Addr2Line(object):
                 else:
                     line = int(line)
                 source_lines.append(SourceLine(file, function, line))
-                dso[addrs[addr_pos]] = source_lines
-                addr_pos += 1
+            dso[addrs[addr_pos]] = source_lines
+            addr_pos += 1
         assert addr_pos == len(addrs)
 
 
@@ -263,27 +272,28 @@ class SourceFileAnnotator(object):
     """group code for annotating source files"""
     def __init__(self, config):
         # check config variables
-        config_names = ['perf_data_list', 'symfs_dir', 'source_dirs',
-                        'annotate_dest_dir', 'comm_filters', 'pid_filters',
-                        'tid_filters', 'dso_filters', 'addr2line_path']
+        config_names = ['perf_data_list', 'source_dirs', 'comm_filters',
+                        'pid_filters', 'tid_filters', 'dso_filters', 'addr2line_path']
         for name in config_names:
-            if not config.has_key(name):
-                log_fatal('config [%s] is missing' % name)
-        symfs_dir = config['symfs_dir']
-        if symfs_dir and not os.path.isdir(symfs_dir):
-            log_fatal('[symfs_dir] "%s" is not a dir' % symfs_dir)
-        kallsyms = config['kallsyms']
-        if kallsyms and not os.path.isfile(kallsyms):
-            log_fatal('[kallsyms] "%s" is not a file' % kallsyms)
+            if name not in config:
+                log_exit('config [%s] is missing' % name)
+        symfs_dir = 'binary_cache'
+        if not os.path.isdir(symfs_dir):
+            symfs_dir = None
+        kallsyms = 'binary_cache/kallsyms'
+        if not os.path.isfile(kallsyms):
+            kallsyms = None
         source_dirs = config['source_dirs']
         for dir in source_dirs:
             if not os.path.isdir(dir):
-                log_fatal('[source_dirs] "%s" is not a dir' % dir)
+                log_exit('[source_dirs] "%s" is not a dir' % dir)
+        if not config['source_dirs']:
+            log_exit('Please set source directories.')
 
         # init member variables
         self.config = config
-        self.symfs_dir = config.get('symfs_dir')
-        self.kallsyms = config.get('kallsyms')
+        self.symfs_dir = symfs_dir
+        self.kallsyms = kallsyms
         self.comm_filter = set(config['comm_filters']) if config.get('comm_filters') else None
         if config.get('pid_filters'):
             self.pid_filter = {int(x) for x in config['pid_filters']}
@@ -295,6 +305,7 @@ class SourceFileAnnotator(object):
             self.tid_filter = None
         self.dso_filter = set(config['dso_filters']) if config.get('dso_filters') else None
 
+        config['annotate_dest_dir'] = 'annotated_files'
         output_dir = config['annotate_dest_dir']
         if os.path.isdir(output_dir):
             shutil.rmtree(output_dir)
@@ -432,7 +443,7 @@ class SourceFileAnnotator(object):
 
 
     def _add_dso_period(self, dso_name, period, used_dso_dict):
-        if not used_dso_dict.has_key(dso_name):
+        if dso_name not in used_dso_dict:
             used_dso_dict[dso_name] = True
             dso_period = self.dso_periods.get(dso_name)
             if dso_period is None:
@@ -441,7 +452,7 @@ class SourceFileAnnotator(object):
 
 
     def _add_file_period(self, source, period, used_file_dict):
-        if not used_file_dict.has_key(source.file_key):
+        if source.file_key not in used_file_dict:
             used_file_dict[source.file_key] = True
             file_period = self.file_periods.get(source.file)
             if file_period is None:
@@ -450,14 +461,14 @@ class SourceFileAnnotator(object):
 
 
     def _add_line_period(self, source, period, used_line_dict):
-        if not used_line_dict.has_key(source.line_key):
+        if source.line_key not in used_line_dict:
             used_line_dict[source.line_key] = True
             file_period = self.file_periods[source.file]
             file_period.add_line_period(source.line, period)
 
 
     def _add_function_period(self, source, period, used_function_dict):
-        if not used_function_dict.has_key(source.function_key):
+        if source.function_key not in used_function_dict:
             used_function_dict[source.function_key] = True
             file_period = self.file_periods[source.file]
             file_period.add_function_period(source.function, source.line, period)
@@ -468,14 +479,14 @@ class SourceFileAnnotator(object):
         with open(summary, 'w') as f:
             f.write('total period: %d\n\n' % self.period)
             dso_periods = sorted(self.dso_periods.values(),
-                                 cmp=lambda x, y: cmp(y.period.acc_period, x.period.acc_period))
+                                 key=lambda x: x.period.acc_period, reverse=True)
             for dso_period in dso_periods:
                 f.write('dso %s: %s\n' % (dso_period.dso_name,
                                           self._get_percentage_str(dso_period.period)))
             f.write('\n')
 
             file_periods = sorted(self.file_periods.values(),
-                                  cmp=lambda x, y: cmp(y.period.acc_period, x.period.acc_period))
+                                  key=lambda x: x.period.acc_period, reverse=True)
             for file_period in file_periods:
                 f.write('file %s: %s\n' % (file_period.file,
                                            self._get_percentage_str(file_period.period)))
@@ -486,8 +497,7 @@ class SourceFileAnnotator(object):
                 for func_name in file_period.function_dict.keys():
                     func_start_line, period = file_period.function_dict[func_name]
                     values.append((func_name, func_start_line, period))
-                values = sorted(values,
-                                cmp=lambda x, y: cmp(y[2].acc_period, x[2].acc_period))
+                values = sorted(values, key=lambda x: x[2].acc_period, reverse=True)
                 for value in values:
                     f.write('\tfunction (%s): line %d, %s\n' % (
                         value[0], value[1], self._get_percentage_str(value[2])))
@@ -512,7 +522,7 @@ class SourceFileAnnotator(object):
 
     def _collect_source_files(self):
         self.source_file_dict = dict()
-        source_file_suffix = ['h', 'c', 'cpp', 'cc', 'java']
+        source_file_suffix = ['h', 'c', 'cpp', 'cc', 'java', 'kt']
         for source_dir in self.config['source_dirs']:
             for root, _, files in os.walk(source_dir):
                 for file in files:
@@ -558,6 +568,9 @@ class SourceFileAnnotator(object):
                 path = key
                 from_path = path
                 to_path = os.path.join(dest_dir, path[1:])
+            elif is_windows() and key.find(':\\') != -1 and os.path.isfile(key):
+                from_path = key
+                to_path = os.path.join(dest_dir, key.replace(':\\', '\\'))
             else:
                 path = key[1:] if key.startswith('/') else key
                 # Change path on device to path on host
@@ -607,20 +620,51 @@ class SourceFileAnnotator(object):
             for line in range(1, len(lines) + 1):
                 annotate = annotates.get(line)
                 if annotate is None:
-                    annotate = empty_annotate
+                    if not lines[line-1].strip():
+                        annotate = ''
+                    else:
+                        annotate = empty_annotate
                 else:
                     annotate = '/* ' + annotate + (
                         ' ' * (max_annotate_cols - len(annotate))) + ' */'
                 wf.write(annotate)
                 wf.write(lines[line-1])
 
+def main():
+    parser = argparse.ArgumentParser(description=
+"""Annotate source files based on profiling data. It reads line information from
+binary_cache generated by app_profiler.py or binary_cache_builder.py, and
+generate annotated source files in annotated_files directory.""")
+    parser.add_argument('-i', '--perf_data_list', nargs='+', action='append', help=
+"""The paths of profiling data. Default is perf.data.""")
+    parser.add_argument('-s', '--source_dirs', nargs='+', action='append', help=
+"""Directories to find source files.""")
+    parser.add_argument('--comm', nargs='+', action='append', help=
+"""Use samples only in threads with selected names.""")
+    parser.add_argument('--pid', nargs='+', action='append', help=
+"""Use samples only in processes with selected process ids.""")
+    parser.add_argument('--tid', nargs='+', action='append', help=
+"""Use samples only in threads with selected thread ids.""")
+    parser.add_argument('--dso', nargs='+', action='append', help=
+"""Use samples only in selected binaries.""")
+    parser.add_argument('--addr2line', help=
+"""Set the path of addr2line.""")
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description='Annotate based on perf.data. See configurations in annotate.config.')
-    parser.add_argument('--config', default='annotate.config',
-                        help='Set configuration file. Default is annotate.config.')
     args = parser.parse_args()
-    config = load_config(args.config)
+    config = {}
+    config['perf_data_list'] = flatten_arg_list(args.perf_data_list)
+    if not config['perf_data_list']:
+        config['perf_data_list'].append('perf.data')
+    config['source_dirs'] = flatten_arg_list(args.source_dirs)
+    config['comm_filters'] = flatten_arg_list(args.comm)
+    config['pid_filters'] = flatten_arg_list(args.pid)
+    config['tid_filters'] = flatten_arg_list(args.tid)
+    config['dso_filters'] = flatten_arg_list(args.dso)
+    config['addr2line_path'] = args.addr2line
+
     annotator = SourceFileAnnotator(config)
     annotator.annotate()
+    log_info('annotate finish successfully, please check result in annotated_files/.')
+
+if __name__ == '__main__':
+    main()

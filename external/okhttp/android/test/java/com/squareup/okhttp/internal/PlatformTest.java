@@ -121,31 +121,23 @@ public class PlatformTest {
     }
   };
 
-  private static class FullOpenSSLSocketImpl extends OpenSSLSocketImpl {
+  private static class FullOpenSSLSocketImpl extends TestSSLSocketImpl {
     private boolean useSessionTickets;
     private String hostname;
     private byte[] alpnProtocols;
 
-    public FullOpenSSLSocketImpl() throws IOException {
-      super(null);
-    }
-
-    @Override
     public void setUseSessionTickets(boolean useSessionTickets) {
       this.useSessionTickets = useSessionTickets;
     }
 
-    @Override
     public void setHostname(String hostname) {
       this.hostname = hostname;
     }
 
-    @Override
     public void setAlpnProtocols(byte[] alpnProtocols) {
       this.alpnProtocols = alpnProtocols;
     }
 
-    @Override
     public byte[] getAlpnSelectedProtocol() {
       return alpnProtocols;
     }

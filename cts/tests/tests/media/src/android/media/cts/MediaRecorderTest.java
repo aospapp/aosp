@@ -401,6 +401,8 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
         if (videoSizes == null) {
             videoSizes = parameters.getSupportedPreviewSizes();
         }
+        int minVideoWidth = Integer.MAX_VALUE;
+        int minVideoHeight = Integer.MAX_VALUE;
         for (Camera.Size size : videoSizes)
         {
             if (size.width == VIDEO_WIDTH && size.height == VIDEO_HEIGHT) {
@@ -408,9 +410,14 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
                 mVideoHeight = VIDEO_HEIGHT;
                 return;
             }
+            if (size.width < minVideoWidth || size.height < minVideoHeight) {
+                minVideoWidth = size.width;
+                minVideoHeight = size.height;
+            }
         }
-        mVideoWidth = videoSizes.get(0).width;
-        mVideoHeight = videoSizes.get(0).height;
+        // Use minimum resolution to avoid that one frame size exceeds file size limit.
+        mVideoWidth = minVideoWidth;
+        mVideoHeight = minVideoHeight;
     }
 
     private void recordVideoUsingCamera(
@@ -509,7 +516,11 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
         assertTrue("+ or - is not found", index != -1);
         assertTrue("+ or - is only found at the beginning", index != 0);
         float latitude = Float.parseFloat(location.substring(0, index - 1));
-        float longitude = Float.parseFloat(location.substring(index));
+        int lastIndex = location.lastIndexOf('/', index);
+        if (lastIndex == -1) {
+            lastIndex = location.length();
+        }
+        float longitude = Float.parseFloat(location.substring(index, lastIndex - 1));
         assertTrue("Incorrect latitude: " + latitude, Math.abs(latitude - LATITUDE) <= TOLERANCE);
         assertTrue("Incorrect longitude: " + longitude, Math.abs(longitude - LONGITUDE) <= TOLERANCE);
         retriever.release();
@@ -526,12 +537,16 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
         if (!hasCamera()) {
             return;
         }
+        mCamera = Camera.open(0);
+        setSupportedResolution(mCamera);
+        mCamera.unlock();
+
         mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
         mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.DEFAULT);
         mMediaRecorder.setOutputFile(OUTPUT_PATH2);
         mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.DEFAULT);
         mMediaRecorder.setPreviewDisplay(mActivity.getSurfaceHolder().getSurface());
-        mMediaRecorder.setVideoSize(VIDEO_WIDTH, VIDEO_HEIGHT);
+        mMediaRecorder.setVideoSize(mVideoWidth, mVideoHeight);
 
         FileOutputStream fos = new FileOutputStream(OUTPUT_PATH2);
         FileDescriptor fd = fos.getFD();
@@ -697,12 +712,16 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
             MediaUtils.skipTest("no microphone, camera, or codecs");
             return;
         }
+        mCamera = Camera.open(0);
+        setSupportedResolution(mCamera);
+        mCamera.unlock();
+
         mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
         mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
         mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
         mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
         mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
-        mMediaRecorder.setVideoSize(VIDEO_WIDTH, VIDEO_HEIGHT);
+        mMediaRecorder.setVideoSize(mVideoWidth, mVideoHeight);
         mMediaRecorder.setVideoEncodingBitRate(256000);
         mMediaRecorder.setPreviewDisplay(mActivity.getSurfaceHolder().getSurface());
         mMediaRecorder.setMaxFileSize(fileSize);
@@ -844,7 +863,13 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
             String mime = format.getString(MediaFormat.KEY_MIME);
             if (mime.startsWith("video/")) {
                 int finalProfile = format.getInteger(MediaFormat.KEY_PROFILE);
-                if (finalProfile != profile) {
+                if (!(finalProfile == profile ||
+                        (mediaType.equals(AVC)
+                                && profile == AVCProfileBaseline
+                                && finalProfile == AVCProfileConstrainedBaseline) ||
+                        (mediaType.equals(AVC)
+                                && profile == AVCProfileHigh
+                                && finalProfile == AVCProfileConstrainedHigh))) {
                     fail("Incorrect profile: " + finalProfile + " Expected: " + profile);
                 }
                 int finalLevel = format.getInteger(MediaFormat.KEY_LEVEL);
@@ -1068,6 +1093,7 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
             mCamera = Camera.open(0);
             Camera.Parameters params = mCamera.getParameters();
             frameRate = params.getPreviewFrameRate();
+            setSupportedResolution(mCamera);
             mCamera.unlock();
             mMediaRecorder.setCamera(mCamera);
             mMediaRecorder.setPreviewDisplay(mActivity.getSurfaceHolder().getSurface());
@@ -1085,7 +1111,7 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
 
         mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
         mMediaRecorder.setVideoFrameRate(frameRate);
-        mMediaRecorder.setVideoSize(VIDEO_WIDTH, VIDEO_HEIGHT);
+        mMediaRecorder.setVideoSize(mVideoWidth, mVideoHeight);
 
         if (hasAudio) {
             mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);

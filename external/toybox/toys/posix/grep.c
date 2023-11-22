@@ -4,9 +4,11 @@
  *
  * See http://pubs.opengroup.org/onlinepubs/9699919799/utilities/grep.html
  *
- * TODO: -ABC
+ * TODO: --color, "Binary file %s matches"
+ *
+ * Posix doesn't even specify -r, documenting deviations from it is silly.
 
-USE_GREP(NEWTOY(grep, "C#B#A#ZzEFHabhinorsvwclqe*f*m#x[!wx][!EFw]", TOYFLAG_BIN))
+USE_GREP(NEWTOY(grep, "S(exclude)*M(include)*C#B#A#ZzEFHabhinorsvwclqe*f*m#x[!wx][!EFw]", TOYFLAG_BIN))
 USE_EGREP(OLDTOY(egrep, grep, TOYFLAG_BIN))
 USE_FGREP(OLDTOY(fgrep, grep, TOYFLAG_BIN))
 
@@ -14,22 +16,27 @@ config GREP
   bool "grep"
   default y
   help
-    usage: grep [-EFivwcloqsHbhn] [-A NUM] [-m MAX] [-e REGEX]... [-f REGFILE] [FILE]...
+    usage: grep [-EFrivwcloqsHbhn] [-ABC NUM] [-m MAX] [-e REGEX]... [-MS PATTERN]... [-f REGFILE] [FILE]...
 
     Show lines matching regular expressions. If no -e, first argument is
     regular expression to match. With no files (or "-" filename) read stdin.
     Returns 0 if matched, 1 if no match found.
 
     -e  Regex to match. (May be repeated.)
-    -f  File containing regular expressions to match.
+    -f  File listing regular expressions to match.
+
+    file search:
+    -r  Recurse into subdirectories (defaults FILE to ".")
+    -M  Match filename pattern (--include)
+    -S  Skip filename pattern (--exclude)
 
     match type:
     -A  Show NUM lines after     -B  Show NUM lines before match
     -C  NUM lines context (A+B)  -E  extended regex syntax
     -F  fixed (literal match)    -i  case insensitive
-    -m  match MAX many lines     -r  recursive (on dir)
-    -v  invert match             -w  whole word (implies -E)
-    -x  whole line               -z  input NUL terminated
+    -m  match MAX many lines     -v  invert match
+    -w  whole word (implies -E)  -x  whole line
+    -z  input NUL terminated
 
     display modes: (default: matched line)
     -c  count of matching lines  -l  show matching filenames
@@ -62,8 +69,11 @@ GLOBALS(
   long a;
   long b;
   long c;
+  struct arg_list *M;
+  struct arg_list *S;
 
   char indelim, outdelim;
+  int found;
 )
 
 // Emit line with various potential prefixes and delimiter
@@ -81,11 +91,17 @@ static void outline(char *line, char dash, char *name, long lcount, long bcount,
 static void do_grep(int fd, char *name)
 {
   struct double_list *dlb = 0;
-  FILE *file = xfdopen(fd, "r");
+  FILE *file = fdopen(fd, "r");
   long lcount = 0, mcount = 0, offset = 0, after = 0, before = 0;
   char *bars = 0;
 
   if (!fd) name = "(standard input)";
+
+  if (!file) {
+    perror_msg("%s", name);
+
+    return;
+  }
 
   // Loop through lines of input
   for (;;) {
@@ -96,7 +112,10 @@ static void do_grep(int fd, char *name)
     int mmatch = 0;
 
     lcount++;
-    if (0 > (len = getdelim(&line, &unused, TT.indelim, file))) break;
+    errno = 0;
+    len = getdelim(&line, &unused, TT.indelim, file);
+    if (errno) perror_msg("%s", name);
+    if (len<1) break;
     if (line[len-1] == TT.indelim) line[len-1] = 0;
 
     start = line;
@@ -176,8 +195,11 @@ static void do_grep(int fd, char *name)
         bars = 0;
       }
       mmatch++;
-      toys.exitval = 0;
-      if (toys.optflags & FLAG_q) xexit();
+      TT.found = 1;
+      if (toys.optflags & FLAG_q) {
+        toys.exitval = 0;
+        xexit();
+      }
       if (toys.optflags & FLAG_l) {
         xprintf("%s%c", name, TT.outdelim);
         free(line);
@@ -315,6 +337,19 @@ static int do_grep_r(struct dirtree *new)
 
   if (!dirtree_notdotdot(new)) return 0;
   if (S_ISDIR(new->st.st_mode)) return DIRTREE_RECURSE;
+  if (TT.S || TT.M) {
+    struct arg_list *al;
+
+    for (al = TT.S; al; al = al->next)
+      if (!fnmatch(al->arg, new->name, 0)) return 0;
+
+    if (TT.M) {
+      for (al = TT.M; al; al = al->next)
+        if (!fnmatch(al->arg, new->name, 0)) break;
+
+      if (!al) return 0;
+    }
+  }
 
   // "grep -r onefile" doesn't show filenames, but "grep -r onedir" should.
   if (new->parent && !(toys.optflags & FLAG_h)) toys.optflags |= FLAG_H;
@@ -329,6 +364,9 @@ static int do_grep_r(struct dirtree *new)
 void grep_main(void)
 {
   char **ss = toys.optargs;
+
+  // Grep exits with 2 for errors
+  toys.exitval = 2;
 
   if (!TT.a) TT.a = TT.c;
   if (!TT.b) TT.b = TT.c;
@@ -351,7 +389,6 @@ void grep_main(void)
 
   if (!(toys.optflags & FLAG_h) && toys.optc>1) toys.optflags |= FLAG_H;
 
-  toys.exitval = 1;
   if (toys.optflags & FLAG_s) {
     close(2);
     xopen_stdio("/dev/null", O_RDWR);
@@ -364,4 +401,5 @@ void grep_main(void)
       else dirtree_read(*ss, do_grep_r);
     }
   } else loopfiles_rw(ss, O_RDONLY|WARN_ONLY, 0, do_grep);
+  toys.exitval = !TT.found;
 }

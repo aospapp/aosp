@@ -36,12 +36,27 @@ public class TestableFeature implements Feature {
     private final Feature mDelegate;
     private Boolean mTestValue = null;
 
+    /**
+     * Creates testable feature.
+     */
     public static TestableFeature createTestableFeature(Feature delegate) {
         return new TestableFeature(delegate);
     }
 
+    /**
+     * Creates testable feature with initial value.
+     */
+    public static TestableFeature createTestableFeature(Feature delegate, Boolean initialValue) {
+        return new TestableFeature(delegate, initialValue);
+    }
+
     private TestableFeature(Feature delegate) {
         mDelegate = delegate;
+    }
+
+    private TestableFeature(Feature delegate, Boolean initialValue) {
+        mDelegate = delegate;
+        mTestValue = initialValue;
     }
 
     @VisibleForTesting

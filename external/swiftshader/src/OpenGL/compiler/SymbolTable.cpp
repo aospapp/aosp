@@ -27,14 +27,14 @@
 #include <limits.h>
 #include <algorithm>
 
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) && MSC_VER < 1900
 #define snprintf _snprintf
 #endif
 
 int TSymbolTableLevel::uniqueId = 0;
 
 TType::TType(const TPublicType &p) :
-	type(p.type), precision(p.precision), qualifier(p.qualifier), invariant(false), layoutQualifier(TLayoutQualifier::create()),
+	type(p.type), precision(p.precision), qualifier(p.qualifier), invariant(p.invariant), layoutQualifier(p.layoutQualifier),
 	primarySize(p.primarySize), secondarySize(p.secondarySize), array(p.array), arraySize(p.arraySize), maxArraySize(0),
 	arrayInformationType(0), interfaceBlock(0), structure(0), deepestStructNesting(0), mangled(0)
 {
@@ -116,6 +116,17 @@ bool TStructure::containsArrays() const
 	{
 		const TType *fieldType = (*mFields)[i]->type();
 		if(fieldType->isArray() || fieldType->isStructureContainingArrays())
+			return true;
+	}
+	return false;
+}
+
+bool TStructure::containsType(TBasicType type) const
+{
+	for(size_t i = 0; i < mFields->size(); ++i)
+	{
+		const TType *fieldType = (*mFields)[i]->type();
+		if(fieldType->getBasicType() == type || fieldType->isStructureContainingType(type))
 			return true;
 	}
 	return false;

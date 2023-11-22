@@ -18,15 +18,17 @@ cc_library_static {
     name: "chre_client",
     vendor: true,
     export_include_dirs: [
-        "external/flatbuffers/include",
         "host/common/include",
         "platform/shared/include",
+        "util/include",
     ],
     srcs: [
         "host/common/socket_client.cc",
         "host/common/host_protocol_host.cc",
         "platform/shared/host_protocol_common.cc",
     ],
+    header_libs: ["chre_flatbuffers"],
+    export_header_lib_headers: ["chre_flatbuffers"],
     shared_libs: [
         "libcutils",
         "liblog",
@@ -68,8 +70,27 @@ cc_library_shared {
         "libhidltransport",
         "libutils",
         "android.hardware.contexthub@1.0",
-        "android.hidl.base@1.0",
     ],
     static_libs: ["chre_client"],
     tags: ["optional"],
 }
+
+cc_library_headers {
+    name: "chre_api",
+    vendor: true,
+    export_include_dirs: [
+        "chre_api/include/chre_api",
+    ]
+}
+
+cc_library_headers {
+    name: "chre_flatbuffers",
+    vendor: true,
+    export_include_dirs: [
+        "external/flatbuffers/include",
+    ],
+}
+
+subdirs = [
+    "apps/wifi_offload",
+]

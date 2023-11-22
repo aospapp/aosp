@@ -28,6 +28,7 @@
 #include <sys/wait.h>
 #include "linux_syscall_numbers.h"
 #include "ltp_signal.h"
+#include "tst_sig_proc.h"
 #include "tst_test.h"
 
 /* Older versions of glibc don't publish this constant's value. */
@@ -202,26 +203,7 @@ static void setup(void)
 static void cleanup(void)
 {
 	if (fd1 != -1)
-		close(fd1);
-}
-
-static pid_t create_sig_proc(int sig, int count, unsigned int usec)
-{
-	pid_t pid, cpid;
-
-	pid = getpid();
-	cpid = SAFE_FORK();
-
-	if (cpid == 0) {
-		while (count-- > 0) {
-			usleep(usec);
-			if (kill(pid, sig) == -1)
-				break;
-		}
-		exit(0);
-	}
-
-	return cpid;
+		SAFE_CLOSE(fd1);
 }
 
 static void do_test(unsigned int i)
@@ -229,6 +211,12 @@ static void do_test(unsigned int i)
 	pid_t pid = 0;
 	int sys_ret, sys_errno = 0, dummy;
 	struct test_case *tc = &tcase[i];
+	struct timespec ts, *tsp = NULL;
+
+	if (tc->ts) {
+		memcpy(&ts, tc->ts, sizeof(ts));
+		tsp = &ts;
+	}
 
 	tst_res(TINFO, "case %s", tc->desc);
 
@@ -243,7 +231,8 @@ static void do_test(unsigned int i)
 	}
 
 	/* test */
-	sys_ret = tst_syscall(__NR_ppoll, tc->fds, tc->nfds, tc->ts,
+	errno = 0;
+	sys_ret = tst_syscall(__NR_ppoll, tc->fds, tc->nfds, tsp,
 		tc->sigmask, SIGSETSIZE);
 	sys_errno = errno;
 
@@ -272,7 +261,7 @@ static void do_test(unsigned int i)
 			tst_strerrno(sys_errno), sys_errno);
 	} else {
 		tst_res(TFAIL, "ret: %d, exp: %d, ret_errno: %s (%d),"
-			" exp_errno: %s (%d)", tc->ret, sys_ret,
+			" exp_errno: %s (%d)", sys_ret, tc->ret,
 			tst_strerrno(sys_errno), sys_errno,
 			tst_strerrno(tc->err), tc->err);
 	}

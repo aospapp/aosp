@@ -147,14 +147,14 @@ public class WiFiInstaller extends Activity {
      * @param context The context of the current application
      */
     private static void dropFile(Uri uri, Context context) {
+      try {
         if (DocumentsContract.isDocumentUri(context, uri)) {
-            try {
-                DocumentsContract.deleteDocument(context.getContentResolver(), uri);
-            } catch (Exception e) {
-                Log.e(TAG, "could not delete document " + uri);
-            }
+          DocumentsContract.deleteDocument(context.getContentResolver(), uri);
         } else {
-            context.getContentResolver().delete(uri, null, null);
+          context.getContentResolver().delete(uri, null, null);
         }
+      } catch (Exception e) {
+        Log.e(TAG, "could not delete document " + uri);
+      }
     }
 }

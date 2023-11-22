@@ -71,12 +71,6 @@ public final class Run {
     public final Rm rm;
     public final int firstMonitorPort;
     public final int timeoutSeconds;
-    public final boolean profile;
-    public final boolean profileBinary;
-    public final int profileDepth;
-    public final int profileInterval;
-    public final boolean profileThreadGroup;
-    public final File profileFile;
     public final File javaHome;
     public final Integer debugPort;
     public final Language language;
@@ -156,12 +150,6 @@ public final class Run {
         this.useBootClasspath = vogar.useBootClasspath;
         this.targetArgs = vogar.targetArgs;
         this.xmlReportsDirectory = vogar.xmlReportsDirectory;
-        this.profile = vogar.profile;
-        this.profileBinary = vogar.profileBinary;
-        this.profileFile = vogar.profileFile;
-        this.profileDepth = vogar.profileDepth;
-        this.profileInterval = vogar.profileInterval;
-        this.profileThreadGroup = vogar.profileThreadGroup;
         this.recordResults = vogar.recordResults;
         this.resultsDir = vogar.resultsDir == null
                 ? new File(vogar.vogarDir, "results")
@@ -191,7 +179,7 @@ public final class Run {
             classFileIndex.createIndex();
         }
 
-        this.retrievedFiles = new RetrievedFilesFilter(profile, profileFile);
+        this.retrievedFiles = new RetrievedFilesFilter();
         this.reportPrinter = new XmlReportPrinter(xmlReportsDirectory, expectationStore, date);
         this.jarSuggestions = new JarSuggestions();
         this.outcomeStore = new OutcomeStore(log, mkdir, rm, resultsDir, recordResults,
@@ -225,6 +213,16 @@ public final class Run {
 
     public final File localFile(Object... path) {
         return new File(localTemp + "/" + Strings.join("/", path));
+    }
+
+    public final File localDir(Object... path) {
+      String joinedPath = localTemp + "/" + Strings.join("/", path);
+      File f = new File(joinedPath);
+      f.mkdirs();
+      if (!f.exists()) {
+        throw new AssertionError("Failed to mkdirs: " + joinedPath);
+      }
+      return f;
     }
 
     private File vogarJar() {

@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+ifneq ($(TARGET_BUILD_PDK), true)
+
 LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
@@ -63,3 +65,5 @@ LOCAL_STATIC_JAVA_LIBRARIES += android-support-annotations
 endif
 
 include $(BUILD_PACKAGE)
+
+endif

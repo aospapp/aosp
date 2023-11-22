@@ -16,13 +16,13 @@
 
 package com.android.tradefed.profiler.recorder;
 
-/**
- * An enum describing different ways that {@link TraceMetric}s can be aggregated. 
- */
+/** An enum describing different ways that {@link TraceMetric}s can be aggregated. */
 public enum MetricType {
-    COUNT,
-    SUM,
-    COUNTPOS,
     AVG,
-    AVGTIME
+    AVGTIME,
+    COUNT,
+    COUNTPOS,
+    MAX,
+    MIN,
+    SUM,
 }

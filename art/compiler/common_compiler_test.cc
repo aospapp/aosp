@@ -19,6 +19,7 @@
 #include "arch/instruction_set_features.h"
 #include "art_field-inl.h"
 #include "art_method-inl.h"
+#include "base/callee_save_type.h"
 #include "base/enums.h"
 #include "class_linker.h"
 #include "compiled_method.h"
@@ -33,7 +34,7 @@
 #include "mirror/object-inl.h"
 #include "oat_quick_method_header.h"
 #include "scoped_thread_state_change-inl.h"
-#include "thread-inl.h"
+#include "thread-current-inl.h"
 #include "utils.h"
 
 namespace art {
@@ -166,8 +167,8 @@ void CommonCompilerTest::SetUp() {
     instruction_set_features_ = InstructionSetFeatures::FromCppDefines();
 
     runtime_->SetInstructionSet(instruction_set);
-    for (int i = 0; i < Runtime::kLastCalleeSaveType; i++) {
-      Runtime::CalleeSaveType type = Runtime::CalleeSaveType(i);
+    for (uint32_t i = 0; i < static_cast<uint32_t>(CalleeSaveType::kLastCalleeSaveType); ++i) {
+      CalleeSaveType type = CalleeSaveType(i);
       if (!runtime_->HasCalleeSaveMethod(type)) {
         runtime_->SetCalleeSaveMethod(runtime_->CreateCalleeSaveMethod(), type);
       }
@@ -206,8 +207,10 @@ void CommonCompilerTest::SetUpRuntimeOptions(RuntimeOptions* options) {
 
   compiler_options_.reset(new CompilerOptions);
   verification_results_.reset(new VerificationResults(compiler_options_.get()));
-  callbacks_.reset(new QuickCompilerCallbacks(verification_results_.get(),
-                                              CompilerCallbacks::CallbackMode::kCompileApp));
+  QuickCompilerCallbacks* callbacks =
+      new QuickCompilerCallbacks(CompilerCallbacks::CallbackMode::kCompileApp);
+  callbacks->SetVerificationResults(verification_results_.get());
+  callbacks_.reset(callbacks);
 }
 
 Compiler::Kind CommonCompilerTest::GetCompilerKind() const {
@@ -264,8 +267,8 @@ void CommonCompilerTest::CompileDirectMethod(Handle<mirror::ClassLoader> class_l
   mirror::Class* klass = class_linker_->FindClass(self, class_descriptor.c_str(), class_loader);
   CHECK(klass != nullptr) << "Class not found " << class_name;
   auto pointer_size = class_linker_->GetImagePointerSize();
-  ArtMethod* method = klass->FindDirectMethod(method_name, signature, pointer_size);
-  CHECK(method != nullptr) << "Direct method not found: "
+  ArtMethod* method = klass->FindClassMethod(method_name, signature, pointer_size);
+  CHECK(method != nullptr && method->IsDirect()) << "Direct method not found: "
       << class_name << "." << method_name << signature;
   CompileMethod(method);
 }
@@ -278,8 +281,8 @@ void CommonCompilerTest::CompileVirtualMethod(Handle<mirror::ClassLoader> class_
   mirror::Class* klass = class_linker_->FindClass(self, class_descriptor.c_str(), class_loader);
   CHECK(klass != nullptr) << "Class not found " << class_name;
   auto pointer_size = class_linker_->GetImagePointerSize();
-  ArtMethod* method = klass->FindVirtualMethod(method_name, signature, pointer_size);
-  CHECK(method != nullptr) << "Virtual method not found: "
+  ArtMethod* method = klass->FindClassMethod(method_name, signature, pointer_size);
+  CHECK(method != nullptr && !method->IsDirect()) << "Virtual method not found: "
       << class_name << "." << method_name << signature;
   CompileMethod(method);
 }

@@ -133,7 +133,7 @@ class audio_AudioBasicBluetoothPlayback(audio_test.AudioTest):
             # For DUTs with permanently connected audio jack cable
             # Bluetooth output node should be selected explicitly.
             output_nodes, _ = self.audio_facade.get_plugged_node_types()
-            if 'HEADPHONE' in output_nodes:
+            if 'HEADPHONE' in output_nodes or 'LINEOUT' in output_nodes:
                 self.audio_facade.set_chrome_active_node_type('BLUETOOTH',
                                                               None)
             # Checks the node selected by Cras is correct.

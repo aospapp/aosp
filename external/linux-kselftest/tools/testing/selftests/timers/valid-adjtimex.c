@@ -54,7 +54,7 @@ static inline int ksft_exit_fail(void)
 #include <sys/syscall.h>
 static int clock_adjtime(clockid_t id, struct timex *tx)
 {
-    return syscall(__NR_clock_adjtime, id, tx);
+	return syscall(__NR_clock_adjtime, id, tx);
 }
 #endif
 

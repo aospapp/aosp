@@ -40,7 +40,7 @@ class BrightnessLineItem extends SeekbarLineItem {
     }
 
     @Override
-    public int getInitialSeekbarValue() {
+    public int getSeekbarValue() {
         int currentBrightness = 0;
         try {
             currentBrightness = Settings.System.getInt(mContext.getContentResolver(),

@@ -43,7 +43,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -254,10 +253,7 @@ public class HermeticLaunchTest implements IRemoteTest, IDeviceTest {
      */
     public void analyzeLogCatData(Set<String> activitySet) {
         Map<String, List<Integer>> amLaunchTimes = new HashMap<>();
-        InputStreamSource input = mLogcat.getLogcatData();
-        InputStream inputStream = input.createInputStream();
-        BufferedReader br = new BufferedReader(new InputStreamReader(
-                inputStream));
+
         Map<Pattern, String> activityPatternMap = new HashMap<>();
         Matcher match = null;
         String line;
@@ -279,7 +275,9 @@ public class HermeticLaunchTest implements IRemoteTest, IDeviceTest {
                     activityName);
         }
 
-        try {
+        try (InputStreamSource input = mLogcat.getLogcatData();
+                BufferedReader br =
+                        new BufferedReader(new InputStreamReader(input.createInputStream()))) {
             while ((line = br.readLine()) != null) {
                 /*
                  * Launch entry needed otherwise we will end up in comparing all the lines for all
@@ -336,7 +334,8 @@ public class HermeticLaunchTest implements IRemoteTest, IDeviceTest {
 
     /**
      * To extract the launch time displayed in given line
-     * @param currentLine
+     *
+     * @param duration
      * @return
      */
     public int extractLaunchTime(String duration) {
@@ -377,9 +376,10 @@ public class HermeticLaunchTest implements IRemoteTest, IDeviceTest {
                             splitName[splitName.length - 1]);
                     // Upload the file if needed
                     if (msaveAtrace) {
-                        FileInputStreamSource stream = new FileInputStreamSource(currentAtraceFile);
-                        listener.testLog(currentAtraceFile.getName(), LogDataType.TEXT, stream);
-                        stream.cancel();
+                        try (FileInputStreamSource stream =
+                                new FileInputStreamSource(currentAtraceFile)) {
+                            listener.testLog(currentAtraceFile.getName(), LogDataType.TEXT, stream);
+                        }
                     }
                     // Remove the atrace files
                     FileUtil.deleteFile(currentAtraceFile);

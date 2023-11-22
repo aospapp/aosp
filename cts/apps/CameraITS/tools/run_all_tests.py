@@ -26,7 +26,19 @@ from its.device import ItsSession
 
 CHART_DELAY = 1  # seconds
 FACING_EXTERNAL = 2
+NUM_TRYS = 2
 SKIP_RET_CODE = 101  # note this must be same as tests/scene*/test_*
+
+
+def evaluate_socket_failure(err_file_path):
+    """Determine if test fails due to socket FAIL."""
+    socket_fail = False
+    with open(err_file_path, 'r') as ferr:
+        for line in ferr:
+            if (line.find('socket.error') != -1 or
+                line.find('Problem with socket') != -1):
+                socket_fail = True
+    return socket_fail
 
 
 def skip_sensor_fusion():
@@ -47,17 +59,26 @@ def main():
 
     Script should be run from the top-level CameraITS directory.
 
-    Command line Arguments:
-        camera: the camera(s) to be tested. Use comma to separate multiple
-                camera Ids. Ex: "camera=0,1" or "camera=1"
-        scenes: the test scene(s) to be executed. Use comma to separate multiple
-                scenes. Ex: "scenes=scene0,scene1" or "scenes=0,1,sensor_fusion"
-                (sceneX can be abbreviated by X where X is a integer)
-        chart: [Experimental] another android device served as test chart
-               display. When this argument presents, change of test scene will
-               be handled automatically. Note that this argument requires
-               special physical/hardware setup to work and may not work on
-               all android devices.
+    Command line arguments:
+        camera:  the camera(s) to be tested. Use comma to separate multiple
+                 camera Ids. Ex: "camera=0,1" or "camera=1"
+        device:  device id for adb
+        scenes:  the test scene(s) to be executed. Use comma to separate
+                 multiple scenes. Ex: "scenes=scene0,scene1" or
+                 "scenes=0,1,sensor_fusion" (sceneX can be abbreviated by X
+                 where X is a integer)
+        chart:   [Experimental] another android device served as test chart
+                 display. When this argument presents, change of test scene
+                 will be handled automatically. Note that this argument
+                 requires special physical/hardware setup to work and may not
+                 work on all android devices.
+        result:  Device ID to forward results to (in addition to the device
+                 that the tests are running on).
+        rot_rig: [Experimental] ID of the rotation rig being used (formatted as
+                 "<vendor ID>:<product ID>:<channel #>" or "default")
+        tmp_dir: location of temp directory for output files
+        skip_scene_validation: force skip scene validation. Used when test scene
+                 is setup up front and don't require tester validation.
     """
 
     # Not yet mandated tests
@@ -116,7 +137,8 @@ def main():
     chart_host_id = None
     result_device_id = None
     rot_rig_id = None
-
+    tmp_dir = None
+    skip_scene_validation = False
     for s in sys.argv[1:]:
         if s[:7] == "camera=" and len(s) > 7:
             camera_ids = s[7:].split(',')
@@ -129,6 +151,10 @@ def main():
         elif s[:8] == 'rot_rig=' and len(s) > 8:
             rot_rig_id = s[8:]  # valid values: 'default' or '$VID:$PID:$CH'
             # The default '$VID:$PID:$CH' is '04d8:fc73:1'
+        elif s[:8] == 'tmp_dir=' and len(s) > 8:
+            tmp_dir = s[8:]
+        elif s == 'skip_scene_validation':
+            skip_scene_validation = True
 
     auto_scene_switch = chart_host_id is not None
     merge_result_switch = result_device_id is not None
@@ -168,7 +194,7 @@ def main():
         results[s] = {result_key: ItsSession.RESULT_NOT_EXECUTED}
 
     # Make output directories to hold the generated files.
-    topdir = tempfile.mkdtemp()
+    topdir = tempfile.mkdtemp(dir=tmp_dir)
     subprocess.call(['chmod', 'g+rx', topdir])
     print "Saving output files to:", topdir, "\n"
 
@@ -247,7 +273,7 @@ def main():
                     skip_code = skip_sensor_fusion()
                     if rot_rig_id or skip_code == SKIP_RET_CODE:
                         validate_switch = False
-                if scene == 'scene5':
+                if skip_scene_validation:
                     validate_switch = False
                 cmd = None
                 if auto_scene_switch:
@@ -279,7 +305,7 @@ def main():
                     if merge_result_switch and camera_ids[0] == '0':
                         # Send an input event to keep the screen not dimmed.
                         # Since we are not using camera of chart screen, FOCUS event
-                        # should does nothing but keep the screen from dimming.
+                        # should do nothing but keep the screen from dimming.
                         # The "sleep after x minutes of inactivity" display setting
                         # determines how long this command can keep screen bright.
                         # Setting it to something like 30 minutes should be enough.
@@ -287,26 +313,38 @@ def main():
                                % chart_host_id)
                         subprocess.call(cmd.split())
                 t0 = time.time()
-                outdir = os.path.join(topdir, camera_id, scene)
-                outpath = os.path.join(outdir, testname+'_stdout.txt')
-                errpath = os.path.join(outdir, testname+'_stderr.txt')
-                if scene == 'sensor_fusion':
-                    if skip_code is not SKIP_RET_CODE:
-                        if rot_rig_id:
-                            print 'Rotating phone w/ rig %s' % rot_rig_id
-                            rig = ('python tools/rotation_rig.py rotator=%s' %
-                                   rot_rig_id)
-                            subprocess.Popen(rig.split())
+                for num_try in range(NUM_TRYS):
+                    outdir = os.path.join(topdir, camera_id, scene)
+                    outpath = os.path.join(outdir, testname+'_stdout.txt')
+                    errpath = os.path.join(outdir, testname+'_stderr.txt')
+                    if scene == 'sensor_fusion':
+                        if skip_code is not SKIP_RET_CODE:
+                            if rot_rig_id:
+                                print 'Rotating phone w/ rig %s' % rot_rig_id
+                                rig = ('python tools/rotation_rig.py rotator=%s' %
+                                       rot_rig_id)
+                                subprocess.Popen(rig.split())
+                            else:
+                                print 'Rotate phone 15s as shown in SensorFusion.pdf'
                         else:
-                            print 'Rotate phone 15s as shown in SensorFusion.pdf'
+                            test_code = skip_code
+                    if skip_code is not SKIP_RET_CODE:
+                        cmd = ['python', os.path.join(os.getcwd(), testpath)]
+                        cmd += sys.argv[1:] + [camera_id_arg]
+                        with open(outpath, 'w') as fout, open(errpath, 'w') as ferr:
+                            test_code = subprocess.call(
+                                cmd, stderr=ferr, stdout=fout, cwd=outdir)
+                    if test_code == 0 or test_code == SKIP_RET_CODE:
+                        break
                     else:
-                        test_code = skip_code
-                if skip_code is not SKIP_RET_CODE:
-                    cmd = ['python', os.path.join(os.getcwd(), testpath)]
-                    cmd += sys.argv[1:] + [camera_id_arg]
-                    with open(outpath, 'w') as fout, open(errpath, 'w') as ferr:
-                        test_code = subprocess.call(
-                            cmd, stderr=ferr, stdout=fout, cwd=outdir)
+                        socket_fail = evaluate_socket_failure(errpath)
+                        if socket_fail:
+                            if num_try != NUM_TRYS-1:
+                                print ' Retry %s/%s' % (scene, testname)
+                            else:
+                                break
+                        else:
+                            break
                 t1 = time.time()
 
                 test_failed = False

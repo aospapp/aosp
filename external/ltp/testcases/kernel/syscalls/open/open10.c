@@ -37,7 +37,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/fcntl.h>
+#include <fcntl.h>
 #include <errno.h>
 #include <grp.h>
 #include <pwd.h>
@@ -114,9 +114,15 @@ int main(int ac, char *av[])
 			}
 		}
 		group1_gid = group->gr_gid;
+#ifdef ANDROID
+		group = getgrnam("everybody");
+		if (group == NULL)
+			tst_brkm(TBROK, cleanup, "everybody not in /etc/group");
+#else
 		group = getgrnam("bin");
 		if (group == NULL)
 			tst_brkm(TBROK, cleanup, "bin not in /etc/group");
+#endif
 
 		group2_gid = group->gr_gid;
 

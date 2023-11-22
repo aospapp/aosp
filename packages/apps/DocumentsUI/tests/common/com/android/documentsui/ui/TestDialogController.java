@@ -19,6 +19,7 @@ import android.app.FragmentManager;
 
 import com.android.documentsui.base.ConfirmationCallback;
 import com.android.documentsui.base.DocumentInfo;
+import com.android.documentsui.services.FileOperation;
 import com.android.documentsui.services.FileOperations;
 
 import junit.framework.Assert;
@@ -28,10 +29,11 @@ import java.util.List;
 public class TestDialogController implements DialogController {
 
     public int mNextConfirmationCode;
-    private boolean mFileOpFailed;
+    private int mFileOpStatus;
     private boolean mNoApplicationFound;
     private boolean mDocumentsClipped;
     private boolean mViewInArchivesUnsupported;
+    private boolean mShowOperationUnsupported;
     private DocumentInfo mOverwriteTarget;
 
     public TestDialogController() {
@@ -46,14 +48,22 @@ public class TestDialogController implements DialogController {
 
     @Override
     public void showFileOperationStatus(int status, int opType, int docCount) {
-        if (status == FileOperations.Callback.STATUS_REJECTED) {
-            mFileOpFailed = true;
-        }
+        mFileOpStatus = status;
+    }
+
+    @Override
+    public void showProgressDialog(String jobId, FileOperation operation) {
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public void showNoApplicationFound() {
         mNoApplicationFound = true;
+    }
+
+    @Override
+    public void showOperationUnsupported() {
+        mShowOperationUnsupported = true;
     }
 
     @Override
@@ -72,13 +82,20 @@ public class TestDialogController implements DialogController {
     }
 
     public void assertNoFileFailures() {
-        Assert.assertFalse(mFileOpFailed);
+        Assert.assertEquals(FileOperations.Callback.STATUS_ACCEPTED, mFileOpStatus);
+    }
+
+    public void assertFileOpFailed() {
+        Assert.assertEquals(FileOperations.Callback.STATUS_FAILED, mFileOpStatus);
     }
 
     public void assertNoAppFoundShown() {
         Assert.assertFalse(mNoApplicationFound);
     }
 
+    public void assertShowOperationUnsupported() {
+        Assert.assertTrue(mShowOperationUnsupported);
+    }
     public void assertViewInArchivesShownUnsupported() {
         Assert.assertTrue(mViewInArchivesUnsupported);
     }

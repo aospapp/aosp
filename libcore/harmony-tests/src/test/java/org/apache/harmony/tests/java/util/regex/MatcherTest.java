@@ -158,6 +158,40 @@ public class MatcherTest extends TestCase {
     public void testReset() {
     }
 
+    public void testFind_invokeReset() {
+        // First, verify find() doesn't reset, and search for the subsequent pattern
+        Pattern p = Pattern.compile("a|c");
+        StringBuilder sb = new StringBuilder("abc");
+        Matcher m = p.matcher(sb);
+        assertTrue(m.find());
+        assertEquals(0, m.start());
+        assertTrue(m.find());
+        assertEquals(2, m.start());
+
+        // Second, find(int) resets the matcher
+        assertTrue(m.find(0));
+        assertEquals(0, m.start());
+        sb.replace(0, 3, "bac");
+
+        // Test find(0) reset the cached string value from the StringBuilder
+        assertTrue(m.find(0));
+        assertEquals(1, m.start());
+    }
+
+    /**
+     * Test reset() reset the cached string value from the StringBuilder
+     */
+    public void testReset_resetStringCache() {
+        Pattern p = Pattern.compile("a");
+        StringBuilder sb = new StringBuilder("a");
+        Matcher m = p.matcher(sb);
+        assertTrue(m.find());
+
+        sb.replace(0, 1, "c");
+        m.reset();
+        assertFalse(m.find());
+    }
+
     public void testGroupint() {
         String positiveTestString = "ababababbaaabb";
 

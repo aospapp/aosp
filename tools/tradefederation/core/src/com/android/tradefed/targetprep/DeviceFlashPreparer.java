@@ -214,7 +214,11 @@ public abstract class DeviceFlashPreparer implements ITargetCleaner {
                 }
             }
         }
-
+        CLog.i(
+                "Requesting a flashing permit out of the host max limit of %s. Current queue "
+                        + "length: %s",
+                getHostOptions().getConcurrentFlasherLimit(),
+                sConcurrentFlashLock.getQueueLength());
         sConcurrentFlashLock.acquireUninterruptibly();
     }
 
@@ -247,6 +251,7 @@ public abstract class DeviceFlashPreparer implements ITargetCleaner {
         getRunUtil().allowInterrupt(false);
         try {
             IDeviceBuildInfo deviceBuild = (IDeviceBuildInfo)buildInfo;
+            checkDeviceProductType(device, deviceBuild);
             device.setRecoveryMode(RecoveryMode.ONLINE);
             IDeviceFlasher flasher = createFlasher(device);
             flasher.setWipeTimeout(mWipeTimeout);
@@ -300,6 +305,19 @@ public abstract class DeviceFlashPreparer implements ITargetCleaner {
             // Allow interruption at the end no matter what.
             getRunUtil().allowInterrupt(true);
         }
+    }
+
+    /**
+     * Possible check before flashing to ensure the device is as expected compare to the build info.
+     *
+     * @param device the {@link ITestDevice} to flash.
+     * @param deviceBuild the {@link IDeviceBuildInfo} used to flash.
+     * @throws BuildError
+     * @throws DeviceNotAvailableException
+     */
+    protected void checkDeviceProductType(ITestDevice device, IDeviceBuildInfo deviceBuild)
+            throws BuildError, DeviceNotAvailableException {
+        // empty of purpose
     }
 
     /**

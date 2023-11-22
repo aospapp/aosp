@@ -342,7 +342,6 @@ public class JvmtiRedefineClassesTest extends JvmtiTestBase {
              *      return-object v0
              *  .end method
             */
-            /* DISABLED Due to b/62237378
             new RedefineError(JvmtiErrors.FAILS_VERIFICATION, Transform2.class,
                     "ZGV4CjAzNQBOhefYdQRcgqmkwhWsSyzb5I3udX0SnJ44AwAAcAAAAHhWNBIAAAAAAAAAAIwCAAAN" +
                     "AAAAcAAAAAYAAACkAAAAAQAAALwAAAAAAAAAAAAAAAMAAADIAAAAAQAAAOAAAAA4AgAAAAEAAAAB" +
@@ -359,7 +358,6 @@ public class JvmtiRedefineClassesTest extends JvmtiTestBase {
                     "BgAAAKQAAAADAAAAAQAAALwAAAAFAAAAAwAAAMgAAAAGAAAAAQAAAOAAAAACIAAADQAAAAABAAAE" +
                     "IAAAAgAAABgCAAADEAAAAgAAACgCAAAGIAAAAQAAADgCAAADIAAAAgAAAEgCAAABIAAAAgAAAFQC" +
                     "AAAAIAAAAQAAAH4CAAAAEAAAAQAAAIwCAAA="),
-             */
             /**
              * Base64 for this class.
              *

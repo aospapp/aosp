@@ -199,67 +199,6 @@ class VtsHalAutomotiveVehicleV2_0HostTest(base_test.BaseTestClass):
         asserts.assertEqual(1, len(propValue["value"]["int32Values"]))
         asserts.assertEqual(value, propValue["value"]["int32Values"][0])
 
-    def testObd2SensorProperties(self):
-        """Test reading the live and freeze OBD2 frame properties.
-
-        OBD2 (On-Board Diagnostics 2) is the industry standard protocol
-        for retrieving diagnostic sensor information from vehicles.
-        """
-        class CheckRead(object):
-            """This class wraps the logic of an actual property read.
-
-            Attributes:
-                testobject: the test case this object is used on behalf of.
-                propertyId: the identifier of the Vehiche HAL property to read.
-                name: the engineer-readable name of this test operation.
-            """
-
-            def __init__(self, testobject, propertyId, name):
-                self.testobject = testobject
-                self.propertyId = propertyId
-                self.name = name
-
-            def onReadSuccess(self, propValue):
-                """Override this to perform any post-read validation.
-
-                Args:
-                    propValue: the property value obtained from Vehicle HAL.
-                """
-                pass
-
-            def __call__(self):
-                """Reads the specified property and validates the result."""
-                propValue = self.testobject.readVhalProperty(self.propertyId)
-                asserts.assertNotEqual(propValue, None,
-                                       msg="reading %s should not return None" %
-                                       self.name)
-                logging.info("%s = %s", self.name, propValue)
-                self.onReadSuccess(propValue)
-                logging.info("%s pass" % self.name)
-
-        def checkLiveFrameRead():
-            """Validates reading the OBD2_LIVE_FRAME (if available)."""
-            checker = CheckRead(self,
-                                self.vtypes.VehicleProperty.OBD2_LIVE_FRAME,
-                                "OBD2_LIVE_FRAME")
-            checker()
-
-        def checkFreezeFrameRead():
-            """Validates reading the OBD2_FREEZE_FRAME (if available)."""
-            checker = CheckRead(self,
-                                self.vtypes.VehicleProperty.OBD2_FREEZE_FRAME,
-                                "OBD2_FREEZE_FRAME")
-            checker()
-
-        isLiveSupported = self.vtypes.VehicleProperty.OBD2_LIVE_FRAME in self.propToConfig
-        isFreezeSupported = self.vtypes.VehicleProperty.OBD2_FREEZE_FRAME in self.propToConfig
-        logging.info("isLiveSupported = %s, isFreezeSupported = %s",
-                     isLiveSupported, isFreezeSupported)
-        if isLiveSupported:
-            checkLiveFrameRead()
-        if isFreezeSupported:
-            checkFreezeFrameRead()
-
     def testDrivingStatus(self):
         """Checks that DRIVING_STATUS property returns correct result."""
         propValue = self.readVhalProperty(
@@ -685,6 +624,295 @@ class VtsHalAutomotiveVehicleV2_0HostTest(base_test.BaseTestClass):
                     return
                 time.sleep(1)
             asserts.fail("Callback not called in 5 seconds.")
+
+    def getDiagnosticSupportInfo(self):
+        """Check which of the OBD2 diagnostic properties are supported."""
+        properties = [self.vtypes.VehicleProperty.OBD2_LIVE_FRAME,
+            self.vtypes.VehicleProperty.OBD2_FREEZE_FRAME,
+            self.vtypes.VehicleProperty.OBD2_FREEZE_FRAME_INFO,
+            self.vtypes.VehicleProperty.OBD2_FREEZE_FRAME_CLEAR]
+        return {x:self.isPropSupported(x) for x in properties}
+
+    class CheckRead(object):
+        """An object whose job it is to read a Vehicle HAL property and run
+           routine validation checks on the result."""
+
+        def __init__(self, test, propertyId, areaId=0):
+            """Creates a CheckRead instance.
+
+            Args:
+                test: the containing testcase object.
+                propertyId: the numeric identifier of the vehicle property.
+            """
+            self.test = test
+            self.propertyId = propertyId
+            self.areaId = 0
+
+        def validateGet(self, status, value):
+            """Validate the result of IVehicle.get.
+
+            Args:
+                status: the StatusCode returned from Vehicle HAL.
+                value: the VehiclePropValue returned from Vehicle HAL.
+
+            Returns: a VehiclePropValue instance, or None on failure."""
+            asserts.assertEqual(self.test.vtypes.StatusCode.OK, status)
+            asserts.assertNotEqual(value, None)
+            asserts.assertEqual(self.propertyId, value['prop'])
+            return value
+
+        def prepareRequest(self, propValue):
+            """Setup this request with any property-specific data.
+
+            Args:
+                propValue: a dictionary in the format of a VehiclePropValue.
+
+            Returns: a dictionary in the format of a VehclePropValue."""
+            return propValue
+
+        def __call__(self):
+            asserts.assertTrue(self.test.isPropSupported(self.propertyId), "error")
+            request = {
+                'prop' : self.propertyId,
+                'timestamp' : 0,
+                'areaId' : self.areaId,
+                'value' : {
+                    'int32Values' : [],
+                    'floatValues' : [],
+                    'int64Values' : [],
+                    'bytes' : [],
+                    'stringValue' : ""
+                }
+            }
+            request = self.prepareRequest(request)
+            requestPropValue = self.test.vtypes.Py2Pb("VehiclePropValue",
+                request)
+            status, responsePropValue = self.test.vehicle.get(requestPropValue)
+            return self.validateGet(status, responsePropValue)
+
+    class CheckWrite(object):
+        """An object whose job it is to write a Vehicle HAL property and run
+           routine validation checks on the result."""
+
+        def __init__(self, test, propertyId, areaId=0):
+            """Creates a CheckWrite instance.
+
+            Args:
+                test: the containing testcase object.
+                propertyId: the numeric identifier of the vehicle property.
+                areaId: the numeric identifier of the vehicle area.
+            """
+            self.test = test
+            self.propertyId = propertyId
+            self.areaId = 0
+
+        def validateSet(self, status):
+            """Validate the result of IVehicle.set.
+            Reading back the written-to property to ensure a consistent
+            value is fair game for this method.
+
+            Args:
+                status: the StatusCode returned from Vehicle HAL.
+
+            Returns: None."""
+            asserts.assertEqual(self.test.vtypes.StatusCode.OK, status)
+
+        def prepareRequest(self, propValue):
+            """Setup this request with any property-specific data.
+
+            Args:
+                propValue: a dictionary in the format of a VehiclePropValue.
+
+            Returns: a dictionary in the format of a VehclePropValue."""
+            return propValue
+
+        def __call__(self):
+            asserts.assertTrue(self.test.isPropSupported(self.propertyId), "error")
+            request = {
+                'prop' : self.propertyId,
+                'timestamp' : 0,
+                'areaId' : self.areaId,
+                'value' : {
+                    'int32Values' : [],
+                    'floatValues' : [],
+                    'int64Values' : [],
+                    'bytes' : [],
+                    'stringValue' : ""
+                }
+            }
+            request = self.prepareRequest(request)
+            requestPropValue = self.test.vtypes.Py2Pb("VehiclePropValue",
+                request)
+            status = self.test.vehicle.set(requestPropValue)
+            return self.validateSet(status)
+
+    def testReadObd2LiveFrame(self):
+        """Test that one can correctly read the OBD2 live frame."""
+        supportInfo = self.getDiagnosticSupportInfo()
+        if supportInfo[self.vtypes.VehicleProperty.OBD2_LIVE_FRAME]:
+            checkRead = self.CheckRead(self,
+                self.vtypes.VehicleProperty.OBD2_LIVE_FRAME)
+            checkRead()
+        else:
+            # live frame not supported by this HAL implementation. done
+            logging.info("OBD2_LIVE_FRAME not supported.")
+
+    def testReadObd2FreezeFrameInfo(self):
+        """Test that one can read the list of OBD2 freeze timestamps."""
+        supportInfo = self.getDiagnosticSupportInfo()
+        if supportInfo[self.vtypes.VehicleProperty.OBD2_FREEZE_FRAME_INFO]:
+            checkRead = self.CheckRead(self,
+                self.vtypes.VehicleProperty.OBD2_FREEZE_FRAME_INFO)
+            checkRead()
+        else:
+            # freeze frame info not supported by this HAL implementation. done
+            logging.info("OBD2_FREEZE_FRAME_INFO not supported.")
+
+    def testReadValidObd2FreezeFrame(self):
+        """Test that one can read the OBD2 freeze frame data."""
+        class FreezeFrameCheckRead(self.CheckRead):
+            def __init__(self, test, timestamp):
+                self.test = test
+                self.propertyId = \
+                    self.test.vtypes.VehicleProperty.OBD2_FREEZE_FRAME
+                self.timestamp = timestamp
+                self.areaId = 0
+
+            def prepareRequest(self, propValue):
+                propValue['value']['int64Values'] = [self.timestamp]
+                return propValue
+
+            def validateGet(self, status, value):
+                # None is acceptable, as a newer fault could have overwritten
+                # the one we're trying to read
+                if value is not None:
+                    asserts.assertEqual(self.test.vtypes.StatusCode.OK, status)
+                    asserts.assertEqual(self.propertyId, value['prop'])
+                    asserts.assertEqual(self.timestamp, value['timestamp'])
+
+        supportInfo = self.getDiagnosticSupportInfo()
+        if supportInfo[self.vtypes.VehicleProperty.OBD2_FREEZE_FRAME_INFO] \
+            and supportInfo[self.vtypes.VehicleProperty.OBD2_FREEZE_FRAME]:
+            infoCheckRead = self.CheckRead(self,
+                self.vtypes.VehicleProperty.OBD2_FREEZE_FRAME_INFO)
+            frameInfos = infoCheckRead()
+            timestamps = frameInfos["value"]["int64Values"]
+            for timestamp in timestamps:
+                freezeCheckRead = FreezeFrameCheckRead(self, timestamp)
+                freezeCheckRead()
+        else:
+            # freeze frame not supported by this HAL implementation. done
+            logging.info("OBD2_FREEZE_FRAME and _INFO not supported.")
+
+    def testReadInvalidObd2FreezeFrame(self):
+        """Test that trying to read freeze frame at invalid timestamps
+            behaves correctly (i.e. returns an error code)."""
+        class FreezeFrameCheckRead(self.CheckRead):
+            def __init__(self, test, timestamp):
+                self.test = test
+                self.propertyId = self.test.vtypes.VehicleProperty.OBD2_FREEZE_FRAME
+                self.timestamp = timestamp
+                self.areaId = 0
+
+            def prepareRequest(self, propValue):
+                propValue['value']['int64Values'] = [self.timestamp]
+                return propValue
+
+            def validateGet(self, status, value):
+                asserts.assertEqual(
+                    self.test.vtypes.StatusCode.INVALID_ARG, status)
+
+        supportInfo = self.getDiagnosticSupportInfo()
+        invalidTimestamps = [0,482005800]
+        if supportInfo[self.vtypes.VehicleProperty.OBD2_FREEZE_FRAME]:
+            for timestamp in invalidTimestamps:
+                freezeCheckRead = FreezeFrameCheckRead(self, timestamp)
+                freezeCheckRead()
+        else:
+            # freeze frame not supported by this HAL implementation. done
+            logging.info("OBD2_FREEZE_FRAME not supported.")
+
+    def testClearValidObd2FreezeFrame(self):
+        """Test that deleting a diagnostic freeze frame works.
+        Given the timing behavor of OBD2_FREEZE_FRAME, the only sensible
+        definition of works here is that, after deleting a frame, trying to read
+        at its timestamp, will not be successful."""
+        class FreezeFrameClearCheckWrite(self.CheckWrite):
+            def __init__(self, test, timestamp):
+                self.test = test
+                self.propertyId = self.test.vtypes.VehicleProperty.OBD2_FREEZE_FRAME_CLEAR
+                self.timestamp = timestamp
+                self.areaId = 0
+
+            def prepareRequest(self, propValue):
+                propValue['value']['int64Values'] = [self.timestamp]
+                return propValue
+
+            def validateSet(self, status):
+                asserts.assertTrue(status in [
+                    self.test.vtypes.StatusCode.OK,
+                    self.test.vtypes.StatusCode.INVALID_ARG], "error")
+
+        class FreezeFrameCheckRead(self.CheckRead):
+            def __init__(self, test, timestamp):
+                self.test = test
+                self.propertyId = \
+                    self.test.vtypes.VehicleProperty.OBD2_FREEZE_FRAME
+                self.timestamp = timestamp
+                self.areaId = 0
+
+            def prepareRequest(self, propValue):
+                propValue['value']['int64Values'] = [self.timestamp]
+                return propValue
+
+            def validateGet(self, status, value):
+                asserts.assertEqual(
+                    self.test.vtypes.StatusCode.INVALID_ARG, status)
+
+        supportInfo = self.getDiagnosticSupportInfo()
+        if supportInfo[self.vtypes.VehicleProperty.OBD2_FREEZE_FRAME_INFO] \
+            and supportInfo[self.vtypes.VehicleProperty.OBD2_FREEZE_FRAME] \
+            and supportInfo[self.vtypes.VehicleProperty.OBD2_FREEZE_FRAME_CLEAR]:
+            infoCheckRead = self.CheckRead(self,
+                self.vtypes.VehicleProperty.OBD2_FREEZE_FRAME_INFO)
+            frameInfos = infoCheckRead()
+            timestamps = frameInfos["value"]["int64Values"]
+            for timestamp in timestamps:
+                checkWrite = FreezeFrameClearCheckWrite(self, timestamp)
+                checkWrite()
+                checkRead = FreezeFrameCheckRead(self, timestamp)
+                checkRead()
+        else:
+            # freeze frame not supported by this HAL implementation. done
+            logging.info("OBD2_FREEZE_FRAME, _CLEAR and _INFO not supported.")
+
+    def testClearInvalidObd2FreezeFrame(self):
+        """Test that deleting an invalid freeze frame behaves correctly."""
+        class FreezeFrameClearCheckWrite(self.CheckWrite):
+            def __init__(self, test, timestamp):
+                self.test = test
+                self.propertyId = \
+                    self.test.vtypes.VehicleProperty.OBD2_FREEZE_FRAME_CLEAR
+                self.timestamp = timestamp
+                self.areaId = 0
+
+            def prepareRequest(self, propValue):
+                propValue['value']['int64Values'] = [self.timestamp]
+                return propValue
+
+            def validateSet(self, status):
+                asserts.assertEqual(self.test.vtypes.StatusCode.INVALID_ARG,
+                    status, "PropId: 0x%s, Timestamp: %d" % (self.propertyId, self.timestamp))
+
+        supportInfo = self.getDiagnosticSupportInfo()
+        if supportInfo[self.vtypes.VehicleProperty.OBD2_FREEZE_FRAME_CLEAR]:
+            invalidTimestamps = [0,482005800]
+            for timestamp in invalidTimestamps:
+                checkWrite = FreezeFrameClearCheckWrite(self, timestamp)
+                checkWrite()
+        else:
+            # freeze frame not supported by this HAL implementation. done
+            logging.info("OBD2_FREEZE_FRAME_CLEAR not supported.")
 
 if __name__ == "__main__":
     test_runner.main()

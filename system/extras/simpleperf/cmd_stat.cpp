@@ -26,6 +26,7 @@
 #include <string>
 #include <vector>
 
+#include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/parsedouble.h>
 #include <android-base/strings.h>
@@ -238,6 +239,14 @@ class CounterSummaries {
                                            sap_mid);
       }
     }
+    if (android::base::EndsWith(s.type_name, "-refill")) {
+      std::string other_name = s.type_name.substr(0, s.type_name.size() - strlen("-refill"));
+      const CounterSummary* other = FindSummary(other_name, s.modifier);
+      if (other != nullptr && other->IsMonitoredAtTheSameTime(s) && other->count != 0) {
+        double miss_rate = static_cast<double>(s.count) / other->count;
+        return android::base::StringPrintf("%f%%%cmiss rate", miss_rate * 100, sap_mid);
+      }
+    }
     double rate = s.count / (duration_in_sec / s.scale);
     if (rate > 1e9) {
       return android::base::StringPrintf("%.3lf%cG/sec", rate / 1e9, sap_mid);
@@ -265,6 +274,11 @@ class StatCommand : public Command {
 "       Gather performance counter information of running [command].\n"
 "       And -a/-p/-t option can be used to change target of counter information.\n"
 "-a           Collect system-wide information.\n"
+#if defined(__ANDROID__)
+"--app package_name    Profile the process of an Android application.\n"
+"                      On non-rooted devices, the app must be debuggable,\n"
+"                      because we use run-as to switch to the app's context.\n"
+#endif
 "--cpu cpu_item1,cpu_item2,...\n"
 "                 Collect information only on the selected cpus. cpu_item can\n"
 "                 be a cpu number like 1, or a cpu range like 0-3.\n"
@@ -290,6 +304,11 @@ class StatCommand : public Command {
 "-p pid1,pid2,... Stat events on existing processes. Mutually exclusive with -a.\n"
 "-t tid1,tid2,... Stat events on existing threads. Mutually exclusive with -a.\n"
 "--verbose        Show result in verbose mode.\n"
+#if 0
+// Below options are only used internally and shouldn't be visible to the public.
+"--in-app         We are already running in the app's context.\n"
+"--tracepoint-events file_name   Read tracepoint events from [file_name] instead of tracefs.\n"
+#endif
                 // clang-format on
                 ),
         verbose_mode_(false),
@@ -298,9 +317,11 @@ class StatCommand : public Command {
         duration_in_sec_(0),
         interval_in_ms_(0),
         event_selection_set_(true),
-        csv_(false) {
+        csv_(false),
+        in_app_context_(false) {
     // Die if parent exits.
     prctl(PR_SET_PDEATHSIG, SIGHUP, 0, 0, 0);
+    app_package_name_ = GetDefaultAppPackageName();
   }
 
   bool Run(const std::vector<std::string>& args);
@@ -322,6 +343,8 @@ class StatCommand : public Command {
   EventSelectionSet event_selection_set_;
   std::string output_filename_;
   bool csv_;
+  std::string app_package_name_;
+  bool in_app_context_;
 };
 
 bool StatCommand::Run(const std::vector<std::string>& args) {
@@ -333,6 +356,12 @@ bool StatCommand::Run(const std::vector<std::string>& args) {
   std::vector<std::string> workload_args;
   if (!ParseOptions(args, &workload_args)) {
     return false;
+  }
+  if (!app_package_name_.empty() && !in_app_context_) {
+    if (!IsRoot()) {
+      return RunInAppContext(app_package_name_, "stat", args, workload_args.size(),
+                             output_filename_, !event_selection_set_.GetTracepointEvents().empty());
+    }
   }
   if (event_selection_set_.empty()) {
     if (!AddDefaultMeasuredEventTypes()) {
@@ -356,6 +385,9 @@ bool StatCommand::Run(const std::vector<std::string>& args) {
     if (workload != nullptr) {
       event_selection_set_.AddMonitoredProcesses({workload->GetPid()});
       event_selection_set_.SetEnableOnExec(true);
+    } else if (!app_package_name_.empty()) {
+      int pid = WaitForAppProcess(app_package_name_);
+      event_selection_set_.AddMonitoredProcesses({pid});
     } else {
       LOG(ERROR)
           << "No threads to monitor. Try `simpleperf help stat` for help\n";
@@ -448,6 +480,11 @@ bool StatCommand::ParseOptions(const std::vector<std::string>& args,
   for (i = 0; i < args.size() && args[i].size() > 0 && args[i][0] == '-'; ++i) {
     if (args[i] == "-a") {
       system_wide_collection_ = true;
+    } else if (args[i] == "--app") {
+      if (!NextArgumentOrError(args, &i)) {
+        return false;
+      }
+      app_package_name_ = args[i];
     } else if (args[i] == "--cpu") {
       if (!NextArgumentOrError(args, &i)) {
         return false;
@@ -491,6 +528,8 @@ bool StatCommand::ParseOptions(const std::vector<std::string>& args,
       if (!event_selection_set_.AddEventGroup(event_types)) {
         return false;
       }
+    } else if (args[i] == "--in-app") {
+      in_app_context_ = true;
     } else if (args[i] == "--no-inherit") {
       child_inherit_ = false;
     } else if (args[i] == "-o") {
@@ -516,6 +555,13 @@ bool StatCommand::ParseOptions(const std::vector<std::string>& args,
         return false;
       }
       event_selection_set_.AddMonitoredThreads(tids);
+    } else if (args[i] == "--tracepoint-events") {
+      if (!NextArgumentOrError(args, &i)) {
+        return false;
+      }
+      if (!SetTracepointEventsFilePath(args[i])) {
+        return false;
+      }
     } else if (args[i] == "--verbose") {
       verbose_mode_ = true;
     } else {

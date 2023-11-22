@@ -29,8 +29,6 @@ TARGET_2ND_CPU_ABI := armeabi-v7a
 TARGET_2ND_CPU_ABI2 := armeabi
 TARGET_2ND_CPU_VARIANT := cortex-a53.a57
 
-ENABLE_CPUSETS := true
-
 BOARD_KERNEL_BASE        := 0x00000000
 BOARD_KERNEL_PAGESIZE    := 4096
 BOARD_KERNEL_TAGS_OFFSET := 0x01E00000
@@ -138,8 +136,9 @@ NXP_CHIP_TYPE := 2
 # Testing related defines
 BOARD_PERFSETUP_SCRIPT := platform_testing/scripts/perf-setup/angler-setup.sh
 
-USE_CLANG_PLATFORM_BUILD := true
-
 TARGET_FS_CONFIG_GEN += device/huawei/angler/config.fs
+
+DEVICE_MANIFEST_FILE := device/huawei/angler/manifest.xml
+DEVICE_MATRIX_FILE := device/huawei/angler/compatibility_matrix.xml
 
 -include vendor/huawei/angler/BoardConfigVendor.mk

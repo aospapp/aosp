@@ -40,9 +40,7 @@
 #include "Mesh.h"
 #include "Texture.h"
 
-#include <android/hardware/configstore/1.0/ISurfaceFlingerConfigs.h>
-#include <configstore/Utils.h>
-
+#include <sstream>
 #include <fstream>
 
 // ---------------------------------------------------------------------------
@@ -111,8 +109,10 @@ void writePPM(const char* basename, GLuint width, GLuint height) {
 namespace android {
 // ---------------------------------------------------------------------------
 
-GLES20RenderEngine::GLES20RenderEngine() :
-        mVpWidth(0), mVpHeight(0) {
+GLES20RenderEngine::GLES20RenderEngine(uint32_t featureFlags) :
+         mVpWidth(0),
+         mVpHeight(0),
+         mPlatformHasWideColor((featureFlags & WIDE_COLOR_SUPPORT) != 0) {
 
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &mMaxTextureSize);
     glGetIntegerv(GL_MAX_VIEWPORT_DIMS, mMaxViewportDims);
@@ -133,23 +133,16 @@ GLES20RenderEngine::GLES20RenderEngine() :
     //mColorBlindnessCorrection = M;
 
 #ifdef USE_HWC2
-    // retrieve wide-color and hdr settings from configstore
-    using namespace android::hardware::configstore;
-    using namespace android::hardware::configstore::V1_0;
-
-    mPlatformHasWideColor =
-            getBool<ISurfaceFlingerConfigs, &ISurfaceFlingerConfigs::hasWideColorDisplay>(false);
     if (mPlatformHasWideColor) {
         // Compute sRGB to DisplayP3 color transform
         // NOTE: For now, we are limiting wide-color support to
         // Display-P3 only.
-        mat3 srgbToP3 = ColorSpace::DisplayP3().getXYZtoRGB() * ColorSpace::sRGB().getRGBtoXYZ();
+        mat3 srgbToP3 = ColorSpaceConnector(ColorSpace::sRGB(), ColorSpace::DisplayP3()).getTransform();
 
-        // color transform needs to be transposed and expanded to 4x4
-        // to be what the shader wants
+        // color transform needs to be expanded to 4x4 to be what the shader wants
         // mat has an initializer that expands mat3 to mat4, but
         // not an assignment operator
-        mat4 gamutTransform(transpose(srgbToP3));
+        mat4 gamutTransform(srgbToP3);
         mSrgbToDisplayP3 = gamutTransform;
     }
 #endif
@@ -392,6 +385,7 @@ void GLES20RenderEngine::drawMesh(const Mesh& mesh) {
         Description wideColorState = mState;
         if (mDataSpace != HAL_DATASPACE_DISPLAY_P3) {
             wideColorState.setColorMatrix(mState.getColorMatrix() * mSrgbToDisplayP3);
+            wideColorState.setWideGamut(true);
             ALOGV("drawMesh: gamut transform applied");
         }
         ProgramCache::getInstance().useProgram(wideColorState);

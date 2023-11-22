@@ -172,7 +172,7 @@ private:
                 // client write-only, server read-only
                 uint16_t    mSendLevel;      // Fixed point U4.12 so 0x1000 means 1.0
 
-                uint16_t    mPad2;           // unused
+                uint16_t    mPad2 __attribute__((__unused__)); // unused
 
                 // server write-only, client read
                 ExtendedTimestampQueue::Shared mExtendedTimestampQueue;
@@ -568,6 +568,9 @@ public:
     // which may include non-contiguous frames
     virtual size_t      framesReady();
 
+    // Safe frames ready query used by dump() - this has no side effects.
+    virtual size_t      framesReadySafe() const;
+
     // Currently AudioFlinger will call framesReady() for a fast track from two threads:
     // FastMixer thread, and normal mixer thread.  This is dangerous, as the proxy is intended
     // to be called from at most one thread of server, and one thread of client.
@@ -620,6 +623,7 @@ protected:
 
 public:
     virtual size_t      framesReady();
+    virtual size_t      framesReadySafe() const override;
     virtual void        framesReadyIsCalledByMultipleThreads();
     virtual status_t    obtainBuffer(Buffer* buffer, bool ackFlush);
     virtual void        releaseBuffer(Buffer* buffer);

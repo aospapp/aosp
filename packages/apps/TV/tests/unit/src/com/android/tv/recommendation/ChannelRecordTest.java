@@ -16,10 +16,15 @@
 
 package com.android.tv.recommendation;
 
+import static android.support.test.InstrumentationRegistry.getContext;
+import static org.junit.Assert.assertEquals;
+
 import android.support.test.filters.SmallTest;
-import android.test.AndroidTestCase;
 
 import com.android.tv.testing.Utils;
+
+import org.junit.Before;
+import org.junit.Test;
 
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
@@ -28,31 +33,33 @@ import java.util.concurrent.TimeUnit;
  * Unit tests for {@link ChannelRecord}.
  */
 @SmallTest
-public class ChannelRecordTest extends AndroidTestCase {
+public class ChannelRecordTest {
     private static final int CHANNEL_RECORD_MAX_HISTORY_SIZE = ChannelRecord.MAX_HISTORY_SIZE;
 
     private Random mRandom;
     private ChannelRecord mChannelRecord;
     private long mLatestWatchEndTimeMs;
 
-    @Override
-    public void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() {
         mLatestWatchEndTimeMs = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1);
         mChannelRecord = new ChannelRecord(getContext(), null, false);
         mRandom = Utils.createTestRandom();
     }
 
+    @Test
     public void testGetLastWatchEndTime_noHistory() {
         assertEquals(0, mChannelRecord.getLastWatchEndTimeMs());
     }
 
+    @Test
     public void testGetLastWatchEndTime_oneHistory() {
         addWatchLog();
 
         assertEquals(mLatestWatchEndTimeMs, mChannelRecord.getLastWatchEndTimeMs());
     }
 
+    @Test
     public void testGetLastWatchEndTime_maxHistories() {
         for (int i = 0; i < CHANNEL_RECORD_MAX_HISTORY_SIZE; ++i) {
             addWatchLog();
@@ -61,6 +68,7 @@ public class ChannelRecordTest extends AndroidTestCase {
         assertEquals(mLatestWatchEndTimeMs, mChannelRecord.getLastWatchEndTimeMs());
     }
 
+    @Test
     public void testGetLastWatchEndTime_moreThanMaxHistories() {
         for (int i = 0; i < CHANNEL_RECORD_MAX_HISTORY_SIZE + 1; ++i) {
             addWatchLog();
@@ -69,16 +77,19 @@ public class ChannelRecordTest extends AndroidTestCase {
         assertEquals(mLatestWatchEndTimeMs, mChannelRecord.getLastWatchEndTimeMs());
     }
 
+    @Test
     public void testGetTotalWatchDuration_noHistory() {
         assertEquals(0, mChannelRecord.getTotalWatchDurationMs());
     }
 
+    @Test
     public void testGetTotalWatchDuration_oneHistory() {
         long durationMs = addWatchLog();
 
         assertEquals(durationMs, mChannelRecord.getTotalWatchDurationMs());
     }
 
+    @Test
     public void testGetTotalWatchDuration_maxHistories() {
         long totalWatchTimeMs = 0;
         for (int i = 0; i < CHANNEL_RECORD_MAX_HISTORY_SIZE; ++i) {
@@ -89,6 +100,7 @@ public class ChannelRecordTest extends AndroidTestCase {
         assertEquals(totalWatchTimeMs, mChannelRecord.getTotalWatchDurationMs());
     }
 
+    @Test
     public void testGetTotalWatchDuration_moreThanMaxHistories() {
         long totalWatchTimeMs = 0;
         long firstDurationMs = 0;

@@ -119,7 +119,7 @@ void osChreTaskHandle(struct Task *task, uint32_t evtType, const void *evtData);
 
 static inline bool osTaskIsChre(const struct Task *task)
 {
-    return (task->app->hdr.fwFlags & FL_APP_HDR_CHRE) != 0;
+    return task->app && (task->app->hdr.fwFlags & FL_APP_HDR_CHRE) != 0;
 }
 
 static inline void osTaskMakeNewTid(struct Task *task)

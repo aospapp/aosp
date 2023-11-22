@@ -78,7 +78,6 @@
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"Govorna pošta (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"VM:"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"Obavijesti"</string>
-    <string name="networks" msgid="8873030692174541976">"Mrežni operateri"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"Hitna emitiranja"</string>
     <string name="call_settings" msgid="6112441768261754562">"Postavke poziva"</string>
     <string name="additional_gsm_call_settings" msgid="1391795981938800617">"Dodatne postavke"</string>
@@ -164,20 +163,18 @@
     <string name="label_available" msgid="1181658289009300430">"Dostupne mreže"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"Pretraživanje…"</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"Nije pronađena mreža."</string>
-    <string name="search_networks" msgid="1601136049300882441">"Pretraži mreže"</string>
     <string name="network_query_error" msgid="6828516148953325006">"Pogreška tijekom pretraživanja mreža."</string>
     <string name="register_on_network" msgid="9055203954040805084">"Prijava na <xliff:g id="NETWORK">%s</xliff:g>…"</string>
     <string name="not_allowed" msgid="5613353860205691579">"Vaša SIM kartica ne dopušta povezivanje s ovom mrežom."</string>
     <string name="connect_later" msgid="2308119155752343975">"Povezivanje s tom mrežom trenutačno nije moguće. Pokušajte kasnije."</string>
     <string name="registration_done" msgid="495135664535876612">"Registrirano na mreži."</string>
-    <string name="sum_carrier_select" msgid="3494252551249882718">"Odaberite mrežnog operatera"</string>
-    <string name="sum_search_networks" msgid="2921092249873272715">"Pretraži sve dostupne mreže"</string>
-    <string name="select_automatically" msgid="5628402124471810174">"Odaberi automatski"</string>
-    <string name="sum_select_automatically" msgid="5614890115123292400">"Automatski odabir željene mreže"</string>
+    <string name="select_automatically" msgid="1046727200631770962">"Automatski odaberi mrežu"</string>
+    <string name="network_select_title" msgid="7733107364757544558">"Mreža"</string>
     <string name="register_automatically" msgid="6017849844573519637">"Automatska prijava…"</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"Željena vrsta mreže"</string>
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"Promijenite način rada mreže"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"Željena vrsta mreže"</string>
+    <string name="forbidden_network" msgid="4384929668343563440">"(zabranjeno)"</string>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"Način željene mreže: Preferirano WCDMA"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"Način željene mreže: Samo GSM"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"Način željene mreže: Samo WCDMA"</string>
@@ -210,18 +207,34 @@
     <item msgid="1524224863879435516">"Samo GSM"</item>
     <item msgid="3817924849415716259">"Preferirano GSM/WCDMA"</item>
   </string-array>
+    <string name="call_category" msgid="5863978196309462052">"Pozivanje"</string>
+    <string name="network_operator_category" msgid="4830701959205735636">"Mreža"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"Poboljšan 4G LTE način"</string>
     <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"Napredno pozivanje"</string>
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"Upotreba LTE usluga za poboljšanje glasovne i drugih komunikacija (preporučeno)"</string>
     <string name="data_enabled" msgid="5972538663568715366">"Podaci su omogućeni"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"Dopusti upotrebu podataka"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"Pažnja"</string>
-    <string name="roaming" msgid="8871412572928323707">"Roaming podataka"</string>
+    <string name="roaming" msgid="7894878421600247140">"Roaming"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"Poveži se s podatkovnim uslugama u roamingu"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"Poveži se s podatkovnim uslugama u roamingu"</string>
     <string name="roaming_reenable_message" msgid="8913735676127858115">"Izgubili ste podatkovnu vezu jer ste izašli iz matične mreže s isključenim roamingom podataka."</string>
     <string name="roaming_warning" msgid="1603164667540144353">"To se može skupo naplaćivati."</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"Želite li dopustiti roaming podataka?"</string>
+    <string name="data_usage_title" msgid="8759619109516889802">"Potrošnja podataka"</string>
+    <string name="data_usage_template" msgid="8526428824844656364">"Potrošeno je <xliff:g id="ID_1">%1$s</xliff:g> mobilnih podataka u sljedećem razdoblju: <xliff:g id="ID_2">%2$s</xliff:g>"</string>
+    <string name="advanced_options_title" msgid="8074895510265488035">"Napredno"</string>
+    <string name="carrier_settings_euicc" msgid="6714062862127226405">"Davatelj usluge"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"operater, esim, sim, euicc"</string>
+    <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> – <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
+    <string name="mobile_data_settings_title" msgid="4661165467914727157">"Mobilni podaci"</string>
+    <string name="mobile_data_settings_summary" msgid="5087255915840576895">"Pristupanje podacima pomoću mobilne mreže"</string>
+    <string name="data_usage_disable_mobile" msgid="3577275288809667615">"Želite li isključiti mobilne podatke?"</string>
+    <string name="sim_selection_required_pref" msgid="7049424902961844236">"Odabir je obvezan"</string>
+    <string name="sim_change_data_title" msgid="5332425991853799280">"Promijeniti podatkovni SIM?"</string>
+    <string name="sim_change_data_message" msgid="2163963581444907496">"Želite li za mobilne podatke upotrijebiti <xliff:g id="NEW_SIM">%1$s</xliff:g> umjesto <xliff:g id="OLD_SIM">%2$s</xliff:g>?"</string>
+    <string name="wifi_calling_settings_title" msgid="7741961465416430470">"Wi-Fi pozivi"</string>
+    <string name="video_calling_settings_title" msgid="539714564273795574">"Videopozivanje putem mobilnog operatera"</string>
     <string name="gsm_umts_options" msgid="6538311689850981686">"Opcije za GSM/UMTS"</string>
     <string name="cdma_options" msgid="4016822858172249884">"CDMA opcije"</string>
     <string name="throttle_data_usage" msgid="3715677828160555808">"Korištenje podataka"</string>
@@ -452,7 +465,7 @@
     <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"Mobilna mreža nije dostupna. Povežite se s bežičnom mrežom da biste uputili poziv."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"Unesite važeći broj da biste uspostavili poziv."</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"Poziv nije uspio."</string>
-    <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"Poziv trenutačno nije moguć."</string>
+    <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"Poziv se trenutačno ne može dodati. Pokušajte poslati poruku."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"Usluga nije podržana"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"Prebacivanje poziva nije moguće."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"Odvajanje poziva nije moguće."</string>
@@ -574,6 +587,8 @@
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"Postoji previše aktivnih poziva. Prekinite ili spojite postojeće pozive prije uspostavljanja novog poziva."</string>
     <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"Povezivanje nije moguće, umetnite važeću SIM karticu."</string>
     <string name="callFailed_wifi_lost" msgid="5968076625137297184">"Wi-Fi veza je prekinuta. Poziv je završen."</string>
+    <string name="dialFailed_low_battery" msgid="8760548177088774268">"Vaš videopoziv ne može se uspostaviti zbog slabe baterije."</string>
+    <string name="callFailed_low_battery" msgid="4913582435905872616">"Videopoziv je završio zbog slabe baterije"</string>
     <string name="change_pin_title" msgid="7790232089699034029">"Promjena PIN-a govorne pošte"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"Nastavi"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"Odustani"</string>
@@ -586,4 +601,18 @@
     <string name="change_pin_confirm_pins_dont_match" msgid="4795052654904027909">"PIN-ovi se ne podudaraju"</string>
     <string name="change_pin_succeeded" msgid="2022852286442211151">"Ažuriran je PIN govorne pošte"</string>
     <string name="change_pin_system_error" msgid="8308462387154257840">"PIN se ne može postaviti"</string>
+    <string name="mobile_data_status_roaming_turned_off_subtext" msgid="935636805765823307">"Podatkovni roaming je isključen"</string>
+    <string name="mobile_data_status_roaming_turned_on_subtext" msgid="1335176927083781041">"Podatkovni roaming je isključen"</string>
+    <string name="mobile_data_status_roaming_without_plan_subtext" msgid="3568412513831673037">"Roaming je u tijeku, potreban je podatkovni paket"</string>
+    <string name="mobile_data_status_roaming_with_plan_subtext" msgid="8721998948811064377">"Roaming je u tijeku, podatkovni paket je aktivan"</string>
+    <string name="mobile_data_status_no_plan_subtext" msgid="4887747337017565725">"Više nema mobilnih podataka"</string>
+    <string name="mobile_data_activate_prepaid" msgid="7447025165850512683">"Više nema mobilnih podataka"</string>
+    <string name="mobile_data_activate_prepaid_summary" msgid="5705389791791637666">"Dodajte mobilne podatke putem operatera <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
+    <string name="mobile_data_activate_roaming_plan" msgid="5998161536947086264">"Nema roaming paketa"</string>
+    <string name="mobile_data_activate_roaming_plan_summary" msgid="511202908883425459">"Dodajte roaming paket putem operatera <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
+    <string name="mobile_data_activate_footer" msgid="5979019929980140594">"Mobilne podatke ili roaminga paket možete dodati putem svojeg operatera <xliff:g id="PROVIDER_NAME">%s</xliff:g>."</string>
+    <string name="mobile_data_activate_diag_title" msgid="9044252207707864493">"Želite li dodati podatke?"</string>
+    <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"Možda ćete trebati dodati podatke putem operatera <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
+    <string name="mobile_data_activate_button" msgid="3682400969184405446">"DODAJ PODATKE"</string>
+    <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"ODUSTANI"</string>
 </resources>

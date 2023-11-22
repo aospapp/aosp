@@ -17,12 +17,20 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#include <vector>
+
 class V4L2Device {
  public:
   enum IOMethod {
-    IO_METHOD_READ,
+    IO_METHOD_UNDEFINED,
     IO_METHOD_MMAP,
     IO_METHOD_USERPTR,
+  };
+
+  enum ConstantFramerate {
+    DEFAULT_FRAMERATE_SETTING,
+    ENABLE_CONSTANT_FRAMERATE,
+    DISABLE_CONSTANT_FRAMERATE,
   };
 
   struct Buffer {
@@ -31,20 +39,28 @@ class V4L2Device {
   };
 
   V4L2Device(const char* dev_name,
-             IOMethod io,
              uint32_t buffers);
-  virtual ~V4L2Device() {}
+  virtual ~V4L2Device();
 
   virtual bool OpenDevice();
   virtual void CloseDevice();
-  virtual bool InitDevice(uint32_t width,
+  // After this function is called, the driver may adjust the settings if they
+  // are unsupported.  Caller can use GetV4L2Format() and GetFrameRate() to know
+  // the actual settings.  If V4L2_CAP_TIMEPERFRAME is unsupported, fps will be
+  // ignored.
+  virtual bool InitDevice(IOMethod io,
+                          uint32_t width,
                           uint32_t height,
                           uint32_t pixfmt,
-                          uint32_t fps);
+                          float fps,
+                          ConstantFramerate constant_framerate,
+                          uint32_t num_skip_frames);
   virtual bool UninitDevice();
   virtual bool StartCapture();
   virtual bool StopCapture();
-  virtual bool Run(uint32_t frames, uint32_t time_in_sec = 0);
+  virtual bool Run(uint32_t time_in_sec);
+  virtual int32_t ReadOneFrame(uint32_t* buffer_index, uint32_t* data_size);
+  virtual bool EnqueueBuffer(uint32_t buffer_index);
 
   // Helper methods.
   bool EnumInput();
@@ -52,7 +68,10 @@ class V4L2Device {
   bool EnumControl(bool show_menu = true);
   bool EnumControlMenu(const v4l2_queryctrl& query_ctrl);
   bool EnumFormat(uint32_t* num_formats, bool show_fmt = true);
-  bool EnumFrameSize(uint32_t pixfmt, bool show_frmsize = true);
+  bool EnumFrameSize(
+      uint32_t pixfmt, uint32_t* num_sizes, bool show_frmsize = true);
+  bool EnumFrameInterval(uint32_t pixfmt, uint32_t width, uint32_t height,
+                         uint32_t* num_intervals, bool show_intervals = true);
 
   bool QueryControl(uint32_t id, v4l2_queryctrl* ctrl);
   bool SetControl(uint32_t id, int32_t value);
@@ -62,22 +81,26 @@ class V4L2Device {
   bool SetCrop(v4l2_crop* crop);
   bool GetParam(v4l2_streamparm* param);
   bool SetParam(v4l2_streamparm* param);
-  bool SetFrameRate(uint32_t fps);
-  uint32_t GetPixelFormat(uint32_t index);
-  uint32_t GetFrameRate();
+  bool SetFrameRate(float fps);
+  bool GetPixelFormat(uint32_t index, uint32_t* pixfmt);
+  bool GetFrameSize(
+      uint32_t index, uint32_t pixfmt, uint32_t *width, uint32_t *height);
+  bool GetFrameInterval(
+      uint32_t index, uint32_t pixfmt, uint32_t width, uint32_t height,
+      float* frame_rate);
+  float GetFrameRate();
+  bool GetV4L2Format(v4l2_format* format);
   bool Stop();
 
   // Getter.
-  int32_t GetActualWidth() {
-    return width_;
+  uint32_t GetNumFrames() const { return frame_timestamps_.size(); }
+
+  const std::vector<int64_t>& GetFrameTimestamps() const {
+    return frame_timestamps_;
   }
 
-  int32_t GetActualHeight() {
-    return height_;
-  }
-
-  v4l2_format& GetActualPixelFormat() {
-    return pixfmt_;
+  const Buffer& GetBufferInfo(uint32_t index) {
+    return v4l2_buffers_[index];
   }
 
   static uint32_t MapFourCC(const char* fourcc);
@@ -86,8 +109,6 @@ class V4L2Device {
 
  private:
   int32_t DoIoctl(int32_t request, void* arg);
-  int32_t ReadOneFrame();
-  bool InitReadIO(uint32_t buffer_size);
   bool InitMmapIO();
   bool InitUserPtrIO(uint32_t buffer_size);
   bool AllocateBuffer(uint32_t buffer_count);
@@ -102,10 +123,11 @@ class V4L2Device {
   uint32_t min_buffers_;  // Minimum buffers requirement.
   bool stopped_;
 
-  // Valid only after |InitDevice()|.
-  uint32_t width_, height_;
-  v4l2_format pixfmt_;
+  // Sets to true when buffers are initialized.
+  bool initialized_;
+  std::vector<int64_t> frame_timestamps_;
+  // The number of frames should be skipped after stream on.
+  uint32_t num_skip_frames_;
 };
 
 #endif  // MEDIA_V4L2_DEVICE_H_
-

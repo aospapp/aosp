@@ -27,9 +27,9 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"下列應用程式需要存取這個設定檔："</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"下列應用程式將管理你的裝置："</string>
     <string name="next" msgid="1004321437324424398">"繼續"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"正在設定你的 Work 設定檔…"</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"正在設定 Work 設定檔…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"你的管理員可以監控及管理與這個設定檔相關聯的設定、公司系統權限、應用程式、權限和資料，包括你的網路活動，以及裝置的位置資訊、通話紀錄和聯絡人搜尋紀錄。<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>如要瞭解詳情 (包括貴機構的隱私權政策)，請與你的管理員聯絡。"</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"你的管理員可以監控及管理與這個裝置相關聯的設定、公司系統權限、應用程式、權限和資料，包括你的網路活動，以及裝置的位置資訊、通話紀錄和聯絡人搜尋紀錄。<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>如要瞭解詳情 (包括貴機構的隱私權政策)，請與你的管理員聯絡。"</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"你的管理員可以監控及管理與這個裝置相關聯的設定、公司系統權限、應用程式、權限和資料，包括你的網路活動，以及裝置的位置資訊、通話紀錄和聯絡人搜尋紀錄。<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>如要瞭解詳情 (包括貴機構的隱私權政策)，請與你的管理員聯絡。"</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"你必須為裝置設定以密碼保護的螢幕鎖定，才能使用防盜功能。"</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"如需詳細資訊 (包括貴機構的隱私權政策)，請與你的管理員聯絡。"</string>
     <string name="learn_more_link" msgid="3012495805919550043">"瞭解詳情"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"工作設定檔"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"主要使用者"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"要刪除現有的設定檔嗎？"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"你已經有透過下列應用程式管理的 Work 設定檔："</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"你已經有透過下列應用程式管理的 Work 設定檔："</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"在繼續之前，請參閱"<a href="#read_this_link">"詳細資訊"</a>"。"</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"如果繼續執行，這個設定檔中的所有應用程式和資料都將遭到刪除。"</string>
     <string name="delete_profile" msgid="2299218578684663459">"刪除"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"輕觸即可繼續設定你的 Work 設定檔"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"無法設定你的工作設定檔，請與你的 IT 部門聯絡或稍後再試。"</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"無法新增 Work 設定檔"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"這位使用者無法使用 Work 設定檔。如需協助，請與你的管理員聯絡。"</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"這位使用者無法使用 Work 設定檔，請與你的管理員聯絡。"</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"無法在受管理的裝置上設定 Work 設定檔"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"這個裝置上的使用者過多。請移除一位使用者，然後再試一次。"</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"無法取代或移除 Work 設定檔"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"無法在這個裝置上新增 Work 設定檔。如有任何問題，請與管理員聯絡。"</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"請變更裝置啟動器"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"這個啟動器應用程式不支援 Work 設定檔"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"取消"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"確定"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"使用者設定未完成"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"工作裝置使用者"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"設定 Work 裝置"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"正在設定 Work 裝置…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"正在處理設定資料…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"正在連線至 Wi-Fi…"</string>
     <string name="progress_download" msgid="3522436271691064624">"正在下載管理應用程式…"</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"取消"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"重設裝置"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>和<xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g>和<xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g>和<xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>，<xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>，<xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

@@ -14,6 +14,7 @@
 #include "GrFixedClip.h"
 #include "GrGpuResourcePriv.h"
 #include "GrRenderTargetPriv.h"
+#include "GrResourceProvider.h"
 #include "GrStencilAttachment.h"
 #include "GrSWMaskHelper.h"
 #include "GrTextureProxy.h"
@@ -72,12 +73,10 @@ void GrClipStackClip::getConservativeBounds(int width, int height, SkIRect* devR
 
 ////////////////////////////////////////////////////////////////////////////////
 // set up the draw state to enable the aa clipping mask.
-static sk_sp<GrFragmentProcessor> create_fp_for_mask(GrResourceProvider* resourceProvider,
-                                                     sk_sp<GrTextureProxy> mask,
+static sk_sp<GrFragmentProcessor> create_fp_for_mask(sk_sp<GrTextureProxy> mask,
                                                      const SkIRect &devBound) {
     SkIRect domainTexels = SkIRect::MakeWH(devBound.width(), devBound.height());
-    return GrDeviceSpaceTextureDecalFragmentProcessor::Make(resourceProvider,
-                                                            std::move(mask), domainTexels,
+    return GrDeviceSpaceTextureDecalFragmentProcessor::Make(std::move(mask), domainTexels,
                                                             {devBound.fLeft, devBound.fTop});
 }
 
@@ -115,18 +114,13 @@ bool GrClipStackClip::PathNeedsSWRenderer(GrContext* context,
 
         GrShape shape(path, GrStyle::SimpleFill());
         GrPathRenderer::CanDrawPathArgs canDrawArgs;
-        canDrawArgs.fShaderCaps = context->caps()->shaderCaps();
+        canDrawArgs.fCaps = context->caps();
         canDrawArgs.fViewMatrix = &viewMatrix;
         canDrawArgs.fShape = &shape;
-        if (!element->isAA()) {
-            canDrawArgs.fAAType = GrAAType::kNone;
-        } else if (renderTargetContext->isUnifiedMultisampled()) {
-            canDrawArgs.fAAType = GrAAType::kMSAA;
-        } else if (renderTargetContext->isStencilBufferMultisampled()){
-            canDrawArgs.fAAType = GrAAType::kMixedSamples;
-        } else {
-            canDrawArgs.fAAType = GrAAType::kCoverage;
-        }
+        canDrawArgs.fAAType = GrChooseAAType(GrBoolToAA(element->isAA()),
+                                             renderTargetContext->fsaaType(),
+                                             GrAllowMixedSamples::kYes,
+                                             *context->caps());
         canDrawArgs.fHasUserStencilSettings = hasUserStencilSettings;
 
         // the 'false' parameter disallows use of the SW path renderer
@@ -151,6 +145,10 @@ bool GrClipStackClip::UseSWOnlyPath(GrContext* context,
     // TODO: generalize this function so that when
     // a clip gets complex enough it can just be done in SW regardless
     // of whether it would invoke the GrSoftwarePathRenderer.
+
+    // If we're avoiding stencils, always use SW:
+    if (context->caps()->avoidStencilBuffers())
+        return true;
 
     // Set the matrix so that rendered clip elements are transformed to mask space from clip
     // space.
@@ -283,6 +281,8 @@ bool GrClipStackClip::apply(GrContext* context, GrRenderTargetContext* renderTar
     SkASSERT(rtIBounds.contains(clipIBounds)); // Mask shouldn't be larger than the RT.
 #endif
 
+    bool avoidStencilBuffers = context->caps()->avoidStencilBuffers();
+
     // An element count of 4 was chosen because of the common pattern in Blink of:
     //   isect RR
     //   diff  RR
@@ -294,7 +294,8 @@ bool GrClipStackClip::apply(GrContext* context, GrRenderTargetContext* renderTar
     if (reducedClip.elements().count() <= kMaxAnalyticElements) {
         // When there are multiple samples we want to do per-sample clipping, not compute a
         // fractional pixel coverage.
-        bool disallowAnalyticAA = renderTargetContext->isStencilBufferMultisampled();
+        bool disallowAnalyticAA =
+                GrFSAAType::kNone != renderTargetContext->fsaaType() && !avoidStencilBuffers;
         if (disallowAnalyticAA && !renderTargetContext->numColorSamples()) {
             // With a single color sample, any coverage info is lost from color once it hits the
             // color buffer anyway, so we may as well use coverage AA if nothing else in the pipe
@@ -302,7 +303,7 @@ bool GrClipStackClip::apply(GrContext* context, GrRenderTargetContext* renderTar
             disallowAnalyticAA = useHWAA || hasUserStencilSettings;
         }
         sk_sp<GrFragmentProcessor> clipFP;
-        if (reducedClip.requiresAA() &&
+        if ((reducedClip.requiresAA() || avoidStencilBuffers) &&
             get_analytic_clip_processor(reducedClip.elements(), disallowAnalyticAA, devBounds,
                                         &clipFP)) {
             out->addCoverageFP(std::move(clipFP));
@@ -311,7 +312,8 @@ bool GrClipStackClip::apply(GrContext* context, GrRenderTargetContext* renderTar
     }
 
     // If the stencil buffer is multisampled we can use it to do everything.
-    if (!renderTargetContext->isStencilBufferMultisampled() && reducedClip.requiresAA()) {
+    if ((GrFSAAType::kNone == renderTargetContext->fsaaType() && reducedClip.requiresAA()) ||
+        avoidStencilBuffers) {
         sk_sp<GrTextureProxy> result;
         if (UseSWOnlyPath(context, hasUserStencilSettings, renderTargetContext, reducedClip)) {
             // The clip geometry is complex enough that it will be more efficient to create it
@@ -324,11 +326,16 @@ bool GrClipStackClip::apply(GrContext* context, GrRenderTargetContext* renderTar
         if (result) {
             // The mask's top left coord should be pinned to the rounded-out top left corner of
             // the clip's device space bounds.
-            out->addCoverageFP(create_fp_for_mask(context->resourceProvider(), std::move(result),
-                                                  reducedClip.ibounds()));
+            out->addCoverageFP(create_fp_for_mask(std::move(result), reducedClip.ibounds()));
             return true;
         }
-        // if alpha clip mask creation fails fall through to the non-AA code paths
+
+        // If alpha or software clip mask creation fails, fall through to the stencil code paths,
+        // unless stencils are disallowed.
+        if (context->caps()->avoidStencilBuffers()) {
+            SkDebugf("WARNING: Clip mask requires stencil, but stencil unavailable. Clip will be ignored.\n");
+            return false;
+        }
     }
 
     GrRenderTarget* rt = renderTargetContext->accessRenderTarget();
@@ -350,14 +357,14 @@ bool GrClipStackClip::apply(GrContext* context, GrRenderTargetContext* renderTar
         reducedClip.drawStencilClipMask(context, renderTargetContext);
         renderTargetContext->priv().setLastClip(reducedClip.elementsGenID(), reducedClip.ibounds());
     }
-    out->addStencilClip();
+    out->addStencilClip(reducedClip.elementsGenID());
     return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Create a 8-bit clip mask in alpha
 
-static void create_clip_mask_key(int32_t clipGenID, const SkIRect& bounds, GrUniqueKey* key) {
+static void create_clip_mask_key(uint32_t clipGenID, const SkIRect& bounds, GrUniqueKey* key) {
     static const GrUniqueKey::Domain kDomain = GrUniqueKey::GenerateDomain();
     GrUniqueKey::Builder builder(key, kDomain, 3, GrClipStackClip::kMaskTestTag);
     builder[0] = clipGenID;
@@ -367,7 +374,7 @@ static void create_clip_mask_key(int32_t clipGenID, const SkIRect& bounds, GrUni
     builder[2] = SkToS16(bounds.fTop) | (SkToS16(bounds.fBottom) << 16);
 }
 
-static void add_invalidate_on_pop_message(const SkClipStack& stack, int32_t clipGenID,
+static void add_invalidate_on_pop_message(const SkClipStack& stack, uint32_t clipGenID,
                                           const GrUniqueKey& clipMaskKey) {
     SkClipStack::Iter iter(stack, SkClipStack::Iter::kTop_IterStart);
     while (const Element* element = iter.prev()) {
@@ -392,7 +399,7 @@ sk_sp<GrTextureProxy> GrClipStackClip::createAlphaClipMask(GrContext* context,
         return proxy;
     }
 
-    sk_sp<GrRenderTargetContext> rtc(context->makeRenderTargetContextWithFallback(
+    sk_sp<GrRenderTargetContext> rtc(context->makeDeferredRenderTargetContextWithFallback(
                                                                              SkBackingFit::kApprox,
                                                                              reducedClip.width(),
                                                                              reducedClip.height(),

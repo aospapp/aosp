@@ -63,7 +63,7 @@ class NfcHidlBasicTest(base_test.BaseTestClass):
 
         if self.coverage.enabled:
             self.coverage.LoadArtifacts()
-            self.coverage.InitializeDeviceCoverage(self._dut)
+            self.coverage.InitializeDeviceCoverage(self.dut)
 
     def tearDownClass(self):
         """Turns off the framework-layer NFC service."""

@@ -17,9 +17,9 @@
 #define LOG_TAG "NetworkUtilities"
 
 #include "NetworkUtilities.h"
-#include "JNIHelp.h"
-#include "JniConstants.h"
-#include "ScopedLocalRef.h"
+#include <nativehelper/JNIHelp.h>
+#include <nativehelper/JniConstants.h>
+#include <nativehelper/ScopedLocalRef.h>
 
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -99,9 +99,15 @@ static bool inetAddressToSockaddr(JNIEnv* env, jobject inetAddress, int port, so
 
     // Get holder.
     static jfieldID holderFid = env->GetFieldID(JniConstants::inetAddressClass, "holder", "Ljava/net/InetAddress$InetAddressHolder;");
+    if (holderFid == NULL) {
+        return false;
+    }
     ScopedLocalRef<jobject> holder(env, env->GetObjectField(inetAddress, holderFid));
     // Get the address family.
     static jfieldID familyFid = env->GetFieldID(JniConstants::inetAddressHolderClass, "family", "I");
+    if (familyFid == NULL) {
+        return false;
+    }
     ss.ss_family = env->GetIntField(holder.get(), familyFid);
     if (ss.ss_family == AF_UNSPEC) {
         sa_len = sizeof(ss.ss_family);
@@ -117,6 +123,9 @@ static bool inetAddressToSockaddr(JNIEnv* env, jobject inetAddress, int port, so
 
     // Get the byte array that stores the IP address bytes in the InetAddress.
     static jmethodID bytesMid = env->GetMethodID(JniConstants::inetAddressClass, "getAddress", "()[B");
+    if (bytesMid == NULL) {
+        return false;
+    }
     ScopedLocalRef<jbyteArray> addressBytes(env, reinterpret_cast<jbyteArray>(env->CallObjectMethod(inetAddress, bytesMid)));
     if (env->ExceptionCheck()) {
         return false;
@@ -143,6 +152,9 @@ static bool inetAddressToSockaddr(JNIEnv* env, jobject inetAddress, int port, so
         static jfieldID holder6Fid = env->GetFieldID(JniConstants::inet6AddressClass,
                                                      "holder6",
                                                      "Ljava/net/Inet6Address$Inet6AddressHolder;");
+        if (holder6Fid == NULL) {
+            return false;
+        }
         ScopedLocalRef<jobject> holder6(env, env->GetObjectField(inetAddress, holder6Fid));
         static jfieldID scopeFid = env->GetFieldID(JniConstants::inet6AddressHolderClass, "scope_id", "I");
         sin6.sin6_scope_id = env->GetIntField(holder6.get(), scopeFid);

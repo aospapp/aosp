@@ -18,6 +18,7 @@
 #define CHRE_CORE_EVENT_H_
 
 #include "chre_api/chre/event.h"
+#include "chre/platform/assert.h"
 #include "chre/util/non_copyable.h"
 
 #include <cstdint>
@@ -42,9 +43,19 @@ class Event : public NonCopyable {
         uint32_t senderInstanceId = kSystemInstanceId,
         uint32_t targetInstanceId = kBroadcastInstanceId);
 
-  void incrementRefCount();
-  void decrementRefCount();
-  bool isUnreferenced() const;
+  void incrementRefCount() {
+    mRefCount++;
+    CHRE_ASSERT(mRefCount != 0);
+  }
+
+  void decrementRefCount() {
+    CHRE_ASSERT(mRefCount > 0);
+    mRefCount--;
+  }
+
+  bool isUnreferenced() const {
+    return (mRefCount == 0);
+  }
 
   const uint16_t eventType;
   void * const eventData;

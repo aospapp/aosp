@@ -45,8 +45,12 @@
 #define RLIMIT_RTTIME 15
 #endif
 
+// Introduced in Linux 3.1
 #ifndef SEEK_DATA
 #define SEEK_DATA 3
+#endif
+#ifndef SEEK_HOLE
+#define SEEK_HOLE 4
 #endif
 
 // We don't define GNU_dammit because we're not part of the gnu project, and
@@ -86,46 +90,8 @@ char *dirname(char *path);
 char *__xpg_basename(char *path);
 static inline char *basename(char *path) { return __xpg_basename(path); }
 
-// uClibc pretends to be glibc and copied a lot of its bugs, but has a few more
-#if defined(__UCLIBC__)
-#include <unistd.h>
-#include <stdio.h>
-ssize_t getdelim(char **lineptr, size_t *n, int delim, FILE *stream);
-char *stpcpy(char *dest, const char *src);
-pid_t getsid(pid_t pid);
-
-// uClibc's last-ever release was in 2012, so of course it doesn't define
-// any flag newer than MS_MOVE, which was added in 2001 (linux 2.5.0.5),
-// eleven years earlier.
-
-#include <sys/mount.h>
-#ifndef MS_MOVE
-#define MS_MOVE       (1<<13)
-#endif
-#ifndef MS_REC
-#define MS_REC        (1<<14)
-#endif
-#ifndef MS_SILENT
-#define MS_SILENT     (1<<15)
-#endif
-#ifndef MS_UNBINDABLE
-#define MS_UNBINDABLE (1<<17)
-#endif
-#ifndef MS_PRIVATE
-#define MS_PRIVATE    (1<<18)
-#endif
-#ifndef MS_SLAVE
-#define MS_SLAVE      (1<<19)
-#endif
-#ifndef MS_SHARED
-#define MS_SHARED     (1<<20)
-#endif
-#ifndef MS_RELATIME
-#define MS_RELATIME (1<<21)
-#endif
-
 // When building under obsolete glibc (Ubuntu 8.04-ish), hold its hand a bit.
-#elif __GLIBC__ == 2 && __GLIBC_MINOR__ < 10
+#if __GLIBC__ == 2 && __GLIBC_MINOR__ < 10
 #define fstatat fstatat64
 int fstatat64(int dirfd, const char *pathname, void *buf, int flags);
 int readlinkat(int dirfd, const char *pathname, char *buf, size_t bufsiz);
@@ -237,17 +203,17 @@ static inline void endutxent(void) {;}
 #ifndef O_NOFOLLOW
 #define O_NOFOLLOW 0
 #endif
-
 #ifndef O_NOATIME
 #define O_NOATIME 01000000
 #endif
-
 #ifndef O_CLOEXEC
 #define O_CLOEXEC 02000000
 #endif
-
 #ifndef O_PATH
 #define O_PATH   010000000
+#endif
+#ifndef SCHED_RESET_ON_FORK
+#define SCHED_RESET_ON_FORK (1<<30)
 #endif
 
 // Glibc won't give you linux-kernel constants unless you say "no, a BUD lite"
@@ -274,7 +240,7 @@ pid_t xfork(void);
 //#define strncpy(...) @@strncpyisbadmmkay@@
 //#define strncat(...) @@strncatisbadmmkay@@
 
-#ifdef __ANDROID__
+#if CFG_TOYBOX_ANDROID_SCHEDPOLICY && defined(__BIONIC__)
 #include <cutils/sched_policy.h>
 #else
 static inline int get_sched_policy(int tid, void *policy) {return 0;}

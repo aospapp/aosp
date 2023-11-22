@@ -81,6 +81,7 @@ extern "C" {
 #define SENS_TYPE_MAG_RAW         59
 #define SENS_TYPE_LEDS            60
 #define SENS_TYPE_HUMIDITY        61
+#define SENS_TYPE_LEDS_I2C        62
 
 #define SENS_TYPE_FIRST_USER      64 // event type necessarily begins with UserSensorEventHdr
 #define SENS_TYPE_LAST_USER       128

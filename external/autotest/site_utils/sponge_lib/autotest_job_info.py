@@ -117,7 +117,7 @@ class AutotestTaskInfo(object):
     tags = ['autotest']
 
     # A list of logs to upload for this task.
-    logs = ['debug', 'status.log', 'crash', 'keyval']
+    logs = ['debug', 'status.log', 'crash', 'keyval', 'control', 'control.srv']
 
     # Version of the data stored.
     version = 2
@@ -162,6 +162,11 @@ class AutotestTaskInfo(object):
     def attributes(self):
         """Attributes of this task."""
         return getattr(self._test, 'attributes', {})
+
+    @property
+    def reason(self):
+        """The reason for this tasks status."""
+        return getattr(self._test, 'reason', None)
 
     @property
     def results_dir(self):

@@ -75,13 +75,13 @@ public class StringConcatenatorTest {
 
     @Test
     public void joinThree() {
-        assertCorrect(asList("word1", "word2", "word3"), "word1, word2 and word3");
+        assertCorrect(asList("word1", "word2", "word3"), "word1, word2, and word3");
     }
 
     @Test
     public void joinMany() {
         assertCorrect(asList("word1", "word2", "word3", "word4", "word5", "word6", "word7"),
-                "word1, word2, word3, word4, word5, word6 and word7"
+                "word1, word2, word3, word4, word5, word6, and word7"
         );
     }
 

@@ -181,10 +181,14 @@ class RDBClientHostWrapper(RDBHost):
     This wrapper is used whenever the queue entry needs direct access
     to the host.
     """
-
+    # Shows more detailed status of what a DUT is doing.
     _HOST_WORKING_METRIC = 'chromeos/autotest/dut_working'
+    # Shows which hosts are working.
     _HOST_STATUS_METRIC = 'chromeos/autotest/dut_status'
+    # Maps duts to pools.
     _HOST_POOL_METRIC = 'chromeos/autotest/dut_pool'
+    # Shows which scheduler machines are using a DUT.
+    _BOARD_SHARD_METRIC = 'chromeos/autotest/shard/board_presence'
 
 
     def __init__(self, **kwargs):
@@ -307,6 +311,9 @@ class RDBClientHostWrapper(RDBHost):
         metrics.Boolean(
                 self._HOST_WORKING_METRIC, reset_after=True).set(
                         working, fields=fields)
+        metrics.Boolean(
+                self._BOARD_SHARD_METRIC, reset_after=True).set(
+            True, fields={'board': self.board or ''})
         self.record_pool(fields)
 
 

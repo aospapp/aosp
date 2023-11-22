@@ -35,6 +35,12 @@
     <!-- Description of an application permission, listed so the user can choose
         whether they want to allow the application to do this. -->
     <string name="permdesc_receiveInputEvent" translatable="false">Allows the app to receive input events from Live TV app</string>
+    <!-- Title of an application permission, listed so the user can choose
+        whether they want to allow the application to do this. -->
+    <string name="permlab_customizeTvApp" translatable="false">customize Live TV app</string>
+    <!-- Description of an application permission, listed so the user can choose
+        whether they want to allow the application to do this. -->
+    <string name="permdesc_customizeTvApp" translatable="false">Allows the app to customize Live TV app</string>
 
     <!-- Program information, mainly used for channel banner and program guide. -->
     <eat-comment />
@@ -63,11 +69,9 @@
          The play means a playback of video and audio. [CHAR LIMIT=NONE] -->
     <string name="menu_title_play_controls">Play controls</string>
     <!-- Title of the channels row in the main menu. [CHAR LIMIT=NONE] -->
-    <string name="menu_title_channels">Recent channels</string>
+    <string name="menu_title_channels">Channels</string>
     <!-- Title of the TV option row in the main menu. [CHAR LIMIT=NONE] -->
     <string name="menu_title_options">TV options</string>
-    <!-- Title of the PIP option row in the main menu. [CHAR LIMIT=NONE] -->
-    <string name="menu_title_pip_options">PIP options</string>
 
     <!-- Play speed of 2X, 3X, 4X, 5X -->
     <string name="play_controls_speed" translatable="false">%1$dX</string>
@@ -101,12 +105,6 @@
     <string name="options_item_display_mode">Display mode</string>
     <!-- Label of "PIP (Picture in picture)" item in the TV option row. [CHAR LIMIT=17] -->
     <string name="options_item_pip">PIP</string>
-    <!-- Description of the "PIP" item in the TV option row indicating that the currently the PIP
-         is turned on. [CHAR LIMIT=17] -->
-    <string name="options_item_pip_on">On</string>
-    <!-- Description of the "PIP" item in the TV option row indicating that the currently the PIP
-         is turned off. [CHAR LIMIT=20] -->
-    <string name="options_item_pip_off">Off</string>
     <!-- Label of "Multi audio" item in the TV option row. [CHAR LIMIT=17] -->
     <string name="options_item_multi_audio">Multi-audio</string>
     <!-- Label of "Get more channels" item in the TV option row. [CHAR LIMIT=17] -->
@@ -116,54 +114,6 @@
     <!-- Label of "Settings" item in the TV option row. [CHAR LIMIT=17] -->
     <string name="options_item_settings">Settings</string>
 
-    <!-- Label of "Source" item in the PIP option row. The item enables the user to select
-         a specific input (e.g. HDMI 1) for the PIP window. [CHAR LIMIT=17] -->
-    <string name="pip_options_item_source">Source</string>
-    <!-- Label of "Swap" item in the PIP option row.
-         After swapping, the main window and PIP window will show the channels of each other. [CHAR LIMIT=17] -->
-    <string name="pip_options_item_swap">Swap</string>
-    <!-- Description of the "Swap" item in the PIP option row indicating that the currently the
-         windows are swapped. [CHAR LIMIT=20] -->
-    <string name="pip_options_item_swap_on">On</string>
-    <!-- Description of the "Swap" item in the PIP option row indicating that the currently the
-         windows are not swapped. [CHAR LIMIT=20] -->
-    <string name="pip_options_item_swap_off">Off</string>
-    <!-- Label of "Sound" item in the PIP option row. [CHAR LIMIT=17] -->
-    <string name="pip_options_item_sound">Sound</string>
-    <!-- Description of the "Sound" item in the PIP option row indicating that the current sound
-         source is main window. [CHAR LIMIT=20] -->
-    <string name="pip_options_item_sound_main">Main</string>
-    <!-- Description of the "Sound" item in the PIP option row indicating that the current sound
-         source is PIP window. [CHAR LIMIT=20] -->
-    <string name="pip_options_item_sound_pip_window">PIP window</string>
-    <!-- Label of "Layout" item in the PIP option row. [CHAR LIMIT=17] -->
-    <string name="pip_options_item_layout">Layout</string>
-    <!-- Description of the "Layout" item in the PIP option row indicating that the current PIP
-         window is at the bottom right corner of the screen. [CHAR LIMIT=20] -->
-    <string name="pip_options_item_layout_bottom_right">Bottom right</string>
-    <!-- Description of the "Layout" item in the PIP option row indicating that the current PIP
-         window is at the top right corner of the screen. [CHAR LIMIT=20] -->
-    <string name="pip_options_item_layout_top_right">Top right</string>
-    <!-- Description of the "Layout" item in the PIP option row indicating that the current PIP
-         window is at the top left corner of the screen. [CHAR LIMIT=20] -->
-    <string name="pip_options_item_layout_top_left">Top left</string>
-    <!-- Description of the "Layout" item in the PIP option row indicating that the current PIP
-         window is at the bottom left corner of the screen. [CHAR LIMIT=20] -->
-    <string name="pip_options_item_layout_bottom_left">Bottom left</string>
-    <!-- Description of the "Layout" item in the PIP option row indicating that the current PIP
-         layout is side-by-side (i.e. Picture and Picture). [CHAR LIMIT=20] -->
-    <string name="pip_options_item_layout_side_by_side">Side by side</string>
-    <!-- Label of "Size" item in the PIP option row. [CHAR LIMIT=17] -->
-    <string name="pip_options_item_size">Size</string>
-    <!-- Description of the "Size" item in the PIP option row indicating that the current PIP size
-         is big.  [CHAR LIMIT=20] -->
-    <string name="pip_options_item_size_big">Big</string>
-    <!-- Description of the "Size" item in the PIP option row indicating that the current PIP size
-         is small.  [CHAR LIMIT=20] -->
-    <string name="pip_options_item_size_small">Small</string>
-
-    <!-- Title of "Input source" option to select an input for PIP. [CHAR LIMIT=30] -->
-    <string name="side_panel_title_pip_input_source">Input source</string>
     <!-- Label of a unified input for tuner type inputs. [CHAR LIMIT=30] -->
     <string name="input_long_label_for_tuner">TV (antenna/cable)</string>
 
@@ -175,8 +125,11 @@
     <!-- Program title for blocked channel [CHAR LIMIT=23] -->
     <string name="program_title_for_blocked_channel">Blocked channel</string>
 
-    <!-- Default string for unknown language used in "Closed Caption" and "Multi Audio" options. [CHAR LIMIT=30] -->
-    <string name="default_language">Unknown language</string>
+    <!-- Default string for unknown language used in "Multi Audio" options. [CHAR LIMIT=30] -->
+    <string name="multi_audio_unknown_language">Unknown language</string>
+
+    <!-- Default string for unknown language used in "Closed Caption" options. [CHAR LIMIT=30] -->
+    <string name="closed_caption_unknown_language">Closed captions %1$d</string>
 
     <!-- Inside "Closed captions" option side panel -->
     <eat-comment />
@@ -238,6 +191,8 @@
     <eat-comment />
     <!-- Description in the TV guide when the rating of the current content is restricted by parental control. [CHAR LIMIT=NONE] -->
     <string name="program_guide_content_locked">This program is blocked</string>
+    <!-- Description in the TV guide when the current content is unrated and it's restricted by parental control. [CHAR LIMIT=NONE] -->
+    <string name="program_guide_content_locked_unrated">This program is unrated</string>
     <!-- Description in the TV guide with the rating when the rating of the current content is restricted by parental control. [CHAR LIMIT=NONE] -->
     <string name="program_guide_content_locked_format">This program is rated <xliff:g id="rating" example="TV_MA">%1$s</xliff:g></string>
 
@@ -256,11 +211,6 @@
     </plurals>
     <!-- Message after no channel is added after setting up an input. [CHAR LIMIT=NONE] -->
     <string name="msg_no_channel_added">No channels added</string>
-
-    <!-- Inside "Input Selector" option side panel -->
-    <eat-comment />
-    <!-- Label of a tuner input in "Input Selector" option. [CHAR LIMIT=30] -->
-    <string name="input_selector_tuner_label">Tuner</string>
 
     <!-- Parental control -->
     <eat-comment />
@@ -303,6 +253,12 @@
     <!-- Description below "Program Restrictions" item when there is no locked channel.
          [CHAR LIMIT=NONE] -->
     <string name="option_no_enabled_rating_system">None</string>
+
+    <!-- Display name of unrated rating -->
+    <string name="unrated_rating_name">Unrated</string>
+
+    <!-- Label of an item to block unrated programs. [CHAR LIMIT=30] -->
+    <string name="option_block_unrated_programs">Block unrated programs</string>
 
     <!-- Label of an item not to select any restriction. [CHAR LIMIT=30] -->
     <string name="option_rating_none">None</string>
@@ -349,6 +305,9 @@
     <!-- Title of PIN dialog when an user is asked to enter PIN to unlock DVR playback.
          [CHAR LIMIT=NONE] -->
     <string name="pin_enter_unlock_dvr">This program is rated <xliff:g id="rating" example="TV_MA">%1$s</xliff:g>. Enter your PIN to watch this program</string>
+    <!-- Title of PIN dialog when an user is asked to enter PIN to unlock unrated DVR playback.
+         [CHAR LIMIT=NONE] -->
+    <string name="pin_enter_unlock_dvr_unrated">This program is unrated. Enter your PIN to watch this program</string>
     <!-- Title of PIN dialog when an user tries to change Parental control setting.
          [CHAR LIMIT=NONE] -->
     <string name="pin_enter_pin">Enter your PIN</string>
@@ -371,6 +330,15 @@
     <!-- Toast message when an user couldn't pass the PIN confirmation. [CHAR LIMIT=NONE] -->
     <string name="pin_toast_not_match">Try again, PIN doesn\'t match</string>
 
+    <!-- Title of postal/zip code input guided step fragment  [CHAR LIMIT=30] -->
+    <string name="postal_code_guidance_title">Enter your ZIP Code.</string>
+    <!-- Description of postal/zip code input guided step fragment  [CHAR LIMIT=NONE] -->
+    <string name="postal_code_guidance_description">Live TV app will use the ZIP Code to provide a complete program guide for the TV channels.</string>
+    <!-- Description of postal/zip code input edit text view to prompt users entering ZIP Code  [CHAR LIMIT=30] -->
+    <string name="postal_code_action_description">Enter your ZIP Code</string>
+    <!-- Warning message shown in description field of postal/zip code input edit text view when user enters an invalid ZIP Code and presses Done [CHAR LIMIT=30] -->
+    <string name="postal_code_invalid_warning">Invalid ZIP Code</string>
+
     <!-- menu for "Settings" option -->
     <eat-comment />
     <!--  Title of "Settings" option. [CHAR LIMIT=30] -->
@@ -387,10 +355,16 @@
     <string name="settings_channel_source_item_setup_new_inputs">New channels available</string>
     <!-- Label of "Parental controls" item. [CHAR LIMIT=30] -->
     <string name="settings_parental_controls">Parental controls</string>
+    <!-- Label of "Timeshift" item. Record while watching so you can pause or rewind live
+         programs.-->
+    <string name="settings_trickplay">Timeshift</string>
+    <!-- Description of "Timeshift" item. This explains what is 'Timeshift' to users. Also warns of
+         the effect of enabling the option. -->
+    <string name="settings_trickplay_description">Record while watching so you can pause or rewind live programs.\nWarning: This may decrease the life of the internal storage by the intensive use of the storage.</string>
     <!-- Menu item to show licenses for open source code used in the app [CHAR LIMIT=35] -->
     <string name="settings_menu_licenses">Open source licenses</string>
-    <!--Title for a dialog box that shows licenses for open source code used in the app [CHAR LIMIT=35] -->
-    <string name="dialog_title_licenses">Open source licenses</string>
+    <!-- Menu item to send feedback [CHAR LIMIT=30] -->
+    <string name="settings_send_feedback">Send feedback</string>
     <!-- Menu item that shows the application version(eg 1.2.03-final) as a second line below this title [CHAR LIMIT=35] -->
     <string name="settings_menu_version">Version</string>
 
@@ -403,17 +377,23 @@
     <string name="tvview_channel_locked">To watch this channel, press Right and enter your PIN</string>
     <!-- Description on the locked screen when the rating of the current content is restricted by parental control. [CHAR LIMIT=NONE] -->
     <string name="tvview_content_locked">To watch this program, press Right and enter your PIN</string>
+    <!-- Description on the locked screen when the current content is unrated and it's restricted by parental control. [CHAR LIMIT=NONE] -->
+    <string name="tvview_content_locked_unrated">This program is unrated.\nTo watch this program, press Right and enter your PIN</string>
     <!-- Description on the locked screen with the rating when the rating of the current content is restricted by parental control. [CHAR LIMIT=NONE] -->
     <string name="tvview_content_locked_format">This program is rated <xliff:g id="rating" example="TV_MA">%1$s</xliff:g>.\nTo watch this program, press Right and enter your PIN.</string>
     <!-- Description on the locked screen when current channel is locked by parental control. [CHAR LIMIT=NONE] -->
     <string name="tvview_channel_locked_no_permission">To watch this channel, use the default Live TV app.</string>
     <!-- Description on the locked screen when the rating of the current content is restricted by parental control. [CHAR LIMIT=NONE] -->
     <string name="tvview_content_locked_no_permission">To watch this program, use the default Live TV app.</string>
+    <!-- Description on the locked screen when the current content is restricted by parental control. [CHAR LIMIT=NONE] -->
+    <string name="tvview_content_locked_unrated_no_permission">This program is unrated.\nTo watch this program, use the default Live TV app.</string>
     <!-- Description on the locked screen with the rating when the rating of the current content is restricted by parental control. [CHAR LIMIT=NONE] -->
     <string name="tvview_content_locked_format_no_permission">This program is rated <xliff:g id="rating" example="TV_MA">%1$s</xliff:g>.\nTo watch this program, use the default Live TV app.</string>
 
     <!-- Description on the locked screen when the rating of the current content is restricted by parental control. [CHAR LIMIT=NONE] -->
     <string name="shrunken_tvview_content_locked">Program is blocked</string>
+    <!-- Description on the locked screen with the rating when the current content is unrated and it's restricted by parental control. [CHAR LIMIT=NONE] -->
+    <string name="shrunken_tvview_content_locked_unrated">This program is unrated</string>
     <!-- Description on the locked screen with the rating when the rating of the current content is restricted by parental control. [CHAR LIMIT=NONE] -->
     <string name="shrunken_tvview_content_locked_format">This program is rated <xliff:g id="rating" example="TV_MA">%1$s</xliff:g></string>
 
@@ -486,10 +466,6 @@
     <string name="msg_no_input">No TV input found</string>
     <!-- Error message when a specific TV input isn't installed. [CHAR LIMIT=NONE] -->
     <string name="msg_no_specific_input">Cannot find the TV input</string>
-    <!-- Error message when PIP is not supported. [CHAR LIMIT=NONE] -->
-    <string name="msg_no_pip_support">PIP is not supported</string>
-    <!-- Error message when there is no available input. [CHAR LIMIT=NONE] -->
-    <string name="msg_no_available_input_by_pip">There is no available input which can be shown with PIP</string>
     <!-- Error message when the selected TV input is a tuner type TV input, not a pass-through type
          input. Tuner type inputs such as built-in tuner, external usb tuner, network tuner or
          virtual IPTV tuner provide live channels to tune to. As opposed to tuner type input,
@@ -519,22 +495,39 @@
     <!-- Debug Options -->
     <string name="menu_developer_options" translatable="false">Developer options</string>
     <string name="dev_item_watch_history" translatable="false">Watch history</string>
+    <string name="dev_item_dvr_history" translatable="false">DVR history</string>
     <string name="dev_item_fetch_epg" translatable="false">Fetch program guide</string>
-    <string name="dev_item_send_feedback" translatable="false">Send feedback</string>
     <string name="dev_item_store_ts_on" translatable="false">Store TS for debugging: On</string>
     <string name="dev_item_store_ts_off" translatable="false">Store TS for debugging: Off</string>
     <string name="dev_item_store_ts_description" translatable="false">Store some TS data before exceptions/crash for debugging.</string>
+    <string name="dev_item_show_performance_monitor_log" translatable="false">Show performance log</string>
+
+    <!-- The state of the schedules which is in DVR history. -->
+    <string name="dvr_history_dialog_state_fail" translatable="false">[Fail]</string>
+    <string name="dvr_history_dialog_state_success" translatable="false">[Success]</string>
+    <string name="dvr_history_dialog_state_clip" translatable="false">[Clip]</string>
 
     <!-- Title of Recently watched dialog. It is used for debug purpose. -->
     <string name="recently_watched" translatable="false">Recently watched</string>
+
+    <!-- Title of DVR history dialog. -->
+    <string name="dvr_history_dialog_title" translatable="false">DVR history</string>
+
+    <!-- Display name of DVR recording service's notification channel. -->
+    <string name="dvr_notification_channel_name" translatable="false">Live TV DVR</string>
+    <!-- Content title of DVR recording service's notification. -->
+    <string name="dvr_notification_content_title" translatable="false">Live TV DVR</string>
+    <!-- Content text of DVR recording service's notification during recording. -->
+    <string name="dvr_notification_content_text_recording" translatable="false">Live TV are recording.</string>
+    <!-- Content text of DVR recording service's notification during updating schedules. -->
+    <string name="dvr_notification_content_text_loading" translatable="false">Live TV are updating recording schedules.</string>
 
     <!-- EPG Search strings. -->
     <!-- Remove translatable="false" once UI is finalized -->
     <string name="search_result_no_result" translatable="false">No result</string>
     <string name="search_result_title" translatable="false">Search results</string>
 
-    <!-- Onboarding experience.
-         TODO: Change translatable to true.-->
+    <!-- Onboarding experience. -->
     <eat-comment />
     <!-- Text for the channel sources screen in onboarding. -->
     <string name="setup_sources_text">Set up your sources</string>
@@ -542,25 +535,11 @@
     <string name="setup_sources_description">Live channels combines the experience of traditional TV channels with streaming channels provided by apps.
 \n\nGet started by setting up the channel sources already installed. Or browse Google Play Store for more apps that offer live channels.</string>
 
-    <!-- DVR TODO(DVR): make translatable true. -->
-    <eat-comment />
-    <!-- Dialog message to ask to remove the selected recording schedule. -->
-    <string name="epg_dvr_dialog_message_remove_recording_schedule" translatable="false">Cancel recording</string>
-    <!-- Dialog message to ask to stop the current recording. -->
-    <string name="epg_dvr_dialog_message_stop_recording" translatable="false">Stop recording</string>
-    <!-- Item label to schedule program recording. -->
-    <string name="epg_dvr_record_program" translatable="false">Record program</string>
-    <!-- Item label to schedule whole season recording of a TV show. -->
-    <string name="epg_dvr_record_season" translatable="false">Record season</string>
-    <!-- Item label to delete a recording schedule when a recording scheduled program is
-         clicked in EPG. -->
-    <string name="epg_dvr_delete_program" translatable="false">Delete schedule</string>
-
     <!-- Menu item label to start DVR manager UI. -->
     <string name="channels_item_dvr">Recordings &amp; schedules</string>
     <!-- Menu item label to start recording of the current channel. -->
     <string name="channels_item_record_start" translatable="false">Start recording</string>
-    <!-- Menu item label to start recording of the current channel. -->
+    <!-- Menu item label to stop recording of the current channel. -->
     <string name="channels_item_record_stop" translatable="false">Stop recording</string>
 
     <!-- The action to record the current channel for 10 minutes. [CHAR LIMIT=30] -->
@@ -586,15 +565,10 @@
     <string name="dvr_main_series">Series</string>
     <!-- Header of DVR tab label for recorded programs list without any genre [CHAR LIMIT=20] -->
     <string name="dvr_main_others">Others</string>
-    <string name="dvr_msg_no_recording_on_the_row" translatable="false">None</string>
-    <string name="dvr_msg_channel_unknown" translatable="false">Channel unknown</string>
-    <string name="dvr_msg_no_available_tuners_for_recording_channel" translatable="false">No available tuners to record this channel.</string>
-    <string name="dvr_msg_channel_already_recording" translatable="false">The channel is already being recorded.</string>
     <!-- Toast message that the current channel cannot be recorded. -->
     <string name="dvr_msg_cannot_record_channel">The channel cannot be recorded.</string>
     <!-- Toast message that the current program cannot be recorded. -->
     <string name="dvr_msg_cannot_record_program">The program cannot be recorded.</string>
-    <string name="dvr_msg_no_item_in_browse" translatable="false">There is no item.</string>
     <!-- Toast message that a new recording schedule has been created from the user action. -->
     <string name="dvr_msg_program_scheduled"><xliff:g id="programName" example="Big bang theory">%1$s</xliff:g> has been scheduled to be recorded</string>
     <!-- Toast message that a new recording schedule of the current program has been created
@@ -631,9 +605,10 @@
 
     <!-- DVR detailed page -->
     <eat-comment />
-    <string name="dvr_detail_cancel" translatable="false">Cancel recording</string>
-    <string name="dvr_detail_stop_keep" translatable="false">Stop and keep recording</string>
-    <string name="dvr_detail_stop_delete" translatable="false">Stop and delete recording</string>
+    <!-- Button label to cancel the recording schedule. -->
+    <string name="dvr_detail_cancel_recording">Cancel recording</string>
+    <!-- Button label to stop the current recording. -->
+    <string name="dvr_detail_stop_recording">Stop recording</string>
     <!-- Button label to play recorded programs from beginning.
          Displayed when there's no watched history available. [CHAR LIMIT=15] -->
     <string name="dvr_detail_watch">Watch</string>
@@ -654,6 +629,7 @@
     <string name="dvr_detail_view_schedule">View schedule</string>
     <!-- Text label to indicate there's more text in the details description [CHAR LIMIT=20] -->
     <string name="dvr_detail_read_more">Read more</string>
+
 
     <!-- DVR series settings -->
     <eat-comment />
@@ -709,18 +685,10 @@
 
     <!-- DVR epg strings -->
     <eat-comment />
-    <string name="dvr_action_tune" translatable="false">Tune</string>
-    <!-- The action to cancel and close the dialog. [CHAR LIMIT=10] -->
-    <string name="dvr_action_cancel">Cancel</string>
     <string name="dvr_action_delete_schedule" translatable="false">Delete schedule</string>
     <string name="dvr_action_record_program" translatable="false">Record program</string>
-    <string name="dvr_action_record_one_episode" translatable="false">Record this episode only</string>
-    <string name="dvr_action_error_done" translatable="false">Done</string>
-    <string name="dvr_action_error_open_dvr" translatable="false">Open DVR</string>
-    <!-- The action to cancel forgetting DVR storage. -->
-    <string name="dvr_action_error_cancel">Cancel</string>
-    <!-- The action to forget DVR storage which is missing currently -->
-    <string name="dvr_action_error_forget_storage">Forget</string>
+    <!-- The action to forget DVR storage which is missing currently. invoke android internal storage settings activity. -->
+    <string name="dvr_action_error_storage_settings" translatable="false">Open storage settings</string>
     <!-- The action to stop recording. [CHAR LIMIT=10] -->
     <string name="dvr_action_stop">Stop</string>
     <!-- The action to open the activity which shows all the schedules.[CHAR LIMIT=32] -->
@@ -749,6 +717,8 @@
     <string name="dvr_action_record_cancel">Cancel this recording</string>
     <!-- The title of the action to show the details of the recorded program. [CHAR LIMIT=32] -->
     <string name="dvr_action_watch_now">Watch now</string>
+    <!-- The title of the action to open the DVR library to delete some recorded programs. [CHAR LIMIT=32] -->
+    <string name="dvr_action_delete_recordings">Delete recordings&#8230;</string>
     <!-- Dvr label in epg to indicate the program is recordable. [CHAR LIMIT=30] -->
     <string name="dvr_epg_program_recordable">Recordable</string>
     <!-- Dvr label in epg to indicate the program is scheduled to be recorded. [CHAR LIMIT=30] -->
@@ -762,28 +732,37 @@
     <string name="dvr_epg_program_icon_text" translatable="false">DVR</string>
     <string name="dvr_epg_channel_watch_conflict_dialog_title" translatable="false">Upcoming schedules</string>
     <string name="dvr_epg_channel_watch_conflict_dialog_description" translatable="false">The programs will not be recorded if you keep watching this channel. Cancel the recordings, or current channel will be blocked when the recording starts.</string>
-    <!-- A popup message which informs that Live TV is reading program information to create
-         recording schedules. -->
-    <string name="dvr_schedule_progress_message_reading_programs">Reading programs to create recording schedules</string>
     <!-- A popup message which informs that Live TV is reading program information. -->
-    <string name="dvr_series_schedules_progress_message_reading_programs">Reading programs</string>
-    <!-- A popup message which informs that Live TV is updating series recording. -->
-    <string name="dvr_series_schedules_progress_message_updating_programs">Updating series recording</string>
-    <string name="dvr_error_insufficient_space_title" translatable="false">Insufficient storage space</string>
-    <string name="dvr_error_insufficient_space_description" translatable="false">No sufficient storage space for recording. Please clean up the storage.</string>
+    <string name="dvr_series_progress_message_reading_programs">Reading programs</string>
+    <!-- Dialog action which let user view the recent recordings. -->
+    <string name="dvr_error_insufficient_space_action_view_recent_recordings">View recent recordings</string>
+    <!-- Dialog title which means there is one recording doesn't complete. -->
+    <string name="dvr_error_insufficient_space_title_one_recording">The recording of <xliff:g id="programName" example="Friends">%1$s</xliff:g> is incomplete.</string>
+    <!-- Dialog title which means there are two recordings don't complete. -->
+    <string name="dvr_error_insufficient_space_title_two_recordings">The recordings of <xliff:g id="programName_1" example="Friends">%1$s</xliff:g> and <xliff:g id="programName_2" example="Friends">%2$s</xliff:g> are incomplete.</string>
+    <!-- Dialog title which means there are three or more recordings don't complete.-->
+    <string name="dvr_error_insufficient_space_title_three_or_more_recordings">The recordings of <xliff:g id="programName_1" example="Friends">%1$s</xliff:g>, <xliff:g id="programName_2" example="Friends">%2$s</xliff:g> and <xliff:g id="programName_3" example="Friends">%3$s</xliff:g> are incomplete.</string>
+    <!-- Description which means there is one recording didn't complete due to no sufficient space.
+         -->
+    <string name="dvr_error_insufficient_space_description_one_recording">The recording of <xliff:g id="programName" example="Friends">%1$s</xliff:g> didn\'t complete due to insufficient storage.</string>
+    <!-- Description which means there are two recordings didn't complete due to no sufficient
+         space. -->
+    <string name="dvr_error_insufficient_space_description_two_recordings">The recordings of <xliff:g id="programName_1" example="Friends">%1$s</xliff:g> and <xliff:g id="programName_2" example="Friends">%2$s</xliff:g> didn\'t complete due to insufficient storage.</string>
+    <!-- Description which means there are three or more recordings didn't complete due to no
+         sufficient space.-->
+    <string name="dvr_error_insufficient_space_description_three_or_more_recordings">The recordings of <xliff:g id="programName_1" example="Friends">%1$s</xliff:g>, <xliff:g id="programName_2" example="Friends">%2$s</xliff:g> and <xliff:g id="programName_3" example="Friends">%3$s</xliff:g> didn\'t complete due to insufficient storage.</string>
     <!-- Dialog title which will be shown when the current storage is too small for DVR. -->
     <string name="dvr_error_small_sized_storage_title">DVR needs more storage</string>
-    <!-- Dialog description which will be shown when tthe current storage is too small for DVR. -->
-    <string name="dvr_error_small_sized_storage_description">You will be able to record programs with DVR. However there is not enough storage on your device now for DVR to work. Please connect an external drive that is <xliff:g id="storage size" example="10GB">%1$s</xliff:g>GB or larger and follow the steps to format it as device storage.</string>
+    <!-- Dialog description which will be shown when the current storage is too small for DVR. -->
+    <string name="dvr_error_small_sized_storage_description">You will be able to record programs with DVR. However there is not enough storage on your device now for DVR to work. Please connect an external drive that is <xliff:g id="storage size" example="10GB">%1$d</xliff:g>GB or larger and follow the steps to format it as device storage.</string>
+    <!-- Dialog title which will be shown when there is no free space on the current storage for DVR. -->
+    <string name="dvr_error_no_free_space_title">Not enough storage</string>
+    <!-- Dialog description which will be shown when there is no free space on the current storage for DVR. -->
+    <string name="dvr_error_no_free_space_description">This program will not be recorded because there is not enough storage. Try deleting some existing recordings.</string>
     <!-- Dialog title which will be shown when the current DVR storage is not accessible. -->
     <string name="dvr_error_missing_storage_title">Missing storage</string>
     <!-- Dialog description which will be shown when the current DVR storage is not accessible. -->
-    <string name="dvr_error_missing_storage_description">Some of the storage used by DVR is missing. Please connect the external drive you used before to re-enable DVR. Alternately, you can choose to forget the storage if it\'s no longer available.</string>
-    <!-- Dialog title which will be shown when you confirmed to forget the current DVR storage. -->
-    <string name="dvr_error_forget_storage_title">Forget storage?</string>
-    <!-- Dialog description which will be shown when you confirmed to forget the current DVR
-         storage. -->
-    <string name="dvr_error_forget_storage_description">All your recorded content and schedules will be lost.</string>
+    <string name="dvr_error_missing_storage_description" translatable="false">Some of the storage used by DVR is missing. Please connect the external drive you used before to re-enable DVR. Alternately, you can forget the storage in the storage settings, if it\'s no longer available.</string>
     <!-- The recording being requested to play is not existent in storage. It may be deleted. -->
     <string name="dvr_toast_recording_deleted" translatable="false">The recording seems to be deleted.</string>
 
@@ -847,65 +826,52 @@
     <string name="dvr_already_recorded_dialog_description">This program has already been recorded. It’s available in the DVR library.</string>
     <!-- The title of dialog that notifies the user the series recording has been scheduled. -->
     <string name="dvr_series_recording_dialog_title">Series recording scheduled</string>
-    <!-- The description of the dialog which notifies how many schedules has been added
-         for series recording.-->
-    <plurals name="dvr_series_recording_scheduled_no_conflict">
-        <item quantity="one">%1$d recording has been scheduled for %2$s.</item>
-        <item quantity="other">%1$d recordings have been scheduled for %2$s.</item>
+    <!-- The description of the dialog which notifies how many schedules have been added for the
+         series. -->
+    <plurals name="dvr_series_scheduled_no_conflict">
+        <item quantity="one"><xliff:g id="numberOfRecordings" example="1">%1$d</xliff:g> recording has been scheduled for <xliff:g id="seriesName" example="Friends">%2$s</xliff:g>.</item>
+        <item quantity="other"><xliff:g id="numberOfRecordings" example="5">%1$d</xliff:g> recordings have been scheduled for <xliff:g id="seriesName" example="Friends">%2$s</xliff:g>.</item>
     </plurals>
-    <!-- The description of the dialog which notifies how many schedules has been added
-         for series recording. But some of them won't be recorded due to conflicts. -->
+    <!-- The description of the dialog which notifies how many schedules have been added for the
+         series. But some episodes of this series won't be recorded due to conflict with
+         other schedules. -->
     <plurals name="dvr_series_recording_scheduled_only_this_series_conflict">
-        <item quantity="one">%1$d recording has been scheduled for %2$s. %3$d of them will not be recorded due to conflicts.</item>
-        <item quantity="other">%1$d recordings have been scheduled for %2$s. %3$d of them will not be recorded due to conflicts.</item>
+        <item quantity="one"><xliff:g id="numberOfRecordings" example="1">%1$d</xliff:g> recording has been scheduled for <xliff:g id="seriesName" example="Friends">%2$s</xliff:g>. It will not be recorded due to conflicts.</item>
+        <item quantity="other"><xliff:g id="numberOfRecordings" example="5">%1$d</xliff:g> recordings have been scheduled for <xliff:g id="seriesName" example="Friends">%2$s</xliff:g>. <xliff:g id="numberOfConflictRecordings" example="2">%3$d</xliff:g> of them will not be recorded due to conflicts.</item>
     </plurals>
-    <!-- The description of the dialog which notifies how many schedules has been added
-         for series recording. But only 1 episode of other series won't be recorded due to conflict
+    <!-- The description of the dialog which notifies how many schedules have been added for the
+         series. But some episodes of this and other series won't be recorded due to the episodes
+         of this series conflict with other schedules and the episodes of other series conflict
          with this series. -->
-    <plurals name="dvr_series_recording_scheduled_this_and_other_series_one_conflict">
-        <item quantity="one">%1$d recording has been scheduled for %2$s. 1 episode of this series and other series will not be recorded due to conflicts.</item>
-        <item quantity="other">%1$d recordings have been scheduled for %2$s. 1 episode of this series and other series will not be recorded due to conflicts.</item>
+    <plurals name="dvr_series_scheduled_this_and_other_series_conflict">
+        <item quantity="one"><xliff:g id="numberOfRecordings" example="1">%1$d</xliff:g> recording has been scheduled for <xliff:g id="seriesName" example="Friends">%2$s</xliff:g>. <xliff:g id="numberOfConflictEpisodes" example="1">%3$d</xliff:g> episodes of this series and other series will not be recorded due to conflicts.</item>
+        <item quantity="other"><xliff:g id="numberOfRecordings" example="5">%1$d</xliff:g> recordings have been scheduled for <xliff:g id="seriesName" example="Friends">%2$s</xliff:g>. <xliff:g id="numberOfConflictEpisodes" example="2">%3$d</xliff:g> episodes of this series and other series will not be recorded due to conflicts.</item>
     </plurals>
-    <!-- The description of the dialog which notifies how many schedules has been added
-        for series recording. But some episodes of other series won't be recorded due to conflict
-        with this. -->
-    <plurals name="dvr_series_recording_scheduled_this_and_other_series_conflict">
-        <item quantity="one">%1$d recording has been scheduled for %2$s. %3$d episodes of this series and other series will not be recorded due to conflicts.</item>
-        <item quantity="other">%1$d recordings have been scheduled for %2$s. %3$d episodes of this series and other series will not be recorded due to conflicts.</item>
+    <!-- The description of the dialog which notifies how many schedules have been added for the
+         series. But only 1 episode of other series won't be recorded due to conflict
+         with this series. -->
+    <plurals name="dvr_series_scheduled_only_other_series_one_conflict">
+        <item quantity="one"><xliff:g id="numberOfRecordings" example="1">%1$d</xliff:g> recording has been scheduled for <xliff:g id="seriesName" example="Friends">%2$s</xliff:g>. 1 episode of other series will not be recorded due to conflicts.</item>
+        <item quantity="other"><xliff:g id="numberOfRecordings" example="5">%1$d</xliff:g> recordings have been scheduled for <xliff:g id="seriesName" example="Friends">%2$s</xliff:g>. 1 episode of other series will not be recorded due to conflicts.</item>
     </plurals>
-    <!-- The description of the dialog which notifies how many schedules has been added
-        for series recording. But only 1 episode of other series won't be recorded due to conflict
-        with this series but no conflicts in this series. -->
-    <plurals name="dvr_series_recording_scheduled_only_other_series_one_conflict">
-        <item quantity="one">%1$d recording has been scheduled for %2$s. 1 episode of other series will not be recorded due to conflicts.</item>
-        <item quantity="other">%1$d recordings have been scheduled for %2$s. 1 episode of other series will not be recorded due to conflicts.</item>
-    </plurals>
-    <!-- The description of the dialog which notifies how many schedules has been added
-      for series recording. But some of other series won't be recorded due to conflict with this
-      series but no conflicts in this series . -->
-    <plurals name="dvr_series_recording_scheduled_only_other_series_conflict">
-        <item quantity="one">%1$d recording has been scheduled for %2$s. %3$d episodes of other series will not be recorded due to conflicts.</item>
-        <item quantity="other">%1$d recordings have been scheduled for %2$s. %3$d episodes of other series will not be recorded due to conflicts.</item>
+    <!-- The description of the dialog which notifies how many schedules have been added for the
+         series. But some episodes of other series won't be recorded due to conflict with this
+         series. -->
+    <plurals name="dvr_series_scheduled_only_other_series_many_conflicts">
+        <item quantity="one"><xliff:g id="numberOfRecordings" example="1">%1$d</xliff:g> recording has been scheduled for <xliff:g id="seriesName" example="Friends">%2$s</xliff:g>. <xliff:g id="numberOfConflictEpisodes" example="1">%3$d</xliff:g> episodes of other series will not be recorded due to conflicts.</item>
+        <item quantity="other"><xliff:g id="numberOfRecordings" example="5">%1$d</xliff:g> recordings have been scheduled for <xliff:g id="seriesName" example="Friends">%2$s</xliff:g>. <xliff:g id="numberOfConflictEpisodes" example="2">%3$d</xliff:g> episodes of other series will not be recorded due to conflicts.</item>
     </plurals>
 
     <!-- DVR playback strings -->
     <eat-comment />
-    <string name="dvr_now_playing_card_no_title" translatable="false">Recorded Program</string>
     <!-- DVR playback activity's warning about the recorded program is not found. -->
     <string name="dvr_program_not_found">Recorded program not found.</string>
     <!-- Label used in DVR playback activity as the header of the row of related recordings. [CHAR LIMIT=32] -->
     <string name="dvr_playback_related_recordings">Related recordings</string>
-    <!-- Label used in related recording cards to indicate that the program does not have descriptions. [CHAR LIMIT=32] -->
-    <string name="dvr_msg_no_program_description">(No program description)</string>
 
     <!-- DVR channel banner strings -->
     <eat-comment />
     <string name="dvr_recording_till_format" translatable="false">Recording till <xliff:g id="recordingEndTime" example="9:00pm">%1$s</xliff:g></string>
-
-    <!-- Account Selection strings -->
-    <eat-comment />
-    <string name="account_selected" translatable="false">%1$s is the selected account</string>
-    <string name="no_account_selected" translatable="false">No account available</string>
 
     <!-- DVR schedule list strings -->
     <eat-comment/>
@@ -944,6 +910,8 @@
     <string name="dvr_series_schedules_stop_dialog_description">Recorded episodes will remain available in the DVR library.</string>
     <!-- Action to stop creating the schedules for the series. -->
     <string name="dvr_series_schedules_stop_dialog_action_stop">Stop</string>
+     <!-- Description of no episodes in stopped series recording. -->
+    <string name="dvr_series_schedules_stopped_empty_state">No episodes are on air now.</string>
     <!-- Description of no episodes in series recording, and the episodes will be recorded once
          they are available. -->
     <string name="dvr_series_schedules_empty_state">No episodes are available.\nThey will be recorded once they are available.</string>
@@ -974,4 +942,9 @@
     <eat-comment/>
     <!-- Text that goes after a Critic Score to indicate that it's a score -->
     <string name="program_guide_critic_score">Score</string>
+
+    <!-- Preview Channel Name -->
+    <eat-comment/>
+    <!-- Name for recorded programs preview channel -->
+    <string name="recorded_programs_preview_channel">Recorded Programs</string>
 </resources>

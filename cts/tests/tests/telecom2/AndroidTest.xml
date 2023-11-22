@@ -15,6 +15,7 @@
 -->
 <configuration description="Configuration for Telecom2 Tests">
     <option name="config-descriptor:metadata" key="component" value="telecom" />
+    <option name="not-shardable" value="true" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsTelecomTestCases2.apk" />

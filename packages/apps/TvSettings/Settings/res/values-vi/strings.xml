@@ -75,7 +75,7 @@
     <string name="accessory_change_name" msgid="8958916008739792785">"Đổi tên"</string>
     <string name="accessory_change_name_title" msgid="4630819456923061184">"Nhập tên mới cho phụ kiện này"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Đang tìm kiếm phụ kiện…"</string>
-    <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Trước khi ghép nối các thiết bị Bluetooth của bạn, đảm bảo các thiết bị đó đang ở chế độ ghép nối"</string>
+    <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Trước khi ghép nối các thiết bị Bluetooth của bạn, hãy đảm bảo các thiết bị đó đang ở chế độ ghép nối"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"Đã tìm thấy một thiết bị và sẽ tự động ghép nối sau <xliff:g id="COUNTDOWN">%1$s</xliff:g> giây nữa"</string>
     <string name="error_action_not_supported" msgid="300552308104354666">"Tác vụ này không được hỗ trợ"</string>
     <string name="bluetooth_pairing_request" msgid="4523088117471287665">"Yêu cầu ghép nối Bluetooth"</string>
@@ -110,10 +110,10 @@
     <string name="about_legal_license" msgid="7867205982113209033">"Giấy phép nguồn mở"</string>
     <string name="about_terms_of_service" msgid="7743088207977334874">"Chính sách pháp lý của Google"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"Hiện không có dữ liệu về giấy phép"</string>
-    <string name="about_model" msgid="6625269442206323995">"Mẫu"</string>
+    <string name="about_model" msgid="6625269442206323995">"Kiểu máy"</string>
     <string name="about_version" msgid="1177287676732287266">"Phiên bản"</string>
     <string name="about_serial" msgid="2723560490027171187">"Số sê-ri"</string>
-    <string name="about_build" msgid="9148789767199785676">"Phiên bản"</string>
+    <string name="about_build" msgid="9148789767199785676">"Bản dựng"</string>
     <plurals name="show_dev_countdown" formatted="false" msgid="5361765297521871966">
       <item quantity="other">Bây giờ, bạn giờ chỉ cần thực hiện <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> bước nữa là trở thành nhà phát triển</item>
       <item quantity="one">Bây giờ, bạn giờ chỉ cần thực hiện <xliff:g id="STEP_COUNT_0">%1$d</xliff:g> bước nữa là trở thành nhà phát triển</item>
@@ -166,7 +166,7 @@
     <string name="not_connected" msgid="6858480380326923017">"Chưa kết nối"</string>
     <string name="wifi_setting_header_other_options" msgid="3638677601577777216">"Tùy chọn khác"</string>
     <string name="wifi_setting_see_all" msgid="3217814666041974878">"Xem tất cả"</string>
-    <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"Xem ít hơn"</string>
+    <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"Ẩn bớt"</string>
     <string name="wifi_setting_available_networks" msgid="6713791371350513043">"Các mạng khả dụng"</string>
     <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"Kết nối qua WPS"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"Thêm mạng mới"</string>
@@ -184,7 +184,7 @@
     <string name="title_wifi_could_not_connect_timeout" msgid="5158184646985406394">"Không thể tìm thấy <xliff:g id="SSID">%1$s</xliff:g>"</string>
     <string name="title_wifi_could_not_connect_authentication_failure" msgid="4836595650380723944">"Mật khẩu Wi-Fi không hợp lệ"</string>
     <string name="title_wifi_could_not_connect_ap_reject" msgid="328274688839033015">"Mạng Wi-Fi không chấp nhận kết nối"</string>
-    <string name="title_wifi_advanced_options" msgid="5389467736846644832">"Định cấu hình cài đặt IP và Proxy <xliff:g id="SSID">%1$s</xliff:g>?"</string>
+    <string name="title_wifi_advanced_options" msgid="5389467736846644832">"Định cấu hình cài đặt IP và Proxy cho <xliff:g id="SSID">%1$s</xliff:g>?"</string>
     <string name="title_wifi_proxy_settings" msgid="7728120764469991303">"Cài đặt proxy"</string>
     <string name="title_wifi_proxy_hostname" msgid="4655634673840885248">"Tên máy chủ lưu trữ proxy:"</string>
     <string name="title_wifi_proxy_port" msgid="9194893429116021337">"Cổng proxy:"</string>
@@ -209,8 +209,8 @@
     <string name="wifi_action_change_network" msgid="5196215981075986148">"Thay đổi"</string>
     <string name="wifi_action_dont_change_network" msgid="1449920958930251977">"Không thay đổi"</string>
     <string name="wifi_action_advanced_yes" msgid="8586473568311558982">"OK"</string>
-    <string name="wifi_action_advanced_no" msgid="8165601242122651326">"Không (được đề xuất)"</string>
-    <string name="wifi_action_proxy_none" msgid="4457231399674182650">"Không có gì"</string>
+    <string name="wifi_action_advanced_no" msgid="8165601242122651326">"Không (khuyến nghị)"</string>
+    <string name="wifi_action_proxy_none" msgid="4457231399674182650">"Không"</string>
     <string name="wifi_action_proxy_manual" msgid="8402002777441261064">"Thủ công"</string>
     <string name="wifi_action_dhcp" msgid="6338911832360962268">"DHCP"</string>
     <string name="wifi_action_static" msgid="1025855501453321749">"Tĩnh"</string>
@@ -241,7 +241,7 @@
     <string name="title_ok" msgid="1021329453788761592">"OK"</string>
     <string name="title_cancel" msgid="4846143417666038604">"Hủy"</string>
     <string name="storage_title" msgid="2132026108559493394">"Bộ nhớ"</string>
-    <string name="storage_available" msgid="1241005580092138871">"Có sẵn"</string>
+    <string name="storage_available" msgid="1241005580092138871">"Còn trống"</string>
     <string name="storage_size" msgid="8958530823208352781">"Tổng dung lượng: <xliff:g id="TOTAL_SPACE">%1$s</xliff:g>"</string>
     <string name="storage_calculating_size" msgid="2644732407412520565">"Đang tính toán..."</string>
     <string name="storage_apps_usage" msgid="4366049071039081219">"Ứng dụng"</string>
@@ -250,7 +250,7 @@
     <string name="storage_music_usage" msgid="3509327591741514083">"Âm thanh"</string>
     <string name="storage_media_misc_usage" msgid="6066868724030127457">"Khác"</string>
     <string name="storage_media_cache_usage" msgid="5906737163212649904">"Dữ liệu đã lưu trong bộ nhớ cache"</string>
-    <string name="storage_eject" msgid="113476702798691558">"Tháo"</string>
+    <string name="storage_eject" msgid="113476702798691558">"Ngắt kết nối"</string>
     <string name="storage_format" msgid="3759273736493279595">"Xóa và định dạng"</string>
     <string name="storage_format_as_private" msgid="4169495230765116075">"Xóa và định dạng làm bộ nhớ thiết bị"</string>
     <string name="storage_format_as_public" msgid="8568317076021814054">"Xóa và định dạng làm bộ nhớ di động"</string>
@@ -268,8 +268,8 @@
     <string name="storage_mount_failure" msgid="2469026716895846633">"Không thể gắn <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_mount_adopted" msgid="3360994581083675640">"Đã kết nối lại bộ lưu trữ USB"</string>
     <string name="storage_unmount_success" msgid="7921627277443856151">"<xliff:g id="NAME">%1$s</xliff:g> đã được tháo an toàn"</string>
-    <string name="storage_unmount_failure" msgid="6322048355281833871">"Không thể tháo an toàn <xliff:g id="NAME">%1$s</xliff:g>"</string>
-    <string name="storage_unmount_failure_cant_find" msgid="240731723168567217">"Không thể tìm thấy ổ để tháo"</string>
+    <string name="storage_unmount_failure" msgid="6322048355281833871">"Không thể ngắt kết nối an toàn <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_unmount_failure_cant_find" msgid="240731723168567217">"Không thể tìm thấy ổ để ngắt kết nối"</string>
     <string name="storage_format_success" msgid="6252068844653804319">"<xliff:g id="NAME">%1$s</xliff:g> đã được định dạng"</string>
     <string name="storage_format_failure" msgid="7336977074523932399">"Không thể định dạng <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_wizard_format_as_private_title" msgid="1887035626526247913">"Định dạng làm bộ nhớ của thiết bị"</string>
@@ -294,7 +294,7 @@
     <string name="storage_wizard_back_up_apps_title" msgid="452805102278225533">"Ứng dụng được lưu trữ trong <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_wizard_back_up_apps_and_data_title" msgid="1738767666148200795">"Ứng dụng và dữ liệu được lưu trữ trong <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_wizard_back_up_apps_space_available" msgid="7209210725057470544">"Còn <xliff:g id="SIZE">%1$s</xliff:g>"</string>
-    <string name="storage_wizard_eject_private_title" msgid="2844023177159233031">"Tháo bộ nhớ của thiết bị ra"</string>
+    <string name="storage_wizard_eject_private_title" msgid="2844023177159233031">"Ngắt kết nối bộ nhớ của thiết bị"</string>
     <string name="storage_wizard_eject_private_description" msgid="8966427719795472538">"Các ứng dụng trong bộ nhớ của thiết bị này sẽ ngừng hoạt động khi tháo bộ nhớ ra. Ổ đĩa USB này được định dạng để chỉ hoạt động trên thiết bị này. Ổ đĩa này sẽ không hoạt động trên bất kỳ thiết bị nào khác."</string>
     <string name="storage_wizard_eject_progress_title" msgid="8823133087157003820">"Đang tháo <xliff:g id="NAME">%1$s</xliff:g> ra…"</string>
     <string name="storage_wizard_move_app_title" msgid="37057801779891287">"Bộ nhớ đã sử dụng"</string>
@@ -307,7 +307,7 @@
     <string name="storage_new_action_browse" msgid="9041125660441839453">"Duyệt qua"</string>
     <string name="storage_new_action_adopt" msgid="880224317112988974">"Thiết lập bộ nhớ của thiết bị"</string>
     <string name="storage_new_action_format_public" msgid="5604328981214071670">"Thiết lập làm bộ nhớ di động"</string>
-    <string name="storage_new_action_eject" msgid="4069294152676217949">"Tháo"</string>
+    <string name="storage_new_action_eject" msgid="4069294152676217949">"Ngắt kết nối"</string>
     <string name="storage_missing_title" msgid="2803464623922381858">"Đã xóa <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_missing_description" msgid="8400374014342069781">"Một số ứng dụng sẽ không khả dụng hoặc không hoạt động bình thường cho đến khi ổ được kết nối lại."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"Không đủ dung lượng lưu trữ."</string>
@@ -352,7 +352,7 @@
     <string name="location_no_recent_apps" msgid="4218851908476344030">"Không có ứng dụng nào yêu cầu vị trí gần đây"</string>
     <string name="location_high_battery_use" msgid="576143332793626088">"Mức sử dụng pin cao"</string>
     <string name="location_low_battery_use" msgid="5756040390248358148">"Mức sử dụng pin thấp"</string>
-    <string name="location_mode_wifi_description" msgid="2778774510654527264">"Sử dụng Wi-Fi để ước đoán vị trí"</string>
+    <string name="location_mode_wifi_description" msgid="2778774510654527264">"Sử dụng Wi-Fi để ước tính vị trí"</string>
     <string name="location_status" msgid="3456414279428237558">"Trạng thái vị trí"</string>
     <string name="location_services" msgid="5441085185119797200">"Dịch vụ vị trí"</string>
     <string name="on" msgid="6683600681314500652">"Bật"</string>
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"Dịch vụ"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Cài đặt dịch vụ"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Văn bản có độ tương phản cao"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Phím tắt trợ năng"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Bật phím tắt trợ năng?"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Dịch vụ phím tắt"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Khi đã bật phím tắt, bạn có thể nhấn vào cả hai nút quay lại và xuống trong 3 giây để khởi chạy một tính năng trợ năng."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Phụ đề"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Cài đặt cho lớp phủ văn bản phụ đề đóng trên video"</string>
     <string name="captions_display" msgid="735692527287125548">"Hiển thị"</string>
@@ -610,7 +614,7 @@
     <string name="device_apps_app_management_storage_used" msgid="4611351576179140634">"Bộ nhớ đã sử dụng"</string>
     <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"Đã sử dụng <xliff:g id="SIZE">%1$s</xliff:g> trong <xliff:g id="VOLUME">%2$s</xliff:g>"</string>
     <string name="device_apps_app_management_clear_data" msgid="4439114679323274127">"Xóa dữ liệu"</string>
-    <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"Tất cả dữ liệu của ứng dụng này sẽ bị xóa vĩnh viễn.\nbao gồm tất cả các tệp, cài đặt, tài khoản, cơ sở dữ liệu, v.v.."</string>
+    <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"Tất cả dữ liệu của ứng dụng này sẽ bị xóa vĩnh viễn bao gồm tất cả các tệp, cài đặt, tài khoản, cơ sở dữ liệu, v.v...\n"</string>
     <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"Xóa mặc định"</string>
     <string name="device_apps_app_management_clear_default_set" msgid="4191720055364731307">"Đặt khởi chạy ƯD này cho một số tác vụ"</string>
     <string name="device_apps_app_management_clear_default_none" msgid="196932966641339141">"Chưa đặt mặc định"</string>
@@ -641,7 +645,7 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Xóa tất cả thông tin cá nhân và ứng dụng đã tải xuống của bạn? Bạn không thể hoàn nguyên tác vụ này!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Xóa mọi thứ"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"Chọn tên cho <xliff:g id="DEVICEMODEL">%1$s</xliff:g> của bạn"</string>
-    <string name="select_device_name_description" msgid="6890879006777364213">"Đặt cho <xliff:g id="DEVICEMODEL">%1$s</xliff:g> của bạn một cái tên để giúp xác định thiết bị khi truyền hoặc kết nối với thiết bị này từ các thiết bị khác."</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"Đặt tên mới cho <xliff:g id="DEVICEMODEL">%1$s</xliff:g> của bạn để giúp xác định thiết bị khi truyền hoặc kết nối với thiết bị này từ các thiết bị khác."</string>
   <string-array name="rooms">
     <item msgid="9056203990862307284">"Android TV"</item>
     <item msgid="7449352861592960712">"TV phòng khách"</item>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Đang ghi lại báo cáo lỗi"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Bàn phím ảo có sẵn"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Quản lý bàn phím"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Được phép"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Không được phép"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Quyền truy cập dữ liệu sử dụng"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Quyền truy cập dữ liệu sử dụng cho phép ứng dụng theo dõi tần suất và các ứng dụng khác bạn đang sử dụng cũng như nhà cung cấp dịch vụ, cài đặt ngôn ngữ và các chi tiết khác."</string>
 </resources>

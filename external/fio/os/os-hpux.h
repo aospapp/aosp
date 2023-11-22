@@ -22,7 +22,6 @@
 #define FIO_HAVE_ODIRECT
 #define FIO_USE_GENERIC_RAND
 #define FIO_USE_GENERIC_INIT_RANDOM_STATE
-#define FIO_HAVE_PSHARED_MUTEX
 #define FIO_HAVE_CHARDEV_SIZE
 
 #define OS_MAP_ANON		MAP_ANONYMOUS
@@ -44,7 +43,7 @@ typedef struct aiocb64 os_aiocb_t;
 
 static inline int blockdev_invalidate_cache(struct fio_file *f)
 {
-	return EINVAL;
+	return ENOTSUP;
 }
 
 static inline int blockdev_size(struct fio_file *f, unsigned long long *bytes)

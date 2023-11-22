@@ -15,6 +15,7 @@
  */
 
 #include "art_method-inl.h"
+#include "base/callee_save_type.h"
 #include "callee_save_frame.h"
 #include "entrypoints/entrypoint_utils-inl.h"
 #include "class_linker-inl.h"
@@ -58,18 +59,14 @@ static inline void BssWriteBarrier(ArtMethod* outer_method) REQUIRES_SHARED(Lock
   }
 }
 
-constexpr Runtime::CalleeSaveType kInitEntrypointSaveType =
-    // TODO: Change allocation entrypoints on MIPS and MIPS64 to kSaveEverything.
-    (kRuntimeISA == kMips || kRuntimeISA == kMips64) ? Runtime::kSaveRefsOnly
-                                                     : Runtime::kSaveEverything;
-
 extern "C" mirror::Class* artInitializeStaticStorageFromCode(uint32_t type_idx, Thread* self)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   // Called to ensure static storage base is initialized for direct static field reads and writes.
   // A class may be accessing another class' fields when it doesn't have access, as access has been
   // given by inheritance.
   ScopedQuickEntrypointChecks sqec(self);
-  auto caller_and_outer = GetCalleeSaveMethodCallerAndOuterMethod(self, kInitEntrypointSaveType);
+  auto caller_and_outer = GetCalleeSaveMethodCallerAndOuterMethod(self,
+                                                                  CalleeSaveType::kSaveEverything);
   ArtMethod* caller = caller_and_outer.caller;
   mirror::Class* result =
       ResolveVerifyAndClinit(dex::TypeIndex(type_idx), caller, self, true, false);
@@ -83,7 +80,8 @@ extern "C" mirror::Class* artInitializeTypeFromCode(uint32_t type_idx, Thread* s
     REQUIRES_SHARED(Locks::mutator_lock_) {
   // Called when method->dex_cache_resolved_types_[] misses.
   ScopedQuickEntrypointChecks sqec(self);
-  auto caller_and_outer = GetCalleeSaveMethodCallerAndOuterMethod(self, kInitEntrypointSaveType);
+  auto caller_and_outer = GetCalleeSaveMethodCallerAndOuterMethod(self,
+                                                                  CalleeSaveType::kSaveEverything);
   ArtMethod* caller = caller_and_outer.caller;
   mirror::Class* result =
       ResolveVerifyAndClinit(dex::TypeIndex(type_idx), caller, self, false, false);
@@ -98,7 +96,8 @@ extern "C" mirror::Class* artInitializeTypeAndVerifyAccessFromCode(uint32_t type
   // Called when caller isn't guaranteed to have access to a type and the dex cache may be
   // unpopulated.
   ScopedQuickEntrypointChecks sqec(self);
-  auto caller_and_outer = GetCalleeSaveMethodCallerAndOuterMethod(self, kInitEntrypointSaveType);
+  auto caller_and_outer = GetCalleeSaveMethodCallerAndOuterMethod(self,
+                                                                  CalleeSaveType::kSaveEverything);
   ArtMethod* caller = caller_and_outer.caller;
   mirror::Class* result =
       ResolveVerifyAndClinit(dex::TypeIndex(type_idx), caller, self, false, true);
@@ -111,7 +110,8 @@ extern "C" mirror::Class* artInitializeTypeAndVerifyAccessFromCode(uint32_t type
 extern "C" mirror::String* artResolveStringFromCode(int32_t string_idx, Thread* self)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   ScopedQuickEntrypointChecks sqec(self);
-  auto caller_and_outer = GetCalleeSaveMethodCallerAndOuterMethod(self, kInitEntrypointSaveType);
+  auto caller_and_outer = GetCalleeSaveMethodCallerAndOuterMethod(self,
+                                                                  CalleeSaveType::kSaveEverything);
   ArtMethod* caller = caller_and_outer.caller;
   mirror::String* result = ResolveStringFromCode(caller, dex::StringIndex(string_idx));
   if (LIKELY(result != nullptr)) {

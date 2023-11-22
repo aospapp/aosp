@@ -22,7 +22,7 @@
     <string name="launcher_restricted_profile_app_name" msgid="671448012575234643">"Perfil restringido"</string>
     <string name="header_category_device" msgid="4855983928659541345">"Dispositivo"</string>
     <string name="header_category_preferences" msgid="175105555164713972">"Preferencias"</string>
-    <string name="header_category_accessories" msgid="823295909353025991">"Control remoto y accesorios"</string>
+    <string name="header_category_accessories" msgid="823295909353025991">"Mando y accesorios"</string>
     <string name="header_category_personal" msgid="8893959635328775096">"Personal"</string>
     <string name="accounts_category_title" msgid="7591072907146317425">"Cuentas"</string>
     <string name="add_account" msgid="4098060223200619258">"Añadir cuenta"</string>
@@ -52,7 +52,7 @@
     <string name="device_surround_sound" msgid="6272196310566546860">"Sonido envolvente"</string>
     <string name="device_sound_effects" msgid="7793281745920228622">"Sonidos del sistema"</string>
     <string name="device_apps" msgid="9180435229638772838">"Aplicaciones"</string>
-    <string name="device_storage_reset" msgid="1425978936501134425">"Almacenaje y restauración"</string>
+    <string name="device_storage_reset" msgid="1425978936501134425">"Almacenamiento y restauración"</string>
     <string name="device_backup_restore" msgid="5627523987587511884">"Copia de seguridad y restauración"</string>
     <string name="device_reset" msgid="2827002349560023125">"Restablecer datos de fábrica"</string>
     <string name="device_calibration" msgid="8632962533376605191">"Calibración"</string>
@@ -68,7 +68,7 @@
     <string name="accessory_state_canceled" msgid="4419328837733619447">"Cancelada"</string>
     <string name="accessory_state_paired" msgid="1959238931866401476">"Sincronizado"</string>
     <string name="accessory_options" msgid="4799658564005710297">"Accesorio"</string>
-    <string name="accessory_unpair" msgid="8242725516604465355">"Desincronizar"</string>
+    <string name="accessory_unpair" msgid="8242725516604465355">"Desvincular"</string>
     <string name="accessory_battery" msgid="7021788232835772126">"Batería: <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"Desincronizando dispositivo…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Conectado"</string>
@@ -169,7 +169,7 @@
     <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"Ver menos"</string>
     <string name="wifi_setting_available_networks" msgid="6713791371350513043">"Redes disponibles"</string>
     <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"Conectar por WPS"</string>
-    <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"Añadir nueva red"</string>
+    <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"Añadir red nueva"</string>
     <string name="security_type" msgid="524443802004143058">"Tipo de seguridad"</string>
     <string name="wps_network" msgid="1052148085426051873">"Conectar por WPS"</string>
     <string name="other_network" msgid="3539704463099544488">"Otra red…"</string>
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"Servicios"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Configuración del servicio"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Texto de alto contraste"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Acceso directo a accesibilidad"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Habilitar acceso directo de accesibilidad"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Servicio del acceso directo"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Si la combinación de teclas está activada, pulsa simultáneamente los botones para desplazarte hacia atrás y hacia abajo durante 3 segundos para iniciar una función de accesibilidad."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Subtítulos"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Ajustes para la superposición de texto de subtítulos en vídeo"</string>
     <string name="captions_display" msgid="735692527287125548">"Mostrar"</string>
@@ -477,10 +481,10 @@
     <string name="action_off_description" msgid="4364261457368041502">"No"</string>
     <string name="agree" msgid="1235622082275451350">"Aceptar"</string>
     <string name="disagree" msgid="9170636026862400981">"No aceptar"</string>
-    <string name="security_unknown_sources_title" msgid="769762478057744545">"Orígenes desconocidos"</string>
+    <string name="security_unknown_sources_title" msgid="769762478057744545">"Fuentes desconocidas"</string>
     <string name="security_unknown_sources_desc" msgid="7197053279914817124">"Permitir la instalación de aplicaciones que no sean de Play Store"</string>
-    <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"Permitir orígenes desconocidos"</string>
-    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"Tu dispositivo y tus datos personales son más vulnerables a los ataques de aplicaciones de orígenes desconocidos. Aceptas ser el único responsable de cualquier daño que se pueda producir en tu dispositivo o de la pérdida de datos que se pueda derivar del uso de estas aplicaciones."</string>
+    <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"Permitir fuentes desconocidas"</string>
+    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"Tu dispositivo y tus datos personales son más vulnerables a los ataques de aplicaciones de fuentes desconocidas. Aceptas ser el único responsable de cualquier daño que se pueda producir en tu dispositivo o de la pérdida de datos que se pueda derivar del uso de estas aplicaciones."</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"Verificar aplicaciones"</string>
     <string name="security_verify_apps_desc" msgid="1456317893117818733">"No permitir la instalación de aplicaciones que puedan provocar daños o mostrar una advertencia antes de instalarlas"</string>
     <string name="system_hdcp_checking_never" msgid="1758043078676276985">"Nunca"</string>
@@ -628,7 +632,7 @@
     <string name="device_daydreams_sleep" msgid="7676938708373592766">"Cuándo se activa"</string>
     <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"El salvapantallas se activa después de este periodo de inactividad, y la pantalla se apaga si no se ha seleccionado ningún salvapantallas."</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"Después de <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> de inactividad"</string>
-    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Poner el dispositivo en suspensión"</string>
+    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Poner dispositivo suspensión"</string>
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"La pantalla se apaga después de este periodo de inactividad."</string>
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"Ninguna cuenta está almacenando datos de copia de seguridad en este momento."</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Capturando informe de errores"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Teclados virtuales disponibles"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Administrar teclados"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Permitido"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"No permitido"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Acceso de uso"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"El acceso de uso permite que una aplicación controle las aplicaciones que utilizas y con qué frecuencia, así como tu operador, los ajustes de idioma y otros detalles."</string>
 </resources>

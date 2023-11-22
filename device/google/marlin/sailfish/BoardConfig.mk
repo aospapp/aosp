@@ -7,7 +7,6 @@ TARGET_BOARD_PLATFORM := msm8996
 TARGET_BOOTLOADER_BOARD_NAME := sailfish
 TARGET_BOARD_INFO_FILE := device/google/marlin/sailfish/board-info.txt
 
-ENABLE_SCHEDBOOST := true
 TARGET_USES_INTERACTION_BOOST := true
 
 TARGET_USES_AOSP := true
@@ -15,16 +14,13 @@ TARGET_ARCH := arm64
 TARGET_ARCH_VARIANT := armv8-a
 TARGET_CPU_ABI := arm64-v8a
 TARGET_CPU_ABI2 :=
-#TODO: add kryo support? TARGET_CPU_VARIANT := kryo
-TARGET_CPU_VARIANT := generic
+TARGET_CPU_VARIANT := kryo
 
 TARGET_2ND_ARCH := arm
 TARGET_2ND_ARCH_VARIANT := armv7-a-neon
 TARGET_2ND_CPU_ABI := armeabi-v7a
 TARGET_2ND_CPU_ABI2 := armeabi
-TARGET_2ND_CPU_VARIANT := krait
-
-ENABLE_CPUSETS := true
+TARGET_2ND_CPU_VARIANT := kryo
 
 TARGET_NO_BOOTLOADER := true
 TARGET_NO_KERNEL := false
@@ -94,13 +90,14 @@ endif
 
 BOARD_KERNEL_CMDLINE := console=ttyHSL0,115200,n8 androidboot.console=ttyHSL0 androidboot.hardware=sailfish user_debug=31 ehci-hcd.park=3 lpm_levels.sleep_disabled=1 cma=32M@0-0xffffffff loop.max_part=7
 
-BOARD_ROOT_EXTRA_FOLDERS := bt_firmware firmware firmware/radio persist
+BOARD_ROOT_EXTRA_FOLDERS := firmware firmware/radio persist
 BOARD_ROOT_EXTRA_SYMLINKS := /vendor/lib/dsp:/dsp
 
 BOARD_SEPOLICY_DIRS += device/google/marlin/sepolicy
 ifneq ($(filter sailfish sailfishf, $(TARGET_PRODUCT)),)
 BOARD_SEPOLICY_DIRS += device/google/marlin/sepolicy/verizon
 endif
+BOARD_PLAT_PRIVATE_SEPOLICY_DIR := device/google/marlin/sepolicy/private
 
 BOARD_EGL_CFG := device/google/marlin/egl.cfg
 
@@ -183,9 +180,6 @@ HAVE_SYNAPTICS_DSX_FW_UPGRADE := true
 # Enable MDTP (Mobile Device Theft Protection)
 TARGET_USE_MDTP := true
 
-# Use prebuilt APN lib from Verizon Wireless
-TARGET_USE_VERIZON_APN_LIB_PREBUILT := true
-
 TARGET_BOARD_KERNEL_HEADERS := device/google/marlin/kernel-headers
 
 # Install odex files into the other system image
@@ -196,10 +190,13 @@ BOARD_USES_SYSTEM_OTHER_ODEX := true
 TARGET_COPY_OUT_VENDOR := vendor
 
 #NFC
-NXP_CHIP_TYPE := PN551
+NXP_CHIP_TYPE := 3
 
 # Testing related defines
 BOARD_PERFSETUP_SCRIPT := platform_testing/scripts/perf-setup/sailin-setup.sh
+
+# Use mke2fs to create ext4 images
+TARGET_USES_MKE2FS := true
 
 BOARD_PROPERTY_OVERRIDES_SPLIT_ENABLED := true
 

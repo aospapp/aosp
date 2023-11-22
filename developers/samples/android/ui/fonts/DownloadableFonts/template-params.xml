@@ -19,12 +19,6 @@
     <group>UI</group>
     <package>com.example.android.downloadablefonts</package>
 
-    <!--
-        Lower the minSdk once the API level for O is changed to 26.
-        At this moment, an app targeting "O" only runs on O preview devices.
-    -->
-    <minSdk>"O"</minSdk>
-
     <strings>
         <intro>
 <![CDATA[
@@ -32,14 +26,6 @@ This sample demonstrates how to use the Downloadable Fonts feature introduced in
 Downloadable Fonts is a feature that allows apps to request a certain font from a provider
 instead of bundling it or downloading it themselves. This means, there is no need to bundle the
 font as an asset.
-
-Note that the sample uses Google Play Services as a font provider, which requires pre-released
-version of Google Play Services.
-You can sign up for the beta program so that the beta version of Google Play Services is
-downloaded to your device. https://developers.google.com/android/guides/beta-program
-If you have Google Play Services whose version number is equal or above 11.x.x, that means you
-have the compatible version installed. (You can confirm by navigating to
-Settings -> Apps -> Google Play Services)
 ]]>
         </intro>
     </strings>
@@ -48,7 +34,7 @@ Settings -> Apps -> Google Play Services)
 
     <metadata>
         <status>PUBLISHED</status>
-        <categories>UI, Android O Preview</categories>
+        <categories>UI</categories>
         <technologies>Android</technologies>
         <languages>Java</languages>
         <solutions>Mobile</solutions>
@@ -127,14 +113,6 @@ first attempt.
     ...
 </application>
 ```
-
-Note that the sample uses Google Play Services as a font provider, which requires pre-released
-version of Google Play Services.
-You can sign up for the beta program so that the beta version of Google Play Services is
-downloaded to your device. https://developers.google.com/android/guides/beta-program
-If you have Google Play Services whose version number is equal or above 11.x.x, that means you
-have the compatible version installed. (You can confirm by navigating to
-Settings -> Apps -> Google Play Services)
 
 [1]: https://developer.android.com/reference/android/support/v4/provider/FontRequest.html
 [2]: https://developer.android.com/reference/android/support/v4/provider/FontsContractCompat.html

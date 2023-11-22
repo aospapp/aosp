@@ -20,6 +20,7 @@ import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.TextView;
 import com.android.car.settings.R;
 
@@ -27,9 +28,9 @@ import com.android.car.settings.R;
  * Contains logic for a line item represents text only view of a title and a description.
  */
 public abstract class TextLineItem extends TypedPagedListAdapter.LineItem<TextLineItem.ViewHolder> {
-    private final CharSequence mTitle;
+    protected final CharSequence mTitle;
 
-    private View.OnClickListener mOnClickListener = (v) -> onClick();
+    protected View.OnClickListener mOnClickListener = (v) -> onClick();
 
     public TextLineItem(CharSequence title) {
         mTitle = title;
@@ -46,16 +47,29 @@ public abstract class TextLineItem extends TypedPagedListAdapter.LineItem<TextLi
         viewHolder.descView.setText(getDesc());
         viewHolder.itemView.setOnClickListener(mOnClickListener);
         viewHolder.itemView.setEnabled(isEnabled());
+        viewHolder.titleView.setEnabled(isEnabled());
+        viewHolder.descView.setEnabled(isEnabled());
+        viewHolder.rightArrow.setEnabled(isEnabled());
+        viewHolder.rightArrow.setVisibility(
+                isExpandable() ? View.VISIBLE : View.INVISIBLE);
+        // set the dividerLine to INVISIBLE instead of GONE so the content of the line item
+        // don't need to shift.
+        viewHolder.dividerLine.setVisibility(
+                isClickable() && isEnabled() ? View.VISIBLE : View.INVISIBLE);
     }
 
-    static class ViewHolder extends RecyclerView.ViewHolder {
-        final TextView titleView;
-        final TextView descView;
+    public static class ViewHolder extends RecyclerView.ViewHolder {
+        public final TextView titleView;
+        public final TextView descView;
+        final ImageView rightArrow;
+        public final View dividerLine;
 
         public ViewHolder(View view) {
             super(view);
             titleView = (TextView) view.findViewById(R.id.title);
             descView = (TextView) view.findViewById(R.id.desc);
+            rightArrow = (ImageView) view.findViewById(R.id.right_chevron);
+            dividerLine = view.findViewById(R.id.line_item_divider);
         }
     }
 
@@ -66,6 +80,4 @@ public abstract class TextLineItem extends TypedPagedListAdapter.LineItem<TextLi
     }
 
     public abstract void onClick();
-
-    public abstract boolean isEnabled();
 }

@@ -51,12 +51,12 @@ class CpuFrequencyScalingController(object):
             return
         self._dut.shell.InvokeTerminal("cpu_frequency_scaling")
         self._shell = self._dut.shell.cpu_frequency_scaling
-        self._min_cpu_number, self._max_cpu_number = self._GetMinAndMaxCpuNo()
+        self._min_cpu_number, self._max_cpu_number = self._LoadMinAndMaxCpuNo()
         self._theoretical_max_frequency = {}
         self._init = True
 
-    def _GetMinAndMaxCpuNo(self):
-        """Returns the min and max CPU numbers.
+    def _LoadMinAndMaxCpuNo(self):
+        """Reads the min and max CPU numbers from sysfs.
 
         Returns:
             integer: min CPU number (inclusive)
@@ -72,6 +72,15 @@ class CpuFrequencyScalingController(object):
         high = stdout_split[1] if len(stdout_split) == 2 else low
         logging.info("present cpus: %s : %s" % (low, high))
         return int(low), int(high) + 1
+
+    def GetMinAndMaxCpuNo(self):
+        """Returns the min and max CPU numbers.
+
+        Returns:
+            integer: min CPU number (inclusive)
+            integer: max CPU number (exclusive)
+        """
+        return self._min_cpu_number, self._max_cpu_number;
 
     def _GetTheoreticalMaxFrequency(self, cpu_no):
         """Reads max value from cpufreq/scaling_available_frequencies.

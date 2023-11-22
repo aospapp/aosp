@@ -55,6 +55,9 @@ public class CarAudioAttributesUtil {
             case CarAudioManager.CAR_AUDIO_USAGE_NAVIGATION_GUIDANCE:
                 return createAudioAttributes(AudioAttributes.CONTENT_TYPE_SPEECH,
                         AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE);
+            case CarAudioManager.CAR_AUDIO_USAGE_RINGTONE:
+                return createAudioAttributes(AudioAttributes.CONTENT_TYPE_SONIFICATION,
+                        AudioAttributes.USAGE_NOTIFICATION_RINGTONE);
             case CarAudioManager.CAR_AUDIO_USAGE_VOICE_CALL:
                 return createAudioAttributes(AudioAttributes.CONTENT_TYPE_SPEECH,
                         AudioAttributes.USAGE_VOICE_COMMUNICATION);
@@ -119,6 +122,8 @@ public class CarAudioAttributesUtil {
                 }
             case AudioAttributes.USAGE_VOICE_COMMUNICATION:
                 return CarAudioManager.CAR_AUDIO_USAGE_VOICE_CALL;
+            case AudioAttributes.USAGE_NOTIFICATION_RINGTONE:
+                return CarAudioManager.CAR_AUDIO_USAGE_RINGTONE;
             case AudioAttributes.USAGE_ALARM:
                 return CarAudioManager.CAR_AUDIO_USAGE_ALARM;
             case AudioAttributes.USAGE_NOTIFICATION:

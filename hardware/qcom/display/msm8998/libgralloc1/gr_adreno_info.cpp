@@ -54,8 +54,7 @@ bool AdrenoMemInfo::Init() {
     *reinterpret_cast<void **>(&LINK_adreno_get_gpu_pixel_alignment) =
         ::dlsym(libadreno_utils_, "get_gpu_pixel_alignment");
   } else {
-    ALOGE(" Failed to load libadreno_utils.so");
-    return false;
+    ALOGW(" Failed to load libadreno_utils.so");
   }
 
   // Check if the overriding property debug.gralloc.gfx_ubwc_disable_
@@ -141,6 +140,8 @@ void AdrenoMemInfo::AlignCompressedRGB(int width, int height, int format, unsign
         width, height, format, 0, raster_mode, padding_threshold,
         reinterpret_cast<int *>(aligned_w), reinterpret_cast<int *>(aligned_h), &bytesPerPixel);
   } else {
+    *aligned_w = (unsigned int)ALIGN(width, 32);
+    *aligned_h = (unsigned int)ALIGN(height, 32);
     ALOGW("%s: Warning!! compute_compressedfmt_aligned_width_and_height not found", __FUNCTION__);
   }
 }
@@ -177,6 +178,12 @@ ADRENOPIXELFORMAT AdrenoMemInfo::GetGpuPixelFormat(int hal_format) {
     case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
     case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC:
       return ADRENO_PIXELFORMAT_NV12_EXT;
+    case HAL_PIXEL_FORMAT_RGBA_1010102:
+       return ADRENO_PIXELFORMAT_R10G10B10A2_UNORM;
+    case HAL_PIXEL_FORMAT_RGBX_1010102:
+       return ADRENO_PIXELFORMAT_R10G10B10X2_UNORM;
+    case HAL_PIXEL_FORMAT_ABGR_2101010:
+       return ADRENO_PIXELFORMAT_A2B10G10R10_UNORM;
     default:
       ALOGE("%s: No map for format: 0x%x", __FUNCTION__, hal_format);
       break;

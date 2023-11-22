@@ -28,7 +28,7 @@ ndk_library {
 }
 
 ndk_headers {
-    name: "libOpenSLES_headers",
+    name: "libOpenSLES_ndk_headers",
     from: "include",
     to: "",
     srcs: ["include/SLES/**/*.h"], // All headers in all subdirs.
@@ -41,3 +41,13 @@ ndk_library {
     first_version: "9",
     unversioned_until: "current",
 }
+
+cc_library_headers {
+    name: "libOpenSLES_headers",
+    export_include_dirs: ["include"],
+}
+
+subdirs = [
+    "src",
+    "tests",
+]

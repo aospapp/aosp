@@ -20,6 +20,7 @@ import junit.framework.Assert;
 
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
+import android.hardware.cts.helpers.SensorCtsHelper;
 import android.hardware.cts.helpers.SensorStats;
 import android.hardware.cts.helpers.TestSensorEnvironment;
 
@@ -33,24 +34,28 @@ public class MeanVerification extends AbstractMeanVerification {
     public static final String PASSED_KEY = "mean_passed";
 
     // sensorType: {expected, threshold}
-    private static final Map<Integer, Object[]> DEFAULTS = new HashMap<Integer, Object[]>(5);
+    private static final Map<Integer, ExpectedValuesAndThresholds> DEFAULTS
+        = new HashMap<Integer, ExpectedValuesAndThresholds>(5);
     static {
         // Use a method so that the @deprecation warning can be set for that method only
         setDefaults();
     }
 
     private final float[] mExpected;
-    private final float[] mThreshold;
+    private final float[] mUpperThresholds;
+    private final float[] mLowerThresholds;
 
     /**
      * Construct a {@link MeanVerification}
      *
      * @param expected the expected values
-     * @param threshold the thresholds
+     * @param upperThresholds the upper thresholds
+     * @param lowerThresholds the lower thresholds
      */
-    public MeanVerification(float[] expected, float[] threshold) {
+    public MeanVerification(float[] expected, float[] upperThresholds, float[] lowerThresholds) {
         mExpected = expected;
-        mThreshold = threshold;
+        mUpperThresholds = upperThresholds;
+        mLowerThresholds = lowerThresholds;
     }
 
     /**
@@ -64,9 +69,10 @@ public class MeanVerification extends AbstractMeanVerification {
         if (!DEFAULTS.containsKey(sensorType)) {
             return null;
         }
-        float[] expected = (float[]) DEFAULTS.get(sensorType)[0];
-        float[] threshold = (float[]) DEFAULTS.get(sensorType)[1];
-        return new MeanVerification(expected, threshold);
+        float[] expected = DEFAULTS.get(sensorType).mExpectedValues;
+        float[] upperThresholds = DEFAULTS.get(sensorType).mUpperThresholds;
+        float[] lowerThresholds = DEFAULTS.get(sensorType).mLowerThresholds;
+        return new MeanVerification(expected, upperThresholds, lowerThresholds);
     }
 
     /**
@@ -92,66 +98,104 @@ public class MeanVerification extends AbstractMeanVerification {
         float[] means = getMeans();
 
         boolean failed = false;
-        StringBuilder meanSb = new StringBuilder();
-        StringBuilder expectedSb = new StringBuilder();
-
-        if (means.length > 1) {
-            meanSb.append("(");
-            expectedSb.append("(");
-        }
         for (int i = 0; i < means.length; i++) {
-            if (Math.abs(means[i] - mExpected[i]) > mThreshold[i]) {
+            if (means[i]  > mExpected[i] + mUpperThresholds[i]) {
                 failed = true;
             }
-            meanSb.append(String.format("%.2f", means[i]));
-            if (i != means.length - 1) meanSb.append(", ");
-            expectedSb.append(String.format("%.2f+/-%.2f", mExpected[i], mThreshold[i]));
-            if (i != means.length - 1) expectedSb.append(", ");
-        }
-        if (means.length > 1) {
-            meanSb.append(")");
-            expectedSb.append(")");
+            if (means[i] < mExpected[i] - mLowerThresholds[i]) {
+                failed = true;
+            }
         }
 
         stats.addValue(PASSED_KEY, !failed);
         stats.addValue(SensorStats.MEAN_KEY, means);
 
         if (failed) {
-            Assert.fail(String.format("Mean out of range: mean=%s (expected %s)", meanSb.toString(),
-                    expectedSb.toString()));
+            Assert.fail(String.format("Mean out of range: mean=%s (expected %s)",
+                    SensorCtsHelper.formatFloatArray(means),
+                    SensorCtsHelper.formatFloatArray(mExpected)));
         }
     }
 
     @Override
     public MeanVerification clone() {
-        return new MeanVerification(mExpected, mThreshold);
+        return new MeanVerification(mExpected, mUpperThresholds, mLowerThresholds);
     }
 
     @SuppressWarnings("deprecation")
     private static void setDefaults() {
         // Sensors that we don't want to test at this time but still want to record the values.
         // Gyroscope should be 0 for a static device
-        DEFAULTS.put(Sensor.TYPE_GYROSCOPE, new Object[]{
-                new float[]{0.0f, 0.0f, 0.0f},
-                new float[]{Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE}});
+        DEFAULTS.put(Sensor.TYPE_GYROSCOPE,
+            new ExpectedValuesAndThresholds(new float[]{0.0f, 0.0f, 0.0f},
+                                            new float[]{Float.MAX_VALUE,
+                                                        Float.MAX_VALUE,
+                                                        Float.MAX_VALUE},
+                                            new float[]{Float.MAX_VALUE,
+                                                        Float.MAX_VALUE,
+                                                        Float.MAX_VALUE}));
         // Pressure will not be exact in a controlled environment but should be relatively close to
-        // sea level. Second values should always be 0.
-        DEFAULTS.put(Sensor.TYPE_PRESSURE, new Object[]{
-                new float[]{SensorManager.PRESSURE_STANDARD_ATMOSPHERE, 0.0f, 0.0f},
-                new float[]{Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE}});
+        // sea level (400HPa and 200HPa are very lax thresholds).
+        // Second values should always be 0.
+        DEFAULTS.put(Sensor.TYPE_PRESSURE,
+            new ExpectedValuesAndThresholds(new float[]{SensorManager.PRESSURE_STANDARD_ATMOSPHERE,
+                                                        0.0f,
+                                                        0.0f},
+                                            new float[]{100f,
+                                                        Float.MAX_VALUE,
+                                                        Float.MAX_VALUE},
+                                            new float[]{400f,
+                                                        Float.MAX_VALUE,
+                                                        Float.MAX_VALUE}));
         // Linear acceleration should be 0 in all directions for a static device
-        DEFAULTS.put(Sensor.TYPE_LINEAR_ACCELERATION, new Object[]{
-                new float[]{0.0f, 0.0f, 0.0f},
-                new float[]{Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE}});
+        DEFAULTS.put(Sensor.TYPE_LINEAR_ACCELERATION,
+            new ExpectedValuesAndThresholds(new float[]{0.0f, 0.0f, 0.0f},
+                                            new float[]{Float.MAX_VALUE,
+                                                        Float.MAX_VALUE,
+                                                        Float.MAX_VALUE},
+                                            new float[]{Float.MAX_VALUE,
+                                                        Float.MAX_VALUE,
+                                                        Float.MAX_VALUE}));
         // Game rotation vector should be (0, 0, 0, 1, 0) for a static device
-        DEFAULTS.put(Sensor.TYPE_GAME_ROTATION_VECTOR, new Object[]{
-                new float[]{0.0f, 0.0f, 0.0f, 1.0f, 0.0f},
-                new float[]{Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE,
-                        Float.MAX_VALUE}});
+        DEFAULTS.put(Sensor.TYPE_GAME_ROTATION_VECTOR,
+            new ExpectedValuesAndThresholds(new float[]{0.0f, 0.0f, 0.0f, 1.0f, 0.0f},
+                                            new float[]{Float.MAX_VALUE,
+                                                        Float.MAX_VALUE,
+                                                        Float.MAX_VALUE,
+                                                        Float.MAX_VALUE,
+                                                        Float.MAX_VALUE},
+                                            new float[]{Float.MAX_VALUE,
+                                                        Float.MAX_VALUE,
+                                                        Float.MAX_VALUE,
+                                                        Float.MAX_VALUE,
+                                                        Float.MAX_VALUE}));
         // Uncalibrated gyroscope should be 0 for a static device but allow a bigger threshold
-        DEFAULTS.put(Sensor.TYPE_GYROSCOPE_UNCALIBRATED, new Object[]{
-                new float[]{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f},
-                new float[]{Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE,
-                        Float.MAX_VALUE, Float.MAX_VALUE}});
+        DEFAULTS.put(Sensor.TYPE_GYROSCOPE_UNCALIBRATED,
+            new ExpectedValuesAndThresholds(new float[]{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f},
+                                            new float[]{Float.MAX_VALUE,
+                                                        Float.MAX_VALUE,
+                                                        Float.MAX_VALUE,
+                                                        Float.MAX_VALUE,
+                                                        Float.MAX_VALUE,
+                                                        Float.MAX_VALUE},
+                                            new float[]{Float.MAX_VALUE,
+                                                        Float.MAX_VALUE,
+                                                        Float.MAX_VALUE,
+                                                        Float.MAX_VALUE,
+                                                        Float.MAX_VALUE,
+                                                        Float.MAX_VALUE}));
+    }
+
+    private static final class ExpectedValuesAndThresholds {
+        private float[] mExpectedValues;
+        private float[] mUpperThresholds;
+        private float[] mLowerThresholds;
+        private ExpectedValuesAndThresholds(float[] expectedValues,
+                                            float[] upperThresholds,
+                                            float[] lowerThresholds) {
+            mExpectedValues = expectedValues;
+            mUpperThresholds = upperThresholds;
+            mLowerThresholds = lowerThresholds;
+        }
     }
 }

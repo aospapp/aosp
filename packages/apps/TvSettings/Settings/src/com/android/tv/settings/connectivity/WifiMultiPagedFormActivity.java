@@ -143,13 +143,17 @@ public abstract class WifiMultiPagedFormActivity extends MultiPagedForm
         if (wifiSecurity == WifiSecurity.WEP) {
             int length = password.length();
             // WEP-40, WEP-104, and 256-bit WEP (WEP-232?)
-            if ((length == 10 || length == 26 || length == 58)
+            if ((length == 10 || length == 26 || length == 32 || length == 58)
                     && password.matches("[0-9A-Fa-f]*")) {
                 wifiConfiguration.wepKeys[0] = password;
-            } else {
+            } else if (length == 5 || length == 13 || length == 16 || length == 29) {
                 wifiConfiguration.wepKeys[0] = '"' + password + '"';
             }
         } else {
+            if (wifiSecurity == WifiSecurity.PSK
+                    && password.length() < FormPageDisplayer.PSK_MIN_LENGTH) {
+                return;
+            }
             if (password.matches("[0-9A-Fa-f]{64}")) {
                 wifiConfiguration.preSharedKey = password;
             } else {

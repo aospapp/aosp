@@ -22,8 +22,8 @@ import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ProviderInfo;
-import android.content.pm.ResolveInfo;
 
+import android.content.pm.ResolveInfo;
 import com.android.documentsui.base.RootInfo;
 
 import org.mockito.Mockito;
@@ -40,6 +40,7 @@ import java.util.Map;
 public abstract class TestPackageManager extends PackageManager {
 
     public Map<String, ResolveInfo> contentProviders;
+    public List<ResolveInfo> queryIntentProvidersResults = new ArrayList<>();
 
     public void addStubContentProviderForRoot(RootInfo... roots) {
         for (RootInfo root : roots) {
@@ -61,16 +62,30 @@ public abstract class TestPackageManager extends PackageManager {
     }
 
     @Override
-    public final List<ResolveInfo> queryIntentContentProviders(Intent intent, int flags) {
+    public List<ResolveInfo> queryIntentContentProviders(Intent intent, int flags) {
         List<ResolveInfo> result = new ArrayList<>();
         result.addAll(contentProviders.values());
         return result;
     }
 
-    public final ResolveInfo resolveActivity(Intent intent, int flags) {
-        ResolveInfo info = new ResolveInfo();
+    /**
+     * Query's a list of fake apps that can open an application.
+     */
+    @Override
+    public List<ResolveInfo> queryIntentActivities(Intent intent, int flags) {
+        if (queryIntentProvidersResults == null) {
+            return new ArrayList<>();
+        } else {
+            return queryIntentProvidersResults;
+        }
+    }
+
+    @Override
+    public ResolveInfo resolveActivity(Intent intent, int flags) {
+        ResolveInfo info = new TestResolveInfo();
         info.activityInfo = new ActivityInfo();
-        info.activityInfo.packageName = intent.getPackage();
+        info.activityInfo.packageName =
+                intent.getPackage() != null ? intent.getPackage() : "TestPackage";
         info.activityInfo.applicationInfo = new ApplicationInfo();
         info.activityInfo.applicationInfo.packageName = intent.getPackage();
         info.activityInfo.name = "Fake Quick Viewer";
@@ -80,5 +95,17 @@ public abstract class TestPackageManager extends PackageManager {
     public final ResolveInfo resolveActivityAsUser(
             Intent intent, int flags, @UserIdInt int userId) {
         return resolveActivity(intent, flags);
+    }
+
+    /**
+     * Hacky way to use resolve info in test. resolve info return null when new'ing up a instance
+     * because of an exception thrown in toString.
+     */
+    public static class TestResolveInfo extends ResolveInfo {
+
+        @Override
+        public String toString() {
+            return "";
+        }
     }
 }

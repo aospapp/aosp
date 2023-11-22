@@ -22,7 +22,6 @@
 #include <utility>
 
 namespace chre {
-
 template<typename ElementType, size_t kSize>
 MemoryPool<ElementType, kSize>::MemoryPool() {
   // Initialize the free block list. The initial condition is such that each
@@ -30,7 +29,7 @@ MemoryPool<ElementType, kSize>::MemoryPool() {
   // ensure that we never allocate out of bounds so we don't need to worry about
   // the last block referring to one that is non-existent.
   for (size_t i = 0; i < kSize; i++) {
-    mBlocks.emplace_back(i + 1);
+    blocks()[i].mNextFreeBlockIndex = i + 1;
   }
 }
 
@@ -42,28 +41,30 @@ ElementType *MemoryPool<ElementType, kSize>::allocate(Args&&... args) {
   }
 
   size_t blockIndex = mNextFreeBlockIndex;
-  mNextFreeBlockIndex = mBlocks[blockIndex].mNextFreeBlockIndex;
+  mNextFreeBlockIndex = blocks()[blockIndex].mNextFreeBlockIndex;
   mFreeBlockCount--;
 
-  return new (&mBlocks[blockIndex].mElement)
+  return new (&blocks()[blockIndex].mElement)
       ElementType(std::forward<Args>(args)...);
 }
 
 template<typename ElementType, size_t kSize>
 void MemoryPool<ElementType, kSize>::deallocate(ElementType *element) {
   uintptr_t elementAddress = reinterpret_cast<uintptr_t>(element);
-  uintptr_t baseAddress = reinterpret_cast<uintptr_t>(&mBlocks[0].mElement);
+  uintptr_t baseAddress = reinterpret_cast<uintptr_t>(&blocks()[0].mElement);
   size_t blockIndex = (elementAddress - baseAddress) / sizeof(MemoryPoolBlock);
 
-  mBlocks[blockIndex].mElement.~ElementType();
-  mBlocks[blockIndex].mNextFreeBlockIndex = mNextFreeBlockIndex;
+  blocks()[blockIndex].mElement.~ElementType();
+  blocks()[blockIndex].mNextFreeBlockIndex = mNextFreeBlockIndex;
   mNextFreeBlockIndex = blockIndex;
   mFreeBlockCount++;
 }
 
 template<typename ElementType, size_t kSize>
-MemoryPool<ElementType, kSize>::MemoryPoolBlock::MemoryPoolBlock(
-    size_t nextFreeBlockIndex) : mNextFreeBlockIndex(nextFreeBlockIndex) {}
+typename MemoryPool<ElementType, kSize>::MemoryPoolBlock
+    *MemoryPool<ElementType, kSize>::blocks() {
+  return reinterpret_cast<MemoryPoolBlock *>(mBlocks);
+}
 
 }  // namespace chre
 

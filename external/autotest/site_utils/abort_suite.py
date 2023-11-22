@@ -60,11 +60,12 @@ def abort_suites(afe, substring):
     by autotest scheduler.
 
     @param afe: An instance of frontend.AFE to make RPCs with.
-    @param substring: A string used to search for the jobs.
+    @param substring: A string used to search for the jobs (case insensitive
+            matching).
 
     """
     hqe_info = afe.run('abort_host_queue_entries',
-            job__name__contains=substring, job__owner=getpass.getuser(),
+            job__name__icontains=substring, job__owner=getpass.getuser(),
             job__parent_job__isnull=True)
     if hqe_info:
         logging.info('The following suites have been aborted:\n%s', hqe_info)

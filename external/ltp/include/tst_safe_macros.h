@@ -50,6 +50,22 @@
 #define SAFE_DIRNAME(path) \
 	safe_dirname(__FILE__, __LINE__, NULL, (path))
 
+static inline int safe_dup(const char *file, const int lineno,
+			   int oldfd)
+{
+	int rval;
+
+	rval = dup(oldfd);
+	if (rval == -1) {
+		tst_brk_(file, lineno, TBROK | TERRNO,
+			 "dup(%i) failed", oldfd);
+	}
+
+	return rval;
+}
+#define SAFE_DUP(oldfd) \
+	safe_dup(__FILE__, __LINE__, (oldfd))
+
 #define	SAFE_GETCWD(buf, size) \
 	safe_getcwd(__FILE__, __LINE__, NULL, (buf), (size))
 
@@ -81,10 +97,6 @@
 #define SAFE_READ(len_strict, fildes, buf, nbyte) \
 	safe_read(__FILE__, __LINE__, NULL, (len_strict), (fildes), (buf), (nbyte))
 
-#define SAFE_PREAD(len_strict, fildes, buf, nbyte, offset) \
-	safe_pread(__FILE__, __LINE__, NULL, (len_strict), (fildes), \
-	           (buf), (nbyte), (offset))
-
 #define SAFE_SETEGID(egid) \
 	safe_setegid(__FILE__, __LINE__, NULL, (egid))
 
@@ -103,21 +115,15 @@
 #define SAFE_GETRESGID(rgid, egid, sgid) \
 	safe_getresgid(__FILE__, __LINE__, NULL, (rgid), (egid), (sgid))
 
-static inline int safe_setpgid(const char *file, const int lineno,
-                               pid_t pid, pid_t pgid)
-{
-	int rval;
+int safe_setpgid(const char *file, const int lineno, pid_t pid, pid_t pgid);
 
-	rval = setpgid(pid, pgid);
-	if (rval) {
-		tst_brk_(file, lineno, TBROK | TERRNO,
-		         "setpgid(%i, %i) failed", pid, pgid);
-	}
-
-	return rval;
-}
 #define SAFE_SETPGID(pid, pgid) \
 	safe_setpgid(__FILE__, __LINE__, (pid), (pgid));
+
+pid_t safe_getpgid(const char *file, const int lineno, pid_t pid);
+
+#define SAFE_GETPGID(pid) \
+	safe_getpgid(__FILE__, __LINE__, (pid))
 
 #define SAFE_UNLINK(pathname) \
 	safe_unlink(__FILE__, __LINE__, NULL, (pathname))
@@ -137,10 +143,6 @@ static inline int safe_setpgid(const char *file, const int lineno,
 
 #define SAFE_WRITE(len_strict, fildes, buf, nbyte) \
 	safe_write(__FILE__, __LINE__, NULL, (len_strict), (fildes), (buf), (nbyte))
-
-#define SAFE_PWRITE(len_strict, fildes, buf, nbyte, offset) \
-	safe_pwrite(__FILE__, __LINE__, NULL, (len_strict), (fildes), \
-	            (buf), (nbyte), (offset))
 
 #define SAFE_STRTOL(str, min, max) \
 	safe_strtol(__FILE__, __LINE__, NULL, (str), (min), (max))
@@ -394,5 +396,38 @@ static inline sighandler_t safe_signal(const char *file, const int lineno,
 
 #define SAFE_SIGNAL(signum, handler) \
 	safe_signal(__FILE__, __LINE__, (signum), (handler))
+
+#define SAFE_EXECLP(file, arg, ...) do {                   \
+	execlp((file), (arg), ##__VA_ARGS__);              \
+	tst_brk_(__FILE__, __LINE__, TBROK | TERRNO,       \
+	         "execlp(%s, %s, ...) failed", file, arg); \
+	} while (0)
+
+int safe_getpriority(const char *file, const int lineno, int which, id_t who);
+#define SAFE_GETPRIORITY(which, who) \
+	safe_getpriority(__FILE__, __LINE__, (which), (who))
+
+int safe_setxattr(const char *file, const int lineno, const char *path,
+            const char *name, const void *value, size_t size, int flags);
+#define SAFE_SETXATTR(path, name, value, size, flags) \
+	safe_setxattr(__FILE__, __LINE__, (path), (name), (value), (size), (flags))
+
+int safe_lsetxattr(const char *file, const int lineno, const char *path,
+            const char *name, const void *value, size_t size, int flags);
+#define SAFE_LSETXATTR(path, name, value, size, flags) \
+	safe_lsetxattr(__FILE__, __LINE__, (path), (name), (value), (size), (flags))
+
+int safe_fsetxattr(const char *file, const int lineno, int fd, const char *name,
+            const void *value, size_t size, int flags);
+#define SAFE_FSETXATTR(fd, name, value, size, flags) \
+	safe_fsetxattr(__FILE__, __LINE__, (fd), (name), (value), (size), (flags))
+
+int safe_removexattr(const char *file, const int lineno, const char *path,
+		const char *name);
+#define SAFE_REMOVEXATTR(path, name) \
+	safe_removexattr(__FILE__, __LINE__, (path), (name))
+
+int safe_fsync(const char *file, const int lineno, int fd);
+#define SAFE_FSYNC(fd) safe_fsync(__FILE__, __LINE__, (fd))
 
 #endif /* SAFE_MACROS_H__ */

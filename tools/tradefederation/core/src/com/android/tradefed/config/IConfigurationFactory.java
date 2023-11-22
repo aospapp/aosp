@@ -142,4 +142,14 @@ public interface IConfigurationFactory {
      *        the same behavior as {@link #getConfigList()}.
      */
     public List<String> getConfigList(String subPath);
+
+    /**
+     * Variation of {@link #getConfigList(String)} where can specify whether or not we also want to
+     * load the configuration from the environment.
+     *
+     * @param subPath name of the sub-directories to look in for configuration. If null, will have
+     *     the same behavior as {@link #getConfigList()}.
+     * @param loadFromEnv True if we should load the configuration in the environment variable.
+     */
+    public List<String> getConfigList(String subPath, boolean loadFromEnv);
 }

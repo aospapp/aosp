@@ -22,6 +22,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.AdditionalMatchers.or;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.anyFloat;
@@ -42,7 +43,6 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.annotation.UiThreadTest;
-import android.support.test.espresso.core.deps.guava.collect.ImmutableSet;
 import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
 import android.support.v7.preference.CheckBoxPreference;
@@ -57,6 +57,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -212,7 +213,7 @@ public class PreferenceDataStoreTest {
     private void putStringTestCommon() {
         mPreference.putString(TEST_STR);
 
-        verify(mDataStore, atLeast(0)).getString(eq(KEY), anyString());
+        verify(mDataStore, atLeast(0)).getString(eq(KEY), nullable(String.class));
         verify(mDataStore, atLeastOnce()).putString(eq(KEY), anyString());
         verifyNoMoreInteractions(mDataStore);
 
@@ -277,7 +278,7 @@ public class PreferenceDataStoreTest {
     }
 
     private void putStringSetTestCommon() {
-        Set<String> testSet = ImmutableSet.of(TEST_STR);
+        Set<String> testSet = Collections.singleton(TEST_STR);
 
         mPreference.putStringSet(testSet);
 

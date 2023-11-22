@@ -53,7 +53,7 @@ public final class TestFocusHandler implements FocusHandler {
 
     @Override
     public boolean hasFocusedItem() {
-        return true;
+        return focusModelId != null;
     }
 
     @Override
@@ -68,9 +68,16 @@ public final class TestFocusHandler implements FocusHandler {
 
     @Override
     public void focusDocument(String modelId) {
+        focusModelId = modelId;
     }
 
     @Override
     public void onLayoutCompleted() {
+    }
+
+    @Override
+    public void clearFocus() {
+        focusModelId = null;
+        focusPos = 0;
     }
 }

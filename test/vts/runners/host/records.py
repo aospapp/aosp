@@ -17,10 +17,12 @@
 """
 
 import json
+import logging
 import pprint
 
 from vts.runners.host import signals
 from vts.runners.host import utils
+from vts.utils.python.common import list_utils
 
 
 class TestResultEnums(object):
@@ -39,6 +41,7 @@ class TestResultEnums(object):
     RECORD_EXTRAS = "Extras"
     RECORD_EXTRA_ERRORS = "Extra Errors"
     RECORD_DETAILS = "Details"
+    RECORD_TABLES = "Tables"
     TEST_RESULT_PASS = "PASS"
     TEST_RESULT_FAIL = "FAIL"
     TEST_RESULT_SKIP = "SKIP"
@@ -52,10 +55,11 @@ class TestResultRecord(object):
         test_name: A string representing the name of the test case.
         begin_time: Epoch timestamp of when the test case started.
         end_time: Epoch timestamp of when the test case ended.
-        self.uid: Unique identifier of a test case.
-        self.result: Test result, PASS/FAIL/SKIP.
-        self.extras: User defined extra information of the test result.
-        self.details: A string explaining the details of the test case.
+        uid: Unique identifier of a test case.
+        result: Test result, PASS/FAIL/SKIP.
+        extras: User defined extra information of the test result.
+        details: A string explaining the details of the test case.
+        tables: A dict of 2-dimensional lists containing tabular results.
     """
 
     def __init__(self, t_name, t_class=None):
@@ -68,6 +72,7 @@ class TestResultRecord(object):
         self.extras = None
         self.details = None
         self.extra_errors = {}
+        self.tables = {}
 
     def testBegin(self):
         """Call this when the test case it records begins execution.
@@ -143,6 +148,17 @@ class TestResultRecord(object):
         self.result = TestResultEnums.TEST_RESULT_ERROR
         self.extra_errors[tag] = str(e)
 
+    def addTable(self, name, rows):
+        """Add a table as part of the test result.
+
+        Args:
+            name: The table name.
+            rows: A 2-dimensional list which contains the data.
+        """
+        if name in self.tables:
+            logging.warning("Overwrite table %s" % name)
+        self.tables[name] = rows
+
     def __str__(self):
         d = self.getDict()
         l = ["%s = %s" % (k, v) for k, v in d.items()]
@@ -170,6 +186,7 @@ class TestResultRecord(object):
         d[TestResultEnums.RECORD_EXTRAS] = self.extras
         d[TestResultEnums.RECORD_DETAILS] = self.details
         d[TestResultEnums.RECORD_EXTRA_ERRORS] = self.extra_errors
+        d[TestResultEnums.RECORD_TABLES] = self.tables
         return d
 
     def jsonString(self):
@@ -195,13 +212,15 @@ class TestResult(object):
     This class is essentially a container of TestResultRecord objects.
 
     Attributes:
-        self.requested: A list of strings, each is the name of a test requested
-            by user.
+        self.requested: A list of records for tests requested by user.
         self.failed: A list of records for tests failed.
         self.executed: A list of records for tests that were actually executed.
         self.passed: A list of records for tests passed.
         self.skipped: A list of records for tests skipped.
         self.error: A list of records for tests with error result token.
+        self._test_module_name: A string, test module's name.
+        self._test_module_timestamp: An integer, test module's execution start
+                                     timestamp.
     """
 
     def __init__(self):
@@ -211,6 +230,8 @@ class TestResult(object):
         self.passed = []
         self.skipped = []
         self.error = []
+        self._test_module_name = None
+        self._test_module_timestamp = None
 
     def __add__(self, r):
         """Overrides '+' operator for TestResult class.
@@ -227,15 +248,84 @@ class TestResult(object):
         if not isinstance(r, TestResult):
             raise TypeError("Operand %s of type %s is not a TestResult." %
                             (r, type(r)))
+        r.reportNonExecutedRecord()
         sum_result = TestResult()
         for name in sum_result.__dict__:
-            l_value = list(getattr(self, name))
-            r_value = list(getattr(r, name))
-            setattr(sum_result, name, l_value + r_value)
+            if name.startswith("_test_module"):
+                l_value = getattr(self, name)
+                r_value = getattr(r, name)
+                if l_value is None and r_value is None:
+                    continue
+                elif l_value is None and r_value is not None:
+                    value = r_value
+                elif l_value is not None and r_value is None:
+                    value = l_value
+                else:
+                    if name == "_test_module_name":
+                        if l_value != r_value:
+                            raise TypeError("_test_module_name is different.")
+                        value = l_value
+                    elif name == "_test_module_timestamp":
+                        if int(l_value) < int(r_value):
+                            value = l_value
+                        else:
+                            value = r_value
+                    else:
+                        raise TypeError("unknown _test_module* attribute.")
+                setattr(sum_result, name, value)
+            else:
+                l_value = list(getattr(self, name))
+                r_value = list(getattr(r, name))
+                setattr(sum_result, name, l_value + r_value)
         return sum_result
 
+    def reportNonExecutedRecord(self):
+        """Check and report any requested tests that did not finish.
+
+        Adds a test record to self.error list iff it is in requested list but not
+        self.executed result list.
+        """
+        for requested in self.requested:
+            found = False
+
+            for executed in self.executed:
+                if (requested.test_name == executed.test_name and
+                        requested.test_class == executed.test_class):
+                    found = True
+                    break
+
+            if not found:
+                requested.testBegin()
+                requested.testError()
+                self.error.append(requested)
+
+    def removeRecord(self, record):
+        """Remove a test record from test results.
+
+        Records will be ed using test_name and test_class attribute.
+        All entries that match the provided record in all result lists will
+        be removed after calling this method.
+
+        Args:
+            record: A test record object to add.
+        """
+        lists = [
+            self.requested, self.failed, self.executed, self.passed,
+            self.skipped, self.error
+        ]
+
+        for l in lists:
+            indexToRemove = []
+            for idx in range(len(l)):
+                if (l[idx].test_name == record.test_name and
+                        l[idx].test_class == record.test_class):
+                    indexToRemove.append(idx)
+
+            for idx in reversed(indexToRemove):
+                del l[idx]
+
     def addRecord(self, record):
-        """Adds a test record to test result.
+        """Adds a test record to test results.
 
         A record is considered executed once it's added to the test result.
 
@@ -251,6 +341,11 @@ class TestResult(object):
             self.passed.append(record)
         else:
             self.error.append(record)
+
+    def setTestModuleKeys(self, name, start_timestamp):
+        """Sets the test module's name and start_timestamp."""
+        self._test_module_name = name
+        self._test_module_timestamp = start_timestamp
 
     def failClass(self, class_name, e):
         """Add a record to indicate a test class setup has failed and no test
@@ -295,10 +390,14 @@ class TestResult(object):
         Returns:
             A json-format string representing the test results.
         """
+        records = list_utils.MergeUniqueKeepOrder(
+            self.executed, self.failed, self.passed, self.skipped, self.error)
+        executed = [record.getDict() for record in records]
+
         d = {}
-        executed = [record.getDict() for record in self.executed]
         d["Results"] = executed
         d["Summary"] = self.summaryDict()
+        d["TestModule"] = self.testModuleDict()
         jsonString = json.dumps(d, indent=4, sort_keys=True)
         return jsonString
 
@@ -335,4 +434,11 @@ class TestResult(object):
         d["Failed"] = len(self.failed)
         d["Skipped"] = len(self.skipped)
         d["Error"] = len(self.error)
+        return d
+
+    def testModuleDict(self):
+        """Returns a dict that summarizes the test module DB indexing keys."""
+        d = {}
+        d["Name"] = self._test_module_name
+        d["Timestamp"] = self._test_module_timestamp
         return d

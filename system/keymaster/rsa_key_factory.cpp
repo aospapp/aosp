@@ -16,7 +16,7 @@
 
 #include <keymaster/rsa_key_factory.h>
 
-#include <new>
+#include <keymaster/new>
 
 #include <keymaster/keymaster_context.h>
 

@@ -61,6 +61,10 @@ public class MockInCallService extends InCallService {
         public void onCannedTextResponsesLoaded(Call call, List<String> cannedTextResponses) {}
         public void onSilenceRinger() {}
         public void onConnectionEvent(Call call, String event, Bundle extras) {}
+        public void onRttModeChanged(Call call, int mode) {}
+        public void onRttStatusChanged(Call call, boolean enabled, Call.RttCall rttCall) {}
+        public void onRttRequest(Call call, int id) {}
+        public void onRttInitiationFailure(Call call, int reason) {}
 
         final public MockInCallService getService() {
             return mService;
@@ -151,6 +155,38 @@ public class MockInCallService extends InCallService {
             super.onConnectionEvent(call, event, extras);
             if (getCallbacks() != null) {
                 getCallbacks().onConnectionEvent(call, event, extras);
+            }
+        }
+
+        @Override
+        public void onRttModeChanged(Call call, int mode) {
+            super.onRttModeChanged(call, mode);
+            if (getCallbacks() != null) {
+                getCallbacks().onRttModeChanged(call, mode);
+            }
+        }
+
+        @Override
+        public void onRttStatusChanged(Call call, boolean enabled, Call.RttCall rttCall) {
+            super.onRttStatusChanged(call, enabled, rttCall);
+            if (getCallbacks() != null) {
+                getCallbacks().onRttStatusChanged(call, enabled, rttCall);
+            }
+        }
+
+        @Override
+        public void onRttRequest(Call call, int id) {
+            super.onRttRequest(call, id);
+            if (getCallbacks() != null) {
+                getCallbacks().onRttRequest(call, id);
+            }
+        }
+
+        @Override
+        public void onRttInitiationFailure(Call call, int reason) {
+            super.onRttInitiationFailure(call, reason);
+            if (getCallbacks() != null) {
+                getCallbacks().onRttInitiationFailure(call, reason);
             }
         }
     };

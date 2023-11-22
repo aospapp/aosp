@@ -3,5 +3,7 @@
 
 subdirs = [
     "V1_0",
+    "V1_1",
+    "offload/V1_0",
     "supplicant/V1_0",
 ]

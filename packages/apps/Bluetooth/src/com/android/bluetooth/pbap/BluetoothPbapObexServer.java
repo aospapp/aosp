@@ -478,6 +478,7 @@ public class BluetoothPbapObexServer extends ServerRequestHandler {
     }
 
     private boolean isNameMatchTarget(String name, String target) {
+        if (name == null) return false;
         String contentTypeName = name;
         if (contentTypeName.endsWith(".vcf")) {
             contentTypeName = contentTypeName
@@ -762,7 +763,7 @@ public class BluetoothPbapObexServer extends ServerRequestHandler {
                 for (int pos = appParamValue.listStartOffset;
                         pos < listSize && itemsFound < requestSize; pos++) {
                     currentValue = nameList.get(pos);
-                    if (D) Log.d(TAG, "currentValue=" + currentValue);
+                    if (V) Log.d(TAG, "currentValue=" + currentValue);
                     if (currentValue.equals(compareValue)) {
                         itemsFound++;
                         if (currentValue.contains(","))

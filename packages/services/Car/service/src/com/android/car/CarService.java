@@ -16,7 +16,6 @@
 package com.android.car;
 
 import static android.os.SystemClock.elapsedRealtime;
-import static com.android.car.internal.FeatureConfiguration.ENABLE_VEHICLE_HAL_V2_1;
 
 import android.annotation.Nullable;
 import android.app.Service;
@@ -44,11 +43,6 @@ public class CarService extends Service {
     private static final long WAIT_FOR_VEHICLE_HAL_TIMEOUT_MS = 10_000;
 
     private static final boolean IS_USER_BUILD = "user".equals(Build.TYPE);
-
-    private static final String IVHAL_20 =
-            android.hardware.automotive.vehicle.V2_0.IVehicle.kInterfaceName;
-    private static final String IVHAL_21 =
-            android.hardware.automotive.vehicle.V2_1.IVehicle.kInterfaceName;
 
     private CanBusErrorNotifier mCanBusErrorNotifier;
     private ICarImpl mICarImpl;
@@ -78,7 +72,7 @@ public class CarService extends Service {
     public void onCreate() {
         Log.i(CarLog.TAG_SERVICE, "Service onCreate");
         mCanBusErrorNotifier = new CanBusErrorNotifier(this /* context */);
-        mVehicle = getVehicle(null /* Any Vehicle HAL interface name */);
+        mVehicle = getVehicle();
 
         if (mVehicle == null) {
             throw new IllegalStateException("Vehicle HAL service is not available.");
@@ -153,8 +147,8 @@ public class CarService extends Service {
     }
 
     @Nullable
-    private IVehicle getVehicleWithTimeout(long waitMilliseconds, @Nullable String interfaceName) {
-        IVehicle vehicle = getVehicle(interfaceName);
+    private IVehicle getVehicleWithTimeout(long waitMilliseconds) {
+        IVehicle vehicle = getVehicle();
         long start = elapsedRealtime();
         while (vehicle == null && (start + waitMilliseconds) > elapsedRealtime()) {
             try {
@@ -163,7 +157,7 @@ public class CarService extends Service {
                 throw new RuntimeException("Sleep was interrupted", e);
             }
 
-            vehicle = getVehicle(interfaceName);
+            vehicle = getVehicle();
         }
 
         if (vehicle != null) {
@@ -174,20 +168,9 @@ public class CarService extends Service {
     }
 
     @Nullable
-    private static IVehicle getVehicle(@Nullable String interfaceName) {
+    private static IVehicle getVehicle() {
         try {
-            boolean anyVersion = interfaceName == null || interfaceName.isEmpty();
-            IVehicle vehicle = null;
-            if (ENABLE_VEHICLE_HAL_V2_1 && (anyVersion || IVHAL_21.equals(interfaceName))) {
-                vehicle = android.hardware.automotive.vehicle.V2_1.IVehicle
-                        .getService();
-            }
-
-            if (vehicle == null && (anyVersion || IVHAL_20.equals(interfaceName))) {
-                vehicle = android.hardware.automotive.vehicle.V2_0.IVehicle
-                        .getService();
-            }
-            return vehicle;
+            return android.hardware.automotive.vehicle.V2_0.IVehicle.getService();
         } catch (RemoteException e) {
             Log.e(CarLog.TAG_SERVICE, "Failed to get IVehicle service", e);
         } catch (NoSuchElementException e) {
@@ -214,8 +197,7 @@ public class CarService extends Service {
 
             Log.i(CarLog.TAG_SERVICE, "Trying to reconnect to Vehicle HAL: " +
                     mVehicleInterfaceName);
-            mVehicle = getVehicleWithTimeout(WAIT_FOR_VEHICLE_HAL_TIMEOUT_MS,
-                    mVehicleInterfaceName);
+            mVehicle = getVehicleWithTimeout(WAIT_FOR_VEHICLE_HAL_TIMEOUT_MS);
             if (mVehicle == null) {
                 throw new IllegalStateException("Failed to reconnect to Vehicle HAL");
             }

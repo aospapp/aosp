@@ -43,14 +43,14 @@
 #include "mirror/class-inl.h"
 #include "mirror/object.h"
 #include "mirror/string.h"
+#include "nativehelper/ScopedLocalRef.h"
 #include "obj_ptr-inl.h"
 #include "runtime.h"
 #include "runtime_callbacks.h"
 #include "scoped_thread_state_change-inl.h"
-#include "ScopedLocalRef.h"
-#include "ti_phase.h"
-#include "thread-inl.h"
+#include "thread-current-inl.h"
 #include "thread_list.h"
+#include "ti_phase.h"
 #include "well_known_classes.h"
 
 namespace openjdkjvmti {
@@ -105,17 +105,21 @@ static void Update() REQUIRES_SHARED(art::Locks::mutator_lock_) {
   }
 
   art::ArtMethod* get_property =
-      properties_class->FindDeclaredVirtualMethod(
+      properties_class->FindClassMethod(
           "getProperty",
           "(Ljava/lang/String;)Ljava/lang/String;",
           art::kRuntimePointerSize);
   DCHECK(get_property != nullptr);
+  DCHECK(!get_property->IsDirect());
+  DCHECK(get_property->GetDeclaringClass() == properties_class);
   art::ArtMethod* set_property =
-      properties_class->FindDeclaredVirtualMethod(
+      properties_class->FindClassMethod(
           "setProperty",
           "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Object;",
           art::kRuntimePointerSize);
   DCHECK(set_property != nullptr);
+  DCHECK(!set_property->IsDirect());
+  DCHECK(set_property->GetDeclaringClass() == properties_class);
 
   // This is an allocation. Do this late to avoid the need for handles.
   ScopedLocalRef<jobject> cp_jobj(self->GetJniEnv(), nullptr);

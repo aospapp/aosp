@@ -42,59 +42,30 @@ class ArmBaseRelativePatcher : public RelativePatcher {
 
   enum class ThunkType {
     kMethodCall,              // Method call thunk.
-    kBakerReadBarrierField,   // Baker read barrier, load field or array element at known offset.
-    kBakerReadBarrierRoot,    // Baker read barrier, GC root load.
-  };
-
-  struct BakerReadBarrierOffsetParams {
-    uint32_t holder_reg;      // Holder object for reading lock word.
-    uint32_t base_reg;        // Base register, different from holder for large offset.
-                              // If base differs from holder, it should be a pre-defined
-                              // register to limit the number of thunks we need to emit.
-                              // The offset is retrieved using introspection.
-  };
-
-  struct BakerReadBarrierRootParams {
-    uint32_t root_reg;        // The register holding the GC root.
-    uint32_t dummy;
-  };
-
-  struct RawThunkParams {
-    uint32_t first;
-    uint32_t second;
-  };
-
-  union ThunkParams {
-    RawThunkParams raw_params;
-    BakerReadBarrierOffsetParams offset_params;
-    BakerReadBarrierRootParams root_params;
+    kBakerReadBarrier,        // Baker read barrier.
   };
 
   class ThunkKey {
    public:
-    ThunkKey(ThunkType type, ThunkParams params) : type_(type), params_(params) { }
+    explicit ThunkKey(ThunkType type, uint32_t custom_value1 = 0u, uint32_t custom_value2 = 0u)
+        : type_(type), custom_value1_(custom_value1), custom_value2_(custom_value2) { }
 
     ThunkType GetType() const {
       return type_;
     }
 
-    BakerReadBarrierOffsetParams GetOffsetParams() const {
-      DCHECK(type_ == ThunkType::kBakerReadBarrierField);
-      return params_.offset_params;
+    uint32_t GetCustomValue1() const {
+      return custom_value1_;
     }
 
-    BakerReadBarrierRootParams GetRootParams() const {
-      DCHECK(type_ == ThunkType::kBakerReadBarrierRoot);
-      return params_.root_params;
-    }
-
-    RawThunkParams GetRawParams() const {
-      return params_.raw_params;
+    uint32_t GetCustomValue2() const {
+      return custom_value2_;
     }
 
    private:
     ThunkType type_;
-    ThunkParams params_;
+    uint32_t custom_value1_;
+    uint32_t custom_value2_;
   };
 
   class ThunkKeyCompare {
@@ -103,12 +74,15 @@ class ArmBaseRelativePatcher : public RelativePatcher {
       if (lhs.GetType() != rhs.GetType()) {
         return lhs.GetType() < rhs.GetType();
       }
-      if (lhs.GetRawParams().first != rhs.GetRawParams().first) {
-        return lhs.GetRawParams().first < rhs.GetRawParams().first;
+      if (lhs.GetCustomValue1() != rhs.GetCustomValue1()) {
+        return lhs.GetCustomValue1() < rhs.GetCustomValue1();
       }
-      return lhs.GetRawParams().second < rhs.GetRawParams().second;
+      return lhs.GetCustomValue2() < rhs.GetCustomValue2();
     }
   };
+
+  static ThunkKey GetMethodCallKey();
+  static ThunkKey GetBakerThunkKey(const LinkerPatch& patch);
 
   uint32_t ReserveSpaceInternal(uint32_t offset,
                                 const CompiledMethod* compiled_method,
@@ -119,10 +93,9 @@ class ArmBaseRelativePatcher : public RelativePatcher {
   uint32_t CalculateMethodCallDisplacement(uint32_t patch_offset,
                                            uint32_t target_offset);
 
-  virtual ThunkKey GetBakerReadBarrierKey(const LinkerPatch& patch) = 0;
   virtual std::vector<uint8_t> CompileThunk(const ThunkKey& key) = 0;
-  virtual uint32_t MaxPositiveDisplacement(ThunkType type) = 0;
-  virtual uint32_t MaxNegativeDisplacement(ThunkType type) = 0;
+  virtual uint32_t MaxPositiveDisplacement(const ThunkKey& key) = 0;
+  virtual uint32_t MaxNegativeDisplacement(const ThunkKey& key) = 0;
 
  private:
   class ThunkData;
@@ -132,7 +105,7 @@ class ArmBaseRelativePatcher : public RelativePatcher {
 
   void ResolveMethodCalls(uint32_t quick_code_offset, MethodReference method_ref);
 
-  uint32_t CalculateMaxNextOffset(uint32_t patch_offset, ThunkType type);
+  uint32_t CalculateMaxNextOffset(uint32_t patch_offset, const ThunkKey& key);
 
   RelativePatcherTargetProvider* const provider_;
   const InstructionSet instruction_set_;

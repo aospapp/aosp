@@ -31,7 +31,6 @@ import com.android.documentsui.base.Events;
 import com.android.documentsui.base.Events.InputEvent;
 import com.android.documentsui.selection.SelectionManager;
 
-import java.util.Collections;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -194,11 +193,29 @@ public final class UserInputHandler<T extends InputEvent>
         assert(doc.hasModelId());
         mSelectionMgr.toggleSelection(doc.getModelId());
         mSelectionMgr.setSelectionRangeBegin(doc.getAdapterPosition());
+
+        // we set the focus on this doc so it will be the origin for keyboard events or shift+clicks
+        // if there is only a single item selected, otherwise clear focus
+        if (mSelectionMgr.getSelection().size() == 1) {
+            mFocusHandler.focusDocument(doc.getModelId());
+        } else {
+            mFocusHandler.clearFocus();
+        }
+        return true;
+    }
+
+    private boolean focusDocument(DocumentDetails doc) {
+        assert(doc != null);
+        assert(doc.hasModelId());
+
+        mSelectionMgr.clearSelection();
+        mFocusHandler.focusDocument(doc.getModelId());
         return true;
     }
 
     private void extendSelectionRange(DocumentDetails doc) {
         mSelectionMgr.snapRangeSelection(doc.getAdapterPosition());
+        mFocusHandler.focusDocument(doc.getModelId());
     }
 
     boolean isRangeExtension(T event) {
@@ -208,7 +225,12 @@ public final class UserInputHandler<T extends InputEvent>
     private boolean shouldClearSelection(T event, DocumentDetails doc) {
         return !event.isCtrlKeyDown()
                 && !doc.isInSelectionHotspot(event)
-                && !mSelectionMgr.getSelection().contains(doc.getModelId());
+                && !doc.isOverDocIcon(event)
+                && !isSelected(doc);
+    }
+
+    private boolean isSelected(DocumentDetails doc) {
+        return mSelectionMgr.getSelection().contains(doc.getModelId());
     }
 
     private static final String TTAG = "TouchInputDelegate";
@@ -237,9 +259,12 @@ public final class UserInputHandler<T extends InputEvent>
             if (mSelectionMgr.hasSelection()) {
                 if (isRangeExtension(event)) {
                     extendSelectionRange(doc);
+                } else if (mSelectionMgr.getSelection().contains(doc.getModelId())) {
+                    mSelectionMgr.toggleSelection(doc.getModelId());
                 } else {
                     selectDocument(doc);
                 }
+
                 return true;
             }
 
@@ -335,6 +360,7 @@ public final class UserInputHandler<T extends InputEvent>
             if (!event.isOverModelItem()) {
                 if (DEBUG) Log.d(MTAG, "Tap not associated w/ model item. Clearing selection.");
                 mSelectionMgr.clearSelection();
+                mFocusHandler.clearFocus();
                 return false;
             }
 
@@ -351,7 +377,12 @@ public final class UserInputHandler<T extends InputEvent>
                     if (shouldClearSelection(event, doc)) {
                         mSelectionMgr.clearSelection();
                     }
-                    selectDocument(doc);
+                    if (isSelected(doc)) {
+                        mSelectionMgr.toggleSelection(doc.getModelId());
+                        mFocusHandler.clearFocus();
+                    } else {
+                        selectOrFocusItem(event);
+                    }
                 }
                 mHandledTapUp = true;
                 return true;
@@ -391,10 +422,10 @@ public final class UserInputHandler<T extends InputEvent>
             if (mFocusHandler.hasFocusedItem() && event.isShiftKeyDown()) {
                 mSelectionMgr.formNewSelectionRange(mFocusHandler.getFocusPosition(),
                         doc.getAdapterPosition());
-                return true;
             } else {
-                return selectDocument(doc);
+                selectOrFocusItem(event);
             }
+            return true;
         }
 
         boolean onDoubleTap(T event) {
@@ -426,8 +457,8 @@ public final class UserInputHandler<T extends InputEvent>
             if (event.isOverModelItem()) {
                 DocumentDetails doc = event.getDocumentDetails();
                 if (!mSelectionMgr.getSelection().contains(doc.getModelId())) {
-                    mSelectionMgr.replaceSelection(Collections.singleton(doc.getModelId()));
-                    mSelectionMgr.setSelectionRangeBegin(doc.getAdapterPosition());
+                    mSelectionMgr.clearSelection();
+                    selectDocument(doc);
                 }
             }
 
@@ -435,6 +466,14 @@ public final class UserInputHandler<T extends InputEvent>
             // since the handler might want to show a context menu
             // in an empty area or some other weirdo view.
             return mContextMenuClickHandler.accept(event);
+        }
+
+        private void selectOrFocusItem(T event) {
+            if (event.isOverDocIcon() || event.isCtrlKeyDown()) {
+                selectDocument(event.getDocumentDetails());
+            } else {
+                focusDocument(event.getDocumentDetails());
+            }
         }
     }
 
@@ -481,13 +520,14 @@ public final class UserInputHandler<T extends InputEvent>
                 return true;
             }
 
+            // we don't yet have a mechanism to handle opening/previewing multiple documents at once
+            if (mSelectionMgr.getSelection().size() > 1) {
+                return false;
+            }
+
             // Handle enter key events
             switch (keyCode) {
                 case KeyEvent.KEYCODE_ENTER:
-                    if (event.isShiftPressed()) {
-                        selectDocument(doc);
-                    }
-                    // For non-shifted enter keypresses, fall through.
                 case KeyEvent.KEYCODE_DPAD_CENTER:
                 case KeyEvent.KEYCODE_BUTTON_A:
                     return mActions.openDocument(doc, ActionHandler.VIEW_TYPE_REGULAR,

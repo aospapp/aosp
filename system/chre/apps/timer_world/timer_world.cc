@@ -36,7 +36,7 @@ bool nanoappStart() {
   gOneShotTimerHandle = chreTimerSet(100000000 /* duration: 100ms */,
       &gOneShotTimerHandle /* data */,
       true /* oneShot */);
-  gCyclicTimerHandle = chreTimerSet(150000000 /* duration: 400ms */,
+  gCyclicTimerHandle = chreTimerSet(150000000 /* duration: 150ms */,
       &gCyclicTimerHandle /* data */,
       false /* oneShot */);
   gCyclicTimerCount = 0;

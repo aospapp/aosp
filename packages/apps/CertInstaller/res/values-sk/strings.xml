@@ -50,9 +50,9 @@
     <string name="credential_usage_label" msgid="1513892208033156805">"Použitie poverení:"</string>
   <string-array name="credential_usage">
     <item msgid="375085478373011304">"VPN a aplikácie"</item>
-    <item msgid="692322974985472861">"Wi-Fi"</item>
+    <item msgid="692322974985472861">"Wi‑Fi"</item>
   </string-array>
-    <string name="wifi_title" msgid="8475811746333426489">"Profil Wi-Fi"</string>
+    <string name="wifi_title" msgid="8475811746333426489">"Profil Wi‑Fi"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"Podrobné informácie o sieti %s"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"Podrobné informácie"</string>
     <string name="wifi_install_label" msgid="1449629407724323233">"Inštalovať"</string>
@@ -66,12 +66,12 @@
     <string name="wifi_sim_config_text" msgid="1666019954520831840">"SIM karta: %s\n"</string>
     <string name="wifi_trust_config_text" msgid="5916047381475747783">"Certifikát dôveryhodnosti:\n%s\n"</string>
     <string name="install_done_title" msgid="4822989918460334497">"Poverenia boli nainštalované"</string>
-    <string name="install_done" msgid="1522718684172097080">"Poverenia rozhrania <xliff:g id="NAME">%1$s</xliff:g> boli pridané do uložených sietí Wi-Fi."</string>
+    <string name="install_done" msgid="1522718684172097080">"Poverenia rozhrania <xliff:g id="NAME">%1$s</xliff:g> boli pridané do uložených sietí Wi‑Fi."</string>
     <string name="done_label" msgid="5597425930652904250">"HOTOVO"</string>
-    <string name="wifi_installer_detail" msgid="63879632832701669">"Nainštaluje poverenia siete Wi-Fi na pripojenie k sieťam dostupným prostredníctvom rozhrania <xliff:g id="NAME">%1$s</xliff:g>."</string>
+    <string name="wifi_installer_detail" msgid="63879632832701669">"Nainštaluje poverenia siete Wi‑Fi na pripojenie k sieťam dostupným prostredníctvom rozhrania <xliff:g id="NAME">%1$s</xliff:g>."</string>
     <string name="wifi_installer_download_error" msgid="5429453090956277692">"V stiahnutom súbore sa vyskytli problémy a nedá sa nainštalovať. Skontrolujte, či ste ho stiahli zo správneho zdroja."</string>
-    <string name="wifi_installer_fail" msgid="894483173306576331">"Poverenia do siete Wi-Fi nie je možné nainštalovať. Skúste znova stiahnuť súbor."</string>
+    <string name="wifi_installer_fail" msgid="894483173306576331">"Poverenia do siete Wi‑Fi nie je možné nainštalovať. Skúste znova stiahnuť súbor."</string>
     <string name="wifi_installer_fail_no_wifi_title" msgid="8358191074828840533">"Inštalácia bola zrušená"</string>
     <string name="wifi_installer_fail_title" msgid="5547079779067835479">"Nedá sa nainštalovať"</string>
-    <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"Zapnite Wi-Fi a skúste to znova."</string>
+    <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"Zapnite Wi‑Fi a skúste to znova."</string>
 </resources>

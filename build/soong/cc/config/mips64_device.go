@@ -55,6 +55,10 @@ var (
 		"-frename-registers",
 	}
 
+	mips64ClangCflags = append(mips64Cflags, []string{
+		"-fintegrated-as",
+	}...)
+
 	mips64Cppflags = []string{
 		"-fvisibility-inlines-hidden",
 	}
@@ -78,9 +82,6 @@ var (
 		"mips64r6": []string{
 			"-mips64r6",
 			"-msynci",
-
-			// revert once clang picks up r278824
-			"-mcompact-branches=never",
 		},
 	}
 )
@@ -93,7 +94,9 @@ func init() {
 	android.RegisterArchVariants(android.Mips64,
 		"mips64r2",
 		"mips64r6")
-	android.RegisterArchFeatures(android.Mips64, "rev6")
+	android.RegisterArchFeatures(android.Mips64,
+		"rev6",
+		"msa")
 	android.RegisterArchVariantFeatures(android.Mips64, "mips64r6",
 		"rev6")
 
@@ -108,7 +111,7 @@ func init() {
 	pctx.StaticVariable("Mips64IncludeFlags", bionicHeaders("mips64", "mips"))
 
 	// Clang cflags
-	pctx.StaticVariable("Mips64ClangCflags", strings.Join(ClangFilterUnknownCflags(mips64Cflags), " "))
+	pctx.StaticVariable("Mips64ClangCflags", strings.Join(ClangFilterUnknownCflags(mips64ClangCflags), " "))
 	pctx.StaticVariable("Mips64ClangLdflags", strings.Join(ClangFilterUnknownCflags(mips64Ldflags), " "))
 	pctx.StaticVariable("Mips64ClangCppflags", strings.Join(ClangFilterUnknownCflags(mips64Cppflags), " "))
 
@@ -170,6 +173,10 @@ func (t *toolchainMips64) ClangTriple() string {
 
 func (t *toolchainMips64) ToolchainClangCflags() string {
 	return t.toolchainClangCflags
+}
+
+func (t *toolchainMips64) ClangAsflags() string {
+	return "-fno-integrated-as"
 }
 
 func (t *toolchainMips64) ClangCflags() string {

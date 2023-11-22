@@ -20,7 +20,7 @@ package org.apache.harmony.jpda.tests.jdwp.Events;
 
 import java.io.IOException;
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
-import org.apache.harmony.jpda.tests.framework.jdwp.EventBuilder;
+import org.apache.harmony.jpda.tests.framework.jdwp.Event;
 import org.apache.harmony.jpda.tests.framework.jdwp.EventPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
@@ -58,10 +58,12 @@ public class ClassPrepare002Test extends JDWPEventTestCase {
 
         // Request CLASS_PREPARE event. The event will be caused by the debugger thread when
         // handling the ReferenceType.GetValues command we're going to send just after.
-        EventBuilder eventBuilder = new EventBuilder(JDWPConstants.EventKind.CLASS_PREPARE,
-                JDWPConstants.SuspendPolicy.EVENT_THREAD);
-        eventBuilder.setClassMatch(classPrepareClassName);
-        ReplyPacket eventReply = debuggeeWrapper.vmMirror.setEvent(eventBuilder.build());
+        final byte eventKind = JDWPConstants.EventKind.CLASS_PREPARE;
+        final byte suspendPolicy = JDWPConstants.SuspendPolicy.EVENT_THREAD;
+        Event event = Event.builder(eventKind, suspendPolicy)
+                .setClassMatch(classPrepareClassName)
+                .build();
+        ReplyPacket eventReply = debuggeeWrapper.vmMirror.setEvent(event);
         checkReplyPacket(eventReply, "Failed to set CLASS_PREPARE event");
         int classPrepareRequestId = eventReply.getNextValueAsInt();
         assertAllDataRead(eventReply);

@@ -26,7 +26,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/sendfile.h>
 #include <time.h>
 #include <unistd.h>
 #include <zlib.h>
@@ -40,18 +39,21 @@
 
 #include <android/hidl/manager/1.0/IServiceManager.h>
 #include <hidl/ServiceManagement.h>
-#include <cutils/properties.h>
 
+#include <pdx/default_transport/service_utility.h>
 #include <utils/String8.h>
 #include <utils/Timers.h>
 #include <utils/Tokenizer.h>
 #include <utils/Trace.h>
 #include <android-base/file.h>
+#include <android-base/macros.h>
+#include <android-base/properties.h>
+#include <android-base/stringprintf.h>
 
 using namespace android;
+using pdx::default_transport::ServiceUtility;
 
 using std::string;
-#define NELEM(x) ((int) (sizeof(x) / sizeof((x)[0])))
 
 #define MAX_SYS_FILES 10
 #define MAX_PACKAGES 16
@@ -61,6 +63,7 @@ const char* k_traceTagsProperty = "debug.atrace.tags.enableflags";
 const char* k_traceAppsNumberProperty = "debug.atrace.app_number";
 const char* k_traceAppsPropertyTemplate = "debug.atrace.app_%d";
 const char* k_coreServiceCategory = "core_services";
+const char* k_pdxServiceCategory = "pdx";
 const char* k_coreServicesProp = "ro.atrace.core.services";
 
 typedef enum { OPT, REQ } requiredness  ;
@@ -89,7 +92,9 @@ struct TracingCategory {
 
 /* Tracing categories */
 static const TracingCategory k_categories[] = {
-    { "gfx",        "Graphics",         ATRACE_TAG_GRAPHICS, { } },
+    { "gfx",        "Graphics",         ATRACE_TAG_GRAPHICS, {
+        { OPT,      "events/mdss/enable" },
+    } },
     { "input",      "Input",            ATRACE_TAG_INPUT, { } },
     { "view",       "View System",      ATRACE_TAG_VIEW, { } },
     { "webview",    "WebView",          ATRACE_TAG_WEBVIEW, { } },
@@ -112,12 +117,14 @@ static const TracingCategory k_categories[] = {
     { "network",    "Network",          ATRACE_TAG_NETWORK, { } },
     { "adb",        "ADB",              ATRACE_TAG_ADB, { } },
     { k_coreServiceCategory, "Core services", 0, { } },
+    { k_pdxServiceCategory, "PDX services", 0, { } },
     { "sched",      "CPU Scheduling",   0, {
         { REQ,      "events/sched/sched_switch/enable" },
         { REQ,      "events/sched/sched_wakeup/enable" },
         { OPT,      "events/sched/sched_waking/enable" },
         { OPT,      "events/sched/sched_blocked_reason/enable" },
         { OPT,      "events/sched/sched_cpu_hotplug/enable" },
+        { OPT,      "events/cgroup/enable" },
     } },
     { "irq",        "IRQ Events",   0, {
         { REQ,      "events/irq/enable" },
@@ -174,6 +181,7 @@ static const TracingCategory k_categories[] = {
         { REQ,      "events/vmscan/mm_vmscan_direct_reclaim_end/enable" },
         { REQ,      "events/vmscan/mm_vmscan_kswapd_wake/enable" },
         { REQ,      "events/vmscan/mm_vmscan_kswapd_sleep/enable" },
+        { REQ,      "events/lowmemorykiller/enable" },
     } },
     { "regulators",  "Voltage and Current Regulators", 0, {
         { REQ,      "events/regulator/enable" },
@@ -181,11 +189,12 @@ static const TracingCategory k_categories[] = {
     { "binder_driver", "Binder Kernel driver", 0, {
         { REQ,      "events/binder/binder_transaction/enable" },
         { REQ,      "events/binder/binder_transaction_received/enable" },
+        { OPT,      "events/binder/binder_set_priority/enable" },
     } },
     { "binder_lock", "Binder global lock trace", 0, {
-        { REQ,      "events/binder/binder_lock/enable" },
-        { REQ,      "events/binder/binder_locked/enable" },
-        { REQ,      "events/binder/binder_unlock/enable" },
+        { OPT,      "events/binder/binder_lock/enable" },
+        { OPT,      "events/binder/binder_locked/enable" },
+        { OPT,      "events/binder/binder_unlock/enable" },
     } },
     { "pagecache",  "Page cache", 0, {
         { REQ,      "events/filemap/enable" },
@@ -205,8 +214,9 @@ static const char* g_debugAppCmdLine = "";
 static const char* g_outputFile = nullptr;
 
 /* Global state */
+static bool g_tracePdx = false;
 static bool g_traceAborted = false;
-static bool g_categoryEnables[NELEM(k_categories)] = {};
+static bool g_categoryEnables[arraysize(k_categories)] = {};
 static std::string g_traceFolder;
 
 /* Sys file paths */
@@ -361,9 +371,11 @@ static bool setKernelOptionEnable(const char* filename, bool enable)
 static bool isCategorySupported(const TracingCategory& category)
 {
     if (strcmp(category.name, k_coreServiceCategory) == 0) {
-        char value[PROPERTY_VALUE_MAX];
-        property_get(k_coreServicesProp, value, "");
-        return strlen(value) != 0;
+        return !android::base::GetProperty(k_coreServicesProp, "").empty();
+    }
+
+    if (strcmp(category.name, k_pdxServiceCategory) == 0) {
+        return true;
     }
 
     bool ok = category.tags != 0;
@@ -378,7 +390,7 @@ static bool isCategorySupported(const TracingCategory& category)
                     ok = true;
                 }
             } else {
-                ok |= fileIsWritable(path);
+                ok = true;
             }
         }
     }
@@ -564,9 +576,8 @@ static void pokeHalServices()
 // processes to pick up the new value.
 static bool setTagsProperty(uint64_t tags)
 {
-    char buf[PROPERTY_VALUE_MAX];
-    snprintf(buf, sizeof(buf), "%#" PRIx64, tags);
-    if (property_set(k_traceTagsProperty, buf) < 0) {
+    std::string value = android::base::StringPrintf("%#" PRIx64, tags);
+    if (!android::base::SetProperty(k_traceTagsProperty, value)) {
         fprintf(stderr, "error setting trace tags system property\n");
         return false;
     }
@@ -575,14 +586,13 @@ static bool setTagsProperty(uint64_t tags)
 
 static void clearAppProperties()
 {
-    char buf[PROPERTY_KEY_MAX];
     for (int i = 0; i < MAX_PACKAGES; i++) {
-        snprintf(buf, sizeof(buf), k_traceAppsPropertyTemplate, i);
-        if (property_set(buf, "") < 0) {
-            fprintf(stderr, "failed to clear system property: %s\n", buf);
+        std::string key = android::base::StringPrintf(k_traceAppsPropertyTemplate, i);
+        if (!android::base::SetProperty(key, "")) {
+            fprintf(stderr, "failed to clear system property: %s\n", key.c_str());
         }
     }
-    if (property_set(k_traceAppsNumberProperty, "") < 0) {
+    if (!android::base::SetProperty(k_traceAppsNumberProperty, "")) {
         fprintf(stderr, "failed to clear system property: %s",
               k_traceAppsNumberProperty);
     }
@@ -592,7 +602,6 @@ static void clearAppProperties()
 // application-level tracing.
 static bool setAppCmdlineProperty(char* cmdline)
 {
-    char buf[PROPERTY_KEY_MAX];
     int i = 0;
     char* start = cmdline;
     while (start != NULL) {
@@ -606,9 +615,9 @@ static bool setAppCmdlineProperty(char* cmdline)
             *end = '\0';
             end++;
         }
-        snprintf(buf, sizeof(buf), k_traceAppsPropertyTemplate, i);
-        if (property_set(buf, start) < 0) {
-            fprintf(stderr, "error setting trace app %d property to %s\n", i, buf);
+        std::string key = android::base::StringPrintf(k_traceAppsPropertyTemplate, i);
+        if (!android::base::SetProperty(key, start)) {
+            fprintf(stderr, "error setting trace app %d property to %s\n", i, key.c_str());
             clearAppProperties();
             return false;
         }
@@ -616,9 +625,9 @@ static bool setAppCmdlineProperty(char* cmdline)
         i++;
     }
 
-    snprintf(buf, sizeof(buf), "%d", i);
-    if (property_set(k_traceAppsNumberProperty, buf) < 0) {
-        fprintf(stderr, "error setting trace app number property to %s\n", buf);
+    std::string value = android::base::StringPrintf("%d", i);
+    if (!android::base::SetProperty(k_traceAppsNumberProperty, value)) {
+        fprintf(stderr, "error setting trace app number property to %s\n", value.c_str());
         clearAppProperties();
         return false;
     }
@@ -628,7 +637,7 @@ static bool setAppCmdlineProperty(char* cmdline)
 // Disable all /sys/ enable files.
 static bool disableKernelTraceEvents() {
     bool ok = true;
-    for (int i = 0; i < NELEM(k_categories); i++) {
+    for (size_t i = 0; i < arraysize(k_categories); i++) {
         const TracingCategory &c = k_categories[i];
         for (int j = 0; j < MAX_SYS_FILES; j++) {
             const char* path = c.sysfiles[j].path;
@@ -716,7 +725,7 @@ static bool setKernelTraceFuncs(const char* funcs)
 
 static bool setCategoryEnable(const char* name, bool enable)
 {
-    for (int i = 0; i < NELEM(k_categories); i++) {
+    for (size_t i = 0; i < arraysize(k_categories); i++) {
         const TracingCategory& c = k_categories[i];
         if (strcmp(name, c.name) == 0) {
             if (isCategorySupported(c)) {
@@ -778,7 +787,7 @@ static bool setUpTrace()
 
     // Set up the tags property.
     uint64_t tags = 0;
-    for (int i = 0; i < NELEM(k_categories); i++) {
+    for (size_t i = 0; i < arraysize(k_categories); i++) {
         if (g_categoryEnables[i]) {
             const TracingCategory &c = k_categories[i];
             tags |= c.tags;
@@ -787,31 +796,38 @@ static bool setUpTrace()
     ok &= setTagsProperty(tags);
 
     bool coreServicesTagEnabled = false;
-    for (int i = 0; i < NELEM(k_categories); i++) {
+    for (size_t i = 0; i < arraysize(k_categories); i++) {
         if (strcmp(k_categories[i].name, k_coreServiceCategory) == 0) {
             coreServicesTagEnabled = g_categoryEnables[i];
+        }
+
+        // Set whether to poke PDX services in this session.
+        if (strcmp(k_categories[i].name, k_pdxServiceCategory) == 0) {
+            g_tracePdx = g_categoryEnables[i];
         }
     }
 
     std::string packageList(g_debugAppCmdLine);
     if (coreServicesTagEnabled) {
-        char value[PROPERTY_VALUE_MAX];
-        property_get(k_coreServicesProp, value, "");
         if (!packageList.empty()) {
             packageList += ",";
         }
-        packageList += value;
+        packageList += android::base::GetProperty(k_coreServicesProp, "");
     }
     ok &= setAppCmdlineProperty(&packageList[0]);
     ok &= pokeBinderServices();
     pokeHalServices();
+
+    if (g_tracePdx) {
+        ok &= ServiceUtility::PokeServices();
+    }
 
     // Disable all the sysfs enables.  This is done as a separate loop from
     // the enables to allow the same enable to exist in multiple categories.
     ok &= disableKernelTraceEvents();
 
     // Enable all the sysfs enables that are in an enabled category.
-    for (int i = 0; i < NELEM(k_categories); i++) {
+    for (size_t i = 0; i < arraysize(k_categories); i++) {
         if (g_categoryEnables[i]) {
             const TracingCategory &c = k_categories[i];
             for (int j = 0; j < MAX_SYS_FILES; j++) {
@@ -842,6 +858,10 @@ static void cleanUpTrace()
     setTagsProperty(0);
     clearAppProperties();
     pokeBinderServices();
+
+    if (g_tracePdx) {
+        ServiceUtility::PokeServices();
+    }
 
     // Set the options back to their defaults.
     setTraceOverwriteEnable(true);
@@ -976,11 +996,16 @@ static void dumpTrace(int outFd)
             fprintf(stderr, "error cleaning up zlib: %d\n", result);
         }
     } else {
-        ssize_t sent = 0;
-        while ((sent = sendfile(outFd, traceFD, NULL, 64*1024*1024)) > 0);
-        if (sent == -1) {
-            fprintf(stderr, "error dumping trace: %s (%d)\n", strerror(errno),
-                    errno);
+        char buf[4096];
+        ssize_t rc;
+        while ((rc = TEMP_FAILURE_RETRY(read(traceFD, buf, sizeof(buf)))) > 0) {
+            if (!android::base::WriteFully(outFd, buf, rc)) {
+                fprintf(stderr, "error writing trace: %s\n", strerror(errno));
+                break;
+            }
+        }
+        if (rc == -1) {
+            fprintf(stderr, "error dumping trace: %s\n", strerror(errno));
         }
     }
 
@@ -1008,7 +1033,7 @@ static void registerSigHandler()
 
 static void listSupportedCategories()
 {
-    for (int i = 0; i < NELEM(k_categories); i++) {
+    for (size_t i = 0; i < arraysize(k_categories); i++) {
         const TracingCategory& c = k_categories[i];
         if (isCategorySupported(c)) {
             printf("  %10s - %s\n", c.name, c.longname);

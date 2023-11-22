@@ -88,12 +88,6 @@ bool A2DP_VendorCodecEqualsLdac(const uint8_t* p_codec_info_a,
 // contains invalid codec information.
 int A2DP_VendorGetTrackSampleRateLdac(const uint8_t* p_codec_info);
 
-// Gets the bits per audio sample for the A2DP LDAC codec.
-// |p_codec_info| is a pointer to the LDAC codec_info to decode.
-// Returns the bits per audio sample on success, or -1 if |p_codec_info|
-// contains invalid codec information.
-int A2DP_VendorGetTrackBitsPerSampleLdac(const uint8_t* p_codec_info);
-
 // Gets the channel count for the A2DP LDAC codec.
 // |p_codec_info| is a pointer to the LDAC codec_info to decode.
 // Returns the channel count on success, or -1 if |p_codec_info|
@@ -124,9 +118,10 @@ bool A2DP_VendorGetPacketTimestampLdac(const uint8_t* p_codec_info,
 bool A2DP_VendorBuildCodecHeaderLdac(const uint8_t* p_codec_info, BT_HDR* p_buf,
                                      uint16_t frames_per_packet);
 
-// Decodes and displays LDAC codec info (for debugging).
+// Decodes and displays A2DP LDAC codec info when using |LOG_DEBUG|.
 // |p_codec_info| is a pointer to the LDAC codec_info to decode and display.
-void A2DP_VendorDumpCodecInfoLdac(const uint8_t* p_codec_info);
+// Returns true if the codec information is valid, otherwise false.
+bool A2DP_VendorDumpCodecInfoLdac(const uint8_t* p_codec_info);
 
 // Gets the A2DP LDAC encoder interface that can be used to encode and prepare
 // A2DP packets for transmission - see |tA2DP_ENCODER_INTERFACE|.

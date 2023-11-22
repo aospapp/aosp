@@ -15,12 +15,18 @@
      limitations under the License.
 -->
 
+<!-- FYI: This layout has an extra top level container view that was previously used
+     to allow for the insertion of debug info. The debug info is now gone, but the
+     container remains because there is a high likelihood of UI regression relating
+     to focus and selection states, some of which are specific to keyboard
+     when touch mode is not enable. So, if you, heroic engineer of the future,
+     decide to rip these out, please be sure to check out focus and keyboards. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_margin="@dimen/grid_item_margin"
     android:orientation="vertical"
-    android:background="@color/item_doc_background"
+    android:background="@drawable/grid_item_background"
     android:elevation="@dimen/grid_item_elevation"
     android:focusable="true">
 
@@ -44,6 +50,7 @@
             <FrameLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:pointerIcon="hand"
                 android:layout_marginEnd="8dp" >
 
                 <ImageView
@@ -88,11 +95,5 @@
             android:duplicateParentState="true" />
 
     </FrameLayout>
-
-    <FrameLayout
-        android:id="@+id/debug_info"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="#FFEFEFEF" />
 
 </LinearLayout>

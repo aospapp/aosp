@@ -70,4 +70,20 @@
         <item name="fontFamily">@font/samplexmlfont</item>
         <item name="android:textStyle">italic</item>
     </style>
+
+    <style name="TextView_SansSerif">
+        <item name="fontFamily">@string/font_sans_serif</item>
+    </style>
+
+    <style name="TextView_Serif">
+        <item name="fontFamily">@string/font_serif</item>
+    </style>
+
+    <style name="TextView_Typeface_Serif">
+        <item name="android:typeface">serif</item>
+    </style>
+
+    <style name="TextView_Typeface_Monospace">
+        <item name="android:typeface">monospace</item>
+    </style>
 </resources>

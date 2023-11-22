@@ -23,15 +23,16 @@ import com.android.tradefed.testtype.suite.ITestSuite;
 import com.android.tradefed.util.MultiMap;
 import com.android.tradefed.util.UniqueMultiMap;
 
+import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Holds information about the Invocation for the tests to access if needed.
- * Tests should not modify the context contained here so only getters will be available, except for
- * the context attributes for reporting purpose.
+ * Holds information about the Invocation for the tests to access if needed. Tests should not modify
+ * the context contained here so only getters will be available, except for the context attributes
+ * for reporting purpose.
  */
-public interface IInvocationContext {
+public interface IInvocationContext extends Serializable {
 
     /**
      * Return the number of devices allocated for the invocation.
@@ -121,7 +122,7 @@ public interface IInvocationContext {
     /** Add several invocation attributes at once through a {@link UniqueMultiMap}. */
     public void addInvocationAttributes(UniqueMultiMap<String, String> attributesMap);
 
-    /** Returns the map of invocation attributes. */
+    /** Returns a copy of the map containing all the invocation attributes. */
     public MultiMap<String, String> getAttributes();
 
     /** Sets the descriptor associated with the test configuration that launched the invocation */

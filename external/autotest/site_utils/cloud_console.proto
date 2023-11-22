@@ -1,0 +1,45 @@
+syntax = "proto2";
+
+// The types of message notification sent from Moblab.
+enum MessageType {
+    MOBLAB_HEARTBEAT = 1;
+    MOBLAB_REMOTE_EVENT = 2;
+    MOBLAB_ALERT = 3;
+}
+
+message Timestamp {
+  required int64 seconds = 1;
+  optional int64 nanos = 2 [default = 0];
+}
+
+// The heartbeat message
+message Heartbeat {
+  optional Timestamp timestamp = 1;
+}
+
+// The remote event notification message.
+message RemoteEventMessage {
+  // EventType is an enumeration of event types sent to cloud console.
+  // Any new event type should be added here.
+  enum EventType {
+    MOBLAB_INFO = 1;
+    MOBLAB_BOOT_COMPLETE = 2;
+  }
+
+  required EventType event_type = 1 [default = MOBLAB_INFO];
+  optional string event_data = 2;
+}
+
+// Moblab alerts
+message Alert {
+  enum AlertLevel {
+    CRITICAL = 1;
+    MAJOR = 2;
+    MINOR = 3;
+  }
+  required AlertLevel level = 1;
+  optional string data = 2;
+  optional Timestamp timestamp = 3;
+  optional string source_application = 4;
+  optional string source_component = 5;
+}

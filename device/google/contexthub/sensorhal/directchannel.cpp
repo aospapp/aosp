@@ -74,12 +74,17 @@ AshmemDirectChannel::~AshmemDirectChannel() {
     ::close(mAshmemFd);
 }
 
+bool AshmemDirectChannel::memoryMatches(const struct sensors_direct_mem_t * /*mem*/) const {
+    return false;
+}
+
 ANDROID_SINGLETON_STATIC_INSTANCE(GrallocHalWrapper);
 
 GrallocHalWrapper::GrallocHalWrapper()
         : mError(NO_INIT), mVersion(-1),
           mGrallocModule(nullptr), mAllocDevice(nullptr), mGralloc1Device(nullptr),
-          mPfnRetain(nullptr), mPfnRelease(nullptr), mPfnLock(nullptr), mPfnUnlock(nullptr) {
+          mPfnRetain(nullptr), mPfnRelease(nullptr), mPfnLock(nullptr), mPfnUnlock(nullptr),
+          mUnregisterImplyDelete(false) {
     const hw_module_t *module;
     status_t err = ::hw_get_module(GRALLOC_HARDWARE_MODULE_ID, &module);
     ALOGE_IF(err, "couldn't load %s module (%s)", GRALLOC_HARDWARE_MODULE_ID, strerror(-err));
@@ -106,7 +111,7 @@ GrallocHalWrapper::GrallocHalWrapper()
             mGrallocModule = (gralloc_module_t *)module;
             mVersion = 0;
             break;
-        case 1:
+        case 1: {
             err = ::gralloc1_open(module, &mGralloc1Device);
             if (err != NO_ERROR) {
                 ALOGE("cannot open gralloc1 device (%s)", strerror(-err));
@@ -127,18 +132,36 @@ GrallocHalWrapper::GrallocHalWrapper()
                                                     GRALLOC1_FUNCTION_LOCK));
             mPfnUnlock = (GRALLOC1_PFN_UNLOCK)(mGralloc1Device->getFunction(mGralloc1Device,
                                                       GRALLOC1_FUNCTION_UNLOCK));
+            mPfnGetBackingStore = (GRALLOC1_PFN_GET_BACKING_STORE)
+                    (mGralloc1Device->getFunction(mGralloc1Device,
+                                                  GRALLOC1_FUNCTION_GET_BACKING_STORE));
             if (mPfnRetain == nullptr || mPfnRelease == nullptr
-                    || mPfnLock == nullptr || mPfnUnlock == nullptr) {
-                ALOGE("Function pointer for retain, release, lock and unlock are %p, %p, %p, %p",
-                      mPfnRetain, mPfnRelease, mPfnLock, mPfnUnlock);
+                    || mPfnLock == nullptr || mPfnUnlock == nullptr
+                    || mPfnGetBackingStore == nullptr) {
+                ALOGE("Function pointer for retain, release, lock, unlock and getBackingStore are "
+                      "%p, %p, %p, %p, %p",
+                      mPfnRetain, mPfnRelease, mPfnLock, mPfnUnlock, mPfnGetBackingStore);
                 err = BAD_VALUE;
                 break;
             }
+
+
+            int32_t caps[GRALLOC1_LAST_CAPABILITY];
+            uint32_t n_cap = GRALLOC1_LAST_CAPABILITY;
+            mGralloc1Device->getCapabilities(mGralloc1Device, &n_cap, caps);
+            for (size_t i = 0; i < n_cap; ++i) {
+                if (caps[i] == GRALLOC1_CAPABILITY_RELEASE_IMPLY_DELETE) {
+                    mUnregisterImplyDelete = true;
+                }
+            }
+            ALOGI("gralloc hal %ssupport RELEASE_IMPLY_DELETE",
+                  mUnregisterImplyDelete ? "" : "does not ");
 
             // successfully initialized gralloc1
             mGrallocModule = (gralloc_module_t *)module;
             mVersion = 1;
             break;
+        }
         default:
             ALOGE("Unknown version, not supported");
             break;
@@ -207,6 +230,21 @@ int GrallocHalWrapper::unlock(const native_handle_t *handle) {
         default:
             return NO_INIT;
     }
+}
+
+bool GrallocHalWrapper::isSameMemory(const native_handle_t *h1, const native_handle_t *h2) {
+    switch (mVersion) {
+        case 0:
+            return false; // version 1.0 cannot compare two memory
+        case 1: {
+            gralloc1_backing_store_t s1, s2;
+
+            return mPfnGetBackingStore(mGralloc1Device, h1, &s1) == GRALLOC1_ERROR_NONE
+                    && mPfnGetBackingStore(mGralloc1Device, h2, &s2) == GRALLOC1_ERROR_NONE
+                    && s1 == s2;
+        }
+    }
+    return false;
 }
 
 int GrallocHalWrapper::mapGralloc1Error(int grallocError) {
@@ -280,10 +318,17 @@ GrallocDirectChannel::~GrallocDirectChannel() {
             mBase = nullptr;
         }
         GrallocHalWrapper::getInstance().unregisterBuffer(mNativeHandle);
-        ::native_handle_close(mNativeHandle);
-        ::native_handle_delete(mNativeHandle);
+        if (!GrallocHalWrapper::getInstance().unregisterImplyDelete()) {
+            ::native_handle_close(mNativeHandle);
+            ::native_handle_delete(mNativeHandle);
+        }
         mNativeHandle = nullptr;
     }
+}
+
+bool GrallocDirectChannel::memoryMatches(const struct sensors_direct_mem_t *mem) const {
+    return mem->type == SENSOR_DIRECT_MEM_TYPE_GRALLOC &&
+            GrallocHalWrapper::getInstance().isSameMemory(mem->handle, mNativeHandle);
 }
 
 } // namespace android

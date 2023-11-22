@@ -53,6 +53,9 @@ simpleperf_static_libraries_target := \
   libLLVMSupport \
   libprotobuf-cpp-lite \
   libevent \
+
+simpleperf_static_libraries_with_libc_target := \
+  $(simpleperf_static_libraries_target) \
   libc \
 
 simpleperf_static_libraries_host := \
@@ -174,7 +177,7 @@ LOCAL_MODULE_TAGS := debug
 LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)
 LOCAL_CPPFLAGS := $(simpleperf_cppflags_target)
 LOCAL_SRC_FILES := main.cpp
-LOCAL_STATIC_LIBRARIES := libsimpleperf $(simpleperf_static_libraries_target)
+LOCAL_STATIC_LIBRARIES := libsimpleperf $(simpleperf_static_libraries_with_libc_target)
 ifdef TARGET_2ND_ARCH
 LOCAL_MULTILIB := both
 LOCAL_MODULE_STEM_32 := simpleperf32
@@ -217,6 +220,73 @@ ifdef HOST_CROSS_2ND_ARCH
 $(call dist-for-goals,win_sdk,$(ALL_MODULES.host_cross_simpleperf_host$(HOST_CROSS_2ND_ARCH_MODULE_SUFFIX).BUILT))
 endif
 
+# libsimpleperf_record.a and libsimpleperf_record.so
+# They are linked to user's program, to get profile
+# counters and samples for specified code ranges.
+# =========================================================
+
+# libsimpleperf_record.a on target
+include $(CLEAR_VARS)
+LOCAL_CLANG := true
+LOCAL_MODULE := libsimpleperf_record
+LOCAL_CPPFLAGS := $(simpleperf_cppflags_target)
+LOCAL_SRC_FILES := record_lib_interface.cpp
+LOCAL_STATIC_LIBRARIES := libsimpleperf $(simpleperf_static_libraries_target)
+LOCAL_MULTILIB := both
+LOCAL_CXX_STL := libc++_static
+LOCAL_LDLIBS := -Wl,--exclude-libs,ALL
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
+include $(LLVM_DEVICE_BUILD_MK)
+include $(BUILD_STATIC_LIBRARY)
+
+# libsimpleperf_record.so on target
+include $(CLEAR_VARS)
+LOCAL_CLANG := true
+LOCAL_MODULE := libsimpleperf_record
+LOCAL_CPPFLAGS := $(simpleperf_cppflags_target)
+LOCAL_SRC_FILES := record_lib_interface.cpp
+LOCAL_STATIC_LIBRARIES := libsimpleperf $(simpleperf_static_libraries_target)
+LOCAL_MULTILIB := both
+LOCAL_CXX_STL := libc++_static
+LOCAL_LDLIBS := -Wl,--exclude-libs,ALL
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
+include $(LLVM_DEVICE_BUILD_MK)
+include $(BUILD_SHARED_LIBRARY)
+
+# libsimpleperf_record.a on host
+include $(CLEAR_VARS)
+LOCAL_CLANG := true
+LOCAL_MODULE := libsimpleperf_record
+LOCAL_MODULE_HOST_OS := linux
+LOCAL_CPPFLAGS := $(simpleperf_cppflags_host)
+LOCAL_CPPFLAGS_linux := $(simpleperf_cppflags_host_linux)
+LOCAL_SRC_FILES := record_lib_interface.cpp
+LOCAL_STATIC_LIBRARIES := libsimpleperf $(simpleperf_static_libraries_host)
+LOCAL_STATIC_LIBRARIES_linux := $(simpleperf_static_libraries_host_linux)
+LOCAL_LDLIBS_linux := $(simpleperf_ldlibs_host_linux) -Wl,--exclude-libs,ALL
+LOCAL_MULTILIB := both
+LOCAL_CXX_STL := libc++_static
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
+include $(LLVM_HOST_BUILD_MK)
+include $(BUILD_HOST_STATIC_LIBRARY)
+
+# libsimpleperf_record.so on host
+include $(CLEAR_VARS)
+LOCAL_CLANG := true
+LOCAL_MODULE := libsimpleperf_record
+LOCAL_MODULE_HOST_OS := linux
+LOCAL_CPPFLAGS := $(simpleperf_cppflags_host)
+LOCAL_CPPFLAGS_linux := $(simpleperf_cppflags_host_linux)
+LOCAL_SRC_FILES := record_lib_interface.cpp
+LOCAL_STATIC_LIBRARIES := libsimpleperf $(simpleperf_static_libraries_host)
+LOCAL_STATIC_LIBRARIES_linux := $(simpleperf_static_libraries_host_linux)
+LOCAL_LDLIBS_linux := $(simpleperf_ldlibs_host_linux) -Wl,--exclude-libs,ALL
+LOCAL_MULTILIB := both
+LOCAL_CXX_STL := libc++_static
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
+include $(LLVM_HOST_BUILD_MK)
+include $(BUILD_HOST_SHARED_LIBRARY)
+
 
 # libsimpleperf_report.so
 # It is the shared library used on host by python scripts
@@ -253,16 +323,13 @@ endif
 # signal handlers in each thread.
 # =========================================================
 
-libsimpleperf_inplace_sampler_static_libraries_target := \
-	$(filter-out libc,$(simpleperf_static_libraries_target)) \
-
 # libsimpleperf_inplace_sampler.so on target
 include $(CLEAR_VARS)
 LOCAL_CLANG := true
 LOCAL_MODULE := libsimpleperf_inplace_sampler
 LOCAL_CPPFLAGS := $(simpleperf_cppflags_target)
 LOCAL_SRC_FILES := inplace_sampler_lib.cpp
-LOCAL_STATIC_LIBRARIES := libsimpleperf $(libsimpleperf_inplace_sampler_static_libraries_target)
+LOCAL_STATIC_LIBRARIES := libsimpleperf $(simpleperf_static_libraries_target)
 LOCAL_MULTILIB := both
 LOCAL_CXX_STL := libc++_static
 LOCAL_LDLIBS := -Wl,--exclude-libs,ALL
@@ -315,12 +382,13 @@ simpleperf_unit_test_src_files_linux := \
 include $(CLEAR_VARS)
 LOCAL_CLANG := true
 LOCAL_MODULE := simpleperf_unit_test
+LOCAL_COMPATIBILITY_SUITE := device-tests
 LOCAL_CPPFLAGS := $(simpleperf_cppflags_target)
 LOCAL_SRC_FILES := \
   $(simpleperf_unit_test_src_files) \
   $(simpleperf_unit_test_src_files_linux) \
 
-LOCAL_STATIC_LIBRARIES += libsimpleperf $(simpleperf_static_libraries_target)
+LOCAL_STATIC_LIBRARIES += libsimpleperf $(simpleperf_static_libraries_with_libc_target)
 LOCAL_TEST_DATA := $(call find-test-data-in-subdirs,$(LOCAL_PATH),"*",testdata)
 LOCAL_MULTILIB := both
 LOCAL_FORCE_STATIC_EXECUTABLE := true
@@ -354,9 +422,10 @@ simpleperf_cpu_hotplug_test_src_files := \
 include $(CLEAR_VARS)
 LOCAL_CLANG := true
 LOCAL_MODULE := simpleperf_cpu_hotplug_test
+LOCAL_COMPATIBILITY_SUITE := device-tests
 LOCAL_CPPFLAGS := $(simpleperf_cppflags_target)
 LOCAL_SRC_FILES := $(simpleperf_cpu_hotplug_test_src_files)
-LOCAL_STATIC_LIBRARIES := libsimpleperf $(simpleperf_static_libraries_target)
+LOCAL_STATIC_LIBRARIES := libsimpleperf $(simpleperf_static_libraries_with_libc_target)
 LOCAL_MULTILIB := both
 LOCAL_FORCE_STATIC_EXECUTABLE := true
 include $(LLVM_DEVICE_BUILD_MK)
@@ -390,7 +459,7 @@ libsimpleperf_cts_test_src_files := \
 include $(CLEAR_VARS)
 LOCAL_CLANG := true
 LOCAL_MODULE := libsimpleperf_cts_test
-LOCAL_CPPFLAGS := $(simpleperf_cppflags_target) -DRUN_IN_APP_CONTEXT
+LOCAL_CPPFLAGS := $(simpleperf_cppflags_target) -DRUN_IN_APP_CONTEXT="\"com.android.simpleperf\""
 LOCAL_SRC_FILES := $(libsimpleperf_cts_test_src_files)
 LOCAL_STATIC_LIBRARIES := $(simpleperf_static_libraries_target)
 LOCAL_MULTILIB := both
@@ -412,5 +481,31 @@ LOCAL_LDLIBS_linux := $(simpleperf_ldlibs_host_linux)
 LOCAL_MULTILIB := both
 include $(LLVM_HOST_BUILD_MK)
 include $(BUILD_HOST_STATIC_TEST_LIBRARY)
+
+# simpleperf_record_test
+# ============================================================
+
+# simpleperf_record_test target
+include $(CLEAR_VARS)
+LOCAL_CLANG := true
+LOCAL_MODULE := simpleperf_record_test
+LOCAL_CPPFLAGS := $(simpleperf_cppflags_target)
+LOCAL_SRC_FILES := record_lib_test.cpp
+LOCAL_SHARED_LIBRARIES := libsimpleperf_record
+LOCAL_MULTILIB := both
+include $(BUILD_NATIVE_TEST)
+
+# simpleperf_record_test linux host
+include $(CLEAR_VARS)
+LOCAL_CLANG := true
+LOCAL_MODULE := simpleperf_record_test
+LOCAL_MODULE_HOST_OS := linux
+LOCAL_CPPFLAGS := $(simpleperf_cppflags_host)
+LOCAL_CPPFLAGS_linux := $(simpleperf_cppflags_host_linux)
+LOCAL_SRC_FILES := record_lib_test.cpp
+LOCAL_SHARED_LIBRARIES := libsimpleperf_record
+LOCAL_LDLIBS_linux := $(simpleperf_ldlibs_host_linux)
+LOCAL_MULTILIB := both
+include $(BUILD_HOST_NATIVE_TEST)
 
 include $(call first-makefiles-under,$(LOCAL_PATH))

@@ -15,6 +15,17 @@
 cc_library_headers {
     name: "libbinder_headers",
     export_include_dirs: ["include"],
+    vendor_available: true,
+    header_libs: [
+        "libbase_headers",
+        "libcutils_headers",
+        "libutils_headers",
+    ],
+    export_header_lib_headers: [
+        "libbase_headers",
+        "libcutils_headers",
+        "libutils_headers",
+    ],
 }
 
 cc_library {
@@ -22,6 +33,9 @@ cc_library {
 
     // for vndbinder
     vendor_available: true,
+    vndk: {
+        enabled: true,
+    },
 
     srcs: [
         "AppOpsManager.cpp",
@@ -55,7 +69,12 @@ cc_library {
         "TextOutput.cpp",
         "IpPrefix.cpp",
         "Value.cpp",
+        "aidl/android/content/pm/IPackageManagerNative.aidl",
     ],
+
+    aidl: {
+        export_aidl_headers: true,
+    },
 
     cflags: [
         "-Wall",
@@ -74,13 +93,13 @@ cc_library {
         "libcutils",
         "libutils",
     ],
-    export_shared_lib_headers: [
-        "libbase",
-        "libutils",
+
+    header_libs: [
+        "libbinder_headers",
     ],
 
-    export_include_dirs: [
-        "include",
+    export_header_lib_headers: [
+        "libbinder_headers",
     ],
 
     clang: true,

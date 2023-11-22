@@ -38,8 +38,6 @@
 #define BTA_AG_DEBUG FALSE
 #endif
 
-extern fixed_queue_t* btu_bta_alarm_queue;
-
 #if (BTA_AG_DEBUG == TRUE)
 static char* bta_ag_evt_str(uint16_t event, tBTA_AG_RES result);
 static char* bta_ag_state_str(uint8_t state);
@@ -393,13 +391,13 @@ uint8_t bta_ag_service_to_idx(tBTA_SERVICE_MASK services) {
  * Returns          Index of SCB or zero if none found.
  *
  ******************************************************************************/
-uint16_t bta_ag_idx_by_bdaddr(BD_ADDR peer_addr) {
+uint16_t bta_ag_idx_by_bdaddr(const RawAddress* peer_addr) {
   tBTA_AG_SCB* p_scb = &bta_ag_cb.scb[0];
   uint16_t i;
 
   if (peer_addr != NULL) {
     for (i = 0; i < BTA_AG_NUM_SCB; i++, p_scb++) {
-      if (p_scb->in_use && !bdcmp(peer_addr, p_scb->peer_addr)) {
+      if (p_scb->in_use && *peer_addr == p_scb->peer_addr) {
         return (i + 1);
       }
     }
@@ -511,7 +509,8 @@ static void bta_ag_collision_timer_cback(void* data) {
  *
  ******************************************************************************/
 void bta_ag_collision_cback(UNUSED_ATTR tBTA_SYS_CONN_STATUS status, uint8_t id,
-                            UNUSED_ATTR uint8_t app_id, BD_ADDR peer_addr) {
+                            UNUSED_ATTR uint8_t app_id,
+                            const RawAddress* peer_addr) {
   uint16_t handle;
   tBTA_AG_SCB* p_scb;
 
@@ -544,9 +543,8 @@ void bta_ag_collision_cback(UNUSED_ATTR tBTA_SYS_CONN_STATUS status, uint8_t id,
       bta_ag_start_servers(p_scb, p_scb->reg_services);
 
     /* Start timer to han */
-    alarm_set_on_queue(p_scb->collision_timer, BTA_AG_COLLISION_TIMEOUT_MS,
-                       bta_ag_collision_timer_cback, p_scb,
-                       btu_bta_alarm_queue);
+    alarm_set_on_mloop(p_scb->collision_timer, BTA_AG_COLLISION_TIMEOUT_MS,
+                       bta_ag_collision_timer_cback, p_scb);
   }
 }
 
@@ -797,6 +795,10 @@ bool bta_ag_hdl_event(BT_HDR* p_msg) {
 
     case BTA_AG_API_RESULT_EVT:
       bta_ag_api_result((tBTA_AG_DATA*)p_msg);
+      break;
+
+    case BTA_AG_API_SET_SCO_ALLOWED_EVT:
+      bta_ag_set_sco_allowed((tBTA_AG_DATA*)p_msg);
       break;
 
     /* all others reference scb by handle */

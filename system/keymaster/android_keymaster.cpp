@@ -19,12 +19,12 @@
 #include <assert.h>
 #include <string.h>
 
-#include <cstddef>
+#include <stddef.h>
 
 #include <openssl/rand.h>
 #include <openssl/x509.h>
 
-#include <UniquePtr.h>
+#include <keymaster/UniquePtr.h>
 
 #include <keymaster/android_keymaster_utils.h>
 #include <keymaster/key_factory.h>
@@ -66,7 +66,7 @@ keymaster_error_t CheckVersionInfo(const AuthorizationSet& tee_enforced,
 }  // anonymous namespace
 
 AndroidKeymaster::AndroidKeymaster(KeymasterContext* context, size_t operation_table_size)
-    : context_(context), operation_table_(new OperationTable(operation_table_size)) {}
+    : context_(context), operation_table_(new(std::nothrow) OperationTable(operation_table_size)) {}
 
 AndroidKeymaster::~AndroidKeymaster() {}
 
@@ -283,7 +283,7 @@ void AndroidKeymaster::BeginOperation(const BeginOperationRequest& request,
         return;
 
     operation->SetAuthorizations(key->authorizations());
-    response->error = operation_table_->Add(operation.release(), &response->op_handle);
+    response->error = operation_table_->Add(operation.release(), *context_, &response->op_handle);
 }
 
 void AndroidKeymaster::UpdateOperation(const UpdateOperationRequest& request,
@@ -455,6 +455,12 @@ void AndroidKeymaster::DeleteAllKeys(const DeleteAllKeysRequest&, DeleteAllKeysR
     if (!response)
         return;
     response->error = context_->DeleteAllKeys();
+}
+
+void AndroidKeymaster::Configure(const ConfigureRequest& request, ConfigureResponse* response) {
+    if (!response)
+        return;
+    response->error = context_->SetSystemVersion(request.os_version, request.os_patchlevel);
 }
 
 bool AndroidKeymaster::has_operation(keymaster_operation_handle_t op_handle) const {

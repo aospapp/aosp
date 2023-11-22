@@ -60,6 +60,7 @@ vtslib_interfacespec_shared_libraries := \
   libprotobuf-cpp-full \
 
 vtslib_interfacespec_static_libraries := \
+  libbluetooth-types
 
 include $(CLEAR_VARS)
 
@@ -87,6 +88,17 @@ LOCAL_SHARED_LIBRARIES := \
 
 LOCAL_STATIC_LIBRARIES := \
   ${vtslib_interfacespec_static_libraries}
+
+LOCAL_CFLAGS := \
+  -Wall \
+  -Werror \
+
+# These warnings are in code generated with vtsc
+# b/31362043
+LOCAL_CFLAGS += \
+  -Wno-unused-parameter \
+  -Wno-unused-value \
+  -Wno-duplicate-decl-specifier \
 
 LOCAL_PROTOC_OPTIMIZE_TYPE := full
 

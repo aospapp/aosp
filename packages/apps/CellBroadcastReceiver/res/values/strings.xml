@@ -21,7 +21,7 @@
     <string name="app_label">Cell Broadcasts</string>
 
     <!-- Label for settings screen. [CHAR LIMIT=NONE] -->
-    <string name="sms_cb_settings">Cell Broadcast settings</string>
+    <string name="sms_cb_settings">Emergency alerts</string>
 
     <!-- Error message for users that aren't allowed to modify Cell broadcast settings [CHAR LIMIT=none] -->
     <string name="cell_broadcast_settings_not_available">Cell Broadcast settings are not available for this user</string>
@@ -84,61 +84,66 @@
     <!-- Dialog title for all other message identifiers in the PWS range. [CHAR LIMIT=50] -->
     <string name="pws_other_message_identifiers">Emergency alert</string>
     <!-- Dialog title for all non-emergency cell broadcasts. [CHAR LIMIT=50] -->
-    <string name="cb_other_message_identifiers">Cell broadcast</string>
+    <string name="cb_other_message_identifiers">Broadcast messages</string>
 
     <!-- Preference category title for emergency alert settings. [CHAR LIMIT=50] -->
-    <string name="emergency_alert_settings_title">Emergency alert settings</string>
-    <!-- Notification channel name for a channel containing cell broadcast messages notifications. [CHAR LIMIT=30] -->
+    <string name="emergency_alerts_title">Alerts</string>
+    <!-- Notification channel name for a channel containing cell broadcast messages notifications. [CHAR LIMIT=50] -->
     <string name="notification_channel_broadcast_messages">Broadcast messages</string>
-    <!-- Preference title for enable emergency alerts checkbox. [CHAR LIMIT=30] -->
-    <string name="enable_emergency_alerts_title">Turn on notifications</string>
-    <!-- Preference summary for enable notifications checkbox. [CHAR LIMIT=50] -->
-    <string name="enable_emergency_alerts_summary">Display emergency alert broadcasts</string>
-    <!-- Preference title for alert reminder interval list. [CHAR LIMIT=30] -->
-    <string name="alert_reminder_interval_title">Alert reminder</string>
+    <!-- Preference title for enable emergency alerts checkbox. [CHAR LIMIT=50] -->
+    <string name="enable_emergency_alerts_title">Allow alerts</string>
+    <!-- Preference summaries for allow alerts checkbox. [CHAR LIMIT=50] -->
+    <string name="enable_emergency_alerts_summary">Receive emergency notifications</string>
+    <!-- Preference title for alert reminder interval list. [CHAR LIMIT=50] -->
+    <string name="alert_reminder_interval_title">Alert reminder sound</string>
     <!-- Do not translate. Empty summary for alert reminder (set by CellBroadcastSettings). -->
     <string name="alert_reminder_interval_summary"></string>
-    <!-- Preference title for enable text-to-speech checkbox. [CHAR LIMIT=30] -->
+    <!-- Preference title for enable text-to-speech checkbox. [CHAR LIMIT=50] -->
     <string name="enable_alert_speech_title">Speak alert message</string>
     <!-- Preference summary for enable text-to-speech checkbox. [CHAR LIMIT=100] -->
     <string name="enable_alert_speech_summary">Use text-to-speech to speak emergency alert messages</string>
+    <!-- Preference title for emergency alert history. [CHAR LIMIT=50] -->
+    <string name="emergency_alert_history_title">Emergency alert history</string>
 
-    <!-- Preference category title for ETWS settings. [CHAR LIMIT=50] -->
-    <string name="category_etws_settings_title">ETWS settings</string>
-    <!-- Preference title for enable ETWS test alerts checkbox. [CHAR LIMIT=30] -->
-    <string name="enable_etws_test_alerts_title">Show ETWS test broadcasts</string>
+    <!-- Preference category title for alert preferences. [CHAR LIMIT=50] -->
+    <string name="alert_preferences_title">Alert preferences</string>
+
+
+    <!-- Preference title for enable ETWS test alerts checkbox. [CHAR LIMIT=50] -->
+    <string name="enable_etws_test_alerts_title">ETWS test broadcasts</string>
     <!-- Preference summary for enable ETWS test alerts checkbox. [CHAR LIMIT=100] -->
-    <string name="enable_etws_test_alerts_summary">Display test broadcasts for Earthquake Tsunami Warning System</string>
+    <string name="enable_etws_test_alerts_summary">Test broadcasts for Earthquake Tsunami Warning System</string>
 
-    <!-- Preference title for enable CMAS extreme threat alerts checkbox. [CHAR LIMIT=30] -->
-    <string name="enable_cmas_extreme_threat_alerts_title">Show extreme threats</string>
+    <!-- Preference title for enable CMAS extreme threat alerts checkbox. [CHAR LIMIT=50] -->
+    <string name="enable_cmas_extreme_threat_alerts_title">Extreme threats</string>
     <!-- Preference summary for enable CMAS extreme threat alerts checkbox. [CHAR LIMIT=100] -->
-    <string name="enable_cmas_extreme_threat_alerts_summary">Display alerts for extreme threats to life and property</string>
-    <!-- Preference title for enable CMAS severe threat alerts checkbox. [CHAR LIMIT=30] -->
-    <string name="enable_cmas_severe_threat_alerts_title">Show severe threats</string>
+    <string name="enable_cmas_extreme_threat_alerts_summary">Extreme threats to life and property</string>
+    <!-- Preference title for enable CMAS severe threat alerts checkbox. [CHAR LIMIT=50] -->
+    <string name="enable_cmas_severe_threat_alerts_title">Severe threats</string>
     <!-- Preference summary for enable CMAS severe threat alerts checkbox. [CHAR LIMIT=100] -->
-    <string name="enable_cmas_severe_threat_alerts_summary">Display alerts for severe threats to life and property</string>
+    <string name="enable_cmas_severe_threat_alerts_summary">Severe threats to life and property</string>
     <!-- Preference title for enable CMAS amber alerts checkbox. [CHAR LIMIT=50] -->
-    <string name="enable_cmas_amber_alerts_title">Show AMBER alerts</string>
+    <string name="enable_cmas_amber_alerts_title">AMBER alerts</string>
     <!-- Preference summary for enable CMAS amber alerts checkbox. [CHAR LIMIT=100] -->
-    <string name="enable_cmas_amber_alerts_summary">Display child abduction emergency bulletins (AMBER alert)</string>
+    <string name="enable_cmas_amber_alerts_summary">Child abduction emergency bulletins</string>
 
-    <!-- Preference title for enable CMAS test alerts checkbox. [CHAR LIMIT=30] -->
-    <string name="enable_cmas_test_alerts_title">Show CMAS test broadcasts</string>
+    <!-- Preference title for enable CMAS test alerts checkbox. [CHAR LIMIT=50] -->
+    <string name="enable_cmas_test_alerts_title">CMAS test broadcasts</string>
     <!-- Preference summary for enable CMAS test alerts checkbox. [CHAR LIMIT=100] -->
-    <string name="enable_cmas_test_alerts_summary">Display test broadcasts for Commercial Mobile Alert System</string>
+    <string name="enable_cmas_test_alerts_summary">Test broadcasts for Commercial Mobile Alert System</string>
 
-    <!-- Preference title for CMAS vibration on/off. [CHAR LIMIT=30] -->
+    <!-- Preference title for CMAS vibration on/off. [CHAR LIMIT=50] -->
     <string name="enable_alert_vibrate_title">Vibrate</string>
-    <!-- Preference summary for CMAS vibration on/off. [CHAR LIMIT=60] -->
-    <string name="enable_alert_vibrate_summary">Vibrate on alert</string>
 
-    <!-- Preference category title for Brazil settings. [CHAR LIMIT=50] -->
-    <string name="category_brazil_settings_title">Settings for Brazil</string>
-    <!-- Preference title for enable channel 50 alerts (Brazil only). [CHAR LIMIT=30] -->
-    <string name="enable_channel_50_alerts_title">Show channel 50 broadcasts</string>
-    <!-- Preference summary for enable channel 50 alerts (Brazil only). [CHAR LIMIT=100] -->
-    <string name="enable_channel_50_alerts_summary">Channel 50 is used in Brazil for area update information</string>
+    <!-- Preference title for use full volume option. [CHAR LIMIT=50] -->
+    <string name="use_full_volume_title">Use full volume</string>
+    <!-- Preference summary for use full volume option. [CHAR LIMIT=100] -->
+    <string name="use_full_volume_summary">Ignore other volume and Do Not Disturb preferences</string>
+
+    <!-- Preference title for enable area update information broadcasts. [CHAR LIMIT=50] -->
+    <string name="enable_area_update_info_alerts_title">Area update broadcasts</string>
+    <!-- Preference summary for enable area update information broadcasts. [CHAR LIMIT=100] -->
+    <string name="enable_area_update_info_alerts_summary">Show update information in SIM status</string>
 
     <!-- Preference category title for developer settings. [CHAR LIMIT=50] -->
     <string name="category_dev_settings_title">Developer options</string>
@@ -229,6 +234,9 @@
     <string name="cmas_opt_out_button_yes">Yes</string>
     <!-- Text for negative button in CMAS opt-out dialog. [CHAR LIMIT=25] -->
     <string name="cmas_opt_out_button_no">No</string>
+
+    <!-- Title for CellBroadcastListActivity -->
+    <string name="cb_list_activity_title">"Emergency alert history"</string>
 
     <!-- Entries in the ListPreference for alert reminder intervals. [CHAR LIMIT=30] -->
     <string-array name="alert_reminder_interval_entries">

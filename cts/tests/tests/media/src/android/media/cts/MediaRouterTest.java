@@ -58,17 +58,18 @@ public class MediaRouterTest extends InstrumentationTestCase {
     private RouteCategory mTestGroupableCategory;
     private CharSequence mTestRouteName;
     private Drawable mTestIconDrawable;
+    private Context mContext;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        final Context context = getInstrumentation().getContext();
-        mMediaRouter = (MediaRouter) context.getSystemService(Context.MEDIA_ROUTER_SERVICE);
+        mContext = getInstrumentation().getContext();
+        mMediaRouter = (MediaRouter) mContext.getSystemService(Context.MEDIA_ROUTER_SERVICE);
         mTestCategory = mMediaRouter.createRouteCategory(TEST_CATEGORY_NAME_RESOURCE_ID, false);
         mTestGroupableCategory = mMediaRouter.createRouteCategory(TEST_GROUPABLE_CATEGORY_NAME,
                 true);
-        mTestRouteName = getInstrumentation().getContext().getText(TEST_ROUTE_NAME_RESOURCE_ID);
-        mTestIconDrawable = getInstrumentation().getContext().getDrawable(TEST_ICON_RESOURCE_ID);
+        mTestRouteName = mContext.getText(TEST_ROUTE_NAME_RESOURCE_ID);
+        mTestIconDrawable = mContext.getDrawable(TEST_ICON_RESOURCE_ID);
     }
 
     protected void tearDown() throws Exception {
@@ -137,12 +138,11 @@ public class MediaRouterTest extends InstrumentationTestCase {
      * Test {@link MediaRouter.UserRouteInfo} with the default route.
      */
     public void testDefaultRouteInfo() {
-        Context context = getInstrumentation().getContext();
         RouteInfo route = mMediaRouter.getDefaultRoute();
 
         assertNotNull(route.getCategory());
         assertNotNull(route.getName());
-        assertNotNull(route.getName(context));
+        assertNotNull(route.getName(mContext));
         assertTrue(route.isEnabled());
         assertFalse(route.isConnecting());
         assertEquals(RouteInfo.DEVICE_TYPE_UNKNOWN, route.getDeviceType());
@@ -161,9 +161,14 @@ public class MediaRouterTest extends InstrumentationTestCase {
             int curVolume = route.getVolume();
             int maxVolume = route.getVolumeMax();
             assertTrue(curVolume <= maxVolume);
-            route.requestSetVolume(maxVolume);
-            assertEquals(maxVolume, route.getVolume());
-            route.requestUpdateVolume(-maxVolume);
+            if (!mContext.getResources().getBoolean(
+                    com.android.internal.R.bool.config_safe_media_volume_enabled)) {
+                route.requestSetVolume(maxVolume);
+                assertEquals(maxVolume, route.getVolume());
+                route.requestUpdateVolume(-maxVolume);
+            } else {
+                route.requestSetVolume(0);
+            }
             assertEquals(0, route.getVolume());
             route.requestUpdateVolume(curVolume);
             assertEquals(curVolume, route.getVolume());
@@ -195,7 +200,7 @@ public class MediaRouterTest extends InstrumentationTestCase {
         // context which has the same resources, two methods will return the same value.
         userRoute.setName(TEST_ROUTE_NAME_RESOURCE_ID);
         assertEquals(mTestRouteName, userRoute.getName());
-        assertEquals(mTestRouteName, userRoute.getName(getInstrumentation().getContext()));
+        assertEquals(mTestRouteName, userRoute.getName(mContext));
 
         userRoute.setDescription(TEST_ROUTE_DESCRIPTION);
         assertEquals(TEST_ROUTE_DESCRIPTION, userRoute.getDescription());
@@ -227,7 +232,7 @@ public class MediaRouterTest extends InstrumentationTestCase {
 
         Intent intent = new Intent(Intent.ACTION_MEDIA_BUTTON);
         PendingIntent mediaButtonIntent = PendingIntent.getBroadcast(
-                getInstrumentation().getContext(), 0, intent, PendingIntent.FLAG_ONE_SHOT);
+                mContext, 0, intent, PendingIntent.FLAG_ONE_SHOT);
         RemoteControlClient rcc = new RemoteControlClient(mediaButtonIntent);
         userRoute.setRemoteControlClient(rcc);
         assertEquals(rcc, userRoute.getRemoteControlClient());
@@ -323,10 +328,10 @@ public class MediaRouterTest extends InstrumentationTestCase {
         // when the media router is first initialized. In contrast, getName(Context) method tries to
         // find the resource in a given context's resources. So if we call getName(Context) with a
         // context which has the same resources, two methods will return the same value.
-        CharSequence categoryName = getInstrumentation().getContext().getText(
+        CharSequence categoryName = mContext.getText(
                 TEST_CATEGORY_NAME_RESOURCE_ID);
         assertEquals(categoryName, routeCategory.getName());
-        assertEquals(categoryName, routeCategory.getName(getInstrumentation().getContext()));
+        assertEquals(categoryName, routeCategory.getName(mContext));
 
         assertFalse(routeCategory.isGroupable());
         assertEquals(MediaRouter.ROUTE_TYPE_USER, routeCategory.getSupportedTypes());

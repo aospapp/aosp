@@ -27,6 +27,7 @@ import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IBuildReceiver;
 import com.android.tradefed.util.AbiUtils;
+import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.ZipUtil;
 import java.io.File;
 import java.util.LinkedList;
@@ -68,11 +69,6 @@ public class JvmtiHostTest extends DeviceTestCase implements IBuildReceiver, IAb
         mAbi = arg0;
     }
 
-    /**
-     * Tests the string was successfully logged to Logcat from the activity.
-     *
-     * @throws Exception
-     */
     public void testJvmti() throws Exception {
         final ITestDevice device = getDevice();
 
@@ -125,8 +121,6 @@ public class JvmtiHostTest extends DeviceTestCase implements IBuildReceiver, IAb
 
         @Override
         public void run() {
-            File tmpFile = null;
-            ZipFile zf = null;
             try {
                 String pwd = mDevice.executeShellCommand("run-as " + mPkg + " pwd");
                 if (pwd == null) {
@@ -148,23 +142,13 @@ public class JvmtiHostTest extends DeviceTestCase implements IBuildReceiver, IAb
                 }
             } catch (Exception e) {
                 throw new RuntimeException("Failed attaching", e);
-            } finally {
-                if (tmpFile != null) {
-                    tmpFile.delete();
-                }
-                if (zf != null) {
-                    try {
-                        zf.close();
-                    } catch (Exception e) {
-                        throw new RuntimeException("ZipFile close failed", e);
-                    }
-                }
             }
         }
 
         String installLibToDataData(String dataData, String library) throws Exception {
             ZipFile zf = null;
             File tmpFile = null;
+            String libInTmp = null;
             try {
                 String libInDataData = dataData + "/" + library;
 
@@ -174,7 +158,7 @@ public class JvmtiHostTest extends DeviceTestCase implements IBuildReceiver, IAb
                 String libPathInApk = "lib/" + mAbi.getName() + "/" + library;
                 tmpFile = ZipUtil.extractFileFromZip(zf, libPathInApk);
 
-                String libInTmp = "/data/local/tmp/" + tmpFile.getName();
+                libInTmp = "/data/local/tmp/" + tmpFile.getName();
                 if (!mDevice.pushFile(tmpFile, libInTmp)) {
                     throw new RuntimeException("Could not push library " + library + " to device");
                 }
@@ -193,14 +177,13 @@ public class JvmtiHostTest extends DeviceTestCase implements IBuildReceiver, IAb
 
                 return libInDataData;
             } finally {
-                if (tmpFile != null) {
-                    tmpFile.delete();
-                }
-                if (zf != null) {
+                FileUtil.deleteFile(tmpFile);
+                ZipUtil.closeZip(zf);
+                if (libInTmp != null) {
                     try {
-                        zf.close();
+                        mDevice.executeShellCommand("rm " + libInTmp);
                     } catch (Exception e) {
-                        throw new RuntimeException("ZipFile close failed", e);
+                        CLog.e("Failed cleaning up library on device");
                     }
                 }
             }

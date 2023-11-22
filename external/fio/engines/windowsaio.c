@@ -84,7 +84,7 @@ static int fio_windowsaio_init(struct thread_data *td)
 		}
 	}
 
-	td->io_ops->data = wd;
+	td->io_ops_data = wd;
 
 	if (!rc) {
 		struct thread_ctx *ctx;
@@ -97,7 +97,7 @@ static int fio_windowsaio_init(struct thread_data *td)
 			rc = 1;
 		}
 
-		wd = td->io_ops->data;
+		wd = td->io_ops_data;
 		wd->iothread_running = TRUE;
 		wd->iocp = hFile;
 
@@ -113,10 +113,15 @@ static int fio_windowsaio_init(struct thread_data *td)
 
 		if (!rc)
 		{
+			DWORD threadid;
+
 			ctx->iocp = hFile;
 			ctx->wd = wd;
-			wd->iothread = CreateThread(NULL, 0, IoCompletionRoutine, ctx, 0, NULL);
-			if (wd->iothread == NULL)
+			wd->iothread = CreateThread(NULL, 0, IoCompletionRoutine, ctx, 0, &threadid);
+
+			if (wd->iothread != NULL)
+				fio_setaffinity(threadid, td->o.cpumask);
+			else
 				log_err("windowsaio: failed to create io completion thread\n");
 		}
 
@@ -131,7 +136,7 @@ static void fio_windowsaio_cleanup(struct thread_data *td)
 {
 	struct windowsaio_data *wd;
 
-	wd = td->io_ops->data;
+	wd = td->io_ops_data;
 
 	if (wd != NULL) {
 		wd->iothread_running = FALSE;
@@ -143,7 +148,7 @@ static void fio_windowsaio_cleanup(struct thread_data *td)
 		free(wd->aio_events);
 		free(wd);
 
-		td->io_ops->data = NULL;
+		td->io_ops_data = NULL;
 	}
 }
 
@@ -203,10 +208,10 @@ static int fio_windowsaio_open_file(struct thread_data *td, struct fio_file *f)
 
 	/* Only set up the completion port and thread if we're not just
 	 * querying the device size */
-	if (!rc && td->io_ops->data != NULL) {
+	if (!rc && td->io_ops_data != NULL) {
 		struct windowsaio_data *wd;
 
-		wd = td->io_ops->data;
+		wd = td->io_ops_data;
 
 		if (CreateIoCompletionPort(f->hFile, wd->iocp, 0, 0) == NULL) {
 			log_err("windowsaio: failed to create io completion port\n");
@@ -251,7 +256,7 @@ static BOOL timeout_expired(DWORD start_count, DWORD end_count)
 
 static struct io_u* fio_windowsaio_event(struct thread_data *td, int event)
 {
-	struct windowsaio_data *wd = td->io_ops->data;
+	struct windowsaio_data *wd = td->io_ops_data;
 	return wd->aio_events[event];
 }
 
@@ -259,7 +264,7 @@ static int fio_windowsaio_getevents(struct thread_data *td, unsigned int min,
 				    unsigned int max,
 				    const struct timespec *t)
 {
-	struct windowsaio_data *wd = td->io_ops->data;
+	struct windowsaio_data *wd = td->io_ops_data;
 	unsigned int dequeued = 0;
 	struct io_u *io_u;
 	int i;
@@ -284,14 +289,13 @@ static int fio_windowsaio_getevents(struct thread_data *td, unsigned int min,
 
 			if (fov->io_complete) {
 				fov->io_complete = FALSE;
-				ResetEvent(fov->o.hEvent);
 				wd->aio_events[dequeued] = io_u;
 				dequeued++;
 			}
 
-			if (dequeued >= min)
-				break;
 		}
+		if (dequeued >= min)
+			break;
 
 		if (dequeued < min) {
 			status = WaitForSingleObject(wd->iocomplete_event, mswait);
@@ -310,23 +314,22 @@ static int fio_windowsaio_queue(struct thread_data *td, struct io_u *io_u)
 {
 	struct fio_overlapped *o = io_u->engine_data;
 	LPOVERLAPPED lpOvl = &o->o;
-	DWORD iobytes;
 	BOOL success = FALSE;
 	int rc = FIO_Q_COMPLETED;
 
 	fio_ro_check(td, io_u);
 
-	lpOvl->Internal = STATUS_PENDING;
+	lpOvl->Internal = 0;
 	lpOvl->InternalHigh = 0;
 	lpOvl->Offset = io_u->offset & 0xFFFFFFFF;
 	lpOvl->OffsetHigh = io_u->offset >> 32;
 
 	switch (io_u->ddir) {
 	case DDIR_WRITE:
-		success = WriteFile(io_u->file->hFile, io_u->xfer_buf, io_u->xfer_buflen, &iobytes, lpOvl);
+		success = WriteFile(io_u->file->hFile, io_u->xfer_buf, io_u->xfer_buflen, NULL, lpOvl);
 		break;
 	case DDIR_READ:
-		success = ReadFile(io_u->file->hFile, io_u->xfer_buf, io_u->xfer_buflen, &iobytes, lpOvl);
+		success = ReadFile(io_u->file->hFile, io_u->xfer_buf, io_u->xfer_buflen, NULL, lpOvl);
 		break;
 	case DDIR_SYNC:
 	case DDIR_DATASYNC:
@@ -403,7 +406,6 @@ static void fio_windowsaio_io_u_free(struct thread_data *td, struct io_u *io_u)
 	struct fio_overlapped *o = io_u->engine_data;
 
 	if (o) {
-		CloseHandle(o->o.hEvent);
 		io_u->engine_data = NULL;
 		free(o);
 	}
@@ -416,13 +418,7 @@ static int fio_windowsaio_io_u_init(struct thread_data *td, struct io_u *io_u)
 	o = malloc(sizeof(*o));
 	o->io_complete = FALSE;
 	o->io_u = io_u;
-	o->o.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-	if (o->o.hEvent == NULL) {
-		log_err("windowsaio: failed to create event handle\n");
-		free(o);
-		return 1;
-	}
-
+	o->o.hEvent = NULL;
 	io_u->engine_data = o;
 	return 0;
 }

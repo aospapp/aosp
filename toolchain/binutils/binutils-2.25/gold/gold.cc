@@ -495,6 +495,14 @@ queue_middle_tasks(const General_options& options,
   if (timer != NULL)
     timer->stamp(0);
 
+  // We have to support the case of not seeing any input objects, and
+  // generate an empty file.  Existing builds depend on being able to
+  // pass an empty archive to the linker and get an empty object file
+  // out.  In order to do this we need to use a default target.
+  if (input_objects->number_of_input_objects() == 0
+      && layout->incremental_base() == NULL)
+    parameters_force_valid_target();
+
   // Add any symbols named with -u options to the symbol table.
   symtab->add_undefined_symbols_from_command_line(layout);
 
@@ -554,14 +562,6 @@ queue_middle_tasks(const General_options& options,
       gold_assert(plugins != NULL);
       plugins->layout_deferred_objects();
     }
-
-  // We have to support the case of not seeing any input objects, and
-  // generate an empty file.  Existing builds depend on being able to
-  // pass an empty archive to the linker and get an empty object file
-  // out.  In order to do this we need to use a default target.
-  if (input_objects->number_of_input_objects() == 0
-      && layout->incremental_base() == NULL)
-    parameters_force_valid_target();
 
   // TODO(tmsriram): figure out a more principled way to get the target
   Target* target = const_cast<Target*>(&parameters->target());
@@ -851,6 +851,8 @@ queue_final_tasks(const General_options& options,
 
   bool any_postprocessing_sections = layout->any_postprocessing_sections();
 
+  bool need_relocstub_tasks = true;
+
   // Use a blocker to wait until all the input sections have been
   // written out.
   Task_token* input_sections_blocker = NULL;
@@ -860,6 +862,9 @@ queue_final_tasks(const General_options& options,
       // Write_symbols_task, Relocate_tasks.
       input_sections_blocker->add_blocker();
       input_sections_blocker->add_blockers(input_objects->number_of_relobjs());
+      // Blockers for n Relocstub_tasks.
+      if (need_relocstub_tasks)
+        input_sections_blocker->add_blockers(input_objects->number_of_relobjs());
     }
 
   // Use a blocker to block any objects which have to wait for the
@@ -873,6 +878,9 @@ queue_final_tasks(const General_options& options,
   // Relocate_tasks.
   final_blocker->add_blockers(3);
   final_blocker->add_blockers(input_objects->number_of_relobjs());
+  // Blockers for n Relocstub_tasks.
+  if (need_relocstub_tasks)
+    final_blocker->add_blockers(input_objects->number_of_relobjs());
   if (!any_postprocessing_sections)
     final_blocker->add_blocker();
 
@@ -901,7 +909,17 @@ queue_final_tasks(const General_options& options,
     workqueue->queue(new Relocate_task(symtab, layout, *p, of,
 				       input_sections_blocker,
 				       output_sections_blocker,
-				       final_blocker));
+				       final_blocker,
+                                       need_relocstub_tasks));
+
+  // Queue a task for each input object to relocate stub tables.
+  if (need_relocstub_tasks)
+    for (Input_objects::Relobj_iterator p = input_objects->relobj_begin();
+         p != input_objects->relobj_end(); ++p)
+      workqueue->queue(new Relocstub_task(symtab, layout, *p, of,
+                                          input_sections_blocker,
+                                          output_sections_blocker,
+                                          final_blocker));
 
   // Queue a task to write out the output sections which depend on
   // input sections.  If there are any sections which require

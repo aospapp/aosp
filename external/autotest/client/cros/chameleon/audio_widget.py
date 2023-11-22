@@ -790,7 +790,7 @@ class CrosIntMicInputWidgetHandler(CrosInputWidgetHandler):
 
         if proper_gain is None:
             logging.debug('No proper gain for %s', board)
-        return
+            return
 
         logging.debug('Set gain to %f dB on internal mic for %s ',
                       proper_gain / 100, board)

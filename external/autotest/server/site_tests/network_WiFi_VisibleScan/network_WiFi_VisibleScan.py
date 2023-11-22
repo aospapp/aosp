@@ -39,8 +39,12 @@ class network_WiFi_VisibleScan(wifi_cell_test_base.WiFiCellTestBase):
                     snaplen=packet_capturer.SNAPLEN_WIFI_PROBE_REQUEST)
         assoc_params = xmlrpc_datatypes.AssociationParameters(
                 ssid=self.context.router.get_ssid())
-        self.context.assert_connect_wifi(assoc_params)
-        results = self.context.capture_host.stop_capture()
+
+        # We're looking for the MAC address, so disable randomization.
+        with self.context.client.mac_address_randomization(False):
+            self.context.assert_connect_wifi(assoc_params)
+            results = self.context.capture_host.stop_capture()
+
         if len(results) != 1:
             raise error.TestError('Expected to generate one packet '
                                   'capture but got %d instead.' %

@@ -17,6 +17,7 @@
 package android.media.cts;
 
 import android.app.Instrumentation;
+import android.app.NotificationManager;
 import android.app.UiAutomation;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -88,57 +89,10 @@ public class Utils {
     protected static void toggleNotificationPolicyAccess(String packageName,
             Instrumentation instrumentation, boolean on) throws IOException {
 
-        // Read the setting listing the package allowed to manage notification policy configuration
-        String alreadyEnabledServices = querryNotificationPolicyAccessPakages(instrumentation);
-
-        // The property is a list of : separated package
-        List<String> enabledServices = Lists.newArrayList(alreadyEnabledServices.split(":"));
-
-        // Actually add or remove the package from the list
-        if (on) {
-            // Only add the package if it is not already in the list
-            if (!enabledServices.contains(packageName)) {
-                enabledServices.add(packageName);
-                setNotificationPolicyAccessPackages(enabledServices, instrumentation);
-            }
-        } else {
-            // Remove all instance of the package in the list
-            if (enabledServices.removeIf(packageName::equals)) {
-                // Only update the settings if there was a change
-                setNotificationPolicyAccessPackages(enabledServices, instrumentation);
-            }
-        }
-    }
-
-    /** Read the setting listing the package allowed to manage notification policy configuration */
-    private static String querryNotificationPolicyAccessPakages(Instrumentation instrumentation) {
-        ContentResolver cr = instrumentation.getContext().getContentResolver();
-        String enabledService = Settings.Secure.getString(
-                cr,Settings.Secure.ENABLED_NOTIFICATION_POLICY_ACCESS_PACKAGES);
-
-        // A non existing property is equivalent to no package listed
-        if (enabledService == null) {
-            enabledService = "";
-        }
-        return enabledService;
-    }
-
-    private static void setNotificationPolicyAccessPackages(final List<String> enabledServicesList,
-            final Instrumentation instrumentation) throws IOException {
-        // Format the list back to a string
-        String enabledServices = String.join(":", enabledServicesList);
-
-        // If the list is empty, remove the property by setting it to null
-        String enabledServicesStrOrNull = enabledServices.isEmpty() ? "null" : enabledServices;
-
-        // Write back the property to the settings database
-        String command = "settings --user cur put secure "
-                + Settings.Secure.ENABLED_NOTIFICATION_POLICY_ACCESS_PACKAGES + "  "
-                + enabledServicesStrOrNull;
+        String command = " cmd notification " + (on ? "allow_dnd " : "disallow_dnd ") + packageName;
 
         // Get permission to enable accessibility
         UiAutomation uiAutomation = instrumentation.getUiAutomation();
-
         // Execute command
         try (ParcelFileDescriptor fd = uiAutomation.executeShellCommand(command)) {
             Assert.assertNotNull("Failed to execute shell command: " + command, fd);
@@ -153,11 +107,10 @@ public class Utils {
             uiAutomation.destroy();
         }
 
-        // Read the settings again to make sure it is updated
-        String nowEnabledServices = querryNotificationPolicyAccessPakages(instrumentation);
-        Assert.assertEquals("Wrote setting should be the same as the read one",
-                enabledServices, nowEnabledServices);
-
+        NotificationManager nm = (NotificationManager) instrumentation.getContext()
+                .getSystemService(Context.NOTIFICATION_SERVICE);
+        Assert.assertEquals("Wrote setting should be the same as the read one", on,
+                nm.isNotificationPolicyAccessGranted());
     }
 
     /**

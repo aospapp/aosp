@@ -17,9 +17,9 @@ package com.android.car.radio;
 
 import android.content.Context;
 import android.support.annotation.ColorInt;
-import android.support.car.ui.FabDrawable;
 import android.util.AttributeSet;
 import android.widget.ImageView;
+import com.android.car.apps.common.FabDrawable;
 
 /**
  * A default FAB button for the radio that will color itself based on the accent color defined

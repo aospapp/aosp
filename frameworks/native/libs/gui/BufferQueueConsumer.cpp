@@ -15,6 +15,8 @@
  */
 
 #include <inttypes.h>
+#include <pwd.h>
+#include <sys/types.h>
 
 #define LOG_TAG "BufferQueueConsumer"
 #define ATRACE_TAG ATRACE_TAG_GRAPHICS
@@ -34,7 +36,8 @@
 
 #include <binder/IPCThreadState.h>
 #include <binder/PermissionCache.h>
-#include <private/android_filesystem_config.h>
+
+#include <system/window.h>
 
 namespace android {
 
@@ -701,9 +704,9 @@ status_t BufferQueueConsumer::setDefaultBufferDataSpace(
     return NO_ERROR;
 }
 
-status_t BufferQueueConsumer::setConsumerUsageBits(uint32_t usage) {
+status_t BufferQueueConsumer::setConsumerUsageBits(uint64_t usage) {
     ATRACE_CALL();
-    BQ_LOGV("setConsumerUsageBits: %#x", usage);
+    BQ_LOGV("setConsumerUsageBits: %#" PRIx64, usage);
     Mutex::Autolock lock(mCore->mMutex);
     mCore->mConsumerUsageBits = usage;
     return NO_ERROR;
@@ -745,12 +748,19 @@ status_t BufferQueueConsumer::discardFreeBuffers() {
 }
 
 status_t BufferQueueConsumer::dumpState(const String8& prefix, String8* outResult) const {
+    struct passwd* pwd = getpwnam("shell");
+    uid_t shellUid = pwd ? pwd->pw_uid : 0;
+    if (!shellUid) {
+        int savedErrno = errno;
+        BQ_LOGE("Cannot get AID_SHELL");
+        return savedErrno ? -savedErrno : UNKNOWN_ERROR;
+    }
+
     const IPCThreadState* ipc = IPCThreadState::self();
     const pid_t pid = ipc->getCallingPid();
     const uid_t uid = ipc->getCallingUid();
-    if ((uid != AID_SHELL)
-            && !PermissionCache::checkPermission(String16(
-            "android.permission.DUMP"), pid, uid)) {
+    if ((uid != shellUid) &&
+        !PermissionCache::checkPermission(String16("android.permission.DUMP"), pid, uid)) {
         outResult->appendFormat("Permission Denial: can't dump BufferQueueConsumer "
                 "from pid=%d, uid=%d\n", pid, uid);
         android_errorWriteWithInfoLog(0x534e4554, "27046057",

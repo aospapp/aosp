@@ -42,6 +42,8 @@ import android.test.suitebuilder.annotation.SmallTest;
 import android.util.SparseArray;
 import android.util.SparseIntArray;
 
+import com.android.server.wifi.util.WifiPermissionsWrapper;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -70,11 +72,15 @@ public class WifiAwareServiceImplTest {
     @Mock
     private WifiAwareStateManager mAwareStateManagerMock;
     @Mock
+    private WifiAwareShellCommand mWifiAwareShellCommandMock;
+    @Mock
     private IBinder mBinderMock;
     @Mock
     private IWifiAwareEventCallback mCallbackMock;
     @Mock
     private IWifiAwareDiscoverySessionCallback mSessionCallbackMock;
+    @Mock private WifiAwareMetrics mAwareMetricsMock;
+    @Mock private WifiPermissionsWrapper mPermissionsWrapperMock;
 
     private HandlerThread mHandlerThread;
 
@@ -114,8 +120,10 @@ public class WifiAwareServiceImplTest {
 
         mDut = new WifiAwareServiceImplSpy(mContextMock);
         mDut.fakeUid = mDefaultUid;
-        mDut.start(mHandlerThreadMock, mAwareStateManagerMock);
-        verify(mAwareStateManagerMock).start(eq(mContextMock), any());
+        mDut.start(mHandlerThreadMock, mAwareStateManagerMock, mWifiAwareShellCommandMock,
+                mAwareMetricsMock, mPermissionsWrapperMock);
+        verify(mAwareStateManagerMock).start(eq(mContextMock), any(), eq(mAwareMetricsMock),
+                eq(mPermissionsWrapperMock));
     }
 
     /**

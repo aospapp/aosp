@@ -179,6 +179,14 @@ public class NotificationControllerTest {
                 .isEqualTo("com.android.storagemanager.automatic.NotificationController");
     }
 
+    @Test
+    public void testTappingGoesToStorageSettings() {
+        mController.onReceive(mContext, new Intent(NotificationController.INTENT_ACTION_TAP));
+
+        assertThat(ShadowApplication.getInstance().getNextStartedActivity().getAction())
+                .isEqualTo(Settings.ACTION_INTERNAL_STORAGE_SETTINGS);
+    }
+
     private Intent getNotificationIntent(String action, int id) {
         Intent intent = new Intent(action);
         intent.putExtra(NotificationController.INTENT_EXTRA_ID, id);

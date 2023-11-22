@@ -18,17 +18,6 @@
 -->
 <resources>
 
-    <style name="SetupWorkSpaceTheme" parent="SuwThemeMaterial.Light" >
-        <item name="android:windowActionBar">false</item>
-        <item name="android:windowNoTitle">true</item>
-        <item name="android:colorPrimary">@color/orange</item>
-        <item name="android:colorAccent">@color/accent</item>
-        <item name="android:colorPrimaryDark">@color/orange</item>
-        <item name="android:windowBackground">@color/gray_50</item>
-        <item name="android:indeterminateTint">@color/teal</item>
-        <item name="android:windowLightStatusBar">true</item>
-        <item name="android:statusBarColor">@color/white</item>
-    </style>
     <style name="TextOrCheckBox">
         <item name="android:textColor">@color/text_black</item>
         <item name="android:textSize">@dimen/main_text_size</item>
@@ -90,19 +79,20 @@
     </style>
 
     <style name="ManagedProvisioningDialogTheme" parent="@android:style/Theme.Material.Light.Dialog">
-      <item name="android:windowFullscreen">true</item>
-      <item name="android:windowNoTitle">true</item>
-      <item name="android:windowBackground">@color/transparent</item>
-      <!-- Color for checked checkbox -->
-      <item name="android:colorControlActivated">@color/orange</item>
-      <!-- Color for enabled button -->
-      <item name="android:colorAccent">@color/accent</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowBackground">@color/transparent</item>
+        <!-- Color for checked checkbox -->
+        <item name="android:colorControlActivated">@color/orange</item>
+        <!-- Color for enabled button -->
+        <item name="android:colorAccent">@color/accent</item>
     </style>
 
-    <style name="Provisioning2Theme" parent="SuwThemeMaterial.Light">
+    <style name="Provisioning2Theme" parent="SuwThemeGlif.Light">
         <item name="android:windowBackground">@color/white</item>
         <item name="android:colorBackground">@color/white</item>
         <item name="swiper_color">@color/teal2</item>
+        <item name="suwMarginSides">@dimen/intro_margin</item>
     </style>
 
     <style name="Provisioning2Theme.Text">
@@ -111,7 +101,9 @@
 
     <style name="Provisioning2Theme.Text.Primary">
         <item name="android:textColor">@color/black_text_primary</item>
+        <!--notice: line height 20sp (textSize + leading)-->
         <item name="android:textSize">16sp</item>
+        <item name="android:lineSpacingExtra">4sp</item>
     </style>
 
     <style name="Provisioning2Theme.Text.Primary.Title">
@@ -149,16 +141,18 @@
         <item name="android:layout_gravity">center_horizontal</item>
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
+        <item name="android:stateListAnimator">@null</item> <!-- removes button shadow -->
+        <item name="android:background">@drawable/button_ripple</item>
     </style>
 
     <style name="Provisioning2Theme.Button.Blue">
         <item name="android:textColor">@color/white</item>
-        <item name="android:background">@color/blue</item>
+        <item name="android:backgroundTint">@color/blue</item>
     </style>
 
     <style name="Provisioning2Theme.Button.Gray">
         <item name="android:textColor">@color/gray_button_text</item>
-        <item name="android:background">@color/gray_button_background</item>
+        <item name="android:backgroundTint">@color/gray</item>
     </style>
 
     <style name="Provisioning2Theme.Button.Transparent">

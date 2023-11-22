@@ -28,25 +28,25 @@ namespace egl
 	class Display;
 	class Context;
 	class Surface;
+	class Config;
+	class Image;
 
 	struct Current
 	{
 		EGLint error;
 		EGLenum API;
-		EGLDisplay display;
 		Context *context;
 		Surface *drawSurface;
 		Surface *readSurface;
 	};
+
+	void detachThread();
 
 	void setCurrentError(EGLint error);
 	EGLint getCurrentError();
 
 	void setCurrentAPI(EGLenum API);
 	EGLenum getCurrentAPI();
-
-	void setCurrentDisplay(EGLDisplay dpy);
-	EGLDisplay getCurrentDisplay();
 
 	void setCurrentContext(Context *ctx);
 	Context *getCurrentContext();
@@ -74,12 +74,6 @@ namespace egl
 
 		return returnValue;
 	}
-
-	class Config;
-	class Surface;
-	class Display;
-	class Context;
-	class Image;
 }
 
 extern LibGLES_CM libGLES_CM;

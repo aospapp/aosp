@@ -16,20 +16,18 @@
 
 package com.android.server.telecom.tests;
 
-import android.app.Notification;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
-import android.content.res.Resources;
 import android.os.Build;
 import android.telecom.VideoProfile;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.server.telecom.Call;
 import com.android.server.telecom.CallState;
+import com.android.server.telecom.HandoverState;
 import com.android.server.telecom.ui.IncomingCallNotifier;
 
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 
 import static org.mockito.Matchers.any;
@@ -73,6 +71,7 @@ public class IncomingCallNotifierTest extends TelecomTestCase {
         when(mRingingCall.getState()).thenReturn(CallState.RINGING);
         when(mRingingCall.getVideoState()).thenReturn(VideoProfile.STATE_AUDIO_ONLY);
         when(mRingingCall.getTargetPhoneAccountLabel()).thenReturn("Foo");
+        when(mRingingCall.getHandoverState()).thenReturn(HandoverState.HANDOVER_NONE);
     }
 
     /**
@@ -127,5 +126,41 @@ public class IncomingCallNotifierTest extends TelecomTestCase {
         mIncomingCallNotifier.onCallRemoved(mRingingCall);
         verify(mNotificationManager).cancel(eq(IncomingCallNotifier.NOTIFICATION_TAG),
                 eq(IncomingCallNotifier.NOTIFICATION_INCOMING_CALL));
+    }
+
+    /**
+     * Ensure notification doesn't show during handover.
+     */
+    @SmallTest
+    public void testDontShowDuringHandover1() {
+        when(mCallsManagerProxy.hasCallsForOtherPhoneAccount(any())).thenReturn(true);
+        when(mCallsManagerProxy.getNumCallsForOtherPhoneAccount(any())).thenReturn(1);
+        when(mCallsManagerProxy.getActiveCall()).thenReturn(mAudioCall);
+        when(mRingingCall.getHandoverState()).thenReturn(HandoverState.HANDOVER_FROM_STARTED);
+
+        mIncomingCallNotifier.onCallAdded(mAudioCall);
+        mIncomingCallNotifier.onCallAdded(mRingingCall);
+
+        // Incoming call is in the middle of a handover, don't expect to be notified.
+        verify(mNotificationManager, never()).notify(eq(IncomingCallNotifier.NOTIFICATION_TAG),
+                eq(IncomingCallNotifier.NOTIFICATION_INCOMING_CALL), any());;
+    }
+
+    /**
+     * Ensure notification doesn't show during handover.
+     */
+    @SmallTest
+    public void testDontShowDuringHandover2() {
+        when(mCallsManagerProxy.hasCallsForOtherPhoneAccount(any())).thenReturn(true);
+        when(mCallsManagerProxy.getNumCallsForOtherPhoneAccount(any())).thenReturn(1);
+        when(mCallsManagerProxy.getActiveCall()).thenReturn(mAudioCall);
+        when(mRingingCall.getHandoverState()).thenReturn(HandoverState.HANDOVER_COMPLETE);
+
+        mIncomingCallNotifier.onCallAdded(mAudioCall);
+        mIncomingCallNotifier.onCallAdded(mRingingCall);
+
+        // Incoming call is done a handover, don't expect to be notified.
+        verify(mNotificationManager, never()).notify(eq(IncomingCallNotifier.NOTIFICATION_TAG),
+                eq(IncomingCallNotifier.NOTIFICATION_INCOMING_CALL), any());;
     }
 }

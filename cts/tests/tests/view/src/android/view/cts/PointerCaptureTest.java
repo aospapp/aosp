@@ -34,7 +34,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import android.app.Instrumentation;
-import android.hardware.input.InputManager;
 import android.os.SystemClock;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.SmallTest;
@@ -46,6 +45,7 @@ import android.view.MotionEvent;
 import android.view.View;
 
 import com.android.compatibility.common.util.CtsMouseUtil.ActionMatcher;
+import com.android.compatibility.common.util.CtsTouchUtils;
 import com.android.compatibility.common.util.PollingCheck;
 
 import org.junit.Before;
@@ -122,12 +122,17 @@ public class PointerCaptureTest {
         view.setOnCapturedPointerListener(null);
     }
 
-    private static void injectMotionEvent(MotionEvent event) {
-        InputManager.getInstance().injectInputEvent(event,
-                InputManager.INJECT_INPUT_EVENT_MODE_WAIT_FOR_FINISH);
+    private void injectMotionEvent(MotionEvent event) {
+        if ((event.getSource() & InputDevice.SOURCE_CLASS_POINTER) != 0) {
+            // Regular mouse event.
+            mInstrumentation.sendPointerSync(event);
+        } else {
+            // Relative mouse event belongs to SOURCE_CLASS_TRACKBALL.
+            mInstrumentation.sendTrackballEventSync(event);
+        }
     }
 
-    private static void injectRelativeMouseEvent(int action, int x, int y) {
+    private void injectRelativeMouseEvent(int action, int x, int y) {
         injectMotionEvent(obtainRelativeMouseEvent(action, x, y));
     }
 
@@ -224,7 +229,10 @@ public class PointerCaptureTest {
 
         // Show a context menu on a widget.
         mActivity.registerForContextMenu(mTarget);
-        mActivityRule.runOnUiThread(() -> mTarget.showContextMenu(0, 0));
+        // TODO(kaznacheev) replace the below line with a call to showContextMenu once b/65487689
+        // is fixed. Meanwhile, emulate a long press which takes long enough time to avoid the race
+        // condition.
+        CtsTouchUtils.emulateLongPressOnView(mInstrumentation, mTarget, 0, 0);
         PollingCheck.waitFor(TIMEOUT_DELTA, () -> !mOuter.hasWindowFocus());
         assertPointerCapture(false);
 

@@ -747,6 +747,7 @@ StringCaseTest::TestGreekUpper() {
     // http://multilingualtypesetting.co.uk/blog/greek-typesetting-tips/
     assertGreekUpper("\\u03C1\\u03C9\\u03BC\\u03AD\\u03B9\\u03BA\\u03B1",
                      "\\u03A1\\u03A9\\u039C\\u0395\\u03AA\\u039A\\u0391");
+    assertGreekUpper("\\u03AE.", "\\u0397\\u0301.");
 }
 
 void

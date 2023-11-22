@@ -49,7 +49,6 @@ CameraDeviceSession::CameraDeviceSession(
         mDerivePostRawSensKey(false),
         mNumPartialResults(1),
         mResultBatcher(callback) {
-
     mDeviceInfo = deviceInfo;
     camera_metadata_entry partialResultsCount =
             mDeviceInfo.find(ANDROID_REQUEST_PARTIAL_RESULT_COUNT);
@@ -328,7 +327,8 @@ void CameraDeviceSession::ResultBatcher::setBatchedStreams(
     mStreamsToBatch = streamsToBatch;
 }
 
-void CameraDeviceSession::ResultBatcher::setResultMetadataQueue(std::shared_ptr<ResultMetadataQueue> q) {
+void CameraDeviceSession::ResultBatcher::setResultMetadataQueue(
+        std::shared_ptr<ResultMetadataQueue> q) {
     Mutex::Autolock _l(mLock);
     mResultMetadataQueue = q;
 }
@@ -387,7 +387,8 @@ void CameraDeviceSession::ResultBatcher::checkAndRemoveFirstBatch() {
     }
 }
 
-void CameraDeviceSession::ResultBatcher::sendBatchShutterCbsLocked(std::shared_ptr<InflightBatch> batch) {
+void CameraDeviceSession::ResultBatcher::sendBatchShutterCbsLocked(
+        std::shared_ptr<InflightBatch> batch) {
     if (batch->mShutterDelivered) {
         ALOGW("%s: batch shutter callback already sent!", __FUNCTION__);
         return;
@@ -441,7 +442,8 @@ void CameraDeviceSession::ResultBatcher::pushStreamBuffer(
     }
 }
 
-void CameraDeviceSession::ResultBatcher::sendBatchBuffersLocked(std::shared_ptr<InflightBatch> batch) {
+void CameraDeviceSession::ResultBatcher::sendBatchBuffersLocked(
+        std::shared_ptr<InflightBatch> batch) {
     sendBatchBuffersLocked(batch, mStreamsToBatch);
 }
 
@@ -736,7 +738,7 @@ void CameraDeviceSession::ResultBatcher::processCaptureResult(CaptureResult& res
 
 // Methods from ::android::hardware::camera::device::V3_2::ICameraDeviceSession follow.
 Return<void> CameraDeviceSession::constructDefaultRequestSettings(
-        RequestTemplate type, constructDefaultRequestSettings_cb _hidl_cb)  {
+        RequestTemplate type, ICameraDeviceSession::constructDefaultRequestSettings_cb _hidl_cb)  {
     Status status = initStatus();
     CameraMetadata outMetadata;
     const camera_metadata_t *rawRequest;
@@ -802,7 +804,8 @@ android_dataspace CameraDeviceSession::mapToLegacyDataspace(
 }
 
 Return<void> CameraDeviceSession::configureStreams(
-        const StreamConfiguration& requestedConfiguration, configureStreams_cb _hidl_cb)  {
+        const StreamConfiguration& requestedConfiguration,
+        ICameraDeviceSession::configureStreams_cb _hidl_cb)  {
     Status status = initStatus();
     HalStreamConfiguration outStreams;
 
@@ -923,6 +926,7 @@ Return<void> CameraDeviceSession::configureStreams(
         status = Status::INTERNAL_ERROR;
     } else {
         convertToHidl(stream_list, &outStreams);
+        mFirstRequest = true;
     }
 
     _hidl_cb(status, outStreams);
@@ -959,13 +963,13 @@ void CameraDeviceSession::updateBufferCaches(const hidl_vec<BufferCache>& caches
 }
 
 Return<void> CameraDeviceSession::getCaptureRequestMetadataQueue(
-    getCaptureRequestMetadataQueue_cb _hidl_cb) {
+    ICameraDeviceSession::getCaptureRequestMetadataQueue_cb _hidl_cb) {
     _hidl_cb(*mRequestMetadataQueue->getDesc());
     return Void();
 }
 
 Return<void> CameraDeviceSession::getCaptureResultMetadataQueue(
-    getCaptureResultMetadataQueue_cb _hidl_cb) {
+    ICameraDeviceSession::getCaptureResultMetadataQueue_cb _hidl_cb) {
     _hidl_cb(*mResultMetadataQueue->getDesc());
     return Void();
 }
@@ -973,7 +977,7 @@ Return<void> CameraDeviceSession::getCaptureResultMetadataQueue(
 Return<void> CameraDeviceSession::processCaptureRequest(
         const hidl_vec<CaptureRequest>& requests,
         const hidl_vec<BufferCache>& cachesToRemove,
-        processCaptureRequest_cb _hidl_cb)  {
+        ICameraDeviceSession::processCaptureRequest_cb _hidl_cb)  {
     updateBufferCaches(cachesToRemove);
 
     uint32_t numRequestProcessed = 0;
@@ -1022,7 +1026,13 @@ Status CameraDeviceSession::processOneCaptureRequest(const CaptureRequest& reque
 
     if (!converted) {
         ALOGE("%s: capture request settings metadata is corrupt!", __FUNCTION__);
-        return Status::INTERNAL_ERROR;
+        return Status::ILLEGAL_ARGUMENT;
+    }
+
+    if (mFirstRequest && halRequest.settings == nullptr) {
+        ALOGE("%s: capture request settings must not be null for first request!",
+                __FUNCTION__);
+        return Status::ILLEGAL_ARGUMENT;
     }
 
     hidl_vec<buffer_handle_t*> allBufPtrs;
@@ -1031,6 +1041,12 @@ Status CameraDeviceSession::processOneCaptureRequest(const CaptureRequest& reque
             request.inputBuffer.bufferId != 0);
     size_t numOutputBufs = request.outputBuffers.size();
     size_t numBufs = numOutputBufs + (hasInputBuf ? 1 : 0);
+
+    if (numOutputBufs == 0) {
+        ALOGE("%s: capture request must have at least one output buffer!", __FUNCTION__);
+        return Status::ILLEGAL_ARGUMENT;
+    }
+
     status = importRequest(request, allBufPtrs, allFences);
     if (status != Status::OK) {
         return status;
@@ -1102,6 +1118,7 @@ Status CameraDeviceSession::processOneCaptureRequest(const CaptureRequest& reque
         return Status::INTERNAL_ERROR;
     }
 
+    mFirstRequest = false;
     return Status::OK;
 }
 

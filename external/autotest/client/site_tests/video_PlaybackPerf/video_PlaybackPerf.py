@@ -6,7 +6,7 @@ import logging
 import os
 import time
 
-from autotest_lib.client.bin import site_utils, test, utils
+from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import file_utils
 from autotest_lib.client.common_lib.cros import chrome
@@ -14,6 +14,7 @@ from autotest_lib.client.cros import power_status, power_utils
 from autotest_lib.client.cros import service_stopper
 from autotest_lib.client.cros.video import histogram_verifier
 from autotest_lib.client.cros.video import constants
+from autotest_lib.client.cros.video import helper_logger
 
 
 DISABLE_ACCELERATED_VIDEO_DECODE_BROWSER_ARGS = [
@@ -78,6 +79,7 @@ class video_PlaybackPerf(test.test):
                                "loop=true")
 
 
+    @helper_logger.video_log_wrapper
     def run_once(self, video_name, video_description, power_test=False,
                  arc_mode=None):
         """
@@ -164,10 +166,10 @@ class video_PlaybackPerf(test.test):
         """
         def get_cpu_usage(cr):
             time.sleep(STABILIZATION_DURATION)
-            cpu_usage_start = site_utils.get_cpu_usage()
+            cpu_usage_start = utils.get_cpu_usage()
             time.sleep(MEASUREMENT_DURATION)
-            cpu_usage_end = site_utils.get_cpu_usage()
-            return site_utils.compute_active_cpu_time(cpu_usage_start,
+            cpu_usage_end = utils.get_cpu_usage()
+            return utils.compute_active_cpu_time(cpu_usage_start,
                                                       cpu_usage_end) * 100
         if not utils.wait_for_idle_cpu(WAIT_FOR_IDLE_CPU_TIMEOUT,
                                        CPU_IDLE_USAGE):
@@ -200,8 +202,14 @@ class video_PlaybackPerf(test.test):
         self._service_stopper.stop_services()
 
         self._power_status = power_status.get_status()
-        # Verify that we are running on battery and the battery is sufficiently
-        # charged.
+        # We expect the DUT is powered by battery now. But this is not always
+        # true due to other bugs. Disable this test temporarily as workaround.
+        # TODO(kcwu): remove this workaround after AC control is stable
+        #             crbug.com/723968
+        if self._power_status.on_ac():
+            logging.warning('Still powered by AC. Skip this test')
+            return {}
+        # Verify that the battery is sufficiently charged.
         self._power_status.assert_battery_state(BATTERY_INITIAL_CHARGED_MIN)
 
         measurements = [power_status.SystemPower(
@@ -233,8 +241,10 @@ class video_PlaybackPerf(test.test):
         """
         keyvals = {}
 
-        with chrome.Chrome(arc_mode=self.arc_mode,
-                           init_network_controller=True) as cr:
+        with chrome.Chrome(
+                extra_browser_args=helper_logger.chrome_vmodule_flag(),
+                arc_mode=self.arc_mode,
+                init_network_controller=True) as cr:
             # Open the video playback page and start playing.
             self.start_playback(cr, local_path)
             result = gather_result(cr)
@@ -253,7 +263,7 @@ class video_PlaybackPerf(test.test):
         # Start chrome with disabled video hardware decode flag.
         with chrome.Chrome(extra_browser_args=
                 DISABLE_ACCELERATED_VIDEO_DECODE_BROWSER_ARGS,
-                arc_mode=self.arc_mode) as cr:
+                arc_mode=self.arc_mode, init_network_controller=True) as cr:
             # Open the video playback page and start playing.
             self.start_playback(cr, local_path)
             result = gather_result(cr)
@@ -286,10 +296,11 @@ class video_PlaybackPerf(test.test):
                     description= 'hw_' + description, value=result_with_hw,
                     units=units, higher_is_better=False)
 
-        result_without_hw = keyvals[PLAYBACK_WITHOUT_HW_ACCELERATION]
-        self.output_perf_value(
-                description= 'sw_' + description, value=result_without_hw,
-                units=units, higher_is_better=False)
+        result_without_hw = keyvals.get(PLAYBACK_WITHOUT_HW_ACCELERATION)
+        if result_without_hw is not None:
+            self.output_perf_value(
+                    description= 'sw_' + description, value=result_without_hw,
+                    units=units, higher_is_better=False)
 
 
     def cleanup(self):

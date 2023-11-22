@@ -45,6 +45,9 @@ public class ReportLogCollector implements ITargetCleaner {
     @Option(name = "temp-dir", description = "The temp directory containing host-side report logs")
     private String mTempReportFolder;
 
+    @Option(name = "device-dir", description = "Create unique directory for each device")
+    private boolean mDeviceDir;
+
     public ReportLogCollector() {
     }
 
@@ -85,7 +88,12 @@ public class ReportLogCollector implements ITargetCleaner {
                 CLog.e("%s is not a directory", resultDir.getAbsolutePath());
                 return;
             }
-            final File hostReportDir = FileUtil.createNamedTempDir(mTempReportFolder);
+            String tmpDirName = mTempReportFolder;
+            if (mDeviceDir) {
+                tmpDirName = tmpDirName.replaceAll("/$", "");
+                tmpDirName += "-" + device.getSerialNumber();
+            }
+            final File hostReportDir = FileUtil.createNamedTempDir(tmpDirName);
             if (!hostReportDir.isDirectory()) {
                 CLog.e("%s is not a directory", hostReportDir.getAbsolutePath());
                 return;

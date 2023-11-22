@@ -29,9 +29,7 @@ struct EnumValue;
 struct BitFieldType;
 
 struct EnumType : public Scope {
-    EnumType(const char *localName,
-             const Location &location,
-             Type *storageType);
+    EnumType(const char* localName, const Location& location, Type* storageType, Scope* parent);
 
     const Type *storageType() const;
     const std::vector<EnumValue *> &values() const;
@@ -147,8 +145,6 @@ struct BitFieldType : public TemplatedType {
     std::string typeName() const override;
 
     bool isBitField() const override;
-
-    void addNamedTypesToSet(std::set<const FQName> &set) const override;
 
     bool isCompatibleElementType(Type *elementType) const override;
 

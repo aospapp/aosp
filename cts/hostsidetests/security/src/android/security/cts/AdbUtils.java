@@ -21,6 +21,7 @@ import com.android.tradefed.device.CollectingOutputReceiver;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceTestCase;
+import com.android.tradefed.log.LogUtil.CLog;
 
 import android.platform.test.annotations.RootPermissionTest;
 
@@ -32,7 +33,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Scanner;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
 
 public class AdbUtils {
 
@@ -90,6 +90,48 @@ public class AdbUtils {
     }
 
     /**
+     * Enables malloc debug on a given process.
+     *
+     * @param processName the name of the process to run with libc malloc debug
+     * @param device the device to use
+     * @return true if enabling malloc debug succeeded
+     */
+    public static boolean enableLibcMallocDebug(String processName, ITestDevice device) throws Exception {
+        device.executeShellCommand("setprop libc.debug.malloc.program " + processName);
+        device.executeShellCommand("setprop libc.debug.malloc.options \"backtrace guard\"");
+        /**
+         * The pidof command is being avoided because it does not exist on versions before M, and
+         * it behaves differently between M and N.
+         * Also considered was the ps -AoPID,CMDLINE command, but ps does not support options on
+         * versions before O.
+         * The [^]] prefix is being used for the grep command to avoid the case where the output of
+         * ps includes the grep command itself.
+         */
+        String cmdOut = device.executeShellCommand("ps -A | grep '[^]]" + processName + "'");
+        /**
+         * .hasNextInt() checks if the next token can be parsed as an integer, not if any remaining
+         * token is an integer.
+         * Example command: $ ps | fgrep mediaserver
+         * Out: media     269   1     77016  24416 binder_thr 00f35142ec S /system/bin/mediaserver
+         * The second field of the output is the PID, which is needed to restart the process.
+         */
+        Scanner s = new Scanner(cmdOut).useDelimiter("\\D+");
+        if(!s.hasNextInt()) {
+            CLog.w("Could not find pid for process: " + processName);
+            return false;
+        }
+
+        String result = device.executeShellCommand("kill -9 " + s.nextInt());
+        if(!result.equals("")) {
+            CLog.w("Could not restart process: " + processName);
+            return false;
+        }
+
+        TimeUnit.SECONDS.sleep(1);
+        return true;
+    }
+
+    /**
      * Pushes and installs an apk to the selected device
      *
      * @param pathToApk a string path to apk from the /res folder
@@ -125,28 +167,5 @@ public class AdbUtils {
             return file;
         }
 
-    }
-
-    /**
-     * Runs an info disclosure related PoC, pulls logs from the device,
-     * and searches the logs for the info being disclosed.
-     * @param pocName string of the PoC name
-     * @param device device to be ran on
-     * @param timeout time to wait for output in seconds
-     * @param pattern pattern of info being disclosed
-     * @return boolean returns false if the test fails, otherwise returns true
-     **/
-    public static boolean detectInformationDisclosure(
-        String pocName, ITestDevice device, int timeout, String pattern) throws Exception {
-
-           String pocOutput = runPoc(pocName, device, timeout);
-           if (Pattern.matches(pattern, pocOutput))
-             return false;
-
-           String logcatOutput = device.executeShellCommand("logcat -d");
-           if (Pattern.matches(pattern, logcatOutput))
-             return false;
-
-           return true;
     }
 }

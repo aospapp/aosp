@@ -185,7 +185,7 @@ static inline char prvGetChar(const char** fmtP)
     return *(*fmtP)++;
 }
 
-uint32_t cvprintf(printf_write_c putc_f, void* userData, const char* fmtStr, va_list vl)
+uint32_t cvprintf(printf_write_c putc_f, uint32_t flags, void* userData, const char* fmtStr, va_list vl)
 {
 
     char c, t;
@@ -404,21 +404,37 @@ more_fmt:
 #undef GET_UVAL64
 #undef GET_SVAL64
 
-                case 'f':
-                case 'g':
+                case 'F':
 
-                    if (useLongDouble) {
-                        ldbl = va_arg(vl, long double);
-                        data.number = *(uint64_t *)(&ldbl);
+                    data.flags |= FLAG_CAPS;
+
+                case 'f':
+
+                    if (flags & PRINTF_FLAG_CHRE) {
+                        if (flags & PRINTF_FLAG_SHORT_DOUBLE) {
+                            if (useLongDouble) {
+                                dbl = va_arg(vl, double);
+                                data.number = *(uint64_t *)(&dbl);
+                            } else {
+                                // just grab the 32-bits
+                                data.number = va_arg(vl, uint32_t);
+                            }
+                        } else {
+                            if (useLongDouble) {
+                                ldbl = va_arg(vl, long double);
+                                data.number = *(uint64_t *)(&ldbl);
+                            } else {
+                                dbl = va_arg(vl, double);
+                                data.number = *(uint64_t *)(&dbl);
+                            }
+                        }
+                        data.base = 16;
+                        data.flags |= FLAG_ALT;
+                        data.posChar = '\0';
+                        numPrinted += StrPrvPrintfEx_number(putc_f, &data, &bail);
                     } else {
-                        dbl = va_arg(vl, double);
-                        data.number = *(uint32_t *)(&dbl);
+                        bail = true;
                     }
-                    data.base = 16;
-                    data.flags &= ~FLAG_CAPS;
-                    data.flags |= FLAG_ALT;
-                    data.posChar = '\0';
-                    numPrinted += StrPrvPrintfEx_number(putc_f, &data, &bail);
                     if (bail)
                         goto out;
                     break;

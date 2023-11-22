@@ -16,9 +16,12 @@
 
 
 // This is the name as which we'll register ourselves
-const static char kManagedEnumeratorName[] = "EvsSharedEnumerator";
+const static char kManagedEnumeratorName[] = "default";
 
-// This is the name of the hardware provider to which we'll bind
-// TODO:  How should we configure these values to target appropriate hardware?
-const static char kHardwareEnumeratorName[]  = "EvsEnumeratorHw-Mock";
+// This is the name of the hardware provider to which we'll bind by default
+const static char kHardwareEnumeratorName[]  = "EvsEnumeratorHw";
+
+// This is the name of the mock hardware provider selectable via command line.
+// (should match .../hardware/interfaces/automotive/evs/1.0/default/ServiceNames.h)
+const static char kMockEnumeratorName[]  = "EvsEnumeratorHw-Mock";
 

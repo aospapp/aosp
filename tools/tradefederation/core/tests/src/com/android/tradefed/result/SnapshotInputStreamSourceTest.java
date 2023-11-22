@@ -34,7 +34,7 @@ public class SnapshotInputStreamSourceTest extends TestCase {
     }
 
     /**
-     * Ensure that the {@link SnapshotInputStreamSource#cancel()} method cleans up the backing file
+     * Ensure that the {@link SnapshotInputStreamSource#close()} method cleans up the backing file
      * as expected
      */
     @SuppressWarnings("serial")
@@ -47,15 +47,16 @@ public class SnapshotInputStreamSourceTest extends TestCase {
             }
         };
 
-        InputStreamSource source = new SnapshotInputStreamSource(mInputStream) {
-            @Override
-            File createBackingFile(InputStream stream) {
-                return fakeFile;
-            }
-        };
+        InputStreamSource source =
+                new SnapshotInputStreamSource("SnapUnitTest", mInputStream) {
+                    @Override
+                    File createBackingFile(String name, InputStream stream) {
+                        return fakeFile;
+                    }
+                };
 
         try {
-            source.cancel();
+            source.close();
             fail("Fake file was not deleted");
         } catch (RuntimeException e) {
             if (!deletedMsg.equals(e.getMessage())) {

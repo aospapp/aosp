@@ -121,8 +121,9 @@ INSTANTIATE_TEST_CASE_P(SR, AAudioStreamBuilderSamplingRateTest,
         ::testing::Values(
                 // Commonly used values
                 AAUDIO_UNSPECIFIED, 8000, 11025, 16000, 22050, 44100, 48000, 88200, 96000,
+                176400, 192000, 384000,
                 // Odd values
-                AAUDIO_UNSPECIFIED - 1, AAUDIO_UNSPECIFIED + 1, 1234, 1000000, 10000000),
+                AAUDIO_UNSPECIFIED - 1, AAUDIO_UNSPECIFIED + 1, 1234, 10000000),
         &AAudioStreamBuilderSamplingRateTest::getTestName);
 
 class AAudioStreamBuilderChannelCountTest : public ::testing::TestWithParam<int32_t> {

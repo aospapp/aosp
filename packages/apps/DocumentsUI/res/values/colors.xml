@@ -40,7 +40,8 @@
     <color name="root_activated_color">@*android:color/Blue_700</color>
     <color name="root_details_color">#8a000000</color>
     <color name="root_focus_color">#ffe0e0e0</color>
-    <color name="root_hover_color">#ffe0e0e0</color>
+
+    <color name="item_hover_color">#ffe0e0e0</color>
 
     <color name="sort_widget_text_color">#de000000</color>
 
@@ -63,11 +64,17 @@
     <color name="item_drag_shadow_background">@*android:color/white</color>
     <color name="item_drag_shadow_container_background">@*android:color/transparent</color>
 
-    <color name="shortcut_background">@*android:color/Blue_700</color>
+    <color name="downloads_icon_background">#ff4688f2</color>
+    <color name="app_icon_background">#ff4688f2</color>
+    <color name="shortcut_foreground">#ff3367d6</color>
+    <color name="shortcut_background">#fff5f5f5</color>
 
     <color name="dialog_title">@*android:color/primary_text_default_material_light</color>
 
     <color name="scroll_thumb_pressed">#ff8c8c8c</color>
     <color name="scroll_thumb">#ffbebebe</color>
     <color name="scroll_track">#fff0f0f0</color>
+
+    <color name="inspector_value">#ff939393</color>
+    <color name="inspector_section_title">#ff939393</color>
 </resources>

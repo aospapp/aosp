@@ -25,15 +25,12 @@ import android.support.annotation.NonNull;
 import android.support.v17.leanback.widget.GuidanceStylist.Guidance;
 import android.support.v17.leanback.widget.GuidedAction;
 import android.text.format.DateUtils;
-import android.widget.Toast;
 
 import com.android.tv.R;
 import com.android.tv.TvApplication;
 import com.android.tv.data.Program;
 import com.android.tv.dvr.DvrManager;
-import com.android.tv.dvr.DvrUiHelper;
-import com.android.tv.dvr.ScheduledRecording;
-import com.android.tv.util.Utils;
+import com.android.tv.dvr.data.ScheduledRecording;
 
 import java.util.List;
 
@@ -95,7 +92,7 @@ public class DvrAlreadyScheduledFragment extends DvrGuidedStepFragment {
     }
 
     @Override
-    public void onGuidedActionClicked(GuidedAction action) {
+    public void onTrackedGuidedActionClicked(GuidedAction action) {
         if (action.getId() == ACTION_RECORD_ANYWAY) {
             getDvrManager().addSchedule(mProgram);
         } else if (action.getId() == ACTION_RECORD_INSTEAD) {
@@ -103,5 +100,24 @@ public class DvrAlreadyScheduledFragment extends DvrGuidedStepFragment {
             getDvrManager().removeScheduledRecording(mDuplicate);
         }
         dismissDialog();
+    }
+
+    @Override
+    public String getTrackerPrefix() {
+        return "DvrAlreadyScheduledFragment";
+    }
+
+    @Override
+    public String getTrackerLabelForGuidedAction(GuidedAction action) {
+        long actionId = action.getId();
+        if (actionId == ACTION_RECORD_ANYWAY) {
+            return "record-anyway";
+        } else if (actionId == ACTION_RECORD_INSTEAD) {
+            return "record-instead";
+        } else if (actionId == ACTION_CANCEL) {
+            return "cancel-recording";
+        } else {
+            return super.getTrackerLabelForGuidedAction(action);
+        }
     }
 }

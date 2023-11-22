@@ -16,7 +16,6 @@
 
 #include "Context.hpp"
 #include "Surface.hpp"
-#include "CPUID.hpp"
 #include "PixelRoutine.hpp"
 #include "Debug.hpp"
 
@@ -48,10 +47,6 @@ namespace sw
 			{
 				mipmap.buffer[face] = &zero;
 			}
-
-			mipmap.uFrac = 16;
-			mipmap.vFrac = 16;
-			mipmap.wFrac = 16;
 		}
 
 		externalTextureFormat = FORMAT_NULL;
@@ -65,6 +60,7 @@ namespace sw
 		mipmapFilterState = MIPMAP_NONE;
 		sRGB = false;
 		gather = false;
+		highPrecisionFiltering = false;
 
 		swizzleR = SWIZZLE_RED;
 		swizzleG = SWIZZLE_GREEN;
@@ -73,6 +69,11 @@ namespace sw
 
 		texture.LOD = 0.0f;
 		exp2LOD = 1.0f;
+
+		texture.baseLevel = 0;
+		texture.maxLevel = 1000;
+		texture.maxLod = MIPMAP_LEVELS - 2;	// Trilinear accesses lod+1
+		texture.minLod = 0;
 	}
 
 	Sampler::~Sampler()
@@ -92,12 +93,12 @@ namespace sw
 			state.addressingModeV = getAddressingModeV();
 			state.addressingModeW = getAddressingModeW();
 			state.mipmapFilter = mipmapFilter();
-			state.hasNPOTTexture = hasNPOTTexture();
 			state.sRGB = sRGB && Surface::isSRGBreadable(externalTextureFormat);
 			state.swizzleR = swizzleR;
 			state.swizzleG = swizzleG;
 			state.swizzleB = swizzleB;
 			state.swizzleA = swizzleA;
+			state.highPrecisionFiltering = highPrecisionFiltering;
 
 			#if PERF_PROFILE
 				state.compressedFormat = Surface::isCompressed(externalTextureFormat);
@@ -126,10 +127,6 @@ namespace sw
 				int pitchP = surface->getInternalPitchP();
 				int sliceP = surface->getInternalSliceP();
 
-				int logWidth = log2(width);
-				int logHeight = log2(height);
-				int logDepth = log2(depth);
-
 				if(level == 0)
 				{
 					texture.widthHeightLOD[0] = width * exp2LOD;
@@ -153,16 +150,7 @@ namespace sw
 					texture.depthLOD[3] = depth * exp2LOD;
 				}
 
-				if(!Surface::isFloatFormat(internalTextureFormat))
-				{
-					mipmap.uInt = logWidth;
-					mipmap.vInt = logHeight;
-					mipmap.wInt = logDepth;
-					mipmap.uFrac = 16 - logWidth;
-					mipmap.vFrac = 16 - logHeight;
-					mipmap.wFrac = 16 - logDepth;
-				}
-				else
+				if(Surface::isFloatFormat(internalTextureFormat))
 				{
 					mipmap.fWidth[0] = (float)width / 65536.0f;
 					mipmap.fWidth[1] = (float)width / 65536.0f;
@@ -219,8 +207,15 @@ namespace sw
 				mipmap.onePitchP[2] = 1;
 				mipmap.onePitchP[3] = pitchP;
 
+				mipmap.pitchP[0] = pitchP;
+				mipmap.pitchP[1] = pitchP;
+				mipmap.pitchP[2] = pitchP;
+				mipmap.pitchP[3] = pitchP;
+
 				mipmap.sliceP[0] = sliceP;
 				mipmap.sliceP[1] = sliceP;
+				mipmap.sliceP[2] = sliceP;
+				mipmap.sliceP[3] = sliceP;
 
 				if(internalTextureFormat == FORMAT_YV12_BT601 ||
 				   internalTextureFormat == FORMAT_YV12_BT709 ||
@@ -234,8 +229,6 @@ namespace sw
 					mipmap.buffer[1] = (byte*)mipmap.buffer[0] + YSize;
 					mipmap.buffer[2] = (byte*)mipmap.buffer[1] + CSize;
 
-					texture.mipmap[1].uFrac = texture.mipmap[0].uFrac + 1;
-					texture.mipmap[1].vFrac = texture.mipmap[0].vFrac + 1;
 					texture.mipmap[1].width[0] = width / 2;
 					texture.mipmap[1].width[1] = width / 2;
 					texture.mipmap[1].width[2] = width / 2;
@@ -314,6 +307,11 @@ namespace sw
 		texture.maxAnisotropy = maxAnisotropy;
 	}
 
+	void Sampler::setHighPrecisionFiltering(bool highPrecisionFiltering)
+	{
+		this->highPrecisionFiltering = highPrecisionFiltering;
+	}
+
 	void Sampler::setSwizzleR(SwizzleType swizzleR)
 	{
 		this->swizzleR = swizzleR;
@@ -332,6 +330,26 @@ namespace sw
 	void Sampler::setSwizzleA(SwizzleType swizzleA)
 	{
 		this->swizzleA = swizzleA;
+	}
+
+	void Sampler::setBaseLevel(int baseLevel)
+	{
+		texture.baseLevel = baseLevel;
+	}
+
+	void Sampler::setMaxLevel(int maxLevel)
+	{
+		texture.maxLevel = maxLevel;
+	}
+
+	void Sampler::setMinLod(float minLod)
+	{
+		texture.minLod = clamp(minLod, 0.0f, (float)(MIPMAP_LEVELS - 2));
+	}
+
+	void Sampler::setMaxLod(float maxLod)
+	{
+		texture.maxLod = clamp(maxLod, 0.0f, (float)(MIPMAP_LEVELS - 2));
 	}
 
 	void Sampler::setFilterQuality(FilterType maximumFilterQuality)
@@ -395,24 +413,6 @@ namespace sw
 		return MIPMAP_NONE;
 	}
 
-	bool Sampler::hasNPOTTexture() const
-	{
-		if(textureType == TEXTURE_NULL)
-		{
-			return false;
-		}
-
-		for(int i = 0; i < MIPMAP_LEVELS; i++)
-		{
-			if(texture.mipmap[i].width[0] != texture.mipmap[i].onePitchP[1])
-			{
-				return true;   // Shifting of the texture coordinates doesn't yield the correct address, so using multiply by pitch
-			}
-		}
-
-		return !isPow2(texture.mipmap[0].width[0]) || !isPow2(texture.mipmap[0].height[0]) || !isPow2(texture.mipmap[0].depth[0]);
-	}
-
 	TextureType Sampler::getTextureType() const
 	{
 		return textureType;
@@ -420,6 +420,15 @@ namespace sw
 
 	FilterType Sampler::getTextureFilter() const
 	{
+		// Don't filter 1x1 textures.
+		if(texture.mipmap[0].width[0] == 1 && texture.mipmap[0].height[0] == 1 && texture.mipmap[0].depth[0] == 1)
+		{
+			if(mipmapFilter() == MIPMAP_NONE)
+			{
+				return FILTER_POINT;
+			}
+		}
+
 		FilterType filter = textureFilter;
 
 		if(gather && Surface::componentCount(internalTextureFormat) == 1)

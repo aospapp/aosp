@@ -19,19 +19,19 @@ import logging
 
 from vts.runners.host import base_test
 from vts.runners.host import test_runner
-from vts.utils.python.controllers import android_device
 
 
 class SampleLightTest(base_test.BaseTestClass):
     """A sample testcase for the legacy lights HAL."""
 
     def setUpClass(self):
-        self.dut = self.registerController(android_device)[0]
-        self.dut.hal.InitConventionalHal(target_type="light",
-                                         target_basepaths=["/data/local/tmp/64/hw"],
-                                         target_version=1.0,
-                                         bits=64,
-                                         target_package="hal.conventional.light")
+        self.dut = self.android_devices[0]
+        self.dut.hal.InitConventionalHal(
+            target_type="light",
+            target_basepaths=["/data/local/tmp/64/hw"],
+            target_version=1.0,
+            bits=64,
+            target_package="hal.conventional.light")
         self.dut.hal.light.OpenConventionalHal("backlight")
 
     def testTurnOnBackgroundLight(self):

@@ -24,7 +24,17 @@
 
 namespace chre {
 
-PlatformWwan::PlatformWwan() {
+PlatformWwan::~PlatformWwan() {
+  if (mWwanApi != nullptr) {
+    LOGD("Platform WWAN closing");
+    prePalApiCall();
+    mWwanApi->close();
+    LOGD("Platform WWAN closed");
+  }
+}
+
+void PlatformWwan::init() {
+  prePalApiCall();
   mWwanApi = chrePalWwanGetApi(CHRE_PAL_WWAN_API_CURRENT_VERSION);
   if (mWwanApi != nullptr) {
     mWwanCallbacks.cellInfoResultCallback =
@@ -39,23 +49,35 @@ PlatformWwan::PlatformWwan() {
   }
 }
 
-PlatformWwan::~PlatformWwan() {
-  if (mWwanApi != nullptr) {
-    mWwanApi->close();
-  }
-}
-
 uint32_t PlatformWwan::getCapabilities() {
   if (mWwanApi != nullptr) {
+    prePalApiCall();
     return mWwanApi->getCapabilities();
   } else {
     return CHRE_WWAN_CAPABILITIES_NONE;
   }
 }
 
+bool PlatformWwan::requestCellInfo() {
+  if (mWwanApi != nullptr) {
+    prePalApiCall();
+    return mWwanApi->requestCellInfo();
+  } else {
+    return false;
+  }
+}
+
+void PlatformWwan::releaseCellInfoResult(chreWwanCellInfoResult *result) {
+  if (mWwanApi != nullptr) {
+    prePalApiCall();
+    mWwanApi->releaseCellInfoResult(result);
+  }
+}
+
 void PlatformWwanBase::cellInfoResultCallback(
     struct chreWwanCellInfoResult *result) {
-  // TODO: Implement this.
+  EventLoopManagerSingleton::get()->getWwanRequestManager()
+      .handleCellInfoResult(result);
 }
 
 }  // namespace chre

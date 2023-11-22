@@ -1495,9 +1495,11 @@ public final class CipherTest extends TestCase {
         final AlgorithmParameterSpec decryptSpec = getDecryptAlgorithmParameterSpec(encryptSpec, c);
         int decryptMode = getDecryptMode(algorithm);
 
-        test_Cipher_init_Decrypt_NullParameters(c, decryptMode, encryptKey, decryptSpec != null);
+        Key decryptKey = getDecryptKey(algorithm);
 
-        c.init(decryptMode, getDecryptKey(algorithm), decryptSpec);
+        test_Cipher_init_Decrypt_NullParameters(c, decryptMode, decryptKey, decryptSpec != null);
+
+        c.init(decryptMode, decryptKey, decryptSpec);
         assertEquals(cipherID + " getBlockSize() decryptMode",
                      getExpectedBlockSize(algorithm, decryptMode, providerName), c.getBlockSize());
         assertEquals(cipherID + " getOutputSize(0) decryptMode",
@@ -1547,7 +1549,7 @@ public final class CipherTest extends TestCase {
             byte[] cipherText = c.wrap(sk);
 
             // Unwrap it
-            c.init(Cipher.UNWRAP_MODE, getDecryptKey(algorithm), decryptSpec);
+            c.init(Cipher.UNWRAP_MODE, decryptKey, decryptSpec);
             Key decryptedKey = c.unwrap(cipherText, sk.getAlgorithm(), Cipher.SECRET_KEY);
 
             assertEquals(cipherID
@@ -1568,7 +1570,7 @@ public final class CipherTest extends TestCase {
                 byte[] cipherText2 = c.doFinal(getActualPlainText(algorithm));
                 assertEquals(cipherID, Arrays.toString(cipherText), Arrays.toString(cipherText2));
             }
-            c.init(Cipher.DECRYPT_MODE, getDecryptKey(algorithm), decryptSpec);
+            c.init(Cipher.DECRYPT_MODE, decryptKey, decryptSpec);
             if (isAEAD(algorithm)) {
                 c.updateAAD(new byte[24]);
             }

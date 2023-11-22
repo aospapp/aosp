@@ -29,6 +29,7 @@ import android.view.ViewGroup;
 import com.android.tv.MainActivity;
 import com.android.tv.R;
 import com.android.tv.dvr.DvrStorageStatusManager;
+import com.android.tv.dialog.HalfSizedDialogFragment;
 import com.android.tv.dvr.ui.DvrConflictFragment.DvrChannelWatchConflictFragment;
 import com.android.tv.dvr.ui.DvrConflictFragment.DvrProgramConflictFragment;
 import com.android.tv.guide.ProgramGuide;
@@ -166,6 +167,17 @@ public class DvrHalfSizedDialogFragment extends HalfSizedDialogFragment {
     }
 
     /**
+     * A dialog fragment to show error message when there is no enough free space to record.
+     */
+    public static class DvrNoFreeSpaceErrorDialogFragment
+            extends DvrGuidedStepDialogFragment {
+        @Override
+        protected DvrGuidedStepFragment onCreateGuidedStepFragment() {
+            return new DvrGuidedStepFragment.DvrNoFreeSpaceErrorFragment();
+        }
+    }
+
+    /**
      * A dialog fragment to show error message when the current storage is too small to
      * support DVR
      */
@@ -173,32 +185,7 @@ public class DvrHalfSizedDialogFragment extends HalfSizedDialogFragment {
             extends DvrGuidedStepDialogFragment {
         @Override
         protected DvrGuidedStepFragment onCreateGuidedStepFragment() {
-            return new DvrGuidedStepFragment() {
-                @Override
-                public Guidance onCreateGuidance(Bundle savedInstanceState) {
-                    String title = getResources().getString(
-                            R.string.dvr_error_small_sized_storage_title);
-                    String description = getResources().getString(
-                            R.string.dvr_error_small_sized_storage_description,
-                            DvrStorageStatusManager.MIN_STORAGE_SIZE_FOR_DVR_IN_BYTES / 1024
-                                    / 1024 / 1024);
-                    return new Guidance(title, description, null, null);
-                }
-
-                @Override
-                public void onCreateActions(List<GuidedAction> actions, Bundle savedInstanceState) {
-                    Activity activity = getActivity();
-                    actions.add(new GuidedAction.Builder(activity)
-                            .id(GuidedAction.ACTION_ID_OK)
-                            .title(android.R.string.ok)
-                            .build());
-                }
-
-                @Override
-                public void onGuidedActionClicked(GuidedAction action) {
-                    dismissDialog();
-                }
-            };
+            return new DvrGuidedStepFragment.DvrSmallSizedStorageErrorFragment();
         }
     }
 

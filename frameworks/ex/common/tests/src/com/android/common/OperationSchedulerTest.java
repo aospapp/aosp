@@ -155,6 +155,29 @@ public class OperationSchedulerTest extends AndroidTestCase {
         assertEquals(beforeError + 84100, scheduler.getNextTimeMillis(options));
     }
 
+    @MediumTest
+    public void testExponentialBackoffBoundedByMoratorium() throws Exception {
+        TimeTravelScheduler scheduler = new TimeTravelScheduler();
+        scheduler.setTriggerTimeMillis(0);
+        scheduler.setEnabledState(true);
+        scheduler.timeMillis = System.currentTimeMillis();
+
+        OperationScheduler.Options options = new OperationScheduler.Options();
+        options.backoffFixedMillis = 100;
+        options.backoffIncrementalMillis = 1000;
+        options.backoffExponentialMillis = 10000;
+        options.maxMoratoriumMillis = 24 * 3600 * 1000;
+
+        for(int i = 1; i < 31; i++) {
+            // report an error - increments the errorCount
+            scheduler.onTransientError();
+            final long nextTime = scheduler.getNextTimeMillis(options);
+            final long timeAfterOperation = System.currentTimeMillis();
+            assertTrue("Backoff is not bounded by max moratorium for iteration " + i,
+                    nextTime < timeAfterOperation + options.maxMoratoriumMillis);
+        }
+    }
+
     @SmallTest
     public void testParseOptions() throws Exception {
          OperationScheduler.Options options = new OperationScheduler.Options();

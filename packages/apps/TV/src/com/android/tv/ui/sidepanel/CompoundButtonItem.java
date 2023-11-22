@@ -23,9 +23,12 @@ import android.widget.TextView;
 import com.android.tv.R;
 
 public abstract class CompoundButtonItem extends Item {
+    private static int sDefaultMaxLine = 0;
+
     private final String mCheckedTitle;
     private final String mUncheckedTitle;
     private final String mDescription;
+    private final int mMaxLine;
     private boolean mChecked;
     private TextView mTextView;
     private CompoundButton mCompoundButton;
@@ -38,6 +41,15 @@ public abstract class CompoundButtonItem extends Item {
         mCheckedTitle = checkedTitle;
         mUncheckedTitle = uncheckedTitle;
         mDescription = description;
+        mMaxLine = 0;
+    }
+
+    public CompoundButtonItem(String checkedTitle, String uncheckedTitle, String description,
+            int maxLine) {
+        mCheckedTitle = checkedTitle;
+        mUncheckedTitle = uncheckedTitle;
+        mDescription = description;
+        mMaxLine = maxLine;
     }
 
     protected abstract int getCompoundButtonId();
@@ -57,6 +69,15 @@ public abstract class CompoundButtonItem extends Item {
         mTextView = (TextView) view.findViewById(getTitleViewId());
         TextView descriptionView = (TextView) view.findViewById(getDescriptionViewId());
         if (mDescription != null) {
+            if (mMaxLine != 0) {
+                descriptionView.setMaxLines(mMaxLine);
+            } else {
+                if (sDefaultMaxLine == 0) {
+                    sDefaultMaxLine = view.getContext().getResources()
+                            .getInteger(R.integer.option_item_description_max_lines);
+                }
+                descriptionView.setMaxLines(sDefaultMaxLine);
+            }
             descriptionView.setVisibility(View.VISIBLE);
             descriptionView.setText(mDescription);
         } else {

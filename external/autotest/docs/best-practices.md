@@ -177,7 +177,7 @@ a part of your test:
 1. Create a src/ directory next to your control file.
 2. Put your source, including its Makefile, in src/
 3. define a method in your test class called “setup(self)” that takes no arguments.
-4. setup(self) should perform all tasks necessary to build your tool.  There are some helpful utility functions in client/common_lib/base_utils.py.  Trivial example:
+4. setup(self) should perform all tasks necessary to build your tool.  There are some helpful utility functions in client/common_lib/utils.py.  Trivial example:
 
 ```
     def setup(self):

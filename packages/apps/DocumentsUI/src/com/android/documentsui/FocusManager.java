@@ -174,6 +174,11 @@ public final class FocusManager implements FocusHandler {
         mScope.pendingFocusId = null;
     }
 
+    @Override
+    public void clearFocus() {
+        mScope.view.clearFocus();
+    }
+
     /*
      * Attempts to put focus on the document associated with the given modelId. If item does not
      * exist yet in the layout, this sets a pending modelId to be used when {@code
@@ -181,7 +186,7 @@ public final class FocusManager implements FocusHandler {
      */
     @Override
     public void focusDocument(String modelId) {
-        int pos = mScope.adapter.getModelIds().indexOf(modelId);
+        int pos = mScope.adapter.getAdapterPosition(modelId);
         if (pos != -1 && mScope.view.findViewHolderForAdapterPosition(pos) != null) {
             focusItem(pos);
         } else {
@@ -351,15 +356,17 @@ public final class FocusManager implements FocusHandler {
             mScope.pendingFocusId = null;
         }
 
+        final RecyclerView recyclerView = mScope.view;
+        final RecyclerView.ViewHolder vh = recyclerView.findViewHolderForAdapterPosition(pos);
+
         // If the item is already in view, focus it; otherwise, scroll to it and focus it.
-        RecyclerView.ViewHolder vh = mScope.view.findViewHolderForAdapterPosition(pos);
         if (vh != null) {
             if (vh.itemView.requestFocus() && callback != null) {
                 callback.onFocus(vh.itemView);
             }
         } else {
             // Set a one-time listener to request focus when the scroll has completed.
-            mScope.view.addOnScrollListener(
+            recyclerView.addOnScrollListener(
                     new RecyclerView.OnScrollListener() {
                         @Override
                         public void onScrollStateChanged(RecyclerView view, int newState) {
@@ -381,7 +388,7 @@ public final class FocusManager implements FocusHandler {
                             }
                         }
                     });
-            mScope.view.smoothScrollToPosition(pos);
+            recyclerView.smoothScrollToPosition(pos);
         }
     }
 

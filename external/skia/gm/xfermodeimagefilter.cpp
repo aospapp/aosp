@@ -93,7 +93,8 @@ protected:
             }
         }
         // Test arithmetic mode as image filter
-        paint.setImageFilter(SkArithmeticImageFilter::Make(0, 1, 1, 0, true, background));
+        paint.setImageFilter(SkArithmeticImageFilter::Make(0, 1, 1, 0, true, background,
+                                                           nullptr, nullptr));
         DrawClippedBitmap(canvas, fBitmap, paint, x, y);
         x += fBitmap.width() + MARGIN;
         if (x + fBitmap.width() > WIDTH) {
@@ -201,17 +202,16 @@ protected:
 
 private:
     static void DrawClippedBitmap(SkCanvas* canvas, const SkBitmap& bitmap, const SkPaint& paint,
-                           int x, int y) {
+                                  int x, int y) {
         canvas->save();
         canvas->translate(SkIntToScalar(x), SkIntToScalar(y));
-        canvas->clipRect(SkRect::MakeWH(
-            SkIntToScalar(bitmap.width()), SkIntToScalar(bitmap.height())));
+        canvas->clipRect(SkRect::MakeIWH(bitmap.width(), bitmap.height()));
         canvas->drawBitmap(bitmap, 0, 0, &paint);
         canvas->restore();
     }
 
     static void DrawClippedPaint(SkCanvas* canvas, const SkRect& rect, const SkPaint& paint,
-                          int x, int y) {
+                                 int x, int y) {
         canvas->save();
         canvas->translate(SkIntToScalar(x), SkIntToScalar(y));
         canvas->clipRect(rect);

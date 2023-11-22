@@ -29,22 +29,46 @@ import java.util.Map;
  * against when overlapping content is discovered.
  */
 public final class FederationTagger {
-  private final Map<String, URL> federatedUrls = new HashMap<String, URL>();
-  private final Map<String, String> federatedXmls = new HashMap<String, String>();
-  private final List<FederatedSite> federatedSites = new ArrayList<FederatedSite>();
+  private final Map<String, URL> federatedUrls = new HashMap<>();
+  private final Map<String, String> federatedXmls = new HashMap<>();
+  private final List<FederatedSite> federatedSites = new ArrayList<>();
+
   private boolean initialized = false;
+
   /**
    * Adds a Doclava documentation site for federation. Accepts the base URL of
    * the remote API.
+   * <p>
+   * If {@link #addSiteApi(String, String)} is not called, this will default to
+   * reading the API from "/xml/current.xml" within the site's base URL.
+   * <p>
+   * <strong>Note:</strong> Must be called before calling tag() or get() methods.
+   *
+   * @param name internally-used name for federation site
    */
   public void addSiteUrl(String name, URL site) {
+    if (initialized) {
+      throw new IllegalStateException("Cannot add sites after calling tag() or get() methods.");
+    }
     federatedUrls.put(name, site);
   }
-  
+
+  /**
+   * Adds an explicit Doclava-generated API file for the specified site.
+   * <p>
+   * <strong>Note:</strong> Must be called before calling tag() or get() methods.
+   *
+   * @param name internally-used name for federation site (must match name used
+   *             for {@link #addSiteUrl(String, URL)})
+   * @param file path to a Doclava-generated API file
+   */
   public void addSiteApi(String name, String file) {
+    if (initialized) {
+      throw new IllegalStateException("Cannot add sites after calling tag() or get() methods.");
+    }
     federatedXmls.put(name, file);
   }
-  
+
   public void tag(ClassInfo classDoc) {
     initialize();
     for (FederatedSite site : federatedSites) {
@@ -58,19 +82,28 @@ public final class FederationTagger {
       applyFederation(site, classDocs);
     }
   }
-  
+
+  /**
+   * Returns a non-{@code null} list of {@link FederatedSite} objects, one for
+   * each unique {@code name} added using {@link #addSiteUrl(String, URL)}.
+   */
+  public List<FederatedSite> getSites() {
+    initialize();
+    return federatedSites;
+  }
+
   private void initialize() {
     if (initialized) {
       return;
     }
-    
+
     for (String name : federatedXmls.keySet()) {
       if (!federatedUrls.containsKey(name)) {
         Errors.error(Errors.NO_FEDERATION_DATA, (SourcePositionInfo) null,
             "Unknown documentation site for " + name);
       }
     }
-    
+
     for (String name : federatedUrls.keySet()) {
       try {
         if (federatedXmls.containsKey(name)) {
@@ -87,10 +120,10 @@ public final class FederationTagger {
         Errors.error(Errors.NO_FEDERATION_DATA, (SourcePositionInfo) null, error);
       }
     }
-    
+
     initialized = true;
   }
-  
+
   private void applyFederation(FederatedSite federationSource, ClassInfo[] classDocs) {
     for (ClassInfo classDoc : classDocs) {
       PackageInfo packageSpec
@@ -101,11 +134,11 @@ public final class FederationTagger {
       }
 
       ClassInfo classSpec = packageSpec.allClasses().get(classDoc.name());
-      
+
       if (classSpec == null) {
         continue;
       }
-      
+
       federateMethods(federationSource, classSpec, classDoc);
       federateConstructors(federationSource, classSpec, classDoc);
       federateFields(federationSource, classSpec, classDoc);
@@ -124,7 +157,7 @@ public final class FederationTagger {
       }
     }
   }
-  
+
   private void federateConstructors(FederatedSite site, ClassInfo federatedClass,
       ClassInfo localClass) {
     for (MethodInfo constructor : localClass.constructors()) {
@@ -133,7 +166,7 @@ public final class FederationTagger {
       }
     }
   }
-  
+
   private void federateFields(FederatedSite site, ClassInfo federatedClass, ClassInfo localClass) {
     for (FieldInfo field : localClass.fields()) {
       if (federatedClass.allFields().containsKey(field.name())) {
@@ -141,11 +174,11 @@ public final class FederationTagger {
       }
     }
   }
-  
+
   private void federateClass(FederatedSite source, ClassInfo doc) {
     doc.addFederatedReference(source);
   }
-  
+
   private void federatePackage(FederatedSite source, PackageInfo pkg) {
     pkg.addFederatedReference(source);
   }

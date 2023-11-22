@@ -153,7 +153,7 @@ wifi_error wifi_start_logging(wifi_interface_handle iface,
 cleanup:
     if (wifiLoggerCommand)
         delete wifiLoggerCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 
 }
 
@@ -183,7 +183,7 @@ wifi_error wifi_get_ring_buffers_status(wifi_interface_handle iface,
         get_rb_status(rb_info, rbs);
     }
     *num_buffers = NUM_RING_BUFS;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 void push_out_all_ring_buffers(hal_info *info)
@@ -273,7 +273,7 @@ wifi_error wifi_get_logger_supported_feature_set(wifi_interface_handle iface,
 
 cleanup:
     delete wifiLoggerCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /*  Function to get the data in each ring for the given ring ID.*/
@@ -339,7 +339,7 @@ wifi_error wifi_get_ring_data(wifi_interface_handle iface,
 
 cleanup:
     delete wifiLoggerCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 void WifiLoggerCommand::setVersionInfo(char *buffer, int buffer_size) {
@@ -405,7 +405,7 @@ wifi_error wifi_get_firmware_version(wifi_interface_handle iface,
     }
 cleanup:
     delete wifiLoggerCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 
 }
 
@@ -468,7 +468,7 @@ wifi_error wifi_get_driver_version(wifi_interface_handle iface,
     }
 cleanup:
     delete wifiLoggerCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 
@@ -534,7 +534,7 @@ wifi_error wifi_get_firmware_memory_dump(wifi_interface_handle iface,
 
 cleanup:
     delete wifiLoggerCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 wifi_error wifi_set_log_handler(wifi_request_id id,
@@ -1501,7 +1501,7 @@ wifi_error wifi_get_wake_reason_stats(wifi_interface_handle iface,
 
 cleanup:
     delete wifiLoggerCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 void WifiLoggerCommand::getWakeStatsRspParams(

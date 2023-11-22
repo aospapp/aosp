@@ -72,8 +72,6 @@ class Interface:
     ADDRESS_TYPE_IPV6 = 'inet6'
     ADDRESS_TYPES = [ ADDRESS_TYPE_MAC, ADDRESS_TYPE_IPV4, ADDRESS_TYPE_IPV6 ]
 
-    INTERFACE_NAME_ETHERNET = 'eth0'  # Assume this is `the` ethernet interface.
-
 
     @staticmethod
     def get_connected_ethernet_interface(ignore_failures=False):
@@ -157,7 +155,7 @@ class Interface:
                 ignore_status=True).exit_status == 0
         read_file = (lambda path: self._run('cat "%s"' % path).stdout.rstrip()
                      if exists(path) else None)
-        if not self.is_wifi_device:
+        if not self.is_wifi_device():
             logging.error('Device description not supported on non-wifi '
                           'interface: %s.', self._name)
             return None

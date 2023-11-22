@@ -21,6 +21,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.net.NetworkSpecifier;
 import android.net.wifi.RttManager;
 import android.net.wifi.RttManager.RttResult;
@@ -40,7 +41,9 @@ import android.net.wifi.aware.WifiAwareNetworkSpecifier;
 import android.net.wifi.aware.WifiAwareSession;
 import android.os.Bundle;
 import android.os.Parcelable;
+import android.os.Process;
 import android.os.RemoteException;
+import android.text.TextUtils;
 import android.util.Base64;
 import android.util.SparseArray;
 
@@ -59,6 +62,8 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -163,34 +168,14 @@ public class WifiAwareManagerFacade extends RpcReceiver {
         }
 
         return new WifiAwareNetworkSpecifier(type, role, clientId, sessionId, peerId, peerMac, pmk,
-                passphrase);
+                passphrase, Process.myUid());
     }
 
-    private static TlvBufferUtils.TlvConstructor getFilterData(JSONObject j) throws JSONException {
-        if (j == null) {
+    private static String getStringOrNull(JSONObject j, String name) throws JSONException {
+        if (j.isNull(name)) {
             return null;
         }
-
-        TlvBufferUtils.TlvConstructor constructor = new TlvBufferUtils.TlvConstructor(0, 1);
-        constructor.allocate(255);
-
-        if (j.has("int0")) {
-            constructor.putShort(0, (short) j.getInt("int0"));
-        }
-
-        if (j.has("int1")) {
-            constructor.putShort(0, (short) j.getInt("int1"));
-        }
-
-        if (j.has("data0")) {
-            constructor.putString(0, j.getString("data0"));
-        }
-
-        if (j.has("data1")) {
-            constructor.putString(0, j.getString("data1"));
-        }
-
-        return constructor;
+        return j.getString(name);
     }
 
     private static ConfigRequest getConfigRequest(JSONObject j) throws JSONException {
@@ -231,6 +216,14 @@ public class WifiAwareManagerFacade extends RpcReceiver {
         return builder.build();
     }
 
+    private static List<byte[]> getMatchFilter(JSONArray ja) throws JSONException {
+        List<byte[]> la = new ArrayList<>();
+        for (int i = 0; i < ja.length(); ++i) {
+            la.add(Base64.decode(ja.getString(i).getBytes(StandardCharsets.UTF_8), Base64.DEFAULT));
+        }
+        return la;
+    }
+
     private static PublishConfig getPublishConfig(JSONObject j) throws JSONException {
         if (j == null) {
             return null;
@@ -239,29 +232,35 @@ public class WifiAwareManagerFacade extends RpcReceiver {
         PublishConfig.Builder builder = new PublishConfig.Builder();
 
         if (j.has("ServiceName")) {
-            builder.setServiceName(j.getString("ServiceName"));
+            builder.setServiceName(getStringOrNull(j, "ServiceName"));
         }
 
         if (j.has("ServiceSpecificInfo")) {
-            String ssi = j.getString("ServiceSpecificInfo");
-            byte[] bytes = ssi.getBytes();
-            builder.setServiceSpecificInfo(bytes);
+            String ssi = getStringOrNull(j, "ServiceSpecificInfo");
+            if (ssi != null) {
+                builder.setServiceSpecificInfo(ssi.getBytes());
+            }
         }
 
         if (j.has("MatchFilter")) {
-            TlvBufferUtils.TlvConstructor constructor = getFilterData(
-                    j.getJSONObject("MatchFilter"));
-            builder.setMatchFilter(
-                    new TlvBufferUtils.TlvIterable(0, 1, constructor.getArray()).toList());
+            byte[] bytes = Base64.decode(
+                    j.getString("MatchFilter").getBytes(StandardCharsets.UTF_8), Base64.DEFAULT);
+            List<byte[]> mf = new TlvBufferUtils.TlvIterable(0, 1, bytes).toList();
+            builder.setMatchFilter(mf);
+
         }
 
-        if (j.has("PublishType")) {
-            builder.setPublishType(j.getInt("PublishType"));
+        if (!j.isNull("MatchFilterList")) {
+            builder.setMatchFilter(getMatchFilter(j.getJSONArray("MatchFilterList")));
+        }
+
+        if (j.has("DiscoveryType")) {
+            builder.setPublishType(j.getInt("DiscoveryType"));
         }
         if (j.has("TtlSec")) {
             builder.setTtlSec(j.getInt("TtlSec"));
         }
-        if (j.has("EnableTerminateNotification")) {
+        if (j.has("TerminateNotificationEnabled")) {
             builder.setTerminateNotificationEnabled(j.getBoolean("TerminateNotificationEnabled"));
         }
 
@@ -280,24 +279,30 @@ public class WifiAwareManagerFacade extends RpcReceiver {
         }
 
         if (j.has("ServiceSpecificInfo")) {
-            String ssi = j.getString("ServiceSpecificInfo");
-            builder.setServiceSpecificInfo(ssi.getBytes());
+            String ssi = getStringOrNull(j, "ServiceSpecificInfo");
+            if (ssi != null) {
+                builder.setServiceSpecificInfo(ssi.getBytes());
+            }
         }
 
         if (j.has("MatchFilter")) {
-            TlvBufferUtils.TlvConstructor constructor = getFilterData(
-                    j.getJSONObject("MatchFilter"));
-            builder.setMatchFilter(
-                    new TlvBufferUtils.TlvIterable(0, 1, constructor.getArray()).toList());
+            byte[] bytes = Base64.decode(
+                    j.getString("MatchFilter").getBytes(StandardCharsets.UTF_8), Base64.DEFAULT);
+            List<byte[]> mf = new TlvBufferUtils.TlvIterable(0, 1, bytes).toList();
+            builder.setMatchFilter(mf);
         }
 
-        if (j.has("SubscribeType")) {
-            builder.setSubscribeType(j.getInt("SubscribeType"));
+        if (!j.isNull("MatchFilterList")) {
+            builder.setMatchFilter(getMatchFilter(j.getJSONArray("MatchFilterList")));
+        }
+
+        if (j.has("DiscoveryType")) {
+            builder.setSubscribeType(j.getInt("DiscoveryType"));
         }
         if (j.has("TtlSec")) {
             builder.setTtlSec(j.getInt("TtlSec"));
         }
-        if (j.has("EnableTerminateNotification")) {
+        if (j.has("TerminateNotificationEnabled")) {
             builder.setTerminateNotificationEnabled(j.getBoolean("TerminateNotificationEnabled"));
         }
 
@@ -321,6 +326,11 @@ public class WifiAwareManagerFacade extends RpcReceiver {
     public void shutdown() {
         wifiAwareDestroyAll();
         mService.unregisterReceiver(mStateChangedReceiver);
+    }
+
+    @Rpc(description = "Does the device support the Wi-Fi Aware feature?")
+    public Boolean doesDeviceSupportWifiAwareFeature() {
+        return mService.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WIFI_AWARE);
     }
 
     @Rpc(description = "Is Aware Usage Enabled?")
@@ -348,13 +358,26 @@ public class WifiAwareManagerFacade extends RpcReceiver {
 
     @Rpc(description = "Attach to Aware.")
     public Integer wifiAwareAttach(
-            @RpcParameter(name = "awareConfig") @RpcOptional JSONObject awareConfig)
+            @RpcParameter(name = "identityCb",
+                description = "Controls whether an identity callback is provided")
+                @RpcOptional Boolean identityCb,
+            @RpcParameter(name = "awareConfig",
+                description = "The session configuration, or null for default config")
+                @RpcOptional JSONObject awareConfig,
+            @RpcParameter(name = "useIdInCallbackEvent",
+                description =
+                    "Specifies whether the callback events should be decorated with session Id")
+                @RpcOptional Boolean useIdInCallbackEvent)
             throws RemoteException, JSONException {
         synchronized (mLock) {
             int sessionId = getNextSessionId();
+            boolean useIdInCallbackEventName =
+                (useIdInCallbackEvent != null) ? useIdInCallbackEvent : false;
             mMgr.attach(null, getConfigRequest(awareConfig),
-                    new AwareAttachCallbackPostsEvents(sessionId),
-                    new AwareIdentityChangeListenerPostsEvents(sessionId));
+                    new AwareAttachCallbackPostsEvents(sessionId, useIdInCallbackEventName),
+                    (identityCb != null && identityCb.booleanValue())
+                        ? new AwareIdentityChangeListenerPostsEvents(sessionId,
+                        useIdInCallbackEventName) : null);
             return sessionId;
         }
     }
@@ -378,7 +401,11 @@ public class WifiAwareManagerFacade extends RpcReceiver {
     @Rpc(description = "Publish.")
     public Integer wifiAwarePublish(
             @RpcParameter(name = "clientId", description = "The client ID returned when a connection was created") Integer clientId,
-            @RpcParameter(name = "publishConfig") JSONObject publishConfig)
+            @RpcParameter(name = "publishConfig") JSONObject publishConfig,
+            @RpcParameter(name = "useIdInCallbackEvent",
+            description =
+                "Specifies whether the callback events should be decorated with session Id")
+                @RpcOptional Boolean useIdInCallbackEvent)
             throws RemoteException, JSONException {
         synchronized (mLock) {
             WifiAwareSession session = mSessions.get(clientId);
@@ -387,18 +414,47 @@ public class WifiAwareManagerFacade extends RpcReceiver {
                         "Calling WifiAwarePublish before session (client ID " + clientId
                                 + ") is ready/or already disconnected");
             }
+            boolean useIdInCallbackEventName =
+                (useIdInCallbackEvent != null) ? useIdInCallbackEvent : false;
 
             int discoverySessionId = getNextDiscoverySessionId();
             session.publish(getPublishConfig(publishConfig),
-                    new AwareDiscoverySessionCallbackPostsEvents(discoverySessionId), null);
+                new AwareDiscoverySessionCallbackPostsEvents(discoverySessionId,
+                    useIdInCallbackEventName), null);
             return discoverySessionId;
+        }
+    }
+
+    @Rpc(description = "Update Publish.")
+    public void wifiAwareUpdatePublish(
+        @RpcParameter(name = "sessionId", description = "The discovery session ID")
+            Integer sessionId,
+        @RpcParameter(name = "publishConfig", description = "Publish configuration")
+            JSONObject publishConfig)
+        throws RemoteException, JSONException {
+        synchronized (mLock) {
+            DiscoverySession session = mDiscoverySessions.get(sessionId);
+            if (session == null) {
+                throw new IllegalStateException(
+                    "Calling wifiAwareUpdatePublish before session (session ID "
+                        + sessionId + ") is ready");
+            }
+            if (!(session instanceof PublishDiscoverySession)) {
+                throw new IllegalArgumentException(
+                    "Calling wifiAwareUpdatePublish with a subscribe session ID");
+            }
+            ((PublishDiscoverySession) session).updatePublish(getPublishConfig(publishConfig));
         }
     }
 
     @Rpc(description = "Subscribe.")
     public Integer wifiAwareSubscribe(
             @RpcParameter(name = "clientId", description = "The client ID returned when a connection was created") Integer clientId,
-            @RpcParameter(name = "subscribeConfig") JSONObject subscribeConfig)
+            @RpcParameter(name = "subscribeConfig") JSONObject subscribeConfig,
+            @RpcParameter(name = "useIdInCallbackEvent",
+                description =
+                "Specifies whether the callback events should be decorated with session Id")
+                @RpcOptional Boolean useIdInCallbackEvent)
             throws RemoteException, JSONException {
         synchronized (mLock) {
             WifiAwareSession session = mSessions.get(clientId);
@@ -407,11 +463,37 @@ public class WifiAwareManagerFacade extends RpcReceiver {
                         "Calling WifiAwareSubscribe before session (client ID " + clientId
                                 + ") is ready/or already disconnected");
             }
+            boolean useIdInCallbackEventName =
+                (useIdInCallbackEvent != null) ? useIdInCallbackEvent : false;
 
             int discoverySessionId = getNextDiscoverySessionId();
             session.subscribe(getSubscribeConfig(subscribeConfig),
-                    new AwareDiscoverySessionCallbackPostsEvents(discoverySessionId), null);
+                new AwareDiscoverySessionCallbackPostsEvents(discoverySessionId,
+                    useIdInCallbackEventName), null);
             return discoverySessionId;
+        }
+    }
+
+    @Rpc(description = "Update Subscribe.")
+    public void wifiAwareUpdateSubscribe(
+        @RpcParameter(name = "sessionId", description = "The discovery session ID")
+            Integer sessionId,
+        @RpcParameter(name = "subscribeConfig", description = "Subscribe configuration")
+            JSONObject subscribeConfig)
+        throws RemoteException, JSONException {
+        synchronized (mLock) {
+            DiscoverySession session = mDiscoverySessions.get(sessionId);
+            if (session == null) {
+                throw new IllegalStateException(
+                    "Calling wifiAwareUpdateSubscribe before session (session ID "
+                        + sessionId + ") is ready");
+            }
+            if (!(session instanceof SubscribeDiscoverySession)) {
+                throw new IllegalArgumentException(
+                    "Calling wifiAwareUpdateSubscribe with a publish session ID");
+            }
+            ((SubscribeDiscoverySession) session)
+                .updateSubscribe(getSubscribeConfig(subscribeConfig));
         }
     }
 
@@ -491,22 +573,76 @@ public class WifiAwareManagerFacade extends RpcReceiver {
                     Integer sessionId,
             @RpcParameter(name = "peerId", description = "The ID of the peer (obtained through OnMatch or OnMessageReceived")
                     Integer peerId,
-            @RpcParameter(name = "passphrase", description = "Passphrase of the data-path. Optional, can be empty/null.")
-            @RpcOptional String passphrase) throws JSONException {
+            @RpcParameter(name = "passphrase",
+                description = "Passphrase of the data-path. Optional, can be empty/null.")
+                @RpcOptional String passphrase,
+            @RpcParameter(name = "pmk",
+                description = "PMK of the data-path (base64 encoded). Optional, can be empty/null.")
+                @RpcOptional String pmk)
+        throws JSONException {
         DiscoverySession session;
         synchronized (mLock) {
             session = mDiscoverySessions.get(sessionId);
         }
         if (session == null) {
             throw new IllegalStateException(
-                    "Calling WifiAwareStartRanging before session (session ID "
+                    "Calling wifiAwareCreateNetworkSpecifier before session (session ID "
                             + sessionId + " is ready");
         }
         NetworkSpecifier ns = null;
-        if (passphrase == null || passphrase.length() == 0) {
-            ns = session.createNetworkSpecifierOpen(new PeerHandle(peerId));
+        PeerHandle peerHandle = null;
+        if (peerId != null) {
+            peerHandle = new PeerHandle(peerId);
+        }
+        if (TextUtils.isEmpty(passphrase) && TextUtils.isEmpty(pmk)) {
+            ns = session.createNetworkSpecifierOpen(peerHandle);
+        } else if (TextUtils.isEmpty(pmk)){
+            ns = session.createNetworkSpecifierPassphrase(peerHandle, passphrase);
         } else {
-            ns = session.createNetworkSpecifierPassphrase(new PeerHandle(peerId), passphrase);
+            byte[] pmkDecoded = Base64.decode(pmk, Base64.DEFAULT);
+            ns = session.createNetworkSpecifierPmk(peerHandle, pmkDecoded);
+        }
+
+        return getJsonString((WifiAwareNetworkSpecifier) ns);
+    }
+
+    @Rpc(description = "Create a network specifier to be used when specifying an OOB Aware network request")
+    public String wifiAwareCreateNetworkSpecifierOob(
+            @RpcParameter(name = "clientId",
+                    description = "The client ID")
+                    Integer clientId,
+            @RpcParameter(name = "role", description = "The role: INITIATOR(0), RESPONDER(1)")
+                    Integer role,
+            @RpcParameter(name = "peerMac",
+                    description = "The MAC address of the peer")
+                    String peerMac,
+            @RpcParameter(name = "passphrase",
+                    description = "Passphrase of the data-path. Optional, can be empty/null.")
+            @RpcOptional String passphrase,
+            @RpcParameter(name = "pmk",
+                    description = "PMK of the data-path (base64). Optional, can be empty/null.")
+            @RpcOptional String pmk) throws JSONException {
+        WifiAwareSession session;
+        synchronized (mLock) {
+            session = mSessions.get(clientId);
+        }
+        if (session == null) {
+            throw new IllegalStateException(
+                    "Calling wifiAwareCreateNetworkSpecifierOob before session (client ID "
+                            + clientId + " is ready");
+        }
+        NetworkSpecifier ns = null;
+        byte[] peerMacBytes = null;
+        if (peerMac != null) {
+            peerMacBytes = HexEncoding.decode(peerMac.toCharArray(), false);
+        }
+        if (TextUtils.isEmpty(passphrase) && TextUtils.isEmpty(pmk)) {
+            ns = session.createNetworkSpecifierOpen(role, peerMacBytes);
+        } else if (TextUtils.isEmpty(pmk)){
+            ns = session.createNetworkSpecifierPassphrase(role, peerMacBytes, passphrase);
+        } else {
+            byte[] pmkDecoded = Base64.decode(pmk, Base64.DEFAULT);
+            ns = session.createNetworkSpecifierPmk(role, peerMacBytes, pmkDecoded);
         }
 
         return getJsonString((WifiAwareNetworkSpecifier) ns);
@@ -515,10 +651,12 @@ public class WifiAwareManagerFacade extends RpcReceiver {
     private class AwareAttachCallbackPostsEvents extends AttachCallback {
         private int mSessionId;
         private long mCreateTimestampMs;
+        private boolean mUseIdInCallbackEventName;
 
-        public AwareAttachCallbackPostsEvents(int sessionId) {
+        public AwareAttachCallbackPostsEvents(int sessionId, boolean useIdInCallbackEventName) {
             mSessionId = sessionId;
             mCreateTimestampMs = System.currentTimeMillis();
+            mUseIdInCallbackEventName = useIdInCallbackEventName;
         }
 
         @Override
@@ -531,7 +669,11 @@ public class WifiAwareManagerFacade extends RpcReceiver {
             mResults.putInt("sessionId", mSessionId);
             mResults.putLong("latencyMs", System.currentTimeMillis() - mCreateTimestampMs);
             mResults.putLong("timestampMs", System.currentTimeMillis());
-            mEventFacade.postEvent("WifiAwareOnAttached", mResults);
+            if (mUseIdInCallbackEventName) {
+                mEventFacade.postEvent("WifiAwareOnAttached_" + mSessionId, mResults);
+            } else {
+                mEventFacade.postEvent("WifiAwareOnAttached", mResults);
+            }
         }
 
         @Override
@@ -539,15 +681,22 @@ public class WifiAwareManagerFacade extends RpcReceiver {
             Bundle mResults = new Bundle();
             mResults.putInt("sessionId", mSessionId);
             mResults.putLong("latencyMs", System.currentTimeMillis() - mCreateTimestampMs);
-            mEventFacade.postEvent("WifiAwareOnAttachFailed", mResults);
+            if (mUseIdInCallbackEventName) {
+                mEventFacade.postEvent("WifiAwareOnAttachFailed_" + mSessionId, mResults);
+            } else {
+                mEventFacade.postEvent("WifiAwareOnAttachFailed", mResults);
+            }
         }
     }
 
     private class AwareIdentityChangeListenerPostsEvents extends IdentityChangedListener {
         private int mSessionId;
+        private boolean mUseIdInCallbackEventName;
 
-        public AwareIdentityChangeListenerPostsEvents(int sessionId) {
+        public AwareIdentityChangeListenerPostsEvents(int sessionId,
+            boolean useIdInCallbackEventName) {
             mSessionId = sessionId;
+            mUseIdInCallbackEventName = useIdInCallbackEventName;
         }
 
         @Override
@@ -556,18 +705,34 @@ public class WifiAwareManagerFacade extends RpcReceiver {
             mResults.putInt("sessionId", mSessionId);
             mResults.putString("mac", String.valueOf(HexEncoding.encode(mac)));
             mResults.putLong("timestampMs", System.currentTimeMillis());
-            mEventFacade.postEvent("WifiAwareOnIdentityChanged", mResults);
+            if (mUseIdInCallbackEventName) {
+                mEventFacade.postEvent("WifiAwareOnIdentityChanged_" + mSessionId, mResults);
+            } else {
+                mEventFacade.postEvent("WifiAwareOnIdentityChanged", mResults);
+            }
         }
     }
 
     private class AwareDiscoverySessionCallbackPostsEvents extends
             DiscoverySessionCallback {
         private int mDiscoverySessionId;
+        private boolean mUseIdInCallbackEventName;
         private long mCreateTimestampMs;
 
-        public AwareDiscoverySessionCallbackPostsEvents(int discoverySessionId) {
+        public AwareDiscoverySessionCallbackPostsEvents(int discoverySessionId,
+                boolean useIdInCallbackEventName) {
             mDiscoverySessionId = discoverySessionId;
+            mUseIdInCallbackEventName = useIdInCallbackEventName;
             mCreateTimestampMs = System.currentTimeMillis();
+        }
+
+        private void postEvent(String eventName, Bundle results) {
+            String finalEventName = eventName;
+            if (mUseIdInCallbackEventName) {
+                finalEventName += "_" + mDiscoverySessionId;
+            }
+
+            mEventFacade.postEvent(finalEventName, results);
         }
 
         @Override
@@ -580,7 +745,7 @@ public class WifiAwareManagerFacade extends RpcReceiver {
             mResults.putInt("discoverySessionId", mDiscoverySessionId);
             mResults.putLong("latencyMs", System.currentTimeMillis() - mCreateTimestampMs);
             mResults.putLong("timestampMs", System.currentTimeMillis());
-            mEventFacade.postEvent("WifiAwareSessionOnPublishStarted", mResults);
+            postEvent("WifiAwareSessionOnPublishStarted", mResults);
         }
 
         @Override
@@ -593,28 +758,28 @@ public class WifiAwareManagerFacade extends RpcReceiver {
             mResults.putInt("discoverySessionId", mDiscoverySessionId);
             mResults.putLong("latencyMs", System.currentTimeMillis() - mCreateTimestampMs);
             mResults.putLong("timestampMs", System.currentTimeMillis());
-            mEventFacade.postEvent("WifiAwareSessionOnSubscribeStarted", mResults);
+            postEvent("WifiAwareSessionOnSubscribeStarted", mResults);
         }
 
         @Override
         public void onSessionConfigUpdated() {
             Bundle mResults = new Bundle();
             mResults.putInt("discoverySessionId", mDiscoverySessionId);
-            mEventFacade.postEvent("WifiAwareSessionOnSessionConfigUpdated", mResults);
+            postEvent("WifiAwareSessionOnSessionConfigUpdated", mResults);
         }
 
         @Override
         public void onSessionConfigFailed() {
             Bundle mResults = new Bundle();
             mResults.putInt("discoverySessionId", mDiscoverySessionId);
-            mEventFacade.postEvent("WifiAwareSessionOnSessionConfigFailed", mResults);
+            postEvent("WifiAwareSessionOnSessionConfigFailed", mResults);
         }
 
         @Override
         public void onSessionTerminated() {
             Bundle mResults = new Bundle();
             mResults.putInt("discoverySessionId", mDiscoverySessionId);
-            mEventFacade.postEvent("WifiAwareSessionOnSessionTerminated", mResults);
+            postEvent("WifiAwareSessionOnSessionTerminated", mResults);
         }
 
         @Override
@@ -623,11 +788,16 @@ public class WifiAwareManagerFacade extends RpcReceiver {
             Bundle mResults = new Bundle();
             mResults.putInt("discoverySessionId", mDiscoverySessionId);
             mResults.putInt("peerId", peerHandle.peerId);
-            mResults.putByteArray("serviceSpecificInfo", serviceSpecificInfo); // TODO: base64
+            mResults.putByteArray("serviceSpecificInfo", serviceSpecificInfo);
             mResults.putByteArray("matchFilter", new TlvBufferUtils.TlvConstructor(0,
-                    1).allocateAndPut(matchFilter).getArray()); // TODO: base64
+                    1).allocateAndPut(matchFilter).getArray());
+            ArrayList<String> matchFilterStrings = new ArrayList<>(matchFilter.size());
+            for (byte[] be: matchFilter) {
+                matchFilterStrings.add(Base64.encodeToString(be, Base64.DEFAULT));
+            }
+            mResults.putStringArrayList("matchFilterList", matchFilterStrings);
             mResults.putLong("timestampMs", System.currentTimeMillis());
-            mEventFacade.postEvent("WifiAwareSessionOnServiceDiscovered", mResults);
+            postEvent("WifiAwareSessionOnServiceDiscovered", mResults);
         }
 
         @Override
@@ -643,7 +813,7 @@ public class WifiAwareManagerFacade extends RpcReceiver {
                     mMessageStartTime.remove(messageId);
                 }
             }
-            mEventFacade.postEvent("WifiAwareSessionOnMessageSent", mResults);
+            postEvent("WifiAwareSessionOnMessageSent", mResults);
         }
 
         @Override
@@ -659,7 +829,7 @@ public class WifiAwareManagerFacade extends RpcReceiver {
                     mMessageStartTime.remove(messageId);
                 }
             }
-            mEventFacade.postEvent("WifiAwareSessionOnMessageSendFailed", mResults);
+            postEvent("WifiAwareSessionOnMessageSendFailed", mResults);
         }
 
         @Override
@@ -669,7 +839,7 @@ public class WifiAwareManagerFacade extends RpcReceiver {
             mResults.putInt("peerId", peerHandle.peerId);
             mResults.putByteArray("message", message); // TODO: base64
             mResults.putString("messageAsString", new String(message));
-            mEventFacade.postEvent("WifiAwareSessionOnMessageReceived", mResults);
+            postEvent("WifiAwareSessionOnMessageReceived", mResults);
         }
     }
 

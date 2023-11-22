@@ -111,14 +111,15 @@ protected:
                             GrPaint grPaint;
                             grPaint.setXPFactory(GrPorterDuffXPFactory::Get(SkBlendMode::kSrc));
                             grPaint.addCoverageFragmentProcessor(std::move(fp));
+                            grPaint.setColor4f(GrColor4f(0, 0, 0, 1.f));
 
                             SkRect bounds = rrect.getBounds();
                             bounds.outset(2.f, 2.f);
 
-                            std::unique_ptr<GrMeshDrawOp> op(GrRectOpFactory::MakeNonAAFill(
-                                    0xff000000, SkMatrix::I(), bounds, nullptr, nullptr));
-                            renderTargetContext->priv().testingOnly_addMeshDrawOp(
-                                    std::move(grPaint), GrAAType::kNone, std::move(op));
+                            renderTargetContext->priv().testingOnly_addDrawOp(
+                                    GrRectOpFactory::MakeNonAAFill(std::move(grPaint),
+                                                                   SkMatrix::I(), bounds,
+                                                                   GrAAType::kNone));
                         } else {
                             drew = false;
                         }

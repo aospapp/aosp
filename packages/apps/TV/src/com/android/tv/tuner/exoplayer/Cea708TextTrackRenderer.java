@@ -40,6 +40,7 @@ public class Cea708TextTrackRenderer extends TrackRenderer implements
     private static final boolean DEBUG = false;
 
     public static final int MSG_SERVICE_NUMBER = 1;
+    public static final int MSG_ENABLE_CLOSED_CAPTION = 2;
 
     // According to CEA-708B, the maximum value of closed caption bandwidth is 9600bps.
     private static final int DEFAULT_INPUT_BUFFER_SIZE = 9600 / 8;
@@ -52,11 +53,13 @@ public class Cea708TextTrackRenderer extends TrackRenderer implements
     private long mCurrentPositionUs;
     private long mPresentationTimeUs;
     private int mTrackIndex;
+    private boolean mRenderingDisabled;
     private Cea708Parser mCea708Parser;
     private CcListener mCcListener;
 
     public interface CcListener {
         void emitEvent(CaptionEvent captionEvent);
+        void clearCaption();
         void discoverServiceNumber(int serviceNumber);
     }
 
@@ -204,7 +207,7 @@ public class Cea708TextTrackRenderer extends TrackRenderer implements
             }
             case SampleSource.SAMPLE_READ: {
                 mSampleHolder.data.flip();
-                if (mCea708Parser != null) {
+                if (mCea708Parser != null && !mRenderingDisabled) {
                     mCea708Parser.parseClosedCaption(mSampleHolder.data, mSampleHolder.timeUs);
                 }
                 return true;
@@ -274,10 +277,26 @@ public class Cea708TextTrackRenderer extends TrackRenderer implements
 
     @Override
     public void handleMessage(int messageType, Object message) throws ExoPlaybackException {
-        if (messageType == MSG_SERVICE_NUMBER) {
-            setServiceNumber((int) message);
-        } else {
-            super.handleMessage(messageType, message);
+        switch (messageType) {
+            case MSG_SERVICE_NUMBER:
+                setServiceNumber((int) message);
+                break;
+            case MSG_ENABLE_CLOSED_CAPTION:
+                boolean renderingDisabled = (Boolean) message == false;
+                if (mRenderingDisabled != renderingDisabled) {
+                    mRenderingDisabled = renderingDisabled;
+                    if (mRenderingDisabled) {
+                        if (mCea708Parser != null) {
+                            mCea708Parser.clear();
+                        }
+                        if (mCcListener != null) {
+                            mCcListener.clearCaption();
+                        }
+                    }
+                }
+                break;
+            default:
+                super.handleMessage(messageType, message);
         }
     }
 }

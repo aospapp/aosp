@@ -31,15 +31,15 @@
 #include "dex_file.h"
 #include "dex_ir.h"
 #include "dex_ir_builder.h"
+#ifdef ART_TARGET_ANDROID
 #include "pagemap/pagemap.h"
+#endif
 #include "runtime.h"
 #include "vdex_file.h"
 
 namespace art {
 
 using android::base::StringPrintf;
-
-static constexpr size_t kLineLength = 32;
 
 static bool g_verbose = false;
 
@@ -165,6 +165,7 @@ static void PrintLetterKey() {
   std::cout << ". (Mapped page not resident)" << std::endl;
 }
 
+#ifdef ART_TARGET_ANDROID
 static char PageTypeChar(uint16_t type) {
   if (kDexSectionInfoMap.find(type) == kDexSectionInfoMap.end()) {
     return '-';
@@ -195,6 +196,7 @@ static void ProcessPageMap(uint64_t* pagemap,
                            size_t end,
                            const std::vector<dex_ir::DexFileSection>& sections,
                            PageCount* page_counts) {
+  static constexpr size_t kLineLength = 32;
   for (size_t page = start; page < end; ++page) {
     char type_char = '.';
     if (PM_PAGEMAP_PRESENT(pagemap[page])) {
@@ -296,21 +298,20 @@ static void ProcessOneDexMapping(uint64_t* pagemap,
   DisplayDexStatistics(start_page, end_page, section_resident_pages, sections, printer);
 }
 
-static bool DisplayMappingIfFromVdexFile(pm_map_t* map, Printer* printer) {
+static bool IsVdexFileMapping(const std::string& mapped_name) {
   // Confirm that the map is from a vdex file.
   static const char* suffixes[] = { ".vdex" };
-  std::string vdex_name;
-  bool found = false;
-  for (size_t j = 0; j < sizeof(suffixes) / sizeof(suffixes[0]); ++j) {
-    if (strstr(pm_map_name(map), suffixes[j]) != nullptr) {
-      vdex_name = pm_map_name(map);
-      found = true;
-      break;
+  for (const char* suffix : suffixes) {
+    size_t match_loc = mapped_name.find(suffix);
+    if (match_loc != std::string::npos && mapped_name.length() == match_loc + strlen(suffix)) {
+      return true;
     }
   }
-  if (!found) {
-    return true;
-  }
+  return false;
+}
+
+static bool DisplayMappingIfFromVdexFile(pm_map_t* map, Printer* printer) {
+  std::string vdex_name = pm_map_name(map);
   // Extract all the dex files from the vdex file.
   std::string error_msg;
   std::unique_ptr<VdexFile> vdex(VdexFile::Open(vdex_name,
@@ -334,6 +335,7 @@ static bool DisplayMappingIfFromVdexFile(pm_map_t* map, Printer* printer) {
               << ": error "
               << error_msg
               << std::endl;
+    return false;
   }
   // Open the page mapping (one uint64_t per page) for the entire vdex mapping.
   uint64_t* pagemap;
@@ -359,6 +361,7 @@ static bool DisplayMappingIfFromVdexFile(pm_map_t* map, Printer* printer) {
 }
 
 static void ProcessOneOatMapping(uint64_t* pagemap, size_t size, Printer* printer) {
+  static constexpr size_t kLineLength = 32;
   size_t resident_page_count = 0;
   for (size_t page = 0; page < size; ++page) {
     char type_char = '.';
@@ -384,21 +387,19 @@ static void ProcessOneOatMapping(uint64_t* pagemap, size_t size, Printer* printe
   printer->PrintSkipLine();
 }
 
-static bool DisplayMappingIfFromOatFile(pm_map_t* map, Printer* printer) {
-  // Confirm that the map is from a vdex file.
+static bool IsOatFileMapping(const std::string& mapped_name) {
+  // Confirm that the map is from an oat file.
   static const char* suffixes[] = { ".odex", ".oat" };
-  std::string vdex_name;
-  bool found = false;
-  for (size_t j = 0; j < sizeof(suffixes) / sizeof(suffixes[0]); ++j) {
-    if (strstr(pm_map_name(map), suffixes[j]) != nullptr) {
-      vdex_name = pm_map_name(map);
-      found = true;
-      break;
+  for (const char* suffix : suffixes) {
+    size_t match_loc = mapped_name.find(suffix);
+    if (match_loc != std::string::npos && mapped_name.length() == match_loc + strlen(suffix)) {
+      return true;
     }
   }
-  if (!found) {
-    return true;
-  }
+  return false;
+}
+
+static bool DisplayMappingIfFromOatFile(pm_map_t* map, Printer* printer) {
   // Open the page mapping (one uint64_t per page) for the entire vdex mapping.
   uint64_t* pagemap;
   size_t len;
@@ -429,9 +430,10 @@ static bool FilterByNameContains(const std::string& mapped_file_name,
   }
   return false;
 }
+#endif
 
 static void Usage(const char* cmd) {
-  std::cerr << "Usage: " << cmd << " [options] pid" << std::endl
+  std::cout << "Usage: " << cmd << " [options] pid" << std::endl
             << "    --contains=<string>:  Display sections containing string." << std::endl
             << "    --help:               Shows this message." << std::endl
             << "    --verbose:            Makes displays verbose." << std::endl;
@@ -463,9 +465,10 @@ static int DexDiagMain(int argc, char* argv[]) {
   }
 
   // Art specific set up.
-  InitLogging(argv, Runtime::Aborter);
+  InitLogging(argv, Runtime::Abort);
   MemMap::Init();
 
+#ifdef ART_TARGET_ANDROID
   pid_t pid;
   char* endptr;
   pid = (pid_t)strtol(argv[argc - 1], &endptr, 10);
@@ -499,7 +502,8 @@ static int DexDiagMain(int argc, char* argv[]) {
     return EXIT_FAILURE;
   }
 
-  // Process the mappings that are due to DEX files.
+  bool match_found = false;
+  // Process the mappings that are due to vdex or oat files.
   Printer printer;
   for (size_t i = 0; i < num_maps; ++i) {
     std::string mapped_file_name = pm_map_name(maps[i]);
@@ -507,12 +511,23 @@ static int DexDiagMain(int argc, char* argv[]) {
     if (!FilterByNameContains(mapped_file_name, name_filters)) {
       continue;
     }
-    if (!DisplayMappingIfFromVdexFile(maps[i], &printer)) {
-      return EXIT_FAILURE;
-    } else if (!DisplayMappingIfFromOatFile(maps[i], &printer)) {
-      return EXIT_FAILURE;
+    if (IsVdexFileMapping(mapped_file_name)) {
+      if (!DisplayMappingIfFromVdexFile(maps[i], &printer)) {
+        return EXIT_FAILURE;
+      }
+      match_found = true;
+    } else if (IsOatFileMapping(mapped_file_name)) {
+      if (!DisplayMappingIfFromOatFile(maps[i], &printer)) {
+        return EXIT_FAILURE;
+      }
+      match_found = true;
     }
   }
+  if (!match_found) {
+    std::cerr << "No relevant memory maps were found." << std::endl;
+    return EXIT_FAILURE;
+  }
+#endif
 
   return EXIT_SUCCESS;
 }

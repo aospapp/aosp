@@ -93,9 +93,10 @@
 #define SYSCALL_OS_MAIN_SENSOR_RATE_CHG      6 // (uint32_t clientId, uint32_t sensorHandle, uint32_t newRate) -> bool success
 #define SYSCALL_OS_MAIN_SENSOR_RELEASE       7 // (uint32_t clientId, uint32_t sensorHandle) -> bool success
 #define SYSCALL_OS_MAIN_SENSOR_TRIGGER       8 // (uint32_t clientId, uint32_t sensorHandle) -> bool success
-#define SYSCALL_OS_MAIN_SENSOR_GET_RATE      9 // (uint32_t sensorHandle) -> uint32_t rate
+#define SYSCALL_OS_MAIN_SENSOR_GET_CUR_RATE  9 // (uint32_t sensorHandle) -> uint32_t curRate
 #define SYSCALL_OS_MAIN_SENSOR_GET_TIME     10 // (uint64_t *timeNanos) -> void
-#define SYSCALL_OS_MAIN_SENSOR_LAST         11 // always last. holes are allowed, but not immediately before this
+#define SYSCALL_OS_MAIN_SENSOR_GET_REQ_RATE 11 // (uint32_t sensorHandle) -> uint32_t reqRate
+#define SYSCALL_OS_MAIN_SENSOR_LAST         12 // always last. holes are allowed, but not immediately before this
 
 //level 3 indices in the OS.main.timer table
 #define SYSCALL_OS_MAIN_TIME_GET_TIME     0 // (uint64_t *timeNanos) -> void

@@ -8,7 +8,7 @@ Join the community
 
  2. Subscribe to the suitable [mailing lists](https://curl.haxx.se/mail/)
 
-Read [CONTRIBUTE](../docs/CONTRIBUTE)
+Read [CONTRIBUTE](../docs/CONTRIBUTE.md)
 ---------------------------------------
 
 Send your suggestions using one of these methods:
@@ -20,4 +20,4 @@ Send your suggestions using one of these methods:
 
  3. as an [issue](https://github.com/curl/curl/issues)
 
-/ The cURL team!
+/ The curl team!

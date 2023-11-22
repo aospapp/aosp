@@ -33,7 +33,6 @@ import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.SpannedString;
 import android.text.StaticLayout;
-import android.text.TextDirectionHeuristics;
 import android.text.TextPaint;
 import android.text.TextUtils;
 import android.text.TextUtils.TruncateAt;
@@ -98,14 +97,12 @@ public class StaticLayoutTest {
     }
 
     private StaticLayout createEllipsizeStaticLayout(CharSequence text,
-            TextUtils.TruncateAt ellipsize, int maxLines) {
+            TextUtils.TruncateAt ellipsize) {
         return new StaticLayout(text, 0, text.length(),
                 mDefaultPaint, DEFAULT_OUTER_WIDTH, DEFAULT_ALIGN,
-                TextDirectionHeuristics.FIRSTSTRONG_LTR,
                 SPACE_MULTI, SPACE_ADD, true /* include pad */,
                 ellipsize,
-                ELLIPSIZE_WIDTH,
-                maxLines);
+                ELLIPSIZE_WIDTH);
     }
 
     /**
@@ -140,8 +137,6 @@ public class StaticLayoutTest {
             assertEquals(mDefaultPaint, layout.getPaint());
             assertEquals(DEFAULT_OUTER_WIDTH, layout.getWidth());
             // Check default values.
-            assertEquals(TextDirectionHeuristics.FIRSTSTRONG_LTR,
-                    layout.getTextDirectionHeuristic());
             assertEquals(Alignment.ALIGN_NORMAL, layout.getAlignment());
             assertEquals(0.0f, layout.getSpacingAdd(), 0.0f);
             assertEquals(1.0f, layout.getSpacingMultiplier(), 0.0f);
@@ -171,16 +166,6 @@ public class StaticLayoutTest {
             builder.setAlignment(DEFAULT_ALIGN);
             StaticLayout layout = builder.build();
             assertEquals(DEFAULT_ALIGN, layout.getAlignment());
-        }
-        {
-            // setTextDirection.
-            StaticLayout.Builder builder = StaticLayout.Builder.obtain(LAYOUT_TEXT, 0,
-                    LAYOUT_TEXT.length(), mDefaultPaint, DEFAULT_OUTER_WIDTH);
-            builder.setTextDirection(TextDirectionHeuristics.RTL);
-            StaticLayout layout = builder.build();
-            // Always returns TextDirectionHeuristics.FIRSTSTRONG_LTR.
-            assertEquals(TextDirectionHeuristics.FIRSTSTRONG_LTR,
-                    layout.getTextDirectionHeuristic());
         }
         {
             // setLineSpacing.
@@ -412,8 +397,7 @@ public class StaticLayoutTest {
     public void testGetEllipsisCount() {
         // Multilines (6 lines) and TruncateAt.START so no ellipsis at all
         mDefaultLayout = createEllipsizeStaticLayout(LAYOUT_TEXT,
-                TextUtils.TruncateAt.MIDDLE,
-                Integer.MAX_VALUE /* maxLines */);
+                TextUtils.TruncateAt.MIDDLE);
 
         assertTrue(mDefaultLayout.getEllipsisCount(0) == 0);
         assertTrue(mDefaultLayout.getEllipsisCount(1) == 0);
@@ -436,8 +420,7 @@ public class StaticLayoutTest {
 
         // Multilines (6 lines) and TruncateAt.MIDDLE so no ellipsis at all
         mDefaultLayout = createEllipsizeStaticLayout(LAYOUT_TEXT,
-                TextUtils.TruncateAt.MIDDLE,
-                Integer.MAX_VALUE /* maxLines */);
+                TextUtils.TruncateAt.MIDDLE);
 
         assertTrue(mDefaultLayout.getEllipsisCount(0) == 0);
         assertTrue(mDefaultLayout.getEllipsisCount(1) == 0);
@@ -448,8 +431,7 @@ public class StaticLayoutTest {
 
         // Multilines (6 lines) and TruncateAt.END so ellipsis only on the last line
         mDefaultLayout = createEllipsizeStaticLayout(LAYOUT_TEXT,
-                TextUtils.TruncateAt.END,
-                Integer.MAX_VALUE /* maxLines */);
+                TextUtils.TruncateAt.END);
 
         assertTrue(mDefaultLayout.getEllipsisCount(0) == 0);
         assertTrue(mDefaultLayout.getEllipsisCount(1) == 0);
@@ -460,8 +442,7 @@ public class StaticLayoutTest {
 
         // Multilines (6 lines) and TruncateAt.MARQUEE so ellipsis only on the last line
         mDefaultLayout = createEllipsizeStaticLayout(LAYOUT_TEXT,
-                TextUtils.TruncateAt.END,
-                Integer.MAX_VALUE /* maxLines */);
+                TextUtils.TruncateAt.END);
 
         assertTrue(mDefaultLayout.getEllipsisCount(0) == 0);
         assertTrue(mDefaultLayout.getEllipsisCount(1) == 0);
@@ -515,104 +496,6 @@ public class StaticLayoutTest {
                 mDefaultPaint, outerWidth, DEFAULT_ALIGN, SPACE_MULTI, SPACE_ADD,
                 false, null, ellipsizedWidth);
         assertEquals(outerWidth, layout.getEllipsizedWidth());
-    }
-
-    @Test
-    public void testEllipsis_singleLine() {
-        {
-            // Single line case and TruncateAt.END so that we have some ellipsis
-            StaticLayout layout = createEllipsizeStaticLayout(LAYOUT_TEXT_SINGLE_LINE,
-                    TextUtils.TruncateAt.END, 1);
-            assertTrue(layout.getEllipsisCount(0) > 0);
-        }
-        {
-            // Single line case and TruncateAt.MIDDLE so that we have some ellipsis
-            StaticLayout layout = createEllipsizeStaticLayout(LAYOUT_TEXT_SINGLE_LINE,
-                    TextUtils.TruncateAt.MIDDLE, 1);
-            assertTrue(layout.getEllipsisCount(0) > 0);
-        }
-        {
-            // Single line case and TruncateAt.END so that we have some ellipsis
-            StaticLayout layout = createEllipsizeStaticLayout(LAYOUT_TEXT_SINGLE_LINE,
-                    TextUtils.TruncateAt.END, 1);
-            assertTrue(layout.getEllipsisCount(0) > 0);
-        }
-        {
-            // Single line case and TruncateAt.MARQUEE so that we have NO ellipsis
-            StaticLayout layout = createEllipsizeStaticLayout(LAYOUT_TEXT_SINGLE_LINE,
-                    TextUtils.TruncateAt.MARQUEE, 1);
-            assertTrue(layout.getEllipsisCount(0) == 0);
-        }
-        {
-            final String text = "\u3042" // HIRAGANA LETTER A
-                    + "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz";
-            final float textWidth = mDefaultPaint.measureText(text);
-            final int halfWidth = (int)(textWidth / 2.0f);
-            {
-                StaticLayout layout = new StaticLayout(text, 0, text.length(), mDefaultPaint,
-                        halfWidth, DEFAULT_ALIGN, TextDirectionHeuristics.FIRSTSTRONG_LTR,
-                        SPACE_MULTI, SPACE_ADD, false, TextUtils.TruncateAt.END, halfWidth, 1);
-                assertTrue(layout.getEllipsisCount(0) > 0);
-                assertTrue(layout.getEllipsisStart(0) > 0);
-            }
-            {
-                StaticLayout layout = new StaticLayout(text, 0, text.length(), mDefaultPaint,
-                        halfWidth, DEFAULT_ALIGN, TextDirectionHeuristics.FIRSTSTRONG_LTR,
-                        SPACE_MULTI, SPACE_ADD, false, TextUtils.TruncateAt.START, halfWidth, 1);
-                assertTrue(layout.getEllipsisCount(0) > 0);
-                assertEquals(0, mDefaultLayout.getEllipsisStart(0));
-            }
-            {
-                StaticLayout layout = new StaticLayout(text, 0, text.length(), mDefaultPaint,
-                        halfWidth, DEFAULT_ALIGN, TextDirectionHeuristics.FIRSTSTRONG_LTR,
-                        SPACE_MULTI, SPACE_ADD, false, TextUtils.TruncateAt.MIDDLE, halfWidth, 1);
-                assertTrue(layout.getEllipsisCount(0) > 0);
-                assertTrue(layout.getEllipsisStart(0) > 0);
-            }
-            {
-                StaticLayout layout = new StaticLayout(text, 0, text.length(), mDefaultPaint,
-                        halfWidth, DEFAULT_ALIGN, TextDirectionHeuristics.FIRSTSTRONG_LTR,
-                        SPACE_MULTI, SPACE_ADD, false, TextUtils.TruncateAt.MARQUEE, halfWidth, 1);
-                assertEquals(0, layout.getEllipsisCount(0));
-            }
-        }
-
-        {
-            // The white spaces in this text will be trailing if maxLines is larger than 1, but
-            // width of the trailing white spaces must not be ignored if ellipsis is applied.
-            final String text = "abc                                             def";
-            final float textWidth = mDefaultPaint.measureText(text);
-            final int halfWidth = (int)(textWidth / 2.0f);
-            {
-                StaticLayout layout = new StaticLayout(text, 0, text.length(), mDefaultPaint,
-                        halfWidth, DEFAULT_ALIGN, TextDirectionHeuristics.FIRSTSTRONG_LTR,
-                        SPACE_MULTI, SPACE_ADD, false, TextUtils.TruncateAt.END, halfWidth, 1);
-                assertTrue(layout.getEllipsisCount(0) > 0);
-                assertTrue(layout.getEllipsisStart(0) > 0);
-            }
-        }
-
-        {
-            // 2 family emojis (11 code units + 11 code units).
-            final String text = "\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67\u200D\uD83D\uDC66"
-                    + "\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67\u200D\uD83D\uDC66";
-            final float textWidth = mDefaultPaint.measureText(text);
-
-            final TextUtils.TruncateAt[] kinds = {TextUtils.TruncateAt.START,
-                    TextUtils.TruncateAt.MIDDLE, TextUtils.TruncateAt.END};
-            for (final TextUtils.TruncateAt kind : kinds) {
-                for (int i = 0; i <= 8; i++) {
-                    int avail = (int)(textWidth * i / 7.0f);
-                    StaticLayout layout = new StaticLayout(text, 0, text.length(), mDefaultPaint,
-                            avail, DEFAULT_ALIGN, TextDirectionHeuristics.FIRSTSTRONG_LTR,
-                            SPACE_MULTI, SPACE_ADD, false, kind, avail, 1);
-
-                    assertTrue(layout.getEllipsisCount(0) == text.length()
-                                    || layout.getEllipsisCount(0) == text.length() / 2
-                                    || layout.getEllipsisCount(0) == 0);
-                }
-            }
-        }
     }
 
     /**
@@ -916,32 +799,6 @@ public class StaticLayoutTest {
             assertEquals(testLabel, 5, layout.getOffsetToRightOf(4));
             assertEquals(testLabel, 6, layout.getOffsetToRightOf(5));
             assertEquals(testLabel, 6, layout.getOffsetToRightOf(6));
-        }
-    }
-
-    @Test
-    public void testGetOffset_UNICODE_Hebrew() {
-        String testString = "\u05DE\u05E1\u05E2\u05D3\u05D4"; // Hebrew Characters
-        for (CharSequence seq: buildTestCharSequences(testString, Normalizer.Form.values())) {
-            StaticLayout layout = new StaticLayout(seq, mDefaultPaint,
-                    DEFAULT_OUTER_WIDTH, DEFAULT_ALIGN,
-                    TextDirectionHeuristics.RTL, SPACE_MULTI, SPACE_ADD, true);
-
-            String testLabel = buildTestMessage(seq);
-
-            assertEquals(testLabel, 1, layout.getOffsetToLeftOf(0));
-            assertEquals(testLabel, 2, layout.getOffsetToLeftOf(1));
-            assertEquals(testLabel, 3, layout.getOffsetToLeftOf(2));
-            assertEquals(testLabel, 4, layout.getOffsetToLeftOf(3));
-            assertEquals(testLabel, 5, layout.getOffsetToLeftOf(4));
-            assertEquals(testLabel, 5, layout.getOffsetToLeftOf(5));
-
-            assertEquals(testLabel, 0, layout.getOffsetToRightOf(0));
-            assertEquals(testLabel, 0, layout.getOffsetToRightOf(1));
-            assertEquals(testLabel, 1, layout.getOffsetToRightOf(2));
-            assertEquals(testLabel, 2, layout.getOffsetToRightOf(3));
-            assertEquals(testLabel, 3, layout.getOffsetToRightOf(4));
-            assertEquals(testLabel, 4, layout.getOffsetToRightOf(5));
         }
     }
 
@@ -1333,5 +1190,4 @@ public class StaticLayoutTest {
                 .setEllipsize(TruncateAt.END).build();
         layout.getPrimaryHorizontal(layout.getText().length());
     }
-
 }

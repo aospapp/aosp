@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="2704349695846064655">"सेल प्रसारण परीक्षण"</string>
+    <string name="app_label" msgid="2704349695846064655">"सेल ब्रॉडकास्ट (CBC) की जांच"</string>
     <string name="button_etws_earthquake_type" msgid="5391060421937195923">"ETWS भूकंप प्रसारण भेजें"</string>
     <string name="button_etws_tsunami_type" msgid="5866338269041475786">"ETWS सुनामी प्रसारण भेजें"</string>
     <string name="button_etws_earthquake_tsunami_type" msgid="8045617992086252152">"ETWS भूकंप और सुनामी प्रसारण भेजें"</string>

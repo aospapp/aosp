@@ -16,8 +16,14 @@
 #include "../file.h"
 #include "../log.h"
 #include "../lib/hweight.h"
+#include "../oslib/strcasestr.h"
 
 #include "windows/posix.h"
+
+/* Cygwin doesn't define rand_r if C99 or newer is being used */
+#if defined(WIN32) && !defined(rand_r)
+int rand_r(unsigned *);
+#endif
 
 #ifndef PTHREAD_STACK_MIN
 #define PTHREAD_STACK_MIN 65535
@@ -105,6 +111,7 @@ int fcntl(int fildes, int cmd, ...);
 int fdatasync(int fildes);
 int lstat(const char * path, struct stat * buf);
 uid_t geteuid(void);
+char* ctime_r(const time_t *t, char *buf);
 int nanosleep(const struct timespec *rqtp, struct timespec *rmtp);
 ssize_t pread(int fildes, void *buf, size_t nbyte, off_t offset);
 ssize_t pwrite(int fildes, const void *buf, size_t nbyte,
@@ -145,9 +152,7 @@ static inline int chardev_size(struct fio_file *f, unsigned long long *bytes)
 
 static inline int blockdev_invalidate_cache(struct fio_file *f)
 {
-	/* There's no way to invalidate the cache in Windows
-	 * so just pretend to succeed */
-	return 0;
+	return ENOTSUP;
 }
 
 static inline unsigned long long os_phys_mem(void)
@@ -186,7 +191,7 @@ static inline int fio_setaffinity(int pid, os_cpu_mask_t cpumask)
 	return (bSuccess)? 0 : -1;
 }
 
-static inline void fio_getaffinity(int pid, os_cpu_mask_t *mask)
+static inline int fio_getaffinity(int pid, os_cpu_mask_t *mask)
 {
 	os_cpu_mask_t systemMask;
 
@@ -197,7 +202,10 @@ static inline void fio_getaffinity(int pid, os_cpu_mask_t *mask)
 		CloseHandle(h);
 	} else {
 		log_err("fio_getaffinity failed: failed to get handle for pid %d\n", pid);
+		return -1;
 	}
+
+	return 0;
 }
 
 static inline void fio_cpu_clear(os_cpu_mask_t *mask, int cpu)

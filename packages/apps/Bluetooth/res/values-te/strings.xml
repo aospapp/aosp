@@ -16,15 +16,15 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"డౌన్‌లోడ్ నిర్వాహికిని ప్రాప్యత చేయండి."</string>
-    <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"బ్లూటూత్ భాగస్వామ్య నిర్వాహికిని ప్రాప్యత చేయడానికి అనువర్తనాన్ని అనుమతిస్తుంది మరియు ఫైల్‌లను బదిలీ చేయడానికి దీన్ని ఉపయోగిస్తుంది."</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"అనుమతి జాబితాలో ఉంచిన బ్లూటూత్ పరికర ప్రాప్యత."</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"బ్లూటూత్ పరికరాన్ని తాత్కాలికంగా అనుమతి జాబితాలో ఉంచడానికి అనువర్తనాన్ని అనుమతిస్తుంది, తద్వారా వినియోగదారు నిర్ధారణ లేకుండానే ఫైల్‌లను ఈ పరికరానికి పంపడానికి ఆ పరికరాన్ని అనుమతిస్తుంది."</string>
+    <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"డౌన్‌లోడ్ మేనేజర్‌ను యాక్సెస్ చేయండి."</string>
+    <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"బ్లూటూత్ భాగస్వామ్య మేనేజర్‌ను యాక్సెస్ చేయడానికి యాప్‌ను అనుమతిస్తుంది మరియు ఫైల్‌లను బదిలీ చేయడానికి దీన్ని ఉపయోగిస్తుంది."</string>
+    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"అనుమతి జాబితాలో ఉంచిన బ్లూటూత్ పరికర యాక్సెస్."</string>
+    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"బ్లూటూత్ పరికరాన్ని తాత్కాలికంగా అనుమతి జాబితాలో ఉంచడానికి యాప్‌ను అనుమతిస్తుంది, తద్వారా వినియోగదారు నిర్ధారణ లేకుండానే ఫైల్‌లను ఈ పరికరానికి పంపడానికి ఆ పరికరాన్ని అనుమతిస్తుంది."</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"బ్లూటూత్"</string>
     <string name="unknown_device" msgid="9221903979877041009">"తెలియని పరికరం"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"తెలియదు"</string>
-    <string name="airplane_error_title" msgid="2683839635115739939">"ఎయిర్‌ప్లైన్ మోడ్"</string>
-    <string name="airplane_error_msg" msgid="8698965595254137230">"మీరు ఎయిర్‌ప్లైన్ మోడ్‌లో బ్లూటూత్‌ను ఉపయోగించలేరు."</string>
+    <string name="airplane_error_title" msgid="2683839635115739939">"ఎయిర్‌ప్లేన్ మోడ్"</string>
+    <string name="airplane_error_msg" msgid="8698965595254137230">"మీరు ఎయిర్‌ప్లేన్ మోడ్‌లో బ్లూటూత్‌ను ఉపయోగించలేరు."</string>
     <string name="bt_enable_title" msgid="8657832550503456572"></string>
     <string name="bt_enable_line1" msgid="7203551583048149">"బ్లూటూత్ సేవలను ఉపయోగించడానికి, మీరు తప్పనిసరిగా ముందుగా బ్లూటూత్‌ను ప్రారంభించాలి."</string>
     <string name="bt_enable_line2" msgid="4341936569415937994">"ఇప్పుడే బ్లూటూత్‌ను ప్రారంభించాలా?"</string>
@@ -73,7 +73,7 @@
     <string name="upload_fail_cancel" msgid="9118496285835687125">"మూసివేయి"</string>
     <string name="bt_error_btn_ok" msgid="5965151173011534240">"సరే"</string>
     <string name="unknown_file" msgid="6092727753965095366">"తెలియని ఫైల్"</string>
-    <string name="unknown_file_desc" msgid="480434281415453287">"ఈ రకమైన ఫైల్‌ను నిర్వహించడానికి అనువర్తనం ఏదీ లేదు. \n"</string>
+    <string name="unknown_file_desc" msgid="480434281415453287">"ఈ రకమైన ఫైల్‌ను నిర్వహించడానికి యాప్ ఏదీ లేదు. \n"</string>
     <string name="not_exist_file" msgid="3489434189599716133">"ఫైల్ లేదు"</string>
     <string name="not_exist_file_desc" msgid="4059531573790529229">"ఫైల్ ఉనికిలో లేదు. \n"</string>
     <string name="enabling_progress_title" msgid="436157952334723406">"దయచేసి వేచి ఉండండి..."</string>
@@ -99,7 +99,7 @@
     <string name="status_no_sd_card" product="default" msgid="5760944071743325592">"SD కార్డు లేదు. బదిలీ చేయబడిన ఫైల్‌లను సేవ్ చేయడానికి SD కార్డుని చొప్పించండి."</string>
     <string name="status_connection_error" msgid="947681831523219891">"కనెక్షన్ విఫలమైంది."</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"అభ్యర్థన సరిగ్గా నిర్వహించబడదు."</string>
-    <string name="status_unknown_error" msgid="8156660554237824912">"తెలియని లోపం."</string>
+    <string name="status_unknown_error" msgid="8156660554237824912">"తెలియని ఎర్రర్."</string>
     <string name="btopp_live_folder" msgid="7967791481444474554">"బ్లూటూత్‌తో స్వీకరించినవి"</string>
     <string name="opp_notification_group" msgid="3486303082135789982">"బ్లూటూత్ భాగస్వామ్యం"</string>
     <string name="download_success" msgid="7036160438766730871">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> స్వీకరించడం పూర్తయింది."</string>

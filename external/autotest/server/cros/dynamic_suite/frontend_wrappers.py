@@ -7,7 +7,9 @@ import math
 import threading
 
 import common
+from autotest_lib.client.common_lib import env
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.cros import retry
 from autotest_lib.frontend.afe.json_rpc import proxy
 from autotest_lib.server import frontend
@@ -18,6 +20,12 @@ except ImportError:
     logging.warn('Unable to import chromite.')
     retry_util = None
     timeout_util = None
+
+try:
+    from chromite.lib import metrics
+except ImportError:
+    logging.warn('Unable to import metrics from chromite.')
+    metrics = utils.metrics_mock
 
 
 def convert_timeout_to_retry(backoff, timeout_min, delay_sec):
@@ -106,9 +114,25 @@ class RetryingAFE(frontend.AFE):
             # Set the keyword argument for GenericRetry
             dargs['sleep'] = self.delay_sec
             dargs['backoff_factor'] = backoff
-            with timeout_util.Timeout(self.timeout_min * 60):
-                return retry_util.GenericRetry(handler, max_retry, _run,
-                                               self, call, **dargs)
+            # timeout_util.Timeout fundamentally relies on sigalrm, and doesn't
+            # work at all in wsgi environment (just emits logs spam). So, don't
+            # use it in wsgi.
+            try:
+                if env.IN_MOD_WSGI:
+                    return retry_util.GenericRetry(handler, max_retry, _run,
+                                                   self, call, **dargs)
+                with timeout_util.Timeout(self.timeout_min * 60):
+                    return retry_util.GenericRetry(handler, max_retry, _run,
+                                                   self, call, **dargs)
+            except timeout_util.TimeoutError:
+                c = metrics.Counter(
+                        'chromeos/autotest/retrying_afe/retry_timeout')
+                # Reserve field job_details for future use.
+                f = {'destination_server': self.server.split(':')[0],
+                     'call': call,
+                     'job_details': ''}
+                c.increment(fields=f)
+                raise
         else:
             return _run_in_child_thread(self, call, **dargs)
 

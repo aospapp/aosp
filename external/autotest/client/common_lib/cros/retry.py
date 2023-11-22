@@ -9,6 +9,7 @@ import sys
 import threading
 import time
 
+from autotest_lib.client.common_lib import env
 from autotest_lib.client.common_lib import error
 
 
@@ -26,6 +27,11 @@ def install_sigalarm_handler(new_handler):
                         the numbers 1,0 respectively.
     @return: True if the installation of new_handler succeeded, False otherwise.
     """
+    # Installing signal handlers does not and is never expected to work if we're
+    # running in a mod_wsgi process.
+    if env.IN_MOD_WSGI:
+        return False
+
     if (new_handler is None or
         (not callable(new_handler) and
          new_handler != signal.SIG_IGN and
@@ -134,7 +140,7 @@ def timeout(func, args=(), kwargs={}, timeout_sec=60.0, default_result=None):
 
 
 def retry(ExceptionToCheck, timeout_min=1.0, delay_sec=3, blacklist=None,
-          exception_to_raise=None, label=None):
+          exception_to_raise=None, label=None, callback=None):
     """Retry calling the decorated function using a delay with jitter.
 
     Will raise RPC ValidationError exceptions from the decorated
@@ -158,6 +164,7 @@ def retry(ExceptionToCheck, timeout_min=1.0, delay_sec=3, blacklist=None,
     @param exception_to_raise: the exception to raise. Callers can specify the
                                exception they want to raise.
     @param label: a label added to the exception message to help debug.
+    @param callback: a function to call before each retry.
     """
     def deco_retry(func):
         """
@@ -224,6 +231,12 @@ def retry(ExceptionToCheck, timeout_min=1.0, delay_sec=3, blacklist=None,
 
                 remaining_time = int(timeout_min * 60 -
                                      (time.time() - start_time))
+
+                if remaining_time > 0 and callback:
+                    callback()
+                    remaining_time = int(timeout_min * 60 -
+                                         (time.time() - start_time))
+
 
             # The call must have timed out or raised ExceptionToCheck.
             if not exc_info:

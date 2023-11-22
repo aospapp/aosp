@@ -20,6 +20,7 @@ common file
 	relabelfrom
 	relabelto
 	append
+	map
 	unlink
 	link
 	rename
@@ -46,6 +47,7 @@ common socket
 	relabelfrom
 	relabelto
 	append
+	map
 # socket-specific
 	bind
 	connect
@@ -316,6 +318,7 @@ class process
 	execheap
 	setkeycreate
 	setsockcreate
+	getrlimit
 }
 
 
@@ -366,6 +369,7 @@ class security
 	setsecparam
 	setcheckreqprot
 	read_policy
+	validate_trans
 }
 
 
@@ -654,6 +658,9 @@ class kcm_socket
 inherits socket
 
 class qipcrtr_socket
+inherits socket
+
+class smc_socket
 inherits socket
 
 class property_service

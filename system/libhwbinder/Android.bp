@@ -28,6 +28,10 @@ cc_library_shared {
     include_dirs: ["frameworks/native/include"],
 
     vendor_available: true,
+    vndk: {
+        enabled: true,
+        support_system_process: true,
+    },
     clang: true,
     sanitize: {
         misc_undefined: ["integer"],

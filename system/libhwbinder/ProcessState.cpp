@@ -18,11 +18,11 @@
 
 #include <hwbinder/ProcessState.h>
 
-#include <utils/Atomic.h>
 #include <hwbinder/BpHwBinder.h>
 #include <hwbinder/IPCThreadState.h>
+#include <hwbinder/binder_kernel.h>
+#include <utils/Atomic.h>
 #include <utils/Log.h>
-#include <utils/String8.h>
 #include <utils/String8.h>
 #include <utils/threads.h>
 
@@ -39,7 +39,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#define BINDER_VM_SIZE ((1*1024*1024) - (4096 *2))
+#define BINDER_VM_SIZE ((1 * 1024 * 1024) - sysconf(_SC_PAGE_SIZE) * 2)
 #define DEFAULT_MAX_BINDER_THREADS 0
 
 // -------------------------------------------------------------------------
@@ -72,6 +72,11 @@ sp<ProcessState> ProcessState::self()
         return gProcess;
     }
     gProcess = new ProcessState;
+    return gProcess;
+}
+
+sp<ProcessState> ProcessState::selfOrNull() {
+    Mutex::Autolock _l(gProcessMutex);
     return gProcess;
 }
 
@@ -161,6 +166,34 @@ bool ProcessState::becomeContextManager(context_check_func checkFunc, void* user
         }
     }
     return mManagesContexts;
+}
+
+// Get references to userspace objects held by the kernel binder driver
+// Writes up to count elements into buf, and returns the total number
+// of references the kernel has, which may be larger than count.
+// buf may be NULL if count is 0.  The pointers returned by this method
+// should only be used for debugging and not dereferenced, they may
+// already be invalid.
+ssize_t ProcessState::getKernelReferences(size_t buf_count, uintptr_t* buf) {
+    binder_node_debug_info info = {};
+
+    uintptr_t* end = buf ? buf + buf_count : NULL;
+    size_t count = 0;
+
+    do {
+        status_t result = ioctl(mDriverFD, BINDER_GET_NODE_DEBUG_INFO, &info);
+        if (result < 0) {
+            return -1;
+        }
+        if (info.ptr != 0) {
+            if (buf && buf < end) *buf++ = info.ptr;
+            count++;
+            if (buf && buf < end) *buf++ = info.cookie;
+            count++;
+        }
+    } while (info.ptr != 0);
+
+    return count;
 }
 
 ProcessState::handle_entry* ProcessState::lookupHandleLocked(int32_t handle)

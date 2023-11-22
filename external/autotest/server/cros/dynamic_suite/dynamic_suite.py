@@ -5,6 +5,7 @@
 import datetime
 import logging
 import time
+import warnings
 
 import common
 
@@ -17,7 +18,7 @@ from autotest_lib.client.common_lib.cros import dev_server
 from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import constants
 from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
-from autotest_lib.server.cros.dynamic_suite import tools
+from autotest_lib.server.cros.dynamic_suite.suite import ProvisionSuite
 from autotest_lib.server.cros.dynamic_suite.suite import Suite
 from autotest_lib.tko import utils as tko_utils
 
@@ -194,45 +195,10 @@ Step by step:
 """
 
 
-DEFAULT_TRY_JOB_TIMEOUT_MINS = tools.try_job_timeout_mins()
-
 # Relevant CrosDynamicSuiteExceptions are defined in client/common_lib/error.py.
 
-class SuiteSpec(object):
-    """
-    This class contains the info that defines a suite run.
-
-    Currently required:
-    @var build: the build to install e.g.
-                  x86-alex-release/R18-1655.0.0-a1-b1584.
-    @var board: which kind of devices to reimage.
-    @var devserver: An instance of the devserver to use with this suite.
-    @var name: a value of the SUITE control file variable to search for.
-    @var job: an instance of client.common_lib.base_job representing the
-                currently running suite job.
-
-    Currently supported optional fields:
-    @var pool: specify the pool of machines to use for scheduling purposes.
-               Default: None
-    @var num: the maximum number of devices to reimage.
-              Default in global_config
-    @var check_hosts: require appropriate hosts to be available now.
-    @var add_experimental: schedule experimental tests as well, or not.
-                           Default: True
-    @var dependencies: map of test names to dependency lists.
-                       Initially {'': []}.
-    @param suite_dependencies: A string with a comma separated list of suite
-                               level dependencies, which act just like test
-                               dependencies and are appended to each test's
-                               set of dependencies at job creation time.
-    @param predicate: Optional argument. If present, should be a function
-                      mapping ControlData objects to True if they should be
-                      included in suite. If argument is absent, suite
-                      behavior will default to creating a suite of based
-                      on the SUITE field of control files.
-    @param test_args: A dict of args passed all the way to each individual test
-                      that will be actually ran.
-    """
+class _SuiteSpec(object):
+    """This class contains the info that defines a suite run."""
 
     _REQUIRED_KEYWORDS = {
             'board': str,
@@ -253,18 +219,16 @@ class SuiteSpec(object):
             board=None,
             name=None,
             job=None,
+            devserver_url=None,
             pool=None,
             num=None,
             check_hosts=True,
             add_experimental=True,
             file_bugs=False,
-            file_experimental_bugs=False,
             max_runtime_mins=24*60,
-            timeout=24,
-            timeout_mins=None,
+            timeout_mins=24*60,
             suite_dependencies=None,
             bug_template=None,
-            devserver_url=None,
             priority=priorities.Priority.DEFAULT,
             predicate=None,
             wait_for_results=True,
@@ -282,36 +246,25 @@ class SuiteSpec(object):
         values.
 
         Currently required args:
+        @param builds: the builds to install e.g.
+                       {'cros-version:': 'x86-alex-release/R18-1655.0.0',
+                        'fwrw-version:': 'x86-alex-firmware/R36-5771.50.0'}
         @param board: which kind of devices to reimage.
         @param name: a value of the SUITE control file variable to search for.
         @param job: an instance of client.common_lib.base_job representing the
                     currently running suite job.
         @param devserver_url: url to the selected devserver.
-        @param builds: the builds to install e.g.
-                       {'cros-version:': 'x86-alex-release/R18-1655.0.0',
-                        'fwrw-version:': 'x86-alex-firmware/R36-5771.50.0'}
 
         Currently supported optional args:
-        @param test_source_build: Build that contains the server-side test code,
-                e.g., it can be the value of builds['cros-version:'] or
-                builds['fw-version:']. Default is None, that is, use
-                the server-side test code from builds['cros-version:']
-        @param pool: specify the pool of machines to use for scheduling purposes
-                     Default: None
+        @param pool: the pool of machines to use for scheduling purposes.
         @param num: the maximum number of devices to reimage.
-                    Default in global_config
         @param check_hosts: require appropriate hosts to be available now.
         @param add_experimental: schedule experimental tests as well, or not.
-                                 Default: True
         @param file_bugs: File bugs when tests in this suite fail.
-                          Default: False
-        @param file_experimental_bugs: File bugs when experimental tests in
-                                       this suite fail.
-                                       Default: False
         @param max_runtime_mins: Max runtime in mins for each of the sub-jobs
                                  this suite will run.
-        @param timeout: Max lifetime in hours for each of the sub-jobs that
-                        this suite run.
+        @param timeout_mins: Max lifetime in minutes for each of the sub-jobs
+                             that this suite runs.
         @param suite_dependencies: A list of strings of suite level
                                    dependencies, which act just like test
                                    dependencies and are appended to each test's
@@ -327,17 +280,18 @@ class SuiteSpec(object):
                           behavior will default to creating a suite of based
                           on the SUITE field of control files.
         @param wait_for_results: Set to False to run the suite job without
-                                 waiting for test jobs to finish. Default is
-                                 True.
-        @param job_retry: Set to True to enable job-level retry. Default is
-                          False.
-        @param max_retries: Maximum retry limit at suite level.
+                                 waiting for test jobs to finish.
+        @param job_retry: Set to True to enable job-level retry.
+        @param max_retries: Maximum retry limit at suite level if not None.
                             Regardless how many times each individual test
                             has been retried, the total number of retries
-                            happening in the suite can't exceed _max_retries.
-                            Default to None, no max.
+                            happening in the suite can't exceed max_retries.
         @param offload_failures_only: Only enable gs_offloading for failed
                                       jobs.
+        @param test_source_build: Build that contains the server-side test code,
+                e.g., it can be the value of builds['cros-version:'] or
+                builds['fw-version:']. None uses the server-side test code from
+                builds['cros-version:'].
         @param run_prod_code: If true, the suite will run the test code that
                               lives in prod aka the test code currently on the
                               lab servers.
@@ -364,14 +318,11 @@ class SuiteSpec(object):
         self.pool = ('pool:%s' % pool) if pool else pool
         self.num = num
         self.check_hosts = check_hosts
-        self.skip_reimage = skip_reimage
         self.add_experimental = add_experimental
         self.file_bugs = file_bugs
-        self.file_experimental_bugs = file_experimental_bugs
         self.dependencies = {'': []}
         self.max_runtime_mins = max_runtime_mins
-        self.timeout = timeout
-        self.timeout_mins = timeout_mins or timeout * 60
+        self.timeout_mins = timeout_mins
         self.bug_template = {} if bug_template is None else bug_template
         self.priority = priority
         self.wait_for_results = wait_for_results
@@ -389,6 +340,10 @@ class SuiteSpec(object):
         self._init_test_source_build(test_source_build)
         self._translate_builds()
         self._add_builds_to_suite_deps()
+
+        for key, value in dargs.iteritems():
+            warnings.warn('Ignored key %r was passed to suite with value %r'
+                          % (key, value))
 
     def _check_init_params(self, **kwargs):
         for key, expected_type in self._REQUIRED_KEYWORDS.iteritems():
@@ -448,7 +403,7 @@ class SuiteSpec(object):
         """Add builds to suite_dependencies.
 
         To support provision both CrOS and firmware, option builds are added to
-        SuiteSpec, e.g.,
+        _SuiteSpec, e.g.,
 
         builds = {'cros-version:': 'x86-alex-release/R18-1655.0.0',
                   'fwrw-version:': 'x86-alex-firmware/R36-5771.50.0'}
@@ -462,13 +417,63 @@ class SuiteSpec(object):
         )
 
 
-def skip_reimage(g):
+def run_provision_suite(**dargs):
     """
-    Pulls the SKIP_IMAGE value out of a global variables dictionary.
-    @param g: The global variables dictionary.
-    @return:  Value associated with SKIP-IMAGE
+    Run a provision suite.
+
+    Will re-image a number of devices (of the specified board) with the
+    provided builds by scheduling dummy_Pass.
+
+    @param job: an instance of client.common_lib.base_job representing the
+                currently running suite job.
+
+    @raises AsynchronousBuildFailure: if there was an issue finishing staging
+                                      from the devserver.
+    @raises MalformedDependenciesException: if the dependency_info file for
+                                            the required build fails to parse.
     """
-    return False
+    spec = _SuiteSpec(**dargs)
+
+    afe = frontend_wrappers.RetryingAFE(timeout_min=30, delay_sec=10,
+                                        user=spec.job.user, debug=False)
+    tko = frontend_wrappers.RetryingTKO(timeout_min=30, delay_sec=10,
+                                        user=spec.job.user, debug=False)
+
+    try:
+        my_job_id = int(tko_utils.get_afe_job_id(spec.job.tag))
+        logging.debug('Determined own job id: %d', my_job_id)
+    except ValueError:
+        my_job_id = None
+        logging.warning('Could not determine own job id.')
+
+    suite = ProvisionSuite(
+            tag=spec.name,
+            builds=spec.builds,
+            board=spec.board,
+            devserver=spec.devserver,
+            count=1,
+            afe=afe,
+            tko=tko,
+            pool=spec.pool,
+            results_dir=spec.job.resultdir,
+            max_runtime_mins=spec.max_runtime_mins,
+            timeout_mins=spec.timeout_mins,
+            file_bugs=spec.file_bugs,
+            suite_job_id=my_job_id,
+            extra_deps=spec.suite_dependencies,
+            priority=spec.priority,
+            wait_for_results=spec.wait_for_results,
+            job_retry=spec.job_retry,
+            max_retries=spec.max_retries,
+            offload_failures_only=spec.offload_failures_only,
+            test_source_build=spec.test_source_build,
+            run_prod_code=spec.run_prod_code,
+            job_keyvals=spec.job_keyvals,
+            test_args=spec.test_args)
+
+    _run_suite_with_spec(suite, spec)
+
+    logging.debug('Returning from dynamic_suite.run_provision_suite')
 
 
 def reimage_and_run(**dargs):
@@ -479,54 +484,13 @@ def reimage_and_run(**dargs):
     provided builds, and then run the indicated test suite on them.
     Guaranteed to be compatible with any build from stable to dev.
 
-    @param dargs: Dictionary containing the arguments listed below.
-
-    Currently required args:
-    @param board: which kind of devices to reimage.
-    @param name: a value of the SUITE control file variable to search for.
-    @param job: an instance of client.common_lib.base_job representing the
-                currently running suite job.
-
-    Currently supported optional args:
-    @param builds: the builds to install e.g.
-                   {'cros-version:': 'x86-alex-release/R18-1655.0.0',
-                    'fw-version:':  'x86-alex-firmware/R36-5771.50.0'}
-    @param pool: specify the pool of machines to use for scheduling purposes.
-                 Default: None
-    @param num: the maximum number of devices to reimage.
-                Default in global_config
-    @param check_hosts: require appropriate hosts to be available now.
-    @param add_experimental: schedule experimental tests as well, or not.
-                             Default: True
-    @param file_bugs: automatically file bugs on test failures.
-                      Default: False
-    @param suite_dependencies: A string with a comma separated list of suite
-                               level dependencies, which act just like test
-                               dependencies and are appended to each test's
-                               set of dependencies at job creation time.
-    @param devserver_url: url to the selected devserver.
-    @param predicate: Optional argument. If present, should be a function
-                      mapping ControlData objects to True if they should be
-                      included in suite. If argument is absent, suite
-                      behavior will default to creating a suite of based
-                      on the SUITE field of control files.
-    @param job_retry: A bool value indicating whether jobs should be retired
-                      on failure. If True, the field 'JOB_RETRIES' in control
-                      files will be respected. If False, do not retry.
-    @param max_retries: Maximum retry limit at suite level.
-                        Regardless how many times each individual test
-                        has been retried, the total number of retries
-                        happening in the suite can't exceed _max_retries.
-                        Default to None, no max.
-    @param offload_failures_only: Only enable gs_offloading for failed jobs.
-    @param test_args: A dict of args passed all the way to each individual test
-                      that will be actually ran.
+    @param dargs: Dictionary containing the arguments passed to _SuiteSpec().
     @raises AsynchronousBuildFailure: if there was an issue finishing staging
                                       from the devserver.
     @raises MalformedDependenciesException: if the dependency_info file for
                                             the required build fails to parse.
     """
-    suite_spec = SuiteSpec(**dargs)
+    suite_spec = _SuiteSpec(**dargs)
 
     afe = frontend_wrappers.RetryingAFE(timeout_min=30, delay_sec=10,
                                         user=suite_spec.job.user, debug=False)
@@ -549,23 +513,12 @@ def _perform_reimage_and_run(spec, afe, tko, suite_job_id=None):
     """
     Do the work of reimaging hosts and running tests.
 
-    @param spec: a populated SuiteSpec object.
+    @param spec: a populated _SuiteSpec object.
     @param afe: an instance of AFE as defined in server/frontend.py.
     @param tko: an instance of TKO as defined in server/frontend.py.
     @param suite_job_id: Job id that will act as parent id to all sub jobs.
                          Default: None
     """
-    # We can't do anything else until the devserver has finished downloading
-    # control_files and test_suites packages so that we can get the control
-    # files we should schedule.
-    if not spec.run_prod_code:
-        _stage_artifacts(spec)
-
-    timestamp = datetime.datetime.now().strftime(time_utils.TIME_FMT)
-    utils.write_keyval(
-        spec.job.resultdir,
-        {constants.ARTIFACT_FINISHED_TIME: timestamp})
-
     suite = Suite.create_from_predicates(
             predicates=[spec.predicate],
             name=spec.name,
@@ -579,7 +532,6 @@ def _perform_reimage_and_run(spec, afe, tko, suite_job_id=None):
             max_runtime_mins=spec.max_runtime_mins,
             timeout_mins=spec.timeout_mins,
             file_bugs=spec.file_bugs,
-            file_experimental_bugs=spec.file_experimental_bugs,
             suite_job_id=suite_job_id,
             extra_deps=spec.suite_dependencies,
             priority=spec.priority,
@@ -591,20 +543,73 @@ def _perform_reimage_and_run(spec, afe, tko, suite_job_id=None):
             run_prod_code=spec.run_prod_code,
             job_keyvals=spec.job_keyvals,
             test_args=spec.test_args)
+    _run_suite_with_spec(suite, spec)
 
-    if spec.delay_minutes:
+
+def _run_suite_with_spec(suite, spec):
+    """
+    Do the work of reimaging hosts and running tests.
+
+    @param suite: _BaseSuite instance to run.
+    @param spec: a populated _SuiteSpec object.
+    """
+    _run_suite(
+        suite=suite,
+        job=spec.job,
+        run_prod_code=spec.run_prod_code,
+        devserver=spec.devserver,
+        build=spec.test_source_build,
+        delay_minutes=spec.delay_minutes,
+        bug_template=spec.bug_template)
+
+
+def _run_suite(
+        suite,
+        job,
+        run_prod_code,
+        devserver,
+        build,
+        delay_minutes,
+        bug_template):
+    """
+    Run a suite.
+
+    @param suite: _BaseSuite instance.
+    @param job: an instance of client.common_lib.base_job representing the
+                currently running suite job.
+    @param run_prod_code: whether to use prod test code.
+    @param devserver: devserver for staging artifacts.
+    @param build: the build to install e.g. 'x86-alex-release/R18-1655.0.0'
+    @param delay_minutes: Delay the creation of test jobs for a given number
+                          of minutes.
+    @param bug_template: A template dictionary specifying the default bug
+                         filing options for failures in this suite.
+    """
+    # We can't do anything else until the devserver has finished downloading
+    # control_files and test_suites packages so that we can get the control
+    # files we should schedule.
+    if not run_prod_code:
+        _stage_artifacts_for_build(devserver, build)
+
+    timestamp = datetime.datetime.now().strftime(time_utils.TIME_FMT)
+    utils.write_keyval(
+        job.resultdir,
+        {constants.ARTIFACT_FINISHED_TIME: timestamp})
+
+    if delay_minutes:
         logging.debug('delay_minutes is set. Sleeping %d minutes before '
-                      'creating test jobs.', spec.delay_minutes)
-        time.sleep(spec.delay_minutes*60)
+                      'creating test jobs.', delay_minutes)
+        time.sleep(delay_minutes*60)
         logging.debug('Finished waiting for %d minutes before creating test '
-                      'jobs.', spec.delay_minutes)
+                      'jobs.', delay_minutes)
 
     # Now we get to asychronously schedule tests.
-    suite.schedule(spec.job.record_entry, spec.add_experimental)
+    suite.schedule(job.record_entry)
 
     if suite.wait_for_results:
         logging.debug('Waiting on suite.')
-        suite.wait(spec.job.record_entry, spec.bug_template)
+        reporter = suite.get_result_reporter(bug_template)
+        suite.wait(job.record_entry, reporter=reporter)
         logging.debug('Finished waiting on suite. '
                       'Returning from _perform_reimage_and_run.')
     else:
@@ -612,14 +617,15 @@ def _perform_reimage_and_run(spec, afe, tko, suite_job_id=None):
                      'without waiting for test jobs to finish.')
 
 
-def _stage_artifacts(suite_spec):
+def _stage_artifacts_for_build(devserver, build):
     """Stage artifacts for a suite job.
 
-    @param suite_spec: a populated SuiteSpec object.
+    @param devserver: devserver to stage artifacts with.
+    @param build: image to stage artifacts for.
     """
     try:
-        suite_spec.devserver.stage_artifacts(
-                image=suite_spec.test_source_build,
+        devserver.stage_artifacts(
+                image=build,
                 artifacts=['control_files', 'test_suites'])
     except dev_server.DevServerException as e:
         # If we can't get the control files, there's nothing to run.

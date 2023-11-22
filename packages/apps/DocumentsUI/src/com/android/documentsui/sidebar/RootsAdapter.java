@@ -78,7 +78,7 @@ class RootsAdapter extends ArrayAdapter<Item> {
         final Item item = getItem(position);
         final View view = item.getView(convertView, parent);
 
-        if (item.isDropTarget()) {
+        if (item.isRoot()) {
             view.setTag(R.id.item_position_tag, position);
             view.setOnDragListener(mDragListener);
         } else {

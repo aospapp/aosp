@@ -2748,7 +2748,7 @@ bool AArch64FastISel::selectFPToInt(const Instruction *I, bool Signed) {
     return false;
 
   EVT SrcVT = TLI.getValueType(DL, I->getOperand(0)->getType(), true);
-  if (SrcVT == MVT::f128)
+  if (SrcVT == MVT::f128 || SrcVT == MVT::f16)
     return false;
 
   unsigned Opc;
@@ -2775,8 +2775,12 @@ bool AArch64FastISel::selectIntToFP(const Instruction *I, bool Signed) {
   MVT DestVT;
   if (!isTypeLegal(I->getType(), DestVT) || DestVT.isVector())
     return false;
-  assert ((DestVT == MVT::f32 || DestVT == MVT::f64) &&
-          "Unexpected value type.");
+  // Let regular ISEL handle FP16
+  if (DestVT == MVT::f16)
+    return false;
+
+  assert((DestVT == MVT::f32 || DestVT == MVT::f64) &&
+         "Unexpected value type.");
 
   unsigned SrcReg = getRegForValue(I->getOperand(0));
   if (!SrcReg)

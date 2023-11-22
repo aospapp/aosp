@@ -35,6 +35,7 @@
 
 #include "dex_ir_builder.h"
 #include "dex_file-inl.h"
+#include "dex_file_layout.h"
 #include "dex_file_verifier.h"
 #include "dex_instruction-inl.h"
 #include "dex_verify.h"
@@ -1536,11 +1537,21 @@ void DexLayout::LayoutStringData(const DexFile* dex_file) {
   std::vector<bool> from_hot_method(num_strings, false);
   for (std::unique_ptr<dex_ir::ClassDef>& class_def : header_->GetCollections().ClassDefs()) {
     // A name of a profile class is probably going to get looked up by ClassTable::Lookup, mark it
-    // as hot.
+    // as hot. Add its super class and interfaces as well, which can be used during initialization.
     const bool is_profile_class =
         info_->ContainsClass(*dex_file, dex::TypeIndex(class_def->ClassType()->GetIndex()));
     if (is_profile_class) {
       from_hot_method[class_def->ClassType()->GetStringId()->GetIndex()] = true;
+      const dex_ir::TypeId* superclass = class_def->Superclass();
+      if (superclass != nullptr) {
+        from_hot_method[superclass->GetStringId()->GetIndex()] = true;
+      }
+      const dex_ir::TypeList* interfaces = class_def->Interfaces();
+      if (interfaces != nullptr) {
+        for (const dex_ir::TypeId* interface_type : *interfaces->GetTypeList()) {
+          from_hot_method[interface_type->GetStringId()->GetIndex()] = true;
+        }
+      }
     }
     dex_ir::ClassData* data = class_def->GetClassData();
     if (data == nullptr) {
@@ -1557,7 +1568,7 @@ void DexLayout::LayoutStringData(const DexFile* dex_file) {
             (method->GetAccessFlags() & kAccConstructor) != 0 &&
             (method->GetAccessFlags() & kAccStatic) != 0;
         const bool method_executed = is_clinit ||
-            info_->ContainsMethod(MethodReference(dex_file, method_id->GetIndex()));
+            info_->GetMethodHotness(MethodReference(dex_file, method_id->GetIndex())).IsInProfile();
         if (!method_executed) {
           continue;
         }
@@ -1566,17 +1577,24 @@ void DexLayout::LayoutStringData(const DexFile* dex_file) {
         if (fixups == nullptr) {
           continue;
         }
-        if (fixups->StringIds() != nullptr) {
-          // Add const-strings.
-          for (dex_ir::StringId* id : *fixups->StringIds()) {
-            from_hot_method[id->GetIndex()] = true;
-          }
+        // Add const-strings.
+        for (dex_ir::StringId* id : *fixups->StringIds()) {
+          from_hot_method[id->GetIndex()] = true;
         }
-        // TODO: Only visit field ids from static getters and setters.
+        // Add field classes, names, and types.
         for (dex_ir::FieldId* id : *fixups->FieldIds()) {
-          // Add the field names and types from getters and setters.
+          // TODO: Only visit field ids from static getters and setters.
+          from_hot_method[id->Class()->GetStringId()->GetIndex()] = true;
           from_hot_method[id->Name()->GetIndex()] = true;
           from_hot_method[id->Type()->GetStringId()->GetIndex()] = true;
+        }
+        // For clinits, add referenced method classes, names, and protos.
+        if (is_clinit) {
+          for (dex_ir::MethodId* id : *fixups->MethodIds()) {
+            from_hot_method[id->Class()->GetStringId()->GetIndex()] = true;
+            from_hot_method[id->Name()->GetIndex()] = true;
+            is_shorty[id->Proto()->Shorty()->GetIndex()] = true;
+          }
         }
       }
     }
@@ -1663,18 +1681,13 @@ int32_t DexLayout::LayoutCodeItems(const DexFile* dex_file,
     }
   }
 
-  enum CodeItemKind {
-    kMethodNotExecuted = 0,
-    kMethodExecuted = 1,
-    kSize = 2,
-  };
-
   static constexpr InvokeType invoke_types[] = {
-      kDirect,
-      kVirtual
+    kDirect,
+    kVirtual
   };
 
-  std::unordered_set<dex_ir::CodeItem*> code_items[CodeItemKind::kSize];
+  const size_t num_layout_types = static_cast<size_t>(LayoutType::kLayoutTypeCount);
+  std::unordered_set<dex_ir::CodeItem*> code_items[num_layout_types];
   for (InvokeType invoke_type : invoke_types) {
     for (std::unique_ptr<dex_ir::ClassDef>& class_def : header_->GetCollections().ClassDefs()) {
       const bool is_profile_class =
@@ -1694,27 +1707,38 @@ int32_t DexLayout::LayoutCodeItems(const DexFile* dex_file,
           continue;
         }
         // Separate executed methods (clinits and profiled methods) from unexecuted methods.
-        // TODO: clinits are executed only once, consider separating them further.
-        const bool is_clinit = is_profile_class &&
-            (method->GetAccessFlags() & kAccConstructor) != 0 &&
+        const bool is_clinit = (method->GetAccessFlags() & kAccConstructor) != 0 &&
             (method->GetAccessFlags() & kAccStatic) != 0;
-        const bool is_method_executed = is_clinit ||
-            info_->ContainsMethod(MethodReference(dex_file, method_id->GetIndex()));
-        code_items[is_method_executed
-                       ? CodeItemKind::kMethodExecuted
-                       : CodeItemKind::kMethodNotExecuted]
-            .insert(code_item);
+        const bool is_startup_clinit = is_profile_class && is_clinit;
+        using Hotness = ProfileCompilationInfo::MethodHotness;
+        Hotness hotness = info_->GetMethodHotness(MethodReference(dex_file, method_id->GetIndex()));
+        LayoutType state = LayoutType::kLayoutTypeUnused;
+        if (hotness.IsHot()) {
+          // Hot code is compiled, maybe one day it won't be accessed. So lay it out together for
+          // now.
+          state = LayoutType::kLayoutTypeHot;
+        } else if (is_startup_clinit || hotness.GetFlags() == Hotness::kFlagStartup) {
+          // Startup clinit or a method that only has the startup flag.
+          state = LayoutType::kLayoutTypeStartupOnly;
+        } else if (is_clinit) {
+          state = LayoutType::kLayoutTypeUsedOnce;
+        } else if (hotness.IsInProfile()) {
+          state = LayoutType::kLayoutTypeSometimesUsed;
+        }
+        code_items[static_cast<size_t>(state)].insert(code_item);
       }
     }
   }
 
-  // total_diff includes diffs generated by both executed and non-executed methods.
+  // Total_diff includes diffs generated by clinits, executed, and non-executed methods.
   int32_t total_diff = 0;
   // The relative placement has no effect on correctness; it is used to ensure
   // the layout is deterministic
-  for (std::unordered_set<dex_ir::CodeItem*>& code_items_set : code_items) {
-    // diff is reset for executed and non-executed methods.
+  for (size_t index = 0; index < num_layout_types; ++index) {
+    const std::unordered_set<dex_ir::CodeItem*>& code_items_set = code_items[index];
+    // diff is reset for each class of code items.
     int32_t diff = 0;
+    const uint32_t start_offset = code_item_offset;
     for (dex_ir::ClassData* data : new_class_data_order) {
       data->SetOffset(data->GetOffset() + diff);
       for (InvokeType invoke_type : invoke_types) {
@@ -1732,6 +1756,14 @@ int32_t DexLayout::LayoutCodeItems(const DexFile* dex_file,
           }
         }
       }
+    }
+    DexLayoutSection& code_section = dex_sections_.sections_[static_cast<size_t>(
+        DexLayoutSections::SectionType::kSectionTypeCode)];
+    code_section.parts_[index].offset_ = start_offset;
+    code_section.parts_[index].size_ = code_item_offset - start_offset;
+    for (size_t i = 0; i < num_layout_types; ++i) {
+      VLOG(dex) << "Code item layout bucket " << i << " count=" << code_items[i].size()
+                << " bytes=" << code_section.parts_[i].size_;
     }
     total_diff += diff;
   }
@@ -1909,7 +1941,7 @@ void DexLayout::OutputDexFile(const DexFile* dex_file) {
   }
   // Do IR-level comparison between input and output. This check ignores potential differences
   // due to layout, so offsets are not checked. Instead, it checks the data contents of each item.
-  if (options_.verify_output_) {
+  if (kIsDebugBuild || options_.verify_output_) {
     std::unique_ptr<dex_ir::Header> orig_header(dex_ir::DexIrBuilder(*dex_file));
     CHECK(VerifyOutputDexFile(orig_header.get(), header_, &error_msg)) << error_msg;
   }

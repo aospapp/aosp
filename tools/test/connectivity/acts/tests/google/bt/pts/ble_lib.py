@@ -17,12 +17,12 @@
 Ble libraries
 """
 
-from acts.test_utils.bt.BleEnum import AdvertiseSettingsAdvertiseMode
-from acts.test_utils.bt.BleEnum import AdvertiseSettingsAdvertiseTxPower
-from acts.test_utils.bt.BleEnum import ScanSettingsScanMode
-from acts.test_utils.bt.bt_test_utils import TIMEOUT_SMALL
+from acts.test_utils.bt.bt_constants import ble_advertise_settings_modes
+from acts.test_utils.bt.bt_constants import ble_advertise_settings_tx_powers
+from acts.test_utils.bt.bt_constants import ble_scan_settings_modes
+from acts.test_utils.bt.bt_constants import small_timeout
 from acts.test_utils.bt.bt_test_utils import adv_fail
-from acts.test_utils.bt.bt_test_utils import adv_succ
+from acts.test_utils.bt.bt_constants import adv_succ
 from acts.test_utils.bt.bt_test_utils import advertising_set_on_own_address_read
 from acts.test_utils.bt.bt_test_utils import advertising_set_started
 from acts.test_utils.bt.bt_test_utils import generate_ble_advertise_objects
@@ -47,7 +47,7 @@ class BleLib():
             adv_succ.format(advertise_callback),
             adv_fail.format(advertise_callback))
         try:
-            event = self.dut.ed.pop_events(regex, 5, TIMEOUT_SMALL)
+            event = self.dut.ed.pop_events(regex, 5, small_timeout)
         except Empty:
             self.dut.log.error("Failed to get success or failed event.")
             return
@@ -64,7 +64,7 @@ class BleLib():
         if line:
             scan_response = bool(line)
         self.dut.droid.bleSetAdvertiseSettingsAdvertiseMode(
-            AdvertiseSettingsAdvertiseMode.ADVERTISE_MODE_LOW_LATENCY.value)
+            ble_advertise_settings_modes['low_latency'])
         self.dut.droid.bleSetAdvertiseSettingsIsConnectable(True)
         advertise_callback, advertise_data, advertise_settings = (
             generate_ble_advertise_objects(self.dut.droid))
@@ -76,28 +76,21 @@ class BleLib():
             self.dut.droid.bleStartBleAdvertising(
                 advertise_callback, advertise_data, advertise_settings)
         if self._verify_ble_adv_started(advertise_callback):
-            self.log.info(
-                "Tracking Callback ID: {}".format(advertise_callback))
+            self.log.info("Tracking Callback ID: {}".format(
+                advertise_callback))
             self.advertisement_list.append(advertise_callback)
             self.log.info(self.advertisement_list)
 
     def start_connectable_advertisement_set(self, line):
         """Start Connectable Advertisement Set"""
         adv_callback = self.dut.droid.bleAdvSetGenCallback()
-        adv_data = {
-            "includeDeviceName": True,
-        }
+        adv_data = {"includeDeviceName": True, }
         self.dut.droid.bleAdvSetStartAdvertisingSet({
-            "connectable":
-            True,
-            "legacyMode":
-            False,
-            "primaryPhy":
-            "PHY_LE_1M",
-            "secondaryPhy":
-            "PHY_LE_1M",
-            "interval":
-            320
+            "connectable": True,
+            "legacyMode": False,
+            "primaryPhy": "PHY_LE_1M",
+            "secondaryPhy": "PHY_LE_1M",
+            "interval": 320
         }, adv_data, None, None, None, 0, 0, adv_callback)
         evt = self.dut.ed.pop_event(
             advertising_set_started.format(adv_callback), self.default_timeout)
@@ -151,15 +144,15 @@ class BleLib():
     def start_generic_nonconnectable_advertisement(self, line):
         """Start a nonconnectable LE advertisement"""
         self.dut.droid.bleSetAdvertiseSettingsAdvertiseMode(
-            AdvertiseSettingsAdvertiseMode.ADVERTISE_MODE_LOW_LATENCY.value)
+            ble_advertise_settings_modes['low_latency'])
         self.dut.droid.bleSetAdvertiseSettingsIsConnectable(False)
         advertise_callback, advertise_data, advertise_settings = (
             generate_ble_advertise_objects(self.dut.droid))
         self.dut.droid.bleStartBleAdvertising(
             advertise_callback, advertise_data, advertise_settings)
         if self._verify_ble_adv_started(advertise_callback):
-            self.log.info(
-                "Tracking Callback ID: {}".format(advertise_callback))
+            self.log.info("Tracking Callback ID: {}".format(
+                advertise_callback))
             self.advertisement_list.append(advertise_callback)
             self.log.info(self.advertisement_list)
 
@@ -171,7 +164,7 @@ class BleLib():
             time.sleep(1)
         self.advertisement_list = []
 
-    def do_ble_stop_advertisement(self, callback_id):
+    def ble_stop_advertisement(self, callback_id):
         """Stop an LE advertisement"""
         if not callback_id:
             self.log.info("Need a callback ID")

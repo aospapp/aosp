@@ -21,6 +21,7 @@ import android.support.annotation.NonNull;
 import android.support.v17.leanback.widget.GuidanceStylist.Guidance;
 import android.support.v17.leanback.widget.GuidedAction;
 
+import com.android.tv.common.BuildConfig;
 import com.android.tv.common.ui.setup.SetupGuidedStepFragment;
 import com.android.tv.common.ui.setup.SetupMultiPaneFragment;
 import com.android.tv.tuner.R;
@@ -34,6 +35,24 @@ import java.util.TimeZone;
 public class ConnectionTypeFragment extends SetupMultiPaneFragment {
     public static final String ACTION_CATEGORY =
             "com.android.tv.tuner.setup.ConnectionTypeFragment";
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        ((TunerSetupActivity) getActivity()).generateTunerHal();
+        super.onCreate(savedInstanceState);
+    }
+
+    @Override
+    public void onResume() {
+        ((TunerSetupActivity) getActivity()).generateTunerHal();
+        super.onResume();
+    }
+
+    @Override
+    public void onDestroy() {
+        ((TunerSetupActivity) getActivity()).clearTunerHal();
+        super.onDestroy();
+    }
 
     @Override
     protected SetupGuidedStepFragment onCreateContentFragment() {

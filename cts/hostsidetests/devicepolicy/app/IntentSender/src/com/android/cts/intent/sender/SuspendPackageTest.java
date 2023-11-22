@@ -3,8 +3,10 @@ package com.android.cts.intent.sender;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
+import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
@@ -16,6 +18,11 @@ public class SuspendPackageTest extends InstrumentationTestCase {
             .clazz(android.widget.ImageView.class.getName())
             .res("com.android.settings:id/admin_support_icon")
             .pkg("com.android.settings");
+
+    private static final BySelector POPUP_TITLE_WATCH_SELECTOR = By
+            .clazz(android.widget.TextView.class.getName())
+            .res("android:id/alertTitle")
+            .pkg("com.google.android.apps.wearable.settings");
 
     private static final BySelector POPUP_BUTTON_SELECTOR = By
             .clazz(android.widget.Button.class.getName())
@@ -75,12 +82,24 @@ public class SuspendPackageTest extends InstrumentationTestCase {
      */
     private void dismissPolicyTransparencyDialog() {
         final UiDevice device = UiDevice.getInstance(getInstrumentation());
-        device.wait(Until.hasObject(POPUP_IMAGE_SELECTOR), WAIT_DIALOG_TIMEOUT_IN_MS);
-        final UiObject2 icon = device.findObject(POPUP_IMAGE_SELECTOR);
-        assertNotNull("Policy transparency dialog icon not found", icon);
-        // "OK" button only present in the dialog if it is blocked by policy.
-        final UiObject2 button = device.findObject(POPUP_BUTTON_SELECTOR);
-        assertNotNull("OK button not found", button);
-        button.click();
+        if (isWatch()) {
+            device.wait(Until.hasObject(POPUP_TITLE_WATCH_SELECTOR), WAIT_DIALOG_TIMEOUT_IN_MS);
+            final UiObject2 title = device.findObject(POPUP_TITLE_WATCH_SELECTOR);
+            assertNotNull("Policy transparency dialog title not found", title);
+            title.swipe(Direction.RIGHT, 1.0f);
+        } else {
+            device.wait(Until.hasObject(POPUP_IMAGE_SELECTOR), WAIT_DIALOG_TIMEOUT_IN_MS);
+            final UiObject2 icon = device.findObject(POPUP_IMAGE_SELECTOR);
+            assertNotNull("Policy transparency dialog icon not found", icon);
+            // "OK" button only present in the dialog if it is blocked by policy.
+            final UiObject2 button = device.findObject(POPUP_BUTTON_SELECTOR);
+            assertNotNull("OK button not found", button);
+            button.click();
+        }
+    }
+
+    private boolean isWatch() {
+        return (getInstrumentation().getContext().getResources().getConfiguration().uiMode
+                & Configuration.UI_MODE_TYPE_MASK) == Configuration.UI_MODE_TYPE_WATCH;
     }
 }

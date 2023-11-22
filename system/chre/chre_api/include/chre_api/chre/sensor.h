@@ -55,8 +55,7 @@ extern "C" {
 /**
  * Accelerometer.
  *
- * Generates: CHRE_EVENT_SENSOR_ACCELEROMETER_DATA and
- *     CHRE_EVENT_SENSOR_ACCELEROMETER_BIAS_INFO
+ * Generates: CHRE_EVENT_SENSOR_ACCELEROMETER_DATA
  *
  * Note that the ACCELEROMETER_DATA is always the fully calibrated data,
  * including factory calibration and runtime calibration if available.
@@ -89,7 +88,7 @@ extern "C" {
  * Gyroscope.
  *
  * Generates: CHRE_EVENT_SENSOR_GYROSCOPE_DATA and
- *     CHRE_EVENT_SENSOR_GYROSCOPE_BIAS_INFO
+ *     optionally CHRE_EVENT_SENSOR_GYROSCOPE_BIAS_INFO
  *
  * Note that the GYROSCOPE_DATA is always the fully calibrated data, including
  * factory calibration and runtime calibration if available.
@@ -110,7 +109,7 @@ extern "C" {
  * Magnetometer.
  *
  * Generates: CHRE_EVENT_SENSOR_GEOMAGNETIC_FIELD_DATA and
- *     CHRE_EVENT_SENSOR_GEOMAGNETIC_FIELD_BIAS_INFO
+ *     optionally CHRE_EVENT_SENSOR_GEOMAGNETIC_FIELD_BIAS_INFO
  *
  * Note that the GEOMAGNETIC_FIELD_DATA is always the fully calibrated data,
  * including factory calibration and runtime calibration if available.
@@ -371,24 +370,11 @@ extern "C" {
  * field within 'readings', or by the 3D array 'bias' (bias[0] == x_bias;
  * bias[1] == y_bias; bias[2] == z_bias).
  *
- * All values are in SI units (m/s^2) and measure the acceleration applied to
- * the device.
- */
-#define CHRE_EVENT_SENSOR_ACCELEROMETER_BIAS_INFO \
-    (CHRE_EVENT_SENSOR_OTHER_EVENTS_BASE + 1)
-
-/**
- * nanoappHandleEvent argument: struct chreSensorThreeAxisData
- *
- * The data can be interpreted using the 'x_bias', 'y_bias', and 'z_bias'
- * field within 'readings', or by the 3D array 'bias' (bias[0] == x_bias;
- * bias[1] == y_bias; bias[2] == z_bias).
- *
  * All values are in radians/second and measure the rate of rotation
  * around the X, Y and Z axis.
  */
 #define CHRE_EVENT_SENSOR_GYROSCOPE_BIAS_INFO \
-    (CHRE_EVENT_SENSOR_OTHER_EVENTS_BASE + 2)
+    (CHRE_EVENT_SENSOR_OTHER_EVENTS_BASE + 1)
 
 /**
  * nanoappHandleEvent argument: struct chreSensorThreeAxisData
@@ -401,7 +387,7 @@ extern "C" {
  * field in the X, Y and Z axis.
  */
 #define CHRE_EVENT_SENSOR_GEOMAGNETIC_FIELD_BIAS_INFO \
-    (CHRE_EVENT_SENSOR_OTHER_EVENTS_BASE + 3)
+    (CHRE_EVENT_SENSOR_OTHER_EVENTS_BASE + 2)
 
 
 #if CHRE_EVENT_SENSOR_GEOMAGNETIC_FIELD_BIAS_INFO > CHRE_EVENT_SENSOR_LAST_EVENT
@@ -435,6 +421,12 @@ extern "C" {
  */
 #define CHRE_SENSOR_LATENCY_DEFAULT  UINT64_C(-1)
 
+/**
+ * Special value indicating non-importance of the batch interval.
+ *
+ * @see chreSensorConfigureWithBatchInterval
+ */
+#define CHRE_SENSOR_BATCH_INTERVAL_DEFAULT  UINT64_C(-1)
 
 // This is used to define elements of enum chreSensorConfigureMode.
 #define CHRE_SENSOR_CONFIGURE_RAW_POWER_ON           (1 << 0)
@@ -560,7 +552,7 @@ struct chreSensorInfo {
      * A one-shot sensor only triggers a single event, and then automatically
      * disables itself.
      *
-     * A value of 1 indicates this is on-change.  0 indicates this is not
+     * A value of 1 indicates this is one-shot.  0 indicates this is not
      * on-change.
      */
     uint8_t isOneShot   : 1;
@@ -657,7 +649,6 @@ struct chreSensorDataHeader {
  * Data for a sensor which reports on three axes.
  *
  * This is used by CHRE_EVENT_SENSOR_ACCELEROMETER_DATA,
- * CHRE_EVENT_SENSOR_ACCELEROMETER_BIAS_INFO,
  * CHRE_EVENT_SENSOR_UNCALIBRATED_ACCELEROMETER_DATA,
  * CHRE_EVENT_SENSOR_GYROSCOPE_DATA,
  * CHRE_EVENT_SENSOR_GYROSCOPE_BIAS_INFO,
@@ -772,6 +763,9 @@ struct chreSensorSamplingStatus {
      * If this is CHRE_SENSOR_LATENCY_DEFAULT, then a latency
      * isn't meaningful for this sensor.
      *
+     * The effective batch interval can be derived from this value by
+     * adding the current sampling interval.
+     *
      * Note that if 'enabled' is false, this value is not meaningful.
      */
     uint64_t latency;
@@ -859,9 +853,6 @@ bool chreGetSensorSamplingStatus(uint32_t sensorHandle,
  *
  * If this sensor's chreSensorInfo has isOneShot set to 1,
  * then the mode must be one of the ONE_SHOT modes, or this method will fail.
- * The supplied interval and latency must be set to
- * CHRE_SENSOR_INTERVAL_DEFAULT and CHRE_SENSOR_LATENCY_DEFAULT, respectively,
- * if the sensor is one-shot, or this method will fail.
  *
  * The CHRE wants to power as few sensors as possible, in keeping with its
  * low power design.  As such, it only turns on sensors when there are clients
@@ -897,7 +888,7 @@ bool chreGetSensorSamplingStatus(uint32_t sensorHandle,
  * DONE mode after that single event triggers.  Thus, the
  * following are legitimate usages:
  * <code>
- *   chreSensorConfigure(myHandle, MODE_ONE_SHOT, rate, latency);
+ *   chreSensorConfigure(myHandle, MODE_ONE_SHOT, interval, latency);
  *   [...]
  *   [myHandle triggers an event]
  *   [no need to configure to DONE].
@@ -905,7 +896,7 @@ bool chreGetSensorSamplingStatus(uint32_t sensorHandle,
  *
  * And:
  * <code>
- *   chreSensorConfigure(myHandle, MODE_ONE_SHOT, rate, latency);
+ *   chreSensorConfigure(myHandle, MODE_ONE_SHOT, interval, latency);
  *   [...]
  *   chreSensorConfigureModeOnly(myHandle, MODE_DONE);
  *   [we cancelled myHandle before it ever triggered an event]
@@ -932,7 +923,7 @@ bool chreGetSensorSamplingStatus(uint32_t sensorHandle,
  *     Latency is defined as the "timestamp when event is queued by the CHRE"
  *     minus "timestamp of oldest unsent data reading".
  *     There is a special value CHRE_SENSOR_LATENCY_DEFAULT, in which we don't
- *     express a preference for the latency, and allow the sensor to chose what
+ *     express a preference for the latency, and allow the sensor to choose what
  *     it wants.
  *     Note that there is no assurance of how long it will take an event to
  *     get through a CHRE's queueing system, and thus there is no ability to
@@ -951,7 +942,8 @@ bool chreSensorConfigure(uint32_t sensorHandle,
                          uint64_t interval, uint64_t latency);
 
 /**
- * Short cut for chreSensorConfigure where we only want to change the mode.
+ * Short cut for chreSensorConfigure where we only want to configure the mode
+ * and do not care about interval/latency.
  *
  * @see chreSensorConfigure
  */
@@ -963,6 +955,60 @@ static inline bool chreSensorConfigureModeOnly(
                                CHRE_SENSOR_LATENCY_DEFAULT);
 }
 
+/**
+ * Convenience function that wraps chreSensorConfigure but enables batching to
+ * be controlled by specifying the desired maximum batch interval rather
+ * than maximum sample latency.  Users may find the batch interval to be a more
+ * intuitive method of expressing the desired batching behavior.
+ *
+ * Batch interval is different from latency as the batch interval time is
+ * counted starting when the prior event containing a batch of sensor samples is
+ * delivered, while latency starts counting when the first sample is deferred to
+ * start collecting a batch.  In other words, latency ignores the time between
+ * the last sample in a batch to the first sample of the next batch, while it's
+ * included in the batch interval, as illustrated below.
+ *
+ *  Time      0   1   2   3   4   5   6   7   8
+ *  Batch             A           B           C
+ *  Sample   a1  a2  a3  b1  b2  b3  c1  c2  c3
+ *  Latency  [        ]  [        ]  [        ]
+ *  BatchInt          |           |           |
+ *
+ * In the diagram, the effective sample interval is 1 time unit, latency is 2
+ * time units, and batch interval is 3 time units.
+ *
+ * @param sensorHandle See chreSensorConfigure#sensorHandle
+ * @param mode See chreSensorConfigure#mode
+ * @param sampleInterval See chreSensorConfigure#interval, but note that
+ *     CHRE_SENSOR_INTERVAL_DEFAULT is not a supported input to this method.
+ * @param batchInterval The desired maximum interval, in nanoseconds, between
+ *     CHRE enqueuing each batch of sensor samples.
+ * @return Same as chreSensorConfigure
+ *
+ * @see chreSensorConfigure
+ *
+ * @since v1.1
+ */
+static inline bool chreSensorConfigureWithBatchInterval(
+        uint32_t sensorHandle, enum chreSensorConfigureMode mode,
+        uint64_t sampleInterval, uint64_t batchInterval) {
+    bool result = false;
+
+    if (sampleInterval != CHRE_SENSOR_INTERVAL_DEFAULT) {
+        uint64_t latency;
+        if (batchInterval == CHRE_SENSOR_BATCH_INTERVAL_DEFAULT) {
+            latency = CHRE_SENSOR_LATENCY_DEFAULT;
+        } else if (batchInterval > sampleInterval) {
+            latency = batchInterval - sampleInterval;
+        } else {
+            latency = CHRE_SENSOR_LATENCY_ASAP;
+        }
+        result = chreSensorConfigure(sensorHandle, mode, sampleInterval,
+                                     latency);
+    }
+
+    return result;
+}
 
 #ifdef __cplusplus
 }

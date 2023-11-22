@@ -642,6 +642,7 @@ public class DeviceSetup implements ITargetPreparer, ITargetCleaner {
             return;
         }
 
+        CLog.d("Pushing the following properties to /data/local.prop:\n%s", sb.toString());
         boolean result = device.pushString(sb.toString(), "/data/local.prop");
         if (!result) {
             throw new TargetSetupError(String.format("Failed to push /data/local.prop to %s",

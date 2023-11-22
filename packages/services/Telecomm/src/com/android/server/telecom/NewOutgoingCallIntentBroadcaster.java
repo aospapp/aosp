@@ -30,6 +30,7 @@ import android.os.UserHandle;
 import android.telecom.GatewayInfo;
 import android.telecom.Log;
 import android.telecom.PhoneAccount;
+import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
 import android.telephony.DisconnectCause;
@@ -269,6 +270,21 @@ public class NewOutgoingCallIntentBroadcaster {
             return DisconnectCause.INVALID_NUMBER;
         }
 
+        // True for all managed calls, false for self-managed calls.
+        boolean sendNewOutgoingCallBroadcast = true;
+        PhoneAccountHandle targetPhoneAccount = mIntent.getParcelableExtra(
+                TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE);
+        if (targetPhoneAccount != null) {
+            PhoneAccount phoneAccount =
+                    mCallsManager.getPhoneAccountRegistrar().getPhoneAccountUnchecked(
+                            targetPhoneAccount);
+            if (phoneAccount != null && phoneAccount.isSelfManaged()) {
+                callImmediately = true;
+                sendNewOutgoingCallBroadcast = false;
+                Log.i(this, "Skipping NewOutgoingCallBroadcast for self-managed call.");
+            }
+        }
+
         if (callImmediately) {
             Log.i(this, "Placing call immediately instead of waiting for "
                     + " OutgoingCallBroadcastReceiver: %s", intent);
@@ -287,9 +303,11 @@ public class NewOutgoingCallIntentBroadcaster {
             // initiate the call again because of the presence of the EXTRA_ALREADY_CALLED extra.
         }
 
-        UserHandle targetUser = mCall.getInitiatingUser();
-        Log.i(this, "Sending NewOutgoingCallBroadcast for %s to %s", mCall, targetUser);
-        broadcastIntent(intent, number, !callImmediately, targetUser);
+        if (sendNewOutgoingCallBroadcast) {
+            UserHandle targetUser = mCall.getInitiatingUser();
+            Log.i(this, "Sending NewOutgoingCallBroadcast for %s to %s", mCall, targetUser);
+            broadcastIntent(intent, number, !callImmediately, targetUser);
+        }
         return DisconnectCause.NOT_DISCONNECTED;
     }
 

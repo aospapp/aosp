@@ -156,18 +156,16 @@ class FlashromProgrammer(_BaseProgrammer):
                     programmer += ',serial=%s' % servo_serial
             elif self._servo_version == 'servo_v3':
                 programmer = servo_v3_programmer
-            elif self._servo_version == 'servo_v4':
-                # Get the serial of the servo micro if it exists.
-                servo_micro_serial = self._servo_serials.get('servo_micro')
-                ccd_serial = self._servo_serials.get('ccd')
+            elif self._servo_version == 'servo_v4_with_servo_micro':
                 # When a uServo is connected to a DUT with CCD support, the
                 # firmware programmer will always use the uServo to program.
-                if servo_micro_serial:
-                    programmer = servo_v4_with_micro_programmer
-                    programmer += ',serial=%s' % servo_micro_serial
-                elif ccd_serial:
-                    programmer = servo_v4_with_ccd_programmer
-                    programmer += ',serial=%s' % ccd_serial
+                servo_micro_serial = self._servo_serials.get('servo_micro')
+                programmer = servo_v4_with_micro_programmer
+                programmer += ',serial=%s' % servo_micro_serial
+            elif self._servo_version == 'servo_v4_with_ccd_cr50':
+                ccd_serial = self._servo_serials.get('ccd')
+                programmer = servo_v4_with_ccd_programmer
+                programmer += ',serial=%s' % ccd_serial
             else:
                 raise Exception('Servo version %s is not supported.' %
                                 self._servo_version)
@@ -219,8 +217,7 @@ class FlashromProgrammer(_BaseProgrammer):
         """
         self._fw_path = path
         # CCD takes care holding AP/EC. Don't need the following steps.
-        if not (self._servo_version == 'servo_v4' and
-                'ccd' in self._servo_serials):
+        if self._servo_version != 'servo_v4_with_ccd_cr50':
             faft_config = FAFTConfig(self._servo.get_board())
             self._servo_prog_state_delay = faft_config.servo_prog_state_delay
             self._servo_prog_state = (
@@ -240,7 +237,7 @@ class FlashECProgrammer(_BaseProgrammer):
         """Configure required servo state."""
         super(FlashECProgrammer, self).__init__(servo, ['flash_ec',])
         self._servo = servo
-        self._servo_serials = self._servo._server.get_servo_serials()
+        self._servo_version = self._servo.get_servo_version()
 
     def prepare_programmer(self, image):
         """Prepare programmer for programming.
@@ -250,7 +247,7 @@ class FlashECProgrammer(_BaseProgrammer):
         port = self._servo._servo_host.servo_port
         self._program_cmd = ('flash_ec --chip=%s --image=%s --port=%d' %
                              (self._servo.get('ec_chip'), image, port))
-        if 'ccd' in self._servo_serials:
+        if self._servo_version == 'servo_v4_with_ccd_cr50':
             self._program_cmd += ' --raiden'
 
 

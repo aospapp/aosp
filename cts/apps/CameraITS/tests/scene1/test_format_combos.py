@@ -20,15 +20,13 @@ import its.error
 import its.target
 import sys
 import os
-import os.path
 
-# Change this to True, to have the test break at the first failure.
-stop_at_first_failure = False
+NAME = os.path.basename(__file__).split(".")[0]
+STOP_AT_FIRST_FAILURE = False  # change to True to have test break @ 1st FAIL
+
 
 def main():
-    """Test different combinations of output formats.
-    """
-    NAME = os.path.basename(__file__).split(".")[0]
+    """Test different combinations of output formats."""
 
     with its.device.ItsSession() as cam:
 
@@ -44,33 +42,33 @@ def main():
         e, s = its.target.get_target_exposure_combos(cam)["midExposureTime"]
         req_aut = its.objects.auto_capture_request()
         req_man = its.objects.manual_capture_request(s, e)
-        reqs = [req_aut, # R0
-                req_man] # R1
+        reqs = [req_aut,  # R0
+                req_man]  # R1
 
         # 10 different combos of output formats; some are single surfaces, and
         # some are multiple surfaces.
-        wyuv,hyuv = its.objects.get_available_output_sizes("yuv", props)[-1]
-        wjpg,hjpg = its.objects.get_available_output_sizes("jpg", props)[-1]
-        fmt_yuv_prev = {"format":"yuv", "width":wyuv, "height":hyuv}
-        fmt_yuv_full = {"format":"yuv"}
-        fmt_jpg_prev = {"format":"jpeg","width":wjpg, "height":hjpg}
-        fmt_jpg_full = {"format":"jpeg"}
-        fmt_raw_full = {"format":"raw"}
-        fmt_combos =[
-                [fmt_yuv_prev],                             # F0
-                [fmt_yuv_full],                             # F1
-                [fmt_jpg_prev],                             # F2
-                [fmt_jpg_full],                             # F3
-                [fmt_raw_full],                             # F4
-                [fmt_yuv_prev, fmt_jpg_prev],               # F5
-                [fmt_yuv_prev, fmt_jpg_full],               # F6
-                [fmt_yuv_prev, fmt_raw_full],               # F7
-                [fmt_yuv_prev, fmt_jpg_prev, fmt_raw_full], # F8
-                [fmt_yuv_prev, fmt_jpg_full, fmt_raw_full]] # F9
+        wyuv, hyuv = its.objects.get_available_output_sizes("yuv", props)[-1]
+        wjpg, hjpg = its.objects.get_available_output_sizes("jpg", props)[-1]
+        fmt_yuv_prev = {"format": "yuv", "width": wyuv, "height": hyuv}
+        fmt_yuv_full = {"format": "yuv"}
+        fmt_jpg_prev = {"format": "jpeg", "width": wjpg, "height": hjpg}
+        fmt_jpg_full = {"format": "jpeg"}
+        fmt_raw_full = {"format": "raw"}
+        fmt_combos = [
+            [fmt_yuv_prev],                              # F0
+            [fmt_yuv_full],                              # F1
+            [fmt_jpg_prev],                              # F2
+            [fmt_jpg_full],                              # F3
+            [fmt_raw_full],                              # F4
+            [fmt_yuv_prev, fmt_jpg_prev],                # F5
+            [fmt_yuv_prev, fmt_jpg_full],                # F6
+            [fmt_yuv_prev, fmt_raw_full],                # F7
+            [fmt_yuv_prev, fmt_jpg_prev, fmt_raw_full],  # F8
+            [fmt_yuv_prev, fmt_jpg_full, fmt_raw_full]]  # F9
 
         # Two different burst lengths: single frame, and 3 frames.
-        burst_lens = [1, # B0
-                      3] # B1
+        burst_lens = [1,  # B0
+                      3]  # B1
 
         # There are 2x10x2=40 different combinations. Run through them all.
         n = 0
@@ -82,15 +80,14 @@ def main():
                         successes.append((n,r,f,b))
                         print "==> Success[%02d]: R%d F%d B%d" % (n,r,f,b)
 
-                        # Dump the captures out to jpegs.
-                        if not isinstance(caps, list):
-                            caps = [caps]
-                        elif isinstance(caps[0], list):
-                            caps = sum(caps, [])
-                        for c,cap in enumerate(caps):
-                            img = its.image.convert_capture_to_rgb_image(cap,
-                                    props=props)
-                            if debug:
+                        # Dump the captures out to jpegs in debug mode.
+                        if debug:
+                            if not isinstance(caps, list):
+                                caps = [caps]
+                            elif isinstance(caps[0], list):
+                                caps = sum(caps, [])
+                            for c, cap in enumerate(caps):
+                                img = its.image.convert_capture_to_rgb_image(cap, props=props)
                                 its.image.write_image(img,
                                     "%s_n%02d_r%d_f%d_b%d_c%d.jpg"%(NAME,n,r,f,b,c))
 
@@ -98,8 +95,8 @@ def main():
                         print e
                         print "==> Failure[%02d]: R%d F%d B%d" % (n,r,f,b)
                         failures.append((n,r,f,b))
-                        if stop_at_first_failure:
-                            sys.exit(0)
+                        if STOP_AT_FIRST_FAILURE:
+                            sys.exit(1)
                     n += 1
 
         num_fail = len(failures)
@@ -118,8 +115,8 @@ def main():
         print ""
 
         # The test passes if all the combinations successfully capture.
-        assert(num_fail == 0)
-        assert(num_success == num_total)
+        assert num_fail == 0
+        assert num_success == num_total
 
 if __name__ == '__main__':
     main()

@@ -42,7 +42,10 @@ import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.graphics.drawable.VectorDrawable;
 import android.os.UserManager;
 import android.service.persistentdata.PersistentDataBlockManager;
@@ -76,6 +79,8 @@ public class PreProvisioningControllerTest extends AndroidTestCase {
 
     @Mock
     private Context mContext;
+    @Mock
+    Resources mResources;
     @Mock
     private DevicePolicyManager mDevicePolicyManager;
     @Mock
@@ -168,7 +173,7 @@ public class PreProvisioningControllerTest extends AndroidTestCase {
         mController.initiateProvisioning(mIntent, null, TEST_MDM_PACKAGE);
         // THEN show an error dialog
         verify(mUi).showErrorAndClose(eq(R.string.cant_add_work_profile),
-                eq(R.string.user_cant_have_work_profile_contact_admin), any());
+                eq(R.string.work_profile_cant_be_added_contact_admin), any());
         verifyNoMoreInteractions(mUi);
     }
 
@@ -282,6 +287,32 @@ public class PreProvisioningControllerTest extends AndroidTestCase {
         verify(mUi).showErrorAndClose(eq(R.string.cant_set_up_device),
                 eq(R.string.device_has_reset_protection_contact_admin), any());
         verifyNoMoreInteractions(mUi);
+    }
+
+    public void testCheckFactoryResetProtection_skipFrp() throws Exception {
+        // GIVEN managed profile provisioning is invoked from SUW with FRP active
+        when(mSettingsFacade.isDeviceProvisioned(mContext)).thenReturn(false);
+        // setting the data block size to any number greater than 0 to simulate FRP.
+        when(mPdbManager.getDataBlockSize()).thenReturn(4);
+        // GIVEN there is a persistent data package.
+        when(mContext.getResources()).thenReturn(mResources);
+        when(mResources.getString(anyInt())).thenReturn("test.persistent.data");
+        // GIVEN the persistent data package is a system app.
+        PackageInfo packageInfo = new PackageInfo();
+        ApplicationInfo applicationInfo = new ApplicationInfo();
+        applicationInfo.flags = ApplicationInfo.FLAG_SYSTEM;
+        packageInfo.applicationInfo = applicationInfo;
+        when(mPackageManager.getPackageInfo(eq("test.persistent.data"), anyInt()))
+                .thenReturn(packageInfo);
+
+        // WHEN factory reset protection is checked for trusted source device provisioning.
+        ProvisioningParams provisioningParams = createParams(true, false, null,
+                ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE, TEST_MDM_PACKAGE);
+        boolean result = mController.checkFactoryResetProtection(
+                provisioningParams, "test.persistent.data");
+
+        // THEN the check is successful despite the FRP data presence.
+        assertTrue(result);
     }
 
     public void testManagedProfile_skipEncryption() throws Exception {

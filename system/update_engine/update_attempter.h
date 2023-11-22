@@ -45,9 +45,14 @@
 #include "update_engine/system_state.h"
 #include "update_engine/update_manager/policy.h"
 #include "update_engine/update_manager/update_manager.h"
-#include "update_engine/weave_service_interface.h"
 
 class MetricsLibraryInterface;
+
+namespace org {
+namespace chromium {
+class NetworkProxyServiceInterfaceProxyInterface;
+}  // namespace chromium
+}  // namespace org
 
 namespace policy {
 class PolicyProvider;
@@ -55,13 +60,11 @@ class PolicyProvider;
 
 namespace chromeos_update_engine {
 
-class LibCrosProxy;
 class UpdateEngineAdaptor;
 
 class UpdateAttempter : public ActionProcessorDelegate,
                         public DownloadActionDelegate,
                         public CertificateChecker::Observer,
-                        public WeaveServiceInterface::DelegateInterface,
                         public PostinstallRunnerAction::DelegateInterface {
  public:
   using UpdateStatus = update_engine::UpdateStatus;
@@ -69,7 +72,8 @@ class UpdateAttempter : public ActionProcessorDelegate,
 
   UpdateAttempter(SystemState* system_state,
                   CertificateChecker* cert_checker,
-                  LibCrosProxy* libcros_proxy);
+                  org::chromium::NetworkProxyServiceInterfaceProxyInterface*
+                      network_proxy_service_proxy);
   ~UpdateAttempter() override;
 
   // Further initialization to be done post construction.
@@ -99,16 +103,6 @@ class UpdateAttempter : public ActionProcessorDelegate,
   void ActionCompleted(ActionProcessor* processor,
                        AbstractAction* action,
                        ErrorCode code) override;
-
-  // WeaveServiceInterface::DelegateInterface overrides.
-  bool OnCheckForUpdates(brillo::ErrorPtr* error) override;
-  bool OnTrackChannel(const std::string& channel,
-                      brillo::ErrorPtr* error) override;
-  bool GetWeaveState(int64_t* last_checked_time,
-                     double* progress,
-                     UpdateStatus* update_status,
-                     std::string* current_channel,
-                     std::string* tracking_channel) override;
 
   // PostinstallRunnerAction::DelegateInterface
   void ProgressUpdate(double progress) override;
@@ -180,9 +174,6 @@ class UpdateAttempter : public ActionProcessorDelegate,
 
   // Broadcasts the current status to all observers.
   void BroadcastStatus();
-
-  // Broadcasts the current tracking channel to all observers.
-  void BroadcastChannel();
 
   // Returns the special flags to be added to ErrorCode values based on the
   // parameters used in the current update attempt.
@@ -271,6 +262,7 @@ class UpdateAttempter : public ActionProcessorDelegate,
   FRIEND_TEST(UpdateAttempterTest, UpdateTest);
   FRIEND_TEST(UpdateAttempterTest, ReportDailyMetrics);
   FRIEND_TEST(UpdateAttempterTest, BootTimeInUpdateMarkerFile);
+  FRIEND_TEST(UpdateAttempterTest, TargetVersionPrefixSetAndReset);
 
   // CertificateChecker::Observer method.
   // Report metrics about the certificate being checked.
@@ -288,9 +280,6 @@ class UpdateAttempter : public ActionProcessorDelegate,
 
   // Sets the status to the given status and notifies a status update over dbus.
   void SetStatusAndNotify(UpdateStatus status);
-
-  // Sets up the download parameters after receiving the update check response.
-  void SetupDownload();
 
   // Creates an error event object in |error_event_| to be included in an
   // OmahaRequestAction once the current action processor is done.

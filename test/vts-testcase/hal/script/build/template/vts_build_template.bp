@@ -40,24 +40,35 @@ cc_library_shared {
     generated_headers: ["android.hardware.{HAL_NAME}@{HAL_VERSION}-vts.driver_genc++_headers"],
     export_generated_headers: ["android.hardware.{HAL_NAME}@{HAL_VERSION}-vts.driver_genc++_headers"],
     shared_libs: [
+        "libcamera_metadata",
+        "libcutils",
+        "libfmq",
         "libhidlbase",
         "libhidltransport",
         "libhwbinder",
         "liblog",
+        "libprotobuf-cpp-full",
         "libutils",
-        "libcutils",
         "libvts_common",
         "libvts_datatype",
         "libvts_drivercomm",
         "libvts_measurement",
         "libvts_multidevice_proto",
-        "libcamera_metadata",
-        "libprotobuf-cpp-full",
+        "android.hidl.allocator@1.0",
         "android.hardware.{HAL_NAME}@{HAL_VERSION}",
         {IMPORTED_DRIVER_PACKAGES}
     ],
     export_shared_lib_headers: [
         {IMPORTED_DRIVER_PACKAGES}
+    ],
+    cflags: [
+        "-Wall",
+        "-Werror",
+
+        // These warnings are in code generated with vtsc
+        // b/31362043
+        "-Wno-duplicate-decl-specifier",
+        "-Wno-implicitly-unsigned-literal",
     ],
 }
 
@@ -93,13 +104,25 @@ cc_library_shared {
     export_generated_headers: ["android.hardware.{HAL_NAME}@{HAL_VERSION}-vts.profiler_genc++_headers"],
     shared_libs: [
         "libbase",
+        "libcutils",
+        "libfmq",
         "libhidlbase",
         "libhidltransport",
+        "libvts_common",
         "libvts_profiling",
         "libvts_multidevice_proto",
         "libprotobuf-cpp-full",
         "android.hardware.{HAL_NAME}@{HAL_VERSION}",
         {IMPORTED_PROFILER_PACKAGES}
+    ],
+    cflags: [
+        "-Wall",
+        "-Werror",
+
+        // These warnings are in code generated with vtsc
+        // b/31362043
+        "-Wno-duplicate-decl-specifier",
+        "-Wno-implicitly-unsigned-literal",
     ],
 }
 

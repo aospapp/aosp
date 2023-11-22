@@ -28,6 +28,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
+import android.media.tv.TvContentRating;
 import android.os.Bundle;
 import android.os.Handler;
 import android.preference.PreferenceManager;
@@ -45,11 +46,13 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.android.tv.R;
+import com.android.tv.TvApplication;
+import com.android.tv.common.SoftPreconditions;
 import com.android.tv.util.TvSettings;
 
 public class PinDialogFragment extends SafeDismissDialogFragment {
     private static final String TAG = "PinDialogFragment";
-    private static final boolean DBG = true;
+    private static final boolean DEBUG = true;
 
     /**
      * PIN code dialog for unlock channel
@@ -80,18 +83,13 @@ public class PinDialogFragment extends SafeDismissDialogFragment {
      */
     public static final int PIN_DIALOG_TYPE_UNLOCK_DVR = 5;
 
-    private static final int PIN_DIALOG_RESULT_SUCCESS = 0;
-    private static final int PIN_DIALOG_RESULT_FAIL = 1;
-
     private static final int MAX_WRONG_PIN_COUNT = 5;
     private static final int DISABLE_PIN_DURATION_MILLIS = 60 * 1000; // 1 minute
 
     private static final String INITIAL_TEXT = "—";
     private static final String TRACKER_LABEL = "Pin dialog";
-
-    public interface ResultListener {
-        void done(boolean success);
-    }
+    private static final String ARGS_TYPE = "args_type";
+    private static final String ARGS_RATING = "args_rating";
 
     public static final String DIALOG_TAG = PinDialogFragment.class.getName();
 
@@ -99,8 +97,9 @@ public class PinDialogFragment extends SafeDismissDialogFragment {
             R.id.first, R.id.second, R.id.third, R.id.fourth };
 
     private int mType;
-    private ResultListener mListener;
-    private int mRetCode;
+    private int mRequestType;
+    private boolean mPinChecked;
+    private boolean mDismissSilently;
 
     private TextView mWrongPinView;
     private View mEnterPinView;
@@ -114,29 +113,35 @@ public class PinDialogFragment extends SafeDismissDialogFragment {
     private long mDisablePinUntil;
     private final Handler mHandler = new Handler();
 
-    public PinDialogFragment(int type, ResultListener listener) {
-        this(type, listener, null);
+    public static PinDialogFragment create(int type) {
+        return create(type, null);
     }
 
-    public PinDialogFragment(int type, ResultListener listener, String rating) {
-        mType = type;
-        mListener = listener;
-        mRetCode = PIN_DIALOG_RESULT_FAIL;
-        mRatingString = rating;
+    public static PinDialogFragment create(int type, String rating) {
+        PinDialogFragment fragment = new PinDialogFragment();
+        Bundle args = new Bundle();
+        args.putInt(ARGS_TYPE, type);
+        args.putString(ARGS_RATING, rating);
+        fragment.setArguments(args);
+        return fragment;
     }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        mRequestType = getArguments().getInt(ARGS_TYPE, PIN_DIALOG_TYPE_ENTER_PIN);
+        mType = mRequestType;
+        mRatingString = getArguments().getString(ARGS_RATING);
         setStyle(STYLE_NO_TITLE, 0);
         mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(getActivity());
         mDisablePinUntil = TvSettings.getDisablePinUntil(getActivity());
         if (ActivityManager.isUserAMonkey()) {
             // Skip PIN dialog half the time for monkeys
             if (Math.random() < 0.5) {
-                exit(PIN_DIALOG_RESULT_SUCCESS);
+                exit(true);
             }
         }
+        mPinChecked = false;
     }
 
     @Override
@@ -186,7 +191,19 @@ public class PinDialogFragment extends SafeDismissDialogFragment {
                 mTitleView.setText(R.string.pin_enter_unlock_program);
                 break;
             case PIN_DIALOG_TYPE_UNLOCK_DVR:
-                mTitleView.setText(getString(R.string.pin_enter_unlock_dvr, mRatingString));
+                TvContentRating tvContentRating =
+                        TvContentRating.unflattenFromString(mRatingString);
+                if (TvContentRating.UNRATED.equals(tvContentRating)) {
+                    mTitleView.setText(getString(R.string.pin_enter_unlock_dvr_unrated));
+                } else {
+                    mTitleView.setText(
+                            getString(
+                                    R.string.pin_enter_unlock_dvr,
+                                    TvApplication.getSingletons(getContext())
+                                            .getTvInputManagerHelper()
+                                            .getContentRatingsManager()
+                                            .getDisplayNameForRating(tvContentRating)));
+                }
                 break;
             case PIN_DIALOG_TYPE_ENTER_PIN:
                 mTitleView.setText(R.string.pin_enter_pin);
@@ -215,10 +232,6 @@ public class PinDialogFragment extends SafeDismissDialogFragment {
             updateWrongPin();
         }
         return v;
-    }
-
-    public void setResultListener(ResultListener listener) {
-        mListener = listener;
     }
 
     private final Runnable mUpdateEnterPinRunnable = new Runnable() {
@@ -250,18 +263,27 @@ public class PinDialogFragment extends SafeDismissDialogFragment {
         }
     }
 
-    private void exit(int retCode) {
-        mRetCode = retCode;
+    private void exit(boolean pinChecked) {
+        mPinChecked = pinChecked;
+        dismiss();
+    }
+
+    /** Dismisses the pin dialog without calling activity listener. */
+    public void dismissSilently() {
+        mDismissSilently = true;
         dismiss();
     }
 
     @Override
     public void onDismiss(DialogInterface dialog) {
         super.onDismiss(dialog);
-        if (DBG) Log.d(TAG, "onDismiss: mRetCode=" + mRetCode);
-        if (mListener != null) {
-            mListener.done(mRetCode == PIN_DIALOG_RESULT_SUCCESS);
+        if (DEBUG) Log.d(TAG, "onDismiss: mPinChecked=" + mPinChecked);
+        SoftPreconditions.checkState(getActivity() instanceof OnPinCheckedListener);
+        if (!mDismissSilently && getActivity() instanceof OnPinCheckedListener) {
+            ((OnPinCheckedListener) getActivity()).onPinChecked(
+                    mPinChecked, mRequestType, mRatingString);
         }
+        mDismissSilently = false;
     }
 
     private void handleWrongPin() {
@@ -279,15 +301,14 @@ public class PinDialogFragment extends SafeDismissDialogFragment {
     }
 
     private void done(String pin) {
-        if (DBG) Log.d(TAG, "done: mType=" + mType + " pin=" + pin + " stored=" + getPin());
+        if (DEBUG) Log.d(TAG, "done: mType=" + mType + " pin=" + pin + " stored=" + getPin());
         switch (mType) {
             case PIN_DIALOG_TYPE_UNLOCK_CHANNEL:
             case PIN_DIALOG_TYPE_UNLOCK_PROGRAM:
             case PIN_DIALOG_TYPE_UNLOCK_DVR:
             case PIN_DIALOG_TYPE_ENTER_PIN:
-                // TODO: Implement limited number of retrials and timeout logic.
                 if (TextUtils.isEmpty(getPin()) || pin.equals(getPin())) {
-                    exit(PIN_DIALOG_RESULT_SUCCESS);
+                    exit(true);
                 } else {
                     resetPinInput();
                     handleWrongPin();
@@ -301,7 +322,7 @@ public class PinDialogFragment extends SafeDismissDialogFragment {
                 } else {
                     if (pin.equals(mPrevPin)) {
                         setPin(pin);
-                        exit(PIN_DIALOG_RESULT_SUCCESS);
+                        exit(true);
                     } else {
                         if (TextUtils.isEmpty(getPin())) {
                             mTitleView.setText(R.string.pin_enter_create_pin);
@@ -332,7 +353,7 @@ public class PinDialogFragment extends SafeDismissDialogFragment {
     }
 
     private void setPin(String pin) {
-        if (DBG) Log.d(TAG, "setPin: " + pin);
+        if (DEBUG) Log.d(TAG, "setPin: " + pin);
         mPin = pin;
         mSharedPreferences.edit().putString(TvSettings.PREF_PIN, pin).apply();
     }
@@ -683,5 +704,21 @@ public class PinDialogFragment extends SafeDismissDialogFragment {
             return (value < mMinValue) ? value + interval
                     : (value > mMaxValue) ? value - interval : value;
         }
+    }
+
+    /**
+     * A listener to the result of {@link PinDialogFragment}. Any activity requiring pin code
+     * checking should implement this listener to receive the result.
+     */
+    public interface OnPinCheckedListener {
+        /**
+         * Called when {@link PinDialogFragment} is dismissed.
+         *
+         * @param checked {@code true} if the pin code entered is checked to be correct,
+         *                otherwise {@code false}.
+         * @param type The dialog type regarding to what pin entering is for.
+         * @param rating The target rating to unblock for.
+         */
+        void onPinChecked(boolean checked, int type, String rating);
     }
 }

@@ -118,12 +118,6 @@ Maybe<bool> RegExpUtils::IsRegExp(Isolate* isolate, Handle<Object> object) {
 
   Handle<JSReceiver> receiver = Handle<JSReceiver>::cast(object);
 
-  if (isolate->regexp_function()->initial_map() == receiver->map()) {
-    // Fast-path for unmodified JSRegExp instances.
-    // TODO(ishell): Adapt for new fast-path logic.
-    return Just(true);
-  }
-
   Handle<Object> match;
   ASSIGN_RETURN_ON_EXCEPTION_VALUE(
       isolate, match,
@@ -151,7 +145,14 @@ bool RegExpUtils::IsUnmodifiedRegExp(Isolate* isolate, Handle<Object> obj) {
   if (!proto->IsJSReceiver()) return false;
 
   Handle<Map> initial_proto_initial_map = isolate->regexp_prototype_map();
-  return (JSReceiver::cast(proto)->map() == *initial_proto_initial_map);
+  if (JSReceiver::cast(proto)->map() != *initial_proto_initial_map) {
+    return false;
+  }
+
+  // The smi check is required to omit ToLength(lastIndex) calls with possible
+  // user-code execution on the fast path.
+  Object* last_index = JSRegExp::cast(recv)->LastIndex();
+  return last_index->IsSmi() && Smi::cast(last_index)->value() >= 0;
 }
 
 int RegExpUtils::AdvanceStringIndex(Isolate* isolate, Handle<String> string,
@@ -180,8 +181,7 @@ MaybeHandle<Object> RegExpUtils::SetAdvancedStringIndex(
 
   ASSIGN_RETURN_ON_EXCEPTION(isolate, last_index_obj,
                              Object::ToLength(isolate, last_index_obj), Object);
-
-  const int last_index = Handle<Smi>::cast(last_index_obj)->value();
+  const int last_index = PositiveNumberToUint32(*last_index_obj);
   const int new_last_index =
       AdvanceStringIndex(isolate, string, last_index, unicode);
 

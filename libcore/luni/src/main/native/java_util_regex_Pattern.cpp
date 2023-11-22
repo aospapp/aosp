@@ -18,8 +18,8 @@
 
 #include <stdlib.h>
 
-#include "JNIHelp.h"
-#include "JniConstants.h"
+#include <nativehelper/JNIHelp.h>
+#include <nativehelper/JniConstants.h>
 #include "ScopedJavaUnicodeString.h"
 #include "jni.h"
 #include "unicode/parseerr.h"

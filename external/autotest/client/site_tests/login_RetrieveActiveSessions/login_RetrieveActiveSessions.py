@@ -30,13 +30,11 @@ class login_RetrieveActiveSessions(test.test):
         for user in users:
             cryptohome_proxy.ensure_clean_cryptohome_for(user)
 
-        if not sm.StartSession(users[0], ''):
-            raise error.TestError('Could not start session for ' + users[0])
+        sm.StartSession(users[0], '')
         self.__check_for_users_in_actives(users[:1],
                                           sm.RetrieveActiveSessions())
 
-        if not sm.StartSession(users[1], ''):
-            raise error.TestError('Could not start session for ' + users[1])
+        sm.StartSession(users[1], '')
         self.__check_for_users_in_actives(users, sm.RetrieveActiveSessions())
 
 

@@ -20,6 +20,7 @@ import static com.android.documentsui.base.DocumentInfo.getCursorString;
 
 import android.content.Context;
 import android.database.Cursor;
+import android.graphics.Rect;
 import android.provider.DocumentsContract.Document;
 import android.view.ViewGroup;
 import android.widget.ImageView;
@@ -66,11 +67,18 @@ final class GridDirectoryHolder extends DocumentHolder {
         return true;
     }
 
+    @Override
+    public boolean isOverDocIcon(InputEvent event) {
+        Rect iconRect = new Rect();
+        mIconMime.getGlobalVisibleRect(iconRect);
+
+        return iconRect.contains((int) event.getRawX(), (int) event.getRawY());
+    }
+
     /**
      * Bind this view to the given document for display.
      * @param cursor Pointing to the item to be bound.
      * @param modelId The model ID of the item.
-     * @param state Current display state.
      */
     @Override
     public void bind(Cursor cursor, String modelId) {
@@ -81,10 +89,5 @@ final class GridDirectoryHolder extends DocumentHolder {
         mTitle.setText(
                 getCursorString(cursor, Document.COLUMN_DISPLAY_NAME),
                 TextView.BufferType.SPANNABLE);
-
-        if (DebugFlags.getDocumentDetailsEnabled()) {
-            String authority = getCursorString(cursor, RootCursorWrapper.COLUMN_AUTHORITY);
-            includeDebugInfo(DocumentInfo.fromCursor(cursor, authority));
-        }
     }
 }

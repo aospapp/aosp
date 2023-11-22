@@ -208,8 +208,17 @@ class FirmwareVersionVerifier(hosts.Verifier):
         result = host.run('chromeos-firmwareupdate -V',
                           ignore_status=True)
         if result.exit_status == 0:
-            version = re.search(r'BIOS version:\s*(?P<version>.*)',
+            # At one point, the chromeos-firmwareupdate script was updated to
+            # add "RW" version fields.  The old string, "BIOS version:" still
+            # appears in the new output, however it now refers to the RO
+            # firmware version.  Therefore, we try searching for the new string
+            # first, "BIOS (RW) version".  If that string isn't found, we then
+            # fallback to searching for old string.
+            version = re.search(r'BIOS \(RW\) version:\s*(?P<version>.*)',
                                 result.stdout)
+            if not version:
+                version = re.search(r'BIOS version:\s*(?P<version>.*)',
+                                    result.stdout)
             if version is not None:
                 return version.group('version')
         return None

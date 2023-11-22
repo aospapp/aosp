@@ -26,10 +26,10 @@
     <string name="printer_low_on_toner" msgid="8807858294038587130">"ਟੋਨਰ ਘੱਟ ਹੈ"</string>
     <string name="printer_door_open" msgid="2446302931916940874">"ਢੱਕਣ ਖੁੱਲ੍ਹਾ ਹੈ"</string>
     <string name="printer_jammed" msgid="5104099859384749499">"ਜਾਮ ਹੋ ਗਿਆ ਹੈ"</string>
-    <string name="printer_offline" msgid="9196864753298645066">"ਔਫਲਾਈਨ"</string>
+    <string name="printer_offline" msgid="9196864753298645066">"ਆਫ਼ਲਾਈਨ"</string>
     <string name="printer_check" msgid="6428369671197132828">"ਪ੍ਰਿੰਟਰ ਚੈੱਕ ਕਰੋ"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"ਭੇਜਣ ਲਈ ਉਡੀਕ ਕੀਤੀ ਜਾ ਰਹੀ ਹੈ"</string>
-    <string name="wifi_not_connected" msgid="8644760246612043851">"Wi-Fi ਕਨੈਕਟ ਨਹੀਂ ਹੈ"</string>
+    <string name="wifi_not_connected" msgid="8644760246612043851">"ਵਾਈ-ਫਾਈ ਕਨੈਕਟ ਨਹੀਂ ਹੈ"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"ਦਸਤਾਵੇਜ਼ ਨੂੰ ਪੜ੍ਹਿਆ ਨਹੀਂ ਜਾ ਸਕਿਆ"</string>
     <string name="media_size_l" msgid="164416542021598181">"L"</string>
     <string name="media_size_5x7in" msgid="1275128379533195285">"5x7 ਇੰਚ"</string>

@@ -22,6 +22,7 @@ using chre::Nanoseconds;
 using chre::SensorMode;
 using chre::SensorRequest;
 using chre::SensorType;
+using chre::kMaxIntervalLatencyNs;
 
 TEST(SensorType, LosslessSensorHandleToSensorTypeAndBack) {
   // Verify that converting a sensor to a handle and from a handle back to a
@@ -206,5 +207,61 @@ TEST(SensorRequest, NonDefaultAndDefaultLatency) {
   EXPECT_TRUE(mergedRequest.mergeWith(nonDefaultLatencyRequest));
   EXPECT_EQ(mergedRequest.getInterval(), Nanoseconds(10));
   EXPECT_EQ(mergedRequest.getLatency(), Nanoseconds(2000));
+  EXPECT_EQ(mergedRequest.getMode(), SensorMode::ActiveContinuous);
+}
+
+TEST(SensorRequest, MergeWithOff) {
+  SensorRequest request(SensorMode::ActiveContinuous,
+                        Nanoseconds(10),
+                        Nanoseconds(100));
+  SensorRequest otherRequest(SensorMode::Off,
+                             Nanoseconds(1),
+                             Nanoseconds(1));
+  EXPECT_FALSE(request.mergeWith(otherRequest));
+  EXPECT_EQ(request.getMode(), SensorMode::ActiveContinuous);
+  EXPECT_EQ(request.getInterval(), Nanoseconds(10));
+  EXPECT_EQ(request.getLatency(), Nanoseconds(100));
+}
+
+TEST(SensorRequest, MaxNonDefaultIntervalAndLatency) {
+  SensorRequest request(SensorMode::ActiveContinuous,
+                        Nanoseconds(CHRE_SENSOR_INTERVAL_DEFAULT - 1),
+                        Nanoseconds(CHRE_SENSOR_LATENCY_DEFAULT - 1));
+  EXPECT_EQ(request.getMode(), SensorMode::ActiveContinuous);
+  EXPECT_EQ(request.getInterval(), Nanoseconds(kMaxIntervalLatencyNs));
+  EXPECT_EQ(request.getLatency(), Nanoseconds(kMaxIntervalLatencyNs));
+}
+
+TEST(SensorRequest, HighRateLowLatencyAndLowRateHighLatency) {
+  SensorRequest Request0(SensorMode::ActiveContinuous,
+                         Nanoseconds(100), Nanoseconds(0));
+  SensorRequest Request1(SensorMode::ActiveContinuous,
+                         Nanoseconds(10), Nanoseconds(2000));
+  SensorRequest mergedRequest;
+  EXPECT_TRUE(mergedRequest.mergeWith(Request0));
+  EXPECT_EQ(mergedRequest.getInterval(), Nanoseconds(100));
+  EXPECT_EQ(mergedRequest.getLatency(), Nanoseconds(0));
+  EXPECT_EQ(mergedRequest.getMode(), SensorMode::ActiveContinuous);
+
+  EXPECT_TRUE(mergedRequest.mergeWith(Request1));
+  EXPECT_EQ(mergedRequest.getInterval(), Nanoseconds(10));
+  EXPECT_EQ(mergedRequest.getLatency(), Nanoseconds(90));
+  EXPECT_EQ(mergedRequest.getMode(), SensorMode::ActiveContinuous);
+}
+
+TEST(SensorRequest, LowRateHighLatencyAndHighRateLowLatency) {
+  SensorRequest Request0(SensorMode::ActiveContinuous,
+                         Nanoseconds(100), Nanoseconds(0));
+  SensorRequest Request1(SensorMode::ActiveContinuous,
+                         Nanoseconds(10), Nanoseconds(2000));
+  SensorRequest mergedRequest;
+  EXPECT_TRUE(mergedRequest.mergeWith(Request1));
+  EXPECT_EQ(mergedRequest.getInterval(), Nanoseconds(10));
+  EXPECT_EQ(mergedRequest.getLatency(), Nanoseconds(2000));
+  EXPECT_EQ(mergedRequest.getMode(), SensorMode::ActiveContinuous);
+
+  EXPECT_TRUE(mergedRequest.mergeWith(Request0));
+  EXPECT_EQ(mergedRequest.getInterval(), Nanoseconds(10));
+  EXPECT_EQ(mergedRequest.getLatency(), Nanoseconds(90));
   EXPECT_EQ(mergedRequest.getMode(), SensorMode::ActiveContinuous);
 }

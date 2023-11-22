@@ -30,6 +30,7 @@
 namespace minikin {
 
 const char kItemizeFontXml[] = kTestFontDir "itemize.xml";
+const char kCherokeeFont[] = kTestFontDir "Cherokee.ttf";
 const char kEmojiFont[] = kTestFontDir "Emoji.ttf";
 const char kJAFont[] = kTestFontDir "Ja.ttf";
 const char kKOFont[] = kTestFontDir "Ko.ttf";
@@ -135,7 +136,7 @@ TEST_F(FontCollectionItemizeTest, itemize_latin) {
     EXPECT_FALSE(runs[0].fakedFont.fakery.isFakeBold());
     EXPECT_FALSE(runs[0].fakedFont.fakery.isFakeItalic());
 
-    // U+0301(COMBINING ACUTE ACCENT) must be in the same run with preceding
+    // U+0301 (COMBINING ACUTE ACCENT) must be in the same run with preceding
     // chars if the font supports it.
     itemize(collection, "'a' U+0301", kRegularStyle, &runs);
     ASSERT_EQ(1U, runs.size());
@@ -144,6 +145,51 @@ TEST_F(FontCollectionItemizeTest, itemize_latin) {
     EXPECT_EQ(kLatinFont, getFontPath(runs[0]));
     EXPECT_FALSE(runs[0].fakedFont.fakery.isFakeBold());
     EXPECT_FALSE(runs[0].fakedFont.fakery.isFakeItalic());
+}
+
+TEST_F(FontCollectionItemizeTest, itemize_combining) {
+    // The regular font and the Cherokee font both support U+0301 (COMBINING ACUTE ACCENT). Since
+    // it's a combining mark, it should come from whatever font the base character comes from.
+    std::shared_ptr<FontCollection> collection(getFontCollection(kTestFontDir, kItemizeFontXml));
+    std::vector<FontCollection::Run> runs;
+
+    const FontStyle kRegularStyle = FontStyle();
+
+    itemize(collection, "'a' U+0301", kRegularStyle, &runs);
+    ASSERT_EQ(1U, runs.size());
+    EXPECT_EQ(0, runs[0].start);
+    EXPECT_EQ(2, runs[0].end);
+    EXPECT_EQ(kLatinFont, getFontPath(runs[0]));
+
+    // CHEROKEE LETTER A, COMBINING ACUTE ACCENT
+    itemize(collection, "U+13A0 U+0301", kRegularStyle, &runs);
+    ASSERT_EQ(1U, runs.size());
+    EXPECT_EQ(0, runs[0].start);
+    EXPECT_EQ(2, runs[0].end);
+    EXPECT_EQ(kCherokeeFont, getFontPath(runs[0]));
+
+    // CHEROKEE LETTER A, COMBINING ACUTE ACCENT, COMBINING ACUTE ACCENT
+    itemize(collection, "U+13A0 U+0301 U+0301", kRegularStyle, &runs);
+    ASSERT_EQ(1U, runs.size());
+    EXPECT_EQ(0, runs[0].start);
+    EXPECT_EQ(3, runs[0].end);
+    EXPECT_EQ(kCherokeeFont, getFontPath(runs[0]));
+
+    itemize(collection, "U+0301", kRegularStyle, &runs);
+    ASSERT_EQ(1U, runs.size());
+    EXPECT_EQ(0, runs[0].start);
+    EXPECT_EQ(1, runs[0].end);
+    EXPECT_EQ(kLatinFont, getFontPath(runs[0]));
+
+    // COMBINING ACUTE ACCENT, CHEROKEE LETTER A, COMBINING ACUTE ACCENT
+    itemize(collection, "U+0301 U+13A0 U+0301", kRegularStyle, &runs);
+    ASSERT_EQ(2U, runs.size());
+    EXPECT_EQ(0, runs[0].start);
+    EXPECT_EQ(1, runs[0].end);
+    EXPECT_EQ(kLatinFont, getFontPath(runs[0]));
+    EXPECT_EQ(1, runs[1].start);
+    EXPECT_EQ(3, runs[1].end);
+    EXPECT_EQ(kCherokeeFont, getFontPath(runs[1]));
 }
 
 TEST_F(FontCollectionItemizeTest, itemize_emoji) {
@@ -689,6 +735,73 @@ TEST_F(FontCollectionItemizeTest, itemize_vs_sequence_but_no_base_char) {
     EXPECT_EQ(0, runs[0].start);
     EXPECT_EQ(2, runs[0].end);
     EXPECT_EQ(kVSTestFont, getFontPath(runs[0]));
+}
+
+TEST_F(FontCollectionItemizeTest, itemize_format_chars) {
+    std::shared_ptr<FontCollection> collection(getFontCollection(kTestFontDir, kItemizeFontXml));
+    std::vector<FontCollection::Run> runs;
+
+    const FontStyle kDefaultFontStyle;
+
+    itemize(collection, "'a' U+061C 'b'", kDefaultFontStyle, &runs);
+    ASSERT_EQ(1U, runs.size());
+    EXPECT_EQ(0, runs[0].start);
+    EXPECT_EQ(3, runs[0].end);
+    EXPECT_EQ(kLatinFont, getFontPath(runs[0]));
+
+    itemize(collection, "'a' U+200D 'b'", kDefaultFontStyle, &runs);
+    ASSERT_EQ(1U, runs.size());
+    EXPECT_EQ(0, runs[0].start);
+    EXPECT_EQ(3, runs[0].end);
+    EXPECT_EQ(kLatinFont, getFontPath(runs[0]));
+
+    itemize(collection, "U+3042 U+061C U+3042", kDefaultFontStyle, &runs);
+    ASSERT_EQ(1U, runs.size());
+    EXPECT_EQ(0, runs[0].start);
+    EXPECT_EQ(3, runs[0].end);
+    EXPECT_EQ(kJAFont, getFontPath(runs[0]));
+
+    itemize(collection, "U+061C 'b'", kDefaultFontStyle, &runs);
+    ASSERT_EQ(1U, runs.size());
+    EXPECT_EQ(0, runs[0].start);
+    EXPECT_EQ(2, runs[0].end);
+    EXPECT_EQ(kLatinFont, getFontPath(runs[0]));
+
+    itemize(collection, "U+061C U+3042", kDefaultFontStyle, &runs);
+    ASSERT_EQ(1U, runs.size());
+    EXPECT_EQ(0, runs[0].start);
+    EXPECT_EQ(2, runs[0].end);
+    EXPECT_EQ(kJAFont, getFontPath(runs[0]));
+
+    itemize(collection, "U+061C", kDefaultFontStyle, &runs);
+    ASSERT_EQ(1U, runs.size());
+    EXPECT_EQ(0, runs[0].start);
+    EXPECT_EQ(1, runs[0].end);
+    EXPECT_EQ(kLatinFont, getFontPath(runs[0]));
+
+    itemize(collection, "U+061C U+061C U+061C", kDefaultFontStyle, &runs);
+    ASSERT_EQ(1U, runs.size());
+    EXPECT_EQ(0, runs[0].start);
+    EXPECT_EQ(3, runs[0].end);
+    EXPECT_EQ(kLatinFont, getFontPath(runs[0]));
+
+    itemize(collection, "U+200D U+20E3", kDefaultFontStyle, &runs);
+    ASSERT_EQ(1U, runs.size());
+    EXPECT_EQ(0, runs[0].start);
+    EXPECT_EQ(2, runs[0].end);
+    EXPECT_EQ(kEmojiFont, getFontPath(runs[0]));
+
+    itemize(collection, "U+200D", kDefaultFontStyle, &runs);
+    ASSERT_EQ(1U, runs.size());
+    EXPECT_EQ(0, runs[0].start);
+    EXPECT_EQ(1, runs[0].end);
+    EXPECT_EQ(kLatinFont, getFontPath(runs[0]));
+
+    itemize(collection, "U+20E3", kDefaultFontStyle, &runs);
+    ASSERT_EQ(1U, runs.size());
+    EXPECT_EQ(0, runs[0].start);
+    EXPECT_EQ(1, runs[0].end);
+    EXPECT_EQ(kEmojiFont, getFontPath(runs[0]));
 }
 
 TEST_F(FontCollectionItemizeTest, itemize_LanguageScore) {

@@ -20,6 +20,7 @@ cc_library_shared {
         "ProtoFuzzerUtils.cpp",
         "ProtoFuzzerMutator.cpp",
         "ProtoFuzzerMutateFns.cpp",
+        "ProtoFuzzerRunner.cpp",
     ],
     include_dirs: [
         "test/vts/drivers/hal/common/include",
@@ -27,6 +28,7 @@ cc_library_shared {
     ],
     shared_libs: [
         "libprotobuf-cpp-full",
+        "libvintf",
         "libvts_common",
         "libvts_multidevice_proto",
         "libvts_proto_fuzzer_proto",
@@ -54,7 +56,7 @@ cc_binary {
         "libvts_proto_fuzzer_proto",
     ],
     static_libs: [
-        "libLLVMFuzzer",
+        "libFuzzer",
     ],
     cflags: [
         "-Wno-unused-parameter",

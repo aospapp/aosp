@@ -27,7 +27,6 @@ import android.telephony.CarrierConfigManager;
 import android.text.TextUtils;
 
 import com.android.internal.telephony.Phone;
-import com.android.internal.telephony.TelephonyProperties;
 
 /**
  * List of Phone-specific settings screens.
@@ -37,12 +36,15 @@ public class CdmaOptions {
 
     private CdmaSystemSelectListPreference mButtonCdmaSystemSelect;
     private CdmaSubscriptionListPreference mButtonCdmaSubscription;
-    private PreferenceScreen mButtonAPNExpand;
+    private Preference mButtonAPNExpand;
+    private Preference mCategoryAPNExpand;
+    private Preference mButtonCarrierSettings;
 
     private static final String BUTTON_CDMA_SYSTEM_SELECT_KEY = "cdma_system_select_key";
     private static final String BUTTON_CDMA_SUBSCRIPTION_KEY = "cdma_subscription_key";
     private static final String BUTTON_CARRIER_SETTINGS_KEY = "carrier_settings_key";
-    private static final String BUTTON_APN_EXPAND_KEY = "button_apn_key_cdma";
+    private static final String BUTTON_APN_EXPAND_KEY = "button_cdma_apn_key";
+    private static final String CATEGORY_APN_EXPAND_KEY = "category_cdma_apn_key";
 
     private PreferenceFragment mPrefFragment;
     private PreferenceScreen mPrefScreen;
@@ -51,24 +53,44 @@ public class CdmaOptions {
     public CdmaOptions(PreferenceFragment prefFragment, PreferenceScreen prefScreen, Phone phone) {
         mPrefFragment = prefFragment;
         mPrefScreen = prefScreen;
-        mPhone = phone;
-        create();
-    }
-
-    protected void create() {
         mPrefFragment.addPreferencesFromResource(R.xml.cdma_options);
 
-        mButtonAPNExpand = (PreferenceScreen) mPrefScreen.findPreference(BUTTON_APN_EXPAND_KEY);
-        boolean removedAPNExpand = false;
+        // Initialize preferences.
+        mButtonCdmaSystemSelect = (CdmaSystemSelectListPreference) mPrefScreen
+                .findPreference(BUTTON_CDMA_SYSTEM_SELECT_KEY);
+        mButtonCdmaSubscription = (CdmaSubscriptionListPreference) mPrefScreen
+                .findPreference(BUTTON_CDMA_SUBSCRIPTION_KEY);
+        mButtonCarrierSettings = mPrefScreen.findPreference(BUTTON_CARRIER_SETTINGS_KEY);
+        mButtonAPNExpand = mPrefScreen.findPreference(BUTTON_APN_EXPAND_KEY);
+        mCategoryAPNExpand = mPrefScreen.findPreference(CATEGORY_APN_EXPAND_KEY);
+
+        update(phone);
+    }
+
+    // Unlike mPrefFragment or mPrefScreen, mPhone may change during lifecycle of CdmaOptions.
+    // For example, a new sim card is inserted. When that happens, we update CdmaOptions with new
+    // phone.
+    protected void update(Phone phone) {
+        mPhone = phone;
+
         PersistableBundle carrierConfig =
                 PhoneGlobals.getInstance().getCarrierConfigForSubId(mPhone.getSubId());
         // Some CDMA carriers want the APN settings.
-        if (!carrierConfig.getBoolean(CarrierConfigManager.KEY_SHOW_APN_SETTING_CDMA_BOOL)
-                && mButtonAPNExpand != null) {
-            mPrefScreen.removePreference(mButtonAPNExpand);
-            removedAPNExpand = true;
-        }
-        if (!removedAPNExpand) {
+        boolean addAPNExpand =
+                carrierConfig.getBoolean(CarrierConfigManager.KEY_SHOW_APN_SETTING_CDMA_BOOL);
+        boolean addCdmaSubscription =
+                deviceSupportsNvAndRuim();
+        // Read platform settings for carrier settings
+        boolean addCarrierSettings =
+                carrierConfig.getBoolean(CarrierConfigManager.KEY_CARRIER_SETTINGS_ENABLE_BOOL);
+
+        mPrefScreen.addPreference(mButtonCdmaSystemSelect);
+        mButtonCdmaSystemSelect.setEnabled(true);
+
+        // Making no assumptions of whether they are added or removed at this point.
+        // Calling add or remove explicitly to make sure they are updated.
+
+        if (addAPNExpand) {
             mButtonAPNExpand.setOnPreferenceClickListener(
                     new Preference.OnPreferenceClickListener() {
                         @Override
@@ -83,33 +105,25 @@ public class CdmaOptions {
                             mPrefFragment.startActivity(intent);
                             return true;
                         }
-            });
+                    });
+            mPrefScreen.addPreference(mCategoryAPNExpand);
+        } else {
+            mPrefScreen.removePreference(mCategoryAPNExpand);
         }
 
-        mButtonCdmaSystemSelect = (CdmaSystemSelectListPreference)mPrefScreen
-                .findPreference(BUTTON_CDMA_SYSTEM_SELECT_KEY);
-
-        mButtonCdmaSubscription = (CdmaSubscriptionListPreference)mPrefScreen
-                .findPreference(BUTTON_CDMA_SUBSCRIPTION_KEY);
-
-        mButtonCdmaSystemSelect.setEnabled(true);
-        if(deviceSupportsNvAndRuim()) {
+        if (addCdmaSubscription) {
             log("Both NV and Ruim supported, ENABLE subscription type selection");
+            mPrefScreen.addPreference(mButtonCdmaSubscription);
             mButtonCdmaSubscription.setEnabled(true);
         } else {
             log("Both NV and Ruim NOT supported, REMOVE subscription type selection");
-            mPrefScreen.removePreference(mPrefScreen
-                                .findPreference(BUTTON_CDMA_SUBSCRIPTION_KEY));
+            mPrefScreen.removePreference(mButtonCdmaSubscription);
         }
 
-        // Read platform settings for carrier settings
-        final boolean isCarrierSettingsEnabled = carrierConfig.getBoolean(
-                CarrierConfigManager.KEY_CARRIER_SETTINGS_ENABLE_BOOL);
-        if (!isCarrierSettingsEnabled) {
-            Preference pref = mPrefScreen.findPreference(BUTTON_CARRIER_SETTINGS_KEY);
-            if (pref != null) {
-                mPrefScreen.removePreference(pref);
-            }
+        if (addCarrierSettings) {
+            mPrefScreen.addPreference(mButtonCarrierSettings);
+        } else {
+            mPrefScreen.removePreference(mButtonCarrierSettings);
         }
     }
 

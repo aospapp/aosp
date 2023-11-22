@@ -24,6 +24,8 @@
 
 #include "chre/util/id_from_string.h"
 
+#include <stdint.h>
+
 namespace chre {
 
 //! The vendor ID for Google.
@@ -35,6 +37,12 @@ constexpr uint32_t kGoogleLinuxPlatformId = 0x001;
 
 //! The vendor platform ID of the Qualcomm SLPI variant.
 constexpr uint32_t kGoogleSlpiPlatformId = 0x002;
+
+//! Patch level of the current CHRE implementation, defined by the build system
+//! and reported in chreGetVersion().
+constexpr uint16_t kPatchVersion = CHRE_PATCH_VERSION;
+static_assert(CHRE_PATCH_VERSION <= UINT16_MAX,
+              "Patch version must fit in 16 bits");
 
 }  // namespace chre
 

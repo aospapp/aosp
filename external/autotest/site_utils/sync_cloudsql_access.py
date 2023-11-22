@@ -72,15 +72,20 @@ def update_allowed_networks(project, instance, afe=None, extra_servers=None):
             'CLOUD', 'tko_access_servers', default='')
     if tko_servers:
         servers.extend(tko_servers.split(','))
+    print 'Adding servers %s to access list for projects %s' % (servers,
+                                                                instance)
+    print 'Fetching their IP addresses...'
     ips = [socket.gethostbyname(name) for name in servers]
+    print '...Done: %s' % ips
 
     login = False
     while True:
         try:
-            utils.run('gcloud config set project %s' % project)
-            utils.run('gcloud sql instances patch %s --authorized-networks %s'
-                      % (instance, ','.join(ips)), stdout_tee=sys.stdout,
-                      stderr_tee=sys.stderr)
+            utils.run('gcloud config set project %s -q' % project)
+            cmd = ('gcloud sql instances patch %s --authorized-networks %s '
+                   '-q' % (instance, ','.join(ips)))
+            print 'Running command to update whitelists: "%s"' % cmd
+            utils.run(cmd, stdout_tee=sys.stdout, stderr_tee=sys.stderr)
             return
         except error.CmdError:
             if login:

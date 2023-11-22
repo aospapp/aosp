@@ -1,18 +1,19 @@
 /*
- * Copyright (c) 2016, The Android Open Source Project
+ * Copyright (C) 2017 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */package com.android.car.apps.common;
+ */
+package com.android.car.apps.common;
 
 import android.content.res.Resources;
 import android.graphics.Bitmap;
@@ -25,12 +26,14 @@ import android.support.annotation.NonNull;
 import android.support.v4.graphics.drawable.RoundedBitmapDrawable;
 import android.support.v4.graphics.drawable.RoundedBitmapDrawableFactory;
 
+
 /**
  * A drawable for displaying a circular bitmap. This is a wrapper over RoundedBitmapDrawable,
  * since that implementation doesn't behave quite as desired.
  *
  * Note that not all drawable functionality is passed to the RoundedBitmapDrawable at this
  * time. Feel free to add more as necessary.
+ * @hide
  */
 public class CircleBitmapDrawable extends Drawable {
     private final Resources mResources;
@@ -52,19 +55,6 @@ public class CircleBitmapDrawable extends Drawable {
         int height = bounds.bottom - bounds.top;
 
         Bitmap processed = mBitmap;
-        if (processed.getWidth() != width || processed.getHeight() != height) {
-            processed = BitmapUtils.scaleBitmap(processed, width, height);
-        }
-        // RoundedBitmapDrawable is actually just a rounded rectangle. So it can't turn
-        // rectangular images into circles.
-        if (processed.getWidth() != processed.getHeight()) {
-            int diam = Math.min(width, height);
-            Bitmap cropped = BitmapUtils.cropBitmap(processed, diam, diam);
-            if (processed != mBitmap) {
-                processed.recycle();
-            }
-            processed = cropped;
-        }
         mDrawable = RoundedBitmapDrawableFactory.create(mResources, processed);
         mDrawable.setBounds(bounds);
         mDrawable.setAntiAlias(true);
@@ -123,3 +113,4 @@ public class CircleBitmapDrawable extends Drawable {
         return largeIcon;
     }
 }
+

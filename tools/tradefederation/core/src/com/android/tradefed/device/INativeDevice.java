@@ -225,6 +225,33 @@ public interface INativeDevice {
                     throws DeviceNotAvailableException;
 
     /**
+     * Executes a adb shell command, with more parameters to control command behavior.
+     *
+     * @see #executeShellCommand(String, IShellOutputReceiver)
+     * @param command the adb shell command to run
+     * @param receiver the {@link IShellOutputReceiver} to direct shell output to.
+     * @param maxTimeoutForCommand the maximum timeout for the command to complete; unit as
+     *     specified in <code>timeUnit</code>
+     * @param maxTimeToOutputShellResponse the maximum amount of time during which the command is
+     *     allowed to not output any response; unit as specified in <code>timeUnit</code>
+     * @param timeUnit unit for <code>maxTimeToOutputShellResponse</code>
+     * @param retryAttempts the maximum number of times to retry command if it fails due to a
+     *     exception. DeviceNotResponsiveException will be thrown if <var>retryAttempts</var> are
+     *     performed without success.
+     * @throws DeviceNotAvailableException if connection with device is lost and cannot be
+     *     recovered.
+     * @see TimeUtil
+     */
+    public void executeShellCommand(
+            String command,
+            IShellOutputReceiver receiver,
+            long maxTimeoutForCommand,
+            long maxTimeToOutputShellResponse,
+            TimeUnit timeUnit,
+            int retryAttempts)
+            throws DeviceNotAvailableException;
+
+    /**
      * Helper method which executes a adb shell command and returns output as a {@link String}.
      *
      * @param command the adb shell command to run
@@ -1058,4 +1085,7 @@ public interface INativeDevice {
      * @return ProcessInfo of given processName
      */
     public ProcessInfo getProcessByName(String processName) throws DeviceNotAvailableException;
+
+    /** Returns the pid of the service or null if something went wrong. */
+    public String getProcessPid(String process) throws DeviceNotAvailableException;
 }

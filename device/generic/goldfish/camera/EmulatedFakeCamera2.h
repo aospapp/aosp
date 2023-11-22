@@ -402,6 +402,8 @@ protected:
 private:
     bool mIsConnected;
 
+    int32_t mSensorWidth, mSensorHeight;
+
     /** Stream manipulation */
     uint32_t mNextStreamId;
     uint32_t mRawStreamCount;

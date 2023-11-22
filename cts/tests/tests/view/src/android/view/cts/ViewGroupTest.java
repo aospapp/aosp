@@ -29,7 +29,6 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import android.annotation.NonNull;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
@@ -44,6 +43,7 @@ import android.graphics.Region;
 import android.graphics.drawable.BitmapDrawable;
 import android.os.Parcelable;
 import android.os.SystemClock;
+import android.support.annotation.NonNull;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.annotation.UiThreadTest;
 import android.support.test.filters.LargeTest;
@@ -1658,6 +1658,28 @@ public class ViewGroupTest implements CTSResult {
         h.cluster1.removeDetachedView(h.c1view1, false);
         h.cluster1.restoreFocusInCluster(View.FOCUS_DOWN);
         assertSame(h.c1view2, h.cluster1.findFocus());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testFocusInClusterFocusableChanges() {
+        TestClusterHier h = new TestClusterHier();
+        h.cluster1.setKeyboardNavigationCluster(false);
+        h.c1view2.setFocusedInCluster();
+        h.c2view1.requestFocus();
+        assertSame(h.top.findFocus(), h.c2view1);
+        assertTrue(h.top.restoreFocusNotInCluster());
+        assertSame(h.top.findFocus(), h.c1view2);
+        h.c1view1.setFocusable(false);
+        // making it invisible should clear focusNotInCluster chain
+        h.c1view2.setVisibility(View.INVISIBLE);
+        assertFalse(h.top.restoreFocusNotInCluster());
+        h.c1view2.setVisibility(View.VISIBLE);
+        h.c1view2.requestFocus();
+        h.c1view2.setFocusedInCluster();
+        h.c2view1.setFocusable(false);
+        h.c2view2.setFocusable(false);
+        assertFalse(h.cluster2.restoreFocusInCluster(View.FOCUS_DOWN));
     }
 
     @UiThreadTest

@@ -21,6 +21,6 @@ class telemetry_GpuTests(test.test):
         """
         local = args.get("local") == "True"
         telemetry = telemetry_runner.TelemetryRunner(host, local)
-        result = telemetry.run_gpu_test(test)
+        result = telemetry.run_gpu_integration_test(test)
         logging.debug('Telemetry completed with a status of: %s with output:'
                       ' %s', result.status, result.output)

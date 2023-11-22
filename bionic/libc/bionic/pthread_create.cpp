@@ -35,11 +35,12 @@
 
 #include "pthread_internal.h"
 
+#include <async_safe/log.h>
+
 #include "private/bionic_macros.h"
 #include "private/bionic_prctl.h"
 #include "private/bionic_ssp.h"
 #include "private/bionic_tls.h"
-#include "private/libc_logging.h"
 #include "private/ErrnoRestorer.h"
 
 // x86 uses segment descriptors rather than a direct pointer to TLS.
@@ -48,10 +49,8 @@
 void __init_user_desc(struct user_desc*, bool, void*);
 #endif
 
-extern "C" int __isthreaded;
-
 // This code is used both by each new pthread and the code that initializes the main thread.
-void __init_tls(pthread_internal_t* thread) {
+bool __init_tls(pthread_internal_t* thread) {
   // Slot 0 must point to itself. The x86 Linux kernel reads the TLS from %fs:0.
   thread->tls[TLS_SLOT_SELF] = thread->tls;
   thread->tls[TLS_SLOT_THREAD_ID] = thread;
@@ -60,15 +59,24 @@ void __init_tls(pthread_internal_t* thread) {
   size_t allocation_size = BIONIC_TLS_SIZE + 2 * PAGE_SIZE;
   void* allocation = mmap(nullptr, allocation_size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   if (allocation == MAP_FAILED) {
-    __libc_fatal("failed to allocate TLS");
+    async_safe_format_log(ANDROID_LOG_WARN, "libc",
+                          "pthread_create failed: couldn't allocate TLS: %s", strerror(errno));
+    return false;
   }
-  prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, allocation, allocation_size, "bionic TLS guard page");
 
+  prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, allocation, allocation_size, "bionic TLS guard");
+
+  // Carve out the writable TLS section.
   thread->bionic_tls = reinterpret_cast<bionic_tls*>(static_cast<char*>(allocation) + PAGE_SIZE);
   if (mprotect(thread->bionic_tls, BIONIC_TLS_SIZE, PROT_READ | PROT_WRITE) != 0) {
-    __libc_fatal("failed to mprotect TLS");
+    async_safe_format_log(ANDROID_LOG_WARN, "libc",
+                          "pthread_create failed: couldn't mprotect TLS: %s", strerror(errno));
+    munmap(allocation, allocation_size);
+    return false;
   }
+
   prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, thread->bionic_tls, BIONIC_TLS_SIZE, "bionic TLS");
+  return true;
 }
 
 void __init_thread_stack_guard(pthread_internal_t* thread) {
@@ -118,8 +126,8 @@ int __init_thread(pthread_internal_t* thread) {
       // For backwards compatibility reasons, we only report failures on 64-bit devices.
       error = errno;
 #endif
-      __libc_format_log(ANDROID_LOG_WARN, "libc",
-                        "pthread_create sched_setscheduler call failed: %s", strerror(errno));
+      async_safe_format_log(ANDROID_LOG_WARN, "libc",
+                            "pthread_create sched_setscheduler call failed: %s", strerror(errno));
     }
   }
 
@@ -134,7 +142,7 @@ static void* __create_thread_mapped_space(size_t mmap_size, size_t stack_guard_s
   int flags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE;
   void* space = mmap(NULL, mmap_size, prot, flags, -1, 0);
   if (space == MAP_FAILED) {
-    __libc_format_log(ANDROID_LOG_WARN,
+    async_safe_format_log(ANDROID_LOG_WARN,
                       "libc",
                       "pthread_create failed: couldn't allocate %zu-bytes mapped space: %s",
                       mmap_size, strerror(errno));
@@ -144,9 +152,9 @@ static void* __create_thread_mapped_space(size_t mmap_size, size_t stack_guard_s
   // Stack is at the lower end of mapped space, stack guard region is at the lower end of stack.
   // Set the stack guard region to PROT_NONE, so we can detect thread stack overflow.
   if (mprotect(space, stack_guard_size, PROT_NONE) == -1) {
-    __libc_format_log(ANDROID_LOG_WARN, "libc",
-                      "pthread_create failed: couldn't mprotect PROT_NONE %zu-byte stack guard region: %s",
-                      stack_guard_size, strerror(errno));
+    async_safe_format_log(ANDROID_LOG_WARN, "libc",
+                          "pthread_create failed: couldn't mprotect PROT_NONE %zu-byte stack guard region: %s",
+                          stack_guard_size, strerror(errno));
     munmap(space, mmap_size);
     return NULL;
   }
@@ -193,7 +201,10 @@ static int __allocate_thread(pthread_attr_t* attr, pthread_internal_t** threadp,
 
   thread->mmap_size = mmap_size;
   thread->attr = *attr;
-  __init_tls(thread);
+  if (!__init_tls(thread)) {
+    if (thread->mmap_size != 0) munmap(thread->attr.stack_base, thread->mmap_size);
+    return EAGAIN;
+  }
   __init_thread_stack_guard(thread);
 
   *threadp = thread;
@@ -228,9 +239,6 @@ static void* __do_nothing(void*) {
 int pthread_create(pthread_t* thread_out, pthread_attr_t const* attr,
                    void* (*start_routine)(void*), void* arg) {
   ErrnoRestorer errno_restorer;
-
-  // Inform the rest of the C library that at least one thread was created.
-  __isthreaded = 1;
 
   pthread_attr_t thread_attr;
   if (attr == NULL) {
@@ -281,7 +289,8 @@ int pthread_create(pthread_t* thread_out, pthread_attr_t const* attr,
     if (thread->mmap_size != 0) {
       munmap(thread->attr.stack_base, thread->mmap_size);
     }
-    __libc_format_log(ANDROID_LOG_WARN, "libc", "pthread_create failed: clone failed: %s", strerror(errno));
+    async_safe_format_log(ANDROID_LOG_WARN, "libc", "pthread_create failed: clone failed: %s",
+                          strerror(errno));
     return clone_errno;
   }
 

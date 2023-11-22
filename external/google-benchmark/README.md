@@ -11,6 +11,8 @@ IRC channel: https://freenode.net #googlebenchmark
 
 [Known issues and common problems](#known-issues)
 
+[Additional Tooling Documentation](docs/tools.md)
+
 ## Example usage
 ### Basic usage
 Define a function that executes the code to be measured.
@@ -363,7 +365,7 @@ static void BM_vector_push_back(benchmark::State& state) {
 }
 ```
 
-Note that `ClobberMemory()` is only available for GNU based compilers.
+Note that `ClobberMemory()` is only available for GNU or MSVC based compilers.
 
 ### Set time unit manually
 If a benchmark runs a few milliseconds it may be hard to visually compare the
@@ -429,6 +431,132 @@ BENCHMARK_DEFINE_F(MyFixture, BarTest)(benchmark::State& st) {
 BENCHMARK_REGISTER_F(MyFixture, BarTest)->Threads(2);
 /* BarTest is now registered */
 ```
+
+
+## User-defined counters
+
+You can add your own counters with user-defined names. The example below
+will add columns "Foo", "Bar" and "Baz" in its output:
+
+```c++
+static void UserCountersExample1(benchmark::State& state) {
+  double numFoos = 0, numBars = 0, numBazs = 0;
+  while (state.KeepRunning()) {
+    // ... count Foo,Bar,Baz events
+  }
+  state.counters["Foo"] = numFoos;
+  state.counters["Bar"] = numBars;
+  state.counters["Baz"] = numBazs;
+}
+```
+
+The `state.counters` object is a `std::map` with `std::string` keys
+and `Counter` values. The latter is a `double`-like class, via an implicit
+conversion to `double&`. Thus you can use all of the standard arithmetic
+assignment operators (`=,+=,-=,*=,/=`) to change the value of each counter.
+
+In multithreaded benchmarks, each counter is set on the calling thread only.
+When the benchmark finishes, the counters from each thread will be summed;
+the resulting sum is the value which will be shown for the benchmark.
+
+The `Counter` constructor accepts two parameters: the value as a `double`
+and a bit flag which allows you to show counters as rates and/or as
+per-thread averages:
+
+```c++
+  // sets a simple counter
+  state.counters["Foo"] = numFoos;
+
+  // Set the counter as a rate. It will be presented divided
+  // by the duration of the benchmark.
+  state.counters["FooRate"] = Counter(numFoos, benchmark::Counter::kIsRate);
+
+  // Set the counter as a thread-average quantity. It will
+  // be presented divided by the number of threads.
+  state.counters["FooAvg"] = Counter(numFoos, benchmark::Counter::kAvgThreads);
+
+  // There's also a combined flag:
+  state.counters["FooAvgRate"] = Counter(numFoos,benchmark::Counter::kAvgThreadsRate);
+```
+
+When you're compiling in C++11 mode or later you can use `insert()` with
+`std::initializer_list`:
+
+```c++
+  // With C++11, this can be done:
+  state.counters.insert({{"Foo", numFoos}, {"Bar", numBars}, {"Baz", numBazs}});
+  // ... instead of:
+  state.counters["Foo"] = numFoos;
+  state.counters["Bar"] = numBars;
+  state.counters["Baz"] = numBazs;
+```
+
+### Counter reporting
+
+When using the console reporter, by default, user counters are are printed at
+the end after the table, the same way as ``bytes_processed`` and
+``items_processed``. This is best for cases in which there are few counters,
+or where there are only a couple of lines per benchmark. Here's an example of
+the default output:
+
+```
+------------------------------------------------------------------------------
+Benchmark                        Time           CPU Iterations UserCounters...
+------------------------------------------------------------------------------
+BM_UserCounter/threads:8      2248 ns      10277 ns      68808 Bar=16 Bat=40 Baz=24 Foo=8
+BM_UserCounter/threads:1      9797 ns       9788 ns      71523 Bar=2 Bat=5 Baz=3 Foo=1024m
+BM_UserCounter/threads:2      4924 ns       9842 ns      71036 Bar=4 Bat=10 Baz=6 Foo=2
+BM_UserCounter/threads:4      2589 ns      10284 ns      68012 Bar=8 Bat=20 Baz=12 Foo=4
+BM_UserCounter/threads:8      2212 ns      10287 ns      68040 Bar=16 Bat=40 Baz=24 Foo=8
+BM_UserCounter/threads:16     1782 ns      10278 ns      68144 Bar=32 Bat=80 Baz=48 Foo=16
+BM_UserCounter/threads:32     1291 ns      10296 ns      68256 Bar=64 Bat=160 Baz=96 Foo=32
+BM_UserCounter/threads:4      2615 ns      10307 ns      68040 Bar=8 Bat=20 Baz=12 Foo=4
+BM_Factorial                    26 ns         26 ns   26608979 40320
+BM_Factorial/real_time          26 ns         26 ns   26587936 40320
+BM_CalculatePiRange/1           16 ns         16 ns   45704255 0
+BM_CalculatePiRange/8           73 ns         73 ns    9520927 3.28374
+BM_CalculatePiRange/64         609 ns        609 ns    1140647 3.15746
+BM_CalculatePiRange/512       4900 ns       4901 ns     142696 3.14355
+```
+
+If this doesn't suit you, you can print each counter as a table column by
+passing the flag `--benchmark_counters_tabular=true` to the benchmark
+application. This is best for cases in which there are a lot of counters, or
+a lot of lines per individual benchmark. Note that this will trigger a
+reprinting of the table header any time the counter set changes between
+individual benchmarks. Here's an example of corresponding output when
+`--benchmark_counters_tabular=true` is passed:
+
+```
+---------------------------------------------------------------------------------------
+Benchmark                        Time           CPU Iterations    Bar   Bat   Baz   Foo
+---------------------------------------------------------------------------------------
+BM_UserCounter/threads:8      2198 ns       9953 ns      70688     16    40    24     8
+BM_UserCounter/threads:1      9504 ns       9504 ns      73787      2     5     3     1
+BM_UserCounter/threads:2      4775 ns       9550 ns      72606      4    10     6     2
+BM_UserCounter/threads:4      2508 ns       9951 ns      70332      8    20    12     4
+BM_UserCounter/threads:8      2055 ns       9933 ns      70344     16    40    24     8
+BM_UserCounter/threads:16     1610 ns       9946 ns      70720     32    80    48    16
+BM_UserCounter/threads:32     1192 ns       9948 ns      70496     64   160    96    32
+BM_UserCounter/threads:4      2506 ns       9949 ns      70332      8    20    12     4
+--------------------------------------------------------------
+Benchmark                        Time           CPU Iterations
+--------------------------------------------------------------
+BM_Factorial                    26 ns         26 ns   26392245 40320
+BM_Factorial/real_time          26 ns         26 ns   26494107 40320
+BM_CalculatePiRange/1           15 ns         15 ns   45571597 0
+BM_CalculatePiRange/8           74 ns         74 ns    9450212 3.28374
+BM_CalculatePiRange/64         595 ns        595 ns    1173901 3.15746
+BM_CalculatePiRange/512       4752 ns       4752 ns     147380 3.14355
+BM_CalculatePiRange/4k       37970 ns      37972 ns      18453 3.14184
+BM_CalculatePiRange/32k     303733 ns     303744 ns       2305 3.14162
+BM_CalculatePiRange/256k   2434095 ns    2434186 ns        288 3.1416
+BM_CalculatePiRange/1024k  9721140 ns    9721413 ns         71 3.14159
+BM_CalculatePi/threads:8      2255 ns       9943 ns      70936
+```
+Note above the additional header printed when the benchmark changes from
+``BM_UserCounter`` to ``BM_Factorial``. This is because ``BM_Factorial`` does
+not have the same counter set as ``BM_UserCounter``.
 
 ## Exiting Benchmarks in Error
 
@@ -501,7 +629,7 @@ The `context` attribute contains information about the run in general, including
 information about the CPU and the date.
 The `benchmarks` attribute contains a list of ever benchmark run. Example json
 output looks like:
-``` json
+```json
 {
   "context": {
     "date": "2015/03/17-18:40:25",
@@ -582,6 +710,7 @@ The following minimum versions are strongly recommended build the library:
 * GCC 4.8
 * Clang 3.4
 * Visual Studio 2013
+* Intel 2015 Update 1
 
 Anything older *may* work.
 

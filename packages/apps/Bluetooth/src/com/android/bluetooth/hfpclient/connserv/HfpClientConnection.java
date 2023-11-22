@@ -38,6 +38,7 @@ public class HfpClientConnection extends Connection {
     private BluetoothHeadsetClient mHeadsetProfile;
 
     private BluetoothHeadsetClientCall mCurrentCall;
+    private int mPreviousCallState = -1;
     private boolean mClosed;
     private boolean mClosing = false;
     private boolean mLocalDisconnect;
@@ -81,6 +82,7 @@ public class HfpClientConnection extends Connection {
             return;
         }
 
+        mHeadsetProfile.connectAudio(device);
         setInitializing();
         setDialing();
         finishInitializing();
@@ -161,12 +163,19 @@ public class HfpClientConnection extends Connection {
                 setRinging();
                 break;
             case BluetoothHeadsetClientCall.CALL_STATE_TERMINATED:
-                // TODO Use more specific causes
-                close(mLocalDisconnect ? DisconnectCause.LOCAL : DisconnectCause.REMOTE);
+                if (mPreviousCallState == BluetoothHeadsetClientCall.CALL_STATE_INCOMING
+                        || mPreviousCallState == BluetoothHeadsetClientCall.CALL_STATE_WAITING) {
+                    close(DisconnectCause.MISSED);
+                } else if (mLocalDisconnect) {
+                    close(DisconnectCause.LOCAL);
+                } else {
+                    close(DisconnectCause.REMOTE);
+                }
                 break;
             default:
                 Log.wtf(TAG, "Unexpected phone state " + state);
         }
+        mPreviousCallState = state;
     }
 
     public synchronized void close(int cause) {
@@ -256,6 +265,7 @@ public class HfpClientConnection extends Connection {
         if (!mClosed) {
             mHeadsetProfile.acceptCall(mDevice, BluetoothHeadsetClient.CALL_ACCEPT_NONE);
         }
+        mHeadsetProfile.connectAudio(mDevice);
     }
 
     @Override

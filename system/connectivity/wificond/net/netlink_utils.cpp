@@ -246,6 +246,17 @@ bool NetlinkUtils::ParseScanCapabilities(
     return false;
   }
 
+  // Use default value 0 for scan plan capabilities if attributes are missing.
+  uint32_t max_num_scan_plans = 0;
+  packet->GetAttributeValue(NL80211_ATTR_MAX_NUM_SCHED_SCAN_PLANS,
+                            &max_num_scan_plans);
+  uint32_t max_scan_plan_interval = 0;
+  packet->GetAttributeValue(NL80211_ATTR_MAX_SCAN_PLAN_INTERVAL,
+                            &max_scan_plan_interval);
+  uint32_t max_scan_plan_iterations = 0;
+  packet->GetAttributeValue(NL80211_ATTR_MAX_SCAN_PLAN_ITERATIONS,
+                            &max_scan_plan_iterations);
+
   uint8_t max_match_sets;
   if (!packet->GetAttributeValue(NL80211_ATTR_MAX_MATCH_SETS,
                                    &max_match_sets)) {
@@ -255,7 +266,10 @@ bool NetlinkUtils::ParseScanCapabilities(
   }
   *out_scan_capabilities = ScanCapabilities(max_num_scan_ssids,
                                             max_num_sched_scan_ssids,
-                                            max_match_sets);
+                                            max_match_sets,
+                                            max_num_scan_plans,
+                                            max_scan_plan_interval,
+                                            max_scan_plan_iterations);
   return true;
 }
 

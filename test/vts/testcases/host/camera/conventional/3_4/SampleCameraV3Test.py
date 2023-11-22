@@ -21,7 +21,6 @@ import time
 from vts.runners.host import asserts
 from vts.runners.host import base_test
 from vts.runners.host import test_runner
-from vts.utils.python.controllers import android_device
 
 
 class SampleCameraV3Test(base_test.BaseTestClass):
@@ -31,12 +30,13 @@ class SampleCameraV3Test(base_test.BaseTestClass):
     MAX_RETRIES = 3
 
     def setUpClass(self):
-        self.dut = self.registerController(android_device)[0]
-        self.dut.hal.InitConventionalHal(target_type="camera",
-                                         target_version=3.4,
-                                         target_basepaths=["/system/lib/hw"],
-                                         bits=32,
-                                         target_package="hal.conventional.camera")
+        self.dut = self.android_devices[0]
+        self.dut.hal.InitConventionalHal(
+            target_type="camera",
+            target_version=3.4,
+            target_basepaths=["/system/lib/hw"],
+            bits=32,
+            target_package="hal.conventional.camera")
 
     def setUp(self):
         self.call_count_camera_device_status_change = 0
@@ -49,7 +49,8 @@ class SampleCameraV3Test(base_test.BaseTestClass):
         if version != self.VERSION_3_4:
             asserts.skip("HAL version != v3.4")
 
-        self.dut.hal.camera.common.module.methods.open()  # note args are skipped
+        self.dut.hal.camera.common.module.methods.open(
+        )  # note args are skipped
 
         ops = self.dut.hal.camera.GetAttributeValue("ops")
         logging.info("ops: %s", ops)

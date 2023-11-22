@@ -9,7 +9,7 @@
 
 #include <functional>
 
-#include "file_interface.h"
+#include "bsdiff/file_interface.h"
 
 using sink_func = std::function<size_t(const uint8_t*, size_t)>;
 

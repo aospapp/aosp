@@ -38,5 +38,9 @@ public interface StreamInfo {
     int getAudioChannelCount();
     boolean hasClosedCaption();
     boolean isVideoAvailable();
+    /**
+     *  Returns true, if video or audio is available.
+     */
+    boolean isVideoOrAudioAvailable();
     int getVideoUnavailableReason();
 }

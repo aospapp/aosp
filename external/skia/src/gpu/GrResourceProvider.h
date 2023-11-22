@@ -9,13 +9,23 @@
 #define GrResourceProvider_DEFINED
 
 #include "GrBuffer.h"
-#include "GrGpu.h"
 #include "GrPathRange.h"
+#include "SkImageInfo.h"
+#include "SkScalerContext.h"
 
+class GrBackendRenderTarget;
+class GrBackendSemaphore;
+class GrBackendTexture;
+class GrGpu;
 class GrPath;
 class GrRenderTarget;
+class GrSemaphore;
 class GrSingleOwner;
 class GrStencilAttachment;
+class GrSurfaceProxy;
+class GrTexture;
+class GrTextureProxy;
+
 class GrStyle;
 class SkDescriptor;
 class SkPath;
@@ -38,38 +48,6 @@ public:
     ///////////////////////////////////////////////////////////////////////////
     // Textures
 
-    /**
-     * Creates a new texture in the resource cache and returns it. The caller owns a
-     * ref on the returned texture which must be balanced by a call to unref.
-     *
-     * @param desc          Description of the texture properties.
-     * @param budgeted      Does the texture count against the resource cache budget?
-     * @param texels        A contiguous array of mipmap levels
-     * @param mipLevelCount The amount of elements in the texels array
-     */
-    GrTexture* createMipMappedTexture(const GrSurfaceDesc& desc, SkBudgeted budgeted,
-                                      const GrMipLevel* texels, int mipLevelCount,
-                                      uint32_t flags = 0,
-                                      SkDestinationSurfaceColorMode mipColorMode =
-                                                        SkDestinationSurfaceColorMode::kLegacy);
-
-    /**
-     * This function is a shim which creates a SkTArray<GrMipLevel> of size 1.
-     * It then calls createTexture with that SkTArray.
-     *
-     * @param srcData   Pointer to the pixel values (optional).
-     * @param rowBytes  The number of bytes between rows of the texture. Zero
-     *                  implies tightly packed rows. For compressed pixel configs, this
-     *                  field is ignored.
-     */
-    GrTexture* createTexture(const GrSurfaceDesc& desc, SkBudgeted budgeted, const void* srcData,
-                             size_t rowBytes, uint32_t flags = 0);
-
-    /** Shortcut for creating a texture with no initial data to upload. */
-    GrTexture* createTexture(const GrSurfaceDesc& desc, SkBudgeted budgeted, uint32_t flags = 0) {
-        return this->createTexture(desc, budgeted, nullptr, 0, flags);
-    }
-
     /** Assigns a unique key to the texture. The texture will be findable via this key using
     findTextureByUniqueKey(). If an existing texture has this key, it's key will be removed. */
     void assignUniqueKeyToProxy(const GrUniqueKey& key, GrTextureProxy*);
@@ -81,10 +59,19 @@ public:
      * Finds a texture that approximately matches the descriptor. Will be at least as large in width
      * and height as desc specifies. If desc specifies that the texture should be a render target
      * then result will be a render target. Format and sample count will always match the request.
-     * The contents of the texture are undefined. The caller owns a ref on the returned texture and
-     * must balance with a call to unref.
+     * The contents of the texture are undefined.
      */
-    GrTexture* createApproxTexture(const GrSurfaceDesc&, uint32_t flags);
+    sk_sp<GrTexture> createApproxTexture(const GrSurfaceDesc&, uint32_t flags);
+
+    /** Create an exact fit texture with no initial data to upload.
+     */
+    sk_sp<GrTexture> createTexture(const GrSurfaceDesc&, SkBudgeted, uint32_t flags = 0);
+
+    sk_sp<GrTexture> createTexture(const GrSurfaceDesc&, SkBudgeted,
+                                   const GrMipLevel texels[], int mipLevelCount,
+                                   SkDestinationSurfaceColorMode mipColorMode);
+
+    sk_sp<GrTextureProxy> createTextureProxy(const GrSurfaceDesc&, SkBudgeted, const GrMipLevel&);
 
     ///////////////////////////////////////////////////////////////////////////
     // Wrapped Backend Surfaces
@@ -97,7 +84,10 @@ public:
      *
      * @return GrTexture object or NULL on failure.
      */
-    sk_sp<GrTexture> wrapBackendTexture(const GrBackendTextureDesc& desc,
+    sk_sp<GrTexture> wrapBackendTexture(const GrBackendTexture& tex,
+                                        GrSurfaceOrigin origin,
+                                        GrBackendTextureFlags flags,
+                                        int sampleCnt,
                                         GrWrapOwnership = kBorrow_GrWrapOwnership);
 
     /**
@@ -109,14 +99,14 @@ public:
      *
      * @return GrRenderTarget object or NULL on failure.
      */
-    sk_sp<GrRenderTarget> wrapBackendRenderTarget(const GrBackendRenderTargetDesc& desc);
+    sk_sp<GrRenderTarget> wrapBackendRenderTarget(const GrBackendRenderTarget&, GrSurfaceOrigin);
 
-    static const int kMinScratchTextureSize;
+    static const uint32_t kMinScratchTextureSize;
 
     /**
-     * Either finds and refs, or creates an index buffer for instanced drawing with a specific
-     * pattern if the index buffer is not found. If the return is non-null, the caller owns
-     * a ref on the returned GrBuffer.
+     * Either finds and refs, or creates an index buffer with a repeating pattern for drawing
+     * contiguous vertices of a repeated mesh. If the return is non-null, the caller owns a ref on
+     * the returned GrBuffer.
      *
      * @param pattern     the pattern of indices to repeat
      * @param patternSize size in bytes of the pattern
@@ -126,7 +116,7 @@ public:
      *
      * @return The index buffer if successful, otherwise nullptr.
      */
-    const GrBuffer* findOrCreateInstancedIndexBuffer(const uint16_t* pattern,
+    const GrBuffer* findOrCreatePatternedIndexBuffer(const uint16_t* pattern,
                                                      int patternSize,
                                                      int reps,
                                                      int vertCount,
@@ -134,14 +124,14 @@ public:
         if (GrBuffer* buffer = this->findAndRefTByUniqueKey<GrBuffer>(key)) {
             return buffer;
         }
-        return this->createInstancedIndexBuffer(pattern, patternSize, reps, vertCount, key);
+        return this->createPatternedIndexBuffer(pattern, patternSize, reps, vertCount, key);
     }
 
     /**
      * Returns an index buffer that can be used to render quads.
      * Six indices per quad: 0, 1, 2, 0, 2, 3, etc.
      * The max number of quads is the buffer's index capacity divided by 6.
-     * Draw with kTriangles_GrPrimitiveType
+     * Draw with GrPrimitiveType::kTriangles
      * @ return the quad index buffer
      */
     const GrBuffer* refQuadIndexBuffer() {
@@ -156,10 +146,10 @@ public:
      * Factories for GrPath and GrPathRange objects. It's an error to call these if path rendering
      * is not supported.
      */
-    GrPath* createPath(const SkPath&, const GrStyle&);
-    GrPathRange* createPathRange(GrPathRange::PathGenerator*, const GrStyle&);
-    GrPathRange* createGlyphs(const SkTypeface*, const SkScalerContextEffects&,
-                              const SkDescriptor*, const GrStyle&);
+    sk_sp<GrPath> createPath(const SkPath&, const GrStyle&);
+    sk_sp<GrPathRange> createPathRange(GrPathRange::PathGenerator*, const GrStyle&);
+    sk_sp<GrPathRange> createGlyphs(const SkTypeface*, const SkScalerContextEffects&,
+                                    const SkDescriptor*, const GrStyle&);
 
     /** These flags govern which scratch resources we are allowed to return */
     enum Flags {
@@ -211,7 +201,9 @@ public:
       *
       * @return GrRenderTarget object or NULL on failure.
       */
-     sk_sp<GrRenderTarget> wrapBackendTextureAsRenderTarget(const GrBackendTextureDesc& desc);
+     sk_sp<GrRenderTarget> wrapBackendTextureAsRenderTarget(const GrBackendTexture&,
+                                                            GrSurfaceOrigin origin,
+                                                            int sampleCnt);
 
     /**
      * Assigns a unique key to a resource. If the key is associated with another resource that
@@ -226,7 +218,10 @@ public:
      */
     GrGpuResource* findAndRefResourceByUniqueKey(const GrUniqueKey&);
 
-    sk_sp<GrSemaphore> SK_WARN_UNUSED_RESULT makeSemaphore();
+    sk_sp<GrSemaphore> SK_WARN_UNUSED_RESULT makeSemaphore(bool isOwned = true);
+
+    sk_sp<GrSemaphore> wrapBackendSemaphore(const GrBackendSemaphore&,
+                                            GrWrapOwnership = kBorrow_GrWrapOwnership);
 
     // Takes the GrSemaphore and sets the ownership of the semaphore to the GrGpu object used by
     // this class. This call is only used when passing a GrSemaphore from one context to another.
@@ -242,22 +237,23 @@ public:
         fGpu = nullptr;
     }
 
-    // 'Proxy' is about to be used as a texture src. This query can be used to determine if
-    // it is going to need a texture domain.
-    static bool IsFunctionallyExact(GrTextureProxy* proxy);
+    // 'proxy' is about to be used as a texture src or drawn to. This query can be used to
+    // determine if it is going to need a texture domain or a full clear.
+    static bool IsFunctionallyExact(GrSurfaceProxy* proxy);
 
     const GrCaps* caps() const { return fCaps.get(); }
 
 private:
-    GrTexture* internalCreateApproxTexture(const GrSurfaceDesc& desc, uint32_t scratchTextureFlags);
-
     GrTexture* findAndRefTextureByUniqueKey(const GrUniqueKey& key);
-    void assignUniqueKeyToTexture(const GrUniqueKey& key, GrTexture* texture) {
-        SkASSERT(key.isValid());
-        this->assignUniqueKeyToResource(key, texture);
-    }
+    void assignUniqueKeyToTexture(const GrUniqueKey& key, GrTexture* texture);
 
-    GrTexture* refScratchTexture(const GrSurfaceDesc&, uint32_t scratchTextureFlags);
+    sk_sp<GrTexture> refScratchTexture(const GrSurfaceDesc&, uint32_t scratchTextureFlags);
+
+    /*
+     * Try to find an existing scratch texture that exactly matches 'desc'. If successful
+     * update the budgeting accordingly.
+     */
+    sk_sp<GrTexture> getExactScratch(const GrSurfaceDesc&, SkBudgeted, uint32_t flags);
 
     GrResourceCache* cache() { return fCache; }
     const GrResourceCache* cache() const { return fCache; }
@@ -270,7 +266,7 @@ private:
         return !SkToBool(fCache);
     }
 
-    const GrBuffer* createInstancedIndexBuffer(const uint16_t* pattern,
+    const GrBuffer* createPatternedIndexBuffer(const uint16_t* pattern,
                                                int patternSize,
                                                int reps,
                                                int vertCount,

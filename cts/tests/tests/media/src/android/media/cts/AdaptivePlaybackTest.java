@@ -205,7 +205,7 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
     public void onlyH263SW()  { ex(H263(SW),  allTests); }
 
     public void bytebuffer() { ex(H264(SW), new EarlyEosTest().byteBuffer()); }
-    public void texture() { ex(H264(HW), new EarlyEosTest().texture()); }
+    public void onlyTexture() { ex(H264(HW), new EarlyEosTest().texture()); }
 
     /* inidividual tests */
     public void testH264_adaptiveEarlyEos()  { ex(H264(),  adaptiveEarlyEos); }

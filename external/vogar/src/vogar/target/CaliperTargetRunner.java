@@ -28,19 +28,16 @@ import vogar.monitor.TargetMonitor;
 public final class CaliperTargetRunner implements TargetRunner {
 
     private final TargetMonitor monitor;
-    private final boolean profile;
     private final Class<?> testClass;
     private final String[] args;
 
-    public CaliperTargetRunner(TargetMonitor monitor, boolean profile, Class<?> testClass,
-                               String[] args) {
+    public CaliperTargetRunner(TargetMonitor monitor, Class<?> testClass, String[] args) {
         this.monitor = monitor;
-        this.profile = profile;
         this.testClass = testClass;
         this.args = args;
     }
 
-    public boolean run(Profiler profiler) {
+    public boolean run() {
         monitor.outcomeStarted(testClass.getName());
         ImmutableList.Builder<String> builder = ImmutableList.<String>builder()
             .add(testClass.getName())
@@ -57,31 +54,16 @@ public final class CaliperTargetRunner implements TargetRunner {
             builder.add("-Cvm.args=-Xmx256M -Xms256M");
         }
 
-        if (profile) {
-            // The --dry-run option causes Caliper to run the benchmark once, rather than hundreds
-            // if not thousands of times, and to run it in the main Caliper process rather than in
-            // a separate Worker process, one for each benchmark run. That is needed when profiling
-            // as otherwise the profiler just profiles the main Caliper process rather than the
-            // benchmark.
-            builder.add("--dry-run");
-        }
         ImmutableList<String> argList = builder.build();
         String[] arguments = argList.toArray(new String[argList.size()]);
         Result result = Result.EXEC_FAILED;
         try {
-            if (profiler != null) {
-                profiler.start();
-            }
             PrintWriter stdout = new PrintWriter(System.out);
             PrintWriter stderr = new PrintWriter(System.err);
             CaliperMain.exitlessMain(arguments, stdout, stderr);
             result = Result.SUCCESS;
         } catch (Exception ex) {
             ex.printStackTrace();
-        } finally {
-            if (profiler != null) {
-                profiler.stop();
-            }
         }
         monitor.outcomeFinished(result);
         return true;

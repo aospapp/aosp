@@ -18,6 +18,15 @@ package android.net.wifi;
 
 // A callback for receiving pno scanning events.
 interface IPnoScanEvent {
+  const int PNO_SCAN_OVER_OFFLOAD_BINDER_FAILURE = 0;
+  const int PNO_SCAN_OVER_OFFLOAD_REMOTE_FAILURE = 1;
+
   oneway void OnPnoNetworkFound();
   oneway void OnPnoScanFailed();
+  // Callback notifying the framework that PNO scan is started over Offload HAL
+  // interface, this is meant for metrics collection only
+  oneway void OnPnoScanOverOffloadStarted();
+  // Callback notifying the framework that a PNO scan running over Offload HAL
+  // has failed, this is meant for metrics collection only
+  oneway void OnPnoScanOverOffloadFailed(int reason);
 }

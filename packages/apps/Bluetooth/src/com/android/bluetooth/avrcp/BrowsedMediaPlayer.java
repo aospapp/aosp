@@ -53,6 +53,7 @@ class BrowsedMediaPlayer {
 
     /*  package and service name of target Media Player which is set for browsing */
     private String mPackageName;
+    private String mConnectingPackageName;
     private String mClassName;
     private Context mContext;
     private AvrcpMediaRspInterface mMediaInterface;
@@ -83,20 +84,34 @@ class BrowsedMediaPlayer {
     private List<MediaBrowser.MediaItem> mFolderItems = null;
 
     /* Connection state callback handler */
-    private MediaBrowser.ConnectionCallback browseMediaConnectionCallback =
-            new MediaBrowser.ConnectionCallback() {
+    class MediaConnectionCallback extends MediaBrowser.ConnectionCallback {
+        private String mCallbackPackageName;
+        private MediaBrowser mBrowser;
+
+        public MediaConnectionCallback(String packageName) {
+            this.mCallbackPackageName = packageName;
+        }
+
+        public void setBrowser(MediaBrowser b) {
+            mBrowser = b;
+        }
 
         @Override
         public void onConnected() {
             mConnState = CONNECTED;
             if (DEBUG) Log.d(TAG, "mediaBrowser CONNECTED to " + mPackageName);
             /* perform init tasks and set player as browsed player on successful connection */
-            onBrowseConnect();
+            onBrowseConnect(mCallbackPackageName, mBrowser);
+
+            // Remove what could be a circular dependency causing GC to never happen on this object
+            mBrowser = null;
         }
 
         @Override
         public void onConnectionFailed() {
             mConnState = DISCONNECTED;
+            // Remove what could be a circular dependency causing GC to never happen on this object
+            mBrowser = null;
             Log.e(TAG, "mediaBrowser Connection failed with " + mPackageName
                     + ", Sending fail response!");
             mMediaInterface.setBrowsedPlayerRsp(mBDAddr, AvrcpConstants.RSP_INTERNAL_ERR,
@@ -105,10 +120,11 @@ class BrowsedMediaPlayer {
 
         @Override
         public void onConnectionSuspended() {
+            mBrowser = null;
             mConnState = SUSPENDED;
             Log.e(TAG, "mediaBrowser SUSPENDED connection with " + mPackageName);
         }
-    };
+    }
 
     /* Subscription callback handler. Subscribe to a folder to get its contents */
     private MediaBrowser.SubscriptionCallback folderItemsCb =
@@ -251,26 +267,44 @@ class BrowsedMediaPlayer {
     }
 
     /* initialize mediacontroller in order to communicate with media player. */
-    private void onBrowseConnect() {
-        boolean isError = false;
+    private void onBrowseConnect(String connectedPackage, MediaBrowser browser) {
+        if (!connectedPackage.equals(mConnectingPackageName)) {
+            Log.w(TAG, "onBrowseConnect: recieved callback for package we aren't connecting to "
+                            + connectedPackage);
+            return;
+        }
+        mConnectingPackageName = null;
+
+        if (browser == null) {
+            Log.e(TAG, "onBrowseConnect: received a null browser for " + connectedPackage);
+            mMediaInterface.setBrowsedPlayerRsp(
+                    mBDAddr, AvrcpConstants.RSP_INTERNAL_ERR, (byte) 0x00, 0, null);
+            return;
+        }
+
         MediaSession.Token token = null;
         try {
-            /* get rootfolder uid from media player */
-            if (mMediaId == null) {
-                mMediaId = mMediaBrowser.getRoot();
-                /*
-                 * assuming that root folder uid will not change on uids changed
-                 */
-                mRootFolderUid = mMediaId;
-                /* store root folder uid to stack */
-                mPathStack.push(mMediaId);
-            }
-
-            if (!mMediaBrowser.isConnected()) {
+            if (!browser.isConnected()) {
                 Log.e(TAG, "setBrowsedPlayer: " + mPackageName + "not connected");
-            } else if ((token = mMediaBrowser.getSessionToken()) == null) {
+            } else if ((token = browser.getSessionToken()) == null) {
                 Log.e(TAG, "setBrowsedPlayer: " + mPackageName + "no Session token");
             } else {
+                /* update to the new MediaBrowser */
+                if (mMediaBrowser != null) mMediaBrowser.disconnect();
+                mMediaBrowser = browser;
+                mPackageName = connectedPackage;
+
+                /* get rootfolder uid from media player */
+                if (mMediaId == null) {
+                    mMediaId = mMediaBrowser.getRoot();
+                    /*
+                     * assuming that root folder uid will not change on uids changed
+                     */
+                    mRootFolderUid = mMediaId;
+                    /* store root folder uid to stack */
+                    mPathStack.push(mMediaId);
+                }
+
                 mMediaController = MediaController.wrap(
                     new android.media.session.MediaController(mContext, token));
                 /* get root folder items */
@@ -287,7 +321,7 @@ class BrowsedMediaPlayer {
     }
 
     public void setBrowsed(String packageName, String cls) {
-        mPackageName = packageName;
+        mConnectingPackageName = packageName;
         mClassName = cls;
         /* cleanup variables from previous browsed calls */
         mFolderItems = null;
@@ -298,10 +332,14 @@ class BrowsedMediaPlayer {
          * will be required while navigating up the folder
          */
         mPathStack = new Stack<String>();
+
         /* Bind to MediaBrowseService of MediaPlayer */
-        mMediaBrowser = new MediaBrowser(mContext, new ComponentName(mPackageName, mClassName),
-                browseMediaConnectionCallback, null);
-        mMediaBrowser.connect();
+        MediaConnectionCallback callback = new MediaConnectionCallback(packageName);
+        MediaBrowser tempBrowser = new MediaBrowser(
+                mContext, new ComponentName(packageName, mClassName), callback, null);
+        callback.setBrowser(tempBrowser);
+
+        tempBrowser.connect();
     }
 
     /* called when connection to media player is closed */
@@ -494,7 +532,7 @@ class BrowsedMediaPlayer {
      */
     private List<MediaBrowser.MediaItem> checkIndexOutofBounds(
             byte[] bdaddr, List<MediaBrowser.MediaItem> children, long startItem, long endItem) {
-        if (endItem > children.size()) endItem = children.size() - 1;
+        if (endItem >= children.size()) endItem = children.size() - 1;
         if (startItem >= Integer.MAX_VALUE) startItem = Integer.MAX_VALUE;
         try {
             List<MediaBrowser.MediaItem> childrenSubList =
@@ -651,9 +689,11 @@ class BrowsedMediaPlayer {
 
                 case AvrcpConstants.ATTRID_GENRE:
                     attrValue = extras.getString(MediaMetadata.METADATA_KEY_GENRE);
+                    break;
 
                 case AvrcpConstants.ATTRID_PLAY_TIME:
                     attrValue = extras.getString(MediaMetadata.METADATA_KEY_DURATION);
+                    break;
 
                 case AvrcpConstants.ATTRID_COVER_ART:
                     Log.e(TAG, "getAttrValue: Cover art attribute not supported");

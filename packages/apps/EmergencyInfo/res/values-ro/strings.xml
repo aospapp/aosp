@@ -17,6 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Informații în caz de urgență"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"Informații medicale"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"Editați informațiile"</string>
     <string name="edit_info" msgid="5973929805855224805">"Editați informațiile afișate în caz de urgență"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Informații"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Persoane"</string>
@@ -96,12 +98,12 @@
     <string name="cancel" msgid="7401575239009060939">"Anulați"</string>
     <string name="ok" msgid="163967937451981024">"OK"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"Informații în caz de urgență"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"Informațiile introduse aici pot fi utile celor care acordă primul ajutor într-o situație de urgență. Sunt stocate doar pe dispozitiv și oricine le poate citi din tastatura numerică de urgență, fără să deblocheze telefonul."</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"Continuați"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Nu există informații despre proprietarul telefonului"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"Dacă acesta este telefonul dvs., atingeți pictograma creion pentru a adăuga informații care vor fi afișate aici în caz de urgență"</string>
     <string name="clear_all" msgid="8899013032870561633">"Ștergeți tot"</string>
     <string name="clear" msgid="3648880442502887163">"Ștergeți"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Ștergeți toate informațiile și persoanele de contact?"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"Adăugând informații medicale și persoane de contact pentru urgențe, îi puteți ajuta pe cei care acordă primul ajutor în caz de urgență.\n\nOricine poate să citească aceste informații de pe ecranul de blocare și să apeleze persoanele de contact atingându-le numele, fără să deblocheze telefonul."</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"Adăugați informații în caz de urgență"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"Ajutați-i pe cei care acordă primul ajutor să găsească informații importante"</string>
 </resources>

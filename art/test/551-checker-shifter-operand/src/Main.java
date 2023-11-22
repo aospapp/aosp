@@ -234,8 +234,8 @@ public class Main {
   /// CHECK-START-ARM: void Main.$opt$noinline$testAnd(long, long) disassembly (after)
   /// CHECK:                            and lsl
   /// CHECK:                            sbfx
-  /// CHECK:                            asr
-  /// CHECK:                            and
+  /// CHECK:                            asr{{s?}}
+  /// CHECK:                            and{{s?}}
 
   /// CHECK-START-ARM64: void Main.$opt$noinline$testAnd(long, long) instruction_simplifier_arm64 (after)
   /// CHECK:                            DataProcWithShifterOp
@@ -259,7 +259,7 @@ public class Main {
   /// CHECK-START-ARM: void Main.$opt$noinline$testOr(int, int) disassembly (after)
   /// CHECK:                            orr asr
   /// CHECK:                            ubfx
-  /// CHECK:                            orr
+  /// CHECK:                            orr{{s?}}
 
   /// CHECK-START-ARM64: void Main.$opt$noinline$testOr(int, int) instruction_simplifier_arm64 (after)
   /// CHECK:                            DataProcWithShifterOp
@@ -282,9 +282,8 @@ public class Main {
 
   /// CHECK-START-ARM: void Main.$opt$noinline$testXor(long, long) disassembly (after)
   /// CHECK:                            eor lsr
-  /// CHECK:                            mov
-  /// CHECK:                            asr
-  /// CHECK:                            eor
+  /// CHECK:                            asr{{s?}}
+  /// CHECK:                            eor{{s?}}
 
   /// CHECK-START-ARM64: void Main.$opt$noinline$testXor(long, long) instruction_simplifier_arm64 (after)
   /// CHECK:                            DataProcWithShifterOp
@@ -642,6 +641,123 @@ public class Main {
 
 
   // Each test line below should see one merge.
+  //
+  /// CHECK-START: void Main.$opt$validateShiftInt(int, int) instruction_simplifier$after_inlining (before)
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK-NOT:                        Shl
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK-NOT:                        Shl
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK-NOT:                        UShr
+  //
+  // Note: simplification after inlining removes `b << 32`, `b >> 32` and `b >>> 32`.
+  //
+  /// CHECK-START: void Main.$opt$validateShiftInt(int, int) instruction_simplifier$after_inlining (after)
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK-NOT:                        Shl
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK-NOT:                        Shl
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK-NOT:                        UShr
+  //
+  // Note: simplification followed by GVN exposes the common subexpressions between shifts with larger distance
+  //       `b << 62`, `b << 63` etc. and the equivalent smaller distances.
+  //
+  /// CHECK-START: void Main.$opt$validateShiftInt(int, int) GVN (after)
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK:                            Shl
+  /// CHECK-NOT:                        Shl
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK:                            Shr
+  /// CHECK-NOT:                        Shl
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK:                            UShr
+  /// CHECK-NOT:                        UShr
+  //
   /// CHECK-START-ARM: void Main.$opt$validateShiftInt(int, int) instruction_simplifier_arm (after)
   /// CHECK:                            DataProcWithShifterOp
   /// CHECK:                            DataProcWithShifterOp
@@ -670,14 +786,7 @@ public class Main {
   /// CHECK:                            DataProcWithShifterOp
   /// CHECK:                            DataProcWithShifterOp
   /// CHECK:                            DataProcWithShifterOp
-  /// CHECK:                            DataProcWithShifterOp
-  /// CHECK:                            DataProcWithShifterOp
-  /// CHECK:                            DataProcWithShifterOp
-  /// CHECK:                            DataProcWithShifterOp
-  /// CHECK:                            DataProcWithShifterOp
-  /// CHECK:                            DataProcWithShifterOp
   /// CHECK-NOT:                        DataProcWithShifterOp
-  // Note: `b << 32`, `b >> 32` and `b >>> 32` are optimized away by generic simplifier.
 
   /// CHECK-START-ARM: void Main.$opt$validateShiftInt(int, int) instruction_simplifier_arm (after)
   /// CHECK-NOT:                        Shl
@@ -712,14 +821,7 @@ public class Main {
   /// CHECK:                            DataProcWithShifterOp
   /// CHECK:                            DataProcWithShifterOp
   /// CHECK:                            DataProcWithShifterOp
-  /// CHECK:                            DataProcWithShifterOp
-  /// CHECK:                            DataProcWithShifterOp
-  /// CHECK:                            DataProcWithShifterOp
-  /// CHECK:                            DataProcWithShifterOp
-  /// CHECK:                            DataProcWithShifterOp
-  /// CHECK:                            DataProcWithShifterOp
   /// CHECK-NOT:                        DataProcWithShifterOp
-  // Note: `b << 32`, `b >> 32` and `b >>> 32` are optimized away by generic simplifier.
 
   /// CHECK-START-ARM64: void Main.$opt$validateShiftInt(int, int) instruction_simplifier_arm64 (after)
   /// CHECK-NOT:                        Shl

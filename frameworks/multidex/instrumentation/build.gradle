@@ -17,7 +17,7 @@
 apply plugin: 'com.android.library'
 
 dependencies {
-    compile project(':support-multidex')
+    compile project(':multidex')
 }
 
 android {

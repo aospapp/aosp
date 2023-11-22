@@ -35,8 +35,12 @@ interface IWifiScannerImpl {
   // Returrns null on failure.
   @nullable int[] getAvailableDFSChannels();
 
-  // Get the latest scan results from kernel.
+  // Get the latest single scan results from kernel.
   NativeScanResult[] getScanResults();
+
+  // Get the latest pno scan results from the interface which has most recently
+  // completed disconnected mode PNO scans
+  NativeScanResult[] getPnoScanResults();
 
   // Request a single scan using a SingleScanSettings parcelable object.
   boolean scan(in SingleScanSettings scanSettings);

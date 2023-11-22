@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+ifneq ($(TARGET_BUILD_PDK), true)
+
 LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
@@ -32,6 +34,8 @@ LOCAL_PROGUARD_ENABLED := disabled
 
 LOCAL_DEX_PREOPT := false
 
-include packages/services/Car/car-support-lib/car-support.mk
+include packages/apps/Car/libs/car-stream-ui-lib/car-stream-ui-lib.mk
 
 include $(BUILD_PACKAGE)
+
+endif

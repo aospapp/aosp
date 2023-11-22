@@ -74,6 +74,13 @@
             </intent-filter>
         </receiver>
 
+        <receiver android:name="android.telecom.cts.MockPhoneAccountChangedReceiver">
+            <intent-filter>
+                <action android:name="android.telecom.action.PHONE_ACCOUNT_REGISTERED"/>
+                <action android:name="android.telecom.action.PHONE_ACCOUNT_UNREGISTERED"/>
+            </intent-filter>
+        </receiver>
+
         <activity android:name="android.telecom.cts.MockDialerActivity">
             <intent-filter>
                 <action android:name="android.intent.action.DIAL" />

@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!--
+<?xml version="1.0" encoding="UTF-8"?><!--
  Copyright 2017 The Android Open Source Project
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,11 +13,12 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 -->
-
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.android.autofillframework"
     android:versionCode="1"
     android:versionName="1.0">
+
+    <uses-permission android:name="android.permission.INTERNET"/>
 
     <application
         android:allowBackup="true"
@@ -28,34 +28,48 @@
         android:theme="@style/Theme.AppCompat.Light">
         <activity
             android:name=".app.MainActivity"
-            android:label="AF Main"
             android:taskAffinity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
         <activity
             android:name=".app.StandardSignInActivity"
-            android:label="AF StandardLogin"
-            android:taskAffinity=".StandardSignInActivity">
-        </activity>
+            android:taskAffinity=".StandardSignInActivity" />
         <activity
             android:name=".app.StandardAutoCompleteSignInActivity"
-            android:label="AF StandardLogin"
             android:taskAffinity=".StandardAutoCompleteSignInActivity" />
         <activity
             android:name=".app.VirtualSignInActivity"
-            android:label="AF VirtualLogin"
-            android:taskAffinity=".VirtualSignInActivity">
-
-        </activity>
+            android:taskAffinity=".VirtualSignInActivity" />
         <activity android:name=".app.WelcomeActivity" />
         <activity
             android:name=".app.CreditCardActivity"
-            android:label="AF CreditCard"
-            android:taskAffinity=".CreditCardActivity">
-        </activity>
+            android:taskAffinity=".CreditCardActivity" />
+        <activity
+            android:name=".app.CreditCardSpinnersActivity"
+            android:taskAffinity=".CreditCardSpinnersActivity" />
+        <activity
+            android:name=".app.EmailComposeActivity"
+            android:taskAffinity=".EmailComposeActivity" />
+        <activity
+            android:name=".app.CreditCardCompoundViewActivity"
+            android:taskAffinity=".CreditCardCompoundViewActivity" />
+        <activity
+            android:name=".app.CreditCardDatePickerActivity"
+            android:taskAffinity=".CreditCardDatePickerActivity" />
+        <activity
+            android:name=".app.CreditCardAntiPatternActivity"
+            android:taskAffinity=".CreditCardAntiPatternActivity" />
+        <activity
+            android:name=".app.MultiplePartitionsActivity"
+            android:taskAffinity=".MultiplePartitionsActivity"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
+        <activity
+            android:name=".app.WebViewSignInActivity"
+            android:taskAffinity=".WebViewSignInActivity" />
         <!--
         Including launcher icon for Autofill Settings to convenience.
         Not necessary for a real service.
@@ -67,6 +81,7 @@
             android:taskAffinity=".SettingsActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
@@ -78,8 +93,8 @@
         -->
         <service
             android:name=".multidatasetservice.MyAutofillService"
-            android:permission="android.permission.BIND_AUTOFILL"
-            android:label="Multi-Dataset Autofill Service">
+            android:label="Multi-Dataset Autofill Service"
+            android:permission="android.permission.BIND_AUTOFILL_SERVICE">
             <meta-data
                 android:name="android.autofill"
                 android:resource="@xml/multidataset_service" />

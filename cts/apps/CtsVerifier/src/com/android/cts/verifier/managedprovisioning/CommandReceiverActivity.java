@@ -18,6 +18,7 @@ package com.android.cts.verifier.managedprovisioning;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.KeyguardManager;
 import android.app.PendingIntent;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
@@ -35,6 +36,7 @@ import android.provider.ContactsContract;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.android.cts.verifier.R;
 import com.android.cts.verifier.managedprovisioning.Utils;
@@ -206,10 +208,13 @@ public class CommandReceiverActivity extends Activity {
                 } break;
                 case COMMAND_SET_KEYGUARD_DISABLED: {
                     boolean enforced = intent.getBooleanExtra(EXTRA_ENFORCED, false);
-                    if (enforced) {
-                        mDpm.resetPassword(null, 0);
+                    KeyguardManager km = this.getSystemService(KeyguardManager.class);
+                    if (km.isKeyguardSecure()) {
+                        Toast.makeText(this, getString(R.string.device_owner_lockscreen_secure),
+                                Toast.LENGTH_SHORT).show();
+                    } else {
+                        mDpm.setKeyguardDisabled(mAdmin, enforced);
                     }
-                    mDpm.setKeyguardDisabled(mAdmin, enforced);
                 } break;
                 case COMMAND_SET_STATUSBAR_DISABLED: {
                     boolean enforced = intent.getBooleanExtra(EXTRA_ENFORCED, false);

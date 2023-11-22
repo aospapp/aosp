@@ -31,7 +31,6 @@
 #include "bta_api.h"
 #include "bta_hh_api.h"
 #include "bta_hh_co.h"
-#include "btcore/include/bdaddr.h"
 #include "btif_hh.h"
 #include "btif_util.h"
 #include "osi/include/osi.h"
@@ -403,7 +402,7 @@ void bta_hh_co_close(uint8_t dev_handle, uint8_t app_id) {
  ******************************************************************************/
 void bta_hh_co_data(uint8_t dev_handle, uint8_t* p_rpt, uint16_t len,
                     tBTA_HH_PROTO_MODE mode, uint8_t sub_class,
-                    uint8_t ctry_code, UNUSED_ATTR BD_ADDR peer_addr,
+                    uint8_t ctry_code, UNUSED_ATTR const RawAddress& peer_addr,
                     uint8_t app_id) {
   btif_hh_device_t* p_dev;
 
@@ -520,14 +519,13 @@ void bta_hh_co_send_hid_info(btif_hh_device_t* p_dev, const char* dev_name,
  * Returns          void.
  *
  ******************************************************************************/
-void bta_hh_le_co_rpt_info(BD_ADDR remote_bda, tBTA_HH_RPT_CACHE_ENTRY* p_entry,
+void bta_hh_le_co_rpt_info(const RawAddress& remote_bda,
+                           tBTA_HH_RPT_CACHE_ENTRY* p_entry,
                            UNUSED_ATTR uint8_t app_id) {
   unsigned idx = 0;
 
-  bdstr_t bdstr;
-  snprintf(bdstr, sizeof(bdstr), "%02x:%02x:%02x:%02x:%02x:%02x", remote_bda[0],
-           remote_bda[1], remote_bda[2], remote_bda[3], remote_bda[4],
-           remote_bda[5]);
+  std::string addrstr = remote_bda.ToString();
+  const char* bdstr = addrstr.c_str();
 
   size_t len = btif_config_get_bin_length(bdstr, "HidReport");
   if (len >= sizeof(tBTA_HH_RPT_CACHE_ENTRY) && len <= sizeof(sReportCache)) {
@@ -560,13 +558,11 @@ void bta_hh_le_co_rpt_info(BD_ADDR remote_bda, tBTA_HH_RPT_CACHE_ENTRY* p_entry,
  * Returns          the acched report array
  *
  ******************************************************************************/
-tBTA_HH_RPT_CACHE_ENTRY* bta_hh_le_co_cache_load(BD_ADDR remote_bda,
+tBTA_HH_RPT_CACHE_ENTRY* bta_hh_le_co_cache_load(const RawAddress& remote_bda,
                                                  uint8_t* p_num_rpt,
                                                  UNUSED_ATTR uint8_t app_id) {
-  bdstr_t bdstr;
-  snprintf(bdstr, sizeof(bdstr), "%02x:%02x:%02x:%02x:%02x:%02x", remote_bda[0],
-           remote_bda[1], remote_bda[2], remote_bda[3], remote_bda[4],
-           remote_bda[5]);
+  std::string addrstr = remote_bda.ToString();
+  const char* bdstr = addrstr.c_str();
 
   size_t len = btif_config_get_bin_length(bdstr, "HidReport");
   if (!p_num_rpt && len < sizeof(tBTA_HH_RPT_CACHE_ENTRY)) return NULL;
@@ -592,12 +588,11 @@ tBTA_HH_RPT_CACHE_ENTRY* bta_hh_le_co_cache_load(BD_ADDR remote_bda,
  * Returns          none
  *
  ******************************************************************************/
-void bta_hh_le_co_reset_rpt_cache(BD_ADDR remote_bda,
+void bta_hh_le_co_reset_rpt_cache(const RawAddress& remote_bda,
                                   UNUSED_ATTR uint8_t app_id) {
-  bdstr_t bdstr;
-  snprintf(bdstr, sizeof(bdstr), "%02x:%02x:%02x:%02x:%02x:%02x", remote_bda[0],
-           remote_bda[1], remote_bda[2], remote_bda[3], remote_bda[4],
-           remote_bda[5]);
+  std::string addrstr = remote_bda.ToString();
+  const char* bdstr = addrstr.c_str();
+
   btif_config_remove(bdstr, "HidReport");
 
   BTIF_TRACE_DEBUG("%s() - Reset cache for bda %s", __func__, bdstr);

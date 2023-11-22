@@ -28,6 +28,7 @@ import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.util.QuotationAwareTokenizer;
+import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.util.StreamUtil;
 import com.android.tradefed.util.keystore.StubKeyStoreClient;
 
@@ -41,8 +42,15 @@ import java.util.List;
  */
 public class NoisyDryRunTest implements IRemoteTest {
 
+    private static final long SLEEP_INTERVAL_MILLI_SEC = 5 * 1000;
+
     @Option(name = "cmdfile", description = "The cmdfile to run noisy dry run on.")
     private String mCmdfile = null;
+
+    @Option(name = "timeout",
+            description = "The timeout to wait cmd file be ready.",
+            isTimeVal = true)
+    private long mTimeoutMilliSec = 0;
 
     @Override
     public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
@@ -59,7 +67,9 @@ public class NoisyDryRunTest implements IRemoteTest {
         listener.testStarted(parseFileTest);
         CommandFileParser parser = new CommandFileParser();
         try {
-            return parser.parseFile(new File(filename));
+            File file = new File(filename);
+            checkFileWithTimeout(file);
+            return parser.parseFile(file);
         } catch (IOException | ConfigurationException e) {
             listener.testFailed(parseFileTest, StreamUtil.getStackTrace(e));
             return null;
@@ -67,6 +77,35 @@ public class NoisyDryRunTest implements IRemoteTest {
             listener.testEnded(parseFileTest, new HashMap<String, String>());
             listener.testRunEnded(0, new HashMap<String, String>());
         }
+    }
+
+    /**
+     * If the file doesn't exist, we want to wait a while and check.
+     *
+     * @param file
+     * @throws IOException
+     */
+    @VisibleForTesting
+    void checkFileWithTimeout(File file) throws IOException {
+        long timeout = currentTimeMillis() + mTimeoutMilliSec;
+        while (!file.exists() && currentTimeMillis() < timeout) {
+            CLog.w("%s doesn't exist, wait and recheck.", file.getAbsoluteFile());
+            sleep();
+        }
+        if (!file.exists()) {
+            throw new IOException(
+                    String.format("%s doesn't exist.", file.getAbsoluteFile()));
+        }
+    }
+
+    @VisibleForTesting
+    long currentTimeMillis() {
+        return System.currentTimeMillis();
+    }
+
+    @VisibleForTesting
+    void sleep() {
+        RunUtil.getDefault().sleep(SLEEP_INTERVAL_MILLI_SEC);
     }
 
     private void testCommandLines(ITestInvocationListener listener, List<CommandLine> commands) {
@@ -92,10 +131,5 @@ public class NoisyDryRunTest implements IRemoteTest {
             }
         }
         listener.testRunEnded(0, new HashMap<String, String>());
-    }
-
-    @VisibleForTesting
-    void setCmdFile(String cmdfile) {
-        mCmdfile = cmdfile;
     }
 }

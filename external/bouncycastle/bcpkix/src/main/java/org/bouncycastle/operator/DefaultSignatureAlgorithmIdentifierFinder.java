@@ -14,6 +14,7 @@ import org.bouncycastle.asn1.DERNull;
 // import org.bouncycastle.asn1.bsi.BSIObjectIdentifiers;
 // import org.bouncycastle.asn1.cryptopro.CryptoProObjectIdentifiers;
 // import org.bouncycastle.asn1.eac.EACObjectIdentifiers;
+// import org.bouncycastle.asn1.gm.GMObjectIdentifiers;
 // END android-removed
 import org.bouncycastle.asn1.nist.NISTObjectIdentifiers;
 import org.bouncycastle.asn1.oiw.OIWObjectIdentifiers;
@@ -105,6 +106,7 @@ public class DefaultSignatureAlgorithmIdentifierFinder
         // algorithms.put("SHA512WITHCVC-ECDSA", EACObjectIdentifiers.id_TA_ECDSA_SHA_512);
         // algorithms.put("SHA3-512WITHSPHINCS256", BCObjectIdentifiers.sphincs256_with_SHA3_512);
         // algorithms.put("SHA512WITHSPHINCS256", BCObjectIdentifiers.sphincs256_with_SHA512);
+        // algorithms.put("SM3WITHSM2", GMObjectIdentifiers.sm2sign_with_sm3);
         // END android-removed
 
         //
@@ -122,20 +124,22 @@ public class DefaultSignatureAlgorithmIdentifierFinder
         noParams.add(NISTObjectIdentifiers.dsa_with_sha384);
         noParams.add(NISTObjectIdentifiers.dsa_with_sha512);
 
+        // BEGIN Android-removed
         //
         // RFC 4491
         //
-        // BEGIN android-removed
         // noParams.add(CryptoProObjectIdentifiers.gostR3411_94_with_gostR3410_94);
         // noParams.add(CryptoProObjectIdentifiers.gostR3411_94_with_gostR3410_2001);
-        // END android-removed
-
-        // BEGIN android-removed
         //
         // SPHINCS-256
         //
         // noParams.add(BCObjectIdentifiers.sphincs256_with_SHA512);
         // noParams.add(BCObjectIdentifiers.sphincs256_with_SHA3_512);
+
+        //
+        // SM2
+        //
+        // noParams.add(GMObjectIdentifiers.sm2sign_with_sm3);
         // END android-removed
 
         //

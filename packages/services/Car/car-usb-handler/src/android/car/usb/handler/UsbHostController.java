@@ -68,19 +68,16 @@ public final class UsbHostController
         public void onReceive(Context context, Intent intent) {
             if (UsbManager.ACTION_USB_DEVICE_DETACHED.equals(intent.getAction())) {
                 UsbDevice device = intent.<UsbDevice>getParcelableExtra(UsbManager.EXTRA_DEVICE);
-                unsetActiveDeviceIfSerialMatch(device);
+                unsetActiveDeviceIfMatch(device);
             } else if (UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(intent.getAction())) {
                 UsbDevice device = intent.<UsbDevice>getParcelableExtra(UsbManager.EXTRA_DEVICE);
-                setActiveDeviceIfSerialMatch(device);
+                setActiveDeviceIfMatch(device);
             }
         }
     };
 
     @GuardedBy("this")
     private UsbDevice mActiveDevice;
-
-    @GuardedBy("this")
-    private String mProcessingDeviceSerial;
 
     public UsbHostController(Context context, UsbHostControllerCallbacks callbacks) {
         mContext = context;
@@ -96,17 +93,17 @@ public final class UsbHostController
 
     }
 
-    private synchronized void setActiveDeviceIfSerialMatch(UsbDevice device) {
-        if (device != null && device.getSerialNumber() != null
-                && device.getSerialNumber().equals(mProcessingDeviceSerial)) {
+    private synchronized void setActiveDeviceIfMatch(UsbDevice device) {
+        if (mActiveDevice != null && device != null
+                && UsbUtil.isDevicesMatching(device, mActiveDevice)) {
             mActiveDevice = device;
         }
     }
 
-    private synchronized void unsetActiveDeviceIfSerialMatch(UsbDevice device) {
+    private synchronized void unsetActiveDeviceIfMatch(UsbDevice device) {
         mHandler.requestDeviceRemoved();
-        if (mActiveDevice != null && mActiveDevice.getSerialNumber() != null
-                && mActiveDevice.getSerialNumber().equals(device.getSerialNumber())) {
+        if (mActiveDevice != null && device != null
+                && UsbUtil.isDevicesMatching(device, mActiveDevice)) {
             mActiveDevice = null;
         }
     }
@@ -114,7 +111,6 @@ public final class UsbHostController
     private synchronized boolean startDeviceProcessingIfNull(UsbDevice device) {
         if (mActiveDevice == null) {
             mActiveDevice = device;
-            mProcessingDeviceSerial = device.getSerialNumber();
             return true;
         }
         return false;
@@ -122,7 +118,6 @@ public final class UsbHostController
 
     private synchronized void stopDeviceProcessing() {
         mActiveDevice = null;
-        mProcessingDeviceSerial = null;
     }
 
     private synchronized UsbDevice getActiveDevice() {
@@ -131,8 +126,22 @@ public final class UsbHostController
 
     private boolean deviceMatchedActiveDevice(UsbDevice device) {
         UsbDevice activeDevice = getActiveDevice();
-        return activeDevice != null && activeDevice.getSerialNumber() != null
-                && activeDevice.getSerialNumber().equals(device.getSerialNumber());
+        return activeDevice != null && UsbUtil.isDevicesMatching(activeDevice, device);
+    }
+
+    private String generateTitle() {
+        String manufacturer = mActiveDevice.getManufacturerName();
+        String product = mActiveDevice.getProductName();
+        if (manufacturer == null && product == null) {
+            return mContext.getString(R.string.usb_unknown_device);
+        }
+        if (manufacturer != null && product != null) {
+            return manufacturer + " " + product;
+        }
+        if (manufacturer != null) {
+            return manufacturer;
+        }
+        return product;
     }
 
     /**
@@ -147,7 +156,7 @@ public final class UsbHostController
         mCallback.optionsUpdated(mEmptyList);
         mCallback.processingStateChanged(true);
 
-        UsbDeviceSettings settings = mUsbSettingsStorage.getSettings(device.getSerialNumber());
+        UsbDeviceSettings settings = mUsbSettingsStorage.getSettings(device);
         if (settings != null && mUsbResolver.dispatch(
                     mActiveDevice, settings.getHandler(), settings.getAoap())) {
             if (LOCAL_LOGV) {
@@ -156,7 +165,7 @@ public final class UsbHostController
             }
             return;
         }
-        mCallback.titleChanged(device.getManufacturerName() + " " + device.getProductName());
+        mCallback.titleChanged(generateTitle());
         mUsbResolver.resolve(device);
     }
 

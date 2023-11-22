@@ -30,16 +30,22 @@
         android:id="@+id/view_switcher"
         android:layout_width="match_parent"
         android:layout_height="match_parent">
-        <android.support.car.ui.PagedListView
-            android:id="@+id/list"
+        <android.support.v4.widget.SwipeRefreshLayout
+            android:id="@+id/swiperefresh"
             android:layout_width="match_parent"
-            android:layout_height="match_parent" />
+            android:layout_height="match_parent">
+            <com.android.car.view.PagedListView
+                android:id="@+id/list"
+                style="@style/SettingPagedList"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+        </android.support.v4.widget.SwipeRefreshLayout>
         <TextView
             android:id="@+id/bt_message"
             android:layout_gravity="center"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/bluetooth_disabled"
-            android:textSize="@dimen/medium_text_size"/>
+            style="@style/CarBody1" />
     </ViewSwitcher>
 </LinearLayout>

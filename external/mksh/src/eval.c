@@ -2,7 +2,7 @@
 
 /*-
  * Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
- *		 2011, 2012, 2013, 2014, 2015, 2016
+ *		 2011, 2012, 2013, 2014, 2015, 2016, 2017
  *	mirabilos <m@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
@@ -23,7 +23,7 @@
 
 #include "sh.h"
 
-__RCSID("$MirOS: src/bin/mksh/eval.c,v 1.194 2016/11/11 23:31:34 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/eval.c,v 1.201 2017/04/06 01:59:54 tg Exp $");
 
 /*
  * string expansion
@@ -301,25 +301,36 @@ expand(
 					word = IFS_WORD;
 				quote = st->quotew;
 				continue;
+			case COMASUB:
 			case COMSUB:
+			case FUNASUB:
 			case FUNSUB:
 			case VALSUB:
 				tilde_ok = 0;
 				if (f & DONTRUNCOMMAND) {
 					word = IFS_WORD;
 					*dp++ = '$';
-					*dp++ = c == COMSUB ? '(' : '{';
-					if (c != COMSUB)
-						*dp++ = c == FUNSUB ? ' ' : '|';
+					switch (c) {
+					case COMASUB:
+					case COMSUB:
+						*dp++ = '(';
+						c = ')';
+						break;
+					case FUNASUB:
+					case FUNSUB:
+					case VALSUB:
+						*dp++ = '{';
+						*dp++ = c == VALSUB ? '|' : ' ';
+						c = '}';
+						break;
+					}
 					while (*sp != '\0') {
 						Xcheck(ds, dp);
 						*dp++ = *sp++;
 					}
-					if (c != COMSUB) {
+					if (c == '}')
 						*dp++ = ';';
-						*dp++ = '}';
-					} else
-						*dp++ = ')';
+					*dp++ = c;
 				} else {
 					type = comsub(&x, sp, c);
 					if (type != XBASE && (f & DOBLANK))
@@ -625,13 +636,12 @@ expand(
 						break;
 					case '=':
 						/*
-						 * Enabling tilde expansion
-						 * after :s here is
-						 * non-standard ksh, but is
-						 * consistent with rules for
-						 * other assignments. Not
-						 * sure what POSIX thinks of
-						 * this.
+						 * Tilde expansion for string
+						 * variables in POSIX mode is
+						 * governed by Austinbug 351.
+						 * In non-POSIX mode historic
+						 * ksh behaviour (enable it!)
+						 * us followed.
 						 * Not doing tilde expansion
 						 * for integer variables is a
 						 * non-POSIX thing - makes
@@ -640,7 +650,7 @@ expand(
 						 */
 						if (!(x.var->flag & INTEGER))
 							f |= DOASNTILDE | DOTILDE;
-						f |= DOTEMP;
+						f |= DOTEMP | DOSCALAR;
 						/*
 						 * These will be done after the
 						 * value has been assigned.
@@ -880,10 +890,30 @@ expand(
 				c = '\n';
 				--newlines;
 			} else {
-				while ((c = shf_getc(x.u.shf)) == 0 || c == '\n')
+				while ((c = shf_getc(x.u.shf)) == 0 ||
+#ifdef MKSH_WITH_TEXTMODE
+				       c == '\r' ||
+#endif
+				       c == '\n') {
+#ifdef MKSH_WITH_TEXTMODE
+					if (c == '\r') {
+						c = shf_getc(x.u.shf);
+						switch (c) {
+						case '\n':
+							break;
+						default:
+							shf_ungetc(c, x.u.shf);
+							/* FALLTHROUGH */
+						case -1:
+							c = '\r';
+							break;
+						}
+					}
+#endif
 					if (c == '\n')
 						/* save newlines */
 						newlines++;
+				}
 				if (newlines && c != -1) {
 					shf_ungetc(c, x.u.shf);
 					c = '\n';
@@ -1197,7 +1227,7 @@ varsub(Expand *xp, const char *sp, const char *word,
 	} else if (ctype(c, C_SUBOP1)) {
 		slen += 2;
 		stype |= c;
-	} else if (ctype(c, C_SUBOP2)) {
+	} else if (ksh_issubop2(c)) {
 		/* Note: ksh88 allows :%, :%%, etc */
 		slen += 2;
 		stype = c;
@@ -1207,12 +1237,16 @@ varsub(Expand *xp, const char *sp, const char *word,
 		}
 	} else if (c == '@') {
 		/* @x where x is command char */
-		slen += 2;
-		stype |= 0x100;
-		if (word[slen] == CHAR) {
-			stype |= word[slen + 1];
-			slen += 2;
+		switch (c = word[slen + 2] == CHAR ? word[slen + 3] : 0) {
+		case '#':
+		case '/':
+		case 'Q':
+			break;
+		default:
+			return (-1);
 		}
+		stype |= 0x100 | c;
+		slen += 4;
 	} else if (stype)
 		/* : is not ok */
 		return (-1);
@@ -1301,7 +1335,7 @@ varsub(Expand *xp, const char *sp, const char *word,
 
 	c = stype & 0x7F;
 	/* test the compiler's code generator */
-	if (((stype < 0x100) && (ctype(c, C_SUBOP2) ||
+	if (((stype < 0x100) && (ksh_issubop2(c) ||
 	    (((stype & 0x80) ? *xp->str == '\0' : xp->str == null) &&
 	    (state != XARG || (ifs0 || xp->split ?
 	    (xp->u.strv[0] == NULL) : !hasnonempty(xp->u.strv))) ?
@@ -1311,7 +1345,7 @@ varsub(Expand *xp, const char *sp, const char *word,
 		/* expand word instead of variable value */
 		state = XBASE;
 	if (Flag(FNOUNSET) && xp->str == null && !zero_ok &&
-	    (ctype(c, C_SUBOP2) || (state != XBASE && c != '+')))
+	    (ksh_issubop2(c) || (state != XBASE && c != '+')))
 		errorf(Tf_parm, sp);
 	*stypep = stype;
 	*slenp = slen;
@@ -1322,17 +1356,28 @@ varsub(Expand *xp, const char *sp, const char *word,
  * Run the command in $(...) and read its output.
  */
 static int
-comsub(Expand *xp, const char *cp, int fn MKSH_A_UNUSED)
+comsub(Expand *xp, const char *cp, int fn)
 {
 	Source *s, *sold;
 	struct op *t;
 	struct shf *shf;
+	bool doalias = false;
 	uint8_t old_utfmode = UTFMODE;
+
+	switch (fn) {
+	case COMASUB:
+		fn = COMSUB;
+		if (0)
+			/* FALLTHROUGH */
+	case FUNASUB:
+		  fn = FUNSUB;
+		doalias = true;
+	}
 
 	s = pushs(SSTRING, ATEMP);
 	s->start = s->str = cp;
 	sold = source;
-	t = compile(s, true);
+	t = compile(s, true, doalias);
 	afree(s, ATEMP);
 	source = sold;
 
@@ -1713,7 +1758,7 @@ maybe_expand_tilde(const char *p, XString *dsp, char **dpp, bool isassign)
 
 	Xinit(ts, tp, 16, ATEMP);
 	/* : only for DOASNTILDE form */
-	while (p[0] == CHAR && !mksh_cdirsep(p[1]) &&
+	while (p[0] == CHAR && /* not cdirsep */ p[1] != '/' &&
 	    (!isassign || p[1] != ':')) {
 		Xcheck(ts, tp);
 		*tp++ = p[1];

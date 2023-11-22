@@ -51,8 +51,7 @@ public final class MimeUtils {
         add("application/mathematica", "nb");
         add("application/msaccess", "mdb");
         add("application/oda", "oda");
-        add("application/ogg", "ogg");
-        add("application/ogg", "oga");
+        add("application/ogg", "ogx");
         add("application/pdf", "pdf");
         add("application/pgp-keys", "key");
         add("application/pgp-signature", "pgp");
@@ -240,6 +239,9 @@ public final class MimeUtils {
         add("audio/mpeg", "mp2");
         add("audio/mpeg", "m4a");
         add("audio/mpegurl", "m3u");
+        add("audio/ogg", "oga");
+        add("audio/ogg", "ogg");
+        add("audio/ogg", "spx");
         add("audio/prs.sid", "sid");
         add("audio/x-aiff", "aif");
         add("audio/x-aiff", "aiff");
@@ -372,6 +374,7 @@ public final class MimeUtils {
         add("video/mpeg", "mpe");
         add("video/mp4", "mp4");
         add("video/mpeg", "VOB");
+        add("video/ogg", "ogv");
         add("video/quicktime", "qt");
         add("video/quicktime", "mov");
         add("video/vnd.mpegurl", "mxu");

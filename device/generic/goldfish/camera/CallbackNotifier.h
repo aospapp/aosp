@@ -23,7 +23,10 @@
  */
 
 #include <utils/List.h>
-#include <camera/CameraParameters.h>
+#include <CameraParameters.h>
+
+using ::android::hardware::camera::common::V1_0::helper::CameraParameters;
+using ::android::hardware::camera::common::V1_0::helper::Size;
 
 namespace android {
 

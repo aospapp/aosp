@@ -103,6 +103,9 @@ class network_WiFi_TDLSPing(wifi_cell_test_base.WiFiCellTestBase):
         client_caps = self.context.client.capabilities
         if site_linux_system.LinuxSystem.CAPABILITY_TDLS not in client_caps:
             raise error.TestNAError('DUT is incapable of TDLS')
+        router_caps = self.context.router.capabilities
+        if site_linux_system.LinuxSystem.CAPABILITY_TDLS not in router_caps:
+            raise error.TestNAError('Router is incapable of TDLS')
 
         # Configure the AP.
         frequency = 2412

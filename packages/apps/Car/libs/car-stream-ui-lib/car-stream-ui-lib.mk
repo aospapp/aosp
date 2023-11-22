@@ -33,22 +33,34 @@ ifeq (,$(LOCAL_RESOURCE_DIR))
 $(error LOCAL_RESOURCE_DIR must be defined)
 endif
 
+# Add --auto-add-overlay flag if not present
+ifeq (,$(findstring --auto-add-overlay, $(LOCAL_AAPT_FLAGS)))
+LOCAL_AAPT_FLAGS += --auto-add-overlay
+endif
+
 # Include support-v7-cardview, if not already included
 ifeq (,$(findstring android-support-v7-cardview,$(LOCAL_STATIC_JAVA_LIBRARIES)))
 LOCAL_RESOURCE_DIR += frameworks/support/v7/cardview/res
 LOCAL_AAPT_FLAGS += --extra-packages android.support.v7.cardview
 LOCAL_STATIC_JAVA_LIBRARIES += android-support-v7-cardview
 endif
+
 # Include support-v7-appcompat, if not already included
 ifeq (,$(findstring android-support-v7-appcompat,$(LOCAL_STATIC_JAVA_LIBRARIES)))
 LOCAL_RESOURCE_DIR += frameworks/support/v7/appcompat/res
 LOCAL_AAPT_FLAGS += --extra-packages android.support.v7.appcompat
 LOCAL_STATIC_JAVA_LIBRARIES += android-support-v7-appcompat
 endif
-LOCAL_JAVA_LIBRARIES += android.car
+
+# Include support-v7-recyclerview, if not already included
+ifeq (,$(findstring android-support-v7-recyclerview,$(LOCAL_STATIC_JAVA_LIBRARIES)))
+LOCAL_RESOURCE_DIR += frameworks/support/v7/recyclerview/res
+LOCAL_AAPT_FLAGS += --extra-packages android.support.v7.recyclerview
+LOCAL_STATIC_JAVA_LIBRARIES += android-support-v7-recyclerview
+endif
 
 # Include car-stream-ui-lib
-ifeq (,$(findstring android.support.car, $(LOCAL_STATIC_JAVA_LIBRARIES)))
+ifeq (,$(findstring car-stream-ui-lib, $(LOCAL_STATIC_JAVA_LIBRARIES)))
 LOCAL_RESOURCE_DIR += \
     packages/apps/Car/libs/car-stream-ui-lib/res
 LOCAL_AAPT_FLAGS += --extra-packages com.android.car.stream.ui

@@ -21,6 +21,7 @@
 
 #include "dex_instruction.h"
 #include "handle.h"
+#include "interpreter/shadow_frame.h"
 #include "jvalue.h"
 #include "mirror/class.h"
 
@@ -29,9 +30,7 @@ namespace art {
 namespace mirror {
   class MethodHandle;
   class MethodType;
-}  // mirror
-
-class ShadowFrame;
+}  // namespace mirror
 
 // Returns true if there is a possible conversion from |from| to |to|
 // for a MethodHandle parameter.

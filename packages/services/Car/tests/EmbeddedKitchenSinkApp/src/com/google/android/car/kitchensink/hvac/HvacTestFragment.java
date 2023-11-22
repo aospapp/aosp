@@ -18,6 +18,7 @@ package com.google.android.car.kitchensink.hvac;
 
 import static java.lang.Integer.toHexString;
 
+import com.google.android.car.kitchensink.KitchenSinkActivity;
 import com.google.android.car.kitchensink.R;
 
 import android.car.CarNotConnectedException;
@@ -168,6 +169,7 @@ public class HvacTestFragment extends Fragment {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        mCarHvacManager = ((KitchenSinkActivity)getActivity()).getHvacManager();
         super.onCreate(savedInstanceState);
         try {
             mCarHvacManager.registerCallback(mHvacCallback);
@@ -255,11 +257,6 @@ public class HvacTestFragment extends Fragment {
         }
 
         return v;
-    }
-
-    public void setHvacManager(CarHvacManager hvacManager) {
-        Log.d(TAG, "setHvacManager()");
-        mCarHvacManager = hvacManager;
     }
 
     private void configureOutsideTemp(View v, CarPropertyConfig prop) {

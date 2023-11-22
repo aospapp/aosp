@@ -28,7 +28,6 @@
 #include "update_engine/client_library/include/update_engine/update_status.h"
 #include "update_engine/common/action_processor.h"
 #include "update_engine/common/boot_control_interface.h"
-#include "update_engine/common/cpu_limiter.h"
 #include "update_engine/common/hardware_interface.h"
 #include "update_engine/common/prefs_interface.h"
 #include "update_engine/daemon_state_interface.h"
@@ -111,10 +110,6 @@ class UpdateAttempterAndroid
   // applying an update from the given |url|.
   void BuildUpdateActions(const std::string& url);
 
-  // Sets up the download parameters based on the update requested on the
-  // |install_plan_|.
-  void SetupDownload();
-
   // Writes to the processing completed marker. Does nothing if
   // |update_completed_marker_| is empty.
   bool WriteUpdateCompletedMarker();
@@ -159,9 +154,6 @@ class UpdateAttempterAndroid
 
   // Only direct proxy supported.
   DirectProxyResolver proxy_resolver_;
-
-  // CPU limiter during the update.
-  CPULimiter cpu_limiter_;
 
   // Helper class to select the network to use during the update.
   std::unique_ptr<NetworkSelectorInterface> network_selector_;

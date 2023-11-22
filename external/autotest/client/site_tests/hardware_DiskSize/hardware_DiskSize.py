@@ -5,7 +5,7 @@
 import logging
 import os
 
-from autotest_lib.client.bin import site_utils, test, utils
+from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 
 DEFAULT_MIN_GB = 16
@@ -72,7 +72,7 @@ class hardware_DiskSize(test.test):
 
 
     def run_once(self):
-        root_dev = site_utils.get_root_device()
+        root_dev = utils.get_root_device()
         self._device = os.path.basename(root_dev)
         disk_size = utils.get_disk_size(root_dev)
         if not disk_size:

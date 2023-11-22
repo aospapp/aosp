@@ -90,6 +90,12 @@ class Chrome(object):
                                    to disable the arc opt in flow.
         """
         self._autotest_ext_path = None
+
+        # Force autotest extension if we need enable Play Store.
+        if (utils.is_arc_available() and (arc_util.should_start_arc(arc_mode)
+            or not disable_arc_opt_in)):
+            autotest_ext = True
+
         if autotest_ext:
             self._autotest_ext_path = os.path.join(os.path.dirname(__file__),
                                                    'autotest_private_ext')
@@ -159,9 +165,9 @@ class Chrome(object):
                 if utils.is_arc_available():
                     if disable_arc_opt_in:
                         if arc_util.should_start_arc(arc_mode):
-                            arc_util.enable_arc_setting(self.browser)
+                            arc_util.enable_play_store(self.autotest_ext, True)
                     else:
-                        arc_util.opt_in(self.browser)
+                        arc_util.opt_in(self.browser, self.autotest_ext)
                     arc_util.post_processing_after_browser(self)
                 break
             except exceptions.LoginException as e:

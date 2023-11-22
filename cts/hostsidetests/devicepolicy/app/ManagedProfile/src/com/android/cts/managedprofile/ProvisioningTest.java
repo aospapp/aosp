@@ -21,13 +21,11 @@ import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXT
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SKIP_ENCRYPTION;
-import static android.app.admin.DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import android.Manifest;
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.app.admin.DeviceAdminReceiver;
@@ -135,7 +133,7 @@ public class ProvisioningTest {
                 am.getAccountsByType(AccountAuthenticator.ACCOUNT_TYPE).length == 0);
     }
 
-    public Intent createBaseProvisioningIntent() {
+    private Intent createBaseProvisioningIntent() {
         return new Intent(ACTION_PROVISION_MANAGED_PROFILE)
                 .putExtra(EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME, ADMIN_RECEIVER_COMPONENT)
                 .putExtra(EXTRA_PROVISIONING_SKIP_ENCRYPTION, true)

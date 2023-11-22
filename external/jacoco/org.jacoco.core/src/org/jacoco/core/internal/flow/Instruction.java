@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,11 +11,15 @@
  *******************************************************************************/
 package org.jacoco.core.internal.flow;
 
+import org.objectweb.asm.tree.AbstractInsnNode;
+
 /**
  * Representation of a byte code instruction for analysis. Internally used for
  * analysis.
  */
 public class Instruction {
+
+	private final AbstractInsnNode node;
 
 	private final int line;
 
@@ -28,13 +32,23 @@ public class Instruction {
 	/**
 	 * New instruction at the given line.
 	 * 
+	 * @param node
+	 *            corresponding node
 	 * @param line
 	 *            source line this instruction belongs to
 	 */
-	public Instruction(final int line) {
+	public Instruction(final AbstractInsnNode node, final int line) {
+		this.node = node;
 		this.line = line;
 		this.branches = 0;
 		this.coveredBranches = 0;
+	}
+
+	/**
+	 * @return corresponding node
+	 */
+	public AbstractInsnNode getNode() {
+		return node;
 	}
 
 	/**

@@ -115,13 +115,15 @@ public class SapServer extends Thread implements Callback {
         IntentFilter filter = new IntentFilter();
         filter.addAction(TelephonyManager.ACTION_PHONE_STATE_CHANGED);
         filter.addAction(SAP_DISCONNECT_ACTION);
+        mIntentReceiver = new SapServerBroadcastReceiver();
         mContext.registerReceiver(mIntentReceiver, filter);
     }
 
     /**
      * This handles the response from RIL.
      */
-    BroadcastReceiver mIntentReceiver = new BroadcastReceiver() {
+    private BroadcastReceiver mIntentReceiver;
+    private class SapServerBroadcastReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
             if(intent.getAction().equals(TelephonyManager.ACTION_PHONE_STATE_CHANGED)) {
@@ -148,8 +150,7 @@ public class SapServer extends Thread implements Callback {
                 if(disconnectType == SapMessage.DISC_RFCOMM) {
                     // At timeout we need to close the RFCOMM socket to complete shutdown
                     shutdown();
-                } else if( mState != SAP_STATE.DISCONNECTED
-                    && mState != SAP_STATE.DISCONNECTING ) {
+                } else if (mState != SAP_STATE.DISCONNECTED && mState != SAP_STATE.DISCONNECTING) {
                     // The user pressed disconnect - initiate disconnect sequence.
                     sendDisconnectInd(disconnectType);
                 }
@@ -157,7 +158,7 @@ public class SapServer extends Thread implements Callback {
                 Log.w(TAG, "RIL-BT received unexpected Intent: " + intent.getAction());
             }
         }
-    };
+    }
 
     /**
      * Set RIL driver in test mode - only possible if SapMessage is build with TEST == true

@@ -140,6 +140,7 @@ class audio_utils_fifo : public audio_utils_fifo_base {
 
     friend class audio_utils_fifo_reader;
     friend class audio_utils_fifo_writer;
+    friend class audio_utils_fifo_writer32;
 
 public:
 
@@ -253,6 +254,9 @@ public:
      *
      * \return Actual number of frames available, if greater than or equal to zero.
      *         Guaranteed to be <= \p count and == iovec[0].mLength + iovec[1].mLength.
+     *         For a reader this is also guaranteed to be <= capacity.
+     *         For a writer this is also guaranteed to be <= effective buffer size,
+     *         even if there is no reader that throttles writer.
      *
      *  \retval -EIO        corrupted indices, no recovery is possible
      *  \retval -EOVERFLOW  reader doesn't throttle writer, and frames were lost because reader
@@ -361,6 +365,8 @@ public:
      *
      * \return Actual number of frames written, if greater than or equal to zero.
      *         Guaranteed to be <= \p count.
+     *         Also guaranteed to be <= effective buffer size,
+     *         even if there is no reader that throttles writer.
      *         The actual transfer count may be zero if the FIFO is full,
      *         or partial if the FIFO was almost full.
      *  \retval -EIO       corrupted indices, no recovery is possible
@@ -485,6 +491,7 @@ public:
      *
      * \return Actual number of frames read, if greater than or equal to zero.
      *         Guaranteed to be <= \p count.
+     *         Also guaranteed to be <= capacity.
      *         The actual transfer count may be zero if the FIFO is empty,
      *         or partial if the FIFO was almost empty.
      *  \retval -EIO        corrupted indices, no recovery is possible

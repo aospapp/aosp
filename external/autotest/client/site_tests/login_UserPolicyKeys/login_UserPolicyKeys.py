@@ -84,8 +84,7 @@ class login_UserPolicyKeys(test.test):
                                      ownership.TESTPASS,
                                      create=True)
         sm = session_manager.connect(self._bus_loop)
-        if not sm.StartSession(ownership.TESTUSER, ''):
-            raise error.TestError('Could not start session')
+        sm.StartSession(ownership.TESTUSER, '')
 
         # No policy stored yet.
         retrieved_policy = sm.RetrievePolicyForUser(ownership.TESTUSER,
@@ -110,12 +109,10 @@ class login_UserPolicyKeys(test.test):
                                                  public_key,
                                                  policy_data)
         try:
-          result = sm.StorePolicyForUser(ownership.TESTUSER,
-                                         dbus.ByteArray(policy_response))
-          if not result:
-              raise error.TestFail('Failed to store user policy')
-        except dbus.exceptions.DBusException, e:
-          raise error.TestFail('Failed to store user policy', e)
+            sm.StorePolicyForUser(ownership.TESTUSER,
+                                  dbus.ByteArray(policy_response))
+        except dbus.exceptions.DBusException as e:
+            raise error.TestFail('Failed to store user policy', e)
 
         # The policy key should have been created now.
         self._verify_key_file(key_file)
@@ -133,8 +130,7 @@ class login_UserPolicyKeys(test.test):
                                      ownership.TESTPASS,
                                      create=True)
         sm = session_manager.connect(self._bus_loop)
-        if not sm.StartSession(ownership.TESTUSER, ''):
-            raise error.TestError('Could not start session after restart')
+        sm.StartSession(ownership.TESTUSER, '')
         self._verify_key_file(key_file)
 
 

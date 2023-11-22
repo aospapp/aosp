@@ -14,7 +14,8 @@
      limitations under the License.
 -->
 <configuration description="Config for AutoFill Framework CTS tests.">
-    <option name="config-descriptor:metadata" key="component" value="framework" />
+  <option name="test-suite-tag" value="cts" />
+  <option name="config-descriptor:metadata" key="component" value="framework" />
 
   <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
     <option name="cleanup-apks" value="true" />
@@ -23,6 +24,8 @@
 
   <test class="com.android.tradefed.testtype.AndroidJUnitTest">
     <option name="package" value="android.autofillservice.cts" />
+    <!-- 20x default timeout of 600sec -->
+    <option name="shell-timeout" value="12000000"/>
   </test>
 
 </configuration>

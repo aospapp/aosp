@@ -52,6 +52,7 @@ public:
      * Wait for value of index to change from the specified expected value.
      *
      * \param op      Either FUTEX_WAIT or FUTEX_WAIT_PRIVATE.
+     * \param expected Current/expected value of index.
      * \param timeout Indicates the maximum time to block while waiting for value to change.
      *                NULL means to block forever.
      *                Time is expressed as relative CLOCK_MONOTONIC.

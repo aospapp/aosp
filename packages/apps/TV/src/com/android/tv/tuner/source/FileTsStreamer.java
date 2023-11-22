@@ -16,12 +16,14 @@
 
 package com.android.tv.tuner.source;
 
+import android.content.Context;
 import android.os.Environment;
 import android.util.Log;
 import android.util.SparseBooleanArray;
 
 import com.google.android.exoplayer.C;
 import com.google.android.exoplayer.upstream.DataSpec;
+import com.android.tv.Features;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.tuner.ChannelScanFileParser.ScanChannel;
 import com.android.tv.tuner.data.TunerChannel;
@@ -60,6 +62,7 @@ public class FileTsStreamer implements TsStreamer {
     private final Object mCircularBufferMonitor = new Object();
     private final byte[] mCircularBuffer = new byte[CIRCULAR_BUFFER_SIZE];
     private final FileSourceEventDetector mEventDetector;
+    private final Context mContext;
 
     private long mBytesFetched;
     private long mLastReadPosition;
@@ -120,8 +123,11 @@ public class FileTsStreamer implements TsStreamer {
      * Creates {@link TsStreamer} for scanning & playing MPEG-2 TS file.
      * @param eventListener the listener for channel & program information
      */
-    public FileTsStreamer(EventDetector.EventListener eventListener) {
-        mEventDetector = new FileSourceEventDetector(eventListener);
+    public FileTsStreamer(EventDetector.EventListener eventListener, Context context) {
+        mEventDetector =
+                new FileSourceEventDetector(
+                        eventListener, Features.ENABLE_FILE_DVB.isEnabled(context));
+        mContext = context;
     }
 
     @Override
@@ -132,8 +138,12 @@ public class FileTsStreamer implements TsStreamer {
             return false;
         }
         mEventDetector.start(mSource, FileSourceEventDetector.ALL_PROGRAM_NUMBERS);
-        mSource.addPidFilter(TsParser.ATSC_SI_BASE_PID);
         mSource.addPidFilter(TsParser.PAT_PID);
+        mSource.addPidFilter(TsParser.ATSC_SI_BASE_PID);
+        if (Features.ENABLE_FILE_DVB.isEnabled(mContext)) {
+            mSource.addPidFilter(TsParser.DVB_EIT_PID);
+            mSource.addPidFilter(TsParser.DVB_SDT_PID);
+        }
         synchronized (mCircularBufferMonitor) {
             if (mStreaming) {
                 return true;
@@ -160,8 +170,12 @@ public class FileTsStreamer implements TsStreamer {
             mSource.addPidFilter(i);
         }
         mSource.addPidFilter(channel.getPcrPid());
-        mSource.addPidFilter(TsParser.ATSC_SI_BASE_PID);
         mSource.addPidFilter(TsParser.PAT_PID);
+        mSource.addPidFilter(TsParser.ATSC_SI_BASE_PID);
+        if (Features.ENABLE_FILE_DVB.isEnabled(mContext)) {
+            mSource.addPidFilter(TsParser.DVB_EIT_PID);
+            mSource.addPidFilter(TsParser.DVB_SDT_PID);
+        }
         synchronized (mCircularBufferMonitor) {
             if (mStreaming) {
                 return true;
@@ -256,7 +270,7 @@ public class FileTsStreamer implements TsStreamer {
          * Returns whether the current pid filter is empty or not.
          */
         public boolean isFilterEmpty() {
-            return mPids.size() > 0;
+            return mPids.size() == 0;
         }
 
         /**

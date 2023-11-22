@@ -36,7 +36,7 @@ AC_CHECK_HEADERS([ \
     libaio.h \
     mm.h \
     pthread.h \
-    attr/xattr.h \
+    sys/xattr.h \
     linux/genetlink.h \
     linux/mempolicy.h \
     linux/module.h \
@@ -106,7 +106,7 @@ fi
 AC_ARG_WITH([open-posix-testsuite],
   [AC_HELP_STRING([--with-open-posix-testsuite],
     [compile and install the open posix testsuite (default=no)])],
-  [with_open_posix_testsuite=yes]
+  [with_open_posix_testsuite=$withval]
 )
 if test "x$with_open_posix_testsuite" = xyes; then
     AC_SUBST([WITH_OPEN_POSIX_TESTSUITE],["yes"])
@@ -188,5 +188,6 @@ LTP_CHECK_PWRITEV
 LTP_CHECK_EPOLL_PWAIT
 LTP_CHECK_KEYUTILS_SUPPORT
 LTP_CHECK_SYNC_ADD_AND_FETCH
+LTP_CHECK_BUILTIN_CLEAR_CACHE
 
 AC_OUTPUT

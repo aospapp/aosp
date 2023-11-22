@@ -22,6 +22,7 @@ import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Configuration;
 import com.android.tradefed.config.ConfigurationDescriptor;
 import com.android.tradefed.config.IConfiguration;
+import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.targetprep.ITargetPreparer;
@@ -767,5 +768,50 @@ public class ModuleRepoTest extends TestCase {
         excludeFilter.put("group", "bar");
         assertFalse("config not excluded with matching inclusion and exclusion filters",
                 mRepo.filterByConfigMetadata(config, includeFilter, excludeFilter));
+    }
+
+    public static class TestInject implements IRemoteTest {
+        @Option(name = "simple-string")
+        public String test = null;
+        @Option(name = "list-string")
+        public List<String> testList = new ArrayList<>();
+        @Option(name = "map-string")
+        public Map<String, String> testMap = new HashMap<>();
+
+        @Override
+        public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
+        }
+    }
+
+    /**
+     * Test that the different format for module-arg and test-arg can properly be passed to the
+     * configuration.
+     */
+    public void testInjectConfig() throws Exception {
+        IConfiguration config = new Configuration("foo", "bar");
+        TestInject checker = new TestInject();
+        config.setTest(checker);
+        Map<String, List<String>> optionMap = new HashMap<String, List<String>>();
+        List<String> option1 = new ArrayList<>();
+        option1.add("value1");
+        optionMap.put("simple-string", option1);
+
+        List<String> option2 = new ArrayList<>();
+        option2.add("value2");
+        option2.add("value3");
+        option2.add("set-option:moreoption");
+        optionMap.put("list-string", option2);
+
+        List<String> option3 = new ArrayList<>();
+        option3.add("set-option:=moreoption");
+        optionMap.put("map-string", option3);
+
+        mRepo.injectOptionsToConfig(optionMap, config);
+
+        assertEquals("value1", checker.test);
+        assertEquals(option2, checker.testList);
+        Map<String, String> resMap = new HashMap<>();
+        resMap.put("set-option", "moreoption");
+        assertEquals(resMap, checker.testMap);
     }
 }

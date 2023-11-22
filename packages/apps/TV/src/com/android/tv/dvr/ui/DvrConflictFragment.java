@@ -34,10 +34,9 @@ import com.android.tv.TvApplication;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.data.Channel;
 import com.android.tv.data.Program;
-import com.android.tv.dvr.ConflictChecker;
-import com.android.tv.dvr.ConflictChecker.OnUpcomingConflictChangeListener;
-import com.android.tv.dvr.DvrUiHelper;
-import com.android.tv.dvr.ScheduledRecording;
+import com.android.tv.dvr.recorder.ConflictChecker;
+import com.android.tv.dvr.recorder.ConflictChecker.OnUpcomingConflictChangeListener;
+import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.util.Utils;
 
 import java.util.ArrayList;
@@ -85,12 +84,22 @@ public abstract class DvrConflictFragment extends DvrGuidedStepFragment {
     }
 
     @Override
-    public void onGuidedActionClicked(GuidedAction action) {
+    public void onTrackedGuidedActionClicked(GuidedAction action) {
         if (action.getId() == ACTION_VIEW_SCHEDULES) {
             DvrUiHelper.startSchedulesActivityForOneTimeRecordingConflict(
                     getContext(), getConflicts());
         }
         dismissDialog();
+    }
+
+    @Override
+    public String getTrackerLabelForGuidedAction(GuidedAction action) {
+        long actionId = getId();
+        if (actionId == ACTION_VIEW_SCHEDULES) {
+            return "view-schedules";
+        } else {
+            return super.getTrackerLabelForGuidedAction(action);
+        }
     }
 
     String getConflictDescription() {
@@ -185,6 +194,11 @@ public abstract class DvrConflictFragment extends DvrGuidedStepFragment {
             Drawable icon = getResources().getDrawable(R.drawable.ic_error_white_48dp, null);
             return new Guidance(title, descriptionPrefix + " " + description, null, icon);
         }
+
+        @Override
+        public String getTrackerPrefix() {
+            return "DvrProgramConflictFragment";
+        }
     }
 
     /**
@@ -235,6 +249,11 @@ public abstract class DvrConflictFragment extends DvrGuidedStepFragment {
             }
             Drawable icon = getResources().getDrawable(R.drawable.ic_error_white_48dp, null);
             return new Guidance(title, descriptionPrefix + " " + description, null, icon);
+        }
+
+        @Override
+        public String getTrackerPrefix() {
+            return "DvrChannelRecordConflictFragment";
         }
     }
 
@@ -300,7 +319,7 @@ public abstract class DvrConflictFragment extends DvrGuidedStepFragment {
         }
 
         @Override
-        public void onGuidedActionClicked(GuidedAction action) {
+        public void onTrackedGuidedActionClicked(GuidedAction action) {
             if (action.getId() == ACTION_CANCEL) {
                 ConflictChecker checker = ((MainActivity) getContext()).getDvrConflictChecker();
                 if (checker != null) {
@@ -316,6 +335,23 @@ public abstract class DvrConflictFragment extends DvrGuidedStepFragment {
                 }
             }
             super.onGuidedActionClicked(action);
+        }
+
+        @Override
+        public String getTrackerPrefix() {
+            return "DvrChannelWatchConflictFragment";
+        }
+
+        @Override
+        public String getTrackerLabelForGuidedAction(GuidedAction action) {
+            long actionId = action.getId();
+            if (actionId == ACTION_CANCEL) {
+                return "cancel";
+            } else if (actionId == ACTION_DELETE_CONFLICT) {
+                return "delete";
+            } else {
+                return super.getTrackerLabelForGuidedAction(action);
+            }
         }
 
         @Override

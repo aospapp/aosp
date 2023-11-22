@@ -8,6 +8,7 @@ the state of the graphics driver.
 """
 
 import collections
+import contextlib
 import glob
 import logging
 import os
@@ -20,123 +21,210 @@ import time
 # input library in the future easier.
 import uinput
 
+from autotest_lib.client.bin import test
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import test as test_utils
 from autotest_lib.client.cros import power_utils
-from autotest_lib.client.cros.graphics import drm
+from autotest_lib.client.cros.graphics import gbm
+from functools import wraps
 
 
-# TODO(ihf): Remove xcommand for non-freon builds.
-def xcommand(cmd, user=None):
+class GraphicsTest(test.test):
+    """Base class for graphics test.
+
+    GraphicsTest is the base class for graphics tests.
+    Every subclass of GraphicsTest should call GraphicsTests initialize/cleanup
+    method as they will do GraphicsStateChecker as well as report states to
+    Chrome Perf dashboard.
+
+    Attributes:
+        _test_failure_description(str): Failure name reported to chrome perf
+                                        dashboard. (Default: Failures)
+        _test_failure_report_enable(bool): Enable/Disable reporting
+                                            failures to chrome perf dashboard
+                                            automatically. (Default: True)
     """
-    Add the necessary X setup to a shell command that needs to connect to the X
-    server.
-    @param cmd: the command line string
-    @param user: if not None su command to desired user.
-    @return a modified command line string with necessary X setup
-    """
-    logging.warning('xcommand will be deprecated under freon!')
-    #traceback.print_stack()
-    if user is not None:
-        cmd = 'su %s -c \'%s\'' % (user, cmd)
-    if not utils.is_freon():
-        cmd = 'DISPLAY=:0 XAUTHORITY=/home/chronos/.Xauthority ' + cmd
-    return cmd
+    version = 1
+    _GSC = None
 
-# TODO(ihf): Remove xsystem for non-freon builds.
-def xsystem(cmd, user=None):
-    """
-    Run the command cmd, using utils.system, after adding the necessary
-    setup to connect to the X server.
+    _test_failure_description = "Failures"
+    _test_failure_report_enable = True
 
-    @param cmd: The command.
-    @param user: The user to switch to, or None for the current user.
-    @param timeout: Optional timeout.
-    @param ignore_status: Whether to check the return code of the command.
-    """
-    return utils.system(xcommand(cmd, user))
+    def __init__(self, *args, **kwargs):
+        """Initialize flag setting."""
+        super(GraphicsTest, self).__init__(*args, **kwargs)
+        self._failures = []
 
+    def initialize(self, raise_error_on_hang=False, *args, **kwargs):
+        """Initial state checker and report initial value to perf dashboard."""
+        self._GSC = GraphicsStateChecker(raise_error_on_hang)
 
-# TODO(ihf): Remove XSET for non-freon builds.
-XSET = 'LD_LIBRARY_PATH=/usr/local/lib xset'
+        self.output_perf_value(
+            description='Timeout_Reboot',
+            value=1,
+            units='count',
+            higher_is_better=False
+        )
+
+        if hasattr(super(GraphicsTest, self), "initialize"):
+            test_utils._cherry_pick_call(super(GraphicsTest, self).initialize,
+                                         *args, **kwargs)
+
+    def cleanup(self, *args, **kwargs):
+        """Finalize state checker and report values to perf dashboard."""
+        if self._GSC:
+            self._GSC.finalize()
+
+        self.output_perf_value(
+            description='Timeout_Reboot',
+            value=0,
+            units='count',
+            higher_is_better=False,
+            replace_existing_values=True
+        )
+
+        logging.debug('GraphicsTest recorded failures: %s', self.get_failures())
+        if self._test_failure_report_enable:
+            self.output_perf_value(
+                description=self._test_failure_description,
+                value=len(self._failures),
+                units='count',
+                higher_is_better=False
+            )
+
+        if hasattr(super(GraphicsTest, self), "cleanup"):
+            test_utils._cherry_pick_call(super(GraphicsTest, self).cleanup,
+                                         *args, **kwargs)
+
+    @contextlib.contextmanager
+    def failure_report(self, name):
+        """Record the failure of an operation to the self._failures.
+
+        Records if the operation taken inside executed normally or not.
+        If the operation taken inside raise unexpected failure, failure named
+        |name|, will be added to the self._failures list and reported to the
+        chrome perf dashboard in the cleanup stage.
+
+        Usage:
+            # Record failure of doSomething
+            with failure_report('doSomething'):
+                doSomething()
+        """
+        # Assume failed at the beginning
+        self.add_failures(name)
+        yield {}
+        self.remove_failures(name)
+
+    @classmethod
+    def failure_report_decorator(cls, name):
+        """Record the failure if the function failed to finish.
+        This method should only decorate to functions of GraphicsTest.
+        In addition, functions with this decorator should be called with no
+        unnamed arguments.
+        Usage:
+            @GraphicsTest.test_run_decorator('graphics_test')
+            def Foo(self, bar='test'):
+                return doStuff()
+
+            is equivalent to
+
+            def Foo(self, bar):
+                with failure_reporter('graphics_test'):
+                    return doStuff()
+
+            # Incorrect usage.
+            @GraphicsTest.test_run_decorator('graphics_test')
+            def Foo(self, bar='test'):
+                pass
+            self.Foo('test_name', bar='test_name') # call Foo with named args
+
+            # Incorrect usage.
+            @GraphicsTest.test_run_decorator('graphics_test')
+            def Foo(self, bar='test'):
+                pass
+            self.Foo('test_name') # call Foo with unnamed args
+         """
+        def decorator(fn):
+            @wraps(fn)
+            def wrapper(*args, **kwargs):
+                if len(args) > 1:
+                    raise error.TestError('Unnamed arguments is not accepted. '
+                                          'Please apply this decorator to '
+                                          'function without unnamed args.')
+                # A member function of GraphicsTest is decorated. The first
+                # argument is the instance itself.
+                instance = args[0]
+                with instance.failure_report(name):
+                    # Cherry pick the arguments for the wrapped function.
+                    d_args, d_kwargs = test_utils._cherry_pick_args(fn, args,
+                                                                    kwargs)
+                    return fn(instance, *d_args, **d_kwargs)
+            return wrapper
+        return decorator
+
+    def add_failures(self, failure_description):
+        """
+        Add a record to failures list which will report back to chrome perf
+        dashboard at the cleanup stage.
+        """
+        self._failures.append(failure_description)
+
+    def remove_failures(self, failure_description):
+        """
+        Remove a record from failures list which will report back to chrome perf
+        dashboard at the cleanup stage.
+        """
+        self._failures.remove(failure_description)
+
+    def get_failures(self):
+        """
+        Get currently recorded failures list.
+        """
+        return list(self._failures)
+
 
 def screen_disable_blanking():
     """ Called from power_Backlight to disable screen blanking. """
-    if utils.is_freon():
-        # We don't have to worry about unexpected screensavers or DPMS here.
-        return
-    xsystem(XSET + ' s off')
-    xsystem(XSET + ' dpms 0 0 0')
-    xsystem(XSET + ' -dpms')
+    # We don't have to worry about unexpected screensavers or DPMS here.
+    return
 
 
 def screen_disable_energy_saving():
     """ Called from power_Consumption to immediately disable energy saving. """
-    if utils.is_freon():
-        # All we need to do here is enable displays via Chrome.
-        power_utils.set_display_power(power_utils.DISPLAY_POWER_ALL_ON)
-        return
-    # Disable X screen saver
-    xsystem(XSET + ' s 0 0')
-    # Disable DPMS Standby/Suspend/Off
-    xsystem(XSET + ' dpms 0 0 0')
-    # Force monitor on
-    screen_switch_on(on=1)
-    # Save off X settings
-    xsystem(XSET + ' q')
-
-
-def screen_switch_on(on):
-    """Turn the touch screen on/off."""
-    if on:
-        xsystem(XSET + ' dpms force on')
-    else:
-        xsystem(XSET + ' dpms force off')
+    # All we need to do here is enable displays via Chrome.
+    power_utils.set_display_power(power_utils.DISPLAY_POWER_ALL_ON)
+    return
 
 
 def screen_toggle_fullscreen():
     """Toggles fullscreen mode."""
-    if utils.is_freon():
-        press_keys(['KEY_F11'])
-    else:
-        press_key_X('F11')
+    press_keys(['KEY_F11'])
 
 
 def screen_toggle_mirrored():
     """Toggles the mirrored screen."""
-    if utils.is_freon():
-        press_keys(['KEY_LEFTCTRL', 'KEY_F4'])
-    else:
-        press_key_X('ctrl+F4')
+    press_keys(['KEY_LEFTCTRL', 'KEY_F4'])
 
 
 def hide_cursor():
     """Hides mouse cursor."""
     # Send a keystroke to hide the cursor.
-    if utils.is_freon():
-        press_keys(['KEY_UP'])
-    else:
-        press_key_X('Up')
+    press_keys(['KEY_UP'])
 
 
 def hide_typing_cursor():
     """Hides typing cursor."""
     # Press the tab key to move outside the typing bar.
-    if utils.is_freon():
-        press_keys(['KEY_TAB'])
-    else:
-        press_key_X('Tab')
+    press_keys(['KEY_TAB'])
 
 
 def screen_wakeup():
     """Wake up the screen if it is dark."""
     # Move the mouse a little bit to wake up the screen.
-    if utils.is_freon():
-        device = _get_uinput_device_mouse_rel()
-        _uinput_emit(device, 'REL_X', 1)
-        _uinput_emit(device, 'REL_X', -1)
-    else:
-        xsystem('xdotool mousemove_relative 1 1')
+    device = _get_uinput_device_mouse_rel()
+    _uinput_emit(device, 'REL_X', 1)
+    _uinput_emit(device, 'REL_X', -1)
 
 
 def switch_screen_on(on):
@@ -145,10 +233,7 @@ def switch_screen_on(on):
 
     @param on: On or off.
     """
-    if on:
-        xsystem(XSET + ' dpms force on')
-    else:
-        xsystem(XSET + ' dpms force off')
+    raise error.TestFail('switch_screen_on is not implemented.')
 
 
 # Don't create a device during build_packages or for tests that don't need it.
@@ -265,17 +350,6 @@ def press_keys(key_list):
     _uinput_emit_combo(_get_uinput_device_keyboard(), key_list)
 
 
-# TODO(ihf): Remove press_key_X for non-freon builds.
-def press_key_X(key_str):
-    """Presses the given keys as one combination.
-    @param key: A string of keys, e.g. 'ctrl+F4'.
-    """
-    if utils.is_freon():
-        raise error.TestFail('freon: press_key_X not implemented')
-    command = 'xdotool key %s' % key_str
-    xsystem(command)
-
-
 def click_mouse():
     """Just click the mouse.
     Presumably only hacky tests use this function.
@@ -335,7 +409,7 @@ def take_screenshot(resultsdir, fname_prefix, extension='png'):
     logging.info('Saving screenshot to %s.', screenshot_file)
 
     try:
-        image = drm.crtcScreenshot()
+        image = gbm.crtcScreenshot()
         image.save(screenshot_file)
     except Exception as err:
         # Do not raise an exception if the screenshot fails while processing
@@ -360,7 +434,7 @@ def take_screenshot_crop_by_height(fullpath, final_height, x_offset_pixels,
     @param y_offset_pixels: integer, number of pixels from top margin
                             to begin cropping.
     """
-    image = drm.crtcScreenshot()
+    image = gbm.crtcScreenshot()
     image.crop()
     width, height = image.size
     # Preserve aspect ratio: Wf / Wi == Hf / Hi
@@ -388,7 +462,7 @@ def take_screenshot_crop_x(fullpath, box=None):
 
     old_exc_type = sys.exc_info()[0]
     try:
-        xsystem('%s %s' % (cmd, fullpath))
+        utils.system('%s %s' % (cmd, fullpath))
     except Exception as err:
         # Do not raise an exception if the screenshot fails while processing
         # another exception.
@@ -403,12 +477,10 @@ def take_screenshot_crop(fullpath, box=None, crtc_id=None):
     @param fullpath: path, full path to save the image to.
     @param box: 4-tuple giving the upper left and lower right pixel coordinates.
     """
-    if not utils.is_freon():
-        return take_screenshot_crop_x(fullpath, box)
     if crtc_id is not None:
-        image = drm.crtcScreenshot(crtc_id)
+        image = gbm.crtcScreenshot(crtc_id)
     else:
-        image = drm.crtcScreenshot(get_internal_crtc())
+        image = gbm.crtcScreenshot(get_internal_crtc())
     if box:
         image = image.crop(box)
     image.save(fullpath)
@@ -452,29 +524,10 @@ def get_display_resolution():
     Parses output of modetest to determine the display resolution of the dut.
     @return: tuple, (w,h) resolution of device under test.
     """
-    if not utils.is_freon():
-        return _get_display_resolution_x()
-
     connectors = get_modetest_connectors()
     for connector in connectors:
         if connector.connected:
             return connector.size
-    return None
-
-
-def _get_display_resolution_x():
-    """
-    Used temporarily while Daisy's modetest isn't working
-    TODO(dhaddock): remove when no longer needed
-    @return: tuple, (w,h) resolution of device under test.
-    """
-    env_vars = 'DISPLAY=:0.0 ' \
-                              'XAUTHORITY=/home/chronos/.Xauthority'
-    cmd = '%s xrandr | egrep -o "current [0-9]* x [0-9]*"' % env_vars
-    output = utils.system_output(cmd)
-    match = re.search(r'(\d+) x (\d+)', output)
-    if len(match.groups()) == 2:
-        return int(match.group(1)), int(match.group(2))
     return None
 
 
@@ -500,20 +553,6 @@ def get_num_outputs_on():
     """
 
     return _get_num_outputs_connected()
-
-
-def call_xrandr(args_string=''):
-    """
-    Calls xrandr with the args given by args_string.
-
-    e.g. call_xrandr('--output LVDS1 --off') will invoke:
-        'xrandr --output LVDS1 --off'
-
-    @param args_string: A single string containing all arguments.
-
-    Return value: Output of xrandr
-    """
-    return utils.system_output(xcommand('xrandr %s' % args_string))
 
 
 def get_modetest_connectors():
@@ -614,16 +653,11 @@ def get_output_rect(output):
 
 
 def get_internal_resolution():
-    if utils.is_freon():
-        if has_internal_display():
-            crtcs = get_modetest_crtcs()
-            if len(crtcs) > 0:
-                return crtcs[0].size
-        return (-1, -1)
-    else:
-        connector = get_internal_connector_name()
-        width, height, _, _ = get_output_rect_x(connector)
-        return (width, height)
+    if has_internal_display():
+        crtcs = get_modetest_crtcs()
+        if len(crtcs) > 0:
+            return crtcs[0].size
+    return (-1, -1)
 
 
 def has_internal_display():
@@ -640,36 +674,11 @@ def get_external_resolution():
     @return A tuple of (width, height) or None if no external display is
             connected.
     """
-    if utils.is_freon():
-        offset = 1 if has_internal_display() else 0
-        crtcs = get_modetest_crtcs()
-        if len(crtcs) > offset and crtcs[offset].size != (0, 0):
-            return crtcs[offset].size
-        return None
-    else:
-        connector = get_external_connector_name()
-        width, height, _, _ = get_output_rect_x(connector)
-        if width == 0 and height == 0:
-            return None
-        return (width, height)
-
-
-def get_output_rect_x(output):
-    """Gets the size and position of the given output on the screen buffer.
-
-    @param output: The output name as a string.
-
-    @return A tuple of the rectangle (width, height, fb_offset_x,
-            fb_offset_y) of ints.
-    """
-    regexp = re.compile(
-            r'^([-A-Za-z0-9]+)\s+connected\s+(\d+)x(\d+)\+(\d+)\+(\d+)',
-            re.M)
-    match = regexp.findall(call_xrandr())
-    for m in match:
-        if m[0] == output:
-            return (int(m[1]), int(m[2]), int(m[3]), int(m[4]))
-    return (0, 0, 0, 0)
+    offset = 1 if has_internal_display() else 0
+    crtcs = get_modetest_crtcs()
+    if len(crtcs) > offset and crtcs[offset].size != (0, 0):
+        return crtcs[offset].size
+    return None
 
 
 def get_display_output_state():
@@ -678,59 +687,7 @@ def get_display_output_state():
 
     Return value: dictionary of connected display states.
     """
-    if utils.is_freon():
-        return get_modetest_output_state()
-    else:
-        return get_xrandr_output_state()
-
-
-def get_xrandr_output_state():
-    """
-    Retrieves output status of connected display(s) using xrandr.
-
-    When xrandr report a display is "connected", it doesn't mean the
-    display is active. For active display, it will have '*' after display mode.
-
-    Return value: dictionary of connected display states.
-                  key = output name
-                  value = True if the display is active; False otherwise.
-    """
-    output = call_xrandr().split('\n')
-    xrandr_outputs = {}
-    current_output_name = ''
-
-    # Parse output of xrandr, line by line.
-    for line in output:
-        if line.startswith('Screen'):
-            continue
-        # If the line contains "connected", it is a connected display, as
-        # opposed to a disconnected output.
-        if line.find(' connected') != -1:
-            current_output_name = line.split()[0]
-            # Temporarily mark it as inactive until we see a '*' afterward.
-            xrandr_outputs[current_output_name] = False
-            continue
-
-        # If "connected" was not found, this is a line that shows a display
-        # mode, e.g:    1920x1080      50.0     60.0     24.0
-        # Check if this has an asterisk indicating it's on.
-        if line.find('*') != -1 and current_output_name:
-            xrandr_outputs[current_output_name] = True
-            # Reset the output name since this should not be set more than once.
-            current_output_name = ''
-
-    return xrandr_outputs
-
-
-def set_xrandr_output(output_name, enable):
-    """
-    Sets the output given by |output_name| on or off.
-
-    Parameters:
-        output_name       name of output, e.g. 'HDMI1', 'LVDS1', 'DP1'
-        enable            True or False, indicating whether to turn on or off
-    """
-    call_xrandr('--output %s --%s' % (output_name, 'auto' if enable else 'off'))
+    return get_modetest_output_state()
 
 
 def set_modetest_output(output_name, enable):
@@ -822,10 +779,7 @@ def set_content_protection(output_name, state):
     @param state: One of the states 'Undesired', 'Desired', or 'Enabled'
 
     """
-    if utils.is_freon():
-        raise error.TestFail('freon: set_content_protection not implemented')
-    call_xrandr('--output %s --set "Content Protection" %s' %
-                (output_name, state))
+    raise error.TestFail('freon: set_content_protection not implemented')
 
 
 def get_content_protection(output_name):
@@ -837,26 +791,7 @@ def get_content_protection(output_name):
              False if not supported.
 
     """
-    if utils.is_freon():
-        raise error.TestFail('freon: get_content_protection not implemented')
-
-    output = call_xrandr('--verbose').split('\n')
-    current_output_name = ''
-
-    # Parse output of xrandr, line by line.
-    for line in output:
-        # If the line contains 'connected', it is a connected display.
-        if line.find(' connected') != -1:
-            current_output_name = line.split()[0]
-            continue
-        if current_output_name != output_name:
-            continue
-        # Search the line like: 'Content Protection:     Undesired'
-        match = re.search(r'Content Protection:\t(\w+)', line)
-        if match:
-            return match.group(1)
-
-    return False
+    raise error.TestFail('freon: get_content_protection not implemented')
 
 
 def is_sw_rasterizer():
@@ -937,6 +872,18 @@ class GraphicsKernelMemory(object):
     }
 
     num_errors = 0
+
+    def __init__(self):
+        self._initial_memory = self.get_memory_keyvals()
+
+    def get_memory_difference_keyvals(self):
+        """
+        Reads the graphics memory values and return the difference between now
+        and the memory usage at initialization stage as keyvals.
+        """
+        current_memory = self.get_memory_keyvals()
+        return {key: self._initial_memory[key] - current_memory[key]
+                for key in self._initial_memory}
 
     def get_memory_keyvals(self):
         """
@@ -1101,11 +1048,82 @@ class GraphicsStateChecker(object):
             if new_gpu_warning:
                 raise error.TestWarn('Detected GPU warning during test.')
 
-
     def get_memory_access_errors(self):
         """ Returns the number of errors while reading memory stats. """
         return self.graphics_kernel_memory.num_errors
 
+    def get_memory_difference_keyvals(self):
+        return self.graphics_kernel_memory.get_memory_difference_keyvals()
+
     def get_memory_keyvals(self):
         """ Returns memory stats. """
         return self.graphics_kernel_memory.get_memory_keyvals()
+
+class GraphicsApiHelper(object):
+    """
+    Report on the available graphics APIs.
+    Ex. gles2, gles3, gles31, and vk
+    """
+    _supported_apis = []
+
+    DEQP_BASEDIR = os.path.join('/usr', 'local', 'deqp')
+    DEQP_EXECUTABLE = {
+        'gles2': os.path.join('modules', 'gles2', 'deqp-gles2'),
+        'gles3': os.path.join('modules', 'gles3', 'deqp-gles3'),
+        'gles31': os.path.join('modules', 'gles31', 'deqp-gles31'),
+        'vk': os.path.join('external', 'vulkancts', 'modules',
+                           'vulkan', 'deqp-vk')
+    }
+
+    def __init__(self):
+        # Determine which executable should be run. Right now never egl.
+        major, minor = get_gles_version()
+        logging.info('Found gles%d.%d.', major, minor)
+        if major is None or minor is None:
+            raise error.TestFail(
+                'Failed: Could not get gles version information (%d, %d).' %
+                (major, minor)
+            )
+        if major >= 2:
+            self._supported_apis.append('gles2')
+        if major >= 3:
+            self._supported_apis.append('gles3')
+            if major > 3 or minor >= 1:
+                self._supported_apis.append('gles31')
+
+        # If libvulkan is installed, then assume the board supports vulkan.
+        has_libvulkan = False
+        for libdir in ('/usr/lib', '/usr/lib64',
+                       '/usr/local/lib', '/usr/local/lib64'):
+            if os.path.exists(os.path.join(libdir, 'libvulkan.so')):
+                has_libvulkan = True
+
+        if has_libvulkan:
+            executable_path = os.path.join(
+                self.DEQP_BASEDIR,
+                self.DEQP_EXECUTABLE['vk']
+            )
+            if os.path.exists(executable_path):
+                self._supported_apis.append('vk')
+            else:
+                logging.warning('Found libvulkan.so but did not find deqp-vk '
+                                'binary for testing.')
+
+    def get_supported_apis(self):
+        """Return the list of supported apis. eg. gles2, gles3, vk etc.
+        @returns: a copy of the supported api list will be returned
+        """
+        return list(self._supported_apis)
+
+    def get_deqp_executable(self, api):
+        """Return the path to the api executable."""
+        if api not in self.DEQP_EXECUTABLE:
+            raise KeyError(
+                "%s is not a supported api for GraphicsApiHelper." % api
+            )
+
+        executable = os.path.join(
+            self.DEQP_BASEDIR,
+            self.DEQP_EXECUTABLE[api]
+        )
+        return executable

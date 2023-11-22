@@ -20,6 +20,7 @@ import android.app.Fragment;
 import android.app.FragmentManager;
 import android.app.FragmentManager.OnBackStackChangedListener;
 import android.content.Intent;
+import android.media.tv.TvContentRating;
 import android.media.tv.TvInputInfo;
 import android.os.Bundle;
 import android.os.Handler;
@@ -39,6 +40,7 @@ import com.android.tv.MainActivity.KeyHandlerResultType;
 import com.android.tv.R;
 import com.android.tv.TimeShiftManager;
 import com.android.tv.TvApplication;
+import com.android.tv.TvOptionsManager;
 import com.android.tv.analytics.Tracker;
 import com.android.tv.common.WeakHandler;
 import com.android.tv.common.feature.CommonFeatures;
@@ -46,14 +48,16 @@ import com.android.tv.common.ui.setup.OnActionClickListener;
 import com.android.tv.common.ui.setup.SetupFragment;
 import com.android.tv.common.ui.setup.SetupMultiPaneFragment;
 import com.android.tv.data.ChannelDataManager;
+import com.android.tv.dialog.DvrHistoryDialogFragment;
 import com.android.tv.dialog.FullscreenDialogFragment;
+import com.android.tv.dialog.HalfSizedDialogFragment;
 import com.android.tv.dialog.PinDialogFragment;
 import com.android.tv.dialog.RecentlyWatchedDialogFragment;
 import com.android.tv.dialog.SafeDismissDialogFragment;
 import com.android.tv.dvr.DvrDataManager;
-import com.android.tv.dvr.ui.DvrActivity;
-import com.android.tv.dvr.ui.HalfSizedDialogFragment;
+import com.android.tv.dvr.ui.browse.DvrBrowseActivity;
 import com.android.tv.guide.ProgramGuide;
+import com.android.tv.license.LicenseDialogFragment;
 import com.android.tv.menu.Menu;
 import com.android.tv.menu.Menu.MenuShowReason;
 import com.android.tv.menu.MenuRowFactory;
@@ -62,7 +66,6 @@ import com.android.tv.onboarding.NewSourcesFragment;
 import com.android.tv.onboarding.SetupSourcesFragment;
 import com.android.tv.search.ProgramGuideSearchFragment;
 import com.android.tv.ui.TvTransitionManager.SceneType;
-import com.android.tv.ui.sidepanel.SettingsFragment;
 import com.android.tv.ui.sidepanel.SideFragmentManager;
 import com.android.tv.ui.sidepanel.parentalcontrols.RatingsFragment;
 import com.android.tv.util.TvInputManagerHelper;
@@ -157,15 +160,47 @@ public class TvOverlayManager {
     // Used for the padded print of the overlay type.
     private static final int NUM_OVERLAY_TYPES = 9;
 
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef({UPDATE_CHANNEL_BANNER_REASON_FORCE_SHOW, UPDATE_CHANNEL_BANNER_REASON_TUNE,
+            UPDATE_CHANNEL_BANNER_REASON_TUNE_FAST, UPDATE_CHANNEL_BANNER_REASON_UPDATE_INFO,
+            UPDATE_CHANNEL_BANNER_REASON_LOCK_OR_UNLOCK,
+            UPDATE_CHANNEL_BANNER_REASON_UPDATE_STREAM_INFO})
+    private @interface ChannelBannerUpdateReason {}
+    /**
+     * Updates channel banner because the channel banner is forced to show.
+     */
+    public static final int UPDATE_CHANNEL_BANNER_REASON_FORCE_SHOW = 1;
+    /**
+     * Updates channel banner because of tuning.
+     */
+    public static final int UPDATE_CHANNEL_BANNER_REASON_TUNE = 2;
+    /**
+     * Updates channel banner because of fast tuning.
+     */
+    public static final int UPDATE_CHANNEL_BANNER_REASON_TUNE_FAST = 3;
+    /**
+     * Updates channel banner because of info updating.
+     */
+    public static final int UPDATE_CHANNEL_BANNER_REASON_UPDATE_INFO = 4;
+    /**
+     * Updates channel banner because the current watched channel is locked or unlocked.
+     */
+    public static final int UPDATE_CHANNEL_BANNER_REASON_LOCK_OR_UNLOCK = 5;
+    /**
+     * Updates channel banner because of stream info updating.
+     */
+    public static final int UPDATE_CHANNEL_BANNER_REASON_UPDATE_STREAM_INFO = 6;
+
     private static final String FRAGMENT_TAG_SETUP_SOURCES = "tag_setup_sources";
     private static final String FRAGMENT_TAG_NEW_SOURCES = "tag_new_sources";
 
     private static final Set<String> AVAILABLE_DIALOG_TAGS = new HashSet<>();
     static {
         AVAILABLE_DIALOG_TAGS.add(RecentlyWatchedDialogFragment.DIALOG_TAG);
+        AVAILABLE_DIALOG_TAGS.add(DvrHistoryDialogFragment.DIALOG_TAG);
         AVAILABLE_DIALOG_TAGS.add(PinDialogFragment.DIALOG_TAG);
         AVAILABLE_DIALOG_TAGS.add(FullscreenDialogFragment.DIALOG_TAG);
-        AVAILABLE_DIALOG_TAGS.add(SettingsFragment.LicenseActionItem.DIALOG_TAG);
+        AVAILABLE_DIALOG_TAGS.add(LicenseDialogFragment.DIALOG_TAG);
         AVAILABLE_DIALOG_TAGS.add(RatingsFragment.AttributionItem.DIALOG_TAG);
         AVAILABLE_DIALOG_TAGS.add(HalfSizedDialogFragment.DIALOG_TAG);
     }
@@ -176,8 +211,10 @@ public class TvOverlayManager {
     private final ChannelDataManager mChannelDataManager;
     private final TvInputManagerHelper mInputManager;
     private final Menu mMenu;
+    private final TunableTvView mTvView;
     private final SideFragmentManager mSideFragmentManager;
     private final ProgramGuide mProgramGuide;
+    private final ChannelBannerView mChannelBannerView;
     private final KeypadChannelSwitchView mKeypadChannelSwitchView;
     private final SelectInputView mSelectInputView;
     private final ProgramGuideSearchFragment mSearchFragment;
@@ -185,6 +222,7 @@ public class TvOverlayManager {
     private SafeDismissDialogFragment mCurrentDialog;
     private boolean mSetupFragmentActive;
     private boolean mNewSourcesFragmentActive;
+    private boolean mChannelBannerHiddenBySideFragment;
     private final Handler mHandler = new TvOverlayHandler(this);
 
     private @TvOverlayType int mOpenedOverlays;
@@ -195,15 +233,17 @@ public class TvOverlayManager {
     private OnBackStackChangedListener mOnBackStackChangedListener;
 
     public TvOverlayManager(MainActivity mainActivity, ChannelTuner channelTuner,
-            TunableTvView tvView, KeypadChannelSwitchView keypadChannelSwitchView,
-            ChannelBannerView channelBannerView, InputBannerView inputBannerView,
-            SelectInputView selectInputView, ViewGroup sceneContainer,
-            ProgramGuideSearchFragment searchFragment) {
+            TunableTvView tvView, TvOptionsManager optionsManager,
+            KeypadChannelSwitchView keypadChannelSwitchView, ChannelBannerView channelBannerView,
+            InputBannerView inputBannerView, SelectInputView selectInputView,
+            ViewGroup sceneContainer, ProgramGuideSearchFragment searchFragment) {
         mMainActivity = mainActivity;
         mChannelTuner = channelTuner;
         ApplicationSingletons singletons = TvApplication.getSingletons(mainActivity);
         mChannelDataManager = singletons.getChannelDataManager();
         mInputManager = singletons.getTvInputManagerHelper();
+        mTvView = tvView;
+        mChannelBannerView = channelBannerView;
         mKeypadChannelSwitchView = keypadChannelSwitchView;
         mSelectInputView = selectInputView;
         mSearchFragment = searchFragment;
@@ -225,7 +265,8 @@ public class TvOverlayManager {
         });
         // Menu
         MenuView menuView = (MenuView) mainActivity.findViewById(R.id.menu);
-        mMenu = new Menu(mainActivity, tvView, menuView, new MenuRowFactory(mainActivity, tvView),
+        mMenu = new Menu(mainActivity, tvView, optionsManager, menuView,
+                new MenuRowFactory(mainActivity, tvView),
                 new Menu.OnMenuVisibilityChangeListener() {
                     @Override
                     public void onMenuVisibilityChange(boolean visible) {
@@ -249,7 +290,7 @@ public class TvOverlayManager {
                 new Runnable() {
                     @Override
                     public void run() {
-                        mMainActivity.showChannelBannerIfHiddenBySideFragment();
+                        showChannelBannerIfHiddenBySideFragment();
                         onOverlayClosed(OVERLAY_TYPE_SIDE_FRAGMENT);
                     }
                 });
@@ -320,6 +361,9 @@ public class TvOverlayManager {
     public void release() {
         mMenu.release();
         mHandler.removeCallbacksAndMessages(null);
+        if (mKeypadChannelSwitchView != null) {
+            mKeypadChannelSwitchView.setChannels(null);
+        }
     }
 
     /**
@@ -436,6 +480,13 @@ public class TvOverlayManager {
         onOverlayOpened(OVERLAY_TYPE_DIALOG);
     }
 
+    /**
+     * Should be called by {@link MainActivity} when the currently browsable channels are updated.
+     */
+    public void onBrowsableChannelsUpdated() {
+        mKeypadChannelSwitchView.setChannels(mChannelTuner.getBrowsableChannelList());
+    }
+
     private void runAfterSideFragmentsAreClosed(final Runnable runnable) {
         if (mSideFragmentManager.isSidePanelVisible()) {
             // When the side panel is closing, it closes all the fragments, so the new fragment
@@ -541,7 +592,7 @@ public class TvOverlayManager {
      * Shows DVR manager.
      */
     public void showDvrManager() {
-        Intent intent = new Intent(mMainActivity, DvrActivity.class);
+        Intent intent = new Intent(mMainActivity, DvrBrowseActivity.class);
         mMainActivity.startActivity(intent);
     }
 
@@ -564,18 +615,34 @@ public class TvOverlayManager {
     }
 
     /**
+     * Shows DVR history dialog.
+     */
+    public void showDvrHistoryDialog() {
+        showDialogFragment(DvrHistoryDialogFragment.DIALOG_TAG,
+                new DvrHistoryDialogFragment(), false);
+    }
+
+    /**
      * Shows banner view.
      */
     public void showBanner() {
         mTransitionManager.goToChannelBannerScene();
     }
 
-    public void showKeypadChannelSwitch() {
-        hideOverlays(TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_SCENE
-                | TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_SIDE_PANELS
-                | TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_DIALOG
-                | TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_FRAGMENT);
-        mTransitionManager.goToKeypadChannelSwitchScene();
+    /**
+     * Pops up the KeypadChannelSwitchView with the given key input event.
+     *
+     * @param keyCode A key code of the key event.
+     */
+    public void showKeypadChannelSwitch(int keyCode) {
+        if (mChannelTuner.areAllChannelsLoaded()) {
+            hideOverlays(TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_SCENE
+                    | TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_SIDE_PANELS
+                    | TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_DIALOG
+                    | TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_FRAGMENT);
+            mTransitionManager.goToKeypadChannelSwitchScene();
+            mKeypadChannelSwitchView.onNumberKeyUp(keyCode - KeyEvent.KEYCODE_0);
+        }
     }
 
     /**
@@ -619,6 +686,31 @@ public class TvOverlayManager {
     }
 
     /**
+     * Shows/hides the program guide according to it's hidden or shown now.
+     *
+     * @return {@code true} if program guide is going to be shown, otherwise {@code false}.
+     */
+    public boolean toggleProgramGuide() {
+        if (mProgramGuide.isActive()) {
+            mProgramGuide.onBackPressed();
+            return false;
+        } else {
+            showProgramGuide();
+            return true;
+        }
+    }
+
+    /**
+     * Sets blocking content rating of the currently playing TV channel.
+     */
+    public void setBlockingContentRating(TvContentRating rating) {
+        if (!mMainActivity.isChannelChangeKeyDownReceived()) {
+            mChannelBannerView.setBlockingContentRating(rating);
+            updateChannelBannerAndShowIfNeeded(UPDATE_CHANNEL_BANNER_REASON_LOCK_OR_UNLOCK);
+        }
+    }
+
+    /**
      * Hides all the opened overlays according to the flags.
      */
     // TODO: Add test for this method.
@@ -631,12 +723,12 @@ public class TvOverlayManager {
         } else {
             if (mCurrentDialog != null) {
                 if (mCurrentDialog instanceof PinDialogFragment) {
-                    // The result listener of PinDialogFragment could call MenuView when
-                    // the dialog is dismissed. In order not to call it, set the result listener
-                    // to null.
-                    ((PinDialogFragment) mCurrentDialog).setResultListener(null);
+                    // We don't want any OnPinCheckedListener is triggered to prevent any possible
+                    // side effects. Dismisses the dialog silently.
+                    ((PinDialogFragment) mCurrentDialog).dismissSilently();
+                } else {
+                    mCurrentDialog.dismiss();
                 }
-                mCurrentDialog.dismiss();
             }
             mPendingDialogActionQueue.clear();
             mCurrentDialog = null;
@@ -674,7 +766,7 @@ public class TvOverlayManager {
         }
         if ((flags & FLAG_HIDE_OVERLAYS_KEEP_SIDE_PANELS) != 0) {
             // Keeps side panels.
-        } else if (mSideFragmentManager.isSidePanelVisible()) {
+        } else if (mSideFragmentManager.isActive()) {
             if ((flags & FLAG_HIDE_OVERLAYS_KEEP_SIDE_PANEL_HISTORY) != 0) {
                 mSideFragmentManager.hideSidePanel(withAnimation);
             } else {
@@ -699,6 +791,83 @@ public class TvOverlayManager {
                 || mTransitionManager.isSelectInputActive()
                 || mSetupFragmentActive
                 || mNewSourcesFragmentActive;
+    }
+
+    /**
+     * Updates and shows channel banner if it's needed.
+     */
+    public void updateChannelBannerAndShowIfNeeded(@ChannelBannerUpdateReason int reason) {
+        if(DEBUG) Log.d(TAG, "updateChannelBannerAndShowIfNeeded(reason=" + reason + ")");
+        if (mMainActivity.isChannelChangeKeyDownReceived()
+                && reason != UPDATE_CHANNEL_BANNER_REASON_TUNE
+                && reason != UPDATE_CHANNEL_BANNER_REASON_TUNE_FAST) {
+            // Tuning is still ongoing, no need to update banner for other reasons
+            return;
+        }
+        if (!mChannelTuner.isCurrentChannelPassthrough()) {
+            int lockType = ChannelBannerView.LOCK_NONE;
+            if (reason == UPDATE_CHANNEL_BANNER_REASON_TUNE_FAST) {
+                if (mMainActivity.getParentalControlSettings().isParentalControlsEnabled()
+                        && mMainActivity.getCurrentChannel().isLocked()) {
+                    lockType = ChannelBannerView.LOCK_CHANNEL_INFO;
+                } else {
+                    // Do not show detailed program information while fast-tuning.
+                    lockType = ChannelBannerView.LOCK_PROGRAM_DETAIL;
+                }
+            } else if (reason == UPDATE_CHANNEL_BANNER_REASON_TUNE) {
+                if (mMainActivity.getParentalControlSettings().isParentalControlsEnabled()) {
+                    if (mMainActivity.getCurrentChannel().isLocked()) {
+                        lockType = ChannelBannerView.LOCK_CHANNEL_INFO;
+                    } else {
+                        // If parental control is turned on,
+                        // assumes that program is locked by default and waits for onContentAllowed.
+                        lockType = ChannelBannerView.LOCK_PROGRAM_DETAIL;
+                    }
+                }
+            } else if (mTvView.isScreenBlocked()) {
+                lockType = ChannelBannerView.LOCK_CHANNEL_INFO;
+            } else if (mTvView.isContentBlocked() || (mMainActivity.getParentalControlSettings()
+                    .isParentalControlsEnabled() && !mTvView.isVideoOrAudioAvailable())) {
+                // If the parental control is enabled, do not show the program detail until the
+                // video becomes available.
+                lockType = ChannelBannerView.LOCK_PROGRAM_DETAIL;
+            }
+            // If lock type is not changed, we don't need to update channel banner by parental
+            // control.
+            int previousLockType = mChannelBannerView.setLockType(lockType);
+            if (previousLockType == lockType
+                    && reason == UPDATE_CHANNEL_BANNER_REASON_LOCK_OR_UNLOCK) {
+                return;
+            } else if (reason == UPDATE_CHANNEL_BANNER_REASON_UPDATE_STREAM_INFO) {
+                mChannelBannerView.updateStreamInfo(mTvView);
+                // If parental control is enabled, we shows program description when the video is
+                // available, instead of tuning. Therefore we need to check it here if the program
+                // description is previously hidden by parental control.
+                if (previousLockType == ChannelBannerView.LOCK_PROGRAM_DETAIL &&
+                        lockType != ChannelBannerView.LOCK_PROGRAM_DETAIL) {
+                    mChannelBannerView.updateViews(false);
+                }
+            } else {
+                mChannelBannerView.updateViews(reason == UPDATE_CHANNEL_BANNER_REASON_TUNE
+                        || reason == UPDATE_CHANNEL_BANNER_REASON_TUNE_FAST);
+            }
+        }
+        boolean needToShowBanner = (reason == UPDATE_CHANNEL_BANNER_REASON_FORCE_SHOW
+                || reason == UPDATE_CHANNEL_BANNER_REASON_TUNE
+                || reason == UPDATE_CHANNEL_BANNER_REASON_TUNE_FAST);
+        if (needToShowBanner && !mMainActivity.willShowOverlayUiWhenResume()
+                && getCurrentDialog() == null
+                && !isSetupFragmentActive()
+                && !isNewSourcesFragmentActive()) {
+            if (mChannelTuner.getCurrentChannel() == null) {
+                mChannelBannerHiddenBySideFragment = false;
+            } else if (getSideFragmentManager().isActive()) {
+                mChannelBannerHiddenBySideFragment = true;
+            } else {
+                mChannelBannerHiddenBySideFragment = false;
+                showBanner();
+            }
+        }
     }
 
     @TvOverlayType private int convertSceneToOverlayType(@SceneType int sceneType) {
@@ -746,6 +915,18 @@ public class TvOverlayManager {
                 && isOnlyBannerOrNoneOpened()
                 && !menuAboutToShow) {
             mTracker.sendScreenView(MainActivity.SCREEN_NAME);
+        }
+    }
+
+    /**
+     * Shows the channel banner if it was hidden from the side fragment.
+     *
+     * <p>When the side fragment is visible, showing the channel banner should be put off until the
+     * side fragment is closed even though the channel changes.
+     */
+    private void showChannelBannerIfHiddenBySideFragment() {
+        if (mChannelBannerHiddenBySideFragment) {
+            updateChannelBannerAndShowIfNeeded(UPDATE_CHANNEL_BANNER_REASON_FORCE_SHOW);
         }
     }
 
@@ -843,6 +1024,7 @@ public class TvOverlayManager {
                     timeShiftManager.play();
                     showMenu(Menu.REASON_PLAY_CONTROLS_PLAY);
                     break;
+                case KeyEvent.KEYCODE_MEDIA_STOP:
                 case KeyEvent.KEYCODE_MEDIA_PAUSE:
                     timeShiftManager.pause();
                     showMenu(Menu.REASON_PLAY_CONTROLS_PAUSE);
@@ -916,7 +1098,7 @@ public class TvOverlayManager {
             }
             if (mMenu.isActive()) {
                 if (KeypadChannelSwitchView.isChannelNumberKey(keyCode)) {
-                    mMainActivity.showKeypadChannelSwitchView(keyCode);
+                    showKeypadChannelSwitch(keyCode);
                     return MainActivity.KEY_EVENT_HANDLER_RESULT_HANDLED;
                 }
                 return MainActivity.KEY_EVENT_HANDLER_RESULT_DISPATCH_TO_OVERLAY;
@@ -971,6 +1153,7 @@ public class TvOverlayManager {
             case KeyEvent.KEYCODE_MEDIA_FAST_FORWARD:
             case KeyEvent.KEYCODE_MEDIA_SKIP_FORWARD:
             case KeyEvent.KEYCODE_MEDIA_SKIP_BACKWARD:
+            case KeyEvent.KEYCODE_MEDIA_STOP:
                 return true;
         }
         return false;

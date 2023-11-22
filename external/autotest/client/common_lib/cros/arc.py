@@ -18,7 +18,7 @@ from autotest_lib.client.common_lib.cros import chrome, arc_common
 
 _ADB_KEYS_PATH = '/tmp/adb_keys'
 _ADB_VENDOR_KEYS = 'ADB_VENDOR_KEYS'
-_ANDROID_CONTAINER_PATH = '/var/run/containers/android_*'
+_ANDROID_CONTAINER_PID_PATH = '/var/run/containers/android_*/container.pid'
 _SCREENSHOT_DIR_PATH = '/var/log/arc-screenshots'
 _SCREENSHOT_BASENAME = 'arc-screenshot'
 _MAX_SCREENSHOT_NUM = 10
@@ -27,13 +27,15 @@ _ANDROID_ADB_KEYS_PATH = '/data/misc/adb/adb_keys'
 _PROCESS_CHECK_INTERVAL_SECONDS = 1
 _WAIT_FOR_ADB_READY = 60
 _WAIT_FOR_ANDROID_PROCESS_SECONDS = 60
+_WAIT_FOR_DATA_MOUNTED_SECONDS = 60
 _VAR_LOGCAT_PATH = '/var/log/logcat'
 
 
 def setup_adb_host():
     """Setup ADB host keys.
 
-    This sets up the files and environment variables that wait_for_adb_ready() needs"""
+    This sets up the files and environment variables that wait_for_adb_ready()
+    needs"""
     if _ADB_VENDOR_KEYS in os.environ:
         return
     if not os.path.exists(_ADB_KEYS_PATH):
@@ -67,11 +69,39 @@ def is_adb_connected():
     return output.strip() == 'device'
 
 
+def is_partial_boot_enabled():
+    """Return true if partial boot is enabled.
+
+    When partial boot is enabled, Android is started at login screen without
+    any persistent state (e.g. /data is not mounted).
+    """
+    return _android_shell('getprop ro.boot.partial_boot') == '1'
+
+
+def _is_android_data_mounted():
+    """Return true if Android's /data is mounted with partial boot enabled."""
+    return _android_shell('getprop ro.data_mounted') == '1'
+
+
+def _wait_for_data_mounted(timeout=_WAIT_FOR_DATA_MOUNTED_SECONDS):
+    utils.poll_for_condition(
+            condition=_is_android_data_mounted,
+            desc='Wait for /data mounted',
+            timeout=timeout,
+            sleep_interval=_PROCESS_CHECK_INTERVAL_SECONDS)
+
+
 def wait_for_adb_ready(timeout=_WAIT_FOR_ADB_READY):
     """Wait for the ADB client to connect to the ARC container.
 
     @param timeout: Timeout in seconds.
     """
+    # When partial boot is enabled, although adbd is started at login screen,
+    # we still need /data to be mounted to set up key-based authentication.
+    # /data should be mounted once the user has logged in.
+    if is_partial_boot_enabled():
+        _wait_for_data_mounted()
+
     setup_adb_host()
     if is_adb_connected():
       return
@@ -161,11 +191,21 @@ def get_container_root():
       TestError if no container root directory is found, or
       more than one container root directories are found.
     """
-    arc_container_roots = glob.glob(_ANDROID_CONTAINER_PATH)
-    if len(arc_container_roots) != 1:
-        raise error.TestError(
-            'Android container not available: %r' % arc_container_roots)
-    return arc_container_roots[0]
+    # Find the PID file rather than the android_XXXXXX/ directory to ignore
+    # stale and empty android_XXXXXX/ directories when they exist.
+    # TODO(yusukes): Investigate why libcontainer sometimes fails to remove
+    # the directory. See b/63376749 for more details.
+    arc_container_pid_files = glob.glob(_ANDROID_CONTAINER_PID_PATH)
+
+    if len(arc_container_pid_files) == 0:
+        raise error.TestError('Android container not available')
+
+    if len(arc_container_pid_files) > 1:
+        raise error.TestError('Multiple Android containers found: %r. '
+                              'Reboot your DUT to recover.' % (
+                                  arc_container_pid_files))
+
+    return os.path.dirname(arc_container_pid_files[0])
 
 
 def get_job_pid(job_name):
@@ -238,7 +278,8 @@ def read_android_file(filename):
     @param filename: File to read.
     """
     with tempfile.NamedTemporaryFile() as tmpfile:
-        adb_cmd('pull %s %s' % (pipes.quote(filename), pipes.quote(tmpfile.name)))
+        adb_cmd('pull %s %s' % (pipes.quote(filename),
+                                pipes.quote(tmpfile.name)))
         with open(tmpfile.name) as f:
             return f.read()
 
@@ -255,7 +296,8 @@ def write_android_file(filename, data):
         tmpfile.write(data)
         tmpfile.flush()
 
-        adb_cmd('push %s %s' % (pipes.quote(tmpfile.name), pipes.quote(filename)))
+        adb_cmd('push %s %s' % (pipes.quote(tmpfile.name),
+                                pipes.quote(filename)))
 
 
 def _write_android_file(filename, data):
@@ -313,7 +355,8 @@ def is_android_container_alive():
     """Check if android container is alive."""
     try:
         container_pid = get_container_pid()
-    except Exception:
+    except Exception, e:
+        logging.error('is_android_container_alive failed: %r', e)
         return False
     return utils.pid_is_alive(int(container_pid))
 
@@ -357,11 +400,15 @@ def _after_iteration_hook(obj):
         if obj.num_screenshots <= _MAX_SCREENSHOT_NUM:
             logging.warning('Iteration %d failed, taking a screenshot.',
                             obj.iteration)
-            from cros.graphics.drm import crtcScreenshot
-            image = crtcScreenshot()
-            image.save('{}/{}_iter{}.png'.format(_SCREENSHOT_DIR_PATH,
-                                                 _SCREENSHOT_BASENAME,
-                                                 obj.iteration))
+            from cros.graphics.gbm import crtcScreenshot
+            try:
+                image = crtcScreenshot()
+                image.save('{}/{}_iter{}.png'.format(_SCREENSHOT_DIR_PATH,
+                                                     _SCREENSHOT_BASENAME,
+                                                     obj.iteration))
+            except Exception:
+                e = sys.exc_info()[0]
+                logging.warning('Unable to capture screenshot. %s' % e)
         else:
             logging.warning('Too many failures, no screenshot taken')
 
@@ -483,8 +530,9 @@ class ArcTest(test.test):
                 if self._chrome is not None:
                     self._chrome.close()
 
-    def arc_setup(self, dep_package=None, apks=None, full_pkg_names=[],
-                  uiautomator=False, email_id=None, password=None):
+    def arc_setup(self, dep_package=None, apks=None, full_pkg_names=None,
+                  uiautomator=False, email_id=None, password=None,
+                  block_outbound=False):
         """ARC test setup: Setup dependencies and install apks.
 
         This function disables package verification and enables non-market
@@ -500,6 +548,7 @@ class ArcTest(test.test):
         @param email_id: email id to be attached to the android. Only used
                          when  account_util is set to true.
         @param password: password related to the email_id.
+        @param block_outbound: block outbound network traffic during a test.
         """
         if not self.initialized:
             logging.info('Skipping ARC setup: not initialized')
@@ -557,6 +606,8 @@ class ArcTest(test.test):
         if self.uiautomator:
             path = os.path.join(self.autodir, 'deps', self._PKG_UIAUTOMATOR)
             sys.path.append(path)
+        if block_outbound:
+            self.block_outbound()
 
     def _stop_logcat(self):
         """Stop the adb logcat process gracefully."""
@@ -608,15 +659,14 @@ class ArcTest(test.test):
     def block_outbound(self):
         """ Blocks the connection from the container to outer network.
 
-            The iptables settings accept only 192.168.254.2 port 5555 (adb) and
-            localhost port 9008 (uiautomator)
+            The iptables settings accept only 100.115.92.2 port 5555 (adb) and
+            all local connections, e.g. uiautomator.
         """
         logging.info('Blocking outbound connection')
         _android_shell('iptables -I OUTPUT -j REJECT')
-        _android_shell('iptables -I OUTPUT -p tcp -s 192.168.254.2 --sport 5555 -j ACCEPT')
-        _android_shell('iptables -I OUTPUT -p tcp -d localhost --dport 9008 -j ACCEPT')
-        _android_shell('iptables -I OUTPUT -p tcp -s localhost --sport 9008 -j ACCEPT')
-
+        _android_shell('iptables -I OUTPUT -p tcp -s 100.115.92.2 --sport 5555 '
+                       '-j ACCEPT')
+        _android_shell('iptables -I OUTPUT -p tcp -d localhost -j ACCEPT')
 
     def unblock_outbound(self):
         """ Unblocks the connection from the container to outer network.
@@ -626,7 +676,7 @@ class ArcTest(test.test):
             unblock the outbound connections during the test if needed.
         """
         logging.info('Unblocking outbound connection')
-        _android_shell('iptables -D OUTPUT -p tcp -s localhost --sport 9008 -j ACCEPT')
-        _android_shell('iptables -D OUTPUT -p tcp -d localhost --dport 9008 -j ACCEPT')
-        _android_shell('iptables -D OUTPUT -p tcp -s 192.168.254.2 --sport 5555 -j ACCEPT')
+        _android_shell('iptables -D OUTPUT -p tcp -d localhost -j ACCEPT')
+        _android_shell('iptables -D OUTPUT -p tcp -s 100.115.92.2 --sport 5555 '
+                       '-j ACCEPT')
         _android_shell('iptables -D OUTPUT -j REJECT')

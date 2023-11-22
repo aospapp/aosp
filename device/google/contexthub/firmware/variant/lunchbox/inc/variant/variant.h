@@ -45,29 +45,17 @@ extern "C" {
 
 #define DEBUG_LOG_EVT               0x3B474F4C
 
-#define BL_FLASH_TABLE                                                  \
-{                                                                       \
-    { (uint8_t *)(&BL),                      0x04000, BL_FLASH_BL     },\
-    { (uint8_t *)(__eedata_start),           0x04000, BL_FLASH_EEDATA },\
-    { (uint8_t *)(__eedata_start + 0x04000), 0x04000, BL_FLASH_EEDATA },\
-    { (uint8_t *)(__code_start),             0x04000, BL_FLASH_KERNEL },\
-    { (uint8_t *)(__code_start + 0x04000),   0x10000, BL_FLASH_KERNEL },\
-    { (uint8_t *)(__code_start + 0x10000),   0x20000, BL_FLASH_KERNEL },\
-    { (uint8_t *)(__shared_start),           0x20000, BL_FLASH_SHARED },\
-    { (uint8_t *)(__shared_start + 0x20000), 0x20000, BL_FLASH_SHARED },\
-}
-
 #define BMP280_I2C_BUS_ID           0
 
 #define BMI160_TO_ANDROID_COORDINATE(x, y, z)   \
     do {                                        \
-        int32_t xi = x, yi = y, zi = z;         \
+        float xi = x, yi = y, zi = z;           \
         x = -yi; y = xi; z = zi;                \
     } while (0)
 
 #define BMM150_TO_ANDROID_COORDINATE(x, y, z)   \
     do {                                        \
-        int32_t xi = x, yi = y, zi = z;         \
+        float xi = x, yi = y, zi = z;           \
         x = xi; y = -yi; z = -zi;               \
     } while (0)
 

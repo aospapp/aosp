@@ -173,6 +173,13 @@ void logAttribList (const EglTestContext& eglTestCtx, const EGLint* attribList)
 				iter++;
 				break;
 
+			case EGL_CONTEXT_OPENGL_RESET_NOTIFICATION_STRATEGY_KHR:
+				iter++;
+				attribListString << "EGL_CONTEXT_OPENGL_RESET_NOTIFICATION_STRATEGY_KHR, "
+								 << eglResetNotificationStrategyToString(*iter) << ", ";
+				iter++;
+				break;
+
 			case EGL_CONTEXT_OPENGL_ROBUST_ACCESS_EXT:
 				iter++;
 				attribListString << "EGL_CONTEXT_OPENGL_ROBUST_ACCESS_EXT, ";
@@ -1245,7 +1252,7 @@ glu::ProgramSources ShadersOOB::genComputeSource (void)
 											 ? "	sb_out.values.x = values[u_index];\n"
 											 : "	sb_out.values[u_index] = values.x;\n";
 
-		shaderBody	<< "	highp vec4 values = vec4(1.0f) * float(groupNdx);\n"
+		shaderBody	<< "	highp vec4 values = vec4(1.0f, 0.0f, 3.0f, 2.0f) * float(groupNdx);\n"
 					<< readWriteStatement;
 	}
 	else
@@ -1332,15 +1339,27 @@ void ShadersOOB::setup (void)
 
 	// Create dummy data for filling buffer objects
 	const std::vector<tcu::Vec4> refValues(s_numBindings, tcu::Vec4(0.0f, 1.0f, 1.0f, 1.0f));
-	glw::GLenum resType = (m_isUBO) ? GL_UNIFORM_BUFFER : GL_SHADER_STORAGE_BUFFER;
 
-	if (!m_isLocalArray)
+	if (m_isLocalArray && m_shaderType == SHADERTYPE_COMPUTE)
+	{
+		// Setup output buffer
+		GLU_CHECK_GLW_CALL(m_gl, genBuffers((glw::GLsizei)1u, &m_buffers[0]));
+
+		GLU_CHECK_GLW_CALL(m_gl, bindBuffer(GL_SHADER_STORAGE_BUFFER, m_buffers[0]));
+		GLU_CHECK_GLW_CALL(m_gl, bufferData(GL_SHADER_STORAGE_BUFFER, sizeof(tcu::Vec4), &(refValues[0]), GL_STATIC_DRAW));
+		GLU_CHECK_GLW_CALL(m_gl, bindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_buffers[0]));
+	}
+	else if (!m_isLocalArray)
 	{
 		// Set up interface block of buffer bindings
 		GLU_CHECK_GLW_CALL(m_gl, genBuffers((glw::GLsizei)m_buffers.size(), &m_buffers[0]));
 
 		for (int bufNdx = 0; bufNdx < (int)m_buffers.size(); ++bufNdx)
 		{
+			const glw::GLenum resType	= m_isUBO && (m_shaderType != SHADERTYPE_COMPUTE || bufNdx != 0)
+										? GL_UNIFORM_BUFFER
+										: GL_SHADER_STORAGE_BUFFER;
+
 			GLU_CHECK_GLW_CALL(m_gl, bindBuffer(resType, m_buffers[bufNdx]));
 			GLU_CHECK_GLW_CALL(m_gl, bufferData(resType, sizeof(tcu::Vec4), &(refValues[bufNdx]), GL_STATIC_DRAW));
 			GLU_CHECK_GLW_CALL(m_gl, bindBufferBase(resType, bufNdx, m_buffers[bufNdx]));
@@ -1892,6 +1911,61 @@ public:
 	}
 };
 
+class InvalidNotificationEnumCase : public RobustnessTestCase
+{
+public:
+	InvalidNotificationEnumCase (EglTestContext& eglTestCtx, const char* name, const char* description)
+		: RobustnessTestCase (eglTestCtx, name, description) {}
+
+	TestCase::IterateResult	iterate	(void)
+	{
+		TestLog&		log		=	m_testCtx.getLog();
+		const Library&	egl		=	m_eglTestCtx.getLibrary();
+		bool			isOk	=	true;
+
+		log << tcu::TestLog::Message
+			<< "EGL_BAD_ATTRIBUTE is generated if EGL_CONTEXT_OPENGL_RESET_NOTIFICATION_STRATEGY_KHR is used with EGL versions <= 1.4\n\n"
+			<< tcu::TestLog::EndMessage;
+
+		const EGLint attribList[] =
+		{
+			EGL_CONTEXT_CLIENT_VERSION, 3,
+			EGL_CONTEXT_MINOR_VERSION_KHR, 1,
+			EGL_CONTEXT_OPENGL_RESET_NOTIFICATION_STRATEGY_KHR, EGL_NO_RESET_NOTIFICATION,
+			EGL_NONE
+		};
+
+		if (eglu::getVersion(egl, m_eglDisplay) >= eglu::Version(1, 5))
+		{
+			m_testCtx.setTestResult(QP_TEST_RESULT_NOT_SUPPORTED, "Test requires EGL version to be under 1.5");
+			return STOP;
+		}
+
+		logAttribList(m_eglTestCtx, attribList);
+		EGLContext context = egl.createContext(m_eglDisplay, m_eglConfig, EGL_NO_CONTEXT, attribList);
+
+		const EGLenum error = egl.getError();
+		if (error != EGL_BAD_ATTRIBUTE)
+		{
+			log << TestLog::Message
+				<< "Test failed! eglCreateContext() returned with error [" << eglu::getErrorStr(error) << ", expected " << eglu::getErrorStr(EGL_BAD_ATTRIBUTE) << "]"
+				<< TestLog::EndMessage;
+
+			isOk = false;
+		}
+
+		if (context != EGL_NO_CONTEXT)
+			egl.destroyContext(m_eglDisplay, context);
+
+		if (isOk)
+			m_testCtx.setTestResult(QP_TEST_RESULT_PASS, "Pass");
+		else
+			m_testCtx.setTestResult(QP_TEST_RESULT_FAIL, "Fail");
+
+		return STOP;
+	}
+};
+
 class SharedContextResetCase : public RobustnessTestCase
 {
 public:
@@ -2405,8 +2479,9 @@ TestCaseGroup* createRobustnessTests (EglTestContext& eglTestCtx)
 
 	// invalid context creation cases
 	{
-		negativeContextTestGroup->addChild(new InvalidContextCase		(eglTestCtx, "invalid_robust_context_creation",			"Create a non-robust context but specify a reset notification strategy"));
-		negativeContextTestGroup->addChild(new InvalidShareContextCase	(eglTestCtx, "invalid_robust_shared_context_creation",	"Create a context share group with conflicting reset notification strategies"));
+		negativeContextTestGroup->addChild(new InvalidContextCase			(eglTestCtx, "invalid_robust_context_creation",			"Create a non-robust context but specify a reset notification strategy"));
+		negativeContextTestGroup->addChild(new InvalidShareContextCase		(eglTestCtx, "invalid_robust_shared_context_creation",	"Create a context share group with conflicting reset notification strategies"));
+		negativeContextTestGroup->addChild(new InvalidNotificationEnumCase	(eglTestCtx, "invalid_notification_strategy_enum",		"Create a robust context using EGL 1.5 only enum with EGL versions <= 1.4" ));
 	}
 
 	shadersTestGroup->addChild(infiniteLoopTestGroup);

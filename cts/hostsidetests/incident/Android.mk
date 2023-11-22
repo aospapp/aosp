@@ -20,7 +20,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 # tag this module as a cts test artifact
 LOCAL_MODULE_TAGS := tests
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 LOCAL_MODULE := CtsIncidentHostTestCases
 

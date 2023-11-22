@@ -49,7 +49,7 @@ class logging_UserCrash(user_crash_test.UserCrashTest):
 
 
     def _test_no_crash(self):
-        """Test a program linked against libcrash_dumper can exit normally."""
+        """Test that the crasher can exit normally."""
         self._log_reader.set_start_by_current()
         result = self._run_crasher_process_and_analyze(username='root',
                                                        cause_crash=False)
@@ -182,7 +182,6 @@ class logging_UserCrash(user_crash_test.UserCrashTest):
                 raise error.TestFail('Expected full logs, got: ' + log_contents)
             self._check_generated_report_sending(result['meta'],
                                                  result['log'],
-                                                 'root',
                                                  result['basename'],
                                                  'log',
                                                  _COLLECTION_ERROR_SIGNATURE)

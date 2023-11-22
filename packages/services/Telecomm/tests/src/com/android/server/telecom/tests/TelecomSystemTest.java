@@ -44,6 +44,7 @@ import android.content.IContentProvider;
 import android.content.Intent;
 import android.media.AudioManager;
 import android.media.IAudioService;
+import android.media.ToneGenerator;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -64,11 +65,10 @@ import com.android.internal.telecom.IInCallAdapter;
 import com.android.server.telecom.AsyncRingtonePlayer;
 import com.android.server.telecom.BluetoothPhoneServiceImpl;
 import com.android.server.telecom.CallAudioManager;
-import com.android.server.telecom.CallAudioRouteStateMachine;
-import com.android.server.telecom.CallerInfoAsyncQueryFactory;
 import com.android.server.telecom.CallerInfoLookupHelper;
 import com.android.server.telecom.CallsManager;
 import com.android.server.telecom.CallsManagerListenerBase;
+import com.android.server.telecom.ClockProxy;
 import com.android.server.telecom.DefaultDialerCache;
 import com.android.server.telecom.HeadsetMediaButton;
 import com.android.server.telecom.HeadsetMediaButtonFactory;
@@ -82,7 +82,6 @@ import com.android.server.telecom.ProximitySensorManager;
 import com.android.server.telecom.ProximitySensorManagerFactory;
 import com.android.server.telecom.TelecomSystem;
 import com.android.server.telecom.Timeouts;
-import com.android.server.telecom.callfiltering.AsyncBlockCheckFilter;
 import com.android.server.telecom.components.UserCallIntentProcessor;
 import com.android.server.telecom.ui.IncomingCallNotifier;
 import com.android.server.telecom.ui.MissedCallNotifierImpl.MissedCallNotifierImplFactory;
@@ -106,6 +105,16 @@ public class TelecomSystemTest extends TelecomTestCase {
 
     static final int TEST_POLL_INTERVAL = 10;  // milliseconds
     static final int TEST_TIMEOUT = 1000;  // milliseconds
+
+    // Purposely keep the connect time (which is wall clock) and elapsed time (which is time since
+    // boot) different to test that wall clock time operations and elapsed time operations perform
+    // as they individually should.
+    static final long TEST_CREATE_TIME = 100;
+    static final long TEST_CREATE_ELAPSED_TIME = 200;
+    static final long TEST_CONNECT_TIME = 1000;
+    static final long TEST_CONNECT_ELAPSED_TIME = 2000;
+    static final long TEST_DISCONNECT_TIME = 8000;
+    static final long TEST_DISCONNECT_ELAPSED_TIME = 4000;
 
     public class HeadsetMediaButtonFactoryF implements HeadsetMediaButtonFactory  {
         @Override
@@ -170,6 +179,21 @@ public class TelecomSystemTest extends TelecomTestCase {
             return mIsEmergencyCall;
         }
     }
+
+    private class IncomingCallAddedListener extends CallsManagerListenerBase {
+
+        private final CountDownLatch mCountDownLatch;
+
+        public IncomingCallAddedListener(CountDownLatch latch) {
+            mCountDownLatch = latch;
+        }
+
+        @Override
+        public void onCallAdded(com.android.server.telecom.Call call) {
+            mCountDownLatch.countDown();
+        }
+    }
+
     PhoneNumberUtilsAdapter mPhoneNumberUtilsAdapter = new EmergencyNumberUtilsAdapter();
 
     @Mock HeadsetMediaButton mHeadsetMediaButton;
@@ -178,6 +202,7 @@ public class TelecomSystemTest extends TelecomTestCase {
     @Mock BluetoothPhoneServiceImpl mBluetoothPhoneServiceImpl;
     @Mock AsyncRingtonePlayer mAsyncRingtonePlayer;
     @Mock IncomingCallNotifier mIncomingCallNotifier;
+    @Mock ClockProxy mClockProxy;
 
     final ComponentName mInCallServiceComponentNameX =
             new ComponentName(
@@ -234,6 +259,16 @@ public class TelecomSystemTest extends TelecomTestCase {
                     .setCapabilities(
                             PhoneAccount.CAPABILITY_CALL_PROVIDER |
                                     PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION)
+                    .build();
+    final PhoneAccount mPhoneAccountSelfManaged =
+            PhoneAccount.builder(
+                    new PhoneAccountHandle(
+                            mConnectionServiceComponentNameA,
+                            "id SM"),
+                    "Phone account service A SM")
+                    .addSupportedUriScheme("tel")
+                    .setCapabilities(
+                            PhoneAccount.CAPABILITY_SELF_MANAGED)
                     .build();
     final PhoneAccount mPhoneAccountB0 =
             PhoneAccount.builder(
@@ -320,6 +355,8 @@ public class TelecomSystemTest extends TelecomTestCase {
         // Finally, register the ConnectionServices with the PhoneAccountRegistrar of the
         // now-running TelecomSystem
         setupConnectionServices();
+
+        waitForHandlerAction(new Handler(Looper.getMainLooper()), TEST_TIMEOUT);
     }
 
     @Override
@@ -375,7 +412,9 @@ public class TelecomSystemTest extends TelecomTestCase {
         when(mTimeoutsAdapter.getCallScreeningTimeoutMillis(any(ContentResolver.class)))
                 .thenReturn(TEST_TIMEOUT / 5L);
         mIncomingCallNotifier = mock(IncomingCallNotifier.class);
-
+        mClockProxy = mock(ClockProxy.class);
+        when(mClockProxy.currentTimeMillis()).thenReturn(TEST_CREATE_TIME);
+        when(mClockProxy.elapsedRealtime()).thenReturn(TEST_CREATE_ELAPSED_TIME);
         mTelecomSystem = new TelecomSystem(
                 mComponentContextFixture.getTestDouble(),
                 new MissedCallNotifierImplFactory() {
@@ -407,7 +446,9 @@ public class TelecomSystemTest extends TelecomTestCase {
                 mTimeoutsAdapter,
                 mAsyncRingtonePlayer,
                 mPhoneNumberUtilsAdapter,
-                mIncomingCallNotifier);
+                mIncomingCallNotifier,
+                (streamType, volume) -> mock(ToneGenerator.class),
+                mClockProxy);
 
         mComponentContextFixture.setTelecomManager(new TelecomManager(
                 mComponentContextFixture.getTestDouble(),
@@ -437,6 +478,7 @@ public class TelecomSystemTest extends TelecomTestCase {
         mTelecomSystem.getPhoneAccountRegistrar().registerPhoneAccount(mPhoneAccountA0);
         mTelecomSystem.getPhoneAccountRegistrar().registerPhoneAccount(mPhoneAccountA1);
         mTelecomSystem.getPhoneAccountRegistrar().registerPhoneAccount(mPhoneAccountA2);
+        mTelecomSystem.getPhoneAccountRegistrar().registerPhoneAccount(mPhoneAccountSelfManaged);
         mTelecomSystem.getPhoneAccountRegistrar().registerPhoneAccount(mPhoneAccountB0);
         mTelecomSystem.getPhoneAccountRegistrar().registerPhoneAccount(mPhoneAccountE0);
         mTelecomSystem.getPhoneAccountRegistrar().registerPhoneAccount(mPhoneAccountE1);
@@ -627,7 +669,8 @@ public class TelecomSystemTest extends TelecomTestCase {
         mCallerInfoAsyncQueryFactoryFixture.mRequests.forEach(
                 CallerInfoAsyncQueryFactoryFixture.Request::reply);
 
-        if (!hasInCallAdapter) {
+        boolean isSelfManaged = phoneAccountHandle == mPhoneAccountSelfManaged.getAccountHandle();
+        if (!hasInCallAdapter && !isSelfManaged) {
             verify(mInCallServiceFixtureX.getTestDouble())
                     .setInCallAdapter(
                             any(IInCallAdapter.class));
@@ -649,27 +692,28 @@ public class TelecomSystemTest extends TelecomTestCase {
         ArgumentCaptor<BroadcastReceiver> newOutgoingCallReceiver =
                 ArgumentCaptor.forClass(BroadcastReceiver.class);
 
-        verify(mComponentContextFixture.getTestDouble().getApplicationContext(),
-                times(mNumOutgoingCallsMade))
-                .sendOrderedBroadcastAsUser(
-                        newOutgoingCallIntent.capture(),
-                        any(UserHandle.class),
-                        anyString(),
-                        anyInt(),
-                        newOutgoingCallReceiver.capture(),
-                        nullable(Handler.class),
-                        anyInt(),
-                        anyString(),
-                        nullable(Bundle.class));
-
-        // Pass on the new outgoing call Intent
-        // Set a dummy PendingResult so the BroadcastReceiver agrees to accept onReceive()
-        newOutgoingCallReceiver.getValue().setPendingResult(
-                new BroadcastReceiver.PendingResult(0, "", null, 0, true, false, null, 0, 0));
-        newOutgoingCallReceiver.getValue().setResultData(
-                newOutgoingCallIntent.getValue().getStringExtra(Intent.EXTRA_PHONE_NUMBER));
-        newOutgoingCallReceiver.getValue().onReceive(mComponentContextFixture.getTestDouble(),
-                newOutgoingCallIntent.getValue());
+        if (phoneAccountHandle != mPhoneAccountSelfManaged.getAccountHandle()) {
+            verify(mComponentContextFixture.getTestDouble().getApplicationContext(),
+                    times(mNumOutgoingCallsMade))
+                    .sendOrderedBroadcastAsUser(
+                            newOutgoingCallIntent.capture(),
+                            any(UserHandle.class),
+                            anyString(),
+                            anyInt(),
+                            newOutgoingCallReceiver.capture(),
+                            nullable(Handler.class),
+                            anyInt(),
+                            anyString(),
+                            nullable(Bundle.class));
+            // Pass on the new outgoing call Intent
+            // Set a dummy PendingResult so the BroadcastReceiver agrees to accept onReceive()
+            newOutgoingCallReceiver.getValue().setPendingResult(
+                    new BroadcastReceiver.PendingResult(0, "", null, 0, true, false, null, 0, 0));
+            newOutgoingCallReceiver.getValue().setResultData(
+                    newOutgoingCallIntent.getValue().getStringExtra(Intent.EXTRA_PHONE_NUMBER));
+            newOutgoingCallReceiver.getValue().onReceive(mComponentContextFixture.getTestDouble(),
+                    newOutgoingCallIntent.getValue());
+        }
 
         return mInCallServiceFixtureX.mLatestCallId;
     }
@@ -716,8 +760,13 @@ public class TelecomSystemTest extends TelecomTestCase {
         verify(connectionServiceFixture.getTestDouble(), timeout(TEST_TIMEOUT))
                 .createConnectionComplete(anyString(), any());
 
-        assertEquals(startingNumCalls + 1, mInCallServiceFixtureX.mCallById.size());
-        assertEquals(startingNumCalls + 1, mInCallServiceFixtureY.mCallById.size());
+        if (phoneAccountHandle == mPhoneAccountSelfManaged.getAccountHandle()) {
+            assertEquals(startingNumCalls, mInCallServiceFixtureX.mCallById.size());
+            assertEquals(startingNumCalls, mInCallServiceFixtureY.mCallById.size());
+        } else {
+            assertEquals(startingNumCalls + 1, mInCallServiceFixtureX.mCallById.size());
+            assertEquals(startingNumCalls + 1, mInCallServiceFixtureY.mCallById.size());
+        }
 
         assertEquals(mInCallServiceFixtureX.mLatestCallId, mInCallServiceFixtureY.mLatestCallId);
 
@@ -749,6 +798,10 @@ public class TelecomSystemTest extends TelecomTestCase {
         final int startingNumCalls = mInCallServiceFixtureX.mCallById.size();
         boolean hasInCallAdapter = mInCallServiceFixtureX.mInCallAdapter != null;
         connectionServiceFixture.mConnectionServiceDelegate.mVideoState = videoState;
+        CountDownLatch incomingCallAddedLatch = new CountDownLatch(1);
+        IncomingCallAddedListener callAddedListener =
+                new IncomingCallAddedListener(incomingCallAddedLatch);
+        mTelecomSystem.getCallsManager().addListener(callAddedListener);
 
         Bundle extras = new Bundle();
         extras.putParcelable(
@@ -773,6 +826,9 @@ public class TelecomSystemTest extends TelecomTestCase {
         mCallerInfoAsyncQueryFactoryFixture.mRequests.forEach(
                 CallerInfoAsyncQueryFactoryFixture.Request::reply);
 
+        //Wait for/Verify call blocking happened asynchronously
+        incomingCallAddedLatch.await(TEST_TIMEOUT, TimeUnit.MILLISECONDS);
+
         IContentProvider blockedNumberProvider =
                 mSpyContext.getContentResolver().acquireProvider(BlockedNumberContract.AUTHORITY);
         verify(blockedNumberProvider, timeout(TEST_TIMEOUT)).call(
@@ -786,57 +842,58 @@ public class TelecomSystemTest extends TelecomTestCase {
         // is added, future interactions as triggered by the ConnectionService, through the various
         // test fixtures, will be synchronous.
 
-        if (!hasInCallAdapter) {
+        if (!hasInCallAdapter
+                && phoneAccountHandle != mPhoneAccountSelfManaged.getAccountHandle()) {
             verify(mInCallServiceFixtureX.getTestDouble(), timeout(TEST_TIMEOUT))
                     .setInCallAdapter(any(IInCallAdapter.class));
             verify(mInCallServiceFixtureY.getTestDouble(), timeout(TEST_TIMEOUT))
                     .setInCallAdapter(any(IInCallAdapter.class));
+
+            // Give the InCallService time to respond
+            assertTrueWithTimeout(new Predicate<Void>() {
+                @Override
+                public boolean apply(Void v) {
+                    return mInCallServiceFixtureX.mInCallAdapter != null;
+                }
+            });
+
+            assertTrueWithTimeout(new Predicate<Void>() {
+                @Override
+                public boolean apply(Void v) {
+                    return mInCallServiceFixtureY.mInCallAdapter != null;
+                }
+            });
+
+            verify(mInCallServiceFixtureX.getTestDouble(), timeout(TEST_TIMEOUT))
+                    .addCall(any(ParcelableCall.class));
+            verify(mInCallServiceFixtureY.getTestDouble(), timeout(TEST_TIMEOUT))
+                    .addCall(any(ParcelableCall.class));
+
+            // Give the InCallService time to respond
+
+            assertTrueWithTimeout(new Predicate<Void>() {
+                @Override
+                public boolean apply(Void v) {
+                    return startingNumConnections + 1 ==
+                            connectionServiceFixture.mConnectionById.size();
+                }
+            });
+            assertTrueWithTimeout(new Predicate<Void>() {
+                @Override
+                public boolean apply(Void v) {
+                    return startingNumCalls + 1 == mInCallServiceFixtureX.mCallById.size();
+                }
+            });
+            assertTrueWithTimeout(new Predicate<Void>() {
+                @Override
+                public boolean apply(Void v) {
+                    return startingNumCalls + 1 == mInCallServiceFixtureY.mCallById.size();
+                }
+            });
+
+            assertEquals(mInCallServiceFixtureX.mLatestCallId,
+                    mInCallServiceFixtureY.mLatestCallId);
         }
-
-        // Give the InCallService time to respond
-
-        assertTrueWithTimeout(new Predicate<Void>() {
-            @Override
-            public boolean apply(Void v) {
-                return mInCallServiceFixtureX.mInCallAdapter != null;
-            }
-        });
-
-        assertTrueWithTimeout(new Predicate<Void>() {
-            @Override
-            public boolean apply(Void v) {
-                return mInCallServiceFixtureY.mInCallAdapter != null;
-            }
-        });
-
-        verify(mInCallServiceFixtureX.getTestDouble(), timeout(TEST_TIMEOUT))
-                .addCall(any(ParcelableCall.class));
-        verify(mInCallServiceFixtureY.getTestDouble(), timeout(TEST_TIMEOUT))
-                .addCall(any(ParcelableCall.class));
-
-        // Give the InCallService time to respond
-
-        assertTrueWithTimeout(new Predicate<Void>() {
-            @Override
-            public boolean apply(Void v) {
-                return startingNumConnections + 1 ==
-                        connectionServiceFixture.mConnectionById.size();
-            }
-        });
-        assertTrueWithTimeout(new Predicate<Void>() {
-            @Override
-            public boolean apply(Void v) {
-                return startingNumCalls + 1 == mInCallServiceFixtureX.mCallById.size();
-            }
-        });
-        assertTrueWithTimeout(new Predicate<Void>() {
-            @Override
-            public boolean apply(Void v) {
-                return startingNumCalls + 1 == mInCallServiceFixtureY.mCallById.size();
-            }
-        });
-
-        assertEquals(mInCallServiceFixtureX.mLatestCallId, mInCallServiceFixtureY.mLatestCallId);
 
         return new IdPair(connectionServiceFixture.mLatestConnectionId,
                 mInCallServiceFixtureX.mLatestCallId);
@@ -860,15 +917,22 @@ public class TelecomSystemTest extends TelecomTestCase {
                 Process.myUserHandle(), videoState);
 
         connectionServiceFixture.sendSetDialing(ids.mConnectionId);
-        assertEquals(Call.STATE_DIALING, mInCallServiceFixtureX.getCall(ids.mCallId).getState());
-        assertEquals(Call.STATE_DIALING, mInCallServiceFixtureY.getCall(ids.mCallId).getState());
+        if (phoneAccountHandle != mPhoneAccountSelfManaged.getAccountHandle()) {
+            assertEquals(Call.STATE_DIALING,
+                    mInCallServiceFixtureX.getCall(ids.mCallId).getState());
+            assertEquals(Call.STATE_DIALING,
+                    mInCallServiceFixtureY.getCall(ids.mCallId).getState());
+        }
 
         connectionServiceFixture.sendSetVideoState(ids.mConnectionId);
 
+        when(mClockProxy.currentTimeMillis()).thenReturn(TEST_CONNECT_TIME);
+        when(mClockProxy.elapsedRealtime()).thenReturn(TEST_CONNECT_ELAPSED_TIME);
         connectionServiceFixture.sendSetActive(ids.mConnectionId);
-        assertEquals(Call.STATE_ACTIVE, mInCallServiceFixtureX.getCall(ids.mCallId).getState());
-        assertEquals(Call.STATE_ACTIVE, mInCallServiceFixtureY.getCall(ids.mCallId).getState());
-
+        if (phoneAccountHandle != mPhoneAccountSelfManaged.getAccountHandle()) {
+            assertEquals(Call.STATE_ACTIVE, mInCallServiceFixtureX.getCall(ids.mCallId).getState());
+            assertEquals(Call.STATE_ACTIVE, mInCallServiceFixtureY.getCall(ids.mCallId).getState());
+        }
         return ids;
     }
 
@@ -888,24 +952,32 @@ public class TelecomSystemTest extends TelecomTestCase {
             int videoState) throws Exception {
         IdPair ids = startIncomingPhoneCall(number, phoneAccountHandle, connectionServiceFixture);
 
-        assertEquals(Call.STATE_RINGING, mInCallServiceFixtureX.getCall(ids.mCallId).getState());
-        assertEquals(Call.STATE_RINGING, mInCallServiceFixtureY.getCall(ids.mCallId).getState());
+        if (phoneAccountHandle != mPhoneAccountSelfManaged.getAccountHandle()) {
+            assertEquals(Call.STATE_RINGING,
+                    mInCallServiceFixtureX.getCall(ids.mCallId).getState());
+            assertEquals(Call.STATE_RINGING,
+                    mInCallServiceFixtureY.getCall(ids.mCallId).getState());
 
-        mInCallServiceFixtureX.mInCallAdapter
-                .answerCall(ids.mCallId, videoState);
+            mInCallServiceFixtureX.mInCallAdapter
+                    .answerCall(ids.mCallId, videoState);
 
-        if (!VideoProfile.isVideo(videoState)) {
-            verify(connectionServiceFixture.getTestDouble())
-                    .answer(eq(ids.mConnectionId), any());
-        } else {
-            verify(connectionServiceFixture.getTestDouble())
-                    .answerVideo(eq(ids.mConnectionId), eq(videoState), any());
+            if (!VideoProfile.isVideo(videoState)) {
+                verify(connectionServiceFixture.getTestDouble())
+                        .answer(eq(ids.mConnectionId), any());
+            } else {
+                verify(connectionServiceFixture.getTestDouble())
+                        .answerVideo(eq(ids.mConnectionId), eq(videoState), any());
+            }
         }
 
+        when(mClockProxy.currentTimeMillis()).thenReturn(TEST_CONNECT_TIME);
+        when(mClockProxy.elapsedRealtime()).thenReturn(TEST_CONNECT_ELAPSED_TIME);
         connectionServiceFixture.sendSetActive(ids.mConnectionId);
-        assertEquals(Call.STATE_ACTIVE, mInCallServiceFixtureX.getCall(ids.mCallId).getState());
-        assertEquals(Call.STATE_ACTIVE, mInCallServiceFixtureY.getCall(ids.mCallId).getState());
 
+        if (phoneAccountHandle != mPhoneAccountSelfManaged.getAccountHandle()) {
+            assertEquals(Call.STATE_ACTIVE, mInCallServiceFixtureX.getCall(ids.mCallId).getState());
+            assertEquals(Call.STATE_ACTIVE, mInCallServiceFixtureY.getCall(ids.mCallId).getState());
+        }
         return ids;
     }
 

@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+syntax = 'proto2';
+
 package com.android.tv.tuner.data;
 
 option java_package = "com.android.tv.tuner.data";
@@ -45,12 +47,15 @@ message TunerChannelProto {
   repeated AtscCaptionTrack caption_tracks = 20;
   optional bool has_caption_track = 21;
   optional AtscServiceType service_type = 22 [default = SERVICE_TYPE_ATSC_DIGITAL_TELEVISION];
+  optional bool recording_prohibited = 23;
+  optional string video_format = 24;
 }
 
 // Enum describing the types of tuner.
 enum TunerType {
   TYPE_TUNER = 0;
   TYPE_FILE = 1;
+  TYPE_NETWORK = 2;
 }
 
 // Enum describing the types of video stream.

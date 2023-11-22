@@ -51,7 +51,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/file.h>
-#include <sys/fcntl.h>
+#include <fcntl.h>
 #include <sys/syscall.h>
 #include <sys/uio.h>
 #include <errno.h>
@@ -84,7 +84,7 @@ static int fd1 = -1;
 */
 int runtest(int fd_r, int fd_w, int iter, off64_t offset, int action)
 {
-	int i, bufsize = BUFSIZE;
+	int i;
 	struct iovec *iov1, *iov2, *iovp;
 
 	/* Allocate for buffers and data pointers */
@@ -155,10 +155,7 @@ int runtest(int fd_r, int fd_w, int iter, off64_t offset, int action)
 	return 0;
 }
 
-/*
- * prg_usage: Display the program usage
-*/
-void prg_usage()
+static void prg_usage(void)
 {
 	fprintf(stderr,
 		"Usage: diotest5 [-b bufsize] [-o offset] [ -i iteration] [ -v nvector] [-f filename]\n");

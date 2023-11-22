@@ -1,5 +1,6 @@
 cc_library_static {
     name: "libLLVMSupport",
+    vendor_available: true,
     defaults: ["llvm-defaults-no-generated-headers"],
     target: {
         // llvm-defaults turns off host builds by default, turn it back on for

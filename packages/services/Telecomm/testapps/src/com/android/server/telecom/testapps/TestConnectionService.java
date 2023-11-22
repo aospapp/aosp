@@ -286,7 +286,6 @@ public class TestConnectionService extends ConnectionService {
             if (rttTextStream != null) {
                 mRttChatbot = new RttChatbot(getApplicationContext(), rttTextStream);
                 mRttChatbot.start();
-                setConnectionProperties(getConnectionProperties() | PROPERTY_IS_RTT);
                 sendRttInitiationSuccess();
             }
         }
@@ -298,7 +297,6 @@ public class TestConnectionService extends ConnectionService {
                 Log.i(this, "Accepting RTT request.");
                 mRttChatbot = new RttChatbot(getApplicationContext(), textStream);
                 mRttChatbot.start();
-                setConnectionProperties(getConnectionProperties() | PROPERTY_IS_RTT);
                 sendRttInitiationSuccess();
             } else {
                 sendRttInitiationFailure(RttModifyStatus.SESSION_MODIFY_REQUEST_FAIL);

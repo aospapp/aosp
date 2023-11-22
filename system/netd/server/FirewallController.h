@@ -17,6 +17,7 @@
 #ifndef _FIREWALL_CONTROLLER_H
 #define _FIREWALL_CONTROLLER_H
 
+#include <set>
 #include <string>
 #include <vector>
 
@@ -56,16 +57,14 @@ public:
 
     /* Match traffic going in/out over the given iface. */
     int setInterfaceRule(const char*, FirewallRule);
-    /* Match traffic coming-in-to or going-out-from given address. */
-    int setEgressSourceRule(const char*, FirewallRule);
-    /* Match traffic coming-in-from or going-out-to given address, port, and protocol. */
-    int setEgressDestRule(const char*, int, int, FirewallRule);
     /* Match traffic owned by given UID. This is specific to a particular chain. */
     int setUidRule(ChildChain, int, FirewallRule);
 
     int enableChildChains(ChildChain, bool);
 
     int replaceUidChain(const char*, bool, const std::vector<int32_t>&);
+
+    static std::string makeCriticalCommands(IptablesTarget target, const char* chainName);
 
     static const char* TABLE;
 
@@ -85,12 +84,11 @@ protected:
     friend class FirewallControllerTest;
     std::string makeUidRules(IptablesTarget target, const char *name, bool isWhitelist,
                              const std::vector<int32_t>& uids);
-    static int (*execIptables)(IptablesTarget target, ...);
-    static int (*execIptablesSilently)(IptablesTarget target, ...);
     static int (*execIptablesRestore)(IptablesTarget target, const std::string& commands);
 
 private:
     FirewallType mFirewallType;
+    std::set<std::string> mIfaceRules;
     int attachChain(const char*, const char*);
     int detachChain(const char*, const char*);
     int createChain(const char*, FirewallType);

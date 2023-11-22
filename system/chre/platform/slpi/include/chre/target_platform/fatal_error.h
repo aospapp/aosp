@@ -14,14 +14,28 @@
  * limitations under the License.
  */
 
-#ifndef CHRE_PLATFORM_LINUX_FATAL_ERROR_H_
-#define CHRE_PLATFORM_LINUX_FATAL_ERROR_H_
+#ifndef CHRE_PLATFORM_SLPI_FATAL_ERROR_H_
+#define CHRE_PLATFORM_SLPI_FATAL_ERROR_H_
 
-// TODO: This is not a good way to abort the task as it kills the entire SLPI.
-// We need to spawn a thread for CHRE to run in and stop that thread here.
+#include "err.h"
 
-#include <cstdlib>
+#include "chre/util/macros.h"
 
-#define FATAL_ERROR_QUIT abort
+#define FATAL_ERROR_QUIT() \
+  ::chre::preFatalError(); \
+  ERR_FATAL("CHRE fatal@" CHRE_FILENAME ":" STRINGIFY(__LINE__), 0, 0, 0)
 
-#endif  // CHRE_PLATFORM_LINUX_FATAL_ERROR_H_
+namespace chre {
+
+/**
+ * Do preparation for an impending fatal error, including flushing pending
+ * messages to the host, etc.
+ *
+ * It must not be possible for FATAL_ERROR() to be called by this function or
+ * any of its callees.
+ */
+void preFatalError();
+
+}  // namespace chre
+
+#endif  // CHRE_PLATFORM_SLPI_FATAL_ERROR_H_

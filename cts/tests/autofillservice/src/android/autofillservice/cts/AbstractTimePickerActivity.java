@@ -154,8 +154,7 @@ abstract class AbstractTimePickerActivity extends AbstractAutoFillActivity {
         private FillExpectation(String output, int hour, int minute) {
             // Output is called twice: by the TimeChangeListener and by auto-fill.
             outputWatcher = new MultipleTimesTextWatcher("output", 2, mOutput, output);
-            // TimePicker listener is called twice, for hour and minute changes.
-            timeListener = new MultipleTimesTimeListener("timePicker", 2, mTimePicker, hour,
+            timeListener = new MultipleTimesTimeListener("timePicker", 1, mTimePicker, hour,
                     minute);
         }
     }

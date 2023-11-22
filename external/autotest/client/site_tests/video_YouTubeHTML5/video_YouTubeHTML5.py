@@ -8,6 +8,7 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros import httpd
 from autotest_lib.client.cros.video import youtube_helper
+from autotest_lib.client.cros.video import helper_logger
 
 
 FLASH_PROCESS_NAME = 'chrome/chrome --type=ppapi'
@@ -64,6 +65,8 @@ class video_YouTubeHTML5(test.test):
         yh.verify_player_states()
 
 
+    @helper_logger.video_log_wrapper
     def run_once(self):
-        with chrome.Chrome() as cr:
+        with chrome.Chrome(
+                extra_browser_args=helper_logger.chrome_vmodule_flag()) as cr:
             self.run_youtube_tests(cr.browser)

@@ -24,67 +24,40 @@
 
 namespace chre {
 
+class Sensor;
+
 /**
- * Provides an interface to obtain a platform-independent description of a
- * sensor. The PlatformSensorBase is subclassed here to allow platforms to
- * inject their own storage for their implementation.
+ * Defines the common interface to sensor functionality that is implemented in a
+ * platform-specific way, and must be supported on every platform.
+ *
+ * @see Sensor
  */
 class PlatformSensor : public PlatformSensorBase,
                        public NonCopyable {
  public:
   /**
-   * Default constructs a PlatformSensor.
-   */
-  PlatformSensor();
-
-  /**
-   * Constructs a PlatformSensor by moving another.
-   *
-   * @param other The PlatformSensor to move.
-   */
-  PlatformSensor(PlatformSensor&& other);
-
-  /**
-   * Destructs the PlatformSensor object.
-   */
-  ~PlatformSensor();
-
-  /**
-   * Initializes the platform sensors subsystem. This must be called as part of
-   * the initialization of the runtime.
+   * Initializes the sensors subsystem. This must be called as part of the
+   * initialization of the runtime.
    */
   static void init();
 
   /**
-   * Obtains a list of the sensors that the platform provides. The supplied
-   * DynamicVector should be empty when passed in. If this method returns false
-   * the vector may be partially filled.
-   *
-   * @param sensors A non-null pointer to a DynamicVector to populate with the
-   *                list of sensors.
-   * @return Returns true if the query was successful.
-   */
-  static bool getSensors(DynamicVector<PlatformSensor> *sensors);
-
-  /*
-   * Deinitializes the platform sensors subsystem. This must be called as part
-   * of the deinitialization of the runtime.
+   * Deinitializes the sensors subsystem, including releasing any outstanding
+   * sensor requests. This must be called as part of the deinitialization of the
+   * runtime.
    */
   static void deinit();
 
   /**
-   * Sends the sensor request to the platform sensor. The implementation
-   * of this method is supplied by the platform. If the request is
-   * invalid/unsupported by this sensor, for example because it requests an
-   * interval that is too short, then this function must return false. If
-   * setting this new request fails due to a transient failure (example:
-   * inability to communicate with the sensor) false must also be returned.
+   * Constructs Sensor objects for every CHRE-supported sensor in the system,
+   * and puts them in the supplied DynamicVector, which should be empty when
+   * passed in. If this method returns false the vector may be partially filled.
    *
-   * @param request The new request to set this sensor to.
-   * @return true if the platform sensor was successfully configured with the
-   *         supplied request.
+   * @param sensors A non-null pointer to a DynamicVector to populate with the
+   *                list of sensors.
+   * @return true if the query was successful.
    */
-  bool setRequest(const SensorRequest& request);
+  static bool getSensors(DynamicVector<Sensor> *sensors);
 
   /**
    * Obtains the SensorType of this platform sensor. The implementation of this
@@ -96,14 +69,15 @@ class PlatformSensor : public PlatformSensorBase,
   SensorType getSensorType() const;
 
   /**
-   * @return The minimum interval in nanoseconds of this sensor.
+   * @return This sensor's minimum supported sampling interval, in nanoseconds.
    */
   uint64_t getMinInterval() const;
 
   /**
-   * Returns the name (type and model) of this sensor.
+   * Returns a descriptive name (e.g. type and model) for this sensor.
    *
-   * @return A pointer to a static string.
+   * @return A pointer to a string with storage duration at least as long as the
+   *         lifetime of this object.
    */
   const char *getSensorName() const;
 
@@ -114,19 +88,46 @@ class PlatformSensor : public PlatformSensorBase,
   ChreSensorData *getLastEvent() const;
 
   /**
-   * Copies the supplied event to the sensor's last event.
+   * Gets the current status of this sensor in the CHRE API format.
    *
-   * @param event The pointer to the event to copy from.
+   * @param status A non-null pointer to chreSensorSamplingStatus to populate
+   * @return true if the sampling status has been successfully obtained.
    */
-  void setLastEvent(const ChreSensorData *event);
+  bool getSamplingStatus(struct chreSensorSamplingStatus *status) const;
+
+ protected:
+  /**
+   * Default constructor that puts this instance in an unspecified state.
+   * Additional platform-specific initialization will likely be necessary to put
+   * this object in a usable state. Do not construct PlatformSensor directly;
+   * instead construct via Sensor.
+   */
+  PlatformSensor() = default;
+
+  PlatformSensor(PlatformSensor&& other);
+  PlatformSensor& operator=(PlatformSensor&& other);
 
   /**
-   * Performs a move-assignment of a PlatformSensor.
-   *
-   * @param other The other PlatformSensor to move.
-   * @return a reference to this object.
+   * Perform any necessary cleanup of resources acquired in PlatformSensorBase.
    */
-  PlatformSensor& operator=(PlatformSensor&& other);
+  ~PlatformSensor();
+
+  /**
+   * Sends the sensor request to the platform sensor. The implementation
+   * of this method is supplied by the platform. If the request is
+   * invalid/unsupported by this sensor, for example because it requests an
+   * interval that is too short, then this function must return false. If
+   * setting this new request fails due to a transient failure (example:
+   * inability to communicate with the sensor) false must also be returned.
+   *
+   * If the request's latency is lower than its interval, the platform sensor
+   * must deliver the first sample to clients as soon as it becomes available.
+   *
+   * @param request The new request to set this sensor to.
+   * @return true if the platform sensor was successfully configured with the
+   *         supplied request.
+   */
+  bool applyRequest(const SensorRequest& request);
 };
 
 }  // namespace chre

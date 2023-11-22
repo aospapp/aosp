@@ -234,12 +234,14 @@ public class FileUtil {
      * Internal helper to determine if 'chmod' is available on the system OS.
      */
     protected static boolean chmodExists() {
-        CommandResult result = RunUtil.getDefault().runTimedCmd(10 * 1000, sChmod);
+        // Silence the scary process exception when chmod is missing, we will log instead.
+        CommandResult result = RunUtil.getDefault().runTimedCmdSilently(10 * 1000, sChmod);
         // We expect a status fail because 'chmod' requires arguments.
         if (CommandStatus.FAILED.equals(result.getStatus()) &&
                 result.getStderr().contains("chmod: missing operand")) {
             return true;
         }
+        CLog.w("Chmod is not supported by this OS.");
         return false;
     }
 
@@ -392,20 +394,52 @@ public class FileUtil {
      * @throws IOException if failed to hardlink file
      */
     public static void hardlinkFile(File origFile, File destFile) throws IOException {
-        if (!origFile.exists()) {
-            throw new IOException(String.format("Cannot hardlink %s. File does not exist",
-                    origFile.getAbsolutePath()));
-        }
         // `ln src dest` will create a hardlink (note: not `ln -s src dest`, which creates symlink)
         // note that this will fail across filesystem boundaries
         // FIXME: should probably just fall back to normal copy if this fails
-        CommandResult result = RunUtil.getDefault().runTimedCmd(10 * 1000, "ln",
-                origFile.getAbsolutePath(), destFile.getAbsolutePath());
+        CommandResult result = linkFile(origFile, destFile, false);
         if (!result.getStatus().equals(CommandStatus.SUCCESS)) {
             throw new IOException(String.format(
                     "Failed to hardlink %s to %s.  Across filesystem boundary?",
                     origFile.getAbsolutePath(), destFile.getAbsolutePath()));
         }
+    }
+
+    /**
+     * A helper method that simlinks a file to another file
+     *
+     * @param origFile the original file
+     * @param destFile the destination file
+     * @throws IOException if failed to simlink file
+     */
+    public static void simlinkFile(File origFile, File destFile) throws IOException {
+        CommandResult res = linkFile(origFile, destFile, true);
+        if (!CommandStatus.SUCCESS.equals(res.getStatus())) {
+            throw new IOException(
+                    String.format(
+                            "Error trying to simlink: %s\nstdout:%s\nstderr:%s",
+                            res.getStatus(), res.getStdout(), res.getStderr()));
+        }
+    }
+
+    private static CommandResult linkFile(File origFile, File destFile, boolean simlink)
+            throws IOException {
+        if (!origFile.exists()) {
+            String link = simlink ? "simlink" : "hardlink";
+            throw new IOException(
+                    String.format(
+                            "Cannot %s %s. File does not exist", link, origFile.getAbsolutePath()));
+        }
+        List<String> cmd = new ArrayList<>();
+        cmd.add("ln");
+        if (simlink) {
+            cmd.add("-s");
+        }
+        cmd.add(origFile.getAbsolutePath());
+        cmd.add(destFile.getAbsolutePath());
+        CommandResult result =
+                RunUtil.getDefault().runTimedCmdSilently(10 * 1000, cmd.toArray(new String[0]));
+        return result;
     }
 
     /**
@@ -429,6 +463,31 @@ public class FileUtil {
                 recursiveHardlink(childFile, destChild);
             } else if (childFile.isFile()) {
                 hardlinkFile(childFile, destChild);
+            }
+        }
+    }
+
+    /**
+     * Recursively simlink folder contents.
+     *
+     * <p>Only supports copying of files and directories - symlinks are not copied. If the
+     * destination directory does not exist, it will be created.
+     *
+     * @param sourceDir the folder that contains the files to copy
+     * @param destDir the destination folder
+     * @throws IOException
+     */
+    public static void recursiveSimlink(File sourceDir, File destDir) throws IOException {
+        if (!destDir.isDirectory() && !destDir.mkdir()) {
+            throw new IOException(
+                    String.format("Could not create directory %s", destDir.getAbsolutePath()));
+        }
+        for (File childFile : sourceDir.listFiles()) {
+            File destChild = new File(destDir, childFile.getName());
+            if (childFile.isDirectory()) {
+                recursiveSimlink(childFile, destChild);
+            } else if (childFile.isFile()) {
+                simlinkFile(childFile, destChild);
             }
         }
     }

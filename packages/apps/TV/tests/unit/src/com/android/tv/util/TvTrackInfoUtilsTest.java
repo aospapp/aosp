@@ -16,13 +16,14 @@
 package com.android.tv.util;
 
 import static com.android.tv.util.TvTrackInfoUtils.getBestTrackInfo;
+import static org.junit.Assert.assertEquals;
 
 import android.media.tv.TvTrackInfo;
 import android.support.test.filters.SmallTest;
 
 import com.android.tv.testing.ComparatorTester;
 
-import junit.framework.TestCase;
+import org.junit.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -33,8 +34,7 @@ import java.util.List;
  * Tests for {@link com.android.tv.util.TvTrackInfoUtils}.
  */
 @SmallTest
-public class TvTrackInfoUtilsTest extends TestCase {
-
+public class TvTrackInfoUtilsTest {
     private static final String UN_MATCHED_ID = "no matching ID";
 
     private static final TvTrackInfo INFO_1_EN_1 = create("1", "en", 1);
@@ -59,46 +59,55 @@ public class TvTrackInfoUtilsTest extends TestCase {
     private static final List<TvTrackInfo> NULL_LANGUAGE_TRACKS = Arrays.asList(INFO_4_NULL_2,
             INFO_5_NULL_6);
 
+    @Test
     public void testGetBestTrackInfo_empty() {
         TvTrackInfo result = getBestTrackInfo(Collections.emptyList(), UN_MATCHED_ID, "en", 1);
         assertEquals("best track ", null, result);
     }
 
+    @Test
     public void testGetBestTrackInfo_exactMatch() {
         TvTrackInfo result = getBestTrackInfo(ALL, "1", "en", 1);
         assertEquals("best track ", INFO_1_EN_1, result);
     }
 
+    @Test
     public void testGetBestTrackInfo_langAndChannelCountMatch() {
         TvTrackInfo result = getBestTrackInfo(ALL, UN_MATCHED_ID, "en", 5);
         assertEquals("best track ", INFO_2_EN_5, result);
     }
 
+    @Test
     public void testGetBestTrackInfo_languageOnlyMatch() {
         TvTrackInfo result = getBestTrackInfo(ALL, UN_MATCHED_ID, "fr", 1);
         assertEquals("best track ", INFO_3_FR_8, result);
     }
 
+    @Test
     public void testGetBestTrackInfo_channelCountOnlyMatchWithNullLanguage() {
         TvTrackInfo result = getBestTrackInfo(ALL, UN_MATCHED_ID, null, 8);
         assertEquals("best track ", INFO_3_FR_8, result);
     }
 
+    @Test
     public void testGetBestTrackInfo_noMatches() {
         TvTrackInfo result = getBestTrackInfo(ALL, UN_MATCHED_ID, "kr", 1);
         assertEquals("best track ", INFO_1_EN_1, result);
     }
 
+    @Test
     public void testGetBestTrackInfo_noMatchesWithNullLanguage() {
         TvTrackInfo result = getBestTrackInfo(ALL, UN_MATCHED_ID, null, 0);
         assertEquals("best track ", INFO_1_EN_1, result);
     }
 
+    @Test
     public void testGetBestTrackInfo_channelCountAndIdMatch() {
         TvTrackInfo result = getBestTrackInfo(NULL_LANGUAGE_TRACKS, "5", null, 6);
         assertEquals("best track ", INFO_5_NULL_6, result);
     }
 
+    @Test
     public void testComparator() {
         Comparator<TvTrackInfo> comparator = TvTrackInfoUtils.createComparator("1", "en", 1);
         ComparatorTester.withoutEqualsTest(comparator)

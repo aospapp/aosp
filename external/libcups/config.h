@@ -58,5 +58,6 @@
 #define HAVE_POLL 1
 #define CUPS_RAND() random()
 #define CUPS_SRAND(v) srandom(v)
+#define HAVE_SSL 1
 
 #endif /* !_CUPS_CONFIG_H_ */

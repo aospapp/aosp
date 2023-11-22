@@ -62,6 +62,15 @@ void joinRpcThreadpool();
 bool setMinSchedulerPolicy(const sp<::android::hidl::base::V1_0::IBase>& service,
                            int policy, int priority);
 
+template <typename ILeft, typename IRight>
+bool interfacesEqual(sp<ILeft> left, sp<IRight> right) {
+    if (left == nullptr || right == nullptr || !left->isRemote() || !right->isRemote()) {
+        return left == right;
+    }
+
+    return toBinder<ILeft>(left) == toBinder<IRight>(right);
+}
+
 namespace details {
 
 // cast the interface IParent to IChild.
@@ -72,8 +81,8 @@ namespace details {
 // 3. !emitError, calling into parent fails.
 // Return an error Return object if:
 // 1. emitError, calling into parent fails.
-template<typename IChild, typename IParent, typename BpChild, typename BpParent>
-Return<sp<IChild>> castInterface(sp<IParent> parent, const char *childIndicator, bool emitError) {
+template <typename IChild, typename IParent, typename BpChild>
+Return<sp<IChild>> castInterface(sp<IParent> parent, const char* childIndicator, bool emitError) {
     if (parent.get() == nullptr) {
         // casts always succeed with nullptrs.
         return nullptr;
@@ -92,7 +101,7 @@ Return<sp<IChild>> castInterface(sp<IParent> parent, const char *childIndicator,
     // TODO b/32001926 Needs to be fixed for socket mode.
     if (parent->isRemote()) {
         // binderized mode. Got BpChild. grab the remote and wrap it.
-        return sp<IChild>(new BpChild(toBinder<IParent, BpParent>(parent)));
+        return sp<IChild>(new BpChild(toBinder<IParent>(parent)));
     }
     // Passthrough mode. Got BnChild and BsChild.
     return sp<IChild>(static_cast<IChild *>(parent.get()));

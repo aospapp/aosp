@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -18,6 +18,7 @@ import static org.junit.Assert.assertTrue;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.objectweb.asm.Opcodes;
 
 /**
  * Unit tests for {@link ProbeCounter}.
@@ -46,6 +47,12 @@ public class ProbeCounterTest {
 	@Test
 	public void testVisitClinitMethod() {
 		assertNull(counter.visitMethod(0, "<clinit>", null, null, null));
+		assertFalse(counter.hasMethods());
+	}
+
+	@Test
+	public void testVisitAbstractMethod() {
+		counter.visitMethod(Opcodes.ACC_ABSTRACT, "foo", null, null, null);
 		assertFalse(counter.hasMethods());
 	}
 

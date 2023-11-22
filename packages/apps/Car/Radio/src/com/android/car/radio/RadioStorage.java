@@ -29,6 +29,7 @@ import com.android.car.radio.demo.DemoRadioStations;
 import com.android.car.radio.demo.RadioDemo;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -169,7 +170,7 @@ public class RadioStorage {
      * Convenience method for checking if a specific channel is a preset. This method will assume
      * the subchannel is 0.
      *
-     * @see {@link #isPreset(RadioStation)}
+     * @see #isPreset(RadioStation)
      * @return {@code true} if the channel is a user saved preset.
      */
     public boolean isPreset(int channel, int radioBand) {
@@ -202,7 +203,7 @@ public class RadioStorage {
      * <p>Upon a successful store, the presets list will be refreshed via a call to
      * {@link #refreshPresets()}.
      *
-     * @see {@link #refreshPresets()}
+     * @see #refreshPresets()
      */
     public void storePreset(RadioStation preset) {
         if (preset == null) {
@@ -218,7 +219,7 @@ public class RadioStorage {
      * <p>Upon a successful removal, the presets list will be refreshed via a call to
      * {@link #refreshPresets()}.
      *
-     * @see {@link #refreshPresets()}
+     * @see #refreshPresets()
      */
     public void removePreset(RadioStation preset) {
         if (preset == null) {
@@ -313,7 +314,10 @@ public class RadioStorage {
             return;
         }
 
-        new StorePreScannedAsyncTask(radioBand).execute(stations);
+        // Converting to an array rather than passing a List to the execute to avoid any potential
+        // heap pollution via AsyncTask's varargs.
+        new StorePreScannedAsyncTask(radioBand).execute(
+                stations.toArray(new RadioStation[stations.size()]));
     }
 
     /**
@@ -452,7 +456,7 @@ public class RadioStorage {
      * {@link AsyncTask} that will store a list of pre-scanned {@link RadioStation}s that is passed
      * to its {@link AsyncTask#execute(Object[])}.
      */
-    private class StorePreScannedAsyncTask extends AsyncTask<List<RadioStation>, Void, Boolean> {
+    private class StorePreScannedAsyncTask extends AsyncTask<RadioStation, Void, Boolean> {
         private static final String TAG = "Em.StorePreScannedAT";
         private final int mRadioBand;
 
@@ -461,10 +465,9 @@ public class RadioStorage {
         }
 
         @Override
-        protected Boolean doInBackground(List<RadioStation> ... stationsList) {
-            List<RadioStation> stations = stationsList[0];
-
-            boolean result = sRadioDatabase.insertPreScannedStations(mRadioBand, stations);
+        protected Boolean doInBackground(RadioStation... radioStations) {
+            boolean result = sRadioDatabase.insertPreScannedStations(mRadioBand,
+                    Arrays.asList(radioStations));
 
             if (Log.isLoggable(TAG, Log.DEBUG)) {
                 Log.d(TAG, "Store pre-scanned stations success: " + result);

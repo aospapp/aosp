@@ -17,7 +17,6 @@
 #ifndef _NAT_CONTROLLER_H
 #define _NAT_CONTROLLER_H
 
-#include <linux/in.h>
 #include <list>
 #include <string>
 
@@ -44,7 +43,8 @@ public:
 private:
     int natCount;
 
-    bool checkTetherCountingRuleExist(const char *pair_name);
+    static std::string makeTetherCountingRule(const char *if1, const char *if2);
+    bool checkTetherCountingRuleExist(const std::string& pair_name);
 
     int setDefaults();
     int runCmd(int argc, const char **argv);

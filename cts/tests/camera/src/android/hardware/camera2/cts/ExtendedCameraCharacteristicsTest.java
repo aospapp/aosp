@@ -36,12 +36,15 @@ import android.util.Log;
 import android.util.Rational;
 import android.util.Range;
 import android.util.Size;
+import android.util.Patterns;
 import android.view.Surface;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static android.hardware.camera2.cts.helpers.AssertHelpers.*;
 
@@ -53,7 +56,6 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
 
     private static final String PREFIX_ANDROID = "android";
-    private static final String PREFIX_VENDOR = "com";
 
     /*
      * Constants for static RAW metadata.
@@ -1420,15 +1422,12 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
     }
 
     /**
-     * The key name has a prefix of either "android." or "com."; other prefixes are not valid.
+     * The key name has a prefix of either "android." or a valid TLD; other prefixes are not valid.
      */
     private static void assertKeyPrefixValid(String keyName) {
-        assertStartsWithAnyOf(
+        assertStartsWithAndroidOrTLD(
                 "All metadata keys must start with 'android.' (built-in keys) " +
-                "or 'com.' (vendor-extended keys)", new String[] {
-                        PREFIX_ANDROID + ".",
-                        PREFIX_VENDOR + ".",
-                }, keyName);
+                "or valid TLD (vendor-extended keys)", keyName);
     }
 
     private static void assertTrueForKey(String msg, CameraCharacteristics.Key<?> key,
@@ -1447,15 +1446,21 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
                 msg, Arrays.toString(expected), actual));
     }
 
-    private static <T> void assertStartsWithAnyOf(String msg, String[] expected, String actual) {
-        for (int i = 0; i < expected.length; ++i) {
-            if (actual.startsWith(expected[i])) {
+    private static <T> void assertStartsWithAndroidOrTLD(String msg, String keyName) {
+        String delimiter = ".";
+        if (keyName.startsWith(PREFIX_ANDROID + delimiter)) {
+            return;
+        }
+        Pattern tldPattern = Pattern.compile(Patterns.TOP_LEVEL_DOMAIN_STR);
+        Matcher match = tldPattern.matcher(keyName);
+        if (match.find(0) && (0 == match.start()) && (!match.hitEnd())) {
+            if (keyName.regionMatches(match.end(), delimiter, 0, delimiter.length())) {
                 return;
             }
         }
 
-        fail(String.format("%s: (expected to start with any of %s, but value was %s)",
-                msg, Arrays.toString(expected), actual));
+        fail(String.format("%s: (expected to start with %s or valid TLD, but value was %s)",
+                msg, PREFIX_ANDROID + delimiter, keyName));
     }
 
     /** Return a positive int if left > right, 0 if left==right, negative int if left < right */

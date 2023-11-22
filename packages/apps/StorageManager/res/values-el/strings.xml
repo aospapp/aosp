@@ -55,9 +55,12 @@
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"Ενεργοποίηση"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"Αντίγραφα ασφαλείας φωτογραφιών και βίντεο"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"Εύρεση στοιχείων…"</string>
+    <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"Εμφάνιση όλων των στοιχείων"</string>
+    <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"Απόκρυψη πρόσφατων στοιχείων"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="386144597646356521">"<xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> θα καταργηθούν από τη συσκευή σας"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"Στο εξής, γίνεται διαχείριση του αποθηκευτικού σας χώρου από το διαχειριστή αποθηκευτικού χώρου"</string>
-    <string name="empty_state_title" msgid="4033285438176545309">"Κανένα στοιχείο για κατάργηση"</string>
+    <string name="empty_state_title" msgid="4033285438176545309">"Τίποτα για κατάργηση"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"Έλεγχος πρόσφατων στοιχείων"</string>
     <string name="empty_state_summary" msgid="8439893007424243790">"Δεν υπάρχουν παλαιότερα αρχεία για κατάργηση. Για να δημιουργήσετε χώρο, καταργήστε πρόσφατες φωτογραφίες, βίντεο και εφαρμογές."</string>
+    <string name="app_requesting_space" msgid="857425181289960167">"Η εφαρμογή <xliff:g id="APP">%1$s</xliff:g> χρειάζεται <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> αποθηκευτικού χώρου"</string>
 </resources>

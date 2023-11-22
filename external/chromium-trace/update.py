@@ -1,9 +1,25 @@
 #!/usr/bin/env python
 
-import codecs, httplib, json, optparse, os, urllib, shutil, subprocess, sys
+import optparse
+import os
+import shutil
+import subprocess
+import sys
 
 upstream_git = 'https://github.com/catapult-project/catapult.git'
-PACKAGE_DIRS = ['common', 'dependency_manager', 'devil', 'systrace', 'telemetry']
+PACKAGE_DIRS = [
+    'common',
+    'dependency_manager',
+    'devil',
+    'systrace',
+    'third_party/pyserial',
+    'third_party/zipfile',
+    'tracing/tracing/trace_data',
+]
+PACKAGE_FILES = [
+    'tracing/tracing/__init__.py',
+    'tracing/tracing_project.py',
+]
 IGNORE_PATTERNS = ['OWNERS'] # doesn't make sense to sync owners files
 
 script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
@@ -17,7 +33,7 @@ parser.add_option('--no-min', dest='no_min', default=False, action='store_true',
                   help='skip minification')
 options, args = parser.parse_args()
 
-# Update the source if needed.
+## Update the source if needed.
 if options.local_dir is None:
   # Remove the old source tree.
   shutil.rmtree(catapult_src_dir, True)
@@ -51,15 +67,28 @@ else:
   catapult_src_dir = options.local_dir
 
 
-# Update systrace_trace_viewer.html
+## Update systrace_trace_viewer.html
 systrace_dir = os.path.join(catapult_src_dir, 'systrace', 'systrace')
 sys.path.append(systrace_dir)
 import update_systrace_trace_viewer
 update_systrace_trace_viewer.update(no_auto_update=True, no_min=options.no_min)
 
-# Package the result
+## Package the result
 shutil.rmtree(catapult_dst_dir)
+
 for d in PACKAGE_DIRS:
-  shutil.copytree(os.path.join(catapult_src_dir, d),
-                  os.path.join(catapult_dst_dir, d),
-                  ignore=shutil.ignore_patterns(*IGNORE_PATTERNS))
+  src = os.path.join(catapult_src_dir, d)
+  dst = os.path.join(catapult_dst_dir, d)
+
+  # make parent dir by creating dst + ancestors, and deleting dst
+  if not os.path.isdir(dst):
+    os.makedirs(dst)
+  shutil.rmtree(dst)
+
+  # copy tree
+  shutil.copytree(src, dst, ignore=shutil.ignore_patterns(*IGNORE_PATTERNS))
+
+for f in PACKAGE_FILES:
+  src = os.path.join(catapult_src_dir, f)
+  dst = os.path.join(catapult_dst_dir, f)
+  shutil.copy(src, dst)

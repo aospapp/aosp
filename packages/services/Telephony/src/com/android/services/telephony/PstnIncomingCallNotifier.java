@@ -16,10 +16,6 @@
 
 package com.android.services.telephony;
 
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.net.Uri;
 import android.os.AsyncResult;
 import android.os.Bundle;
@@ -34,13 +30,9 @@ import android.text.TextUtils;
 import com.android.internal.telephony.Call;
 import com.android.internal.telephony.CallStateException;
 import com.android.internal.telephony.Connection;
-import com.android.internal.telephony.DriverCall;
-import com.android.internal.telephony.GsmCdmaCallTracker;
-import com.android.internal.telephony.GsmCdmaConnection;
 import com.android.internal.telephony.GsmCdmaPhone;
 import com.android.internal.telephony.Phone;
-import com.android.internal.telephony.TelephonyComponentFactory;
-import com.android.internal.telephony.TelephonyIntents;
+import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.cdma.CdmaCallWaitingNotification;
 import com.android.internal.telephony.imsphone.ImsExternalCallTracker;
 import com.android.internal.telephony.imsphone.ImsExternalConnection;
@@ -149,8 +141,24 @@ final class PstnIncomingCallNotifier {
             Connection connection = call.getLatestConnection();
             if (connection != null) {
                 String number = connection.getAddress();
-                if (number != null && Objects.equals(number, ccwi.number)) {
+                int presentation = connection.getNumberPresentation();
+
+                if (presentation != PhoneConstants.PRESENTATION_ALLOWED
+                        && presentation == ccwi.numberPresentation) {
+                    // Presentation of number not allowed, but the presentation of the Connection
+                    // and the call waiting presentation match.
+                    Log.i(this, "handleCdmaCallWaiting: inform telecom of waiting call; "
+                                    + "presentation = %d", presentation);
                     sendIncomingCallIntent(connection);
+                } else if (!TextUtils.isEmpty(number) && Objects.equals(number, ccwi.number)) {
+                    // Presentation of the number is allowed, so we ensure the number matches the
+                    // one in the call waiting information.
+                    Log.i(this, "handleCdmaCallWaiting: inform telecom of waiting call; "
+                            + "number = %s", Log.pii(number));
+                    sendIncomingCallIntent(connection);
+                } else {
+                    Log.w(this, "handleCdmaCallWaiting: presentation or number do not match, not"
+                            + " informing telecom of call: %s", ccwi);
                 }
             }
         }
@@ -324,6 +332,23 @@ final class PstnIncomingCallNotifier {
             }
 
             telephonyConnection.setOriginalConnection(unknown);
+
+            // Do not call hang up if the original connection is an ImsExternalConnection, it is
+            // not supported.
+            if (original instanceof ImsExternalConnection) {
+                return true;
+            }
+            // If the connection we're replacing was a GSM or CDMA connection, call upon the call
+            // tracker to perform cleanup of calls.  This ensures that we don't end up with a
+            // call stuck in the call tracker preventing other calls from being placed.
+            if (original.getCall() != null && original.getCall().getPhone() != null &&
+                    original.getCall().getPhone() instanceof GsmCdmaPhone) {
+
+                GsmCdmaPhone phone = (GsmCdmaPhone) original.getCall().getPhone();
+                phone.getCallTracker().cleanupCalls();
+                Log.i(this, "maybeSwapWithUnknownConnection - Invoking call tracker cleanup "
+                        + "for connection: " + original);
+            }
             return true;
         }
         return false;

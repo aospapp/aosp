@@ -449,6 +449,19 @@ public class StubDevice implements IDevice {
         throw new IOException("stub");
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public void executeShellCommand(
+            String command,
+            IShellOutputReceiver receiver,
+            long maxTimeout,
+            long maxTimeToOutputResponse,
+            TimeUnit maxTimeUnits)
+            throws TimeoutException, AdbCommandRejectedException, ShellCommandUnresponsiveException,
+                    IOException {
+        throw new IOException("stub");
+    }
+
     /**
      * {@inheritDoc}
      */

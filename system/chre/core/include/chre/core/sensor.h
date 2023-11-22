@@ -23,31 +23,39 @@
 
 namespace chre {
 
-class Sensor : public NonCopyable {
+/**
+ * Represents a sensor in the system that is exposed to nanoapps in CHRE.
+ *
+ * Note that like chre::Nanoapp, this class uses inheritance to separate the
+ * common code (Sensor) from common interface with platform-specific
+ * implementation (PlatformSensor) from the fully platform-specific part
+ * (PlatformSensorBase). However, this inheritance relationship does *not* imply
+ * polymorphism, and this object must only be referred to via the most-derived
+ * type, i.e. chre::Sensor.
+ */
+class Sensor : public PlatformSensor {
  public:
   /**
-   * Default constructs a Sensor with an unknown sensor type.
-   */
-  Sensor();
-
-  /**
-   * Constructs a Sensor by moving a PlatformSensor.
+   * Constructs a sensor in an unspecified state. Should not be called directly
+   * by common code, as platform-specific initialization of the Sensor object is
+   * required for it to be usable.
    *
-   * @param platformSensor The platform implementation of this Sensor.
+   * @see PlatformSensor::getSensors
    */
-  Sensor(PlatformSensor&& platformSensor);
+  Sensor() = default;
+
+  Sensor(Sensor&& other) = default;
+  Sensor& operator=(Sensor&& other) = default;
 
   /**
-   * @return The type of this sensor.
+   * Obtains a reference to the latest request that has been accepted by the
+   * platform.
+   *
+   * @return A const reference to the SensorRequest.
    */
-  SensorType getSensorType() const;
-
-  /**
-   * @return true if this Sensor instance has an instance of the underlying
-   * PlatformSensor. This is useful to determine if this sensor is supplied by
-   * the platform.
-   */
-  bool isValid() const;
+  const SensorRequest& getRequest() const {
+    return mSensorRequest;
+  }
 
   /**
    * Sets the current request of this sensor. If this request is a change from
@@ -60,46 +68,9 @@ class Sensor : public NonCopyable {
    */
   bool setRequest(const SensorRequest& request);
 
-  /**
-   * Performs a move-assignment of a Sensor.
-   *
-   * @param other The other sensor to move.
-   * @return a reference to this object.
-   */
-  Sensor& operator=(Sensor&& other);
-
-  /**
-   * @return The minimal interval in nanoseconds of this sensor.
-   */
-  uint64_t getMinInterval() const;
-
-  /**
-   * @return The name (type and model) of this sensor.
-   */
-  const char *getSensorName() const;
-
-  /**
-   * @return Pointer to this sensor's last event. It returns a nullptr if the
-   * the platform doesn't provide it or the last data event is invalid.
-   */
-  ChreSensorData *getLastEvent() const;
-
-  /**
-   * Copies the supplied event to the sensor's last event.
-   *
-   * @param event The pointer to the event to copy from.
-   */
-  void setLastEvent(const ChreSensorData *event);
-
  private:
-  //! The most recent sensor request sent to this sensor.
+  //! The most recent sensor request accepted by the platform.
   SensorRequest mSensorRequest;
-
-  //! The validity of this sensor's last event.
-  bool mLastEventValid = false;
-
-  //! The underlying platform sensor that is managed by this common interface.
-  Optional<PlatformSensor> mPlatformSensor;
 };
 
 }  // namespace chre

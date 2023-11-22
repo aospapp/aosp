@@ -20,8 +20,6 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-#define GKI_DEBUG FALSE
-
 #include <pthread.h> /* must be 1st header defined  */
 #include <time.h>
 #include "bt_trace.h"
@@ -70,12 +68,6 @@ static pthread_cond_t   gki_timer_update_cond;
 static pthread_t timer_thread_id = 0;
 #endif
 
-/* For Android */
-
-#ifndef GKI_SHUTDOWN_EVT
-#define GKI_SHUTDOWN_EVT APPL_EVT_7
-#endif
-
 typedef struct {
   uint8_t task_id;         /* GKI task id */
   TASKPTR task_entry;      /* Task entry function*/
@@ -109,7 +101,7 @@ void gki_task_entry(uintptr_t params) {
   GKI_TRACE_ERROR_1("gki_task task_id=%i terminating", p_pthread_info->task_id);
   gki_cb.os.thread_id[p_pthread_info->task_id] = 0;
 
-  pthread_exit(0); /* GKI tasks have no return value */
+  return;
 }
 /* end android */
 
@@ -156,9 +148,6 @@ void GKI_init(void) {
   p_os = &gki_cb.os;
   pthread_mutex_init(&p_os->GKI_mutex, &attr);
 /* pthread_mutex_init(&GKI_sched_mutex, NULL); */
-#if (GKI_DEBUG == TRUE)
-  pthread_mutex_init(&p_os->GKI_trace_mutex, NULL);
-#endif
   /* pthread_mutex_init(&thread_delay_mutex, NULL); */ /* used in GKI_delay */
   /* pthread_cond_init (&thread_delay_cond, NULL); */
 
@@ -350,9 +339,6 @@ void GKI_shutdown(void) {
   /* Destroy mutex and condition variable objects */
   pthread_mutex_destroy(&gki_cb.os.GKI_mutex);
 /*    pthread_mutex_destroy(&GKI_sched_mutex); */
-#if (GKI_DEBUG == TRUE)
-  pthread_mutex_destroy(&gki_cb.os.GKI_trace_mutex);
-#endif
 /*    pthread_mutex_destroy(&thread_delay_mutex);
  pthread_cond_destroy (&thread_delay_cond); */
 #if (FALSE == GKI_PTHREAD_JOINABLE)
@@ -451,7 +437,7 @@ void timer_thread(signed long id) {
     GKI_timer_update(1);
   }
   GKI_TRACE_ERROR_1("%s exit", __func__);
-  pthread_exit(NULL);
+  return;
 }
 #endif
 
@@ -602,8 +588,7 @@ uint16_t GKI_wait(uint16_t flag, uint32_t timeout) {
   if (rtask >= GKI_MAX_TASKS) {
     GKI_TRACE_ERROR_3("%s() Exiting thread; rtask %d >= %d", __func__, rtask,
                       GKI_MAX_TASKS);
-    pthread_exit(NULL);
-    return 0;
+    return EVENT_MASK(GKI_SHUTDOWN_EVT);
   }
 
   gki_pthread_info_t* p_pthread_info = &gki_pthread_info[rtask];
@@ -692,7 +677,6 @@ uint16_t GKI_wait(uint16_t flag, uint32_t timeout) {
       GKI_TRACE_ERROR_1("GKI TASK_DEAD received. exit thread %d...", rtask);
 
       gki_cb.os.thread_id[rtask] = 0;
-      pthread_exit(NULL);
       return (EVENT_MASK(GKI_SHUTDOWN_EVT));
     }
   }
@@ -951,21 +935,6 @@ void GKI_exception(uint16_t code, char* msg) {
   GKI_TRACE_ERROR_2("* GKI_exception(): %d %s", code, msg);
   GKI_TRACE_ERROR_0(
       "********************************************************************");
-
-#if (GKI_DEBUG == TRUE)
-  GKI_disable();
-
-  if (gki_cb.com.ExceptionCnt < GKI_MAX_EXCEPTION) {
-    EXCEPTION_T* pExp;
-
-    pExp = &gki_cb.com.Exception[gki_cb.com.ExceptionCnt++];
-    pExp->type = code;
-    pExp->taskid = GKI_get_taskid();
-    strncpy((char*)pExp->msg, msg, GKI_MAX_EXCEPTION_MSGLEN - 1);
-  }
-
-  GKI_enable();
-#endif
 
   GKI_TRACE_ERROR_2("GKI_exception %d %s done", code, msg);
 

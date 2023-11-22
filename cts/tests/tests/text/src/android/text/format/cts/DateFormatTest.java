@@ -26,6 +26,7 @@ import android.app.UiAutomation;
 import android.content.Context;
 import android.os.ParcelFileDescriptor;
 import android.provider.Settings;
+import android.support.annotation.NonNull;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.LargeTest;
 import android.support.test.runner.AndroidJUnit4;
@@ -67,13 +68,13 @@ public class DateFormatTest {
 
     private Context mContext;
 
-    private boolean mIs24HourFormat;
+    private String mDefaultTimeFormat;
     private Locale mDefaultLocale;
 
     @Before
-    public void setup() {
+    public void setup() throws Exception {
         mContext = InstrumentationRegistry.getTargetContext();
-        mIs24HourFormat = DateFormat.is24HourFormat(mContext);
+        mDefaultTimeFormat = getTimeFormat();
         mDefaultLocale = Locale.getDefault();
 
         enableAppOps();
@@ -81,8 +82,8 @@ public class DateFormatTest {
 
     @After
     public void teardown() throws Exception {
-        if (!mIs24HourFormat) {
-            setTimeFormat(TIME_FORMAT_12);
+        if (!getTimeFormat().equals(mDefaultTimeFormat)) {
+            setTimeFormat(mDefaultTimeFormat);
         }
         if ((mDefaultLocale != null) && !Locale.getDefault().equals(mDefaultLocale)) {
             Locale.setDefault(mDefaultLocale);
@@ -311,8 +312,19 @@ public class DateFormatTest {
         }
     }
 
-    private void setTimeFormat(String timeFormat) throws IOException {
-        SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(),
-                "settings put system " + Settings.System.TIME_12_24 + " " + timeFormat);
+    @NonNull
+    private String getTimeFormat() throws IOException {
+        return SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(),
+                "settings get system " + Settings.System.TIME_12_24).trim();
+    }
+
+    private void setTimeFormat(@NonNull String timeFormat) throws IOException {
+        if ("null".equals(timeFormat)) {
+            SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(),
+                    "settings delete system " + Settings.System.TIME_12_24);
+        } else {
+            SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(),
+                    "settings put system " + Settings.System.TIME_12_24 + " " + timeFormat);
+        }
     }
 }

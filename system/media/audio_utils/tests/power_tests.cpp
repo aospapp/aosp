@@ -66,18 +66,24 @@ void testFloatValue(float f_value, size_t length) {
         p24_ary[i] = p24_value;
     }
 
-    EXPECT_EQ(power,
-            audio_utils_compute_power_mono(f_ary, AUDIO_FORMAT_PCM_FLOAT, length));
-    EXPECT_EQ(power,
-            audio_utils_compute_power_mono(u8_ary, AUDIO_FORMAT_PCM_8_BIT, length));
-    EXPECT_EQ(power,
-            audio_utils_compute_power_mono(i16_ary, AUDIO_FORMAT_PCM_16_BIT, length));
-    EXPECT_EQ(power,
-            audio_utils_compute_power_mono(i32_ary, AUDIO_FORMAT_PCM_32_BIT, length));
-    EXPECT_EQ(power,
-            audio_utils_compute_power_mono(q8_23_ary, AUDIO_FORMAT_PCM_8_24_BIT, length));
-    EXPECT_EQ(power,
-            audio_utils_compute_power_mono(p24_ary, AUDIO_FORMAT_PCM_24_BIT_PACKED, length));
+    // check offset by 1, 2, 3 elements for unaligned NEON vector handling.
+    for (size_t i = 0; i < 3; ++i) {
+        if (i >= length) break;
+        EXPECT_EQ(power,
+                audio_utils_compute_power_mono(f_ary + i, AUDIO_FORMAT_PCM_FLOAT, length - i));
+        EXPECT_EQ(power,
+                audio_utils_compute_power_mono(u8_ary + i, AUDIO_FORMAT_PCM_8_BIT, length - i));
+        EXPECT_EQ(power,
+                audio_utils_compute_power_mono(i16_ary + i, AUDIO_FORMAT_PCM_16_BIT, length - i));
+        EXPECT_EQ(power,
+                audio_utils_compute_power_mono(i32_ary + i, AUDIO_FORMAT_PCM_32_BIT, length - i));
+        EXPECT_EQ(power,
+                audio_utils_compute_power_mono(
+                        q8_23_ary + i, AUDIO_FORMAT_PCM_8_24_BIT, length - i));
+        EXPECT_EQ(power,
+                audio_utils_compute_power_mono(
+                        p24_ary + i, AUDIO_FORMAT_PCM_24_BIT_PACKED, length - i));
+    }
 }
 
 void testFloatRamp(size_t length) {

@@ -48,7 +48,7 @@ static int extract_name(HEADER *header, size_t plen, unsigned char **pp,
 	/* end marker */
 	{
 	  /* check that there are the correct no of bytes after the name */
-	  if (!CHECK_LEN(header, p, plen, extrabytes))
+	  if (!CHECK_LEN(header, p1 ? p1 : p, plen, extrabytes))
 	    return 0;
 	  
 	  if (isExtract)
@@ -1142,6 +1142,9 @@ size_t answer_request(HEADER *header, char *limit, size_t qlen,
   struct crec *crecp;
   int nxdomain = 0, auth = 1, trunc = 0;
   struct mx_srv_record *rec;
+
+  // Make sure we do not underflow here too.
+  if (qlen > (size_t)(limit - ((char *)header))) return 0;
  
   /* If there is an RFC2671 pseudoheader then it will be overwritten by
      partial replies, so we have to do a dry run to see if we can answer

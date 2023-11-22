@@ -55,6 +55,7 @@ public class BluetoothUtils {
     public static final String BTSNOOP_CMD = "setprop persist.bluetooth.btsnoopenable ";
     public static final String BTSNOOP_ENABLE_CMD = BTSNOOP_CMD + "true";
     public static final String BTSNOOP_DISABLE_CMD = BTSNOOP_CMD + "false";
+    public static final String GOLD_BTSNOOP_LOG_PATH = "/data/misc/bluetooth/logs/btsnoop_hci.log";
     public static final String O_BUILD = "O";
 
     /**
@@ -169,7 +170,7 @@ public class BluetoothUtils {
     /**
      * Confirm branch version if it is Gold or not based on build alias
      *
-     * @param device, Test device to check
+     * @param device Test device to check
      * @throws DeviceNotAvailableException
      */
     private static boolean isGoldAndAbove(ITestDevice device) throws DeviceNotAvailableException {
@@ -192,6 +193,8 @@ public class BluetoothUtils {
             throws DeviceNotAvailableException {
         if (isGoldAndAbove(device)) {
             device.executeShellCommand(BTSNOOP_ENABLE_CMD);
+            disable(device);
+            enable(device);
             return true;
         }
         return enableBtsnoopLogging(device, null);
@@ -222,6 +225,8 @@ public class BluetoothUtils {
             throws DeviceNotAvailableException {
         if (isGoldAndAbove(device)) {
             device.executeShellCommand(BTSNOOP_DISABLE_CMD);
+            disable(device);
+            enable(device);
             return true;
         }
         return disableBtsnoopLogging(device, null);
@@ -305,6 +310,9 @@ public class BluetoothUtils {
      */
     public static String getBtSnoopLogFilePath(ITestDevice device)
             throws DeviceNotAvailableException {
+        if (isGoldAndAbove(device)) {
+            return GOLD_BTSNOOP_LOG_PATH;
+        }
         String snoopfileSetting =
                 device.executeShellCommand(
                         String.format("cat %s | grep BtSnoopFileName", BT_STACK_CONF));

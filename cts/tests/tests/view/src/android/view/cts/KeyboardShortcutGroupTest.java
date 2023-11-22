@@ -27,11 +27,10 @@ import android.view.KeyEvent;
 import android.view.KeyboardShortcutGroup;
 import android.view.KeyboardShortcutInfo;
 
-import com.google.android.collect.Lists;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -41,9 +40,14 @@ import java.util.List;
 @RunWith(AndroidJUnit4.class)
 public class KeyboardShortcutGroupTest {
     private static final CharSequence TEST_LABEL = "Test Group Label";
-    private final List<KeyboardShortcutInfo> TEST_ITEMS = Lists.newArrayList(
-            new KeyboardShortcutInfo("Item 1", KeyEvent.KEYCODE_U, KeyEvent.META_CTRL_ON),
-            new KeyboardShortcutInfo("Item 2", KeyEvent.KEYCODE_F, KeyEvent.META_CTRL_ON));
+    private static final List<KeyboardShortcutInfo> TEST_ITEMS = new ArrayList<>();
+
+    static {
+        TEST_ITEMS.add(new KeyboardShortcutInfo(
+                "Item 1", KeyEvent.KEYCODE_U, KeyEvent.META_CTRL_ON));
+        TEST_ITEMS.add(new KeyboardShortcutInfo(
+                "Item 2", KeyEvent.KEYCODE_F, KeyEvent.META_CTRL_ON));
+    }
 
     @Test
     public void testConstructor() {

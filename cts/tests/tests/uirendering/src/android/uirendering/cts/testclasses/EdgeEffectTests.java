@@ -30,11 +30,11 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.support.test.filters.LargeTest;
 import android.support.test.filters.MediumTest;
+import android.support.test.filters.Suppress;
 import android.support.test.rule.ActivityTestRule;
 import android.support.test.runner.AndroidJUnit4;
 import android.uirendering.cts.R;
-import android.uirendering.cts.bitmapcomparers.MSSIMComparer;
-import android.uirendering.cts.bitmapverifiers.GoldenImageVerifier;
+import android.uirendering.cts.bitmapverifiers.PerPixelBitmapVerifier;
 import android.uirendering.cts.testinfrastructure.MaterialActivity;
 import android.uirendering.cts.util.BitmapAsserter;
 import android.widget.EdgeEffect;
@@ -76,27 +76,48 @@ public class EdgeEffectTests {
         mBitmapAsserter.setUp(getActivity());
     }
 
-    private void assertEdgeEffect(EdgeEffectInitializer initializer, int goldenId) {
+    private static class EdgeEffectValidator extends PerPixelBitmapVerifier {
+        public int matchedColorCount;
+
+        private int mInverseColorMask;
+        private int mColorMask;
+
+        public EdgeEffectValidator(int drawColor) {
+            mColorMask = drawColor & 0x00FFFFFF;
+            mInverseColorMask = ~(drawColor & 0x00FFFFFF);
+        }
+
+        @Override
+        protected boolean verifyPixel(int x, int y, int observedColor) {
+            if ((observedColor & mColorMask) != 0) {
+                matchedColorCount++;
+            }
+            return (observedColor & mInverseColorMask) == 0xFF000000;
+        }
+    }
+
+    private void assertEdgeEffect(EdgeEffectInitializer initializer) {
         Bitmap bitmap = Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
-        canvas.drawColor(Color.WHITE);
+        canvas.drawColor(Color.BLACK);
         EdgeEffect edgeEffect = new EdgeEffect(getActivity());
         edgeEffect.setSize(WIDTH, HEIGHT);
         edgeEffect.setColor(Color.RED);
+        assertEquals(Color.RED, edgeEffect.getColor());
         initializer.initialize(edgeEffect);
         edgeEffect.draw(canvas);
 
-        GoldenImageVerifier verifier = new GoldenImageVerifier(getActivity(), goldenId,
-                new MSSIMComparer(0.99));
+        EdgeEffectValidator verifier = new EdgeEffectValidator(edgeEffect.getColor());
         mBitmapAsserter.assertBitmapIsVerified(bitmap, verifier,
                 name.getMethodName(), "EdgeEffect doesn't match expected");
+        assertTrue(verifier.matchedColorCount > 0);
     }
 
     @Test
     public void testOnPull() {
         assertEdgeEffect(edgeEffect -> {
             edgeEffect.onPull(1);
-        }, R.drawable.edge_effect_red);
+        });
     }
 
     @Test
@@ -104,26 +125,27 @@ public class EdgeEffectTests {
         assertEdgeEffect(edgeEffect -> {
             edgeEffect.setSize(70, 70);
             edgeEffect.onPull(1);
-        }, R.drawable.edge_effect_size);
+        });
     }
 
     @Test
     public void testSetColor() {
         assertEdgeEffect(edgeEffect -> {
             edgeEffect.setColor(Color.GREEN);
+            assertEquals(Color.GREEN, edgeEffect.getColor());
             edgeEffect.onPull(1);
-        }, R.drawable.edge_effect_green);
+        });
     }
 
     @Test
     public void testOnPullWithDisplacement() {
         assertEdgeEffect(edgeEffect -> {
             edgeEffect.onPull(1, 0);
-        }, R.drawable.edge_effect_displacement_0);
+        });
 
         assertEdgeEffect(edgeEffect -> {
             edgeEffect.onPull(1, 1);
-        }, R.drawable.edge_effect_displacement_1);
+        });
     }
 
     @Test

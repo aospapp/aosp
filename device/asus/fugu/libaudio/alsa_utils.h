@@ -103,9 +103,9 @@ class HDMIAudioCaps {
 
     bool loadCaps(int ALSADeviceID);
     void reset();
-    void getRatesForAF(String8& rates);
+    void getRatesForAF(String8& rates, audio_format_t format);
     void getFmtsForAF(String8& fmts);
-    void getChannelMasksForAF(String8& masks);
+    void getChannelMasksForAF(String8& masks, audio_format_t format);
     bool supportsFormat(audio_format_t format,
                                       uint32_t sampleRate,
                                       uint32_t channelCount,
@@ -130,6 +130,8 @@ class HDMIAudioCaps {
     void reset_l();
     ssize_t getMaxChModeNdx_l();
     static bool sanityCheckMode(const Mode& m);
+    static AudFormat alsaFormatFromAndroidFormat(audio_format_t format);
+    const Mode *getModeForFormat(AudFormat format);
 };
 }  // namespace android
 #endif  // __cplusplus

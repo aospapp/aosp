@@ -2,10 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import time
 from autotest_lib.server import autotest, test
-
-LINE_STATUS_WAIT_TIME = 5
 
 
 class power_RPMTest(test.test):
@@ -31,8 +28,8 @@ class power_RPMTest(test.test):
             self._host.power_off()
 
         if self._verify:
-            time.sleep(LINE_STATUS_WAIT_TIME)
-            self._host_at.run_test('power_CheckAC', power_on=power_on)
+            self._host_at.run_test('power_CheckAC', check_client_result=True,
+                                   power_on=power_on)
 
 
     def run_once(self, power_sequence=[True]):

@@ -5,8 +5,8 @@
 
     <!-- The package name and activity for a default application that will be launched if the
          LensPicker cannot determine an aplication to launch. -->
-    <string name="default_application_package" translatable="false">com.android.car.overview</string>
-    <string name="default_application_activity" translatable="false">com.android.car.overview.StreamOverviewActivity</string>
+    <string name="default_application_package" translatable="false">com.android.car.mapsplaceholder</string>
+    <string name="default_application_activity" translatable="false">com.android.car.mapsplaceholder.MapsPlaceholderActivity</string>
 
     <!-- Title of intent resolver dialog when selecting an application to run. -->
     <string name="whichApplication">Complete action using</string>

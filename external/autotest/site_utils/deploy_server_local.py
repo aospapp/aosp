@@ -16,7 +16,6 @@ import ConfigParser
 import argparse
 import os
 import re
-import socket
 import subprocess
 import sys
 import time
@@ -31,11 +30,6 @@ from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
 # How long after restarting a service do we watch it to see if it's stable.
 SERVICE_STABILITY_TIMER = 60
 
-# A list of commands that only applies to primary server. For example,
-# test_importer should only be run in primary master scheduler. If two servers
-# are both running test_importer, there is a chance to fail as both try to
-# update the same table.
-PRIMARY_ONLY_COMMANDS = ['test_importer']
 # A dict to map update_commands defined in config file to repos or files that
 # decide whether need to update these commands. E.g. if no changes under
 # frontend repo, no need to update afe.
@@ -78,6 +72,8 @@ def verify_repo_clean():
     @raises subprocess.CalledProcessError on a repo command failure.
     """
     subprocess.check_output(['git', 'reset', '--hard'])
+    # Forcefully blow away any non-gitignored files in the tree.
+    subprocess.check_output(['git', 'clean', '-fd'])
     out = subprocess.check_output(['repo', 'status'], stderr=subprocess.STDOUT)
     out = strip_terminal_codes(out).strip()
 
@@ -339,11 +335,6 @@ def run_deploy_actions(cmds_skip=set(), dryrun=False,
     if cmds:
         print('Running update commands:', ', '.join(cmds))
         for cmd in cmds:
-            if (cmd in PRIMARY_ONLY_COMMANDS and
-                not AFE.run('get_servers', hostname=socket.getfqdn(),
-                            status='primary')):
-                print('Command %s is only applicable to primary servers.' % cmd)
-                continue
             update_command(cmd, dryrun=dryrun,
                            use_chromite_master=use_chromite_master)
 

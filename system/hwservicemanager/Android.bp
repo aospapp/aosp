@@ -36,7 +36,7 @@ cc_binary {
         "libcrypto", // for TokenManager
         "libcutils",
         "libhidlbase",
-        "libhidltransport", // TODO(b/33276472#6) includes android.hidl.manager@1.0
+        "libhidltransport",
         "libhidl-gen-utils",
         "libhwbinder",
         "liblog",

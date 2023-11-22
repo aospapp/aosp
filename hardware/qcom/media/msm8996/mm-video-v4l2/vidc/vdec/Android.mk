@@ -114,7 +114,7 @@ LOCAL_C_INCLUDES                += $(libmm-vdec-inc)
 LOCAL_ADDITIONAL_DEPENDENCIES   := $(libmm-vdec-add-dep)
 
 LOCAL_PRELINK_MODULE    := false
-LOCAL_SHARED_LIBRARIES  := liblog libutils libbinder libcutils libdl
+LOCAL_SHARED_LIBRARIES  := liblog libutils libui libbinder libcutils libdl
 
 LOCAL_SHARED_LIBRARIES  += libqdMetaData
 LOCAL_HEADER_LIBRARIES  := copybit_headers gralloc_headers

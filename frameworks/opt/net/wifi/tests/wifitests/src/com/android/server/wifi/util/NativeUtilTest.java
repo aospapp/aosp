@@ -98,10 +98,25 @@ public class NativeUtilTest {
     }
 
     /**
+     * Test that conversion of ssid bytes to quoted UTF8 string ssid works.
+     */
+    @Test
+    public void testUtf8SsidDecode() throws Exception {
+        assertEquals(
+                new ArrayList<>(
+                        Arrays.asList((byte) 0x41, (byte) 0x6e, (byte) 0x64, (byte) 0x72,
+                                (byte) 0x6f, (byte) 0x69, (byte) 0x64, (byte) 0x41, (byte) 0x50,
+                                (byte) 0xe3, (byte) 0x81, (byte) 0x8f, (byte) 0xe3, (byte) 0x81,
+                                (byte) 0xa0, (byte) 0xe3, (byte) 0x81, (byte) 0x95, (byte) 0xe3,
+                                (byte) 0x81, (byte) 0x84)),
+                NativeUtil.decodeSsid("\"AndroidAPください\""));
+    }
+
+    /**
      * Test that conversion of ssid bytes to hex string ssid works.
      */
     @Test
-    public void testNonAsciiSsidDecode() throws Exception {
+    public void testNonSsidDecode() throws Exception {
         assertEquals(
                 new ArrayList<>(
                         Arrays.asList((byte) 0xf5, (byte) 0xe4, (byte) 0xab, (byte) 0x78,
@@ -110,10 +125,10 @@ public class NativeUtilTest {
     }
 
     /**
-     * Test that conversion of ssid bytes to quoted ASCII string ssid works.
+     * Test that conversion of ssid bytes to quoted string ssid works.
      */
     @Test
-    public void testAsciiSsidEncode() throws Exception {
+    public void testSsidEncode() throws Exception {
         assertEquals(
                 "\"ssid_test123\"",
                 NativeUtil.encodeSsid(new ArrayList<>(
@@ -126,7 +141,7 @@ public class NativeUtilTest {
      * Test that conversion of byte array to hex string works when the byte array contains 0.
      */
     @Test
-    public void testNullCharInAsciiSsidEncode() throws Exception {
+    public void testNullCharInSsidEncode() throws Exception {
         assertEquals(
                 "007369645f74657374313233",
                 NativeUtil.encodeSsid(new ArrayList<>(
@@ -139,7 +154,7 @@ public class NativeUtilTest {
      * Test that conversion of byte array to hex string ssid works.
      */
     @Test
-    public void testNonAsciiSsidEncode() throws Exception {
+    public void testNonSsidEncode() throws Exception {
         assertEquals(
                 "f5e4ab78ab3432439a",
                 NativeUtil.encodeSsid(new ArrayList<>(

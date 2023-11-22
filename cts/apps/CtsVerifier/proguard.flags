@@ -24,6 +24,7 @@
 -keep class org.mockito.** { *; }
 -keep interface org.mockito.** { *; }
 -keep class com.google.dexmaker.** { *; }
+-keep class com.android.dx.mockito.** { *; }
 -keep interface com.google.dexmaker.** { *; }
 
 -dontwarn android.hardware.Sensor

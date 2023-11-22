@@ -267,11 +267,14 @@ public class ModuleResult implements IModuleResult {
 
         this.mRuntime += otherModuleResult.getRuntime();
         this.mNotExecuted += otherModuleResult.getNotExecuted();
-        this.setDone(otherModuleResult.isDoneSoFar());
-        this.mActualTestRuns += otherModuleResult.getTestRuns();
-        // expected test runs are the same across shards, except for shards that do not run this
-        // module at least once (for which the value is not yet set).
-        this.mExpectedTestRuns = otherModuleResult.getExpectedTestRuns();
+        // only touch variables related to 'done' status if this module is not already done
+        if (!isDone()) {
+            this.setDone(otherModuleResult.isDoneSoFar());
+            this.mActualTestRuns += otherModuleResult.getTestRuns();
+            // expected test runs are the same across shards, except for shards that do not run
+            // this module at least once (for which the value is not yet set).
+            this.mExpectedTestRuns = otherModuleResult.getExpectedTestRuns();
+        }
         for (ICaseResult otherCaseResult : otherModuleResult.getResults()) {
             ICaseResult caseResult = getOrCreateResult(otherCaseResult.getName());
             caseResult.mergeFrom(otherCaseResult);

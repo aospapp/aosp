@@ -110,6 +110,15 @@ public class ContentRatingSystem {
         return mRatings;
     }
 
+    public Rating getRating(String name) {
+        for (Rating rating : mRatings) {
+            if (TextUtils.equals(rating.getName(), name)) {
+                return rating;
+            }
+        }
+        return null;
+    }
+
     public List<SubRating> getSubRatings(){
         return mSubRatings;
     }

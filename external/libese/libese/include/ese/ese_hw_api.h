@@ -17,6 +17,7 @@
 #ifndef ESE_HW_API_H_
 #define ESE_HW_API_H_ 1
 
+#include "ese_sg.h"
 #include "../../../libese-sysdeps/include/ese/sysdeps.h"
 
 #ifdef __cplusplus
@@ -64,7 +65,7 @@ typedef uint32_t (ese_hw_transmit_op_t)(struct EseInterface *, const uint8_t *, 
  * - int: -1 on error, 0 on success.
  */
 typedef int (ese_hw_reset_op_t)(struct EseInterface *);
-/* ese_transceive_op_t:  fully contained transmission and receive operation.
+/* ese_transceive_sg_op_t:  fully contained transmission and receive operation.
  *
  * Must provide an implementation of the wire protocol necessary to transmit
  * and receive an application payload to and from the eSE.  Normally, this
@@ -73,15 +74,16 @@ typedef int (ese_hw_reset_op_t)(struct EseInterface *);
  *
  * Args:
  * - struct EseInterface *: session handle.
- * - const uint8_t *: pointer to the buffer to transmit.
- * - uint32_t: length of the data to transmit.
- * - uint8_t *: pointer to the buffer to receive into.
- * - uint32_t: maximum length of the data to receive.
+ * - const EseSgBuffer *: array of buffers to transmit
+ * - uint32_t: number of buffers to send
+ * - const EseSgBuffer *: array of buffers to receive into
+ * - uint32_t: number of buffers to receive to
  *
  * Returns:
  * - uint32_t: bytes received.
  */
-typedef uint32_t (ese_transceive_op_t)(struct EseInterface *, const uint8_t *, uint32_t, uint8_t *, uint32_t);
+typedef uint32_t (ese_transceive_op_t)(
+  struct EseInterface *, const struct EseSgBuffer *, uint32_t, struct EseSgBuffer *, uint32_t);
 /* ese_poll_op_t: waits for the hardware to be ready to send data.
  *
  * Args:
@@ -125,43 +127,51 @@ typedef void (ese_close_op_t)(struct EseInterface *);
 #define __ESE_INITIALIZER(TYPE) \
 { \
   .ops = TYPE## _ops, \
+  .error = { \
+    .is_err = false, \
+    .code = 0, \
+    .message = NULL, \
+  }, \
   .pad =  { 0 }, \
 }
 
 #define __ese_init(_ptr, TYPE) {\
-  _ptr->ops = TYPE## _ops; \
-  _ptr->pad[0] = 0; \
+  (_ptr)->ops = TYPE## _ops; \
+  (_ptr)->pad[0] = 0; \
+  (_ptr)->error.is_err = false; \
+  (_ptr)->error.code = 0; \
+  (_ptr)->error.message = (const char *)NULL; \
 }
 
 struct EseOperations {
-  const char *const name;
+  const char *name;
   /* Used to prepare any implementation specific internal data and
    * state needed for robust communication.
    */
-  ese_open_op_t *const open;
+  ese_open_op_t *open;
   /* Used to receive raw data from the ese. */
-  ese_hw_receive_op_t *const hw_receive;
+  ese_hw_receive_op_t *hw_receive;
   /* Used to transmit raw data to the ese. */
-  ese_hw_transmit_op_t *const hw_transmit;
+  ese_hw_transmit_op_t *hw_transmit;
   /* Used to perform a power reset on the device. */
-  ese_hw_reset_op_t *const hw_reset;
+  ese_hw_reset_op_t *hw_reset;
   /* Wire-specific protocol polling for readiness. */
-  ese_poll_op_t *const poll;
+  ese_poll_op_t *poll;
   /* Wire-specific protocol for transmitting and receiving
    * application data to the eSE. By default, this may point to
    * a generic implementation, like teq1_transceive, which uses
    * the hw_* ops above.
    */
-  ese_transceive_op_t *const transceive;
+  ese_transceive_op_t *transceive;
   /* Cleans up any required state: file descriptors or heap allocations. */
-  ese_close_op_t *const close;
+  ese_close_op_t *close;
 
   /* Operational options */
-  const void *const opts;
+  const void *opts;
 
   /* Operation error messages. */
   const char **errors;
-  const uint32_t errors_count;
+  uint32_t errors_count;
 };
 
 /* Maximum private stack storage on the interface instance. */

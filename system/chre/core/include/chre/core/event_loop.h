@@ -22,11 +22,13 @@
 #include "chre/core/timer_pool.h"
 #include "chre/platform/mutex.h"
 #include "chre/platform/platform_nanoapp.h"
+#include "chre/platform/power_control_manager.h"
 #include "chre/util/dynamic_vector.h"
 #include "chre/util/fixed_size_blocking_queue.h"
 #include "chre/util/non_copyable.h"
 #include "chre/util/synchronized_memory_pool.h"
 #include "chre/util/unique_ptr.h"
+#include "chre_api/chre/event.h"
 
 namespace chre {
 
@@ -60,7 +62,7 @@ class EventLoop : public NonCopyable {
    *        Must not be null.
    * @return true if the given app ID was found and instanceId was populated
    */
-  bool findNanoappInstanceIdByAppId(uint64_t appId, uint32_t *instanceId);
+  bool findNanoappInstanceIdByAppId(uint64_t appId, uint32_t *instanceId) const;
 
   /**
    * Iterates over the list of Nanoapps managed by this EventLoop, and invokes
@@ -71,6 +73,21 @@ class EventLoop : public NonCopyable {
    * @param data Arbitrary data to pass to the callback
    */
   void forEachNanoapp(NanoappCallbackFunction *callback, void *data);
+
+  /**
+   * Invokes a message to host free callback supplied by the given nanoapp
+   * (identified by app ID). Ensures that the calling context is updated
+   * appropriately.
+   *
+   * @param appId Identifies the nanoapp that sent this message and supplied the
+   *        free callback
+   * @param freeFunction The non-null message free callback given by the nanoapp
+   * @param message Pointer to the message data
+   * @param messageSize Size of the message
+   */
+  void invokeMessageFreeFunction(
+      uint64_t appId, chreMessageFreeFunction *freeFunction, void *message,
+      size_t messageSize);
 
   /**
    * Invokes the Nanoapp's start callback, and if successful, adds it to the
@@ -87,13 +104,18 @@ class EventLoop : public NonCopyable {
   bool startNanoapp(UniquePtr<Nanoapp>& nanoapp);
 
   /**
-   * Stops a nanoapp by invoking the stop entry point. The nanoapp passed in
-   * must have been previously started by the startNanoapp method. After this
-   * function returns, all references to the Nanoapp are invalid.
+   * Stops and unloads a nanoapp identified by its instance ID. The end entry
+   * point will be invoked, and the chre::Nanoapp instance will be destroyed.
+   * After this function returns, all references to the Nanoapp instance are
+   * invalidated.
    *
-   * @param nanoapp A pointer to the nanoapp to stop.
+   * @param instanceId The nanoapp's unique instance identifier
+   * @param allowSystemNanoappUnload If false, this function will reject
+   *        attempts to unload a system nanoapp
+   *
+   * @return true if the nanoapp with the given instance ID was found & unloaded
    */
-  void stopNanoapp(Nanoapp *nanoapp);
+  bool unloadNanoapp(uint32_t instanceId, bool allowSystemNanoappUnload);
 
   /**
    * Executes the loop that blocks on the event queue and delivers received
@@ -121,7 +143,9 @@ class EventLoop : public NonCopyable {
    * @param senderInstanceId The instance ID of the sender of this event.
    * @param targetInstanceId The instance ID of the destination of this event.
    *
-   * @return true if the event was successfully added to the queue
+   * @return true if the event was successfully added to the queue. Note that
+   *         unlike chreSendEvent, this does *not* invoke the free callback if
+   *         it failed to post the event.
    *
    * @see chreSendEvent
    */
@@ -137,7 +161,9 @@ class EventLoop : public NonCopyable {
    *
    * @return the currently executing nanoapp, or nullptr
    */
-  Nanoapp *getCurrentNanoapp() const;
+  Nanoapp *getCurrentNanoapp() const {
+    return mCurrentApp;
+  }
 
   /**
    * Gets the number of nanoapps currently associated with this event loop. Must
@@ -145,14 +171,18 @@ class EventLoop : public NonCopyable {
    *
    * @return The number of nanoapps managed by this event loop
    */
-  size_t getNanoappCount() const;
+  size_t getNanoappCount() const {
+    return mNanoapps.size();
+  }
 
   /**
    * Obtains the TimerPool associated with this event loop.
    *
    * @return The timer pool owned by this event loop.
    */
-  TimerPool& getTimerPool();
+  TimerPool& getTimerPool() {
+    return mTimerPool;
+  }
 
   /**
    * Searches the set of nanoapps managed by this EventLoop for one with the
@@ -163,15 +193,61 @@ class EventLoop : public NonCopyable {
    * @param instanceId The nanoapp instance ID to search for.
    * @return a pointer to the found nanoapp or nullptr if no match was found.
    */
-  Nanoapp *findNanoappByInstanceId(uint32_t instanceId);
+  Nanoapp *findNanoappByInstanceId(uint32_t instanceId) const;
+
+  /**
+   * Looks for an app with the given ID and if found, populates info with its
+   * metadata. Safe to call from any thread.
+   *
+   * @see chreGetNanoappInfoByAppId
+   */
+  bool populateNanoappInfoForAppId(uint64_t appId,
+                                   struct chreNanoappInfo *info) const;
+
+  /**
+   * Looks for an app with the given instance ID and if found, populates info
+   * with its metadata. Safe to call from any thread.
+   *
+   * @see chreGetNanoappInfoByInstanceId
+   */
+  bool populateNanoappInfoForInstanceId(uint32_t instanceId,
+                                        struct chreNanoappInfo *info) const;
+
+  /**
+   * @return true if the current Nanoapp (or entire CHRE) is being unloaded, and
+   *         therefore it should not be allowed to send events or messages, etc.
+   */
+  bool currentNanoappIsStopping() const;
+
+  /**
+   * Prints state in a string buffer. Must only be called from the context of
+   * the main CHRE thread.
+   *
+   * @param buffer Pointer to the start of the buffer.
+   * @param bufferPos Pointer to buffer position to start the print (in-out).
+   * @param size Size of the buffer in bytes.
+   *
+   * @return true if entire log printed, false if overflow or error.
+   */
+  bool logStateToBuffer(char *buffer, size_t *bufferPos,
+                        size_t bufferSize) const;
+
+
+  /**
+   * Returns a reference to the power control manager. This allows power
+   * controls from subsystems outside the event loops.
+   */
+  PowerControlManager& getPowerControlManager() {
+    return mPowerControlManager;
+  }
 
  private:
   //! The maximum number of events that can be active in the system.
-  static constexpr size_t kMaxEventCount = 1024;
+  static constexpr size_t kMaxEventCount = 96;
 
   //! The maximum number of events that are awaiting to be scheduled. These
   //! events are in a queue to be distributed to apps.
-  static constexpr size_t kMaxUnscheduledEventCount = 1024;
+  static constexpr size_t kMaxUnscheduledEventCount = 96;
 
   //! The memory pool to allocate incoming events from.
   SynchronizedMemoryPool<Event, kMaxEventCount> mEventPool;
@@ -188,16 +264,35 @@ class EventLoop : public NonCopyable {
   //!       associated with this EventLoop
   //! It is not necessary to acquire the lock when reading mNanoapps from within
   //! the thread context of this EventLoop.
-  Mutex mNanoappsLock;
+  mutable Mutex mNanoappsLock;
 
   //! The blocking queue of incoming events from the system that have not been
-  //!  distributed out to apps yet.
+  //! distributed out to apps yet.
   FixedSizeBlockingQueue<Event *, kMaxUnscheduledEventCount> mEvents;
 
   // TODO: should probably be atomic to be fully correct
-  volatile bool mRunning = false;
+  volatile bool mRunning = true;
 
+  //! The nanoapp that is currently executing - must be set any time we call
+  //! into the nanoapp's entry points or callbacks
   Nanoapp *mCurrentApp = nullptr;
+
+  //! Set to the nanoapp we are in the process of unloading in unloadNanoapp()
+  Nanoapp *mStoppingNanoapp = nullptr;
+
+  //! The object which manages power related controls.
+  PowerControlManager mPowerControlManager;
+
+  //! The maximum number of events ever waiting in the event pool.
+  size_t mMaxEventPoolUsage = 0;
+
+  /**
+   * Do one round of Nanoapp event delivery, only considering events in
+   * Nanoapps' own queues (not mEvents).
+   *
+   * @return true if there are more events pending in Nanoapps' own queues
+   */
+  bool deliverEvents();
 
   /**
    * Delivers the next event pending in the Nanoapp's queue, and takes care of
@@ -209,6 +304,29 @@ class EventLoop : public NonCopyable {
   bool deliverNextEvent(const UniquePtr<Nanoapp>& app);
 
   /**
+   * Given an event pulled from the main incoming event queue (mEvents), deliver
+   * it to all Nanoapps that should receive the event, or free the event if
+   * there are no valid recipients.
+   *
+   * @param event The Event to distribute to Nanoapps
+   */
+  void distributeEvent(Event *event);
+
+  /**
+   * Distribute all events pending in the inbound event queue. Note that this
+   * function only guarantees that any events in the inbound queue at the time
+   * it is called will be distributed to Nanoapp event queues - new events may
+   * still be posted during or after this function call from other threads as
+   * long as postEvent() will accept them.
+   */
+  void flushInboundEventQueue();
+
+  /**
+   * Delivers events pending in Nanoapps' own queues until they are all empty.
+   */
+  void flushNanoappEventQueues();
+
+  /**
    * Call after when an Event has been delivered to all intended recipients.
    * Invokes the event's free callback (if given) and releases resources.
    *
@@ -217,19 +335,47 @@ class EventLoop : public NonCopyable {
   void freeEvent(Event *event);
 
   /**
+   * Finds a Nanoapp with the given 64-bit appId.
+   *
+   * Only safe to call within this EventLoop's thread, or if mNanoappsLock is
+   * held.
+   *
+   * @param appId Nanoapp ID
+   * @return Pointer to Nanoapp instance in this EventLoop with the given app
+   *         ID, or nullptr if not found
+   */
+  Nanoapp *lookupAppByAppId(uint64_t appId) const;
+
+  /**
    * Finds a Nanoapp with the given instanceId.
    *
-   * Only safe to call within this EventLoop's thread.
+   * Only safe to call within this EventLoop's thread, or if mNanoappsLock is
+   * held.
    *
    * @param instanceId Nanoapp instance identifier
    * @return Nanoapp with the given instanceId, or nullptr if not found
    */
-  Nanoapp *lookupAppByInstanceId(uint32_t instanceId);
+  Nanoapp *lookupAppByInstanceId(uint32_t instanceId) const;
 
   /**
-   * Stops the Nanoapp at the given index in mNanoapps
+   * Sends an event with payload struct chreNanoappInfo populated from the given
+   * Nanoapp instance to inform other nanoapps about it starting/stopping.
+   *
+   * @param eventType Should be one of CHRE_EVENT_NANOAPP_{STARTED, STOPPED}
+   * @param nanoapp The nanoapp instance whose status has changed
    */
-  void stopNanoapp(size_t index);
+  void notifyAppStatusChange(uint16_t eventType, const Nanoapp& nanoapp);
+
+  /**
+   * Stops and unloads the Nanoapp at the given index in mNanoapps.
+   *
+   * IMPORTANT: prior to calling this function, the event queues must be in a
+   * safe condition for removal of this nanoapp. This means that there must not
+   * be any pending events in this nanoapp's queue, and there must not be any
+   * outstanding events sent by this nanoapp, as they may reference the
+   * nanoapp's own memory (even if there is no free callback).
+   */
+  void unloadNanoappAtIndex(size_t index);
 };
 
 }  // namespace chre

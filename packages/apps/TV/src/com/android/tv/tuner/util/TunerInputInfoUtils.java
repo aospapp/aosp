@@ -21,10 +21,11 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.media.tv.TvInputInfo;
 import android.media.tv.TvInputManager;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.support.annotation.Nullable;
-import android.support.v4.os.BuildCompat;
 import android.util.Log;
+import android.util.Pair;
 
 import com.android.tv.common.feature.CommonFeatures;
 import com.android.tv.tuner.R;
@@ -43,23 +44,31 @@ public class TunerInputInfoUtils {
      */
     @Nullable
     @TargetApi(Build.VERSION_CODES.N)
-    public static TvInputInfo buildTunerInputInfo(Context context, boolean fromBuiltInTuner) {
-        int numOfDevices = TunerHal.getTunerCount(context);
-        if (numOfDevices == 0) {
+    public static TvInputInfo buildTunerInputInfo(Context context) {
+        Pair<Integer, Integer> tunerTypeAndCount = TunerHal.getTunerTypeAndCount(context);
+        if (tunerTypeAndCount.first == null || tunerTypeAndCount.second == 0) {
             return null;
         }
-        TvInputInfo.Builder builder = new TvInputInfo.Builder(context, new ComponentName(context,
-                TunerTvInputService.class));
-        if (fromBuiltInTuner) {
-            builder.setLabel(R.string.bt_app_name);
-        } else {
-            builder.setLabel(R.string.ut_app_name);
+        int inputLabelId = 0;
+        switch (tunerTypeAndCount.first) {
+            case TunerHal.TUNER_TYPE_BUILT_IN:
+                inputLabelId = R.string.bt_app_name;
+                break;
+            case TunerHal.TUNER_TYPE_USB:
+                inputLabelId = R.string.ut_app_name;
+                break;
+            case TunerHal.TUNER_TYPE_NETWORK:
+                inputLabelId = R.string.nt_app_name;
+                break;
         }
         try {
-            return builder.setCanRecord(CommonFeatures.DVR.isEnabled(context))
-                    .setTunerCount(numOfDevices)
+            TvInputInfo.Builder builder = new TvInputInfo.Builder(context,
+                    new ComponentName(context, TunerTvInputService.class));
+            return builder.setLabel(inputLabelId)
+                    .setCanRecord(CommonFeatures.DVR.isEnabled(context))
+                    .setTunerCount(tunerTypeAndCount.second)
                     .build();
-        } catch (NullPointerException e) {
+        } catch (IllegalArgumentException | NullPointerException e) {
             // TunerTvInputService is not enabled.
             return null;
         }
@@ -71,30 +80,36 @@ public class TunerInputInfoUtils {
      * @param context {@link Context} instance
      */
     public static void updateTunerInputInfo(Context context) {
-        if (BuildCompat.isAtLeastN()) {
-            if (DEBUG) Log.d(TAG, "updateTunerInputInfo()");
-            TvInputInfo info = buildTunerInputInfo(context, isBuiltInTuner(context));
-            if (info != null) {
-                ((TvInputManager) context.getSystemService(Context.TV_INPUT_SERVICE))
-                        .updateTvInputInfo(info);
-                if (DEBUG) {
-                    Log.d(TAG, "TvInputInfo [" + info.loadLabel(context)
-                            + "] updated: " + info.toString());
+        final Context appContext = context.getApplicationContext();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            new AsyncTask<Void, Void, TvInputInfo>() {
+                @Override
+                protected TvInputInfo doInBackground(Void... params) {
+                    if (DEBUG) Log.d(TAG, "updateTunerInputInfo()");
+                    return buildTunerInputInfo(appContext);
                 }
-            } else {
-                if (DEBUG) {
-                    Log.d(TAG, "Updating tuner input's info failed. Input is not ready yet.");
-                }
-            }
-        }
-    }
 
-    /**
-     * Returns if the current tuner service is for a built-in tuner.
-     *
-     * @param context {@link Context} instance
-     */
-    public static boolean isBuiltInTuner(Context context) {
-        return TunerHal.getTunerType(context) == TunerHal.TUNER_TYPE_BUILT_IN;
+                @Override
+                @TargetApi(Build.VERSION_CODES.N)
+                protected void onPostExecute(TvInputInfo info) {
+                    if (info != null) {
+                        ((TvInputManager) appContext.getSystemService(Context.TV_INPUT_SERVICE))
+                                .updateTvInputInfo(info);
+                        if (DEBUG) {
+                            Log.d(
+                                    TAG,
+                                    "TvInputInfo ["
+                                            + info.loadLabel(appContext)
+                                            + "] updated: "
+                                            + info.toString());
+                        }
+                    } else {
+                        if (DEBUG) {
+                            Log.d(TAG, "Updating tuner input info failed. Input is not ready yet.");
+                        }
+                    }
+                }
+            }.execute();
+        }
     }
 }

@@ -3,6 +3,9 @@
 cc_library {
     name: "liblz4",
     vendor_available: true,
+    vndk: {
+        enabled: true,
+    },
     host_supported: true,
     srcs: [
         "lz4.c",

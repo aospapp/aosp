@@ -68,6 +68,7 @@ ConditionVariable* Locks::thread_exit_cond_ = nullptr;
 Mutex* Locks::thread_suspend_count_lock_ = nullptr;
 Mutex* Locks::trace_lock_ = nullptr;
 Mutex* Locks::unexpected_signal_lock_ = nullptr;
+Mutex* Locks::user_code_suspension_lock_ = nullptr;
 Uninterruptible Roles::uninterruptible_;
 ReaderWriterMutex* Locks::jni_globals_lock_ = nullptr;
 Mutex* Locks::jni_weak_globals_lock_ = nullptr;
@@ -232,8 +233,27 @@ void BaseMutex::CheckSafeToWait(Thread* self) {
     for (int i = kLockLevelCount - 1; i >= 0; --i) {
       if (i != level_) {
         BaseMutex* held_mutex = self->GetHeldMutex(static_cast<LockLevel>(i));
-        // We expect waits to happen while holding the thread list suspend thread lock.
-        if (held_mutex != nullptr) {
+        // We allow the thread to wait even if the user_code_suspension_lock_ is held so long as we
+        // are some thread's resume_cond_ (level_ == kThreadSuspendCountLock). This just means that
+        // gc or some other internal process is suspending the thread while it is trying to suspend
+        // some other thread. So long as the current thread is not being suspended by a
+        // SuspendReason::kForUserCode (which needs the user_code_suspension_lock_ to clear) this is
+        // fine.
+        if (held_mutex == Locks::user_code_suspension_lock_ && level_ == kThreadSuspendCountLock) {
+          // No thread safety analysis is fine since we have both the user_code_suspension_lock_
+          // from the line above and the ThreadSuspendCountLock since it is our level_. We use this
+          // lambda to avoid having to annotate the whole function as NO_THREAD_SAFETY_ANALYSIS.
+          auto is_suspending_for_user_code = [self]() NO_THREAD_SAFETY_ANALYSIS {
+            return self->GetUserCodeSuspendCount() != 0;
+          };
+          if (is_suspending_for_user_code()) {
+            LOG(ERROR) << "Holding \"" << held_mutex->name_ << "\" "
+                      << "(level " << LockLevel(i) << ") while performing wait on "
+                      << "\"" << name_ << "\" (level " << level_ << ") "
+                      << "with SuspendReason::kForUserCode pending suspensions";
+            bad_mutexes_held = true;
+          }
+        } else if (held_mutex != nullptr) {
           LOG(ERROR) << "Holding \"" << held_mutex->name_ << "\" "
                      << "(level " << LockLevel(i) << ") while performing wait on "
                      << "\"" << name_ << "\" (level " << level_ << ")";
@@ -242,7 +262,7 @@ void BaseMutex::CheckSafeToWait(Thread* self) {
       }
     }
     if (gAborting == 0) {  // Avoid recursive aborts.
-      CHECK(!bad_mutexes_held);
+      CHECK(!bad_mutexes_held) << this;
     }
   }
 }
@@ -1029,6 +1049,7 @@ void Locks::Init() {
     DCHECK(thread_suspend_count_lock_ != nullptr);
     DCHECK(trace_lock_ != nullptr);
     DCHECK(unexpected_signal_lock_ != nullptr);
+    DCHECK(user_code_suspension_lock_ != nullptr);
     DCHECK(dex_lock_ != nullptr);
   } else {
     // Create global locks in level order from highest lock level to lowest.
@@ -1044,6 +1065,10 @@ void Locks::Init() {
         exit(1); \
       } \
       current_lock_level = new_level;
+
+    UPDATE_CURRENT_LOCK_LEVEL(kUserCodeSuspensionLock);
+    DCHECK(user_code_suspension_lock_ == nullptr);
+    user_code_suspension_lock_ = new Mutex("user code suspension lock", current_lock_level);
 
     UPDATE_CURRENT_LOCK_LEVEL(kMutatorLock);
     DCHECK(mutator_lock_ == nullptr);

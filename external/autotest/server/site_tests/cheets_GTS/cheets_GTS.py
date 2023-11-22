@@ -14,18 +14,19 @@
 
 import logging
 import os
-import re
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.server import utils
 from autotest_lib.server.cros import tradefed_test
 
-_PARTNER_GTS_LOCATION = 'gs://chromeos-partner-gts/gts-4.1_r1-3556119.zip'
+_PARTNER_GTS_LOCATION = 'gs://chromeos-partner-gts/gts-4.1_r2-3911033.zip'
 
 
 class cheets_GTS(tradefed_test.TradefedTest):
     """Sets up tradefed to run GTS tests."""
     version = 1
+    _target_package = None
+
 
     def setup(self, uri=None):
         """Set up GTS bundle from Google Storage.
@@ -41,24 +42,25 @@ class cheets_GTS(tradefed_test.TradefedTest):
         self.waivers = self._get_expected_failures('expectations')
 
 
-    def _run_gts_tradefed(self, target_package):
+    def _get_gts_test_args(self):
+        """ This is the command to run GTS tests."""
+        args = ['run', 'commandAndExit', 'gts']
+        if self._target_package is not None:
+            args += ['--module', self._target_package]
+        return args
+
+
+    def _run_gts_tradefed(self, gts_tradefed_args):
         """This tests runs the GTS(XTS) tradefed binary and collects results.
 
-        @param target_package: the name of test package to be run. If None is
-                set, full GTS set will run.
         @raise TestFail: when a test failure is detected.
         """
-        self._target_package = target_package
         gts_tradefed = os.path.join(
                 self._android_gts,
                 'android-gts',
                 'tools',
                 'gts-tradefed')
         logging.info('GTS-tradefed path: %s', gts_tradefed)
-        #TODO(dhaddock): remove --skip-device-info with GTS 4.1_r2 (b/32889514)
-        gts_tradefed_args = ['run', 'commandAndExit', 'gts',
-                             '--skip-device-info', '--module',
-                             self._target_package]
         # Run GTS via tradefed and obtain stdout, sterr as output.
         with tradefed_test.adb_keepalive(self._get_adb_target(),
                                          self._install_paths):
@@ -78,14 +80,14 @@ class cheets_GTS(tradefed_test.TradefedTest):
 
         # Parse stdout to obtain datetime IDs of directories into which tradefed
         # wrote result xml files and logs.
-        datetime_id = self._parse_tradefed_datetime(output)
+        datetime_id = self._parse_tradefed_datetime_v2(output)
         repository = os.path.join(self._android_gts, 'android-gts')
         self._collect_logs(repository, datetime_id, result_destination)
 
         # Result parsing must come after all other essential operations as test
         # warnings, errors and failures can be raised here.
         tests, passed, failed, not_executed, waived = self._parse_result_v2(
-            output, accumulative_count=True, waivers=self.waivers)
+            output, waivers=self.waivers)
         passed += waived
         failed -= waived
         if tests != passed or failed > 0 or not_executed > 0:
@@ -96,23 +98,14 @@ class cheets_GTS(tradefed_test.TradefedTest):
         # All test has passed successfully, here.
         logging.info('The test has passed successfully.')
 
-    def _parse_tradefed_datetime(self, result):
-        """This parses the tradefed datetime object from the GTS output.
-        :param result: the tradefed result object
-        :return: the datetime
+    def run_once(self, target_package=None, gts_tradefed_args=None):
+        """Runs GTS target package exactly once.
+        @param target_package: the name of test package to be run. If None is
+                               set, full GTS set will run.
         """
-        #TODO(dhaddock): Merge this into tradefed_test when N is working
-        match = re.search(r': Starting invocation for .+ (\S+) on device',
-                          result.stdout)
-        datetime_id = match.group(1)
-        logging.info('Tradefed identified results and logs with %s.',
-                     datetime_id)
-        return datetime_id
-
-    def run_once(self, target_package=None):
-        """Runs GTS target package exactly once."""
+        self._target_package = target_package
         with self._login_chrome():
-            self._connect_adb()
-            self._disable_adb_install_dialog()
-            self._wait_for_arc_boot()
-            self._run_gts_tradefed(target_package)
+            self._ready_arc()
+            if not gts_tradefed_args:
+                gts_tradefed_args = self._get_gts_test_args()
+            self._run_gts_tradefed(gts_tradefed_args)

@@ -9,7 +9,9 @@
 
 #include "internal/internal.h"
 #include <limits.h>
+#ifndef __ANDROID__
 #include <libmnl/libmnl.h>
+#endif
 
 static void __parse_ip(const struct nfattr *attr,
 		       struct __nfct_tuple *tuple,

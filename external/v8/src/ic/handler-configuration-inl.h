@@ -103,8 +103,10 @@ Handle<Object> StoreHandler::StoreField(Isolate* isolate, Kind kind,
   }
   int value_index = DescriptorArray::ToValueIndex(descriptor);
 
-  DCHECK(kind == kStoreField || kind == kTransitionToField);
-  DCHECK_IMPLIES(kind == kStoreField, !extend_storage);
+  DCHECK(kind == kStoreField || kind == kTransitionToField ||
+         (kind == kStoreConstField && FLAG_track_constant_fields));
+  DCHECK_IMPLIES(extend_storage, kind == kTransitionToField);
+  DCHECK_IMPLIES(field_index.is_inobject(), !extend_storage);
 
   int config = StoreHandler::KindBits::encode(kind) |
                StoreHandler::ExtendStorageBits::encode(extend_storage) |
@@ -117,9 +119,12 @@ Handle<Object> StoreHandler::StoreField(Isolate* isolate, Kind kind,
 
 Handle<Object> StoreHandler::StoreField(Isolate* isolate, int descriptor,
                                         FieldIndex field_index,
+                                        PropertyConstness constness,
                                         Representation representation) {
-  return StoreField(isolate, kStoreField, descriptor, field_index,
-                    representation, false);
+  DCHECK_IMPLIES(!FLAG_track_constant_fields, constness == kMutable);
+  Kind kind = constness == kMutable ? kStoreField : kStoreConstField;
+  return StoreField(isolate, kind, descriptor, field_index, representation,
+                    false);
 }
 
 Handle<Object> StoreHandler::TransitionToField(Isolate* isolate, int descriptor,
@@ -132,6 +137,7 @@ Handle<Object> StoreHandler::TransitionToField(Isolate* isolate, int descriptor,
 
 Handle<Object> StoreHandler::TransitionToConstant(Isolate* isolate,
                                                   int descriptor) {
+  DCHECK(!FLAG_track_constant_fields);
   int value_index = DescriptorArray::ToValueIndex(descriptor);
   int config =
       StoreHandler::KindBits::encode(StoreHandler::kTransitionToConstant) |

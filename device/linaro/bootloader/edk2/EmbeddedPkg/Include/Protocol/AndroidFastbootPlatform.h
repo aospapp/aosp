@@ -133,6 +133,14 @@ EFI_STATUS
   IN  CHAR8   *Command
   );
 
+typedef
+EFI_STATUS
+(*FASTBOOT_PLATFORM_READ) (
+  IN CHAR8     *PartitionName,
+  IN OUT UINTN *BufferSize,
+  OUT VOID    **Buffer
+  );
+
 typedef struct _FASTBOOT_PLATFORM_PROTOCOL {
   FASTBOOT_PLATFORM_INIT          Init;
   FASTBOOT_PLATFORM_UN_INIT       UnInit;
@@ -140,6 +148,7 @@ typedef struct _FASTBOOT_PLATFORM_PROTOCOL {
   FASTBOOT_PLATFORM_ERASE         ErasePartition;
   FASTBOOT_PLATFORM_GETVAR        GetVar;
   FASTBOOT_PLATFORM_OEM_COMMAND   DoOemCommand;
+  FASTBOOT_PLATFORM_READ          ReadPartition;
 } FASTBOOT_PLATFORM_PROTOCOL;
 
 /* See sparse_format.h in AOSP  */

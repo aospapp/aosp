@@ -67,6 +67,8 @@ public class OldThreadGroupTest extends TestCase implements Thread.UncaughtExcep
     }
 
     private ThreadGroup initialThreadGroup = null;
+    // A thread that runs in initialThreadGroup throughout each test.
+    private MyThread initialThread;
     private List<MyThread> myThreads;
 
     public void test_activeGroupCount() {
@@ -100,27 +102,14 @@ public class OldThreadGroupTest extends TestCase implements Thread.UncaughtExcep
                 tg.allowThreadSuspension(true));
     }
 
-    /*
-     * Checks whether the current Thread is in the given list.
-     */
-    private boolean inListOfThreads(Thread[] threads) {
-        for (int i = 0; i < threads.length; i++) {
-            if (Thread.currentThread() == threads[i]) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     public void test_enumerateLThreadArray() {
         int numThreads = initialThreadGroup.activeCount();
         Thread[] listOfThreads = new Thread[numThreads];
 
         int countThread = initialThreadGroup.enumerate(listOfThreads);
         assertEquals(numThreads, countThread);
-        assertTrue("Current thread must be in enumeration of threads",
-                inListOfThreads(listOfThreads));
+        assertTrue("Initial thread must be in enumeration of threads",
+                Arrays.asList(listOfThreads).contains(initialThread));
     }
 
     public void test_enumerateLThreadArrayLZtest_enumerateLThreadArrayLZ() throws Exception {
@@ -129,14 +118,14 @@ public class OldThreadGroupTest extends TestCase implements Thread.UncaughtExcep
         Thread[] initialThreads = new Thread[initialThreadCount];
         assertEquals(initialThreadCount, initialThreadGroup.enumerate(initialThreads, false));
         assertEquals(initialThreadCount, initialThreadGroup.enumerate(initialThreads, true));
-        assertTrue(inListOfThreads(initialThreads));
+        assertTrue(Arrays.asList(initialThreads).contains(initialThread));
 
         // start some the threads and see how the count changes
         ThreadGroup group = new ThreadGroup(initialThreadGroup, "enumerateThreadArray");
         int groupSize = 3;
         List<MyThread> newThreads = populateGroupsWithThreads(group, groupSize);
         assertEquals(initialThreadCount, initialThreadGroup.enumerate(initialThreads, true));
-        assertTrue(inListOfThreads(initialThreads));
+        assertTrue(Arrays.asList(initialThreads).contains(initialThread));
         for(MyThread thread : newThreads) {
             thread.start();
         }
@@ -148,7 +137,7 @@ public class OldThreadGroupTest extends TestCase implements Thread.UncaughtExcep
         Thread[] afterStartThreads = new Thread[afterStartCount];
         assertEquals(afterStartCount, initialThreadGroup.enumerate(afterStartThreads, true));
         assertEquals(initialPlusNew, new HashSet<Thread>(Arrays.asList(afterStartThreads)));
-        assertTrue(inListOfThreads(afterStartThreads));
+        assertTrue(Arrays.asList(afterStartThreads).contains(initialThread));
 
         // kill the threads and count 'em again
         for(MyThread thread : newThreads) {
@@ -159,7 +148,7 @@ public class OldThreadGroupTest extends TestCase implements Thread.UncaughtExcep
         Thread[] afterDeathThreads = new Thread[afterDeathCount];
         assertEquals(afterDeathCount, initialThreadGroup.enumerate(afterDeathThreads, false));
         assertEquals(Arrays.asList(initialThreads), Arrays.asList(afterDeathThreads));
-        assertTrue(inListOfThreads(afterDeathThreads));
+        assertTrue(Arrays.asList(afterDeathThreads).contains(initialThread));
     }
 
     public void test_enumerateLThreadGroupArray() {
@@ -167,7 +156,7 @@ public class OldThreadGroupTest extends TestCase implements Thread.UncaughtExcep
         ThreadGroup childGroup = new ThreadGroup(initialThreadGroup, "child group");
 
         int numChildGroupsAfter = initialThreadGroup.activeGroupCount();
-        assertTrue(initialThreadGroup.toString(), numChildGroupsAfter == numChildGroupsBefore + 1);
+        assertEquals(initialThreadGroup.toString(), numChildGroupsBefore + 1, numChildGroupsAfter);
         ThreadGroup[] listOfGroups = new ThreadGroup[numChildGroupsAfter];
 
         int countGroupThread = initialThreadGroup.enumerate(listOfGroups);
@@ -183,12 +172,12 @@ public class OldThreadGroupTest extends TestCase implements Thread.UncaughtExcep
         countGroupThread = initialThreadGroup.enumerate(listOfGroups2);
         assertEquals(numChildGroupsAfter - 1, countGroupThread);
 
-        ThreadGroup thrGroup1 = new ThreadGroup("Test Group 1");
+        ThreadGroup thrGroup1 = new ThreadGroup(initialThreadGroup, "Test Group 1");
         countGroupThread = thrGroup1.enumerate(listOfGroups);
         assertEquals(0, countGroupThread);
 
         childGroup.destroy();
-        assertTrue(initialThreadGroup.activeGroupCount() == numChildGroupsBefore + 1);
+        assertEquals(numChildGroupsBefore + 1, initialThreadGroup.activeGroupCount());
      }
 
     public void test_enumerateLThreadGroupArrayLZ() {
@@ -238,6 +227,11 @@ public class OldThreadGroupTest extends TestCase implements Thread.UncaughtExcep
 
         assertEquals(2, thrGroup.enumerate(listOfGroups, true));
         assertEquals(1, thrGroup.enumerate(listOfGroups, false));
+    }
+
+    public void test_getParent() {
+        assertEquals(Thread.currentThread().getThreadGroup(), new ThreadGroup("test").getParent());
+        assertEquals(initialThreadGroup, new ThreadGroup(initialThreadGroup, "test").getParent());
     }
 
     /**
@@ -326,7 +320,11 @@ public class OldThreadGroupTest extends TestCase implements Thread.UncaughtExcep
     @Override
     protected void setUp() {
         myThreads = new ArrayList<>();
-        initialThreadGroup = Thread.currentThread().getThreadGroup();
+        initialThreadGroup = new ThreadGroup(Thread.currentThread().getThreadGroup(), "test group");
+        initialThread = new MyThread(initialThreadGroup, "initial thread");
+        myThreads.add(initialThread);
+        initialThread.start();
+
         ThreadGroup rootThreadGroup = initialThreadGroup;
         while (rootThreadGroup.getParent() != null) {
             rootThreadGroup = rootThreadGroup.getParent();

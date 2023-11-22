@@ -33,11 +33,20 @@ public class ApkInstaller extends TestAppInstallSetup {
 
     private CompatibilityBuildHelper mBuildHelper = null;
 
-    protected File getTestsDir(IBuildInfo buildInfo) throws FileNotFoundException {
+    private void setBuildHelper(IBuildInfo buildInfo) {
         if (mBuildHelper == null) {
             mBuildHelper = new CompatibilityBuildHelper(buildInfo);
         }
+    }
+
+    protected File getTestsDir(IBuildInfo buildInfo) throws FileNotFoundException {
+        setBuildHelper(buildInfo);
         return mBuildHelper.getTestsDir();
+    }
+
+    protected File getTestFile(IBuildInfo buildInfo, String filename) throws FileNotFoundException {
+        setBuildHelper(buildInfo);
+        return mBuildHelper.getTestFile(filename);
     }
 
     /**
@@ -48,7 +57,7 @@ public class ApkInstaller extends TestAppInstallSetup {
             ITestDevice device) throws TargetSetupError {
         File apkFile = null;
         try {
-            apkFile = new File(getTestsDir(buildInfo), apkFileName);
+            apkFile = getTestFile(buildInfo, apkFileName);
             if (!apkFile.isFile()) {
                 throw new FileNotFoundException();
             }

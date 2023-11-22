@@ -352,30 +352,12 @@ public final class TestMeasurementUtil {
                         svid >= 120 && svid <= 192);
                 break;
             case GnssStatus.CONSTELLATION_GLONASS:
-                // Check Upper 8 bit, signed
-                int freq = (svid >> 8);
-                softAssert.assertTrue("svid: upper 8 bits, frequency number. Constellation type " +
-                                "= CONSTELLATION_GLONASS",
+                softAssert.assertTrue("svid: Slot ID, or if unknown, Frequency + 100 (93-106). " +
+                                "Constellation type = CONSTELLATION_GLONASS",
                         timeInNs,
-                        "freq == -127 || -7 <= freq <= 6",
+                        "1 <= svid <= 24 || 93 <= svid <= 106",
                         svidValue,
-                        // future proof check allowing a change in definition under discussion
-                        (freq == -127) || (freq >= -7 && freq <= 6) || (freq >= 93 && freq <= 106));
-                // Check lower 8 bits, signed
-                byte slot = (byte) svid;
-                softAssert.assertTrue("svid: lower 8 bits, slot. Constellation type " +
-                                "= CONSTELLATION_GLONASS",
-                        timeInNs,
-                        "slot == -127 || 1 <= slot <= 24",
-                        svidValue,
-                        // future proof check allowingn a change in definition under discussion
-                        (slot == -127) || (slot >= 1 && slot <= 24) || (slot >= 93 && slot <= 106));
-                softAssert.assertTrue("svid: one of slot or freq is set (not -127). " +
-                                "ConstellationType = CONSTELLATION_GLONASS,",
-                        timeInNs,
-                        "slot != -127 || freq != -127",
-                        svidValue,
-                        (slot != -127) || (freq != -127));
+                        (svid >= 1 && svid <= 24) || (svid >= 93 && svid <= 106));
                 break;
             case GnssStatus.CONSTELLATION_QZSS:
                 softAssert.assertTrue("svid: Space Vehicle ID. Constellation type " +
@@ -450,7 +432,7 @@ public final class TestMeasurementUtil {
                         "CONSTELLATION_QZSS");
                 break;
             case GnssStatus.CONSTELLATION_SBAS:
-                if ((state | GnssMeasurement.STATE_SBAS_SYNC)
+                if ((state & GnssMeasurement.STATE_SBAS_SYNC)
                         == GnssMeasurement.STATE_SBAS_SYNC) {
                     softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
                                     "GNSS_MEASUREMENT_STATE_SBAS_SYNC",
@@ -459,7 +441,7 @@ public final class TestMeasurementUtil {
                             "0s >= X <= 1s",
                             String.valueOf(sv_time_sec),
                             sv_time_sec >= 0 && sv_time_sec <= 1);
-                } else if ((state | GnssMeasurement.STATE_SYMBOL_SYNC)
+                } else if ((state & GnssMeasurement.STATE_SYMBOL_SYNC)
                         == GnssMeasurement.STATE_SYMBOL_SYNC) {
                     softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
                                     "GNSS_MEASUREMENT_STATE_SYMBOL_SYNC",
@@ -468,7 +450,7 @@ public final class TestMeasurementUtil {
                             "0ms >= X <= 2ms",
                             String.valueOf(sv_time_ms),
                             sv_time_ms >= 0 && sv_time_ms <= 2);
-                } else if ((state | GnssMeasurement.STATE_CODE_LOCK)
+                } else if ((state & GnssMeasurement.STATE_CODE_LOCK)
                         == GnssMeasurement.STATE_CODE_LOCK) {
                     softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
                                     "GNSS_MEASUREMENT_STATE_CODE_LOCK",
@@ -480,7 +462,7 @@ public final class TestMeasurementUtil {
                 }
                 break;
             case GnssStatus.CONSTELLATION_GLONASS:
-                if ((state | GnssMeasurement.STATE_GLO_TOD_DECODED)
+                if ((state & GnssMeasurement.STATE_GLO_TOD_DECODED)
                         == GnssMeasurement.STATE_GLO_TOD_DECODED) {
                     softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
                                     "GNSS_MEASUREMENT_STATE_GLO_TOD_DECODED",
@@ -489,7 +471,7 @@ public final class TestMeasurementUtil {
                             "0 day >= X <= 1 day",
                             String.valueOf(sv_time_days),
                             sv_time_days >= 0 && sv_time_days <= 1);
-                } else if ((state | GnssMeasurement.STATE_GLO_TOD_KNOWN)
+                } else if ((state & GnssMeasurement.STATE_GLO_TOD_KNOWN)
                          == GnssMeasurement.STATE_GLO_TOD_KNOWN) {
                     softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
                                     "GNSS_MEASUREMENT_STATE_GLO_TOD_KNOWN",
@@ -498,7 +480,7 @@ public final class TestMeasurementUtil {
                             "0 day >= X <= 1 day",
                             String.valueOf(sv_time_days),
                             sv_time_days >= 0 && sv_time_days <= 1);
-                } else if ((state | GnssMeasurement.STATE_GLO_STRING_SYNC)
+                } else if ((state & GnssMeasurement.STATE_GLO_STRING_SYNC)
                         == GnssMeasurement.STATE_GLO_STRING_SYNC) {
                     softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
                                     "GNSS_MEASUREMENT_STATE_GLO_STRING_SYNC",
@@ -507,7 +489,7 @@ public final class TestMeasurementUtil {
                             "0s >= X <= 2s",
                             String.valueOf(sv_time_sec),
                             sv_time_sec >= 0 && sv_time_sec <= 2);
-                } else if ((state | GnssMeasurement.STATE_BIT_SYNC)
+                } else if ((state & GnssMeasurement.STATE_BIT_SYNC)
                         == GnssMeasurement.STATE_BIT_SYNC) {
                     softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
                                     "GNSS_MEASUREMENT_STATE_BIT_SYNC",
@@ -516,7 +498,7 @@ public final class TestMeasurementUtil {
                             "0ms >= X <= 20ms",
                             String.valueOf(sv_time_ms),
                             sv_time_ms >= 0 && sv_time_ms <= 20);
-                } else if ((state | GnssMeasurement.STATE_SYMBOL_SYNC)
+                } else if ((state & GnssMeasurement.STATE_SYMBOL_SYNC)
                         == GnssMeasurement.STATE_SYMBOL_SYNC) {
                     softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
                                     "GNSS_MEASUREMENT_STATE_SYMBOL_SYNC",
@@ -525,7 +507,7 @@ public final class TestMeasurementUtil {
                             "0ms >= X <= 10ms",
                             String.valueOf(sv_time_ms),
                             sv_time_ms >= 0 && sv_time_ms <= 10);
-                } else if ((state | GnssMeasurement.STATE_CODE_LOCK)
+                } else if ((state & GnssMeasurement.STATE_CODE_LOCK)
                         == GnssMeasurement.STATE_CODE_LOCK) {
                     softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
                                     "GNSS_MEASUREMENT_STATE_CODE_LOCK",
@@ -537,7 +519,7 @@ public final class TestMeasurementUtil {
                 }
                 break;
             case GnssStatus.CONSTELLATION_GALILEO:
-                if ((state | GnssMeasurement.STATE_TOW_DECODED)
+                if ((state & GnssMeasurement.STATE_TOW_DECODED)
                         == GnssMeasurement.STATE_TOW_DECODED) {
                     softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
                                     "GNSS_MEASUREMENT_STATE_TOW_DECODED",
@@ -546,7 +528,7 @@ public final class TestMeasurementUtil {
                             "0 >= X <= 7 days",
                             String.valueOf(sv_time_days),
                             sv_time_days >= 0 && sv_time_days <= 7);
-                } else if ((state | GnssMeasurement.STATE_TOW_KNOWN)
+                } else if ((state & GnssMeasurement.STATE_TOW_KNOWN)
                               == GnssMeasurement.STATE_TOW_KNOWN) {
                     softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
                                     "GNSS_MEASUREMENT_STATE_TOW_DECODED",
@@ -555,7 +537,7 @@ public final class TestMeasurementUtil {
                         "0 >= X <= 7 days",
                         String.valueOf(sv_time_days),
                         sv_time_days >= 0 && sv_time_days <= 7);
-                } else if ((state | GnssMeasurement.STATE_GAL_E1B_PAGE_SYNC)
+                } else if ((state & GnssMeasurement.STATE_GAL_E1B_PAGE_SYNC)
                         == GnssMeasurement.STATE_GAL_E1B_PAGE_SYNC) {
                     softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
                                     "GNSS_MEASUREMENT_STATE_GAL_E1B_PAGE_SYNC",
@@ -564,7 +546,7 @@ public final class TestMeasurementUtil {
                             "0s >= X <= 2s",
                             String.valueOf(sv_time_sec),
                             sv_time_sec >= 0 && sv_time_sec <= 2);
-                } else if ((state | GnssMeasurement.STATE_GAL_E1C_2ND_CODE_LOCK)
+                } else if ((state & GnssMeasurement.STATE_GAL_E1C_2ND_CODE_LOCK)
                         == GnssMeasurement.STATE_GAL_E1C_2ND_CODE_LOCK) {
                     softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
                                     "GNSS_MEASUREMENT_STATE_GAL_E1C_2ND_CODE_LOCK",
@@ -573,7 +555,7 @@ public final class TestMeasurementUtil {
                             "0ms >= X <= 100ms",
                             String.valueOf(sv_time_ms),
                             sv_time_ms >= 0 && sv_time_ms <= 100);
-                } else if ((state | GnssMeasurement.STATE_GAL_E1BC_CODE_LOCK)
+                } else if ((state & GnssMeasurement.STATE_GAL_E1BC_CODE_LOCK)
                         == GnssMeasurement.STATE_GAL_E1BC_CODE_LOCK) {
                     softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
                                     "GNSS_MEASUREMENT_STATE_GAL_E1BC_CODE_LOCK",
@@ -585,7 +567,7 @@ public final class TestMeasurementUtil {
                 }
                 break;
             case GnssStatus.CONSTELLATION_BEIDOU:
-                if ((state | GnssMeasurement.STATE_TOW_DECODED)
+                if ((state & GnssMeasurement.STATE_TOW_DECODED)
                         == GnssMeasurement.STATE_TOW_DECODED) {
                     softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
                                     "GNSS_MEASUREMENT_STATE_TOW_DECODED",
@@ -594,7 +576,7 @@ public final class TestMeasurementUtil {
                             "0 >= X <= 7 days",
                             String.valueOf(sv_time_days),
                             sv_time_days >= 0 && sv_time_days <= 7);
-                } else if ((state | GnssMeasurement.STATE_SUBFRAME_SYNC)
+                } else if ((state & GnssMeasurement.STATE_SUBFRAME_SYNC)
                         == GnssMeasurement.STATE_SUBFRAME_SYNC) {
                     softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
                                     "GNSS_MEASUREMENT_STATE_SUBFRAME_SYNC",
@@ -603,7 +585,7 @@ public final class TestMeasurementUtil {
                             "0s >= X <= 6s",
                             String.valueOf(sv_time_sec),
                             sv_time_sec >= 0 && sv_time_sec <= 6);
-                } else if ((state | GnssMeasurement.STATE_BDS_D2_SUBFRAME_SYNC)
+                } else if ((state & GnssMeasurement.STATE_BDS_D2_SUBFRAME_SYNC)
                         == GnssMeasurement.STATE_BDS_D2_SUBFRAME_SYNC) {
                     softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
                                     "GNSS_MEASUREMENT_STATE_BDS_D2_SUBFRAME_SYNC",
@@ -612,7 +594,7 @@ public final class TestMeasurementUtil {
                             "0ms >= X <= 600ms (0.6sec)",
                             String.valueOf(sv_time_ms),
                             sv_time_ms >= 0 && sv_time_ms <= 600);
-                } else if ((state | GnssMeasurement.STATE_BIT_SYNC)
+                } else if ((state & GnssMeasurement.STATE_BIT_SYNC)
                         == GnssMeasurement.STATE_BIT_SYNC) {
                     softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
                                     "GNSS_MEASUREMENT_STATE_BIT_SYNC",
@@ -621,7 +603,7 @@ public final class TestMeasurementUtil {
                             "0ms >= X <= 20ms",
                             String.valueOf(sv_time_ms),
                             sv_time_ms >= 0 && sv_time_ms <= 20);
-                } else if ((state | GnssMeasurement.STATE_BDS_D2_BIT_SYNC)
+                } else if ((state & GnssMeasurement.STATE_BDS_D2_BIT_SYNC)
                         == GnssMeasurement.STATE_BDS_D2_BIT_SYNC) {
                     softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
                                     "GNSS_MEASUREMENT_STATE_BDS_D2_BIT_SYNC",
@@ -630,7 +612,7 @@ public final class TestMeasurementUtil {
                             "0ms >= X <= 2ms",
                             String.valueOf(sv_time_ms),
                             sv_time_ms >= 0 && sv_time_ms <= 2);
-                } else if ((state | GnssMeasurement.STATE_CODE_LOCK)
+                } else if ((state & GnssMeasurement.STATE_CODE_LOCK)
                         == GnssMeasurement.STATE_CODE_LOCK) {
                     softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
                                     "GNSS_MEASUREMENT_STATE_CODE_LOCK",
@@ -667,7 +649,7 @@ public final class TestMeasurementUtil {
         double sv_time_sec = TimeUnit.NANOSECONDS.toSeconds(received_sv_time_ns);
         double sv_time_days = TimeUnit.NANOSECONDS.toDays(received_sv_time_ns);
 
-        if ((state | GnssMeasurement.STATE_TOW_DECODED)
+        if ((state & GnssMeasurement.STATE_TOW_DECODED)
                 == GnssMeasurement.STATE_TOW_DECODED) {
             softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
                             "GNSS_MEASUREMENT_STATE_TOW_DECODED",
@@ -676,7 +658,7 @@ public final class TestMeasurementUtil {
                     "0 >= X <= 7 days",
                     String.valueOf(sv_time_days),
                     sv_time_days >= 0 && sv_time_days <= 7);
-        } else if ((state | GnssMeasurement.STATE_SUBFRAME_SYNC)
+        } else if ((state & GnssMeasurement.STATE_SUBFRAME_SYNC)
                 == GnssMeasurement.STATE_SUBFRAME_SYNC) {
             softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
                             "GNSS_MEASUREMENT_STATE_SUBFRAME_SYNC",
@@ -685,7 +667,7 @@ public final class TestMeasurementUtil {
                     "0s >= X <= 6s",
                     String.valueOf(sv_time_sec),
                     sv_time_sec >= 0 && sv_time_sec <= 6);
-        } else if ((state | GnssMeasurement.STATE_BIT_SYNC)
+        } else if ((state & GnssMeasurement.STATE_BIT_SYNC)
                 == GnssMeasurement.STATE_BIT_SYNC) {
             softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
                             "GNSS_MEASUREMENT_STATE_BIT_SYNC",
@@ -695,7 +677,7 @@ public final class TestMeasurementUtil {
                     String.valueOf(sv_time_ms),
                     sv_time_ms >= 0 && sv_time_ms <= 20);
 
-        } else if ((state | GnssMeasurement.STATE_CODE_LOCK)
+        } else if ((state & GnssMeasurement.STATE_CODE_LOCK)
                 == GnssMeasurement.STATE_CODE_LOCK) {
             softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
                             "GNSS_MEASUREMENT_STATE_CODE_LOCK",

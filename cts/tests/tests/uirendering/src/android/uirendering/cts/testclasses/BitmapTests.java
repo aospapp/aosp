@@ -99,9 +99,10 @@ public class BitmapTests extends ActivityTestBase {
             }
         }
 
+        RtOnlyFrameCounter counter = new RtOnlyFrameCounter();
+
         ViewInitializer initializer = new ViewInitializer() {
             Animator mAnimator;
-            RtOnlyFrameCounter mCounter = new RtOnlyFrameCounter();
 
             @Override
             public void initializeView(View view) {
@@ -128,19 +129,21 @@ public class BitmapTests extends ActivityTestBase {
                         child.setColor(Color.BLUE);
                     }
                 }, 1000);
-                getActivity().getWindow().addOnFrameMetricsAvailableListener(mCounter, handler);
+                getActivity().getWindow().addOnFrameMetricsAvailableListener(counter, handler);
             }
 
             @Override
             public void teardownView() {
                 mAnimator.cancel();
-                Assert.assertTrue(mCounter.isLargeEnough());
+                getActivity().getWindow().removeOnFrameMetricsAvailableListener(counter);
             }
         };
 
         createTest()
                 .addLayout(R.layout.frame_layout, initializer, true)
                 .runWithAnimationVerifier(new ColorCountVerifier(Color.RED, 0));
+
+        Assert.assertTrue(counter.isLargeEnough());
     }
 
     /*

@@ -41,6 +41,8 @@ public class VirtualDisplayActivity extends Activity implements SurfaceHolder.Ca
 
     private static final int DEFAULT_DENSITY_DPI = 160;
     private static final String KEY_DENSITY_DPI = "density_dpi";
+    private static final String KEY_CAN_SHOW_WITH_INSECURE_KEYGUARD
+            = "can_show_with_insecure_keyguard";
     private static final String KEY_PUBLIC_DISPLAY = "public_display";
     private static final String KEY_RESIZE_DISPLAY = "resize_display";
     private static final String KEY_LAUNCH_TARGET_ACTIVITY = "launch_target_activity";
@@ -167,13 +169,20 @@ public class VirtualDisplayActivity extends Activity implements SurfaceHolder.Ca
 
         int flags = 0;
 
+        final boolean canShowWithInsecureKeyguard
+                = entry.extras.getBoolean(KEY_CAN_SHOW_WITH_INSECURE_KEYGUARD);
+        if (canShowWithInsecureKeyguard) {
+            flags |= 1 << 5; // VIRTUAL_DISPLAY_FLAG_CAN_SHOW_WITH_INSECURE_KEYGUARD
+        }
+
         final boolean publicDisplay = entry.extras.getBoolean(KEY_PUBLIC_DISPLAY);
         if (publicDisplay) {
             flags |= VIRTUAL_DISPLAY_FLAG_PUBLIC | VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY;
         }
 
         Log.d(TAG, "createVirtualDisplay: " + width + "x" + height + ", dpi: "
-                + densityDpi + ", publicDisplay=" + publicDisplay);
+                + densityDpi + ", canShowWithInsecureKeyguard=" + canShowWithInsecureKeyguard
+                + ", publicDisplay=" + publicDisplay);
         try {
             VirtualDisplay virtualDisplay = mDisplayManager.createVirtualDisplay(
                     "VirtualDisplay" + mVirtualDisplays.size(), width,

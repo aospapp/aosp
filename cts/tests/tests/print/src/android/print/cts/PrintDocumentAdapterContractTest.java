@@ -54,6 +54,7 @@ import org.mockito.InOrder;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -595,7 +596,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
                     WriteResultCallback callback = (WriteResultCallback) args[3];
 
                     if (writeCorruptedFile[0]) {
-                        Log.i(LOG_TAG, "write corrupted file " + pages);
+                        Log.i(LOG_TAG, "write corrupted file " + Arrays.toString(pages));
 
                         FileOutputStream os = new FileOutputStream(fd.getFileDescriptor());
                         for (int i = 0; i < 10; i++) {

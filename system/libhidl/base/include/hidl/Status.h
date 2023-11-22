@@ -20,7 +20,6 @@
 #include <cstdint>
 #include <sstream>
 
-#include <android-base/macros.h>
 #include <hidl/HidlInternal.h>
 #include <utils/Errors.h>
 #include <utils/StrongPointer.h>
@@ -162,9 +161,17 @@ namespace details {
         }
 
         // Check if underlying error is DEAD_OBJECT.
-        // Does not set mCheckedStatus.
+        // Check mCheckedStatus only if this method returns true.
         bool isDeadObject() const {
-            return mStatus.transactionError() == DEAD_OBJECT;
+            bool dead = mStatus.transactionError() == DEAD_OBJECT;
+
+            // This way, if you only check isDeadObject your process will
+            // only be killed for more serious unchecked errors
+            if (dead) {
+                mCheckedStatus = true;
+            }
+
+            return dead;
         }
 
         // For debugging purposes only
@@ -195,6 +202,9 @@ public:
         return mVal;
     }
 
+    T withDefault(T t) {
+        return isOk() ? mVal : t;
+    }
 };
 
 template<typename T> class Return<sp<T>> : public details::return_status {
@@ -219,6 +229,10 @@ public:
     operator sp<T>() const {
         assertOk();
         return mVal;
+    }
+
+    sp<T> withDefault(sp<T> t) {
+        return isOk() ? mVal : t;
     }
 };
 

@@ -27,6 +27,8 @@ import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.DeviceUnresponsiveException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ByteArrayInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
@@ -62,6 +64,7 @@ public class ITestSuiteTest {
     private ITestDevice mMockDevice;
     private IBuildInfo mMockBuildInfo;
     private ISystemStatusChecker mMockSysChecker;
+    private IInvocationContext mContext;
 
     /**
      * Very basic implementation of {@link ITestSuite} to test it.
@@ -143,6 +146,8 @@ public class ITestSuiteTest {
         mMockSysChecker = EasyMock.createMock(ISystemStatusChecker.class);
         mTestSuite.setDevice(mMockDevice);
         mTestSuite.setBuild(mMockBuildInfo);
+        mContext = new InvocationContext();
+        mTestSuite.setInvocationContext(mContext);
     }
 
     /**
@@ -161,11 +166,13 @@ public class ITestSuiteTest {
 
     /** Helper to expect the test run callback. */
     private void expectTestRun(ITestInvocationListener listener) {
+        listener.testModuleStarted(EasyMock.anyObject());
         listener.testRunStarted(TEST_CONFIG_NAME, 1);
         TestIdentifier test = new TestIdentifier(EMPTY_CONFIG, EMPTY_CONFIG);
         listener.testStarted(test, 0);
         listener.testEnded(test, 5, Collections.emptyMap());
         listener.testRunEnded(EasyMock.anyLong(), EasyMock.anyObject());
+        listener.testModuleEnded();
     }
 
     /** Test for {@link ITestSuite#run(ITestInvocationListener)}. */
@@ -252,6 +259,9 @@ public class ITestSuiteTest {
      */
     @Test
     public void testRun_rebootBeforeModule() throws Exception {
+        List<ISystemStatusChecker> sysChecker = new ArrayList<ISystemStatusChecker>();
+        sysChecker.add(mMockSysChecker);
+        mTestSuite.setSystemStatusChecker(sysChecker);
         OptionSetter setter = new OptionSetter(mTestSuite);
         setter.setOptionValue("skip-all-system-status-check", "true");
         setter.setOptionValue("reboot-per-module", "true");
@@ -270,6 +280,8 @@ public class ITestSuiteTest {
      */
     @Test
     public void testRun_unresponsiveDevice() throws Exception {
+        List<ISystemStatusChecker> sysChecker = new ArrayList<ISystemStatusChecker>();
+        sysChecker.add(mMockSysChecker);
         mTestSuite =
                 new TestSuiteImpl() {
                     @Override
@@ -291,15 +303,19 @@ public class ITestSuiteTest {
                 };
         mTestSuite.setDevice(mMockDevice);
         mTestSuite.setBuild(mMockBuildInfo);
+        mTestSuite.setInvocationContext(mContext);
+        mTestSuite.setSystemStatusChecker(sysChecker);
         OptionSetter setter = new OptionSetter(mTestSuite);
         setter.setOptionValue("skip-all-system-status-check", "true");
         setter.setOptionValue("reboot-per-module", "true");
         EasyMock.expect(mMockDevice.getProperty("ro.build.type")).andReturn("user");
+        mMockListener.testModuleStarted(EasyMock.anyObject());
         mMockListener.testRunStarted(TEST_CONFIG_NAME, 1);
         EasyMock.expectLastCall().times(1);
         mMockListener.testRunFailed("Module test only ran 0 out of 1 expected tests.");
         mMockListener.testRunEnded(EasyMock.anyLong(), EasyMock.anyObject());
         EasyMock.expectLastCall().times(1);
+        mMockListener.testModuleEnded();
         replayMocks();
         mTestSuite.run(mMockListener);
         verifyMocks();
@@ -311,6 +327,8 @@ public class ITestSuiteTest {
      */
     @Test
     public void testRun_runtimeException() throws Exception {
+        List<ISystemStatusChecker> sysChecker = new ArrayList<ISystemStatusChecker>();
+        sysChecker.add(mMockSysChecker);
         mTestSuite =
                 new TestSuiteImpl() {
                     @Override
@@ -330,17 +348,21 @@ public class ITestSuiteTest {
                         return testConfig;
                     }
                 };
+        mTestSuite.setSystemStatusChecker(sysChecker);
         mTestSuite.setDevice(mMockDevice);
         mTestSuite.setBuild(mMockBuildInfo);
+        mTestSuite.setInvocationContext(mContext);
         OptionSetter setter = new OptionSetter(mTestSuite);
         setter.setOptionValue("skip-all-system-status-check", "true");
         setter.setOptionValue("reboot-per-module", "true");
         EasyMock.expect(mMockDevice.getProperty("ro.build.type")).andReturn("user");
+        mMockListener.testModuleStarted(EasyMock.anyObject());
         mMockListener.testRunStarted(TEST_CONFIG_NAME, 1);
         EasyMock.expectLastCall().times(1);
         mMockListener.testRunFailed("Module test only ran 0 out of 1 expected tests.");
         mMockListener.testRunEnded(EasyMock.anyLong(), EasyMock.anyObject());
         EasyMock.expectLastCall().times(1);
+        mMockListener.testModuleEnded();
         replayMocks();
         mTestSuite.run(mMockListener);
         verifyMocks();
@@ -368,6 +390,20 @@ public class ITestSuiteTest {
         assertEquals(1, tests.size());
         for (IRemoteTest test : tests) {
             assertTrue(test instanceof TestSuiteImpl);
+        }
+    }
+
+    /** Test that after being sharded, ITestSuite shows the module runtime that it holds. */
+    @Test
+    public void testGetRuntimeHint() {
+        // default runtime hint is 0, it is only meant to be used for sharding.
+        assertEquals(0l, mTestSuite.getRuntimeHint());
+        mTestSuite = new TestSuiteImpl(5);
+        Collection<IRemoteTest> tests = mTestSuite.split(3);
+        for (IRemoteTest test : tests) {
+            assertTrue(test instanceof TestSuiteImpl);
+            // once sharded modules from the shard start reporting their runtime.
+            assertEquals(60000l, ((TestSuiteImpl) test).getRuntimeHint());
         }
     }
 }

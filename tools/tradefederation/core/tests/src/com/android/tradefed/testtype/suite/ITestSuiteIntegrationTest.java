@@ -41,6 +41,7 @@ import com.android.tradefed.result.ResultForwarder;
 import com.android.tradefed.result.suite.SuiteResultReporter;
 import com.android.tradefed.suite.checker.ISystemStatusChecker;
 import com.android.tradefed.suite.checker.ISystemStatusCheckerReceiver;
+import com.android.tradefed.testtype.IInvocationContextReceiver;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.util.FileUtil;
 
@@ -195,6 +196,7 @@ public class ITestSuiteIntegrationTest {
         suite.setDevice(mMockDevice);
         suite.setBuild(mMockBuildInfo);
         suite.setSystemStatusChecker(new ArrayList<ISystemStatusChecker>());
+        suite.setInvocationContext(mContext);
         mListener.invocationStarted(mContext);
         suite.run(mListener);
         mListener.invocationEnded(System.currentTimeMillis());
@@ -215,6 +217,7 @@ public class ITestSuiteIntegrationTest {
         suite.setDevice(mMockDevice);
         suite.setBuild(mMockBuildInfo);
         suite.setSystemStatusChecker(new ArrayList<ISystemStatusChecker>());
+        suite.setInvocationContext(mContext);
         mListener.invocationStarted(mContext);
         suite.run(mListener);
         mListener.invocationEnded(System.currentTimeMillis());
@@ -238,6 +241,7 @@ public class ITestSuiteIntegrationTest {
         suite.setDevice(mMockDevice);
         suite.setBuild(mMockBuildInfo);
         suite.setSystemStatusChecker(new ArrayList<ISystemStatusChecker>());
+        suite.setInvocationContext(mContext);
         mListener.invocationStarted(mContext);
         suite.run(mListener);
         mListener.invocationEnded(System.currentTimeMillis());
@@ -261,6 +265,7 @@ public class ITestSuiteIntegrationTest {
         suite.setDevice(mMockDevice);
         suite.setBuild(mMockBuildInfo);
         suite.setSystemStatusChecker(new ArrayList<ISystemStatusChecker>());
+        suite.setInvocationContext(mContext);
         mListener.invocationStarted(mContext);
         try {
             suite.run(mListener);
@@ -288,6 +293,9 @@ public class ITestSuiteIntegrationTest {
                 if (test instanceof ISystemStatusCheckerReceiver) {
                     ((ISystemStatusCheckerReceiver) test)
                             .setSystemStatusChecker(config.getSystemStatusCheckers());
+                }
+                if (test instanceof IInvocationContextReceiver) {
+                    ((IInvocationContextReceiver) test).setInvocationContext(mContext);
                 }
                 try {
                     test.run(new ResultForwarder(config.getTestInvocationListeners()));
@@ -324,6 +332,10 @@ public class ITestSuiteIntegrationTest {
                                             ((ISystemStatusCheckerReceiver) test)
                                                     .setSystemStatusChecker(
                                                             config.getSystemStatusCheckers());
+                                        }
+                                        if (test instanceof IInvocationContextReceiver) {
+                                            ((IInvocationContextReceiver) test)
+                                                    .setInvocationContext(mContext);
                                         }
                                         try {
                                             test.run(
@@ -362,6 +374,7 @@ public class ITestSuiteIntegrationTest {
         config.setTest(suite);
         config.setSystemStatusCheckers(new ArrayList<ISystemStatusChecker>());
         suite.setSystemStatusChecker(new ArrayList<ISystemStatusChecker>());
+        suite.setInvocationContext(mContext);
         config.setTestInvocationListener(mListener);
         config.getCommandOptions().setShardCount(5);
         IDeviceConfiguration deviceConfig = new DeviceConfigurationHolder("device");
@@ -398,6 +411,7 @@ public class ITestSuiteIntegrationTest {
         config.setTest(suite);
         config.setSystemStatusCheckers(new ArrayList<ISystemStatusChecker>());
         suite.setSystemStatusChecker(new ArrayList<ISystemStatusChecker>());
+        suite.setInvocationContext(mContext);
         config.setTestInvocationListener(mListener);
         config.getCommandOptions().setShardCount(5);
         IDeviceConfiguration deviceConfig = new DeviceConfigurationHolder("device");
@@ -438,6 +452,7 @@ public class ITestSuiteIntegrationTest {
         config.setTest(suite);
         config.setSystemStatusCheckers(new ArrayList<ISystemStatusChecker>());
         suite.setSystemStatusChecker(new ArrayList<ISystemStatusChecker>());
+        suite.setInvocationContext(mContext);
         config.setTestInvocationListener(mListener);
         config.getCommandOptions().setShardCount(2);
         config.getCommandOptions().setShardIndex(0);
@@ -459,6 +474,9 @@ public class ITestSuiteIntegrationTest {
             if (test instanceof ISystemStatusCheckerReceiver) {
                 ((ISystemStatusCheckerReceiver) test)
                         .setSystemStatusChecker(config.getSystemStatusCheckers());
+            }
+            if (test instanceof IInvocationContextReceiver) {
+                ((IInvocationContextReceiver) test).setInvocationContext(mContext);
             }
             test.run(new ResultForwarder(config.getTestInvocationListeners()));
         }
@@ -513,6 +531,7 @@ public class ITestSuiteIntegrationTest {
         config.setTest(suite);
         config.setSystemStatusCheckers(new ArrayList<ISystemStatusChecker>());
         suite.setSystemStatusChecker(new ArrayList<ISystemStatusChecker>());
+        suite.setInvocationContext(mContext);
         config.setTestInvocationListener(mListener);
         config.getCommandOptions().setShardCount(shardCount);
         config.getCommandOptions().setShardIndex(shardIndex);
@@ -534,6 +553,9 @@ public class ITestSuiteIntegrationTest {
             if (test instanceof ISystemStatusCheckerReceiver) {
                 ((ISystemStatusCheckerReceiver) test)
                         .setSystemStatusChecker(config.getSystemStatusCheckers());
+            }
+            if (test instanceof IInvocationContextReceiver) {
+                ((IInvocationContextReceiver) test).setInvocationContext(mContext);
             }
             test.run(new ResultForwarder(config.getTestInvocationListeners()));
         }

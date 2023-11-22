@@ -24,15 +24,19 @@
     <!-- change minSdk if needed-->
     <minSdk>24</minSdk>
     <minSdkVersionWear>24</minSdkVersionWear>
-    <targetSdkVersion>25</targetSdkVersion>
-    <targetSdkVersionWear>25</targetSdkVersionWear>
+    <targetSdkVersion>26</targetSdkVersion>
+    <targetSdkVersionWear>26</targetSdkVersionWear>
+    <compileSdkVersionWear>26</compileSdkVersionWear>
+    <multiDexEnabled>true</multiDexEnabled>
 
     <!-- Include additional dependencies here.-->
     <!-- dependency>com.google.android.gms:play-services:5.0.+</dependency -->
+    <dependency_wearable>com.android.support:wear:26.0.0</dependency_wearable>
+
 
     <strings>
         <intro>
-<![CDATA[
+            <![CDATA[
 Sample demonstrates how to determine if a high-bandwidth network is available for use cases that
 require a minimum network bandwidth, such as streaming media or downloading large files. In
 addition, the sample demonstrates best practices for asking a user to add a new Wi-Fi network for
@@ -94,7 +98,7 @@ high-bandwidth network operations if the bandwidth of currently available networ
             Avoid simply rearranging the sample's title. What does this sample actually
             accomplish, and how does it do it? -->
         <description>
-<![CDATA[
+            <![CDATA[
 Sample demonstrates how to determine if a high-bandwidth network is available for use cases that
 require a minimum network bandwidth, such as streaming media or downloading large files. In
 addition, the sample demonstrates best practices for asking a user to add a new Wi-Fi network for
@@ -106,7 +110,7 @@ high-bandwidth network operations if the bandwidth of currently available networ
         Makrdown formatting allowed. This will be used to generate a mini-article for the
         sample on DAC. -->
         <intro>
-<![CDATA[
+            <![CDATA[
 On Android Wear, a high-bandwidth network is not always available, as the platform manages network
 connectivity with the goal of providing the best overall user experience, balancing network
 bandwidth and maximizing device battery life. For use cases that require high-bandwidth network

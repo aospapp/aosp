@@ -58,10 +58,21 @@ class PCRelativeHandlerVisitor : public HGraphVisitor {
     DCHECK(base_ != nullptr);
   }
 
+  void VisitInvokeStaticOrDirect(HInvokeStaticOrDirect* invoke) OVERRIDE {
+    // If this is an invoke with PC-relative load kind,
+    // we need to add the base as the special input.
+    if (invoke->HasPcRelativeMethodLoadKind() &&
+        !IsCallFreeIntrinsic<IntrinsicLocationsBuilderMIPS>(invoke, codegen_)) {
+      InitializePCRelativeBasePointer();
+      // Add the special argument base to the method.
+      DCHECK(!invoke->HasCurrentMethodInput());
+      invoke->AddSpecialInput(base_);
+    }
+  }
+
   void VisitLoadClass(HLoadClass* load_class) OVERRIDE {
     HLoadClass::LoadKind load_kind = load_class->GetLoadKind();
     switch (load_kind) {
-      case HLoadClass::LoadKind::kBootImageLinkTimeAddress:
       case HLoadClass::LoadKind::kBootImageLinkTimePcRelative:
       case HLoadClass::LoadKind::kBootImageAddress:
       case HLoadClass::LoadKind::kBssEntry:
@@ -77,7 +88,6 @@ class PCRelativeHandlerVisitor : public HGraphVisitor {
   void VisitLoadString(HLoadString* load_string) OVERRIDE {
     HLoadString::LoadKind load_kind = load_string->GetLoadKind();
     switch (load_kind) {
-      case HLoadString::LoadKind::kBootImageLinkTimeAddress:
       case HLoadString::LoadKind::kBootImageAddress:
       case HLoadString::LoadKind::kBootImageLinkTimePcRelative:
       case HLoadString::LoadKind::kBssEntry:

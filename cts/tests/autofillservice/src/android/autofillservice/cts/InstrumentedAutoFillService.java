@@ -38,8 +38,10 @@ import android.service.autofill.FillCallback;
 import android.service.autofill.FillContext;
 import android.service.autofill.FillResponse;
 import android.service.autofill.SaveCallback;
+import android.support.annotation.Nullable;
 import android.util.Log;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -50,6 +52,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * Implementation of {@link AutofillService} used in the tests.
  */
 public class InstrumentedAutoFillService extends AutofillService {
+
+    static final String SERVICE_NAME = InstrumentedAutoFillService.class.getPackage()
+            .getName() + "/." + InstrumentedAutoFillService.class.getSimpleName();
 
     private static final String TAG = "InstrumentedAutoFillService";
 
@@ -64,6 +69,9 @@ public class InstrumentedAutoFillService extends AutofillService {
     private static final Replier sReplier = new Replier();
     private static final BlockingQueue<String> sConnectionStates = new LinkedBlockingQueue<>();
 
+    private static final Object sLock = new Object();
+
+    // @GuardedBy("sLock")
     private static boolean sIgnoreUnexpectedRequests = false;
 
     public InstrumentedAutoFillService() {
@@ -89,11 +97,13 @@ public class InstrumentedAutoFillService extends AutofillService {
     @Override
     public void onFillRequest(android.service.autofill.FillRequest request,
             CancellationSignal cancellationSignal, FillCallback callback) {
-        if (sIgnoreUnexpectedRequests || !fromSamePackage(request.getFillContexts()))  {
-            Log.w(TAG, "Ignoring onFillRequest()");
-            return;
-        }
         if (DUMP_FILL_REQUESTS) dumpStructure("onFillRequest()", request.getFillContexts());
+        synchronized (sLock) {
+            if (sIgnoreUnexpectedRequests || !fromSamePackage(request.getFillContexts()))  {
+                Log.w(TAG, "Ignoring onFillRequest()");
+                return;
+            }
+        }
         sReplier.onFillRequest(request.getFillContexts(), request.getClientState(),
                 cancellationSignal, callback, request.getFlags());
     }
@@ -101,11 +111,13 @@ public class InstrumentedAutoFillService extends AutofillService {
     @Override
     public void onSaveRequest(android.service.autofill.SaveRequest request,
             SaveCallback callback) {
-        if (sIgnoreUnexpectedRequests || !fromSamePackage(request.getFillContexts())) {
-            Log.w(TAG, "Ignoring onSaveRequest()");
-            return;
-        }
         if (DUMP_SAVE_REQUESTS) dumpStructure("onSaveRequest()", request.getFillContexts());
+        synchronized (sLock) {
+            if (sIgnoreUnexpectedRequests || !fromSamePackage(request.getFillContexts())) {
+                Log.w(TAG, "Ignoring onSaveRequest()");
+                return;
+            }
+        }
         sReplier.onSaveRequest(request.getFillContexts(), request.getClientState(), callback);
     }
 
@@ -126,7 +138,9 @@ public class InstrumentedAutoFillService extends AutofillService {
      * should throw an exception.
      */
     public static void setIgnoreUnexpectedRequests(boolean ignore) {
-        sIgnoreUnexpectedRequests = ignore;
+        synchronized (sLock) {
+            sIgnoreUnexpectedRequests = ignore;
+        }
     }
 
     /**
@@ -231,7 +245,31 @@ public class InstrumentedAutoFillService extends AutofillService {
         private final BlockingQueue<FillRequest> mFillRequests = new LinkedBlockingQueue<>();
         private final BlockingQueue<SaveRequest> mSaveRequests = new LinkedBlockingQueue<>();
 
+        private List<Exception> mExceptions;
+
         private Replier() {
+        }
+
+        private IdMode mIdMode = IdMode.RESOURCE_ID;
+
+        public void setIdMode(IdMode mode) {
+            this.mIdMode = mode;
+        }
+
+        /**
+         * Gets the exceptions thrown asynchronously, if any.
+         */
+        @Nullable List<Exception> getExceptions() {
+            return mExceptions;
+        }
+
+        private void addException(@Nullable Exception e) {
+            if (e == null) return;
+
+            if (mExceptions == null) {
+                mExceptions = new ArrayList<>();
+            }
+            mExceptions.add(e);
         }
 
         /**
@@ -280,6 +318,13 @@ public class InstrumentedAutoFillService extends AutofillService {
         }
 
         /**
+         * Gets the current number of unhandled requests.
+         */
+        int getNumberUnhandledFillRequests() {
+            return mFillRequests.size();
+        }
+
+        /**
          * Gets the next save request, in the order received.
          *
          * <p>Typically called at the end of a test case, to assert the initial request.
@@ -310,6 +355,7 @@ public class InstrumentedAutoFillService extends AutofillService {
             mResponses.clear();
             mFillRequests.clear();
             mSaveRequests.clear();
+            mExceptions = null;
         }
 
         private void onFillRequest(List<FillContext> contexts, Bundle data,
@@ -321,11 +367,14 @@ public class InstrumentedAutoFillService extends AutofillService {
                 } catch (InterruptedException e) {
                     Log.w(TAG, "Interrupted getting CannedResponse: " + e);
                     Thread.currentThread().interrupt();
+                    addException(e);
                     return;
                 }
                 if (response == null) {
-                    dumpStructure("onFillRequest() without response", contexts);
-                    throw new RetryableException("No CannedResponse");
+                    final String msg = "onFillRequest() received when no CannedResponse was set";
+                    dumpStructure(msg, contexts);
+                    addException(new RetryableException(msg));
+                    return;
                 }
                 if (response.getResponseType() == NULL) {
                     Log.d(TAG, "onFillRequest(): replying with null");
@@ -345,11 +394,25 @@ public class InstrumentedAutoFillService extends AutofillService {
                     return;
                 }
 
-                final FillResponse fillResponse = response.asFillResponse(
-                        (id) -> Helper.findNodeByResourceId(contexts, id));
+                final FillResponse fillResponse;
+
+                switch (mIdMode) {
+                    case RESOURCE_ID:
+                        fillResponse = response.asFillResponse(
+                                (id) -> Helper.findNodeByResourceId(contexts, id));
+                        break;
+                    case HTML_NAME:
+                        fillResponse = response.asFillResponse(
+                                (name) -> Helper.findNodeByHtmlName(contexts, name));
+                        break;
+                    default:
+                        throw new IllegalStateException("Unknown id mode: " + mIdMode);
+                }
 
                 Log.v(TAG, "onFillRequest(): fillResponse = " + fillResponse);
                 callback.onSuccess(fillResponse);
+            } catch (Exception e) {
+                addException(e);
             } finally {
                 mFillRequests.offer(new FillRequest(contexts, data, cancellationSignal, callback,
                         flags));

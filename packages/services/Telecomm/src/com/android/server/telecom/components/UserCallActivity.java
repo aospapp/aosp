@@ -23,6 +23,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.PowerManager;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.telecom.Log;
@@ -52,6 +53,11 @@ public class UserCallActivity extends Activity implements TelecomSystem.Componen
     @Override
     protected void onCreate(Bundle bundle) {
         super.onCreate(bundle);
+        PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+        PowerManager.WakeLock wakelock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
+                "UserCallActivity");
+        wakelock.acquire();
+
         Log.startSession("UCA.oC");
         try {
             // TODO: Figure out if there is something to restore from bundle.
@@ -71,7 +77,9 @@ public class UserCallActivity extends Activity implements TelecomSystem.Componen
                     getCallingPackage(), true /* hasCallAppOp*/);
         } finally {
             Log.endSession();
+            wakelock.release();
         }
+        Log.i(this, "onCreate done");
         finish();
     }
 

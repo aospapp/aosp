@@ -18,8 +18,15 @@ package com.android.managedprovisioning.provisioning;
 
 import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_PROVISIONING_ACTIVITY_TIME_MS;
 
+import android.Manifest;
+import android.Manifest.permission;
 import android.app.Activity;
 import android.app.DialogFragment;
+import android.app.admin.DevicePolicyManager;
+import android.content.ComponentName;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.os.Bundle;
 import android.support.annotation.VisibleForTesting;
 import android.view.accessibility.AccessibilityEvent;
@@ -33,6 +40,7 @@ import com.android.managedprovisioning.common.SimpleDialog;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.CustomizationParams;
 import com.android.managedprovisioning.model.ProvisioningParams;
+import java.util.List;
 
 /**
  * Progress activity shown whilst provisioning is ongoing.
@@ -126,7 +134,47 @@ public class ProvisioningActivity extends SetupGlifLayoutActivity
     public void preFinalizationCompleted() {
         ProvisionLogger.logi("ProvisioningActivity pre-finalization completed");
         setResult(Activity.RESULT_OK);
+        maybeLaunchNfcUserSetupCompleteIntent();
         finish();
+    }
+
+    private void maybeLaunchNfcUserSetupCompleteIntent() {
+        if (mParams != null && mParams.isNfc) {
+            // Start SetupWizard to complete the intent.
+            final Intent intent = new Intent(DevicePolicyManager.ACTION_STATE_USER_SETUP_COMPLETE)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            final PackageManager pm = getPackageManager();
+            List<ResolveInfo> ris = pm.queryIntentActivities(intent, 0);
+
+            // Look for the first legitimate component protected by the permission
+            ComponentName targetComponent = null;
+            for (ResolveInfo ri : ris) {
+                if (ri.activityInfo == null) {
+                    continue;
+                }
+                if (!permission.BIND_DEVICE_ADMIN.equals(ri.activityInfo.permission)) {
+                    ProvisionLogger.loge("Component " + ri.activityInfo.getComponentName()
+                            + " is not protected by " + permission.BIND_DEVICE_ADMIN);
+                } else if (pm.checkPermission(permission.DISPATCH_PROVISIONING_MESSAGE,
+                        ri.activityInfo.packageName) != PackageManager.PERMISSION_GRANTED) {
+                    ProvisionLogger.loge("Package " + ri.activityInfo.packageName
+                            + " does not have " + permission.DISPATCH_PROVISIONING_MESSAGE);
+                } else {
+                    targetComponent = ri.activityInfo.getComponentName();
+                    break;
+                }
+            }
+
+            if (targetComponent == null) {
+                ProvisionLogger.logw("No activity accepts intent ACTION_STATE_USER_SETUP_COMPLETE");
+                return;
+            }
+
+            intent.setComponent(targetComponent);
+            startActivity(intent);
+            ProvisionLogger.logi("Launched ACTION_STATE_USER_SETUP_COMPLETE with component "
+                    + targetComponent);
+        }
     }
 
     @Override

@@ -1,7 +1,5 @@
-UP_SQL = """
-ALTER TABLE `afe_hosts` ADD `synch_id` int(11) default NULL;
-"""
+# This migration has been nulled out, see crbug.com/719628 or the backup
+# ".ignore" migration files in this directory.
+UP_SQL = "SELECT 1;"
 
-DOWN_SQL = """
-ALTER TABLE `afe_hosts` DROP COLUMN `synch_id`;
-"""
+DOWN_SQL = "SELECT 1;"

@@ -16,6 +16,7 @@
 
 #include "bump_pointer_space.h"
 #include "bump_pointer_space-inl.h"
+#include "gc/accounting/read_barrier_table.h"
 #include "mirror/object-inl.h"
 #include "mirror/class-inl.h"
 #include "thread_list.h"
@@ -27,6 +28,10 @@ namespace space {
 // If a region has live objects whose size is less than this percent
 // value of the region size, evaculate the region.
 static constexpr uint kEvaculateLivePercentThreshold = 75U;
+
+// If we protect the cleared regions.
+// Only protect for target builds to prevent flaky test failures (b/63131961).
+static constexpr bool kProtectClearedRegions = kIsTargetBuild;
 
 MemMap* RegionSpace::CreateMemMap(const std::string& name, size_t capacity,
                                   uint8_t* requested_begin) {
@@ -246,6 +251,13 @@ void RegionSpace::SetFromSpace(accounting::ReadBarrierTable* rb_table, bool forc
   evac_region_ = &full_region_;
 }
 
+static void ZeroAndProtectRegion(uint8_t* begin, uint8_t* end) {
+  ZeroAndReleasePages(begin, end - begin);
+  if (kProtectClearedRegions) {
+    mprotect(begin, end - begin, PROT_NONE);
+  }
+}
+
 void RegionSpace::ClearFromSpace(uint64_t* cleared_bytes, uint64_t* cleared_objects) {
   DCHECK(cleared_bytes != nullptr);
   DCHECK(cleared_objects != nullptr);
@@ -264,7 +276,7 @@ void RegionSpace::ClearFromSpace(uint64_t* cleared_bytes, uint64_t* cleared_obje
   auto clear_region = [&clear_block_begin, &clear_block_end](Region* r) {
     r->Clear(/*zero_and_release_pages*/false);
     if (clear_block_end != r->Begin()) {
-      ZeroAndReleasePages(clear_block_begin, clear_block_end - clear_block_begin);
+      ZeroAndProtectRegion(clear_block_begin, clear_block_end);
       clear_block_begin = r->Begin();
     }
     clear_block_end = r->End();
@@ -278,6 +290,7 @@ void RegionSpace::ClearFromSpace(uint64_t* cleared_bytes, uint64_t* cleared_obje
       clear_region(r);
     } else if (r->IsInUnevacFromSpace()) {
       if (r->LiveBytes() == 0) {
+        DCHECK(!r->IsLargeTail());
         // Special case for 0 live bytes, this means all of the objects in the region are dead and
         // we can clear it. This is important for large objects since we must not visit dead ones in
         // RegionSpace::Walk because they may contain dangling references to invalid objects.
@@ -300,28 +313,29 @@ void RegionSpace::ClearFromSpace(uint64_t* cleared_bytes, uint64_t* cleared_obje
             reinterpret_cast<mirror::Object*>(r->Begin() + free_regions * kRegionSize));
         continue;
       }
-      size_t full_count = 0;
-      while (r->IsInUnevacFromSpace()) {
-        Region* const cur = &regions_[i + full_count];
-        if (i + full_count >= num_regions_ ||
-            cur->LiveBytes() != static_cast<size_t>(cur->Top() - cur->Begin())) {
-          break;
-        }
-        DCHECK(cur->IsInUnevacFromSpace());
-        if (full_count != 0) {
-          cur->SetUnevacFromSpaceAsToSpace();
-        }
-        ++full_count;
-      }
-      // Note that r is the full_count == 0 iteration since it is not handled by the loop.
       r->SetUnevacFromSpaceAsToSpace();
-      if (full_count >= 1) {
+      if (r->AllAllocatedBytesAreLive()) {
+        // Try to optimize the number of ClearRange calls by checking whether the next regions
+        // can also be cleared.
+        size_t regions_to_clear_bitmap = 1;
+        while (i + regions_to_clear_bitmap < num_regions_) {
+          Region* const cur = &regions_[i + regions_to_clear_bitmap];
+          if (!cur->AllAllocatedBytesAreLive()) {
+            DCHECK(!cur->IsLargeTail());
+            break;
+          }
+          CHECK(cur->IsInUnevacFromSpace());
+          cur->SetUnevacFromSpaceAsToSpace();
+          ++regions_to_clear_bitmap;
+        }
+
         GetLiveBitmap()->ClearRange(
             reinterpret_cast<mirror::Object*>(r->Begin()),
-            reinterpret_cast<mirror::Object*>(r->Begin() + full_count * kRegionSize));
-        // Skip over extra regions we cleared.
+            reinterpret_cast<mirror::Object*>(r->Begin() + regions_to_clear_bitmap * kRegionSize));
+        // Skip over extra regions we cleared the bitmaps: we don't need to clear them, as they
+        // are unevac region sthat are live.
         // Subtract one for the for loop.
-        i += full_count - 1;
+        i += regions_to_clear_bitmap - 1;
       }
     }
     // Note r != last_checked_region if r->IsInUnevacFromSpace() was true above.
@@ -448,21 +462,14 @@ bool RegionSpace::AllocNewTlab(Thread* self, size_t min_bytes) {
   MutexLock mu(self, region_lock_);
   RevokeThreadLocalBuffersLocked(self);
   // Retain sufficient free regions for full evacuation.
-  if ((num_non_free_regions_ + 1) * 2 > num_regions_) {
-    return false;
-  }
-  for (size_t i = 0; i < num_regions_; ++i) {
-    Region* r = &regions_[i];
-    if (r->IsFree()) {
-      r->Unfree(this, time_);
-      ++num_non_free_regions_;
-      r->SetNewlyAllocated();
-      r->SetTop(r->End());
-      r->is_a_tlab_ = true;
-      r->thread_ = self;
-      self->SetTlab(r->Begin(), r->Begin() + min_bytes, r->End());
-      return true;
-    }
+
+  Region* r = AllocateRegion(/*for_evac*/ false);
+  if (r != nullptr) {
+    r->is_a_tlab_ = true;
+    r->thread_ = self;
+    r->SetTop(r->End());
+    self->SetTlab(r->Begin(), r->Begin() + min_bytes, r->End());
+    return true;
   }
   return false;
 }
@@ -526,6 +533,79 @@ void RegionSpace::Region::Dump(std::ostream& os) const {
      << " objects_allocated=" << objects_allocated_
      << " alloc_time=" << alloc_time_ << " live_bytes=" << live_bytes_
      << " is_newly_allocated=" << is_newly_allocated_ << " is_a_tlab=" << is_a_tlab_ << " thread=" << thread_ << "\n";
+}
+
+size_t RegionSpace::AllocationSizeNonvirtual(mirror::Object* obj, size_t* usable_size) {
+  size_t num_bytes = obj->SizeOf();
+  if (usable_size != nullptr) {
+    if (LIKELY(num_bytes <= kRegionSize)) {
+      DCHECK(RefToRegion(obj)->IsAllocated());
+      *usable_size = RoundUp(num_bytes, kAlignment);
+    } else {
+      DCHECK(RefToRegion(obj)->IsLarge());
+      *usable_size = RoundUp(num_bytes, kRegionSize);
+    }
+  }
+  return num_bytes;
+}
+
+void RegionSpace::Region::Clear(bool zero_and_release_pages) {
+  top_.StoreRelaxed(begin_);
+  state_ = RegionState::kRegionStateFree;
+  type_ = RegionType::kRegionTypeNone;
+  objects_allocated_.StoreRelaxed(0);
+  alloc_time_ = 0;
+  live_bytes_ = static_cast<size_t>(-1);
+  if (zero_and_release_pages) {
+    ZeroAndProtectRegion(begin_, end_);
+  }
+  is_newly_allocated_ = false;
+  is_a_tlab_ = false;
+  thread_ = nullptr;
+}
+
+RegionSpace::Region* RegionSpace::AllocateRegion(bool for_evac) {
+  if (!for_evac && (num_non_free_regions_ + 1) * 2 > num_regions_) {
+    return nullptr;
+  }
+  for (size_t i = 0; i < num_regions_; ++i) {
+    Region* r = &regions_[i];
+    if (r->IsFree()) {
+      r->Unfree(this, time_);
+      ++num_non_free_regions_;
+      if (!for_evac) {
+        // Evac doesn't count as newly allocated.
+        r->SetNewlyAllocated();
+      }
+      return r;
+    }
+  }
+  return nullptr;
+}
+
+void RegionSpace::Region::MarkAsAllocated(RegionSpace* region_space, uint32_t alloc_time) {
+  DCHECK(IsFree());
+  alloc_time_ = alloc_time;
+  region_space->AdjustNonFreeRegionLimit(idx_);
+  type_ = RegionType::kRegionTypeToSpace;
+  if (kProtectClearedRegions) {
+    mprotect(Begin(), kRegionSize, PROT_READ | PROT_WRITE);
+  }
+}
+
+void RegionSpace::Region::Unfree(RegionSpace* region_space, uint32_t alloc_time) {
+  MarkAsAllocated(region_space, alloc_time);
+  state_ = RegionState::kRegionStateAllocated;
+}
+
+void RegionSpace::Region::UnfreeLarge(RegionSpace* region_space, uint32_t alloc_time) {
+  MarkAsAllocated(region_space, alloc_time);
+  state_ = RegionState::kRegionStateLarge;
+}
+
+void RegionSpace::Region::UnfreeLargeTail(RegionSpace* region_space, uint32_t alloc_time) {
+  MarkAsAllocated(region_space, alloc_time);
+  state_ = RegionState::kRegionStateLargeTail;
 }
 
 }  // namespace space

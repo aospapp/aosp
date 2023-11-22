@@ -82,9 +82,8 @@ final class Platform {
         }
     }
 
-    public static FileDescriptor getFileDescriptorFromSSLSocket(
-            OpenSSLSocketImpl openSSLSocketImpl) {
-        return getFileDescriptor(openSSLSocketImpl);
+    public static FileDescriptor getFileDescriptorFromSSLSocket(AbstractConscryptSocket socket) {
+        return getFileDescriptor(socket);
     }
 
     public static String getCurveName(ECParameterSpec spec) {
@@ -195,7 +194,7 @@ final class Platform {
     }
 
     public static void setSSLParameters(
-            SSLParameters params, SSLParametersImpl impl, OpenSSLSocketImpl socket) {
+            SSLParameters params, SSLParametersImpl impl, AbstractConscryptSocket socket) {
         try {
             setSSLParametersOnImpl(params, impl);
 
@@ -213,14 +212,14 @@ final class Platform {
     }
 
     public static void setSSLParameters(
-            SSLParameters params, SSLParametersImpl impl, OpenSSLEngineImpl engine) {
+            SSLParameters params, SSLParametersImpl impl, ConscryptEngine engine) {
         try {
             setSSLParametersOnImpl(params, impl);
 
             if (Build.VERSION.SDK_INT >= 24) {
                 String sniHostname = getSniHostnameFromParams(params);
                 if (sniHostname != null) {
-                    engine.setSniHostname(sniHostname);
+                    engine.setHostname(sniHostname);
                 }
             }
         } catch (NoSuchMethodException ignored) {
@@ -260,7 +259,7 @@ final class Platform {
     }
 
     public static void getSSLParameters(
-            SSLParameters params, SSLParametersImpl impl, OpenSSLSocketImpl socket) {
+            SSLParameters params, SSLParametersImpl impl, AbstractConscryptSocket socket) {
         try {
             getSSLParametersFromImpl(params, impl);
 
@@ -276,17 +275,18 @@ final class Platform {
 
     @TargetApi(24)
     private static void setParametersSniHostname(
-            SSLParameters params, SSLParametersImpl impl, OpenSSLSocketImpl socket)
+            SSLParameters params, SSLParametersImpl impl, AbstractConscryptSocket socket)
             throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
         if (impl.getUseSni() && AddressUtils.isValidSniHostname(socket.getHostname())) {
             Method m_setServerNames = params.getClass().getMethod("setServerNames", List.class);
-            m_setServerNames.invoke(params, Collections.<SNIServerName>singletonList(
-                                                    new SNIHostName(socket.getHostname())));
+            m_setServerNames.invoke(params,
+                    Collections.<SNIServerName>singletonList(
+                            new SNIHostName(socket.getHostname())));
         }
     }
 
     public static void getSSLParameters(
-            SSLParameters params, SSLParametersImpl impl, OpenSSLEngineImpl engine) {
+            SSLParameters params, SSLParametersImpl impl, ConscryptEngine engine) {
         try {
             getSSLParametersFromImpl(params, impl);
 
@@ -302,13 +302,13 @@ final class Platform {
 
     @TargetApi(24)
     private static void setParametersSniHostname(
-            SSLParameters params, SSLParametersImpl impl, OpenSSLEngineImpl engine)
+            SSLParameters params, SSLParametersImpl impl, ConscryptEngine engine)
             throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
-        if (impl.getUseSni() && AddressUtils.isValidSniHostname(engine.getSniHostname())) {
+        if (impl.getUseSni() && AddressUtils.isValidSniHostname(engine.getHostname())) {
             Method m_setServerNames = params.getClass().getMethod("setServerNames", List.class);
             m_setServerNames.invoke(params,
                     Collections.<SNIServerName>singletonList(
-                            new SNIHostName(engine.getSniHostname())));
+                            new SNIHostName(engine.getHostname())));
         }
     }
 
@@ -359,9 +359,9 @@ final class Platform {
         return false;
     }
 
-    @SuppressLint("NewApi") // OpenSSLSocketImpl defines getHandshakeSession()
+    @SuppressLint("NewApi") // AbstractConscryptSocket defines getHandshakeSession()
     public static void checkClientTrusted(X509TrustManager tm, X509Certificate[] chain,
-            String authType, OpenSSLSocketImpl socket) throws CertificateException {
+            String authType, AbstractConscryptSocket socket) throws CertificateException {
         if (!checkTrusted("checkClientTrusted", tm, chain, authType, Socket.class, socket)
                 && !checkTrusted("checkClientTrusted", tm, chain, authType, String.class,
                            socket.getHandshakeSession().getPeerHost())) {
@@ -369,9 +369,9 @@ final class Platform {
         }
     }
 
-    @SuppressLint("NewApi") // OpenSSLSocketImpl defines getHandshakeSession()
+    @SuppressLint("NewApi") // AbstractConscryptSocket defines getHandshakeSession()
     public static void checkServerTrusted(X509TrustManager tm, X509Certificate[] chain,
-            String authType, OpenSSLSocketImpl socket) throws CertificateException {
+            String authType, AbstractConscryptSocket socket) throws CertificateException {
         if (!checkTrusted("checkServerTrusted", tm, chain, authType, Socket.class, socket)
                 && !checkTrusted("checkServerTrusted", tm, chain, authType, String.class,
                            socket.getHandshakeSession().getPeerHost())) {
@@ -379,9 +379,9 @@ final class Platform {
         }
     }
 
-    @SuppressLint("NewApi") // OpenSSLSocketImpl defines getHandshakeSession()
+    @SuppressLint("NewApi") // AbstractConscryptSocket defines getHandshakeSession()
     public static void checkClientTrusted(X509TrustManager tm, X509Certificate[] chain,
-            String authType, OpenSSLEngineImpl engine) throws CertificateException {
+            String authType, ConscryptEngine engine) throws CertificateException {
         if (!checkTrusted("checkClientTrusted", tm, chain, authType, SSLEngine.class, engine)
                 && !checkTrusted("checkClientTrusted", tm, chain, authType, String.class,
                            engine.getHandshakeSession().getPeerHost())) {
@@ -389,9 +389,9 @@ final class Platform {
         }
     }
 
-    @SuppressLint("NewApi") // OpenSSLSocketImpl defines getHandshakeSession()
+    @SuppressLint("NewApi") // AbstractConscryptSocket defines getHandshakeSession()
     public static void checkServerTrusted(X509TrustManager tm, X509Certificate[] chain,
-            String authType, OpenSSLEngineImpl engine) throws CertificateException {
+            String authType, ConscryptEngine engine) throws CertificateException {
         if (!checkTrusted("checkServerTrusted", tm, chain, authType, SSLEngine.class, engine)
                 && !checkTrusted("checkServerTrusted", tm, chain, authType, String.class,
                            engine.getHandshakeSession().getPeerHost())) {
@@ -430,7 +430,8 @@ final class Platform {
             // provider, which should be the default. That could happen if an
             // OEM decided
             // to implement a different default provider. Also highly unlikely.
-            Log.e(TAG, "Private key is not an OpenSSLRSAPrivateKey instance, its class name is:"
+            Log.e(TAG,
+                    "Private key is not an OpenSSLRSAPrivateKey instance, its class name is:"
                             + javaKey.getClass().getCanonicalName());
             return null;
         }
@@ -695,12 +696,12 @@ final class Platform {
      * Pre-Java 8 backward compatibility.
      */
 
-    public static SSLSession wrapSSLSession(AbstractOpenSSLSession sslSession) {
+    public static SSLSession wrapSSLSession(ActiveSession sslSession) {
         if (Build.VERSION.SDK_INT <= 23) {
             return sslSession;
         }
 
-        return new OpenSSLExtendedSessionImpl(sslSession);
+        return new DelegatingExtendedSSLSession(sslSession);
     }
 
     public static SSLSession unwrapSSLSession(SSLSession sslSession) {
@@ -708,9 +709,10 @@ final class Platform {
             return sslSession;
         }
 
-        if (sslSession instanceof OpenSSLExtendedSessionImpl) {
-            return ((OpenSSLExtendedSessionImpl) sslSession).getDelegate();
+        if (sslSession instanceof DelegatingExtendedSSLSession) {
+            return ((DelegatingExtendedSSLSession) sslSession).getDelegate();
         }
+
         return sslSession;
     }
 

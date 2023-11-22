@@ -41,12 +41,9 @@ public class BlockedNumbersAdapter extends SimpleCursorAdapter {
         super.bindView(view, context, cursor);
         final String rawNumber = cursor.getString(cursor.getColumnIndex(
                 BlockedNumberContract.BlockedNumbers.COLUMN_ORIGINAL_NUMBER));
-        String formattedNumber = PhoneNumberUtils.formatNumber(rawNumber,
-                BlockedNumbersUtil.getLocaleDefaultToUS());
-        final String finalFormattedNumber = formattedNumber == null ? rawNumber : formattedNumber;
-
+        final String formattedNumber = BlockedNumbersUtil.formatNumber(rawNumber);
         TextView numberView = (TextView) view.findViewById(R.id.blocked_number);
-        Spannable numberSpannable = new SpannableString(finalFormattedNumber);
+        Spannable numberSpannable = new SpannableString(formattedNumber);
         PhoneNumberUtils.addTtsSpan(numberSpannable, 0, numberSpannable.length());
         numberView.setText(numberSpannable);
 
@@ -54,7 +51,7 @@ public class BlockedNumbersAdapter extends SimpleCursorAdapter {
         deleteButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-               showDeleteBlockedNumberDialog(context, rawNumber, finalFormattedNumber);
+                showDeleteBlockedNumberDialog(context, rawNumber, formattedNumber);
             }
         });
     }

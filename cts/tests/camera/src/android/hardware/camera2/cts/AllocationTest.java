@@ -595,7 +595,7 @@ public class AllocationTest extends AndroidTestCase {
         final float THRESHOLD_MAX_MIN_DIFF = 0.3f;
         final float THRESHOLD_MAX_MIN_RATIO = 2.0f;
         final int NUM_STEPS = 5;
-        final long EXPOSURE_TIME_NS = 2000000; // 2 seconds
+        final long EXPOSURE_TIME_NS = 2000000; // 2 ms
         final int RGB_CHANNELS = 3;
 
         mCameraIterable.forEachCamera(/*fullHwLevel*/false, new CameraBlock() {

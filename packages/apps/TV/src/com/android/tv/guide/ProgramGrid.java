@@ -20,17 +20,15 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Rect;
 import android.support.v17.leanback.widget.VerticalGridView;
-import android.support.v7.widget.RecyclerView.LayoutManager;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.util.Range;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 
 import com.android.tv.R;
 import com.android.tv.ui.OnRepeatedKeyInterceptListener;
 
-import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -52,7 +50,7 @@ public class ProgramGrid extends VerticalGridView {
                         clearUpDownFocusState(newFocus);
                     }
                     mNextFocusByUpDown = null;
-                    if (newFocus != ProgramGrid.this && contains(newFocus)) {
+                    if (GuideUtils.isDescendant(ProgramGrid.this, newFocus)) {
                         mLastFocusedView = newFocus;
                     }
                 }
@@ -90,8 +88,9 @@ public class ProgramGrid extends VerticalGridView {
 
     private View mLastFocusedView;
     private final Rect mTempRect = new Rect();
+    private int mLastUpDownDirection;
 
-    private boolean mKeepCurrentProgram;
+    private boolean mKeepCurrentProgramFocused;
 
     private ChildFocusListener mChildFocusListener;
     private final OnRepeatedKeyInterceptListener mOnRepeatedKeyInterceptListener;
@@ -132,21 +131,6 @@ public class ProgramGrid extends VerticalGridView {
         setOnKeyInterceptListener(mOnRepeatedKeyInterceptListener);
     }
 
-    /**
-     * Initializes ProgramGrid. It should be called before the view is actually attached to
-     * Window.
-     */
-    public void initialize(ProgramManager programManager) {
-        mProgramManager = programManager;
-    }
-
-    /**
-     * Registers a listener focus events occurring on children to the {@code ProgramGrid}.
-     */
-    public void setChildFocusListener(ChildFocusListener childFocusListener) {
-        mChildFocusListener = childFocusListener;
-    }
-
     @Override
     public void requestChildFocus(View child, View focused) {
         if (mChildFocusListener != null) {
@@ -173,178 +157,17 @@ public class ProgramGrid extends VerticalGridView {
     @Override
     public View focusSearch(View focused, int direction) {
         mNextFocusByUpDown = null;
-        if (focused == null || !contains(focused)) {
+        if (focused == null || (focused != this && !GuideUtils.isDescendant(this, focused))) {
             return super.focusSearch(focused, direction);
         }
         if (direction == View.FOCUS_UP || direction == View.FOCUS_DOWN) {
-            updateUpDownFocusState(focused);
+            updateUpDownFocusState(focused, direction);
             View nextFocus = focusFind(focused, direction);
             if (nextFocus != null) {
                 return nextFocus;
             }
         }
         return super.focusSearch(focused, direction);
-    }
-
-    /**
-     * Resets focus states. If the logic to keep the last focus needs to be cleared, it should
-     * be called.
-     */
-    public void resetFocusState() {
-        mLastFocusedView = null;
-        clearUpDownFocusState(null);
-    }
-
-    private View focusFind(View focused, int direction) {
-        int focusedChildIndex = getFocusedChildIndex();
-        if (focusedChildIndex == INVALID_INDEX) {
-            Log.w(TAG, "No child view has focus");
-            return null;
-        }
-        int nextChildIndex = direction == View.FOCUS_UP ? focusedChildIndex - 1
-                : focusedChildIndex + 1;
-        if (nextChildIndex < 0 || nextChildIndex >= getChildCount()) {
-            return focused;
-        }
-        View nextChild = getChildAt(nextChildIndex);
-        ArrayList<View> focusables = new ArrayList<>();
-        findFocusables(nextChild, focusables);
-
-        int index = INVALID_INDEX;
-        if (mKeepCurrentProgram) {
-            // Select the current program if possible.
-            for (int i = 0; i < focusables.size(); ++i) {
-                View focusable = focusables.get(i);
-                if (!(focusable instanceof ProgramItemView)) {
-                    continue;
-                }
-                if (((ProgramItemView) focusable).getTableEntry().isCurrentProgram()) {
-                    index = i;
-                    break;
-                }
-            }
-            if (index != INVALID_INDEX) {
-                mNextFocusByUpDown = focusables.get(index);
-                return mNextFocusByUpDown;
-            } else {
-                mKeepCurrentProgram = false;
-            }
-        }
-
-        // Find the largest focusable among fully overlapped focusables.
-        int maxWidth = Integer.MIN_VALUE;
-        for (int i = 0; i < focusables.size(); ++i) {
-            View focusable = focusables.get(i);
-            Rect focusableRect = mTempRect;
-            focusable.getGlobalVisibleRect(focusableRect);
-            if (mFocusRangeLeft <= focusableRect.left && focusableRect.right <= mFocusRangeRight) {
-                int width = focusableRect.width();
-                if (width > maxWidth) {
-                    index = i;
-                    maxWidth = width;
-                }
-            } else if (focusableRect.left <= mFocusRangeLeft
-                    && mFocusRangeRight <= focusableRect.right) {
-                // focusableRect contains [mLeft, mRight].
-                index = i;
-                break;
-            }
-        }
-        if (index != INVALID_INDEX) {
-            mNextFocusByUpDown = focusables.get(index);
-            return mNextFocusByUpDown;
-        }
-
-        // Find the largest overlapped view among partially overlapped focusables.
-        maxWidth = Integer.MIN_VALUE;
-        for (int i = 0; i < focusables.size(); ++i) {
-            View focusable = focusables.get(i);
-            Rect focusableRect = mTempRect;
-            focusable.getGlobalVisibleRect(focusableRect);
-            if (mFocusRangeLeft <= focusableRect.left && focusableRect.left <= mFocusRangeRight) {
-                int overlappedWidth = mFocusRangeRight - focusableRect.left;
-                if (overlappedWidth > maxWidth) {
-                    index = i;
-                    maxWidth = overlappedWidth;
-                }
-            } else if (mFocusRangeLeft <= focusableRect.right
-                    && focusableRect.right <= mFocusRangeRight) {
-                int overlappedWidth = focusableRect.right - mFocusRangeLeft;
-                if (overlappedWidth > maxWidth) {
-                    index = i;
-                    maxWidth = overlappedWidth;
-                }
-            }
-        }
-        if (index != INVALID_INDEX) {
-            mNextFocusByUpDown = focusables.get(index);
-            return mNextFocusByUpDown;
-        }
-
-        Log.w(TAG, "focusFind doesn't find proper focusable");
-        return null;
-    }
-
-    // Returned value is not the position of VerticalGridView. But it's the index of ViewGroup
-    // among visible children.
-    private int getFocusedChildIndex() {
-        for (int i = 0; i < getChildCount(); ++i) {
-            if (getChildAt(i).hasFocus()) {
-                return i;
-            }
-        }
-        return INVALID_INDEX;
-    }
-
-    private void updateUpDownFocusState(View focused) {
-        int rightMostFocusablePosition = getRightMostFocusablePosition();
-        Rect focusedRect = mTempRect;
-
-        // In order to avoid from focusing small width item, we clip the position with
-        // mostRightFocusablePosition.
-        focused.getGlobalVisibleRect(focusedRect);
-        mFocusRangeLeft = Math.min(mFocusRangeLeft, rightMostFocusablePosition);
-        mFocusRangeRight = Math.min(mFocusRangeRight, rightMostFocusablePosition);
-        focusedRect.left = Math.min(focusedRect.left, rightMostFocusablePosition);
-        focusedRect.right = Math.min(focusedRect.right, rightMostFocusablePosition);
-
-        if (focusedRect.left > mFocusRangeRight || focusedRect.right < mFocusRangeLeft) {
-            Log.w(TAG, "The current focus is out of [mFocusRangeLeft, mFocusRangeRight]");
-            mFocusRangeLeft = focusedRect.left;
-            mFocusRangeRight = focusedRect.right;
-            return;
-        }
-        mFocusRangeLeft = Math.max(mFocusRangeLeft, focusedRect.left);
-        mFocusRangeRight = Math.min(mFocusRangeRight, focusedRect.right);
-    }
-
-    private void clearUpDownFocusState(View focus) {
-        mFocusRangeLeft = 0;
-        mFocusRangeRight = getRightMostFocusablePosition();
-        mNextFocusByUpDown = null;
-        mKeepCurrentProgram = focus != null && focus instanceof ProgramItemView
-                && ((ProgramItemView) focus).getTableEntry().isCurrentProgram();
-    }
-
-    private int getRightMostFocusablePosition() {
-        if (!getGlobalVisibleRect(mTempRect)) {
-            return Integer.MAX_VALUE;
-        }
-        return mTempRect.right - GuideUtils.convertMillisToPixel(FOCUS_AREA_RIGHT_MARGIN_MILLIS);
-    }
-
-    private boolean contains(View v) {
-        if (v == this) {
-            return true;
-        }
-        if (v == null || v == v.getRootView()) {
-            return false;
-        }
-        return contains((View) v.getParent());
-    }
-
-    public void onItemSelectionReset() {
-        getViewTreeObserver().addOnPreDrawListener(mPreDrawListener);
     }
 
     @Override
@@ -383,6 +206,131 @@ public class ProgramGrid extends VerticalGridView {
         updateInputLogo();
     }
 
+    /**
+     * Initializes ProgramGrid. It should be called before the view is actually attached to
+     * Window.
+     */
+    void initialize(ProgramManager programManager) {
+        mProgramManager = programManager;
+    }
+
+    /**
+     * Registers a listener focus events occurring on children to the {@code ProgramGrid}.
+     */
+    void setChildFocusListener(ChildFocusListener childFocusListener) {
+        mChildFocusListener = childFocusListener;
+    }
+
+    void onItemSelectionReset() {
+        getViewTreeObserver().addOnPreDrawListener(mPreDrawListener);
+    }
+
+    /**
+     * Resets focus states. If the logic to keep the last focus needs to be cleared, it should
+     * be called.
+     */
+    void resetFocusState() {
+        mLastFocusedView = null;
+        clearUpDownFocusState(null);
+    }
+
+    /** Returns the currently focused item's horizontal range. */
+    Range<Integer> getFocusRange() {
+        return new Range<>(mFocusRangeLeft, mFocusRangeRight);
+    }
+
+    /** Returns if the next focused item should be the current program if possible. */
+    boolean isKeepCurrentProgramFocused() {
+        return mKeepCurrentProgramFocused;
+    }
+
+    /** Returns the last up/down move direction of browsing */
+    int getLastUpDownDirection() {
+        return mLastUpDownDirection;
+    }
+
+    private View focusFind(View focused, int direction) {
+        int focusedChildIndex = getFocusedChildIndex();
+        if (focusedChildIndex == INVALID_INDEX) {
+            Log.w(TAG, "No child view has focus");
+            return null;
+        }
+        int nextChildIndex = direction == View.FOCUS_UP ? focusedChildIndex - 1
+                : focusedChildIndex + 1;
+        if (nextChildIndex < 0 || nextChildIndex >= getChildCount()) {
+            // Wraparound if reached head or end
+            if (getSelectedPosition() == 0) {
+                scrollToPosition(getAdapter().getItemCount() - 1);
+                return null;
+            } else if (getSelectedPosition() == getAdapter().getItemCount() - 1) {
+                scrollToPosition(0);
+                return null;
+            }
+            return focused;
+        }
+        View nextFocusedProgram = GuideUtils.findNextFocusedProgram(getChildAt(nextChildIndex),
+                mFocusRangeLeft, mFocusRangeRight, mKeepCurrentProgramFocused);
+        if (nextFocusedProgram != null) {
+            nextFocusedProgram.getGlobalVisibleRect(mTempRect);
+            mNextFocusByUpDown = nextFocusedProgram;
+
+        } else {
+            Log.w(TAG, "focusFind doesn't find proper focusable");
+        }
+        return nextFocusedProgram;
+    }
+
+    // Returned value is not the position of VerticalGridView. But it's the index of ViewGroup
+    // among visible children.
+    private int getFocusedChildIndex() {
+        for (int i = 0; i < getChildCount(); ++i) {
+            if (getChildAt(i).hasFocus()) {
+                return i;
+            }
+        }
+        return INVALID_INDEX;
+    }
+
+    private void updateUpDownFocusState(View focused, int direction) {
+        mLastUpDownDirection = direction;
+        int rightMostFocusablePosition = getRightMostFocusablePosition();
+        Rect focusedRect = mTempRect;
+
+        // In order to avoid from focusing small width item, we clip the position with
+        // mostRightFocusablePosition.
+        focused.getGlobalVisibleRect(focusedRect);
+        mFocusRangeLeft = Math.min(mFocusRangeLeft, rightMostFocusablePosition);
+        mFocusRangeRight = Math.min(mFocusRangeRight, rightMostFocusablePosition);
+        focusedRect.left = Math.min(focusedRect.left, rightMostFocusablePosition);
+        focusedRect.right = Math.min(focusedRect.right, rightMostFocusablePosition);
+
+        if (focusedRect.left > mFocusRangeRight || focusedRect.right < mFocusRangeLeft) {
+            Log.w(TAG, "The current focus is out of [mFocusRangeLeft, mFocusRangeRight]");
+            mFocusRangeLeft = focusedRect.left;
+            mFocusRangeRight = focusedRect.right;
+            return;
+        }
+        mFocusRangeLeft = Math.max(mFocusRangeLeft, focusedRect.left);
+        mFocusRangeRight = Math.min(mFocusRangeRight, focusedRect.right);
+    }
+
+    private void clearUpDownFocusState(View focus) {
+        mLastUpDownDirection = 0;
+        mFocusRangeLeft = 0;
+        mFocusRangeRight = getRightMostFocusablePosition();
+        mNextFocusByUpDown = null;
+        // If focus is not a program item, drop focus to the current program when back to the grid
+        mKeepCurrentProgramFocused = !(focus instanceof ProgramItemView)
+                || GuideUtils.isCurrentProgram((ProgramItemView) focus);
+    }
+
+    private int getRightMostFocusablePosition() {
+        if (!getGlobalVisibleRect(mTempRect)) {
+            return Integer.MAX_VALUE;
+        }
+        return mTempRect.right - GuideUtils.convertMillisToPixel(FOCUS_AREA_RIGHT_MARGIN_MILLIS);
+    }
+
     private int getFirstVisibleChildIndex() {
         final LayoutManager mLayoutManager = getLayoutManager();
         int top = mLayoutManager.getPaddingTop();
@@ -398,7 +346,7 @@ public class ProgramGrid extends VerticalGridView {
         return -1;
     }
 
-    public void updateInputLogo() {
+    private void updateInputLogo() {
         int childCount = getChildCount();
         if (childCount == 0) {
             return;
@@ -409,25 +357,13 @@ public class ProgramGrid extends VerticalGridView {
         }
         View childView = getChildAt(firstVisibleChildIndex);
         int childAdapterPosition = getChildAdapterPosition(childView);
-        ((ProgramTableAdapter.ProgramRowHolder) getChildViewHolder(childView))
+        ((ProgramTableAdapter.ProgramRowViewHolder) getChildViewHolder(childView))
                 .updateInputLogo(childAdapterPosition, true);
         for (int i = firstVisibleChildIndex + 1; i < childCount; i++) {
             childView = getChildAt(i);
-            ((ProgramTableAdapter.ProgramRowHolder) getChildViewHolder(childView))
+            ((ProgramTableAdapter.ProgramRowViewHolder) getChildViewHolder(childView))
                     .updateInputLogo(childAdapterPosition, false);
             childAdapterPosition = getChildAdapterPosition(childView);
-        }
-    }
-
-    private static void findFocusables(View v, ArrayList<View> outFocusable) {
-        if (v.isFocusable()) {
-            outFocusable.add(v);
-        }
-        if (v instanceof ViewGroup) {
-            ViewGroup viewGroup = (ViewGroup) v;
-            for (int i = 0; i < viewGroup.getChildCount(); ++i) {
-                findFocusables(viewGroup.getChildAt(i), outFocusable);
-            }
         }
     }
 }

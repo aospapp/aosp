@@ -44,11 +44,6 @@ class StatusTest(mox.MoxTestBase):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
 
-    def expect_result_gathering(self, job):
-        self.afe.get_jobs(id=job.id, finished=True).AndReturn(job)
-        self.expect_yield_job_entries(job)
-
-
     def expect_yield_job_entries(self, job):
         entries = [s.entry for s in job.statuses]
         self.afe.run('get_host_queue_entries',
@@ -68,7 +63,6 @@ class StatusTest(mox.MoxTestBase):
                 FakeJob(3, [FakeStatus('FAIL', 'T0', 'broken')]),
                 FakeJob(4, [FakeStatus('ERROR', 'SERVER_JOB', 'server error'),
                             FakeStatus('GOOD', 'T0', '')]),]
-
                 # TODO: Write a better test for the case where we yield
                 # results for aborts vs cannot yield results because of
                 # a premature abort. Currently almost all client aborts
@@ -78,21 +72,23 @@ class StatusTest(mox.MoxTestBase):
                 # FakeJob(5, [FakeStatus('ERROR', 'T0', 'gah', True)]),
                 # The next job shouldn't be recorded in the results.
                 # FakeJob(6, [FakeStatus('GOOD', 'SERVER_JOB', '')])]
-
         for status in jobs[4].statuses:
             status.entry['job'] = {'name': 'broken_infra_job'}
 
-        # To simulate a job that isn't ready the first time we check.
-        self.afe.get_jobs(id=jobs[0].id, finished=True).AndReturn([])
-        # Expect all the rest of the jobs to be good to go the first time.
-        for job in jobs[1:]:
-            self.expect_result_gathering(job)
-        # Then, expect job[0] to be ready.
-        self.expect_result_gathering(jobs[0])
-        # Expect us to poll twice.
+        job_id_set = set([job.id for job in jobs])
+        yield_values = [
+                [jobs[1]],
+                [jobs[0], jobs[2]],
+                jobs[3:6]
+            ]
         self.mox.StubOutWithMock(time, 'sleep')
-        time.sleep(mox.IgnoreArg())
-        time.sleep(mox.IgnoreArg())
+        for yield_this in yield_values:
+            self.afe.get_jobs(id__in=list(job_id_set),
+                              finished=True).AndReturn(yield_this)
+            for job in yield_this:
+                self.expect_yield_job_entries(job)
+                job_id_set.remove(job.id)
+            time.sleep(mox.IgnoreArg())
         self.mox.ReplayAll()
 
         results = [result for result in job_status.wait_for_results(self.afe,
@@ -119,7 +115,6 @@ class StatusTest(mox.MoxTestBase):
                 FakeJob(4, [FakeStatus('ERROR', 'SERVER_JOB', 'server error'),
                             FakeStatus('GOOD', 'T0', '')],
                         parent_job_id=parent_job_id),]
-
                 # TODO: Write a better test for the case where we yield
                 # results for aborts vs cannot yield results because of
                 # a premature abort. Currently almost all client aborts

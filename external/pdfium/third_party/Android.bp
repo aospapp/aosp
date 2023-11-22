@@ -1,0 +1,8 @@
+build = [
+    "pdfiumagg23.bp",
+    "pdfiumbigint.bp",
+    "pdfiumlcms.bp",
+    "pdfiumjpeg.bp",
+    "pdfiumopenjpeg.bp",
+    "pdfiumzlib.bp",
+]

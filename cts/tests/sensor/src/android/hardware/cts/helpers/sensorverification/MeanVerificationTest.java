@@ -29,6 +29,7 @@ import java.util.Collection;
  * Tests for {@link MeanVerification}.
  */
 public class MeanVerificationTest extends TestCase {
+    private static final float[] MEANS = {2.0f, 3.0f, 6.0f};
 
     /**
      * Test {@link MeanVerification#verify(TestSensorEnvironment, SensorStats)}.
@@ -43,62 +44,106 @@ public class MeanVerificationTest extends TestCase {
         };
 
         float[] expected = {2.0f, 3.0f, 6.0f};
-        float[] threshold = {0.1f, 0.1f, 0.1f};
+        float[] upperThresholds = {0.3f, 0.3f, 0.3f};
+        float[] lowerThresholds = {0.1f, 0.1f, 0.1f};
         SensorStats stats = new SensorStats();
-        MeanVerification verification = getVerification(expected, threshold, values);
+        MeanVerification verification =
+            getVerification(expected, upperThresholds, lowerThresholds, values);
         verification.verify(stats);
-        verifyStats(stats, true, new float[]{2.0f, 3.0f, 6.0f});
+        verifyStats(stats, true, MEANS);
 
-        expected = new float[]{2.5f, 2.5f, 5.5f};
-        threshold = new float[]{0.6f, 0.6f, 0.6f};
+        // Test the lower threshold
+        expected = new float[]{2.4f, 3.3f, 6.4f};
+        lowerThresholds = new float[]{0.6f, 0.6f, 0.6f};
         stats = new SensorStats();
-        verification = getVerification(expected, threshold, values);
+        verification = getVerification(expected, upperThresholds, lowerThresholds, values);
         verification.verify(stats);
-        verifyStats(stats, true, new float[]{2.0f, 3.0f, 6.0f});
+        verifyStats(stats, true, MEANS);
 
-        expected = new float[]{2.5f, 2.5f, 5.5f};
-        threshold = new float[]{0.1f, 0.6f, 0.6f};
+        lowerThresholds = new float[]{0.1f, 0.6f, 0.6f};
         stats = new SensorStats();
-        verification = getVerification(expected, threshold, values);
+        verification = getVerification(expected, upperThresholds, lowerThresholds, values);
         try {
             verification.verify(stats);
-            fail("Expected an AssertionError");
+            throw new Error("Expected an AssertionError");
         } catch (AssertionError e) {
             // Expected;
         }
-        verifyStats(stats, false, new float[]{2.0f, 3.0f, 6.0f});
+        verifyStats(stats, false, MEANS);
 
-        expected = new float[]{2.5f, 2.5f, 5.5f};
-        threshold = new float[]{0.6f, 0.1f, 0.6f};
+        lowerThresholds = new float[]{0.6f, 0.1f, 0.6f};
         stats = new SensorStats();
-        verification = getVerification(expected, threshold, values);
+        verification = getVerification(expected, upperThresholds, lowerThresholds, values);
         try {
             verification.verify(stats);
-            fail("Expected an AssertionError");
+            throw new Error("Expected an AssertionError");
         } catch (AssertionError e) {
             // Expected;
         }
-        verifyStats(stats, false, new float[]{2.0f, 3.0f, 6.0f});
+        verifyStats(stats, false, MEANS);
 
-        threshold = new float[]{0.6f, 0.6f, 0.1f};
+        lowerThresholds = new float[]{0.6f, 0.6f, 0.1f};
         stats = new SensorStats();
-        verification = getVerification(expected, threshold, values);
+        verification = getVerification(expected, upperThresholds, lowerThresholds, values);
         try {
             verification.verify(stats);
-            fail("Expected an AssertionError");
+            throw new Error("Expected an AssertionError");
         } catch (AssertionError e) {
             // Expected;
         }
-        verifyStats(stats, false, new float[]{2.0f, 3.0f, 6.0f});
+        verifyStats(stats, false, MEANS);
+
+        // Test the upper threshold
+        expected = new float[]{1.5f, 2.8f, 5.7f};
+        upperThresholds = new float[]{0.6f, 0.6f, 0.6f};
+        lowerThresholds = new float[]{0.1f, 0.1f, 0.1f};
+        stats = new SensorStats();
+        verification = getVerification(expected, upperThresholds, lowerThresholds, values);
+        verification.verify(stats);
+        verifyStats(stats, true, MEANS);
+
+        upperThresholds = new float[]{0.1f, 0.6f, 0.6f};
+        stats = new SensorStats();
+        verification = getVerification(expected, upperThresholds, lowerThresholds, values);
+        try {
+            verification.verify(stats);
+            throw new Error("Expected an AssertionError");
+        } catch (AssertionError e) {
+            // Expected;
+        }
+        verifyStats(stats, false, MEANS);
+
+        upperThresholds = new float[]{0.6f, 0.1f, 0.6f};
+        stats = new SensorStats();
+        verification = getVerification(expected, upperThresholds, lowerThresholds, values);
+        try {
+            verification.verify(stats);
+            throw new Error("Expected an AssertionError");
+        } catch (AssertionError e) {
+            // Expected;
+        }
+        verifyStats(stats, false, MEANS);
+
+        upperThresholds = new float[]{0.6f, 0.6f, 0.1f};
+        stats = new SensorStats();
+        verification = getVerification(expected, upperThresholds, lowerThresholds, values);
+        try {
+            verification.verify(stats);
+            throw new Error("Expected an AssertionError");
+        } catch (AssertionError e) {
+            // Expected;
+        }
+        verifyStats(stats, false, MEANS);
     }
 
-    private static MeanVerification getVerification(float[] expected, float[] threshold,
-            float[] ... values) {
+    private static MeanVerification getVerification(float[] expected, float[] upperThresholds,
+            float[] lowerThresholds, float[] ... values) {
         Collection<TestSensorEvent> events = new ArrayList<>(values.length);
         for (float[] value : values) {
             events.add(new TestSensorEvent(null, 0, 0, value));
         }
-        MeanVerification verification = new MeanVerification(expected, threshold);
+        MeanVerification verification =
+            new MeanVerification(expected, upperThresholds, lowerThresholds);
         verification.addSensorEvents(events);
         return verification;
     }
@@ -106,6 +151,7 @@ public class MeanVerificationTest extends TestCase {
     private void verifyStats(SensorStats stats, boolean passed, float[] means) {
         assertEquals(passed, stats.getValue(MeanVerification.PASSED_KEY));
         float[] actual = (float[]) stats.getValue(SensorStats.MEAN_KEY);
+        assertEquals(means.length, actual.length);
         for (int i = 0; i < means.length; i++) {
             assertEquals(means[i], actual[i], 0.1);
         }

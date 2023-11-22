@@ -13,6 +13,10 @@ cc_library_shared {
         "src/adaptation/CrcChecksum.cpp",
         "src/nfca_version.c",
     ],
+    header_libs: [
+        "libhardware_headers",
+        "libhardware_legacy_headers",
+    ],
     shared_libs: [
         "libcutils",
         "liblog",

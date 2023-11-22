@@ -29,6 +29,7 @@ import com.android.documentsui.selection.Selection;
 import com.android.documentsui.services.FileOperationService.OpType;
 import com.android.documentsui.services.FileOperations;
 
+import java.util.List;
 import java.util.function.Function;
 
 public interface DocumentClipper {
@@ -41,14 +42,23 @@ public interface DocumentClipper {
     }
 
     boolean hasItemsToPaste();
-    @OpType int getOpType(ClipData data);
 
     /**
      * Returns {@link ClipData} representing the selection, or null if selection is empty,
      * or cannot be converted.
      */
-    ClipData getClipDataForDocuments(
-        Function<String, Uri> uriBuilder, Selection selection, @OpType int opType);
+    ClipData getClipDataForDocuments(Function<String, Uri> uriBuilder, Selection selection,
+            @OpType int opType);
+
+    /**
+     * Returns {@link ClipData} representing the list of {@link Uri}, or null if the list is empty.
+     */
+    ClipData getClipDataForDocuments(List<Uri> uris, @OpType int opType, DocumentInfo parent);
+
+    /**
+     * Returns {@link ClipData} representing the list of {@link Uri}, or null if the list is empty.
+     */
+    ClipData getClipDataForDocuments(List<Uri> uris, @OpType int opType);
 
     /**
      * Puts {@code ClipData} in a primary clipboard, describing a copy operation
@@ -68,7 +78,7 @@ public interface DocumentClipper {
      * @param destination destination document.
      * @param docStack the document stack to the destination folder (not including the destination
      *                 folder)
-     * @param callback callback to notify when operation finishes.
+     * @param callback callback to notify when operation is scheduled or rejected.
      */
     void copyFromClipboard(
             DocumentInfo destination,
@@ -80,24 +90,11 @@ public interface DocumentClipper {
      * returned from {@link ClipboardManager#getPrimaryClip()}.
      *
      * @param docStack the document stack to the destination folder,
-     * @param callback callback to notify when operation finishes.
+     * @param callback callback to notify when operation is scheduled or rejected.
      */
     void copyFromClipboard(
             DocumentStack docStack,
             FileOperations.Callback callback);
-
-    /**
-     * Copied documents from given clip data to a root directory.
-     * @param root the root which root directory to copy to
-     * @param destination the root directory
-     * @param clipData the clipData to copy from
-     * @param callback callback to notify when operation finishes
-     */
-    void copyFromClipData(
-            final RootInfo root,
-            final DocumentInfo destination,
-            final ClipData clipData,
-            final FileOperations.Callback callback);
 
     /**
      * Copies documents from given clip data to a folder.
@@ -106,13 +103,28 @@ public interface DocumentClipper {
      * @param docStack the document stack to the destination folder (not including the destination
      *                 folder)
      * @param clipData the clipData to copy from
-     * @param callback callback to notify when operation finishes
+     * @param callback callback to notify when operation is scheduled or rejected.
      */
     void copyFromClipData(
-            final DocumentInfo destination,
-            final DocumentStack docStack,
-            final ClipData clipData,
-            final FileOperations.Callback callback);
+            DocumentInfo destination,
+            DocumentStack docStack,
+            ClipData clipData,
+            FileOperations.Callback callback);
+
+    /**
+     * Copies documents from given clip data to a folder, ignoring the op type in clip data.
+     *
+     * @param dstStack the document stack to the destination folder, including the destination
+     *                 folder.
+     * @param clipData the clipData to copy from
+     * @param opType the operation type
+     * @param callback callback to notify when operation is scheduled or rejected.
+     */
+    void copyFromClipData(
+            DocumentStack dstStack,
+            ClipData clipData,
+            @OpType int opType,
+            FileOperations.Callback callback);
 
     /**
      * Copies documents from given clip data to a folder.
@@ -120,10 +132,10 @@ public interface DocumentClipper {
      * @param dstStack the document stack to the destination folder, including the destination
      *            folder.
      * @param clipData the clipData to copy from
-     * @param callback callback to notify when operation finishes
+     * @param callback callback to notify when operation is scheduled or rejected.
      */
     void copyFromClipData(
-            final DocumentStack dstStack,
-            final ClipData clipData,
-            final FileOperations.Callback callback);
+            DocumentStack dstStack,
+            ClipData clipData,
+            FileOperations.Callback callback);
 }

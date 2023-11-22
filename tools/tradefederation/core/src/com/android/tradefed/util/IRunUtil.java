@@ -80,7 +80,7 @@ public interface IRunUtil {
      * Helper method to execute a system command, and aborting if it takes longer than a specified
      * time.
      *
-     * @param timeout maximum time to wait in ms
+     * @param timeout maximum time to wait in ms. 0 means no timeout.
      * @param command the specified system command and optionally arguments to exec
      * @return a {@link CommandResult} containing result from command run
      */
@@ -91,14 +91,14 @@ public interface IRunUtil {
      * and redirect output to files if specified. When {@link OutputStream} are provided this way,
      * they will be left open at the end of the function.
      *
-     * @param timeout timeout maximum time to wait in ms
+     * @param timeout timeout maximum time to wait in ms. 0 means no timeout.
      * @param stdout {@link OutputStream} where the std output will be redirected. Can be null.
      * @param stderr {@link OutputStream} where the error output will be redirected. Can be null.
      * @param command the specified system command and optionally arguments to exec
      * @return a {@link CommandResult} containing result from command run
      */
-    public CommandResult runTimedCmd(final long timeout, OutputStream stdout,
-            OutputStream stderr, final String... command);
+    public CommandResult runTimedCmd(
+            final long timeout, OutputStream stdout, OutputStream stderr, final String... command);
 
     /**
      * Helper method to execute a system command, and aborting if it takes longer than a specified

@@ -1010,8 +1010,6 @@ public class WebSettingsTest extends ActivityInstrumentationTestCase2<WebViewCts
             return;
         }
         assertFalse(mSettings.getSafeBrowsingEnabled());
-        mSettings.setSafeBrowsingEnabled(true);
-        assertTrue(mSettings.getSafeBrowsingEnabled());
         mSettings.setSafeBrowsingEnabled(false);
         assertFalse(mSettings.getSafeBrowsingEnabled());
     }

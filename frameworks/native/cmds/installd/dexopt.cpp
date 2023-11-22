@@ -191,7 +191,7 @@ static const char* get_location_from_path(const char* path) {
 static void run_dex2oat(int zip_fd, int oat_fd, int input_vdex_fd, int output_vdex_fd, int image_fd,
         const char* input_file_name, const char* output_file_name, int swap_fd,
         const char* instruction_set, const char* compiler_filter,
-        bool debuggable, bool post_bootcomplete, int profile_fd, const char* shared_libraries) {
+        bool debuggable, bool post_bootcomplete, int profile_fd, const char* class_loader_context) {
     static const unsigned int MAX_INSTRUCTION_SET_LEN = 7;
 
     if (strlen(instruction_set) >= MAX_INSTRUCTION_SET_LEN) {
@@ -291,6 +291,12 @@ static void run_dex2oat(int zip_fd, int oat_fd, int input_vdex_fd, int output_vd
     char dex2oat_swap_fd[arraysize("--swap-fd=") + MAX_INT_LEN];
     bool have_dex2oat_image_fd = false;
     char dex2oat_image_fd[arraysize("--app-image-fd=") + MAX_INT_LEN];
+    size_t class_loader_context_size = arraysize("--class-loader-context=") + PKG_PATH_MAX;
+    char class_loader_context_arg[class_loader_context_size];
+    if (class_loader_context != nullptr) {
+        snprintf(class_loader_context_arg, class_loader_context_size, "--class-loader-context=%s",
+            class_loader_context);
+    }
 
     sprintf(zip_fd_arg, "--zip-fd=%d", zip_fd);
     sprintf(zip_location_arg, "--zip-location=%s", relative_input_file_name);
@@ -387,7 +393,7 @@ static void run_dex2oat(int zip_fd, int oat_fd, int input_vdex_fd, int output_vd
                      + (have_app_image_format ? 1 : 0)
                      + dex2oat_flags_count
                      + (profile_fd == -1 ? 0 : 1)
-                     + (shared_libraries != nullptr ? 4 : 0)
+                     + (class_loader_context != nullptr ? 1 : 0)
                      + (has_base_dir ? 1 : 0)
                      + (have_dex2oat_large_app_threshold ? 1 : 0)];
     int i = 0;
@@ -447,15 +453,13 @@ static void run_dex2oat(int zip_fd, int oat_fd, int input_vdex_fd, int output_vd
     if (profile_fd != -1) {
         argv[i++] = profile_arg;
     }
-    if (shared_libraries != nullptr) {
-        argv[i++] = RUNTIME_ARG;
-        argv[i++] = "-classpath";
-        argv[i++] = RUNTIME_ARG;
-        argv[i++] = shared_libraries;
-    }
     if (has_base_dir) {
         argv[i++] = base_dir;
     }
+    if (class_loader_context != nullptr) {
+        argv[i++] = class_loader_context_arg;
+    }
+
     // Do not add after dex2oat_flags, they should override others for debugging.
     argv[i] = NULL;
 
@@ -847,6 +851,70 @@ bool dump_profiles(int32_t uid, const std::string& pkgname, const char* code_pat
     return true;
 }
 
+bool copy_system_profile(const std::string& system_profile,
+        uid_t packageUid, const std::string& data_profile_location) {
+    unique_fd in_fd(open(system_profile.c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
+    unique_fd out_fd(open_reference_profile(packageUid,
+                     data_profile_location,
+                     /*read_write*/ true,
+                     /*secondary*/ false));
+    if (in_fd.get() < 0) {
+        PLOG(WARNING) << "Could not open profile " << system_profile;
+        return false;
+    }
+    if (out_fd.get() < 0) {
+        PLOG(WARNING) << "Could not open profile " << data_profile_location;
+        return false;
+    }
+
+    // As a security measure we want to write the profile information with the reduced capabilities
+    // of the package user id. So we fork and drop capabilities in the child.
+    pid_t pid = fork();
+    if (pid == 0) {
+        /* child -- drop privileges before continuing */
+        drop_capabilities(packageUid);
+
+        if (flock(out_fd.get(), LOCK_EX | LOCK_NB) != 0) {
+            if (errno != EWOULDBLOCK) {
+                PLOG(WARNING) << "Error locking profile " << data_profile_location;
+            }
+            // This implies that the app owning this profile is running
+            // (and has acquired the lock).
+            //
+            // The app never acquires the lock for the reference profiles of primary apks.
+            // Only dex2oat from installd will do that. Since installd is single threaded
+            // we should not see this case. Nevertheless be prepared for it.
+            PLOG(WARNING) << "Failed to flock " << data_profile_location;
+            return false;
+        }
+
+        bool truncated = ftruncate(out_fd.get(), 0) == 0;
+        if (!truncated) {
+            PLOG(WARNING) << "Could not truncate " << data_profile_location;
+        }
+
+        // Copy over data.
+        static constexpr size_t kBufferSize = 4 * 1024;
+        char buffer[kBufferSize];
+        while (true) {
+            ssize_t bytes = read(in_fd.get(), buffer, kBufferSize);
+            if (bytes == 0) {
+                break;
+            }
+            write(out_fd.get(), buffer, bytes);
+        }
+        if (flock(out_fd.get(), LOCK_UN) != 0) {
+            PLOG(WARNING) << "Error unlocking profile " << data_profile_location;
+        }
+        // Use _exit since we don't want to run the global destructors in the child.
+        // b/62597429
+        _exit(0);
+    }
+    /* parent */
+    int return_code = wait_child(pid);
+    return return_code == 0;
+}
+
 static std::string replace_file_extension(const std::string& oat_path, const std::string& new_ext) {
   // A standard dalvik-cache entry. Replace ".dex" with `new_ext`.
   if (EndsWith(oat_path, ".dex")) {
@@ -926,14 +994,22 @@ static bool IsOutputDalvikCache(const char* oat_dir) {
   return oat_dir == nullptr || oat_dir[0] == '!';
 }
 
+// Best-effort check whether we can fit the the path into our buffers.
+// Note: the cache path will require an additional 5 bytes for ".swap", but we'll try to run
+// without a swap file, if necessary. Reference profiles file also add an extra ".prof"
+// extension to the cache path (5 bytes).
+// TODO(calin): move away from char* buffers and PKG_PATH_MAX.
+static bool validate_dex_path_size(const std::string& dex_path) {
+    if (dex_path.size() >= (PKG_PATH_MAX - 8)) {
+        LOG(ERROR) << "dex_path too long: " << dex_path;
+        return false;
+    }
+    return true;
+}
+
 static bool create_oat_out_path(const char* apk_path, const char* instruction_set,
             const char* oat_dir, bool is_secondary_dex, /*out*/ char* out_oat_path) {
-    // Early best-effort check whether we can fit the the path into our buffers.
-    // Note: the cache path will require an additional 5 bytes for ".swap", but we'll try to run
-    // without a swap file, if necessary. Reference profiles file also add an extra ".prof"
-    // extension to the cache path (5 bytes).
-    if (strlen(apk_path) >= (PKG_PATH_MAX - 8)) {
-        ALOGE("apk_path too long '%s'\n", apk_path);
+    if (!validate_dex_path_size(apk_path)) {
         return false;
     }
 
@@ -1061,16 +1137,23 @@ class Dex2oatFileWrapper {
 // (re)Creates the app image if needed.
 Dex2oatFileWrapper maybe_open_app_image(const char* out_oat_path, bool profile_guided,
         bool is_public, int uid, bool is_secondary_dex) {
-    // Use app images only if it is enabled (by a set image format) and we are compiling
-    // profile-guided (so the app image doesn't conservatively contain all classes).
-    // Note that we don't create an image for secondary dex files.
-    if (is_secondary_dex || !profile_guided) {
+
+    // We don't create an image for secondary dex files.
+    if (is_secondary_dex) {
         return Dex2oatFileWrapper();
     }
 
     const std::string image_path = create_image_filename(out_oat_path);
     if (image_path.empty()) {
         // Happens when the out_oat_path has an unknown extension.
+        return Dex2oatFileWrapper();
+    }
+
+    // Use app images only if it is enabled (by a set image format) and we are compiling
+    // profile-guided (so the app image doesn't conservatively contain all classes).
+    if (!profile_guided) {
+        // In case there is a stale image, remove it now. Ignore any error.
+        unlink(image_path.c_str());
         return Dex2oatFileWrapper();
     }
     char app_image_format[kPropertyValueMax];
@@ -1286,35 +1369,38 @@ void update_out_oat_access_times(const char* apk_path, const char* out_oat_path)
 // The analyzer will check if the dex_file needs to be (re)compiled to match the compiler_filter.
 // If this is for a profile guided compilation, profile_was_updated will tell whether or not
 // the profile has changed.
-static void exec_dexoptanalyzer(const std::string& dex_file, const char* instruction_set,
-        const char* compiler_filter, bool profile_was_updated) {
+static void exec_dexoptanalyzer(const std::string& dex_file, const std::string& instruction_set,
+        const std::string& compiler_filter, bool profile_was_updated, bool downgrade) {
     static const char* DEXOPTANALYZER_BIN = "/system/bin/dexoptanalyzer";
     static const unsigned int MAX_INSTRUCTION_SET_LEN = 7;
 
-    if (strlen(instruction_set) >= MAX_INSTRUCTION_SET_LEN) {
-        ALOGE("Instruction set %s longer than max length of %d",
-              instruction_set, MAX_INSTRUCTION_SET_LEN);
+    if (instruction_set.size() >= MAX_INSTRUCTION_SET_LEN) {
+        LOG(ERROR) << "Instruction set " << instruction_set
+                << " longer than max length of " << MAX_INSTRUCTION_SET_LEN;
         return;
     }
 
-    char dex_file_arg[strlen("--dex-file=") + PKG_PATH_MAX];
-    char isa_arg[strlen("--isa=") + MAX_INSTRUCTION_SET_LEN];
-    char compiler_filter_arg[strlen("--compiler-filter=") + kPropertyValueMax];
+    std::string dex_file_arg = "--dex-file=" + dex_file;
+    std::string isa_arg = "--isa=" + instruction_set;
+    std::string compiler_filter_arg = "--compiler-filter=" + compiler_filter;
     const char* assume_profile_changed = "--assume-profile-changed";
-
-    sprintf(dex_file_arg, "--dex-file=%s", dex_file.c_str());
-    sprintf(isa_arg, "--isa=%s", instruction_set);
-    sprintf(compiler_filter_arg, "--compiler-filter=%s", compiler_filter);
+    const char* downgrade_flag = "--downgrade";
 
     // program name, dex file, isa, filter, the final NULL
-    const char* argv[5 + (profile_was_updated ? 1 : 0)];
+    const int argc = 5 +
+        (profile_was_updated ? 1 : 0) +
+        (downgrade ? 1 : 0);
+    const char* argv[argc];
     int i = 0;
     argv[i++] = DEXOPTANALYZER_BIN;
-    argv[i++] = dex_file_arg;
-    argv[i++] = isa_arg;
-    argv[i++] = compiler_filter_arg;
+    argv[i++] = dex_file_arg.c_str();
+    argv[i++] = isa_arg.c_str();
+    argv[i++] = compiler_filter_arg.c_str();
     if (profile_was_updated) {
         argv[i++] = assume_profile_changed;
+    }
+    if (downgrade) {
+        argv[i++] = downgrade_flag;
     }
     argv[i] = NULL;
 
@@ -1396,7 +1482,7 @@ static bool process_dexoptanalyzer_result(const std::string& dex_path, int resul
 static bool process_secondary_dex_dexopt(const char* original_dex_path, const char* pkgname,
         int dexopt_flags, const char* volume_uuid, int uid, const char* instruction_set,
         const char* compiler_filter, bool* is_public_out, int* dexopt_needed_out,
-        std::string* oat_dir_out, std::string* dex_path_out) {
+        std::string* oat_dir_out, std::string* dex_path_out, bool downgrade) {
     int storage_flag;
 
     if ((dexopt_flags & DEXOPT_STORAGE_CE) != 0) {
@@ -1426,6 +1512,9 @@ static bool process_secondary_dex_dexopt(const char* original_dex_path, const ch
         }
     }
     const std::string& dex_path = *dex_path_out;
+    if (!validate_dex_path_size(dex_path)) {
+        return false;
+    }
     if (!validate_secondary_dex_path(pkgname, dex_path, volume_uuid, uid, storage_flag)) {
         LOG(ERROR) << "Could not validate secondary dex path " << dex_path;
         return false;
@@ -1462,7 +1551,8 @@ static bool process_secondary_dex_dexopt(const char* original_dex_path, const ch
         // child -- drop privileges before continuing.
         drop_capabilities(uid);
         // Run dexoptanalyzer to get dexopt_needed code.
-        exec_dexoptanalyzer(dex_path, instruction_set, compiler_filter, profile_was_updated);
+        exec_dexoptanalyzer(dex_path, instruction_set, compiler_filter, profile_was_updated,
+                            downgrade);
         exit(DEXOPTANALYZER_BIN_EXEC_ERROR);
     }
 
@@ -1489,11 +1579,21 @@ static bool process_secondary_dex_dexopt(const char* original_dex_path, const ch
 
 int dexopt(const char* dex_path, uid_t uid, const char* pkgname, const char* instruction_set,
         int dexopt_needed, const char* oat_dir, int dexopt_flags, const char* compiler_filter,
-        const char* volume_uuid, const char* shared_libraries, const char* se_info) {
+        const char* volume_uuid, const char* class_loader_context, const char* se_info,
+        bool downgrade) {
     CHECK(pkgname != nullptr);
     CHECK(pkgname[0] != 0);
     if ((dexopt_flags & ~DEXOPT_MASK) != 0) {
         LOG_FATAL("dexopt flags contains unknown fields\n");
+    }
+
+    if (!validate_dex_path_size(dex_path)) {
+        return -1;
+    }
+
+    if (class_loader_context != nullptr && strlen(class_loader_context) > PKG_PATH_MAX) {
+        LOG(ERROR) << "Class loader context exceeds the allowed size: " << class_loader_context;
+        return -1;
     }
 
     bool is_public = (dexopt_flags & DEXOPT_PUBLIC) != 0;
@@ -1508,7 +1608,8 @@ int dexopt(const char* dex_path, uid_t uid, const char* pkgname, const char* ins
     if (is_secondary_dex) {
         if (process_secondary_dex_dexopt(dex_path, pkgname, dexopt_flags, volume_uuid, uid,
                 instruction_set, compiler_filter, &is_public, &dexopt_needed, &oat_dir_str,
-                &dex_real_path)) {
+                &dex_real_path,
+                downgrade)) {
             oat_dir = oat_dir_str.c_str();
             dex_path = dex_real_path.c_str();
             if (dexopt_needed == NO_DEXOPT_NEEDED) {
@@ -1597,7 +1698,7 @@ int dexopt(const char* dex_path, uid_t uid, const char* pkgname, const char* ins
                     debuggable,
                     boot_complete,
                     reference_profile_fd.get(),
-                    shared_libraries);
+                    class_loader_context);
         _exit(68);   /* only get here on exec failure */
     } else {
         int res = wait_child(pid);
@@ -1685,14 +1786,24 @@ bool reconcile_secondary_dex_file(const std::string& dex_path,
         /*out*/bool* out_secondary_dex_exists) {
     // Set out to false to start with, just in case we have validation errors.
     *out_secondary_dex_exists = false;
+    if (!validate_dex_path_size(dex_path)) {
+        return false;
+    }
+
     if (isas.size() == 0) {
         LOG(ERROR) << "reconcile_secondary_dex_file called with empty isas vector";
         return false;
     }
 
     const char* volume_uuid_cstr = volume_uuid == nullptr ? nullptr : volume_uuid->c_str();
+
+    // Note that we cannot validate the package path here because the file might not exist
+    // and we cannot call realpath to resolve system symlinks. Since /data/user/0 symlinks to
+    // /data/data/ a lot of validations will fail if we attempt to check the package path.
+    // It is still ok to be more relaxed because any file removal is done after forking and
+    // dropping capabilities.
     if (!validate_secondary_dex_path(pkgname.c_str(), dex_path.c_str(), volume_uuid_cstr,
-            uid, storage_flag)) {
+            uid, storage_flag, /*validate_package_path*/ false)) {
         LOG(ERROR) << "Could not validate secondary dex path " << dex_path;
         return false;
     }
@@ -1706,37 +1817,56 @@ bool reconcile_secondary_dex_file(const std::string& dex_path,
         return false;
     }
 
-    // The secondary dex does not exist anymore. Clear any generated files.
-    char oat_path[PKG_PATH_MAX];
-    char oat_dir[PKG_PATH_MAX];
-    char oat_isa_dir[PKG_PATH_MAX];
-    bool result = true;
-    for (size_t i = 0; i < isas.size(); i++) {
-        if (!create_secondary_dex_oat_layout(dex_path, isas[i], oat_dir, oat_isa_dir, oat_path)) {
-            LOG(ERROR) << "Could not create secondary odex layout: " << dex_path;
-            result = false;
-            continue;
-        }
+    // As a security measure we want to unlink art artifacts with the reduced capabilities
+    // of the package user id. So we fork and drop capabilities in the child.
+    pid_t pid = fork();
+    if (pid == 0) {
+        // The secondary dex does not exist anymore. Clear any generated files.
+        char oat_path[PKG_PATH_MAX];
+        char oat_dir[PKG_PATH_MAX];
+        char oat_isa_dir[PKG_PATH_MAX];
+        bool result = true;
+        /* child -- drop privileges before continuing */
+        drop_capabilities(uid);
+        for (size_t i = 0; i < isas.size(); i++) {
+            if (!create_secondary_dex_oat_layout(dex_path,
+                                                 isas[i],
+                                                 oat_dir,
+                                                 oat_isa_dir,
+                                                 oat_path)) {
+                LOG(ERROR) << "Could not create secondary odex layout: "
+                           << dex_path;
+                result = false;
+                continue;
+            }
 
-        // Delete oat/vdex/art files.
-        result = unlink_if_exists(oat_path) && result;
-        result = unlink_if_exists(create_vdex_filename(oat_path)) && result;
-        result = unlink_if_exists(create_image_filename(oat_path)) && result;
+            // Delete oat/vdex/art files.
+            result = unlink_if_exists(oat_path) && result;
+            result = unlink_if_exists(create_vdex_filename(oat_path)) && result;
+            result = unlink_if_exists(create_image_filename(oat_path)) && result;
 
-        // Delete profiles.
-        std::string current_profile = create_current_profile_path(
+            // Delete profiles.
+            std::string current_profile = create_current_profile_path(
                 multiuser_get_user_id(uid), dex_path, /*is_secondary*/true);
-        std::string reference_profile = create_reference_profile_path(
+            std::string reference_profile = create_reference_profile_path(
                 dex_path, /*is_secondary*/true);
-        result = unlink_if_exists(current_profile) && result;
-        result = unlink_if_exists(reference_profile) && result;
+            result = unlink_if_exists(current_profile) && result;
+            result = unlink_if_exists(reference_profile) && result;
 
-        // Try removing the directories as well, they might be empty.
-        result = rmdir_if_empty(oat_isa_dir) && result;
-        result = rmdir_if_empty(oat_dir) && result;
+            // We upgraded once the location of current profile for secondary dex files.
+            // Check for any previous left-overs and remove them as well.
+            std::string old_current_profile = dex_path + ".prof";
+            result = unlink_if_exists(old_current_profile);
+
+            // Try removing the directories as well, they might be empty.
+            result = rmdir_if_empty(oat_isa_dir) && result;
+            result = rmdir_if_empty(oat_dir) && result;
+        }
+        result ? _exit(0) : _exit(1);
     }
 
-    return result;
+    int return_code = wait_child(pid);
+    return return_code == 0;
 }
 
 // Helper for move_ab, so that we can have common failure-case cleanup.

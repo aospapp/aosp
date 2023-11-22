@@ -8,7 +8,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2011-2015 Petr Pavlu
+   Copyright (C) 2011-2017 Petr Pavlu
       setup@dagobah.cz
 
    This program is free software; you can redistribute it and/or
@@ -29,7 +29,7 @@
    The GNU General Public License is contained in the file COPYING.
 */
 
-/* Copyright 2013-2015, Ivo Raisr <ivosh@ivosh.net>. */
+/* Copyright 2013-2017, Ivo Raisr <ivosh@ivosh.net>. */
 
 #if defined(VGO_solaris)
 
@@ -236,7 +236,7 @@ static HChar **setup_client_env(HChar **origenv, const HChar *toolname)
       SizeT v_launcher_len = VG_(strlen)(v_launcher);
 
       for (i = 0; i < envc; i++)
-         if (!VG_(memcmp(ret[i], v_launcher, v_launcher_len))) {
+         if (!VG_(memcmp)(ret[i], v_launcher, v_launcher_len)) {
             /* VALGRIND_LAUNCHER was found. */
             break;
          }
@@ -442,6 +442,7 @@ static Addr setup_client_stack(Addr init_sp,
       AT_SUN_EXECNAME
       AT_PHDR            (not for elfs with no PT_PHDR, such as ld.so.1)
       AT_BASE
+      AT_ENTRY
       AT_FLAGS
       AT_PAGESZ
       AT_SUN_AUXFLAFGS
@@ -450,9 +451,9 @@ static Addr setup_client_stack(Addr init_sp,
       AT_SUN_SYSSTAT_ZONE_ADDR (if supported)
       AT_NULL
 
-      It would be possible to also add AT_PHENT, AT_PHNUM, AT_ENTRY,
-      AT_SUN_LDDATA, but they don't seem to be so important. */
-   auxsize = 9 * sizeof(*auxv);
+      It would be possible to also add AT_PHENT, AT_PHNUM, AT_SUN_LDDATA,
+      but they don't seem to be so important. */
+   auxsize = 10 * sizeof(*auxv);
 #  if defined(SOLARIS_RESERVE_SYSSTAT_ADDR)
    auxsize += sizeof(*auxv);
 #  endif
@@ -580,14 +581,10 @@ static Addr setup_client_stack(Addr init_sp,
    *ptr++ = argc;
 
    /* Copy-out client argv. */
-   if (info->interp_name) {
+   if (info->interp_name)
       *ptr++ = (Addr)copy_str(&strtab, info->interp_name);
-      VG_(free)(info->interp_name);
-   }
-   if (info->interp_args) {
+   if (info->interp_args)
       *ptr++ = (Addr)copy_str(&strtab, info->interp_args);
-      VG_(free)(info->interp_args);
-   }
 
    *ptr++ = (Addr)copy_str(&strtab, VG_(args_the_exename));
    for (i = 0; i < VG_(sizeXA)(VG_(args_for_client)); i++)
@@ -629,6 +626,11 @@ static Addr setup_client_stack(Addr init_sp,
    /* AT_BASE */
    auxv->a_type = VKI_AT_BASE;
    auxv->a_un.a_val = info->interp_offset;
+   auxv++;
+
+   /* AT_ENTRY */
+   auxv->a_type = VKI_AT_ENTRY;
+   auxv->a_un.a_val = info->entry;
    auxv++;
 
    /* AT_FLAGS */
@@ -953,6 +955,8 @@ IIFinaliseImageInfo VG_(ii_create_image)(IICreateImageInfo iicii,
       }
    }
 
+   VG_(free)(info.interp_name);
+   VG_(free)(info.interp_args);
    return iifii;
 }
 

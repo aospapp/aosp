@@ -14,29 +14,43 @@
 // limitations under the License.
 //
 
-cc_library {
-    name: "libese",
-    vendor: true,
-    host_supported: true,
+cc_defaults {
+    name: "libese-defaults",
 
-    srcs: [
-        "ese.c",
-    ],
+    proprietary: true,
+    cflags: ["-std=c99", "-D_FORTIFY_SOURCE=2"],
 
-    local_include_dirs: [
-        "include",
-    ],
-
-    // Ensure that only explicitly exported symbols are visible.
-    cflags: ["-fvisibility=internal", "-std=c99"],
     // This doesn't work yet, but is good documentation for when
     // debugging is needed.
     debug:  {
         cflags: ["-DLOG_NDEBUG=0"],
     },
+}
+
+cc_defaults {
+    name: "libese-api-defaults",
+    defaults: ["libese-defaults"],
+
+    // Ensure that only explicitly exported symbols are visible.
+    local_include_dirs: ["include"],
+    export_include_dirs: ["include"],
+    cflags: ["-fvisibility=internal"],
+}
+
+cc_library {
+    name: "libese",
+    defaults: ["libese-api-defaults"],
+    host_supported: true,
+
+    srcs: [
+        "ese.c",
+        "ese_sg.c",
+    ],
+
+    export_include_dirs: ["include"],
 
     shared_libs: ["libese-sysdeps", "liblog"],
-    export_include_dirs: ["include"],
+    export_shared_lib_headers: ["liblog"],
 }
 
 subdirs = ["tests"]

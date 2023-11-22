@@ -16,12 +16,14 @@
 
 package android.car;
 
-import android.content.Intent;
-
-import android.car.ICarConnectionListener;
-
 /** @hide */
 interface ICar {
-    IBinder getCarService(in String serviceName) = 0;
-    int getCarConnectionType() = 1;
+    /**
+     * IBinder is ICarServiceHelper but passed as IBinder due to aidl hidden.
+     * Only this method is oneway as it is called from system server.
+     * This should be the 1st method. Do not change the order.
+     */
+    oneway void setCarServiceHelper(in IBinder helper) = 0;
+    IBinder getCarService(in String serviceName) = 1;
+    int getCarConnectionType() = 2;
 }

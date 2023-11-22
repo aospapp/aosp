@@ -27,7 +27,7 @@ struct HandleType : public Type {
 
     bool isHandle() const override;
 
-    void addNamedTypesToSet(std::set<const FQName> &set) const override;
+    std::string typeName() const override;
 
     std::string getCppType(
             StorageMode mode,

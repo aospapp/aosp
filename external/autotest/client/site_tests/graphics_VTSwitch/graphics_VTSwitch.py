@@ -34,17 +34,16 @@ def get_percent_difference(file1, file2):
     return round(100. * diff_bytes / os.path.getsize(file1))
 
 
-class graphics_VTSwitch(test.test):
+class graphics_VTSwitch(graphics_utils.GraphicsTest):
     """
     Verify that VT switching works.
     """
     version = 2
-    GSC = None
     _WAIT = 5
     # TODO(crosbug.com/36417): Need to handle more than one display screen.
 
     def initialize(self):
-        self.GSC = graphics_utils.GraphicsStateChecker()
+        super(graphics_VTSwitch, self).initialize()
         self._player = input_playback.InputPlayback()
         self._player.emulate(input_type='keyboard')
         self._player.find_connected_inputs()
@@ -61,6 +60,7 @@ class graphics_VTSwitch(test.test):
             input_type='keyboard', filename='keyboard_ctrl+alt+f1')
         time.sleep(self._WAIT)
 
+    @graphics_utils.GraphicsTest.failure_report_decorator('graphics_VTSwitch')
     def run_once(self,
                  num_iterations=2,
                  similarity_percent_threshold=95,
@@ -202,6 +202,5 @@ class graphics_VTSwitch(test.test):
         # Return to VT1 when done.  Ideally, the screen should already be in VT1
         # but the test might fail and terminate while in VT2.
         self._open_vt1()
-        if self.GSC:
-            self.GSC.finalize()
         self._player.close()
+        super(graphics_VTSwitch, self).cleanup()

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1994, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1994, 2013, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -139,7 +139,7 @@ public class NetworkClient {
                                         serverSocket.getOutputStream()),
                                         true, encoding);
         } catch (UnsupportedEncodingException e) {
-            throw new InternalError(encoding +"encoding not found");
+            throw new InternalError(encoding +"encoding not found", e);
         }
         serverInput = new BufferedInputStream(serverSocket.getInputStream());
     }
@@ -244,7 +244,7 @@ public class NetworkClient {
      * Sets the read timeout.
      *
      * Note: Public URLConnection (and protocol specific implementations)
-     * protect against negative timeout values being set. This implemenation,
+     * protect against negative timeout values being set. This implementation,
      * and protocol specific implementations, use -1 to represent the default
      * read timeout.
      *

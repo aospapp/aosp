@@ -17,13 +17,18 @@
 #ifndef ART_RUNTIME_GC_SPACE_REGION_SPACE_H_
 #define ART_RUNTIME_GC_SPACE_REGION_SPACE_H_
 
-#include "gc/accounting/read_barrier_table.h"
-#include "object_callbacks.h"
+#include "base/macros.h"
+#include "base/mutex.h"
 #include "space.h"
 #include "thread.h"
 
 namespace art {
 namespace gc {
+
+namespace accounting {
+class ReadBarrierTable;
+}  // namespace accounting
+
 namespace space {
 
 // A space that consists of equal-sized regions.
@@ -148,14 +153,14 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
   }
 
   // Go through all of the blocks and visit the continuous objects.
-  void Walk(ObjectCallback* callback, void* arg)
-      REQUIRES(Locks::mutator_lock_) {
-    WalkInternal<false>(callback, arg);
+  template <typename Visitor>
+  ALWAYS_INLINE void Walk(Visitor&& visitor) REQUIRES(Locks::mutator_lock_) {
+    WalkInternal<false /* kToSpaceOnly */>(visitor);
   }
-
-  void WalkToSpace(ObjectCallback* callback, void* arg)
+  template <typename Visitor>
+  ALWAYS_INLINE void WalkToSpace(Visitor&& visitor)
       REQUIRES(Locks::mutator_lock_) {
-    WalkInternal<true>(callback, arg);
+    WalkInternal<true>(visitor);
   }
 
   accounting::ContinuousSpaceBitmap::SweepCallback* GetSweepCallback() OVERRIDE {
@@ -243,8 +248,8 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
  private:
   RegionSpace(const std::string& name, MemMap* mem_map);
 
-  template<bool kToSpaceOnly>
-  void WalkInternal(ObjectCallback* callback, void* arg) NO_THREAD_SAFETY_ANALYSIS;
+  template<bool kToSpaceOnly, typename Visitor>
+  ALWAYS_INLINE void WalkInternal(Visitor&& visitor) NO_THREAD_SAFETY_ANALYSIS;
 
   class Region {
    public:
@@ -280,20 +285,7 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
       return type_;
     }
 
-    void Clear(bool zero_and_release_pages) {
-      top_.StoreRelaxed(begin_);
-      state_ = RegionState::kRegionStateFree;
-      type_ = RegionType::kRegionTypeNone;
-      objects_allocated_.StoreRelaxed(0);
-      alloc_time_ = 0;
-      live_bytes_ = static_cast<size_t>(-1);
-      if (zero_and_release_pages) {
-        ZeroAndReleasePages(begin_, end_ - begin_);
-      }
-      is_newly_allocated_ = false;
-      is_a_tlab_ = false;
-      thread_ = nullptr;
-    }
+    void Clear(bool zero_and_release_pages);
 
     ALWAYS_INLINE mirror::Object* Alloc(size_t num_bytes, size_t* bytes_allocated,
                                         size_t* usable_size,
@@ -311,31 +303,16 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
 
     // Given a free region, declare it non-free (allocated).
     void Unfree(RegionSpace* region_space, uint32_t alloc_time)
-        REQUIRES(region_space->region_lock_) {
-      DCHECK(IsFree());
-      state_ = RegionState::kRegionStateAllocated;
-      type_ = RegionType::kRegionTypeToSpace;
-      alloc_time_ = alloc_time;
-      region_space->AdjustNonFreeRegionLimit(idx_);
-    }
+        REQUIRES(region_space->region_lock_);
 
     void UnfreeLarge(RegionSpace* region_space, uint32_t alloc_time)
-        REQUIRES(region_space->region_lock_) {
-      DCHECK(IsFree());
-      state_ = RegionState::kRegionStateLarge;
-      type_ = RegionType::kRegionTypeToSpace;
-      alloc_time_ = alloc_time;
-      region_space->AdjustNonFreeRegionLimit(idx_);
-    }
+        REQUIRES(region_space->region_lock_);
 
     void UnfreeLargeTail(RegionSpace* region_space, uint32_t alloc_time)
-        REQUIRES(region_space->region_lock_) {
-      DCHECK(IsFree());
-      state_ = RegionState::kRegionStateLargeTail;
-      type_ = RegionType::kRegionTypeToSpace;
-      alloc_time_ = alloc_time;
-      region_space->AdjustNonFreeRegionLimit(idx_);
-    }
+        REQUIRES(region_space->region_lock_);
+
+    void MarkAsAllocated(RegionSpace* region_space, uint32_t alloc_time)
+        REQUIRES(region_space->region_lock_);
 
     void SetNewlyAllocated() {
       is_newly_allocated_ = true;
@@ -411,8 +388,14 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
       DCHECK(IsInUnevacFromSpace());
       DCHECK(!IsLargeTail());
       DCHECK_NE(live_bytes_, static_cast<size_t>(-1));
-      live_bytes_ += live_bytes;
+      // For large allocations, we always consider all bytes in the
+      // regions live.
+      live_bytes_ += IsLarge() ? Top() - begin_ : live_bytes;
       DCHECK_LE(live_bytes_, BytesAllocated());
+    }
+
+    bool AllAllocatedBytesAreLive() const {
+      return LiveBytes() == static_cast<size_t>(Top() - Begin());
     }
 
     size_t LiveBytes() const {
@@ -534,6 +517,8 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
       }
     }
   }
+
+  Region* AllocateRegion(bool for_evac) REQUIRES(region_lock_);
 
   Mutex region_lock_ DEFAULT_MUTEX_ACQUIRED_AFTER;
 

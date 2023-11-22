@@ -28,11 +28,12 @@ LOCAL_SRC_FILES := \
 		android_os_cts_HardwareName.cpp \
 		android_os_cts_OSFeatures.cpp \
 		android_os_cts_NoExecutePermissionTest.cpp \
-		android_os_cts_SeccompTest.cpp
+		android_os_cts_SeccompTest.cpp \
+		android_os_cts_SharedMemory.cpp
 
 LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 
-LOCAL_SHARED_LIBRARIES := libnativehelper_compat_libc++ liblog libdl
+LOCAL_SHARED_LIBRARIES := libnativehelper_compat_libc++ liblog libdl libandroid
 LOCAL_CXX_STL := none
 
 LOCAL_STATIC_LIBRARIES := libc++_static libminijail
@@ -54,5 +55,8 @@ ifeq ($(ARCH_SUPPORTS_SECCOMP),1)
 	# This define controls the behavior of OSFeatures.needsSeccompSupport().
 	LOCAL_CFLAGS += -DARCH_SUPPORTS_SECCOMP
 endif
+
+LOCAL_CFLAGS := -Wno-unused-parameter
+LOCAL_CPPFLAGS_arm := -mcpu=generic
 
 include $(BUILD_SHARED_LIBRARY)

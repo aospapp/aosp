@@ -30,8 +30,7 @@ public class JUnitRunnerFactory implements RunnerFactory {
     @Override @Nullable
     public TargetRunner newRunner(TargetMonitor monitor, String qualification,
             Class<?> klass, AtomicReference<String> skipPastReference,
-            TestEnvironment testEnvironment, int timeoutSeconds, boolean profile,
-            String[] args) {
+            TestEnvironment testEnvironment, int timeoutSeconds, String[] args) {
         if (supports(klass)) {
             return new JUnitTargetRunner(monitor, skipPastReference, testEnvironment,
                     timeoutSeconds, klass, qualification, args);

@@ -2414,9 +2414,13 @@ int main(WORD32 argc, CHAR *argv[])
 
             if(ret != IV_SUCCESS)
             {
+                if (IMPEG2D_UNSUPPORTED_DIMENSIONS == s_video_decode_op.u4_error_code)
+                {
+                    sprintf(ac_error_str, "\nSummary\nUnsupported Dimensions. Reinit decoder with width %d and height %d\n", s_video_decode_op.u4_pic_wd, s_video_decode_op.u4_pic_ht);
+                    codec_exit(ac_error_str);
+                }
                 sprintf(ac_error_str, "\nError in header decode %x",
                         s_video_decode_op.u4_error_code);
-                // codec_exit(ac_error_str);
             }
 
             u4_num_bytes_dec = s_video_decode_op.u4_num_bytes_consumed;

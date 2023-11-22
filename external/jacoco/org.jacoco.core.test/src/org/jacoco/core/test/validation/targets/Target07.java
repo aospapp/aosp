@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,13 +13,13 @@ package org.jacoco.core.test.validation.targets;
 
 /**
  * This test target is a private empty default constructor.
+ *
+ * @see Target06 implicit constructor
  */
 public class Target07 { // $line-classdef$
 
-	private Target07() {
+	private Target07() { // $line-super$
 	} // $line-constructor$
-
-	public static final int CONST = 42;
 
 	public static void main(String[] args) {
 	}

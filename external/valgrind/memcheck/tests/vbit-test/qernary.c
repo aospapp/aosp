@@ -4,7 +4,7 @@
    This file is part of MemCheck, a heavyweight Valgrind tool for
    detecting memory errors.
 
-   Copyright (C) 2012-2015  Florian Krohm
+   Copyright (C) 2012-2017  Florian Krohm
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License as
@@ -66,6 +66,9 @@ test_qernary_op(const irop_t *op, test_data_t *data)
    unsigned num_input_bits, i, bitpos;
    opnd_t *opnds = data->opnds;
    int tests_done = 0;
+
+   /* Immediate operands are currently not supported here */
+   assert(op->immediate_index == 0);
 
    /* For each operand, set a single bit to undefined and observe how
       that propagates to the output. Do this for all bits in each

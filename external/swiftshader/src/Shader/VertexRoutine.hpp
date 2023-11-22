@@ -29,10 +29,10 @@ namespace sw
 		virtual ~VertexRoutinePrototype() {};
 
 	protected:
-		const Pointer<Byte> vertex;
-		const Pointer<Byte> batch;
-		const Pointer<Byte> task;
-		const Pointer<Byte> data;
+		Pointer<Byte> vertex;
+		Pointer<Byte> batch;
+		Pointer<Byte> task;
+		Pointer<Byte> data;
 	};
 
 	class VertexRoutine : public VertexRoutinePrototype
@@ -54,7 +54,7 @@ namespace sw
 		const VertexProcessor::State &state;
 
 	private:
-		virtual void pipeline() = 0;
+		virtual void pipeline(UInt &index) = 0;
 
 		typedef VertexProcessor::State::Input Stream;
 

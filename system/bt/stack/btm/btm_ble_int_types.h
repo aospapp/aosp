@@ -81,14 +81,16 @@ typedef uint8_t tBTM_BLE_SEC_REQ_ACT;
 #define BLE_RESOLVE_ADDR_MSB 0x40
 /* bit 6, and bit7 */
 #define BLE_RESOLVE_ADDR_MASK 0xc0
-#define BTM_BLE_IS_RESOLVE_BDA(x) \
-  (((x)[0] & BLE_RESOLVE_ADDR_MASK) == BLE_RESOLVE_ADDR_MSB)
+inline bool BTM_BLE_IS_RESOLVE_BDA(const RawAddress& x) {
+  return ((x.address)[0] & BLE_RESOLVE_ADDR_MASK) == BLE_RESOLVE_ADDR_MSB;
+}
 
 #define BLE_PUBLIC_ADDR_MSB_MASK 0xC0
 /*  most significant bit, bit7, bit6 is 10 to be public address*/
 #define BLE_PUBLIC_ADDR_MSB 0x80
-#define BTM_IS_PUBLIC_BDA(x) \
-  (((x)[0] & BLE_PUBLIC_ADDR_MSB_MASK) == BLE_PUBLIC_ADDR_MSB)
+inline bool BTM_IS_PUBLIC_BDA(const RawAddress& x) {
+  return ((x.address)[0] & BLE_PUBLIC_ADDR_MSB_MASK) == BLE_PUBLIC_ADDR_MSB;
+}
 
 /* LE scan activity bit mask, continue with LE inquiry bits */
 /* observe is in progress */
@@ -162,19 +164,17 @@ typedef struct {
 /* random address resolving complete callback */
 typedef void(tBTM_BLE_RESOLVE_CBACK)(void* match_rec, void* p);
 
-typedef void(tBTM_BLE_ADDR_CBACK)(BD_ADDR_PTR static_random, void* p);
+typedef void(tBTM_BLE_ADDR_CBACK)(const RawAddress& static_random, void* p);
 
 /* random address management control block */
 typedef struct {
   tBLE_ADDR_TYPE own_addr_type; /* local device LE address type */
-  BD_ADDR private_addr;
-  BD_ADDR random_bda;
+  RawAddress private_addr;
+  RawAddress random_bda;
   tBTM_BLE_ADDR_CBACK* p_generate_cback;
   void* p;
   alarm_t* refresh_raddr_timer;
 } tBTM_LE_RANDOM_CB;
-
-#define BTM_BLE_MAX_BG_CONN_DEV_NUM 10
 
 typedef struct {
   uint16_t min_conn_int;
@@ -185,7 +185,7 @@ typedef struct {
 } tBTM_LE_CONN_PRAMS;
 
 typedef struct {
-  BD_ADDR bd_addr;
+  RawAddress bd_addr;
   uint8_t attr;
   bool is_connected;
   bool in_use;
@@ -194,7 +194,6 @@ typedef struct {
 /* white list using state as a bit mask */
 #define BTM_BLE_WL_IDLE 0
 #define BTM_BLE_WL_INIT 1
-#define BTM_BLE_WL_ADV 4
 typedef uint8_t tBTM_BLE_WL_STATE;
 
 /* resolving list using state as a bit mask */
@@ -254,7 +253,7 @@ typedef uint16_t tBTM_BLE_STATE_MASK;
 #endif
 
 typedef struct {
-  BD_ADDR* resolve_q_random_pseudo;
+  RawAddress* resolve_q_random_pseudo;
   uint8_t* resolve_q_action;
   uint8_t q_next;
   uint8_t q_pending;
@@ -263,7 +262,7 @@ typedef struct {
 typedef struct {
   bool in_use;
   bool to_add;
-  BD_ADDR bd_addr;
+  RawAddress bd_addr;
   uint8_t attr;
 } tBTM_BLE_WL_OP;
 
@@ -300,7 +299,6 @@ typedef struct {
   uint32_t scan_win;
 
   /* white list information */
-  uint8_t white_list_avail_size;
   tBTM_BLE_WL_STATE wl_state;
 
   fixed_queue_t* conn_pending_q;
@@ -320,8 +318,6 @@ typedef struct {
   uint8_t* irk_list_mask; /* IRK list availability mask, up to max entry bits */
   tBTM_BLE_RL_STATE rl_state; /* Resolving list state */
 #endif
-
-  tBTM_BLE_WL_OP wl_op_q[BTM_BLE_MAX_BG_CONN_DEV_NUM];
 
   /* current BLE link state */
   tBTM_BLE_STATE_MASK cur_states; /* bit mask of tBTM_BLE_STATE */

@@ -30,6 +30,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 @MediumTest
 @RunWith(AndroidJUnit4.class)
@@ -53,5 +54,7 @@ public class DefaultColorModeTest {
 
         Window window = mActivity.getWindow();
         assertEquals(ActivityInfo.COLOR_MODE_DEFAULT, window.getAttributes().getColorMode());
+
+        assertFalse(window.isWideColorGamut());
     }
 }

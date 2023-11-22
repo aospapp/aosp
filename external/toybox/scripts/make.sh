@@ -13,8 +13,7 @@ UNSTRIPPED="generated/unstripped/$(basename "$OUTNAME")"
 
 # Since each cc invocation is short, launch half again as many processes
 # as we have processors so they don't exit faster than we can start them.
-[ -z "$CPUS" ] &&
-  CPUS=$((($(echo /sys/devices/system/cpu/cpu[0-9]* | wc -w)*3)/2))
+[ -z "$CPUS" ] && CPUS=$(($(nproc)+1))
 
 if [ -z "$SED" ]
 then
@@ -109,7 +108,7 @@ then
   # for it.
 
   > generated/optlibs.dat
-  for i in util crypt m resolv selinux smack attr rt crypto
+  for i in util crypt m resolv selinux smack attr rt crypto z log
   do
     echo "int main(int argc, char *argv[]) {return 0;}" | \
     ${CROSS_COMPILE}${CC} $CFLAGS -xc - -o generated/libprobe -Wl,--as-needed -l$i > /dev/null 2>/dev/null &&

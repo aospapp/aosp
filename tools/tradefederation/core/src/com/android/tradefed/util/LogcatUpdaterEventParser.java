@@ -20,8 +20,12 @@ import com.android.loganalysis.item.LogcatItem;
 import com.android.loganalysis.item.MiscLogcatItem;
 import com.android.loganalysis.parser.LogcatParser;
 import com.android.tradefed.device.ILogcatReceiver;
+import com.android.tradefed.result.InputStreamSource;
+
 import java.io.BufferedReader;
+import java.io.Closeable;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.List;
@@ -31,17 +35,20 @@ import java.util.regex.Pattern;
 /**
  * Parse logcat input for system updater related events.
  *
- * In any system with A/B updates, the updater will log its progress to logcat. This class
- * interprets updater-related logcat messages and can inform listeners of events in both
- * a blocking and non-blocking fashion.
+ * <p>In any system with A/B updates, the updater will log its progress to logcat. This class
+ * interprets updater-related logcat messages and can inform listeners of events in both a blocking
+ * and non-blocking fashion.
  */
-public class LogcatUpdaterEventParser {
+public class LogcatUpdaterEventParser implements Closeable {
 
     private static final String ERR_REGEX = "onPayloadApplicationComplete\\(ErrorCode\\.*$";
     private Map<UpdaterEventTrigger, UpdaterEventType> mEventTriggerMap;
     private ILogcatReceiver mLogcatReceiver;
     private LogcatParser mInternalParser;
     private BufferedReader mStreamReader = null;
+    private InputStreamSource mCurrentLogcatData = null;
+    private InputStream mCurrentInputStream = null;
+    private InputStreamReader mCurrentStreamReader = null;
 
     private class UpdaterEventTrigger {
         public String mTag;
@@ -147,8 +154,10 @@ public class LogcatUpdaterEventParser {
         registerEventTrigger("dex2oat", "dex2oat took ",
                 UpdaterEventType.D2O_COMPLETE);
 
-        mStreamReader = new BufferedReader(new InputStreamReader(
-                mLogcatReceiver.getLogcatData().createInputStream()));
+        mCurrentLogcatData = mLogcatReceiver.getLogcatData();
+        mCurrentInputStream = mCurrentLogcatData.createInputStream();
+        mCurrentStreamReader = new InputStreamReader(mCurrentInputStream);
+        mStreamReader = new BufferedReader(mCurrentStreamReader);
     }
 
     protected void registerEventTrigger(String tag, String msg, UpdaterEventType response) {
@@ -258,9 +267,19 @@ public class LogcatUpdaterEventParser {
 
     private void refreshLogcatStream() throws IOException {
         mStreamReader.close();
+        StreamUtil.cancel(mCurrentLogcatData);
+        mCurrentLogcatData = mLogcatReceiver.getLogcatData();
+        mCurrentInputStream = mCurrentLogcatData.createInputStream();
+        mCurrentStreamReader = new InputStreamReader(mCurrentInputStream);
+        mStreamReader = new BufferedReader(mCurrentStreamReader);
+    }
 
-        mStreamReader = new BufferedReader(new InputStreamReader(
-                mLogcatReceiver.getLogcatData().createInputStream()));
+    @Override
+    public void close() throws IOException {
+        StreamUtil.close(mStreamReader);
+        StreamUtil.cancel(mCurrentLogcatData);
+        StreamUtil.close(mCurrentInputStream);
+        StreamUtil.close(mCurrentStreamReader);
     }
 }
 

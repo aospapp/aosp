@@ -40,11 +40,13 @@
         android:clipChildren="false"
         android:clipToPadding="false" />
     <!-- TODO: Use button action list in GuidedStepFragment -->
-    <FrameLayout
+    <LinearLayout
         android:id="@+id/done_button_container"
         android:layout_width="@dimen/setup_done_button_container_width"
         android:layout_height="match_parent"
         android:layout_gravity="end"
+        android:orientation="vertical"
+        android:paddingTop="190dp"
         style="?attr/doneButtonContainerStyle"
         android:transitionGroup="true"
         android:transitionName="buttonDoneTransition">
@@ -54,7 +56,6 @@
             android:layout_height="45dp"
             android:layout_marginStart="24dp"
             android:layout_marginEnd="40dp"
-            android:layout_marginTop="190dp"
             android:elevation="0dp"
             android:focusable="true"
             android:fontFamily="sans-serif-condensed"
@@ -65,5 +66,23 @@
             android:text="@string/action_text_done"
             android:textColor="#EEEEEE"
             android:textSize="14sp" />
-    </FrameLayout>
+        <TextView
+            android:id="@+id/button_skip"
+            android:layout_width="match_parent"
+            android:layout_height="45dp"
+            android:layout_marginStart="24dp"
+            android:layout_marginEnd="40dp"
+            android:layout_marginTop="8dp"
+            android:elevation="0dp"
+            android:focusable="true"
+            android:fontFamily="sans-serif-condensed"
+            android:paddingEnd="12dp"
+            android:paddingStart="12dp"
+            android:background="@drawable/setup_action_button_done"
+            android:gravity="center_vertical|start"
+            android:visibility="gone"
+            android:text="@string/action_text_skip"
+            android:textColor="#EEEEEE"
+            android:textSize="14sp" />
+    </LinearLayout>
 </FrameLayout>

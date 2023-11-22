@@ -198,6 +198,7 @@ struct Register : public CPURegister {
 };
 
 static const bool kSimpleFPAliasing = true;
+static const bool kSimdMaskRegisters = false;
 
 struct FPRegister : public CPURegister {
   enum Code {
@@ -937,9 +938,6 @@ class Assembler : public AssemblerBase {
                          int id);
 
   int buffer_space() const;
-
-  // Mark generator continuation.
-  void RecordGeneratorContinuation();
 
   // Mark address of a debug break slot.
   void RecordDebugBreakSlot(RelocInfo::Mode mode);

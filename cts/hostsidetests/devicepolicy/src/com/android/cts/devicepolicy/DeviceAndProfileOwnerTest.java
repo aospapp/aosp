@@ -26,7 +26,9 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Set of tests for use cases that apply to profile and device owner.
@@ -67,6 +69,9 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
     private static final String DELEGATION_CERT_INSTALL = "delegation-cert-install";
     private static final String DELEGATION_APP_RESTRICTIONS = "delegation-app-restrictions";
     private static final String DELEGATION_BLOCK_UNINSTALL = "delegation-block-uninstall";
+    private static final String DELEGATION_PERMISSION_GRANT = "delegation-permission-grant";
+    private static final String DELEGATION_PACKAGE_ACCESS = "delegation-package-access";
+    private static final String DELEGATION_ENABLE_SYSTEM_APP = "delegation-enable-system-app";
 
     private static final String TEST_APP_APK = "CtsSimpleApp.apk";
     private static final String TEST_APP_PKG = "com.android.cts.launcherapps.simpleapp";
@@ -81,6 +86,9 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
 
     private static final String VPN_APP_PKG = "com.android.cts.vpnfirewall";
     private static final String VPN_APP_APK = "CtsVpnFirewallApp.apk";
+    private static final String VPN_APP_API23_APK = "CtsVpnFirewallAppApi23.apk";
+    private static final String VPN_APP_API24_APK = "CtsVpnFirewallAppApi24.apk";
+    private static final String VPN_APP_NOT_ALWAYS_ON_APK = "CtsVpnFirewallAppNotAlwaysOn.apk";
 
     private static final String COMMAND_BLOCK_ACCOUNT_TYPE = "block-accounttype";
     private static final String COMMAND_UNBLOCK_ACCOUNT_TYPE = "unblock-accounttype";
@@ -105,6 +113,7 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
     protected static final String ASSIST_INTERACTION_SERVICE =
             ASSIST_APP_PKG + "/.MyInteractionService";
 
+    private static final String ARG_ALLOW_FAILURE = "allowFailure";
     // ID of the user all tests are run as. For device owner this will be the primary user, for
     // profile owner it is the user id of the created profile.
     protected int mUserId;
@@ -120,6 +129,9 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
             getDevice().uninstallPackage(DELEGATE_APP_PKG);
             getDevice().uninstallPackage(ACCOUNT_MANAGEMENT_PKG);
             getDevice().uninstallPackage(VPN_APP_PKG);
+            getDevice().uninstallPackage(VPN_APP_API23_APK);
+            getDevice().uninstallPackage(VPN_APP_API24_APK);
+            getDevice().uninstallPackage(VPN_APP_NOT_ALWAYS_ON_APK);
             getDevice().uninstallPackage(INTENT_RECEIVER_PKG);
             getDevice().uninstallPackage(INTENT_SENDER_PKG);
             getDevice().uninstallPackage(CUSTOMIZATION_APP_PKG);
@@ -189,7 +201,10 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
         final String delegationTests[] = {
             ".AppRestrictionsDelegateTest",
             ".CertInstallDelegateTest",
-            ".BlockUninstallDelegateTest"
+            ".BlockUninstallDelegateTest",
+            ".PermissionGrantDelegateTest",
+            ".PackageAccessDelegateTest",
+            ".EnableSystemAppDelegateTest"
         };
 
         // Set a device lockscreen password (precondition for installing private key pairs).
@@ -208,7 +223,10 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
             setDelegatedScopes(DELEGATE_APP_PKG, Arrays.asList(
                     DELEGATION_APP_RESTRICTIONS,
                     DELEGATION_CERT_INSTALL,
-                    DELEGATION_BLOCK_UNINSTALL));
+                    DELEGATION_BLOCK_UNINSTALL,
+                    DELEGATION_PERMISSION_GRANT,
+                    DELEGATION_PACKAGE_ACCESS,
+                    DELEGATION_ENABLE_SYSTEM_APP));
             runDeviceTestsAsUser(DELEGATE_APP_PKG, ".GeneralDelegateTest", mUserId);
             executeDelegationTests(delegationTests, true /* positive result */);
 
@@ -220,7 +238,7 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
             executeDeviceTestClass(".DelegationTest");
 
         } finally {
-            // Clear lockscreen password previously set for installing private key pairs (DO only).
+            // Clear lockscreen password previously set for installing private key pairs.
             changeUserCredential(null, "1234", mPrimaryUserId);
             // Remove any remaining delegations.
             setDelegatedScopes(DELEGATE_APP_PKG, null);
@@ -269,6 +287,32 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
     }
 
     @RequiresDevice
+    public void testAlwaysOnVpnAcrossReboot() throws Exception {
+        // Note: Always-on VPN is supported on non-FBE devices as well, and the behavior should be
+        // the same. However we're only testing the FBE case here as we need to set a device
+        // password during the test. This would cause FDE devices (e.g. angler) to prompt for the
+        // password during reboot, which we can't handle easily.
+        if (!mHasFeature || !mSupportsFbe) {
+            return;
+        }
+
+        // Set a password to encrypt the user
+        final String testPassword = "1234";
+        changeUserCredential(testPassword, null /*oldCredential*/, mUserId);
+
+        try {
+            installAppAsUser(VPN_APP_APK, mUserId);
+            executeDeviceTestMethod(".AlwaysOnVpnMultiStageTest", "testAlwaysOnSet");
+            rebootAndWaitUntilReady();
+            verifyUserCredential(testPassword, mUserId);
+            executeDeviceTestMethod(".AlwaysOnVpnMultiStageTest", "testAlwaysOnSetAfterReboot");
+        } finally {
+            changeUserCredential(null /*newCredential*/, testPassword, mUserId);
+            executeDeviceTestMethod(".AlwaysOnVpnMultiStageTest", "testCleanup");
+        }
+    }
+
+    @RequiresDevice
     public void testAlwaysOnVpnPackageUninstalled() throws Exception {
         if (!mHasFeature) {
             return;
@@ -282,6 +326,49 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
             executeDeviceTestMethod(".AlwaysOnVpnMultiStageTest", "testSetNonExistingPackage");
         } finally {
             executeDeviceTestMethod(".AlwaysOnVpnMultiStageTest", "testCleanup");
+        }
+    }
+
+    @RequiresDevice
+    public void testAlwaysOnVpnUnsupportedPackage() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+
+        try {
+            // Target SDK = 23: unsupported
+            installAppAsUser(VPN_APP_API23_APK, mUserId);
+            executeDeviceTestMethod(".AlwaysOnVpnUnsupportedTest", "testSetUnsupportedVpnAlwaysOn");
+
+            // Target SDK = 24: supported
+            installAppAsUser(VPN_APP_API24_APK, mUserId);
+            executeDeviceTestMethod(".AlwaysOnVpnUnsupportedTest", "testSetSupportedVpnAlwaysOn");
+            executeDeviceTestMethod(".AlwaysOnVpnUnsupportedTest", "testClearAlwaysOnVpn");
+
+            // Explicit opt-out: unsupported
+            installAppAsUser(VPN_APP_NOT_ALWAYS_ON_APK, mUserId);
+            executeDeviceTestMethod(".AlwaysOnVpnUnsupportedTest", "testSetUnsupportedVpnAlwaysOn");
+        } finally {
+            executeDeviceTestMethod(".AlwaysOnVpnUnsupportedTest", "testClearAlwaysOnVpn");
+        }
+    }
+
+    @RequiresDevice
+    public void testAlwaysOnVpnUnsupportedPackageReplaced() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+
+        try {
+            // Target SDK = 24: supported
+            executeDeviceTestMethod(".AlwaysOnVpnUnsupportedTest", "testAssertNoAlwaysOnVpn");
+            installAppAsUser(VPN_APP_API24_APK, mUserId);
+            executeDeviceTestMethod(".AlwaysOnVpnUnsupportedTest", "testSetSupportedVpnAlwaysOn");
+            // Update the app to target higher API level, but with manifest opt-out
+            installAppAsUser(VPN_APP_NOT_ALWAYS_ON_APK, mUserId);
+            executeDeviceTestMethod(".AlwaysOnVpnUnsupportedTest", "testAssertNoAlwaysOnVpn");
+        } finally {
+            executeDeviceTestMethod(".AlwaysOnVpnUnsupportedTest", "testClearAlwaysOnVpn");
         }
     }
 
@@ -537,6 +624,10 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
         if (!mHasFeature) {
             return;
         }
+        boolean mHasAutofill = hasDeviceFeature("android.software.autofill");
+        if (!mHasAutofill) {
+          return;
+        }
         installAppAsUser(AUTOFILL_APP_APK, mUserId);
 
         executeDeviceTestMethod(".AutofillRestrictionsTest",
@@ -701,7 +792,26 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
         if (!mHasFeature) {
             return;
         }
-        executeDeviceTestMethod(".ResetPasswordWithTokenTest", "testResetPasswordWithToken");
+        // If ResetPasswordWithTokenTest for managed profile is executed before device owner and
+        // primary user profile owner tests, password reset token would have been disabled for
+        // the primary user, so executing ResetPasswordWithTokenTest on user 0 would fail. We allow
+        // this and do not fail the test in this case.
+        // This is the default test for MixedDeviceOwnerTest and MixedProfileOwnerTest,
+        // MixedManagedProfileOwnerTest overrides this method to execute the same test more strictly
+        // without allowing failures.
+        executeResetPasswordWithTokenTests(true);
+    }
+
+    public void testPasswordSufficientInitially() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        executeDeviceTestClass(".PasswordSufficientInitiallyTest");
+    }
+
+    protected void executeResetPasswordWithTokenTests(Boolean allowFailures) throws Exception {
+        runDeviceTestsAsUser(DEVICE_ADMIN_PKG, ".ResetPasswordWithTokenTest", null, mUserId,
+                Collections.singletonMap(ARG_ALLOW_FAILURE, Boolean.toString(allowFailures)));
     }
 
     protected void executeDeviceTestClass(String className) throws Exception {

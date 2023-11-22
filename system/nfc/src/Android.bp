@@ -10,7 +10,9 @@ cc_library_shared {
         "liblog",
         "libdl",
         "libhardware",
+        "libmetricslogger",
         "libpower",
+        "libz",
 
         // Treble configuration
         "libhidlbase",
@@ -50,9 +52,11 @@ cc_library_shared {
         "nfc/nci/*.c",
         "nfc/ndef/*.c",
         "nfc/nfc/*.c",
+        "nfc/nfc/*.cc",
         "nfc/tags/*.c",
         "adaptation/*.c",
         "adaptation/*.cpp",
+        "adaptation/*.cc",
         "gki/common/*.c",
         "gki/ulinux/*.c",
         "nfca_version.c",

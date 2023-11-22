@@ -121,8 +121,8 @@ public class StreamRecorder {
         mSampleRate = sampleRate;
 
         int chanMask = AudioUtils.countToIndexMask(numChans);
-        int bufferSizeInBytes =
-            AudioRecord.getMinBufferSize(mSampleRate, chanMask, AudioFormat.ENCODING_PCM_FLOAT);
+        int bufferSizeInBytes = 2048;   // Some, non-critical value
+
         try {
             mAudioRecord = new AudioRecord.Builder()
                     .setAudioFormat(new AudioFormat.Builder()

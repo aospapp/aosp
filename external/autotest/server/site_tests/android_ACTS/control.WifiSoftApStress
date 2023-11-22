@@ -1,0 +1,25 @@
+# Copyright 2017 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+AUTHOR = 'bmahadev, gmoturu'
+NAME = 'android_ACTS.WifiSoftApStress'
+TIME = 'LONG'
+TEST_TYPE = 'Server'
+ATTRIBUTES = 'suite:android_wifi_softApStress'
+
+DOC = """
+This test runs softAP stress test.
+
+"""
+
+def run(machine):
+    job.run_test('android_ACTS',
+                 testbed=hosts.create_testbed(machine),
+                 config_file='wifi_softApStress.config',
+                 testtracker_owner='android-comms-tvc@google.com',
+                 test_file='wifi_softApStress',
+                 additional_cmd_line_params="-ti 1000",
+                 acts_timeout=72000)
+
+parallel_simple(run, machines)

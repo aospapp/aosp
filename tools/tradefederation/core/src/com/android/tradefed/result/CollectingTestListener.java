@@ -42,7 +42,10 @@ public class CollectingTestListener implements ITestInvocationListener {
     // Uses a LinkedHashmap to have predictable iteration order
     private Map<String, TestRunResult> mRunResultsMap =
         Collections.synchronizedMap(new LinkedHashMap<String, TestRunResult>());
+    private Map<TestRunResult, IInvocationContext> mModuleContextMap =
+            Collections.synchronizedMap(new LinkedHashMap<TestRunResult, IInvocationContext>());
     private TestRunResult mCurrentResults =  new TestRunResult();
+    private IInvocationContext mCurrentModuleContext = null;
 
     /** represents sums of tests in each TestStatus state for all runs.
      * Indexed by TestStatus.ordinal() */
@@ -116,6 +119,16 @@ public class CollectingTestListener implements ITestInvocationListener {
         mBuildInfo = buildInfo;
     }
 
+    @Override
+    public void testModuleStarted(IInvocationContext moduleContext) {
+        mCurrentModuleContext = moduleContext;
+    }
+
+    @Override
+    public void testModuleEnded() {
+        mCurrentModuleContext = null;
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -130,6 +143,10 @@ public class CollectingTestListener implements ITestInvocationListener {
             mCurrentResults.setAggregateMetrics(mIsAggregateMetrics);
 
             mRunResultsMap.put(name, mCurrentResults);
+            // track the module context associated with the results.
+            if (mCurrentModuleContext != null) {
+                mModuleContextMap.put(mCurrentResults, mCurrentModuleContext);
+            }
         }
         mCurrentResults.testRunStarted(name, numTests);
         mIsCountDirty = true;
@@ -230,6 +247,14 @@ public class CollectingTestListener implements ITestInvocationListener {
      */
     public Collection<TestRunResult> getRunResults() {
         return mRunResultsMap.values();
+    }
+
+    /**
+     * Returns the {@link IInvocationContext} of the module associated with the results or null if
+     * it was not associated with any module.
+     */
+    public IInvocationContext getModuleContextForRunResult(TestRunResult res) {
+        return mModuleContextMap.get(res);
     }
 
     /** Returns True if the result map already has an entry for the run name. */

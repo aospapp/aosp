@@ -579,7 +579,12 @@ public final class ReflectionTest extends TestCase {
         assertFalse(Modifier.isProtected(modifiers));
         assertFalse(Modifier.isPrivate(modifiers));
         assertFalse(Modifier.isAbstract(modifiers));
-        assertTrue(Modifier.isStatic(modifiers));
+        // http://b/62290080
+        // OpenJDK 9b08 changed the behavior of Modifier.isStatic(modifiers)
+        // to return false, consistent with JLS 15.9.5 ("An anonymous class
+        // is never static"). Earlier versions of OpenJDK returned true.
+        // This test accepts either behavior.
+        Modifier.isStatic(modifiers); // return value is ignored
         assertFalse(Modifier.isFinal(modifiers));
         assertFalse(Modifier.isStrict(modifiers));
     }

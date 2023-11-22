@@ -201,9 +201,22 @@ def CheckInterfaceForDestination(host, expected_interface):
             a different interface than the expected one.
 
     """
-    # addrinfo records: (family, type, proto, canonname, (addr, port))
+    # socket.getaddrinfo() returns a list of tuples in one of the following
+    # forms:
+    #
+    # For IPv4 address:
+    #   (family, type, proto, canonname, (address, port))
+    # For IPv6 address:
+    #   (family, type, proto, canonname, (address, port, flow_info, scope_id))
+    #
+    # As routing.NetworkRoutes currently supports only IPv4 routes / addresses,
+    # we filter out any IPv6 address reported by socket.getaddrinfo().
+    #
+    # TODO(benchan): Fix this limitation after porting routes.NetworkRoutes to
+    # support both IPv4 and IPv6 (crbug.com/742046).
     server_addresses = [record[4][0]
-                        for record in socket.getaddrinfo(host, 80)]
+                        for record in socket.getaddrinfo(host, 80)
+                        if len(record[4][0]) == 2]
 
     routes = routing.NetworkRoutes()
     for address in server_addresses:

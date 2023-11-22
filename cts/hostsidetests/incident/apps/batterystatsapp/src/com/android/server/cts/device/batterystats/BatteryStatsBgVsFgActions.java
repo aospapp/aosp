@@ -32,6 +32,8 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Color;
+import android.graphics.Point;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -42,6 +44,10 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.util.Log;
+import android.view.Gravity;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.WindowManager;
 
 
 import org.junit.Assert;
@@ -53,6 +59,8 @@ import java.util.concurrent.TimeUnit;
 public class BatteryStatsBgVsFgActions {
     private static final String TAG = BatteryStatsBgVsFgActions.class.getSimpleName();
 
+    private static final int DO_NOTHING_TIMEOUT = 2000;
+
     public static final String KEY_ACTION = "action";
     public static final String ACTION_BLE_SCAN_OPTIMIZED = "action.ble_scan_optimized";
     public static final String ACTION_BLE_SCAN_UNOPTIMIZED = "action.ble_scan_unoptimized";
@@ -62,6 +70,9 @@ public class BatteryStatsBgVsFgActions {
     public static final String ACTION_WIFI_SCAN = "action.wifi_scan";
     public static final String ACTION_WIFI_DOWNLOAD = "action.wifi_download";
     public static final String ACTION_WIFI_UPLOAD = "action.wifi_upload";
+    public static final String ACTION_SLEEP_WHILE_BACKGROUND = "action.sleep_background";
+    public static final String ACTION_SLEEP_WHILE_TOP = "action.sleep_top";
+    public static final String ACTION_SHOW_APPLICATION_OVERLAY = "action.show_application_overlay";
 
     public static final String KEY_REQUEST_CODE = "request_code";
 
@@ -100,10 +111,47 @@ public class BatteryStatsBgVsFgActions {
             case ACTION_WIFI_UPLOAD:
                 doWifiUpload(ctx, requestCode);
                 break;
+            case ACTION_SLEEP_WHILE_BACKGROUND:
+                sleep(DO_NOTHING_TIMEOUT);
+                tellHostActionFinished(ACTION_SLEEP_WHILE_BACKGROUND, requestCode);
+                break;
+            case ACTION_SLEEP_WHILE_TOP:
+                doNothingAsync(ctx, ACTION_SLEEP_WHILE_TOP, requestCode);
+                break;
+            case ACTION_SHOW_APPLICATION_OVERLAY:
+                showApplicationOverlay(ctx, requestCode);
+                break;
             default:
                 Log.e(TAG, "Intent had invalid action");
         }
         sleep(100);
+    }
+
+    private static void showApplicationOverlay(Context ctx, String requestCode) {
+        final WindowManager wm = ctx.getSystemService(WindowManager.class);
+        Point size = new Point();
+        wm.getDefaultDisplay().getSize(size);
+
+        WindowManager.LayoutParams wmlp = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                        | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                        | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE);
+        wmlp.width = size.x / 4;
+        wmlp.height = size.y / 4;
+        wmlp.gravity = Gravity.CENTER | Gravity.LEFT;
+        wmlp.setTitle(ctx.getPackageName());
+
+        ViewGroup.LayoutParams vglp = new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT);
+
+        View v = new View(ctx);
+        v.setBackgroundColor(Color.GREEN);
+        v.setLayoutParams(vglp);
+        wm.addView(v, wmlp);
+
+        tellHostActionFinished(ACTION_SHOW_APPLICATION_OVERLAY, requestCode);
     }
 
     private static void doOptimizedBleScan(Context ctx, String requestCode) {
@@ -126,9 +174,14 @@ public class BatteryStatsBgVsFgActions {
             Log.e(TAG, "Device does not support Bluetooth");
             return;
         }
+        boolean bluetoothEnabledByTest = false;
         if (!bluetoothAdapter.isEnabled()) {
-            Log.e(TAG, "Bluetooth is not enabled");
-            return;
+            if (!bluetoothAdapter.enable()) {
+                Log.e(TAG, "Bluetooth is not enabled");
+                return;
+            }
+            sleep(8_000);
+            bluetoothEnabledByTest = true;
         }
 
         BluetoothLeScanner bleScanner = bluetoothAdapter.getBluetoothLeScanner();
@@ -157,6 +210,11 @@ public class BatteryStatsBgVsFgActions {
         bleScanner.startScan(null, scanSettings, scanCallback);
         sleep(2_000);
         bleScanner.stopScan(scanCallback);
+
+        // Restore adapter state at end of test
+        if (bluetoothEnabledByTest) {
+            bluetoothAdapter.disable();
+        }
     }
 
     private static void doGpsUpdate(Context ctx, String requestCode) {
@@ -225,6 +283,24 @@ public class BatteryStatsBgVsFgActions {
                 waitForReceiver(null, 60_000, latch, null);
                 tellHostActionFinished(ACTION_JOB_SCHEDULE, requestCode);
                 return null;
+            }
+        }.execute();
+    }
+
+    private static void doNothingAsync(Context ctx, String requestCode, String actionCode) {
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(Void... params) {
+                sleep(DO_NOTHING_TIMEOUT);
+                return null;
+            }
+
+            @Override
+            protected void onPostExecute(Void nothing) {
+                if (ctx instanceof Activity) {
+                    ((Activity) ctx).finish();
+                    tellHostActionFinished(actionCode, requestCode);
+                }
             }
         }.execute();
     }

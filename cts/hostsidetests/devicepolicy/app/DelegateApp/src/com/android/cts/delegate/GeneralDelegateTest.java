@@ -18,6 +18,8 @@ package com.android.cts.delegate;
 import static android.app.admin.DevicePolicyManager.DELEGATION_APP_RESTRICTIONS;
 import static android.app.admin.DevicePolicyManager.DELEGATION_BLOCK_UNINSTALL;
 import static android.app.admin.DevicePolicyManager.DELEGATION_CERT_INSTALL;
+import static android.app.admin.DevicePolicyManager.DELEGATION_PERMISSION_GRANT;
+import static android.app.admin.DevicePolicyManager.DELEGATION_PACKAGE_ACCESS;
 import static android.app.admin.DevicePolicyManager.DELEGATION_ENABLE_SYSTEM_APP;
 
 import android.app.admin.DevicePolicyManager;
@@ -47,7 +49,10 @@ public class GeneralDelegateTest extends InstrumentationTestCase {
     private static final String EXPECTED_DELEGATION_SCOPES[] = {
         DELEGATION_APP_RESTRICTIONS,
         DELEGATION_BLOCK_UNINSTALL,
-        DELEGATION_CERT_INSTALL
+        DELEGATION_CERT_INSTALL,
+        DELEGATION_PERMISSION_GRANT,
+        DELEGATION_PACKAGE_ACCESS,
+        DELEGATION_ENABLE_SYSTEM_APP
     };
 
     @Override

@@ -131,7 +131,7 @@ public abstract class DrawerController implements DrawerListener {
         }
 
         @Override
-        public void setDropTargetHighlight(View v, Object localState, boolean highlight) {
+        public void setDropTargetHighlight(View v, boolean highlight) {
             assert (v.getId() == R.id.drawer_edge);
 
             @ColorRes int id = highlight ? R.color.item_doc_background_selected :
@@ -140,12 +140,12 @@ public abstract class DrawerController implements DrawerListener {
         }
 
         @Override
-        public void onDragEntered(View v, Object localState) {
+        public void onDragEntered(View v) {
             // do nothing; let drawer only open for onViewHovered
         }
 
         @Override
-        public void onDragExited(View v, Object localState) {
+        public void onDragExited(View v) {
             // do nothing
         }
 
@@ -154,6 +154,11 @@ public abstract class DrawerController implements DrawerListener {
             assert (v.getId() == R.id.drawer_edge);
 
             setOpen(true);
+        }
+
+        @Override
+        public void onDragEnded() {
+            // do nothing
         }
 
         @Override

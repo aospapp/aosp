@@ -24,6 +24,7 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -38,6 +39,7 @@ import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.MediumTest;
 import android.support.test.rule.ActivityTestRule;
 import android.support.test.runner.AndroidJUnit4;
+import android.view.View;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.LinearInterpolator;
@@ -857,6 +859,47 @@ public class AnimatorSetTest {
             animator.end();
             assertFalse(animator.isStarted());
         });
+    }
+
+    /**
+     * Test that when a child animator is being manipulated outside of an AnimatorSet, by the time
+     * AnimatorSet starts, it will not be affected, and all the child animators would start at their
+     * scheduled start time.
+     */
+    @Test
+    public void testManipulateChildOutsideOfSet() throws Throwable {
+        final ValueAnimator fadeIn = ObjectAnimator.ofFloat(mActivity.view, View.ALPHA, 0f, 1f);
+        fadeIn.setDuration(200);
+        final ValueAnimator fadeOut = ObjectAnimator.ofFloat(mActivity.view, View.ALPHA, 1f, 0f);
+        fadeOut.setDuration(200);
+
+        ValueAnimator.AnimatorUpdateListener listener = mock(
+                ValueAnimator.AnimatorUpdateListener.class);
+        fadeIn.addUpdateListener(listener);
+
+        AnimatorSet show = new AnimatorSet();
+        show.play(fadeIn);
+
+        AnimatorSet hideNShow = new AnimatorSet();
+        hideNShow.play(fadeIn).after(fadeOut);
+
+        mActivityRule.runOnUiThread(() ->
+                show.start()
+        );
+
+        verify(listener, timeout(100).atLeast(2)).onAnimationUpdate(fadeIn);
+
+        AnimatorListenerAdapter adapter = mock(AnimatorListenerAdapter.class);
+        hideNShow.addListener(adapter);
+        // Start hideNShow after fadeIn is started for 100ms
+        mActivityRule.runOnUiThread(() ->
+                hideNShow.start()
+        );
+
+        verify(adapter, timeout(800)).onAnimationEnd(hideNShow, false);
+        // Now that the hideNShow finished we need to check whether the fadeIn animation ran again.
+        assertEquals(1f, mActivity.view.getAlpha(), 0);
+
     }
 
     /**

@@ -85,11 +85,13 @@ class enterprise_CFM_VolumeChange(test.test):
             self.cfm_facade.set_speaker_volume(cfm_volume)
             time.sleep(_SHORT_TIMEOUT)
 
-            cras_volume = self.client.run_output(cmd)
-            if cras_volume != cfm_volume:
-                raise error.TestFail('Cras volume (%s) does not match volume '
-                                     'set by CFM (%s).' %
-                                     (cras_volume, cfm_volume))
+            cras_volume = [s.strip() for s in
+                           self.client.run_output(cmd).splitlines()]
+            for volume in cras_volume:
+                if volume != cfm_volume:
+                    raise error.TestFail('Cras volume (%s) does not match '
+                                         'volume set by CFM (%s).' %
+                                         (volume, cfm_volume))
             logging.info('Cras volume (%s) matches volume set by CFM (%s)',
                          cras_volume, cfm_volume)
 

@@ -107,15 +107,26 @@ static int fake_poll(struct EseInterface *ese, uint8_t poll_for, float timeout,
   return 0;
 }
 
-uint32_t fake_transceive(struct EseInterface *ese, const uint8_t *tx_buf,
-                         uint32_t tx_len, uint8_t *rx_buf, uint32_t rx_len) {
+uint32_t fake_transceive(struct EseInterface *ese,
+                         const struct EseSgBuffer *tx_bufs, uint32_t tx_seg,
+                         struct EseSgBuffer *rx_bufs, uint32_t rx_seg) {
   uint32_t processed = 0;
+  uint32_t offset = 0;
+  struct EseSgBuffer *rx_buf = rx_bufs;
+  const struct EseSgBuffer *tx_buf = tx_bufs;
+
   if (!ese->pad[0] || !ese->pad[1]) {
     ese_set_error(ese, kEseFakeHwErrorTranscieveWhileBusy);
     return 0;
   }
-  while (processed < tx_len) {
-    uint32_t sent = fake_transmit(ese, tx_buf, tx_len, 0);
+  while (tx_buf < tx_bufs + tx_seg) {
+    uint32_t sent =
+        fake_transmit(ese, tx_buf->base + offset, tx_buf->len - offset, 0);
+    if (sent != tx_buf->len - offset) {
+      offset = tx_buf->len - sent;
+      processed += sent;
+      continue;
+    }
     if (sent == 0) {
       if (ese_error(ese)) {
         return 0;
@@ -123,6 +134,8 @@ uint32_t fake_transceive(struct EseInterface *ese, const uint8_t *tx_buf,
       ese_set_error(ese, kEseFakeHwErrorEmptyTransmit);
       return 0;
     }
+    tx_buf++;
+    offset = 0;
     processed += sent;
   }
   fake_transmit(ese, NULL, 0, 1); /* Complete. */
@@ -130,8 +143,11 @@ uint32_t fake_transceive(struct EseInterface *ese, const uint8_t *tx_buf,
     ese_set_error(ese, kEseGlobalErrorPollTimedOut);
     return 0;
   }
-  /* A real implementation would have protocol errors to contend with. */
-  processed = fake_receive(ese, rx_buf, rx_len, 1);
+  /* This reads the full RX buffer rather than a protocol specified amount. */
+  processed = 0;
+  while (rx_buf < rx_bufs + rx_seg) {
+    processed += fake_receive(ese, rx_buf->base, rx_buf->len, 1);
+  }
   return processed;
 }
 

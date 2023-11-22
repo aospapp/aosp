@@ -16,16 +16,20 @@
 
 package com.android.compatibility.common.tradefed.targetprep;
 
+import com.android.compatibility.common.tradefed.build.VtsCompatibilityInvocationHelper;
+import com.android.ddmlib.Log;
+import com.android.ddmlib.Log.LogLevel;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
-import com.android.tradefed.targetprep.BuildError;
-import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.compatibility.common.tradefed.targetprep.FilePusher;
-import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
-import com.android.ddmlib.Log;
+import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.targetprep.BuildError;
+import com.android.tradefed.targetprep.PushFilePreparer;
+import com.android.tradefed.targetprep.TargetSetupError;
+import com.android.tradefed.testtype.IAbi;
+import com.android.tradefed.testtype.IAbiReceiver;
 
 import java.io.File;
 import java.util.TreeSet;
@@ -38,9 +42,8 @@ import java.io.FileNotFoundException;
 /**
  * Pushes specified testing artifacts from Compatibility repository.
  */
-@OptionClass(alias="file-pusher")
-public class VtsFilePusher extends FilePusher {
-
+@OptionClass(alias = "file-pusher")
+public class VtsFilePusher extends PushFilePreparer implements IAbiReceiver {
     @Option(name="push-group", description=
             "A push group name. Must be a .push file under tools/vts-tradefed/res/push_groups/. "
                     + "May be under a relative path. May be repeated. Duplication of file specs "
@@ -57,10 +60,15 @@ public class VtsFilePusher extends FilePusher {
             + "Default value: false")
     private boolean mPushGroupRemount = false;
 
+    @Option(name = "append-bitness", description = "Append the ABI's bitness to the filename.")
+    private boolean mAppendBitness = false;
+
     private static final String DIR_PUSH_GROUPS = "vts/tools/vts-tradefed/res/push_groups";
     static final String PUSH_GROUP_FILE_EXTENSION = ".push";
 
     private Collection<String> mFilesPushed = new TreeSet<>();
+    private IAbi mAbi;
+    private VtsCompatibilityInvocationHelper mInvocationHelper;
 
     /**
      * Load file push specs from .push files as a collection of Strings
@@ -70,10 +78,9 @@ public class VtsFilePusher extends FilePusher {
      */
     private Collection<String> loadFilePushGroups(IBuildInfo buildInfo) throws TargetSetupError {
         Collection<String> result = new TreeSet<>();
-        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(buildInfo);
         File testDir;
         try {
-            testDir = buildHelper.getTestsDir();
+            testDir = mInvocationHelper.getTestsDir();
         } catch(FileNotFoundException e) {
             throw new TargetSetupError(e.getMessage());
         }
@@ -183,6 +190,7 @@ public class VtsFilePusher extends FilePusher {
     @Override
     public void setUp(ITestDevice device, IBuildInfo buildInfo)
             throws TargetSetupError, BuildError, DeviceNotAvailableException {
+        mInvocationHelper = new VtsCompatibilityInvocationHelper();
         pushFileGroups(device, buildInfo);
 
         super.setUp(device, buildInfo);
@@ -205,6 +213,30 @@ public class VtsFilePusher extends FilePusher {
         }
 
         super.tearDown(device, buildInfo, e);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setAbi(IAbi abi) {
+        mAbi = abi;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public File resolveRelativeFilePath(IBuildInfo buildInfo, String fileName) {
+        try {
+            File f = new File(mInvocationHelper.getTestsDir(),
+                    String.format("%s%s", fileName, mAppendBitness ? mAbi.getBitness() : ""));
+            CLog.logAndDisplay(LogLevel.INFO, "Copying from %s", f.getAbsolutePath());
+            return f;
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 }
 

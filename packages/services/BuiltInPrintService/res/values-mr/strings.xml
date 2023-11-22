@@ -44,6 +44,6 @@
     <string name="ip_hint" msgid="7939777481941979799">"192.168.0.4"</string>
     <string name="add" msgid="1950342261671100906">"जोडा"</string>
     <string name="no_printer_found" msgid="4777867380924351173">"या पत्त्यावर कोणताही प्रिंटर सापडला नाही"</string>
-    <string name="printer_not_supported" msgid="281955849350938408">"प्रिंटरला साहाय्य नाही"</string>
+    <string name="printer_not_supported" msgid="281955849350938408">"प्रिंटरला समर्थित नाही"</string>
     <string name="forget_printer" msgid="7287993564179837445">"प्रिंटर विसरा"</string>
 </resources>

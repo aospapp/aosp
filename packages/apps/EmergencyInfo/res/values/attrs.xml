@@ -14,6 +14,12 @@
      limitations under the License.
 -->
 <resources>
+    <declare-styleable name="EmergencyEditTextPreference">
+        <!-- Summary text for the text preference. This is used rather than android:summary to
+        avoid indexing the text incorrectly during settings search. -->
+        <attr name="summary" />
+    </declare-styleable>
+
     <declare-styleable name="EmergencyListPreference">
         <!-- The array to find the content description when an entry from entries is selected.
         If a user clicks on the second item in entries, the second item in this array will be

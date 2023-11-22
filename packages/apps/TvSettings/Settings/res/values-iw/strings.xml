@@ -370,6 +370,10 @@
     <string name="system_services" msgid="7230571820151215779">"שירותים"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"הגדרות שירות"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"טקסט עם ניגודיות גבוהה"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"קיצור דרך לנגישות"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"הפעל את קיצור הדרך לנגישות"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"שירות קיצורי הדרך"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"כאשר קיצור הדרך מופעל, ניתן ללחוץ בו זמנית על הלחצן \'הקודם\' ועל החץ למטה למשך שלוש שניות כדי להפעיל תכונת נגישות."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"כתוביות"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"הגדרות עבור שכבת-על של טקסט כתוביות בסרטון"</string>
     <string name="captions_display" msgid="735692527287125548">"תצוגה"</string>
@@ -676,4 +680,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"יוצר דוח על באג"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"מקלדות וירטואליות זמינות"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"ניהול מקלדות"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"יש הרשאה"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"אין הרשאה"</string>
+    <string name="usage_access" msgid="1914242907684452328">"גישה לנתוני שימוש"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"גישה לנתוני שימוש מאפשרת לאפליקציה לעקוב אחר האפליקציות האחרות שבהן אתה משתמש ואחר תדירות השימוש בהן. המידע כולל גם את זהות הספק, הגדרות השפה ופרטים נוספים."</string>
 </resources>

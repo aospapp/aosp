@@ -15,6 +15,7 @@
  */
 package android.car.cluster.renderer;
 
+import android.car.cluster.renderer.IInstrumentClusterCallback;
 import android.car.cluster.renderer.IInstrumentClusterNavigation;
 import android.view.KeyEvent;
 
@@ -28,8 +29,8 @@ interface IInstrumentCluster {
     IInstrumentClusterNavigation getNavigationService();
 
     /** Supplies Instrument Cluster Renderer with current owner of Navigation app context */
-    void setNavigationContextOwner(int uid, int pid);
+    oneway void setNavigationContextOwner(int uid, int pid);
 
     /** Called when key event that was addressed to instrument cluster display has been received. */
-    void onKeyEvent(in KeyEvent keyEvent);
+    oneway void onKeyEvent(in KeyEvent keyEvent);
 }

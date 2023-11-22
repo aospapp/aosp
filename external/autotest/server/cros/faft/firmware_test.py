@@ -19,7 +19,7 @@ from autotest_lib.server.cros.faft.config.config import Config as FAFTConfig
 from autotest_lib.server.cros.faft.rpc_proxy import RPCProxy
 from autotest_lib.server.cros.faft.utils import mode_switcher
 from autotest_lib.server.cros.faft.utils.faft_checkers import FAFTCheckers
-from autotest_lib.server.cros.servo import chrome_ec
+from autotest_lib.server.cros.servo import chrome_cr50, chrome_ec
 
 ConnectionError = mode_switcher.ConnectionError
 
@@ -198,6 +198,10 @@ class FirmwareTest(FAFTBase):
             'servod_version': self._client._servo_host.run(
                 'servod --version').stdout.strip(),
         }
+
+        if hasattr(self, 'cr50'):
+            system_info['cr50_version'] = self.servo.get('cr50_version')
+
         logging.info('System info:\n' + pprint.pformat(system_info))
         self.write_attr_keyval(system_info)
 
@@ -376,7 +380,7 @@ class FirmwareTest(FAFTBase):
                 raise error.TestError('USB stick in servo contains a %s '
                     'image, but DUT is a %s' % (usb_board, dut_board))
         finally:
-            for cmd in ('umount %s' % rootfs, 'sync', 'rm -rf %s' % tmpd):
+            for cmd in ('umount -l %s' % rootfs, 'sync', 'rm -rf %s' % tmpd):
                 self.servo.system(cmd)
 
         self.mark_setup_done('usb_check')
@@ -672,7 +676,10 @@ class FirmwareTest(FAFTBase):
             self.servo.set('cr50_console_capture', 'on')
             self.cr50_console_file = os.path.join(self.resultsdir,
                                                   'cr50_console.txt')
-            self.cr50 = chrome_ec.ChromeCr50(self.servo)
+            # Check that the console works before declaring the cr50 console
+            # connection exists.
+            self.servo.get('ccd_lock')
+            self.cr50 = chrome_cr50.ChromeCr50(self.servo)
         except error.TestFail as e:
             if 'No control named' in str(e):
                 logging.warn('cr50 console not supported.')
@@ -1175,7 +1182,7 @@ class FirmwareTest(FAFTBase):
             corrupt_FVMAIN = (current_sha[1] != self._backup_firmware_sha[1])
             corrupt_VBOOTB = (current_sha[2] != self._backup_firmware_sha[2])
             corrupt_FVMAINB = (current_sha[3] != self._backup_firmware_sha[3])
-            logging.info("Firmware changed:")
+            logging.info('Firmware changed:')
             logging.info('VBOOTA is changed: %s', corrupt_VBOOTA)
             logging.info('VBOOTB is changed: %s', corrupt_VBOOTB)
             logging.info('FVMAIN is changed: %s', corrupt_FVMAIN)
@@ -1192,6 +1199,13 @@ class FirmwareTest(FAFTBase):
         self.faft_client.bios.dump_whole(remote_bios_path)
         self._client.get_file(remote_bios_path,
                               os.path.join(self.resultsdir, 'bios' + suffix))
+
+        if self.faft_config.chrome_ec:
+            remote_ec_path = os.path.join(remote_temp_dir, 'ec')
+            self.faft_client.ec.dump_whole(remote_ec_path)
+            self._client.get_file(remote_ec_path,
+                              os.path.join(self.resultsdir, 'ec' + suffix))
+
         self._client.run('rm -rf %s' % remote_temp_dir)
         logging.info('Backup firmware stored in %s with suffix %s',
             self.resultsdir, suffix)
@@ -1227,6 +1241,13 @@ class FirmwareTest(FAFTBase):
 
         self.faft_client.bios.write_whole(
             os.path.join(remote_temp_dir, 'bios'))
+
+        if self.faft_config.chrome_ec:
+            self._client.send_file(os.path.join(self.resultsdir, 'ec' + suffix),
+                os.path.join(remote_temp_dir, 'ec'))
+            self.faft_client.ec.write_whole(
+                os.path.join(remote_temp_dir, 'ec'))
+
         self.switcher.mode_aware_reboot()
         logging.info('Successfully restore firmware.')
 

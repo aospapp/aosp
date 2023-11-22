@@ -23,12 +23,15 @@ import com.android.tv.common.BuildConfig;
 /**
  * Set of experiments visible in AOSP.
  *
- * <p>
- * This file is maintained by hand.
+ * <p>This file is maintained by hand.
  */
 public final class Experiments {
     public static final ExperimentFlag<Boolean> CLOUD_EPG = createFlag(
-            false);
+            true);
+
+    public static final ExperimentFlag<Boolean> ENABLE_UNRATED_CONTENT_SETTINGS =
+            createFlag(
+                    false);
 
     /**
      * Allow developer features such as the dev menu and other aids.

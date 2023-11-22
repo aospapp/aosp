@@ -342,7 +342,7 @@ bool EventSelectionSet::OpenEventFilesOnGroup(EventSelectionGroup& group,
   EventFd* group_fd = nullptr;
   for (auto& selection : group) {
     std::unique_ptr<EventFd> event_fd =
-        EventFd::OpenEventFile(selection.event_attr, tid, cpu, group_fd);
+        EventFd::OpenEventFile(selection.event_attr, tid, cpu, group_fd, false);
     if (event_fd != nullptr) {
       LOG(VERBOSE) << "OpenEventFile for " << event_fd->Name();
       event_fds.push_back(std::move(event_fd));
@@ -402,24 +402,25 @@ bool EventSelectionSet::OpenEventFiles(const std::vector<int>& on_cpus) {
       }
     } else {
       for (const auto& pair : process_map) {
+        size_t success_count = 0;
+        std::string failed_event_type;
         for (const auto& tid : pair.second) {
-          size_t success_cpu_count = 0;
-          std::string failed_event_type;
           for (const auto& cpu : cpus) {
             if (OpenEventFilesOnGroup(group, tid, cpu, &failed_event_type)) {
-              success_cpu_count++;
+              success_count++;
             }
           }
-          // As the online cpus can be enabled or disabled at runtime, we may not
-          // open event file for all cpus successfully. But we should open at
-          // least one cpu successfully.
-          if (success_cpu_count == 0) {
-            PLOG(ERROR) << "failed to open perf event file for event_type "
-                        << failed_event_type << " for "
-                        << (tid == -1 ? "all threads" : "thread " + std::to_string(tid))
-                        << " on all cpus";
-            return false;
-          }
+        }
+        // We can't guarantee to open perf event file successfully for each thread on each cpu.
+        // Because threads may exit between PrepareThreads() and OpenEventFilesOnGroup(), and
+        // cpus may be offlined between GetOnlineCpus() and OpenEventFilesOnGroup().
+        // So we only check that we can at least monitor one thread for each process.
+        if (success_count == 0) {
+          PLOG(ERROR) << "failed to open perf event file for event_type "
+                      << failed_event_type << " for "
+                      << (pair.first == -1 ? "all threads"
+                                           : "threads in process " + std::to_string(pair.first));
+          return false;
         }
       }
     }
@@ -450,7 +451,7 @@ bool EventSelectionSet::OpenUserSpaceSamplersOnGroup(EventSelectionGroup& group,
   return true;
 }
 
-static bool ReadCounter(const EventFd* event_fd, CounterInfo* counter) {
+static bool ReadCounter(EventFd* event_fd, CounterInfo* counter) {
   if (!event_fd->ReadCounter(&counter->counter)) {
     return false;
   }

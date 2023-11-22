@@ -24,9 +24,9 @@ config BUNZIP2
     Read from stdin if no files listed.
 
     -c	force output to stdout
-    -f	force decompression. (If FILE doesn't end in .bz, replace original.)
+    -f	force decompression (if FILE doesn't end in .bz, replace original)
     -k	keep input files (-c and -t imply this)
-    -t  test integrity
+    -t	test integrity
     -v	verbose
 
 config BZCAT

@@ -20,11 +20,12 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.StatusBarManager;
+import android.app.WallpaperManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.res.Resources;
+import android.graphics.Point;
 import android.media.AudioManager;
 import android.media.ToneGenerator;
 import android.net.Uri;
@@ -52,9 +53,11 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.EditText;
 
+import com.android.internal.colorextraction.ColorExtractor;
+import com.android.internal.colorextraction.ColorExtractor.GradientColors;
+import com.android.internal.colorextraction.drawable.GradientDrawable;
 import com.android.phone.common.dialpad.DialpadKeyButton;
 import com.android.phone.common.util.ViewUtil;
-
 
 /**
  * EmergencyDialer is a special dialer that is used ONLY for dialing emergency calls.
@@ -75,7 +78,7 @@ import com.android.phone.common.util.ViewUtil;
  */
 public class EmergencyDialer extends Activity implements View.OnClickListener,
         View.OnLongClickListener, View.OnKeyListener, TextWatcher,
-        DialpadKeyButton.OnPressedListener {
+        DialpadKeyButton.OnPressedListener, ColorExtractor.OnColorsChangedListener {
     // Keys used with onSaveInstanceState().
     private static final String LAST_NUMBER = "lastNumber";
 
@@ -93,8 +96,6 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
     private static final boolean DBG = false;
     private static final String LOG_TAG = "EmergencyDialer";
 
-    private StatusBarManager mStatusBarManager;
-
     /** The length of DTMF tones in milliseconds */
     private static final int TONE_LENGTH_MS = 150;
 
@@ -105,6 +106,9 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
     private static final int DIAL_TONE_STREAM_TYPE = AudioManager.STREAM_DTMF;
 
     private static final int BAD_EMERGENCY_NUMBER_DIALOG = 0;
+
+    /** 90% opacity, different from other gradients **/
+    private static final int BACKGROUND_GRADIENT_ALPHA = 230;
 
     EditText mDigits;
     private View mDialButton;
@@ -129,6 +133,11 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
     };
 
     private String mLastNumber; // last number we tried to dial. Used to restore error dialog.
+
+    // Background gradient
+    private ColorExtractor mColorExtractor;
+    private GradientDrawable mBackgroundGradient;
+    private boolean mSupportsDarkText;
 
     @Override
     public void beforeTextChanged(CharSequence s, int start, int count, int after) {
@@ -164,8 +173,6 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
     protected void onCreate(Bundle icicle) {
         super.onCreate(icicle);
 
-        mStatusBarManager = (StatusBarManager) getSystemService(Context.STATUS_BAR_SERVICE);
-
         // Allow this activity to be displayed in front of the keyguard / lockscreen.
         WindowManager.LayoutParams lp = getWindow().getAttributes();
         lp.flags |= WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED;
@@ -176,6 +183,11 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
 
         getWindow().setAttributes(lp);
 
+        mColorExtractor = new ColorExtractor(this);
+        GradientColors lockScreenColors = mColorExtractor.getColors(WallpaperManager.FLAG_LOCK,
+                ColorExtractor.TYPE_EXTRA_DARK);
+        updateTheme(lockScreenColors.supportsDarkText());
+
         setContentView(R.layout.emergency_dialer);
 
         mDigits = (EditText) findViewById(R.id.digits);
@@ -185,6 +197,14 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
         mDigits.setLongClickable(false);
         mDigits.setInputType(InputType.TYPE_NULL);
         maybeAddNumberFormatting();
+
+        mBackgroundGradient = new GradientDrawable(this);
+        Point displaySize = new Point();
+        ((WindowManager) getSystemService(Context.WINDOW_SERVICE))
+                .getDefaultDisplay().getSize(displaySize);
+        mBackgroundGradient.setScreenSize(displaySize.x, displaySize.y);
+        mBackgroundGradient.setAlpha(BACKGROUND_GRADIENT_ALPHA);
+        getWindow().setBackgroundDrawable(mBackgroundGradient);
 
         // Check for the presence of the keypad
         View view = findViewById(R.id.one);
@@ -462,6 +482,18 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
     }
 
     @Override
+    protected void onStart() {
+        super.onStart();
+
+        mColorExtractor.addOnColorsChangedListener(this);
+        GradientColors lockScreenColors = mColorExtractor.getColors(WallpaperManager.FLAG_LOCK,
+                ColorExtractor.TYPE_EXTRA_DARK);
+        // Do not animate when view isn't visible yet, just set an initial state.
+        mBackgroundGradient.setColors(lockScreenColors, false);
+        updateTheme(lockScreenColors.supportsDarkText());
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
 
@@ -483,21 +515,11 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
             }
         }
 
-        // Disable the status bar and set the poke lock timeout to medium.
-        // There is no need to do anything with the wake lock.
-        if (DBG) Log.d(LOG_TAG, "disabling status bar, set to long timeout");
-        mStatusBarManager.disable(StatusBarManager.DISABLE_EXPAND);
-
         updateDialAndDeleteButtonStateEnabledAttr();
     }
 
     @Override
     public void onPause() {
-        // Reenable the status bar and set the poke lock timeout to default.
-        // There is no need to do anything with the wake lock.
-        if (DBG) Log.d(LOG_TAG, "reenabling status bar and closing the dialer");
-        mStatusBarManager.disable(StatusBarManager.DISABLE_NONE);
-
         super.onPause();
 
         synchronized (mToneGeneratorLock) {
@@ -508,16 +530,54 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
         }
     }
 
+    @Override
+    protected void onStop() {
+        super.onStop();
+
+        mColorExtractor.removeOnColorsChangedListener(this);
+    }
+
+    /**
+     * Sets theme based on gradient colors
+     * @param supportsDarkText true if gradient supports dark text
+     */
+    private void updateTheme(boolean supportsDarkText) {
+        if (mSupportsDarkText == supportsDarkText) {
+            return;
+        }
+        mSupportsDarkText = supportsDarkText;
+
+        // We can't change themes after inflation, in this case we'll have to recreate
+        // the whole activity.
+        if (mBackgroundGradient != null) {
+            recreate();
+            return;
+        }
+
+        int vis = getWindow().getDecorView().getSystemUiVisibility();
+        if (supportsDarkText) {
+            vis |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            vis |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            setTheme(R.style.EmergencyDialerThemeDark);
+        } else {
+            vis &= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            vis &= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            setTheme(R.style.EmergencyDialerTheme);
+        }
+        getWindow().getDecorView().setSystemUiVisibility(vis);
+    }
+
     /**
      * place the call, but check to make sure it is a viable number.
      */
     private void placeCall() {
         mLastNumber = mDigits.getText().toString();
-        // Convert into emergency number if necessary
-        // This is required in some regions (e.g. Taiwan).
-        if (PhoneNumberUtils.isConvertToEmergencyNumberEnabled()) {
-            mLastNumber = PhoneNumberUtils.convertToEmergencyNumber(mLastNumber);
-        }
+
+        // Convert into emergency number according to emergency conversion map.
+        // If conversion map is not defined (this is default), this method does
+        // nothing and just returns input number.
+        mLastNumber = PhoneNumberUtils.convertToEmergencyNumber(this, mLastNumber);
+
         if (PhoneNumberUtils.isLocalEmergencyNumber(this, mLastNumber)) {
             if (DBG) Log.d(LOG_TAG, "placing call to " + mLastNumber);
 
@@ -595,7 +655,7 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
         AlertDialog dialog = null;
         if (id == BAD_EMERGENCY_NUMBER_DIALOG) {
             // construct dialog
-            dialog = new AlertDialog.Builder(this)
+            dialog = new AlertDialog.Builder(this, R.style.EmergencyDialerAlertDialogTheme)
                     .setTitle(getText(R.string.emergency_enable_radio_dialog_title))
                     .setMessage(createErrorMessage(mLastNumber))
                     .setPositiveButton(R.string.ok, null)
@@ -656,5 +716,15 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
             mDigits.getText().removeSpan(o);
         }
         PhoneNumberUtils.ttsSpanAsPhoneNumber(mDigits.getText(), 0, mDigits.getText().length());
+    }
+
+    @Override
+    public void onColorsChanged(ColorExtractor extractor, int which) {
+        if ((which & WallpaperManager.FLAG_LOCK) != 0) {
+            GradientColors colors = extractor.getColors(WallpaperManager.FLAG_LOCK,
+                    ColorExtractor.TYPE_EXTRA_DARK);
+            mBackgroundGradient.setColors(colors);
+            updateTheme(colors.supportsDarkText());
+        }
     }
 }

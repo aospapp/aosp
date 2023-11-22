@@ -43,7 +43,7 @@
 #define PARTITION_NAME_MAX_LENGTH 72/2
 
 #define IS_ALPHA(Char) (((Char) <= L'z' && (Char) >= L'a') || \
-                        ((Char) <= L'Z' && (Char) >= L'Z'))
+                        ((Char) <= L'Z' && (Char) >= L'A'))
 #define IS_HEXCHAR(Char) (((Char) <= L'9' && (Char) >= L'0') || \
                           IS_ALPHA(Char))
 
@@ -154,14 +154,8 @@ ReadPartitionEntries (
 }
 
 
-/*
-  Initialise: Open the Android NVM device and find the partitions on it. Save them in
-  a list along with the "PartitionName" fields for their GPT entries.
-  We will use these partition names as the key in
-  HiKeyFastbootPlatformFlashPartition.
-*/
 EFI_STATUS
-HiKeyFastbootPlatformInit (
+HiKeyFastbootLoadPtable (
   VOID
   )
 {
@@ -179,15 +173,8 @@ HiKeyFastbootPlatformInit (
   EFI_PARTITION_ENTRY                *PartitionEntries;
   FASTBOOT_PARTITION_LIST            *Entry;
 
-  InitializeListHead (&mPartitionListHead);
-
-  Status = gBS->LocateProtocol (&gEfiSimpleTextOutProtocolGuid, NULL, (VOID **) &mTextOut);
-  if (EFI_ERROR (Status)) {
-    DEBUG ((EFI_D_ERROR,
-      "Fastboot platform: Couldn't open Text Output Protocol: %r\n", Status
-      ));
-    return Status;
-  }
+  // Free any entries in partitionlist
+    FreePartitionList ();
 
   //
   // Get EFI_HANDLES for all the partitions on the block devices pointed to by
@@ -334,7 +321,32 @@ Exit:
   FreePool (FlashDevicePath);
   FreePool (AllHandles);
   return Status;
+}
 
+
+/*
+  Initialise: Open the Android NVM device and find the partitions on it. Save them in
+  a list along with the "PartitionName" fields for their GPT entries.
+  We will use these partition names as the key in
+  HiKeyFastbootPlatformFlashPartition.
+*/
+EFI_STATUS
+HiKeyFastbootPlatformInit (
+  VOID
+  )
+{
+  EFI_STATUS                          Status;
+
+  InitializeListHead (&mPartitionListHead);
+
+  Status = gBS->LocateProtocol (&gEfiSimpleTextOutProtocolGuid, NULL, (VOID **) &mTextOut);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((EFI_D_ERROR,
+      "Fastboot platform: Couldn't open Text Output Protocol: %r\n", Status
+      ));
+    return Status;
+  }
+  return HiKeyFastbootLoadPtable();
 }
 
 VOID
@@ -529,6 +541,8 @@ HiKeyFastbootPlatformFlashPartition (
       }
       Buffer = Image + 512;
       Status = DiskIo->WriteDisk (DiskIo, MediaId, EntryOffset, EntrySize, Buffer);
+      DEBUG ((EFI_D_ERROR, "Flashed Ptable hence reloading partition Entries for future flash commands\n"));
+      HiKeyFastbootLoadPtable();
       if (EFI_ERROR (Status)) {
         return Status;
       }
@@ -784,13 +798,76 @@ out:
   return EFI_NOT_FOUND;
 }
 
+EFI_STATUS
+HikeyFastbootPlatformReadPartition(
+  IN CHAR8     *PartitionName,
+  IN OUT UINTN *BufferSize,
+  OUT VOID    **Buffer
+  )
+{
+  EFI_STATUS               Status;
+  EFI_BLOCK_IO_PROTOCOL   *BlockIo;
+  UINT32                   MediaId;
+  UINTN                    PartitionSize;
+  FASTBOOT_PARTITION_LIST *Entry;
+  CHAR16                   PartitionNameUnicode[60];
+  BOOLEAN                  PartitionFound;
+
+  AsciiStrToUnicodeStr (PartitionName, PartitionNameUnicode);
+
+  PartitionFound = FALSE;
+  Entry = (FASTBOOT_PARTITION_LIST *) GetFirstNode (&(mPartitionListHead));
+  while (!IsNull (&mPartitionListHead, &Entry->Link)) {
+    // Search the partition list for the partition named by PartitionName
+    if (StrCmp (Entry->PartitionName, PartitionNameUnicode) == 0) {
+      PartitionFound = TRUE;
+      break;
+    }
+
+    Entry = (FASTBOOT_PARTITION_LIST *) GetNextNode (&mPartitionListHead, &(Entry)->Link);
+  }
+  if (!PartitionFound) {
+    return EFI_NOT_FOUND;
+  }
+
+  Status = gBS->OpenProtocol (
+                  Entry->PartitionHandle,
+                  &gEfiBlockIoProtocolGuid,
+                  (VOID **) &BlockIo,
+                  gImageHandle,
+                  NULL,
+                  EFI_OPEN_PROTOCOL_GET_PROTOCOL
+                  );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((EFI_D_ERROR, "Fastboot platform: couldn't open Block IO for read: %r\n", Status));
+    return EFI_NOT_FOUND;
+  }
+
+  // Check image will fit the memory
+  PartitionSize = (BlockIo->Media->LastBlock + 1) * BlockIo->Media->BlockSize;
+  if ((*BufferSize == 0) || (*BufferSize > PartitionSize))
+      *BufferSize = PartitionSize;
+  *Buffer = AllocatePages (EFI_SIZE_TO_PAGES(*BufferSize));
+  if (*Buffer == NULL) {
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  MediaId = BlockIo->Media->MediaId;
+  Status = BlockIo->ReadBlocks (BlockIo, MediaId, 0, *BufferSize, *Buffer);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((EFI_D_ERROR, "Fastboot platform: Fail to read: %r\n", Status));
+  }
+  return Status;
+}
+
 FASTBOOT_PLATFORM_PROTOCOL mPlatformProtocol = {
   HiKeyFastbootPlatformInit,
   HiKeyFastbootPlatformUnInit,
   HiKeyFastbootPlatformFlashPartition,
   HiKeyFastbootPlatformErasePartition,
   HiKeyFastbootPlatformGetVar,
-  HiKeyFastbootPlatformOemCommand
+  HiKeyFastbootPlatformOemCommand,
+  HikeyFastbootPlatformReadPartition,
 };
 
 EFI_STATUS

@@ -16,6 +16,7 @@
 
 package com.android.tradefed.command.remote;
 
+import com.android.ddmlib.IDevice;
 import com.android.ddmlib.IDevice.DeviceState;
 import com.android.tradefed.device.DeviceAllocationState;
 
@@ -37,6 +38,7 @@ public class DeviceDescriptor {
     private final String mMacAddress;
     private final String mSimState;
     private final String mSimOperator;
+    private final IDevice mIDevice;
 
     public DeviceDescriptor(String serial, boolean isStubDevice, DeviceAllocationState state,
             String product, String productVariant, String sdkVersion, String buildId,
@@ -49,14 +51,38 @@ public class DeviceDescriptor {
             String product, String productVariant, String sdkVersion, String buildId,
             String batteryLevel, String deviceClass, String macAddress, String simState,
             String simOperator) {
-        this(serial, isStubDevice, null, state, product, productVariant, sdkVersion, buildId,
-                batteryLevel, deviceClass, macAddress, simState, simOperator);
+        this(
+                serial,
+                isStubDevice,
+                null,
+                state,
+                product,
+                productVariant,
+                sdkVersion,
+                buildId,
+                batteryLevel,
+                deviceClass,
+                macAddress,
+                simState,
+                simOperator,
+                null);
     }
 
-    public DeviceDescriptor(String serial, boolean isStubDevice, DeviceState deviceState,
-            DeviceAllocationState state, String product, String productVariant, String sdkVersion,
-            String buildId, String batteryLevel, String deviceClass, String macAddress,
-            String simState, String simOperator) {
+    public DeviceDescriptor(
+            String serial,
+            boolean isStubDevice,
+            DeviceState deviceState,
+            DeviceAllocationState state,
+            String product,
+            String productVariant,
+            String sdkVersion,
+            String buildId,
+            String batteryLevel,
+            String deviceClass,
+            String macAddress,
+            String simState,
+            String simOperator,
+            IDevice idevice) {
         mSerial = serial;
         mIsStubDevice = isStubDevice;
         mDeviceState = deviceState;
@@ -70,6 +96,7 @@ public class DeviceDescriptor {
         mMacAddress = macAddress;
         mSimState = simState;
         mSimOperator = simOperator;
+        mIDevice = idevice;
     }
 
     public String getSerial() {
@@ -125,6 +152,13 @@ public class DeviceDescriptor {
 
     public String getSimOperator() {
         return mSimOperator;
+    }
+
+    public String getProperty(String name) {
+        if (mIDevice == null) {
+            throw new UnsupportedOperationException("this descriptor does not have IDevice");
+        }
+        return mIDevice.getProperty(name);
     }
 
     /**

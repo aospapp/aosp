@@ -15,6 +15,7 @@
  */
 package com.android.tradefed.testtype;
 
+import com.android.ddmlib.Log.LogLevel;
 import com.android.ddmlib.testrunner.ITestRunListener;
 import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -30,6 +31,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -72,6 +74,7 @@ public class VtsMultiDeviceTestResultParser {
     static final String FAIL = "FAIL";
     static final String TIMEOUT = "TIMEOUT";
     static final String SKIP = "SKIP";
+    static final String ERROR = "ERROR";
     static final String END_PATTERN = "<==========";
     static final String BEGIN_PATTERN = "==========>";
 
@@ -79,6 +82,7 @@ public class VtsMultiDeviceTestResultParser {
     static final String RESULTS = "Results";
     static final String BEGIN_TIME = "Begin Time";
     static final String DETAILS = "Details";
+    static final String TABLES = "Tables";
     static final String END_TIME = "End Time";
     static final String TEST_CLASS = "Test Class";
     static final String TEST_NAME = "Test Name";
@@ -86,6 +90,8 @@ public class VtsMultiDeviceTestResultParser {
 
     // default message for test failure
     static final String UNKNOWN_ERROR = "Unknown error.";
+    static final String UNKNOWN_FAILURE = "Unknown failure.";
+    static final String UNKNOWN_TIMEOUT = "Unknown timeout.";
 
     // Enumeration for parser state.
     static enum ParserState {
@@ -327,6 +333,41 @@ public class VtsMultiDeviceTestResultParser {
         return true;
     }
 
+    private static void printJsonTable(String name, JSONArray table) throws JSONException {
+        ArrayList<Integer> columnLength = new ArrayList<Integer>();
+        for (int rowIndex = 0; rowIndex < table.length(); rowIndex++) {
+            JSONArray row = table.getJSONArray(rowIndex);
+            for (int colIndex = 0; colIndex < row.length(); colIndex++) {
+                if (columnLength.size() == colIndex) {
+                    columnLength.add(1);
+                }
+                if (!row.isNull(colIndex)) {
+                    int len = row.getString(colIndex).length();
+                    if (columnLength.get(colIndex) < len) {
+                        columnLength.set(colIndex, len);
+                    }
+                }
+            }
+        }
+        StringBuilder sb = new StringBuilder(name + "\n");
+        for (int rowIndex = 0; rowIndex < table.length(); rowIndex++) {
+            JSONArray row = table.getJSONArray(rowIndex);
+            for (int colIndex = 0; colIndex < row.length(); colIndex++) {
+                String cell = row.isNull(colIndex) ? "" : row.getString(colIndex);
+                if (colIndex > 0) {
+                    sb.append("  ");
+                }
+                int padLength = columnLength.get(colIndex) - cell.length();
+                for (int padCount = 0; padCount < padLength; padCount++) {
+                    sb.append(" ");
+                }
+                sb.append(cell);
+            }
+            sb.append("\n");
+        }
+        CLog.logAndDisplay(LogLevel.INFO, sb.toString());
+    }
+
     /**
      * This method parses the json object and summarizes the test result through listener.
      * @param object
@@ -352,7 +393,7 @@ public class VtsMultiDeviceTestResultParser {
                         results.length());
 
                 for (int index = 0; index < results.length(); index++) {
-                    JSONObject  resultObject = results.getJSONObject(index);
+                    JSONObject resultObject = results.getJSONObject(index);
                     String result = (String) resultObject.get(RESULT);
                     String testClass = (String) resultObject.get(TEST_CLASS);
                     String testName = (String) resultObject.get(TEST_NAME);
@@ -364,26 +405,46 @@ public class VtsMultiDeviceTestResultParser {
                     listener.testStarted(testIdentifier);
 
                     switch (result) {
+                        case ERROR:
+                            /* Error is reported by the VTS runner when an unexpected exception
+                               happened during test execution. It could be due to: a framework bug,
+                               an unhandled I/O, a TCP error, or a bug in test module or template
+                               execution code. Error thus does not necessarily indicate a test
+                               failure or a bug in device implementation. Since error is not yet
+                               recognized in TF, it is converted to FAIL. */
+                            listener.testFailed(
+                                    testIdentifier, details.isEmpty() ? UNKNOWN_ERROR : details);
                         case PASS :
                             listener.testEnded(testIdentifier, Collections.<String, String>emptyMap());
                             break;
                         case TIMEOUT :
-                            /* Timeout is not recognized in TF*/
+                            /* Timeout is not recognized in TF. Use FAIL instead. */
+                            listener.testFailed(
+                                    testIdentifier, details.isEmpty() ? UNKNOWN_TIMEOUT : details);
                             break;
                         case SKIP :
-                            /* Skip is not recognized in TF*/
+                            /* Skip is not recognized in TF */
                             break;
                         case FAIL:
+                            /* Indicates a test failure. */
                             listener.testFailed(
-                                    testIdentifier, details.isEmpty() ? UNKNOWN_ERROR : details);
+                                    testIdentifier, details.isEmpty() ? UNKNOWN_FAILURE : details);
                         default:
                             break;
+                    }
+                    if (!resultObject.isNull(TABLES)) {
+                        JSONObject tables = resultObject.getJSONObject(TABLES);
+                        Iterator<String> iter = tables.keys();
+                        while (iter.hasNext()) {
+                            String key = iter.next();
+                            printJsonTable(key, tables.getJSONArray(key));
+                        }
                     }
                 }
                 listener.testRunEnded(endTime - beginTime, Collections.<String, String>emptyMap());
             }
         } catch (JSONException e) {
-            CLog.e("Exception occurred %s :", e);
+            CLog.e("Exception occurred: %s", e);
         }
     }
 

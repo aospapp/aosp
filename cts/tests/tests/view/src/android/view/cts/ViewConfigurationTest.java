@@ -77,7 +77,8 @@ public class ViewConfigurationTest {
         vc.getScaledOverscrollDistance();
         vc.getScaledPagingTouchSlop();
         vc.getScaledScrollBarSize();
-        vc.getScaledScrollFactor();
+        vc.getScaledHorizontalScrollFactor();
+        vc.getScaledVerticalScrollFactor();
         vc.getScaledTouchSlop();
         vc.getScaledWindowTouchSlop();
         vc.hasPermanentMenuKey();

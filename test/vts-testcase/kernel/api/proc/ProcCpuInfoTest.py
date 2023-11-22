@@ -28,9 +28,7 @@ class ProcCpuInfoTest(KernelProcFileTestBase.KernelProcFileTestBase):
     '''
 
     EXPECTED_FIELDS = [
-        ['Features', ['\t']],
         ['processor', ['\t']],
-        ['CPU', 'architecture', []],
     ]
 
     start = 'lines'

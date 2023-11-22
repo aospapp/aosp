@@ -125,4 +125,11 @@ public class SingleSourceForEachTest extends RSBaseCompute {
         baselineOutputAlloc.copyTo(baselineOutputArray);
         checkArray(baselineOutputArray, testOutputArray, Y, X, X);
     }
+
+    public void testConsistency() {
+        s.invoke_testConsistency(testInputAlloc, testOutputAlloc);
+        mRS.finish();
+        waitForMessage();
+        checkForErrors();
+    }
 }

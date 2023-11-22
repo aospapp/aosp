@@ -16,8 +16,7 @@ ATTRIBUTES = "suite:bvt-inline"
 TEST_CLASS = "security"
 TEST_CATEGORY = "Functional"
 TEST_TYPE = "client"
-# TODO(crbug.com/631640): Revert to 2 retries.
-JOB_RETRIES = 5
+JOB_RETRIES = 2
 
 job.run_test("security_ProfilePermissions",
         logged_in=True, tag='login')

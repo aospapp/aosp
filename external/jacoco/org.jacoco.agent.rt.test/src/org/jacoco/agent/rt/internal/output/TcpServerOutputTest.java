@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -25,7 +25,6 @@ import java.net.UnknownHostException;
 import java.util.List;
 
 import org.jacoco.agent.rt.internal.ExceptionRecorder;
-import org.jacoco.agent.rt.internal.output.TcpServerOutput;
 import org.jacoco.core.data.ExecutionDataStore;
 import org.jacoco.core.data.ExecutionDataWriter;
 import org.jacoco.core.data.SessionInfo;
@@ -85,7 +84,7 @@ public class TcpServerOutputTest {
 
 	@Test
 	public void testWriteExecutionData() throws Exception {
-		data.getExecutionData(Long.valueOf(0x12345678), "Foo", 42);
+		data.getExecutionData(Long.valueOf(0x12345678), "Foo", 42).getProbes()[0] = true;
 		data.setSessionId("stubid");
 
 		final Socket socket = serverSocket.connect();

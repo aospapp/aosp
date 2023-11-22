@@ -97,20 +97,6 @@ wifi_error wifi_get_valid_channels(wifi_interface_handle handle,
     struct nlattr *nlData;
     interface_info *ifaceInfo = getIfaceInfo(handle);
     wifi_handle wifiHandle = getWifiHandle(handle);
-    lowi_cb_table_t *lowiWifiHalApi = NULL;
-
-    /* Route GSCAN request through LOWI if supported */
-    lowiWifiHalApi = getLowiCallbackTable(GSCAN_SUPPORTED);
-    if (lowiWifiHalApi == NULL ||
-        lowiWifiHalApi->get_valid_channels == NULL) {
-        ALOGV("%s: Sending cmd directly to host", __FUNCTION__);
-    } else {
-        ret = lowiWifiHalApi->get_valid_channels(handle, band, max_channels,
-                          channels, num_channels);
-        ALOGV("%s: lowi get_valid_channels "
-            "returned: %d. Exit.", __FUNCTION__, ret);
-        return (wifi_error)ret;
-    }
 
     /* No request id from caller, so generate one and pass it on to the driver.
      * Generate one randomly.
@@ -175,7 +161,7 @@ wifi_error wifi_get_valid_channels(wifi_interface_handle handle,
 
 cleanup:
     delete gScanCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 wifi_error wifi_get_gscan_capabilities(wifi_interface_handle handle,
@@ -184,32 +170,20 @@ wifi_error wifi_get_gscan_capabilities(wifi_interface_handle handle,
     wifi_error ret = WIFI_SUCCESS;
     wifi_handle wifiHandle = getWifiHandle(handle);
     hal_info *info = getHalInfo(wifiHandle);
-    lowi_cb_table_t *lowiWifiHalApi = NULL;
 
     if (!(info->supported_feature_set & WIFI_FEATURE_GSCAN)) {
         ALOGE("%s: GSCAN is not supported by driver", __FUNCTION__);
         return WIFI_ERROR_NOT_SUPPORTED;
-     }
+    }
 
     if (capabilities == NULL) {
         ALOGE("%s: NULL capabilities pointer provided. Exit.", __FUNCTION__);
         return WIFI_ERROR_INVALID_ARGS;
     }
 
-    /* Route GSCAN request through LOWI if supported */
-    lowiWifiHalApi = getLowiCallbackTable(GSCAN_SUPPORTED);
-    if (lowiWifiHalApi == NULL ||
-        lowiWifiHalApi->get_gscan_capabilities == NULL) {
-        ALOGV("%s: Sending cmd directly to host", __FUNCTION__);
-    } else {
-        ret = lowiWifiHalApi->get_gscan_capabilities(handle, capabilities);
-        ALOGV("%s: lowi get_gscan_capabilities returned: %d. Exit.", __FUNCTION__, ret);
-        return ret;
-    }
-
     memcpy(capabilities, &info->capa.gscan_capa, sizeof(wifi_gscan_capabilities));
 
-    return ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 wifi_error wifi_start_gscan(wifi_request_id id,
@@ -227,7 +201,6 @@ wifi_error wifi_start_gscan(wifi_request_id id,
     wifi_scan_bucket_spec bucketSpec;
     struct nlattr *nlBuckectSpecList;
     hal_info *info = getHalInfo(wifiHandle);
-    lowi_cb_table_t *lowiWifiHalApi = NULL;
     gscan_event_handlers* event_handlers;
     GScanCommandEventHandler *gScanStartCmdEventHandler;
 
@@ -238,18 +211,6 @@ wifi_error wifi_start_gscan(wifi_request_id id,
         ALOGE("%s: GSCAN is not supported by driver",
             __FUNCTION__);
         return WIFI_ERROR_NOT_SUPPORTED;
-    }
-
-    /* Route GSCAN request through LOWI if supported */
-    lowiWifiHalApi = getLowiCallbackTable(GSCAN_SUPPORTED);
-    if (lowiWifiHalApi == NULL ||
-        lowiWifiHalApi->start_gscan  == NULL) {
-        ALOGV("%s: Sending cmd directly to host", __FUNCTION__);
-    } else {
-        ret = lowiWifiHalApi->start_gscan(id, iface, params, handler);
-        ALOGV("%s: lowi start_gscan "
-            "returned: %d. Exit.", __FUNCTION__, ret);
-        return (wifi_error)ret;
     }
 
     ALOGV("%s: RequestId:%d ", __FUNCTION__, id);
@@ -435,7 +396,7 @@ cleanup:
             __FUNCTION__, ret);
         gScanStartCmdEventHandler->disableEventHandling();
     }
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 
 }
 
@@ -445,7 +406,6 @@ wifi_error wifi_stop_gscan(wifi_request_id id,
     int ret = 0;
     GScanCommand *gScanCommand;
     struct nlattr *nlData;
-    lowi_cb_table_t *lowiWifiHalApi = NULL;
 
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
@@ -460,18 +420,6 @@ wifi_error wifi_stop_gscan(wifi_request_id id,
         ALOGE("%s: GSCAN is not supported by driver",
             __FUNCTION__);
         return WIFI_ERROR_NOT_SUPPORTED;
-    }
-
-    /* Route GSCAN request through LOWI if supported */
-    lowiWifiHalApi = getLowiCallbackTable(GSCAN_SUPPORTED);
-    if (lowiWifiHalApi == NULL ||
-        lowiWifiHalApi->stop_gscan == NULL) {
-        ALOGV("%s: Sending cmd directly to host", __FUNCTION__);
-    } else {
-        ret = lowiWifiHalApi->stop_gscan(id, iface);
-        ALOGV("%s: lowi stop_gscan "
-            "returned: %d. Exit.", __FUNCTION__, ret);
-        return (wifi_error)ret;
     }
 
     if (gScanStartCmdEventHandler == NULL ||
@@ -526,7 +474,7 @@ wifi_error wifi_stop_gscan(wifi_request_id id,
 
 cleanup:
     delete gScanCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /* Set the GSCAN BSSID Hotlist. */
@@ -541,7 +489,6 @@ wifi_error wifi_set_bssid_hotlist(wifi_request_id id,
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
-    lowi_cb_table_t *lowiWifiHalApi = NULL;
     gscan_event_handlers* event_handlers;
     GScanCommandEventHandler *gScanSetBssidHotlistCmdEventHandler;
 
@@ -553,18 +500,6 @@ wifi_error wifi_set_bssid_hotlist(wifi_request_id id,
         ALOGE("%s: GSCAN is not supported by driver",
             __FUNCTION__);
         return WIFI_ERROR_NOT_SUPPORTED;
-    }
-
-    /* Route request through LOWI if supported*/
-    lowiWifiHalApi = getLowiCallbackTable(GSCAN_SUPPORTED);
-    if (lowiWifiHalApi == NULL ||
-        lowiWifiHalApi->set_bssid_hotlist == NULL) {
-        ALOGV("%s: Sending cmd directly to host", __FUNCTION__);
-    } else {
-        ret = lowiWifiHalApi->set_bssid_hotlist(id, iface, params,handler);
-        ALOGV("%s: lowi set_bssid_hotlist "
-            "returned: %d. Exit.", __FUNCTION__, ret);
-        return (wifi_error)ret;
     }
 
     /* Wi-Fi HAL doesn't need to check if a similar request to set bssid
@@ -702,7 +637,7 @@ cleanup:
             __FUNCTION__, ret);
         gScanSetBssidHotlistCmdEventHandler->disableEventHandling();
     }
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 wifi_error wifi_reset_bssid_hotlist(wifi_request_id id,
@@ -714,7 +649,6 @@ wifi_error wifi_reset_bssid_hotlist(wifi_request_id id,
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
-    lowi_cb_table_t *lowiWifiHalApi = NULL;
     gscan_event_handlers* event_handlers;
     GScanCommandEventHandler *gScanSetBssidHotlistCmdEventHandler;
 
@@ -727,19 +661,6 @@ wifi_error wifi_reset_bssid_hotlist(wifi_request_id id,
             __FUNCTION__);
         return WIFI_ERROR_NOT_SUPPORTED;
     }
-
-    /* Route request through LOWI if supported*/
-    lowiWifiHalApi = getLowiCallbackTable(GSCAN_SUPPORTED);
-    if (lowiWifiHalApi == NULL ||
-        lowiWifiHalApi->reset_bssid_hotlist == NULL) {
-        ALOGV("%s: Sending cmd directly to host", __FUNCTION__);
-    } else {
-        ret = lowiWifiHalApi->reset_bssid_hotlist(id, iface);
-        ALOGV("%s: lowi reset_bssid_hotlist "
-            "returned: %d. Exit.", __FUNCTION__, ret);
-        return (wifi_error)ret;
-    }
-
 
     if (gScanSetBssidHotlistCmdEventHandler == NULL ||
         (gScanSetBssidHotlistCmdEventHandler->isEventHandlingEnabled() ==
@@ -794,7 +715,7 @@ wifi_error wifi_reset_bssid_hotlist(wifi_request_id id,
 
 cleanup:
     delete gScanCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /* Set the GSCAN Significant AP Change list. */
@@ -809,7 +730,6 @@ wifi_error wifi_set_significant_change_handler(wifi_request_id id,
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
-    lowi_cb_table_t *lowiWifiHalApi = NULL;
     gscan_event_handlers* event_handlers;
     GScanCommandEventHandler *gScanSetSignificantChangeCmdEventHandler;
 
@@ -821,21 +741,6 @@ wifi_error wifi_set_significant_change_handler(wifi_request_id id,
         ALOGE("%s: GSCAN is not supported by driver",
             __FUNCTION__);
         return WIFI_ERROR_NOT_SUPPORTED;
-    }
-
-    /* Route request through LOWI if supported*/
-    lowiWifiHalApi = getLowiCallbackTable(GSCAN_SUPPORTED);
-    if (lowiWifiHalApi == NULL ||
-        lowiWifiHalApi->set_significant_change_handler == NULL) {
-        ALOGV("%s: Sending cmd directly to host", __FUNCTION__);
-    } else {
-        ret = lowiWifiHalApi->set_significant_change_handler(id,
-                                                             iface,
-                                                             params,
-                                                             handler);
-        ALOGV("%s: lowi set_significant_change_handler "
-            "returned: %d. Exit.", __FUNCTION__, ret);
-        return (wifi_error)ret;
     }
 
     /* Wi-Fi HAL doesn't need to check if a similar request to set significant
@@ -984,7 +889,7 @@ cleanup:
         gScanSetSignificantChangeCmdEventHandler->disableEventHandling();
     }
     delete gScanCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /* Clear the GSCAN Significant AP change list. */
@@ -997,7 +902,6 @@ wifi_error wifi_reset_significant_change_handler(wifi_request_id id,
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
-    lowi_cb_table_t *lowiWifiHalApi = NULL;
     gscan_event_handlers* event_handlers;
     GScanCommandEventHandler *gScanSetSignificantChangeCmdEventHandler;
 
@@ -1009,18 +913,6 @@ wifi_error wifi_reset_significant_change_handler(wifi_request_id id,
         ALOGE("%s: GSCAN is not supported by driver",
             __FUNCTION__);
         return WIFI_ERROR_NOT_SUPPORTED;
-    }
-
-    /* Route request through LOWI if supported*/
-    lowiWifiHalApi = getLowiCallbackTable(GSCAN_SUPPORTED);
-    if (lowiWifiHalApi == NULL ||
-        lowiWifiHalApi->reset_significant_change_handler == NULL) {
-        ALOGV("%s: Sending cmd directly to host", __FUNCTION__);
-    } else {
-        ret = lowiWifiHalApi->reset_significant_change_handler(id, iface);
-        ALOGV("%s: lowi reset_significant_change_handler "
-            "returned: %d. Exit.", __FUNCTION__, ret);
-        return (wifi_error)ret;
     }
 
     if (gScanSetSignificantChangeCmdEventHandler == NULL ||
@@ -1078,7 +970,7 @@ wifi_error wifi_reset_significant_change_handler(wifi_request_id id,
 
 cleanup:
     delete gScanCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /* Get the GSCAN cached scan results. */
@@ -1090,7 +982,6 @@ wifi_error wifi_get_cached_gscan_results(wifi_interface_handle iface,
     int requestId, ret = 0, retRequestRsp = 0;
     GScanCommand *gScanCommand;
     struct nlattr *nlData;
-    lowi_cb_table_t *lowiWifiHalApi = NULL;
 
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
@@ -1100,22 +991,6 @@ wifi_error wifi_get_cached_gscan_results(wifi_interface_handle iface,
         ALOGE("%s: GSCAN is not supported by driver",
             __FUNCTION__);
         return WIFI_ERROR_NOT_SUPPORTED;
-    }
-
-    /* Route GSCAN request through LOWI if supported */
-    lowiWifiHalApi = getLowiCallbackTable(GSCAN_SUPPORTED);
-    if (lowiWifiHalApi == NULL ||
-        lowiWifiHalApi->get_cached_gscan_results == NULL) {
-        ALOGV("%s: Sending cmd directly to host", __FUNCTION__);
-    } else {
-        ret = lowiWifiHalApi->get_cached_gscan_results(iface,
-                                                       flush,
-                                                       max,
-                                                       results,
-                                                       num);
-        ALOGV("%s: lowi get_cached_gscan_results"
-            "returned: %d. Exit.", __FUNCTION__, ret);
-        return (wifi_error)ret;
     }
 
     /* No request id from caller, so generate one and pass it on to the driver. */
@@ -1219,7 +1094,7 @@ wifi_error wifi_get_cached_gscan_results(wifi_interface_handle iface,
 cleanup:
     gScanCommand->freeRspParams(eGScanGetCachedResultsRspParams);
     delete gScanCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /* Random MAC OUI for PNO */
@@ -1274,7 +1149,7 @@ wifi_error wifi_set_scanning_mac_oui(wifi_interface_handle handle, oui scan_oui)
 
 cleanup:
     delete vCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 
@@ -1958,7 +1833,7 @@ cleanup:
             __FUNCTION__, ret);
         gScanSetPnoListCmdEventHandler->disableEventHandling();
     }
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /* Reset the ePNO list - no ePNO networks should be matched after this */
@@ -2028,7 +1903,7 @@ wifi_error wifi_reset_epno_list(wifi_request_id id, wifi_interface_handle iface)
 
 cleanup:
     delete gScanCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /* Set the ePNO Passpoint List. */
@@ -2197,7 +2072,7 @@ cleanup:
             __FUNCTION__, ret);
         gScanPnoSetPasspointListCmdEventHandler->disableEventHandling();
     }
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 wifi_error wifi_reset_passpoint_list(wifi_request_id id,
@@ -2285,7 +2160,7 @@ wifi_error wifi_reset_passpoint_list(wifi_request_id id,
 
 cleanup:
     delete gScanCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 int GScanCommand::allocCachedResultsTemp(int max,

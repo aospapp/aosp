@@ -17,6 +17,7 @@ package com.android.cts.deviceinfo;
 
 import android.content.Context;
 import android.hardware.Sensor;
+import android.hardware.SensorDirectChannel;
 import android.hardware.SensorManager;
 import android.os.Bundle;
 
@@ -25,6 +26,7 @@ import com.android.compatibility.common.util.DeviceInfoStore;
 
 import java.lang.Exception;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -52,6 +54,13 @@ public class SensorDeviceInfo extends DeviceInfo {
     private static final String IS_DYNAMIC_SENSOR = "is_dynamic_sensor";
     private static final String IS_ADDITONAL_INFO_SUPPORTED =
             "is_additional_info_supported";
+    private static final String HIGHEST_DIRECT_REPORT_RATE_LEVEL =
+            "highest_direct_report_rate_level";
+    private static final String SUPPORTED_DIRECT_CHANNEL_TYPE =
+            "supported_direct_channel_type";
+    private static final int[] CHANNEL_TYPES = new int[] {
+            SensorDirectChannel.TYPE_MEMORY_FILE,
+            SensorDirectChannel.TYPE_HARDWARE_BUFFER };
 
     @Override
     protected void collectDeviceInfo(DeviceInfoStore store) throws Exception {
@@ -81,6 +90,17 @@ public class SensorDeviceInfo extends DeviceInfo {
             store.addResult(IS_DYNAMIC_SENSOR, sensor.isDynamicSensor());
             store.addResult(IS_ADDITONAL_INFO_SUPPORTED,
                     sensor.isAdditionalInfoSupported());
+            store.addResult(HIGHEST_DIRECT_REPORT_RATE_LEVEL,
+                    sensor.getHighestDirectReportRateLevel());
+
+            List<Integer> supportedChannelType = new ArrayList<>();
+            for (int channelType : CHANNEL_TYPES) {
+                if (sensor.isDirectChannelTypeSupported(channelType)) {
+                    supportedChannelType.add(channelType);
+                }
+            }
+            store.addArrayResult(SUPPORTED_DIRECT_CHANNEL_TYPE,
+                    supportedChannelType.stream().mapToInt(i->i).toArray());
             store.endGroup();
         }
         store.endArray(); // Sensor

@@ -14,7 +14,7 @@
 
 # We define this in a subdir so that it won't pick up the parent's Android.xml by default.
 
-LOCAL_PATH:= $(call my-dir)
+LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 # current api, in XML format.
@@ -23,35 +23,63 @@ include $(CLEAR_VARS)
 # by com.android.cts.managedprofile.CurrentApiHelper
 # ============================================================
 include $(CLEAR_VARS)
+
 LOCAL_MODULE := cts-current-api
 LOCAL_MODULE_STEM := current.api
-LOCAL_MODULE_CLASS := ETC
-LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_ETC)
+LOCAL_SRC_FILES := frameworks/base/api/current.txt
 
-# Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+include $(LOCAL_PATH)/build_xml_api_file.mk
 
-include $(BUILD_SYSTEM)/base_rules.mk
-$(LOCAL_BUILT_MODULE) : frameworks/base/api/current.txt | $(APICHECK)
-	@echo "Convert API file $@"
-	@mkdir -p $(dir $@)
-	$(hide) $(APICHECK_COMMAND) -convert2xml $< $@
-
-include $(CLEAR_VARS)
-
-# current api, in XML format.
+# current system api, in XML format.
 # ============================================================
 include $(CLEAR_VARS)
 LOCAL_MODULE := cts-system-current-api
 LOCAL_MODULE_STEM := system-current.api
-LOCAL_MODULE_CLASS := ETC
-LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_ETC)
+LOCAL_SRC_FILES := frameworks/base/api/system-current.txt
 
-# Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+include $(LOCAL_PATH)/build_xml_api_file.mk
 
-include $(BUILD_SYSTEM)/base_rules.mk
-$(LOCAL_BUILT_MODULE) : frameworks/base/api/system-current.txt | $(APICHECK)
-	@echo "Convert API file $@"
-	@mkdir -p $(dir $@)
-	$(hide) $(APICHECK_COMMAND) -convert2xml $< $@
+# removed system api, in XML format.
+# ============================================================
+include $(CLEAR_VARS)
+LOCAL_MODULE := cts-system-removed-api
+LOCAL_MODULE_STEM := system-removed.api
+LOCAL_SRC_FILES := frameworks/base/api/system-removed.txt
+
+include $(LOCAL_PATH)/build_xml_api_file.mk
+
+# current legacy-test api, in XML format.
+# ============================================================
+include $(CLEAR_VARS)
+LOCAL_MODULE := cts-legacy-test-current-api
+LOCAL_MODULE_STEM := legacy-test-current.api
+LOCAL_SRC_FILES := frameworks/base/legacy-test/api/legacy-test-current.txt
+
+include $(LOCAL_PATH)/build_xml_api_file.mk
+
+# current android-test-mock api, in XML format.
+# ============================================================
+include $(CLEAR_VARS)
+LOCAL_MODULE := cts-android-test-mock-current-api
+LOCAL_MODULE_STEM := android-test-mock-current.api
+LOCAL_SRC_FILES := frameworks/base/test-runner/api/android-test-mock-current.txt
+
+include $(LOCAL_PATH)/build_xml_api_file.mk
+
+# current android-test-runner api, in XML format.
+# ============================================================
+include $(CLEAR_VARS)
+LOCAL_MODULE := cts-android-test-runner-current-api
+LOCAL_MODULE_STEM := android-test-runner-current.api
+LOCAL_SRC_FILES := frameworks/base/test-runner/api/android-test-runner-current.txt
+
+include $(LOCAL_PATH)/build_xml_api_file.mk
+
+# current apache-http-legacy api, in XML format.
+# ==============================================
+include $(CLEAR_VARS)
+LOCAL_MODULE := cts-apache-http-legacy-current-api
+LOCAL_MODULE_STEM := apache-http-legacy-current.api
+LOCAL_SRC_FILES := external/apache-http/api/apache-http-legacy-current.txt
+
+include $(LOCAL_PATH)/build_xml_api_file.mk

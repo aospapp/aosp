@@ -52,14 +52,14 @@ class VtscTester(unittest.TestCase):
     """
 
     def __init__(self, testName, hidl_gen_path, vtsc_path, canonical_dir,
-                 output_dir):
+                 output_dir, temp_dir):
         super(VtscTester, self).__init__(testName)
         self._hidl_gen_path = hidl_gen_path
         self._vtsc_path = vtsc_path
         self._canonical_dir = canonical_dir
         self._output_dir = output_dir
         self._errors = 0
-        self._temp_dir = "test/vts/specification/hal"
+        self._temp_dir = temp_dir
 
     def setUp(self):
         """Removes output dir to prevent interference from previous runs."""
@@ -81,45 +81,77 @@ class VtscTester(unittest.TestCase):
         """Run tests for DRIVER mode. """
         logging.info("Running TestDriver test case.")
         # Tests for Hidl Hals.
-        self.GenerateVtsFile("android.hardware.nfc@1.0")
-        for component_name in ["Nfc", "types", "NfcClientCallback"]:
-            self.RunTest("DRIVER",
-                         os.path.join(self._temp_dir, component_name + ".vts"),
-                         "%s.driver.cpp" % component_name)
+        for package_path, component_names in zip(
+            ["android.hardware.nfc@1.0",
+             "android.hardware.tests.bar@1.0",
+             "android.hardware.tests.msgq@1.0",
+             "android.hardware.tests.memory@1.0"],
+            [["Nfc", "NfcClientCallback", "types"],
+             ["Bar"], ["TestMsgQ"], ["MemoryTest"]]):
+            self.GenerateVtsFile(package_path)
+            for component_name in component_names:
+                self.RunTest(
+                    "DRIVER",
+                    os.path.join(self._temp_dir, component_name + ".vts"),
+                    "%s.vts.h" % component_name,
+                    header_file_name="%s.vts.h" % component_name,
+                    file_type="HEADER")
+                self.RunTest(
+                    "DRIVER",
+                    os.path.join(self._temp_dir, component_name + ".vts"),
+                    "%s.driver.cpp" % component_name,
+                    file_type="SOURCE")
         # Tests for conventional Hals.
         for package_path, component_name in zip(
-            ["camera/2.1", "bluetooth/1.0", "bluetooth/1.0", "wifi/1.0"],
-            ["CameraHalV2", "BluetoothHalV1",
-             "BluetoothHalV1bt_interface_t", "WifiHalV1"]):
-            self.RunTest(
-                "DRIVER",
-                "test/vts/specification/hal/conventional/%s/%s.vts" % (
-                    package_path, component_name),
-                "%s.driver.cpp" % component_name)
+            ["camera/2.1", "bluetooth/1.0", "bluetooth/1.0", "wifi/1.0"], [
+                "CameraHalV2", "BluetoothHalV1",
+                "BluetoothHalV1bt_interface_t", "WifiHalV1"
+            ]):
+            self.RunTest("DRIVER",
+                         "test/vts/specification/hal/conventional/%s/%s.vts" %
+                         (package_path,
+                          component_name), "%s.driver.cpp" % component_name)
         # Tests for shared libraries.
         for component_name in ["libcV1"]:
-            self.RunTest(
-                "DRIVER",
-                "test/vts/specification/lib/ndk/bionic/1.0/%s.vts" % component_name,
-                "%s.driver.cpp" % component_name)
+            self.RunTest("DRIVER",
+                         "test/vts/specification/lib/ndk/bionic/1.0/%s.vts" %
+                         component_name, "%s.driver.cpp" % component_name)
 
     def TestProfiler(self):
         """Run tests for PROFILER mode. """
         logging.info("Running TestProfiler test case.")
-        self.GenerateVtsFile("android.hardware.nfc@1.0")
-        for component_name in ["Nfc", "types", "NfcClientCallback"]:
-            self.RunTest("PROFILER",
-                         os.path.join(self._temp_dir, component_name + ".vts"),
-                         "%s.profiler.cpp" % component_name)
+        #self.GenerateVtsFile("android.hardware.nfc@1.0")
+        for package_path, component_names in zip(
+            ["android.hardware.nfc@1.0",
+             "android.hardware.tests.bar@1.0",
+             "android.hardware.tests.msgq@1.0",
+             "android.hardware.tests.memory@1.0"],
+            [["Nfc", "NfcClientCallback", "types"],
+             ["Bar"], ["TestMsgQ"], ["MemoryTest"]]):
+            self.GenerateVtsFile(package_path)
+            for component_name in component_names:
+                self.RunTest(
+                    "PROFILER",
+                    os.path.join(self._temp_dir, component_name + ".vts"),
+                    "%s.vts.h" % component_name,
+                    header_file_name="%s.vts.h" % component_name,
+                    file_type="HEADER")
+                self.RunTest(
+                    "PROFILER",
+                    os.path.join(self._temp_dir, component_name + ".vts"),
+                    "%s.profiler.cpp" % component_name,
+                    file_type="SOURCE")
 
     def TestFuzzer(self):
         """Run tests for Fuzzer mode. """
         logging.info("Running TestProfiler test case.")
         self.GenerateVtsFile("android.hardware.renderscript@1.0")
         for component_name in ["Context", "Device", "types"]:
-            self.RunTest("FUZZER",
-                         os.path.join(self._temp_dir, component_name + ".vts"),
-                         "%s.fuzzer.cpp" % component_name, "SOURCE")
+            self.RunTest(
+                "FUZZER",
+                os.path.join(self._temp_dir, component_name + ".vts"),
+                "%s.fuzzer.cpp" % component_name,
+                file_type="SOURCE")
 
     def RunFuzzerTest(self, mode, vts_file_path, source_file_name):
         vtsc_cmd = [
@@ -158,7 +190,12 @@ class VtscTester(unittest.TestCase):
                     os.path.join(output_dir, file),
                     os.path.join(self._temp_dir, file))
 
-    def RunTest(self, mode, vts_file_path, source_file_name, file_type="BOTH"):
+    def RunTest(self,
+                mode,
+                vts_file_path,
+                output_file_name,
+                header_file_name="",
+                file_type="BOTH"):
         """Run vtsc with given mode for the give vts file and compare the
            output results.
 
@@ -168,27 +205,34 @@ class VtscTester(unittest.TestCase):
             source_file_name: name of the generated source file.
             file_type: type of file e.g. HEADER / SOURCE / BOTH.
         """
-        vtsc_cmd = [
-            self._vtsc_path, "-m" + mode, vts_file_path,
-            os.path.join(self._output_dir, mode),
-            os.path.join(self._output_dir, mode, source_file_name)
-        ]
+        if (file_type == "BOTH"):
+            vtsc_cmd = [
+                self._vtsc_path, "-m" + mode, vts_file_path,
+                os.path.join(self._output_dir, mode),
+                os.path.join(self._output_dir, mode, output_file_name)
+            ]
+        else:
+            vtsc_cmd = [
+                self._vtsc_path, "-m" + mode, "-t" + file_type, vts_file_path,
+                os.path.join(self._output_dir, mode, output_file_name)
+            ]
         return_code = cmd_utils.RunCommand(vtsc_cmd)
         if (return_code != 0):
             self.Error("Fail to execute command: %s" % vtsc_cmd)
 
         if (file_type == "HEADER" or file_type == "BOTH"):
-            header_file_name = vts_file_path + ".h"
+            if not header_file_name:
+                header_file_name = vts_file_path + ".h"
             canonical_header_file = os.path.join(self._canonical_dir, mode,
                                                  header_file_name)
             output_header_file = os.path.join(self._output_dir, mode,
                                               header_file_name)
             self.CompareOutputFile(output_header_file, canonical_header_file)
-        if (file_type == "SOURCE" or file_type == "BOTH"):
+        elif (file_type == "SOURCE" or file_type == "BOTH"):
             canonical_source_file = os.path.join(self._canonical_dir, mode,
-                                                 source_file_name)
+                                                 output_file_name)
             output_source_file = os.path.join(self._output_dir, mode,
-                                              source_file_name)
+                                              output_file_name)
             self.CompareOutputFile(output_source_file, canonical_source_file)
         else:
             self.Error("No such file_type: %s" % file_type)
@@ -231,7 +275,8 @@ class VtscTester(unittest.TestCase):
         if os.path.exists(self._output_dir):
             logging.info("rm -rf %s", self._output_dir)
             shutil.rmtree(self._output_dir)
-        logging.info("temp_dir %s not cleared", self._temp_dir)
+        if os.path.exists(self._temp_dir):
+            shutil.rmtree(self._temp_dir)
 
 
 if __name__ == "__main__":
@@ -242,10 +287,10 @@ if __name__ == "__main__":
     # Parse the arguments and set the provided value for
     # hidl-gen/vtsc_path/canonical_dar/output_dir.
     try:
-        opts, _ = getopt.getopt(sys.argv[1:], "h:p:c:o:")
+        opts, _ = getopt.getopt(sys.argv[1:], "h:p:c:o:t:")
     except getopt.GetoptError, err:
         print "Usage: python test_vtsc.py [-h hidl_gen_path] [-p vtsc_path] " \
-              "[-c canonical_dir] [-o output_dir]"
+              "[-c canonical_dir] [-o output_dir] [-t temp_dir]"
         sys.exit(1)
     for opt, val in opts:
         if opt == "-h":
@@ -256,6 +301,8 @@ if __name__ == "__main__":
             canonical_dir = val
         elif opt == "-o":
             output_dir = val
+        elif opt == "-t":
+            temp_dir = val
         else:
             print "unhandled option %s" % (opt, )
             sys.exit(1)
@@ -263,7 +310,7 @@ if __name__ == "__main__":
     suite = unittest.TestSuite()
     suite.addTest(
         VtscTester('testAll', hidl_gen_path, vtsc_path, canonical_dir,
-                   output_dir))
+                   output_dir, temp_dir))
     result = unittest.TextTestRunner(verbosity=2).run(suite)
     if not result.wasSuccessful():
         sys.exit(-1)

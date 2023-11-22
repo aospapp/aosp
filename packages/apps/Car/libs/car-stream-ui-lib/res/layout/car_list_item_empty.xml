@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2017 The Android Open Source Project
+<!-- Copyright (C) 2015 The Android Open Source Project
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -18,22 +18,28 @@
     android:id="@+id/container"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:layout_marginLeft="@dimen/car_drawer_disabled_list_margin_side"
+    android:layout_marginLeft="16dp"
     android:focusable="false"
     android:orientation="vertical"
     android:background="@drawable/car_list_item_background" >
-    <ImageView
-        android:id="@+id/icon"
-        android:layout_width="@dimen/car_list_item_icon_size"
-        android:layout_height="@dimen/car_list_item_icon_size"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginTop="@dimen/car_drawer_disabled_list_icon_margin_top"
-        android:layout_marginBottom="@dimen/car_drawer_disabled_list_icon_margin_bottom" />
+    <FrameLayout
+        android:id="@+id/icon_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="visible">
+        <ImageView
+            android:id="@+id/icon"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="48dp"
+            android:layout_marginBottom="22dp" />
+    </FrameLayout>
     <TextView
         android:id="@+id/title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="@dimen/car_drawer_disabled_list_margin_side"
+        android:layout_marginEnd="16dp"
         android:gravity="center"
         style="@style/CarBody1" />
 </LinearLayout>

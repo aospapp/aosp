@@ -1,0 +1,17 @@
+cc_library_static {
+    name: "libpdfiumjavascript",
+    defaults: ["pdfium-defaults"],
+
+    cflags: [
+        "-DOPJ_STATIC",
+        "-DV8_DEPRECATION_WARNINGS",
+        "-D_CRT_SECURE_NO_WARNINGS",
+
+        // Mask some warnings. These are benign, but we probably want to fix them
+        // upstream at some point.
+        "-Wno-sign-compare",
+        "-Wno-unused-parameter",
+    ],
+
+    srcs: ["fpdfsdk/javascript/JS_Runtime_Stub.cpp"],
+}

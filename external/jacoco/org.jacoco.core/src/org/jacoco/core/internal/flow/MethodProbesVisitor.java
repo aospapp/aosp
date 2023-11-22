@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,9 +11,10 @@
  *******************************************************************************/
 package org.jacoco.core.internal.flow;
 
-import org.jacoco.core.JaCoCo;
+import org.jacoco.core.internal.instr.InstrSupport;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.tree.MethodNode;
 
 /**
  * A {@link MethodVisitor} with additional methods to get probe insertion
@@ -35,7 +36,7 @@ public abstract class MethodProbesVisitor extends MethodVisitor {
 	 *            optional next visitor in chain
 	 */
 	public MethodProbesVisitor(final MethodVisitor mv) {
-		super(JaCoCo.ASM_API_VERSION, mv);
+		super(InstrSupport.ASM_API_VERSION, mv);
 	}
 
 	/**
@@ -145,6 +146,22 @@ public abstract class MethodProbesVisitor extends MethodVisitor {
 	@SuppressWarnings("unused")
 	public void visitLookupSwitchInsnWithProbes(final Label dflt,
 			final int[] keys, final Label[] labels, final IFrame frame) {
+	}
+
+	/**
+	 * This method can be overwritten to hook into the process of emitting the
+	 * instructions of this method as <code>visitX()</code> events.
+	 *
+	 * @param methodNode
+	 *            the content to emit
+	 * @param methodVisitor
+	 *            A visitor to emit the content to. Note that this is not
+	 *            necessarily this visitor instance but some wrapper which
+	 *            calculates the probes.
+	 */
+	public void accept(final MethodNode methodNode,
+			final MethodVisitor methodVisitor) {
+		methodNode.accept(methodVisitor);
 	}
 
 }

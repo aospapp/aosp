@@ -24,6 +24,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
+import android.net.TrafficStats;
 import android.net.Uri;
 import android.support.annotation.NonNull;
 import android.text.TextUtils;
@@ -54,6 +55,12 @@ public final class BitmapUtils {
     public static Bitmap scaleBitmap(Bitmap bm, int maxWidth, int maxHeight) {
         Rect rect = calculateNewSize(bm, maxWidth, maxHeight);
         return Bitmap.createScaledBitmap(bm, rect.right, rect.bottom, false);
+    }
+
+    public static Bitmap getScaledMutableBitmap(Bitmap bm, int maxWidth, int maxHeight) {
+        Bitmap scaledBitmap = scaleBitmap(bm, maxWidth, maxHeight);
+        return scaledBitmap.isMutable() ? scaledBitmap
+                : scaledBitmap.copy(Bitmap.Config.ARGB_8888, true);
     }
 
     private static Rect calculateNewSize(Bitmap bm, int maxWidth, int maxHeight) {
@@ -89,6 +96,8 @@ public final class BitmapUtils {
         boolean isResourceUri = isContentResolverUri(uri);
         URLConnection urlConnection = null;
         InputStream inputStream = null;
+        final int oldTag = TrafficStats.getThreadStatsTag();
+        TrafficStats.setThreadStatsTag(NetworkTrafficTags.LOGO_FETCHER);
         try {
             if (isResourceUri) {
                 inputStream = context.getContentResolver().openInputStream(uri);
@@ -142,6 +151,7 @@ public final class BitmapUtils {
             return null;
         } finally {
             close(inputStream, urlConnection);
+            TrafficStats.setThreadStatsTag(oldTag);
         }
     }
 

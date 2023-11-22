@@ -20,6 +20,9 @@ LOCAL_SHARED_LIBRARIES := \
     libva \
     libva-android
 
+LOCAL_HEADER_LIBRARIES := \
+    libnativebase_headers
+
 LOCAL_C_INCLUDES := \
     $(TARGET_OUT_HEADERS)/wrs_omxil_core \
     $(TARGET_OUT_HEADERS)/khronos/openmax \
@@ -94,6 +97,9 @@ LOCAL_SHARED_LIBRARIES := \
     libva \
     libva-android
 
+LOCAL_HEADER_LIBRARIES := \
+    libnativebase_headers
+
 LOCAL_C_INCLUDES := \
     $(TARGET_OUT_HEADERS)/wrs_omxil_core \
     $(TARGET_OUT_HEADERS)/khronos/openmax \
@@ -156,6 +162,9 @@ LOCAL_SHARED_LIBRARIES := \
     libva_videodecoder \
     libdl \
 
+LOCAL_HEADER_LIBRARIES := \
+    libnativebase_headers
+
 LOCAL_C_INCLUDES := \
     $(TARGET_OUT_HEADERS)/wrs_omxil_core \
     $(TARGET_OUT_HEADERS)/khronos/openmax \
@@ -213,6 +222,9 @@ LOCAL_SHARED_LIBRARIES := \
     liblog \
     libva \
     libva-android
+
+LOCAL_HEADER_LIBRARIES := \
+    libnativebase_headers
 
 LOCAL_C_INCLUDES := \
     $(TARGET_OUT_HEADERS)/wrs_omxil_core \
@@ -275,6 +287,9 @@ LOCAL_SHARED_LIBRARIES := \
     libva \
     libva-android
 
+LOCAL_HEADER_LIBRARIES := \
+    libnativebase_headers
+
 LOCAL_C_INCLUDES := \
     $(TARGET_OUT_HEADERS)/wrs_omxil_core \
     $(TARGET_OUT_HEADERS)/khronos/openmax \
@@ -335,6 +350,9 @@ LOCAL_SHARED_LIBRARIES := \
     liblog \
     libva \
     libva-android
+
+LOCAL_HEADER_LIBRARIES := \
+    libnativebase_headers
 
 LOCAL_C_INCLUDES := \
     $(TARGET_OUT_HEADERS)/wrs_omxil_core \
@@ -405,6 +423,9 @@ LOCAL_SHARED_LIBRARIES := \
     libva-android \
     libcutils
 
+LOCAL_HEADER_LIBRARIES := \
+    libnativebase_headers
+
 LOCAL_C_INCLUDES := \
     $(TARGET_OUT_HEADERS)/wrs_omxil_core \
     $(TARGET_OUT_HEADERS)/khronos/openmax \
@@ -459,6 +480,9 @@ LOCAL_SHARED_LIBRARIES := \
     liblog \
     libva \
     libva-android
+
+LOCAL_HEADER_LIBRARIES := \
+    libnativebase_headers
 
 LOCAL_C_INCLUDES := \
     $(TARGET_OUT_HEADERS)/wrs_omxil_core \
@@ -623,6 +647,9 @@ LOCAL_SHARED_LIBRARIES := \
     liblog \
     libva \
     libva-android
+
+LOCAL_HEADER_LIBRARIES := \
+    libnativebase_headers
 
 LOCAL_C_INCLUDES := \
     $(TARGET_OUT_HEADERS)/wrs_omxil_core \

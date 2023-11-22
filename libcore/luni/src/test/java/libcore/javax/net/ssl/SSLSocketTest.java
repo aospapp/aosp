@@ -64,6 +64,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -352,6 +353,68 @@ public class SSLSocketTest extends TestCase {
                         Arrays.deepToString(ssl.getEnabledProtocols()));
             }
         }
+    }
+
+    /**
+     * Tests that when the client has a hole in their supported protocol list, the
+     * lower span of contiguous protocols is used in practice.
+     */
+    public void test_SSLSocket_noncontiguousProtocols_useLower() throws Exception {
+        TestSSLContext c = TestSSLContext.create();
+        SSLContext serverContext = c.serverContext;
+        SSLContext clientContext = c.clientContext;
+        SSLSocket client = (SSLSocket)
+                clientContext.getSocketFactory().createSocket(c.host, c.port);
+        client.setEnabledProtocols(new String[] {"TLSv1.2", "TLSv1"});
+        final SSLSocket server = (SSLSocket) c.serverSocket.accept();
+        server.setEnabledProtocols(new String[] {"TLSv1.2", "TLSv1.1", "TLSv1"});
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        Future<Void> future = executor.submit(new Callable<Void>() {
+            @Override public Void call() throws Exception {
+                server.startHandshake();
+                return null;
+            }
+        });
+        executor.shutdown();
+        client.startHandshake();
+
+        assertEquals("TLSv1", client.getSession().getProtocol());
+
+        future.get();
+        client.close();
+        server.close();
+        c.close();
+    }
+
+    /**
+     * Tests that protocol negotiation succeeds when the highest-supported protocol
+     * for both client and server isn't supported by the other.
+     */
+    public void test_SSLSocket_noncontiguousProtocols_canNegotiate() throws Exception {
+        TestSSLContext c = TestSSLContext.create();
+        SSLContext serverContext = c.serverContext;
+        SSLContext clientContext = c.clientContext;
+        SSLSocket client = (SSLSocket)
+                clientContext.getSocketFactory().createSocket(c.host, c.port);
+        client.setEnabledProtocols(new String[] {"TLSv1.2", "TLSv1"});
+        final SSLSocket server = (SSLSocket) c.serverSocket.accept();
+        server.setEnabledProtocols(new String[] {"TLSv1.1", "TLSv1"});
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        Future<Void> future = executor.submit(new Callable<Void>() {
+            @Override public Void call() throws Exception {
+                server.startHandshake();
+                return null;
+            }
+        });
+        executor.shutdown();
+        client.startHandshake();
+
+        assertEquals("TLSv1", client.getSession().getProtocol());
+
+        future.get();
+        client.close();
+        server.close();
+        c.close();
     }
 
     public void test_SSLSocket_getSession() throws Exception {
@@ -1754,9 +1817,17 @@ public class SSLSocketTest extends TestCase {
         client.startHandshake();
 
         // Reflection is used so this can compile on the RI
-        String expectedClassName = "com.android.org.conscrypt.OpenSSLSocketImpl";
+        String expectedClassName = "com.android.org.conscrypt.ConscryptFileDescriptorSocket";
         Class<?> actualClass = client.getClass();
         assertEquals(expectedClassName, actualClass.getName());
+        // The concrete class that Conscrypt returns has methods on it that have no
+        // equivalent on the public API (like setSoWriteTimeout), so users have
+        // previously used reflection to access those otherwise-inaccessible methods
+        // on that class.  The concrete class used to be named OpenSSLSocketImpl, so
+        // check that OpenSSLSocketImpl is still in the class hierarchy so applications
+        // that rely on getting that class back still work.
+        Class<?> superClass = actualClass.getSuperclass();
+        assertEquals("com.android.org.conscrypt.OpenSSLSocketImpl", superClass.getName());
         Method setSoWriteTimeout = actualClass.getMethod("setSoWriteTimeout",
                                                          new Class<?>[] { Integer.TYPE });
         setSoWriteTimeout.invoke(client, 1);
@@ -1791,7 +1862,7 @@ public class SSLSocketTest extends TestCase {
         SSLSocket client = (SSLSocket) c.clientContext.getSocketFactory().createSocket();
 
         // Reflection is used so this can compile on the RI
-        String expectedClassName = "com.android.org.conscrypt.OpenSSLSocketImpl";
+        String expectedClassName = "com.android.org.conscrypt.ConscryptFileDescriptorSocket";
         Class<?> actualClass = client.getClass();
         assertEquals(expectedClassName, actualClass.getName());
         Method setNpnProtocols = actualClass.getMethod("setNpnProtocols", byte[].class);
@@ -1888,7 +1959,7 @@ public class SSLSocketTest extends TestCase {
             fail();
         } catch (SocketTimeoutException e) {
             throw e;
-        } catch (SocketException expected) {
+        } catch (IOException expected) {
         }
         future.get();
 
@@ -1927,7 +1998,12 @@ public class SSLSocketTest extends TestCase {
                     wrapping.startHandshake();
                     assertFalse(StandardNames.IS_RI);
                     wrapping.setSoTimeout(readingTimeoutMillis);
-                    assertEquals(-1, wrapping.getInputStream().read());
+                    wrapping.getInputStream().read();
+                    fail();
+                } catch (SocketException e) {
+                    // Conscrypt throws an exception complaining that the socket is closed
+                    // if it's interrupted by a close() in the middle of a read()
+                    assertTrue(e.getMessage().contains("closed"));
                 } catch (Exception e) {
                     if (!StandardNames.IS_RI) {
                         throw e;

@@ -56,7 +56,7 @@ bool SpdHelper::isPatchBadImpl(uint8_t* prm, uint32_t len) {
   string strNew;
 
   // Get the patch ID from the prm data.
-  for (int i = 0; i < 8 && i < len; ++i) strNew.append(toHex(*prm++));
+  for (uint32_t i = 0; i < 8 && i < len; ++i) strNew.append(toHex(*prm++));
 
   // If it is not the same patch as before, then reset things.
   if (strNew != mPatchId) {

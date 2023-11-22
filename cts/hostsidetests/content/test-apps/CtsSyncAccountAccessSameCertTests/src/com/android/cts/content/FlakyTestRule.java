@@ -36,16 +36,16 @@ public class FlakyTestRule implements TestRule {
         return new Statement() {
             @Override
             public void evaluate() throws Throwable {
-                Exception exception = null;
+                Throwable throwable = null;
                 for (int i = 0; i < mAttemptCount; i++) {
                     try {
                         statement.evaluate();
                         return;
-                    } catch (Exception e) {
-                        exception = e;
+                    } catch (Throwable t) {
+                        throwable = t;
                     }
                 }
-                throw exception;
+                throw throwable;
             };
         };
     }

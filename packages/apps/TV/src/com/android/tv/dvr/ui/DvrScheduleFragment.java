@@ -32,9 +32,8 @@ import com.android.tv.TvApplication;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.data.Program;
 import com.android.tv.dvr.DvrManager;
-import com.android.tv.dvr.DvrUiHelper;
-import com.android.tv.dvr.ScheduledRecording;
-import com.android.tv.dvr.SeriesRecording;
+import com.android.tv.dvr.data.ScheduledRecording;
+import com.android.tv.dvr.data.SeriesRecording;
 import com.android.tv.dvr.ui.DvrConflictFragment.DvrProgramConflictFragment;
 import com.android.tv.util.Utils;
 
@@ -48,18 +47,26 @@ import java.util.List;
  */
 @TargetApi(Build.VERSION_CODES.N)
 public class DvrScheduleFragment extends DvrGuidedStepFragment {
+    /**
+     * Key for the whether to add the current program to series.
+     * Type: boolean
+     */
+    public static final String KEY_ADD_CURRENT_PROGRAM_TO_SERIES = "add_current_program_to_series";
+
     private static final String TAG = "DvrScheduleFragment";
 
     private static final int ACTION_RECORD_EPISODE = 1;
     private static final int ACTION_RECORD_SERIES = 2;
 
     private Program mProgram;
+    private boolean mAddCurrentProgramToSeries;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         Bundle args = getArguments();
         if (args != null) {
             mProgram = args.getParcelable(DvrHalfSizedDialogFragment.KEY_PROGRAM);
+            mAddCurrentProgramToSeries = args.getBoolean(KEY_ADD_CURRENT_PROGRAM_TO_SERIES, false);
         }
         DvrManager dvrManager = TvApplication.getSingletons(getContext()).getDvrManager();
         SoftPreconditions.checkArgument(mProgram != null && mProgram.isEpisodic(), TAG,
@@ -109,7 +116,7 @@ public class DvrScheduleFragment extends DvrGuidedStepFragment {
     }
 
     @Override
-    public void onGuidedActionClicked(GuidedAction action) {
+    public void onTrackedGuidedActionClicked(GuidedAction action) {
         if (action.getId() == ACTION_RECORD_EPISODE) {
             getDvrManager().addSchedule(mProgram);
             List<ScheduledRecording> conflicts = getDvrManager().getConflictingSchedules(mProgram);
@@ -139,9 +146,28 @@ public class DvrScheduleFragment extends DvrGuidedStepFragment {
                         .build();
                 getDvrManager().updateSeriesRecording(seriesRecording);
             }
+
             DvrUiHelper.startSeriesSettingsActivity(getContext(),
-                    seriesRecording.getId(), null, true, true, true);
+                    seriesRecording.getId(), null, true, true, true,
+                    mAddCurrentProgramToSeries ? mProgram : null);
             dismissDialog();
+        }
+    }
+
+    @Override
+    public String getTrackerPrefix() {
+        return "DvrSmallSizedStorageErrorFragment";
+    }
+
+    @Override
+    public String getTrackerLabelForGuidedAction(GuidedAction action) {
+        long actionId = action.getId();
+        if (actionId == ACTION_RECORD_EPISODE) {
+            return "record-episode";
+        } else if (actionId == ACTION_RECORD_SERIES) {
+            return "record-series";
+        } else {
+            return super.getTrackerLabelForGuidedAction(action);
         }
     }
 }

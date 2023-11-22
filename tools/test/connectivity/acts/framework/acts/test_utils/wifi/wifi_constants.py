@@ -16,9 +16,15 @@
 
 # Constants for Wifi related events.
 WIFI_CONNECTED = "WifiNetworkConnected"
+WIFI_DISCONNECTED = "WifiNetworkDisconnected"
 SUPPLICANT_CON_CHANGED = "SupplicantConnectionChanged"
 WIFI_FORGET_NW_SUCCESS = "WifiManagerForgetNetworkOnSuccess"
 
 # These constants will be used by the ACTS wifi tests.
 CONNECT_BY_CONFIG_SUCCESS = 'WifiManagerConnectByConfigOnSuccess'
 CONNECT_BY_NETID_SUCCESS = 'WifiManagerConnectByNetIdOnSuccess'
+
+# AP related constants
+AP_MAIN = "main_AP"
+AP_AUX = "aux_AP"
+SSID = "SSID"

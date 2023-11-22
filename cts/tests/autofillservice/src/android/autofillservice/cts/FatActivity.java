@@ -20,8 +20,8 @@ import static android.view.View.IMPORTANT_FOR_AUTOFILL_AUTO;
 import static android.view.View.IMPORTANT_FOR_AUTOFILL_NO;
 import static android.view.View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS;
 import static android.view.View.IMPORTANT_FOR_AUTOFILL_YES;
-
 import static android.view.View.IMPORTANT_FOR_AUTOFILL_YES_EXCLUDE_DESCENDANTS;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import android.os.Bundle;

@@ -70,7 +70,14 @@ public final class InstallApkTask extends Task {
             throw new UnsupportedOperationException(
                     "Jack support for --mode=activity not yet implemented");
         }
-        run.androidSdk.dex(run.multidex, dex, classesToDex);
+
+        File localTempDir = run.localDir(action.getName());
+
+        // Do not specify additional compile-time-only dependencies,
+        // because everything gets bundled into classes.dex.
+        Classpath dependentCp = new Classpath();
+
+        run.androidSdk.dex(run.multidex, dex, localTempDir, classesToDex, dependentCp);
         return dex;
     }
 

@@ -22,5 +22,21 @@
             <item value="mms:default_randomization=2000,10000,18000:5000,720000:5000,2160000:5000" />
             <item value="others:max_retries=3,5000,5000,5000" />
         </string-array>
+        <string-array name="roaming_operator_string_array" num="5">
+            <item value="310110" />
+            <item value="310140" />
+            <item value="310400" />
+            <item value="310470" />
+            <item value="311170" />
+        </string-array>
+        <string-array name="non_roaming_operator_string_array" num="7">
+            <item value="310" />
+            <item value="311" />
+            <item value="312" />
+            <item value="313" />
+            <item value="314" />
+            <item value="315" />
+            <item value="316" />
+        </string-array>
     </carrier_config>
 </carrier_config_list>

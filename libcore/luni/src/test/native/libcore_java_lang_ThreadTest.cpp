@@ -21,7 +21,7 @@
 #include <sys/prctl.h>
 
 #include <jni.h>
-#include "JNIHelp.h"
+#include <nativehelper/JNIHelp.h>
 
 static JavaVM* javaVm = nullptr;
 

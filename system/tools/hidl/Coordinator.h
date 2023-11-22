@@ -35,9 +35,19 @@ struct Type;
 struct Coordinator {
     Coordinator(
             const std::vector<std::string> &packageRootPaths,
-            const std::vector<std::string> &packageRoots);
+            const std::vector<std::string> &packageRoots,
+            const std::string &rootPath);
 
     ~Coordinator();
+
+    // adds path only if it doesn't exist
+    void addDefaultPackagePath(const std::string& root, const std::string& path);
+
+    enum class Enforce {
+        FULL,     // default
+        NO_HASH,  // only for use with -Lhash
+        NONE,     // only for use during enforcement
+    };
 
     // Attempts to parse the interface/types referred to by fqName.
     // Parsing an interface also parses the associated package's types.hal
@@ -45,8 +55,8 @@ struct Coordinator {
     // If "parsedASTs" is non-NULL, successfully parsed ASTs are inserted
     // into the set.
     // If !enforce, enforceRestrictionsOnPackage won't be run.
-    AST *parse(const FQName &fqName, std::set<AST *> *parsedASTs = nullptr,
-            bool enforce = true);
+    AST* parse(const FQName& fqName, std::set<AST*>* parsedASTs = nullptr,
+               Enforce enforcement = Enforce::FULL) const;
 
     // Given package-root paths of ["hardware/interfaces",
     // "vendor/<something>/interfaces"], package roots of
@@ -54,7 +64,6 @@ struct Coordinator {
     // FQName of "android.hardware.nfc@1.0::INfc, then getPackagePath()
     // will return "hardware/interfaces/nfc/1.0" (if sanitized = false)
     // or "hardware/interfaces/nfc/V1_0" (if sanitized = true).
-
     std::string getPackagePath(
             const FQName &fqName, bool relative = false,
             bool sanitized = false) const;
@@ -63,7 +72,6 @@ struct Coordinator {
     // "vendor.<something>.hardware"] and a FQName of
     // "android.hardware.nfc@1.0::INfc, then getPackageRoot() will
     // return "android.hardware".
-
     std::string getPackageRoot(const FQName &fqName) const;
 
     // Given package-root paths of ["hardware/interfaces",
@@ -71,7 +79,6 @@ struct Coordinator {
     // ["android.hardware", "vendor.<something>.hardware"], and a
     // FQName of "android.hardware.nfc@1.0::INfc, then getPackageRootPath()
     // will return "hardware/interfaces".
-
     std::string getPackageRootPath(const FQName &fqName) const;
 
     // return getPackageRoot + ":" + getPackageRootPath
@@ -93,7 +100,8 @@ struct Coordinator {
     //    - minor version upgrades
     // "packages" contains names like "android.hardware.nfc@1.1".
     //    - hashing restrictions
-    status_t enforceRestrictionsOnPackage(const FQName &fqName);
+    status_t enforceRestrictionsOnPackage(const FQName& fqName,
+                                          Enforce enforcement = Enforce::FULL) const;
 
     static bool MakeParentHierarchy(const std::string &path);
 
@@ -107,18 +115,28 @@ private:
     std::vector<std::string> mPackageRootPaths;
     std::vector<std::string> mPackageRoots;
 
+    std::string mRootPath;
+
     // cache to parse().
-    std::map<FQName, AST *> mCache;
+    mutable std::map<FQName, AST *> mCache;
 
     // cache to enforceRestrictionsOnPackage().
-    std::set<FQName> mPackagesEnforced;
+    mutable std::set<FQName> mPackagesEnforced;
 
     std::vector<std::string>::const_iterator findPackageRoot(
             const FQName &fqName) const;
 
+    // Returns abs package path by prepending the root path if a package
+    // path is non-absolute.
+    // If root is '/android/master' and getPackagePath returns 'h/i/nfc/V1_0'
+    // this will return '/android/master/h/i/nfc/V1_0'.
+    // If root is '/android/master' and getPackagePath returns '/abs/path/to/nfc/V1_0'
+    // this will return '/abs/path/to/nfc/V1_0'
+    std::string getAbsolutePackagePath(const FQName& fqName) const;
+
     // Rules of enforceRestrictionsOnPackage are listed below.
-    status_t enforceMinorVersionUprevs(const FQName &fqName);
-    status_t enforceHashes(const FQName &fqName);
+    status_t enforceMinorVersionUprevs(const FQName &fqName) const;
+    status_t enforceHashes(const FQName &fqName) const;
 
     DISALLOW_COPY_AND_ASSIGN(Coordinator);
 };

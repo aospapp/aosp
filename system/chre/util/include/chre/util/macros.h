@@ -28,4 +28,13 @@
 #define STRINGIFY(x) STRINGIFY2(x)
 #define STRINGIFY2(x) #x
 
+/**
+ * Exports a symbol with default visibility.
+ */
+#if defined(__clang__) || defined(__GNUC__)
+#define DLL_EXPORT __attribute__((visibility("default")))
+#else
+#warn "DLL_EXPORT left undefined"
+#endif
+
 #endif  // CHRE_UTIL_MACROS_H_

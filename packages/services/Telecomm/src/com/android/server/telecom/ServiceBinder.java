@@ -21,6 +21,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.IBinder;
+import android.os.RemoteException;
 import android.os.UserHandle;
 import android.telecom.Log;
 import android.text.TextUtils;
@@ -104,6 +105,29 @@ abstract class ServiceBinder {
         }
     }
 
+    private class ServiceDeathRecipient implements IBinder.DeathRecipient {
+
+        private ComponentName mComponentName;
+
+        ServiceDeathRecipient(ComponentName name) {
+            mComponentName = name;
+        }
+
+        @Override
+        public void binderDied() {
+            try {
+                synchronized (mLock) {
+                    Log.startSession("SDR.bD");
+                    Log.i(this, "binderDied: ConnectionService %s died.", mComponentName);
+                    logServiceDisconnected("binderDied");
+                    handleDisconnect();
+                }
+            } finally {
+                Log.endSession();
+            }
+        }
+    }
+
     private final class ServiceBinderConnection implements ServiceConnection {
         /**
          * The initial call for which the service was bound.
@@ -132,10 +156,20 @@ abstract class ServiceBinder {
                         handleFailedConnection();
                         return;
                     }
-
-                    mServiceConnection = this;
-                    setBinder(binder);
-                    handleSuccessfulConnection();
+                    if (binder != null) {
+                        mServiceDeathRecipient = new ServiceDeathRecipient(componentName);
+                        try {
+                            binder.linkToDeath(mServiceDeathRecipient, 0);
+                            mServiceConnection = this;
+                            setBinder(binder);
+                            handleSuccessfulConnection();
+                        } catch (RemoteException e) {
+                            Log.w(this, "onServiceConnected: %s died.");
+                            if (mServiceDeathRecipient != null) {
+                                mServiceDeathRecipient.binderDied();
+                            }
+                        }
+                    }
                 }
             } finally {
                 Log.endSession();
@@ -148,16 +182,19 @@ abstract class ServiceBinder {
                 Log.startSession("SBC.oSD");
                 synchronized (mLock) {
                     logServiceDisconnected("onServiceDisconnected");
-
-                    mServiceConnection = null;
-                    clearAbort();
-
-                    handleServiceDisconnected();
+                    handleDisconnect();
                 }
             } finally {
                 Log.endSession();
             }
         }
+    }
+
+    private void handleDisconnect() {
+        mServiceConnection = null;
+        clearAbort();
+
+        handleServiceDisconnected();
     }
 
     /** The application context. */
@@ -177,6 +214,9 @@ abstract class ServiceBinder {
 
     /** Used to bind and unbind from the service. */
     private ServiceConnection mServiceConnection;
+
+    /** Used to handle death of the service. */
+    private ServiceDeathRecipient mServiceDeathRecipient;
 
     /** {@link UserHandle} to use for binding, to support work profiles and multi-user. */
     private UserHandle mUserHandle;

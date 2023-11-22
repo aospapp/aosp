@@ -30,7 +30,6 @@ import android.graphics.Matrix;
 import android.graphics.Path;
 import android.graphics.Point;
 import android.graphics.PointF;
-import android.graphics.Rect;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.test.ActivityInstrumentationTestCase2;
@@ -75,7 +74,7 @@ public class AccessibilityGestureDispatchTest extends
     MyTouchListener mMyTouchListener = new MyTouchListener();
     MyGestureCallback mCallback;
     TextView mFullScreenTextView;
-    Rect mViewBounds = new Rect();
+    int[] mViewLocation = new int[2];
     boolean mGotUpEvent;
     // Without a touch screen, there's no point in testing this feature
     boolean mHasTouchScreen;
@@ -101,7 +100,7 @@ public class AccessibilityGestureDispatchTest extends
         mFullScreenTextView =
                 (TextView) getActivity().findViewById(R.id.full_screen_text_view);
         getInstrumentation().runOnMainSync(() -> {
-            mFullScreenTextView.getGlobalVisibleRect(mViewBounds);
+            mFullScreenTextView.getLocationOnScreen(mViewLocation);
             mFullScreenTextView.setOnTouchListener(mMyTouchListener);
         });
 
@@ -294,8 +293,8 @@ public class AccessibilityGestureDispatchTest extends
     // and should work for rectangular, round and round with chin screens.
     public void testClickWhenMagnified_matchesActualTouch() throws InterruptedException {
         final float POINT_TOL = 2.0f;
-        final float CLICK_SHIFT_FROM_CENTER_X = 10;
-        final float CLICK_SHIFT_FROM_CENTER_Y = 20;
+        final float CLICK_OFFSET_X = 10;
+        final float CLICK_OFFSET_Y = 20;
         final float MAGNIFICATION_FACTOR = 2;
         if (!mHasTouchScreen) {
             return;
@@ -303,34 +302,46 @@ public class AccessibilityGestureDispatchTest extends
 
         final WindowManager wm = (WindowManager) getInstrumentation().getContext().getSystemService(
                 Context.WINDOW_SERVICE);
-        final DisplayMetrics metrics = new DisplayMetrics();
-        wm.getDefaultDisplay().getMetrics(metrics);
-        final float centerX = metrics.widthPixels / 2;
-        final float centerY = metrics.heightPixels / 2;
-        final PointF clickPoint = new PointF(
-                centerX + CLICK_SHIFT_FROM_CENTER_X * MAGNIFICATION_FACTOR,
-                centerY + CLICK_SHIFT_FROM_CENTER_Y * MAGNIFICATION_FACTOR);
-        final PointF offsetMagnifiedPointInView = new PointF(
-                centerX + CLICK_SHIFT_FROM_CENTER_X - mViewBounds.left,
-                centerY + CLICK_SHIFT_FROM_CENTER_Y - mViewBounds.top);
-
-        StubMagnificationAccessibilityService magnificationService =
+        final StubMagnificationAccessibilityService magnificationService =
                 StubMagnificationAccessibilityService.enableSelf(getInstrumentation());
-        android.accessibilityservice.AccessibilityService.MagnificationController
+        final AccessibilityService.MagnificationController
                 magnificationController = magnificationService.getMagnificationController();
+
+        final PointF magRegionCenterPoint = new PointF();
+        magnificationService.runOnServiceSync(() -> {
+            magnificationController.reset(false);
+            magRegionCenterPoint.set(magnificationController.getCenterX(),
+                    magnificationController.getCenterY());
+        });
+        final PointF magRegionOffsetPoint = new PointF();
+        magRegionOffsetPoint.set(magRegionCenterPoint);
+        magRegionOffsetPoint.offset(CLICK_OFFSET_X, CLICK_OFFSET_Y);
+
+        final PointF magRegionOffsetClickPoint = new PointF();
+        magRegionOffsetClickPoint.set(magRegionCenterPoint);
+        magRegionOffsetClickPoint.offset(
+                CLICK_OFFSET_X * MAGNIFICATION_FACTOR, CLICK_OFFSET_Y * MAGNIFICATION_FACTOR);
+
         try {
-            // Magnify screen by 2x with a magnification center in the center of the screen
+            // Zoom in
             final AtomicBoolean setScale = new AtomicBoolean();
             magnificationService.runOnServiceSync(() -> {
-                        setScale.set(magnificationController.setScale(MAGNIFICATION_FACTOR, false));
-                        magnificationController.setCenter(centerX, centerY, false);
-                    });
+                setScale.set(magnificationController.setScale(MAGNIFICATION_FACTOR, false));
+            });
             assertTrue("Failed to set scale", setScale.get());
 
-            GestureDescription click = createClick(clickPoint);
-            mService.runOnServiceSync(() -> mService.doDispatchGesture(click, mCallback, null));
+            // Click in the center of the magnification region
+            GestureDescription magRegionCenterClick = createClick(magRegionCenterPoint);
+            mService.runOnServiceSync(() -> mService.doDispatchGesture(
+                    magRegionCenterClick, mCallback, null));
             mCallback.assertGestureCompletes(GESTURE_COMPLETION_TIMEOUT);
-            waitForMotionEvents(any(MotionEvent.class), 2);
+
+            // Click at a slightly offset point
+            GestureDescription magRegionOffsetClick = createClick(magRegionOffsetClickPoint);
+            mService.runOnServiceSync(() -> mService.doDispatchGesture(
+                    magRegionOffsetClick, mCallback, null));
+            mCallback.assertGestureCompletes(GESTURE_COMPLETION_TIMEOUT);
+            waitForMotionEvents(any(MotionEvent.class), 4);
         } finally {
             // Reset magnification
             final AtomicBoolean result = new AtomicBoolean();
@@ -340,11 +351,24 @@ public class AccessibilityGestureDispatchTest extends
             assertTrue("Failed to reset", result.get());
         }
 
-        assertEquals(2, mMotionEvents.size());
+        assertEquals(4, mMotionEvents.size());
+        // Because the MotionEvents have been captures by the view, the coordinates will
+        // be in the View's coordinate system.
+        magRegionCenterPoint.offset(-mViewLocation[0], -mViewLocation[1]);
+        magRegionOffsetPoint.offset(-mViewLocation[0], -mViewLocation[1]);
+
+        // The first click should be at the magnification center, as that point is invariant
+        // for zoom only
         assertThat(mMotionEvents.get(0),
-                both(IS_ACTION_DOWN).and(isAtPoint(offsetMagnifiedPointInView, POINT_TOL)));
+                both(IS_ACTION_DOWN).and(isAtPoint(magRegionCenterPoint, POINT_TOL)));
         assertThat(mMotionEvents.get(1),
-                both(IS_ACTION_UP).and(isAtPoint(offsetMagnifiedPointInView, POINT_TOL)));
+                both(IS_ACTION_UP).and(isAtPoint(magRegionCenterPoint, POINT_TOL)));
+
+        // The second point should be at the offset point
+        assertThat(mMotionEvents.get(2),
+                both(IS_ACTION_DOWN).and(isAtPoint(magRegionOffsetPoint, POINT_TOL)));
+        assertThat(mMotionEvents.get(3),
+                both(IS_ACTION_UP).and(isAtPoint(magRegionOffsetPoint, POINT_TOL)));
     }
 
     public void testContinuedGestures_motionEventsContinue() throws Exception {
@@ -575,7 +599,7 @@ public class AccessibilityGestureDispatchTest extends
 
     private GestureDescription createClickInViewBounds(Point clickPoint) {
         Point offsetClick = new Point(clickPoint);
-        offsetClick.offset(mViewBounds.left, mViewBounds.top);
+        offsetClick.offset(mViewLocation[0], mViewLocation[1]);
         return createClick(offsetClick);
     }
 
@@ -595,7 +619,7 @@ public class AccessibilityGestureDispatchTest extends
 
     private GestureDescription createLongClickInViewBounds(Point clickPoint) {
         Point offsetPoint = new Point(clickPoint);
-        offsetPoint.offset(mViewBounds.left, mViewBounds.top);
+        offsetPoint.offset(mViewLocation[0], mViewLocation[1]);
         Path clickPath = new Path();
         clickPath.moveTo(offsetPoint.x, offsetPoint.y);
         int longPressTime = ViewConfiguration.getLongPressTimeout();
@@ -619,7 +643,7 @@ public class AccessibilityGestureDispatchTest extends
             throw new IllegalArgumentException("Pinch spacing cannot be negative");
         }
         Point offsetCenter = new Point(centerPoint);
-        offsetCenter.offset(mViewBounds.left, mViewBounds.top);
+        offsetCenter.offset(mViewLocation[0], mViewLocation[1]);
         float[] startPoint1 = new float[2];
         float[] endPoint1 = new float[2];
         float[] startPoint2 = new float[2];
@@ -661,8 +685,8 @@ public class AccessibilityGestureDispatchTest extends
 
     Path linePathInViewBounds(Point startPoint, Point endPoint) {
         Path path = new Path();
-        path.moveTo(startPoint.x + mViewBounds.left, startPoint.y + mViewBounds.top);
-        path.lineTo(endPoint.x + mViewBounds.left, endPoint.y + mViewBounds.top);
+        path.moveTo(startPoint.x + mViewLocation[0], startPoint.y + mViewLocation[1]);
+        path.lineTo(endPoint.x + mViewLocation[0], endPoint.y + mViewLocation[1]);
         return path;
     }
 

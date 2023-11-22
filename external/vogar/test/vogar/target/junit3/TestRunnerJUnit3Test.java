@@ -70,20 +70,6 @@ public class TestRunnerJUnit3Test extends AbstractTestRunnerTest {
                 .completedNormally();
     }
 
-    @TestRunnerProperties(testClass = SimpleTest2.class, profile = true)
-    @Test
-    public void testRunner_SimpleTest2_Profile() throws Exception {
-        TestRunner runner = testRunnerRule.createTestRunner();
-        runner.run();
-
-        expectedResults()
-                .ensureProfilingWasRequested()
-                .success("testSimple1")
-                .success("testSimple2")
-                .success("testSimple3")
-                .completedNormally();
-    }
-
     @TestRunnerProperties(testClass = SimpleTest2.class)
     @Test
     public void testRunner_SkipPast() throws Exception {

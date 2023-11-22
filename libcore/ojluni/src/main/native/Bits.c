@@ -31,7 +31,7 @@
 #include "jlong.h"
 #include <string.h>
 
-#include "JNIHelp.h"
+#include <nativehelper/JNIHelp.h>
 
 /*
  * WARNING:

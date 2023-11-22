@@ -28,7 +28,6 @@
 #include "invoke_type.h"
 #include "jni.h"
 #include "modifiers.h"
-#include "utf.h"
 
 namespace art {
 
@@ -63,11 +62,11 @@ class DexFile {
   static const uint16_t kDexNoIndex16 = 0xFFFF;
 
   // The separator character in MultiDex locations.
-  static constexpr char kMultiDexSeparator = ':';
+  static constexpr char kMultiDexSeparator = '!';
 
   // A string version of the previous. This is a define so that we can merge string literals in the
   // preprocessor.
-  #define kMultiDexSeparatorString ":"
+  #define kMultiDexSeparatorString "!"
 
   // Raw header_item.
   struct Header {
@@ -273,7 +272,9 @@ class DexFile {
                                   // can be any non-static method on any class (or interface) except
                                   // for “<init>”.
     kInvokeConstructor = 0x0006,  // an invoker for a given constructor.
-    kLast = kInvokeConstructor
+    kInvokeDirect      = 0x0007,  // an invoker for a direct (special) method.
+    kInvokeInterface   = 0x0008,  // an invoker for an interface method.
+    kLast = kInvokeInterface
   };
 
   // raw method_handle_item
@@ -498,7 +499,7 @@ class DexFile {
     return GetBaseLocation(location.c_str());
   }
 
-  // Returns the ':classes*.dex' part of the dex location. Returns an empty
+  // Returns the '!classes*.dex' part of the dex location. Returns an empty
   // string if there is no multidex suffix for the given location.
   // The kMultiDexSeparator is included in the returned suffix.
   static std::string GetMultiDexSuffix(const std::string& location) {
@@ -636,6 +637,8 @@ class DexFile {
 
   uint32_t FindCodeItemOffset(const DexFile::ClassDef& class_def,
                               uint32_t dex_method_idx) const;
+
+  static uint32_t GetCodeItemSize(const DexFile::CodeItem& disk_code_item);
 
   // Returns the declaring class descriptor string of a field id.
   const char* GetFieldDeclaringClassDescriptor(const FieldId& field_id) const {
@@ -1341,6 +1344,30 @@ class ClassDataItemIterator {
   }
   bool HasNextVirtualMethod() const {
     return pos_ >= EndOfDirectMethodsPos() && pos_ < EndOfVirtualMethodsPos();
+  }
+  void SkipStaticFields() {
+    while (HasNextStaticField()) {
+      Next();
+    }
+  }
+  void SkipInstanceFields() {
+    while (HasNextInstanceField()) {
+      Next();
+    }
+  }
+  void SkipAllFields() {
+    SkipStaticFields();
+    SkipInstanceFields();
+  }
+  void SkipDirectMethods() {
+    while (HasNextDirectMethod()) {
+      Next();
+    }
+  }
+  void SkipVirtualMethods() {
+    while (HasNextVirtualMethod()) {
+      Next();
+    }
   }
   bool HasNext() const {
     return pos_ < EndOfVirtualMethodsPos();

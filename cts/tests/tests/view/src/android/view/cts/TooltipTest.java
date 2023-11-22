@@ -28,12 +28,15 @@ import android.support.test.filters.LargeTest;
 import android.support.test.rule.ActivityTestRule;
 import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.ViewGroup;
+import android.widget.PopupWindow;
+import android.widget.TextView;
 
 import com.android.compatibility.common.util.CtsTouchUtils;
 import com.android.compatibility.common.util.PollingCheck;
@@ -781,5 +784,23 @@ public class TooltipTest {
         setVisibility(child1, View.INVISIBLE);
         injectLongHoverMove(parent);
         assertTrue(hasTooltip(parent));
+    }
+
+    @Test
+    public void testTooltipInPopup() throws Throwable {
+        TextView popupContent = new TextView(mActivity);
+
+        mActivityRule.runOnUiThread(() -> {
+            popupContent.setText("Popup view");
+            popupContent.setTooltipText("Tooltip");
+
+            PopupWindow popup = new PopupWindow(popupContent,
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            popup.showAtLocation(mGroupView, Gravity.CENTER, 0, 0);
+        });
+        mInstrumentation.waitForIdleSync();
+
+        injectLongClick(popupContent);
+        assertTrue(hasTooltip(popupContent));
     }
 }

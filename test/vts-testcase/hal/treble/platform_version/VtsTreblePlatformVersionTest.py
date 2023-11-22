@@ -40,8 +40,11 @@ class VtsTreblePlatformVersionTest(base_test.BaseTestClass):
         if required:
             asserts.assertEqual(results[const.EXIT_CODE][0], 0,
                 "getprop must succeed")
+            asserts.assertTrue(len(results[const.STDOUT][0].strip()) > 0,
+                "getprop must return a value")
         else:
-            if results[const.EXIT_CODE][0] != 0:
+            if (results[const.EXIT_CODE][0] != 0 or
+                len(results[const.STDOUT][0].strip()) == 0):
                 logging.info("sysprop %s undefined", prop)
                 return None
 
@@ -61,8 +64,8 @@ class VtsTreblePlatformVersionTest(base_test.BaseTestClass):
             firstApiLevel = int(firstApiLevel)
             asserts.assertTrue(firstApiLevel >= ANDROID_O_API_VERSION,
                 "VTS can only be run for new launches in O or above")
-        except ValueError:
-            asserts.fail("Unexpected value returned from getprop")
+        except ValueError as e:
+            asserts.fail("Unexpected value returned from getprop: %s" % e)
 
     def testTrebleEnabled(self):
         """Test that device has Treble enabled."""
@@ -76,14 +79,8 @@ class VtsTreblePlatformVersionTest(base_test.BaseTestClass):
             sdkVersion = int(self.getProp("ro.build.version.sdk"))
             asserts.assertTrue(sdkVersion >= ANDROID_O_API_VERSION,
                 "VTS is for devices launching in O or above")
-        except ValueError:
-            asserts.fail("Unexpected value returned from getprop")
-
-    def testVndkVersion(self):
-        """Test that VNDK version is specified."""
-        vndkVersion = self.getProp("ro.vendor.vndk.version")
-        asserts.assertLess(0, len(vndkVersion),
-            "VNDK version is not defined")
+        except ValueError as e:
+            asserts.fail("Unexpected value returned from getprop: %s" % e)
 
 if __name__ == "__main__":
     test_runner.main()

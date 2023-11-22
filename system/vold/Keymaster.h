@@ -19,11 +19,14 @@
 
 #ifdef __cplusplus
 
+#include "KeyBuffer.h"
+
 #include <memory>
 #include <string>
 #include <utility>
 
 #include <android/hardware/keymaster/3.0/IKeymasterDevice.h>
+#include <android-base/macros.h>
 #include <keystore/authorization_set.h>
 
 namespace android {
@@ -50,7 +53,14 @@ class KeymasterOperation {
     ErrorCode errorCode() { return mError; }
     // Call "update" repeatedly until all of the input is consumed, and
     // concatenate the output. Return true on success.
-    bool updateCompletely(const std::string& input, std::string* output);
+    template <class TI, class TO>
+    bool updateCompletely(TI& input, TO* output) {
+        if (output) output->clear();
+        return updateCompletely(input.data(), input.size(), [&](const char* b, size_t n) {
+            if (output) std::copy(b, b+n, std::back_inserter(*output));
+        });
+    }
+
     // Finish and write the output to this string, unless pointer is null.
     bool finish(std::string* output);
     // Move constructor
@@ -79,6 +89,10 @@ class KeymasterOperation {
     KeymasterOperation(ErrorCode error)
         : mDevice{nullptr}, mOpHandle{0},
           mError {error} {}
+
+    bool updateCompletely(const char* input, size_t inputLen,
+                          const std::function<void(const char*, size_t)> consumer);
+
     sp<IKeymasterDevice> mDevice;
     uint64_t mOpHandle;
     ErrorCode mError;

@@ -789,6 +789,17 @@ public class TelephonyManagerFacade extends RpcReceiver {
         return mTelephonyManager.supplyPuk(puk, pin);
     }
 
+    /**
+    * Supply pin for locked SIM.
+    * @param pin the puk pin string
+    * @return    true or false for supplying the pin successfully or unsuccessfully.
+    */
+    @Rpc(description = "Supply Pin for locked SIM.")
+    public boolean telephonySupplyPin(
+            @RpcParameter(name = "pin") String pin) {
+        return mTelephonyManager.supplyPin(pin);
+    }
+
     @Rpc(description = "Returns the unique subscriber ID (such as IMSI) " +
             "for default subscription ID, or null if unavailable")
     public String telephonyGetSubscriberId() {
@@ -1096,7 +1107,6 @@ public class TelephonyManagerFacade extends RpcReceiver {
             mTelephonyManager.getDataState());
     }
 
-
     @Rpc(description = "Returns Total Rx Bytes.")
     public long getTotalRxBytes() {
         return TrafficStats.getTotalRxBytes();
@@ -1208,8 +1218,7 @@ public class TelephonyManagerFacade extends RpcReceiver {
 
     @Rpc(description = "Returns current signal strength for default subscription ID.")
     public SignalStrength telephonyGetSignalStrength() {
-        return telephonyGetSignalStrengthForSubscription(
-                               SubscriptionManager.DEFAULT_SUBSCRIPTION_ID);
+        return mTelephonyManager.getSignalStrength();
     }
 
     @Rpc(description = "Returns current signal strength for specified subscription ID.")

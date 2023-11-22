@@ -18,7 +18,7 @@
 #ifndef QCOM_OMX_METADATA_H_
 #define QCOM_OMX_METADATA_H_
 
-#include <system/window.h>
+#include <cutils/native_handle.h>
 #include <media/hardware/MetadataBufferType.h>
 
 namespace android {

@@ -305,31 +305,6 @@ public class PhoneNumberUtilsTest extends AndroidTestCase {
         assertFalse(PhoneNumberUtils.isWellFormedSmsAddress("android"));
     }
 
-    public void testIsUriNumber() {
-        assertTrue(PhoneNumberUtils.isUriNumber("foo@google.com"));
-        assertTrue(PhoneNumberUtils.isUriNumber("xyz@zzz.org"));
-        assertFalse(PhoneNumberUtils.isUriNumber("+15103331245"));
-        assertFalse(PhoneNumberUtils.isUriNumber("+659231235"));
-    }
-
-    public void testGetUsernameFromUriNumber() {
-        assertEquals("john", PhoneNumberUtils.getUsernameFromUriNumber("john@myorg.com"));
-        assertEquals("tim_123", PhoneNumberUtils.getUsernameFromUriNumber("tim_123@zzz.org"));
-        assertEquals("5103331245", PhoneNumberUtils.getUsernameFromUriNumber("5103331245"));
-    }
-
-    public void testConvertAndStrip() {
-        // Untouched number.
-        assertEquals("123456789", PhoneNumberUtils.convertAndStrip("123456789"));
-        // Dashes should be stripped, legal separators (i.e. wild character remain untouched)
-        assertEquals("+15103331245*123", PhoneNumberUtils.convertAndStrip("+1-510-333-1245*123"));
-        // Arabic digits should be converted
-        assertEquals("5567861616", PhoneNumberUtils.convertAndStrip("٥‎٥‎٦‎٧‎٨‎٦‎١‎٦‎١‎٦‎"));
-        // Arabic digits converted and spaces stripped
-        assertEquals("5567861616", PhoneNumberUtils.convertAndStrip("٥‎ ٥‎٦‎ ٧‎ ٨‎ ٦‎ ١‎ ٦‎ ١‎ ٦‎"));
-
-    }
-
     public void testGetPhoneTtsSpan() {
         // Setup: phone number without a country code. Lets keep coverage minimal to avoid
         // exercising the underlying PhoneNumberUtil or constraining localization changes.

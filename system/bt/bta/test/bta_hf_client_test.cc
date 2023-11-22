@@ -21,10 +21,20 @@
 #include "bta/hf_client/bta_hf_client_int.h"
 #include "bta/include/bta_hf_client_api.h"
 
+namespace base {
+class MessageLoop;
+}  // namespace base
+
+base::MessageLoop* get_message_loop() { return NULL; }
+
 namespace {
-const BD_ADDR bdaddr1 = {0x11, 0x22, 0x33, 0x44, 0x55, 0x66};
-const BD_ADDR bdaddr2 = {0x66, 0x55, 0x44, 0x33, 0x22, 0x11};
+const RawAddress bdaddr1({0x11, 0x22, 0x33, 0x44, 0x55, 0x66});
+const RawAddress bdaddr2({0x66, 0x55, 0x44, 0x33, 0x22, 0x11});
 }  // namespace
+
+// TODO(jpawlowski): there is some weird dependency issue in tests, and the
+// tests here fail to compile without this definition.
+void LogMsg(uint32_t trace_set_mask, const char* fmt_str, ...) {}
 
 class BtaHfClientTest : public testing::Test {
  protected:

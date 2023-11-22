@@ -152,7 +152,7 @@ class RpcHandler(object):
         @param request: the request to get raw data from.
         """
         if request.method == 'POST':
-            return request.raw_post_data
+            return request.body
         return urllib.unquote(request.META['QUERY_STRING'])
 
 

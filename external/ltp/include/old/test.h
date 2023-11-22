@@ -34,6 +34,10 @@
 #ifndef __TEST_H__
 #define __TEST_H__
 
+#ifdef TST_TEST_H__
+# error Newlib tst_test.h already included
+#endif /* TST_TEST_H__ */
+
 #include <stdio.h>
 #include <signal.h>
 #include <unistd.h>
@@ -55,6 +59,7 @@
 #include "tst_pid.h"
 #include "tst_cmd.h"
 #include "tst_cpu.h"
+#include "tst_clone.h"
 #include "old_device.h"
 #include "old_tmpdir.h"
 
@@ -72,8 +77,8 @@
 
 
 /* defines for unexpected signal setup routine (set_usig.c) */
-#define FORK    1		/* SIGCLD is to be ignored */
-#define NOFORK  0		/* SIGCLD is to be caught */
+#define FORK    1		/* SIGCHLD is to be ignored */
+#define NOFORK  0		/* SIGCHLD is to be caught */
 #define DEF_HANDLER SIG_ERR	/* tells set_usig() to use default signal handler */
 
 /*
@@ -152,9 +157,20 @@ void tst_resm_hexd_(const char *file, const int lineno, int ttype,
 void tst_brkm_(const char *file, const int lineno, int ttype,
 	void (*func)(void), const char *arg_fmt, ...)
 	__attribute__ ((format (printf, 5, 6))) LTP_ATTRIBUTE_NORETURN;
-#define tst_brkm(ttype, func, arg_fmt, ...) \
-	tst_brkm_(__FILE__, __LINE__, (ttype), (func), \
-		  (arg_fmt), ##__VA_ARGS__)
+
+#ifdef LTPLIB
+# include "ltp_priv.h"
+# define tst_brkm(flags, cleanup, fmt, ...) do { \
+	if (tst_test) \
+		tst_brk_(__FILE__, __LINE__, flags, fmt, ##__VA_ARGS__); \
+	else \
+		tst_brkm_(__FILE__, __LINE__, flags, cleanup, fmt, ##__VA_ARGS__); \
+	} while (0)
+#else
+# define tst_brkm(flags, cleanup, fmt, ...) do { \
+		tst_brkm_(__FILE__, __LINE__, flags, cleanup, fmt, ##__VA_ARGS__); \
+	} while (0)
+#endif
 
 void tst_require_root(void);
 void tst_exit(void) LTP_ATTRIBUTE_NORETURN;
@@ -193,18 +209,6 @@ char *get_high_address(void);
 void maybe_run_child(void (*child)(), const char *fmt, ...);
 int self_exec(const char *argv0, const char *fmt, ...);
 
-/* Functions from lib/cloner.c */
-int ltp_clone(unsigned long flags, int (*fn)(void *arg), void *arg,
-		size_t stack_size, void *stack);
-int ltp_clone7(unsigned long flags, int (*fn)(void *arg), void *arg,
-		size_t stack_size, void *stack, ...);
-int ltp_clone_malloc(unsigned long clone_flags, int (*fn)(void *arg),
-		void *arg, size_t stacksize);
-int ltp_clone_quick(unsigned long clone_flags, int (*fn)(void *arg),
-		void *arg);
-#define clone(...) use_the_ltp_clone_functions,do_not_use_clone
-
-
 /* lib/tst_mkfs.c
  *
  * @dev: path to a device
@@ -212,9 +216,12 @@ int ltp_clone_quick(unsigned long clone_flags, int (*fn)(void *arg),
  * @fs_opts: NULL or NULL terminated array of mkfs options
  * @extra_opt: extra mkfs option which is passed after the device name
  */
-void tst_mkfs(void (cleanup_fn)(void), const char *dev,
-              const char *fs_type, const char *const fs_opts[],
-              const char *extra_opt);
+#define tst_mkfs(cleanup, dev, fs_type, fs_opts, extra_opt) \
+	tst_mkfs_(__FILE__, __LINE__, cleanup, dev, fs_type, \
+		  fs_opts, extra_opt)
+void tst_mkfs_(const char *file, const int lineno, void (cleanup_fn)(void),
+	       const char *dev, const char *fs_type,
+	       const char *const fs_opts[], const char *extra_opt);
 
 /* lib/tst_net.c
  *

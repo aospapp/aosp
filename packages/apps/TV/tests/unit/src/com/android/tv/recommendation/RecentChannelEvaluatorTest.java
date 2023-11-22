@@ -16,7 +16,11 @@
 
 package com.android.tv.recommendation;
 
+import static org.junit.Assert.assertTrue;
+
 import android.support.test.filters.SmallTest;
+
+import org.junit.Test;
 
 import java.util.HashMap;
 import java.util.List;
@@ -40,14 +44,16 @@ public class RecentChannelEvaluatorTest extends EvaluatorTestCase<RecentChannelE
         return new RecentChannelEvaluator();
     }
 
+    @Test
     public void testOneChannelWithNoWatchLog() {
         long channelId = addChannel().getId();
         notifyChannelAndWatchLogLoaded();
 
-        assertEquals(Recommender.Evaluator.NOT_RECOMMENDED,
+        assertEqualScores(Recommender.Evaluator.NOT_RECOMMENDED,
                 mEvaluator.evaluateChannel(channelId));
     }
 
+    @Test
     public void testOneChannelWithRandomWatchLogs() {
         addChannel();
         addRandomWatchLogs(DEFAULT_WATCH_START_TIME_MS, DEFAULT_WATCH_END_TIME_MS,
@@ -57,17 +63,19 @@ public class RecentChannelEvaluatorTest extends EvaluatorTestCase<RecentChannelE
         assertChannelScoresValid();
     }
 
+    @Test
     public void testMultiChannelsWithNoWatchLog() {
         addChannels(DEFAULT_NUMBER_OF_CHANNELS);
         notifyChannelAndWatchLogLoaded();
 
         List<Long> channelIdList = getChannelIdListSorted();
         for (long channelId : channelIdList) {
-            assertEquals(Recommender.Evaluator.NOT_RECOMMENDED,
+            assertEqualScores(Recommender.Evaluator.NOT_RECOMMENDED,
                     mEvaluator.evaluateChannel(channelId));
         }
     }
 
+    @Test
     public void testMultiChannelsWithRandomWatchLogs() {
         addChannels(DEFAULT_NUMBER_OF_CHANNELS);
         addRandomWatchLogs(DEFAULT_WATCH_START_TIME_MS, DEFAULT_WATCH_END_TIME_MS,
@@ -77,6 +85,7 @@ public class RecentChannelEvaluatorTest extends EvaluatorTestCase<RecentChannelE
         assertChannelScoresValid();
     }
 
+    @Test
     public void testMultiChannelsWithSimpleWatchLogs() {
         addChannels(DEFAULT_NUMBER_OF_CHANNELS);
         // Every channel has one watch log with 1 hour. Also, for two channels
@@ -99,6 +108,7 @@ public class RecentChannelEvaluatorTest extends EvaluatorTestCase<RecentChannelE
         }
     }
 
+    @Test
     public void testScoreIncreasesWithNewWatchLog() {
         addChannels(DEFAULT_NUMBER_OF_CHANNELS);
         addRandomWatchLogs(DEFAULT_WATCH_START_TIME_MS, DEFAULT_WATCH_END_TIME_MS,
@@ -119,6 +129,7 @@ public class RecentChannelEvaluatorTest extends EvaluatorTestCase<RecentChannelE
         }
     }
 
+    @Test
     public void testScoreDecreasesWithIncrementOfWatchedLogUpdatedTime() {
         addChannels(DEFAULT_NUMBER_OF_CHANNELS);
         addRandomWatchLogs(DEFAULT_WATCH_START_TIME_MS, DEFAULT_WATCH_END_TIME_MS,

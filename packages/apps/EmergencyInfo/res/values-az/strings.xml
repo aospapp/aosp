@@ -17,6 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Təcili məlumat"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"Tibbi məlumat"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"Məlumata düzəliş edin"</string>
     <string name="edit_info" msgid="5973929805855224805">"Təcili məlumatı redaktə edin"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"İnfo"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Kontaktlar"</string>
@@ -96,12 +98,12 @@
     <string name="cancel" msgid="7401575239009060939">"Ləğv edin"</string>
     <string name="ok" msgid="163967937451981024">"Ok"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"Təcili məlumat"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"Daxil etdiyiniz məlumat təcili durumda ilk cavab verənlərə yardım edə bilər. Bu yalnız cihazınızda yadda saxlanılıb və hər kəs bunu telefon kilidini açmadan təcili nömrə yığımında oxuya bilər."</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"Davam edin"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Telefon sahibi haqqında heç bir məlumat yoxdur"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"Əgər bu Sizin telefonunuzdursa, fövqəladə hal zamanı burada görünəcək məlumatı əlavə etmək üçün karandaş ikonasına tıklayın"</string>
     <string name="clear_all" msgid="8899013032870561633">"Hamısını silin"</string>
     <string name="clear" msgid="3648880442502887163">"Təmizləyin"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Bütün məlumat və kontaktlar silinsin?"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"Tibbi məlumat və mühüm kontaktları əlavə etmək fövqəladə hallarda ilk cavab verənlərə kömək edə bilər.\n\nHər kəs telefonunuzu kiliddən çıxarmadan kilid ekranından bu məlumatı oxuya və kontakt adlarına klikləməklə onları yığa bilər."</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"Mühüm məlumat əlavə edin"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"İlk cavab verənlərə mühüm məlumatı tapmaqda kömək edin"</string>
 </resources>

@@ -163,7 +163,7 @@ extern "C" {
 #define FLASH_BASE                    0x40023C00UL
 #define DMA1_BASE                     0x40026000UL
 #define DMA2_BASE                     0x40026400UL
-#define DBG_BASE                      0xE0042000UL
+#define DBGMCU_BASE                   0xE0042000UL
 
 
 enum Stm32F4xxSleepType {       //current       power          wkup way       wkup speed   (typ/max)

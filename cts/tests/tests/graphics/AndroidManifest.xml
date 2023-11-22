@@ -18,10 +18,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.graphics.cts">
 
+    <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <application>
         <uses-library android:name="android.test.runner" />
+
+        <activity android:name="android.graphics.cts.CameraGpuCtsActivity"
+            android:label="CameraGpuCtsActivity">
+        </activity>
 
         <activity android:name="android.graphics.cts.ImageViewCtsActivity"
             android:label="ImageViewCtsActivity">

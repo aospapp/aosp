@@ -13,7 +13,7 @@ import os
 import re
 
 import common
-from autotest_lib.client.common_lib import site_utils
+from autotest_lib.client.common_lib import utils
 
 
 class TraceNotFound(RuntimeError):
@@ -50,7 +50,7 @@ class perf_expectation_checker(object):
             self._expectation_file_path = os.path.abspath(
                 os.path.join(os.path.dirname(__file__),
                     'perf_expectations.json'))
-        self._board = board or site_utils.get_current_board()
+        self._board = board or utils.get_current_board()
         self._test_name = test_name
         assert self._board, 'Failed to get board name.'
         assert self._test_name, (

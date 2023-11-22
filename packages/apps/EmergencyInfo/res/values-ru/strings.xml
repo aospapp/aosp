@@ -17,6 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Данные для экстренных случаев"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"Медицинская информация"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"Редактировать информацию"</string>
     <string name="edit_info" msgid="5973929805855224805">"Изменить данные для экстренных случаев"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Сведения"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Контакты"</string>
@@ -75,7 +77,7 @@
     <string name="medications" msgid="644428945685557183">"Медицинские препараты"</string>
     <string name="unknown_medications" msgid="2764171064510423734">"Неизвестно"</string>
     <string name="medications_hint" msgid="3221620025945593723">"Например, аспирин"</string>
-    <string name="medical_conditions" msgid="3555690011498283592">"Медицинская информация"</string>
+    <string name="medical_conditions" msgid="3555690011498283592">"Заболевания"</string>
     <string name="unknown_medical_conditions" msgid="8051364895172053770">"Неизвестно"</string>
     <string name="medical_conditions_hint" msgid="6959152183029062882">"Например, астма"</string>
     <string name="organ_donor" msgid="5953509460007124827">"Донор органов"</string>
@@ -96,12 +98,12 @@
     <string name="cancel" msgid="7401575239009060939">"Отмена"</string>
     <string name="ok" msgid="163967937451981024">"ОК"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g>: <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"Данные для экстренных случаев"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"Информация, которую вы укажете здесь, сохранится только на вашем устройстве. Она будет доступна всем на экране вызова экстренных служб без разблокировки телефона."</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"Продолжить"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Нет сведений о владельце"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"Если телефон ваш, нажмите на значок карандаша и укажите информацию на случай экстренной ситуации."</string>
     <string name="clear_all" msgid="8899013032870561633">"Очистить все"</string>
     <string name="clear" msgid="3648880442502887163">"Очистить"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Удалить все контакты и другие данные?"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"Мы рекомендуем указать медицинскую информацию о себе и контакты на случай чрезвычайной ситуации.\n\nЭти данные будут видны всем на заблокированном экране вашего устройства. Чтобы позвонить, достаточно будет нажать на имя контакта."</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"Добавьте данные для экстренных случаев"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"Эта информация будет доступна всем на заблокированном экране"</string>
 </resources>

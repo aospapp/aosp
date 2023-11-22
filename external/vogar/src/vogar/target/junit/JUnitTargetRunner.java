@@ -23,8 +23,6 @@ import org.junit.runner.manipulation.NoTestsRemainException;
 import org.junit.runner.manipulation.Sorter;
 import org.junit.runners.model.RunnerBuilder;
 import vogar.monitor.TargetMonitor;
-import vogar.target.Profiler;
-import vogar.target.ProfilerRunListener;
 import vogar.target.SkipPastFilter;
 import vogar.target.TargetMonitorRunListener;
 import vogar.target.TargetRunner;
@@ -59,7 +57,7 @@ public final class JUnitTargetRunner implements TargetRunner {
         runnerParams = new RunnerParams(qualification, args, timeoutRule);
     }
 
-    public boolean run(Profiler profiler) {
+    public boolean run() {
         // Use JUnit infrastructure to run the tests.
         RunnerBuilder builder = new VogarRunnerBuilder(runnerParams);
         Runner runner = builder.safeRunnerForClass(testClass);
@@ -87,11 +85,6 @@ public final class JUnitTargetRunner implements TargetRunner {
             // The TargetMonitorRunListener sends the result of the tests back to the main Vogar
             // process.
             core.addListener(new TargetMonitorRunListener(monitor));
-            if (profiler != null) {
-                // The ProfilerRunListener starts the Profiler before the test starts and
-                // stops it afterwards.
-                core.addListener(new ProfilerRunListener(profiler));
-            }
             core.run(runner);
         } catch (VmIsUnstableException e) {
             // If a test reports that the VM is unstable then inform the caller so that the

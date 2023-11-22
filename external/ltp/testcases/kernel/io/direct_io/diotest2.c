@@ -69,6 +69,10 @@ int TST_TOTAL = 3;		/* Total number of test conditions */
 #define WRITE_DIRECT 2
 #define RDWR_DIRECT 3
 
+int fd1 = -1;
+char filename[LEN];
+int bufsize = BUFSIZE;
+
 /*
  * runtest: write the data to the file. Read the data from the file and compare.
  *	For each iteration, write data starting at offse+iter*bufsize
@@ -78,7 +82,7 @@ int runtest(int fd_r, int fd_w, int iter, off64_t offset, int action)
 {
 	char *buf1;
 	char *buf2;
-	int i, bufsize = BUFSIZE;
+	int i;
 
 	/* Allocate for buffers */
 	if ((buf1 = valloc(bufsize)) == 0) {
@@ -119,25 +123,19 @@ int runtest(int fd_r, int fd_w, int iter, off64_t offset, int action)
 	return 0;
 }
 
-/*
- * prg_usage: display the program usage.
-*/
-void prg_usage()
+static void prg_usage(void)
 {
 	fprintf(stderr,
 		"Usage: diotest2 [-b bufsize] [-o offset] [-i iterations] [-f filename]\n");
 	exit(1);
 }
 
-int fd1 = -1;
-char filename[LEN];
 static void setup(void);
 static void cleanup(void);
 
 int main(int argc, char *argv[])
 {
 	int iter = 100;		/* Iterations. Default 100 */
-	int bufsize = BUFSIZE;	/* Buffer size. Default 4k */
 	off64_t offset = 0;	/* Offset. Default 0 */
 	int i, action, fd_r, fd_w;
 	int fail_count = 0, total = 0, failed = 0;

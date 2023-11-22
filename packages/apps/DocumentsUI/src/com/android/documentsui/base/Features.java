@@ -39,11 +39,15 @@ public interface Features {
     boolean isDebugSupportEnabled();
     boolean isFoldersInSearchResultsEnabled();
     boolean isGestureScaleEnabled();
+    boolean isInspectorEnabled();
+    boolean isJobProgressDialogEnabled();
     boolean isLaunchToDocumentEnabled();
     boolean isNotificationChannelEnabled();
+    boolean isOverwriteConfirmationEnabled();
     boolean isRemoteActionsEnabled();
     boolean isSystemKeyboardNavigationEnabled();
     boolean isVirtualFilesSharingEnabled();
+
 
     /**
      * Call this to force-enable any particular feature known by this instance.
@@ -88,8 +92,8 @@ public interface Features {
 
         @Override
         public boolean isCommandInterceptorEnabled() {
-            return !mUserMgr.hasUserRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES)
-                    && isEnabled(R.bool.feature_command_interceptor);
+            assert(isDebugPolicyEnabled());
+            return isEnabled(R.bool.feature_command_interceptor);
         }
 
         @Override
@@ -102,10 +106,13 @@ public interface Features {
             return isEnabled(R.bool.feature_content_refresh);
         }
 
+        private boolean isDebugPolicyEnabled() {
+            return !mUserMgr.hasUserRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES);
+        }
+
         @Override
         public boolean isDebugSupportEnabled() {
-            return !mUserMgr.hasUserRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES)
-                    && !mUserMgr.hasUserRestriction(UserManager.DISALLOW_FUN);
+            return isDebugPolicyEnabled() && isFunPolicyEnabled();
         }
 
         @Override
@@ -113,9 +120,22 @@ public interface Features {
             return isEnabled(R.bool.feature_folders_in_search_results);
         }
 
+        private boolean isFunPolicyEnabled() {
+            return !mUserMgr.hasUserRestriction(UserManager.DISALLOW_FUN);
+        }
+
         @Override
         public boolean isGestureScaleEnabled() {
             return isEnabled(R.bool.feature_gesture_scale);
+        }
+
+        public boolean isInspectorEnabled() {
+            return isEnabled(R.bool.feature_inspector);
+        }
+
+        @Override
+        public boolean isJobProgressDialogEnabled() {
+            return isEnabled(R.bool.feature_job_progress_dialog);
         }
 
         @Override
@@ -126,6 +146,11 @@ public interface Features {
         @Override
         public boolean isNotificationChannelEnabled() {
             return isEnabled(R.bool.feature_notification_channel);
+        }
+
+        @Override
+        public boolean isOverwriteConfirmationEnabled() {
+            return isEnabled(R.bool.feature_overwrite_confirmation);
         }
 
         @Override

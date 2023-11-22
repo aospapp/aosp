@@ -53,6 +53,8 @@ $(call add-clean-step, rm -rf $(OUT_DIR)/target/product/*/obj/SHARED_LIBRARIES/l
 $(call add-clean-step, rm -rf $(OUT_DIR)/target/product/*/obj/SHARED_LIBRARIES/librs*_intermediates)
 $(call add-clean-step, rm -rf $(OUT_DIR)/target/product/*/obj/SHARED_LIBRARIES/libhellocomputendk_intermediates)
 $(call add-clean-step, rm -rf $(OUT_DIR)/host/*/obj/SHARED_LIBRARIES/librsrt*.bc)
+# libRS is no longer vndk-sp, but llndk
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/lib/vndk-sp/libRS.so)
 
 # ************************************************
 # NEWER CLEAN STEPS MUST BE AT THE END OF THE LIST

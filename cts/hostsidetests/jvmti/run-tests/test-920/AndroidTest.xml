@@ -23,5 +23,6 @@
         <option name="jar" value="CtsJvmtiRunTest920HostTestCases.jar" />
         <option name="set-option" value="test-file-name:CtsJvmtiRunTest920DeviceApp.apk" />
         <option name="set-option" value="package-name:android.jvmti.cts.run_test_920" />
+        <option name="runtime-hint" value="8s"/>
     </test>
 </configuration>

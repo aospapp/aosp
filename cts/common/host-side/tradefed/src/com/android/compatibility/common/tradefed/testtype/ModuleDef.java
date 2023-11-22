@@ -76,6 +76,17 @@ public class ModuleDef implements IModuleDef {
         mAbi = abi;
         mTest = test;
         mConfigurationDescriptor = configurationDescriptor;
+        initializePrepareLists(preparers);
+    }
+
+    /**
+     * Sort preparers into different lists according to their types
+     *
+     * @param preparers target preparers
+     * @throws IllegalArgumentException
+     */
+    protected void initializePrepareLists(List<ITargetPreparer> preparers)
+            throws IllegalArgumentException {
         boolean hasAbiReceiver = false;
         for (ITargetPreparer preparer : preparers) {
             if (preparer instanceof IAbiReceiver) {
@@ -84,7 +95,7 @@ public class ModuleDef implements IModuleDef {
             // Separate preconditions and dynamicconfigpushers from other target preparers.
             if (preparer instanceof PreconditionPreparer) {
                 mPreconditions.add(preparer);
-            }else if (preparer instanceof DynamicConfigPusher) {
+            } else if (preparer instanceof DynamicConfigPusher) {
                 mDynamicConfigPreparers.add(preparer);
             } else if (preparer instanceof TokenRequirement) {
                 mTokens.addAll(((TokenRequirement) preparer).getTokens());
@@ -98,22 +109,28 @@ public class ModuleDef implements IModuleDef {
         // Reverse cleaner order
         Collections.reverse(mCleaners);
 
+        checkRequiredInterfaces(hasAbiReceiver);
+    }
+
+    /**
+     * Check whether required interfaces are implemented.
+     *
+     * @param hasAbiReceiver whether at lease one of the preparers is AbiReceiver
+     * @throws IllegalArgumentException
+     */
+    protected void checkRequiredInterfaces(boolean hasAbiReceiver) throws IllegalArgumentException {
         // Required interfaces:
-        if (!hasAbiReceiver && !(test instanceof IAbiReceiver)) {
-            throw new IllegalArgumentException(test
-                    + "does not implement IAbiReceiver"
+        if (!hasAbiReceiver && !(mTest instanceof IAbiReceiver)) {
+            throw new IllegalArgumentException(mTest + "does not implement IAbiReceiver"
                     + " - for multi-abi testing (64bit)");
-        } else if (!(test instanceof IRuntimeHintProvider)) {
-            throw new IllegalArgumentException(test
-                    + " does not implement IRuntimeHintProvider"
+        } else if (!(mTest instanceof IRuntimeHintProvider)) {
+            throw new IllegalArgumentException(mTest + " does not implement IRuntimeHintProvider"
                     + " - to provide estimates of test invocation time");
-        } else if (!(test instanceof ITestCollector)) {
-            throw new IllegalArgumentException(test
-                    + " does not implement ITestCollector"
+        } else if (!(mTest instanceof ITestCollector)) {
+            throw new IllegalArgumentException(mTest + " does not implement ITestCollector"
                     + " - for test list collection");
-        } else if (!(test instanceof ITestFilterReceiver)) {
-            throw new IllegalArgumentException(test
-                    + " does not implement ITestFilterReceiver"
+        } else if (!(mTest instanceof ITestFilterReceiver)) {
+            throw new IllegalArgumentException(mTest + " does not implement ITestFilterReceiver"
                     + " - to allow tests to be filtered");
         }
     }
@@ -140,6 +157,13 @@ public class ModuleDef implements IModuleDef {
     @Override
     public String getName() {
         return mName;
+    }
+
+    /**
+     * @return the mPreparerWhitelist
+     */
+    protected Set<String> getPreparerWhitelist() {
+        return mPreparerWhitelist;
     }
 
     /**
@@ -223,6 +247,37 @@ public class ModuleDef implements IModuleDef {
     @Override
     public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
         CLog.d("Running module %s", toString());
+        runPreparerSetups();
+
+        CLog.d("Test: %s", mTest.getClass().getSimpleName());
+        prepareTestClass();
+
+        IModuleListener moduleListener = new ModuleListener(this, listener);
+        // Guarantee events testRunStarted and testRunEnded in case underlying test runner does not
+        ModuleFinisher moduleFinisher = new ModuleFinisher(moduleListener);
+        mTest.run(moduleFinisher);
+        moduleFinisher.finish();
+
+        // Tear down
+        runPreparerTeardowns();
+    }
+
+    /**
+     * Run preparers' teardown functions.
+     */
+    protected void runPreparerTeardowns() throws DeviceNotAvailableException {
+        for (ITargetCleaner cleaner : mCleaners) {
+            CLog.d("Cleaner: %s", cleaner.getClass().getSimpleName());
+            cleaner.tearDown(mDevice, mBuild, null);
+        }
+    }
+
+    /**
+     * Run preparers' setup functions.
+     *
+     * @throws DeviceNotAvailableException
+     */
+    protected void runPreparerSetups() throws DeviceNotAvailableException {
         // Run DynamicConfigPusher setup once more, in case cleaner has previously
         // removed dynamic config file from the target (see b/32877809)
         for (ITargetPreparer preparer : mDynamicConfigPreparers) {
@@ -232,8 +287,12 @@ public class ModuleDef implements IModuleDef {
         for (ITargetPreparer preparer : mPreparers) {
             runPreparerSetup(preparer);
         }
+    }
 
-        CLog.d("Test: %s", mTest.getClass().getSimpleName());
+    /**
+     * Set test classes attributes according to their interfaces.
+     */
+    protected void prepareTestClass() {
         if (mTest instanceof IAbiReceiver) {
             ((IAbiReceiver) mTest).setAbi(mAbi);
         }
@@ -242,18 +301,6 @@ public class ModuleDef implements IModuleDef {
         }
         if (mTest instanceof IDeviceTest) {
             ((IDeviceTest) mTest).setDevice(mDevice);
-        }
-
-        IModuleListener moduleListener = new ModuleListener(this, listener);
-        // Guarantee events testRunStarted and testRunEnded in case underlying test runner does not
-        ModuleFinisher moduleFinisher = new ModuleFinisher(moduleListener);
-        mTest.run(moduleFinisher);
-        moduleFinisher.finish();
-
-        // Tear down
-        for (ITargetCleaner cleaner : mCleaners) {
-            CLog.d("Cleaner: %s", cleaner.getClass().getSimpleName());
-            cleaner.tearDown(mDevice, mBuild, null);
         }
     }
 

@@ -23,8 +23,10 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <sched.h>
 
 #include "lapi/fcntl.h"
+#include "tst_safe_pthread.h"
 #include "tst_test.h"
 
 static int thread_cnt;
@@ -66,7 +68,7 @@ void *thread_fn_01(void *arg)
 
 	memset(buf, (intptr_t)arg, write_size);
 
-	struct flock lck = {
+	struct flock64 lck = {
 		.l_whence = SEEK_SET,
 		.l_start  = 0,
 		.l_len    = 1,
@@ -84,7 +86,7 @@ void *thread_fn_01(void *arg)
 		if (fcntl(fd, F_OFD_SETLKW, &lck) == -1)
 			tst_brk(TBROK | TERRNO, "fcntl() failed");
 
-		pthread_yield();
+		sched_yield();
 	}
 
 	SAFE_CLOSE(fd);

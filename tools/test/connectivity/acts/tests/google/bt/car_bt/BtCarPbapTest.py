@@ -19,6 +19,7 @@
 import os
 import time
 
+from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.bt_test_utils import setup_multiple_devices_for_bt_test
 from acts.base_test import BaseTestClass
@@ -139,7 +140,7 @@ class BtCarPbapTest(BluetoothBaseTest):
             self.pce, 0)
         return contacts_added and contacts_removed
 
-    #@BluetoothTest(UUID=7dcdecfc-42d1-4f41-b66e-823c8f161356)
+    @test_tracker_info(uuid='7dcdecfc-42d1-4f41-b66e-823c8f161356')
     @BluetoothBaseTest.bt_test_wrap
     def test_pbap_connect_and_disconnect(self):
         """Test Connectivity
@@ -187,7 +188,7 @@ class BtCarPbapTest(BluetoothBaseTest):
 
         return True
 
-    #@BluetoothTest(UUID=1733efb9-71af-4956-bd3a-0d3167d94d0c)
+    @test_tracker_info(uuid='1733efb9-71af-4956-bd3a-0d3167d94d0c')
     @BluetoothBaseTest.bt_test_wrap
     def test_contact_download(self):
         """Test Contact Download
@@ -222,7 +223,7 @@ class BtCarPbapTest(BluetoothBaseTest):
             return False
         return bt_contacts_utils.erase_contacts(self.pce)
 
-    #@BluetoothTest(UUID=99dc6ac6-b7cf-45ce-927b-8c4ebf8ab664)
+    @test_tracker_info(uuid='99dc6ac6-b7cf-45ce-927b-8c4ebf8ab664')
     @BluetoothBaseTest.bt_test_wrap
     def test_modify_phonebook(self):
         """Test Modify Phonebook
@@ -258,7 +259,7 @@ class BtCarPbapTest(BluetoothBaseTest):
             self.pse, self.contacts_destination_path, PSE_CONTACTS_FILE)
         return self.connect_and_verify(phone_numbers_added)
 
-    #@BluetoothTest(UUID=bbe31bf5-51e8-4175-b266-1c7750e44f5b)
+    @test_tracker_info(uuid='bbe31bf5-51e8-4175-b266-1c7750e44f5b')
     @BluetoothBaseTest.bt_test_wrap
     def test_special_contacts(self):
         """Test Special Contacts
@@ -332,7 +333,7 @@ class BtCarPbapTest(BluetoothBaseTest):
 
         return self.connect_and_verify(phone_numbers_added)
 
-    #@BluetoothTest(UUID=2aa2bd00-86cc-4f39-a06a-90b17ea5b320)
+    @test_tracker_info(uuid='2aa2bd00-86cc-4f39-a06a-90b17ea5b320')
     @BluetoothBaseTest.bt_test_wrap
     def test_call_log(self):
         """Test Call Log
@@ -399,6 +400,8 @@ class BtCarPbapTest(BluetoothBaseTest):
 
         return True
 
+    @test_tracker_info(uuid='bb018bf4-5a61-478d-acce-eef88050e489')
+    @BluetoothBaseTest.bt_test_wrap
     def test_multiple_phones(self):
         """Test Multiple Phones
 

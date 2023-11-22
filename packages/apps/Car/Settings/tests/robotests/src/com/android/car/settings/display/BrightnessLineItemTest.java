@@ -50,7 +50,7 @@ public class BrightnessLineItemTest {
         // for some reason in robolectric test, I can't set this value over 100
         for (int brightness = 0; brightness < 100; ++brightness) {
             Settings.System.putInt(mContext.getContentResolver(), SCREEN_BRIGHTNESS, brightness);
-            assertThat(mBrightnessLineItem.getInitialSeekbarValue()).isEqualTo(brightness);
+            assertThat(mBrightnessLineItem.getSeekbarValue()).isEqualTo(brightness);
         }
     }
 

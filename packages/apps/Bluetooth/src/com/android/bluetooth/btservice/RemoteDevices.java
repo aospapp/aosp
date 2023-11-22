@@ -17,15 +17,24 @@
 package com.android.bluetooth.btservice;
 
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothAssignedNumbers;
 import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothHeadset;
+import android.bluetooth.BluetoothProfile;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Handler;
 import android.os.Message;
 import android.os.ParcelUuid;
+import android.support.annotation.VisibleForTesting;
 import android.util.Log;
 import com.android.bluetooth.R;
 import com.android.bluetooth.Utils;
+import com.android.bluetooth.hfp.HeadsetHalConstants;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -41,13 +50,34 @@ final class RemoteDevices {
     private static BluetoothAdapter mAdapter;
     private static AdapterService mAdapterService;
     private static ArrayList<BluetoothDevice> mSdpTracker;
-    private Object mObject = new Object();
+    private final Object mObject = new Object();
 
     private static final int UUID_INTENT_DELAY = 6000;
     private static final int MESSAGE_UUID_INTENT = 1;
 
-    private HashMap<String, DeviceProperties> mDevices;
+    private final HashMap<String, DeviceProperties> mDevices;
     private Queue<String> mDeviceQueue;
+
+    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            switch (action) {
+                case BluetoothHeadset.ACTION_HF_INDICATORS_VALUE_CHANGED:
+                    onHfIndicatorValueChanged(intent);
+                    break;
+                case BluetoothHeadset.ACTION_VENDOR_SPECIFIC_HEADSET_EVENT:
+                    onVendorSpecificHeadsetEvent(intent);
+                    break;
+                case BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED:
+                    onHeadsetConnectionStateChanged(intent);
+                    break;
+                default:
+                    Log.w(TAG, "Unhandled intent: " + intent);
+                    break;
+            }
+        }
+    };
 
     RemoteDevices(AdapterService service) {
         mAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -57,8 +87,35 @@ final class RemoteDevices {
         mDeviceQueue = new LinkedList<String>();
     }
 
+    /**
+     * Init should be called before using this RemoteDevices object
+     */
+    void init() {
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(BluetoothHeadset.ACTION_HF_INDICATORS_VALUE_CHANGED);
+        filter.addAction(BluetoothHeadset.ACTION_VENDOR_SPECIFIC_HEADSET_EVENT);
+        filter.addCategory(BluetoothHeadset.VENDOR_SPECIFIC_HEADSET_EVENT_COMPANY_ID_CATEGORY + "."
+                + BluetoothAssignedNumbers.PLANTRONICS);
+        filter.addCategory(BluetoothHeadset.VENDOR_SPECIFIC_HEADSET_EVENT_COMPANY_ID_CATEGORY + "."
+                + BluetoothAssignedNumbers.APPLE);
+        filter.addAction(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED);
+        mAdapterService.registerReceiver(mReceiver, filter);
+    }
 
+    /**
+     * Clean up should be called when this object is no longer needed, must be called after init()
+     */
     void cleanup() {
+        // Unregister receiver first, mAdapterService is never null
+        mAdapterService.unregisterReceiver(mReceiver);
+        reset();
+    }
+
+    /**
+     * Reset should be called when the state of this object needs to be cleared
+     * RemoteDevices is still usable after reset
+     */
+    void reset() {
         if (mSdpTracker !=null)
             mSdpTracker.clear();
 
@@ -121,6 +178,7 @@ final class RemoteDevices {
         private int mBondState;
         private BluetoothDevice mDevice;
         private boolean isBondingInitiatedLocally;
+        private int mBatteryLevel = BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
 
         DeviceProperties() {
             mBondState = BluetoothDevice.BOND_NONE;
@@ -256,6 +314,21 @@ final class RemoteDevices {
                 return isBondingInitiatedLocally;
             }
         }
+
+        int getBatteryLevel() {
+            synchronized (mObject) {
+                return mBatteryLevel;
+            }
+        }
+
+        /**
+         * @param batteryLevel the mBatteryLevel to set
+         */
+        void setBatteryLevel(int batteryLevel) {
+            synchronized (mObject) {
+                this.mBatteryLevel = batteryLevel;
+            }
+        }
     }
 
     private void sendUuidIntent(BluetoothDevice device) {
@@ -269,11 +342,12 @@ final class RemoteDevices {
         mSdpTracker.remove(device);
     }
 
-  /**
-   * When bonding is initiated to remote device that we have never seen, i.e Out Of Band pairing, we
-   * must add device first before setting it's properties. This is a helper method for doing that.
-   */
-  void setBondingInitiatedLocally(byte[] address) {
+    /**
+     * When bonding is initiated to remote device that we have never seen, i.e Out Of Band pairing,
+     * we must add device first before setting it's properties. This is a helper method for doing
+     * that.
+     */
+    void setBondingInitiatedLocally(byte[] address) {
         DeviceProperties properties;
 
         BluetoothDevice device = getDevice(address);
@@ -286,6 +360,68 @@ final class RemoteDevices {
         properties.setBondingInitiatedLocally(true);
     }
 
+    /**
+     * Update battery level in device properties
+     * @param device The remote device to be updated
+     * @param batteryLevel Battery level Indicator between 0-100,
+     *                    {@link BluetoothDevice#BATTERY_LEVEL_UNKNOWN} is error
+     */
+    @VisibleForTesting
+    void updateBatteryLevel(BluetoothDevice device, int batteryLevel) {
+        if (device == null || batteryLevel < 0 || batteryLevel > 100) {
+            warnLog("Invalid parameters device=" + String.valueOf(device == null)
+                    + ", batteryLevel=" + String.valueOf(batteryLevel));
+            return;
+        }
+        DeviceProperties deviceProperties = getDeviceProperties(device);
+        if (deviceProperties == null) {
+            deviceProperties = addDeviceProperties(Utils.getByteAddress(device));
+        }
+        synchronized (mObject) {
+            int currentBatteryLevel = deviceProperties.getBatteryLevel();
+            if (batteryLevel == currentBatteryLevel) {
+                debugLog("Same battery level for device " + device + " received "
+                        + String.valueOf(batteryLevel) + "%");
+                return;
+            }
+            deviceProperties.setBatteryLevel(batteryLevel);
+        }
+        sendBatteryLevelChangedBroadcast(device, batteryLevel);
+        Log.d(TAG, "Updated device " + device + " battery level to " + batteryLevel + "%");
+    }
+
+    /**
+     * Reset battery level property to {@link BluetoothDevice#BATTERY_LEVEL_UNKNOWN} for a device
+     * @param device device whose battery level property needs to be reset
+     */
+    @VisibleForTesting
+    void resetBatteryLevel(BluetoothDevice device) {
+        if (device == null) {
+            warnLog("Device is null");
+            return;
+        }
+        DeviceProperties deviceProperties = getDeviceProperties(device);
+        if (deviceProperties == null) {
+            return;
+        }
+        synchronized (mObject) {
+            if (deviceProperties.getBatteryLevel() == BluetoothDevice.BATTERY_LEVEL_UNKNOWN) {
+                debugLog("Battery level was never set or is already reset, device=" + device);
+                return;
+            }
+            deviceProperties.setBatteryLevel(BluetoothDevice.BATTERY_LEVEL_UNKNOWN);
+        }
+        sendBatteryLevelChangedBroadcast(device, BluetoothDevice.BATTERY_LEVEL_UNKNOWN);
+        Log.d(TAG, "Reset battery level, device=" + device);
+    }
+
+    private void sendBatteryLevelChangedBroadcast(BluetoothDevice device, int batteryLevel) {
+        Intent intent = new Intent(BluetoothDevice.ACTION_BATTERY_LEVEL_CHANGED);
+        intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
+        intent.putExtra(BluetoothDevice.EXTRA_BATTERY_LEVEL, batteryLevel);
+        intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
+        mAdapterService.sendBroadcast(intent, AdapterService.BLUETOOTH_PERM);
+    }
 
     void devicePropertyChangedCallback(byte[] address, int[] types, byte[][] values) {
         Intent intent;
@@ -392,7 +528,8 @@ final class RemoteDevices {
         BluetoothDevice device = getDevice(address);
 
         if (device == null) {
-            errorLog("aclStateChangeCallback: Device is NULL");
+            errorLog("aclStateChangeCallback: device is NULL, address="
+                    + Utils.getAddressStringFromByte(address) + ", newState=" + newState);
             return;
         }
         int state = mAdapterService.getState();
@@ -418,6 +555,10 @@ final class RemoteDevices {
                 intent = new Intent(BluetoothDevice.ACTION_ACL_DISCONNECTED);
             } else if (state == BluetoothAdapter.STATE_BLE_ON || state == BluetoothAdapter.STATE_BLE_TURNING_OFF) {
                 intent = new Intent(BluetoothAdapter.ACTION_BLE_ACL_DISCONNECTED);
+            }
+            // Reset battery level on complete disconnection
+            if (mAdapterService.getConnectionState(device) == 0) {
+                resetBatteryLevel(device);
             }
             debugLog("aclStateChangeCallback: Adapter State: "
                     + BluetoothAdapter.nameForState(state) + " Disconnected: " + device);
@@ -453,6 +594,181 @@ final class RemoteDevices {
         mHandler.sendMessage(message);
     }
 
+    /**
+     * Handles headset connection state change event
+     * @param intent must be {@link BluetoothHeadset#ACTION_CONNECTION_STATE_CHANGED} intent
+     */
+    @VisibleForTesting
+    void onHeadsetConnectionStateChanged(Intent intent) {
+        BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+        if (device == null) {
+            Log.e(TAG, "onHeadsetConnectionStateChanged() remote device is null");
+            return;
+        }
+        if (intent.getIntExtra(BluetoothProfile.EXTRA_STATE, BluetoothProfile.STATE_DISCONNECTED)
+                == BluetoothProfile.STATE_DISCONNECTED) {
+            // TODO: Rework this when non-HFP sources of battery level indication is added
+            resetBatteryLevel(device);
+        }
+    }
+
+    @VisibleForTesting
+    void onHfIndicatorValueChanged(Intent intent) {
+        BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+        if (device == null) {
+            Log.e(TAG, "onHfIndicatorValueChanged() remote device is null");
+            return;
+        }
+        int indicatorId = intent.getIntExtra(BluetoothHeadset.EXTRA_HF_INDICATORS_IND_ID, -1);
+        int indicatorValue = intent.getIntExtra(BluetoothHeadset.EXTRA_HF_INDICATORS_IND_VALUE, -1);
+        if (indicatorId == HeadsetHalConstants.HF_INDICATOR_BATTERY_LEVEL_STATUS) {
+            updateBatteryLevel(device, indicatorValue);
+        }
+    }
+
+    /**
+     * Handle {@link BluetoothHeadset#ACTION_VENDOR_SPECIFIC_HEADSET_EVENT} intent
+     * @param intent must be {@link BluetoothHeadset#ACTION_VENDOR_SPECIFIC_HEADSET_EVENT} intent
+     */
+    @VisibleForTesting
+    void onVendorSpecificHeadsetEvent(Intent intent) {
+        BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+        if (device == null) {
+            Log.e(TAG, "onVendorSpecificHeadsetEvent() remote device is null");
+            return;
+        }
+        String cmd =
+                intent.getStringExtra(BluetoothHeadset.EXTRA_VENDOR_SPECIFIC_HEADSET_EVENT_CMD);
+        if (cmd == null) {
+            Log.e(TAG, "onVendorSpecificHeadsetEvent() command is null");
+            return;
+        }
+        int cmdType = intent.getIntExtra(
+                BluetoothHeadset.EXTRA_VENDOR_SPECIFIC_HEADSET_EVENT_CMD_TYPE, -1);
+        // Only process set command
+        if (cmdType != BluetoothHeadset.AT_CMD_TYPE_SET) {
+            debugLog("onVendorSpecificHeadsetEvent() only SET command is processed");
+            return;
+        }
+        Object[] args = (Object[]) intent.getExtras().get(
+                BluetoothHeadset.EXTRA_VENDOR_SPECIFIC_HEADSET_EVENT_ARGS);
+        if (args == null) {
+            Log.e(TAG, "onVendorSpecificHeadsetEvent() arguments are null");
+            return;
+        }
+        int batteryPercent = BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
+        switch (cmd) {
+            case BluetoothHeadset.VENDOR_SPECIFIC_HEADSET_EVENT_XEVENT:
+                batteryPercent = getBatteryLevelFromXEventVsc(args);
+                break;
+            case BluetoothHeadset.VENDOR_SPECIFIC_HEADSET_EVENT_IPHONEACCEV:
+                batteryPercent = getBatteryLevelFromAppleBatteryVsc(args);
+                break;
+        }
+        if (batteryPercent != BluetoothDevice.BATTERY_LEVEL_UNKNOWN) {
+            updateBatteryLevel(device, batteryPercent);
+            infoLog("Updated device " + device + " battery level to "
+                    + String.valueOf(batteryPercent) + "%");
+        }
+    }
+
+    /**
+     * Parse
+     *      AT+IPHONEACCEV=[NumberOfIndicators],[IndicatorType],[IndicatorValue]
+     * vendor specific event
+     * @param args Array of arguments on the right side of assignment
+     * @return Battery level in percents, [0-100], {@link BluetoothDevice#BATTERY_LEVEL_UNKNOWN}
+     *         when there is an error parsing the arguments
+     */
+    @VisibleForTesting
+    static int getBatteryLevelFromAppleBatteryVsc(Object[] args) {
+        if (args.length == 0) {
+            Log.w(TAG, "getBatteryLevelFromAppleBatteryVsc() empty arguments");
+            return BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
+        }
+        int numKvPair;
+        if (args[0] instanceof Integer) {
+            numKvPair = (Integer) args[0];
+        } else {
+            Log.w(TAG, "getBatteryLevelFromAppleBatteryVsc() error parsing number of arguments");
+            return BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
+        }
+        if (args.length != (numKvPair * 2 + 1)) {
+            Log.w(TAG, "getBatteryLevelFromAppleBatteryVsc() number of arguments does not match");
+            return BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
+        }
+        int indicatorType;
+        int indicatorValue = -1;
+        for (int i = 0; i < numKvPair; ++i) {
+            Object indicatorTypeObj = args[2 * i + 1];
+            if (indicatorTypeObj instanceof Integer) {
+                indicatorType = (Integer) indicatorTypeObj;
+            } else {
+                Log.w(TAG, "getBatteryLevelFromAppleBatteryVsc() error parsing indicator type");
+                return BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
+            }
+            if (indicatorType
+                    != BluetoothHeadset.VENDOR_SPECIFIC_HEADSET_EVENT_IPHONEACCEV_BATTERY_LEVEL) {
+                continue;
+            }
+            Object indicatorValueObj = args[2 * i + 2];
+            if (indicatorValueObj instanceof Integer) {
+                indicatorValue = (Integer) indicatorValueObj;
+            } else {
+                Log.w(TAG, "getBatteryLevelFromAppleBatteryVsc() error parsing indicator value");
+                return BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
+            }
+            break;
+        }
+        return (indicatorValue < 0 || indicatorValue > 9) ? BluetoothDevice.BATTERY_LEVEL_UNKNOWN
+                                                          : (indicatorValue + 1) * 10;
+    }
+
+    /**
+     * Parse
+     *      AT+XEVENT=BATTERY,[Level],[NumberOfLevel],[MinutesOfTalk],[IsCharging]
+     * vendor specific event
+     * @param args Array of arguments on the right side of SET command
+     * @return Battery level in percents, [0-100], {@link BluetoothDevice#BATTERY_LEVEL_UNKNOWN}
+     *         when there is an error parsing the arguments
+     */
+    @VisibleForTesting
+    static int getBatteryLevelFromXEventVsc(Object[] args) {
+        if (args.length == 0) {
+            Log.w(TAG, "getBatteryLevelFromXEventVsc() empty arguments");
+            return BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
+        }
+        Object eventNameObj = args[0];
+        if (!(eventNameObj instanceof String)) {
+            Log.w(TAG, "getBatteryLevelFromXEventVsc() error parsing event name");
+            return BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
+        }
+        String eventName = (String) eventNameObj;
+        if (!eventName.equals(
+                    BluetoothHeadset.VENDOR_SPECIFIC_HEADSET_EVENT_XEVENT_BATTERY_LEVEL)) {
+            infoLog("getBatteryLevelFromXEventVsc() skip none BATTERY event: " + eventName);
+            return BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
+        }
+        if (args.length != 5) {
+            Log.w(TAG, "getBatteryLevelFromXEventVsc() wrong battery level event length: "
+                            + String.valueOf(args.length));
+            return BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
+        }
+        if (!(args[1] instanceof Integer) || !(args[2] instanceof Integer)) {
+            Log.w(TAG, "getBatteryLevelFromXEventVsc() error parsing event values");
+            return BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
+        }
+        int batteryLevel = (Integer) args[1];
+        int numberOfLevels = (Integer) args[2];
+        if (batteryLevel < 0 || numberOfLevels < 0 || batteryLevel > numberOfLevels) {
+            Log.w(TAG, "getBatteryLevelFromXEventVsc() wrong event value, batteryLevel="
+                            + String.valueOf(batteryLevel) + ", numberOfLevels="
+                            + String.valueOf(numberOfLevels));
+            return BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
+        }
+        return batteryLevel * 100 / numberOfLevels;
+    }
+
     private final Handler mHandler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
@@ -467,19 +783,19 @@ final class RemoteDevices {
         }
     };
 
-    private void errorLog(String msg) {
+    private static void errorLog(String msg) {
         Log.e(TAG, msg);
     }
 
-    private void debugLog(String msg) {
+    private static void debugLog(String msg) {
         if (DBG) Log.d(TAG, msg);
     }
 
-    private void infoLog(String msg) {
+    private static void infoLog(String msg) {
         if (DBG) Log.i(TAG, msg);
     }
 
-    private void warnLog(String msg) {
+    private static void warnLog(String msg) {
         Log.w(TAG, msg);
     }
 

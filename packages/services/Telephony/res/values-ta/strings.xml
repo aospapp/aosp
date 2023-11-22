@@ -78,7 +78,6 @@
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"குரலஞ்சல் (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"VM:"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"அறிவிப்புகள்"</string>
-    <string name="networks" msgid="8873030692174541976">"நெட்வொர்க் ஆபரேட்டர்கள்"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"அவசரகால அலைபரப்புகள்"</string>
     <string name="call_settings" msgid="6112441768261754562">"அழைப்பு அமைப்பு"</string>
     <string name="additional_gsm_call_settings" msgid="1391795981938800617">"கூடுதல் அமைப்பு"</string>
@@ -164,20 +163,18 @@
     <string name="label_available" msgid="1181658289009300430">"கிடைக்கின்ற நெட்வொர்க்குகள்"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"தேடுகிறது..."</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"நெட்வொர்க்குகள் இல்லை."</string>
-    <string name="search_networks" msgid="1601136049300882441">"நெட்வொர்க்குகளைத் தேடுக"</string>
     <string name="network_query_error" msgid="6828516148953325006">"நெட்வொர்க்குகளைத் தேடும்போது பிழை."</string>
     <string name="register_on_network" msgid="9055203954040805084">"<xliff:g id="NETWORK">%s</xliff:g> இல் பதிவுசெய்கிறது…"</string>
     <string name="not_allowed" msgid="5613353860205691579">"சிம் கார்டு, நெட்வொர்க்கில் இணைப்பதை அனுமதிக்கவில்லை."</string>
     <string name="connect_later" msgid="2308119155752343975">"இப்போது இந்த நெட்வொர்க்குடன் இணைக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்."</string>
     <string name="registration_done" msgid="495135664535876612">"நெட்வொர்க்கில் பதிவுசெய்யப்பட்டது."</string>
-    <string name="sum_carrier_select" msgid="3494252551249882718">"நெட்வொர்க் ஆபரேட்டரைத் தேர்வுசெய்யவும்"</string>
-    <string name="sum_search_networks" msgid="2921092249873272715">"கிடைக்கும் எல்லா நெட்வொர்க்குகளையும் தேடுக"</string>
-    <string name="select_automatically" msgid="5628402124471810174">"தானாகவே தேர்வுசெய்"</string>
-    <string name="sum_select_automatically" msgid="5614890115123292400">"தானாகவே தேர்வுசெய்த நெட்வொர்க்கைத் தேர்வுசெய்க"</string>
+    <string name="select_automatically" msgid="1046727200631770962">"நெட்வொர்க்கைத் தானாகத் தேர்ந்தெடு"</string>
+    <string name="network_select_title" msgid="7733107364757544558">"நெட்வொர்க்"</string>
     <string name="register_automatically" msgid="6017849844573519637">"தானியங்கு பதிவு…"</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"தேர்ந்தெடுத்த நெட்வொர்க் வகை"</string>
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"நெட்வொர்க் செயல்பாட்டிற்கான பயன்முறையை மாற்று"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"தேர்ந்தெடுத்த நெட்வொர்க் வகை"</string>
+    <string name="forbidden_network" msgid="4384929668343563440">"(தடுக்கப்பட்டது)"</string>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"தேர்ந்தெடுத்த நெட்வொர்க் பயன்முறை: WCDMA பரிந்துரைக்கப்படுகிறது"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"தேர்ந்தெடுத்த நெட்வொர்க் பயன்முறை: GSM மட்டும்"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"தேர்ந்தெடுத்த நெட்வொர்க் பயன்முறை: WCDMA மட்டும்"</string>
@@ -210,21 +207,37 @@
     <item msgid="1524224863879435516">"GSM மட்டும்"</item>
     <item msgid="3817924849415716259">"GSM/WCDMA பரிந்துரைக்கப்பட்டது"</item>
   </string-array>
+    <string name="call_category" msgid="5863978196309462052">"அழைப்பு"</string>
+    <string name="network_operator_category" msgid="4830701959205735636">"நெட்வொர்க்"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"மேம்பட்ட 4G LTE பயன்முறை"</string>
     <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"மேம்பட்ட அழைப்பு"</string>
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"குரல் மற்றும் பிற தொடர்புமுறைகளை மேம்படுத்த, LTE சேவைகளைப் பயன்படுத்தவும் (பரிந்துரைக்கப்பட்டது)"</string>
     <string name="data_enabled" msgid="5972538663568715366">"தரவு இயக்கப்பட்டது"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"தரவுப் பயன்பாட்டை அனுமதி"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"கவனம் தேவை"</string>
-    <string name="roaming" msgid="8871412572928323707">"தரவு ரோமிங்"</string>
+    <string name="roaming" msgid="7894878421600247140">"ரோமிங்"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"ரோமிங்கின் போது தரவு சேவைகளுடன் இணை"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"ரோமிங்கின் போது தரவு சேவைகளுடன் இணை"</string>
     <string name="roaming_reenable_message" msgid="8913735676127858115">"உள்ளூர் நெட்வொர்க்கில் தரவு ரோமிங்கை முடக்கிய நிலையில் வெளியேறியுள்ளதால், தரவு இணைப்பை இழந்துவிட்டீர்கள்."</string>
     <string name="roaming_warning" msgid="1603164667540144353">"குறிப்பிடத்தக்க கட்டணங்கள் இருக்கலாம்."</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"தரவு ரோமிங்கை அனுமதிக்கவா?"</string>
+    <string name="data_usage_title" msgid="8759619109516889802">"டேட்டா பயன்பாடு"</string>
+    <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_2">%2$s</xliff:g>: <xliff:g id="ID_1">%1$s</xliff:g> மொபைல் டேட்டா பயன்படுத்தப்பட்டது"</string>
+    <string name="advanced_options_title" msgid="8074895510265488035">"மேம்பட்டவை"</string>
+    <string name="carrier_settings_euicc" msgid="6714062862127226405">"தொலைத்தொடர்பு நிறுவனம்"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"தொலைத்தொடர்பு நிறுவனம், இ-சிம், சிம், euicc"</string>
+    <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> — <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
+    <string name="mobile_data_settings_title" msgid="4661165467914727157">"மொபைல் தரவு"</string>
+    <string name="mobile_data_settings_summary" msgid="5087255915840576895">"மொபைல் நெட்வொர்க்கைப் பயன்படுத்தி, தரவை அணுகு"</string>
+    <string name="data_usage_disable_mobile" msgid="3577275288809667615">"மொபைல் தரவை முடக்கவா?"</string>
+    <string name="sim_selection_required_pref" msgid="7049424902961844236">"தேர்ந்தெடுக்க வேண்டும்"</string>
+    <string name="sim_change_data_title" msgid="5332425991853799280">"தரவிற்கான சிம்மை மாற்றவா?"</string>
+    <string name="sim_change_data_message" msgid="2163963581444907496">"<xliff:g id="OLD_SIM">%2$s</xliff:g>க்குப் பதிலாக <xliff:g id="NEW_SIM">%1$s</xliff:g> இன் மொபைல் தரவைப் பயன்படுத்தவா?"</string>
+    <string name="wifi_calling_settings_title" msgid="7741961465416430470">"வைஃபை அழைப்பு"</string>
+    <string name="video_calling_settings_title" msgid="539714564273795574">"தொலைத்தொடர்பு நிறுவன வீடியோ அழைப்பு"</string>
     <string name="gsm_umts_options" msgid="6538311689850981686">"GSM/UMTS விருப்பங்கள்"</string>
     <string name="cdma_options" msgid="4016822858172249884">"CDMA விருப்பங்கள்"</string>
-    <string name="throttle_data_usage" msgid="3715677828160555808">"தரவு பயன்பாடு"</string>
+    <string name="throttle_data_usage" msgid="3715677828160555808">"டேட்டா பயன்பாடு"</string>
     <string name="throttle_current_usage" msgid="8762280193043815361">"தற்போது பயன்படுத்தப்பட்ட தரவு"</string>
     <string name="throttle_time_frame" msgid="1915198770363734685">"தரவு பயன்படுத்தப்பட்ட காலம்"</string>
     <string name="throttle_rate" msgid="4710388992676803508">"தரவு கட்டண கொள்கை"</string>
@@ -452,7 +465,7 @@
     <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"மொபைல் நெட்வொர்க் கிடைக்கவில்லை. அழைக்க, வயர்லெஸ் நெட்வொர்க்குடன் இணைக்கவும்."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"அழைக்க, சரியான எண்ணை உள்ளிடவும்."</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"அழைப்பு தோல்வியடைந்தது."</string>
-    <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"இப்போது அழைப்பைச் சேர்க்க முடியாது."</string>
+    <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"தற்போது அழைக்க முடியவில்லை. செய்தியை அனுப்பி, தொடர்புகொள்ள முயலவும்."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"சேவை ஆதரிக்கப்படவில்லை"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"அழைப்புகளில் மாற முடியாது."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"அழைப்பைப் பிரிக்க முடியாது."</string>
@@ -572,6 +585,8 @@
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"மிகவும் அதிக அளவிலான அழைப்புகள் செயலில் உள்ளன. புதிய அழைப்பை மேற்கொள்ளும் முன், ஏற்கனவேயுள்ள அழைப்புகளைத் துண்டிக்கவும் அல்லது ஒன்றாகப் பிணைக்கவும்."</string>
     <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"இணைக்க முடியவில்லை, சரியான சிம் கார்டைச் செருகவும்."</string>
     <string name="callFailed_wifi_lost" msgid="5968076625137297184">"வைஃபை இணைப்பு துண்டிக்கப்பட்டதால், அழைப்பு முடிந்தது."</string>
+    <string name="dialFailed_low_battery" msgid="8760548177088774268">"பேட்டரி அளவு குறைவாக இருப்பதால், வீடியோ அழைப்பைச் செய்ய முடியாது."</string>
+    <string name="callFailed_low_battery" msgid="4913582435905872616">"பேட்டரி அளவு குறைவாக இருப்பதால், வீடியோ அழைப்பு முடிந்தது."</string>
     <string name="change_pin_title" msgid="7790232089699034029">"குரலஞ்சல் பின்னை மாற்றவும்"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"தொடர்க"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"ரத்துசெய்"</string>
@@ -584,4 +599,18 @@
     <string name="change_pin_confirm_pins_dont_match" msgid="4795052654904027909">"பின்கள் பொருந்தவில்லை"</string>
     <string name="change_pin_succeeded" msgid="2022852286442211151">"குரலஞ்சல் பின் மாற்றப்பட்டது"</string>
     <string name="change_pin_system_error" msgid="8308462387154257840">"பின்னை அமைக்க முடியவில்லை"</string>
+    <string name="mobile_data_status_roaming_turned_off_subtext" msgid="935636805765823307">"தரவு ரோமிங் முடக்கப்பட்டுள்ளது"</string>
+    <string name="mobile_data_status_roaming_turned_on_subtext" msgid="1335176927083781041">"தரவு ரோமிங் இயக்கப்பட்டுள்ளது"</string>
+    <string name="mobile_data_status_roaming_without_plan_subtext" msgid="3568412513831673037">"தற்போது ரோமிங்கில், தரவுத் திட்டம் தேவை"</string>
+    <string name="mobile_data_status_roaming_with_plan_subtext" msgid="8721998948811064377">"தற்போது ரோமிங்கில், தரவுத் திட்டம் இயக்கத்தில் உள்ளது"</string>
+    <string name="mobile_data_status_no_plan_subtext" msgid="4887747337017565725">"மொபைல் தரவு இல்லை"</string>
+    <string name="mobile_data_activate_prepaid" msgid="7447025165850512683">"மொபைல் தரவு இல்லை"</string>
+    <string name="mobile_data_activate_prepaid_summary" msgid="5705389791791637666">"<xliff:g id="PROVIDER_NAME">%s</xliff:g> மூலம் மொபைல் தரவைச் சேர்க்கவும்"</string>
+    <string name="mobile_data_activate_roaming_plan" msgid="5998161536947086264">"ரோமிங் திட்டம் இல்லை"</string>
+    <string name="mobile_data_activate_roaming_plan_summary" msgid="511202908883425459">"<xliff:g id="PROVIDER_NAME">%s</xliff:g> மூலம் ரோமிங் திட்டத்தைச் சேர்க்கவும்"</string>
+    <string name="mobile_data_activate_footer" msgid="5979019929980140594">"உங்கள் <xliff:g id="PROVIDER_NAME">%s</xliff:g> மொபைல் நிறுவனம் மூலம் மொபைல் தரவு அல்லது ரோமிங் திட்டத்தைச் சேர்க்கலாம்."</string>
+    <string name="mobile_data_activate_diag_title" msgid="9044252207707864493">"தரவைச் சேர்க்கவா?"</string>
+    <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"<xliff:g id="PROVIDER_NAME">%s</xliff:g> மூலம் தரவைச் சேர்க்க வேண்டியது இருக்கலாம்"</string>
+    <string name="mobile_data_activate_button" msgid="3682400969184405446">"தரவைச் சேர்"</string>
+    <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"ரத்துசெய்"</string>
 </resources>

@@ -20,6 +20,7 @@ import android.content.pm.PackageManager;
 import android.media.AudioDeviceInfo;
 import android.media.AudioFormat;
 import android.media.AudioManager;
+import android.media.AudioPlaybackConfiguration;
 import android.media.AudioRecord;
 import android.media.AudioRecordingConfiguration;
 import android.media.MediaRecorder;
@@ -31,6 +32,7 @@ import android.util.Log;
 
 import com.android.compatibility.common.util.CtsAndroidTestCase;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -127,6 +129,9 @@ public class AudioRecordingConfigurationTest extends CtsAndroidTestCase {
                 verifyAudioConfig(TEST_AUDIO_SOURCE, mAudioRecord.getAudioSessionId(),
                         mAudioRecord.getFormat(), mAudioRecord.getRoutedDevice(), configs));
 
+        // testing public API here: verify no system-privileged info is exposed through reflection
+        verifyPrivilegedInfoIsSafe(configs.get(0));
+
         // stopping recording: verify there are less active record configurations
         mAudioRecord.stop();
         Thread.sleep(SLEEP_AFTER_STOP_FOR_INACTIVITY_MS);
@@ -180,6 +185,10 @@ public class AudioRecordingConfigurationTest extends CtsAndroidTestCase {
                     mAudioRecord.getAudioSessionId(), mAudioRecord.getFormat(),
                     testDevice, callback.mConfigs);
             assertTrue("Expected record configuration was not found", match);
+
+            // testing public API here: verify no system-privileged info is exposed through
+            // reflection
+            verifyPrivilegedInfoIsSafe(callback.mConfigs.get(0));
 
             // stopping recording: callback is called with no match
             callback.reset();
@@ -302,5 +311,21 @@ public class AudioRecordingConfigurationTest extends CtsAndroidTestCase {
     private boolean hasMicrophone() {
         return getContext().getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_MICROPHONE);
+    }
+
+    private static void verifyPrivilegedInfoIsSafe(AudioRecordingConfiguration config) {
+        // verify "privileged" fields aren't available through reflection
+        final Class<?> confClass = config.getClass();
+        try {
+            final Method getClientUidMethod = confClass.getDeclaredMethod("getClientUid");
+            final Method getClientPackageName = confClass.getDeclaredMethod("getClientPackageName");
+            Integer uid = (Integer) getClientUidMethod.invoke(config, null);
+            assertEquals("client uid isn't protected", -1 /*expected*/, uid.intValue());
+            String name = (String) getClientPackageName.invoke(config, null);
+            assertNotNull("client package name is null", name);
+            assertEquals("client package name isn't protected", 0 /*expected*/, name.length());
+        } catch (Exception e) {
+            fail("Exception thrown during reflection on config privileged fields" + e);
+        }
     }
 }

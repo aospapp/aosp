@@ -120,6 +120,9 @@ public class HalDeviceManagerTest {
                 anyLong())).thenReturn(true);
         when(mServiceManagerMock.registerForNotifications(anyString(), anyString(),
                 any(IServiceNotification.Stub.class))).thenReturn(true);
+        when(mServiceManagerMock.getTransport(
+                eq(IWifi.kInterfaceName), eq(HalDeviceManager.HAL_INSTANCE_NAME)))
+                .thenReturn(IServiceManager.Transport.HWBINDER);
         when(mWifiMock.linkToDeath(any(IHwBinder.DeathRecipient.class), anyLong())).thenReturn(
                 true);
         when(mWifiMock.registerEventCallback(any(IWifiEventCallback.class))).thenReturn(mStatusOk);
@@ -161,6 +164,22 @@ public class HalDeviceManagerTest {
         mInOrder.verify(mManagerStatusListenerMock).onStatusChanged();
 
         verifyNoMoreInteractions(mManagerStatusListenerMock);
+    }
+
+    /**
+     * Test the service manager notification coming in after
+     * {@link HalDeviceManager#initIWifiIfNecessary()} is already invoked as a part of
+     * {@link HalDeviceManager#initialize()}.
+     */
+    @Test
+    public void testServiceRegisterationAfterInitialize() throws Exception {
+        mInOrder = inOrder(mServiceManagerMock, mWifiMock, mManagerStatusListenerMock);
+        executeAndValidateInitializationSequence();
+
+        // This should now be ignored since IWifi is already non-null.
+        mServiceNotificationCaptor.getValue().onRegistration(IWifi.kInterfaceName, "", true);
+
+        verifyNoMoreInteractions(mManagerStatusListenerMock, mWifiMock, mServiceManagerMock);
     }
 
     /**
@@ -221,7 +240,7 @@ public class HalDeviceManagerTest {
 
         // verify: service and callback calls
         mInOrder.verify(mWifiMock).start();
-        mInOrder.verify(mManagerStatusListenerMock, times(3)).onStatusChanged();
+        mInOrder.verify(mManagerStatusListenerMock, times(2)).onStatusChanged();
 
         verifyNoMoreInteractions(mManagerStatusListenerMock);
     }
@@ -1058,17 +1077,14 @@ public class HalDeviceManagerTest {
      */
     @Test
     public void testIsSupportedTrue() throws Exception {
-        when(mServiceManagerMock.getTransport(
-                eq(IWifi.kInterfaceName), eq(HalDeviceManager.HAL_INSTANCE_NAME)))
-                .thenReturn(IServiceManager.Transport.HWBINDER);
         mInOrder = inOrder(mServiceManagerMock, mWifiMock);
         executeAndValidateInitializationSequence();
         assertTrue(mDut.isSupported());
     }
 
     /**
-     * Validate that isSupported() returns true when IServiceManager finds the vendor HAL daemon in
-     * the VINTF.
+     * Validate that isSupported() returns false when IServiceManager does not find the vendor HAL
+     * daemon in the VINTF.
      */
     @Test
     public void testIsSupportedFalse() throws Exception {
@@ -1076,7 +1092,7 @@ public class HalDeviceManagerTest {
                 eq(IWifi.kInterfaceName), eq(HalDeviceManager.HAL_INSTANCE_NAME)))
                 .thenReturn(IServiceManager.Transport.EMPTY);
         mInOrder = inOrder(mServiceManagerMock, mWifiMock);
-        executeAndValidateInitializationSequence();
+        executeAndValidateInitializationSequence(false);
         assertFalse(mDut.isSupported());
     }
 
@@ -1088,6 +1104,10 @@ public class HalDeviceManagerTest {
     }
 
     private void executeAndValidateInitializationSequence() throws Exception {
+        executeAndValidateInitializationSequence(true);
+    }
+
+    private void executeAndValidateInitializationSequence(boolean isSupported) throws Exception {
         // act:
         mDut.initialize();
 
@@ -1097,13 +1117,20 @@ public class HalDeviceManagerTest {
         mInOrder.verify(mServiceManagerMock).registerForNotifications(eq(IWifi.kInterfaceName),
                 eq(""), mServiceNotificationCaptor.capture());
 
-        // act: get the service started (which happens even when service was already up)
-        mServiceNotificationCaptor.getValue().onRegistration(IWifi.kInterfaceName, "", true);
+        // The service should already be up at this point.
+        mInOrder.verify(mServiceManagerMock).getTransport(eq(IWifi.kInterfaceName),
+                eq(HalDeviceManager.HAL_INSTANCE_NAME));
 
-        // verify: wifi initialization sequence
-        mInOrder.verify(mWifiMock).linkToDeath(mDeathRecipientCaptor.capture(), anyLong());
-        mInOrder.verify(mWifiMock).registerEventCallback(mWifiEventCallbackCaptor.capture());
-        collector.checkThat("isReady is true", mDut.isReady(), equalTo(true));
+        // verify: wifi initialization sequence if vendor HAL is supported.
+        if (isSupported) {
+            mInOrder.verify(mWifiMock).linkToDeath(mDeathRecipientCaptor.capture(), anyLong());
+            mInOrder.verify(mWifiMock).registerEventCallback(mWifiEventCallbackCaptor.capture());
+            // verify: onStop called as a part of initialize.
+            mInOrder.verify(mWifiMock).stop();
+            collector.checkThat("isReady is true", mDut.isReady(), equalTo(true));
+        } else {
+            collector.checkThat("isReady is false", mDut.isReady(), equalTo(false));
+        }
     }
 
     private void executeAndValidateStartupSequence()throws Exception {

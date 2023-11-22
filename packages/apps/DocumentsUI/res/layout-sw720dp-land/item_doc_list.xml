@@ -15,17 +15,12 @@
      limitations under the License.
 -->
 
-<com.android.documentsui.ListItem xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@color/item_doc_background"
+    android:background="@drawable/list_item_background"
     android:focusable="true"
     android:orientation="horizontal" >
-
-    <View
-        android:id="@+id/focus_indicator"
-        android:layout_width="4dp"
-        android:layout_height="match_parent" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -39,6 +34,7 @@
 
         <FrameLayout
             android:id="@android:id/icon"
+            android:pointerIcon="hand"
             android:layout_width="@dimen/list_item_thumbnail_size"
             android:layout_height="@dimen/list_item_thumbnail_size"
             android:layout_marginEnd="16dp"
@@ -85,7 +81,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="12dp"
-                android:layout_weight="0.5"
+                android:layout_weight="0.375"
                 android:ellipsize="middle"
                 android:singleLine="true"
                 android:textAlignment="viewStart"
@@ -98,6 +94,18 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="12dp"
                 android:layout_weight="0.25"
+                android:ellipsize="end"
+                android:singleLine="true"
+                android:textAlignment="viewStart"
+                android:textAppearance="@android:style/TextAppearance.Material.Body1"
+                android:textColor="?android:attr/textColorSecondary" />
+
+            <TextView
+                android:id="@+id/file_type"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="12dp"
+                android:layout_weight="0.125"
                 android:ellipsize="end"
                 android:singleLine="true"
                 android:textAlignment="viewStart"
@@ -132,4 +140,4 @@
         </LinearLayout>
     </LinearLayout>
 
-</com.android.documentsui.ListItem>
+</LinearLayout>

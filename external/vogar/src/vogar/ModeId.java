@@ -33,22 +33,40 @@ public enum ModeId {
     APP_PROCESS;
 
     // $BOOTCLASSPATH defined by system/core/rootdir/init.rc
+    // - DEVICE_JARS are appended automatically.
+    // (Intended for use with app_process and activities.)
+    // See PRODUCT_BOOT_JARS in build/make/target/product/core_tiny.mk
+    private static final String[] APP_JARS = new String[] {
+            "legacy-test",
+            "bouncycastle",
+            "framework",
+            "telephony-common",
+            "voip-common",
+            "ims-common",
+            "apache-xml",
+            "nullwebview",
+            "org.apache.http.legacy.boot",
+            "android.hidl.base-V1.0-java",
+            "android.hidl.manager-V1.0-java"
+            // TODO: get this list programatically
+    };
+
+    // $BOOTCLASSPATH for art+libcore only.
+    // (Intended for use with dalvikvm only.)
+    // See TARGET_CORE_JARS in art/build/Android.common_path.mk
     private static final String[] DEVICE_JARS = new String[] {
             "core-libart",
             "core-oj",
             "conscrypt",
             "okhttp",
-            "legacy-test",
             "bouncycastle",
-            "ext",
-            "framework",
-            "telephony-common",
-            "mms-common",
-            "framework",
-            "android.policy",
-            "services",
-            "apache-xml"};
+            "apache-xml"
+    };
 
+    // $BOOTCLASSPATH for art+libcore only (host version).
+    // - Must be same as DEVICE_JARS + "hostdex" suffix.
+    // (Intended for use with dalvikvm only.)
+    // See HOST_CORE_JARS in art/build/Android.common_path.mk
     private static final String[] HOST_JARS = new String[] {
             "core-libart-hostdex",
             "core-oj-hostdex",
@@ -116,13 +134,17 @@ public enum ModeId {
 
     /**
      * Return the names of jars required to compile in this mode when android.jar is not being used.
-     * Also used to generated the classpath in HOST* and DEVICE* modes.
+     * Also used to generated the bootclasspath in HOST* and DEVICE* modes.
      */
     public String[] getJarNames() {
         List<String> jarNames = new ArrayList<String>();
         switch (this) {
             case ACTIVITY:
             case APP_PROCESS:
+                // Order matters. Add device-jars before app-jars.
+                jarNames.addAll(Arrays.asList(DEVICE_JARS));
+                jarNames.addAll(Arrays.asList(APP_JARS));
+                break;
             case DEVICE:
                 jarNames.addAll(Arrays.asList(DEVICE_JARS));
                 break;

@@ -163,7 +163,7 @@ public class DocumentsProviderHelper {
     }
 
     public void assertChildCount(String parentId, int expected) throws Exception {
-        List<DocumentInfo> children = listChildren(parentId);
+        List<DocumentInfo> children = listChildren(parentId, -1);
         assertEquals("Incorrect file count after copy", expected, children.size());
     }
 
@@ -264,10 +264,19 @@ public class DocumentsProviderHelper {
     }
 
     public List<DocumentInfo> listChildren(String documentId) throws Exception {
+        return listChildren(documentId, 100);
+    }
+
+    public List<DocumentInfo> listChildren(Uri parentUri, int maxCount) throws Exception {
+        String id = DocumentsContract.getDocumentId(parentUri);
+        return listChildren(id, maxCount);
+    }
+
+    public List<DocumentInfo> listChildren(String documentId, int maxCount) throws Exception {
         Uri uri = buildChildDocumentsUri(mAuthority, documentId);
         List<DocumentInfo> children = new ArrayList<>();
         try (Cursor cursor = mClient.query(uri, null, null, null, null, null)) {
-            Cursor wrapper = new RootCursorWrapper(mAuthority, "totally-fake", cursor, 100);
+            Cursor wrapper = new RootCursorWrapper(mAuthority, "totally-fake", cursor, maxCount);
             while (wrapper.moveToNext()) {
                 children.add(DocumentInfo.fromDirectoryCursor(wrapper));
             }
@@ -313,5 +322,9 @@ public class DocumentsProviderHelper {
         final Bundle extra = new Bundle();
         extra.putLong(DocumentsContract.EXTRA_LOADING, duration);
         mClient.call("setLoadingDuration", null, extra);
+    }
+
+    public void configure(String args, Bundle configuration) throws RemoteException {
+        mClient.call("configure", args, configuration);
     }
 }

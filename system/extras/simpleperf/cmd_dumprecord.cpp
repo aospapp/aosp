@@ -49,7 +49,7 @@ class DumpRecordCommand : public Command {
   void DumpFileHeader();
   void DumpAttrSection();
   void DumpDataSection();
-  void DumpFeatureSection();
+  bool DumpFeatureSection();
 
   std::string record_filename_;
   std::unique_ptr<RecordFileReader> record_file_reader_;
@@ -75,7 +75,9 @@ bool DumpRecordCommand::Run(const std::vector<std::string>& args) {
   DumpFileHeader();
   DumpAttrSection();
   DumpDataSection();
-  DumpFeatureSection();
+  if (!DumpFeatureSection()) {
+    return false;
+  }
 
   return true;
 }
@@ -180,7 +182,7 @@ void DumpRecordCommand::DumpDataSection() {
   }, false);
 }
 
-void DumpRecordCommand::DumpFeatureSection() {
+bool DumpRecordCommand::DumpFeatureSection() {
   std::map<int, SectionDesc> section_map = record_file_reader_->FeatureSectionDescriptors();
   for (const auto& pair : section_map) {
     int feature = pair.first;
@@ -220,8 +222,18 @@ void DumpRecordCommand::DumpFeatureSection() {
                         symbol.addr, symbol.addr + symbol.len);
         }
       }
+    } else if (feature == FEAT_META_INFO) {
+      std::unordered_map<std::string, std::string> info_map;
+      if (!record_file_reader_->ReadMetaInfoFeature(&info_map)) {
+        return false;
+      }
+      PrintIndented(1, "meta_info:\n");
+      for (auto& pair : info_map) {
+        PrintIndented(2, "%s = %s\n", pair.first.c_str(), pair.second.c_str());
+      }
     }
   }
+  return true;
 }
 
 void RegisterDumpRecordCommand() {

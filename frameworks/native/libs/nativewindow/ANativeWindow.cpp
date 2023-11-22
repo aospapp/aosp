@@ -16,8 +16,6 @@
 
 #define LOG_TAG "ANativeWindow"
 
-#include <android/native_window.h>
-
 #include <grallocusage/GrallocUsageConversion.h>
 // from nativewindow/includes/system/window.h
 // (not to be confused with the compatibility-only window.h from system/core/includes)
@@ -192,8 +190,7 @@ int ANativeWindow_cancelBuffer(ANativeWindow* window, ANativeWindowBuffer* buffe
 }
 
 int ANativeWindow_setUsage(ANativeWindow* window, uint64_t usage) {
-    usage = AHardwareBuffer_convertToGrallocUsageBits(usage);
-    return native_window_set_usage(window, (uint32_t)usage); // FIXME: we need a 64-bits version
+    return native_window_set_usage(window, usage);
 }
 
 int ANativeWindow_setBufferCount(ANativeWindow* window, size_t bufferCount) {

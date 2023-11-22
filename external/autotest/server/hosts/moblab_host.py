@@ -186,7 +186,8 @@ class MoblabHost(cros_host.CrosHost):
         Either uses fping or directly pings devices listed in the dhcpd lease
         file.
         """
-        fping_result = self.run('fping -g 192.168.231.100 192.168.231.120',
+        fping_result = self.run(('fping -g 192.168.231.100 192.168.231.110 '
+                                 '-a -c 10 -p 30 -q'),
                                 ignore_status=True)
         # If fping is not on the system, ping entries in the dhcpd lease file.
         if fping_result.exit_status == 127:
@@ -222,6 +223,10 @@ class MoblabHost(cros_host.CrosHost):
             if match:
                 dut_hostname = match.group('ip')
                 if dut_hostname in existing_hosts:
+                    break
+                # SSP package ip's start at 150 for the moblab, so it is not
+                # a DUT
+                if int(dut_hostname.split('.')[-1]) > 150:
                     break
                 self.add_dut(dut_hostname)
 

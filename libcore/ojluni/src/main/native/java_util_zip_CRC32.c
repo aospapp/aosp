@@ -27,7 +27,7 @@
  * Native method support for java.util.zip.CRC32
  */
 
-#include "JNIHelp.h"
+#include <nativehelper/JNIHelp.h>
 #include "jni.h"
 #include "jni_util.h"
 #include <zlib.h>

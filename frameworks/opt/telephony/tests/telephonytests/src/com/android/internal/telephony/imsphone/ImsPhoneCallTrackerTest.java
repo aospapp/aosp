@@ -37,11 +37,14 @@ import static org.mockito.Mockito.verify;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
 import android.support.test.filters.FlakyTest;
+import android.telecom.VideoProfile;
+import android.telephony.DisconnectCause;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.ims.feature.ImsFeature;
 import android.test.suitebuilder.annotation.SmallTest;
@@ -56,6 +59,8 @@ import com.android.ims.ImsReasonInfo;
 import com.android.ims.ImsServiceClass;
 import com.android.ims.internal.ImsCallSession;
 import com.android.internal.telephony.Call;
+import com.android.internal.telephony.CallStateException;
+import com.android.internal.telephony.CommandsInterface;
 import com.android.internal.telephony.Connection;
 import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.TelephonyTest;
@@ -65,6 +70,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
@@ -80,6 +86,8 @@ public class ImsPhoneCallTrackerTest extends TelephonyTest {
     private int mServiceId;
     @Mock
     private ImsCallSession mImsCallSession;
+    @Mock
+    private SharedPreferences mSharedPreferences;
     private Handler mCTHander;
 
     private class ImsCTHandlerThread extends HandlerThread {
@@ -347,7 +355,72 @@ public class ImsPhoneCallTrackerTest extends TelephonyTest {
         assertEquals(Call.State.HOLDING, mCTUT.mBackgroundCall.getState());
     }
 
+    /**
+     * Ensures that the dial method will perform a shared preferences lookup using the correct
+     * shared preference key to determine the CLIR mode.
+     */
+    @Test
+    @SmallTest
+    public void testDialClirMode() {
+        mCTUT.setSharedPreferenceProxy((Context context) -> {
+            return mSharedPreferences;
+        });
+        ArgumentCaptor<String> mStringCaptor = ArgumentCaptor.forClass(String.class);
+        doReturn(CommandsInterface.CLIR_INVOCATION).when(mSharedPreferences).getInt(
+                mStringCaptor.capture(), anyInt());
+
+        try {
+            mCTUT.dial("+17005554141", VideoProfile.STATE_AUDIO_ONLY, null);
+        } catch (CallStateException cse) {
+            cse.printStackTrace();
+            Assert.fail("unexpected exception thrown" + cse.getMessage());
+        }
+
+        // Ensure that the correct key was queried from the shared prefs.
+        assertEquals("clir_key0", mStringCaptor.getValue());
+    }
+
+    /**
+     * Ensures for an emergency call that the dial method will default the CLIR to
+     * {@link CommandsInterface#CLIR_SUPPRESSION}, ensuring the caller's ID is shown.
+     */
+    @Test
+    @SmallTest
+    public void testEmergencyDialSuppressClir() {
+        mCTUT.setSharedPreferenceProxy((Context context) -> {
+            return mSharedPreferences;
+        });
+        // Mock implementation of phone number utils treats everything as an emergency.
+        mCTUT.setPhoneNumberUtilsProxy((String string) -> {
+            return true;
+        });
+        // Set preference to hide caller ID.
+        ArgumentCaptor<String> stringCaptor = ArgumentCaptor.forClass(String.class);
+        doReturn(CommandsInterface.CLIR_INVOCATION).when(mSharedPreferences).getInt(
+                stringCaptor.capture(), anyInt());
+
+        try {
+            mCTUT.dial("+17005554141", VideoProfile.STATE_AUDIO_ONLY, null);
+
+            ArgumentCaptor<ImsCallProfile> profileCaptor = ArgumentCaptor.forClass(
+                    ImsCallProfile.class);
+            verify(mImsManager, times(1)).makeCall(eq(0), eq(mImsCallProfile),
+                    eq(new String[]{"+17005554141"}), (ImsCall.Listener) any());
+
+            // Because this is an emergency call, we expect caller id to be visible now.
+            verify(mImsCallProfile).setCallExtraInt(ImsCallProfile.EXTRA_OIR,
+                    CommandsInterface.CLIR_SUPPRESSION);
+        } catch (CallStateException cse) {
+            cse.printStackTrace();
+            Assert.fail("unexpected exception thrown" + cse.getMessage());
+        } catch (ImsException ie) {
+            ie.printStackTrace();
+            Assert.fail("unexpected exception thrown" + ie.getMessage());
+        }
+    }
+
     @FlakyTest
+    @Ignore
     @Test
     @SmallTest
     public void testImsMOCallDial() {
@@ -495,5 +568,23 @@ public class ImsPhoneCallTrackerTest extends TelephonyTest {
         // ImsService
         verify(mImsManager, times(2)).open(anyInt(), nullable(PendingIntent.class),
                 nullable(ImsConnectionStateListener.class));
+    }
+
+    @Test
+    @SmallTest
+    public void testLowBatteryDisconnectMidCall() {
+        assertEquals(DisconnectCause.LOW_BATTERY, mCTUT.getDisconnectCauseFromReasonInfo(
+                new ImsReasonInfo(ImsReasonInfo.CODE_LOCAL_LOW_BATTERY, 0), Call.State.ACTIVE));
+        assertEquals(DisconnectCause.LOW_BATTERY, mCTUT.getDisconnectCauseFromReasonInfo(
+                new ImsReasonInfo(ImsReasonInfo.CODE_LOW_BATTERY, 0), Call.State.ACTIVE));
+    }
+
+    @Test
+    @SmallTest
+    public void testLowBatteryDisconnectDialing() {
+        assertEquals(DisconnectCause.DIAL_LOW_BATTERY, mCTUT.getDisconnectCauseFromReasonInfo(
+                new ImsReasonInfo(ImsReasonInfo.CODE_LOCAL_LOW_BATTERY, 0), Call.State.DIALING));
+        assertEquals(DisconnectCause.DIAL_LOW_BATTERY, mCTUT.getDisconnectCauseFromReasonInfo(
+                new ImsReasonInfo(ImsReasonInfo.CODE_LOW_BATTERY, 0), Call.State.DIALING));
     }
 }

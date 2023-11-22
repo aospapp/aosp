@@ -32,6 +32,18 @@ def PbEnum2PyValue(var):
     return getattr(var.scalar_value, var.scalar_type)
 
 
+def PbMask2PyValue(var):
+    """Converts VariableSecificationMessage (Mask) to Python value.
+
+    Args:
+        var: VariableSpecificationMessage to convert.
+
+    Returns:
+        a converted value.
+    """
+    return getattr(var.scalar_value, var.scalar_type)
+
+
 def PbScalar2PyValue(var):
     """Converts VariableSecificationMessage (Scalar) to Python value.
 
@@ -77,6 +89,27 @@ def PbVector2PyList(var):
     return result
 
 
+def PbArray2PyList(var):
+    """Converts VariableSecificationMessage (Array) to a Python list.
+
+    Args:
+        var: VariableSpecificationMessage to convert.
+
+    Returns:
+        A converted list.
+    """
+    result = []
+    for curr_value in var.vector_value:
+        if curr_value.type == CompSpecMsg.TYPE_SCALAR:
+            result.append(PbScalar2PyValue(curr_value))
+        elif curr_value.type == CompSpecMsg.TYPE_STRUCT:
+            result.append(PbStruct2PyDict(curr_value))
+        else:
+            logging.error("unsupported type %s", curr_value.type)
+            sys.exit(-1)
+    return result
+
+
 def PbStruct2PyDict(var):
     """Converts VariableSecificationMessage (struct) to Python dict.
 
@@ -98,6 +131,8 @@ def PbStruct2PyDict(var):
             result[attr.name] = PbVector2PyList(attr)
         elif attr.type == CompSpecMsg.TYPE_STRUCT:
             result[attr.name] = PbStruct2PyDict(attr)
+        elif attr.type == CompSpecMsg.TYPE_Array:
+            result[attr.name] = PbArray2PyList(attr)
         else:
             logging.error("PyDict2PbStruct: unsupported type %s",
                           attr.type)
@@ -138,6 +173,8 @@ def Convert(var):
         return PbEnum2PyValue(var)
     elif var.type == CompSpecMsg.TYPE_STRING:
         return PbString2PyString(var)
+    elif var.type == CompSpecMsg.TYPE_MASK:
+        return PbMask2PyValue(var)
     else:
         logging.error("Got unsupported callback arg type %s" % var.type)
         sys.exit(-1)

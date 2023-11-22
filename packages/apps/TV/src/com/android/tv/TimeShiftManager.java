@@ -161,7 +161,6 @@ public class TimeShiftManager {
     @TimeShiftActionId
     private int mLastActionId = 0;
 
-    // TODO: Remove these variables once API level 23 is available.
     private final Context mContext;
 
     private Program mCurrentProgram;
@@ -618,6 +617,15 @@ public class TimeShiftManager {
                                 + mAvailablityChangedTimeMs);
                         return;
                     }
+                    if (recordStartTimeMs > System.currentTimeMillis()) {
+                        // The time reported by TvInputService might not consistent with system
+                        // clock,, use system's current time instead.
+                        Log.e(TAG, "The start time should not be earlier than the current time, "
+                                + "reset the start time to the system's current time: {"
+                                + "startTime: " + recordStartTimeMs + ", current time: "
+                                + System.currentTimeMillis());
+                        recordStartTimeMs = System.currentTimeMillis();
+                    }
                     if (mRecordStartTimeMs == recordStartTimeMs) {
                         return;
                     }
@@ -887,10 +895,12 @@ public class TimeShiftManager {
             }
 
             long fetchStartTimeMs = Utils.floorTime(startTimeMs, MAX_DUMMY_PROGRAM_DURATION);
-            boolean needToLoad = addDummyPrograms(fetchStartTimeMs,
-                    endTimeMs + PREFETCH_DURATION_FOR_NEXT);
+            long fetchEndTimeMs = Utils.ceilTime(endTimeMs + PREFETCH_DURATION_FOR_NEXT,
+                    MAX_DUMMY_PROGRAM_DURATION);
+            removeOutdatedPrograms(fetchStartTimeMs);
+            boolean needToLoad = addDummyPrograms(fetchStartTimeMs, fetchEndTimeMs);
             if (needToLoad) {
-                Range<Long> period = Range.create(fetchStartTimeMs, endTimeMs);
+                Range<Long> period = Range.create(fetchStartTimeMs, fetchEndTimeMs);
                 mProgramLoadQueue.add(period);
                 startTaskIfNeeded();
             }
@@ -996,6 +1006,12 @@ public class TimeShiftManager {
             return added;
         }
 
+        private void removeOutdatedPrograms(long startTimeMs) {
+            while (mPrograms.size() > 0 && mPrograms.get(0).getEndTimeUtcMillis() <= startTimeMs) {
+                mPrograms.remove(0);
+            }
+        }
+
         private void removeDummyPrograms() {
             for (Iterator<Program> it = mPrograms.listIterator(); it.hasNext(); ) {
                 if (!it.next().isValid()) {
@@ -1012,7 +1028,7 @@ public class TimeShiftManager {
             for (int i = 0, j = 0; i < mPrograms.size() && j < loadedPrograms.size(); ++j) {
                 Program loadedProgram = loadedPrograms.get(j);
                 // Skip previous programs.
-                while (program.getEndTimeUtcMillis() < loadedProgram.getStartTimeUtcMillis()) {
+                while (program.getEndTimeUtcMillis() <= loadedProgram.getStartTimeUtcMillis()) {
                     // Reached end of mPrograms.
                     if (++i == mPrograms.size()) {
                         return;

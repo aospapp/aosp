@@ -52,7 +52,11 @@ cc_library {
     defaults: ["zlib_defaults"],
 
     host_supported: true,
-    vendor_available : true,
+    vendor_available: true,
+    vndk: {
+        enabled: true,
+        support_system_process: true,
+    },
 
     target: {
         host: {
@@ -69,13 +73,6 @@ cc_library {
 cc_library_host_shared {
     name: "libz-host",
     defaults: ["zlib_defaults"],
-}
-
-cc_binary {
-    name: "gzip",
-    srcs: ["src/test/minigzip.c"],
-    shared_libs: ["libz"],
-    stl: "none",
 }
 
 cc_binary_host {

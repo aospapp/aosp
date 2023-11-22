@@ -18,7 +18,7 @@
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!-- Application name, temporarily misspelled to allow it to live alongside the regular
          android settings without confusion. -->
-    <string name="settings_label">Cettings</string>
+    <string name="settings_label">Settings</string>
     <string name="display_settings">Display</string>
     <!-- Sound & display settings screen, setting option name to change brightness level -->
     <string name="brightness">Brightness level</string>
@@ -142,6 +142,8 @@
     <string name="sound_settings">Sound</string>
     <!-- Sound settings screen, setting option name -->
     <string name="ring_volume_title">Ring volume</string>
+    <!-- Sound settings screen, the title of the volume bar to adjust the navigation guidance volume -->
+    <string name="navi_volume_title">Navigation volume</string>
     <!-- Sound settings screen, the title of the volume bar to adjust the incoming call volume -->
     <string name="incoming_call_volume_title">Ringtone</string>
     <!-- Sound settings screen, the title of the volume bar to adjust the notification volume -->
@@ -162,6 +164,8 @@
     <string name="enable_text">Enable</string>
     <!-- Manage applications, individual application info screen, heading for settings related to the app's permissions. for example, it may list all the permissions the app has. -->
     <string name="permissions_label">Permissions</string>
+    <!-- Label for displaying application version. -->
+    <string name="application_version_label">Version: %1$s</string>
     <!-- Runtime permissions preference summary, shown when the app has no permissions granted. [CHAR LIMIT=40] -->
     <string name="runtime_permissions_summary_no_permissions_granted">No permissions granted</string>
     <!-- Runtime permissions preference summary, shown when the app requests no permissions. [CHAR LIMIT=40] -->
@@ -299,9 +303,36 @@
          [CHAR LIMIT=20] -->
     <string name="time_picker_title">Time</string>
 
+
+    <!-- User settings screen title [CHAR LIMIT=25] -->
+    <string name="user_settings_title">Users</string>
+    <!-- User settings header for list of users and profiles [CHAR LIMIT=40] -->
+    <string name="user_list_title">Users &amp; profiles</string>
+    <!-- User settings add user or restricted profile menu [CHAR LIMIT=35] -->
+    <string name="user_add_user_or_profile_menu">Add user or profile</string>
+    <!-- User settings add user menu [CHAR LIMIT=35] -->
+    <string name="user_add_user_menu">Add user</string>
+    <!-- Spoken content description for delete icon beside a user [CHAR LIMIT=none] -->
+    <string name="user_delete_user_description">Delete user</string>
+    <!-- User details new user name [CHAR LIMIT=30] -->
+    <string name="user_new_user_name">New user</string>
+    <!-- Title for Guest user [CHAR LIMIT=35] -->
+    <string name="user_guest">Guest</string>
+    <!-- Description for icon to switch user [CHAR LIMIT=35] -->
+    <string name="user_switch">Switch</string>
+    <!-- Description for user name that is currently in use -->
+    <string name="current_user_name">%1$s (current)</string>
+    <!-- User settings details screen title [CHAR LIMIT=25] -->
+    <string name="user_settings_details_title">Profile info</string>
+    <!-- User settings label for user name [CHAR LIMIT=25] -->
+    <string name="user_name_label">Name</string>
+
+
     <!-- generic --><skip />
     <!-- Button label for generic forget action [CHAR LIMIT=20] -->
     <string name="forget">Forget</string>
     <!-- Button label for generic OK action [CHAR LIMIT=20] -->
     <string name="okay">OK</string>
+    <!-- Delete button text [CHAR LIMIT=20] -->
+    <string name="delete_button">Delete</string>
 </resources>

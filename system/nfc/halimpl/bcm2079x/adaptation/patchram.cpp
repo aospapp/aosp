@@ -26,6 +26,7 @@ extern "C" {
 #include "nfc_hal_post_reset.h"
 }
 #include <cutils/properties.h>
+#include <inttypes.h>
 #include <malloc.h>
 #include <string>
 #include "StartupConfig.h"
@@ -375,10 +376,10 @@ static void getNfaValues(uint32_t chipid) {
 **
 *******************************************************************************/
 static void StartPatchDownload(uint32_t chipid) {
-  ALOGD("%s: chipid=%lx", __func__, chipid);
+  ALOGD("%s: chipid=%" PRIu32, __func__, chipid);
 
   char chipID[30];
-  sprintf(chipID, "%lx", chipid);
+  sprintf(chipID, "%" PRIu32, chipid);
   ALOGD("%s: chidId=%s", __func__, chipID);
 
   readOptionalConfig(chipID);  // Read optional chip specific settings
@@ -400,16 +401,18 @@ static void StartPatchDownload(uint32_t chipid) {
         if (sI2cFixPrmBuf != NULL) {
           size_t actualLen = fread(sI2cFixPrmBuf, 1, lenPrmBuffer, fd);
           if (actualLen == lenPrmBuffer) {
-            ALOGD("%s Setting I2C fix to %s (size: %lu)", __func__, sPrePatchFn,
-                  lenPrmBuffer);
+            ALOGD("%s Setting I2C fix to %s (size: %" PRIu32 ")", __func__,
+                  sPrePatchFn, lenPrmBuffer);
             HAL_NfcPrmSetI2cPatch((uint8_t*)sI2cFixPrmBuf,
                                   (uint16_t)lenPrmBuffer, 0);
           } else
-            ALOGE("%s fail reading i2c fix; actual len=%zu; expected len=%lu",
-                  __func__, actualLen, lenPrmBuffer);
+            ALOGE(
+                "%s fail reading i2c fix; actual len=%zu; expected len="
+                "%" PRIu32,
+                __func__, actualLen, lenPrmBuffer);
         } else {
-          ALOGE("%s Unable to get buffer to i2c fix (%lu bytes)", __func__,
-                lenPrmBuffer);
+          ALOGE("%s Unable to get buffer to i2c fix (%" PRIu32 " bytes)",
+                __func__, lenPrmBuffer);
         }
 
         fclose(fd);
@@ -430,8 +433,8 @@ static void StartPatchDownload(uint32_t chipid) {
       fd = fopen(sPatchFn, "rb");
       if (fd != NULL) {
         uint32_t lenPrmBuffer = getFileLength(fd);
-        ALOGD("%s Downloading patchfile %s (size: %lu) format=%u", __func__,
-              sPatchFn, lenPrmBuffer, NFC_HAL_PRM_FORMAT_NCD);
+        ALOGD("%s Downloading patchfile %s (size: %" PRIu32 ") format=%u",
+              __func__, sPatchFn, lenPrmBuffer, NFC_HAL_PRM_FORMAT_NCD);
         sPrmBuf = malloc(lenPrmBuffer);
         if (sPrmBuf != NULL) {
           size_t actualLen = fread(sPrmBuf, 1, lenPrmBuffer, fd);
@@ -446,8 +449,8 @@ static void StartPatchDownload(uint32_t chipid) {
           } else
             ALOGE("%s fail reading patchram", __func__);
         } else
-          ALOGE("%s Unable to buffer to hold patchram (%lu bytes)", __func__,
-                lenPrmBuffer);
+          ALOGE("%s Unable to buffer to hold patchram (%" PRIu32 " bytes)",
+                __func__, lenPrmBuffer);
 
         fclose(fd);
       } else
@@ -483,7 +486,8 @@ static void StartPatchDownload(uint32_t chipid) {
 **
 *******************************************************************************/
 void nfc_hal_post_reset_init(uint32_t brcm_hw_id, uint8_t nvm_type) {
-  ALOGD("%s: brcm_hw_id=0x%lx, nvm_type=%d", __func__, brcm_hw_id, nvm_type);
+  ALOGD("%s: brcm_hw_id=0x%" PRIu32 ", nvm_type=%d", __func__, brcm_hw_id,
+        nvm_type);
   tHAL_NFC_STATUS stat = HAL_NFC_STATUS_FAILED;
   uint8_t max_credits = 1, allow_no_nvm = 0;
 
@@ -580,7 +584,7 @@ void configureCrystalFrequency() {
 
   if ((hwId == 0) && (xtalFreq == 0) && (xtalIndex == 0)) return;
 
-  ALOGD("%s: hwId=0x%lX; freq=%u; index=%u", __func__, hwId, xtalFreq,
+  ALOGD("%s: hwId=0x%" PRIX32 "; freq=%u; index=%u", __func__, hwId, xtalFreq,
         xtalIndex);
   nfc_post_reset_cb.dev_init_config.xtal_cfg[0].brcm_hw_id =
       (hwId & BRCM_NFC_GEN_MASK);

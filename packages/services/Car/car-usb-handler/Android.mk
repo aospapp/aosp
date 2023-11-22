@@ -14,6 +14,8 @@
 #
 #
 
+ifneq ($(TARGET_BUILD_PDK), true)
+
 LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
@@ -33,3 +35,5 @@ LOCAL_PROGUARD_ENABLED := disabled
 LOCAL_JAVA_LIBRARIES += android.car
 
 include $(BUILD_PACKAGE)
+
+endif

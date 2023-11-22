@@ -1,8 +1,10 @@
 #
 # Read COPYING for licensing details.
 #
-# Garrett Cooper, June 2010
+# Ngie Cooper, June 2010
 #
+
+-include ../../../include/mk/config-openposix.mk
 
 top_srcdir?=	..
 

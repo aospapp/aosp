@@ -20,8 +20,7 @@ from autotest_lib.client.common_lib import enum, error, host_protections
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import host_queue_entry_states
 from autotest_lib.client.common_lib import control_data, priorities, decorators
-from autotest_lib.client.common_lib import site_utils
-from autotest_lib.client.common_lib.cros.graphite import autotest_es
+from autotest_lib.client.common_lib import utils
 from autotest_lib.server import utils as server_utils
 
 # job options and user preferences
@@ -178,10 +177,10 @@ class Shard(dbmodels.Model, model_logic.ModelExtensions):
         # The following hostname substitution is needed only for the VM
         # in puppylab.
         # The 'hostname' should not be replaced in the case of real cluster.
-        if site_utils.is_puppylab_vm(self.hostname):
+        if utils.is_puppylab_vm(self.hostname):
             hostname = self.hostname.split(':')[0]
             return self.hostname.replace(
-                    hostname, site_utils.DEFAULT_VM_GATEWAY)
+                    hostname, utils.DEFAULT_VM_GATEWAY)
         return self.hostname
 
 
@@ -502,6 +501,15 @@ class Host(model_logic.ModelWithInvalid, rdb_model_extensions.AbstractHostModel,
 
 
     @classmethod
+    def _assign_to_shard_nothing_helper(cls):
+        """Does nothing.
+
+        This method is called in the middle of assign_to_shard, and does
+        nothing. It exists to allow integration tests to simulate a race
+        condition."""
+
+
+    @classmethod
     def assign_to_shard(cls, shard, known_ids):
         """Assigns hosts to a shard.
 
@@ -509,6 +517,10 @@ class Host(model_logic.ModelWithInvalid, rdb_model_extensions.AbstractHostModel,
         have at least one of the shard's labels are assigned to the shard.
         Hosts that are assigned to the shard but aren't already present on the
         shard are returned.
+
+        Any boards that are in |known_ids| but that do not belong to the shard
+        are incorrect ids, which are also returned so that the shard can remove
+        them locally.
 
         Board to shard mapping is many-to-one. Many different boards can be
         hosted in a shard. However, DUTs of a single board cannot be distributed
@@ -523,9 +535,10 @@ class Host(model_logic.ModelWithInvalid, rdb_model_extensions.AbstractHostModel,
                           The number of hosts usually lies in O(100), so the
                           overhead is acceptable.
 
-        @returns the hosts objects that should be sent to the shard.
+        @returns a tuple of (hosts objects that should be sent to the shard,
+                             incorrect host ids that should not belong to]
+                             shard)
         """
-
         # Disclaimer: concurrent heartbeats should theoretically not occur in
         # the current setup. As they may be introduced in the near future,
         # this comment will be left here.
@@ -540,17 +553,36 @@ class Host(model_logic.ModelWithInvalid, rdb_model_extensions.AbstractHostModel,
         #   hosts for the shard, this is overhead
         # - SELECT and then UPDATE only selected without requerying afterwards:
         #   returns the old state of the records.
-        host_ids = set(Host.objects.filter(
+        new_hosts = []
+
+        possible_new_host_ids = set(Host.objects.filter(
             labels__in=shard.labels.all(),
             leased=False
             ).exclude(
             id__in=known_ids,
             ).values_list('pk', flat=True))
 
-        if host_ids:
-            Host.objects.filter(pk__in=host_ids).update(shard=shard)
-            return list(Host.objects.filter(pk__in=host_ids).all())
-        return []
+        # No-op in production, used to simulate race condition in tests.
+        cls._assign_to_shard_nothing_helper()
+
+        if possible_new_host_ids:
+            Host.objects.filter(
+                pk__in=possible_new_host_ids,
+                labels__in=shard.labels.all(),
+                leased=False
+                ).update(shard=shard)
+            new_hosts = list(Host.objects.filter(
+                pk__in=possible_new_host_ids,
+                shard=shard
+                ).all())
+
+        invalid_host_ids = list(Host.objects.filter(
+            id__in=known_ids
+            ).exclude(
+            shard=shard
+            ).values_list('pk', flat=True))
+
+        return new_hosts, invalid_host_ids
 
     def resurrect_object(self, old_object):
         super(Host, self).resurrect_object(old_object)
@@ -562,24 +594,6 @@ class Host(model_logic.ModelWithInvalid, rdb_model_extensions.AbstractHostModel,
     def clean_object(self):
         self.aclgroup_set.clear()
         self.labels.clear()
-
-
-    def record_state(self, type_str, state, value, other_metadata=None):
-        """Record metadata in elasticsearch.
-
-        @param type_str: sets the _type field in elasticsearch db.
-        @param state: string representing what state we are recording,
-                      e.g. 'locked'
-        @param value: value of the state, e.g. True
-        @param other_metadata: Other metadata to store in metaDB.
-        """
-        metadata = {
-            state: value,
-            'hostname': self.hostname,
-        }
-        if other_metadata:
-            metadata = dict(metadata.items() + other_metadata.items())
-        autotest_es.post(use_http=True, type_str=type_str, metadata=metadata)
 
 
     def save(self, *args, **kwargs):
@@ -596,13 +610,8 @@ class Host(model_logic.ModelWithInvalid, rdb_model_extensions.AbstractHostModel,
             self.locked_by = User.current_user()
             if not self.lock_time:
                 self.lock_time = datetime.now()
-            self.record_state('lock_history', 'locked', self.locked,
-                              {'changed_by': self.locked_by.login,
-                               'lock_reason': self.lock_reason})
             self.dirty = True
         elif not self.locked and self.locked_by:
-            self.record_state('lock_history', 'locked', self.locked,
-                              {'changed_by': self.locked_by.login})
             self.locked_by = None
             self.lock_time = None
         super(Host, self).save(*args, **kwargs)
@@ -1249,7 +1258,7 @@ class Job(dbmodels.Model, model_logic.ModelExtensions):
         # shards should be powered off and wiped hen they are removed from the
         # master.
         if self.shard_id and self.shard_id != shard.id:
-            raise error.UnallowedRecordsSentToMaster(
+            raise error.IgnorableUnallowedRecordsSentToMaster(
                 'Job id=%s is assigned to shard (%s). Cannot update it with %s '
                 'from shard %s.' % (self.id, self.shard_id, updated_serialized,
                                     shard.id))
@@ -1601,7 +1610,7 @@ class HostQueueEntry(dbmodels.Model, model_logic.ModelExtensions):
     def sanity_check_update_from_shard(self, shard, updated_serialized,
                                        job_ids_sent):
         if self.job_id not in job_ids_sent:
-            raise error.UnallowedRecordsSentToMaster(
+            raise error.IgnorableUnallowedRecordsSentToMaster(
                 'Sent HostQueueEntry without corresponding '
                 'job entry: %s' % updated_serialized)
 
@@ -1797,6 +1806,16 @@ class HostQueueEntry(dbmodels.Model, model_logic.ModelExtensions):
         if self.host:
             hostname = self.host.hostname
         return u"%s/%d (%d)" % (hostname, self.job.id, self.id)
+
+
+class HostQueueEntryStartTimes(dbmodels.Model):
+    """An auxilary table to HostQueueEntry to index by start time."""
+    insert_time = dbmodels.DateTimeField()
+    highest_hqe_id = dbmodels.IntegerField()
+
+    class Meta:
+        """Metadata for class HostQueueEntryStartTimes."""
+        db_table = 'afe_host_queue_entry_start_times'
 
 
 class AbortedHostQueueEntry(dbmodels.Model, model_logic.ModelExtensions):

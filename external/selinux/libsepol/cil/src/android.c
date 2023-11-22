@@ -100,6 +100,7 @@ static int __extract_attributees_helper(struct cil_tree_node *node, uint32_t *fi
 			   of the existing types and attributes.  These may be differnt in
 			   every checkpolicy output, ignore them here, they'll be dealt with
 			   as a special case when attributizing. */
+			free(datum);
 		} else {
 			rc = hashtab_insert(args->vers_map, (hashtab_key_t) key, (hashtab_datum_t) datum);
 			if (rc != SEPOL_OK) {
@@ -779,6 +780,7 @@ exit:
 static int cil_build_mappings_tree(hashtab_key_t k, hashtab_datum_t d, void *args)
 {
 	struct cil_typeattributeset *attrset = NULL;
+	struct cil_expandtypeattribute *expandattr = NULL;
 	struct cil_tree_node *ast_node = NULL;
 	struct version_args *verargs = (struct version_args *)args;
 	struct cil_tree_node *ast_parent = verargs->db->ast->root;
@@ -807,6 +809,22 @@ static int cil_build_mappings_tree(hashtab_key_t k, hashtab_datum_t d, void *arg
 	else
 		ast_parent->cl_tail->next = ast_node;
 	ast_parent->cl_tail = ast_node;
+
+	/* create expandtypeattribute datum */
+	cil_expandtypeattribute_init(&expandattr);
+	cil_list_init(&expandattr->attr_strs, CIL_TYPE);
+	cil_list_append(expandattr->attr_strs, CIL_STRING, __cil_attrib_get_versname(orig_type, verargs->num));
+	expandattr->expand = CIL_TRUE;
+
+	/* create containing tree node */
+	cil_tree_node_init(&ast_node);
+	ast_node->data = expandattr;
+	ast_node->flavor = CIL_EXPANDTYPEATTRIBUTE;
+	/* add to tree */
+	ast_node->parent = ast_parent;
+	ast_parent->cl_tail->next = ast_node;
+	ast_parent->cl_tail = ast_node;
+
 	return SEPOL_OK;
 }
 

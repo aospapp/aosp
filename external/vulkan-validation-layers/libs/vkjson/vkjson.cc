@@ -33,7 +33,6 @@
 #include <utility>
 
 #include <cJSON.h>
-#include <vulkan/vk_sdk_platform.h>
 
 namespace {
 
@@ -271,6 +270,14 @@ inline bool Iterate(Visitor* visitor, VkPhysicalDeviceFeatures* features) {
 }
 
 template <typename Visitor>
+inline bool Iterate(Visitor* visitor,
+                    VkPhysicalDeviceVariablePointerFeaturesKHR* features) {
+  return visitor->Visit("variablePointersStorageBuffer",
+                        &features->variablePointersStorageBuffer) &&
+         visitor->Visit("variablePointers", &features->variablePointers);
+}
+
+template <typename Visitor>
 inline bool Iterate(Visitor* visitor, VkMemoryType* type) {
   return
     visitor->Visit("propertyFlags", &type->propertyFlags) &&
@@ -336,6 +343,8 @@ template <typename Visitor>
 inline bool Iterate(Visitor* visitor, VkJsonDevice* device) {
   return visitor->Visit("properties", &device->properties) &&
          visitor->Visit("features", &device->features) &&
+         visitor->Visit("variablePointersFeaturesKHR",
+                        &device->variable_pointer_features) &&
          visitor->Visit("memory", &device->memory) &&
          visitor->Visit("queues", &device->queues) &&
          visitor->Visit("extensions", &device->extensions) &&

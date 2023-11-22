@@ -20,15 +20,18 @@
 
 #include "arch/context.h"
 #include "art_method-inl.h"
+#include "base/callee_save_type.h"
 #include "base/enums.h"
 #include "base/hex_dump.h"
 #include "entrypoints/entrypoint_utils-inl.h"
 #include "entrypoints/runtime_asm_entrypoints.h"
 #include "gc/space/image_space.h"
 #include "gc/space/space-inl.h"
+#include "interpreter/shadow_frame.h"
 #include "jit/jit.h"
 #include "jit/jit_code_cache.h"
 #include "linear_alloc.h"
+#include "managed_stack.h"
 #include "mirror/class-inl.h"
 #include "mirror/object-inl.h"
 #include "mirror/object_array-inl.h"
@@ -37,64 +40,12 @@
 #include "runtime.h"
 #include "thread.h"
 #include "thread_list.h"
-#include "verify_object.h"
 
 namespace art {
 
 using android::base::StringPrintf;
 
 static constexpr bool kDebugStackWalk = false;
-
-mirror::Object* ShadowFrame::GetThisObject() const {
-  ArtMethod* m = GetMethod();
-  if (m->IsStatic()) {
-    return nullptr;
-  } else if (m->IsNative()) {
-    return GetVRegReference(0);
-  } else {
-    const DexFile::CodeItem* code_item = m->GetCodeItem();
-    CHECK(code_item != nullptr) << ArtMethod::PrettyMethod(m);
-    uint16_t reg = code_item->registers_size_ - code_item->ins_size_;
-    return GetVRegReference(reg);
-  }
-}
-
-mirror::Object* ShadowFrame::GetThisObject(uint16_t num_ins) const {
-  ArtMethod* m = GetMethod();
-  if (m->IsStatic()) {
-    return nullptr;
-  } else {
-    return GetVRegReference(NumberOfVRegs() - num_ins);
-  }
-}
-
-size_t ManagedStack::NumJniShadowFrameReferences() const {
-  size_t count = 0;
-  for (const ManagedStack* current_fragment = this; current_fragment != nullptr;
-       current_fragment = current_fragment->GetLink()) {
-    for (ShadowFrame* current_frame = current_fragment->top_shadow_frame_; current_frame != nullptr;
-         current_frame = current_frame->GetLink()) {
-      if (current_frame->GetMethod()->IsNative()) {
-        // The JNI ShadowFrame only contains references. (For indirect reference.)
-        count += current_frame->NumberOfVRegs();
-      }
-    }
-  }
-  return count;
-}
-
-bool ManagedStack::ShadowFramesContain(StackReference<mirror::Object>* shadow_frame_entry) const {
-  for (const ManagedStack* current_fragment = this; current_fragment != nullptr;
-       current_fragment = current_fragment->GetLink()) {
-    for (ShadowFrame* current_frame = current_fragment->top_shadow_frame_; current_frame != nullptr;
-         current_frame = current_frame->GetLink()) {
-      if (current_frame->Contains(shadow_frame_entry)) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
 
 StackVisitor::StackVisitor(Thread* thread,
                            Context* context,
@@ -123,9 +74,10 @@ StackVisitor::StackVisitor(Thread* thread,
   }
 }
 
-InlineInfo StackVisitor::GetCurrentInlineInfo() const {
-  const OatQuickMethodHeader* method_header = GetCurrentOatQuickMethodHeader();
-  uint32_t native_pc_offset = method_header->NativeQuickPcOffset(cur_quick_frame_pc_);
+static InlineInfo GetCurrentInlineInfo(const OatQuickMethodHeader* method_header,
+                                       uintptr_t cur_quick_frame_pc)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  uint32_t native_pc_offset = method_header->NativeQuickPcOffset(cur_quick_frame_pc);
   CodeInfo code_info = method_header->GetOptimizedCodeInfo();
   CodeInfoEncoding encoding = code_info.ExtractEncoding();
   StackMap stack_map = code_info.GetStackMapForNativePcOffset(native_pc_offset, encoding);
@@ -139,7 +91,8 @@ ArtMethod* StackVisitor::GetMethod() const {
   } else if (cur_quick_frame_ != nullptr) {
     if (IsInInlinedFrame()) {
       size_t depth_in_stack_map = current_inlining_depth_ - 1;
-      InlineInfo inline_info = GetCurrentInlineInfo();
+      InlineInfo inline_info = GetCurrentInlineInfo(GetCurrentOatQuickMethodHeader(),
+                                                    cur_quick_frame_pc_);
       const OatQuickMethodHeader* method_header = GetCurrentOatQuickMethodHeader();
       CodeInfoEncoding encoding = method_header->GetOptimizedCodeInfo().ExtractEncoding();
       MethodInfo method_info = method_header->GetOptimizedMethodInfo();
@@ -164,8 +117,8 @@ uint32_t StackVisitor::GetDexPc(bool abort_on_failure) const {
       size_t depth_in_stack_map = current_inlining_depth_ - 1;
       const OatQuickMethodHeader* method_header = GetCurrentOatQuickMethodHeader();
       CodeInfoEncoding encoding = method_header->GetOptimizedCodeInfo().ExtractEncoding();
-      return GetCurrentInlineInfo().GetDexPcAtDepth(encoding.inline_info.encoding,
-                                                    depth_in_stack_map);
+      return GetCurrentInlineInfo(GetCurrentOatQuickMethodHeader(), cur_quick_frame_pc_).
+          GetDexPcAtDepth(encoding.inline_info.encoding, depth_in_stack_map);
     } else if (cur_oat_quick_method_header_ == nullptr) {
       return DexFile::kDexNoIndex;
     } else {
@@ -681,7 +634,7 @@ static void AssertPcIsWithinQuickCode(ArtMethod* method, uintptr_t pc)
 void StackVisitor::SanityCheckFrame() const {
   if (kIsDebugBuild) {
     ArtMethod* method = GetMethod();
-    auto* declaring_class = method->GetDeclaringClass();
+    mirror::Class* declaring_class = method->GetDeclaringClass();
     // Runtime methods have null declaring class.
     if (!method->IsRuntimeMethod()) {
       CHECK(declaring_class != nullptr);
@@ -694,11 +647,14 @@ void StackVisitor::SanityCheckFrame() const {
     LinearAlloc* const linear_alloc = runtime->GetLinearAlloc();
     if (!linear_alloc->Contains(method)) {
       // Check class linker linear allocs.
-      mirror::Class* klass = method->GetDeclaringClass();
+      // We get the canonical method as copied methods may have their declaring
+      // class from another class loader.
+      ArtMethod* canonical = method->GetCanonicalMethod();
+      mirror::Class* klass = canonical->GetDeclaringClass();
       LinearAlloc* const class_linear_alloc = (klass != nullptr)
           ? runtime->GetClassLinker()->GetAllocatorForClassLoader(klass->GetClassLoader())
           : linear_alloc;
-      if (!class_linear_alloc->Contains(method)) {
+      if (!class_linear_alloc->Contains(canonical)) {
         // Check image space.
         bool in_image = false;
         for (auto& space : runtime->GetHeap()->GetContinuousSpaces()) {
@@ -707,14 +663,14 @@ void StackVisitor::SanityCheckFrame() const {
             const auto& header = image_space->GetImageHeader();
             const ImageSection& methods = header.GetMethodsSection();
             const ImageSection& runtime_methods = header.GetRuntimeMethodsSection();
-            const size_t offset =  reinterpret_cast<const uint8_t*>(method) - image_space->Begin();
+            const size_t offset =  reinterpret_cast<const uint8_t*>(canonical) - image_space->Begin();
             if (methods.Contains(offset) || runtime_methods.Contains(offset)) {
               in_image = true;
               break;
             }
           }
         }
-        CHECK(in_image) << method->PrettyMethod() << " not in linear alloc or image";
+        CHECK(in_image) << canonical->PrettyMethod() << " not in linear alloc or image";
       }
     }
     if (cur_quick_frame_ != nullptr) {
@@ -761,7 +717,7 @@ QuickMethodFrameInfo StackVisitor::GetCurrentQuickFrameInfo() const {
   Runtime* runtime = Runtime::Current();
 
   if (method->IsAbstract()) {
-    return runtime->GetCalleeSaveMethodFrameInfo(Runtime::kSaveRefsAndArgs);
+    return runtime->GetCalleeSaveMethodFrameInfo(CalleeSaveType::kSaveRefsAndArgs);
   }
 
   // This goes before IsProxyMethod since runtime methods have a null declaring class.
@@ -775,7 +731,7 @@ QuickMethodFrameInfo StackVisitor::GetCurrentQuickFrameInfo() const {
     // compiled method without any stubs. Therefore the method must have a OatQuickMethodHeader.
     DCHECK(!method->IsDirect() && !method->IsConstructor())
         << "Constructors of proxy classes must have a OatQuickMethodHeader";
-    return runtime->GetCalleeSaveMethodFrameInfo(Runtime::kSaveRefsAndArgs);
+    return runtime->GetCalleeSaveMethodFrameInfo(CalleeSaveType::kSaveRefsAndArgs);
   }
 
   // The only remaining case is if the method is native and uses the generic JNI stub.
@@ -788,7 +744,7 @@ QuickMethodFrameInfo StackVisitor::GetCurrentQuickFrameInfo() const {
   uint32_t handle_refs = GetNumberOfReferenceArgsWithoutReceiver(method) + 1;
   size_t scope_size = HandleScope::SizeOf(handle_refs);
   QuickMethodFrameInfo callee_info =
-      runtime->GetCalleeSaveMethodFrameInfo(Runtime::kSaveRefsAndArgs);
+      runtime->GetCalleeSaveMethodFrameInfo(CalleeSaveType::kSaveRefsAndArgs);
 
   // Callee saves + handle scope + method ref + alignment
   // Note: -sizeof(void*) since callee-save frame stores a whole method pointer.
@@ -871,11 +827,11 @@ void StackVisitor::WalkStack(bool include_transitions) {
                 thread_->GetInstrumentationStack()->at(instrumentation_stack_depth);
             instrumentation_stack_depth++;
             if (GetMethod() ==
-                Runtime::Current()->GetCalleeSaveMethod(Runtime::kSaveAllCalleeSaves)) {
+                Runtime::Current()->GetCalleeSaveMethod(CalleeSaveType::kSaveAllCalleeSaves)) {
               // Skip runtime save all callee frames which are used to deliver exceptions.
             } else if (instrumentation_frame.interpreter_entry_) {
               ArtMethod* callee =
-                  Runtime::Current()->GetCalleeSaveMethod(Runtime::kSaveRefsAndArgs);
+                  Runtime::Current()->GetCalleeSaveMethod(CalleeSaveType::kSaveRefsAndArgs);
               CHECK_EQ(GetMethod(), callee) << "Expected: " << ArtMethod::PrettyMethod(callee)
                                             << " Found: " << ArtMethod::PrettyMethod(GetMethod());
             } else {
@@ -949,135 +905,5 @@ void StackVisitor::WalkStack(bool include_transitions) {
 
 template void StackVisitor::WalkStack<StackVisitor::CountTransitions::kYes>(bool);
 template void StackVisitor::WalkStack<StackVisitor::CountTransitions::kNo>(bool);
-
-void JavaFrameRootInfo::Describe(std::ostream& os) const {
-  const StackVisitor* visitor = stack_visitor_;
-  CHECK(visitor != nullptr);
-  os << "Type=" << GetType() << " thread_id=" << GetThreadId() << " location=" <<
-      visitor->DescribeLocation() << " vreg=" << vreg_;
-}
-
-int StackVisitor::GetVRegOffsetFromQuickCode(const DexFile::CodeItem* code_item,
-                                             uint32_t core_spills, uint32_t fp_spills,
-                                             size_t frame_size, int reg, InstructionSet isa) {
-  PointerSize pointer_size = InstructionSetPointerSize(isa);
-  if (kIsDebugBuild) {
-    auto* runtime = Runtime::Current();
-    if (runtime != nullptr) {
-      CHECK_EQ(runtime->GetClassLinker()->GetImagePointerSize(), pointer_size);
-    }
-  }
-  DCHECK_ALIGNED(frame_size, kStackAlignment);
-  DCHECK_NE(reg, -1);
-  int spill_size = POPCOUNT(core_spills) * GetBytesPerGprSpillLocation(isa)
-      + POPCOUNT(fp_spills) * GetBytesPerFprSpillLocation(isa)
-      + sizeof(uint32_t);  // Filler.
-  int num_regs = code_item->registers_size_ - code_item->ins_size_;
-  int temp_threshold = code_item->registers_size_;
-  const int max_num_special_temps = 1;
-  if (reg == temp_threshold) {
-    // The current method pointer corresponds to special location on stack.
-    return 0;
-  } else if (reg >= temp_threshold + max_num_special_temps) {
-    /*
-     * Special temporaries may have custom locations and the logic above deals with that.
-     * However, non-special temporaries are placed relative to the outs.
-     */
-    int temps_start = code_item->outs_size_ * sizeof(uint32_t)
-        + static_cast<size_t>(pointer_size) /* art method */;
-    int relative_offset = (reg - (temp_threshold + max_num_special_temps)) * sizeof(uint32_t);
-    return temps_start + relative_offset;
-  }  else if (reg < num_regs) {
-    int locals_start = frame_size - spill_size - num_regs * sizeof(uint32_t);
-    return locals_start + (reg * sizeof(uint32_t));
-  } else {
-    // Handle ins.
-    return frame_size + ((reg - num_regs) * sizeof(uint32_t))
-        + static_cast<size_t>(pointer_size) /* art method */;
-  }
-}
-
-void LockCountData::AddMonitor(Thread* self, mirror::Object* obj) {
-  if (obj == nullptr) {
-    return;
-  }
-
-  // If there's an error during enter, we won't have locked the monitor. So check there's no
-  // exception.
-  if (self->IsExceptionPending()) {
-    return;
-  }
-
-  if (monitors_ == nullptr) {
-    monitors_.reset(new std::vector<mirror::Object*>());
-  }
-  monitors_->push_back(obj);
-}
-
-void LockCountData::RemoveMonitorOrThrow(Thread* self, const mirror::Object* obj) {
-  if (obj == nullptr) {
-    return;
-  }
-  bool found_object = false;
-  if (monitors_ != nullptr) {
-    // We need to remove one pointer to ref, as duplicates are used for counting recursive locks.
-    // We arbitrarily choose the first one.
-    auto it = std::find(monitors_->begin(), monitors_->end(), obj);
-    if (it != monitors_->end()) {
-      monitors_->erase(it);
-      found_object = true;
-    }
-  }
-  if (!found_object) {
-    // The object wasn't found. Time for an IllegalMonitorStateException.
-    // The order here isn't fully clear. Assume that any other pending exception is swallowed.
-    // TODO: Maybe make already pending exception a suppressed exception.
-    self->ClearException();
-    self->ThrowNewExceptionF("Ljava/lang/IllegalMonitorStateException;",
-                             "did not lock monitor on object of type '%s' before unlocking",
-                             const_cast<mirror::Object*>(obj)->PrettyTypeOf().c_str());
-  }
-}
-
-// Helper to unlock a monitor. Must be NO_THREAD_SAFETY_ANALYSIS, as we can't statically show
-// that the object was locked.
-void MonitorExitHelper(Thread* self, mirror::Object* obj) NO_THREAD_SAFETY_ANALYSIS {
-  DCHECK(self != nullptr);
-  DCHECK(obj != nullptr);
-  obj->MonitorExit(self);
-}
-
-bool LockCountData::CheckAllMonitorsReleasedOrThrow(Thread* self) {
-  DCHECK(self != nullptr);
-  if (monitors_ != nullptr) {
-    if (!monitors_->empty()) {
-      // There may be an exception pending, if the method is terminating abruptly. Clear it.
-      // TODO: Should we add this as a suppressed exception?
-      self->ClearException();
-
-      // OK, there are monitors that are still locked. To enforce structured locking (and avoid
-      // deadlocks) we unlock all of them before we raise the IllegalMonitorState exception.
-      for (mirror::Object* obj : *monitors_) {
-        MonitorExitHelper(self, obj);
-        // If this raised an exception, ignore. TODO: Should we add this as suppressed
-        // exceptions?
-        if (self->IsExceptionPending()) {
-          self->ClearException();
-        }
-      }
-      // Raise an exception, just give the first object as the sample.
-      mirror::Object* first = (*monitors_)[0];
-      self->ThrowNewExceptionF("Ljava/lang/IllegalMonitorStateException;",
-                               "did not unlock monitor on object of type '%s'",
-                               mirror::Object::PrettyTypeOf(first).c_str());
-
-      // To make sure this path is not triggered again, clean out the monitors.
-      monitors_->clear();
-
-      return false;
-    }
-  }
-  return true;
-}
 
 }  // namespace art

@@ -156,6 +156,13 @@ class AvbAtxValidateTest : public ::testing::Test, public FakeAvbOpsDelegate {
     return AVB_IO_RESULT_ERROR_NO_SUCH_PARTITION;
   }
 
+  AvbIOResult get_size_of_partition(AvbOps* ops,
+                                    const char* partition,
+                                    uint64_t* out_size) override {
+    // Expect method not used.
+    return AVB_IO_RESULT_ERROR_NO_SUCH_PARTITION;
+  }
+
   AvbIOResult read_permanent_attributes(
       AvbAtxPermanentAttributes* attributes) override {
     if (fail_read_permanent_attributes_) {
@@ -604,6 +611,12 @@ class AvbAtxSlotVerifyTest : public BaseAvbToolTest, public FakeAvbOpsDelegate {
         ops, partition, guid_buf, guid_buf_size);
   }
 
+  AvbIOResult get_size_of_partition(AvbOps* ops,
+                                    const char* partition,
+                                    uint64_t* out_size) override {
+    return ops_.get_size_of_partition(ops, partition, out_size);
+  }
+
   AvbIOResult read_permanent_attributes(
       AvbAtxPermanentAttributes* attributes) override {
     return ops_.read_permanent_attributes(attributes);
@@ -647,7 +660,8 @@ TEST_F(AvbAtxSlotVerifyTest, SlotVerifyWithAtx) {
             avb_slot_verify(ops_.avb_ops(),
                             requested_partitions,
                             "_a",
-                            false /* allow_verification_error */,
+                            AVB_SLOT_VERIFY_FLAGS_NONE,
+                            AVB_HASHTREE_ERROR_MODE_RESTART_AND_INVALIDATE,
                             &slot_data));
   EXPECT_NE(nullptr, slot_data);
   avb_slot_verify_data_free(slot_data);

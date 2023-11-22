@@ -58,20 +58,6 @@ LOCAL_MULTILIB := both
 
 include $(BUILD_HOST_STATIC_LIBRARY)
 
-include $(CLEAR_VARS)
-
-# now-empty static library to export include files for other projects
-LOCAL_MODULE := libnanohub_common
-LOCAL_MODULE_TAGS := optional
-
-LOCAL_C_INCLUDES := \
-    $(src_includes)
-
-LOCAL_EXPORT_C_INCLUDE_DIRS := \
-    $(src_includes)
-
-include $(BUILD_STATIC_LIBRARY)
-
 include $(call first-makefiles-under, $(LOCAL_PATH))
 
 src_files :=

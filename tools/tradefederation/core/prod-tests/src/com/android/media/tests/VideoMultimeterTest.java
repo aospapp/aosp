@@ -79,6 +79,14 @@ public class VideoMultimeterTest implements IDeviceTest, IRemoteTest {
         "filename of calibration video")
     private String mCaliVideoDevicePath = "video_cali.mp4";
 
+    @Option(
+        name = "debug-without-hardware",
+        description = "Use option to debug test without having specialized hardware",
+        importance = Importance.NEVER,
+        mandatory = false
+    )
+    protected boolean mDebugWithoutHardware = false;
+
     static final String ROTATE_LANDSCAPE = "content insert --uri content://settings/system"
             + " --bind name:s:user_rotation --bind value:i:1";
 
@@ -105,8 +113,12 @@ public class VideoMultimeterTest implements IDeviceTest, IRemoteTest {
     static final String VIDEO_FRAME_DATA_PATTERN = "OK\\s+\\d+;\\s*(-?\\d+);\\s*[a-z]+;\\s*(\\d+)";
 
     // Regex for: "OK (time); (frame duration); (marker color); (total dropped frames); (lipsync)"
+    // results in: $1 == ts, $2 == lipsync
     static final String LIPSYNC_DATA_PATTERN =
-        "OK\\s+\\d+;\\s*\\d+;\\s*[a-z]+;\\s*\\d+;\\s*(-?\\d+)";
+            "OK\\s+(\\d+);\\s*\\d+;\\s*[a-z]+;\\s*\\d+;\\s*(-?\\d+)";
+    //          ts        dur     color      missed       latency
+    static final int LIPSYNC_SIGNAL = 2000000; // every 2 seconds
+    static final int LIPSYNC_SIGNAL_MIN = 1500000; // must be at least 1.5 seconds after prev
 
     ITestDevice mDevice;
 
@@ -207,16 +219,15 @@ public class VideoMultimeterTest implements IDeviceTest, IRemoteTest {
         cr = getRunUtil().runTimedCmd(COMMAND_TIMEOUT_MS, mMeterUtilPath, CMD_STOP_MEASUREMENT);
         getRunUtil().sleep(3 * 1000);
         CLog.i("Stopping measurement: " + cr.getStdout());
-        getDevice().unlockDevice();
-        getRunUtil().sleep(3 * 1000);
 
         if (caliValues == null) {
             return doCalibration();
         } else {
             CLog.i("Setting calibration values: " + caliValues);
-            cr = getRunUtil().runTimedCmd(COMMAND_TIMEOUT_MS, mMeterUtilPath,
-                    CMD_SET_CALIBRATION_VALS + " " +  caliValues);
-            if (cr.getStdout().contains("OK")) {
+            final String calibrationValues = CMD_SET_CALIBRATION_VALS + " " + caliValues;
+            cr = getRunUtil().runTimedCmd(COMMAND_TIMEOUT_MS, mMeterUtilPath, calibrationValues);
+            final String response = mDebugWithoutHardware ? "OK" : cr.getStdout();
+            if (response != null && response.startsWith("OK")) {
                 CLog.i("Calibration values are set to: " + caliValues);
                 return true;
             } else {
@@ -230,7 +241,6 @@ public class VideoMultimeterTest implements IDeviceTest, IRemoteTest {
             throws DeviceNotAvailableException {
         CommandResult cr;
         getDevice().clearErrorDialogs();
-        getDevice().unlockDevice();
         getRunUtil().sleep(mWaitTimeBetweenRuns);
 
         // play test video
@@ -425,15 +435,25 @@ public class VideoMultimeterTest implements IDeviceTest, IRemoteTest {
 
         // parse lipsync results (the audio and video synchronization offset)
         // format: "OK (time); (frame duration); (marker color); (total dropped frames); (lipsync)"
-        p = Pattern.compile(LIPSYNC_DATA_PATTERN);
         if (lipsync) {
             ArrayList<Integer> lipsyncVals = new ArrayList<>();
             StringBuilder lipsyncValsStr = new StringBuilder("[");
             long lipsyncSum = 0;
+            int lipSyncLastTime = -1;
+
+            Pattern pLip = Pattern.compile(LIPSYNC_DATA_PATTERN);
             for (int i = 0; i < lines.length; i++) {
-                m = p.matcher(lines[i].trim());
+                m = pLip.matcher(lines[i].trim());
                 if (m.matches()) {
-                    int lipSyncVal = Integer.parseInt(m.group(1));
+                    int lipSyncTime = Integer.parseInt(m.group(1));
+                    int lipSyncVal = Integer.parseInt(m.group(2));
+                    if (lipSyncLastTime != -1) {
+                        if ((lipSyncTime - lipSyncLastTime) < LIPSYNC_SIGNAL_MIN) {
+                            continue; // ignore the early/spurious one
+                        }
+                    }
+                    lipSyncLastTime = lipSyncTime;
+
                     lipsyncVals.add(lipSyncVal);
                     lipsyncValsStr.append(lipSyncVal);
                     lipsyncValsStr.append(", ");

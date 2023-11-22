@@ -87,7 +87,7 @@ bool StartupConfig::append(const uint8_t* newContent, uint8_t newContentLen) {
     return false;
   }
 
-  ALOGD("%s: try append %u bytes", fn,
+  ALOGD("%s: try append %zu bytes", fn,
         (uint8_string::size_type)(newContentLen));
   // append new payload into private buffer
   mBuffer.append(newContent + 1, (uint8_string::size_type)(newContentLen - 1));

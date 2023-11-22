@@ -25,6 +25,7 @@ class platform_ImageLoader(test.test):
     GET_COMPONENT_VERSION = 'GetComponentVersion'
     REGISTER_COMPONENT = 'RegisterComponent'
     LOAD_COMPONENT = 'LoadComponent'
+    LOAD_COMPONENT_AT_PATH = 'LoadComponentAtPath'
     BAD_RESULT = ''
     USER = 'chronos'
     COMPONENT_NAME = 'TestFlashComponent'
@@ -61,6 +62,17 @@ class platform_ImageLoader(test.test):
             self.BUS_INTERFACE,
             self.BUS_PATH,
             self.LOAD_COMPONENT,
+            timeout_seconds=20,
+            user=self.USER,
+            args=args).response
+
+    def _load_component_at_path(self, name, path):
+        args = [dbus.String(name), dbus.String(path)]
+        return dbus_send.dbus_send(
+            self.BUS_NAME,
+            self.BUS_INTERFACE,
+            self.BUS_PATH,
+            self.LOAD_COMPONENT_AT_PATH,
             timeout_seconds=20,
             user=self.USER,
             args=args).response
@@ -142,6 +154,12 @@ class platform_ImageLoader(test.test):
         if self._register_component(self.COMPONENT_NAME, self.OLD_VERSION,
                                     component1):
             raise error.TestError('ImageLoader allowed a rollback')
+
+        # Test loading a component that lives at an arbitrary path.
+        mnt_path = self._load_component_at_path('FlashLoadedAtPath', component1)
+        if mnt_path == self.BAD_RESULT:
+            raise error.TestError('LoadComponentAtPath failed')
+        self._paths_to_unmount.append(mnt_path)
 
         known_mount_path = '/run/imageloader/TestFlashComponent_testing'
         # Now test loading the component on the command line.

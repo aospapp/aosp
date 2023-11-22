@@ -14,11 +14,14 @@ function package_root_to_root() {
 
 ##
 # Makes sure the appropriate directories are visible.
-# Usage: check_dirs [package:root ...]
+# Usage: check_dirs root_or_cwd [package:root ...]
 function check_dirs() {
+  local root_or_cwd=$1
+  shift 1
+
   for package_root in "$@"; do
       dir=$(package_root_to_root $package_root)
-      if [ ! -d $dir ] ; then
+      if [ ! -d $root_or_cwd$dir ] ; then
         echo "Where is $dir?";
         return 1;
       fi
@@ -62,6 +65,15 @@ function get_bp_dirs() {
 }
 
 ##
+# Returns directory path for a package
+# Usage: get_package_dir package_root_dir package_prefix package
+function get_package_dir() {
+  local package_dir=`echo $3 | cut -f1 -d@ | sed "s/$2\.//" | sed "s/\./\//g"`
+  local package_version=`echo $3 | cut -f2 -d@`
+  echo $1/$package_dir/$package_version
+}
+
+##
 # Helps manage the package root of a HAL directory.
 # Should be called from the android root directory.
 #
@@ -69,21 +81,25 @@ function get_bp_dirs() {
 # Where the first package root is the current one.
 #
 function do_makefiles_update() {
+  local root_or_cwd=${ANDROID_BUILD_TOP%%/}${ANDROID_BUILD_TOP:+/}
+
   local current_package=$(package_root_to_package $1)
-  local current_dir=$(package_root_to_root $1)
+  local current_dir=$root_or_cwd$(package_root_to_root $1)
 
   echo "Updating makefiles for $current_package in $current_dir."
 
-  check_dirs $@ || return 1
+  check_dirs "$root_or_cwd" $@ || return 1
 
   local packages=$(get_packages $current_dir $current_package) || return 1
   local root_arguments=$(get_root_arguments $@) || return 1
 
   for p in $packages; do
     echo "Updating $p";
+    local additional_options=
+    if [[ -f $(get_package_dir $current_dir $current_package $p)/.hidl_for_test ]]; then additional_options="-t"; fi
     hidl-gen -Lmakefile $root_arguments $p;
     rc=$?; if [[ $rc != 0 ]]; then return $rc; fi
-    hidl-gen -Landroidbp $root_arguments $p;
+    hidl-gen -Landroidbp $root_arguments $additional_options $p;
     rc=$?; if [[ $rc != 0 ]]; then return $rc; fi
   done
 

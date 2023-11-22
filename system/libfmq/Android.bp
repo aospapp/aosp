@@ -36,4 +36,7 @@ cc_library_shared {
         "-Werror",
     ],
     vendor_available: true,
+    vndk: {
+        enabled: true,
+    },
 }

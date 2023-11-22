@@ -81,10 +81,12 @@ import sun.security.action.GetPropertyAction;
  */
 public class FtpURLConnection extends URLConnection {
 
-// Android-changed: Removed support for proxying FTP over HTTP since it
-// relies on the removed sun.net.www.protocol.http.HttpURLConnection API.
-//    // In case we have to use proxies, we use HttpURLConnection
-//    HttpURLConnection http = null;
+    // Android-changed: Removed support for proxying FTP over HTTP.
+    // It relies on the removed sun.net.www.protocol.http.HttpURLConnection API.
+    /*
+    // In case we have to use proxies, we use HttpURLConnection
+    HttpURLConnection http = null;
+    */
     private Proxy instProxy;
 
     InputStream is = null;
@@ -163,6 +165,8 @@ public class FtpURLConnection extends URLConnection {
      *
      * @param   url     The <code>URL</code> to retrieve or store.
      */
+    // Android-changed: Ctors can throw IOException for NetworkSecurityPolicy enforcement.
+    // public FtpURLConnection(URL url) {
     public FtpURLConnection(URL url) throws IOException {
         this(url, null);
     }
@@ -170,19 +174,22 @@ public class FtpURLConnection extends URLConnection {
     /**
      * Same as FtpURLconnection(URL) with a per connection proxy specified
      */
+    // Android-changed: Ctors can throw IOException for NetworkSecurityPolicy enforcement.
+    // FtpURLConnection(URL url, Proxy p) {
     FtpURLConnection(URL url, Proxy p) throws IOException {
         super(url);
         instProxy = p;
         host = url.getHost();
         port = url.getPort();
         String userInfo = url.getUserInfo();
-
+        // BEGIN Android-added: Enforce NetworkSecurityPolicy.isClearTextTrafficPermitted().
         if (!NetworkSecurityPolicy.getInstance().isCleartextTrafficPermitted()) {
             // Cleartext network traffic is not permitted -- refuse this connection.
             throw new IOException("Cleartext traffic not permitted: "
                     + url.getProtocol() + "://" + host
                     + ((url.getPort() >= 0) ? (":" + url.getPort()) : ""));
         }
+        // END Android-added: Enforce NetworkSecurityPolicy.isClearTextTrafficPermitted().
 
         if (userInfo != null) { // get the user and password
             int delimiter = userInfo.indexOf(':');
@@ -246,50 +253,56 @@ public class FtpURLConnection extends URLConnection {
                         continue;
                     }
                     // OK, we have an http proxy
-                    // Android-changed: Removed support for proxying FTP over HTTP since it
-                    // relies on the removed sun.net.www.protocol.http.HttpURLConnection API.
+                    // BEGIN Android-changed: Removed support for proxying FTP over HTTP.
+                    // It relies on the removed sun.net.www.protocol.http.HttpURLConnection API.
+                    /*
+                    InetSocketAddress paddr = (InetSocketAddress) p.address();
+                    try {
+                        http = new HttpURLConnection(url, p);
+                        http.setDoInput(getDoInput());
+                        http.setDoOutput(getDoOutput());
+                        if (connectTimeout >= 0) {
+                            http.setConnectTimeout(connectTimeout);
+                        }
+                        if (readTimeout >= 0) {
+                            http.setReadTimeout(readTimeout);
+                        }
+                        http.connect();
+                        connected = true;
+                        return;
+                    } catch (IOException ioe) {
+                        sel.connectFailed(uri, paddr, ioe);
+                        http = null;
+                    }
+                    */
                     sel.connectFailed(uri, p.address(), new IOException("FTP connections over HTTP proxy not supported"));
                     continue;
-//                    InetSocketAddress paddr = (InetSocketAddress) p.address();
-//                    try {
-//                        http = new HttpURLConnection(url, p);
-//                        http.setDoInput(getDoInput());
-//                        http.setDoOutput(getDoOutput());
-//                        if (connectTimeout >= 0) {
-//                            http.setConnectTimeout(connectTimeout);
-//                        }
-//                        if (readTimeout >= 0) {
-//                            http.setReadTimeout(readTimeout);
-//                        }
-//                        http.connect();
-//                        connected = true;
-//                        return;
-//                    } catch (IOException ioe) {
-//                        sel.connectFailed(uri, paddr, ioe);
-//                        http = null;
-//                    }
+                    // END Android-changed: Removed support for proxying FTP over HTTP.
                 }
             }
         } else { // per connection proxy specified
             p = instProxy;
-// Android-changed: Removed support for proxying FTP over HTTP since it
-// relies on the removed sun.net.www.protocol.http.HttpURLConnection API.
-// As specified in the documentation for URL.openConnection(Proxy), we
-// ignore the unsupported proxy and attempt a normal (direct) connection
-//            if (p.type() == Proxy.Type.HTTP) {
-//                http = new HttpURLConnection(url, instProxy);
-//                http.setDoInput(getDoInput());
-//                http.setDoOutput(getDoOutput());
-//                if (connectTimeout >= 0) {
-//                    http.setConnectTimeout(connectTimeout);
-//                }
-//                if (readTimeout >= 0) {
-//                    http.setReadTimeout(readTimeout);
-//                }
-//                http.connect();
-//                connected = true;
-//                return;
-//            }
+            // BEGIN Android-changed: Removed support for proxying FTP over HTTP.
+            // It relies on the removed sun.net.www.protocol.http.HttpURLConnection API.
+            // As specified in the documentation for URL.openConnection(Proxy), we
+            // ignore the unsupported proxy and attempt a normal (direct) connection
+            /*
+            if (p.type() == Proxy.Type.HTTP) {
+                http = new HttpURLConnection(url, instProxy);
+                http.setDoInput(getDoInput());
+                http.setDoOutput(getDoOutput());
+                if (connectTimeout >= 0) {
+                    http.setConnectTimeout(connectTimeout);
+                }
+                if (readTimeout >= 0) {
+                    http.setReadTimeout(readTimeout);
+                }
+                http.connect();
+                connected = true;
+                return;
+            }
+            */
+            // END Android-changed: Removed support for proxying FTP over HTTP.
         }
 
         if (user == null) {
@@ -319,7 +332,7 @@ public class FtpURLConnection extends URLConnection {
             throw new IOException(fe);
         }
         try {
-            ftp.login(user, password.toCharArray());
+            ftp.login(user, password == null ? null : password.toCharArray());
         } catch (sun.net.ftp.FtpProtocolException e) {
             ftp.close();
             // Backward compatibility
@@ -410,11 +423,14 @@ public class FtpURLConnection extends URLConnection {
         if (!connected) {
             connect();
         }
-        // Android-changed: Removed support for proxying FTP over HTTP since it
-        // relies on the removed sun.net.www.protocol.http.HttpURLConnection API.
-//        if (http != null) {
-//            return http.getInputStream();
-//        }
+
+        // Android-changed: Removed support for proxying FTP over HTTP.
+        // It relies on the removed sun.net.www.protocol.http.HttpURLConnection API.
+        /*
+        if (http != null) {
+            return http.getInputStream();
+        }
+        */
 
         if (os != null) {
             throw new IOException("Already opened for output");
@@ -525,15 +541,18 @@ public class FtpURLConnection extends URLConnection {
         if (!connected) {
             connect();
         }
-// Android-changed: Removed support for proxying FTP over HTTP since it
-// relies on the removed sun.net.www.protocol.http.HttpURLConnection API.
-//        if (http != null) {
-//            OutputStream out = http.getOutputStream();
-//            // getInputStream() is neccessary to force a writeRequests()
-//            // on the http client.
-//            http.getInputStream();
-//            return out;
-//        }
+
+        // Android-changed: Removed support for proxying FTP over HTTP.
+        // It relies on the removed sun.net.www.protocol.http.HttpURLConnection API.
+        /*
+        if (http != null) {
+            OutputStream out = http.getOutputStream();
+            // getInputStream() is neccessary to force a writeRequests()
+            // on the http client.
+            http.getInputStream();
+            return out;
+        }
+        */
 
         if (is != null) {
             throw new IOException("Already opened for input");

@@ -42,8 +42,8 @@ class AsymmetricKeyFactory : public KeyFactory {
     virtual keymaster_algorithm_t keymaster_key_type() const = 0;
     virtual int evp_key_type() const = 0;
 
-    virtual const keymaster_key_format_t* SupportedImportFormats(size_t* format_count) const;
-    virtual const keymaster_key_format_t* SupportedExportFormats(size_t* format_count) const;
+    virtual const keymaster_key_format_t* SupportedImportFormats(size_t* format_count) const override;
+    virtual const keymaster_key_format_t* SupportedExportFormats(size_t* format_count) const override;
 };
 
 }  // namespace keymaster

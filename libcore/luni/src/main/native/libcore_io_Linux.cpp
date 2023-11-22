@@ -33,6 +33,7 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/prctl.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
@@ -51,19 +52,19 @@
 #include <android-base/file.h>
 #include <android-base/strings.h>
 #include <log/log.h>
+#include <nativehelper/AsynchronousCloseMonitor.h>
+#include <nativehelper/JNIHelp.h>
+#include <nativehelper/JniConstants.h>
+#include <nativehelper/ScopedBytes.h>
+#include <nativehelper/ScopedLocalRef.h>
+#include <nativehelper/ScopedPrimitiveArray.h>
+#include <nativehelper/ScopedUtfChars.h>
+#include <nativehelper/toStringArray.h>
 
-#include "AsynchronousCloseMonitor.h"
 #include "ExecStrings.h"
-#include "JNIHelp.h"
-#include "JniConstants.h"
 #include "JniException.h"
 #include "NetworkUtilities.h"
 #include "Portability.h"
-#include "ScopedBytes.h"
-#include "ScopedLocalRef.h"
-#include "ScopedPrimitiveArray.h"
-#include "ScopedUtfChars.h"
-#include "toStringArray.h"
 
 #ifndef __unused
 #define __unused __attribute__((__unused__))
@@ -373,11 +374,16 @@ static jobject makeSocketAddress(JNIEnv* env, const sockaddr_storage& ss, const 
         }
         static jmethodID ctor = env->GetMethodID(JniConstants::inetSocketAddressClass,
                 "<init>", "(Ljava/net/InetAddress;I)V");
+        if (ctor == NULL) {
+            return NULL;
+        }
         return env->NewObject(JniConstants::inetSocketAddressClass, ctor, inetAddress, port);
     } else if (ss.ss_family == AF_UNIX) {
         static jmethodID ctor = env->GetMethodID(JniConstants::unixSocketAddressClass,
                 "<init>", "([B)V");
-
+        if (ctor == NULL) {
+            return NULL;
+        }
         jbyteArray javaSunPath = getUnixSocketPath(env, ss, sa_len);
         if (!javaSunPath) {
             return NULL;
@@ -387,6 +393,9 @@ static jobject makeSocketAddress(JNIEnv* env, const sockaddr_storage& ss, const 
         const struct sockaddr_nl* nl_addr = reinterpret_cast<const struct sockaddr_nl*>(&ss);
         static jmethodID ctor = env->GetMethodID(JniConstants::netlinkSocketAddressClass,
                 "<init>", "(II)V");
+        if (ctor == NULL) {
+            return NULL;
+        }
         return env->NewObject(JniConstants::netlinkSocketAddressClass, ctor,
                 static_cast<jint>(nl_addr->nl_pid),
                 static_cast<jint>(nl_addr->nl_groups));
@@ -394,6 +403,9 @@ static jobject makeSocketAddress(JNIEnv* env, const sockaddr_storage& ss, const 
         const struct sockaddr_ll* sll = reinterpret_cast<const struct sockaddr_ll*>(&ss);
         static jmethodID ctor = env->GetMethodID(JniConstants::packetSocketAddressClass,
                 "<init>", "(SISB[B)V");
+        if (ctor == NULL) {
+            return NULL;
+        }
         ScopedLocalRef<jbyteArray> byteArray(env, env->NewByteArray(sll->sll_halen));
         if (byteArray.get() == NULL) {
             return NULL;
@@ -419,26 +431,59 @@ static jobject makeStructPasswd(JNIEnv* env, const struct passwd& pw) {
     TO_JAVA_STRING(pw_shell, pw.pw_shell);
     static jmethodID ctor = env->GetMethodID(JniConstants::structPasswdClass, "<init>",
             "(Ljava/lang/String;IILjava/lang/String;Ljava/lang/String;)V");
+    if (ctor == NULL) {
+        return NULL;
+    }
     return env->NewObject(JniConstants::structPasswdClass, ctor,
             pw_name, static_cast<jint>(pw.pw_uid), static_cast<jint>(pw.pw_gid), pw_dir, pw_shell);
 }
 
+static jobject makeStructTimespec(JNIEnv* env, const struct timespec& ts) {
+    static jmethodID ctor = env->GetMethodID(JniConstants::structTimespecClass, "<init>",
+            "(JJ)V");
+    if (ctor == NULL) {
+        return NULL;
+    }
+    return env->NewObject(JniConstants::structTimespecClass, ctor,
+            static_cast<jlong>(ts.tv_sec), static_cast<jlong>(ts.tv_nsec));
+}
+
 static jobject makeStructStat(JNIEnv* env, const struct stat64& sb) {
     static jmethodID ctor = env->GetMethodID(JniConstants::structStatClass, "<init>",
-            "(JJIJIIJJJJJJJ)V");
+            "(JJIJIIJJLandroid/system/StructTimespec;Landroid/system/StructTimespec;Landroid/system/StructTimespec;JJ)V");
+    if (ctor == NULL) {
+        return NULL;
+    }
+
+    jobject atim_timespec = makeStructTimespec(env, sb.st_atim);
+    if (atim_timespec == NULL) {
+        return NULL;
+    }
+    jobject mtim_timespec = makeStructTimespec(env, sb.st_mtim);
+    if (mtim_timespec == NULL) {
+        return NULL;
+    }
+    jobject ctim_timespec = makeStructTimespec(env, sb.st_ctim);
+    if (ctim_timespec == NULL) {
+        return NULL;
+    }
+
     return env->NewObject(JniConstants::structStatClass, ctor,
             static_cast<jlong>(sb.st_dev), static_cast<jlong>(sb.st_ino),
             static_cast<jint>(sb.st_mode), static_cast<jlong>(sb.st_nlink),
             static_cast<jint>(sb.st_uid), static_cast<jint>(sb.st_gid),
             static_cast<jlong>(sb.st_rdev), static_cast<jlong>(sb.st_size),
-            static_cast<jlong>(sb.st_atime), static_cast<jlong>(sb.st_mtime),
-            static_cast<jlong>(sb.st_ctime), static_cast<jlong>(sb.st_blksize),
-            static_cast<jlong>(sb.st_blocks));
+            atim_timespec, mtim_timespec, ctim_timespec,
+            static_cast<jlong>(sb.st_blksize), static_cast<jlong>(sb.st_blocks));
 }
 
 static jobject makeStructStatVfs(JNIEnv* env, const struct statvfs& sb) {
     static jmethodID ctor = env->GetMethodID(JniConstants::structStatVfsClass, "<init>",
             "(JJJJJJJJJJJ)V");
+    if (ctor == NULL) {
+        return NULL;
+    }
+
     return env->NewObject(JniConstants::structStatVfsClass, ctor,
                           static_cast<jlong>(sb.f_bsize),
                           static_cast<jlong>(sb.f_frsize),
@@ -455,18 +500,27 @@ static jobject makeStructStatVfs(JNIEnv* env, const struct statvfs& sb) {
 
 static jobject makeStructLinger(JNIEnv* env, const struct linger& l) {
     static jmethodID ctor = env->GetMethodID(JniConstants::structLingerClass, "<init>", "(II)V");
+    if (ctor == NULL) {
+        return NULL;
+    }
     return env->NewObject(JniConstants::structLingerClass, ctor, l.l_onoff, l.l_linger);
 }
 
 static jobject makeStructTimeval(JNIEnv* env, const struct timeval& tv) {
     static jmethodID ctor = env->GetMethodID(JniConstants::structTimevalClass, "<init>", "(JJ)V");
+    if (ctor == NULL) {
+        return NULL;
+    }
     return env->NewObject(JniConstants::structTimevalClass, ctor,
             static_cast<jlong>(tv.tv_sec), static_cast<jlong>(tv.tv_usec));
 }
 
 static jobject makeStructUcred(JNIEnv* env, const struct ucred& u __unused) {
-  static jmethodID ctor = env->GetMethodID(JniConstants::structUcredClass, "<init>", "(III)V");
-  return env->NewObject(JniConstants::structUcredClass, ctor, u.pid, u.uid, u.gid);
+    static jmethodID ctor = env->GetMethodID(JniConstants::structUcredClass, "<init>", "(III)V");
+    if (ctor == NULL) {
+        return NULL;
+    }
+    return env->NewObject(JniConstants::structUcredClass, ctor, u.pid, u.uid, u.gid);
 }
 
 static jobject makeStructUtsname(JNIEnv* env, const struct utsname& buf) {
@@ -477,6 +531,9 @@ static jobject makeStructUtsname(JNIEnv* env, const struct utsname& buf) {
     TO_JAVA_STRING(machine, buf.machine);
     static jmethodID ctor = env->GetMethodID(JniConstants::structUtsnameClass, "<init>",
             "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
+    if (ctor == NULL) {
+        return NULL;
+    }
     return env->NewObject(JniConstants::structUtsnameClass, ctor,
             sysname, nodename, release, version, machine);
 };
@@ -1308,6 +1365,22 @@ static jobject Linux_getpwuid(JNIEnv* env, jobject, jint uid) {
     return Passwd(env).getpwuid(uid);
 }
 
+static jobject Linux_getrlimit(JNIEnv* env, jobject, jint resource) {
+    struct rlimit r;
+    if (throwIfMinusOne(env, "getrlimit", TEMP_FAILURE_RETRY(getrlimit(resource, &r))) == -1) {
+        return nullptr;
+    }
+
+    ScopedLocalRef<jclass> rlimit_class(env, env->FindClass("android/system/StructRlimit"));
+    jmethodID ctor = env->GetMethodID(rlimit_class.get(), "<init>", "(JJ)V");
+    if (ctor == NULL) {
+        return NULL;
+    }
+    return env->NewObject(rlimit_class.get(), ctor,
+                          static_cast<jlong>(r.rlim_cur),
+                          static_cast<jlong>(r.rlim_max));
+}
+
 static jobject Linux_getsockname(JNIEnv* env, jobject, jobject javaFd) {
   return doGetSockName(env, javaFd, true);
 }
@@ -1436,6 +1509,9 @@ static jbyteArray Linux_getxattr(JNIEnv* env, jobject, jstring javaPath,
 static jobjectArray Linux_getifaddrs(JNIEnv* env, jobject) {
     static jmethodID ctor = env->GetMethodID(JniConstants::structIfaddrs, "<init>",
             "(Ljava/lang/String;ILjava/net/InetAddress;Ljava/net/InetAddress;Ljava/net/InetAddress;[B)V");
+    if (ctor == NULL) {
+        return NULL;
+    }
 
     ifaddrs* ifaddr;
     int rc = TEMP_FAILURE_RETRY(getifaddrs(&ifaddr));
@@ -1522,6 +1598,9 @@ static jobjectArray Linux_getifaddrs(JNIEnv* env, jobject) {
 
         jobject o = env->NewObject(JniConstants::structIfaddrs, ctor, name, flags, addr, netmask,
                                    broad, hwaddr);
+        if (o == NULL) {
+            return NULL;
+        }
         env->SetObjectArrayElement(result, index, o);
     }
 
@@ -1753,7 +1832,10 @@ static jobject Linux_open(JNIEnv* env, jobject, jstring javaPath, jint flags, ji
 
 static jobjectArray Linux_pipe2(JNIEnv* env, jobject, jint flags __unused) {
     int fds[2];
-    throwIfMinusOne(env, "pipe2", TEMP_FAILURE_RETRY(pipe2(&fds[0], flags)));
+    int pipe2_result = throwIfMinusOne(env, "pipe2", TEMP_FAILURE_RETRY(pipe2(&fds[0], flags)));
+    if (pipe2_result == -1) {
+        return NULL;
+    }
     jobjectArray result = env->NewObjectArray(2, JniConstants::fileDescriptorClass, NULL);
     if (result == NULL) {
         return NULL;
@@ -2003,6 +2085,9 @@ static jlong Linux_sendfile(JNIEnv* env, jobject, jobject javaOutFd, jobject jav
         offsetPtr = &offset;
     }
     jlong result = throwIfMinusOne(env, "sendfile", TEMP_FAILURE_RETRY(sendfile(outFd, inFd, offsetPtr, byteCount)));
+    if (result == -1) {
+        return -1;
+    }
     if (javaOffset != NULL) {
         env->SetLongField(javaOffset, valueFid, offset);
     }
@@ -2414,6 +2499,7 @@ static JNINativeMethod gMethods[] = {
     NATIVE_METHOD(Linux, getppid, "()I"),
     NATIVE_METHOD(Linux, getpwnam, "(Ljava/lang/String;)Landroid/system/StructPasswd;"),
     NATIVE_METHOD(Linux, getpwuid, "(I)Landroid/system/StructPasswd;"),
+    NATIVE_METHOD(Linux, getrlimit, "(I)Landroid/system/StructRlimit;"),
     NATIVE_METHOD(Linux, getsockname, "(Ljava/io/FileDescriptor;)Ljava/net/SocketAddress;"),
     NATIVE_METHOD(Linux, getsockoptByte, "(Ljava/io/FileDescriptor;II)I"),
     NATIVE_METHOD(Linux, getsockoptInAddr, "(Ljava/io/FileDescriptor;II)Ljava/net/InetAddress;"),

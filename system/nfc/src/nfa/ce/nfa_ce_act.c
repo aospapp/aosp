@@ -285,10 +285,13 @@ void nfa_ce_discovery_cback(tNFA_DM_RF_DISC_EVT event, tNFC_DISCOVER* p_data) {
 void nfc_ce_t3t_set_listen_params(void) {
   uint8_t i;
   tNFA_CE_CB* p_cb = &nfa_ce_cb;
-  uint8_t tlv[32], *p_params;
+  uint8_t tlv[128], *p_params;
   uint8_t tlv_size;
   uint16_t t3t_flags2_mask = 0xFFFF; /* Mask of which T3T_IDs are disabled */
   uint8_t t3t_idx = 0;
+  uint8_t adv_Feat = 1;
+  uint8_t t3tPMM[NCI_T3T_PMM_LEN] = {0xFF, 0xFF, 0xFF, 0xFF,
+                                     0xFF, 0xFF, 0xFF, 0xFF};
 
   /* Point to start of tlv buffer */
   p_params = tlv;
@@ -299,12 +302,16 @@ void nfc_ce_t3t_set_listen_params(void) {
         (p_cb->listen_info[i].protocol_mask & NFA_PROTOCOL_MASK_T3T)) {
       /* Set tag's system code and NFCID2 */
       UINT8_TO_STREAM(p_params, NFC_PMID_LF_T3T_ID1 + t3t_idx); /* type */
-      UINT8_TO_STREAM(p_params, NCI_PARAM_LEN_LF_T3T_ID);       /* length */
+      /* length */
+      UINT8_TO_STREAM(p_params, NCI_PARAM_LEN_LF_T3T_ID(NFC_GetNCIVersion()));
       /* System Code */
       UINT16_TO_BE_STREAM(p_params, p_cb->listen_info[i].t3t_system_code);
       ARRAY_TO_BE_STREAM(p_params, p_cb->listen_info[i].t3t_nfcid2,
                          NCI_RF_F_UID_LEN);
-
+      if (NFC_GetNCIVersion() == NCI_VERSION_2_0) {
+        ARRAY_TO_BE_STREAM(p_params, p_cb->listen_info[i].t3t_pmm,
+                           NCI_T3T_PMM_LEN);
+      }
       /* Set mask for this ID */
       t3t_flags2_mask &= ~((uint16_t)(1 << t3t_idx));
       t3t_idx++;
@@ -319,7 +326,25 @@ void nfc_ce_t3t_set_listen_params(void) {
   /* Mask of IDs to disable listening */
   UINT16_TO_STREAM(p_params, t3t_flags2_mask);
 
+  if (NFC_GetNCIVersion() == NCI_VERSION_2_0) {
+    /*Name changed in NCI2.0*/
+    UINT8_TO_STREAM(p_params, NCI_PARAM_ID_LF_T3T_RD_ALLOWED);  /* type */
+    UINT8_TO_STREAM(p_params, NCI_PARAM_LEN_LF_T3T_RD_ALLOWED); /* length */
+  } else {
+    UINT8_TO_STREAM(p_params, NCI_PARAM_ID_LF_CON_ADV_FEAT);  /* type */
+    UINT8_TO_STREAM(p_params, NCI_PARAM_LEN_LF_CON_ADV_FEAT); /* length */
+  }
+  UINT8_TO_STREAM(p_params, adv_Feat);
+
+  if (NFC_GetNCIVersion() != NCI_VERSION_2_0) {
+    UINT8_TO_STREAM(p_params, NCI_PARAM_ID_LF_T3T_PMM);  /* type */
+    UINT8_TO_STREAM(p_params, NCI_PARAM_LEN_LF_T3T_PMM); /* length */
+    ARRAY_TO_BE_STREAM(p_params, t3tPMM, NCI_T3T_PMM_LEN);
+  }
   tlv_size = (uint8_t)(p_params - tlv);
+  if (appl_dta_mode_flag == 0x01) {
+    nfa_dm_cb.eDtaMode |= NFA_DTA_HCEF_MODE;
+  }
   nfa_dm_check_set_config(tlv_size, (uint8_t*)tlv, false);
 }
 
@@ -1246,6 +1271,8 @@ bool nfa_ce_api_reg_listen(tNFA_CE_MSG* p_ce_msg) {
             p_ce_msg->reg_listen.system_code;
         memcpy(p_cb->listen_info[listen_info_idx].t3t_nfcid2,
                p_ce_msg->reg_listen.nfcid2, NCI_RF_F_UID_LEN);
+        memcpy(p_cb->listen_info[listen_info_idx].t3t_pmm,
+               p_ce_msg->reg_listen.t3tPmm, NCI_T3T_PMM_LEN);
         break;
 
 #if (NFC_NFCEE_INCLUDED == TRUE)

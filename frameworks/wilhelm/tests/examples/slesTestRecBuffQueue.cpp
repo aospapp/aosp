@@ -123,7 +123,8 @@ void RecBufferQueueCallback(
     switch (transferFormat) {
     case AUDIO_FORMAT_PCM_8_BIT: {
         short temp[BUFFER_SIZE_IN_BYTES];
-        memcpy_to_i16_from_u8(temp, (const unsigned char *) pCntxt->pDataBase, BUFFER_SIZE_IN_BYTES);
+        memcpy_to_i16_from_u8(temp, (const unsigned char *) pCntxt->pDataBase,
+                              BUFFER_SIZE_IN_BYTES);
         (void) sf_writef_short(sndfile, (const short *) temp, frameCount);
         } break;
     case AUDIO_FORMAT_PCM_16_BIT:

@@ -38,7 +38,7 @@
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"Gyors válasz"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"Üzenet elküldve ide: <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
     <string name="enable_account_preference_title" msgid="2021848090086481720">"Telefonos fiókok"</string>
-    <string name="outgoing_call_not_allowed_user_restriction" msgid="6872406278300131364">"Csak vészhívás engedélyezett."</string>
+    <string name="outgoing_call_not_allowed_user_restriction" msgid="6872406278300131364">"Csak segélyhívás engedélyezett."</string>
     <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"Az alkalmazásból nem lehet kimenő hívást kezdeményezni a Telefon (Phone) engedély nélkül."</string>
     <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"Hívásindításhoz adjon meg egy érvényes számot."</string>
     <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"Jelenleg nem lehet videohívást hozzáadni."</string>

@@ -144,8 +144,7 @@ abstract class Message {
         void update(Update event) {
             reset();
             if (event.hasException() && !event.hasAuthenticationException()) {
-                updateToInflatedErrorMesage(
-                        Shared.DEBUG ? Shared.getStackTrace(event.getException()) : null);
+                updateToInflatedErrorMesage();
             } else if (event.hasAuthenticationException()) {
                 updateToCantDisplayContentMessage();
             } else if (mEnv.getModel().getModelIds().length == 0) {
@@ -153,14 +152,9 @@ abstract class Message {
             }
         }
 
-        private void updateToInflatedErrorMesage(@Nullable String debugString) {
-            if (debugString == null) {
-                update(mEnv.getContext().getResources().getText(R.string.query_error), null,
-                        mEnv.getContext().getDrawable(R.drawable.hourglass));
-            } else {
-                assert (Shared.DEBUG);
-                update(debugString, null, mEnv.getContext().getDrawable(R.drawable.hourglass));
-            }
+        private void updateToInflatedErrorMesage() {
+            update(mEnv.getContext().getResources().getText(R.string.query_error), null,
+                    mEnv.getContext().getDrawable(R.drawable.hourglass));
         }
 
         private void updateToCantDisplayContentMessage() {

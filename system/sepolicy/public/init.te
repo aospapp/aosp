@@ -13,6 +13,10 @@ allow init tmpfs:chr_file { create setattr unlink rw_file_perms };
 # /dev/kmsg
 allow init tmpfs:chr_file relabelfrom;
 allow init kmsg_device:chr_file { write relabelto };
+# /dev/kmsg_debug
+userdebug_or_eng(`
+  allow init kmsg_debug_device:chr_file { write relabelto };
+')
 # /dev/__properties__
 allow init properties_device:dir relabelto;
 allow init properties_serial:file { write relabelto };
@@ -81,6 +85,7 @@ allow init cpuctl_device:dir { create mounton };
 # /config
 allow init configfs:dir mounton;
 allow init configfs:dir create_dir_perms;
+allow init configfs:{ file lnk_file } create_file_perms;
 
 # Use tmpfs as /data, used for booting when /data is encrypted
 allow init tmpfs:dir relabelfrom;
@@ -192,7 +197,7 @@ allow init dev_type:dir create_dir_perms;
 allow init dev_type:lnk_file create;
 
 # Disable tracing by writing to /sys/kernel/debug/tracing/tracing_on
-allow init tracing_shell_writable:file w_file_perms;
+allow init debugfs_tracing:file w_file_perms;
 
 # Setup and control wifi event tracing (see wifi-events.rc)
 allow init debugfs_tracing_instances:dir create_dir_perms;
@@ -247,7 +252,7 @@ allow init kernel:system syslog_mod;
 allow init self:capability2 syslog;
 
 # Set usermodehelpers and /proc security settings.
-allow init usermodehelper:file rw_file_perms;
+allow init { usermodehelper sysfs_usermodehelper }:file rw_file_perms;
 allow init proc_security:file rw_file_perms;
 
 # Write to /proc/sys/kernel/panic_on_oops.
@@ -280,7 +285,7 @@ allow init misc_logd_file:file { open create getattr setattr write };
 
 # Support "adb shell stop"
 allow init self:capability kill;
-allow init domain:process { sigkill signal };
+allow init domain:process { getpgid sigkill signal };
 
 # Init creates keystore's directory on boot, and walks through
 # the directory as part of a recursive restorecon.
@@ -323,8 +328,8 @@ selinux_check_access(init)
 allow init kernel:security compute_create;
 
 # Create sockets for the services.
-allow init domain:unix_stream_socket { create bind };
-allow init domain:unix_dgram_socket { create bind };
+allow init domain:unix_stream_socket { create bind setopt };
+allow init domain:unix_dgram_socket { create bind setopt };
 
 # Create /data/property and files within it.
 allow init property_data_file:dir create_dir_perms;

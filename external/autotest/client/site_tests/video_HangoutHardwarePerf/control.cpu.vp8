@@ -20,6 +20,7 @@ TEST_TYPE = 'client'
 DEPENDENCIES = 'cleanup-reboot, hw_video_acc_vp8, hw_video_acc_enc_vp8'
 BUG_TEMPLATE = {
     'labels': ['OS-Chrome', 'VideoTestFailure'],
+    'cc': ['chromeos-video-test-failures@google.com'],
 }
 
 DOC = """

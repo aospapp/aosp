@@ -26,6 +26,7 @@
 static const char* kDalvikCacheDir = "/data/dalvik-cache/";
 static const char* kOdexCacheSuffix = "@classes.dex";
 static const char* kVdexCacheSuffix = "@classes.vdex";
+static const char* kArtCacheSuffix = "@classes.art";
 
 // Returns the ISA extracted from the file_location.
 // file_location is formatted like /system/app/<app_name>/oat/<isa>/<app_name>.{odex,vdex}
@@ -88,10 +89,17 @@ static bool SystemBFilenameToCacheFile(const std::string& file_location,
     LOG(ERROR) << "Unable to determine apk name from file name '" << file_location << "'";
     return false;
   }
+  std::string::size_type pos = file_location.find_last_of(".");
+  if (pos == std::string::npos) {
+    LOG(ERROR) << "Invalid file location '" << file_location << "'";
+    return false;
+  }
   cache_file += apk_name;
-  if (file_location.size() >= 5 &&
-      file_location.substr(file_location.size() - 5) == std::string(".vdex")) {
+  std::string extension(file_location.substr(pos));
+  if (extension == ".vdex") {
     cache_file += kVdexCacheSuffix;
+  } else if (extension == ".art") {
+    cache_file += kArtCacheSuffix;
   } else {
     cache_file += kOdexCacheSuffix;
   }

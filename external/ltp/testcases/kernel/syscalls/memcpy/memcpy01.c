@@ -28,14 +28,12 @@
  *	memcpy1(3)
  *
  * ALGORITHM
- *	There are 4 cases for copies:  S = Source, D = Destination
+ *	There are 2 cases for copies:  S = Source, D = Destination
  *
  *	  1 - S < D no overlap
  *	  2 - D < S no overlap
- *	  3 - S < D with overlap
- *	  4 - D < S with overlap
  *
- *	We try all four cases.  Check buffer boundaries.
+ *	We try both cases.  Check buffer boundaries.
  *
  * RESTRICTIONS
  */
@@ -46,41 +44,37 @@
 #include <string.h>
 #include <errno.h>
 
-/*****	LTP Port	*****/
 #include "test.h"
 
 char *TCID = "memcpy1";
-/*****	**	**	*****/
+
 #undef  BSIZE
 #define BSIZE	4096
 #define LEN	100
 #define FAILED 0
 #define PASSED 1
 
-/*****	LTP Port	*****/
 int local_flag = PASSED;
 int block_number;
 FILE *temp;
 int TST_TOTAL = 1;
-/*****	**	**	*****/
 char buf[BSIZE];
 
-/*****	LTP Port	*****/
 
 int anyfail();
 int blenter();
 int blexit();
 
 void setup();
-/*****	**	**	*****/
 void clearit();
 void fill(char *str);
 int checkit(char *str);
 
-/*--------------------------------------------------------------*/
 int main(int argc, char *argv[])
 {
 	char *p, *q;
+
+	tst_parse_opts(argc, argv, NULL, NULL);
 
 	setup();		/* temp file is now open        */
 /*--------------------------------------------------------------*/
@@ -137,69 +131,10 @@ int main(int argc, char *argv[])
 	}
 
 	blexit();
-/*--------------------------------------------------------------*/
-	blenter();
 
-	clearit();
-
-	p = &buf[800];
-
-	fill(p);
-	q = &buf[850];
-	memcpy(q, p, LEN);
-
-	if (checkit(q)) {
-		fprintf(temp, "\tcopy failed - missed data\n");
-		local_flag = FAILED;
-	}
-
-	if (p[-1]) {
-		fprintf(temp, "\tcopy failed - 'to' bounds\n");
-		local_flag = FAILED;
-	}
-
-	if (q[LEN]) {
-		fprintf(temp, "\tcopy failed - 'from' bounds\n");
-		local_flag = FAILED;
-	}
-
-	blexit();
-/*--------------------------------------------------------------*/
-	blenter();
-
-	clearit();
-
-	p = &buf[850];
-
-	fill(p);
-	q = &buf[800];
-	memcpy(q, p, LEN);
-
-	if (checkit(q)) {
-		fprintf(temp, "\tcopy failed - missed data\n");
-		local_flag = FAILED;
-	}
-
-	if (p[LEN]) {
-		fprintf(temp, "\tcopy failed - 'to' bounds\n");
-		local_flag = FAILED;
-	}
-
-	if (q[-1]) {
-		fprintf(temp, "\tcopy failed - 'from' bounds\n");
-		local_flag = FAILED;
-	}
-
-	blexit();
-/*--------------------------------------------------------------*/
-/* Clean up any files created by test before call to anyfail.	*/
-
-	anyfail();		/* THIS CALL DOES NOT RETURN - EXITS!!  */
+	anyfail();
 	tst_exit();
 }
-
-/*--------------------------------------------------------------*/
-/* FUNCTIONS GO HERE */
 
 void clearit(void)
 {

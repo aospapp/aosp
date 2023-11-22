@@ -33,8 +33,8 @@ struct NxpState {
 
 void nxp_pn80t_close(struct EseInterface *ese);
 uint32_t nxp_pn80t_transceive(struct EseInterface *ese,
-                              const uint8_t *const tx_buf, uint32_t tx_len,
-                              uint8_t *rx_buf, uint32_t rx_len);
+                              const struct EseSgBuffer *tx_buf, uint32_t tx_len,
+                              struct EseSgBuffer *rx_buf, uint32_t rx_len);
 int nxp_pn80t_poll(struct EseInterface *ese, uint8_t poll_for, float timeout,
                    int complete);
 int nxp_pn80t_reset(struct EseInterface *ese);

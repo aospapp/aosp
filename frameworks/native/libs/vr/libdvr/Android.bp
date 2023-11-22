@@ -21,27 +21,33 @@ cc_library_headers {
 
 cflags = [
     "-DLOG_TAG=\"libdvr\"",
+    "-DTRACE=0",
 ]
 
 srcs = [
     "dvr_api.cpp",
     "dvr_buffer.cpp",
     "dvr_buffer_queue.cpp",
+    "dvr_configuration_data.cpp",
     "dvr_display_manager.cpp",
     "dvr_hardware_composer_client.cpp",
+    "dvr_performance.cpp",
+    "dvr_pose.cpp",
     "dvr_surface.cpp",
     "dvr_vsync.cpp",
 ]
 
 static_libs = [
+    "libbroadcastring",
     "libbufferhub",
     "libbufferhubqueue",
-    "libdisplay",
     "libvrsensor",
+    "libdisplay",
     "libvirtualtouchpadclient",
     "libvr_hwc-impl",
     "libvr_hwc-binder",
     "libgrallocusage",
+    "libperformance",
     "libpdx_default_transport",
 ]
 

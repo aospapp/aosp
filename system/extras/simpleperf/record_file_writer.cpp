@@ -328,6 +328,28 @@ bool RecordFileWriter::WriteFileFeature(const std::string& file_path,
   return WriteFeatureEnd(FEAT_FILE);
 }
 
+bool RecordFileWriter::WriteMetaInfoFeature(
+    const std::unordered_map<std::string, std::string>& info_map) {
+  uint32_t size = 0u;
+  for (auto& pair : info_map) {
+    size += pair.first.size() + 1;
+    size += pair.second.size() + 1;
+  }
+  std::vector<char> buf(size);
+  char* p = buf.data();
+  for (auto& pair : info_map) {
+    MoveToBinaryFormat(pair.first.c_str(), pair.first.size() + 1, p);
+    MoveToBinaryFormat(pair.second.c_str(), pair.second.size() + 1, p);
+  }
+  if (!WriteFeatureBegin(FEAT_META_INFO)) {
+    return false;
+  }
+  if (!Write(buf.data(), buf.size())) {
+    return false;
+  }
+  return WriteFeatureEnd(FEAT_META_INFO);
+}
+
 bool RecordFileWriter::WriteFeatureBegin(int feature) {
   auto it = features_.find(feature);
   if (it == features_.end()) {

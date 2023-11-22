@@ -8,7 +8,6 @@
 import common
 import django.core.exceptions
 from autotest_lib.client.common_lib import global_config
-from autotest_lib.client.common_lib.cros.graphite import autotest_es
 from autotest_lib.frontend import setup_django_environment
 from autotest_lib.frontend.afe import models
 
@@ -76,8 +75,6 @@ def set(version, board=DEFAULT):
         stable_version.save()
     except django.core.exceptions.ObjectDoesNotExist:
         models.StableVersion.objects.create(board=board, version=version)
-    autotest_es.post(type_str=_STABLE_VERSION_TYPE,
-                     metadata={'board': board, 'version': version})
 
 
 def delete(board):
@@ -87,5 +84,3 @@ def delete(board):
     """
     stable_version = models.StableVersion.objects.get(board=board)
     stable_version.delete()
-    autotest_es.post(type_str=_STABLE_VERSION_TYPE,
-                     metadata={'board': board, 'version': get()})

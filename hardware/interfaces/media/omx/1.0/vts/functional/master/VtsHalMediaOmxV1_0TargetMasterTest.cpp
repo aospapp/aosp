@@ -15,6 +15,10 @@
  */
 
 #define LOG_TAG "media_omx_hidl_master_test"
+#ifdef __LP64__
+#define OMX_ANDROID_COMPILE_AS_32BIT_ON_64BIT_PLATFORMS
+#endif
+
 #include <android-base/logging.h>
 
 #include <android/hardware/media/omx/1.0/IOmx.h>
@@ -97,17 +101,22 @@ class ComponentTestEnvironment : public ::testing::Environment {
 static ComponentTestEnvironment* gEnv = nullptr;
 
 class MasterHidlTest : public ::testing::VtsHalHidlTargetTestBase {
+   private:
+    typedef ::testing::VtsHalHidlTargetTestBase Super;
    public:
     virtual void SetUp() override {
+        Super::SetUp();
         omxStore = nullptr;
-        omxStore = ::testing::VtsHalHidlTargetTestBase::getService<IOmxStore>();
+        omxStore = Super::getService<IOmxStore>();
         ASSERT_NE(omxStore, nullptr);
         omx = nullptr;
         omx = omxStore->getOmx(gEnv->getInstance());
         ASSERT_NE(omx, nullptr);
     }
 
-    virtual void TearDown() override {}
+    virtual void TearDown() override {
+        Super::TearDown();
+    }
 
     sp<IOmxStore> omxStore;
     sp<IOmx> omx;
@@ -141,6 +150,7 @@ TEST_F(MasterHidlTest, ListServiceAttr) {
                         attributes = _nl;
                     })
                     .isOk());
+    ASSERT_EQ(status, android::hardware::media::omx::V1_0::Status::OK);
     if (attributes.size() == 0) ALOGV("Warning, Attribute list empty");
 }
 
@@ -177,6 +187,7 @@ TEST_F(MasterHidlTest, ListNodes) {
                nodeList = _nl;
            })
             .isOk());
+    ASSERT_EQ(status, android::hardware::media::omx::V1_0::Status::OK);
     if (nodeList.size() == 0)
         ALOGV("Warning, ComponentInfo list empty");
     else {
@@ -195,6 +206,7 @@ TEST_F(MasterHidlTest, ListNodes) {
                            omxNode = _nl;
                        })
                     .isOk());
+            ASSERT_EQ(status, android::hardware::media::omx::V1_0::Status::OK);
             if (omxNode == nullptr) {
                 isPass = false;
                 std::cerr << "[    !OK   ] " << nodeList[i].mName.c_str()

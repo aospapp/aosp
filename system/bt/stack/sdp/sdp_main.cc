@@ -42,8 +42,6 @@
 #include "sdp_api.h"
 #include "sdpint.h"
 
-extern fixed_queue_t* btu_general_alarm_queue;
-
 /******************************************************************************/
 /*                     G L O B A L      S D P       D A T A                   */
 /******************************************************************************/
@@ -52,7 +50,7 @@ tSDP_CB sdp_cb;
 /******************************************************************************/
 /*            L O C A L    F U N C T I O N     P R O T O T Y P E S            */
 /******************************************************************************/
-static void sdp_connect_ind(BD_ADDR bd_addr, uint16_t l2cap_cid,
+static void sdp_connect_ind(const RawAddress& bd_addr, uint16_t l2cap_cid,
                             UNUSED_ATTR uint16_t psm, uint8_t l2cap_id);
 static void sdp_config_ind(uint16_t l2cap_cid, tL2CAP_CFG_INFO* p_cfg);
 static void sdp_config_cfm(uint16_t l2cap_cid, tL2CAP_CFG_INFO* p_cfg);
@@ -155,7 +153,7 @@ uint16_t sdp_set_max_attr_list_size(uint16_t max_size) {
  * Returns          void
  *
  ******************************************************************************/
-static void sdp_connect_ind(BD_ADDR bd_addr, uint16_t l2cap_cid,
+static void sdp_connect_ind(const RawAddress& bd_addr, uint16_t l2cap_cid,
                             UNUSED_ATTR uint16_t psm, uint8_t l2cap_id) {
 #if (SDP_SERVER_ENABLED == TRUE)
   tCONN_CB* p_ccb;
@@ -168,7 +166,7 @@ static void sdp_connect_ind(BD_ADDR bd_addr, uint16_t l2cap_cid,
   p_ccb->con_state = SDP_STATE_CFG_SETUP;
 
   /* Save the BD Address and Channel ID. */
-  memcpy(&p_ccb->device_address[0], bd_addr, sizeof(BD_ADDR));
+  p_ccb->device_address = bd_addr;
   p_ccb->connection_id = l2cap_cid;
 
   /* Send response to the L2CAP layer. */
@@ -359,9 +357,8 @@ static void sdp_config_ind(uint16_t l2cap_cid, tL2CAP_CFG_INFO* p_cfg) {
       sdp_disc_connected(p_ccb);
     } else {
       /* Start inactivity timer */
-      alarm_set_on_queue(p_ccb->sdp_conn_timer, SDP_INACT_TIMEOUT_MS,
-                         sdp_conn_timer_timeout, p_ccb,
-                         btu_general_alarm_queue);
+      alarm_set_on_mloop(p_ccb->sdp_conn_timer, SDP_INACT_TIMEOUT_MS,
+                         sdp_conn_timer_timeout, p_ccb);
     }
   }
 }
@@ -400,9 +397,8 @@ static void sdp_config_cfm(uint16_t l2cap_cid, tL2CAP_CFG_INFO* p_cfg) {
         sdp_disc_connected(p_ccb);
       } else {
         /* Start inactivity timer */
-        alarm_set_on_queue(p_ccb->sdp_conn_timer, SDP_INACT_TIMEOUT_MS,
-                           sdp_conn_timer_timeout, p_ccb,
-                           btu_general_alarm_queue);
+        alarm_set_on_mloop(p_ccb->sdp_conn_timer, SDP_INACT_TIMEOUT_MS,
+                           sdp_conn_timer_timeout, p_ccb);
       }
     }
   } else {
@@ -505,7 +501,7 @@ static void sdp_data_ind(uint16_t l2cap_cid, BT_HDR* p_msg) {
  * Returns          void
  *
  ******************************************************************************/
-tCONN_CB* sdp_conn_originate(uint8_t* p_bd_addr) {
+tCONN_CB* sdp_conn_originate(const RawAddress& p_bd_addr) {
   tCONN_CB* p_ccb;
   uint16_t cid;
 
@@ -522,7 +518,8 @@ tCONN_CB* sdp_conn_originate(uint8_t* p_bd_addr) {
   p_ccb->con_flags |= SDP_FLAGS_IS_ORIG;
 
   /* Save the BD Address and Channel ID. */
-  memcpy(&p_ccb->device_address[0], p_bd_addr, sizeof(BD_ADDR));
+  p_ccb->device_address = p_bd_addr;
+  ;
 
   /* Transition to the next appropriate state, waiting for connection confirm.
    */

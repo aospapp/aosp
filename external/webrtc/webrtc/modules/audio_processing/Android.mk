@@ -14,6 +14,7 @@ include $(LOCAL_PATH)/../../../android-webrtc.mk
 
 LOCAL_ARM_MODE := arm
 LOCAL_MODULE := libwebrtc_apm
+LOCAL_VENDOR_MODULE := true
 LOCAL_MODULE_TAGS := optional
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := \
@@ -118,7 +119,8 @@ LOCAL_SHARED_LIBRARIES := \
     libutils \
     libwebrtc_audio_preprocessing$(MY_LIB_SUFFIX) \
 
-LOCAL_MODULE:= webrtc_apm_process_test
+LOCAL_VENDOR_MODULE := true
+LOCAL_MODULE := webrtc_apm_process_test
 
 ifndef WEBRTC_STL
 LOCAL_SHARED_LIBRARIES += libprotobuf-cpp-lite
@@ -184,7 +186,8 @@ endif
 LOCAL_SHARED_LIBRARIES := \
     libwebrtc_audio_preprocessing$(MY_LIB_SUFFIX)
 
-LOCAL_MODULE:= webrtc_apm_unit_test
+LOCAL_VENDOR_MODULE := true
+LOCAL_MODULE := webrtc_apm_unit_test
 
 ifndef WEBRTC_STL
 LOCAL_SHARED_LIBRARIES += libprotobuf-cpp-lite

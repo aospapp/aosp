@@ -38,12 +38,12 @@ import android.widget.Toast;
 
 import com.google.android.exoplayer.audio.AudioCapabilities;
 import com.android.tv.tuner.R;
+import com.android.tv.tuner.TunerPreferences;
+import com.android.tv.tuner.TunerPreferences.TunerPreferencesChangedListener;
 import com.android.tv.tuner.cc.CaptionLayout;
 import com.android.tv.tuner.cc.CaptionTrackRenderer;
 import com.android.tv.tuner.data.Cea708Data.CaptionEvent;
 import com.android.tv.tuner.data.nano.Track.AtscCaptionTrack;
-import com.android.tv.tuner.exoplayer.buffer.BufferManager;
-import com.android.tv.tuner.data.TunerChannel;
 import com.android.tv.tuner.util.GlobalSettingsUtils;
 import com.android.tv.tuner.util.StatusTextUtils;
 import com.android.tv.tuner.util.SystemPropertiesProxy;
@@ -52,7 +52,8 @@ import com.android.tv.tuner.util.SystemPropertiesProxy;
  * Provides a tuner TV input session. It handles Overlay UI works. Main tuner input functions
  * are implemented in {@link TunerSessionWorker}.
  */
-public class TunerSession extends TvInputService.Session implements Handler.Callback {
+public class TunerSession extends TvInputService.Session implements
+        Handler.Callback, TunerPreferencesChangedListener {
     private static final String TAG = "TunerSession";
     private static final boolean DEBUG = false;
     private static final String USBTUNER_SHOW_DEBUG = "persist.tv.tuner.show_debug";
@@ -65,8 +66,9 @@ public class TunerSession extends TvInputService.Session implements Handler.Call
     public static final int MSG_UI_START_CAPTION_TRACK = 6;
     public static final int MSG_UI_STOP_CAPTION_TRACK = 7;
     public static final int MSG_UI_RESET_CAPTION_TRACK = 8;
-    public static final int MSG_UI_SET_STATUS_TEXT = 9;
-    public static final int MSG_UI_TOAST_RESCAN_NEEDED = 10;
+    public static final int MSG_UI_CLEAR_CAPTION_RENDERER = 9;
+    public static final int MSG_UI_SET_STATUS_TEXT = 10;
+    public static final int MSG_UI_TOAST_RESCAN_NEEDED = 11;
 
     private final Context mContext;
     private final Handler mUiHandler;
@@ -81,8 +83,7 @@ public class TunerSession extends TvInputService.Session implements Handler.Call
     private boolean mPlayPaused;
     private long mTuneStartTimestamp;
 
-    public TunerSession(Context context, ChannelDataManager channelDataManager,
-            BufferManager bufferManager) {
+    public TunerSession(Context context, ChannelDataManager channelDataManager) {
         super(context);
         mContext = context;
         mUiHandler = new Handler(this);
@@ -97,12 +98,10 @@ public class TunerSession extends TvInputService.Session implements Handler.Call
         mStatusView.setVisibility(showDebug ? View.VISIBLE : View.INVISIBLE);
         mAudioStatusView = (TextView) mOverlayView.findViewById(R.id.audio_status);
         mAudioStatusView.setVisibility(View.INVISIBLE);
-        mAudioStatusView.setText(Html.fromHtml(StatusTextUtils.getAudioWarningInHTML(
-                context.getString(R.string.ut_surround_sound_disabled))));
         CaptionLayout captionLayout = (CaptionLayout) mOverlayView.findViewById(R.id.caption);
         mCaptionTrackRenderer = new CaptionTrackRenderer(captionLayout);
-        mSessionWorker = new TunerSessionWorker(context, channelDataManager,
-                bufferManager, this);
+        mSessionWorker = new TunerSessionWorker(context, channelDataManager, this);
+        TunerPreferences.setTunerPreferencesChangedListener(this);
     }
 
     public boolean isReleased() {
@@ -214,6 +213,7 @@ public class TunerSession extends TvInputService.Session implements Handler.Call
         mReleased = true;
         mSessionWorker.release();
         mUiHandler.removeCallbacksAndMessages(null);
+        TunerPreferences.setTunerPreferencesChangedListener(null);
     }
 
     /**
@@ -272,10 +272,13 @@ public class TunerSession extends TvInputService.Session implements Handler.Call
                 // setting is "never".
                 final int value = GlobalSettingsUtils.getEncodedSurroundOutputSettings(mContext);
                 if (value == GlobalSettingsUtils.ENCODED_SURROUND_OUTPUT_NEVER) {
-                    mAudioStatusView.setVisibility(View.VISIBLE);
+                    mAudioStatusView.setText(Html.fromHtml(StatusTextUtils.getAudioWarningInHTML(
+                            mContext.getString(R.string.ut_surround_sound_disabled))));
                 } else {
-                    Log.e(TAG, "Audio is unavailable, surround sound setting is " + value);
+                    mAudioStatusView.setText(Html.fromHtml(StatusTextUtils.getAudioWarningInHTML(
+                            mContext.getString(R.string.audio_passthrough_not_supported))));
                 }
+                mAudioStatusView.setVisibility(View.VISIBLE);
                 return true;
             }
             case MSG_UI_HIDE_AUDIO_UNPLAYABLE: {
@@ -298,6 +301,10 @@ public class TunerSession extends TvInputService.Session implements Handler.Call
                 mCaptionTrackRenderer.reset();
                 return true;
             }
+            case MSG_UI_CLEAR_CAPTION_RENDERER: {
+                mCaptionTrackRenderer.clear();
+                return true;
+            }
             case MSG_UI_SET_STATUS_TEXT: {
                 mStatusView.setText((CharSequence) msg.obj);
                 return true;
@@ -308,5 +315,10 @@ public class TunerSession extends TvInputService.Session implements Handler.Call
             }
         }
         return false;
+    }
+
+    @Override
+    public void onTunerPreferencesChanged() {
+        mSessionWorker.sendMessage(TunerSessionWorker.MSG_TUNER_PREFERENCES_CHANGED);
     }
 }

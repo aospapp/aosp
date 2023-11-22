@@ -49,6 +49,44 @@ public class HexEncoding {
     }
 
     /**
+     * Encodes the provided data as a sequence of hexadecimal characters.
+     */
+    public static String encodeToString(byte[] data) {
+        return new String(encode(data));
+    }
+
+    /**
+     * Decodes the provided hexadecimal string into a byte array.  Odd-length inputs
+     * are not allowed.
+     *
+     * Throws an {@code IllegalArgumentException} if the input is malformed.
+     */
+    public static byte[] decode(String encoded) throws IllegalArgumentException {
+        return decode(encoded.toCharArray());
+    }
+
+    /**
+     * Decodes the provided hexadecimal string into a byte array. If {@code allowSingleChar}
+     * is {@code true} odd-length inputs are allowed and the first character is interpreted
+     * as the lower bits of the first result byte.
+     *
+     * Throws an {@code IllegalArgumentException} if the input is malformed.
+     */
+    public static byte[] decode(String encoded, boolean allowSingleChar) throws IllegalArgumentException {
+        return decode(encoded.toCharArray(), allowSingleChar);
+    }
+
+    /**
+     * Decodes the provided hexadecimal string into a byte array.  Odd-length inputs
+     * are not allowed.
+     *
+     * Throws an {@code IllegalArgumentException} if the input is malformed.
+     */
+    public static byte[] decode(char[] encoded) throws IllegalArgumentException {
+        return decode(encoded, false);
+    }
+
+    /**
      * Decodes the provided hexadecimal string into a byte array. If {@code allowSingleChar}
      * is {@code true} odd-length inputs are allowed and the first character is interpreted
      * as the lower bits of the first result byte.

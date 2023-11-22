@@ -38,16 +38,15 @@ ip_virt_remote="192.168.124.2"
 ip6_virt_remote="fe80::381c:c0ff:fea8:7c02"
 mac_virt_remote="3A:1C:C0:A8:7C:02"
 
-clients_num=2
-client_requests=500000
-max_requests=3
-net_load="TFO"
-
 # Max performance loss (%) for virtual devices during network load
 VIRT_PERF_THRESHOLD=${VIRT_PERF_THRESHOLD:-80}
 vxlan_dstport=0
 
-while getopts :hsx:i:r:c:R:p:n:l:t:d:6 opt; do
+clients_num=2
+client_requests=500000
+max_requests=20
+
+while getopts :hsx:i:r:c:R:p:n:t:d:6 opt; do
 	case "$opt" in
 	h)
 		echo "Usage:"
@@ -60,7 +59,6 @@ while getopts :hsx:i:r:c:R:p:n:l:t:d:6 opt; do
 		echo "R n      num of reqs, after which conn.closed in TCP perf"
 		echo "p x      x and x + 1 are ports in TCP perf"
 		echo "n x      virtual network 192.168.x"
-		echo "l x      network load: x is PING or TFO(tcp_fastopen)"
 		echo "t x      performance threshold, default is 60%"
 		echo "d x      VxLAN destination address, 'uni' or 'multi'"
 		echo "6        run over IPv6"
@@ -77,7 +75,6 @@ while getopts :hsx:i:r:c:R:p:n:l:t:d:6 opt; do
 		ip_virt_local="192.168.${OPTARG}.1"
 		ip_virt_remote="192.168.${OPTARG}.2"
 	;;
-	l) net_load=$OPTARG ;;
 	t) VIRT_PERF_THRESHOLD=$OPTARG ;;
 	d) vxlan_dst_addr=$OPTARG ;;
 	6) # skip, test_net library already processed it
@@ -103,12 +100,16 @@ trap "tst_brkm TBROK 'test interrupted'" INT
 virt_add()
 {
 	local vname=$1
-	local opt="${@:2}"
+	shift
+	local opt="$*"
 
 	case $virt_type in
 	vlan|vxlan)
 		[ -z "$opt" ] && opt="id 4094"
 		[ "$vxlan_dstport" -eq 1 ] && opt="dstport 0 $opt"
+	;;
+	geneve)
+		[ -z "$opt" ] && opt="id 4094 remote $(tst_ipaddr rhost)"
 	;;
 	gre|ip6gre)
 		[ -z "$opt" ] && \
@@ -117,7 +118,7 @@ virt_add()
 	esac
 
 	case $virt_type in
-	vxlan)
+	vxlan|geneve)
 		ip li add $vname type $virt_type $opt
 	;;
 	gre|ip6gre)
@@ -133,7 +134,7 @@ virt_add_rhost()
 {
 	local opt=""
 	case $virt_type in
-	vxlan)
+	vxlan|geneve)
 		[ "$vxlan_dstport" -eq 1 ] && opt="dstport 0"
 		tst_rhost_run -s -c "ip li add ltp_v0 type $virt_type $@ $opt"
 	;;
@@ -216,10 +217,11 @@ virt_setup()
 
 vxlan_setup_subnet_uni()
 {
-	tst_kvercmp 3 10 0 && \
+	if tst_kvcmp -lt "3.10"; then
 		tst_brkm TCONF "test must be run with kernel 3.10 or newer"
+	fi
 
-	[ "$(ip li add type vxlan help 2>&1 | grep remote)" ] || \
+	[ "$(ip li add type $virt_type help 2>&1 | grep remote)" ] || \
 		tst_brkm TCONF "iproute doesn't support remote unicast address"
 
 	local opt="$1 remote $(tst_ipaddr rhost)"
@@ -250,31 +252,27 @@ vxlan_setup_subnet_multi()
 
 virt_compare_netperf()
 {
-	local ret=0
-	local expected_result=${1:-"pass"}
+	local ret1="pass"
+	local ret2="pass"
+	local expect_res="${1:-pass}"
 
-	tst_netload $ip_virt_remote res_ipv4 $net_load || ret=1
-	tst_netload ${ip6_virt_remote}%ltp_v0 res_ipv6 $net_load || ret=1
+	tst_netload -H $ip_virt_remote -a $clients_num -R $max_requests \
+		-r $client_requests -d res_ipv4 -e $expect_res || ret1="fail"
+
+	tst_netload -H ${ip6_virt_remote}%ltp_v0 -a $clients_num \
+		-R $max_requests -r $client_requests -d res_ipv6 \
+		-e $expect_res || ret2="fail"
 
 	ROD_SILENT "ip link delete ltp_v0"
 	tst_rhost_run -s -c "ip link delete ltp_v0"
 
-	if [ "$ret" -eq 1 ]; then
-		if [ "$expected_result" = "pass" ]; then
-			tst_resm TFAIL "Test with virtual iface failed"
-		else
-			tst_resm TPASS "Test failed as expected"
-		fi
-		return
-	fi
+	[ "$ret1" = "fail" -o "$ret2" = "fail" ] && return
+
 	local vt="$(cat res_ipv4)"
 	local vt6="$(cat res_ipv6)"
 
-	tst_netload $ip_remote res_ipv4 $net_load
-	if [ $? -ne 0 ]; then
-		tst_resm TFAIL "Test with $ip_remote failed"
-		return
-	fi
+	tst_netload -H $ip_remote -a $clients_num -R $max_requests \
+		-r $client_requests -d res_ipv4
 
 	local lt="$(cat res_ipv4)"
 	tst_resm TINFO "time lan($lt) $virt_type IPv4($vt) and IPv6($vt6) ms"
@@ -283,13 +281,13 @@ virt_compare_netperf()
 	per6=$(( $vt6 * 100 / $lt - 100 ))
 
 	case "$virt_type" in
-	vxlan)
-		tst_resm TINFO "IPv4 VxLAN over IPv$ipver slower by $per %"
-		tst_resm TINFO "IPv6 VxLAN over IPv$ipver slower by $per6 %"
+	vxlan|geneve)
+		tst_resm TINFO "IP4 $virt_type over IP$ipver slower by $per %"
+		tst_resm TINFO "IP6 $virt_type over IP$ipver slower by $per6 %"
 	;;
 	*)
-		tst_resm TINFO "IPv4 $virt_type slower by $per %"
-		tst_resm TINFO "IPv6 $virt_type slower by $per6 %"
+		tst_resm TINFO "IP4 $virt_type slower by $per %"
+		tst_resm TINFO "IP6 $virt_type slower by $per6 %"
 	esac
 
 	if [ "$per" -ge "$VIRT_PERF_THRESHOLD" -o \
@@ -370,13 +368,13 @@ virt_test_02()
 tst_require_root
 
 case "$virt_type" in
-vxlan)
-	tst_kvercmp 3 8 0 && \
+vxlan|geneve)
+	if tst_kvcmp -lt "3.8"; then
 		tst_brkm TCONF "test must be run with kernel 3.8 or newer"
+	fi
 
-	if [ "$TST_IPV6" ]; then
-		tst_kvercmp 3 12 0 && \
-			tst_brkm TCONF "test must be run with kernels >= 3.12"
+	if [ "$TST_IPV6" ] && tst_kvcmp -lt "3.12"; then
+		tst_brkm TCONF "test must be run with kernels >= 3.12"
 	fi
 
 	# newer versions of 'ip' complain if this option not set

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, 2015, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2016, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -95,6 +95,7 @@ public class DisabledAlgorithmConstraints extends AbstractAlgorithmConstraints {
     @Override
     final public boolean permits(Set<CryptoPrimitive> primitives,
             String algorithm, AlgorithmParameters parameters) {
+
         if (primitives == null || primitives.isEmpty()) {
             throw new IllegalArgumentException(
                         "No cryptographic primitive specified");
@@ -297,6 +298,7 @@ public class DisabledAlgorithmConstraints extends AbstractAlgorithmConstraints {
                         c = new jdkCAConstraint(algorithm);
                         jdkCALimit = true;
                     }
+
                     // Link multiple conditions for a single constraint
                     // into a linked list.
                     if (lastConstraint == null) {

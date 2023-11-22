@@ -70,6 +70,7 @@ public class CellBroadcastReceiver extends BroadcastReceiver {
                     });
         } else if (TelephonyIntents.ACTION_DEFAULT_SMS_SUBSCRIPTION_CHANGED.equals(action)
                 || CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED.equals(action)
+                || Intent.ACTION_BOOT_COMPLETED.equals(action)
                 || CELLBROADCAST_START_CONFIG_ACTION.equals(action)) {
             // Todo: Add the service state check once the new get service state API is done.
             // Do not rely on mServiceState as it gets reset to -1 time to time because

@@ -28,7 +28,7 @@ from vts.runners.host import const
 from vts.runners.host import keys
 from vts.runners.host import test_runner
 from vts.utils.python.controllers import android_device
-from vts.utils.python.file import file_utils
+from vts.utils.python.file import target_file_utils
 
 
 class VtsKernelConfigTest(base_test.BaseTestClass):
@@ -43,9 +43,7 @@ class VtsKernelConfigTest(base_test.BaseTestClass):
     SUPPORTED_KERNEL_VERSIONS = ["3.18", "4.4", "4.9"]
 
     def setUpClass(self):
-        required_params = [
-            keys.ConfigKeys.IKEY_DATA_FILE_PATH
-        ]
+        required_params = [keys.ConfigKeys.IKEY_DATA_FILE_PATH]
         self.getUserParams(required_params)
         self.dut = self.registerController(android_device)[0]
         self.dut.shell.InvokeTerminal(
@@ -71,8 +69,8 @@ class VtsKernelConfigTest(base_test.BaseTestClass):
         logging.info("Detected kernel version: %s", kernel_version)
 
         asserts.assertTrue(kernel_version in self.SUPPORTED_KERNEL_VERSIONS,
-                           "Detected kernel version '%s' is not one of %s"
-                           % (kernel_version, self.SUPPORTED_KERNEL_VERSIONS))
+                           "Detected kernel version '%s' is not one of %s" %
+                           (kernel_version, self.SUPPORTED_KERNEL_VERSIONS))
 
         return kernel_version
 
@@ -143,17 +141,17 @@ class VtsKernelConfigTest(base_test.BaseTestClass):
         requirements.
         """
         logging.info("Testing existence of %s" % self.PROC_FILE_PATH)
-        file_utils.assertPermissionsAndExistence(
-            self.shell, self.PROC_FILE_PATH, file_utils.IsReadOnly)
+        target_file_utils.assertPermissionsAndExistence(
+            self.shell, self.PROC_FILE_PATH, target_file_utils.IsReadOnly)
 
         logging.info("Validating kernel version of device.")
         kernel_version = self.checkKernelVersion()
 
         # Pull configs from the universal config file.
         configs = dict()
-        config_file_path = os.path.join(self.data_file_path,
-            self.KERNEL_CONFIG_FILE_PATH, "android-" + kernel_version,
-            "android-base.cfg")
+        config_file_path = os.path.join(
+            self.data_file_path, self.KERNEL_CONFIG_FILE_PATH,
+            "android-" + kernel_version, "android-base.cfg")
         with open(config_file_path, 'r') as config_file:
             configs = self.parseConfigFileToDict(config_file, configs)
 
@@ -164,15 +162,16 @@ class VtsKernelConfigTest(base_test.BaseTestClass):
 
         localpath = os.path.join(self._temp_dir, "config.gz")
         with gzip.open(localpath, "rb") as device_config_file:
-            device_configs = self.parseConfigFileToDict(device_config_file,
-                    device_configs)
+            device_configs = self.parseConfigFileToDict(
+                device_config_file, device_configs)
 
         # Check device architecture and pull arch-specific configs.
         kernelArch = self.checkKernelArch(device_configs)
         if kernelArch is not "":
             config_file_path = os.path.join(self.data_file_path,
-                self.KERNEL_CONFIG_FILE_PATH, "android-" + kernel_version,
-                "android-base-%s.cfg" % kernelArch)
+                                            self.KERNEL_CONFIG_FILE_PATH,
+                                            "android-" + kernel_version,
+                                            "android-base-%s.cfg" % kernelArch)
             if os.path.isfile(config_file_path):
                 with open(config_file_path, 'r') as config_file:
                     configs = self.parseConfigFileToDict(config_file, configs)
@@ -196,8 +195,8 @@ class VtsKernelConfigTest(base_test.BaseTestClass):
                                               device_configs[config_name])
 
         if ("CONFIG_OF" not in device_configs and
-            "CONFIG_ACPI" not in device_configs):
-               should_be_enabled.append("CONFIG_OF | CONFIG_ACPI")
+                "CONFIG_ACPI" not in device_configs):
+            should_be_enabled.append("CONFIG_OF | CONFIG_ACPI")
 
         asserts.assertTrue(
             len(should_be_enabled) == 0 and len(should_not_be_set) == 0 and

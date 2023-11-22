@@ -16,9 +16,9 @@
 
 package android.autofillservice.cts;
 
-import android.support.annotation.Nullable;
 import android.app.Activity;
 import android.os.Bundle;
+import android.support.annotation.Nullable;
 
 /**
  * Empty activity

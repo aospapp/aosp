@@ -33,8 +33,6 @@ public class RadioBandButton extends Button {
     @ColorInt private int mSelectedColor;
     @ColorInt private int mNormalColor;
 
-    public boolean mIsBandSelected;
-
     public RadioBandButton(Context context) {
         super(context);
         init(context, null);
@@ -80,9 +78,7 @@ public class RadioBandButton extends Button {
      * {@link #setSelected(boolean)}.
      */
     public void setIsBandSelected(boolean selected) {
-        mIsBandSelected = selected;
-
-        if (mIsBandSelected) {
+        if (selected) {
             setTextColor(mSelectedColor);
             setBackground(mSelectedBackground);
         } else {

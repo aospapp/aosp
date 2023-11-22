@@ -20,12 +20,12 @@ This test script for GATT longevity tests.
 from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.GattConnectedBaseTest import GattConnectedBaseTest
-from acts.test_utils.bt.GattEnum import GattCharacteristic
-from acts.test_utils.bt.GattEnum import GattDescriptor
-from acts.test_utils.bt.GattEnum import GattEvent
-from acts.test_utils.bt.GattEnum import GattCbStrings
-from acts.test_utils.bt.GattEnum import GattConnectionPriority
-from acts.test_utils.bt.GattEnum import GattCharacteristicAttrLength
+from acts.test_utils.bt.bt_constants import gatt_characteristic
+from acts.test_utils.bt.bt_constants import gatt_descriptor
+from acts.test_utils.bt.bt_constants import gatt_event
+from acts.test_utils.bt.bt_constants import gatt_cb_strings
+from acts.test_utils.bt.bt_constants import gatt_connection_priority
+from acts.test_utils.bt.bt_constants import gatt_characteristic_attr_length
 from acts.test_utils.bt.GattEnum import MtuSize
 from acts.test_utils.bt.bt_gatt_utils import setup_gatt_mtu
 
@@ -60,13 +60,12 @@ class GattLongevityTest(GattConnectedBaseTest):
         Priority: 0
         """
         self.cen_ad.droid.gattClientRequestConnectionPriority(
-            self.bluetooth_gatt,
-            GattConnectionPriority.CONNECTION_PRIORITY_HIGH.value)
+            self.bluetooth_gatt, gatt_connection_priority['high'])
 
         self.cen_ad.droid.gattClientCharacteristicSetWriteType(
             self.bluetooth_gatt, self.discovered_services_index,
             self.test_service_index, self.WRITABLE_CHAR_UUID,
-            GattCharacteristic.WRITE_TYPE_NO_RESPONSE.value)
+            gatt_characteristic['write_type_no_response'])
 
         for i in range(self.longevity_iterations):
             self.log.debug("Iteration {} started.".format(i + 1))
@@ -83,16 +82,16 @@ class GattLongevityTest(GattConnectedBaseTest):
                 self.test_service_index, self.WRITABLE_CHAR_UUID)
 
             # client shall not wait for server, get complete event right away
-            event = self._client_wait(GattEvent.CHAR_WRITE)
+            event = self._client_wait(gatt_event['char_write'])
             if event["data"]["Status"] != 0:
                 self.log.error("Write status should be 0")
                 return False
 
-            event = self._server_wait(GattEvent.CHAR_WRITE_REQ)
+            event = self._server_wait(gatt_event['char_write_req'])
 
-            self.log.info("{} event found: {}".format(
-                GattCbStrings.CHAR_WRITE_REQ.value.format(
-                    self.gatt_server_callback), event['data']['value']))
+            self.log.info("{} event found: {}".format(gatt_cb_strings[
+                'char_write_req'].format(self.gatt_server_callback), event[
+                    'data']['value']))
             request_id = event['data']['requestId']
             found_value = event['data']['value']
             if found_value != char_value:

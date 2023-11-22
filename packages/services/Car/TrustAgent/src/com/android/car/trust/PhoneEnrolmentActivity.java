@@ -21,7 +21,13 @@ import android.widget.Button;
 import android.widget.TextView;
 
 /**
- * Activity to allow the user to add an escrow token to a remote device.
+ * Activity to allow the user to add an escrow token to a remote device. <p/>
+ *
+ * For this to work properly, the correct permissions must be set in the system config.  In AOSP,
+ * this config is in frameworks/base/core/res/res/values/config.xml <p/>
+ *
+ * The config must set config_allowEscrowTokenForTrustAgent to true.  For the desired car
+ * experience, the config should also set config_strongAuthRequiredOnBoot to false.
  */
 public class PhoneEnrolmentActivity extends Activity {
     private Button mScanButton;

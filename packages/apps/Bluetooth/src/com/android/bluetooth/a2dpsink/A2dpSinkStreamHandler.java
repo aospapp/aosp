@@ -16,8 +16,10 @@
 
 package com.android.bluetooth.a2dpsink;
 
+import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.media.AudioAttributes;
+import android.media.AudioFocusRequest;
 import android.media.AudioManager;
 import android.media.AudioManager.OnAudioFocusChangeListener;
 import android.os.Handler;
@@ -26,6 +28,8 @@ import android.util.Log;
 
 import com.android.bluetooth.avrcpcontroller.AvrcpControllerService;
 import com.android.bluetooth.R;
+
+import java.util.List;
 
 /**
  * Bluetooth A2DP SINK Streaming Handler.
@@ -209,8 +213,22 @@ public class A2dpSinkStreamHandler extends Handler {
      * Utility functions.
      */
     private int requestAudioFocus() {
-        int focusRequestStatus = mAudioManager.requestAudioFocus(
-                mAudioFocusListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
+        // Bluetooth A2DP may carry Music, Audio Books, Navigation, or other sounds so mark content
+        // type unknown.
+        AudioAttributes streamAttributes =
+                new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_UNKNOWN)
+                        .build();
+        // Bluetooth ducking is handled at the native layer so tell the Audio Manger to notify the
+        // focus change listener via .setWillPauseWhenDucked().
+        AudioFocusRequest focusRequest =
+                new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                        .setAudioAttributes(streamAttributes)
+                        .setWillPauseWhenDucked(true)
+                        .setOnAudioFocusChangeListener(mAudioFocusListener, this)
+                        .build();
+        int focusRequestStatus = mAudioManager.requestAudioFocus(focusRequest);
         // If the request is granted begin streaming immediately and schedule an upgrade.
         if (focusRequestStatus == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
             startAvrcpUpdates();
@@ -275,16 +293,20 @@ public class A2dpSinkStreamHandler extends Handler {
         if (DBG) {
             Log.d(TAG, "sendAvrcpPause");
         }
-        if (avrcpService != null && avrcpService.getConnectedDevices().size() == 1) {
-            if (DBG) {
-                Log.d(TAG, "Pausing AVRCP.");
+        if (avrcpService != null) {
+            List<BluetoothDevice> connectedDevices = avrcpService.getConnectedDevices();
+            if (!connectedDevices.isEmpty()) {
+                BluetoothDevice targetDevice = connectedDevices.get(0);
+                if (DBG) {
+                    Log.d(TAG, "Pausing AVRCP.");
+                }
+                avrcpService.sendPassThroughCmd(targetDevice,
+                        AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE,
+                        AvrcpControllerService.KEY_STATE_PRESSED);
+                avrcpService.sendPassThroughCmd(targetDevice,
+                        AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE,
+                        AvrcpControllerService.KEY_STATE_RELEASED);
             }
-            avrcpService.sendPassThroughCmd(avrcpService.getConnectedDevices().get(0),
-                    AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE,
-                    AvrcpControllerService.KEY_STATE_PRESSED);
-            avrcpService.sendPassThroughCmd(avrcpService.getConnectedDevices().get(0),
-                    AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE,
-                    AvrcpControllerService.KEY_STATE_RELEASED);
         } else {
             Log.e(TAG, "Passthrough not sent, connection un-available.");
         }
@@ -297,16 +319,20 @@ public class A2dpSinkStreamHandler extends Handler {
         if (DBG) {
             Log.d(TAG, "sendAvrcpPlay");
         }
-        if (avrcpService != null && avrcpService.getConnectedDevices().size() == 1) {
-            if (DBG) {
-                Log.d(TAG, "Playing AVRCP.");
+        if (avrcpService != null) {
+            List<BluetoothDevice> connectedDevices = avrcpService.getConnectedDevices();
+            if (!connectedDevices.isEmpty()) {
+                BluetoothDevice targetDevice = connectedDevices.get(0);
+                if (DBG) {
+                    Log.d(TAG, "Playing AVRCP.");
+                }
+                avrcpService.sendPassThroughCmd(targetDevice,
+                        AvrcpControllerService.PASS_THRU_CMD_ID_PLAY,
+                        AvrcpControllerService.KEY_STATE_PRESSED);
+                avrcpService.sendPassThroughCmd(targetDevice,
+                        AvrcpControllerService.PASS_THRU_CMD_ID_PLAY,
+                        AvrcpControllerService.KEY_STATE_RELEASED);
             }
-            avrcpService.sendPassThroughCmd(avrcpService.getConnectedDevices().get(0),
-                    AvrcpControllerService.PASS_THRU_CMD_ID_PLAY,
-                    AvrcpControllerService.KEY_STATE_PRESSED);
-            avrcpService.sendPassThroughCmd(avrcpService.getConnectedDevices().get(0),
-                    AvrcpControllerService.PASS_THRU_CMD_ID_PLAY,
-                    AvrcpControllerService.KEY_STATE_RELEASED);
         } else {
             Log.e(TAG, "Passthrough not sent, connection un-available.");
         }

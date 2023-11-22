@@ -22,6 +22,6 @@ public class LaunchIntoPinnedStackPipActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        AlwaysFocusablePipActivity.launchAlwaysFocusablePipActivity(this);
+        AlwaysFocusablePipActivity.launchAlwaysFocusablePipActivity(this, true /* newTask */);
     }
 }

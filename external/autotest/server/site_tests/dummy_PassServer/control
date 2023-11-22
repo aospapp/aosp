@@ -11,6 +11,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "dummy"
 TEST_TYPE = "server"
+MAX_RESULT_SIZE_KB = 6000
 
 DOC = """
 This is a helper test that will succeed.

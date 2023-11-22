@@ -60,16 +60,7 @@ public class WiredHeadsetManager {
         }
 
         private void updateHeadsetStatus() {
-            AudioDeviceInfo[] devices = mAudioManager.getDevices(AudioManager.GET_DEVICES_ALL);
-            boolean isPluggedIn = false;
-            for (AudioDeviceInfo device : devices) {
-                switch (device.getType()) {
-                    case AudioDeviceInfo.TYPE_WIRED_HEADPHONES:
-                    case AudioDeviceInfo.TYPE_WIRED_HEADSET:
-                    case AudioDeviceInfo.TYPE_USB_DEVICE:
-                        isPluggedIn = true;
-                }
-            }
+            final boolean isPluggedIn = isWiredHeadsetPluggedIn();
 
             Log.i(WiredHeadsetManager.this, "ACTION_HEADSET_PLUG event, plugged in: %b, ",
                     isPluggedIn);
@@ -89,7 +80,7 @@ public class WiredHeadsetManager {
 
     public WiredHeadsetManager(Context context) {
         mAudioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
-        mIsPluggedIn = mAudioManager.isWiredHeadsetOn();
+        mIsPluggedIn = isWiredHeadsetPluggedIn();
 
         mAudioManager.registerAudioDeviceCallback(new WiredHeadsetCallback(), null);
     }
@@ -108,6 +99,24 @@ public class WiredHeadsetManager {
     @VisibleForTesting
     public boolean isPluggedIn() {
         return mIsPluggedIn;
+    }
+
+    private boolean isWiredHeadsetPluggedIn() {
+        AudioDeviceInfo[] devices = mAudioManager.getDevices(AudioManager.GET_DEVICES_ALL);
+        boolean isPluggedIn = false;
+        for (AudioDeviceInfo device : devices) {
+            switch (device.getType()) {
+                case AudioDeviceInfo.TYPE_WIRED_HEADPHONES:
+                case AudioDeviceInfo.TYPE_WIRED_HEADSET:
+                case AudioDeviceInfo.TYPE_USB_HEADSET:
+                case AudioDeviceInfo.TYPE_USB_DEVICE:
+                    isPluggedIn = true;
+            }
+            if (isPluggedIn) {
+                break;
+            }
+        }
+        return isPluggedIn;
     }
 
     private void onHeadsetPluggedInChanged(boolean isPluggedIn) {

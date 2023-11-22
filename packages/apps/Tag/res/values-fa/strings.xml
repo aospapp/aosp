@@ -28,4 +28,5 @@
     <string name="import_vcard" msgid="5104299047930666528">"وارد کردن ^1"</string>
     <string name="mime_display_name" msgid="5926357152623764485">"‏داده‌های نشان NFC"</string>
     <string name="vcard_title" msgid="7122634780732426007">"اطلاعات تماس برای ^1"</string>
+    <string name="call_phone_permission_denied" msgid="8515177111984654599">"این برنامه برای برقراری تماس به مجوز تلفن نیاز دارد. می‌توانید در «تنظیمات» مجوز «نشان‌گذاری» را مدیریت کنید."</string>
 </resources>

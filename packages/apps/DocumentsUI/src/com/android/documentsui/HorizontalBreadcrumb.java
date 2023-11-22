@@ -146,7 +146,7 @@ public final class HorizontalBreadcrumb extends RecyclerView
     }
 
     @Override
-    public void setDropTargetHighlight(View v, Object localState, boolean highlight) {
+    public void setDropTargetHighlight(View v, boolean highlight) {
         RecyclerView.ViewHolder vh = getChildViewHolder(v);
         if (vh instanceof BreadcrumbHolder) {
             ((BreadcrumbHolder) vh).setHighlighted(highlight);
@@ -154,12 +154,12 @@ public final class HorizontalBreadcrumb extends RecyclerView
     }
 
     @Override
-    public void onDragEntered(View v, Object localState) {
+    public void onDragEntered(View v) {
         // do nothing
     }
 
     @Override
-    public void onDragExited(View v, Object localState) {
+    public void onDragExited(View v) {
         // do nothing
     }
 
@@ -169,6 +169,11 @@ public final class HorizontalBreadcrumb extends RecyclerView
         if (pos != mAdapter.getItemCount() - 1) {
             mClickListener.accept(pos);
         }
+    }
+
+    @Override
+    public void onDragEnded() {
+        // do nothing
     }
 
     private void onSingleTapUp(MotionEvent e) {

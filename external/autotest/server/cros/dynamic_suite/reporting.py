@@ -987,6 +987,9 @@ def send_email(bug, bug_template):
     if bug_template.get('owner'):
         to_set.add(bug_template.get('owner'))
     recipients = ', '.join(to_set)
+    if not recipients:
+        logging.warning('No owner/cc found. Will skip sending a mail.')
+        return
     success = False
     try:
         gmail_lib.send_email(

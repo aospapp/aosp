@@ -99,8 +99,8 @@ public abstract class SubprocessTfLauncher
     protected List<String> mCmdArgs = null;
     // The absolute path to the build's root directory.
     protected String mRootDir = null;
+    protected IConfiguration mConfig;
     private IInvocationContext mContext;
-    private IConfiguration mConfig;
 
     @Override
     public void setInvocationContext(IInvocationContext invocationContext) {
@@ -168,9 +168,15 @@ public abstract class SubprocessTfLauncher
             // If the global configuration is not set in option, create a filtered global
             // configuration for subprocess to use.
             try {
+                String[] configs =
+                        new String[] {
+                            GlobalConfiguration.DEVICE_MANAGER_TYPE_NAME,
+                            GlobalConfiguration.KEY_STORE_TYPE_NAME
+                        };
                 File filteredGlobalConfig =
                         FileUtil.createTempFile("filtered_global_config", ".config");
-                GlobalConfiguration.getInstance().cloneConfigWithFilter(filteredGlobalConfig, null);
+                GlobalConfiguration.getInstance()
+                        .cloneConfigWithFilter(filteredGlobalConfig, configs);
                 mFilteredGlobalConfig = filteredGlobalConfig.getAbsolutePath();
                 mGlobalConfig = mFilteredGlobalConfig;
             } catch (IOException e) {
@@ -316,9 +322,9 @@ public abstract class SubprocessTfLauncher
         if (fileToExport == null)
             return;
 
-        FileInputStreamSource inputStream = new FileInputStreamSource(fileToExport);
-        listener.testLog(fileToExport.getName(), LogDataType.TEXT, inputStream);
-        inputStream.cancel();
+        try (FileInputStreamSource inputStream = new FileInputStreamSource(fileToExport)) {
+            listener.testLog(fileToExport.getName(), LogDataType.TEXT, inputStream);
+        }
         FileUtil.deleteFile(fileToExport);
     }
 

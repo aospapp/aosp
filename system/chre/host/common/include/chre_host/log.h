@@ -17,7 +17,12 @@
 #ifndef CHRE_HOST_LOG_H_
 #define CHRE_HOST_LOG_H_
 
+#ifndef LOG_TAG
 #define LOG_TAG "CHRE"
+#endif
+
+#include "chre/util/log_common.h"
+
 #include <utils/Log.h>
 
 /**
@@ -37,7 +42,12 @@
 #define LOGW(format, ...) CHRE_LOG(LOG_WARN,    format, ##__VA_ARGS__)
 #define LOGI(format, ...) CHRE_LOG(LOG_INFO,    format, ##__VA_ARGS__)
 #define LOGD(format, ...) CHRE_LOG(LOG_DEBUG,   format, ##__VA_ARGS__)
+
+#if LOG_NDEBUG
+#define LOGV(format, ...) chreLogNull(format, ##__VA_ARGS__)
+#else
 #define LOGV(format, ...) CHRE_LOG(LOG_VERBOSE, format, ##__VA_ARGS__)
+#endif
 
 /**
  * Helper to log a library error with a human-readable version of the provided

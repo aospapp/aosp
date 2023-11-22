@@ -15,6 +15,8 @@
  */
 package com.android.tradefed.util;
 
+import static org.junit.Assert.*;
+
 import com.android.tradefed.log.ITestLogger;
 import com.android.tradefed.result.LogDataType;
 
@@ -25,6 +27,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.List;
 
@@ -109,6 +112,43 @@ public class TarUtilTest {
             EasyMock.verify(listener);
         } finally {
             FileUtil.deleteFile(logTarGzFile);
+        }
+    }
+
+    /**
+     * Test that {@link TarUtil#gzip(File)} is properly zipping the file and can be unzipped to
+     * recover the original file.
+     */
+    @Test
+    public void testGzipDir_unGzip() throws Exception {
+        final String content = "I'LL BE ZIPPED";
+        File tmpFile = FileUtil.createTempFile("base_file", ".txt", mWorkDir);
+        File zipped = null;
+        File unzipped = FileUtil.createTempDir("unzip-test-dir", mWorkDir);
+        try {
+            FileUtil.writeToFile(content, tmpFile);
+            zipped = TarUtil.gzip(tmpFile);
+            assertTrue(zipped.exists());
+            assertTrue(zipped.getName().endsWith(".gz"));
+            // unzip the file to ensure our utility can go both way
+            TarUtil.unGzip(zipped, unzipped);
+            assertEquals(1, unzipped.list().length);
+            // the original file is found
+            assertEquals(content, FileUtil.readStringFromFile(unzipped.listFiles()[0]));
+        } finally {
+            FileUtil.recursiveDelete(zipped);
+            FileUtil.recursiveDelete(unzipped);
+        }
+    }
+
+    /** Test to ensure that {@link TarUtil#gzip(File)} properly throws if the file is not valid. */
+    @Test
+    public void testGzip_invalidFile() throws Exception {
+        try {
+            TarUtil.gzip(new File("i_do_not_exist"));
+            fail("Should have thrown an exception.");
+        } catch (FileNotFoundException expected) {
+            // expected
         }
     }
 }

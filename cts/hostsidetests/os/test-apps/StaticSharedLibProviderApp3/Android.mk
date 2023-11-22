@@ -23,7 +23,7 @@ LOCAL_PACKAGE_NAME := CtsStaticSharedLibProviderApp3
 
 LOCAL_CERTIFICATE := cts/hostsidetests/appsecurity/certs/keysets/cts-keyset-test-b
 
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 LOCAL_AAPT_FLAGS := --shared-lib
 

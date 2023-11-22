@@ -155,3 +155,21 @@ Java_com_android_tv_tuner_TunerHal_nativeSetHasPendingTune
         it->second->setHasPendingTune(hasPendingTune);
     }
 }
+
+/*
+ * Class:     com_android_tv_tuner_TunerHal
+ * Method:    nativeGetDeliverySystemType
+ * Signature: (J)I
+ */
+JNIEXPORT int JNICALL
+Java_com_android_tv_tuner_TunerHal_nativeGetDeliverySystemType
+(JNIEnv *env, jobject thiz, jlong deviceId) {
+    std::map<jlong, DvbManager *>::iterator it = sDvbManagers.find(deviceId);
+    if (it != sDvbManagers.end()) {
+        return it->second->getDeliverySystemType(env, thiz);
+    } else {
+        DvbManager *dvbManager = new DvbManager(env, thiz);
+        sDvbManagers.insert(std::pair<jlong, DvbManager *>(deviceId, dvbManager));
+        return dvbManager->getDeliverySystemType(env, thiz);
+    }
+}

@@ -5,7 +5,7 @@
 AUTHOR = "Chrome OS Project, chromeos-video@google.com"
 NAME = "video_ChromeRTCHWDecodeUsed"
 PURPOSE = "Verify that HW decoding works for WebRTC/vp8 video."
-ATTRIBUTES = "suite:bvt-perbuild, suite:partners"
+ATTRIBUTES = "suite:bvt-cq, suite:partners"
 TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"
@@ -24,4 +24,5 @@ This test verifies that HW decoding works for WebRTC/vp8 video.
 job.run_test('video_ChromeRTCHWDecodeUsed',
              video_name='crowd720_25frames.y4m',
              histogram_name='Media.RTCVideoDecoderInitDecodeSucces',
-             histogram_bucket_val=1)
+             histogram_bucket_val=1,
+             tag='vp8')

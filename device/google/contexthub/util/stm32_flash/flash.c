@@ -31,6 +31,13 @@
 #include "stm32f4_crc.h"
 #include "i2c.h"
 #include "spi.h"
+#include "uart.h"
+
+enum USE_INTERFACE {
+    USE_SPI,
+    USE_I2C,
+    USE_UART,
+};
 
 static inline size_t pad(ssize_t length)
 {
@@ -65,8 +72,9 @@ int main(int argc, char *argv[])
     uint32_t crc;
     i2c_handle_t i2c_handle;
     spi_handle_t spi_handle;
+    uart_handle_t uart_handle;
     handle_t *handle;
-    char options[] = "d:e:w:a:t:r:l:g:csi";
+    char options[] = "d:e:w:a:t:r:l:g:csiu";
     char *dev = device;
     int opt;
     uint32_t address = 0x08000000;
@@ -77,7 +85,7 @@ int main(int argc, char *argv[])
     uint8_t type = 0x11;
     ssize_t length = 0;
     uint8_t ret;
-    bool use_spi = true;
+    int use_iface = USE_SPI;
     int fd;
     int gpio;
     FILE *file;
@@ -88,6 +96,7 @@ int main(int argc, char *argv[])
         printf("Usage: %s\n", argv[0]);
         printf("  -s (use spi. default)\n");
         printf("  -i (use i2c)\n");
+        printf("  -u (use uart)\n");
         printf("  -g <gpio> (reset gpio. default: %d)\n", gpio_nreset);
         printf("  -d <device> (device. default: %s)\n", device);
         printf("  -e <sector> (sector to erase)\n");
@@ -128,10 +137,13 @@ int main(int argc, char *argv[])
             type = strtol(optarg, NULL, 0);
             break;
         case 's':
-            use_spi = true;
+            use_iface = USE_SPI;
             break;
         case 'i':
-            use_spi = false;
+            use_iface = USE_I2C;
+            break;
+        case 'u':
+            use_iface = USE_UART;
             break;
         case 'g':
             gpio_nreset = strtol(optarg, NULL, 0);
@@ -139,7 +151,10 @@ int main(int argc, char *argv[])
         }
     }
 
-    fd = open(dev, O_RDWR);
+    if (use_iface == USE_UART)
+        fd = open(dev, O_RDWR | O_NOCTTY | O_NDELAY);
+    else
+        fd = open(dev, O_RDWR);
     if (fd < 0) {
         perror("Error opening dev");
         return -1;
@@ -158,11 +173,16 @@ int main(int argc, char *argv[])
         nanosleep(&ts, NULL);
     }
 
-    if (use_spi) {
+    if (use_iface == USE_SPI) {
         handle = &spi_handle.handle;
         spi_handle.fd = fd;
 
         val = spi_init(handle);
+    } else if (use_iface == USE_UART) {
+        handle = &uart_handle.handle;
+        uart_handle.fd = fd;
+
+        val = uart_init(handle);
     } else {
         handle = &i2c_handle.handle;
         i2c_handle.fd = fd;

@@ -36,6 +36,8 @@ import java.util.concurrent.TimeUnit;
 public class SimpleJobService extends JobService {
     private static final String TAG = "SimpleJobService";
 
+    public static final long JOB_EXECUTION_MS = 5000L;
+
     JobInfo mRunningJobInfo;
     JobParameters mRunningParams;
     private static CountDownLatch sLatch;
@@ -45,13 +47,14 @@ public class SimpleJobService extends JobService {
         @Override public void run() {
             Log.i(TAG, "Running job");
             try {
-                Thread.sleep(1000);
+                Thread.sleep(JOB_EXECUTION_MS);
             } catch (InterruptedException e) {
             }
             jobFinished(mRunningParams, false);
             if (sLatch != null) {
                 sLatch.countDown();
             }
+            Log.i(TAG, "Finished job");
         }
     };
 

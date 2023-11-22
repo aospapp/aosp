@@ -17,16 +17,20 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
-# Garrett Cooper, July 2009
+# Ngie Cooper, July 2009
 #
 
 top_srcdir		?= ..
 
 include $(top_srcdir)/include/mk/env_pre.mk
 
-CFLAGS			+= -I.
+CFLAGS			+= -I. -DLTPLIB
 
-FILTER_OUT_LIBSRCS	:= mount_utils.c
+ifneq ($(ANDROID),1)
+FILTER_OUT_DIRS		+= android_libpthread android_librt
+else
+FILTER_OUT_LIBSRCS	+= tlibio.c tst_path_has_mnt_flags.c
+endif
 
 LIB			:= libltp.a
 

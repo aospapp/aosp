@@ -296,28 +296,49 @@ const std::shared_ptr<FontFamily>& FontCollection::getFamilyForChar(uint32_t ch,
     return vs == 0 ? mFamilies[mFamilyVec[bestFamilyIndex]] : mFamilies[bestFamilyIndex];
 }
 
-const uint32_t NBSP = 0x00A0;
-const uint32_t SOFT_HYPHEN = 0x00AD;
-const uint32_t ZWJ = 0x200C;
-const uint32_t ZWNJ = 0x200D;
-const uint32_t HYPHEN = 0x2010;
-const uint32_t NB_HYPHEN = 0x2011;
-const uint32_t NNBSP = 0x202F;
-const uint32_t FEMALE_SIGN = 0x2640;
-const uint32_t MALE_SIGN = 0x2642;
-const uint32_t STAFF_OF_AESCULAPIUS = 0x2695;
+// Characters where we want to continue using existing font run for (or stick to the next run if
+// they start a string), even if the font does not support them explicitly. These are handled
+// properly by Minikin or HarfBuzz even if the font does not explicitly support them and it's
+// usually meaningless to switch to a different font to display them.
+static bool doesNotNeedFontSupport(uint32_t c) {
+    return c == 0x00AD // SOFT HYPHEN
+            || c == 0x034F // COMBINING GRAPHEME JOINER
+            || c == 0x061C // ARABIC LETTER MARK
+            || (0x200C <= c && c <= 0x200F) // ZERO WIDTH NON-JOINER..RIGHT-TO-LEFT MARK
+            || (0x202A <= c && c <= 0x202E) // LEFT-TO-RIGHT EMBEDDING..RIGHT-TO-LEFT OVERRIDE
+            || (0x2066 <= c && c <= 0x2069) // LEFT-TO-RIGHT ISOLATE..POP DIRECTIONAL ISOLATE
+            || c == 0xFEFF // BYTE ORDER MARK
+            || isVariationSelector(c);
+}
 
 // Characters where we want to continue using existing font run instead of
 // recomputing the best match in the fallback list.
 static const uint32_t stickyWhitelist[] = {
-        '!', ',', '-', '.', ':', ';', '?', NBSP, ZWJ, ZWNJ,
-        HYPHEN, NB_HYPHEN, NNBSP, FEMALE_SIGN, MALE_SIGN, STAFF_OF_AESCULAPIUS };
+    '!',
+    ',',
+    '-',
+    '.',
+    ':',
+    ';',
+    '?',
+    0x00A0, // NBSP
+    0x2010, // HYPHEN
+    0x2011, // NB_HYPHEN
+    0x202F, // NNBSP
+    0x2640, // FEMALE_SIGN,
+    0x2642, // MALE_SIGN,
+    0x2695, // STAFF_OF_AESCULAPIUS
+};
 
 static bool isStickyWhitelisted(uint32_t c) {
     for (size_t i = 0; i < sizeof(stickyWhitelist) / sizeof(stickyWhitelist[0]); i++) {
         if (stickyWhitelist[i] == c) return true;
     }
     return false;
+}
+
+static inline bool isCombining(uint32_t c) {
+    return (U_GET_GC_MASK(c) & U_GC_M_MASK) != 0;
 }
 
 bool FontCollection::hasVariationSelector(uint32_t baseCodepoint,
@@ -355,12 +376,14 @@ bool FontCollection::hasVariationSelector(uint32_t baseCodepoint,
     return false;
 }
 
+constexpr uint32_t REPLACEMENT_CHARACTER = 0xFFFD;
+
 void FontCollection::itemize(const uint16_t *string, size_t string_size, FontStyle style,
         vector<Run>* result) const {
     const uint32_t langListId = style.getLanguageListId();
     int variant = style.getVariant();
     const FontFamily* lastFamily = nullptr;
-    Run* run = NULL;
+    Run* run = nullptr;
 
     if (string_size == 0) {
         return;
@@ -373,6 +396,9 @@ void FontCollection::itemize(const uint16_t *string, size_t string_size, FontSty
     size_t nextUtf16Pos = 0;
     size_t readLength = 0;
     U16_NEXT(string, readLength, string_size, nextCh);
+    if (U_IS_SURROGATE(nextCh)) {
+        nextCh = REPLACEMENT_CHARACTER;
+    }
 
     do {
         const uint32_t ch = nextCh;
@@ -380,19 +406,20 @@ void FontCollection::itemize(const uint16_t *string, size_t string_size, FontSty
         nextUtf16Pos = readLength;
         if (readLength < string_size) {
             U16_NEXT(string, readLength, string_size, nextCh);
+            if (U_IS_SURROGATE(nextCh)) {
+                nextCh = REPLACEMENT_CHARACTER;
+            }
         } else {
             nextCh = kEndOfString;
         }
 
         bool shouldContinueRun = false;
-        if (lastFamily != nullptr) {
-            if (isStickyWhitelisted(ch)) {
-                // Continue using existing font as long as it has coverage and is whitelisted
-                shouldContinueRun = lastFamily->getCoverage().get(ch);
-            } else if (ch == SOFT_HYPHEN || isVariationSelector(ch)) {
-                // Always continue if the character is the soft hyphen or a variation selector.
-                shouldContinueRun = true;
-            }
+        if (doesNotNeedFontSupport(ch)) {
+            // Always continue if the character is a format character not needed to be in the font.
+            shouldContinueRun = true;
+        } else if (lastFamily != nullptr && (isStickyWhitelisted(ch) || isCombining(ch))) {
+            // Continue using existing font as long as it has coverage and is whitelisted.
+            shouldContinueRun = lastFamily->getCoverage().get(ch);
         }
 
         if (!shouldContinueRun) {
@@ -406,15 +433,23 @@ void FontCollection::itemize(const uint16_t *string, size_t string_size, FontSty
                 // character to the new run. U+20E3 COMBINING ENCLOSING KEYCAP, used in emoji, is
                 // handled properly by this since it's a combining mark too.
                 if (utf16Pos != 0 &&
-                        ((U_GET_GC_MASK(ch) & U_GC_M_MASK) != 0 ||
-                         (isEmojiModifier(ch) && isEmojiBase(prevCh))) &&
+                        (isCombining(ch) || (isEmojiModifier(ch) && isEmojiBase(prevCh))) &&
                         family != nullptr && family->getCoverage().get(prevCh)) {
                     const size_t prevChLength = U16_LENGTH(prevCh);
-                    run->end -= prevChLength;
-                    if (run->start == run->end) {
-                        result->pop_back();
+                    if (run != nullptr) {
+                        run->end -= prevChLength;
+                        if (run->start == run->end) {
+                            result->pop_back();
+                        }
                     }
                     start -= prevChLength;
+                }
+                if (lastFamily == nullptr) {
+                    // This is the first family ever assigned. We are either seeing the very first
+                    // character (which means start would already be zero), or we have only seen
+                    // characters that don't need any font support (which means we need to adjust
+                    // start to be 0 to include those characters).
+                    start = 0;
                 }
                 result->push_back({family->getClosestMatch(style), static_cast<int>(start), 0});
                 run = &result->back();
@@ -422,8 +457,16 @@ void FontCollection::itemize(const uint16_t *string, size_t string_size, FontSty
             }
         }
         prevCh = ch;
-        run->end = nextUtf16Pos;  // exclusive
+        if (run != nullptr) {
+            run->end = nextUtf16Pos;  // exclusive
+        }
     } while (nextCh != kEndOfString);
+
+    if (lastFamily == nullptr) {
+        // No character needed any font support, so it doesn't really matter which font they end up
+        // getting displayed in. We put the whole string in one run, using the first font.
+        result->push_back({mFamilies[0]->getClosestMatch(style), 0, static_cast<int>(string_size)});
+    }
 }
 
 FakedFont FontCollection::baseFontFaked(FontStyle style) {

@@ -13,6 +13,7 @@ You should import the "hosts" package instead of importing each type of host.
 import inspect
 import logging
 import re
+import warnings
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import pxssh
 from autotest_lib.server import utils
@@ -67,7 +68,7 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
         @param options: SSH options
         @param alive_interval: SSH Alive interval.
         """
-        options = "%s %s" % (options, self.master_ssh_option)
+        options = "%s %s" % (options, self._master_ssh.ssh_option)
         base_cmd = self.make_ssh_command(user=self.user, port=self.port,
                                          opts=options,
                                          hosts_file=self.known_hosts_file,
@@ -75,6 +76,19 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
                                          alive_interval=alive_interval)
         return "%s %s" % (base_cmd, self.hostname)
 
+    def _get_server_stack_state(self, lowest_frames=0, highest_frames=None):
+        """ Get the server stack frame status.
+        @param lowest_frames: the lowest frames to start printing.
+        @param highest_frames: the highest frames to print.
+                        (None means no restriction)
+        """
+        stack_frames = inspect.stack()
+        stack = ''
+        for frame in stack_frames[lowest_frames:highest_frames]:
+            function_name = inspect.getframeinfo(frame[0]).function
+            stack = '%s|%s' % (function_name, stack)
+        del stack_frames
+        return stack[:-1] # Delete the last '|' character
 
     def _verbose_logger_command(self, command):
         """
@@ -83,16 +97,8 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
 
         @param command: the ssh command to be executed.
         """
-        stack_frames = inspect.stack()
-        stack = ''
-        # The last 2 frames on the stack are boring. Print 5-2=3 stack frames.
-        count = min(5, len(stack_frames))
-        if count >= 3:
-            stack = inspect.getframeinfo(stack_frames[2][0]).function
-            for frame in stack_frames[3:count]:
-                function_name = inspect.getframeinfo(frame[0]).function
-                stack = '%s|%s' % (function_name, stack)
-        del stack_frames
+        # The last 3 frames on the stack are boring. Print 6-3=3 stack frames.
+        stack = self._get_server_stack_state(lowest_frames=3, highest_frames=6)
         # If "logger" executable exists on the DUT use it to respew |command|.
         # Then regardless of "logger" run |command| as usual.
         command = ('if type "logger" > /dev/null 2>&1; then'
@@ -255,12 +261,17 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
         return result
 
 
-    def run(self, command, timeout=3600, ignore_status=False,
+    @metrics.SecondsTimerDecorator(
+            'chromeos/autotest/ssh/master_ssh_time')
+    def run_very_slowly(self, command, timeout=3600, ignore_status=False,
             stdout_tee=utils.TEE_TO_LOGS, stderr_tee=utils.TEE_TO_LOGS,
             connect_timeout=30, options='', stdin=None, verbose=True, args=(),
             ignore_timeout=False, ssh_failure_retry_ok=False):
         """
         Run a command on the remote host.
+        This RPC call has an overhead of minimum 40ms and up to 400ms on
+        servers (crbug.com/734887). Each time a run_very_slowly is added for
+        every job - a server core dies in the lab.
         @see common_lib.hosts.host.run()
 
         @param timeout: command execution timeout
@@ -281,7 +292,8 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
         @raises AutoservSSHTimeout: ssh connection has timed out
         """
         if verbose:
-            logging.debug("Running (ssh) '%s'", command)
+            stack = self._get_server_stack_state(lowest_frames=1, highest_frames=7)
+            logging.debug("Running (ssh) '%s' from '%s'", command, stack)
             command = self._verbose_logger_command(command)
 
         # Start a master SSH connection if necessary.
@@ -298,6 +310,10 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
             # Catch that and stuff it into AutoservRunError and raise it.
             timeout_message = str('Timeout encountered: %s' % cmderr.args[0])
             raise error.AutoservRunError(timeout_message, cmderr.args[1])
+
+
+    def run(self, *args, **kwargs):
+        return self.run_very_slowly(*args, **kwargs)
 
 
     def run_background(self, command, verbose=True):

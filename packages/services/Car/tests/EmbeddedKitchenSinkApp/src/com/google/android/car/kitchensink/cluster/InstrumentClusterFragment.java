@@ -16,18 +16,22 @@
 package com.google.android.car.kitchensink.cluster;
 
 import android.app.AlertDialog;
+import android.car.cluster.CarInstrumentClusterManager;
+import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.car.Car;
 import android.support.car.CarAppFocusManager;
-import android.support.car.CarNotConnectedException;
 import android.support.car.CarConnectionCallback;
+import android.support.car.CarNotConnectedException;
 import android.support.car.navigation.CarNavigationStatusManager;
 import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Toast;
 
 import com.google.android.car.kitchensink.R;
 
@@ -37,30 +41,30 @@ import com.google.android.car.kitchensink.R;
 public class InstrumentClusterFragment extends Fragment {
     private static final String TAG = InstrumentClusterFragment.class.getSimpleName();
 
+    private static final int DISPLAY_IN_CLUSTER_PERMISSION_REQUEST = 1;
+
     private CarNavigationStatusManager mCarNavigationStatusManager;
     private CarAppFocusManager mCarAppFocusManager;
     private Car mCarApi;
 
-    private final CarConnectionCallback mCarConnectionCallback =
-            new CarConnectionCallback() {
-                @Override
-                public void onConnected(Car car) {
-                    Log.d(TAG, "Connected to Car Service");
-                    try {
-                        mCarNavigationStatusManager = (CarNavigationStatusManager) mCarApi.getCarManager(
-                                android.car.Car.CAR_NAVIGATION_SERVICE);
-                        mCarAppFocusManager =
-                                (CarAppFocusManager) mCarApi.getCarManager(Car.APP_FOCUS_SERVICE);
-                    } catch (CarNotConnectedException e) {
-                        Log.e(TAG, "Car is not connected!", e);
-                    }
+    private final CarConnectionCallback mCarConnectionCallback = new CarConnectionCallback() {
+            @Override
+            public void onConnected(Car car) {
+                Log.d(TAG, "Connected to Car Service");
+                try {
+                    mCarNavigationStatusManager =
+                            mCarApi.getCarManager(CarNavigationStatusManager.class);
+                    mCarAppFocusManager = mCarApi.getCarManager(CarAppFocusManager.class);
+                } catch (CarNotConnectedException e) {
+                    Log.e(TAG, "Car is not connected!", e);
                 }
+            }
 
-                @Override
-                public void onDisconnected(Car car) {
-                    Log.d(TAG, "Disconnect from Car Service");
-                }
-            };
+            @Override
+            public void onDisconnected(Car car) {
+            Log.d(TAG, "Disconnect from Car Service");
+        }
+    };
 
     private void initCarApi() {
         if (mCarApi != null && mCarApi.isConnected()) {
@@ -80,6 +84,7 @@ public class InstrumentClusterFragment extends Fragment {
 
         view.findViewById(R.id.cluster_start_button).setOnClickListener(v -> initCluster());
         view.findViewById(R.id.cluster_turn_left_button).setOnClickListener(v -> turnLeft());
+        view.findViewById(R.id.cluster_start_activity).setOnClickListener(v -> startNavActivity());
 
         return view;
     }
@@ -91,6 +96,31 @@ public class InstrumentClusterFragment extends Fragment {
         super.onCreate(savedInstanceState);
     }
 
+    private void startNavActivity() {
+        CarInstrumentClusterManager clusterManager;
+        try {
+            clusterManager = (CarInstrumentClusterManager) mCarApi.getCarManager(
+                    android.car.Car.CAR_INSTRUMENT_CLUSTER_SERVICE);
+        } catch (CarNotConnectedException e) {
+            Log.e(TAG, "Failed to get CarInstrumentClusterManager", e);
+            Toast.makeText(getContext(), "Failed to get CarInstrumentClusterManager",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        // Implicit intent
+        Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.addCategory(CarInstrumentClusterManager.CATEGORY_NAVIGATION);
+        try {
+            clusterManager.startActivity(intent);
+        } catch (android.car.CarNotConnectedException e) {
+            Log.e(TAG, "Failed to startActivity in cluster", e);
+            Toast.makeText(getContext(), "Failed to start activity in cluster",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+    }
+
     private void turnLeft() {
         try {
             mCarNavigationStatusManager
@@ -100,18 +130,20 @@ public class InstrumentClusterFragment extends Fragment {
                     CarNavigationStatusManager.DISTANCE_METERS);
         } catch (CarNotConnectedException e) {
             e.printStackTrace();
-            initCarApi();  // This might happen due to inst cluster renderer crash.
         }
     }
 
     private void initCluster() {
         try {
-            mCarAppFocusManager.addFocusListener(new CarAppFocusManager.OnAppFocusChangedListener() {
-        @Override
-        public void onAppFocusChanged(CarAppFocusManager manager, int appType, boolean active) {
-            Log.d(TAG, "onAppFocusChanged, appType: " + appType + " active: " + active);
-        }
-    }, CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION);
+            mCarAppFocusManager
+                    .addFocusListener(new CarAppFocusManager.OnAppFocusChangedListener() {
+                        @Override
+                        public void onAppFocusChanged(CarAppFocusManager manager, int appType,
+                                boolean active) {
+                            Log.d(TAG, "onAppFocusChanged, appType: " + appType + " active: "
+                                    + active);
+                        }
+                    }, CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION);
         } catch (CarNotConnectedException e) {
             Log.e(TAG, "Failed to register focus listener", e);
         }
@@ -126,6 +158,7 @@ public class InstrumentClusterFragment extends Fragment {
                         .setMessage(R.string.cluster_nav_app_context_loss)
                         .show();
             }
+
             @Override
             public void onAppFocusOwnershipGranted(CarAppFocusManager manager, int focus) {
                 Log.w(TAG, "onAppFocusOwnershipGranted, focus: " + focus);
@@ -155,7 +188,33 @@ public class InstrumentClusterFragment extends Fragment {
                     .sendNavigationStatus(CarNavigationStatusManager.STATUS_ACTIVE);
         } catch (CarNotConnectedException e) {
             Log.e(TAG, "Failed to set navigation status, reconnecting to the car", e);
-            initCarApi();  // This might happen due to inst cluster renderer crash.
+        }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        Log.i(TAG, "onResume!");
+        if (getActivity().checkSelfPermission(android.car.Car.PERMISSION_CAR_DISPLAY_IN_CLUSTER)
+                != PackageManager.PERMISSION_GRANTED) {
+            Log.i(TAG, "Requesting: " + android.car.Car.PERMISSION_CAR_DISPLAY_IN_CLUSTER);
+
+            requestPermissions(new String[] {android.car.Car.PERMISSION_CAR_DISPLAY_IN_CLUSTER},
+                    DISPLAY_IN_CLUSTER_PERMISSION_REQUEST);
+        } else {
+            Log.i(TAG, "All required permissions granted");
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            int[] grantResults) {
+        if (DISPLAY_IN_CLUSTER_PERMISSION_REQUEST == requestCode) {
+            for (int i = 0; i < permissions.length; i++) {
+                boolean granted = grantResults[i] == PackageManager.PERMISSION_GRANTED;
+                Log.i(TAG, "onRequestPermissionsResult, requestCode: " + requestCode
+                        + ", permission: " + permissions[i] + ", granted: " + granted);
+            }
         }
     }
 }

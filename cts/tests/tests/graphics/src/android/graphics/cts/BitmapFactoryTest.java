@@ -615,18 +615,12 @@ public class BitmapFactoryTest {
         verifyScaled(BitmapFactory.decodeStream(obtainInputStream(), null, scaledOpt));
     }
 
-    // Test that writing an index8 bitmap to a Parcel succeeds.
     @Test
     public void testParcel() {
-        // Turn off scaling, which would convert to an 8888 bitmap, which does not expose
-        // the bug.
         BitmapFactory.Options opts = new BitmapFactory.Options();
         opts.inScaled = false;
         Bitmap b = BitmapFactory.decodeResource(mRes, R.drawable.gif_test, opts);
         assertNotNull(b);
-
-        // index8 has no Java equivalent, so the Config will be null.
-        assertNull(b.getConfig());
 
         Parcel p = Parcel.obtain();
         b.writeToParcel(p, 0);
@@ -635,9 +629,6 @@ public class BitmapFactoryTest {
         Bitmap b2 = Bitmap.CREATOR.createFromParcel(p);
         compareBitmaps(b, b2, 0, true, true);
 
-        // When this failed previously, the bitmap was missing a colortable, resulting in a crash
-        // attempting to compress by dereferencing a null pointer. Compress to verify that we do
-        // not crash, but succeed instead.
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         assertTrue(b2.compress(Bitmap.CompressFormat.JPEG, 50, baos));
     }
@@ -665,17 +656,16 @@ public class BitmapFactoryTest {
         //     most natural match for the encoded data.
         // Options.inPreferredConfig = null
         //     We will decode to whichever Config is the most natural match with the
-        //     encoded data.  This could be 8-bit indices into a color table (call this
-        //     INDEX_8), ALPHA_8 (gray), or ARGB_8888.
+        //     encoded data.  This could be ALPHA_8 (gray) or ARGB_8888.
         //
         // This test ensures that images are decoded to the intended Config and that the
         // decodes match regardless of the Config.
-        decodeConfigs(R.drawable.alpha, 31, 31, true, false, false);
-        decodeConfigs(R.drawable.baseline_jpeg, 1280, 960, false, false, false);
-        decodeConfigs(R.drawable.bmp_test, 320, 240, false, false, false);
-        decodeConfigs(R.drawable.scaled2, 6, 8, false, false, true);
-        decodeConfigs(R.drawable.grayscale_jpg, 128, 128, false, true, false);
-        decodeConfigs(R.drawable.grayscale_png, 128, 128, false, true, false);
+        decodeConfigs(R.drawable.alpha, 31, 31, true, false);
+        decodeConfigs(R.drawable.baseline_jpeg, 1280, 960, false, false);
+        decodeConfigs(R.drawable.bmp_test, 320, 240, false, false);
+        decodeConfigs(R.drawable.scaled2, 6, 8, false, false);
+        decodeConfigs(R.drawable.grayscale_jpg, 128, 128, false, true);
+        decodeConfigs(R.drawable.grayscale_png, 128, 128, false, true);
     }
 
     @Test(expected=IllegalArgumentException.class)
@@ -812,8 +802,7 @@ public class BitmapFactoryTest {
         }
     }
 
-    private void decodeConfigs(int id, int width, int height, boolean hasAlpha, boolean isGray,
-            boolean hasColorTable) {
+    private void decodeConfigs(int id, int width, int height, boolean hasAlpha, boolean isGray) {
         Options opts = new BitmapFactory.Options();
         opts.inScaled = false;
         assertEquals(Config.ARGB_8888, opts.inPreferredConfig);
@@ -859,21 +848,15 @@ public class BitmapFactoryTest {
             compareBitmaps(reference, grayToARGB(alpha8), 0, true, true);
         }
 
-        // Setting inPreferredConfig to null selects the most natural color type for
-        // the encoded data.  If the image has a color table, this should be INDEX_8.
-        // If we decode to INDEX_8, the output bitmap will report that the Config is
-        // null.
+        // Setting inPreferredConfig to nullptr will cause the default Config to be
+        // selected, which in this case is ARGB_8888.
         opts.inPreferredConfig = null;
-        Bitmap index8 = BitmapFactory.decodeResource(mRes, id, opts);
-        assertNotNull(index8);
-        assertEquals(width, index8.getWidth());
-        assertEquals(height, index8.getHeight());
-        if (hasColorTable) {
-            assertEquals(null, index8.getConfig());
-            // Convert the INDEX_8 bitmap to ARGB_8888 and test that it is identical to
-            // the reference.
-            compareBitmaps(reference, index8.copy(Config.ARGB_8888, false), 0, true, true);
-        }
+        Bitmap defaultBitmap = BitmapFactory.decodeResource(mRes, id, opts);
+        assertNotNull(defaultBitmap);
+        assertEquals(width, defaultBitmap.getWidth());
+        assertEquals(height, defaultBitmap.getHeight());
+        assertEquals(Config.ARGB_8888, defaultBitmap.getConfig());
+        compareBitmaps(reference, defaultBitmap, 0, true, true);
     }
 
     private static Bitmap grayToARGB(Bitmap gray) {

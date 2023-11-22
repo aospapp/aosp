@@ -31,8 +31,8 @@ import com.android.tv.R;
 import com.android.tv.TvApplication;
 import com.android.tv.dvr.DvrDataManager;
 import com.android.tv.dvr.DvrManager;
-import com.android.tv.dvr.ScheduledRecording;
-import com.android.tv.dvr.SeriesRecording;
+import com.android.tv.dvr.data.ScheduledRecording;
+import com.android.tv.dvr.data.SeriesRecording;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -78,7 +78,7 @@ public class DvrStopSeriesRecordingFragment extends DvrGuidedStepFragment {
     }
 
     @Override
-    public void onGuidedActionClicked(GuidedAction action) {
+    public void onTrackedGuidedActionClicked(GuidedAction action) {
         if (action.getId() == ACTION_STOP_SERIES_RECORDING) {
             ApplicationSingletons singletons = TvApplication.getSingletons(getContext());
             DvrManager dvrManager = singletons.getDvrManager();
@@ -100,5 +100,19 @@ public class DvrStopSeriesRecordingFragment extends DvrGuidedStepFragment {
                     .setState(SeriesRecording.STATE_SERIES_STOPPED).build());
         }
         dismissDialog();
+    }
+
+    @Override
+    public String getTrackerPrefix() {
+        return "DvrStopSeriesRecordingFragment";
+    }
+
+    @Override
+    public String getTrackerLabelForGuidedAction(GuidedAction action) {
+        if (action.getId() == ACTION_STOP_SERIES_RECORDING) {
+            return "stop";
+        } else {
+            return super.getTrackerLabelForGuidedAction(action);
+        }
     }
 }

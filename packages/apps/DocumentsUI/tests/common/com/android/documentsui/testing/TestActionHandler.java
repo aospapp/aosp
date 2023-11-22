@@ -19,16 +19,21 @@ package com.android.documentsui.testing;
 import android.content.Intent;
 
 import com.android.documentsui.AbstractActionHandler;
-import com.android.documentsui.ActionHandler;
 import com.android.documentsui.TestActivity;
+import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.dirlist.DocumentDetails;
-import com.android.documentsui.Model;
+
+import java.util.function.Consumer;
 
 public class TestActionHandler extends AbstractActionHandler<TestActivity> {
 
+    private final TestEnv mEnv;
+
     public final TestEventHandler<DocumentDetails> open = new TestEventHandler<>();
     public boolean mDeleteHappened;
+
+    public DocumentInfo nextRootDocument;
 
     public TestActionHandler() {
         this(TestEnv.create());
@@ -38,11 +43,13 @@ public class TestActionHandler extends AbstractActionHandler<TestActivity> {
         super(
                 TestActivity.create(env),
                 env.state,
-                env.roots,
+                env.providers,
                 env.docs,
                 env.searchViewManager,
                 (String authority) -> null,
                 env.injector);
+
+        mEnv = env;
     }
 
     @Override
@@ -68,5 +75,12 @@ public class TestActionHandler extends AbstractActionHandler<TestActivity> {
     @Override
     protected void launchToDefaultLocation() {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void getRootDocument(RootInfo root, int timeout, Consumer<DocumentInfo> callback) {
+        mEnv.mExecutor.submit(() -> {
+            callback.accept(nextRootDocument);
+        });
     }
 }

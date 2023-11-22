@@ -16,7 +16,7 @@ class platform_DebugDaemonGetRoutes(test.test):
         proxy = bus.get_object('org.chromium.debugd', '/org/chromium/debugd')
         self.iface = dbus.Interface(proxy,
                                     dbus_interface='org.chromium.debugd')
-        ip4_routes = self.iface.GetRoutes({})
+        ip4_routes = self.iface.GetRoutes({}, signature="a{sv}")
         logging.debug('IP4 Routes: %s', ip4_routes)
-        ip6_routes = self.iface.GetRoutes({'v6': True})
+        ip6_routes = self.iface.GetRoutes({'v6': True}, signature="a{sv}")
         logging.debug('IP6 Routes: %s', ip6_routes)

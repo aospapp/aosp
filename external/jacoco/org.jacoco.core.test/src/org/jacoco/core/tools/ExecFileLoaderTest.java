@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -28,7 +28,6 @@ import org.jacoco.core.data.ExecutionDataStore;
 import org.jacoco.core.data.ExecutionDataWriter;
 import org.jacoco.core.data.SessionInfo;
 import org.jacoco.core.data.SessionInfoStore;
-import org.jacoco.core.tools.ExecFileLoader;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -119,7 +118,8 @@ public class ExecFileLoaderTest {
 		final FileOutputStream out = new FileOutputStream(file);
 		final ExecutionDataWriter writer = new ExecutionDataWriter(out);
 		final int value = id.length();
-		writer.visitClassExecution(new ExecutionData(value, id, new boolean[0]));
+		writer.visitClassExecution(new ExecutionData(value, id,
+				new boolean[] { true }));
 		writer.visitSessionInfo(new SessionInfo(id, value, value));
 		out.close();
 		return file;

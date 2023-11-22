@@ -149,8 +149,8 @@ public class CurrencyTest extends junit.framework.TestCase {
     public void testSerialization() throws Exception {
         Currency usd = Currency.getInstance("USD");
         String actual = SerializationTester.serializeHex(usd);
-        String expected = "aced0005737200126a6176612e7574696c2e43757272656e6379fdcd934a5911a91f02" +
-                "00014c000c63757272656e6379436f64657400124c6a6176612f6c616e672f537472696e673b7870" +
+        String expected = "ACED0005737200126A6176612E7574696C2E43757272656E6379FDCD934A5911A91F02" +
+                "00014C000C63757272656E6379436F64657400124C6A6176612F6C616E672F537472696E673B7870" +
                 "740003555344";
         assertEquals(expected, actual);
 

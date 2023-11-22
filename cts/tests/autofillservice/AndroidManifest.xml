@@ -40,33 +40,41 @@
         <activity android:name=".TimePickerClockActivity" />
         <activity android:name=".TimePickerSpinnerActivity" />
         <activity android:name=".FatActivity" />
-        <activity android:name=".VirtualContainerActivity">
-            <intent-filter>
-                <!-- This intent filter is not really needed by CTS, but it maks easier to launch
-                     this app during CTS development... -->
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+        <activity android:name=".VirtualContainerActivity"/>
         <activity android:name=".OptionalSaveActivity" />
         <activity android:name=".AllAutofillableViewsActivity" />
-        <activity android:name=".GridActivity" >
-            <intent-filter>
-                <!-- This intent filter is not really needed by CTS, but it maks easier to launch
-                     this app during CTS development... -->
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+        <activity android:name=".GridActivity"/>
         <activity android:name=".EmptyActivity"/>
         <activity android:name=".DummyActivity"/>
         <activity android:name=".OutOfProcessLoginActivity"
             android:process="android.autofillservice.cts.outside"/>
         <activity android:name=".FragmentContainerActivity" />
+        <activity android:name=".DuplicateIdActivity"
+            android:theme="@android:style/Theme.NoTitleBar" />
+        <activity android:name=".SimpleSaveActivity"/>
+        <activity android:name=".PreSimpleSaveActivity">
+            <intent-filter>
+                <!-- This intent filter is not really needed by CTS, but it maks easier to launch
+                     this app during CTS development... -->
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".WebViewActivity"/>
+        <activity android:name=".TrampolineWelcomeActivity"/>
+        <activity android:name=".AttachedContextActivity"/>
 
         <service
             android:name=".InstrumentedAutoFillService"
             android:label="InstrumentedAutoFillService"
+            android:permission="android.permission.BIND_AUTOFILL_SERVICE" >
+            <intent-filter>
+                <action android:name="android.service.autofill.AutofillService" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".NoOpAutofillService"
+            android:label="NoOpAutofillService"
             android:permission="android.permission.BIND_AUTOFILL_SERVICE" >
             <intent-filter>
                 <action android:name="android.service.autofill.AutofillService" />

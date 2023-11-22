@@ -33,14 +33,18 @@ import android.support.annotation.MainThread;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
+import android.util.Pair;
+import com.google.android.exoplayer.C;
 import com.android.tv.TvApplication;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.common.recording.RecordingCapability;
 import com.android.tv.dvr.DvrStorageStatusManager;
-import com.android.tv.dvr.RecordedProgram;
+import com.android.tv.dvr.data.RecordedProgram;
 import com.android.tv.tuner.DvbDeviceAccessor;
 import com.android.tv.tuner.data.PsipData;
+import com.android.tv.tuner.data.PsipData.EitItem;
 import com.android.tv.tuner.data.TunerChannel;
+import com.android.tv.tuner.data.nano.Track.AtscCaptionTrack;
 import com.android.tv.tuner.exoplayer.ExoPlayerSampleExtractor;
 import com.android.tv.tuner.exoplayer.SampleExtractor;
 import com.android.tv.tuner.exoplayer.buffer.BufferManager;
@@ -53,10 +57,10 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -71,6 +75,7 @@ public class TunerRecordingSessionWorker implements PlaybackBufferListener,
     private static final String SORT_BY_TIME = TvContract.Programs.COLUMN_START_TIME_UTC_MILLIS
             + ", " + TvContract.Programs.COLUMN_CHANNEL_ID + ", "
             + TvContract.Programs.COLUMN_END_TIME_UTC_MILLIS;
+    private static final long TUNING_RETRY_INTERVAL_MS = TimeUnit.SECONDS.toMillis(4);
     private static final long STORAGE_MONITOR_INTERVAL_MS = TimeUnit.SECONDS.toMillis(4);
     private static final long MIN_PARTIAL_RECORDING_DURATION_MS = TimeUnit.SECONDS.toMillis(10);
     private static final long PREPARE_RECORDER_POLL_MS = 50;
@@ -80,20 +85,23 @@ public class TunerRecordingSessionWorker implements PlaybackBufferListener,
     private static final int MSG_STOP_RECORDING = 4;
     private static final int MSG_MONITOR_STORAGE_STATUS = 5;
     private static final int MSG_RELEASE = 6;
+    private static final int MSG_UPDATE_CC_INFO = 7;
     private final RecordingCapability mCapabilities;
 
     public RecordingCapability getCapabilities() {
         return mCapabilities;
     }
 
-    @IntDef({STATE_IDLE, STATE_TUNED, STATE_RECORDING})
+    @IntDef({STATE_IDLE, STATE_TUNING, STATE_TUNED, STATE_RECORDING})
     @Retention(RetentionPolicy.SOURCE)
     public @interface DvrSessionState {}
     private static final int STATE_IDLE = 1;
-    private static final int STATE_TUNED = 2;
-    private static final int STATE_RECORDING = 3;
+    private static final int STATE_TUNING = 2;
+    private static final int STATE_TUNED = 3;
+    private static final int STATE_RECORDING = 4;
 
     private static final long CHANNEL_ID_NONE = -1;
+    private static final int MAX_TUNING_RETRY = 6;
 
     private final Context mContext;
     private final ChannelDataManager mChannelDataManager;
@@ -108,12 +116,15 @@ public class TunerRecordingSessionWorker implements PlaybackBufferListener,
     private long mRecordStartTime;
     private long mRecordEndTime;
     private boolean mRecorderRunning;
-    private BufferManager mBufferManager;
     private SampleExtractor mRecorder;
     private final TunerRecordingSession mSession;
     @DvrSessionState private int mSessionState = STATE_IDLE;
     private final String mInputId;
     private Uri mProgramUri;
+
+    private PsipData.EitItem mCurrenProgram;
+    private List<AtscCaptionTrack> mCaptionTracks;
+    private DvrStorageManager mDvrStorageManager;
 
     public TunerRecordingSessionWorker(Context context, String inputId,
             ChannelDataManager dataManager, TunerRecordingSession session) {
@@ -157,6 +168,7 @@ public class TunerRecordingSessionWorker implements PlaybackBufferListener,
         if (mChannel == null || mChannel.compareTo(channel) != 0) {
             return;
         }
+        mHandler.obtainMessage(MSG_UPDATE_CC_INFO, new Pair<>(channel, items)).sendToTarget();
         mChannelDataManager.notifyEventDetected(channel, items);
     }
 
@@ -178,7 +190,7 @@ public class TunerRecordingSessionWorker implements PlaybackBufferListener,
     @MainThread
     public void tune(Uri channelUri) {
         mHandler.removeCallbacksAndMessages(null);
-        mHandler.obtainMessage(MSG_TUNE, channelUri).sendToTarget();
+        mHandler.obtainMessage(MSG_TUNE, 0, 0, channelUri).sendToTarget();
     }
 
     /**
@@ -211,11 +223,22 @@ public class TunerRecordingSessionWorker implements PlaybackBufferListener,
         switch (msg.what) {
             case MSG_TUNE: {
                 Uri channelUri = (Uri) msg.obj;
+                int retryCount = msg.arg1;
                 if (DEBUG) Log.d(TAG, "Tune to " + channelUri);
                 if (doTune(channelUri)) {
-                    mSession.onTuned(channelUri);
-                } else {
-                    reset();
+                    if (mSessionState == STATE_TUNED) {
+                        mSession.onTuned(channelUri);
+                    } else {
+                        Log.w(TAG, "Tuner stream cannot be created due to resource shortage.");
+                        if (retryCount < MAX_TUNING_RETRY) {
+                            Message tuneMsg =
+                                    mHandler.obtainMessage(MSG_TUNE, retryCount + 1, 0, channelUri);
+                            mHandler.sendMessageDelayed(tuneMsg, TUNING_RETRY_INTERVAL_MS);
+                        } else {
+                            mSession.onError(TvInputManager.RECORDING_ERROR_RESOURCE_BUSY);
+                            reset();
+                        }
+                    }
                 }
                 return true;
             }
@@ -281,6 +304,12 @@ public class TunerRecordingSessionWorker implements PlaybackBufferListener,
                 mHandler.getLooper().quitSafely();
                 return true;
             }
+            case MSG_UPDATE_CC_INFO: {
+                Pair<TunerChannel, List<EitItem>> pair =
+                        (Pair<TunerChannel, List<EitItem>>) msg.obj;
+                updateCaptionTracks(pair.first, pair.second);
+                return true;
+            }
         }
         return false;
     }
@@ -310,20 +339,17 @@ public class TunerRecordingSessionWorker implements PlaybackBufferListener,
             mRecorder.release();
             mRecorder = null;
         }
-        if (mBufferManager != null) {
-            mBufferManager.close();
-            mBufferManager = null;
-        }
         if (mTunerSource != null) {
             mSourceManager.releaseDataSource(mTunerSource);
             mTunerSource = null;
         }
+        mDvrStorageManager = null;
         mSessionState = STATE_IDLE;
         mRecorderRunning = false;
     }
 
     private boolean doTune(Uri channelUri) {
-        if (mSessionState != STATE_IDLE) {
+        if (mSessionState != STATE_IDLE && mSessionState != STATE_TUNING) {
             mSession.onError(TvInputManager.RECORDING_ERROR_UNKNOWN);
             Log.e(TAG, "Tuning was requested from wrong status.");
             return false;
@@ -333,6 +359,10 @@ public class TunerRecordingSessionWorker implements PlaybackBufferListener,
             mSession.onError(TvInputManager.RECORDING_ERROR_UNKNOWN);
             Log.w(TAG, "Failed to start recording. Couldn't find the channel for " + mChannel);
             return false;
+        } else if (mChannel.isRecordingProhibited()) {
+            mSession.onError(TvInputManager.RECORDING_ERROR_UNKNOWN);
+            Log.w(TAG, "Failed to start recording. Not a recordable channel: " + mChannel);
+            return false;
         }
         if (!mDvrStorageStatusManager.isStorageSufficient()) {
             mSession.onError(TvInputManager.RECORDING_ERROR_INSUFFICIENT_SPACE);
@@ -341,9 +371,9 @@ public class TunerRecordingSessionWorker implements PlaybackBufferListener,
         }
         mTunerSource = mSourceManager.createDataSource(mContext, mChannel, this);
         if (mTunerSource == null) {
-            mSession.onError(TvInputManager.RECORDING_ERROR_RESOURCE_BUSY);
-            Log.w(TAG, "Tuner stream cannot be created due to resource shortage.");
-            return false;
+            // Retry tuning in this case.
+            mSessionState = STATE_TUNING;
+            return true;
         }
         mSessionState = STATE_TUNED;
         return true;
@@ -365,10 +395,10 @@ public class TunerRecordingSessionWorker implements PlaybackBufferListener,
         }
         // Since tuning might be happened a while ago, shifts the start position of tuned source.
         mTunerSource.shiftStartPosition(mTunerSource.getBufferedPosition());
-        mBufferManager = new BufferManager(new DvrStorageManager(mStorageDir, true));
         mRecordStartTime = System.currentTimeMillis();
-        mRecorder = new ExoPlayerSampleExtractor(Uri.EMPTY, mTunerSource, mBufferManager, this,
-                true);
+        mDvrStorageManager = new DvrStorageManager(mStorageDir, true);
+        mRecorder = new ExoPlayerSampleExtractor(Uri.EMPTY, mTunerSource,
+                new BufferManager(mDvrStorageManager), this, true);
         mRecorder.setOnCompletionListener(this, mHandler);
         mProgramUri = programUri;
         mSessionState = STATE_RECORDING;
@@ -390,6 +420,34 @@ public class TunerRecordingSessionWorker implements PlaybackBufferListener,
         mRecorderRunning = false;
         mHandler.removeMessages(MSG_MONITOR_STORAGE_STATUS);
         Log.i(TAG, "Recording stopped");
+    }
+
+    private void updateCaptionTracks(TunerChannel channel, List<PsipData.EitItem> items) {
+        if (mChannel == null || channel == null || mChannel.compareTo(channel) != 0
+                || items == null || items.isEmpty()) {
+            return;
+        }
+        PsipData.EitItem currentProgram = getCurrentProgram(items);
+        if (currentProgram == null || !currentProgram.hasCaptionTrack()
+                || mCurrenProgram != null && mCurrenProgram.compareTo(currentProgram) == 0) {
+            return;
+        }
+        mCurrenProgram = currentProgram;
+        mCaptionTracks = new ArrayList<>(currentProgram.getCaptionTracks());
+        if (DEBUG) {
+            Log.d(TAG, "updated " + mCaptionTracks.size() + " caption tracks for "
+                    + currentProgram);
+        }
+    }
+
+    private PsipData.EitItem getCurrentProgram(List<PsipData.EitItem> items) {
+        for (PsipData.EitItem item : items) {
+            if (mRecordStartTime >= item.getStartTimeUtcMillis()
+                    && mRecordStartTime < item.getEndTimeUtcMillis()) {
+                return item;
+            }
+        }
+        return null;
     }
 
     private static class Program {
@@ -566,15 +624,25 @@ public class TunerRecordingSessionWorker implements PlaybackBufferListener,
             return;
         }
         Log.i(TAG, "recording finished " + (success ? "completely" : "partially"));
-        Uri uri = insertRecordedProgram(getRecordedProgram(), mChannel.getChannelId(),
-                Uri.fromFile(mStorageDir).toString(), 1024 * 1024, mRecordStartTime,
-                mRecordStartTime + TimeUnit.MICROSECONDS.toMillis(lastExtractedPositionUs));
+        long recordEndTime =
+                (lastExtractedPositionUs == C.UNKNOWN_TIME_US)
+                        ? System.currentTimeMillis()
+                        : mRecordStartTime + lastExtractedPositionUs / 1000;
+        Uri uri =
+                insertRecordedProgram(
+                        getRecordedProgram(),
+                        mChannel.getChannelId(),
+                        Uri.fromFile(mStorageDir).toString(),
+                        1024 * 1024,
+                        mRecordStartTime,
+                        recordEndTime);
         if (uri == null) {
             new DeleteRecordingTask().execute(mStorageDir);
             mSession.onError(TvInputManager.RECORDING_ERROR_UNKNOWN);
             Log.e(TAG, "Inserting a recording to DB failed");
             return;
         }
+        mDvrStorageManager.writeCaptionInfoFiles(mCaptionTracks);
         mSession.onRecordFinished(uri);
     }
 

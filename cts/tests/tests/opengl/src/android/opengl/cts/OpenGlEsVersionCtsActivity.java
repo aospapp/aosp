@@ -54,6 +54,8 @@ public class OpenGlEsVersionCtsActivity extends Activity {
     /** Latch that is unlocked when the activity is done finding the version. */
     private CountDownLatch mSurfaceCreatedLatch = new CountDownLatch(1);
 
+    private GLSurfaceView mView;
+
     public static Intent createIntent(int eglContextClientVersion) {
         Intent intent = new Intent(Intent.ACTION_MAIN);
         intent.putExtra(EGL_CONTEXT_CLIENT_VERSION, eglContextClientVersion);
@@ -64,16 +66,22 @@ public class OpenGlEsVersionCtsActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        GLSurfaceView view = new GLSurfaceView(this);
+        mView = new GLSurfaceView(this);
 
         Intent intent = getIntent();
         int eglContextClientVersion = intent.getIntExtra(EGL_CONTEXT_CLIENT_VERSION, -1);
         if (eglContextClientVersion > 0) {
-            view.setEGLContextClientVersion(eglContextClientVersion);
+            mView.setEGLContextClientVersion(eglContextClientVersion);
         }
 
-        view.setRenderer(new Renderer());
-        setContentView(view);
+        mView.setRenderer(new Renderer());
+        setContentView(mView);
+    }
+
+    @Override
+    protected void onPause() {
+        mView.onPause();
+        super.onPause();
     }
 
     public String getVersionString() throws InterruptedException {

@@ -41,10 +41,7 @@ $(foreach file,$(LOCAL_JAVA_JNI_FILES),$(eval $(call generate-jni-header,$(file)
 # Add the generated sources to the C includes.
 LOCAL_C_INCLUDES += $(generated_sources_dir)
 
-# Create a stamp file after all files have been generated.
-gen := $(generated_sources_dir)/.jni.stamp
-$(gen) : $(generated_files)
-	$(hide) echo $^ | sed -e 's/ /\n/g' > $@
-
-# Add the stamp file as a dependency to {import,export}_includes.
-$(local-intermediates-dir)/import_includes: | $(generated_sources_dir)/.jni.stamp
+# LOCAL_GENERATED_SOURCES will filter out anything that's not a C/C++ source
+# file, but still add the files as dependencies of the other files in the
+# module.
+LOCAL_GENERATED_SOURCES += $(generated_files)

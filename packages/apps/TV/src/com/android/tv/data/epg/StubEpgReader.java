@@ -18,13 +18,15 @@ package com.android.tv.data.epg;
 
 import android.content.Context;
 
+import android.support.annotation.NonNull;
 import com.android.tv.data.Channel;
 import com.android.tv.data.Lineup;
 import com.android.tv.data.Program;
-import com.android.tv.dvr.SeriesInfo;
+import com.android.tv.dvr.data.SeriesInfo;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A stub class to read EPG.
@@ -44,13 +46,33 @@ public class StubEpgReader implements EpgReader{
     }
 
     @Override
-    public List<Channel> getChannels(String lineupId) {
+    public void setRegionCode(String regionCode) {
+        // Do nothing
+    }
+
+    @Override
+    public List<Lineup> getLineups(@NonNull String postalCode) {
         return Collections.emptyList();
     }
 
     @Override
-    public List<Lineup> getLineups(String postalCode) {
+    public List<String> getChannelNumbers(@NonNull String lineupId) {
         return Collections.emptyList();
+    }
+
+    @Override
+    public List<Channel> getChannels(@NonNull String lineupId) {
+        return Collections.emptyList();
+    }
+
+    @Override
+    public void preloadChannels(@NonNull String lineupId) {
+        // Do nothing
+    }
+
+    @Override
+    public void clearCachedChannels(@NonNull String lineupId) {
+        // Do nothing
     }
 
     @Override
@@ -59,7 +81,12 @@ public class StubEpgReader implements EpgReader{
     }
 
     @Override
-    public SeriesInfo getSeriesInfo(String seriesId) {
+    public Map<Long, List<Program>> getPrograms(@NonNull List<Long> channelIds, long duration) {
+        return Collections.emptyMap();
+    }
+
+    @Override
+    public SeriesInfo getSeriesInfo(@NonNull String seriesId) {
         return null;
     }
 }

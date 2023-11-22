@@ -65,7 +65,7 @@ public class EventBasicVerificationTest extends AndroidTestCase {
 
         try {
             verification.verify(stats);
-            fail("Expect an AssertionError due to insufficient samples");
+            throw new Error("Expect an AssertionError due to insufficient samples");
         } catch (AssertionError e) {
             //Expected
         }
@@ -81,7 +81,7 @@ public class EventBasicVerificationTest extends AndroidTestCase {
 
             try {
                 verification.verify(stats);
-                fail("Expect an AssertionError due to wrong sensor event");
+                throw new Error("Expect an AssertionError due to wrong sensor event");
             } catch (AssertionError e) {
                 //Expected
             }

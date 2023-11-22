@@ -39,10 +39,16 @@ struct nfct_handle;
  * [Open|close] a conntrack handler
  */
 extern struct nfct_handle *nfct_open(uint8_t, unsigned);
+extern struct nfct_handle *nfct_open2(uint8_t, unsigned, int);
 extern struct nfct_handle *nfct_open_nfnl(struct nfnl_handle *nfnlh,
 					  uint8_t subsys_id,
 					  unsigned int subscriptions);
+extern struct nfct_handle *nfct_open_nfnl2(struct nfnl_handle *nfnlh,
+					  uint8_t subsys_id,
+					  unsigned int subscriptions,
+					  bool bind);
 extern int nfct_close(struct nfct_handle *cth);
+extern int nfct_close2(struct nfct_handle *cth, bool keep_fd);
 
 extern int nfct_fd(struct nfct_handle *cth);
 extern const struct nfnl_handle *nfct_nfnlh(struct nfct_handle *cth);

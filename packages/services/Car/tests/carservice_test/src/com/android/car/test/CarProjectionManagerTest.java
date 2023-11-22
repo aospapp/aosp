@@ -68,7 +68,7 @@ public class CarProjectionManagerTest extends MockedCarTestBase {
     }
 
     public void testShortPressListener() throws Exception {
-        mManager.regsiterProjectionListener(
+        mManager.registerProjectionListener(
                 mListener,
                 CarProjectionManager.PROJECTION_VOICE_SEARCH);
         assertEquals(0, mAvailable.availablePermits());
@@ -79,7 +79,7 @@ public class CarProjectionManagerTest extends MockedCarTestBase {
     }
 
     public void testLongPressListener() throws Exception {
-        mManager.regsiterProjectionListener(
+        mManager.registerProjectionListener(
                 mListener,
                 CarProjectionManager.PROJECTION_LONG_PRESS_VOICE_SEARCH);
         assertEquals(0, mLongAvailable.availablePermits());
@@ -90,7 +90,7 @@ public class CarProjectionManagerTest extends MockedCarTestBase {
     }
 
     public void testMixedPressListener() throws Exception {
-        mManager.regsiterProjectionListener(
+        mManager.registerProjectionListener(
                 mListener,
                 CarProjectionManager.PROJECTION_LONG_PRESS_VOICE_SEARCH
                 | CarProjectionManager.PROJECTION_VOICE_SEARCH);

@@ -69,6 +69,12 @@ unsigned stringToNetId(const char* arg) {
             return NetworkController::MIN_OEM_ID + n;
         }
         return NETID_UNSET;
+    } else if (!strncmp(arg, "handle", 6)) {
+        unsigned n = netHandleToNetId((net_handle_t)strtoull(arg + 6, NULL, 10));
+        if (NetworkController::MIN_OEM_ID <= n && n <= NetworkController::MAX_OEM_ID) {
+            return n;
+        }
+        return NETID_UNSET;
     }
     // strtoul() returns 0 on errors, which is fine because 0 is an invalid netId.
     return strtoul(arg, NULL, 0);
@@ -98,8 +104,7 @@ void CommandListener::registerLockingCmd(FrameworkCommand *cmd, android::RWLock&
     registerCmd(new LockingFrameworkCommand(cmd, lock));
 }
 
-CommandListener::CommandListener() :
-                 FrameworkListener("netd", true) {
+CommandListener::CommandListener() : FrameworkListener(SOCKET_NAME, true) {
     registerLockingCmd(new InterfaceCmd());
     registerLockingCmd(new IpFwdCmd());
     registerLockingCmd(new TetherCmd());
@@ -1144,39 +1149,6 @@ int CommandListener::FirewallCmd::runCommand(SocketClient *cli, int argc,
         FirewallRule rule = parseRule(argv[3]);
 
         int res = gCtls->firewallCtrl.setInterfaceRule(iface, rule);
-        return sendGenericOkFail(cli, res);
-    }
-
-    if (!strcmp(argv[1], "set_egress_source_rule")) {
-        if (argc != 4) {
-            cli->sendMsg(ResponseCode::CommandSyntaxError,
-                         "Usage: firewall set_egress_source_rule <192.168.0.1> <allow|deny>",
-                         false);
-            return 0;
-        }
-
-        const char* addr = argv[2];
-        FirewallRule rule = parseRule(argv[3]);
-
-        int res = gCtls->firewallCtrl.setEgressSourceRule(addr, rule);
-        return sendGenericOkFail(cli, res);
-    }
-
-    if (!strcmp(argv[1], "set_egress_dest_rule")) {
-        if (argc != 5) {
-            cli->sendMsg(ResponseCode::CommandSyntaxError,
-                         "Usage: firewall set_egress_dest_rule <192.168.0.1> <80> <allow|deny>",
-                         false);
-            return 0;
-        }
-
-        const char* addr = argv[2];
-        int port = atoi(argv[3]);
-        FirewallRule rule = parseRule(argv[4]);
-
-        int res = 0;
-        res |= gCtls->firewallCtrl.setEgressDestRule(addr, PROTOCOL_TCP, port, rule);
-        res |= gCtls->firewallCtrl.setEgressDestRule(addr, PROTOCOL_UDP, port, rule);
         return sendGenericOkFail(cli, res);
     }
 

@@ -16,20 +16,15 @@
 
 # pylint: disable=g-bad-todo,g-bad-file-header,wildcard-import
 from errno import *  # pylint: disable=wildcard-import
-import os
 import random
-import re
 from scapy import all as scapy
 from socket import *  # pylint: disable=wildcard-import
 import struct
 import subprocess
-import time
 import unittest
 
 import multinetwork_base
 import net_test
-import netlink
-import packets
 import xfrm
 
 XFRM_ADDR_ANY = 16 * "\x00"
@@ -50,6 +45,7 @@ ALL_ALGORITHMS = 0xffffffff
 ALGO_CBC_AES_256 = xfrm.XfrmAlgo(("cbc(aes)", 256))
 ALGO_HMAC_SHA1 = xfrm.XfrmAlgoAuth(("hmac(sha1)", 128, 96))
 
+
 class XfrmTest(multinetwork_base.MultiNetworkBaseTest):
 
   @classmethod
@@ -60,7 +56,11 @@ class XfrmTest(multinetwork_base.MultiNetworkBaseTest):
   def setUp(self):
     # TODO: delete this when we're more diligent about deleting our SAs.
     super(XfrmTest, self).setUp()
-    subprocess.call("ip xfrm state flush".split())
+    self.xfrm.FlushSaInfo()
+
+  def tearDown(self):
+    super(XfrmTest, self).tearDown()
+    self.xfrm.FlushSaInfo()
 
   def expectIPv6EspPacketOn(self, netid, spi, seq, length):
     packets = self.ReadAllPacketsOn(netid)
@@ -100,6 +100,19 @@ class XfrmTest(multinetwork_base.MultiNetworkBaseTest):
     finally:
       self.xfrm.DeleteSaInfo(TEST_ADDR1, htonl(TEST_SPI), IPPROTO_ESP)
 
+  def testFlush(self):
+    self.assertEquals(0, len(self.xfrm.DumpSaInfo()))
+    self.xfrm.AddMinimalSaInfo("::", "2000::", htonl(TEST_SPI),
+                               IPPROTO_ESP, xfrm.XFRM_MODE_TRANSPORT, 1234,
+                               ALGO_CBC_AES_256, ENCRYPTION_KEY,
+                               ALGO_HMAC_SHA1, AUTH_TRUNC_KEY, None)
+    self.xfrm.AddMinimalSaInfo("0.0.0.0", "192.0.2.1", htonl(TEST_SPI),
+                               IPPROTO_ESP, xfrm.XFRM_MODE_TRANSPORT, 4321,
+                               ALGO_CBC_AES_256, ENCRYPTION_KEY,
+                               ALGO_HMAC_SHA1, AUTH_TRUNC_KEY, None)
+    self.assertEquals(2, len(self.xfrm.DumpSaInfo()))
+    self.xfrm.FlushSaInfo()
+    self.assertEquals(0, len(self.xfrm.DumpSaInfo()))
 
   @unittest.skipUnless(net_test.LINUX_VERSION < (4, 4, 0), "regression")
   def testSocketPolicy(self):
@@ -315,6 +328,42 @@ class XfrmTest(multinetwork_base.MultiNetworkBaseTest):
     unencrypted = (scapy.IP(src=remoteaddr, dst=myaddr) /
                    scapy.UDP(sport=srcport, dport=53) / "foo")
     self.assertRaisesErrno(EAGAIN, twisted_socket.recv, 4096)
+
+  def testAllocSpecificSpi(self):
+    spi = 0xABCD
+    new_sa = self.xfrm.AllocSpi("::", IPPROTO_ESP, spi, spi)
+    self.assertEquals(spi, ntohl(new_sa.id.spi))
+
+  def testAllocSpecificSpiUnavailable(self):
+    """Attempt to allocate the same SPI twice."""
+    spi = 0xABCD
+    new_sa = self.xfrm.AllocSpi("::", IPPROTO_ESP, spi, spi)
+    self.assertEquals(spi, ntohl(new_sa.id.spi))
+    with self.assertRaisesErrno(ENOENT):
+      new_sa = self.xfrm.AllocSpi("::", IPPROTO_ESP, spi, spi)
+
+  def testAllocRangeSpi(self):
+    start, end = 0xABCD0, 0xABCDF
+    new_sa = self.xfrm.AllocSpi("::", IPPROTO_ESP, start, end)
+    spi = ntohl(new_sa.id.spi)
+    self.assertGreaterEqual(spi, start)
+    self.assertLessEqual(spi, end)
+
+  def testAllocRangeSpiUnavailable(self):
+    """Attempt to allocate N+1 SPIs from a range of size N."""
+    start, end = 0xABCD0, 0xABCDF
+    range_size = end - start + 1
+    spis = set()
+    # Assert that allocating SPI fails when none are available.
+    with self.assertRaisesErrno(ENOENT):
+      # Allocating range_size + 1 SPIs is guaranteed to fail.  Due to the way
+      # kernel picks random SPIs, this has a high probability of failing before
+      # reaching that limit.
+      for i in xrange(range_size + 1):
+        new_sa = self.xfrm.AllocSpi("::", IPPROTO_ESP, start, end)
+        spi = ntohl(new_sa.id.spi)
+        self.assertNotIn(spi, spis)
+        spis.add(spi)
 
 
 if __name__ == "__main__":

@@ -30,6 +30,8 @@
 #include <GLES/glext.h>
 #endif
 
+#include <unistd.h> // for close()
+
 using android::renderscript::Allocation;
 using android::renderscript::Context;
 using android::renderscript::Element;

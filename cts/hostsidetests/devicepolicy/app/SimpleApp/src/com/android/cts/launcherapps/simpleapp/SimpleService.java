@@ -23,8 +23,11 @@ import android.os.IBinder;
 import android.os.Parcel;
 import android.os.Process;
 import android.os.RemoteException;
+import android.util.Log;
 
 public class SimpleService extends Service {
+    private final static String TAG = SimpleService.class.getSimpleName();
+
     final Binder mBinder = new Binder() {
         @Override
         protected boolean onTransact(int code, Parcel data, Parcel reply, int flags)
@@ -40,6 +43,7 @@ public class SimpleService extends Service {
 
     @Override
     public IBinder onBind(Intent intent) {
+        Log.i(TAG, "onBind called");
         return mBinder;
     }
 }

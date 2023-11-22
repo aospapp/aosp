@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 import logging, os, re, time
-from autotest_lib.client.bin import fio_util, site_utils, test, utils
+from autotest_lib.client.bin import fio_util, test, utils
 from autotest_lib.client.common_lib import error
 
 
@@ -78,14 +78,14 @@ class hardware_StorageFio(test.test):
             return
 
         if not dev:
-            dev = site_utils.get_fixed_dst_drive()
+            dev = utils.get_fixed_dst_drive()
 
-        if dev == site_utils.get_root_device():
+        if dev == utils.get_root_device():
             if filesize == 0:
                 raise error.TestError(
                     'Using the root device as a whole is not allowed')
             else:
-                self.__filename = site_utils.get_free_root_partition()
+                self.__filename = utils.get_free_root_partition()
         elif filesize != 0:
             # Use the first partition of the external drive
             if dev[5:7] == 'sd':
@@ -131,7 +131,7 @@ class hardware_StorageFio(test.test):
                 ('8k_async_randwrite', []),
                 ('8k_async_randwrite', [self.VERIFY_OPTION])
             ]
-        elif dev in ['', site_utils.get_root_device()]:
+        elif dev in ['', utils.get_root_device()]:
             requirements = [
                 ('surfing', []),
                 ('boot', []),

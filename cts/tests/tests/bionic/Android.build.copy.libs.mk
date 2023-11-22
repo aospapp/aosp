@@ -112,11 +112,20 @@ my_bionic_testlib_files := \
   private_namespace_libs/libnstest_root.so \
   public_namespace_libs/libnstest_public.so \
   public_namespace_libs/libnstest_public_internal.so \
+  ld_preload_test_helper/ld_preload_test_helper \
+  ld_preload_test_helper_lib1.so \
+  ld_preload_test_helper_lib2.so \
+  ld_config_test_helper/ld_config_test_helper \
+  ns2/ld_config_test_helper_lib1.so \
+  ns2/ld_config_test_helper_lib2.so \
+  ld_config_test_helper_lib3.so \
 
 # These libraries are not built for mips.
 my_bionic_testlib_files_non_mips := \
   libgnu-hash-table-library.so \
   libtest_ifunc.so \
+  libtest_ifunc_variable.so \
+  libtest_ifunc_variable_impl.so \
 
 my_bionic_testlibs_src_dir := \
   $($(cts_bionic_tests_2nd_arch_prefix)TARGET_OUT_DATA_NATIVE_TESTS)/bionic-loader-test-libs

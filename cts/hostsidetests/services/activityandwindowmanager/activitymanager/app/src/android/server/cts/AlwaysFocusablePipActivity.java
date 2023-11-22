@@ -22,13 +22,18 @@ import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import android.app.Activity;
 import android.app.ActivityOptions;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Rect;
 
 public class AlwaysFocusablePipActivity extends Activity {
 
-    static void launchAlwaysFocusablePipActivity(Activity caller) {
+    static void launchAlwaysFocusablePipActivity(Activity caller, boolean newTask) {
         final Intent intent = new Intent(caller, AlwaysFocusablePipActivity.class);
-        intent.setFlags(FLAG_ACTIVITY_CLEAR_TASK | FLAG_ACTIVITY_NEW_TASK);
+
+        intent.setFlags(FLAG_ACTIVITY_CLEAR_TASK);
+        if (newTask) {
+            intent.addFlags(FLAG_ACTIVITY_NEW_TASK);
+        }
 
         final ActivityOptions options = ActivityOptions.makeBasic();
         options.setLaunchBounds(new Rect(0, 0, 500, 500));

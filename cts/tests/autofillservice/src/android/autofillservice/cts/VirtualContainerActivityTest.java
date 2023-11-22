@@ -36,7 +36,8 @@ import android.autofillservice.cts.CannedFillResponse.CannedDataset;
 import android.autofillservice.cts.InstrumentedAutoFillService.FillRequest;
 import android.autofillservice.cts.VirtualContainerView.Line;
 import android.graphics.Rect;
-import android.support.test.rule.ActivityTestRule;
+import android.os.SystemClock;
+import android.service.autofill.SaveInfo;
 import android.support.test.uiautomator.UiObject2;
 import android.view.autofill.AutofillManager;
 
@@ -45,14 +46,17 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
 /**
  * Test case for an activity containing virtual children.
  */
 public class VirtualContainerActivityTest extends AutoFillServiceTestCase {
 
     @Rule
-    public final ActivityTestRule<VirtualContainerActivity> mActivityRule =
-            new ActivityTestRule<VirtualContainerActivity>(VirtualContainerActivity.class);
+    public final AutofillActivityTestRule<VirtualContainerActivity> mActivityRule =
+            new AutofillActivityTestRule<VirtualContainerActivity>(VirtualContainerActivity.class);
 
     private VirtualContainerActivity mActivity;
 
@@ -369,6 +373,43 @@ public class VirtualContainerActivityTest extends AutoFillServiceTestCase {
         sUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_PASSWORD);
     }
 
+    @Test
+    public void testSaveDialogShownWhenAllVirtualViewsNotVisible() throws Exception {
+        // Set service.
+        enableService();
+
+        // Set expectations.
+        sReplier.addResponse(new CannedFillResponse.Builder()
+                .setRequiredSavableIds(SAVE_DATA_TYPE_PASSWORD, ID_USERNAME, ID_PASSWORD)
+                .setFlags(SaveInfo.FLAG_SAVE_ON_ALL_VIEWS_INVISIBLE)
+                .build());
+
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        // Trigger auto-fill.
+        mActivity.runOnUiThread(() -> {
+            mActivity.mUsername.changeFocus(true);
+            latch.countDown();
+        });
+        latch.await(Helper.UI_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        sReplier.getNextFillRequest();
+
+        // TODO: 63602573 Should be removed once this bug is fixed
+        SystemClock.sleep(1000);
+
+        mActivity.runOnUiThread(() -> {
+            // Fill in some stuff
+            mActivity.mUsername.setText("foo");
+            mActivity.mPassword.setText("bar");
+
+            // Hide all virtual views
+            mActivity.mUsername.changeVisibility(false);
+            mActivity.mPassword.changeVisibility(false);
+        });
+
+        // Make sure save is shown
+        sUiBot.assertSaveShowing(SAVE_DATA_TYPE_PASSWORD);
+    }
 
     /**
      * Asserts the dataset picker is properly displayed in a give line.

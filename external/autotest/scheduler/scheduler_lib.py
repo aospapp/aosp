@@ -1,4 +1,3 @@
-#pylint: disable-msg=C0111
 
 # Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -40,7 +39,19 @@ _DB_TRANSLATORS = (
 
 
 class SchedulerError(Exception):
-    """Raised by the scheduler when an inconsistent state occurs."""
+    """General parent class for exceptions raised by scheduler code."""
+
+
+class MalformedRecordError(SchedulerError):
+    """Exception raised when an individual job or record is malformed.
+
+    Code that handles individual records (e.g. afe jobs, hqe entries, special
+    tasks) should treat such an exception as a signal to skip or permanently
+    discard this record."""
+
+
+class NoHostIdError(MalformedRecordError):
+    """Raised by the scheduler when a non-hostless job's host is None."""
 
 
 class ConnectionManager(object):

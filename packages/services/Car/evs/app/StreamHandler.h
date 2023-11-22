@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2017 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,12 @@
  * limitations under the License.
  */
 
-#ifndef CAR_EVS_APP_STREAMHANDLER_H
-#define CAR_EVS_APP_STREAMHANDLER_H
+#ifndef EVS_VTS_STREAMHANDLER_H
+#define EVS_VTS_STREAMHANDLER_H
+
+#include <queue>
+
+#include "ui/GraphicBuffer.h"
 
 #include <android/hardware/automotive/evs/1.0/IEvsCameraStream.h>
 #include <android/hardware/automotive/evs/1.0/IEvsCamera.h>
@@ -29,38 +33,49 @@ using ::android::hardware::hidl_handle;
 using ::android::sp;
 
 
+/*
+ * StreamHandler:
+ * This class can be used to receive camera imagery from an IEvsCamera implementation.  It will
+ * hold onto the most recent image buffer, returning older ones.
+ * Note that the video frames are delivered on a background thread, while the control interface
+ * is actuated from the applications foreground thread.
+ */
 class StreamHandler : public IEvsCameraStream {
 public:
-    StreamHandler(android::sp <IEvsCamera>  pCamera,
-                  android::sp <IEvsDisplay> pDisplay);
+    virtual ~StreamHandler() { shutdown(); };
 
-    void startStream();
+    StreamHandler(android::sp <IEvsCamera> pCamera);
+    void shutdown();
+
+    bool startStream();
     void asyncStopStream();
     void blockingStopStream();
 
     bool isRunning();
 
-    unsigned getFramesReceived();
-    unsigned getFramesCompleted();
+    bool newFrameAvailable();
+    const BufferDesc& getNewFrame();
+    void doneWithFrame(const BufferDesc& buffer);
 
 private:
     // Implementation for ::android::hardware::automotive::evs::V1_0::ICarCameraStream
     Return<void> deliverFrame(const BufferDesc& buffer)  override;
 
-    // Local implementation details
-    bool copyBufferContents(const BufferDesc& tgtBuffer, const BufferDesc& srcBuffer);
-
+    // Values initialized as startup
     android::sp <IEvsCamera>    mCamera;
-    android::sp <IEvsDisplay>   mDisplay;
 
+    // Since we get frames delivered to us asnchronously via the ICarCameraStream interface,
+    // we need to protect all member variables that may be modified while we're streaming
+    // (ie: those below)
     std::mutex                  mLock;
     std::condition_variable     mSignal;
 
     bool                        mRunning = false;
 
-    unsigned                    mFramesReceived = 0;    // Simple counter -- rolls over eventually!
-    unsigned                    mFramesCompleted = 0;   // Simple counter -- rolls over eventually!
+    BufferDesc                  mBuffers[2];
+    int                         mHeldBuffer = -1;   // Index of the one currently held by the client
+    int                         mReadyBuffer = -1;  // Index of the newest available buffer
 };
 
 
-#endif //CAR_EVS_APP_STREAMHANDLER_H
+#endif //EVS_VTS_STREAMHANDLER_H

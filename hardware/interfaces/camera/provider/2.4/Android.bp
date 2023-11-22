@@ -42,13 +42,16 @@ genrule {
     ],
 }
 
-cc_library_shared {
+cc_library {
     name: "android.hardware.camera.provider@2.4",
     defaults: ["hidl-module-defaults"],
     generated_sources: ["android.hardware.camera.provider@2.4_genc++"],
     generated_headers: ["android.hardware.camera.provider@2.4_genc++_headers"],
     export_generated_headers: ["android.hardware.camera.provider@2.4_genc++_headers"],
     vendor_available: true,
+    vndk: {
+        enabled: true,
+    },
     shared_libs: [
         "libhidlbase",
         "libhidltransport",
@@ -60,7 +63,6 @@ cc_library_shared {
         "android.hardware.camera.device@1.0",
         "android.hardware.camera.device@3.2",
         "android.hardware.graphics.common@1.0",
-        "android.hidl.base@1.0",
     ],
     export_shared_lib_headers: [
         "libhidlbase",
@@ -71,6 +73,5 @@ cc_library_shared {
         "android.hardware.camera.device@1.0",
         "android.hardware.camera.device@3.2",
         "android.hardware.graphics.common@1.0",
-        "android.hidl.base@1.0",
     ],
 }

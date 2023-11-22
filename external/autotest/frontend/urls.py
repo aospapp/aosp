@@ -1,5 +1,5 @@
 import os
-from django.conf.urls import defaults
+from django.conf import urls
 from django.conf import settings
 
 # The next two lines enable the admin and load each admin.py file:
@@ -12,19 +12,19 @@ TKO_RE_PREFIX = '^' + settings.TKO_URL_PREFIX
 handler404 = 'django.views.defaults.page_not_found'
 handler500 = 'frontend.afe.views.handler500'
 
-urlpatterns = defaults.patterns(
+urlpatterns = urls.patterns(
         '',
-        (RE_PREFIX + r'admin/', defaults.include(admin.site.urls)),
-        (RE_PREFIX, defaults.include('frontend.afe.urls')),
-        (TKO_RE_PREFIX, defaults.include('frontend.tko.urls')),
+        (RE_PREFIX + r'admin/', urls.include(admin.site.urls)),
+        (RE_PREFIX, urls.include('frontend.afe.urls')),
+        (TKO_RE_PREFIX, urls.include('frontend.tko.urls')),
     )
 
 if os.path.exists(os.path.join(os.path.dirname(__file__),
                                'tko', 'site_urls.py')):
-    urlpatterns += defaults.patterns(
-            '', (TKO_RE_PREFIX, defaults.include('frontend.tko.site_urls')))
+    urlpatterns += urls.patterns(
+            '', (TKO_RE_PREFIX, urls.include('frontend.tko.site_urls')))
 
-debug_patterns = defaults.patterns(
+debug_patterns = urls.patterns(
         '',
         # redirect /tko and /results to local apache server
         (r'^(?P<path>(tko|results)/.*)$',

@@ -24,7 +24,7 @@
 # SOFTWARE.
 #
 
-# This shell-script checks the symbols in libavb_host.a and fails
+# This shell-script checks the symbols in libavb.a and fails
 # if a reference not starting with avb_ is referenced. It's intended
 # to catch mistakes where the standard C library is inadvertently
 # used.
@@ -43,6 +43,12 @@ def rsa_signer(argv):
   if len(data) == 0:
     sys.stderr.write("There is not input data\n")
     return errno.EINVAL
+
+  if os.environ.get('SIGNING_HELPER_GENERATE_WRONG_SIGNATURE'):
+    # We're only called with this algorithm which signature size is 256.
+    assert sys.argv[1] == 'SHA256_RSA2048'
+    sys.stdout.write('X'*256)
+    return 0
 
   if 'SIGNING_HELPER_TEST' not in os.environ or os.environ['SIGNING_HELPER_TEST'] == "":
     sys.stderr.write("env SIGNING_HELPER_TEST is not set or empty\n")

@@ -17,7 +17,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="1756503303878374382">"ಕ್ಯಾಲ್ಕುಲೇಟರ್"</string>
+    <string name="app_name" msgid="1756503303878374382">"ಕ್ಯಾಲ್ಕ್ಯುಲೇಟರ್"</string>
     <string name="dec_point" msgid="8920102493070918054">"."</string>
     <string name="mode_deg" msgid="1146123354434332479">"deg"</string>
     <string name="mode_rad" msgid="1434228830085760996">"rad"</string>

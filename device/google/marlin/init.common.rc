@@ -3,6 +3,11 @@ on charger
     write /sys/devices/system/cpu/cpu3/online 0
     write /sys/module/lpm_levels/parameters/sleep_disabled 0
     wait /dev/block/platform/soc/624000.ufshc
+    # Enable UFS powersaving
+    write /sys/devices/soc/624000.ufshc/clkscale_enable 1
+    write /sys/devices/soc/624000.ufshc/clkgate_enable 1
+    write /sys/devices/soc/624000.ufshc/624000.ufshc:ufs_variant/pm_qos_enable 1
+    write /sys/module/lpm_levels/parameters/sleep_disabled N
 
 service charger /charger
     class charger
@@ -13,6 +18,16 @@ on early-init
     chmod 0755 /sys/kernel/debug
 
 on init
+    # Disable UFS powersaving
+    write /sys/devices/soc/624000.ufshc/clkscale_enable 0
+    write /sys/devices/soc/624000.ufshc/clkgate_enable 0
+    write /sys/devices/soc/624000.ufshc/624000.ufshc:ufs_variant/pm_qos_enable 0
+    write /sys/module/lpm_levels/parameters/sleep_disabled Y
+
+    # QSEE rpmb listener need symlink for bootdevice
+    wait /dev/block/platform/soc/${ro.boot.bootdevice}
+    symlink /dev/block/platform/soc/${ro.boot.bootdevice} /dev/block/bootdevice
+
     # We have vendor/ as early mount so we can start qseecomd earlier
     # early mount partions e.g. vendor/ will be mounted in init first stage
     # see b/27805372
@@ -69,6 +84,8 @@ on init
     write /dev/stune/foreground/schedtune.prefer_idle 1
     write /dev/stune/top-app/schedtune.boost 10
     write /dev/stune/top-app/schedtune.prefer_idle 1
+    write /dev/stune/rt/schedtune.boost 30
+    write /dev/stune/rt/schedtune.prefer_idle 1
 
     # Create UDS structure for base VR services.
     mkdir /dev/socket/pdx 0775 system system
@@ -85,11 +102,7 @@ on init
     write /proc/sys/vm/page-cluster 0
 
 on fs
-    wait /dev/block/platform/soc/${ro.boot.bootdevice}
-    symlink /dev/block/platform/soc/${ro.boot.bootdevice} /dev/block/bootdevice
-
     mount_all /vendor/etc/fstab.${ro.hardware} --early
-    swapon_all /vendor/etc/fstab.${ro.hardware}
 
     # Keeping following partitions outside fstab file. As user may not have
     # these partition flashed on the device. Failure to mount any partition in fstab file
@@ -98,8 +111,6 @@ on fs
     wait /dev/block/platform/soc/624000.ufshc/sda18
     mount ext4 /dev/block/platform/soc/624000.ufshc/by-name/cache /cache nosuid nodev noatime barrier=1
 
-    wait /dev/block/platform/soc/624000.ufshc/sda8
-    mount ext4 /dev/block/platform/soc/624000.ufshc/by-name/persist /persist nosuid nodev noatime barrier=1
     restorecon_recursive /persist
     mkdir /persist/data 0700 system system
 
@@ -142,8 +153,6 @@ on post-fs-data
     start netd
     # Set sku property
     start mid_sh
-    # Restart qseecomd once we have /data/
-    restart qseecomd
     # Wait until the system time is set
     wait_for_prop sys.time.set true
 
@@ -361,8 +370,38 @@ on early-boot
     wait_for_prop sys.qcom.devup 1
 
 on boot
-    # Exec init.mid.sh and init.foreground.sh in background
-    start power_sh
+    # from init.power.sh
+    # disable thermal hotplug to switch governor
+    write /sys/module/msm_thermal/core_control/enabled 0
+
+    # bring back main cores CPU 0,2
+    write /sys/devices/system/cpu/cpu0/online 1
+    write /sys/devices/system/cpu/cpu2/online 1
+
+    write /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq 300000
+
+    # EAS: Capping the max frequency of silver core to 1.6GHz
+    write /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq 1593600
+
+    write /sys/devices/system/cpu/cpu2/cpufreq/scaling_min_freq 300000
+
+    # if EAS is present, switch to sched governor (no effect if not EAS)
+    write /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor "sched"
+    write /sys/devices/system/cpu/cpu2/cpufreq/scaling_governor "sched"
+
+    # re-enable thermal hotplug
+    write /sys/module/msm_thermal/core_control/enabled 1
+
+    # Setting b.L scheduler parameters
+    write /proc/sys/kernel/sched_migration_fixup 1
+    write /proc/sys/kernel/sched_upmigrate 95
+    write /proc/sys/kernel/sched_downmigrate 90
+    write /proc/sys/kernel/sched_freq_inc_notify 400000
+    write /proc/sys/kernel/sched_freq_dec_notify 400000
+    write /proc/sys/kernel/sched_spill_nr_run 3
+    write /proc/sys/kernel/sched_init_task_load 100
+
+    # Exec init.foreground.sh in background
     start foreground_sh
     # add a cpuset for the camera daemon
     # we want all cores for camera
@@ -591,15 +630,9 @@ service ims_rtp_daemon /vendor/bin/ims_rtp_daemon
    group radio diag inet log
    disabled
 
-service imscmservice /vendor/bin/imscmservice
-   class main
-   user system
-   group radio diag diag log
-   disabled
 
 on property:sys.ims.DATA_DAEMON_STATUS=1
    start ims_rtp_daemon
-   start imscmservice
 
 service ssr_setup /vendor/bin/ssr_setup
     class main
@@ -616,6 +649,7 @@ service ss_ramdump /vendor/bin/subsystem_ramdump
 on property:persist.sys.ssr.enable_ramdumps=1
     write /sys/module/subsystem_restart/parameters/enable_ramdumps 1
     mkdir /data/vendor/ramdump 761 root system
+    mkdir /data/vendor/ssrdump 771 root system
     start ss_ramdump
 
 on property:persist.sys.ssr.enable_ramdumps=0
@@ -642,7 +676,8 @@ service rmt_storage /vendor/bin/rmt_storage
     class core
     user root
     group root system wakelock
-    ioprio rt 1
+    ioprio rt 0
+    shutdown critical
 
 service port-bridge /vendor/bin/port-bridge
     class main
@@ -731,6 +766,7 @@ service perfd /vendor/bin/perfd
    user root
    group root system
    writepid /dev/cpuset/system-background/tasks
+   disabled
 
 # bugreport is triggered by holding down volume down, volume up and power
 service bugreport /system/bin/dumpstate -d -p -B -z \
@@ -740,7 +776,21 @@ service bugreport /system/bin/dumpstate -d -p -B -z \
     oneshot
     keycodes 114 115 116
 
+on property:sys.post_boot.parsed=1
+    start perfd
+
 on property:sys.boot_completed=1
+    start power_sh
+
+    # Enable UFS powersaving
+    write /sys/devices/soc/624000.ufshc/clkscale_enable 1
+    write /sys/devices/soc/624000.ufshc/clkgate_enable 1
+    write /sys/devices/soc/624000.ufshc/624000.ufshc:ufs_variant/pm_qos_enable 1
+    write /sys/module/lpm_levels/parameters/sleep_disabled N
+
+    # Enable ZRAM on boot_complete
+    swapon_all /vendor/etc/fstab.${ro.hardware}
+
     # update cpusets now that boot is complete and we want better load balancing
     write /dev/cpuset/top-app/cpus 0-3
     write /dev/cpuset/foreground/boost/cpus 0-2
@@ -763,6 +813,18 @@ on property:sys.boot_completed=1
     write /sys/block/dm-0/queue/read_ahead_kb 128
     write /sys/block/dm-1/queue/read_ahead_kb 128
     write /sys/block/sda/queue/iostats 1
+
+    # UFS health
+    chmod 755 /sys/kernel/debug/ufshcd0
+    chown 644 /sys/kernel/debug/ufshcd0/err_state
+    chmod 644 /sys/kernel/debug/ufshcd0/power_mode
+    chmod 644 /sys/kernel/debug/ufshcd0/host_regs
+    chmod 644 /sys/kernel/debug/ufshcd0/show_hba
+    chmod 644 /sys/kernel/debug/ufshcd0/dump_device_desc
+    chmod 755 /sys/kernel/debug/ufshcd0/stats
+    chmod 644 /sys/kernel/debug/ufshcd0/stats/req_stats
+    chmod 644 /sys/kernel/debug/ufshcd0/stats/query_stats
+    chmod 644 /sys/kernel/debug/ufshcd0/stats/err_stats
 
 on property:sys.boot_completed=1 && property:ro.build.type=user
     write /proc/sys/kernel/modules_disabled 1

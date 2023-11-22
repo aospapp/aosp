@@ -12,6 +12,7 @@
 #include "SkGradientShader.h"
 #include "SkImageGenerator.h"
 #include "SkPaint.h"
+#include "SkPath.h"
 #include "SkPathOps.h"
 #include "SkPicture.h"
 #include "SkPictureRecorder.h"
@@ -162,7 +163,8 @@ protected:
             SkImageInfo bmInfo = gen->getInfo().makeColorSpace(canvas->imageInfo().refColorSpace());
 
             SkBitmap bm;
-            SkAssertResult(gen->tryGenerateBitmap(&bm, bmInfo, nullptr));
+            bm.allocPixels(bmInfo);
+            SkAssertResult(gen->getPixels(bm.info(), bm.getPixels(), bm.rowBytes()));
 
             const SkScalar x = kDrawSize * (i % kDrawsPerRow);
             const SkScalar y = kDrawSize * (i / kDrawsPerRow);

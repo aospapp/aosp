@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2016 Google Inc. All Rights Reserved.
+# Copyright 2016 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@ function vts_multidevice_target_setup {
   adb root
   adb shell mkdir -p /data/local/tmp/32
   adb shell mkdir -p /data/local/tmp/64
-  adb push ${ANDROID_BUILD_TOP}/out/target/product/${DEVICE}/system/bin/fuzzer32 /data/local/tmp/32/
-  adb push ${ANDROID_BUILD_TOP}/out/target/product/${DEVICE}/system/bin/fuzzer64 /data/local/tmp/64/
+  adb push ${ANDROID_BUILD_TOP}/out/target/product/${DEVICE}/system/bin/vts_hal_driver32 /data/local/tmp/32/
+  adb push ${ANDROID_BUILD_TOP}/out/target/product/${DEVICE}/system/bin/vts_hal_driver64 /data/local/tmp/64/
   adb push ${ANDROID_BUILD_TOP}/out/target/product/${DEVICE}/system/bin/vts_shell_driver32 /data/local/tmp/32/
   adb push ${ANDROID_BUILD_TOP}/out/target/product/${DEVICE}/system/bin/vts_shell_driver64 /data/local/tmp/64/
   adb push ${ANDROID_BUILD_TOP}/out/target/product/${DEVICE}/system/bin/vts_hal_agent32 /data/local/tmp/32/
@@ -93,8 +93,8 @@ function vts_multidevice_target_setup {
   # asan
   adb push ${ANDROID_BUILD_TOP}/prebuilts/clang/host/linux-x86/clang-2812033/lib64/clang/3.8/lib/linux/libclang_rt.asan-aarch64-android.so /data/local/tmp/libclang_rt.asan-aarch64-android.so
 
-  adb shell chmod 755 /data/local/tmp/32/fuzzer32
-  adb shell chmod 755 /data/local/tmp/64/fuzzer64
+  adb shell chmod 755 /data/local/tmp/32/vts_hal_driver32
+  adb shell chmod 755 /data/local/tmp/64/vts_hal_driver64
   adb shell chmod 755 /data/local/tmp/32/vts_shell_driver32
   adb shell chmod 755 /data/local/tmp/64/vts_shell_driver64
   adb shell chmod 755 /data/local/tmp/32/vts_hal_agent32

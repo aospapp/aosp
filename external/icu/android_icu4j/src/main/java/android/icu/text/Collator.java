@@ -1228,7 +1228,6 @@ public abstract class Collator implements Comparator<Object>, Freezable<Collator
      *         CollationKey is returned.
      * @see CollationKey
      * @see #compare(String, String)
-     * @see #getRawCollationKey
      */
     public abstract CollationKey getCollationKey(String source);
 

@@ -47,6 +47,7 @@ LOCAL_CFLAGS := -Wall -Wextra -Werror
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/tests
 LOCAL_MODULE_TAGS := debug
 LOCAL_MODULE := memory_replay_tests
+LOCAL_COMPATIBILITY_SUITE := device-tests
 
 LOCAL_SHARED_LIBRARIES := libbase
 

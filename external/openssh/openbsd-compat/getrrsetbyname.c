@@ -56,8 +56,6 @@
 #include <arpa/inet.h>
 
 #include "getrrsetbyname.h"
-#include "nameser.h"
-#include "nameser_compat.h"
 
 #if defined(HAVE_DECL_H_ERRNO) && !HAVE_DECL_H_ERRNO
 extern int h_errno;

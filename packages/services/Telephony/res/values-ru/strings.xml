@@ -78,8 +78,7 @@
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"Голосовая почта (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"ГП:"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"Уведомления"</string>
-    <string name="networks" msgid="8873030692174541976">"Операторы связи"</string>
-    <string name="cell_broadcast_settings" msgid="8740238216690502563">"Уведомления о чрезвычайных ситуациях"</string>
+    <string name="cell_broadcast_settings" msgid="8740238216690502563">"Оповещения о чрезвычайных ситуациях"</string>
     <string name="call_settings" msgid="6112441768261754562">"Вызовы"</string>
     <string name="additional_gsm_call_settings" msgid="1391795981938800617">"Дополнительные настройки"</string>
     <string name="additional_gsm_call_settings_with_label" msgid="1385241520708457376">"Дополнительные настройки (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -164,20 +163,18 @@
     <string name="label_available" msgid="1181658289009300430">"Доступные сети"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"Поиск…"</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"Сети не найдены."</string>
-    <string name="search_networks" msgid="1601136049300882441">"Поиск сетей"</string>
     <string name="network_query_error" msgid="6828516148953325006">"Ошибка поиска сетей."</string>
     <string name="register_on_network" msgid="9055203954040805084">"Регистрация в сети <xliff:g id="NETWORK">%s</xliff:g>…"</string>
     <string name="not_allowed" msgid="5613353860205691579">"Ваша SIM-карта не поддерживает подключение к этой сети."</string>
     <string name="connect_later" msgid="2308119155752343975">"Не удалось подключиться к сети. Повторите попытку позже."</string>
     <string name="registration_done" msgid="495135664535876612">"Регистрация в сети завершена."</string>
-    <string name="sum_carrier_select" msgid="3494252551249882718">"Выберите оператора связи"</string>
-    <string name="sum_search_networks" msgid="2921092249873272715">"Поиск всех доступных сетей"</string>
-    <string name="select_automatically" msgid="5628402124471810174">"Автоматически"</string>
-    <string name="sum_select_automatically" msgid="5614890115123292400">"Автоматически выбирать предпочтительную сеть"</string>
+    <string name="select_automatically" msgid="1046727200631770962">"Выбирать сеть автоматически"</string>
+    <string name="network_select_title" msgid="7733107364757544558">"Сеть"</string>
     <string name="register_automatically" msgid="6017849844573519637">"Автоматическая регистрация..."</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"Тип сети"</string>
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"Изменить режим работы сети"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"Тип сети"</string>
+    <string name="forbidden_network" msgid="4384929668343563440">"(доступ запрещен)"</string>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"Предпочтительная сеть: WCDMA"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"Предпочтительная сеть: только GSM"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"Предпочтительная сеть: только WCDMA"</string>
@@ -210,18 +207,34 @@
     <item msgid="1524224863879435516">"Только GSM"</item>
     <item msgid="3817924849415716259">"GSM/WCDMA (предпочтительно)"</item>
   </string-array>
+    <string name="call_category" msgid="5863978196309462052">"Вызовы"</string>
+    <string name="network_operator_category" msgid="4830701959205735636">"Сеть"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"Режим 4G LTE"</string>
     <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"Расширенный вызов"</string>
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"Использовать сервисы LTE, чтобы улучшить качество связи (рекомендуется)"</string>
     <string name="data_enabled" msgid="5972538663568715366">"Передача данных"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"Разрешить использование данных"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"Внимание!"</string>
-    <string name="roaming" msgid="8871412572928323707">"Интернет-роуминг"</string>
+    <string name="roaming" msgid="7894878421600247140">"Роуминг"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"Подключаться к службам передачи данных в роуминге"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"Подключаться к службам передачи данных в роуминге"</string>
     <string name="roaming_reenable_message" msgid="8913735676127858115">"Мобильный Интернет в роуминге отключен. Вы можете включить интернет-роуминг в настройках."</string>
     <string name="roaming_warning" msgid="1603164667540144353">"Возможны значительные расходы."</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"Разрешить интернет-роуминг?"</string>
+    <string name="data_usage_title" msgid="8759619109516889802">"Передача данных"</string>
+    <string name="data_usage_template" msgid="8526428824844656364">"Объем мобильного трафика за период <xliff:g id="ID_2">%2$s</xliff:g>: <xliff:g id="ID_1">%1$s</xliff:g>"</string>
+    <string name="advanced_options_title" msgid="8074895510265488035">"Дополнительные настройки"</string>
+    <string name="carrier_settings_euicc" msgid="6714062862127226405">"Оператор"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"оператор, esim, sim, euicc"</string>
+    <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> – <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
+    <string name="mobile_data_settings_title" msgid="4661165467914727157">"Мобильный Интернет"</string>
+    <string name="mobile_data_settings_summary" msgid="5087255915840576895">"Доступ к Интернету по мобильной сети"</string>
+    <string name="data_usage_disable_mobile" msgid="3577275288809667615">"Отключить мобильный Интернет?"</string>
+    <string name="sim_selection_required_pref" msgid="7049424902961844236">"Выберите SIM-карту"</string>
+    <string name="sim_change_data_title" msgid="5332425991853799280">"Смена SIM-карты"</string>
+    <string name="sim_change_data_message" msgid="2163963581444907496">"Использовать для передачи данных по мобильной сети SIM-карту \"<xliff:g id="NEW_SIM">%1$s</xliff:g>\" (вместо \"<xliff:g id="OLD_SIM">%2$s</xliff:g>\")?"</string>
+    <string name="wifi_calling_settings_title" msgid="7741961465416430470">"Звонки по Wi-Fi"</string>
+    <string name="video_calling_settings_title" msgid="539714564273795574">"Видеозвонки"</string>
     <string name="gsm_umts_options" msgid="6538311689850981686">"Параметры GSM/UMTS"</string>
     <string name="cdma_options" msgid="4016822858172249884">"Параметры CDMA"</string>
     <string name="throttle_data_usage" msgid="3715677828160555808">"Передача данных"</string>
@@ -454,7 +467,7 @@
     <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"Мобильная сеть недоступна. Чтобы позвонить, подключитесь к Wi-Fi."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"Недействительный номер."</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"Не удалось отправить вызов."</string>
-    <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"Невозможно позвонить в данный момент."</string>
+    <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"Не удается позвонить. Попробуйте отправить сообщение."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"Сервис не поддерживается"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"Не удалось переключить вызов."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"Не удалось разделить вызов."</string>
@@ -578,6 +591,8 @@
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"Слишком много активных вызовов. Чтобы выполнить новый вызов, завершите или объедините существующие."</string>
     <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"Ошибка подключения. Вставьте поддерживаемую SIM-карту."</string>
     <string name="callFailed_wifi_lost" msgid="5968076625137297184">"Соединение по Wi-Fi разорвано. Вызов завершен."</string>
+    <string name="dialFailed_low_battery" msgid="8760548177088774268">"Вы не можете начать видеовстречу, так как уровень заряда батареи слишком низкий."</string>
+    <string name="callFailed_low_battery" msgid="4913582435905872616">"Видеовстреча завершена из-за низкого уровня заряда батареи."</string>
     <string name="change_pin_title" msgid="7790232089699034029">"Сменить PIN-код голосовой почты"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"Продолжить"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"Отмена"</string>
@@ -590,4 +605,18 @@
     <string name="change_pin_confirm_pins_dont_match" msgid="4795052654904027909">"PIN-коды не совпадают."</string>
     <string name="change_pin_succeeded" msgid="2022852286442211151">"PIN-код голосовой почты обновлен"</string>
     <string name="change_pin_system_error" msgid="8308462387154257840">"Не удалось установить PIN-код"</string>
+    <string name="mobile_data_status_roaming_turned_off_subtext" msgid="935636805765823307">"Интернет-роуминг отключен"</string>
+    <string name="mobile_data_status_roaming_turned_on_subtext" msgid="1335176927083781041">"Интернет-роуминг включен"</string>
+    <string name="mobile_data_status_roaming_without_plan_subtext" msgid="3568412513831673037">"Вы в роуминге, интернет-роуминг не активирован"</string>
+    <string name="mobile_data_status_roaming_with_plan_subtext" msgid="8721998948811064377">"Вы в роуминге, интернет-роуминг активирован"</string>
+    <string name="mobile_data_status_no_plan_subtext" msgid="4887747337017565725">"Лимит трафика исчерпан"</string>
+    <string name="mobile_data_activate_prepaid" msgid="7447025165850512683">"Лимит трафика исчерпан"</string>
+    <string name="mobile_data_activate_prepaid_summary" msgid="5705389791791637666">"Активируйте мобильный Интернет, обратившись к оператору связи (<xliff:g id="PROVIDER_NAME">%s</xliff:g>)."</string>
+    <string name="mobile_data_activate_roaming_plan" msgid="5998161536947086264">"Интернет-роуминг не активирован"</string>
+    <string name="mobile_data_activate_roaming_plan_summary" msgid="511202908883425459">"Активируйте интернет-роуминг, обратившись к оператору связи (<xliff:g id="PROVIDER_NAME">%s</xliff:g>)."</string>
+    <string name="mobile_data_activate_footer" msgid="5979019929980140594">"Вы можете активировать мобильный Интернет или интернет-роуминг, обратившись к оператору связи (<xliff:g id="PROVIDER_NAME">%s</xliff:g>)."</string>
+    <string name="mobile_data_activate_diag_title" msgid="9044252207707864493">"Активировать мобильный Интернет?"</string>
+    <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"Возможно, для этого вам потребуется обратиться к оператору связи (<xliff:g id="PROVIDER_NAME">%s</xliff:g>)."</string>
+    <string name="mobile_data_activate_button" msgid="3682400969184405446">"АКТИВИРОВАТЬ"</string>
+    <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"ОТМЕНА"</string>
 </resources>

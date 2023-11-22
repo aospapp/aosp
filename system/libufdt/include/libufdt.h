@@ -26,19 +26,20 @@
 
 /*
  * Allocates spaces for new ufdt_node who represents a fdt node at fdt_tag_ptr.
- * In order to get name pointer, it's neccassary to give the pointer to the
+ * In order to get name pointer, it's necessary to give the pointer to the
  * entire fdt it belongs to.
  *
  *
  * @return: a pointer to the newly created ufdt_node or
  *          NULL if dto_malloc failed
  */
-struct ufdt_node *ufdt_node_construct(void *fdtp, fdt32_t *fdt_tag_ptr);
+struct ufdt_node *ufdt_node_construct(void *fdtp, fdt32_t *fdt_tag_ptr,
+                                      struct ufdt_node_pool *pool);
 
 /*
  * Frees all nodes in the subtree rooted at *node.
  */
-void ufdt_node_destruct(struct ufdt_node *node);
+void ufdt_node_destruct(struct ufdt_node *node, struct ufdt_node_pool *pool);
 
 /*
  * Adds the child as a subnode of the parent.
@@ -148,17 +149,17 @@ uint32_t ufdt_node_get_phandle(const struct ufdt_node *node);
 /*
  * Constructs a ufdt whose base fdt is fdtp.
  * Note that this function doesn't construct the entire tree.
- * To get the whole tree please call `fdt_to_ufdt(fdtp, fdt_size)`
+ * To get the whole tree please call `ufdt_from_fdt(fdtp, fdt_size)`
  *
  * @return: an empty ufdt with base fdtp = fdtp
  */
-struct ufdt *ufdt_construct(void *fdtp);
+struct ufdt *ufdt_construct(void *fdtp, struct ufdt_node_pool *pool);
 
 /*
  * Frees the space occupied by the ufdt, including all ufdt_nodes
- * with static_phandle_table.
+ * with ufdt_static_phandle_table.
  */
-void ufdt_destruct(struct ufdt *tree);
+void ufdt_destruct(struct ufdt *tree, struct ufdt_node_pool *pool);
 
 /*
  * Add a fdt into this ufdt.
@@ -191,7 +192,7 @@ int ufdt_get_string_off(const struct ufdt *tree, const char *s);
 struct ufdt_node *ufdt_get_node_by_phandle(struct ufdt *tree, uint32_t phandle);
 
 /*
- * Gets the pointer to the ufdt_node in tree with absoulte path =
+ * Gets the pointer to the ufdt_node in tree with absolute path =
  * path[0..len-1].
  * Absolute path has form "/path/to/node" or "some_alias/to/node".
  * In later example, some_alias is a property in "/aliases" with data is a path
@@ -208,25 +209,12 @@ struct ufdt_node *ufdt_get_node_by_path_len(struct ufdt *tree, const char *path,
 struct ufdt_node *ufdt_get_node_by_path(struct ufdt *tree, const char *path);
 
 /*
- * END of ufdt methods.
- */
-
-/*
- * Compares function between 2 nodes, compare by name of each node.
- *
- * @return: x < 0  if a's name is lexicographically smaller
- *          x == 0 if a, b has same name
- *          x > 0  if a's name is lexicographically bigger
- */
-int node_cmp(const void *a, const void *b);
-
-/*
  * Determines whether node->name equals to name[0..len-1]
  *
  * @return: true if they're equal.
  *          false otherwise
  */
-bool node_name_eq(const struct ufdt_node *node, const char *name, int len);
+bool ufdt_node_name_eq(const struct ufdt_node *node, const char *name, int len);
 
 /*
  * Merges tree_b into tree_a with tree_b has all nodes except root disappeared.
@@ -278,7 +266,12 @@ bool node_name_eq(const struct ufdt_node *node, const char *name, int len);
  *
  * @Time: O(# of nodes in tree_b + total length of all names in tree_b) w.h.p.
  */
-int merge_ufdt_into(struct ufdt_node *tree_a, struct ufdt_node *tree_b);
+int ufdt_node_merge_into(struct ufdt_node *node_a, struct ufdt_node *node_b,
+                         struct ufdt_node_pool *pool);
+
+/*
+ * END of ufdt methods.
+ */
 
 /*
  * BEGIN of ufdt output functions
@@ -292,7 +285,8 @@ int merge_ufdt_into(struct ufdt_node *tree_a, struct ufdt_node *tree_b);
  *
  * @Time: O(fdt_size + nlogn) where n = # of nodes in fdt.
  */
-struct ufdt *fdt_to_ufdt(void *fdtp, size_t fdt_size);
+struct ufdt *ufdt_from_fdt(void *fdtp, size_t fdt_size,
+                           struct ufdt_node_pool *pool);
 
 /*
  * Sequentially dumps the whole ufdt to FDT buffer fdtp with buffer size
@@ -329,34 +323,5 @@ void ufdt_print(struct ufdt *tree);
 /*
  * END of ufdt output functions
  */
-
-/*
- * Runs closure.func(node, closure.env) for all nodes in subtree rooted at
- * *node.
- * The order of each node being applied by the function is depth first.
- * Basically it's the same order as the order printed in ufdt_node_print().
- *
- * Example:
- *
- * void print_name(struct ufdt_node *node, void *env) {
- *   printf("%s\n", node->name);
- * }
- *
- * struct ufdt_node_closure clos;
- * clos.func = print_name;
- * clos.env = NULL;
- * ufdt_map(tree, clos);
- *
- * Then you can print all names of nodes in tree.
- *
- * @Time: O((# of nodes in subtree rooted at *node) * avg. running time of the
- * function closure.func)
- */
-void ufdt_node_map(struct ufdt_node *node, struct ufdt_node_closure closure);
-
-/*
- * It's just ufdt_node_map(tree->root, closure);
- */
-void ufdt_map(struct ufdt *tree, struct ufdt_node_closure closure);
 
 #endif /* LIBUFDT_H */

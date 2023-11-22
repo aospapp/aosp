@@ -6,14 +6,19 @@
 
 # CHRE requires C++11 and C99 support.
 COMMON_CXX_CFLAGS += -std=c++11
+COMMON_C_CFLAGS += -x c
 COMMON_C_CFLAGS += -std=c99
 
-# Configure warnings.
+# Configure 'all' and 'extra' warnings and promote warnings to errors.
 COMMON_CFLAGS += -Wall
 COMMON_CFLAGS += -Wextra
-COMMON_CFLAGS += -Wno-unused-parameter
-COMMON_CFLAGS += -Wshadow
 COMMON_CFLAGS += -Werror
+
+# Disabled warnings. You better have a good reason to add more here.
+COMMON_CFLAGS += -Wno-unused-parameter
+
+# Additional warnings. Even more! :]
+COMMON_CFLAGS += -Wshadow
 
 # Disable exceptions and RTTI.
 COMMON_CFLAGS += -fno-exceptions
@@ -22,6 +27,16 @@ COMMON_CFLAGS += -fno-rtti
 # Enable the linker to garbage collect unused code and variables.
 COMMON_CFLAGS += -fdata-sections
 COMMON_CFLAGS += -ffunction-sections
+
+# Enable debugging symbols for debug builds.
+COMMON_DEBUG_CFLAGS += -g
+
+# Dependency Resolution
+DEP_CFLAGS = -MM -MG -MP -MF $$(basename $$@).Td
+DEP_POST_COMPILE = @mv -f $$(basename $$@).Td $$(basename $$@).d && touch $$@
+
+# Compile with hidden visibility by default.
+COMMON_CFLAGS += -fvisibility=hidden
 
 # Common Archive Flags #########################################################
 

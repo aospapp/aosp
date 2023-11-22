@@ -2,6 +2,7 @@
 // =====================================================
 cc_library_static {
     name: "libLLVMBitWriter_3_2",
+    vendor_available: true,
     host_supported: true,
     defaults: ["slang-defaults"],
 

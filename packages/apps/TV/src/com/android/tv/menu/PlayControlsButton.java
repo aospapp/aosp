@@ -39,6 +39,9 @@ public class PlayControlsButton extends FrameLayout {
     private final int mIconColor;
     private int mIconFocusedColor;
 
+    private int mImageResourceId;
+    private int mTintColor;
+
     public PlayControlsButton(Context context) {
         this(context, null);
     }
@@ -67,10 +70,21 @@ public class PlayControlsButton extends FrameLayout {
      * Sets the resource ID of the image to be displayed in the center of this control.
      */
     public void setImageResId(int imageResId) {
-        mIcon.setImageResource(imageResId);
-        // Since on foucus changing, icons' color should be switched with animation,
+        int newTintColor = hasFocus() ? mIconFocusedColor : mIconColor;
+        if (mImageResourceId != imageResId) {
+            mImageResourceId = imageResId;
+            mIcon.setImageResource(imageResId);
+            updateTint(newTintColor);
+        } else if (newTintColor != mTintColor) {
+            updateTint(newTintColor);
+        }
+    }
+
+    private void updateTint(int tintColor) {
+        mTintColor = tintColor;
+        // Since on focus changing, icons' color should be switched with animation,
         // as a result, selectors cannot be used to switch colors in this case.
-        mIcon.getDrawable().setTint(hasFocus() ? mIconFocusedColor : mIconColor);
+        mIcon.getDrawable().setTint(tintColor);
     }
 
     /**
@@ -117,7 +131,9 @@ public class PlayControlsButton extends FrameLayout {
         } else {
             mIcon.setVisibility(View.GONE);
             mLabel.setVisibility(View.VISIBLE);
-            mLabel.setText(label);
+            if (!TextUtils.equals(mLabel.getText(), label)) {
+                mLabel.setText(label);
+            }
         }
     }
 

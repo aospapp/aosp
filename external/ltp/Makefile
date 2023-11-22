@@ -18,7 +18,7 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
-# Garrett Cooper, July 2009
+# Ngie Cooper, July 2009
 #
 
 # Force IDcheck.sh to fix any issues found with $(DESTDIR)/etc/group and
@@ -163,7 +163,7 @@ clean:: $(CLEAN_TARGETS)
 $(foreach tgt,$(MAKE_TARGETS) include-all lib-all $(filter-out clean_install_dir,$(CLEAN_TARGETS)) $(INSTALL_TARGETS) include-install lib-install,$(eval $(call target_to_dir_dep_mapping,$(tgt))))
 
 BINDIR_INSTALL_SCRIPTS	:= execltp
-SRCDIR_INSTALL_SCRIPTS	:= IDcheck.sh runalltests.sh runltp runltplite.sh ver_linux
+SRCDIR_INSTALL_SCRIPTS	:= IDcheck.sh runltp runltplite.sh ver_linux
 SRCDIR_INSTALL_READONLY	:= Version
 SRCDIR_INSTALL_TARGETS	:= $(SRCDIR_INSTALL_SCRIPTS) $(SRCDIR_INSTALL_READONLY)
 

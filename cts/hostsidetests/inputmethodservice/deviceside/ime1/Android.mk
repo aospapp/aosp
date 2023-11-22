@@ -32,7 +32,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     CtsInputMethodServiceLib
 
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 LOCAL_PACKAGE_NAME := CtsInputMethod1
 

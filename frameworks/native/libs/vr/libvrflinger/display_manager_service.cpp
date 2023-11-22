@@ -65,6 +65,7 @@ void DisplayManagerService::OnChannelClose(
 }
 
 pdx::Status<void> DisplayManagerService::HandleMessage(pdx::Message& message) {
+  ATRACE_NAME("DisplayManagerService::HandleMessage");
   auto channel = std::static_pointer_cast<DisplayManager>(message.GetChannel());
 
   switch (message.GetOp()) {
@@ -76,11 +77,6 @@ pdx::Status<void> DisplayManagerService::HandleMessage(pdx::Message& message) {
     case DisplayManagerProtocol::GetSurfaceQueue::Opcode:
       DispatchRemoteMethod<DisplayManagerProtocol::GetSurfaceQueue>(
           *this, &DisplayManagerService::OnGetSurfaceQueue, message);
-      return {};
-
-    case DisplayManagerProtocol::SetupNamedBuffer::Opcode:
-      DispatchRemoteMethod<DisplayManagerProtocol::SetupNamedBuffer>(
-          *this, &DisplayManagerService::OnSetupNamedBuffer, message);
       return {};
 
     default:
@@ -127,23 +123,6 @@ pdx::Status<pdx::LocalChannelHandle> DisplayManagerService::OnGetSurfaceQueue(
       queue->id(), status.GetErrorMessage().c_str());
 
   return status;
-}
-
-pdx::Status<BorrowedNativeBufferHandle>
-DisplayManagerService::OnSetupNamedBuffer(pdx::Message& message,
-                                          const std::string& name, size_t size,
-                                          uint64_t usage) {
-  const int user_id = message.GetEffectiveUserId();
-  const bool trusted = user_id == AID_ROOT || IsTrustedUid(user_id);
-
-  if (!trusted) {
-    ALOGE(
-        "DisplayService::SetupNamedBuffer: Named buffers may only be created "
-        "by trusted UIDs: user_id=%d",
-        user_id);
-    return ErrorStatus(EPERM);
-  }
-  return display_service_->SetupNamedBuffer(name, size, usage);
 }
 
 void DisplayManagerService::OnDisplaySurfaceChange() {

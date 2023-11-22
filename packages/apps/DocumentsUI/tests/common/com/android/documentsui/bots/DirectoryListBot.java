@@ -148,8 +148,10 @@ public class DirectoryListBot extends Bots.BaseBot {
         Configurator.getInstance().setToolType(toolType);
     }
 
-    public void clickDocument(String label) throws UiObjectNotFoundException {
-        findDocument(label).click();
+    public void selectDocument(String label) throws UiObjectNotFoundException {
+        waitForDocument(label);
+        UiObject2 selectionHotspot = findSelectionHotspot(label);
+        selectionHotspot.click();
     }
 
     /**
@@ -157,9 +159,7 @@ public class DirectoryListBot extends Bots.BaseBot {
      * @param number Which nth document it is. The number corresponding to "n selected"
      */
     public void selectDocument(String label, int number) throws UiObjectNotFoundException {
-        waitForDocument(label);
-        UiObject2 selectionHotspot = findSelectionHotspot(label);
-        selectionHotspot.click();
+        selectDocument(label);
 
         // wait until selection is fully done to avoid future click being registered as double
         // clicking
@@ -183,7 +183,7 @@ public class DirectoryListBot extends Bots.BaseBot {
 
     public void copyFilesToClipboard(String...labels) throws UiObjectNotFoundException {
         for (String label: labels) {
-            clickDocument(label);
+            selectDocument(label);
         }
         mDevice.pressKeyCode(KeyEvent.KEYCODE_C, KeyEvent.META_CTRL_ON);
     }

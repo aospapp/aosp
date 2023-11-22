@@ -30,6 +30,7 @@ namespace keymaster {
 
 class AuthorizationSet;
 class Key;
+class KeymasterContext;
 class Operation;
 
 class OperationFactory {
@@ -109,8 +110,10 @@ class Operation {
                                      const Buffer& signature, AuthorizationSet* output_params,
                                      Buffer* output) = 0;
     virtual keymaster_error_t Abort() = 0;
+    virtual keymaster_error_t CreateOperationHandle(const KeymasterContext& context,
+                                                    keymaster_operation_handle_t* op_handle);
 
-protected:
+  protected:
     // Helper function for implementing Finish() methods that need to call Update() to process
     // input, but don't expect any output.
     keymaster_error_t UpdateForFinish(const AuthorizationSet& input_params, const Buffer& input);

@@ -15,6 +15,9 @@
 cc_library_shared {
     name: "libui",
     vendor_available: true,
+    vndk: {
+        enabled: true,
+    },
 
     clang: true,
     cppflags: [
@@ -54,7 +57,6 @@ cc_library_shared {
         "GraphicBuffer.cpp",
         "GraphicBufferAllocator.cpp",
         "GraphicBufferMapper.cpp",
-        "GraphicsEnv.cpp",
         "HdrCapabilities.cpp",
         "PixelFormat.cpp",
         "Rect.cpp",
@@ -70,9 +72,8 @@ cc_library_shared {
         "android.hardware.graphics.allocator@2.0",
         "android.hardware.graphics.mapper@2.0",
         "android.hardware.configstore@1.0",
-	"android.hardware.configstore-utils",
+        "android.hardware.configstore-utils",
         "libbase",
-        "libnativeloader",
         "libcutils",
         "libhardware",
         "libhidlbase",
@@ -89,10 +90,28 @@ cc_library_shared {
         "libmath",
     ],
 
+    header_libs: [
+        "libnativebase_headers",
+        "libhardware_headers",
+    ],
+
+    export_include_dirs: ["include"],
+
     export_static_lib_headers: [
         "libarect",
         "libmath",
     ],
+
+    export_header_lib_headers: [
+        "libnativebase_headers",
+        "libhardware_headers",
+    ],
+}
+
+cc_library_headers {
+    name: "libui_headers",
+    export_include_dirs: ["include"],
+    vendor_available: true,
 }
 
 subdirs = ["tests"]

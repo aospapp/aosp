@@ -28,7 +28,6 @@
     <dimen name="program_guide_table_background_round_radius_right">2dp</dimen>
 
     <dimen name="program_guide_shift_start_to_end_x">-238dp</dimen>
-    <dimen name="program_guide_shift_end_to_start_x">238dp</dimen>
     <dimen name="program_guide_side_panel_row_pivot_x">
         @dimen/program_guide_side_panel_item_width</dimen>
     <dimen name="program_guide_side_panel_exit_x">32dp</dimen>

@@ -30,9 +30,11 @@ class InstructionSimplifierVisitor : public HGraphDelegateVisitor {
  public:
   InstructionSimplifierVisitor(HGraph* graph,
                                CodeGenerator* codegen,
+                               CompilerDriver* compiler_driver,
                                OptimizingCompilerStats* stats)
       : HGraphDelegateVisitor(graph),
         codegen_(codegen),
+        compiler_driver_(compiler_driver),
         stats_(stats) {}
 
   void Run();
@@ -119,6 +121,7 @@ class InstructionSimplifierVisitor : public HGraphDelegateVisitor {
   void SimplifyMemBarrier(HInvoke* invoke, MemBarrierKind barrier_kind);
 
   CodeGenerator* codegen_;
+  CompilerDriver* compiler_driver_;
   OptimizingCompilerStats* stats_;
   bool simplification_occurred_ = false;
   int simplifications_at_current_position_ = 0;
@@ -130,7 +133,7 @@ class InstructionSimplifierVisitor : public HGraphDelegateVisitor {
 };
 
 void InstructionSimplifier::Run() {
-  InstructionSimplifierVisitor visitor(graph_, codegen_, stats_);
+  InstructionSimplifierVisitor visitor(graph_, codegen_, compiler_driver_, stats_);
   visitor.Run();
 }
 
@@ -257,13 +260,25 @@ void InstructionSimplifierVisitor::VisitShift(HBinaryOperation* instruction) {
 
   if (shift_amount->IsConstant()) {
     int64_t cst = Int64FromConstant(shift_amount->AsConstant());
-    if ((cst & implicit_mask) == 0) {
+    int64_t masked_cst = cst & implicit_mask;
+    if (masked_cst == 0) {
       // Replace code looking like
       //    SHL dst, value, 0
       // with
       //    value
       instruction->ReplaceWith(value);
       instruction->GetBlock()->RemoveInstruction(instruction);
+      RecordSimplification();
+      return;
+    } else if (masked_cst != cst) {
+      // Replace code looking like
+      //    SHL dst, value, cst
+      // where cst exceeds maximum distance with the equivalent
+      //    SHL dst, value, cst & implicit_mask
+      // (as defined by shift semantics). This ensures other
+      // optimizations do not need to special case for such situations.
+      DCHECK_EQ(shift_amount->GetType(), Primitive::kPrimInt);
+      instruction->ReplaceInput(GetGraph()->GetIntConstant(masked_cst), /* index */ 1);
       RecordSimplification();
       return;
     }
@@ -1852,39 +1867,41 @@ void InstructionSimplifierVisitor::SimplifySystemArrayCopy(HInvoke* instruction)
       ArtMethod* method = nullptr;
       switch (source_component_type) {
         case Primitive::kPrimBoolean:
-          method = system->FindDeclaredDirectMethod("arraycopy", "([ZI[ZII)V", image_size);
+          method = system->FindClassMethod("arraycopy", "([ZI[ZII)V", image_size);
           break;
         case Primitive::kPrimByte:
-          method = system->FindDeclaredDirectMethod("arraycopy", "([BI[BII)V", image_size);
+          method = system->FindClassMethod("arraycopy", "([BI[BII)V", image_size);
           break;
         case Primitive::kPrimChar:
-          method = system->FindDeclaredDirectMethod("arraycopy", "([CI[CII)V", image_size);
+          method = system->FindClassMethod("arraycopy", "([CI[CII)V", image_size);
           break;
         case Primitive::kPrimShort:
-          method = system->FindDeclaredDirectMethod("arraycopy", "([SI[SII)V", image_size);
+          method = system->FindClassMethod("arraycopy", "([SI[SII)V", image_size);
           break;
         case Primitive::kPrimInt:
-          method = system->FindDeclaredDirectMethod("arraycopy", "([II[III)V", image_size);
+          method = system->FindClassMethod("arraycopy", "([II[III)V", image_size);
           break;
         case Primitive::kPrimFloat:
-          method = system->FindDeclaredDirectMethod("arraycopy", "([FI[FII)V", image_size);
+          method = system->FindClassMethod("arraycopy", "([FI[FII)V", image_size);
           break;
         case Primitive::kPrimLong:
-          method = system->FindDeclaredDirectMethod("arraycopy", "([JI[JII)V", image_size);
+          method = system->FindClassMethod("arraycopy", "([JI[JII)V", image_size);
           break;
         case Primitive::kPrimDouble:
-          method = system->FindDeclaredDirectMethod("arraycopy", "([DI[DII)V", image_size);
+          method = system->FindClassMethod("arraycopy", "([DI[DII)V", image_size);
           break;
         default:
           LOG(FATAL) << "Unreachable";
       }
       DCHECK(method != nullptr);
+      DCHECK(method->IsStatic());
+      DCHECK(method->GetDeclaringClass() == system);
       invoke->SetResolvedMethod(method);
       // Sharpen the new invoke. Note that we do not update the dex method index of
       // the invoke, as we would need to look it up in the current dex file, and it
       // is unlikely that it exists. The most usual situation for such typed
       // arraycopy methods is a direct pointer to the boot image.
-      HSharpening::SharpenInvokeStaticOrDirect(invoke, codegen_);
+      HSharpening::SharpenInvokeStaticOrDirect(invoke, codegen_, compiler_driver_);
     }
   }
 }

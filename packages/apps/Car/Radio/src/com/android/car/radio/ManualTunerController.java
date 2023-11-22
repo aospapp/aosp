@@ -21,6 +21,7 @@ import android.support.annotation.NonNull;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
+
 import com.android.car.radio.service.RadioStation;
 
 import java.util.ArrayList;
@@ -36,12 +37,9 @@ public class ManualTunerController {
      */
     private static final int NUM_OF_MANUAL_TUNER_BUTTONS = 10;
 
-    private final StringBuffer mCurrentChannel = new StringBuffer();
+    private final StringBuilder mCurrentChannel = new StringBuilder();
 
-    private final Context mContext;
     private final TextView mChannelView;
-    private final RadioBandButton mAmBandButton;
-    private final RadioBandButton mFmBandButton;
 
     private int mCurrentRadioBand;
 
@@ -66,7 +64,7 @@ public class ManualTunerController {
     private final int mEnabledButtonColor;
     private final int mDisabledButtonColor;
 
-    private final View mDoneButton;
+    private View mDoneButton;
     private ManualTunerClickListener mManualTunerClickListener;
 
     /**
@@ -114,9 +112,8 @@ public class ManualTunerController {
         void onDone(RadioStation station);
     }
 
-    public ManualTunerController(Context context, View container, int currentRadioBand) {
-        mContext = context;
-        mChannelView = (TextView) container.findViewById(R.id.manual_tuner_channel);
+    ManualTunerController(Context context, View container, int currentRadioBand) {
+        mChannelView = container.findViewById(R.id.manual_tuner_channel);
 
         // Default to FM band.
         if (currentRadioBand != RadioManager.BAND_FM && currentRadioBand != RadioManager.BAND_AM) {
@@ -129,21 +126,8 @@ public class ManualTunerController {
                 ? mAmChannelValidator
                 : mFmChannelValidator;
 
-        mEnabledButtonColor = mContext.getColor(R.color.manual_tuner_button_text);
-        mDisabledButtonColor = mContext.getColor(R.color.car_radio_control_button_disabled);
-
-        View backButton = container.findViewById(R.id.exit_manual_tuner_button);
-        backButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (mManualTunerClickListener != null) {
-                    mManualTunerClickListener.onBack();
-                }
-            }
-        });
-
-        mDoneButton = container.findViewById(R.id.manual_tuner_done_button);
-        mDoneButton.setOnClickListener(mDoneButtonClickListener);
+        mEnabledButtonColor = context.getColor(R.color.manual_tuner_button_text);
+        mDisabledButtonColor = context.getColor(R.color.car_radio_control_button_disabled);
 
         mNumberZero = context.getString(R.string.manual_tuner_0);
         mNumberOne = context.getString(R.string.manual_tuner_1);
@@ -157,84 +141,126 @@ public class ManualTunerController {
         mNumberNine = context.getString(R.string.manual_tuner_9);
         mPeriod = context.getString(R.string.manual_tuner_period);
 
+        initializeChannelButtons(container);
         initializeManualTunerButtons(container);
 
-        mAmBandButton = (RadioBandButton) container.findViewById(R.id.manual_tuner_am_band);
-        mAmBandButton.setOnClickListener(mBandSwitcherListener);
-        mFmBandButton = (RadioBandButton) container.findViewById(R.id.manual_tuner_fm_band);
-        mFmBandButton.setOnClickListener(mBandSwitcherListener);
+        updateButtonState();
+    }
+
+    /**
+     * Initializes the buttons responsible for adjusting the channel to be entered by the manual
+     * tuner.
+     */
+    private void initializeChannelButtons(View container) {
+        RadioBandButton amBandButton = container.findViewById(R.id.manual_tuner_am_band);
+        RadioBandButton fmBandButton = container.findViewById(R.id.manual_tuner_fm_band);
+        mDoneButton = container.findViewById(R.id.manual_tuner_done_button);
+
+        View backButton = container.findViewById(R.id.exit_manual_tuner_button);
+        backButton.setOnClickListener(v -> {
+            if (mManualTunerClickListener != null) {
+                mManualTunerClickListener.onBack();
+            }
+        });
+
+        amBandButton.setOnClickListener(v -> {
+            mCurrentRadioBand = RadioManager.BAND_AM;
+            mChannelValidator = mAmChannelValidator;
+            amBandButton.setIsBandSelected(true);
+            fmBandButton.setIsBandSelected(false);
+            resetChannel();
+        });
+
+        fmBandButton.setOnClickListener(v -> {
+            mCurrentRadioBand = RadioManager.BAND_FM;
+            mChannelValidator = mFmChannelValidator;
+            amBandButton.setIsBandSelected(false);
+            fmBandButton.setIsBandSelected(true);
+            resetChannel();
+        });
+
+        mDoneButton.setOnClickListener(v -> {
+            if (mManualTunerClickListener == null) {
+                return;
+            }
+
+            int channelFrequency = mChannelValidator.convertToHz(mCurrentChannel.toString());
+            RadioStation station = new RadioStation(channelFrequency, 0 /* subChannelNumber */,
+                    mCurrentRadioBand, null /* rds */);
+
+            mManualTunerClickListener.onDone(station);
+        });
 
         if (mCurrentRadioBand == RadioManager.BAND_AM) {
-            mAmBandButton.setIsBandSelected(true);
+            amBandButton.setIsBandSelected(true);
         } else {
-            mFmBandButton.setIsBandSelected(true);
+            fmBandButton.setIsBandSelected(true);
         }
-
-        updateButtonState();
     }
 
     /**
      * Sets up the click listeners and tags for the manual tuner buttons.
      */
     private void initializeManualTunerButtons(View container) {
-        Button numberZero = (Button) container.findViewById(R.id.manual_tuner_0);
+        Button numberZero = container.findViewById(R.id.manual_tuner_0);
         numberZero.setOnClickListener(new TuneButtonClickListener(mNumberZero));
         numberZero.setTag(R.id.manual_tuner_button_value, mNumberZero);
         mManualTunerButtons.add(numberZero);
 
-        Button numberOne = (Button) container.findViewById(R.id.manual_tuner_1);
+        Button numberOne = container.findViewById(R.id.manual_tuner_1);
         numberOne.setOnClickListener(new TuneButtonClickListener(mNumberOne));
         numberOne.setTag(R.id.manual_tuner_button_value, mNumberOne);
         mManualTunerButtons.add(numberOne);
 
-        Button numberTwo = (Button) container.findViewById(R.id.manual_tuner_2);
+        Button numberTwo = container.findViewById(R.id.manual_tuner_2);
         numberTwo.setOnClickListener(new TuneButtonClickListener(mNumberTwo));
         numberTwo.setTag(R.id.manual_tuner_button_value, mNumberTwo);
         mManualTunerButtons.add(numberTwo);
 
-        Button numberThree = (Button) container.findViewById(R.id.manual_tuner_3);
+        Button numberThree = container.findViewById(R.id.manual_tuner_3);
         numberThree.setOnClickListener(new TuneButtonClickListener(mNumberThree));
         numberThree.setTag(R.id.manual_tuner_button_value, mNumberThree);
         mManualTunerButtons.add(numberThree);
 
-        Button numberFour = (Button) container.findViewById(R.id.manual_tuner_4);
+        Button numberFour = container.findViewById(R.id.manual_tuner_4);
         numberFour.setOnClickListener(new TuneButtonClickListener(mNumberFour));
         numberFour.setTag(R.id.manual_tuner_button_value, mNumberFour);
         mManualTunerButtons.add(numberFour);
 
-        Button numberFive = (Button) container.findViewById(R.id.manual_tuner_5);
+        Button numberFive = container.findViewById(R.id.manual_tuner_5);
         numberFive.setOnClickListener(new TuneButtonClickListener(mNumberFive));
         numberFive.setTag(R.id.manual_tuner_button_value, mNumberFive);
         mManualTunerButtons.add(numberFive);
 
-        Button numberSix = (Button) container.findViewById(R.id.manual_tuner_6);
+        Button numberSix = container.findViewById(R.id.manual_tuner_6);
         numberSix.setOnClickListener(new TuneButtonClickListener(mNumberSix));
         numberSix.setTag(R.id.manual_tuner_button_value, mNumberSix);
         mManualTunerButtons.add(numberSix);
 
-        Button numberSeven = (Button) container.findViewById(R.id.manual_tuner_7);
+        Button numberSeven = container.findViewById(R.id.manual_tuner_7);
         numberSeven.setOnClickListener(new TuneButtonClickListener(mNumberSeven));
         numberSeven.setTag(R.id.manual_tuner_button_value, mNumberSeven);
         mManualTunerButtons.add(numberSeven);
 
-        Button numberEight = (Button) container.findViewById(R.id.manual_tuner_8);
+        Button numberEight = container.findViewById(R.id.manual_tuner_8);
         numberEight.setOnClickListener(new TuneButtonClickListener(mNumberEight));
         numberEight.setTag(R.id.manual_tuner_button_value, mNumberEight);
         mManualTunerButtons.add(numberEight);
 
-        Button numberNine = (Button) container.findViewById(R.id.manual_tuner_9);
+        Button numberNine = container.findViewById(R.id.manual_tuner_9);
         numberNine.setOnClickListener(new TuneButtonClickListener(mNumberNine));
         numberNine.setTag(R.id.manual_tuner_button_value, mNumberNine);
         mManualTunerButtons.add(numberNine);
 
-        container.findViewById(R.id.manual_tuner_backspace).setOnClickListener(mBackspaceListener);
+        container.findViewById(R.id.manual_tuner_backspace)
+                .setOnClickListener(new BackSpaceListener());
     }
 
     /**
      * Sets the given {@link ManualTunerClickListener} to be notified when the done button of the manual
      * tuner has been clicked.
      */
-    public void setDoneButtonListener(ManualTunerClickListener listener) {
+    void setDoneButtonListener(ManualTunerClickListener listener) {
         mManualTunerClickListener = listener;
     }
 
@@ -281,11 +307,7 @@ public class ManualTunerController {
                     return charValue >= 5 || charValue == 1;
                 case 1:
                     // Ensure that the number is above the lower AM limit of 530.
-                    if (number.equals(mNumberFive)) {
-                        return charValue >= 3;
-                    }
-
-                    return true;
+                    return !number.equals(mNumberFive) || charValue >= 3;
                 case 2:
                     // Any number is allowed to be appended if the current AM station being entered
                     // is a number in the 1000s.
@@ -481,48 +503,25 @@ public class ManualTunerController {
         mChannelView.setText(mCurrentChannel.toString());
     }
 
-    private final View.OnClickListener mDoneButtonClickListener = new View.OnClickListener() {
-        @Override
-        public void onClick(View v) {
-            if (mManualTunerClickListener == null) {
-                return;
-            }
+    /**
+     * Resets any radio station that may have been entered and updates the button states
+     * accordingly.
+     */
+    private void resetChannel() {
+        mChannelView.setText(null);
 
-            int channelFrequency = mChannelValidator.convertToHz(mCurrentChannel.toString());
-            RadioStation station = new RadioStation(channelFrequency, 0 /* subChannelNumber */,
-                    mCurrentRadioBand, null /* rds */);
+        // Clear the string buffer by setting the length to zero rather than allocating a new
+        // one.
+        mCurrentChannel.setLength(0);
 
-            mManualTunerClickListener.onDone(station);
-        }
-    };
+        updateButtonState();
+    }
 
-    private final View.OnClickListener mBandSwitcherListener = new View.OnClickListener() {
-        @Override
-        public void onClick(View v) {
-            // Currently only AM and FM bands are supported.
-            if (v == mAmBandButton) {
-                mCurrentRadioBand = RadioManager.BAND_AM;
-                mChannelValidator = mAmChannelValidator;
-                mAmBandButton.setIsBandSelected(true);
-                mFmBandButton.setIsBandSelected(false);
-            } else {
-                mCurrentRadioBand = RadioManager.BAND_FM;
-                mChannelValidator = mFmChannelValidator;
-                mAmBandButton.setIsBandSelected(false);
-                mFmBandButton.setIsBandSelected(true);
-            }
-
-            mChannelView.setText(null);
-
-            // Clear the string buffer by setting the length to zero rather than allocating a new
-            // one.
-            mCurrentChannel.setLength(0);
-
-            updateButtonState();
-        }
-    };
-
-    private final View.OnClickListener mBackspaceListener = new View.OnClickListener() {
+    /**
+     * A {@link android.view.View.OnClickListener} that handles back space clicks. It is responsible
+     * for removing characters from the {@link #mChannelView} TextView.
+     */
+    private class BackSpaceListener implements View.OnClickListener {
         @Override
         public void onClick(View v) {
             if (mCurrentChannel.length() == 0) {
@@ -553,7 +552,7 @@ public class ManualTunerController {
                 mCurrentChannel.deleteCharAt(lastIndex);
             }
         }
-    };
+    }
 
     /**
      * A {@link android.view.View.OnClickListener} for each of the manual tuner buttons that
@@ -562,7 +561,7 @@ public class ManualTunerController {
     private class TuneButtonClickListener implements View.OnClickListener {
         private final String mValue;
 
-        public TuneButtonClickListener(String value) {
+        TuneButtonClickListener(String value) {
             mValue = value;
         }
 

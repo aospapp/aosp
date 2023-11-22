@@ -27,4 +27,5 @@ DOC = """
 This is a wrapper test for Chrome jpeg_decode_accelerator_unittest.
 """
 
-job.run_test('video_JpegDecodeAccelerator')
+args_dict = utils.args_to_dict(args)
+job.run_test('video_JpegDecodeAccelerator', **args_dict)

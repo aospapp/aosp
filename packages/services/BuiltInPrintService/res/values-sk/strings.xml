@@ -29,7 +29,7 @@
     <string name="printer_offline" msgid="9196864753298645066">"Offline"</string>
     <string name="printer_check" msgid="6428369671197132828">"Skontrolovať tlačiareň"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"Čaká sa na odoslanie"</string>
-    <string name="wifi_not_connected" msgid="8644760246612043851">"Sieť Wi-Fi nie je pripojená"</string>
+    <string name="wifi_not_connected" msgid="8644760246612043851">"Sieť Wi‑Fi nie je pripojená"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"Dokument sa nepodarilo prečítať"</string>
     <string name="media_size_l" msgid="164416542021598181">"L"</string>
     <string name="media_size_5x7in" msgid="1275128379533195285">"5 x 7 palcov"</string>

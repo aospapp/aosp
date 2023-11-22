@@ -20,6 +20,7 @@ import static junit.framework.Assert.assertEquals;
 
 import android.annotation.Nullable;
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.LoaderManager;
 import android.content.ComponentName;
 import android.content.ContentResolver;
@@ -56,11 +57,13 @@ public abstract class TestActivity extends AbstractBase {
     public RootInfo currentRoot;
     public MockContentResolver contentResolver;
     public TestLoaderManager loaderManager;
+    public ActivityManager activityManager;
 
     public TestEventListener<Intent> startActivity;
     public TestEventListener<Intent> startService;
     public TestEventListener<Pair<IntentSender, Integer>> startIntentSender;
     public TestEventListener<RootInfo> rootPicked;
+    public TestEventListener<Void> restoreRootAndDirectory;
     public TestEventListener<Integer> refreshCurrentRootAndDirectory;
     public TestEventListener<Boolean> setRootsDrawerOpen;
     public TestEventListener<Uri> notifyDirectoryNavigated;
@@ -81,6 +84,7 @@ public abstract class TestActivity extends AbstractBase {
         startService = new TestEventListener<>();
         startIntentSender = new TestEventListener<>();
         rootPicked = new TestEventListener<>();
+        restoreRootAndDirectory = new TestEventListener<>();
         refreshCurrentRootAndDirectory =  new TestEventListener<>();
         setRootsDrawerOpen = new TestEventListener<>();
         notifyDirectoryNavigated = new TestEventListener<>();
@@ -151,6 +155,11 @@ public abstract class TestActivity extends AbstractBase {
     }
 
     @Override
+    public final void restoreRootAndDirectory() {
+        restoreRootAndDirectory.accept(null);
+    }
+
+    @Override
     public final void refreshCurrentRootAndDirectory(int anim) {
         refreshCurrentRootAndDirectory.accept(anim);
     }
@@ -186,6 +195,16 @@ public abstract class TestActivity extends AbstractBase {
     @Override
     public final LoaderManager getLoaderManager() {
         return loaderManager;
+    }
+
+    @Override
+    public final Object getSystemService(String service) {
+        switch (service) {
+            case Context.ACTIVITY_SERVICE:
+                return activityManager;
+        }
+
+        throw new IllegalArgumentException("Unknown service " + service);
     }
 
     @Override

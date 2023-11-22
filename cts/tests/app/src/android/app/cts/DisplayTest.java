@@ -55,7 +55,9 @@ public class DisplayTest extends ActivityInstrumentationTestCase2<DisplayTestAct
         final int origHeight = origDisplay.getHeight();
 
         // Change orientation
-        OrientationTestUtils.switchOrientation(mActivity, mInstrumentation);
+        mActivity.configurationChangeObserver.startObserving();
+        OrientationTestUtils.switchOrientation(mActivity);
+        mActivity.configurationChangeObserver.await();
 
         // Get a {@link Display} instance after rotation.
         final Display updatedDisplay = mActivity.getDisplay();

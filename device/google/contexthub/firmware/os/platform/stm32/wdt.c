@@ -18,6 +18,13 @@
 #include <plat/wdt.h>
 #include <plat/cmsis.h>
 
+struct StmDbgmcu {
+    volatile uint32_t IDCODE;
+    volatile uint32_t CR;
+    volatile uint32_t APB1FZ;
+    volatile uint32_t APB2FZ;
+};
+
 struct StmWwdg {
     volatile uint16_t CR;
     uint8_t unused0[2];
@@ -27,21 +34,25 @@ struct StmWwdg {
     uint8_t unused2[2];
 };
 
-#define WWDG ((struct StmWwdg*)WWDG_BASE)
+#define DBGMCU              ((struct StmDbgmcu*)DBGMCU_BASE)
+#define WWDG                ((struct StmWwdg*)WWDG_BASE)
+
+/* DBGMCU bit definitions */
+#define DBG_WWDG_STOP       0x00000800U
 
 /* WWDG bit definitions */
-#define WWDG_CR_ENABLE 0x80
+#define WWDG_CR_ENABLE      0x80
 
-#define WWDG_TCNT_HIGH 0x40
-#define WWDG_TCNT_MASK 0x3F
+#define WWDG_TCNT_HIGH      0x40
+#define WWDG_TCNT_MASK      0x3F
 
-#define WWDG_CFR_DIV2 0x0080
-#define WWDG_CFR_DIV4 0x0100
-#define WWDG_CFR_DIV8 0x0180
-#define WWDG_CFR_EWI  0x0200
+#define WWDG_CFR_DIV2       0x0080
+#define WWDG_CFR_DIV4       0x0100
+#define WWDG_CFR_DIV8       0x0180
+#define WWDG_CFR_EWI        0x0200
 
 /* WWDG parameters */
-#define WWDG_WINDOW_SIZE 0x3F // 0 < x <= 0x3F
+#define WWDG_WINDOW_SIZE    0x3F // 0 < x <= 0x3F
 
 void WWDG_IRQHandler(void);
 void __attribute__((naked)) WWDG_IRQHandler(void)
@@ -74,6 +85,11 @@ void wdtDisableIrq()
 
 void wdtInit()
 {
+#if defined(DEBUG) && defined(DEBUG_SWD)
+    // Disable WWDG if core is halted
+    DBGMCU->APB1FZ |= DBG_WWDG_STOP;
+#endif
+
     wdtEnableClk();
     WWDG->CFR = WWDG_CFR_EWI | WWDG_CFR_DIV8 | WWDG_TCNT_HIGH | (WWDG_WINDOW_SIZE & WWDG_TCNT_MASK);
     WWDG->CR  = WWDG_CR_ENABLE | WWDG_TCNT_HIGH | (WWDG_WINDOW_SIZE & WWDG_TCNT_MASK);

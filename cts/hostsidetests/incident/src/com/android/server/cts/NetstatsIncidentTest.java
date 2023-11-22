@@ -46,6 +46,7 @@ import java.util.function.Predicate;
 public class NetstatsIncidentTest extends ProtoDumpTestCase {
     private static final String DEVICE_SIDE_TEST_APK = "CtsNetStatsApp.apk";
     private static final String DEVICE_SIDE_TEST_PACKAGE = "com.android.server.cts.netstats";
+    private static final String FEATURE_WIFI = "android.hardware.wifi";
 
     @Override
     protected void tearDown() throws Exception {
@@ -250,7 +251,7 @@ public class NetstatsIncidentTest extends ProtoDumpTestCase {
         return total;
     }
 
-    private void checkInterfaces(List<NetworkInterfaceProto> interfaces) {
+    private void checkInterfaces(List<NetworkInterfaceProto> interfaces) throws Exception{
         /* Example:
     active_interfaces=[
       NetworkInterfaceProto {
@@ -288,7 +289,9 @@ public class NetstatsIncidentTest extends ProtoDumpTestCase {
             }
         }
         assertFalse("There must be at least one non-roaming interface during CTS", allRoaming);
-        assertFalse("There must be at least one non-metered interface during CTS", allMetered);
+        if (hasWiFiFeature()) {
+            assertFalse("There must be at least one non-metered interface during CTS", allMetered);
+        }
     }
 
     private void checkStats(NetworkStatsRecorderProto recorder, boolean withUid, boolean withTag) {
@@ -385,5 +388,10 @@ public class NetstatsIncidentTest extends ProtoDumpTestCase {
         }
 
         // TODO Make sure test app's UID actually shows up.
+    }
+
+    private boolean hasWiFiFeature() throws Exception {
+        final String commandOutput = getDevice().executeShellCommand("pm list features");
+        return commandOutput.contains(FEATURE_WIFI);
     }
 }

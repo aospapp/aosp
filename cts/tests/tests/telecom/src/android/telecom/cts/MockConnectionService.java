@@ -65,6 +65,11 @@ public class MockConnectionService extends ConnectionService {
         }
         connection.setVideoState(request.getVideoState());
         connection.setInitializing();
+        if (request.isRequestingRtt()) {
+            connection.setRttTextStream(request.getRttTextStream());
+            connection.setConnectionProperties(connection.getConnectionProperties() |
+                    Connection.PROPERTY_IS_RTT);
+        }
 
         outgoingConnections.add(connection);
         lock.release();
@@ -82,6 +87,11 @@ public class MockConnectionService extends ConnectionService {
                 | Connection.CAPABILITY_HOLD);
         connection.createMockVideoProvider();
         ((Connection) connection).setVideoState(request.getVideoState());
+        if (request.isRequestingRtt()) {
+            connection.setRttTextStream(request.getRttTextStream());
+            connection.setConnectionProperties(connection.getConnectionProperties() |
+                    Connection.PROPERTY_IS_RTT);
+        }
         connection.setRinging();
 
         incomingConnections.add(connection);

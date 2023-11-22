@@ -14,6 +14,11 @@
 
 cc_library_shared {
     name: "android.hidl.memory@1.0-impl",
+    vendor_available: true,
+    vndk: {
+        enabled: true,
+        support_system_process: true,
+    },
     compile_multilib: "both",
     relative_install_path: "hw",
     cflags: libhidl_flags,
@@ -23,16 +28,13 @@ cc_library_shared {
         "HidlFetch.cpp"
     ],
     shared_libs: [
-        "liblog",
         "libcutils",
         "libhardware",
         "libhwbinder",
         "libbase",
-        "libcutils",
         "libutils",
         "libhidlbase",
         "libhidltransport",
-        "android.hidl.base@1.0",
         "android.hidl.memory@1.0",
     ],
 }

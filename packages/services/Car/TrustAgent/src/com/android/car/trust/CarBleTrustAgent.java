@@ -41,7 +41,9 @@ import java.util.concurrent.TimeUnit;
  * A sample trust agent that demonstrates how to use the escrow token unlock APIs. </p>
  *
  * This trust agent runs during direct boot and binds to a BLE service that listens for remote
- * devices to trigger an unlock.
+ * devices to trigger an unlock. <p/>
+ *
+ * The permissions for this agent must be enabled as priv-app permissions for it to start.
  */
 public class CarBleTrustAgent extends TrustAgentService {
     public static final String ACTION_REVOKE_TRUST = "revoke-trust-action";

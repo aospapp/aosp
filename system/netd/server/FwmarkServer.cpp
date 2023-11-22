@@ -34,7 +34,7 @@ namespace android {
 namespace net {
 
 FwmarkServer::FwmarkServer(NetworkController* networkController, EventReporter* eventReporter) :
-        SocketListener("fwmarkd", true), mNetworkController(networkController),
+        SocketListener(SOCKET_NAME, true), mNetworkController(networkController),
         mEventReporter(eventReporter) {
 }
 

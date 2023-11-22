@@ -1,0 +1,19 @@
+cc_library_static {
+    name: "libpdfiumagg23",
+    defaults: ["pdfium-defaults"],
+
+    cflags: [
+        // Mask some warnings. These are benign, but we probably want to fix them
+        // upstream at some point.
+        "-Wno-unused-parameter",
+        "-Wno-unused-function",
+    ],
+
+    srcs: [
+        "agg23/agg_curves.cpp",
+        "agg23/agg_path_storage.cpp",
+        "agg23/agg_rasterizer_scanline_aa.cpp",
+        "agg23/agg_vcgen_dash.cpp",
+        "agg23/agg_vcgen_stroke.cpp",
+    ],
+}

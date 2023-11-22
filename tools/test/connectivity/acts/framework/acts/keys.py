@@ -1,6 +1,6 @@
 #!/usr/bin/env python3.4
 #
-#   Copyright 2016 - The Android Open Source Project
+#   Copyright 2017 - The Android Open Source Project
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@ class Config(enum.Enum):
     key_access_point = "AccessPoint"
     key_attenuator = "Attenuator"
     key_iperf_server = "IPerfServer"
+    key_packet_sender = "PacketSender"
     key_monsoon = "Monsoon"
     key_sniffer = "Sniffer"
     # Internal keys, used internally, not exposed to user's config files.
@@ -58,6 +59,7 @@ class Config(enum.Enum):
     m_key_access_point = "access_point"
     m_key_attenuator = "attenuator"
     m_key_iperf_server = "iperf_server"
+    m_key_packet_sender = "packet_sender"
     m_key_sniffer = "sniffer"
 
     # A list of keys whose values in configs should not be passed to test
@@ -67,8 +69,8 @@ class Config(enum.Enum):
     # Controller names packaged with ACTS.
     builtin_controller_names = [
         key_android_device, key_native_android_device, key_relay_device,
-        key_access_point, key_attenuator, key_iperf_server, key_monsoon,
-        key_sniffer
+        key_access_point, key_attenuator, key_iperf_server, key_packet_sender,
+        key_monsoon, key_sniffer
     ]
 
 

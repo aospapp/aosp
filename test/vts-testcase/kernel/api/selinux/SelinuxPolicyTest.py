@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 from vts.testcases.kernel.api.selinux import KernelSelinuxFileTestBase
-from vts.utils.python.file import file_utils
+from vts.utils.python.file import target_file_utils
 
 
 class SelinuxPolicy(KernelSelinuxFileTestBase.KernelSelinuxFileTestBase):

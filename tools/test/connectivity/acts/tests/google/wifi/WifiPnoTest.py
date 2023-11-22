@@ -22,7 +22,7 @@ import acts.test_utils.wifi.wifi_test_utils as wutils
 from acts.test_utils.wifi.WifiBaseTest import WifiBaseTest
 
 WifiEnums = wutils.WifiEnums
-
+MAX_ATTN = 95
 
 class WifiPnoTest(WifiBaseTest):
 
@@ -42,9 +42,11 @@ class WifiPnoTest(WifiBaseTest):
 
         self.pno_network_a = self.reference_networks[0]['2g']
         self.pno_network_b = self.reference_networks[0]['5g']
-        self.attenuators = wutils.group_attenuators(self.attenuators)
         self.attn_a = self.attenuators[0]
         self.attn_b = self.attenuators[1]
+        # Disable second AP's networks, so that it does not interfere during PNO
+        self.attenuators[2].set_atten(MAX_ATTN)
+        self.attenuators[3].set_atten(MAX_ATTN)
         self.set_attns("default")
 
     def setup_test(self):
@@ -63,6 +65,11 @@ class WifiPnoTest(WifiBaseTest):
     def on_fail(self, test_name, begin_time):
         self.dut.take_bug_report(test_name, begin_time)
         self.dut.cat_adb_log(test_name, begin_time)
+
+    def teardown_class(self):
+        if "AccessPoint" in self.user_params:
+            del self.user_params["reference_networks"]
+            del self.user_params["open_network"]
 
     """Helper Functions"""
 
@@ -99,6 +106,8 @@ class WifiPnoTest(WifiBaseTest):
         self.log.info("Wait %ss for PNO to trigger.", self.pno_interval)
         time.sleep(self.pno_interval)
         try:
+            self.log.info("Connected to %s network after PNO interval"
+                          % self.dut.droid.wifiGetConnectionInfo())
             expected_ssid = expected_con[WifiEnums.SSID_KEY]
             verify_con = {WifiEnums.SSID_KEY: expected_ssid}
             wutils.verify_wifi_connection_info(self.dut, verify_con)
@@ -107,8 +116,8 @@ class WifiPnoTest(WifiBaseTest):
         finally:
             pass
 
-    def add_dummy_networks(self, num_networks):
-        """Add some dummy networks to the device.
+    def add_and_enable_dummy_networks(self, num_networks):
+        """Add some dummy networks to the device and enable them.
 
         Args:
             num_networks: Number of networks to add.
@@ -118,38 +127,57 @@ class WifiPnoTest(WifiBaseTest):
             network = {}
             network[WifiEnums.SSID_KEY] = ssid_name_base + str(i)
             network[WifiEnums.PWD_KEY] = "pno_dummy"
-            asserts.assert_true(
-                self.dut.droid.wifiAddNetwork(network) != -1,
-                "Add network %r failed" % network)
+            self.add_network_and_enable(network)
+
+    def add_network_and_enable(self, network):
+        """Add a network and enable it.
+
+        Args:
+            network : Network details for the network to be added.
+
+        """
+        ret = self.dut.droid.wifiAddNetwork(network)
+        asserts.assert_true(ret != -1, "Add network %r failed" % network)
+        self.dut.droid.wifiEnableNetwork(ret, 0)
+
 
     """ Tests Begin """
 
     @test_tracker_info(uuid="33d3cae4-5fa7-4e90-b9e2-5d3747bba64c")
-    def test_simple_pno_connection(self):
+    def test_simple_pno_connection_2g_to_5g(self):
         """Test PNO triggered autoconnect to a network.
 
         Steps:
         1. Switch off the screen on the device.
         2. Save 2 valid network configurations (a & b) in the device.
-        3. Attenuate network b.
-        4. Connect the device to network a.
-        5. Attenuate network a and remove attenuation on network b and wait for
-           a few seconds to trigger PNO.
-        6. Check the device connected to network b automatically.
-        8. Attenuate network b and remove attenuation on network a and wait for
-           a few seconds to trigger PNO.
-        9. Check the device connected to network a automatically.
+        3. Attenuate 5Ghz network and wait for a few seconds to trigger PNO.
+        4. Check the device connected to 2Ghz network automatically.
+        5. Attenuate 2Ghz network and wait for a few seconds to trigger PNO.
+        6. Check the device connected to 5Ghz network automatically.
         """
-        asserts.assert_true(
-            self.dut.droid.wifiAddNetwork(self.pno_network_a) != -1,
-            "Add network %r failed" % self.pno_network_a)
-        asserts.assert_true(
-            self.dut.droid.wifiAddNetwork(self.pno_network_b) != -1,
-            "Add network %r failed" % self.pno_network_b)
-        self.set_attns("a_on_b_off")
-        wutils.wifi_connect(self.dut, self.pno_network_a),
+        self.add_network_and_enable(self.pno_network_a)
+        self.add_network_and_enable(self.pno_network_b)
+        self.trigger_pno_and_assert_connect("a_on_b_off", self.pno_network_a)
+        self.trigger_pno_and_assert_connect("b_on_a_off", self.pno_network_b)
+
+    @test_tracker_info(uuid="39b945a1-830f-4f11-9e6a-9e9641066a96")
+    def test_simple_pno_connection_5g_to_2g(self):
+        """Test PNO triggered autoconnect to a network.
+
+        Steps:
+        1. Switch off the screen on the device.
+        2. Save 2 valid network configurations (a & b) in the device.
+        3. Attenuate 2Ghz network and wait for a few seconds to trigger PNO.
+        4. Check the device connected to 5Ghz network automatically.
+        5. Attenuate 5Ghz network and wait for a few seconds to trigger PNO.
+        6. Check the device connected to 2Ghz network automatically.
+
+        """
+        self.add_network_and_enable(self.pno_network_a)
+        self.add_network_and_enable(self.pno_network_b)
         self.trigger_pno_and_assert_connect("b_on_a_off", self.pno_network_b)
         self.trigger_pno_and_assert_connect("a_on_b_off", self.pno_network_a)
+
 
     @test_tracker_info(uuid="844b15be-ff45-4b09-a11b-0b2b4bb13b22")
     def test_pno_connection_with_multiple_saved_networks(self):
@@ -164,7 +192,10 @@ class WifiPnoTest(WifiBaseTest):
         1. Save 16 dummy network configurations in the device.
         2. Run the simple pno test.
         """
-        self.add_dummy_networks(16)
-        self.test_simple_pno_connection()
+        self.add_and_enable_dummy_networks(16)
+        self.add_network_and_enable(self.pno_network_a)
+        self.add_network_and_enable(self.pno_network_b)
+        self.trigger_pno_and_assert_connect("a_on_b_off", self.pno_network_a)
+        self.trigger_pno_and_assert_connect("b_on_a_off", self.pno_network_b)
 
     """ Tests End """

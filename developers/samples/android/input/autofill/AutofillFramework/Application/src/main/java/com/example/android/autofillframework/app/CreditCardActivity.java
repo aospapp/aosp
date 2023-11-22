@@ -18,14 +18,21 @@ package com.example.android.autofillframework.app;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.view.View;
-import android.widget.ArrayAdapter;
-import android.widget.Spinner;
+import android.view.autofill.AutofillManager;
+import android.widget.EditText;
 
 import com.example.android.autofillframework.R;
 
 public class CreditCardActivity extends AppCompatActivity {
+
+    private EditText mCcExpDayView;
+    private EditText mCcExpMonthView;
+    private EditText mCcExpYearView;
+    private EditText mCcNumber;
+    private EditText mCcSecurityCode;
 
     public static Intent getStartActivityIntent(Context context) {
         Intent intent = new Intent(context, CreditCardActivity.class);
@@ -33,49 +40,35 @@ public class CreditCardActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         setContentView(R.layout.credit_card_activity);
-
-        Spinner ccExpirationDaySpinner = findViewById(R.id.expirationDay);
-        Spinner ccExpirationMonthSpinner = findViewById(R.id.expirationMonth);
-        Spinner ccExpirationYearSpinner = findViewById(R.id.expirationYear);
-
-        // Create an ArrayAdapter using the string array and a default spinner layout
-        ArrayAdapter<CharSequence> dayAdapter = ArrayAdapter.createFromResource
-                (this, R.array.day_array, android.R.layout.simple_spinner_item);
-        // Specify the layout to use when the list of choices appears
-        dayAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        // Apply the adapter to the spinner
-        ccExpirationDaySpinner.setAdapter(dayAdapter);
-
-        ArrayAdapter<CharSequence> monthAdapter = ArrayAdapter.createFromResource
-                (this, R.array.month_array, android.R.layout.simple_spinner_item);
-        monthAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        ccExpirationMonthSpinner.setAdapter(monthAdapter);
-
-        ArrayAdapter<CharSequence> yearAdapter = ArrayAdapter.createFromResource
-                (this, R.array.year_array, android.R.layout.simple_spinner_item);
-        yearAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        ccExpirationYearSpinner.setAdapter(yearAdapter);
-
-        findViewById(R.id.submit).setOnClickListener(new View.OnClickListener() {
+        mCcExpDayView = findViewById(R.id.expirationDay);
+        mCcExpMonthView = findViewById(R.id.expirationMonth);
+        mCcExpYearView = findViewById(R.id.expirationYear);
+        mCcNumber = findViewById(R.id.creditCardNumberField);
+        mCcSecurityCode = findViewById(R.id.creditCardSecurityCode);
+        findViewById(R.id.submitButton).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 submit();
             }
         });
-        findViewById(R.id.clear).setOnClickListener(new View.OnClickListener() {
+        findViewById(R.id.clearButton).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                getSystemService(AutofillManager.class).cancel();
                 resetFields();
             }
         });
     }
 
     private void resetFields() {
-        //TODO
+        mCcExpDayView.setText("");
+        mCcExpMonthView.setText("");
+        mCcExpYearView.setText("");
+        mCcNumber.setText("");
+        mCcSecurityCode.setText("");
     }
 
     /**
@@ -83,7 +76,7 @@ public class CreditCardActivity extends AppCompatActivity {
      * any new data.
      */
     private void submit() {
-        Intent intent = WelcomeActivity.getStartActivityIntent(CreditCardActivity.this);
+        Intent intent = WelcomeActivity.getStartActivityIntent(this);
         startActivity(intent);
         finish();
     }

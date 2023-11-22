@@ -15,6 +15,7 @@
  */
 
 #include "common/math/vec.h"
+#include "common/math/macros.h"
 
 void findOrthogonalVector(float inX, float inY, float inZ, float *outX,
                           float *outY, float *outZ) {
@@ -50,67 +51,67 @@ void findOrthogonalVector(float inX, float inY, float inZ, float *outX,
   *outZ = z * invMag;
 }
 
-void vecAdd(float *u, const float *v, const float *w, int dim) {
+void vecAdd(float *u, const float *v, const float *w, size_t dim) {
   ASSERT_NOT_NULL(u);
   ASSERT_NOT_NULL(v);
   ASSERT_NOT_NULL(w);
-  int i;
+  size_t i;
   for (i = 0; i < dim; i++) {
     u[i] = v[i] + w[i];
   }
 }
 
-void vecAddInPlace(float *v, const float *w, int dim) {
+void vecAddInPlace(float *v, const float *w, size_t dim) {
   ASSERT_NOT_NULL(v);
   ASSERT_NOT_NULL(w);
-  int i;
+  size_t i;
   for (i = 0; i < dim; i++) {
     v[i] += w[i];
   }
 }
 
-void vecSub(float *u, const float *v, const float *w, int dim) {
+void vecSub(float *u, const float *v, const float *w, size_t dim) {
   ASSERT_NOT_NULL(u);
   ASSERT_NOT_NULL(v);
   ASSERT_NOT_NULL(w);
-  int i;
+  size_t i;
   for (i = 0; i < dim; i++) {
     u[i] = v[i] - w[i];
   }
 }
 
-void vecScalarMul(float *u, const float *v, float c, int dim) {
+void vecScalarMul(float *u, const float *v, float c, size_t dim) {
   ASSERT_NOT_NULL(u);
   ASSERT_NOT_NULL(v);
-  int i;
+  size_t i;
   for (i = 0; i < dim; i++) {
     u[i] = c * v[i];
   }
 }
 
-void vecScalarMulInPlace(float *u, float c, int dim) {
-  ASSERT_NOT_NULL(u);
-  int i;
+void vecScalarMulInPlace(float *v, float c, size_t dim) {
+  ASSERT_NOT_NULL(v);
+  size_t i;
   for (i = 0; i < dim; i++) {
-    u[i] *= c;
+    v[i] *= c;
   }
 }
 
-float vecNorm(const float *v, int dim) {
+float vecNorm(const float *v, size_t dim) {
   ASSERT_NOT_NULL(v);
   float norm_sq = vecNormSquared(v, dim);
   return sqrtf(norm_sq);
 }
 
-float vecNormSquared(const float *v, int dim) {
+float vecNormSquared(const float *v, size_t dim) {
   ASSERT_NOT_NULL(v);
   return vecDot(v, v, dim);
 }
 
-float vecDot(const float *v, const float *w, int dim) {
+float vecDot(const float *v, const float *w, size_t dim) {
   ASSERT_NOT_NULL(v);
   ASSERT_NOT_NULL(w);
-  int i;
+  size_t i;
   float result = 0;
   for (i = 0; i < dim; ++i) {
     result += v[i] * w[i];
@@ -118,11 +119,11 @@ float vecDot(const float *v, const float *w, int dim) {
   return result;
 }
 
-float vecMaxAbsoluteValue(const float *v, int dim) {
+float vecMaxAbsoluteValue(const float *v, size_t dim) {
   ASSERT_NOT_NULL(v);
   float max = NANO_ABS(v[0]);
   float tmp;
-  int i;
+  size_t i;
   for (i = 1; i < dim; ++i) {
     tmp = NANO_ABS(v[i]);
     if(tmp > max) {

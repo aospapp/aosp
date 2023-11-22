@@ -19,6 +19,8 @@ files into a wl.tar file.
 device (on /data/local/tmp say). Explode the tarfile.
 - Run the tester. "ioshark_bench *.wl" runs the test with default
 options. Supported ioshark_bench options :
+-b : Explicitly specify a blockdev (to get IO stats from from
+/proc/diskstats).
 -d : Preserve the delays between successive filesystem syscalls as
 seen in the original straces.
 -n <N> : Run for N iterations

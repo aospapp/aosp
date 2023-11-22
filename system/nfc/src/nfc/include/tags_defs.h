@@ -263,6 +263,14 @@
 #define T2T_RSP_NACK5 0x5
 #define T2T_RSP_NACK1 0x1 /* Nack can be either 1    */
 
+#define T2T_STATUS_OK_1_BIT 0x11
+#define T2T_STATUS_OK_2_BIT 0x12
+#define T2T_STATUS_OK_3_BIT 0x13
+#define T2T_STATUS_OK_4_BIT 0x14
+#define T2T_STATUS_OK_5_BIT 0x15
+#define T2T_STATUS_OK_6_BIT 0x16
+#define T2T_STATUS_OK_7_BIT 0x17
+
 #define T2T_FIRST_DATA_BLOCK 4
 #define T2T_READ_BLOCKS 4
 #define T2T_BLOCK_LEN 4
@@ -283,8 +291,11 @@
 #define T2T_TLEN_MEM_CTRL_TLV 3 /* Tag len for MEM_CTRL TLV per spec */
 
 /* Maximum number of sectors supported */
+#if (APPL_DTA_MODE == TRUE)
+#define T2T_MAX_SECTOR 3
+#else
 #define T2T_MAX_SECTOR 2
-
+#endif
 /* Tlv type identifier len                */
 #define T2T_TLV_TYPE_LEN 1
 
@@ -514,6 +525,8 @@ typedef uint8_t tT3T_POLL_RC;
 #define T4T_FC_READ_ACCESS 0x00
 /* write access granted without any security */
 #define T4T_FC_WRITE_ACCESS 0x00
+/* proprietary write access range start */
+#define T4T_FC_WRITE_ACCESS_PROP_START 0x80
 /* no write access granted at all (read-only) */
 #define T4T_FC_NO_WRITE_ACCESS 0xFF
 

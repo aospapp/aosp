@@ -23,6 +23,8 @@
     <test class="com.android.tradefed.testtype.GTest" >
         <option name="native-test-device-path" value="/data/local/tmp" />
         <option name="module-name" value="CtsNativeMediaAAudioTestCases" />
-        <option name="runtime-hint" value="1m" />
+        <option name="runtime-hint" value="2m" />
+        <!-- test-timeout unit is ms, value = 2 min -->
+        <option name="native-test-timeout" value="120000" />
     </test>
 </configuration>

@@ -28,6 +28,7 @@ import com.android.documentsui.base.Features;
 import com.android.documentsui.base.State;
 import com.android.documentsui.testing.TestActionHandler;
 import com.android.documentsui.testing.TestEnv;
+import com.android.documentsui.testing.TestFileTypeLookup;
 
 @MediumTest
 public class ModelBackedDocumentsAdapterTest extends AndroidTestCase {
@@ -47,7 +48,7 @@ public class ModelBackedDocumentsAdapterTest extends AndroidTestCase {
         DocumentsAdapter.Environment env = new TestEnvironment(testContext);
 
         mAdapter = new ModelBackedDocumentsAdapter(
-                env, new IconHelper(testContext, State.MODE_GRID));
+                env, new IconHelper(testContext, State.MODE_GRID), new TestFileTypeLookup());
         mAdapter.getModelUpdateListener().accept(Model.Update.UPDATE);
     }
 

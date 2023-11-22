@@ -7,8 +7,10 @@ from autotest_lib.server import utils
 AUTHOR = "mruthven"
 NAME = "firmware_Cr50UpdateScriptStress"
 PURPOSE = "Verify cr50-update"
+ATTRIBUTES = "suite:cr50_stress_experimental"
 TIME = "LONG"
 TEST_TYPE = "server"
+DEPENDENCIES = "servo"
 
 DOC = """
 This test clears the cr50 update state and reboots the device many times
@@ -16,13 +18,14 @@ to verify that the cr50 update is reliable.
 """
 
 args_dict = utils.args_to_dict(args)
+servo_args = hosts.CrosHost.get_servo_arguments(args_dict)
 
 def run(machine):
-    host = hosts.create_host(machine)
+    host = hosts.create_host(machine, servo_args=servo_args)
 
     iterations = int(args_dict.get("iterations", 100))
 
     job.run_test("firmware_Cr50UpdateScriptStress", host=host,
-                 iterations=iterations)
+                 cmdline_args=args, iterations=iterations)
 
 parallel_simple(run, machines)

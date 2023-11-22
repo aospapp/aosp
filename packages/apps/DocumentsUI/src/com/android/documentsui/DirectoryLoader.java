@@ -40,6 +40,7 @@ import com.android.documentsui.base.DebugFlags;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.Features;
 import com.android.documentsui.base.FilteringCursorWrapper;
+import com.android.documentsui.base.Lookup;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.roots.RootCursorWrapper;
 import com.android.documentsui.sorting.SortModel;
@@ -56,6 +57,7 @@ public class DirectoryLoader extends AsyncTaskLoader<DirectoryResult> {
     private final RootInfo mRoot;
     private final Uri mUri;
     private final SortModel mModel;
+    private final Lookup<String, String> mFileTypeLookup;
     private final boolean mSearchMode;
 
     private DocumentInfo mDoc;
@@ -65,21 +67,23 @@ public class DirectoryLoader extends AsyncTaskLoader<DirectoryResult> {
     private Features mFeatures;
 
     public DirectoryLoader(
-            Features freatures,
+            Features features,
             Context context,
             RootInfo root,
             DocumentInfo doc,
             Uri uri,
             SortModel model,
+            Lookup<String, String> fileTypeLookup,
             DirectoryReloadLock lock,
             boolean inSearchMode) {
 
         super(context, ProviderExecutor.forAuthority(root.authority));
-        mFeatures = freatures;
+        mFeatures = features;
         mRoot = root;
         mUri = uri;
         mModel = model;
         mDoc = doc;
+        mFileTypeLookup = fileTypeLookup;
         mSearchMode = inSearchMode;
         mObserver = new LockingContentObserver(lock, this::onContentChanged);
     }
@@ -142,7 +146,7 @@ public class DirectoryLoader extends AsyncTaskLoader<DirectoryResult> {
                         && cursor.getExtras().containsKey(ContentResolver.QUERY_ARG_SORT_COLUMNS)) {
                 if (VERBOSE) Log.d(TAG, "Skipping sort of pre-sorted cursor. Booya!");
             } else {
-                cursor = mModel.sortCursor(cursor);
+                cursor = mModel.sortCursor(cursor, mFileTypeLookup);
             }
             result.cursor = cursor;
         } catch (Exception e) {

@@ -16,9 +16,6 @@
 
 package android.autofillservice.cts;
 
-import static android.autofillservice.cts.Helper.FILL_TIMEOUT_MS;
-import static android.autofillservice.cts.Helper.eventually;
-
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.testng.Assert.assertThrows;
@@ -26,7 +23,6 @@ import static org.testng.Assert.assertThrows;
 import android.icu.util.Calendar;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.test.rule.ActivityTestRule;
 import android.view.View;
 import android.view.autofill.AutofillValue;
 import android.widget.CompoundButton;
@@ -57,8 +53,8 @@ import org.junit.Test;
  */
 public class AutofillValueTest extends AutoFillServiceTestCase {
     @Rule
-    public final ActivityTestRule<AllAutofillableViewsActivity> mActivityRule =
-            new ActivityTestRule<>(AllAutofillableViewsActivity.class);
+    public final AutofillActivityTestRule<AllAutofillableViewsActivity> mActivityRule =
+            new AutofillActivityTestRule<>(AllAutofillableViewsActivity.class);
 
     private AllAutofillableViewsActivity mActivity;
     private EditText mEditText;
@@ -423,7 +419,7 @@ public class AutofillValueTest extends AutoFillServiceTestCase {
                 .setField("editText", "filled")
                 .setPresentation(createPresentation("dataset"))
                 .build());
-        MultipleTimesTimeListener timeWatcher = new MultipleTimesTimeListener("timePicker", 2,
+        MultipleTimesTimeListener timeWatcher = new MultipleTimesTimeListener("timePicker", 1,
                 mTimePicker, 12, 32);
         mTimePicker.setOnTimeChangedListener(timeWatcher);
 

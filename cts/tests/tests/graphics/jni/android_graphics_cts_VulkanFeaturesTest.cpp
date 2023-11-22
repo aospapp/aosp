@@ -21,12 +21,6 @@
 #include <jni.h>
 #include <vkjson.h>
 
-// TODO(jessehall): Remove this once we update the NDK vulkan.h to a newer
-// version that defines this.
-#ifndef VK_API_VERSION_1_0
-#define VK_API_VERSION_1_0 VK_MAKE_VERSION(1, 0, 0)
-#endif
-
 #define ALOGI(msg, ...) \
     __android_log_print(ANDROID_LOG_INFO, LOG_TAG, (msg), __VA_ARGS__)
 #define ALOGE(msg, ...) \
@@ -34,8 +28,42 @@
 
 namespace {
 
+const char* kDesiredInstanceExtensions[] = {
+    "VK_KHR_get_physical_device_properties2",
+};
+
 VkResult getVkJSON(std::string& vkjson) {
     VkResult result;
+
+    uint32_t available_extensions_count = 0;
+    std::vector<VkExtensionProperties> available_extensions;
+    result = vkEnumerateInstanceExtensionProperties(nullptr /* layerName */,
+            &available_extensions_count, nullptr);
+    if (result != VK_SUCCESS) {
+        ALOGE("vkEnumerateInstanceExtensionProperties failed: %d", result);
+        return result;
+    }
+    do {
+        available_extensions.resize(available_extensions_count);
+        result = vkEnumerateInstanceExtensionProperties(nullptr /* layerName */,
+                &available_extensions_count, available_extensions.data());
+        if (result < 0) {
+            ALOGE("vkEnumerateInstanceExtensionProperties failed: %d", result);
+            return result;
+        }
+    } while (result == VK_INCOMPLETE);
+    available_extensions.resize(available_extensions_count);
+
+    std::vector<const char*> enable_extensions;
+    for (auto name : kDesiredInstanceExtensions) {
+        if (std::find_if(available_extensions.cbegin(), available_extensions.cend(),
+                [name](const VkExtensionProperties& properties) {
+                    return strcmp(name, properties.extensionName) == 0;
+                })
+                != available_extensions.cend()) {
+            enable_extensions.push_back(name);
+        }
+    }
 
     const VkApplicationInfo app_info = {
         VK_STRUCTURE_TYPE_APPLICATION_INFO, nullptr,
@@ -48,7 +76,8 @@ VkResult getVkJSON(std::string& vkjson) {
         0,              /* flags */
         &app_info,
         0, nullptr,     /* layers */
-        0, nullptr,     /* extensions */
+        static_cast<uint32_t>(enable_extensions.size()),
+        enable_extensions.data(),
     };
     VkInstance instance;
     result = vkCreateInstance(&instance_info, nullptr, &instance);
@@ -74,8 +103,9 @@ VkResult getVkJSON(std::string& vkjson) {
 
     vkjson.assign("[\n");
     for (size_t i = 0, n = gpus.size(); i < n; i++) {
-        auto props = VkJsonGetAllProperties(gpus[i]);
-        vkjson.append(VkJsonAllPropertiesToJson(props));
+        auto props = VkJsonGetDevice(instance, gpus[i],
+                instance_info.enabledExtensionCount, instance_info.ppEnabledExtensionNames);
+        vkjson.append(VkJsonDeviceToJson(props));
         if (i < n - 1)
             vkjson.append(",\n");
     }

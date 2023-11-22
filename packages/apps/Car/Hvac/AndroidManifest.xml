@@ -29,10 +29,13 @@
     <application android:label="@string/hvac_label"
         android:icon="@drawable/ic_launcher_hvac"
         android:persistent="true">
-        <service android:name=".HvacController" android:exported="false" />
+        <service android:name=".HvacController"
+            android:singleUser="true"
+            android:exported="false" />
 
         <service android:name=".HvacUiService"
-                 android:exported="false"/>
+            android:singleUser="true"
+            android:exported="false"/>
 
         <receiver android:name=".BootCompleteReceiver">
             <intent-filter>

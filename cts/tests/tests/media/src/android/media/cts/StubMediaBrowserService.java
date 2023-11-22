@@ -62,6 +62,14 @@ public class StubMediaBrowserService extends MediaBrowserService {
     }
 
     @Override
+    public void onDestroy() {
+        super.onDestroy();
+        sSession.release();
+        sInstance = null;
+        sSession = null;
+    }
+
+    @Override
     public BrowserRoot onGetRoot(String clientPackageName, int clientUid, Bundle rootHints) {
         mExtras = new Bundle();
         mExtras.putString(EXTRAS_KEY, EXTRAS_VALUE);

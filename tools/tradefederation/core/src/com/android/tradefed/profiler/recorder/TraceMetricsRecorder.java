@@ -37,7 +37,7 @@ import java.util.function.BiFunction;
  * Metrics to be recorded need to be provided as TraceMetrics. The default descriptor
  * has the format prefix:funcname:param[=expectedval]:metrictype.
  */
-public class TraceMetricsRecorder extends NumericMetricsRecorder {
+public class TraceMetricsRecorder implements IMetricsRecorder {
 
     private static final String TRACE_DIR = "/d/tracing";
     private static final String EVENT_DIR = TRACE_DIR + "/events/";
@@ -56,7 +56,8 @@ public class TraceMetricsRecorder extends NumericMetricsRecorder {
             TraceMetric metric = TraceMetric.parse(descriptor);
             enableSingleEventTrace(device, metric.getPrefix() + "/" + metric.getFuncName());
             mTraceMetrics.put(metric.getFuncName(), metric);
-            mMergeFunctions.put(metric, getMergeFunctionByMetricType(metric.getMetricType()));
+            mMergeFunctions.put(
+                    metric, new NumericAggregateFunction(metric.getMetricType()).getFunction());
         }
     }
 
@@ -145,17 +146,6 @@ public class TraceMetricsRecorder extends NumericMetricsRecorder {
         String fullLocation = EVENT_DIR + location + "/enable";
         CLog.d("Starting event located at %s", fullLocation);
         device.executeShellCommand("echo 1 > " + fullLocation);
-    }
-
-    private BiFunction<Double, Double, Double> getMergeFunctionByMetricType(MetricType t) {
-        switch(t) {
-            case COUNT: return count();
-            case COUNTPOS: return countpos();
-            case SUM: return sum();
-            case AVG:
-            case AVGTIME: return avg();
-            default: throw new IllegalArgumentException("unknown metric type " + t);
-        }
     }
 
     protected BufferedReader getReaderFromFile(File trace) throws FileNotFoundException {

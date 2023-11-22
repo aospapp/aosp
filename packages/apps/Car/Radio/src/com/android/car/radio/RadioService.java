@@ -137,7 +137,7 @@ public class RadioService extends Service implements AudioManager.OnAudioFocusCh
     /**
      * Initializes this service to use a demo {@link IRadioManager}.
      *
-     * @see {@link RadioDemo}
+     * @see RadioDemo
      */
     private void initializeDemo() {
         if (Log.isLoggable(TAG, Log.DEBUG)) {
@@ -185,11 +185,11 @@ public class RadioService extends Service implements AudioManager.OnAudioFocusCh
                 Log.d(TAG, "loading band: " + band.toString());
             }
 
-            if (mFmDescriptor == null && band.getType() == RadioManager.BAND_FM) {
+            if (mFmDescriptor == null && band.isFmBand()) {
                 mFmDescriptor = (RadioManager.FmBandDescriptor) band;
             }
 
-            if (mAmDescriptor == null && band.getType() == RadioManager.BAND_AM) {
+            if (mAmDescriptor == null && band.isAmBand()) {
                 mAmDescriptor = (RadioManager.AmBandDescriptor) band;
             }
         }
@@ -208,14 +208,8 @@ public class RadioService extends Service implements AudioManager.OnAudioFocusCh
                 .build();
 
         // If there is a second tuner on the device, then set it up as the background scanner.
-        if (mModules.size() >= 2) {
-            if (isDebugLoggable) {
-                Log.d(TAG, "Second tuner detected on device; setting up background scanner");
-            }
-
-            mBackgroundScanner = new RadioBackgroundScanner(this /* context */, mRadioManager,
-                    mAmConfig, mFmConfig, mModules.get(1));
-        }
+        // TODO(b/63101896): we don't know if the second tuner is for the same medium, so we don't
+        // set background scanner for now.
 
         mRadioSuccessfullyInitialized = true;
     }
@@ -336,11 +330,11 @@ public class RadioService extends Service implements AudioManager.OnAudioFocusCh
     private RadioManager.BandConfig getRadioConfig(int selectedRadioBand) {
         switch (selectedRadioBand) {
             case RadioManager.BAND_AM:
+            case RadioManager.BAND_AM_HD:
                 return mAmConfig;
             case RadioManager.BAND_FM:
+            case RadioManager.BAND_FM_HD:
                 return mFmConfig;
-
-            // TODO: Support BAND_FM_HD and BAND_AM_HD.
 
             default:
                 return null;

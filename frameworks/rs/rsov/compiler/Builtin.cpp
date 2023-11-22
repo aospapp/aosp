@@ -285,7 +285,9 @@ public:
   }
 
   Instruction *transform(CapabilityInst *inst) override {
-    if (inst->mOperand1 == Capability::Linkage ||
+    // Remove capabilities Address, Linkage, and Kernel.
+    if (inst->mOperand1 == Capability::Addresses ||
+        inst->mOperand1 == Capability::Linkage ||
         inst->mOperand1 == Capability::Kernel) {
       return nullptr;
     }
@@ -297,6 +299,17 @@ public:
       return nullptr;
     }
     return inst;
+  }
+
+  Instruction *transform(InBoundsPtrAccessChainInst *inst) override {
+    // Transform any OpInBoundsPtrAccessChain instruction to an
+    // OpInBoundsAccessChain instruction, since the former is not allowed by
+    // the Vulkan validation rules.
+    auto newInst = mBuilder.MakeInBoundsAccessChain(inst->mResultType,
+                                                    inst->mOperand1,
+                                                    inst->mOperand3);
+    newInst->setId(inst->getId());
+    return newInst;
   }
 
   Instruction *transform(SourceInst *inst) override {

@@ -81,7 +81,7 @@ public final class UserInputHandler_KeyboardTest {
                 mGestureSelectHandler::accept,
                 () -> mPerformHapticFeedback.accept(null));
 
-        mEvent = TestEvent.builder().mouse();
+        mEvent = TestEvent.builder().mouse().overDocIcon();
     }
 
     @Test

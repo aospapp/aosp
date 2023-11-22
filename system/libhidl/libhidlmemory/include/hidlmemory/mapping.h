@@ -19,6 +19,10 @@
 namespace android {
 namespace hardware {
 
+/**
+ * Returns the IMemory instance corresponding to a hidl_memory object.
+ * If the shared memory cannot be fetched, this returns nullptr.
+ */
 sp<android::hidl::memory::V1_0::IMemory> mapMemory(const hidl_memory &memory);
 
 }  // namespace hardware

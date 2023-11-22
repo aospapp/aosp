@@ -687,23 +687,12 @@ public class CipherTest extends AndroidTestCase {
                     // Encrypting this plaintext using Android Keystore Cipher should fail.
                     Cipher cipher = Cipher.getInstance(algorithm, keystoreProvider);
                     cipher.init(Cipher.ENCRYPT_MODE, encryptionKey);
-                    if ("RSA/ECB/NoPadding".equalsIgnoreCase(algorithm)) {
-                        // This transformation is special: it's supposed to throw a
-                        // BadPaddingException instead of an IllegalBlockSizeException.
-                        try {
-                            byte[] ciphertext = cipher.doFinal(plaintext);
-                            fail("Unexpectedly produced ciphertext (" + ciphertext.length
-                                    + " bytes): " + HexEncoding.encode(ciphertext) + " for "
-                                    + plaintext.length + " byte long plaintext");
-                        } catch (BadPaddingException expected) {}
-                    } else {
-                        try {
-                            byte[] ciphertext = cipher.doFinal(plaintext);
-                            fail("Unexpectedly produced ciphertext (" + ciphertext.length
-                                    + " bytes): " + HexEncoding.encode(ciphertext) + " for "
-                                    + plaintext.length + " byte long plaintext");
-                        } catch (IllegalBlockSizeException expected) {}
-                    }
+                    try {
+                        byte[] ciphertext = cipher.doFinal(plaintext);
+                        fail("Unexpectedly produced ciphertext (" + ciphertext.length
+                                + " bytes): " + HexEncoding.encode(ciphertext) + " for "
+                                + plaintext.length + " byte long plaintext");
+                    } catch (IllegalBlockSizeException | BadPaddingException expected) {}
 
                     // Encrypting this plaintext using the highest-priority implementation should
                     // fail.
@@ -720,34 +709,16 @@ public class CipherTest extends AndroidTestCase {
                         // This has already been tested above.
                         continue;
                     }
-                    if ("RSA/ECB/NoPadding".equalsIgnoreCase(algorithm)) {
-                        // This transformation is special: it's supposed to throw a
-                        // BadPaddingException instead of an IllegalBlockSizeException.
-                        try {
-                            byte[] ciphertext = cipher.doFinal(plaintext);
-                            fail(otherProvider.getName() + " unexpectedly produced ciphertext ("
-                                    + ciphertext.length + " bytes): "
-                                    + HexEncoding.encode(ciphertext) + " for "
-                                    + plaintext.length + " byte long plaintext");
-                            // TODO: Remove this workaround once Conscrypt's RSA Cipher Bug 22567458
-                            // is fixed. Conscrypt's Cipher.doFinal throws a SignatureException.
-                            // This code is unreachable because of the fail() above. It's here only
-                            // so that the compiler does not complain about us catching
-                            // SignatureException.
-                            Signature sig = Signature.getInstance("SHA256withRSA");
-                            sig.sign();
-                        } catch (BadPaddingException | SignatureException expected) {}
-                    } else {
-                        try {
-                            byte[] ciphertext = cipher.doFinal(plaintext);
-                            fail(otherProvider.getName() + " unexpectedly produced ciphertext ("
-                                    + ciphertext.length + " bytes): "
-                                    + HexEncoding.encode(ciphertext) + " for "
-                                    + plaintext.length + " byte long plaintext");
-                            // TODO: Remove the catching of RuntimeException workaround once the
-                            // corresponding Bug 22567463 in Conscrypt is fixed.
-                        } catch (IllegalBlockSizeException | RuntimeException expected) {}
-                    }
+                    try {
+                        byte[] ciphertext = cipher.doFinal(plaintext);
+                        fail(otherProvider.getName() + " unexpectedly produced ciphertext ("
+                                + ciphertext.length + " bytes): "
+                                + HexEncoding.encode(ciphertext) + " for "
+                                + plaintext.length + " byte long plaintext");
+                        // TODO: Remove the catching of RuntimeException and BadPaddingException
+                        // workaround once the corresponding Bug 22567463 in Conscrypt is fixed.
+                    } catch (IllegalBlockSizeException | BadPaddingException | RuntimeException
+                            exception) {}
                 } catch (Throwable e) {
                     throw new RuntimeException(
                             "Failed for " + algorithm + " with key " + key.getAlias()

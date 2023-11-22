@@ -14,4 +14,8 @@
 // limitations under the License.
 //
 
-subdirs = ["ese_relay"]
+subdirs = [
+    "ese_ls_provision",
+    "ese_relay",
+    "ese_replay",
+]

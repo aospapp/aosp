@@ -7,7 +7,7 @@ import os
 import time
 import urllib
 
-from autotest_lib.client.bin import site_utils, test, utils
+from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros import backchannel
@@ -58,11 +58,6 @@ class power_Consumption(test.test):
             # Verify that we are running on battery and the battery is
             # sufficiently charged
             self._power_status.assert_battery_state(30)
-
-        # Find the battery capacity to report expected battery life in hours
-        batinfo = self._power_status.battery[0]
-        self.energy_full_design = batinfo.energy_full_design
-        logging.info("energy_full_design = %0.3f Wh", self.energy_full_design)
 
         # Local data and web server settings. Tarballs with traditional names
         # like *.tgz don't get copied to the image by ebuilds (see
@@ -226,9 +221,8 @@ class power_Consumption(test.test):
 
         more_urls = [('BallsDHTML',
                       data_url + 'balls/DHTMLBalls/dhtml.htm'),
-                     # Disabling FlexBalls as experiment http://crbug.com/309403
-                     # ('BallsFlex',
-                     #  data_url + 'balls/FlexBalls/flexballs.html'),
+                     ('BallsFlex',
+                      data_url + 'balls/FlexBalls/flexballs.html'),
                     ]
 
         if self.short:
@@ -248,31 +242,36 @@ class power_Consumption(test.test):
             self._run_url_bg('bg_' + name, url, duration=self._duration_secs)
 
 
-    def _run_group_v8(self):
-        """Run the V8 benchmark suite as a sub-test.
+    def _run_group_speedometer(self):
+        """Run the Speedometer benchmark suite as a sub-test.
 
         Fire it up and wait until it displays "Score".
         """
 
-        url = 'http://v8.googlecode.com/svn/data/benchmarks/v7/run.html'
-        js = "document.getElementById('status').textContent"
+        # TODO: check in a local copy of the test if we can get permission if
+        # the network causes problems.
+        url = 'http://browserbench.org/Speedometer/'
+        start_js = 'startTest()'
+        score_js = "document.getElementById('result-number').innerText"
         tab = self._tab
 
-        def v8_func():
+        def speedometer_func():
             """To be passed as the callable to self._run_func()"""
             tab.Navigate(url)
-            # V8 test will usually take 17-25 seconds. Need some sleep here
-            # to let the V8 page load and create the 'status' div.
-            is_done = lambda: tab.EvaluateJavaScript(js).startswith('Score')
+            tab.WaitForDocumentReadyStateToBeComplete()
+            tab.EvaluateJavaScript(start_js)
+            # Speedometer test should be done in less than 15 minutes (actual
+            # runs are closer to 5).
+            is_done = lambda: tab.EvaluateJavaScript(score_js) != ""
             time.sleep(self._stabilization_seconds)
-            utils.poll_for_condition(is_done, timeout=60, desc='V8 score found')
+            utils.poll_for_condition(is_done, timeout=900,
+                                     desc='Speedometer score found')
 
-        self._run_func('V8', v8_func, repeat=self._repeats)
+        self._run_func('Speedometer', speedometer_func, repeat=self._repeats)
 
-        # Write v8 score from the last run to log
-        score = tab.EvaluateJavaScript(js)
-        score = score.strip().split()[1]
-        logging.info('V8 Score: %s', score)
+        # Write speedometer score from the last run to log
+        score = tab.EvaluateJavaScript(score_js)
+        logging.info('Speedometer Score: %s', score)
 
 
     def _run_group_video(self):
@@ -368,7 +367,7 @@ class power_Consumption(test.test):
         self._run_cmd('memtester', '/usr/local/sbin/memtester %s 1' % mb)
 
         # one rep of dd takes about 15 seconds
-        root_dev = site_utils.get_root_partition()
+        root_dev = utils.get_root_partition()
         cmd = 'dd if=%s of=/dev/null' % root_dev
         self._run_cmd('dd', cmd, repeat=2 * self._repeats)
 
@@ -454,7 +453,7 @@ class power_Consumption(test.test):
         self._duration_secs = self._base_secs * reps
 
         # Lists of default tests to run
-        UI_TESTS = ['backlight', 'download', 'webpages', 'video', 'v8']
+        UI_TESTS = ['backlight', 'download', 'webpages', 'video', 'speedometer']
         NONUI_TESTS = ['backchannel', 'sound', 'lowlevel']
         DEFAULT_TESTS = UI_TESTS + NONUI_TESTS
         DEFAULT_SHORT_TESTS = ['download', 'webpages', 'video']
@@ -470,11 +469,13 @@ class power_Consumption(test.test):
         self._backlight = power_utils.Backlight()
         self._backlight.set_default()
 
-        measurements = \
-            [power_status.SystemPower(self._power_status.battery_path)]
+        measure = []
+        if not self._power_status.on_ac():
+            measure += \
+                [power_status.SystemPower(self._power_status.battery_path)]
         if power_utils.has_rapl_support():
-            measurements += power_rapl.create_rapl()
-        self._plog = power_status.PowerLogger(measurements)
+            measure += power_rapl.create_rapl()
+        self._plog = power_status.PowerLogger(measure)
         self._plog.start()
 
         # Log in.
@@ -504,28 +505,36 @@ class power_Consumption(test.test):
         keyvals.update(self._tmp_keyvals)
         keyvals.update(self._statomatic.publish())
 
-        # Calculate expected battery life time with ChromeVer power draw
-        idle_name = 'ChromeVer_system_pwr'
-        if idle_name in keyvals:
-            hours_life = self.energy_full_design / keyvals[idle_name]
-            keyvals['hours_battery_ChromeVer'] = hours_life
+        # check AC status is still the same as init
+        self._power_status.refresh()
+        on_ac = self._power_status.on_ac()
+        if keyvals['b_on_ac'] != on_ac:
+            raise error.TestError('on AC changed between start & stop of test')
 
-        # Calculate a weighted power draw and battery life time. The weights
-        # are intended to represent "typical" usage. Some video, some Flash ...
-        # and most of the time idle.
-        # see http://www.chromium.org/chromium-os/testing/power-testing
-        weights = {'vid400p_h264_system_pwr':0.1,
-                   # TODO(chromium:309403) re-enable BallsFlex once Flash in
-                   # test-lab understood and re-distribute back to 60/20/10/10.
-                   # 'BallsFlex_system_pwr':0.1,
-                   'BallsDHTML_system_pwr':0.3,
-                   }
-        weights[idle_name] = 1 - sum(weights.values())
+        if not on_ac:
+            whrs = self._power_status.battery[0].energy_full_design
+            logging.info("energy_full_design = %0.3f Wh", whrs)
 
-        if set(weights).issubset(set(keyvals)):
-            p = sum(w * keyvals[k] for (k, w) in weights.items())
-            keyvals['w_Weighted_system_pwr'] = p
-            keyvals['hours_battery_Weighted'] = self.energy_full_design / p
+            # Calculate expected battery life time with ChromeVer power draw
+            idle_name = 'ChromeVer_system_pwr'
+            if idle_name in keyvals:
+                hours_life = whrs / keyvals[idle_name]
+                keyvals['hours_battery_ChromeVer'] = hours_life
+
+            # Calculate a weighted power draw and battery life time. The weights
+            # are intended to represent "typical" usage. Some video, some Flash
+            # ... and most of the time idle. see,
+            # http://www.chromium.org/chromium-os/testing/power-testing
+            weights = {'vid400p_h264_system_pwr':0.1,
+                       'BallsFlex_system_pwr':0.1,
+                       'BallsDHTML_system_pwr':0.3,
+                      }
+            weights[idle_name] = 1 - sum(weights.values())
+
+            if set(weights).issubset(set(keyvals)):
+                p = sum(w * keyvals[k] for (k, w) in weights.items())
+                keyvals['w_Weighted_system_pwr'] = p
+                keyvals['hours_battery_Weighted'] = whrs / p
 
         self.write_perf_keyval(keyvals)
         self._plog.save_results(self.resultsdir)

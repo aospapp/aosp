@@ -37,7 +37,7 @@
 #include <cutils/sockets.h>
 #include <sys/system_properties.h>
 #include <termios.h>
-#include <system/qemu_pipe.h>
+#include <qemu_pipe.h>
 
 #include "ril.h"
 
@@ -165,7 +165,13 @@ typedef enum {
     RUIM_READY = 8,
     RUIM_PIN = 9,
     RUIM_PUK = 10,
-    RUIM_NETWORK_PERSONALIZATION = 11
+    RUIM_NETWORK_PERSONALIZATION = 11,
+    ISIM_ABSENT = 12,
+    ISIM_NOT_READY = 13,
+    ISIM_READY = 14,
+    ISIM_PIN = 15,
+    ISIM_PUK = 16,
+    ISIM_NETWORK_PERSONALIZATION = 17,
 } SIM_Status;
 
 static void onRequest (int request, void *data, size_t datalen, RIL_Token t);
@@ -606,8 +612,7 @@ static void requestOrSendDataCallList(RIL_Token *t)
             }
             responses[i].dnses = dnslist;
 
-            /* There is only on gateway in the emulator */
-            responses[i].gateways = "10.0.2.2";
+            responses[i].gateways = "10.0.2.2 fe80::2";
             responses[i].mtu = DEFAULT_MTU;
         }
         else {
@@ -803,9 +808,11 @@ static void requestGetCurrentCalls(void *data __unused, size_t datalen __unused,
     }
 
     return;
+#ifdef WORKAROUND_ERRONEOUS_ANSWER
 error:
     RIL_onRequestComplete(t, RIL_E_GENERIC_FAILURE, NULL, 0);
     at_response_free(p_response);
+#endif
 }
 
 static void requestDial(void *data, size_t datalen __unused, RIL_Token t)
@@ -888,9 +895,13 @@ static void requestSignalStrength(void *data __unused, size_t datalen __unused, 
     ATResponse *p_response = NULL;
     int err;
     char *line;
-    int count =0;
-    int numofElements=sizeof(RIL_SignalStrength_v6)/sizeof(int);
-    int response[numofElements];
+    int count = 0;
+    // Accept a response that is at least v6, and up to v10
+    int minNumOfElements=sizeof(RIL_SignalStrength_v6)/sizeof(int);
+    int maxNumOfElements=sizeof(RIL_SignalStrength_v10)/sizeof(int);
+    int response[maxNumOfElements];
+
+    memset(response, 0, sizeof(response));
 
     err = at_send_command_singleline("AT+CSQ", "+CSQ:", &p_response);
 
@@ -904,9 +915,9 @@ static void requestSignalStrength(void *data __unused, size_t datalen __unused, 
     err = at_tok_start(&line);
     if (err < 0) goto error;
 
-    for (count =0; count < numofElements; count ++) {
+    for (count = 0; count < maxNumOfElements; count++) {
         err = at_tok_nextint(&line, &(response[count]));
-        if (err < 0) goto error;
+        if (err < 0 && count < minNumOfElements) goto error;
     }
 
     RIL_onRequestComplete(t, RIL_E_SUCCESS, response, sizeof(response));
@@ -1075,12 +1086,6 @@ static void requestCdmaDeviceIdentity(int request __unused, void *data __unused,
 
     RIL_onRequestComplete(t, RIL_E_SUCCESS, responseStr, count*sizeof(char*));
     at_response_free(p_response);
-
-    return;
-error:
-    RLOGE("requestCdmaDeviceIdentity must never return an error when radio is on");
-    at_response_free(p_response);
-    RIL_onRequestComplete(t, RIL_E_GENERIC_FAILURE, NULL, 0);
 }
 
 static void requestCdmaGetSubscriptionSource(int request __unused, void *data,
@@ -1169,11 +1174,6 @@ static void requestCdmaSubscription(int request __unused, void *data __unused,
     responseStr[3] = "8587777777"; // MIN
     responseStr[4] = "1"; // PRL Version
     RIL_onRequestComplete(t, RIL_E_SUCCESS, responseStr, count*sizeof(char*));
-
-    return;
-error:
-    RLOGE("requestRegistrationState must never return an error when radio is on");
-    RIL_onRequestComplete(t, RIL_E_GENERIC_FAILURE, NULL, 0);
 }
 
 static void requestCdmaGetRoamingPreference(int request __unused, void *data __unused,
@@ -2828,7 +2828,26 @@ static int getCardStatus(RIL_CardStatus_v6 **pp_card_status) {
           NULL, NULL, 0, RIL_PINSTATE_ENABLED_BLOCKED, RIL_PINSTATE_UNKNOWN },
         // RUIM_NETWORK_PERSONALIZATION = 11
         { RIL_APPTYPE_RUIM, RIL_APPSTATE_SUBSCRIPTION_PERSO, RIL_PERSOSUBSTATE_SIM_NETWORK,
-           NULL, NULL, 0, RIL_PINSTATE_ENABLED_NOT_VERIFIED, RIL_PINSTATE_UNKNOWN }
+           NULL, NULL, 0, RIL_PINSTATE_ENABLED_NOT_VERIFIED, RIL_PINSTATE_UNKNOWN },
+        // ISIM_ABSENT = 12
+        { RIL_APPTYPE_UNKNOWN, RIL_APPSTATE_UNKNOWN, RIL_PERSOSUBSTATE_UNKNOWN,
+          NULL, NULL, 0, RIL_PINSTATE_UNKNOWN, RIL_PINSTATE_UNKNOWN },
+        // ISIM_NOT_READY = 13
+        { RIL_APPTYPE_ISIM, RIL_APPSTATE_DETECTED, RIL_PERSOSUBSTATE_UNKNOWN,
+          NULL, NULL, 0, RIL_PINSTATE_UNKNOWN, RIL_PINSTATE_UNKNOWN },
+        // ISIM_READY = 14
+        { RIL_APPTYPE_ISIM, RIL_APPSTATE_READY, RIL_PERSOSUBSTATE_READY,
+          NULL, NULL, 0, RIL_PINSTATE_UNKNOWN, RIL_PINSTATE_UNKNOWN },
+        // ISIM_PIN = 15
+        { RIL_APPTYPE_ISIM, RIL_APPSTATE_PIN, RIL_PERSOSUBSTATE_UNKNOWN,
+          NULL, NULL, 0, RIL_PINSTATE_ENABLED_NOT_VERIFIED, RIL_PINSTATE_UNKNOWN },
+        // ISIM_PUK = 16
+        { RIL_APPTYPE_ISIM, RIL_APPSTATE_PUK, RIL_PERSOSUBSTATE_UNKNOWN,
+          NULL, NULL, 0, RIL_PINSTATE_ENABLED_BLOCKED, RIL_PINSTATE_UNKNOWN },
+        // ISIM_NETWORK_PERSONALIZATION = 17
+        { RIL_APPTYPE_ISIM, RIL_APPSTATE_SUBSCRIPTION_PERSO, RIL_PERSOSUBSTATE_SIM_NETWORK,
+          NULL, NULL, 0, RIL_PINSTATE_ENABLED_NOT_VERIFIED, RIL_PINSTATE_UNKNOWN },
+
     };
     RIL_CardState card_state;
     int num_apps;
@@ -2839,16 +2858,16 @@ static int getCardStatus(RIL_CardStatus_v6 **pp_card_status) {
         num_apps = 0;
     } else {
         card_state = RIL_CARDSTATE_PRESENT;
-        num_apps = 2;
+        num_apps = 3;
     }
 
     // Allocate and initialize base card status.
     RIL_CardStatus_v6 *p_card_status = malloc(sizeof(RIL_CardStatus_v6));
     p_card_status->card_state = card_state;
     p_card_status->universal_pin_state = RIL_PINSTATE_UNKNOWN;
-    p_card_status->gsm_umts_subscription_app_index = RIL_CARD_MAX_APPS;
-    p_card_status->cdma_subscription_app_index = RIL_CARD_MAX_APPS;
-    p_card_status->ims_subscription_app_index = RIL_CARD_MAX_APPS;
+    p_card_status->gsm_umts_subscription_app_index = -1;
+    p_card_status->cdma_subscription_app_index = -1;
+    p_card_status->ims_subscription_app_index = -1;
     p_card_status->num_applications = num_apps;
 
     // Initialize application status
@@ -2860,14 +2879,15 @@ static int getCardStatus(RIL_CardStatus_v6 **pp_card_status) {
     // Pickup the appropriate application status
     // that reflects sim_status for gsm.
     if (num_apps != 0) {
-        // Only support one app, gsm
-        p_card_status->num_applications = 2;
+        p_card_status->num_applications = 3;
         p_card_status->gsm_umts_subscription_app_index = 0;
         p_card_status->cdma_subscription_app_index = 1;
+        p_card_status->ims_subscription_app_index = 2;
 
         // Get the correct app status
         p_card_status->applications[0] = app_status_array[sim_status];
         p_card_status->applications[1] = app_status_array[sim_status + RUIM_ABSENT];
+        p_card_status->applications[2] = app_status_array[sim_status + ISIM_ABSENT];
     }
 
     *pp_card_status = p_card_status;

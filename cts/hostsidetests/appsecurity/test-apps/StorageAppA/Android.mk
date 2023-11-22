@@ -18,13 +18,13 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
 LOCAL_SDK_VERSION := current
-LOCAL_STATIC_JAVA_LIBRARIES := android-support-test
+LOCAL_STATIC_JAVA_LIBRARIES := android-support-test legacy-android-test
 
 LOCAL_SRC_FILES := $(call all-java-files-under, ../StorageApp/src/)
 
 LOCAL_PACKAGE_NAME := CtsStorageAppA
 
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 LOCAL_DEX_PREOPT := false
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)

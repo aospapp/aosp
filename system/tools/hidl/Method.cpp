@@ -116,14 +116,13 @@ size_t Method::getSerialId() const {
     return mSerial;
 }
 
-void Method::generateCppSignature(Formatter &out,
-                                  const std::string &className,
-                                  bool specifyNamespaces) const {
-    const bool returnsValue = !results().empty();
+bool Method::hasEmptyCppArgSignature() const {
+    return args().empty() && (results().empty() || canElideCallback() != nullptr);
+}
 
+void Method::generateCppReturnType(Formatter &out, bool specifyNamespaces) const {
     const TypedVar *elidedReturn = canElideCallback();
-
-    std::string space = (specifyNamespaces ? "::android::hardware::" : "");
+    const std::string space = (specifyNamespaces ? "::android::hardware::" : "");
 
     if (elidedReturn == nullptr) {
         out << space << "Return<void> ";
@@ -133,6 +132,12 @@ void Method::generateCppSignature(Formatter &out,
             << elidedReturn->type().getCppResultType( specifyNamespaces)
             << "> ";
     }
+}
+
+void Method::generateCppSignature(Formatter &out,
+                                  const std::string &className,
+                                  bool specifyNamespaces) const {
+    generateCppReturnType(out, specifyNamespaces);
 
     if (!className.empty()) {
         out << className << "::";
@@ -141,15 +146,6 @@ void Method::generateCppSignature(Formatter &out,
     out << name()
         << "(";
     emitCppArgSignature(out, specifyNamespaces);
-
-    if (returnsValue && elidedReturn == nullptr) {
-        if (!args().empty()) {
-            out << ", ";
-        }
-
-        out << name() << "_cb _hidl_cb";
-    }
-
     out << ")";
 }
 
@@ -173,6 +169,16 @@ static void emitJavaArgResultSignature(Formatter &out, const std::vector<TypedVa
 
 void Method::emitCppArgSignature(Formatter &out, bool specifyNamespaces) const {
     emitCppArgResultSignature(out, args(), specifyNamespaces);
+
+    const bool returnsValue = !results().empty();
+    const TypedVar *elidedReturn = canElideCallback();
+    if (returnsValue && elidedReturn == nullptr) {
+        if (!args().empty()) {
+            out << ", ";
+        }
+
+        out << name() << "_cb _hidl_cb";
+    }
 }
 void Method::emitCppResultSignature(Formatter &out, bool specifyNamespaces) const {
     emitCppArgResultSignature(out, results(), specifyNamespaces);

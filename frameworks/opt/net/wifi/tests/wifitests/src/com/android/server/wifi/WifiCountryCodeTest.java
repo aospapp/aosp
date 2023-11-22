@@ -169,7 +169,8 @@ public class WifiCountryCodeTest {
     }
 
     /**
-     * Test if we can reset to the default country code when phone is out of service.
+     * Test if we can reset to the default country code when phone is out of service, when
+     * |config_wifi_revert_country_code_on_cellular_loss| is set to true;
      * Telephony service calls |setCountryCode| with an empty string when phone is out of service.
      * In this case we should fall back to the default country code.
      * @throws Exception
@@ -182,6 +183,30 @@ public class WifiCountryCodeTest {
         // Out of service.
         mWifiCountryCode.setCountryCode("");
         assertEquals(mDefaultCountryCode, mWifiCountryCode.getCountryCode());
+    }
+
+    /**
+     * Test if we can keep using the last known country code when phone is out of service, when
+     * |config_wifi_revert_country_code_on_cellular_loss| is set to false;
+     * Telephony service calls |setCountryCode| with an empty string when phone is out of service.
+     * In this case we should keep using the last known country code.
+     * @throws Exception
+     */
+    @Test
+    public void doNotResetCountryCodeWhenOutOfService() throws Exception {
+        // Refresh mWifiCountryCode with |config_wifi_revert_country_code_on_cellular_loss|
+        // setting to false.
+        mWifiCountryCode = new WifiCountryCode(
+                mWifiNative,
+                mDefaultCountryCode,
+                false /* config_wifi_revert_country_code_on_cellular_loss */);
+
+        assertEquals(mDefaultCountryCode, mWifiCountryCode.getCountryCode());
+        mWifiCountryCode.setCountryCode(mTelephonyCountryCode);
+        assertEquals(mTelephonyCountryCode, mWifiCountryCode.getCountryCode());
+        // Out of service.
+        mWifiCountryCode.setCountryCode("");
+        assertEquals(mTelephonyCountryCode, mWifiCountryCode.getCountryCode());
     }
 
 }

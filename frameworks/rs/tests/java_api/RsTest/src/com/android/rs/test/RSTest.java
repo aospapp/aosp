@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 The Android Open Source Project
+ * Copyright (C) 2017 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,45 +16,63 @@
 
 package com.android.rs.test;
 
-import android.app.ListActivity;
-import android.os.Bundle;
-import android.renderscript.RenderScript;
-import android.os.Handler;
-import android.os.Looper;
-import android.os.Message;
-import android.os.StrictMode;
-import android.provider.Settings.System;
+import com.android.rs.unittest.UnitTest;
+
+import android.content.Context;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.MediumTest;
 import android.util.Log;
 
-public class RSTest extends ListActivity {
+import org.junit.Assert;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
-    private static final String LOG_TAG = "RSTest";
-    private static final boolean DEBUG = false;
-    private static final boolean LOG_ENABLED = false;
+import java.util.ArrayList;
+import java.util.List;
 
-    private RenderScript mRS;
-    private RSTestCore RSTC;
+/**
+ * RSTest, functional test for platform RenderScript APIs.
+ * To run the test, please use command
+ *
+ * adb shell am instrument -w com.android.rs.test/android.support.test.runner.AndroidJUnitRunner
+ */
+@RunWith(Parameterized.class)
+public class RSTest {
+    private static final String TAG = RSTest.class.getSimpleName();
 
-    @Override
-    public void onCreate(Bundle icicle) {
-        super.onCreate(icicle);
+    /**
+     * Returns the list of subclasses of UnitTest to run.
+     */
+    @Parameters(name = "{0}")
+    public static Iterable<?> getParams() throws Exception {
+        Context ctx = InstrumentationRegistry.getTargetContext();
 
-        StrictMode.setVmPolicy(new StrictMode.VmPolicy.Builder()
-                               .detectLeakedClosableObjects()
-                               .penaltyLog()
-                               .build());
+        List<UnitTest> validUnitTests = new ArrayList<>();
 
-        mRS = RenderScript.create(this);
-
-        RSTC = new RSTestCore(this);
-        RSTC.init(mRS);
-    }
-
-    static void log(String message) {
-        if (LOG_ENABLED) {
-            Log.v(LOG_TAG, message);
+        Iterable<Class<? extends UnitTest>> testClasses =
+            UnitTest.getProperSubclasses(ctx);
+        for (Class<? extends UnitTest> testClass : testClasses) {
+            UnitTest test = testClass.getDeclaredConstructor(Context.class).newInstance(ctx);
+            validUnitTests.add(test);
         }
+
+        UnitTest.checkDuplicateNames(validUnitTests);
+
+        return validUnitTests;
     }
 
+    @Parameter(0)
+    public UnitTest mTest;
 
+    @Test
+    @MediumTest
+    public void testRSUnitTest() throws Exception {
+        mTest.logStart(TAG, "RenderScript Testing");
+        mTest.runTest();
+        mTest.logEnd(TAG);
+        Assert.assertTrue(mTest.getSuccess());
+    }
 }

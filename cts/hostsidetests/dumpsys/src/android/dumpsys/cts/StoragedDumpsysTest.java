@@ -36,6 +36,12 @@ public class StoragedDumpsysTest extends BaseDumpsysTest {
     private static final String DEVICE_SIDE_TEST_APK = "CtsStoragedTestApp.apk";
     private static final String DEVICE_SIDE_TEST_PACKAGE = "com.android.server.cts.storaged";
 
+    @Override
+    protected void tearDown() throws Exception {
+        super.tearDown();
+        getDevice().uninstallPackage(DEVICE_SIDE_TEST_PACKAGE);
+    }
+
     /**
      * Tests the output of "dumpsys storaged --force --hours 0.01".
      *
@@ -48,7 +54,7 @@ public class StoragedDumpsysTest extends BaseDumpsysTest {
         }
 
         if (mDevice.getAppPackageInfo(DEVICE_SIDE_TEST_APK) != null) {
-            getDevice().uninstallPackage(DEVICE_SIDE_TEST_APK);
+            getDevice().uninstallPackage(DEVICE_SIDE_TEST_PACKAGE);
         }
 
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
@@ -63,8 +69,6 @@ public class StoragedDumpsysTest extends BaseDumpsysTest {
         runDeviceTests(DEVICE_SIDE_TEST_PACKAGE,
                 "com.android.server.cts.storaged.StoragedTest",
                 "testForegroundIO");
-
-        getDevice().uninstallPackage(DEVICE_SIDE_TEST_APK);
 
         String output = mDevice.executeShellCommand("dumpsys storaged --force --hours 0.01");
         assertNotNull(output);

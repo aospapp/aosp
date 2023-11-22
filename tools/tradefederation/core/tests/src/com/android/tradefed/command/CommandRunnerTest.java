@@ -18,10 +18,13 @@ package com.android.tradefed.command;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
 
 import com.android.tradefed.command.CommandRunner.ExitCode;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.GlobalConfiguration;
+import com.android.tradefed.device.MockDeviceManager;
 import com.android.tradefed.util.FileUtil;
 
 import org.junit.After;
@@ -29,6 +32,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -209,5 +213,44 @@ public class CommandRunnerTest {
         assertTrue(
                 "Stack does not contain expected message: " + mStackTraceOutput,
                 mStackTraceOutput.contains(FAKE_CONFIG));
+    }
+
+    /** Test that if the device is not allocated after a timeout, we throw a NoDeviceException. */
+    @Test
+    public void testRun_noDevice() throws Exception {
+        CommandScheduler mockScheduler = Mockito.spy(CommandScheduler.class);
+        CommandRunner mRunner =
+                new TestableCommandRunner() {
+                    @Override
+                    long getCheckDeviceTimeout() {
+                        return 200l;
+                    }
+
+                    @Override
+                    ICommandScheduler getCommandScheduler() {
+                        return mockScheduler;
+                    }
+                };
+        String[] args = {
+            mConfig.getAbsolutePath(),
+            "-s",
+            "impossibleSerialThatWillNotBeFound",
+            "--log-file-path",
+            mLogDir.getAbsolutePath()
+        };
+        doNothing().when(mockScheduler).initDeviceManager();
+        doReturn(new MockDeviceManager(1)).when(mockScheduler).getDeviceManager();
+        doNothing().when(mockScheduler).shutdownOnEmpty();
+        doNothing().when(mockScheduler).initLogging();
+        doNothing().when(mockScheduler).cleanUp();
+        mRunner.run(args);
+        Mockito.verify(mockScheduler).shutdownOnEmpty();
+        mockScheduler.join(5000);
+        assertEquals(ExitCode.NO_DEVICE_ALLOCATED, mRunner.getErrorCode());
+        assertTrue(
+                String.format("%s does not contains the expected output", mStackTraceOutput),
+                mStackTraceOutput.contains(
+                        "com.android.tradefed.device.NoDeviceException: No device was allocated "
+                                + "for the command."));
     }
 }

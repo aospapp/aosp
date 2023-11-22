@@ -55,7 +55,7 @@
   #endif
 #endif
 
-#include "JNIHelp.h"
+#include <nativehelper/JNIHelp.h>
 
 #define NATIVE_METHOD(className, functionName, signature) \
 { #functionName, signature, (void*)(Java_sun_nio_ch_ ## className ## _ ## functionName) }

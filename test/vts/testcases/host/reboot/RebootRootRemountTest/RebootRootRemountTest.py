@@ -22,7 +22,6 @@ from vts.runners.host import base_test
 from vts.runners.host import test_runner
 from vts.runners.host import utils
 from vts.utils.python.controllers import adb
-from vts.utils.python.controllers import android_device
 
 
 class RebootRootRemountTest(base_test.BaseTestClass):
@@ -33,8 +32,9 @@ class RebootRootRemountTest(base_test.BaseTestClass):
         verity: boolean, True if verity was enabled before test,
             False otherwise.
     """
+
     def setUpClass(self):
-        self.dut = self.registerController(android_device)[0]
+        self.dut = self.android_devices[0]
         self.verity = self.dut.verityEnabled
 
     def testRebootRootRemount(self):
@@ -70,7 +70,8 @@ class RebootRootRemountTest(base_test.BaseTestClass):
                 asserts.fail("Reboot failed after re-enabling verity.")
 
         asserts.assertEqual(self.verity, self.dut.verityEnabled,
-            "Verity state was successfully restored.")
+                            "Verity state was successfully restored.")
+
 
 if __name__ == "__main__":
     test_runner.main()

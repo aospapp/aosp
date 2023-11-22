@@ -143,6 +143,7 @@ void power_log_log(power_log_t *power_log, const void *buffer, size_t frames, in
  *
  * \param power_log         object returned by create, if NULL nothing happens.
  * \param fd                file descriptor to use.
+ * \param prefix            displayed at start of each line.
  * \param lines             maximum number of lines to output (0 disables).
  * \param limit_ns          limit dump to data more recent than limit_ns (0 disables).
  * \return

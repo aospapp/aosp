@@ -18,10 +18,11 @@ package com.android.car.radio;
 
 import android.content.Context;
 import android.media.session.PlaybackState;
-import android.support.car.ui.FabDrawable;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.widget.ImageView;
+
+import com.android.car.apps.common.FabDrawable;
 
 /**
  * An {@link ImageView} that renders a play/pause button like a floating action button.

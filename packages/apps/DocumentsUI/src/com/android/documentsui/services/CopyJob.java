@@ -21,13 +21,16 @@ import static android.provider.DocumentsContract.buildChildDocumentsUri;
 import static android.provider.DocumentsContract.buildDocumentUri;
 import static android.provider.DocumentsContract.getDocumentId;
 import static android.provider.DocumentsContract.isChildDocument;
+
 import static com.android.documentsui.OperationDialogFragment.DIALOG_TYPE_CONVERTED;
 import static com.android.documentsui.base.DocumentInfo.getCursorLong;
 import static com.android.documentsui.base.DocumentInfo.getCursorString;
 import static com.android.documentsui.base.Shared.DEBUG;
 import static com.android.documentsui.services.FileOperationService.EXTRA_DIALOG_TYPE;
-import static com.android.documentsui.services.FileOperationService.EXTRA_OPERATION_TYPE;
 import static com.android.documentsui.services.FileOperationService.EXTRA_FAILED_DOCS;
+import static com.android.documentsui.services.FileOperationService.EXTRA_OPERATION_TYPE;
+import static com.android.documentsui.services.FileOperationService.MESSAGE_FINISH;
+import static com.android.documentsui.services.FileOperationService.MESSAGE_PROGRESS;
 import static com.android.documentsui.services.FileOperationService.OPERATION_COPY;
 
 import android.annotation.StringRes;
@@ -44,8 +47,11 @@ import android.net.Uri;
 import android.os.CancellationSignal;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Message;
+import android.os.Messenger;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
+import android.os.storage.StorageManager;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
 import android.system.ErrnoException;
@@ -68,6 +74,7 @@ import com.android.documentsui.services.FileOperationService.OpType;
 
 import libcore.io.IoUtils;
 
+import java.io.FileDescriptor;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -84,6 +91,9 @@ class CopyJob extends ResolvedResourcesJob {
     final ArrayList<DocumentInfo> convertedFiles = new ArrayList<>();
     DocumentInfo mDstInfo;
 
+    private final Handler mHandler = new Handler(Looper.getMainLooper());
+    private final Messenger mMessenger;
+
     private long mStartTime = -1;
     private long mBytesRequired;
     private volatile long mBytesCopied;
@@ -98,14 +108,15 @@ class CopyJob extends ResolvedResourcesJob {
      * @see @link {@link Job} constructor for most param descriptions.
      */
     CopyJob(Context service, Listener listener, String id, DocumentStack destination,
-            UrisSupplier srcs, Features features) {
-        this(service, listener, id, OPERATION_COPY, destination, srcs, features);
+            UrisSupplier srcs, Messenger messenger, Features features) {
+        this(service, listener, id, OPERATION_COPY, destination, srcs, messenger, features);
     }
 
     CopyJob(Context service, Listener listener, String id, @OpType int opType,
-            DocumentStack destination, UrisSupplier srcs, Features features) {
+            DocumentStack destination, UrisSupplier srcs, Messenger messenger, Features features) {
         super(service, listener, id, opType, destination, srcs, features);
         mDstInfo = destination.peek();
+        mMessenger = messenger;
 
         assert(srcs.getItemCount() > 0);
     }
@@ -157,6 +168,16 @@ class CopyJob extends ResolvedResourcesJob {
 
     void onBytesCopied(long numBytes) {
         this.mBytesCopied += numBytes;
+    }
+
+    @Override
+    void finish() {
+        try {
+            mMessenger.send(Message.obtain(mHandler, MESSAGE_FINISH, 0, 0));
+        } catch (RemoteException e) {
+            // Ignore. Most likely the frontend was killed.
+        }
+        super.finish();
     }
 
     /**
@@ -322,6 +343,14 @@ class CopyJob extends ResolvedResourcesJob {
      * @param bytesCopied
      */
     private void makeCopyProgress(long bytesCopied) {
+        final int completed =
+            mBytesRequired >= 0 ? (int) (100.0 * this.mBytesCopied / mBytesRequired) : -1;
+        try {
+            mMessenger.send(Message.obtain(mHandler, MESSAGE_PROGRESS,
+                    completed, (int) mRemainingTime));
+        } catch (RemoteException e) {
+            // Ignore. The frontend may be gone.
+        }
         onBytesCopied(bytesCopied);
     }
 
@@ -574,6 +603,17 @@ class CopyJob extends ResolvedResourcesJob {
             int len;
             boolean reading = true;
             try {
+                // If we know the source size, and the destination supports disk
+                // space allocation, then allocate the space we'll need. This
+                // uses fallocate() under the hood to optimize on-disk layout
+                // and prevent us from running out of space during large copies.
+                final StorageManager sm = service.getSystemService(StorageManager.class);
+                final long srcSize = srcFile.getStatSize();
+                final FileDescriptor dstFd = dstFile.getFileDescriptor();
+                if (srcSize > 0 && sm.isAllocationSupported(dstFd)) {
+                    sm.allocateBytes(dstFd, srcSize);
+                }
+
                 while ((len = in.read(buffer)) != -1) {
                     if (isCanceled()) {
                         if (DEBUG) Log.d(TAG, "Canceled copy mid-copy of: " + src.derivedUri);

@@ -16,8 +16,10 @@
 
 package android.bluetooth.cts;
 
+import android.app.PendingIntent;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothManager;
+import android.bluetooth.cts.BluetoothScanReceiver;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanFilter;
@@ -25,6 +27,7 @@ import android.bluetooth.le.ScanRecord;
 import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.ParcelUuid;
 import android.os.SystemClock;
@@ -250,6 +253,55 @@ public class BluetoothLeScanTest extends AndroidTestCase {
         long scanEndMillis = SystemClock.elapsedRealtime();
         mScanner.stopScan(batchScanCallback);
         verifyTimestamp(results, 0, scanEndMillis);
+    }
+
+    /**
+     * Test case for starting a scan with a PendingIntent.
+     */
+    @MediumTest
+    public void testStartScanPendingIntent_nullnull() throws Exception {
+        if (!isBleSupported() || !isBleBatchScanSupported()) {
+            Log.d(TAG, "BLE or BLE batching not suppported");
+            return;
+        }
+        Intent broadcastIntent = new Intent();
+        broadcastIntent.setClass(mContext, BluetoothScanReceiver.class);
+        PendingIntent pi = PendingIntent.getBroadcast(mContext, 1, broadcastIntent, 0);
+        CountDownLatch latch = BluetoothScanReceiver.createCountDownLatch();
+        mScanner.startScan(null, null, pi);
+        boolean gotResults = latch.await(20, TimeUnit.SECONDS);
+        mScanner.stopScan(pi);
+        assertTrue("Scan results not received", gotResults);
+    }
+
+    /**
+     * Test case for starting a scan with a PendingIntent.
+     */
+    @MediumTest
+    public void testStartScanPendingIntent() throws Exception {
+        if (!isBleSupported() || !isBleBatchScanSupported()) {
+            Log.d(TAG, "BLE or BLE batching not suppported");
+            return;
+        }
+        ScanSettings batchScanSettings = new ScanSettings.Builder()
+                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                .setReportDelay(0).build();
+        ScanFilter filter = createScanFilter();
+        ArrayList<ScanFilter> filters = null;
+        if (filter != null) {
+            filters = new ArrayList<>();
+            filters.add(filter);
+        } else {
+            Log.d(TAG, "Could not add a filter");
+        }
+        Intent broadcastIntent = new Intent();
+        broadcastIntent.setClass(mContext, BluetoothScanReceiver.class);
+        PendingIntent pi = PendingIntent.getBroadcast(mContext, 1, broadcastIntent, 0);
+        CountDownLatch latch = BluetoothScanReceiver.createCountDownLatch();
+        mScanner.startScan(filters, batchScanSettings, pi);
+        boolean gotResults = latch.await(20, TimeUnit.SECONDS);
+        mScanner.stopScan(pi);
+        assertTrue("Scan results not received", gotResults);
     }
 
     // Verify timestamp of all scan results are within [scanStartMillis, scanEndMillis].

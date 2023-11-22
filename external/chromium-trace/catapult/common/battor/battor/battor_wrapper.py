@@ -37,6 +37,12 @@ def IsBattOrConnected(test_platform, android_device=None,
 
     if not android_device_map:
       device_tree = find_usb_devices.GetBusNumberToDeviceTreeMap()
+      if device_tree:
+        logging.warning('Device tree:')
+        for _, node in sorted(device_tree.iteritems()):
+          node.Display()
+      else:
+        logging.warning('Empty device tree.')
       if len(battor_device_mapping.GetBattOrList(device_tree)) == 1:
         return True
       if android_device_file:
@@ -45,7 +51,9 @@ def IsBattOrConnected(test_platform, android_device=None,
       else:
         try:
           android_device_map = battor_device_mapping.GenerateSerialMap()
+          logging.warning('Android device map: %s', android_device_map)
         except battor_error.BattOrError:
+          logging.exception('Error generating serial map')
           return False
 
     # If neither if statement above is triggered, it means that an
@@ -83,7 +91,6 @@ class BattOrWrapper(object):
   _RECORD_CLOCKSYNC_CMD = 'RecordClockSyncMarker'
   _SUPPORTED_PLATFORMS = ['android', 'chromeos', 'linux', 'mac', 'win']
 
-  _SUPPORTED_AUTOFLASHING_PLATFORMS = ['linux', 'mac', 'win']
   _BATTOR_PARTNO = 'x192a3u'
   _BATTOR_PROGRAMMER = 'avr109'
   _BATTOR_BAUDRATE = '115200'
@@ -241,6 +248,7 @@ class BattOrWrapper(object):
     # The BattOr shell terminates after returning the results.
     if timeout is None:
       timeout = self._stop_tracing_time - self._start_tracing_time
+    py_utils.WaitFor(lambda: self.GetShellReturnCode() != None, timeout)
 
     # TODO(charliea): Once we understand why BattOrs are crashing, only do
     # this on failure.
@@ -379,9 +387,6 @@ class BattOrWrapper(object):
        firmware at hex_path.
     """
     assert not self._battor_shell, 'Cannot flash BattOr with open shell'
-    if self._target_platform not in self._SUPPORTED_AUTOFLASHING_PLATFORMS:
-      logging.critical('Flashing firmware on this platform is not supported.')
-      return False
 
     avrdude_binary = self._dm.FetchPath(
         'avrdude_binary', '%s_%s' % (sys.platform, platform.machine()))

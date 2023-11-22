@@ -565,6 +565,7 @@ public class TestDeviceTest extends TestCase {
         assertRecoverySuccess();
         mMockIDevice.executeShellCommand(EasyMock.eq(testCommand), EasyMock.eq(mMockReceiver),
                 EasyMock.anyLong(), (TimeUnit)EasyMock.anyObject());
+        EasyMock.expect(mMockStateMonitor.waitForDeviceOnline()).andReturn(mMockIDevice);
         injectSystemProperty("ro.build.version.sdk", "23");
         replayMocks();
         mTestDevice.executeShellCommand(testCommand, mMockReceiver);
@@ -632,6 +633,7 @@ public class TestDeviceTest extends TestCase {
         // now expect shellCommand to be executed again, and succeed
         mMockIDevice.executeShellCommand(EasyMock.eq(testCommand), EasyMock.eq(mMockReceiver),
                 EasyMock.anyLong(), (TimeUnit)EasyMock.anyObject());
+        EasyMock.expect(mMockStateMonitor.waitForDeviceOnline()).andReturn(mMockIDevice);
         injectSystemProperty("ro.build.version.sdk", "23");
         replayMocks();
         mTestDevice.executeShellCommand(testCommand, mMockReceiver);
@@ -682,6 +684,7 @@ public class TestDeviceTest extends TestCase {
             assertRecoverySuccess();
         }
         EasyMock.expect(mMockIDevice.getState()).andReturn(DeviceState.ONLINE).times(2);
+        EasyMock.expect(mMockStateMonitor.waitForDeviceOnline()).andReturn(mMockIDevice).times(3);
         injectSystemProperty("ro.build.version.sdk", "23").times(3);
         replayMocks();
         try {
@@ -3017,22 +3020,32 @@ public class TestDeviceTest extends TestCase {
      * image size with different encoding.
      */
     public void testCompressScreenshot() throws Exception {
-        File testImageFile = getTestImageResource();
+        InputStream imageData = getClass().getResourceAsStream("/testdata/SmallRawImage.raw");
+        File testImageFile = FileUtil.createTempFile("raw-to-buffered", ".raw");
+        FileUtil.writeToFile(imageData, testImageFile);
+        RawImage testImage = null;
         try {
-            RawImage testImage = prepareRawImage(testImageFile);
+            testImage = prepareRawImage(testImageFile);
+            // We used the small image so we adapt the size.
+            testImage.height = 25;
+            testImage.size = 2000;
+            testImage.width = 25;
             // Size of the raw test data
-            Assert.assertEquals(12441600, testImage.data.length);
+            Assert.assertEquals(3000, testImage.data.length);
             byte[] result = mTestDevice.compressRawImage(testImage, "PNG", true);
             // Size after compressing
-            Assert.assertEquals(4082, result.length);
+            Assert.assertEquals(107, result.length);
 
             // Do it again with JPEG encoding
-            Assert.assertEquals(12441600, testImage.data.length);
+            Assert.assertEquals(3000, testImage.data.length);
             result = mTestDevice.compressRawImage(testImage, "JPEG", true);
             // Size after compressing as JPEG
-            Assert.assertEquals(119998, result.length);
+            Assert.assertEquals(1041, result.length);
         } finally {
-            FileUtil.recursiveDelete(testImageFile.getParentFile());
+            if (testImage != null) {
+                testImage.data = null;
+            }
+            FileUtil.deleteFile(testImageFile);
         }
     }
 
@@ -3042,10 +3055,16 @@ public class TestDeviceTest extends TestCase {
      * @throws Exception
      */
     public void testRawImageToBufferedImage() throws Exception {
-        File testImageFile = getTestImageResource();
-
+        InputStream imageData = getClass().getResourceAsStream("/testdata/SmallRawImage.raw");
+        File testImageFile = FileUtil.createTempFile("raw-to-buffered", ".raw");
+        FileUtil.writeToFile(imageData, testImageFile);
+        RawImage testImage = null;
         try {
-            RawImage testImage = prepareRawImage(testImageFile);
+            testImage = prepareRawImage(testImageFile);
+            // We used the small image so we adapt the size.
+            testImage.height = 25;
+            testImage.size = 2000;
+            testImage.width = 25;
 
             // Test PNG format
             BufferedImage bufferedImage = mTestDevice.rawImageToBufferedImage(testImage, "PNG");
@@ -3059,7 +3078,10 @@ public class TestDeviceTest extends TestCase {
             assertEquals(testImage.height, bufferedImage.getHeight());
             assertEquals(BufferedImage.TYPE_3BYTE_BGR, bufferedImage.getType());
         } finally {
-            FileUtil.recursiveDelete(testImageFile.getParentFile());
+            if (testImage != null) {
+                testImage.data = null;
+            }
+            FileUtil.deleteFile(testImageFile);
         }
     }
 
@@ -3070,15 +3092,18 @@ public class TestDeviceTest extends TestCase {
      */
     public void testRescaleImage() throws Exception {
         File testImageFile = getTestImageResource();
-
+        RawImage testImage = null;
         try {
-            RawImage testImage = prepareRawImage(testImageFile);
+            testImage = prepareRawImage(testImageFile);
             BufferedImage bufferedImage = mTestDevice.rawImageToBufferedImage(testImage, "PNG");
 
             BufferedImage scaledImage = mTestDevice.rescaleImage(bufferedImage);
             assertEquals(bufferedImage.getWidth() / 2, scaledImage.getWidth());
             assertEquals(bufferedImage.getHeight() / 2, scaledImage.getHeight());
         } finally {
+            if (testImage != null) {
+                testImage.data = null;
+            }
             FileUtil.recursiveDelete(testImageFile.getParentFile());
         }
     }
@@ -3225,5 +3250,111 @@ public class TestDeviceTest extends TestCase {
 
         assertEquals("bbb/bbb", stringArgs.get(1));
         assertEquals(Integer.valueOf(10), intArgs.get(1));
+    }
+
+    /** Test that the output of cryptfs allows for encryption for newest format. */
+    public void testIsEncryptionSupported_newformat() throws Exception {
+        mTestDevice =
+                new TestableTestDevice() {
+                    @Override
+                    public boolean isAdbRoot() throws DeviceNotAvailableException {
+                        return true;
+                    }
+
+                    @Override
+                    public boolean enableAdbRoot() throws DeviceNotAvailableException {
+                        return true;
+                    }
+                };
+        injectShellResponse(
+                "vdc cryptfs enablecrypto",
+                "500 8674 Usage with ext4crypt: cryptfs enablecrypto inplace default noui\r\n");
+        EasyMock.replay(mMockIDevice, mMockStateMonitor, mMockDvcMonitor);
+        assertTrue(mTestDevice.isEncryptionSupported());
+        EasyMock.verify(mMockIDevice, mMockStateMonitor, mMockDvcMonitor);
+    }
+
+    /** Test that the output of cryptfs does not allow for encryption. */
+    public void testIsEncryptionSupported_failure() throws Exception {
+        mTestDevice =
+                new TestableTestDevice() {
+                    @Override
+                    public boolean isAdbRoot() throws DeviceNotAvailableException {
+                        return true;
+                    }
+
+                    @Override
+                    public boolean enableAdbRoot() throws DeviceNotAvailableException {
+                        return true;
+                    }
+                };
+        injectShellResponse("vdc cryptfs enablecrypto", "500 8674 Command not recognized\r\n");
+        EasyMock.replay(mMockIDevice, mMockStateMonitor, mMockDvcMonitor);
+        assertFalse(mTestDevice.isEncryptionSupported());
+        EasyMock.verify(mMockIDevice, mMockStateMonitor, mMockDvcMonitor);
+    }
+
+    /** Test when getting the heapdump is successful. */
+    public void testGetHeapDump() throws Exception {
+        mTestDevice =
+                new TestableTestDevice() {
+                    @Override
+                    public File pullFile(String remoteFilePath) throws DeviceNotAvailableException {
+                        return new File("test");
+                    }
+                };
+        injectShellResponse("pidof system_server", "929");
+        injectShellResponse("am dumpheap 929 /data/dump.hprof", "");
+        injectShellResponse("ls \"/data/dump.hprof\"", "/data/dump.hprof");
+        injectShellResponse("rm /data/dump.hprof", "");
+        EasyMock.replay(mMockIDevice, mMockRunUtil);
+        File res = mTestDevice.dumpHeap("system_server", "/data/dump.hprof");
+        assertNotNull(res);
+        EasyMock.verify(mMockIDevice, mMockRunUtil);
+    }
+
+    /** Test when we fail to get the process pid. */
+    public void testGetHeapDump_nopid() throws Exception {
+        injectShellResponse("pidof system_server", "\n");
+        EasyMock.replay(mMockIDevice, mMockRunUtil);
+        File res = mTestDevice.dumpHeap("system_server", "/data/dump.hprof");
+        assertNull(res);
+        EasyMock.verify(mMockIDevice, mMockRunUtil);
+    }
+
+    public void testGetHeapDump_nullPath() throws DeviceNotAvailableException {
+        try {
+            mTestDevice.dumpHeap("system_server", null);
+            fail("Should have thrown an exception");
+        } catch (IllegalArgumentException expected) {
+            // expected
+        }
+    }
+
+    public void testGetHeapDump_emptyPath() throws DeviceNotAvailableException {
+        try {
+            mTestDevice.dumpHeap("system_server", "");
+            fail("Should have thrown an exception");
+        } catch (IllegalArgumentException expected) {
+            // expected
+        }
+    }
+
+    public void testGetHeapDump_nullService() throws DeviceNotAvailableException {
+        try {
+            mTestDevice.dumpHeap(null, "/data/hprof");
+            fail("Should have thrown an exception");
+        } catch (IllegalArgumentException expected) {
+            // expected
+        }
+    }
+
+    public void testGetHeapDump_emptyService() throws DeviceNotAvailableException {
+        try {
+            mTestDevice.dumpHeap("", "/data/hprof");
+            fail("Should have thrown an exception");
+        } catch (IllegalArgumentException expected) {
+            // expected
+        }
     }
 }

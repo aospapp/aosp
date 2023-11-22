@@ -30,8 +30,7 @@ struct Interface;
 struct LocalIdentifier;
 
 struct Scope : public NamedType {
-    Scope(const char *localName,
-          const Location &location);
+    Scope(const char* localName, const Location& location, Scope* parent);
     virtual ~Scope();
 
     bool addType(NamedType *type, std::string *errorMsg);
@@ -47,7 +46,6 @@ struct Scope : public NamedType {
     // Returns the single interface or NULL.
     Interface *getInterface() const;
 
-    bool containsSingleInterface(std::string *ifaceName) const;
     bool containsInterfaces() const;
 
     status_t emitTypeDeclarations(Formatter &out) const override;
@@ -77,6 +75,13 @@ private:
     status_t forEachType(std::function<status_t(Type *)> func) const;
 
     DISALLOW_COPY_AND_ASSIGN(Scope);
+};
+
+struct RootScope : public Scope {
+    RootScope(const char* localName, const Location& location, Scope* parent);
+    virtual ~RootScope();
+
+    std::string typeName() const override;
 };
 
 struct LocalIdentifier {

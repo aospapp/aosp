@@ -23,7 +23,7 @@ import java.lang.annotation.Target;
 import java.lang.reflect.Parameter;
 
 /**
- * A "system annotation" that can optionally be used to provide parameter metadata such as
+ * A system annotation that can optionally be used to provide parameter metadata such as
  * parameter names and modifiers.
  *
  * <p>The annotation can be omitted from a method / constructor safely when the parameter metadata

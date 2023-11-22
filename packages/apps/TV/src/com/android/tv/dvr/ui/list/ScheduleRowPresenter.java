@@ -42,25 +42,24 @@ import com.android.tv.R;
 import com.android.tv.TvApplication;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.data.Channel;
+import com.android.tv.dialog.HalfSizedDialogFragment;
 import com.android.tv.dvr.DvrManager;
 import com.android.tv.dvr.DvrScheduleManager;
-import com.android.tv.dvr.DvrUiHelper;
-import com.android.tv.dvr.ScheduledRecording;
+import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.dvr.ui.DvrStopRecordingFragment;
-import com.android.tv.dvr.ui.HalfSizedDialogFragment;
+import com.android.tv.dvr.ui.DvrUiHelper;
 import com.android.tv.util.ToastUtils;
 import com.android.tv.util.Utils;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 /**
  * A RowPresenter for {@link ScheduleRow}.
  */
 @TargetApi(Build.VERSION_CODES.N)
-public class ScheduleRowPresenter extends RowPresenter {
+class ScheduleRowPresenter extends RowPresenter {
     private static final String TAG = "ScheduleRowPresenter";
 
     @Retention(RetentionPolicy.SOURCE)
@@ -345,7 +344,9 @@ public class ScheduleRowPresenter extends RowPresenter {
         viewHolder.mInfoContainer.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                onInfoClicked(row);
+                if (isInfoClickable(row)) {
+                    onInfoClicked(row);
+                }
             }
         });
 
@@ -366,8 +367,7 @@ public class ScheduleRowPresenter extends RowPresenter {
         viewHolder.mTimeView.setText(onGetRecordingTimeText(row));
         String programInfoText = onGetProgramInfoText(row);
         if (TextUtils.isEmpty(programInfoText)) {
-            int durationMins =
-                    Math.max((int) TimeUnit.MILLISECONDS.toMinutes(row.getDuration()), 1);
+            int durationMins = Math.max(1, Utils.getRoundOffMinsFromMs(row.getDuration()));
             programInfoText = mContext.getResources().getQuantityString(
                     R.plurals.dvr_schedules_recording_duration, durationMins, durationMins);
         }
@@ -403,6 +403,7 @@ public class ScheduleRowPresenter extends RowPresenter {
         } else {
             viewHolder.whiteBackInfo();
         }
+        viewHolder.mInfoContainer.setFocusable(isInfoClickable(row));
         updateActionContainer(viewHolder, viewHolder.isSelected());
     }
 
@@ -454,11 +455,13 @@ public class ScheduleRowPresenter extends RowPresenter {
     /**
      * Called when user click Info in {@link ScheduleRow}.
      */
-    protected void onInfoClicked(ScheduleRow scheduleRow) {
-        ScheduledRecording schedule = scheduleRow.getSchedule();
-        if (schedule != null) {
-            DvrUiHelper.startDetailsActivity((Activity) mContext, schedule, null, true);
-        }
+    protected void onInfoClicked(ScheduleRow row) {
+        DvrUiHelper.startDetailsActivity((Activity) mContext, row.getSchedule(), null, true);
+    }
+
+    private boolean isInfoClickable(ScheduleRow row) {
+        return row.getSchedule() != null
+                && (row.getSchedule().isNotStarted() || row.getSchedule().isInProgress());
     }
 
     /**
@@ -545,7 +548,7 @@ public class ScheduleRowPresenter extends RowPresenter {
             // This row has been deleted.
             return;
         }
-        if (row.isOnAir() && row.isRecordingInProgress() && !row.isStopRecordingRequested()) {
+        if (row.isRecordingInProgress() && !row.isStopRecordingRequested()) {
             row.setStopRecordingRequested(true);
             mDvrManager.stopRecording(row.getSchedule());
             CharSequence deletedInfo = onGetProgramInfoText(row);
@@ -670,10 +673,9 @@ public class ScheduleRowPresenter extends RowPresenter {
                             hideActionView(viewHolder.mFirstActionContainer, View.GONE);
                         }
                     };
-                    if (mLastFocusedViewId == R.id.action_first_container
-                            || mLastFocusedViewId == R.id.action_second_container) {
-                        mLastFocusedViewId = R.id.info_container;
-                    }
+                    mLastFocusedViewId = R.id.info_container;
+                    SoftPreconditions.checkState(viewHolder.mInfoContainer.isFocusable(), TAG,
+                            "No focusable view in this row: " + viewHolder);
                     break;
             }
             View view = viewHolder.view.findViewById(mLastFocusedViewId);
@@ -683,8 +685,10 @@ public class ScheduleRowPresenter extends RowPresenter {
                 // requestFocus() explicitly.
                 if (view.hasFocus()) {
                     viewHolder.mPendingAnimationRunnable.run();
-                } else {
+                } else if (view.isFocusable()){
                     view.requestFocus();
+                } else {
+                    viewHolder.view.requestFocus();
                 }
             }
         } else {
@@ -737,10 +741,10 @@ public class ScheduleRowPresenter extends RowPresenter {
     @ScheduleRowAction
     protected int[] getAvailableActions(ScheduleRow row) {
         if (row.getSchedule() != null) {
-            if (row.isOnAir()) {
-                if (row.isRecordingInProgress()) {
-                    return new int[] {ACTION_STOP_RECORDING};
-                } else if (row.isRecordingNotStarted()) {
+            if (row.isRecordingInProgress()) {
+                return new int[]{ACTION_STOP_RECORDING};
+            } else if (row.isOnAir()) {
+                if (row.isRecordingNotStarted()) {
                     if (canResolveConflict()) {
                         // The "START" action can change the conflict states.
                         return new int[] {ACTION_REMOVE_SCHEDULE, ACTION_START_RECORDING};

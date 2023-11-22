@@ -19,34 +19,47 @@
 
 #include "perf_event.h"
 
-// The file structure of perf.data:
-//    file_header
-//    id_section
-//    attr section
-//    data section
-//    feature section
-//
-//  The feature section has the following structure:
-//    a section descriptor array, each element contains the section information of one add_feature.
-//    data section of feature 1
-//    data section of feature 2
-//    ....
+/*
+The file structure of perf.data:
+    file_header
+    id_section
+    attr section
+    data section
+    feature section
 
-// file feature section:
-//  file_struct files[];
-//
-//  struct file_struct {
-//    uint32_t size;  // size of rest fields in file_struct
-//    char file_path[];
-//    uint32_t file_type;
-//    uint64_t min_vaddr;
-//    uint32_t symbol_count;
-//    struct {
-//      uint64_t start_vaddr;
-//      uint32_t len;
-//      char symbol_name[];
-//    } symbol_table;
-//  };
+The feature section has the following structure:
+    a section descriptor array, each element contains the section information of one add_feature.
+    data section of feature 1
+    data section of feature 2
+    ....
+
+file feature section:
+  file_struct files[];
+
+  struct file_struct {
+    uint32_t size;  // size of rest fields in file_struct
+    char file_path[];
+    uint32_t file_type;
+    uint64_t min_vaddr;
+    uint32_t symbol_count;
+    struct {
+      uint64_t start_vaddr;
+      uint32_t len;
+      char symbol_name[];
+    } symbol_table;
+  };
+
+meta_info feature section:
+  meta_info infos[];
+
+  struct meta_info {
+    char key[];
+    char value[];
+  };
+  keys in meta_info feature section include:
+    simpleperf_version,
+
+*/
 
 namespace PerfFileFormat {
 
@@ -74,6 +87,7 @@ enum {
 
   FEAT_SIMPLEPERF_START = 128,
   FEAT_FILE = FEAT_SIMPLEPERF_START,
+  FEAT_META_INFO,
   FEAT_MAX_NUM = 256,
 };
 

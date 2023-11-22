@@ -78,7 +78,6 @@
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"व्हॉइसमेल (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"VM:"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"सूचना"</string>
-    <string name="networks" msgid="8873030692174541976">"नेटवर्क ऑपरेटर"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"आणीबाणी प्रसारणे"</string>
     <string name="call_settings" msgid="6112441768261754562">"कॉल सेटिंग्ज"</string>
     <string name="additional_gsm_call_settings" msgid="1391795981938800617">"अतिरिक्त सेटिंग्ज"</string>
@@ -124,7 +123,7 @@
     <string name="call_settings_with_label" msgid="3401177261468593519">"सेटिंग्ज (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="7970259216988931777">"कॉल सेटिंग्ज त्रुटी"</string>
     <string name="reading_settings" msgid="1920291699287055284">"सेटिंग्‍ज वाचत आहे…"</string>
-    <string name="updating_settings" msgid="8171225533884883252">"सेटिंग्ज अद्यतनित करीत आहे..."</string>
+    <string name="updating_settings" msgid="8171225533884883252">"सेटिंग्ज अपडेट करीत आहे..."</string>
     <string name="reverting_settings" msgid="4752151682666912828">"सेटिंग्‍ज परत करत आहे…"</string>
     <string name="response_error" msgid="6674110501330139405">"नेटवर्क वरून अनपेक्षित प्रतिसाद."</string>
     <string name="exception_error" msgid="7027667130619518211">"नेटवर्क किंवा सिम कार्ड त्रुटी."</string>
@@ -136,7 +135,7 @@
     <string name="close_dialog" msgid="2365884406356986917">"ठीक"</string>
     <string name="enable" msgid="7248657275000173526">"चालू करा"</string>
     <string name="disable" msgid="4678348128118573672">"बंद करा"</string>
-    <string name="change_num" msgid="239476305819844391">"अद्यतनित करा"</string>
+    <string name="change_num" msgid="239476305819844391">"अपडेट करा"</string>
   <string-array name="clir_display_values">
     <item msgid="5560134294467334594">"नेटवर्क डीफॉल्ट"</item>
     <item msgid="7876195870037833661">"नंबर लपवा"</item>
@@ -164,20 +163,18 @@
     <string name="label_available" msgid="1181658289009300430">"उपलब्ध नेटवर्क"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"शोधत आहे..."</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"कोणतीही नेटवर्क आढळली नाहीत."</string>
-    <string name="search_networks" msgid="1601136049300882441">"नेटवर्क शोधा"</string>
     <string name="network_query_error" msgid="6828516148953325006">"नेटवर्क शोधताना त्रुटी."</string>
     <string name="register_on_network" msgid="9055203954040805084">"<xliff:g id="NETWORK">%s</xliff:g> वर नोंदणी करीत आहे…"</string>
     <string name="not_allowed" msgid="5613353860205691579">"आपले सिम कार्ड या नेटवर्कच्‍या कनेक्‍शनला अनुमती देत नाही."</string>
     <string name="connect_later" msgid="2308119155752343975">"आत्ता या नेटवर्कशी कनेक्‍ट करू शकत नाही. नंतर पुन्‍हा प्रयत्‍न करा."</string>
     <string name="registration_done" msgid="495135664535876612">"नेटवर्कवर नोंदणी केली."</string>
-    <string name="sum_carrier_select" msgid="3494252551249882718">"नेटवर्क ऑपरेटर निवडा"</string>
-    <string name="sum_search_networks" msgid="2921092249873272715">"सर्व उपलब्ध नेटवर्क शोधा"</string>
-    <string name="select_automatically" msgid="5628402124471810174">"स्‍वयंचलितपणे निवडा"</string>
-    <string name="sum_select_automatically" msgid="5614890115123292400">"स्‍वयंचलितपणे प्राधान्‍यकृत नेटवर्क निवडा"</string>
+    <string name="select_automatically" msgid="1046727200631770962">"स्वयंचलितपणे नेटवर्क निवडा"</string>
+    <string name="network_select_title" msgid="7733107364757544558">"नेटवर्क"</string>
     <string name="register_automatically" msgid="6017849844573519637">"स्‍वयंचलित नोंदणी…"</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"प्राधान्‍यकृत नेटवर्क प्रकार"</string>
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"नेटवर्क कार्य करण्‍याचा मोड बदला"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"प्राधान्‍यकृत नेटवर्क प्रकार"</string>
+    <string name="forbidden_network" msgid="4384929668343563440">"(मनाई केलेले)"</string>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"प्राधान्‍यकृत नेटवर्क मोड: WCDMA प्राधान्‍यकृत"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"प्राधान्‍यकृत नेटवर्क मोड: केवळ GSM"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"प्राधान्‍यकृत नेटवर्क प्रकार: केवळ WCDMA"</string>
@@ -210,18 +207,34 @@
     <item msgid="1524224863879435516">"केवळ GSM"</item>
     <item msgid="3817924849415716259">"GSM/WCDMA प्राधान्‍यकृत"</item>
   </string-array>
+    <string name="call_category" msgid="5863978196309462052">"कॉलिंग"</string>
+    <string name="network_operator_category" msgid="4830701959205735636">"नेटवर्क"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"वर्धित 4G LTE मोड"</string>
     <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"प्रगत कॉलिंग"</string>
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"व्‍हॉइस आणि इतर संप्रेषणे (शिफारस केलेली) सुधारित करण्‍यासाठी LTE सेवांचा वापर करा"</string>
     <string name="data_enabled" msgid="5972538663568715366">"डेटा सक्षम केला"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"डेटा वापरास अनुमती द्या"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"लक्ष द्या"</string>
-    <string name="roaming" msgid="8871412572928323707">"डेटा रोमिंग"</string>
+    <string name="roaming" msgid="7894878421600247140">"रोमिंग"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"रोमिंग असताना डेटा सेवांना कनेक्ट करा"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"रोमिंग असताना डेटा सेवांना कनेक्ट करा"</string>
     <string name="roaming_reenable_message" msgid="8913735676127858115">"आपण डेटा रोमिंग बंद करून आपले होम नेटवर्क सोडल्यामुळे आपण डेटा कनेक्टिव्हिटी गमावली आहे."</string>
     <string name="roaming_warning" msgid="1603164667540144353">"आपल्‍याला लक्षणीय रोमिंग शुल्‍क लागू शकते."</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"डेटा रोमिंगला अनुमती द्यायची?"</string>
+    <string name="data_usage_title" msgid="8759619109516889802">"डेटा वापर"</string>
+    <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_2">%2$s</xliff:g> दरम्यान <xliff:g id="ID_1">%1$s</xliff:g> मोबाइल डेटा वापरला गेला"</string>
+    <string name="advanced_options_title" msgid="8074895510265488035">"प्रगत"</string>
+    <string name="carrier_settings_euicc" msgid="6714062862127226405">"वाहक"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"carrier, esim, sim, euicc"</string>
+    <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> — <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
+    <string name="mobile_data_settings_title" msgid="4661165467914727157">"मोबाइल डेटा"</string>
+    <string name="mobile_data_settings_summary" msgid="5087255915840576895">"मोबाइल नेटवर्क वापरून डेटा मध्‍ये प्रवेश करा"</string>
+    <string name="data_usage_disable_mobile" msgid="3577275288809667615">"मोबाइल डेटा बंद करायचा?"</string>
+    <string name="sim_selection_required_pref" msgid="7049424902961844236">"निवड आवश्यक"</string>
+    <string name="sim_change_data_title" msgid="5332425991853799280">"डेटा सिम बदलायचे?"</string>
+    <string name="sim_change_data_message" msgid="2163963581444907496">"मोबाइल डेटासाठी <xliff:g id="OLD_SIM">%2$s</xliff:g> ऐवजी <xliff:g id="NEW_SIM">%1$s</xliff:g> वापरायचे?"</string>
+    <string name="wifi_calling_settings_title" msgid="7741961465416430470">"वाय-फाय कॉलिंग"</string>
+    <string name="video_calling_settings_title" msgid="539714564273795574">"वाहक व्हिडिओ कॉलिंग"</string>
     <string name="gsm_umts_options" msgid="6538311689850981686">"GSM/UMTS पर्याय"</string>
     <string name="cdma_options" msgid="4016822858172249884">"CDMA पर्याय"</string>
     <string name="throttle_data_usage" msgid="3715677828160555808">"डेटा वापर"</string>
@@ -380,14 +393,14 @@
     <string name="adding_fdn_contact" msgid="7627379633721940991">"निश्चित डायलिंग नंबर जोडत आहे..."</string>
     <string name="fdn_contact_added" msgid="7458335758501736665">"निश्चित डायलिंग नंबर जोडला."</string>
     <string name="edit_fdn_contact" msgid="7976936035587081480">"निश्चित डायलिंग नंबर संपादित करीत आहे..."</string>
-    <string name="updating_fdn_contact" msgid="8370929876849803600">"निश्चित डायलिंग नंबर अद्यतनित करीत आहे..."</string>
-    <string name="fdn_contact_updated" msgid="5497828782609005017">"निश्चित डायलिंग नंबर अद्यतनित केला."</string>
+    <string name="updating_fdn_contact" msgid="8370929876849803600">"निश्चित डायलिंग नंबर अपडेट करीत आहे..."</string>
+    <string name="fdn_contact_updated" msgid="5497828782609005017">"निश्चित डायलिंग नंबर अपडेट केला."</string>
     <string name="delete_fdn_contact" msgid="6668958073074151717">"निश्चित डायलिंग नंबर हटवा"</string>
     <string name="deleting_fdn_contact" msgid="5669163206349319969">"निश्चित डायलिंग नंबर हटवित आहे..."</string>
     <string name="fdn_contact_deleted" msgid="7154162327112259569">"निश्चित डायलिंग नंबर हटविला."</string>
-    <string name="pin2_invalid" msgid="5470854099230755944">"आपण चुकीचा पिन टाईप केल्‍याने FDN अद्यतनित केले नव्‍हते."</string>
-    <string name="fdn_invalid_number" msgid="8602417141715473998">"FDN अद्यतनित झाले नाही कारण नंबर रिक्त आहे किंवा 20 अंकांपेक्षा मोठा आहे."</string>
-    <string name="pin2_or_fdn_invalid" msgid="6025144083384701197">"FDN अद्यतनित केले नव्‍हते. PIN2 चुकीचा होता किंवा फोन नंबरला नकार दिला."</string>
+    <string name="pin2_invalid" msgid="5470854099230755944">"आपण चुकीचा पिन टाईप केल्‍याने FDN अपडेट केले नव्‍हते."</string>
+    <string name="fdn_invalid_number" msgid="8602417141715473998">"FDN अपडेट झाले नाही कारण नंबर रिक्त आहे किंवा 20 अंकांपेक्षा मोठा आहे."</string>
+    <string name="pin2_or_fdn_invalid" msgid="6025144083384701197">"FDN अपडेट केले नव्‍हते. PIN2 चुकीचा होता किंवा फोन नंबरला नकार दिला."</string>
     <string name="fdn_failed" msgid="540018079008319747">"FDN कार्य अयशस्‍वी झाले."</string>
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"सिक कार्डमधून वाचत आहे..."</string>
     <string name="simContacts_empty" msgid="5270660846489561932">"आपल्‍या सिम कार्डवर कोणतेही संपर्क नाहीत."</string>
@@ -408,7 +421,7 @@
     <string name="enable_pin_ok" msgid="2918545971413270063">"पिन सेट केला"</string>
     <string name="disable_pin_ok" msgid="2109571368635883688">"पिन साफ केला"</string>
     <string name="pin_failed" msgid="5644377896213584760">"पिन चुकीचा आहे"</string>
-    <string name="pin_changed" msgid="4455736268023261662">"पिन अद्यतनित केला"</string>
+    <string name="pin_changed" msgid="4455736268023261662">"पिन अपडेट केला"</string>
     <string name="puk_requested" msgid="5921393215789090200">"संकेतशब्द चुकीचा आहे. पिन आता अवरोधित केला. PUK ची विनंती केली."</string>
     <string name="enter_pin2_text" msgid="8339444124477720345">"PIN2"</string>
     <string name="oldPin2Label" msgid="8559146795026261502">"जुना PIN2"</string>
@@ -419,7 +432,7 @@
     <string name="mismatchPin2" msgid="4177967478551851117">"पिन2 जुळत नाहीत. पुन्हा प्रयत्न करा."</string>
     <string name="invalidPin2" msgid="1757045131429105595">"4 ते 8 अंक असलेला एक पिन2 प्रविष्‍ट करा."</string>
     <string name="invalidPuk2" msgid="7059081153334815973">"8 अंक असलेला एक PUK2 प्रविष्‍ट करा."</string>
-    <string name="pin2_changed" msgid="3724522579945610956">"पिन2 अद्यतनित केला"</string>
+    <string name="pin2_changed" msgid="3724522579945610956">"पिन2 अपडेट केला"</string>
     <string name="label_puk2_code" msgid="4688069961795341948">"PUK2 कोड प्रविष्‍ट करा"</string>
     <string name="fdn_enable_puk2_requested" msgid="4991074891459554705">"संकेतशब्द चुकीचा आहे. पिन2 आता अवरोधित केला. पुन्हा प्रयत्न करण्‍यासाठी, पिन 2 बदला."</string>
     <string name="puk2_requested" msgid="5831015200030161434">"संकेतशब्द चुकीचा आहे. सिम आता लॉक केले आहे. PUK2 प्रविष्‍ट करा."</string>
@@ -452,7 +465,7 @@
     <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"मोबाइल नेटवर्क उपलब्‍ध नाही. कॉल करण्‍यासाठी वायरलेस नेटवर्कशी कनेक्‍ट करा."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"कॉल करण्यासाठी, एक वैध नंबर प्रविष्ट करा."</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"कॉल अयशस्वी झाला."</string>
-    <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"यावेळी कॉल जोडला जाऊ शकत नाही."</string>
+    <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"या वेळी कॉल जोडू शकत नाही. तुम्ही संदेश पाठवून संपर्क करण्याचा प्रयत्न करू शकता."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"सेवा समर्थित नाही"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"कॉल स्विच करू शकत नाही."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"कॉल विभक्त करू शकत नाही."</string>
@@ -529,8 +542,8 @@
     <string name="phone_in_ecm_call_notification_text" msgid="4611608947314729773">"डेटा कनेक्शन अक्षम केले"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7730376844178948351">"<xliff:g id="COMPLETETIME">%s</xliff:g> पर्यंत कोणतेही डेटा कनेक्‍शन नाही"</string>
     <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="7179911675595441201">
-      <item quantity="one">फोन <xliff:g id="COUNT_1">%s</xliff:g> मिनिटासाठी आणीबाणी कॉलबॅक मोडमध्ये राहील. या मोडमध्ये असताना डेटा कनेक्शन वापरणारे कोणतेही अनुप्रयोग वापरले जाऊ शकत नाहीत. आपण आता बाहेर पडू इच्छिता?</item>
-      <item quantity="other">फोन <xliff:g id="COUNT_1">%s</xliff:g> मिनिटांसाठी आणीबाणी कॉलबॅक मोडमध्ये राहील. या मोडमध्ये असताना डेटा कनेक्शन वापरणारे कोणतेही अनुप्रयोग वापरले जाऊ शकत नाहीत. आपण आता बाहेर पडू इच्छिता?</item>
+      <item quantity="one">फोन <xliff:g id="COUNT_1">%s</xliff:g> मिनिटासाठी आणीबाणी कॉलबॅक मोडमध्ये राहील. या मोडमध्ये असताना डेटा कनेक्शन वापरणारे कोणतेही अॅप्लिकेशन वापरले जाऊ शकत नाहीत. आपण आता बाहेर पडू इच्छिता?</item>
+      <item quantity="other">फोन <xliff:g id="COUNT_1">%s</xliff:g> मिनिटांसाठी आणीबाणी कॉलबॅक मोडमध्ये राहील. या मोडमध्ये असताना डेटा कनेक्शन वापरणारे कोणतेही अॅप्लिकेशन वापरले जाऊ शकत नाहीत. आपण आता बाहेर पडू इच्छिता?</item>
     </plurals>
     <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="8042973425225093895">
       <item quantity="one">आणीबाणी कॉलबॅक मोडमध्ये असताना निवडलेली क्रिया उपलब्ध नसते. फोन <xliff:g id="COUNT_1">%s</xliff:g> मिनिटासाठी या मोडमध्ये राहील. आपण आता बाहेर पडू इच्छिता?</item>
@@ -568,10 +581,12 @@
     <string name="status_hint_label_wifi_call" msgid="8900805254974653903">"वाय-फाय कॉल"</string>
     <string name="emergency_action_launch_hint" msgid="4906759256275562674">"उघडण्यासाठी पुन्हा टॅप करा"</string>
     <string name="message_decode_error" msgid="3456481534066924855">"संदेश डीकोड करताना एक त्रुटी आली."</string>
-    <string name="callFailed_cdma_activation" msgid="2307989779233262164">"सिम कार्डने आपली सेवा सक्रिय केली आहे आणि आपल्या फोनच्या रोमिंग क्षमता अद्यतनित केल्या."</string>
+    <string name="callFailed_cdma_activation" msgid="2307989779233262164">"सिम कार्डने आपली सेवा सक्रिय केली आहे आणि आपल्या फोनच्या रोमिंग क्षमता अपडेट केल्या."</string>
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"बरेच सक्रिय कॉल आहेत. कृपया नवीन एक कॉल करण्यापूर्वी विद्यमान कॉल समाप्त करा किंवा विलीन करा."</string>
     <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"कनेक्ट करण्यात अक्षम, कृपया एक वैध सिम कार्ड घाला."</string>
     <string name="callFailed_wifi_lost" msgid="5968076625137297184">"वाय-फाय कनेक्शन गमावले. कॉल समाप्त झाला."</string>
+    <string name="dialFailed_low_battery" msgid="8760548177088774268">"बॅटरी कमी असल्यामुळे तुमचा व्हिडिओ कॉल लावता येणार नाही."</string>
+    <string name="callFailed_low_battery" msgid="4913582435905872616">"बॅटरी कमी असल्यामुळे व्हिडिओ कॉल बंद झाला."</string>
     <string name="change_pin_title" msgid="7790232089699034029">"व्हॉइसमेल पिन बदला"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"सुरू ठेवा"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"रद्द करा"</string>
@@ -582,6 +597,20 @@
     <string name="change_pin_enter_new_pin_hint" msgid="2322940054329689309">"पिन <xliff:g id="MIN">%1$d</xliff:g>-<xliff:g id="MAX">%2$d</xliff:g> अंकी असणे आवश्‍यक आहे."</string>
     <string name="change_pin_confirm_pin_header" msgid="8113764019347322170">"आपल्या पिनची पुष्टी करा"</string>
     <string name="change_pin_confirm_pins_dont_match" msgid="4795052654904027909">"पिन जुळत नाहीत"</string>
-    <string name="change_pin_succeeded" msgid="2022852286442211151">"व्हॉइसमेल पिन अद्यतनित केला"</string>
+    <string name="change_pin_succeeded" msgid="2022852286442211151">"व्हॉइसमेल पिन अपडेट केला"</string>
     <string name="change_pin_system_error" msgid="8308462387154257840">"पिन सेट करण्यात अक्षम"</string>
+    <string name="mobile_data_status_roaming_turned_off_subtext" msgid="935636805765823307">"डेटा रोमिंग बंद केलेले आहे"</string>
+    <string name="mobile_data_status_roaming_turned_on_subtext" msgid="1335176927083781041">"डेटा रोमिंग चालू केलेले आहे"</string>
+    <string name="mobile_data_status_roaming_without_plan_subtext" msgid="3568412513831673037">"सध्या रोमिंग, डेटा योजना आवश्यक आहे"</string>
+    <string name="mobile_data_status_roaming_with_plan_subtext" msgid="8721998948811064377">"सध्या रोमिंग, डेटा योजना सक्रिय आहे"</string>
+    <string name="mobile_data_status_no_plan_subtext" msgid="4887747337017565725">"मोबाइल डेटा शिल्लक नाही"</string>
+    <string name="mobile_data_activate_prepaid" msgid="7447025165850512683">"मोबाइल डेटा शिल्लक नाही"</string>
+    <string name="mobile_data_activate_prepaid_summary" msgid="5705389791791637666">"<xliff:g id="PROVIDER_NAME">%s</xliff:g> द्वारे मोबाइल डेटा जोडा"</string>
+    <string name="mobile_data_activate_roaming_plan" msgid="5998161536947086264">"कोणतीही रोमिंग योजना नाही"</string>
+    <string name="mobile_data_activate_roaming_plan_summary" msgid="511202908883425459">"<xliff:g id="PROVIDER_NAME">%s</xliff:g> द्वारे रोमिंग योजना जोडा"</string>
+    <string name="mobile_data_activate_footer" msgid="5979019929980140594">"आपण आपल्या <xliff:g id="PROVIDER_NAME">%s</xliff:g> वाहकाद्वारे मोबाइल डेटा किंवा रोमिंग योजना जोडू शकता."</string>
+    <string name="mobile_data_activate_diag_title" msgid="9044252207707864493">"डेटा जोडायचा?"</string>
+    <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"आपल्याला <xliff:g id="PROVIDER_NAME">%s</xliff:g> द्वारे डेटा जोडण्याची आवश्यकता असू शकते"</string>
+    <string name="mobile_data_activate_button" msgid="3682400969184405446">"डेटा जोडा"</string>
+    <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"रद्द करा"</string>
 </resources>

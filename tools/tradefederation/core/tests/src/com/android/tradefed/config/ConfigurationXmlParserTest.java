@@ -36,7 +36,7 @@ public class ConfigurationXmlParserTest extends TestCase {
     protected void setUp() throws Exception {
         super.setUp();
         mMockLoader = EasyMock.createMock(IConfigDefLoader.class);
-        xmlParser = new ConfigurationXmlParser(mMockLoader);
+        xmlParser = new ConfigurationXmlParser(mMockLoader, null);
     }
 
     /**
@@ -162,12 +162,15 @@ public class ConfigurationXmlParserTest extends TestCase {
     /**
      * Test parsing a include tag.
      */
-    @SuppressWarnings("unchecked")
     public void testParse_include() throws ConfigurationException {
         String includedName = "includeme";
         ConfigurationDef configDef = new ConfigurationDef("foo");
-        mMockLoader.loadIncludedConfiguration(EasyMock.eq(configDef), EasyMock.eq("foo"),
-                EasyMock.eq(includedName), (Map<String, String>) EasyMock.anyObject());
+        mMockLoader.loadIncludedConfiguration(
+                EasyMock.eq(configDef),
+                EasyMock.eq("foo"),
+                EasyMock.eq(includedName),
+                EasyMock.anyObject(),
+                EasyMock.anyObject());
         EasyMock.replay(mMockLoader);
         final String config = "<include name=\"includeme\" />";
         xmlParser.parse(configDef, "foo", getStringAsStream(config), null);
@@ -180,8 +183,8 @@ public class ConfigurationXmlParserTest extends TestCase {
         String includedName = "non-existent";
         ConfigurationDef parent = new ConfigurationDef("name");
         ConfigurationException exception = new ConfigurationException("I don't exist");
-        mMockLoader.loadIncludedConfiguration(parent, "name", includedName,
-                Collections.<String, String>emptyMap());
+        mMockLoader.loadIncludedConfiguration(
+                parent, "name", includedName, null, Collections.<String, String>emptyMap());
         EasyMock.expectLastCall().andThrow(exception);
         EasyMock.replay(mMockLoader);
         final String config = String.format("<include name=\"%s\" />", includedName);

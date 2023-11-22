@@ -24,6 +24,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 
+import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -243,5 +244,65 @@ public class AppCompatTextViewTest
         TextViewCompat.setTextAppearance(textView, R.style.TextView_FontResourceWithStyle);
 
         assertNotEquals(Typeface.DEFAULT, textView.getTypeface());
+    }
+
+    @Test
+    @UiThreadTest
+    public void testSetTextAppearance_resetTypeface() throws PackageManager.NameNotFoundException {
+        TextView textView = mContainer.findViewById(R.id.textview_simple);
+
+        TextViewCompat.setTextAppearance(textView, R.style.TextView_SansSerif);
+        Typeface firstTypeface = textView.getTypeface();
+
+        TextViewCompat.setTextAppearance(textView, R.style.TextView_Serif);
+        Typeface secondTypeface = textView.getTypeface();
+        assertNotNull(firstTypeface);
+        assertNotNull(secondTypeface);
+        assertNotEquals(firstTypeface, secondTypeface);
+    }
+
+    @Test
+    @UiThreadTest
+    public void testTypefaceAttribute_serif() {
+        TextView textView = mContainer.findViewById(R.id.textview_simple);
+
+        TextViewCompat.setTextAppearance(textView, R.style.TextView_Typeface_Serif);
+
+        assertEquals(Typeface.SERIF, textView.getTypeface());
+    }
+
+    @Test
+    @UiThreadTest
+    public void testTypefaceAttribute_monospace() {
+        TextView textView = mContainer.findViewById(R.id.textview_simple);
+
+        TextViewCompat.setTextAppearance(textView, R.style.TextView_Typeface_Monospace);
+
+        assertEquals(Typeface.MONOSPACE, textView.getTypeface());
+    }
+
+    @Test
+    @UiThreadTest
+    public void testTypefaceAttribute_serifFromXml() {
+        TextView textView = mContainer.findViewById(R.id.textview_typeface_serif);
+
+        assertEquals(Typeface.SERIF, textView.getTypeface());
+    }
+
+    @Test
+    @UiThreadTest
+    public void testTypefaceAttribute_monospaceFromXml() {
+        TextView textView = mContainer.findViewById(R.id.textview_typeface_monospace);
+
+        assertEquals(Typeface.MONOSPACE, textView.getTypeface());
+    }
+
+    @Test
+    @UiThreadTest
+    public void testTypefaceAttribute_fontFamilyHierarchy() {
+        // This view has typeface=serif set on the view directly and a fontFamily on the appearance
+        TextView textView = mContainer.findViewById(R.id.textview_typeface_and_fontfamily);
+
+        assertEquals(Typeface.SERIF, textView.getTypeface());
     }
 }

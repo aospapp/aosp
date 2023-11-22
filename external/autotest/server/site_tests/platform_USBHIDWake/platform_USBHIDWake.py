@@ -2,11 +2,16 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import logging, os
+import logging
+import os
 
-from autotest_lib.client.common_lib import error, autotemp, site_utils
-from autotest_lib.server import autotest, hosts
-from autotest_lib.server import test, utils
+from autotest_lib.client.common_lib import autotemp
+from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import utils as client_utils
+from autotest_lib.server import autotest
+from autotest_lib.server import hosts
+from autotest_lib.server import test
+from autotest_lib.server import utils
 
 bored_now = """
 [  _____             ____  _               _  ]
@@ -69,7 +74,7 @@ class platform_USBHIDWake(test.test):
         @param timeout: maximum time in seconds to wait
 
         Returns True if the host comes up in time, False otherwise'''
-        return site_utils.ping(host, deadline=timeout) == 0
+        return client_utils.ping(host, deadline=timeout) == 0
 
 
     def have_hid_device(self):

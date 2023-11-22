@@ -45,15 +45,18 @@ public class NativeClearKeySystemTest extends MediaPlayerTestBase {
     private static final String ISO_BMFF_VIDEO_MIME_TYPE = "video/avc";
     private static final String ISO_BMFF_AUDIO_MIME_TYPE = "audio/avc";
     private static final Uri CENC_AUDIO_URL = Uri.parse(
-        "http://yt-dash-mse-test.commondatastorage.googleapis.com/media/" +
-        "car_cenc-20120827-8c.mp4");
+        "https://storage.googleapis.com/wvmedia/clear/h264/llama/" +
+        "llama_aac_audio.mp4");
+
     private static final Uri CENC_CLEARKEY_VIDEO_URL = Uri.parse(
-        "http://yt-dash-mse-test.commondatastorage.googleapis.com/media/" +
-        "car_cenc-20120827-88.mp4");
+        "https://storage.googleapis.com/wvmedia/clearkey/" +
+        "llama_h264_main_720p_8000.mp4");
 
     private static final int UUID_BYTE_SIZE = 16;
-    private static final UUID CLEARKEY_SCHEME_UUID =
+    private static final UUID COMMON_PSSH_SCHEME_UUID =
             new UUID(0x1077efecc0b24d02L, 0xace33c1e52e2fb4bL);
+    private static final UUID CLEARKEY_SCHEME_UUID =
+            new UUID(0xe2719d58a985b3c9L, 0x781ab030af78d30eL);
     private static final UUID BAD_SCHEME_UUID =
             new UUID(0xffffffffffffffffL, 0xffffffffffffffffL);
     private MediaCodecClearKeyPlayer mMediaCodecPlayer;
@@ -110,6 +113,7 @@ public class NativeClearKeySystemTest extends MediaPlayerTestBase {
     }
 
     public void testIsCryptoSchemeSupported() throws Exception {
+        assertTrue(isCryptoSchemeSupportedNative(uuidByteArray(COMMON_PSSH_SCHEME_UUID)));
         assertTrue(isCryptoSchemeSupportedNative(uuidByteArray(CLEARKEY_SCHEME_UUID)));
     }
 
@@ -118,19 +122,39 @@ public class NativeClearKeySystemTest extends MediaPlayerTestBase {
     }
 
     public void testPssh() throws Exception {
-        assertTrue(testPsshNative(uuidByteArray(CLEARKEY_SCHEME_UUID),
+        // The test uses a canned PSSH that contains the common box UUID.
+        assertTrue(testPsshNative(uuidByteArray(COMMON_PSSH_SCHEME_UUID),
                 CENC_CLEARKEY_VIDEO_URL.toString()));
+    }
+
+    public void testQueryKeyStatus() throws Exception {
+        assertTrue(testQueryKeyStatusNative(uuidByteArray(COMMON_PSSH_SCHEME_UUID)));
     }
 
     public void testGetPropertyString() throws Exception {
         StringBuffer value = new StringBuffer();
+        testGetPropertyStringNative(uuidByteArray(COMMON_PSSH_SCHEME_UUID), "description", value);
+        assertEquals("ClearKey CDM", value.toString());
+
+        value.delete(0, value.length());
         testGetPropertyStringNative(uuidByteArray(CLEARKEY_SCHEME_UUID), "description", value);
         assertEquals("ClearKey CDM", value.toString());
     }
 
     public void testUnknownPropertyString() throws Exception {
+        StringBuffer value = new StringBuffer();
+
         try {
-            StringBuffer value = new StringBuffer();
+            testGetPropertyStringNative(uuidByteArray(COMMON_PSSH_SCHEME_UUID),
+                    "unknown-property", value);
+            fail("Should have thrown an exception");
+        } catch (RuntimeException e) {
+            Log.e(TAG, "testUnknownPropertyString error = '" + e.getMessage() + "'");
+            assertThat(e.getMessage(), containsString("get property string returns"));
+        }
+
+        value.delete(0, value.length());
+        try {
             testGetPropertyStringNative(uuidByteArray(CLEARKEY_SCHEME_UUID),
                     "unknown-property", value);
         } catch (RuntimeException e) {
@@ -143,10 +167,10 @@ public class NativeClearKeySystemTest extends MediaPlayerTestBase {
      * Tests native clear key system playback.
      */
     private void testClearKeyPlayback(
-            String mimeType, /*String initDataType,*/ Uri audioUrl, Uri videoUrl,
+            UUID drmSchemeUuid, String mimeType, /*String initDataType,*/ Uri audioUrl, Uri videoUrl,
             int videoWidth, int videoHeight) throws Exception {
 
-        if (!isCryptoSchemeSupportedNative(uuidByteArray(CLEARKEY_SCHEME_UUID))) {
+        if (!isCryptoSchemeSupportedNative(uuidByteArray(drmSchemeUuid))) {
             throw new Error("Crypto scheme is not supported.");
         }
 
@@ -171,7 +195,7 @@ public class NativeClearKeySystemTest extends MediaPlayerTestBase {
         }
         connectionStatus.testConnection(videoUrl);
 
-        if (!MediaUtils.checkCodecsForPath(mContext, videoUrl.getPath())) {
+        if (!MediaUtils.checkCodecsForPath(mContext, videoUrl.toString())) {
             Log.i(TAG, "Device does not support " +
                   videoWidth + "x" + videoHeight + " resolution for " + mimeType);
             return;  // skip
@@ -184,7 +208,7 @@ public class NativeClearKeySystemTest extends MediaPlayerTestBase {
         params.videoUrl = videoUrl.toString();
 
         if (!testClearKeyPlaybackNative(
-            uuidByteArray(CLEARKEY_SCHEME_UUID), params)) {
+            uuidByteArray(drmSchemeUuid), params)) {
             Log.e(TAG, "Fails play back using native media drm APIs.");
         }
         params.surface.release();
@@ -210,11 +234,23 @@ public class NativeClearKeySystemTest extends MediaPlayerTestBase {
 
     private static native boolean testPsshNative(final byte[] uuid, final String videoUrl);
 
+    private static native boolean testQueryKeyStatusNative(final byte[] uuid);
+
     public void testClearKeyPlaybackCenc() throws Exception {
         testClearKeyPlayback(
-                ISO_BMFF_VIDEO_MIME_TYPE,
-                CENC_AUDIO_URL,
-                CENC_CLEARKEY_VIDEO_URL,
-                VIDEO_WIDTH_CENC, VIDEO_HEIGHT_CENC);
+            COMMON_PSSH_SCHEME_UUID,
+            ISO_BMFF_VIDEO_MIME_TYPE,
+            CENC_AUDIO_URL,
+            CENC_CLEARKEY_VIDEO_URL,
+            VIDEO_WIDTH_CENC, VIDEO_HEIGHT_CENC);
+    }
+
+    public void testClearKeyPlaybackCenc2() throws Exception {
+        testClearKeyPlayback(
+            CLEARKEY_SCHEME_UUID,
+            ISO_BMFF_VIDEO_MIME_TYPE,
+            CENC_AUDIO_URL,
+            CENC_CLEARKEY_VIDEO_URL,
+            VIDEO_WIDTH_CENC, VIDEO_HEIGHT_CENC);
     }
 }

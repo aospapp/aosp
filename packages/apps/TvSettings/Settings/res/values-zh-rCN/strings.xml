@@ -157,10 +157,10 @@
     <item msgid="7541004325985469896">"强"</item>
     <item msgid="1546771355788926692">"极强"</item>
   </string-array>
-    <string name="title_mac_address" msgid="3428401680168668544">"MAC地址"</string>
+    <string name="title_mac_address" msgid="3428401680168668544">"MAC 地址"</string>
     <string name="title_signal_strength" msgid="205478650262078041">"信号强度"</string>
-    <string name="title_ip_address" msgid="4533523100923004711">"IP地址"</string>
-    <string name="title_ssid" msgid="4858945903642469730">"输入WLAN网络名称"</string>
+    <string name="title_ip_address" msgid="4533523100923004711">"IP 地址"</string>
+    <string name="title_ssid" msgid="4858945903642469730">"输入 WLAN 网络名称"</string>
     <string name="title_internet_connection" msgid="8710084774588697646">"互联网连接"</string>
     <string name="connected" msgid="7563100162902079938">"已连接"</string>
     <string name="not_connected" msgid="6858480380326923017">"未连接"</string>
@@ -168,10 +168,10 @@
     <string name="wifi_setting_see_all" msgid="3217814666041974878">"查看全部"</string>
     <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"隐藏部分"</string>
     <string name="wifi_setting_available_networks" msgid="6713791371350513043">"可用网络"</string>
-    <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"通过WPS连接"</string>
+    <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"通过 WPS 连接"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"添加新网络"</string>
     <string name="security_type" msgid="524443802004143058">"安全类型"</string>
-    <string name="wps_network" msgid="1052148085426051873">"通过WPS连接"</string>
+    <string name="wps_network" msgid="1052148085426051873">"通过 WPS 连接"</string>
     <string name="other_network" msgid="3539704463099544488">"其他网络…"</string>
     <string name="skip_network" msgid="6380260543776712357">"跳过"</string>
     <string name="wifi_security_type_none" msgid="6622722325237471927">"无"</string>
@@ -182,21 +182,21 @@
     <string name="title_wifi_could_not_save" msgid="708638317882707069">"无法保存“<xliff:g id="SSID">%1$s</xliff:g>”的配置"</string>
     <string name="title_wifi_could_not_connect" msgid="9080004548419447580">"无法连接到“<xliff:g id="SSID">%1$s</xliff:g>”"</string>
     <string name="title_wifi_could_not_connect_timeout" msgid="5158184646985406394">"找不到“<xliff:g id="SSID">%1$s</xliff:g>”"</string>
-    <string name="title_wifi_could_not_connect_authentication_failure" msgid="4836595650380723944">"WLAN密码无效"</string>
-    <string name="title_wifi_could_not_connect_ap_reject" msgid="328274688839033015">"WLAN网络不接受连接"</string>
-    <string name="title_wifi_advanced_options" msgid="5389467736846644832">"要配置“<xliff:g id="SSID">%1$s</xliff:g>”的代理和IP设置吗？"</string>
+    <string name="title_wifi_could_not_connect_authentication_failure" msgid="4836595650380723944">"WLAN 密码无效"</string>
+    <string name="title_wifi_could_not_connect_ap_reject" msgid="328274688839033015">"WLAN 网络不接受连接"</string>
+    <string name="title_wifi_advanced_options" msgid="5389467736846644832">"要配置“<xliff:g id="SSID">%1$s</xliff:g>”的代理和 IP 设置吗？"</string>
     <string name="title_wifi_proxy_settings" msgid="7728120764469991303">"代理设置"</string>
     <string name="title_wifi_proxy_hostname" msgid="4655634673840885248">"代理主机名："</string>
     <string name="title_wifi_proxy_port" msgid="9194893429116021337">"代理端口："</string>
     <string name="title_wifi_proxy_bypass" msgid="4522775396659538614">"对以下域名不使用代理："</string>
-    <string name="title_wifi_ip_settings" msgid="1176973848286865602">"IP设置"</string>
-    <string name="title_wifi_ip_address" msgid="1176502993805009566">"IP地址："</string>
+    <string name="title_wifi_ip_settings" msgid="1176973848286865602">"IP 设置"</string>
+    <string name="title_wifi_ip_address" msgid="1176502993805009566">"IP 地址："</string>
     <string name="title_wifi_gateway" msgid="7210935277165358134">"网关："</string>
     <string name="title_wifi_network_prefix_length" msgid="4821632382990582038">"网络前缀长度："</string>
     <string name="title_wifi_dns1" msgid="8202712852864206601">"DNS 1:"</string>
     <string name="title_wifi_dns2" msgid="2673986973918499478">"DNS 2:"</string>
     <string name="title_wifi_proxy_settings_invalid" msgid="7380479044141040849">"代理设置无效"</string>
-    <string name="title_wifi_ip_settings_invalid" msgid="7228948551397955678">"IP设置无效"</string>
+    <string name="title_wifi_ip_settings_invalid" msgid="7228948551397955678">"IP 设置无效"</string>
     <string name="title_wifi_known_network" msgid="819998498700202436">"“<xliff:g id="SSID">%1$s</xliff:g>”是已保存的网络"</string>
     <string name="wifi_action_try_again" msgid="3308643222864163092">"重试"</string>
     <string name="wifi_action_view_available_networks" msgid="560074338908947419">"查看可用的网络"</string>
@@ -207,7 +207,7 @@
     <string name="wifi_forget_network_description" msgid="3328285160018330334">"这将清除用于连接至此网络的信息（包括已保存的密码）"</string>
     <string name="wifi_action_ok" msgid="5932500664228395779">"确定"</string>
     <string name="wifi_action_change_network" msgid="5196215981075986148">"更改"</string>
-    <string name="wifi_action_dont_change_network" msgid="1449920958930251977">"不要更改"</string>
+    <string name="wifi_action_dont_change_network" msgid="1449920958930251977">"不更改"</string>
     <string name="wifi_action_advanced_yes" msgid="8586473568311558982">"好"</string>
     <string name="wifi_action_advanced_no" msgid="8165601242122651326">"不配置（推荐）"</string>
     <string name="wifi_action_proxy_none" msgid="4457231399674182650">"无"</string>
@@ -216,9 +216,9 @@
     <string name="wifi_action_static" msgid="1025855501453321749">"静态"</string>
     <string name="wifi_action_status_info" msgid="7664354971197839253">"状态信息"</string>
     <string name="wifi_action_advanced_options_title" msgid="3242132674399983503">"高级选项"</string>
-    <string name="wifi_ip_settings_invalid_ip_address" msgid="5228247770505105107">"请输入有效的IP地址"</string>
+    <string name="wifi_ip_settings_invalid_ip_address" msgid="5228247770505105107">"请输入有效的 IP 地址"</string>
     <string name="wifi_ip_settings_invalid_gateway" msgid="3292444764474145026">"请输入有效的网关地址"</string>
-    <string name="wifi_ip_settings_invalid_dns" msgid="6172189835428184828">"请输入有效的DNS地址"</string>
+    <string name="wifi_ip_settings_invalid_dns" msgid="6172189835428184828">"请输入有效的 DNS 地址"</string>
     <string name="wifi_ip_settings_invalid_network_prefix_length" msgid="6209978918929182270">"请输入长度介于0到32之间的网络前缀"</string>
     <string name="wifi_ip_address_description" msgid="6548838784556001283">"请输入有效的 IP 地址。\n示例：<xliff:g id="ID_1">192.168.1.128</xliff:g>"</string>
     <string name="wifi_dns1_description" msgid="2463500547232077393">"请输入有效的 IP 地址或留空。\n示例：<xliff:g id="ID_1">8.8.8.8</xliff:g>"</string>
@@ -230,7 +230,7 @@
     <string name="proxy_error_empty_port" msgid="6835658067776408062">"端口字段不能为空"</string>
     <string name="proxy_error_empty_host_set_port" msgid="4428793978424303244">"如果主机字段为空，请将端口字段也留空"</string>
     <string name="proxy_error_invalid_port" msgid="1434922103959603993">"端口无效"</string>
-    <string name="proxy_warning_limited_support" msgid="6160239282535986523">"浏览器会使用HTTP代理，但其他应用不一定使用"</string>
+    <string name="proxy_warning_limited_support" msgid="6160239282535986523">"浏览器会使用 HTTP 代理，但其他应用不一定使用"</string>
     <string name="proxy_port_description" msgid="6791098212244367568">"请输入有效的端口。\n示例：<xliff:g id="ID_1">8080</xliff:g>"</string>
     <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"请输入以英文逗号分隔的排除网域列表或留空。\n示例：<xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g>"</string>
     <string name="proxy_hostname_description" msgid="5824391500254472447">"请输入有效的主机名。\n示例：<xliff:g id="ID_1">proxy.example.com</xliff:g>"</string>
@@ -261,7 +261,7 @@
     <string name="storage_no_apps" msgid="579118619398668670">"没有要备份的应用"</string>
     <string name="storage_forget" msgid="8731986045697320463">"取消保存此内部存储设备"</string>
     <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"要使用此硬盘中包含的应用或数据，请将其重新插入。如果该硬盘无法使用，您可以选择取消保存此存储设备。\n\n如果您选择“取消保存”，那么该硬盘中包含的所有数据将永久丢失。\n\n虽然您以后可以重新安装这些应用，但存储在此硬盘上的这些应用数据将会丢失。"</string>
-    <string name="storage_device_storage_section" msgid="7797805634316822741">"内部存储设备"</string>
+    <string name="storage_device_storage_section" msgid="7797805634316822741">"设备存储空间"</string>
     <string name="storage_removable_storage_section" msgid="3264955106565590076">"移动存储设备"</string>
     <string name="storage_reset_section" msgid="7324235036547192861">"重置"</string>
     <string name="storage_mount_success" msgid="4624254886950093443">"已装载<xliff:g id="NAME">%1$s</xliff:g>"</string>
@@ -303,7 +303,7 @@
     <string name="storage_wizard_forget_confirm_title" msgid="4321200084208420221">"要取消保存此内部存储设备吗？"</string>
     <string name="storage_wizard_forget_confirm_description" msgid="4264263982217111372">"选择“取消保存”后，此硬盘上存储的所有数据将永久丢失，要继续吗？"</string>
     <string name="storage_wizard_forget_action" msgid="2532812620271112355">"取消保存"</string>
-    <string name="storage_new_title" msgid="3098495209500607438">"U 盘已连接"</string>
+    <string name="storage_new_title" msgid="3098495209500607438">"已连接 U 盘"</string>
     <string name="storage_new_action_browse" msgid="9041125660441839453">"浏览"</string>
     <string name="storage_new_action_adopt" msgid="880224317112988974">"设置为内部存储设备"</string>
     <string name="storage_new_action_format_public" msgid="5604328981214071670">"设置为移动存储设备"</string>
@@ -318,14 +318,14 @@
     <string name="move_error_device_admin" msgid="2060627704270836951">"无法在外部介质上安装设备管理器。"</string>
     <string name="learn_more_action" msgid="7015991954404958779">"了解详情"</string>
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"重试"</string>
-    <string name="wifi_wps_title" msgid="1872305810119408482">"正在搜索WPS路由器…"</string>
-    <string name="wifi_wps_instructions" msgid="3618110962669110034">"请按下您路由器上的WLAN保护设置按钮，\n它可能会标有“WPS”字样或左侧这个符号。"</string>
-    <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"请在WLAN路由器上输入PIN码“<xliff:g id="NUMBER">%1$s</xliff:g>”。"</string>
-    <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"输入PIN码后，设置过程最多可能需要2分钟才能完成"</string>
-    <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"找不到WLAN路由器"</string>
-    <string name="wifi_wps_failed_wep" msgid="9158670824165143348">"WLAN路由器安全设置(WEP)不受支持"</string>
-    <string name="wifi_wps_failed_tkip" msgid="1712545345594227319">"WLAN路由器安全设置(TKIP)不受支持"</string>
-    <string name="wifi_wps_failed_overlap" msgid="3091222818050940041">"另一个WPS进程正在进行中，请过几分钟后重试。"</string>
+    <string name="wifi_wps_title" msgid="1872305810119408482">"正在搜索 WPS 路由器…"</string>
+    <string name="wifi_wps_instructions" msgid="3618110962669110034">"请按下您路由器上的“WLAN 保护设置”按钮，\n它可能会标有“WPS”字样或左侧这个符号。"</string>
+    <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"请在 WLAN 路由器上输入 PIN 码“<xliff:g id="NUMBER">%1$s</xliff:g>”。"</string>
+    <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"输入 PIN 码后，设置过程最多可能需要 2 分钟才能完成"</string>
+    <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"找不到 WLAN 路由器"</string>
+    <string name="wifi_wps_failed_wep" msgid="9158670824165143348">"WLAN 路由器安全设置 (WEP) 不受支持"</string>
+    <string name="wifi_wps_failed_tkip" msgid="1712545345594227319">"WLAN 路由器安全设置 (TKIP) 不受支持"</string>
+    <string name="wifi_wps_failed_overlap" msgid="3091222818050940041">"另一个 WPS 进程正在进行中，请过几分钟后重试。"</string>
     <string name="system_date" msgid="2767108116769558081">"日期"</string>
     <string name="system_time" msgid="6726022312605226285">"时间"</string>
     <string name="system_set_date" msgid="2437586307768561116">"设置日期"</string>
@@ -352,7 +352,7 @@
     <string name="location_no_recent_apps" msgid="4218851908476344030">"最近没有任何应用申请使用位置信息"</string>
     <string name="location_high_battery_use" msgid="576143332793626088">"高电耗"</string>
     <string name="location_low_battery_use" msgid="5756040390248358148">"低电耗"</string>
-    <string name="location_mode_wifi_description" msgid="2778774510654527264">"使用WLAN估测位置"</string>
+    <string name="location_mode_wifi_description" msgid="2778774510654527264">"使用 WLAN 估测位置"</string>
     <string name="location_status" msgid="3456414279428237558">"位置信息状态"</string>
     <string name="location_services" msgid="5441085185119797200">"位置信息服务"</string>
     <string name="on" msgid="6683600681314500652">"开启"</string>
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"服务"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"服务设置"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"高对比度文字"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"无障碍功能快捷方式"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"启用无障碍功能快捷方式"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"快捷方式服务"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"开启这项快捷方式后，同时按下返回和向下按钮 3 秒钟即可启动无障碍功能。"</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"字幕"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"视频字幕的文字叠加层设置"</string>
     <string name="captions_display" msgid="735692527287125548">"显示"</string>
@@ -408,7 +412,7 @@
     <string name="system_accessibility_status" msgid="6150600992901856367">"启用"</string>
     <string name="system_accessibility_config" msgid="3216531917536720277">"配置"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="8200707259067035823">"要使用<xliff:g id="SERVICE">%1$s</xliff:g>吗？"</string>
-    <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"“<xliff:g id="SERVICE">%1$s</xliff:g>”会收集您输入的所有文字信息（密码除外），其中包括信用卡号等个人数据。"</string>
+    <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"“<xliff:g id="SERVICE">%1$s</xliff:g>”可以收集您输入的所有文字信息（密码除外），其中包括信用卡号等个人数据。"</string>
     <string name="system_accessibility_service_off_confirm_title" msgid="963297812889694832">"要停止使用<xliff:g id="SERVICE">%1$s</xliff:g>吗？"</string>
     <string name="system_accessibility_service_off_confirm_desc" msgid="6714782635926048678">"选择“确定”将会停止使用<xliff:g id="SERVICE">%1$s</xliff:g>。"</string>
     <string name="system_accessibility_tts_output" msgid="8905477795536714590">"文字转语音"</string>
@@ -434,14 +438,14 @@
     <string name="system_always_check" msgid="1866566828098009853">"始终检查"</string>
     <string name="system_bt_hci_log" msgid="2425757846046504431">"蓝牙HCI日志记录"</string>
     <string name="system_email_address" msgid="8669468986250302378">"电子邮件地址"</string>
-    <string name="system_usb_debugging" msgid="3777895294421924323">"USB调试"</string>
+    <string name="system_usb_debugging" msgid="3777895294421924323">"USB 调试"</string>
     <string name="system_allow_mock_locations" msgid="3635672039775772910">"允许模拟位置"</string>
     <string name="system_select_debug_app" msgid="8592021815119618485">"选择调试应用"</string>
     <string name="system_wait_for_debugger" msgid="4007354935701089555">"等待调试器"</string>
-    <string name="system_verify_apps_over_usb" msgid="7340861918835270609">"通过USB验证应用"</string>
+    <string name="system_verify_apps_over_usb" msgid="7340861918835270609">"通过 USB 验证应用"</string>
     <string name="system_desc_verify_apps_over_usb" msgid="6722973410408262393">"通过 ADB/ADT 检查安装的应用是否存在有害行为。"</string>
-    <string name="system_wifi_verbose_logging" msgid="3474525355071613242">"WLAN详细日志记录"</string>
-    <string name="system_desc_wifi_verbose_logging" msgid="1559904751873455868">"启用WLAN详细日志记录功能"</string>
+    <string name="system_wifi_verbose_logging" msgid="3474525355071613242">"WLAN 详细日志记录"</string>
+    <string name="system_desc_wifi_verbose_logging" msgid="1559904751873455868">"启用 WLAN 详细日志记录功能"</string>
     <string name="system_show_touches" msgid="2179121368437801757">"显示触摸操作"</string>
     <string name="system_pointer_location" msgid="2673764026490179227">"指针位置"</string>
     <string name="system_show_layout_bounds" msgid="645732439882291943">"显示布局边界"</string>
@@ -462,7 +466,7 @@
     <string name="system_desc_hdcp_checking" msgid="6879753401058891183">"仅用于 DRM 内容"</string>
     <string name="system_desc_hdmi_optimization" msgid="4400727262768931480">"优化显示方式以分别实现最高分辨率或最高帧速率。此设置只会影响超高清显示屏。更改此设置后设备将重新启动。"</string>
     <string name="system_desc_bt_hci_log" msgid="4219265203570411773">"启用蓝牙HCI信息收集日志记录"</string>
-    <string name="system_desc_usb_debugging" msgid="5168830368191788731">"连接USB后开启调试模式"</string>
+    <string name="system_desc_usb_debugging" msgid="5168830368191788731">"连接 USB 后开启调试模式"</string>
     <string name="system_desc_wait_for_debugger" msgid="2342968959255039368">"调试应用会在执行前等待附加调试程序"</string>
     <string name="system_desc_show_layout_bounds" msgid="3449386884226708985">"显示剪裁边界、边距等"</string>
     <string name="system_desc_show_gpu_view_updates" msgid="8045162296029336710">"使用GPU绘图时在窗口中闪烁视图"</string>
@@ -478,7 +482,7 @@
     <string name="agree" msgid="1235622082275451350">"同意"</string>
     <string name="disagree" msgid="9170636026862400981">"不同意"</string>
     <string name="security_unknown_sources_title" msgid="769762478057744545">"未知来源"</string>
-    <string name="security_unknown_sources_desc" msgid="7197053279914817124">"允许安装来自Play商店以外其他来源的应用"</string>
+    <string name="security_unknown_sources_desc" msgid="7197053279914817124">"允许安装来自 Play 商店以外其他来源的应用"</string>
     <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"允许安装来自未知来源的应用"</string>
     <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"您的设备和个人数据比较容易受到来源不明应用的攻击。您同意，对于因使用这类应用所导致的任何设备受损或数据丢失情况，您负有全部责任。"</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"验证应用"</string>
@@ -519,9 +523,9 @@
     <string name="title_configure" msgid="6929522003149212388">"配置"</string>
     <string name="desc_configure_keyboard" msgid="7187242843867404657">"键盘选项"</string>
     <string name="computing_size" msgid="2955133568424704042">"正在计算..."</string>
-    <string name="title_select_wifi_network" msgid="1038871400014761952">"选择您的WLAN网络"</string>
+    <string name="title_select_wifi_network" msgid="1038871400014761952">"选择您的 WLAN 网络"</string>
     <string name="accessories_wifi_display_rename_device" msgid="7416728299196887186">"改名"</string>
-    <string name="accessories_wifi_display_enable" msgid="4779506305656453262">"WLAN显示"</string>
+    <string name="accessories_wifi_display_enable" msgid="4779506305656453262">"WLAN 显示"</string>
     <string name="accessories_wifi_display_pin_required" msgid="3242645267864813273">"需要输入 PIN 码"</string>
     <string name="whichApplication" msgid="8382179653567099571">"使用以下应用完成操作："</string>
     <string name="alwaysUseQuestion" msgid="7128459989232213727">"始终使用所选的这个应用来执行此操作吗？"</string>
@@ -581,18 +585,18 @@
     <string name="restricted_profile_not_allowed" msgid="1622620680118897330">"不允许"</string>
     <string name="restricted_profile_customize_restrictions" msgid="8418415019078825537">"自定义限制"</string>
     <string name="restricted_profile_configure_apps_description_loading" msgid="5269477581791409700">"请稍候…"</string>
-    <string name="restricted_profile_change_password_title" msgid="2848537651211816659">"更改PIN码"</string>
+    <string name="restricted_profile_change_password_title" msgid="2848537651211816659">"更改 PIN 码"</string>
     <string name="restriction_description" msgid="3104855945910233028">"<xliff:g id="DESCRIPTION">%1$s</xliff:g>\n<xliff:g id="VALUE">%2$s</xliff:g>"</string>
     <string name="app_sees_restricted_accounts_and_controlled_by" msgid="6677671440081319908">"此应用由“<xliff:g id="APP">%1$s</xliff:g>”控制，可使用您的帐号"</string>
-    <string name="pin_enter_unlock_channel" msgid="5980400420298506069">"输入PIN码即可观看此频道"</string>
-    <string name="pin_enter_unlock_program" msgid="52453773316071511">"输入PIN码即可观看此节目"</string>
-    <string name="pin_enter_pin" msgid="821552376577935497">"输入PIN码"</string>
-    <string name="pin_enter_new_pin" msgid="4788218421265924211">"设置新的PIN码"</string>
-    <string name="pin_enter_again" msgid="1510456697040826496">"重新输入新的PIN码"</string>
-    <string name="pin_enter_old_pin" msgid="851029058127630869">"输入原来的PIN码"</string>
+    <string name="pin_enter_unlock_channel" msgid="5980400420298506069">"输入 PIN 码即可观看此频道"</string>
+    <string name="pin_enter_unlock_program" msgid="52453773316071511">"输入 PIN 码即可观看此节目"</string>
+    <string name="pin_enter_pin" msgid="821552376577935497">"输入 PIN 码"</string>
+    <string name="pin_enter_new_pin" msgid="4788218421265924211">"设置新的 PIN 码"</string>
+    <string name="pin_enter_again" msgid="1510456697040826496">"重新输入新的 PIN 码"</string>
+    <string name="pin_enter_old_pin" msgid="851029058127630869">"输入原来的 PIN 码"</string>
     <string name="pin_enter_wrong_seconds" msgid="7541208202846169755">"您已连续 5 次输错 PIN 码。\n请在 <xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g> 秒后重试。"</string>
-    <string name="pin_toast_wrong" msgid="4628358195224633248">"PIN码错误，请重试"</string>
-    <string name="pin_toast_not_match" msgid="5886041789737632996">"PIN码不匹配，请重试"</string>
+    <string name="pin_toast_wrong" msgid="4628358195224633248">"PIN 码错误，请重试"</string>
+    <string name="pin_toast_not_match" msgid="5886041789737632996">"PIN 码不匹配，请重试"</string>
     <string name="wifi_setup_input_password" msgid="1596168874369038536">"输入“<xliff:g id="SSID">%1$s</xliff:g>”的密码"</string>
     <string name="wifi_setup_connection_success" msgid="3846993789166071184">"连接成功"</string>
     <string name="wifi_setup_save_success" msgid="4785799603638549254">"保存成功"</string>
@@ -608,7 +612,7 @@
     <string name="device_apps_app_management_enable" msgid="3246823119203444608">"启用"</string>
     <string name="device_apps_app_management_enable_desc" msgid="7490219375247065314">"要启用此应用吗？"</string>
     <string name="device_apps_app_management_storage_used" msgid="4611351576179140634">"已使用的存储空间"</string>
-    <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"<xliff:g id="VOLUME">%2$s</xliff:g>已使用 <xliff:g id="SIZE">%1$s</xliff:g>"</string>
+    <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"已使用 <xliff:g id="SIZE">%1$s</xliff:g> <xliff:g id="VOLUME">%2$s</xliff:g>"</string>
     <string name="device_apps_app_management_clear_data" msgid="4439114679323274127">"清除数据"</string>
     <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"系统会永久删除此应用的所有数据。\n删除的内容包括所有文件、设置、帐号、数据库等。"</string>
     <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"清除默认操作"</string>
@@ -652,9 +656,9 @@
     <string name="device_rename_title" msgid="2629557295786267185">"重命名此 <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"此 <xliff:g id="DEVICEMODEL">%1$s</xliff:g> 目前的名称为“<xliff:g id="DEVICENAME">%2$s</xliff:g>”"</string>
     <string name="change_setting" msgid="2047402388786162246">"更改"</string>
-    <string name="keep_settings" msgid="6798327196645732517">"不要更改"</string>
+    <string name="keep_settings" msgid="6798327196645732517">"不更改"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"权限"</string>
-    <string name="device_apps_permissions" msgid="2966387603529725982">"应用访问授权"</string>
+    <string name="device_apps_permissions" msgid="2966387603529725982">"应用权限"</string>
     <string name="app_permissions_group_summary" msgid="7906834786705287901">"已授权 <xliff:g id="COUNT_0">%d</xliff:g> 个应用（共 <xliff:g id="COUNT_1">%d</xliff:g> 个）"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"蓝牙权限请求"</string>
     <string name="security_patch" msgid="2131617390189164481">"Android 安全补丁程序级别"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"正在获取错误报告"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"可用的虚拟键盘"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"管理键盘"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"允许"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"不允许"</string>
+    <string name="usage_access" msgid="1914242907684452328">"使用情况访问权限"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"使用情况访问权限允许应用跟踪您正在使用的其他应用和使用频率，以及您的运营商、语言设置及其他详细信息。"</string>
 </resources>

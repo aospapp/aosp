@@ -23,8 +23,8 @@ namespace android {
 
 DeathRecipientType::DeathRecipientType() {}
 
-void DeathRecipientType::addNamedTypesToSet(std::set<const FQName> &) const {
-    // do nothing
+std::string DeathRecipientType::typeName() const {
+    return "death recipient";
 }
 
 std::string DeathRecipientType::getCppType(StorageMode mode,

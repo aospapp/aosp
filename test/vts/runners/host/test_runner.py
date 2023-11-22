@@ -25,6 +25,8 @@ import os
 import pkgutil
 import signal
 import sys
+import thread
+import threading
 
 from vts.runners.host import base_test
 from vts.runners.host import config_parser
@@ -94,22 +96,46 @@ def runTestClass(test_class):
         except IndexError:
             logging.error("No valid config file found.")
             sys.exit(1)
+        except Exception as e:
+            logging.error("Unexpected exception")
+            logging.exception(e)
 
     test_identifiers = [(test_cls_name, None)]
 
     for config in test_configs:
+        if keys.ConfigKeys.KEY_TEST_MAX_TIMEOUT in config:
+            timeout_sec = int(config[keys.ConfigKeys.KEY_TEST_MAX_TIMEOUT]) / 1000.0
+        else:
+            timeout_sec = 60 * 60 * 3
+            logging.warning("%s unspecified. Set timeout to %s seconds.",
+                            keys.ConfigKeys.KEY_TEST_MAX_TIMEOUT, timeout_sec)
+        # The default SIGINT handler sends KeyboardInterrupt to main thread.
+        # On Windows, raising CTRL_C_EVENT, which is received as SIGINT,
+        # has no effect on non-console process. interrupt_main() works but
+        # does not unblock main thread's IO immediately.
+        timeout_func = (raiseSigint if not utils.is_on_windows() else
+                        thread.interrupt_main)
+        sig_timer = threading.Timer(timeout_sec, timeout_func)
+
         tr = TestRunner(config, test_identifiers)
         tr.parseTestConfig(config)
         try:
-            # Create console signal handler to make sure TestRunner is stopped
-            # in the event of termination.
-            handler = config_parser.gen_term_signal_handler([tr])
-            signal.signal(signal.SIGTERM, handler)
-            signal.signal(signal.SIGINT, handler)
+            sig_timer.start()
             tr.runTestClass(test_class, None)
+        except KeyboardInterrupt as e:
+            logging.exception("Aborted by timeout or ctrl+C: %s", e)
+        except Exception as e:
+            logging.error("Unexpected exception")
+            logging.exception(e)
         finally:
+            sig_timer.cancel()
             tr.stop()
             return tr.results
+
+
+def raiseSigint():
+    """Raises SIGINT."""
+    os.kill(os.getpid(), signal.SIGINT)
 
 
 class TestRunner(object):
@@ -117,24 +143,26 @@ class TestRunner(object):
     report results.
 
     Attributes:
-        self.test_run_info: A dictionary containing the information needed by
-                            test classes for this test run, including params,
-                            controllers, and other objects. All of these will
-                            be passed to test classes.
-        self.test_configs: A dictionary that is the original test configuration
-                           passed in by user.
-        self.id: A string that is the unique identifier of this test run.
-        self.log_path: A string representing the path of the dir under which
-                       all logs from this test run should be written.
-        self.controller_registry: A dictionary that holds the controller
-                                  objects used in a test run.
-        self.controller_destructors: A dictionary that holds the controller
-                                     distructors. Keys are controllers' names.
-        self.run_list: A list of tuples specifying what tests to run.
-        self.results: The test result object used to record the results of
-                      this test run.
-        self.running: A boolean signifies whether this test run is ongoing or
-                      not.
+        test_run_info: A dictionary containing the information needed by
+                       test classes for this test run, including params,
+                       controllers, and other objects. All of these will
+                       be passed to test classes.
+        test_configs: A dictionary that is the original test configuration
+                      passed in by user.
+        id: A string that is the unique identifier of this test run.
+        log_path: A string representing the path of the dir under which
+                  all logs from this test run should be written.
+        controller_registry: A dictionary that holds the controller
+                             objects used in a test run.
+        controller_destructors: A dictionary that holds the controller
+                                distructors. Keys are controllers' names.
+        run_list: A list of tuples specifying what tests to run.
+        results: The test result object used to record the results of
+                 this test run.
+        running: A boolean signifies whether this test run is ongoing or
+                 not.
+        test_cls_instances: list of test class instances that were executed
+                            or scheduled to be executed.
     """
 
     def __init__(self, test_configs, run_list):
@@ -157,6 +185,7 @@ class TestRunner(object):
         self.run_list = run_list
         self.results = records.TestResult()
         self.running = False
+        self.test_cls_instances = []
 
     def __enter__(self):
         return self
@@ -295,8 +324,8 @@ class TestRunner(object):
             raise ControllerError(("Controller module %s did not return a list"
                                    " of objects, abort.") % module_ref_name)
         self.controller_registry[module_ref_name] = objects
-        logging.debug("Found %d objects for controller %s", len(objects),
-                      module_config_name)
+        logging.debug("Found %d objects for controller %s",
+                      len(objects), module_config_name)
         destroy_func = module.destroy
         self.controller_destructors[module_ref_name] = destroy_func
         return objects
@@ -353,10 +382,10 @@ class TestRunner(object):
         self.running = True
         with test_cls(self.test_run_info) as test_cls_instance:
             try:
+                if test_cls_instance not in self.test_cls_instances:
+                    self.test_cls_instances.append(test_cls_instance)
                 cls_result = test_cls_instance.run(test_cases)
-                self.results += cls_result
             except signals.TestAbortAll as e:
-                self.results += e.results
                 raise e
 
     def run(self):
@@ -403,6 +432,9 @@ class TestRunner(object):
                         ("Abort all subsequent test classes. Reason: "
                          "%s"), e)
                     raise
+        except Exception as e:
+            logging.error("Unexpected exception")
+            logging.exception(e)
         finally:
             self.unregisterControllers()
 
@@ -413,6 +445,10 @@ class TestRunner(object):
         This function concludes a test run and writes out a test report.
         """
         if self.running:
+
+            for test_cls_instance in self.test_cls_instances:
+                self.results += test_cls_instance.results
+
             msg = "\nSummary for test run %s: %s\n" % (self.id,
                                                        self.results.summary())
             self._writeResultsJsonString()

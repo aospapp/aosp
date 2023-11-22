@@ -18,10 +18,12 @@ package android.cts.backup;
 
 import static junit.framework.Assert.assertTrue;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.compatibility.common.tradefed.testtype.CompatibilityHostTestBase;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
 import org.junit.After;
@@ -29,24 +31,35 @@ import org.junit.Before;
 import org.junit.runner.RunWith;
 
 import java.util.Scanner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Base class for CTS backup/restore hostside tests
  */
 @RunWith(DeviceJUnit4ClassRunner.class)
 public abstract class BaseBackupHostSideTest extends CompatibilityHostTestBase {
+    protected boolean mIsBackupSupported;
+
     /** Value of PackageManager.FEATURE_BACKUP */
     private static final String FEATURE_BACKUP = "android.software.backup";
 
     private static final String LOCAL_TRANSPORT =
             "android/com.android.internal.backup.LocalTransport";
 
-    private boolean mIsBackupSupported;
-
     @Before
     public void setUp() throws DeviceNotAvailableException, Exception {
         mIsBackupSupported = mDevice.hasFeature("feature:" + FEATURE_BACKUP);
-        assumeTrue(mIsBackupSupported);
+        if (!mIsBackupSupported) {
+            CLog.i("android.software.backup feature is not supported on this device");
+            return;
+        }
+
+        // Check that the backup wasn't disabled and the transport wasn't switched unexpectedly.
+        assertTrue("Backup was unexpectedly disabled during the module test run",
+                isBackupEnabled());
+        assertEquals("LocalTransport should be selected at this point", LOCAL_TRANSPORT,
+                getCurrentTransport());
     }
 
     @After
@@ -87,6 +100,13 @@ public abstract class BaseBackupHostSideTest extends CompatibilityHostTestBase {
     }
 
     /**
+     * Attempts to clear the device log.
+     */
+    protected void clearLogcat() throws DeviceNotAvailableException {
+        mDevice.executeAdbCommand("logcat", "-c");
+    }
+
+    /**
      * Run test <testName> in test <className> found in package <packageName> on the device, and
      * assert it is successful.
      */
@@ -103,7 +123,6 @@ public abstract class BaseBackupHostSideTest extends CompatibilityHostTestBase {
      * Expected format: "Package <packageName> with result: Success"
      */
     protected void assertBackupIsSuccessful(String packageName, String backupnowOutput) {
-        // Assert backup was successful.
         Scanner in = new Scanner(backupnowOutput);
         boolean success = false;
         while (in.hasNextLine()) {
@@ -118,6 +137,29 @@ public abstract class BaseBackupHostSideTest extends CompatibilityHostTestBase {
         }
         in.close();
         assertTrue(success);
+    }
+
+    /**
+     * Parsing the output of "bmgr backupnow" command and checking that the package under test
+     * wasn't backed up because backup is not allowed
+     *
+     * Expected format: "Package <packageName> with result:  Backup is not allowed"
+     */
+    protected void assertBackupIsNotAllowed(String packageName, String backupnowOutput) {
+        Scanner in = new Scanner(backupnowOutput);
+        boolean found = false;
+        while (in.hasNextLine()) {
+            String line = in.nextLine();
+
+            if (line.contains(packageName)) {
+                String result = line.split(":")[1].trim();
+                if ("Backup is not allowed".equals(result)) {
+                    found = true;
+                }
+            }
+        }
+        in.close();
+        assertTrue("Didn't find \'Backup not allowed\' in the output", found);
     }
 
     /**
@@ -153,5 +195,29 @@ public abstract class BaseBackupHostSideTest extends CompatibilityHostTestBase {
      */
     protected void clearPackageData(String packageName) throws DeviceNotAvailableException {
         mDevice.executeShellCommand(String.format("pm clear %s", packageName));
+    }
+
+    private boolean isBackupEnabled() throws DeviceNotAvailableException {
+        boolean isEnabled;
+        String output = mDevice.executeShellCommand("bmgr enabled");
+        Pattern pattern = Pattern.compile("^Backup Manager currently (enabled|disabled)$");
+        Matcher matcher = pattern.matcher(output.trim());
+        if (matcher.find()) {
+            isEnabled = "enabled".equals(matcher.group(1));
+        } else {
+            throw new RuntimeException("non-parsable output setting bmgr enabled: " + output);
+        }
+        return isEnabled;
+    }
+
+    private String getCurrentTransport() throws DeviceNotAvailableException {
+        String output = mDevice.executeShellCommand("bmgr list transports");
+        Pattern pattern = Pattern.compile("\\* (.*)");
+        Matcher matcher = pattern.matcher(output);
+        if (matcher.find()) {
+            return matcher.group(1);
+        } else {
+            throw new RuntimeException("non-parsable output setting bmgr transport: " + output);
+        }
     }
 }

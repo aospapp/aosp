@@ -82,24 +82,6 @@
          <Space
             android:layout_width="match_parent"
             android:layout_height="5dp"/>
-
-        <TextView
-            android:text="@string/uapButtonsBtnDLbl"
-            android:id="@+id/uap_buttonsBtnDLabelTx"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            />
-
-        <TextView
-            android:text="@string/uapButtonsNotRecognized"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:id="@+id/uap_buttonsBtnDStatusTx"
-            android:paddingLeft="16dp"/>
-
-         <Space
-            android:layout_width="match_parent"
-            android:layout_height="5dp"/>
         </LinearLayout>
 
     <TextView

@@ -32,6 +32,7 @@ extern "C" {
 void mpuStart(void);
 void mpuAllowRamExecution(bool allowSvcExecute);         /* for Supervisor only, if possible */
 void mpuAllowRomWrite(bool allowSvcWrite);     /* for Supervisor only, if possible */
+void mpuShow(void);
 
 
 #ifdef __cplusplus

@@ -18,6 +18,7 @@ package com.google.doclava;
 
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -27,6 +28,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -43,7 +46,9 @@ import java.util.stream.Collectors;
 
 public class Stubs {
   public static void writeStubsAndApi(String stubsDir, String apiFile, String keepListFile,
-      String removedApiFile, String exactApiFile, HashSet<String> stubPackages) {
+      String removedApiFile, String exactApiFile, HashSet<String> stubPackages,
+      HashSet<String> stubImportPackages,
+      boolean stubSourceOnly) {
     // figure out which classes we need
     final HashSet<ClassInfo> notStrippable = new HashSet<ClassInfo>();
     ClassInfo[] all = Converter.allClasses();
@@ -94,11 +99,11 @@ public class Stubs {
             "Cannot open file for write");
       }
     }
-    // If a class is public or protected, not hidden, and marked as included,
+    // If a class is public or protected, not hidden, not imported and marked as included,
     // then we can't strip it
     for (ClassInfo cl : all) {
       if (cl.checkLevel() && cl.isIncluded()) {
-        cantStripThis(cl, notStrippable, "0:0");
+        cantStripThis(cl, notStrippable, "0:0", stubImportPackages);
       }
     }
 
@@ -117,7 +122,7 @@ public class Stubs {
                 + m.name() + " is deprecated");
           }
 
-          ClassInfo hiddenClass = findHiddenClasses(m.returnType());
+          ClassInfo hiddenClass = findHiddenClasses(m.returnType(), stubImportPackages);
           if (null != hiddenClass) {
             if (hiddenClass.qualifiedName() == m.returnType().asClassInfo().qualifiedName()) {
               // Return type is hidden
@@ -134,7 +139,7 @@ public class Stubs {
           for (ParameterInfo p :  m.parameters()) {
             TypeInfo t = p.type();
             if (!t.isPrimitive()) {
-              hiddenClass = findHiddenClasses(t);
+              hiddenClass = findHiddenClasses(t, stubImportPackages);
               if (null != hiddenClass) {
                 if (hiddenClass.qualifiedName() == t.asClassInfo().qualifiedName()) {
                   // Parameter type is hidden
@@ -187,6 +192,9 @@ public class Stubs {
     final HashSet<Pattern> stubPackageWildcards = extractWildcards(stubPackages);
     for (ClassInfo cl : notStrippable) {
       if (!cl.isDocOnly()) {
+        if (stubSourceOnly && !Files.exists(Paths.get(cl.position().file))) {
+          continue;
+        }
         if (shouldWriteStub(cl.containingPackage().name(), stubPackages, stubPackageWildcards)) {
           // write out the stubs
           if (stubsDir != null) {
@@ -282,15 +290,34 @@ public class Stubs {
     return wildcards;
   }
 
-  private static ClassInfo findHiddenClasses(TypeInfo ti) {
+  /**
+   * Find references to hidden classes.
+   *
+   * <p>This finds hidden classes that are used by public parts of the API in order to ensure the
+   * API is self consistent and does not reference classes that are not included in
+   * the stubs. Any such references cause an error to be reported.
+   *
+   * <p>A reference to an imported class is not treated as an error, even though imported classes
+   * are hidden from the stub generation. That is because imported classes are, by definition,
+   * excluded from the set of classes for which stubs are required.
+   *
+   * @param ti the type information to examine for references to hidden classes.
+   * @param stubImportPackages the possibly null set of imported package names.
+   * @return a reference to a hidden class or null if there are none
+   */
+  private static ClassInfo findHiddenClasses(TypeInfo ti, HashSet<String> stubImportPackages) {
     ClassInfo ci = ti.asClassInfo();
     if (ci == null) return null;
+    if (stubImportPackages != null
+        && stubImportPackages.contains(ci.containingPackage().qualifiedName())) {
+      return null;
+    }
     if (ci.isHiddenOrRemoved()) return ci;
     if (ti.typeArguments() != null) {
       for (TypeInfo tii : ti.typeArguments()) {
         // Avoid infinite recursion in the case of Foo<T extends Foo>
         if (tii.qualifiedTypeName() != ti.qualifiedTypeName()) {
-          ClassInfo hiddenClass = findHiddenClasses(tii);
+          ClassInfo hiddenClass = findHiddenClasses(tii, stubImportPackages);
           if (hiddenClass != null) return hiddenClass;
         }
       }
@@ -298,7 +325,14 @@ public class Stubs {
     return null;
   }
 
-  public static void cantStripThis(ClassInfo cl, HashSet<ClassInfo> notStrippable, String why) {
+  public static void cantStripThis(ClassInfo cl, HashSet<ClassInfo> notStrippable, String why,
+      HashSet<String> stubImportPackages) {
+
+    if (stubImportPackages != null
+        && stubImportPackages.contains(cl.containingPackage().qualifiedName())) {
+      // if the package is imported then it does not need stubbing.
+      return;
+    }
 
     if (!notStrippable.add(cl)) {
       // slight optimization: if it already contains cl, it already contains
@@ -318,12 +352,14 @@ public class Stubs {
       for (FieldInfo fInfo : cl.selfFields()) {
         if (fInfo.type() != null) {
           if (fInfo.type().asClassInfo() != null) {
-            cantStripThis(fInfo.type().asClassInfo(), notStrippable, "2:" + cl.qualifiedName());
+            cantStripThis(fInfo.type().asClassInfo(), notStrippable, "2:" + cl.qualifiedName(),
+                stubImportPackages);
           }
           if (fInfo.type().typeArguments() != null) {
             for (TypeInfo tTypeInfo : fInfo.type().typeArguments()) {
               if (tTypeInfo.asClassInfo() != null) {
-                cantStripThis(tTypeInfo.asClassInfo(), notStrippable, "3:" + cl.qualifiedName());
+                cantStripThis(tTypeInfo.asClassInfo(), notStrippable, "3:" + cl.qualifiedName(),
+                    stubImportPackages);
               }
             }
           }
@@ -335,7 +371,8 @@ public class Stubs {
       if (cl.asTypeInfo().typeArguments() != null) {
         for (TypeInfo tInfo : cl.asTypeInfo().typeArguments()) {
           if (tInfo.asClassInfo() != null) {
-            cantStripThis(tInfo.asClassInfo(), notStrippable, "4:" + cl.qualifiedName());
+            cantStripThis(tInfo.asClassInfo(), notStrippable, "4:" + cl.qualifiedName(),
+                stubImportPackages);
           }
         }
       }
@@ -343,11 +380,12 @@ public class Stubs {
     // cant strip any of the annotation elements
     // cantStripThis(cl.annotationElements(), notStrippable);
     // take care of methods
-    cantStripThis(cl.allSelfMethods(), notStrippable);
-    cantStripThis(cl.allConstructors(), notStrippable);
+    cantStripThis(cl.allSelfMethods(), notStrippable, stubImportPackages);
+    cantStripThis(cl.allConstructors(), notStrippable, stubImportPackages);
     // blow the outer class open if this is an inner class
     if (cl.containingClass() != null) {
-      cantStripThis(cl.containingClass(), notStrippable, "5:" + cl.qualifiedName());
+      cantStripThis(cl.containingClass(), notStrippable, "5:" + cl.qualifiedName(),
+          stubImportPackages);
     }
     // blow open super class and interfaces
     ClassInfo supr = cl.realSuperclass();
@@ -365,7 +403,8 @@ public class Stubs {
         Errors.error(Errors.HIDDEN_SUPERCLASS, cl.position(), "Public class " + cl.qualifiedName()
             + " stripped of unavailable superclass " + supr.qualifiedName());
       } else {
-        cantStripThis(supr, notStrippable, "6:" + cl.realSuperclass().name() + cl.qualifiedName());
+        cantStripThis(supr, notStrippable, "6:" + cl.realSuperclass().name() + cl.qualifiedName(),
+            stubImportPackages);
         if (supr.isPrivate()) {
           Errors.error(Errors.PRIVATE_SUPERCLASS, cl.position(), "Public class "
               + cl.qualifiedName() + " extends private class " + supr.qualifiedName());
@@ -374,7 +413,8 @@ public class Stubs {
     }
   }
 
-  private static void cantStripThis(ArrayList<MethodInfo> mInfos, HashSet<ClassInfo> notStrippable) {
+  private static void cantStripThis(ArrayList<MethodInfo> mInfos, HashSet<ClassInfo> notStrippable,
+      HashSet<String> stubImportPackages) {
     // for each method, blow open the parameters, throws and return types. also blow open their
     // generics
     if (mInfos != null) {
@@ -383,7 +423,8 @@ public class Stubs {
           for (TypeInfo tInfo : mInfo.getTypeParameters()) {
             if (tInfo.asClassInfo() != null) {
               cantStripThis(tInfo.asClassInfo(), notStrippable, "8:"
-                  + mInfo.realContainingClass().qualifiedName() + ":" + mInfo.name());
+                  + mInfo.realContainingClass().qualifiedName() + ":" + mInfo.name(),
+                  stubImportPackages);
             }
           }
         }
@@ -391,7 +432,8 @@ public class Stubs {
           for (ParameterInfo pInfo : mInfo.parameters()) {
             if (pInfo.type() != null && pInfo.type().asClassInfo() != null) {
               cantStripThis(pInfo.type().asClassInfo(), notStrippable, "9:"
-                  + mInfo.realContainingClass().qualifiedName() + ":" + mInfo.name());
+                  + mInfo.realContainingClass().qualifiedName() + ":" + mInfo.name(),
+                  stubImportPackages);
               if (pInfo.type().typeArguments() != null) {
                 for (TypeInfo tInfoType : pInfo.type().typeArguments()) {
                   if (tInfoType.asClassInfo() != null) {
@@ -404,7 +446,8 @@ public class Stubs {
                                   + "()");
                     } else {
                       cantStripThis(tcl, notStrippable, "10:"
-                          + mInfo.realContainingClass().qualifiedName() + ":" + mInfo.name());
+                          + mInfo.realContainingClass().qualifiedName() + ":" + mInfo.name(),
+                          stubImportPackages);
                     }
                   }
                 }
@@ -414,16 +457,18 @@ public class Stubs {
         }
         for (ClassInfo thrown : mInfo.thrownExceptions()) {
           cantStripThis(thrown, notStrippable, "11:" + mInfo.realContainingClass().qualifiedName()
-              + ":" + mInfo.name());
+              + ":" + mInfo.name(), stubImportPackages);
         }
         if (mInfo.returnType() != null && mInfo.returnType().asClassInfo() != null) {
           cantStripThis(mInfo.returnType().asClassInfo(), notStrippable, "12:"
-              + mInfo.realContainingClass().qualifiedName() + ":" + mInfo.name());
+              + mInfo.realContainingClass().qualifiedName() + ":" + mInfo.name(),
+              stubImportPackages);
           if (mInfo.returnType().typeArguments() != null) {
             for (TypeInfo tyInfo : mInfo.returnType().typeArguments()) {
               if (tyInfo.asClassInfo() != null) {
                 cantStripThis(tyInfo.asClassInfo(), notStrippable, "13:"
-                    + mInfo.realContainingClass().qualifiedName() + ":" + mInfo.name());
+                    + mInfo.realContainingClass().qualifiedName() + ":" + mInfo.name(),
+                    stubImportPackages);
               }
             }
           }
@@ -811,40 +856,32 @@ public class Stubs {
         || !field.type().dimension().equals("") || field.containingClass().isInterface();
   }
 
-  // Returns 'true' if the method is an @Override of a visible parent
-  // method implementation, and thus does not affect the API.
-  static boolean methodIsOverride(HashSet<ClassInfo> notStrippable, MethodInfo mi) {
+  /**
+   * Test if the given method has a concrete implementation in a superclass or
+   * interface that has no differences in its public API representation.
+   *
+   * @return {@code true} if the tested method can be safely elided from the
+   *         public API to conserve space.
+   */
+  static boolean methodIsOverride(MethodInfo mi) {
     // Abstract/static/final methods are always listed in the API description
     if (mi.isAbstract() || mi.isStatic() || mi.isFinal()) {
       return false;
     }
 
-    // Find any relevant ancestor declaration and inspect it
-    MethodInfo om = mi;
-    do {
-      MethodInfo superMethod = om.findSuperclassImplementation(notStrippable);
-      if (om.equals(superMethod)) {
-        break;
-      }
-      om = superMethod;
-    } while (om != null && (om.isHiddenOrRemoved() || om.containingClass().isHiddenOrRemoved()));
-    if (om != null) {
-      // Visibility mismatch is an API change, so check for it
-      if (mi.mIsPrivate == om.mIsPrivate && mi.mIsPublic == om.mIsPublic
-          && mi.mIsProtected == om.mIsProtected) {
-        // Look only for overrides of an ancestor class implementation,
-        // not of e.g. an abstract or interface method declaration
-        if (!om.isAbstract()) {
-          // If the only "override" turns out to be in our own class
-          // (which sometimes happens in concrete subclasses of
-          // abstract base classes), it's not really an override
-          if (!mi.mContainingClass.equals(om.mContainingClass)) {
-                return true;
-          }
+    final String api = writeMethodApiWithoutDefault(mi);
+    final MethodInfo overridden = mi.findPredicateOverriddenMethod(new Predicate<MethodInfo>() {
+      @Override
+      public boolean test(MethodInfo test) {
+        if (test.isHiddenOrRemoved() || test.containingClass().isHiddenOrRemoved()) {
+          return false;
         }
+
+        final String testApi = writeMethodApiWithoutDefault(test);
+        return api.equals(testApi);
       }
-    }
-    return false;
+    });
+    return (overridden != null);
   }
 
   static boolean canCallMethod(ClassInfo from, MethodInfo m) {
@@ -980,30 +1017,12 @@ public class Stubs {
     stream.println(";");
   }
 
-  static void writeXML(PrintStream xmlWriter, HashMap<PackageInfo, List<ClassInfo>> allClasses,
-      HashSet<ClassInfo> notStrippable) {
-    // extract the set of packages, sort them by name, and write them out in that order
-    Set<PackageInfo> allClassKeys = allClasses.keySet();
-    PackageInfo[] allPackages = allClassKeys.toArray(new PackageInfo[allClassKeys.size()]);
-    Arrays.sort(allPackages, PackageInfo.comparator);
+  public static void writeXml(PrintStream xmlWriter, Collection<PackageInfo> pkgs,
+      Predicate<ClassInfo> notStrippable) {
 
-    xmlWriter.println("<api>");
-    for (PackageInfo pack : allPackages) {
-      writePackageXML(xmlWriter, pack, allClasses.get(pack), notStrippable);
-    }
-    xmlWriter.println("</api>");
-  }
-
-  public static void writeXml(PrintStream xmlWriter, Collection<PackageInfo> pkgs) {
     final PackageInfo[] packages = pkgs.toArray(new PackageInfo[pkgs.size()]);
     Arrays.sort(packages, PackageInfo.comparator);
 
-    HashSet<ClassInfo> notStrippable = new HashSet();
-    for (PackageInfo pkg: packages) {
-      for (ClassInfo cl: pkg.allClasses().values()) {
-        notStrippable.add(cl);
-      }
-    }
     xmlWriter.println("<api>");
     for (PackageInfo pkg: packages) {
       writePackageXML(xmlWriter, pkg, pkg.allClasses().values(), notStrippable);
@@ -1011,8 +1030,17 @@ public class Stubs {
     xmlWriter.println("</api>");
   }
 
+  public static void writeXml(PrintStream xmlWriter, Collection<PackageInfo> pkgs) {
+    HashSet<ClassInfo> allClasses = new HashSet<>();
+    for (PackageInfo pkg: pkgs) {
+      allClasses.addAll(pkg.allClasses().values());
+    }
+    Predicate<ClassInfo> notStrippable = allClasses::contains;
+    writeXml(xmlWriter, pkgs, notStrippable);
+  }
+
   static void writePackageXML(PrintStream xmlWriter, PackageInfo pack,
-      Collection<ClassInfo> classList, HashSet<ClassInfo> notStrippable) {
+      Collection<ClassInfo> classList, Predicate<ClassInfo> notStrippable) {
     ClassInfo[] classes = classList.toArray(new ClassInfo[classList.size()]);
     Arrays.sort(classes, ClassInfo.comparator);
     // Work around the bogus "Array" class we invent for
@@ -1031,7 +1059,7 @@ public class Stubs {
 
   }
 
-  static void writeClassXML(PrintStream xmlWriter, ClassInfo cl, HashSet<ClassInfo> notStrippable) {
+  static void writeClassXML(PrintStream xmlWriter, ClassInfo cl, Predicate<ClassInfo> notStrippable) {
     String scope = cl.scope();
     String deprecatedString = "";
     String declString = (cl.isInterface()) ? "interface" : "class";
@@ -1055,7 +1083,7 @@ public class Stubs {
     ArrayList<ClassInfo> interfaces = cl.realInterfaces();
     Collections.sort(interfaces, ClassInfo.comparator);
     for (ClassInfo iface : interfaces) {
-      if (notStrippable.contains(iface)) {
+      if (notStrippable.test(iface)) {
         xmlWriter.println("<implements name=\"" + iface.qualifiedName() + "\">");
         xmlWriter.println("</implements>");
       }
@@ -1070,7 +1098,7 @@ public class Stubs {
     ArrayList<MethodInfo> methods = cl.allSelfMethods();
     Collections.sort(methods, MethodInfo.comparator);
     for (MethodInfo mi : methods) {
-      if (!methodIsOverride(notStrippable, mi)) {
+      if (!methodIsOverride(mi)) {
         writeMethodXML(xmlWriter, mi);
       }
     }
@@ -1202,14 +1230,16 @@ public class Stubs {
       ClassInfo clazz = member.containingClass();
 
       boolean visible = member.isPublic() || member.isProtected();
+      boolean hidden = member.isHidden();
       boolean removed = member.isRemoved();
       while (clazz != null) {
         visible &= clazz.isPublic() || clazz.isProtected();
+        hidden |= clazz.isHidden();
         removed |= clazz.isRemoved();
         clazz = clazz.containingClass();
       }
 
-      if (visible && removed) {
+      if (visible && !hidden && removed) {
         if (member instanceof MethodInfo) {
           final MethodInfo method = (MethodInfo) member;
           return (method.findOverriddenMethod(method.name(), method.signature()) == null);
@@ -1229,15 +1259,17 @@ public class Stubs {
 
       boolean visible = member.isPublic() || member.isProtected();
       boolean hasShowAnnotation = member.hasShowAnnotation();
-      boolean hiddenOrRemoved = member.isHiddenOrRemoved();
+      boolean hidden = member.isHidden();
+      boolean removed = member.isRemoved();
       while (clazz != null) {
         visible &= clazz.isPublic() || clazz.isProtected();
         hasShowAnnotation |= clazz.hasShowAnnotation();
-        hiddenOrRemoved |= clazz.isHiddenOrRemoved();
+        hidden |= clazz.isHidden();
+        removed |= clazz.isRemoved();
         clazz = clazz.containingClass();
       }
 
-      if (visible && hasShowAnnotation && !hiddenOrRemoved) {
+      if (visible && hasShowAnnotation && !hidden && !removed) {
         if (member instanceof MethodInfo) {
           final MethodInfo method = (MethodInfo) member;
           return (method.findOverriddenMethod(method.name(), method.signature()) == null);
@@ -1539,7 +1571,7 @@ public class Stubs {
     ArrayList<MethodInfo> methods = cl.allSelfMethods();
     Collections.sort(methods, MethodInfo.comparator);
     for (MethodInfo mi : methods) {
-      if (!methodIsOverride(notStrippable, mi)) {
+      if (!methodIsOverride(mi)) {
         writeMethodApi(apiWriter, mi);
       }
     }
@@ -1573,10 +1605,20 @@ public class Stubs {
     apiWriter.print(";\n");
   }
 
+  static String writeMethodApiWithoutDefault(MethodInfo mi) {
+    final ByteArrayOutputStream out = new ByteArrayOutputStream();
+    writeMethodApi(new PrintStream(out), mi, false);
+    return out.toString();
+  }
+
   static void writeMethodApi(PrintStream apiWriter, MethodInfo mi) {
+    writeMethodApi(apiWriter, mi, true);
+  }
+
+  static void writeMethodApi(PrintStream apiWriter, MethodInfo mi, boolean withDefault) {
     apiWriter.print("    method ");
     apiWriter.print(mi.scope());
-    if (mi.isDefault()) {
+    if (mi.isDefault() && withDefault) {
       apiWriter.print(" default");
     }
     if (mi.isStatic()) {

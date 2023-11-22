@@ -76,18 +76,23 @@ class BinaryTestCase(object):
         self.args = args
 
     def __str__(self):
-        return self.put_tag_func(self.GetFullName(), self.tag)
+        return self.put_tag_func(self.full_name, self.tag)
 
-    def GetFullName(self):
+    @property
+    def full_name(self):
         '''Get a string that represents the test.
 
         Returns:
             A string test name in format '<test suite>.<test name>' if
             test_suite is not empty; '<test name>' otherwise
         '''
-        return '{}.{}'.format(
-            self.test_suite,
-            self.test_name) if self.test_suite else self.test_name
+        return getattr(self, '_full_name', '{}.{}'.format(
+            self.test_suite, self.test_name)
+                       if self.test_suite else self.test_name)
+
+    @full_name.setter
+    def full_name(self, full_name):
+        self._full_name = full_name
 
     def GetRunCommand(self):
         '''Get the command to run the test.
@@ -95,16 +100,16 @@ class BinaryTestCase(object):
         Returns:
             String, a command to run the test.
         '''
-        working_directory = ('cd %s &&' % self.working_directory
+        working_directory = ('cd %s && ' % self.working_directory
                              if self.working_directory else '')
 
-        envp = 'env %s' % self.envp if self.envp else ''
+        envp = 'env %s ' % self.envp if self.envp else ''
         ld_library_path = ('LD_LIBRARY_PATH=%s ' % self.ld_library_path
                            if self.ld_library_path else '')
 
         if ld_library_path:
             envp = ('{}{}'.format(envp, ld_library_path)
-                    if envp else 'env %s' % ld_library_path)
+                    if envp else 'env %s ' % ld_library_path)
 
         args = ' %s' % self.args if self.args else ''
 

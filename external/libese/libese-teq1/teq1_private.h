@@ -20,16 +20,6 @@
 extern "C" {
 #endif
 
-/* Set visibility for exported functions. */
-#ifndef API
-#define API __attribute__ ((visibility("default")))
-#endif  /* API */
-
-/* Mimic C11 _Static_assert behavior for a C99 world. */
-#ifndef _static_assert
-#define _static_assert(what, why) { while (!(1 / (!!(what)))); }
-#endif
-
 /*
  * Enable T=1 format to reduce to case integers.
  * Ensure there are tests to map TEQ1_X() to the shorthand below.
@@ -70,14 +60,18 @@ struct Teq1State {
   const char *last_error_message;
   struct Teq1CardState *card_state;
   struct {
-    uint8_t *tx_buf;
-    uint32_t tx_len;
-    uint8_t *rx_buf;
-    uint32_t rx_len;
+    const struct EseSgBuffer *tx;
+    struct EseSgBuffer *rx;
+    uint32_t tx_offset;
+    uint32_t tx_count;
+    uint32_t tx_total;
+    uint32_t rx_offset;
+    uint32_t rx_count;
+    uint32_t rx_total;
   } app_data;
 };
 
-#define TEQ1_INIT_STATE(TX_BUF, TX_LEN, RX_BUF, RX_LEN, CSTATE) \
+#define TEQ1_INIT_STATE(TX_BUFS, TX_LEN, TX_TOTAL_LEN, RX_BUFS, RX_LEN, RX_TOTAL_LEN, CSTATE) \
   { \
     .wait_mult = 1, \
     .ifs = IFSC, \
@@ -86,10 +80,14 @@ struct Teq1State {
     .last_error_message = NULL, \
     .card_state = (CSTATE), \
     .app_data = { \
-      .tx_buf = (uint8_t *const)(TX_BUF), \
-      .tx_len = (TX_LEN), \
-      .rx_buf = (RX_BUF), \
-      .rx_len = (RX_LEN), \
+      .tx = (TX_BUFS), \
+      .rx = (RX_BUFS), \
+      .tx_offset = 0, \
+      .tx_count = (TX_LEN), \
+      .tx_total = (TX_TOTAL_LEN), \
+      .rx_offset = 0, \
+      .rx_count = (RX_LEN), \
+      .rx_total = (RX_TOTAL_LEN), \
     }, \
   }
 
@@ -115,7 +113,7 @@ int teq1_receive(struct EseInterface *ese,
                  float timeout,
                  struct Teq1Frame *frame);
 uint8_t teq1_fill_info_block(struct Teq1State *state, struct Teq1Frame *frame);
-void teq1_get_app_data(struct Teq1State *state, struct Teq1Frame *frame);
+void teq1_get_app_data(struct Teq1State *state, const struct Teq1Frame *frame);
 uint8_t teq1_frame_error_check(struct Teq1State *state,
                                struct Teq1Frame *tx_frame,
                                struct Teq1Frame *rx_frame);

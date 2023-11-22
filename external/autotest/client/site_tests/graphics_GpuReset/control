@@ -13,7 +13,6 @@ TIME='MEDIUM'
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = "gl"
 TEST_TYPE = 'client'
-JOB_RETRIES = 2
 # Reboot in the lab after the test ends.
 DEPENDENCIES='cleanup-reboot'
 BUG_TEMPLATE = {

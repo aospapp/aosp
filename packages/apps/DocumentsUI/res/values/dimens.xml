@@ -69,4 +69,6 @@
     <dimen name="bottom_bar_positive_button_margin_start">8dp</dimen>
     <dimen name="bottom_bar_positive_button_width">73dp</dimen>
     <dimen name="bottom_bar_positive_button_elevation">2dp</dimen>
+
+    <dimen name="inspector_header_height">250dp</dimen>
 </resources>

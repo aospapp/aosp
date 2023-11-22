@@ -23,8 +23,8 @@ package android.media.cts.bitstreams;
 public class MediaBitstreams {
 
     /* options */
-    public static final String OPT_HOST_BITSTEAMS_PATH = "host-bitsteams-path";
-    public static final String OPT_DEVICE_BITSTEAMS_PATH = "device-bitsteams-path";
+    public static final String OPT_HOST_BITSTREAMS_PATH = "host-bitstreams-path";
+    public static final String OPT_DEVICE_BITSTREAMS_PATH = "device-bitstreams-path";
     public static final String OPT_DOWNLOAD_BITSTREAMS = "download-bitstreams";
     public static final String OPT_DEBUG_TARGET_DEVICE = "debug-target-device";
     public static final String OPT_BITSTREAMS_TO_TEST_TXT = "bitstreams-to-test-txt";
@@ -38,23 +38,29 @@ public class MediaBitstreams {
     public static final String DEFAULT_DEVICE_BITSTEAMS_PATH = "/data/local/tmp/TestVectorsIttiam";
 
     /* metric keys */
-    public static final String KEY_BITSTREAMS_FORMATS_XML = "bitstreams-formats-xml";
-    public static final String KEY_SUPPORTED_BITSTREAMS_TXT = "supported-bitstreams-txt";
-    public static final String KEY_BITSTREAMS_VALIDATION_TXT = "bitstreams-validation-txt";
-    public static final String KEY_APP_CACHE_DIR = "app-cache-dir";
-    public static final String KEY_ERR_MSG = "err-msg";
+    public static final String KEY_BITSTREAMS_FORMATS_XML = "bitstreams_formats_xml";
+    public static final String KEY_SUPPORTED_BITSTREAMS_TXT = "supported_bitstreams_txt";
+    public static final String KEY_BITSTREAMS_VALIDATION_TXT = "bitstreams_validation_txt";
+    public static final String KEY_APP_CACHE_DIR = "app_cache_dir";
+    public static final String KEY_ERR_MSG = "err_msg";
+    public static final String KEY_PATH = "path";
+    public static final String KEY_CODEC_NAME = "codec_name";
+    public static final String KEY_STATUS = "status";
 
     /* constants */
     public static final String K_MODULE = "CtsMediaBitstreamsTestCases";
     public static final String K_BITSTREAMS_LIST_TXT = "bitstreamsFile.txt";
     public static final String K_TEST_GET_SUPPORTED_BITSTREAMS = "testGetSupportedBitstreams";
     public static final String K_NATIVE_CRASH = "native crash";
+    public static final String K_UNSUPPORTED = "unsupported";
+    public static final String K_UNAVAILABLE = "unavailable";
 
     public static final String DYNAMIC_CONFIG_XML = "DynamicConfig.xml";
     public static final String DYNAMIC_CONFIG = "dynamicConfig";
     public static final String DYNAMIC_CONFIG_ENTRY = "entry";
     public static final String DYNAMIC_CONFIG_KEY = "key";
     public static final String DYNAMIC_CONFIG_VALUE = "value";
+    public static final String DYNAMIC_CONFIG_PACKAGE = "package";
 
     /* utilities */
     /**
@@ -63,7 +69,7 @@ public class MediaBitstreams {
      * @return checksum file path for {@code bitstreamPath}, e.g. {@code h264/../../../../*_md5}.
      */
     public static String getMd5Path(String bitstreamPath) {
-        String base = bitstreamPath.split("\\.")[0];
+        String base = bitstreamPath.replaceAll(".mp4$|.webm$", "");
         String codec = bitstreamPath.split("/", 2)[0];
         String md5Path = String.format("%s_%s_md5", base, codec);
         return md5Path;

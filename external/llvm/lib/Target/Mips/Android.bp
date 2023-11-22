@@ -15,6 +15,7 @@ cc_defaults {
 
 cc_library_static {
     name: "llvm-mips-headers",
+    vendor_available: true,
     host_supported: true,
     target: {
         windows: {

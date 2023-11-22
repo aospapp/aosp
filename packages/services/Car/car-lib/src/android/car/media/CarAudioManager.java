@@ -36,7 +36,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.ref.WeakReference;
 
 /**
- * APIs for handling car specific audio stuffs.
+ * APIs for handling car specific audio stuff.
  */
 public final class CarAudioManager implements CarManagerBase {
 
@@ -81,10 +81,14 @@ public final class CarAudioManager implements CarManagerBase {
      */
     public static final int CAR_AUDIO_USAGE_SYSTEM_SAFETY_ALERT = 9;
     /**
+     * Audio usage for the ringing of a phone call.
+     */
+    public static final int CAR_AUDIO_USAGE_RINGTONE = 10;
+    /**
      * Audio usage for external audio usage.
      * @hide
      */
-    public static final int CAR_AUDIO_USAGE_EXTERNAL_AUDIO_SOURCE = 10;
+    public static final int CAR_AUDIO_USAGE_EXTERNAL_AUDIO_SOURCE = 11;
 
     /** @hide */
     public static final int CAR_AUDIO_USAGE_MAX = CAR_AUDIO_USAGE_EXTERNAL_AUDIO_SOURCE;

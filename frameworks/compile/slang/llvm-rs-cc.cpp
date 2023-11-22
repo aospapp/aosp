@@ -42,6 +42,7 @@
 #include "slang_assert.h"
 #include "slang_diagnostic_buffer.h"
 #include "slang_rs_reflect_utils.h"
+#include "slang_rs_reflection_state.h"
 
 #include <list>
 #include <set>
@@ -267,6 +268,8 @@ int main(int argc, const char **argv) {
 
   llvm::install_fatal_error_handler(LLVMErrorHandler, &DiagEngine);
 
+  slang::ReflectionState Reflection;
+
   // Compile the 32 bit version
   NamePairList IOFiles32;
   NamePairList DepFiles32;
@@ -280,7 +283,7 @@ int main(int argc, const char **argv) {
       std::unique_ptr<slang::Slang> Compiler(
           new slang::Slang(32, &DiagEngine, &DiagsBuffer));
       CompileFailed =
-          !Compiler->compile(IOFiles32, IOFiles32, DepFiles32, Opts, *DiagOpts);
+          !Compiler->compile(IOFiles32, IOFiles32, DepFiles32, Opts, *DiagOpts, &Reflection);
   }
 
   // Handle the 64-bit case too!
@@ -294,7 +297,7 @@ int main(int argc, const char **argv) {
     std::unique_ptr<slang::Slang> Compiler(
         new slang::Slang(64, &DiagEngine, &DiagsBuffer));
     CompileFailed =
-        !Compiler->compile(IOFiles64, IOFiles32, DepFiles64, Opts, *DiagOpts);
+        !Compiler->compile(IOFiles64, IOFiles32, DepFiles64, Opts, *DiagOpts, &Reflection);
   }
 
   llvm::errs() << DiagsBuffer.str();

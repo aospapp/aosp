@@ -36,6 +36,8 @@
 #define BYPASS_QUOTA 0
 #define BYPASS_SDCARDFS 0
 
+#define APPLY_HARD_QUOTAS 1
+
 namespace android {
 namespace installd {
 
@@ -123,7 +125,7 @@ std::string read_path_inode(const std::string& parent, const char* name, const c
 
 int validate_system_app_path(const char* path);
 bool validate_secondary_dex_path(const std::string& pkgname, const std::string& dex_path,
-        const char* volume_uuid, int uid, int storage_flag);
+        const char* volume_uuid, int uid, int storage_flag, bool validate_package_path = true);
 
 int get_path_from_env(dir_rec_t* rec, const char* var);
 

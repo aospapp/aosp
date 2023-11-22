@@ -15,6 +15,9 @@ cc_defaults {
 cc_library {
     name: "libaudioutils",
     vendor_available: true,
+    vndk: {
+        enabled: true,
+    },
     host_supported: true,
     defaults: ["audio_utils_defaults"],
 
@@ -23,6 +26,7 @@ cc_library {
         "ErrorLog.cpp",
         "fifo.cpp",
         "fifo_index.cpp",
+        "fifo_writer32.cpp",
         "format.c",
         "limiter.c",
         "minifloat.c",
@@ -30,6 +34,16 @@ cc_library {
         "PowerLog.cpp",
         "primitives.c",
         "roundup.c",
+    ],
+
+    header_libs: [
+        "libaudio_system_headers",
+        "libutils_headers",
+    ],
+
+    export_header_lib_headers: [
+        "libaudio_system_headers",
+        "libutils_headers",
     ],
 
     shared_libs: [

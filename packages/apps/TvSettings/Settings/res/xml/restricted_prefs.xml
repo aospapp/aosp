@@ -78,7 +78,7 @@
             android:icon="@drawable/ic_accessibility_new"
             android:key="accessibility"
             android:title="@string/system_accessibility"
-            android:fragment="com.android.tv.settings.system.AccessibilityFragment" />
+            android:fragment="com.android.tv.settings.accessibility.AccessibilityFragment" />
     </PreferenceCategory>
 
     <PreferenceCategory

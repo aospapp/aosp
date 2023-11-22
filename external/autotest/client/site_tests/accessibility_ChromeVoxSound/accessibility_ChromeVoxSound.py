@@ -21,7 +21,7 @@ class accessibility_ChromeVoxSound(a11y_test_base.a11y_test_base):
     _detect_time = 40 # Max length of time to spend detecting audio in seconds.
 
 
-    def _detect_audio(self, name, min_time, max_time):
+    def _detect_audio(self, name, min_time):
         """Detects whether audio was heard and returns the approximate time.
 
         Runs for at most self._detect_time, checking each chunk for sound.
@@ -32,7 +32,6 @@ class accessibility_ChromeVoxSound(a11y_test_base.a11y_test_base):
 
         @param name: a string representing which sound is expected.
         @param min_time: the minimum allowed sound length in seconds.
-        @param max_time: the maximum allowed sound length in seconds.
 
         @raises: error.TestFail if the observed behavior doesn't match
                  expected: either no sound or sound of bad length.
@@ -40,6 +39,7 @@ class accessibility_ChromeVoxSound(a11y_test_base.a11y_test_base):
         """
         count = 0
         counting = False
+        saw_sound_end = False
 
         for i in xrange(self._detect_time / self._audio_chunk_size):
             rms = self._rms_of_next_audio_chunk()
@@ -51,17 +51,18 @@ class accessibility_ChromeVoxSound(a11y_test_base.a11y_test_base):
                 count += 1
             elif counting:
                 audio_length = time.time() - start_time
+                saw_sound_end = True
                 break
         if not counting:
             raise error.TestFail('No audio for %s was found!' % name)
+        if not saw_sound_end:
+            raise error.TestFail('Audio for %s was more than % seconds!' % (
+                    name, self._detect_time))
 
         logging.info('Time taken - %s: %f', name, audio_length)
         if audio_length < min_time:
             raise error.TestFail(
                     '%s audio was only %f seconds long!' % (name, audio_length))
-        elif audio_length > max_time:
-            raise error.TestFail(
-                    '%s audio was too long: %f seconds!' % (name, audio_length))
         return
 
 
@@ -89,20 +90,20 @@ class accessibility_ChromeVoxSound(a11y_test_base.a11y_test_base):
 
         # TODO: this sound doesn't play for Telemetry user.  crbug.com/590403
         # Welcome ding
-        # self._detect_audio('enable ChromeVox ding', 1, 2)
+        # self._detect_audio('enable ChromeVox ding', 1)
 
         # "ChromeVox Spoken Feedback is ready!"
-        self._detect_audio('welcome message', 2, 6)
+        self._detect_audio('welcome message', 2)
         chromevox_open_time = time.time() - chromevox_start_time
         logging.info('ChromeVox took %f seconds to start.')
 
-        # Page navigation sound.
-        cr.browser.tabs[0].Navigate('chrome://version')
-        self._detect_audio('page navigation sound', 2, 6)
-
-        # New tab sound
+        # New tab sound.
         tab = cr.browser.tabs.New()
-        self._detect_audio('new tab ding', 2, 6)
+        self._detect_audio('new tab ding', 2)
+
+        # Page navigation sound.
+        tab.Navigate('chrome://version')
+        self._detect_audio('page navigation sound', 2)
 
 
     def run_once(self):

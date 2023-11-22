@@ -28,4 +28,5 @@
     <string name="import_vcard" msgid="5104299047930666528">"នាំចូល ^1"</string>
     <string name="mime_display_name" msgid="5926357152623764485">"ទិន្នន័យ​ពី​ស្លាក NFC"</string>
     <string name="vcard_title" msgid="7122634780732426007">"ព័ត៌មាន​ទំនាក់ទំនង​សម្រាប់ ^ 1"</string>
+    <string name="call_phone_permission_denied" msgid="8515177111984654599">"កម្មវិធីនេះត្រូវការការចូលប្រើប្រាស់​ការអនុញ្ញាត​ទូរសព្ទដើម្បី​ធ្វើការហៅ។ អ្នកអាចគ្រប់គ្រងការអនុញ្ញាតស្លាក​ក្នុងការកំណត់"</string>
 </resources>

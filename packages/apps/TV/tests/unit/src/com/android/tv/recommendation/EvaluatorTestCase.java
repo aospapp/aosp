@@ -16,12 +16,16 @@
 
 package com.android.tv.recommendation;
 
-import android.test.AndroidTestCase;
+import static android.support.test.InstrumentationRegistry.getContext;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import com.android.tv.data.Channel;
 import com.android.tv.recommendation.RecommendationUtils.ChannelRecordSortedMapHelper;
 import com.android.tv.recommendation.Recommender.Evaluator;
 import com.android.tv.testing.Utils;
+
+import org.junit.Before;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,17 +33,18 @@ import java.util.List;
 /**
  * Base test case for Recommendation Evaluator Unit tests.
  */
-public abstract class EvaluatorTestCase<T extends Evaluator> extends AndroidTestCase {
+public abstract class EvaluatorTestCase<T extends Evaluator> {
     private static final long INVALID_CHANNEL_ID = -1;
+
+    private static final double SCORE_DELTA = 0.01;
 
     private ChannelRecordSortedMapHelper mChannelRecordSortedMap;
     private RecommendationDataManager mDataManager;
 
     public T mEvaluator;
 
-    @Override
-    public void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() {
         mChannelRecordSortedMap = new ChannelRecordSortedMapHelper(getContext());
         mDataManager = RecommendationUtils
                 .createMockRecommendationDataManager(mChannelRecordSortedMap);
@@ -91,8 +96,9 @@ public abstract class EvaluatorTestCase<T extends Evaluator> extends AndroidTest
      * Check whether scores of each channels are valid.
      */
     protected void assertChannelScoresValid() {
-        assertEquals(Evaluator.NOT_RECOMMENDED, mEvaluator.evaluateChannel(INVALID_CHANNEL_ID));
-        assertEquals(Evaluator.NOT_RECOMMENDED,
+        assertEqualScores(Evaluator.NOT_RECOMMENDED,
+                mEvaluator.evaluateChannel(INVALID_CHANNEL_ID));
+        assertEqualScores(Evaluator.NOT_RECOMMENDED,
                 mEvaluator.evaluateChannel(mChannelRecordSortedMap.size()));
 
         for (long channelId : mChannelRecordSortedMap.keySet()) {
@@ -109,6 +115,14 @@ public abstract class EvaluatorTestCase<T extends Evaluator> extends AndroidTest
         mEvaluator.onChannelRecordListChanged(new ArrayList<>(mChannelRecordSortedMap.values()));
     }
 
+    void assertEqualScores(double expected, double actual) {
+        assertEquals(expected, actual, SCORE_DELTA);
+    }
+
+    void assertEqualScores(String message, double expected, double actual) {
+        assertEquals(message, expected, actual, SCORE_DELTA);
+    }
+
     private class FakeRecommender extends Recommender {
         public FakeRecommender() {
             super(new Recommender.Listener() {
@@ -120,7 +134,7 @@ public abstract class EvaluatorTestCase<T extends Evaluator> extends AndroidTest
                 public void onRecommendationChanged() {
                 }
             }, true, mDataManager);
-    }
+        }
 
         @Override
         public ChannelRecord getChannelRecord(long channelId) {

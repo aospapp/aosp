@@ -35,6 +35,7 @@ type Conn struct {
 	// constant after handshake; protected by handshakeMutex
 	handshakeMutex       sync.Mutex // handshakeMutex < in.Mutex, out.Mutex, errMutex
 	handshakeErr         error      // error resulting from handshake
+	wireVersion          uint16     // TLS wire version
 	vers                 uint16     // TLS version
 	haveVers             bool       // version has been negotiated
 	config               *Config    // configuration passed to constructor
@@ -761,6 +762,11 @@ RestartReadRecord:
 		return 0, nil, c.in.setErrorLocked(errors.New("tls: unsupported SSLv2 handshake received"))
 	}
 
+	// Accept server_plaintext_handshake records when the content type TLS 1.3 variant is enabled.
+	if c.isClient && c.in.cipher == nil && c.config.TLS13Variant == TLS13RecordTypeExperiment && want == recordTypeHandshake && typ == recordTypePlaintextHandshake {
+		typ = recordTypeHandshake
+	}
+
 	vers := uint16(b.data[1])<<8 | uint16(b.data[2])
 	n := int(b.data[3])<<8 | int(b.data[4])
 
@@ -852,20 +858,13 @@ func (c *Conn) readRecord(want recordType) error {
 	default:
 		c.sendAlert(alertInternalError)
 		return c.in.setErrorLocked(errors.New("tls: unknown record type requested"))
-	case recordTypeHandshake, recordTypeChangeCipherSpec:
+	case recordTypeChangeCipherSpec:
 		if c.handshakeComplete {
 			c.sendAlert(alertInternalError)
-			return c.in.setErrorLocked(errors.New("tls: handshake or ChangeCipherSpec requested after handshake complete"))
+			return c.in.setErrorLocked(errors.New("tls: ChangeCipherSpec requested after handshake complete"))
 		}
-	case recordTypeApplicationData:
-		if !c.handshakeComplete && !c.config.Bugs.ExpectFalseStart && len(c.config.Bugs.ExpectHalfRTTData) == 0 && len(c.config.Bugs.ExpectEarlyData) == 0 {
-			c.sendAlert(alertInternalError)
-			return c.in.setErrorLocked(errors.New("tls: application data record requested before handshake complete"))
-		}
-	case recordTypeAlert:
-		// Looking for a close_notify. Note: unlike a real
-		// implementation, this is not tolerant of additional records.
-		// See the documentation for ExpectCloseNotify.
+	case recordTypeApplicationData, recordTypeAlert, recordTypeHandshake:
+		break
 	}
 
 Again:
@@ -922,9 +921,11 @@ Again:
 			c.in.setErrorLocked(c.sendAlert(alertUnexpectedMessage))
 			break
 		}
-		err := c.in.changeCipherSpec(c.config)
-		if err != nil {
-			c.in.setErrorLocked(c.sendAlert(err.(alert)))
+		if c.wireVersion != tls13ExperimentVersion {
+			err := c.in.changeCipherSpec(c.config)
+			if err != nil {
+				c.in.setErrorLocked(c.sendAlert(err.(alert)))
+			}
 		}
 
 	case recordTypeApplicationData:
@@ -1001,11 +1002,17 @@ func (c *Conn) writeV2Record(data []byte) (n int, err error) {
 // to the connection and updates the record layer state.
 // c.out.Mutex <= L.
 func (c *Conn) writeRecord(typ recordType, data []byte) (n int, err error) {
-	if msgType := c.config.Bugs.SendWrongMessageType; msgType != 0 {
-		if typ == recordTypeHandshake && data[0] == msgType {
+	if typ == recordTypeHandshake {
+		msgType := data[0]
+		if c.config.Bugs.SendWrongMessageType != 0 && msgType == c.config.Bugs.SendWrongMessageType {
+			msgType += 42
+		} else if msgType == typeServerHello && c.config.Bugs.SendServerHelloAsHelloRetryRequest {
+			msgType = typeHelloRetryRequest
+		}
+		if msgType != data[0] {
 			newData := make([]byte, len(data))
 			copy(newData, data)
-			newData[0] += 42
+			newData[0] = msgType
 			data = newData
 		}
 	}
@@ -1138,15 +1145,10 @@ func (c *Conn) doWriteRecord(typ recordType, data []byte) (n int, err error) {
 	}
 	c.out.freeBlock(b)
 
-	if typ == recordTypeChangeCipherSpec {
+	if typ == recordTypeChangeCipherSpec && c.wireVersion != tls13ExperimentVersion {
 		err = c.out.changeCipherSpec(c.config)
 		if err != nil {
-			// Cannot call sendAlert directly,
-			// because we already hold c.out.Mutex.
-			c.tmp[0] = alertLevelError
-			c.tmp[1] = byte(err.(alert))
-			c.writeRecord(recordTypeAlert, c.tmp[0:2])
-			return n, c.out.setErrorLocked(&net.OpError{Op: "local error", Err: err})
+			return n, c.sendAlertLocked(alertLevelError, err.(alert))
 		}
 	}
 	return
@@ -1491,6 +1493,9 @@ func (c *Conn) handlePostHandshakeMessage() error {
 	}
 
 	if keyUpdate, ok := msg.(*keyUpdateMsg); ok {
+		if c.config.Bugs.RejectUnsolicitedKeyUpdate {
+			return errors.New("tls: unexpected KeyUpdate message")
+		}
 		c.in.doKeyUpdate(c, false)
 		if keyUpdate.keyUpdateRequest == keyUpdateRequested {
 			c.keyUpdateRequested = true
@@ -1498,9 +1503,33 @@ func (c *Conn) handlePostHandshakeMessage() error {
 		return nil
 	}
 
-	// TODO(davidben): Add support for KeyUpdate.
 	c.sendAlert(alertUnexpectedMessage)
-	return alertUnexpectedMessage
+	return errors.New("tls: unexpected post-handshake message")
+}
+
+// Reads a KeyUpdate acknowledgment from the peer. There may not be any
+// application data records before the message.
+func (c *Conn) ReadKeyUpdateACK() error {
+	c.in.Lock()
+	defer c.in.Unlock()
+
+	msg, err := c.readHandshake()
+	if err != nil {
+		return err
+	}
+
+	keyUpdate, ok := msg.(*keyUpdateMsg)
+	if !ok {
+		c.sendAlert(alertUnexpectedMessage)
+		return errors.New("tls: unexpected message when reading KeyUpdate")
+	}
+
+	if keyUpdate.keyUpdateRequest != keyUpdateNotRequested {
+		return errors.New("tls: received invalid KeyUpdate message")
+	}
+
+	c.in.doKeyUpdate(c, false)
+	return nil
 }
 
 func (c *Conn) Renegotiate() error {

@@ -82,9 +82,15 @@ typedef HostMessage MessageToHost;
 class HostCommsManager : public NonCopyable {
  public:
   /**
+   * @see HostLink::flushMessagesSentByNanoapp
+   */
+  void flushMessagesSentByNanoapp(uint64_t appId);
+
+  /**
    * Formulates a MessageToHost using the supplied message contents and passes
    * it to HostLink for transmission to the host.
    *
+   * @param nanoapp The sender of this message
    * @param messageData Pointer to message payload. Can be null if messageSize
    *        is 0. This buffer must remain valid until freeCallback is invoked.
    * @param messageSize Size of the message to send, in bytes
@@ -94,13 +100,17 @@ class HostCommsManager : public NonCopyable {
    * @param freeCallback Optional callback to invoke when the messageData is no
    *        longer needed (the message has been sent or an error occurred)
    *
-   * @return true if the message was accepted into the outbound message queue
+   * @return true if the message was accepted into the outbound message queue.
+   *         If this function returns false, it does *not* invoke freeCallback.
+   *         If it returns true, freeCallback will be invoked (if non-null) on
+   *         either success or failure.
    *
    * @see chreSendMessageToHost
    */
-  bool sendMessageToHostFromCurrentNanoapp(
-      void *messageData, size_t messageSize, uint32_t messageType,
-      uint16_t hostEndpoint, chreMessageFreeFunction *freeCallback);
+  bool sendMessageToHostFromNanoapp(
+      Nanoapp *nanoapp, void *messageData, size_t messageSize,
+      uint32_t messageType, uint16_t hostEndpoint,
+      chreMessageFreeFunction *freeCallback);
 
   /**
    * Makes a copy of the supplied message data and posts it to the queue for
@@ -151,15 +161,13 @@ class HostCommsManager : public NonCopyable {
    *
    * All parameters must be sanitized before invoking this function.
    *
-   * @param targetEventLoop EventLoop containing the target app
    * @param targetInstanceId Instance ID of the destination nanoapp
    *
    * @see sendMessageToNanoappFromHost
    */
   void deliverNanoappMessageFromHost(
       uint64_t appId, uint16_t hostEndpoint, uint32_t messageType,
-      const void *messageData, uint32_t messageSize, EventLoop *targetEventLoop,
-      uint32_t targetInstanceId);
+      const void *messageData, uint32_t messageSize, uint32_t targetInstanceId);
 
   /**
    * Releases memory associated with a message to the host, including invoking

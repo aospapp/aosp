@@ -23,6 +23,7 @@ import android.support.car.CarAppFocusManager.OnAppFocusChangedListener;
 import android.support.car.CarAppFocusManager.OnAppFocusOwnershipCallback;
 import android.support.car.navigation.CarNavigationInstrumentCluster;
 import android.support.car.navigation.CarNavigationStatusManager;
+import android.test.suitebuilder.annotation.MediumTest;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -30,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Unit tests for {@link android.support.car.navigation.CarNavigationStatusManager}
  */
+@MediumTest
 public class CarNavigationStatusManagerTest extends CarApiTestBase {
 
     private CarNavigationStatusManager mCarNavigationStatusManager;

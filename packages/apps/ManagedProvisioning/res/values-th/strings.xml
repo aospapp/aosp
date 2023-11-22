@@ -27,10 +27,10 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"แอปต่อไปนี้ต้องการเข้าถึงโปรไฟล์นี้:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"แอปต่อไปนี้จะจัดการอุปกรณ์:"</string>
     <string name="next" msgid="1004321437324424398">"ถัดไป"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"กำลังตั้งค่าโปรไฟล์งาน…"</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"กำลังตั้งค่าโปรไฟล์งาน…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"ผู้ดูแลระบบสามารถตรวจสอบและจัดการการตั้งค่า การเข้าถึงของบริษัท แอป สิทธิ์ และข้อมูลที่เชื่อมโยงกับโปรไฟล์นี้ ซึ่งรวมถึงกิจกรรมในเครือข่ายของคุณ ตลอดจนตำแหน่งของอุปกรณ์ ประวัติการโทร และประวัติการค้นหารายชื่อติดต่อ<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>โปรดติดต่อผู้ดูแลระบบเพื่อสอบถามข้อมูลเพิ่มเติม รวมทั้งนโยบายความเป็นส่วนตัวขององค์กร"</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"ผู้ดูแลระบบสามารถตรวจสอบและจัดการการตั้งค่า การเข้าถึงของบริษัท แอป สิทธิ์ และข้อมูลที่เชื่อมโยงกับอุปกรณ์นี้ ซึ่งรวมถึงกิจกรรมในเครือข่ายของคุณ ตลอดจนตำแหน่งของอุปกรณ์ ประวัติการโทร และประวัติการค้นหารายชื่อติดต่อ<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>โปรดติดต่อผู้ดูแลระบบเพื่อสอบถามข้อมูลเพิ่มเติม รวมทั้งนโยบายความเป็นส่วนตัวขององค์กร"</string>
-    <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"หากต้องการใช้คุณลักษณะการป้องกันขโมย อุปกรณ์ของคุณต้องมีการล็อกหน้าจอที่ป้องกันด้วยรหัสผ่าน"</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"ผู้ดูแลระบบสามารถตรวจสอบและจัดการการตั้งค่า การเข้าถึงของบริษัท แอป สิทธิ์ และข้อมูลที่เชื่อมโยงกับอุปกรณ์นี้ ซึ่งรวมถึงกิจกรรมในเครือข่ายของคุณ ตลอดจนตำแหน่งของอุปกรณ์ ประวัติการโทร และประวัติการค้นหารายชื่อติดต่อ<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>โปรดติดต่อผู้ดูแลระบบเพื่อสอบถามข้อมูลเพิ่มเติม รวมทั้งนโยบายความเป็นส่วนตัวขององค์กร"</string>
+    <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"หากต้องการใช้ฟีเจอร์การป้องกันขโมย อุปกรณ์ของคุณต้องมีการล็อกหน้าจอที่ป้องกันด้วยรหัสผ่าน"</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"ติดต่อผู้ดูแลระบบสำหรับข้อมูลเพิ่มเติม รวมถึงนโยบายความเป็นส่วนตัวขององค์กร"</string>
     <string name="learn_more_link" msgid="3012495805919550043">"เรียนรู้เพิ่มเติม"</string>
     <string name="cancel_setup" msgid="2949928239276274745">"ยกเลิก"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"โปรไฟล์งาน"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"ผู้ใช้หลัก"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"ลบโปรไฟล์ที่มีอยู่ใช่ไหม"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"คุณมีโปรไฟล์งานอยู่แล้ว ซึ่งจัดการโดยใช้แอปต่อไปนี้"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"คุณมีโปรไฟล์งานอยู่แล้ว ซึ่งมีการจัดการโดยใช้แอปต่อไปนี้"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"ก่อนดำเนินการต่อ โปรด"<a href="#read_this_link">"อ่านข้อมูลนี้"</a></string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"หากดำเนินการต่อ ระบบจะลบแอปและข้อมูลทั้งหมดในโปรไฟล์นี้"</string>
     <string name="delete_profile" msgid="2299218578684663459">"ลบ"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"แตะเพื่อตั้งค่าโปรไฟล์งานต่อ"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"ไม่สามารถตั้งค่าโปรไฟล์งานของคุณได้ โปรดติดต่อฝ่ายไอทีหรือลองอีกครั้งในภายหลัง"</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"ไม่สามารถเพิ่มโปรไฟล์งาน"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"ผู้ใช้นี้ไม่สามารถมีโปรไฟล์งาน โปรดติดต่อผู้ดูแลระบบเพื่อรับความช่วยเหลือ"</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"ผู้ใช้นี้ไม่สามารถมีโปรไฟล์งาน โปรดติดต่อผู้ดูแลระบบ"</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"ไม่สามารถติดตั้งโปรไฟล์งานบนอุปกรณ์ที่มีการจัดการ"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"อุปกรณ์นี้อาจมีผู้ใช้มากเกินไป โปรดนำผู้ใช้ออกแล้วลองอีกครั้ง"</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"ไม่สามารถเปลี่ยนหรือนำโปรไฟล์งานออก"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"ไม่สามารถเพิ่มโปรไฟล์งานลงในอุปกรณ์นี้ หากมีคำถาม โปรดติดต่อผู้ดูแลระบบของคุณ"</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"เปลี่ยน Launcher ของอุปกรณ์"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"โปรไฟล์งานของคุณไม่สามารถใช้แอป Launcher นี้"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"ยกเลิก"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"ตกลง"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"การตั้งค่าผู้ใช้ไม่สมบูรณ์"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"ผู้ใช้อุปกรณ์ในการทำงาน"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"ตั้งค่าอุปกรณ์ที่ทำงาน"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"กำลังตั้งค่าอุปกรณ์ที่ทำงาน…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"กำลังดำเนินการกับข้อมูลการตั้งค่า…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"กำลังเชื่อมต่อ Wi-Fi…"</string>
     <string name="progress_download" msgid="3522436271691064624">"กำลังดาวน์โหลดแอปผู้ดูแลระบบ…"</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"ยกเลิก"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"รีเซ็ตอุปกรณ์"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> และ <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> และ <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> และ <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

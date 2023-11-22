@@ -27,6 +27,8 @@
 #include <utils/Mutex.h>
 #include <utils/Thread.h>
 
+#include <list>
+
 #include "activityeventhandler.h"
 #include "directchannel.h"
 #include "eventnums.h"
@@ -47,6 +49,8 @@
 #define GYRO_OTC_DATA_TAG  "gyro_otc"
 #define GYRO_SW_BIAS_TAG   "gyro_sw"
 #define MAG_BIAS_TAG       "mag"
+
+#define MAX_ALTERNATES     2
 
 namespace android {
 
@@ -75,10 +79,7 @@ struct HubConnection : public Thread {
 
     void setOperationParameter(const additional_info_event_t &info);
 
-    bool isWakeEvent(int32_t sensor);
     void releaseWakeLockIfAppropriate();
-    ssize_t getWakeEventCount();
-    ssize_t decrementWakeEventCount();
 
     //TODO: factor out event ring buffer functionality into a separate class
     ssize_t read(sensors_event_t *ev, size_t size);
@@ -93,6 +94,8 @@ struct HubConnection : public Thread {
         mScaleMag = scaleMag;
     }
 
+    void setLeftyMode(bool enable);
+
 protected:
     HubConnection();
     virtual ~HubConnection();
@@ -105,7 +108,8 @@ private:
     bool mWakelockHeld;
     int32_t mWakeEventCount;
 
-    void protectIfWakeEvent(int32_t sensor);
+    void protectIfWakeEventLocked(int32_t sensor);
+    ssize_t decrementIfWakeEventLocked(int32_t sensor);
 
     static inline uint64_t period_ns_to_frequency_q10(nsecs_t period_ns) {
         return 1024000000000ULL / period_ns;
@@ -148,12 +152,31 @@ private:
         struct HostHubRawPacket msg;
     } __attribute__((packed));
 
+    struct LeftyState
+    {
+        bool accel; // Process wrist-aware accel samples as lefty mode
+        bool gyro; // Process wrist-aware gyro samples as lefty mode
+        bool hub; // Sensor hub is currently operating in lefty mode
+    };
+
+    struct Flush
+    {
+        int handle;
+        uint8_t count;
+
+        // Used to synchronize the transition in and out of
+        // lefty mode between nanohub and the AP.
+        bool internal;
+    };
+
     struct SensorState {
         uint64_t latency;
+        uint64_t lastTimestamp;
+        uint64_t desiredTSample;
         rate_q10_t rate;
         uint8_t sensorType;
-        uint8_t alt;
-        uint8_t flushCnt;
+        uint8_t primary;
+        uint8_t alt[MAX_ALTERNATES];
         bool enable;
     };
 
@@ -219,6 +242,7 @@ private:
     Mutex mLock;
 
     RingBuffer mRing;
+    int32_t mWriteFailures;
 
     ActivityEventHandler *mActivityEventHandler;
 
@@ -231,7 +255,10 @@ private:
 
     float mScaleAccel, mScaleMag;
 
+    LeftyState mLefty;
+
     SensorState mSensorState[NUM_COMMS_SENSORS_PLUS_1];
+    std::list<struct Flush> mFlushesPending[NUM_COMMS_SENSORS_PLUS_1];
 
     uint64_t mStepCounterOffset;
     uint64_t mLastStepCount;
@@ -256,7 +283,10 @@ private:
             && mSensorState[handle].sensorType;
     }
 
+    ssize_t sendCmd(const void *buf, size_t count);
     void initConfigCmd(struct ConfigCmd *cmd, int handle);
+
+    void queueFlushInternal(int handle, bool internal);
 
     void queueDataInternal(int handle, void *data, size_t length);
 
@@ -301,12 +331,24 @@ public:
 private:
     void sendDirectReportEvent(const sensors_event_t *nev, size_t n);
     void mergeDirectReportRequest(struct ConfigCmd *cmd, int handle);
+    bool isSampleIntervalSatisfied(int handle, uint64_t timestamp);
+    void updateSampleRate(int handle, int reason);
 #ifdef DIRECT_REPORT_ENABLED
     int stopAllDirectReportOnChannel(
             int channel_handle, std::vector<int32_t> *unstoppedSensors);
+    uint64_t rateLevelToDeviceSamplingPeriodNs(int handle, int rateLevel) const;
+    inline static bool intervalLargeEnough(uint64_t actual, uint64_t desired) {
+        return (actual + (actual >> 4)) >= desired; // >= 94.11% of desired
+    }
+
+    struct DirectChannelTimingInfo{
+        uint64_t lastTimestamp;
+        int rateLevel;
+    };
     Mutex mDirectChannelLock;
-    //sensor_handle=>(channel_handle, rate_level)
-    std::unordered_map<int32_t, std::unordered_map<int32_t, int32_t> > mSensorToChannel;
+    //sensor_handle=>(channel_handle => DirectChannelTimingInfo)
+    std::unordered_map<int32_t,
+            std::unordered_map<int32_t, DirectChannelTimingInfo> > mSensorToChannel;
     //channel_handle=>ptr of Channel obj
     std::unordered_map<int32_t, std::unique_ptr<DirectChannelBase>> mDirectChannel;
     int32_t mDirectChannelHandle;

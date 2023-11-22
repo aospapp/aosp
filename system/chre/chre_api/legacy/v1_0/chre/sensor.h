@@ -430,7 +430,7 @@ struct chreSensorInfo {
      * A one-shot sensor only triggers a single event, and then automatically
      * disables itself.
      *
-     * A value of 1 indicates this is on-change.  0 indicates this is not
+     * A value of 1 indicates this is one-shot.  0 indicates this is not
      * on-change.
      */
     uint8_t isOneShot   : 1;
@@ -796,7 +796,8 @@ bool chreSensorConfigure(uint32_t sensorHandle,
                          uint64_t interval, uint64_t latency);
 
 /**
- * Short cut for chreSensorConfigure where we only want to change the mode.
+ * Short cut for chreSensorConfigure where we only want to configure the mode
+ * and do not care about interval/latency.
  *
  * @see chreSensorConfigure
  */
@@ -814,4 +815,3 @@ static inline bool chreSensorConfigureModeOnly(
 #endif
 
 #endif  /* _CHRE_SENSOR_H_ */
-

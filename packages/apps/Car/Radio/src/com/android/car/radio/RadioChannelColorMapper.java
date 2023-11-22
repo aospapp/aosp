@@ -70,7 +70,7 @@ public class RadioChannelColorMapper {
     /**
      * Convenience method for returning a color based on a {@link RadioStation}.
      *
-     * @see {@link #getColorForStation(int, int)}
+     * @see #getColorForStation(int, int)
      */
     @ColorInt
     public int getColorForStation(@NonNull RadioStation radioStation) {

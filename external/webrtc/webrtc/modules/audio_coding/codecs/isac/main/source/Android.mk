@@ -15,6 +15,7 @@ include $(LOCAL_PATH)/../../../../../../../android-webrtc.mk
 LOCAL_ARM_MODE := arm
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 LOCAL_MODULE := libwebrtc_isac
+LOCAL_VENDOR_MODULE := true
 LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := \
     arith_routines.c \

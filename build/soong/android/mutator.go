@@ -15,8 +15,6 @@
 package android
 
 import (
-	"sync"
-
 	"github.com/google/blueprint"
 )
 
@@ -26,9 +24,6 @@ import (
 //   Pre-deps
 //   Deps
 //   PostDeps
-
-var registerMutatorsOnce sync.Once
-var registeredMutators []*mutator
 
 func registerMutatorsToContext(ctx *blueprint.Context, mutators []*mutator) {
 	for _, t := range mutators {
@@ -44,46 +39,24 @@ func registerMutatorsToContext(ctx *blueprint.Context, mutators []*mutator) {
 	}
 }
 
-func registerMutators(ctx *blueprint.Context) {
+func registerMutators(ctx *blueprint.Context, preArch, preDeps, postDeps []RegisterMutatorFunc) {
+	mctx := &registerMutatorsContext{}
 
-	registerMutatorsOnce.Do(func() {
-		ctx := &registerMutatorsContext{}
-
-		register := func(funcs []RegisterMutatorFunc) {
-			for _, f := range funcs {
-				f(ctx)
-			}
+	register := func(funcs []RegisterMutatorFunc) {
+		for _, f := range funcs {
+			f(mctx)
 		}
+	}
 
-		ctx.TopDown("load_hooks", loadHookMutator).Parallel()
-		ctx.BottomUp("prebuilts", prebuiltMutator).Parallel()
-		ctx.BottomUp("defaults_deps", defaultsDepsMutator).Parallel()
-		ctx.TopDown("defaults", defaultsMutator).Parallel()
+	register(preArch)
 
-		register(preArch)
+	register(preDeps)
 
-		ctx.BottomUp("arch", archMutator).Parallel()
-		ctx.TopDown("arch_hooks", archHookMutator).Parallel()
+	mctx.BottomUp("deps", depsMutator).Parallel()
 
-		register(preDeps)
+	register(postDeps)
 
-		ctx.BottomUp("deps", depsMutator).Parallel()
-
-		ctx.TopDown("prebuilt_select", PrebuiltSelectModuleMutator).Parallel()
-		ctx.BottomUp("prebuilt_replace", PrebuiltReplaceMutator).Parallel()
-
-		register(postDeps)
-
-		registeredMutators = ctx.mutators
-	})
-
-	registerMutatorsToContext(ctx, registeredMutators)
-}
-
-func RegisterTestMutators(ctx *blueprint.Context) {
-	mutators := registerMutatorsContext{}
-	mutators.BottomUp("deps", depsMutator).Parallel()
-	registerMutatorsToContext(ctx, mutators.mutators)
+	registerMutatorsToContext(ctx, mctx.mutators)
 }
 
 type registerMutatorsContext struct {
@@ -97,7 +70,24 @@ type RegisterMutatorsContext interface {
 
 type RegisterMutatorFunc func(RegisterMutatorsContext)
 
-var preArch, preDeps, postDeps []RegisterMutatorFunc
+var preArch = []RegisterMutatorFunc{
+	func(ctx RegisterMutatorsContext) {
+		ctx.TopDown("load_hooks", loadHookMutator).Parallel()
+	},
+	registerPrebuiltsPreArchMutators,
+	registerDefaultsPreArchMutators,
+}
+
+var preDeps = []RegisterMutatorFunc{
+	func(ctx RegisterMutatorsContext) {
+		ctx.BottomUp("arch", archMutator).Parallel()
+		ctx.TopDown("arch_hooks", archHookMutator).Parallel()
+	},
+}
+
+var postDeps = []RegisterMutatorFunc{
+	registerPrebuiltsPostDepsMutators,
+}
 
 func PreArchMutators(f RegisterMutatorFunc) {
 	preArch = append(preArch, f)

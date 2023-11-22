@@ -30,16 +30,12 @@ import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.database.sqlite.SQLiteDatabase;
-import android.database.sqlite.SQLiteOpenHelper;
-import android.os.AsyncResult;
 import android.os.Binder;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.PersistableBundle;
-import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.UserHandle;
 import android.preference.PreferenceManager;
@@ -54,9 +50,7 @@ import android.util.Log;
 import com.android.internal.telephony.ICarrierConfigLoader;
 import com.android.internal.telephony.IccCardConstants;
 import com.android.internal.telephony.Phone;
-import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.PhoneFactory;
-import com.android.internal.telephony.TelephonyIntents;
 import com.android.internal.util.FastXmlSerializer;
 import com.android.internal.util.IndentingPrintWriter;
 
@@ -97,6 +91,8 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
     private PersistableBundle[] mConfigFromCarrierApp;
     // Service connection for binding to config app.
     private CarrierServiceConnection[] mServiceConnection;
+    // Whether we have sent config change bcast for each phone id.
+    private boolean[] mHasSentConfigChange;
 
     // Broadcast receiver for Boot intents, register intent filter in construtor.
     private final BroadcastReceiver mBootReceiver = new ConfigLoaderBroadcastReceiver();
@@ -168,9 +164,19 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
             PersistableBundle config;
             switch (msg.what) {
                 case EVENT_CLEAR_CONFIG:
+
+                    /* Ignore clear configuration request if device is being shutdown. */
+                    Phone phone = PhoneFactory.getPhone(phoneId);
+                    if (phone != null) {
+                        if (phone.isShuttingDown()) {
+                            break;
+                        }
+                    }
+
                     if (mConfigFromDefaultApp[phoneId] == null &&
                         mConfigFromCarrierApp[phoneId] == null)
                         break;
+
                     mConfigFromDefaultApp[phoneId] = null;
                     mConfigFromCarrierApp[phoneId] = null;
                     mServiceConnection[phoneId] = null;
@@ -179,7 +185,12 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
 
                 case EVENT_SYSTEM_UNLOCKED:
                     for (int i = 0; i < TelephonyManager.from(mContext).getPhoneCount(); ++i) {
-                        updateConfigForPhoneId(i);
+                        // When user unlock device, we should only try to send broadcast again if
+                        // we have sent it before unlock. This will avoid we try to load carrier
+                        // config when SIM is still loading when unlock happens.
+                        if (mHasSentConfigChange[i]) {
+                            updateConfigForPhoneId(i);
+                        }
                     }
                     break;
 
@@ -370,6 +381,7 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
         mConfigFromDefaultApp = new PersistableBundle[numPhones];
         mConfigFromCarrierApp = new PersistableBundle[numPhones];
         mServiceConnection = new CarrierServiceConnection[numPhones];
+        mHasSentConfigChange = new boolean[numPhones];
         // Make this service available through ServiceManager.
         ServiceManager.addService(Context.CARRIER_CONFIG_SERVICE, this);
         log("CarrierConfigLoader has started");
@@ -399,6 +411,7 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
                 Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
         SubscriptionManager.putPhoneIdAndSubIdExtra(intent, phoneId);
         ActivityManager.broadcastStickyIntent(intent, UserHandle.USER_ALL);
+        mHasSentConfigChange[phoneId] = true;
     }
 
     /** Binds to the default or carrier config app. */
@@ -712,6 +725,11 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
                 updateConfigForPhoneId(phoneId);
                 break;
         }
+    }
+
+    @Override
+    public String getDefaultCarrierServicePackageName() {
+        return mPlatformCarrierConfigPackage;
     }
 
     @Override

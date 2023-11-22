@@ -25,4 +25,4 @@ This test verifies H264 resolution-changing video can seek on machines with VDA.
 
 video = ('http://commondatastorage.googleapis.com/'
             'chromiumos-test-assets-public/MSE/switch_1080p_720p.mp4')
-job.run_test('video_VideoSeek', video=video)
+job.run_test('video_VideoSeek', codec='h264', is_switchres=True, video=video)

@@ -155,6 +155,7 @@ class HwBinderThroughputBenchmark(base_test.BaseTestClass):
 
         results = self.dut.shell.one.Execute(
             ["chmod 755 %s" % binary,
+             "VTS_ROOT_PATH=/data/local/tmp " \
              "LD_LIBRARY_PATH=/system/lib%s:/data/local/tmp/%s/hw:"
              "/data/local/tmp/%s:"
              "$LD_LIBRARY_PATH %s -m %s -w %s" % (bits, bits, bits, binary, self.hidl_hal_mode.encode("utf-8"), threads)])

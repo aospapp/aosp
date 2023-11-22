@@ -41,7 +41,10 @@ import android.widget.Toast;
 import com.android.dialer.common.Assert;
 import com.android.dialer.common.FragmentUtils;
 import com.android.dialer.common.LogUtil;
+import com.android.dialer.logging.DialerImpression;
+import com.android.dialer.logging.Logger;
 import com.android.dialer.multimedia.MultimediaData;
+import com.android.dialer.widget.LockableViewPager;
 import com.android.incallui.audioroute.AudioRouteSelectorDialogFragment;
 import com.android.incallui.audioroute.AudioRouteSelectorDialogFragment.AudioRouteSelectorPresenter;
 import com.android.incallui.contactgrid.ContactGridManager;
@@ -384,6 +387,10 @@ public class InCallFragment extends Fragment
         show);
     if (isSupportedButton(buttonId)) {
       getButtonController(buttonId).setAllowed(show);
+      if (buttonId == InCallButtonIds.BUTTON_UPGRADE_TO_VIDEO && show) {
+        Logger.get(getContext())
+            .logImpression(DialerImpression.Type.UPGRADE_TO_VIDEO_CALL_BUTTON_SHOWN);
+      }
     }
   }
 
@@ -472,6 +479,9 @@ public class InCallFragment extends Fragment
   public void onAudioRouteSelected(int audioRoute) {
     inCallButtonUiDelegate.setAudioRoute(audioRoute);
   }
+
+  @Override
+  public void onAudioRouteSelectorDismiss() {}
 
   @NonNull
   @Override

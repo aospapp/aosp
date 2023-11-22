@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2014 The Android Open Source Project
- * Copyright (c) 1999, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1999, 2013, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -33,6 +33,7 @@ public class Version {
     private static final String launcher_name = "";
     private static final String java_version = AndroidHardcodedSystemProperties.JAVA_VERSION;
     private static final String java_runtime_name = "Android Runtime";
+    private static final String java_profile_name = "";
     private static final String java_runtime_version = "0.9";
 
     // Called by java.lang.System.<clinit>
@@ -81,23 +82,28 @@ public class Version {
         boolean isHeadless = false;
 
         /* Report that we're running headless if the property is true */
-	String headless = System.getProperty("java.awt.headless");
-	if ( (headless != null) && (headless.equalsIgnoreCase("true")) ) {
+        String headless = System.getProperty("java.awt.headless");
+        if ( (headless != null) && (headless.equalsIgnoreCase("true")) ) {
             isHeadless = true;
-	}
+        }
 
         /* First line: platform version. */
         ps.println(launcher_name + " version \"" + java_version + "\"");
 
         /* Second line: runtime version (ie, libraries). */
 
-	ps.print(java_runtime_name + " (build " + java_runtime_version);
+        ps.print(java_runtime_name + " (build " + java_runtime_version);
 
-	if (java_runtime_name.indexOf("Embedded") != -1 && isHeadless) {
-	    // embedded builds report headless state
-	    ps.print(", headless");
-	}
-	ps.println(')');
+        if (java_profile_name.length() > 0) {
+            // profile name
+            ps.print(", profile " + java_profile_name);
+        }
+
+        if (java_runtime_name.indexOf("Embedded") != -1 && isHeadless) {
+            // embedded builds report headless state
+            ps.print(", headless");
+        }
+        ps.println(')');
 
         /* Third line: JVM information. */
         String java_vm_name    = System.getProperty("java.vm.name");
@@ -274,15 +280,24 @@ public class Version {
                 jvm_minor_version = Character.digit(cs.charAt(2), 10);
                 jvm_micro_version = Character.digit(cs.charAt(4), 10);
                 cs = cs.subSequence(5, cs.length());
-                if (cs.charAt(0) == '_' && cs.length() >= 3 &&
-                    Character.isDigit(cs.charAt(1)) &&
-                    Character.isDigit(cs.charAt(2))) {
-                    int nextChar = 3;
+                if (cs.charAt(0) == '_' && cs.length() >= 3) {
+                    int nextChar = 0;
+                    if (Character.isDigit(cs.charAt(1)) &&
+                        Character.isDigit(cs.charAt(2)) &&
+                        Character.isDigit(cs.charAt(3)))
+                    {
+                        nextChar = 4;
+                    } else if (Character.isDigit(cs.charAt(1)) &&
+                        Character.isDigit(cs.charAt(2)))
+                    {
+                        nextChar = 3;
+                    }
+
                     try {
-                        String uu = cs.subSequence(1, 3).toString();
-                        jvm_update_version = Integer.parseInt(uu);
-                        if (cs.length() >= 4) {
-                            char c = cs.charAt(3);
+                        String uu = cs.subSequence(1, nextChar).toString();
+                        jvm_update_version = Integer.valueOf(uu).intValue();
+                        if (cs.length() >= nextChar + 1) {
+                            char c = cs.charAt(nextChar);
                             if (c >= 'a' && c <= 'z') {
                                 jvm_special_version = Character.toString(c);
                                 nextChar++;
@@ -305,7 +320,7 @@ public class Version {
                             Character.isDigit(s.charAt(1)) &&
                             Character.isDigit(s.charAt(2))) {
                             jvm_build_number =
-                                Integer.parseInt(s.substring(1, 3));
+                                Integer.valueOf(s.substring(1, 3)).intValue();
                             break;
                         }
                     }
@@ -322,7 +337,6 @@ public class Version {
     // Return false if not available which implies an old VM (Tiger or before).
     private static native boolean getJvmVersionInfo();
     private static native void getJdkVersionInfo();
-
 }
 
 // Help Emacs a little because this file doesn't end in .java.

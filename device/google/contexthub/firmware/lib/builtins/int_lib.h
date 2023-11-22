@@ -16,11 +16,24 @@
 #ifndef INT_LIB_H
 #define INT_LIB_H
 
-#define CHAR_BIT 8
+#define FLT_MANT_DIG    __FLT_MANT_DIG__
+#define CHAR_BIT        8
 
 typedef unsigned su_int;
+typedef int si_int;
+
 typedef unsigned long long du_int;
 typedef long long di_int;
+
+typedef union
+{
+    di_int all;
+    struct
+    {
+        su_int low;
+        si_int high;
+    } s;
+} dwords;
 
 typedef union
 {
@@ -31,6 +44,12 @@ typedef union
         su_int high;
     } s;
 } udwords;
+
+typedef union
+{
+    su_int u;
+    float f;
+} float_bits;
 
 /* Assumption: Signed integral is 2's complement. */
 /* Assumption: Right shift of signed negative is arithmetic shift. */

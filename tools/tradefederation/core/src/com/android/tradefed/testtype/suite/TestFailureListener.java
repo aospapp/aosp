@@ -27,7 +27,9 @@ import com.android.tradefed.util.RunUtil;
 
 import com.google.common.annotations.VisibleForTesting;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -40,8 +42,9 @@ public class TestFailureListener implements ITestInvocationListener {
     /* Arbitrary upper limit for mMaxLogcatBytes to avoid un-reasonably high limit */
     private static final int LOGCAT_BYTE_LIMIT = 20 * 1024 * 1024; // 20 MB
     private static final String LOGCAT_ON_FAILURE_SIZE_OPTION = "logcat-on-failure-size";
+    private static final long LOGCAT_CAPTURE_TIMEOUT = 2 * 60 * 1000;
 
-    private ITestDevice mDevice;
+    private List<ITestDevice> mListDevice;
     private ITestInvocationListener mListener;
     private boolean mBugReportOnFailure;
     private boolean mLogcatOnFailure;
@@ -49,12 +52,18 @@ public class TestFailureListener implements ITestInvocationListener {
     private boolean mRebootOnFailure;
     private int mMaxLogcatBytes;
     private Map<TestIdentifier, Long> mTrackStartTime = new HashMap<>();
+    private List<Thread> mLogcatThreads = new ArrayList<>();
 
-    public TestFailureListener(ITestInvocationListener listener, ITestDevice device,
-            boolean bugReportOnFailure, boolean logcatOnFailure, boolean screenshotOnFailure,
-            boolean rebootOnFailure, int maxLogcatBytes) {
+    public TestFailureListener(
+            ITestInvocationListener listener,
+            List<ITestDevice> devices,
+            boolean bugReportOnFailure,
+            boolean logcatOnFailure,
+            boolean screenshotOnFailure,
+            boolean rebootOnFailure,
+            int maxLogcatBytes) {
         mListener = listener;
-        mDevice = device;
+        mListDevice = devices;
         mBugReportOnFailure = bugReportOnFailure;
         mLogcatOnFailure = logcatOnFailure;
         mScreenshotOnFailure = screenshotOnFailure;
@@ -80,7 +89,7 @@ public class TestFailureListener implements ITestInvocationListener {
     public void testStarted(TestIdentifier test) {
         if (mLogcatOnFailure) {
             try {
-                mTrackStartTime.put(test, mDevice.getDeviceDate());
+                mTrackStartTime.put(test, mListDevice.get(0).getDeviceDate());
             } catch (DeviceNotAvailableException e) {
                 CLog.e(e);
                 // we fall back to logcat dump on null.
@@ -106,56 +115,99 @@ public class TestFailureListener implements ITestInvocationListener {
     public void testFailed(TestIdentifier test, String trace) {
         CLog.i("FailureListener.testFailed %s %b %b %b", test.toString(), mBugReportOnFailure,
                 mLogcatOnFailure, mScreenshotOnFailure);
+        for (ITestDevice device : mListDevice) {
+            captureFailure(device, test);
+        }
+    }
+
+    /** Capture the appropriate logs for one device for one test failure. */
+    private void captureFailure(ITestDevice device, TestIdentifier test) {
+        String serial = device.getSerialNumber();
         if (mScreenshotOnFailure) {
             try {
-                InputStreamSource screenSource = mDevice.getScreenshot();
-                testLog(
-                        String.format("%s-screenshot", test.toString()),
-                        LogDataType.PNG,
-                        screenSource);
-                screenSource.cancel();
+                try (InputStreamSource screenSource = device.getScreenshot()) {
+                    testLog(
+                            String.format("%s-%s-screenshot", test.toString(), serial),
+                            LogDataType.PNG,
+                            screenSource);
+                }
             } catch (DeviceNotAvailableException e) {
                 CLog.e(e);
-                CLog.e("Device %s became unavailable while capturing screenshot",
-                    mDevice.getSerialNumber());
+                CLog.e("Device %s became unavailable while capturing screenshot", serial);
             }
         }
         if (mBugReportOnFailure) {
-           InputStreamSource bugSource = mDevice.getBugreport();
-            testLog(
-                    String.format("%s-bugreport", test.toString()),
-                    LogDataType.BUGREPORT,
-                    bugSource);
-           bugSource.cancel();
+            try (InputStreamSource bugSource = device.getBugreportz()) {
+                testLog(
+                        String.format("%s-%s-bugreport", test.toString(), serial),
+                        LogDataType.BUGREPORTZ,
+                        bugSource);
+            }
         }
         if (mLogcatOnFailure) {
-            InputStreamSource logSource = null;
-            Long startTime = mTrackStartTime.remove(test);
-            if (startTime != null) {
-                logSource = mDevice.getLogcatSince(startTime);
+            Runnable captureLogcat =
+                    new Runnable() {
+                        @Override
+                        public void run() {
+                            InputStreamSource logSource = null;
+                            Long startTime = mTrackStartTime.remove(test);
+                            if (startTime != null) {
+                                logSource = device.getLogcatSince(startTime);
+                            } else {
+                                // sleep 2s to ensure test failure stack trace makes it into the
+                                // logcat capture
+                                getRunUtil().sleep(2 * 1000);
+                                logSource = device.getLogcat(mMaxLogcatBytes);
+                            }
+                            testLog(
+                                    String.format("%s-%s-logcat", test.toString(), serial),
+                                    LogDataType.LOGCAT,
+                                    logSource);
+                            logSource.close();
+                        }
+                    };
+            if (mRebootOnFailure) {
+                captureLogcat.run();
             } else {
-                // sleep 2s to ensure test failure stack trace makes it into logcat capture
-                getRunUtil().sleep(2 * 1000);
-                logSource = mDevice.getLogcat(mMaxLogcatBytes);
+                // If no reboot will be done afterward capture asynchronously the logcat.
+                Thread captureThread =
+                        new Thread(captureLogcat, String.format("Capture failure logcat %s", test));
+                captureThread.setDaemon(true);
+                mLogcatThreads.add(captureThread);
+                captureThread.start();
             }
-            testLog(String.format("%s-logcat", test.toString()), LogDataType.LOGCAT, logSource);
-            logSource.cancel();
         }
         if (mRebootOnFailure) {
             try {
                 // Rebooting on all failures can hide legitimate issues and platform instabilities,
                 // therefore only allowed on "user-debug" and "eng" builds.
-                if ("user".equals(mDevice.getProperty("ro.build.type"))) {
+                if ("user".equals(device.getProperty("ro.build.type"))) {
                     CLog.e("Reboot-on-failure should only be used during development," +
                             " this is a\" user\" build device");
                 } else {
-                    mDevice.reboot();
+                    device.reboot();
                 }
             } catch (DeviceNotAvailableException e) {
                 CLog.e(e);
-                CLog.e("Device %s became unavailable while rebooting",
-                        mDevice.getSerialNumber());
+                CLog.e("Device %s became unavailable while rebooting", serial);
             }
+        }
+    }
+
+    /** Join on all the logcat capturing threads to ensure they terminate. */
+    public void join() {
+        synchronized (mLogcatThreads) {
+            for (Thread t : mLogcatThreads) {
+                if (!t.isAlive()) {
+                    continue;
+                }
+                try {
+                    t.join(LOGCAT_CAPTURE_TIMEOUT);
+                } catch (InterruptedException e) {
+                    CLog.e(e);
+                }
+            }
+            mLogcatThreads.clear();
         }
     }
 

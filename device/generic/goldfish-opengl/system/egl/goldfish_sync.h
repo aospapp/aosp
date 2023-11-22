@@ -18,6 +18,10 @@
 #include <linux/ioctl.h>
 #include <linux/types.h>
 #include <sys/cdefs.h>
+#ifdef EMULATOR_OPENGL_POST_O
+#include <sys/ioctl.h>
+#include <sys/unistd.h>
+#endif
 #include <fcntl.h>
 
 // Make it conflict with ioctls that are not likely to be used

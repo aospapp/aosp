@@ -24,11 +24,13 @@ NUM_CAPTURE_TRIES = 10
 
 #Hardware decoding constants
 MEDIA_GVD_INIT_STATUS = 'Media.GpuVideoDecoderInitializeStatus'
+MEDIA_GVD_ERROR = 'Media.GpuVideoDecoderError'
 RTC_INIT_HISTOGRAM = 'Media.RTCVideoDecoderInitDecodeSuccess'
 MEDIA_GVD_BUCKET = 0
 RTC_VIDEO_INIT_BUCKET = 1
-MEDIA_AGVDA_INIT_STATUS = 'Media.ArcGpuVideoDecodeAccelerator.InitializeResult'
-MEDIA_AGVDA_BUCKET = 0
+MEDIA_CAVDA_INIT_STATUS = (
+    'Media.ChromeArcVideoDecodeAccelerator.InitializeResult')
+MEDIA_CAVDA_BUCKET = 0
 
 #Path for video HTML file which helps for video operations
 CROS_VIDEO_DIR = '/usr/local/autotest/cros/video'

@@ -36,6 +36,7 @@
 #include "slang_rs_export_func.h"
 #include "slang_rs_export_reduce.h"
 #include "slang_rs_reflect_utils.h"
+#include "slang_rs_reflection_state.h"
 #include "slang_version.h"
 
 #define RS_SCRIPT_CLASS_NAME_PREFIX "ScriptC_"
@@ -75,25 +76,35 @@
 
 namespace slang {
 
+static void genCheck64BitInternal(const RSContext *Context, ReflectionState *State,
+                                  GeneratedFile &Out, bool Parens);
+
 class RSReflectionJavaElementBuilder {
 public:
   RSReflectionJavaElementBuilder(const char *ElementBuilderName,
                                  const RSExportRecordType *ERT,
                                  const char *RenderScriptVar,
                                  GeneratedFile *Out, const RSContext *RSContext,
-                                 RSReflectionJava *Reflection);
+                                 RSReflectionJava *Reflection,
+                                 ReflectionState *RState);
   void generate();
 
 private:
   void genAddElement(const RSExportType *ET, const std::string &VarName,
                      unsigned ArraySize);
   void genAddStatementStart();
-  void genAddStatementEnd(const std::string &VarName, unsigned ArraySize);
-  void genAddPadding(int PaddingSize);
+  void genAddStatementEnd(const std::string &VarName, unsigned ArraySize,
+                          unsigned Which = RSReflectionJava::FieldIndex | RSReflectionJava::Field32Index);
+  void genAddPadding(int PaddingSize, unsigned Which);  // Which: See RSReflectionJava::incFieldIndex()
+  void genAddPadding(int PaddingSize, ReflectionState::Val32 Field32PaddingSize);
   // TODO Will remove later due to field name information is not necessary for
   // C-reflect-to-Java
   std::string createPaddingField() {
     return mPaddingPrefix + llvm::itostr(mPaddingFieldIndex++);
+  }
+
+  void genCheck64Bit(bool Parens) {
+    genCheck64BitInternal(mRSContext, mState, *mOut, Parens);
   }
 
   const char *mElementBuilderName;
@@ -104,17 +115,19 @@ private:
   int mPaddingFieldIndex;
   const RSContext *mRSContext;
   RSReflectionJava *mReflection;
+  ReflectionState *mState;
 };
 
-static const char *GetMatrixTypeName(const RSExportMatrixType *EMT) {
-  static const char *MatrixTypeJavaNameMap[] = {/* 2x2 */ "Matrix2f",
-                                                /* 3x3 */ "Matrix3f",
-                                                /* 4x4 */ "Matrix4f",
+enum MatrixLanguage { ML_Java, ML_Script };
+static const char *GetMatrixTypeName(const RSExportMatrixType *EMT, MatrixLanguage lang) {
+  static const char *MatrixTypeJavaNameMap[3][2] = {/* 2x2 */ { "Matrix2f", "rs_matrix2x2" },
+                                                    /* 3x3 */ { "Matrix3f", "rs_matrix3x3" },
+                                                    /* 4x4 */ { "Matrix4f", "rs_matrix4x4" }
   };
   unsigned Dim = EMT->getDim();
 
   if ((Dim - 2) < (sizeof(MatrixTypeJavaNameMap) / sizeof(const char *)))
-    return MatrixTypeJavaNameMap[EMT->getDim() - 2];
+    return MatrixTypeJavaNameMap[EMT->getDim() - 2][lang];
 
   slangAssert(false && "GetMatrixTypeName : Unsupported matrix dimension");
   return nullptr;
@@ -177,82 +190,25 @@ static const char *GetPackerAPIName(const RSExportPrimitiveType *EPT) {
 
 namespace {
 
-enum {
-  TypeNameWithConstantArrayBrackets = 0x01,
-  TypeNameWithRecordElementName     = 0x02,
-  TypeNameC                         = 0x04, // else Java
-  TypeNameDefault                   = TypeNameWithConstantArrayBrackets|TypeNameWithRecordElementName
-};
-
-std::string GetTypeName(const RSExportType *ET, unsigned Style = TypeNameDefault) {
-  switch (ET->getClass()) {
-  case RSExportType::ExportClassPrimitive: {
-    const auto ReflectionType =
-        RSExportPrimitiveType::getRSReflectionType(static_cast<const RSExportPrimitiveType *>(ET));
-    return (Style & TypeNameC ? ReflectionType->s_name : ReflectionType->java_name);
-  }
-  case RSExportType::ExportClassPointer: {
-    slangAssert(!(Style & TypeNameC) &&
-                "No need to support C type names for pointer types yet");
-    const RSExportType *PointeeType =
-        static_cast<const RSExportPointerType *>(ET)->getPointeeType();
-
-    if (PointeeType->getClass() != RSExportType::ExportClassRecord)
-      return "Allocation";
-    else
-      return PointeeType->getElementName();
-  }
-  case RSExportType::ExportClassVector: {
-    const RSExportVectorType *EVT = static_cast<const RSExportVectorType *>(ET);
-    const auto ReflectionType = EVT->getRSReflectionType(EVT);
-    std::stringstream VecName;
-    VecName << (Style & TypeNameC ? ReflectionType->s_name : ReflectionType->rs_java_vector_prefix)
-            << EVT->getNumElement();
-    return VecName.str();
-  }
-  case RSExportType::ExportClassMatrix: {
-    slangAssert(!(Style & TypeNameC) &&
-                "No need to support C type names for matrix types yet");
-    return GetMatrixTypeName(static_cast<const RSExportMatrixType *>(ET));
-  }
-  case RSExportType::ExportClassConstantArray: {
-    const RSExportConstantArrayType *CAT =
-        static_cast<const RSExportConstantArrayType *>(ET);
-    std::string ElementTypeName = GetTypeName(CAT->getElementType(), Style);
-    if (Style & TypeNameWithConstantArrayBrackets) {
-      slangAssert(!(Style & TypeNameC) &&
-                  "No need to support C type names for array types with brackets yet");
-      ElementTypeName.append("[]");
-    }
-    return ElementTypeName;
-  }
-  case RSExportType::ExportClassRecord: {
-    slangAssert(!(Style & TypeNameC) &&
-                "No need to support C type names for record types yet");
-    if (Style & TypeNameWithRecordElementName)
-      return ET->getElementName() + "." RS_TYPE_ITEM_CLASS_NAME;
-    else
-      return ET->getName();
-  }
-  default: { slangAssert(false && "Unknown class of type"); }
-  }
-
-  return "";
-}
-
 std::string GetReduceResultTypeName(const RSExportType *ET) {
   switch (ET->getClass()) {
     case RSExportType::ExportClassConstantArray: {
       const RSExportConstantArrayType *const CAT = static_cast<const RSExportConstantArrayType *>(ET);
       return "resultArray" + std::to_string(CAT->getNumElement()) + "_" +
-          GetTypeName(CAT->getElementType(),
-                      (TypeNameDefault & ~TypeNameWithRecordElementName) | TypeNameC);
+          RSReflectionJava::GetTypeName(
+              CAT->getElementType(),
+              (RSReflectionJava::TypeNameDefault & ~RSReflectionJava::TypeNameWithRecordElementName) |
+              RSReflectionJava::TypeNameC);
     }
     case RSExportType::ExportClassRecord:
-      return "resultStruct_" + GetTypeName(ET,
-                                           (TypeNameDefault & ~TypeNameWithRecordElementName) | TypeNameC);
+      return "resultStruct_" +
+          RSReflectionJava::GetTypeName(
+              ET,
+              (RSReflectionJava::TypeNameDefault & ~RSReflectionJava::TypeNameWithRecordElementName) |
+              RSReflectionJava::TypeNameC);
     default:
-      return "result_" + GetTypeName(ET, TypeNameDefault | TypeNameC);
+      return "result_" +
+          RSReflectionJava::GetTypeName(ET, RSReflectionJava::TypeNameDefault | RSReflectionJava::TypeNameC);
   }
 }
 
@@ -376,14 +332,173 @@ static std::string ZeroExtendValue(const std::string &Value,
   return "((" + DestIntegerType + ") ((" + Value + ") & " + Mask + "))";
 }
 
+std::string RSReflectionJava::GetTypeName(const RSExportType *ET, unsigned Style) {
+  slangAssert((Style & (TypeNameC|TypeNamePseudoC)) != (TypeNameC|TypeNamePseudoC));
+  slangAssert(!(Style & TypeNamePseudoC) || (Style == TypeNamePseudoC));
+
+  const bool CLike = Style & (TypeNameC|TypeNamePseudoC);
+
+  switch (ET->getClass()) {
+  case RSExportType::ExportClassPrimitive: {
+    const auto ReflectionType =
+        RSExportPrimitiveType::getRSReflectionType(static_cast<const RSExportPrimitiveType *>(ET));
+    return (CLike ? ReflectionType->s_name : ReflectionType->java_name);
+  }
+  case RSExportType::ExportClassPointer: {
+    slangAssert(!(Style & TypeNameC) &&
+                "No need to support C type names for pointer types yet");
+    const RSExportType *PointeeType =
+        static_cast<const RSExportPointerType *>(ET)->getPointeeType();
+
+    if (Style & TypeNamePseudoC)
+      return GetTypeName(PointeeType, Style) + "*";
+    else if (PointeeType->getClass() != RSExportType::ExportClassRecord)
+      return "Allocation";
+    else
+      return PointeeType->getElementName();
+  }
+  case RSExportType::ExportClassVector: {
+    const RSExportVectorType *EVT = static_cast<const RSExportVectorType *>(ET);
+    const auto ReflectionType = EVT->getRSReflectionType(EVT);
+    std::stringstream VecName;
+    VecName << (CLike ? ReflectionType->s_name : ReflectionType->rs_java_vector_prefix)
+            << EVT->getNumElement();
+    return VecName.str();
+  }
+  case RSExportType::ExportClassMatrix: {
+    return GetMatrixTypeName(static_cast<const RSExportMatrixType *>(ET), CLike ? ML_Script : ML_Java);
+  }
+  case RSExportType::ExportClassConstantArray: {
+    const RSExportConstantArrayType *CAT =
+        static_cast<const RSExportConstantArrayType *>(ET);
+    std::string ElementTypeName = GetTypeName(CAT->getElementType(), Style);
+    if (Style & TypeNamePseudoC) {
+      std::stringstream ArrayName;
+      ArrayName << ElementTypeName << '[' << CAT->getNumElement() << ']';
+      return ArrayName.str();
+    }
+    else if (Style & TypeNameWithConstantArrayBrackets) {
+      slangAssert(!(Style & TypeNameC) &&
+                  "No need to support C type names for array types with brackets yet");
+      ElementTypeName.append("[]");
+    }
+    return ElementTypeName;
+  }
+  case RSExportType::ExportClassRecord: {
+    slangAssert(!(Style & TypeNameC) &&
+                "No need to support C type names for record types yet");
+    if (Style & TypeNamePseudoC)
+      return "struct " + ET->getName();
+    else if (Style & TypeNameWithRecordElementName)
+      return ET->getElementName() + "." RS_TYPE_ITEM_CLASS_NAME;
+    else
+      return ET->getName();
+  }
+  default: { slangAssert(false && "Unknown class of type"); }
+  }
+
+  return "";
+}
+
+void RSReflectionJava::genConditionalVal(const std::string &Prefix, bool Parens,
+                                         size_t Val, ReflectionState::Val32 Val32) {
+  if (Prefix.empty() || (Val != 0) || (Val32.first && (Val32.second != 0 ))) {
+    mOut << Prefix;
+
+    if (!Val32.first || (Val == Val32.second)) {
+      // Either we're ignoring the 32-bit case, or 32-bit and 64-bit
+      // values are the same.
+      mOut << Val;
+    } else {
+      // We cannot ignore the 32-bit case, and 32-bit and 64-bit
+      // values differ.
+      if (Parens)
+        mOut << '(';
+      genCheck64Bit(true);
+      mOut << " ? " << Val << " : " << Val32.second;
+      if (Parens)
+        mOut << ')';
+    }
+  }
+}
+
+static void genCheck64BitInternal(const RSContext *Context, ReflectionState *State,
+                                  GeneratedFile &Out, bool Parens) {
+  State->setOutputClassDivergent();
+  if (Context->isCompatLib()) {
+    if (Parens)
+      Out << '(';
+    Out << "RenderScript.getPointerSize() == 8";
+    if (Parens)
+      Out << ')';
+  }
+  else
+    Out << "sIs64Bit";
+}
+
+void RSReflectionJava::genCheck64Bit(bool Parens) {
+  genCheck64BitInternal(mRSContext, mState, mOut, Parens);
+}
+
+void RSReflectionJava::genCompute64Bit() {
+  if (mRSContext->isCompatLib()) {
+    // We can rely on RenderScript class in lockstep with llvm-rs-cc
+    // and hence in lockstep with the generated code, so we don't need
+    // any complicated logic to determine pointer size.
+    return;
+  }
+
+  // Note that Android L is the first release to support 64-bit
+  // targets.  When RenderScript is compiled with "-target-api $v"
+  // with "$v < 21" (L is API level 21), we only compile for 32-bit,
+  // and we reflect during that compile, so there are no divergent
+  // structs, and we will not get here.
+
+  slangAssert(mRSContext->getTargetAPI() >= SLANG_L_TARGET_API);
+
+  mOut.indent() << "private static boolean sIs64Bit;\n\n";
+  mOut.indent() << "static";
+  mOut.startBlock();
+  mOut.indent() << "if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)";
+  mOut.startBlock();
+  mOut.indent() << "sIs64Bit = Process.is64Bit();\n";
+  mOut.endBlock();
+  mOut.indent() << "else";
+  mOut.startBlock();
+  mOut.indent() << "try";
+  mOut.startBlock();
+  mOut.indent() << "Field f = RenderScript.class.getDeclaredField(\"sPointerSize\");\n";
+  mOut.indent() << "f.setAccessible(true);\n";
+  mOut.indent() << "sIs64Bit = (f.getInt(null) == 8);\n";
+  mOut.endBlock();
+
+  // If reflection fails, assume we're on a 32-bit-only device
+  // (64-bit-only is not allowed).  This should only happen if the
+  // device is L-or-later but has been customized in some way so that
+  // the field "sPointerSize" -- introduced in L -- is not present.
+  //
+  // Alternatively, we could treat this as 64-bit (reverting to the
+  // behavior prior to the fix for http://b/32780232) or we could
+  // decide we have no idea what's going on and throw an exception.
+  mOut.indent() << "catch (Throwable e)";
+  mOut.startBlock();
+  mOut.indent() << "sIs64Bit = false;\n";
+  mOut.endBlock();
+
+  mOut.endBlock();
+  mOut.endBlock();
+}
+
 /********************** Methods to generate script class **********************/
 RSReflectionJava::RSReflectionJava(const RSContext *Context,
                                    std::vector<std::string> *GeneratedFileNames,
                                    const std::string &OutputBaseDirectory,
                                    const std::string &RSSourceFileName,
                                    const std::string &BitCodeFileName,
-                                   bool EmbedBitcodeInJava)
-    : mRSContext(Context), mPackageName(Context->getReflectJavaPackageName()),
+                                   bool EmbedBitcodeInJava,
+                                   ReflectionState *RState)
+    : mRSContext(Context), mState(RState), mCollecting(RState->isCollecting()),
+      mPackageName(Context->getReflectJavaPackageName()),
       mRSPackageName(Context->getRSPackageName()),
       mOutputBaseDirectory(OutputBaseDirectory),
       mRSSourceFileName(RSSourceFileName), mBitCodeFileName(BitCodeFileName),
@@ -395,7 +510,7 @@ RSReflectionJava::RSReflectionJava(const RSContext *Context,
       mEmbedBitcodeInJava(EmbedBitcodeInJava), mNextExportVarSlot(0),
       mNextExportFuncSlot(0), mNextExportForEachSlot(0),
       mNextExportReduceSlot(0), mLastError(""),
-      mGeneratedFileNames(GeneratedFileNames), mFieldIndex(0) {
+  mGeneratedFileNames(GeneratedFileNames), mFieldIndex(0), mField32Index(0) {
   slangAssert(mGeneratedFileNames && "Must supply GeneratedFileNames");
   slangAssert(!mPackageName.empty() && mPackageName != "-");
 
@@ -409,52 +524,74 @@ RSReflectionJava::RSReflectionJava(const RSContext *Context,
   } else {
       mItemSizeof = RS_TYPE_ITEM_SIZEOF_LEGACY;
   }
+
+  mState->nextFile(mRSContext, mPackageName, mRSSourceFileName);
 }
 
 bool RSReflectionJava::genScriptClass(const std::string &ClassName,
                                       std::string &ErrorMsg) {
-  if (!startClass(AM_Public, false, ClassName, RS_SCRIPT_CLASS_SUPER_CLASS_NAME,
-                  ErrorMsg))
-    return false;
+  if (!mCollecting) {
+    if (!startClass(AM_Public, false, ClassName, RS_SCRIPT_CLASS_SUPER_CLASS_NAME,
+                    ErrorMsg))
+      return false;
 
-  genScriptClassConstructor();
+    mState->beginOutputClass();
+    genScriptClassConstructor();
+  }
 
   // Reflect exported variables
+  mState->beginVariables(mRSContext->export_vars_size());
   for (auto I = mRSContext->export_vars_begin(),
             E = mRSContext->export_vars_end();
        I != E; I++)
     genExportVariable(*I);
+  mState->endVariables();
 
   // Reflect exported forEach functions (only available on ICS+)
   if (mRSContext->getTargetAPI() >= SLANG_ICS_TARGET_API) {
+    mState->beginForEaches(mRSContext->getNumAssignedForEachOrdinals());
     for (auto I = mRSContext->export_foreach_begin(),
               E = mRSContext->export_foreach_end();
          I != E; I++) {
       genExportForEach(*I);
     }
+    mState->endForEaches();
   }
 
-  // Reflect exported new-style reduce functions
-  for (const RSExportType *ResultType : mRSContext->getReduceResultTypes(
-           // FilterIn
-           exportableReduce,
+  // Reflect exported reduce functions
+  if (!mCollecting) {
+    for (const RSExportType *ResultType : mRSContext->getReduceResultTypes(
+             // FilterIn
+             exportableReduce,
 
-           // Compare
-           [](const RSExportType *A, const RSExportType *B)
-           { return GetReduceResultTypeName(A) < GetReduceResultTypeName(B); }))
-    genExportReduceResultType(ResultType);
+             // Compare
+             [](const RSExportType *A, const RSExportType *B)
+             { return GetReduceResultTypeName(A) < GetReduceResultTypeName(B); }))
+      genExportReduceResultType(ResultType);
+  }
+  mState->beginReduces(mRSContext->export_reduce_size());
   for (auto I = mRSContext->export_reduce_begin(),
             E = mRSContext->export_reduce_end();
        I != E; ++I)
     genExportReduce(*I);
+  mState->endReduces();
 
   // Reflect exported functions (invokable)
+  mState->beginInvokables(mRSContext->export_funcs_size());
   for (auto I = mRSContext->export_funcs_begin(),
             E = mRSContext->export_funcs_end();
        I != E; ++I)
     genExportFunction(*I);
+  mState->endInvokables();
 
-  endClass();
+  if (!mCollecting) {
+    if (mState->endOutputClass())
+      genCompute64Bit();
+
+    endClass();
+
+    mGeneratedFileNames->push_back(mScriptClassName);
+  }
 
   return true;
 }
@@ -500,7 +637,8 @@ void RSReflectionJava::genScriptClassConstructor() {
     mOut.indent() << "super(rs, resources, id);\n";
   }
 
-  // If an exported variable has initial value, reflect it
+  // If an exported variable has initial value, reflect it.
+  // Keep this in sync with initialization handling in ReflectionState::declareVariable().
 
   for (auto I = mRSContext->export_vars_begin(),
             E = mRSContext->export_vars_end();
@@ -722,6 +860,12 @@ void RSReflectionJava::genInitExportVariable(const RSExportType *ET,
 void RSReflectionJava::genExportVariable(const RSExportVar *EV) {
   const RSExportType *ET = EV->getType();
 
+  const ReflectionState::Val32
+      AllocSize32 = mState->declareVariable(EV);
+
+  if (mCollecting)
+    return;
+
   mOut.indent() << "private final static int " << RS_EXPORT_VAR_INDEX_PREFIX
                 << EV->getName() << " = " << getNextExportVarSlot() << ";\n";
 
@@ -743,69 +887,83 @@ void RSReflectionJava::genExportVariable(const RSExportVar *EV) {
     break;
   }
   case RSExportType::ExportClassConstantArray: {
-    genConstantArrayTypeExportVariable(EV);
+    genConstantArrayTypeExportVariable(EV, AllocSize32);
     break;
   }
   case RSExportType::ExportClassRecord: {
-    genRecordTypeExportVariable(EV);
+    genRecordTypeExportVariable(EV, AllocSize32);
     break;
   }
   default: { slangAssert(false && "Unknown class of type"); }
   }
 }
 
+// Keep this in sync with Invokable analysis in ReflectionState::declareInvokable().
 void RSReflectionJava::genExportFunction(const RSExportFunc *EF) {
-  mOut.indent() << "private final static int " << RS_EXPORT_FUNC_INDEX_PREFIX
-                << EF->getName() << " = " << getNextExportFuncSlot() << ";\n";
+  mState->declareInvokable(EF);
+
+  if (!mCollecting) {
+    mOut.indent() << "private final static int " << RS_EXPORT_FUNC_INDEX_PREFIX
+                  << EF->getName() << " = " << getNextExportFuncSlot() << ";\n";
+  }
 
   // invoke_*()
   ArgTy Args;
 
-  if (EF->hasParam()) {
-    for (RSExportFunc::const_param_iterator I = EF->params_begin(),
-                                            E = EF->params_end();
-         I != E; I++) {
-      Args.push_back(
-          std::make_pair(GetTypeName((*I)->getType()), (*I)->getName()));
+  if (!mCollecting) {
+    if (EF->hasParam()) {
+      for (RSExportFunc::const_param_iterator I = EF->params_begin(),
+                                              E = EF->params_end();
+           I != E; I++) {
+        Args.push_back(
+            std::make_pair(GetTypeName((*I)->getType()), (*I)->getName()));
+      }
     }
+
+    if (mRSContext->getTargetAPI() >= SLANG_M_TARGET_API) {
+      startFunction(AM_Public, false, "Script.InvokeID",
+                    "getInvokeID_" + EF->getName(), 0);
+
+      mOut.indent() << "return createInvokeID(" << RS_EXPORT_FUNC_INDEX_PREFIX
+                    << EF->getName() << ");\n";
+
+      endFunction();
+    }
+
+    startFunction(AM_Public, false, "void",
+                  "invoke_" + EF->getName(/*Mangle=*/false),
+                  // We are using un-mangled name since Java
+                  // supports method overloading.
+                  Args);
   }
-
-  if (mRSContext->getTargetAPI() >= SLANG_M_TARGET_API) {
-    startFunction(AM_Public, false, "Script.InvokeID",
-                  "getInvokeID_" + EF->getName(), 0);
-
-    mOut.indent() << "return createInvokeID(" << RS_EXPORT_FUNC_INDEX_PREFIX
-                  << EF->getName() << ");\n";
-
-    endFunction();
-  }
-
-  startFunction(AM_Public, false, "void",
-                "invoke_" + EF->getName(/*Mangle=*/false),
-                // We are using un-mangled name since Java
-                // supports method overloading.
-                Args);
 
   if (!EF->hasParam()) {
-    mOut.indent() << "invoke(" << RS_EXPORT_FUNC_INDEX_PREFIX << EF->getName()
-                  << ");\n";
+    if (!mCollecting)
+      mOut.indent() << "invoke(" << RS_EXPORT_FUNC_INDEX_PREFIX << EF->getName()
+                    << ");\n";
   } else {
     const RSExportRecordType *ERT = EF->getParamPacketType();
+
+    // NOTE: This type isn't on the RSContext::export_types* list.
+    mState->declareRecord(ERT, false);
+
     std::string FieldPackerName = EF->getName() + "_fp";
 
-    if (genCreateFieldPacker(ERT, FieldPackerName.c_str()))
+    if (genCreateFieldPacker(ERT, FieldPackerName.c_str(),
+                             mState->getRecord32(ERT).getRecordAllocSize()))
       genPackVarOfType(ERT, nullptr, FieldPackerName.c_str());
 
-    mOut.indent() << "invoke(" << RS_EXPORT_FUNC_INDEX_PREFIX << EF->getName()
-                  << ", " << FieldPackerName << ");\n";
+    if (!mCollecting)
+      mOut.indent() << "invoke(" << RS_EXPORT_FUNC_INDEX_PREFIX << EF->getName()
+                    << ", " << FieldPackerName << ");\n";
   }
 
-  endFunction();
+  if (!mCollecting)
+    endFunction();
 }
 
 void RSReflectionJava::genPairwiseDimCheck(const std::string &name0,
                                            const std::string &name1) {
-
   mOut.indent() << "// Verify dimensions\n";
   mOut.indent() << "t0 = " << name0 << ".getType();\n";
   mOut.indent() << "t1 = " << name1 << ".getType();\n";
@@ -840,19 +998,28 @@ void RSReflectionJava::genVectorLengthCompatibilityCheck(const std::string &Arra
   mOut.indent() << "}\n";
 }
 
+// Keep this in sync with ForEach analysis in ReflectionState::beginForEach()
+// and other ReflectionState::*ForEach*() methods.
 void RSReflectionJava::genExportForEach(const RSExportForEach *EF) {
   if (EF->isDummyRoot()) {
-    // Skip reflection for dummy root() kernels. Note that we have to
-    // advance the next slot number for ForEach, however.
-    mOut.indent() << "//private final static int "
-                  << RS_EXPORT_FOREACH_INDEX_PREFIX << EF->getName() << " = "
-                  << getNextExportForEachSlot() << ";\n";
+    mState->declareForEachDummyRoot(EF);
+
+    if (!mCollecting) {
+      // Skip reflection for dummy root() kernels. Note that we have to
+      // advance the next slot number for ForEach, however.
+      mOut.indent() << "//private final static int "
+                    << RS_EXPORT_FOREACH_INDEX_PREFIX << EF->getName() << " = "
+                    << getNextExportForEachSlot() << ";\n";
+    }
+
     return;
   }
 
-  mOut.indent() << "private final static int " << RS_EXPORT_FOREACH_INDEX_PREFIX
-                << EF->getName() << " = " << getNextExportForEachSlot()
-                << ";\n";
+  if (!mCollecting) {
+    mOut.indent() << "private final static int " << RS_EXPORT_FOREACH_INDEX_PREFIX
+                  << EF->getName() << " = " << getNextExportForEachSlot()
+                  << ";\n";
+  }
 
   // forEach_*()
   ArgTy Args;
@@ -861,130 +1028,159 @@ void RSReflectionJava::genExportForEach(const RSExportForEach *EF) {
   const RSExportForEach::InVec     &Ins     = EF->getIns();
   const RSExportForEach::InTypeVec &InTypes = EF->getInTypes();
   const RSExportType               *OET     = EF->getOutType();
+  const RSExportRecordType         *ERT     = EF->getParamPacketType();
+
+  mState->beginForEach(EF);
+
+  for (RSExportForEach::InTypeIter BI = InTypes.begin(), EI = InTypes.end();
+       BI != EI; BI++) {
+    mState->addForEachIn(EF, *BI);
+  }
 
   if (Ins.size() == 1) {
     HasAllocation = true;
-    Args.push_back(std::make_pair("Allocation", "ain"));
-
+    if (!mCollecting)
+      Args.push_back(std::make_pair("Allocation", "ain"));
   } else if (Ins.size() > 1) {
     HasAllocation = true;
-    for (RSExportForEach::InIter BI = Ins.begin(), EI = Ins.end(); BI != EI;
-         BI++) {
-
-      Args.push_back(std::make_pair("Allocation",
-                                    "ain_" + (*BI)->getName().str()));
+    if (!mCollecting) {
+      for (RSExportForEach::InIter BI = Ins.begin(), EI = Ins.end(); BI != EI;
+           BI++) {
+        Args.push_back(std::make_pair("Allocation",
+                                      "ain_" + (*BI)->getName().str()));
+      }
     }
   }
 
   if (EF->hasOut() || EF->hasReturn()) {
     HasAllocation = true;
-    Args.push_back(std::make_pair("Allocation", "aout"));
+    if (!mCollecting)
+      Args.push_back(std::make_pair("Allocation", "aout"));
   }
 
-  const RSExportRecordType *ERT = EF->getParamPacketType();
   if (ERT) {
     for (RSExportForEach::const_param_iterator I = EF->params_begin(),
                                                E = EF->params_end();
          I != E; I++) {
-      Args.push_back(
-          std::make_pair(GetTypeName((*I)->getType()), (*I)->getName()));
+      mState->addForEachParam(EF, (*I)->getType());
+      if (!mCollecting)
+        Args.push_back(
+            std::make_pair(GetTypeName((*I)->getType()), (*I)->getName()));
     }
   }
 
   if (mRSContext->getTargetAPI() >= SLANG_JB_MR1_TARGET_API) {
-    startFunction(AM_Public, false, "Script.KernelID",
-                  "getKernelID_" + EF->getName(), 0);
+    mState->addForEachSignatureMetadata(EF, EF->getSignatureMetadata());
 
-    // TODO: add element checking
-    mOut.indent() << "return createKernelID(" << RS_EXPORT_FOREACH_INDEX_PREFIX
-                  << EF->getName() << ", " << EF->getSignatureMetadata()
-                  << ", null, null);\n";
+    if (!mCollecting) {
+      startFunction(AM_Public, false, "Script.KernelID",
+                    "getKernelID_" + EF->getName(), 0);
 
-    endFunction();
-  }
-
-  if (mRSContext->getTargetAPI() >= SLANG_JB_MR2_TARGET_API) {
-    if (HasAllocation) {
-      startFunction(AM_Public, false, "void", "forEach_" + EF->getName(), Args);
-
-      mOut.indent() << "forEach_" << EF->getName();
-      mOut << "(";
-
-      if (Ins.size() == 1) {
-        mOut << "ain, ";
-
-      } else if (Ins.size() > 1) {
-        for (RSExportForEach::InIter BI = Ins.begin(), EI = Ins.end(); BI != EI;
-             BI++) {
-
-          mOut << "ain_" << (*BI)->getName().str() << ", ";
-        }
-      }
-
-      if (EF->hasOut() || EF->hasReturn()) {
-        mOut << "aout, ";
-      }
-
-      if (EF->hasUsrData()) {
-        mOut << Args.back().second << ", ";
-      }
-
-      // No clipped bounds to pass in.
-      mOut << "null);\n";
+      // TODO: add element checking
+      mOut.indent() << "return createKernelID(" << RS_EXPORT_FOREACH_INDEX_PREFIX
+                    << EF->getName() << ", " << EF->getSignatureMetadata()
+                    << ", null, null);\n";
 
       endFunction();
     }
-
-    // Add the clipped kernel parameters to the Args list.
-    Args.push_back(std::make_pair("Script.LaunchOptions", "sc"));
   }
 
-  startFunction(AM_Public, false, "void", "forEach_" + EF->getName(), Args);
+  if (!mCollecting) {
+    if (mRSContext->getTargetAPI() >= SLANG_JB_MR2_TARGET_API) {
+      if (HasAllocation) {
+        startFunction(AM_Public, false, "void", "forEach_" + EF->getName(), Args);
 
-  if (InTypes.size() == 1) {
-    if (InTypes.front() != nullptr) {
-      genTypeCheck(InTypes.front(), "ain");
+        mOut.indent() << "forEach_" << EF->getName();
+        mOut << "(";
+
+        if (Ins.size() == 1) {
+          mOut << "ain, ";
+
+        } else if (Ins.size() > 1) {
+          for (RSExportForEach::InIter BI = Ins.begin(), EI = Ins.end(); BI != EI;
+               BI++) {
+
+            mOut << "ain_" << (*BI)->getName().str() << ", ";
+          }
+        }
+
+        if (EF->hasOut() || EF->hasReturn()) {
+          mOut << "aout, ";
+        }
+
+        if (EF->hasUsrData()) {
+          mOut << Args.back().second << ", ";
+        }
+
+        // No clipped bounds to pass in.
+        mOut << "null);\n";
+
+        endFunction();
+      }
+
+      // Add the clipped kernel parameters to the Args list.
+      Args.push_back(std::make_pair("Script.LaunchOptions", "sc"));
     }
+  }
 
-  } else if (InTypes.size() > 1) {
-    size_t Index = 0;
-    for (RSExportForEach::InTypeIter BI = InTypes.begin(), EI = InTypes.end();
-         BI != EI; BI++, ++Index) {
+  if (!mCollecting) {
+    startFunction(AM_Public, false, "void", "forEach_" + EF->getName(), Args);
 
-      if (*BI != nullptr) {
-        genTypeCheck(*BI, ("ain_" + Ins[Index]->getName()).str().c_str());
+    if (InTypes.size() == 1) {
+      if (InTypes.front() != nullptr) {
+        genTypeCheck(InTypes.front(), "ain");
+      }
+
+    } else if (InTypes.size() > 1) {
+      size_t Index = 0;
+      for (RSExportForEach::InTypeIter BI = InTypes.begin(), EI = InTypes.end();
+           BI != EI; BI++, ++Index) {
+
+        if (*BI != nullptr) {
+          genTypeCheck(*BI, ("ain_" + Ins[Index]->getName()).str().c_str());
+        }
       }
     }
-  }
 
-  if (OET) {
-    genTypeCheck(OET, "aout");
-  }
-
-  if (Ins.size() == 1 && (EF->hasOut() || EF->hasReturn())) {
-    mOut.indent() << "Type t0, t1;";
-    genPairwiseDimCheck("ain", "aout");
-
-  } else if (Ins.size() > 1) {
-    mOut.indent() << "Type t0, t1;";
-
-    std::string In0Name = "ain_" + Ins[0]->getName().str();
-
-    for (size_t index = 1; index < Ins.size(); ++index) {
-      genPairwiseDimCheck(In0Name, "ain_" + Ins[index]->getName().str());
+    if (OET) {
+      genTypeCheck(OET, "aout");
     }
 
-    if (EF->hasOut() || EF->hasReturn()) {
-      genPairwiseDimCheck(In0Name, "aout");
+    if (Ins.size() == 1 && (EF->hasOut() || EF->hasReturn())) {
+      mOut.indent() << "Type t0, t1;";
+      genPairwiseDimCheck("ain", "aout");
+
+    } else if (Ins.size() > 1) {
+      mOut.indent() << "Type t0, t1;";
+
+      std::string In0Name = "ain_" + Ins[0]->getName().str();
+
+      for (size_t index = 1; index < Ins.size(); ++index) {
+        genPairwiseDimCheck(In0Name, "ain_" + Ins[index]->getName().str());
+      }
+
+      if (EF->hasOut() || EF->hasReturn()) {
+        genPairwiseDimCheck(In0Name, "aout");
+      }
     }
   }
 
   std::string FieldPackerName = EF->getName() + "_fp";
   if (ERT) {
-    if (genCreateFieldPacker(ERT, FieldPackerName.c_str())) {
+    // NOTE: This type isn't on the RSContext::export_types* list.
+    mState->declareRecord(ERT, false);
+
+    if (genCreateFieldPacker(ERT, FieldPackerName.c_str(),
+                             mState->getRecord32(ERT).getRecordAllocSize())) {
       genPackVarOfType(ERT, nullptr, FieldPackerName.c_str());
     }
   }
+
+  mState->endForEach();
+
+  if (mCollecting)
+    return;
+
   mOut.indent() << "forEach(" << RS_EXPORT_FOREACH_INDEX_PREFIX
                 << EF->getName();
 
@@ -1075,8 +1271,17 @@ void getReduceInputStrings(std::string &InputParamName, std::string &InputMappin
 
 } // end anonymous namespace
 
+// Keep this in sync with Reduce analysis in ReflectionState::declareReduce().
 void RSReflectionJava::genExportReduce(const RSExportReduce *ER) {
-  if (!exportableReduce(ER->getResultType()))
+  const bool IsExportable = exportableReduce(ER->getResultType());
+
+  // Need to track even a non-exportable reduce, both so that we get
+  // the count of reduction kernels correct, and so that we can
+  // intelligently diagnose cases where 32-bit and 64-bit compiles
+  // disagree as to whether a reduction kernel is exportable.
+  mState->declareReduce(ER, IsExportable);
+
+  if (!IsExportable || mCollecting)
     return;
 
   // Generate the reflected function index.
@@ -1817,7 +2022,7 @@ void RSReflectionJava::genMatrixTypeExportVariable(const RSExportVar *EV) {
                   TypeName.c_str(), "v");
     mOut.indent() << RS_EXPORT_VAR_PREFIX << VarName << " = v;\n";
 
-    if (genCreateFieldPacker(ET, FieldPackerName))
+    if (genCreateFieldPacker(ET, FieldPackerName, ReflectionState::NoVal32()))
       genPackVarOfType(ET, "v", FieldPackerName);
     mOut.indent() << "setVar(" RS_EXPORT_VAR_INDEX_PREFIX << VarName << ", "
                   << FieldPackerName << ");\n";
@@ -1830,7 +2035,8 @@ void RSReflectionJava::genMatrixTypeExportVariable(const RSExportVar *EV) {
 }
 
 void
-RSReflectionJava::genConstantArrayTypeExportVariable(const RSExportVar *EV) {
+RSReflectionJava::genConstantArrayTypeExportVariable(const RSExportVar *EV,
+                                                     ReflectionState::Val32 AllocSize32) {
   const RSExportType *const ET = EV->getType();
   slangAssert(
       (ET->getClass() == RSExportType::ExportClassConstantArray) &&
@@ -1840,12 +2046,15 @@ RSReflectionJava::genConstantArrayTypeExportVariable(const RSExportVar *EV) {
   std::string VarName = EV->getName();
 
   genPrivateExportVariable(TypeName, VarName);
-  genSetExportVariable(TypeName, EV, static_cast<const RSExportConstantArrayType *>(ET)->getNumElement());
+  genSetExportVariable(TypeName, EV,
+                       static_cast<const RSExportConstantArrayType *>(ET)->getNumElement(),
+                       AllocSize32);
   genGetExportVariable(TypeName, VarName);
   genGetFieldID(VarName);
 }
 
-void RSReflectionJava::genRecordTypeExportVariable(const RSExportVar *EV) {
+void RSReflectionJava::genRecordTypeExportVariable(const RSExportVar *EV,
+                                                   ReflectionState::Val32 AllocSize32) {
   slangAssert((EV->getType()->getClass() == RSExportType::ExportClassRecord) &&
               "Variable should be type of struct here");
 
@@ -1853,7 +2062,7 @@ void RSReflectionJava::genRecordTypeExportVariable(const RSExportVar *EV) {
   std::string VarName = EV->getName();
 
   genPrivateExportVariable(TypeName, VarName);
-  genSetExportVariable(TypeName, EV, 1);
+  genSetExportVariable(TypeName, EV, 1, AllocSize32);
   genGetExportVariable(TypeName, VarName);
   genGetFieldID(VarName);
 }
@@ -1867,7 +2076,8 @@ void RSReflectionJava::genPrivateExportVariable(const std::string &TypeName,
 // Dimension = array element count; otherwise, 1.
 void RSReflectionJava::genSetExportVariable(const std::string &TypeName,
                                             const RSExportVar *EV,
-                                            unsigned Dimension) {
+                                            unsigned Dimension,
+                                            ReflectionState::Val32 AllocSize32) {
   if (!EV->isConst()) {
     const char *FieldPackerName = "fp";
     const std::string &VarName = EV->getName();
@@ -1876,7 +2086,7 @@ void RSReflectionJava::genSetExportVariable(const std::string &TypeName,
                   TypeName.c_str(), "v");
     mOut.indent() << RS_EXPORT_VAR_PREFIX << VarName << " = v;\n";
 
-    if (genCreateFieldPacker(ET, FieldPackerName))
+    if (genCreateFieldPacker(ET, FieldPackerName, AllocSize32))
       genPackVarOfType(ET, "v", FieldPackerName);
 
     if (mRSContext->getTargetAPI() < SLANG_JB_TARGET_API) {
@@ -1922,11 +2132,17 @@ void RSReflectionJava::genGetFieldID(const std::string &VarName) {
 /******************* Methods to generate script class /end *******************/
 
 bool RSReflectionJava::genCreateFieldPacker(const RSExportType *ET,
-                                            const char *FieldPackerName) {
+                                            const char *FieldPackerName,
+                                            ReflectionState::Val32 AllocSize32) {
   size_t AllocSize = ET->getAllocSize();
-  if (AllocSize > 0)
-    mOut.indent() << "FieldPacker " << FieldPackerName << " = new FieldPacker("
-                  << AllocSize << ");\n";
+  slangAssert(!AllocSize32.first || ((AllocSize == 0) == (AllocSize32.second == 0)));
+  if (AllocSize > 0) {
+    if (!mCollecting) {
+      mOut.indent() << "FieldPacker " << FieldPackerName << " = new FieldPacker(";
+      genConditionalVal("", false, AllocSize, AllocSize32);
+      mOut << ");\n";
+    }
+  }
   else
     return false;
   return true;
@@ -1935,6 +2151,9 @@ bool RSReflectionJava::genCreateFieldPacker(const RSExportType *ET,
 void RSReflectionJava::genPackVarOfType(const RSExportType *ET,
                                         const char *VarName,
                                         const char *FieldPackerName) {
+  if (mCollecting)
+    return;
+
   switch (ET->getClass()) {
   case RSExportType::ExportClassPrimitive:
   case RSExportType::ExportClassVector: {
@@ -1994,13 +2213,33 @@ void RSReflectionJava::genPackVarOfType(const RSExportType *ET,
     break;
   }
   case RSExportType::ExportClassRecord: {
+    // Keep struct/field layout in sync with ReflectionState::declareRecord()
+
     const RSExportRecordType *ERT = static_cast<const RSExportRecordType *>(ET);
+    const ReflectionState::Record32 Record32 = mState->getRecord32(ERT);
+
+    auto emitSkip = [this, &FieldPackerName](size_t At, size_t Need,
+                                             ReflectionState::Val32 Padding32) {
+      if ((Need > At) || (Padding32.first && (Padding32.second != 0))) {
+        size_t Padding = Need - At;
+        mOut.indent() << FieldPackerName << ".skip(";
+        if (!Padding32.first || (Padding == Padding32.second))
+          mOut << Padding;
+        else {
+          genCheck64Bit(true);
+          mOut << " ? " << Padding << " : " << Padding32.second;
+        }
+        mOut << ");\n";
+      }
+    };
+
     // Relative pos from now on in field packer
     unsigned Pos = 0;
 
+    unsigned FieldNum = 0;
     for (RSExportRecordType::const_field_iterator I = ERT->fields_begin(),
                                                   E = ERT->fields_end();
-         I != E; I++) {
+         I != E; I++, FieldNum++) {
       const RSExportRecordType::Field *F = *I;
       std::string FieldName;
       size_t FieldOffset = F->getOffsetInParent();
@@ -2008,32 +2247,25 @@ void RSReflectionJava::genPackVarOfType(const RSExportType *ET,
       size_t FieldStoreSize = T->getStoreSize();
       size_t FieldAllocSize = T->getAllocSize();
 
+      const auto Field32PreAndPostPadding = Record32.getFieldPreAndPostPadding(FieldNum);
+
       if (VarName != nullptr)
         FieldName = VarName + ("." + F->getName());
       else
         FieldName = F->getName();
 
-      if (FieldOffset > Pos) {
-        mOut.indent() << FieldPackerName << ".skip(" << (FieldOffset - Pos)
-                      << ");\n";
-      }
+      emitSkip(Pos, FieldOffset, Field32PreAndPostPadding.first /* pre */);
 
       genPackVarOfType(F->getType(), FieldName.c_str(), FieldPackerName);
 
-      // There is padding in the field type
-      if (FieldAllocSize > FieldStoreSize) {
-        mOut.indent() << FieldPackerName << ".skip("
-                      << (FieldAllocSize - FieldStoreSize) << ");\n";
-      }
+      // There is padding in the field type?
+      emitSkip(FieldStoreSize, FieldAllocSize, Field32PreAndPostPadding.second /* post */);
 
       Pos = FieldOffset + FieldAllocSize;
     }
 
     // There maybe some padding after the struct
-    if (ERT->getAllocSize() > Pos) {
-      mOut.indent() << FieldPackerName << ".skip(" << ERT->getAllocSize() - Pos
-                    << ");\n";
-    }
+    emitSkip(Pos, ERT->getAllocSize(), Record32.getRecordPostPadding());
     break;
   }
   default: { slangAssert(false && "Unknown class of type"); }
@@ -2110,6 +2342,10 @@ void RSReflectionJava::genNewItemBufferPackerIfNull() {
 /********************** Methods to generate type class  **********************/
 bool RSReflectionJava::genTypeClass(const RSExportRecordType *ERT,
                                     std::string &ErrorMsg) {
+  mState->declareRecord(ERT);
+  if (mCollecting)
+    return true;
+
   std::string ClassName = ERT->getElementName();
   std::string superClassName = getRSPackageName();
   superClassName += RS_TYPE_CLASS_SUPER_CLASS_NAME;
@@ -2119,6 +2355,8 @@ bool RSReflectionJava::genTypeClass(const RSExportRecordType *ERT,
     return false;
 
   mGeneratedFileNames->push_back(ClassName);
+
+  mState->beginOutputClass();
 
   genTypeItemClass(ERT);
 
@@ -2143,6 +2381,9 @@ bool RSReflectionJava::genTypeClass(const RSExportRecordType *ERT,
     // Skip the resize method if we are targeting a compatibility library.
     genTypeClassResize();
   }
+
+  if (mState->endOutputClass())
+    genCompute64Bit();
 
   endClass();
 
@@ -2201,7 +2442,7 @@ void RSReflectionJava::genTypeClassConstructor(const RSExportRecordType *ERT) {
   //            << ".get();\n";
   // mOut.indent() << "if (e != null) return e;\n";
   RSReflectionJavaElementBuilder builder("eb", ERT, RenderScriptVar, &mOut,
-                                         mRSContext, this);
+                                         mRSContext, this, mState);
   builder.generate();
 
   mOut.indent() << "return eb.create();\n";
@@ -2360,13 +2601,18 @@ void RSReflectionJava::genTypeClassItemGetter(const RSExportRecordType *ERT) {
 
 void
 RSReflectionJava::genTypeClassComponentSetter(const RSExportRecordType *ERT) {
+  const ReflectionState::Record32 Record32 = mState->getRecord32(ERT);
+
+  unsigned FieldNum = 0;
   for (RSExportRecordType::const_field_iterator FI = ERT->fields_begin(),
                                                 FE = ERT->fields_end();
-       FI != FE; FI++) {
+       FI != FE; FI++, FieldNum++) {
     const RSExportRecordType::Field *F = *FI;
     size_t FieldOffset = F->getOffsetInParent();
     size_t FieldStoreSize = F->getType()->getStoreSize();
-    unsigned FieldIndex = getFieldIndex(F);
+    std::pair<unsigned, unsigned> FieldIndex = getFieldIndex(F);
+
+    const auto Field32OffsetAndStoreSize = Record32.getFieldOffsetAndStoreSize(FieldNum);
 
     startFunction(AM_PublicSynchronized, false, "void", "set_" + F->getName(),
                   3, "int", "index", GetTypeName(F->getType()).c_str(), "v",
@@ -2379,21 +2625,22 @@ RSReflectionJava::genTypeClassComponentSetter(const RSExportRecordType *ERT) {
     mOut.indent() << "if (copyNow) ";
     mOut.startBlock();
 
-    if (FieldOffset > 0) {
-      mOut.indent() << RS_TYPE_ITEM_BUFFER_PACKER_NAME << ".reset(index * "
-                    << mItemSizeof << " + " << FieldOffset
-                    << ");\n";
-    } else {
-      mOut.indent() << RS_TYPE_ITEM_BUFFER_PACKER_NAME << ".reset(index * "
-                    << mItemSizeof << ");\n";
-    }
+    mOut.indent() << RS_TYPE_ITEM_BUFFER_PACKER_NAME << ".reset(index * "
+                  << mItemSizeof;
+    genConditionalVal(" + ", true, FieldOffset, Field32OffsetAndStoreSize.first /* offset */);
+    mOut << ");\n";
+
     genPackVarOfType(F->getType(), "v", RS_TYPE_ITEM_BUFFER_PACKER_NAME);
 
-    mOut.indent() << "FieldPacker fp = new FieldPacker(" << FieldStoreSize
-                  << ");\n";
+    mOut.indent() << "FieldPacker fp = new FieldPacker(";
+    genConditionalVal("", false, FieldStoreSize, Field32OffsetAndStoreSize.second /* size */);
+    mOut << ");\n";
+
     genPackVarOfType(F->getType(), "v", "fp");
-    mOut.indent() << "mAllocation.setFromFieldPacker(index, " << FieldIndex
-                  << ", fp);\n";
+    mOut.indent() << "mAllocation.setFromFieldPacker(index, ";
+    genConditionalVal("", false, FieldIndex.first,
+                      ReflectionState::Val32(Field32OffsetAndStoreSize.first.first, FieldIndex.second));
+    mOut << ", fp);\n";
 
     // End of if (copyNow)
     mOut.endBlock();
@@ -2461,10 +2708,10 @@ void RSReflectionJava::genTypeClassResize() {
 RSReflectionJavaElementBuilder::RSReflectionJavaElementBuilder(
     const char *ElementBuilderName, const RSExportRecordType *ERT,
     const char *RenderScriptVar, GeneratedFile *Out, const RSContext *RSContext,
-    RSReflectionJava *Reflection)
+    RSReflectionJava *Reflection, ReflectionState *RState)
     : mElementBuilderName(ElementBuilderName), mERT(ERT),
       mRenderScriptVar(RenderScriptVar), mOut(Out), mPaddingFieldIndex(1),
-      mRSContext(RSContext), mReflection(Reflection) {
+      mRSContext(RSContext), mReflection(Reflection), mState(RState) {
   if (mRSContext->getTargetAPI() < SLANG_ICS_TARGET_API) {
     mPaddingPrefix = "#padding_";
   } else {
@@ -2544,18 +2791,26 @@ void RSReflectionJavaElementBuilder::genAddElement(const RSExportType *ET,
       //
       // TODO(zonr): Generalize these two function such that there's no
       //             duplicated codes.
+
+      // Keep struct/field layout in sync with ReflectionState::declareRecord()
+
       const RSExportRecordType *ERT =
           static_cast<const RSExportRecordType *>(ET);
+      const ReflectionState::Record32 Record32 = mState->getRecord32(ERT);
+
       int Pos = 0; // relative pos from now on
 
+      unsigned FieldNum = 0;
       for (RSExportRecordType::const_field_iterator I = ERT->fields_begin(),
                                                     E = ERT->fields_end();
-           I != E; I++) {
+           I != E; I++, FieldNum++) {
         const RSExportRecordType::Field *F = *I;
-        int FieldOffset = F->getOffsetInParent();
+        size_t FieldOffset = F->getOffsetInParent();
         const RSExportType *T = F->getType();
-        int FieldStoreSize = T->getStoreSize();
-        int FieldAllocSize = T->getAllocSize();
+        size_t FieldStoreSize = T->getStoreSize();
+        size_t FieldAllocSize = T->getAllocSize();
+
+        const auto Field32PreAndPostPadding = Record32.getFieldPreAndPostPadding(FieldNum);
 
         std::string FieldName;
         if (!VarName.empty())
@@ -2564,7 +2819,7 @@ void RSReflectionJavaElementBuilder::genAddElement(const RSExportType *ET,
           FieldName = F->getName();
 
         // Alignment
-        genAddPadding(FieldOffset - Pos);
+        genAddPadding(FieldOffset - Pos, Field32PreAndPostPadding.first /* pre */);
 
         // eb.add(...)
         mReflection->addFieldIndexMapping(F);
@@ -2579,7 +2834,7 @@ void RSReflectionJavaElementBuilder::genAddElement(const RSExportType *ET,
         if (mRSContext->getTargetAPI() < SLANG_ICS_TARGET_API) {
           // There is padding within the field type. This is only necessary
           // for HC-targeted APIs.
-          genAddPadding(FieldAllocSize - FieldStoreSize);
+          genAddPadding(FieldAllocSize - FieldStoreSize, Field32PreAndPostPadding.second /* post */);
         }
 
         Pos = FieldOffset + FieldAllocSize;
@@ -2587,8 +2842,7 @@ void RSReflectionJavaElementBuilder::genAddElement(const RSExportType *ET,
 
       // There maybe some padding after the struct
       size_t RecordAllocSize = ERT->getAllocSize();
-
-      genAddPadding(RecordAllocSize - Pos);
+      genAddPadding(RecordAllocSize - Pos, Record32.getRecordPostPadding());
       break;
     }
     default:
@@ -2598,7 +2852,7 @@ void RSReflectionJavaElementBuilder::genAddElement(const RSExportType *ET,
   }
 }
 
-void RSReflectionJavaElementBuilder::genAddPadding(int PaddingSize) {
+void RSReflectionJavaElementBuilder::genAddPadding(int PaddingSize, unsigned Which) {
   while (PaddingSize > 0) {
     const std::string &VarName = createPaddingField();
     genAddStatementStart();
@@ -2612,8 +2866,50 @@ void RSReflectionJavaElementBuilder::genAddPadding(int PaddingSize) {
       *mOut << "Element.U8(" << mRenderScriptVar << ")";
       PaddingSize -= 1;
     }
-    genAddStatementEnd(VarName, 0);
+    genAddStatementEnd(VarName, 0, Which);
   }
+}
+
+void RSReflectionJavaElementBuilder::genAddPadding(int PaddingSize,
+                                                   ReflectionState::Val32 Field32PaddingSize) {
+  if (!Field32PaddingSize.first || (PaddingSize == Field32PaddingSize.second)) {
+    // Either we're ignoring the 32-bit case, or 32-bit and 64-bit
+    // padding are the same.
+    genAddPadding(PaddingSize, RSReflectionJava::FieldIndex | RSReflectionJava::Field32Index);
+    return;
+  }
+
+  // We cannot ignore the 32-bit case, and 32-bit and 64-bit padding differ.
+
+  if ((PaddingSize == 0) != (Field32PaddingSize.second == 0)) {
+    // Only pad one of the two cases.
+
+    mOut->indent() << "if (";
+    if (PaddingSize == 0)
+      *mOut << '!';
+    genCheck64Bit(PaddingSize == 0);
+    *mOut << ')';
+
+    mOut->startBlock();
+    if (PaddingSize != 0)
+      genAddPadding(PaddingSize, RSReflectionJava::FieldIndex);
+    else
+      genAddPadding(Field32PaddingSize.second, RSReflectionJava::Field32Index);
+    mOut->endBlock();
+    return;
+  }
+
+  // Pad both of the two cases, differently.
+  mOut->indent() << "if (";
+  genCheck64Bit(false);
+  *mOut << ')';
+  mOut->startBlock();
+  genAddPadding(PaddingSize, RSReflectionJava::FieldIndex);
+  mOut->endBlock();
+  mOut->indent() << "else";
+  mOut->startBlock();
+  genAddPadding(Field32PaddingSize.second, RSReflectionJava::Field32Index);
+  mOut->endBlock();
 }
 
 void RSReflectionJavaElementBuilder::genAddStatementStart() {
@@ -2622,7 +2918,8 @@ void RSReflectionJavaElementBuilder::genAddStatementStart() {
 
 void
 RSReflectionJavaElementBuilder::genAddStatementEnd(const std::string &VarName,
-                                                   unsigned ArraySize) {
+                                                   unsigned ArraySize,
+                                                   unsigned Which) {
   *mOut << ", \"" << VarName << "\"";
   if (ArraySize > 0) {
     *mOut << ", " << ArraySize;
@@ -2631,20 +2928,22 @@ RSReflectionJavaElementBuilder::genAddStatementEnd(const std::string &VarName,
   // TODO Review incFieldIndex.  It's probably better to assign the numbers at
   // the start rather
   // than as we're generating the code.
-  mReflection->incFieldIndex();
+  mReflection->incFieldIndex(Which);
 }
 
 /******** Methods to create Element in Java of given record type /end ********/
 
 bool RSReflectionJava::reflect() {
+  // Note that we may issue declareRecord() in many places during the
+  // reflection process.
+  mState->beginRecords();
+
   std::string ErrorMsg;
   if (!genScriptClass(mScriptClassName, ErrorMsg)) {
     std::cerr << "Failed to generate class " << mScriptClassName << " ("
               << ErrorMsg << ")\n";
     return false;
   }
-
-  mGeneratedFileNames->push_back(mScriptClassName);
 
   // class ScriptField_<TypeName>
   for (RSContext::const_export_type_iterator
@@ -2664,6 +2963,8 @@ bool RSReflectionJava::reflect() {
       }
     }
   }
+
+  mState->endRecords();
 
   return true;
 }
@@ -2707,6 +3008,17 @@ bool RSReflectionJava::startClass(AccessModifier AM, bool IsStatic,
   mOut << "\n";
 
   // Imports
+  //
+  // The first few imports are only needed for divergent classes, but
+  // at this point we don't know whether we are emitting a divergent
+  // class.
+  //
+  if (!mRSContext->isCompatLib()) {
+    mOut << "import android.os.Build;\n";
+    mOut << "import android.os.Process;\n";
+    mOut << "import java.lang.reflect.Field;\n";
+  }
+  // (End of imports needed for divergent classes.)
   mOut << "import " << mRSPackageName << ".*;\n";
   if (getEmbedBitcodeInJava()) {
     mOut << "import " << mPackageName << "."

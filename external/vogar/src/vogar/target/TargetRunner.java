@@ -27,5 +27,5 @@ public interface TargetRunner {
      *     process should kill this process and attempt to resume after the last
      *     known outcome.
      */
-    boolean run(Profiler profiler);
+    boolean run();
 }

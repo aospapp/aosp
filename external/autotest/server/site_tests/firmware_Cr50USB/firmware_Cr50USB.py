@@ -7,9 +7,10 @@ import time
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.server import autotest, test
+from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
 
 
-class firmware_Cr50USB(test.test):
+class firmware_Cr50USB(FirmwareTest):
     """
     Stress the Cr50 usb connection to the DUT.
 
@@ -24,8 +25,19 @@ class firmware_Cr50USB(test.test):
 
     SLEEP_DELAY = 20
 
-    def run_once(self, host, num_iterations=100, exit_condition=None):
+    def cleanup(self):
+        """Reenable CCD before cleanup"""
+        if hasattr(self, "cr50"):
+            self.cr50.ccd_enable()
+        super(firmware_Cr50USB, self).cleanup()
+
+
+    def run_once(self, host, cmdline_args, num_iterations=100,
+                 exit_condition=None):
         self.host = host
+        # Disable CCD so it doesn't interfere with the Cr50 AP usb connection.
+        if hasattr(self, "cr50"):
+            self.cr50.ccd_disable()
 
         # Make sure the device is logged in so TPM activity doesn't keep it
         # awake

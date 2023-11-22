@@ -13,7 +13,9 @@
 // limitations under the License.
 
 #include "FrameBufferAndroid.hpp"
+#include "GrallocAndroid.hpp"
 
+#include <system/window.h>
 #include <cutils/log.h>
 
 namespace sw
@@ -47,12 +49,8 @@ namespace sw
 
 	FrameBufferAndroid::FrameBufferAndroid(ANativeWindow* window, int width, int height)
 		: FrameBuffer(width, height, false, false),
-		  nativeWindow(window), buffer(nullptr), gralloc(nullptr)
+		  nativeWindow(window), buffer(nullptr)
 	{
-		hw_module_t const* pModule;
-		hw_get_module(GRALLOC_HARDWARE_MODULE_ID, &pModule);
-		gralloc = reinterpret_cast<gralloc_module_t const*>(pModule);
-
 		nativeWindow->common.incRef(&nativeWindow->common);
 		native_window_set_usage(nativeWindow, GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN);
 	}
@@ -85,7 +83,7 @@ namespace sw
 			return nullptr;
 		}
 
-		if(gralloc->lock(gralloc, buffer->handle,
+		if(GrallocModule::getInstance()->lock(buffer->handle,
 		                 GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN,
 		                 0, 0, buffer->width, buffer->height, &locked) != 0)
 		{
@@ -102,15 +100,22 @@ namespace sw
 
 		switch(buffer->format)
 		{
-		default: ALOGE("Unsupported buffer format %d", buffer->format); ASSERT(false);
-		case HAL_PIXEL_FORMAT_RGB_565: destFormat = FORMAT_R5G6B5; break;
-		case HAL_PIXEL_FORMAT_RGB_888: destFormat = FORMAT_R8G8B8; break;
+		case HAL_PIXEL_FORMAT_RGB_565:   destFormat = FORMAT_R5G6B5; break;
 		case HAL_PIXEL_FORMAT_RGBA_8888: destFormat = FORMAT_A8B8G8R8; break;
 #if ANDROID_PLATFORM_SDK_VERSION > 16
 		case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED: destFormat = FORMAT_X8B8G8R8; break;
 #endif
 		case HAL_PIXEL_FORMAT_RGBX_8888: destFormat = FORMAT_X8B8G8R8; break;
 		case HAL_PIXEL_FORMAT_BGRA_8888: destFormat = FORMAT_A8R8G8B8; break;
+		case HAL_PIXEL_FORMAT_RGB_888:
+			// Frame buffers are expected to have 16-bit or 32-bit colors, not 24-bit.
+			ALOGE("Unsupported frame buffer format RGB_888"); ASSERT(false);
+			destFormat = FORMAT_R8G8B8;   // Wrong component order.
+			break;
+		default:
+			ALOGE("Unsupported frame buffer format %d", buffer->format); ASSERT(false);
+			destFormat = FORMAT_NULL;
+			break;
 		}
 
 		stride = buffer->stride * Surface::bytes(destFormat);
@@ -127,7 +132,7 @@ namespace sw
 
 		locked = nullptr;
 
-		if(gralloc->unlock(gralloc, buffer->handle) != 0)
+		if(GrallocModule::getInstance()->unlock(buffer->handle) != 0)
 		{
 			ALOGE("%s: badness unlock failed", __FUNCTION__);
 		}

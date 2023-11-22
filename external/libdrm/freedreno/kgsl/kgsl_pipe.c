@@ -50,6 +50,10 @@ static int kgsl_pipe_get_param(struct fd_pipe *pipe,
 	case FD_CHIP_ID:
 		*value = kgsl_pipe->devinfo.chip_id;
 		return 0;
+	case FD_MAX_FREQ:
+	case FD_TIMESTAMP:
+		/* unsupported on kgsl */
+		return -1;
 	default:
 		ERROR_MSG("invalid param id: %d", param);
 		return -1;
@@ -250,6 +254,11 @@ drm_private struct fd_pipe * kgsl_pipe_new(struct fd_device *dev,
 
 	GETPROP(fd, VERSION,     kgsl_pipe->version);
 	GETPROP(fd, DEVICE_INFO, kgsl_pipe->devinfo);
+
+	if (kgsl_pipe->devinfo.gpu_id >= 500) {
+		ERROR_MSG("64b unsupported with kgsl");
+		goto fail;
+	}
 
 	INFO_MSG("Pipe Info:");
 	INFO_MSG(" Device:          %s", paths[id]);

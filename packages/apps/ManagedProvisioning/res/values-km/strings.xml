@@ -27,9 +27,9 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"កម្មវិធី​ខាង​ក្រោម​​នឹង​ត្រូវ​ចូល​ដំណើរការ​ប្រវត្តិរូប​របស់​អ្នក៖"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"កម្មវិធីខាងក្រោមនឹងគ្រប់គ្រងឧបករណ៍របស់អ្នក៖"</string>
     <string name="next" msgid="1004321437324424398">"បន្ទាប់"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"កំពុងដំឡើងប្រវត្តិរូបការងាររបស់អ្នក…"</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"កំពុង​រៀបចំ​កម្រងព័ត៌មាន​ការងារ…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"អ្នកគ្រប់គ្រងរបស់អ្នកមានលទ្ធភាពតាមដាន និងគ្រប់គ្រងការកំណត់ ការចូលកម្មវិធី កម្មវីធី សិទ្ធិអនុញ្ញាត និងទិន្នន័យដែលពាក់ព័ន្ធនឹងកម្រងព័ត៌មាននេះ រួមទាំងសកម្មភាពបណ្តាញ ក៏ដូចជាទីតាំងឧបករណ៍ ប្រវត្តិហៅទូរសព្ទ និងប្រវត្តិស្វែងរកទំនាក់ទំនងរបស់អ្នកផងដែរ។<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>សូមទាក់ទងទៅអ្នកគ្រប់គ្រងរបស់អ្នកសម្រាប់ព័ត៌មានបន្ថែម ដោយរាប់បញ្ចូលទាំងគោលការណ៍ឯកជនភាពរបស់ស្ថាប័នអ្នកផងដែរ។"</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"អ្នកគ្រប់គ្រងរបស់អ្នកមានលទ្ធភាពតាមដាន និងគ្រប់គ្រងការកំណត់ ការចូលកម្មវិធី កម្មវីធី សិទ្ធិអនុញ្ញាត និងទិន្នន័យដែលពាក់ព័ន្ធនឹងឧបករណ៍នេះ រួមទាំងសកម្មភាពបណ្តាញ ក៏ដូចជាទីតាំងឧបករណ៍ ប្រវត្តិហៅទូរសព្ទ និងប្រវត្តិស្វែងរកទំនាក់ទំនងរបស់អ្នកផងដែរ។<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>សូមទាក់ទងទៅអ្នកគ្រប់គ្រងរបស់អ្នកសម្រាប់ព័ត៌មានបន្ថែម ដោយរាប់បញ្ចូលទាំងគោលការណ៍ឯកជនភាពរបស់ស្ថាប័នអ្នកផងដែរ។"</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"អ្នកគ្រប់គ្រង​របស់​អ្នក​មាន​លទ្ធភាព​តាមដាន និង​គ្រប់គ្រង​ការកំណត់ ការចូលលក្ខណៈ​ក្រុមហ៊ុន កម្មវីធី សិទ្ធិ​អនុញ្ញាត និង​ទិន្នន័យ​ដែលពាក់ព័ន្ធ​នឹង​ឧបករណ៍នេះ រួមទាំង​សកម្មភាព​បណ្តាញ ក៏​ដូចជា​ទីតាំង​ឧបករណ៍ ប្រវត្តិ​ហៅ​ទូរសព្ទ និង​ប្រវត្តិស្វែងរក​ទំនាក់ទំនង​របស់​អ្នក​ផងដែរ។<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>សូម​ទាក់ទង​ទៅ​អ្នក​គ្រប់គ្រង​របស់អ្នកសម្រាប់​ព័ត៌មាន​បន្ថែម ដោយ​រាប់​បញ្ចូល​ទាំង​គោលការណ៍​ឯកជនភាព​របស់ស្ថាប័ន​អ្នកផងដែរ។"</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"ដើម្បីប្រើលក្ខណៈពិសេសការពារពីការលួច អ្នកត្រូវមានសោអេក្រង់ដែលបានការពារដោយពាក្យសម្ងាត់សម្រាប់ឧបករណ៍របស់អ្នក។"</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"ទាក់ទងអ្នកគ្រប់គ្រងរបស់អ្នកសម្រាប់ព័ត៌មានបន្ថែម ដោយរួមទាំងគោលការណ៍ភាពឯកជនស្ថាប័នរបស់អ្នកផងដែរ។"</string>
     <string name="learn_more_link" msgid="3012495805919550043">"ស្វែងយល់​បន្ថែម"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"ប្រវត្តិរូប​ការងារ"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"អ្នកប្រើសំខាន់"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"លុប​កម្រង​ព័ត៌មាន​ដែល​មាន​ស្រាប់?"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"អ្នក​មាន​កម្រង​ព័ត៌មាន​ការងារ​ដែល​ស្ថិត​ក្រោម​ការគ្រប់គ្រង​របស់​កម្មវិធី​ខាងក្រោម​រួច​ហើយ៖"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"អ្នក​មាន​កម្រងព័ត៌មាន​ការងារ​រួចហើយ។ វា​ត្រូវ​បានគ្រប់គ្រង​ដោយ​ប្រើ​កម្មវិធីខាងក្រោម៖"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"មុននឹងដំណើរការ "<a href="#read_this_link">"សូមអាន"</a>" នេះ។"</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"ប្រសិនបើអ្នកបន្ត នោះកម្មវិធី និងទិន្នន័យទាំងអស់នៅក្នុងប្រវត្តិរូបនេះនឹងត្រូវបានលុប។"</string>
     <string name="delete_profile" msgid="2299218578684663459">"លុប"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"ប៉ះដើម្បីបន្តការដំឡើងប្រវត្តិរូបការងាររបស់អ្នក"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"មិន​អាច​រៀបចំ​ប្រវត្តិរូប​ការងារ​របស់​អ្នក។ ទាក់ទង​ផ្នែក​បច្ចេកវិទ្យា​ព័ត៌មាន​របស់​អ្នក ឬ​ព្យាយាម​ម្ដងទៀត​ពេល​ក្រោយ។"</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"មិនអាច​បញ្ចូល​កម្រងព័ត៌មាន​ការងារ​បានទេ"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"អ្នក​ប្រើប្រាស់​នេះ​មិនអាច​មាន​កម្រងព័ត៌មាន​ការងារ​បាន​ទេ។ សូម​ទាក់ទង​ទៅអ្នក​គ្រប់គ្រង​របស់​អ្នក។"</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"អ្នកប្រើប្រាស់​នេះ​មិនអាច​មាន​កម្រងព័ត៌មាន​ការងារ​បានទេ។ សូម​ទាក់ទង​ទៅអ្នក​គ្រប់គ្រង​របស់​អ្នក។"</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"ប្រវត្តិរូបការងារមិនអាចកំណត់ឡើងវិញបានទេនៅលើឧបករណ៍ដែលបានគ្រប់គ្រង"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"អាច​មាន​អ្នកប្រើប្រាស់​ច្រើនពេក​នៅលើ​ឧបករណ៍​នេះ។ សូម​ដក​អ្នកប្រើប្រាស់​មួយ​ចេញ បន្ទាប់​មក​ព្យាយាម​ម្តងទៀត។"</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"មិនអាច​ផ្លាស់ប្តូរ ឬ​លុប​កម្រងព័ត៌មាន​ការងារ​​បានទេ"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"មិនអាច​បញ្ចូល​កម្រងព័ត៌មាន​ការងារ​ទៅក្នុង​ឧបករណ៍​នេះ​បានទេ។ ប្រសិនបើ​អ្នកមាន​សំណួរ សូម​ទាក់ទង​អ្នក​គ្រប់គ្រង​របស់​អ្នក។"</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"ផ្លាស់ប្តូរ​កម្មវិធី​ចាប់ផ្ដើម​របស់​ឧបករណ៍"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"យកម្រងព័ត៌មាន​ការងារ​របស់​អ្នក​មិនអាច​ប្រើកម្មវិធី​ចាប់ផ្ដើមនេះ​បានទេ"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"បោះបង់"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"យល់ព្រម"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"ការដំឡើងអ្នកប្រើមិនពេញលេញ"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"អ្នកប្រើ​ឧបករណ៍​ការងារ"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"ដំឡើងឧបករណ៍ការងារ"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"កំពុង​រៀប​ចំ​ឧបករណ៍ការងារ…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"កំពុងដំណើរការទិន្នន័យដំឡើង…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"កំពុងភ្ជាប់ទៅ Wi-Fi…"</string>
     <string name="progress_download" msgid="3522436271691064624">"កំពុងទាញយកកម្មវិធីគ្រប់គ្រង…"</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"បោះបង់"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"កំណត់ឧបករណ៍ឡើងវិញ"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> និង <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> និង <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> និង <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

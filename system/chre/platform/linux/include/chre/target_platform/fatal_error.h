@@ -19,6 +19,21 @@
 
 #include <cstdlib>
 
-#define FATAL_ERROR_QUIT abort
+#define FATAL_ERROR_QUIT() do { \
+    chre::preFatalError();      \
+    abort();                    \
+  } while (0)
+
+namespace chre {
+
+/**
+ * Do preparation for an impending fatal error including flushing logs.
+ *
+ * It must not be possible for FATAL_ERROR() to be called by this function or
+ * any of its callees.
+ */
+void preFatalError();
+
+}  // namespace chre
 
 #endif  // CHRE_PLATFORM_LINUX_FATAL_ERROR_H_

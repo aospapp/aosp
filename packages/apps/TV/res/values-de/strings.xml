@@ -20,9 +20,8 @@
     <string name="audio_channel_mono" msgid="8812941280022167428">"Mono"</string>
     <string name="audio_channel_stereo" msgid="5798223286366598036">"Stereo"</string>
     <string name="menu_title_play_controls" msgid="2490237359425190652">"Wiedergabesteuerung"</string>
-    <string name="menu_title_channels" msgid="1801845517674690003">"Letzte Kanäle"</string>
+    <string name="menu_title_channels" msgid="1949045451672990132">"Kanäle"</string>
     <string name="menu_title_options" msgid="7184594626814914022">"TV-Optionen"</string>
-    <string name="menu_title_pip_options" msgid="4252934960762407689">"PIP-Optionen"</string>
     <string name="play_controls_unavailable" msgid="8900698593131693148">"Wiedergabesteuerung für diesen Kanal nicht verfügbar"</string>
     <string name="play_controls_description_play_pause" msgid="7225542861669250558">"Abspielen oder pausieren"</string>
     <string name="play_controls_description_fast_forward" msgid="4414963867482448652">"Vorspulen"</string>
@@ -35,37 +34,19 @@
     <string name="options_item_closed_caption" msgid="5945274655046367170">"Untertitel"</string>
     <string name="options_item_display_mode" msgid="7989243076748680140">"Anzeigemodus"</string>
     <string name="options_item_pip" msgid="3951350386626879645">"PIP"</string>
-    <string name="options_item_pip_on" msgid="4647247480009077381">"An"</string>
-    <string name="options_item_pip_off" msgid="8799500161592387451">"Aus"</string>
     <string name="options_item_multi_audio" msgid="5118851311937896923">"Multi-Audio"</string>
     <string name="options_item_more_channels" msgid="971040969622943300">"Mehr Kanäle erhalten"</string>
     <string name="options_item_settings" msgid="7623205838542400074">"Einstellungen"</string>
-    <string name="pip_options_item_source" msgid="1050948525825308652">"Quelle"</string>
-    <string name="pip_options_item_swap" msgid="7245362207353732048">"Wechseln"</string>
-    <string name="pip_options_item_swap_on" msgid="5647182616484983505">"An"</string>
-    <string name="pip_options_item_swap_off" msgid="3023597229417709768">"Aus"</string>
-    <string name="pip_options_item_sound" msgid="3107034283791231648">"Ton"</string>
-    <string name="pip_options_item_sound_main" msgid="1063937534112558691">"Hauptoption"</string>
-    <string name="pip_options_item_sound_pip_window" msgid="435064142351853008">"PIP-Fenster"</string>
-    <string name="pip_options_item_layout" msgid="5126206342060967651">"Layout"</string>
-    <string name="pip_options_item_layout_bottom_right" msgid="5256839015192920238">"Unten rechts"</string>
-    <string name="pip_options_item_layout_top_right" msgid="3585067214787055279">"Oben rechts"</string>
-    <string name="pip_options_item_layout_top_left" msgid="2173997010201637462">"Oben links"</string>
-    <string name="pip_options_item_layout_bottom_left" msgid="1727197877968915329">"Unten links"</string>
-    <string name="pip_options_item_layout_side_by_side" msgid="9009784972740915779">"Nebeneinander"</string>
-    <string name="pip_options_item_size" msgid="5662894110243750158">"Größe"</string>
-    <string name="pip_options_item_size_big" msgid="6303301565563444718">"Groß"</string>
-    <string name="pip_options_item_size_small" msgid="7393731186585004206">"Klein"</string>
-    <string name="side_panel_title_pip_input_source" msgid="8722544967592970296">"Eingangsquelle"</string>
     <string name="input_long_label_for_tuner" msgid="3423514011918382209">"TV (Antenne/Kabel)"</string>
     <string name="no_program_information" msgid="1049844207745145132">"Keine Programminformationen"</string>
     <string name="program_title_for_no_information" msgid="384451471906070101">"Keine Informationen"</string>
     <string name="program_title_for_blocked_channel" msgid="5358005891746983819">"Blockierter Kanal"</string>
-    <string name="default_language" msgid="4122326459624337928">"Unbekannte Sprache"</string>
+    <string name="multi_audio_unknown_language" msgid="8639884627225598143">"Unbekannte Sprache"</string>
+    <string name="closed_caption_unknown_language" msgid="4745445516930229353">"Untertitel für %1$d"</string>
     <string name="side_panel_title_closed_caption" msgid="2513905054082568780">"Untertitel"</string>
     <string name="closed_caption_option_item_off" msgid="4824009036785647753">"Aus"</string>
     <string name="closed_caption_system_settings" msgid="1856974607743827178">"Untertitel anpassen"</string>
-    <string name="closed_caption_system_settings_description" msgid="6285276836057964524">"Systemübergr. Einst. für Untertitel festlegen"</string>
+    <string name="closed_caption_system_settings_description" msgid="6285276836057964524">"Systemweite Einstellungen für Untertitel festlegen"</string>
     <string name="side_panel_title_display_mode" msgid="6346286034015991229">"Anzeigemodus"</string>
     <string name="side_panel_title_multi_audio" msgid="5970537894780855080">"Multi-Audio"</string>
     <string name="multi_audio_channel_mono" msgid="6229173848963557723">"Mono"</string>
@@ -83,6 +64,7 @@
     <string name="edit_channels_group_divider_for_sd" msgid="5846195382266436167">"SD"</string>
     <string name="side_panel_title_group_by" msgid="1783176601425788939">"Gruppieren nach"</string>
     <string name="program_guide_content_locked" msgid="198056836554559553">"Diese Sendung ist blockiert."</string>
+    <string name="program_guide_content_locked_unrated" msgid="8665707501827594275">"Diese Sendung hat keine Altersempfehlung"</string>
     <string name="program_guide_content_locked_format" msgid="514915272862967389">"Diese Sendung wurde als \"<xliff:g id="RATING">%1$s</xliff:g>\" eingestuft."</string>
     <string name="msg_no_setup_activity" msgid="7746893144640239857">"Der Eingang unterstützt keine automatische Suche."</string>
     <string name="msg_unable_to_start_setup_activity" msgid="8402612466599977855">"Automatische Suche für \"<xliff:g id="TV_INPUT">%s</xliff:g>\" kann nicht gestartet werden."</string>
@@ -92,7 +74,6 @@
       <item quantity="one">%1$d Kanal hinzugefügt</item>
     </plurals>
     <string name="msg_no_channel_added" msgid="2882586037409921925">"Keine Kanäle hinzugefügt"</string>
-    <string name="input_selector_tuner_label" msgid="6631205039926880892">"Tuner"</string>
     <string name="menu_parental_controls" msgid="2474294054521345840">"Jugendschutz"</string>
     <string name="option_toggle_parental_controls_on" msgid="9122851821454622696">"An"</string>
     <string name="option_toggle_parental_controls_off" msgid="7797910199040440618">"Aus"</string>
@@ -108,6 +89,8 @@
     <string name="other_countries" msgid="8342216398676184749">"Andere Länder"</string>
     <string name="option_no_locked_channel" msgid="2543094883927978444">"Keiner"</string>
     <string name="option_no_enabled_rating_system" msgid="4139765018454678381">"Ohne"</string>
+    <string name="unrated_rating_name" msgid="1387302638048393814">"Ohne Altersempfehlung"</string>
+    <string name="option_block_unrated_programs" msgid="1108474218158184706">"Sendungen ohne Altersempfehlung blockieren"</string>
     <string name="option_rating_none" msgid="5204552587760414879">"Ohne"</string>
     <string name="option_rating_high" msgid="8898400296730158893">"Hohe Einschränkung"</string>
     <string name="option_rating_medium" msgid="6455853836426497151">"Mäßige Einschränkung"</string>
@@ -124,40 +107,50 @@
     <string name="pin_enter_unlock_channel" msgid="4797922378296393173">"Zum Ansehen dieses Kanals PIN eingeben"</string>
     <string name="pin_enter_unlock_program" msgid="7311628843209871203">"Zum Ansehen dieses Programms PIN eingeben"</string>
     <string name="pin_enter_unlock_dvr" msgid="1637468108723176684">"Diese Sendung wurde als \"<xliff:g id="RATING">%1$s</xliff:g>\" eingestuft. Gib deinen PIN ein, um sie anzusehen"</string>
+    <string name="pin_enter_unlock_dvr_unrated" msgid="3911986002480028829">"Diese Sendung hat keine Altersempfehlung. Gib deine PIN ein, um sie anzusehen."</string>
     <string name="pin_enter_pin" msgid="249314665028035038">"PIN eingeben"</string>
-    <string name="pin_enter_create_pin" msgid="3385754356793309946">"Erstellen Sie eine PIN, um den Jugendschutz einzurichten."</string>
+    <string name="pin_enter_create_pin" msgid="3385754356793309946">"Erstelle eine PIN, um den Jugendschutz einzurichten."</string>
     <string name="pin_enter_new_pin" msgid="1739471585849790384">"Neue PIN eingeben"</string>
     <string name="pin_enter_again" msgid="2618999754723090427">"PIN bestätigen"</string>
     <string name="pin_enter_old_pin" msgid="4588282612931041919">"Aktuelle PIN eingeben"</string>
     <plurals name="pin_enter_countdown" formatted="false" msgid="3415233538538544309">
-      <item quantity="other">Sie haben die PIN zum fünften Mal falsch eingegeben.\nVersuchen Sie es in <xliff:g id="REMAINING_SECONDS_1">%1$d</xliff:g> Sekunden noch einmal.</item>
-      <item quantity="one">Sie haben die PIN zum fünften Mal falsch eingegeben.\nVersuchen Sie es in <xliff:g id="REMAINING_SECONDS_0">%1$d</xliff:g> Sekunde noch einmal.</item>
+      <item quantity="other">Du hast die PIN zum fünften Mal falsch eingegeben.\nVersuche es in <xliff:g id="REMAINING_SECONDS_1">%1$d</xliff:g> Sekunden noch einmal.</item>
+      <item quantity="one">Du hast die PIN zum fünften Mal falsch eingegeben.\nVersuche es in <xliff:g id="REMAINING_SECONDS_0">%1$d</xliff:g> Sekunde noch einmal.</item>
     </plurals>
-    <string name="pin_toast_wrong" msgid="2126295626095048746">"Diese PIN war falsch. Versuchen Sie es erneut."</string>
-    <string name="pin_toast_not_match" msgid="4283624338659521768">"Die PIN stimmt nicht. Bitte versuchen Sie es erneut."</string>
+    <string name="pin_toast_wrong" msgid="2126295626095048746">"Diese PIN war falsch. Versuche es erneut."</string>
+    <string name="pin_toast_not_match" msgid="4283624338659521768">"Die PIN stimmt nicht. Bitte versuche es erneut."</string>
+    <string name="postal_code_guidance_title" msgid="4144793072363879833">"Gib deine Postleitzahl ein."</string>
+    <string name="postal_code_guidance_description" msgid="4224511147377561572">"Die Live TV App verwendet die Postleitzahl, um dir die vollständige Programmübersicht der TV-Sender zur Verfügung zu stellen."</string>
+    <string name="postal_code_action_description" msgid="4428720607051109105">"Postleitzahl eingeben"</string>
+    <string name="postal_code_invalid_warning" msgid="923373584458340746">"Ungültige Postleitzahl"</string>
     <string name="side_panel_title_settings" msgid="8244327316510918755">"Einstellungen"</string>
     <string name="settings_channel_source_item_customize_channels" msgid="6115770679732624593">"Kanalliste anpassen"</string>
     <string name="settings_channel_source_item_customize_channels_description" msgid="8966243790328235580">"Kanäle für Programmübersicht auswählen"</string>
     <string name="settings_channel_source_item_setup" msgid="4566190088656419070">"Kanalquellen"</string>
     <string name="settings_channel_source_item_setup_new_inputs" msgid="4845822152617430787">"Neue Kanäle verfügbar"</string>
     <string name="settings_parental_controls" msgid="5449397921700749317">"Jugendschutzeinstellungen"</string>
+    <string name="settings_trickplay" msgid="7762730842781251582">"Zeitversetztes Fernsehen"</string>
+    <string name="settings_trickplay_description" msgid="3060323976172182519">"Wenn du Programme aufnimmst, während du sie dir live ansiehst, kannst du sie pausieren oder zurückspulen.\nWarnung: Dies führt durch die intensive Speichernutzung möglicherweise zu einer verringerten Lebensdauer des internen Speichers."</string>
     <string name="settings_menu_licenses" msgid="1257646083838406103">"Open-Source-Lizenzen"</string>
-    <string name="dialog_title_licenses" msgid="4471754920475076623">"Open-Source-Lizenzen"</string>
+    <string name="settings_send_feedback" msgid="6897217561193701829">"Feedback geben"</string>
     <string name="settings_menu_version" msgid="2604030372029921403">"Version"</string>
-    <string name="tvview_channel_locked" msgid="6486375335718400728">"Um sich diesen Kanal anzusehen, drücken Sie rechts und geben Sie die PIN ein."</string>
-    <string name="tvview_content_locked" msgid="391823084917017730">"Um sich dieses Programm anzusehen, drücken Sie rechts und geben Sie die PIN ein."</string>
-    <string name="tvview_content_locked_format" msgid="3741874636031338247">"Diese Sendung wurde als \"<xliff:g id="RATING">%1$s</xliff:g>\" eingestuft.\nUm sich diese Sendung anzusehen, drücken Sie rechts und geben Sie Ihre PIN ein."</string>
-    <string name="tvview_channel_locked_no_permission" msgid="677653135227590620">"Um sich diesen Kanal anzusehen, verwenden Sie die Standard-App für die Liveverfolgung von TV-Sendungen."</string>
-    <string name="tvview_content_locked_no_permission" msgid="2279126235895507764">"Um sich dieses Programm anzusehen, verwenden Sie die Standard-App für die Liveverfolgung von TV-Sendungen."</string>
-    <string name="tvview_content_locked_format_no_permission" msgid="5690794624572767106">"Diese Sendung wurde als \"<xliff:g id="RATING">%1$s</xliff:g>\" eingestuft.\nUm sich diese Sendung anzusehen, verwenden Sie die Standard-App für die Liveverfolgung von TV-Sendungen."</string>
+    <string name="tvview_channel_locked" msgid="6486375335718400728">"Um sich diesen Kanal anzusehen, drücke rechts und gib die PIN ein."</string>
+    <string name="tvview_content_locked" msgid="391823084917017730">"Um sich dieses Programm anzusehen, drücke rechts und gib die PIN ein."</string>
+    <string name="tvview_content_locked_unrated" msgid="2273799245001356782">"Diese Sendung hat keine Altersempfehlung.\nUm sie anzusehen, drücke rechts und gib deine PIN ein."</string>
+    <string name="tvview_content_locked_format" msgid="3741874636031338247">"Diese Sendung wurde als \"<xliff:g id="RATING">%1$s</xliff:g>\" eingestuft.\nUm sich diese Sendung anzusehen, drücke rechts und gib deine PIN ein."</string>
+    <string name="tvview_channel_locked_no_permission" msgid="677653135227590620">"Um sich diesen Kanal anzusehen, verwendest du die Standard-App für die Liveverfolgung von TV-Sendungen."</string>
+    <string name="tvview_content_locked_no_permission" msgid="2279126235895507764">"Um sich dieses Programm anzusehen, verwendest du die Standard-App für die Liveverfolgung von TV-Sendungen."</string>
+    <string name="tvview_content_locked_unrated_no_permission" msgid="4056090982858455110">"Diese Sendung hat keine Altersempfehlung.\nUm sie anzusehen, verwende die Standard-App für die Liveverfolgung von TV-Sendungen."</string>
+    <string name="tvview_content_locked_format_no_permission" msgid="5690794624572767106">"Diese Sendung wurde als \"<xliff:g id="RATING">%1$s</xliff:g>\" eingestuft.\nUm sich diese Sendung anzusehen, verwendest du die Standard-App für die Liveverfolgung von TV-Sendungen."</string>
     <string name="shrunken_tvview_content_locked" msgid="7686397981042364446">"Das Programm wurde blockiert."</string>
+    <string name="shrunken_tvview_content_locked_unrated" msgid="4586881678635960742">"Diese Sendung hat keine Altersempfehlung"</string>
     <string name="shrunken_tvview_content_locked_format" msgid="3720284198877900916">"Diese Sendung wurde als \"<xliff:g id="RATING">%1$s</xliff:g>\" eingestuft."</string>
     <string name="tvview_msg_audio_only" msgid="1356866203687173329">"Nur Audio"</string>
     <string name="tvview_msg_weak_signal" msgid="1095050812622908976">"Schwaches Signal"</string>
     <string name="tvview_msg_no_internet_connection" msgid="7655994401188888231">"Keine Internetverbindung"</string>
     <plurals name="tvview_msg_input_no_resource" formatted="false" msgid="8581894855153658823">
-      <item quantity="other">Dieser Kanal kann bis <xliff:g id="END_TIME_1">%1$s</xliff:g> nicht wiedergegeben werden, weil andere Kanäle aufgenommen werden. \n\nDrücken Sie rechts, um den Aufnahmeplan anzupassen.</item>
-      <item quantity="one">Dieser Kanal kann bis <xliff:g id="END_TIME_0">%1$s</xliff:g> nicht wiedergegeben werden, weil ein anderer Kanal aufgenommen wird. \n\nDrücken Sie rechts, um den Aufnahmeplan anzupassen.</item>
+      <item quantity="other">Dieser Kanal kann bis <xliff:g id="END_TIME_1">%1$s</xliff:g> nicht wiedergegeben werden, weil andere Kanäle aufgenommen werden. \n\nDrücke rechts, um den Aufnahmeplan anzupassen.</item>
+      <item quantity="one">Dieser Kanal kann bis <xliff:g id="END_TIME_0">%1$s</xliff:g> nicht wiedergegeben werden, weil ein anderer Kanal aufgenommen wird. \n\nDrücke rechts, um den Aufnahmeplan anzupassen.</item>
     </plurals>
     <string name="channel_banner_no_title" msgid="8660301979190693176">"Kein Titel"</string>
     <string name="channel_banner_locked_channel_title" msgid="2006564967318945980">"Kanal blockiert"</string>
@@ -173,25 +166,23 @@
     <string name="setup_store_action_title" msgid="4083402039720973414">"Weitere Quellen suchen"</string>
     <string name="setup_store_action_description" msgid="6820482635042445297">"Nach Apps suchen, die Live-TV anbieten"</string>
     <string name="new_sources_title" msgid="3878933676500061895">"Neue Kanalquellen verfügbar"</string>
-    <string name="new_sources_description" msgid="749649005588426813">"Neue Kanalquellen bieten weitere Kanäle an.\nDiese können Sie entweder jetzt oder später über die Einstellung \"Kanalquellen\" einrichten."</string>
+    <string name="new_sources_description" msgid="749649005588426813">"Neue Kanalquellen bieten weitere Kanäle an.\nDiese kannst du entweder jetzt oder später über die Einstellung \"Kanalquellen\" einrichten."</string>
     <string name="new_sources_action_setup" msgid="177693761664016811">"Jetzt einrichten"</string>
     <string name="new_sources_action_skip" msgid="2501296961258184330">"OK"</string>
     <!-- no translation found for intro_title (251772896916795556) -->
     <skip />
-    <string name="intro_description" msgid="7806473686446937307"><b>"Drücken Sie die Auswahltaste"</b>", um auf das TV-Menü zuzugreifen."</string>
+    <string name="intro_description" msgid="7806473686446937307"><b>"Drücke die Auswahltaste"</b>", um auf das TV-Menü zuzugreifen."</string>
     <string name="msg_no_input" msgid="3897674146985427865">"Kein TV-Eingang gefunden"</string>
     <string name="msg_no_specific_input" msgid="2688885987104249852">"TV-Eingang konnte nicht gefunden werden."</string>
-    <string name="msg_no_pip_support" msgid="161508628996629445">"PIP wird nicht unterstützt."</string>
-    <string name="msg_no_available_input_by_pip" msgid="7038191654524679666">"Es ist kein Eingang für die PIP-Anzeige verfügbar."</string>
     <string name="msg_not_passthrough_input" msgid="4502101097091087411">"Tunertyp ungeeignet, bitte Live TV App für TV-Eingang des Tunertyps starten"</string>
     <string name="msg_tune_failed" msgid="3277419551849972252">"Fehler beim Einstellen"</string>
     <string name="msg_missing_app" msgid="8291542072400042076">"Für diese Aktion wurde keine App gefunden."</string>
-    <string name="msg_all_channels_hidden" msgid="777397634062471936">"Alle Quellkanäle sind ausgeblendet.\nWählen Sie mindestens einen Kanal aus, den Sie anschauen möchten."</string>
+    <string name="msg_all_channels_hidden" msgid="777397634062471936">"Alle Quellkanäle sind ausgeblendet.\nWähle mindestens einen Kanal aus, den du anschauen möchtest."</string>
     <string name="msg_channel_unavailable_unknown" msgid="765586450831081871">"Das Video ist unerwarteterweise nicht verfügbar."</string>
-    <string name="msg_back_key_guide" msgid="7404682718828721924">"Die Taste \"Zurück\" gilt für das verbundene Gerät. Zum Beenden drücken Sie auf \"Startseite\"."</string>
+    <string name="msg_back_key_guide" msgid="7404682718828721924">"Die Taste \"Zurück\" gilt für das verbundene Gerät. Zum Beenden drücke auf \"Startseite\"."</string>
     <string name="msg_read_tv_listing_permission_denied" msgid="8882813301235518909">"Live TV benötigt einen Lesezugriff für die Kanalliste."</string>
     <string name="setup_sources_text" msgid="4988039637873759839">"Quellen einrichten"</string>
-    <string name="setup_sources_description" msgid="5695518946225445202">"Bei Live-TV wird die Nutzererfahrung mit klassischen Fernsehsendern mit der von Streaming-Kanälen von Apps kombiniert.\n\nRichten Sie zuerst die bereits installierten Kanalquellen ein. Sie können auch im Google Play Store nach weiteren Apps suchen, die Live-TV anbieten."</string>
+    <string name="setup_sources_description" msgid="5695518946225445202">"Bei Live-TV wird die Nutzererfahrung mit klassischen Fernsehsendern mit der von Streaming-Kanälen von Apps kombiniert.\n\nRichte zuerst die bereits installierten Kanalquellen ein. Du kannst auch im Google Play Store nach weiteren Apps suchen, die Live-TV anbieten."</string>
     <string name="channels_item_dvr" msgid="8911915252648532469">"Aufnahmen und Zeitpläne"</string>
     <string name="recording_start_dialog_10_min_duration" msgid="5739636508245795292">"10 Minuten"</string>
     <string name="recording_start_dialog_30_min_duration" msgid="4691127772622189977">"30 Minuten"</string>
@@ -226,6 +217,8 @@
       <item quantity="other">%1$d geplante Aufnahmen</item>
       <item quantity="one">%1$d geplante Aufnahme</item>
     </plurals>
+    <string name="dvr_detail_cancel_recording" msgid="542538232330174145">"Aufnahme abbrechen"</string>
+    <string name="dvr_detail_stop_recording" msgid="3599488040374849367">"Aufnahme beenden"</string>
     <string name="dvr_detail_watch" msgid="7085694764364338215">"Ansehen"</string>
     <string name="dvr_detail_play_from_beginning" msgid="8475543568260411836">"Von Anfang an abspielen"</string>
     <string name="dvr_detail_resume_play" msgid="875591300274416373">"Wiedergabe fortsetzen"</string>
@@ -236,7 +229,7 @@
     <string name="dvr_detail_view_schedule" msgid="7137536927421904426">"Aufnahmeplan"</string>
     <string name="dvr_detail_read_more" msgid="2588920758094498544">"Weitere Infos"</string>
     <string name="dvr_series_deletion_title" msgid="7672649492494507574">"Aufnahmen löschen"</string>
-    <string name="dvr_series_deletion_description" msgid="994839237906552969">"Wählen Sie die Folgen aus, die gelöscht werden sollen. Eine Wiederherstellung ist nicht möglich."</string>
+    <string name="dvr_series_deletion_description" msgid="994839237906552969">"Wähle die Folgen aus, die gelöscht werden sollen. Eine Wiederherstellung ist nicht möglich."</string>
     <string name="dvr_series_deletion_no_recordings" msgid="481210819034514">"Es sind keine Aufnahmen zum Löschen vorhanden."</string>
     <string name="dvr_series_select_watched" msgid="3608122404146716502">"Angesehene Folgen auswählen"</string>
     <string name="dvr_series_select_all" msgid="5415749261739544048">"Alle Folgen auswählen"</string>
@@ -258,9 +251,6 @@
     <string name="dvr_priority_description" msgid="8362040921417154645">"Wenn zu viele Programme gleichzeitig aufgenommen werden, werden nur die Programme mit höherer Priorität aufgenommen."</string>
     <string name="dvr_priority_button_action_save" msgid="4773524273649733008">"Speichern"</string>
     <string name="dvr_priority_action_one_time_recording" msgid="8174297042282719478">"Einmalige Aufnahmen haben höchste Priorität"</string>
-    <string name="dvr_action_cancel" msgid="8094060199570272625">"Abbrechen"</string>
-    <string name="dvr_action_error_cancel" msgid="6822474458738023531">"Abbrechen"</string>
-    <string name="dvr_action_error_forget_storage" msgid="5869994565663655638">"Entfernen"</string>
     <string name="dvr_action_stop" msgid="1378723485295471381">"Beenden"</string>
     <string name="dvr_action_view_schedules" msgid="7442990695392774263">"Aufnahmeplan ansehen"</string>
     <string name="dvr_action_record_episode" msgid="8596182676610326327">"Nur diese Folge"</string>
@@ -270,25 +260,28 @@
     <string name="dvr_action_record_instead" msgid="6821164728752215738">"Stattdessen diese Sendung aufnehmen"</string>
     <string name="dvr_action_record_cancel" msgid="8644254745772185288">"Diesen Aufnahmeplan abbrechen"</string>
     <string name="dvr_action_watch_now" msgid="7181211920959075976">"Jetzt ansehen"</string>
+    <string name="dvr_action_delete_recordings" msgid="850785346795261671">"Aufnahmen löschen…"</string>
     <string name="dvr_epg_program_recordable" msgid="609229576209476903">"Kann aufgenommen werden"</string>
     <string name="dvr_epg_program_recording_scheduled" msgid="1367741844291055016">"Aufnahme geplant"</string>
     <string name="dvr_epg_program_recording_conflict" msgid="4827911748865195373">"Konflikt bei der Aufnahme"</string>
     <string name="dvr_epg_program_recording_in_progress" msgid="2158340443975313745">"Aufnahme"</string>
     <string name="dvr_epg_program_recording_failed" msgid="5589124519442328896">"Aufnahme fehlgeschlagen"</string>
-    <string name="dvr_schedule_progress_message_reading_programs" msgid="6502513156469172313">"Sendungen werden gelesen, um Aufnahmepläne zu erstellen"</string>
-    <string name="dvr_series_schedules_progress_message_reading_programs" msgid="7221275889560136115">"Sendungen werden gelesen"</string>
-    <!-- no translation found for dvr_series_schedules_progress_message_updating_programs (6670286486601662465) -->
-    <skip />
+    <string name="dvr_series_progress_message_reading_programs" msgid="2961615820635219355">"Sendungen werden gelesen"</string>
+    <string name="dvr_error_insufficient_space_action_view_recent_recordings" msgid="137918938589787623">"Letzte Aufnahmen ansehen"</string>
+    <string name="dvr_error_insufficient_space_title_one_recording" msgid="759510175792505150">"Die Aufnahme <xliff:g id="PROGRAMNAME">%1$s</xliff:g> ist nicht abgeschlossen."</string>
+    <string name="dvr_error_insufficient_space_title_two_recordings" msgid="5518578722556227631">"Die Aufnahmen <xliff:g id="PROGRAMNAME_1">%1$s</xliff:g> und <xliff:g id="PROGRAMNAME_2">%2$s</xliff:g> sind nicht abgeschlossen."</string>
+    <string name="dvr_error_insufficient_space_title_three_or_more_recordings" msgid="5104901174884754363">"Die Aufnahmen <xliff:g id="PROGRAMNAME_1">%1$s</xliff:g>, <xliff:g id="PROGRAMNAME_2">%2$s</xliff:g> und <xliff:g id="PROGRAMNAME_3">%3$s</xliff:g> sind nicht abgeschlossen."</string>
+    <string name="dvr_error_insufficient_space_description_one_recording" msgid="9092549220659026111">"Die Aufnahme von <xliff:g id="PROGRAMNAME">%1$s</xliff:g> konnte nicht abgeschlossen werden, weil nicht genügend Speicher vorhanden ist."</string>
+    <string name="dvr_error_insufficient_space_description_two_recordings" msgid="7712799694720979003">"Die Aufnahmen von <xliff:g id="PROGRAMNAME_1">%1$s</xliff:g> und <xliff:g id="PROGRAMNAME_2">%2$s</xliff:g> konnten nicht abgeschlossen werden, weil nicht genügend Speicher vorhanden ist."</string>
+    <string name="dvr_error_insufficient_space_description_three_or_more_recordings" msgid="7877855707777832128">"Die Aufnahmen von <xliff:g id="PROGRAMNAME_1">%1$s</xliff:g>, <xliff:g id="PROGRAMNAME_2">%2$s</xliff:g> und <xliff:g id="PROGRAMNAME_3">%3$s</xliff:g> konnten nicht abgeschlossen werden, weil nicht genügend Speicher vorhanden ist."</string>
     <string name="dvr_error_small_sized_storage_title" msgid="5020225460011469011">"DVR benötigt mehr Speicher"</string>
-    <string name="dvr_error_small_sized_storage_description" msgid="8909789097974895119">"Sie können mit DVR Sendungen aufnehmen, jedoch ist auf Ihrem Gerät momentan nicht ausreichend Speicherplatz vorhanden. Schließen Sie ein externes Laufwerk mit mindestens <xliff:g id="STORAGE_SIZE">%1$s</xliff:g> GB freiem Speicher an und folgen Sie der Anleitung zur Formatierung als Gerätespeicher."</string>
+    <string name="dvr_error_small_sized_storage_description" msgid="8909789097974895119">"Du kannst mit DVR Sendungen aufnehmen, jedoch ist auf deinem Gerät momentan nicht ausreichend Speicherplatz vorhanden. Schließ ein externes Laufwerk mit mindestens <xliff:g id="STORAGE_SIZE">%1$d</xliff:g> GB freiem Speicher an und folge der Anleitung zur Formatierung als Gerätespeicher."</string>
+    <string name="dvr_error_no_free_space_title" msgid="881897873932403512">"Nicht genug Speicherplatz"</string>
+    <string name="dvr_error_no_free_space_description" msgid="6406038381803431564">"Diese Inhalte werden nicht aufgenommen, weil zu wenig Speicherplatz verfügbar ist. Du kannst Speicherplatz freigeben, indem du ein paar vorhandene Aufnahmen löschst."</string>
     <string name="dvr_error_missing_storage_title" msgid="691914341845362669">"Speicher nicht verfügbar"</string>
-    <string name="dvr_error_missing_storage_description" msgid="1036680750969954236">"Ein Teil des DVR-Speichers ist nicht verfügbar. Um DVR neu zu aktivieren, stellen Sie eine Verbindung zu dem externen Gerät her, das Sie zuvor verwendet haben. Sie können den Speicher auch entfernen, wenn er nicht mehr verfügbar ist."</string>
-    <string name="dvr_error_forget_storage_title" msgid="4996547357826788002">"Speicher entfernen?"</string>
-    <string name="dvr_error_forget_storage_description" msgid="3973761741009546142">"Alle aufgenommenen Inhalte und Aufnahmepläne gehen verloren."</string>
     <string name="dvr_stop_recording_dialog_title" msgid="2587018956502704278">"Aufnahme beenden?"</string>
     <string name="dvr_stop_recording_dialog_description" msgid="4637830189399967761">"Die aufgenommenen Inhalte werden gespeichert."</string>
-    <!-- no translation found for dvr_stop_recording_dialog_description_on_conflict (7876857267536083760) -->
-    <skip />
+    <string name="dvr_stop_recording_dialog_description_on_conflict" msgid="7876857267536083760">"Die Aufzeichnung von <xliff:g id="PROGRAMNAME">%1$s</xliff:g> wird aufgrund eines Konflikts mit diesem Programm beendet. Der aufgezeichnete Inhalt wird gespeichert."</string>
     <string name="dvr_program_conflict_dialog_title" msgid="109323740107060379">"Aufnahme geplant, aber es liegen Konflikte vor"</string>
     <string name="dvr_channel_conflict_dialog_title" msgid="7461033430572027786">"Aufnahme wurde gestartet, aber es liegen Konflikte vor"</string>
     <string name="dvr_program_conflict_dialog_description_prefix" msgid="5520062013211648196">"<xliff:g id="PROGRAMNAME">%1$s</xliff:g> wird aufgenommen."</string>
@@ -300,23 +293,35 @@
       <item quantity="other">Teile von <xliff:g id="CONFLICTPROGRAMNAME_1_2">%1$s</xliff:g>, <xliff:g id="CONFLICTPROGRAMNAME_2_3">%2$s</xliff:g> und %3$d weiteren geplanten Aufnahmen werden nicht aufgenommen.</item>
       <item quantity="one">Teile von <xliff:g id="CONFLICTPROGRAMNAME_1_0">%1$s</xliff:g>, <xliff:g id="CONFLICTPROGRAMNAME_2_1">%2$s</xliff:g> und %4$d weiteren geplanten Aufnahme werden nicht aufgenommen.</item>
     </plurals>
-    <string name="dvr_schedule_dialog_title" msgid="5235629824986156058">"Was möchten Sie aufnehmen?"</string>
-    <string name="dvr_channel_record_duration_dialog_title" msgid="4601361040431047918">"Wie lange möchten Sie aufnehmen?"</string>
+    <string name="dvr_schedule_dialog_title" msgid="5235629824986156058">"Was möchtest du aufnehmen?"</string>
+    <string name="dvr_channel_record_duration_dialog_title" msgid="4601361040431047918">"Wie lange möchtest du aufnehmen?"</string>
     <string name="dvr_already_scheduled_dialog_title" msgid="4525318291210934311">"Schon dem Aufnahmeplan hinzugefügt"</string>
     <string name="dvr_already_scheduled_dialog_description" msgid="8170126125996414810">"Diese Sendung wurde dem Aufnahmeplan schon hinzugefügt und wird um <xliff:g id="PROGRAMSTARTTIME">%1$s</xliff:g> aufgenommen."</string>
     <string name="dvr_already_recorded_dialog_title" msgid="2760294707162057216">"Schon aufgenommen"</string>
     <string name="dvr_already_recorded_dialog_description" msgid="8966051583682746434">"Diese Sendung wurde schon aufgenommen. Sie ist in der DVR-Bibliothek verfügbar."</string>
-    <!-- no translation found for dvr_series_recording_dialog_title (3521956660855853797) -->
-    <skip />
-    <!-- no translation found for dvr_series_recording_scheduled_no_conflict (2796926724821316879) -->
-    <!-- no translation found for dvr_series_recording_scheduled_only_this_series_conflict (2800805130979023066) -->
-    <!-- no translation found for dvr_series_recording_scheduled_this_and_other_series_one_conflict (3632394665556633158) -->
-    <!-- no translation found for dvr_series_recording_scheduled_this_and_other_series_conflict (2331412040101938479) -->
-    <!-- no translation found for dvr_series_recording_scheduled_only_other_series_one_conflict (5213169239215104024) -->
-    <!-- no translation found for dvr_series_recording_scheduled_only_other_series_conflict (5159645486201045330) -->
+    <string name="dvr_series_recording_dialog_title" msgid="3521956660855853797">"Serienaufnahme geplant"</string>
+    <plurals name="dvr_series_scheduled_no_conflict" formatted="false" msgid="6909096418632555251">
+      <item quantity="other"><xliff:g id="NUMBEROFRECORDINGS_2">%1$d</xliff:g> Aufnahmen wurden für <xliff:g id="SERIESNAME_3">%2$s</xliff:g> geplant.</item>
+      <item quantity="one"><xliff:g id="NUMBEROFRECORDINGS_0">%1$d</xliff:g> Aufnahme wurde für <xliff:g id="SERIESNAME_1">%2$s</xliff:g> geplant.</item>
+    </plurals>
+    <plurals name="dvr_series_recording_scheduled_only_this_series_conflict" formatted="false" msgid="2341548158607418515">
+      <item quantity="other"><xliff:g id="NUMBEROFRECORDINGS_2">%1$d</xliff:g> Aufnahmen wurden für <xliff:g id="SERIESNAME_3">%2$s</xliff:g> geplant. <xliff:g id="NUMBEROFCONFLICTRECORDINGS">%3$d</xliff:g> davon werden wegen Konflikten nicht aufgezeichnet.</item>
+      <item quantity="one"><xliff:g id="NUMBEROFRECORDINGS_0">%1$d</xliff:g> Aufnahme wurde für <xliff:g id="SERIESNAME_1">%2$s</xliff:g> geplant. Sie wird wegen Konflikten nicht aufgezeichnet.</item>
+    </plurals>
+    <plurals name="dvr_series_scheduled_this_and_other_series_conflict" formatted="false" msgid="6123651855499916154">
+      <item quantity="other"><xliff:g id="NUMBEROFRECORDINGS_3">%1$d</xliff:g> Aufnahmen wurden für <xliff:g id="SERIESNAME_4">%2$s</xliff:g> geplant. <xliff:g id="NUMBEROFCONFLICTEPISODES_5">%3$d</xliff:g> Folgen dieser Serie und anderer Serien werden wegen Konflikten nicht aufgezeichnet.</item>
+      <item quantity="one"><xliff:g id="NUMBEROFRECORDINGS_0">%1$d</xliff:g> Aufnahme wurde für <xliff:g id="SERIESNAME_1">%2$s</xliff:g> geplant. <xliff:g id="NUMBEROFCONFLICTEPISODES_2">%3$d</xliff:g> Folge dieser oder einer anderen Serie wird wegen Konflikten nicht aufgezeichnet.</item>
+    </plurals>
+    <plurals name="dvr_series_scheduled_only_other_series_one_conflict" formatted="false" msgid="8628389493339609682">
+      <item quantity="other"><xliff:g id="NUMBEROFRECORDINGS_2">%1$d</xliff:g> Aufnahmen wurden für <xliff:g id="SERIESNAME_3">%2$s</xliff:g> geplant. 1 Folge einer anderen Serie wird wegen Konflikten nicht aufgezeichnet.</item>
+      <item quantity="one"><xliff:g id="NUMBEROFRECORDINGS_0">%1$d</xliff:g> Aufnahme wurde für <xliff:g id="SERIESNAME_1">%2$s</xliff:g> geplant. 1 Folge einer anderen Serie wird wegen Konflikten nicht aufgezeichnet.</item>
+    </plurals>
+    <plurals name="dvr_series_scheduled_only_other_series_many_conflicts" formatted="false" msgid="1601104768354168073">
+      <item quantity="other"><xliff:g id="NUMBEROFRECORDINGS_3">%1$d</xliff:g> Aufnahmen wurden für <xliff:g id="SERIESNAME_4">%2$s</xliff:g> geplant. <xliff:g id="NUMBEROFCONFLICTEPISODES_5">%3$d</xliff:g> Folgen anderer Serien werden wegen Konflikten nicht aufgezeichnet.</item>
+      <item quantity="one"><xliff:g id="NUMBEROFRECORDINGS_0">%1$d</xliff:g> Aufnahme wurde für <xliff:g id="SERIESNAME_1">%2$s</xliff:g> geplant. <xliff:g id="NUMBEROFCONFLICTEPISODES_2">%3$d</xliff:g> Folge einer anderen Serie wird wegen Konflikten nicht aufgezeichnet.</item>
+    </plurals>
     <string name="dvr_program_not_found" msgid="3282879532038010202">"Aufgenommenes Programm wurde nicht gefunden."</string>
     <string name="dvr_playback_related_recordings" msgid="6978658039329924961">"Ähnliche Aufnahmen"</string>
-    <string name="dvr_msg_no_program_description" msgid="2521723281247322645">"(Keine Programmbeschreibung)"</string>
     <plurals name="dvr_schedules_section_subtitle" formatted="false" msgid="9180744010405976007">
       <item quantity="other">%1$d Aufnahmen</item>
       <item quantity="one">%1$d Aufnahme</item>
@@ -333,9 +338,10 @@
     <string name="dvr_series_schedules_settings" msgid="4868501926847903985">"Serieneinstellungen"</string>
     <string name="dvr_series_schedules_start" msgid="8458768834047133835">"Serienaufnahme starten"</string>
     <string name="dvr_series_schedules_stop" msgid="3427479298317584961">"Serienaufnahme beenden"</string>
-    <string name="dvr_series_schedules_stop_dialog_title" msgid="4975886236535334420">"Sie möchten die Serienaufnahme beenden?"</string>
+    <string name="dvr_series_schedules_stop_dialog_title" msgid="4975886236535334420">"Du möchtest die Serienaufnahme beenden?"</string>
     <string name="dvr_series_schedules_stop_dialog_description" msgid="7547266283366940085">"Die aufgenommenen Folgen werden in der DVR-Bibliothek gespeichert."</string>
     <string name="dvr_series_schedules_stop_dialog_action_stop" msgid="2351839914865142478">"Beenden"</string>
+    <string name="dvr_series_schedules_stopped_empty_state" msgid="1464244804664395151">"Momentan werden keine Folgen ausgestrahlt."</string>
     <string name="dvr_series_schedules_empty_state" msgid="3407962945399698707">"Keine Folgen verfügbar.\nSie werden aufgenommen, sobald sie verfügbar sind."</string>
     <plurals name="dvr_schedules_recording_duration" formatted="false" msgid="3701771573063918552">
       <item quantity="other">(%1$d Minuten)</item>
@@ -347,4 +353,5 @@
     <string name="dvr_date_today_time" msgid="8359696776305244535">"Heute <xliff:g id="TIME_RANGE">%1$s</xliff:g>"</string>
     <string name="dvr_date_tomorrow_time" msgid="8364654556105292594">"Morgen <xliff:g id="TIME_RANGE">%1$s</xliff:g>"</string>
     <string name="program_guide_critic_score" msgid="340530743913585150">"Punkte"</string>
+    <string name="recorded_programs_preview_channel" msgid="890404366427245812">"Aufgenommene Programme"</string>
 </resources>

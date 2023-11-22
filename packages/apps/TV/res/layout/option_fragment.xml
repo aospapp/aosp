@@ -41,7 +41,6 @@
         android:clipChildren="false"
         android:clipToPadding="false"
         android:focusable="true"
-        android:paddingTop="@dimen/side_panel_list_padding_top"
         android:paddingBottom="@dimen/side_panel_list_padding_bottom"
         lb:verticalMargin="@dimen/side_panel_list_vertical_margin" />
 

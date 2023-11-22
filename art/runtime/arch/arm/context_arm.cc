@@ -17,8 +17,9 @@
 #include "context_arm.h"
 
 #include "base/bit_utils.h"
+#include "base/bit_utils_iterator.h"
 #include "quick/quick_method_frame_info.h"
-#include "thread-inl.h"
+#include "thread-current-inl.h"
 
 namespace art {
 namespace arm {
@@ -107,7 +108,9 @@ void ArmContext::DoLongJump() {
   for (size_t i = 0; i < kNumberOfSRegisters; ++i) {
     fprs[i] = fprs_[i] != nullptr ? *fprs_[i] : ArmContext::kBadFprBase + i;
   }
+  // Ensure the Thread Register contains the address of the current thread.
   DCHECK_EQ(reinterpret_cast<uintptr_t>(Thread::Current()), gprs[TR]);
+  // The Marking Register will be updated by art_quick_do_long_jump.
   art_quick_do_long_jump(gprs, fprs);
 }
 

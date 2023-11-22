@@ -167,7 +167,7 @@ public class DrivingStatePolicy extends CarSensorService.LogicalSensor {
                 if (lastGear != null && isGearInParkingOrNeutral(lastGear)) {
                     drivingState = CarSensorEvent.DRIVE_STATUS_UNRESTRICTED;
                 }
-            } else { // parking break not applied or not available
+            } else { // parking brake not applied or not available
                 if (lastGear != null && isGearInParking(lastGear)) { // gear in P
                     drivingState = CarSensorEvent.DRIVE_STATUS_UNRESTRICTED;
                 }
@@ -204,7 +204,8 @@ public class DrivingStatePolicy extends CarSensorService.LogicalSensor {
                 CarSensorManager.SENSOR_TYPE_DRIVING_STATUS,
                 timestamp,
                 0 /* float values */,
-                1 /* int values */);
+                1 /* int values */,
+                0 /* long values */);
         event.intValues[0] = drivingState;
         return event;
     }

@@ -16,8 +16,8 @@
 #include <signal.h>
 #include <unistd.h>
 
+#include <log/log.h>
 #include <sys/endian.h>
-#include <utils/Log.h>
 
 #include <hardware/hardware.h>
 #include <hardware/context_hub.h>

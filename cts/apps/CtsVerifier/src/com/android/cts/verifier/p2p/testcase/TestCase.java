@@ -152,10 +152,16 @@ public abstract class TestCase {
      * Tear down the test case.
      */
     protected void tearDown() {
-        mP2pMgr.clearLocalServices(mChannel, null);
-        mP2pMgr.clearServiceRequests(mChannel, null);
-        mP2pMgr.clearLocalServices(mSubChannel, null);
-        mP2pMgr.clearServiceRequests(mSubChannel, null);
+        if (mP2pMgr != null) {
+            mP2pMgr.clearLocalServices(mChannel, null);
+            mP2pMgr.clearServiceRequests(mChannel, null);
+            mP2pMgr.clearLocalServices(mSubChannel, null);
+            mP2pMgr.clearServiceRequests(mSubChannel, null);
+        }
+
+        if (mChannel != null) {
+            mChannel.close();
+        }
     }
 
     /**

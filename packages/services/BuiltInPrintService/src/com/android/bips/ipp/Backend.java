@@ -89,11 +89,11 @@ public class Backend implements JobCallback {
     }
 
     /** Asynchronously get printer capabilities, returning results or null to a callback */
-    public void getCapabilities(Uri uri,
+    public AsyncTask<?, ?, ?> getCapabilities(Uri uri, long timeout,
             final Consumer<LocalPrinterCapabilities> capabilitiesConsumer) {
         if (DEBUG) Log.d(TAG, "getCapabilities()");
 
-        new GetCapabilitiesTask(this, uri) {
+        return new GetCapabilitiesTask(this, uri, timeout) {
             @Override
             protected void onPostExecute(LocalPrinterCapabilities result) {
                 capabilitiesConsumer.accept(result);
@@ -264,11 +264,12 @@ public class Backend implements JobCallback {
      * @param port port to use (e.g. 631)
      * @param httpResource path of print resource on host (e.g. "/ipp/print")
      * @param uriScheme scheme (e.g. "ipp")
+     * @param timeout milliseconds to wait before giving up on request
      * @param capabilities target object to be filled with printer capabilities, if successful
      * @return {@link BackendConstants#STATUS_OK} or an error code.
      */
     native int nativeGetCapabilities(String address, int port, String httpResource,
-            String uriScheme, LocalPrinterCapabilities capabilities);
+            String uriScheme, long timeout, LocalPrinterCapabilities capabilities);
 
     /**
      * Determine initial parameters to be used for jobs
@@ -300,10 +301,11 @@ public class Backend implements JobCallback {
      * @param capabilities printer capabilities for the printer being used
      * @param fileList list of files to be provided of the given MIME type
      * @param debugDir directory to receive debugging information, if any
+     * @param scheme URI scheme (e.g. ipp/ipps)
      * @return {@link BackendConstants#STATUS_OK} or an error code.
      */
     native int nativeStartJob(String address, int port, String mime_type, LocalJobParams jobParams,
-            LocalPrinterCapabilities capabilities, String[] fileList, String debugDir);
+            LocalPrinterCapabilities capabilities, String[] fileList, String debugDir, String scheme);
 
     /**
      * Request cancellation of the identified job.

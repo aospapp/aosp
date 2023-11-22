@@ -40,10 +40,11 @@ void nci_proc_core_ntf(NFC_HDR* p_msg);
 void nci_proc_rf_management_ntf(NFC_HDR* p_msg);
 void nci_proc_ee_management_ntf(NFC_HDR* p_msg);
 void nci_proc_prop_rsp(NFC_HDR* p_msg);
+void nci_proc_prop_raw_vs_rsp(NFC_HDR* p_msg);
 void nci_proc_prop_ntf(NFC_HDR* p_msg);
 
 uint8_t nci_snd_core_reset(uint8_t reset_type);
-uint8_t nci_snd_core_init(void);
+uint8_t nci_snd_core_init(uint8_t nci_version);
 uint8_t nci_snd_core_get_config(uint8_t* param_ids, uint8_t num_ids);
 uint8_t nci_snd_core_set_config(uint8_t* p_param_tlvs, uint8_t tlv_size);
 
@@ -59,6 +60,8 @@ uint8_t nci_snd_deactivate_cmd(uint8_t de_act_type);
 uint8_t nci_snd_discover_map_cmd(uint8_t num, tNCI_DISCOVER_MAPS* p_maps);
 uint8_t nci_snd_t3t_polling(uint16_t system_code, uint8_t rc, uint8_t tsn);
 uint8_t nci_snd_parameter_update_cmd(uint8_t* p_param_tlvs, uint8_t tlv_size);
+uint8_t nci_snd_iso_dep_nak_presence_check_cmd();
+uint8_t nci_snd_core_set_power_sub_state(uint8_t screen_state);
 
 #if (NFC_NFCEE_INCLUDED == TRUE && NFC_RW_ONLY == FALSE)
 uint8_t nci_snd_nfcee_discover(uint8_t discover_action);

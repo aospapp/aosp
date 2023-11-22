@@ -30,7 +30,6 @@ public final class InMemoryDexClassLoader extends BaseDexClassLoader {
      * @param dexBuffers array of buffers containing DEX files between
      *                       <tt>buffer.position()</tt> and <tt>buffer.limit()</tt>.
      * @param parent the parent class loader for delegation.
-     * @hide
      */
     public InMemoryDexClassLoader(ByteBuffer[] dexBuffers, ClassLoader parent) {
         super(dexBuffers, parent);

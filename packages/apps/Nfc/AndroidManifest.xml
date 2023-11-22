@@ -54,6 +54,7 @@
     <uses-permission android:name="android.permission.DISPATCH_NFC_MESSAGE" />
     <uses-permission android:name="android.permission.OVERRIDE_WIFI_CONFIG" />
     <uses-permission android:name="android.permission.DEVICE_POWER" />
+    <uses-permission android:name="android.permission.ACCESS_VR_MANAGER"/>
     <uses-permission android:name="android.permission.USER_ACTIVITY" />
     <uses-permission android:name="android.permission.BIND_RESOLVER_RANKER_SERVICE" />
 
@@ -67,6 +68,7 @@
                  android:killAfterRestore="false"
                  android:usesCleartextTraffic="false"
                  android:supportsRtl="true"
+                 android:hardwareAccelerated="false"
     >
         <meta-data android:name="com.google.android.backup.api_key"
             android:value="AEdPqrEAAAAIbiKKs0wlimxeJ9y8iRIaBOH6aeb2IurmZyBHvg" />
@@ -94,14 +96,6 @@
             android:multiprocess="true"
         />
 
-        <activity android:name=".cardemulation.DefaultRemovedActivity"
-            android:theme="@*android:style/Theme.Material.Dialog.Alert"
-            android:finishOnCloseSystemDialogs="true"
-            android:excludeFromRecents="true"
-            android:clearTaskOnLaunch="true"
-            android:multiprocess="true"
-        />
-
         <activity android:name=".cardemulation.TapAgainDialog"
             android:finishOnCloseSystemDialogs="true"
             android:excludeFromRecents="true"
@@ -118,6 +112,7 @@
             android:excludeFromRecents="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:noHistory="true"
+            android:configChanges="orientation|keyboardHidden|screenSize"
         />
 
         <activity android:name=".BeamShareActivity"
@@ -150,6 +145,12 @@
         <service android:name=".beam.BeamReceiveService"
             android:process=":beam"
         />
+
+        <receiver android:name=".NfcBootCompletedReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
         <service android:name=".handover.PeripheralHandoverService"
         />

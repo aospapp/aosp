@@ -49,7 +49,6 @@ namespace android {
  * work.
  */
 enum {
-    // These values are defined in hardware::IBinder.
     /////////////////// User defined transactions
     FIRST_CALL_TRANSACTION  = 0x00000001,
     LAST_CALL_TRANSACTION   = 0x0effffff,
@@ -68,11 +67,9 @@ enum {
     LAST_HIDL_TRANSACTION   = 0x0fffffff,
 };
 
-Interface::Interface(const char *localName, const Location &location, Interface *super)
-    : Scope(localName, location),
-      mSuperType(super),
-      mIsJavaCompatibleInProgress(false) {
-}
+Interface::Interface(const char* localName, const Location& location, Scope* parent,
+                     Interface* super)
+    : Scope(localName, location, parent), mSuperType(super), mIsJavaCompatibleInProgress(false) {}
 
 std::string Interface::typeName() const {
     return "interface " + localName();
@@ -99,7 +96,7 @@ bool Interface::fillPingMethod(Method *method) const {
         }, /*cppImpl*/
         {
             {IMPL_INTERFACE,
-                [this](auto &out) {
+                [](auto &out) {
                     out << "return;\n";
                 }
             },
@@ -139,12 +136,12 @@ bool Interface::fillLinkToDeathMethod(Method *method) const {
             }, /*cppImpl*/
             {
                 {IMPL_INTERFACE,
-                    [this](auto &out) {
+                    [](auto &out) {
                         out << "return true;";
                     }
                 },
                 {IMPL_PROXY,
-                    [this](auto &out) {
+                    [](auto &out) {
                         out << "return mRemote.linkToDeath(recipient, cookie);\n";
                     }
                 },
@@ -188,12 +185,12 @@ bool Interface::fillUnlinkToDeathMethod(Method *method) const {
             }, /*cppImpl*/
             {
                 {IMPL_INTERFACE,
-                    [this](auto &out) {
+                    [](auto &out) {
                         out << "return true;\n";
                     }
                 },
                 {IMPL_PROXY,
-                    [this](auto &out) {
+                    [](auto &out) {
                         out << "return mRemote.unlinkToDeath(recipient);\n";
                     }
                 },
@@ -209,7 +206,7 @@ bool Interface::fillSyspropsChangedMethod(Method *method) const {
 
     method->fillImplementation(
             HIDL_SYSPROPS_CHANGED_TRANSACTION,
-            { { IMPL_INTERFACE, [this](auto &out) {
+            { { IMPL_INTERFACE, [](auto &out) {
                 out << "::android::report_sysprop_change();\n";
                 out << "return ::android::hardware::Void();";
             } } }, /*cppImpl */
@@ -229,7 +226,7 @@ bool Interface::fillSetHALInstrumentationMethod(Method *method) const {
             HIDL_SET_HAL_INSTRUMENTATION_TRANSACTION,
             {
                 {IMPL_INTERFACE,
-                    [this](auto &out) {
+                    [](auto &out) {
                         // do nothing for base class.
                         out << "return ::android::hardware::Void();\n";
                     }
@@ -380,7 +377,7 @@ bool Interface::fillGetDebugInfoMethod(Method *method) const {
         HIDL_GET_REF_INFO_TRANSACTION,
         {
             {IMPL_INTERFACE,
-                [this](auto &out) {
+                [](auto &out) {
                     // getDebugInfo returns N/A for local objects.
                     out << "_hidl_cb({ -1 /* pid */, 0 /* ptr */, \n"
                         << sArch
@@ -389,7 +386,7 @@ bool Interface::fillGetDebugInfoMethod(Method *method) const {
                 }
             },
             {IMPL_STUB_IMPL,
-                [this](auto &out) {
+                [](auto &out) {
                     out << "_hidl_cb(";
                     out.block([&] {
                         out << "::android::hardware::details::debuggable()"
@@ -403,7 +400,7 @@ bool Interface::fillGetDebugInfoMethod(Method *method) const {
                 }
             }
         }, /* cppImpl */
-        { { IMPL_INTERFACE, [this, method](auto &out) {
+        { { IMPL_INTERFACE, [method](auto &out) {
             const Type &refInfo = method->results().front()->type();
             out << refInfo.getJavaType(false /* forInitializer */) << " info = new "
                 << refInfo.getJavaType(true /* forInitializer */) << "();\n"
@@ -427,7 +424,7 @@ bool Interface::fillDebugMethod(Method *method) const {
         HIDL_DEBUG_TRANSACTION,
         {
             {IMPL_INTERFACE,
-                [this](auto &out) {
+                [](auto &out) {
                     out << "(void)fd;\n"
                         << "(void)options;\n"
                         << "return ::android::hardware::Void();";
@@ -622,7 +619,7 @@ std::string Interface::getCppType(StorageMode mode,
     const std::string base =
           std::string(specifyNamespaces ? "::android::" : "")
         + "sp<"
-        + (specifyNamespaces ? fullName() : partialCppName())
+        + fullName()
         + ">";
 
     switch (mode) {
@@ -701,8 +698,6 @@ void Interface::emitReaderWriter(
             << "::android::hardware::toBinder<\n";
         out.indent(2, [&] {
             out << fqName().cppName()
-                << ", "
-                << getProxyFqName().cppName()
                 << ">("
                 << name
                 << ");\n";

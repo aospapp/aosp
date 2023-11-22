@@ -13,15 +13,20 @@
 # limitations under the License.
 
 import adb
+import argparse
 import os
 import unittest
 import fastboot
 import subprocess
+import sys
+
+# Default values for arguments
+device_type = "phone"
 
 class ShellTest(unittest.TestCase):
-    def __init__(self, *args, **kwargs):
-        super(ShellTest, self).__init__(*args, **kwargs)
-        self.fastboot = fastboot.FastbootDevice()
+    @classmethod
+    def setUpClass(cls):
+        cls.fastboot = fastboot.FastbootDevice()
 
     def exists_validvals(self, varname, varlist, validlist):
         self.assertIn(varname, varlist)
@@ -70,6 +75,20 @@ class ShellTest(unittest.TestCase):
         except ValueError:
             self.fail("%s (%s) is not an integer" % (varname, val))
         return num
+
+    def get_slotcount(self):
+        slotcount = 0
+        try:
+            val = self.fastboot.getvar("slot-count")
+            if val != None:
+                slotcount = int(val)
+        except ValueError:
+            self.fail("slot-count (%s) is not an integer" % val)
+        except subprocess.CalledProcessError:
+            print "Does not appear to be an A/B device."
+        if not slotcount:
+            print "Does not appear to be an A/B device."
+        return slotcount
 
     def test_getvarall(self):
         """Tests that required variables are reported by getvar all"""
@@ -137,13 +156,7 @@ class ShellTest(unittest.TestCase):
         maxdl = self.get_exists_integer("max-download-size", 16)
         self.assertGreater(maxdl, 0)
 
-        slotcount = 0
-        try:
-            slotcountString = self.fastboot.getvar("slot-count")
-            if slotcountString != None:
-                slotcount = int(slotcountString)
-        except ValueError:
-            self.fail("slot-count (%s) is not an integer" % slotcountString)
+        slotcount = self.get_slotcount()
         if slotcount  > 1:
             # test for A/B variables
             slots = [chr(slotnum+ord('a')) for slotnum in range(slotcount)]
@@ -154,45 +167,59 @@ class ShellTest(unittest.TestCase):
                 self.get_exists_yes_no("slot-unbootable:"+slot)
                 self.get_exists_yes_no("slot-successful:"+slot)
                 self.get_exists_integer("slot-retry-count:"+slot)
-        else:
-            print "This does not appear to be an A/B device."
 
     def test_setactive(self):
         """Tests that A/B devices can switch to each slot, and the change persists over a reboot."""
+        # Test invalid if not an A/B device
+        slotcount = self.get_slotcount()
+        if not slotcount:
+            return
 
-        slotcount = 0
-        try:
-            val = self.fastboot.getvar("slot-count")
-            if val != None:
-                slotcount = int(val)
-        except ValueError:
-            self.fail("slot-count (%s) is not an integer" % val)
-        except subprocess.CalledProcessError:
-            print "Does not appear to be an A/B device."
         maxtries = 0
-        if slotcount > 1:
-            slots = [chr(slotnum+ord('a')) for slotnum in range(slotcount)]
-            for slot in slots:
-                self.fastboot.set_active(slot)
-                self.assertEqual(slot, self.fastboot.getvar("current-slot"))
-                self.assertEqual("no", self.fastboot.getvar("slot-unbootable:"+slot))
-                self.assertEqual("no", self.fastboot.getvar("slot-successful:"+slot))
-                retry = self.get_exists_integer("slot-retry-count:"+slot)
-                if maxtries == 0:
-                   maxtries = retry
-                else:
-                   self.assertEqual(maxtries, retry)
-                self.fastboot.reboot(True)
-                self.assertEqual(slot, self.fastboot.getvar("current-slot"))
-                self.assertEqual("no", self.fastboot.getvar("slot-unbootable:"+slot))
-                self.assertEqual("no", self.fastboot.getvar("slot-successful:"+slot))
-                retry = self.get_exists_integer("slot-retry-count:"+slot)
-                if maxtries == 0:
-                   maxtries = retry
-                else:
-                   self.assertEqual(maxtries, retry)
-        else:
-            print "Does not appear to be an A/B device."
+        slots = [chr(slotnum+ord('a')) for slotnum in range(slotcount)]
+        for slot in slots:
+            self.fastboot.set_active(slot)
+            self.assertEqual(slot, self.fastboot.getvar("current-slot"))
+            self.assertEqual("no", self.fastboot.getvar("slot-unbootable:"+slot))
+            self.assertEqual("no", self.fastboot.getvar("slot-successful:"+slot))
+            retry = self.get_exists_integer("slot-retry-count:"+slot)
+            if maxtries == 0:
+                maxtries = retry
+            else:
+                self.assertEqual(maxtries, retry)
+            self.fastboot.reboot(True)
+            self.assertEqual(slot, self.fastboot.getvar("current-slot"))
+            self.assertEqual("no", self.fastboot.getvar("slot-unbootable:"+slot))
+            self.assertEqual("no", self.fastboot.getvar("slot-successful:"+slot))
+            retry = self.get_exists_integer("slot-retry-count:"+slot)
+            if maxtries == 0:
+                maxtries = retry
+            else:
+                self.assertEqual(maxtries, retry)
+
+    def test_hasslot(self):
+        """Tests that A/B devices report partitions that have slots."""
+        # Test invalid if not an A/B device
+        if not self.get_slotcount():
+            return
+
+        self.assertEqual("yes", self.fastboot.getvar("has-slot:system"))
+        self.assertEqual("yes", self.fastboot.getvar("has-slot:boot"))
+
+        # Additional partition on AndroidThings (IoT) devices
+        if device_type == "iot":
+            self.assertEqual("yes", self.fastboot.getvar("has-slot:oem"))
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--device-type", default="phone",
+                        help="Type of device ('phone' or 'iot').")
+    parser.add_argument("extra_args", nargs="*")
+    args = parser.parse_args()
+
+    if args.device_type.lower() not in ("phone", "iot"):
+        raise ValueError("Unsupported device type '%s'." % args.device_type)
+    device_type = args.device_type.lower()
+
+    sys.argv[1:] = args.extra_args
     unittest.main(verbosity=3)

@@ -287,7 +287,7 @@ public class InCallController extends CallsManagerListenerBase {
         }
 
         protected void onDisconnected() {
-            InCallController.this.onDisconnected(mInCallServiceInfo.getComponentName());
+            InCallController.this.onDisconnected(mInCallServiceInfo);
             disconnect();  // Unbind explicitly if we get disconnected.
             if (mListener != null) {
                 mListener.onDisconnect(InCallServiceBindingConnection.this);
@@ -756,6 +756,10 @@ public class InCallController extends CallsManagerListenerBase {
             // We are bound, and we are connected.
             adjustServiceBindingsForEmergency();
 
+            // This is in case an emergency call is added while there is an existing call.
+            mEmergencyCallHelper.maybeGrantTemporaryLocationPermission(call,
+                    mCallsManager.getCurrentUserHandle());
+
             Log.i(this, "onCallAdded: %s", call);
             // Track the call if we don't already know about it.
             addCall(call);
@@ -807,6 +811,8 @@ public class InCallController extends CallsManagerListenerBase {
                     // Check again to make sure there are no active calls.
                     if (mCallsManager.getCalls().isEmpty()) {
                         unbindFromServices();
+
+                        mEmergencyCallHelper.maybeRevokeTemporaryLocationPermission();
                     }
                 }
             }.prepare(), mTimeoutsAdapter.getCallRemoveUnbindInCallServicesDelay(
@@ -1026,6 +1032,7 @@ public class InCallController extends CallsManagerListenerBase {
             mNonUIInCallServiceConnections.disconnect();
             mNonUIInCallServiceConnections = null;
         }
+        mInCallServices.clear();
     }
 
     /**
@@ -1319,12 +1326,12 @@ public class InCallController extends CallsManagerListenerBase {
     /**
      * Cleans up an instance of in-call app after the service has been unbound.
      *
-     * @param disconnectedComponent The {@link ComponentName} of the service which disconnected.
+     * @param disconnectedInfo The {@link InCallServiceInfo} of the service which disconnected.
      */
-    private void onDisconnected(ComponentName disconnectedComponent) {
-        Log.i(this, "onDisconnected from %s", disconnectedComponent);
+    private void onDisconnected(InCallServiceInfo disconnectedInfo) {
+        Log.i(this, "onDisconnected from %s", disconnectedInfo.getComponentName());
 
-        mInCallServices.remove(disconnectedComponent);
+        mInCallServices.remove(disconnectedInfo);
     }
 
     /**

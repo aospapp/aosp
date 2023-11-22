@@ -34,6 +34,7 @@ typedef enum {
     CONFIG_PARAMS,
     OPERATOR_SPECIFIC,
     GAIN_LEVEL_MAPPING,
+    APP_TYPE,
 } section_t;
 
 typedef void (* section_process_fn)(const XML_Char **attr);
@@ -45,6 +46,7 @@ static void process_config_params(const XML_Char **attr);
 static void process_root(const XML_Char **attr);
 static void process_operator_specific(const XML_Char **attr);
 static void process_gain_db_to_level_map(const XML_Char **attr);
+static void process_app_type(const XML_Char **attr);
 
 static section_process_fn section_table[] = {
     [ROOT] = process_root,
@@ -54,16 +56,20 @@ static section_process_fn section_table[] = {
     [CONFIG_PARAMS] = process_config_params,
     [OPERATOR_SPECIFIC] = process_operator_specific,
     [GAIN_LEVEL_MAPPING] = process_gain_db_to_level_map,
+    [APP_TYPE] = process_app_type,
 };
+
+static set_parameters_fn set_parameters = &platform_set_parameters;
 
 static section_t section;
 
 struct platform_info {
+    bool              do_full_parse;
     void             *platform;
     struct str_parms *kvpairs;
 };
 
-static struct platform_info my_data;
+static struct platform_info my_data = {true, NULL, NULL};
 
 /*
  * <audio_platform_info>
@@ -210,6 +216,9 @@ static void process_gain_db_to_level_map(const XML_Char **attr)
     tbl_entry.amp = exp(tbl_entry.db * 0.115129f);
     tbl_entry.level = atoi(attr[3]);
 
+    //custome level should be > 0. Level 0 is fixed for default
+    CHECK(tbl_entry.level > 0);
+
     ALOGV("%s: amp [%f]  db [%f] level [%d]", __func__,
            tbl_entry.amp, tbl_entry.db, tbl_entry.level);
     platform_add_gain_level_mapping(&tbl_entry);
@@ -302,7 +311,40 @@ static void process_config_params(const XML_Char **attr)
     }
 
     str_parms_add_str(my_data.kvpairs, (char*)attr[1], (char*)attr[3]);
-    platform_set_parameters(my_data.platform, my_data.kvpairs);
+    set_parameters(my_data.platform, my_data.kvpairs);
+done:
+    return;
+}
+
+static void process_app_type(const XML_Char **attr)
+{
+    if (strcmp(attr[0], "uc_type")) {
+        ALOGE("%s: uc_type not found", __func__);
+        goto done;
+    }
+
+    if (strcmp(attr[2], "mode")) {
+        ALOGE("%s: mode not found", __func__);
+        goto done;
+    }
+
+    if (strcmp(attr[4], "bit_width")) {
+        ALOGE("%s: bit_width not found", __func__);
+        goto done;
+    }
+
+    if (strcmp(attr[6], "id")) {
+        ALOGE("%s: id not found", __func__);
+        goto done;
+    }
+
+    if (strcmp(attr[8], "max_rate")) {
+        ALOGE("%s: max rate not found", __func__);
+        goto done;
+    }
+
+    platform_add_app_type(attr[1], attr[3], atoi(attr[5]), atoi(attr[7]),
+                          atoi(attr[9]));
 done:
     return;
 }
@@ -314,51 +356,76 @@ static void start_tag(void *userdata __unused, const XML_Char *tag_name,
     const XML_Char              *attr_value = NULL;
     unsigned int                i;
 
-    if (strcmp(tag_name, "acdb_ids") == 0) {
-        section = ACDB;
-    } else if (strcmp(tag_name, "pcm_ids") == 0) {
-        section = PCM_ID;
-    } else if (strcmp(tag_name, "backend_names") == 0) {
-        section = BACKEND_NAME;
-    } else if (strcmp(tag_name, "config_params") == 0) {
-        section = CONFIG_PARAMS;
-    } else if (strcmp(tag_name, "operator_specific") == 0) {
-        section = OPERATOR_SPECIFIC;
-    } else if (strcmp(tag_name, "gain_db_to_level_mapping") == 0) {
-        section = GAIN_LEVEL_MAPPING;
-    } else if (strcmp(tag_name, "device") == 0) {
-        if ((section != ACDB) && (section != BACKEND_NAME) && (section != OPERATOR_SPECIFIC)) {
-            ALOGE("device tag only supported for acdb/backend names");
-            return;
-        }
 
-        /* call into process function for the current section */
-        section_process_fn fn = section_table[section];
-        fn(attr);
-    } else if (strcmp(tag_name, "usecase") == 0) {
-        if (section != PCM_ID) {
-            ALOGE("usecase tag only supported with PCM_ID section");
-            return;
-        }
+    if (my_data.do_full_parse) {
+        if (strcmp(tag_name, "acdb_ids") == 0) {
+            section = ACDB;
+        } else if (strcmp(tag_name, "pcm_ids") == 0) {
+            section = PCM_ID;
+        } else if (strcmp(tag_name, "backend_names") == 0) {
+            section = BACKEND_NAME;
+        } else if (strcmp(tag_name, "config_params") == 0) {
+            section = CONFIG_PARAMS;
+        } else if (strcmp(tag_name, "operator_specific") == 0) {
+            section = OPERATOR_SPECIFIC;
+        } else if (strcmp(tag_name, "gain_db_to_level_mapping") == 0) {
+            section = GAIN_LEVEL_MAPPING;
+        } else if (strcmp(tag_name, "app_types") == 0) {
+            section = APP_TYPE;
+        } else if (strcmp(tag_name, "device") == 0) {
+            if ((section != ACDB) && (section != BACKEND_NAME) && (section != OPERATOR_SPECIFIC)) {
+                ALOGE("device tag only supported for acdb/backend names");
+                return;
+            }
 
-        section_process_fn fn = section_table[PCM_ID];
-        fn(attr);
-    } else if (strcmp(tag_name, "param") == 0) {
-        if (section != CONFIG_PARAMS) {
-            ALOGE("param tag only supported with CONFIG_PARAMS section");
-            return;
-        }
+            /* call into process function for the current section */
+            section_process_fn fn = section_table[section];
+            fn(attr);
+        } else if (strcmp(tag_name, "usecase") == 0) {
+            if (section != PCM_ID) {
+                ALOGE("usecase tag only supported with PCM_ID section");
+                return;
+            }
 
-        section_process_fn fn = section_table[section];
-        fn(attr);
-    } else if (strcmp(tag_name, "gain_level_map") == 0) {
-        if (section != GAIN_LEVEL_MAPPING) {
-            ALOGE("usecase tag only supported with GAIN_LEVEL_MAPPING section");
-            return;
-        }
+            section_process_fn fn = section_table[PCM_ID];
+            fn(attr);
+        } else if (strcmp(tag_name, "param") == 0) {
+            if (section != CONFIG_PARAMS) {
+                ALOGE("param tag only supported with CONFIG_PARAMS section");
+                return;
+            }
 
-        section_process_fn fn = section_table[GAIN_LEVEL_MAPPING];
-        fn(attr);
+            section_process_fn fn = section_table[section];
+            fn(attr);
+        } else if (strcmp(tag_name, "gain_level_map") == 0) {
+            if (section != GAIN_LEVEL_MAPPING) {
+                ALOGE("usecase tag only supported with GAIN_LEVEL_MAPPING section");
+                return;
+            }
+
+            section_process_fn fn = section_table[GAIN_LEVEL_MAPPING];
+            fn(attr);
+        } else if (!strcmp(tag_name, "app")) {
+            if (section != APP_TYPE) {
+                ALOGE("app tag only valid in section APP_TYPE");
+                return;
+            }
+
+            section_process_fn fn = section_table[APP_TYPE];
+            fn(attr);
+        }
+    } else {
+        if(strcmp(tag_name, "config_params") == 0) {
+            section = CONFIG_PARAMS;
+        } else if (strcmp(tag_name, "param") == 0) {
+            if (section != CONFIG_PARAMS) {
+                ALOGE("param tag only supported with CONFIG_PARAMS section");
+                return;
+            }
+
+            section_process_fn fn = section_table[section];
+            fn(attr);
+        }
     }
 
     return;
@@ -378,7 +445,16 @@ static void end_tag(void *userdata __unused, const XML_Char *tag_name)
         section = ROOT;
     } else if (strcmp(tag_name, "gain_db_to_level_mapping") == 0) {
         section = ROOT;
+    } else if (strcmp(tag_name, "app_types") == 0) {
+        section = ROOT;
     }
+}
+
+int snd_card_info_init(const char *filename, void *platform, set_parameters_fn fn)
+{
+    set_parameters = fn;
+    my_data.do_full_parse = false;
+    return platform_info_init(filename, platform);
 }
 
 int platform_info_init(const char *filename, void *platform)
@@ -447,6 +523,9 @@ int platform_info_init(const char *filename, void *platform)
         if (bytes_read == 0)
             break;
     }
+
+    set_parameters = &platform_set_parameters;
+    my_data.do_full_parse = true;
 
 err_free_parser:
     XML_ParserFree(parser);

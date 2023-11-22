@@ -17,6 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"জরুরি তথ্য"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"ডাক্তারি তথ্য"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"তথ্য সম্পাদনা করুন"</string>
     <string name="edit_info" msgid="5973929805855224805">"জরুরি তথ্য সম্পাদনা করুন"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"তথ্য"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"পরিচিতিগুলি"</string>
@@ -69,7 +71,7 @@
     <string name="ab_positive" msgid="1931300033534642005">"এ বি পজেটিভ"</string>
     <string name="ab_negative" msgid="2064555613093591729">"এ বি নেগেটিভ"</string>
     <string name="h_h" msgid="2183333409760379720">"এইচ এইচ"</string>
-    <string name="allergies" msgid="2789200777539258165">"এলার্জি"</string>
+    <string name="allergies" msgid="2789200777539258165">"অ্যালার্জি"</string>
     <string name="unknown_allergies" msgid="4383115953418061237">"অজানা"</string>
     <string name="allergies_hint" msgid="5488918780522184147">"যেমন, চীনাবাদাম"</string>
     <string name="medications" msgid="644428945685557183">"ঔষধ"</string>
@@ -96,12 +98,12 @@
     <string name="cancel" msgid="7401575239009060939">"বাতিল করুন"</string>
     <string name="ok" msgid="163967937451981024">"ঠিক আছে"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"জরুরি তথ্য"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"এখানে আপনার লেখা তথ্য জরুরী অবস্থায় প্রথম উত্তরদাতাকে সহায়তা করতে পারে৷ এটি শুধুমাত্র আপনার ডিভাইসে সঞ্চিত হয়, এবং যে কেউ আপনার ফোনটিকে আনলক না করেই জরুরী ডায়ালার থেকে এটিকে পড়তে পারবেন৷"</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"অবিরত রাখুন"</string>
     <string name="no_info_provided" msgid="716200382010821001">"ফোনের মালিকের সম্পর্কে কোন তথ্য নেই"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"যদি এটি আপনার ফোন হয় তাহলে তথ্য যোগ করতে পেন্সিল আইকনে আলতো চাপুন যা জরুরী ক্ষেত্রে এখানে প্রদর্শিত হবে"</string>
     <string name="clear_all" msgid="8899013032870561633">"সবকিছু সাফ করুন"</string>
     <string name="clear" msgid="3648880442502887163">"সাফ করুন"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"সমস্ত তথ্য ও পরিচিতি সাফ করবেন?"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"জরুরি পরিস্থিতিতে যারা আপনাকে সাহায্য করতে এগিয়ে আসবেন, মেডিকেল তথ্য এবং আপদকালীন যোগাযোগের নম্বর লেখা থাকলে তাদের সুবিধা হবে।\n\nআপনার ফোন আনলক না করেই যেকেউ আপনার লক স্ক্রিনে এই তথ্য পড়তে এবং আপনার পরিচিতিদের নামে ট্যাপ করে তাদের কল করতে পারবেন।"</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"জরুরি তথ্য যোগ করুন"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"আপনাকে যারা সাহায্য করতে এগিয়ে আসবে তাদের সঠিক তথ্য পেতে সাহায্য করুন"</string>
 </resources>

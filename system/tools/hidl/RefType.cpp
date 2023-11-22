@@ -75,10 +75,6 @@ std::string RefType::getCppType(StorageMode /*mode*/, bool specifyNamespaces) co
             + " const*";
 }
 
-void RefType::addNamedTypesToSet(std::set<const FQName> &set) const {
-    mElementType->addNamedTypesToSet(set);
-}
-
 void RefType::emitReaderWriter(
         Formatter &,
         const std::string &,

@@ -15,40 +15,59 @@
  */
 package com.android.car.settings.common;
 
-import android.app.Activity;
 import android.os.Bundle;
-import android.support.v4.app.NavUtils;
-import android.view.MenuItem;
+import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
 
+import com.android.car.settings.R;
+import com.android.car.settings.home.HomepageFragment;
 
 /**
  * Base activity class for car settings, provides a action bar with a back button that goes to
  * previous activity.
  */
-public class CarSettingActivity extends Activity {
+public class CarSettingActivity extends AppCompatActivity implements
+        BaseFragment.FragmentController {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setupActionBar();
+        setContentView(R.layout.app_compat_activity);
+        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+        HomepageFragment homepageFragment = HomepageFragment.getInstance();
+        homepageFragment.setFragmentController(this);
+        launchFragment(homepageFragment);
     }
 
-    /**
-     * Add logic to setup ActionBar here.
-     */
-    public void setupActionBar() {
-        getActionBar().setDisplayHomeAsUpEnabled(true);
-    }
-
-    /**
-     * Make home button as back button.
-     */
     @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == android.R.id.home) {
-                onBackPressed();
-                return true;
+    public void launchFragment(BaseFragment fragment) {
+        fragment.setFragmentController(this);
+        getFragmentManager()
+                .beginTransaction()
+                .setCustomAnimations(
+                        R.animator.trans_right_in ,
+                        R.animator.trans_left_out,
+                        R.animator.trans_left_in,
+                        R.animator.trans_right_out)
+                .replace(R.id.fragment_container, fragment)
+                .addToBackStack(null)
+                .commit();
+    }
+
+    @Override
+    public void goBack() {
+        if (getFragmentManager().getBackStackEntryCount() > 0) {
+            getFragmentManager().popBackStack();
         }
-        return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (getFragmentManager().getBackStackEntryCount() > 0) {
+            getFragmentManager().popBackStack();
+        } else {
+            super.onBackPressed();
+        }
     }
 }

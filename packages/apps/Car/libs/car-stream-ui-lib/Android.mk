@@ -20,28 +20,24 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
+LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res \
+        frameworks/support/v7/appcompat/res \
+        frameworks/support/v7/cardview/res \
+        frameworks/support/v7/recyclerview/res
 
-# Include support-v7-cardview, if not already included
-ifeq (,$(findstring android-support-v7-cardview,$(LOCAL_STATIC_JAVA_LIBRARIES)))
-LOCAL_RESOURCE_DIR += frameworks/support/v7/cardview/res
-LOCAL_AAPT_FLAGS += --extra-packages android.support.v7.cardview
-LOCAL_STATIC_JAVA_LIBRARIES += android-support-v7-cardview
-endif
-
-# Include support-v7-appcompat, if not already included
-ifeq (,$(findstring android-support-v7-appcompat,$(LOCAL_STATIC_JAVA_LIBRARIES)))
-LOCAL_RESOURCE_DIR += frameworks/support/v7/appcompat/res
-LOCAL_STATIC_JAVA_LIBRARIES += android-support-v7-appcompat
-LOCAL_AAPT_FLAGS += --extra-packages android.support.v7.appcompat
-endif
+LOCAL_STATIC_JAVA_LIBRARIES := android-support-annotations \
+        android-support-v4 \
+        android-support-v7-appcompat \
+        android-support-v7-cardview \
+        android-support-v7-recyclerview
 
 LOCAL_MODULE := car-stream-ui-lib
 LOCAL_MODULE_TAGS := optional
-LOCAL_AAPT_FLAGS += --auto-add-overlay
+LOCAL_AAPT_FLAGS += --auto-add-overlay \
+        --extra-packages android.support.v7.appcompat \
+        --extra-packages android.support.v7.cardview \
+        --extra-packages android.support.v7.recyclerview
 
 LOCAL_PROGUARD_ENABLED := disabled
-
-include packages/services/Car/car-support-lib/car-support.mk
 
 include $(BUILD_STATIC_JAVA_LIBRARY)

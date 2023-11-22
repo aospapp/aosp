@@ -100,8 +100,14 @@ package android.support.car.hardware {
     field public static final int INDEX_COMPASS_BEARING = 0; // 0x0
     field public static final int INDEX_COMPASS_PITCH = 1; // 0x1
     field public static final int INDEX_COMPASS_ROLL = 2; // 0x2
+    field public static final int INDEX_WHEEL_DISTANCE_FRONT_LEFT = 1; // 0x1
+    field public static final int INDEX_WHEEL_DISTANCE_FRONT_RIGHT = 2; // 0x2
+    field public static final int INDEX_WHEEL_DISTANCE_REAR_LEFT = 4; // 0x4
+    field public static final int INDEX_WHEEL_DISTANCE_REAR_RIGHT = 3; // 0x3
+    field public static final int INDEX_WHEEL_DISTANCE_RESET_COUNT = 0; // 0x0
     field public final float[] floatValues;
     field public final int[] intValues;
+    field public final long[] longValues;
     field public final int sensorType;
     field public final long timestamp;
   }
@@ -144,10 +150,13 @@ package android.support.car.hardware {
     method public abstract void removeListener(android.support.car.hardware.CarSensorManager.OnSensorChangedListener, int);
     field public static final int SENSOR_RATE_FASTEST = 0; // 0x0
     field public static final int SENSOR_RATE_NORMAL = 3; // 0x3
+    field public static final int SENSOR_TYPE_ABS_ACTIVE = 24; // 0x18
     field public static final int SENSOR_TYPE_COMPASS = 1; // 0x1
     field public static final int SENSOR_TYPE_DRIVING_STATUS = 11; // 0xb
     field public static final int SENSOR_TYPE_NIGHT = 9; // 0x9
     field public static final int SENSOR_TYPE_PARKING_BRAKE = 6; // 0x6
+    field public static final int SENSOR_TYPE_TRACTION_CONTROL_ACTIVE = 25; // 0x19
+    field public static final int SENSOR_TYPE_WHEEL_TICK_DISTANCE = 23; // 0x17
   }
 
   public static abstract interface CarSensorManager.OnSensorChangedListener {
@@ -211,9 +220,9 @@ package android.support.car.navigation {
     ctor public CarNavigationStatusManager();
     method public abstract void addListener(android.support.car.navigation.CarNavigationStatusManager.CarNavigationCallback) throws android.support.car.CarNotConnectedException;
     method public abstract void removeListener();
-    method public abstract void sendNavigationStatus(int) throws android.support.car.CarNotConnectedException;
-    method public abstract void sendNavigationTurnDistanceEvent(int, int, int, int) throws android.support.car.CarNotConnectedException;
-    method public abstract void sendNavigationTurnEvent(int, java.lang.CharSequence, int, int, int) throws android.support.car.CarNotConnectedException;
+    method public abstract deprecated void sendNavigationStatus(int) throws android.support.car.CarNotConnectedException;
+    method public abstract deprecated void sendNavigationTurnDistanceEvent(int, int, int, int) throws android.support.car.CarNotConnectedException;
+    method public abstract deprecated void sendNavigationTurnEvent(int, java.lang.CharSequence, int, int, int) throws android.support.car.CarNotConnectedException;
     field public static final int DISTANCE_FEET = 4; // 0x4
     field public static final int DISTANCE_KILOMETERS = 2; // 0x2
     field public static final int DISTANCE_METERS = 1; // 0x1

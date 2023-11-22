@@ -24,6 +24,8 @@ import com.android.nfc.beam.BeamSendService;
 import com.android.nfc.beam.BeamTransferRecord;
 
 import android.os.UserManager;
+import com.android.nfc.sneptest.ExtDtaSnepServer;
+import com.android.nfc.sneptest.DtaSnepClient;
 import com.android.nfc.echoserver.EchoServer;
 import com.android.nfc.handover.HandoverClient;
 import com.android.nfc.handover.HandoverDataParser;
@@ -57,6 +59,7 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.io.UnsupportedEncodingException;
 
 /**
  * Interface to listen for P2P events.
@@ -241,6 +244,18 @@ class P2pLinkManager implements Handler.Callback, P2pEventListener.Callback {
     boolean mLlcpServicesConnected;
     long mLastLlcpActivationTime;
     byte mPeerLlcpVersion;
+    // for DTA Mode
+    private int mDtaMiu;
+    private int mDtaRwSize;
+    private int mServiceSap;
+    private int mTestCaseID;
+    private String mServiceName;
+    private ExtDtaSnepServer mExtDtaSnepServer = null;
+    private DtaSnepClient mDtaSnepClient = null;
+    private boolean mClientEnabled = false;
+    private boolean mServerEnabled = false;
+    private boolean mExtDtaSnepServerRunning = false;
+    private boolean mPutBeforeGet = false;
 
     public P2pLinkManager(Context context, HandoverDataParser handoverDataParser, int defaultMiu,
             int defaultRwSize) {
@@ -292,11 +307,71 @@ class P2pLinkManager implements Handler.Callback, P2pEventListener.Callback {
                 if (mEchoServer != null) {
                     mHandler.sendEmptyMessage(MSG_STOP_ECHOSERVER);
                 }
+                if (mExtDtaSnepServerRunning)
+                    disableExtDtaSnepServer();
             }
             mIsSendEnabled = sendEnable;
             mIsReceiveEnabled = receiveEnable;
         }
     }
+
+    /**
+     * To Enable DTA SNEP Server for NFC Forum testing
+     */
+    public void enableExtDtaSnepServer(String serviceName, int serviceSap, int miu, int rwSize,int testCaseId) {
+        if (DBG) Log.d(TAG, "Enabling Extended DTA Server");
+        mServiceName = serviceName;
+        mServiceSap = serviceSap;
+        mDtaMiu = miu;
+        mDtaRwSize  = rwSize;
+        mTestCaseID = testCaseId;
+        synchronized (this) {
+            if(mExtDtaSnepServer == null)
+            mExtDtaSnepServer = new ExtDtaSnepServer(mServiceName, mServiceSap, mDtaMiu, mDtaRwSize,
+                                                     mExtDtaSnepServerCallback,mContext, mTestCaseID);
+            mExtDtaSnepServer.start();
+            mExtDtaSnepServerRunning = true;
+        }
+        mServerEnabled = true;
+    }
+
+    /**
+     * To Disable DTA SNEP Server for NFC Forum testing
+     */
+    public void disableExtDtaSnepServer() {
+        if (DBG) Log.d(TAG, "Disabling Extended DTA Server");
+        if (!mExtDtaSnepServerRunning)
+            return;
+        synchronized (this) {
+            mExtDtaSnepServer.stop();
+            mExtDtaSnepServer = null;
+            mExtDtaSnepServerRunning = false;
+        }
+        mServerEnabled = false;
+    }
+
+    /**
+     * To Enable DTA SNEP Client for NFC Forum testing
+     */
+    public void enableDtaSnepClient(String serviceName, int miu, int rwSize, int testCaseId) {
+        if (DBG) Log.d(TAG, "enableDtaSnepClient");
+        mClientEnabled = true;
+        mServiceName = serviceName;
+        mServiceSap = -1;
+        mDtaMiu = miu;
+        mDtaRwSize = rwSize;
+        mTestCaseID = testCaseId;
+    }
+
+    /**
+     * To Disable DTA SNEP Client for NFC Forum testing
+     */
+    public void disableDtaSnepClient() {
+        if (DBG) Log.d(TAG, "disableDtaSnepClient");
+        mDtaSnepClient = null;
+        mClientEnabled = false;
+    }
+
 
     /**
      * May be called from any thread.
@@ -691,12 +766,25 @@ class P2pLinkManager implements Handler.Callback, P2pEventListener.Callback {
                     handoverClient = null;
                 }
             }
-
             if (needsNdef || (needsHandover && handoverClient == null)) {
-                snepClient = new SnepClient();
+                if (NfcService.sIsDtaMode) {
+                    if (mClientEnabled) {
+                        if (mDtaSnepClient == null) {
+                            if (DBG) Log.d(TAG, "Creating DTA Snep Client");
+                            mDtaSnepClient = new DtaSnepClient(mServiceName, mDtaMiu, mDtaRwSize, mTestCaseID);
+                        }
+                    }
+                } else
+                    snepClient = new SnepClient();
                 try {
-                    snepClient.connect();
+                    if (NfcService.sIsDtaMode) {
+                        if (mDtaSnepClient != null)
+                            mDtaSnepClient.DtaClientOperations(mContext);
+                    }
+                    else
+                        snepClient.connect();
                     success = true;
+                    mDtaSnepClient = null;
                 } catch (IOException e) {
                     snepClient = null;
                 }
@@ -723,6 +811,9 @@ class P2pLinkManager implements Handler.Callback, P2pEventListener.Callback {
                     }
                     if (nppClient != null) {
                         nppClient.close();
+                    }
+                    if (mDtaSnepClient != null) {
+                        mDtaSnepClient.close();
                     }
                     return false;
                 } else {
@@ -892,6 +983,9 @@ class P2pLinkManager implements Handler.Callback, P2pEventListener.Callback {
     final SnepServer.Callback mDefaultSnepCallback = new SnepServer.Callback() {
         @Override
         public SnepMessage doPut(NdefMessage msg) {
+            if(NfcService.sIsDtaMode)
+            Log.d(TAG, "DTA mode enabled, dont dispatch the tag");
+            else
             onReceiveComplete(msg);
             return SnepMessage.getMessage(SnepMessage.RESPONSE_SUCCESS);
         }
@@ -903,11 +997,46 @@ class P2pLinkManager implements Handler.Callback, P2pEventListener.Callback {
             // since Android 4.1 used the NFC Forum default server to
             // implement connection handover, we will support this
             // until we can deprecate it.
-            NdefMessage response = mHandoverDataParser.getIncomingHandoverData(msg).handoverSelect;
+            NdefMessage response = null;
+            if (NfcService.sIsDtaMode){
+               if(msg != null && mHandoverDataParser.getIncomingHandoverData(msg) !=  null) {
+                   response = mHandoverDataParser.getIncomingHandoverData(msg).handoverSelect;
+               }
+            } else {
+                response = mHandoverDataParser.getIncomingHandoverData(msg).handoverSelect;
+            }
             if (response != null) {
                 onReceiveHandover();
                 return SnepMessage.getSuccessResponse(response);
             } else {
+                return SnepMessage.getMessage(SnepMessage.RESPONSE_NOT_IMPLEMENTED);
+            }
+        }
+    };
+    final ExtDtaSnepServer.Callback mExtDtaSnepServerCallback = new ExtDtaSnepServer.Callback() {
+        @Override
+        public SnepMessage doPut(NdefMessage msg) {
+            mPutBeforeGet = true;
+            return SnepMessage.getMessage(SnepMessage.RESPONSE_SUCCESS);
+        }
+
+        @Override
+        public SnepMessage doGet(int acceptableLength, NdefMessage msg) {
+            if ((!mPutBeforeGet)) {
+                return SnepMessage.getMessage(SnepMessage.RESPONSE_NOT_FOUND);
+            } else if (acceptableLength == 501) {
+                mPutBeforeGet = false;
+                return SnepMessage.getMessage(SnepMessage.RESPONSE_EXCESS_DATA);
+            } else if (mPutBeforeGet&&(acceptableLength == 1024)) {
+                try {
+                    mPutBeforeGet = false;
+                    return SnepMessage.getSuccessResponse(SnepMessage.getLargeNdef());
+                } catch (UnsupportedEncodingException e) {
+                    mPutBeforeGet = false;
+                    return null;
+                }
+            } else {
+                mPutBeforeGet = false;
                 return SnepMessage.getMessage(SnepMessage.RESPONSE_NOT_IMPLEMENTED);
             }
         }

@@ -30,6 +30,7 @@ import java.security.InvalidParameterException;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.MessageDigest;
 import java.security.PrivateKey;
 import java.security.Provider;
 import java.security.PublicKey;
@@ -66,6 +67,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import junit.framework.TestCase;
+
+import libcore.util.HexEncoding;
 
 public class SignatureTest extends TestCase {
     private static abstract class MockProvider extends Provider {
@@ -557,13 +560,13 @@ public class SignatureTest extends TestCase {
         testSignature_MultipleThreads_Misuse(sig);
     }
 
-    private static final byte[] PK_BYTES = hexToBytes(
+    private static final byte[] PK_BYTES = HexEncoding.decode(
             "30819f300d06092a864886f70d010101050003818d0030818902818100cd769d178f61475fce3001"
             + "2604218320c77a427121d3b41dd76756c8fc0c428cd15cb754adc85466f47547b1c85623d9c17fc6"
             + "4f202fca21099caf99460c824ad657caa8c2db34996838d32623c4f23c8b6a4e6698603901262619"
             + "4840e0896b1a6ec4f6652484aad04569bb6a885b822a10d700224359c632dc7324520cbb3d020301"
             + "0001");
-    private static final byte[] CONTENT = hexToBytes(
+    private static final byte[] CONTENT = HexEncoding.decode(
             "f2fa9d73656e00fa01edc12e73656e2e7670632e6432004867268c46dd95030b93ce7260423e5c00"
             + "fabd4d656d6265727300fa018dc12e73656e2e7670632e643100d7c258dc00fabd44657669636573"
             + "00faa54b65797300fa02b5c12e4d2e4b009471968cc68835f8a68dde10f53d19693d480de767e5fb"
@@ -578,21 +581,12 @@ public class SignatureTest extends TestCase {
             + "c77a427121d3b41dd76756c8fc0c428cd15cb754adc85466f47547b1c85623d9c17fc64f202fca21"
             + "099caf99460c824ad657caa8c2db34996838d32623c4f23c8b6a4e66986039012626194840e0896b"
             + "1a6ec4f6652484aad04569bb6a885b822a10d700224359c632dc7324520cbb3d020301000100");
-    private static final byte[] SIGNATURE = hexToBytes(
+    private static final byte[] SIGNATURE = HexEncoding.decode(
             "b4016456148cd2e9f580470aad63d19c1fee52b38c9dcb5b4d61a7ca369a7277497775d106d86394"
             + "a69229184333b5a3e6261d5bcebdb02530ca9909f4d790199eae7c140f7db39dee2232191bdf0bfb"
             + "34fdadc44326b9b3f3fa828652bab07f0362ac141c8c3784ebdec44e0b156a5e7bccdc81a56fe954"
             + "56ac8c0e4ae12d97");
 
-    public static byte[] hexToBytes(String s) {
-        int len = s.length();
-        byte[] data = new byte[len / 2];
-        for (int i = 0; i < len; i += 2) {
-            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
-                                  + Character.digit(s.charAt(i+1), 16));
-        }
-        return data;
-    }
 
     /**
      * This should actually fail because the ASN.1 encoding is incorrect. It is
@@ -3012,6 +3006,59 @@ public class SignatureTest extends TestCase {
         }
     }
 
+    public void testSign_NONEwithECDSA_Key_Success() throws Exception {
+        KeyPair keys = keyPair("NONEwithECDSA", null);
+        Signature sig = Signature.getInstance("NONEwithECDSA");
+
+        sig.initSign(keys.getPrivate());
+        sig.update(Vector1Data);
+        byte[] signature = sig.sign();
+        assertNotNull("Signature must not be null", signature);
+        assertTrue("Signature must not be empty", signature.length > 0);
+
+        sig.initVerify(keys.getPublic());
+        sig.update(Vector1Data);
+        assertTrue("Signature must verify correctly", sig.verify(signature));
+    }
+
+    public void testVerify_NONEwithECDSA_Key_Success() throws Exception {
+        PublicKey pub = getNamedCurveEcPublicKey();
+        MessageDigest sha1 = MessageDigest.getInstance("SHA1");
+        Signature sig = Signature.getInstance("NONEwithECDSA");
+
+        // NAMED_CURVE_SIGNATURE was signed using SHA1withECDSA, so NONEwithECDSA should
+        // verify the digest
+        sig.initVerify(pub);
+        sig.update(sha1.digest(NAMED_CURVE_VECTOR));
+        assertTrue(sig.verify(NAMED_CURVE_SIGNATURE));
+    }
+
+    public void testVerify_NONEwithECDSA_Key_WrongData_Failure() throws Exception {
+        PublicKey pub = getNamedCurveEcPublicKey();
+        Signature sig = Signature.getInstance("NONEwithECDSA");
+
+        sig.initVerify(pub);
+        sig.update(NAMED_CURVE_VECTOR);
+        assertFalse(sig.verify(NAMED_CURVE_SIGNATURE));
+    }
+
+    public void testVerify_NONEwithECDSA_Key_SingleByte_Failure() throws Exception {
+        PublicKey pub = getNamedCurveEcPublicKey();
+        MessageDigest sha1 = MessageDigest.getInstance("SHA1");
+        Signature sig = Signature.getInstance("NONEwithECDSA");
+
+        byte[] corrupted = new byte[NAMED_CURVE_SIGNATURE.length];
+        corrupted[0] ^= 1;
+
+        sig.initVerify(pub);
+        sig.update(sha1.digest(NAMED_CURVE_VECTOR));
+        try {
+            assertFalse(sig.verify(corrupted));
+        } catch (SignatureException expected) {
+            // It's valid to either return false or throw an exception, accept either
+        }
+    }
+
     /*
      * These tests were generated with this DSA private key:
      *
@@ -3283,7 +3330,12 @@ public class SignatureTest extends TestCase {
         assertTrue("Test should not timeout", es.awaitTermination(1, TimeUnit.MINUTES));
     }
 
-    public void testArbitraryCurve() throws Exception {
+    private static final byte[] NAMED_CURVE_VECTOR = "Satoshi Nakamoto".getBytes(UTF_8);
+    // $ echo -n "Satoshi Nakamoto" > signed
+    // $ openssl dgst -ecdsa-with-SHA1 -sign key.pem -out sig signed
+    private static final byte[] NAMED_CURVE_SIGNATURE = HexEncoding.decode("304402205b41ece6dcc1c5bfcfdae74658d99c08c5e783f3926c11ecc1a8bea5d95cdf27022061a7d5fc687287e2e02dd7c6723e2e27fe0555f789590a37e96b1bb0355b4df0");
+
+    private static PublicKey getNamedCurveEcPublicKey() throws Exception {
         // These are the parameters for the BitCoin curve (secp256k1). See
         // https://en.bitcoin.it/wiki/Secp256k1.
         final BigInteger p = new BigInteger("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F", 16);
@@ -3295,30 +3347,30 @@ public class SignatureTest extends TestCase {
         final int cofactor = 1;
 
         final ECParameterSpec spec = new ECParameterSpec(new EllipticCurve(new ECFieldFp(p), a, b), new ECPoint(x, y), order, cofactor);
-        final KeyFactory factory = KeyFactory.getInstance("EC");
 
         // $ openssl ecparam -name secp256k1 -genkey > key.pem
         // $ openssl ec -text -noout < key.pem
         final BigInteger Px = new BigInteger("2d45572747a625db5fd23b30f97044a682f2d42d31959295043c1fa0034c8ed3", 16);
         final BigInteger Py = new BigInteger("4d330f52e4bba00145a331041c8bbcf300c4fbfdf3d63d8de7608155b2793808", 16);
 
-        final ECPublicKeySpec keySpec = new ECPublicKeySpec(new ECPoint(Px, Py), spec);
-        final PublicKey pub = factory.generatePublic(keySpec);
+        final KeyFactory factory = KeyFactory.getInstance("EC");
+        ECPublicKeySpec keySpec = new ECPublicKeySpec(new ECPoint(Px, Py), spec);
+        return factory.generatePublic(keySpec);
+    }
 
-        // $ echo -n "Satoshi Nakamoto" > signed
-        // $ openssl dgst -ecdsa-with-SHA1 -sign key.pem -out sig signed
-        final byte[] SIGNATURE = hexToBytes("304402205b41ece6dcc1c5bfcfdae74658d99c08c5e783f3926c11ecc1a8bea5d95cdf27022061a7d5fc687287e2e02dd7c6723e2e27fe0555f789590a37e96b1bb0355b4df0");
+    public void testArbitraryCurve() throws Exception {
+        final PublicKey pub = getNamedCurveEcPublicKey();
 
         Signature ecdsaVerify = Signature.getInstance("SHA1withECDSA");
         ecdsaVerify.initVerify(pub);
-        ecdsaVerify.update("Satoshi Nakamoto".getBytes(UTF_8));
-        boolean result = ecdsaVerify.verify(SIGNATURE);
+        ecdsaVerify.update(NAMED_CURVE_VECTOR);
+        boolean result = ecdsaVerify.verify(NAMED_CURVE_SIGNATURE);
         assertEquals(true, result);
 
         ecdsaVerify = Signature.getInstance("SHA1withECDSA");
         ecdsaVerify.initVerify(pub);
         ecdsaVerify.update("Not Satoshi Nakamoto".getBytes(UTF_8));
-        result = ecdsaVerify.verify(SIGNATURE);
+        result = ecdsaVerify.verify(NAMED_CURVE_SIGNATURE);
         assertEquals(false, result);
     }
 

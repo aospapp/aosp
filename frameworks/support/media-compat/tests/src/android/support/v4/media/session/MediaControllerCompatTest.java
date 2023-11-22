@@ -113,6 +113,14 @@ public class MediaControllerCompatTest {
 
     @Test
     @SmallTest
+    public void testIsSessionReady() throws Exception {
+        // mController already has the extra binder since it was created with the session token
+        // which holds the extra binder.
+        assertTrue(mController.isSessionReady());
+    }
+
+    @Test
+    @SmallTest
     public void testSendCommand() throws Exception {
         synchronized (mWaitLock) {
             mCallback.reset();
@@ -288,9 +296,17 @@ public class MediaControllerCompatTest {
             assertEquals(rating.getStarRating(), mCallback.mRating.getStarRating(), DELTA);
 
             mCallback.reset();
-            final String mediaId = "test-media-id";
             final Bundle extras = new Bundle();
             extras.putString(EXTRAS_KEY, EXTRAS_VALUE);
+            controls.setRating(rating, extras);
+            mWaitLock.wait(TIME_OUT_MS);
+            assertTrue(mCallback.mOnSetRatingCalled);
+            assertEquals(rating.getRatingStyle(), mCallback.mRating.getRatingStyle());
+            assertEquals(rating.getStarRating(), mCallback.mRating.getStarRating(), DELTA);
+            assertEquals(EXTRAS_VALUE, mCallback.mExtras.getString(EXTRAS_KEY));
+
+            mCallback.reset();
+            final String mediaId = "test-media-id";
             controls.playFromMediaId(mediaId, extras);
             mWaitLock.wait(TIME_OUT_MS);
             assertTrue(mCallback.mOnPlayFromMediaIdCalled);
@@ -608,6 +624,16 @@ public class MediaControllerCompatTest {
             synchronized (mWaitLock) {
                 mOnSetRatingCalled = true;
                 mRating = rating;
+                mWaitLock.notify();
+            }
+        }
+
+        @Override
+        public void onSetRating(RatingCompat rating, Bundle extras) {
+            synchronized (mWaitLock) {
+                mOnSetRatingCalled = true;
+                mRating = rating;
+                mExtras = extras;
                 mWaitLock.notify();
             }
         }

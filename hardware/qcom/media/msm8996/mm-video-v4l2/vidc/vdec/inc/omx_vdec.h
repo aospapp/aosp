@@ -638,6 +638,7 @@ class omx_vdec: public qc_omx_component
         bool execute_omx_flush(OMX_U32);
         bool execute_output_flush();
         bool execute_input_flush();
+        void notify_flush_done(void *ctxt);
         OMX_ERRORTYPE empty_buffer_done(OMX_HANDLETYPE hComp,
                 OMX_BUFFERHEADERTYPE * buffer);
 

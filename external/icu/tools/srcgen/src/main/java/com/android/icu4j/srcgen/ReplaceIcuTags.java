@@ -64,8 +64,7 @@ public class ReplaceIcuTags extends BaseTagElementNodeScanner {
         return false;
       } else if (tagName.equalsIgnoreCase("@discouraged")) {
         // ICU replaces {@discouraged} with "Discouraged:"
-        IDocElement element = fragments.get(0);
-        rewrite.replace(tag, createDiscouragedText(ast, element), null /* editGroup */);
+        rewrite.replace(tag, createDiscouragedText(ast, fragments), null /* editGroup */);
         return false;
       }
     }
@@ -98,8 +97,11 @@ public class ReplaceIcuTags extends BaseTagElementNodeScanner {
     return AstNodes.createTextTagElement(ast, "<strong>[icu]</strong>");
   }
 
-  private static TagElement createDiscouragedText(AST ast, IDocElement fragment) {
-    return AstNodes.createTextTagElement(
-        ast, "@apiNote <strong>Discouraged:</strong>" + fragment.toString());
+  private static TagElement createDiscouragedText(AST ast, List<IDocElement> fragments) {
+    StringBuilder builder = new StringBuilder("@apiNote <strong>Discouraged:</strong>");
+    for (IDocElement element : fragments) {
+      builder.append(element.toString());
+    }
+    return AstNodes.createTextTagElement(ast, builder.toString());
   }
 }

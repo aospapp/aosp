@@ -136,7 +136,7 @@ cc_library_static {
 
     defaults: ["jemalloc_defaults"],
 
-    cflags: ["-include bionic/libc/private/libc_logging.h"],
+    cflags: ["-include bionic/libc/async_safe/include/async_safe/log.h"],
 
     srcs: lib_src_files,
 }
@@ -151,7 +151,7 @@ cc_library_static {
 
     cflags: [
         "-DJEMALLOC_JET",
-        "-include android/include/libc_logging.h",
+        "-include android/include/log.h",
     ],
 
     srcs: lib_src_files,
@@ -181,7 +181,7 @@ cc_library_static {
 
     cflags: [
         "-DJEMALLOC_UNIT_TEST",
-        "-include android/include/libc_logging.h",
+        "-include android/include/log.h",
     ],
 
     local_include_dirs: [
@@ -251,7 +251,7 @@ cc_test {
 
     cflags: common_cflags + [
         "-DJEMALLOC_UNIT_TEST",
-        "-include android/include/libc_logging.h",
+        "-include android/include/log.h",
     ],
 
     local_include_dirs: common_c_local_includes + [
@@ -278,7 +278,7 @@ cc_library_static {
 
     cflags: [
         "-DJEMALLOC_INTEGRATION_TEST",
-        "-include android/include/libc_logging.h",
+        "-include android/include/log.h",
     ],
 
     local_include_dirs: [
@@ -319,7 +319,7 @@ cc_test {
 
     cflags: common_cflags + [
         "-DJEMALLOC_INTEGRATION_TEST",
-        "-include android/include/libc_logging.h",
+        "-include android/include/log.h",
     ],
 
     local_include_dirs: common_c_local_includes + [

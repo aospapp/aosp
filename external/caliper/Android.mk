@@ -14,9 +14,6 @@
 
 LOCAL_PATH := $(call my-dir)
 
-# Include definitions of DAGGER2_PROCESSOR_CLASSES/LIBRARIES
-include external/dagger2/dagger2_annotation_processor.mk
-
 # build caliper host jar
 # ============================================================
 
@@ -27,6 +24,8 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_CLASS := JAVA_LIBRARIES
 LOCAL_SRC_FILES := $(call all-java-files-under, caliper/src/main/java/)
 LOCAL_JAVA_RESOURCE_DIRS := caliper/src/main/resources
+# Required for use of javax.annotation.Generated per http://b/62050818
+LOCAL_JAVACFLAGS := $(if $(EXPERIMENTAL_USE_OPENJDK9),-J--add-modules=java.xml.ws.annotation)
 LOCAL_IS_HOST_MODULE := true
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
@@ -42,16 +41,11 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
   guavalib
 
 # Use Dagger2 annotation processor
-PROCESSOR_LIBRARIES := $(DAGGER2_PROCESSOR_LIBRARIES)
-PROCESSOR_CLASSES := $(DAGGER2_PROCESSOR_CLASSES)
-include external/dagger2/java_annotation_processors.mk
+LOCAL_ANNOTATION_PROCESSORS := dagger2-compiler-host
+LOCAL_ANNOTATION_PROCESSOR_CLASSES := dagger.internal.codegen.ComponentProcessor
 
 LOCAL_JAVA_LANGUAGE_VERSION := 1.7
 include $(BUILD_HOST_JAVA_LIBRARY)
-
-# Remember the location of the generated files, this is needed for when
-# building for target
-caliper_host_generated_sources_dir := $(local-generated-sources-dir)/annotation_processor_output
 
 # build caliper target api jar
 # ============================================================
@@ -86,6 +80,8 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_CLASS := JAVA_LIBRARIES
 LOCAL_SRC_FILES := $(call all-java-files-under, caliper/src/test/java/)
 LOCAL_JAVA_RESOURCE_DIRS := caliper/src/test/resources
+# Required for use of javax.annotation.Generated per http://b/62050818
+LOCAL_JAVACFLAGS := $(if $(EXPERIMENTAL_USE_OPENJDK9),-J--add-modules=java.xml.ws.annotation,)
 LOCAL_IS_HOST_MODULE := true
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
@@ -94,9 +90,8 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
   mockito-host
 
 # Use Dagger2 annotation processor
-PROCESSOR_LIBRARIES := $(DAGGER2_PROCESSOR_LIBRARIES)
-PROCESSOR_CLASSES := $(DAGGER2_PROCESSOR_CLASSES)
-include external/dagger2/java_annotation_processors.mk
+LOCAL_ANNOTATION_PROCESSORS := dagger2-compiler-host
+LOCAL_ANNOTATION_PROCESSOR_CLASSES := dagger.internal.codegen.ComponentProcessor
 
 LOCAL_JAVA_LANGUAGE_VERSION := 1.7
 include $(BUILD_HOST_JAVA_LIBRARY)

@@ -37,8 +37,9 @@
 #include <vector>
 
 #include "art_field-inl.h"
-#include "art_method-inl.h"
 #include "art_jvmti.h"
+#include "art_method-inl.h"
+#include "barrier.h"
 #include "base/bit_utils.h"
 #include "base/enums.h"
 #include "base/mutex.h"
@@ -49,23 +50,28 @@
 #include "jni_internal.h"
 #include "mirror/class.h"
 #include "mirror/dex_cache.h"
+#include "nativehelper/ScopedLocalRef.h"
 #include "scoped_thread_state_change-inl.h"
-#include "ScopedLocalRef.h"
 #include "stack.h"
-#include "thread-inl.h"
+#include "thread-current-inl.h"
 #include "thread_list.h"
 #include "thread_pool.h"
 #include "well_known_classes.h"
 
 namespace openjdkjvmti {
 
+template <typename FrameFn>
 struct GetStackTraceVisitor : public art::StackVisitor {
   GetStackTraceVisitor(art::Thread* thread_in,
                        size_t start_,
-                       size_t stop_)
+                       size_t stop_,
+                       FrameFn fn_)
       : StackVisitor(thread_in, nullptr, StackVisitor::StackWalkKind::kIncludeInlinedFrames),
+        fn(fn_),
         start(start_),
         stop(stop_) {}
+  GetStackTraceVisitor(const GetStackTraceVisitor&) = default;
+  GetStackTraceVisitor(GetStackTraceVisitor&&) = default;
 
   bool VisitFrame() REQUIRES_SHARED(art::Locks::mutator_lock_) {
     art::ArtMethod* m = GetMethod();
@@ -81,7 +87,7 @@ struct GetStackTraceVisitor : public art::StackVisitor {
       jlong dex_location = (dex_pc == art::DexFile::kDexNoIndex) ? -1 : static_cast<jlong>(dex_pc);
 
       jvmtiFrameInfo info = { id, dex_location };
-      frames.push_back(info);
+      fn(info);
 
       if (stop == 1) {
         return false;  // We're done.
@@ -95,24 +101,34 @@ struct GetStackTraceVisitor : public art::StackVisitor {
     return true;
   }
 
-  std::vector<jvmtiFrameInfo> frames;
+  FrameFn fn;
   size_t start;
   size_t stop;
 };
 
-struct GetStackTraceClosure : public art::Closure {
+template <typename FrameFn>
+GetStackTraceVisitor<FrameFn> MakeStackTraceVisitor(art::Thread* thread_in,
+                                                    size_t start,
+                                                    size_t stop,
+                                                    FrameFn fn) {
+  return GetStackTraceVisitor<FrameFn>(thread_in, start, stop, fn);
+}
+
+struct GetStackTraceVectorClosure : public art::Closure {
  public:
-  GetStackTraceClosure(size_t start, size_t stop)
+  GetStackTraceVectorClosure(size_t start, size_t stop)
       : start_input(start),
         stop_input(stop),
         start_result(0),
         stop_result(0) {}
 
   void Run(art::Thread* self) OVERRIDE REQUIRES_SHARED(art::Locks::mutator_lock_) {
-    GetStackTraceVisitor visitor(self, start_input, stop_input);
-    visitor.WalkStack(false);
+    auto frames_fn = [&](jvmtiFrameInfo info) {
+      frames.push_back(info);
+    };
+    auto visitor = MakeStackTraceVisitor(self, start_input, stop_input, frames_fn);
+    visitor.WalkStack(/* include_transitions */ false);
 
-    frames.swap(visitor.frames);
     start_result = visitor.start;
     stop_result = visitor.stop;
   }
@@ -163,7 +179,39 @@ static jvmtiError TranslateFrameVector(const std::vector<jvmtiFrameInfo>& frames
   return ERR(NONE);
 }
 
-static jvmtiError GetThread(JNIEnv* env, jthread java_thread, art::Thread** thread) {
+struct GetStackTraceDirectClosure : public art::Closure {
+ public:
+  GetStackTraceDirectClosure(jvmtiFrameInfo* frame_buffer_, size_t start, size_t stop)
+      : frame_buffer(frame_buffer_),
+        start_input(start),
+        stop_input(stop),
+        index(0) {
+    DCHECK_GE(start_input, 0u);
+  }
+
+  void Run(art::Thread* self) OVERRIDE REQUIRES_SHARED(art::Locks::mutator_lock_) {
+    auto frames_fn = [&](jvmtiFrameInfo info) {
+      frame_buffer[index] = info;
+      ++index;
+    };
+    auto visitor = MakeStackTraceVisitor(self, start_input, stop_input, frames_fn);
+    visitor.WalkStack(/* include_transitions */ false);
+  }
+
+  jvmtiFrameInfo* frame_buffer;
+
+  const size_t start_input;
+  const size_t stop_input;
+
+  size_t index = 0;
+};
+
+static jvmtiError GetThread(JNIEnv* env,
+                            art::ScopedObjectAccessAlreadyRunnable& soa,
+                            jthread java_thread,
+                            art::Thread** thread)
+    REQUIRES_SHARED(art::Locks::mutator_lock_)  // Needed for FromManagedThread.
+    REQUIRES(art::Locks::thread_list_lock_) {   // Needed for FromManagedThread.
   if (java_thread == nullptr) {
     *thread = art::Thread::Current();
     if (*thread == nullptr) {
@@ -178,8 +226,6 @@ static jvmtiError GetThread(JNIEnv* env, jthread java_thread, art::Thread** thre
     }
 
     // TODO: Need non-aborting call here, to return JVMTI_ERROR_INVALID_THREAD.
-    art::ScopedObjectAccess soa(art::Thread::Current());
-    art::MutexLock mu(soa.Self(), *art::Locks::thread_list_lock_);
     *thread = art::Thread::FromManagedThread(soa, java_thread);
     if (*thread == nullptr) {
       return ERR(THREAD_NOT_ALIVE);
@@ -194,8 +240,16 @@ jvmtiError StackUtil::GetStackTrace(jvmtiEnv* jvmti_env ATTRIBUTE_UNUSED,
                                     jint max_frame_count,
                                     jvmtiFrameInfo* frame_buffer,
                                     jint* count_ptr) {
+  // It is not great that we have to hold these locks for so long, but it is necessary to ensure
+  // that the thread isn't dying on us.
+  art::ScopedObjectAccess soa(art::Thread::Current());
+  art::MutexLock mu(soa.Self(), *art::Locks::thread_list_lock_);
+
   art::Thread* thread;
-  jvmtiError thread_error = GetThread(art::Thread::Current()->GetJniEnv(), java_thread, &thread);
+  jvmtiError thread_error = GetThread(art::Thread::Current()->GetJniEnv(),
+                                      soa,
+                                      java_thread,
+                                      &thread);
   if (thread_error != ERR(NONE)) {
     return thread_error;
   }
@@ -220,8 +274,20 @@ jvmtiError StackUtil::GetStackTrace(jvmtiEnv* jvmti_env ATTRIBUTE_UNUSED,
     return ERR(NONE);
   }
 
-  GetStackTraceClosure closure(start_depth >= 0 ? static_cast<size_t>(start_depth) : 0,
-                               start_depth >= 0 ? static_cast<size_t>(max_frame_count) : 0);
+  if (start_depth >= 0) {
+    // Fast path: Regular order of stack trace. Fill into the frame_buffer directly.
+    GetStackTraceDirectClosure closure(frame_buffer,
+                                       static_cast<size_t>(start_depth),
+                                       static_cast<size_t>(max_frame_count));
+    thread->RequestSynchronousCheckpoint(&closure);
+    *count_ptr = static_cast<jint>(closure.index);
+    if (closure.index < static_cast<size_t>(start_depth)) {
+      return ERR(ILLEGAL_ARGUMENT);
+    }
+    return ERR(NONE);
+  }
+
+  GetStackTraceVectorClosure closure(0, 0);
   thread->RequestSynchronousCheckpoint(&closure);
 
   return TranslateFrameVector(closure.frames,
@@ -232,41 +298,56 @@ jvmtiError StackUtil::GetStackTrace(jvmtiEnv* jvmti_env ATTRIBUTE_UNUSED,
                               count_ptr);
 }
 
-struct GetAllStackTraceClosure : public art::Closure {
- public:
-  explicit GetAllStackTraceClosure(size_t stop)
-      : start_input(0),
-        stop_input(stop),
-        frames_lock("GetAllStackTraceGuard", art::LockLevel::kAbortLock),
-        start_result(0),
-        stop_result(0) {}
+template <typename Data>
+struct GetAllStackTracesVectorClosure : public art::Closure {
+  GetAllStackTracesVectorClosure(size_t stop, Data* data_)
+      : barrier(0), stop_input(stop), data(data_) {}
 
-  void Run(art::Thread* self)
-      OVERRIDE REQUIRES_SHARED(art::Locks::mutator_lock_) REQUIRES(!frames_lock) {
-    // self should be live here (so it could be suspended). No need to filter.
-
-    art::Thread* current = art::Thread::Current();
-    std::vector<jvmtiFrameInfo> self_frames;
-
-    GetStackTraceVisitor visitor(self, start_input, stop_input);
-    visitor.WalkStack(false);
-
-    self_frames.swap(visitor.frames);
-
-    art::MutexLock mu(current, frames_lock);
-    frames.emplace(self, self_frames);
+  void Run(art::Thread* thread) OVERRIDE
+      REQUIRES_SHARED(art::Locks::mutator_lock_)
+      REQUIRES(!data->mutex) {
+    art::Thread* self = art::Thread::Current();
+    Work(thread, self);
+    barrier.Pass(self);
   }
 
-  const size_t start_input;
-  const size_t stop_input;
+  void Work(art::Thread* thread, art::Thread* self)
+      REQUIRES_SHARED(art::Locks::mutator_lock_)
+      REQUIRES(!data->mutex) {
+    // Skip threads that are still starting.
+    if (thread->IsStillStarting()) {
+      return;
+    }
 
-  art::Mutex frames_lock;
-  std::unordered_map<art::Thread*, std::vector<jvmtiFrameInfo>> frames GUARDED_BY(frames_lock);
-  size_t start_result;
-  size_t stop_result;
+    std::vector<jvmtiFrameInfo>* thread_frames = data->GetFrameStorageFor(self, thread);
+    if (thread_frames == nullptr) {
+      return;
+    }
+
+    // Now collect the data.
+    auto frames_fn = [&](jvmtiFrameInfo info) {
+      thread_frames->push_back(info);
+    };
+    auto visitor = MakeStackTraceVisitor(thread, 0u, stop_input, frames_fn);
+    visitor.WalkStack(/* include_transitions */ false);
+  }
+
+  art::Barrier barrier;
+  const size_t stop_input;
+  Data* data;
 };
 
-
+template <typename Data>
+static void RunCheckpointAndWait(Data* data, size_t max_frame_count) {
+  GetAllStackTracesVectorClosure<Data> closure(max_frame_count, data);
+  size_t barrier_count = art::Runtime::Current()->GetThreadList()->RunCheckpoint(&closure, nullptr);
+  if (barrier_count == 0) {
+    return;
+  }
+  art::Thread* self = art::Thread::Current();
+  art::ScopedThreadStateChange tsc(self, art::ThreadState::kWaitingForCheckPointsToRun);
+  closure.barrier.Increment(self, barrier_count);
+}
 
 jvmtiError StackUtil::GetAllStackTraces(jvmtiEnv* env,
                                         jint max_frame_count,
@@ -279,58 +360,64 @@ jvmtiError StackUtil::GetAllStackTraces(jvmtiEnv* env,
     return ERR(NULL_POINTER);
   }
 
-
-  art::Thread* current = art::Thread::Current();
-  art::ScopedObjectAccess soa(current);      // Now we know we have the shared lock.
-  art::ScopedThreadSuspension sts(current, art::kWaitingForDebuggerSuspension);
-  art::ScopedSuspendAll ssa("GetAllStackTraces");
-
-  std::vector<art::Thread*> threads;
-  std::vector<std::vector<jvmtiFrameInfo>> frames;
-  {
-    std::list<art::Thread*> thread_list;
-    {
-      art::MutexLock mu(current, *art::Locks::thread_list_lock_);
-      thread_list = art::Runtime::Current()->GetThreadList()->GetList();
+  struct AllStackTracesData {
+    AllStackTracesData() : mutex("GetAllStackTraces", art::LockLevel::kAbortLock) {}
+    ~AllStackTracesData() {
+      JNIEnv* jni_env = art::Thread::Current()->GetJniEnv();
+      for (jthread global_thread_ref : thread_peers) {
+        jni_env->DeleteGlobalRef(global_thread_ref);
+      }
     }
 
-    for (art::Thread* thread : thread_list) {
-      // Skip threads that are still starting.
-      if (thread->IsStillStarting()) {
-        continue;
-      }
-
-      GetStackTraceClosure closure(0u, static_cast<size_t>(max_frame_count));
-      thread->RequestSynchronousCheckpoint(&closure);
+    std::vector<jvmtiFrameInfo>* GetFrameStorageFor(art::Thread* self, art::Thread* thread)
+        REQUIRES_SHARED(art::Locks::mutator_lock_)
+        REQUIRES(!mutex) {
+      art::MutexLock mu(self, mutex);
 
       threads.push_back(thread);
-      frames.emplace_back();
-      frames.back().swap(closure.frames);
-    }
-  }
 
-  // Convert the data into our output format. Note: we need to keep the threads suspended,
-  // as we need to access them for their peers.
+      jthread peer = art::Runtime::Current()->GetJavaVM()->AddGlobalRef(
+          self, thread->GetPeerFromOtherThread());
+      thread_peers.push_back(peer);
+
+      frames.emplace_back(new std::vector<jvmtiFrameInfo>());
+      return frames.back().get();
+    }
+
+    art::Mutex mutex;
+
+    // Storage. Only access directly after completion.
+
+    std::vector<art::Thread*> threads;
+    // "thread_peers" contains global references to their peers.
+    std::vector<jthread> thread_peers;
+
+    std::vector<std::unique_ptr<std::vector<jvmtiFrameInfo>>> frames;
+  };
+
+  AllStackTracesData data;
+  RunCheckpointAndWait(&data, static_cast<size_t>(max_frame_count));
+
+  art::Thread* current = art::Thread::Current();
+
+  // Convert the data into our output format.
 
   // Note: we use an array of jvmtiStackInfo for convenience. The spec says we need to
   //       allocate one big chunk for this and the actual frames, which means we need
   //       to either be conservative or rearrange things later (the latter is implemented).
-  std::unique_ptr<jvmtiStackInfo[]> stack_info_array(new jvmtiStackInfo[frames.size()]);
+  std::unique_ptr<jvmtiStackInfo[]> stack_info_array(new jvmtiStackInfo[data.frames.size()]);
   std::vector<std::unique_ptr<jvmtiFrameInfo[]>> frame_infos;
-  frame_infos.reserve(frames.size());
+  frame_infos.reserve(data.frames.size());
 
   // Now run through and add data for each thread.
   size_t sum_frames = 0;
-  for (size_t index = 0; index < frames.size(); ++index) {
+  for (size_t index = 0; index < data.frames.size(); ++index) {
     jvmtiStackInfo& stack_info = stack_info_array.get()[index];
     memset(&stack_info, 0, sizeof(jvmtiStackInfo));
 
-    art::Thread* self = threads[index];
-    const std::vector<jvmtiFrameInfo>& thread_frames = frames[index];
+    const std::vector<jvmtiFrameInfo>& thread_frames = *data.frames[index].get();
 
-    // For the time being, set the thread to null. We don't have good ScopedLocalRef
-    // infrastructure.
-    DCHECK(self->GetPeerFromOtherThread() != nullptr);
+    // For the time being, set the thread to null. We'll fix it up in the second stage.
     stack_info.thread = nullptr;
     stack_info.state = JVMTI_THREAD_STATE_SUSPENDED;
 
@@ -359,7 +446,7 @@ jvmtiError StackUtil::GetAllStackTraces(jvmtiEnv* env,
   }
 
   // No errors, yet. Now put it all into an output buffer.
-  size_t rounded_stack_info_size = art::RoundUp(sizeof(jvmtiStackInfo) * frames.size(),
+  size_t rounded_stack_info_size = art::RoundUp(sizeof(jvmtiStackInfo) * data.frames.size(),
                                                 alignof(jvmtiFrameInfo));
   size_t chunk_size = rounded_stack_info_size + sum_frames * sizeof(jvmtiFrameInfo);
   unsigned char* chunk_data;
@@ -370,18 +457,18 @@ jvmtiError StackUtil::GetAllStackTraces(jvmtiEnv* env,
 
   jvmtiStackInfo* stack_info = reinterpret_cast<jvmtiStackInfo*>(chunk_data);
   // First copy in all the basic data.
-  memcpy(stack_info, stack_info_array.get(), sizeof(jvmtiStackInfo) * frames.size());
+  memcpy(stack_info, stack_info_array.get(), sizeof(jvmtiStackInfo) * data.frames.size());
 
   // Now copy the frames and fix up the pointers.
   jvmtiFrameInfo* frame_info = reinterpret_cast<jvmtiFrameInfo*>(
       chunk_data + rounded_stack_info_size);
-  for (size_t i = 0; i < frames.size(); ++i) {
+  for (size_t i = 0; i < data.frames.size(); ++i) {
     jvmtiStackInfo& old_stack_info = stack_info_array.get()[i];
     jvmtiStackInfo& new_stack_info = stack_info[i];
 
-    jthread thread_peer = current->GetJniEnv()->AddLocalReference<jthread>(
-        threads[i]->GetPeerFromOtherThread());
-    new_stack_info.thread = thread_peer;
+    // Translate the global ref into a local ref.
+    new_stack_info.thread =
+        static_cast<JNIEnv*>(current->GetJniEnv())->NewLocalRef(data.thread_peers[i]);
 
     if (old_stack_info.frame_count > 0) {
       // Only copy when there's data - leave the nullptr alone.
@@ -393,7 +480,7 @@ jvmtiError StackUtil::GetAllStackTraces(jvmtiEnv* env,
   }
 
   *stack_info_ptr = stack_info;
-  *thread_count_ptr = static_cast<jint>(frames.size());
+  *thread_count_ptr = static_cast<jint>(data.frames.size());
 
   return ERR(NONE);
 }
@@ -420,9 +507,46 @@ jvmtiError StackUtil::GetThreadListStackTraces(jvmtiEnv* env,
   art::Thread* current = art::Thread::Current();
   art::ScopedObjectAccess soa(current);      // Now we know we have the shared lock.
 
+  struct SelectStackTracesData {
+    SelectStackTracesData() : mutex("GetSelectStackTraces", art::LockLevel::kAbortLock) {}
+
+    std::vector<jvmtiFrameInfo>* GetFrameStorageFor(art::Thread* self, art::Thread* thread)
+              REQUIRES_SHARED(art::Locks::mutator_lock_)
+              REQUIRES(!mutex) {
+      art::ObjPtr<art::mirror::Object> peer = thread->GetPeerFromOtherThread();
+      for (size_t index = 0; index != handles.size(); ++index) {
+        if (peer == handles[index].Get()) {
+          // Found the thread.
+          art::MutexLock mu(self, mutex);
+
+          threads.push_back(thread);
+          thread_list_indices.push_back(index);
+
+          frames.emplace_back(new std::vector<jvmtiFrameInfo>());
+          return frames.back().get();
+        }
+      }
+      return nullptr;
+    }
+
+    art::Mutex mutex;
+
+    // Selection data.
+
+    std::vector<art::Handle<art::mirror::Object>> handles;
+
+    // Storage. Only access directly after completion.
+
+    std::vector<art::Thread*> threads;
+    std::vector<size_t> thread_list_indices;
+
+    std::vector<std::unique_ptr<std::vector<jvmtiFrameInfo>>> frames;
+  };
+
+  SelectStackTracesData data;
+
   // Decode all threads to raw pointers. Put them into a handle scope to avoid any moving GC bugs.
   art::VariableSizedHandleScope hs(current);
-  std::vector<art::Handle<art::mirror::Object>> handles;
   for (jint i = 0; i != thread_count; ++i) {
     if (thread_list[i] == nullptr) {
       return ERR(INVALID_THREAD);
@@ -430,70 +554,28 @@ jvmtiError StackUtil::GetThreadListStackTraces(jvmtiEnv* env,
     if (!soa.Env()->IsInstanceOf(thread_list[i], art::WellKnownClasses::java_lang_Thread)) {
       return ERR(INVALID_THREAD);
     }
-    handles.push_back(hs.NewHandle(soa.Decode<art::mirror::Object>(thread_list[i])));
+    data.handles.push_back(hs.NewHandle(soa.Decode<art::mirror::Object>(thread_list[i])));
   }
 
-  std::vector<art::Thread*> threads;
-  std::vector<size_t> thread_list_indices;
-  std::vector<std::vector<jvmtiFrameInfo>> frames;
-
-  {
-    art::ScopedThreadSuspension sts(current, art::kWaitingForDebuggerSuspension);
-    art::ScopedSuspendAll ssa("GetThreadListStackTraces");
-
-    {
-      std::list<art::Thread*> art_thread_list;
-      {
-        art::MutexLock mu(current, *art::Locks::thread_list_lock_);
-        art_thread_list = art::Runtime::Current()->GetThreadList()->GetList();
-      }
-
-      for (art::Thread* thread : art_thread_list) {
-        if (thread->IsStillStarting()) {
-          // Skip this. We can't get the jpeer, and if it is for a thread in the thread_list,
-          // we'll just report STARTING.
-          continue;
-        }
-
-        // Get the peer, and check whether we know it.
-        art::ObjPtr<art::mirror::Object> peer = thread->GetPeerFromOtherThread();
-        for (size_t index = 0; index != handles.size(); ++index) {
-          if (peer == handles[index].Get()) {
-            // Found the thread.
-            GetStackTraceClosure closure(0u, static_cast<size_t>(max_frame_count));
-            thread->RequestSynchronousCheckpoint(&closure);
-
-            threads.push_back(thread);
-            thread_list_indices.push_back(index);
-            frames.emplace_back();
-            frames.back().swap(closure.frames);
-
-            continue;
-          }
-        }
-
-        // Must be not started, or dead. We'll deal with it at the end.
-      }
-    }
-  }
+  RunCheckpointAndWait(&data, static_cast<size_t>(max_frame_count));
 
   // Convert the data into our output format.
 
   // Note: we use an array of jvmtiStackInfo for convenience. The spec says we need to
   //       allocate one big chunk for this and the actual frames, which means we need
   //       to either be conservative or rearrange things later (the latter is implemented).
-  std::unique_ptr<jvmtiStackInfo[]> stack_info_array(new jvmtiStackInfo[frames.size()]);
+  std::unique_ptr<jvmtiStackInfo[]> stack_info_array(new jvmtiStackInfo[data.frames.size()]);
   std::vector<std::unique_ptr<jvmtiFrameInfo[]>> frame_infos;
-  frame_infos.reserve(frames.size());
+  frame_infos.reserve(data.frames.size());
 
   // Now run through and add data for each thread.
   size_t sum_frames = 0;
-  for (size_t index = 0; index < frames.size(); ++index) {
+  for (size_t index = 0; index < data.frames.size(); ++index) {
     jvmtiStackInfo& stack_info = stack_info_array.get()[index];
     memset(&stack_info, 0, sizeof(jvmtiStackInfo));
 
-    art::Thread* self = threads[index];
-    const std::vector<jvmtiFrameInfo>& thread_frames = frames[index];
+    art::Thread* self = data.threads[index];
+    const std::vector<jvmtiFrameInfo>& thread_frames = *data.frames[index].get();
 
     // For the time being, set the thread to null. We don't have good ScopedLocalRef
     // infrastructure.
@@ -544,8 +626,8 @@ jvmtiError StackUtil::GetThreadListStackTraces(jvmtiEnv* env,
     // Check whether we found a running thread for this.
     // Note: For simplicity, and with the expectation that the list is usually small, use a simple
     //       search. (The list is *not* sorted!)
-    auto it = std::find(thread_list_indices.begin(), thread_list_indices.end(), i);
-    if (it == thread_list_indices.end()) {
+    auto it = std::find(data.thread_list_indices.begin(), data.thread_list_indices.end(), i);
+    if (it == data.thread_list_indices.end()) {
       // No native thread. Must be new or dead. We need to fill out the stack info now.
       // (Need to read the Java "started" field to know whether this is starting or terminated.)
       art::ObjPtr<art::mirror::Object> peer = soa.Decode<art::mirror::Object>(thread_list[i]);
@@ -562,7 +644,7 @@ jvmtiError StackUtil::GetThreadListStackTraces(jvmtiEnv* env,
       stack_info[i].frame_buffer = nullptr;
     } else {
       // Had a native thread and frames.
-      size_t f_index = it - thread_list_indices.begin();
+      size_t f_index = it - data.thread_list_indices.begin();
 
       jvmtiStackInfo& old_stack_info = stack_info_array.get()[f_index];
       jvmtiStackInfo& new_stack_info = stack_info[i];
@@ -580,7 +662,7 @@ jvmtiError StackUtil::GetThreadListStackTraces(jvmtiEnv* env,
     }
   }
 
-  * stack_info_ptr = stack_info;
+  *stack_info_ptr = stack_info;
 
   return ERR(NONE);
 }
@@ -621,8 +703,17 @@ struct GetFrameCountClosure : public art::Closure {
 jvmtiError StackUtil::GetFrameCount(jvmtiEnv* env ATTRIBUTE_UNUSED,
                                     jthread java_thread,
                                     jint* count_ptr) {
+  // It is not great that we have to hold these locks for so long, but it is necessary to ensure
+  // that the thread isn't dying on us.
+  art::ScopedObjectAccess soa(art::Thread::Current());
+  art::MutexLock mu(soa.Self(), *art::Locks::thread_list_lock_);
+
   art::Thread* thread;
-  jvmtiError thread_error = GetThread(art::Thread::Current()->GetJniEnv(), java_thread, &thread);
+  jvmtiError thread_error = GetThread(art::Thread::Current()->GetJniEnv(),
+                                      soa,
+                                      java_thread,
+                                      &thread);
+
   if (thread_error != ERR(NONE)) {
     return thread_error;
   }
@@ -691,8 +782,16 @@ jvmtiError StackUtil::GetFrameLocation(jvmtiEnv* env ATTRIBUTE_UNUSED,
                                        jint depth,
                                        jmethodID* method_ptr,
                                        jlocation* location_ptr) {
+  // It is not great that we have to hold these locks for so long, but it is necessary to ensure
+  // that the thread isn't dying on us.
+  art::ScopedObjectAccess soa(art::Thread::Current());
+  art::MutexLock mu(soa.Self(), *art::Locks::thread_list_lock_);
+
   art::Thread* thread;
-  jvmtiError thread_error = GetThread(art::Thread::Current()->GetJniEnv(), java_thread, &thread);
+  jvmtiError thread_error = GetThread(art::Thread::Current()->GetJniEnv(),
+                                      soa,
+                                      java_thread,
+                                      &thread);
   if (thread_error != ERR(NONE)) {
     return thread_error;
   }

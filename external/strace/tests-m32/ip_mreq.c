@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2015-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,8 +45,8 @@ main(void)
 	static const char multi6addr[] = "ff01::c";
 	static const char interface[] = "127.0.0.1";
 
-	struct ip_mreq *const m4 = tail_alloc(sizeof(*m4));
-	struct ipv6_mreq *const m6 = tail_alloc(sizeof(*m6));
+	TAIL_ALLOC_OBJECT_CONST_PTR(struct ip_mreq, m4);
+	TAIL_ALLOC_OBJECT_CONST_PTR(struct ipv6_mreq, m6);
 	unsigned int i;
 	int rc;
 
@@ -100,7 +101,7 @@ main(void)
 				short_any[i].optval, 1);
 		printf("setsockopt(0, %s, %s, \"\\%hho\", 1) = %s\n",
 		       short_any[i].str_level, short_any[i].str_optname,
-		       * (unsigned char *) short_any[i].optval,
+		       *(unsigned char *) short_any[i].optval,
 		       sprintrc(rc));
 
 		rc = setsockopt(0, short_any[i].level, short_any[i].optname,
@@ -138,7 +139,7 @@ main(void)
 		rc = setsockopt(0, SOL_IPV6, long_ipv6[i].optname,
 				m6, sizeof(*m6));
 		printf("setsockopt(0, SOL_IPV6, %s"
-		       ", {ipv6mr_multiaddr=inet_pton(\"%s\")"
+		       ", {inet_pton(AF_INET6, \"%s\", &ipv6mr_multiaddr)"
 		       ", ipv6mr_interface=if_nametoindex(\"lo\")}"
 		       ", %u) = %s\n",
 		       long_ipv6[i].str_optname, multi6addr,

@@ -17,6 +17,7 @@
 #ifndef ESE_H_
 #define ESE_H_ 1
 
+#include "ese_sg.h"
 #include "ese_hw_api.h"
 #include "../../../libese-sysdeps/include/ese/sysdeps.h"
 
@@ -60,6 +61,7 @@ extern "C" {
  * (Patches welcome ;).
  */
 struct EseInterface;
+
 #define ese_init(ese_ptr, HW_TYPE)  __ese_init(ese_ptr, HW_TYPE)
 #define ESE_DECLARE(name, HW_TYPE, ...) \
   struct EseInterface name = __ESE_INTIALIZER(HW_TYPE)
@@ -70,6 +72,8 @@ const char *ese_name(const struct EseInterface *ese);
 int ese_open(struct EseInterface *ese, void *hw_opts);
 void ese_close(struct EseInterface *ese);
 int ese_transceive(struct EseInterface *ese, const uint8_t *tx_buf, uint32_t tx_len, uint8_t *rx_buf, uint32_t rx_max);
+int ese_transceive_sg(struct EseInterface *ese, const struct EseSgBuffer *tx, uint32_t tx_segs,
+                      struct EseSgBuffer *rx, uint32_t rx_segs);
 
 bool ese_error(const struct EseInterface *ese);
 const char *ese_error_message(const struct EseInterface *ese);

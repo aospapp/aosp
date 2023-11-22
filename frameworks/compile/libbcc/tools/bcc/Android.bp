@@ -37,6 +37,7 @@ cc_binary {
             shared_libs: [
                 "libdl",
                 "liblog",
+                "libvndksupport",
             ],
         },
     },

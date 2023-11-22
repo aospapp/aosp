@@ -40,6 +40,7 @@ import android.provider.ContactsContract.CommonDataKinds.Phone;
 import android.provider.ContactsContract.CommonDataKinds.Photo;
 import android.provider.ContactsContract.Contacts;
 import android.provider.ContactsContract.Data;
+import android.support.v4.graphics.drawable.IconCompat;
 import android.support.v4.graphics.drawable.RoundedBitmapDrawable;
 import android.support.v4.graphics.drawable.RoundedBitmapDrawableFactory;
 import android.support.v4.os.BuildCompat;
@@ -49,6 +50,7 @@ import android.text.TextUtils;
 import android.text.TextUtils.TruncateAt;
 
 import com.android.contacts.ContactPhotoManager.DefaultImageRequest;
+import com.android.contacts.lettertiles.LetterTileDrawable;
 import com.android.contacts.util.BitmapUtil;
 import com.android.contacts.util.ImplicitIntentsUtil;
 
@@ -260,14 +262,23 @@ public class ShortcutIntentBuilder {
             Bitmap bitmap = BitmapFactory.decodeByteArray(bitmapData, 0, bitmapData.length, null);
             return new BitmapDrawable(mContext.getResources(), bitmap);
         } else {
+            final DefaultImageRequest request = new DefaultImageRequest(displayName, lookupKey,
+                    false);
+            if (BuildCompat.isAtLeastO()) {
+                // On O, scale the image down to add the padding needed by AdaptiveIcons.
+                request.scale = LetterTileDrawable.getAdaptiveIconScale();
+            }
             return ContactPhotoManager.getDefaultAvatarDrawableForContact(mContext.getResources(),
-                    false, new DefaultImageRequest(displayName, lookupKey, false));
+                    false, request);
         }
     }
 
     private void createContactShortcutIntent(Uri contactUri, String contentType, String displayName,
             String lookupKey, byte[] bitmapData) {
         Intent intent = null;
+        if (TextUtils.isEmpty(displayName)) {
+            displayName = mContext.getResources().getString(R.string.missing_name);
+        }
         if (BuildCompat.isAtLeastO()) {
             final long contactId = ContentUris.parseId(contactUri);
             final ShortcutManager sm = (ShortcutManager)
@@ -275,21 +286,24 @@ public class ShortcutIntentBuilder {
             final DynamicShortcuts dynamicShortcuts = new DynamicShortcuts(mContext);
             final ShortcutInfo shortcutInfo = dynamicShortcuts.getQuickContactShortcutInfo(
                     contactId, lookupKey, displayName);
-            intent = sm.createShortcutResultIntent(shortcutInfo);
+            if (shortcutInfo != null) {
+                intent = sm.createShortcutResultIntent(shortcutInfo);
+            }
         }
         final Drawable drawable = getPhotoDrawable(bitmapData, displayName, lookupKey);
-        if (TextUtils.isEmpty(displayName)) {
-            displayName = mContext.getResources().getString(R.string.missing_name);
-        }
 
         final Intent shortcutIntent = ImplicitIntentsUtil.getIntentForQuickContactLauncherShortcut(
                 mContext, contactUri);
 
-        final Bitmap icon = generateQuickContactIcon(drawable);
-
-
         intent = intent == null ? new Intent() : intent;
-        intent.putExtra(Intent.EXTRA_SHORTCUT_ICON, icon);
+
+        final Bitmap icon = generateQuickContactIcon(drawable);
+        if (BuildCompat.isAtLeastO()) {
+            final IconCompat compatIcon = IconCompat.createWithAdaptiveBitmap(icon);
+            compatIcon.addToShortcutIntent(intent);
+        } else {
+            intent.putExtra(Intent.EXTRA_SHORTCUT_ICON, icon);
+        }
         intent.putExtra(Intent.EXTRA_SHORTCUT_INTENT, shortcutIntent);
         intent.putExtra(Intent.EXTRA_SHORTCUT_NAME, displayName);
 
@@ -325,18 +339,27 @@ public class ShortcutIntentBuilder {
         shortcutIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
         Intent intent = null;
+        IconCompat compatAdaptiveIcon = null;
         if (BuildCompat.isAtLeastO()) {
+            compatAdaptiveIcon = IconCompat.createWithAdaptiveBitmap(icon);
             final ShortcutManager sm = (ShortcutManager)
                     mContext.getSystemService(Context.SHORTCUT_SERVICE);
             final String id = shortcutAction + lookupKey;
             final DynamicShortcuts dynamicShortcuts = new DynamicShortcuts(mContext);
             final ShortcutInfo shortcutInfo = dynamicShortcuts.getActionShortcutInfo(
-                    id, displayName, shortcutIntent, Icon.createWithAdaptiveBitmap(icon));
-            intent = sm.createShortcutResultIntent(shortcutInfo);
+                    id, displayName, shortcutIntent, compatAdaptiveIcon.toIcon());
+            if (shortcutInfo != null) {
+                intent = sm.createShortcutResultIntent(shortcutInfo);
+            }
         }
 
         intent = intent == null ? new Intent() : intent;
-        intent.putExtra(Intent.EXTRA_SHORTCUT_ICON, icon);
+        // This will be non-null in O and above.
+        if (compatAdaptiveIcon != null) {
+            compatAdaptiveIcon.addToShortcutIntent(intent);
+        } else {
+            intent.putExtra(Intent.EXTRA_SHORTCUT_ICON, icon);
+        }
         intent.putExtra(Intent.EXTRA_SHORTCUT_INTENT, shortcutIntent);
         intent.putExtra(Intent.EXTRA_SHORTCUT_NAME, shortcutName);
 
@@ -344,7 +367,6 @@ public class ShortcutIntentBuilder {
     }
 
     private Bitmap generateQuickContactIcon(Drawable photo) {
-
         // Setup the drawing classes
         Bitmap bitmap = Bitmap.createBitmap(mIconSize, mIconSize, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
@@ -353,6 +375,11 @@ public class ShortcutIntentBuilder {
         Rect dst = new Rect(0,0, mIconSize, mIconSize);
         photo.setBounds(dst);
         photo.draw(canvas);
+
+        // Don't put a rounded border on an icon for O
+        if (BuildCompat.isAtLeastO()) {
+            return bitmap;
+        }
 
         // Draw the icon with a rounded border
         RoundedBitmapDrawable roundedDrawable =
@@ -421,22 +448,24 @@ public class ShortcutIntentBuilder {
 
         // Draw the phone action icon as an overlay
         int iconWidth = icon.getWidth();
-        dst.set(iconWidth - ((int) (20 * density)), -1,
-                iconWidth, ((int) (19 * density)));
-        canvas.drawBitmap(phoneIcon, null, dst, photoPaint);
-
-        canvas.setBitmap(null);
-        if (!BuildCompat.isAtLeastO()) {
-            return icon;
+        if (BuildCompat.isAtLeastO()) {
+            // On O we need to calculate where the phone icon goes slightly differently. The whole
+            // canvas area is 108dp, a centered circle with a diameter of 66dp is the "safe zone".
+            // So we start the drawing the phone icon at
+            // 108dp - 21 dp (distance from right edge of safe zone to the edge of the canvas)
+            // - 24 dp (size of the phone icon) on the x axis (left)
+            // The y axis is simply 21dp for the distance to the safe zone (top).
+            // See go/o-icons-eng for more details and a handy picture.
+            final int left = (int) (mIconSize - (45 * density));
+            final int top = (int) (21 * density);
+            canvas.drawBitmap(phoneIcon, left, top, photoPaint);
+        } else {
+            dst.set(iconWidth - ((int) (20 * density)), -1,
+                    iconWidth, ((int) (19 * density)));
+            canvas.drawBitmap(phoneIcon, null, dst, photoPaint);
         }
 
-        // On >= O scale image up by AdaptiveIconDrawable.DEFAULT_VIEW_PORT_SCALE.
-        final int scale = (int) (icon.getHeight() *
-                (1f / (1 + 2 * AdaptiveIconDrawable.getExtraInsetFraction())));
-        final Bitmap scaledBitmap = Bitmap.createBitmap(icon.getWidth() + scale,
-                icon.getHeight() + scale, icon.getConfig());
-        Canvas scaledCanvas = new Canvas(scaledBitmap);
-        scaledCanvas.drawBitmap(icon, scale / 2, scale / 2, null);
-        return scaledBitmap;
+        canvas.setBitmap(null);
+        return icon;
     }
 }

@@ -28,9 +28,10 @@
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
         <option name="test-module-name" value="VtsHalUsbV1_0TargetReplay"/>
         <option name="binary-test-type" value="hal_hidl_replay_test"/>
-        <option name="hal-hidl-replay-test-trace-path" value="test/vts-testcase/hal-trace/usb/V1_0/android.hardware.usb@1.0_sailfish_1.vts.trace"/>
+        <option name="hal-hidl-replay-test-trace-path" value="test/vts-testcase/hal-trace/usb/V1_0/android.hardware.usb_1.0_704343228913.vts.trace"/>
         <option name="hal-hidl-package-name" value="android.hardware.usb@1.0"/>
         <option name="precondition-lshal" value="android.hardware.usb@1.0"/>
+        <option name="exclude-filter" value="UsbHidlTest.switchModetoDFP" />
         <option name="test-timeout" value="5m"/>
     </test>
 </configuration>

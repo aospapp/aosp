@@ -16,19 +16,28 @@
 
 package com.android.tv.tests;
 
+import static android.support.test.InstrumentationRegistry.getTargetContext;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import android.support.test.filters.MediumTest;
-import android.test.ActivityInstrumentationTestCase2;
+import android.support.test.rule.ActivityTestRule;
 
 import com.android.tv.TvActivity;
+import com.android.tv.testing.Utils;
+
+import org.junit.Rule;
+import org.junit.Test;
 
 @MediumTest
-public class TvActivityTest extends ActivityInstrumentationTestCase2<TvActivity> {
+public class TvActivityTest {
+    @Rule
+    public ActivityTestRule<TvActivity> mActivityTestRule =
+            new ActivityTestRule<>(TvActivity.class, false, false);
 
-    public TvActivityTest() {
-        super(TvActivity.class);
-    }
-
+    @Test
     public void testLifeCycle() {
-        getActivity();
+        assertTrue("TvActivity should be enabled.", Utils.isTvActivityEnabled(getTargetContext()));
+        assertNotNull(mActivityTestRule.launchActivity(null));
     }
 }

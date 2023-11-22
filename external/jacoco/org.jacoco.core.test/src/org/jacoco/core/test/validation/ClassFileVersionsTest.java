@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -28,8 +28,9 @@ import static org.objectweb.asm.Opcodes.V1_8;
 
 import java.io.IOException;
 
-import org.jacoco.core.JaCoCo;
 import org.jacoco.core.instr.Instrumenter;
+import org.jacoco.core.internal.Java9Support;
+import org.jacoco.core.internal.instr.InstrSupport;
 import org.jacoco.core.runtime.IRuntime;
 import org.jacoco.core.runtime.SystemPropertiesRuntime;
 import org.junit.Test;
@@ -83,6 +84,11 @@ public class ClassFileVersionsTest {
 		testVersion(V1_8, true);
 	}
 
+	@Test
+	public void test_1_9() throws IOException {
+		testVersion(Java9Support.V1_9, true);
+	}
+
 	private void testVersion(int version, boolean frames) throws IOException {
 		final byte[] original = createClass(version);
 
@@ -95,13 +101,13 @@ public class ClassFileVersionsTest {
 
 	private void assertFrames(byte[] source, boolean expected) {
 		final boolean[] hasFrames = new boolean[] { false };
-		new ClassReader(source).accept(
-				new ClassVisitor(JaCoCo.ASM_API_VERSION) {
+		new ClassReader(Java9Support.downgradeIfRequired(source)).accept(
+				new ClassVisitor(InstrSupport.ASM_API_VERSION) {
 
 					@Override
 					public MethodVisitor visitMethod(int access, String name,
 							String desc, String signature, String[] exceptions) {
-						return new MethodVisitor(JaCoCo.ASM_API_VERSION) {
+						return new MethodVisitor(InstrSupport.ASM_API_VERSION) {
 
 							@Override
 							public void visitFrame(int type, int nLocal,

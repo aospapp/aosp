@@ -11,12 +11,12 @@
 #define SRC_FILENAME __FILENAME__
 #endif
 
-#if defined(_OS_BUILD_)
-  #include <seos.h>
-  #define ASSERT_LOG_FUNC(fmt, ...) osLog(LOG_ERROR, fmt, ##__VA_ARGS__)
-#elif defined(__NANOHUB__)
+#ifdef NANOHUB_NON_CHRE_API
   #include <syscallDo.h>
   #define ASSERT_LOG_FUNC(fmt, ...) eOsLog(LOG_ERROR, fmt, ##__VA_ARGS__)
+#else
+  #include <chre.h>
+  #define ASSERT_LOG_FUNC(fmt, ...) chreLog(LOG_ERROR, fmt, ##__VA_ARGS__)
 #endif
 
 // Note that this just logs and doesn't actually stop execution on Nanohub

@@ -33,6 +33,7 @@ from acts.controllers.anritsu_lib.md8475a import TestProcedure
 from acts.controllers.anritsu_lib.md8475a import TestPowerControl
 from acts.controllers.anritsu_lib.md8475a import TestMeasurement
 from acts.controllers.anritsu_lib.md8475a import Switch
+from acts.controllers.anritsu_lib.md8475a import BtsPacketRate
 from acts.test_utils.tel.tel_defines import CALL_TEARDOWN_PHONE
 from acts.test_utils.tel.tel_defines import CALL_TEARDOWN_REMOTE
 from acts.test_utils.tel.tel_defines import MAX_WAIT_TIME_CALL_DROP
@@ -126,9 +127,11 @@ WCDMA_BAND_2 = 2
 
 # Default Cell Parameters
 DEFAULT_OUTPUT_LEVEL = -30
-DEFAULT_INPUT_LEVEL = 10  # apply to LTE & WCDMA only
-DEFAULT_LTE_BAND = 2
+# apply to LTE & WCDMA only to reduce UE transmit power if path loss
+DEFAULT_INPUT_LEVEL = -10
+DEFAULT_LTE_BAND = [2, 4]
 DEFAULT_WCDMA_BAND = 1
+DEFAULT_WCDMA_PACKET_RATE = BtsPacketRate.WCDMA_DLHSAUTO_REL7_ULHSAUTO
 DEFAULT_GSM_BAND = GSM_BAND_GSM850
 DEFAULT_CDMA1X_BAND = 0
 DEFAULT_CDMA1X_CH = 356
@@ -331,6 +334,7 @@ def _init_wcdma_bts(bts, user_params, cell_no, sim_card):
     bts.lac = get_wcdma_lac(user_params, cell_no)
     bts.output_level = DEFAULT_OUTPUT_LEVEL
     bts.input_level = DEFAULT_INPUT_LEVEL
+    bts.packet_rate = DEFAULT_WCDMA_PACKET_RATE
 
 
 def _init_gsm_bts(bts, user_params, cell_no, sim_card):
@@ -581,6 +585,34 @@ def set_system_model_lte_1x(anritsu_handle, user_params, sim_card):
     vnid1 = anritsu_handle.get_IMS(DEFAULT_VNID)
     _init_IMS(anritsu_handle, vnid1, sim_card)
     return [lte_bts, cdma1x_bts]
+
+
+def set_system_model_lte_evdo(anritsu_handle, user_params, sim_card):
+    """ Configures Anritsu system for LTE and EVDO simulation
+
+    Args:
+        anritsu_handle: anritusu device object.
+        user_params: pointer to user supplied parameters
+
+    Returns:
+        Lte and 1x BTS objects
+    """
+    anritsu_handle.set_simulation_model(BtsTechnology.LTE, BtsTechnology.EVDO)
+    # setting BTS parameters
+    lte_bts = anritsu_handle.get_BTS(BtsNumber.BTS1)
+    evdo_bts = anritsu_handle.get_BTS(BtsNumber.BTS2)
+    _init_lte_bts(lte_bts, user_params, CELL_1, sim_card)
+    _init_evdo_bts(evdo_bts, user_params, CELL_2, sim_card)
+    pdn1 = anritsu_handle.get_PDN(PDN_NO_1)
+    pdn2 = anritsu_handle.get_PDN(PDN_NO_2)
+    pdn3 = anritsu_handle.get_PDN(PDN_NO_3)
+    # Initialize PDN IP address for internet connection sharing
+    _init_PDN(anritsu_handle, pdn1, UE_IPV4_ADDR_1, UE_IPV6_ADDR_1, True)
+    _init_PDN(anritsu_handle, pdn2, UE_IPV4_ADDR_2, UE_IPV6_ADDR_2, False)
+    _init_PDN(anritsu_handle, pdn3, UE_IPV4_ADDR_3, UE_IPV6_ADDR_3, True)
+    vnid1 = anritsu_handle.get_IMS(DEFAULT_VNID)
+    _init_IMS(anritsu_handle, vnid1)
+    return [lte_bts, evdo_bts]
 
 
 def set_system_model_wcdma_gsm(anritsu_handle, user_params, sim_card):
@@ -880,6 +912,242 @@ def call_mo_setup_teardown(
                                                VirtualPhoneStatus.STATUS_IDLE):
                 raise _CallSequenceException(
                     "Virtual Phone not idle after hangup.")
+        return True
+
+    except _CallSequenceException as e:
+        log.error(e)
+        return False
+    finally:
+        try:
+            if ad.droid.telecomIsInCall():
+                ad.droid.telecomEndCall()
+        except Exception as e:
+            log.error(str(e))
+
+
+def handover_tc(log,
+                anritsu_handle,
+                wait_time=0,
+                timeout=60,
+                s_bts=BtsNumber.BTS1,
+                t_bts=BtsNumber.BTS2):
+    """ Setup and perform a handover test case in MD8475A
+
+    Args:
+        anritsu_handle: Anritsu object.
+        s_bts: Serving (originating) BTS
+        t_bts: Target (destination) BTS
+        wait_time: time to wait before handover
+
+    Returns:
+        True for success False for failure
+    """
+    log.info("Starting HO test case procedure")
+    time.sleep(wait_time)
+    ho_tc = anritsu_handle.get_AnritsuTestCases()
+    ho_tc.procedure = TestProcedure.PROCEDURE_HO
+    ho_tc.bts_direction = (s_bts, t_bts)
+    ho_tc.power_control = TestPowerControl.POWER_CONTROL_DISABLE
+    ho_tc.measurement_LTE = TestMeasurement.MEASUREMENT_DISABLE
+    anritsu_handle.start_testcase()
+    status = anritsu_handle.get_testcase_status()
+    timer = 0
+    while status == "0":
+        time.sleep(1)
+        status = anritsu_handle.get_testcase_status()
+        timer += 1
+        if timer > timeout:
+            return "Handover Test Case time out in {} sec!".format(timeout)
+    return status
+
+
+def make_ims_call(log,
+                  ad,
+                  anritsu_handle,
+                  callee_number,
+                  is_emergency=False,
+                  check_ims_reg=True,
+                  check_ims_calling=True,
+                  mo=True,
+                  ims_virtual_network_id=DEFAULT_IMS_VIRTUAL_NETWORK_ID):
+    """ Makes a MO call after IMS registred
+
+    Args:
+        ad: Android device object.
+        anritsu_handle: Anritsu object.
+        callee_number: Number to be called.
+        check_ims_reg: check if Anritsu cscf server state is "SIPIDLE".
+        check_ims_calling: check if Anritsu cscf server state is "CALLING".
+        mo: Mobile originated call
+        ims_virtual_network_id: ims virtual network id.
+
+    Returns:
+        True for success False for failure
+    """
+
+    try:
+        # confirm ims registration
+        if check_ims_reg:
+            if not wait_for_ims_cscf_status(log, anritsu_handle,
+                                            ims_virtual_network_id,
+                                            ImsCscfStatus.SIPIDLE.value):
+                raise _CallSequenceException("IMS/CSCF status is not idle.")
+        if mo:  # make MO call
+            log.info("Making Call to " + callee_number)
+            if not initiate_call(log, ad, callee_number, is_emergency):
+                raise _CallSequenceException("Initiate call failed.")
+            if not wait_for_ims_cscf_status(log, anritsu_handle,
+                                            ims_virtual_network_id,
+                                            ImsCscfStatus.CALLING.value):
+                raise _CallSequenceException(
+                    "Phone IMS status is not calling.")
+        else:  # make MT call
+            log.info("Making IMS Call to UE from MD8475A...")
+            anritsu_handle.ims_cscf_call_action(ims_virtual_network_id,
+                                                ImsCscfCall.MAKE.value)
+            if not wait_for_ims_cscf_status(log, anritsu_handle,
+                                            ims_virtual_network_id,
+                                            ImsCscfStatus.RINGING.value):
+                raise _CallSequenceException(
+                    "Phone IMS status is not ringing.")
+            # answer the call on the UE
+            if not wait_and_answer_call(log, ad):
+                raise _CallSequenceException("UE Answer call Fail")
+
+        if not wait_for_ims_cscf_status(log, anritsu_handle,
+                                        ims_virtual_network_id,
+                                        ImsCscfStatus.CONNECTED.value):
+            raise _CallSequenceException(
+                "MD8475A IMS status is not connected.")
+        return True
+
+    except _CallSequenceException as e:
+        log.error(e)
+        return False
+
+
+def tear_down_call(log,
+                   ad,
+                   anritsu_handle,
+                   ims_virtual_network_id=DEFAULT_IMS_VIRTUAL_NETWORK_ID):
+    """ Check and End a VoLTE call
+
+    Args:
+        ad: Android device object.
+        anritsu_handle: Anritsu object.
+        ims_virtual_network_id: ims virtual network id.
+
+    Returns:
+        True for success False for failure
+    """
+    try:
+        # end the call from phone
+        log.info("Disconnecting the call from DUT")
+        if not hangup_call(log, ad):
+            raise _CallSequenceException("Error in Hanging-Up Call on DUT.")
+        # confirm if CSCF status is back to idle
+        if not wait_for_ims_cscf_status(log, anritsu_handle,
+                                        ims_virtual_network_id,
+                                        ImsCscfStatus.SIPIDLE.value):
+            raise _CallSequenceException("IMS/CSCF status is not idle.")
+        return True
+
+    except _CallSequenceException as e:
+        log.error(e)
+        return False
+    finally:
+        try:
+            if ad.droid.telecomIsInCall():
+                ad.droid.telecomEndCall()
+        except Exception as e:
+            log.error(str(e))
+
+
+# This procedure is for VoLTE mobility test cases
+def ims_call_ho(log,
+                ad,
+                anritsu_handle,
+                callee_number,
+                is_emergency=False,
+                check_ims_reg=True,
+                check_ims_calling=True,
+                mo=True,
+                wait_time_in_volte=WAIT_TIME_IN_CALL_FOR_IMS,
+                ims_virtual_network_id=DEFAULT_IMS_VIRTUAL_NETWORK_ID):
+    """ Makes a MO call after IMS registred, then handover
+
+    Args:
+        ad: Android device object.
+        anritsu_handle: Anritsu object.
+        callee_number: Number to be called.
+        check_ims_reg: check if Anritsu cscf server state is "SIPIDLE".
+        check_ims_calling: check if Anritsu cscf server state is "CALLING".
+        mo: Mobile originated call
+        wait_time_in_volte: Time for phone in VoLTE call, not used for SRLTE
+        ims_virtual_network_id: ims virtual network id.
+
+    Returns:
+        True for success False for failure
+    """
+
+    try:
+        # confirm ims registration
+        if check_ims_reg:
+            if not wait_for_ims_cscf_status(log, anritsu_handle,
+                                            ims_virtual_network_id,
+                                            ImsCscfStatus.SIPIDLE.value):
+                raise _CallSequenceException("IMS/CSCF status is not idle.")
+        if mo:  # make MO call
+            log.info("Making Call to " + callee_number)
+            if not initiate_call(log, ad, callee_number, is_emergency):
+                raise _CallSequenceException("Initiate call failed.")
+            if not wait_for_ims_cscf_status(log, anritsu_handle,
+                                            ims_virtual_network_id,
+                                            ImsCscfStatus.CALLING.value):
+                raise _CallSequenceException(
+                    "Phone IMS status is not calling.")
+        else:  # make MT call
+            log.info("Making IMS Call to UE from MD8475A...")
+            anritsu_handle.ims_cscf_call_action(ims_virtual_network_id,
+                                                ImsCscfCall.MAKE.value)
+            if not wait_for_ims_cscf_status(log, anritsu_handle,
+                                            ims_virtual_network_id,
+                                            ImsCscfStatus.RINGING.value):
+                raise _CallSequenceException(
+                    "Phone IMS status is not ringing.")
+            # answer the call on the UE
+            if not wait_and_answer_call(log, ad):
+                raise _CallSequenceException("UE Answer call Fail")
+
+        if not wait_for_ims_cscf_status(log, anritsu_handle,
+                                        ims_virtual_network_id,
+                                        ImsCscfStatus.CONNECTED.value):
+            raise _CallSequenceException("Phone IMS status is not connected.")
+        log.info(
+            "Wait for {} seconds before handover".format(wait_time_in_volte))
+        time.sleep(wait_time_in_volte)
+
+        # Once VoLTE call is connected, then Handover
+        log.info("Starting handover procedure...")
+        result = handover_tc(anritsu_handle, BtsNumber.BTS1, BtsNumber.BTS2)
+        log.info("Handover procedure ends with result code {}".format(result))
+        log.info(
+            "Wait for {} seconds after handover".format(wait_time_in_volte))
+        time.sleep(wait_time_in_volte)
+
+        # check if the phone stay in call
+        if not ad.droid.telecomIsInCall():
+            raise _CallSequenceException("Call ended before delay_in_call.")
+        # end the call from phone
+        log.info("Disconnecting the call from DUT")
+        if not hangup_call(log, ad):
+            raise _CallSequenceException("Error in Hanging-Up Call on DUT.")
+        # confirm if CSCF status is back to idle
+        if not wait_for_ims_cscf_status(log, anritsu_handle,
+                                        ims_virtual_network_id,
+                                        ImsCscfStatus.SIPIDLE.value):
+            raise _CallSequenceException("IMS/CSCF status is not idle.")
+
         return True
 
     except _CallSequenceException as e:
@@ -1450,7 +1718,8 @@ def get_transmission_mode(user_params, cell_no):
     transmission_mode = user_params.get(key, DEFAULT_T_MODE)
     return transmission_mode
 
-def get_dl_antennas(user_params, cell_no):
+
+def get_dl_antenna(user_params, cell_no):
     """ Returns the DL ANTENNA to be used from the user specified parameters
         or default value
 
@@ -1466,6 +1735,7 @@ def get_dl_antennas(user_params, cell_no):
     dl_antenna = user_params.get(key, DEFAULT_DL_ANTENNA)
     return dl_antenna
 
+
 def get_lte_band(user_params, cell_no):
     """ Returns the LTE BAND to be used from the user specified parameters
         or default value
@@ -1479,8 +1749,8 @@ def get_lte_band(user_params, cell_no):
         LTE BAND to be used
     """
     key = "cell{}_lte_band".format(cell_no)
-    lte_band = user_params.get(key, DEFAULT_LTE_BAND)
-    return lte_band
+    band = DEFAULT_LTE_BAND[cell_no - 1]
+    return user_params.get(key, band)
 
 
 def get_wcdma_band(user_params, cell_no):

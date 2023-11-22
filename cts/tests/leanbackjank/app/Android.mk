@@ -25,7 +25,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_PACKAGE_NAME := CtsLeanbackJankApp
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 LOCAL_RESOURCE_DIR := \
     $(TOP)/frameworks/support/v17/leanback/res \
@@ -46,5 +46,7 @@ LOCAL_AAPT_FLAGS := \
         --auto-add-overlay \
         --extra-packages android.support.v17.leanback \
         --extra-packages android.support.v7.recyclerview
+
+LOCAL_PROGUARD_FLAG_FILES := proguard.flags
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)

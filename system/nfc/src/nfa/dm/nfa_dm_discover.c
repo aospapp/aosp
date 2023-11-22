@@ -1,6 +1,5 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2014 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -72,6 +71,8 @@ typedef struct nfa_dm_p2p_prio_logic {
 
 static nfa_dm_p2p_prio_logic_t p2p_prio_logic_data;
 
+static void nfa_dm_send_tag_deselect_cmd(tNFA_NFC_PROTOCOL protocol);
+
 /*******************************************************************************
 **
 ** Function         nfa_dm_get_rf_discover_config
@@ -126,25 +127,34 @@ static uint8_t nfa_dm_get_rf_discover_config(
 
     if (num_params >= max_params) return num_params;
   }
+  if (NFC_GetNCIVersion() == NCI_VERSION_2_0) {
+    /* Check polling Active mode  */
+    if (dm_disc_mask & NFA_DM_DISC_MASK_PACM_NFC_DEP) {
+      disc_params[num_params].type = NFC_DISCOVERY_TYPE_POLL_ACTIVE;
+      disc_params[num_params].frequency = p_nfa_dm_rf_disc_freq_cfg->pacm;
+      num_params++;
 
-  /* Check polling A Active mode  */
-  if (dm_disc_mask & NFA_DM_DISC_MASK_PAA_NFC_DEP) {
-    disc_params[num_params].type = NFC_DISCOVERY_TYPE_POLL_A_ACTIVE;
-    disc_params[num_params].frequency = p_nfa_dm_rf_disc_freq_cfg->paa;
-    num_params++;
+      if (num_params >= max_params) return num_params;
+    }
+  } else {
+    /* Check polling A Active mode  */
+    if (dm_disc_mask & NFA_DM_DISC_MASK_PAA_NFC_DEP) {
+      disc_params[num_params].type = NFC_DISCOVERY_TYPE_POLL_A_ACTIVE;
+      disc_params[num_params].frequency = p_nfa_dm_rf_disc_freq_cfg->paa;
+      num_params++;
 
-    if (num_params >= max_params) return num_params;
+      if (num_params >= max_params) return num_params;
+    }
+
+    /* Check polling F Active mode  */
+    if (dm_disc_mask & NFA_DM_DISC_MASK_PFA_NFC_DEP) {
+      disc_params[num_params].type = NFC_DISCOVERY_TYPE_POLL_F_ACTIVE;
+      disc_params[num_params].frequency = p_nfa_dm_rf_disc_freq_cfg->pfa;
+      num_params++;
+
+      if (num_params >= max_params) return num_params;
+    }
   }
-
-  /* Check polling F Active mode  */
-  if (dm_disc_mask & NFA_DM_DISC_MASK_PFA_NFC_DEP) {
-    disc_params[num_params].type = NFC_DISCOVERY_TYPE_POLL_F_ACTIVE;
-    disc_params[num_params].frequency = p_nfa_dm_rf_disc_freq_cfg->pfa;
-    num_params++;
-
-    if (num_params >= max_params) return num_params;
-  }
-
   /* Check listening A */
   if (dm_disc_mask &
       (NFA_DM_DISC_MASK_LA_T1T | NFA_DM_DISC_MASK_LA_T2T |
@@ -173,28 +183,37 @@ static uint8_t nfa_dm_get_rf_discover_config(
 
     if (num_params >= max_params) return num_params;
   }
+  if (NFC_GetNCIVersion() == NCI_VERSION_2_0) {
+    /* Check polling Active mode  */
+    if (dm_disc_mask & NFA_DM_DISC_MASK_LACM_NFC_DEP) {
+      disc_params[num_params].type = NFC_DISCOVERY_TYPE_LISTEN_ACTIVE;
+      disc_params[num_params].frequency = p_nfa_dm_rf_disc_freq_cfg->pacm;
+      num_params++;
+      if (num_params >= max_params) return num_params;
+    }
+  } else {
+    /* Check listening A Active mode */
+    if (dm_disc_mask & NFA_DM_DISC_MASK_LAA_NFC_DEP) {
+      disc_params[num_params].type = NFC_DISCOVERY_TYPE_LISTEN_A_ACTIVE;
+      disc_params[num_params].frequency = 1;
+      num_params++;
 
-  /* Check listening A Active mode */
-  if (dm_disc_mask & NFA_DM_DISC_MASK_LAA_NFC_DEP) {
-    disc_params[num_params].type = NFC_DISCOVERY_TYPE_LISTEN_A_ACTIVE;
-    disc_params[num_params].frequency = 1;
-    num_params++;
+      if (num_params >= max_params) return num_params;
+    }
 
-    if (num_params >= max_params) return num_params;
-  }
+    /* Check listening F Active mode */
+    if (dm_disc_mask & NFA_DM_DISC_MASK_LFA_NFC_DEP) {
+      disc_params[num_params].type = NFC_DISCOVERY_TYPE_LISTEN_F_ACTIVE;
+      disc_params[num_params].frequency = 1;
+      num_params++;
 
-  /* Check listening F Active mode */
-  if (dm_disc_mask & NFA_DM_DISC_MASK_LFA_NFC_DEP) {
-    disc_params[num_params].type = NFC_DISCOVERY_TYPE_LISTEN_F_ACTIVE;
-    disc_params[num_params].frequency = 1;
-    num_params++;
-
-    if (num_params >= max_params) return num_params;
+      if (num_params >= max_params) return num_params;
+    }
   }
 
   /* Check polling ISO 15693 */
-  if (dm_disc_mask & NFA_DM_DISC_MASK_P_ISO15693) {
-    disc_params[num_params].type = NFC_DISCOVERY_TYPE_POLL_ISO15693;
+  if (dm_disc_mask & NFA_DM_DISC_MASK_P_T5T) {
+    disc_params[num_params].type = NFC_DISCOVERY_TYPE_POLL_V;
     disc_params[num_params].frequency = p_nfa_dm_rf_disc_freq_cfg->pi93;
     num_params++;
 
@@ -623,16 +642,12 @@ static tNFA_DM_DISC_TECH_PROTO_MASK nfa_dm_disc_get_disc_mask(
       disc_mask = NFA_DM_DISC_MASK_PF_T3T;
     else if (protocol == NFC_PROTOCOL_NFC_DEP)
       disc_mask = NFA_DM_DISC_MASK_PF_NFC_DEP;
-  } else if (NFC_DISCOVERY_TYPE_POLL_ISO15693 == tech_n_mode) {
-    disc_mask = NFA_DM_DISC_MASK_P_ISO15693;
+  } else if (NFC_DISCOVERY_TYPE_POLL_V == tech_n_mode) {
+    disc_mask = NFA_DM_DISC_MASK_P_T5T;
   } else if (NFC_DISCOVERY_TYPE_POLL_B_PRIME == tech_n_mode) {
     disc_mask = NFA_DM_DISC_MASK_P_B_PRIME;
   } else if (NFC_DISCOVERY_TYPE_POLL_KOVIO == tech_n_mode) {
     disc_mask = NFA_DM_DISC_MASK_P_KOVIO;
-  } else if (NFC_DISCOVERY_TYPE_POLL_A_ACTIVE == tech_n_mode) {
-    disc_mask = NFA_DM_DISC_MASK_PAA_NFC_DEP;
-  } else if (NFC_DISCOVERY_TYPE_POLL_F_ACTIVE == tech_n_mode) {
-    disc_mask = NFA_DM_DISC_MASK_PFA_NFC_DEP;
   } else if (NFC_DISCOVERY_TYPE_LISTEN_A == tech_n_mode) {
     switch (protocol) {
       case NFC_PROTOCOL_T1T:
@@ -660,10 +675,23 @@ static tNFA_DM_DISC_TECH_PROTO_MASK nfa_dm_disc_get_disc_mask(
     disc_mask = NFA_DM_DISC_MASK_L_ISO15693;
   } else if (NFC_DISCOVERY_TYPE_LISTEN_B_PRIME == tech_n_mode) {
     disc_mask = NFA_DM_DISC_MASK_L_B_PRIME;
-  } else if (NFC_DISCOVERY_TYPE_LISTEN_A_ACTIVE == tech_n_mode) {
-    disc_mask = NFA_DM_DISC_MASK_LAA_NFC_DEP;
-  } else if (NFC_DISCOVERY_TYPE_LISTEN_F_ACTIVE == tech_n_mode) {
-    disc_mask = NFA_DM_DISC_MASK_LFA_NFC_DEP;
+  }
+  if (NFC_GetNCIVersion() == NCI_VERSION_2_0) {
+    if (NFC_DISCOVERY_TYPE_POLL_ACTIVE == tech_n_mode) {
+      disc_mask = NFA_DM_DISC_MASK_PACM_NFC_DEP;
+    } else if (NFC_DISCOVERY_TYPE_LISTEN_ACTIVE == tech_n_mode) {
+      disc_mask = NFA_DM_DISC_MASK_LACM_NFC_DEP;
+    }
+  } else {
+    if (NFC_DISCOVERY_TYPE_POLL_A_ACTIVE == tech_n_mode) {
+      disc_mask = NFA_DM_DISC_MASK_PAA_NFC_DEP;
+    } else if (NFC_DISCOVERY_TYPE_POLL_F_ACTIVE == tech_n_mode) {
+      disc_mask = NFA_DM_DISC_MASK_PFA_NFC_DEP;
+    } else if (NFC_DISCOVERY_TYPE_LISTEN_A_ACTIVE == tech_n_mode) {
+      disc_mask = NFA_DM_DISC_MASK_LAA_NFC_DEP;
+    } else if (NFC_DISCOVERY_TYPE_LISTEN_F_ACTIVE == tech_n_mode) {
+      disc_mask = NFA_DM_DISC_MASK_LFA_NFC_DEP;
+    }
   }
 
   NFA_TRACE_DEBUG3(
@@ -913,18 +941,28 @@ void nfa_dm_start_rf_discover(void) {
           listen_mask |=
               nfa_dm_cb.disc_cb.entry[xx].requested_disc_mask &
               (NFA_DM_DISC_MASK_LA_T1T | NFA_DM_DISC_MASK_LA_T2T |
-               NFA_DM_DISC_MASK_LA_ISO_DEP | NFA_DM_DISC_MASK_LA_NFC_DEP |
-               NFA_DM_DISC_MASK_LAA_NFC_DEP);
+               NFA_DM_DISC_MASK_LA_ISO_DEP | NFA_DM_DISC_MASK_LA_NFC_DEP);
+          if (NFC_GetNCIVersion() == NCI_VERSION_2_0) {
+            listen_mask |= nfa_dm_cb.disc_cb.entry[xx].requested_disc_mask &
+                           NFA_DM_DISC_MASK_LACM_NFC_DEP;
+          } else {
+            listen_mask |= nfa_dm_cb.disc_cb.entry[xx].requested_disc_mask &
+                           NFA_DM_DISC_MASK_LAA_NFC_DEP;
+          }
         } else {
           /* host can listen ISO-DEP based on AID routing */
           listen_mask |= (nfa_dm_cb.disc_cb.entry[xx].requested_disc_mask &
                           NFA_DM_DISC_MASK_LA_ISO_DEP);
-
-          /* host can listen NFC-DEP based on protocol routing */
-          listen_mask |= (nfa_dm_cb.disc_cb.entry[xx].requested_disc_mask &
-                          NFA_DM_DISC_MASK_LA_NFC_DEP);
-          listen_mask |= (nfa_dm_cb.disc_cb.entry[xx].requested_disc_mask &
-                          NFA_DM_DISC_MASK_LAA_NFC_DEP);
+          if (NFC_GetNCIVersion() == NCI_VERSION_2_0) {
+            listen_mask |= (nfa_dm_cb.disc_cb.entry[xx].requested_disc_mask &
+                            NFA_DM_DISC_MASK_LACM_NFC_DEP);
+          } else {
+            /* host can listen NFC-DEP based on protocol routing */
+            listen_mask |= (nfa_dm_cb.disc_cb.entry[xx].requested_disc_mask &
+                            NFA_DM_DISC_MASK_LA_NFC_DEP);
+            listen_mask |= (nfa_dm_cb.disc_cb.entry[xx].requested_disc_mask &
+                            NFA_DM_DISC_MASK_LAA_NFC_DEP);
+          }
         }
 
         /* NFC-B */
@@ -936,9 +974,11 @@ void nfa_dm_start_rf_discover(void) {
         /* NFCC can support NFC-DEP and T3T listening based on NFCID routing
          * regardless of NFC-F tech routing */
         listen_mask |= nfa_dm_cb.disc_cb.entry[xx].requested_disc_mask &
-                       (NFA_DM_DISC_MASK_LF_T3T | NFA_DM_DISC_MASK_LF_NFC_DEP |
-                        NFA_DM_DISC_MASK_LFA_NFC_DEP);
-
+                       (NFA_DM_DISC_MASK_LF_T3T | NFA_DM_DISC_MASK_LF_NFC_DEP);
+        if (NFC_GetNCIVersion() != NCI_VERSION_2_0) {
+          listen_mask |= nfa_dm_cb.disc_cb.entry[xx].requested_disc_mask &
+                         NFA_DM_DISC_MASK_LFA_NFC_DEP;
+        }
         /* NFC-B Prime */
         if (nfa_dm_cb.disc_cb.entry[xx].host_id ==
             nfa_dm_cb.disc_cb.listen_RT[NFA_DM_DISC_LRT_NFC_BP]) {
@@ -972,10 +1012,18 @@ void nfa_dm_start_rf_discover(void) {
          * on AID routing */
 
         /* Check if other modules are listening NFC-DEP */
-        if (dm_disc_mask &
-            (NFA_DM_DISC_MASK_LA_NFC_DEP | NFA_DM_DISC_MASK_LAA_NFC_DEP)) {
-          listen_mask &=
-              ~(NFA_DM_DISC_MASK_LA_NFC_DEP | NFA_DM_DISC_MASK_LAA_NFC_DEP);
+        if (NFC_GetNCIVersion() == NCI_VERSION_2_0) {
+          if (dm_disc_mask &
+              (NFA_DM_DISC_MASK_LA_NFC_DEP | NFA_DM_DISC_MASK_LACM_NFC_DEP)) {
+            listen_mask &=
+                ~(NFA_DM_DISC_MASK_LA_NFC_DEP | NFA_DM_DISC_MASK_LACM_NFC_DEP);
+          }
+        } else {
+          if (dm_disc_mask &
+              (NFA_DM_DISC_MASK_LA_NFC_DEP | NFA_DM_DISC_MASK_LAA_NFC_DEP)) {
+            listen_mask &=
+                ~(NFA_DM_DISC_MASK_LA_NFC_DEP | NFA_DM_DISC_MASK_LAA_NFC_DEP);
+          }
         }
 
         nfa_dm_cb.disc_cb.entry[xx].selected_disc_mask =
@@ -1267,6 +1315,14 @@ static tNFA_STATUS nfa_dm_disc_notify_activation(tNFC_DISCOVER* p_data) {
   if (xx >= NFA_DM_DISC_NUM_ENTRIES) {
     /* if any ISO-DEP or T3T listening even if host in LRT is not matched */
     xx = iso_dep_t3t__listen;
+  }
+  if (protocol == NFC_PROTOCOL_NFC_DEP &&
+      (tech_n_mode == NFC_DISCOVERY_TYPE_LISTEN_F_ACTIVE ||
+       tech_n_mode == NFC_DISCOVERY_TYPE_LISTEN_A_ACTIVE ||
+       tech_n_mode == NFC_DISCOVERY_TYPE_LISTEN_A)) {
+    if (appl_dta_mode_flag == 1 && tech_n_mode == NFC_DISCOVERY_TYPE_LISTEN_A) {
+      NFA_TRACE_DEBUG0("DTA Mode Enabled : NFC-A Passive Listen Mode");
+    }
   }
 
   if (xx < NFA_DM_DISC_NUM_ENTRIES) {
@@ -2101,6 +2157,15 @@ static void nfa_dm_disc_sm_poll_active(tNFA_DM_RF_DISC_SM_EVENT event,
 
   switch (event) {
     case NFA_DM_RF_DEACTIVATE_CMD:
+      if (NFC_GetNCIVersion() == NCI_VERSION_2_0) {
+        if ((nfa_dm_cb.disc_cb.activated_rf_interface == NFC_INTERFACE_FRAME) &&
+            (p_data->deactivate_type == NFC_DEACTIVATE_TYPE_SLEEP)) {
+          /* NCI 2.0- DH is responsible for sending deactivation commands before
+           * RF_DEACTIVATE_CMD */
+          nfa_dm_send_tag_deselect_cmd(nfa_dm_cb.disc_cb.activated_protocol);
+        }
+      }
+
       if (nfa_dm_cb.disc_cb.activated_protocol == NCI_PROTOCOL_MIFARE) {
         nfa_dm_cb.disc_cb.deact_pending = true;
         nfa_dm_cb.disc_cb.pending_deact_type = p_data->deactivate_type;
@@ -2148,35 +2213,60 @@ static void nfa_dm_disc_sm_poll_active(tNFA_DM_RF_DISC_SM_EVENT event,
         NFA_TRACE_DEBUG0("Rx deactivate NTF while waiting for deactivate RSP");
         break;
       }
-
-      sleep_wakeup_event = true;
-
-      nfa_dm_disc_notify_deactivation(NFA_DM_RF_DEACTIVATE_NTF,
-                                      &(p_data->nfc_discover));
-
-      if ((p_data->nfc_discover.deactivate.type == NFC_DEACTIVATE_TYPE_SLEEP) ||
-          (p_data->nfc_discover.deactivate.type ==
-           NFC_DEACTIVATE_TYPE_SLEEP_AF)) {
-        nfa_dm_disc_new_state(NFA_DM_RFST_W4_HOST_SELECT);
-        if (old_sleep_wakeup_flag) {
-          sleep_wakeup_event_processed = true;
-          /* process pending deactivate request */
-          if (nfa_dm_cb.disc_cb.deact_pending) {
-            /* notify RW module that sleep wakeup is finished */
-            /* if deactivation is pending then deactivate  */
-            nfa_dm_disc_end_sleep_wakeup(NFC_STATUS_OK);
-
-            /* Notify NFA RW sub-systems because NFA_DM_RF_DEACTIVATE_RSP will
-             * not call this function */
-            nfa_rw_proc_disc_evt(NFA_DM_RF_DISC_DEACTIVATED_EVT, NULL, true);
-          } else {
-            /* Successfully went to sleep mode for sleep wakeup */
-            /* Now wake up the tag to complete the operation */
-            NFC_DiscoverySelect(nfa_dm_cb.disc_cb.activated_rf_disc_id,
-                                nfa_dm_cb.disc_cb.activated_protocol,
-                                nfa_dm_cb.disc_cb.activated_rf_interface);
-          }
+      if (p_data->nfc_discover.deactivate.reason !=
+          NFC_DEACTIVATE_REASON_DH_REQ_FAILED) {
+        sleep_wakeup_event = true;
+        nfa_dm_disc_notify_deactivation(NFA_DM_RF_DEACTIVATE_NTF,
+                                        &(p_data->nfc_discover));
         }
+        if ((p_data->nfc_discover.deactivate.type ==
+             NFC_DEACTIVATE_TYPE_SLEEP) ||
+            (p_data->nfc_discover.deactivate.type ==
+             NFC_DEACTIVATE_TYPE_SLEEP_AF)) {
+          if (p_data->nfc_discover.deactivate.reason !=
+              NFC_DEACTIVATE_REASON_DH_REQ_FAILED) {
+            /* count for number of times deactivate cmd sent */
+            nfa_dm_cb.deactivate_cmd_retry_count = 0;
+          }
+          nfa_dm_disc_new_state(NFA_DM_RFST_W4_HOST_SELECT);
+          if (old_sleep_wakeup_flag) {
+            sleep_wakeup_event_processed = true;
+            /* process pending deactivate request */
+            if (nfa_dm_cb.disc_cb.deact_pending) {
+              /* notify RW module that sleep wakeup is finished */
+              /* if deactivation is pending then deactivate  */
+              nfa_dm_disc_end_sleep_wakeup(NFC_STATUS_OK);
+
+              /* Notify NFA RW sub-systems because NFA_DM_RF_DEACTIVATE_RSP will
+               * not call this function */
+              nfa_rw_proc_disc_evt(NFA_DM_RF_DISC_DEACTIVATED_EVT, NULL, true);
+            } else {
+              /* Successfully went to sleep mode for sleep wakeup */
+              /* Now wake up the tag to complete the operation */
+              NFC_DiscoverySelect(nfa_dm_cb.disc_cb.activated_rf_disc_id,
+                                  nfa_dm_cb.disc_cb.activated_protocol,
+                                  nfa_dm_cb.disc_cb.activated_rf_interface);
+            }
+          }
+          if (p_data->nfc_discover.deactivate.reason ==
+              NFC_DEACTIVATE_REASON_DH_REQ_FAILED) {
+            /* in case deactivation is not sucessfull, NFCC shall send
+               RF_DEACTIVATE_NTF with DH Req failed due to error.
+               MW shall send deactivation cmd again for 3 three times. if
+               deactivation is not successfull 3 times also,
+               then MW shall send deacivate cmd with deactivate type is
+               discovery */
+            if (nfa_dm_cb.deactivate_cmd_retry_count == 3) {
+              if ((!old_sleep_wakeup_flag) ||
+                  (!nfa_dm_cb.disc_cb.deact_pending)) {
+                nfa_dm_send_deactivate_cmd(NFA_DEACTIVATE_TYPE_DISCOVERY);
+              }
+              nfa_dm_cb.deactivate_cmd_retry_count = 0;
+            } else {
+              nfa_dm_cb.deactivate_cmd_retry_count++;
+              nfa_dm_send_deactivate_cmd(p_data->nfc_discover.deactivate.type);
+            }
+          }
       } else if (p_data->nfc_discover.deactivate.type ==
                  NFC_DEACTIVATE_TYPE_IDLE) {
         nfa_dm_disc_new_state(NFA_DM_RFST_IDLE);
@@ -2550,9 +2640,19 @@ void nfa_dm_start_excl_discovery(tNFA_TECHNOLOGY_MASK poll_tech_mask,
     poll_disc_mask |= NFA_DM_DISC_MASK_PA_NFC_DEP;
     poll_disc_mask |= NFA_DM_DISC_MASK_P_LEGACY;
   }
-  if (poll_tech_mask & NFA_TECHNOLOGY_MASK_A_ACTIVE) {
-    poll_disc_mask |= NFA_DM_DISC_MASK_PAA_NFC_DEP;
+  if (NFC_GetNCIVersion() == NCI_VERSION_2_0) {
+    if (poll_tech_mask & NFA_TECHNOLOGY_MASK_ACTIVE) {
+      poll_disc_mask |= NFA_DM_DISC_MASK_PACM_NFC_DEP;
+    }
+  } else {
+    if (poll_tech_mask & NFA_TECHNOLOGY_MASK_A_ACTIVE) {
+      poll_disc_mask |= NFA_DM_DISC_MASK_PAA_NFC_DEP;
+    }
+    if (poll_tech_mask & NFA_TECHNOLOGY_MASK_F_ACTIVE) {
+      poll_disc_mask |= NFA_DM_DISC_MASK_PFA_NFC_DEP;
+    }
   }
+
   if (poll_tech_mask & NFA_TECHNOLOGY_MASK_B) {
     poll_disc_mask |= NFA_DM_DISC_MASK_PB_ISO_DEP;
   }
@@ -2560,11 +2660,8 @@ void nfa_dm_start_excl_discovery(tNFA_TECHNOLOGY_MASK poll_tech_mask,
     poll_disc_mask |= NFA_DM_DISC_MASK_PF_T3T;
     poll_disc_mask |= NFA_DM_DISC_MASK_PF_NFC_DEP;
   }
-  if (poll_tech_mask & NFA_TECHNOLOGY_MASK_F_ACTIVE) {
-    poll_disc_mask |= NFA_DM_DISC_MASK_PFA_NFC_DEP;
-  }
-  if (poll_tech_mask & NFA_TECHNOLOGY_MASK_ISO15693) {
-    poll_disc_mask |= NFA_DM_DISC_MASK_P_ISO15693;
+  if (poll_tech_mask & NFA_TECHNOLOGY_MASK_V) {
+    poll_disc_mask |= NFA_DM_DISC_MASK_P_T5T;
   }
   if (poll_tech_mask & NFA_TECHNOLOGY_MASK_B_PRIME) {
     poll_disc_mask |= NFA_DM_DISC_MASK_P_B_PRIME;
@@ -2813,7 +2910,10 @@ bool nfa_dm_p2p_prio_logic(uint8_t event, uint8_t* p, uint8_t event_type) {
         "returning from nfa_dm_p2p_prio_logic  Disable p2p_prio_logic");
     return true;
   }
-
+  if (appl_dta_mode_flag == 0x01) {
+    /*Disable the P2P Prio Logic when DTA is running*/
+    return TRUE;
+  }
   if (event == NCI_MSG_RF_DISCOVER &&
       p2p_prio_logic_data.timer_expired == true &&
       event_type == NFA_DM_P2P_PRIO_RSP) {
@@ -2974,4 +3074,41 @@ void nfa_dm_p2p_timer_event() {
 *******************************************************************************/
 void nfa_dm_p2p_prio_logic_cleanup() {
   memset(&p2p_prio_logic_data, 0x00, sizeof(nfa_dm_p2p_prio_logic_t));
+}
+
+/*******************************************************************************
+**
+** Function         nfa_dm_send_tag_deselect_cmd
+**
+** Description      Send command to send tag in sleep state
+**
+** Returns          void
+**
+*******************************************************************************/
+static void nfa_dm_send_tag_deselect_cmd(tNFA_NFC_PROTOCOL protocol) {
+  NFC_HDR* p_msg;
+  uint8_t* p;
+
+  NFA_TRACE_DEBUG0("nfa_dm_send_tag_deselect_cmd");
+  p_msg = (NFC_HDR*)GKI_getpoolbuf(NFC_RW_POOL_ID);
+
+  if (p_msg) {
+    if (protocol == NFC_PROTOCOL_ISO_DEP) {
+      /* send one byte of 0xc2 as as deselect command to Tag */
+      p_msg->len = 1;
+      p_msg->offset = NCI_MSG_OFFSET_SIZE + NCI_DATA_HDR_SIZE;
+      p = (uint8_t*)(p_msg + 1) + p_msg->offset;
+      *p = NFA_RW_TAG_DESELECT_CMD;
+    } else if (protocol == NFC_PROTOCOL_T2T) {
+      p_msg->len = NFA_RW_TAG_SLP_REQ_LEN;
+      p_msg->offset = NCI_MSG_OFFSET_SIZE + NCI_DATA_HDR_SIZE;
+      p = (uint8_t*)(p_msg + 1) + p_msg->offset;
+      memcpy((uint8_t*)(p_msg + 1) + p_msg->offset, NFA_RW_TAG_SLP_REQ,
+             p_msg->len);
+    } else {
+      GKI_freebuf(p_msg);
+      return;
+    }
+    NFC_SendData(NFC_RF_CONN_ID, p_msg);
+  }
 }

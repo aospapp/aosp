@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------------
-Copyright (c) 2010 - 2013, The Linux Foundation. All rights reserved.
+Copyright (c) 2010 - 2017, The Linux Foundation. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -906,7 +906,7 @@ void h264_stream_parser::sei_pan_scan()
 #ifdef _ANDROID_
     char property_value[PROPERTY_VALUE_MAX] = {0};
     OMX_S32 enable_panscan_log = 0;
-    property_get("vidc.dec.debug.panframedata", property_value, "0");
+    property_get("vendor.vidc.dec.debug.panframedata", property_value, "0");
     enable_panscan_log = atoi(property_value);
 #endif
 #ifdef PANSCAN_HDLR
@@ -1195,7 +1195,7 @@ void h264_stream_parser::parse_frame_pack()
     char property_value[PROPERTY_VALUE_MAX] = {0};
     OMX_S32 enable_framepack_log = 0;
 
-    property_get("vidc.dec.debug.panframedata", property_value, "0");
+    property_get("vendor.vidc.dec.debug.panframedata", property_value, "0");
     enable_framepack_log = atoi(property_value);
 #endif
     ALOGV("%s:%d parse_frame_pack", __func__, __LINE__);

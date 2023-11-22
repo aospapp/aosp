@@ -18,9 +18,11 @@ package com.android.car.test;
 import android.car.Car;
 import android.car.CarInfoManager;
 import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
+import android.test.suitebuilder.annotation.MediumTest;
 
 import com.android.car.vehiclehal.VehiclePropValueBuilder;
 
+@MediumTest
 public class CarInfoManagerTest extends MockedCarTestBase {
     private static final String MAKE_NAME = "ANDROID";
 

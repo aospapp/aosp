@@ -148,7 +148,7 @@
     <string name="copyright_title" msgid="5564228453228549353">"Автордук укук"</string>
     <string name="license_title" msgid="4482927105870812604">"Уруксаттама"</string>
     <string name="terms_title" msgid="8480859222932736291">"Шарттар жана жоболор"</string>
-    <string name="webview_license_title" msgid="8843666223583780825">"Систем WebView Уруксаттамасы"</string>
+    <string name="webview_license_title" msgid="8843666223583780825">"WebView тутум уруксаттамасы"</string>
     <string name="wallpaper_attributions" msgid="8622098625739634898">"Тушкагаздар"</string>
     <string name="wallpaper_attributions_values" msgid="1565931506291182879">"Спутник сүрөттөрү:\n©2014 CNES/Astrium, DigitalGlobe, Bluesky"</string>
   <string-array name="wifi_signal_strength">
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"Кызматтар"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Кызмат жөндөөлөрү"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Жогорку контрасттагы текст"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Атайын мүмкүнчүлүктөр функциясынын кыска жолу"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Атайын мүмкүнчүлүктөр функциясынын кыска жолун иштетүү"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Кыска жол кызматы"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Атайын мүмкүнчүлүктөр функциясын пайдалануу үчүн, анын кыска жолу күйгүзүлгөндө, артка жана төмөн жебе баскычын үч секунд коё бербей басып туруңуз."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Түшүндүрмөлөр"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Видеого жашыруун түшүндүрмө тексттерди жазуу жөндөөлөрү"</string>
     <string name="captions_display" msgid="735692527287125548">"Дисплей"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Мүчүлүштүк тууралуу кабар жаздырылууда"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Жеткиликтүү виртуалдык баскычтоптор"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Баскычтопторду башкаруу"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Уруксат берилген"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Тыюу салынган"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Колдонуу таржымалын көрүү"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Колдонуу мүмкүнчүлүгү колдонмонун башка кандай колдонмолорду жана канча ирет пайдаланып жатканыңызга, ошондой эле байланыш операторуңуз, тил жөндөөлөрү жана башка маалыматтарга көз салышына жол ачат."</string>
 </resources>

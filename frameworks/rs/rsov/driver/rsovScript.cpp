@@ -17,6 +17,7 @@
 #include "rsovScript.h"
 
 #include "bcinfo/MetadataExtractor.h"
+#include "module.h"
 #include "rsContext.h"
 #include "rsDefines.h"
 #include "rsType.h"
@@ -24,11 +25,19 @@
 #include "rsovAllocation.h"
 #include "rsovContext.h"
 #include "rsovCore.h"
+#include "spirit/file_utils.h"
 #include "spirit/instructions.h"
 #include "spirit/module.h"
 
 #include <fstream>
 #include <functional>
+#include <iostream>
+#include <sstream>
+#include <string>
+
+extern "C" {
+char*  __GPUBlock = nullptr;
+}
 
 namespace android {
 namespace renderscript {
@@ -44,7 +53,7 @@ struct rsovTypeInfo {
   uint32_t z_size;
 };
 
-const char *COMPILER_EXE_PATH = "/system/bin/bcc_rsov";
+const char *COMPILER_EXE_PATH = "/system/bin/rs2spirv";
 
 std::vector<const char *> setCompilerArgs(const char *bcFileName,
                                           const char *cacheDir) {
@@ -84,7 +93,8 @@ std::vector<uint32_t> readWords(const char *filename) {
 }
 
 std::vector<uint32_t> compileBitcode(const char *resName, const char *cacheDir,
-                                     const char *bitcode, size_t bitcodeSize) {
+                                     const char *bitcode, size_t bitcodeSize,
+                                     std::vector<uint8_t> &modifiedBitcode) {
   rsAssert(bitcode && bitcodeSize);
 
   // TODO: Cache the generated code
@@ -110,7 +120,33 @@ std::vector<uint32_t> compileBitcode(const char *resName, const char *cacheDir,
   spvFileName.append(resName);
   spvFileName.append(".spv");
 
+  std::string modifiedBCFileName(cacheDir);
+  modifiedBCFileName.append("/").append(resName).append("_modified.bc");
+
+  args.pop_back();
+  args.push_back("-bc");
+  args.push_back(modifiedBCFileName.c_str());
+  args.push_back(nullptr);
+
+  if (!rsuExecuteCommand(COMPILER_EXE_PATH, args.size() - 1, args.data())) {
+    ALOGE("compiler command line to create modified bitcode failed");
+    return std::vector<uint32_t>();
+  }
+
+  modifiedBitcode = android::spirit::readFile<uint8_t>(modifiedBCFileName);
+
   return readWords(spvFileName.c_str());
+}
+
+void splitOffsets(const std::string &str, char delimiter,
+                  std::vector<uint32_t> *offsets) {
+  std::stringstream ss(str);
+  std::string tok;
+
+  while (std::getline(ss, tok, delimiter)) {
+    const uint32_t offset = static_cast<uint32_t>(std::stoi(tok));
+    offsets->push_back(offset);
+  }
 }
 
 }  // anonymous namespace
@@ -131,6 +167,9 @@ void RSoVScript::initScriptOnRSoV(Script *s, RSoVScript *rsovScript) {
   s->mHal.info.mVersionMinor = 0;
 }
 
+using android::spirit::Module;
+using android::spirit::Deserialize;
+
 RSoVScript::RSoVScript(RSoVContext *context, std::vector<uint32_t> &&spvWords,
                        bcinfo::MetadataExtractor *ME,
                        std::map<std::string, int> *GA2ID)
@@ -139,7 +178,27 @@ RSoVScript::RSoVScript(RSoVContext *context, std::vector<uint32_t> &&spvWords,
       mSPIRVWords(std::move(spvWords)),
       mME(ME),
       mGlobalAllocationMetadata(nullptr),
-      mGAMapping(GA2ID) {}
+      mGAMapping(GA2ID) {
+  std::unique_ptr<Module> module(Deserialize<Module>(mSPIRVWords));
+
+  const std::string &strGlobalSize =
+      module->findStringOfPrefix(".rsov.GlobalSize:");
+  if (strGlobalSize.empty()) {
+    mGlobals.reset(new RSoVBuffer(context, 4));
+    return;
+  }
+  const size_t colonPosSize = strGlobalSize.find(':');
+  const std::string &strVal = strGlobalSize.substr(colonPosSize + 1);
+  const uint64_t globalSize = static_cast<uint64_t>(std::stol(strVal));
+  if (globalSize > 0) {
+    mGlobals.reset(new RSoVBuffer(context, globalSize));
+    __GPUBlock = mGlobals->getHostPtr();
+    const std::string &offsetStr =
+      module->findStringOfPrefix(".rsov.ExportedVars:");
+    const size_t colonPos = offsetStr.find(':');
+    splitOffsets(offsetStr.substr(colonPos + 1), ';', &mExportedVarOffsets);
+  }
+}
 
 RSoVScript::~RSoVScript() {
   delete mCpuScript;
@@ -147,7 +206,6 @@ RSoVScript::~RSoVScript() {
 }
 
 void RSoVScript::populateScript(Script *) {
-  // TODO: implement this
 }
 
 void RSoVScript::invokeFunction(uint32_t slot, const void *params,
@@ -179,7 +237,7 @@ void RSoVScript::invokeReduce(uint32_t slot, const Allocation **ains,
 }
 
 void RSoVScript::invokeInit() {
-  // TODO: implement this
+  getCpuScript()->invokeInit();
 }
 
 void RSoVScript::invokeFreeChildren() {
@@ -188,20 +246,54 @@ void RSoVScript::invokeFreeChildren() {
 
 void RSoVScript::setGlobalVar(uint32_t slot, const void *data,
                               size_t dataLength) {
-  // TODO: implement this
-  ALOGV("%s missing.", __FUNCTION__);
+  char *basePtr = mGlobals->getHostPtr();
+  rsAssert(basePtr != nullptr);
+  const uint32_t offset = GetExportedVarOffset(slot);
+  memcpy(basePtr + offset, data, dataLength);
 }
 
 void RSoVScript::getGlobalVar(uint32_t slot, void *data, size_t dataLength) {
-  // TODO: implement this
-  ALOGV("%s missing.", __FUNCTION__);
+  const char *basePtr = mGlobals->getHostPtr();
+  rsAssert(basePtr != nullptr);
+  const uint32_t offset = GetExportedVarOffset(slot);
+  memcpy(data, basePtr + offset, dataLength);
 }
 
 void RSoVScript::setGlobalVarWithElemDims(uint32_t slot, const void *data,
-                                          size_t dataLength, const Element *e,
+                                          size_t dataLength, const Element *elem,
                                           const uint32_t *dims,
                                           size_t dimLength) {
-  // TODO: implement this
+  char *basePtr = mGlobals->getHostPtr();
+  rsAssert(basePtr != nullptr);
+  const uint32_t offset = GetExportedVarOffset(slot);
+  char *destPtr = basePtr + offset;
+
+  // We want to look at dimension in terms of integer components,
+  // but dimLength is given in terms of bytes.
+  dimLength /= sizeof(int);
+
+  // Only a single dimension is currently supported.
+  rsAssert(dimLength == 1);
+  if (dimLength != 1) {
+    return;
+  }
+
+  // First do the increment loop.
+  size_t stride = elem->getSizeBytes();
+  const char *cVal = reinterpret_cast<const char *>(data);
+  for (uint32_t i = 0; i < dims[0]; i++) {
+    elem->incRefs(cVal);
+    cVal += stride;
+  }
+
+  // Decrement loop comes after (to prevent race conditions).
+  char *oldVal = destPtr;
+  for (uint32_t i = 0; i < dims[0]; i++) {
+    elem->decRefs(oldVal);
+    oldVal += stride;
+  }
+
+  memcpy(destPtr, data, dataLength);
 }
 
 void RSoVScript::setGlobalBind(uint32_t slot, Allocation *data) {
@@ -245,44 +337,23 @@ uint32_t RSoVScript::getGlobalProperties(int i) const {
 }
 
 void RSoVScript::InitDescriptorAndPipelineLayouts(uint32_t inLen) {
-  // TODO: global variables
   // TODO: kernels with zero output allocations
-  std::vector<VkDescriptorSetLayoutBinding> layout_bindings{
-      {
-          // for the global allocation metadata
-          .binding = 0,
-          .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-          .descriptorCount = 1,
-          .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-          .pImmutableSamplers = nullptr,
-      },
-      {
-          // for the output allocation
-          .binding = 1,
-          .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-          .descriptorCount = 1,
-          .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-          .pImmutableSamplers = nullptr,
-      },
-  };
-
-  // initialize descriptors for input allocations
-  for (uint32_t i = 0; i < inLen; ++i) {
-    layout_bindings.push_back({
-        .binding = i + 2,  // input allocations start from bining #2
-        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-        .descriptorCount = 1,
-        .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-        .pImmutableSamplers = nullptr,
-    });
+  std::vector<VkDescriptorSetLayoutBinding> bindings(
+      inLen + 3, {
+                     .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                     .descriptorCount = 1,
+                     .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+                 });
+  for (uint32_t i = 0; i < inLen + 3; i++) {
+    bindings[i].binding = i;
   }
 
   VkDescriptorSetLayoutCreateInfo descriptor_layout = {
       .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
       .pNext = nullptr,
       .flags = 0,
-      .bindingCount = inLen + 2,
-      .pBindings = layout_bindings.data(),
+      .bindingCount = inLen + 3,
+      .pBindings = bindings.data(),
   };
 
   VkResult res;
@@ -290,10 +361,6 @@ void RSoVScript::InitDescriptorAndPipelineLayouts(uint32_t inLen) {
   mDescLayout.resize(NUM_DESCRIPTOR_SETS);
   res = vkCreateDescriptorSetLayout(mDevice, &descriptor_layout, NULL,
                                     mDescLayout.data());
-  if (res != VK_SUCCESS) {
-    __android_log_print(ANDROID_LOG_ERROR, "ComputeTest",
-                        "vkCreateDescriptorSetLayout() returns %d", res);
-  }
   rsAssert(res == VK_SUCCESS);
 
   /* Now use the descriptor layout to create a pipeline layout */
@@ -309,8 +376,6 @@ void RSoVScript::InitDescriptorAndPipelineLayouts(uint32_t inLen) {
   res = vkCreatePipelineLayout(mDevice, &pPipelineLayoutCreateInfo, NULL,
                                &mPipelineLayout);
   rsAssert(res == VK_SUCCESS);
-
-  ALOGV("%s succeeded.", __FUNCTION__);
 }
 
 void RSoVScript::InitShader(uint32_t slot) {
@@ -321,14 +386,16 @@ void RSoVScript::InitShader(uint32_t slot) {
   mShaderStage.pSpecializationInfo = nullptr;
   mShaderStage.flags = 0;
   mShaderStage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+
   const char **RSKernelNames = mME->getExportForEachNameList();
   size_t RSKernelNum = mME->getExportForEachSignatureCount();
   rsAssert(slot < RSKernelNum);
   rsAssert(RSKernelNames);
   rsAssert(RSKernelNames[slot]);
-  ALOGV("slot = %d kernel name = %s", slot, RSKernelNames[slot]);
+  // ALOGV("slot = %d kernel name = %s", slot, RSKernelNames[slot]);
   std::string entryName("entry_");
   entryName.append(RSKernelNames[slot]);
+
   mShaderStage.pName = strndup(entryName.c_str(), entryName.size());
 
   VkShaderModuleCreateInfo moduleCreateInfo = {
@@ -341,20 +408,15 @@ void RSoVScript::InitShader(uint32_t slot) {
   res = vkCreateShaderModule(mDevice, &moduleCreateInfo, NULL,
                              &mShaderStage.module);
   rsAssert(res == VK_SUCCESS);
-
-  ALOGV("%s succeeded.", __FUNCTION__);
 }
 
 void RSoVScript::InitDescriptorPool(uint32_t inLen) {
-  /* DEPENDS on InitDescriptorAndPipelineLayouts() */
-
   VkResult res;
-  VkDescriptorPoolSize type_count[] = {
-      {
-          .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-          .descriptorCount = 2 + inLen,
-      },
-  };
+  // 1 global buffer, 1 global allocation metadata buffer, 1 output allocation,
+  // and inLen input allocations
+  VkDescriptorPoolSize type_count[] = {{
+      .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, .descriptorCount = inLen + 3,
+  }};
 
   VkDescriptorPoolCreateInfo descriptor_pool = {
       .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
@@ -366,8 +428,6 @@ void RSoVScript::InitDescriptorPool(uint32_t inLen) {
 
   res = vkCreateDescriptorPool(mDevice, &descriptor_pool, NULL, &mDescPool);
   rsAssert(res == VK_SUCCESS);
-
-  ALOGV("%s succeeded.", __FUNCTION__);
 }
 
 // Iterate through a list of global allocations that are used inside the module
@@ -422,13 +482,10 @@ void RSoVScript::InitDescriptorSet(
 
   mDescSet.resize(NUM_DESCRIPTOR_SETS);
   res = vkAllocateDescriptorSets(mDevice, &alloc_info, mDescSet.data());
-  ALOGD("vkAllocateDescriptorSets() result = %d", res);
   rsAssert(res == VK_SUCCESS);
 
-  // TODO: support for set up the binding(s) of global variables
-  uint32_t nBindings = inputAllocations.size() + 1;  // input + output.
   std::vector<VkWriteDescriptorSet> writes{
-      // Metadata for global allocations
+      // Global variables
       {
           .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
           .dstSet = mDescSet[0],
@@ -436,9 +493,9 @@ void RSoVScript::InitDescriptorSet(
           .dstArrayElement = 0,
           .descriptorCount = 1,
           .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-          .pBufferInfo = mGlobalAllocationMetadata->getBufferInfo(),
+          .pBufferInfo = mGlobals->getBufferInfo(),
       },
-
+      // Metadata for global Allocations
       {
           .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
           .dstSet = mDescSet[0],
@@ -446,14 +503,26 @@ void RSoVScript::InitDescriptorSet(
           .dstArrayElement = 0,
           .descriptorCount = 1,
           .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+          .pBufferInfo = mGlobalAllocationMetadata->getBufferInfo(),
+      },
+      // Output Allocation
+      {
+          .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+          .dstSet = mDescSet[0],
+          .dstBinding = 2,
+          .dstArrayElement = 0,
+          .descriptorCount = 1,
+          .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
           .pBufferInfo = outputAllocation->getBuffer()->getBufferInfo(),
       },
   };
+
+  // Input Allocations
   for (uint32_t i = 0; i < inputAllocations.size(); ++i) {
     writes.push_back({
         .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
         .dstSet = mDescSet[0],
-        .dstBinding = 2 + i,  // input allocations start from binding #2
+        .dstBinding = 3 + i,  // input allocations start from binding #3
         .dstArrayElement = 0,
         .descriptorCount = 1,
         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -462,8 +531,6 @@ void RSoVScript::InitDescriptorSet(
   }
 
   vkUpdateDescriptorSets(mDevice, writes.size(), writes.data(), 0, NULL);
-
-  ALOGV("%s succeeded.", __FUNCTION__);
 }
 
 void RSoVScript::InitPipeline() {
@@ -483,8 +550,6 @@ void RSoVScript::InitPipeline() {
   res = vkCreateComputePipelines(mDevice, VK_NULL_HANDLE, 1, &pipeline_info,
                                  NULL, &mComputePipeline);
   rsAssert(res == VK_SUCCESS);
-
-  ALOGV("%s succeeded.", __FUNCTION__);
 }
 
 void RSoVScript::runForEach(
@@ -493,9 +558,9 @@ void RSoVScript::runForEach(
     RSoVAllocation *outputAllocation) {
   VkResult res;
 
-  InitDescriptorAndPipelineLayouts(inLen);
   InitShader(slot);
   InitDescriptorPool(inLen);
+  InitDescriptorAndPipelineLayouts(inLen);
   MarshalTypeInfo();
   InitDescriptorSet(inputAllocations, outputAllocation);
   // InitPipelineCache();
@@ -577,8 +642,6 @@ void RSoVScript::runForEach(
   vkDestroyDescriptorPool(mDevice, mDescPool, nullptr);
   free((void *)mShaderStage.pName);
   vkDestroyShaderModule(mDevice, mShaderStage.module, nullptr);
-
-  ALOGV("%s succeeded.", __FUNCTION__);
 }
 
 }  // namespace rsov
@@ -609,7 +672,15 @@ class ParseMD {
   bool parse(void) {
     // remove outermose two pairs of braces
     mString = removeBraces(mString);
+    if (mString.empty()) {
+      return false;
+    }
+
     mString = removeBraces(mString);
+    if (mString.empty()) {
+      return false;
+    }
+
     // Now we are supposed to have a comma-separated list that looks like:
     // "foo":42, "bar":56
     split<','>(mString, [&](auto s) {
@@ -628,7 +699,9 @@ class ParseMD {
   template <char L, char R>
   static std::string removeMatching(const std::string &s) {
     auto leftCBrace = s.find(L);
-    rsAssert(leftCBrace != std::string::npos);
+    if (leftCBrace == std::string::npos) {
+      return "";
+    }
     leftCBrace++;
     return s.substr(leftCBrace, s.rfind(R) - leftCBrace);
   }
@@ -672,8 +745,11 @@ class ExtractRSoVMD : public android::spirit::DoNothingVisitor {
 
   void visit(android::spirit::StringInst *s) {
     ALOGV("ExtractRSoVMD: string = %s", s->mOperand1.c_str());
-    ParseMD p(s->mOperand1, *mGAMapping);
-    p.parse();
+    std::map<std::string, int> mapping;
+    ParseMD p(s->mOperand1, mapping);
+    if (p.parse()) {
+      *mGAMapping = std::move(mapping);
+    }
   }
 
   std::map<std::string, int> *takeMapping(void) { return mGAMapping.release(); }
@@ -687,6 +763,45 @@ bool rsovScriptInit(const Context *rsc, ScriptC *script, char const *resName,
                     size_t bitcodeSize, uint32_t flags) {
   RSoVHal *hal = static_cast<RSoVHal *>(rsc->mHal.drv);
 
+  std::unique_ptr<bcinfo::MetadataExtractor> bitcodeMetadata(
+      new bcinfo::MetadataExtractor((const char *)bitcode, bitcodeSize));
+  if (!bitcodeMetadata || !bitcodeMetadata->extract()) {
+    ALOGE("Could not extract metadata from bitcode from %s", resName);
+    return false;
+  }
+
+  std::vector<uint8_t> modifiedBitcode;
+  auto spvWords =
+    compileBitcode(resName, cacheDir, (const char *)bitcode, bitcodeSize, modifiedBitcode);
+  if (!spvWords.empty() && !modifiedBitcode.empty()) {
+    // Extract compiler metadata on allocation->binding mapping
+    android::spirit::Module *module =
+        android::spirit::Deserialize<android::spirit::Module>(spvWords);
+    rsAssert(module);
+    ExtractRSoVMD ga_md;
+    module->accept(&ga_md);
+
+    RSoVScript *rsovScript =
+        new RSoVScript(hal->mRSoV, std::move(spvWords),
+                       bitcodeMetadata.release(), ga_md.takeMapping());
+    if (rsovScript) {
+      std::string modifiedResName(resName);
+      modifiedResName.append("_modified");
+      RsdCpuReference::CpuScript *cs = hal->mCpuRef->createScript(
+          script, modifiedResName.c_str(), cacheDir, modifiedBitcode.data(),
+          modifiedBitcode.size(), flags);
+      if (cs != nullptr) {
+        cs->populateScript(script);
+        rsovScript->setCpuScript(cs);
+        RSoVScript::initScriptOnRSoV(script, rsovScript);
+        return true;
+      }
+    }
+  }
+
+  ALOGD("Failed creating an RSoV script for %s", resName);
+  // Fall back to CPU driver instead
+
   std::unique_ptr<RsdCpuReference::CpuScript> cs(hal->mCpuRef->createScript(
       script, resName, cacheDir, bitcode, bitcodeSize, flags));
   if (cs == nullptr) {
@@ -696,34 +811,6 @@ bool rsovScriptInit(const Context *rsc, ScriptC *script, char const *resName,
   }
   cs->populateScript(script);
 
-  std::unique_ptr<bcinfo::MetadataExtractor> bitcodeMetadata(
-      new bcinfo::MetadataExtractor((const char *)bitcode, bitcodeSize));
-  if (!bitcodeMetadata || !bitcodeMetadata->extract()) {
-    ALOGE("Could not extract metadata from bitcode from %s", resName);
-    return false;
-  }
-
-  auto spvWords =
-      compileBitcode(resName, cacheDir, (const char *)bitcode, bitcodeSize);
-  if (!spvWords.empty()) {
-    // Extract compiler metadata on allocation->binding mapping
-    android::spirit::Module *module =
-        android::spirit::Deserialize<android::spirit::Module>(spvWords);
-    rsAssert(module);
-    ExtractRSoVMD ga_md;
-    module->accept(&ga_md);
-    RSoVScript *rsovScript =
-        new RSoVScript(hal->mRSoV, std::move(spvWords),
-                       bitcodeMetadata.release(), ga_md.takeMapping());
-    if (rsovScript) {
-      rsovScript->setCpuScript(cs.release());
-      RSoVScript::initScriptOnRSoV(script, rsovScript);
-      return true;
-    }
-  }
-
-  ALOGD("Failed creating an RSoV script for %s", resName);
-  // Fall back to CPU driver instead
   RSoVScript::initScriptOnCpu(script, cs.release());
 
   return true;

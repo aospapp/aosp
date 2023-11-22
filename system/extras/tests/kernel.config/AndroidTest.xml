@@ -23,5 +23,8 @@
     <test class="com.android.tradefed.testtype.GTest" >
         <option name="native-test-device-path" value="/data/local/tmp" />
         <option name="module-name" value="CtsKernelConfigTestCases" />
+        <!-- Make sure there is some data in the pstore -->
+        <option name="before-test-cmd" value="echo HELLOWORLD >/dev/pmsg0" />
+        <option name="reboot-before-test" value="true" />
     </test>
 </configuration>

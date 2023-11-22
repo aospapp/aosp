@@ -38,21 +38,21 @@ static jmethodID method_onVirtualCableUnplug;
 static const bthd_interface_t* sHiddIf = NULL;
 static jobject mCallbacksObj = NULL;
 
-static jbyteArray marshall_bda(bt_bdaddr_t* bd_addr) {
+static jbyteArray marshall_bda(RawAddress* bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return NULL;
 
-  jbyteArray addr = sCallbackEnv->NewByteArray(sizeof(bt_bdaddr_t));
+  jbyteArray addr = sCallbackEnv->NewByteArray(sizeof(RawAddress));
   if (!addr) {
     ALOGE("Fail to new jbyteArray bd addr");
     return NULL;
   }
-  sCallbackEnv->SetByteArrayRegion(addr, 0, sizeof(bt_bdaddr_t),
+  sCallbackEnv->SetByteArrayRegion(addr, 0, sizeof(RawAddress),
                                    (jbyte*)bd_addr);
   return addr;
 }
 
-static void application_state_callback(bt_bdaddr_t* bd_addr,
+static void application_state_callback(RawAddress* bd_addr,
                                        bthd_application_state_t state) {
   jboolean registered = JNI_FALSE;
 
@@ -76,7 +76,7 @@ static void application_state_callback(bt_bdaddr_t* bd_addr,
                                addr.get(), registered);
 }
 
-static void connection_state_callback(bt_bdaddr_t* bd_addr,
+static void connection_state_callback(RawAddress* bd_addr,
                                       bthd_connection_state_t state) {
   CallbackEnv sCallbackEnv(__func__);
 
@@ -426,7 +426,7 @@ static jboolean connectNative(JNIEnv* env, jobject thiz, jbyteArray address) {
     return JNI_FALSE;
   }
 
-  bt_status_t ret = sHiddIf->connect((bt_bdaddr_t*)addr);
+  bt_status_t ret = sHiddIf->connect((RawAddress*)addr);
 
   ALOGV("%s: connect() returned %d", __FUNCTION__, ret);
 

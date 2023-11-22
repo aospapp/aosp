@@ -22,7 +22,7 @@ from vts.runners.host import asserts
 from vts.runners.host import base_test
 from vts.runners.host import test_runner
 from vts.utils.python.controllers import android_device
-from vts.utils.python.file import file_utils
+from vts.utils.python.file import target_file_utils
 
 
 class KernelApiSysfsTest(base_test.BaseTestClass):
@@ -73,7 +73,7 @@ class KernelApiSysfsTest(base_test.BaseTestClass):
         '''
         permission = ''
         try:
-            permission = file_utils.GetPermission(path, self.shell)
+            permission = target_file_utils.GetPermission(path, self.shell)
         except IOError as e:
             logging.exception(e)
             asserts.fail('Path "%s" does not exist or has invalid '
@@ -81,7 +81,7 @@ class KernelApiSysfsTest(base_test.BaseTestClass):
 
         try:
             asserts.assertTrue(
-                file_utils.IsReadOnly(permission),
+                target_file_utils.IsReadOnly(permission),
                 'path %s is not read only' % path)
         except IOError as e:
             logging.exception(e)
@@ -97,7 +97,7 @@ class KernelApiSysfsTest(base_test.BaseTestClass):
         '''
         filepath = '/sys/devices/system/cpu/online'
         self.IsReadOnly(filepath)
-        content = file_utils.ReadFileContent(filepath, self.shell)
+        content = target_file_utils.ReadFileContent(filepath, self.shell)
         regex = '(\d+(-\d+)?)(,\d+(-\d+)?)*'
         if content.endswith('\n'):
             content = content[:-1]
@@ -112,7 +112,7 @@ class KernelApiSysfsTest(base_test.BaseTestClass):
         '''Check the value of /sys/devices/system/cpu/kernel_max.'''
         filepath = '/sys/devices/system/cpu/kernel_max'
         self.IsReadOnly(filepath)
-        content = file_utils.ReadFileContent(filepath, self.shell)
+        content = target_file_utils.ReadFileContent(filepath, self.shell)
         self.ConvertToInteger(content)
 
 

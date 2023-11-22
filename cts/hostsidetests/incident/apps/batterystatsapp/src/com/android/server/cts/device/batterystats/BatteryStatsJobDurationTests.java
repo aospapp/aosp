@@ -39,7 +39,11 @@ public class BatteryStatsJobDurationTests extends BatteryStatsDeviceTestBase {
     private static final ComponentName JOB_COMPONENT_NAME =
             new ComponentName("com.android.server.cts.device.batterystats",
                     SimpleJobService.class.getName());
-    public static final String TAG = "BatteryStatsJobDurationTests";
+    // Keep a buffer because job execution can take longer on resource constrained devices
+    // like Android Wear.
+    private static final long JOB_TIMEOUT_MS = SimpleJobService.JOB_EXECUTION_MS + 30000L;
+
+    public static final String TAG = "BatteryStatsJobDurTests";
 
     private JobInfo createJobInfo(int id) {
         JobInfo.Builder builder = new JobInfo.Builder(id, JOB_COMPONENT_NAME);
@@ -52,13 +56,14 @@ public class BatteryStatsJobDurationTests extends BatteryStatsDeviceTestBase {
         JobScheduler js = mContext.getSystemService(JobScheduler.class);
         assertTrue("JobScheduler service not available", js != null);
         final JobInfo job = createJobInfo(1);
-        long startTime = System.currentTimeMillis();
         for (int i = 0; i < 3; i++) {
             CountDownLatch latch = SimpleJobService.resetCountDownLatch();
+            Log.i(TAG, "Scheduling job");
             js.schedule(job);
-            if (!latch.await(5, TimeUnit.SECONDS)) {
-                Log.e(TAG, "Job didn't finish in 5 seconds");
-                fail("Job didn't finish in 5 seconds");
+            Log.i(TAG, "Waiting for job to finish");
+            if (!latch.await(JOB_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+                Log.e(TAG, String.format("Job didn't finish in %d ms", JOB_TIMEOUT_MS));
+                fail(String.format("Job didn't finish in %d ms", JOB_TIMEOUT_MS));
             }
         }
     }

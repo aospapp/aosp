@@ -15,6 +15,10 @@
 cc_library_shared {
     name: "libhidlbase",
     vendor_available: true,
+    vndk: {
+        enabled: true,
+        support_system_process: true,
+    },
     cflags: libhidl_flags,
     shared_libs: [
         "libbase",
@@ -23,7 +27,6 @@ cc_library_shared {
         "libutils",
     ],
     export_shared_lib_headers: [
-        "libbase",
         "libutils",
         "libcutils", // for native_handle.h
     ],

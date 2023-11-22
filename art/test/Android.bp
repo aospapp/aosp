@@ -51,9 +51,9 @@ art_cc_defaults {
     // These really are gtests, but the gtest library comes from libart-gtest.so
     gtest: false,
     defaults: [
-        "art_defaults",
-        "art_debug_defaults",
         "art_test_defaults",
+        "art_debug_defaults",
+        "art_defaults",
     ],
 
     shared_libs: [
@@ -128,8 +128,8 @@ art_cc_defaults {
     name: "libart-gtest-defaults",
     host_supported: true,
     defaults: [
-        "art_defaults",
         "art_debug_defaults",
+        "art_defaults",
     ],
     shared_libs: [
         "libartd",
@@ -202,8 +202,8 @@ art_cc_library {
 cc_defaults {
     name: "libartagent-defaults",
     defaults: [
-        "art_defaults",
         "art_test_defaults",
+        "art_defaults",
     ],
     shared_libs: [
         "libbacktrace",
@@ -234,8 +234,8 @@ art_cc_test_library {
     name: "libartagentd",
     srcs: ["900-hello-plugin/load_unload.cc"],
     defaults: [
-        "libartagent-defaults",
         "art_debug_defaults",
+        "libartagent-defaults",
     ],
     shared_libs: ["libartd"],
 }
@@ -250,7 +250,11 @@ art_cc_defaults {
         "ti-agent/jni_binder.cc",
         "ti-agent/jvmti_helper.cc",
         "ti-agent/test_env.cc",
+        "ti-agent/breakpoint_helper.cc",
         "ti-agent/common_helper.cc",
+        "ti-agent/redefinition_helper.cc",
+        "ti-agent/suspension_helper.cc",
+        "ti-agent/trace_helper.cc",
         // This is the list of non-special OnLoad things and excludes BCI and anything that depends
         // on ART internals.
         "903-hello-tagging/tagging.cc",
@@ -278,6 +282,16 @@ art_cc_defaults {
         "984-obsolete-invoke/obsolete_invoke.cc",
         "986-native-method-bind/native_bind.cc",
         "987-agent-bind/agent_bind.cc",
+        "989-method-trace-throw/method_trace.cc",
+        "991-field-trace-2/field_trace.cc",
+        "992-source-data/source_file.cc",
+        "993-breakpoints/breakpoints.cc",
+        "996-breakpoint-obsolete/obsolete_breakpoints.cc",
+        "1900-track-alloc/alloc.cc",
+        "1901-get-bytecodes/bytecodes.cc",
+        "1905-suspend-native/native_suspend.cc",
+        "1908-suspend-native-resume-self/native_suspend_resume.cc",
+        "1909-per-agent-tls/agent_tls.cc",
     ],
     shared_libs: [
         "libbase",
@@ -313,8 +327,8 @@ art_cc_test_library {
 art_cc_test_library {
     name: "libtiagentd",
     defaults: [
-        "libtiagent-defaults",
         "art_debug_defaults",
+        "libtiagent-defaults",
     ],
     shared_libs: ["libartd"],
 }
@@ -340,8 +354,8 @@ art_cc_test_library {
 art_cc_test_library {
     name: "libtistressd",
     defaults: [
-        "libtistress-defaults",
         "art_debug_defaults",
+        "libtistress-defaults",
     ],
     shared_libs: ["libartd"],
 }
@@ -355,8 +369,8 @@ art_cc_test_library {
 cc_defaults {
     name: "libarttest-defaults",
     defaults: [
-        "art_defaults",
         "art_test_defaults",
+        "art_defaults",
     ],
     srcs: [
         "common/runtime_state.cc",
@@ -393,7 +407,8 @@ cc_defaults {
         "626-const-class-linking/clear_dex_cache_types.cc",
         "642-fp-callees/fp_callees.cc",
         "647-jni-get-field-id/get_field_id.cc",
-        "656-annotation-lookup-generic-jni/test.cc"
+        "656-annotation-lookup-generic-jni/test.cc",
+        "708-jit-cache-churn/jit.cc"
     ],
     shared_libs: [
         "libbacktrace",
@@ -422,8 +437,8 @@ art_cc_test_library {
 art_cc_test_library {
     name: "libarttestd",
     defaults: [
-        "libarttest-defaults",
         "art_debug_defaults",
+        "libarttest-defaults",
     ],
     shared_libs: ["libartd"],
 }
@@ -432,10 +447,11 @@ art_cc_test_library {
     name: "libnativebridgetest",
     shared_libs: ["libart"],
     defaults: [
-        "art_defaults",
-        "art_debug_defaults",
         "art_test_defaults",
+        "art_debug_defaults",
+        "art_defaults",
     ],
+    header_libs: ["libnativebridge-dummy-headers"],
     srcs: ["115-native-bridge/nativebridge.cc"],
     target: {
         android: {

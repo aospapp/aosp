@@ -16,570 +16,720 @@
 
 package com.android.tv.data.epg;
 
-import android.Manifest;
-import android.annotation.SuppressLint;
-import android.content.ContentProviderOperation;
-import android.content.ContentValues;
+import android.app.job.JobInfo;
+import android.app.job.JobParameters;
+import android.app.job.JobScheduler;
+import android.app.job.JobService;
+import android.content.ComponentName;
 import android.content.Context;
-import android.content.OperationApplicationException;
-import android.content.pm.PackageManager;
-import android.database.Cursor;
-import android.location.Address;
-import android.media.tv.TvContentRating;
-import android.media.tv.TvContract;
-import android.media.tv.TvContract.Programs;
-import android.media.tv.TvContract.Programs.Genres;
 import android.media.tv.TvInputInfo;
+import android.net.TrafficStats;
+import android.os.AsyncTask;
+import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
-import android.os.RemoteException;
-import android.preference.PreferenceManager;
+import android.support.annotation.AnyThread;
 import android.support.annotation.MainThread;
-import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.v4.os.BuildCompat;
+import android.support.annotation.WorkerThread;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.android.tv.ApplicationSingletons;
+import com.android.tv.Features;
 import com.android.tv.TvApplication;
-import com.android.tv.common.WeakHandler;
+import com.android.tv.common.SoftPreconditions;
+import com.android.tv.common.TvCommonUtils;
+import com.android.tv.config.RemoteConfigUtils;
 import com.android.tv.data.Channel;
 import com.android.tv.data.ChannelDataManager;
-import com.android.tv.data.InternalDataUtils;
+import com.android.tv.data.ChannelLogoFetcher;
 import com.android.tv.data.Lineup;
 import com.android.tv.data.Program;
+import com.android.tv.perf.EventNames;
+import com.android.tv.perf.PerformanceMonitor;
+import com.android.tv.perf.TimerEvent;
+import com.android.tv.tuner.util.PostalCodeUtils;
 import com.android.tv.util.LocationUtils;
-import com.android.tv.util.RecurringRunner;
+import com.android.tv.util.NetworkTrafficTags;
 import com.android.tv.util.Utils;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
-import java.util.Objects;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
- * An utility class to fetch the EPG. This class isn't thread-safe.
+ * The service class to fetch EPG routinely or on-demand during channel scanning
+ *
+ * <p>Since the default executor of {@link AsyncTask} is {@link AsyncTask#SERIAL_EXECUTOR}, only one
+ * task can run at a time. Because fetching EPG takes long time, the fetching task shouldn't run on
+ * the serial executor. Instead, it should run on the {@link AsyncTask#THREAD_POOL_EXECUTOR}.
  */
 public class EpgFetcher {
     private static final String TAG = "EpgFetcher";
     private static final boolean DEBUG = false;
 
-    private static final int MSG_FETCH_EPG = 1;
+    private static final int EPG_ROUTINELY_FETCHING_JOB_ID = 101;
 
-    private static final long EPG_PREFETCH_RECURRING_PERIOD_MS = TimeUnit.HOURS.toMillis(4);
-    private static final long EPG_READER_INIT_WAIT_MS = TimeUnit.MINUTES.toMillis(1);
-    private static final long LOCATION_INIT_WAIT_MS = TimeUnit.SECONDS.toMillis(10);
-    private static final long LOCATION_ERROR_WAIT_MS = TimeUnit.HOURS.toMillis(1);
-    private static final long PROGRAM_QUERY_DURATION = TimeUnit.DAYS.toMillis(30);
+    private static final long INITIAL_BACKOFF_MS = TimeUnit.SECONDS.toMillis(10);
 
-    private static final int BATCH_OPERATION_COUNT = 100;
+    private static final int REASON_EPG_READER_NOT_READY = 1;
+    private static final int REASON_LOCATION_INFO_UNAVAILABLE = 2;
+    private static final int REASON_LOCATION_PERMISSION_NOT_GRANTED = 3;
+    private static final int REASON_NO_EPG_DATA_RETURNED = 4;
+    private static final int REASON_NO_NEW_EPG = 5;
 
-    private static final String SUPPORTED_COUNTRY_CODE = Locale.US.getCountry();
-    private static final String CONTENT_RATING_SEPARATOR = ",";
+    private static final long FETCH_DURING_SCAN_WAIT_TIME_MS = TimeUnit.SECONDS.toMillis(10);
 
-    // Value: Long
-    private static final String KEY_LAST_UPDATED_EPG_TIMESTAMP =
-            "com.android.tv.data.epg.EpgFetcher.LastUpdatedEpgTimestamp";
-    // Value: String
-    private static final String KEY_LAST_LINEUP_ID =
-            "com.android.tv.data.epg.EpgFetcher.LastLineupId";
+    private static final long FETCH_DURING_SCAN_DURATION_SEC = TimeUnit.HOURS.toSeconds(3);
+    private static final long FAST_FETCH_DURATION_SEC = TimeUnit.DAYS.toSeconds(2);
+
+    private static final int DEFAULT_ROUTINE_INTERVAL_HOUR = 4;
+    private static final String KEY_ROUTINE_INTERVAL = "live_channels_epg_fetcher_interval_hour";
+
+    private static final int MSG_PREPARE_FETCH_DURING_SCAN = 1;
+    private static final int MSG_CHANNEL_UPDATED_DURING_SCAN = 2;
+    private static final int MSG_FINISH_FETCH_DURING_SCAN = 3;
+    private static final int MSG_RETRY_PREPARE_FETCH_DURING_SCAN = 4;
+
+    private static final int QUERY_CHANNEL_COUNT = 50;
+    private static final int MINIMUM_CHANNELS_TO_DECIDE_LINEUP = 3;
 
     private static EpgFetcher sInstance;
 
     private final Context mContext;
     private final ChannelDataManager mChannelDataManager;
     private final EpgReader mEpgReader;
-    private EpgFetcherHandler mHandler;
-    private RecurringRunner mRecurringRunner;
-    private boolean mStarted;
+    private final PerformanceMonitor mPerformanceMonitor;
+    private FetchAsyncTask mFetchTask;
+    private FetchDuringScanHandler mFetchDuringScanHandler;
+    private long mEpgTimeStamp;
+    private List<Lineup> mPossibleLineups;
+    private final Object mPossibleLineupsLock = new Object();
+    private final Object mFetchDuringScanHandlerLock = new Object();
+    // A flag to block the re-entrance of onChannelScanStarted and onChannelScanFinished.
+    private boolean mScanStarted;
 
-    private long mLastEpgTimestamp = -1;
-    private String mLineupId;
+    private final long mRoutineIntervalMs;
+    private final long mEpgDataExpiredTimeLimitMs;
+    private final long mFastFetchDurationSec;
 
-    public static synchronized EpgFetcher getInstance(Context context) {
+    public static EpgFetcher getInstance(Context context) {
         if (sInstance == null) {
-            sInstance = new EpgFetcher(context.getApplicationContext());
+            sInstance = new EpgFetcher(context);
         }
         return sInstance;
     }
 
-    /**
-     * Creates and returns {@link EpgReader}.
-     */
-    public static EpgReader createEpgReader(Context context) {
+    /** Creates and returns {@link EpgReader}. */
+    public static EpgReader createEpgReader(Context context, String region) {
         return new StubEpgReader(context);
     }
 
     private EpgFetcher(Context context) {
-        mContext = context;
-        mEpgReader = new StubEpgReader(mContext);
-        mChannelDataManager = TvApplication.getSingletons(context).getChannelDataManager();
-        mChannelDataManager.addListener(new ChannelDataManager.Listener() {
-            @Override
-            public void onLoadFinished() {
-                if (DEBUG) Log.d(TAG, "ChannelDataManager.onLoadFinished()");
-                handleChannelChanged();
-            }
+        mContext = context.getApplicationContext();
+        ApplicationSingletons applicationSingletons = TvApplication.getSingletons(mContext);
+        mChannelDataManager = applicationSingletons.getChannelDataManager();
+        mPerformanceMonitor = applicationSingletons.getPerformanceMonitor();
+        mEpgReader = createEpgReader(mContext, LocationUtils.getCurrentCountry(mContext));
 
-            @Override
-            public void onChannelListUpdated() {
-                if (DEBUG) Log.d(TAG, "ChannelDataManager.onChannelListUpdated()");
-                handleChannelChanged();
-            }
-
-            @Override
-            public void onChannelBrowsableChanged() {
-                if (DEBUG) Log.d(TAG, "ChannelDataManager.onChannelBrowsableChanged()");
-                handleChannelChanged();
-            }
-        });
+        int remoteInteval =
+                (int) RemoteConfigUtils.getRemoteConfig(
+                        context, KEY_ROUTINE_INTERVAL, DEFAULT_ROUTINE_INTERVAL_HOUR);
+        mRoutineIntervalMs =
+                remoteInteval < 0
+                        ? TimeUnit.HOURS.toMillis(DEFAULT_ROUTINE_INTERVAL_HOUR)
+                        : TimeUnit.HOURS.toMillis(remoteInteval);
+        mEpgDataExpiredTimeLimitMs = mRoutineIntervalMs * 2;
+        mFastFetchDurationSec = FAST_FETCH_DURATION_SEC + mRoutineIntervalMs / 1000;
     }
 
-    private void handleChannelChanged() {
-        if (mStarted) {
-            if (needToStop()) {
-                stop();
+    /**
+     * Starts the routine service of EPG fetching. It use {@link JobScheduler} to schedule the EPG
+     * fetching routine. The EPG fetching routine will be started roughly every 4 hours, unless
+     * the channel scanning of tuner input is started.
+     */
+    @MainThread
+    public void startRoutineService() {
+        JobScheduler jobScheduler =
+                (JobScheduler) mContext.getSystemService(Context.JOB_SCHEDULER_SERVICE);
+        for (JobInfo job : jobScheduler.getAllPendingJobs()) {
+            if (job.getId() == EPG_ROUTINELY_FETCHING_JOB_ID) {
+                return;
             }
+        }
+        JobInfo job =
+                new JobInfo.Builder(
+                                EPG_ROUTINELY_FETCHING_JOB_ID,
+                                new ComponentName(mContext, EpgFetchService.class))
+                        .setPeriodic(mRoutineIntervalMs)
+                        .setBackoffCriteria(INITIAL_BACKOFF_MS, JobInfo.BACKOFF_POLICY_EXPONENTIAL)
+                        .setPersisted(true)
+                        .build();
+        jobScheduler.schedule(job);
+        Log.i(TAG, "EPG fetching routine service started.");
+    }
+
+    /**
+     * Fetches EPG immediately if current EPG data are out-dated, i.e., not successfully updated
+     * by routine fetching service due to various reasons.
+     */
+    @MainThread
+    public void fetchImmediatelyIfNeeded() {
+        if (TvCommonUtils.isRunningInTest()) {
+            // Do not run EpgFetcher in test.
+            return;
+        }
+        new AsyncTask<Void, Void, Long>() {
+            @Override
+            protected Long doInBackground(Void... args) {
+                return EpgFetchHelper.getLastEpgUpdatedTimestamp(mContext);
+            }
+
+            @Override
+            protected void onPostExecute(Long result) {
+                if (System.currentTimeMillis() - EpgFetchHelper.getLastEpgUpdatedTimestamp(mContext)
+                        > mEpgDataExpiredTimeLimitMs) {
+                    Log.i(TAG, "EPG data expired. Start fetching immediately.");
+                    fetchImmediately();
+                }
+            }
+        }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+    }
+
+    /**
+     * Fetches EPG immediately.
+     */
+    @MainThread
+    public void fetchImmediately() {
+        if (!mChannelDataManager.isDbLoadFinished()) {
+            mChannelDataManager.addListener(new ChannelDataManager.Listener() {
+                @Override
+                public void onLoadFinished() {
+                    mChannelDataManager.removeListener(this);
+                    executeFetchTaskIfPossible(null, null);
+                }
+
+                @Override
+                public void onChannelListUpdated() { }
+
+                @Override
+                public void onChannelBrowsableChanged() { }
+            });
         } else {
-            start();
+            executeFetchTaskIfPossible(null, null);
         }
     }
 
-    private boolean needToStop() {
-        return !canStart();
-    }
-
-    private boolean canStart() {
-        if (DEBUG) Log.d(TAG, "canStart()");
-        boolean hasInternalTunerChannel = false;
-        for (TvInputInfo input : TvApplication.getSingletons(mContext).getTvInputManagerHelper()
-                .getTvInputInfos(true, true)) {
-            String inputId = input.getId();
-            if (Utils.isInternalTvInput(mContext, inputId)
-                    && mChannelDataManager.getChannelCountForInput(inputId) > 0) {
-                hasInternalTunerChannel = true;
-                break;
+    /**
+     * Notifies EPG fetch service that channel scanning is started.
+     */
+    @MainThread
+    public void onChannelScanStarted() {
+        if (mScanStarted || !Features.ENABLE_CLOUD_EPG_REGION.isEnabled(mContext)) {
+            return;
+        }
+        mScanStarted = true;
+        stopFetchingJob();
+        synchronized (mFetchDuringScanHandlerLock) {
+            if (mFetchDuringScanHandler == null) {
+                HandlerThread thread = new HandlerThread("EpgFetchDuringScan");
+                thread.start();
+                mFetchDuringScanHandler = new FetchDuringScanHandler(thread.getLooper());
             }
+            mFetchDuringScanHandler.sendEmptyMessage(MSG_PREPARE_FETCH_DURING_SCAN);
         }
-        if (!hasInternalTunerChannel) {
-            if (DEBUG) Log.d(TAG, "No internal tuner channels.");
-            return false;
-        }
+        Log.i(TAG, "EPG fetching on channel scanning started.");
+    }
 
-        if (!TextUtils.isEmpty(getLastLineupId())) {
+    /**
+     * Notifies EPG fetch service that channel scanning is finished.
+     */
+    @MainThread
+    public void onChannelScanFinished() {
+        if (!mScanStarted) {
+            return;
+        }
+        mScanStarted = false;
+        mFetchDuringScanHandler.sendEmptyMessage(MSG_FINISH_FETCH_DURING_SCAN);
+    }
+
+    @MainThread
+    private void stopFetchingJob() {
+        if (DEBUG) Log.d(TAG, "Try to stop routinely fetching job...");
+        if (mFetchTask != null) {
+            mFetchTask.cancel(true);
+            mFetchTask = null;
+            Log.i(TAG, "EPG routinely fetching job stopped.");
+        }
+    }
+
+    @MainThread
+    private boolean executeFetchTaskIfPossible(JobService service, JobParameters params) {
+        SoftPreconditions.checkState(mChannelDataManager.isDbLoadFinished());
+        if (!TvCommonUtils.isRunningInTest() && checkFetchPrerequisite()) {
+            mFetchTask = new FetchAsyncTask(service, params);
+            mFetchTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
             return true;
         }
-        if (mContext.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) {
-            if (DEBUG) Log.d(TAG, "No permission to check the current location.");
+        return false;
+    }
+
+    @MainThread
+    private boolean checkFetchPrerequisite() {
+        if (DEBUG) Log.d(TAG, "Check prerequisite of routinely fetching job.");
+        if (!Features.ENABLE_CLOUD_EPG_REGION.isEnabled(mContext)) {
+            Log.i(TAG, "Cannot start routine service: country not supported: "
+                    + LocationUtils.getCurrentCountry(mContext));
             return false;
         }
-
-        try {
-            Address address = LocationUtils.getCurrentAddress(mContext);
-            if (address != null
-                    && !TextUtils.equals(address.getCountryCode(), SUPPORTED_COUNTRY_CODE)) {
-                if (DEBUG) Log.d(TAG, "Country not supported: " + address.getCountryCode());
-                return false;
-            }
-        } catch (SecurityException e) {
-            Log.w(TAG, "No permission to get the current location", e);
+        if (mFetchTask != null) {
+            // Fetching job is already running or ready to run, no need to start again.
             return false;
-        } catch (IOException e) {
-            Log.w(TAG, "IO Exception when getting the current location", e);
+        }
+        if (mFetchDuringScanHandler != null) {
+            if (DEBUG) Log.d(TAG, "Cannot start routine service: scanning channels.");
+            return false;
+        }
+        if (getTunerChannelCount() == 0) {
+            if (DEBUG) Log.d(TAG, "Cannot start routine service: no internal tuner channels.");
+            return false;
+        }
+        if (!TextUtils.isEmpty(EpgFetchHelper.getLastLineupId(mContext))) {
+            return true;
+        }
+        if (!TextUtils.isEmpty(PostalCodeUtils.getLastPostalCode(mContext))) {
+            return true;
         }
         return true;
     }
 
-    /**
-     * Starts fetching EPG.
-     */
     @MainThread
-    public void start() {
-        if (DEBUG) Log.d(TAG, "start()");
-        if (mStarted) {
-            if (DEBUG) Log.d(TAG, "EpgFetcher thread already started.");
-            return;
+    private int getTunerChannelCount() {
+        for (TvInputInfo input : TvApplication.getSingletons(mContext)
+                .getTvInputManagerHelper().getTvInputInfos(true, true)) {
+            String inputId = input.getId();
+            if (Utils.isInternalTvInput(mContext, inputId)) {
+                return mChannelDataManager.getChannelCountForInput(inputId);
+            }
         }
-        if (!canStart()) {
-            return;
-        }
-        mStarted = true;
-        if (DEBUG) Log.d(TAG, "Starting EpgFetcher thread.");
-        HandlerThread handlerThread = new HandlerThread("EpgFetcher");
-        handlerThread.start();
-        mHandler = new EpgFetcherHandler(handlerThread.getLooper(), this);
-        mRecurringRunner = new RecurringRunner(mContext, EPG_PREFETCH_RECURRING_PERIOD_MS,
-                new EpgRunner(), null);
-        mRecurringRunner.start();
-        if (DEBUG) Log.d(TAG, "EpgFetcher thread started successfully.");
+        return 0;
     }
 
-    /**
-     * Starts fetching EPG immediately if possible without waiting for the timer.
-     */
-    @MainThread
-    public void startImmediately() {
-        start();
-        if (mStarted) {
-            if (DEBUG) Log.d(TAG, "Starting fetcher immediately");
-            fetchEpg();
+    @AnyThread
+    private void clearUnusedLineups(@Nullable String lineupId) {
+        synchronized (mPossibleLineupsLock) {
+            if (mPossibleLineups == null) {
+                return;
+            }
+            for (Lineup lineup : mPossibleLineups) {
+                if (!TextUtils.equals(lineupId, lineup.id)) {
+                    mEpgReader.clearCachedChannels(lineup.id);
+                }
+            }
+            mPossibleLineups = null;
         }
     }
 
-    /**
-     * Stops fetching EPG.
-     */
-    @MainThread
-    public void stop() {
-        if (DEBUG) Log.d(TAG, "stop()");
-        if (!mStarted) {
-            return;
-        }
-        mStarted = false;
-        mRecurringRunner.stop();
-        mHandler.removeCallbacksAndMessages(null);
-        mHandler.getLooper().quit();
-    }
-
-    private void fetchEpg() {
-        fetchEpg(0);
-    }
-
-    private void fetchEpg(long delay) {
-        mHandler.removeMessages(MSG_FETCH_EPG);
-        mHandler.sendEmptyMessageDelayed(MSG_FETCH_EPG, delay);
-    }
-
-    private void onFetchEpg() {
-        if (DEBUG) Log.d(TAG, "Start fetching EPG.");
+    @WorkerThread
+    private Integer prepareFetchEpg(boolean forceUpdatePossibleLineups) {
         if (!mEpgReader.isAvailable()) {
-            if (DEBUG) Log.d(TAG, "EPG reader is not temporarily available.");
-            fetchEpg(EPG_READER_INIT_WAIT_MS);
-            return;
+            Log.i(TAG, "EPG reader is temporarily unavailable.");
+            return REASON_EPG_READER_NOT_READY;
         }
-        String lineupId = getLastLineupId();
-        if (lineupId == null) {
-            Address address;
-            try {
-                address = LocationUtils.getCurrentAddress(mContext);
-            } catch (IOException e) {
-                if (DEBUG) Log.d(TAG, "Couldn't get the current location.", e);
-                fetchEpg(LOCATION_ERROR_WAIT_MS);
-                return;
-            } catch (SecurityException e) {
-                Log.w(TAG, "No permission to get the current location.");
-                return;
-            }
-            if (address == null) {
-                if (DEBUG) Log.d(TAG, "Null address returned.");
-                fetchEpg(LOCATION_INIT_WAIT_MS);
-                return;
-            }
-            if (DEBUG) Log.d(TAG, "Current location is " + address);
-
-            lineupId = getLineupForAddress(address);
-            if (lineupId != null) {
-                if (DEBUG) Log.d(TAG, "Saving lineup " + lineupId + "found for " + address);
-                setLastLineupId(lineupId);
-            } else {
-                if (DEBUG) Log.d(TAG, "No lineup found for " + address);
-                return;
-            }
-        }
-
-        // Check the EPG Timestamp.
-        long epgTimestamp = mEpgReader.getEpgTimestamp();
-        if (epgTimestamp <= getLastUpdatedEpgTimestamp()) {
+        // Checks the EPG Timestamp.
+        mEpgTimeStamp = mEpgReader.getEpgTimestamp();
+        if (mEpgTimeStamp <= EpgFetchHelper.getLastEpgUpdatedTimestamp(mContext)) {
             if (DEBUG) Log.d(TAG, "No new EPG.");
-            return;
+            return REASON_NO_NEW_EPG;
         }
-
-        boolean updated = false;
-        List<Channel> channels = mEpgReader.getChannels(lineupId);
-        for (Channel channel : channels) {
-            List<Program> programs = new ArrayList<>(mEpgReader.getPrograms(channel.getId()));
-            Collections.sort(programs);
-            if (DEBUG) {
-                Log.d(TAG, "Fetched " + programs.size() + " programs for channel " + channel);
+        // Updates postal code.
+        boolean postalCodeChanged = false;
+        try {
+            postalCodeChanged = PostalCodeUtils.updatePostalCode(mContext);
+        } catch (IOException e) {
+            if (DEBUG) Log.d(TAG, "Couldn't get the current location.", e);
+            if (TextUtils.isEmpty(PostalCodeUtils.getLastPostalCode(mContext))) {
+                return REASON_LOCATION_INFO_UNAVAILABLE;
             }
-            if (updateEpg(channel.getId(), programs)) {
-                updated = true;
+        } catch (SecurityException e) {
+            Log.w(TAG, "No permission to get the current location.");
+            if (TextUtils.isEmpty(PostalCodeUtils.getLastPostalCode(mContext))) {
+                return REASON_LOCATION_PERMISSION_NOT_GRANTED;
             }
+        } catch (PostalCodeUtils.NoPostalCodeException e) {
+            Log.i(TAG, "Cannot get address or postal code.");
+            return REASON_LOCATION_INFO_UNAVAILABLE;
         }
-
-        final boolean epgUpdated = updated;
-        setLastUpdatedEpgTimestamp(epgTimestamp);
-        mHandler.removeMessages(MSG_FETCH_EPG);
-        if (DEBUG) Log.d(TAG, "Fetching EPG is finished.");
-    }
-
-    @Nullable
-    private String getLineupForAddress(Address address) {
-        String lineup = null;
-        if (TextUtils.equals(address.getCountryCode(), SUPPORTED_COUNTRY_CODE)) {
-            String postalCode = address.getPostalCode();
-            if (!TextUtils.isEmpty(postalCode)) {
-                lineup = getLineupForPostalCode(postalCode);
+        // Updates possible lineups if necessary.
+        SoftPreconditions.checkState(mPossibleLineups == null, TAG, "Possible lineups not reset.");
+        if (postalCodeChanged || forceUpdatePossibleLineups
+                || EpgFetchHelper.getLastLineupId(mContext) == null) {
+            // To prevent main thread being blocked, though theoretically it should not happen.
+            List<Lineup> possibleLineups =
+                    mEpgReader.getLineups(PostalCodeUtils.getLastPostalCode(mContext));
+            if (possibleLineups.isEmpty()) {
+                return REASON_NO_EPG_DATA_RETURNED;
             }
-        }
-        return lineup;
-    }
-
-    @Nullable
-    private String getLineupForPostalCode(String postalCode) {
-        List<Lineup> lineups = mEpgReader.getLineups(postalCode);
-        for (Lineup lineup : lineups) {
-            // TODO(EPG): handle more than OTA digital
-            if (lineup.type == Lineup.LINEUP_BROADCAST_DIGITAL) {
-                if (DEBUG) Log.d(TAG, "Setting lineup to " + lineup.name  + "("  + lineup.id + ")");
-                return lineup.id;
+            for (Lineup lineup : possibleLineups) {
+                mEpgReader.preloadChannels(lineup.id);
             }
+            synchronized (mPossibleLineupsLock) {
+                mPossibleLineups = possibleLineups;
+            }
+            EpgFetchHelper.setLastLineupId(mContext, null);
         }
         return null;
     }
 
-    private long getLastUpdatedEpgTimestamp() {
-        if (mLastEpgTimestamp < 0) {
-            mLastEpgTimestamp = PreferenceManager.getDefaultSharedPreferences(mContext).getLong(
-                    KEY_LAST_UPDATED_EPG_TIMESTAMP, 0);
+    @WorkerThread
+    private void batchFetchEpg(List<Channel> channels, long durationSec) {
+        Log.i(TAG, "Start batch fetching (" + durationSec + ")...." + channels.size());
+        if (channels.size() == 0) {
+            return;
         }
-        return mLastEpgTimestamp;
-    }
-
-    private void setLastUpdatedEpgTimestamp(long timestamp) {
-        mLastEpgTimestamp = timestamp;
-        PreferenceManager.getDefaultSharedPreferences(mContext).edit().putLong(
-                KEY_LAST_UPDATED_EPG_TIMESTAMP, timestamp).commit();
-    }
-
-    private String getLastLineupId() {
-        if (mLineupId == null) {
-            mLineupId = PreferenceManager.getDefaultSharedPreferences(mContext)
-                    .getString(KEY_LAST_LINEUP_ID, null);
+        List<Long> queryChannelIds = new ArrayList<>(QUERY_CHANNEL_COUNT);
+        for (Channel channel : channels) {
+            queryChannelIds.add(channel.getId());
+            if (queryChannelIds.size() >= QUERY_CHANNEL_COUNT) {
+                batchUpdateEpg(mEpgReader.getPrograms(queryChannelIds, durationSec));
+                queryChannelIds.clear();
+            }
         }
-        if (DEBUG) Log.d(TAG, "Last lineup_id " + mLineupId);
-        return mLineupId;
-    }
-
-    private void setLastLineupId(String lineupId) {
-        mLineupId = lineupId;
-        PreferenceManager.getDefaultSharedPreferences(mContext).edit()
-                .putString(KEY_LAST_LINEUP_ID, lineupId).commit();
-    }
-
-    private boolean updateEpg(long channelId, List<Program> newPrograms) {
-        final int fetchedProgramsCount = newPrograms.size();
-        if (fetchedProgramsCount == 0) {
-            return false;
+        if (!queryChannelIds.isEmpty()) {
+            batchUpdateEpg(mEpgReader.getPrograms(queryChannelIds, durationSec));
         }
-        boolean updated = false;
-        long startTimeMs = System.currentTimeMillis();
-        long endTimeMs = startTimeMs + PROGRAM_QUERY_DURATION;
-        List<Program> oldPrograms = queryPrograms(channelId, startTimeMs, endTimeMs);
-        Program currentOldProgram = oldPrograms.size() > 0 ? oldPrograms.get(0) : null;
-        int oldProgramsIndex = 0;
-        int newProgramsIndex = 0;
-        // Skip the past programs. They will be automatically removed by the system.
-        if (currentOldProgram != null) {
-            long oldStartTimeUtcMillis = currentOldProgram.getStartTimeUtcMillis();
-            for (Program program : newPrograms) {
-                if (program.getEndTimeUtcMillis() > oldStartTimeUtcMillis) {
-                    break;
+    }
+
+    @WorkerThread
+    private void batchUpdateEpg(Map<Long, List<Program>> allPrograms) {
+        for (Map.Entry<Long, List<Program>> entry : allPrograms.entrySet()) {
+            List<Program> programs = entry.getValue();
+            if (programs == null) {
+                continue;
+            }
+            Collections.sort(programs);
+            Log.i(TAG, "Batch fetched " + programs.size() + " programs for channel "
+                    + entry.getKey());
+            EpgFetchHelper.updateEpgData(mContext, entry.getKey(), programs);
+        }
+    }
+
+    @Nullable
+    @WorkerThread
+    private String pickBestLineupId(List<Channel> currentChannelList) {
+        String maxLineupId = null;
+        synchronized (mPossibleLineupsLock) {
+            if (mPossibleLineups == null) {
+                return null;
+            }
+            int maxCount = 0;
+            for (Lineup lineup : mPossibleLineups) {
+                int count = getMatchedChannelCount(lineup.id, currentChannelList);
+                Log.i(TAG, lineup.name + " (" + lineup.id + ") - " + count + " matches");
+                if (count > maxCount) {
+                    maxCount = count;
+                    maxLineupId = lineup.id;
                 }
-                newProgramsIndex++;
             }
         }
-        // Compare the new programs with old programs one by one and update/delete the old one
-        // or insert new program if there is no matching program in the database.
-        ArrayList<ContentProviderOperation> ops = new ArrayList<>();
-        while (newProgramsIndex < fetchedProgramsCount) {
-            // TODO: Extract to method and make test.
-            Program oldProgram = oldProgramsIndex < oldPrograms.size()
-                    ? oldPrograms.get(oldProgramsIndex) : null;
-            Program newProgram = newPrograms.get(newProgramsIndex);
-            boolean addNewProgram = false;
-            if (oldProgram != null) {
-                if (oldProgram.equals(newProgram)) {
-                    // Exact match. No need to update. Move on to the next programs.
-                    oldProgramsIndex++;
-                    newProgramsIndex++;
-                } else if (isSameTitleAndOverlap(oldProgram, newProgram)) {
-                    // Partial match. Update the old program with the new one.
-                    // NOTE: Use 'update' in this case instead of 'insert' and 'delete'. There
-                    // could be application specific settings which belong to the old program.
-                    ops.add(ContentProviderOperation.newUpdate(
-                            TvContract.buildProgramUri(oldProgram.getId()))
-                            .withValues(toContentValues(newProgram))
-                            .build());
-                    oldProgramsIndex++;
-                    newProgramsIndex++;
-                } else if (oldProgram.getEndTimeUtcMillis()
-                        < newProgram.getEndTimeUtcMillis()) {
-                    // No match. Remove the old program first to see if the next program in
-                    // {@code oldPrograms} partially matches the new program.
-                    ops.add(ContentProviderOperation.newDelete(
-                            TvContract.buildProgramUri(oldProgram.getId()))
-                            .build());
-                    oldProgramsIndex++;
-                } else {
-                    // No match. The new program does not match any of the old programs. Insert
-                    // it as a new program.
-                    addNewProgram = true;
-                    newProgramsIndex++;
-                }
-            } else {
-                // No old programs. Just insert new programs.
-                addNewProgram = true;
-                newProgramsIndex++;
+        return maxLineupId;
+    }
+
+    @WorkerThread
+    private int getMatchedChannelCount(String lineupId, List<Channel> currentChannelList) {
+        // Construct a list of display numbers for existing channels.
+        if (currentChannelList.isEmpty()) {
+            if (DEBUG) Log.d(TAG, "No existing channel to compare");
+            return 0;
+        }
+        List<String> numbers = new ArrayList<>(currentChannelList.size());
+        for (Channel channel : currentChannelList) {
+            // We only support channels from internal tuner inputs.
+            if (Utils.isInternalTvInput(mContext, channel.getInputId())) {
+                numbers.add(channel.getDisplayNumber());
             }
-            if (addNewProgram) {
-                ops.add(ContentProviderOperation
-                        .newInsert(TvContract.Programs.CONTENT_URI)
-                        .withValues(toContentValues(newProgram))
-                        .build());
-            }
-            // Throttle the batch operation not to cause TransactionTooLargeException.
-            if (ops.size() > BATCH_OPERATION_COUNT || newProgramsIndex >= fetchedProgramsCount) {
-                try {
-                    if (DEBUG) {
-                        int size = ops.size();
-                        Log.d(TAG, "Running " + size + " operations for channel " + channelId);
-                        for (int i = 0; i < size; ++i) {
-                            Log.d(TAG, "Operation(" + i + "): " + ops.get(i));
+        }
+        numbers.retainAll(mEpgReader.getChannelNumbers(lineupId));
+        return numbers.size();
+    }
+
+    public static class EpgFetchService extends JobService {
+        private EpgFetcher mEpgFetcher;
+
+        @Override
+        public void onCreate() {
+            super.onCreate();
+            TvApplication.setCurrentRunningProcess(this, true);
+            mEpgFetcher = EpgFetcher.getInstance(this);
+        }
+
+        @Override
+        public boolean onStartJob(JobParameters params) {
+            if (!mEpgFetcher.mChannelDataManager.isDbLoadFinished()) {
+                mEpgFetcher.mChannelDataManager.addListener(new ChannelDataManager.Listener() {
+                    @Override
+                    public void onLoadFinished() {
+                        mEpgFetcher.mChannelDataManager.removeListener(this);
+                        if (!mEpgFetcher.executeFetchTaskIfPossible(EpgFetchService.this, params)) {
+                            jobFinished(params, false);
                         }
                     }
-                    mContext.getContentResolver().applyBatch(TvContract.AUTHORITY, ops);
-                    updated = true;
-                } catch (RemoteException | OperationApplicationException e) {
-                    Log.e(TAG, "Failed to insert programs.", e);
-                    return updated;
+
+                    @Override
+                    public void onChannelListUpdated() { }
+
+                    @Override
+                    public void onChannelBrowsableChanged() { }
+                });
+                return true;
+            } else {
+                return mEpgFetcher.executeFetchTaskIfPossible(this, params);
+            }
+        }
+
+        @Override
+        public boolean onStopJob(JobParameters params) {
+            mEpgFetcher.stopFetchingJob();
+            return false;
+        }
+    }
+
+    private class FetchAsyncTask extends AsyncTask<Void, Void, Integer> {
+        private final JobService mService;
+        private final JobParameters mParams;
+        private List<Channel> mCurrentChannelList;
+        private TimerEvent mTimerEvent;
+
+        private FetchAsyncTask(JobService service, JobParameters params) {
+            mService = service;
+            mParams = params;
+        }
+
+        @Override
+        protected void onPreExecute() {
+            mTimerEvent = mPerformanceMonitor.startTimer();
+            mCurrentChannelList = mChannelDataManager.getChannelList();
+        }
+
+        @Override
+        protected Integer doInBackground(Void... args) {
+            final int oldTag = TrafficStats.getThreadStatsTag();
+            TrafficStats.setThreadStatsTag(NetworkTrafficTags.EPG_FETCH);
+            try {
+                if (DEBUG) Log.d(TAG, "Start EPG routinely fetching.");
+                Integer failureReason = prepareFetchEpg(false);
+                // InterruptedException might be caught by RPC, we should check it here.
+                if (failureReason != null || this.isCancelled()) {
+                    return failureReason;
                 }
-                ops.clear();
+                String lineupId = EpgFetchHelper.getLastLineupId(mContext);
+                lineupId = lineupId == null ? pickBestLineupId(mCurrentChannelList) : lineupId;
+                if (lineupId != null) {
+                    Log.i(TAG, "Selecting the lineup " + lineupId);
+                    // During normal fetching process, the lineup ID should be confirmed since all
+                    // channels are known, clear up possible lineups to save resources.
+                    EpgFetchHelper.setLastLineupId(mContext, lineupId);
+                    clearUnusedLineups(lineupId);
+                } else {
+                    Log.i(TAG, "Failed to get lineup id");
+                    return REASON_NO_EPG_DATA_RETURNED;
+                }
+                final List<Channel> channels = mEpgReader.getChannels(lineupId);
+                // InterruptedException might be caught by RPC, we should check it here.
+                if (this.isCancelled()) {
+                    return null;
+                }
+                if (channels.isEmpty()) {
+                    Log.i(TAG, "Failed to get EPG channels.");
+                    return REASON_NO_EPG_DATA_RETURNED;
+                }
+                if (System.currentTimeMillis() - EpgFetchHelper.getLastEpgUpdatedTimestamp(mContext)
+                        > mEpgDataExpiredTimeLimitMs) {
+                    batchFetchEpg(channels, mFastFetchDurationSec);
+                }
+                new Handler(mContext.getMainLooper())
+                        .post(
+                                new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        ChannelLogoFetcher.startFetchingChannelLogos(
+                                                mContext, channels);
+                                    }
+                                });
+                for (Channel channel : channels) {
+                    if (this.isCancelled()) {
+                        return null;
+                    }
+                    long channelId = channel.getId();
+                    List<Program> programs = new ArrayList<>(mEpgReader.getPrograms(channelId));
+                    // InterruptedException might be caught by RPC, we should check it here.
+                    Collections.sort(programs);
+                    Log.i(TAG, "Fetched " + programs.size() + " programs for channel " + channelId);
+                    EpgFetchHelper.updateEpgData(mContext, channelId, programs);
+                }
+                EpgFetchHelper.setLastEpgUpdatedTimestamp(mContext, mEpgTimeStamp);
+                if (DEBUG) Log.d(TAG, "Fetching EPG is finished.");
+                return null;
+            } finally {
+                TrafficStats.setThreadStatsTag(oldTag);
             }
-        }
-        if (DEBUG) {
-            Log.d(TAG, "Updated " + fetchedProgramsCount + " programs for channel " + channelId);
-        }
-        return updated;
-    }
-
-    private List<Program> queryPrograms(long channelId, long startTimeMs, long endTimeMs) {
-        try (Cursor c = mContext.getContentResolver().query(
-                TvContract.buildProgramsUriForChannel(channelId, startTimeMs, endTimeMs),
-                Program.PROJECTION, null, null, Programs.COLUMN_START_TIME_UTC_MILLIS)) {
-            if (c == null) {
-                return Collections.emptyList();
-            }
-            ArrayList<Program> programs = new ArrayList<>();
-            while (c.moveToNext()) {
-                programs.add(Program.fromCursor(c));
-            }
-            return programs;
-        }
-    }
-
-    /**
-     * Returns {@code true} if the {@code oldProgram} program needs to be updated with the
-     * {@code newProgram} program.
-     */
-    private boolean isSameTitleAndOverlap(Program oldProgram, Program newProgram) {
-        // NOTE: Here, we update the old program if it has the same title and overlaps with the
-        // new program. The test logic is just an example and you can modify this. E.g. check
-        // whether the both programs have the same program ID if your EPG supports any ID for
-        // the programs.
-        return Objects.equals(oldProgram.getTitle(), newProgram.getTitle())
-                && oldProgram.getStartTimeUtcMillis() <= newProgram.getEndTimeUtcMillis()
-                && newProgram.getStartTimeUtcMillis() <= oldProgram.getEndTimeUtcMillis();
-    }
-
-    @SuppressLint("InlinedApi")
-    @SuppressWarnings("deprecation")
-    private static ContentValues toContentValues(Program program) {
-        ContentValues values = new ContentValues();
-        values.put(TvContract.Programs.COLUMN_CHANNEL_ID, program.getChannelId());
-        putValue(values, TvContract.Programs.COLUMN_TITLE, program.getTitle());
-        putValue(values, TvContract.Programs.COLUMN_EPISODE_TITLE, program.getEpisodeTitle());
-        if (BuildCompat.isAtLeastN()) {
-            putValue(values, TvContract.Programs.COLUMN_SEASON_DISPLAY_NUMBER,
-                    program.getSeasonNumber());
-            putValue(values, TvContract.Programs.COLUMN_EPISODE_DISPLAY_NUMBER,
-                    program.getEpisodeNumber());
-        } else {
-            putValue(values, TvContract.Programs.COLUMN_SEASON_NUMBER, program.getSeasonNumber());
-            putValue(values, TvContract.Programs.COLUMN_EPISODE_NUMBER, program.getEpisodeNumber());
-        }
-        putValue(values, TvContract.Programs.COLUMN_SHORT_DESCRIPTION, program.getDescription());
-        putValue(values, TvContract.Programs.COLUMN_POSTER_ART_URI, program.getPosterArtUri());
-        putValue(values, TvContract.Programs.COLUMN_THUMBNAIL_URI, program.getThumbnailUri());
-        String[] canonicalGenres = program.getCanonicalGenres();
-        if (canonicalGenres != null && canonicalGenres.length > 0) {
-            putValue(values, TvContract.Programs.COLUMN_CANONICAL_GENRE,
-                    Genres.encode(canonicalGenres));
-        } else {
-            putValue(values, TvContract.Programs.COLUMN_CANONICAL_GENRE, "");
-        }
-        TvContentRating[] ratings = program.getContentRatings();
-        if (ratings != null && ratings.length > 0) {
-            StringBuilder sb = new StringBuilder(ratings[0].flattenToString());
-            for (int i = 1; i < ratings.length; ++i) {
-                sb.append(CONTENT_RATING_SEPARATOR);
-                sb.append(ratings[i].flattenToString());
-            }
-            putValue(values, TvContract.Programs.COLUMN_CONTENT_RATING, sb.toString());
-        } else {
-            putValue(values, TvContract.Programs.COLUMN_CONTENT_RATING, "");
-        }
-        values.put(TvContract.Programs.COLUMN_START_TIME_UTC_MILLIS,
-                program.getStartTimeUtcMillis());
-        values.put(TvContract.Programs.COLUMN_END_TIME_UTC_MILLIS, program.getEndTimeUtcMillis());
-        putValue(values, TvContract.Programs.COLUMN_INTERNAL_PROVIDER_DATA,
-                InternalDataUtils.serializeInternalProviderData(program));
-        return values;
-    }
-
-    private static void putValue(ContentValues contentValues, String key, String value) {
-        if (TextUtils.isEmpty(value)) {
-            contentValues.putNull(key);
-        } else {
-            contentValues.put(key, value);
-        }
-    }
-
-    private static void putValue(ContentValues contentValues, String key, byte[] value) {
-        if (value == null || value.length == 0) {
-            contentValues.putNull(key);
-        } else {
-            contentValues.put(key, value);
-        }
-    }
-
-    private static class EpgFetcherHandler extends WeakHandler<EpgFetcher> {
-        public EpgFetcherHandler (@NonNull Looper looper, EpgFetcher ref) {
-            super(looper, ref);
         }
 
         @Override
-        public void handleMessage(Message msg, @NonNull EpgFetcher epgFetcher) {
+        protected void onPostExecute(Integer failureReason) {
+            mFetchTask = null;
+            if (failureReason == null || failureReason == REASON_LOCATION_PERMISSION_NOT_GRANTED
+                    || failureReason == REASON_NO_NEW_EPG) {
+                jobFinished(false);
+            } else {
+                // Applies back-off policy
+                jobFinished(true);
+            }
+            mPerformanceMonitor.stopTimer(mTimerEvent, EventNames.FETCH_EPG_TASK);
+            mPerformanceMonitor.recordMemory(EventNames.FETCH_EPG_TASK);
+        }
+
+        @Override
+        protected void onCancelled(Integer failureReason) {
+            clearUnusedLineups(null);
+            jobFinished(false);
+        }
+
+        private void jobFinished(boolean reschedule) {
+            if (mService != null && mParams != null) {
+                // Task is executed from JobService, need to report jobFinished.
+                mService.jobFinished(mParams, reschedule);
+            }
+        }
+    }
+
+    @WorkerThread
+    private class FetchDuringScanHandler extends Handler {
+        private final Set<Long> mFetchedChannelIdsDuringScan = new HashSet<>();
+        private String mPossibleLineupId;
+
+        private final ChannelDataManager.Listener mDuringScanChannelListener =
+                new ChannelDataManager.Listener() {
+                    @Override
+                    public void onLoadFinished() {
+                        if (DEBUG) Log.d(TAG, "ChannelDataManager.onLoadFinished()");
+                        if (getTunerChannelCount() >= MINIMUM_CHANNELS_TO_DECIDE_LINEUP
+                                && !hasMessages(MSG_CHANNEL_UPDATED_DURING_SCAN)) {
+                            Message.obtain(FetchDuringScanHandler.this,
+                                    MSG_CHANNEL_UPDATED_DURING_SCAN, new ArrayList<>(
+                                            mChannelDataManager.getChannelList())).sendToTarget();
+                        }
+                    }
+
+                    @Override
+                    public void onChannelListUpdated() {
+                        if (DEBUG) Log.d(TAG, "ChannelDataManager.onChannelListUpdated()");
+                        if (getTunerChannelCount() >= MINIMUM_CHANNELS_TO_DECIDE_LINEUP
+                                && !hasMessages(MSG_CHANNEL_UPDATED_DURING_SCAN)) {
+                            Message.obtain(FetchDuringScanHandler.this,
+                                    MSG_CHANNEL_UPDATED_DURING_SCAN,
+                                            mChannelDataManager.getChannelList()).sendToTarget();
+                        }
+                    }
+
+                    @Override
+                    public void onChannelBrowsableChanged() {
+                        // Do nothing
+                    }
+                };
+
+        @AnyThread
+        private FetchDuringScanHandler(Looper looper) {
+            super(looper);
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
             switch (msg.what) {
-                case MSG_FETCH_EPG:
-                    epgFetcher.onFetchEpg();
+                case MSG_PREPARE_FETCH_DURING_SCAN:
+                case MSG_RETRY_PREPARE_FETCH_DURING_SCAN:
+                    onPrepareFetchDuringScan();
                     break;
-                default:
-                    super.handleMessage(msg);
+                case MSG_CHANNEL_UPDATED_DURING_SCAN:
+                    if (!hasMessages(MSG_CHANNEL_UPDATED_DURING_SCAN)) {
+                        onChannelUpdatedDuringScan((List<Channel>) msg.obj);
+                    }
+                    break;
+                case MSG_FINISH_FETCH_DURING_SCAN:
+                    removeMessages(MSG_RETRY_PREPARE_FETCH_DURING_SCAN);
+                    if (hasMessages(MSG_CHANNEL_UPDATED_DURING_SCAN)) {
+                        sendEmptyMessage(MSG_FINISH_FETCH_DURING_SCAN);
+                    } else {
+                        onFinishFetchDuringScan();
+                    }
                     break;
             }
         }
-    }
 
-    private class EpgRunner implements Runnable {
-        @Override
-        public void run() {
-            fetchEpg();
+        private void onPrepareFetchDuringScan() {
+            Integer failureReason = prepareFetchEpg(true);
+            if (failureReason != null) {
+                sendEmptyMessageDelayed(
+                        MSG_RETRY_PREPARE_FETCH_DURING_SCAN, FETCH_DURING_SCAN_WAIT_TIME_MS);
+                return;
+            }
+            mChannelDataManager.addListener(mDuringScanChannelListener);
+        }
+
+        private void onChannelUpdatedDuringScan(List<Channel> currentChannelList) {
+            String lineupId = pickBestLineupId(currentChannelList);
+            Log.i(TAG, "Fast fetch channels for lineup ID: " + lineupId);
+            if (TextUtils.isEmpty(lineupId)) {
+                if (TextUtils.isEmpty(mPossibleLineupId)) {
+                    return;
+                }
+            } else if (!TextUtils.equals(lineupId, mPossibleLineupId)) {
+                mFetchedChannelIdsDuringScan.clear();
+                mPossibleLineupId = lineupId;
+            }
+            List<Long> currentChannelIds = new ArrayList<>();
+            for (Channel channel : currentChannelList) {
+                currentChannelIds.add(channel.getId());
+            }
+            mFetchedChannelIdsDuringScan.retainAll(currentChannelIds);
+            List<Channel> newChannels = new ArrayList<>();
+            for (Channel channel : mEpgReader.getChannels(mPossibleLineupId)) {
+                if (!mFetchedChannelIdsDuringScan.contains(channel.getId())) {
+                    newChannels.add(channel);
+                    mFetchedChannelIdsDuringScan.add(channel.getId());
+                }
+            }
+            batchFetchEpg(newChannels, FETCH_DURING_SCAN_DURATION_SEC);
+        }
+
+        private void onFinishFetchDuringScan() {
+            mChannelDataManager.removeListener(mDuringScanChannelListener);
+            EpgFetchHelper.setLastLineupId(mContext, mPossibleLineupId);
+            clearUnusedLineups(null);
+            mFetchedChannelIdsDuringScan.clear();
+            synchronized (mFetchDuringScanHandlerLock) {
+                if (!hasMessages(MSG_PREPARE_FETCH_DURING_SCAN)) {
+                    removeCallbacksAndMessages(null);
+                    getLooper().quit();
+                    mFetchDuringScanHandler = null;
+                }
+            }
+            // Clear timestamp to make routine service start right away.
+            EpgFetchHelper.setLastEpgUpdatedTimestamp(mContext, 0);
+            Log.i(TAG, "EPG Fetching during channel scanning finished.");
+            new Handler(Looper.getMainLooper()).post(new Runnable() {
+                @Override
+                public void run() {
+                    fetchImmediately();
+                }
+            });
         }
     }
 }

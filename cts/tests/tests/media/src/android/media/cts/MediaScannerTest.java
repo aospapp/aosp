@@ -470,7 +470,20 @@ public class MediaScannerTest extends AndroidTestCase {
             new MediaScanEntry(R.raw.iso88591_13,
                     new String[] {"Michael Bublé", "Crazy Love", "Michael Bublé", "Haven't Met You Yet", null}),
             new MediaScanEntry(R.raw.utf16_1,
-                    new String[] {"Shakira", "Latin Mix USA", "Shakira", "Estoy Aquí", null})
+                    new String[] {"Shakira", "Latin Mix USA", "Shakira", "Estoy Aquí", null}),
+            // Tags are encoded in different charsets.
+            new MediaScanEntry(R.raw.iso88591_utf8_mixed_1,
+                    new String[] {"刘昊霖/kidult.", "鱼干铺里", "刘昊霖/kidult.", "Colin Wine's Mailbox", null}),
+            new MediaScanEntry(R.raw.iso88591_utf8_mixed_2,
+                    new String[] {"冰块先生/郭美孜", "hey jude", "冰块先生/郭美孜", "Hey Jude", null}),
+            new MediaScanEntry(R.raw.iso88591_utf8_mixed_3,
+                    new String[] {"Toy王奕/Tizzy T/满舒克", "1993", "Toy王奕/Tizzy T/满舒克", "Me&Ma Bros", null}),
+            new MediaScanEntry(R.raw.gb18030_utf8_mixed_1,
+                    new String[] {"张国荣", "钟情张国荣", null, "左右手", null}),
+            new MediaScanEntry(R.raw.gb18030_utf8_mixed_2,
+                    new String[] {"纵贯线", "Live in Taipei 出发\\/终点站", null, "皇后大道东(Live)", null}),
+            new MediaScanEntry(R.raw.gb18030_utf8_mixed_3,
+                    new String[] {"谭咏麟", "二十年白金畅销金曲全记录", null, "知心当玩偶", null})
     };
 
     public void testEncodingDetection() throws Exception {

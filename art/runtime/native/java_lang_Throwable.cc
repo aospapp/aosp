@@ -16,7 +16,10 @@
 
 #include "java_lang_Throwable.h"
 
+#include "nativehelper/jni_macros.h"
+
 #include "jni_internal.h"
+#include "native_util.h"
 #include "scoped_fast_native_object_access-inl.h"
 #include "thread.h"
 

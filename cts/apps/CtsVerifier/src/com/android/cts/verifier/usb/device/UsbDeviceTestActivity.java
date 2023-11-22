@@ -214,12 +214,12 @@ public class UsbDeviceTestActivity extends PassFailButtons.Activity {
      */
     private void makeThisDeviceAnAccessory(@NonNull UsbDeviceConnection connection) {
         AoapInterface.sendString(connection, AoapInterface.ACCESSORY_STRING_MANUFACTURER,
-                "Android");
+                "Android CTS");
         AoapInterface.sendString(connection, AoapInterface.ACCESSORY_STRING_MODEL,
-                "Android device");
+                "Android device under CTS test");
         AoapInterface.sendString(connection, AoapInterface.ACCESSORY_STRING_DESCRIPTION,
                 "Android device running CTS verifier");
-        AoapInterface.sendString(connection, AoapInterface.ACCESSORY_STRING_VERSION, "1");
+        AoapInterface.sendString(connection, AoapInterface.ACCESSORY_STRING_VERSION, "2");
         AoapInterface.sendString(connection, AoapInterface.ACCESSORY_STRING_URI,
                 "https://source.android.com/compatibility/cts/verifier.html");
         AoapInterface.sendString(connection, AoapInterface.ACCESSORY_STRING_SERIAL, "0");

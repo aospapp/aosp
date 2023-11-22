@@ -106,7 +106,7 @@ def:dump_permission(tag) ?>Requires the <?cs
   if subcount(tag.values) > 1 ?> permissions.<?cs
   else ?> permission.<?cs
   /if ?><?cs
-/def ?>
+/def ?><?cs
 
 # Print output for @service tags ?><?cs
 def:dump_service(tag) ?>Instances of this class must be obtained using <?cs

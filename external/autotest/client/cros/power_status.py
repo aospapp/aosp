@@ -261,6 +261,8 @@ class BatteryStat(DevStat):
                 return
             except error.TestError as e:
                 logging.warn(e)
+                for field, prop in self.battery_fields.iteritems():
+                    logging.warn(field + ': ' + repr(getattr(self, field)))
                 continue
         raise error.TestError('Failed to read battery state')
 
@@ -1741,70 +1743,36 @@ class DiskStateLogger(threading.Thread):
         """Returns the _error exception... please only call after result()."""
         return self._error
 
-def parse_reef_s0ix_residency_info():
+def parse_pmc_s0ix_residency_info():
     """
-    Parses the ioss_info file which contains the S0ix residency counter
-    on reef variants.
-    Example file :
-    --------------------------------------
-    I0SS TELEMETRY EVENTLOG
-    --------------------------------------
-    SOC_S0IX_TOTAL_RES               0xd241b68
+    Parses S0ix residency for PMC based Intel systems
+    (skylake/kabylake/apollolake), the debugfs paths might be
+    different from platform to platform, yet the format is
+    unified in microseconds.
 
-    @returns Residency(secs) for Reef platform.
-    @raises TestError if the debugfs file for this
-        specific board is not found or if S0ix residency info is not
-        found in the debugfs file.
+    @returns residency in seconds.
+    @raises error.TestNAError if the debugfs file not found.
     """
-
-    ioss_info_path = '/sys/kernel/debug/telemetry/ioss_info'
-    S0IX_CLOCK_HZ = 19.2e6
-    if not os.path.exists(ioss_info_path):
-        raise error.TestNAError('File: ' + ioss_info_path + ' used to'
-                                ' measure s0ix residency does not exist')
-
-    with open(ioss_info_path) as fd:
-        residency = -1
-        for line in fd:
-            if line.startswith('SOC_S0IX_TOTAL_RES'):
-                #residency here is a clock pulse with XTAL of 19.2mhz.
-                residency = int(line.rsplit(None, 1)[-1], 0)
-                logging.debug("S0ix Residency: %d", residency)
-            # Helps in debugging scenarios where the residency count has not increased.
-            elif 'BLOCK' in line:
-                logging.debug(line)
-        if residency is not -1:
-            return residency / S0IX_CLOCK_HZ
-    raise error.TestNAError('Could not find s0ix residency in ' +
-                            ioss_info_path)
+    info_path = None
+    for node in ['/sys/kernel/debug/pmc_core/slp_s0_residency_usec',
+                 '/sys/kernel/debug/telemetry/s0ix_residency_usec']:
+        if os.path.exists(node):
+            info_path = node
+            break
+    if not info_path:
+        raise error.TestNAError('S0ix residency file not found')
+    return float(utils.read_one_line(info_path)) * 1e-6
 
 
 class S0ixResidencyStats(object):
     """
-    Measures the S0ix residency of a given board over time. Since
-    the debugfs path and the format of the file with the information
-    about S0ix residency might differ for every platform, we have a platform
-    specific parser.
+    Measures the S0ix residency of a given board over time.
     """
-    S0IX_PARSERS_PER_PLATFORM = {
-        'Google_Reef' : parse_reef_s0ix_residency_info,
-    }
-
     def __init__(self):
-        try:
-            current_plat = utils.run('mosys platform family',
-                                     verbose=False).stdout.strip()
-        except error.CmdError:
-            raise error.TestNAError('Could not find the platform family.')
-        if current_plat not in self.S0IX_PARSERS_PER_PLATFORM:
-            raise error.TestNAError('No Residency counter parser for' +
-                                    ' the board: ' + current_plat)
-        self._parse_function = \
-                self.S0IX_PARSERS_PER_PLATFORM[current_plat]
-        self._initial_residency = self._parse_function()
+        self._initial_residency = parse_pmc_s0ix_residency_info()
 
     def get_accumulated_residency_secs(self):
         """
         @returns S0ix Residency since the class has been initialized.
         """
-        return self._parse_function() - self._initial_residency
+        return parse_pmc_s0ix_residency_info() - self._initial_residency

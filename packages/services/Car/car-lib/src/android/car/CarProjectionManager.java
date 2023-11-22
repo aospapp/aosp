@@ -69,13 +69,23 @@ public final class CarProjectionManager implements CarManagerBase {
     }
 
     /**
+     * Compatibility with previous APIs due to typo
+     * @throws CarNotConnectedException if the connection to the car service has been lost.
+     * @hide
+     */
+    public void regsiterProjectionListener(CarProjectionListener listener, int voiceSearchFilter)
+            throws CarNotConnectedException {
+        registerProjectionListener(listener, voiceSearchFilter);
+    }
+
+    /**
      * Register listener to monitor projection. Only one listener can be registered and
      * registering multiple times will lead into only the last listener to be active.
      * @param listener
      * @param voiceSearchFilter Flags of voice search requests to get notification.
      * @throws CarNotConnectedException if the connection to the car service has been lost.
      */
-    public void regsiterProjectionListener(CarProjectionListener listener, int voiceSearchFilter)
+    public void registerProjectionListener(CarProjectionListener listener, int voiceSearchFilter)
             throws CarNotConnectedException {
         if (listener == null) {
             throw new IllegalArgumentException("null listener");
@@ -83,7 +93,7 @@ public final class CarProjectionManager implements CarManagerBase {
         synchronized (this) {
             if (mListener == null || mVoiceSearchFilter != voiceSearchFilter) {
                 try {
-                    mService.regsiterProjectionListener(mBinderListener, voiceSearchFilter);
+                    mService.registerProjectionListener(mBinderListener, voiceSearchFilter);
                 } catch (RemoteException e) {
                     throw new CarNotConnectedException(e);
                 }
@@ -94,13 +104,22 @@ public final class CarProjectionManager implements CarManagerBase {
     }
 
     /**
+     * Compatibility with previous APIs due to typo
+     * @throws CarNotConnectedException if the connection to the car service has been lost.
+     * @hide
+     */
+    public void unregsiterProjectionListener() {
+       unregisterProjectionListener();
+    }
+
+    /**
      * Unregister listener and stop listening projection events.
      * @throws CarNotConnectedException if the connection to the car service has been lost.
      */
-    public void unregsiterProjectionListener() {
+    public void unregisterProjectionListener() {
         synchronized (this) {
             try {
-                mService.unregsiterProjectionListener(mBinderListener);
+                mService.unregisterProjectionListener(mBinderListener);
             } catch (RemoteException e) {
                 //ignore
             }

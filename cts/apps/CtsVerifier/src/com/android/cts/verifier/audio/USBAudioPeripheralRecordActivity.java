@@ -142,13 +142,14 @@ public class USBAudioPeripheralRecordActivity extends USBAudioPeripheralPlayerAc
     public class LocalClickListener implements View.OnClickListener {
         @Override
         public void onClick(View view) {
-            switch (view.getId()) {
+            int id = view.getId();
+            switch (id) {
             case R.id.uap_recordRecordBtn:
-                Log.i(TAG, "Record Button Pressed");
-                if (!isPlaying()) {
-                    startRecording(false);
-                    mRecordBtn.setText(getString(R.string.audio_uap_record_stopBtn));
-                    mRecordLoopbackBtn.setEnabled(false);
+                if (!isRecording()) {
+                    if (startRecording(false)) {
+                        mRecordBtn.setText(getString(R.string.audio_uap_record_stopBtn));
+                        mRecordLoopbackBtn.setEnabled(false);
+                    }
                 } else {
                     stopRecording();
                     mRecordBtn.setText(getString(R.string.audio_uap_record_recordBtn));
@@ -157,12 +158,15 @@ public class USBAudioPeripheralRecordActivity extends USBAudioPeripheralPlayerAc
                 break;
 
             case R.id.uap_recordRecordLoopBtn:
-                Log.i(TAG, "Record Loopback Button Pressed");
-                if (!isPlaying()) {
-                    startRecording(true);
-                    mRecordLoopbackBtn.setText(getString(R.string.audio_uap_record_stopBtn));
-                    mRecordBtn.setEnabled(false);
+                if (!isRecording()) {
+                    if (startRecording(true)) {
+                        mRecordLoopbackBtn.setText(getString(R.string.audio_uap_record_stopBtn));
+                        mRecordBtn.setEnabled(false);
+                    }
                 } else {
+                    if (isPlaying()) {
+                        stopPlay();
+                    }
                     stopRecording();
                     mRecordLoopbackBtn.setText(
                         getString(R.string.audio_uap_record_recordLoopbackBtn));

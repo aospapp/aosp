@@ -21,6 +21,7 @@ import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionCopier;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.NullDevice;
+import com.android.tradefed.device.StubDevice;
 import com.android.tradefed.util.StringEscapeUtils;
 
 import java.io.File;
@@ -82,7 +83,7 @@ public class VersionedTfLauncher extends SubprocessTfLauncher
             ITestDevice device = mDeviceInfos.entrySet().iterator().next().getKey();
             if (device.getIDevice() instanceof NullDevice) {
                 mCmdArgs.add("--null-device");
-            } else {
+            } else if (!(device.getIDevice() instanceof StubDevice)) {
                 String serial = device.getSerialNumber();
                 mCmdArgs.add("--serial");
                 mCmdArgs.add(serial);

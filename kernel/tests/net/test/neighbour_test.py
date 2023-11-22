@@ -17,7 +17,6 @@
 import errno
 import random
 from socket import *  # pylint: disable=wildcard-import
-import subprocess
 import time
 import unittest
 

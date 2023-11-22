@@ -180,8 +180,11 @@ void dns64_detection(unsigned net_id) {
     logmsg(ANDROID_LOG_WARN, "dns64_detection -- error, sleeping for %d seconds", backoff_sleep);
     sleep(backoff_sleep);
     backoff_sleep *= 2;
-    if(backoff_sleep >= 120) {
-      backoff_sleep = 120;
+    if(backoff_sleep >= 1800) {
+      // Scale down to one DNS query per half hour. Unnecessary DNS queries waste power, and the
+      // benefit is minimal (basically, only limited to the case where a network goes from IPv6-only
+      // to IPv6 with NAT64).
+      backoff_sleep = 1800;
     }
   }
 }

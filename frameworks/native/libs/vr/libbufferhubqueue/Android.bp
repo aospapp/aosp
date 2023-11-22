@@ -21,10 +21,6 @@ includeFiles = [
     "include",
 ]
 
-headerLibraries = [
-    "libdvr_headers",
-]
-
 staticLibraries = [
     "libbufferhub",
     "libdvrcommon",
@@ -42,18 +38,24 @@ sharedLibraries = [
     "libgui",
 ]
 
+headerLibraries = [
+    "libdvr_headers",
+    "libnativebase_headers",
+]
+
 cc_library {
     name: "libbufferhubqueue",
     cflags: [
         "-DLOG_TAG=\"libbufferhubqueue\"",
         "-DTRACE=0",
+        "-DATRACE_TAG=ATRACE_TAG_GRAPHICS",
     ],
     srcs: sourceFiles,
     export_include_dirs: includeFiles,
     export_static_lib_headers: staticLibraries,
-    header_libs: headerLibraries,
     static_libs: staticLibraries,
     shared_libs: sharedLibraries,
+    header_libs: headerLibraries,
 }
 
 subdirs = ["tests"]

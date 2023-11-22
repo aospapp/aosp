@@ -40,8 +40,6 @@
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
 
-extern fixed_queue_t* btu_general_alarm_queue;
-
 /******************************************************************************/
 /*            L O C A L    F U N C T I O N     P R O T O T Y P E S            */
 /******************************************************************************/
@@ -103,9 +101,8 @@ void l2c_rcv_acl_data(BT_HDR* p_msg) {
         list_append(l2cb.rcv_pending_q, p_msg);
 
         if (list_length(l2cb.rcv_pending_q) == 1) {
-          alarm_set_on_queue(l2cb.receive_hold_timer, BT_1SEC_TIMEOUT_MS,
-                             l2c_receive_hold_timer_timeout, NULL,
-                             btu_general_alarm_queue);
+          alarm_set_on_mloop(l2cb.receive_hold_timer, BT_1SEC_TIMEOUT_MS,
+                             l2c_receive_hold_timer_timeout, NULL);
         }
 
         return;
@@ -357,7 +354,7 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
 
           p_lcb->w4_info_rsp = false;
           ci.status = HCI_SUCCESS;
-          memcpy(ci.bd_addr, p_lcb->remote_bd_addr, sizeof(BD_ADDR));
+          ci.bd_addr = p_lcb->remote_bd_addr;
 
           /* For all channels, send the event through their FSMs */
           for (p_ccb = p_lcb->ccb_queue.p_first_ccb; p_ccb;
@@ -696,7 +693,7 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
 #endif
 
         ci.status = HCI_SUCCESS;
-        memcpy(ci.bd_addr, p_lcb->remote_bd_addr, sizeof(BD_ADDR));
+        ci.bd_addr = p_lcb->remote_bd_addr;
         for (p_ccb = p_lcb->ccb_queue.p_first_ccb; p_ccb;
              p_ccb = p_ccb->p_next_ccb) {
           l2c_csm_execute(p_ccb, L2CEVT_L2CAP_INFO_RSP, &ci);
@@ -747,9 +744,8 @@ void l2c_process_held_packets(bool timed_out) {
 
   /* If anyone still in the queue, restart the timeout */
   if (!list_is_empty(l2cb.rcv_pending_q)) {
-    alarm_set_on_queue(l2cb.receive_hold_timer, BT_1SEC_TIMEOUT_MS,
-                       l2c_receive_hold_timer_timeout, NULL,
-                       btu_general_alarm_queue);
+    alarm_set_on_mloop(l2cb.receive_hold_timer, BT_1SEC_TIMEOUT_MS,
+                       l2c_receive_hold_timer_timeout, NULL);
   }
 }
 

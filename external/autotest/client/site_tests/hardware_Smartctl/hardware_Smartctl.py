@@ -4,7 +4,7 @@
 
 import logging, re
 from autotest_lib.client.bin import test
-from autotest_lib.client.bin import site_utils, utils
+from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 
 
@@ -39,7 +39,7 @@ class hardware_Smartctl(test.test):
         """
         if dev == '':
             logging.info('Run rootdev to determine boot device')
-            dev = site_utils.get_root_device()
+            dev = utils.get_root_device()
 
         logging.info(str('dev: %s' % dev))
 

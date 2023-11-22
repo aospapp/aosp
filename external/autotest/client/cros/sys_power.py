@@ -8,9 +8,11 @@ import errno
 import logging
 import multiprocessing
 import os
-import rtc
 import time
-import upstart
+
+import common
+from autotest_lib.client.cros import rtc
+from autotest_lib.client.cros import upstart
 
 SYSFS_POWER_STATE = '/sys/power/state'
 SYSFS_WAKEUP_COUNT = '/sys/power/wakeup_count'

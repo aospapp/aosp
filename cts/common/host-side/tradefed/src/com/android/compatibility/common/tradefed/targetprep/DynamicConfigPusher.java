@@ -28,7 +28,6 @@ import com.android.tradefed.log.LogUtil;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.ITargetCleaner;
 import com.android.tradefed.targetprep.TargetSetupError;
-import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.StreamUtil;
 
 import org.json.JSONException;
@@ -50,7 +49,6 @@ public class DynamicConfigPusher implements ITargetCleaner {
     }
 
     private static final String LOG_TAG = DynamicConfigPusher.class.getSimpleName();
-    private static final String TMP_FOLDER_DYNAMIC_FILES = "dynamic-config-files";
 
     @Option(name = "cleanup", description = "Whether to remove config files from the test " +
             "target after test completion.")
@@ -68,8 +66,7 @@ public class DynamicConfigPusher implements ITargetCleaner {
             "from the server, e.g. \"1.0\". Defaults to suite version string.")
     private String mVersion;
 
-
-    private String mFilePushed;
+    private String mDeviceFilePushed;
 
     void setModuleName(String moduleName) {
         mModuleName = moduleName;
@@ -86,7 +83,7 @@ public class DynamicConfigPusher implements ITargetCleaner {
 
         File localConfigFile = null;
         try {
-            localConfigFile = DynamicConfig.getConfigFile(buildHelper.getTestsDir(), mModuleName);
+            localConfigFile = buildHelper.getTestFile(mModuleName + ".dynamic");
         } catch (FileNotFoundException e) {
             throw new TargetSetupError("Cannot get local dynamic config file from test directory",
                     e, device.getDeviceDescriptor());
@@ -115,48 +112,28 @@ public class DynamicConfigPusher implements ITargetCleaner {
                     "Dynamic config override URL is not set, using local configuration values");
         }
 
-        File src = null;
+        // Use DynamicConfigHandler to merge local and service configuration into one file
+        File hostFile = null;
         try {
-            src = DynamicConfigHandler.getMergedDynamicConfigFile(
+            hostFile = DynamicConfigHandler.getMergedDynamicConfigFile(
                     localConfigFile, apfeConfigInJson, mModuleName);
         } catch (IOException | XmlPullParserException | JSONException e) {
             throw new TargetSetupError("Cannot get merged dynamic config file", e,
                     device.getDeviceDescriptor());
         }
 
-        switch (mTarget) {
-            case DEVICE:
-                String deviceDest = DynamicConfig.CONFIG_FOLDER_ON_DEVICE + src.getName();
-                if (!device.pushFile(src, deviceDest)) {
-                    throw new TargetSetupError(String.format(
-                            "Failed to push local '%s' to remote '%s'",
-                            src.getAbsolutePath(), deviceDest), device.getDeviceDescriptor());
-                } else {
-                    mFilePushed = deviceDest;
-                    buildHelper.addDynamicConfigFile(mModuleName, src);
-                }
-                break;
-
-            case HOST:
-                File storageDir = null;
-                try {
-                    storageDir = FileUtil.createTempDir(TMP_FOLDER_DYNAMIC_FILES);
-                } catch (IOException e) {
-                    throw new TargetSetupError("Fail to create a tmp folder for dynamic config "
-                            + "files", e, device.getDeviceDescriptor());
-                }
-                File hostDest = new File(storageDir, src.getName());
-                try {
-                    FileUtil.copyFile(src, hostDest);
-                } catch (IOException e) {
-                    throw new TargetSetupError(String.format("Failed to copy file from %s to %s",
-                            src.getAbsolutePath(), hostDest.getAbsolutePath()), e,
-                            device.getDeviceDescriptor());
-                }
-                mFilePushed = storageDir.getAbsolutePath();
-                buildHelper.addDynamicConfigFile(mModuleName, src);
-                break;
+        if (TestTarget.DEVICE.equals(mTarget)) {
+            String deviceDest = String.format("%s%s.dynamic",
+                    DynamicConfig.CONFIG_FOLDER_ON_DEVICE, mModuleName);
+            if (!device.pushFile(hostFile, deviceDest)) {
+                throw new TargetSetupError(String.format(
+                        "Failed to push local '%s' to remote '%s'", hostFile.getAbsolutePath(),
+                        deviceDest), device.getDeviceDescriptor());
+            }
+            mDeviceFilePushed = deviceDest;
         }
+        // add host file to build
+        buildHelper.addDynamicConfigFile(mModuleName, hostFile);
     }
 
     /**
@@ -165,16 +142,10 @@ public class DynamicConfigPusher implements ITargetCleaner {
     @Override
     public void tearDown(ITestDevice device, IBuildInfo buildInfo, Throwable e)
             throws DeviceNotAvailableException {
-        switch (mTarget) {
-            case DEVICE:
-                if (!(e instanceof DeviceNotAvailableException)
-                        && mCleanup && mFilePushed != null) {
-                    device.executeShellCommand("rm -r " + mFilePushed);
-                }
-                break;
-            case HOST:
-                FileUtil.recursiveDelete(new File(mFilePushed));
-                break;
+        // Remove any file we have pushed to the device, host file will be moved to the result
+        // directory by ResultReporter upon invocation completion.
+        if (mDeviceFilePushed != null && !(e instanceof DeviceNotAvailableException) && mCleanup) {
+            device.executeShellCommand("rm -r " + mDeviceFilePushed);
         }
     }
 }

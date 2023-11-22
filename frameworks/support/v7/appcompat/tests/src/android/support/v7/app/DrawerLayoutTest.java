@@ -49,6 +49,8 @@ import android.support.test.filters.FlakyTest;
 import android.support.test.filters.LargeTest;
 import android.support.test.filters.MediumTest;
 import android.support.test.filters.Suppress;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.appcompat.test.R;
@@ -56,20 +58,23 @@ import android.support.v7.custom.CustomDrawerLayout;
 import android.view.View;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
-public class DrawerLayoutTest extends BaseInstrumentationTestCase<DrawerLayoutActivity> {
+@RunWith(AndroidJUnit4.class)
+public class DrawerLayoutTest {
+    @Rule
+    public final ActivityTestRule<DrawerLayoutActivity> mActivityTestRule =
+            new ActivityTestRule<DrawerLayoutActivity>(DrawerLayoutActivity.class);
+
     private CustomDrawerLayout mDrawerLayout;
 
     private View mStartDrawer;
 
     private View mContentView;
-
-    public DrawerLayoutTest() {
-        super(DrawerLayoutActivity.class);
-    }
 
     @Before
     public void setUp() {
@@ -85,7 +90,7 @@ public class DrawerLayoutTest extends BaseInstrumentationTestCase<DrawerLayoutAc
     // Tests for opening and closing the drawer and checking the open state
 
     @Test
-    @MediumTest
+    @LargeTest
     public void testDrawerOpenCloseViaAPI() {
         assertFalse("Initial state", mDrawerLayout.isDrawerOpen(GravityCompat.START));
 
@@ -113,7 +118,7 @@ public class DrawerLayoutTest extends BaseInstrumentationTestCase<DrawerLayoutAc
     }
 
     @Test
-    @MediumTest
+    @LargeTest
     public void testDrawerOpenCloseFocus() throws Throwable {
         assertFalse("Initial state", mDrawerLayout.isDrawerOpen(GravityCompat.START));
 
@@ -138,7 +143,7 @@ public class DrawerLayoutTest extends BaseInstrumentationTestCase<DrawerLayoutAc
     }
 
     @Test
-    @MediumTest
+    @LargeTest
     public void testDrawerOpenCloseWithRedundancyViaAPI() {
         assertFalse("Initial state", mDrawerLayout.isDrawerOpen(GravityCompat.START));
 
@@ -186,7 +191,7 @@ public class DrawerLayoutTest extends BaseInstrumentationTestCase<DrawerLayoutAc
     }
 
     @Test
-    @MediumTest
+    @LargeTest
     public void testDrawerOpenCloseViaSwipes() {
         assertFalse("Initial state", mDrawerLayout.isDrawerOpen(GravityCompat.START));
 

@@ -49,7 +49,6 @@ class VrHidlTest(base_test.BaseTestClass):
             target_version=1.0,
             target_package="android.hardware.vr",
             target_component_name="IVr",
-            hw_binder_service_name=None,
             bits=int(self.abi_bitness))
 
     def tearDownClass(self):

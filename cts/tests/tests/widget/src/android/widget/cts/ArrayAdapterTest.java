@@ -29,8 +29,8 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.Resources.Theme;
 import android.database.DataSetObserver;
-import android.support.test.annotation.UiThreadTest;
 import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
 import android.support.test.filters.SmallTest;
 import android.support.test.rule.ActivityTestRule;
 import android.support.test.runner.AndroidJUnit4;
@@ -402,7 +402,20 @@ public class ArrayAdapterTest {
      */
     @Test
     public void testCreateFromResource() {
-        ArrayAdapter.createFromResource(mContext, R.array.string, R.layout.simple_spinner_item);
+        final ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(mContext,
+                R.array.string, R.layout.simple_spinner_item);
+        final CharSequence[] staticOptions = adapter.getAutofillOptions();
+        assertEquals(3, staticOptions.length);
+        assertEquals("Test String 1", staticOptions[0]);
+        assertEquals("Test String 2", staticOptions[1]);
+        assertEquals("Test String 3", staticOptions[2]);
+
+        // Make sure values set dynamically wins.
+        adapter.setAutofillOptions("Dynamic", "am I");
+        final CharSequence[] dynamicOptions = adapter.getAutofillOptions();
+        assertEquals(2, dynamicOptions.length);
+        assertEquals("Dynamic", dynamicOptions[0]);
+        assertEquals("am I", dynamicOptions[1]);
 
         ArrayAdapter.createFromResource(mContext, R.array.string, INVALID_ID);
     }

@@ -16,21 +16,31 @@
 
 package android.app.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
+import android.app.AlertDialog;
 import android.app.TimePickerDialog;
 import android.app.TimePickerDialog.OnTimeSetListener;
-import android.app.stubs.DialogStubActivity;
+import android.app.stubs.R;
 import android.content.Context;
 import android.os.Bundle;
-import android.test.ActivityInstrumentationTestCase2;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.runner.AndroidJUnit4;
 import android.test.UiThreadTest;
+import android.test.suitebuilder.annotation.MediumTest;
 import android.widget.TimePicker;
 
-import android.app.stubs.R;
-
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 /**
  * Test {@link TimePickerDialog}.
  */
-public class TimePickerDialogTest extends ActivityInstrumentationTestCase2<DialogStubActivity> {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class TimePickerDialogTest {
     private static final String HOUR = "hour";
     private static final String MINUTE = "minute";
     private static final String IS_24_HOUR = "is24hour";
@@ -44,17 +54,10 @@ public class TimePickerDialogTest extends ActivityInstrumentationTestCase2<Dialo
     private OnTimeSetListener mOnTimeSetListener;
 
     private Context mContext;
-    private DialogStubActivity mActivity;
 
-    public TimePickerDialogTest() {
-        super("android.app.stubs", DialogStubActivity.class);
-    }
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
-        mContext = getInstrumentation().getContext();
+    @Before
+    public void setUp() throws Exception {
+        mContext = InstrumentationRegistry.getTargetContext();
         mOnTimeSetListener = new OnTimeSetListener(){
             public void onTimeSet(TimePicker view, int hourOfDay, int minute) {
                 mCallbackHour = hourOfDay;
@@ -64,9 +67,31 @@ public class TimePickerDialogTest extends ActivityInstrumentationTestCase2<Dialo
     }
 
     @UiThreadTest
+    @Test
+    public void testConstructor() {
+        new TimePickerDialog(mContext, null, 1, 1, false);
+
+        new TimePickerDialog(mContext, null, 1, 1, true);
+
+        new TimePickerDialog(mContext, AlertDialog.THEME_TRADITIONAL, null, 1, 1, false);
+
+        new TimePickerDialog(mContext, AlertDialog.THEME_HOLO_DARK, null, 1, 1, false);
+
+        new TimePickerDialog(mContext,
+                android.R.style.Theme_Material_Dialog_Alert, null, 1, 1, false);
+    }
+
+    @UiThreadTest
+    @Test(expected = NullPointerException.class)
+    public void testConstructorWithNullContext() {
+        new TimePickerDialog(null, null, 0, 0, false);
+    }
+
+    @UiThreadTest
+    @Test
     public void testSaveInstanceState() {
         TimePickerDialog tD = new TimePickerDialog(
-            mContext, mOnTimeSetListener, TARGET_HOUR, TARGET_MINUTE, true);
+                mContext, mOnTimeSetListener, TARGET_HOUR, TARGET_MINUTE, true);
 
         Bundle b = tD.onSaveInstanceState();
 
@@ -87,6 +112,7 @@ public class TimePickerDialogTest extends ActivityInstrumentationTestCase2<Dialo
     }
 
     @UiThreadTest
+    @Test
     public void testOnClick() {
         TimePickerDialog timePickerDialog = buildDialog();
         timePickerDialog.onClick(null, TimePickerDialog.BUTTON_POSITIVE);
@@ -95,21 +121,16 @@ public class TimePickerDialogTest extends ActivityInstrumentationTestCase2<Dialo
         assertEquals(TARGET_MINUTE, mCallbackMinute);
     }
 
+    @UiThreadTest
+    @Test
     public void testOnTimeChanged() throws Throwable {
         final int minute = 34;
-        startDialogActivity(DialogStubActivity.TEST_TIMEPICKERDIALOG);
-        final TimePickerDialog d = (TimePickerDialog) mActivity.getDialog();
-
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                d.onTimeChanged(null, TARGET_HOUR, minute);
-            }
-        });
-        getInstrumentation().waitForIdleSync();
-
+        final TimePickerDialog d = buildDialog();
+        d.onTimeChanged(null, TARGET_HOUR, minute);
     }
 
     @UiThreadTest
+    @Test
     public void testUpdateTime() {
         TimePickerDialog timePickerDialog = buildDialog();
         int minute = 18;
@@ -123,6 +144,7 @@ public class TimePickerDialogTest extends ActivityInstrumentationTestCase2<Dialo
     }
 
     @UiThreadTest
+    @Test
     public void testOnRestoreInstanceState() {
         int minute = 27;
         Bundle b1 = new Bundle();
@@ -139,10 +161,6 @@ public class TimePickerDialogTest extends ActivityInstrumentationTestCase2<Dialo
         assertEquals(TARGET_HOUR, b2.getInt(HOUR));
         assertEquals(minute, b2.getInt(MINUTE));
         assertFalse(b2.getBoolean(IS_24_HOUR));
-    }
-
-    private void startDialogActivity(int dialogNumber) {
-        mActivity = DialogStubActivity.startDialogActivity(this, dialogNumber);
     }
 
     private TimePickerDialog buildDialog() {

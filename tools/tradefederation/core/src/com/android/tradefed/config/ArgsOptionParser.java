@@ -137,6 +137,8 @@ public class ArgsOptionParser extends OptionSetter {
 
     static final String SHORT_NAME_PREFIX = "-";
     static final String OPTION_NAME_PREFIX = "--";
+    // For a boolean pattern match:  {device name}namespace:(no-)option-name
+    static final Pattern BOOL_FALSE_DEVICE_PATTERN = Pattern.compile("(\\{.*\\})(.*:)?(no-)(.+)");
 
     /** the amount to indent an option field's description when displaying help */
     private static final int OPTION_DESCRIPTION_INDENT = 25;
@@ -304,7 +306,13 @@ public class ArgsOptionParser extends OptionSetter {
         if (value == null) {
             if (isBooleanOption(name)) {
                 int idx = name.indexOf(NAMESPACE_SEPARATOR);
-                value = name.startsWith(BOOL_FALSE_PREFIX, idx + 1) ? "false" : "true";
+                // Detect a device tag in front of the boolean option.
+                Matcher m = BOOL_FALSE_DEVICE_PATTERN.matcher(name);
+                if (m.find()) {
+                    value = "false";
+                } else {
+                    value = name.startsWith(BOOL_FALSE_PREFIX, idx + 1) ? "false" : "true";
+                }
             } else if (isMapOption(name)) {
                 // Support --option key=value and --option key value format
                 String tmp = grabNextValue(args, name, "for its key");

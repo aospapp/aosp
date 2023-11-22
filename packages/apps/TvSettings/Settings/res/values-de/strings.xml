@@ -73,17 +73,17 @@
     <string name="accessory_unpairing" msgid="7568241162181184667">"Gerät wird entkoppelt..."</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Verbunden"</string>
     <string name="accessory_change_name" msgid="8958916008739792785">"Namen ändern"</string>
-    <string name="accessory_change_name_title" msgid="4630819456923061184">"Neuen Namen für dieses Zubehör eingeben"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"Neuen Namen eingeben"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Suche nach Zubehör…"</string>
-    <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Ihre Bluetooth-Geräte müssen sich im Kopplungsmodus befinden, damit Sie die Kopplung durchführen können."</string>
+    <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Deine Bluetooth-Geräte müssen sich im Kopplungsmodus befinden, damit du die Kopplung durchführen kannst."</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"Ein Gerät wurde gefunden. Die Kopplung wird in <xliff:g id="COUNTDOWN">%1$s</xliff:g> Sekunden automatisch durchgeführt."</string>
     <string name="error_action_not_supported" msgid="300552308104354666">"Diese Aktion wird nicht unterstützt."</string>
     <string name="bluetooth_pairing_request" msgid="4523088117471287665">"Bluetooth-Kopplungsanfrage"</string>
     <string name="bluetooth_confirm_passkey_msg" msgid="7031117992819855434">"Zur Kopplung muss &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt; den Schlüssel &lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>&lt;/b&gt; anzeigen."</string>
     <string name="bluetooth_incoming_pairing_msg" msgid="8234127565393932499">"Von: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;&lt;br&gt;Mit diesem Gerät koppeln?"</string>
-    <string name="bluetooth_display_passkey_pin_msg" msgid="8951451728250058901">"Zum Koppeln mit: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;&lt;br&gt;Tippen Sie Folgendes ein: &lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>&lt;/b&gt;. Drücken Sie anschließend die Eingabetaste."</string>
-    <string name="bluetooth_enter_pin_msg" msgid="7443458826667686394">"Zum Koppeln mit: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt; &lt;br&gt;Geben Sie die PIN des Geräts ein:"</string>
-    <string name="bluetooth_enter_passkey_msg" msgid="7980787196089653577">"Zum Koppeln mit: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt; &lt;br&gt;Geben Sie den erforderlichen Schlüssel des Geräts ein:"</string>
+    <string name="bluetooth_display_passkey_pin_msg" msgid="8951451728250058901">"Zum Koppeln mit: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;&lt;br&gt;Tippe Folgendes ein: &lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>&lt;/b&gt;. Drücke anschließend die Eingabetaste."</string>
+    <string name="bluetooth_enter_pin_msg" msgid="7443458826667686394">"Zum Koppeln mit: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt; &lt;br&gt;Gib die PIN des Geräts ein:"</string>
+    <string name="bluetooth_enter_passkey_msg" msgid="7980787196089653577">"Zum Koppeln mit: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt; &lt;br&gt;Gib den erforderlichen Schlüssel des Geräts ein:"</string>
     <string name="bluetooth_pin_values_hint" msgid="2319900367581543300">"In der Regel 0000 oder 1234"</string>
     <string name="bluetooth_pair" msgid="7836818609620478122">"Koppeln"</string>
     <string name="bluetooth_cancel" msgid="4152153558528588479">"Abbrechen"</string>
@@ -115,12 +115,12 @@
     <string name="about_serial" msgid="2723560490027171187">"Seriennummer"</string>
     <string name="about_build" msgid="9148789767199785676">"Build"</string>
     <plurals name="show_dev_countdown" formatted="false" msgid="5361765297521871966">
-      <item quantity="other">In <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> Schritten sind Sie ein Entwickler.</item>
-      <item quantity="one">In <xliff:g id="STEP_COUNT_0">%1$d</xliff:g> Schritt sind Sie ein Entwickler.</item>
+      <item quantity="other">In <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> Schritten bist du ein Entwickler.</item>
+      <item quantity="one">In <xliff:g id="STEP_COUNT_0">%1$d</xliff:g> Schritt bist du ein Entwickler.</item>
     </plurals>
     <string name="about_ads" msgid="3364786994943748337">"Anzeigen"</string>
-    <string name="show_dev_on" msgid="8997172736024819952">"Sie sind jetzt ein Entwickler!"</string>
-    <string name="show_dev_already" msgid="7525967300421794483">"Okay, Sie sind bereits ein Entwickler."</string>
+    <string name="show_dev_on" msgid="8997172736024819952">"Du bist jetzt ein Entwickler!"</string>
+    <string name="show_dev_already" msgid="7525967300421794483">"Okay, du bist bereits ein Entwickler."</string>
     <string name="device_info_default" msgid="4519181343309136050">"Unbekannt"</string>
     <string name="selinux_status" msgid="8000422283341040360">"SELinux-Status"</string>
     <string name="selinux_status_disabled" msgid="4925733135520787807">"Deaktiviert"</string>
@@ -160,7 +160,7 @@
     <string name="title_mac_address" msgid="3428401680168668544">"MAC-Adresse"</string>
     <string name="title_signal_strength" msgid="205478650262078041">"Signalstärke"</string>
     <string name="title_ip_address" msgid="4533523100923004711">"IP-Adresse"</string>
-    <string name="title_ssid" msgid="4858945903642469730">"Namen des WLAN-Netzwerks eingeben"</string>
+    <string name="title_ssid" msgid="4858945903642469730">"Name des WLAN-Netzwerks"</string>
     <string name="title_internet_connection" msgid="8710084774588697646">"Internetverbindung"</string>
     <string name="connected" msgid="7563100162902079938">"Verbunden"</string>
     <string name="not_connected" msgid="6858480380326923017">"Nicht verbunden"</string>
@@ -216,24 +216,24 @@
     <string name="wifi_action_static" msgid="1025855501453321749">"Statisch"</string>
     <string name="wifi_action_status_info" msgid="7664354971197839253">"Status-Informationen"</string>
     <string name="wifi_action_advanced_options_title" msgid="3242132674399983503">"Erweiterte Optionen"</string>
-    <string name="wifi_ip_settings_invalid_ip_address" msgid="5228247770505105107">"Geben Sie eine gültige IP-Adresse ein."</string>
-    <string name="wifi_ip_settings_invalid_gateway" msgid="3292444764474145026">"Geben Sie eine gültige Gateway-Adresse ein."</string>
-    <string name="wifi_ip_settings_invalid_dns" msgid="6172189835428184828">"Geben Sie eine gültige DNS-Adresse ein."</string>
+    <string name="wifi_ip_settings_invalid_ip_address" msgid="5228247770505105107">"Gib eine gültige IP-Adresse ein."</string>
+    <string name="wifi_ip_settings_invalid_gateway" msgid="3292444764474145026">"Gib eine gültige Gateway-Adresse ein."</string>
+    <string name="wifi_ip_settings_invalid_dns" msgid="6172189835428184828">"Gib eine gültige DNS-Adresse ein."</string>
     <string name="wifi_ip_settings_invalid_network_prefix_length" msgid="6209978918929182270">"Netzwerkpräfixlänge muss zwischen 0 und 32 liegen."</string>
-    <string name="wifi_ip_address_description" msgid="6548838784556001283">"Geben Sie eine gültige IP-Adresse ein.\nBeispiel: <xliff:g id="ID_1">192.168.1.128</xliff:g>"</string>
-    <string name="wifi_dns1_description" msgid="2463500547232077393">"Geben Sie eine gültige IP-Adresse ein oder lassen Sie das Feld leer.\nBeispiel: <xliff:g id="ID_1">8.8.8.8</xliff:g>"</string>
-    <string name="wifi_dns2_description" msgid="8005473174044015359">"Geben Sie eine gültige IP-Adresse ein oder lassen Sie das Feld leer.\nBeispiel: <xliff:g id="ID_1">8.8.4.4</xliff:g>"</string>
-    <string name="wifi_gateway_description" msgid="4773751224452216231">"Geben Sie eine gültige IP-Adresse ein oder lassen Sie das Feld leer.\nBeispiel: <xliff:g id="ID_1">192.168.1.1</xliff:g>"</string>
-    <string name="wifi_network_prefix_length_description" msgid="4849589333293194414">"Geben Sie eine gültige Länge des Netzwerkpräfixes ein.\nBeispiel: <xliff:g id="ID_1">24</xliff:g>"</string>
+    <string name="wifi_ip_address_description" msgid="6548838784556001283">"Gib eine gültige IP-Adresse ein.\nBeispiel: <xliff:g id="ID_1">192.168.1.128</xliff:g>"</string>
+    <string name="wifi_dns1_description" msgid="2463500547232077393">"Gib eine gültige IP-Adresse ein oder lasse das Feld leer.\nBeispiel: <xliff:g id="ID_1">8.8.8.8</xliff:g>"</string>
+    <string name="wifi_dns2_description" msgid="8005473174044015359">"Gib eine gültige IP-Adresse ein oder lasse das Feld leer.\nBeispiel: <xliff:g id="ID_1">8.8.4.4</xliff:g>"</string>
+    <string name="wifi_gateway_description" msgid="4773751224452216231">"Gib eine gültige IP-Adresse ein oder lasse das Feld leer.\nBeispiel: <xliff:g id="ID_1">192.168.1.1</xliff:g>"</string>
+    <string name="wifi_network_prefix_length_description" msgid="4849589333293194414">"Gib eine gültige Länge des Netzwerkpräfixes ein.\nBeispiel: <xliff:g id="ID_1">24</xliff:g>"</string>
     <string name="proxy_error_invalid_host" msgid="3660415920668138953">"Der Hostname ist ungültig."</string>
-    <string name="proxy_error_invalid_exclusion_list" msgid="4921547051724987804">"Die Ausschlussliste ist ungültig. Geben Sie eine durch Kommas getrennte Liste mit auszuschließenden Domains ein."</string>
+    <string name="proxy_error_invalid_exclusion_list" msgid="4921547051724987804">"Die Ausschlussliste ist ungültig. Gib eine durch Kommas getrennte Liste mit auszuschließenden Domains ein."</string>
     <string name="proxy_error_empty_port" msgid="6835658067776408062">"Das Feld für den Port darf nicht leer sein."</string>
-    <string name="proxy_error_empty_host_set_port" msgid="4428793978424303244">"Wenn das Feld für den Host leer ist, lassen Sie das Feld für den Port ebenfalls leer."</string>
+    <string name="proxy_error_empty_host_set_port" msgid="4428793978424303244">"Wenn das Feld für den Host leer ist, lasse das Feld für den Port ebenfalls leer."</string>
     <string name="proxy_error_invalid_port" msgid="1434922103959603993">"Der Port ist ungültig."</string>
     <string name="proxy_warning_limited_support" msgid="6160239282535986523">"Der HTTP-Proxy wird vom Browser genutzt, darf aber nicht von anderen Apps genutzt werden."</string>
-    <string name="proxy_port_description" msgid="6791098212244367568">"Geben Sie einen gültigen Port ein.\nBeispiel: <xliff:g id="ID_1">8080</xliff:g>"</string>
-    <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"Geben Sie eine durch Kommas getrennte Liste ausgeschlossener Domains ein oder lassen Sie das Feld leer.\nBeispiel: <xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g>"</string>
-    <string name="proxy_hostname_description" msgid="5824391500254472447">"Geben Sie einen gültigen Hostnamen ein.\nBeispiel: <xliff:g id="ID_1">proxy.example.com</xliff:g>"</string>
+    <string name="proxy_port_description" msgid="6791098212244367568">"Gib einen gültigen Port ein.\nBeispiel: <xliff:g id="ID_1">8080</xliff:g>"</string>
+    <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"Gib eine durch Kommas getrennte Liste ausgeschlossener Domains ein oder lasse das Feld leer.\nBeispiel: <xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g>"</string>
+    <string name="proxy_hostname_description" msgid="5824391500254472447">"Gib einen gültigen Hostnamen ein.\nBeispiel: <xliff:g id="ID_1">proxy.example.com</xliff:g>"</string>
     <string name="wifi_summary_title_connected" msgid="8329216588732277139">"Netzwerk verbunden"</string>
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"Keine Netzwerkverbindung vorhanden"</string>
     <string name="wifi_summary_description_connected_to_wifi_network" msgid="7583498018733069053">"Bereits mit <xliff:g id="SSID">%1$s</xliff:g> verbunden. Mit anderem Netzwerk verbinden?"</string>
@@ -260,7 +260,7 @@
     <string name="storage_migrate_away" msgid="3410590501311323877">"Daten auf anderen Speicher übertragen"</string>
     <string name="storage_no_apps" msgid="579118619398668670">"Keine Apps zum Sichern vorhanden"</string>
     <string name="storage_forget" msgid="8731986045697320463">"Dieses Speichergerät entfernen"</string>
-    <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"Schließen Sie das Speichergerät erneut an, um die darauf gespeicherten Apps oder Daten zu verwenden. Falls das Speichergerät nicht verfügbar ist, können Sie es auch entfernen.\n\nWenn Sie \"Entfernen\" wählen, gehen alle darauf befindlichen Daten endgültig verloren.\n\nSie können die Apps später erneut installieren, die Daten auf diesem Speichergerät gehen jedoch verloren."</string>
+    <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"Schließe das Speichergerät erneut an, um die darauf gespeicherten Apps oder Daten zu verwenden. Falls das Speichergerät nicht verfügbar ist, kannst du es auch entfernen.\n\nWenn du \"Entfernen\" wählst, gehen alle darauf befindlichen Daten endgültig verloren.\n\nDu kannst die Apps später erneut installieren, die Daten auf diesem Speichergerät gehen jedoch verloren."</string>
     <string name="storage_device_storage_section" msgid="7797805634316822741">"Gerätespeicher"</string>
     <string name="storage_removable_storage_section" msgid="3264955106565590076">"Wechselmedien"</string>
     <string name="storage_reset_section" msgid="7324235036547192861">"Zurücksetzen"</string>
@@ -273,22 +273,22 @@
     <string name="storage_format_success" msgid="6252068844653804319">"<xliff:g id="NAME">%1$s</xliff:g> wurde formatiert."</string>
     <string name="storage_format_failure" msgid="7336977074523932399">"<xliff:g id="NAME">%1$s</xliff:g> konnte nicht formatiert werden."</string>
     <string name="storage_wizard_format_as_private_title" msgid="1887035626526247913">"Als Speichergerät formatieren"</string>
-    <string name="storage_wizard_format_as_private_description" msgid="5814513630861655168">"Um die Sicherheit zu gewährleisten, muss das USB-Speichergerät zunächst formatiert werden. Danach ist dieses Speichergerät ausschließlich für dieses Gerät sicher formatiert und funktioniert nicht mit anderen Geräten. Durch die Formatierung werden alle derzeit auf dem Speichergerät gespeicherten Daten gelöscht. Um den Verlust von Daten zu verhindern, sichern Sie sie vor der Formatierung."</string>
+    <string name="storage_wizard_format_as_private_description" msgid="5814513630861655168">"Um die Sicherheit zu gewährleisten, muss das USB-Speichergerät zunächst formatiert werden. Danach ist dieses Speichergerät ausschließlich für dieses Gerät sicher formatiert und funktioniert nicht mit anderen Geräten. Durch die Formatierung werden alle derzeit auf dem Speichergerät gespeicherten Daten gelöscht. Um den Verlust von Daten zu verhindern, sichere sie vor der Formatierung."</string>
     <string name="storage_wizard_format_as_public_title" msgid="977475385015522171">"Löschen &amp; formatieren"</string>
-    <string name="storage_wizard_format_as_public_description" msgid="184405877453834449">"Nach der Formatierung können Sie dieses USB-Speichergerät in anderen Geräten verwenden. Alle Daten werden gelöscht. Sie sollten zunächst eine Sicherung vornehmen, indem Sie Apps auf ein anderes Speichergerät verschieben."</string>
+    <string name="storage_wizard_format_as_public_description" msgid="184405877453834449">"Nach der Formatierung kannst du dieses USB-Speichergerät in anderen Geräten verwenden. Alle Daten werden gelöscht. Du solltest zunächst eine Sicherung vornehmen, indem du Apps auf ein anderes Speichergerät verschiebst."</string>
     <string name="storage_wizard_format_progress_title" msgid="143911640282435570">"USB-Speichergerät wird formatiert…"</string>
-    <string name="storage_wizard_format_progress_description" msgid="5320980721352781920">"Dies kann einen Moment dauern. Bitte entfernen Sie das Speichergerät nicht."</string>
+    <string name="storage_wizard_format_progress_description" msgid="5320980721352781920">"Dies kann einen Moment dauern. Bitte entferne das Speichergerät nicht."</string>
     <string name="storage_wizard_migrate_choose_title" msgid="4247584708563925746">"Speicher auswählen, auf den Daten übertragen werden"</string>
     <string name="storage_wizard_migrate_confirm_title" msgid="369820166257265495">"Daten auf <xliff:g id="NAME">%1$s</xliff:g> verschieben"</string>
-    <string name="storage_wizard_migrate_confirm_description" msgid="2916497196106413598">"Verschieben Sie Ihre Fotos, Dateien und App-Daten auf die <xliff:g id="NAME">%1$s</xliff:g>. Dies kann einige Minuten dauern. Einige Apps funktionieren während des Vorgangs nicht ordnungsgemäß."</string>
+    <string name="storage_wizard_migrate_confirm_description" msgid="2916497196106413598">"Verschiebe deine Fotos, Dateien und App-Daten auf die <xliff:g id="NAME">%1$s</xliff:g>. Dies kann einige Minuten dauern. Einige Apps funktionieren während des Vorgangs nicht ordnungsgemäß."</string>
     <string name="storage_wizard_migrate_confirm_action_move_now" msgid="512504294066473542">"Jetzt verschieben"</string>
     <string name="storage_wizard_migrate_confirm_action_move_later" msgid="7838503647349016818">"Später verschieben"</string>
     <string name="storage_wizard_migrate_toast_success" msgid="2634978204935628045">"Daten zu <xliff:g id="NAME">%1$s</xliff:g> migriert"</string>
     <string name="storage_wizard_migrate_toast_failure" msgid="6452532191705420237">"Die Daten konnten nicht zur <xliff:g id="NAME">%1$s</xliff:g> migriert werden."</string>
     <string name="storage_wizard_migrate_progress_title" msgid="8063255124619498728">"Daten werden auf <xliff:g id="NAME">%1$s</xliff:g> verschoben…"</string>
-    <string name="storage_wizard_migrate_progress_description" msgid="3337889465416363170">"Dies kann einen Moment dauern. Bitte entfernen Sie das Speichergerät nicht.\nEinige Apps funktionieren während des Vorgangs nicht ordnungsgemäß."</string>
+    <string name="storage_wizard_migrate_progress_description" msgid="3337889465416363170">"Dies kann einen Moment dauern. Bitte entferne das Speichergerät nicht.\nEinige Apps funktionieren während des Vorgangs nicht ordnungsgemäß."</string>
     <string name="storage_wizard_format_slow_title" msgid="2483634437996887661">"Dieses Speichergerät scheint langsam zu sein."</string>
-    <string name="storage_wizard_format_slow_summary" msgid="1949177940762639885">"Sie können fortfahren, aber hierher verschobene Apps bleiben eventuell hängen und Datenübertragungen können lange dauern. Für eine bessere Leistung sollten Sie ein schnelleres Speichergerät nutzen."</string>
+    <string name="storage_wizard_format_slow_summary" msgid="1949177940762639885">"Du kannst fortfahren, aber hierher verschobene Apps bleiben eventuell hängen und Datenübertragungen können lange dauern. Für eine bessere Leistung solltest du ein schnelleres Speichergerät nutzen."</string>
     <string name="storage_wizard_format_action" msgid="3986485572528374905">"Formatieren"</string>
     <string name="storage_wizard_backup_apps_action" msgid="7246092320517630760">"Apps sichern"</string>
     <string name="storage_wizard_back_up_apps_title" msgid="452805102278225533">"Apps auf <xliff:g id="NAME">%1$s</xliff:g> gespeichert"</string>
@@ -299,9 +299,9 @@
     <string name="storage_wizard_eject_progress_title" msgid="8823133087157003820">"<xliff:g id="NAME">%1$s</xliff:g> wird ausgeworfen…"</string>
     <string name="storage_wizard_move_app_title" msgid="37057801779891287">"Genutzter Speicherplatz"</string>
     <string name="storage_wizard_move_app_progress_title" msgid="7807062446517628864">"<xliff:g id="NAME">%1$s</xliff:g> wird verschoben…"</string>
-    <string name="storage_wizard_move_app_progress_description" msgid="3693104566187904724">"Entfernen Sie das Speichergerät während des Vorgangs nicht.\nDie App <xliff:g id="APPNAME">%1$s</xliff:g> auf diesem Gerät ist erst wieder verfügbar, nachdem sie vollständig verschoben wurde."</string>
+    <string name="storage_wizard_move_app_progress_description" msgid="3693104566187904724">"Das Speichergerät darf während des Vorgangs nicht entfernt werden.\nDie App <xliff:g id="APPNAME">%1$s</xliff:g> auf diesem Gerät ist erst wieder verfügbar, nachdem sie vollständig verschoben wurde."</string>
     <string name="storage_wizard_forget_confirm_title" msgid="4321200084208420221">"Speichergerät entfernen?"</string>
-    <string name="storage_wizard_forget_confirm_description" msgid="4264263982217111372">"Durch Auswählen von \"Entfernen\" gehen alle auf diesem Speichergerät gespeicherten Daten endgültig verloren. Möchten Sie fortfahren?"</string>
+    <string name="storage_wizard_forget_confirm_description" msgid="4264263982217111372">"Durch Auswählen von \"Entfernen\" gehen alle auf diesem Speichergerät gespeicherten Daten endgültig verloren. Möchtest du fortfahren?"</string>
     <string name="storage_wizard_forget_action" msgid="2532812620271112355">"Entfernen"</string>
     <string name="storage_new_title" msgid="3098495209500607438">"USB-Laufwerk verbunden"</string>
     <string name="storage_new_action_browse" msgid="9041125660441839453">"Suchen"</string>
@@ -319,13 +319,13 @@
     <string name="learn_more_action" msgid="7015991954404958779">"Weitere Informationen"</string>
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"Wiederholen"</string>
     <string name="wifi_wps_title" msgid="1872305810119408482">"WPS-Router suchen..."</string>
-    <string name="wifi_wps_instructions" msgid="3618110962669110034">"Wählen Sie die Schaltfläche \"Wi-Fi Protected Setup\" auf Ihrem Router aus.\nEventuell lautet sie auch \"WPS\" oder ist durch das Symbol links gekennzeichnet."</string>
-    <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"Geben Sie die PIN <xliff:g id="NUMBER">%1$s</xliff:g> auf Ihrem WLAN-Router ein."</string>
+    <string name="wifi_wps_instructions" msgid="3618110962669110034">"Wähle die Schaltfläche \"Wi-Fi Protected Setup\" auf deinem Router aus.\nEventuell lautet sie auch \"WPS\" oder ist durch das Symbol links gekennzeichnet."</string>
+    <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"Gib die PIN <xliff:g id="NUMBER">%1$s</xliff:g> auf deinem WLAN-Router ein."</string>
     <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"Nach Eingabe der PIN kann die Einrichtung bis zu 2 Minuten dauern."</string>
     <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"Kein WLAN-Router gefunden"</string>
     <string name="wifi_wps_failed_wep" msgid="9158670824165143348">"Die Sicherheitseinstellung für WLAN-Router (WEP) wird nicht unterstützt."</string>
     <string name="wifi_wps_failed_tkip" msgid="1712545345594227319">"Die Sicherheitseinstellung für WLAN-Router (TKIP) wird nicht unterstützt."</string>
-    <string name="wifi_wps_failed_overlap" msgid="3091222818050940041">"Momentan läuft eine andere WPS-Sitzung. Versuchen Sie es in ein paar Minuten erneut."</string>
+    <string name="wifi_wps_failed_overlap" msgid="3091222818050940041">"Momentan läuft eine andere WPS-Sitzung. Versuche es in ein paar Minuten erneut."</string>
     <string name="system_date" msgid="2767108116769558081">"Datum"</string>
     <string name="system_time" msgid="6726022312605226285">"Uhrzeit"</string>
     <string name="system_set_date" msgid="2437586307768561116">"Datum festlegen"</string>
@@ -361,13 +361,17 @@
     <string name="third_party_location_services_title" msgid="4089136801976399147">"Standortdienste von Drittanbietern"</string>
     <string name="location_reporting" msgid="3054236612250063073">"Standortbericht"</string>
     <string name="location_history" msgid="2946680949724247804">"Standortverlauf"</string>
-    <string name="location_reporting_desc" msgid="6256424995139430823">"Google nutzt diese Funktion in Produkten wie Google Now und Google Maps. Bei aktiviertem Standortbericht können Google-Produkte die aktuellen Standortdaten Ihres Geräts in Verbindung mit Ihrem Google-Konto speichern und nutzen."</string>
-    <string name="location_history_desc" msgid="3861249867748294369">"Wenn der Standortverlauf für das Konto aktiviert ist, speichert Google die Standortdaten Ihres Geräts, sodass diese von Ihren Apps verwendet werden können.\n\nZum Beispiel kann Google Maps Ihnen Routen anzeigen und Google Now kann Sie über die aktuelle Verkehrslage auf Ihrem Weg zur Arbeit informieren.\n\nSie können den Standortverlauf jederzeit deaktivieren; er wird dadurch jedoch nicht gelöscht. Sie können Ihren Standortverlauf unter maps.google.com/locationhistory ansehen und verwalten."</string>
+    <string name="location_reporting_desc" msgid="6256424995139430823">"Google nutzt diese Funktion in Produkten wie Google Now und Google Maps. Bei aktiviertem Standortbericht können Google-Produkte die aktuellen Standortdaten deines Geräts in Verbindung mit deinem Google-Konto speichern und nutzen."</string>
+    <string name="location_history_desc" msgid="3861249867748294369">"Wenn der Standortverlauf für das Konto aktiviert ist, speichert Google die Standortdaten deines Geräts, sodass diese von deinen Apps verwendet werden können.\n\nZum Beispiel kann Google Maps dir Routen anzeigen und Google Now kann dich über die aktuelle Verkehrslage auf deinem Weg zur Arbeit informieren.\n\nDu kannst den Standortverlauf jederzeit deaktivieren; er wird dadurch jedoch nicht gelöscht. Du kannst deinen Standortverlauf unter maps.google.com/locationhistory ansehen und verwalten."</string>
     <string name="delete_location_history_title" msgid="5804802702252280549">"Standortverlauf löschen"</string>
-    <string name="delete_location_history_desc" msgid="4142806827237093397">"Dadurch wird der gesamte Standortverlauf für dieses Google-Konto von diesem Gerät gelöscht. Sie können den Löschvorgang nicht rückgängig machen. Einige Apps wie Google Now werden nicht mehr funktionieren."</string>
+    <string name="delete_location_history_desc" msgid="4142806827237093397">"Dadurch wird der gesamte Standortverlauf für dieses Google-Konto von diesem Gerät gelöscht. Du kannst den Löschvorgang nicht rückgängig machen. Einige Apps wie Google Now werden nicht mehr funktionieren."</string>
     <string name="system_services" msgid="7230571820151215779">"Dienste"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Diensteinstellungen"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Text mit hohem Kontrast"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Verknüpfung für Bedienungshilfen"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Verknüpfung für Bedienungshilfen aktivieren"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Verknüpfter Dienst"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Wenn die Tastenkombination aktiviert ist, kannst du die Zurück-Taste und die Taste \"Leiser\" drei Sekunden lang gedrückt halten, um eine Bedienungshilfe zu starten."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Untertitel"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Einstellungen für Untertitel-Overlays in einem Video"</string>
     <string name="captions_display" msgid="735692527287125548">"Anzeige"</string>
@@ -408,7 +412,7 @@
     <string name="system_accessibility_status" msgid="6150600992901856367">"Aktivieren"</string>
     <string name="system_accessibility_config" msgid="3216531917536720277">"Konfiguration"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="8200707259067035823">"<xliff:g id="SERVICE">%1$s</xliff:g> verwenden?"</string>
-    <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"<xliff:g id="SERVICE">%1$s</xliff:g> kann den gesamten von Ihnen eingegebenen Text erfassen, einschließlich personenbezogener Daten wie Kreditkartennummern, jedoch keine Passwörter."</string>
+    <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"<xliff:g id="SERVICE">%1$s</xliff:g> kann den gesamten eingegebenen Text erfassen, einschließlich personenbezogener Daten wie Kreditkartennummern, jedoch keine Passwörter."</string>
     <string name="system_accessibility_service_off_confirm_title" msgid="963297812889694832">"<xliff:g id="SERVICE">%1$s</xliff:g> beenden?"</string>
     <string name="system_accessibility_service_off_confirm_desc" msgid="6714782635926048678">"Durch Auswählen von \"OK\" wird <xliff:g id="SERVICE">%1$s</xliff:g> beendet."</string>
     <string name="system_accessibility_tts_output" msgid="8905477795536714590">"Text-in-Sprache"</string>
@@ -480,7 +484,7 @@
     <string name="security_unknown_sources_title" msgid="769762478057744545">"Unbekannte Herkunft"</string>
     <string name="security_unknown_sources_desc" msgid="7197053279914817124">"Installation von Apps aus anderen Quellen als dem Play Store zulassen"</string>
     <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"Apps mit unbekannter Herkunft zulassen"</string>
-    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"Apps mit unbekannter Herkunft können gefährlich für Ihr Gerät und Ihre personenbezogenen Daten sein. Sie stimmen zu, dass Sie die Verantwortung für alle Schäden an Ihrem Gerät und jegliche Datenverluste tragen, die aus der Verwendung dieser Apps entstehen können."</string>
+    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"Apps mit unbekannter Herkunft können gefährlich für dein Gerät und deine personenbezogenen Daten sein. Du stimmst zu, dass du die Verantwortung für alle Schäden an deinem Gerät und jegliche Datenverluste trägst, die aus der Verwendung dieser Apps entstehen können."</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"Apps überprüfen"</string>
     <string name="security_verify_apps_desc" msgid="1456317893117818733">"Installation schädlicher Apps blockieren oder Warnung senden"</string>
     <string name="system_hdcp_checking_never" msgid="1758043078676276985">"Nie"</string>
@@ -538,7 +542,7 @@
     <string name="inputs_game" msgid="1114086481110094757">"Spielekonsole"</string>
     <string name="inputs_aux" msgid="5704676433978730340">"AUX-Eingang"</string>
     <string name="inputs_custom_name" msgid="5584925321693432362">"Benutzerdefinierter Name"</string>
-    <string name="inputs_custom_name_description_fmt" msgid="7123031859468901866">"Geben Sie einen Namen für den <xliff:g id="INPUT">%1$s</xliff:g>-Eingang ein."</string>
+    <string name="inputs_custom_name_description_fmt" msgid="7123031859468901866">"Gib einen Namen für den <xliff:g id="INPUT">%1$s</xliff:g>-Eingang ein."</string>
     <string name="inputs_hide" msgid="1575971556150395486">"Verborgen"</string>
     <string name="inputs_show" msgid="5069718540369447778">"Diesen Eingang anzeigen"</string>
     <string name="input_header_names" msgid="6958427658951236078">"Name"</string>
@@ -560,13 +564,13 @@
       <item quantity="other">Nicht verbundene Eingänge</item>
       <item quantity="one">Nicht verbundener Eingang</item>
     </plurals>
-    <string name="user_add_profile_item_summary" msgid="2946168478936086933">"Zugriff auf Apps und sonstige Inhalte in Ihrem Konto einschränken"</string>
+    <string name="user_add_profile_item_summary" msgid="2946168478936086933">"Zugriff auf Apps und sonstige Inhalte in deinem Konto einschränken"</string>
     <string name="user_new_profile_name" msgid="336521054830056189">"Eingeschränktes Profil"</string>
     <string name="user_restrictions_controlled_by" msgid="2107349341393761750">"Von <xliff:g id="APP">%1$s</xliff:g> festgelegt"</string>
     <string name="app_not_supported_in_limited" msgid="6818309827329010677">"Diese App wird in eingeschränkten Profilen nicht unterstützt."</string>
-    <string name="app_sees_restricted_accounts" msgid="1967195038085624916">"Diese App darf auf Ihre Konten zugreifen."</string>
+    <string name="app_sees_restricted_accounts" msgid="1967195038085624916">"Diese App darf auf deine Konten zugreifen."</string>
     <string name="restriction_location_enable_title" msgid="2575116135395354938">"Standort"</string>
-    <string name="restriction_location_enable_summary" msgid="4195349388342385870">"Apps dürfen Ihre Standortinformationen nutzen."</string>
+    <string name="restriction_location_enable_summary" msgid="4195349388342385870">"Apps dürfen deine Standortinformationen nutzen."</string>
     <string name="restricted_profile_switch_to" msgid="1926433350907032138">"Eingeschränktes Profil öffnen"</string>
     <string name="restricted_profile_switch_out" msgid="1893784095623209495">"Eingeschränktes Profil verlassen"</string>
     <string name="restricted_profile_delete_title" msgid="3445944923018324707">"Eingeschränktes Profil löschen"</string>
@@ -583,16 +587,16 @@
     <string name="restricted_profile_configure_apps_description_loading" msgid="5269477581791409700">"Einen Moment bitte…"</string>
     <string name="restricted_profile_change_password_title" msgid="2848537651211816659">"PIN ändern"</string>
     <string name="restriction_description" msgid="3104855945910233028">"<xliff:g id="DESCRIPTION">%1$s</xliff:g>\n<xliff:g id="VALUE">%2$s</xliff:g>"</string>
-    <string name="app_sees_restricted_accounts_and_controlled_by" msgid="6677671440081319908">"Diese App darf auf Ihre Konten zugreifen. Von <xliff:g id="APP">%1$s</xliff:g> festgelegt"</string>
+    <string name="app_sees_restricted_accounts_and_controlled_by" msgid="6677671440081319908">"Diese App darf auf deine Konten zugreifen. Von <xliff:g id="APP">%1$s</xliff:g> festgelegt"</string>
     <string name="pin_enter_unlock_channel" msgid="5980400420298506069">"Zum Ansehen dieses Kanals PIN eingeben"</string>
     <string name="pin_enter_unlock_program" msgid="52453773316071511">"Zum Ansehen dieses Programms PIN eingeben"</string>
     <string name="pin_enter_pin" msgid="821552376577935497">"PIN eingeben"</string>
     <string name="pin_enter_new_pin" msgid="4788218421265924211">"Neue PIN festlegen"</string>
     <string name="pin_enter_again" msgid="1510456697040826496">"Neue PIN erneut eingeben"</string>
     <string name="pin_enter_old_pin" msgid="851029058127630869">"Alte PIN eingeben"</string>
-    <string name="pin_enter_wrong_seconds" msgid="7541208202846169755">"Sie haben fünfmal die falsche PIN eingegeben.\nVersuchen Sie es in <xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g> Sekunden erneut."</string>
-    <string name="pin_toast_wrong" msgid="4628358195224633248">"Falsche PIN. Bitte versuchen Sie es erneut."</string>
-    <string name="pin_toast_not_match" msgid="5886041789737632996">"Die PIN stimmt nicht. Bitte versuchen Sie es erneut."</string>
+    <string name="pin_enter_wrong_seconds" msgid="7541208202846169755">"Du hast fünfmal die falsche PIN eingegeben.\nVersuche es in <xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g> Sekunden erneut."</string>
+    <string name="pin_toast_wrong" msgid="4628358195224633248">"Falsche PIN. Bitte versuche es erneut."</string>
+    <string name="pin_toast_not_match" msgid="5886041789737632996">"Die PIN stimmt nicht. Bitte versuche es erneut."</string>
     <string name="wifi_setup_input_password" msgid="1596168874369038536">"Passwort für <xliff:g id="SSID">%1$s</xliff:g> eingeben"</string>
     <string name="wifi_setup_connection_success" msgid="3846993789166071184">"Die Verbindung wurde hergestellt"</string>
     <string name="wifi_setup_save_success" msgid="4785799603638549254">"Die Konfiguration wurde gespeichert"</string>
@@ -604,9 +608,9 @@
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Updates deinstallieren"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"Alle Updates für diese Android-System-App werden deinstalliert."</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"Deaktivieren"</string>
-    <string name="device_apps_app_management_disable_desc" msgid="1295507373252301108">"Möchten Sie diese App deaktivieren?"</string>
+    <string name="device_apps_app_management_disable_desc" msgid="1295507373252301108">"Möchtest du diese App deaktivieren?"</string>
     <string name="device_apps_app_management_enable" msgid="3246823119203444608">"Aktivieren"</string>
-    <string name="device_apps_app_management_enable_desc" msgid="7490219375247065314">"Möchten Sie diese App aktivieren?"</string>
+    <string name="device_apps_app_management_enable_desc" msgid="7490219375247065314">"Möchtest du diese App aktivieren?"</string>
     <string name="device_apps_app_management_storage_used" msgid="4611351576179140634">"Genutzter Speicherplatz"</string>
     <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"<xliff:g id="VOLUME">%2$s</xliff:g>: <xliff:g id="SIZE">%1$s</xliff:g> belegt"</string>
     <string name="device_apps_app_management_clear_data" msgid="4439114679323274127">"Daten löschen"</string>
@@ -632,12 +636,12 @@
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"Nach diesem Zeitraum der Inaktivität wird der Bildschirm ausgeschaltet."</string>
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"Momentan werden in keinem Konto gesicherte Daten gespeichert."</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
-    <string name="backup_erase_dialog_message" msgid="2608496013975068701">"Sicherung Ihrer WLAN-Passwörter, Lesezeichen, anderer Einstellungen und App-Daten beenden und alle Kopien auf Google-Servern löschen?"</string>
+    <string name="backup_erase_dialog_message" msgid="2608496013975068701">"Sicherung deiner WLAN-Passwörter, Lesezeichen, anderer Einstellungen und App-Daten beenden und alle Kopien auf Google-Servern löschen?"</string>
     <string name="privacy_backup_data" msgid="1796662583830120812">"Meine Daten sichern"</string>
     <string name="privacy_backup_account" msgid="9059939814827165020">"Zu sicherndes Konto"</string>
     <string name="privacy_automatic_restore" msgid="1409885318093199628">"Automatische Wiederherstellung"</string>
     <string name="factory_reset_device" msgid="7422459553658815011">"Gerät zurücksetzen"</string>
-    <string name="factory_reset_description" msgid="5381170999141355891">"Hiermit werden alle Daten, einschließlich Ihres Google-Kontos, Ihrer System- und App-Daten und -Einstellungen sowie Ihrer heruntergeladenen Apps, aus dem internen Speicher Ihres Geräts gelöscht."</string>
+    <string name="factory_reset_description" msgid="5381170999141355891">"Hiermit werden alle Daten, einschließlich deines Google-Kontos, deiner System- und App-Daten und -Einstellungen sowie deine heruntergeladenen Apps aus dem internen Speicher deines Geräts gelöscht."</string>
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Alle personenbezogenen Daten und heruntergeladenen Apps löschen? Dieser Vorgang kann nicht rückgängig gemacht werden."</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Alles löschen"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"Namen für <xliff:g id="DEVICEMODEL">%1$s</xliff:g> auswählen"</string>
@@ -661,9 +665,13 @@
     <string name="choose_application" msgid="5662960665577780353">"App wählen"</string>
     <string name="experimental_preference" msgid="1137673985823581797">"(Experimentell)"</string>
     <string name="reboot_safemode_action" msgid="8129550438717110406">"Im abgesicherten Modus starten"</string>
-    <string name="reboot_safemode_confirm" msgid="3329475617645192086">"Möchten Sie im abgesicherten Modus starten?"</string>
+    <string name="reboot_safemode_confirm" msgid="3329475617645192086">"Möchtest du im abgesicherten Modus starten?"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"Dadurch werden alle installierten Apps von Drittanbietern deaktiviert. Diese werden jedoch nach einem weiteren Neustart wiederhergestellt."</string>
     <string name="capturing_bugreport" msgid="3291125403411239592">"Fehlerbericht wird aufgenommen"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Verfügbare Bildschirmtastaturen"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Tastaturen verwalten"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Zugelassen"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Nicht zugelassen"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Zugriff auf Nutzungsdaten"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Der Zugriff auf die Nutzungsdaten ermöglicht es einer App, verschiedene Informationen zu erfassen, unter anderem, welche anderen Apps du wie oft verwendest, welchen Mobilfunkanbieter du nutzt und welche Spracheinstellungen du festgelegt hast."</string>
 </resources>

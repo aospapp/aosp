@@ -20,7 +20,6 @@ import com.android.tradefed.log.LogUtil;
 
 import com.google.common.base.Charsets;
 
-import java.util.Arrays;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -52,6 +51,18 @@ public class BatteryStatsValidationTest extends ProtoDumpTestCase {
     public static final String FEATURE_LOCATION_GPS = "android.hardware.location.gps";
     public static final String FEATURE_WIFI = "android.hardware.wifi";
 
+    private static final int STATE_TIME_TOP_INDEX = 4;
+    private static final int STATE_TIME_FOREGROUND_SERVICE_INDEX = 5;
+    private static final int STATE_TIME_FOREGROUND_INDEX = 7;
+    private static final int STATE_TIME_BACKGROUND_INDEX = 8;
+    private static final int STATE_TIME_CACHED_INDEX = 9;
+
+    private static final long TIME_SPENT_IN_TOP = 2000;
+    private static final long TIME_SPENT_IN_FOREGROUND = 2000;
+    private static final long TIME_SPENT_IN_BACKGROUND = 2000;
+    private static final long TIME_SPENT_IN_CACHED = 2000;
+    private static final long SCREEN_STATE_CHANGE_TIMEOUT = 4000;
+    private static final long SCREEN_STATE_POLLING_INTERVAL = 500;
 
     // Low end of packet size. TODO: Get exact packet size
     private static final int LOW_MTU = 1500;
@@ -68,6 +79,9 @@ public class BatteryStatsValidationTest extends ProtoDumpTestCase {
     public static final String ACTION_WIFI_SCAN = "action.wifi_scan";
     public static final String ACTION_WIFI_DOWNLOAD = "action.wifi_download";
     public static final String ACTION_WIFI_UPLOAD = "action.wifi_upload";
+    public static final String ACTION_SLEEP_WHILE_BACKGROUND = "action.sleep_background";
+    public static final String ACTION_SLEEP_WHILE_TOP = "action.sleep_top";
+    public static final String ACTION_SHOW_APPLICATION_OVERLAY = "action.show_application_overlay";
 
     public static final String KEY_REQUEST_CODE = "request_code";
     public static final String BG_VS_FG_TAG = "BatteryStatsBgVsFgActions";
@@ -101,6 +115,13 @@ public class BatteryStatsValidationTest extends ProtoDumpTestCase {
     protected void turnScreenOnForReal() throws Exception {
         getDevice().executeShellCommand("input keyevent KEYCODE_WAKEUP");
         getDevice().executeShellCommand("wm dismiss-keyguard");
+    }
+
+    /**
+     * This will send the screen to sleep
+     */
+    protected void turnScreenOffForReal() throws Exception {
+        getDevice().executeShellCommand("input keyevent KEYCODE_SLEEP");
     }
 
     protected void batteryOnScreenOn() throws Exception {
@@ -156,18 +177,107 @@ public class BatteryStatsValidationTest extends ProtoDumpTestCase {
         batteryOffScreenOn();
     }
 
+    private void startSimpleActivity() throws Exception {
+        getDevice().executeShellCommand(
+                "am start -n com.android.server.cts.device.batterystats/.SimpleActivity");
+    }
+
     public void testServiceForegroundDuration() throws Exception {
         batteryOnScreenOff();
         installPackage(DEVICE_SIDE_TEST_APK, true);
 
-        getDevice().executeShellCommand(
-                "am start -n com.android.server.cts.device.batterystats/.SimpleActivity");
-        assertValueRange("st", "", 5, 0, 0); // No foreground service time before test
+        startSimpleActivity();
+        assertValueRange("st", "", STATE_TIME_FOREGROUND_SERVICE_INDEX, 0,
+                0); // No foreground service time before test
         runDeviceTests(DEVICE_SIDE_TEST_PACKAGE, ".BatteryStatsProcessStateTests",
                 "testForegroundService");
-        assertValueRange("st", "", 5, (long) (2000 * 0.8), 4000);
-
+        assertValueRange("st", "", STATE_TIME_FOREGROUND_SERVICE_INDEX, (long) (2000 * 0.8), 4000);
         batteryOffScreenOn();
+    }
+
+    public void testUidForegroundDuration() throws Exception {
+        batteryOnScreenOff();
+        installPackage(DEVICE_SIDE_TEST_APK, true);
+        // No foreground time before test
+        assertValueRange("st", "", STATE_TIME_FOREGROUND_INDEX, 0, 0);
+        turnScreenOnForReal();
+        assertScreenOn();
+        executeForeground(ACTION_SHOW_APPLICATION_OVERLAY, 2000);
+        Thread.sleep(TIME_SPENT_IN_FOREGROUND); // should be in foreground for about this long
+        assertApproximateTimeInState(STATE_TIME_FOREGROUND_INDEX, TIME_SPENT_IN_FOREGROUND);
+        batteryOffScreenOn();
+    }
+
+    public void testUidBackgroundDuration() throws Exception {
+        batteryOnScreenOff();
+        installPackage(DEVICE_SIDE_TEST_APK, true);
+        // No background time before test
+        assertValueRange("st", "", STATE_TIME_BACKGROUND_INDEX, 0, 0);
+        executeBackground(ACTION_SLEEP_WHILE_BACKGROUND, 4000);
+        assertApproximateTimeInState(STATE_TIME_BACKGROUND_INDEX, TIME_SPENT_IN_BACKGROUND);
+        batteryOffScreenOn();
+    }
+
+    public void testTopDuration() throws Exception {
+        batteryOnScreenOff();
+        installPackage(DEVICE_SIDE_TEST_APK, true);
+        // No top time before test
+        assertValueRange("st", "", STATE_TIME_TOP_INDEX, 0, 0);
+        turnScreenOnForReal();
+        assertScreenOn();
+        executeForeground(ACTION_SLEEP_WHILE_TOP, 4000);
+        assertApproximateTimeInState(STATE_TIME_TOP_INDEX, TIME_SPENT_IN_TOP);
+        batteryOffScreenOn();
+    }
+
+    public void testCachedDuration() throws Exception {
+        batteryOnScreenOff();
+        installPackage(DEVICE_SIDE_TEST_APK, true);
+        // No cached time before test
+        assertValueRange("st", "", STATE_TIME_CACHED_INDEX, 0, 0);
+        startSimpleActivity();
+        Thread.sleep(TIME_SPENT_IN_CACHED); // process should be in cached state for about this long
+        assertApproximateTimeInState(STATE_TIME_CACHED_INDEX, TIME_SPENT_IN_CACHED);
+        batteryOffScreenOn();
+    }
+
+    private void assertScreenOff() throws Exception {
+        final long deadLine = System.currentTimeMillis() + SCREEN_STATE_CHANGE_TIMEOUT;
+        boolean screenAwake = true;
+        do {
+            final String dumpsysPower = getDevice().executeShellCommand("dumpsys power").trim();
+            for (String line : dumpsysPower.split("\n")) {
+                if (line.contains("Display Power")) {
+                    screenAwake = line.trim().endsWith("ON");
+                    break;
+                }
+            }
+            Thread.sleep(SCREEN_STATE_POLLING_INTERVAL);
+        } while (screenAwake && System.currentTimeMillis() < deadLine);
+        assertFalse("Screen could not be turned off", screenAwake);
+    }
+
+    private void assertScreenOn() throws Exception {
+        // this also checks that the keyguard is dismissed
+        final long deadLine = System.currentTimeMillis() + SCREEN_STATE_CHANGE_TIMEOUT;
+        boolean screenAwake;
+        do {
+            final String dumpsysWindowPolicy =
+                    getDevice().executeShellCommand("dumpsys window policy").trim();
+            boolean keyguardStateLines = false;
+            screenAwake = true;
+            for (String line : dumpsysWindowPolicy.split("\n")) {
+                if (line.contains("KeyguardServiceDelegate")) {
+                    keyguardStateLines = true;
+                } else if (keyguardStateLines && line.contains("showing=")) {
+                    screenAwake &= line.trim().endsWith("false");
+                } else if (keyguardStateLines && line.contains("screenState=")) {
+                    screenAwake &= line.trim().endsWith("2");
+                }
+            }
+            Thread.sleep(SCREEN_STATE_POLLING_INTERVAL);
+        } while (!screenAwake && System.currentTimeMillis() < deadLine);
+        assertTrue("Screen could not be turned on", screenAwake);
     }
 
     public void testBleScans() throws Exception {
@@ -179,12 +289,12 @@ public class BatteryStatsValidationTest extends ProtoDumpTestCase {
         installPackage(DEVICE_SIDE_TEST_APK, true);
 
         // Background test.
-        executeBackground(ACTION_BLE_SCAN_UNOPTIMIZED, 30_000);
+        executeBackground(ACTION_BLE_SCAN_UNOPTIMIZED, 40_000);
         assertValueRange("blem", "", 5, 1, 1); // ble_scan_count
         assertValueRange("blem", "", 6, 1, 1); // ble_scan_count_bg
 
         // Foreground test.
-        executeForeground(ACTION_BLE_SCAN_UNOPTIMIZED, 30_000);
+        executeForeground(ACTION_BLE_SCAN_UNOPTIMIZED, 40_000);
         assertValueRange("blem", "", 5, 2, 2); // ble_scan_count
         assertValueRange("blem", "", 6, 1, 1); // ble_scan_count_bg
 
@@ -193,7 +303,7 @@ public class BatteryStatsValidationTest extends ProtoDumpTestCase {
 
 
     public void testUnoptimizedBleScans() throws Exception {
-        if (isTV()) {
+        if (isTV() || !hasFeature(FEATURE_BLUETOOTH_LE, true)) {
             return;
         }
         batteryOnScreenOff();
@@ -204,7 +314,7 @@ public class BatteryStatsValidationTest extends ProtoDumpTestCase {
         final int maxTime = 3000; // max single scan time in ms
 
         // Optimized - Background.
-        executeBackground(ACTION_BLE_SCAN_OPTIMIZED, 30_000);
+        executeBackground(ACTION_BLE_SCAN_OPTIMIZED, 40_000);
         assertValueRange("blem", "", 7, 1*minTime, 1*maxTime); // actualTime
         assertValueRange("blem", "", 8, 1*minTime, 1*maxTime); // actualTimeBg
         assertValueRange("blem", "", 11, 0, 0); // unoptimizedScanTotalTime
@@ -213,7 +323,7 @@ public class BatteryStatsValidationTest extends ProtoDumpTestCase {
         assertValueRange("blem", "", 14, 0, 0); // unoptimizedScanMaxTimeBg
 
         // Optimized - Foreground.
-        executeForeground(ACTION_BLE_SCAN_OPTIMIZED, 30_000);
+        executeForeground(ACTION_BLE_SCAN_OPTIMIZED, 40_000);
         assertValueRange("blem", "", 7, 2*minTime, 2*maxTime); // actualTime
         assertValueRange("blem", "", 8, 1*minTime, 1*maxTime); // actualTimeBg
         assertValueRange("blem", "", 11, 0, 0); // unoptimizedScanTotalTime
@@ -222,7 +332,7 @@ public class BatteryStatsValidationTest extends ProtoDumpTestCase {
         assertValueRange("blem", "", 14, 0, 0); // unoptimizedScanMaxTimeBg
 
         // Unoptimized - Background.
-        executeBackground(ACTION_BLE_SCAN_UNOPTIMIZED, 30_000);
+        executeBackground(ACTION_BLE_SCAN_UNOPTIMIZED, 40_000);
         assertValueRange("blem", "", 7, 3*minTime, 3*maxTime); // actualTime
         assertValueRange("blem", "", 8, 2*minTime, 2*maxTime); // actualTimeBg
         assertValueRange("blem", "", 11, 1*minTime, 1*maxTime); // unoptimizedScanTotalTime
@@ -231,7 +341,7 @@ public class BatteryStatsValidationTest extends ProtoDumpTestCase {
         assertValueRange("blem", "", 14, 1*minTime, 1*maxTime); // unoptimizedScanMaxTimeBg
 
         // Unoptimized - Foreground.
-        executeForeground(ACTION_BLE_SCAN_UNOPTIMIZED, 30_000);
+        executeForeground(ACTION_BLE_SCAN_UNOPTIMIZED, 40_000);
         assertValueRange("blem", "", 7, 4*minTime, 4*maxTime); // actualTime
         assertValueRange("blem", "", 8, 2*minTime, 2*maxTime); // actualTimeBg
         assertValueRange("blem", "", 11, 2*minTime, 2*maxTime); // unoptimizedScanTotalTime
@@ -375,9 +485,9 @@ public class BatteryStatsValidationTest extends ProtoDumpTestCase {
         runDeviceTests(DEVICE_SIDE_TEST_PACKAGE, ".BatteryStatsJobDurationTests",
                 "testJobDuration");
 
-        // Should be approximately 3000 ms. Use 0.8x and 2x as the lower and upper
+        // Should be approximately 15000 ms (3 x 5000 ms). Use 0.8x and 2x as the lower and upper
         // bounds to account for possible errors due to thread scheduling and cpu load.
-        assertValueRange("jb", DEVICE_SIDE_JOB_COMPONENT, 5, (long) (3000 * 0.8), 3000 * 2);
+        assertValueRange("jb", DEVICE_SIDE_JOB_COMPONENT, 5, (long) (15000 * 0.8), 15000 * 2);
         batteryOffScreenOn();
     }
 
@@ -475,6 +585,10 @@ public class BatteryStatsValidationTest extends ProtoDumpTestCase {
         return uid;
     }
 
+    private void assertApproximateTimeInState(int index, long duration) throws Exception {
+        assertValueRange("st", "", index, (long) (0.8 * duration), 2 * duration);
+    }
+
     /**
      * Verifies that the recorded time for the specified tag and name in the test package
      * is within the specified range.
@@ -483,7 +597,6 @@ public class BatteryStatsValidationTest extends ProtoDumpTestCase {
             int index, long min, long max) throws Exception {
         int uid = getUid();
         long value = getLongValue(uid, tag, optionalAfterTag, index);
-
         assertTrue("Value " + value + " is less than min " + min, value >= min);
         assertTrue("Value " + value + " is greater than max " + max, value <= max);
     }

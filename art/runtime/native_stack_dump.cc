@@ -45,7 +45,7 @@
 #include "base/unix_file/fd_file.h"
 #include "oat_quick_method_header.h"
 #include "os.h"
-#include "thread-inl.h"
+#include "thread-current-inl.h"
 #include "utils.h"
 
 #endif
@@ -337,7 +337,7 @@ void DumpNativeStack(std::ostream& os,
     } else {
       os << StringPrintf(Is64BitInstructionSet(kRuntimeISA) ? "%016" PRIxPTR "  "
                                                             : "%08" PRIxPTR "  ",
-                         BacktraceMap::GetRelativePc(it->map, it->pc));
+                         it->rel_pc);
       os << it->map.name;
       os << " (";
       if (!it->func_name.empty()) {

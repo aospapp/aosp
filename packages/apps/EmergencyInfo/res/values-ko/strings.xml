@@ -17,6 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"긴급 상황 정보"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"의료 정보"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"정보 수정"</string>
     <string name="edit_info" msgid="5973929805855224805">"긴급 상황 정보 수정"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"정보"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"연락처"</string>
@@ -96,12 +98,12 @@
     <string name="cancel" msgid="7401575239009060939">"취소"</string>
     <string name="ok" msgid="163967937451981024">"수락"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"긴급 상황 정보"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"이곳에 입력하는 정보는 긴급 상황의 초기 대처에 도움이 됩니다. 이 정보는 사용자의 기기에만 저장되지만, 누구나 스마트폰을 잠금 해제하지 않고도 긴급 다이얼러에서 이 정보를 볼 수 있습니다."</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"계속"</string>
     <string name="no_info_provided" msgid="716200382010821001">"휴대전화 소유자 정보 없음"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"본인 휴대전화인 경우 연필 아이콘을 탭하여 정보를 추가하세요. 긴급 상황 시 여기 표시됩니다."</string>
     <string name="clear_all" msgid="8899013032870561633">"모두 삭제"</string>
     <string name="clear" msgid="3648880442502887163">"삭제"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"모든 정보 및 연락처를 삭제하시겠습니까?"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"의료 정보와 비상 연락처를 추가하면 응급 상황에서 초기 대처에 도움이 될 수 있습니다.\n\n누구나 잠금 화면에서 이 정보를 읽을 수 있으며, 휴대전화를 잠금 해제하지 않고도 연락처 이름을 탭하여 전화를 걸 수 있습니다."</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"긴급 상황 정보 추가"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"초기 대처자가 중요한 정보를 찾는 데 도움이 됩니다."</string>
 </resources>

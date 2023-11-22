@@ -240,18 +240,22 @@ public class DeviceSuspendTestActivity
             mAlarmManager.cancel(mPendingIntent);
 
             for (Sensor sensor : sensorList) {
-                if (sensor.getReportingMode() == Sensor.REPORTING_MODE_CONTINUOUS) {
-                    try {
-                        string = runVerifySensorTimestampClockbase(sensor, false);
-                        if (string != null) {
-                            return string;
-                        }
-                    } catch(Throwable e) {
-                        Log.e(TAG, e.getMessage());
-                        error_occurred = true;
-                    }
-                } else {
+                if (sensor.getReportingMode() != Sensor.REPORTING_MODE_CONTINUOUS) {
                     Log.i(TAG, "testTimestampClockSource skipping non-continuous sensor: '" + sensor.getName());
+                    continue;
+                }
+                if (sensor.getType() >= Sensor.TYPE_DEVICE_PRIVATE_BASE) {
+                    Log.i(TAG, "testTimestampClockSource skipping vendor specific sensor: '" + sensor.getName());
+                    continue;
+                }
+                try {
+                    string = runVerifySensorTimestampClockbase(sensor, false);
+                    if (string != null) {
+                        return string;
+                    }
+                } catch(Throwable e) {
+                    Log.e(TAG, e.getMessage());
+                    error_occurred = true;
                 }
             }
             if (error_occurred) {

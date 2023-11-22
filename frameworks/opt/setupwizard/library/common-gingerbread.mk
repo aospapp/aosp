@@ -31,8 +31,8 @@ endif
 ifeq (,$(findstring setup-wizard-lib-gingerbread-compat,$(LOCAL_STATIC_JAVA_LIBRARIES)))
 LOCAL_RESOURCE_DIR += \
     $(suwlib_dir)/main/res \
-    $(suwlib_dir)/eclair-mr1/res \
-    $(suwlib_dir)/full-support/res
+    $(suwlib_dir)/gingerbread/res \
+    $(suwlib_dir)/recyclerview/res
 LOCAL_AAPT_FLAGS += --extra-packages com.android.setupwizardlib
 LOCAL_STATIC_JAVA_LIBRARIES += setup-wizard-lib-gingerbread-compat
 endif

@@ -27,6 +27,7 @@
 
 #include <sstream>
 
+#include "android-base/stringprintf.h"
 #include "arch/instruction_set.h"
 #include "base/time_utils.h"
 #include "base/unix_file/fd_file.h"
@@ -40,6 +41,10 @@
 #include "thread.h"
 #include "thread_list.h"
 #include "utils.h"
+
+#if defined(ART_TARGET_ANDROID)
+#include "tombstoned/tombstoned.h"
+#endif
 
 namespace art {
 
@@ -65,11 +70,19 @@ static void DumpCmdLine(std::ostream& os) {
 #endif
 }
 
-SignalCatcher::SignalCatcher(const std::string& stack_trace_file)
+SignalCatcher::SignalCatcher(const std::string& stack_trace_file,
+                             bool use_tombstoned_stack_trace_fd)
     : stack_trace_file_(stack_trace_file),
+      use_tombstoned_stack_trace_fd_(use_tombstoned_stack_trace_fd),
       lock_("SignalCatcher lock"),
       cond_("SignalCatcher::cond_", lock_),
       thread_(nullptr) {
+#if !defined(ART_TARGET_ANDROID)
+  // We're not running on Android, so we can't communicate with tombstoned
+  // to ask for an open file.
+  CHECK(!use_tombstoned_stack_trace_fd_);
+#endif
+
   SetHaltFlag(false);
 
   // Create a raw pthread; its start routine will attach to the runtime.
@@ -100,30 +113,65 @@ bool SignalCatcher::ShouldHalt() {
   return halt_;
 }
 
-void SignalCatcher::Output(const std::string& s) {
+bool SignalCatcher::OpenStackTraceFile(android::base::unique_fd* tombstone_fd,
+                                       android::base::unique_fd* output_fd) {
+  if (use_tombstoned_stack_trace_fd_) {
+#if defined(ART_TARGET_ANDROID)
+    return tombstoned_connect(getpid(), tombstone_fd, output_fd, kDebuggerdJavaBacktrace);
+#else
+    UNUSED(tombstone_fd);
+    UNUSED(output_fd);
+#endif
+  }
+
+  // The runtime is not configured to dump traces to a file, will LOG(INFO)
+  // instead.
   if (stack_trace_file_.empty()) {
+    return false;
+  }
+
+  int fd = open(stack_trace_file_.c_str(), O_APPEND | O_CREAT | O_WRONLY, 0666);
+  if (fd == -1) {
+      PLOG(ERROR) << "Unable to open stack trace file '" << stack_trace_file_ << "'";
+      return false;
+  }
+
+  output_fd->reset(fd);
+  return true;
+}
+
+void SignalCatcher::Output(const std::string& s) {
+  android::base::unique_fd tombstone_fd;
+  android::base::unique_fd output_fd;
+  if (!OpenStackTraceFile(&tombstone_fd, &output_fd)) {
     LOG(INFO) << s;
     return;
   }
 
   ScopedThreadStateChange tsc(Thread::Current(), kWaitingForSignalCatcherOutput);
-  int fd = open(stack_trace_file_.c_str(), O_APPEND | O_CREAT | O_WRONLY, 0666);
-  if (fd == -1) {
-    PLOG(ERROR) << "Unable to open stack trace file '" << stack_trace_file_ << "'";
-    return;
-  }
-  std::unique_ptr<File> file(new File(fd, stack_trace_file_, true));
+
+  std::unique_ptr<File> file(new File(output_fd.release(), true /* check_usage */));
   bool success = file->WriteFully(s.data(), s.size());
   if (success) {
     success = file->FlushCloseOrErase() == 0;
   } else {
     file->Erase();
   }
+
+  const std::string output_path_msg = (use_tombstoned_stack_trace_fd_) ?
+      "[tombstoned]" : stack_trace_file_;
+
   if (success) {
-    LOG(INFO) << "Wrote stack traces to '" << stack_trace_file_ << "'";
+    LOG(INFO) << "Wrote stack traces to '" << output_path_msg << "'";
   } else {
-    PLOG(ERROR) << "Failed to write stack traces to '" << stack_trace_file_ << "'";
+    PLOG(ERROR) << "Failed to write stack traces to '" << output_path_msg << "'";
   }
+
+#if defined(ART_TARGET_ANDROID)
+  if (use_tombstoned_stack_trace_fd_ && !tombstoned_notify_completion(tombstone_fd)) {
+    PLOG(WARNING) << "Unable to notify tombstoned of dump completion";
+  }
+#endif
 }
 
 void SignalCatcher::HandleSigQuit() {

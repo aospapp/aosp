@@ -81,8 +81,8 @@
     <string name="bluetooth_pairing_request" msgid="4523088117471287665">"Zahtjev za uparivanje putem Bluetootha"</string>
     <string name="bluetooth_confirm_passkey_msg" msgid="7031117992819855434">"Za uparivanje s uređajem: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;, provjerite prikazuje li ovaj pristupni kôd: &lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>&lt;/b&gt;"</string>
     <string name="bluetooth_incoming_pairing_msg" msgid="8234127565393932499">"Šalje: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;&lt;br&gt;Želite li upariti s ovim uređajem?"</string>
-    <string name="bluetooth_display_passkey_pin_msg" msgid="8951451728250058901">"Za uparivanje s uređajem: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;&lt;br&gt;Napišite na njemu: &lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>&lt;/b&gt;, zatim pritisnite tipku Return ili Enter."</string>
-    <string name="bluetooth_enter_pin_msg" msgid="7443458826667686394">"Za uparivanje s uređajem: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;, &lt;br&gt;Upišite traženi PIN kôd uređaja:"</string>
+    <string name="bluetooth_display_passkey_pin_msg" msgid="8951451728250058901">"Za uparivanje s uređajem: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;&lt;br&gt;Upišite na njemu: &lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>&lt;/b&gt;, zatim pritisnite tipku Return ili Enter."</string>
+    <string name="bluetooth_enter_pin_msg" msgid="7443458826667686394">"Za uparivanje s uređajem: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;, &lt;br&gt;Upišite traženi PIN uređaja:"</string>
     <string name="bluetooth_enter_passkey_msg" msgid="7980787196089653577">"Da uparite s uređajem: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;, &lt;br&gt;Unesite traženi pristupni kôd uređaja:"</string>
     <string name="bluetooth_pin_values_hint" msgid="2319900367581543300">"Obično 0000 ili 1234"</string>
     <string name="bluetooth_pair" msgid="7836818609620478122">"Upari"</string>
@@ -166,7 +166,7 @@
     <string name="connected" msgid="7563100162902079938">"Povezano"</string>
     <string name="not_connected" msgid="6858480380326923017">"Nije povezano"</string>
     <string name="wifi_setting_header_other_options" msgid="3638677601577777216">"Ostale opcije"</string>
-    <string name="wifi_setting_see_all" msgid="3217814666041974878">"Vidi sve"</string>
+    <string name="wifi_setting_see_all" msgid="3217814666041974878">"Prikaži sve"</string>
     <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"Vidi manje"</string>
     <string name="wifi_setting_available_networks" msgid="6713791371350513043">"Dostupne mreže"</string>
     <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"Poveži putem WPS-a"</string>
@@ -279,7 +279,7 @@
     <string name="storage_wizard_format_as_public_description" msgid="184405877453834449">"Nakon formatiranja, ovaj USB disk možete koristiti na drugim uređajima. Svi podaci će se potpuno izbrisati. Predlažemo da prvo napravite sigurnosnu kopiju premještanjem aplikacija na pohranu drugog uređaja."</string>
     <string name="storage_wizard_format_progress_title" msgid="143911640282435570">"Formatiranje USB diska…"</string>
     <string name="storage_wizard_format_progress_description" msgid="5320980721352781920">"Ovo će kratko potrajati. Nemojte uklanjati disk."</string>
-    <string name="storage_wizard_migrate_choose_title" msgid="4247584708563925746">"Izaberite pohranu na koju ćete migrirati podatke"</string>
+    <string name="storage_wizard_migrate_choose_title" msgid="4247584708563925746">"Odaberite pohranu na koju ćete migrirati podatke"</string>
     <string name="storage_wizard_migrate_confirm_title" msgid="369820166257265495">"Premjestite podatke na uređaj <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_wizard_migrate_confirm_description" msgid="2916497196106413598">"Premjestite svoje fotografije, fajlove i podatke iz aplikacija na uređaj <xliff:g id="NAME">%1$s</xliff:g>. To može potrajati nekoliko minuta. Neke aplikacije neće ispravno raditi za vrijeme premještanja."</string>
     <string name="storage_wizard_migrate_confirm_action_move_now" msgid="512504294066473542">"Premjesti sada"</string>
@@ -321,8 +321,8 @@
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"Ponovi"</string>
     <string name="wifi_wps_title" msgid="1872305810119408482">"Traženje WPS rutera…"</string>
     <string name="wifi_wps_instructions" msgid="3618110962669110034">"Pritisnite na ruteru dugme Wi-Fi Protected Setup.\nMože biti pod nazivom \"WPS\" ili imati simbol na lijevoj strani."</string>
-    <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"Unesite PIN kôd <xliff:g id="NUMBER">%1$s</xliff:g> na Wi-Fi ruter"</string>
-    <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"Nakon što ste unijeli PIN kôd, postavljanje može potrajati do 2 minute."</string>
+    <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"Unesite PIN <xliff:g id="NUMBER">%1$s</xliff:g> na Wi-Fi ruter"</string>
+    <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"Nakon što ste unijeli PIN, postavljanje može potrajati do 2 minute."</string>
     <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"Nije pronađen Wi-Fi ruter"</string>
     <string name="wifi_wps_failed_wep" msgid="9158670824165143348">"Sigurnosne postavke Wi-Fi rutera (WEP) nisu podržane"</string>
     <string name="wifi_wps_failed_tkip" msgid="1712545345594227319">"Sigurnosne postavke Wi-Fi rutera (TKIP) nisu podržane"</string>
@@ -369,6 +369,10 @@
     <string name="system_services" msgid="7230571820151215779">"Usluge"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Postavke usluge"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Tekst visokog kontrasta"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Prečica za pristupačnost"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Omogućavanje prečice za pristupačnost"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Usluga prečice"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Kada je uključena prečica, funkciju pristupačnosti možete pokrenuti istovremenim pritiskom i držanjem dugmadi za nazad i dolje u trajanju od 3 sekunde."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Titlovi"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Postavke za prikaz teksta titla preko videozapisa"</string>
     <string name="captions_display" msgid="735692527287125548">"Prikaz"</string>
@@ -521,9 +525,9 @@
     <string name="desc_configure_keyboard" msgid="7187242843867404657">"Opcije tastature"</string>
     <string name="computing_size" msgid="2955133568424704042">"Računanje…"</string>
     <string name="title_select_wifi_network" msgid="1038871400014761952">"Odabir Wi-Fi mreže"</string>
-    <string name="accessories_wifi_display_rename_device" msgid="7416728299196887186">"Preimenuj"</string>
+    <string name="accessories_wifi_display_rename_device" msgid="7416728299196887186">"Promijeni naziv"</string>
     <string name="accessories_wifi_display_enable" msgid="4779506305656453262">"Wi-Fi ekran"</string>
-    <string name="accessories_wifi_display_pin_required" msgid="3242645267864813273">"Potreban je PIN kôd"</string>
+    <string name="accessories_wifi_display_pin_required" msgid="3242645267864813273">"Potreban je PIN"</string>
     <string name="whichApplication" msgid="8382179653567099571">"Završavanje radnje pomoću"</string>
     <string name="alwaysUseQuestion" msgid="7128459989232213727">"Želite li uvijek koristiti ovu opciju za ovu radnju?"</string>
     <string name="alwaysUseOption" msgid="1057645533268907906">"Uvijek koristi"</string>
@@ -586,18 +590,18 @@
     <string name="restricted_profile_not_allowed" msgid="1622620680118897330">"Nije dozvoljeno"</string>
     <string name="restricted_profile_customize_restrictions" msgid="8418415019078825537">"Prilagodi ograničenja"</string>
     <string name="restricted_profile_configure_apps_description_loading" msgid="5269477581791409700">"Samo trenutak…"</string>
-    <string name="restricted_profile_change_password_title" msgid="2848537651211816659">"Promijenite PIN kôd"</string>
+    <string name="restricted_profile_change_password_title" msgid="2848537651211816659">"Promijenite PIN"</string>
     <string name="restriction_description" msgid="3104855945910233028">"<xliff:g id="DESCRIPTION">%1$s</xliff:g>\n<xliff:g id="VALUE">%2$s</xliff:g>"</string>
     <string name="app_sees_restricted_accounts_and_controlled_by" msgid="6677671440081319908">"Ova aplikacija može pristupati vašim računima. Kontrolira aplikacija <xliff:g id="APP">%1$s</xliff:g>"</string>
-    <string name="pin_enter_unlock_channel" msgid="5980400420298506069">"Unesite PIN kôd da gledate ovaj kanal"</string>
-    <string name="pin_enter_unlock_program" msgid="52453773316071511">"Unesite PIN kôd da gledate ovaj program"</string>
-    <string name="pin_enter_pin" msgid="821552376577935497">"Unesite PIN kôd"</string>
-    <string name="pin_enter_new_pin" msgid="4788218421265924211">"Postavite novi PIN kôd"</string>
-    <string name="pin_enter_again" msgid="1510456697040826496">"Ponovo unesite novi PIN kôd"</string>
-    <string name="pin_enter_old_pin" msgid="851029058127630869">"Unesite stari PIN kôd"</string>
-    <string name="pin_enter_wrong_seconds" msgid="7541208202846169755">"Unijeli ste pogrešan PIN kôd 5 puta.\nPokušajte ponovo za <xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g> s"</string>
-    <string name="pin_toast_wrong" msgid="4628358195224633248">"Pogrešan PIN kôd. Pokušajte ponovo"</string>
-    <string name="pin_toast_not_match" msgid="5886041789737632996">"Pokušajte ponovo. PIN kôd ne odgovara"</string>
+    <string name="pin_enter_unlock_channel" msgid="5980400420298506069">"Unesite PIN da gledate ovaj kanal"</string>
+    <string name="pin_enter_unlock_program" msgid="52453773316071511">"Unesite PIN da gledate ovaj program"</string>
+    <string name="pin_enter_pin" msgid="821552376577935497">"Unesite PIN"</string>
+    <string name="pin_enter_new_pin" msgid="4788218421265924211">"Postavite novi PIN"</string>
+    <string name="pin_enter_again" msgid="1510456697040826496">"Ponovo unesite novi PIN"</string>
+    <string name="pin_enter_old_pin" msgid="851029058127630869">"Unesite stari PIN"</string>
+    <string name="pin_enter_wrong_seconds" msgid="7541208202846169755">"Unijeli ste pogrešan PIN 5 puta.\nPokušajte ponovo za <xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g> s"</string>
+    <string name="pin_toast_wrong" msgid="4628358195224633248">"Pogrešan PIN. Pokušajte ponovo"</string>
+    <string name="pin_toast_not_match" msgid="5886041789737632996">"Pokušajte ponovo. PIN ne odgovara"</string>
     <string name="wifi_setup_input_password" msgid="1596168874369038536">"Unesite lozinku za mrežu <xliff:g id="SSID">%1$s</xliff:g>"</string>
     <string name="wifi_setup_connection_success" msgid="3846993789166071184">"Uspješno povezano"</string>
     <string name="wifi_setup_save_success" msgid="4785799603638549254">"Uspješno sačuvano"</string>
@@ -633,7 +637,7 @@
     <string name="device_daydreams_sleep" msgid="7676938708373592766">"Kada početi"</string>
     <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"Čuvar ekrana se uključuje nakon ovog period neaktivnosti. Ako nije izabran čuvar ekrana, ekran će se isključiti."</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"Nakon <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> neaktivnosti"</string>
-    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Stavi uređaj u stanje mirovanja"</string>
+    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Postavi uređaj u mirovanje"</string>
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"Ekran se isključuje nakon ovog perioda neaktivnosti."</string>
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"Nijedan račun trenutno ne pohranjuje sigurnosne kopije podataka"</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
@@ -654,7 +658,7 @@
     <item msgid="1389347662738182100">"TV u spavaćoj sobi"</item>
   </string-array>
     <string name="custom_room" msgid="8655516733933892458">"Unesite prilagođeno ime…"</string>
-    <string name="device_rename_title" msgid="2629557295786267185">"Preimenuj ovaj uređaj <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
+    <string name="device_rename_title" msgid="2629557295786267185">"Promijeni naziv uređaja <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"Trenutno ime ovog uređaja <xliff:g id="DEVICEMODEL">%1$s</xliff:g> je \"<xliff:g id="DEVICENAME">%2$s</xliff:g>\""</string>
     <string name="change_setting" msgid="2047402388786162246">"Promijeni"</string>
     <string name="keep_settings" msgid="6798327196645732517">"Ne mijenjaj"</string>
@@ -671,4 +675,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Preuzimanje izvještaja o greškama"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Raspoložive virtuelne tastature"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Upravljanje tastaturama"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Dozvoljeno"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Nije dozvoljeno"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Pristup korištenju"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Pristup korištenju omogućava nekoj aplikaciji praćenje korištenja drugih aplikacija i učestalosti, kao i praćenje vašeg mobilnog operatera, postavki jezika i drugih detalja."</string>
 </resources>

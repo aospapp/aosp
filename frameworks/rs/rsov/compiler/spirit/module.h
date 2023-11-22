@@ -129,6 +129,8 @@ public:
 
   ExtInstImportInst *getGLExt() const { return mGLExt; }
 
+  const std::string findStringOfPrefix(const char *prefix) const;
+
   GlobalSection *getGlobalSection();
 
   Instruction *lookupByName(const char *) const;
@@ -314,6 +316,8 @@ public:
   DebugInfoSection *addSource(SourceLanguage lang, int version);
   DebugInfoSection *addSourceExtension(const char *ext);
   DebugInfoSection *addString(const char *str);
+
+  std::string findStringOfPrefix(const char *prefix);
 
   Instruction *lookupByName(const char *name) const;
   const char *lookupNameByInstruction(const Instruction *) const;

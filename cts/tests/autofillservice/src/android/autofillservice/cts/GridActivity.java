@@ -21,10 +21,10 @@ import android.view.autofill.AutofillManager;
 import android.widget.Button;
 import android.widget.EditText;
 
+import java.util.ArrayList;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.ArrayList;
 
 /**
  * Activity that contains a 4x4 grid of cells (named {@code l1c1} to {@code l4c2}) plus

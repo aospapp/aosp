@@ -23,11 +23,12 @@ from vts.runners.host import const
 from vts.runners.host import keys
 from vts.runners.host import test_runner
 from vts.utils.python.controllers import adb
-from vts.utils.python.controllers import android_device
+
 from vts.utils.python.common import list_utils
 from vts.utils.python.os import path_utils
 
 from vts.testcases.template.llvmfuzzer_test import llvmfuzzer_test_config as config
+
 
 class LLVMFuzzerTest(base_test.BaseTestClass):
     """Runs fuzzer tests on target.
@@ -36,6 +37,7 @@ class LLVMFuzzerTest(base_test.BaseTestClass):
         _dut: AndroidDevice, the device under test as config
         _testcases: string list, list of testcases to run
     """
+
     def setUpClass(self):
         """Creates a remote shell instance, and copies data files."""
         required_params = [
@@ -48,9 +50,9 @@ class LLVMFuzzerTest(base_test.BaseTestClass):
 
         logging.info("Testcases: %s", self._testcases)
         logging.info("%s: %s", keys.ConfigKeys.IKEY_DATA_FILE_PATH,
-            self.data_file_path)
+                     self.data_file_path)
         logging.info("%s: %s", config.ConfigKeys.FUZZER_CONFIGS,
-            self.fuzzer_configs)
+                     self.fuzzer_configs)
 
         self._dut = self.registerController(android_device, False)[0]
         self._dut.adb.shell("mkdir %s -p" % config.FUZZER_TEST_DIR)
@@ -65,7 +67,8 @@ class LLVMFuzzerTest(base_test.BaseTestClass):
         Args:
             testcase: string, path to executable fuzzer.
         """
-        push_src = os.path.join(self.data_file_path, config.FUZZER_SRC_DIR, testcase)
+        push_src = os.path.join(self.data_file_path, config.FUZZER_SRC_DIR,
+                                testcase)
         self._dut.adb.push("%s %s" % (push_src, config.FUZZER_TEST_DIR))
         logging.info("Adb pushed: %s", testcase)
 
@@ -78,6 +81,7 @@ class LLVMFuzzerTest(base_test.BaseTestClass):
         Returns:
             string, command line flags for fuzzer executable.
         """
+
         def _SerializeVTSFuzzerParams(params):
             """Creates VTS command line flags for fuzzer executable.
 
@@ -114,7 +118,6 @@ class LLVMFuzzerTest(base_test.BaseTestClass):
             """
             return " ".join(["-%s=%s" % (k, v) for k, v in params.items()])
 
-
         vts_fuzzer_params = fuzzer_config.get("vts_fuzzer_params", {})
 
         llvmfuzzer_params = config.FUZZER_PARAMS.copy()
@@ -136,8 +139,8 @@ class LLVMFuzzerTest(base_test.BaseTestClass):
             string, path to corpus directory on the target.
         """
         corpus = fuzzer_config.get("corpus", [])
-        corpus_dir = path_utils.JoinTargetPath(
-            config.FUZZER_TEST_DIR, "%s_corpus" % fuzzer)
+        corpus_dir = path_utils.JoinTargetPath(config.FUZZER_TEST_DIR,
+                                               "%s_corpus" % fuzzer)
 
         self._dut.adb.shell("mkdir %s -p" % corpus_dir)
         for idx, corpus_entry in enumerate(corpus):
@@ -171,8 +174,9 @@ class LLVMFuzzerTest(base_test.BaseTestClass):
         ld_path = "LD_LIBRARY_PATH=/data/local/tmp/64:/data/local/tmp/32:$LD_LIBRARY_PATH"
         test_cmd = "./%s" % fuzzer
 
-        fuzz_cmd = "%s && %s %s %s %s > /dev/null" % (
-            cd_cmd, ld_path, test_cmd, corpus_dir, test_flags)
+        fuzz_cmd = "%s && %s %s %s %s > /dev/null" % (cd_cmd, ld_path,
+                                                      test_cmd, corpus_dir,
+                                                      test_flags)
         logging.info("Executing: %s", fuzz_cmd)
         # TODO(trong): vts shell doesn't handle timeouts properly, change this after it does.
         try:
@@ -213,7 +217,8 @@ class LLVMFuzzerTest(base_test.BaseTestClass):
         for offset in xrange(0, len(output), 2):
             crash_report += "\\x%s" % output[offset:offset + 2]
 
-        logging.info('FUZZER_TEST_CRASH_REPORT for %s: "%s"', fuzzer, crash_report)
+        logging.info('FUZZER_TEST_CRASH_REPORT for %s: "%s"', fuzzer,
+                     crash_report)
 
     # TODO(trong): differentiate between crashes and sanitizer rule violations.
     def AssertTestResult(self, fuzzer, result):

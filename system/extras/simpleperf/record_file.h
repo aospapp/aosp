@@ -56,6 +56,7 @@ class RecordFileWriter {
                         uint32_t file_type,
                         uint64_t min_vaddr,
                         const std::vector<const Symbol*>& symbols);
+  bool WriteMetaInfoFeature(const std::unordered_map<std::string, std::string>& info_map);
   bool EndWriteFeatures();
 
   // Normally, Close() should be called after writing. But if something
@@ -148,6 +149,7 @@ class RecordFileReader {
   bool ReadFileFeature(size_t& read_pos, std::string* file_path,
                        uint32_t* file_type, uint64_t* min_vaddr,
                        std::vector<Symbol>* symbols);
+  bool ReadMetaInfoFeature(std::unordered_map<std::string, std::string>* info_map);
 
   void LoadBuildIdAndFileFeatures(ThreadTree& thread_tree);
 

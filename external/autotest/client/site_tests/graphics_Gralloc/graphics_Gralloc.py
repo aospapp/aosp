@@ -9,13 +9,18 @@ import re
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import arc
+from autotest_lib.client.cros.graphics import graphics_utils
 
 _SDCARD_EXEC = '/sdcard/gralloctest'
 _EXEC_DIRECTORY = '/data/executables/'
+# The tests still can be run individually, though we run with the 'all' option
+# Run ./gralloctest in Android to get a list of options.
 _ANDROID_EXEC = _EXEC_DIRECTORY + 'gralloctest'
+_OPTION = 'all'
 
-
-class graphics_Gralloc(arc.ArcTest):
+# GraphicsTest should go first as it will pass initialize/cleanup function
+# to ArcTest. GraphicsTest initialize would not be called if ArcTest goes first
+class graphics_Gralloc(graphics_utils.GraphicsTest, arc.ArcTest):
     """gralloc test."""
     version = 1
 
@@ -46,30 +51,21 @@ class graphics_Gralloc(arc.ArcTest):
         super(graphics_Gralloc, self).arc_teardown()
 
     def run_once(self):
-        failures = []
-        # TODO(ihf): shard this test into multiple control files.
-        test_names = [
-            'alloc_varying_sizes', 'alloc_usage', 'api', 'gralloc_order',
-            'uninitialized_handle', 'freed_handle', 'mapping', 'perform',
-            'ycbcr', 'async'
-        ]
-
-        # Run the tests and capture stdout.
-        for test_name in test_names:
-            try:
-                cmd = '%s %s' % (_ANDROID_EXEC, test_name)
-                stdout = arc._android_shell(cmd)
-            except Exception:
-                logging.error('Exception running %s', cmd)
-            # Look for the regular expression indicating success.
-            match = re.search(r'\[  PASSED  \]', stdout)
-            if not match:
-                failures.append(test_name)
-                logging.error(stdout)
+        try:
+            cmd = '%s %s' % (_ANDROID_EXEC, _OPTION)
+            stdout = arc._android_shell(cmd)
+        except Exception:
+            logging.error('Exception running %s', cmd)
+        # Look for the regular expression indicating failure.
+        for line in stdout.splitlines():
+            match = re.search(r'\[  FAILED  \]', stdout)
+            if match:
+                self.add_failures(line)
+                logging.error(line)
             else:
                 logging.debug(stdout)
 
-        if failures:
+        if self.get_failures():
             gpu_family = utils.get_gpu_family()
             raise error.TestFail('Failed: gralloc on %s in %s.' %
-                                 (gpu_family, failures))
+                                 (gpu_family, self.get_failures()))

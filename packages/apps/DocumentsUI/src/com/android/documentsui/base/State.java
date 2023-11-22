@@ -135,6 +135,23 @@ public class State implements android.os.Parcelable {
         out.writeParcelable(sortModel, 0);
     }
 
+    @Override
+    public String toString() {
+        return "State{"
+                + "action=" + action
+                + ", acceptMimes=" + acceptMimes
+                + ", allowMultiple=" + allowMultiple
+                + ", localOnly=" + localOnly
+                + ", showDeviceStorageOption=" + showDeviceStorageOption
+                + ", showAdvanced=" + showAdvanced
+                + ", stack=" + stack
+                + ", dirConfigs=" + dirConfigs
+                + ", excludedAuthorities=" + excludedAuthorities
+                + ", openableOnly=" + openableOnly
+                + ", sortModel=" + sortModel
+                + "}";
+    }
+
     public static final ClassLoaderCreator<State> CREATOR = new ClassLoaderCreator<State>() {
         @Override
         public State createFromParcel(Parcel in) {

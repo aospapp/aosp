@@ -26,7 +26,7 @@ Args:
         of the noise and therefore getting better accuracy.
 """
 
-UI_TESTS = ['backlight', 'download', 'webpages', 'video', 'v8']
+UI_TESTS = ['backlight', 'download', 'webpages', 'video', 'speedometer']
 NONUI_TESTS = ['backchannel', 'sound', 'lowlevel']
 DEFAULT_TESTS = UI_TESTS + NONUI_TESTS
 INTERVAL_SECS = 5

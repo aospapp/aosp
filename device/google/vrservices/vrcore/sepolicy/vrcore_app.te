@@ -19,7 +19,6 @@ allow vrcore_app mediaserver_service:service_manager find;
 allow vrcore_app mediaextractor_service:service_manager find;
 allow vrcore_app mediametrics_service:service_manager find;
 allow vrcore_app mediadrmserver_service:service_manager find;
-allow vrcore_app mediacasserver_service:service_manager find;
 allow vrcore_app nfc_service:service_manager find;
 allow vrcore_app radio_service:service_manager find;
 allow vrcore_app surfaceflinger_service:service_manager find;

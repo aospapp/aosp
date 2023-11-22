@@ -69,7 +69,7 @@
     <string name="install_done" msgid="1522718684172097080">"Loginoplysningerne til <xliff:g id="NAME">%1$s</xliff:g> er nu føjet til de gemte Wi-Fi-netværk."</string>
     <string name="done_label" msgid="5597425930652904250">"LUK"</string>
     <string name="wifi_installer_detail" msgid="63879632832701669">"Installer Wi-Fi-loginoplysninger for at oprette forbindelse til netværk, der er tilgængelige via <xliff:g id="NAME">%1$s</xliff:g>."</string>
-    <string name="wifi_installer_download_error" msgid="5429453090956277692">"Der er problemer med den downloadede fil. Den kan ikke installeres. Kontrollér, at du har downloadet filen fra den korrekte kilde."</string>
+    <string name="wifi_installer_download_error" msgid="5429453090956277692">"Der er problemer med den downloadede fil. Den kan ikke installeres. Tjek, at du har downloadet filen fra den korrekte kilde."</string>
     <string name="wifi_installer_fail" msgid="894483173306576331">"Wi-Fi-loginoplysningerne kan ikke installeres. Prøv at downloade filen igen."</string>
     <string name="wifi_installer_fail_no_wifi_title" msgid="8358191074828840533">"Installationen blev annulleret"</string>
     <string name="wifi_installer_fail_title" msgid="5547079779067835479">"Der kan ikke installeres"</string>

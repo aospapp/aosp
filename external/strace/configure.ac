@@ -5,6 +5,7 @@
 # Copyright (c) 2006-2016 Dmitry V. Levin <ldv@altlinux.org>
 # Copyright (c) 2008-2015 Mike Frysinger <vapier@gentoo.org>
 # Copyright (c) 2015 Elvira Khabirova <lineprinter0@gmail.com>
+# Copyright (c) 2002-2017 The strace developers.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -35,7 +36,8 @@ AC_INIT([strace],
 	[strace-devel@lists.sourceforge.net],
 	[strace],
 	[https://strace.io])
-AC_COPYRIGHT([Copyright (C) 1999-2017 The strace developers.])
+m4_define([copyright_year], m4_esyscmd([./copyright-year-gen .year]))
+AC_COPYRIGHT([Copyright (c) 1999-]copyright_year[ The strace developers.])
 AC_CONFIG_SRCDIR([strace.c])
 AC_CONFIG_AUX_DIR([.])
 AC_CONFIG_HEADERS([config.h])
@@ -58,6 +60,9 @@ AC_PROG_RANLIB
 
 AC_USE_SYSTEM_EXTENSIONS
 AX_CODE_COVERAGE
+
+AC_DEFINE([COPYRIGHT_YEAR], "[copyright_year]", [Current copyright year.])
+AC_SUBST([COPYRIGHT_YEAR], [copyright_year])
 
 AC_MSG_CHECKING([for supported architecture])
 arch_m32=
@@ -278,6 +283,7 @@ AC_CHECK_FUNCS(m4_normalize([
 	signalfd
 	stpcpy
 	strerror
+	strndup
 	strsignal
 	sync_file_range
 	utimensat
@@ -361,11 +367,14 @@ AC_CHECK_HEADERS(m4_normalize([
 	linux/falloc.h
 	linux/fiemap.h
 	linux/filter.h
+	linux/genetlink.h
 	linux/hiddev.h
 	linux/ip_vs.h
 	linux/ipc.h
 	linux/mmtimer.h
 	linux/msg.h
+	linux/netfilter/nfnetlink.h
+	linux/nsfs.h
 	linux/perf_event.h
 	linux/quota.h
 	linux/seccomp.h
@@ -434,16 +443,16 @@ AC_CHECK_HEADERS([linux/bpf.h], [
 		AC_DEFINE(HAVE_UNION_BPF_ATTR_BPF_FD, [1],
 			  [Define to 1 if union bpf_attr.bpf_fd initialization works])
 	fi
-	AC_CACHE_CHECK([whether union bpf_attr.attach_type initialization works],
-		       [st_cv_have_union_bpf_attr_attach_type],
+	AC_CACHE_CHECK([whether union bpf_attr.attach_flags initialization works],
+		       [st_cv_have_union_bpf_attr_attach_flags],
 		[AC_COMPILE_IFELSE(
 			[AC_LANG_PROGRAM([[#include <linux/bpf.h>]],
-					 [[union bpf_attr a = { .attach_type = 0 };]])],
-			[st_cv_have_union_bpf_attr_attach_type=yes],
-			[st_cv_have_union_bpf_attr_attach_type=no])])
-	if test $st_cv_have_union_bpf_attr_attach_type = yes; then
-		AC_DEFINE(HAVE_UNION_BPF_ATTR_ATTACH_TYPE, [1],
-			  [Define to 1 if union bpf_attr.attach_type initialization works])
+					 [[union bpf_attr a = { .attach_flags = 0 };]])],
+			[st_cv_have_union_bpf_attr_attach_flags=yes],
+			[st_cv_have_union_bpf_attr_attach_flags=no])])
+	if test $st_cv_have_union_bpf_attr_attach_flags = yes; then
+		AC_DEFINE(HAVE_UNION_BPF_ATTR_ATTACH_FLAGS, [1],
+			  [Define to 1 if union bpf_attr.attach_flags initialization works])
 	fi
 ])
 
@@ -481,8 +490,8 @@ AC_CHECK_HEADERS([linux/btrfs.h], [
 		struct btrfs_ioctl_search_args_v2.buf_size
 		]),,, [ #include <stdio.h>
 #include <linux/btrfs.h>])
-        AC_CHECK_DECLS(m4_normalize([BTRFS_COMPRESS_NONE, BTRFS_COMPRESS_ZLIB,
-	                        BTRFS_COMPRESS_LZO]),,,[ #include <stdio.h>
+	AC_CHECK_DECLS(m4_normalize([BTRFS_COMPRESS_NONE, BTRFS_COMPRESS_ZLIB,
+				BTRFS_COMPRESS_LZO]),,,[ #include <stdio.h>
 #include <linux/btrfs.h>])])
 
 AC_CHECK_DECLS([sys_errlist])
@@ -608,6 +617,8 @@ AC_CHECK_DECLS(m4_normalize([
 	V4L2_BUF_TYPE_SLICED_VBI_CAPTURE,
 	V4L2_BUF_TYPE_SLICED_VBI_OUTPUT,
 	V4L2_BUF_TYPE_VIDEO_OUTPUT_OVERLAY,
+	V4L2_BUF_TYPE_SDR_CAPTURE,
+	V4L2_BUF_TYPE_SDR_OUTPUT,
 	V4L2_TUNER_RADIO,
 	V4L2_TUNER_ANALOG_TV,
 	V4L2_TUNER_DIGITAL_TV,
@@ -647,6 +658,14 @@ AC_CHECK_DECLS(m4_normalize([
 #include <linux/types.h>
 #include <linux/videodev2.h>])
 
+AC_CHECK_MEMBERS(m4_normalize([
+	struct v4l2_window.global_alpha,
+	struct v4l2_sdr_format.buffersize
+]),,, [#include <sys/time.h>
+#include <linux/ioctl.h>
+#include <linux/types.h>
+#include <linux/videodev2.h>])
+
 AC_CACHE_CHECK([for BLKGETSIZE64], [ac_cv_have_blkgetsize64],
 	[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([
 #include <stdlib.h>
@@ -666,7 +685,7 @@ AC_CACHE_CHECK([for SIGRTMIN], [st_cv_SIGRTMIN],
 	       [[st_cv_SIGRTMIN="$(echo SIGRTMIN |
 			$CPP $CPPFLAGS -P -imacros asm/signal.h - |
 			grep '^[0-9]')"
-	         test -n "$st_cv_SIGRTMIN" || st_cv_SIGRTMIN=no]])
+		 test -n "$st_cv_SIGRTMIN" || st_cv_SIGRTMIN=no]])
 if test "x$st_cv_SIGRTMIN" != xno; then
 	AC_DEFINE_UNQUOTED([ASM_SIGRTMIN], [$st_cv_SIGRTMIN],
 			   [SIGRTMIN defined in <asm/signal.h>])
@@ -675,7 +694,7 @@ AC_CACHE_CHECK([for SA_RESTORER], [st_cv_SA_RESTORER],
 	       [st_cv_SA_RESTORER="$(echo SA_RESTORER |
 			$CPP $CPPFLAGS -P -imacros asm/signal.h - |
 			grep ^0x)"
-	        test -n "$st_cv_SA_RESTORER" || st_cv_SA_RESTORER=no])
+		test -n "$st_cv_SA_RESTORER" || st_cv_SA_RESTORER=no])
 if test "x$st_cv_SA_RESTORER" != xno; then
 	AC_DEFINE_UNQUOTED([ASM_SA_RESTORER], [$st_cv_SA_RESTORER],
 			   [SA_RESTORER defined in <asm/signal.h>])
@@ -688,6 +707,16 @@ AC_CACHE_CHECK([for __builtin_popcount], [st_cv_have___builtin_popcount],
 if test "x$st_cv_have___builtin_popcount" = xyes; then
 	AC_DEFINE([HAVE___BUILTIN_POPCOUNT], [1],
 		  [Define to 1 if the system provides __builtin_popcount function])
+fi
+
+AC_CACHE_CHECK([for program_invocation_name], [st_cv_have_program_invocation_name],
+	       [AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <errno.h>]],
+						[[return !*program_invocation_name]])],
+			       [st_cv_have_program_invocation_name=yes],
+			       [st_cv_have_program_invocation_name=no])])
+if test "x$st_cv_have_program_invocation_name" = xyes; then
+	AC_DEFINE([HAVE_PROGRAM_INVOCATION_NAME], [1],
+		  [Define to 1 if the system provides program_invocation_name variable])
 fi
 
 AC_CHECK_LIB([dl], [dladdr], [dl_LIBS='-ldl'], [dl_LIBS=])
@@ -703,15 +732,15 @@ libunwind_CPPFLAGS=
 libunwind_LDFLAGS=
 libunwind_LIBS=
 AC_ARG_WITH([libunwind],
-            [AS_HELP_STRING([--with-libunwind],
-                            [use libunwind to implement stack tracing support])],
-            [case "${withval}" in
-             yes|no|check) ;;
-             *) with_libunwind=yes
-                libunwind_CPPFLAGS="-I${withval}/include"
-                libunwind_LDFLAGS="-L${withval}/lib" ;;
-             esac],
-            [with_libunwind=check]
+	    [AS_HELP_STRING([--with-libunwind],
+			    [use libunwind to implement stack tracing support])],
+	    [case "${withval}" in
+	     yes|no|check) ;;
+	     *) with_libunwind=yes
+		libunwind_CPPFLAGS="-I${withval}/include"
+		libunwind_LDFLAGS="-L${withval}/lib" ;;
+	     esac],
+	    [with_libunwind=check]
 )
 
 use_libunwind=no
@@ -720,56 +749,56 @@ AS_IF([test "x$with_libunwind" != xno],
        CPPFLAGS="$CPPFLAGS $libunwind_CPPFLAGS"
 
        AC_CHECK_HEADERS([libunwind-ptrace.h],
-         [saved_LDFLAGS="$LDFLAGS"
-          LDFLAGS="$LDFLAGS $libunwind_LDFLAGS"
+	 [saved_LDFLAGS="$LDFLAGS"
+	  LDFLAGS="$LDFLAGS $libunwind_LDFLAGS"
 
-          AC_CHECK_LIB([unwind], [backtrace],
-            [libunwind_LIBS="-lunwind $libunwind_LIBS"
+	  AC_CHECK_LIB([unwind], [backtrace],
+	    [libunwind_LIBS="-lunwind $libunwind_LIBS"
 
-             AC_MSG_CHECKING([for unw_create_addr_space in libunwind-generic])
-             saved_LIBS="$LIBS"
-             LIBS="-lunwind-generic $libunwind_LIBS $LIBS"
+	     AC_MSG_CHECKING([for unw_create_addr_space in libunwind-generic])
+	     saved_LIBS="$LIBS"
+	     LIBS="-lunwind-generic $libunwind_LIBS $LIBS"
 
-             AC_LINK_IFELSE(
-               [AC_LANG_PROGRAM([[#include <libunwind-ptrace.h>]],
-                                [[return !unw_create_addr_space(0, 0)]])
-               ],
-               [AC_MSG_RESULT([yes])
-                libunwind_LIBS="-lunwind-generic $libunwind_LIBS"
+	     AC_LINK_IFELSE(
+	       [AC_LANG_PROGRAM([[#include <libunwind-ptrace.h>]],
+				[[return !unw_create_addr_space(0, 0)]])
+	       ],
+	       [AC_MSG_RESULT([yes])
+		libunwind_LIBS="-lunwind-generic $libunwind_LIBS"
 
-                AC_CHECK_LIB([unwind-ptrace], [_UPT_create],
-                  [libunwind_LIBS="-lunwind-ptrace $libunwind_LIBS"
-                   use_libunwind=yes
-                  ],
-                  [if test "x$with_libunwind" != xcheck; then
-                     AC_MSG_FAILURE([failed to find _UPT_create in libunwind-ptrace])
-                   fi
-                  ],
-                  [$libunwind_LIBS]
-                )
-               ],
-               [AC_MSG_RESULT([no])
-                if test "x$with_libunwind" != xcheck; then
-                  AC_MSG_FAILURE([failed to find unw_create_addr_space in libunwind-generic])
-                fi
-               ]
-             )
+		AC_CHECK_LIB([unwind-ptrace], [_UPT_create],
+		  [libunwind_LIBS="-lunwind-ptrace $libunwind_LIBS"
+		   use_libunwind=yes
+		  ],
+		  [if test "x$with_libunwind" != xcheck; then
+		     AC_MSG_FAILURE([failed to find _UPT_create in libunwind-ptrace])
+		   fi
+		  ],
+		  [$libunwind_LIBS]
+		)
+	       ],
+	       [AC_MSG_RESULT([no])
+		if test "x$with_libunwind" != xcheck; then
+		  AC_MSG_FAILURE([failed to find unw_create_addr_space in libunwind-generic])
+		fi
+	       ]
+	     )
 
-             LIBS="$saved_LIBS"
-            ],
-            [if test "x$with_libunwind" != xcheck; then
-               AC_MSG_FAILURE([failed to find libunwind])
-             fi
-            ],
-            [$libunwind_LIBS]
-          )
+	     LIBS="$saved_LIBS"
+	    ],
+	    [if test "x$with_libunwind" != xcheck; then
+	       AC_MSG_FAILURE([failed to find libunwind])
+	     fi
+	    ],
+	    [$libunwind_LIBS]
+	  )
 
-          LDFLAGS="$saved_LDFLAGS"
-         ],
-         [if test "x$with_libunwind" != xcheck; then
-            AC_MSG_FAILURE([failed to find libunwind-ptrace.h])
-          fi
-         ]
+	  LDFLAGS="$saved_LDFLAGS"
+	 ],
+	 [if test "x$with_libunwind" != xcheck; then
+	    AC_MSG_FAILURE([failed to find libunwind-ptrace.h])
+	  fi
+	 ]
        )
 
        CPPFLAGS="$saved_CPPFLAGS"

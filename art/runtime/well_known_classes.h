@@ -33,8 +33,6 @@ class Class;
 // them up. Similar to libcore's JniConstants (except there's no overlap, so
 // we keep them separate).
 
-jmethodID CacheMethod(JNIEnv* env, jclass c, bool is_static, const char* name, const char* signature);
-
 struct WellKnownClasses {
  public:
   static void Init(JNIEnv* env);  // Run before native methods are registered.
@@ -47,6 +45,7 @@ struct WellKnownClasses {
   static jclass dalvik_annotation_optimization_CriticalNative;
   static jclass dalvik_annotation_optimization_FastNative;
   static jclass dalvik_system_BaseDexClassLoader;
+  static jclass dalvik_system_DelegateLastClassLoader;
   static jclass dalvik_system_DexClassLoader;
   static jclass dalvik_system_DexFile;
   static jclass dalvik_system_DexPathList;
@@ -103,6 +102,8 @@ struct WellKnownClasses {
   static jmethodID java_lang_Integer_valueOf;
   static jmethodID java_lang_invoke_MethodHandle_invoke;
   static jmethodID java_lang_invoke_MethodHandle_invokeExact;
+  static jmethodID java_lang_invoke_MethodHandles_lookup;
+  static jmethodID java_lang_invoke_MethodHandles_Lookup_findConstructor;
   static jmethodID java_lang_Long_valueOf;
   static jmethodID java_lang_ref_FinalizerReference_add;
   static jmethodID java_lang_ref_ReferenceQueue_add;

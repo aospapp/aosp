@@ -370,6 +370,10 @@
     <string name="system_services" msgid="7230571820151215779">"Usługi"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Ustawienia usługi"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Tekst o dużym kontraście"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Skrót ułatwień dostępu"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Włącz skrót ułatwień dostępu"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Usługa skrótu"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Gdy skrót jest włączony, możesz przytrzymać naciśnięte przyciski wstecz i w dół przez trzy sekundy, by uruchomić funkcję ułatwień dostępu."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Napisy"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Ustawienia napisów nałożonych na film"</string>
     <string name="captions_display" msgid="735692527287125548">"Wyświetlanie"</string>
@@ -676,4 +680,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Zapisuję raport o błędzie"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Dostępne klawiatury wirtualne"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Zarządzaj klawiaturami"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Dozwolone"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Niedozwolone"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Dostęp do danych o użyciu"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Dostęp do użytkowania umożliwia aplikacji śledzenie tego, jakich innych aplikacji i jak często używasz, oraz odczytywanie m.in. informacji o operatorze i ustawień językowych."</string>
 </resources>

@@ -79,7 +79,6 @@ const std::string vendorManifestXml1 =
     "        <name>android.hardware.nfc</name>\n"
     "        <transport>hwbinder</transport>\n"
     "        <version>1.0</version>\n"
-    "        <version>2.0</version>\n"
     "        <interface>\n"
     "            <name>INfc</name>\n"
     "            <instance>nfc_nci</instance>\n"
@@ -92,6 +91,7 @@ const std::string vendorManifestXml1 =
     "        <interface>\n"
     "            <name>INfc</name>\n"
     "            <instance>default</instance>\n"
+    "            <instance>nfc_nci</instance>\n"
     "        </interface>\n"
     "    </hal>\n"
     "    <sepolicy>\n"
@@ -206,6 +206,7 @@ static MockFileFetcher &fetcher() {
 class VintfObjectCompatibleTest : public testing::Test {
    protected:
     virtual void SetUp() {
+        mounter().reset();
         setupMockFetcher(vendorManifestXml1, systemMatrixXml1, systemManifestXml1,
                          vendorMatrixXml1);
     }
@@ -397,6 +398,7 @@ TEST_F(VintfObjectCompatibleTest, TestFullOnlyOtaMount) {
 class VintfObjectIncompatibleTest : public testing::Test {
    protected:
     virtual void SetUp() {
+        mounter().reset();
         setupMockFetcher(vendorManifestXml1, systemMatrixXml2, systemManifestXml1,
                          vendorMatrixXml1);
     }

@@ -225,7 +225,7 @@ static int family_handler(struct nl_msg *msg, void *arg)
 }
 
 
-static int get_multicast_id(struct cld80211_ctx *ctx, const char *group)
+static int get_multicast_id(struct cld80211_ctx *ctx, const char *group, bool sync_driver)
 {
 	struct family_data res = { group, -ENOENT };
 	struct nl_msg *nlmsg = nlmsg_alloc();
@@ -238,9 +238,11 @@ static int get_multicast_id(struct cld80211_ctx *ctx, const char *group)
 	            CTRL_CMD_GETFAMILY, 0);
 	nla_put_string(nlmsg, CTRL_ATTR_FAMILY_NAME, "cld80211");
 
-	cld80211_send_recv_msg(ctx, nlmsg, family_handler, &res);
-	ALOGI("%s: nlctrl family id: %d group: %s mcast_id: %d", getprogname(),
-				   ctx->nlctrl_familyid, group, res.id);
+	if (sync_driver == true) {
+		cld80211_send_recv_msg(ctx, nlmsg, family_handler, &res);
+		ALOGI("%s: nlctrl family id: %d group: %s mcast_id: %d", getprogname(),
+				ctx->nlctrl_familyid, group, res.id);
+	}
 	nlmsg_free(nlmsg);
 	return res.id;
 }
@@ -252,7 +254,7 @@ int cld80211_add_mcast_group(struct cld80211_ctx *ctx, const char* mcgroup)
 		ALOGE("%s: ctx/mcgroup is NULL: %s", getprogname(), __func__);
 		return 0;
 	}
-	int id = get_multicast_id(ctx, mcgroup);
+	int id = get_multicast_id(ctx, mcgroup, true);
 	if (id < 0) {
 		ALOGE("%s: Could not find group %s, errno: %d id: %d",
 		      getprogname(), mcgroup, errno, id);
@@ -275,7 +277,7 @@ int cld80211_remove_mcast_group(struct cld80211_ctx *ctx, const char* mcgroup)
 		ALOGE("%s: ctx/mcgroup is NULL: %s", getprogname(), __func__);
 		return 0;
 	}
-	int id = get_multicast_id(ctx, mcgroup);
+	int id = get_multicast_id(ctx, mcgroup, false);
 	if (id < 0) {
 		ALOGE("%s: Could not find group %s, errno: %d id: %d",
 		      getprogname(), mcgroup, errno, id);

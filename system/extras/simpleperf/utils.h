@@ -169,4 +169,6 @@ uint64_t ConvertBytesToValue(const char* bytes, uint32_t size);
 
 timeval SecondToTimeval(double time_in_sec);
 
+std::string GetSimpleperfVersion();
+
 #endif  // SIMPLE_PERF_UTILS_H_

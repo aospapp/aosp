@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -12,23 +12,48 @@
 package org.jacoco.core.internal.analysis;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.jacoco.core.analysis.ICounter;
 import org.jacoco.core.analysis.IMethodCoverage;
 import org.jacoco.core.analysis.ISourceNode;
+import org.jacoco.core.internal.analysis.filter.EnumFilter;
+import org.jacoco.core.internal.analysis.filter.IFilter;
+import org.jacoco.core.internal.analysis.filter.IFilterOutput;
+import org.jacoco.core.internal.analysis.filter.LombokGeneratedFilter;
+import org.jacoco.core.internal.analysis.filter.PrivateEmptyNoArgConstructorFilter;
+import org.jacoco.core.internal.analysis.filter.SynchronizedFilter;
+import org.jacoco.core.internal.analysis.filter.SyntheticFilter;
+import org.jacoco.core.internal.analysis.filter.TryWithResourcesEcjFilter;
+import org.jacoco.core.internal.analysis.filter.TryWithResourcesJavacFilter;
 import org.jacoco.core.internal.flow.IFrame;
 import org.jacoco.core.internal.flow.Instruction;
 import org.jacoco.core.internal.flow.LabelInfo;
 import org.jacoco.core.internal.flow.MethodProbesVisitor;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.TryCatchBlockNode;
 
 /**
  * A {@link MethodProbesVisitor} that analyzes which statements and branches of
  * a method have been executed based on given probe data.
  */
-public class MethodAnalyzer extends MethodProbesVisitor {
+public class MethodAnalyzer extends MethodProbesVisitor
+		implements IFilterOutput {
+
+	private static final IFilter[] FILTERS = new IFilter[] { new EnumFilter(),
+			new SyntheticFilter(), new SynchronizedFilter(),
+			new TryWithResourcesJavacFilter(), new TryWithResourcesEcjFilter(),
+			new PrivateEmptyNoArgConstructorFilter(), new LombokGeneratedFilter() };
+
+	private final String className;
+
+	private final String superClassName;
 
 	private final boolean[] probes;
 
@@ -58,6 +83,10 @@ public class MethodAnalyzer extends MethodProbesVisitor {
 	/**
 	 * New Method analyzer for the given probe data.
 	 * 
+	 * @param className
+	 *            class name
+	 * @param superClassName
+	 *            superclass name
 	 * @param name
 	 *            method name
 	 * @param desc
@@ -69,9 +98,12 @@ public class MethodAnalyzer extends MethodProbesVisitor {
 	 *            recorded probe date of the containing class or
 	 *            <code>null</code> if the class is not executed at all
 	 */
-	public MethodAnalyzer(final String name, final String desc,
-			final String signature, final boolean[] probes) {
+	public MethodAnalyzer(final String className, final String superClassName,
+			final String name, final String desc, final String signature,
+			final boolean[] probes) {
 		super();
+		this.className = className;
+		this.superClassName = superClassName;
 		this.probes = probes;
 		this.coverage = new MethodCoverageImpl(name, desc, signature);
 	}
@@ -84,6 +116,40 @@ public class MethodAnalyzer extends MethodProbesVisitor {
 	 */
 	public IMethodCoverage getCoverage() {
 		return coverage;
+	}
+
+	/**
+	 * {@link MethodNode#accept(MethodVisitor)}
+	 */
+	@Override
+	public void accept(final MethodNode methodNode,
+			final MethodVisitor methodVisitor) {
+		this.ignored.clear();
+		for (final IFilter filter : FILTERS) {
+			filter.filter(className, superClassName, methodNode, this);
+		}
+
+		for (final TryCatchBlockNode n : methodNode.tryCatchBlocks) {
+			n.accept(methodVisitor);
+		}
+		currentNode = methodNode.instructions.getFirst();
+		while (currentNode != null) {
+			currentNode.accept(methodVisitor);
+			currentNode = currentNode.getNext();
+		}
+		methodVisitor.visitEnd();
+	}
+
+	private final Set<AbstractInsnNode> ignored = new HashSet<AbstractInsnNode>();
+	private AbstractInsnNode currentNode;
+
+	public void ignore(final AbstractInsnNode fromInclusive,
+			final AbstractInsnNode toInclusive) {
+		for (AbstractInsnNode i = fromInclusive; i != toInclusive; i = i
+				.getNext()) {
+			ignored.add(i);
+		}
+		ignored.add(toInclusive);
 	}
 
 	@Override
@@ -106,7 +172,7 @@ public class MethodAnalyzer extends MethodProbesVisitor {
 	}
 
 	private void visitInsn() {
-		final Instruction insn = new Instruction(currentLine);
+		final Instruction insn = new Instruction(currentNode, currentLine);
 		instructions.add(insn);
 		if (lastInsn != null) {
 			insn.setPredecessor(lastInsn);
@@ -272,12 +338,17 @@ public class MethodAnalyzer extends MethodProbesVisitor {
 		// Report result:
 		coverage.ensureCapacity(firstLine, lastLine);
 		for (final Instruction i : instructions) {
+			if (ignored.contains(i.getNode())) {
+				continue;
+			}
+
 			final int total = i.getBranches();
 			final int covered = i.getCoveredBranches();
 			final ICounter instrCounter = covered == 0 ? CounterImpl.COUNTER_1_0
 					: CounterImpl.COUNTER_0_1;
-			final ICounter branchCounter = total > 1 ? CounterImpl.getInstance(
-					total - covered, covered) : CounterImpl.COUNTER_0_0;
+			final ICounter branchCounter = total > 1
+					? CounterImpl.getInstance(total - covered, covered)
+					: CounterImpl.COUNTER_0_0;
 			coverage.increment(instrCounter, branchCounter, i.getLine());
 		}
 		coverage.incrementMethodCounter();

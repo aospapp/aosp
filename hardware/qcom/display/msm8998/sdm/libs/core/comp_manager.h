@@ -59,14 +59,15 @@ class CompManager : public DumpImpl {
   DisplayError ReConfigure(Handle display_ctx, HWLayers *hw_layers);
   DisplayError PostCommit(Handle display_ctx, HWLayers *hw_layers);
   void Purge(Handle display_ctx);
+  DisplayError SetIdleTimeoutMs(Handle display_ctx, uint32_t active_ms);
   void ProcessIdleTimeout(Handle display_ctx);
   void ProcessThermalEvent(Handle display_ctx, int64_t thermal_level);
+  void ProcessIdlePowerCollapse(Handle display_ctx);
   DisplayError SetMaxMixerStages(Handle display_ctx, uint32_t max_mixer_stages);
   void ControlPartialUpdate(Handle display_ctx, bool enable);
   DisplayError ValidateScaling(const LayerRect &crop, const LayerRect &dst, bool rotate90);
   DisplayError ValidateCursorPosition(Handle display_ctx, HWLayers *hw_layers, int x, int y);
   bool SupportLayerAsCursor(Handle display_ctx, HWLayers *hw_layers);
-  bool CanSetIdleTimeout(Handle display_ctx);
   bool SetDisplayState(Handle display_ctx, DisplayState state, DisplayType display_type);
   DisplayError SetMaxBandwidthMode(HWBwModes mode);
   DisplayError GetScaleLutConfig(HWScaleLutInfo *lut_info);
@@ -79,7 +80,6 @@ class CompManager : public DumpImpl {
   virtual void AppendDump(char *buffer, uint32_t length);
 
  private:
-  static const int kMaxThermalLevel = 3;
   static const int kSafeModeThreshold = 4;
 
   void PrepareStrategyConstraints(Handle display_ctx, HWLayers *hw_layers);

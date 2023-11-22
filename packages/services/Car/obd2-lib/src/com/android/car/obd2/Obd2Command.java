@@ -172,7 +172,7 @@ public abstract class Obd2Command<ValueType> {
      * @param <ValueType> The Java type that represents the command's result type.
      */
     public static class FreezeFrameCommand<ValueType> extends Obd2Command<ValueType> {
-        private static final int RESPONSE_MARKER = 0x2;
+        private static final int RESPONSE_MARKER = 0x42;
 
         private int mFrameId;
 

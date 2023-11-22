@@ -1,5 +1,5 @@
-#ifndef ARCH_X86_64_h
-#define ARCH_X86_64_h
+#ifndef ARCH_X86_64_H
+#define ARCH_X86_64_H
 
 static inline void do_cpuid(unsigned int *eax, unsigned int *ebx,
 			    unsigned int *ecx, unsigned int *edx)
@@ -13,28 +13,6 @@ static inline void do_cpuid(unsigned int *eax, unsigned int *ebx,
 #include "arch-x86-common.h"
 
 #define FIO_ARCH	(arch_x86_64)
-
-#ifndef __NR_ioprio_set
-#define __NR_ioprio_set		251
-#define __NR_ioprio_get		252
-#endif
-
-#ifndef __NR_fadvise64
-#define __NR_fadvise64		221
-#endif
-
-#ifndef __NR_sys_splice
-#define __NR_sys_splice		275
-#define __NR_sys_tee		276
-#define __NR_sys_vmsplice	278
-#endif
-
-#ifndef __NR_shmget
-#define __NR_shmget		 29
-#define __NR_shmat		 30
-#define __NR_shmctl		 31
-#define __NR_shmdt		 67
-#endif
 
 #define	FIO_HUGE_PAGE		2097152
 
@@ -59,5 +37,35 @@ static inline unsigned long long get_cpu_clock(void)
 #define ARCH_HAVE_FFZ
 #define ARCH_HAVE_SSE4_2
 #define ARCH_HAVE_CPU_CLOCK
+
+#define RDRAND_LONG	".byte 0x48,0x0f,0xc7,0xf0"
+#define RDSEED_LONG	".byte 0x48,0x0f,0xc7,0xf8"
+#define RDRAND_RETRY	100
+
+static inline int arch_rand_long(unsigned long *val)
+{
+	int ok;
+
+	asm volatile("1: " RDRAND_LONG "\n\t"
+		     "jc 2f\n\t"
+		     "decl %0\n\t"
+		     "jnz 1b\n\t"
+		     "2:"
+		     : "=r" (ok), "=a" (*val)
+		     : "0" (RDRAND_RETRY));
+
+	return ok;
+}
+
+static inline int arch_rand_seed(unsigned long *seed)
+{
+	unsigned char ok;
+
+	asm volatile(RDSEED_LONG "\n\t"
+			"setc %0"
+			: "=qm" (ok), "=a" (*seed));
+
+	return 0;
+}
 
 #endif

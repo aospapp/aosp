@@ -1770,6 +1770,55 @@ class AArch64_relobj : public Sized_relobj_file<size, big_endian>
     this->set_relocs_must_follow_section_writes();
   }
 
+  void do_relocate_stub_tables(const Symbol_table* symtab, const Layout* layout)
+  {
+    unsigned int shnum = this->shnum();
+    if (shnum == 0)
+      return;
+    const unsigned char* pshdrs =
+        this->get_view(this->elf_file()->shoff(),
+                       shnum * elfcpp::Elf_sizes<size>::shdr_size,
+                       true,
+                       true);
+    typename Sized_relobj_file<size, big_endian>::Views* pviews = this->get_views();
+
+    Relocate_info<size, big_endian> relinfo;
+    relinfo.symtab = symtab;
+    relinfo.layout = layout;
+    relinfo.object = this;
+
+    // Relocate stub tables.
+    The_target_aarch64* target = The_target_aarch64::current_target();
+
+    for (unsigned int i = 1; i < shnum; ++i) {
+      The_aarch64_input_section* aarch64_input_section =
+          target->find_aarch64_input_section(this, i);
+      if (aarch64_input_section != NULL &&
+          aarch64_input_section->is_stub_table_owner() &&
+          !aarch64_input_section->stub_table()->empty()) {
+        Output_section* os = this->output_section(i);
+        gold_assert(os != NULL);
+
+        relinfo.reloc_shndx = elfcpp::SHN_UNDEF;
+        relinfo.reloc_shdr = NULL;
+        relinfo.data_shndx = i;
+        relinfo.data_shdr = pshdrs + i * elfcpp::Elf_sizes<size>::shdr_size;
+
+        typename Sized_relobj_file<size, big_endian>::View_size& view_struct =
+            (*pviews)[i];
+        gold_assert(view_struct.view != NULL);
+
+        The_stub_table* stub_table = aarch64_input_section->stub_table();
+        off_t offset = stub_table->address() - view_struct.address;
+        unsigned char* view = view_struct.view + offset;
+        AArch64_address address = stub_table->address();
+        section_size_type view_size = stub_table->data_size();
+        stub_table->relocate_stubs(&relinfo, target, os, view, address,
+                                   view_size);
+      }
+    }
+  }
+
   // Structure for mapping symbol position.
   struct Mapping_symbol_position
   {
@@ -2055,45 +2104,6 @@ AArch64_relobj<size, big_endian>::do_relocate_sections(
   if (parameters->options().fix_cortex_a53_843419()
       || parameters->options().fix_cortex_a53_835769())
     this->fix_errata(pviews);
-
-  Relocate_info<size, big_endian> relinfo;
-  relinfo.symtab = symtab;
-  relinfo.layout = layout;
-  relinfo.object = this;
-
-  // Relocate stub tables.
-  unsigned int shnum = this->shnum();
-  The_target_aarch64* target = The_target_aarch64::current_target();
-
-  for (unsigned int i = 1; i < shnum; ++i)
-    {
-      The_aarch64_input_section* aarch64_input_section =
-	  target->find_aarch64_input_section(this, i);
-      if (aarch64_input_section != NULL
-	  && aarch64_input_section->is_stub_table_owner()
-	  && !aarch64_input_section->stub_table()->empty())
-	{
-	  Output_section* os = this->output_section(i);
-	  gold_assert(os != NULL);
-
-	  relinfo.reloc_shndx = elfcpp::SHN_UNDEF;
-	  relinfo.reloc_shdr = NULL;
-	  relinfo.data_shndx = i;
-	  relinfo.data_shdr = pshdrs + i * elfcpp::Elf_sizes<size>::shdr_size;
-
-	  typename Sized_relobj_file<size, big_endian>::View_size&
-	      view_struct = (*pviews)[i];
-	  gold_assert(view_struct.view != NULL);
-
-	  The_stub_table* stub_table = aarch64_input_section->stub_table();
-	  off_t offset = stub_table->address() - view_struct.address;
-	  unsigned char* view = view_struct.view + offset;
-	  AArch64_address address = stub_table->address();
-	  section_size_type view_size = stub_table->data_size();
-	  stub_table->relocate_stubs(&relinfo, target, os, view, address,
-				     view_size);
-	}
-    }
 }
 
 
@@ -8270,5 +8280,34 @@ Target_selector_aarch64<32, true> target_selector_aarch64elf32b;
 Target_selector_aarch64<32, false> target_selector_aarch64elf32;
 Target_selector_aarch64<64, true> target_selector_aarch64elfb;
 Target_selector_aarch64<64, false> target_selector_aarch64elf;
+
+#ifdef HAVE_TARGET_32_LITTLE
+template
+void
+AArch64_relobj<32, false>::do_relocate_stub_tables(const Symbol_table* symtab,
+                                                   const Layout* layout);
+#endif
+
+#ifdef HAVE_TARGET_32_BIG
+template
+void
+AArch64_relobj<32, true>::do_relocate_stub_tables(const Symbol_table* symtab,
+                                                  const Layout* layout);
+#endif
+
+#ifdef HAVE_TARGET_64_LITTLE
+template
+void
+AArch64_relobj<64, false>::do_relocate_stub_tables(const Symbol_table* symtab,
+                                                   const Layout* layout);
+#endif
+
+#ifdef HAVE_TARGET_64_BIG
+template
+void
+AArch64_relobj<64, true>::do_relocate_stub_tables(const Symbol_table* symtab,
+                                                  const Layout* layout);
+#endif
+
 
 } // End anonymous namespace.

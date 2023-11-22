@@ -28,4 +28,5 @@
     <string name="import_vcard" msgid="5104299047930666528">"匯入 ^1"</string>
     <string name="mime_display_name" msgid="5926357152623764485">"NFC 標記的資料"</string>
     <string name="vcard_title" msgid="7122634780732426007">"^1 的聯絡人資訊"</string>
+    <string name="call_phone_permission_denied" msgid="8515177111984654599">"這個應用程式需取得電話存取權才能撥打電話。你可以在設定中管理標記權限"</string>
 </resources>

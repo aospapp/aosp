@@ -18,7 +18,7 @@
 #include <hardware/context_hub.h>
 #include "nanohub_perdevice.h"
 #include "nanohubhal.h"
-#include <utils/Log.h>
+#include <log/log.h>
 
 namespace android {
 

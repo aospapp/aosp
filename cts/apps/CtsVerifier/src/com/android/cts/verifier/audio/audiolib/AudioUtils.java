@@ -19,6 +19,7 @@ package com.android.cts.verifier.audio.audiolib;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.AudioTrack;
+import android.util.Log;
 
 // TODO - This functionality probably exists in the framework function. Remove this and
 //    use that instead.
@@ -31,7 +32,10 @@ public class AudioUtils {
     }
 
     public static int countToIndexMask(int chanCount) {
-        return  (1 << chanCount) - 1;
+        // From the documentation for AudioFormat:
+        // The canonical channel index masks by channel count are given by the formula
+        // (1 << channelCount) - 1.
+        return (1 << chanCount) - 1;
     }
 
     public static int countToOutPositionMask(int channelCount) {

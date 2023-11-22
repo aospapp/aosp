@@ -3,10 +3,17 @@
 """
 This file contains the implementation of a host object for the local machine.
 """
+import distutils.core
+import glob
+import os
+import platform
+import shutil
+import sys
 
-import distutils.core, glob, os, platform, shutil
+import common
 from autotest_lib.client.common_lib import hosts, error
 from autotest_lib.client.bin import utils
+
 
 class LocalHost(hosts.Host):
     """This class represents a host running locally on the host."""
@@ -44,23 +51,20 @@ class LocalHost(hosts.Host):
         @see common_lib.hosts.Host.run()
         """
         try:
-            result = utils.run(
-                command, timeout=timeout, ignore_status=True,
-                ignore_timeout=ignore_timeout,
-                stdout_tee=stdout_tee, stderr_tee=stderr_tee, stdin=stdin,
-                args=args)
-        except error.CmdError, e:
-            # this indicates a timeout exception
-            raise error.AutotestHostRunError('command timed out', e.result_obj)
-
-        if ignore_timeout and result is None:
-            # We have timed out, there is no result to report.
-            return None
-
-        if not ignore_status and result.exit_status > 0:
-            raise error.AutotestHostRunError('command execution error', result)
-
-        return result
+            return utils.run(
+                command, timeout=timeout, ignore_status=ignore_status,
+                ignore_timeout=ignore_timeout, stdout_tee=stdout_tee,
+                stderr_tee=stderr_tee, stdin=stdin, args=args)
+        except error.CmdTimeoutError as e:
+            # CmdTimeoutError is a subclass of CmdError, so must be caught first
+            new_error = error.AutotestHostRunTimeoutError(
+                    e.command, e.result_obj, additional_text=e.additional_text)
+            raise error.AutotestHostRunTimeoutError, new_error, \
+                    sys.exc_info()[2]
+        except error.CmdError as e:
+            new_error = error.AutotestHostRunCmdError(
+                    e.command, e.result_obj, additional_text=e.additional_text)
+            raise error.AutotestHostRunCmdError, new_error, sys.exc_info()[2]
 
 
     def list_files_glob(self, path_glob):

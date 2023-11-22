@@ -1,6 +1,6 @@
 /*
  * Copyright 2016 The Android Open Source Project
- * Copyright (c) 2012, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012,2016 Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -91,18 +91,8 @@ public final class KeyUtil {
             // END Android-changed
         } else if (key instanceof DSAKey) {
             DSAKey pubk = (DSAKey)key;
-            // BEGIN Android-changed
-            // Was: size = pubk.getParams().getP().bitLength();
-            DSAParams params = pubk.getParams();
-            // According to RFC 3279 section 2.3.2, DSA keys are allowed
-            // to inherit parameters in an X.509 certificate issuer's
-            // key parameters, so the parameters may be null. The parent
-            // key will be rejected if its parameters don't pass, so this
-            // is okay.
-            if (params != null) {
-                size = params.getP().bitLength();
-            }
-            // END Android-changed
+            DSAParams params = pubk.getParams();    // params can be null
+            size = (params != null) ? params.getP().bitLength() : -1;
         } else if (key instanceof DHKey) {
             DHKey pubk = (DHKey)key;
             size = pubk.getParams().getP().bitLength();
@@ -163,8 +153,6 @@ public final class KeyUtil {
 
     /**
      * Returns whether the specified provider is Oracle provider or not.
-     * <P>
-     * Note that this method is only apply to SunJCE and SunPKCS11 at present.
      *
      * @param  providerName
      *         the provider name
@@ -172,8 +160,11 @@ public final class KeyUtil {
      *         {@code providerName} is Oracle provider
      *
     public static final boolean isOracleJCEProvider(String providerName) {
-        return providerName != null && (providerName.equals("SunJCE") ||
-                                        providerName.startsWith("SunPKCS11"));
+        return providerName != null &&
+                (providerName.equals("SunJCE") ||
+                    providerName.equals("SunMSCAPI") ||
+                    providerName.equals("OracleUcrypto") ||
+                    providerName.startsWith("SunPKCS11"));
     }
 
     /**
@@ -218,7 +209,7 @@ public final class KeyUtil {
             byte[] encoded, boolean isFailOver) {
 
         if (random == null) {
-            random = new SecureRandom();
+            random = JCAUtil.getSecureRandom();
         }
         byte[] replacer = new byte[48];
         random.nextBytes(replacer);
@@ -322,5 +313,5 @@ public final class KeyUtil {
     }
     */
     // END Android-removed
-}
 
+}

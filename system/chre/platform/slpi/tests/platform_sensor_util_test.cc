@@ -30,35 +30,47 @@ TEST(SmgrSamplingRateTest, Zero) {
 }
 
 TEST(SmgrSamplingRateTest, FiftyHertz) {
-  constexpr Nanoseconds kTenHertzInterval(Milliseconds(20));
-  uint16_t rate = intervalToSmgrSamplingRate(kTenHertzInterval);
+  constexpr Nanoseconds kFiftyHertzInterval = Milliseconds(20);
+  uint16_t rate = intervalToSmgrSamplingRate(kFiftyHertzInterval);
   EXPECT_EQ(rate, 50);
 }
 
 TEST(SmgrSamplingRateTest, ZeroPointFiveHertz) {
-  constexpr Nanoseconds kZeroPointFiveHertzInterval(Seconds(2));
+  constexpr Nanoseconds kZeroPointFiveHertzInterval = Seconds(2);
   uint16_t rate = intervalToSmgrSamplingRate(kZeroPointFiveHertzInterval);
   EXPECT_EQ(rate, 2000);
 }
 
+TEST(SmgrSamplingRateTest, MinisculeRate) {
+  constexpr Nanoseconds kOneNanoHzInterval = Seconds(1e9);
+  uint16_t rate = intervalToSmgrSamplingRate(kOneNanoHzInterval);
+  EXPECT_EQ(rate, INT16_MAX);
+}
+
+TEST(SmgrSamplingRateTest, HugeRate) {
+  constexpr Nanoseconds kTwentyMHzInterval = Nanoseconds(50);
+  uint16_t rate = intervalToSmgrSamplingRate(kTwentyMHzInterval);
+  EXPECT_EQ(rate, 1000);  // Should clamp to inversion point
+}
+
 TEST(SmgrQ16ReportRateTest, Zero) {
   uint32_t rate = intervalToSmgrQ16ReportRate(Nanoseconds(0));
-  EXPECT_EQ(rate, UINT32_MAX);
+  EXPECT_EQ(rate, INT32_MAX);
 }
 
 TEST(SmgrQ16ReportRateTest, FiftyHertz) {
-  constexpr Nanoseconds kTenHertzInterval(Milliseconds(20));
+  constexpr Nanoseconds kTenHertzInterval = Milliseconds(20);
   uint32_t rate = intervalToSmgrQ16ReportRate(kTenHertzInterval);
   EXPECT_EQ(rate, 0x10000 * 50);
 }
 
 TEST(SmgrQ16ReportRateTest, ZeroPointFiveHertz) {
-  constexpr Nanoseconds kZeroPointFiveHertzInterval(Seconds(2));
+  constexpr Nanoseconds kZeroPointFiveHertzInterval = Seconds(2);
   uint32_t rate = intervalToSmgrQ16ReportRate(kZeroPointFiveHertzInterval);
   EXPECT_EQ(rate, 0x10000 / 2);
 }
 
 TEST(SmgrQ16ReportRateTest, OneNanosecond) {
   uint32_t rate = intervalToSmgrQ16ReportRate(Nanoseconds(1));
-  EXPECT_EQ(rate, UINT32_MAX);
+  EXPECT_EQ(rate, INT32_MAX);
 }

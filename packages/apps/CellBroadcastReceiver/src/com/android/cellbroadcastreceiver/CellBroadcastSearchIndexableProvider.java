@@ -16,32 +16,26 @@
 
 package com.android.cellbroadcastreceiver;
 
-import android.content.Context;
+import static android.provider.SearchIndexablesContract.COLUMN_INDEX_NON_INDEXABLE_KEYS_KEY_VALUE;
+import static android.provider.SearchIndexablesContract.COLUMN_INDEX_XML_RES_CLASS_NAME;
+import static android.provider.SearchIndexablesContract.COLUMN_INDEX_XML_RES_ICON_RESID;
+import static android.provider.SearchIndexablesContract.COLUMN_INDEX_XML_RES_INTENT_ACTION;
+import static android.provider.SearchIndexablesContract.COLUMN_INDEX_XML_RES_INTENT_TARGET_CLASS;
+import static android.provider.SearchIndexablesContract.COLUMN_INDEX_XML_RES_INTENT_TARGET_PACKAGE;
+import static android.provider.SearchIndexablesContract.COLUMN_INDEX_XML_RES_RANK;
+import static android.provider.SearchIndexablesContract.COLUMN_INDEX_XML_RES_RESID;
+import static android.provider.SearchIndexablesContract.INDEXABLES_RAW_COLUMNS;
+import static android.provider.SearchIndexablesContract.INDEXABLES_XML_RES_COLUMNS;
+import static android.provider.SearchIndexablesContract.NON_INDEXABLES_KEYS_COLUMNS;
+
 import android.content.res.Resources;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.provider.SearchIndexableResource;
 import android.provider.SearchIndexablesProvider;
 import android.provider.Settings;
-import android.telephony.SubscriptionManager;
-import android.telephony.TelephonyManager;
-
-import static android.provider.SearchIndexablesContract.COLUMN_INDEX_NON_INDEXABLE_KEYS_KEY_VALUE;
-import static android.provider.SearchIndexablesContract.COLUMN_INDEX_XML_RES_RANK;
-import static android.provider.SearchIndexablesContract.COLUMN_INDEX_XML_RES_RESID;
-import static android.provider.SearchIndexablesContract.COLUMN_INDEX_XML_RES_CLASS_NAME;
-import static android.provider.SearchIndexablesContract.COLUMN_INDEX_XML_RES_ICON_RESID;
-import static android.provider.SearchIndexablesContract.COLUMN_INDEX_XML_RES_INTENT_ACTION;
-import static android.provider.SearchIndexablesContract.COLUMN_INDEX_XML_RES_INTENT_TARGET_PACKAGE;
-import static android.provider.SearchIndexablesContract.COLUMN_INDEX_XML_RES_INTENT_TARGET_CLASS;
-
-import static android.provider.SearchIndexablesContract.INDEXABLES_RAW_COLUMNS;
-import static android.provider.SearchIndexablesContract.INDEXABLES_XML_RES_COLUMNS;
-import static android.provider.SearchIndexablesContract.NON_INDEXABLES_KEYS_COLUMNS;
 
 public class CellBroadcastSearchIndexableProvider extends SearchIndexablesProvider {
-    private static final String TAG = "CellBroadcastSearchIndexableProvider";
-
     private static SearchIndexableResource[] INDEXABLE_RES = new SearchIndexableResource[] {
             new SearchIndexableResource(1, R.xml.preferences,
                     CellBroadcastSettings.class.getName(),
@@ -85,12 +79,15 @@ public class CellBroadcastSearchIndexableProvider extends SearchIndexablesProvid
                 Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) != 0;
 
         Resources res = getContext().getResources();
-        boolean showEtwsSettings = res.getBoolean(R.bool.show_etws_settings);
-
         Object[] ref;
 
+        ref = new Object[1];
+        ref[COLUMN_INDEX_NON_INDEXABLE_KEYS_KEY_VALUE] =
+                CellBroadcastSettings.KEY_CATEGORY_DEV_SETTINGS;
+        cursor.addRow(ref);
+
         // Show alert settings and ETWS categories for ETWS builds and developer mode.
-        if (!enableDevSettings && !showEtwsSettings) {
+        if (!enableDevSettings) {
             // Remove general emergency alert preference items (not shown for CMAS builds).
             ref = new Object[1];
             ref[COLUMN_INDEX_NON_INDEXABLE_KEYS_KEY_VALUE] =
@@ -105,7 +102,7 @@ public class CellBroadcastSearchIndexableProvider extends SearchIndexablesProvid
             // Remove ETWS preference category.
             ref = new Object[1];
             ref[COLUMN_INDEX_NON_INDEXABLE_KEYS_KEY_VALUE] =
-                    CellBroadcastSettings.KEY_CATEGORY_ETWS_SETTINGS;
+                    CellBroadcastSettings.KEY_ENABLE_ETWS_TEST_ALERTS;
             cursor.addRow(ref);
         }
 
@@ -127,21 +124,11 @@ public class CellBroadcastSearchIndexableProvider extends SearchIndexablesProvid
             cursor.addRow(ref);
         }
 
-        TelephonyManager tm = (TelephonyManager) getContext().getSystemService(
-                Context.TELEPHONY_SERVICE);
-
-        int subId = SubscriptionManager.getDefaultSmsSubscriptionId();
-        if (subId == SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
-            subId = SubscriptionManager.getDefaultSubscriptionId();
-        }
-
-        boolean enableChannel50Support = res.getBoolean(R.bool.show_brazil_settings) ||
-                "br".equals(tm.getSimCountryIso(subId));
-
-        if (!enableChannel50Support) {
+        if (!Resources.getSystem().getBoolean(
+                com.android.internal.R.bool.config_showAreaUpdateInfoSettings)) {
             ref = new Object[1];
             ref[COLUMN_INDEX_NON_INDEXABLE_KEYS_KEY_VALUE] =
-                    CellBroadcastSettings.KEY_CATEGORY_BRAZIL_SETTINGS;
+                    CellBroadcastSettings.KEY_ENABLE_AREA_UPDATE_INFO_ALERTS;
             cursor.addRow(ref);
         }
 

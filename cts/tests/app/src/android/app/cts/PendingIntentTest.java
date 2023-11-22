@@ -21,8 +21,10 @@ import android.app.PendingIntent.CanceledException;
 import android.app.stubs.MockReceiver;
 import android.app.stubs.MockService;
 import android.app.stubs.PendingIntentStubActivity;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -31,6 +33,9 @@ import android.os.Parcel;
 import android.os.SystemClock;
 import android.test.AndroidTestCase;
 import android.util.Log;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class PendingIntentTest extends AndroidTestCase {
 
@@ -194,6 +199,80 @@ public class PendingIntentTest extends AndroidTestCase {
                 PendingIntent.FLAG_ONE_SHOT);
 
         pendingIntentSendError(mPendingIntent);
+    }
+
+    // Local receiver for examining delivered broadcast intents
+    private class ExtraReceiver extends BroadcastReceiver {
+        private final String extraName;
+
+        public volatile int extra = 0;
+        public CountDownLatch latch = null;
+
+        public ExtraReceiver(String name) {
+            extraName = name;
+        }
+
+        public void onReceive(Context ctx, Intent intent) {
+            extra = intent.getIntExtra(extraName, 0);
+            latch.countDown();
+        }
+
+        public void reset() {
+            extra = 0;
+            latch = new CountDownLatch(1);
+        }
+
+        public boolean waitForReceipt() throws InterruptedException {
+            return latch.await(WAIT_TIME, TimeUnit.MILLISECONDS);
+        }
+    }
+
+    public void testUpdateCurrent() throws InterruptedException, CanceledException {
+        final int EXTRA_1 = 50;
+        final int EXTRA_2 = 38;
+        final String EXTRA_NAME = "test_extra";
+        final String BROADCAST_ACTION = "testUpdateCurrent_action";
+
+        final Context context = getContext();
+        final ExtraReceiver br = new ExtraReceiver(EXTRA_NAME);
+        final IntentFilter filter = new IntentFilter(BROADCAST_ACTION);
+        context.registerReceiver(br, filter);
+
+        // Baseline: establish that we get the extra properly
+        PendingIntent pi;
+        Intent intent = new Intent(BROADCAST_ACTION);
+        intent.putExtra(EXTRA_NAME, EXTRA_1);
+
+        pi = PendingIntent.getBroadcast(context, 0, intent, 0);
+
+        try {
+            br.reset();
+            pi.send();
+            assertTrue(br.waitForReceipt());
+            assertTrue(br.extra == EXTRA_1);
+
+            // Change the extra in the Intent
+            intent.putExtra(EXTRA_NAME, EXTRA_2);
+
+            // Repeat PendingIntent.getBroadcast() *without* UPDATE_CURRENT, so we expect
+            // the underlying Intent to still be the initial one with EXTRA_1
+            pi = PendingIntent.getBroadcast(context, 0, intent, 0);
+            br.reset();
+            pi.send();
+            assertTrue(br.waitForReceipt());
+            assertTrue(br.extra == EXTRA_1);
+
+            // This time use UPDATE_CURRENT, and expect to get the updated extra when the
+            // PendingIntent is sent
+            pi = PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+            br.reset();
+            pi.send();
+            assertTrue(br.waitForReceipt());
+            assertTrue(br.extra == EXTRA_2);
+        } finally {
+            pi.cancel();
+            context.unregisterReceiver(br);
+        }
     }
 
     public void testGetService() throws InterruptedException, CanceledException {

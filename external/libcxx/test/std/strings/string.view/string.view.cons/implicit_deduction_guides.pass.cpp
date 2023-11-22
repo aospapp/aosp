@@ -9,10 +9,6 @@
 
 // UNSUPPORTED: c++98, c++03, c++11, c++14
 // UNSUPPORTED: libcpp-no-deduction-guides
-//
-// This feature is not yet ready in clang
-// http://b/36401676
-// XFAIL: *
 
 // <string_view>
 

@@ -1,6 +1,7 @@
 
 package com.android.notification.functional;
 
+import android.app.AppGlobals;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -61,9 +62,8 @@ public class NotificationDNDTests extends InstrumentationTestCase {
                 .getSystemService(Context.NOTIFICATION_SERVICE);
         mHelper = new NotificationHelper(mDevice, getInstrumentation(), mNotificationManager);
         mResolver = mContext.getContentResolver();
-        ConditionProviders cps = new ConditionProviders(
-                mContext, new Handler(Looper.getMainLooper()),
-                new UserProfiles());
+        ConditionProviders cps = new ConditionProviders(mContext,
+                new UserProfiles(), AppGlobals.getPackageManager());
         Callable<ZenModeHelper> callable = new Callable<ZenModeHelper>() {
             @Override
             public ZenModeHelper call() throws Exception {

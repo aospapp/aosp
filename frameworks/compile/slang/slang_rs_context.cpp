@@ -64,7 +64,8 @@ RSContext::RSContext(clang::Preprocessor &PP,
       version(0),
       mMangleCtx(Ctx.createMangleContext()),
       mIs64Bit(Target.getPointerWidth(0) == 64),
-      mNextSlot(1) {
+      mNextSlot(1),
+      mNextForEachOrdinal(0) {
 
   AddPragmaHandlers(PP, this);
 

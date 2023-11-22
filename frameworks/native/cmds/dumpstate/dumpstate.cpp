@@ -21,13 +21,9 @@
 #include <fcntl.h>
 #include <libgen.h>
 #include <limits.h>
-#include <memory>
-#include <regex>
-#include <set>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string>
 #include <string.h>
 #include <sys/prctl.h>
 #include <sys/resource.h>
@@ -35,6 +31,11 @@
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <memory>
+#include <regex>
+#include <set>
+#include <string>
+#include <vector>
 
 #include <android-base/file.h>
 #include <android-base/properties.h>
@@ -71,6 +72,7 @@ void add_mountinfo();
 
 #define PSTORE_LAST_KMSG "/sys/fs/pstore/console-ramoops"
 #define ALT_PSTORE_LAST_KMSG "/sys/fs/pstore/console-ramoops-0"
+#define BLK_DEV_SYS_DIR "/sys/block"
 
 #define RAFT_DIR "/data/misc/raft"
 #define RECOVERY_DIR "/cache/recovery"
@@ -78,19 +80,29 @@ void add_mountinfo();
 #define LOGPERSIST_DATA_DIR "/data/misc/logd"
 #define PROFILE_DATA_DIR_CUR "/data/misc/profiles/cur"
 #define PROFILE_DATA_DIR_REF "/data/misc/profiles/ref"
-#define TOMBSTONE_DIR "/data/tombstones"
-#define TOMBSTONE_FILE_PREFIX TOMBSTONE_DIR "/tombstone_"
-/* Can accomodate a tombstone number up to 9999. */
-#define TOMBSTONE_MAX_LEN (sizeof(TOMBSTONE_FILE_PREFIX) + 4)
-#define NUM_TOMBSTONES  10
 #define WLUTIL "/vendor/xbin/wlutil"
 
-typedef struct {
-  char name[TOMBSTONE_MAX_LEN];
-  int fd;
-} tombstone_data_t;
+// TODO(narayan): Since this information has to be kept in sync
+// with tombstoned, we should just put it in a common header.
+//
+// File: system/core/debuggerd/tombstoned/tombstoned.cpp
+static const std::string TOMBSTONE_DIR = "/data/tombstones/";
+static const std::string TOMBSTONE_FILE_PREFIX = "tombstone_";
+static const std::string ANR_DIR = "/data/anr/";
+static const std::string ANR_FILE_PREFIX = "anr_";
 
-static tombstone_data_t tombstone_data[NUM_TOMBSTONES];
+struct DumpData {
+    std::string name;
+    int fd;
+    time_t mtime;
+};
+
+static bool operator<(const DumpData& d1, const DumpData& d2) {
+    return d1.mtime > d2.mtime;
+}
+
+static std::unique_ptr<std::vector<DumpData>> tombstone_data;
+static std::unique_ptr<std::vector<DumpData>> anr_data;
 
 // TODO: temporary variables and functions used during C++ refactoring
 static Dumpstate& ds = Dumpstate::GetInstance();
@@ -111,7 +123,13 @@ static int DumpFile(const std::string& title, const std::string& path) {
 static const std::string ZIP_ROOT_DIR = "FS";
 
 // Must be hardcoded because dumpstate HAL implementation need SELinux access to it
-static const std::string kDumpstateBoardPath = "/bugreports/dumpstate_board.txt";
+static const std::string kDumpstateBoardPath = "/bugreports/";
+static const std::string kDumpstateBoardFiles[] = {
+    "dumpstate_board.txt",
+    "dumpstate_board.bin"
+};
+static const int NUM_OF_DUMPS = arraysize(kDumpstateBoardFiles);
+
 static const std::string kLsHalDebugPath = "/bugreports/dumpstate_lshal.txt";
 
 static constexpr char PROPERTY_EXTRA_OPTIONS[] = "dumpstate.options";
@@ -122,23 +140,85 @@ static constexpr char PROPERTY_EXTRA_DESCRIPTION[] = "dumpstate.options.descript
 
 static const CommandOptions AS_ROOT_20 = CommandOptions::WithTimeout(20).AsRoot().Build();
 
-/* gets the tombstone data, according to the bugreport type: if zipped, gets all tombstones;
- * otherwise, gets just those modified in the last half an hour. */
-static void get_tombstone_fds(tombstone_data_t data[NUM_TOMBSTONES]) {
-    time_t thirty_minutes_ago = ds.now_ - 60 * 30;
-    for (size_t i = 0; i < NUM_TOMBSTONES; i++) {
-        snprintf(data[i].name, sizeof(data[i].name), "%s%02zu", TOMBSTONE_FILE_PREFIX, i);
-        int fd = TEMP_FAILURE_RETRY(open(data[i].name,
-                                         O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK));
-        struct stat st;
-        if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode) && st.st_size > 0 &&
-            (ds.IsZipping() || st.st_mtime >= thirty_minutes_ago)) {
-            data[i].fd = fd;
-        } else {
-            close(fd);
-            data[i].fd = -1;
+/*
+ * Returns a vector of dump fds under |dir_path| with a given |file_prefix|.
+ * The returned vector is sorted by the mtimes of the dumps. If |limit_by_mtime|
+ * is set, the vector only contains files that were written in the last 30 minutes.
+ * If |limit_by_count| is set, the vector only contains the ten latest files.
+ */
+static std::vector<DumpData>* GetDumpFds(const std::string& dir_path,
+                                         const std::string& file_prefix,
+                                         bool limit_by_mtime,
+                                         bool limit_by_count = true) {
+    const time_t thirty_minutes_ago = ds.now_ - 60 * 30;
+
+    std::unique_ptr<std::vector<DumpData>> dump_data(new std::vector<DumpData>());
+    std::unique_ptr<DIR, decltype(&closedir)> dump_dir(opendir(dir_path.c_str()), closedir);
+
+    struct dirent* entry = nullptr;
+    while ((entry = readdir(dump_dir.get()))) {
+        if (entry->d_type != DT_REG) {
+            continue;
         }
+
+        const std::string base_name(entry->d_name);
+        if (base_name.find(file_prefix) != 0) {
+            continue;
+        }
+
+        const std::string abs_path = dir_path + base_name;
+        android::base::unique_fd fd(
+            TEMP_FAILURE_RETRY(open(abs_path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK)));
+        if (fd == -1) {
+            MYLOGW("Unable to open dump file: %s %s\n", abs_path.c_str(), strerror(errno));
+            break;
+        }
+
+        struct stat st = {};
+        if (fstat(fd, &st) == -1) {
+            MYLOGW("Unable to stat dump file: %s %s\n", abs_path.c_str(), strerror(errno));
+            continue;
+        }
+
+        if (limit_by_mtime && st.st_mtime >= thirty_minutes_ago) {
+            MYLOGI("Excluding stale dump file: %s\n", abs_path.c_str());
+            continue;
+        }
+
+        DumpData data = {.name = abs_path, .fd = fd.release(), .mtime = st.st_mtime};
+
+        dump_data->push_back(data);
     }
+
+    std::sort(dump_data->begin(), dump_data->end());
+
+    if (limit_by_count && dump_data->size() > 10) {
+        dump_data->erase(dump_data->begin() + 10, dump_data->end());
+    }
+
+    return dump_data.release();
+}
+
+static bool AddDumps(const std::vector<DumpData>::const_iterator start,
+                     const std::vector<DumpData>::const_iterator end,
+                     const char* type_name, const bool add_to_zip) {
+    bool dumped = false;
+    for (auto it = start; it != end; ++it) {
+        const std::string& name = it->name;
+        const int fd = it->fd;
+        dumped = true;
+        if (ds.IsZipping() && add_to_zip) {
+            if (!ds.AddZipEntryFromFd(ZIP_ROOT_DIR + name, fd)) {
+                MYLOGE("Unable to add %s %s to zip file\n", name.c_str(), type_name);
+            }
+        } else {
+            dump_file_from_fd(type_name, name.c_str(), fd);
+        }
+
+        close(fd);
+    }
+
+    return dumped;
 }
 
 // for_each_pid() callback to get mount info about a process.
@@ -377,88 +457,6 @@ static void dump_raft() {
     }
 }
 
-/**
- * Finds the last modified file in the directory dir whose name starts with file_prefix.
- *
- * Function returns empty string when it does not find a file
- */
-static std::string GetLastModifiedFileWithPrefix(const std::string& dir,
-                                                 const std::string& file_prefix) {
-    std::unique_ptr<DIR, decltype(&closedir)> d(opendir(dir.c_str()), closedir);
-    if (d == nullptr) {
-        MYLOGD("Error %d opening %s\n", errno, dir.c_str());
-        return "";
-    }
-
-    // Find the newest file matching the file_prefix in dir
-    struct dirent *de;
-    time_t last_modified_time = 0;
-    std::string last_modified_file = "";
-    struct stat s;
-
-    while ((de = readdir(d.get()))) {
-        std::string file = std::string(de->d_name);
-        if (!file_prefix.empty()) {
-            if (!android::base::StartsWith(file, file_prefix.c_str())) continue;
-        }
-        file = dir + "/" + file;
-        int ret = stat(file.c_str(), &s);
-
-        if ((ret == 0) && (s.st_mtime > last_modified_time)) {
-            last_modified_file = file;
-            last_modified_time = s.st_mtime;
-        }
-    }
-
-    return last_modified_file;
-}
-
-static void DumpModemLogs() {
-    DurationReporter durationReporter("DUMP MODEM LOGS");
-    if (PropertiesHelper::IsUserBuild()) {
-        return;
-    }
-
-    if (!ds.IsZipping()) {
-        MYLOGD("Not dumping modem logs. dumpstate is not generating a zipping bugreport\n");
-        return;
-    }
-
-    std::string file_prefix = android::base::GetProperty("ro.radio.log_prefix", "");
-
-    if(file_prefix.empty()) {
-        MYLOGD("No modem log : file_prefix is empty\n");
-        return;
-    }
-
-    // TODO: b/33820081 we need to provide a right way to dump modem logs.
-    std::string radio_bugreport_dir = android::base::GetProperty("ro.radio.log_loc", "");
-    if (radio_bugreport_dir.empty()) {
-        radio_bugreport_dir = dirname(ds.GetPath("").c_str());
-    }
-
-    MYLOGD("DumpModemLogs: directory is %s and file_prefix is %s\n",
-           radio_bugreport_dir.c_str(), file_prefix.c_str());
-
-    std::string modem_log_file = GetLastModifiedFileWithPrefix(radio_bugreport_dir, file_prefix);
-
-    struct stat s;
-    if (modem_log_file.empty() || stat(modem_log_file.c_str(), &s) != 0) {
-        MYLOGD("Modem log %s does not exist\n", modem_log_file.c_str());
-        return;
-    }
-
-    std::string filename = basename(modem_log_file.c_str());
-    if (!ds.AddZipEntry(filename, modem_log_file)) {
-        MYLOGE("Unable to add modem log %s to zip file\n", modem_log_file.c_str());
-    } else {
-        MYLOGD("Modem Log %s is added to zip\n", modem_log_file.c_str());
-        if (remove(modem_log_file.c_str())) {
-            MYLOGE("Error removing modem log %s\n", modem_log_file.c_str());
-        }
-    }
-}
-
 static bool skip_not_stat(const char *path) {
     static const char stat[] = "/stat";
     size_t len = strlen(path);
@@ -472,7 +470,6 @@ static bool skip_none(const char* path __attribute__((unused))) {
     return false;
 }
 
-static const char mmcblk0[] = "/sys/block/mmcblk0/";
 unsigned long worst_write_perf = 20000; /* in KB/s */
 
 //
@@ -586,11 +583,13 @@ static int dump_stat_from_fd(const char *title __unused, const char *path, int f
         return 0;
     }
 
-    if (!strncmp(path, mmcblk0, sizeof(mmcblk0) - 1)) {
-        path += sizeof(mmcblk0) - 1;
+    if (!strncmp(path, BLK_DEV_SYS_DIR, sizeof(BLK_DEV_SYS_DIR) - 1)) {
+        path += sizeof(BLK_DEV_SYS_DIR) - 1;
     }
 
-    printf("%s: %s\n", path, buffer);
+    printf("%-30s:%9s%9s%9s%9s%9s%9s%9s%9s%9s%9s%9s\n%-30s:\t%s\n", "Block-Dev",
+           "R-IOs", "R-merg", "R-sect", "R-wait", "W-IOs", "W-merg", "W-sect",
+           "W-wait", "in-fli", "activ", "T-wait", path, buffer);
     free(buffer);
 
     if (fields[__STAT_IO_TICKS]) {
@@ -627,9 +626,9 @@ static int dump_stat_from_fd(const char *title __unused, const char *path, int f
                                  / fields[__STAT_IO_TICKS];
 
         if (!write_perf && !write_ios) {
-            printf("%s: perf(ios) rd: %luKB/s(%lu/s) q: %u\n", path, read_perf, read_ios, queue);
+            printf("%-30s: perf(ios) rd: %luKB/s(%lu/s) q: %u\n", path, read_perf, read_ios, queue);
         } else {
-            printf("%s: perf(ios) rd: %luKB/s(%lu/s) wr: %luKB/s(%lu/s) q: %u\n", path, read_perf,
+            printf("%-30s: perf(ios) rd: %luKB/s(%lu/s) wr: %luKB/s(%lu/s) q: %u\n", path, read_perf,
                    read_ios, write_perf, write_ios, queue);
         }
 
@@ -849,7 +848,7 @@ static void DoLogcat() {
                         "-d", "*:v"});
 }
 
-static void DumpIpTables() {
+static void DumpIpTablesAsRoot() {
     RunCommand("IPTABLES", {"iptables", "-L", "-nvx"});
     RunCommand("IP6TABLES", {"ip6tables", "-L", "-nvx"});
     RunCommand("IPTABLES NAT", {"iptables", "-t", "nat", "-L", "-nvx"});
@@ -860,11 +859,10 @@ static void DumpIpTables() {
     RunCommand("IP6TABLES RAW", {"ip6tables", "-t", "raw", "-L", "-nvx"});
 }
 
-static void AddAnrTraceFiles() {
-    bool add_to_zip = ds.IsZipping() && ds.version_ == VERSION_SPLIT_ANR;
+static void AddGlobalAnrTraceFile(const bool add_to_zip, const std::string& anr_traces_file,
+                                  const std::string& anr_traces_dir) {
     std::string dump_traces_dir;
 
-    /* show the traces we collected in main(), if that was done */
     if (dump_traces_path != nullptr) {
         if (add_to_zip) {
             dump_traces_dir = dirname(dump_traces_path);
@@ -877,8 +875,6 @@ static void AddAnrTraceFiles() {
         }
     }
 
-    std::string anr_traces_path = android::base::GetProperty("dalvik.vm.stack-trace-file", "");
-    std::string anr_traces_dir = dirname(anr_traces_path.c_str());
 
     // Make sure directory is not added twice.
     // TODO: this is an overzealous check because it's relying on dump_traces_path - which is
@@ -888,57 +884,158 @@ static void AddAnrTraceFiles() {
     // be revisited.
     bool already_dumped = anr_traces_dir == dump_traces_dir;
 
-    MYLOGD("AddAnrTraceFiles(): dump_traces_dir=%s, anr_traces_dir=%s, already_dumped=%d\n",
+    MYLOGD("AddGlobalAnrTraceFile(): dump_traces_dir=%s, anr_traces_dir=%s, already_dumped=%d\n",
            dump_traces_dir.c_str(), anr_traces_dir.c_str(), already_dumped);
 
-    if (anr_traces_path.empty()) {
-        printf("*** NO VM TRACES FILE DEFINED (dalvik.vm.stack-trace-file)\n\n");
+    int fd = TEMP_FAILURE_RETRY(
+        open(anr_traces_file.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK));
+    if (fd < 0) {
+        printf("*** NO ANR VM TRACES FILE (%s): %s\n\n", anr_traces_file.c_str(), strerror(errno));
     } else {
-        int fd = TEMP_FAILURE_RETRY(
-            open(anr_traces_path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK));
-        if (fd < 0) {
-            printf("*** NO ANR VM TRACES FILE (%s): %s\n\n", anr_traces_path.c_str(),
-                   strerror(errno));
-        } else {
-            if (add_to_zip) {
-                if (!already_dumped) {
-                    MYLOGD("Adding dalvik ANR traces (directory %s) to the zip file\n",
-                           anr_traces_dir.c_str());
-                    ds.AddDir(anr_traces_dir, true);
-                    already_dumped = true;
-                }
-            } else {
-                MYLOGD("Dumping last ANR traces (%s) to the main bugreport entry\n",
-                       anr_traces_path.c_str());
-                dump_file_from_fd("VM TRACES AT LAST ANR", anr_traces_path.c_str(), fd);
+        if (add_to_zip) {
+            if (!already_dumped) {
+                MYLOGD("Adding dalvik ANR traces (directory %s) to the zip file\n",
+                       anr_traces_dir.c_str());
+                ds.AddDir(anr_traces_dir, true);
             }
+        } else {
+            MYLOGD("Dumping last ANR traces (%s) to the main bugreport entry\n",
+                   anr_traces_file.c_str());
+            dump_file_from_fd("VM TRACES AT LAST ANR", anr_traces_file.c_str(), fd);
+        }
+    }
+}
+
+static void AddAnrTraceDir(const bool add_to_zip, const std::string& anr_traces_dir) {
+    MYLOGD("AddAnrTraceDir(): dump_traces_file=%s, anr_traces_dir=%s\n", dump_traces_path,
+           anr_traces_dir.c_str());
+
+    // If we're here, dump_traces_path will always be a temporary file
+    // (created with mkostemp or similar) that contains dumps taken earlier
+    // on in the process.
+    if (dump_traces_path != nullptr) {
+        if (add_to_zip) {
+            ds.AddZipEntry(ZIP_ROOT_DIR + anr_traces_dir + "/traces-just-now.txt", dump_traces_path);
+        } else {
+            MYLOGD("Dumping current ANR traces (%s) to the main bugreport entry\n",
+                   dump_traces_path);
+            ds.DumpFile("VM TRACES JUST NOW", dump_traces_path);
+        }
+
+        const int ret = unlink(dump_traces_path);
+        if (ret == -1) {
+            MYLOGW("Error unlinking temporary trace path %s: %s\n", dump_traces_path,
+                   strerror(errno));
         }
     }
 
-    if (add_to_zip && already_dumped) {
-        MYLOGD("Already dumped directory %s to the zip file\n", anr_traces_dir.c_str());
+    // Add a specific message for the first ANR Dump.
+    if (anr_data->size() > 0) {
+        AddDumps(anr_data->begin(), anr_data->begin() + 1,
+                 "VM TRACES AT LAST ANR", add_to_zip);
+
+        if (anr_data->size() > 1) {
+            // NOTE: Historical ANRs are always added as separate entries in the
+            // bugreport zip file.
+            AddDumps(anr_data->begin() + 1, anr_data->end(),
+                     "HISTORICAL ANR", true /* add_to_zip */);
+        }
+    } else {
+        printf("*** NO ANRs to dump in %s\n\n", ANR_DIR.c_str());
+    }
+}
+
+static void AddAnrTraceFiles() {
+    const bool add_to_zip = ds.IsZipping() && ds.version_ == VERSION_SPLIT_ANR;
+
+    std::string anr_traces_file;
+    std::string anr_traces_dir;
+    bool is_global_trace_file = true;
+
+    // First check whether the stack-trace-dir property is set. When it's set,
+    // each ANR trace will be written to a separate file and not to a global
+    // stack trace file.
+    anr_traces_dir = android::base::GetProperty("dalvik.vm.stack-trace-dir", "");
+    if (anr_traces_dir.empty()) {
+        anr_traces_file = android::base::GetProperty("dalvik.vm.stack-trace-file", "");
+        if (!anr_traces_file.empty()) {
+            anr_traces_dir = dirname(anr_traces_file.c_str());
+        }
+    } else {
+        is_global_trace_file = false;
+    }
+
+    // We have neither configured a global trace file nor a trace directory,
+    // there will be nothing to dump.
+    if (anr_traces_file.empty() && anr_traces_dir.empty()) {
+        printf("*** NO VM TRACES FILE DEFINED (dalvik.vm.stack-trace-file)\n\n");
         return;
+    }
+
+    if (is_global_trace_file) {
+        AddGlobalAnrTraceFile(add_to_zip, anr_traces_file, anr_traces_dir);
+    } else {
+        AddAnrTraceDir(add_to_zip, anr_traces_dir);
     }
 
     /* slow traces for slow operations */
     struct stat st;
-    if (!anr_traces_path.empty()) {
-        int tail = anr_traces_path.size() - 1;
-        while (tail > 0 && anr_traces_path.at(tail) != '/') {
-            tail--;
-        }
+    if (!anr_traces_dir.empty()) {
         int i = 0;
-        while (1) {
-            anr_traces_path = anr_traces_path.substr(0, tail + 1) +
-                              android::base::StringPrintf("slow%02d.txt", i);
-            if (stat(anr_traces_path.c_str(), &st)) {
+        while (true) {
+            const std::string slow_trace_path =
+                anr_traces_dir + android::base::StringPrintf("slow%02d.txt", i);
+            if (stat(slow_trace_path.c_str(), &st)) {
                 // No traces file at this index, done with the files.
                 break;
             }
-            ds.DumpFile("VM TRACES WHEN SLOW", anr_traces_path.c_str());
+            ds.DumpFile("VM TRACES WHEN SLOW", slow_trace_path.c_str());
             i++;
         }
     }
+}
+
+static void DumpBlockStatFiles() {
+    DurationReporter duration_reporter("DUMP BLOCK STAT");
+
+    std::unique_ptr<DIR, std::function<int(DIR*)>> dirptr(opendir(BLK_DEV_SYS_DIR), closedir);
+
+    if (dirptr == nullptr) {
+        MYLOGE("Failed to open %s: %s\n", BLK_DEV_SYS_DIR, strerror(errno));
+        return;
+    }
+
+    printf("------ DUMP BLOCK STAT ------\n\n");
+    while (struct dirent *d = readdir(dirptr.get())) {
+        if ((d->d_name[0] == '.')
+         && (((d->d_name[1] == '.') && (d->d_name[2] == '\0'))
+          || (d->d_name[1] == '\0'))) {
+            continue;
+        }
+        const std::string new_path =
+            android::base::StringPrintf("%s/%s", BLK_DEV_SYS_DIR, d->d_name);
+        printf("------ BLOCK STAT (%s) ------\n", new_path.c_str());
+        dump_files("", new_path.c_str(), skip_not_stat, dump_stat_from_fd);
+        printf("\n");
+    }
+     return;
+}
+
+static void DumpPacketStats() {
+    DumpFile("NETWORK DEV INFO", "/proc/net/dev");
+    DumpFile("QTAGUID NETWORK INTERFACES INFO", "/proc/net/xt_qtaguid/iface_stat_all");
+    DumpFile("QTAGUID NETWORK INTERFACES INFO (xt)", "/proc/net/xt_qtaguid/iface_stat_fmt");
+    DumpFile("QTAGUID CTRL INFO", "/proc/net/xt_qtaguid/ctrl");
+    DumpFile("QTAGUID STATS INFO", "/proc/net/xt_qtaguid/stats");
+}
+
+static void DumpIpAddrAndRules() {
+    /* The following have a tendency to get wedged when wifi drivers/fw goes belly-up. */
+    RunCommand("NETWORK INTERFACES", {"ip", "link"});
+    RunCommand("IPv4 ADDRESSES", {"ip", "-4", "addr", "show"});
+    RunCommand("IPv6 ADDRESSES", {"ip", "-6", "addr", "show"});
+    RunCommand("IP RULES", {"ip", "rule", "show"});
+    RunCommand("IP RULES v6", {"ip", "-6", "rule", "show"});
 }
 
 static void dumpstate() {
@@ -946,7 +1043,7 @@ static void dumpstate() {
 
     dump_dev_files("TRUSTY VERSION", "/sys/bus/platform/drivers/trusty", "trusty_version");
     RunCommand("UPTIME", {"uptime"});
-    dump_files("UPTIME MMC PERF", mmcblk0, skip_not_stat, dump_stat_from_fd);
+    DumpBlockStatFiles();
     dump_emmc_ecsd("/d/mmc0/mmc0:0001/ext_csd");
     DumpFile("MEMORY INFO", "/proc/meminfo");
     RunCommand("CPU INFO", {"top", "-b", "-n", "1", "-H", "-s", "6", "-o",
@@ -1010,52 +1107,25 @@ static void dumpstate() {
 
     AddAnrTraceFiles();
 
-    int dumped = 0;
-    for (size_t i = 0; i < NUM_TOMBSTONES; i++) {
-        if (tombstone_data[i].fd != -1) {
-            const char *name = tombstone_data[i].name;
-            int fd = tombstone_data[i].fd;
-            dumped = 1;
-            if (ds.IsZipping()) {
-                if (!ds.AddZipEntryFromFd(ZIP_ROOT_DIR + name, fd)) {
-                    MYLOGE("Unable to add tombstone %s to zip file\n", name);
-                }
-            } else {
-                dump_file_from_fd("TOMBSTONE", name, fd);
-            }
-            close(fd);
-            tombstone_data[i].fd = -1;
-        }
-    }
-    if (!dumped) {
-        printf("*** NO TOMBSTONES to dump in %s\n\n", TOMBSTONE_DIR);
+    // NOTE: tombstones are always added as separate entries in the zip archive
+    // and are not interspersed with the main report.
+    const bool tombstones_dumped = AddDumps(tombstone_data->begin(), tombstone_data->end(),
+                                            "TOMBSTONE", true /* add_to_zip */);
+    if (!tombstones_dumped) {
+        printf("*** NO TOMBSTONES to dump in %s\n\n", TOMBSTONE_DIR.c_str());
     }
 
-    DumpFile("NETWORK DEV INFO", "/proc/net/dev");
-    DumpFile("QTAGUID NETWORK INTERFACES INFO", "/proc/net/xt_qtaguid/iface_stat_all");
-    DumpFile("QTAGUID NETWORK INTERFACES INFO (xt)", "/proc/net/xt_qtaguid/iface_stat_fmt");
-    DumpFile("QTAGUID CTRL INFO", "/proc/net/xt_qtaguid/ctrl");
-    DumpFile("QTAGUID STATS INFO", "/proc/net/xt_qtaguid/stats");
+    DumpPacketStats();
 
     DoKmsg();
 
-    /* The following have a tendency to get wedged when wifi drivers/fw goes belly-up. */
-
-    RunCommand("NETWORK INTERFACES", {"ip", "link"});
-
-    RunCommand("IPv4 ADDRESSES", {"ip", "-4", "addr", "show"});
-    RunCommand("IPv6 ADDRESSES", {"ip", "-6", "addr", "show"});
-
-    RunCommand("IP RULES", {"ip", "rule", "show"});
-    RunCommand("IP RULES v6", {"ip", "-6", "rule", "show"});
+    DumpIpAddrAndRules();
 
     dump_route_tables();
 
     RunCommand("ARP CACHE", {"ip", "-4", "neigh", "show"});
     RunCommand("IPv6 ND CACHE", {"ip", "-6", "neigh", "show"});
     RunCommand("MULTICAST ADDRESSES", {"ip", "maddr"});
-    RunCommand("WIFI NETWORKS", {"wpa_cli", "IFNAME=wlan0", "list_networks"},
-               CommandOptions::WithTimeout(20).Build());
 
     RunDumpsys("NETWORK DIAGNOSTICS", {"connectivity", "--diag"},
                CommandOptions::WithTimeout(10).Build());
@@ -1150,14 +1220,49 @@ static void dumpstate() {
     RunDumpsys("DROPBOX SYSTEM SERVER CRASHES", {"dropbox", "-p", "system_server_crash"});
     RunDumpsys("DROPBOX SYSTEM APP CRASHES", {"dropbox", "-p", "system_app_crash"});
 
-    // DumpModemLogs adds the modem logs if available to the bugreport.
-    // Do this at the end to allow for sufficient time for the modem logs to be
-    // collected.
-    DumpModemLogs();
-
     printf("========================================================\n");
     printf("== Final progress (pid %d): %d/%d (estimated %d)\n", ds.pid_, ds.progress_->Get(),
            ds.progress_->GetMax(), ds.progress_->GetInitialMax());
+    printf("========================================================\n");
+    printf("== dumpstate: done (id %d)\n", ds.id_);
+    printf("========================================================\n");
+}
+
+// This method collects dumpsys for telephony debugging only
+static void DumpstateTelephonyOnly() {
+    DurationReporter duration_reporter("DUMPSTATE");
+
+    DumpIpTablesAsRoot();
+
+    if (!DropRootUser()) {
+        return;
+    }
+
+    do_dmesg();
+    DoLogcat();
+    DumpPacketStats();
+    DoKmsg();
+    DumpIpAddrAndRules();
+    dump_route_tables();
+
+    RunDumpsys("NETWORK DIAGNOSTICS", {"connectivity", "--diag"},
+               CommandOptions::WithTimeout(10).Build());
+
+    RunCommand("SYSTEM PROPERTIES", {"getprop"});
+
+    printf("========================================================\n");
+    printf("== Android Framework Services\n");
+    printf("========================================================\n");
+
+    RunDumpsys("DUMPSYS", {"connectivity"}, CommandOptions::WithTimeout(90).Build(), 10);
+    RunDumpsys("DUMPSYS", {"carrier_config"}, CommandOptions::WithTimeout(90).Build(), 10);
+
+    printf("========================================================\n");
+    printf("== Running Application Services\n");
+    printf("========================================================\n");
+
+    RunDumpsys("TELEPHONY SERVICES", {"activity", "service", "TelephonyDebugService"});
+
     printf("========================================================\n");
     printf("== dumpstate: done (id %d)\n", ds.id_);
     printf("========================================================\n");
@@ -1180,23 +1285,35 @@ void Dumpstate::DumpstateBoard() {
         return;
     }
 
-    std::string path = kDumpstateBoardPath;
-    MYLOGI("Calling IDumpstateDevice implementation using path %s\n", path.c_str());
+    std::string path[NUM_OF_DUMPS];
+    android::base::unique_fd fd[NUM_OF_DUMPS];
+    int numFds = 0;
 
-    int fd =
-        TEMP_FAILURE_RETRY(open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW,
-                                S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH));
-    if (fd < 0) {
-        MYLOGE("Could not open file %s: %s\n", path.c_str(), strerror(errno));
-        return;
+    for (int i = 0; i < NUM_OF_DUMPS; i++) {
+        path[i] = kDumpstateBoardPath + kDumpstateBoardFiles[i];
+        MYLOGI("Calling IDumpstateDevice implementation using path %s\n", path[i].c_str());
+
+        fd[i] = android::base::unique_fd(
+            TEMP_FAILURE_RETRY(open(path[i].c_str(),
+            O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW,
+            S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)));
+        if (fd[i] < 0) {
+            MYLOGE("Could not open file %s: %s\n", path[i].c_str(), strerror(errno));
+            return;
+        } else {
+            numFds++;
+        }
     }
 
-    native_handle_t* handle = native_handle_create(1, 0);
+    native_handle_t *handle = native_handle_create(numFds, 0);
     if (handle == nullptr) {
         MYLOGE("Could not create native_handle\n");
         return;
     }
-    handle->data[0] = fd;
+
+    for (int i = 0; i < numFds; i++) {
+        handle->data[i] = fd[i].release();
+    }
 
     // TODO: need a timeout mechanism so dumpstate does not hang on device implementation call.
     android::hardware::Return<void> status = dumpstate_device->dumpstateBoard(handle);
@@ -1207,14 +1324,26 @@ void Dumpstate::DumpstateBoard() {
         return;
     }
 
-    AddZipEntry("dumpstate-board.txt", path);
+    for (int i = 0; i < numFds; i++) {
+        struct stat s;
+        if (fstat(handle->data[i], &s) == -1) {
+            MYLOGE("Failed to fstat %s: %d\n", kDumpstateBoardFiles[i].c_str(), errno);
+        } else if (s.st_size > 0) {
+            AddZipEntry(kDumpstateBoardFiles[i], path[i]);
+        } else {
+            MYLOGE("Ignoring empty %s\n", kDumpstateBoardFiles[i].c_str());
+        }
+    }
+
     printf("*** See dumpstate-board.txt entry ***\n");
 
     native_handle_close(handle);
     native_handle_delete(handle);
 
-    if (remove(path.c_str()) != 0) {
-        MYLOGE("Could not remove(%s): %s\n", path.c_str(), strerror(errno));
+    for (int i = 0; i < numFds; i++) {
+        if (remove(path[i].c_str()) != 0) {
+            MYLOGE("Could not remove(%s): %s\n", path[i].c_str(), strerror(errno));
+        }
     }
 }
 
@@ -1676,15 +1805,8 @@ int main(int argc, char *argv[]) {
     ds.PrintHeader();
 
     if (telephony_only) {
-        DumpIpTables();
-        if (!DropRootUser()) {
-            return -1;
-        }
-        do_dmesg();
-        DoLogcat();
-        DoKmsg();
+        DumpstateTelephonyOnly();
         ds.DumpstateBoard();
-        DumpModemLogs();
     } else {
         // Dumps systrace right away, otherwise it will be filled with unnecessary events.
         // First try to dump anrd trace if the daemon is running. Otherwise, dump
@@ -1707,7 +1829,9 @@ int main(int argc, char *argv[]) {
         dump_traces_path = dump_traces();
 
         /* Run some operations that require root. */
-        get_tombstone_fds(tombstone_data);
+        tombstone_data.reset(GetDumpFds(TOMBSTONE_DIR, TOMBSTONE_FILE_PREFIX, !ds.IsZipping()));
+        anr_data.reset(GetDumpFds(ANR_DIR, ANR_FILE_PREFIX, !ds.IsZipping()));
+
         ds.AddDir(RECOVERY_DIR, true);
         ds.AddDir(RECOVERY_DATA_DIR, true);
         ds.AddDir(LOGPERSIST_DATA_DIR, false);
@@ -1716,7 +1840,7 @@ int main(int argc, char *argv[]) {
             ds.AddDir(PROFILE_DATA_DIR_REF, true);
         }
         add_mountinfo();
-        DumpIpTables();
+        DumpIpTablesAsRoot();
 
         // Capture any IPSec policies in play.  No keys are exposed here.
         RunCommand("IP XFRM POLICY", {"ip", "xfrm", "policy"},

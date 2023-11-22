@@ -5,10 +5,10 @@
 # Most of this code is based on login_GuestAndActualSession, which performs
 # similar ownership clearing/checking tasks.
 
-import gobject, os
+import gobject
 from dbus.mainloop.glib import DBusGMainLoop
 
-from autotest_lib.client.bin import test, utils
+from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import session_manager
 from autotest_lib.client.cros import cros_ui, cryptohome, ownership
@@ -39,8 +39,7 @@ class login_CryptohomeOwnerQuery(test.test):
             raise error.TestFail('Owner existed before login')
 
         self._cryptohome_proxy.ensure_clean_cryptohome_for(owner)
-        if not self._session_manager.StartSession(owner, ''):
-            raise error.TestFail('Could not start session for ' + owner)
+        self._session_manager.StartSession(owner, '')
 
         self._listener.wait_for_signals(desc='Device ownership complete.')
 

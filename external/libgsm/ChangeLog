@@ -1,3 +1,18 @@
+Tue Jun 27 17:59:30  2017
+
+	* Release 1.0 Patchlevel 17
+	New email addresses in the README.
+	Avoid left-shifting signed integers.
+	Don't print longwords using %d or %ld, cast them to (long) first.
+	Don't compare longwords as longs in addtest, we only care for the
+		lower 32 bits. (The math works, but the test failed.)
+
+Sat Sep 17 14:50:55  2016
+
+	* Release 1.0 Patchlevel 16
+	New email addresses in the manual pages (patch 16)
+	Removed a stray .orig file (in patch 15) 
+
 Sun Apr  5  04:53:07 2009       Jutta Degener (jutta@pobox.com)
 
 	* Release 1.0 Patchlevel 13

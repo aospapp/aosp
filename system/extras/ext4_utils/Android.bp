@@ -41,11 +41,11 @@ cc_library {
 
         android: {
             srcs: [
-                "key_control.cpp",
                 "ext4_crypt.cpp",
             ],
             shared_libs: [
                 "libbase",
+                "libkeyutils",
                 "libselinux",
             ],
 

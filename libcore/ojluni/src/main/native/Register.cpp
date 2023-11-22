@@ -29,8 +29,8 @@
 
 #include <log/log.h>
 
-#include "JniConstants.h"
-#include "ScopedLocalFrame.h"
+#include <nativehelper/JniConstants.h>
+#include <nativehelper/ScopedLocalFrame.h>
 
 extern "C" {
 

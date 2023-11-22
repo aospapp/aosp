@@ -34,8 +34,10 @@ staticLibraries = [
     "libdvrcommon",
     "libperformance",
     "libvrsensor",
+    "libbroadcastring",
     "libpdx_default_transport",
     "libvr_manager",
+    "libbroadcastring",
 ]
 
 sharedLibraries = [
@@ -61,6 +63,10 @@ sharedLibraries = [
     "libfmq",
 ]
 
+headerLibraries = [
+    "libdvr_headers"
+]
+
 cc_library_static {
     srcs: sourceFiles,
     export_include_dirs: includeFiles,
@@ -74,5 +80,6 @@ cc_library_static {
     ],
     shared_libs: sharedLibraries,
     whole_static_libs: staticLibraries,
+    header_libs: headerLibraries,
     name: "libvrflinger",
 }

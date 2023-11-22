@@ -142,7 +142,7 @@
     <string name="sim_status_title" msgid="498929467188844611">"Hali ya SIM"</string>
     <string name="imei_information_title" msgid="5208860549282877136">"Maelezo ya IMEI"</string>
     <string name="status_bt_address" msgid="1571721865060122393">"Anwani ya Bluetooth"</string>
-    <string name="status_up_time" msgid="1674116490191446110">"Muda wa matumizi"</string>
+    <string name="status_up_time" msgid="1674116490191446110">"Muda wa matumizi tangu mwisho ilipozimwa"</string>
     <string name="status_wimax_mac_address" msgid="1102907383444152052">"Anwani ya 4G MAC"</string>
     <string name="legal_information" msgid="2346024659831852038">"Maelezo ya kisheria"</string>
     <string name="copyright_title" msgid="5564228453228549353">"Hakimiliki"</string>
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"Huduma"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Mipangilio ya huduma"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Maandishi yenye utofautishaji bora"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Njia ya mkato kwa walio na matatizo ya kuona au kusikia"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Washa njia ya mkato kwa walio na matatizo ya kuona au kusikia"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Huduma ya njia ya mkato"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Ukiwasha njia ya mkato, unaweza kufungua kipengele cha walio na matatizo ya kuona au kusikia kwa kubonyeza kitufe cha \'nyuma\' na \'chini\' pamoja kwa sekunde 3."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Manukuu"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Mipangilio ya kugaga maandishi ya manukuu kwenye video"</string>
     <string name="captions_display" msgid="735692527287125548">"Kuonyeshwa"</string>
@@ -598,7 +602,7 @@
     <string name="wifi_setup_save_success" msgid="4785799603638549254">"Imehifadhiwa"</string>
     <string name="device_apps_app_management_version" msgid="2267065043941006486">"Toleo la <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
     <string name="device_apps_app_management_open" msgid="8009823973422120839">"Fungua"</string>
-    <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Lazimisha kuzima"</string>
+    <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Ilazimishe ikome"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Ukilazimisha programu kuzima, inaweza kutofanya vizuri."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"Ondoa"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Sanidua masasisho"</string>
@@ -608,7 +612,7 @@
     <string name="device_apps_app_management_enable" msgid="3246823119203444608">"Washa"</string>
     <string name="device_apps_app_management_enable_desc" msgid="7490219375247065314">"Unataka kuwasha programu hii?"</string>
     <string name="device_apps_app_management_storage_used" msgid="4611351576179140634">"Hifadhi iliyotumika"</string>
-    <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"<xliff:g id="SIZE">%1$s</xliff:g> imetumika katika <xliff:g id="VOLUME">%2$s</xliff:g>"</string>
+    <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"<xliff:g id="SIZE">%1$s</xliff:g> zimetumika katika <xliff:g id="VOLUME">%2$s</xliff:g>"</string>
     <string name="device_apps_app_management_clear_data" msgid="4439114679323274127">"Futa data"</string>
     <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"Data yote ya programu hii itafutwa kabisa.\nHii inajumuisha faili, mipangilio, akaunti, hifadhidata zote na mengineyo."</string>
     <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"Futa machaguo-msingi"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Inarekodi ripoti ya hitilafu"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Kibodi pepe zinazopatikana"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Dhibiti kibodi"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Imeruhusiwa"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Hairuhusiwi"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Ufikiaji wa matumizi"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Ufikiaji wa matumizi huruhusu programu kufuatilia programu zingine unazotumia na mara unazozitumia, pamoja na mtoa huduma, mipangilio ya lugha na maelezo yako mengine."</string>
 </resources>

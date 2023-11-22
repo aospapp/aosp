@@ -19,7 +19,7 @@
 
 #include <inttypes.h>
 
-#include "NdkImageReader.h"
+#include <media/NdkImageReader.h>
 
 #include <utils/List.h>
 #include <utils/Mutex.h>
@@ -49,7 +49,7 @@ namespace {
 
 struct AImageReader : public RefBase {
   public:
-    static bool isSupportedFormat(int32_t format);
+    static bool isSupportedFormatAndUsage(int32_t format, uint64_t usage0);
     static int getNumPlanesForFormat(int32_t format);
 
     AImageReader(int32_t width,
@@ -85,7 +85,7 @@ struct AImageReader : public RefBase {
     // Called by AImageReader_acquireXXX to acquire a Buffer and setup AImage.
     media_status_t acquireImageLocked(/*out*/AImage** image, /*out*/int* fenceFd);
 
-    // Called by AImage to close image
+    // Called by AImage/~AImageReader to close image. Caller is responsible to grab AImage::mLock
     void releaseImageLocked(AImage* image, int releaseFenceFd);
 
     static int getBufferWidth(BufferItem* buffer);

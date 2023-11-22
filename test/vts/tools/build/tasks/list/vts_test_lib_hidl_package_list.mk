@@ -22,7 +22,6 @@ vts_test_lib_hidl_packages := \
   android.hardware.audio.effect@2.0-vts.driver \
   android.hardware.automotive.evs@1.0-vts.driver \
   android.hardware.automotive.vehicle@2.0-vts.driver \
-  android.hardware.automotive.vehicle@2.1-vts.driver \
   android.hardware.biometrics.fingerprint@2.1-vts.driver \
   android.hardware.bluetooth@1.0-vts.driver \
   android.hardware.boot@1.0-vts.driver \
@@ -50,24 +49,34 @@ vts_test_lib_hidl_packages := \
   android.hardware.media@1.0-vts.driver \
   android.hardware.media.omx@1.0-vts.driver \
   android.hardware.memtrack@1.0-vts.driver \
+  android.hardware.neuralnetworks@1.0-vts.driver \
   android.hardware.nfc@1.0-vts.driver \
+  android.hardware.oemlock@1.0-vts.driver \
   android.hardware.power@1.0-vts.driver \
+  android.hardware.power@1.1-vts.driver \
   android.hardware.radio@1.0-vts.driver \
+  android.hardware.radio@1.1-vts.driver \
+  android.hardware.radio.deprecated@1.0-vts.driver \
+  android.hardware.renderscript@1.0-vts.driver \
   android.hardware.sensors@1.0-vts.driver \
   android.hardware.soundtrigger@2.0-vts.driver \
   android.hardware.thermal@1.0-vts.driver \
+  android.hardware.thermal@1.1-vts.driver \
   android.hardware.tv.cec@1.0-vts.driver \
   android.hardware.tv.input@1.0-vts.driver \
   android.hardware.usb@1.0-vts.driver \
+  android.hardware.usb@1.1-vts.driver \
   android.hardware.vibrator@1.0-vts.driver \
   android.hardware.vr@1.0-vts.driver \
+  android.hardware.weaver@1.0-vts.driver \
   android.hardware.wifi@1.0-vts.driver \
+  android.hardware.wifi@1.1-vts.driver \
+  android.hardware.wifi.offload@1.0-vts.driver \
   android.hardware.wifi.supplicant@1.0-vts.driver \
   android.hardware.audio@2.0-vts.profiler \
   android.hardware.audio.common@2.0-vts.profiler \
   android.hardware.audio.effect@2.0-vts.profiler \
   android.hardware.automotive.vehicle@2.0-vts.profiler \
-  android.hardware.automotive.vehicle@2.1-vts.profiler \
   android.hardware.biometrics.fingerprint@2.1-vts.profiler \
   android.hardware.bluetooth@1.0-vts.profiler \
   android.hardware.boot@1.0-vts.profiler \
@@ -85,6 +94,7 @@ vts_test_lib_hidl_packages := \
   android.hardware.gatekeeper@1.0-vts.profiler \
   android.hardware.gnss@1.0-vts.profiler \
   android.hardware.graphics.allocator@2.0-vts.profiler \
+  android.hardware.graphics.bufferqueue@1.0-vts.profiler \
   android.hardware.graphics.common@1.0-vts.profiler \
   android.hardware.graphics.composer@2.1-vts.profiler \
   android.hardware.graphics.mapper@2.0-vts.profiler \
@@ -95,18 +105,31 @@ vts_test_lib_hidl_packages := \
   android.hardware.media@1.0-vts.profiler \
   android.hardware.media.omx@1.0-vts.profiler \
   android.hardware.memtrack@1.0-vts.profiler \
+  android.hardware.neuralnetworks@1.0-vts.profiler \
   android.hardware.nfc@1.0-vts.profiler \
+  android.hardware.oemlock@1.0-vts.profiler \
   android.hardware.power@1.0-vts.profiler \
+  android.hardware.power@1.1-vts.profiler \
   android.hardware.radio@1.0-vts.profiler \
+  android.hardware.radio@1.1-vts.profiler \
+  android.hardware.radio.deprecated@1.0-vts.profiler \
+  android.hardware.renderscript@1.0-vts.profiler \
   android.hardware.sensors@1.0-vts.profiler \
   android.hardware.soundtrigger@2.0-vts.profiler \
+  android.hardware.tetheroffload.config@1.0-vts.profiler \
+  android.hardware.tetheroffload.control@1.0-vts.profiler \
   android.hardware.thermal@1.0-vts.profiler \
+  android.hardware.thermal@1.1-vts.profiler \
   android.hardware.tv.cec@1.0-vts.profiler \
   android.hardware.tv.input@1.0-vts.profiler \
   android.hardware.usb@1.0-vts.profiler \
+  android.hardware.usb@1.1-vts.profiler \
   android.hardware.vibrator@1.0-vts.profiler \
   android.hardware.vr@1.0-vts.profiler \
+  android.hardware.weaver@1.0-vts.profiler \
   android.hardware.wifi@1.0-vts.profiler \
+  android.hardware.wifi@1.1-vts.profiler \
+  android.hardware.wifi.offload@1.0-vts.profiler \
   android.hardware.wifi.supplicant@1.0-vts.profiler \
 
 vts_test_lib_hidl_packages += \
@@ -117,9 +140,11 @@ vts_test_lib_hidl_packages += \
   VtsHalBootV1_0TargetTest \
   VtsHalBroadcastradioV1_0TargetTest \
   VtsHalCameraProviderV2_4TargetTest \
+  VtsHalCasV1_0TargetTest \
   VtsHalConfigstoreV1_0TargetTest \
   VtsHalContexthubV1_0TargetTest \
   VtsHalDrmV1_0TargetTest \
+  VtsHalDumpstateV1_0TargetTest \
   VtsHalGatekeeperV1_0TargetTest \
   VtsHalGnssV1_0TargetTest \
   VtsHalGraphicsComposerV2_1TargetTest \
@@ -134,21 +159,33 @@ vts_test_lib_hidl_packages += \
   VtsHalMediaOmxV1_0TargetVideoEncTest \
   VtsHalMediaOmxV1_0TargetVideoDecTest \
   VtsHalMemtrackV1_0TargetTest \
+  VtsHalNeuralnetworksV1_0TargetTest \
   VtsHalNfcV1_0TargetTest \
+  VtsHalOemLockV1_0TargetTest \
   VtsHalPowerV1_0TargetTest \
+  VtsHalPowerV1_1TargetTest \
   VtsHalRadioV1_0TargetTest \
+  VtsHalRadioV1_1TargetTest \
   VtsHalRenderscriptV1_0TargetTest \
   VtsHalSapV1_0TargetTest \
   VtsHalSensorsV1_0TargetTest \
   VtsHalSoundtriggerV2_0TargetTest \
+  VtsHalTetheroffloadConfigV1_0TargetTest \
+  VtsHalTetheroffloadControlV1_0TargetTest \
   VtsHalThermalV1_0TargetTest \
+  VtsHalThermalV1_1TargetTest \
   thermal_hidl_stress_test \
   VtsHalTvInputV1_0TargetTest \
   VtsHalUsbV1_0TargetTest \
+  VtsHalUsbV1_1TargetTest \
   VtsHalVibratorV1_0TargetTest \
+  VtsHalVibratorV1_1TargetTest \
   VtsHalVrV1_0TargetTest \
+  VtsHalWeaverV1_0TargetTest \
   VtsHalWifiV1_0TargetTest \
+  VtsHalWifiV1_1TargetTest \
   VtsHalWifiNanV1_0TargetTest \
+  VtsHalWifiOffloadV1_0TargetTest \
   VtsHalWifiSupplicantV1_0TargetTest \
 
 vts_test_lib_hidl_packages += \

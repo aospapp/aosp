@@ -172,9 +172,9 @@ struct UpdatedInfo {
 // Checks given compatibility info against info on the device. If no
 // compatability info is given then the device info will be checked against
 // itself.
-int32_t checkCompatibility(const std::vector<std::string> &xmls, bool mount,
-        const PartitionMounter &mounter, std::string *error) {
-
+int32_t checkCompatibility(const std::vector<std::string>& xmls, bool mount,
+                           const PartitionMounter& mounter, std::string* error,
+                           DisabledChecks disabledChecks) {
     status_t status;
     ParseStatus parseStatus;
     PackageInfo pkg; // All information from package.
@@ -277,7 +277,7 @@ int32_t checkCompatibility(const std::vector<std::string> &xmls, bool mount,
         }
     }
     if (updated.runtimeInfo && updated.fwk.matrix) {
-        if (!updated.runtimeInfo->checkCompatibility(*updated.fwk.matrix, error)) {
+        if (!updated.runtimeInfo->checkCompatibility(*updated.fwk.matrix, error, disabledChecks)) {
             if (error)
                 error->insert(0, "Runtime info and framework compatibility matrix "
                                  "are incompatible: ");
@@ -291,11 +291,10 @@ int32_t checkCompatibility(const std::vector<std::string> &xmls, bool mount,
 } // namespace details
 
 // static
-int32_t VintfObject::CheckCompatibility(
-        const std::vector<std::string> &xmls, std::string *error) {
-    return details::checkCompatibility(xmls, false /* mount */,
-            *details::gPartitionMounter,
-            error);
+int32_t VintfObject::CheckCompatibility(const std::vector<std::string>& xmls, std::string* error,
+                                        DisabledChecks disabledChecks) {
+    return details::checkCompatibility(xmls, false /* mount */, *details::gPartitionMounter, error,
+                                       disabledChecks);
 }
 
 

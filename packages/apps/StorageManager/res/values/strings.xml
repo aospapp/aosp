@@ -101,10 +101,10 @@
     <!-- Help URI, Deletion Helper [DO NOT TRANSLATE] -->
     <string name="help_uri_deletion_helper" translatable="false"></string>
 
-    <!-- Temporary string to allow users to select no threshold for deletion helper -->
-    <string name="deletion_helper_no_threshold" translatable="false">No threshold</string>
-    <!-- Temporary string to allow users to select default threshold for deletion helper -->
-    <string name="deletion_helper_default_threshold" translatable="false">Default threshold</string>
+    <!-- String to allow users to select no threshold for deletion helper -->
+    <string name="deletion_helper_no_threshold">Show all items</string>
+    <!-- String to allow users to select default threshold for deletion helper -->
+    <string name="deletion_helper_default_threshold">Hide recent items</string>
 
     <!-- Message to warn the user before clearing space in the deletion helper for the first time. [CHAR LIMIT=NONE] -->
     <string name="deletion_helper_clear_dialog_message_first_time"><xliff:g id="clearable_bytes" example="1.2GB">%1$s</xliff:g> will be removed from your device</string>
@@ -120,4 +120,7 @@
 
     <!-- Empty state summary for the Deletion Helper [CHAR LIMIT=NONE]-->
     <string name="empty_state_summary">There aren\'t any older files to remove. To make space, remove recent photos, videos, and apps.</string>
+
+    <!-- Prompt for describing what space a particular app is requesting from the Storage Manager. [CHAR LIMIT=NONE] -->
+    <string name="app_requesting_space"><xliff:g id="app" example="Dialer">%1$s</xliff:g> needs <xliff:g id="clearable_bytes" example="1.2GB">%2$s</xliff:g> of space</string>
 </resources>

@@ -29,6 +29,12 @@ LOCAL_SRC_FILES_cortexm4 := \
     moddi3.c                \
     udivmoddi4.c            \
     umoddi3.c               \
+    aeabi_f2d.c             \
+    aeabi_llsl.c            \
+    aeabi_llsr.c            \
+    aeabi_ul2f.c            \
+    aeabi_l2f.c             \
+    aeabi_f2ulz.c           \
 
 LOCAL_C_INCLUDES = $(LOCAL_PATH)
 LOCAL_EXPORT_C_INCLUDE_DIRS := \

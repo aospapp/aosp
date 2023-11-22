@@ -18,6 +18,7 @@ package android.uirendering.cts.testinfrastructure;
 import static org.junit.Assert.fail;
 
 import android.app.Activity;
+import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.graphics.Point;
 import android.os.Bundle;
@@ -41,6 +42,8 @@ import java.util.concurrent.TimeUnit;
  * A generic activity that uses a view specified by the user.
  */
 public class DrawActivity extends Activity {
+    static final String EXTRA_WIDE_COLOR_GAMUT = "DrawActivity.WIDE_COLOR_GAMUT";
+
     private final static long TIME_OUT_MS = 10000;
     private final Point mLock = new Point();
 
@@ -53,6 +56,9 @@ public class DrawActivity extends Activity {
         super.onCreate(bundle);
         getWindow().getDecorView().setSystemUiVisibility(
                 View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN);
+        if (getIntent().getBooleanExtra(EXTRA_WIDE_COLOR_GAMUT, false)) {
+            getWindow().setColorMode(ActivityInfo.COLOR_MODE_WIDE_COLOR_GAMUT);
+        }
         mHandler = new RenderSpecHandler();
         int uiMode = getResources().getConfiguration().uiMode;
         mOnTv = (uiMode & Configuration.UI_MODE_TYPE_MASK) == Configuration.UI_MODE_TYPE_TELEVISION;
@@ -204,7 +210,7 @@ public class DrawActivity extends Activity {
     }
 
     private class DrawCounterListener implements ViewTreeObserver.OnDrawListener {
-        private final int[] mLocationOnScreen = new int[2];
+        private final int[] mLocationInWindow = new int[2];
         private static final int DEBUG_REQUIRE_EXTRA_FRAMES = 1;
         private int mDrawCount = 0;
 
@@ -218,8 +224,8 @@ public class DrawActivity extends Activity {
                 Log.d("UiRendering", "notifying capture");
                 mView.getViewTreeObserver().removeOnDrawListener(this);
                 synchronized (mLock) {
-                    mViewWrapper.getLocationOnScreen(mLocationOnScreen);
-                    mLock.set(mLocationOnScreen[0], mLocationOnScreen[1]);
+                    mViewWrapper.getLocationInWindow(mLocationInWindow);
+                    mLock.set(mLocationInWindow[0], mLocationInWindow[1]);
                     mLock.notify();
                 }
             });

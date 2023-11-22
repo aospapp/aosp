@@ -18,6 +18,7 @@ package com.android.tradefed.command;
 
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.GlobalConfiguration;
+import com.android.tradefed.device.NoDeviceException;
 
 import com.google.common.annotations.VisibleForTesting;
 
@@ -32,6 +33,8 @@ import com.google.common.annotations.VisibleForTesting;
 public class CommandRunner {
     private ICommandScheduler mScheduler;
     private ExitCode mErrorCode = ExitCode.NO_ERROR;
+
+    private static final long CHECK_DEVICE_TIMEOUT = 60000;
 
     public CommandRunner() {}
 
@@ -59,6 +62,12 @@ public class CommandRunner {
         e.printStackTrace();
     }
 
+    /** Returns the timeout after which to check for the command. */
+    @VisibleForTesting
+    long getCheckDeviceTimeout() {
+        return CHECK_DEVICE_TIMEOUT;
+    }
+
     /**
      * The main method to run the command.
      *
@@ -77,6 +86,16 @@ public class CommandRunner {
             mScheduler.shutdownOnEmpty();
         }
         try {
+            mScheduler.join(getCheckDeviceTimeout());
+            // FIXME: if possible make the no_device allocated check deterministic.
+            // After 1 min we check if the command was executed.
+            if (mScheduler.getReadyCommandCount() > 0) {
+                printStackTrace(new NoDeviceException("No device was allocated for the command."));
+                mErrorCode = ExitCode.NO_DEVICE_ALLOCATED;
+                mScheduler.removeAllCommands();
+                mScheduler.shutdown();
+                return;
+            }
             mScheduler.join();
             // If no error code has been raised yet, we checked the invocation error code.
             if (ExitCode.NO_ERROR.equals(mErrorCode)) {
@@ -109,7 +128,8 @@ public class CommandRunner {
         DEVICE_UNRESPONSIVE(3),
         DEVICE_UNAVAILABLE(4),
         FATAL_HOST_ERROR(5),
-        THROWABLE_EXCEPTION(6);
+        THROWABLE_EXCEPTION(6),
+        NO_DEVICE_ALLOCATED(7);
 
         private final int mCodeValue;
 

@@ -39,6 +39,7 @@
 #include <dlfcn.h>
 #include <errno.h>
 
+#include <system/window.h>
 
 #define CHECK_SYMBOL(func) { if (!func) printf("func %s not found\n", #func); return VA_STATUS_ERROR_UNKNOWN; }
 #define DEVICE_NAME "/dev/dri/card0"

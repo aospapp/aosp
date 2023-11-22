@@ -24,7 +24,7 @@
 #include <nativehelper/JniConstants.h>
 #include <nativehelper/ScopedBytes.h>
 #include <nativehelper/ScopedUtfChars.h>
-#include <nativehelper/jni.h>
+#include <jni.h>
 
 #include "jni_helper.h"
 

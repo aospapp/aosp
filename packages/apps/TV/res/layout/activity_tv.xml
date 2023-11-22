@@ -23,32 +23,10 @@
     android:foreground="@android:color/transparent"
     android:keepScreenOn="true">
 
-    <com.android.tv.ui.AppLayerTvView android:id="@+id/main_tv_view"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_gravity="start|center_vertical" />
-
     <com.android.tv.ui.TunableTvView android:id="@+id/main_tunable_tv_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_gravity="start|center_vertical" />
-
-    <com.android.tv.ui.AppLayerTvView android:id="@+id/pip_tv_view"
-        android:layout_marginLeft="@dimen/pipview_margin_horizontal"
-        android:layout_marginRight="@dimen/pipview_margin_horizontal"
-        android:layout_marginTop="@dimen/pipview_margin_top"
-        android:layout_marginBottom="@dimen/pipview_margin_bottom"
-        android:layout_width="@dimen/pipview_small_size_width"
-        android:layout_height="@dimen/pipview_small_size_height" />
-
-    <com.android.tv.ui.TunableTvView android:id="@+id/pip_tunable_tv_view"
-        android:visibility="gone"
-        android:layout_marginLeft="@dimen/pipview_margin_horizontal"
-        android:layout_marginRight="@dimen/pipview_margin_horizontal"
-        android:layout_marginTop="@dimen/pipview_margin_top"
-        android:layout_marginBottom="@dimen/pipview_margin_bottom"
-        android:layout_width="@dimen/pipview_small_size_width"
-        android:layout_height="@dimen/pipview_small_size_height" />
 
     <FrameLayout
         android:id="@+id/scene_container"

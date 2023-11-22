@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2015-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,7 +40,7 @@ SYS_FUNC(kcmp)
 	tprintf("%d, %d, ", pid1, pid2);
 	printxval(kcmp_types, type, "KCMP_???");
 
-	switch(type) {
+	switch (type) {
 		case KCMP_FILE:
 			tprintf(", %u, %u", (unsigned) idx1, (unsigned) idx2);
 			break;

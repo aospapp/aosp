@@ -152,21 +152,18 @@ bool handleLogical(bool lval, const char *op, bool rval) {
 ConstantExpression::ConstantExpression() {
 }
 
-// static
 ConstantExpression ConstantExpression::Zero(ScalarType::Kind kind) {
     ConstantExpression ce = ValueOf(kind, 0);
     ce.mExpr = "0";
     return ce;
 }
 
-// static
 ConstantExpression ConstantExpression::One(ScalarType::Kind kind) {
     ConstantExpression ce = ValueOf(kind, 1);
     ce.mExpr = "1";
     return ce;
 }
 
-// static
 ConstantExpression ConstantExpression::ValueOf(ScalarType::Kind kind, uint64_t value) {
     ConstantExpression ce;
     CHECK(isSupported(kind));

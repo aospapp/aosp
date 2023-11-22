@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include "JniConstants.h"
-#include "JNIHelp.h"
+#include <nativehelper/JniConstants.h>
+#include <nativehelper/JNIHelp.h>
 
 static void MethodHandle_invokeExact(JNIEnv* env, jobject, jobjectArray) {
     jniThrowException(env, "java/lang/UnsupportedOperationException",

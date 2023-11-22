@@ -1,5 +1,5 @@
-#ifndef __VTS_DRIVER__BluetoothHalV1bt_interface_t.driver__
-#define __VTS_DRIVER__BluetoothHalV1bt_interface_t.driver__
+#ifndef __VTS_DRIVER__hal_conventional_submodule_bluetooth_V1_0__
+#define __VTS_DRIVER__hal_conventional_submodule_bluetooth_V1_0__
 
 #undef LOG_TAG
 #define LOG_TAG "FuzzerExtended_bt_interface_t"
@@ -12,14 +12,14 @@
 #include <string.h>
 #include <utils/Log.h>
 
-#include <fuzz_tester/FuzzerBase.h>
-#include <fuzz_tester/FuzzerCallbackBase.h>
+#include <driver_base/DriverBase.h>
+#include <driver_base/DriverCallbackBase.h>
 
 namespace android {
 namespace vts {
-class FuzzerExtended_bt_interface_t : public FuzzerBase {
+class FuzzerExtended_bt_interface_t : public DriverBase {
  public:
-    FuzzerExtended_bt_interface_t() : FuzzerBase(HAL_CONVENTIONAL_SUBMODULE) {}
+    FuzzerExtended_bt_interface_t() : DriverBase(HAL_CONVENTIONAL_SUBMODULE) {}
  protected:
     bool Fuzz(FunctionSpecificationMessage* func_msg, void** result, const string& callback_socket_name);
     bool CallFunction(const FunctionSpecificationMessage& func_msg, const string& callback_socket_name, FunctionSpecificationMessage* result_msg);
@@ -35,7 +35,7 @@ class FuzzerExtended_bt_interface_t : public FuzzerBase {
 
 
 extern "C" {
-extern android::vts::FuzzerBase* vts_func_2_7_1_();
+extern android::vts::DriverBase* vts_func_2_7_V1_0_();
 }
 }  // namespace vts
 }  // namespace android

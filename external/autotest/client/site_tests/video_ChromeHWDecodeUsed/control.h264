@@ -25,4 +25,4 @@ This test verifies H.264 video decode acceleration works.
 """
 
 job.run_test('video_ChromeHWDecodeUsed', codec='h264', is_mse=0,
-    video_file='720_h264.mp4')
+    video_file='720_h264.mp4', tag='h264')

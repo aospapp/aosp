@@ -16,13 +16,13 @@
 
 package com.android.car.radio;
 
-import android.support.car.ui.PagedListView;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import com.android.car.radio.service.RadioStation;
+import com.android.car.view.PagedListView;
 
 import java.util.List;
 

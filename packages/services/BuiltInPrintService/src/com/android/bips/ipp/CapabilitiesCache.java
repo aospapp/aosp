@@ -19,6 +19,7 @@ package com.android.bips.ipp;
 
 import android.content.Context;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.LruCache;
@@ -27,8 +28,10 @@ import com.android.bips.discovery.DiscoveredPrinter;
 import com.android.bips.jni.LocalPrinterCapabilities;
 import com.android.bips.util.WifiMonitor;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -48,6 +51,12 @@ public class CapabilitiesCache extends LruCache<Uri, LocalPrinterCapabilities> i
 
     // Maximum number of printers expected on a single network
     private static final int CACHE_SIZE = 100;
+
+    // Maximum time per retry before giving up on first pass
+    private static final int FIRST_PASS_TIMEOUT = 500;
+
+    // Maximum time per retry before giving up on second pass. Must differ from FIRST_PASS_TIMEOUT.
+    private static final int SECOND_PASS_TIMEOUT = 8000;
 
     private final Map<Uri, Request> mRequests = new HashMap<>();
     private final Set<Uri> mToEvict = new HashSet<>();
@@ -92,7 +101,7 @@ public class CapabilitiesCache extends LruCache<Uri, LocalPrinterCapabilities> i
 
     /** Callback for receiving capabilities */
     public interface OnLocalPrinterCapabilities {
-        void onCapabilities(LocalPrinterCapabilities capabilities);
+        void onCapabilities(DiscoveredPrinter printer, LocalPrinterCapabilities capabilities);
     }
 
     /**
@@ -112,18 +121,23 @@ public class CapabilitiesCache extends LruCache<Uri, LocalPrinterCapabilities> i
         Uri printerPath = printer.path;
         LocalPrinterCapabilities capabilities = get(printer.getUri());
         if (capabilities != null && capabilities.nativeData != null) {
-            onLocalPrinterCapabilities.onCapabilities(capabilities);
+            onLocalPrinterCapabilities.onCapabilities(printer, capabilities);
             return;
         }
 
         Request request = mRequests.get(printerUri);
         if (request == null) {
-            request = new Request(printer);
+            if (highPriority) {
+                // Go straight to the long-timeout request
+                request = new Request(printer, SECOND_PASS_TIMEOUT);
+            } else {
+                request = new Request(printer, FIRST_PASS_TIMEOUT);
+            }
             mRequests.put(printerUri, request);
         } else if (!request.printer.path.equals(printerPath)) {
             Log.w(TAG, "Capabilities request for printer " + printer +
                     " overlaps with different path " + request.printer.path);
-            onLocalPrinterCapabilities.onCapabilities(null);
+            onLocalPrinterCapabilities.onCapabilities(printer, null);
             return;
         }
 
@@ -136,13 +150,31 @@ public class CapabilitiesCache extends LruCache<Uri, LocalPrinterCapabilities> i
         startNextRequest();
     }
 
+    /**
+     * Cancel any outstanding attempts to get capabilities on this callback
+     */
+    public void cancel(OnLocalPrinterCapabilities onLocalPrinterCapabilities) {
+        List<Uri> toDrop = new ArrayList<>();
+        for (Map.Entry<Uri, Request> entry : mRequests.entrySet()) {
+            Request request = entry.getValue();
+            request.callbacks.remove(onLocalPrinterCapabilities);
+            if (request.callbacks.isEmpty()) {
+                // There is no further interest in this request so cancel it
+                toDrop.add(entry.getKey());
+                if (request.query != null) {
+                    request.query.cancel(true);
+                }
+            }
+        }
+        toDrop.forEach(mRequests::remove);
+    }
+
     /** Look for next query and launch it */
     private void startNextRequest() {
         final Request request = getNextRequest();
         if (request == null) return;
 
-        request.querying = true;
-        mBackend.getCapabilities(request.printer.path, capabilities -> {
+        request.query = mBackend.getCapabilities(request.printer.path, request.timeout, capabilities -> {
             DiscoveredPrinter printer = request.printer;
             if (DEBUG) Log.d(TAG, "Capabilities for " + printer + " cap=" + capabilities);
 
@@ -162,7 +194,16 @@ public class CapabilitiesCache extends LruCache<Uri, LocalPrinterCapabilities> i
             }
 
             if (capabilities == null) {
-                remove(printer.getUri());
+                if (request.timeout == FIRST_PASS_TIMEOUT) {
+                    // Printer did not respond quickly, try again in the slow lane
+                    request.timeout = SECOND_PASS_TIMEOUT;
+                    request.query = null;
+                    mRequests.put(printer.getUri(), request);
+                    startNextRequest();
+                    return;
+                } else {
+                    remove(printer.getUri());
+                }
             } else {
                 Uri key = printer.getUri();
                 if (printer.uuid == null) {
@@ -177,7 +218,7 @@ public class CapabilitiesCache extends LruCache<Uri, LocalPrinterCapabilities> i
             }
 
             for (OnLocalPrinterCapabilities callback : request.callbacks) {
-                callback.onCapabilities(capabilities);
+                callback.onCapabilities(printer, capabilities);
             }
             startNextRequest();
         });
@@ -188,10 +229,11 @@ public class CapabilitiesCache extends LruCache<Uri, LocalPrinterCapabilities> i
         Request found = null;
         int total = 0;
         for (Request request : mRequests.values()) {
-            if (request.querying) {
+            if (request.query != null) {
                 total++;
-            } else if (found == null || (!found.highPriority && request.highPriority)) {
-                // First outstanding, or higher highPriority request
+            } else if (found == null || (!found.highPriority && request.highPriority) ||
+                    (found.highPriority == request.highPriority && request.timeout < found.timeout)) {
+                // First valid or higher priority request
                 found = request;
             }
         }
@@ -202,14 +244,16 @@ public class CapabilitiesCache extends LruCache<Uri, LocalPrinterCapabilities> i
     }
 
     /** Holds an outstanding capabilities request */
-    private class Request {
+    public class Request {
         final DiscoveredPrinter printer;
         final Set<OnLocalPrinterCapabilities> callbacks = new HashSet<>();
-        boolean querying = false;
-        boolean highPriority = true;
+        AsyncTask<?, ?, ?> query;
+        boolean highPriority = false;
+        long timeout;
 
-        Request(DiscoveredPrinter printer) {
+        Request(DiscoveredPrinter printer, long timeout) {
             this.printer = printer;
+            this.timeout = timeout;
         }
     }
 }

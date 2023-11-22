@@ -18,6 +18,8 @@ package com.android.compatibility.common.util;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 
+import java.lang.reflect.Field;
+
 /**
  * Device-side compatibility utility class for reading device API level.
  */
@@ -30,9 +32,19 @@ public class ApiLevelUtil {
         return device.getApiLevel() < version;
     }
 
+    public static boolean isBefore(ITestDevice device, String version)
+            throws DeviceNotAvailableException {
+        return device.getApiLevel() < resolveVersionString(version);
+    }
+
     public static boolean isAfter(ITestDevice device, int version)
             throws DeviceNotAvailableException {
         return device.getApiLevel() > version;
+    }
+
+    public static boolean isAfter(ITestDevice device, String version)
+            throws DeviceNotAvailableException {
+        return device.getApiLevel() > resolveVersionString(version);
     }
 
     public static boolean isAtLeast(ITestDevice device, int version)
@@ -40,9 +52,19 @@ public class ApiLevelUtil {
         return device.getApiLevel() >= version;
     }
 
+    public static boolean isAtLeast(ITestDevice device, String version)
+            throws DeviceNotAvailableException {
+        return device.getApiLevel() >= resolveVersionString(version);
+    }
+
     public static boolean isAtMost(ITestDevice device, int version)
             throws DeviceNotAvailableException {
         return device.getApiLevel() <= version;
+    }
+
+    public static boolean isAtMost(ITestDevice device, String version)
+            throws DeviceNotAvailableException {
+        return device.getApiLevel() <= resolveVersionString(version);
     }
 
     public static int getApiLevel(ITestDevice device) throws DeviceNotAvailableException {
@@ -62,5 +84,20 @@ public class ApiLevelUtil {
     public static String getCodename(ITestDevice device)
             throws DeviceNotAvailableException {
         return device.getProperty(CODENAME);
+    }
+
+    protected static int resolveVersionString(String versionString) {
+        try {
+            return Integer.parseInt(versionString); // e.g. "24" for M
+        } catch (NumberFormatException e1) {
+            try {
+                Field versionField = VersionCodes.class.getField(
+                        versionString.toUpperCase());
+                return versionField.getInt(null); // no instance for VERSION_CODES, use null
+            } catch (IllegalAccessException | NoSuchFieldException e2) {
+                throw new RuntimeException(
+                        String.format("Failed to parse version string %s", versionString), e2);
+            }
+        }
     }
 }

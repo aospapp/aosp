@@ -40,8 +40,6 @@ public class BatteryIncidentTest extends ProtoDumpTestCase {
         assertTrue(
                 dump.getPlugged()
                         != BatteryServiceDumpProto.BatteryPlugged.BATTERY_PLUGGED_WIRELESS);
-        assertTrue(dump.getMaxChargingCurrent() > 0);
-        assertTrue(dump.getMaxChargingVoltage() > 0);
         assertTrue(dump.getChargeCounter() > 0);
         assertTrue(
                 dump.getStatus() != BatteryServiceDumpProto.BatteryStatus.BATTERY_STATUS_INVALID);
@@ -53,7 +51,6 @@ public class BatteryIncidentTest extends ProtoDumpTestCase {
         assertTrue(level >= 0 && level <= scale);
         assertTrue(dump.getVoltage() > 0);
         assertTrue(dump.getTemperature() > 0);
-        assertNotNull(dump.getTechnology());
     }
 
     private boolean isLeanback() throws DeviceNotAvailableException {

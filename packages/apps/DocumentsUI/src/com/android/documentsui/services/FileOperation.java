@@ -25,6 +25,10 @@ import static com.android.documentsui.services.FileOperationService.OPERATION_UN
 
 import android.content.Context;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
+import android.os.Messenger;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.support.annotation.VisibleForTesting;
@@ -33,6 +37,9 @@ import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.base.Features;
 import com.android.documentsui.clipping.UrisSupplier;
 import com.android.documentsui.services.FileOperationService.OpType;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.annotation.Nullable;
 
@@ -43,7 +50,10 @@ public abstract class FileOperation implements Parcelable {
     private final @OpType int mOpType;
 
     private final UrisSupplier mSrcs;
+    private final List<Handler.Callback> mMessageListeners = new ArrayList<>();
     private DocumentStack mDestination;
+    private Messenger mMessenger = new Messenger(
+            new Handler(Looper.getMainLooper(), this::onMessage));
 
     @VisibleForTesting
     FileOperation(@OpType int opType, UrisSupplier srcs, DocumentStack destination) {
@@ -72,6 +82,10 @@ public abstract class FileOperation implements Parcelable {
         return mDestination;
     }
 
+    public Messenger getMessenger() {
+        return mMessenger;
+    }
+
     public void setDestination(DocumentStack destination) {
         mDestination = destination;
     }
@@ -93,12 +107,14 @@ public abstract class FileOperation implements Parcelable {
         out.writeInt(mOpType);
         out.writeParcelable(mSrcs, flag);
         out.writeParcelable(mDestination, flag);
+        out.writeParcelable(mMessenger, flag);
     }
 
     private FileOperation(Parcel in) {
         mOpType = in.readInt();
         mSrcs = in.readParcelable(FileOperation.class.getClassLoader());
         mDestination = in.readParcelable(FileOperation.class.getClassLoader());
+        mMessenger = in.readParcelable(FileOperation.class.getClassLoader());
     }
 
     public static class CopyOperation extends FileOperation {
@@ -118,7 +134,8 @@ public abstract class FileOperation implements Parcelable {
         }
 
         CopyJob createJob(Context service, Job.Listener listener, String id, Features features) {
-            return new CopyJob(service, listener, id, getDestination(), getSrc(), features);
+            return new CopyJob(
+                    service, listener, id, getDestination(), getSrc(), getMessenger(), features);
         }
 
         private CopyOperation(Parcel in) {
@@ -157,7 +174,8 @@ public abstract class FileOperation implements Parcelable {
         }
 
         CopyJob createJob(Context service, Job.Listener listener, String id, Features features) {
-            return new CompressJob(service, listener, id, getDestination(), getSrc(), features);
+            return new CompressJob(service, listener, id, getDestination(), getSrc(),
+                    getMessenger(), features);
         }
 
         private CompressOperation(Parcel in) {
@@ -197,7 +215,8 @@ public abstract class FileOperation implements Parcelable {
 
         // TODO: Replace CopyJob with ExtractJob.
         CopyJob createJob(Context service, Job.Listener listener, String id, Features features) {
-            return new CopyJob(service, listener, id, getDestination(), getSrc(), features);
+            return new CopyJob(
+                    service, listener, id, getDestination(), getSrc(), getMessenger(), features);
         }
 
         private ExtractOperation(Parcel in) {
@@ -233,8 +252,9 @@ public abstract class FileOperation implements Parcelable {
         Job createJob(Context service, Job.Listener listener, String id, Features features) {
             switch(getOpType()) {
                 case OPERATION_MOVE:
-                    return new MoveJob(service, listener, id, getDestination(), getSrc(),
-                            mSrcParent, features);
+                    return new MoveJob(
+                            service, listener, id, getDestination(), getSrc(), mSrcParent,
+                            getMessenger(), features);
                 case OPERATION_DELETE:
                     return new DeleteJob(service, listener, id, getDestination(), getSrc(),
                             mSrcParent, features);
@@ -323,5 +343,28 @@ public abstract class FileOperation implements Parcelable {
                     throw new UnsupportedOperationException("Unsupported op type: " + mOpType);
             }
         }
+    }
+
+    boolean onMessage(Message message) {
+        for (Handler.Callback listener : mMessageListeners) {
+            if (listener.handleMessage(message)) {
+              return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Registers a listener for messages from the service job.
+     *
+     * Callbacks must return true if the message is handled, and false if not.
+     * Once handled, consecutive callbacks will not be called.
+     */
+    public void addMessageListener(Handler.Callback handler) {
+        mMessageListeners.add(handler);
+    }
+
+    public void removeMessageListener(Handler.Callback handler) {
+        mMessageListeners.remove(handler);
     }
 }

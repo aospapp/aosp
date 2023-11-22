@@ -17,18 +17,18 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
   <string-array name="sleep_timeout_entries">
-    <item msgid="1213527366819650274">"5分钟"</item>
+    <item msgid="1213527366819650274">"5 分钟"</item>
     <item msgid="6561800022721381078">"15 分钟"</item>
     <item msgid="7718735533503035428">"30 分钟"</item>
     <item msgid="8784595382489738498">"1 小时"</item>
     <item msgid="1529312035777735084">"2 小时"</item>
   </string-array>
   <string-array name="screen_off_timeout_entries">
-    <item msgid="8244337465472020927">"30分钟"</item>
-    <item msgid="1001586019759702505">"1小时"</item>
-    <item msgid="5216959047515554188">"3小时"</item>
-    <item msgid="4152882798140628647">"6小时"</item>
-    <item msgid="412984226950404956">"12小时"</item>
+    <item msgid="8244337465472020927">"30 分钟"</item>
+    <item msgid="1001586019759702505">"1 小时"</item>
+    <item msgid="5216959047515554188">"3 小时"</item>
+    <item msgid="4152882798140628647">"6 小时"</item>
+    <item msgid="412984226950404956">"12 小时"</item>
     <item msgid="2178434662173258997">"永不"</item>
   </string-array>
   <string-array name="captioning_typeface_selector_titles">

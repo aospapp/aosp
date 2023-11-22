@@ -17,12 +17,13 @@
 #ifndef SYSTEM_KEYMASTER_OPERATION_TABLE_H
 #define SYSTEM_KEYMASTER_OPERATION_TABLE_H
 
-#include <UniquePtr.h>
+#include <keymaster/UniquePtr.h>
 
 #include <hardware/keymaster_defs.h>
 
 namespace keymaster {
 
+class KeymasterContext;
 class Operation;
 
 class OperationTable {
@@ -39,7 +40,8 @@ class OperationTable {
         Operation* operation;
     };
 
-    keymaster_error_t Add(Operation* operation, keymaster_operation_handle_t* op_handle);
+    keymaster_error_t Add(Operation* operation, const KeymasterContext& context,
+                          keymaster_operation_handle_t* op_handle);
     Operation* Find(keymaster_operation_handle_t op_handle);
     bool Delete(keymaster_operation_handle_t);
 

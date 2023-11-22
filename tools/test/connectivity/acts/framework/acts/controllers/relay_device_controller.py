@@ -26,17 +26,47 @@ def create(config):
     """Creates RelayDevice controller objects.
 
         Args:
-            config: A dict of:
-                config_path: The path to the RelayDevice config file.
-                devices: A list of configs or names associated with the devices.
+            config: Either one of two types:
+
+            A filename to a RelayController config (json file)
+            A RelayController config/dict composed of:
+                boards: A list of controller boards (see tests).
+                devices: A list of RelayDevices attached to the boards.
 
         Returns:
                 A list of RelayDevice objects.
     """
-    devices = list()
-    with open(config) as json_file:
-        relay_rig = RelayRig(json.load(json_file))
+    if type(config) is str:
+        return _create_from_external_config_file(config)
+    elif type(config) is dict:
+        return _create_from_dict(config)
 
+
+def _create_from_external_config_file(config_filename):
+    """Creates RelayDevice controller objects from an external config file.
+
+    Args:
+        config_filename: The filename of the RelayController config.
+
+    Returns:
+        A list of RelayDevice objects.
+    """
+    with open(config_filename) as json_file:
+        return _create_from_dict(json.load(json_file))
+
+
+def _create_from_dict(config):
+    """Creates RelayDevice controller objects from a dictionary.
+
+    Args:
+        config: The dictionary containing the RelayController config.
+
+    Returns:
+        A list of RelayDevice objects.
+    """
+    devices = list()
+
+    relay_rig = RelayRig(config)
     for device in relay_rig.devices.values():
         devices.append(device)
 

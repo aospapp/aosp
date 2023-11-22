@@ -238,6 +238,7 @@ enum TOperator {
 	EOpBitwiseOrAssign
 };
 
+extern TOperator TypeToConstructorOperator(const TType &type);
 extern const char* getOperatorString(TOperator op);
 
 class TIntermTraverser;
@@ -334,6 +335,7 @@ public:
 	int registerSize() const { return type.registerSize(); }
 	int getArraySize() const { return type.getArraySize(); }
 
+	static TIntermTyped *CreateIndexNode(int index);
 protected:
 	TType type;
 };
@@ -537,7 +539,7 @@ typedef TVector<int> TQualifierList;
 class TIntermAggregate : public TIntermOperator {
 public:
 	TIntermAggregate() : TIntermOperator(EOpNull), userDefined(false) { endLine = { 0, 0, 0, 0 }; }
-	TIntermAggregate(TOperator o) : TIntermOperator(o) { }
+	TIntermAggregate(TOperator o) : TIntermOperator(o), userDefined(false) { endLine = { 0, 0, 0, 0 }; }
 	~TIntermAggregate() { }
 
 	virtual TIntermAggregate* getAsAggregate() { return this; }

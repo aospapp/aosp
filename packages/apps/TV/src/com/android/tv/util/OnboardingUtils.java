@@ -16,17 +16,10 @@
 
 package com.android.tv.util;
 
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
-import android.database.Cursor;
-import android.media.tv.TvContract.Channels;
 import android.net.Uri;
 import android.preference.PreferenceManager;
-import android.support.annotation.UiThread;
-
-import com.android.tv.TvApplication;
-import com.android.tv.data.ChannelDataManager;
 
 /**
  * A utility class related to onboarding experience.
@@ -82,41 +75,11 @@ public final class OnboardingUtils {
     }
 
     /**
-     * Checks whether the onboarding screen should be shown or not.
-     */
-    public static boolean needToShowOnboarding(Context context) {
-        return isFirstRunWithCurrentVersion(context) || !areChannelsAvailable(context);
-    }
-
-    /**
-     * Checks if there are any available tuner channels.
-     */
-    @UiThread
-    public static boolean areChannelsAvailable(Context context) {
-        ChannelDataManager manager = TvApplication.getSingletons(context).getChannelDataManager();
-        if (manager.isDbLoadFinished()) {
-            return manager.getChannelCount() != 0;
-        }
-        // This method should block the UI thread.
-        ContentResolver resolver = context.getContentResolver();
-        try (Cursor c = resolver.query(Channels.CONTENT_URI, new String[] {Channels._ID}, null,
-                null, null)) {
-            return c != null && c.getCount() != 0;
-        }
-    }
-
-    /**
-     * Checks if there are any available TV inputs.
-     */
-    public static boolean areInputsAvailable(Context context) {
-        return TvApplication.getSingletons(context).getTvInputManagerHelper()
-                .getTvInputInfos(true, false).size() > 0;
-    }
-
-    /**
      * Returns merchant collection URL.
      */
     private static String getMerchantCollectionUrl() {
         return "TODO: add a merchant collection url";
     }
+
+    private OnboardingUtils() {}
 }

@@ -16,12 +16,10 @@
 
 package com.googlecode.android_scripting.facade.bluetooth;
 
-import java.util.List;
-
 import android.app.Service;
-import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothUuid;
 import android.os.ParcelUuid;
@@ -31,6 +29,8 @@ import com.googlecode.android_scripting.facade.FacadeManager;
 import com.googlecode.android_scripting.jsonrpc.RpcReceiver;
 import com.googlecode.android_scripting.rpc.Rpc;
 import com.googlecode.android_scripting.rpc.RpcParameter;
+
+import java.util.List;
 
 public class BluetoothHspFacade extends RpcReceiver {
   static final ParcelUuid[] UUIDS = {
@@ -140,6 +140,108 @@ public class BluetoothHspFacade extends RpcReceiver {
           return BluetoothProfile.STATE_DISCONNECTED;
       }
       return sHspProfile.getConnectionState(device);
+  }
+
+  /**
+   * Force SCO audio on DUT, ignore all other restrictions
+   *
+   * @param force True to force SCO audio, False to resume normal
+   * @return True if the setup is successful
+   */
+  @Rpc(description = "Force SCO audio connection on DUT")
+  public Boolean bluetoothHspForceScoAudio(
+          @RpcParameter(name = "force", description = "whether to force SCO audio")
+                  Boolean force) {
+    if (sHspProfile == null) {
+      return false;
+    }
+    sHspProfile.setForceScoAudio(force);
+    return true;
+  }
+
+  /**
+   * Connect SCO audio to a remote device
+   *
+   * @param deviceAddress the Bluetooth MAC address of remote device
+   * @return True if connection is successful, False otherwise
+   */
+  @Rpc(description = "Connect SCO audio for a remote device")
+  public Boolean bluetoothHspConnectAudio(
+          @RpcParameter(name = "deviceAddress", description = "MAC address of a bluetooth device.")
+                  String deviceAddress) {
+    if (sHspProfile == null) {
+      return false;
+    }
+    Log.d("Connected devices: " + sHspProfile.getConnectedDevices());
+    BluetoothDevice device = null;
+    if (sHspProfile.getConnectedDevices().size() > 1) {
+      Log.d("More than one device available");
+    }
+    try {
+      device = BluetoothFacade.getDevice(sHspProfile.getConnectedDevices(), deviceAddress);
+    } catch (Exception e) {
+      Log.d("Cannot find device " + deviceAddress);
+      return false;
+    }
+    return sHspProfile.connectAudio();
+  }
+
+  /**
+   * Disconnect SCO audio for a remote device
+   *
+   * @param deviceAddress the Bluetooth MAC address of remote device
+   * @return True if disconnection is successful, False otherwise
+   */
+  @Rpc(description = "Disconnect SCO audio for a remote device")
+  public Boolean bluetoothHspDisconnectAudio(
+          @RpcParameter(name = "deviceAddress", description = "MAC address of a bluetooth device.")
+                  String deviceAddress) {
+    if (sHspProfile == null) {
+      return false;
+    }
+    Log.d("Connected devices: " + sHspProfile.getConnectedDevices());
+    BluetoothDevice device = null;
+    if (sHspProfile.getConnectedDevices().size() > 1) {
+      Log.d("More than one device available");
+    }
+    try {
+      device = BluetoothFacade.getDevice(sHspProfile.getConnectedDevices(), deviceAddress);
+    } catch (Exception e) {
+      Log.d("Cannot find device " + deviceAddress);
+      return false;
+    }
+    if (!sHspProfile.isAudioConnected(device)) {
+      Log.d("SCO audio is not connected for device " + deviceAddress);
+      return false;
+    }
+    return sHspProfile.disconnectAudio();
+  }
+
+  /**
+   * Check if SCO audio is connected for a remote device
+   *
+   * @param deviceAddress the Bluetooth MAC address of remote device
+   * @return True if device is connected to us via SCO audio, False otherwise
+   */
+  @Rpc(description = "Check if SCO audio is connected for a remote device")
+  public Boolean bluetoothHspIsAudioConnected(
+          @RpcParameter(name = "deviceAddress", description = "MAC address of a bluetooth device.")
+                  String deviceAddress) {
+    if (sHspProfile == null) {
+      return false;
+    }
+    Log.d("Connected devices: " + sHspProfile.getConnectedDevices());
+    BluetoothDevice device = null;
+    if (sHspProfile.getConnectedDevices().size() > 1) {
+      Log.d("More than one device available");
+    }
+    try {
+      device = BluetoothFacade.getDevice(sHspProfile.getConnectedDevices(), deviceAddress);
+    } catch (Exception e) {
+      Log.d("Cannot find device " + deviceAddress);
+      return false;
+    }
+    return sHspProfile.isAudioConnected(device);
   }
 
   @Override

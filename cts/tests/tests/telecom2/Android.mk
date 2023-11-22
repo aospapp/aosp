@@ -24,7 +24,10 @@ LOCAL_MODULE_TAGS := optional
 # When built, explicitly put it in the data partition.
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
-LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util ctstestrunner
+LOCAL_STATIC_JAVA_LIBRARIES := \
+	compatibility-device-util \
+	ctstestrunner \
+	legacy-android-test
 
 src_dirs := src \
     ../telecom/src/android/telecom/cts/SelfManagedConnection.java \
@@ -46,6 +49,6 @@ LOCAL_AAPT_FLAGS := \
 LOCAL_SDK_VERSION := current
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 include $(BUILD_CTS_PACKAGE)

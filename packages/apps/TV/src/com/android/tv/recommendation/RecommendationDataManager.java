@@ -41,7 +41,7 @@ import com.android.tv.data.ChannelDataManager;
 import com.android.tv.data.Program;
 import com.android.tv.data.WatchedHistoryManager;
 import com.android.tv.util.PermissionUtils;
-import com.android.tv.util.TvProviderUriMatcher;
+import com.android.tv.util.TvUriMatcher;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -505,8 +505,8 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
         @SuppressLint("SwitchIntDef")
         @Override
         public void onChange(final boolean selfChange, final Uri uri) {
-            switch (TvProviderUriMatcher.match(uri)) {
-                case TvProviderUriMatcher.MATCH_WATCHED_PROGRAM_ID:
+            switch (TvUriMatcher.match(uri)) {
+                case TvUriMatcher.MATCH_WATCHED_PROGRAM_ID:
                     if (!mHandler.hasMessages(MSG_UPDATE_WATCH_HISTORY,
                             TvContract.WatchedPrograms.CONTENT_URI)) {
                         mHandler.obtainMessage(MSG_UPDATE_WATCH_HISTORY, uri).sendToTarget();

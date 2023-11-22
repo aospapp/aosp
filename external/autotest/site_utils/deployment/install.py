@@ -74,6 +74,7 @@ from autotest_lib.server.cros.dynamic_suite.constants import VERSION_PREFIX
 from autotest_lib.server.hosts import afe_store
 from autotest_lib.server.hosts import servo_host
 from autotest_lib.site_utils.deployment import commandline
+from autotest_lib.site_utils.stable_images import assign_stable_images
 from autotest_lib.site_utils.suite_scheduler.constants import Labels
 
 
@@ -93,6 +94,10 @@ _LOCK_REASON_EXISTING = 'Repairing or deploying an existing host'
 _LOCK_REASON_NEW_HOST = 'Repairing or deploying a new host'
 
 _ReportResult = namedtuple('_ReportResult', ['hostname', 'message'])
+
+
+class _NoAFEServoPortError(Exception):
+    """Exception when there is no servo port stored in the AFE."""
 
 
 class _MultiFileWriter(object):
@@ -161,8 +166,9 @@ def _update_build(afe, report_log, arguments):
     """Update the stable_test_versions table.
 
     This calls the `set_stable_version` RPC call to set the stable
-    test version selected by this run of the command.  The
-    version is selected from three possible versions:
+    repair version selected by this run of the command.  Additionally,
+    this updates the stable firmware for the board.  The repair version
+    is selected from three possible versions:
       * The stable test version currently in the AFE database.
       * The version Omaha is currently serving as the Beta channel
         build.
@@ -170,8 +176,12 @@ def _update_build(afe, report_log, arguments):
     The actual version selected will be whichever of these three is
     the most up-to-date version.
 
+    The stable firmware version will be set to whatever firmware is
+    bundled in the selected repair image.
+
     This function will log information about the available versions
-    prior to selection.
+    prior to selection.  After selection the repair and firmware
+    versions slected will be logged.
 
     @param afe          AFE object for RPC calls.
     @param report_log   File-like object for logging report output.
@@ -179,25 +189,58 @@ def _update_build(afe, report_log, arguments):
 
     @return Returns the version selected.
     """
-    version_map = afe.get_stable_version_map(afe.CROS_IMAGE_TYPE)
-    afe_version = version_map.get_version(arguments.board)
-    omaha_version = _get_omaha_build(arguments.board)
-    report_log.write('AFE   version is %s.\n' % afe_version)
-    report_log.write('Omaha version is %s.\n' % omaha_version)
-    if (omaha_version is not None and
-            utils.compare_versions(afe_version, omaha_version) < 0):
-        version = omaha_version
-    else:
-        version = afe_version
-    if arguments.build:
-        if utils.compare_versions(arguments.build, version) >= 0:
-            version = arguments.build
+    # Gather the current AFE and Omaha version settings, and report them
+    # to the user.
+    cros_version_map = afe.get_stable_version_map(afe.CROS_IMAGE_TYPE)
+    fw_version_map = afe.get_stable_version_map(afe.FIRMWARE_IMAGE_TYPE)
+    afe_cros = cros_version_map.get_version(arguments.board)
+    afe_fw = fw_version_map.get_version(arguments.board)
+    omaha_cros = _get_omaha_build(arguments.board)
+    report_log.write('AFE    version is %s.\n' % afe_cros)
+    report_log.write('Omaha  version is %s.\n' % omaha_cros)
+    report_log.write('AFE   firmware is %s.\n' % afe_fw)
+    cros_version = afe_cros
+    fw_version = afe_fw
+
+    # Check whether we should upgrade the repair build to either
+    # the Omaha or the user's requested build.  If we do, we must
+    # also update the firmware version.
+    if (omaha_cros is not None and
+             utils.compare_versions(cros_version, omaha_cros) < 0):
+        cros_version = omaha_cros
+        fw_version = None
+    if arguments.build and arguments.build != cros_version:
+        if utils.compare_versions(cros_version, arguments.build) < 0:
+            cros_version = arguments.build
+            fw_version = None
         else:
-            report_log.write('Selected version %s is too old.\n' %
-                             (arguments.build,))
-    if version != afe_version and not arguments.nostable:
-        version_map.set_version(arguments.board, version)
-    return version
+            report_log.write('Selected version %s is too old; '
+                             'using version %s'
+                             % (arguments.build, cros_version))
+    if fw_version is None:
+        fw_version = assign_stable_images.get_firmware_version(
+                cros_version_map, arguments.board, cros_version)
+
+    # At this point `cros_version` is our new repair build, and
+    # `fw_version` is our new target firmware.  Call the AFE back with
+    # updates as necessary.
+    if not arguments.nostable:
+        if cros_version != afe_cros:
+            cros_version_map.set_version(arguments.board, cros_version)
+        if fw_version != afe_fw:
+            if fw_version is not None:
+                fw_version_map.set_version(arguments.board,
+                                           fw_version)
+            else:
+                fw_version_map.delete_version(arguments.board)
+
+    # Report the new state of the world.
+    report_log.write(_DIVIDER)
+    report_log.write('Repair version for board %s is now %s.\n' %
+                     (arguments.board, cros_version))
+    report_log.write('Firmware       for board %s is now %s.\n' %
+                     (arguments.board, fw_version))
+    return cros_version
 
 
 def _create_host(hostname, afe, afe_host):
@@ -636,6 +679,33 @@ def _get_free_servo_port(servo_hostname, used_servo_ports, afe):
     return servo_port
 
 
+def _get_afe_servo_port(host_info, afe):
+    """
+    Get the servo port from the afe if it matches the same servo host hostname.
+
+    @param host_info   HostInfo tuple (hostname, host_attr_dict).
+
+    @returns Servo port (int) if servo host hostname matches the one specified
+    host_info.host_attr_dict, otherwise None.
+
+    @raises _NoAFEServoPortError: When there is no stored host info or servo
+        port host attribute in the AFE for the given host.
+    """
+    afe_hosts = afe.get_hosts(hostname=host_info.hostname)
+    if not afe_hosts:
+        raise _NoAFEServoPortError
+
+    servo_port = afe_hosts[0].attributes.get(servo_host.SERVO_PORT_ATTR)
+    afe_servo_host = afe_hosts[0].attributes.get(servo_host.SERVO_HOST_ATTR)
+    host_info_servo_host = host_info.host_attr_dict.get(
+        servo_host.SERVO_HOST_ATTR)
+
+    if afe_servo_host == host_info_servo_host and servo_port:
+        return int(servo_port)
+    else:
+        raise _NoAFEServoPortError
+
+
 def _get_host_attributes(host_info_list, afe):
     """
     Get host attributes if a hostname_file was supplied.
@@ -652,8 +722,14 @@ def _get_host_attributes(host_info_list, afe):
     used_servo_ports = {}
     for host_info in host_info_list:
         host_attr_dict = host_info.host_attr_dict
-        host_attr_dict[servo_host.SERVO_PORT_ATTR] = _get_free_servo_port(
-                host_attr_dict[servo_host.SERVO_HOST_ATTR],used_servo_ports,
+        # If the host already has an entry in the AFE that matches the same
+        # servo host hostname and the servo port is set, use that port.
+        try:
+            host_attr_dict[servo_host.SERVO_PORT_ATTR] = _get_afe_servo_port(
+                host_info, afe)
+        except _NoAFEServoPortError:
+            host_attr_dict[servo_host.SERVO_PORT_ATTR] = _get_free_servo_port(
+                host_attr_dict[servo_host.SERVO_HOST_ATTR], used_servo_ports,
                 afe)
         host_attributes[host_info.hostname] = host_attr_dict
     return host_attributes
@@ -699,9 +775,6 @@ def install_duts(argv, full_deploy):
         report_log = _MultiFileWriter([report_log_file, sys.stdout])
         afe = frontend.AFE(server=arguments.web)
         current_build = _update_build(afe, report_log, arguments)
-        report_log.write(_DIVIDER)
-        report_log.write('Repair version for board %s is now %s.\n' %
-                         (arguments.board, current_build))
         host_attr_dict = _get_host_attributes(arguments.host_info_list, afe)
         install_pool = multiprocessing.Pool(len(arguments.hostnames))
         install_function = functools.partial(_install_dut, arguments,
@@ -720,5 +793,5 @@ def install_duts(argv, full_deploy):
         with open(upload_failure_log_path, 'w') as file:
             traceback.print_exc(limit=None, file=file)
         sys.stderr.write('Failed to upload logs;'
-                         ' failure details are stored in {}.'
+                         ' failure details are stored in {}.\n'
                          .format(upload_failure_log_path))

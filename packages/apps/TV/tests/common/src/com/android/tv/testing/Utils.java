@@ -19,16 +19,15 @@ package com.android.tv.testing;
 import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
 import android.content.res.Resources;
 import android.media.tv.TvInputInfo;
 import android.media.tv.TvInputManager;
 import android.net.Uri;
-import android.os.Looper;
 import android.util.Log;
 
 import com.android.tv.common.TvCommonUtils;
-import com.android.tv.util.MainThreadExecutor;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,8 +36,6 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 import java.util.Random;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 
 /**
  * An utility class for testing.
@@ -101,27 +98,6 @@ public final class Utils {
         return new Random(DEFAULT_RANDOM_SEED);
     }
 
-    /**
-     * Executes a call on the main thread, blocking until it is completed.
-     *
-     * <p>Useful for doing things that are not thread-safe, such as looking at or modifying the view
-     * hierarchy.
-     *
-     * @param runnable The code to run on the main thread.
-     */
-    public static void runOnMainSync(Runnable runnable) {
-        if (Looper.myLooper() == Looper.getMainLooper()) {
-            runnable.run();
-        } else {
-            Future<?> temp = MainThreadExecutor.getInstance().submit(runnable);
-            try {
-                temp.get();
-            } catch (InterruptedException | ExecutionException e) {
-                throw new RuntimeException(e);
-            }
-        }
-    }
-
     private static long getSeed() {
         // Set random seed as the date to track failed test data easily.
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd", Locale.getDefault());
@@ -131,4 +107,16 @@ public final class Utils {
     }
 
     private Utils() {}
+
+    /**
+     * Checks whether TvActivity is enabled or not.
+     */
+    public static boolean isTvActivityEnabled(Context context) {
+        PackageManager pm = context.getPackageManager();
+        ComponentName name = new ComponentName("com.android.tv",
+                "com.android.tv.TvActivity");
+        int enabled = pm.getComponentEnabledSetting(name);
+        return enabled == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                || enabled == PackageManager.COMPONENT_ENABLED_STATE_DEFAULT;
+    }
 }

@@ -6,14 +6,14 @@
 
 AUTHOR = 'ARC++ Team'
 NAME = 'cheets_GTS.GtsAccountsHostTestCases'
-ATTRIBUTES = "suite:gts"
+ATTRIBUTES = 'suite:gts'
 DEPENDENCIES = 'arc'
 JOB_RETRIES = 2
 TEST_TYPE = 'server'
 TIME = 'LENGTHY'
 
 DOC = ('Run package GtsAccountsHostTestCases of the '
-       'Android 4.1_r1 Google Test Suite (GTS), build 3556119,'
+       'Android 4.1_r2 Google Test Suite (GTS), build 3911033,'
        'in the ARC++ container.')
 
 def run_GTS(machine):

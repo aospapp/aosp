@@ -29,9 +29,13 @@
 #include <sys/system_properties.h>
 #endif
 
+#include "command.h"
+#include "environment.h"
 #include "get_test_data.h"
 #include "read_elf.h"
+#include "test_util.h"
 #include "utils.h"
+#include "workload.h"
 
 static std::string testdata_dir;
 
@@ -124,46 +128,52 @@ class ScopedEnablingPerf {
   char prop_value_[PROP_VALUE_MAX];
 };
 
-static bool TestInAppContext(int argc, char** argv) {
-  // Use run-as to move the test executable to the data directory of debuggable app
-  // 'com.android.simpleperf', and run it.
-  std::string exe_path;
-  if (!android::base::Readlink("/proc/self/exe", &exe_path)) {
-    PLOG(ERROR) << "readlink failed";
-    return false;
+class ScopedWorkloadExecutable {
+ public:
+  ScopedWorkloadExecutable() {
+    std::string executable_path;
+    if (!android::base::Readlink("/proc/self/exe", &executable_path)) {
+      PLOG(ERROR) << "ReadLink failed";
+    }
+    Workload::RunCmd({"run-as", GetDefaultAppPackageName(), "cp", executable_path, "workload"});
   }
-  std::string copy_cmd = android::base::StringPrintf("run-as com.android.simpleperf cp %s .",
-                                                     exe_path.c_str());
-  if (system(copy_cmd.c_str()) == -1) {
-    PLOG(ERROR) << "system(" << copy_cmd << ") failed";
-    return false;
+
+  ~ScopedWorkloadExecutable() {
+    Workload::RunCmd({"run-as", GetDefaultAppPackageName(), "rm", "workload"});
   }
-  std::string arg_str;
-  arg_str += basename(argv[0]);
-  for (int i = 1; i < argc; ++i) {
-    arg_str.push_back(' ');
-    arg_str += argv[i];
+};
+
+class ScopedTempDir {
+ public:
+  ~ScopedTempDir() {
+    Workload::RunCmd({"rm", "-rf", dir_.path});
   }
-  std::string test_cmd = android::base::StringPrintf("run-as com.android.simpleperf ./%s",
-                                                     arg_str.c_str());
-  test_cmd += " --in-app-context";
-  if (system(test_cmd.c_str()) == -1) {
-    PLOG(ERROR) << "system(" << test_cmd << ") failed";
-    return false;
+
+  char* path() {
+    return dir_.path;
   }
-  return true;
-}
+
+ private:
+  TemporaryDir dir_;
+};
 
 #endif  // defined(__ANDROID__)
 
 int main(int argc, char** argv) {
   android::base::InitLogging(argv, android::base::StderrLogger);
   android::base::LogSeverity log_severity = android::base::WARNING;
-  bool need_app_context __attribute__((unused)) = false;
-  bool in_app_context __attribute__((unused)) = false;
 
 #if defined(RUN_IN_APP_CONTEXT)
-  need_app_context = true;
+  // When RUN_IN_APP_CONTEXT macro is defined, the tests running record/stat commands will
+  // be forced to run with '--app' option. It will copy the test binary to an Android application's
+  // directory, and use run-as to run the binary as simpleperf executable.
+  if (android::base::Basename(argv[0]) == "simpleperf") {
+    return RunSimpleperfCmd(argc, argv) ? 0 : 1;
+  } else if (android::base::Basename(argv[0]) == "workload") {
+    RunWorkloadFunction();
+  }
+  SetDefaultAppPackageName(RUN_IN_APP_CONTEXT);
+  ScopedWorkloadExecutable scoped_workload_executable;
 #endif
 
   for (int i = 1; i < argc; ++i) {
@@ -181,31 +191,22 @@ int main(int argc, char** argv) {
         LOG(ERROR) << "Missing argument for --log option.\n";
         return 1;
       }
-    } else if (strcmp(argv[i], "--in-app-context") == 0) {
-      in_app_context = true;
     }
   }
   android::base::ScopedLogSeverity severity(log_severity);
 
 #if defined(__ANDROID__)
-  std::unique_ptr<ScopedEnablingPerf> scoped_enabling_perf;
-  if (!in_app_context) {
-    // A cts test PerfEventParanoidTest.java is testing if
-    // /proc/sys/kernel/perf_event_paranoid is 3, so restore perf_harden
-    // value after current test to not break that test.
-    scoped_enabling_perf.reset(new ScopedEnablingPerf);
-  }
+  // A cts test PerfEventParanoidTest.java is testing if
+  // /proc/sys/kernel/perf_event_paranoid is 3, so restore perf_harden
+  // value after current test to not break that test.
+  ScopedEnablingPerf scoped_enabling_perf;
 
-  if (need_app_context && !in_app_context) {
-    return TestInAppContext(argc, argv) ? 0 : 1;
-  }
-
-  std::unique_ptr<TemporaryDir> tmp_dir;
+  std::unique_ptr<ScopedTempDir> tmp_dir;
   if (!::testing::GTEST_FLAG(list_tests) && testdata_dir.empty()) {
     testdata_dir = std::string(dirname(argv[0])) + "/testdata";
     if (!IsDir(testdata_dir)) {
-      tmp_dir.reset(new TemporaryDir);
-      testdata_dir = std::string(tmp_dir->path) + "/";
+      tmp_dir.reset(new ScopedTempDir);
+      testdata_dir = std::string(tmp_dir->path()) + "/";
       if (!ExtractTestDataFromElfSection()) {
         LOG(ERROR) << "failed to extract test data from elf section";
         return 1;

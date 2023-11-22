@@ -10,7 +10,7 @@ LOCAL_VENDOR_MODULE := true
 LOCAL_SRC_FILES:= \
 	Bundle/EffectBundle.cpp
 
-LOCAL_CFLAGS += -fvisibility=hidden
+LOCAL_CFLAGS += -fvisibility=hidden -DBUILD_FLOAT -DHIGHER_FS
 LOCAL_CFLAGS += -Wall -Werror
 
 LOCAL_MODULE:= libbundlewrapper
@@ -30,6 +30,7 @@ LOCAL_C_INCLUDES += \
 	$(LOCAL_PATH)/../lib/Bundle/lib/ \
 	$(call include-path-for, audio-effects)
 
+LOCAL_HEADER_LIBRARIES += libhardware_headers
 include $(BUILD_SHARED_LIBRARY)
 
 
@@ -42,7 +43,7 @@ LOCAL_VENDOR_MODULE := true
 LOCAL_SRC_FILES:= \
     Reverb/EffectReverb.cpp
 
-LOCAL_CFLAGS += -fvisibility=hidden
+LOCAL_CFLAGS += -fvisibility=hidden -DBUILD_FLOAT -DHIGHER_FS
 LOCAL_CFLAGS += -Wall -Werror
 
 LOCAL_MODULE:= libreverbwrapper
@@ -62,4 +63,5 @@ LOCAL_C_INCLUDES += \
     $(LOCAL_PATH)/../lib/Reverb/lib/ \
     $(call include-path-for, audio-effects)
 
+LOCAL_HEADER_LIBRARIES += libhardware_headers
 include $(BUILD_SHARED_LIBRARY)

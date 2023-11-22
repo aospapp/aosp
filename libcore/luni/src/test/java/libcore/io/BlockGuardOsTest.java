@@ -70,6 +70,7 @@ public class BlockGuardOsTest {
                 "getppid()",
                 "getpwnam(java.lang.String)",
                 "getpwuid(int)",
+                "getrlimit(int)",
                 "getsockname(java.io.FileDescriptor)",
                 "getsockoptByte(java.io.FileDescriptor,int,int)",
                 "getsockoptInAddr(java.io.FileDescriptor,int,int)",

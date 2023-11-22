@@ -17,6 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"ຂໍ້ມູນສຸກເສີນ"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"ຂໍ້ມູນການແພດ"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"ແກ້ໄຂຂໍ້ມູນ"</string>
     <string name="edit_info" msgid="5973929805855224805">"ແກ້ໄຂຂໍ້ມູນສຸກເສີນ"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"ຂໍ້ມູນ"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"ລາຍຊື່ຜູ້ຕິດຕໍ່"</string>
@@ -96,12 +98,12 @@
     <string name="cancel" msgid="7401575239009060939">"ຍົກເລີກ"</string>
     <string name="ok" msgid="163967937451981024">"ຕົກລົງ"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"ຂໍ້ມູນສຸກເສີນ"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"ຂໍ້ມູນທີ່ທ່ານລະບຸຢູ່ບ່ອນນີ້ສາມາດຊ່ວຍໃນກໍລະນີສຸກເສີນໄດ້. ມັນຈະຖືກບັນທຶກໃນອຸປະກອນຂອງທ່ານເທົ່ານັ້ນ, ແຕ່ທຸກຄົນສາມາດເບິ່ງມັນໄດ້ຈາກໜ້າຈໍໂທສຸກເສີນໂດຍບໍ່ຕ້ອງປົດລັອກໂທລະສັບຂອງທ່ານ."</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"ສືບຕໍ່"</string>
     <string name="no_info_provided" msgid="716200382010821001">"ບໍ່ມີຂໍ້ມູນກ່ຽວກັບເຈົ້າຂອງໂທລະສັບ"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"ຫາກນີ້ແມ່ນໂທລະສັບຂອງທ່ານ, ໃຫ້ແຕະທີ່ໄອຄອນຮູບສໍເພື່ອເພີ່ມຂໍ້ມູນທີ່ຈະສະແດງບ່ອນນີ້ໃນກໍລະນີສຸກເສີນ."</string>
     <string name="clear_all" msgid="8899013032870561633">"ລຶບລ້າງທັງໝົດ"</string>
     <string name="clear" msgid="3648880442502887163">"ລຶບລ້າງ"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"ລຶບລ້າງຂໍ້ມູນ ແລະ ລາຍຊື່ຜູ້ຕິດຕໍ່ທັງໝົດອອກບໍ?"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"ການເພີ່ມຂໍ້ມູນທາງການແພດ ແລະ ລາຍຊື່ຜູ້ຕິດຕໍ່ສຸກເສີນສາມາດຊ່ວຍໃນກໍລະນີມີເຫດສຸກເສີນໄດ້.\n\nທຸກຄົນສາມາດເບິ່ງເຫັນຂໍ້ມູນນີ້ຈາກໜ້າຈໍລັອກຂອງທ່ານ ແລະ ໂທຫາລາຍຊື່ຜູ້ຕິດຕໍ່ຂອງທ່ານໂດຍການແຕະທີ່ຊື່ຂອງເຂົາເຈົ້າ, ໂດຍບໍ່ຕ້ອງປົດລັອກໂທລະສັບຂອງທ່ານໄດ້."</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"ເພີ່ມຂໍ້ມູນສຸກເສີນ"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"ຊ່ວຍຜູ້ຕອບກັບທຳອິດຊອກຫາຂໍ້ມູນສຳຄັນໄດ້"</string>
 </resources>

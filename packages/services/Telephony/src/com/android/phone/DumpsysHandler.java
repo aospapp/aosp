@@ -15,6 +15,7 @@ public class DumpsysHandler {
 
     public static void dump(Context context, FileDescriptor fd, PrintWriter writer,
             String[] args) {
+        PhoneGlobals.getInstance().dump(fd, writer, args);
         // Dump OMTP visual voicemail log.
         VvmDumpHandler.dump(context, fd, writer, args);
     }

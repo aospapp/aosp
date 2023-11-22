@@ -26,14 +26,12 @@ namespace dvr {
 
 DisplaySurface::DisplaySurface(DisplayService* service,
                                SurfaceType surface_type, int surface_id,
-                               int process_id, int user_id,
-                               const display::SurfaceAttributes& attributes)
+                               int process_id, int user_id)
     : service_(service),
       surface_type_(surface_type),
       surface_id_(surface_id),
       process_id_(process_id),
       user_id_(user_id),
-      attributes_(attributes),
       update_flags_(display::SurfaceUpdateFlags::NewSurface) {}
 
 DisplaySurface::~DisplaySurface() {
@@ -68,7 +66,7 @@ Status<void> DisplaySurface::OnSetAttributes(
   display::SurfaceUpdateFlags update_flags;
 
   for (const auto& attribute : attributes) {
-    const auto& key = attribute.first;
+    const auto key = attribute.first;
     const auto* variant = &attribute.second;
     bool invalid_value = false;
     bool visibility_changed = false;
@@ -95,14 +93,23 @@ Status<void> DisplaySurface::OnSetAttributes(
         break;
     }
 
+    // Only update the attribute map with valid values. This check also has the
+    // effect of preventing special attributes handled above from being deleted
+    // by an empty value.
     if (invalid_value) {
       ALOGW(
           "DisplaySurface::OnClientSetAttributes: Failed to set display "
           "surface attribute '%d' because of incompatible type: %d",
           key, variant->index());
     } else {
-      // Only update the attribute map with valid values.
-      attributes_[attribute.first] = attribute.second;
+      // An empty value indicates the attribute should be deleted.
+      if (variant->empty()) {
+        auto search = attributes_.find(key);
+        if (search != attributes_.end())
+          attributes_.erase(search);
+      } else {
+        attributes_[key] = *variant;
+      }
 
       // All attribute changes generate a notification, even if the value
       // doesn't change. Visibility attributes set a flag only if the value
@@ -127,7 +134,8 @@ void DisplaySurface::SurfaceUpdated(display::SurfaceUpdateFlags update_flags) {
 }
 
 void DisplaySurface::ClearUpdate() {
-  ALOGD_IF(TRACE, "DisplaySurface::ClearUpdate: surface_id=%d", surface_id());
+  ALOGD_IF(TRACE > 1, "DisplaySurface::ClearUpdate: surface_id=%d",
+           surface_id());
   update_flags_ = display::SurfaceUpdateFlags::None;
 }
 
@@ -184,6 +192,7 @@ std::shared_ptr<ConsumerQueue> ApplicationDisplaySurface::GetQueue(
            "ApplicationDisplaySurface::GetQueue: surface_id=%d queue_id=%d",
            surface_id(), queue_id);
 
+  std::lock_guard<std::mutex> autolock(lock_);
   auto search = consumer_queues_.find(queue_id);
   if (search != consumer_queues_.end())
     return search->second;
@@ -192,6 +201,7 @@ std::shared_ptr<ConsumerQueue> ApplicationDisplaySurface::GetQueue(
 }
 
 std::vector<int32_t> ApplicationDisplaySurface::GetQueueIds() const {
+  std::lock_guard<std::mutex> autolock(lock_);
   std::vector<int32_t> queue_ids;
   for (const auto& entry : consumer_queues_)
     queue_ids.push_back(entry.first);
@@ -199,15 +209,15 @@ std::vector<int32_t> ApplicationDisplaySurface::GetQueueIds() const {
 }
 
 Status<LocalChannelHandle> ApplicationDisplaySurface::OnCreateQueue(
-    Message& /*message*/, size_t meta_size_bytes) {
+    Message& /*message*/, const ProducerQueueConfig& config) {
   ATRACE_NAME("ApplicationDisplaySurface::OnCreateQueue");
   ALOGD_IF(TRACE,
            "ApplicationDisplaySurface::OnCreateQueue: surface_id=%d, "
-           "meta_size_bytes=%zu",
-           surface_id(), meta_size_bytes);
+           "user_metadata_size=%zu",
+           surface_id(), config.user_metadata_size);
 
   std::lock_guard<std::mutex> autolock(lock_);
-  auto producer = ProducerQueue::Create(meta_size_bytes);
+  auto producer = ProducerQueue::Create(config, UsagePolicy{});
   if (!producer) {
     ALOGE(
         "ApplicationDisplaySurface::OnCreateQueue: Failed to create producer "
@@ -238,11 +248,12 @@ void ApplicationDisplaySurface::OnQueueEvent(
            "ApplicationDisplaySurface::OnQueueEvent: queue_id=%d events=%x",
            consumer_queue->id(), events);
 
+  std::lock_guard<std::mutex> autolock(lock_);
+
   // Always give the queue a chance to handle its internal bookkeeping.
   consumer_queue->HandleQueueEvents();
 
   // Check for hangup and remove a queue that is no longer needed.
-  std::lock_guard<std::mutex> autolock(lock_);
   if (consumer_queue->hung_up()) {
     ALOGD_IF(TRACE, "ApplicationDisplaySurface::OnQueueEvent: Removing queue.");
     UnregisterQueue(consumer_queue);
@@ -258,17 +269,28 @@ void ApplicationDisplaySurface::OnQueueEvent(
   }
 }
 
+std::vector<int32_t> DirectDisplaySurface::GetQueueIds() const {
+  std::lock_guard<std::mutex> autolock(lock_);
+  std::vector<int32_t> queue_ids;
+  if (direct_queue_)
+    queue_ids.push_back(direct_queue_->id());
+  return queue_ids;
+}
+
 Status<LocalChannelHandle> DirectDisplaySurface::OnCreateQueue(
-    Message& /*message*/, size_t meta_size_bytes) {
+    Message& /*message*/, const ProducerQueueConfig& config) {
   ATRACE_NAME("DirectDisplaySurface::OnCreateQueue");
-  ALOGD_IF(
-      TRACE,
-      "DirectDisplaySurface::OnCreateQueue: surface_id=%d meta_size_bytes=%zu",
-      surface_id(), meta_size_bytes);
+  ALOGD_IF(TRACE,
+           "DirectDisplaySurface::OnCreateQueue: surface_id=%d "
+           "user_metadata_size=%zu",
+           surface_id(), config.user_metadata_size);
 
   std::lock_guard<std::mutex> autolock(lock_);
   if (!direct_queue_) {
-    auto producer = ProducerQueue::Create(meta_size_bytes);
+    // Inject the hw composer usage flag to enable the display to read the
+    // buffers.
+    auto producer = ProducerQueue::Create(
+        config, UsagePolicy{GraphicBuffer::USAGE_HW_COMPOSER, 0, 0, 0});
     if (!producer) {
       ALOGE(
           "DirectDisplaySurface::OnCreateQueue: Failed to create producer "
@@ -277,6 +299,9 @@ Status<LocalChannelHandle> DirectDisplaySurface::OnCreateQueue(
     }
 
     direct_queue_ = producer->CreateConsumerQueue();
+    if (direct_queue_->metadata_size() > 0) {
+      metadata_.reset(new uint8_t[direct_queue_->metadata_size()]);
+    }
     auto status = RegisterQueue(direct_queue_);
     if (!status) {
       ALOGE(
@@ -297,11 +322,12 @@ void DirectDisplaySurface::OnQueueEvent(
   ALOGD_IF(TRACE, "DirectDisplaySurface::OnQueueEvent: queue_id=%d events=%x",
            consumer_queue->id(), events);
 
+  std::lock_guard<std::mutex> autolock(lock_);
+
   // Always give the queue a chance to handle its internal bookkeeping.
   consumer_queue->HandleQueueEvents();
 
   // Check for hangup and remove a queue that is no longer needed.
-  std::lock_guard<std::mutex> autolock(lock_);
   if (consumer_queue->hung_up()) {
     ALOGD_IF(TRACE, "DirectDisplaySurface::OnQueueEvent: Removing queue.");
     UnregisterQueue(consumer_queue);
@@ -320,10 +346,15 @@ void DirectDisplaySurface::DequeueBuffersLocked() {
   while (true) {
     LocalHandle acquire_fence;
     size_t slot;
-    auto buffer_status = direct_queue_->Dequeue(0, &slot, &acquire_fence);
+    auto buffer_status = direct_queue_->Dequeue(
+        0, &slot, metadata_.get(),
+        direct_queue_->metadata_size(), &acquire_fence);
+    ALOGD_IF(TRACE,
+             "DirectDisplaySurface::DequeueBuffersLocked: Dequeue with metadata_size: %zu",
+             direct_queue_->metadata_size());
     if (!buffer_status) {
       ALOGD_IF(
-          TRACE && buffer_status.error() == ETIMEDOUT,
+          TRACE > 1 && buffer_status.error() == ETIMEDOUT,
           "DirectDisplaySurface::DequeueBuffersLocked: All buffers dequeued.");
       ALOGE_IF(buffer_status.error() != ETIMEDOUT,
                "DirectDisplaySurface::DequeueBuffersLocked: Failed to dequeue "
@@ -351,7 +382,7 @@ void DirectDisplaySurface::DequeueBuffersLocked() {
     }
 
     acquired_buffers_.Append(
-        AcquiredBuffer(buffer_consumer, std::move(acquire_fence)));
+        AcquiredBuffer(buffer_consumer, std::move(acquire_fence), slot));
   }
 }
 
@@ -367,8 +398,8 @@ AcquiredBuffer DirectDisplaySurface::AcquireCurrentBuffer() {
   }
   AcquiredBuffer buffer = std::move(acquired_buffers_.Front());
   acquired_buffers_.PopFront();
-  ALOGD_IF(TRACE, "DirectDisplaySurface::AcquireCurrentBuffer: buffer: %p",
-           buffer.buffer().get());
+  ALOGD_IF(TRACE, "DirectDisplaySurface::AcquireCurrentBuffer: buffer_id=%d",
+           buffer.buffer()->id());
   return buffer;
 }
 
@@ -396,8 +427,8 @@ AcquiredBuffer DirectDisplaySurface::AcquireNewestAvailableBuffer(
       break;
   }
   ALOGD_IF(TRACE,
-           "DirectDisplaySurface::AcquireNewestAvailableBuffer: buffer: %p",
-           buffer.buffer().get());
+           "DirectDisplaySurface::AcquireNewestAvailableBuffer: buffer_id=%d",
+           buffer.buffer()->id());
   return buffer;
 }
 
@@ -438,8 +469,8 @@ Status<std::shared_ptr<DisplaySurface>> DisplaySurface::Create(
   if (direct) {
     const bool trusted = user_id == AID_ROOT || IsTrustedUid(user_id);
     if (trusted) {
-      return {std::shared_ptr<DisplaySurface>{new DirectDisplaySurface(
-          service, surface_id, process_id, user_id, attributes)}};
+      return {std::shared_ptr<DisplaySurface>{
+          new DirectDisplaySurface(service, surface_id, process_id, user_id)}};
     } else {
       ALOGE(
           "DisplaySurface::Create: Direct surfaces may only be created by "
@@ -449,7 +480,7 @@ Status<std::shared_ptr<DisplaySurface>> DisplaySurface::Create(
     }
   } else {
     return {std::shared_ptr<DisplaySurface>{new ApplicationDisplaySurface(
-        service, surface_id, process_id, user_id, attributes)}};
+        service, surface_id, process_id, user_id)}};
   }
 }
 

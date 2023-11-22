@@ -11,6 +11,7 @@ import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 // BEGIN android-removed
 // import org.bouncycastle.asn1.anssi.ANSSINamedCurves;
 // import org.bouncycastle.asn1.cryptopro.ECGOST3410NamedCurves;
+// import org.bouncycastle.asn1.gm.GMNamedCurves;
 // END android-removed
 import org.bouncycastle.asn1.nist.NISTNamedCurves;
 import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
@@ -350,6 +351,10 @@ public class ECUtil
             // {
             //     oid = ANSSINamedCurves.getOID(name);
             // }
+            // if (oid == null)
+            // {
+            //     oid = GMNamedCurves.getOID(name);
+            // }
             // END android-removed
         }
 
@@ -398,6 +403,10 @@ public class ECUtil
             // {
             //     params = TeleTrusTNamedCurves.getByOID(oid);
             // }
+            // if (params == null)
+            // {
+            //     params = GMNamedCurves.getByOID(oid);
+            // }
             // END android-removed
         }
 
@@ -424,6 +433,10 @@ public class ECUtil
             // if (params == null)
             // {
             //     params = TeleTrusTNamedCurves.getByName(curveName);
+            // }
+            // if (params == null)
+            // {
+            //     params = GMNamedCurves.getByName(curveName);
             // }
             // END android-removed
         }

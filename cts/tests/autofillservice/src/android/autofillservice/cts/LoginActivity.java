@@ -20,8 +20,8 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.util.Log;
-import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
@@ -50,6 +50,8 @@ public class LoginActivity extends AbstractAutoFillActivity {
 
     static final String ID_USERNAME_CONTAINER = "username_container";
     static final String AUTHENTICATION_MESSAGE = "Authentication failed. D'OH!";
+    static final String BACKDOOR_USERNAME = "LemmeIn";
+    static final String BACKDOOR_PASSWORD_SUBSTRING = "pass";
 
     private TextView mUsernameLabel;
     private EditText mUsernameEditText;
@@ -76,18 +78,17 @@ public class LoginActivity extends AbstractAutoFillActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         setContentView(getContentView());
 
-        mLoginButton = (Button) findViewById(R.id.login);
-        mSaveButton = (Button) findViewById(R.id.save);
-        mClearButton = (Button) findViewById(R.id.clear);
-        mCancelButton = (Button) findViewById(R.id.cancel);
-        mUsernameLabel = (TextView) findViewById(R.id.username_label);
-        mUsernameEditText = (EditText) findViewById(R.id.username);
-        mPasswordLabel = (TextView) findViewById(R.id.password_label);
-        mPasswordEditText = (EditText) findViewById(R.id.password);
-        mOutput = (TextView) findViewById(R.id.output);
+        mLoginButton = findViewById(R.id.login);
+        mSaveButton = findViewById(R.id.save);
+        mClearButton = findViewById(R.id.clear);
+        mCancelButton = findViewById(R.id.cancel);
+        mUsernameLabel = findViewById(R.id.username_label);
+        mUsernameEditText = findViewById(R.id.username);
+        mPasswordLabel = findViewById(R.id.password_label);
+        mPasswordEditText = findViewById(R.id.password);
+        mOutput = findViewById(R.id.output);
 
         mLoginButton.setOnClickListener((v) -> login());
         mSaveButton.setOnClickListener((v) -> save());
@@ -110,7 +111,10 @@ public class LoginActivity extends AbstractAutoFillActivity {
     private void login() {
         final String username = mUsernameEditText.getText().toString();
         final String password = mPasswordEditText.getText().toString();
-        final boolean valid = username.equals(password) || password.contains("pass");
+        final boolean valid = username.equals(password)
+                || (TextUtils.isEmpty(username) && TextUtils.isEmpty(password))
+                || password.contains(BACKDOOR_PASSWORD_SUBSTRING)
+                || username.equals(BACKDOOR_USERNAME);
 
         if (valid) {
             Log.d(TAG, "login ok: " + username);
@@ -165,12 +169,23 @@ public class LoginActivity extends AbstractAutoFillActivity {
     }
 
     /**
+     * Sets the expectation for an autofill request (for password only), so it can be asserted
+     * through {@link #assertAutoFilled()} later.
+     */
+    void expectPasswordAutoFill(String password) {
+        mExpectation = new FillExpectation(null, password);
+        mPasswordEditText.addTextChangedListener(mExpectation.ccPasswordWatcher);
+    }
+
+    /**
      * Asserts the activity was auto-filled with the values passed to
      * {@link #expectAutoFill(String, String)}.
      */
     void assertAutoFilled() throws Exception {
         assertWithMessage("expectAutoFill() not called").that(mExpectation).isNotNull();
-        mExpectation.ccUsernameWatcher.assertAutoFilled();
+        if (mExpectation.ccUsernameWatcher != null) {
+            mExpectation.ccUsernameWatcher.assertAutoFilled();
+        }
         if (mExpectation.ccPasswordWatcher != null) {
             mExpectation.ccPasswordWatcher.assertAutoFilled();
         }
@@ -264,13 +279,14 @@ public class LoginActivity extends AbstractAutoFillActivity {
         private final OneTimeTextWatcher ccPasswordWatcher;
 
         private FillExpectation(String username, String password) {
-            ccUsernameWatcher = new OneTimeTextWatcher("username", mUsernameEditText, username);
-            ccPasswordWatcher = new OneTimeTextWatcher("password", mPasswordEditText, password);
+            ccUsernameWatcher = username == null ? null
+                    : new OneTimeTextWatcher("username", mUsernameEditText, username);
+            ccPasswordWatcher = password == null ? null
+                    : new OneTimeTextWatcher("password", mPasswordEditText, password);
         }
 
         private FillExpectation(String username) {
-            ccUsernameWatcher = new OneTimeTextWatcher("username", mUsernameEditText, username);
-            ccPasswordWatcher = null;
+            this(username, null);
         }
     }
 }

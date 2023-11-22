@@ -18,7 +18,7 @@
 
 #include <assert.h>
 
-#include <new>
+#include <keymaster/new>
 
 #include <openssl/aes.h>
 #include <openssl/sha.h>

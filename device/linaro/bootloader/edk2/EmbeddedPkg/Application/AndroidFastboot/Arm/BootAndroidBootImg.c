@@ -137,7 +137,7 @@ BootAndroidBootImg (
     StrCat (UnicodeArgs, SerialNoArgs);
   }
 
-  BdsLoadOptions->OptionalDataSize = 512;
+  BdsLoadOptions->OptionalDataSize = StrSize (UnicodeArgs);
   BdsLoadOptions->OptionalData = UnicodeArgs;
   BdsLoadOptions->Description = NULL;
 

@@ -25,6 +25,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"android/soong/ui/build"
 	"android/soong/ui/logger"
@@ -47,13 +48,112 @@ var numJobs = flag.Int("j", detectNumJobs(), "number of parallel kati jobs")
 var keep = flag.Bool("keep", false, "keep successful output files")
 
 var outDir = flag.String("out", "", "path to store output directories (defaults to tmpdir under $OUT when empty)")
+var alternateResultDir = flag.Bool("dist", false, "write select results to $DIST_DIR (or <out>/dist when empty)")
 
 var onlyConfig = flag.Bool("only-config", false, "Only run product config (not Soong or Kati)")
 var onlySoong = flag.Bool("only-soong", false, "Only run product config and Soong (not Kati)")
 
+var buildVariant = flag.String("variant", "eng", "build variant to use")
+
+const errorLeadingLines = 20
+const errorTrailingLines = 20
+
 type Product struct {
-	ctx    build.Context
-	config build.Config
+	ctx     build.Context
+	config  build.Config
+	logFile string
+}
+
+type Status struct {
+	cur    int
+	total  int
+	failed int
+
+	ctx           build.Context
+	haveBlankLine bool
+	smartTerminal bool
+
+	lock sync.Mutex
+}
+
+func NewStatus(ctx build.Context) *Status {
+	return &Status{
+		ctx:           ctx,
+		haveBlankLine: true,
+		smartTerminal: ctx.IsTerminal(),
+	}
+}
+
+func (s *Status) SetTotal(total int) {
+	s.total = total
+}
+
+func (s *Status) Fail(product string, err error, logFile string) {
+	s.Finish(product)
+
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	if s.smartTerminal && !s.haveBlankLine {
+		fmt.Fprintln(s.ctx.Stdout())
+		s.haveBlankLine = true
+	}
+
+	s.failed++
+	fmt.Fprintln(s.ctx.Stderr(), "FAILED:", product)
+	s.ctx.Verboseln("FAILED:", product)
+
+	if logFile != "" {
+		data, err := ioutil.ReadFile(logFile)
+		if err == nil {
+			lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+			if len(lines) > errorLeadingLines+errorTrailingLines+1 {
+				lines[errorLeadingLines] = fmt.Sprintf("... skipping %d lines ...",
+					len(lines)-errorLeadingLines-errorTrailingLines)
+
+				lines = append(lines[:errorLeadingLines+1],
+					lines[len(lines)-errorTrailingLines:]...)
+			}
+			for _, line := range lines {
+				fmt.Fprintln(s.ctx.Stderr(), "> ", line)
+				s.ctx.Verboseln(line)
+			}
+		}
+	}
+
+	s.ctx.Print(err)
+}
+
+func (s *Status) Finish(product string) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	s.cur++
+	line := fmt.Sprintf("[%d/%d] %s", s.cur, s.total, product)
+
+	if s.smartTerminal {
+		if max, ok := s.ctx.TermWidth(); ok {
+			if len(line) > max {
+				line = line[:max]
+			}
+		}
+
+		fmt.Fprint(s.ctx.Stdout(), "\r", line, "\x1b[K")
+		s.haveBlankLine = false
+	} else {
+		s.ctx.Println(line)
+	}
+}
+
+func (s *Status) Finished() int {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	if !s.haveBlankLine {
+		fmt.Fprintln(s.ctx.Stdout())
+		s.haveBlankLine = true
+	}
+	return s.failed
 }
 
 func main() {
@@ -80,19 +180,28 @@ func main() {
 		StdioInterface: build.StdioImpl{},
 	}}
 
-	failed := false
+	status := NewStatus(buildCtx)
 
 	config := build.NewConfig(buildCtx)
 	if *outDir == "" {
-		var err error
-		*outDir, err = ioutil.TempDir(config.OutDir(), "multiproduct")
-		if err != nil {
+		name := "multiproduct-" + time.Now().Format("20060102150405")
+
+		*outDir = filepath.Join(config.OutDir(), name)
+
+		// Ensure the empty files exist in the output directory
+		// containing our output directory too. This is mostly for
+		// safety, but also triggers the ninja_build file so that our
+		// build servers know that they can parse the output as if it
+		// was ninja output.
+		build.SetupOutDir(buildCtx, config)
+
+		if err := os.MkdirAll(*outDir, 0777); err != nil {
 			log.Fatalf("Failed to create tempdir: %v", err)
 		}
 
 		if !*keep {
 			defer func() {
-				if !failed {
+				if status.Finished() == 0 {
 					os.RemoveAll(*outDir)
 				}
 			}()
@@ -102,8 +211,15 @@ func main() {
 	log.Println("Output directory:", *outDir)
 
 	build.SetupOutDir(buildCtx, config)
-	log.SetOutput(filepath.Join(config.OutDir(), "soong.log"))
-	trace.SetOutput(filepath.Join(config.OutDir(), "build.trace"))
+	if *alternateResultDir {
+		logsDir := filepath.Join(config.DistDir(), "logs")
+		os.MkdirAll(logsDir, 0777)
+		log.SetOutput(filepath.Join(logsDir, "soong.log"))
+		trace.SetOutput(filepath.Join(logsDir, "build.trace"))
+	} else {
+		log.SetOutput(filepath.Join(config.OutDir(), "soong.log"))
+		trace.SetOutput(filepath.Join(config.OutDir(), "build.trace"))
+	}
 
 	vars, err := build.DumpMakeVars(buildCtx, config, nil, nil, []string{"all_named_products"})
 	if err != nil {
@@ -112,32 +228,43 @@ func main() {
 	products := strings.Fields(vars["all_named_products"])
 	log.Verbose("Got product list:", products)
 
+	status.SetTotal(len(products))
+
 	var wg sync.WaitGroup
-	errs := make(chan error, len(products))
 	productConfigs := make(chan Product, len(products))
 
 	// Run the product config for every product in parallel
 	for _, product := range products {
 		wg.Add(1)
 		go func(product string) {
+			var stdLog string
+
 			defer wg.Done()
 			defer logger.Recover(func(err error) {
-				errs <- fmt.Errorf("Error building %s: %v", product, err)
+				status.Fail(product, err, stdLog)
 			})
 
 			productOutDir := filepath.Join(config.OutDir(), product)
+			productLogDir := productOutDir
+			if *alternateResultDir {
+				productLogDir = filepath.Join(config.DistDir(), product)
+				if err := os.MkdirAll(productLogDir, 0777); err != nil {
+					log.Fatalf("Error creating log directory: %v", err)
+				}
+			}
 
 			if err := os.MkdirAll(productOutDir, 0777); err != nil {
 				log.Fatalf("Error creating out directory: %v", err)
 			}
 
-			f, err := os.Create(filepath.Join(productOutDir, "std.log"))
+			stdLog = filepath.Join(productLogDir, "std.log")
+			f, err := os.Create(stdLog)
 			if err != nil {
 				log.Fatalf("Error creating std.log: %v", err)
 			}
 
 			productLog := logger.New(&bytes.Buffer{})
-			productLog.SetOutput(filepath.Join(productOutDir, "soong.log"))
+			productLog.SetOutput(filepath.Join(productLogDir, "soong.log"))
 
 			productCtx := build.Context{&build.ContextImpl{
 				Context:        ctx,
@@ -149,10 +276,10 @@ func main() {
 
 			productConfig := build.NewConfig(productCtx)
 			productConfig.Environment().Set("OUT_DIR", productOutDir)
-			productConfig.Lunch(productCtx, product, "eng")
+			productConfig.Lunch(productCtx, product, *buildVariant)
 
 			build.Build(productCtx, productConfig, build.BuildProductConfig)
-			productConfigs <- Product{productCtx, productConfig}
+			productConfigs <- Product{productCtx, productConfig, stdLog}
 		}(product)
 	}
 	go func() {
@@ -169,7 +296,7 @@ func main() {
 			for product := range productConfigs {
 				func() {
 					defer logger.Recover(func(err error) {
-						errs <- fmt.Errorf("Error building %s: %v", product.config.TargetProduct(), err)
+						status.Fail(product.config.TargetProduct(), err, product.logFile)
 					})
 
 					buildWhat := 0
@@ -183,22 +310,14 @@ func main() {
 					if !*keep {
 						os.RemoveAll(product.config.OutDir())
 					}
-					log.Println("Finished running for", product.config.TargetProduct())
+					status.Finish(product.config.TargetProduct())
 				}()
 			}
 		}()
 	}
-	go func() {
-		wg2.Wait()
-		close(errs)
-	}()
+	wg2.Wait()
 
-	for err := range errs {
-		failed = true
-		log.Print(err)
-	}
-
-	if failed {
-		log.Fatalln("Failed")
+	if count := status.Finished(); count > 0 {
+		log.Fatalln(count, "products failed")
 	}
 }

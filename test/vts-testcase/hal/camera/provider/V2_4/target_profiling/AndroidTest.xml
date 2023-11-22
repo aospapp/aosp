@@ -33,10 +33,10 @@
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
         <option name="test-module-name" value="VtsHalCameraProviderV2_4TargetProfiling"/>
         <option name="binary-test-source" value="_32bit::DATA/nativetest/VtsHalCameraProviderV2_4TargetTest/VtsHalCameraProviderV2_4TargetTest"/>
+        <option name="binary-test-source" value="_64bit::DATA/nativetest64/VtsHalCameraProviderV2_4TargetTest/VtsHalCameraProviderV2_4TargetTest"/>
         <option name="binary-test-type" value="hal_hidl_gtest"/>
         <option name="enable-profiling" value="true"/>
         <option name="precondition-lshal" value="android.hardware.camera.provider@2.4"/>
-        <option name="skip-on-64bit-abi" value="true"/>
         <option name="test-timeout" value="45m"/>
     </test>
 </configuration>

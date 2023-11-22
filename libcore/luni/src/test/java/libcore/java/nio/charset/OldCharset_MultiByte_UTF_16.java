@@ -15,10 +15,6 @@
  */
 package libcore.java.nio.charset;
 
-/** @hide
- * SEE correspondig_Android test class:
- */
-
 public class OldCharset_MultiByte_UTF_16 extends OldCharset_AbstractTest {
 
     @Override

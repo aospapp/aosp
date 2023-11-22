@@ -2,20 +2,31 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-LDFLAGS =  -lrt -ldl
+PKG_CONFIG ?= pkg-config
+DEP_LIBS = libchrome-$(BASE_VER) libyuv
+CXXFLAGS += $(shell $(PKG_CONFIG) --cflags $(DEP_LIBS)) -std=c++11
+
+LDFLAGS = -lrt -ldl -ljpeg
+LDFLAGS += $(shell $(PKG_CONFIG) --libs $(DEP_LIBS))
 
 LDFLAGS_UNITTEST = -lrt
+LDFLAGS_UNITTEST += $(shell $(PKG_CONFIG) --libs $(DEP_LIBS))
 
 LDFLAGS_HELPER = -lrt
 
-SRC = media_v4l2_device.cc  \
-      media_v4l2_test.cc
+SRC = \
+	camera_characteristics.cc \
+	media_v4l2_device.cc  \
+	media_v4l2_test.cc
 
-SRC_UNITTEST = media_v4l2_device.cc \
-               media_v4l2_unittest.cc
+SRC_UNITTEST = \
+	camera_characteristics.cc \
+	media_v4l2_device.cc \
+	media_v4l2_unittest.cc
 
-SRC_HELPER = media_v4l2_device.cc \
-             media_v4l2_is_capture_device.cc
+SRC_HELPER = \
+	media_v4l2_device.cc \
+	media_v4l2_is_capture_device.cc
 
 TARGET = ../media_v4l2_test
 

@@ -19,7 +19,7 @@
     </target_preparer>
 
     <option name="test-tag" value="android_systemui" />
-    <test class="com.android.tradefed.testtype.InstrumentationTest" >
+    <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.overview.functional" />
         <option name="runner" value="android.support.test.runner.AndroidJUnitRunner" />
     </test>

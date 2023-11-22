@@ -22,6 +22,8 @@ def run(machine):
                  testbed=hosts.create_testbed(machine),
                  config_file='android1758-bluetooth.config',
                  test_file='bt_funhaus_test',
+                 test_tracker_project_id=11404,
+                 testtracker_owner='android-comms-tvc@google.com',
                  acts_timeout=86400,
                  additional_configs=['bt_config_funhaus.json', 'bt_configs', 'bt_music']
                  )

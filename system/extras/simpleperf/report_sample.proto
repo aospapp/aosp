@@ -15,6 +15,8 @@ option java_package = "com.android.tools.profiler.proto";
 option java_outer_classname = "SimpleperfReport";
 
 message Sample {
+  // Wall clock time for current sample.
+  // By default, it is perf clock used in kernel.
   optional uint64 time = 1;
   optional int32 thread_id = 2;
 
@@ -32,6 +34,13 @@ message Sample {
   }
 
   repeated CallChainEntry callchain = 3;
+
+  // Count of the events that have happened since last sample (regardless of
+  // whether the last sample is lost). The event type is decided by '-e' option
+  // in simpleperf record command. By default, '-e cpu-cycles' is used, and this
+  // field is the number of cpu cycles.
+  optional uint64 event_count = 4;
+
 }
 
 message LostSituation {
@@ -50,10 +59,17 @@ message File {
   repeated string symbol = 3;
 }
 
+message Thread {
+  optional uint32 thread_id = 1;
+  optional uint32 process_id = 2;
+  optional string thread_name = 3;
+}
+
 message Record {
   oneof record_data {
     Sample sample = 1;
     LostSituation lost = 2;
     File file = 3;
+    Thread thread = 4;
   }
 }

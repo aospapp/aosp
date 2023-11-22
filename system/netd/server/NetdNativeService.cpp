@@ -28,6 +28,8 @@
 #include <binder/IServiceManager.h>
 #include "android/net/BnNetd.h"
 
+#include <openssl/base64.h>
+
 #include "Controllers.h"
 #include "DumpWriter.h"
 #include "EventReporter.h"
@@ -46,7 +48,15 @@ namespace net {
 namespace {
 
 const char CONNECTIVITY_INTERNAL[] = "android.permission.CONNECTIVITY_INTERNAL";
+const char NETWORK_STACK[] = "android.permission.NETWORK_STACK";
 const char DUMP[] = "android.permission.DUMP";
+
+binder::Status toBinderStatus(const netdutils::Status s) {
+    if (isOk(s)) {
+        return binder::Status::ok();
+    }
+    return binder::Status::fromServiceSpecificError(s.code(), s.msg().c_str());
+}
 
 binder::Status checkPermission(const char *permission) {
     pid_t pid;
@@ -226,6 +236,47 @@ binder::Status NetdNativeService::getResolverInfo(int32_t netId,
     return binder::Status::ok();
 }
 
+binder::Status NetdNativeService::addPrivateDnsServer(const std::string& server, int32_t port,
+        const std::string& fingerprintAlgorithm, const std::vector<std::string>& fingerprints) {
+    ENFORCE_PERMISSION(CONNECTIVITY_INTERNAL);
+    std::set<std::vector<uint8_t>> decoded_fingerprints;
+    for (const std::string& input : fingerprints) {
+        size_t out_len;
+        if (EVP_DecodedLength(&out_len, input.size()) != 1) {
+            return binder::Status::fromServiceSpecificError(INetd::PRIVATE_DNS_BAD_FINGERPRINT,
+                    "ResolverController error: bad fingerprint length");
+        }
+        // out_len is now an upper bound on the output length.
+        std::vector<uint8_t> decoded(out_len);
+        if (EVP_DecodeBase64(decoded.data(), &out_len, decoded.size(),
+                reinterpret_cast<const uint8_t*>(input.data()), input.size()) == 1) {
+            // Possibly shrink the vector if the actual output was smaller than the bound.
+            decoded.resize(out_len);
+        } else {
+            return binder::Status::fromServiceSpecificError(INetd::PRIVATE_DNS_BAD_FINGERPRINT,
+                    "ResolverController error: Base64 parsing failed");
+        }
+        decoded_fingerprints.insert(decoded);
+    }
+    const int err = gCtls->resolverCtrl.addPrivateDnsServer(server, port,
+            fingerprintAlgorithm, decoded_fingerprints);
+    if (err != INetd::PRIVATE_DNS_SUCCESS) {
+        return binder::Status::fromServiceSpecificError(err,
+                String8::format("ResolverController error: %d", err));
+    }
+    return binder::Status::ok();
+}
+
+binder::Status NetdNativeService::removePrivateDnsServer(const std::string& server) {
+    ENFORCE_PERMISSION(CONNECTIVITY_INTERNAL);
+    const int err = gCtls->resolverCtrl.removePrivateDnsServer(server);
+    if (err != INetd::PRIVATE_DNS_SUCCESS) {
+        return binder::Status::fromServiceSpecificError(err,
+                String8::format("ResolverController error: %d", err));
+    }
+    return binder::Status::ok();
+}
+
 binder::Status NetdNativeService::tetherApplyDnsInterfaces(bool *ret) {
     NETD_BIG_LOCK_RPC(CONNECTIVITY_INTERNAL);
 
@@ -350,8 +401,7 @@ binder::Status NetdNativeService::ipSecAddSecurityAssociation(
         const std::string& cryptAlgo, const std::vector<uint8_t>& cryptKey, int32_t cryptTruncBits,
         int32_t encapType,
         int32_t encapLocalPort,
-        int32_t encapRemotePort,
-        int32_t* allocatedSpi) {
+        int32_t encapRemotePort) {
     // Necessary locking done in IpSecService and kernel
     ENFORCE_PERMISSION(CONNECTIVITY_INTERNAL);
     ALOGD("ipSecAddSecurityAssociation()");
@@ -361,8 +411,7 @@ binder::Status NetdNativeService::ipSecAddSecurityAssociation(
               spi,
               authAlgo, authKey, authTruncBits,
               cryptAlgo, cryptKey, cryptTruncBits,
-              encapType, encapLocalPort, encapRemotePort,
-              allocatedSpi));
+              encapType, encapLocalPort, encapRemotePort));
 }
 
 binder::Status NetdNativeService::ipSecDeleteSecurityAssociation(
@@ -408,6 +457,26 @@ binder::Status NetdNativeService::ipSecRemoveTransportModeTransform(
     ALOGD("ipSecRemoveTransportModeTransform()");
     return getXfrmStatus(gCtls->xfrmCtrl.ipSecRemoveTransportModeTransform(
                     socket));
+}
+
+binder::Status NetdNativeService::setIPv6AddrGenMode(const std::string& ifName,
+                                                     int32_t mode) {
+    ENFORCE_PERMISSION(NETWORK_STACK);
+    return toBinderStatus(InterfaceController::setIPv6AddrGenMode(ifName, mode));
+}
+
+binder::Status NetdNativeService::wakeupAddInterface(const std::string& ifName,
+                                                     const std::string& prefix, int32_t mark,
+                                                     int32_t mask) {
+    ENFORCE_PERMISSION(NETWORK_STACK);
+    return toBinderStatus(gCtls->wakeupCtrl.addInterface(ifName, prefix, mark, mask));
+}
+
+binder::Status NetdNativeService::wakeupDelInterface(const std::string& ifName,
+                                                     const std::string& prefix, int32_t mark,
+                                                     int32_t mask) {
+    ENFORCE_PERMISSION(NETWORK_STACK);
+    return toBinderStatus(gCtls->wakeupCtrl.delInterface(ifName, prefix, mark, mask));
 }
 
 }  // namespace net

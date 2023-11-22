@@ -28,6 +28,10 @@ LOCAL_SHARED_LIBRARIES := \
     libmedia \
     libsync \
 
+LOCAL_HEADER_LIBRARIES := \
+    libsystem_headers \
+    libnativebase_headers
+
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/include \
     system/core/libsync/include \

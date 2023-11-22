@@ -59,4 +59,14 @@ public class IntegerArrayStreamTest {
         assertFalse(stream.expect(4, 6));
         assertEquals(5, stream.peek());
     }
+
+    @Test
+    public void testIsEmpty() {
+        IntegerArrayStream stream = new IntegerArrayStream(DATA_SET);
+        assertFalse(stream.isEmpty());
+        stream.expect(1, 2, 3, 4, 5);
+        assertFalse(stream.isEmpty());
+        stream.consume();
+        assertTrue(stream.isEmpty());
+    }
 }

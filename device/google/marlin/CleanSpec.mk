@@ -49,11 +49,26 @@ $(call add-clean-step, find $(OUT_DIR)/target/product/marlin/ -name \*activity_r
 $(call add-clean-step, find $(OUT_DIR)/target/product/sailfish/ -name \*sensors.sailfish* -exec rm -rf {} \;)
 $(call add-clean-step, find $(OUT_DIR)/target/product/sailfish/ -name \*activity_recognition.sailfish* -exec rm -rf {} \;)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/app/WebViewGoogle)
-$(call add-clean-step, rm $(OUT_DIR)/target/product/marlin/system/lib/hw/android.hardware.broadcastradio@1.0-impl.so)
-$(call add-clean-step, rm $(OUT_DIR)/target/product/sailfish/system/lib/hw/android.hardware.broadcastradio@1.0-impl.so)
+$(call add-clean-step, rm -f $(OUT_DIR)/target/product/marlin/system/lib/hw/android.hardware.broadcastradio@1.0-impl.so)
+$(call add-clean-step, rm -f $(OUT_DIR)/target/product/sailfish/system/lib/hw/android.hardware.broadcastradio@1.0-impl.so)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/root/metadata)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/recovery/root/metadata)
 
 # Move vndk-sp libs from /vendor to /system
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/lib/vndk-sp)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/lib64/vndk-sp)
+
+# Move /system/lib/vndk-sp to /system/lib/vndk-sp-26.1.0
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/lib/vndk-sp)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/lib64/vndk-sp)
+
+# Revert: Move /system/lib/vndk-sp to /system/lib/vndk-sp-26.1.0
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/lib/vndk-sp-*)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/lib64/vndk-sp-*)
+
+# Remove /system/lib[64]/vndk-sp/libz.so
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/obj/SHARED_LIBRARIES/libz.vndk-sp_*)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/symbols/system/lib/vndk-sp/libz.so)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/symbols/system/lib64/vndk-sp/libz.so)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/lib/vndk-sp/libz.so)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/lib64/vndk-sp/libz.so)

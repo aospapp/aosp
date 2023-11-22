@@ -42,8 +42,15 @@ interface IConfigDefLoader {
      * @param def the {@link ConfigurationDef} to load the data into
      * @param parentName the name of the parent config
      * @param name the name of config to include
+     * @param deviceTagObject the name of the current deviceTag or null if not inside a device tag.
+     * @param templateMap the current map of template to be loaded.
      * @throws ConfigurationException if an error occurred loading the config
      */
-    void loadIncludedConfiguration(ConfigurationDef def, String parentName, String name,
-            Map<String, String> templateMap) throws ConfigurationException;
+    void loadIncludedConfiguration(
+            ConfigurationDef def,
+            String parentName,
+            String name,
+            String deviceTagObject,
+            Map<String, String> templateMap)
+            throws ConfigurationException;
 }

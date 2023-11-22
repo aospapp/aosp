@@ -243,6 +243,11 @@ final class DirectoryAddonsAdapter extends DocumentsAdapter {
     }
 
     @Override
+    public int getAdapterPosition(String modelId) {
+        return toViewPosition(mDelegate.getAdapterPosition(modelId));
+    }
+
+    @Override
     public String getModelId(int p) {
         if (p == mBreakPosition) {
             return null;

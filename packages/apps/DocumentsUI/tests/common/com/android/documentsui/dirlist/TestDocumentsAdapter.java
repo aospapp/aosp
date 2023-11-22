@@ -67,6 +67,11 @@ public class TestDocumentsAdapter extends DocumentsAdapter {
     }
 
     @Override
+    public int getAdapterPosition(String docId) {
+        return mModelIds.indexOf(docId);
+    }
+
+    @Override
     public int getItemCount() {
         return mModelIds.size();
     }

@@ -17,11 +17,11 @@ allow system_server zygote_tmpfs:file read;
 
 # For art.
 allow system_server dalvikcache_data_file:dir r_dir_perms;
-allow system_server dalvikcache_data_file:file { r_file_perms execute };
-userdebug_or_eng(`
-  # Report dalvikcache_data_file:file execute violations.
-  auditallow system_server dalvikcache_data_file:file execute;
-')
+allow system_server dalvikcache_data_file:file r_file_perms;
+
+# When running system server under --invoke-with, we'll try to load the boot image under the
+# system server domain, following links to the system partition.
+with_asan(`allow system_server dalvikcache_data_file:lnk_file r_file_perms;')
 
 # /data/resource-cache
 allow system_server resourcecache_data_file:file r_file_perms;
@@ -79,6 +79,9 @@ allow system_server kernel:system module_request;
 # Allow alarmtimers to be set
 allow system_server self:capability2 wake_alarm;
 
+# Create and share netlink_netfilter_sockets for tetheroffload.
+allow system_server self:netlink_netfilter_socket create_socket_perms_no_ioctl;
+
 # Use netlink uevent sockets.
 allow system_server self:netlink_kobject_uevent_socket create_socket_perms_no_ioctl;
 
@@ -99,7 +102,7 @@ allow system_server self:socket create_socket_perms_no_ioctl;
 allow system_server self:netlink_route_socket nlmsg_write;
 
 # Kill apps.
-allow system_server appdomain:process { sigkill signal };
+allow system_server appdomain:process { getpgid sigkill signal };
 
 # Set scheduling info for apps.
 allow system_server appdomain:process { getsched setsched };
@@ -110,6 +113,9 @@ allow system_server cameraserver:process { getsched setsched };
 allow system_server hal_camera:process { getsched setsched };
 allow system_server mediaserver:process { getsched setsched };
 allow system_server bootanim:process { getsched setsched };
+
+# Allow system_server to write to cameraserver's /proc/<pid>/timerslack_ns
+allow system_server cameraserver:file w_file_perms;
 
 # Read /proc/pid data for all domains. This is used by ProcessCpuTracker
 # within system_server to keep track of memory and CPU usage for
@@ -129,6 +135,9 @@ allow system_server proc_uid_cputime_removeuid:file { w_file_perms getattr };
 
 # Write /proc/uid_procstat/set.
 allow system_server proc_uid_procstat_set:file { w_file_perms getattr };
+
+# Read /proc/uid_time_in_state.
+allow system_server proc_uid_time_in_state:file r_file_perms;
 
 # Write to /proc/sysrq-trigger.
 allow system_server proc_sysrq:file rw_file_perms;
@@ -177,6 +186,8 @@ binder_service(system_server)
 
 # Use HALs
 hal_client_domain(system_server, hal_allocator)
+hal_client_domain(system_server, hal_broadcastradio)
+hal_client_domain(system_server, hal_configstore)
 hal_client_domain(system_server, hal_contexthub)
 hal_client_domain(system_server, hal_fingerprint)
 hal_client_domain(system_server, hal_gnss)
@@ -184,6 +195,7 @@ hal_client_domain(system_server, hal_graphics_allocator)
 hal_client_domain(system_server, hal_ir)
 hal_client_domain(system_server, hal_light)
 hal_client_domain(system_server, hal_memtrack)
+hal_client_domain(system_server, hal_neuralnetworks)
 hal_client_domain(system_server, hal_oemlock)
 allow system_server hal_omx_hwservice:hwservice_manager find;
 allow system_server hidl_token_hwservice:hwservice_manager find;
@@ -241,6 +253,7 @@ allow system_server {
   hal_bluetooth_server
   hal_camera_server
   hal_graphics_composer_server
+  hal_sensors_server
   hal_vr_server
   mediacodec # TODO(b/36375899): hal_omx_server
 }:process { signal };
@@ -330,8 +343,23 @@ allow system_server asec_apk_file:file create_file_perms;
 allow system_server asec_public_file:file create_file_perms;
 
 # Manage /data/anr.
+#
+# TODO: Some of these permissions can be withdrawn once we've switched to the
+# new stack dumping mechanism, see b/32064548 and the rules below. In particular,
+# the system_server should never need to create a new anr_data_file:file or write
+# to one, but it will still need to read and append to existing files.
 allow system_server anr_data_file:dir create_dir_perms;
 allow system_server anr_data_file:file create_file_perms;
+
+# New stack dumping scheme : request an output FD from tombstoned via a unix
+# domain socket.
+#
+# Allow system_server to connect and write to the tombstoned java trace socket in
+# order to dump its traces. Also allow the system server to write its traces to
+# dumpstate during bugreport capture.
+unix_socket_connect(system_server, tombstoned_java_trace, tombstoned)
+allow system_server tombstoned:fd use;
+allow system_server dumpstate:fifo_file append;
 
 # Read /data/misc/incidents - only read. The fd will be sent over binder,
 # with no DAC access to it, for dropbox to read.
@@ -465,6 +493,7 @@ set_prop(system_server, firstboot_prop)
 allow system_server system_ndebug_socket:sock_file create_file_perms;
 
 # Manage cache files.
+allow system_server cache_file:lnk_file r_file_perms;
 allow system_server { cache_file cache_recovery_file }:dir { relabelfrom create_dir_perms };
 allow system_server { cache_file cache_recovery_file }:file { relabelfrom create_file_perms };
 allow system_server { cache_file cache_recovery_file }:fifo_file create_file_perms;
@@ -539,7 +568,6 @@ allow system_server mediametrics_service:service_manager find;
 allow system_server mediaextractor_service:service_manager find;
 allow system_server mediacodec_service:service_manager find;
 allow system_server mediadrmserver_service:service_manager find;
-allow system_server mediacasserver_service:service_manager find;
 allow system_server netd_service:service_manager find;
 allow system_server nfc_service:service_manager find;
 allow system_server radio_service:service_manager find;
@@ -658,12 +686,15 @@ allow system_server sysfs_leds:dir r_dir_perms;
 
 # Allow WifiService to start, stop, and read wifi-specific trace events.
 allow system_server debugfs_tracing_instances:dir search;
+allow system_server debugfs_wifi_tracing:dir search;
 allow system_server debugfs_wifi_tracing:file rw_file_perms;
 
-# allow system_server to exec shell on ASAN builds. Needed to run
+# allow system_server to exec shell, asanwrapper & zygote(app_process) on ASAN builds. Needed to run
 # asanwrapper.
 with_asan(`
   allow system_server shell_exec:file rx_file_perms;
+  allow system_server asanwrapper_exec:file rx_file_perms;
+  allow system_server zygote_exec:file rx_file_perms;
 ')
 
 ###
@@ -691,7 +722,7 @@ neverallow system_server {
   file_type
   -toolbox_exec
   -logcat_exec
-  with_asan(`-shell_exec')
+  with_asan(`-shell_exec -asanwrapper_exec -zygote_exec')
 }:file execute_no_trans;
 
 # Ensure that system_server doesn't perform any domain transitions other than

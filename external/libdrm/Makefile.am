@@ -22,6 +22,7 @@ include Makefile.sources
 
 ACLOCAL_AMFLAGS = -I m4 ${ACLOCAL_FLAGS}
 
+AM_MAKEFLAGS = -s
 AM_DISTCHECK_CONFIGURE_FLAGS = \
 	--enable-udev \
 	--enable-libkms \
@@ -29,12 +30,14 @@ AM_DISTCHECK_CONFIGURE_FLAGS = \
 	--enable-radeon \
 	--enable-amdgpu \
 	--enable-nouveau \
+	--enable-vc4 \
 	--enable-vmwgfx \
 	--enable-omap-experimental-api \
 	--enable-exynos-experimental-api \
 	--enable-freedreno \
 	--enable-freedreno-kgsl\
 	--enable-tegra-experimental-api \
+	--enable-etnaviv-experimental-api \
 	--enable-install-test-programs \
 	--enable-cairo-tests \
 	--enable-manpages \
@@ -79,6 +82,14 @@ if HAVE_TEGRA
 TEGRA_SUBDIR = tegra
 endif
 
+if HAVE_VC4
+VC4_SUBDIR = vc4
+endif
+
+if HAVE_ETNAVIV
+ETNAVIV_SUBDIR = etnaviv
+endif
+
 if BUILD_MANPAGES
 if HAVE_MANPAGES_STYLESHEET
 MAN_SUBDIR = man
@@ -100,6 +111,8 @@ SUBDIRS = \
 	$(EXYNOS_SUBDIR) \
 	$(FREEDRENO_SUBDIR) \
 	$(TEGRA_SUBDIR) \
+	$(VC4_SUBDIR) \
+	$(ETNAVIV_SUBDIR) \
 	tests \
 	$(MAN_SUBDIR) \
 	$(ROCKCHIP_SUBDIR)
@@ -119,8 +132,6 @@ libdrm_la_SOURCES = $(LIBDRM_FILES)
 libdrmincludedir = ${includedir}
 libdrminclude_HEADERS = $(LIBDRM_H_FILES)
 
-EXTRA_DIST = Android.mk
-
 klibdrmincludedir = ${includedir}/libdrm
 klibdrminclude_HEADERS = $(LIBDRM_INCLUDE_H_FILES)
 
@@ -128,6 +139,7 @@ if HAVE_VMWGFX
 klibdrminclude_HEADERS += $(LIBDRM_INCLUDE_VMWGFX_H_FILES)
 endif
 
+EXTRA_DIST = include/drm/README
 
 copy-headers :
 	cp -r $(kernel_source)/include/uapi/drm/*.h $(top_srcdir)/include/drm/

@@ -160,7 +160,7 @@
     <string name="title_mac_address" msgid="3428401680168668544">"MAC-cím"</string>
     <string name="title_signal_strength" msgid="205478650262078041">"Jelerősség"</string>
     <string name="title_ip_address" msgid="4533523100923004711">"IP-cím"</string>
-    <string name="title_ssid" msgid="4858945903642469730">"Adja meg a Wi-Fi hálózat nevét"</string>
+    <string name="title_ssid" msgid="4858945903642469730">"Adja meg a Wi-Fi-hálózat nevét"</string>
     <string name="title_internet_connection" msgid="8710084774588697646">"Internetkapcsolat"</string>
     <string name="connected" msgid="7563100162902079938">"Kapcsolódva"</string>
     <string name="not_connected" msgid="6858480380326923017">"Nincs csatlakozva"</string>
@@ -232,7 +232,7 @@
     <string name="proxy_error_invalid_port" msgid="1434922103959603993">"A port érvénytelen"</string>
     <string name="proxy_warning_limited_support" msgid="6160239282535986523">"A böngésző használja a HTTP-proxyt, más alkalmazások azonban nem használhatják azt"</string>
     <string name="proxy_port_description" msgid="6791098212244367568">"Érvényes portot adjon meg.\nPéldául: <xliff:g id="ID_1">8080</xliff:g>"</string>
-    <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"Vesszővel elválasztott listát adjon meg a kizárt domainekről, vagy hagyja üresen.\nPéldául: <xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g>"</string>
+    <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"Vesszővel válassza el a kizárt domaineket, vagy hagyja üresen.\nPéldául: <xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g>"</string>
     <string name="proxy_hostname_description" msgid="5824391500254472447">"Érvényes gazdagépnevet adjon meg.\nPéldául: <xliff:g id="ID_1">proxy.example.com</xliff:g>"</string>
     <string name="wifi_summary_title_connected" msgid="8329216588732277139">"Hálózat társítva"</string>
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"A hálózat nincs csatlakoztatva"</string>
@@ -320,7 +320,7 @@
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"Újra"</string>
     <string name="wifi_wps_title" msgid="1872305810119408482">"WPS-router keresése…"</string>
     <string name="wifi_wps_instructions" msgid="3618110962669110034">"Nyomja meg a Wi-Fi Protected Setup gombot a routeren.\nEnnek elnevezése lehet „WPS”, illetve jelölheti a bal oldalon látható szimbólum is."</string>
-    <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"A Wi-Fi-routeren adja meg a(z) <xliff:g id="NUMBER">%1$s</xliff:g> PIN kódot"</string>
+    <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"A Wi-Fi-routeren adja meg a(z) <xliff:g id="NUMBER">%1$s</xliff:g> PIN-kódot"</string>
     <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"A PIN-kód megadását követően két percbe telhet, míg a beállítás befejeződik"</string>
     <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"Wi-Fi router nem található"</string>
     <string name="wifi_wps_failed_wep" msgid="9158670824165143348">"A Wi-Fi-router biztonsági beállítása (WEP) nem támogatott"</string>
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"Szolgáltatások"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Szolgáltatás beállításai"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Nagy kontrasztú szöveg"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Billentyűparancs kisegítő lehetőségekhez"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Kisegítő lehetőségek engedélyezése"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Billentyűparancs szolgáltatás"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Ha be van kapcsolva a gyorsparancs, a Vissza és Lefelé gomb 3 másodpercig tartó együttes lenyomásával elindíthat egy adott kisegítő lehetőséget."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Feliratok"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Mentett feliratok szövegrétegének beállítása videóknál"</string>
     <string name="captions_display" msgid="735692527287125548">"Megjelenítés"</string>
@@ -407,7 +411,7 @@
     <string name="color_magenta" msgid="6395786485839439122">"Magenta"</string>
     <string name="system_accessibility_status" msgid="6150600992901856367">"Engedélyezés"</string>
     <string name="system_accessibility_config" msgid="3216531917536720277">"Beállítások"</string>
-    <string name="system_accessibility_service_on_confirm_title" msgid="8200707259067035823">"Használja a következő szolgáltatást: <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
+    <string name="system_accessibility_service_on_confirm_title" msgid="8200707259067035823">"Használja: <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
     <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"A(z) <xliff:g id="SERVICE">%1$s</xliff:g> összegyűjti az összes beírt szöveget, kivéve a jelszavakat. Ez magában foglalja a személyes adatokat, például a bankkártyaszámokat."</string>
     <string name="system_accessibility_service_off_confirm_title" msgid="963297812889694832">"Leállítja a következőt: <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
     <string name="system_accessibility_service_off_confirm_desc" msgid="6714782635926048678">"Az OK-val leállítja a következőt: <xliff:g id="SERVICE">%1$s</xliff:g>."</string>
@@ -567,7 +571,7 @@
     <string name="app_sees_restricted_accounts" msgid="1967195038085624916">"Ez az alkalmazás hozzáfér az Ön fiókjaihoz"</string>
     <string name="restriction_location_enable_title" msgid="2575116135395354938">"Hely"</string>
     <string name="restriction_location_enable_summary" msgid="4195349388342385870">"Az alkalmazások használhatják a helyadatokat"</string>
-    <string name="restricted_profile_switch_to" msgid="1926433350907032138">"Belépés korlátozott profilba"</string>
+    <string name="restricted_profile_switch_to" msgid="1926433350907032138">"Belépés korlátozott a profilba"</string>
     <string name="restricted_profile_switch_out" msgid="1893784095623209495">"Kilépés a korlátozott profilból"</string>
     <string name="restricted_profile_delete_title" msgid="3445944923018324707">"Korlátozott profil törlése"</string>
     <string name="restricted_profile_create_title" msgid="1392190365829029390">"Korlátozott profil létrehozása"</string>
@@ -586,11 +590,11 @@
     <string name="app_sees_restricted_accounts_and_controlled_by" msgid="6677671440081319908">"Ez az alkalmazás hozzáfér az Ön fiókjaihoz; a kezelője pedig a következő: <xliff:g id="APP">%1$s</xliff:g>"</string>
     <string name="pin_enter_unlock_channel" msgid="5980400420298506069">"A csatorna megtekintéséhez PIN-kód szükséges"</string>
     <string name="pin_enter_unlock_program" msgid="52453773316071511">"A műsor megtekintéséhez PIN-kód szükséges"</string>
-    <string name="pin_enter_pin" msgid="821552376577935497">"Adja meg a PIN kódot"</string>
-    <string name="pin_enter_new_pin" msgid="4788218421265924211">"Adja meg az új PIN kódot"</string>
-    <string name="pin_enter_again" msgid="1510456697040826496">"Írja be újra az új PIN kódot"</string>
-    <string name="pin_enter_old_pin" msgid="851029058127630869">"Adja meg a régi PIN kódot"</string>
-    <string name="pin_enter_wrong_seconds" msgid="7541208202846169755">"5 alkalommal rosszul adta meg a PIN kódot.\nPróbálja újra <xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g> másodperc múlva."</string>
+    <string name="pin_enter_pin" msgid="821552376577935497">"Adja meg a PIN-kódot"</string>
+    <string name="pin_enter_new_pin" msgid="4788218421265924211">"Adja meg az új PIN-kódot"</string>
+    <string name="pin_enter_again" msgid="1510456697040826496">"Írja be újra az új PIN-kódot"</string>
+    <string name="pin_enter_old_pin" msgid="851029058127630869">"Adja meg a régi PIN-kódot"</string>
+    <string name="pin_enter_wrong_seconds" msgid="7541208202846169755">"5 alkalommal rosszul adta meg a PIN-kódot.\nPróbálja újra <xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g> másodperc múlva."</string>
     <string name="pin_toast_wrong" msgid="4628358195224633248">"Helytelen PIN-kód, próbálja újra"</string>
     <string name="pin_toast_not_match" msgid="5886041789737632996">"A PIN-kód nem egyezik, próbálja újra"</string>
     <string name="wifi_setup_input_password" msgid="1596168874369038536">"Adja meg jelszót a következőhöz: <xliff:g id="SSID">%1$s</xliff:g>"</string>
@@ -628,7 +632,7 @@
     <string name="device_daydreams_sleep" msgid="7676938708373592766">"Mikor aktiválódjon"</string>
     <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"A képernyővédő a tétlenség ezen időtartama után aktiválódik. Ha nem választott ki képernyővédőt, a kijelző kikapcsol."</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"<xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> inaktivitás után"</string>
-    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Az eszköz alvó üzemmódba helyezése"</string>
+    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Eszköz alvó üzemmódba állítása"</string>
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"Ennyi inaktivitás után a képernyő kikapcsol."</string>
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"Jelenleg egyik fiók sem tárolja adatok biztonsági másolatát"</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
@@ -664,6 +668,10 @@
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"Újraindítja a rendszert csökkentett módban?"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"Ezzel letiltja a telepített, harmadik féltől származó alkalmazásokat. Újraindításkor ezek visszaállnak."</string>
     <string name="capturing_bugreport" msgid="3291125403411239592">"Hibajelentés rögzítése"</string>
-    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Rendelkezésre álló virtuális billentyűzetek"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Elérhető virtuális billentyűzetek"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Billentyűzetek kezelése"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Engedélyezett"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Nem engedélyezett"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Használati hozzáférés"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"A használati hozzáférés lehetővé teszi az alkalmazások számára a következők nyomon követését: az Ön által használt egyéb alkalmazások, az alkalmazások használatának gyakorisága, az Ön szolgáltatója, a nyelvi beállítások és az egyéb részletek."</string>
 </resources>

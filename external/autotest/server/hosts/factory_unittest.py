@@ -9,6 +9,7 @@ import unittest
 import common
 from autotest_lib.client.common_lib import error
 from autotest_lib.server.hosts import base_label_unittest, factory
+from autotest_lib.server.hosts import host_info
 
 
 class MockHost(object):
@@ -60,9 +61,11 @@ def _gen_machine_dict(hostname='localhost', labels=[], attributes={}):
     @return: machine dict with mocked AFE Host object and fake AfeStore.
     """
     afe_host = base_label_unittest.MockAFEHost(labels, attributes)
+    store = host_info.InMemoryHostInfoStore()
+    store.commit(host_info.HostInfo(labels, attributes))
     return {'hostname': hostname,
             'afe_host': afe_host,
-            'host_info_store': mock.sentinel.dummy}
+            'host_info_store': store}
 
 
 class CreateHostUnittests(unittest.TestCase):

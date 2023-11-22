@@ -3,5 +3,6 @@
 
 subdirs = [
     "V1_0",
+    "V1_1",
     "deprecated/V1_0",
 ]

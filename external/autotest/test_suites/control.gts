@@ -21,10 +21,20 @@ from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 
 
+def predicate(test):
+  if not hasattr(test, 'suite') or not hasattr(test, 'name'):
+    return False
+  if not test.suite == NAME:
+    return False
+  # Strip off the cheets_GTS. from the test name before comparing to args
+  if suite_args and not test.name[test.name.find('.') + 1:] in suite_args:
+    return False
+  return True
+
 args_dict['name'] = NAME
 args_dict['job'] = job
 args_dict['add_experimental'] = True
 args_dict['version_prefix'] = provision.CROS_VERSION_PREFIX
-
+args_dict['predicate'] = predicate
 dynamic_suite.reimage_and_run(**args_dict)
 

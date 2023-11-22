@@ -33,7 +33,7 @@
 #include <errno.h>
 #include <ctype.h>
 #include <assert.h>
-#include "JNIHelp.h"
+#include <nativehelper/JNIHelp.h>
 #include "jlong.h"
 #include "jvm.h"
 #include "jni.h"

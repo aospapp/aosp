@@ -54,6 +54,12 @@ bool FixedSizeBlockingQueue<ElementType, kSize>::empty() {
   return mQueue.empty();
 }
 
+template<typename ElementType, size_t kSize>
+size_t FixedSizeBlockingQueue<ElementType, kSize>::size() {
+  LockGuard<Mutex> lock(mMutex);
+  return mQueue.size();
+}
+
 }  // namespace chre
 
 #endif  // CHRE_UTIL_BLOCKING_QUEUE_IMPL_H_

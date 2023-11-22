@@ -71,6 +71,8 @@ public class UserDictionaryProvider extends ContentProvider {
 
     private static final String USERDICT_TABLE_NAME = "words";
 
+    private static final int IDLE_CONNECTION_TIMEOUT_MS = 30000;
+
     private static ArrayMap<String, String> sDictProjectionMap;
 
     private static final UriMatcher sUriMatcher;
@@ -104,6 +106,8 @@ public class UserDictionaryProvider extends ContentProvider {
 
         DatabaseHelper(Context context) {
             super(context, DATABASE_NAME, null, DATABASE_VERSION);
+            // Memory optimization - close idle connections after 30s of inactivity
+            setIdleConnectionTimeout(IDLE_CONNECTION_TIMEOUT_MS);
         }
 
         @Override

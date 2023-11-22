@@ -18,7 +18,7 @@
 #
 # Test-case 1: It requires remote host. Test will setup IPv4 and IPv6 virtual
 #              sub-nets between two hosts, then will compare TCP performance
-#              with and without VxLAN using ping or tcp_fastopen test.
+#              with and without VxLAN using ping or netstress test.
 #
 # Test-case 2: The same as above but must fail, because VXLAN allows
 #              to communicate only within the same VXLAN segment.
@@ -45,17 +45,9 @@ VIRT_PERF_THRESHOLD=${VIRT_PERF_THRESHOLD:-160}
 cleanup()
 {
 	cleanup_vifaces
-	tst_rhost_run -c "ip link delete ltp_v0"
-	if [ "$net_load" = "TFO" ]; then
-		tst_rhost_run -c "pkill -9 tcp_fastopen\$"
-		pkill -9 "tcp_fastopen\$"
-	fi
+	tst_rhost_run -c "ip link delete ltp_v0 2>/dev/null"
 }
 TST_CLEANUP="cleanup"
-
-if [ "$net_load" = "TFO" ]; then
-	tst_check_cmds "tcp_fastopen"
-fi
 
 if [ -z $ip_local -o -z $ip_remote ]; then
 	tst_brkm TBROK "you must specify IP address"

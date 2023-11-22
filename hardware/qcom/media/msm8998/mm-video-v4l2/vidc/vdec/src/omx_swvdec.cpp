@@ -1,7 +1,7 @@
 /**
  * @copyright
  *
- *   Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *   Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  *   Redistribution and use in source and binary forms, with or without
  *   modification, are permitted provided that the following conditions are met:
@@ -147,7 +147,7 @@ OMX_ERRORTYPE omx_swvdec::component_init(OMX_STRING cmp_name)
     {
         char property_value[PROPERTY_VALUE_MAX] = {0};
 
-        if (property_get("omx_swvdec.meta_buffer.disable",
+        if (property_get("vendor.omx_swvdec.meta_buffer.disable",
                          property_value,
                          NULL))
         {

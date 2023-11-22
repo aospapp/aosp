@@ -47,6 +47,8 @@ import java.util.HashMap;
  *   - name of agent native library
  * <li><code>jpda.settings.debuggeeAgentExtraOptions</code>
  *   - extra options for agent
+ * <li><code>jpda.settings.debuggeeClasspath</code>
+ *   - classpath to run debuggee with
  * <li><code>jpda.settings.debuggeeClassName</code>
  *   - full name of class to run debuggee with
  * <li><code>jpda.settings.debuggeeVMExtraOptions</code>
@@ -221,10 +223,11 @@ public class TestOptions {
     /**
      * Returns VM classpath value to run debuggee with.
      *
-     * @return system property "java.class.path" by default.
+     * @return option "jpda.settings.debuggeeClasspath" or system property "java.class.path" by
+     * default.
      */
     public String getDebuggeeClassPath() {
-        return getProperty("java.class.path", null);
+        return getProperty("jpda.settings.debuggeeClasspath", getProperty("java.class.path", null));
     }
 
     /**

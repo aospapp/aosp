@@ -15,7 +15,6 @@
  */
 package com.android.compatibility.common.tradefed.command;
 
-import com.android.compatibility.SuiteInfo;
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildProvider;
 import com.android.compatibility.common.tradefed.result.SubPlanHelper;
@@ -32,6 +31,7 @@ import com.android.tradefed.config.IConfigurationFactory;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.IRuntimeHintProvider;
+import com.android.tradefed.testtype.suite.TestSuiteInfo;
 import com.android.tradefed.util.ArrayUtil;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.Pair;
@@ -73,8 +73,9 @@ public class CompatibilityConsole extends Console {
      */
     @Override
     public void run() {
-        printLine(String.format("Android %s %s (%s)", SuiteInfo.FULLNAME, SuiteInfo.VERSION,
-                SuiteInfo.BUILD_NUMBER));
+        printLine(String.format("Android %s %s (%s)", TestSuiteInfo.getInstance().getFullName(),
+                TestSuiteInfo.getInstance().getVersion(),
+                TestSuiteInfo.getInstance().getBuildNumber()));
         printLine("Use \"help\" or \"help all\" to get more information on running commands.");
         super.run();
     }
@@ -87,7 +88,7 @@ public class CompatibilityConsole extends Console {
             Map<String, String> commandHelp) {
 
         genericHelp.add("Enter 'help add'        for help with 'add subplan' commands");
-        genericHelp.add("\t----- " + SuiteInfo.FULLNAME + " usage ----- ");
+        genericHelp.add("\t----- " + TestSuiteInfo.getInstance().getFullName() + " usage ----- ");
         genericHelp.add("Usage: run <plan> [--module <module name>] [ options ]");
         genericHelp.add("Example: run cts --module CtsGestureTestCases --bugreport-on-failure");
         genericHelp.add("");
@@ -149,8 +150,10 @@ public class CompatibilityConsole extends Console {
         trie.put(new Runnable() {
             @Override
             public void run() {
-                printLine(String.format("Android %s %s (%s)", SuiteInfo.FULLNAME,
-                        SuiteInfo.VERSION, SuiteInfo.BUILD_NUMBER));
+                printLine(String.format("Android %s %s (%s)",
+                        TestSuiteInfo.getInstance().getFullName(),
+                        TestSuiteInfo.getInstance().getVersion(),
+                        TestSuiteInfo.getInstance().getBuildNumber()));
             }
         }, "version"); // override tradefed 'version' command to print test suite name and version
 
@@ -162,7 +165,8 @@ public class CompatibilityConsole extends Console {
         }
         String combinedHelp = listHelp +
                 LINE_SEPARATOR +
-                "\t----- " + SuiteInfo.FULLNAME + " specific options ----- " + LINE_SEPARATOR +
+                "\t----- " + TestSuiteInfo.getInstance().getFullName()
+                + " specific options ----- " + LINE_SEPARATOR +
                 "\tp[lans]               List all plans available" + LINE_SEPARATOR +
                 "\tm[odules]             List all modules available" + LINE_SEPARATOR +
                 "\tr[esults]             List all results" + LINE_SEPARATOR;
@@ -175,7 +179,8 @@ public class CompatibilityConsole extends Console {
         }
         String combinedRunHelp = runHelp +
                 LINE_SEPARATOR +
-                "\t----- " + SuiteInfo.FULLNAME + " specific options ----- " + LINE_SEPARATOR +
+                "\t----- " + TestSuiteInfo.getInstance().getFullName()
+                + " specific options ----- " + LINE_SEPARATOR +
                 "\t<plan> --module/-m <module>       Run a test module" + LINE_SEPARATOR +
                 "\t<plan> --module/-m <module> --test/-t <test_name>    Run a specific test from" +
                 " the module. Test name can be <package>.<class>, <package>.<class>#<method> or "
@@ -210,7 +215,7 @@ public class CompatibilityConsole extends Console {
      */
     @Override
     protected String getConsolePrompt() {
-        return String.format("%s-tf > ", SuiteInfo.NAME.toLowerCase());
+        return String.format("%s-tf > ", TestSuiteInfo.getInstance().getName().toLowerCase());
     }
 
     private void listModules() {

@@ -94,21 +94,26 @@ public class PrivappPermissionsTest extends AndroidTestCase {
                 Set<String> notGranted = new TreeSet<>(requestedPrivPermissions);
                 notGranted.removeAll(grantedPrivPermissions);
                 Set<String> whitelist = getPrivAppPermissions(pkg.packageName);
-                Log.i(TAG, "Application " + pkg.packageName + ". Requested permissions: "
-                        + requestedPrivPermissions + ". Granted permissions: "
-                        + grantedPrivPermissions + ". Not granted: " + notGranted + " Whitelisted: "
-                        + whitelist);
+                Set<String> denylist = getPrivAppDenyPermissions(pkg.packageName);
+                Log.i(TAG, "Application " + pkg.packageName + "."
+                        + " Requested permissions: " + requestedPrivPermissions + "."
+                        + " Granted permissions: " + grantedPrivPermissions + "."
+                        + " Not granted: " + notGranted + "."
+                        + " Whitelisted: " + whitelist + "."
+                        + " Denylisted: " + denylist);
 
                 Set<String> grantedNotInWhitelist = new TreeSet<>(grantedPrivPermissions);
                 grantedNotInWhitelist.removeAll(whitelist);
+                Set<String> notGrantedNotInDenylist = new TreeSet<>(notGranted);
+                notGrantedNotInDenylist.removeAll(denylist);
 
                 assertTrue("Not whitelisted permissions are granted for package "
                                 + pkg.packageName + ": " + grantedNotInWhitelist,
                         grantedNotInWhitelist.isEmpty());
 
                 assertTrue("Requested permissions not granted for package "
-                                + pkg.packageName + ": " + notGranted,
-                        notGranted.isEmpty());
+                                + pkg.packageName + ": " + notGrantedNotInDenylist,
+                        notGrantedNotInDenylist.isEmpty());
             }
         }
     }
@@ -117,6 +122,17 @@ public class PrivappPermissionsTest extends AndroidTestCase {
         String output = SystemUtil.runShellCommand(
                 InstrumentationRegistry.getInstrumentation(),
                 "cmd package get-privapp-permissions " + packageName).trim();
+        if (output.startsWith("{") && output.endsWith("}")) {
+            String[] split = output.substring(1, output.length() - 1).split("\\s*,\\s*");
+            return new LinkedHashSet<>(Arrays.asList(split));
+        }
+        return Collections.emptySet();
+    }
+
+    private Set<String> getPrivAppDenyPermissions(String packageName) throws IOException {
+        String output = SystemUtil.runShellCommand(
+                InstrumentationRegistry.getInstrumentation(),
+                "cmd package get-privapp-deny-permissions " + packageName).trim();
         if (output.startsWith("{") && output.endsWith("}")) {
             String[] split = output.substring(1, output.length() - 1).split("\\s*,\\s*");
             return new LinkedHashSet<>(Arrays.asList(split));

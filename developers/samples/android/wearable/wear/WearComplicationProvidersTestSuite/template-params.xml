@@ -19,16 +19,18 @@
     <group>Wearable</group>
     <package>com.example.android.wearable.wear.wearcomplicationproviderstestsuite</package>
 
-    <minSdk>25</minSdk>
-
+    <minSdk>18</minSdk>
     <targetSdkVersion>25</targetSdkVersion>
-    <targetSdkVersionWear>25</targetSdkVersionWear>
+
+    <minSdkVersionWear>23</minSdkVersionWear>
+    <compileSdkVersionWear>26</compileSdkVersionWear>
+    <targetSdkVersionWear>26</targetSdkVersionWear>
 
     <wearable>
         <has_handheld_app>false</has_handheld_app>
     </wearable>
 
-    <dependency_wearable>com.android.support:appcompat-v7:25.1.1</dependency_wearable>
+    <dependency_wearable>com.android.support:appcompat-v7:26.0.0</dependency_wearable>
 
     <strings>
         <intro>

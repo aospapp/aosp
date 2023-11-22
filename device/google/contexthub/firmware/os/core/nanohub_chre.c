@@ -30,6 +30,7 @@
 #include <syscall.h>
 #include <timer.h>
 #include <util.h>
+#include <printf.h>
 
 #include <chre.h>
 #include <chreApi.h>
@@ -74,12 +75,26 @@ static void osChreApiLogLogv(uintptr_t *retValP, va_list args)
     va_list innerArgs;
     enum chreLogLevel level = va_arg(args, int /* enums promoted to ints in va_args in C */);
     const static char levels[] = "EWIDV";
-    char clevel = level > CHRE_LOG_DEBUG || level < 0 ? 'V' : levels[level];
+    char clevel = (level > CHRE_LOG_DEBUG || level < 0) ? 'V' : levels[level];
     const char *str = va_arg(args, const char*);
     uintptr_t inner = va_arg(args, uintptr_t);
 
     va_copy(innerArgs, INTEGER_TO_VA_LIST(inner));
-    osLogv(clevel, str, innerArgs);
+    osLogv(clevel, PRINTF_FLAG_CHRE, str, innerArgs);
+    va_end(innerArgs);
+}
+
+static void osChreApiLogLogvOld(uintptr_t *retValP, va_list args)
+{
+    va_list innerArgs;
+    enum chreLogLevel level = va_arg(args, int /* enums promoted to ints in va_args in C */);
+    const static char levels[] = "EWIDV";
+    char clevel = (level > CHRE_LOG_DEBUG || level < 0) ? 'V' : levels[level];
+    const char *str = va_arg(args, const char*);
+    uintptr_t inner = va_arg(args, uintptr_t);
+
+    va_copy(innerArgs, INTEGER_TO_VA_LIST(inner));
+    osLogv(clevel, PRINTF_FLAG_CHRE | PRINTF_FLAG_SHORT_DOUBLE, str, innerArgs);
     va_end(innerArgs);
 }
 
@@ -87,7 +102,7 @@ static void osChreApiGetTime(uintptr_t *retValP, va_list args)
 {
     uint64_t *timeNanos = va_arg(args, uint64_t *);
     if (timeNanos)
-        *timeNanos = timGetTime();
+        *timeNanos = sensorGetTime();
 }
 
 static inline uint32_t osChreTimerSet(uint64_t duration, const void* cookie, bool oneShot)
@@ -409,6 +424,7 @@ static void osChreApiPlatformId(uintptr_t *retValP, va_list args)
 static const struct SyscallTable chreMainApiTable = {
     .numEntries = SYSCALL_CHRE_MAIN_API_LAST,
     .entry = {
+        [SYSCALL_CHRE_MAIN_API_LOG_OLD]                 = { .func = osChreApiLogLogvOld },
         [SYSCALL_CHRE_MAIN_API_LOG]                     = { .func = osChreApiLogLogv },
         [SYSCALL_CHRE_MAIN_API_GET_APP_ID]              = { .func = osChreApiGetAppId },
         [SYSCALL_CHRE_MAIN_API_GET_INST_ID]             = { .func = osChreApiGetInstanceId },

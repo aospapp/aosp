@@ -6,19 +6,15 @@
  */
 
 #include "GrSWMaskHelper.h"
-
 #include "GrCaps.h"
 #include "GrContext.h"
 #include "GrContextPriv.h"
-#include "GrPipelineBuilder.h"
 #include "GrRenderTargetContext.h"
 #include "GrShape.h"
 #include "GrSurfaceContext.h"
 #include "GrTextureProxy.h"
-#include "ops/GrDrawOp.h"
-
 #include "SkDistanceFieldGen.h"
-
+#include "ops/GrDrawOp.h"
 #include "ops/GrRectOpFactory.h"
 
 /*
@@ -163,8 +159,6 @@ void GrSWMaskHelper::DrawToTargetWithShapeMask(sk_sp<GrTextureProxy> proxy,
         return;
     }
 
-    GrResourceProvider* resourceProvider = renderTargetContext->resourceProvider();
-
     SkRect dstRect = SkRect::Make(deviceSpaceRectToDraw);
 
     // We use device coords to compute the texture coordinates. We take the device coords and apply
@@ -173,12 +167,11 @@ void GrSWMaskHelper::DrawToTargetWithShapeMask(sk_sp<GrTextureProxy> proxy,
     SkMatrix maskMatrix = SkMatrix::MakeTrans(SkIntToScalar(-textureOriginInDeviceSpace.fX),
                                               SkIntToScalar(-textureOriginInDeviceSpace.fY));
     maskMatrix.preConcat(viewMatrix);
-    std::unique_ptr<GrMeshDrawOp> op = GrRectOpFactory::MakeNonAAFill(
-            paint.getColor(), SkMatrix::I(), dstRect, nullptr, &invert);
     paint.addCoverageFragmentProcessor(GrSimpleTextureEffect::Make(
-            resourceProvider, std::move(proxy), nullptr, maskMatrix,
+            std::move(proxy), nullptr, maskMatrix,
             GrSamplerParams::kNone_FilterMode));
-    GrPipelineBuilder pipelineBuilder(std::move(paint), GrAAType::kNone);
-    pipelineBuilder.setUserStencil(&userStencilSettings);
-    renderTargetContext->addMeshDrawOp(pipelineBuilder, clip, std::move(op));
+    renderTargetContext->addDrawOp(clip,
+                                   GrRectOpFactory::MakeNonAAFillWithLocalMatrix(
+                                           std::move(paint), SkMatrix::I(), invert, dstRect,
+                                           GrAAType::kNone, &userStencilSettings));
 }

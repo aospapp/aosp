@@ -24,8 +24,12 @@
 #define LOG_TAG "IptablesRestoreController"
 #include <android-base/logging.h>
 #include <android-base/file.h>
+#include <netdutils/Syscalls.h>
 
 #include "Controllers.h"
+
+using android::netdutils::StatusOr;
+using android::netdutils::sSyscalls;
 
 constexpr char IPTABLES_RESTORE_PATH[] = "/system/bin/iptables-restore";
 constexpr char IP6TABLES_RESTORE_PATH[] = "/system/bin/ip6tables-restore";
@@ -112,12 +116,20 @@ public:
     static constexpr size_t STDERR_IDX = 1;
 };
 
-IptablesRestoreController::IptablesRestoreController() :
-    mIpRestore(nullptr),
-    mIp6Restore(nullptr) {
+IptablesRestoreController::IptablesRestoreController() {
+    Init();
 }
 
 IptablesRestoreController::~IptablesRestoreController() {
+}
+
+void IptablesRestoreController::Init() {
+    // We cannot fork these in parallel or a child process could inherit the pipe fds intended for
+    // use by the other child process. see https://android-review.googlesource.com/469559 for what
+    // breaks. This does not cause a latency hit, because the parent only has to wait for
+    // forkAndExec, which is sub-millisecond, and the child processes then call exec() in parallel.
+    mIpRestore.reset(forkAndExec(IPTABLES_PROCESS));
+    mIp6Restore.reset(forkAndExec(IP6TABLES_PROCESS));
 }
 
 /* static */
@@ -131,27 +143,23 @@ IptablesProcess* IptablesRestoreController::forkAndExec(const IptablesProcessTyp
     int stdout_pipe[2];
     int stderr_pipe[2];
 
-    if (pipe2(stdin_pipe, 0) == -1 ||
-        pipe2(stdout_pipe, O_NONBLOCK) == -1 ||
-        pipe2(stderr_pipe, O_NONBLOCK) == -1) {
+    if (pipe2(stdin_pipe,  O_CLOEXEC) == -1 ||
+        pipe2(stdout_pipe, O_NONBLOCK | O_CLOEXEC) == -1 ||
+        pipe2(stderr_pipe, O_NONBLOCK | O_CLOEXEC) == -1) {
 
         ALOGE("pipe2() failed: %s", strerror(errno));
         return nullptr;
     }
 
-    pid_t child_pid = fork();
-    if (child_pid == 0) {
+    const auto& sys = sSyscalls.get();
+    StatusOr<pid_t> child_pid = sys.fork();
+    if (!isOk(child_pid)) {
+        ALOGE("fork() failed: %s", strerror(child_pid.status().code()));
+        return nullptr;
+    }
+
+    if (child_pid.value() == 0) {
         // The child process. Reads from stdin, writes to stderr and stdout.
-
-        // stdin_pipe[1] : The write end of the stdin pipe.
-        // stdout_pipe[0] : The read end of the stdout pipe.
-        // stderr_pipe[0] : The read end of the stderr pipe.
-        if (close(stdin_pipe[1]) == -1 ||
-            close(stdout_pipe[0]) == -1 ||
-            close(stderr_pipe[0]) == -1) {
-
-            ALOGW("close() failed: %s", strerror(errno));
-        }
 
         // stdin_pipe[0] : The read end of the stdin pipe.
         // stdout_pipe[1] : The write end of the stdout pipe.
@@ -180,11 +188,6 @@ IptablesProcess* IptablesRestoreController::forkAndExec(const IptablesProcessTyp
     }
 
     // The parent process. Writes to stdout and stderr and reads from stdin.
-    if (child_pid == -1) {
-        ALOGE("fork() failed: %s", strerror(errno));
-        return nullptr;
-    }
-
     // stdin_pipe[0] : The read end of the stdin pipe.
     // stdout_pipe[1] : The write end of the stdout pipe.
     // stderr_pipe[1] : The write end of the stderr pipe.
@@ -194,7 +197,7 @@ IptablesProcess* IptablesRestoreController::forkAndExec(const IptablesProcessTyp
         ALOGW("close() failed: %s", strerror(errno));
     }
 
-    return new IptablesProcess(child_pid, stdin_pipe[1], stdout_pipe[0], stderr_pipe[0]);
+    return new IptablesProcess(child_pid.value(), stdin_pipe[1], stdout_pipe[0], stderr_pipe[0]);
 }
 
 // TODO: Return -errno on failure instead of -1.

@@ -69,11 +69,11 @@ type BaseCompilerProperties struct {
 	// If possible, don't use this.  If adding paths from the current directory use
 	// local_include_dirs, if adding paths from other modules use export_include_dirs in
 	// that module.
-	Include_dirs []string `android:"arch_variant"`
+	Include_dirs []string `android:"arch_variant,variant_prepend"`
 
 	// list of directories relative to the Blueprints file that will
 	// be added to the include path using -I
-	Local_include_dirs []string `android:"arch_variant"`
+	Local_include_dirs []string `android:"arch_variant,variant_prepend",`
 
 	// list of generated sources to compile. These are the names of gensrcs or
 	// genrule modules.
@@ -108,6 +108,17 @@ type BaseCompilerProperties struct {
 		Local_include_dirs []string
 	}
 
+	Renderscript struct {
+		// list of directories that will be added to the llvm-rs-cc include paths
+		Include_dirs []string
+
+		// list of flags that will be passed to llvm-rs-cc
+		Flags []string
+
+		// Renderscript API level to target
+		Target_api *string
+	}
+
 	Debug, Release struct {
 		// list of module-specific flags that will be used for C and C++ compiles in debug or
 		// release builds
@@ -123,8 +134,15 @@ type BaseCompilerProperties struct {
 			// list of source files that should not be used to
 			// build the vendor variant of the C/C++ module.
 			Exclude_srcs []string
+
+			// List of additional cflags that should be used to build the vendor
+			// variant of the C/C++ module.
+			Cflags []string
 		}
 	}
+
+	// Stores the original list of source files before being cleared by library reuse
+	OriginalSrcs []string `blueprint:"mutated"`
 }
 
 func NewBaseCompiler() *baseCompiler {
@@ -198,20 +216,24 @@ func (compiler *baseCompiler) compilerFlags(ctx ModuleContext, flags Flags) Flag
 	// Include dir cflags
 	localIncludeDirs := android.PathsForModuleSrc(ctx, compiler.Properties.Local_include_dirs)
 	if len(localIncludeDirs) > 0 {
-		flags.GlobalFlags = append(flags.GlobalFlags, includeDirsToFlags(localIncludeDirs))
+		f := includeDirsToFlags(localIncludeDirs)
+		flags.GlobalFlags = append(flags.GlobalFlags, f)
+		flags.YasmFlags = append(flags.YasmFlags, f)
 	}
 	rootIncludeDirs := android.PathsForSource(ctx, compiler.Properties.Include_dirs)
 	if len(rootIncludeDirs) > 0 {
-		flags.GlobalFlags = append(flags.GlobalFlags, includeDirsToFlags(rootIncludeDirs))
+		f := includeDirsToFlags(rootIncludeDirs)
+		flags.GlobalFlags = append(flags.GlobalFlags, f)
+		flags.YasmFlags = append(flags.YasmFlags, f)
 	}
 
 	if !ctx.noDefaultCompilerFlags() {
 		flags.GlobalFlags = append(flags.GlobalFlags, "-I"+android.PathForModuleSrc(ctx).String())
+		flags.YasmFlags = append(flags.YasmFlags, "-I"+android.PathForModuleSrc(ctx).String())
 
 		if !(ctx.sdk() || ctx.vndk()) || ctx.Host() {
 			flags.SystemIncludeFlags = append(flags.SystemIncludeFlags,
 				"${config.CommonGlobalIncludes}",
-				"${config.CommonGlobalSystemIncludes}",
 				tc.IncludeFlags(),
 				"${config.CommonNativehelperInclude}")
 		}
@@ -374,6 +396,10 @@ func (compiler *baseCompiler) compilerFlags(ctx ModuleContext, flags Flags) Flag
 		flags.CppFlags = append([]string{"-std=" + cppStd}, flags.CppFlags...)
 	}
 
+	if ctx.vndk() {
+		flags.CFlags = append(flags.CFlags, esc(compiler.Properties.Target.Vendor.Cflags)...)
+	}
+
 	// We can enforce some rules more strictly in the code we own. strict
 	// indicates if this is code that we can be stricter with. If we have
 	// rules that we want to apply to *our* code (but maybe can't for
@@ -413,11 +439,20 @@ func (compiler *baseCompiler) compilerFlags(ctx ModuleContext, flags Flags) Flag
 			"-I"+android.PathForModuleGen(ctx, "aidl").String())
 	}
 
+	if compiler.hasSrcExt(".rs") || compiler.hasSrcExt(".fs") {
+		flags = rsFlags(ctx, flags, &compiler.Properties)
+	}
+
 	return flags
 }
 
 func (compiler *baseCompiler) hasSrcExt(ext string) bool {
 	for _, src := range compiler.Properties.Srcs {
+		if filepath.Ext(src) == ext {
+			return true
+		}
+	}
+	for _, src := range compiler.Properties.OriginalSrcs {
 		if filepath.Ext(src) == ext {
 			return true
 		}

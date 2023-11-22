@@ -14,7 +14,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "audio"
 TEST_TYPE = "server"
-DEPENDENCIES = "chameleon, audio_board, audio_box"
+DEPENDENCIES = "chameleon, audio_board, audio_box, test_hdmiaudio"
 
 DOC = """
 This test remotely tests audio nodes selection.

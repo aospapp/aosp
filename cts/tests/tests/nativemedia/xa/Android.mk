@@ -41,6 +41,6 @@ LOCAL_STATIC_LIBRARIES := \
 LOCAL_CTS_TEST_PACKAGE := android.nativemedia.xa
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 include $(BUILD_CTS_EXECUTABLE)

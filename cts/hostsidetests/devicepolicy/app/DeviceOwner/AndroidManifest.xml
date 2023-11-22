@@ -61,7 +61,14 @@
             android:name="com.android.cts.deviceowner.LockTaskUtilityActivity" />
         <activity
             android:name="com.android.cts.deviceowner.LockTaskUtilityActivityIfWhitelisted"
-            android:lockTaskMode="if_whitelisted" />
+            android:launchMode="singleInstance"
+            android:lockTaskMode="if_whitelisted">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.HOME"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity>
 
         <!-- we need to give a different taskAffinity so that when we use
              FLAG_ACTIVITY_NEW_TASK, the system tries to start it in a different task

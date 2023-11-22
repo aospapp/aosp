@@ -99,7 +99,7 @@ public class AnimatedVectorDrawableParameterizedTest {
 
     @AfterClass
     public static void tearDownClass() throws Exception {
-        if (sTransitionScaleBefore != Float.NaN) {
+        if (!Float.isNaN(sTransitionScaleBefore)) {
             SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(),
                     "settings put global transition_animation_scale " +
                             sTransitionScaleBefore);

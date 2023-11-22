@@ -20,6 +20,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.io.InputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
@@ -248,5 +249,16 @@ public class SSLSocketFactoryTest extends TestCase {
         Socket ssl = sf.createSocket(s, null, -1, false);
         assertNotNull(ssl);
         assertTrue(SSLSocket.class.isAssignableFrom(ssl.getClass()));
+    }
+
+
+    public void test_SSLSocketFactory_createSocket_withConsumedInputStream()
+            throws Exception {
+        try {
+            SSLSocketFactory sf = (SSLSocketFactory) SSLSocketFactory.getDefault();
+            Socket sslSocket = sf.createSocket(null, (InputStream) null, false);
+            fail();
+        } catch (UnsupportedOperationException expected) {
+        }
     }
 }

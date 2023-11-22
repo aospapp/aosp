@@ -25,6 +25,7 @@ import android.provider.Settings;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.TtsEngines;
 import android.speech.tts.UtteranceProgressListener;
+import android.support.annotation.Keep;
 import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v7.preference.ListPreference;
 import android.support.v7.preference.Preference;
@@ -43,6 +44,10 @@ import java.util.MissingResourceException;
 import java.util.Objects;
 import java.util.Set;
 
+/**
+ * Fragment for TextToSpeech settings
+ */
+@Keep
 public class TextToSpeechFragment extends LeanbackPreferenceFragment  implements
         Preference.OnPreferenceChangeListener, Preference.OnPreferenceClickListener,
         TtsEnginePreference.RadioButtonGroupState {

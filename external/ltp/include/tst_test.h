@@ -18,6 +18,10 @@
 #ifndef TST_TEST_H__
 #define TST_TEST_H__
 
+#ifdef __TEST_H__
+# error Oldlib test.h already included
+#endif /* __TEST_H__ */
+
 #include <unistd.h>
 
 #include "tst_common.h"
@@ -32,6 +36,8 @@
 #include "tst_process_state.h"
 #include "tst_atomic.h"
 #include "tst_kvercmp.h"
+#include "tst_clone.h"
+#include "tst_kernel.h"
 
 /*
  * Reports testcase result.
@@ -43,13 +49,20 @@ void tst_res_(const char *file, const int lineno, int ttype,
 #define tst_res(ttype, arg_fmt, ...) \
 	tst_res_(__FILE__, __LINE__, (ttype), (arg_fmt), ##__VA_ARGS__)
 
+void tst_resm_hexd_(const char *file, const int lineno, int ttype,
+	const void *buf, size_t size, const char *arg_fmt, ...)
+	__attribute__ ((format (printf, 6, 7)));
+
+#define tst_res_hexd(ttype, buf, size, arg_fmt, ...) \
+	tst_resm_hexd_(__FILE__, __LINE__, (ttype), (buf), (size), \
+			(arg_fmt), ##__VA_ARGS__)
+
 /*
  * Reports result and exits a test.
  */
 void tst_brk_(const char *file, const int lineno, int ttype,
               const char *fmt, ...)
-              __attribute__ ((format (printf, 4, 5)))
-              __attribute__ ((noreturn));
+              __attribute__ ((format (printf, 4, 5)));
 
 #define tst_brk(ttype, arg_fmt, ...) \
 	tst_brk_(__FILE__, __LINE__, (ttype), (arg_fmt), ##__VA_ARGS__)
@@ -58,16 +71,36 @@ pid_t safe_fork(const char *filename, unsigned int lineno);
 #define SAFE_FORK() \
 	safe_fork(__FILE__, __LINE__)
 
+#define TST_TRACE(expr)	                                            \
+	({int ret = expr;                                           \
+	  ret != 0 ? tst_res(TINFO, #expr " failed"), ret : ret; }) \
+
 #include "tst_safe_macros.h"
 #include "tst_safe_file_ops.h"
 #include "tst_safe_net.h"
-#include "tst_safe_pthread.h"
+
+/*
+ * Wait for all children and exit with TBROK if
+ * any of them returned a non-zero exit status.
+ */
+void tst_reap_children(void);
 
 struct tst_option {
 	char *optstr;
 	char **arg;
 	char *help;
 };
+
+/*
+ * Options parsing helpers.
+ *
+ * If str is NULL these are No-op.
+ *
+ * On failure non-zero (errno) is returned.
+ */
+int tst_parse_int(const char *str, int *val, int min, int max);
+int tst_parse_long(const char *str, long *val, long min, long max);
+int tst_parse_float(const char *str, float *val, float min, float max);
 
 struct tst_test {
 	/* test id usually the same as test filename without file suffix */
@@ -84,6 +117,23 @@ struct tst_test {
 	int forks_child:1;
 	int needs_device:1;
 	int needs_checkpoints:1;
+	int format_device:1;
+	int mount_device:1;
+
+	/* Minimal device size in megabytes */
+	unsigned int dev_min_size;
+
+	/* Device filesystem type override NULL == default */
+	const char *dev_fs_type;
+
+	/* Options passed to SAFE_MKFS() when format_device is set */
+	const char *const *dev_fs_opts;
+	const char *dev_extra_opt;
+
+	/* Device mount options, used if mount_device is set */
+	const char *mntpoint;
+	unsigned int mnt_flags;
+	void *mnt_data;
 
 	/* override default timeout per test run */
 	unsigned int timeout;
@@ -132,6 +182,8 @@ const char *tst_strsig(int sig);
 
 static struct tst_test test;
 
+void tst_set_timeout(unsigned int timeout);
+
 int main(int argc, char *argv[])
 {
 	tst_run_tcases(argc, argv, &test);
@@ -139,10 +191,9 @@ int main(int argc, char *argv[])
 
 #endif /* TST_NO_DEFAULT_MAIN */
 
-#define TST_TEST_TCONF(message)                                           \
-	static void tst_do_test(void) { tst_brk(TCONF, "%s", message); }; \
-        static struct tst_test test = { .test_all = tst_do_test }         \
-
+#define TST_TEST_TCONF(message)                                              \
+        static void tst_do_test(void) { tst_brk(TCONF, "%s", message); };    \
+        static struct tst_test test = { .test_all = tst_do_test, .tid = "" } \
 /*
  * This is a hack to make the testcases link without defining TCID
  */

@@ -13,6 +13,9 @@ import common
 from autotest_lib.client.cros import constants
 
 
+JETSTREAM_BOARDS = frozenset(['arkham', 'gale', 'whirlwind'])
+
+
 def _lsbrelease_search(regex, group_id=0, lsb_release_content=None):
     """Searches /etc/lsb-release for a regex match.
 
@@ -27,7 +30,7 @@ def _lsbrelease_search(regex, group_id=0, lsb_release_content=None):
 
     @raises IOError if /etc/lsb-release can not be accessed.
     """
-    if not lsb_release_content:
+    if lsb_release_content is None:
         with open(constants.LSB_RELEASE) as lsb_release_file:
             lsb_release_content = lsb_release_file.read()
     for line in lsb_release_content.split('\n'):
@@ -61,6 +64,20 @@ def get_chromeos_release_version(lsb_release_content=None):
                               lsb_release_content=lsb_release_content)
 
 
+def get_chromeos_release_milestone(lsb_release_content=None):
+    """Get chromeos milestone in device under test as string. None on fail.
+
+    @param lsb_release_content: A string represents the content of lsb-release.
+            If the caller is from drone, it can pass in the file content here.
+
+    @return chromeos release milestone in device under test as string.
+            None on fail.
+    """
+    return _lsbrelease_search(r'^CHROMEOS_RELEASE_CHROME_MILESTONE=(.+)$',
+                              group_id=1,
+                              lsb_release_content=lsb_release_content)
+
+
 def is_moblab(lsb_release_content=None):
     """Return if we are running on a Moblab system or not.
 
@@ -69,15 +86,31 @@ def is_moblab(lsb_release_content=None):
 
     @return the board string if this is a Moblab device or None if it is not.
     """
+    if lsb_release_content is not None:
+        return _lsbrelease_search(r'.*moblab',
+                                  lsb_release_content=lsb_release_content)
+
     if os.path.exists(constants.LSB_RELEASE):
-        return _lsbrelease_search(
-                r'.*moblab', lsb_release_content=lsb_release_content)
+        return _lsbrelease_search(r'.*moblab')
+
     try:
         from chromite.lib import cros_build_lib
         if cros_build_lib.IsInsideChroot():
             return None
     except ImportError as e:
         logging.error('Unable to determine if this is a moblab system: %s', e)
+
+
+def is_jetstream(lsb_release_content=None):
+    """Parses lsb_contents to determine if the host is a Jetstream host.
+
+    @param lsb_release_content: The string contents of lsb-release.
+            If None, the local lsb-release is used.
+
+    @return True if the host is a Jetstream device, otherwise False.
+    """
+    board = get_current_board(lsb_release_content=lsb_release_content)
+    return board in JETSTREAM_BOARDS
 
 
 def get_chrome_milestone(lsb_release_content=None):

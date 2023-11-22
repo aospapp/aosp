@@ -122,7 +122,7 @@ int GrTextureStripAtlas::lockRow(const SkBitmap& bitmap) {
 
         if (nullptr == row) {
             // force a flush, which should unlock all the rows; then try again
-            fDesc.fContext->flush();
+            fDesc.fContext->contextPriv().flush(nullptr); // tighten this up?
             row = this->getLRU();
             if (nullptr == row) {
                 --fLockedRows;
@@ -153,8 +153,6 @@ int GrTextureStripAtlas::lockRow(const SkBitmap& bitmap) {
         fKeyTable.insert(index, 1, &row);
         rowNumber = static_cast<int>(row - fRows);
 
-        SkAutoLockPixels lock(bitmap);
-
         SkASSERT(bitmap.width() == fDesc.fWidth);
         SkASSERT(bitmap.height() == fDesc.fRowHeight);
 
@@ -162,7 +160,7 @@ int GrTextureStripAtlas::lockRow(const SkBitmap& bitmap) {
         // that is not currently in use
         fTexContext->writePixels(bitmap.info(), bitmap.getPixels(), bitmap.rowBytes(),
                                  0, rowNumber * fDesc.fRowHeight,
-                                 GrContext::kDontFlush_PixelOpsFlag);
+                                 GrContextPriv::kDontFlush_PixelOpsFlag);
     }
 
     SkASSERT(rowNumber >= 0);

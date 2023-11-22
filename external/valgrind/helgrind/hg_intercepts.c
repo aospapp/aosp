@@ -8,7 +8,7 @@
    This file is part of Helgrind, a Valgrind tool for detecting errors
    in threaded programs.
 
-   Copyright (C) 2007-2015 OpenWorks LLP
+   Copyright (C) 2007-2017 OpenWorks LLP
       info@open-works.co.uk
 
    This program is free software; you can redistribute it and/or
@@ -673,7 +673,11 @@ static int thr_join_WRK(thread_t joinee, thread_t *departed, void **thread_retur
 // We wrap two hook procedures called by the gnat gcc Ada runtime
 // that allows helgrind to understand the semantic of Ada task dependencies
 // and termination.
-
+//   procedure Master_Hook
+//     (Dependent    : Task_Id;
+//      Parent       : Task_Id;
+//      Master_Level : Integer);
+// where    type Task_Id is access all Ada_Task_Control_Block;
 // System.Tasking.Debug.Master_Hook is called by a task Dependent to
 // indicate that its master is identified by master+master_level.
 void I_WRAP_SONAME_FNNAME_ZU
@@ -707,6 +711,10 @@ void I_WRAP_SONAME_FNNAME_ZU
 
 // System.Tasking.Debug.Master_Completed_Hook is called by a task to
 // indicate that it has completed a master.
+//  procedure Master_Completed_Hook
+//     (Self_ID      : Task_Id;
+//      Master_Level : Integer);
+// where    type Task_Id is access all Ada_Task_Control_Block;
 // This indicates that all its Dependent tasks (that identified themselves
 // with the Master_Hook call) are terminated. Helgrind can consider
 // at this point that the equivalent of a 'pthread_join' has been done
@@ -1854,13 +1862,13 @@ static int pthread_spin_destroy_WRK(pthread_spinlock_t *lock)
    return ret;
 }
 #if defined(VGO_linux)
-   PTH_FUNC(int, pthreadZuspinZusdestroy, // pthread_spin_destroy
+   PTH_FUNC(int, pthreadZuspinZudestroy, // pthread_spin_destroy
             pthread_spinlock_t *lock) {
       return pthread_spin_destroy_WRK(lock);
    }
 #elif defined(VGO_darwin)
 #elif defined(VGO_solaris)
-   PTH_FUNC(int, pthreadZuspinZusdestroy, // pthread_spin_destroy
+   PTH_FUNC(int, pthreadZuspinZudestroy, // pthread_spin_destroy
             pthread_spinlock_t *lock) {
       return pthread_spin_destroy_WRK(lock);
    }

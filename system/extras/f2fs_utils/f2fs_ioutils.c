@@ -83,7 +83,7 @@ struct selabel_handle;
 
 #endif
 
-struct f2fs_configuration config;
+struct f2fs_configuration c;
 struct sparse_file *f2fs_sparse_file;
 
 struct buf_item {
@@ -94,11 +94,29 @@ struct buf_item {
 
 struct buf_item *buf_list;
 
+static int __get_device_fd(__u64 *offset)
+{
+	__u64 blk_addr = *offset >> F2FS_BLKSIZE_BITS;
+	int i;
+
+	for (i = 0; i < c.ndevs; i++) {
+		if (c.devices[i].start_blkaddr <= blk_addr &&
+				c.devices[i].end_blkaddr >= blk_addr) {
+			*offset -=
+				c.devices[i].start_blkaddr << F2FS_BLKSIZE_BITS;
+			return c.devices[i].fd;
+		}
+	}
+	return -1;
+}
+
 static int dev_write_fd(void *buf, __u64 offset, size_t len)
 {
-	if (lseek64(config.fd, (off64_t)offset, SEEK_SET) < 0)
+	int fd = __get_device_fd(&offset);
+
+	if (lseek64(fd, (off64_t)offset, SEEK_SET) < 0)
 		return -1;
-	ssize_t written = write(config.fd, buf, len);
+	ssize_t written = write(fd, buf, len);
 	if (written == -1)
 		return -1;
 	if ((size_t)written != len)
@@ -138,11 +156,11 @@ static int dev_write_sparse(void *buf, __u64 byte_offset, size_t byte_len)
 	return 0;
 }
 
-void f2fs_finalize_device(struct f2fs_configuration *c)
+void f2fs_finalize_device(void)
 {
 }
 
-int f2fs_trim_device()
+int f2fs_trim_devices(void)
 {
 	return 0;
 }
@@ -160,24 +178,49 @@ int dev_read(void  *buf, __u64 offset, size_t len)
 	return 0;
 }
 
+int dev_readahead(__u64 offset, size_t len)
+{
+	return 0;
+}
+
 int dev_write(void *buf, __u64 offset, size_t len)
 {
-	if (config.fd >= 0) {
+	int fd = __get_device_fd(&offset);
+
+	if (fd >= 0) {
 		return dev_write_fd(buf, offset, len);
 	} else {
 		return dev_write_sparse(buf, offset, len);
 	}
 }
 
+int dev_write_block(void *buf, __u64 blk_addr)
+{
+	assert(false); // Must not be invoked.
+	return 0;
+}
+
+int dev_write_dump(void *buf, __u64 offset, size_t len)
+{
+	assert(false); // Must not be invoked.
+	return 0;
+}
 
 int dev_fill(void *buf, __u64 offset, size_t len)
 {
+	int fd = __get_device_fd(&offset);
 	int ret;
-	if (config.fd >= 0) {
+	if (fd >= 0) {
 		return dev_write_fd(buf, offset, len);
 	}
         // sparse file fills with zero by default.
 	// return sparse_file_add_fill(f2fs_sparse_file, ((__u8*)(bi->buf))[0], byte_len, byte_offset/F2FS_BLKSIZE);
+	return 0;
+}
+
+int dev_fill_block(void *buf, __u64 blk_addr)
+{
+	assert(false); // Must not be invoked.
 	return 0;
 }
 
@@ -193,3 +236,8 @@ int dev_read_blocks(void *buf, __u64 addr, __u32 nr_blks)
 	return 0;
 }
 
+int dev_reada_block(__u64 blk_addr)
+{
+	assert(false); // Must not be invoked.
+	return 0;
+}

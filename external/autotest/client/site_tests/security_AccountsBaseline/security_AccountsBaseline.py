@@ -6,11 +6,55 @@ import logging
 import os
 import shutil
 
-from autotest_lib.client.bin import test, utils
+from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
 
 class security_AccountsBaseline(test.test):
+    """Enforces a whitelist of known user and group IDs."""
+
     version = 1
+
+
+    @staticmethod
+    def validate_passwd(entry):
+        """Check users that are not in the baseline.
+           The user ID should match the group ID, and the user's home directory
+           and shell should be invalid."""
+        uid = int(entry[2])
+        gid = int(entry[3])
+
+        if uid != gid:
+            logging.error("New user '%s' has uid %d and different gid %d",
+                          entry[0], uid, gid)
+            return False
+
+        if entry[5] != '/dev/null':
+            logging.error("New user '%s' has valid home dir '%s'", entry[0],
+                          entry[5])
+            return False
+
+        if entry[6] != '/bin/false':
+            logging.error("New user '%s' has valid shell '%s'", entry[0],
+                          entry[6])
+            return False
+
+        return True
+
+
+    @staticmethod
+    def validate_group(entry):
+        """Check groups that are not in the baseline.
+           Allow groups that have no users and groups with only the matching
+           user."""
+        group_name = entry[0]
+        users = entry[3]
+
+        # Groups with no users and groups with only the matching user are OK.
+        if len(users) == 0 or users == group_name:
+            return True
+
+        logging.error("New group '%s' has users '%s'", group_name, users)
+        return False
 
 
     @staticmethod
@@ -56,17 +100,15 @@ class security_AccountsBaseline(test.test):
 
     def check_file(self, basename):
         match_func = getattr(self, 'match_%s' % basename)
+        validate_func = getattr(self, 'validate_%s' % basename)
         success = True
 
         expected_entries = self.load_path(
             os.path.join(self.bindir, 'baseline.%s' % basename))
 
-        # TODO(spang): Remove this once per-board baselines are supported
-        # (crbug.com/406013).
-        if utils.is_freon():
-            extra_baseline = 'baseline.%s.freon' % basename
-        else:
-            extra_baseline = 'baseline.%s.x11' % basename
+        # TODO(jorgelo): Merge this into the main baseline once Freon users
+        # are included in the main overlay.
+        extra_baseline = 'baseline.%s.freon' % basename
 
         expected_entries += self.load_path(
             os.path.join(self.bindir, extra_baseline))
@@ -74,17 +116,17 @@ class security_AccountsBaseline(test.test):
         actual_entries = self.load_path('/etc/%s' % basename)
 
         if len(actual_entries) > len(expected_entries):
-            success = False
-            logging.error(
+            logging.warning(
                 '%s baseline mismatch: expected %d entries, got %d.',
                 basename, len(expected_entries), len(actual_entries))
 
         for actual in actual_entries:
-            expected = [x for x in expected_entries if x[0] == actual[0]]
+            expected = [entry for entry in expected_entries
+                            if entry[0] == actual[0]]
             if not expected:
-                success = False
-                logging.error("Unexpected %s entry for '%s'.",
-                              basename, actual[0])
+                logging.warning("Unexpected %s entry for '%s'.",
+                                basename, actual[0])
+                success = success and validate_func(actual)
                 continue
             expected = expected[0]
             match_res = match_func(expected, actual)
@@ -107,4 +149,4 @@ class security_AccountsBaseline(test.test):
 
         # Fail after all mismatches have been reported.
         if not (passwd_ok and group_ok):
-            raise error.TestFail('Baseline mismatch.')
+            raise error.TestFail('Baseline mismatch, see error log')

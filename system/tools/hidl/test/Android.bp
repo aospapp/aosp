@@ -1,11 +1,15 @@
 subdirs = [
-    "vendor/1.0",
+    "error_test",
+    "hash_test",
+    "impl_test",
     "java_test",
+    "vendor/1.0",
+    "vendor/1.1",
+    "version_test",
 ]
 
 cc_test {
     name: "hidl_test_client",
-    vendor: true,
     cflags: hidl_flags,
     srcs: ["hidl_test_client.cpp", "FooCallback.cpp"],
 
@@ -27,6 +31,7 @@ cc_test {
         "android.hardware.tests.inheritance@1.0",
         "android.hardware.tests.pointer@1.0",
         "android.hardware.tests.memory@1.0",
+        "android.hardware.tests.multithread@1.0",
         "android.hidl.allocator@1.0",
         "android.hidl.memory@1.0",
         "android.hidl.token@1.0",
@@ -45,12 +50,12 @@ cc_test {
         "android.hardware.tests.inheritance@1.0-impl",
         "android.hardware.tests.pointer@1.0-impl",
         "android.hardware.tests.memory@1.0-impl",
+        "android.hardware.tests.multithread@1.0-impl",
     ],
 }
 
 cc_test {
     name: "hidl_test_servers",
-    vendor: true,
     srcs: ["hidl_test_servers.cpp"],
     gtest: false,
 
@@ -68,6 +73,7 @@ cc_test {
         "android.hardware.tests.inheritance@1.0",
         "android.hardware.tests.pointer@1.0",
         "android.hardware.tests.memory@1.0",
+        "android.hardware.tests.multithread@1.0",
         "android.hidl.memory@1.0",
         "android.hidl.token@1.0",
     ],

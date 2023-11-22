@@ -23,18 +23,28 @@ namespace chre {
 SystemTimer::SystemTimer() {}
 
 SystemTimer::~SystemTimer() {
-  timer_undef(&mTimerHandle);
+  if (mInitialized) {
+    slpiTimerUndef(&mTimerHandle);
+  }
 }
 
 bool SystemTimer::init() {
   if (mInitialized) {
     LOGW("Tried re-initializing timer");
   } else {
-    timer_error_type status = timer_def_osal(
+#ifdef CHRE_SLPI_UIMG_ENABLED
+    SlpiTimerErrorType status = utimer_def_osal(
+        &mTimerHandle, UTIMER_FUNC1_CB_TYPE,
+        reinterpret_cast<utimer_osal_notify_obj_ptr>(systemTimerNotifyCallback),
+        reinterpret_cast<utimer_osal_notify_data>(this));
+#else
+    SlpiTimerErrorType status = timer_def_osal(
         &mTimerHandle, &timer_non_defer_group, TIMER_FUNC1_CB_TYPE,
         reinterpret_cast<time_osal_notify_obj_ptr>(systemTimerNotifyCallback),
         reinterpret_cast<time_osal_notify_data>(this));
-    if (status != TE_SUCCESS) {
+#endif  // CHRE_SLPI_UIMG_ENABLED
+
+    if (status != SLPI_TIMER_SUCCESS) {
       LOGE("Error initializing timer %d", status);
     } else {
       mInitialized = true;
@@ -50,9 +60,9 @@ bool SystemTimer::set(SystemTimerCallback *callback, void *data,
   if (mInitialized) {
     mCallback = callback;
     mData = data;
-    timer_error_type status = timer_set_64(&mTimerHandle,
-        Microseconds(delay).getMicroseconds(), 0, T_USEC);
-    if (status != TE_SUCCESS) {
+    SlpiTimerErrorType status = slpiTimerSet64(&mTimerHandle,
+        Microseconds(delay).getMicroseconds(), 0, SlpiTimerMicroUnit);
+    if (status != SLPI_TIMER_SUCCESS) {
       LOGE("Error setting timer %d", status);
     } else {
       wasSet = true;
@@ -65,7 +75,8 @@ bool SystemTimer::set(SystemTimerCallback *callback, void *data,
 bool SystemTimer::cancel() {
   bool wasCancelled = false;
   if (mInitialized) {
-    time_timetick_type ticksRemaining = timer_clr_64(&mTimerHandle, T_TICK);
+    SlpiTimerTickType ticksRemaining = slpiTimerClr64(&mTimerHandle,
+                                                      SlpiTimerTickUnit);
     wasCancelled = (ticksRemaining > 0);
   }
 
@@ -73,10 +84,12 @@ bool SystemTimer::cancel() {
 }
 
 bool SystemTimer::isActive() {
-  return (mInitialized && timer_get_64(&mTimerHandle, T_TICK) > 0);
+  SlpiTimerTickType ticksRemaining = slpiTimerGet64(&mTimerHandle,
+                                                    SlpiTimerTickUnit);
+  return (mInitialized && ticksRemaining > 0);
 }
 
-void SystemTimerBase::systemTimerNotifyCallback(timer_cb_data_type data) {
+void SystemTimerBase::systemTimerNotifyCallback(SlpiTimerCallbackDataType data) {
   SystemTimer *systemTimer = reinterpret_cast<SystemTimer *>(data);
   systemTimer->mCallback(systemTimer->mData);
 }

@@ -46,13 +46,16 @@ genrule {
     ],
 }
 
-cc_library_shared {
+cc_library {
     name: "android.hardware.soundtrigger@2.0",
     defaults: ["hidl-module-defaults"],
     generated_sources: ["android.hardware.soundtrigger@2.0_genc++"],
     generated_headers: ["android.hardware.soundtrigger@2.0_genc++_headers"],
     export_generated_headers: ["android.hardware.soundtrigger@2.0_genc++_headers"],
     vendor_available: true,
+    vndk: {
+        enabled: true,
+    },
     shared_libs: [
         "libhidlbase",
         "libhidltransport",
@@ -61,7 +64,6 @@ cc_library_shared {
         "libutils",
         "libcutils",
         "android.hardware.audio.common@2.0",
-        "android.hidl.base@1.0",
     ],
     export_shared_lib_headers: [
         "libhidlbase",
@@ -69,6 +71,5 @@ cc_library_shared {
         "libhwbinder",
         "libutils",
         "android.hardware.audio.common@2.0",
-        "android.hidl.base@1.0",
     ],
 }

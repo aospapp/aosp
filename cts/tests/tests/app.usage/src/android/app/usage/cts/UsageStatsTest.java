@@ -18,27 +18,28 @@ package android.app.usage.cts;
 
 import android.app.Activity;
 import android.app.AppOpsManager;
-import android.app.Instrumentation;
 import android.app.usage.UsageEvents;
 import android.app.usage.UsageStats;
 import android.app.usage.UsageStatsManager;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Parcel;
-import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
+import android.support.test.uiautomator.By;
+import android.support.test.uiautomator.UiDevice;
+import android.support.test.uiautomator.Until;
 import android.test.InstrumentationTestCase;
+import android.util.SparseLongArray;
 
-import java.io.FileInputStream;
-import java.io.IOException;
+import junit.framework.AssertionFailedError;
+
+import org.junit.Ignore;
+
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-
-import android.util.SparseLongArray;
-import junit.framework.AssertionFailedError;
-import org.junit.Ignore;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Test the UsageStats API. It is difficult to test the entire surface area
@@ -58,31 +59,27 @@ public class UsageStatsTest extends InstrumentationTestCase {
     private static final String APPOPS_SET_SHELL_COMMAND = "appops set {0} " +
             AppOpsManager.OPSTR_GET_USAGE_STATS + " {1}";
 
-    private static final long MINUTE = 1000 * 60;
-    private static final long DAY = MINUTE * 60 * 24;
+    private static final long TIMEOUT = TimeUnit.SECONDS.toMillis(5);
+    private static final long MINUTE = TimeUnit.MINUTES.toMillis(1);
+    private static final long DAY = TimeUnit.DAYS.toMillis(1);
     private static final long WEEK = 7 * DAY;
     private static final long MONTH = 30 * DAY;
     private static final long YEAR = 365 * DAY;
     private static final long TIME_DIFF_THRESHOLD = 200;
 
+    private UiDevice mUiDevice;
     private UsageStatsManager mUsageStatsManager;
     private String mTargetPackage;
-    private ArrayList<Activity> mStartedActivities = new ArrayList<>();
 
     @Override
     protected void setUp() throws Exception {
+        super.setUp();
+        mUiDevice = UiDevice.getInstance(getInstrumentation());
         mUsageStatsManager = (UsageStatsManager) getInstrumentation().getContext()
                 .getSystemService(Context.USAGE_STATS_SERVICE);
         mTargetPackage = getInstrumentation().getContext().getPackageName();
 
         setAppOpsMode("allow");
-    }
-
-    @Override
-    protected void tearDown() throws Exception {
-        for (Activity activity : mStartedActivities) {
-            activity.finish();
-        }
     }
 
     private static void assertLessThan(long left, long right) {
@@ -101,28 +98,16 @@ public class UsageStatsTest extends InstrumentationTestCase {
     private void setAppOpsMode(String mode) throws Exception {
         final String command = MessageFormat.format(APPOPS_SET_SHELL_COMMAND,
                 getInstrumentation().getContext().getPackageName(), mode);
-        ParcelFileDescriptor pfd = getInstrumentation().getUiAutomation()
-                .executeShellCommand(command);
-        try (FileInputStream fis = new FileInputStream(pfd.getFileDescriptor())){
-            final byte[] buffer = new byte[4096];
-            while (fis.read(buffer) != -1) { }
-        } finally {
-            try {
-                pfd.close();
-            } catch (IOException e) {
-                // Ignore.
-            }
-        }
+        mUiDevice.executeShellCommand(command);
     }
 
     private void launchSubActivity(Class<? extends Activity> clazz) {
-        final Instrumentation.ActivityResult result =
-                new Instrumentation.ActivityResult(0, new Intent());
-        final Instrumentation.ActivityMonitor monitor =
-                new Instrumentation.ActivityMonitor(clazz.getName(), result, false);
-        getInstrumentation().addMonitor(monitor);
-        launchActivity(mTargetPackage, clazz, null);
-        mStartedActivities.add(monitor.waitForActivity());
+        final Context context = getInstrumentation().getContext();
+        final Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.setClassName(mTargetPackage, clazz.getName());
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        context.startActivity(intent);
+        mUiDevice.wait(Until.hasObject(By.clazz(clazz)), TIMEOUT);
     }
 
     private void launchSubActivities(Class<? extends Activity>[] activityClasses) {
@@ -323,7 +308,9 @@ public class UsageStatsTest extends InstrumentationTestCase {
                 startTime, endTime);
         assertFalse(stats.isEmpty());
 
-        setAppOpsMode("default");
+        // We set the mode to ignore because our package has the PACKAGE_USAGE_STATS permission,
+        // and default would allow in this case.
+        setAppOpsMode("ignore");
 
         stats = mUsageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_BEST,
                 startTime, endTime);

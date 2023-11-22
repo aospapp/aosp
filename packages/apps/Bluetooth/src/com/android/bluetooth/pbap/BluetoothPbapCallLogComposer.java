@@ -217,6 +217,7 @@ public class BluetoothPbapCallLogComposer {
         final int callLogType = mCursor.getInt(CALL_TYPE_COLUMN_INDEX);
         final String callLogTypeStr;
         switch (callLogType) {
+            case Calls.REJECTED_TYPE:
             case Calls.INCOMING_TYPE: {
                 callLogTypeStr = VCARD_PROPERTY_CALLTYPE_INCOMING;
                 break;

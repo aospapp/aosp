@@ -32,6 +32,10 @@
             android:name="com.google.android.wearable.standalone"
             android:value="true" />
 
+        <uses-library
+            android:name="com.google.android.wearable"
+            android:required="false" />
+
         <!--
         Important Note: When you have a local/native Android Wear app that creates it's own
         notifications, you will want to disable the bridge to the phone.

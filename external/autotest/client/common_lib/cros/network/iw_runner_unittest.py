@@ -132,6 +132,162 @@ class IwRunnerTest(unittest.TestCase):
                                          None, iw_runner.SECURITY_OPEN,
                                          iw_runner.HT20, -70.00)
 
+    STATION_LINK_INFORMATION = str(
+        'Connected to 12:34:56:ab:cd:ef (on wlan0)\n'
+        '      SSID: PMKSACaching_4m9p5_ch1\n'
+        '      freq: 5220\n'
+        '      RX: 5370 bytes (37 packets)\n'
+        '      TX: 3604 bytes (15 packets)\n'
+        '      signal: -59 dBm\n'
+        '      tx bitrate: 13.0 MBit/s MCS 1\n'
+        '\n'
+        '      bss flags:      short-slot-time\n'
+        '      dtim period:    5\n'
+        '      beacon int:     100\n')
+
+    STATION_LINK_BSSID = '12:34:56:ab:cd:ef'
+
+    STATION_LINK_IFACE = 'wlan0'
+
+    STATION_LINK_FREQ = '5220'
+
+    STATION_LINK_PARSED = {
+        'SSID': 'PMKSACaching_4m9p5_ch1',
+        'freq': '5220',
+        'RX': '5370 bytes (37 packets)',
+        'TX': '3604 bytes (15 packets)',
+        'signal': '-59 dBm',
+        'tx bitrate': '13.0 MBit/s MCS 1',
+        'bss flags': 'short-slot-time',
+        'dtim period': '5',
+        'beacon int': '100'
+        }
+
+    STATION_DUMP_INFORMATION = str(
+        'Station dd:ee:ff:33:44:55 (on mesh-5000mhz)\n'
+        '        inactive time:  140 ms\n'
+        '        rx bytes:       2883498\n'
+        '        rx packets:     31981\n'
+        '        tx bytes:       1369934\n'
+        '        tx packets:     6615\n'
+        '        tx retries:     4\n'
+        '        tx failed:      0\n'
+        '        signal:         -4 dBm\n'
+        '        signal avg:     -11 dBm\n'
+        '        Toffset:        81715566854 us\n'
+        '        tx bitrate:     866.7 MBit/s VHT-MCS 9 80MHz '
+        'short GI VHT-NSS 2\n'
+        '        rx bitrate:     866.7 MBit/s VHT-MCS 9 80MHz '
+        'short GI VHT-NSS 2\n'
+        '        mesh llid:      0\n'
+        '        mesh plid:      0\n'
+        '        mesh plink:     ESTAB\n'
+        '        mesh local PS mode:     ACTIVE\n'
+        '        mesh peer PS mode:      ACTIVE\n'
+        '        mesh non-peer PS mode:  ACTIVE\n'
+        '        authorized:     yes\n'
+        '        authenticated:  yes\n'
+        '        preamble:       long\n'
+        '        WMM/WME:        yes\n'
+        '        MFP:            yes\n'
+        '        TDLS peer:      no\n'
+        '        connected time: 8726 seconds\n'
+        'Station aa:bb:cc:00:11:22 (on mesh-5000mhz)\n'
+        '        inactive time:  140 ms\n'
+        '        rx bytes:       2845200\n'
+        '        rx packets:     31938\n'
+        '        tx bytes:       1309945\n'
+        '        tx packets:     6672\n'
+        '        tx retries:     0\n'
+        '        tx failed:      0\n'
+        '        signal:         -21 dBm\n'
+        '        signal avg:     -21 dBm\n'
+        '        tx bitrate:     866.7 MBit/s VHT-MCS 9 80MHz '
+        'short GI VHT-NSS 2\n'
+        '        rx bitrate:     650.0 MBit/s VHT-MCS 7 80MHz '
+        'short GI VHT-NSS 2\n'
+        '        mesh llid:      0\n'
+        '        mesh plid:      0\n'
+        '        mesh plink:     ESTAB\n'
+        '        mesh local PS mode:     ACTIVE\n'
+        '        mesh peer PS mode:      ACTIVE\n'
+        '        mesh non-peer PS mode:  ACTIVE\n'
+        '        authorized:     yes\n'
+        '        authenticated:  yes\n'
+        '        preamble:       long\n'
+        '        WMM/WME:        yes\n'
+        '        MFP:            yes\n'
+        '        TDLS peer:      no\n'
+        '        connected time: 8724 seconds\n'
+        'Station ff:aa:bb:aa:44:55 (on mesh-5000mhz)\n'
+        '        inactive time:  304 ms\n'
+        '        rx bytes:       18816\n'
+        '        rx packets:     75\n'
+        '        tx bytes:       5386\n'
+        '        tx packets:     21\n'
+        '        signal:         -29 dBm\n'
+        '        tx bitrate:     65.0 MBit/s VHT-MCS 0 80MHz short GI VHT-NSS 2\n'
+        '        mesh llid:      0\n'
+        '        mesh plid:      0\n'
+        '        mesh plink:     ESTAB\n'
+        '        mesh local PS mode:     ACTIVE\n'
+        '        mesh peer PS mode:      ACTIVE\n'
+        '        mesh non-peer PS mode:  ACTIVE\n'
+        '        authorized:     yes\n'
+        '        authenticated:  yes\n'
+        '        preamble:       long\n'
+        '        WMM/WME:        yes\n'
+        '        MFP:            yes\n'
+        '        TDLS peer:      no\n'
+        '        connected time: 824 seconds\n')
+
+    STATION_DUMP_INFORMATION_PARSED = [
+        {'mac': 'aa:bb:cc:00:11:22', 'rssi_str': '-21 dBm', 'rssi_int': -21,
+        'tx_bitrate': '866.7 MBit/s VHT-MCS 9 80MHz short GI VHT-NSS 2',
+        'rx_bitrate': '650.0 MBit/s VHT-MCS 7 80MHz short GI VHT-NSS 2'},
+        {'mac': 'dd:ee:ff:33:44:55', 'rssi_str': '-4 dBm', 'rssi_int': -4,
+        'tx_bitrate': '866.7 MBit/s VHT-MCS 9 80MHz short GI VHT-NSS 2',
+        'rx_bitrate': '866.7 MBit/s VHT-MCS 9 80MHz short GI VHT-NSS 2'},
+        {'mac': 'ff:aa:bb:aa:44:55', 'rssi_str': '-29 dBm', 'rssi_int': -29,
+        'tx_bitrate': '65.0 MBit/s VHT-MCS 0 80MHz short GI VHT-NSS 2',
+        'rx_bitrate': None},
+        ]
+
+    STATION_DUMP_IFACE = 'mesh-5000mhz'
+
+    INFO_MESH_MODE = str(
+        'Interface wlan-2400mhz\n'
+        '        ifindex 10\n'
+        '        wdev 0x100000002\n'
+        '        addr aa:bb:cc:dd:ee:ff\n'
+        '        type mesh point\n'
+        '        wiphy 1\n'
+        '        channel 149 (5745 MHz), width: 80 MHz, center1: 5775 MHz\n')
+
+    INFO_AP_MODE = str(
+        'Interface wlan-2400mhz\n'
+        '        ifindex 8\n'
+        '        wdev 0x1\n'
+        '        addr 00:11:22:33:44:55\n'
+        '        ssid testap_170501151530_wsvx\n'
+        '        type AP\n'
+        '        wiphy 0\n'
+        '        channel 11 (2462 MHz), width: 20 MHz, center1: 2462 MHz\n')
+
+    RADIO_CONFIG_AP_MODE = {'number': 11, 'freq': 2462, 'width': 20,
+                            'center1_freq': 2462}
+
+    INFO_STA_MODE = str(
+        'Interface wlan-2400mhz\n'
+        '        ifindex 9\n'
+        '        wdev 0x1\n'
+        '        addr 44:55:66:77:88:99\n'
+        '        type managed\n'
+        '        wiphy 0\n'
+        '        channel 11 (2462 MHz), width: 20 MHz, center1: 2462 MHz\n')
+
+    INFO_IFACE = 'wlan-2400mhz'
+
 
     def verify_values(self, iw_bss_1, iw_bss_2):
         """Checks all of the IWBss values
@@ -140,12 +296,12 @@ class IwRunnerTest(unittest.TestCase):
         @param iw_bss_2: an IWBss object
 
         """
-        self.assertEquals(iw_bss_1.bss, iw_bss_2[0].bss)
-        self.assertEquals(iw_bss_1.ssid, iw_bss_2[0].ssid)
-        self.assertEquals(iw_bss_1.frequency, iw_bss_2[0].frequency)
-        self.assertEquals(iw_bss_1.security, iw_bss_2[0].security)
-        self.assertEquals(iw_bss_1.ht, iw_bss_2[0].ht)
-        self.assertEquals(iw_bss_1.signal, iw_bss_2[0].signal)
+        self.assertEquals(iw_bss_1.bss, iw_bss_2.bss)
+        self.assertEquals(iw_bss_1.ssid, iw_bss_2.ssid)
+        self.assertEquals(iw_bss_1.frequency, iw_bss_2.frequency)
+        self.assertEquals(iw_bss_1.security, iw_bss_2.security)
+        self.assertEquals(iw_bss_1.ht, iw_bss_2.ht)
+        self.assertEquals(iw_bss_1.signal, iw_bss_2.signal)
 
 
     def search_by_bss(self, scan_output, test_iw_bss):
@@ -159,7 +315,7 @@ class IwRunnerTest(unittest.TestCase):
         host = self.host(scan_output + self.SCAN_TIME_OUTPUT)
         runner = iw_runner.IwRunner(remote_host=host)
         network = runner.wait_for_scan_result('wlan0', bsses=[test_iw_bss.bss])
-        self.verify_values(test_iw_bss, network)
+        self.verify_values(test_iw_bss, network[0])
 
 
     def test_find_first(self):
@@ -206,15 +362,85 @@ class IwRunnerTest(unittest.TestCase):
 
     def test_multiple_ssids(self):
         """Test with multiple networks with the same ssids."""
-        return
         scan_output = self.HT40_ABOVE + self.HT20 + self.NO_HT + self.HT20_2
-        host = self.host(scan_output)
+        host = self.host(scan_output + self.SCAN_TIME_OUTPUT)
         runner = iw_runner.IwRunner(remote_host=host)
         networks = runner.wait_for_scan_result('wlan 0',
                                                ssids=[self.HT20_2_IW_BSS.ssid])
         for iw_bss_1, iw_bss_2 in zip([self.HT20_IW_BSS, self.HT20_2_IW_BSS],
                                       networks):
             self.verify_values(iw_bss_1, iw_bss_2)
+
+
+    def test_station_bssid(self):
+        """Test parsing of the bssid of a station-mode link."""
+        host = self.host(self.STATION_LINK_INFORMATION)
+        runner = iw_runner.IwRunner(remote_host=host)
+        self.assertEquals(
+            runner.get_current_bssid(self.STATION_LINK_IFACE),
+            self.STATION_LINK_BSSID)
+
+
+    def test_station_link_parsing(self):
+        """Test all link keys can be parsed from station link information."""
+        self.assertEquals(
+            iw_runner._get_all_link_keys(self.STATION_LINK_INFORMATION),
+            self.STATION_LINK_PARSED)
+
+
+    def test_station_link_key(self):
+        """Test a link key is extracted from station link information."""
+        host = self.host(self.STATION_LINK_INFORMATION)
+        runner = iw_runner.IwRunner(remote_host=host)
+        self.assertEquals(
+            runner.get_link_value(self.STATION_LINK_INFORMATION,
+                                  iw_runner.IW_LINK_KEY_FREQUENCY),
+            self.STATION_LINK_FREQ)
+
+
+    def test_station_dump(self):
+        """Test parsing of a station dump."""
+        host = self.host(self.STATION_DUMP_INFORMATION)
+        runner = iw_runner.IwRunner(remote_host=host)
+        self.assertEquals(
+            runner.get_station_dump(self.STATION_DUMP_IFACE),
+            self.STATION_DUMP_INFORMATION_PARSED)
+
+
+    def test_operating_mode_mesh(self):
+        """Test mesh operating mode parsing."""
+        host = self.host(self.INFO_MESH_MODE)
+        runner = iw_runner.IwRunner(remote_host=host)
+        self.assertEquals(
+            runner.get_operating_mode(self.INFO_IFACE),
+            iw_runner.DEV_MODE_MESH_POINT)
+
+
+    def test_operating_mode_ap(self):
+        """Test AP operating mode parsing."""
+        host = self.host(self.INFO_AP_MODE)
+        runner = iw_runner.IwRunner(remote_host=host)
+        self.assertEquals(
+            runner.get_operating_mode(self.INFO_IFACE),
+            iw_runner.DEV_MODE_AP)
+
+
+    def test_operating_mode_station(self):
+        """Test STA operating mode parsing."""
+        host = self.host(self.INFO_STA_MODE)
+        runner = iw_runner.IwRunner(remote_host=host)
+        self.assertEquals(
+            runner.get_operating_mode(self.INFO_IFACE),
+            iw_runner.DEV_MODE_STATION)
+
+
+    def test_radio_information(self):
+        """Test radio information parsing."""
+        host = self.host(self.INFO_AP_MODE)
+        runner = iw_runner.IwRunner(remote_host=host)
+        self.assertEquals(
+            runner.get_radio_config(self.INFO_IFACE),
+            self.RADIO_CONFIG_AP_MODE)
 
 
 if __name__ == '__main__':

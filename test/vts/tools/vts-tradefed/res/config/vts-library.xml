@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2016 Google Inc.
+<!-- Copyright (C) 2016 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -17,10 +17,13 @@
   <include name="vts-base" />
   <option name="plan" value="vts" />
   <option name="test-tag" value="vts-star" />
+  <option name="vts-plan-result:plan-name" value="vts-library" />
 
-  <!-- For NDK -->
+  <option name="compatibility:include-filter" value="CpuProfilingTest" />
   <option name="compatibility:include-filter" value="BionicUnitTests" />
-  <option name="compatibility:include-filter" value="BionicUnitTestsGcc" />
   <option name="compatibility:include-filter" value="BionicUnitTestsStatic" />
+  <option name="compatibility:include-filter" value="LibcTest" />
+  <option name="compatibility:include-filter" value="VtsFmqUnitTests" />
+  <option name="compatibility:include-filter" value="VtsHidlUnitTests" />
 
 </configuration>

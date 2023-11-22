@@ -177,9 +177,9 @@ public class BandwidthMicroBenchMarkTest implements IDeviceTest, IRemoteTest {
     }
 
     private void saveFile(String spongeName, ITestInvocationListener listener, File file) {
-        InputStreamSource stream = new FileInputStreamSource(file);
-        listener.testLog(spongeName, LogDataType.TEXT, stream);
-        stream.cancel();
+        try (InputStreamSource stream = new FileInputStreamSource(file)) {
+            listener.testLog(spongeName, LogDataType.TEXT, stream);
+        }
     }
 
     /**

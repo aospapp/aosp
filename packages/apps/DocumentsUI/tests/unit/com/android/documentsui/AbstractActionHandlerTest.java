@@ -65,7 +65,7 @@ public class AbstractActionHandlerTest {
         mHandler = new AbstractActionHandler<TestActivity>(
                 mActivity,
                 mEnv.state,
-                mEnv.roots,
+                mEnv.providers,
                 mEnv.docs,
                 mEnv.searchViewManager,
                 mEnv::lookupExecutor,
@@ -107,6 +107,10 @@ public class AbstractActionHandlerTest {
 
     @Test
     public void testOpensContainerDocuments_jumpToNewLocation() throws Exception {
+        if (!mEnv.features.isLaunchToDocumentEnabled()) {
+            return;
+        }
+
         mEnv.populateStack();
 
         mEnv.searchViewManager.isSearching = true;
@@ -154,6 +158,10 @@ public class AbstractActionHandlerTest {
 
     @Test
     public void testLaunchToDocuments() throws Exception {
+        if (!mEnv.features.isLaunchToDocumentEnabled()) {
+            return;
+        }
+
         mEnv.docs.nextIsDocumentsUri = true;
         mEnv.docs.nextPath = new Path(
                 TestProvidersAccess.HOME.rootId,
@@ -176,6 +184,10 @@ public class AbstractActionHandlerTest {
 
     @Test
     public void testLaunchToDocuments_convertsTreeUriToDocumentUri() throws Exception {
+        if (!mEnv.features.isLaunchToDocumentEnabled()) {
+            return;
+        }
+
         mEnv.docs.nextIsDocumentsUri = true;
         mEnv.docs.nextPath = new Path(
                 TestProvidersAccess.HOME.rootId,
@@ -208,7 +220,7 @@ public class AbstractActionHandlerTest {
         mEnv.state.sortModel.sortByUser(
                 SortModel.SORT_DIMENSION_ID_TITLE, SortDimension.SORT_DIRECTION_ASCENDING);
 
-        mEnv.providers.get(TestProvidersAccess.HOME.authority)
+        mEnv.mockProviders.get(TestProvidersAccess.HOME.authority)
                 .setNextChildDocumentsReturns(TestEnv.FILE_APK, TestEnv.FILE_GIF);
 
         mHandler.loadDocumentsForCurrentStack();
@@ -224,7 +236,7 @@ public class AbstractActionHandlerTest {
     public void testLoadChildrenDocuments_failsWithNonRecentsAndEmptyStack() throws Exception {
         mEnv.state.stack.changeRoot(TestProvidersAccess.HOME);
 
-        mEnv.providers.get(TestProvidersAccess.HOME.authority)
+        mEnv.mockProviders.get(TestProvidersAccess.HOME.authority)
                 .setNextChildDocumentsReturns(TestEnv.FILE_APK, TestEnv.FILE_GIF);
 
         TestEventHandler<Model.Update> listener = new TestEventHandler<>();

@@ -82,9 +82,14 @@ public abstract class ActivityTestBase {
             Intent intent = new Intent(Intent.ACTION_MAIN);
             intent.setClass(instrumentation.getTargetContext(), DrawActivity.class);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.putExtra(DrawActivity.EXTRA_WIDE_COLOR_GAMUT, isWideColorGamut());
             sActivity = (DrawActivity) instrumentation.startActivitySync(intent);
         }
         return sActivity;
+    }
+
+    protected boolean isWideColorGamut() {
+        return false;
     }
 
     @AfterClass
@@ -124,7 +129,9 @@ public abstract class ActivityTestBase {
         if (mScreenshotter == null) {
             SynchronousPixelCopy copy = new SynchronousPixelCopy();
             Bitmap dest = Bitmap.createBitmap(
-                    TEST_WIDTH, TEST_HEIGHT, Config.ARGB_8888);
+                    TEST_WIDTH, TEST_HEIGHT,
+                    getActivity().getWindow().isWideColorGamut()
+                            ? Config.RGBA_F16 : Config.ARGB_8888);
             Rect srcRect = new Rect(testOffset.x, testOffset.y,
                     testOffset.x + TEST_WIDTH, testOffset.y + TEST_HEIGHT);
             Log.d("UiRendering", "capturing screenshot of " + srcRect.toShortString());

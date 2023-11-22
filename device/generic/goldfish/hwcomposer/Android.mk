@@ -17,6 +17,7 @@
 LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
+LOCAL_VENDOR_MODULE := true
 emulator_hwcomposer_shared_libraries := \
     liblog \
     libutils \
@@ -54,6 +55,7 @@ include $(BUILD_SHARED_LIBRARY)
 # RANCHU BUILD
 include $(CLEAR_VARS)
 
+LOCAL_VENDOR_MODULE := true
 LOCAL_SHARED_LIBRARIES := $(emulator_hwcomposer_shared_libraries)
 LOCAL_SRC_FILES := $(emulator_hwcomposer_src_files)
 LOCAL_CFLAGS := $(emulator_hwcomposer_cflags)

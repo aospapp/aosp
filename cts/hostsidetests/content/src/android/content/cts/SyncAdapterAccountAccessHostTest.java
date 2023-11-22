@@ -70,7 +70,7 @@ public class SyncAdapterAccountAccessHostTest extends DeviceTestCase
     @Override
     protected void tearDown() throws Exception {
         super.tearDown();
-        getDevice().uninstallPackage(STUBS_APK);
+        getDevice().uninstallPackage(STUBS_PKG);
     }
 
     public void testSameCertAuthenticatorCanSeeAccount() throws Exception {

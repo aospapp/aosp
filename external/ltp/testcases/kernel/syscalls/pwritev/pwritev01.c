@@ -23,10 +23,12 @@
 * and after writing the file, the file offset is not changed.
 */
 
+#define _GNU_SOURCE
 #include <string.h>
 #include <sys/uio.h>
 #include "tst_test.h"
 #include "pwritev.h"
+#include "tst_safe_prw.h"
 
 #define	CHUNK		64
 
@@ -102,8 +104,8 @@ static void setup(void)
 
 static void cleanup(void)
 {
-	if (fd > 0 && close(fd))
-		tst_res(TWARN | TERRNO, "failed to close file");
+	if (fd > 0)
+		SAFE_CLOSE(fd);
 }
 
 static struct tst_test test = {

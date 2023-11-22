@@ -39,7 +39,7 @@ import org.jf.dexlib2.iface.ClassDef;
 import org.jf.dexlib2.iface.Field;
 import org.jf.dexlib2.iface.reference.*;
 import org.jf.dexlib2.iface.value.*;
-import org.jf.dexlib2.writer.DexWriter;
+import org.jf.dexlib2.writer.*;
 import org.jf.dexlib2.writer.io.DexDataStore;
 import org.jf.dexlib2.writer.io.FileDataStore;
 import org.jf.util.ExceptionWithContext;
@@ -54,57 +54,67 @@ public class DexPool extends DexWriter<CharSequence, StringReference, CharSequen
         MethodProtoReference, FieldReference, MethodReference, PoolClassDef,
         Annotation, Set<? extends Annotation>,
         TypeListPool.Key<? extends Collection<? extends CharSequence>>, Field, PoolMethod,
-        EncodedValue, AnnotationElement> {
+        EncodedValue, AnnotationElement, StringPool, TypePool, ProtoPool, FieldPool, MethodPool, ClassPool,
+        TypeListPool, AnnotationPool, AnnotationSetPool> {
 
-    @Nonnull
-    public static DexPool makeDexPool() {
-        return makeDexPool(Opcodes.forApi(20));
+    private final Markable[] sections = new Markable[] {
+            stringSection, typeSection, protoSection, fieldSection, methodSection, classSection, typeListSection,
+            annotationSection, annotationSetSection
+    };
+
+    public DexPool(Opcodes opcodes) {
+        super(opcodes);
     }
 
-    @Deprecated
-    @Nonnull
-    public static DexPool makeDexPool(int api) {
-        return makeDexPool(Opcodes.forApi(api));
+    @Nonnull @Override protected SectionProvider getSectionProvider() {
+        return new DexPoolSectionProvider();
     }
 
-    @Nonnull
-    public static DexPool makeDexPool(@Nonnull Opcodes opcodes) {
-        StringPool stringPool = new StringPool();
-        TypePool typePool = new TypePool(stringPool);
-        FieldPool fieldPool = new FieldPool(stringPool, typePool);
-        TypeListPool typeListPool = new TypeListPool(typePool);
-        ProtoPool protoPool = new ProtoPool(stringPool, typePool, typeListPool);
-        MethodPool methodPool = new MethodPool(stringPool, typePool, protoPool);
-        AnnotationPool annotationPool = new AnnotationPool(stringPool, typePool, fieldPool, methodPool);
-        AnnotationSetPool annotationSetPool = new AnnotationSetPool(annotationPool);
-        ClassPool classPool = new ClassPool(stringPool, typePool, fieldPool, methodPool, annotationSetPool,
-                typeListPool);
-
-        return new DexPool(opcodes, stringPool, typePool, protoPool, fieldPool, methodPool, classPool, typeListPool,
-                annotationPool, annotationSetPool);
-    }
-
-    private DexPool(Opcodes opcodes, StringPool stringPool, TypePool typePool, ProtoPool protoPool, FieldPool fieldPool,
-                    MethodPool methodPool, ClassPool classPool, TypeListPool typeListPool,
-                    AnnotationPool annotationPool, AnnotationSetPool annotationSetPool) {
-        super(opcodes, stringPool, typePool, protoPool, fieldPool, methodPool,
-                classPool, typeListPool, annotationPool, annotationSetPool);
-    }
-
-    public static void writeTo(@Nonnull DexDataStore dataStore, @Nonnull org.jf.dexlib2.iface.DexFile input) throws IOException {
-        DexPool dexPool = makeDexPool();
+    public static void writeTo(@Nonnull DexDataStore dataStore, @Nonnull org.jf.dexlib2.iface.DexFile input)
+            throws IOException {
+        DexPool dexPool = new DexPool(input.getOpcodes());
         for (ClassDef classDef: input.getClasses()) {
-            ((ClassPool)dexPool.classSection).intern(classDef);
+            dexPool.internClass(classDef);
         }
         dexPool.writeTo(dataStore);
     }
 
     public static void writeTo(@Nonnull String path, @Nonnull org.jf.dexlib2.iface.DexFile input) throws IOException {
-        DexPool dexPool = makeDexPool();
+        DexPool dexPool = new DexPool(input.getOpcodes());
         for (ClassDef classDef: input.getClasses()) {
-            ((ClassPool)dexPool.classSection).intern(classDef);
+            dexPool.internClass(classDef);
         }
         dexPool.writeTo(new FileDataStore(new File(path)));
+    }
+
+    /**
+     * Interns a class into this DexPool
+     * @param classDef The class to intern
+     */
+    public void internClass(ClassDef classDef) {
+        classSection.intern(classDef);
+    }
+
+    /**
+     * Creates a marked state that can be returned to by calling reset()
+     *
+     * This is useful to rollback the last added class if it causes a method/field/type overflow
+     */
+    public void mark() {
+        for (Markable section: sections) {
+            section.mark();
+        }
+    }
+
+    /**
+     * Resets to the last marked state
+     *
+     * This is useful to rollback the last added class if it causes a method/field/type overflow
+     */
+    public void reset() {
+        for (Markable section: sections) {
+            section.reset();
+        }
     }
 
     @Override protected void writeEncodedValue(@Nonnull InternalEncodedValueWriter writer,
@@ -165,40 +175,74 @@ public class DexPool extends DexWriter<CharSequence, StringReference, CharSequen
         }
     }
 
-    public static void internEncodedValue(@Nonnull EncodedValue encodedValue,
-                                          @Nonnull StringPool stringPool,
-                                          @Nonnull TypePool typePool,
-                                          @Nonnull FieldPool fieldPool,
-                                          @Nonnull MethodPool methodPool) {
+    void internEncodedValue(@Nonnull EncodedValue encodedValue) {
         switch (encodedValue.getValueType()) {
             case ValueType.ANNOTATION:
                 AnnotationEncodedValue annotationEncodedValue = (AnnotationEncodedValue)encodedValue;
-                typePool.intern(annotationEncodedValue.getType());
+                typeSection.intern(annotationEncodedValue.getType());
                 for (AnnotationElement element: annotationEncodedValue.getElements()) {
-                    stringPool.intern(element.getName());
-                    internEncodedValue(element.getValue(), stringPool, typePool, fieldPool, methodPool);
+                    stringSection.intern(element.getName());
+                    internEncodedValue(element.getValue());
                 }
                 break;
             case ValueType.ARRAY:
                 for (EncodedValue element: ((ArrayEncodedValue)encodedValue).getValue()) {
-                    internEncodedValue(element, stringPool, typePool, fieldPool, methodPool);
+                    internEncodedValue(element);
                 }
                 break;
             case ValueType.STRING:
-                stringPool.intern(((StringEncodedValue)encodedValue).getValue());
+                stringSection.intern(((StringEncodedValue)encodedValue).getValue());
                 break;
             case ValueType.TYPE:
-                typePool.intern(((TypeEncodedValue)encodedValue).getValue());
+                typeSection.intern(((TypeEncodedValue)encodedValue).getValue());
                 break;
             case ValueType.ENUM:
-                fieldPool.intern(((EnumEncodedValue)encodedValue).getValue());
+                fieldSection.intern(((EnumEncodedValue)encodedValue).getValue());
                 break;
             case ValueType.FIELD:
-                fieldPool.intern(((FieldEncodedValue)encodedValue).getValue());
+                fieldSection.intern(((FieldEncodedValue)encodedValue).getValue());
                 break;
             case ValueType.METHOD:
-                methodPool.intern(((MethodEncodedValue)encodedValue).getValue());
+                methodSection.intern(((MethodEncodedValue)encodedValue).getValue());
                 break;
+        }
+    }
+
+    protected class DexPoolSectionProvider extends SectionProvider {
+        @Nonnull @Override public StringPool getStringSection() {
+            return new StringPool(DexPool.this);
+        }
+
+        @Nonnull @Override public TypePool getTypeSection() {
+            return new TypePool(DexPool.this);
+        }
+
+        @Nonnull @Override public ProtoPool getProtoSection() {
+            return new ProtoPool(DexPool.this);
+        }
+
+        @Nonnull @Override public FieldPool getFieldSection() {
+            return new FieldPool(DexPool.this);
+        }
+
+        @Nonnull @Override public MethodPool getMethodSection() {
+            return new MethodPool(DexPool.this);
+        }
+
+        @Nonnull @Override public ClassPool getClassSection() {
+            return new ClassPool(DexPool.this);
+        }
+
+        @Nonnull @Override public TypeListPool getTypeListSection() {
+            return new TypeListPool(DexPool.this);
+        }
+
+        @Nonnull @Override public AnnotationPool getAnnotationSection() {
+            return new AnnotationPool(DexPool.this);
+        }
+
+        @Nonnull @Override public AnnotationSetPool getAnnotationSetSection() {
+            return new AnnotationSetPool(DexPool.this);
         }
     }
 }

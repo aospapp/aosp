@@ -407,7 +407,7 @@ public class BatteryStatsDumpsysTest extends BaseDumpsysTest {
     }
 
     private void checkBattery(String[] parts) {
-        assertEquals(15, parts.length);
+        assertEquals(16, parts.length);
         if (!parts[4].equals("N/A")) {
             assertInteger(parts[4]);  // startCount
         }
@@ -421,6 +421,7 @@ public class BatteryStatsDumpsysTest extends BaseDumpsysTest {
         long bEstCap = assertInteger(parts[12]); // batteryEstimatedCapacity
         assertInteger(parts[13]); // minLearnedBatteryCapacity
         assertInteger(parts[14]); // maxLearnedBatteryCapacity
+        long bDoze = assertInteger(parts[15]); // screenDozeTime
 
         // The device cannot be up more than there are real-world seconds.
         assertTrue("batteryRealtime must be >= batteryUptime", bReal >= bUp);
@@ -436,16 +437,20 @@ public class BatteryStatsDumpsysTest extends BaseDumpsysTest {
         assertTrue("batteryUptime must be >= batteryScreenOffUptime", bUp >= bOffUp);
         assertTrue("batteryScreenOffUptime must be >= 0", bOffUp >= 0);
         assertTrue("batteryEstimatedCapacity must be >= 0", bEstCap >= 0);
+        assertTrue("screenDozeTime must be >= 0", bDoze >= 0);
+        assertTrue("screenDozeTime must be <= batteryScreenOffRealtime", bDoze <= bOffReal);
     }
 
     private void checkBatteryDischarge(String[] parts) {
-        assertEquals(10, parts.length);
+        assertEquals(12, parts.length);
         assertInteger(parts[4]); // low
         assertInteger(parts[5]); // high
         assertInteger(parts[6]); // screenOn
         assertInteger(parts[7]); // screenOff
-        assertInteger(parts[8]); // dischargeCount
-        assertInteger(parts[9]); // dischargeScreenOffCount
+        assertInteger(parts[8]); // dischargeMah
+        assertInteger(parts[9]); // dischargeScreenOffMah
+        assertInteger(parts[10]); // dischargeDozeCount
+        assertInteger(parts[11]); // dischargeDozeMah
     }
 
     private void checkBatteryLevel(String[] parts) {

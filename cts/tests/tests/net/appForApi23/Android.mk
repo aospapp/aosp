@@ -31,7 +31,7 @@ LOCAL_PACKAGE_NAME := CtsNetTestAppForApi23
 LOCAL_SDK_VERSION := 23
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 include $(BUILD_CTS_PACKAGE)
 

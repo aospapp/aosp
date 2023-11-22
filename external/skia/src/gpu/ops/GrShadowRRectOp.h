@@ -8,20 +8,18 @@
 #ifndef GrShadowRRectOp_DEFINED
 #define GrShadowRRectOp_DEFINED
 
+#include <memory>
 #include "GrColor.h"
-#include "SkRefCnt.h"
 
-class GrMeshDrawOp;
-class GrShaderCaps;
+class GrDrawOp;
 class SkMatrix;
 class SkRRect;
 class SkStrokeRec;
 
 namespace GrShadowRRectOp {
 
-std::unique_ptr<GrMeshDrawOp> Make(GrColor, const SkMatrix& viewMatrix, const SkRRect& rrect,
-                                   const SkScalar blurRadius, const SkStrokeRec& stroke,
-                                   const GrShaderCaps* shaderCaps);
+std::unique_ptr<GrDrawOp> Make(GrColor, const SkMatrix& viewMatrix, const SkRRect& rrect,
+                               SkScalar blurWidth, SkScalar insetWidth, SkScalar blurClamp = 1);
 }
 
 #endif

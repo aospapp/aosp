@@ -274,32 +274,29 @@ def _writeLibBaseMakefile(target):
     out.write('LOCAL_C_INCLUDES := $(LOCAL_PATH)/src\n')
     out.write('include $(BUILD_HOST_STATIC_LIBRARY)\n')
 
+def GenerateMakefiles():
+  # Slurp in the content of the V8 gyp file.
+  with open(os.path.join(os.getcwd(), './src/v8.gyp'), 'r') as f:
+    gyp = eval(f.read())
 
-# Slurp in the content of the V8 gyp file.
-with open(os.path.join(os.getcwd(), './src/v8.gyp'), 'r') as f:
-  gyp = eval(f.read())
+  # Find the targets that we're interested in and write out the makefiles.
+  for target in gyp['targets']:
+    name = target['target_name']
+    sources = None
+    if target.get('sources'):
+      sources = [x for x in target['sources'] if x.endswith('.cc')]
+      sources.sort()
 
-# Find the targets that we're interested in and write out the makefiles.
-for target in gyp['targets']:
-  name = target['target_name']
-  sources = None
-  if target.get('sources'):
-    sources = [x for x in target['sources'] if x.endswith('.cc')]
-    sources.sort()
-
-  if name == 'v8_libplatform':
-    _writeMakefile('Android.platform.mk', 'libv8platform', sources)
-  elif name == 'v8_libsampler':
-    _writeMakefile('Android.sampler.mk', 'libv8sampler', sources)
-  elif name == 'v8_base':
-    _writeV8SrcMakefile(target)
-  elif name == 'mkpeephole':
-    _writeMkpeepholeMakefile(target)
-  elif name == 'js2c':
-    _writeGeneratedFilesMakfile(target)
-  elif name == 'v8_libbase':
-    _writeLibBaseMakefile(target)
-
-
-
+    if name == 'v8_libplatform':
+      _writeMakefile('Android.platform.mk', 'libv8platform', sources)
+    elif name == 'v8_libsampler':
+      _writeMakefile('Android.sampler.mk', 'libv8sampler', sources)
+    elif name == 'v8_base':
+      _writeV8SrcMakefile(target)
+    elif name == 'mkpeephole':
+      _writeMkpeepholeMakefile(target)
+    elif name == 'js2c':
+      _writeGeneratedFilesMakfile(target)
+    elif name == 'v8_libbase':
+      _writeLibBaseMakefile(target)
 

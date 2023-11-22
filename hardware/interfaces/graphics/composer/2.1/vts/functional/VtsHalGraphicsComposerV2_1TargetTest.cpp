@@ -16,12 +16,14 @@
 
 #define LOG_TAG "graphics_composer_hidl_hal_test"
 
-#include <IComposerCommandBuffer.h>
 #include <android-base/logging.h>
+#include "GraphicsComposerCallback.h"
+#include "TestCommandReader.h"
 #include "VtsHalGraphicsComposerTestUtils.h"
 #include "VtsHalGraphicsMapperTestUtils.h"
 
 #include <VtsHalHidlTargetTestBase.h>
+#include <VtsHalHidlTargetTestEnvBase.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -49,94 +51,40 @@ using android::hardware::graphics::mapper::V2_0::IMapper;
 using android::hardware::graphics::mapper::V2_0::tests::Gralloc;
 using GrallocError = android::hardware::graphics::mapper::V2_0::Error;
 
-// IComposerCallback to be installed with IComposerClient::registerCallback.
-class GraphicsComposerCallback : public IComposerCallback {
- public:
-  void setVsyncAllowed(bool allowed) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    mVsyncAllowed = allowed;
-  }
-
-  std::vector<Display> getDisplays() const {
-    std::lock_guard<std::mutex> lock(mMutex);
-    return std::vector<Display>(mDisplays.begin(), mDisplays.end());
-  }
-
-  int getInvalidHotplugCount() const {
-    std::lock_guard<std::mutex> lock(mMutex);
-    return mInvalidHotplugCount;
-  }
-
-  int getInvalidRefreshCount() const {
-    std::lock_guard<std::mutex> lock(mMutex);
-    return mInvalidRefreshCount;
-  }
-
-  int getInvalidVsyncCount() const {
-    std::lock_guard<std::mutex> lock(mMutex);
-    return mInvalidVsyncCount;
-  }
-
- private:
-  Return<void> onHotplug(Display display, Connection connection) override {
-    std::lock_guard<std::mutex> lock(mMutex);
-
-    if (connection == Connection::CONNECTED) {
-      if (!mDisplays.insert(display).second) {
-        mInvalidHotplugCount++;
-      }
-    } else if (connection == Connection::DISCONNECTED) {
-      if (!mDisplays.erase(display)) {
-        mInvalidHotplugCount++;
-      }
+// Test environment for graphics.composer
+class GraphicsComposerHidlEnvironment : public ::testing::VtsHalHidlTargetTestEnvBase {
+   public:
+    // get the test environment singleton
+    static GraphicsComposerHidlEnvironment* Instance() {
+        static GraphicsComposerHidlEnvironment* instance = new GraphicsComposerHidlEnvironment;
+        return instance;
     }
 
-    return Void();
-  }
+    virtual void registerTestServices() override { registerTestService<IComposer>(); }
 
-  Return<void> onRefresh(Display display) override {
-    std::lock_guard<std::mutex> lock(mMutex);
+   private:
+    GraphicsComposerHidlEnvironment() {}
 
-    if (mDisplays.count(display) == 0) {
-      mInvalidRefreshCount++;
-    }
-
-    return Void();
-  }
-
-  Return<void> onVsync(Display display, int64_t) override {
-    std::lock_guard<std::mutex> lock(mMutex);
-
-    if (!mVsyncAllowed || mDisplays.count(display) == 0) {
-      mInvalidVsyncCount++;
-    }
-
-    return Void();
-  }
-
-  mutable std::mutex mMutex;
-  // the set of all currently connected displays
-  std::unordered_set<Display> mDisplays;
-  // true only when vsync is enabled
-  bool mVsyncAllowed = false;
-
-  // track invalid callbacks
-  int mInvalidHotplugCount = 0;
-  int mInvalidRefreshCount = 0;
-  int mInvalidVsyncCount = 0;
+    GTEST_DISALLOW_COPY_AND_ASSIGN_(GraphicsComposerHidlEnvironment);
 };
 
 class GraphicsComposerHidlTest : public ::testing::VtsHalHidlTargetTestBase {
  protected:
   void SetUp() override {
-    ASSERT_NO_FATAL_FAILURE(mComposer = std::make_unique<Composer>());
-    ASSERT_NO_FATAL_FAILURE(mComposerClient = mComposer->createClient());
+      ASSERT_NO_FATAL_FAILURE(
+          mComposer = std::make_unique<Composer>(
+              GraphicsComposerHidlEnvironment::Instance()->getServiceName<IComposer>()));
+      ASSERT_NO_FATAL_FAILURE(mComposerClient = mComposer->createClient());
 
-    mComposerCallback = new GraphicsComposerCallback;
-    mComposerClient->registerCallback(mComposerCallback);
+      mComposerCallback = new GraphicsComposerCallback;
+      mComposerClient->registerCallback(mComposerCallback);
 
-    // assume the first display is primary and is never removed
-    mPrimaryDisplay = waitForFirstDisplay();
+      // assume the first display is primary and is never removed
+      mPrimaryDisplay = waitForFirstDisplay();
+
+      // explicitly disable vsync
+      mComposerClient->setVsyncEnabled(mPrimaryDisplay, false);
+      mComposerCallback->setVsyncAllowed(false);
   }
 
   void TearDown() override {
@@ -404,7 +352,7 @@ class GraphicsComposerHidlCommandTest : public GraphicsComposerHidlTest {
     ASSERT_NO_FATAL_FAILURE(mGralloc = std::make_unique<Gralloc>());
 
     mWriter = std::make_unique<CommandWriterBase>(1024);
-    mReader = std::make_unique<CommandReader>();
+    mReader = std::make_unique<TestCommandReader>();
   }
 
   void TearDown() override {
@@ -423,78 +371,10 @@ class GraphicsComposerHidlCommandTest : public GraphicsComposerHidlTest {
       return mGralloc->allocate(info);
   }
 
-  void execute() {
-    bool queueChanged = false;
-    uint32_t commandLength = 0;
-    hidl_vec<hidl_handle> commandHandles;
-    ASSERT_TRUE(
-        mWriter->writeQueue(&queueChanged, &commandLength, &commandHandles));
-
-    if (queueChanged) {
-      auto ret = mComposerClient->getRaw()->setInputCommandQueue(
-          *mWriter->getMQDescriptor());
-      ASSERT_EQ(Error::NONE, static_cast<Error>(ret));
-      return;
-    }
-
-    mComposerClient->getRaw()->executeCommands(
-        commandLength, commandHandles,
-        [&](const auto& tmpError, const auto& tmpOutQueueChanged,
-            const auto& tmpOutLength, const auto& tmpOutHandles) {
-          ASSERT_EQ(Error::NONE, tmpError);
-
-          if (tmpOutQueueChanged) {
-            mComposerClient->getRaw()->getOutputCommandQueue(
-                [&](const auto& tmpError, const auto& tmpDescriptor) {
-                  ASSERT_EQ(Error::NONE, tmpError);
-                  mReader->setMQDescriptor(tmpDescriptor);
-                });
-          }
-
-          ASSERT_TRUE(mReader->readQueue(tmpOutLength, tmpOutHandles));
-          mReader->parse();
-        });
-  }
-
-  // A command parser that checks that no error nor unexpected commands are
-  // returned.
-  class CommandReader : public CommandReaderBase {
-   public:
-    // Parse all commands in the return command queue.  Call GTEST_FAIL() for
-    // unexpected errors or commands.
-    void parse() {
-      while (!isEmpty()) {
-        IComposerClient::Command command;
-        uint16_t length;
-        ASSERT_TRUE(beginCommand(&command, &length));
-
-        switch (command) {
-          case IComposerClient::Command::SET_ERROR: {
-            ASSERT_EQ(2, length);
-            auto loc = read();
-            auto err = readSigned();
-            GTEST_FAIL() << "unexpected error " << err << " at location "
-                         << loc;
-          } break;
-          case IComposerClient::Command::SELECT_DISPLAY:
-          case IComposerClient::Command::SET_CHANGED_COMPOSITION_TYPES:
-          case IComposerClient::Command::SET_DISPLAY_REQUESTS:
-          case IComposerClient::Command::SET_PRESENT_FENCE:
-          case IComposerClient::Command::SET_RELEASE_FENCES:
-            break;
-          default:
-            GTEST_FAIL() << "unexpected return command " << std::hex
-                         << static_cast<int>(command);
-            break;
-        }
-
-        endCommand();
-      }
-    }
-  };
+  void execute() { mComposerClient->execute(mReader.get(), mWriter.get()); }
 
   std::unique_ptr<CommandWriterBase> mWriter;
-  std::unique_ptr<CommandReader> mReader;
+  std::unique_ptr<TestCommandReader> mReader;
 
  private:
   std::unique_ptr<Gralloc> mGralloc;
@@ -824,10 +704,11 @@ TEST_F(GraphicsComposerHidlCommandTest, SET_LAYER_Z_ORDER) {
 }  // namespace android
 
 int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-
-  int status = RUN_ALL_TESTS();
-  LOG(INFO) << "Test result = " << status;
-
-  return status;
+    using android::hardware::graphics::composer::V2_1::tests::GraphicsComposerHidlEnvironment;
+    ::testing::AddGlobalTestEnvironment(GraphicsComposerHidlEnvironment::Instance());
+    ::testing::InitGoogleTest(&argc, argv);
+    GraphicsComposerHidlEnvironment::Instance()->init(&argc, argv);
+    int status = RUN_ALL_TESTS();
+    ALOGI("Test result = %d", status);
+    return status;
 }

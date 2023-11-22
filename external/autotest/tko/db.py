@@ -11,7 +11,6 @@ import time
 
 import common
 from autotest_lib.client.common_lib import global_config
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
 from autotest_lib.frontend import database_settings_helper
 from autotest_lib.tko import utils
 
@@ -131,13 +130,9 @@ class db_sql(object):
             self.con.close()
             self.con = None
 
-        try:
-            # create the db connection and cursor
-            self.con = self.connect(self.host, self.database,
-                                    self.user, self.password, self.port)
-        except:
-            autotest_stats.Counter('tko_db_con_error').increment()
-            raise
+        # create the db connection and cursor
+        self.con = self.connect(self.host, self.database,
+                                self.user, self.password, self.port)
         self.cur = self.con.cursor()
 
 
@@ -178,7 +173,6 @@ class db_sql(object):
                     try:
                         self._random_delay()
                         self._init_db()
-                        autotest_stats.Counter('tko_db_error').increment()
                     except OperationalError, e:
                         _log_error('%s; panic now'
                                    % _format_operational_error(e))
@@ -487,6 +481,7 @@ class db_sql(object):
         for test in job.tests:
             self.insert_test(job, test, commit=commit)
 
+        data['job_idx'] = job.index
         return data
 
 

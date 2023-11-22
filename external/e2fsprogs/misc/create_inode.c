@@ -15,13 +15,20 @@
 
 #include "config.h"
 #include <time.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <limits.h> /* for PATH_MAX */
 #ifdef HAVE_ATTR_XATTR_H
 #include <attr/xattr.h>
 #endif
+#ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
+#endif
+#ifdef HAVE_SYS_SYSMACROS_H
+#include <sys/sysmacros.h>
+#endif
+
 #include <ext2fs/ext2fs.h>
 #include <ext2fs/ext2_types.h>
 #include <ext2fs/fiemap.h>
@@ -223,6 +230,7 @@ static errcode_t set_inode_xattr(ext2_filsys fs EXT2FS_ATTR((unused)),
 }
 #endif  /* HAVE_LLISTXATTR */
 
+#ifndef _WIN32
 /* Make a special files (block and character devices), fifo's, and sockets  */
 errcode_t do_mknod_internal(ext2_filsys fs, ext2_ino_t cwd, const char *name,
 			    struct stat *st)
@@ -246,10 +254,12 @@ errcode_t do_mknod_internal(ext2_filsys fs, ext2_ino_t cwd, const char *name,
 		mode = LINUX_S_IFIFO;
 		filetype = EXT2_FT_FIFO;
 		break;
+#ifndef _WIN32
 	case S_IFSOCK:
 		mode = LINUX_S_IFSOCK;
 		filetype = EXT2_FT_SOCK;
 		break;
+#endif
 	default:
 		return EXT2_ET_INVALID_ARGUMENT;
 	}
@@ -307,6 +317,7 @@ errcode_t do_mknod_internal(ext2_filsys fs, ext2_ino_t cwd, const char *name,
 
 	return retval;
 }
+#endif
 
 /* Make a symlink name -> target */
 errcode_t do_symlink_internal(ext2_filsys fs, ext2_ino_t cwd, const char *name,
@@ -779,6 +790,7 @@ static errcode_t __populate_fs(ext2_filsys fs, ext2_ino_t parent_ino,
 		case S_IFCHR:
 		case S_IFBLK:
 		case S_IFIFO:
+#ifndef _WIN32
 		case S_IFSOCK:
 			retval = do_mknod_internal(fs, parent_ino, name, &st);
 			if (retval) {
@@ -823,6 +835,7 @@ static errcode_t __populate_fs(ext2_filsys fs, ext2_ino_t parent_ino,
 				goto out;
 			}
 			break;
+#endif
 		case S_IFREG:
 			retval = do_write_internal(fs, parent_ino, name, name,
 						   root);

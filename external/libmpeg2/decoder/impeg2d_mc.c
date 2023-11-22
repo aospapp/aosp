@@ -1260,7 +1260,7 @@ void impeg2d_mc_fullx_fully(void *pv_dec,
 
         for(i = 0; i < u4_blk_height; i++)
         {
-            memcpy(pu1_out, pu1_ref, u4_blk_width);
+            memmove(pu1_out, pu1_ref, u4_blk_width);
             pu1_ref += u4_ref_wid;
             pu1_out += u4_out_wid;
         }

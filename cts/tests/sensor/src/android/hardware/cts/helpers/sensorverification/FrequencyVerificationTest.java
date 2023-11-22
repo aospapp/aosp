@@ -55,7 +55,7 @@ public class FrequencyVerificationTest extends SensorTestCase {
         verification = getVerification(850.0, 975.0, timestamps);
         try {
             verification.verify(getEnvironment(950), stats);
-            fail("Expected an AssertionError");
+            throw new Error("Expected an AssertionError");
         } catch (AssertionError e) {
             // Expected;
         }
@@ -65,7 +65,7 @@ public class FrequencyVerificationTest extends SensorTestCase {
         verification = getVerification(1025.0, 1150.0, timestamps);
         try {
             verification.verify(getEnvironment(1050), stats);
-            fail("Expected an AssertionError");
+            throw new Error("Expected an AssertionError");
         } catch (AssertionError e) {
             // Expected;
         }

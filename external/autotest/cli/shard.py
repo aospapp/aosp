@@ -6,10 +6,11 @@ The shard module contains the objects and methods used to
 manage shards in Autotest.
 
 The valid actions are:
-create:      creates shard
-remove:      deletes shard(s)
-list:        lists shards with label
-add_boards:  add boards to a given shard
+create:       creates shard
+remove:       deletes shard(s)
+list:         lists shards with label
+add_boards:   add boards to a given shard
+remove_board: remove board from a given shard
 
 See topic_common.py for a High Level Design and Algorithm.
 """
@@ -20,8 +21,8 @@ from autotest_lib.cli import topic_common, action_common
 
 class shard(topic_common.atest):
     """shard class
-    atest shard [create|delete|list|add_boards] <options>"""
-    usage_action = '[create|delete|list|add_boards]'
+    atest shard [create|delete|list|add_boards|remove_board] <options>"""
+    usage_action = '[create|delete|list|add_boards|remove_board]'
     topic = msg_topic = 'shard'
     msg_items = '<shards>'
 
@@ -77,7 +78,7 @@ class shard_list(action_common.atest_list, shard):
 
     def output(self, results):
         self.warn_if_label_assigned_to_multiple_shards(results)
-        super(shard_list, self).output(results, ['hostname', 'labels'])
+        super(shard_list, self).output(results, ['id', 'hostname', 'labels'])
 
 
 class shard_create(action_common.atest_create, shard):
@@ -136,3 +137,46 @@ class shard_delete(action_common.atest_delete, shard):
         print ('Otherwise DUTs might be used by multiple shards at the same '
                'time, which will lead to serious correctness problems.')
         return super(shard_delete, self).execute(*args, **kwargs)
+
+
+class shard_remove_board(shard):
+    """Class for running atest shard remove_board -l <label> <shard>"""
+    usage_action = 'remove_board'
+    op_action = 'remove_board'
+    msg_done = 'Removed board'
+
+    def __init__(self):
+        super(shard_remove_board, self).__init__()
+        self.parser.add_option('-l', '--board_label', type='string',
+                               metavar='BOARD_LABEL',
+                               help=('Remove the board with the given '
+                                     'BOARD_LABEL from shard.'))
+
+    def parse(self):
+        (options, leftover) = super(shard_remove_board, self).parse(
+              req_items='shards')
+        self.data['board_label'] = options.board_label
+        self.data['hostname'] = self.shards[0]
+        return (options, leftover)
+
+
+    def execute(self):
+        """Validate args and execute the remove_board_from_shard rpc."""
+        if not self.data.get('board_label'):
+            self.invalid_syntax('Must provide exactly 1 BOARD_LABEL')
+            return
+        if not self.data['board_label'].startswith('board:'):
+            self.invalid_arg('BOARD_LABEL must begin with "board:"')
+            return
+        return super(shard_remove_board, self).execute_rpc(
+                op='remove_board_from_shard',
+                hostname=self.data['hostname'],
+                label=self.data['board_label'])
+
+
+    def output(self, results):
+        """Print command results.
+
+        @param results: Results of rpc execution.
+        """
+        print results

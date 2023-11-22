@@ -69,11 +69,9 @@ public class NotificationController extends BroadcastReceiver {
     private static final String INTENT_ACTION_DEBUG_NOTIFICATION =
             "com.android.storagemanager.automatic.DEBUG_SHOW_NOTIFICATION";
 
-    /**
-     * Intent action for if the user taps on the notification.
-     */
-    private static final String INTENT_ACTION_TAP =
-            "com.android.storagemanager.automatic.SHOW_SETTINGS";
+    /** Intent action for if the user taps on the notification. */
+    @VisibleForTesting
+    static final String INTENT_ACTION_TAP = "com.android.storagemanager.automatic.SHOW_SETTINGS";
 
     /**
      * Intent extra for the notification id.
@@ -122,7 +120,7 @@ public class NotificationController extends BroadcastReceiver {
                 showNotification(context);
                 return;
             case INTENT_ACTION_TAP:
-                Intent storageIntent = new Intent(Settings.ACTION_STORAGE_MANAGER_SETTINGS);
+                Intent storageIntent = new Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS);
                 storageIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 context.startActivity(storageIntent);
                 break;

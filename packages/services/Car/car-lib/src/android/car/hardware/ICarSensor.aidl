@@ -16,6 +16,7 @@
 
 package android.car.hardware;
 
+import android.car.hardware.CarSensorConfig;
 import android.car.hardware.CarSensorEvent;
 import android.car.hardware.ICarSensorEventListener;
 
@@ -44,4 +45,9 @@ interface ICarSensor {
      * be affected.
      */
     void unregisterSensorListener(int sensorType, in ICarSensorEventListener callback) = 3;
+
+    /**
+     * get config flags and config array for the sensor type
+     */
+    CarSensorConfig getSensorConfig(int sensorType) = 4;
 }

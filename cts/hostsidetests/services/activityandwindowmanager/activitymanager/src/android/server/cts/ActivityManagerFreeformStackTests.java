@@ -33,6 +33,9 @@ public class ActivityManagerFreeformStackTests extends ActivityManagerTestBase {
     private static final int TEST_TASK_OFFSET_2 = 100;
     private static final int TEST_TASK_SIZE_1 = 900;
     private static final int TEST_TASK_SIZE_2 = TEST_TASK_SIZE_1 * 2;
+    private static final int TEST_TASK_SIZE_DP_1 = 220;
+    private static final int TEST_TASK_SIZE_DP_2 = TEST_TASK_SIZE_DP_1 * 2;
+
     // NOTE: Launching the FreeformActivity will automatically launch the TestActivity
     // with bounds (0, 0, 900, 900)
     private static final String FREEFORM_ACTIVITY = "FreeformActivity";
@@ -94,18 +97,27 @@ public class ActivityManagerFreeformStackTests extends ActivityManagerTestBase {
             return;
         }
 
+        final int displayId = mAmWmState.getAmState().getStackById(
+                ActivityManagerTestBase.FREEFORM_WORKSPACE_STACK_ID).mDisplayId;
+        final int densityDpi =
+                mAmWmState.getWmState().getDisplay(displayId).getDpi();
+        final int testTaskSize1 =
+                ActivityAndWindowManagersState.dpToPx(TEST_TASK_SIZE_DP_1, densityDpi);
+        final int testTaskSize2 =
+                ActivityAndWindowManagersState.dpToPx(TEST_TASK_SIZE_DP_2, densityDpi);
+
         resizeActivityTask(TEST_ACTIVITY,
-                TEST_TASK_OFFSET, TEST_TASK_OFFSET, TEST_TASK_SIZE_1, TEST_TASK_SIZE_2);
+                TEST_TASK_OFFSET, TEST_TASK_OFFSET, testTaskSize1, testTaskSize2);
         resizeActivityTask(NO_RELAUNCH_ACTIVITY,
-                TEST_TASK_OFFSET_2, TEST_TASK_OFFSET_2, TEST_TASK_SIZE_1, TEST_TASK_SIZE_2);
+                TEST_TASK_OFFSET_2, TEST_TASK_OFFSET_2, testTaskSize1, testTaskSize2);
 
         mAmWmState.computeState(mDevice, new String[]{TEST_ACTIVITY, NO_RELAUNCH_ACTIVITY});
 
         final String logSeparator = clearLogcat();
         resizeActivityTask(TEST_ACTIVITY,
-                TEST_TASK_OFFSET, TEST_TASK_OFFSET, TEST_TASK_SIZE_2, TEST_TASK_SIZE_1);
+                TEST_TASK_OFFSET, TEST_TASK_OFFSET, testTaskSize2, testTaskSize1);
         resizeActivityTask(NO_RELAUNCH_ACTIVITY,
-                TEST_TASK_OFFSET_2, TEST_TASK_OFFSET_2, TEST_TASK_SIZE_2, TEST_TASK_SIZE_1);
+                TEST_TASK_OFFSET_2, TEST_TASK_OFFSET_2, testTaskSize2, testTaskSize1);
         mAmWmState.computeState(mDevice, new String[]{TEST_ACTIVITY, NO_RELAUNCH_ACTIVITY});
 
         assertActivityLifecycle(TEST_ACTIVITY, true /* relaunched */, logSeparator);

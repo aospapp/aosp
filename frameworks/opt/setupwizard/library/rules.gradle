@@ -63,8 +63,8 @@ android {
         }
 
         gingerbreadCompat {
-            java.srcDirs = ['eclair-mr1/src', 'full-support/src']
-            res.srcDirs = ['eclair-mr1/res', 'full-support/res']
+            java.srcDirs = ['gingerbread/src', 'recyclerview/src']
+            res.srcDirs = ['gingerbread/res', 'recyclerview/res']
         }
     }
 }

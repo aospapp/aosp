@@ -22,22 +22,20 @@ from queue import Empty
 from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.GattConnectedBaseTest import GattConnectedBaseTest
-from acts.test_utils.bt.GattEnum import GattCharacteristic
-from acts.test_utils.bt.GattEnum import GattConnectionPriority
-from acts.test_utils.bt.GattEnum import GattDescriptor
-from acts.test_utils.bt.GattEnum import MtuSize
-from acts.test_utils.bt.GattEnum import GattEvent
-from acts.test_utils.bt.GattEnum import GattCbStrings
-from acts.test_utils.bt.GattEnum import GattPhy
+from acts.test_utils.bt.bt_constants import gatt_connection_priority
+from acts.test_utils.bt.bt_constants import gatt_event
+from acts.test_utils.bt.bt_constants import gatt_phy
 from acts import signals
 
-CONNECTION_PRIORITY_HIGH = GattConnectionPriority.CONNECTION_PRIORITY_HIGH.value
-PHY_LE_1M = GattPhy.PHY_LE_1M.value
-PHY_LE_2M = GattPhy.PHY_LE_2M.value
+CONNECTION_PRIORITY_HIGH = gatt_connection_priority['high']
+PHY_LE_1M = gatt_phy['1m']
+PHY_LE_2M = gatt_phy['2m']
 
 
 def lfmt(txPhy, rxPhy):
-    return '(' + GattPhy(txPhy).name + ', ' + GattPhy(rxPhy).name + ')'
+    return '(' + list(gatt_phy.keys())[list(gatt_phy.values()).index(
+        txPhy)] + ', ' + list(gatt_phy.keys())[list(gatt_phy.values()).index(
+            rxPhy)] + ')'
 
 
 class PhyTest(GattConnectedBaseTest):
@@ -56,14 +54,14 @@ class PhyTest(GattConnectedBaseTest):
     # must pop it from queue.
     def pop_initial_phy_update(self):
         try:
-            maybe_event = GattEvent.PHY_UPDATE.value["evt"].format(
+            maybe_event = gatt_event['phy_update']['evt'].format(
                 self.gatt_callback)
             self.cen_ad.ed.pop_event(maybe_event, 0)
         except Empty:
             pass
 
         try:
-            maybe_event = GattEvent.SERV_PHY_UPDATE.value["evt"].format(
+            maybe_event = gatt_event['serv_phy_update']['evt'].format(
                 self.gatt_server_callback)
             self.per_ad.ed.pop_event(maybe_event, 0)
         except Empty:
@@ -72,7 +70,7 @@ class PhyTest(GattConnectedBaseTest):
     # this helper method checks wether both client and server received PHY
     # update event with proper txPhy and rxPhy
     def ensure_both_updated_phy(self, clientTxPhy, clientRxPhy):
-        event = self._client_wait(GattEvent.PHY_UPDATE)
+        event = self._client_wait(gatt_event['phy_update'])
         txPhy = event['data']['TxPhy']
         rxPhy = event['data']['RxPhy']
         self.log.info("\tClient PHY updated: " + lfmt(txPhy, rxPhy))
@@ -81,7 +79,7 @@ class PhyTest(GattConnectedBaseTest):
         self.assertEqual(clientRxPhy, event['data']['RxPhy'])
 
         bt_device_id = 0
-        event = self._server_wait(GattEvent.SERV_PHY_UPDATE)
+        event = self._server_wait(gatt_event['serv_phy_update'])
         txPhy = event['data']['TxPhy']
         rxPhy = event['data']['RxPhy']
         self.log.info("\tServer PHY updated: " + lfmt(txPhy, rxPhy))
@@ -92,7 +90,7 @@ class PhyTest(GattConnectedBaseTest):
     # read the client phy, return (txPhy, rxPhy)
     def read_client_phy(self):
         self.cen_ad.droid.gattClientReadPhy(self.bluetooth_gatt)
-        event = self._client_wait(GattEvent.PHY_READ)
+        event = self._client_wait(gatt_event['phy_read'])
         self.assertEqual(0, event['data']['Status'], "Status should be 0")
         return (event['data']['TxPhy'], event['data']['RxPhy'])
 
@@ -100,7 +98,7 @@ class PhyTest(GattConnectedBaseTest):
     def read_server_phy(self):
         bt_device_id = 0
         self.per_ad.droid.gattServerReadPhy(self.gatt_server, bt_device_id)
-        event = self._server_wait(GattEvent.SERV_PHY_READ)
+        event = self._server_wait(gatt_event['serv_phy_read'])
         self.assertEqual(0, event['data']['Status'], "Status should be 0")
         return (event['data']['TxPhy'], event['data']['RxPhy'])
 

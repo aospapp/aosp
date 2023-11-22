@@ -104,9 +104,13 @@ struct hw_device_t* DllLoader::OpenConventionalHal(const char* module_name) {
   return device_;
 }
 
-loader_function DllLoader::GetLoaderFunction(const char* function_name) {
-  loader_function func = (loader_function)LoadSymbol(function_name);
-  return func;
+loader_function DllLoader::GetLoaderFunction(const char* function_name) const {
+  return (loader_function)LoadSymbol(function_name);
+}
+
+loader_function_with_arg DllLoader::GetLoaderFunctionWithArg(
+    const char* function_name) const {
+  return (loader_function_with_arg)LoadSymbol(function_name);
 }
 
 bool DllLoader::SancovResetCoverage() {
@@ -137,7 +141,7 @@ bool DllLoader::GcovFlush() {
   return true;
 }
 
-void* DllLoader::LoadSymbol(const char* symbol_name) {
+void* DllLoader::LoadSymbol(const char* symbol_name) const {
   const char* error = dlerror();
   if (error != NULL) {
     cerr << __func__ << ": existing error message before loading "

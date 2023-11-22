@@ -33,7 +33,7 @@
         <!-- Launch the lenspicker for all the facets. The lens picker will trampoline into the last run app or display a list of valid apps -->
         <item>intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;launchFlags=0x14000000;package=com.android.support.car.lenspicker;end</item>
         <item>intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;launchFlags=0x14000000;package=com.android.support.car.lenspicker;end</item>
-        <item>intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;launchFlags=0x14000000;package=com.android.support.car.lenspicker;S.system_command=show_notifications;end</item>
+        <item>intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;launchFlags=0x14000000;package=com.android.support.car.lenspicker;S.system_command=toggle_notifications;end</item>
         <item>intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;launchFlags=0x14000000;package=com.android.support.car.lenspicker;end</item>
         <item>intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;launchFlags=0x14000000;package=com.android.support.car.lenspicker;end</item>
     </array>

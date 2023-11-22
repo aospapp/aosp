@@ -54,6 +54,13 @@ extern "C" {
   ((x < 0) ? "-" : ""),                 \
   (int)CAL_FLOOR(fabsf(x)), (int)((fabsf(x) - CAL_FLOOR(fabsf(x))) * powf(10, num_digits))  // NOLINT
 
+// Helper definitions for CAL_ENCODE_FLOAT to specify the print format with
+// desired significant digits.
+#define CAL_FORMAT_3DIGITS "%s%d.%03d"
+#define CAL_FORMAT_6DIGITS "%s%d.%06d"
+#define CAL_FORMAT_3DIGITS_TRIPLET "%s%d.%03d, %s%d.%03d, %s%d.%03d"
+#define CAL_FORMAT_6DIGITS_TRIPLET "%s%d.%06d, %s%d.%06d, %s%d.%06d"
+
 #ifdef __cplusplus
 }
 #endif

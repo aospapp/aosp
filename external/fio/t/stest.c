@@ -4,6 +4,7 @@
 
 #include "../smalloc.h"
 #include "../flist.h"
+#include "../arch/arch.h"
 #include "debug.h"
 
 #define MAGIC1	0xa9b1c8d2
@@ -30,7 +31,7 @@ static int do_rand_allocs(void)
 		srand(MAGIC1);
 #endif
 		nr = total = 0;
-		while (total < 128*1024*1024UL) {
+		while (total < 120*1024*1024UL) {
 			size = 8 * sizeof(struct elem) + (int) (999.0 * (rand() / (RAND_MAX + 1.0)));
 			e = smalloc(size);
 			if (!e) {
@@ -58,24 +59,13 @@ static int do_rand_allocs(void)
 	return 0;
 }
 
-static int do_specific_alloc(unsigned long size)
-{
-	void *ptr;
-
-	ptr = smalloc(size);
-	sfree(ptr);
-	return 0;
-}
-
 int main(int argc, char *argv[])
 {
+	arch_init(argv);
 	sinit();
 	debug_init();
 
 	do_rand_allocs();
-
-	/* smalloc bug, commit 271067a6 */
-	do_specific_alloc(671386584);
 
 	scleanup();
 	return 0;

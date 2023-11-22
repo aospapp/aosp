@@ -171,7 +171,7 @@ public class VulkanFeaturesTest {
         } else {
             assertEquals("System feature " + PackageManager.FEATURE_VULKAN_HARDWARE_COMPUTE +
                 " version " + mVulkanHardwareCompute.version +
-                " doesn't match best physical device hardware compute " + bestComputeLevel,
+                " doesn't match best physical device (version: " + bestComputeLevel + ")",
                 bestComputeLevel, mVulkanHardwareCompute.version);
         }
     }
@@ -221,19 +221,17 @@ public class VulkanFeaturesTest {
     }
 
     private int determineHardwareCompute(JSONObject device) throws JSONException {
-        boolean have16bitStorage = false;
-        boolean haveVariablePointers = false;
-        JSONArray extensions = device.getJSONArray("extensions");
-        for (int i = 0; i < extensions.length(); i++) {
-            String name = extensions.getJSONObject(i).getString("extensionName");
-            if (name.equals("VK_KHR_16bit_storage"))
-                have16bitStorage = true;
-            else if (name.equals("VK_KHR_variable_pointers"))
-                haveVariablePointers = true;
+        JSONObject variablePointersFeatures = device.getJSONObject("variablePointersFeaturesKHR");
+        boolean variablePointers = variablePointersFeatures.getInt("variablePointers") != 0;
+        JSONObject limits = device.getJSONObject("properties").getJSONObject("limits");
+        int maxPerStageDescriptorStorageBuffers = limits.getInt("maxPerStageDescriptorStorageBuffers");
+        if (DEBUG) {
+            Log.d(TAG, device.getJSONObject("properties").getString("deviceName") +
+                ": variablePointers=" + variablePointers +
+                " maxPerStageDescriptorStorageBuffers=" + maxPerStageDescriptorStorageBuffers);
         }
-        if (!have16bitStorage || !haveVariablePointers) {
+        if (!variablePointers || maxPerStageDescriptorStorageBuffers < 16)
             return -1;
-        }
         return 0;
     }
 

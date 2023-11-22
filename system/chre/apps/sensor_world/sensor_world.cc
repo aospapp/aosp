@@ -31,6 +31,11 @@ namespace {
 
 namespace {
 
+//! Enable/disable all sensors by default.
+// This allows disabling all sensens by default and enabling only targeted
+// sensors for testing by locally overriding 'enable' field in SensorState.
+constexpr bool kEnableDefault = true;
+
 struct SensorState {
   const uint8_t type;
   uint32_t handle;
@@ -43,63 +48,63 @@ struct SensorState {
 
 SensorState sensors[] = {
   { .type = CHRE_SENSOR_TYPE_ACCELEROMETER,
-    .enable = true,
+    .enable = kEnableDefault,
     .interval = Milliseconds(80).toRawNanoseconds(),
     .latency = Seconds(4).toRawNanoseconds(),
   },
   { .type = CHRE_SENSOR_TYPE_INSTANT_MOTION_DETECT,
-    .enable = false,
+    .enable = false,  // InstantMotion is triggered by Prox
   },
   { .type = CHRE_SENSOR_TYPE_STATIONARY_DETECT,
-    .enable = false,
+    .enable = false,  // StationaryDetect is triggered by Prox
   },
   { .type = CHRE_SENSOR_TYPE_GYROSCOPE,
-    .enable = true,
+    .enable = kEnableDefault,
     .interval = Milliseconds(80).toRawNanoseconds(),
     .latency = Seconds(4).toRawNanoseconds(),
   },
   { .type = CHRE_SENSOR_TYPE_GEOMAGNETIC_FIELD,
-    .enable = true,
+    .enable = kEnableDefault,
     .interval = Milliseconds(80).toRawNanoseconds(),
     .latency = Seconds(4).toRawNanoseconds(),
   },
   { .type = CHRE_SENSOR_TYPE_PRESSURE,
-    .enable = true,
+    .enable = kEnableDefault,
     .interval = Milliseconds(200).toRawNanoseconds(),
     .latency = Seconds(4).toRawNanoseconds(),
   },
   { .type = CHRE_SENSOR_TYPE_LIGHT,
-    .enable = true,
+    .enable = kEnableDefault,
     .interval = Milliseconds(200).toRawNanoseconds(),
     .latency = 0,
   },
   { .type = CHRE_SENSOR_TYPE_PROXIMITY,
-    .enable = true,
+    .enable = kEnableDefault,
     .interval = Milliseconds(200).toRawNanoseconds(),
     .latency = 0,
   },
   { .type = CHRE_SENSOR_TYPE_ACCELEROMETER_TEMPERATURE,
-    .enable = true,
+    .enable = kEnableDefault,
     .interval = Seconds(2).toRawNanoseconds(),
     .latency = 0,
   },
   { .type = CHRE_SENSOR_TYPE_GYROSCOPE_TEMPERATURE,
-    .enable = true,
+    .enable = kEnableDefault,
     .interval = Seconds(2).toRawNanoseconds(),
     .latency = 0,
   },
   { .type = CHRE_SENSOR_TYPE_UNCALIBRATED_ACCELEROMETER,
-    .enable = true,
+    .enable = kEnableDefault,
     .interval = Milliseconds(80).toRawNanoseconds(),
     .latency = Seconds(4).toRawNanoseconds(),
   },
   { .type = CHRE_SENSOR_TYPE_UNCALIBRATED_GYROSCOPE,
-    .enable = true,
+    .enable = kEnableDefault,
     .interval = Milliseconds(80).toRawNanoseconds(),
     .latency = Seconds(4).toRawNanoseconds(),
   },
   { .type = CHRE_SENSOR_TYPE_UNCALIBRATED_GEOMAGNETIC_FIELD,
-    .enable = true,
+    .enable = kEnableDefault,
     .interval = Milliseconds(80).toRawNanoseconds(),
     .latency = Seconds(4).toRawNanoseconds(),
   },
@@ -113,14 +118,16 @@ enum class MotionMode {
 
 // Storage to help access InstantMotion and StationaryDetect sensor handle and
 // info
-static size_t motionSensorIndices[2];
-static MotionMode motionMode = MotionMode::Instant;
+size_t motionSensorIndices[2];
+MotionMode motionMode = MotionMode::Instant;
 
 size_t getMotionSensorIndex() {
   motionMode = (motionMode == MotionMode::Instant) ?
       MotionMode::Stationary : MotionMode::Instant;
   return motionSensorIndices[static_cast<size_t>(motionMode)];
 }
+
+size_t statusIndex = 0;
 
 } // namespace
 
@@ -154,8 +161,8 @@ bool nanoappStart() {
 
       // Subscribe to sensors
       if (sensor.enable) {
-        float odrHz = 1e9 / sensor.interval;
-        float latencySec = sensor.latency / 1e9;
+        float odrHz = 1e9f / sensor.interval;
+        float latencySec = sensor.latency / 1e9f;
         bool status = chreSensorConfigure(sensor.handle,
             CHRE_SENSOR_CONFIGURE_MODE_CONTINUOUS, sensor.interval,
             sensor.latency);
@@ -171,6 +178,8 @@ bool nanoappStart() {
 void nanoappHandleEvent(uint32_t senderInstanceId,
                         uint16_t eventType,
                         const void *eventData) {
+  uint64_t chreTime = chreGetTime();
+  uint64_t sampleTime;
   switch (eventType) {
     case CHRE_EVENT_SENSOR_ACCELEROMETER_DATA:
     case CHRE_EVENT_SENSOR_UNCALIBRATED_ACCELEROMETER_DATA:
@@ -181,12 +190,14 @@ void nanoappHandleEvent(uint32_t senderInstanceId,
       const auto *ev = static_cast<const chreSensorThreeAxisData *>(eventData);
       const auto header = ev->header;
       const auto *data = ev->readings;
+      sampleTime = header.baseTimestamp;
 
       float x = 0, y = 0, z = 0;
       for (size_t i = 0; i < header.readingCount; i++) {
         x += data[i].v[0];
         y += data[i].v[1];
         z += data[i].v[2];
+        sampleTime += data[i].timestampDelta;
       }
       x /= header.readingCount;
       y /= header.readingCount;
@@ -194,6 +205,14 @@ void nanoappHandleEvent(uint32_t senderInstanceId,
 
       LOGI("%s, %d samples: %f %f %f",
            getSensorNameForEventType(eventType), header.readingCount, x, y, z);
+
+      if (eventType == CHRE_EVENT_SENSOR_UNCALIBRATED_GYROSCOPE_DATA) {
+        LOGI("UncalGyro time: first %" PRIu64 " last %" PRIu64 " chre %" PRIu64
+             " delta [%" PRId64 ", %" PRId64 "]ms",
+             header.baseTimestamp, sampleTime, chreTime,
+             static_cast<int64_t>(header.baseTimestamp - chreTime) / 1000000,
+             static_cast<int64_t>(sampleTime - chreTime) / 1000000);
+      }
       break;
     }
 
@@ -219,10 +238,15 @@ void nanoappHandleEvent(uint32_t senderInstanceId,
       const auto *ev = static_cast<const chreSensorByteData *>(eventData);
       const auto header = ev->header;
       const auto reading = ev->readings[0];
+      sampleTime = header.baseTimestamp;
 
       LOGI("%s, %d samples: isNear %d, invalid %d",
            getSensorNameForEventType(eventType), header.readingCount,
            reading.isNear, reading.invalid);
+
+      LOGI("Prox time: sample %" PRIu64 " chre %" PRIu64 " delta %" PRId64 "ms",
+           header.baseTimestamp, chreTime,
+           static_cast<int64_t>(sampleTime - chreTime) / 1000000);
 
       // Enable InstantMotion and StationaryDetect alternatively on near->far.
       if (reading.isNear == 0) {
@@ -234,6 +258,17 @@ void nanoappHandleEvent(uint32_t senderInstanceId,
         LOGI("Requested %s: %s", sensors[motionSensorIndex].info.sensorName,
               status ? "success" : "failure");
       }
+
+      // Exercise chreGetSensorSamplingStatus on one sensor on near->far.
+      if (sensors[statusIndex].isInitialized && reading.isNear == 0) {
+        struct chreSensorSamplingStatus status;
+        bool success = chreGetSensorSamplingStatus(sensors[statusIndex].handle,
+                                                   &status);
+        LOGI("%s success %d: enabled %d interval %" PRIu64 " latency %" PRIu64,
+             sensors[statusIndex].info.sensorName, success, status.enabled,
+             status.interval, status.latency);
+      }
+      statusIndex = (statusIndex + 1) % ARRAY_SIZE(sensors);
       break;
     }
 
@@ -246,6 +281,18 @@ void nanoappHandleEvent(uint32_t senderInstanceId,
            getSensorNameForEventType(eventType), header.readingCount);
       break;
     }
+
+    case CHRE_EVENT_SENSOR_SAMPLING_CHANGE: {
+      const auto *ev = static_cast<const chreSensorSamplingStatusEvent *>(
+          eventData);
+
+      LOGI("Sampling Change: handle %" PRIu32 ", status: interval %" PRIu64
+           " latency %" PRIu64 " enabled %d",
+           ev->sensorHandle, ev->status.interval, ev->status.latency,
+           ev->status.enabled);
+      break;
+    }
+
 
     default:
       LOGW("Unhandled event %d", eventType);

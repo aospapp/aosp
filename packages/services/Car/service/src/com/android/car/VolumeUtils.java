@@ -43,6 +43,7 @@ public class VolumeUtils {
             VehicleAudioContextFlag.NAVIGATION_FLAG,
             VehicleAudioContextFlag.VOICE_COMMAND_FLAG,
             VehicleAudioContextFlag.CALL_FLAG,
+            VehicleAudioContextFlag.RINGTONE_FLAG,
             VehicleAudioContextFlag.ALARM_FLAG,
             VehicleAudioContextFlag.NOTIFICATION_FLAG,
             VehicleAudioContextFlag.UNKNOWN_FLAG,
@@ -67,6 +68,8 @@ public class VolumeUtils {
                 CarSettings.Global.KEY_VOLUME_VOICE_COMMAND);
         CAR_AUDIO_CONTEXT_SETTINGS.put(VehicleAudioContextFlag.CALL_FLAG,
                 CarSettings.Global.KEY_VOLUME_CALL);
+        CAR_AUDIO_CONTEXT_SETTINGS.put(VehicleAudioContextFlag.RINGTONE_FLAG,
+                CarSettings.Global.KEY_VOLUME_RINGTONE);
         CAR_AUDIO_CONTEXT_SETTINGS.put(VehicleAudioContextFlag.ALARM_FLAG,
                 CarSettings.Global.KEY_VOLUME_ALARM);
         CAR_AUDIO_CONTEXT_SETTINGS.put(
@@ -106,7 +109,7 @@ public class VolumeUtils {
             case AudioManager.STREAM_SYSTEM:
                 return VehicleAudioContextFlag.SYSTEM_SOUND_FLAG;
             case AudioManager.STREAM_RING:
-                return VehicleAudioContextFlag.NOTIFICATION_FLAG;
+                return VehicleAudioContextFlag.RINGTONE_FLAG;
             case AudioManager.STREAM_MUSIC:
                 return VehicleAudioContextFlag.MUSIC_FLAG;
             case AudioManager.STREAM_ALARM:
@@ -124,6 +127,8 @@ public class VolumeUtils {
         switch (carContext) {
             case VehicleAudioContextFlag.CALL_FLAG:
                 return AudioManager.STREAM_VOICE_CALL;
+            case VehicleAudioContextFlag.RINGTONE_FLAG:
+                return AudioManager.STREAM_RING;
             case VehicleAudioContextFlag.SYSTEM_SOUND_FLAG:
                 return AudioManager.STREAM_SYSTEM;
             case VehicleAudioContextFlag.NOTIFICATION_FLAG:

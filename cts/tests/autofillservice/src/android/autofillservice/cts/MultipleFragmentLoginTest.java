@@ -28,7 +28,6 @@ import static com.google.common.truth.Truth.assertThat;
 import android.app.assist.AssistStructure;
 import android.app.assist.AssistStructure.ViewNode;
 import android.os.Bundle;
-import android.support.test.rule.ActivityTestRule;
 import android.util.Log;
 import android.view.autofill.AutofillValue;
 import android.widget.EditText;
@@ -40,8 +39,8 @@ import org.junit.Test;
 public class MultipleFragmentLoginTest extends AutoFillServiceTestCase {
     private static final String LOG_TAG = MultipleFragmentLoginTest.class.getSimpleName();
     @Rule
-    public final ActivityTestRule<FragmentContainerActivity> mActivityRule =
-            new ActivityTestRule<>(FragmentContainerActivity.class);
+    public final AutofillActivityTestRule<FragmentContainerActivity> mActivityRule =
+            new AutofillActivityTestRule<>(FragmentContainerActivity.class);
     private FragmentContainerActivity mActivity;
     private EditText mEditText1;
     private EditText mEditText2;

@@ -29,7 +29,6 @@
 class StrictControllerTest : public IptablesBaseTest {
 public:
     StrictControllerTest() {
-        StrictController::execIptables = fakeExecIptables;
         StrictController::execIptablesRestore = fakeExecIptablesRestore;
     }
     StrictController mStrictCtrl;
@@ -121,4 +120,47 @@ TEST_F(StrictControllerTest, TestDisableStrict) {
         ":st_clear_detect -\n"
         "COMMIT\n";
     expectIptablesRestoreCommands({ expected });
+}
+
+TEST_F(StrictControllerTest, TestSetUidCleartextPenalty) {
+    std::vector<std::string> acceptCommands = {
+        "*filter\n"
+        "-D st_OUTPUT -m owner --uid-owner 12345 -j st_clear_detect\n"
+        "-D st_clear_caught -m owner --uid-owner 12345 -j st_clear_caught_12345\n"
+        "-F st_clear_caught_12345\n"
+        "-X st_clear_caught_12345\n"
+        "COMMIT\n"
+    };
+    std::vector<std::string> logCommands = {
+        "*filter\n"
+        ":st_clear_caught_12345 -\n"
+        "-I st_OUTPUT -m owner --uid-owner 12345 -j st_clear_detect\n"
+        "-I st_clear_caught -m owner --uid-owner 12345 -j st_clear_caught_12345\n"
+        "-A st_clear_caught_12345 -j st_penalty_log\n"
+        "COMMIT\n"
+    };
+    std::vector<std::string> rejectCommands = {
+        "*filter\n"
+        ":st_clear_caught_12345 -\n"
+        "-I st_OUTPUT -m owner --uid-owner 12345 -j st_clear_detect\n"
+        "-I st_clear_caught -m owner --uid-owner 12345 -j st_clear_caught_12345\n"
+        "-A st_clear_caught_12345 -j st_penalty_reject\n"
+        "COMMIT\n"
+    };
+
+    mStrictCtrl.setUidCleartextPenalty(12345, LOG);
+    expectIptablesRestoreCommands(logCommands);
+
+    mStrictCtrl.setUidCleartextPenalty(12345, ACCEPT);
+    expectIptablesRestoreCommands(acceptCommands);
+
+    // StrictController doesn't keep any state and it is not correct to call its methods in the
+    // wrong order (e.g., to go from LOG to REJECT without passing through ACCEPT).
+    // NetworkManagementService does keep state (not just to ensure correctness, but also so it can
+    // reprogram the rules when netd crashes).
+    mStrictCtrl.setUidCleartextPenalty(12345, REJECT);
+    expectIptablesRestoreCommands(rejectCommands);
+
+    mStrictCtrl.setUidCleartextPenalty(12345, ACCEPT);
+    expectIptablesRestoreCommands(acceptCommands);
 }

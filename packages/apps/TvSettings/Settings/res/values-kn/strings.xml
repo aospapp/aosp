@@ -168,10 +168,10 @@
     <string name="wifi_setting_see_all" msgid="3217814666041974878">"ಎಲ್ಲವನ್ನೂ ನೋಡಿ"</string>
     <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"ಸ್ವಲ್ಪ ವೀಕ್ಷಿಸಿ"</string>
     <string name="wifi_setting_available_networks" msgid="6713791371350513043">"ಲಭ್ಯವಿರುವ ನೆಟ್‌ವರ್ಕ್‌ಗಳು"</string>
-    <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"WPS ಮೂಲಕ ಸಂಪರ್ಕಪಡಿಸಿ"</string>
+    <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"WPS ಮೂಲಕ ಸಂಪರ್ಕಿಸಿ"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"ಹೊಸ ನೆಟ್‌ವರ್ಕ್‌ ಸೇರಿಸಿ"</string>
     <string name="security_type" msgid="524443802004143058">"ಭದ್ರತೆಯ ಪ್ರಕಾರ"</string>
-    <string name="wps_network" msgid="1052148085426051873">"WPS ಮೂಲಕ ಸಂಪರ್ಕಪಡಿಸಿ"</string>
+    <string name="wps_network" msgid="1052148085426051873">"WPS ಮೂಲಕ ಸಂಪರ್ಕಿಸಿ"</string>
     <string name="other_network" msgid="3539704463099544488">"ಇತರ ನೆಟ್‌‌ವರ್ಕ್‌…"</string>
     <string name="skip_network" msgid="6380260543776712357">"ಸ್ಕಿಪ್‌"</string>
     <string name="wifi_security_type_none" msgid="6622722325237471927">"ಯಾವುದೂ ಇಲ್ಲ"</string>
@@ -250,7 +250,7 @@
     <string name="storage_music_usage" msgid="3509327591741514083">"ಆಡಿಯೋ"</string>
     <string name="storage_media_misc_usage" msgid="6066868724030127457">"ಇತರೆ."</string>
     <string name="storage_media_cache_usage" msgid="5906737163212649904">"ಸಂಗ್ರಹಿಸಿದ ಡೇಟಾ"</string>
-    <string name="storage_eject" msgid="113476702798691558">"ಎಜೆಕ್ಟ್‌"</string>
+    <string name="storage_eject" msgid="113476702798691558">"ಇಜೆಕ್ಟ್‌"</string>
     <string name="storage_format" msgid="3759273736493279595">"ಅಳಿಸಿ &amp; ಫಾರ್ಮ್ಯಾಟ್ ಮಾಡು"</string>
     <string name="storage_format_as_private" msgid="4169495230765116075">"ಸಾಧನ ಸಂಗ್ರಹಣೆಯಂತೆ ಅಳಿಸಿ &amp; ಫಾರ್ಮ್ಯಾಟ್‌ ಮಾಡಿ"</string>
     <string name="storage_format_as_public" msgid="8568317076021814054">"ತೆಗೆಯಬಹುದಾದ ಸಂಗ್ರಹಣೆಯಂತೆ ಅಳಿಸಿ ಮತ್ತು ಫಾರ್ಮ್ಯಾಟ್‌"</string>
@@ -269,7 +269,7 @@
     <string name="storage_mount_adopted" msgid="3360994581083675640">"USB ಸಂಗ್ರಹಣೆಯನ್ನು ಮರುಸಂಪರ್ಕಿಸಲಾಗಿದೆ"</string>
     <string name="storage_unmount_success" msgid="7921627277443856151">"<xliff:g id="NAME">%1$s</xliff:g> ಸುರಕ್ಷಿತವಾಗಿ ತೆಗೆದುಹಾಕಲಾಗಿದೆ"</string>
     <string name="storage_unmount_failure" msgid="6322048355281833871">"<xliff:g id="NAME">%1$s</xliff:g> ಸುರಕ್ಷಿತವಾಗಿ ತೆಗೆದುಹಾಕಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ"</string>
-    <string name="storage_unmount_failure_cant_find" msgid="240731723168567217">"ಎಜೆಕ್ಟ್ ಮಾಡಲು ಡ್ರೈವ್‌ ಪತ್ತೆ ಮಾಡಲಾಗಲಿಲ್ಲ"</string>
+    <string name="storage_unmount_failure_cant_find" msgid="240731723168567217">"ಇಜೆಕ್ಟ್ ಮಾಡಲು ಡ್ರೈವ್‌ ಪತ್ತೆ ಮಾಡಲಾಗಲಿಲ್ಲ"</string>
     <string name="storage_format_success" msgid="6252068844653804319">"<xliff:g id="NAME">%1$s</xliff:g> ಫಾರ್ಮ್ಯಾಟ್ ಮಾಡಲಾಗಿದೆ"</string>
     <string name="storage_format_failure" msgid="7336977074523932399">"<xliff:g id="NAME">%1$s</xliff:g> ಫಾರ್ಮ್ಯಾಟ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ"</string>
     <string name="storage_wizard_format_as_private_title" msgid="1887035626526247913">"ಸಾಧನ ಸಂಗ್ರಹಣೆಯಂತೆ ಫಾರ್ಮ್ಯಾಟ್ ಮಾಡು"</string>
@@ -294,9 +294,9 @@
     <string name="storage_wizard_back_up_apps_title" msgid="452805102278225533">"<xliff:g id="NAME">%1$s</xliff:g> ರಲ್ಲಿ ಸಂಗ್ರಹವಾಗಿರುವ ಅಪ್ಲಿಕೇಶನ್‌ಗಳು"</string>
     <string name="storage_wizard_back_up_apps_and_data_title" msgid="1738767666148200795">"<xliff:g id="NAME">%1$s</xliff:g> ನಲ್ಲಿ ಸಂಗ್ರಹವಾಗಿರುವ ಅಪ್ಲಿಕೇಶನ್‌ಗಳು ಮತ್ತು ಡೇಟಾ"</string>
     <string name="storage_wizard_back_up_apps_space_available" msgid="7209210725057470544">"<xliff:g id="SIZE">%1$s</xliff:g> ಲಭ್ಯವಿದೆ"</string>
-    <string name="storage_wizard_eject_private_title" msgid="2844023177159233031">"ಸಾಧನ ಸಂಗ್ರಹಣೆಯನ್ನು ಎಜೆಕ್ಟ್ ಮಾಡಿ"</string>
-    <string name="storage_wizard_eject_private_description" msgid="8966427719795472538">"ಇದನ್ನು ಎಜೆಕ್ಟ್ ಮಾಡಿದಾಗ ಈ ಸಾಧನದಲ್ಲಿನ ಅಪ್ಲಿಕೇಶನ್‌ಗಳು ಕಾರ್ಯನಿರ್ವಹಿಸುವುದನ್ನು ನಿಲ್ಲಿಸುತ್ತವೆ. ಈ ಸಾಧನದಲ್ಲಿ ಮಾತ್ರ ಕಾರ್ಯನಿರ್ವಹಿಸಲು ಈ USB ಯನ್ನ ಫಾರ್ಮ್ಯಾಟ್ ಮಾಡಲಾಗಿದೆ. ಇದು ಯಾವುದೇ ಇತರ ಸಾಧನಗಳಲ್ಲಿ ಕೆಲಸ ಮಾಡುವುದಿಲ್ಲ."</string>
-    <string name="storage_wizard_eject_progress_title" msgid="8823133087157003820">"<xliff:g id="NAME">%1$s</xliff:g> ಎಜೆಕ್ಟ್ ಮಾಡಲಾಗುತ್ತಿದೆ…"</string>
+    <string name="storage_wizard_eject_private_title" msgid="2844023177159233031">"ಸಾಧನ ಸಂಗ್ರಹಣೆಯನ್ನು ಇಜೆಕ್ಟ್ ಮಾಡಿ"</string>
+    <string name="storage_wizard_eject_private_description" msgid="8966427719795472538">"ಇದನ್ನು ಇಜೆಕ್ಟ್ ಮಾಡಿದಾಗ ಈ ಸಾಧನದಲ್ಲಿನ ಅಪ್ಲಿಕೇಶನ್‌ಗಳು ಕಾರ್ಯನಿರ್ವಹಿಸುವುದನ್ನು ನಿಲ್ಲಿಸುತ್ತವೆ. ಈ ಸಾಧನದಲ್ಲಿ ಮಾತ್ರ ಕಾರ್ಯನಿರ್ವಹಿಸಲು ಈ USB ಯನ್ನ ಫಾರ್ಮ್ಯಾಟ್ ಮಾಡಲಾಗಿದೆ. ಇದು ಯಾವುದೇ ಇತರ ಸಾಧನಗಳಲ್ಲಿ ಕೆಲಸ ಮಾಡುವುದಿಲ್ಲ."</string>
+    <string name="storage_wizard_eject_progress_title" msgid="8823133087157003820">"<xliff:g id="NAME">%1$s</xliff:g> ಇಜೆಕ್ಟ್ ಮಾಡಲಾಗುತ್ತಿದೆ…"</string>
     <string name="storage_wizard_move_app_title" msgid="37057801779891287">"ಬಳಸಲಾದ ಸಂಗ್ರಹಣೆ"</string>
     <string name="storage_wizard_move_app_progress_title" msgid="7807062446517628864">"<xliff:g id="NAME">%1$s</xliff:g> ಸರಿಸಲಾಗುತ್ತಿದೆ…"</string>
     <string name="storage_wizard_move_app_progress_description" msgid="3693104566187904724">"ಸರಿಸುವಾಗ ಡ್ರೈವ್‌ ಅನ್ನು ತೆಗೆದುಹಾಕಬೇಡಿ.\nಈ ಸಾಧನದಲ್ಲಿರುವ <xliff:g id="APPNAME">%1$s</xliff:g> ಅಪ್ಲಿಕೇಶನ್‌ ಸರಿಸುವುದು ಪೂರ್ಣಗೊಳ್ಳುವವರೆಗೆ ಲಭ್ಯವಿರುವುದಿಲ್ಲ."</string>
@@ -307,7 +307,7 @@
     <string name="storage_new_action_browse" msgid="9041125660441839453">"ಬ್ರೌಸ್ ಮಾಡಿ"</string>
     <string name="storage_new_action_adopt" msgid="880224317112988974">"ಸಾಧನದ ಸಂಗ್ರಹಣೆಯಾಗಿ ಹೊಂದಿಸಿ"</string>
     <string name="storage_new_action_format_public" msgid="5604328981214071670">"ತೆಗೆದುಹಾಕುವ ಸಂಗ್ರಹಣೆಯಾಗಿ ಹೊಂದಿಸಿ"</string>
-    <string name="storage_new_action_eject" msgid="4069294152676217949">"ಎಜೆಕ್ಟ್"</string>
+    <string name="storage_new_action_eject" msgid="4069294152676217949">"ಇಜೆಕ್ಟ್"</string>
     <string name="storage_missing_title" msgid="2803464623922381858">"<xliff:g id="NAME">%1$s</xliff:g> ತೆಗೆದುಹಾಕಲಾಗಿದೆ"</string>
     <string name="storage_missing_description" msgid="8400374014342069781">"ಡ್ರೈವ್ ಮರುಸಂಪರ್ಕಪಡಿಸುವವರೆಗೆ ಕೆಲವು ಅಪ್ಲಿಕೇಶನ್‌ಗಳು ಲಭ್ಯವಿರುವುದಿಲ್ಲ ಅಥವಾ ಸರಿಯಾಗಿ ಕಾರ್ಯನಿರ್ವಹಿಸುವುದಿಲ್ಲ."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"ಸಾಕಷ್ಟು ಸಂಗ್ರಹಣೆ ಸ್ಥಳ ಇಲ್ಲ"</string>
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"ಸೇವೆಗಳು"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"ಸೇವಾ ಸೆಟ್ಟಿಂಗ್‌‌ಗಳು"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"ಹೆಚ್ಚು ಕಾಂಟ್ರಾಸ್ಟ್‌ನ ಪಠ್ಯ"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"ಪ್ರವೇಶ ಶಾರ್ಟ್‌ಕಟ್‌"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"ಪ್ರವೇಶಿಸುವಿಕೆ ಶಾರ್ಟ್‌ಕಟ್‌ ಸಕ್ರಿಯಗೊಳಿಸಿ"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"ಶಾರ್ಟ್‌ಕಟ್ ಸೇವೆ"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"ಶಾರ್ಟ್‌ಕಟ್ ಆನ್ ಆಗಿರುವಾಗ, 3 ಸೆಕೆಂಡ್‌ಗಳ ಕಾಲ ಹಿಂದಿನ ಮತ್ತು ಕೆಳಗಿನ ಬಟನ್‌ಗಳನ್ನು ಒತ್ತುವುದು ಪ್ರವೇಶ ವೈಶಿಷ್ಟ್ಯವನ್ನು ಆರಂಭಿಸುತ್ತದೆ."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"ಶೀರ್ಷಿಕೆಗಳು"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"ವೀಡಿಯೊದಲ್ಲಿ ಮುಚ್ಚಿದ ಶೀರ್ಷಿಕೆ ಪಠ್ಯದ ಓವರ್‌ಲೇಗಾಗಿ ಸೆಟ್ಟಿಂಗ್‌ಗಳು"</string>
     <string name="captions_display" msgid="735692527287125548">"ಪ್ರದರ್ಶನ"</string>
@@ -601,7 +605,7 @@
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"ಸ್ಥಗಿತಗೊಳಿಸು"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"ನೀವು ಅಪ್ಲಿಕೇಶನ್ ಅನ್ನು ಬಲವಂತವಾಗಿ ಸ್ಥಗಿತಗೊಳಿಸಿದರೆ, ಅದು ತಪ್ಪಾಗಿ ವರ್ತಿಸಬಹುದು."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"ಅಸ್ಥಾಪಿಸು"</string>
-    <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"ಅಪ್‌ಡೇಟ್‌ಗಳನ್ನು ಅಸ್ಥಾಪಿಸಿ"</string>
+    <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"ಅಪ್‌ಡೇಟ್‌ಗಳನ್ನು ಅನ್‌ಇನ್‌ಸ್ಟಾಲ್ ಮಾಡಿ"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"ಈ Android ಸಿಸ್ಟಂ ಅಪ್ಲಿಕೇಶನ್‌ಗೆ ಆಗಿರುವ ಎಲ್ಲ ಅಪ್‌ಡೇಟ್‌ಗಳನ್ನು ಅಸ್ಥಾಪಿಸಲಾಗುವುದು."</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"ನಿಷ್ಕ್ರಿಯಗೊಳಿಸು"</string>
     <string name="device_apps_app_management_disable_desc" msgid="1295507373252301108">"ನೀವು ಈ ಅಪ್ಲಿಕೇಶನ್ ಅನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಲು ಬಯಸುವಿರಾ?"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"ಬಗ್ ವರದಿಯನ್ನು ಕ್ಯಾಪ್ಚರ್ ಮಾಡಲಾಗುತ್ತಿದೆ"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"ಲಭ್ಯವಿರುವ ವರ್ಚುಯಲ್ ಕೀಬೋರ್ಡ್‌ಗಳು"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"ಕೀಬೋರ್ಡ್‌ಗಳನ್ನು ನಿರ್ವಹಿಸಿ"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"ಅನುಮತಿಸಲಾಗಿದೆ"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"ಅನುಮತಿಸಲಾಗುವುದಿಲ್ಲ"</string>
+    <string name="usage_access" msgid="1914242907684452328">"ಬಳಕೆ ಪ್ರವೇಶ"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"ಬಳಕೆ ಪ್ರವೇಶವು ನೀವು ಇತರ ಯಾವ ಅಪ್ಲಿಕೇಶನ್‌ಗಳನ್ನು ಬಳಸುತ್ತಿರುವಿರಿ ಮತ್ತು ಎಷ್ಟು ಬಾರಿ ಎಂಬುದನ್ನು ಅಲ್ಲದೆ ನಿಮ್ಮ ವಾಹಕ, ಭಾಷೆ ಸೆಟ್ಟಿಂಗ್‌ಗಳು ಹಾಗೂ ಇತರ ವಿವರಗಳನ್ನು ಟ್ರ್ಯಾಕ್ ಮಾಡಲು ಅನುಮತಿಸುತ್ತದೆ."</string>
 </resources>

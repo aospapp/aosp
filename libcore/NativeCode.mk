@@ -204,6 +204,7 @@ LOCAL_SRC_FILES += \
 LOCAL_C_INCLUDES += libcore/include
 LOCAL_MODULE_TAGS := debug
 LOCAL_MODULE := libjavacore-benchmarks
+LOCAL_COMPATIBILITY_SUITE := device-tests
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/NativeCode.mk
 LOCAL_SHARED_LIBRARIES := libnativehelper
 LOCAL_CXX_STL := libc++

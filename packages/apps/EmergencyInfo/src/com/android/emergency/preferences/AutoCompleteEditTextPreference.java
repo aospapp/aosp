@@ -23,7 +23,7 @@ import android.graphics.Rect;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.preference.DialogPreference;
+import android.support.v14.preference.PreferenceDialogFragment;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.KeyEvent;
@@ -38,12 +38,15 @@ import android.widget.TextView;
 
 import com.android.emergency.R;
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.settingslib.CustomDialogPreference;
 
 /**
  * Almost a copy of EditTextPreference that shows a {@link AutoCompleteTextView} instead of the
  * basic EditText. It always show the suggested options.
+ * TODO: an EditTextPreference always shows the soft input keyboard, whereas this class does not,
+ * and it should, to mimic EditTextPreference better.
  */
-public class AutoCompleteEditTextPreference extends DialogPreference {
+public class AutoCompleteEditTextPreference extends CustomDialogPreference {
     /**
      * The edit text shown in the dialog.
      */
@@ -116,13 +119,6 @@ public class AutoCompleteEditTextPreference extends DialogPreference {
                 notifyChanged();
             }
         }
-    }
-
-    @Override
-    public void showDialog(Bundle state) {
-        super.showDialog(state);
-        Window window = getDialog().getWindow();
-        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
     }
 
     @VisibleForTesting
@@ -285,4 +281,11 @@ public class AutoCompleteEditTextPreference extends DialogPreference {
         }
     }
 
+    public static class AutoCompleteEditTextPreferenceDialogFragment
+            extends CustomDialogPreference.CustomPreferenceDialogFragment {
+        public static CustomDialogPreference.CustomPreferenceDialogFragment
+                newInstance(String key) {
+            return CustomDialogPreference.CustomPreferenceDialogFragment.newInstance(key);
+        }
+    }
 }

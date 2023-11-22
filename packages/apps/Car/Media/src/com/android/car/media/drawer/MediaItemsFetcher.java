@@ -18,7 +18,9 @@ package com.android.car.media.drawer;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.media.MediaDescription;
+import android.text.TextUtils;
 
+import com.android.car.app.CarDrawerAdapter;
 import com.android.car.app.DrawerItemViewHolder;
 import com.android.car.apps.common.BitmapDownloader;
 import com.android.car.apps.common.BitmapWorkerOptions;
@@ -31,6 +33,8 @@ import com.android.car.media.R;
  * It also handles ViewHolder population and item clicks.
  */
 interface MediaItemsFetcher {
+    public static final int DONT_SCROLL = -1;
+
     /**
      * Used to inform owning {@link MediaDrawerAdapter} that items have changed.
      */
@@ -52,6 +56,15 @@ interface MediaItemsFetcher {
     int getItemCount();
 
     /**
+     * Used to indicate the kind of layout (small or normal) to use for the views that will display
+     * this item in a {@link CarDrawerAdapter}. See {@link CarDrawerAdapter#usesSmallLayout}
+     *
+     * @param position Adapter position of item
+     * @return Whether to use small (true) or normal layout (false).
+     */
+    boolean usesSmallLayout(int position);
+
+    /**
      * Used by owning {@link MediaDrawerAdapter} to populate views.
      *
      * @param holder View-holder to populate.
@@ -71,16 +84,33 @@ interface MediaItemsFetcher {
      */
     void cleanup();
 
+
+    /**
+     * Get the position to scroll to if any.
+     * @return An integer greater than or equal to 0 if there is a position to scroll to, the
+     *         constant {@link DONT_SCROLL} otherwise.
+     */
+    int getScrollPosition();
+
+    /**
+     * Utility method to determine if description can be displayed in a small layout.
+     */
+    static boolean usesSmallLayout(MediaDescription description) {
+        // Small layout is sufficient if there's no sub-title to display for the item.
+        return TextUtils.isEmpty(description.getSubtitle());
+    }
+
     /**
      * Utility method to populate {@code holder} with details from {@code description}. It populates
      * title, text and icon at most.
      */
     static void populateViewHolderFrom(DrawerItemViewHolder holder, MediaDescription description) {
         Context context = holder.itemView.getContext();
-        // TODO(sriniv): Once we use smallLayout, text and rightIcon fields may be unavailable.
-        // Related to b/36573125.
         holder.getTitle().setText(description.getTitle());
-        holder.getText().setText(description.getSubtitle());
+        // If normal layout, populate subtitle.
+        if (!usesSmallLayout(description)) {
+            holder.getText().setText(description.getSubtitle());
+        }
         Bitmap iconBitmap = description.getIconBitmap();
         holder.getIcon().setImageBitmap(iconBitmap);    // Ok to set null here for clearing.
         if (iconBitmap == null && description.getIconUri() != null) {

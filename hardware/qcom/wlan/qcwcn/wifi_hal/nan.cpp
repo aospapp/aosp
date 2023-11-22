@@ -54,7 +54,7 @@ wifi_error nan_register_handler(wifi_interface_handle iface,
     }
 
     ret = nanCommand->setCallbackHandler(handlers);
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 wifi_error nan_get_version(wifi_handle handle,
@@ -103,7 +103,7 @@ wifi_error nan_enable_request(transaction_id id,
     }
 cleanup:
     delete nanCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /*  Function to send disable request to the wifi driver.*/
@@ -144,7 +144,7 @@ wifi_error nan_disable_request(transaction_id id,
     }
 cleanup:
     delete nanCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /*  Function to send publish request to the wifi driver.*/
@@ -186,7 +186,7 @@ wifi_error nan_publish_request(transaction_id id,
     }
 cleanup:
     delete nanCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /*  Function to send publish cancel to the wifi driver.*/
@@ -228,7 +228,7 @@ wifi_error nan_publish_cancel_request(transaction_id id,
     }
 cleanup:
     delete nanCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /*  Function to send Subscribe request to the wifi driver.*/
@@ -270,7 +270,7 @@ wifi_error nan_subscribe_request(transaction_id id,
     }
 cleanup:
     delete nanCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /*  Function to cancel subscribe to the wifi driver.*/
@@ -312,7 +312,7 @@ wifi_error nan_subscribe_cancel_request(transaction_id id,
     }
 cleanup:
     delete nanCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /*  Function to send NAN follow up request to the wifi driver.*/
@@ -354,7 +354,7 @@ wifi_error nan_transmit_followup_request(transaction_id id,
     }
 cleanup:
     delete nanCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /*  Function to send NAN statistics request to the wifi driver.*/
@@ -396,7 +396,7 @@ wifi_error nan_stats_request(transaction_id id,
     }
 cleanup:
     delete nanCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /*  Function to send NAN configuration request to the wifi driver.*/
@@ -438,7 +438,7 @@ wifi_error nan_config_request(transaction_id id,
     }
 cleanup:
     delete nanCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /*  Function to send NAN request to the wifi driver.*/
@@ -480,7 +480,7 @@ wifi_error nan_tca_request(transaction_id id,
     }
 cleanup:
     delete nanCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /*  Function to send NAN Beacon sdf payload to the wifi driver.
@@ -526,7 +526,7 @@ wifi_error nan_beacon_sdf_payload_request(transaction_id id,
 
 cleanup:
     delete nanCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 wifi_error nan_get_sta_parameter(transaction_id id,
@@ -550,7 +550,7 @@ wifi_error nan_get_sta_parameter(transaction_id id,
     }
 
 cleanup:
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /*  Function to get NAN capabilities */
@@ -591,7 +591,7 @@ wifi_error nan_get_capabilities(transaction_id id,
     }
 cleanup:
     delete nanCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /*  Function to get NAN capabilities */
@@ -677,7 +677,7 @@ wifi_error nan_initialize_vendor_cmd(wifi_interface_handle iface,
     return WIFI_SUCCESS;
 cleanup:
     delete *nanCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 wifi_error nan_data_interface_create(transaction_id id,
@@ -698,7 +698,7 @@ wifi_error nan_data_interface_create(transaction_id id,
                                     &nanCommand);
     if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Initialization failed", __FUNCTION__);
-        return (wifi_error)ret;
+        return mapErrorKernelToWifiHAL(ret);
     }
 
     /* Add the vendor specific attributes for the NL command. */
@@ -725,7 +725,7 @@ wifi_error nan_data_interface_create(transaction_id id,
     }
 cleanup:
     delete nanCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 wifi_error nan_data_interface_delete(transaction_id id,
@@ -745,7 +745,7 @@ wifi_error nan_data_interface_delete(transaction_id id,
                                     &nanCommand);
     if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Initialization failed", __FUNCTION__);
-        return (wifi_error)ret;
+        return mapErrorKernelToWifiHAL(ret);
     }
 
     /* Add the vendor specific attributes for the NL command. */
@@ -773,7 +773,7 @@ wifi_error nan_data_interface_delete(transaction_id id,
     }
 cleanup:
     delete nanCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 wifi_error nan_data_request_initiator(transaction_id id,
@@ -792,7 +792,7 @@ wifi_error nan_data_request_initiator(transaction_id id,
                                     &nanCommand);
     if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Initialization failed", __FUNCTION__);
-        return (wifi_error)ret;
+        return mapErrorKernelToWifiHAL(ret);
     }
 
     if ((msg->cipher_type != NAN_CIPHER_SUITE_SHARED_KEY_NONE) &&
@@ -878,30 +878,27 @@ wifi_error nan_data_request_initiator(transaction_id id,
         if (nanCommand->put_u32(QCA_WLAN_VENDOR_ATTR_NDP_CSID,
                 msg->cipher_type))
             goto cleanup;
-
-        if ( msg->key_info.key_type == NAN_SECURITY_KEY_INPUT_PMK &&
-             msg->key_info.body.pmk_info.pmk_len == NAN_PMK_INFO_LEN) {
-            if (nanCommand->put_bytes(QCA_WLAN_VENDOR_ATTR_NDP_PMK,
-                (char *)msg->key_info.body.pmk_info.pmk,
-                msg->key_info.body.pmk_info.pmk_len))
-                goto cleanup;
-        } else if (msg->key_info.key_type ==
-            NAN_SECURITY_KEY_INPUT_PASSPHRASE &&
-            msg->key_info.body.passphrase_info.passphrase_len >=
-            NAN_SECURITY_MIN_PASSPHRASE_LEN &&
-            msg->key_info.body.passphrase_info.passphrase_len <=
-            NAN_SECURITY_MAX_PASSPHRASE_LEN) {
-            if (nanCommand->put_bytes(QCA_WLAN_VENDOR_ATTR_NDP_PASSPHRASE,
-                (char *)msg->key_info.body.passphrase_info.passphrase,
-                msg->key_info.body.passphrase_info.passphrase_len))
-                goto cleanup;
-        }
-
-        if (msg->service_name_len) {
-            if (nanCommand->put_bytes(QCA_WLAN_VENDOR_ATTR_NDP_SERVICE_NAME,
-                (char *)msg->service_name, msg->service_name_len))
-                goto cleanup;
-        }
+    }
+    if ( msg->key_info.key_type == NAN_SECURITY_KEY_INPUT_PMK &&
+         msg->key_info.body.pmk_info.pmk_len == NAN_PMK_INFO_LEN) {
+        if (nanCommand->put_bytes(QCA_WLAN_VENDOR_ATTR_NDP_PMK,
+            (char *)msg->key_info.body.pmk_info.pmk,
+            msg->key_info.body.pmk_info.pmk_len))
+            goto cleanup;
+    } else if (msg->key_info.key_type == NAN_SECURITY_KEY_INPUT_PASSPHRASE &&
+        msg->key_info.body.passphrase_info.passphrase_len >=
+        NAN_SECURITY_MIN_PASSPHRASE_LEN &&
+        msg->key_info.body.passphrase_info.passphrase_len <=
+        NAN_SECURITY_MAX_PASSPHRASE_LEN) {
+        if (nanCommand->put_bytes(QCA_WLAN_VENDOR_ATTR_NDP_PASSPHRASE,
+            (char *)msg->key_info.body.passphrase_info.passphrase,
+            msg->key_info.body.passphrase_info.passphrase_len))
+            goto cleanup;
+    }
+    if (msg->service_name_len) {
+        if (nanCommand->put_bytes(QCA_WLAN_VENDOR_ATTR_NDP_SERVICE_NAME,
+            (char *)msg->service_name, msg->service_name_len))
+            goto cleanup;
     }
     nanCommand->attr_end(nlData);
 
@@ -911,7 +908,7 @@ wifi_error nan_data_request_initiator(transaction_id id,
     }
 cleanup:
     delete nanCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 wifi_error nan_data_indication_response(transaction_id id,
@@ -930,7 +927,7 @@ wifi_error nan_data_indication_response(transaction_id id,
                                     &nanCommand);
     if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Initialization failed", __FUNCTION__);
-        return (wifi_error)ret;
+        return mapErrorKernelToWifiHAL(ret);
     }
 
     if ((msg->cipher_type != NAN_CIPHER_SUITE_SHARED_KEY_NONE) &&
@@ -997,29 +994,28 @@ wifi_error nan_data_indication_response(transaction_id id,
         if (nanCommand->put_u32(QCA_WLAN_VENDOR_ATTR_NDP_CSID,
                 msg->cipher_type))
             goto cleanup;
+    }
+    if ( msg->key_info.key_type == NAN_SECURITY_KEY_INPUT_PMK &&
+         msg->key_info.body.pmk_info.pmk_len == NAN_PMK_INFO_LEN) {
+        if (nanCommand->put_bytes(QCA_WLAN_VENDOR_ATTR_NDP_PMK,
+            (char *)msg->key_info.body.pmk_info.pmk,
+            msg->key_info.body.pmk_info.pmk_len))
+            goto cleanup;
+    } else if (msg->key_info.key_type == NAN_SECURITY_KEY_INPUT_PASSPHRASE &&
+        msg->key_info.body.passphrase_info.passphrase_len >=
+        NAN_SECURITY_MIN_PASSPHRASE_LEN &&
+        msg->key_info.body.passphrase_info.passphrase_len <=
+        NAN_SECURITY_MAX_PASSPHRASE_LEN) {
+        if (nanCommand->put_bytes(QCA_WLAN_VENDOR_ATTR_NDP_PASSPHRASE,
+            (char *)msg->key_info.body.passphrase_info.passphrase,
+            msg->key_info.body.passphrase_info.passphrase_len))
+            goto cleanup;
+    }
 
-        if ( msg->key_info.key_type == NAN_SECURITY_KEY_INPUT_PMK &&
-             msg->key_info.body.pmk_info.pmk_len == NAN_PMK_INFO_LEN) {
-            if (nanCommand->put_bytes(QCA_WLAN_VENDOR_ATTR_NDP_PMK,
-                (char *)msg->key_info.body.pmk_info.pmk,
-                msg->key_info.body.pmk_info.pmk_len))
-                goto cleanup;
-        } else if (msg->key_info.key_type == NAN_SECURITY_KEY_INPUT_PASSPHRASE &&
-            msg->key_info.body.passphrase_info.passphrase_len >=
-            NAN_SECURITY_MIN_PASSPHRASE_LEN &&
-            msg->key_info.body.passphrase_info.passphrase_len <=
-            NAN_SECURITY_MAX_PASSPHRASE_LEN) {
-            if (nanCommand->put_bytes(QCA_WLAN_VENDOR_ATTR_NDP_PASSPHRASE,
-                (char *)msg->key_info.body.passphrase_info.passphrase,
-                msg->key_info.body.passphrase_info.passphrase_len))
-                goto cleanup;
-        }
-
-        if (msg->service_name_len) {
-            if (nanCommand->put_bytes(QCA_WLAN_VENDOR_ATTR_NDP_SERVICE_NAME,
-                (char *)msg->service_name, msg->service_name_len))
-                goto cleanup;
-        }
+    if (msg->service_name_len) {
+        if (nanCommand->put_bytes(QCA_WLAN_VENDOR_ATTR_NDP_SERVICE_NAME,
+            (char *)msg->service_name, msg->service_name_len))
+            goto cleanup;
     }
     nanCommand->attr_end(nlData);
 
@@ -1029,7 +1025,7 @@ wifi_error nan_data_indication_response(transaction_id id,
     }
 cleanup:
     delete nanCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 wifi_error nan_data_end(transaction_id id,
@@ -1048,7 +1044,7 @@ wifi_error nan_data_end(transaction_id id,
                                     &nanCommand);
     if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Initialization failed", __FUNCTION__);
-        return (wifi_error)ret;
+        return mapErrorKernelToWifiHAL(ret);
     }
 
     /* Add the vendor specific attributes for the NL command. */
@@ -1076,7 +1072,7 @@ wifi_error nan_data_end(transaction_id id,
     }
 cleanup:
     delete nanCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 // Implementation related to nan class common functions

@@ -19,21 +19,21 @@ import logging
 
 from vts.runners.host import base_test
 from vts.runners.host import test_runner
-from vts.utils.python.controllers import android_device
 
 
 class SampleQtaguidTest(base_test.BaseTestClass):
     """A sample testcase for the libcutil's qtaguid module."""
 
     def setUpClass(self):
-        self.dut = self.registerController(android_device)[0]
-        self.dut.lib.InitSharedLib(target_type="vndk_libcutils",
-                                   target_basepaths=["/system/lib64"],
-                                   target_version=1.0,
-                                   target_filename="libcutils.so",
-                                   bits=64,
-                                   handler_name="libcutils",
-                                   target_packege="lib.ndk.bionic")
+        self.dut = self.android_devices[0]
+        self.dut.lib.InitSharedLib(
+            target_type="vndk_libcutils",
+            target_basepaths=["/system/lib64"],
+            target_version=1.0,
+            target_filename="libcutils.so",
+            bits=64,
+            handler_name="libcutils",
+            target_packege="lib.ndk.bionic")
 
     def testCall(self):
         """A simple testcase which just calls a function."""

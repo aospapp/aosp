@@ -23,7 +23,7 @@ from autotest_lib.server.cros.dynamic_suite import reporting_utils
 
 
 DEPENDENCY_ARC = 'arc'
-SUITES_NEED_RETRY = set(['bvt-cq', 'bvt-inline', 'arc-bvt-cq'])
+SUITES_NEED_RETRY = set(['bvt-arc', 'bvt-cq', 'bvt-inline'])
 TESTS_NEED_ARC = 'cheets_'
 
 

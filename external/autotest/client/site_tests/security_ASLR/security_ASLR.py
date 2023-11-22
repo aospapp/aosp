@@ -20,10 +20,11 @@ import time
 import pprint
 import re
 
-def _pidof(exe_name):
-    """Returns the PID of the first process with the given name."""
-    return utils.system_output('pidof -s %s' % exe_name,
-                               ignore_status=True).strip()
+def _pidsof(exe_name):
+    """Returns the PIDs of processes with the given name as a list."""
+    output = utils.system_output('pidof %s' % exe_name,
+                                 ignore_status=True).strip()
+    return [int(pid) for pid in output.split()]
 
 
 class Process(object):
@@ -58,17 +59,31 @@ class Process(object):
         retries = 0
         ps_results = ""
         while retries < self._START_TIMEOUT:
-            ppid = _pidof(self._parent)
-            if ppid != "":
-                get_pid_command = ('ps -C %s -o pid,ppid | grep " %s$"'
-                    ' | awk \'{print $1}\'') % (self._name, ppid)
+            # Find all PIDs matching the expected parent name, then find all
+            # PIDs that have the expected process name and any of the parent
+            # PIDs. Only succeed when there is exactly one PID/PPID pairing.
+            # This is needed to handle cases where multiple processes share the
+            # expected parent name. See crbug.com/741110 for background.
+            ppids = _pidsof(self._parent)
+            if len(ppids) > 0:
+                ppid_match = ' '.join('-e " %d$"' % ppid for ppid in ppids)
+                get_pid_command = ('ps -C %s -o pid,ppid | grep %s'
+                    ' | awk \'{print $1}\'') % (self._name, ppid_match)
                 ps_results = utils.system_output(get_pid_command).strip()
+                pids = ps_results.split()
+                if len(pids) == 1:
+                    return pids[0]
+                elif len(pids) > 1:
+                    # More than one candidate process found - rather than pick
+                    # one arbitrarily, continue to wait. This is not expected -
+                    # but continuing to wait will avoid weird failures if some
+                    # time in the future there are multiple non-transient
+                    # parent/child processes with the same names.
+                    logging.debug("Found multiple processes for '%s'",
+                                  self._name)
 
-            if ps_results != "":
-                return ps_results
-
-            # The process could not be found. We then sleep, hoping the
-            # process is just slow to initially start.
+            # The process, or its parent, could not be found. We then sleep,
+            # hoping the process is just slow to initially start.
             time.sleep(self._START_POLL_INTERVAL_SECONDS)
             retries += 1
 

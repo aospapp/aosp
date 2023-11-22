@@ -29,12 +29,15 @@ EXTRA_DIST = \
 	name_service_door.stdout.exp name_service_door.vgtest \
 	pkcs11.stderr.exp-illumos pkcs11.stderr.exp-solaris pkcs11.stdout.exp pkcs11.vgtest \
 	scalar.stderr.exp scalar.stdout.exp scalar.vgtest \
+	scalar_auditon_stat.stderr.exp scalar_auditon_stat.stdout.exp scalar_auditon_stat.vgtest \
 	scalar_frealpathat.stderr.exp scalar_frealpathat.stdout.exp scalar_frealpathat.vgtest \
+	scalar_getrandom.stderr.exp scalar_getrandom.stdout.exp scalar_getrandom.vgtest \
 	scalar_ioctl.stderr.exp scalar_ioctl.stdout.exp scalar_ioctl.vgtest \
 	scalar_lwp_kill.stderr.exp scalar_lwp_kill.stdout.exp scalar_lwp_kill.vgtest \
 	scalar_lwp_name.stderr.exp scalar_lwp_name.stdout.exp scalar_lwp_name.vgtest \
 	scalar_lwp_sigqueue.stderr.exp scalar_lwp_sigqueue.stdout.exp scalar_lwp_sigqueue.vgtest \
 	scalar_lwp_sigqueue_pid.stderr.exp scalar_lwp_sigqueue_pid.vgtest \
+	scalar_modctl_modnvl.stderr.exp scalar_modctl_modnvl.stdout.exp scalar_modctl_modnvl.vgtest \
 	scalar_obsolete.stderr.exp scalar_obsolete.stdout.exp scalar_obsolete.vgtest \
 	scalar_shm_new.stderr.exp scalar_shm_new.stdout.exp scalar_shm_new.vgtest \
 	scalar_spawn.stderr.exp scalar_spawn.stdout.exp scalar_spawn.vgtest \
@@ -94,12 +97,24 @@ if SOLARIS_OLD_SYSCALLS
 check_PROGRAMS += scalar_obsolete
 endif
 
+if SOLARIS_AUDITON_STAT
+check_PROGRAMS += scalar_auditon_stat
+endif
+
 if SOLARIS_FREALPATHAT_SYSCALL
 check_PROGRAMS += scalar_frealpathat
 endif
 
+if SOLARIS_GETRANDOM_SYSCALL
+check_PROGRAMS += scalar_getrandom
+endif
+
 if SOLARIS_LWP_NAME_SYSCALL
 check_PROGRAMS += scalar_lwp_name
+endif
+
+if SOLARIS_MODCTL_MODNVL
+check_PROGRAMS += scalar_modctl_modnvl
 endif
 
 if SOLARIS_LWP_SIGQUEUE_SYSCALL
@@ -141,7 +156,7 @@ if SOLARIS_UUIDSYS_SYSCALL
 check_PROGRAMS += scalar_uuidsys
 endif
 
-if SOLARIS_ZONE_DEFUNCT 
+if SOLARIS_ZONE_DEFUNCT
 check_PROGRAMS += scalar_zone_defunct
 endif
 
@@ -159,7 +174,7 @@ inlinfo_DEPENDENCIES = inlinfo_nested.so
 inlinfo_LDFLAGS = -Wl,-rpath,$(top_builddir)/memcheck/tests/solaris
 inlinfo_LDADD = inlinfo_nested.so
 inlinfo_nested_so_SOURCES = inlinfo_nested.c
-inlinfo_nested_so_CFLAGS = $(AM_CFLAGS) -fPIC
+inlinfo_nested_so_CFLAGS = $(AM_CFLAGS) -fPIC @FLAG_W_NO_UNINITIALIZED@
 inlinfo_nested_so_LDFLAGS = -Wl,-rpath,$(top_builddir)/memcheck/tests/solaris -shared -fPIC
 
 mmapobj_bssonly_SOURCES = mmapobj_bssonly.c

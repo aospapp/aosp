@@ -470,4 +470,29 @@ public class PackageManagerTest extends AndroidTestCase {
         assertNotNull("Signatures should have been collected when GET_SIGNATURES flag specified",
                 pkgInfo.signatures);
     }
+
+    public void testGetNamesForUids_null() throws Exception {
+        assertNull(mPackageManager.getNamesForUids(null));
+    }
+
+    public void testGetNamesForUids_empty() throws Exception {
+        assertNull(mPackageManager.getNamesForUids(new int[0]));
+    }
+
+    public void testGetNamesForUids_valid() throws Exception {
+        final int shimId =
+                mPackageManager.getApplicationInfo("com.android.cts.ctsshim", 0 /*flags*/).uid;
+        final int[] uids = new int[] {
+                1000,
+                Integer.MAX_VALUE,
+                shimId,
+        };
+        final String[] result;
+        result = mPackageManager.getNamesForUids(uids);
+        assertNotNull(result);
+        assertEquals(3, result.length);
+        assertEquals("shared:android.uid.system", result[0]);
+        assertEquals(null, result[1]);
+        assertEquals("com.android.cts.ctsshim", result[2]);
+    }
 }

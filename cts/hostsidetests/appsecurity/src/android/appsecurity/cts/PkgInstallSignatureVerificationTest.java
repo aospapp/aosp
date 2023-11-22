@@ -21,6 +21,7 @@ import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IBuildReceiver;
 
+import android.platform.test.annotations.SecurityTest;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -479,6 +480,23 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
         assertInstallFailsWithError("empty-unsigned.apk", "Unknown failure");
         assertInstallFailsWithError("v1-only-empty.apk", "Unknown failure");
         assertInstallFailsWithError("v2-only-empty.apk", "Unknown failure");
+    }
+
+    @SecurityTest
+    public void testInstallApkWhichDoesNotStartWithZipLocalFileHeaderMagic() throws Exception {
+        // The APKs below are competely fine except they don't start with ZIP Local File Header
+        // magic. Thus, these APKs will install just fine unless Package Manager requires that APKs
+        // start with ZIP Local File Header magic.
+        String error = "Unknown failure";
+
+        // Obtained by modifying apksigner to output four unused 0x00 bytes at the start of the APK
+        assertInstallFailsWithError("v1-only-starts-with-00000000-magic.apk", error);
+        assertInstallFailsWithError("v2-only-starts-with-00000000-magic.apk", error);
+
+        // Obtained by modifying apksigner to output 8 unused bytes (DEX magic and version) at the
+        // start of the APK
+        assertInstallFailsWithError("v1-only-starts-with-dex-magic.apk", error);
+        assertInstallFailsWithError("v2-only-starts-with-dex-magic.apk", error);
     }
 
     private void assertInstallSucceeds(String apkFilenameInResources) throws Exception {

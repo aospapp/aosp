@@ -101,6 +101,7 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
     private DialogTestListItem mConfirmWorkCredentials;
     private DialogTestListItem mParentProfilePassword;
     private TestListItem mVpnTest;
+    private TestListItem mAlwaysOnVpnSettingsTest;
     private TestListItem mRecentsTest;
     private TestListItem mDisallowAppsControlTest;
     private TestListItem mOrganizationInfoTest;
@@ -219,12 +220,27 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
          * To keep the image in this test up to date, use the instructions in
          * {@link ByodIconSamplerActivity}.
          */
-        mWorkAppVisibleTest = new DialogTestListItemWithIcon(this,
-                R.string.provisioning_byod_workapps_visible,
-                "BYOD_WorkAppVisibleTest",
-                R.string.provisioning_byod_workapps_visible_instruction,
-                new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME),
-                R.drawable.badged_icon);
+
+        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
+            mWorkAppVisibleTest = new DialogTestListItemWithIcon(this,
+                    R.string.provisioning_byod_workapps_visible,
+                    "BYOD_WorkAppVisibleTest",
+                    R.string.provisioning_byod_workapps_visible_instruction,
+                    new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME),
+                    R.drawable.badged_icon);
+
+            mConfirmWorkCredentials = new DialogTestListItem(this,
+                    R.string.provisioning_byod_confirm_work_credentials,
+                    "BYOD_ConfirmWorkCredentials",
+                    R.string.provisioning_byod_confirm_work_credentials_description,
+                    new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME));
+
+            mWiFiDataUsageSettingsVisibleTest = new DialogTestListItem(this,
+                    R.string.provisioning_byod_wifi_data_usage_settings,
+                    "BYOD_WiFiDataUsageSettingsVisibleTest",
+                    R.string.provisioning_byod_wifi_data_usage_settings_instruction,
+                    new Intent(Settings.ACTION_SETTINGS));
+        }
 
         mWorkNotificationBadgedTest = new DialogTestListItemWithIcon(this,
                 R.string.provisioning_byod_work_notification,
@@ -294,12 +310,6 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
                 R.string.provisioning_byod_location_settings_instruction,
                 new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
 
-        mWiFiDataUsageSettingsVisibleTest = new DialogTestListItem(this,
-                R.string.provisioning_byod_wifi_data_usage_settings,
-                "BYOD_WiFiDataUsageSettingsVisibleTest",
-                R.string.provisioning_byod_wifi_data_usage_settings_instruction,
-                new Intent(Settings.ACTION_SETTINGS));
-
         mCellularDataUsageSettingsVisibleTest = new DialogTestListItem(this,
                 R.string.provisioning_byod_cellular_data_usage_settings,
                 "BYOD_CellularDataUsageSettingsVisibleTest",
@@ -353,6 +363,12 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
                 new Intent(VpnTestActivity.ACTION_VPN),
                 null);
 
+        mAlwaysOnVpnSettingsTest = TestListItem.newTest(this,
+                R.string.provisioning_byod_always_on_vpn,
+                AlwaysOnVpnSettingsTestActivity.class.getName(),
+                new Intent(AlwaysOnVpnSettingsTestActivity.ACTION_ALWAYS_ON_VPN_SETTINGS_TEST),
+                null);
+
         mDisallowAppsControlTest = TestListItem.newTest(this,
                 R.string.provisioning_byod_disallow_apps_control,
                 DisallowAppsControlActivity.class.getName(),
@@ -386,12 +402,6 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
                 "BYOD_SelectWorkChallenge",
                 R.string.provisioning_byod_select_work_challenge_description,
                 new Intent(ByodHelperActivity.ACTION_TEST_SELECT_WORK_CHALLENGE));
-
-        mConfirmWorkCredentials = new DialogTestListItem(this,
-                R.string.provisioning_byod_confirm_work_credentials,
-                "BYOD_ConfirmWorkCredentials",
-                R.string.provisioning_byod_confirm_work_credentials_description,
-                new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME));
 
         mRecentsTest = TestListItem.newTest(this,
                 R.string.provisioning_byod_recents,
@@ -427,7 +437,10 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
         adapter.add(mDiskEncryptionTest);
 
         // Badge related tests
-        adapter.add(mWorkAppVisibleTest);
+        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
+            adapter.add(mWorkAppVisibleTest);
+        }
+
         adapter.add(mWorkNotificationBadgedTest);
         adapter.add(mWorkStatusBarIconTest);
         adapter.add(mWorkStatusBarToastTest);
@@ -452,16 +465,21 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
         adapter.add(mKeyguardDisabledFeaturesTest);
         adapter.add(mAuthenticationBoundKeyTest);
         adapter.add(mVpnTest);
+        adapter.add(mAlwaysOnVpnSettingsTest);
         adapter.add(mTurnOffWorkFeaturesTest);
         adapter.add(mSelectWorkChallenge);
-        adapter.add(mConfirmWorkCredentials);
+        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
+            adapter.add(mConfirmWorkCredentials);
+        }
         adapter.add(mRecentsTest);
         adapter.add(mOrganizationInfoTest);
         adapter.add(mParentProfilePassword);
         adapter.add(mPolicyTransparencyTest);
 
-        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_WIFI)) {
-            adapter.add(mWiFiDataUsageSettingsVisibleTest);
+        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
+            if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_WIFI)) {
+                adapter.add(mWiFiDataUsageSettingsVisibleTest);
+            }
         }
 
         mCm = (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);

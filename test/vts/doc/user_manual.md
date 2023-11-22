@@ -8,7 +8,16 @@ The following instructions assume Linux environment.
 
 ### 1.1. Host setup
 
+Please follow:
+
 * [Setup Manual](setup/index.md)
+
+(Optional)
+During VTS test runs, required Python packages are downloaded from the [Python Package Index](https://pypi.python.org/simple/). There is an option to instead install these packages from a local directory during test runtime by predownloading the packages. First run the lunch command, then set an environment variable VTS_PYPI_PATH as a new local directory to host the Python packages. Then run the download-pypi-packages.sh script:
+
+* `$ cd ${branch}`
+
+* `$ . test/vts/script/download-pypi-packages.sh`
 
 ### 1.2. Checkout master git repository
 

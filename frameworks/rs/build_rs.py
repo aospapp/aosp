@@ -71,7 +71,6 @@ def build(out_dir):
 
 def build_product(out_dir, product):
     env = dict(ORIG_ENV)
-    env['ANDROID_USE_BUILDCACHE'] = 'false'
     env['FORCE_BUILD_LLVM_COMPONENTS'] = 'true'
     env['FORCE_BUILD_RS_COMPAT'] = 'true'
     env['OUT_DIR'] = out_dir
@@ -232,9 +231,9 @@ def install_built_device_files(build_dir, install_dir, host):
     }
 
     shared_libs = {
-        'libRSSupport.so',
-        'libRSSupportIO.so',
-        'libblasV8.so',
+        'libRSSupport',
+        'libRSSupportIO',
+        'libblasV8',
     }
 
     for product, arch in product_to_arch.items():
@@ -252,15 +251,16 @@ def install_built_device_files(build_dir, install_dir, host):
         # Copy static libs and share libs.
         product_dir = os.path.join(build_dir, 'target/product', product)
         static_lib_dir = os.path.join(product_dir, 'obj/STATIC_LIBRARIES')
-        shared_lib_dir = os.path.join(product_dir, 'obj/lib')
+        shared_lib_dir = os.path.join(product_dir, 'obj/SHARED_LIBRARIES')
         for static_lib in static_libs:
             built_lib = os.path.join(
                 static_lib_dir, static_lib + '_intermediates/' + static_lib + '.a')
             lib_name = static_lib + '.a'
             install_file(built_lib, os.path.join(lib_dir, lib_name))
         for shared_lib in shared_libs:
-            built_lib = os.path.join(shared_lib_dir, shared_lib)
-            lib_name = shared_lib
+            built_lib = os.path.join(
+                shared_lib_dir, shared_lib + '_intermediates/' + shared_lib + '.so')
+            lib_name = shared_lib + '.so'
             install_file(built_lib, os.path.join(lib_dir, lib_name))
 
     # Copy renderscript-v8.jar.

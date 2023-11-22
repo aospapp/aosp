@@ -43,7 +43,9 @@ class RsaKeymaster1WrappedOperation {
 
     keymaster_error_t GetError(EVP_PKEY* rsa_key);
 
-  protected:
+    keymaster_operation_handle_t GetOperationHandle() const { return operation_handle_; }
+
+  private:
     keymaster_purpose_t purpose_;
     keymaster_operation_handle_t operation_handle_;
     const Keymaster1Engine* engine_;
@@ -88,6 +90,12 @@ template <typename BaseOperation> class RsaKeymaster1Operation : public BaseOper
         if (error != KM_ERROR_OK)
             return error;
         return super::Abort();
+    }
+
+    keymaster_error_t CreateOperationHandle(const KeymasterContext& /* context */,
+                                            keymaster_operation_handle_t* op_handle) override {
+        *op_handle = wrapped_operation_.GetOperationHandle();
+        return KM_ERROR_OK;
     }
 
   private:

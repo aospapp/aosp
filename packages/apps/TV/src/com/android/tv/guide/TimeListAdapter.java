@@ -16,6 +16,7 @@
 
 package com.android.tv.guide;
 
+import android.content.Context;
 import android.content.res.Resources;
 import android.support.v7.widget.RecyclerView;
 import android.text.format.DateFormat;
@@ -25,26 +26,40 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import com.android.tv.R;
+import com.android.tv.util.Utils;
 
 import java.util.Date;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 /**
  * Adapts the time range from {@link ProgramManager} to the timeline header row of the program
  * guide table.
  */
-public class TimeListAdapter extends RecyclerView.Adapter<TimeListAdapter.TimeViewHolder> {
+class TimeListAdapter extends RecyclerView.Adapter<TimeListAdapter.TimeViewHolder> {
     private static final long TIME_UNIT_MS = TimeUnit.MINUTES.toMillis(30);
+
+    // Ex. 3:00 AM
+    private static final String TIME_PATTERN_SAME_DAY = "h:mm a";
+    // Ex. Oct 21, 3:00 AM
+    private static final String TIME_PATTERN_DIFFERENT_DAY = "MMM d, h:mm a";
+
     private static int sRowHeaderOverlapping;
 
     // Nearest half hour at or before the start time.
     private long mStartUtcMs;
+    private final String mTimePatternSameDay;
+    private final String mTimePatternDifferentDay;
 
-    public TimeListAdapter(Resources res) {
+    TimeListAdapter(Resources res) {
         if (sRowHeaderOverlapping == 0) {
             sRowHeaderOverlapping = Math.abs(res.getDimensionPixelOffset(
                     R.dimen.program_guide_table_header_row_overlap));
         }
+        Locale locale = res.getConfiguration().locale;
+        mTimePatternSameDay = DateFormat.getBestDateTimePattern(locale, TIME_PATTERN_SAME_DAY);
+        mTimePatternDifferentDay =
+                DateFormat.getBestDateTimePattern(locale, TIME_PATTERN_DIFFERENT_DAY);
     }
 
     public void update(long startTimeMs) {
@@ -68,10 +83,14 @@ public class TimeListAdapter extends RecyclerView.Adapter<TimeListAdapter.TimeVi
         long endTime = startTime + TIME_UNIT_MS;
 
         View itemView = holder.itemView;
-
-        TextView textView = (TextView) itemView.findViewById(R.id.time);
-        String time = DateFormat.getTimeFormat(itemView.getContext()).format(new Date(startTime));
-        textView.setText(time);
+        Date timeDate = new Date(startTime);
+        String timeString;
+        if (Utils.isInGivenDay(System.currentTimeMillis(), startTime)) {
+            timeString = DateFormat.format(mTimePatternSameDay, timeDate).toString();
+        } else {
+            timeString = DateFormat.format(mTimePatternDifferentDay, timeDate).toString();
+        }
+        ((TextView) itemView.findViewById(R.id.time)).setText(timeString);
 
         RecyclerView.LayoutParams lp = (RecyclerView.LayoutParams) itemView.getLayoutParams();
         lp.width = GuideUtils.convertMillisToPixel(startTime, endTime);
@@ -90,8 +109,8 @@ public class TimeListAdapter extends RecyclerView.Adapter<TimeListAdapter.TimeVi
         return new TimeViewHolder(itemView);
     }
 
-    public static class TimeViewHolder extends RecyclerView.ViewHolder {
-        public TimeViewHolder(View itemView) {
+    static class TimeViewHolder extends RecyclerView.ViewHolder {
+        TimeViewHolder(View itemView) {
             super(itemView);
         }
     }

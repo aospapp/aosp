@@ -1177,9 +1177,6 @@ public final class Normalizer implements Cloneable {
      *
      *
      * @return &lt;0 or 0 or &gt;0 as usual for string comparisons
-     *
-     * @see #normalize
-     * @see #FCD
      */
     public static int compare(char[] s1, int s1Start, int s1Limit,
                               char[] s2, int s2Start, int s2Limit,
@@ -1237,9 +1234,6 @@ public final class Normalizer implements Cloneable {
      *     If set, then the following case folding options are used.
      *
      * @return &lt;0 or 0 or &gt;0 as usual for string comparisons
-     *
-     * @see #normalize
-     * @see #FCD
      */
     public static int compare(String s1, String s2, int options) {
         return internalCompare(s1, s2, options);
@@ -1273,9 +1267,6 @@ public final class Normalizer implements Cloneable {
      *     If set, then the following case folding options are used.
      *
      * @return &lt;0 or 0 or &gt;0 as usual for string comparisons
-     *
-     * @see #normalize
-     * @see #FCD
      */
     public static int compare(char[] s1, char[] s2, int options) {
         return internalCompare(CharBuffer.wrap(s1), CharBuffer.wrap(s2), options);

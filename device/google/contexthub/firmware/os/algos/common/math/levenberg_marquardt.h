@@ -47,7 +47,7 @@ typedef void (*ResidualAndJacobianFunction)(const float *state,
 
 
 #define MAX_LM_STATE_DIMENSION (10)
-#define MAX_LM_MEAS_DIMENSION (20)
+#define MAX_LM_MEAS_DIMENSION (50)
 
 // Structure containing fixed parameters for a single LM solve.
 struct LmParams {

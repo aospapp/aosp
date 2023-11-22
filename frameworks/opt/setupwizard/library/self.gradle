@@ -1,8 +1,10 @@
 /**
  * This self.gradle build file is only run when built in ub-setupwizard-* branches.
  */
-apply plugin: 'dist'
 apply from: 'standalone-rules.gradle'
+apply from: '../tools/gradle/dist-library-instrumentation-tests.gradle'
+apply from: '../tools/gradle/dist-unit-tests.gradle'
+
 // Add targets for tests
 android.sourceSets {
     androidTest {
@@ -25,8 +27,11 @@ android.sourceSets {
     }
 
     androidTestGingerbreadCompat {
-        java.srcDirs = ['full-support/test/instrumentation/src', 'eclair-mr1/test/instrumentation/src']
-        res.srcDirs = ['full-support/test/instrumentation/res']
+        java.srcDirs = [
+            'gingerbread/test/instrumentation/src',
+            'recyclerview/test/instrumentation/src'
+        ]
+        res.srcDirs = ['recyclerview/test/instrumentation/res']
     }
 
     test {
@@ -43,7 +48,7 @@ android.sourceSets {
     }
 
     testGingerbreadCompat {
-        java.srcDirs = ['eclair-mr1/test/robotest/src', 'full-support/test/robotest/src']
+        java.srcDirs = ['gingerbread/test/robotest/src', 'recyclerview/test/robotest/src']
     }
 }
 android.defaultConfig.testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
@@ -59,12 +64,14 @@ android.lintOptions {
 android.libraryVariants.all { variant ->
     variant.assemble.dependsOn(tasks.findByName('lint'))
 }
-// Output all test APKs to the distribution folder
-def distTask = tasks.findByName('dist')
-if (distTask) {
-    android.testVariants.all { variant ->
-        // Make the dist task depend on the test variant, so the test APK will be built
-        distTask.dependsOn variant.assemble
-        // TODO: remap the different test variants to different file names
-    }
+
+// For compatibility with existing continuous test configurations, copy the file to
+// setup-wizard-libTest.apk
+// TODO: Remove this once continuous test configurations are updated to handle the new file name
+task createLegacyTestApk(type: Copy) {
+    from "${project.ext.distDir}/setup-wizard-lib-gingerbreadCompat-debug-androidTest.apk"
+    into "${project.ext.distDir}"
+    rename ('setup-wizard-lib-gingerbreadCompat-debug-androidTest.apk', 'setup-wizard-libTest.apk')
 }
+
+tasks.dist.finalizedBy createLegacyTestApk

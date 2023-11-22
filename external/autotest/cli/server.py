@@ -139,6 +139,10 @@ class server_list(action_common.atest_list, server):
                                help='Format output as JSON.',
                                action='store_true',
                                default=False)
+        self.parser.add_option('-N', '--hostnames-only',
+                               help='Only return hostnames.',
+                               action='store_true',
+                               default=False)
 
 
     def parse(self):
@@ -149,9 +153,9 @@ class server_list(action_common.atest_list, server):
         self.table = options.table
         self.status = options.status
         self.summary = options.summary
-        if self.table and self.summary:
-            self.invalid_syntax('Option --table and --summary cannot be both '
-                                'specified.')
+        self.namesonly = options.hostnames_only
+        if sum([self.table, self.summary, self.json, self.namesonly]) > 1:
+            self.invalid_syntax('May only specify up to 1 output-format flag.')
         return (options, leftover)
 
 
@@ -183,6 +187,8 @@ class server_list(action_common.atest_list, server):
                 formatter = server_manager_utils.format_servers_table
             elif self.summary:
                 formatter = server_manager_utils.format_servers_summary
+            elif self.namesonly:
+                formatter = server_manager_utils.format_servers_nameonly
             else:
                 formatter = server_manager_utils.format_servers
             print formatter(results)

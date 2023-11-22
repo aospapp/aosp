@@ -46,7 +46,8 @@ install_list = [
     InstallEntry('sdk_arm64-sdk', 'simpleperf_host32', 'linux/x86/simpleperf', True),
     InstallEntry('sdk_mac', 'simpleperf_host', 'darwin/x86_64/simpleperf'),
     InstallEntry('sdk_mac', 'simpleperf_host32', 'darwin/x86/simpleperf'),
-    InstallEntry('sdk', 'simpleperf.exe', 'windows/x86_64/simpleperf.exe', True),
+    # simpleperf.exe on x86_64 windows doesn't work, use simpleperf32.exe instead.
+    InstallEntry('sdk', 'simpleperf32.exe', 'windows/x86_64/simpleperf.exe', True),
     InstallEntry('sdk', 'simpleperf32.exe', 'windows/x86/simpleperf.exe', True),
 
     # libsimpleperf_report.so on host
@@ -56,6 +57,12 @@ install_list = [
     InstallEntry('sdk_mac', 'libsimpleperf_report32.so', 'darwin/x86/libsimpleperf_report.dylib'),
     InstallEntry('sdk', 'libsimpleperf_report.dll', 'windows/x86_64/libsimpleperf_report.dll', True),
     InstallEntry('sdk', 'libsimpleperf_report32.dll', 'windows/x86/libsimpleperf_report.dll', True),
+
+    # libwinpthread-1.dll on windows host
+    InstallEntry('local:../../../../prebuilts/gcc/linux-x86/host/x86_64-w64-mingw32-4.8/x86_64-w64-mingw32/bin/libwinpthread-1.dll',
+                 'libwinpthread-1.dll', 'windows/x86_64/libwinpthread-1.dll', False),
+    InstallEntry('local:../../../../prebuilts/gcc/linux-x86/host/x86_64-w64-mingw32-4.8/x86_64-w64-mingw32/lib32/libwinpthread-1.dll',
+                 'libwinpthread-1_32.dll', 'windows/x86/libwinpthread-1.dll', False),
 ]
 
 
@@ -71,13 +78,16 @@ def check_call(cmd):
     subprocess.check_call(cmd)
 
 
-def fetch_artifact(branch, build, target, pattern):
+def fetch_artifact(branch, build, target, name):
     """Fetches and artifact from the build server."""
+    if target.startswith('local:'):
+        shutil.copyfile(target[6:], name)
+        return
     logger().info('Fetching %s from %s %s (artifacts matching %s)', build,
-                  target, branch, pattern)
+                  target, branch, name)
     fetch_artifact_path = '/google/data/ro/projects/android/fetch_artifact'
     cmd = [fetch_artifact_path, '--branch', branch, '--target', target,
-           '--bid', build, pattern]
+           '--bid', build, name]
     check_call(cmd)
 
 

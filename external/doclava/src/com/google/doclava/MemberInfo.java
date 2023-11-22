@@ -39,6 +39,7 @@ public abstract class MemberInfo extends DocInfo implements Comparable, Scoped {
     mKind = kind;
     mAnnotations = annotations;
     mShowAnnotations = AnnotationInstanceInfo.getShowAnnotationsIntersection(annotations);
+    mHideAnnotations = AnnotationInstanceInfo.getHideAnnotationsIntersection(annotations);
   }
 
   public abstract boolean isExecutable();
@@ -48,15 +49,7 @@ public abstract class MemberInfo extends DocInfo implements Comparable, Scoped {
     if (mShowAnnotations.size() > 0) {
       return false;
     }
-    return super.isHidden();
-  }
-
-  @Override
-  public boolean isRemoved() {
-    if (mShowAnnotations.size() > 0) {
-      return false;
-    }
-    return super.isRemoved();
+    return super.isHidden() || mHideAnnotations.size() > 0;
   }
 
   @Override
@@ -177,6 +170,10 @@ public abstract class MemberInfo extends DocInfo implements Comparable, Scoped {
     return mShowAnnotations;
   }
 
+  public ArrayList<AnnotationInstanceInfo> hideAnnotations() {
+    return mHideAnnotations;
+  }
+
   ClassInfo mContainingClass;
   ClassInfo mRealContainingClass;
   String mName;
@@ -191,5 +188,6 @@ public abstract class MemberInfo extends DocInfo implements Comparable, Scoped {
   String mKind;
   private ArrayList<AnnotationInstanceInfo> mAnnotations;
   private ArrayList<AnnotationInstanceInfo> mShowAnnotations;
+  private ArrayList<AnnotationInstanceInfo> mHideAnnotations;
 
 }

@@ -6,35 +6,32 @@
 
 #include "fio.h"
 
-int log_valist(const char *str, va_list args)
+size_t log_info_buf(const char *buf, size_t len)
+{
+	if (is_backend) {
+		size_t ret = fio_server_text_output(FIO_LOG_INFO, buf, len);
+		if (ret != -1)
+			return ret;
+	}
+
+	if (log_syslog) {
+		syslog(LOG_INFO, "%s", buf);
+		return len;
+	} else
+		return fwrite(buf, len, 1, f_out);
+}
+
+size_t log_valist(const char *str, va_list args)
 {
 	char buffer[1024];
 	size_t len;
 
 	len = vsnprintf(buffer, sizeof(buffer), str, args);
-	len = min(len, sizeof(buffer) - 1);
 
-	if (is_backend)
-		len = fio_server_text_output(FIO_LOG_INFO, buffer, len);
-	if (log_syslog)
-		syslog(LOG_INFO, "%s", buffer);
-	else
-		len = fwrite(buffer, len, 1, f_out);
-
-	return len;
+	return log_info_buf(buffer, min(len, sizeof(buffer) - 1));
 }
 
-int log_local_buf(const char *buf, size_t len)
-{
-	if (log_syslog)
-		syslog(LOG_INFO, "%s", buf);
-	else
-		len = fwrite(buf, len, 1, f_out);
-
-	return len;
-}
-
-int log_info(const char *format, ...)
+size_t log_info(const char *format, ...)
 {
 	char buffer[1024];
 	va_list args;
@@ -43,15 +40,21 @@ int log_info(const char *format, ...)
 	va_start(args, format);
 	len = vsnprintf(buffer, sizeof(buffer), format, args);
 	va_end(args);
-	len = min(len, sizeof(buffer) - 1);
 
-	if (is_backend)
-		return fio_server_text_output(FIO_LOG_INFO, buffer, len);
-	else if (log_syslog) {
-		syslog(LOG_INFO, "%s", buffer);
-		return len;
-	} else
-		return fwrite(buffer, len, 1, f_out);
+	return log_info_buf(buffer, min(len, sizeof(buffer) - 1));
+}
+
+size_t __log_buf(struct buf_output *buf, const char *format, ...)
+{
+	char buffer[1024];
+	va_list args;
+	size_t len;
+
+	va_start(args, format);
+	len = vsnprintf(buffer, sizeof(buffer), format, args);
+	va_end(args);
+
+	return buf_output_add(buf, buffer, min(len, sizeof(buffer) - 1));
 }
 
 int log_info_flush(void)
@@ -62,7 +65,7 @@ int log_info_flush(void)
 	return fflush(f_out);
 }
 
-int log_err(const char *format, ...)
+size_t log_err(const char *format, ...)
 {
 	char buffer[1024];
 	va_list args;
@@ -73,9 +76,13 @@ int log_err(const char *format, ...)
 	va_end(args);
 	len = min(len, sizeof(buffer) - 1);
 
-	if (is_backend)
-		return fio_server_text_output(FIO_LOG_ERR, buffer, len);
-	else if (log_syslog) {
+	if (is_backend) {
+		size_t ret = fio_server_text_output(FIO_LOG_ERR, buffer, len);
+		if (ret != -1)
+			return ret;
+	}
+
+	if (log_syslog) {
 		syslog(LOG_INFO, "%s", buffer);
 		return len;
 	} else {

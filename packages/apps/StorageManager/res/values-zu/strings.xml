@@ -55,9 +55,12 @@
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"Vula"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"Izithombe namavidiyo okwenziwe isipele"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"Ithola izinto…"</string>
+    <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"Bonisa zonke izinto"</string>
+    <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"Fihla izinto zakamuva"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="386144597646356521">"<xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> izosuswa kusukela kudivayisi yakho"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"Isitoreji sakho manje siphethwe umphathi wesitoreji"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"Ayikho into ongayisusa"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"Buyekeza izinto zakamuva"</string>
     <string name="empty_state_summary" msgid="8439893007424243790">"Awekho amafayela amadala ongawasusa. Ukuze wenze isikhala, susa izithombe, amavidiyo nezinhlelo zokusebenza zakamuva."</string>
+    <string name="app_requesting_space" msgid="857425181289960167">"I-<xliff:g id="APP">%1$s</xliff:g> idinga okungu-<xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> kwesikhala"</string>
 </resources>

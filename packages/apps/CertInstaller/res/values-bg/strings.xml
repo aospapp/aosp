@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="9095072584761066851">"Инсталираща програма за сертификати"</string>
+    <string name="app_name" msgid="9095072584761066851">"Инсталиране на сертификати"</string>
     <string name="pick_file_title" msgid="4481949485108233297">"Избор на сертификат"</string>
     <string name="pkcs12_password_dialog_title" msgid="5997624645207427161">"Извличане на сертификата"</string>
     <string name="extracting_pkcs12" msgid="1881267738821799771">"Извличат се..."</string>

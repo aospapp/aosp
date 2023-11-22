@@ -20,6 +20,7 @@ import os.path
 import sys
 import re
 import fileinput
+import pprint
 
 AR = 'ar'
 CC = 'gcc'
@@ -84,9 +85,22 @@ class MakeParser(object):
         args, unparsed = self.ar_parser.parse_known_args(line.split()[1:])
 
         sources = self.GetRelativePathForExtensions(unparsed, ['o'])
-        target = self.GetRelativePath(args.c.replace('"', ""))
+
+        # Support 'ar' command line with or without hyphens (-)
+        #  e.g.:
+        #    1. ar rcs libfoo.a foo1.o foo2.o
+        #    2. ar -rc "libfoo.a" foo1.o foo2.o; ranlib "libfoo.a"
+        target = None
+        if not args.c and not args.r:
+            for path in unparsed:
+                if path.endswith('.a'):
+                    target = self.GetRelativePath(path)
+                    break
+        else:
+            target = self.GetRelativePath(args.c.replace('"', ""))
 
         assert len(sources) > 0
+        assert target != None
 
         self.result.append("ar['%s'] = %s" % (target, sources))
 
@@ -168,3 +182,26 @@ class MakeParser(object):
                     self.ParseCc(line)
 
         return self.result
+
+def main():
+    arg_parser = argparse.ArgumentParser(
+        description='Parse the LTP make --dry-run output into a list')
+    arg_parser.add_argument(
+        '--ltp-root',
+        dest='ltp_root',
+        required=True,
+        help='LTP Root dir')
+    arg_parser.add_argument(
+        '--dry-run-file',
+        dest='input_path',
+        required=True,
+        help='Path to LTP make --dry-run output file')
+    args = arg_parser.parse_args()
+
+    make_parser = MakeParser(args.ltp_root)
+    result = make_parser.ParseFile(args.input_path)
+
+    print pprint.pprint(result)
+
+if __name__ == '__main__':
+    main()

@@ -17,11 +17,18 @@
 #include "chre_api/chre/wwan.h"
 
 #include "chre/core/event_loop_manager.h"
+#include "chre/util/macros.h"
 
 using chre::EventLoopManager;
 using chre::EventLoopManagerSingleton;
 
-uint32_t chreWwanGetCapabilities() {
+DLL_EXPORT uint32_t chreWwanGetCapabilities() {
   return chre::EventLoopManagerSingleton::get()->getWwanRequestManager()
       .getCapabilities();
+}
+
+DLL_EXPORT bool chreWwanGetCellInfoAsync(const void *cookie) {
+  chre::Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
+  return chre::EventLoopManagerSingleton::get()->getWwanRequestManager()
+      .requestCellInfo(nanoapp, cookie);
 }

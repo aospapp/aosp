@@ -34,12 +34,21 @@ public class PermissionsHostTest extends DeviceTestCase implements IAbiReceiver,
 
     private static final String APK_22 = "CtsUsePermissionApp22.apk";
     private static final String APK_23 = "CtsUsePermissionApp23.apk";
-    private static final String APK_24 = "CtsUsePermissionApp24.apk";
+    private static final String APK_25 = "CtsUsePermissionApp25.apk";
+    private static final String APK_26 = "CtsUsePermissionApp26.apk";
+    private static final String APK_Latest = "CtsUsePermissionAppLatest.apk";
+
+    private static final String APK_PERMISSION_POLICY_25 = "CtsPermissionPolicyTest25.apk";
+    private static final String PERMISSION_POLICY_25_PKG = "com.android.cts.permission.policy";
 
     private static final String APK_DECLARE_NON_RUNTIME_PERMISSIONS =
             "CtsDeclareNonRuntimePermissions.apk";
     private static final String APK_ESCLATE_TO_RUNTIME_PERMISSIONS =
             "CtsEscalateToRuntimePermissions.apk";
+
+    private static final String SCREEN_OFF_TIMEOUT_NS = "system";
+    private static final String SCREEN_OFF_TIMEOUT_KEY = "screen_off_timeout";
+    private String mScreenTimeoutBeforeTest;
 
     private IAbi mAbi;
     private CompatibilityBuildHelper mBuildHelper;
@@ -64,14 +73,28 @@ public class PermissionsHostTest extends DeviceTestCase implements IAbiReceiver,
 
         getDevice().uninstallPackage(USES_PERMISSION_PKG);
         getDevice().uninstallPackage(ESCALATE_PERMISSION_PKG);
+        getDevice().uninstallPackage(PERMISSION_POLICY_25_PKG);
+
+        // Set screen timeout to 30 min to not timeout while waiting for UI to change
+        mScreenTimeoutBeforeTest = getDevice().getSetting(SCREEN_OFF_TIMEOUT_NS,
+                SCREEN_OFF_TIMEOUT_KEY);
+        getDevice().setSetting(SCREEN_OFF_TIMEOUT_NS, SCREEN_OFF_TIMEOUT_KEY, "1800000");
+
+        // Wake up device
+        getDevice().executeShellCommand("input keyevent KEYCODE_WAKEUP");
+        getDevice().disableKeyguard();
     }
 
     @Override
     protected void tearDown() throws Exception {
         super.tearDown();
 
+        getDevice().setSetting(SCREEN_OFF_TIMEOUT_NS, SCREEN_OFF_TIMEOUT_KEY,
+                mScreenTimeoutBeforeTest);
+
         getDevice().uninstallPackage(USES_PERMISSION_PKG);
         getDevice().uninstallPackage(ESCALATE_PERMISSION_PKG);
+        getDevice().uninstallPackage(PERMISSION_POLICY_25_PKG);
     }
 
     public void testFail() throws Exception {
@@ -162,6 +185,24 @@ public class PermissionsHostTest extends DeviceTestCase implements IAbiReceiver,
                 "testRuntimeGroupGrantExpansion");
     }
 
+    public void testRuntimeGroupGrantExpansion25() throws Exception {
+        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK_25), false, false));
+        runDeviceTests(USES_PERMISSION_PKG, "com.android.cts.usepermission.UsePermissionTest23",
+                "testRuntimeGroupGrantExpansion");
+    }
+
+    public void testRuntimeGroupGrantExpansion26() throws Exception {
+        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK_26), false, false));
+        runDeviceTests(USES_PERMISSION_PKG, "com.android.cts.usepermission.UsePermissionTest26",
+                "testRuntimeGroupGrantNoExpansion");
+    }
+
+    public void testRuntimeGroupGrantExpansionLatest() throws Exception {
+        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK_Latest), false, false));
+        runDeviceTests(USES_PERMISSION_PKG, "com.android.cts.usepermission.UsePermissionTest26",
+                "testRuntimeGroupGrantNoExpansion");
+    }
+
     public void testCancelledPermissionRequest23() throws Exception {
         assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK_23), false, false));
         runDeviceTests(USES_PERMISSION_PKG, "com.android.cts.usepermission.UsePermissionTest23",
@@ -230,12 +271,6 @@ public class PermissionsHostTest extends DeviceTestCase implements IAbiReceiver,
                 "testRequestPermissionFromTwoGroups");
     }
 
-//    public void testOnlyRequestedPermissionsGranted24() throws Exception {
-//        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK_24), false, false));
-//        runDeviceTests(PKG, "com.android.cts.usepermission.UsePermissionTest24",
-//                "testOnlyRequestedPermissionsGranted");
-//    }
-
     public void testUpgradeKeepsPermissions() throws Exception {
         assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK_22), false, false));
         runDeviceTests(USES_PERMISSION_PKG, "com.android.cts.usepermission.UsePermissionTest22",
@@ -302,6 +337,14 @@ public class PermissionsHostTest extends DeviceTestCase implements IAbiReceiver,
         runDeviceTests(ESCALATE_PERMISSION_PKG,
                 "com.android.cts.escalatepermission.PermissionEscalationTest",
                 "testCannotEscalateNonRuntimePermissionsToRuntime");
+    }
+
+    public void testNoProtectionFlagsAddedToNonSignatureProtectionPermissions25() throws Exception {
+        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
+                APK_PERMISSION_POLICY_25), false, false));
+        runDeviceTests(PERMISSION_POLICY_25_PKG,
+                "com.android.cts.permission.policy.PermissionPolicyTest25",
+                "testNoProtectionFlagsAddedToNonSignatureProtectionPermissions");
     }
 
     private void runDeviceTests(String packageName, String testClassName, String testMethodName)

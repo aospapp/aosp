@@ -34,6 +34,12 @@ public abstract class AbstractLifecycleLogActivity extends Activity {
     }
 
     @Override
+    protected void onStart() {
+        super.onResume();
+        Log.i(getTag(), "onStart");
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         Log.i(getTag(), "onResume");

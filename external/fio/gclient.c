@@ -13,6 +13,7 @@
 #include "graph.h"
 #include "gclient.h"
 #include "printing.h"
+#include "lib/pow2.h"
 
 static void gfio_display_ts(struct fio_client *client, struct thread_stat *ts,
 			    struct group_run_stats *rs);
@@ -47,7 +48,7 @@ static GtkActionEntry results_menu_items[] = {
 	{ "PrintFile", GTK_STOCK_PRINT, "Print", "<Control>P", NULL, G_CALLBACK(results_print) },
 	{ "CloseFile", GTK_STOCK_CLOSE, "Close", "<Control>W", NULL, G_CALLBACK(results_close) },
 };
-static gint results_nmenu_items = sizeof(results_menu_items) / sizeof(results_menu_items[0]);
+static gint results_nmenu_items = ARRAY_SIZE(results_menu_items);
 
 static const gchar *results_ui_string = " \
 	<ui> \
@@ -279,10 +280,6 @@ static void gfio_disk_util_op(struct fio_client *client, struct fio_net_cmd *cmd
 	gdk_threads_leave();
 }
 
-extern int sum_stat_clients;
-extern struct thread_stat client_ts;
-extern struct group_run_stats client_gs;
-
 static int sum_stat_nr;
 
 static void gfio_thread_status_op(struct fio_client *client,
@@ -295,7 +292,7 @@ static void gfio_thread_status_op(struct fio_client *client,
 	if (sum_stat_clients == 1)
 		return;
 
-	sum_thread_stats(&client_ts, &p->ts, sum_stat_nr);
+	sum_thread_stats(&client_ts, &p->ts, sum_stat_nr == 1);
 	sum_group_stats(&client_gs, &p->rs);
 
 	client_ts.members++;
@@ -367,29 +364,11 @@ static void gfio_update_client_eta(struct fio_client *client, struct jobs_eta *j
 	sprintf(tmp, "%u", je->files_open);
 	gtk_entry_set_text(GTK_ENTRY(ge->eta.files), tmp);
 
-#if 0
-	if (je->m_rate[0] || je->m_rate[1] || je->t_rate[0] || je->t_rate[1]) {
-	if (je->m_rate || je->t_rate) {
-		char *tr, *mr;
-
-		mr = num2str(je->m_rate, 4, 0, i2p);
-		tr = num2str(je->t_rate, 4, 0, i2p);
-		gtk_entry_set_text(GTK_ENTRY(ge->eta);
-		p += sprintf(p, ", CR=%s/%s KB/s", tr, mr);
-		free(tr);
-		free(mr);
-	} else if (je->m_iops || je->t_iops)
-		p += sprintf(p, ", CR=%d/%d IOPS", je->t_iops, je->m_iops);
-
-	gtk_entry_set_text(GTK_ENTRY(ge->eta.cr_bw), "---");
-	gtk_entry_set_text(GTK_ENTRY(ge->eta.cr_iops), "---");
-	gtk_entry_set_text(GTK_ENTRY(ge->eta.cw_bw), "---");
-	gtk_entry_set_text(GTK_ENTRY(ge->eta.cw_iops), "---");
-#endif
-
 	if (je->eta_sec != INT_MAX && je->nr_running) {
 		char *iops_str[DDIR_RWDIR_CNT];
 		char *rate_str[DDIR_RWDIR_CNT];
+		char *rate_alt[DDIR_RWDIR_CNT];
+		char tmp[128];
 		int i;
 
 		if ((!je->eta_sec && !eta_good) || je->nr_ramp == je->nr_running)
@@ -400,19 +379,26 @@ static void gfio_update_client_eta(struct fio_client *client, struct jobs_eta *j
 			sprintf(output, "%3.1f%% done", perc);
 		}
 
-		rate_str[0] = num2str(je->rate[0], 5, 10, i2p, 0);
-		rate_str[1] = num2str(je->rate[1], 5, 10, i2p, 0);
-		rate_str[2] = num2str(je->rate[2], 5, 10, i2p, 0);
+		iops_str[0] = num2str(je->iops[0], 4, 1, 0, N2S_PERSEC);
+		iops_str[1] = num2str(je->iops[1], 4, 1, 0, N2S_PERSEC);
+		iops_str[2] = num2str(je->iops[2], 4, 1, 0, N2S_PERSEC);
 
-		iops_str[0] = num2str(je->iops[0], 4, 1, 0, 0);
-		iops_str[1] = num2str(je->iops[1], 4, 1, 0, 0);
-		iops_str[2] = num2str(je->iops[2], 4, 1, 0, 0);
-
-		gtk_entry_set_text(GTK_ENTRY(ge->eta.read_bw), rate_str[0]);
+		rate_str[0] = num2str(je->rate[0], 4, 10, i2p, N2S_BYTEPERSEC);
+		rate_alt[0] = num2str(je->rate[0], 4, 10, !i2p, N2S_BYTEPERSEC);
+		snprintf(tmp, sizeof(tmp), "%s (%s)", rate_str[0], rate_alt[0]);
+		gtk_entry_set_text(GTK_ENTRY(ge->eta.read_bw), tmp);
 		gtk_entry_set_text(GTK_ENTRY(ge->eta.read_iops), iops_str[0]);
-		gtk_entry_set_text(GTK_ENTRY(ge->eta.write_bw), rate_str[1]);
+
+		rate_str[1] = num2str(je->rate[1], 4, 10, i2p, N2S_BYTEPERSEC);
+		rate_alt[1] = num2str(je->rate[1], 4, 10, !i2p, N2S_BYTEPERSEC);
+		snprintf(tmp, sizeof(tmp), "%s (%s)", rate_str[1], rate_alt[1]);
+		gtk_entry_set_text(GTK_ENTRY(ge->eta.write_bw), tmp);
 		gtk_entry_set_text(GTK_ENTRY(ge->eta.write_iops), iops_str[1]);
-		gtk_entry_set_text(GTK_ENTRY(ge->eta.trim_bw), rate_str[2]);
+
+		rate_str[2] = num2str(je->rate[2], 4, 10, i2p, N2S_BYTEPERSEC);
+		rate_alt[2] = num2str(je->rate[2], 4, 10, !i2p, N2S_BYTEPERSEC);
+		snprintf(tmp, sizeof(tmp), "%s (%s)", rate_str[2], rate_alt[2]);
+		gtk_entry_set_text(GTK_ENTRY(ge->eta.trim_bw), tmp);
 		gtk_entry_set_text(GTK_ENTRY(ge->eta.trim_iops), iops_str[2]);
 
 		graph_add_xy_data(ge->graphs.iops_graph, ge->graphs.read_iops, je->elapsed_sec, je->iops[0], iops_str[0]);
@@ -424,6 +410,7 @@ static void gfio_update_client_eta(struct fio_client *client, struct jobs_eta *j
 
 		for (i = 0; i < DDIR_RWDIR_CNT; i++) {
 			free(rate_str[i]);
+			free(rate_alt[i]);
 			free(iops_str[i]);
 		}
 	}
@@ -460,31 +447,13 @@ static void gfio_update_all_eta(struct jobs_eta *je)
 		eta_to_str(eta_str, je->eta_sec);
 	}
 
-#if 0
-	if (je->m_rate[0] || je->m_rate[1] || je->t_rate[0] || je->t_rate[1]) {
-	if (je->m_rate || je->t_rate) {
-		char *tr, *mr;
-
-		mr = num2str(je->m_rate, 4, 0, i2p);
-		tr = num2str(je->t_rate, 4, 0, i2p);
-		gtk_entry_set_text(GTK_ENTRY(ui->eta);
-		p += sprintf(p, ", CR=%s/%s KB/s", tr, mr);
-		free(tr);
-		free(mr);
-	} else if (je->m_iops || je->t_iops)
-		p += sprintf(p, ", CR=%d/%d IOPS", je->t_iops, je->m_iops);
-
-	gtk_entry_set_text(GTK_ENTRY(ui->eta.cr_bw), "---");
-	gtk_entry_set_text(GTK_ENTRY(ui->eta.cr_iops), "---");
-	gtk_entry_set_text(GTK_ENTRY(ui->eta.cw_bw), "---");
-	gtk_entry_set_text(GTK_ENTRY(ui->eta.cw_iops), "---");
-#endif
-
 	entry_set_int_value(ui->eta.jobs, je->nr_running);
 
 	if (je->eta_sec != INT_MAX && je->nr_running) {
-		char *iops_str[3];
-		char *rate_str[3];
+		char *iops_str[DDIR_RWDIR_CNT];
+		char *rate_str[DDIR_RWDIR_CNT];
+		char *rate_alt[DDIR_RWDIR_CNT];
+		char tmp[128];
 
 		if ((!je->eta_sec && !eta_good) || je->nr_ramp == je->nr_running)
 			strcpy(output, "-.-% done");
@@ -494,19 +463,26 @@ static void gfio_update_all_eta(struct jobs_eta *je)
 			sprintf(output, "%3.1f%% done", perc);
 		}
 
-		rate_str[0] = num2str(je->rate[0], 5, 10, i2p, 0);
-		rate_str[1] = num2str(je->rate[1], 5, 10, i2p, 0);
-		rate_str[2] = num2str(je->rate[2], 5, 10, i2p, 0);
+		iops_str[0] = num2str(je->iops[0], 4, 1, 0, N2S_PERSEC);
+		iops_str[1] = num2str(je->iops[1], 4, 1, 0, N2S_PERSEC);
+		iops_str[2] = num2str(je->iops[2], 4, 1, 0, N2S_PERSEC);
 
-		iops_str[0] = num2str(je->iops[0], 4, 1, 0, 0);
-		iops_str[1] = num2str(je->iops[1], 4, 1, 0, 0);
-		iops_str[2] = num2str(je->iops[2], 4, 1, 0, 0);
-
-		gtk_entry_set_text(GTK_ENTRY(ui->eta.read_bw), rate_str[0]);
+		rate_str[0] = num2str(je->rate[0], 4, 10, i2p, N2S_BYTEPERSEC);
+		rate_alt[0] = num2str(je->rate[0], 4, 10, !i2p, N2S_BYTEPERSEC);
+		snprintf(tmp, sizeof(tmp), "%s (%s)", rate_str[0], rate_alt[0]);
+		gtk_entry_set_text(GTK_ENTRY(ui->eta.read_bw), tmp);
 		gtk_entry_set_text(GTK_ENTRY(ui->eta.read_iops), iops_str[0]);
-		gtk_entry_set_text(GTK_ENTRY(ui->eta.write_bw), rate_str[1]);
+
+		rate_str[1] = num2str(je->rate[1], 4, 10, i2p, N2S_BYTEPERSEC);
+		rate_alt[1] = num2str(je->rate[1], 4, 10, !i2p, N2S_BYTEPERSEC);
+		snprintf(tmp, sizeof(tmp), "%s (%s)", rate_str[1], rate_alt[1]);
+		gtk_entry_set_text(GTK_ENTRY(ui->eta.write_bw), tmp);
 		gtk_entry_set_text(GTK_ENTRY(ui->eta.write_iops), iops_str[1]);
-		gtk_entry_set_text(GTK_ENTRY(ui->eta.trim_bw), rate_str[2]);
+
+		rate_str[2] = num2str(je->rate[2], 4, 10, i2p, N2S_BYTEPERSEC);
+		rate_alt[2] = num2str(je->rate[2], 4, 10, !i2p, N2S_BYTEPERSEC);
+		snprintf(tmp, sizeof(tmp), "%s (%s)", rate_str[2], rate_alt[2]);
+		gtk_entry_set_text(GTK_ENTRY(ui->eta.trim_bw), tmp);
 		gtk_entry_set_text(GTK_ENTRY(ui->eta.trim_iops), iops_str[2]);
 
 		graph_add_xy_data(ui->graphs.iops_graph, ui->graphs.read_iops, je->elapsed_sec, je->iops[0], iops_str[0]);
@@ -518,6 +494,7 @@ static void gfio_update_all_eta(struct jobs_eta *je)
 
 		for (i = 0; i < DDIR_RWDIR_CNT; i++) {
 			free(rate_str[i]);
+			free(rate_alt[i]);
 			free(iops_str[i]);
 		}
 	}
@@ -595,6 +572,7 @@ static void gfio_add_job_op(struct fio_client *client, struct fio_net_cmd *cmd)
 	struct thread_options *o;
 	char *c1, *c2, *c3, *c4;
 	char tmp[80];
+	int i2p;
 
 	p->thread_number = le32_to_cpu(p->thread_number);
 	p->groupid = le32_to_cpu(p->groupid);
@@ -608,11 +586,13 @@ static void gfio_add_job_op(struct fio_client *client, struct fio_net_cmd *cmd)
 	sprintf(tmp, "%s %s", o->odirect ? "direct" : "buffered", ddir_str(o->td_ddir));
 	multitext_add_entry(&ge->eta.iotype, tmp);
 
-	c1 = fio_uint_to_kmg(o->min_bs[DDIR_READ]);
-	c2 = fio_uint_to_kmg(o->max_bs[DDIR_WRITE]);
-	c3 = fio_uint_to_kmg(o->min_bs[DDIR_READ]);
-	c4 = fio_uint_to_kmg(o->max_bs[DDIR_WRITE]);
-	sprintf(tmp, "%s-%s/%s-%s", c1, c2, c3, c4);
+	i2p = is_power_of_2(o->kb_base);
+	c1 = num2str(o->min_bs[DDIR_READ], 4, 1, i2p, N2S_BYTE);
+	c2 = num2str(o->max_bs[DDIR_READ], 4, 1, i2p, N2S_BYTE);
+	c3 = num2str(o->min_bs[DDIR_WRITE], 4, 1, i2p, N2S_BYTE);
+	c4 = num2str(o->max_bs[DDIR_WRITE], 4, 1, i2p, N2S_BYTE);
+
+	sprintf(tmp, "%s-%s,%s-%s", c1, c2, c3, c4);
 	free(c1);
 	free(c2);
 	free(c3);
@@ -690,12 +670,6 @@ static void gfio_client_job_start(struct fio_client *client, struct fio_net_cmd 
 	gdk_threads_enter();
 	gfio_set_state(gc->ge, GE_STATE_JOB_RUNNING);
 	gdk_threads_leave();
-}
-
-static void gfio_client_iolog(struct fio_client *client, struct cmd_iolog_pdu *pdu)
-{
-	printf("got iolog: name=%s, type=%u, entries=%lu\n", pdu->name, pdu->log_type, (unsigned long) pdu->nr_samples);
-	free(pdu);
 }
 
 static void gfio_add_total_depths_tree(GtkListStore *model,
@@ -957,10 +931,10 @@ static void gfio_show_latency_buckets(struct gfio_client *gc, GtkWidget *vbox,
 				      struct thread_stat *ts)
 {
 	double io_u_lat[FIO_IO_U_LAT_U_NR + FIO_IO_U_LAT_M_NR];
-	const char *ranges[] = { "2u", "4u", "10u", "20u", "50u", "100u",
-				 "250u", "500u", "750u", "1m", "2m",
-				 "4m", "10m", "20m", "50m", "100m",
-				 "250m", "500m", "750m", "1s", "2s", ">= 2s" };
+	const char *ranges[] = { "2us", "4us", "10us", "20us", "50us", "100us",
+				 "250us", "500us", "750us", "1ms", "2ms",
+				 "4ms", "10ms", "20ms", "50ms", "100ms",
+				 "250ms", "500ms", "750ms", "1s", "2s", ">= 2s" };
 	int start, end, i;
 	const int total = FIO_IO_U_LAT_U_NR + FIO_IO_U_LAT_M_NR;
 	GtkWidget *frame, *tree_view, *hbox, *completion_vbox, *drawing_area;
@@ -989,7 +963,7 @@ static void gfio_show_latency_buckets(struct gfio_client *gc, GtkWidget *vbox,
 		return;
 
 	tree_view = gfio_output_lat_buckets(&io_u_lat[start], &ranges[start], end - start + 1);
-	ge->lat_bucket_graph = setup_lat_bucket_graph("Latency Buckets", &io_u_lat[start], &ranges[start], end - start + 1, 700.0, 300.0);
+	ge->lat_bucket_graph = setup_lat_bucket_graph("Latency buckets", &io_u_lat[start], &ranges[start], end - start + 1, 700.0, 300.0);
 
 	frame = gtk_frame_new("Latency buckets");
 	gtk_box_pack_start(GTK_BOX(vbox), frame, FALSE, FALSE, 5);
@@ -1017,11 +991,11 @@ static void gfio_show_lat(GtkWidget *vbox, const char *name, unsigned long min,
 	char *minp, *maxp;
 	char tmp[64];
 
-	if (!usec_to_msec(&min, &max, &mean, &dev))
+	if (usec_to_msec(&min, &max, &mean, &dev))
 		base = "(msec)";
 
-	minp = num2str(min, 6, 1, 0, 0);
-	maxp = num2str(max, 6, 1, 0, 0);
+	minp = num2str(min, 6, 1, 0, N2S_NONE);
+	maxp = num2str(max, 6, 1, 0, N2S_NONE);
 
 	sprintf(tmp, "%s %s", name, base);
 	frame = gtk_frame_new(tmp);
@@ -1182,7 +1156,8 @@ static void gfio_show_ddir_status(struct gfio_client *gc, GtkWidget *mbox,
 	unsigned long long bw, iops;
 	unsigned int flags = 0;
 	double mean[3], dev[3];
-	char *io_p, *bw_p, *iops_p;
+	char *io_p, *io_palt, *bw_p, *bw_palt, *iops_p;
+	char tmp[128];
 	int i2p;
 
 	if (!ts->runtime[ddir])
@@ -1192,11 +1167,9 @@ static void gfio_show_ddir_status(struct gfio_client *gc, GtkWidget *mbox,
 	runt = ts->runtime[ddir];
 
 	bw = (1000 * ts->io_bytes[ddir]) / runt;
-	io_p = num2str(ts->io_bytes[ddir], 6, 1, i2p, 8);
-	bw_p = num2str(bw, 6, 1, i2p, ts->unit_base);
 
 	iops = (1000 * (uint64_t)ts->total_io_u[ddir]) / runt;
-	iops_p = num2str(iops, 6, 1, 0, 0);
+	iops_p = num2str(iops, 4, 1, 0, N2S_PERSEC);
 
 	box = gtk_hbox_new(FALSE, 3);
 	gtk_box_pack_start(GTK_BOX(mbox), box, TRUE, FALSE, 3);
@@ -1211,9 +1184,17 @@ static void gfio_show_ddir_status(struct gfio_client *gc, GtkWidget *mbox,
 	gtk_box_pack_start(GTK_BOX(main_vbox), box, TRUE, FALSE, 3);
 
 	label = new_info_label_in_frame(box, "IO");
-	gtk_label_set_text(GTK_LABEL(label), io_p);
+	io_p = num2str(ts->io_bytes[ddir], 4, 1, i2p, N2S_BYTE);
+	io_palt = num2str(ts->io_bytes[ddir], 4, 1, !i2p, N2S_BYTE);
+	snprintf(tmp, sizeof(tmp), "%s (%s)", io_p, io_palt);
+	gtk_label_set_text(GTK_LABEL(label), tmp);
+
 	label = new_info_label_in_frame(box, "Bandwidth");
-	gtk_label_set_text(GTK_LABEL(label), bw_p);
+	bw_p = num2str(bw, 4, 1, i2p, ts->unit_base);
+	bw_palt = num2str(bw, 4, 1, !i2p, ts->unit_base);
+	snprintf(tmp, sizeof(tmp), "%s (%s)", bw_p, bw_palt);
+	gtk_label_set_text(GTK_LABEL(label), tmp);
+
 	label = new_info_label_in_frame(box, "IOPS");
 	gtk_label_set_text(GTK_LABEL(label), iops_p);
 	label = new_info_label_in_frame(box, "Runtime (msec)");
@@ -1221,7 +1202,7 @@ static void gfio_show_ddir_status(struct gfio_client *gc, GtkWidget *mbox,
 
 	if (calc_lat(&ts->bw_stat[ddir], &min[0], &max[0], &mean[0], &dev[0])) {
 		double p_of_agg = 100.0;
-		const char *bw_str = "KB";
+		const char *bw_str = "KiB/s";
 		char tmp[32];
 
 		if (rs->agg[ddir]) {
@@ -1230,14 +1211,21 @@ static void gfio_show_ddir_status(struct gfio_client *gc, GtkWidget *mbox,
 				p_of_agg = 100.0;
 		}
 
-		if (mean[0] > 999999.9) {
-			min[0] /= 1000.0;
-			max[0] /= 1000.0;
-			mean[0] /= 1000.0;
-			dev[0] /= 1000.0;
-			bw_str = "MB";
+		if (mean[0] > 1073741824.9) {
+			min[0] /= 1048576.0;
+			max[0] /= 1048576.0;
+			mean[0] /= 1048576.0;
+			dev[0] /= 1048576.0;
+			bw_str = "GiB/s";
 		}
 
+		if (mean[0] > 1047575.9) {
+			min[0] /= 1024.0;
+			max[0] /= 1024.0;
+			mean[0] /= 1024.0;
+			dev[0] /= 1024.0;
+			bw_str = "MiB/s";
+		}
 		sprintf(tmp, "Bandwidth (%s)", bw_str);
 		frame = gtk_frame_new(tmp);
 		gtk_box_pack_start(GTK_BOX(main_vbox), frame, FALSE, FALSE, 5);
@@ -1287,6 +1275,8 @@ static void gfio_show_ddir_status(struct gfio_client *gc, GtkWidget *mbox,
 
 	free(io_p);
 	free(bw_p);
+	free(io_palt);
+	free(bw_palt);
 	free(iops_p);
 }
 
@@ -1393,7 +1383,6 @@ struct client_ops gfio_client_ops = {
 	.stop			= gfio_client_stop,
 	.start			= gfio_client_start,
 	.job_start		= gfio_client_job_start,
-	.iolog			= gfio_client_iolog,
 	.removed		= gfio_client_removed,
 	.eta_msec		= FIO_CLIENT_DEF_ETA_MSEC,
 	.stay_connected		= 1,

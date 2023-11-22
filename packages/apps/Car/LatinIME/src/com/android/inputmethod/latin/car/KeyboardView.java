@@ -382,7 +382,7 @@ public class KeyboardView extends View implements View.OnClickListener {
         mSwipeThreshold = (int) (500 * getResources().getDisplayMetrics().density);
         mDisambiguateSwipe = true;
 
-        int color = getResources().getColor(android.support.car.ui.R.color.car_700);
+        int color = getResources().getColor(com.android.car.stream.ui.R.color.car_700);
         mPopupScrimColor = Color.argb(
                 SCRIM_ALPHA, Color.red(color), Color.green(color), Color.blue(color));
         mBackgroundColor = Color.TRANSPARENT;
@@ -671,8 +671,6 @@ public class KeyboardView extends View implements View.OnClickListener {
                 width = MeasureSpec.getSize(widthMeasureSpec);
             }
             setMeasuredDimension(width, mKeyboard.getHeight() + getPaddingTop() + getPaddingBottom());
-
-            Log.d("Yao", "Keyboard height " + mKeyboard.getHeight() + " " + getPaddingTop() + " " + getPaddingBottom());
         }
     }
 

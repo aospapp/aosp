@@ -26,8 +26,6 @@
 package org.apache.harmony.jpda.tests.jdwp.Events;
 
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
-import org.apache.harmony.jpda.tests.framework.jdwp.Event;
-import org.apache.harmony.jpda.tests.framework.jdwp.EventMod;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.ParsedEvent;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
@@ -52,13 +50,8 @@ public class ThreadStartTest extends JDWPEventTestCase {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
         logWriter.println("=> set ThreadStartEvent...");
-        ReplyPacket reply;
-        byte eventKind = JDWPConstants.EventKind.THREAD_START;
-        byte suspendPolicy = JDWPConstants.SuspendPolicy.NONE;
-        EventMod[] mods = new EventMod[0];
-        Event eventToSet = new Event(eventKind, suspendPolicy, mods);
-
-        reply = debuggeeWrapper.vmMirror.setEvent(eventToSet);
+        ReplyPacket reply =
+                debuggeeWrapper.vmMirror.setThreadStart(JDWPConstants.SuspendPolicy.NONE);
         checkReplyPacket(reply, "Set THREAD_START event");
 
         logWriter.println("=> set ThreadStartEvent - DONE");

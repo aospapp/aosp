@@ -27,4 +27,4 @@ test_cases = [
     ['crowd/crowd2160-e63c73bc1d3d149cf35a994241441439.h264', 3840, 2160, 500, 506, 1, 50],
 ]
 
-job.run_test('video_VDAPerf', test_cases=test_cases)
+job.run_test('video_VDAPerf', test_cases=test_cases, tag='h264')

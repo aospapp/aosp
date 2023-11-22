@@ -34,7 +34,6 @@
         <option name="enable-profiling" value="true"/>
         <option name="precondition-lshal" value="android.hardware.soundtrigger@2.0"/>
         <option name="precondition-file-path-prefix" value="/*/lib/hw/sound_trigger.primary." />
-        <option name="skip-on-64bit-abi" value="true" />
         <option name="test-timeout" value="5m"/>
     </test>
 </configuration>

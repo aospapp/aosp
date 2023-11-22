@@ -22,6 +22,8 @@
 
 #include <errno.h>
 
+#include <stdio.h>
+
 #include "include/alsa_device_proxy.h"
 
 #include "include/alsa_logging.h"

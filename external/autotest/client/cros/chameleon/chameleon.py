@@ -11,7 +11,10 @@ import time
 import xmlrpclib
 from contextlib import contextmanager
 
-from PIL import Image
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
@@ -340,6 +343,14 @@ class ChameleonBoard(object):
         @return: An AVSyncProbeFlow object.
         """
         return self._chameleond_proxy.avsync_probe
+
+
+    def get_motor_board(self):
+        """Gets the motor_board device on Chameleon.
+
+        @return: An MotorBoard object.
+        """
+        return self._chameleond_proxy.motor_board
 
 
     def get_mac_address(self):

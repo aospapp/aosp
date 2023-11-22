@@ -40,6 +40,7 @@ nfqueue:!:232:232::/dev/null:/bin/false
 tlsdate-dbus:!:233:233::/dev/null:/bin/false
 tlsdate:!:234:234::/dev/null:/bin/false
 debugd-logs:!:235:235::/dev/null:/bin/false
+firewall:!:236:236:firewall daemon:/dev/null:/bin/false
 debugfs-access:!:605:605::/dev/null:/bin/false
 shill-crypto:!:237:237::/dev/null:/bin/false
 avahi:!:238:238::/dev/null:/bin/false
@@ -65,6 +66,7 @@ dnsmasq:!:268:268:/dev/null:/bin/false
 lpadmin:!:269:269:/dev/null:/bin/false
 cups:!:277:277:/dev/null:/bin/false
 biod:!:282:282:biometrics daemon:/dev/null:/bin/false
+devicejail:!:283:283:device sandbox user:/dev/null:/bin/false
 arc-camera:!:603:603::/dev/null:/bin/false
 ntfs-3g:!:300:300::/dev/null:/bin/false
 avfs:!:301:301::/dev/null:/bin/false
@@ -77,3 +79,7 @@ arc-networkd:!:284:284:CrOS ARC network service daemon:/dev/null:/bin/false
 authpolicyd-exec:!:607:607:authpolicy process executor:/dev/null:/bin/false
 touch_keyboard:!:285:285:touch keyboard interpreter:/dev/null:/bin/false
 midis:!:608:608:CrOS MIDI daemon:/dev/null:/bin/false
+atrus:!:286:286:Atrus daemon used by the atrusctl package:/dev/null:/bin/false
+cfm-firmware-updaters:!:288:288:CFM(Chromebox for Meetings) peripheral firmware updaters:/dev/null:/bin/false
+rtanalytics:!:289:289:CFM (Chromebox for Meetings) user for running real time analytics:/dev/null:/bin/false
+touch_firmware_calibration:!:290:290:touch_firmware_calibration:/dev/null:/bin/false

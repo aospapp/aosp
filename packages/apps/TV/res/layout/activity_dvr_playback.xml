@@ -34,7 +34,11 @@
     </FrameLayout>
 
     <fragment android:id="@+id/dvr_playback_controls_fragment"
-        android:name="com.android.tv.dvr.ui.DvrPlaybackOverlayFragment"
+        android:name="com.android.tv.dvr.ui.playback.DvrPlaybackOverlayFragment"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <FrameLayout android:id="@+id/dvr_playback_side_fragment"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 

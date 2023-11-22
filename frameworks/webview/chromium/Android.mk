@@ -14,8 +14,7 @@
 # limitations under the License.
 #
 
-# This package provides the system interfaces required to load WebView and allow
-# it to render.
+# This package provides the system interfaces allowing WebView to render.
 
 LOCAL_PATH := $(call my-dir)
 
@@ -50,27 +49,5 @@ LOCAL_MODULE_TAGS := optional
 
 # To remove warnings from skia header files
 LOCAL_CFLAGS := -Wno-unused-parameter
-
-include $(BUILD_SHARED_LIBRARY)
-
-
-# Loader library which handles address space reservation and relro sharing.
-# Does NOT link any native chromium code.
-include $(CLEAR_VARS)
-
-LOCAL_MODULE:= libwebviewchromium_loader
-
-LOCAL_SRC_FILES := \
-        loader/loader.cpp \
-
-LOCAL_CFLAGS := \
-        -Werror \
-
-LOCAL_SHARED_LIBRARIES += \
-        libdl \
-        liblog \
-        libnativeloader \
-
-LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_SHARED_LIBRARY)

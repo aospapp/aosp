@@ -97,7 +97,7 @@ class ServerRole(dbmodels.Model, model_logic.ModelExtensions):
     # Valid roles for a server.
     ROLE_LIST = ['afe', 'scheduler', 'host_scheduler', 'drone', 'devserver',
                  'database', 'database_slave', 'suite_scheduler',
-                 'crash_server', 'shard', 'golo_proxy', 'reserve']
+                 'crash_server', 'shard', 'golo_proxy', 'sentinel', 'reserve']
     ROLE = enum.Enum(*ROLE_LIST, string_values=True)
     # When deleting any of following roles from a primary server, a working
     # backup must be available if user_server_db is enabled in global config.

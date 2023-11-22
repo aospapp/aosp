@@ -83,6 +83,10 @@ class touch_playback_test_base(test.test):
                  a hw_id but does not.
 
         """
+        if type(gestures) is not list:
+            raise error.TestError('find_test_files() takes a LIST, not a '
+                                   '%s!' % type(gestures))
+
         if not self.player.has(input_type):
             raise error.TestError('Device does not have a %s!' % input_type)
 
@@ -432,8 +436,8 @@ class TestPage(object):
 
     def expand_page(self):
         """Expand the page to be very large, to allow scrolling."""
-        cmd = 'document.body.style.%s = %d+"px"' % (
-                '%s', self._DEFAULT_SCROLL * 5)
+        page_width = self._DEFAULT_SCROLL * 5
+        cmd = 'document.body.style.%s = "%dpx"' % ('%s', page_width)
         self._tab.ExecuteJavaScript(cmd % 'width')
         self._tab.ExecuteJavaScript(cmd % 'height')
 
@@ -441,17 +445,16 @@ class TestPage(object):
     def set_scroll_position(self, value, scroll_vertical=True):
         """Set scroll position to given value.
 
+        @param value: integer value in pixels.
         @param scroll_vertical: True for vertical scroll,
                                 False for horizontal Scroll.
-        @param value: True for enabled, False for disabled.
 
-         """
+        """
+        cmd = 'window.scrollTo(%d, %d);'
         if scroll_vertical:
-            self._tab.ExecuteJavaScript(
-                'document.body.scrollTop=%s' % value)
+            self._tab.ExecuteJavaScript(cmd % (0, value))
         else:
-            self._tab.ExecuteJavaScript(
-                'document.body.scrollLeft=%s' % value)
+            self._tab.ExecuteJavaScript(cmd % (value, 0))
 
 
     def set_default_scroll_position(self, scroll_vertical=True):
@@ -472,6 +475,8 @@ class TestPage(object):
                    pos = self.get_scroll_position(scroll_vertical)
                    logging.error('SCROLL POSITION: %s', pos)
                    raise e
+                else:
+                   self.expand_page()
             else:
                  break
 
@@ -484,9 +489,9 @@ class TestPage(object):
 
         """
         if scroll_vertical:
-            return int(self._tab.EvaluateJavaScript('document.body.scrollTop'))
+            return int(self._tab.EvaluateJavaScript('window.scrollY'))
         else:
-            return int(self._tab.EvaluateJavaScript('document.body.scrollLeft'))
+            return int(self._tab.EvaluateJavaScript('window.scrollX'))
 
 
     def wait_for_default_scroll_position(self, scroll_vertical=True):

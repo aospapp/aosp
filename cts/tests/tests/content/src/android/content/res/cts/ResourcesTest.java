@@ -315,6 +315,15 @@ public class ResourcesTest extends AndroidTestCase {
         assertEquals(142 * targetDensity / defaultDensity, draw.getIntrinsicHeight(), 1);
     }
 
+    public void testGetDrawable_StackOverflowErrorDrawable() {
+        try {
+            mResources.getDrawable(R.drawable.drawable_recursive);
+            fail("Failed at testGetDrawable_StackOverflowErrorDrawable");
+        } catch (NotFoundException e) {
+            //expected
+        }
+    }
+
     public void testGetDrawableForDensity() {
         final Drawable ldpi = mResources.getDrawableForDensity(
                 R.drawable.density_test, DisplayMetrics.DENSITY_LOW);

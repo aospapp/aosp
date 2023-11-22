@@ -18,6 +18,8 @@
 #include <type_traits>
 
 #include "assembler_arm_vixl.h"
+#include "base/bit_utils.h"
+#include "base/bit_utils_iterator.h"
 #include "entrypoints/quick/quick_entrypoints.h"
 #include "thread.h"
 
@@ -35,7 +37,10 @@ namespace arm {
 #define ___   vixl_masm_.
 #endif
 
+// Thread register definition.
 extern const vixl32::Register tr(TR);
+// Marking register definition.
+extern const vixl32::Register mr(MR);
 
 void ArmVIXLAssembler::FinalizeCode() {
   vixl_masm_.FinalizeCode();

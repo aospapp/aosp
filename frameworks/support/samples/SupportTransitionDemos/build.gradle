@@ -1,8 +1,8 @@
 apply plugin: 'com.android.application'
 
 dependencies {
-    compile project(':support-transition')
-    compile project(':support-appcompat-v7')
+    implementation project(':transition')
+    implementation project(':appcompat-v7')
 }
 
 android {
@@ -10,17 +10,18 @@ android {
 
     defaultConfig {
         minSdkVersion 14
+        targetSdkVersion project.ext.currentSdk
     }
 
     sourceSets {
         main.manifest.srcFile 'AndroidManifest.xml'
         main.java.srcDirs = ['src']
-        main.aidl.srcDirs = ['src']
         main.res.srcDirs = ['res']
     }
 
     lintOptions {
         abortOnError true
+        check 'NewApi'
     }
 
     signingConfigs {
@@ -31,8 +32,8 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_7
-        targetCompatibility JavaVersion.VERSION_1_7
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
     }
 
     aaptOptions {

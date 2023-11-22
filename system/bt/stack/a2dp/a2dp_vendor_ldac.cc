@@ -230,10 +230,10 @@ static tA2DP_STATUS A2DP_CodecInfoMatchesCapabilityLdac(
 
   /* verify that each parameter is in range */
 
-  LOG_DEBUG(LOG_TAG, "%s: FREQ peer: 0x%x, capability 0x%x", __func__,
-            cfg_cie.sampleRate, p_cap->sampleRate);
-  LOG_DEBUG(LOG_TAG, "%s: CH_MODE peer: 0x%x, capability 0x%x", __func__,
-            cfg_cie.channelMode, p_cap->channelMode);
+  LOG_VERBOSE(LOG_TAG, "%s: FREQ peer: 0x%x, capability 0x%x", __func__,
+              cfg_cie.sampleRate, p_cap->sampleRate);
+  LOG_VERBOSE(LOG_TAG, "%s: CH_MODE peer: 0x%x, capability 0x%x", __func__,
+              cfg_cie.channelMode, p_cap->channelMode);
 
   /* sampling frequency */
   if ((cfg_cie.sampleRate & p_cap->sampleRate) == 0) return A2DP_NS_SAMP_FREQ;
@@ -330,30 +330,6 @@ int A2DP_VendorGetTrackSampleRateLdac(const uint8_t* p_codec_info) {
   return -1;
 }
 
-int A2DP_VendorGetTrackBitsPerSampleLdac(const uint8_t* p_codec_info) {
-  tA2DP_LDAC_CIE ldac_cie;
-
-  // Check whether the codec info contains valid data
-  tA2DP_STATUS a2dp_status = A2DP_ParseInfoLdac(&ldac_cie, p_codec_info, false);
-  if (a2dp_status != A2DP_SUCCESS) {
-    LOG_ERROR(LOG_TAG, "%s: cannot decode codec information: %d", __func__,
-              a2dp_status);
-    return -1;
-  }
-
-  switch (a2dp_ldac_caps.bits_per_sample) {
-    case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_16:
-      return 16;
-    case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_24:
-      return 24;
-    case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_32:
-      return 32;
-    case BTAV_A2DP_CODEC_BITS_PER_SAMPLE_NONE:
-      break;
-  }
-  return -1;
-}
-
 int A2DP_VendorGetTrackChannelCountLdac(const uint8_t* p_codec_info) {
   tA2DP_LDAC_CIE ldac_cie;
 
@@ -422,48 +398,50 @@ bool A2DP_VendorBuildCodecHeaderLdac(UNUSED_ATTR const uint8_t* p_codec_info,
   return true;
 }
 
-void A2DP_VendorDumpCodecInfoLdac(const uint8_t* p_codec_info) {
+bool A2DP_VendorDumpCodecInfoLdac(const uint8_t* p_codec_info) {
   tA2DP_STATUS a2dp_status;
   tA2DP_LDAC_CIE ldac_cie;
 
-  LOG_DEBUG(LOG_TAG, "%s", __func__);
+  LOG_VERBOSE(LOG_TAG, "%s", __func__);
 
   a2dp_status = A2DP_ParseInfoLdac(&ldac_cie, p_codec_info, true);
   if (a2dp_status != A2DP_SUCCESS) {
     LOG_ERROR(LOG_TAG, "%s: A2DP_ParseInfoLdac fail:%d", __func__, a2dp_status);
-    return;
+    return false;
   }
 
-  LOG_DEBUG(LOG_TAG, "\tsamp_freq: 0x%x", ldac_cie.sampleRate);
+  LOG_VERBOSE(LOG_TAG, "\tsamp_freq: 0x%x", ldac_cie.sampleRate);
   if (ldac_cie.sampleRate & A2DP_LDAC_SAMPLING_FREQ_44100) {
-    LOG_DEBUG(LOG_TAG, "\tsamp_freq: (44100)");
+    LOG_VERBOSE(LOG_TAG, "\tsamp_freq: (44100)");
   }
   if (ldac_cie.sampleRate & A2DP_LDAC_SAMPLING_FREQ_48000) {
-    LOG_DEBUG(LOG_TAG, "\tsamp_freq: (48000)");
+    LOG_VERBOSE(LOG_TAG, "\tsamp_freq: (48000)");
   }
   if (ldac_cie.sampleRate & A2DP_LDAC_SAMPLING_FREQ_88200) {
-    LOG_DEBUG(LOG_TAG, "\tsamp_freq: (88200)");
+    LOG_VERBOSE(LOG_TAG, "\tsamp_freq: (88200)");
   }
   if (ldac_cie.sampleRate & A2DP_LDAC_SAMPLING_FREQ_96000) {
-    LOG_DEBUG(LOG_TAG, "\tsamp_freq: (96000)");
+    LOG_VERBOSE(LOG_TAG, "\tsamp_freq: (96000)");
   }
   if (ldac_cie.sampleRate & A2DP_LDAC_SAMPLING_FREQ_176400) {
-    LOG_DEBUG(LOG_TAG, "\tsamp_freq: (176400)");
+    LOG_VERBOSE(LOG_TAG, "\tsamp_freq: (176400)");
   }
   if (ldac_cie.sampleRate & A2DP_LDAC_SAMPLING_FREQ_192000) {
-    LOG_DEBUG(LOG_TAG, "\tsamp_freq: (192000)");
+    LOG_VERBOSE(LOG_TAG, "\tsamp_freq: (192000)");
   }
 
-  LOG_DEBUG(LOG_TAG, "\tch_mode: 0x%x", ldac_cie.channelMode);
+  LOG_VERBOSE(LOG_TAG, "\tch_mode: 0x%x", ldac_cie.channelMode);
   if (ldac_cie.channelMode & A2DP_LDAC_CHANNEL_MODE_MONO) {
-    LOG_DEBUG(LOG_TAG, "\tch_mode: (Mono)");
+    LOG_VERBOSE(LOG_TAG, "\tch_mode: (Mono)");
   }
   if (ldac_cie.channelMode & A2DP_LDAC_CHANNEL_MODE_DUAL) {
-    LOG_DEBUG(LOG_TAG, "\tch_mode: (Dual)");
+    LOG_VERBOSE(LOG_TAG, "\tch_mode: (Dual)");
   }
   if (ldac_cie.channelMode & A2DP_LDAC_CHANNEL_MODE_STEREO) {
-    LOG_DEBUG(LOG_TAG, "\tch_mode: (Stereo)");
+    LOG_VERBOSE(LOG_TAG, "\tch_mode: (Stereo)");
   }
+
+  return true;
 }
 
 const tA2DP_ENCODER_INTERFACE* A2DP_VendorGetEncoderInterfaceLdac(

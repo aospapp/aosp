@@ -17,7 +17,9 @@
 package com.android.documentsui.testing;
 
 import android.content.ClipData;
+import android.content.ClipDescription;
 
+import org.mockito.Answers;
 import org.mockito.Mockito;
 
 public final class ClipDatas {
@@ -30,4 +32,11 @@ public final class ClipDatas {
         return data;
     }
 
+    public static ClipData createTestClipData(ClipDescription description) {
+        final ClipData data = createTestClipData();
+
+        Mockito.when(data.getDescription()).thenReturn(description);
+
+        return data;
+    }
 }

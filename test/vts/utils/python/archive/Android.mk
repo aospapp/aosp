@@ -12,33 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-PARSER := parser_test.py
+LOCAL_PATH:= $(call my-dir)
+include $(CLEAR_VARS)
 
-GCNO_PARSER := gcno_parser_test.py
+LOCAL_MODULE := vts_archive_test
+LOCAL_MODULE_CLASS := FAKE
+LOCAL_IS_HOST_MODULE := true
 
-GCDA_PARSER := gcda_parser_test.py
+include $(BUILD_SYSTEM)/base_rules.mk
 
-ARC_SUMMARY := arc_summary_test.py
+py_scripts := \
+  $(LOCAL_PATH)/archive_parser_test.py
 
-FUNCTION_SUMMARY := function_summary_test.py
-
-COVERAGE_REPORT := coverage_report_test.py
-
-default:
-	@echo "Running unit test for : $(PARSER)"
-	python $(PARSER)
-
-	@echo "Running unit test for : $(GCNO_PARSER)"
-	python $(GCNO_PARSER)
-
-	@echo "Running unit test for : $(GCDA_PARSER)"
-	python $(GCDA_PARSER)
-
-	@echo "Running unit test for : $(ARC_SUMMARY)"
-	python $(ARC_SUMMARY)
-
-	@echo "Running unit test for : $(FUNCTION_SUMMARY)"
-	python $(FUNCTION_SUMMARY)
-
-	@echo "Running unit test for : $(COVERAGE_REPORT)"
-	python $(COVERAGE_REPORT)
+$(LOCAL_BUILT_MODULE): PRIVATE_PY_SCRIPTS := $(py_scripts)
+$(LOCAL_BUILT_MODULE): $(py_scripts)
+	@echo "Regression test (build time): $(PRIVATE_MODULE)"
+	$(foreach py, $(PRIVATE_PY_SCRIPTS), (PYTHONPATH=$$PYTHONPATH:test python $(py)) &&) true
+	$(hide) touch $@

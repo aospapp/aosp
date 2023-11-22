@@ -3,7 +3,7 @@
 
 enum {
 	arch_x86_64 = 1,
-	arch_i386,
+	arch_x86,
 	arch_ppc,
 	arch_ia64,
 	arch_s390,
@@ -63,11 +63,7 @@ extern unsigned long arch_flags;
 #include "arch-generic.h"
 #endif
 
-#ifdef ARCH_HAVE_FFZ
-#define ffz(bitmask)	arch_ffz(bitmask)
-#else
 #include "../lib/ffz.h"
-#endif
 
 #ifndef ARCH_HAVE_INIT
 static inline int arch_init(char *envp[])

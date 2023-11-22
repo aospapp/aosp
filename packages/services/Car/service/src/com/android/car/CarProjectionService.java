@@ -149,7 +149,7 @@ class CarProjectionService extends ICarProjection.Stub implements CarServiceBase
     }
 
     @Override
-    public void regsiterProjectionListener(ICarProjectionCallback listener, int filter) {
+    public void registerProjectionListener(ICarProjectionCallback listener, int filter) {
         synchronized (this) {
             ListenerInfo info = (ListenerInfo) mAllListeners.getBinderInterface(listener);
             if (info == null) {
@@ -163,7 +163,7 @@ class CarProjectionService extends ICarProjection.Stub implements CarServiceBase
     }
 
     @Override
-    public void unregsiterProjectionListener(ICarProjectionCallback listener) {
+    public void unregisterProjectionListener(ICarProjectionCallback listener) {
         synchronized (this) {
             mAllListeners.removeBinder(listener);
         }
@@ -204,7 +204,7 @@ class CarProjectionService extends ICarProjection.Stub implements CarServiceBase
     @Override
     public void onBinderDeath(
             BinderInterfaceContainer.BinderInterface<ICarProjectionCallback> bInterface) {
-        unregsiterProjectionListener(bInterface.binderInterface);
+        unregisterProjectionListener(bInterface.binderInterface);
     }
 
     @Override

@@ -17,6 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Информације за хитне случајеве"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"Медицински подаци"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"Измени податке"</string>
     <string name="edit_info" msgid="5973929805855224805">"Измените информације за хитне случајеве"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Информације"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Контакти"</string>
@@ -96,12 +98,12 @@
     <string name="cancel" msgid="7401575239009060939">"Откажи"</string>
     <string name="ok" msgid="163967937451981024">"Потврди"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"Информације за хитне случајеве"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"Информације које овде унесете могу да помогну екипама хитних служби у хитним случајевима. Чувају се само на уређају и свако може да их прочита из апликације за позиве у хитним случајевима без откључавања телефона."</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"Настави"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Нема информација о власнику телефона"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"Ако је ово ваш телефон, додирните икону оловке да бисте додали информације које ће се приказивати овде у хитном случају"</string>
     <string name="clear_all" msgid="8899013032870561633">"Обриши све"</string>
     <string name="clear" msgid="3648880442502887163">"Обриши"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Желите ли да обришете све информације и контакте?"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"Ако додате медицинске податке и контакте за хитне случајеве, можете да помогнете екипама хитних служби у хитним случајевима.\n\nСвако може да прочита те податке са закључаног екрана без откључавања телефона."</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"Додајте информације за хитне случајеве"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"Помозите екипама хитних служби да пронађу важне информације"</string>
 </resources>

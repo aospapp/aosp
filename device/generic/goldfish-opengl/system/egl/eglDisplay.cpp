@@ -15,8 +15,6 @@
 */
 #include "eglDisplay.h"
 #include "HostConnection.h"
-#include "goldfishHwc2.h"
-
 #include <dlfcn.h>
 
 #include <string>
@@ -72,7 +70,6 @@ eglDisplay::eglDisplay() :
     pthread_mutex_init(&m_lock, NULL);
     pthread_mutex_init(&m_ctxLock, NULL);
     pthread_mutex_init(&m_surfaceLock, NULL);
-    surfaceInterface_init();
 }
 
 eglDisplay::~eglDisplay()
@@ -83,6 +80,12 @@ eglDisplay::~eglDisplay()
     pthread_mutex_destroy(&m_surfaceLock);
 }
 
+#if PLATFORM_SDK_VERSION >= 26
+#define PARTITION "/vendor"
+#else
+#define PARTITION "/system"
+#endif
+
 bool eglDisplay::initialize(EGLClient_eglInterface *eglIface)
 {
     pthread_mutex_lock(&m_lock);
@@ -92,11 +95,11 @@ bool eglDisplay::initialize(EGLClient_eglInterface *eglIface)
         // load GLES client API
         //
 #if __LP64__
-        m_gles_iface = loadGLESClientAPI("/system/lib64/egl/libGLESv1_CM_emulation.so",
+        m_gles_iface = loadGLESClientAPI(PARTITION "/lib64/egl/libGLESv1_CM_emulation.so",
                                          eglIface,
                                          &s_gles_lib);
 #else
-        m_gles_iface = loadGLESClientAPI("/system/lib/egl/libGLESv1_CM_emulation.so",
+        m_gles_iface = loadGLESClientAPI(PARTITION "/lib/egl/libGLESv1_CM_emulation.so",
                                          eglIface,
                                          &s_gles_lib);
 #endif
@@ -108,11 +111,11 @@ bool eglDisplay::initialize(EGLClient_eglInterface *eglIface)
 
 #ifdef WITH_GLES2
 #if __LP64__
-        m_gles2_iface = loadGLESClientAPI("/system/lib64/egl/libGLESv2_emulation.so",
+        m_gles2_iface = loadGLESClientAPI(PARTITION "/lib64/egl/libGLESv2_emulation.so",
                                           eglIface,
                                           &s_gles2_lib);
 #else
-        m_gles2_iface = loadGLESClientAPI("/system/lib/egl/libGLESv2_emulation.so",
+        m_gles2_iface = loadGLESClientAPI(PARTITION "/lib/egl/libGLESv2_emulation.so",
                                           eglIface,
                                           &s_gles2_lib);
 #endif

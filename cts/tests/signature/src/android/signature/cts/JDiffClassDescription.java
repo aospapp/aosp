@@ -16,86 +16,37 @@
 
 package android.signature.cts;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.GenericArrayType;
-import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
-import java.lang.reflect.TypeVariable;
-import java.lang.reflect.WildcardType;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
 
 /**
  * Represents class descriptions loaded from a jdiff xml file.  Used
  * for CTS SignatureTests.
  */
 public class JDiffClassDescription {
-    /** Indicates that the class is an annotation. */
-    private static final int CLASS_MODIFIER_ANNOTATION = 0x00002000;
-    /** Indicates that the class is an enum. */
-    private static final int CLASS_MODIFIER_ENUM       = 0x00004000;
-
-    /** Indicates that the method is a bridge method. */
-    private static final int METHOD_MODIFIER_BRIDGE    = 0x00000040;
-    /** Indicates that the method is takes a variable number of arguments. */
-    private static final int METHOD_MODIFIER_VAR_ARGS  = 0x00000080;
-    /** Indicates that the method is a synthetic method. */
-    private static final int METHOD_MODIFIER_SYNTHETIC = 0x00001000;
-
-    private static final Set<String> HIDDEN_INTERFACE_WHITELIST = new HashSet<>();
-    static {
-        // Interfaces that define @hide methods will by definition contain
-        // methods that do not appear in current.txt. Interfaces added to this
-        // list are probably not meant to be implemented in an application.
-        HIDDEN_INTERFACE_WHITELIST.add("public abstract boolean android.companion.DeviceFilter.matches(D)");
-        HIDDEN_INTERFACE_WHITELIST.add("public static <D> boolean android.companion.DeviceFilter.matches(android.companion.DeviceFilter<D>,D)");
-        HIDDEN_INTERFACE_WHITELIST.add("public abstract java.lang.String android.companion.DeviceFilter.getDeviceDisplayName(D)");
-        HIDDEN_INTERFACE_WHITELIST.add("public abstract int android.companion.DeviceFilter.getMediumType()");
-        HIDDEN_INTERFACE_WHITELIST.add("public abstract void android.nfc.tech.TagTechnology.reconnect() throws java.io.IOException");
-        HIDDEN_INTERFACE_WHITELIST.add("public abstract void android.os.IBinder.shellCommand(java.io.FileDescriptor,java.io.FileDescriptor,java.io.FileDescriptor,java.lang.String[],android.os.ShellCallback,android.os.ResultReceiver) throws android.os.RemoteException");
-        HIDDEN_INTERFACE_WHITELIST.add("public abstract int android.text.ParcelableSpan.getSpanTypeIdInternal()");
-        HIDDEN_INTERFACE_WHITELIST.add("public abstract void android.text.ParcelableSpan.writeToParcelInternal(android.os.Parcel,int)");
-        HIDDEN_INTERFACE_WHITELIST.add("public abstract void android.view.WindowManager.requestAppKeyboardShortcuts(android.view.WindowManager$KeyboardShortcutsReceiver,int)");
-        HIDDEN_INTERFACE_WHITELIST.add("public abstract boolean javax.microedition.khronos.egl.EGL10.eglReleaseThread()");
-        HIDDEN_INTERFACE_WHITELIST.add("public abstract void org.w3c.dom.ls.LSSerializer.setFilter(org.w3c.dom.ls.LSSerializerFilter)");
-        HIDDEN_INTERFACE_WHITELIST.add("public abstract org.w3c.dom.ls.LSSerializerFilter org.w3c.dom.ls.LSSerializer.getFilter()");
-    }
 
     public enum JDiffType {
         INTERFACE, CLASS
     }
 
-    @SuppressWarnings("unchecked")
-    private Class<?> mClass;
-    // A map of field name to field of the fields contained in {@code mClass}
-    private Map<String, Field> mClassFieldMap;
-
-    private String mPackageName;
-    private String mShortClassName;
+    private final String mPackageName;
+    private final String mShortClassName;
 
     /**
      * Package name + short class name
      */
-    private String mAbsoluteClassName;
+    private final String mAbsoluteClassName;
 
     private int mModifier;
 
     private String mExtendedClass;
-    private List<String> implInterfaces = new ArrayList<String>();
-    private List<JDiffField> jDiffFields = new ArrayList<JDiffField>();
-    private List<JDiffMethod> jDiffMethods = new ArrayList<JDiffMethod>();
-    private List<JDiffConstructor> jDiffConstructors = new ArrayList<JDiffConstructor>();
+    private List<String> implInterfaces = new ArrayList<>();
+    private List<JDiffField> jDiffFields = new ArrayList<>();
+    private List<JDiffMethod> jDiffMethods = new ArrayList<>();
+    private List<JDiffConstructor> jDiffConstructors = new ArrayList<>();
 
-    private ResultObserver mResultObserver;
     private JDiffType mClassType;
 
     /**
@@ -105,26 +56,46 @@ public class JDiffClassDescription {
      * @param className the name of the class.
      */
     public JDiffClassDescription(String pkg, String className) {
-        this(pkg, className, new ResultObserver() {
-            @Override
-            public void notifyFailure(FailureType type, String name, String errorMessage) {
-                // This is a null result observer that doesn't do anything.
-            }
-        });
-    }
-
-    /**
-     * Creates a new JDiffClassDescription with the specified results
-     * observer.
-     *
-     * @param pkg the java package this class belongs in.
-     * @param className the name of the class.
-     * @param resultObserver the resultObserver to get results with.
-     */
-    public JDiffClassDescription(String pkg, String className, ResultObserver resultObserver) {
         mPackageName = pkg;
         mShortClassName = className;
-        mResultObserver = resultObserver;
+        mAbsoluteClassName = mPackageName + "." + mShortClassName;
+    }
+
+
+    String getPackageName() {
+        return mPackageName;
+    }
+
+    String getShortClassName() {
+        return mShortClassName;
+    }
+
+    int getModifier() {
+        return mModifier;
+    }
+
+    String getExtendedClass() {
+        return mExtendedClass;
+    }
+
+    List<String> getImplInterfaces() {
+        return implInterfaces;
+    }
+
+    List<JDiffField> getFields() {
+        return jDiffFields;
+    }
+
+    List<JDiffMethod> getMethods() {
+        return jDiffMethods;
+    }
+
+    List<JDiffConstructor> getConstructors() {
+        return jDiffConstructors;
+    }
+
+    JDiffType getClassType() {
+        return mClassType;
     }
 
     /**
@@ -132,7 +103,7 @@ public class JDiffClassDescription {
      *
      * @param iname name of interface
      */
-    public void addImplInterface(String iname) {
+    void addImplInterface(String iname) {
         implInterfaces.add(iname);
     }
 
@@ -177,83 +148,50 @@ public class JDiffClassDescription {
     }
 
     static String convertModifersToModifierString(int modifiers) {
-        StringBuffer sb = new StringBuffer();
-        boolean isFirst = true;
+        StringBuilder sb = new StringBuilder();
+        String separator = "";
 
         // order taken from Java Language Spec, sections 8.1.1, 8.3.1, and 8.4.3
         if ((modifiers & Modifier.ABSTRACT) != 0) {
-            if (isFirst) {
-                isFirst = false;
-            } else {
-                sb.append(" ");
-            }
-            sb.append("abstract");
+            sb.append(separator).append("abstract");
+            separator = " ";
         }
         if ((modifiers & Modifier.STATIC) != 0) {
-            if (isFirst) {
-                isFirst = false;
-            } else {
-                sb.append(" ");
-            }
-            sb.append("static");
+            sb.append(separator).append("static");
+            separator = " ";
         }
         if ((modifiers & Modifier.FINAL) != 0) {
-            if (isFirst) {
-                isFirst = false;
-            } else {
-                sb.append(" ");
-            }
-            sb.append("final");
+            sb.append(separator).append("final");
+            separator = " ";
         }
         if ((modifiers & Modifier.TRANSIENT) != 0) {
-            if (isFirst) {
-                isFirst = false;
-            } else {
-                sb.append(" ");
-            }
-            sb.append("transient");
+            sb.append(separator).append("transient");
+            separator = " ";
         }
         if ((modifiers & Modifier.VOLATILE) != 0) {
-            if (isFirst) {
-                isFirst = false;
-            } else {
-                sb.append(" ");
-            }
-            sb.append("volatile");
+            sb.append(separator).append("volatile");
+            separator = " ";
         }
         if ((modifiers & Modifier.SYNCHRONIZED) != 0) {
-            if (isFirst) {
-                isFirst = false;
-            } else {
-                sb.append(" ");
-            }
-            sb.append("synchronized");
+            sb.append(separator).append("synchronized");
+            separator = " ";
         }
         if ((modifiers & Modifier.NATIVE) != 0) {
-            if (isFirst) {
-                isFirst = false;
-            } else {
-                sb.append(" ");
-            }
-            sb.append("native");
+            sb.append(separator).append("native");
+            separator = " ";
         }
         if ((modifiers & Modifier.STRICT) != 0) {
-            if (isFirst) {
-                isFirst = false;
-            } else {
-                sb.append(" ");
-            }
-            sb.append("strictfp");
+            sb.append(separator).append("strictfp");
         }
 
         return sb.toString();
     }
 
-    public abstract static class JDiffElement {
+    abstract static class JDiffElement {
         final String mName;
         int mModifier;
 
-        public JDiffElement(String name, int modifier) {
+        JDiffElement(String name, int modifier) {
             mName = name;
             mModifier = modifier;
         }
@@ -263,7 +201,7 @@ public class JDiffClassDescription {
      * Represents a  field.
      */
     public static final class JDiffField extends JDiffElement {
-        private String mFieldType;
+        String mFieldType;
         private String mFieldValue;
 
         public JDiffField(String name, String fieldType, int modifier, String value) {
@@ -286,12 +224,12 @@ public class JDiffClassDescription {
          * @param className The specified class name.
          * @return A readable string to represent this field along with the class name.
          */
-        public String toReadableString(String className) {
+        String toReadableString(String className) {
             return className + "#" + mName + "(" + mFieldType + ")";
         }
 
         public String toSignatureString() {
-            StringBuffer sb = new StringBuffer();
+            StringBuilder sb = new StringBuilder();
 
             // access level
             String accesLevel = convertModifiersToAccessLevel(mModifier);
@@ -316,9 +254,9 @@ public class JDiffClassDescription {
      * Represents a method.
      */
     public static class JDiffMethod extends JDiffElement {
-        protected String mReturnType;
-        protected ArrayList<String> mParamList;
-        protected ArrayList<String> mExceptionList;
+        String mReturnType;
+        ArrayList<String> mParamList;
+        ArrayList<String> mExceptionList;
 
         public JDiffMethod(String name, int modifier, String returnType) {
             super(name, modifier);
@@ -329,8 +267,8 @@ public class JDiffClassDescription {
                 mReturnType = scrubJdiffParamType(returnType);
             }
 
-            mParamList = new ArrayList<String>();
-            mExceptionList = new ArrayList<String>();
+            mParamList = new ArrayList<>();
+            mExceptionList = new ArrayList<>();
         }
 
         /**
@@ -357,7 +295,7 @@ public class JDiffClassDescription {
          * @param className The specified class name.
          * @return A readable string to represent this method along with the class name.
          */
-        public String toReadableString(String className) {
+        String toReadableString(String className) {
             return className + "#" + mName + "(" + convertParamList(mParamList) + ")";
         }
 
@@ -369,11 +307,11 @@ public class JDiffClassDescription {
          */
         private static String convertParamList(final ArrayList<String> params) {
 
-            StringBuffer paramList = new StringBuffer();
+            StringBuilder paramList = new StringBuilder();
 
             if (params != null) {
                 for (String str : params) {
-                    paramList.append(str + ", ");
+                    paramList.append(str).append(", ");
                 }
                 if (params.size() > 0) {
                     paramList.delete(paramList.length() - 2, paramList.length());
@@ -384,7 +322,7 @@ public class JDiffClassDescription {
         }
 
         public String toSignatureString() {
-            StringBuffer sb = new StringBuffer();
+            StringBuilder sb = new StringBuilder();
 
             // access level
             String accesLevel = convertModifiersToAccessLevel(mModifier);
@@ -444,14 +382,6 @@ public class JDiffClassDescription {
             super(name, modifier, null);
         }
 
-        public JDiffConstructor(String name, String[] param, int modifier) {
-            super(name, modifier, null);
-
-            for (int i = 0; i < param.length; i++) {
-                addParam(param[i]);
-            }
-        }
-
         /**
          * Gets the return type.
          *
@@ -465,551 +395,6 @@ public class JDiffClassDescription {
     }
 
     /**
-     * Checks test class's name, modifier, fields, constructors, and
-     * methods.
-     */
-    public void checkSignatureCompliance() {
-        checkClassCompliance();
-        if (mClass != null) {
-            mClassFieldMap = buildFieldMap(mClass);
-            checkFieldsCompliance();
-            checkConstructorCompliance();
-            checkMethodCompliance();
-        } else {
-            mClassFieldMap = null;
-        }
-    }
-
-    /**
-     * Checks to ensure that the modifiers value for two methods are
-     * compatible.
-     *
-     * Allowable differences are:
-     *   - synchronized is allowed to be removed from an apiMethod
-     *     that has it
-     *   - the native modified is ignored
-     *
-     * @param apiMethod the method read from the api file.
-     * @param reflectedMethod the method found via reflections.
-     */
-    private boolean areMethodsModifiedCompatible(JDiffMethod apiMethod ,
-            Method reflectedMethod) {
-
-        // If the apiMethod isn't synchronized
-        if (((apiMethod.mModifier & Modifier.SYNCHRONIZED) == 0) &&
-                // but the reflected method is
-                ((reflectedMethod.getModifiers() & Modifier.SYNCHRONIZED) != 0)) {
-            // that is a problem
-            return false;
-        }
-
-        // Mask off NATIVE since it is a don't care.  Also mask off
-        // SYNCHRONIZED since we've already handled that check.
-        int ignoredMods = (Modifier.NATIVE | Modifier.SYNCHRONIZED | Modifier.STRICT);
-        int mod1 = reflectedMethod.getModifiers() & ~ignoredMods;
-        int mod2 = apiMethod.mModifier & ~ignoredMods;
-
-        // We can ignore FINAL for classes
-        if ((mModifier & Modifier.FINAL) != 0) {
-            mod1 &= ~Modifier.FINAL;
-            mod2 &= ~Modifier.FINAL;
-        }
-
-        return mod1 == mod2;
-    }
-
-    /**
-     * Checks that the method found through reflection matches the
-     * specification from the API xml file.
-     */
-    private void checkMethodCompliance() {
-        for (JDiffMethod method : jDiffMethods) {
-            try {
-
-                Method m = findMatchingMethod(method);
-                if (m == null) {
-                    mResultObserver.notifyFailure(FailureType.MISSING_METHOD,
-                            method.toReadableString(mAbsoluteClassName),
-                            "No method with correct signature found:" +
-                            method.toSignatureString());
-                } else {
-                    if (m.isVarArgs()) {
-                        method.mModifier |= METHOD_MODIFIER_VAR_ARGS;
-                    }
-                    if (m.isBridge()) {
-                        method.mModifier |= METHOD_MODIFIER_BRIDGE;
-                    }
-                    if (m.isSynthetic()) {
-                        method.mModifier |= METHOD_MODIFIER_SYNTHETIC;
-                    }
-
-                    // FIXME: A workaround to fix the final mismatch on enumeration
-                    if (mClass.isEnum() && method.mName.equals("values")) {
-                        return;
-                    }
-
-                    if (!areMethodsModifiedCompatible(method, m)) {
-                        mResultObserver.notifyFailure(FailureType.MISMATCH_METHOD,
-                                method.toReadableString(mAbsoluteClassName),
-                                "Non-compatible method found when looking for " +
-                                method.toSignatureString());
-                    }
-                }
-            } catch (Exception e) {
-                loge("Got exception when checking method compliance", e);
-                mResultObserver.notifyFailure(FailureType.CAUGHT_EXCEPTION,
-                        method.toReadableString(mAbsoluteClassName),
-                "Exception!");
-            }
-        }
-    }
-
-    /**
-     * Checks if the two types of methods are the same.
-     *
-     * @param jDiffMethod the jDiffMethod to compare
-     * @param method the reflected method to compare
-     * @return true, if both methods are the same
-     */
-    private boolean matches(JDiffMethod jDiffMethod, Method reflectedMethod) {
-        // If the method names aren't equal, the methods can't match.
-        if (!jDiffMethod.mName.equals(reflectedMethod.getName())) {
-            return false;
-        }
-        String jdiffReturnType = jDiffMethod.mReturnType;
-        String reflectionReturnType = typeToString(reflectedMethod.getGenericReturnType());
-        List<String> jdiffParamList = jDiffMethod.mParamList;
-
-        // Next, compare the return types of the two methods.  If
-        // they aren't equal, the methods can't match.
-        if (!jdiffReturnType.equals(reflectionReturnType)) {
-            return false;
-        }
-
-        Type[] params = reflectedMethod.getGenericParameterTypes();
-
-        // Next, check the method parameters.  If they have different
-        // parameter lengths, the two methods can't match.
-        if (jdiffParamList.size() != params.length) {
-            return false;
-        }
-
-        boolean piecewiseParamsMatch = true;
-
-        // Compare method parameters piecewise and return true if they all match.
-        for (int i = 0; i < jdiffParamList.size(); i++) {
-            piecewiseParamsMatch &= compareParam(jdiffParamList.get(i), params[i]);
-        }
-        if (piecewiseParamsMatch) {
-            return true;
-        }
-
-        /** NOTE: There are cases where piecewise method parameter checking
-         * fails even though the strings are equal, so compare entire strings
-         * against each other. This is not done by default to avoid a
-         * TransactionTooLargeException.
-         * Additionally, this can fail anyway due to extra
-         * information dug up by reflection.
-         *
-         * TODO: fix parameter equality checking and reflection matching
-         * See https://b.corp.google.com/issues/27726349
-         */
-
-        StringBuilder reflectedMethodParams = new StringBuilder("");
-        StringBuilder jdiffMethodParams = new StringBuilder("");
-
-        for (int i = 0; i < jdiffParamList.size(); i++) {
-            jdiffMethodParams.append(jdiffParamList.get(i));
-            reflectedMethodParams.append(params[i]);
-        }
-
-        String jDiffFName = jdiffMethodParams.toString();
-        String refName = reflectedMethodParams.toString();
-
-        return jDiffFName.equals(refName);
-    }
-
-    /**
-     * Finds the reflected method specified by the method description.
-     *
-     * @param method description of the method to find
-     * @return the reflected method, or null if not found.
-     */
-    @SuppressWarnings("unchecked")
-    private Method findMatchingMethod(JDiffMethod method) {
-        Method[] methods = mClass.getDeclaredMethods();
-
-        for (Method m : methods) {
-            if (matches(method, m)) {
-                return m;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Compares the parameter from the API and the parameter from
-     * reflection.
-     *
-     * @param jdiffParam param parsed from the API xml file.
-     * @param reflectionParamType param gotten from the Java reflection.
-     * @return True if the two params match, otherwise return false.
-     */
-    private static boolean compareParam(String jdiffParam, Type reflectionParamType) {
-        if (jdiffParam == null) {
-            return false;
-        }
-
-        String reflectionParam = typeToString(reflectionParamType);
-        // Most things aren't varargs, so just do a simple compare
-        // first.
-        if (jdiffParam.equals(reflectionParam)) {
-            return true;
-        }
-
-        // Check for varargs.  jdiff reports varargs as ..., while
-        // reflection reports them as []
-        int jdiffParamEndOffset = jdiffParam.indexOf("...");
-        int reflectionParamEndOffset = reflectionParam.indexOf("[]");
-        if (jdiffParamEndOffset != -1 && reflectionParamEndOffset != -1) {
-            jdiffParam = jdiffParam.substring(0, jdiffParamEndOffset);
-            reflectionParam = reflectionParam.substring(0, reflectionParamEndOffset);
-            return jdiffParam.equals(reflectionParam);
-        }
-
-        return false;
-    }
-
-    /**
-     * Checks whether the constructor parsed from API xml file and
-     * Java reflection are compliant.
-     */
-    @SuppressWarnings("unchecked")
-    private void checkConstructorCompliance() {
-        for (JDiffConstructor con : jDiffConstructors) {
-            try {
-                Constructor<?> c = findMatchingConstructor(con);
-                if (c == null) {
-                    mResultObserver.notifyFailure(FailureType.MISSING_METHOD,
-                            con.toReadableString(mAbsoluteClassName),
-                            "No method with correct signature found:" +
-                            con.toSignatureString());
-                } else {
-                    if (c.isVarArgs()) {// some method's parameter are variable args
-                        con.mModifier |= METHOD_MODIFIER_VAR_ARGS;
-                    }
-                    if (c.getModifiers() != con.mModifier) {
-                        mResultObserver.notifyFailure(
-                                FailureType.MISMATCH_METHOD,
-                                con.toReadableString(mAbsoluteClassName),
-                                "Non-compatible method found when looking for " +
-                                con.toSignatureString());
-                    }
-                }
-            } catch (Exception e) {
-                loge("Got exception when checking constructor compliance", e);
-                mResultObserver.notifyFailure(FailureType.CAUGHT_EXCEPTION,
-                        con.toReadableString(mAbsoluteClassName),
-                "Exception!");
-            }
-        }
-    }
-
-    /**
-     * Searches available constructor.
-     *
-     * @param jdiffDes constructor description to find.
-     * @return reflected constructor, or null if not found.
-     */
-    @SuppressWarnings("unchecked")
-    private Constructor<?> findMatchingConstructor(JDiffConstructor jdiffDes) {
-        for (Constructor<?> c : mClass.getDeclaredConstructors()) {
-            Type[] params = c.getGenericParameterTypes();
-            boolean isStaticClass = ((mClass.getModifiers() & Modifier.STATIC) != 0);
-
-            int startParamOffset = 0;
-            int numberOfParams = params.length;
-
-            // non-static inner class -> skip implicit parent pointer
-            // as first arg
-            if (mClass.isMemberClass() && !isStaticClass && params.length >= 1) {
-                startParamOffset = 1;
-                --numberOfParams;
-            }
-
-            ArrayList<String> jdiffParamList = jdiffDes.mParamList;
-            if (jdiffParamList.size() == numberOfParams) {
-                boolean isFound = true;
-                // i counts jdiff params, j counts reflected params
-                int i = 0;
-                int j = startParamOffset;
-                while (i < jdiffParamList.size()) {
-                    if (!compareParam(jdiffParamList.get(i), params[j])) {
-                        isFound = false;
-                        break;
-                    }
-                    ++i;
-                    ++j;
-                }
-                if (isFound) {
-                    return c;
-                }
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Checks all fields in test class for compliance with the API
-     * xml.
-     */
-    @SuppressWarnings("unchecked")
-    private void checkFieldsCompliance() {
-        for (JDiffField field : jDiffFields) {
-            try {
-                Field f = findMatchingField(field);
-                if (f == null) {
-                    mResultObserver.notifyFailure(FailureType.MISSING_FIELD,
-                            field.toReadableString(mAbsoluteClassName),
-                            "No field with correct signature found:" +
-                            field.toSignatureString());
-                } else if (f.getModifiers() != field.mModifier) {
-                    mResultObserver.notifyFailure(FailureType.MISMATCH_FIELD,
-                            field.toReadableString(mAbsoluteClassName),
-                            "Non-compatible field modifiers found when looking for " +
-                            field.toSignatureString());
-                } else if (!checkFieldValueCompliance(field, f)) {
-                    mResultObserver.notifyFailure(FailureType.MISMATCH_FIELD,
-                            field.toReadableString(mAbsoluteClassName),
-                            "Incorrect field value found when looking for " +
-                            field.toSignatureString());
-                }else if (!f.getType().getCanonicalName().equals(field.mFieldType)) {
-                    // type name does not match, but this might be a generic
-                    String genericTypeName = null;
-                    Type type = f.getGenericType();
-                    if (type != null) {
-                        genericTypeName = type instanceof Class ? ((Class) type).getName() :
-                            type.toString().replace('$', '.');
-                    }
-                    if (genericTypeName == null || !genericTypeName.equals(field.mFieldType)) {
-                        mResultObserver.notifyFailure(
-                                FailureType.MISMATCH_FIELD,
-                                field.toReadableString(mAbsoluteClassName),
-                                "Non-compatible field type found when looking for " +
-                                field.toSignatureString());
-                    }
-                }
-
-            } catch (Exception e) {
-                loge("Got exception when checking field compliance", e);
-                mResultObserver.notifyFailure(
-                        FailureType.CAUGHT_EXCEPTION,
-                        field.toReadableString(mAbsoluteClassName),
-                        "Exception!");
-            }
-        }
-    }
-
-    /**
-     * Checks whether the field values are compatible.
-     *
-     * @param apiField The field as defined by the platform API.
-     * @param deviceField The field as defined by the device under test.
-     */
-    private boolean checkFieldValueCompliance(JDiffField apiField, Field deviceField)
-            throws IllegalAccessException {
-        if ((apiField.mModifier & Modifier.FINAL) == 0 ||
-                (apiField.mModifier & Modifier.STATIC) == 0) {
-            // Only final static fields can have fixed values.
-            return true;
-        }
-        if (apiField.getValueString() == null) {
-            // If we don't define a constant value for it, then it can be anything.
-            return true;
-        }
-        // Some fields may be protected or package-private
-        deviceField.setAccessible(true);
-        switch(apiField.mFieldType) {
-            case "byte":
-                return Objects.equals(apiField.getValueString(),
-                        Byte.toString(deviceField.getByte(null)));
-            case "char":
-                return Objects.equals(apiField.getValueString(),
-                        Integer.toString(deviceField.getChar(null)));
-            case "short":
-                return Objects.equals(apiField.getValueString(),
-                        Short.toString(deviceField.getShort(null)));
-            case "int":
-                return Objects.equals(apiField.getValueString(),
-                        Integer.toString(deviceField.getInt(null)));
-            case "long":
-                return Objects.equals(apiField.getValueString(),
-                        Long.toString(deviceField.getLong(null)) + "L");
-            case "float":
-                return Objects.equals(apiField.getValueString(),
-                        canonicalizeFloatingPoint(
-                            Float.toString(deviceField.getFloat(null)), "f"));
-            case "double":
-                return Objects.equals(apiField.getValueString(),
-                        canonicalizeFloatingPoint(
-                            Double.toString(deviceField.getDouble(null)), ""));
-            case "boolean":
-                return Objects.equals(apiField.getValueString(),
-                        Boolean.toString(deviceField.getBoolean(null)));
-            case "java.lang.String":
-                String value = apiField.getValueString();
-                // Remove the quotes the value string is wrapped in
-                value = unescapeFieldStringValue(value.substring(1, value.length() - 1));
-                return Objects.equals(value, deviceField.get(null));
-            default:
-                return true;
-        }
-    }
-
-    /**
-     * Canonicalize the string representation of floating point numbers.
-     *
-     * This needs to be kept in sync with the doclava canonicalization.
-     */
-    private static final String canonicalizeFloatingPoint(String val, String suffix) {
-        if (val.equals("Infinity")) {
-            return "(1.0" + suffix + "/0.0" + suffix + ")";
-        } else if (val.equals("-Infinity")) {
-            return "(-1.0" + suffix + "/0.0" + suffix + ")";
-        } else if (val.equals("NaN")) {
-            return "(0.0" + suffix + "/0.0" + suffix + ")";
-        }
-
-        String str = val.toString();
-        if (str.indexOf('E') != -1) {
-            return str + suffix;
-        }
-
-        // 1.0 is the only case where a trailing "0" is allowed.
-        // 1.00 is canonicalized as 1.0.
-        int i = str.length() - 1;
-        int d = str.indexOf('.');
-        while (i >= d + 2 && str.charAt(i) == '0') {
-            str = str.substring(0, i--);
-        }
-        return str + suffix;
-    }
-
-
-    // This unescapes the string format used by doclava and so needs to be kept in sync with any
-    // changes made to that format.
-    private static String unescapeFieldStringValue(String str) {
-        final int N = str.length();
-
-        // If there's no special encoding strings in the string then just return it.
-        if (str.indexOf('\\') == -1) {
-            return str;
-        }
-
-        final StringBuilder buf = new StringBuilder(str.length());
-        char escaped = 0;
-        final int START = 0;
-        final int CHAR1 = 1;
-        final int CHAR2 = 2;
-        final int CHAR3 = 3;
-        final int CHAR4 = 4;
-        final int ESCAPE = 5;
-        int state = START;
-
-        for (int i=0; i<N; i++) {
-            final char c = str.charAt(i);
-            switch (state) {
-                case START:
-                    if (c == '\\') {
-                        state = ESCAPE;
-                    } else {
-                        buf.append(c);
-                    }
-                    break;
-                case ESCAPE:
-                    switch (c) {
-                        case '\\':
-                            buf.append('\\');
-                            state = START;
-                            break;
-                        case 't':
-                            buf.append('\t');
-                            state = START;
-                            break;
-                        case 'b':
-                            buf.append('\b');
-                            state = START;
-                            break;
-                        case 'r':
-                            buf.append('\r');
-                            state = START;
-                            break;
-                        case 'n':
-                            buf.append('\n');
-                            state = START;
-                            break;
-                        case 'f':
-                            buf.append('\f');
-                            state = START;
-                            break;
-                        case '\'':
-                            buf.append('\'');
-                            state = START;
-                            break;
-                        case '\"':
-                            buf.append('\"');
-                            state = START;
-                            break;
-                        case 'u':
-                            state = CHAR1;
-                            escaped = 0;
-                            break;
-                    }
-                    break;
-                case CHAR1:
-                case CHAR2:
-                case CHAR3:
-                case CHAR4:
-                    escaped <<= 4;
-                    if (c >= '0' && c <= '9') {
-                        escaped |= c - '0';
-                    } else if (c >= 'a' && c <= 'f') {
-                        escaped |= 10 + (c - 'a');
-                    } else if (c >= 'A' && c <= 'F') {
-                        escaped |= 10 + (c - 'A');
-                    } else {
-                        throw new RuntimeException(
-                                "bad escape sequence: '" + c + "' at pos " + i + " in: \""
-                                + str + "\"");
-                    }
-                    if (state == CHAR4) {
-                        buf.append(escaped);
-                        state = START;
-                    } else {
-                        state++;
-                    }
-                    break;
-            }
-        }
-        if (state != START) {
-            throw new RuntimeException("unfinished escape sequence: " + str);
-        }
-        return buf.toString();
-    }
-
-
-    /**
-     * Finds the reflected field specified by the field description.
-     *
-     * @param field the field description to find
-     * @return the reflected field, or null if not found.
-     */
-    private Field findMatchingField(JDiffField field) {
-        return mClassFieldMap.get(field.mName);
-    }
-
-    /**
      * Gets the list of fields found within this class.
      *
      * @return the list of fields.
@@ -1019,217 +404,12 @@ public class JDiffClassDescription {
     }
 
     /**
-     * Checks if the class under test has compliant modifiers compared to the API.
-     *
-     * @return true if modifiers are compliant.
-     */
-    private boolean checkClassModifiersCompliance() {
-        int reflectionModifier = mClass.getModifiers();
-        int apiModifier = mModifier;
-
-        // If the api class isn't abstract
-        if (((apiModifier & Modifier.ABSTRACT) == 0) &&
-                // but the reflected class is
-                ((reflectionModifier & Modifier.ABSTRACT) != 0) &&
-                // and it isn't an enum
-                !isEnumType()) {
-            // that is a problem
-            return false;
-        }
-        // ABSTRACT check passed, so mask off ABSTRACT
-        reflectionModifier &= ~Modifier.ABSTRACT;
-        apiModifier &= ~Modifier.ABSTRACT;
-
-        if (isAnnotation()) {
-            reflectionModifier &= ~CLASS_MODIFIER_ANNOTATION;
-        }
-        if (mClass.isInterface()) {
-            reflectionModifier &= ~(Modifier.INTERFACE);
-        }
-        if (isEnumType() && mClass.isEnum()) {
-            reflectionModifier &= ~CLASS_MODIFIER_ENUM;
-        }
-
-        return ((reflectionModifier == apiModifier) &&
-                (isEnumType() == mClass.isEnum()));
-    }
-
-    /**
-     * Checks if the class under test is compliant with regards to
-     * annnotations when compared to the API.
-     *
-     * @return true if the class is compliant
-     */
-    private boolean checkClassAnnotationCompliace() {
-        if (mClass.isAnnotation()) {
-            // check annotation
-            for (String inter : implInterfaces) {
-                if ("java.lang.annotation.Annotation".equals(inter)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-        return true;
-    }
-
-    /**
-     * Checks if the class under test extends the proper classes
-     * according to the API.
-     *
-     * @return true if the class is compliant.
-     */
-    private boolean checkClassExtendsCompliance() {
-        // Nothing to check if it doesn't extend anything.
-        if (mExtendedClass != null) {
-            Class<?> superClass = mClass.getSuperclass();
-
-            while (superClass != null) {
-                if (superClass.getCanonicalName().equals(mExtendedClass)) {
-                    return true;
-                }
-                superClass = superClass.getSuperclass();
-            }
-            // Couldn't find a matching superclass.
-            return false;
-        }
-        return true;
-    }
-
-    /**
-     * Checks if the class under test implements the proper interfaces
-     * according to the API.
-     *
-     * @return true if the class is compliant
-     */
-    private boolean checkClassImplementsCompliance() {
-        Class<?>[] interfaces = mClass.getInterfaces();
-        Set<String> interFaceSet = new HashSet<String>();
-
-        for (Class<?> c : interfaces) {
-            interFaceSet.add(c.getCanonicalName());
-        }
-
-        for (String inter : implInterfaces) {
-            if (!interFaceSet.contains(inter)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /**
-     * Validate that an interfaces method count is as expected.
-     */
-    private List<String> checkInterfaceMethodCompliance() {
-        List<String> unexpectedMethods = new ArrayList<>();
-        for (Method method : mClass.getDeclaredMethods()) {
-            if (method.isDefault()) {
-                continue;
-            }
-            if (method.isSynthetic()) {
-                continue;
-            }
-            if (method.isBridge()) {
-                continue;
-            }
-            if (HIDDEN_INTERFACE_WHITELIST.contains(method.toGenericString())) {
-                continue;
-            }
-
-            boolean foundMatch = false;
-            for (JDiffMethod jdiffMethod : jDiffMethods) {
-                if (matches(jdiffMethod, method)) {
-                    foundMatch = true;
-                }
-            }
-            if (!foundMatch) {
-                unexpectedMethods.add(method.toGenericString());
-            }
-        }
-
-        return unexpectedMethods;
-
-    }
-
-    /**
-     * Checks that the class found through reflection matches the
-     * specification from the API xml file.
-     */
-    @SuppressWarnings("unchecked")
-    private void checkClassCompliance() {
-        try {
-            mAbsoluteClassName = mPackageName + "." + mShortClassName;
-            mClass = findMatchingClass();
-
-            if (mClass == null) {
-                // No class found, notify the observer according to the class type
-                if (JDiffType.INTERFACE.equals(mClassType)) {
-                    mResultObserver.notifyFailure(FailureType.MISSING_INTERFACE,
-                            mAbsoluteClassName,
-                            "Classloader is unable to find " + mAbsoluteClassName);
-                } else {
-                    mResultObserver.notifyFailure(FailureType.MISSING_CLASS,
-                            mAbsoluteClassName,
-                            "Classloader is unable to find " + mAbsoluteClassName);
-                }
-
-                return;
-            }
-
-            List<String> methods = checkInterfaceMethodCompliance();
-            if (JDiffType.INTERFACE.equals(mClassType) && methods.size() > 0) {
-                mResultObserver.notifyFailure(FailureType.MISMATCH_INTERFACE_METHOD,
-                        mAbsoluteClassName, "Interfaces cannot be modified: "
-                                + mAbsoluteClassName + ": " + methods);
-                return;
-            }
-
-            if (!checkClassModifiersCompliance()) {
-                logMismatchInterfaceSignature(mAbsoluteClassName,
-                        "Non-compatible class found when looking for " +
-                        toSignatureString());
-                return;
-            }
-
-            if (!checkClassAnnotationCompliace()) {
-                logMismatchInterfaceSignature(mAbsoluteClassName,
-                "Annotation mismatch");
-                return;
-            }
-
-            if (!mClass.isAnnotation()) {
-                // check father class
-                if (!checkClassExtendsCompliance()) {
-                    logMismatchInterfaceSignature(mAbsoluteClassName,
-                    "Extends mismatch");
-                    return;
-                }
-
-                // check implements interface
-                if (!checkClassImplementsCompliance()) {
-                    logMismatchInterfaceSignature(mAbsoluteClassName,
-                    "Implements mismatch");
-                    return;
-                }
-            }
-        } catch (Exception e) {
-            loge("Got exception when checking field compliance", e);
-            mResultObserver.notifyFailure(
-                    FailureType.CAUGHT_EXCEPTION,
-                    mAbsoluteClassName,
-                    "Exception!");
-        }
-    }
-
-
-    /**
      * Convert the class into a printable signature string.
      *
      * @return the signature string
      */
     public String toSignatureString() {
-        StringBuffer sb = new StringBuffer();
+        StringBuilder sb = new StringBuilder();
 
         String accessLevel = convertModifiersToAccessLevel(mModifier);
         if (!"".equals(accessLevel)) {
@@ -1267,80 +447,13 @@ public class JDiffClassDescription {
         return sb.toString();
     }
 
-    private void logMismatchInterfaceSignature(String classFullName, String errorMessage) {
-        if (JDiffType.INTERFACE.equals(mClassType)) {
-            mResultObserver.notifyFailure(FailureType.MISMATCH_INTERFACE,
-                    classFullName,
-                    errorMessage);
-        } else {
-            mResultObserver.notifyFailure(FailureType.MISMATCH_CLASS,
-                    classFullName,
-                    errorMessage);
-        }
-    }
-
     /**
      * Sees if the class under test is actually an enum.
      *
      * @return true if this class is enum
      */
-    private boolean isEnumType() {
+    boolean isEnumType() {
         return "java.lang.Enum".equals(mExtendedClass);
-    }
-
-    /**
-     * Finds the reflected class for the class under test.
-     *
-     * @return the reflected class, or null if not found.
-     */
-    @SuppressWarnings("unchecked")
-    private Class<?> findMatchingClass() {
-        // even if there are no . in the string, split will return an
-        // array of length 1
-        String[] classNameParts = mShortClassName.split("\\.");
-        String currentName = mPackageName + "." + classNameParts[0];
-
-        try {
-            // Check to see if the class we're looking for is the top
-            // level class.
-            Class<?> clz = Class.forName(currentName,
-                    false,
-                    this.getClass().getClassLoader());
-            if (clz.getCanonicalName().equals(mAbsoluteClassName)) {
-                return clz;
-            }
-
-            // Then it must be an inner class.
-            for (int x = 1; x < classNameParts.length; x++) {
-                clz = findInnerClassByName(clz, classNameParts[x]);
-                if (clz == null) {
-                    return null;
-                }
-                if (clz.getCanonicalName().equals(mAbsoluteClassName)) {
-                    return clz;
-                }
-            }
-        } catch (ClassNotFoundException e) {
-            loge("ClassNotFoundException for " + mPackageName + "." + mShortClassName, e);
-            return null;
-        }
-        return null;
-    }
-
-    /**
-     * Searches the class for the specified inner class.
-     *
-     * @param clz the class to search in.
-     * @param simpleName the simpleName of the class to find
-     * @returns the class being searched for, or null if it can't be found.
-     */
-    private Class<?> findInnerClassByName(Class<?> clz, String simpleName) {
-        for (Class<?> c : clz.getDeclaredClasses()) {
-            if (c.getSimpleName().equals(simpleName)) {
-                return c;
-            }
-        }
-        return null;
     }
 
     /**
@@ -1348,11 +461,8 @@ public class JDiffClassDescription {
      *
      * @return true if this class is Annotation.
      */
-    private boolean isAnnotation() {
-        if (implInterfaces.contains("java.lang.annotation.Annotation")) {
-            return true;
-        }
-        return false;
+    boolean isAnnotation() {
+        return implInterfaces.contains("java.lang.annotation.Annotation");
     }
 
     /**
@@ -1360,7 +470,7 @@ public class JDiffClassDescription {
      *
      * @return the class name.
      */
-    public String getClassName() {
+    String getClassName() {
         return mShortClassName;
     }
 
@@ -1396,96 +506,8 @@ public class JDiffClassDescription {
      *
      * @param extendsClass the class being extended.
      */
-    public void setExtendsClass(String extendsClass) {
+    void setExtendsClass(String extendsClass) {
         mExtendedClass = extendsClass;
-    }
-
-    /**
-     * Registers a ResultObserver to process the output from the
-     * compliance testing done in this class.
-     *
-     * @param resultObserver the observer to register.
-     */
-    public void registerResultObserver(ResultObserver resultObserver) {
-        mResultObserver = resultObserver;
-    }
-
-    /**
-     * Converts WildcardType array into a jdiff compatible string..
-     * This is a helper function for typeToString.
-     *
-     * @param types array of types to format.
-     * @return the jdiff formatted string.
-     */
-    private static String concatWildcardTypes(Type[] types) {
-        StringBuffer sb = new StringBuffer();
-        int elementNum = 0;
-        for (Type t : types) {
-            sb.append(typeToString(t));
-            if (++elementNum < types.length) {
-                sb.append(" & ");
-            }
-        }
-        return sb.toString();
-    }
-
-    /**
-     * Converts a Type into a jdiff compatible String.  The returned
-     * types from this function should match the same Strings that
-     * jdiff is providing to us.
-     *
-     * @param type the type to convert.
-     * @return the jdiff formatted string.
-     */
-    private static String typeToString(Type type) {
-        if (type instanceof ParameterizedType) {
-            ParameterizedType pt = (ParameterizedType) type;
-
-            StringBuffer sb = new StringBuffer();
-            sb.append(typeToString(pt.getRawType()));
-            sb.append("<");
-
-            int elementNum = 0;
-            Type[] types = pt.getActualTypeArguments();
-            for (Type t : types) {
-                sb.append(typeToString(t));
-                if (++elementNum < types.length) {
-                    sb.append(", ");
-                }
-            }
-
-            sb.append(">");
-            return sb.toString();
-        } else if (type instanceof TypeVariable) {
-            return ((TypeVariable<?>) type).getName();
-        } else if (type instanceof Class) {
-            return ((Class<?>) type).getCanonicalName();
-        } else if (type instanceof GenericArrayType) {
-            String typeName = typeToString(((GenericArrayType) type).getGenericComponentType());
-            return typeName + "[]";
-        } else if (type instanceof WildcardType) {
-            WildcardType wt = (WildcardType) type;
-            Type[] lowerBounds = wt.getLowerBounds();
-            if (lowerBounds.length == 0) {
-                String name = "? extends " + concatWildcardTypes(wt.getUpperBounds());
-
-                // Special case for ?
-                if (name.equals("? extends java.lang.Object")) {
-                    return "?";
-                } else {
-                    return name;
-                }
-            } else {
-                String name = concatWildcardTypes(wt.getUpperBounds()) +
-                " super " +
-                concatWildcardTypes(wt.getLowerBounds());
-                // Another special case for ?
-                name = name.replace("java.lang.Object", "?");
-                return name;
-            }
-        } else {
-            throw new RuntimeException("Got an unknown java.lang.Type");
-        }
     }
 
     /**
@@ -1502,32 +524,8 @@ public class JDiffClassDescription {
             .replace("? super java.lang.Object", "? super ?");
     }
 
-    /**
-     * Scan a class (an its entire inheritance chain) for fields.
-     *
-     * @return a {@link Map} of fieldName to {@link Field}
-     */
-    private static Map<String, Field> buildFieldMap(Class testClass) {
-        Map<String, Field> fieldMap = new HashMap<String, Field>();
-        // Scan the superclass
-        if (testClass.getSuperclass() != null) {
-            fieldMap.putAll(buildFieldMap(testClass.getSuperclass()));
-        }
-
-        // Scan the interfaces
-        for (Class interfaceClass : testClass.getInterfaces()) {
-            fieldMap.putAll(buildFieldMap(interfaceClass));
-        }
-
-        // Check the fields in the test class
-        for (Field field : testClass.getDeclaredFields()) {
-            fieldMap.put(field.getName(), field);
-        }
-
-        return fieldMap;
-    }
-
-    private static void loge(String message, Exception exception) {
-        System.err.println(String.format("%s: %s", message, exception));
+    @Override
+    public String toString() {
+        return mAbsoluteClassName;
     }
 }

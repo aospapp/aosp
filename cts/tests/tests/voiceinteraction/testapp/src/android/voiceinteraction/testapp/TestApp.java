@@ -34,6 +34,7 @@ import android.service.voice.VoiceInteractionService;
 import android.util.Log;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import android.voiceinteraction.common.Utils;
 
@@ -98,7 +99,7 @@ public class TestApp extends Activity {
           case SUPPORTS_COMMANDS_TEST:
               String[] commands = {Utils.TEST_COMMAND};
               boolean[] supported = mInteractor.supportsCommands(commands);
-              Log.i(TAG, "from supportsCommands: " + supported);
+              Log.i(TAG, "from supportsCommands: " + Arrays.toString(supported));
               if (supported.length == 1 && supported[0]) {
                 addTestResult(Utils.SUPPORTS_COMMANDS_SUCCESS);
               } else {

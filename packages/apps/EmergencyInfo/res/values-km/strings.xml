@@ -17,6 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"ព័ត៌មានបន្ទាន់"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"ព័ត៌មានវេជ្ជសាស្រ្ត"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"កែសម្រួលព័ត៌មាន"</string>
     <string name="edit_info" msgid="5973929805855224805">"កែព័ត៌មានបន្ទាន់"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"ព័ត៌មាន"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"ទំនាក់ទំនង"</string>
@@ -96,12 +98,12 @@
     <string name="cancel" msgid="7401575239009060939">"បោះបង់"</string>
     <string name="ok" msgid="163967937451981024">"យល់ព្រម"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"ព័ត៌មានបន្ទាន់"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"ព័ត៌មានដែលអ្នកបញ្ចូលនៅទីនេះអាចជួយដល់អ្នកសង្គ្រោះបន្ទាន់ នៅពេលដែល​មានអាសន្នកើតឡើង។ ព័ត៌មាន​នេះ​ត្រូវបាន​ផ្ទុកនៅក្នុងឧបករណ៍របស់អ្នកតែមួយគត់ ហើយអ្នកណាក៏អាចអានព័ត៌មាននេះបាននៅលើអេក្រង់ហៅទូរសព្ទសង្គ្រោះបន្ទាន់ដោយមិនចាំបាច់ដោះសោទូរសព្ទរបស់អ្នកឡើយ។"</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"បន្ត"</string>
     <string name="no_info_provided" msgid="716200382010821001">"គ្មានព័ត៌មានអំពីម្ចាស់ទូរសព្ទនេះទេ"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"ប្រសិនបើទូរសព្ទនេះជារបស់អ្នក សូមប៉ះរូបតំណាងខ្មៅដៃដើម្បីបញ្ចូលព័ត៌មានដែលនឹងត្រូវបង្ហាញនៅទីនេះក្នុងករណីសង្គ្រោះបន្ទាន់"</string>
-    <string name="clear_all" msgid="8899013032870561633">"ជម្រះទាំងអស់"</string>
-    <string name="clear" msgid="3648880442502887163">"ជម្រះ"</string>
+    <string name="clear_all" msgid="8899013032870561633">"លុបទាំងអស់"</string>
+    <string name="clear" msgid="3648880442502887163">"លុប"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"លុបព័ត៌មាន និងទំនាក់ទំនងទាំងអស់ឬ?"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"ការបញ្ចូលព័ត៌មានវេជ្ជសាស្ត្រ និងទំនាក់ទំនងសង្គ្រោះបន្ទាន់អាចជួយអ្នកសង្គ្រោះបឋមក្នុងប្រតិបត្តិការសង្គ្រោះបន្ទាន់បាន។\n\nអ្នករាល់គ្នាអាចអានព័ត៌មាននេះពីអេក្រង់ចាក់សោរបស់អ្នក និងហៅទូរសព្ទទៅលេខក្នុងទំនាក់ទំនងរបស់អ្នកដោយចុចឈ្មោះរបស់ពួកគេ ដោយមិនចាំបាច់ដោះសោអេក្រង់ទូរសព្ទរបស់អ្នកនោះទេ។"</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"បញ្ចូល​ព័ត៌មាន​បន្ទាន់"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"ជួយឲ្យ​អ្នកសង្គ្រោះដំបូងៗ​រក​ឃើញ​ព័ត៌មានសំខាន់"</string>
 </resources>

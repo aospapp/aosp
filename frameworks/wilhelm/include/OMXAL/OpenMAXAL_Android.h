@@ -17,6 +17,8 @@
 #ifndef OPENMAX_AL_ANDROID_H_
 #define OPENMAX_AL_ANDROID_H_
 
+#include "OpenMAXAL.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

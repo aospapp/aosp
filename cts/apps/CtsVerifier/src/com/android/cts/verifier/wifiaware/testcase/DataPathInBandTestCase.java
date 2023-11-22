@@ -22,6 +22,7 @@ import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
+import android.net.wifi.aware.DiscoverySession;
 import android.net.wifi.aware.PeerHandle;
 import android.net.wifi.aware.PublishConfig;
 import android.net.wifi.aware.PublishDiscoverySession;
@@ -89,6 +90,7 @@ public class DataPathInBandTestCase extends BaseTestCase {
 
     private String mFailureReason;
     private WifiAwareSession mWifiAwareSession;
+    private DiscoverySession mWifiAwareDiscoverySession;
 
     public DataPathInBandTestCase(Context context, boolean isSecurityOpen, boolean isPublish,
             boolean isUnsolicited) {
@@ -153,6 +155,10 @@ public class DataPathInBandTestCase extends BaseTestCase {
 
     @Override
     protected void tearDown() {
+        if (mWifiAwareDiscoverySession != null) {
+            mWifiAwareDiscoverySession.close();
+            mWifiAwareDiscoverySession = null;
+        }
         if (mWifiAwareSession != null) {
             mWifiAwareSession.close();
             mWifiAwareSession = null;
@@ -191,6 +197,7 @@ public class DataPathInBandTestCase extends BaseTestCase {
                 return false;
         }
         SubscribeDiscoverySession discoverySession = callbackData.subscribeDiscoverySession;
+        mWifiAwareDiscoverySession = discoverySession;
         if (discoverySession == null) {
             setFailureReason(mContext.getString(R.string.aware_status_subscribe_null_session));
             Log.e(TAG, "executeTestSubscriber: subscribe succeeded but null session returned");
@@ -305,6 +312,7 @@ public class DataPathInBandTestCase extends BaseTestCase {
 
         // 7. destroy session
         discoverySession.close();
+        mWifiAwareDiscoverySession = null;
 
         mListener.onTestMsgReceived(mContext.getString(R.string.aware_status_lifecycle_ok));
         return true;
@@ -340,6 +348,7 @@ public class DataPathInBandTestCase extends BaseTestCase {
                 return false;
         }
         PublishDiscoverySession discoverySession = callbackData.publishDiscoverySession;
+        mWifiAwareDiscoverySession = discoverySession;
         if (discoverySession == null) {
             setFailureReason(mContext.getString(R.string.aware_status_publish_null_session));
             Log.e(TAG, "executeTestPublisher: publish succeeded but null session returned");
@@ -420,6 +429,7 @@ public class DataPathInBandTestCase extends BaseTestCase {
 
         // 7. destroy session
         discoverySession.close();
+        mWifiAwareDiscoverySession = null;
 
         mListener.onTestMsgReceived(mContext.getString(R.string.aware_status_lifecycle_ok));
         return true;

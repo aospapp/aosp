@@ -23,12 +23,13 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
-import android.support.car.ui.PagedListView;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+
+import com.android.car.view.PagedListView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,7 +45,6 @@ public class LensPickerAdapter extends RecyclerView.Adapter<LensPickerRow>
     private final Context mContext;
     private final LensPickerSelectionHandler mSelectionHandler;
     private final List<LensPickerItem> mItems = new ArrayList<>();
-    private int mMaxItems;
 
     private LoadTask mLoader;
     private PackageManager mPackageManager;
@@ -78,12 +78,12 @@ public class LensPickerAdapter extends RecyclerView.Adapter<LensPickerRow>
 
     @Override
     public int getItemCount() {
-        return Math.min(mItems.size(), mMaxItems);
+        return mItems.size();
     }
 
     @Override
     public void setMaxItems(int maxItems) {
-        mMaxItems = maxItems;
+        // Ignore maxItems
     }
 
     private class LoadTask extends AsyncTask<Void, Void, Void> {
@@ -95,7 +95,7 @@ public class LensPickerAdapter extends RecyclerView.Adapter<LensPickerRow>
                 ResolveInfo rInfo = mResolveInfos.get(i);
                 String packageName = LensPickerUtils.getPackageName(rInfo);
                 Intent launchIntent = LensPickerUtils.getLaunchIntent(packageName, rInfo,
-                        mPackageManager, mSharedPrefs);
+                        mPackageManager);
                 if (launchIntent == null) {
                     Log.w(TAG, "No launch intent for package " + packageName + " skipping.");
                     continue;

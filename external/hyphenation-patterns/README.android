@@ -56,3 +56,11 @@ README.android file in the 'de' directory for further details.
 British English (en-GB) patterns are taken from a different part of TUG
 texhyphen repository. Please see the README.android file in the 'en-GB'
 directory.
+
+US English (en-US) patterns have beem modified to remove patterns added to
+the end of the file that had been incorrectly computed based on the TUGboat
+hyphenation exception list. To compensate for that, the TUGboat hyphenation
+exception list for US English has been downloaded from
+<http://mirror.ctan.org/info/digests/tugboat/hyphenex/ushyphex.tex> and
+explicitly added to the end of the hyphenation exception file for US
+English.

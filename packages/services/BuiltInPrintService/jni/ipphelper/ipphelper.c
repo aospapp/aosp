@@ -970,11 +970,21 @@ void parse_printerAttributes(ipp_t *response, printer_capabilities_t *capabiliti
                     idx, SupportedMediaSizes[idx].PWGName);
         }
     }
-    LOGD("");
 
-    if ((attrptr = ippFindAttribute(response, "printer-name", IPP_TAG_NAME)) != NULL) {
-        LOGD("printer-name: %s", ippGetString(attrptr, 0, NULL));
+    if ((attrptr = ippFindAttribute(response, "printer-dns-sd-name", IPP_TAG_NAME)) != NULL) {
         strlcpy(capabilities->name, ippGetString(attrptr, 0, NULL), sizeof(capabilities->name));
+    }
+
+    if (!capabilities->name[0]) {
+        if ((attrptr = ippFindAttribute(response, "printer-info", IPP_TAG_TEXT)) != NULL) {
+            strlcpy(capabilities->name, ippGetString(attrptr, 0, NULL), sizeof(capabilities->name));
+        }
+    }
+
+    if (!capabilities->name[0]) {
+        if ((attrptr = ippFindAttribute(response, "printer-name", IPP_TAG_TEXT)) != NULL) {
+            strlcpy(capabilities->name, ippGetString(attrptr, 0, NULL), sizeof(capabilities->name));
+        }
     }
 
     if ((attrptr = ippFindAttribute(response, "printer-make-and-model", IPP_TAG_TEXT)) != NULL) {
@@ -1415,9 +1425,18 @@ http_t *ipp_cups_connect(const wprint_connect_info_t *connect_info, char *printe
 
     int ippPortNumber = ((connect_info->port_num == IPP_PORT) ? ippPort() : connect_info->port_num);
 
-    curl_http = httpConnect(connect_info->printer_addr, ippPortNumber);
+    if (strstr(connect_info->uri_scheme,IPPS_PREFIX) != NULL) {
+        curl_http = httpConnectEncrypt(connect_info->printer_addr, ippPortNumber, HTTP_ENCRYPTION_ALWAYS);
 
-    httpSetTimeout(curl_http, DEFAULT_IPP_TIMEOUT, NULL, 0);
+        // If ALWAYS doesn't work, fall back to REQUIRED
+        if (curl_http == NULL) {
+            curl_http = httpConnectEncrypt(connect_info->printer_addr, ippPortNumber, HTTP_ENCRYPT_REQUIRED);
+        }
+    } else {
+        curl_http = httpConnectEncrypt(connect_info->printer_addr, ippPortNumber, HTTP_ENCRYPTION_IF_REQUESTED);
+    }
+
+    httpSetTimeout(curl_http, (double)connect_info->timeout / 1000, NULL, 0);
     httpAssembleURIf(HTTP_URI_CODING_ALL, printer_uri, uriLength, connect_info->uri_scheme, NULL,
             connect_info->printer_addr, ippPortNumber, uri_path);
 

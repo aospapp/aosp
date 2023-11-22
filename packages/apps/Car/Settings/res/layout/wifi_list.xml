@@ -30,33 +30,16 @@
         android:id="@+id/view_switcher"
         android:layout_width="match_parent"
         android:layout_height="match_parent">
-        <LinearLayout
-            android:id="@+id/wifi_list_container"
+        <com.android.car.view.PagedListView
+            android:id="@+id/list"
+            style="@style/SettingPagedList"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="vertical">
-            <TextView
-                android:id="@+id/add_wifi"
-                android:layout_width="wrap_content"
-                android:layout_height="@dimen/lens_header_height"
-                android:gravity="center_vertical"
-                android:text="@string/wifi_setup_add_network"
-                android:textSize="@dimen/medium_text_size"
-                android:layout_marginStart="@dimen/stream_content_keyline_1" />
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="@dimen/car_divider_height"
-                android:background="@color/car_list_divider"/>
-            <android.support.car.ui.PagedListView
-                android:id="@+id/list"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent" />
-        </LinearLayout>
+            android:layout_height="match_parent" />
         <TextView
             android:id="@+id/message"
             android:layout_gravity="center"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textSize="@dimen/medium_text_size"/>
+            style="@style/CarBody1"/>
     </ViewSwitcher>
 </LinearLayout>

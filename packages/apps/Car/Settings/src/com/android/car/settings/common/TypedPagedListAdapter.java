@@ -21,12 +21,12 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.content.Context;
-import android.support.car.ui.PagedListView;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.RecyclerView.ViewHolder;
 import android.view.ViewGroup;
 
 import com.android.car.settings.R;
+import com.android.car.view.PagedListView;
 
 import java.lang.annotation.Retention;
 import java.util.ArrayList;
@@ -37,14 +37,22 @@ import java.util.ArrayList;
 public class TypedPagedListAdapter
         extends RecyclerView.Adapter<ViewHolder>
         implements PagedListView.ItemCap {
-    private static final String TAG = "TypedPagedListAdapter";
 
     private final Context mContext;
-    private final ArrayList<LineItem> mContentList;
+    private ArrayList<LineItem> mContentList;
+
+    public TypedPagedListAdapter(@NonNull Context context) {
+        this(context, new ArrayList<>());
+    }
 
     public TypedPagedListAdapter(@NonNull Context context, ArrayList<LineItem> contentList) {
         mContext = context;
         mContentList = contentList;
+    }
+
+    public void updateList(ArrayList<LineItem> contentList) {
+        mContentList = contentList;
+        notifyDataSetChanged();
     }
 
     public boolean isEmpty() {
@@ -58,7 +66,11 @@ public class TypedPagedListAdapter
                 ICON_TEXT_TYPE,
                 SEEKBAR_TYPE,
                 ICON_TOGGLE_TYPE,
-                SIMPLE_ICON_TEXT_TYPE})
+                CHECKBOX_TYPE,
+                EDIT_TEXT_TYPE,
+                SINGLE_TEXT_TYPE,
+                SPINNER_TYPE,
+                PASSWORD_TYPE})
         public @interface LineItemType {}
 
         // with one title and one description
@@ -76,8 +88,20 @@ public class TypedPagedListAdapter
         // with one icon, title, description and a toggle.
         static final int ICON_TOGGLE_TYPE = 5;
 
-        // similar to ICON_TEXT_TYPE, but with a different layout.
-        static final int SIMPLE_ICON_TEXT_TYPE = 6;
+        // with one icon, title and a checkbox.
+        static final int CHECKBOX_TYPE = 6;
+
+        // with one title and a EditText.
+        static final int EDIT_TEXT_TYPE = 7;
+
+        // with one title.
+        static final int SINGLE_TEXT_TYPE = 8;
+
+        // with a spinner.
+        static final int SPINNER_TYPE = 9;
+
+        // with a password input window and a checkbox for show password or not.
+        static final int PASSWORD_TYPE = 10;
 
         @LineItemType
         abstract int getType();
@@ -85,6 +109,26 @@ public class TypedPagedListAdapter
         abstract void bindViewHolder(VH holder);
 
         public abstract CharSequence getDesc();
+
+        /**
+         * Returns true if this item is ready to receive touch. If it's set to false,
+         * this item maybe not clickable or temporarily not functional.
+         */
+        public boolean isEnabled() {
+            return true;
+        }
+
+        /**
+         * Returns true if some component on this item can be clicked.
+         */
+        public boolean isClickable() {
+            return isExpandable();
+        }
+
+        /**
+         * Returns true if this item can launch another activity or fragment.
+         */
+        public abstract boolean isExpandable();
     }
 
     @Override
@@ -100,8 +144,16 @@ public class TypedPagedListAdapter
                 return SeekbarLineItem.createViewHolder(parent);
             case LineItem.ICON_TOGGLE_TYPE:
                 return IconToggleLineItem.createViewHolder(parent);
-            case LineItem.SIMPLE_ICON_TEXT_TYPE:
-                return SimpleIconLineItem.createViewHolder(parent);
+            case LineItem.CHECKBOX_TYPE:
+                return CheckBoxLineItem.createViewHolder(parent);
+            case LineItem.EDIT_TEXT_TYPE:
+                return EditTextLineItem.createViewHolder(parent);
+            case LineItem.SINGLE_TEXT_TYPE:
+                return SingleTextLineItem.createViewHolder(parent);
+            case LineItem.SPINNER_TYPE:
+                return SpinnerLineItem.createViewHolder(parent);
+            case LineItem.PASSWORD_TYPE:
+                return PasswordLineItem.createViewHolder(parent);
             default:
                 throw new IllegalStateException("ViewType not supported: " + viewType);
         }

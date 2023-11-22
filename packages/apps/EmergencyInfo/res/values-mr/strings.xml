@@ -17,6 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"आणीबाणी माहिती"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"वैद्यकीय माहिती"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"माहिती संपादित करा"</string>
     <string name="edit_info" msgid="5973929805855224805">"आणीबाणी माहिती संपादित करा"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"माहिती"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"संपर्क"</string>
@@ -96,12 +98,12 @@
     <string name="cancel" msgid="7401575239009060939">"रद्द करा"</string>
     <string name="ok" msgid="163967937451981024">"ठीक आहे"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"आणीबाणी माहिती"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"आपण येथे प्रविष्ट करता ती माहिती आणीबाणीमध्ये प्रथम प्रतिसादकर्त्यांना मदत करू शकते. ती फक्त आपल्या डिव्हाइसवर संचयित केली जाते आणि आपला फोन अनलॉक न करता ती आणीबाणी डायलर मधून कोणीही वाचू शकतो."</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"सुरू ठेवा"</string>
     <string name="no_info_provided" msgid="716200382010821001">"फोनच्या मालकाविषयी कोणतीही माहिती नाही"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"हा आपला फोन असल्यास, आणीबाणी असताना येथे प्रदर्शित केली जाणारी माहिती जोडण्‍यासाठ‍ी पेन्सिल चिन्हावर टॅप करा"</string>
     <string name="clear_all" msgid="8899013032870561633">"सर्व साफ करा"</string>
     <string name="clear" msgid="3648880442502887163">"साफ करा"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"सर्व माहिती आणि संपर्क साफ करायचे?"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"वैद्यकीय माहिती आणि आपत्कालीन संपर्क जोडणे आपत्कालीन काळामध्ये प्रथम प्रतिसादकर्त्यांची मदत करू शकतात.\n\nकोणीही तुमच्या लॉकस्क्रीनवरून ही माहिती वाचू शकते आणि तुमचा फोन अनलॉक न करता तुमच्या संपर्कांना त्यांच्या नावावर टॅप करून डायल करू शकते."</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"आणीबाणी माहिती जोडा"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"प्रथम प्रतिसाद देणार्‍यांना महत्त्वाची माहिती शोधण्यात मदत करा"</string>
 </resources>

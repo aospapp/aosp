@@ -32,6 +32,8 @@
     <dimen name="suw_header_title_size">34sp</dimen>
 
     <!-- Items -->
+    <dimen name="suw_items_icon_divider_inset">88dp</dimen>
+    <dimen name="suw_items_text_divider_inset">40dp</dimen>
     <dimen name="suw_items_glif_icon_divider_inset">88dp</dimen>
     <dimen name="suw_items_glif_text_divider_inset">40dp</dimen>
 

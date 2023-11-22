@@ -41,6 +41,7 @@ import android.widget.ListView;
 import android.widget.TextView;
 
 import com.android.compatibility.common.util.CtsTouchUtils;
+import com.android.compatibility.common.util.CtsTouchUtils.EventInjectionListener;
 import com.android.compatibility.common.util.PollingCheck;
 
 import org.junit.Before;
@@ -74,6 +75,11 @@ public class AbsListView_ScrollTest {
     private Context mContext;
     private ArrayAdapter<String> mCountriesAdapter;
     private int mRowHeightPx;
+
+    private static class ListScrollPosition {
+        public int mFirstVisiblePosition;
+        public int mFirstViewVerticalOffset;
+    }
 
     @Before
     public void setup() throws Throwable {
@@ -569,14 +575,40 @@ public class AbsListView_ScrollTest {
         verifyListScrollAndEmulateFlingGesture(false);
     }
 
+    private ListScrollPosition getCurrentScrollPosition() {
+        ListScrollPosition result = new ListScrollPosition();
+        result.mFirstVisiblePosition = mListView.getFirstVisiblePosition();
+        result.mFirstViewVerticalOffset = mListView.getChildAt(0).getTop();
+        return result;
+    }
+
     @Test
     public void testListFlingWithZeroVelocity() throws Throwable {
         mListView.setVelocityScale(0.0f);
 
-        final CountDownLatch flingLatch = new CountDownLatch(1);
+        final CountDownLatch flingLatch = new CountDownLatch(2);
         mListView.setOnScrollListener(new ScrollIdleListListener(flingLatch));
-        final int flingAmount =
-                CtsTouchUtils.emulateFlingGesture(mInstrumentation, mListView, false);
+
+        final ListScrollPosition[] scrollPositionAfterUpEvent =
+                new ListScrollPosition[1];
+        final EventInjectionListener eventInjectionListener =
+                new EventInjectionListener() {
+                    @Override
+                    public void onDownInjected(int xOnScreen, int yOnScreen) {
+                    }
+
+                    @Override
+                    public void onMoveInjected(int[] xOnScreen, int[] yOnScreen) {
+                    }
+
+                    @Override
+                    public void onUpInjected(int xOnScreen, int yOnScreen) {
+                        scrollPositionAfterUpEvent[0] = getCurrentScrollPosition();
+                        flingLatch.countDown();
+                    }
+                };
+        CtsTouchUtils.emulateFlingGesture(mInstrumentation, mListView, false,
+                eventInjectionListener);
 
         assertTrue("Timed out while waiting for the fling to complete",
                 flingLatch.await(5, TimeUnit.SECONDS));
@@ -584,13 +616,12 @@ public class AbsListView_ScrollTest {
         // Since our velocity scale is 0, we expect that the emulated fling gesture didn't
         // result in any fling, but just a simple scroll that stopped at the ACTION_UP
         // event.
-        final int expectedTopOffsetAtFlingEnd = -flingAmount;
-        final int expectedBottomOffsetAtFlingEnd = mListView.getHeight() - flingAmount;
-        final int expectedTopPositionAtFlingEnd = expectedTopOffsetAtFlingEnd / mRowHeightPx;
-        final int expectedBottomPositionAtFlingEnd = expectedBottomOffsetAtFlingEnd / mRowHeightPx;
+        final ListScrollPosition scrollPositionAtRest = getCurrentScrollPosition();
 
-        assertEquals(expectedTopPositionAtFlingEnd, mListView.getFirstVisiblePosition());
-        assertEquals(expectedBottomPositionAtFlingEnd, mListView.getLastVisiblePosition());
+        assertEquals("First visible position", scrollPositionAtRest.mFirstVisiblePosition,
+                scrollPositionAfterUpEvent[0].mFirstVisiblePosition);
+        assertEquals("First view offset", scrollPositionAtRest.mFirstViewVerticalOffset,
+                scrollPositionAfterUpEvent[0].mFirstViewVerticalOffset);
     }
 
     private static class LargeContentAdapter extends BaseAdapter {

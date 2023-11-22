@@ -29,7 +29,6 @@ static const std::regex RE_U32("[^ul]u$");
 static const std::regex RE_S64("[^ul](l|ll)$");
 static const std::regex RE_U64("[^ul](ul|ull)$");
 
-// static
 Expression::Type Expression::integralType(std::string integer) {
     if (std::regex_search(integer, RE_S32)) {
         return Type::S32;
@@ -52,7 +51,6 @@ Expression::Type Expression::integralType(std::string integer) {
     return Type::UNKNOWN;
 }
 
-// static
 Expression::Type Expression::coalesceTypes(Type lhs, Type rhs) {
     // because we are reducing everything to two ranks, we can heavily simplify
     // conversion rules
@@ -264,37 +262,30 @@ private:
     DISALLOW_COPY_AND_ASSIGN(FunctionCall);
 };
 
-// static
 Expression *Expression::parenthesize(Expression *inner) {
     return new ParenthesizedExpression(inner);
 }
 
-// static
 Expression *Expression::atom(Type type, const std::string &value, bool isId) {
     return new AtomExpression(type, value, isId);
 }
 
-// static
 Expression *Expression::unary(std::string op, Expression *rhs) {
     return new UnaryExpression(op, rhs);
 }
 
-// static
 Expression *Expression::binary(Expression *lhs, std::string op, Expression *rhs) {
     return new BinaryExpression(lhs, op, rhs);
 }
 
-// static
 Expression *Expression::ternary(Expression *lhs, Expression *mhs, Expression *rhs) {
     return new TernaryExpression(lhs, mhs, rhs);
 }
 
-// static
 Expression *Expression::arraySubscript(std::string id, Expression *subscript) {
     return new ArraySubscript(id, subscript);
 }
 
-// static
 Expression *Expression::functionCall(std::string id, std::vector<Expression *> *args) {
     return new FunctionCall(id, args);
 }

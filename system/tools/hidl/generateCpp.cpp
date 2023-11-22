@@ -91,7 +91,6 @@ std::string AST::makeHeaderGuard(const std::string &baseName,
     return guard;
 }
 
-// static
 void AST::generateCppPackageInclude(
         Formatter &out,
         const FQName &package,
@@ -154,7 +153,8 @@ static void declareServiceManagerInteractions(Formatter &out, const std::string 
     declareGetService(out, interfaceName, true /* isTry */);
     declareGetService(out, interfaceName, false /* isTry */);
 
-    out << "::android::status_t registerAsService(const std::string &serviceName=\"default\");\n";
+    out << "__attribute__ ((warn_unused_result))"
+        << "::android::status_t registerAsService(const std::string &serviceName=\"default\");\n";
     out << "static bool registerForNotifications(\n";
     out.indent(2, [&] {
         out << "const std::string &serviceName,\n"
@@ -226,11 +226,15 @@ static void implementGetService(Formatter &out,
         out << "#ifdef __ANDROID_TREBLE__\n\n"
             << "#ifdef __ANDROID_DEBUGGABLE__\n"
             << "const char* env = std::getenv(\"TREBLE_TESTING_OVERRIDE\");\n"
-            << "const bool vintfLegacy = (transport == Transport::EMPTY) && env && !strcmp(env, \"true\");\n"
+            << "const bool trebleTestingOverride =  env && !strcmp(env, \"true\");\n"
+            << "const bool vintfLegacy = (transport == Transport::EMPTY) && trebleTestingOverride;\n"
             << "#else // __ANDROID_TREBLE__ but not __ANDROID_DEBUGGABLE__\n"
+            << "const bool trebleTestingOverride = false;\n"
             << "const bool vintfLegacy = false;\n"
             << "#endif // __ANDROID_DEBUGGABLE__\n\n"
             << "#else // not __ANDROID_TREBLE__\n"
+            << "const char* env = std::getenv(\"TREBLE_TESTING_OVERRIDE\");\n"
+            << "const bool trebleTestingOverride =  env && !strcmp(env, \"true\");\n"
             << "const bool vintfLegacy = (transport == Transport::EMPTY);\n\n"
             << "#endif // __ANDROID_TREBLE__\n\n";
 
@@ -328,8 +332,10 @@ static void implementGetService(Formatter &out,
                     out << "sp<" << gIBaseFqName.cppName()
                         << "> baseInterface = ret;\n";
                     out.sIf("baseInterface != nullptr", [&]() {
-                        out << "iface = new " << fqName.getInterfacePassthroughName()
-                            << "(" << interfaceName << "::castFrom(baseInterface));\n";
+                        out << "iface = " << interfaceName << "::castFrom(baseInterface);\n";
+                        out.sIf("!getStub || trebleTestingOverride", [&] () {
+                            out << "iface = new " << fqName.getInterfacePassthroughName() << "(iface);\n";
+                        }).endl();
                     }).endl();
                 }).endl();
             }).endl();
@@ -392,17 +398,12 @@ static void implementServiceManagerInteractions(Formatter &out,
 }
 
 status_t AST::generateInterfaceHeader(const std::string &outputPath) const {
+    const Interface *iface = getInterface();
+    std::string ifaceName = iface ? iface->localName() : "types";
 
     std::string path = outputPath;
     path.append(mCoordinator->convertPackageRootToPath(mPackage));
     path.append(mCoordinator->getPackagePath(mPackage, true /* relative */));
-
-    std::string ifaceName;
-    bool isInterface = true;
-    if (!AST::isInterface(&ifaceName)) {
-        ifaceName = "types";
-        isInterface = false;
-    }
     path.append(ifaceName);
     path.append(".h");
 
@@ -428,7 +429,7 @@ status_t AST::generateInterfaceHeader(const std::string &outputPath) const {
         out << "\n";
     }
 
-    if (isInterface) {
+    if (iface) {
         if (isIBase()) {
             out << "// skipped #include IServiceNotification.h\n\n";
         } else {
@@ -439,7 +440,7 @@ status_t AST::generateInterfaceHeader(const std::string &outputPath) const {
     out << "#include <hidl/HidlSupport.h>\n";
     out << "#include <hidl/MQDescriptor.h>\n";
 
-    if (isInterface) {
+    if (iface) {
         out << "#include <hidl/Status.h>\n";
     }
 
@@ -449,11 +450,10 @@ status_t AST::generateInterfaceHeader(const std::string &outputPath) const {
     enterLeaveNamespace(out, true /* enter */);
     out << "\n";
 
-    if (isInterface) {
+    if (iface) {
         out << "struct "
             << ifaceName;
 
-        const Interface *iface = mRootScope->getInterface();
         const Interface *superType = iface->superType();
 
         if (superType == NULL) {
@@ -475,16 +475,16 @@ status_t AST::generateInterfaceHeader(const std::string &outputPath) const {
         return err;
     }
 
-    if (isInterface) {
-        const Interface *iface = mRootScope->getInterface();
-
+    if (iface) {
         out << "virtual bool isRemote() const ";
         if (!isIBase()) {
             out << "override ";
         }
         out << "{ return false; }\n\n";
 
-        for (const auto &method : iface->methods()) {
+        for (const auto& tuple : iface->allMethodsFromRoot()) {
+            const Method* method = tuple.method();
+
             out << "\n";
 
             const bool returnsValue = !method->results().empty();
@@ -510,15 +510,6 @@ status_t AST::generateInterfaceHeader(const std::string &outputPath) const {
             out << method->name()
                 << "(";
             method->emitCppArgSignature(out, true /* specify namespaces */);
-
-            if (returnsValue && elidedReturn == nullptr) {
-                if (!method->args().empty()) {
-                    out << ", ";
-                }
-
-                out << method->name() << "_cb _hidl_cb";
-            }
-
             out << ")";
             if (method->isHidlReserved()) {
                 if (!isIBase()) {
@@ -551,13 +542,13 @@ status_t AST::generateInterfaceHeader(const std::string &outputPath) const {
         }
     }
 
-    if (isInterface) {
+    if (iface) {
         out.unindent();
 
         out << "};\n\n";
     }
 
-    err = mRootScope->emitGlobalTypeDeclarations(out);
+    err = mRootScope.emitGlobalTypeDeclarations(out);
 
     if (err != OK) {
         return err;
@@ -572,17 +563,8 @@ status_t AST::generateInterfaceHeader(const std::string &outputPath) const {
 }
 
 status_t AST::generateHwBinderHeader(const std::string &outputPath) const {
-    std::string ifaceName;
-    bool isInterface = AST::isInterface(&ifaceName);
-    const Interface *iface = nullptr;
-    std::string klassName{};
-
-    if(isInterface) {
-        iface = mRootScope->getInterface();
-        klassName = iface->getHwName();
-    } else {
-        klassName = "hwtypes";
-    }
+    const Interface *iface = getInterface();
+    std::string klassName = iface ? iface->getHwName() : "hwtypes";
 
     std::string path = outputPath;
     path.append(mCoordinator->convertPackageRootToPath(mPackage));
@@ -602,11 +584,7 @@ status_t AST::generateHwBinderHeader(const std::string &outputPath) const {
     out << "#ifndef " << guard << "\n";
     out << "#define " << guard << "\n\n";
 
-    if (isInterface) {
-        generateCppPackageInclude(out, mPackage, ifaceName);
-    } else {
-        generateCppPackageInclude(out, mPackage, "types");
-    }
+    generateCppPackageInclude(out, mPackage, iface ? iface->localName() : "types");
 
     out << "\n";
 
@@ -629,7 +607,7 @@ status_t AST::generateHwBinderHeader(const std::string &outputPath) const {
 
     enterLeaveNamespace(out, true /* enter */);
 
-    status_t err = mRootScope->emitGlobalHwDeclarations(out);
+    status_t err = mRootScope.emitGlobalHwDeclarations(out);
     if (err != OK) {
         return err;
     }
@@ -642,7 +620,7 @@ status_t AST::generateHwBinderHeader(const std::string &outputPath) const {
 }
 
 status_t AST::emitTypeDeclarations(Formatter &out) const {
-    return mRootScope->emitTypeDeclarations(out);
+    return mRootScope.emitTypeDeclarations(out);
 }
 
 static void wrapPassthroughArg(Formatter &out,
@@ -717,10 +695,11 @@ status_t AST::generatePassthroughMethod(Formatter &out,
     out << "auto _hidl_return = ";
 
     if (method->isOneway()) {
-        out << "addOnewayTask([mImpl = this->mImpl, "
-               "mEnableInstrumentation = this->mEnableInstrumentation, "
-               "mInstrumentationCallbacks = this->mInstrumentationCallbacks, "
-               "&_hidl_error";
+        out << "addOnewayTask([mImpl = this->mImpl\n"
+            << "#ifdef __ANDROID_DEBUGGABLE__\n"
+               ", mEnableInstrumentation = this->mEnableInstrumentation, "
+               "mInstrumentationCallbacks = this->mInstrumentationCallbacks\n"
+            << "#endif // __ANDROID_DEBUGGABLE__\n";
         for (const auto &arg : method->args()) {
             out << ", "
                 << (arg->type().isInterface() ? "_hidl_wrapped_" : "")
@@ -738,6 +717,8 @@ status_t AST::generatePassthroughMethod(Formatter &out,
         out << (arg->type().isInterface() ? "_hidl_wrapped_" : "") << arg->name();
     });
     if (returnsValue && elidedReturn == nullptr) {
+        // never true if oneway since oneway methods don't return values
+
         if (!method->args().empty()) {
             out << ", ";
         }
@@ -749,13 +730,10 @@ status_t AST::generatePassthroughMethod(Formatter &out,
 
         out << ") {\n";
         out.indent();
-        status_t status = generateCppInstrumentationCall(
+        generateCppInstrumentationCall(
                 out,
                 InstrumentationEvent::PASSTHROUGH_EXIT,
                 method);
-        if (status != OK) {
-            return status;
-        }
 
         for (const auto &arg : method->results()) {
             wrapPassthroughArg(out, arg, true /* addPrefixToName */, [&] {
@@ -786,13 +764,10 @@ status_t AST::generatePassthroughMethod(Formatter &out,
                 << " = _hidl_return;\n"
                 << "#endif // __ANDROID_DEBUGGABLE__\n";
         }
-        status_t status = generateCppInstrumentationCall(
+        generateCppInstrumentationCall(
                 out,
                 InstrumentationEvent::PASSTHROUGH_EXIT,
                 method);
-        if (status != OK) {
-            return status;
-        }
     }
 
     if (method->isOneway()) {
@@ -808,14 +783,17 @@ status_t AST::generatePassthroughMethod(Formatter &out,
     return OK;
 }
 
-status_t AST::generateMethods(Formatter &out, MethodGenerator gen) const {
-
-    const Interface *iface = mRootScope->getInterface();
+status_t AST::generateMethods(Formatter &out, MethodGenerator gen, bool includeParent) const {
+    const Interface* iface = mRootScope.getInterface();
 
     const Interface *prevIterface = nullptr;
     for (const auto &tuple : iface->allMethodsFromRoot()) {
         const Method *method = tuple.method();
         const Interface *superInterface = tuple.interface();
+
+        if (!includeParent && superInterface != iface) {
+            continue;
+        }
 
         if(prevIterface != superInterface) {
             if (prevIterface != nullptr) {
@@ -838,14 +816,17 @@ status_t AST::generateMethods(Formatter &out, MethodGenerator gen) const {
     return OK;
 }
 
+void AST::generateTemplatizationLink(Formatter& out) const {
+    out << "typedef " << mRootScope.getInterface()->localName() << " Pure;\n\n";
+}
+
 status_t AST::generateStubHeader(const std::string &outputPath) const {
-    std::string ifaceName;
-    if (!AST::isInterface(&ifaceName)) {
+    if (!AST::isInterface()) {
         // types.hal does not get a stub header.
         return OK;
     }
 
-    const Interface *iface = mRootScope->getInterface();
+    const Interface* iface = mRootScope.getInterface();
     const std::string klassName = iface->getStubName();
 
     std::string path = outputPath;
@@ -888,14 +869,15 @@ status_t AST::generateStubHeader(const std::string &outputPath) const {
     out.indent();
     out << "explicit "
         << klassName
-        << "(const ::android::sp<" << ifaceName << "> &_hidl_impl);"
+        << "(const ::android::sp<" << iface->localName() << "> &_hidl_impl);"
         << "\n";
     out << "explicit "
         << klassName
-        << "(const ::android::sp<" << ifaceName << "> &_hidl_impl,"
+        << "(const ::android::sp<" << iface->localName() << "> &_hidl_impl,"
         << " const std::string& HidlInstrumentor_package,"
         << " const std::string& HidlInstrumentor_interface);"
         << "\n\n";
+    out << "virtual ~" << klassName << "();\n\n";
     out << "::android::status_t onTransact(\n";
     out.indent();
     out.indent();
@@ -907,12 +889,38 @@ status_t AST::generateStubHeader(const std::string &outputPath) const {
     out.unindent();
     out.unindent();
 
-    out << "::android::sp<" << ifaceName << "> getImpl() { return _hidl_mImpl; };\n";
+    out.endl();
+    generateTemplatizationLink(out);
+
+    out << "::android::sp<" << iface->localName() << "> getImpl() { return _hidl_mImpl; };\n";
+
+    status_t err = generateMethods(out, [&](const Method *method, const Interface *) {
+        if (method->isHidlReserved() && method->overridesCppImpl(IMPL_PROXY)) {
+            return OK;
+        }
+
+        out << "static ::android::status_t _hidl_" << method->name() << "(\n";
+
+        out.indent(2, [&] {
+            out << "::android::hidl::base::V1_0::BnHwBase* _hidl_this,\n"
+                << "const ::android::hardware::Parcel &_hidl_data,\n"
+                << "::android::hardware::Parcel *_hidl_reply,\n"
+                << "TransactCallback _hidl_cb);\n";
+        }).endl().endl();
+
+        return OK;
+    }, false /* include parents */);
+
+    if (err != OK) {
+        return err;
+    }
+
     out.unindent();
     out << "private:\n";
     out.indent();
 
-    status_t err = generateMethods(out, [&](const Method *method, const Interface *iface) {
+
+    err = generateMethods(out, [&](const Method *method, const Interface *iface) {
         if (!method->isHidlReserved() || !method->overridesCppImpl(IMPL_STUB_IMPL)) {
             return OK;
         }
@@ -932,7 +940,7 @@ status_t AST::generateStubHeader(const std::string &outputPath) const {
         return err;
     }
 
-    out << "::android::sp<" << ifaceName << "> _hidl_mImpl;\n";
+    out << "::android::sp<" << iface->localName() << "> _hidl_mImpl;\n";
     out.unindent();
     out << "};\n\n";
 
@@ -944,13 +952,12 @@ status_t AST::generateStubHeader(const std::string &outputPath) const {
 }
 
 status_t AST::generateProxyHeader(const std::string &outputPath) const {
-    std::string ifaceName;
-    if (!AST::isInterface(&ifaceName)) {
+    if (!AST::isInterface()) {
         // types.hal does not get a proxy header.
         return OK;
     }
 
-    const Interface *iface = mRootScope->getInterface();
+    const Interface* iface = mRootScope.getInterface();
     const std::string proxyName = iface->getProxyName();
 
     std::string path = outputPath;
@@ -998,9 +1005,36 @@ status_t AST::generateProxyHeader(const std::string &outputPath) const {
         << "(const ::android::sp<::android::hardware::IBinder> &_hidl_impl);"
         << "\n\n";
 
+    generateTemplatizationLink(out);
+
     out << "virtual bool isRemote() const override { return true; }\n\n";
 
     status_t err = generateMethods(out, [&](const Method *method, const Interface *) {
+        if (method->isHidlReserved() && method->overridesCppImpl(IMPL_PROXY)) {
+            return OK;
+        }
+
+        out << "static ";
+        method->generateCppReturnType(out);
+        out << " _hidl_"
+            << method->name()
+            << "("
+            << "::android::hardware::IInterface* _hidl_this, "
+            << "::android::hardware::details::HidlInstrumentor *_hidl_this_instrumentor";
+
+        if (!method->hasEmptyCppArgSignature()) {
+            out << ", ";
+        }
+        method->emitCppArgSignature(out);
+        out << ");\n";
+        return OK;
+    }, false /* include parents */);
+
+    if (err != OK) {
+        return err;
+    }
+
+    err = generateMethods(out, [&](const Method *method, const Interface *) {
         method->generateCppSignature(out);
         out << " override;\n";
         return OK;
@@ -1027,25 +1061,12 @@ status_t AST::generateProxyHeader(const std::string &outputPath) const {
 }
 
 status_t AST::generateCppSources(const std::string &outputPath) const {
+    std::string baseName = getBaseName();
+    const Interface *iface = getInterface();
 
     std::string path = outputPath;
     path.append(mCoordinator->convertPackageRootToPath(mPackage));
     path.append(mCoordinator->getPackagePath(mPackage, true /* relative */));
-
-    std::string ifaceName;
-    std::string baseName;
-
-    const Interface *iface = nullptr;
-    bool isInterface;
-    if (!AST::isInterface(&ifaceName)) {
-        baseName = "types";
-        isInterface = false;
-    } else {
-        iface = mRootScope->getInterface();
-        baseName = iface->getBaseName();
-        isInterface = true;
-    }
-
     path.append(baseName);
 
     if (baseName != "types") {
@@ -1070,12 +1091,9 @@ status_t AST::generateCppSources(const std::string &outputPath) const {
     out << "#include <android/log.h>\n";
     out << "#include <cutils/trace.h>\n";
     out << "#include <hidl/HidlTransportSupport.h>\n\n";
-    if (isInterface) {
+    if (iface) {
         // This is a no-op for IServiceManager itself.
         out << "#include <android/hidl/manager/1.0/IServiceManager.h>\n";
-
-        // TODO(b/34274385) remove this
-        out << "#include <hidl/LegacySupport.h>\n";
 
         generateCppPackageInclude(out, mPackage, iface->getProxyName());
         generateCppPackageInclude(out, mPackage, iface->getStubName());
@@ -1098,10 +1116,10 @@ status_t AST::generateCppSources(const std::string &outputPath) const {
     enterLeaveNamespace(out, true /* enter */);
     out << "\n";
 
-    status_t err = generateTypeSource(out, ifaceName);
+    status_t err = generateTypeSource(out, iface ? iface->localName() : "");
 
-    if (err == OK && isInterface) {
-        const Interface *iface = mRootScope->getInterface();
+    if (err == OK && iface) {
+        const Interface* iface = mRootScope.getInterface();
 
         // need to be put here, generateStubSource is using this.
         out << "const char* "
@@ -1159,20 +1177,20 @@ status_t AST::generateCppSources(const std::string &outputPath) const {
         err = generateInterfaceSource(out);
     }
 
-    if (err == OK && isInterface) {
+    if (err == OK && iface) {
         err = generateProxySource(out, iface->fqName());
     }
 
-    if (err == OK && isInterface) {
+    if (err == OK && iface) {
         err = generateStubSource(out, iface);
     }
 
-    if (err == OK && isInterface) {
+    if (err == OK && iface) {
         err = generatePassthroughSource(out);
     }
 
-    if (err == OK && isInterface) {
-        const Interface *iface = mRootScope->getInterface();
+    if (err == OK && iface) {
+        const Interface* iface = mRootScope.getInterface();
 
         if (isIBase()) {
             out << "// skipped getService, registerAsService, registerForNotifications\n";
@@ -1192,19 +1210,19 @@ status_t AST::generateCppSources(const std::string &outputPath) const {
     return err;
 }
 
-// static
 void AST::generateCheckNonNull(Formatter &out, const std::string &nonNull) {
     out.sIf(nonNull + " == nullptr", [&] {
         out << "return ::android::hardware::Status::fromExceptionCode(\n";
         out.indent(2, [&] {
-            out << "::android::hardware::Status::EX_ILLEGAL_ARGUMENT);\n";
+            out << "::android::hardware::Status::EX_ILLEGAL_ARGUMENT,\n"
+                << "\"Null synchronous callback passed.\");\n";
         });
     }).endl().endl();
 }
 
 status_t AST::generateTypeSource(
         Formatter &out, const std::string &ifaceName) const {
-    return mRootScope->emitTypeDefinitions(out, ifaceName);
+    return mRootScope.emitTypeDefinitions(out, ifaceName);
 }
 
 void AST::declareCppReaderLocals(
@@ -1271,36 +1289,98 @@ status_t AST::generateProxyMethodSource(Formatter &out,
                                         const std::string &klassName,
                                         const Method *method,
                                         const Interface *superInterface) const {
-
     method->generateCppSignature(out,
                                  klassName,
                                  true /* specify namespaces */);
 
-    const bool returnsValue = !method->results().empty();
-    const TypedVar *elidedReturn = method->canElideCallback();
-
-    out << " {\n";
-
-    out.indent();
-
     if (method->isHidlReserved() && method->overridesCppImpl(IMPL_PROXY)) {
-        method->cppImpl(IMPL_PROXY, out);
-        out.unindent();
-        out << "}\n\n";
+        out.block([&] {
+            method->cppImpl(IMPL_PROXY, out);
+        }).endl().endl();
         return OK;
     }
 
+    status_t err = OK;
+
+    out.block([&] {
+        const bool returnsValue = !method->results().empty();
+        const TypedVar *elidedReturn = method->canElideCallback();
+
+        method->generateCppReturnType(out);
+
+        out << " _hidl_out = "
+            << superInterface->fqName().cppNamespace()
+            << "::"
+            << superInterface->getProxyName()
+            << "::_hidl_"
+            << method->name()
+            << "(this, this";
+
+        if (!method->hasEmptyCppArgSignature()) {
+            out << ", ";
+        }
+
+        out.join(method->args().begin(), method->args().end(), ", ", [&](const auto &arg) {
+            out << arg->name();
+        });
+
+        if (returnsValue && elidedReturn == nullptr) {
+            if (!method->args().empty()) {
+                out << ", ";
+            }
+            out << "_hidl_cb";
+        }
+
+        out << ");\n\n";
+
+        out << "return _hidl_out;\n";
+    }).endl().endl();
+
+    return err;
+}
+
+status_t AST::generateStaticProxyMethodSource(Formatter &out,
+                                              const std::string &klassName,
+                                              const Method *method) const {
+    if (method->isHidlReserved() && method->overridesCppImpl(IMPL_PROXY)) {
+        return OK;
+    }
+
+    method->generateCppReturnType(out);
+
+    out << klassName
+        << "::_hidl_"
+        << method->name()
+        << "("
+        << "::android::hardware::IInterface *_hidl_this, "
+        << "::android::hardware::details::HidlInstrumentor *_hidl_this_instrumentor";
+
+    if (!method->hasEmptyCppArgSignature()) {
+        out << ", ";
+    }
+
+    method->emitCppArgSignature(out);
+    out << ") {\n";
+
+    out.indent();
+
+    out << "#ifdef __ANDROID_DEBUGGABLE__\n";
+    out << "bool mEnableInstrumentation = _hidl_this_instrumentor->isInstrumentationEnabled();\n";
+    out << "const auto &mInstrumentationCallbacks = _hidl_this_instrumentor->getInstrumentationCallbacks();\n";
+    out << "#else\n";
+    out << "(void) _hidl_this_instrumentor;\n";
+    out << "#endif // __ANDROID_DEBUGGABLE__\n";
+
+    const bool returnsValue = !method->results().empty();
+    const TypedVar *elidedReturn = method->canElideCallback();
     if (returnsValue && elidedReturn == nullptr) {
         generateCheckNonNull(out, "_hidl_cb");
     }
 
-    status_t status = generateCppInstrumentationCall(
+    generateCppInstrumentationCall(
             out,
             InstrumentationEvent::CLIENT_API_ENTRY,
             method);
-    if (status != OK) {
-        return status;
-    }
 
     out << "::android::hardware::Parcel _hidl_data;\n";
     out << "::android::hardware::Parcel _hidl_reply;\n";
@@ -1311,7 +1391,7 @@ status_t AST::generateProxyMethodSource(Formatter &out,
             out, method->results(), true /* forResults */);
 
     out << "_hidl_err = _hidl_data.writeInterfaceToken(";
-    out << superInterface->fqName().cppName();
+    out << klassName;
     out << "::descriptor);\n";
     out << "if (_hidl_err != ::android::OK) { goto _hidl_error; }\n\n";
 
@@ -1347,7 +1427,7 @@ status_t AST::generateProxyMethodSource(Formatter &out,
         // Start binder threadpool to handle incoming transactions
         out << "::android::hardware::ProcessState::self()->startThreadPool();\n";
     }
-    out << "_hidl_err = remote()->transact("
+    out << "_hidl_err = ::android::hardware::IInterface::asBinder(_hidl_this)->transact("
         << method->getSerialId()
         << " /* "
         << method->name()
@@ -1403,13 +1483,11 @@ status_t AST::generateProxyMethodSource(Formatter &out,
             out << ");\n\n";
         }
     }
-    status = generateCppInstrumentationCall(
+
+    generateCppInstrumentationCall(
             out,
             InstrumentationEvent::CLIENT_API_EXIT,
             method);
-    if (status != OK) {
-        return status;
-    }
 
     if (elidedReturn != nullptr) {
         out << "_hidl_status.setFromStatusT(_hidl_err);\n";
@@ -1464,7 +1542,15 @@ status_t AST::generateProxySource(
     out.unindent();
     out << "}\n\n";
 
-    status_t err = generateMethods(out, [&](const Method *method, const Interface *superInterface) {
+    status_t err = generateMethods(out, [&](const Method *method, const Interface *) {
+        return generateStaticProxyMethodSource(out, klassName, method);
+    }, false /* include parents */);
+
+    if (err != OK) {
+        return err;
+    }
+
+    err = generateMethods(out, [&](const Method *method, const Interface *superInterface) {
         return generateProxyMethodSource(out, klassName, method, superInterface);
     });
 
@@ -1533,7 +1619,16 @@ status_t AST::generateStubSource(
         out << "}\n\n";
     }
 
+    out << klassName << "::~" << klassName << "() ";
+    out.block([&]() {
+        out << "::android::hardware::details::gBnMap.eraseIfEqual(_hidl_mImpl.get(), this);\n";
+    }).endl().endl();
+
     status_t err = generateMethods(out, [&](const Method *method, const Interface *) {
+        return generateStaticStubMethodSource(out, klassName, method);
+    }, false /* include parents */);
+
+    err = generateMethods(out, [&](const Method *method, const Interface *) {
         if (!method->isHidlReserved() || !method->overridesCppImpl(IMPL_STUB_IMPL)) {
             return OK;
         }
@@ -1568,6 +1663,7 @@ status_t AST::generateStubSource(
     for (const auto &tuple : iface->allMethodsFromRoot()) {
         const Method *method = tuple.method();
         const Interface *superInterface = tuple.interface();
+
         out << "case "
             << method->getSerialId()
             << " /* "
@@ -1576,8 +1672,7 @@ status_t AST::generateStubSource(
 
         out.indent();
 
-        status_t err =
-            generateStubSourceForMethod(out, superInterface, method);
+        status_t err = generateStubSourceForMethod(out, method, superInterface);
 
         if (err != OK) {
             return err;
@@ -1631,20 +1726,61 @@ status_t AST::generateStubSource(
 }
 
 status_t AST::generateStubSourceForMethod(
-        Formatter &out, const Interface *iface, const Method *method) const {
+        Formatter &out,
+        const Method *method,
+        const Interface* superInterface) const {
+
     if (method->isHidlReserved() && method->overridesCppImpl(IMPL_STUB)) {
         method->cppImpl(IMPL_STUB, out);
         out << "break;\n";
         return OK;
     }
 
+    out << "_hidl_err = "
+        << superInterface->fqName().cppNamespace()
+        << "::"
+        << superInterface->getStubName()
+        << "::_hidl_"
+        << method->name()
+        << "(this, _hidl_data, _hidl_reply, _hidl_cb);\n";
+    out << "break;\n";
+
+    return OK;
+}
+
+status_t AST::generateStaticStubMethodSource(Formatter &out,
+                                             const std::string &klassName,
+                                             const Method *method) const {
+    if (method->isHidlReserved() && method->overridesCppImpl(IMPL_STUB)) {
+        return OK;
+    }
+
+    out << "::android::status_t " << klassName << "::_hidl_" << method->name() << "(\n";
+
+    out.indent();
+    out.indent();
+
+    out << "::android::hidl::base::V1_0::BnHwBase* _hidl_this,\n"
+        << "const ::android::hardware::Parcel &_hidl_data,\n"
+        << "::android::hardware::Parcel *_hidl_reply,\n"
+        << "TransactCallback _hidl_cb) {\n";
+
+    out.unindent();
+
+    out << "#ifdef __ANDROID_DEBUGGABLE__\n";
+    out << "bool mEnableInstrumentation = _hidl_this->isInstrumentationEnabled();\n";
+    out << "const auto &mInstrumentationCallbacks = _hidl_this->getInstrumentationCallbacks();\n";
+    out << "#endif // __ANDROID_DEBUGGABLE__\n\n";
+
+    out << "::android::status_t _hidl_err = ::android::OK;\n";
+
     out << "if (!_hidl_data.enforceInterface("
-        << iface->fullName()
-        << "::descriptor)) {\n";
+        << klassName
+        << "::Pure::descriptor)) {\n";
 
     out.indent();
     out << "_hidl_err = ::android::BAD_TYPE;\n";
-    out << "break;\n";
+    out << "return _hidl_err;\n";
     out.unindent();
     out << "}\n\n";
 
@@ -1658,7 +1794,7 @@ status_t AST::generateStubSourceForMethod(
                 false /* parcelObjIsPointer */,
                 arg,
                 true /* reader */,
-                Type::ErrorMode_Break,
+                Type::ErrorMode_Return,
                 false /* addPrefixToName */);
     }
 
@@ -1670,23 +1806,25 @@ status_t AST::generateStubSourceForMethod(
                 false /* parcelObjIsPointer */,
                 arg,
                 true /* reader */,
-                Type::ErrorMode_Break,
+                Type::ErrorMode_Return,
                 false /* addPrefixToName */);
     }
 
-    status_t status = generateCppInstrumentationCall(
+    generateCppInstrumentationCall(
             out,
             InstrumentationEvent::SERVER_API_ENTRY,
             method);
-    if (status != OK) {
-        return status;
-    }
 
     const bool returnsValue = !method->results().empty();
     const TypedVar *elidedReturn = method->canElideCallback();
-    const std::string callee =
-            (method->isHidlReserved() && method->overridesCppImpl(IMPL_STUB_IMPL))
-            ? "this" : "_hidl_mImpl";
+
+    std::string callee;
+
+    if (method->isHidlReserved() && method->overridesCppImpl(IMPL_STUB_IMPL)) {
+        callee = "_hidl_this";
+    } else {
+        callee = "static_cast<" + klassName + "*>(_hidl_this)->_hidl_mImpl";
+    }
 
     if (elidedReturn != nullptr) {
         out << elidedReturn->type().getCppResultType()
@@ -1724,13 +1862,10 @@ status_t AST::generateStubSourceForMethod(
                 Type::ErrorMode_Ignore,
                 true /* addPrefixToName */);
 
-        status_t status = generateCppInstrumentationCall(
+        generateCppInstrumentationCall(
                 out,
                 InstrumentationEvent::SERVER_API_EXIT,
                 method);
-        if (status != OK) {
-            return status;
-        }
 
         out << "_hidl_cb(*_hidl_reply);\n";
     } else {
@@ -1797,13 +1932,10 @@ status_t AST::generateStubSourceForMethod(
                         true /* addPrefixToName */);
             }
 
-            status_t status = generateCppInstrumentationCall(
+            generateCppInstrumentationCall(
                     out,
                     InstrumentationEvent::SERVER_API_EXIT,
                     method);
-            if (status != OK) {
-                return status;
-            }
 
             out << "_hidl_cb(*_hidl_reply);\n";
 
@@ -1811,13 +1943,11 @@ status_t AST::generateStubSourceForMethod(
             out << "});\n\n";
         } else {
             out << ");\n\n";
-            status_t status = generateCppInstrumentationCall(
+            out << "(void) _hidl_cb;\n\n";
+            generateCppInstrumentationCall(
                     out,
                     InstrumentationEvent::SERVER_API_EXIT,
                     method);
-            if (status != OK) {
-                return status;
-            }
         }
 
         if (returnsValue) {
@@ -1835,19 +1965,21 @@ status_t AST::generateStubSourceForMethod(
         }
     }
 
-    out << "break;\n";
+    out << "return _hidl_err;\n";
+    out.unindent();
+    out << "}\n\n";
 
     return OK;
 }
 
 status_t AST::generatePassthroughHeader(const std::string &outputPath) const {
-    std::string ifaceName;
-    if (!AST::isInterface(&ifaceName)) {
+    if (!AST::isInterface()) {
         // types.hal does not get a stub header.
         return OK;
     }
 
-    const Interface *iface = mRootScope->getInterface();
+    const Interface* iface = mRootScope.getInterface();
+    CHECK(iface != nullptr);
 
     const std::string klassName = iface->getPassthroughName();
 
@@ -1877,10 +2009,11 @@ status_t AST::generatePassthroughHeader(const std::string &outputPath) const {
     getPackageAndVersionComponents(
             &packageComponents, false /* cpp_compatible */);
 
+    out << "#include <android-base/macros.h>\n";
     out << "#include <cutils/trace.h>\n";
     out << "#include <future>\n";
 
-    generateCppPackageInclude(out, mPackage, ifaceName);
+    generateCppPackageInclude(out, mPackage, iface->localName());
     out << "\n";
 
     out << "#include <hidl/HidlPassthroughSupport.h>\n";
@@ -1893,15 +2026,18 @@ status_t AST::generatePassthroughHeader(const std::string &outputPath) const {
 
     out << "struct "
         << klassName
-        << " : " << ifaceName
+        << " : " << iface->localName()
         << ", ::android::hardware::details::HidlInstrumentor {\n";
 
     out.indent();
     out << "explicit "
         << klassName
         << "(const ::android::sp<"
-        << ifaceName
+        << iface->localName()
         << "> impl);\n";
+
+    out.endl();
+    generateTemplatizationLink(out);
 
     status_t err = generateMethods(out, [&](const Method *method, const Interface *) {
         return generatePassthroughMethod(out, method);
@@ -1914,7 +2050,7 @@ status_t AST::generatePassthroughHeader(const std::string &outputPath) const {
     out.unindent();
     out << "private:\n";
     out.indent();
-    out << "const ::android::sp<" << ifaceName << "> mImpl;\n";
+    out << "const ::android::sp<" << iface->localName() << "> mImpl;\n";
 
     if (supportOneway) {
         out << "::android::hardware::details::TaskRunner mOnewayQueue;\n";
@@ -1937,7 +2073,7 @@ status_t AST::generatePassthroughHeader(const std::string &outputPath) const {
 }
 
 status_t AST::generateInterfaceSource(Formatter &out) const {
-    const Interface *iface = mRootScope->getInterface();
+    const Interface* iface = mRootScope.getInterface();
 
     // generate castFrom functions
     std::string childTypeResult = iface->getCppResultType();
@@ -1980,8 +2116,7 @@ status_t AST::generateInterfaceSource(Formatter &out) const {
             out << "return ::android::hardware::details::castInterface<";
             out << iface->localName() << ", "
                 << superType->fqName().cppName() << ", "
-                << iface->getProxyName() << ", "
-                << superType->getProxyFqName().cppName()
+                << iface->getProxyName()
                 << ">(\n";
             out.indent();
             out.indent();
@@ -1999,7 +2134,7 @@ status_t AST::generateInterfaceSource(Formatter &out) const {
 }
 
 status_t AST::generatePassthroughSource(Formatter &out) const {
-    const Interface *iface = mRootScope->getInterface();
+    const Interface* iface = mRootScope.getInterface();
 
     const std::string klassName = iface->getPassthroughName();
 
@@ -2031,7 +2166,8 @@ status_t AST::generatePassthroughSource(Formatter &out) const {
         out << "return ::android::hardware::Status::fromExceptionCode(\n";
         out.indent();
         out.indent();
-        out << "::android::hardware::Status::EX_TRANSACTION_FAILED);\n";
+        out << "::android::hardware::Status::EX_TRANSACTION_FAILED,\n"
+            << "\"Passthrough oneway function queue exceeds maximum size.\");\n";
         out.unindent();
         out.unindent();
         out.unindent();
@@ -2048,10 +2184,10 @@ status_t AST::generatePassthroughSource(Formatter &out) const {
     return OK;
 }
 
-status_t AST::generateCppAtraceCall(Formatter &out,
+void AST::generateCppAtraceCall(Formatter &out,
                                     InstrumentationEvent event,
                                     const Method *method) const {
-    const Interface *iface = mRootScope->getInterface();
+    const Interface* iface = mRootScope.getInterface();
     std::string baseString = "HIDL::" + iface->localName() + "::" + method->name();
     switch (event) {
         case SERVER_API_ENTRY:
@@ -2081,22 +2217,16 @@ status_t AST::generateCppAtraceCall(Formatter &out,
         }
         default:
         {
-            LOG(ERROR) << "Unsupported instrumentation event: " << event;
-            return UNKNOWN_ERROR;
+            LOG(FATAL) << "Unsupported instrumentation event: " << event;
         }
     }
-
-    return OK;
 }
 
-status_t AST::generateCppInstrumentationCall(
+void AST::generateCppInstrumentationCall(
         Formatter &out,
         InstrumentationEvent event,
         const Method *method) const {
-    status_t err = generateCppAtraceCall(out, event, method);
-    if (err != OK) {
-        return err;
-    }
+    generateCppAtraceCall(out, event, method);
 
     out << "#ifdef __ANDROID_DEBUGGABLE__\n";
     out << "if (UNLIKELY(mEnableInstrumentation)) {\n";
@@ -2169,12 +2299,11 @@ status_t AST::generateCppInstrumentationCall(
         }
         default:
         {
-            LOG(ERROR) << "Unsupported instrumentation event: " << event;
-            return UNKNOWN_ERROR;
+            LOG(FATAL) << "Unsupported instrumentation event: " << event;
         }
     }
 
-    const Interface *iface = mRootScope->getInterface();
+    const Interface* iface = mRootScope.getInterface();
 
     out << "for (const auto &callback: mInstrumentationCallbacks) {\n";
     out.indent();
@@ -2194,8 +2323,6 @@ status_t AST::generateCppInstrumentationCall(
     out.unindent();
     out << "}\n";
     out << "#endif // __ANDROID_DEBUGGABLE__\n\n";
-
-    return OK;
 }
 
 }  // namespace android

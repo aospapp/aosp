@@ -17,7 +17,7 @@
 Bluetooth adapter libraries
 """
 
-from acts.test_utils.bt.BtEnum import BluetoothScanModeType
+from acts.test_utils.bt.bt_constants import bt_rfcomm_uuids
 from acts.test_utils.bt.bt_test_utils import set_bt_scan_mode
 
 import pprint
@@ -37,7 +37,7 @@ class RfcommLib():
             uuid = line
         if uuid:
             self.dut.droid.bluetoothRfcommBeginConnectThread(self.mac_addr,
-                                                                 uuid)
+                                                             uuid)
         else:
             self.dut.droid.bluetoothRfcommBeginConnectThread(self.mac_addr)
 
@@ -69,8 +69,8 @@ class RfcommLib():
         if uuid:
             self.dut.droid.bluetoothRfcommBeginAcceptThread(uuid)
         else:
-            self.dut.droid.bluetoothRfcommBeginAcceptThread(
-                RfcommUuid.BASE_UUID.value)
+            self.dut.droid.bluetoothRfcommBeginAcceptThread(bt_rfcomm_uuids[
+                'base_uuid'])
 
     def stop(self):
         """Stop RFCOMM Connection"""

@@ -64,14 +64,15 @@ class Security(object):
         else:
             security_mode = None
         self.security_mode = security_mode
-        if len(password) < hostapd_constants.MIN_WPA_PSK_LENGTH or len(
-                password) > hostapd_constants.MAX_WPA_PSK_LENGTH:
-            raise ValueError(
-                'Password must be a minumum of %s characters and a maximum of %s'
-                % (hostapd_constants.MIN_WPA_PSK_LENGTH,
-                   hostapd_constants.MAX_WPA_PSK_LENGTH))
-        else:
-            self.password = password
+        if password:
+            if len(password) < hostapd_constants.MIN_WPA_PSK_LENGTH or len(
+                    password) > hostapd_constants.MAX_WPA_PSK_LENGTH:
+                raise ValueError(
+                    'Password must be a minumum of %s characters and a maximum of %s'
+                    % (hostapd_constants.MIN_WPA_PSK_LENGTH,
+                       hostapd_constants.MAX_WPA_PSK_LENGTH))
+            else:
+                self.password = password
 
     def generate_dict(self):
         """Returns: an ordered dictionary of settings"""

@@ -25,12 +25,13 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed
 LOCAL_STATIC_JAVA_LIBRARIES := cts-amwm-util  \
-     platform-test-annotations-host
+    cts-display-service-app-util \
+    platform-test-annotations-host
 
 LOCAL_CTS_TEST_PACKAGE := android.server
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 include $(BUILD_CTS_HOST_JAVA_LIBRARY)
 

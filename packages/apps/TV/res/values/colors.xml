@@ -109,11 +109,11 @@
 
     <!-- TV view -->
     <color name="tvview_block_text_color">#80EEEEEE</color>
+    <color name="tvview_block_image_color_filter">#99000000</color>
 
     <!-- Channel banner -->
     <color name="channel_banner_text_color">#FFEEEEEE</color>
     <color name="channel_banner_episode_text_color">#B3EEEEEE</color>
-    <color name="channel_banner_secondary_input_label_color">#B3EEEEEE</color>
     <color name="channel_banner_dim_text_color">#80EEEEEE</color>
 
     <!-- Keypad channel switch -->
@@ -121,7 +121,7 @@
 
     <!-- Select input -->
     <color name="select_input_text_color_primary">@color/channel_banner_text_color</color>
-    <color name="select_input_text_color_secondary">@color/channel_banner_secondary_input_label_color</color>
+    <color name="select_input_text_color_secondary">#B3EEEEEE</color>
     <color name="select_input_text_color_disabled">#4DEEEEEE</color>
 
     <!-- Recommendation cards in LeanbackLauncher -->

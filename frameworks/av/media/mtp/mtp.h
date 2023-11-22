@@ -94,6 +94,7 @@
 #define MTP_FORMAT_JP2                                  0x380F   // JPEG2000 Baseline File Format
 #define MTP_FORMAT_JPX                                  0x3810   // JPEG2000 Extended File Format
 #define MTP_FORMAT_DNG                                  0x3811   // Digital Negative
+#define MTP_FORMAT_HEIF                                 0x3812   // HEIF images
 #define MTP_FORMAT_UNDEFINED_FIRMWARE                   0xB802
 #define MTP_FORMAT_WINDOWS_IMAGE_FORMAT                 0xB881
 #define MTP_FORMAT_UNDEFINED_AUDIO                      0xB900
@@ -492,5 +493,11 @@
 // Association Type
 #define MTP_ASSOCIATION_TYPE_UNDEFINED              0x0000
 #define MTP_ASSOCIATION_TYPE_GENERIC_FOLDER         0x0001
+
+// MTP class reqeusts
+#define MTP_REQ_CANCEL              0x64
+#define MTP_REQ_GET_EXT_EVENT_DATA  0x65
+#define MTP_REQ_RESET               0x66
+#define MTP_REQ_GET_DEVICE_STATUS   0x67
 
 #endif // _MTP_H

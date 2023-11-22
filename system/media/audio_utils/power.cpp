@@ -18,6 +18,7 @@
 #define LOG_TAG "audio_utils_power"
 #include <log/log.h>
 
+#include <algorithm>
 #include <math.h>
 
 #include <audio_utils/power.h>
@@ -137,130 +138,101 @@ inline float energyMono(const void *amplitudes, size_t size)
 // fast float power computation for ARM processors that support NEON.
 #ifdef USE_NEON
 
+template <typename T>
+float32x4_t convertToFloatVectorAmplitude(T vamplitude) = delete;
+
 template <>
-inline float energyMono<AUDIO_FORMAT_PCM_FLOAT>(const void *amplitudes, size_t size)
+float32x4_t convertToFloatVectorAmplitude<float32x4_t>(float32x4_t vamplitude) {
+    return vamplitude;
+}
+
+template <>
+float32x4_t convertToFloatVectorAmplitude<int16x4_t>(int16x4_t vamplitude) {
+    const int32x4_t iamplitude = vmovl_s16(vamplitude); // expand s16 to s32 first
+    return vcvtq_f32_s32(iamplitude);
+}
+
+template <>
+float32x4_t convertToFloatVectorAmplitude<int32x4_t>(int32x4_t vamplitude) {
+    return vcvtq_f32_s32(vamplitude);
+}
+
+template <typename Vector, typename Scalar>
+inline float energyMonoVector(const void *amplitudes, size_t size)
 {
-    float32x4_t *famplitudes = (float32x4_t *)amplitudes;
+    static_assert(sizeof(Vector) % sizeof(Scalar) == 0,
+             "Vector size must be a multiple of scalar size");
+    const size_t vectorLength = sizeof(Vector) / sizeof(Scalar); // typically 4 (a const)
 
-    // clear accumulator
-    float32x4_t accum = vdupq_n_f32(0);
+    // check pointer validity, must be aligned with scalar type.
+    const Scalar *samplitudes = reinterpret_cast<const Scalar *>(amplitudes);
+    LOG_ALWAYS_FATAL_IF((uintptr_t)samplitudes % alignof(Scalar) != 0,
+            "Non-element aligned address: %p %zu", samplitudes, alignof(Scalar));
 
-    // iterate over array getting sum of squares in 4 lanes.
-    size_t i;
-    for (i = 0; i < (size & ~3); i += 4) {
-        accum = vmlaq_f32(accum, *famplitudes, *famplitudes);
-        ++famplitudes;
+    float accumulator = 0;
+
+    // handle pointer unaligned to vector type.
+    while ((uintptr_t)samplitudes % alignof(Vector) != 0 /* compiler optimized */ && size > 0) {
+        const float amp = (float)*samplitudes++;
+        accumulator += amp * amp;
+        --size;
     }
 
-    // narrow 4 lanes of floats
+    // samplitudes is now adjusted for proper vector alignment, cast to Vector *
+    const Vector *vamplitudes = reinterpret_cast<const Vector *>(samplitudes);
+
+    // clear vector accumulator
+    float32x4_t accum = vdupq_n_f32(0);
+
+    // iterate over array getting sum of squares in vectorLength lanes.
+    size_t i;
+    for (i = 0; i < size - size % vectorLength /* compiler optimized */; i += vectorLength) {
+        const float32x4_t famplitude = convertToFloatVectorAmplitude(*vamplitudes++);
+        accum = vmlaq_f32(accum, famplitude, famplitude);
+    }
+
+    // narrow vectorLength lanes of floats
     float32x2_t accum2 = vadd_f32(vget_low_f32(accum), vget_high_f32(accum)); // get stereo volume
     accum2 = vpadd_f32(accum2, accum2); // combine to mono
 
-    // accumulate remainder
-    float value = vget_lane_f32(accum2, 0);
-    for (; i < size; ++i) {
-        const float amplitude = ((float *)amplitudes)[i];
-        value +=  amplitude * amplitude;
-    }
+    // accumulate vector
+    accumulator += vget_lane_f32(accum2, 0);
 
-    return value;
+    // accumulate any trailing elements too small for vector size
+    for (; i < size; ++i) {
+        const float amp = (float)samplitudes[i];
+        accumulator += amp * amp;
+    }
+    return accumulator;
+}
+
+template <>
+inline float energyMono<AUDIO_FORMAT_PCM_FLOAT>(const void *amplitudes, size_t size)
+{
+    return energyMonoVector<float32x4_t, float>(amplitudes, size);
 }
 
 template <>
 inline float energyMono<AUDIO_FORMAT_PCM_16_BIT>(const void *amplitudes, size_t size)
 {
-    int16x4_t *samplitudes = (int16x4_t *)amplitudes;
-
-    // clear accumulator
-    float32x4_t accum = vdupq_n_f32(0);
-
-    // iterate over array getting sum of squares in 4 lanes.
-    size_t i;
-    for (i = 0; i < (size & ~3); i += 4) {
-        // expand s16 to s32
-        int32x4_t amplitude = vmovl_s16(*samplitudes);
-        ++samplitudes;
-        // convert s32 to f32
-        float32x4_t famplitude = vcvtq_f32_s32(amplitude);
-        accum = vmlaq_f32(accum, famplitude, famplitude);
-    }
-
-    // narrow 4 lanes of floats
-    float32x2_t accum2 = vadd_f32(vget_low_f32(accum), vget_high_f32(accum)); // get stereo volume
-    accum2 = vpadd_f32(accum2, accum2); // combine to mono
-
-    // accumulate remainder
-    float value = vget_lane_f32(accum2, 0);
-    for (; i < size; ++i) {
-        const float amplitude = (float)((int16_t *)amplitudes)[i];
-        value +=  amplitude * amplitude;
-    }
-
-    return value * normalizeEnergy<AUDIO_FORMAT_PCM_16_BIT>();
+    return energyMonoVector<int16x4_t, int16_t>(amplitudes, size)
+            * normalizeEnergy<AUDIO_FORMAT_PCM_16_BIT>();
 }
 
 // fast int32_t power computation for PCM_32
 template <>
 inline float energyMono<AUDIO_FORMAT_PCM_32_BIT>(const void *amplitudes, size_t size)
 {
-    int32x4_t *samplitudes = (int32x4_t *)amplitudes;
-
-    // clear accumulator
-    float32x4_t accum = vdupq_n_f32(0);
-
-    // iterate over array getting sum of squares in 4 lanes.
-    size_t i;
-    for (i = 0; i < (size & ~3); i += 4) {
-        // convert s32 to f32
-        float32x4_t famplitude = vcvtq_f32_s32(*samplitudes);
-        ++samplitudes;
-        accum = vmlaq_f32(accum, famplitude, famplitude);
-    }
-
-    // narrow 4 lanes of floats
-    float32x2_t accum2 = vadd_f32(vget_low_f32(accum), vget_high_f32(accum)); // get stereo volume
-    accum2 = vpadd_f32(accum2, accum2); // combine to mono
-
-    // accumulate remainder
-    float value = vget_lane_f32(accum2, 0);
-    for (; i < size; ++i) {
-        const float amplitude = (float)((int32_t *)amplitudes)[i];
-        value +=  amplitude * amplitude;
-    }
-
-    return value * normalizeEnergy<AUDIO_FORMAT_PCM_32_BIT>();
+    return energyMonoVector<int32x4_t, int32_t>(amplitudes, size)
+            * normalizeEnergy<AUDIO_FORMAT_PCM_32_BIT>();
 }
 
 // fast int32_t power computation for PCM_8_24 (essentially identical to PCM_32 above)
 template <>
 inline float energyMono<AUDIO_FORMAT_PCM_8_24_BIT>(const void *amplitudes, size_t size)
 {
-    int32x4_t *samplitudes = (int32x4_t *)amplitudes;
-
-    // clear accumulator
-    float32x4_t accum = vdupq_n_f32(0);
-
-    // iterate over array getting sum of squares in 4 lanes.
-    size_t i;
-    for (i = 0; i < (size & ~3); i += 4) {
-        // convert s32 to f32
-        float32x4_t famplitude = vcvtq_f32_s32(*samplitudes);
-        ++samplitudes;
-        accum = vmlaq_f32(accum, famplitude, famplitude);
-    }
-
-    // narrow 4 lanes of floats
-    float32x2_t accum2 = vadd_f32(vget_low_f32(accum), vget_high_f32(accum)); // get stereo volume
-    accum2 = vpadd_f32(accum2, accum2); // combine to mono
-
-    // accumulate remainder
-    float value = vget_lane_f32(accum2, 0);
-    for (; i < size; ++i) {
-        const float amplitude = (float)((int32_t *)amplitudes)[i];
-        value +=  amplitude * amplitude;
-    }
-
-    return value * normalizeEnergy<AUDIO_FORMAT_PCM_8_24_BIT>();
+    return energyMonoVector<int32x4_t, int32_t>(amplitudes, size)
+            * normalizeEnergy<AUDIO_FORMAT_PCM_8_24_BIT>();
 }
 
 #endif // USE_NEON

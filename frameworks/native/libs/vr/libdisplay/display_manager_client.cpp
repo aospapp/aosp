@@ -32,32 +32,6 @@ DisplayManagerClient::GetSurfaceState() {
   return status;
 }
 
-pdx::Status<std::unique_ptr<IonBuffer>> DisplayManagerClient::SetupNamedBuffer(
-    const std::string& name, size_t size, uint64_t usage) {
-  auto status = InvokeRemoteMethod<DisplayManagerProtocol::SetupNamedBuffer>(
-      name, size, usage);
-  if (!status) {
-    ALOGE(
-        "DisplayManagerClient::SetupPoseBuffer: Failed to create the named "
-        "buffer %s",
-        status.GetErrorMessage().c_str());
-    return status.error_status();
-  }
-
-  auto ion_buffer = std::make_unique<IonBuffer>();
-  auto native_buffer_handle = status.take();
-  const int ret = native_buffer_handle.Import(ion_buffer.get());
-  if (ret < 0) {
-    ALOGE(
-        "DisplayClient::GetNamedBuffer: Failed to import named buffer: "
-        "name=%s; error=%s",
-        name.c_str(), strerror(-ret));
-    return ErrorStatus(-ret);
-  }
-
-  return {std::move(ion_buffer)};
-}
-
 pdx::Status<std::unique_ptr<ConsumerQueue>>
 DisplayManagerClient::GetSurfaceQueue(int surface_id, int queue_id) {
   auto status = InvokeRemoteMethod<DisplayManagerProtocol::GetSurfaceQueue>(

@@ -19,6 +19,8 @@ import static android.server.cts.ActivityManagerState.STATE_RESUMED;
 
 import android.platform.test.annotations.Presubmit;
 
+import android.server.cts.ActivityManagerState.ActivityStack;
+import android.server.cts.ActivityManagerState.ActivityTask;
 import com.android.ddmlib.Log.LogLevel;
 import com.android.tradefed.log.LogUtil.CLog;
 
@@ -40,8 +42,9 @@ public class ActivityManagerAppConfigurationTests extends ActivityManagerTestBas
     private static final String NIGHT_MODE_ACTIVITY = "NightModeActivity";
     private static final String DIALOG_WHEN_LARGE_ACTIVITY = "DialogWhenLargeActivity";
 
-    private static final String TRANSLUCENT_ACTIVITY = "TranslucentLandscapeActivity";
-
+    private static final String TRANSLUCENT_ACTIVITY =
+            "android.server.translucentapp.TranslucentLandscapeActivity";
+    private static final String TRANSLUCENT_SDK_26_PACKAGE = "android.server.translucentapp26";
     private static final String TRANSLUCENT_CURRENT_PACKAGE = "android.server.translucentapp";
 
     private static final String EXTRA_LAUNCH_NEW_TASK = "launch_new_task";
@@ -81,7 +84,7 @@ public class ActivityManagerAppConfigurationTests extends ActivityManagerTestBas
      * Same as {@link #testConfigurationUpdatesWhenResizedFromFullscreen()} but resizing
      * from docked state to fullscreen (reverse).
      */
-    @Presubmit
+    // TODO: Flaky, add to presubmit when b/63404575 is fixed.
     public void testConfigurationUpdatesWhenResizedFromDockedStack() throws Exception {
         if (!supportsSplitScreenMultiWindow()) {
             CLog.logAndDisplay(LogLevel.INFO, "Skipping test: no multi-window support");
@@ -105,6 +108,10 @@ public class ActivityManagerAppConfigurationTests extends ActivityManagerTestBas
      * Tests whether the Display sizes change when rotating the device.
      */
     public void testConfigurationUpdatesWhenRotatingWhileFullscreen() throws Exception {
+        if (!supportsRotation()) {
+            CLog.logAndDisplay(LogLevel.INFO, "Skipping test: no rotation support");
+            return;
+        }
         setDeviceRotation(0);
         final String logSeparator = clearLogcat();
         launchActivityInStack(RESIZEABLE_ACTIVITY_NAME, FULLSCREEN_WORKSPACE_STACK_ID);
@@ -118,7 +125,7 @@ public class ActivityManagerAppConfigurationTests extends ActivityManagerTestBas
      * Same as {@link #testConfigurationUpdatesWhenRotatingWhileFullscreen()} but when the Activity
      * is in the docked stack.
      */
-    @Presubmit
+    // TODO: Flaky, add to presubmit when b/63404575 is fixed.
     public void testConfigurationUpdatesWhenRotatingWhileDocked() throws Exception {
         if (!supportsSplitScreenMultiWindow()) {
             CLog.logAndDisplay(LogLevel.INFO, "Skipping test: no multi-window support");
@@ -154,6 +161,7 @@ public class ActivityManagerAppConfigurationTests extends ActivityManagerTestBas
 
         final String logSeparator = clearLogcat();
         launchActivityInDockStack(LAUNCHING_ACTIVITY);
+
         getLaunchActivityBuilder().setToSide(true).setTargetActivityName(RESIZEABLE_ACTIVITY_NAME)
                 .execute();
         final ReportedSizes initialSizes = getActivityDisplaySize(RESIZEABLE_ACTIVITY_NAME,
@@ -268,6 +276,11 @@ public class ActivityManagerAppConfigurationTests extends ActivityManagerTestBas
      */
     @Presubmit
     public void testDialogWhenLargeSplitSmall() throws Exception {
+        if (!supportsSplitScreenMultiWindow()) {
+            CLog.logAndDisplay(LogLevel.INFO, "Skipping test: no multi-window support");
+            return;
+        }
+
         launchActivityInStack(DIALOG_WHEN_LARGE_ACTIVITY, DOCKED_STACK_ID);
         final ActivityManagerState.ActivityStack stack = mAmWmState.getAmState()
                 .getStackById(DOCKED_STACK_ID);
@@ -312,8 +325,8 @@ public class ActivityManagerAppConfigurationTests extends ActivityManagerTestBas
                 1 /* portrait */, initialReportedSizes.orientation);
         logSeparator = clearLogcat();
 
-        // TODO(b/38225467): Target SDK 26 specific package when SDK 27 released.
-        launchActivityInComponent(TRANSLUCENT_CURRENT_PACKAGE, TRANSLUCENT_ACTIVITY);
+        launchActivityInComponent(TRANSLUCENT_SDK_26_PACKAGE, TRANSLUCENT_ACTIVITY);
+
         assertEquals("Legacy non-fullscreen activity requested landscape orientation",
                 0 /* landscape */, mAmWmState.getWmState().getLastOrientation());
 
@@ -324,24 +337,13 @@ public class ActivityManagerAppConfigurationTests extends ActivityManagerTestBas
         //         1 /* portrait */, updatedReportedSizes.orientation);
     }
 
-// TODO(b/38225467): Uncomment when SDK 27 is released.
-//    public void testNonFullscreenActivityProhibited() throws Exception {
-//        setComponentName(TRANSLUCENT_CURRENT_PACKAGE);
-//        launchActivity(TRANSLUCENT_ACTIVITY);
-//        mAmWmState.assertNotResumedActivity(
-//                "target SDK > 25 non-fullscreen activity should not reach onResume",
-//                TRANSLUCENT_ACTIVITY);
-//    }
-
-    // TODO(b/38225467): rename to testLegacyNonFullscreenActivityPermitted
     public void testNonFullscreenActivityPermitted() throws Exception {
-        // TODO(b/38225467): Target SDK 26 specific package when SDK 27 released.
         setComponentName(TRANSLUCENT_CURRENT_PACKAGE);
         setDeviceRotation(0);
 
         launchActivity(TRANSLUCENT_ACTIVITY);
         mAmWmState.assertResumedActivity(
-                "target SDK <= 26 non-fullscreen activity should be allowed to launch",
+                "target SDK non-fullscreen activity should be allowed to launch",
                 TRANSLUCENT_ACTIVITY);
         assertEquals("non-fullscreen activity requested landscape orientation",
                 0 /* landscape */, mAmWmState.getWmState().getLastOrientation());
@@ -368,7 +370,7 @@ public class ActivityManagerAppConfigurationTests extends ActivityManagerTestBas
         executeShellCommand(FINISH_ACTIVITY_BROADCAST);
 
         // Verify that activity brought to front is in originally requested orientation.
-        mAmWmState.waitForValidState(mDevice, LANDSCAPE_ACTIVITY_NAME);
+        mAmWmState.computeState(mDevice, new String[]{LANDSCAPE_ACTIVITY_NAME});
         assertEquals("Should return to app in landscape orientation",
                 0 /* landscape */, mAmWmState.getWmState().getLastOrientation());
     }
@@ -419,6 +421,11 @@ public class ActivityManagerAppConfigurationTests extends ActivityManagerTestBas
      */
     private void requestOrientationInSplitScreen(int orientation, String activity)
             throws Exception {
+        if (!supportsSplitScreenMultiWindow()) {
+            CLog.logAndDisplay(LogLevel.INFO, "Skipping test: no multi-window support");
+            return;
+        }
+
         // Set initial orientation.
         setDeviceRotation(orientation);
 

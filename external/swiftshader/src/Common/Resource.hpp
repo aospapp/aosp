@@ -24,7 +24,7 @@ namespace sw
 		PUBLIC,    // Application/API access
 		PRIVATE,   // Renderer access, shared by multiple threads if read-only
 		MANAGED,   // Renderer access, shared read/write access if partitioned
-		DESTRUCT
+		EXCLUSIVE
 	};
 
 	class Resource
@@ -45,7 +45,7 @@ namespace sw
 	private:
 		~Resource();   // Always call destruct() instead
 
-		BackoffLock criticalSection;
+		MutexLock criticalSection;
 		Event unblock;
 		volatile int blocked;
 

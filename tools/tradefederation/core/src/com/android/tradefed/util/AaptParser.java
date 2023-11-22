@@ -103,21 +103,31 @@ public class AaptParser {
      * @return the {@link AaptParser} or <code>null</code> if failed to extract the information
      */
     public static AaptParser parse(File apkFile) {
-        CommandResult result = RunUtil.getDefault().runTimedCmd(AAPT_TIMEOUT_MS,
-                "aapt", "dump", "badging", apkFile.getAbsolutePath());
+        CommandResult result =
+                RunUtil.getDefault()
+                        .runTimedCmdRetry(
+                                AAPT_TIMEOUT_MS,
+                                0L,
+                                2,
+                                "aapt",
+                                "dump",
+                                "badging",
+                                apkFile.getAbsolutePath());
 
         String stderr = result.getStderr();
-        if (stderr != null && stderr.length() > 0) {
+        if (stderr != null && !stderr.isEmpty()) {
             CLog.e("aapt dump badging stderr: %s", stderr);
         }
 
-        if (result.getStatus() == CommandStatus.SUCCESS) {
+        if (CommandStatus.SUCCESS.equals(result.getStatus())) {
             AaptParser p = new AaptParser();
             if (p.parse(result.getStdout()))
                 return p;
             return null;
         }
-        CLog.e("Failed to run aapt on %s", apkFile.getAbsoluteFile());
+        CLog.e(
+                "Failed to run aapt on %s. stdout: %s",
+                apkFile.getAbsoluteFile(), result.getStdout());
         return null;
     }
 

@@ -27,6 +27,7 @@ public class TestSelectionDetails implements SelectionDetails {
     public boolean canRename;
     public boolean canDelete;
     public boolean containPartial;
+    public boolean containsFilesInArchive;
     public boolean containDirectories;
     public boolean containFiles;
     public boolean canPasteInto;
@@ -47,6 +48,11 @@ public class TestSelectionDetails implements SelectionDetails {
     @Override
     public boolean containsDirectories() {
         return containDirectories;
+    }
+
+    @Override
+    public boolean containsFilesInArchive() {
+        return containsFilesInArchive;
     }
 
     @Override

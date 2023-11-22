@@ -30,11 +30,12 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     ctstestrunner \
     compatibility-device-util \
     android-support-v4 \
-    android-support-test
+    android-support-test \
+    legacy-android-test
 
 LOCAL_SDK_VERSION := test_current
 
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 include $(BUILD_CTS_PACKAGE)

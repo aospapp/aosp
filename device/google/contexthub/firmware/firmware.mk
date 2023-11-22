@@ -58,7 +58,7 @@ FLAGS += -Iexternal/freebsd/inc
 FLAGS += -I../lib/include
 FLAGS += -I../inc
 
-FLAGS += -Wall -Werror -fshort-double
+FLAGS += -Wall -Werror
 #help avoid commmon embedded C mistakes
 FLAGS += -Wmissing-declarations -Wlogical-op -Waddress -Wempty-body -Wpointer-arith -Wenum-compare -Wdouble-promotion -Wfloat-equal -Wshadow -fno-strict-aliasing
 

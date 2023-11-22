@@ -2,11 +2,12 @@
 #define FIO_STAT_H
 
 #include "iolog.h"
+#include "lib/output_buffer.h"
 
 struct group_run_stats {
 	uint64_t max_run[DDIR_RWDIR_CNT], min_run[DDIR_RWDIR_CNT];
 	uint64_t max_bw[DDIR_RWDIR_CNT], min_bw[DDIR_RWDIR_CNT];
-	uint64_t io_kb[DDIR_RWDIR_CNT];
+	uint64_t iobytes[DDIR_RWDIR_CNT];
 	uint64_t agg[DDIR_RWDIR_CNT];
 	uint32_t kb_base;
 	uint32_t unit_base;
@@ -112,6 +113,28 @@ struct group_run_stats {
 #define FIO_IO_U_LIST_MAX_LEN 20 /* The size of the default and user-specified
 					list of percentiles */
 
+/*
+ * Trim cycle count measurements
+ */
+#define MAX_NR_BLOCK_INFOS	8192
+#define BLOCK_INFO_STATE_SHIFT	29
+#define BLOCK_INFO_TRIMS(block_info)	\
+	((block_info) & ((1 << BLOCK_INFO_STATE_SHIFT) - 1))
+#define BLOCK_INFO_STATE(block_info)		\
+	((block_info) >> BLOCK_INFO_STATE_SHIFT)
+#define BLOCK_INFO(state, trim_cycles)	\
+	((trim_cycles) | ((unsigned int) (state) << BLOCK_INFO_STATE_SHIFT))
+#define BLOCK_INFO_SET_STATE(block_info, state)	\
+	BLOCK_INFO(state, BLOCK_INFO_TRIMS(block_info))
+enum block_info_state {
+	BLOCK_STATE_UNINIT,
+	BLOCK_STATE_TRIMMED,
+	BLOCK_STATE_WRITTEN,
+	BLOCK_STATE_TRIM_FAILURE,
+	BLOCK_STATE_WRITE_FAILURE,
+	BLOCK_STATE_COUNT,
+};
+
 #define MAX_PATTERN_SIZE	512
 #define FIO_JOBNAME_SIZE	128
 #define FIO_JOBDESC_SIZE	256
@@ -160,9 +183,9 @@ struct thread_stat {
 	uint32_t io_u_plat[DDIR_RWDIR_CNT][FIO_IO_U_PLAT_NR];
 	uint32_t pad;
 
-	uint64_t total_io_u[3];
-	uint64_t short_io_u[3];
-	uint64_t drop_io_u[3];
+	uint64_t total_io_u[DDIR_RWDIR_CNT];
+	uint64_t short_io_u[DDIR_RWDIR_CNT];
+	uint64_t drop_io_u[DDIR_RWDIR_CNT];
 	uint64_t total_submit;
 	uint64_t total_complete;
 
@@ -175,18 +198,41 @@ struct thread_stat {
 	 */
 	union {
 		uint16_t continue_on_error;
-		uint64_t pad2;
+		uint32_t pad2;
 	};
-	uint64_t total_err_count;
 	uint32_t first_error;
+	uint64_t total_err_count;
+
+	uint64_t nr_block_infos;
+	uint32_t block_infos[MAX_NR_BLOCK_INFOS];
 
 	uint32_t kb_base;
 	uint32_t unit_base;
 
 	uint32_t latency_depth;
+	uint32_t pad3;
 	uint64_t latency_target;
 	fio_fp64_t latency_percentile;
 	uint64_t latency_window;
+
+	uint64_t ss_dur;
+	uint32_t ss_state;
+	uint32_t ss_head;
+
+	fio_fp64_t ss_limit;
+	fio_fp64_t ss_slope;
+	fio_fp64_t ss_deviation;
+	fio_fp64_t ss_criterion;
+
+	union {
+		uint64_t *ss_iops_data;
+		uint64_t pad4;
+	};
+
+	union {
+		uint64_t *ss_bw_data;
+		uint64_t pad5;
+	};
 } __attribute__((packed));
 
 struct jobs_eta {
@@ -198,9 +244,9 @@ struct jobs_eta {
 
 	uint32_t files_open;
 
-	uint32_t m_rate[DDIR_RWDIR_CNT], t_rate[DDIR_RWDIR_CNT];
+	uint64_t m_rate[DDIR_RWDIR_CNT], t_rate[DDIR_RWDIR_CNT];
 	uint32_t m_iops[DDIR_RWDIR_CNT], t_iops[DDIR_RWDIR_CNT];
-	uint32_t rate[DDIR_RWDIR_CNT];
+	uint64_t rate[DDIR_RWDIR_CNT];
 	uint32_t iops[DDIR_RWDIR_CNT];
 	uint64_t elapsed_sec;
 	uint64_t eta_sec;
@@ -214,51 +260,76 @@ struct jobs_eta {
 	uint8_t run_str[];
 } __attribute__((packed));
 
+struct io_u_plat_entry {
+	struct flist_head list;
+	unsigned int io_u_plat[FIO_IO_U_PLAT_NR];
+};
+
 extern struct fio_mutex *stat_mutex;
 
-extern struct jobs_eta *get_jobs_eta(int force, size_t *size);
+extern struct jobs_eta *get_jobs_eta(bool force, size_t *size);
 
 extern void stat_init(void);
 extern void stat_exit(void);
 
-extern struct json_object * show_thread_status(struct thread_stat *ts, struct group_run_stats *rs);
-extern void show_group_stats(struct group_run_stats *rs);
-extern int calc_thread_status(struct jobs_eta *je, int force);
+extern struct json_object * show_thread_status(struct thread_stat *ts, struct group_run_stats *rs, struct flist_head *, struct buf_output *);
+extern void show_group_stats(struct group_run_stats *rs, struct buf_output *);
+extern bool calc_thread_status(struct jobs_eta *je, int force);
 extern void display_thread_status(struct jobs_eta *je);
 extern void show_run_stats(void);
 extern void __show_run_stats(void);
 extern void __show_running_run_stats(void);
 extern void show_running_run_stats(void);
 extern void check_for_running_stats(void);
-extern void sum_thread_stats(struct thread_stat *dst, struct thread_stat *src, int nr);
+extern void sum_thread_stats(struct thread_stat *dst, struct thread_stat *src, bool first);
 extern void sum_group_stats(struct group_run_stats *dst, struct group_run_stats *src);
 extern void init_thread_stat(struct thread_stat *ts);
 extern void init_group_run_stat(struct group_run_stats *gs);
 extern void eta_to_str(char *str, unsigned long eta_sec);
-extern int calc_lat(struct io_stat *is, unsigned long *min, unsigned long *max, double *mean, double *dev);
+extern bool calc_lat(struct io_stat *is, unsigned long *min, unsigned long *max, double *mean, double *dev);
 extern unsigned int calc_clat_percentiles(unsigned int *io_u_plat, unsigned long nr, fio_fp64_t *plist, unsigned int **output, unsigned int *maxv, unsigned int *minv);
 extern void stat_calc_lat_m(struct thread_stat *ts, double *io_u_lat);
 extern void stat_calc_lat_u(struct thread_stat *ts, double *io_u_lat);
 extern void stat_calc_dist(unsigned int *map, unsigned long total, double *io_u_dist);
 extern void reset_io_stats(struct thread_data *);
+extern void update_rusage_stat(struct thread_data *);
+extern void clear_rusage_stat(struct thread_data *);
 
-static inline int usec_to_msec(unsigned long *min, unsigned long *max,
-			       double *mean, double *dev)
+extern void add_lat_sample(struct thread_data *, enum fio_ddir, unsigned long,
+				unsigned int, uint64_t);
+extern void add_clat_sample(struct thread_data *, enum fio_ddir, unsigned long,
+				unsigned int, uint64_t);
+extern void add_slat_sample(struct thread_data *, enum fio_ddir, unsigned long,
+				unsigned int, uint64_t);
+extern void add_agg_sample(union io_sample_data, enum fio_ddir, unsigned int);
+extern void add_iops_sample(struct thread_data *, struct io_u *,
+				unsigned int);
+extern void add_bw_sample(struct thread_data *, struct io_u *,
+				unsigned int, unsigned long);
+extern int calc_log_samples(void);
+
+extern struct io_log *agg_io_log[DDIR_RWDIR_CNT];
+extern int write_bw_log;
+
+static inline bool usec_to_msec(unsigned long *min, unsigned long *max,
+				double *mean, double *dev)
 {
 	if (*min > 1000 && *max > 1000 && *mean > 1000.0 && *dev > 1000.0) {
 		*min /= 1000;
 		*max /= 1000;
 		*mean /= 1000.0;
 		*dev /= 1000.0;
-		return 0;
+		return true;
 	}
 
-	return 1;
+	return false;
 }
 /*
  * Worst level condensing would be 1:5, so allow enough room for that
  */
 #define __THREAD_RUNSTR_SZ(nr)	((nr) * 5)
 #define THREAD_RUNSTR_SZ	__THREAD_RUNSTR_SZ(thread_number)
+
+uint32_t *io_u_block_info(struct thread_data *td, struct io_u *io_u);
 
 #endif

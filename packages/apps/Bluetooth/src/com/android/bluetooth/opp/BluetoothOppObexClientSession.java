@@ -415,8 +415,6 @@ public class BluetoothOppObexClientSession implements BluetoothOppObexSession {
                         outputStream.write(buffer, 0, readLength);
 
                         position += readLength;
-                        /* check remote accept or reject */
-                        responseCode = putOperation.getResponseCode();
 
                         if (position == fileInfo.mLength) {
                             // if file length is smaller than buffer size, only one packet
@@ -424,6 +422,9 @@ public class BluetoothOppObexClientSession implements BluetoothOppObexSession {
                             outputStream.close();
                             outputStream = null;
                         }
+
+                        /* check remote accept or reject */
+                        responseCode = putOperation.getResponseCode();
 
                         mCallback.removeMessages(BluetoothOppObexSession.MSG_CONNECT_TIMEOUT);
                         synchronized (this) {

@@ -17,6 +17,7 @@
 #ifndef ANDROID_WIFI_SYSTEM_TEST_MOCK_HAL_TOOL_H
 #define ANDROID_WIFI_SYSTEM_TEST_MOCK_HAL_TOOL_H
 
+#include <gmock/gmock.h>
 #include <wifi_system/hal_tool.h>
 
 namespace android {

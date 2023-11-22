@@ -45,6 +45,8 @@
 #$(call add-clean-step, rm -rf $(PRODUCT_OUT)/data/*)
 
 $(call add-clean-step, rm -rf $(HOST_OUT_INTERMEDIATES)/EXECUTABLES/vm-tests-tf_intermediates)
+$(call add-clean-step, rm -rf $(OUT_DIR)/host/common/obj/JAVA_LIBRARIES/cts-tradefed_intermediates/com/android/compatibility/SuiteInfo.java)
+
 # ************************************************
 # NEWER CLEAN STEPS MUST BE AT THE END OF THE LIST
 # ************************************************

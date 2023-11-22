@@ -31,17 +31,49 @@ public class SplashscreenTests extends ActivityManagerTestBase {
         mAmWmState.waitForAppTransitionIdle(mDevice);
         mAmWmState.getWmState().getStableBounds();
         final BufferedImage image = takeScreenshot();
-        assertAllColor(image, mAmWmState.getWmState().getStableBounds(), Color.RED.getRGB());
+
+        // Use ratios to flexibly accomodate circular or not quite rectangular displays
+        // Note: Color.BLACK is the pixel color outside of the display region
+        assertColors(image, mAmWmState.getWmState().getStableBounds(),
+            Color.RED.getRGB(), 0.50f, Color.BLACK.getRGB(), 0.01f);
     }
 
-    private void assertAllColor(BufferedImage img, Rectangle bounds, int expectedColor) {
+    private void assertColors(BufferedImage img, Rectangle bounds, int primaryColor,
+        float expectedPrimaryRatio, int secondaryColor, float acceptableWrongRatio) {
+
+        int primaryPixels = 0;
+        int secondaryPixels = 0;
+        int wrongPixels = 0;
         for (int x = bounds.x; x < bounds.x + bounds.width; x++) {
             for (int y = bounds.y; y < bounds.y + bounds.height; y++) {
                 assertTrue(x < img.getWidth());
                 assertTrue(y < img.getHeight());
                 final int color = img.getRGB(x, y);
-                assertEquals("Colors must match at x=" + x + " y=" + y, expectedColor, color);
+                if (primaryColor == color) {
+                    primaryPixels++;
+                } else if (secondaryColor == color) {
+                    secondaryPixels++;
+                } else {
+                    wrongPixels++;
+                }
             }
+        }
+
+        final int totalPixels = bounds.width * bounds.height;
+        final float primaryRatio = (float) primaryPixels / totalPixels;
+        if (primaryRatio < expectedPrimaryRatio) {
+            fail("Less than " + (expectedPrimaryRatio * 100.0f)
+                    + "% of pixels have non-primary color primaryPixels=" + primaryPixels
+                    + " secondaryPixels=" + secondaryPixels + " wrongPixels=" + wrongPixels);
+        }
+
+        // Some pixels might be covered by screen shape decorations, like rounded corners.
+        // On circular displays, there is an antialiased edge.
+        final float wrongRatio = (float) wrongPixels / totalPixels;
+        if (wrongRatio > acceptableWrongRatio) {
+            fail("More than " + (acceptableWrongRatio * 100.0f)
+                    + "% of pixels have wrong color primaryPixels=" + primaryPixels
+                    + " secondaryPixels=" + secondaryPixels + " wrongPixels=" + wrongPixels);
         }
     }
 }

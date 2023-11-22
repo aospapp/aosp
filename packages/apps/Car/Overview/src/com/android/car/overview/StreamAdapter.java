@@ -17,7 +17,6 @@ package com.android.car.overview;
 
 import android.content.Context;
 import android.support.annotation.Nullable;
-import android.support.car.ui.PagedListView;
 import android.support.v7.widget.CardView;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
@@ -28,6 +27,7 @@ import com.android.car.stream.AbstractBundleable;
 import com.android.car.stream.MediaPlaybackExtension;
 import com.android.car.stream.StreamCard;
 import com.android.car.stream.StreamConstants;
+import com.android.car.view.PagedListView;
 
 import java.util.ArrayList;
 import java.util.Iterator;

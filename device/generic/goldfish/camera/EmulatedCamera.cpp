@@ -26,7 +26,7 @@
 #define LOG_NDEBUG 0
 #define LOG_TAG "EmulatedCamera_Camera"
 #include <cutils/log.h>
-#include <ui/Rect.h>
+ #include <stdio.h>
 #include "EmulatedCamera.h"
 //#include "EmulatedFakeCameraDevice.h"
 #include "Converters.h"
@@ -386,12 +386,17 @@ int EmulatedCamera::isPreviewEnabled()
 status_t EmulatedCamera::storeMetaDataInBuffers(int enable)
 {
     /* Callback should return a negative errno. */
-    return -mCallbackNotifier.storeMetaDataInBuffers(enable);
+    return mCallbackNotifier.storeMetaDataInBuffers(enable);
 }
 
 status_t EmulatedCamera::startRecording()
 {
     /* This callback should return a negative errno, hence all the negations */
+    if (!mPreviewWindow.isPreviewEnabled()) {
+        ALOGE("%s: start recording without preview enabled",
+              __FUNCTION__);
+        return INVALID_OPERATION;
+    }
     int frameRate = mParameters.getPreviewFrameRate();
     status_t res = mCallbackNotifier.enableVideoRecording(frameRate);
     if (res != NO_ERROR) {
@@ -439,6 +444,7 @@ status_t EmulatedCamera::startRecording()
             return -EINVAL;
         }
     }
+    ALOGD("go all the way to the end");
     return NO_ERROR;
 }
 
@@ -766,7 +772,8 @@ status_t EmulatedCamera::dumpCamera(int fd)
     ALOGV("%s", __FUNCTION__);
 
     /* TODO: Future enhancements. */
-    return -EINVAL;
+    dprintf(fd, "dump camera unimplemented\n");
+    return 0;
 }
 
 status_t EmulatedCamera::getConfiguredPixelFormat(uint32_t* pixelFormat) const {

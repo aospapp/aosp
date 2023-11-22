@@ -17,6 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"מידע למקרה חירום"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"מידע רפואי"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"עריכת המידע"</string>
     <string name="edit_info" msgid="5973929805855224805">"עריכת מידע למקרה חירום"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"מידע"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"אנשי קשר"</string>
@@ -78,7 +80,7 @@
     <string name="medical_conditions" msgid="3555690011498283592">"הערות רפואיות"</string>
     <string name="unknown_medical_conditions" msgid="8051364895172053770">"לא ידוע"</string>
     <string name="medical_conditions_hint" msgid="6959152183029062882">"לדוגמה, אסטמה"</string>
-    <string name="organ_donor" msgid="5953509460007124827">"תורם איברים"</string>
+    <string name="organ_donor" msgid="5953509460007124827">"תרומת איברים"</string>
     <string name="unknown_organ_donor" msgid="2780515342875494225">"לא ידוע"</string>
     <string name="yes" msgid="5829765567799916128">"כן"</string>
     <string name="no" msgid="1681689233660683509">"לא"</string>
@@ -96,12 +98,12 @@
     <string name="cancel" msgid="7401575239009060939">"ביטול"</string>
     <string name="ok" msgid="163967937451981024">"אישור"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"מידע למקרה חירום"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"מידע שתזין כאן יכול לעזור למגישי עזרה ראשונה במקרה חירום. הוא מאוחסן במכשיר שלך בלבד, אבל כל אחד יכול לקרוא אותו מחייגן החירום ללא ביטול נעילת הטלפון."</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"המשך"</string>
     <string name="no_info_provided" msgid="716200382010821001">"אין מידע על הבעלים של הטלפון"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"אם זהו הטלפון שלך, הקש על סמל העיפרון כדי להוסיף מידע שיוצג כאן במקרה חירום"</string>
-    <string name="clear_all" msgid="8899013032870561633">"נקה הכול"</string>
-    <string name="clear" msgid="3648880442502887163">"נקה"</string>
+    <string name="clear_all" msgid="8899013032870561633">"ניקוי הכול"</string>
+    <string name="clear" msgid="3648880442502887163">"ניקוי"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"האם לנקות את כל המידע ואנשי הקשר?"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"מומלץ להוסיף מידע רפואי ואנשי קשר למקרה חירום כדי לעזור למגישי העזרה הראשונה לתפקד ביעילות במצב חירום.\n\nכולם יוכלו לראות את המידע הזה ממסך הנעילה שלך ולחייג לאנשי הקשר שבחרת באמצעות הקשה על השמות שלהם, בלי לבטל את הנעילה של הטלפון."</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"הוספת מידע למקרה חירום"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"כדי שמגישי עזרה ראשונה יוכלו למצוא מידע חשוב"</string>
 </resources>

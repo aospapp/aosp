@@ -37,6 +37,7 @@ else
 car_lib_sources += $(call all-java-files-under, src_feature_current)
 endif
 car_lib_sources += $(call all-Iaidl-files-under, src)
+LOCAL_AIDL_INCLUDES += system/bt/binder
 
 LOCAL_SRC_FILES := $(car_lib_sources)
 
@@ -65,6 +66,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := android.car7
 LOCAL_SRC_FILES := $(car_lib_sources)
 LOCAL_JAVA_LANGUAGE_VERSION := 1.7
+LOCAL_AIDL_INCLUDES += system/bt/binder
 
 ifeq ($(EMMA_INSTRUMENT_FRAMEWORK),true)
 LOCAL_EMMA_INSTRUMENT := true

@@ -6,9 +6,9 @@ import common
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import utils
-from autotest_lib.scheduler import drones
-from autotest_lib.scheduler import drone_utility
 from autotest_lib.scheduler import drone_task_queue
+from autotest_lib.scheduler import drone_utility
+from autotest_lib.scheduler import drones
 from autotest_lib.scheduler import scheduler_config
 from autotest_lib.scheduler import thread_lib
 
@@ -36,6 +36,11 @@ ALL_PIDFILE_NAMES = (AUTOSERV_PID_FILE, CRASHINFO_PID_FILE, PARSER_PID_FILE,
 _THREADED_DRONE_MANAGER = global_config.global_config.get_config_value(
         scheduler_config.CONFIG_SECTION, 'threaded_drone_manager',
         type=bool, default=True)
+
+HOSTS_JOB_SUBDIR = 'hosts/'
+PARSE_LOG = '.parse.log'
+ENABLE_ARCHIVING =  global_config.global_config.get_config_value(
+        scheduler_config.CONFIG_SECTION, 'enable_archiving', type=bool)
 
 
 class DroneManagerError(Exception):
@@ -146,7 +151,7 @@ class _DroneHeapWrapper(object):
         return cmp(self.drone.used_capacity(), other.drone.used_capacity())
 
 
-class BaseDroneManager(object):
+class DroneManager(object):
     """
     This class acts as an interface from the scheduler to drones, whether it be
     only a single "drone" for localhost or multiple remote drones.
@@ -248,11 +253,24 @@ class BaseDroneManager(object):
 
 
     def _add_drone(self, hostname):
-        logging.info('Adding drone %s', hostname)
+        """
+        Add drone.
+
+        Catches AutoservRunError if the drone fails initialization and does not
+        add it to the list of usable drones.
+
+        @param hostname: Hostname of the drone we are trying to add.
+        """
+        logging.info('Adding drone %s' % hostname)
         drone = drones.get_drone(hostname)
         if drone:
+            try:
+                drone.call('initialize', self.absolute_path(''))
+            except error.AutoservRunError as e:
+                logging.error('Failed to initialize drone %s with error: %s',
+                              hostname, e)
+                return
             self._drones[drone.hostname] = drone
-            drone.call('initialize', self.absolute_path(''))
 
 
     def _remove_drone(self, hostname):
@@ -573,7 +591,7 @@ class BaseDroneManager(object):
         """
         logging.info('killing %s', process)
         drone = self._get_drone_for_process(process)
-        drone.queue_call('kill_process', process)
+        drone.queue_kill_process(process)
 
 
     def _ensure_directory_exists(self, path):
@@ -856,6 +874,37 @@ class BaseDroneManager(object):
         """
         Copy results from the given process at source_path to destination_path
         in the results repository.
+
+        This will only copy the results back for Special Agent Tasks (Cleanup,
+        Verify, Repair) that reside in the hosts/ subdirectory of results if
+        the copy_task_results_back flag has been set to True inside
+        global_config.ini
+
+        It will also only copy .parse.log files back to the scheduler if the
+        copy_parse_log_back flag in global_config.ini has been set to True.
+        """
+        if not ENABLE_ARCHIVING:
+            return
+        copy_task_results_back = global_config.global_config.get_config_value(
+                scheduler_config.CONFIG_SECTION, 'copy_task_results_back',
+                type=bool)
+        copy_parse_log_back = global_config.global_config.get_config_value(
+                scheduler_config.CONFIG_SECTION, 'copy_parse_log_back',
+                type=bool)
+        special_task = source_path.startswith(HOSTS_JOB_SUBDIR)
+        parse_log = source_path.endswith(PARSE_LOG)
+        if (copy_task_results_back or not special_task) and (
+                copy_parse_log_back or not parse_log):
+            if destination_path is None:
+                destination_path = source_path
+            self._copy_results_helper(process, source_path, destination_path,
+                                      to_results_repository=True)
+
+    def _copy_to_results_repository(self, process, source_path,
+                                   destination_path=None):
+        """
+        Copy results from the given process at source_path to destination_path
+        in the results repository, without special task handling.
         """
         if destination_path is None:
             destination_path = source_path
@@ -909,15 +958,6 @@ class BaseDroneManager(object):
         full_path = self.absolute_path(
                 file_path, on_results_repository=on_results_repository)
         drone.queue_call('write_to_file', full_path, file_contents)
-
-
-SiteDroneManager = utils.import_site_class(
-   __file__, 'autotest_lib.scheduler.site_drone_manager',
-   'SiteDroneManager', BaseDroneManager)
-
-
-class DroneManager(SiteDroneManager):
-    pass
 
 
 _the_instance = None

@@ -49,6 +49,7 @@ private:
     friend struct KernelConfigTypedValueConverter;
     friend std::ostream &operator<<(std::ostream &os, const KernelConfigTypedValue &kctv);
     friend bool parseKernelConfigValue(const std::string &s, KernelConfigTypedValue *kctv);
+    friend bool parseKernelConfigTypedValue(const std::string& s, KernelConfigTypedValue* kctv);
 
     std::string mStringValue;
     KernelConfigIntValue mIntegerValue;

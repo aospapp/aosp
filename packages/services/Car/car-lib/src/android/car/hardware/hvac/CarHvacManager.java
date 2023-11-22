@@ -161,6 +161,11 @@ public final class CarHvacManager implements CarManagerBase {
      */
     public static final int ID_ZONED_MAX_DEFROST_ON = 0x400E;
     /**
+     * Automatic recirculation mode ON
+     * true indicates recirculation is in automatic mode
+     */
+    public static final int ID_ZONED_HVAC_AUTO_RECIRC_ON = 0x400F;
+    /**
      * Defroster ON, bool type
      * Defroster controls are based on window position.
      * True indicates the defroster is ON.
@@ -187,6 +192,7 @@ public final class CarHvacManager implements CarManagerBase {
             ID_ZONED_DUAL_ZONE_ON,
             ID_ZONED_MAX_DEFROST_ON,
             ID_ZONED_HVAC_POWER_ON,
+            ID_ZONED_HVAC_AUTO_RECIRC_ON,
             ID_WINDOW_DEFROSTER_ON,
     })
     @Retention(RetentionPolicy.SOURCE)

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "AAudio"
+#define LOG_TAG "AAudioStream"
 //#define LOG_NDEBUG 0
 #include <utils/Log.h>
 
@@ -29,15 +29,50 @@
 using namespace aaudio;
 
 AudioStream::AudioStream()
-        : mCallbackEnabled(false)
+        : mPlayerBase(new MyPlayerBase(this))
 {
     // mThread is a pthread_t of unknown size so we need memset.
     memset(&mThread, 0, sizeof(mThread));
     setPeriodNanoseconds(0);
 }
 
+AudioStream::~AudioStream() {
+    ALOGD("destroying %p, state = %s", this, AAudio_convertStreamStateToText(getState()));
+    // If the stream is deleted when OPEN or in use then audio resources will leak.
+    // This would indicate an internal error. So we want to find this ASAP.
+    LOG_ALWAYS_FATAL_IF(!(getState() == AAUDIO_STREAM_STATE_CLOSED
+                          || getState() == AAUDIO_STREAM_STATE_UNINITIALIZED
+                          || getState() == AAUDIO_STREAM_STATE_DISCONNECTED),
+                        "aaudio stream still in use, state = %s",
+                        AAudio_convertStreamStateToText(getState()));
+
+    mPlayerBase->clearParentReference(); // remove reference to this AudioStream
+}
+
+static const char *AudioStream_convertSharingModeToShortText(aaudio_sharing_mode_t sharingMode) {
+    const char *result;
+    switch (sharingMode) {
+        case AAUDIO_SHARING_MODE_EXCLUSIVE:
+            result = "EX";
+            break;
+        case AAUDIO_SHARING_MODE_SHARED:
+            result = "SH";
+            break;
+        default:
+            result = "?!";
+            break;
+    }
+    return result;
+}
+
 aaudio_result_t AudioStream::open(const AudioStreamBuilder& builder)
 {
+    // Call here as well because the AAudioService will call this without calling build().
+    aaudio_result_t result = builder.validate();
+    if (result != AAUDIO_OK) {
+        return result;
+    }
+
     // Copy parameters from the Builder because the Builder may be deleted after this call.
     mSamplesPerFrame = builder.getSamplesPerFrame();
     mSampleRate = builder.getSampleRate();
@@ -56,57 +91,24 @@ aaudio_result_t AudioStream::open(const AudioStreamBuilder& builder)
     mErrorCallbackUserData = builder.getErrorCallbackUserData();
 
     // This is very helpful for debugging in the future. Please leave it in.
-    ALOGI("AudioStream::open() rate = %d, channels = %d, format = %d, sharing = %d, dir = %s",
-          mSampleRate, mSamplesPerFrame, mFormat, mSharingMode,
+    ALOGI("AudioStream::open() rate = %d, channels = %d, format = %d, sharing = %s, dir = %s",
+          mSampleRate, mSamplesPerFrame, mFormat,
+          AudioStream_convertSharingModeToShortText(mSharingMode),
           (getDirection() == AAUDIO_DIRECTION_OUTPUT) ? "OUTPUT" : "INPUT");
-    ALOGI("AudioStream::open() device = %d, perfMode = %d, callbackFrames = %d",
-          mDeviceId, mPerformanceMode, mFramesPerDataCallback);
-
-    // Check for values that are ridiculously out of range to prevent math overflow exploits.
-    // The service will do a better check.
-    if (mSamplesPerFrame < 0 || mSamplesPerFrame > 128) {
-        ALOGE("AudioStream::open(): samplesPerFrame out of range = %d", mSamplesPerFrame);
-        return AAUDIO_ERROR_OUT_OF_RANGE;
-    }
-
-    switch(mFormat) {
-        case AAUDIO_FORMAT_UNSPECIFIED:
-        case AAUDIO_FORMAT_PCM_I16:
-        case AAUDIO_FORMAT_PCM_FLOAT:
-            break; // valid
-        default:
-            ALOGE("AudioStream::open(): audioFormat not valid = %d", mFormat);
-            return AAUDIO_ERROR_INVALID_FORMAT;
-            // break;
-    }
-
-    if (mSampleRate != AAUDIO_UNSPECIFIED && (mSampleRate < 8000 || mSampleRate > 1000000)) {
-        ALOGE("AudioStream::open(): mSampleRate out of range = %d", mSampleRate);
-        return AAUDIO_ERROR_INVALID_RATE;
-    }
-
-    switch(mPerformanceMode) {
-        case AAUDIO_PERFORMANCE_MODE_NONE:
-        case AAUDIO_PERFORMANCE_MODE_POWER_SAVING:
-        case AAUDIO_PERFORMANCE_MODE_LOW_LATENCY:
-            break;
-        default:
-            ALOGE("AudioStream::open(): illegal performanceMode %d", mPerformanceMode);
-            return AAUDIO_ERROR_ILLEGAL_ARGUMENT;
-    }
+    ALOGI("AudioStream::open() device = %d, perfMode = %d, callback: %s with frames = %d",
+          mDeviceId, mPerformanceMode,
+          (mDataCallbackProc == nullptr ? "OFF" : "ON"),
+          mFramesPerDataCallback);
 
     return AAUDIO_OK;
 }
 
-AudioStream::~AudioStream() {
-    close();
-}
 
 aaudio_result_t AudioStream::waitForStateChange(aaudio_stream_state_t currentState,
                                                 aaudio_stream_state_t *nextState,
                                                 int64_t timeoutNanoseconds)
 {
-    aaudio_result_t result = updateStateWhileWaiting();
+    aaudio_result_t result = updateStateMachine();
     if (result != AAUDIO_OK) {
         return result;
     }
@@ -120,7 +122,7 @@ aaudio_result_t AudioStream::waitForStateChange(aaudio_stream_state_t currentSta
         AudioClock::sleepForNanos(durationNanos);
         timeoutNanoseconds -= durationNanos;
 
-        aaudio_result_t result = updateStateWhileWaiting();
+        aaudio_result_t result = updateStateMachine();
         if (result != AAUDIO_OK) {
             return result;
         }
@@ -161,6 +163,7 @@ aaudio_result_t AudioStream::createThread(int64_t periodNanoseconds,
                                      void* threadArg)
 {
     if (mHasThread) {
+        ALOGE("AudioStream::createThread() - mHasThread already true");
         return AAUDIO_ERROR_INVALID_STATE;
     }
     if (threadProc == nullptr) {
@@ -182,6 +185,7 @@ aaudio_result_t AudioStream::createThread(int64_t periodNanoseconds,
 aaudio_result_t AudioStream::joinThread(void** returnArg, int64_t timeoutNanoseconds)
 {
     if (!mHasThread) {
+        ALOGE("AudioStream::joinThread() - but has no thread");
         return AAUDIO_ERROR_INVALID_STATE;
     }
 #if 0
@@ -195,3 +199,38 @@ aaudio_result_t AudioStream::joinThread(void** returnArg, int64_t timeoutNanosec
     return err ? AAudioConvert_androidToAAudioResult(-errno) : mThreadRegistrationResult;
 }
 
+
+#if AAUDIO_USE_VOLUME_SHAPER
+android::media::VolumeShaper::Status AudioStream::applyVolumeShaper(
+        const android::media::VolumeShaper::Configuration& configuration __unused,
+        const android::media::VolumeShaper::Operation& operation __unused) {
+    ALOGW("applyVolumeShaper() is not supported");
+    return android::media::VolumeShaper::Status::ok();
+}
+#endif
+
+AudioStream::MyPlayerBase::MyPlayerBase(AudioStream *parent) : mParent(parent) {
+}
+
+AudioStream::MyPlayerBase::~MyPlayerBase() {
+    ALOGV("MyPlayerBase::~MyPlayerBase(%p) deleted", this);
+}
+
+void AudioStream::MyPlayerBase::registerWithAudioManager() {
+    if (!mRegistered) {
+        init(android::PLAYER_TYPE_AAUDIO, AUDIO_USAGE_MEDIA);
+        mRegistered = true;
+    }
+}
+
+void AudioStream::MyPlayerBase::unregisterWithAudioManager() {
+    if (mRegistered) {
+        baseDestroy();
+        mRegistered = false;
+    }
+}
+
+
+void AudioStream::MyPlayerBase::destroy() {
+    unregisterWithAudioManager();
+}

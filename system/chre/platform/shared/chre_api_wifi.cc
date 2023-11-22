@@ -17,23 +17,25 @@
 #include "chre_api/chre/wifi.h"
 
 #include "chre/core/event_loop_manager.h"
+#include "chre/util/macros.h"
 
 using chre::EventLoopManager;
 using chre::EventLoopManagerSingleton;
 
-uint32_t chreWifiGetCapabilities() {
+DLL_EXPORT uint32_t chreWifiGetCapabilities() {
   return chre::EventLoopManagerSingleton::get()->getWifiRequestManager()
       .getCapabilities();
 }
 
-bool chreWifiConfigureScanMonitorAsync(bool enable, const void *cookie) {
+DLL_EXPORT bool chreWifiConfigureScanMonitorAsync(bool enable,
+                                                  const void *cookie) {
   chre::Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
   return EventLoopManagerSingleton::get()->getWifiRequestManager()
       .configureScanMonitor(nanoapp, enable, cookie);
 }
 
-bool chreWifiRequestScanAsync(const struct chreWifiScanParams *params,
-                              const void *cookie) {
+DLL_EXPORT bool chreWifiRequestScanAsync(
+    const struct chreWifiScanParams *params, const void *cookie) {
   chre::Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
   return EventLoopManagerSingleton::get()->getWifiRequestManager()
       .requestScan(nanoapp, params, cookie);

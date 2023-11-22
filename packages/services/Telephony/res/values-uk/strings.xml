@@ -26,7 +26,7 @@
     <string name="payphone" msgid="4793877574636445118">"Таксофон"</string>
     <string name="onHold" msgid="9035493194749959955">"Очікує"</string>
     <string name="mmiStarted" msgid="6347869857061147003">"Код MMI запущено"</string>
-    <string name="ussdRunning" msgid="485588686340541690">"Запуск. код USSD..."</string>
+    <string name="ussdRunning" msgid="485588686340541690">"Виконується запит USSD…"</string>
     <string name="mmiCancelled" msgid="2771923949751842276">"Код MMI скасовано"</string>
     <string name="cancel" msgid="5044513931633602634">"Скасувати"</string>
     <string name="enter_input" msgid="1810529547726803893">"Кількість символів повідомлення USSD має становити від <xliff:g id="MIN_LEN">%d</xliff:g> до <xliff:g id="MAX_LEN">%d</xliff:g>. Повторіть спробу."</string>
@@ -78,7 +78,6 @@
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"Голосова пошта (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"ГП:"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"Сповіщення"</string>
-    <string name="networks" msgid="8873030692174541976">"Оператори мережі"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"Повідомлення екстрених служб"</string>
     <string name="call_settings" msgid="6112441768261754562">"Виклики"</string>
     <string name="additional_gsm_call_settings" msgid="1391795981938800617">"Додаткові налаштування"</string>
@@ -164,20 +163,18 @@
     <string name="label_available" msgid="1181658289009300430">"Доступні мережі"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"Пошук…"</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"Не знайд. жодних мереж."</string>
-    <string name="search_networks" msgid="1601136049300882441">"Пошук мереж"</string>
     <string name="network_query_error" msgid="6828516148953325006">"Помилка під час пошуку мереж."</string>
     <string name="register_on_network" msgid="9055203954040805084">"Реєстрування у <xliff:g id="NETWORK">%s</xliff:g>…"</string>
     <string name="not_allowed" msgid="5613353860205691579">"Ваша SIM-карта не дозволяє під’єднання до цієї мережі."</string>
     <string name="connect_later" msgid="2308119155752343975">"Зараз неможливо під’єднатися до цієї мережі. Повторіть спробу пізніше."</string>
     <string name="registration_done" msgid="495135664535876612">"Зареєстровано у мережі"</string>
-    <string name="sum_carrier_select" msgid="3494252551249882718">"Виберіть оператора мережі"</string>
-    <string name="sum_search_networks" msgid="2921092249873272715">"Пошук усіх доступних мереж"</string>
-    <string name="select_automatically" msgid="5628402124471810174">"Вибирати автоматично"</string>
-    <string name="sum_select_automatically" msgid="5614890115123292400">"Автоматично вибирати основну мережу"</string>
+    <string name="select_automatically" msgid="1046727200631770962">"Автоматично вибирати мережу"</string>
+    <string name="network_select_title" msgid="7733107364757544558">"Мережа"</string>
     <string name="register_automatically" msgid="6017849844573519637">"Автоматична реєстрація..."</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"Тип мережі"</string>
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"Змінити режим роботи мережі"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"Тип мережі"</string>
+    <string name="forbidden_network" msgid="4384929668343563440">"(заборонено)"</string>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"Рекомендований режим мереж: бажано WCDMA"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"Рекомендований режим мереж: лише GSM"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"Рекомендований режим мереж: лише WCDMA"</string>
@@ -210,18 +207,34 @@
     <item msgid="1524224863879435516">"Лише GSM"</item>
     <item msgid="3817924849415716259">"Рекомендовано GSM/WCDMA"</item>
   </string-array>
+    <string name="call_category" msgid="5863978196309462052">"Виклики"</string>
+    <string name="network_operator_category" msgid="4830701959205735636">"Мережа"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"Розширений режим 4G LTE"</string>
     <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"Дзвінки з розширеними можливостями"</string>
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"Використ. служби LTE для покращення голосового й інших типів зв’язку (рекоменд.)"</string>
     <string name="data_enabled" msgid="5972538663568715366">"Передавання даних"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"Дозволити використання даних"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"Увага"</string>
-    <string name="roaming" msgid="8871412572928323707">"Роумінг даних"</string>
+    <string name="roaming" msgid="7894878421600247140">"Роумінг"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"Підключатися до служб передавання даних у роумінгу"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"Підключатися до служб передавання даних у роумінгу"</string>
     <string name="roaming_reenable_message" msgid="8913735676127858115">"Доступ до даних утрачено, оскільки ви вийшли з домашньої мережі з вимкненим роумінгом даних."</string>
     <string name="roaming_warning" msgid="1603164667540144353">"Може стягуватися значна плата."</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"Дозволити роумінг даних?"</string>
+    <string name="data_usage_title" msgid="8759619109516889802">"Використання трафіку"</string>
+    <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_1">%1$s</xliff:g> мобільного трафіку використано в період <xliff:g id="ID_2">%2$s</xliff:g>"</string>
+    <string name="advanced_options_title" msgid="8074895510265488035">"Додатково"</string>
+    <string name="carrier_settings_euicc" msgid="6714062862127226405">"Оператор"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"оператор, esim, sim, euicc"</string>
+    <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g>: <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
+    <string name="mobile_data_settings_title" msgid="4661165467914727157">"Мобільний трафік"</string>
+    <string name="mobile_data_settings_summary" msgid="5087255915840576895">"Доступ до Інтернету в мобільній мережі"</string>
+    <string name="data_usage_disable_mobile" msgid="3577275288809667615">"Вимкнути мобільне передавання даних?"</string>
+    <string name="sim_selection_required_pref" msgid="7049424902961844236">"Виберіть варіант"</string>
+    <string name="sim_change_data_title" msgid="5332425991853799280">"Змінити SIM-карту для даних?"</string>
+    <string name="sim_change_data_message" msgid="2163963581444907496">"Використовувати <xliff:g id="NEW_SIM">%1$s</xliff:g> замість <xliff:g id="OLD_SIM">%2$s</xliff:g> для мобільного передавання даних?"</string>
+    <string name="wifi_calling_settings_title" msgid="7741961465416430470">"Дзвінки через Wi-Fi"</string>
+    <string name="video_calling_settings_title" msgid="539714564273795574">"Відеодзвінки в мережі оператора"</string>
     <string name="gsm_umts_options" msgid="6538311689850981686">"Параметри GSM/UMTS"</string>
     <string name="cdma_options" msgid="4016822858172249884">"Параметри CDMA"</string>
     <string name="throttle_data_usage" msgid="3715677828160555808">"Викор. даних"</string>
@@ -369,7 +382,7 @@
     <string name="auto_retry_mode_summary" msgid="4973886004067532288">"Увімкнути режим автоповтору"</string>
     <string name="tty_mode_not_allowed_video_call" msgid="3795846787901909176">"Під час відеодзвінка заборонено змінювати режим TTY"</string>
     <string name="menu_add" msgid="1882023737425114762">"Додати контакт"</string>
-    <string name="menu_edit" msgid="7143003705504672374">"Змінити контакт"</string>
+    <string name="menu_edit" msgid="7143003705504672374">"Редагувати контакт"</string>
     <string name="menu_delete" msgid="3977150783449642851">"Видалити контакт"</string>
     <string name="menu_dial" msgid="3223106222819685808">"Зателефонувати контакту"</string>
     <string name="get_pin2" msgid="8204677063922225311">"Введіть PIN2-код"</string>
@@ -452,7 +465,7 @@
     <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"Мобільна мережа недоступна. Щоб зателефонувати, під’єднайтеся до бездротової мережі."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"Щоб зателефонувати, введіть дійсний номер."</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"Не вдалося здійснити виклик."</string>
-    <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"Зараз не можна додати виклик."</string>
+    <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"Не вдається додати виклик. Спробуйте надіслати повідомлення."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"Служба не підтримується"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"Неможливо переключитися між викликами."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"Неможливо розділити виклик."</string>
@@ -576,6 +589,8 @@
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"Забагато активних викликів. Перш ніж зателефонувати новому абоненту, завершіть або об’єднайте поточні виклики."</string>
     <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"Не вдається підключитися. Вставте дійсну SIM-карту."</string>
     <string name="callFailed_wifi_lost" msgid="5968076625137297184">"Утрачено з’єднання Wi-Fi. Виклик завершено."</string>
+    <string name="dialFailed_low_battery" msgid="8760548177088774268">"Відеодзвінок не вдалося виконати через низький заряд акумулятора."</string>
+    <string name="callFailed_low_battery" msgid="4913582435905872616">"Відеодзвінок завершився через низький заряд акумулятора."</string>
     <string name="change_pin_title" msgid="7790232089699034029">"Змінити PIN-код голосової пошти"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"Продовжити"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"Скасувати"</string>
@@ -588,4 +603,18 @@
     <string name="change_pin_confirm_pins_dont_match" msgid="4795052654904027909">"PIN-коди не збігаються"</string>
     <string name="change_pin_succeeded" msgid="2022852286442211151">"PIN-код голосової пошти змінено"</string>
     <string name="change_pin_system_error" msgid="8308462387154257840">"Не вдалося встановити PIN-код"</string>
+    <string name="mobile_data_status_roaming_turned_off_subtext" msgid="935636805765823307">"Роумінг даних вимкнено"</string>
+    <string name="mobile_data_status_roaming_turned_on_subtext" msgid="1335176927083781041">"Роумінг даних увімкнено"</string>
+    <string name="mobile_data_status_roaming_without_plan_subtext" msgid="3568412513831673037">"Роумінг працює, потрібен трафік"</string>
+    <string name="mobile_data_status_roaming_with_plan_subtext" msgid="8721998948811064377">"Роумінг працює, трафік активний"</string>
+    <string name="mobile_data_status_no_plan_subtext" msgid="4887747337017565725">"Не лишилося мобільного трафіку"</string>
+    <string name="mobile_data_activate_prepaid" msgid="7447025165850512683">"Не лишилося мобільного трафіку"</string>
+    <string name="mobile_data_activate_prepaid_summary" msgid="5705389791791637666">"Додати мобільний трафік через оператора <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
+    <string name="mobile_data_activate_roaming_plan" msgid="5998161536947086264">"Немає роумінгу"</string>
+    <string name="mobile_data_activate_roaming_plan_summary" msgid="511202908883425459">"Додати роумінг через оператора <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
+    <string name="mobile_data_activate_footer" msgid="5979019929980140594">"Ви можете додати мобільний трафік або роумінг через свого оператора, <xliff:g id="PROVIDER_NAME">%s</xliff:g>."</string>
+    <string name="mobile_data_activate_diag_title" msgid="9044252207707864493">"Додати трафік?"</string>
+    <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"Можливо, потрібно додати трафік через оператора <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
+    <string name="mobile_data_activate_button" msgid="3682400969184405446">"ДОДАТИ ТРАФІК"</string>
+    <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"СКАСУВАТИ"</string>
 </resources>

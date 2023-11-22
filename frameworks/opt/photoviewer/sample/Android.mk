@@ -14,10 +14,6 @@
 
 LOCAL_PATH:= $(call my-dir)
 
-#Include res dir from photoviewer
-photo_dir := ../res ../activity/res
-res_dirs := $(photo_dir) res ../../../../$(SUPPORT_LIBRARY_ROOT)/compat/res
-
 ##################################################
 # Build APK
 include $(CLEAR_VARS)
@@ -25,39 +21,46 @@ include $(CLEAR_VARS)
 src_dirs := src
 LOCAL_PACKAGE_NAME := PhotoViewerSample
 
-LOCAL_STATIC_JAVA_LIBRARIES += libphotoviewer
+LOCAL_STATIC_ANDROID_LIBRARIES := \
+    android-support-annotations \
+    android-support-compat \
+    android-support-core-ui \
+    android-support-core-utils \
+    android-support-fragment \
+    libphotoviewer
 
 LOCAL_SDK_VERSION := current
 
 LOCAL_SRC_FILES := $(call all-java-files-under, $(src_dirs)) \
         $(call all-logtags-files-under, $(src_dirs))
-LOCAL_RESOURCE_DIR := $(addprefix $(LOCAL_PATH)/, $(res_dirs))
-LOCAL_AAPT_FLAGS := --auto-add-overlay
-LOCAL_AAPT_FLAGS += --extra-packages com.android.ex.photo:android.support.compat
+LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
+LOCAL_USE_AAPT2 := true
 
 include $(BUILD_PACKAGE)
 
 ##################################################
-
-#Include res dir from photoviewer
-photo_dir := ../res ../appcompat/res
-res_dirs := $(photo_dir) res ../../../../$(SUPPORT_LIBRARY_ROOT)/v7/appcompat/res ../../../../$(SUPPORT_LIBRARY_ROOT)/compat/res
-
 # Build APK
 include $(CLEAR_VARS)
 
 src_dirs := src
 LOCAL_PACKAGE_NAME := AppcompatPhotoViewerSample
 
-LOCAL_STATIC_JAVA_LIBRARIES += libphotoviewer_appcompat
+LOCAL_STATIC_ANDROID_LIBRARIES := \
+    android-support-annotations \
+    android-support-compat \
+    android-support-core-ui \
+    android-support-core-utils \
+    android-support-fragment \
+    android-support-media-compat \
+    android-support-v7-appcompat \
+    libphotoviewer_appcompat
 
 LOCAL_SDK_VERSION := current
 
 LOCAL_SRC_FILES := $(call all-java-files-under, $(src_dirs)) \
         $(call all-logtags-files-under, $(src_dirs))
-LOCAL_RESOURCE_DIR := $(addprefix $(LOCAL_PATH)/, $(res_dirs))
-LOCAL_AAPT_FLAGS := --auto-add-overlay
-LOCAL_AAPT_FLAGS += --extra-packages android.support.v7.appcompat:com.android.ex.photo:android.support.compat
+LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
+LOCAL_USE_AAPT2 := true
 
 include $(BUILD_PACKAGE)
 

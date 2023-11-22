@@ -8,6 +8,11 @@ import os
 import tempfile
 
 
+class AudioFacadeError(Exception):
+    """Errors in audio facade."""
+    pass
+
+
 class AudioFacadeRemoteAdapter(object):
     """AudioFacadeRemoteAdapter is an adapter to remotely control DUT audio.
 
@@ -98,8 +103,14 @@ class AudioFacadeRemoteAdapter(object):
 
         @returns: the path to the recorded file on DUT.
 
+        @raises: AudioFacadeError if recorded path is None
         """
-        return self._audio_proxy.stop_recording()
+        path = self._audio_proxy.stop_recording()
+        if not path:
+            raise AudioFacadeError(
+                    'Recording does not work on DUT. '
+                    'Suggest checking messages on DUT')
+        return path
 
 
     def get_recorded_file(self, remote_path, local_path):

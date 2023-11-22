@@ -7,6 +7,7 @@
 INTERNAL_MIC_GAIN_100DB = {
         'chell': 500,
         'auron_yuna': -1000,
+        'kevin': 0,
 }
 
 def get_proper_internal_mic_gain(board):

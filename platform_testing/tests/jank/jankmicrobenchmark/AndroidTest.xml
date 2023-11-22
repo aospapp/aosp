@@ -14,14 +14,26 @@
      limitations under the License.
 -->
 <configuration description="Runs Platform Benchmark Jank Tests.">
+
+    <target_preparer class="com.google.android.tradefed.targetprep.GoogleDeviceSetup">
+        <option name="screen-saver" value="off" />
+        <option name="location-gps" value="off" />
+        <option name="location-network" value="off" />
+        <option name="battery-saver-mode" value="off" />
+        <option name="disable-playstore" value="true" />
+    </target_preparer>
+
     <target_preparer class="com.android.tradefed.targetprep.TestAppInstallSetup">
         <option name="test-file-name" value="JankMicroBenchmarkTests.apk" />
         <option name="test-file-name" value="ApiDemos.apk" />
     </target_preparer>
 
+    <option name="post-boot-command" value="setprop debug.hwui.filter_test_overhead true" />
     <option name="test-tag" value="JankMicroBenchmarkTests" />
     <test class="com.android.tradefed.testtype.InstrumentationTest" >
         <option name="package" value="com.android.jankmicrobenchmark.janktests" />
         <option name="runner" value="android.test.InstrumentationTestRunner" />
+        <option name="test-timeout" value="1800000" />
+        <option name="shell-timeout" value="1800000" />
     </test>
 </configuration>

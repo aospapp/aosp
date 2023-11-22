@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"სერვისები"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"სერვისის პარამეტრები"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"მაღალკონტრასტული ტექსტი"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"მარტივი წვდომის მალსახმობი"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"მარტივი წვდომის მალსახმობის ჩართვა"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"მალსახმობი სერვისი"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"მალსახმობის ჩართვის შემდეგ მარტივი წვდომის ფუნქციის გაშვებას შეძლებთ ღილაკებზე „უკან“ და „ქვემოთ“ 3 წამის განმავლობაში ერთდროულად დაჭერით."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"ტიტრები"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"დახურული ტიტრების ტექსტის ვიდეოზე გადაფარვის პარამეტრები"</string>
     <string name="captions_display" msgid="735692527287125548">"ეკრანი"</string>
@@ -626,7 +630,7 @@
     <string name="device_daydreams_sleep" msgid="7676938708373592766">"დაწყების დრო"</string>
     <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"ეკრანმზოგი უმოქმედობის მითითებული პერიოდის შემდეგ გაეშვება. თუ ეკრანმზოგი არ არის არჩეული, ეკრანი გამოირთვება."</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"უმოქმედობის <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> შემდეგ"</string>
-    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"მოწყობილობის ძილის რეჟიმზე გადაყვანა"</string>
+    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"მოწყობილობის დაძინება"</string>
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"ეკრანი გამოირთვება ამ უმოქმედობის პერიოდის შემდეგ."</string>
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"ამჟამად მონაცემებს არ ინახავს არცერთი ანგარიში"</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
@@ -664,4 +668,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"მიმდინარეობს ხარვეზების შესახებ ანგარიშის აღბეჭდვა"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"ხელმისაწვდომი ვირტუალური კლავიატურები"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"კლავიატურების მართვა"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"დაშვებული"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"არ არის ნებადართული"</string>
+    <string name="usage_access" msgid="1914242907684452328">"გამოყენებაზე წვდომა"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"გამოყენებაზე წვდომა საშუალებას აძლევს აპს, თვალყური ადევნოს სხვა რომელ აპებს იყენებთ და რამდენად ხშირად, ასევე თქვენი ოპერატორის, ენის პარამეტრებსა და სხვა დეტალებზე."</string>
 </resources>

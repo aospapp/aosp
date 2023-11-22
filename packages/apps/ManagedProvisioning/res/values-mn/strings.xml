@@ -27,9 +27,9 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"Дараах апп энэ профайлд хандах шаардлагатай:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Дараах апп таны төхөөрөмжийг удирдах болно:"</string>
     <string name="next" msgid="1004321437324424398">"Дараах"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"Таны ажлын профайлыг үүсгэж байна…"</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"Ажлын профайлыг тохируулж байна..."</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"Таны админ тохиргоо, байгууллагын хандалт, апп, зөвшөөрөл болон таны сүлжээний үйл ажиллагаа, төхөөрөмжийн байршил, дуудлагын түүх, харилцагч, хайлтын түүх зэрэг энэ профайлтай холбоотой өгөгдлийг хянах, удирдах боломжтой.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Байгууллагынхаа нууцлалын бодлого зэрэг дэлгэрэнгүй мэдээлэл авах бол админтайгаа холбогдоно уу."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"Таны админ тохиргоо, байгууллагын хандалт, апп, зөвшөөрөл болон таны сүлжээний үйл ажиллагаа, төхөөрөмжийн байршил, дуудлагын түүх, харилцагч, хайлтын түүх зэрэг энэ төхөөрөмжтэй холбоотой өгөгдлийг хянах, удирдах боломжтой.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Байгууллагынхаа нууцлалын бодлого зэрэг дэлгэрэнгүй мэдээлэл авах бол админтайгаа холбогдоно уу."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"Таны админ тохиргоо, байгууллагын хандалт, апп, зөвшөөрөл болон таны сүлжээний үйл ажиллагаа, төхөөрөмжийн байршил, дуудлагын түүх, харилцагчийн хайлтын түүх зэрэг энэ төхөөрөмжтэй холбоотой өгөгдлийг хянах, удирдах боломжтой.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Байгууллагынхаа нууцлалын бодлого зэрэг дэлгэрэнгүй мэдээлэл авах бол админтайгаа холбогдоно уу."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Хулгайчаас хамгаалах онцлогийг хэрэглэхийн тулд төхөөрөмждөө нууц үг бүхий дэлгэцийн түгжээтэй байх хэрэгтэй."</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Админтайгаа холбогдож, байгууллагынхаа нууцлалын бодлого зэрэг дэлгэрэнгүй мэдээллийг авна уу."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Дэлгэрэнгүй үзэх"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Ажлын профайл"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"Үндсэн хэрэглэгч"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Одоогийн профайлыг устгах уу?"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"Танд дараах аппын удирдсан ажлын профайл байна:"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Та ажлын профайлтай байна. Үүнийг дараах аппаар удирддаг:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Эхлүүлэхийн өмнө, "<a href="#read_this_link">"үүнийг уншаарай"</a>"."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Хэрэв та үргэлжлүүлбэл энэ профайлын бүх апп, өгөгдөл устах болно."</string>
     <string name="delete_profile" msgid="2299218578684663459">"Устгах"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"Ажлын профайлаа үргэлжлүүлэн тохируулахын тулд дарна уу"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Таны ажлын профайлыг тохируулж чадсангүй. МТ хэлтэстэй холбогдох буюу дараа дахин оролдоно уу."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Ажлын профайл нэмэх боломжгүй байна"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"Энэ хэрэглэгчид ажлын профайл байх боломжгүй. Тусламж авах бол админтайгаа холбогдоно уу."</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"Энэ хэрэглэгчид ажлын профайл байх боломжгүй. Админтайгаа холбогдоно уу."</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"Ажлын профайлыг хяналттай төхөөрөмж дээр суулгаж болохгүй"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"Энэ төхөөрөмжид хэт олон хэрэглэгч байж болзошгүй. Хэрэглэгчийг устгаад дахин оролдоно уу."</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Ажлын профайлыг өөрчлөх эсвэл устгах боломжгүй байна"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"Ажлын профайлыг энэ төхөөрөмжид нэмэх боломжгүй. Хэрэв танд асуух зүйл байвал админтайгаа холбогдоно уу."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Төхөөрөмж эхлүүлэгчийг өөрчлөх"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Энэ эхлүүлэгч аппыг таны ажлын профайлаас ашиглах боломжгүй"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Цуцлах"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"ОК"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Хэрэглэгчийн Тохируулга Дуусаагүй"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Ажлын төхөөрөмжийн хэрэглэгч"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"Ажлын төхөөрөмж тохируулах"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"Ажлын төхөөрөмжийг тохируулж байна…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Тохируулгын өгөгдлийг боловсруулж байна…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Wi-Fi-д холбогдож байна…"</string>
     <string name="progress_download" msgid="3522436271691064624">"Админ апп-ийг татаж авч байна…"</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"Цуцлах"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"Төхөөрөмжийг дахин тохируулах"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> болон <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> болон <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> болон <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

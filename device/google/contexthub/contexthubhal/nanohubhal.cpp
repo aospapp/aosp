@@ -26,8 +26,8 @@
 #include <hardware/context_hub.h>
 #include <hardware/hardware.h>
 
-#include <utils/Log.h>
 #include <cutils/properties.h>
+#include <log/log.h>
 
 #include <nanohub/nanohub.h>
 
@@ -139,8 +139,11 @@ static void wait_on_dev_lock(pollfd &pfd) {
     discard_inotify_evt(pfd);
     while (access(NANOHUB_LOCK_FILE, F_OK) == 0) {
         ALOGW("Nanohub is locked; blocking read thread");
-        int ret = poll(&pfd, 1, 5000);
-        if (ret > 0) {
+        int ret = TEMP_FAILURE_RETRY(poll(&pfd, 1, 5000));
+        if (ret < 0) {
+            ALOGE("poll returned with an error: %s", strerror(errno));
+            break;
+        } else if (ret > 0) {
             discard_inotify_evt(pfd);
         }
     }
@@ -226,10 +229,12 @@ void* NanoHub::runDeviceRx()
     setDebugFlags(property_get_int32("persist.nanohub.debug", 0));
 
     while (1) {
-        int ret = poll(myFds, numPollFds, -1);
-        if (ret <= 0) {
-            ALOGD("poll returned with an error: %s", strerror(errno));
+        int ret = TEMP_FAILURE_RETRY(poll(myFds, numPollFds, -1));
+        if (ret == 0)
             continue;
+        else if (ret < 0) {
+            ALOGE("poll returned with an error: %s", strerror(errno));
+            break;
         }
 
         if (hasInotify) {

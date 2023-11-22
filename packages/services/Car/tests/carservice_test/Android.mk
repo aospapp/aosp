@@ -40,7 +40,8 @@ LOCAL_STATIC_JAVA_LIBRARIES := junit legacy-android-test
 LOCAL_STATIC_JAVA_LIBRARIES += car-service-lib-for-test \
                                vehicle-hal-support-lib \
                                car-systemtest \
-                               android-support-test
+                               android-support-test \
+                               android.hardware.automotive.vehicle-V2.0-java-static
 
 LOCAL_JAVA_LIBRARIES := android.car android.test.runner
 

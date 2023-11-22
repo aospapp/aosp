@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2002, 2016, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -35,6 +35,7 @@ package sun.misc;
     for this purpose, namely the loss of compile-time checking. */
 
 public class SharedSecrets {
+    // BEGIN Android-changed: Pruned unused access interfaces
     private static JavaIOFileDescriptorAccess javaIOFileDescriptorAccess;
 
     public static void setJavaIOFileDescriptorAccess(JavaIOFileDescriptorAccess jiofda) {
@@ -44,4 +45,5 @@ public class SharedSecrets {
     public static JavaIOFileDescriptorAccess getJavaIOFileDescriptorAccess() {
         return javaIOFileDescriptorAccess;
     }
+    // END Android-changed: Pruned unused access interfaces
 }

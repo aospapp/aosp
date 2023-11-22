@@ -51,7 +51,7 @@
     <string name="ringtone_silent" msgid="249805466934178869">"ਕੋਈ ਨਹੀਂ"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"ਅਗਿਆਤ ਰਿੰਗਟੋਨ"</string>
     <string name="callFailed_maximum_reached" msgid="4823790040422765056">"ਸਾਰੀਆਂ ਉਪਲਬਧ ਲਾਈਨਾਂ ਵਰਤੋਂ ਵਿੱਚ ਹਨ। ਇੱਕ ਕਾਲ ਕਰਨ ਲਈ, ਇਸ ਡੀਵਾਈਸ, ਜਾਂ ਤੁਹਾਡੀਆਂ ਹੋਰਾਂ ਡੀਵਾਈਸਾਂ ਵਿੱਚੋਂ ਕਿਸੇ ਇੱਕ \'ਤੇ ਕਾਲਾਂ ਵਿੱਚੋਂ ਕਿਸੇ ਇੱਕ ਨੂੰ ਡਿਸਕਨੈਕਟ ਕਰੋ।"</string>
-    <string name="callFailed_data_disabled" msgid="3885826754435317856">"ਸੈਲਿਊਲਰ ਡੈਟੇ ਦੇ ਅਯੋਗ ਬਣਾਏ ਜਾਣ ਕਾਰਨ ਕਾਲ ਸਮਾਪਤ ਕੀਤੀ ਗਈ ਸੀ।"</string>
-    <string name="callFailed_data_limit_reached_description" msgid="1439284832802552582">"ਸੈਲਿਊਲਰ ਡੈਟਾ ਸੀਮਾ \'ਤੇ ਪਹੁੰਚ ਜਾਣ ਕਾਰਨ ਕਾਲ ਸਮਾਪਤ ਕੀਤੀ ਗਈ।"</string>
-    <string name="callFailed_data_limit_reached" msgid="7045770594965160282">"ਡੈਟਾ ਸੀਮਾ ਪਾਰ ਹੋਈ। ਕਾਲ ਸਮਾਪਤ ਕੀਤੀ ਗਈ।"</string>
+    <string name="callFailed_data_disabled" msgid="3885826754435317856">"ਸੈਲਿਊਲਰ ਡਾਟੇ ਦੇ ਅਯੋਗ ਬਣਾਏ ਜਾਣ ਕਾਰਨ ਕਾਲ ਸਮਾਪਤ ਕੀਤੀ ਗਈ ਸੀ।"</string>
+    <string name="callFailed_data_limit_reached_description" msgid="1439284832802552582">"ਸੈਲਿਊਲਰ  ਡਾਟਾ  ਸੀਮਾ \'ਤੇ ਪਹੁੰਚ ਜਾਣ ਕਾਰਨ ਕਾਲ ਸਮਾਪਤ ਕੀਤੀ ਗਈ।"</string>
+    <string name="callFailed_data_limit_reached" msgid="7045770594965160282">" ਡਾਟਾ  ਸੀਮਾ ਪਾਰ ਹੋਈ। ਕਾਲ ਸਮਾਪਤ ਕੀਤੀ ਗਈ।"</string>
 </resources>

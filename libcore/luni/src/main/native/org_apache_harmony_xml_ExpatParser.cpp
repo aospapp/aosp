@@ -23,15 +23,15 @@
 
 #include <android/log.h>
 #include <android-base/stringprintf.h>
+#include <nativehelper/JNIHelp.h>
+#include <nativehelper/JniConstants.h>
+#include <nativehelper/ScopedLocalRef.h>
+#include <nativehelper/ScopedPrimitiveArray.h>
+#include <nativehelper/ScopedStringChars.h>
+#include <nativehelper/ScopedUtfChars.h>
 
-#include "JNIHelp.h"
-#include "JniConstants.h"
-#include "JniException.h"
-#include "ScopedLocalRef.h"
-#include "ScopedPrimitiveArray.h"
-#include "ScopedStringChars.h"
-#include "ScopedUtfChars.h"
 #include "jni.h"
+#include "JniException.h"
 #include "unicode/unistr.h"
 
 

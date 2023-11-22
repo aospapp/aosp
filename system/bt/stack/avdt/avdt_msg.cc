@@ -37,8 +37,6 @@
 #include "btu.h"
 #include "osi/include/osi.h"
 
-extern fixed_queue_t* btu_general_alarm_queue;
-
 /*****************************************************************************
  * constants
  ****************************************************************************/
@@ -1127,16 +1125,14 @@ bool avdt_msg_send(tAVDT_CCB* p_ccb, BT_HDR* p_msg) {
           alarm_cancel(p_ccb->idle_ccb_timer);
           alarm_cancel(p_ccb->ret_ccb_timer);
           period_ms_t interval_ms = avdt_cb.rcb.sig_tout * 1000;
-          alarm_set_on_queue(p_ccb->rsp_ccb_timer, interval_ms,
-                             avdt_ccb_rsp_ccb_timer_timeout, p_ccb,
-                             btu_general_alarm_queue);
+          alarm_set_on_mloop(p_ccb->rsp_ccb_timer, interval_ms,
+                             avdt_ccb_rsp_ccb_timer_timeout, p_ccb);
         } else if (sig != AVDT_SIG_DELAY_RPT) {
           alarm_cancel(p_ccb->idle_ccb_timer);
           alarm_cancel(p_ccb->rsp_ccb_timer);
           period_ms_t interval_ms = avdt_cb.rcb.ret_tout * 1000;
-          alarm_set_on_queue(p_ccb->ret_ccb_timer, interval_ms,
-                             avdt_ccb_ret_ccb_timer_timeout, p_ccb,
-                             btu_general_alarm_queue);
+          alarm_set_on_mloop(p_ccb->ret_ccb_timer, interval_ms,
+                             avdt_ccb_ret_ccb_timer_timeout, p_ccb);
         }
       }
     } else {
@@ -1627,8 +1623,9 @@ void avdt_msg_ind(tAVDT_CCB* p_ccb, BT_HDR* p_buf) {
   if (ok) {
     /* if it's a ccb event send to ccb */
     if (evt & AVDT_CCB_MKR) {
-      avdt_ccb_event(p_ccb, (uint8_t)(evt & ~AVDT_CCB_MKR),
-                     (tAVDT_CCB_EVT*)&msg);
+      tAVDT_CCB_EVT avdt_ccb_evt;
+      avdt_ccb_evt.msg = msg;
+      avdt_ccb_event(p_ccb, (uint8_t)(evt & ~AVDT_CCB_MKR), &avdt_ccb_evt);
     }
     /* if it's a scb event */
     else {
@@ -1647,7 +1644,9 @@ void avdt_msg_ind(tAVDT_CCB* p_ccb, BT_HDR* p_buf) {
       if (evt) {
         p_scb = avdt_scb_by_hdl(scb_hdl);
         if (p_scb != NULL) {
-          avdt_scb_event(p_scb, evt, (tAVDT_SCB_EVT*)&msg);
+          tAVDT_SCB_EVT avdt_scb_evt;
+          avdt_scb_evt.msg = msg;
+          avdt_scb_event(p_scb, evt, &avdt_scb_evt);
         }
       }
     }

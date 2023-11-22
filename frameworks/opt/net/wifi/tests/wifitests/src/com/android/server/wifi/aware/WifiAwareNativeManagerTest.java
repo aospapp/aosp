@@ -73,6 +73,7 @@ public class WifiAwareNativeManagerTest {
 
         mDut = new WifiAwareNativeManager(mWifiAwareStateManagerMock,
                 mHalDeviceManager, mWifiAwareNativeCallback);
+        mDut.start();
 
         mInOrder = inOrder(mWifiAwareStateManagerMock, mHalDeviceManager);
     }

@@ -32,6 +32,7 @@
 #include "rw_api.h"
 #include "rw_int.h"
 
+extern unsigned char appl_dta_mode_flag;
 /* Local Functions */
 static tRW_EVENT rw_t1t_handle_rid_rsp(NFC_HDR* p_pkt);
 static void rw_t1t_data_cback(uint8_t conn_id, tNFC_CONN_EVT event,
@@ -682,7 +683,7 @@ void rw_t1t_handle_op_complete(void) {
 
   p_t1t->state = RW_T1T_STATE_IDLE;
 #if (RW_NDEF_INCLUDED == TRUE)
-  if (p_t1t->state != RW_T1T_STATE_READ_NDEF) {
+  if (appl_dta_mode_flag == 0 && (p_t1t->state != RW_T1T_STATE_READ_NDEF)) {
     p_t1t->b_update = false;
     p_t1t->b_rseg = false;
   }

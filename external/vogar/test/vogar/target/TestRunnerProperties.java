@@ -30,16 +30,6 @@ public @interface TestRunnerProperties {
 
     int monitorPort() default 9999;
 
-    boolean profile() default false;
-
-    int profileDepth() default 4;
-
-    String profileFile() default "default-profile-file";
-
-    int profileInterval() default 10;
-
-    boolean profileThreadGroup() default false;
-
     Class testClass() default Default.class;
 
     String testClassOrPackage() default "";

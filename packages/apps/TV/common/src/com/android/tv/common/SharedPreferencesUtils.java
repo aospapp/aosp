@@ -35,6 +35,11 @@ public final class SharedPreferencesUtils {
     public static final String SHARED_PREF_RECURRING_RUNNER = "sharedPreferencesRecurringRunner";
     public static final String SHARED_PREF_EPG = "epg_preferences";
     public static final String SHARED_PREF_SERIES_RECORDINGS = "seriesRecordings";
+    /** No need to pre-initialize. It's used only on the worker thread. */
+    public static final String SHARED_PREF_CHANNEL_LOGO_URIS = "channelLogoUris";
+    /** Stores the UI related settings */
+    public static final String SHARED_PREF_UI_SETTINGS = "ui_settings";
+    public static final String SHARED_PREF_PREVIEW_PROGRAMS = "previewPrograms";
 
     private static boolean sInitializeCalled;
 
@@ -63,6 +68,7 @@ public final class SharedPreferencesUtils {
                     context.getSharedPreferences(SHARED_PREF_EPG, Context.MODE_PRIVATE);
                     context.getSharedPreferences(SHARED_PREF_SERIES_RECORDINGS,
                             Context.MODE_PRIVATE);
+                    context.getSharedPreferences(SHARED_PREF_UI_SETTINGS, Context.MODE_PRIVATE);
                     return null;
                 }
 

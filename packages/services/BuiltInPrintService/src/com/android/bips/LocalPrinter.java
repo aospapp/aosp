@@ -55,13 +55,12 @@ class LocalPrinter implements CapabilitiesCache.OnLocalPrinterCapabilities {
         mPrinterId = discoveredPrinter.getId(printService);
     }
 
-    /**
-     * @return The address of the printer or {@code null} if the printer is not reachable
-     *
-     * @throws UnknownHostException if the address could not be resolved
-     */
-    public InetAddress getAddress() throws UnknownHostException {
-        return InetAddress.getByName(mDiscoveredPrinter.path.getHost());
+    /** Return the address of the printer or {@code null} if not known */
+    public InetAddress getAddress() {
+        if (mCapabilities != null) {
+            return mCapabilities.inetAddress;
+        }
+        return null;
     }
 
     /** Return true if this printer should be aged out */
@@ -82,10 +81,15 @@ class LocalPrinter implements CapabilitiesCache.OnLocalPrinterCapabilities {
             return null;
         }
 
-        String description = mDiscoveredPrinter.getDescription(mPrintService);
+        // Get the most recently discovered version of this printer
+        DiscoveredPrinter printer = mPrintService.getDiscovery()
+                .getPrinter(mDiscoveredPrinter.getUri());
+        if (printer == null) return null;
+
+        String description = printer.getDescription(mPrintService);
         boolean idle = mFound && mCapabilities != null;
         PrinterInfo.Builder builder = new PrinterInfo.Builder(
-                mPrinterId, mDiscoveredPrinter.name,
+                mPrinterId, printer.name,
                 idle ? PrinterInfo.STATUS_IDLE : PrinterInfo.STATUS_UNAVAILABLE)
                 .setIconResourceId(R.drawable.ic_printer)
                 .setDescription(description);
@@ -102,7 +106,7 @@ class LocalPrinter implements CapabilitiesCache.OnLocalPrinterCapabilities {
     }
 
     @Override
-    public void onCapabilities(LocalPrinterCapabilities capabilities) {
+    public void onCapabilities(DiscoveredPrinter printer, LocalPrinterCapabilities capabilities) {
         if (mSession.isDestroyed() || !mSession.isKnown(mPrinterId)) return;
 
         if (capabilities == null) {
@@ -144,7 +148,7 @@ class LocalPrinter implements CapabilitiesCache.OnLocalPrinterCapabilities {
 
         if (capabilities != null) {
             // Report current capabilities
-            onCapabilities(capabilities);
+            onCapabilities(mDiscoveredPrinter, capabilities);
         } else {
             // Announce printer and fetch capabilities
             mSession.handlePrinter(this);

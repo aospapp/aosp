@@ -30,4 +30,9 @@
     <string name="allow" msgid="8637148297403066623">"اجازت دیں"</string>
     <string name="camera_permission_text" msgid="7863231776480341614">"تصویر لینے کیلئے کیمرا کو رسائی دیں"</string>
     <string name="gallery_permission_text" msgid="4102566850658919346">"تصویر کا اشتراک کرنے کیلئے میڈیا تک رسائی دیں"</string>
+    <string name="description_call_composer_camera" msgid="388088245837924914">"تصویر لیں"</string>
+    <string name="description_call_composer_photo" msgid="6449208314952246454">"ایک تصویر چنیں"</string>
+    <string name="description_call_composer_message" msgid="9132362446000908550">"پیغام بھیجیں"</string>
+    <string name="image_sent_messages" msgid="6520870555040566229">"تصویر پیغامات کے ذریعے بھیجی گئی"</string>
+    <string name="message_sent_messages" msgid="6286576951151541098">"پیغام پیغامات کے ذریعے بھیجا گیا"</string>
 </resources>

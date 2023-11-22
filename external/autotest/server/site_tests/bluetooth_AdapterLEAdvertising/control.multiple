@@ -29,8 +29,6 @@ Specifically, this autotest include the following test cases:
     self.test_case_SI200_RA3_CD_RA1_CD_UA1_CD_UA3()
     self.test_case_SI200_RA3_CD_RS()
     self.test_case_SI200_RA3_CD_UA1_CD_RS()
-    self.test_case_SI200_RA3_CD_PC_CD_UA3()
-    self.test_case_SI200_RA3_CD_SR_CD_UA3()
     self.test_case_SI200_RA3_CD_UA1_CD_RA2_CD_UA4()
     self.test_case_SI200_RA5_CD_FRA1_CD_UA5()
     self.test_case_RA3_CD_SI200_CD_UA3()
@@ -39,8 +37,6 @@ Specifically, this autotest include the following test cases:
     self.test_case_RA3_CD_SI200_CD_SI2000_CD_UA3()
     self.test_case_RA5_CD_SI200_CD_FRA1_CD_UA5()
     self.test_case_RA3_CD_SI200_CD_FSI10_CD_FSI20000_CD_UA3()
-    self.test_case_RA3_CD_SI200_CD_PC_CD_UA3()
-    self.test_case_RA3_CD_SI200_CD_SR_CD_UA3()
 
 
 Mnemonics of the test cases:
@@ -96,6 +92,6 @@ def run(machine):
     job.run_test('bluetooth_AdapterLEAdvertising',
                  host=host,
                  advertisements=advertisements_data.ADVERTISEMENTS,
-                 multi_advertising=True)
+                 test_type='multi_advertising')
 
 parallel_simple(run, machines)

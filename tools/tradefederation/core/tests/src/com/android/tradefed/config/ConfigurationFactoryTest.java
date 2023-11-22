@@ -16,6 +16,7 @@
 package com.android.tradefed.config;
 
 import com.android.ddmlib.Log.LogLevel;
+import com.android.tradefed.build.LocalDeviceBuildProvider;
 import com.android.tradefed.config.ConfigurationFactory.ConfigId;
 import com.android.tradefed.log.ILeveledLogOutput;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -1210,6 +1211,68 @@ public class ConfigurationFactoryTest extends TestCase {
                 .getDeviceRequirements().getSerials());
     }
 
+    /**
+     * Test that when parsing command line options, boolean options with Device tag and namespace
+     * are correctly assigned.
+     */
+    public void testCreateConfiguration_injectDeviceBooleanOption() throws Exception {
+        IConfiguration config =
+                mFactory.createConfigurationFromArgs(
+                        new String[] {
+                            "test-config-multi",
+                            "--{device1}no-test-boolean-option",
+                            "--{device1}test-boolean-option-false",
+                            // testing with namespace too
+                            "--{device2}stub-preparer:no-test-boolean-option",
+                            "--{device2}stub-preparer:test-boolean-option-false"
+                        });
+        assertEquals(2, config.getDeviceConfig().size());
+        IDeviceConfiguration device1 = config.getDeviceConfigByName("device1");
+        StubTargetPreparer deviceSetup1 = (StubTargetPreparer) device1.getTargetPreparers().get(0);
+        // default value of test-boolean-option is true, we set it to false
+        assertFalse(deviceSetup1.getTestBooleanOption());
+        // default value of test-boolean-option-false is false, we set it to true.
+        assertTrue(deviceSetup1.getTestBooleanOptionFalse());
+
+        IDeviceConfiguration device2 = config.getDeviceConfigByName("device2");
+        StubTargetPreparer deviceSetup2 = (StubTargetPreparer) device2.getTargetPreparers().get(0);
+        assertFalse(deviceSetup2.getTestBooleanOption());
+        assertTrue(deviceSetup2.getTestBooleanOptionFalse());
+    }
+
+    /** Test that when an <include> tag is used inside a <device> tag we correctly resolve it. */
+    public void testCreateConfiguration_includeInDevice() throws Exception {
+        IConfiguration config =
+                mFactory.createConfigurationFromArgs(
+                        new String[] {"test-config-multi-include", "--test-dir", "faketestdir"});
+        assertEquals(2, config.getDeviceConfig().size());
+        IDeviceConfiguration device1 = config.getDeviceConfigByName("device1");
+        assertTrue(device1.getTargetPreparers().get(0) instanceof StubTargetPreparer);
+        // The included config in device2 loads a different build_provider
+        IDeviceConfiguration device2 = config.getDeviceConfigByName("device2");
+        assertTrue(device2.getBuildProvider() instanceof LocalDeviceBuildProvider);
+        LocalDeviceBuildProvider provider = (LocalDeviceBuildProvider) device2.getBuildProvider();
+        // command line options are properly propagated to the included object in device tag.
+        assertEquals("faketestdir", provider.getTestDir().getName());
+    }
+
+    /**
+     * Test when an <include> tag tries to load a <device> tag inside another <device> tag. This
+     * should throw an exception.
+     */
+    public void testCreateConfiguration_includeInDevice_inDevice() throws Exception {
+        try {
+            mFactory.createConfigurationFromArgs(
+                    new String[] {
+                        "multi-device-incorrect-include",
+                    });
+            fail("Should have thrown an exception.");
+        } catch (ConfigurationException expected) {
+            assertEquals(
+                    "<device> tag cannot be included inside another device", expected.getMessage());
+        }
+    }
+
     /** Test that {@link ConfigurationFactory#reorderArgs(String[])} is properly reordering args. */
     public void testReorderArgs_check_ordering() throws Throwable {
         String[] args =
@@ -1371,7 +1434,7 @@ public class ConfigurationFactoryTest extends TestCase {
         File tmpDir = externalConfig.getParentFile();
 
         ConfigurationFactory spyFactory = Mockito.spy(mFactory);
-        Mockito.doReturn(Arrays.asList(tmpDir)).when(spyFactory).getTestCasesDirs();
+        Mockito.doReturn(Arrays.asList(tmpDir)).when(spyFactory).getExternalTestCasesDirs();
 
         try {
             File config = spyFactory.getTestCaseConfigPath(configName);
@@ -1389,10 +1452,10 @@ public class ConfigurationFactoryTest extends TestCase {
         File tmpDir = FileUtil.createTempDir("config-check-var");
         try {
             ConfigurationFactory spyFactory = Mockito.spy(mFactory);
-            Mockito.doReturn(Arrays.asList(tmpDir)).when(spyFactory).getTestCasesDirs();
+            Mockito.doReturn(Arrays.asList(tmpDir)).when(spyFactory).getExternalTestCasesDirs();
             File config = spyFactory.getTestCaseConfigPath("non-exist");
             assertNull(config);
-            Mockito.verify(spyFactory, Mockito.times(1)).getTestCasesDirs();
+            Mockito.verify(spyFactory, Mockito.times(1)).getExternalTestCasesDirs();
         } finally {
             FileUtil.recursiveDelete(tmpDir);
         }
@@ -1409,7 +1472,7 @@ public class ConfigurationFactoryTest extends TestCase {
             File subDir = FileUtil.createTempDir("subdir", tmpDir);
             FileUtil.createTempFile("testconfig2", ".xml", subDir);
             ConfigurationFactory spyFactory = Mockito.spy(mFactory);
-            Mockito.doReturn(Arrays.asList(tmpDir)).when(spyFactory).getTestCasesDirs();
+            Mockito.doReturn(Arrays.asList(tmpDir)).when(spyFactory).getExternalTestCasesDirs();
             // looking at full path we get both configs
             Set<String> res = spyFactory.getConfigNamesFromTestCases(null);
             assertEquals(2, res.size());

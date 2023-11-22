@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"சேவைகள்"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"சேவை அமைப்புகள்"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"அதிக ஒளி மாறுபாடுடைய உரை"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"அணுகல்தன்மைக் குறுக்குவழி"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"அணுகல்தன்மைக் குறுக்குவழியை இயக்கு"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"குறுக்குவழிச் சேவை"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"குறுக்குவழி அம்சம் இயக்கத்தில் இருக்கும்போது, பின்செல் பொத்தான் மற்றும் ஒலியைக் குறைக்கும் பொத்தான் இரண்டையும் 3 வினாடிகள் அழுத்திப் பிடித்தால், அணுகல்தன்மை அம்சத்தை இயக்க முடியும்."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"தலைப்புகள்"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"வீடியோவில் தோன்றும் வசனங்களுக்கான அமைப்புகள்"</string>
     <string name="captions_display" msgid="735692527287125548">"காட்சி"</string>
@@ -655,7 +659,7 @@
     <string name="keep_settings" msgid="6798327196645732517">"மாற்றாதே"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"அனுமதிகள்"</string>
     <string name="device_apps_permissions" msgid="2966387603529725982">"பயன்பாட்டு அனுமதிகள்"</string>
-    <string name="app_permissions_group_summary" msgid="7906834786705287901">"அனுமதிக்கப்படும் பயன்பாடுகள்: <xliff:g id="COUNT_0">%d</xliff:g> / <xliff:g id="COUNT_1">%d</xliff:g>"</string>
+    <string name="app_permissions_group_summary" msgid="7906834786705287901">"அனுமதிக்கப்பட்ட ஆப்ஸ்: <xliff:g id="COUNT_0">%d</xliff:g> / <xliff:g id="COUNT_1">%d</xliff:g>"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"புளூடூத் அனுமதி கோரிக்கை"</string>
     <string name="security_patch" msgid="2131617390189164481">"Android பாதுகாப்பின் இணைப்புநிரல் நிலை"</string>
     <string name="choose_application" msgid="5662960665577780353">"பயன்பாட்டைத் தேர்ந்தெடுக்கவும்"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"பிழை அறிக்கையைப் பதிவு செய்கிறது"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"கிடைக்கும் விர்ச்சுவல் விசைப்பலகைகள்"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"விசைப்பலகைகளை நிர்வகி"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"அனுமதிக்கப்பட்டது"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"அனுமதிக்கப்படவில்லை"</string>
+    <string name="usage_access" msgid="1914242907684452328">"உபயோக அணுகல்"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"உபயோக அணுகலானது நீங்கள் பயன்படுத்தும் பிற பயன்பாடுகள், அவற்றை எவ்வளவு அடிக்கடிப் பயன்படுத்துகிறீர்கள் என்பதையும், அத்துடன் தொலைத்தொடர்பு நிறுவனம், மொழி அமைப்புகள், பிற விவரங்களையும் கண்காணிக்க, பயன்பாட்டை அனுமதிக்கும்."</string>
 </resources>

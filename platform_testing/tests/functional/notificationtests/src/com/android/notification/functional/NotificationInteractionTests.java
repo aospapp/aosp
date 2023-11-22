@@ -237,7 +237,7 @@ public class NotificationInteractionTests extends InstrumentationTestCase {
                 new LogMaker(MetricsEvent.NOTIFICATION_ALERT)
                         .setType(MetricsEvent.TYPE_OPEN)
                         .addTaggedData(MetricsEvent.NOTIFICATION_ID, id)
-                        .setSubtype(1) // 1: BUZZ, nop BEEP, nop BLINK
+                        .setSubtype(MetricsEvent.ALERT_BUZZ) // no BEEP or BLINK
                         .setPackageName(mContext.getPackageName()));
         MetricsAsserts.assertHasLog("missing notification action 0 click log", mMetricsReader,
                 new LogMaker(MetricsEvent.NOTIFICATION_ITEM_ACTION)

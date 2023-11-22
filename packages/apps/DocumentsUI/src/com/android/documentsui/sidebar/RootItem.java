@@ -96,13 +96,18 @@ class RootItem extends Item {
     }
 
     @Override
-    boolean isDropTarget() {
+    boolean isRoot() {
         return true;
     }
 
     @Override
     void open() {
         mActionHandler.openRoot(root);
+    }
+
+    @Override
+    boolean isDropTarget() {
+        return root.supportsCreate();
     }
 
     @Override
@@ -114,5 +119,14 @@ class RootItem extends Item {
     void createContextMenu(Menu menu, MenuInflater inflater, MenuManager menuManager) {
         inflater.inflate(R.menu.root_context_menu, menu);
         menuManager.updateRootContextMenu(menu, root, docInfo);
+    }
+
+    @Override
+    public String toString() {
+        return "RootItem{"
+                + "id=" + stringId
+                + ", root=" + root
+                + ", docInfo=" + docInfo
+                + "}";
     }
 }

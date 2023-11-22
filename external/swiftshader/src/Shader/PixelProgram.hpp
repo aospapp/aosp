@@ -82,8 +82,8 @@ namespace sw
 		Int4 enableContinue;
 		Int4 enableLeave;
 
-		void sampleTexture(Vector4f &c, const Src &sampler, Float4 &u, Float4 &v, Float4 &w, Float4 &q, Vector4f &dsx, Vector4f &dsy, bool project, SamplerMethod method);
-		void sampleTexture(Vector4f &c, int sampler, Float4 &u, Float4 &v, Float4 &w, Float4 &q, Vector4f &dsx, Vector4f &dsy, bool project, SamplerMethod method);
+		void sampleTexture(Vector4f &c, const Src &sampler, Vector4f &uvwq, Vector4f &dsx, Vector4f &dsy, Vector4f &offset, SamplerFunction function);
+		void sampleTexture(Vector4f &c, int samplerIndex, Vector4f &uvwq, Vector4f &dsx, Vector4f &dsy, Vector4f &offset, SamplerFunction function);
 
 		// Raster operations
 		void clampColor(Vector4f oC[RENDERTARGETS]);
@@ -107,14 +107,14 @@ namespace sw
 		void M4X3(Vector4f &dst, Vector4f &src0, const Src &src1);
 		void M4X4(Vector4f &dst, Vector4f &src0, const Src &src1);
 		void TEXLD(Vector4f &dst, Vector4f &src0, const Src &src1, bool project, bool bias);
-		void TEXLDD(Vector4f &dst, Vector4f &src0, const Src &src1, Vector4f &src2, Vector4f &src3, bool project);
-		void TEXLDL(Vector4f &dst, Vector4f &src0, const Src &src1, bool project);
+		void TEXLDD(Vector4f &dst, Vector4f &src0, const Src &src1, Vector4f &src2, Vector4f &src3);
+		void TEXLDL(Vector4f &dst, Vector4f &src0, const Src &src1);
 		void TEXSIZE(Vector4f &dst, Float4 &lod, const Src &src1);
 		void TEXKILL(Int cMask[4], Vector4f &src, unsigned char mask);
-		void TEXOFFSET(Vector4f &dst, Vector4f &src, const Src&, Vector4f &src2, Vector4f &src3, bool project, bool bias);
-		void TEXLDL(Vector4f &dst, Vector4f &src0, const Src &src1, Vector4f &src2, bool project, bool bias);
+		void TEXOFFSET(Vector4f &dst, Vector4f &src0, const Src &src1, Vector4f &src2, bool bias);
+		void TEXLDL(Vector4f &dst, Vector4f &src0, const Src &src1, Vector4f &src2, bool bias);
+		void TEXELFETCH(Vector4f &dst, Vector4f &src, const Src&);
 		void TEXELFETCH(Vector4f &dst, Vector4f &src, const Src&, Vector4f &src2);
-		void TEXELFETCH(Vector4f &dst, Vector4f &src, const Src&, Vector4f &src2, Vector4f &src3);
 		void TEXGRAD(Vector4f &dst, Vector4f &src, const Src&, Vector4f &src2, Vector4f &src3);
 		void TEXGRAD(Vector4f &dst, Vector4f &src, const Src&, Vector4f &src2, Vector4f &src3, Vector4f &src4);
 		void DISCARD(Int cMask[4], const Shader::Instruction *instruction);
@@ -156,13 +156,12 @@ namespace sw
 		int currentLabel;
 		bool whileTest;
 
-		// FIXME: Get rid of llvm::
-		llvm::BasicBlock *ifFalseBlock[24 + 24];
-		llvm::BasicBlock *loopRepTestBlock[4];
-		llvm::BasicBlock *loopRepEndBlock[4];
-		llvm::BasicBlock *labelBlock[2048];
-		std::vector<llvm::BasicBlock*> callRetBlock[2048];
-		llvm::BasicBlock *returnBlock;
+		BasicBlock *ifFalseBlock[24 + 24];
+		BasicBlock *loopRepTestBlock[4];
+		BasicBlock *loopRepEndBlock[4];
+		BasicBlock *labelBlock[2048];
+		std::vector<BasicBlock*> callRetBlock[2048];
+		BasicBlock *returnBlock;
 		bool isConditionalIf[24 + 24];
 	};
 }

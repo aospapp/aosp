@@ -46,8 +46,10 @@
 #include "object_tagging.h"
 #include "runtime.h"
 #include "scoped_thread_state_change-inl.h"
-#include "thread-inl.h"
+#include "thread-current-inl.h"
 #include "thread_list.h"
+#include "ti_allocator.h"
+#include "ti_breakpoint.h"
 #include "ti_class.h"
 #include "ti_dump.h"
 #include "ti_field.h"
@@ -108,22 +110,12 @@ class JvmtiFunctions {
   static jvmtiError Allocate(jvmtiEnv* env, jlong size, unsigned char** mem_ptr) {
     ENSURE_VALID_ENV(env);
     ENSURE_NON_NULL(mem_ptr);
-    if (size < 0) {
-      return ERR(ILLEGAL_ARGUMENT);
-    } else if (size == 0) {
-      *mem_ptr = nullptr;
-      return OK;
-    }
-    *mem_ptr = static_cast<unsigned char*>(malloc(size));
-    return (*mem_ptr != nullptr) ? OK : ERR(OUT_OF_MEMORY);
+    return AllocUtil::Allocate(env, size, mem_ptr);
   }
 
   static jvmtiError Deallocate(jvmtiEnv* env, unsigned char* mem) {
     ENSURE_VALID_ENV(env);
-    if (mem != nullptr) {
-      free(mem);
-    }
-    return OK;
+    return AllocUtil::Deallocate(env, mem);
   }
 
   static jvmtiError GetThreadState(jvmtiEnv* env, jthread thread, jint* thread_state_ptr) {
@@ -141,34 +133,34 @@ class JvmtiFunctions {
     return ThreadUtil::GetAllThreads(env, threads_count_ptr, threads_ptr);
   }
 
-  static jvmtiError SuspendThread(jvmtiEnv* env, jthread thread ATTRIBUTE_UNUSED) {
+  static jvmtiError SuspendThread(jvmtiEnv* env, jthread thread) {
     ENSURE_VALID_ENV(env);
     ENSURE_HAS_CAP(env, can_suspend);
-    return ERR(NOT_IMPLEMENTED);
+    return ThreadUtil::SuspendThread(env, thread);
   }
 
   static jvmtiError SuspendThreadList(jvmtiEnv* env,
-                                      jint request_count ATTRIBUTE_UNUSED,
-                                      const jthread* request_list ATTRIBUTE_UNUSED,
-                                      jvmtiError* results ATTRIBUTE_UNUSED) {
+                                      jint request_count,
+                                      const jthread* request_list,
+                                      jvmtiError* results) {
     ENSURE_VALID_ENV(env);
     ENSURE_HAS_CAP(env, can_suspend);
-    return ERR(NOT_IMPLEMENTED);
+    return ThreadUtil::SuspendThreadList(env, request_count, request_list, results);
   }
 
-  static jvmtiError ResumeThread(jvmtiEnv* env, jthread thread ATTRIBUTE_UNUSED) {
+  static jvmtiError ResumeThread(jvmtiEnv* env, jthread thread) {
     ENSURE_VALID_ENV(env);
     ENSURE_HAS_CAP(env, can_suspend);
-    return ERR(NOT_IMPLEMENTED);
+    return ThreadUtil::ResumeThread(env, thread);
   }
 
   static jvmtiError ResumeThreadList(jvmtiEnv* env,
-                                     jint request_count ATTRIBUTE_UNUSED,
-                                     const jthread* request_list ATTRIBUTE_UNUSED,
-                                     jvmtiError* results ATTRIBUTE_UNUSED) {
+                                     jint request_count,
+                                     const jthread* request_list,
+                                     jvmtiError* results) {
     ENSURE_VALID_ENV(env);
     ENSURE_HAS_CAP(env, can_suspend);
-    return ERR(NOT_IMPLEMENTED);
+    return ThreadUtil::ResumeThreadList(env, request_count, request_list, results);
   }
 
   static jvmtiError StopThread(jvmtiEnv* env,
@@ -619,52 +611,41 @@ class JvmtiFunctions {
     return ERR(NOT_IMPLEMENTED);
   }
 
-  static jvmtiError SetBreakpoint(jvmtiEnv* env,
-                                  jmethodID method ATTRIBUTE_UNUSED,
-                                  jlocation location ATTRIBUTE_UNUSED) {
+
+  static jvmtiError SetBreakpoint(jvmtiEnv* env, jmethodID method, jlocation location) {
     ENSURE_VALID_ENV(env);
     ENSURE_HAS_CAP(env, can_generate_breakpoint_events);
-    return ERR(NOT_IMPLEMENTED);
+    return BreakpointUtil::SetBreakpoint(env, method, location);
   }
 
-  static jvmtiError ClearBreakpoint(jvmtiEnv* env,
-                                    jmethodID method ATTRIBUTE_UNUSED,
-                                    jlocation location ATTRIBUTE_UNUSED) {
+  static jvmtiError ClearBreakpoint(jvmtiEnv* env, jmethodID method, jlocation location) {
     ENSURE_VALID_ENV(env);
     ENSURE_HAS_CAP(env, can_generate_breakpoint_events);
-    return ERR(NOT_IMPLEMENTED);
+    return BreakpointUtil::ClearBreakpoint(env, method, location);
   }
 
-  static jvmtiError SetFieldAccessWatch(jvmtiEnv* env,
-                                        jclass klass ATTRIBUTE_UNUSED,
-                                        jfieldID field ATTRIBUTE_UNUSED) {
+  static jvmtiError SetFieldAccessWatch(jvmtiEnv* env, jclass klass, jfieldID field) {
     ENSURE_VALID_ENV(env);
     ENSURE_HAS_CAP(env, can_generate_field_access_events);
-    return ERR(NOT_IMPLEMENTED);
+    return FieldUtil::SetFieldAccessWatch(env, klass, field);
   }
 
-  static jvmtiError ClearFieldAccessWatch(jvmtiEnv* env,
-                                          jclass klass ATTRIBUTE_UNUSED,
-                                          jfieldID field ATTRIBUTE_UNUSED) {
+  static jvmtiError ClearFieldAccessWatch(jvmtiEnv* env, jclass klass, jfieldID field) {
     ENSURE_VALID_ENV(env);
     ENSURE_HAS_CAP(env, can_generate_field_access_events);
-    return ERR(NOT_IMPLEMENTED);
+    return FieldUtil::ClearFieldAccessWatch(env, klass, field);
   }
 
-  static jvmtiError SetFieldModificationWatch(jvmtiEnv* env,
-                                              jclass klass ATTRIBUTE_UNUSED,
-                                              jfieldID field ATTRIBUTE_UNUSED) {
+  static jvmtiError SetFieldModificationWatch(jvmtiEnv* env, jclass klass, jfieldID field) {
     ENSURE_VALID_ENV(env);
     ENSURE_HAS_CAP(env, can_generate_field_modification_events);
-    return ERR(NOT_IMPLEMENTED);
+    return FieldUtil::SetFieldModificationWatch(env, klass, field);
   }
 
-  static jvmtiError ClearFieldModificationWatch(jvmtiEnv* env,
-                                                jclass klass ATTRIBUTE_UNUSED,
-                                                jfieldID field ATTRIBUTE_UNUSED) {
+  static jvmtiError ClearFieldModificationWatch(jvmtiEnv* env, jclass klass, jfieldID field) {
     ENSURE_VALID_ENV(env);
     ENSURE_HAS_CAP(env, can_generate_field_modification_events);
-    return ERR(NOT_IMPLEMENTED);
+    return FieldUtil::ClearFieldModificationWatch(env, klass, field);
   }
 
   static jvmtiError GetLoadedClasses(jvmtiEnv* env, jint* class_count_ptr, jclass** classes_ptr) {
@@ -694,12 +675,10 @@ class JvmtiFunctions {
     return ClassUtil::GetClassStatus(env, klass, status_ptr);
   }
 
-  static jvmtiError GetSourceFileName(jvmtiEnv* env,
-                                      jclass klass ATTRIBUTE_UNUSED,
-                                      char** source_name_ptr ATTRIBUTE_UNUSED) {
+  static jvmtiError GetSourceFileName(jvmtiEnv* env, jclass klass, char** source_name_ptr) {
     ENSURE_VALID_ENV(env);
     ENSURE_HAS_CAP(env, can_get_source_file_name);
-    return ERR(NOT_IMPLEMENTED);
+    return ClassUtil::GetSourceFileName(env, klass, source_name_ptr);
   }
 
   static jvmtiError GetClassModifiers(jvmtiEnv* env, jclass klass, jint* modifiers_ptr) {
@@ -774,11 +753,11 @@ class JvmtiFunctions {
   }
 
   static jvmtiError GetSourceDebugExtension(jvmtiEnv* env,
-                                            jclass klass ATTRIBUTE_UNUSED,
-                                            char** source_debug_extension_ptr ATTRIBUTE_UNUSED) {
+                                            jclass klass,
+                                            char** source_debug_extension_ptr) {
     ENSURE_VALID_ENV(env);
     ENSURE_HAS_CAP(env, can_get_source_debug_extension);
-    return ERR(NOT_IMPLEMENTED);
+    return ClassUtil::GetSourceDebugExtension(env, klass, source_debug_extension_ptr);
   }
 
   static jvmtiError RetransformClasses(jvmtiEnv* env, jint class_count, const jclass* classes) {
@@ -934,12 +913,12 @@ class JvmtiFunctions {
   }
 
   static jvmtiError GetBytecodes(jvmtiEnv* env,
-                                 jmethodID method ATTRIBUTE_UNUSED,
-                                 jint* bytecode_count_ptr ATTRIBUTE_UNUSED,
-                                 unsigned char** bytecodes_ptr ATTRIBUTE_UNUSED) {
+                                 jmethodID method,
+                                 jint* bytecode_count_ptr,
+                                 unsigned char** bytecodes_ptr) {
     ENSURE_VALID_ENV(env);
     ENSURE_HAS_CAP(env, can_get_bytecodes);
-    return ERR(NOT_IMPLEMENTED);
+    return MethodUtil::GetBytecodes(env, method, bytecode_count_ptr, bytecodes_ptr);
   }
 
   static jvmtiError IsMethodNative(jvmtiEnv* env, jmethodID method, jboolean* is_native_ptr) {
@@ -1229,6 +1208,23 @@ class JvmtiFunctions {
       return error;
     }
 
+    error = add_extension(
+        reinterpret_cast<jvmtiExtensionFunction>(AllocUtil::GetGlobalJvmtiAllocationState),
+        "com.android.art.alloc.get_global_jvmti_allocation_state",
+        "Returns the total amount of memory currently allocated by all jvmtiEnvs through the"
+        " 'Allocate' jvmti function. This does not include any memory that has been deallocated"
+        " through the 'Deallocate' function. This number is approximate and might not correspond"
+        " exactly to the sum of the sizes of all not freed allocations.",
+        1,
+        {                                                          // NOLINT [whitespace/braces] [4]
+            { "currently_allocated", JVMTI_KIND_OUT, JVMTI_TYPE_JLONG, false},
+        },
+        1,
+        { ERR(NULL_POINTER) });
+    if (error != ERR(NONE)) {
+      return error;
+    }
+
     // Copy into output buffer.
 
     *extension_count_ptr = ext_vector.size();
@@ -1502,10 +1498,11 @@ class JvmtiFunctions {
 
   static jvmtiError DisposeEnvironment(jvmtiEnv* env) {
     ENSURE_VALID_ENV(env);
-    gEventHandler.RemoveArtJvmTiEnv(ArtJvmTiEnv::AsArtJvmTiEnv(env));
-    art::Runtime::Current()->RemoveSystemWeakHolder(
-        ArtJvmTiEnv::AsArtJvmTiEnv(env)->object_tag_table.get());
-    delete env;
+    ArtJvmTiEnv* tienv = ArtJvmTiEnv::AsArtJvmTiEnv(env);
+    gEventHandler.RemoveArtJvmTiEnv(tienv);
+    art::Runtime::Current()->RemoveSystemWeakHolder(tienv->object_tag_table.get());
+    ThreadUtil::RemoveEnvironment(tienv);
+    delete tienv;
     return OK;
   }
 
@@ -1675,6 +1672,7 @@ static bool IsJvmtiVersion(jint version) {
 }
 
 extern const jvmtiInterface_1 gJvmtiInterface;
+
 ArtJvmTiEnv::ArtJvmTiEnv(art::JavaVMExt* runtime, EventHandler* event_handler)
     : art_vm(runtime),
       local_data(nullptr),
@@ -1731,6 +1729,7 @@ extern "C" bool ArtPlugin_Initialize() {
 }
 
 extern "C" bool ArtPlugin_Deinitialize() {
+  gEventHandler.Shutdown();
   PhaseUtil::Unregister();
   ThreadUtil::Unregister();
   ClassUtil::Unregister();

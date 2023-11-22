@@ -192,15 +192,15 @@ public class HfpClientDeviceBlock {
             // (represented as unknown call in telecom since). Since BluetoothHeadsetClientCall is a
             // parcelable we simply pack the entire object in there.
             Bundle b = new Bundle();
-            if (call.getState() == BluetoothHeadsetClientCall.CALL_STATE_DIALING ||
-                call.getState() == BluetoothHeadsetClientCall.CALL_STATE_ALERTING ||
-                call.getState() == BluetoothHeadsetClientCall.CALL_STATE_ACTIVE ||
-                call.getState() == BluetoothHeadsetClientCall.CALL_STATE_WAITING) {
+            if (call.getState() == BluetoothHeadsetClientCall.CALL_STATE_DIALING
+                    || call.getState() == BluetoothHeadsetClientCall.CALL_STATE_ALERTING
+                    || call.getState() == BluetoothHeadsetClientCall.CALL_STATE_ACTIVE) {
                 // This is an outgoing call. Even if it is an active call we do not have a way of
                 // putting that parcelable in a seaprate field.
                 b.putParcelable(TelecomManager.EXTRA_OUTGOING_CALL_EXTRAS, call);
                 mTelecomManager.addNewUnknownCall(mPhoneAccount.getAccountHandle(), b);
-            } else if (call.getState() == BluetoothHeadsetClientCall.CALL_STATE_INCOMING) {
+            } else if (call.getState() == BluetoothHeadsetClientCall.CALL_STATE_INCOMING
+                    || call.getState() == BluetoothHeadsetClientCall.CALL_STATE_WAITING) {
                 // This is an incoming call.
                 b.putParcelable(TelecomManager.EXTRA_INCOMING_CALL_EXTRAS, call);
                 mTelecomManager.addNewIncomingCall(mPhoneAccount.getAccountHandle(), b);

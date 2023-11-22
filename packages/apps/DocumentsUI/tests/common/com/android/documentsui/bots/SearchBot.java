@@ -50,7 +50,7 @@ public class SearchBot extends Bots.BaseBot {
     // Dumb search layout changes substantially between Ryu and Angler.
     @SuppressWarnings("unchecked")
     private static final Matcher<View> SEARCH_WIDGET = allOf(
-            withId(R.id.menu_search),
+            withId(R.id.option_menu_search),
             anyOf(isClickable(), hasDescendant(isClickable())));
 
     // Note that input is visible when the clicky button is not
@@ -58,7 +58,7 @@ public class SearchBot extends Bots.BaseBot {
     // require this input be not clickable.
     @SuppressWarnings("unchecked")
     private static final Matcher<View> SEARCH_INPUT = allOf(
-            withId(R.id.menu_search),
+            withId(R.id.option_menu_search),
             isDisplayed());
 
     public SearchBot(UiDevice device, Context context, int timeout) {
@@ -109,16 +109,16 @@ public class SearchBot extends Bots.BaseBot {
     }
 
     private UiObject findSearchView() {
-        return findObject("com.android.documentsui:id/menu_search");
+        return findObject("com.android.documentsui:id/option_menu_search");
     }
 
     private UiObject findSearchViewTextField() {
-        return findObject("com.android.documentsui:id/menu_search", "android:id/search_src_text");
+        return findObject("com.android.documentsui:id/option_menu_search", "android:id/search_src_text");
     }
 
     private UiObject findSearchViewIcon() {
         return mContext.getResources().getBoolean(R.bool.full_bar_search_view)
-                ? findObject("com.android.documentsui:id/menu_search")
-                : findObject("com.android.documentsui:id/menu_search", "android:id/search_button");
+                ? findObject("com.android.documentsui:id/option_menu_search")
+                : findObject("com.android.documentsui:id/option_menu_search", "android:id/search_button");
     }
 }

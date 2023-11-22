@@ -17,12 +17,17 @@ package android.transition.cts;
 
 import static com.android.compatibility.common.util.CtsMockitoUtils.within;
 
+import static org.hamcrest.CoreMatchers.allOf;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.lessThan;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
@@ -44,6 +49,7 @@ import android.transition.Scene;
 import android.transition.Transition;
 import android.transition.Transition.EpicenterCallback;
 import android.transition.Transition.TransitionListener;
+import android.transition.TransitionListenerAdapter;
 import android.transition.TransitionManager;
 import android.transition.TransitionPropagation;
 import android.transition.TransitionValues;
@@ -408,12 +414,12 @@ public class TransitionTest extends BaseTransitionTest {
         enterScene(R.layout.scene1);
         mTransition.setDuration(500);
         assertEquals(500, mTransition.getDuration());
+        DurationListener durationListener = new DurationListener();
+        mTransition.addListener(durationListener);
         startTransition(R.layout.scene3);
-        long startTime = SystemClock.uptimeMillis();
         waitForEnd(800);
-        long endTime = SystemClock.uptimeMillis();
-        long duration = endTime - startTime;
-        assertTrue(duration >= 500 && duration < 900);
+        assertThat(durationListener.getDuration(),
+                allOf(greaterThanOrEqualTo(500L), lessThan(900L)));
     }
 
     @Test
@@ -722,5 +728,27 @@ public class TransitionTest extends BaseTransitionTest {
             return null;
         }
     }
-}
 
+    private static class DurationListener extends TransitionListenerAdapter {
+
+        private long mUptimeMillisStart = -1;
+        private long mDuration = -1;
+
+        @Override
+        public void onTransitionStart(Transition transition) {
+            mUptimeMillisStart = SystemClock.uptimeMillis();
+        }
+
+        @Override
+        public void onTransitionEnd(Transition transition) {
+            mDuration = SystemClock.uptimeMillis() - mUptimeMillisStart;
+        }
+
+        public long getDuration() {
+            if (mDuration < 0) {
+                fail("Requested duration measurement of an incomplete transition.");
+            }
+            return mDuration;
+        }
+    }
+}

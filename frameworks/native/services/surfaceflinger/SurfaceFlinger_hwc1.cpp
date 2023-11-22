@@ -94,7 +94,7 @@
  */
 #define DEBUG_SCREENSHOTS   false
 
-EGLAPI const char* eglQueryStringImplementationANDROID(EGLDisplay dpy, EGLint name);
+extern "C" EGLAPI const char* eglQueryStringImplementationANDROID(EGLDisplay dpy, EGLint name);
 
 namespace android {
 // ---------------------------------------------------------------------------
@@ -320,8 +320,8 @@ sp<IBinder> SurfaceFlinger::getBuiltInDisplay(int32_t id) {
 
 void SurfaceFlinger::bootFinished()
 {
-    if (mStartBootAnimThread->join() != NO_ERROR) {
-        ALOGE("Join StartBootAnimThread failed!");
+    if (mStartPropertySetThread->join() != NO_ERROR) {
+        ALOGE("Join StartPropertySetThread failed!");
     }
     const nsecs_t now = systemTime();
     const nsecs_t duration = now - mBootTime;
@@ -501,6 +501,8 @@ private:
     sp<VSyncSource::Callback> mCallback;
 };
 
+// Do not call property_set on main thread which will be blocked by init
+// Use StartPropertySetThread instead.
 void SurfaceFlinger::init() {
     ALOGI(  "SurfaceFlinger's main thread ready to run. "
             "Initializing graphics H/W...");
@@ -532,20 +534,18 @@ void SurfaceFlinger::init() {
 
     // Initialize the H/W composer object.  There may or may not be an
     // actual hardware composer underneath.
-    mHwc = new HWComposer(this,
-            *static_cast<HWComposer::EventHandler *>(this));
+    mHwc.reset(new HWComposer(this,
+            *static_cast<HWComposer::EventHandler *>(this)));
 
     // get a RenderEngine for the given display / config (can't fail)
-    mRenderEngine = RenderEngine::create(mEGLDisplay, mHwc->getVisualID());
+    mRenderEngine = RenderEngine::create(mEGLDisplay,
+            mHwc->getVisualID(), 0);
 
     // retrieve the EGL context that was selected/created
     mEGLContext = mRenderEngine->getEGLContext();
 
     LOG_ALWAYS_FATAL_IF(mEGLContext == EGL_NO_CONTEXT,
             "couldn't create EGLContext");
-
-    // Inform native graphics APIs that the present timestamp is NOT supported:
-    property_set(kTimestampProperty, "0");
 
     // initialize our non-virtual displays
     for (size_t i=0 ; i<DisplayDevice::NUM_BUILTIN_DISPLAY_TYPES ; i++) {
@@ -599,9 +599,10 @@ void SurfaceFlinger::init() {
 
     mRenderEngine->primeCache();
 
-    mStartBootAnimThread = new StartBootAnimThread();
-    if (mStartBootAnimThread->Start() != NO_ERROR) {
-        ALOGE("Run StartBootAnimThread failed!");
+    // Inform native graphics APIs that the present timestamp is NOT supported:
+    mStartPropertySetThread = new StartPropertySetThread(false);
+    if (mStartPropertySetThread->Start() != NO_ERROR) {
+        ALOGE("Run StartPropertySetThread failed!");
     }
 
     ALOGV("Done initializing");
@@ -615,10 +616,10 @@ int32_t SurfaceFlinger::allocateHwcDisplayId(DisplayDevice::DisplayType type) {
 void SurfaceFlinger::startBootAnim() {
     // Start boot animation service by setting a property mailbox
     // if property setting thread is already running, Start() will be just a NOP
-    mStartBootAnimThread->Start();
+    mStartPropertySetThread->Start();
     // Wait until property was set
-    if (mStartBootAnimThread->join() != NO_ERROR) {
-        ALOGE("Join StartBootAnimThread failed!");
+    if (mStartPropertySetThread->join() != NO_ERROR) {
+        ALOGE("Join StartPropertySetThread failed!");
     }
 }
 
@@ -1256,6 +1257,7 @@ void SurfaceFlinger::postComposition(nsecs_t refreshStartTime)
     const HWComposer& hwc = getHwComposer();
     const sp<const DisplayDevice> hw(getDefaultDisplayDevice());
 
+    mGlCompositionDoneTimeline.updateSignalTimes();
     std::shared_ptr<FenceTime> glCompositionDoneFenceTime;
     if (getHwComposer().hasGlesComposition(hw->getHwcDisplayId())) {
         glCompositionDoneFenceTime =
@@ -1264,12 +1266,11 @@ void SurfaceFlinger::postComposition(nsecs_t refreshStartTime)
     } else {
         glCompositionDoneFenceTime = FenceTime::NO_FENCE;
     }
-    mGlCompositionDoneTimeline.updateSignalTimes();
 
+    mDisplayTimeline.updateSignalTimes();
     sp<Fence> retireFence = mHwc->getDisplayFence(HWC_DISPLAY_PRIMARY);
     auto retireFenceTime = std::make_shared<FenceTime>(retireFence);
     mDisplayTimeline.push(retireFenceTime);
-    mDisplayTimeline.updateSignalTimes();
 
     nsecs_t vsyncPhase = mPrimaryDispSync.computeNextRefresh(0);
     nsecs_t vsyncInterval = mPrimaryDispSync.getPeriod();
@@ -1297,7 +1298,7 @@ void SurfaceFlinger::postComposition(nsecs_t refreshStartTime)
     });
 
     if (retireFence->isValid()) {
-        if (mPrimaryDispSync.addPresentFence(retireFence)) {
+        if (mPrimaryDispSync.addPresentFence(retireFenceTime)) {
             enableHardwareVsync();
         } else {
             disableHardwareVsync(false);
@@ -1360,8 +1361,7 @@ void SurfaceFlinger::rebuildLayerStacks() {
             const Transform& tr(hw->getTransform());
             const Rect bounds(hw->getBounds());
             if (hw->isDisplayOn()) {
-                computeVisibleRegions(hw->getLayerStack(), dirtyRegion,
-                        opaqueRegion);
+                computeVisibleRegions(hw, dirtyRegion, opaqueRegion);
 
                 mDrawingState.traverseInZOrder([&](Layer* layer) {
                     if (layer->getLayerStack() == hw->getLayerStack()) {
@@ -1862,7 +1862,7 @@ void SurfaceFlinger::handleTransactionLocked(uint32_t transactionFlags)
                 // TODO: we could cache the transformed region
                 Region visibleReg;
                 visibleReg.set(layer->computeScreenBounds());
-                invalidateLayerStack(layer->getLayerStack(), visibleReg);
+                invalidateLayerStack(layer, visibleReg);
             }
         });
     }
@@ -1923,7 +1923,7 @@ void SurfaceFlinger::commitTransaction()
     mTransactionCV.broadcast();
 }
 
-void SurfaceFlinger::computeVisibleRegions(uint32_t layerStack,
+void SurfaceFlinger::computeVisibleRegions(const sp<const DisplayDevice>& displayDevice,
         Region& outDirtyRegion, Region& outOpaqueRegion)
 {
     ATRACE_CALL();
@@ -1939,7 +1939,7 @@ void SurfaceFlinger::computeVisibleRegions(uint32_t layerStack,
         const Layer::State& s(layer->getDrawingState());
 
         // only consider the layers on the given layer stack
-        if (layer->getLayerStack() != layerStack)
+        if (layer->getLayerStack() != displayDevice->getLayerStack())
             return;
 
         /*
@@ -2054,8 +2054,8 @@ void SurfaceFlinger::computeVisibleRegions(uint32_t layerStack,
     outOpaqueRegion = aboveOpaqueLayers;
 }
 
-void SurfaceFlinger::invalidateLayerStack(uint32_t layerStack,
-        const Region& dirty) {
+void SurfaceFlinger::invalidateLayerStack(const sp<const Layer>& layer, const Region& dirty) {
+    uint32_t layerStack = layer->getLayerStack();
     for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
         const sp<DisplayDevice>& hw(mDisplays[dpy]);
         if (hw->getLayerStack() == layerStack) {
@@ -2098,7 +2098,7 @@ bool SurfaceFlinger::handlePageFlip()
         Layer* layer = layersWithQueuedFrames[i];
         const Region dirty(layer->latchBuffer(visibleRegions, latchTime));
         layer->useSurfaceDamage();
-        invalidateLayerStack(layer->getLayerStack(), dirty);
+        invalidateLayerStack(layer, dirty);
     }
 
     mVisibleRegionsDirty |= visibleRegions;
@@ -2382,6 +2382,7 @@ status_t SurfaceFlinger::removeLayer(const sp<Layer>& layer, bool topLevelOnly) 
         return NO_ERROR;
     }
 
+    layer->onRemovedFromCurrentState();
     mLayersPendingRemoval.add(layer);
     mLayersRemoved = true;
     mNumLayers -= 1 + layer->getChildrenCount();
@@ -2870,7 +2871,8 @@ void SurfaceFlinger::setPowerModeInternal(const sp<DisplayDevice>& hw,
     if (currentMode == HWC_POWER_MODE_OFF) {
         // Turn on the display
         getHwComposer().setPowerMode(type, mode);
-        if (type == DisplayDevice::DISPLAY_PRIMARY) {
+        if (type == DisplayDevice::DISPLAY_PRIMARY &&
+            mode != HWC_POWER_MODE_DOZE_SUSPEND) {
             // FIXME: eventthread only knows about the main display right now
             mEventThread->onScreenAcquired();
             resyncToHardwareVsync(true);
@@ -2902,7 +2904,25 @@ void SurfaceFlinger::setPowerModeInternal(const sp<DisplayDevice>& hw,
         getHwComposer().setPowerMode(type, mode);
         mVisibleRegionsDirty = true;
         // from this point on, SF will stop drawing on this display
+    } else if (mode == HWC_POWER_MODE_DOZE ||
+               mode == HWC_POWER_MODE_NORMAL) {
+        // Update display while dozing
+        getHwComposer().setPowerMode(type, mode);
+        if (type == DisplayDevice::DISPLAY_PRIMARY) {
+            // FIXME: eventthread only knows about the main display right now
+            mEventThread->onScreenAcquired();
+            resyncToHardwareVsync(true);
+        }
+    } else if (mode == HWC_POWER_MODE_DOZE_SUSPEND) {
+        // Leave display going to doze
+        if (type == DisplayDevice::DISPLAY_PRIMARY) {
+            disableHardwareVsync(true); // also cancels any in-progress resync
+            // FIXME: eventthread only knows about the main display right now
+            mEventThread->onScreenReleased();
+        }
+        getHwComposer().setPowerMode(type, mode);
     } else {
+        ALOGE("Attempting to set unknown power mode: %d\n", mode);
         getHwComposer().setPowerMode(type, mode);
     }
 }

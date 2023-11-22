@@ -230,6 +230,13 @@ Module *Module::addEntryPoint(EntryPointDefinition *entry) {
   return this;
 }
 
+const std::string Module::findStringOfPrefix(const char *prefix) const {
+  if (!mDebugInfo) {
+    return std::string();
+  }
+  return mDebugInfo->findStringOfPrefix(prefix);
+}
+
 GlobalSection *Module::getGlobalSection() {
   if (!mGlobals) {
     mGlobals.reset(new GlobalSection());
@@ -527,6 +534,23 @@ DebugInfoSection *DebugInfoSection::addString(const char *str) {
   StringInst *source = mBuilder->MakeString(str);
   mSources.push_back(source);
   return this;
+}
+
+std::string DebugInfoSection::findStringOfPrefix(const char *prefix) {
+  auto it = std::find_if(
+      mSources.begin(), mSources.end(), [prefix](Instruction *inst) -> bool {
+        if (inst->getOpCode() != OpString) {
+          return false;
+        }
+        const StringInst *strInst = static_cast<const StringInst *>(inst);
+        const std::string &str = strInst->mOperand1;
+        return str.find(prefix) == 0;
+      });
+  if (it == mSources.end()) {
+    return "";
+  }
+  StringInst *strInst = static_cast<StringInst *>(*it);
+  return strInst->mOperand1;
 }
 
 Instruction *DebugInfoSection::lookupByName(const char *name) const {

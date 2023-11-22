@@ -22,4 +22,5 @@ vts_lib_packages := \
   libvts_measurement \
   libvts_multidevice_proto \
   libvts_profiling \
+  libvts_profiling_utils \
   libprotobuf-cpp-full \

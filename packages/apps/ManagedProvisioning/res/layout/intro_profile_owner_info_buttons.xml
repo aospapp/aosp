@@ -53,7 +53,7 @@
         android:layout_width="@dimen/intro_button_width"
         android:layout_height="@dimen/intro_button_height"
         android:layout_marginTop="@dimen/spacer_16"
-        android:layout_marginBottom="@dimen/spacer_8"
+        android:layout_marginBottom="@dimen/spacer_60"
         android:text="@string/close"
         style="@style/Provisioning2Theme.Button.Gray"/>
 </LinearLayout>

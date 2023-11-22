@@ -19,17 +19,17 @@ package com.android.tv.tuner.exoplayer.buffer;
 import android.os.ConditionVariable;
 
 import android.support.annotation.NonNull;
+
 import com.google.android.exoplayer.C;
 import com.google.android.exoplayer.MediaFormat;
 import com.google.android.exoplayer.SampleHolder;
 import com.google.android.exoplayer.SampleSource;
+import com.android.tv.common.SoftPreconditions;
 import com.android.tv.tuner.tvinput.PlaybackBufferListener;
 import com.android.tv.tuner.exoplayer.SampleExtractor;
 
 import java.io.IOException;
 import java.util.List;
-
-import junit.framework.Assert;
 
 /**
  * Handles I/O for {@link SampleExtractor} when
@@ -115,8 +115,8 @@ public class SimpleSampleBuffer implements BufferManager.SampleBuffer {
     @Override
     public synchronized int readSample(int track, SampleHolder sampleHolder) {
         SampleQueue queue = mPlayingSampleQueues[track];
-        Assert.assertNotNull(queue);
-        int result = queue.dequeueSample(sampleHolder);
+        SoftPreconditions.checkNotNull(queue);
+        int result = queue == null ? SampleSource.NOTHING_READ : queue.dequeueSample(sampleHolder);
         if (result != SampleSource.SAMPLE_READ && reachedEos()) {
             return SampleSource.END_OF_STREAM;
         }

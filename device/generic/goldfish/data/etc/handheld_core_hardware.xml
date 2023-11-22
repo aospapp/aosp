@@ -32,6 +32,7 @@
              android.hardware.sensor.light
              android.hardware.sensor.proximity
              android.hardware.sensor.relative_humidity
+             android.hardware.sensor.gyroscope
              android.hardware.telephony
              android.hardware.telephony.gsm
              android.software.midi
@@ -49,6 +50,7 @@
     <feature name="android.hardware.sensor.light" />
     <feature name="android.hardware.sensor.proximity" />
     <feature name="android.hardware.sensor.relative_humidity" />
+    <feature name="android.hardware.sensor.gyroscope" />
     <feature name="android.hardware.telephony" />
     <feature name="android.hardware.telephony.gsm" />
     <feature name="android.hardware.touchscreen" />

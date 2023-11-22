@@ -31,7 +31,7 @@ extern "C" {
 /* radio meta data key values */
 enum {
     RADIO_METADATA_KEY_INVALID      = -1,
-    RADIO_METADATA_KEY_RDS_PI       = 0,      /* RDS PI                 - text  */
+    RADIO_METADATA_KEY_RDS_PI       = 0,      /* RDS PI                 - int  */
     RADIO_METADATA_KEY_RDS_PS       = 1,      /* RDS PS                 - text */
     RADIO_METADATA_KEY_RDS_PTY      = 2,      /* RDS PTY                - int  */
     RADIO_METADATA_KEY_RBDS_PTY     = 3,      /* RBDS PTY               - int  */

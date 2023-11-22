@@ -30,6 +30,7 @@
     <uses-permission android:name="android.permission.READ_CALL_LOG"/>
     <uses-permission android:name="android.permission.WRITE_CALL_LOG"/>
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"/>
+    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
 
     <application
         android:testOnly="true">
@@ -114,6 +115,17 @@
                 <data android:mimeType="vnd.android.cursor.item/phone" />
                 <data android:mimeType="vnd.android.cursor.item/person" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.DIAL" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <action android:name="android.intent.action.DIAL" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="tel" />
+            </intent-filter>
         </activity>
         <service android:name=".AccountService" android:exported="true">
             <intent-filter>
@@ -132,6 +144,31 @@
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".CrossProfileNotificationListenerService"
+            android:label="CrossProfileNotificationListenerService"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" >
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <receiver android:name=".MissedCallNotificationReceiver">
+            <intent-filter>
+                <action android:name="android.telecom.action.SHOW_MISSED_CALLS_NOTIFICATION" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Dummy receiver that's decleared direct boot aware. This is needed to make the test app
+             executable by instrumentation before device unlock -->
+        <receiver android:name=".ResetPasswordWithTokenTest$DummyReceiver"
+          android:directBootAware="true" >
+          <intent-filter>
+            <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+          </intent-filter>
+        </receiver>
+
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"

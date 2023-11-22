@@ -20,7 +20,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
 )
 
@@ -189,7 +188,8 @@ var BuildOs = func() OsType {
 }()
 
 var (
-	osTypeList []OsType
+	osTypeList      []OsType
+	commonTargetMap = make(map[string]Target)
 
 	NoOsType    OsType
 	Linux       = NewOsType("linux", Host, false)
@@ -223,6 +223,21 @@ const (
 	HostCross
 )
 
+func (class OsClass) String() string {
+	switch class {
+	case Generic:
+		return "generic"
+	case Device:
+		return "device"
+	case Host:
+		return "host"
+	case HostCross:
+		return "host cross"
+	default:
+		panic(fmt.Errorf("unknown class %d", class))
+	}
+}
+
 func (os OsType) String() string {
 	return os.Name
 }
@@ -236,6 +251,13 @@ func NewOsType(name string, class OsClass, defDisabled bool) OsType {
 		DefaultDisabled: defDisabled,
 	}
 	osTypeList = append(osTypeList, os)
+
+	if _, found := commonTargetMap[name]; found {
+		panic(fmt.Errorf("Found Os type duplicate during OsType registration: %q", name))
+	} else {
+		commonTargetMap[name] = Target{Os: os, Arch: Arch{ArchType: Common}}
+	}
+
 	return os
 }
 
@@ -248,15 +270,6 @@ func osByName(name string) OsType {
 
 	return NoOsType
 }
-
-var (
-	commonTarget = Target{
-		Os: Android,
-		Arch: Arch{
-			ArchType: Common,
-		},
-	}
-)
 
 type Target struct {
 	Os   OsType
@@ -417,9 +430,11 @@ func createArchType(props reflect.Type) reflect.Type {
 		variants := []string{}
 
 		for _, archVariant := range archVariants[arch] {
+			archVariant := variantReplacer.Replace(archVariant)
 			variants = append(variants, proptools.FieldNameForProperty(archVariant))
 		}
 		for _, feature := range archFeatures[arch] {
+			feature := variantReplacer.Replace(feature)
 			variants = append(variants, proptools.FieldNameForProperty(feature))
 		}
 
@@ -475,13 +490,11 @@ func createArchType(props reflect.Type) reflect.Type {
 
 var archPropTypeMap OncePer
 
-func InitArchModule(m Module,
-	propertyStructs ...interface{}) (blueprint.Module, []interface{}) {
+func InitArchModule(m Module) {
 
 	base := m.base()
 
-	base.generalProperties = append(base.generalProperties,
-		propertyStructs...)
+	base.generalProperties = m.GetProperties()
 
 	for _, properties := range base.generalProperties {
 		propertiesValue := reflect.ValueOf(properties)
@@ -508,17 +521,13 @@ func InitArchModule(m Module,
 		}
 	}
 
-	var allProperties []interface{}
-	allProperties = append(allProperties, base.generalProperties...)
 	for _, asp := range base.archProperties {
 		if asp != nil {
-			allProperties = append(allProperties, asp)
+			m.AddProperties(asp)
 		}
 	}
 
-	base.customizableProperties = allProperties
-
-	return m, allProperties
+	base.customizableProperties = m.GetProperties()
 }
 
 var variantReplacer = strings.NewReplacer("-", "_", ".", "_")
@@ -716,17 +725,19 @@ func (a *ModuleBase) setArchProperties(ctx BottomUpMutatorContext) {
 				prefix := "target.android32"
 				a.appendProperties(ctx, genProps, targetProp, field, prefix)
 			}
-		}
 
-		if arch.ArchType == X86 && hasArmAbi(arch) {
-			field := "Arm_on_x86"
-			prefix := "target.arm_on_x86"
-			a.appendProperties(ctx, genProps, targetProp, field, prefix)
-		}
-		if arch.ArchType == X86_64 && hasArmAbi(arch) {
-			field := "Arm_on_x86_64"
-			prefix := "target.arm_on_x86_64"
-			a.appendProperties(ctx, genProps, targetProp, field, prefix)
+			if arch.ArchType == X86 && (hasArmAbi(arch) ||
+				hasArmAndroidArch(ctx.AConfig().Targets[Device])) {
+				field := "Arm_on_x86"
+				prefix := "target.arm_on_x86"
+				a.appendProperties(ctx, genProps, targetProp, field, prefix)
+			}
+			if arch.ArchType == X86_64 && (hasArmAbi(arch) ||
+				hasArmAndroidArch(ctx.AConfig().Targets[Device])) {
+				field := "Arm_on_x86_64"
+				prefix := "target.arm_on_x86_64"
+				a.appendProperties(ctx, genProps, targetProp, field, prefix)
+			}
 		}
 	}
 }
@@ -835,6 +846,16 @@ func hasArmAbi(arch Arch) bool {
 	return false
 }
 
+// hasArmArch returns true if targets has at least arm Android arch
+func hasArmAndroidArch(targets []Target) bool {
+	for _, target := range targets {
+		if target.Os == Android && target.Arch.ArchType == Arm {
+			return true
+		}
+	}
+	return false
+}
+
 type archConfig struct {
 	arch        string
 	archVariant string
@@ -854,20 +875,20 @@ func getMegaDeviceConfig() []archConfig {
 		{"arm", "armv7-a-neon", "cortex-a15", []string{"armeabi-v7a"}},
 		{"arm", "armv7-a-neon", "cortex-a53", []string{"armeabi-v7a"}},
 		{"arm", "armv7-a-neon", "cortex-a53.a57", []string{"armeabi-v7a"}},
+		{"arm", "armv7-a-neon", "cortex-a73", []string{"armeabi-v7a"}},
 		{"arm", "armv7-a-neon", "denver", []string{"armeabi-v7a"}},
 		{"arm", "armv7-a-neon", "krait", []string{"armeabi-v7a"}},
+		{"arm", "armv7-a-neon", "kryo", []string{"armeabi-v7a"}},
 		{"arm64", "armv8-a", "cortex-a53", []string{"arm64-v8a"}},
+		{"arm64", "armv8-a", "cortex-a73", []string{"arm64-v8a"}},
 		{"arm64", "armv8-a", "denver64", []string{"arm64-v8a"}},
+		{"arm64", "armv8-a", "kryo", []string{"arm64-v8a"}},
 		{"mips", "mips32-fp", "", []string{"mips"}},
 		{"mips", "mips32r2-fp", "", []string{"mips"}},
 		{"mips", "mips32r2-fp-xburst", "", []string{"mips"}},
 		//{"mips", "mips32r6", "", []string{"mips"}},
-		// mips32r2dsp[r2]-fp fails in the assembler for divdf3.c in compiler-rt:
-		// (same errors in make and soong)
-		//   Error: invalid operands `mtlo $ac0,$11'
-		//   Error: invalid operands `mthi $ac0,$12'
-		//{"mips", "mips32r2dsp-fp", "", []string{"mips"}},
-		//{"mips", "mips32r2dspr2-fp", "", []string{"mips"}},
+		{"mips", "mips32r2dsp-fp", "", []string{"mips"}},
+		{"mips", "mips32r2dspr2-fp", "", []string{"mips"}},
 		// mips64r2 is mismatching 64r2 and 64r6 libraries during linking to libgcc
 		//{"mips64", "mips64r2", "", []string{"mips64"}},
 		{"mips64", "mips64r6", "", []string{"mips64"}},
@@ -977,6 +998,20 @@ func filterMultilibTargets(targets []Target, multilib string) []Target {
 	return ret
 }
 
+func getCommonTargets(targets []Target) []Target {
+	var ret []Target
+	set := make(map[string]bool)
+
+	for _, t := range targets {
+		if _, found := set[t.Os.String()]; !found {
+			set[t.Os.String()] = true
+			ret = append(ret, commonTargetMap[t.Os.String()])
+		}
+	}
+
+	return ret
+}
+
 // Use the module multilib setting to select one or more targets from a target list
 func decodeMultilib(multilib string, targets []Target, prefer32 bool) ([]Target, error) {
 	buildTargets := []Target{}
@@ -989,7 +1024,7 @@ func decodeMultilib(multilib string, targets []Target, prefer32 bool) ([]Target,
 	}
 	switch multilib {
 	case "common":
-		buildTargets = append(buildTargets, commonTarget)
+		buildTargets = append(buildTargets, getCommonTargets(targets)...)
 	case "both":
 		if prefer32 {
 			buildTargets = append(buildTargets, filterMultilibTargets(targets, "lib32")...)

@@ -34,6 +34,7 @@
 #include <UlpProxyBase.h>
 #include <LocationAPI.h>
 #include <Agps.h>
+#include <SystemStatus.h>
 
 #define MAX_URL_LEN 256
 #define NMEA_SENTENCE_MAX_LENGTH 200
@@ -84,7 +85,6 @@ class GnssAdapter : public LocAdapterBase {
 
     /* ==== TRACKING ======================================================================= */
     LocationSessionMap mTrackingSessions;
-    GnssSuplMode mSuplMode;
     LocPosMode mUlpPositionMode;
     GnssSvUsedInPosition mGnssSvIdUsedInPosition;
     bool mGnssSvIdUsedInPosAvail;
@@ -103,6 +103,7 @@ class GnssAdapter : public LocAdapterBase {
     /*==== CONVERSION ===================================================================*/
     static void convertOptions(LocPosMode& out, const LocationOptions& options);
     static void convertLocation(Location& out, const LocGpsLocation& locGpsLocation,
+                                const GpsLocationExtended& locationExtended,
                                 const LocPosTechMask techMask);
     static void convertLocationInfo(GnssLocationInfoNotification& out,
                                     const GpsLocationExtended& locationExtended);
@@ -158,11 +159,12 @@ public:
     void eraseTrackingSession(LocationAPI* client, uint32_t sessionId);
     void setUlpPositionMode(const LocPosMode& mode) { mUlpPositionMode = mode; }
     LocPosMode& getUlpPositionMode() { return mUlpPositionMode; }
-    void setSuplMode(GnssSuplMode mode) { mSuplMode = mode; }
     LocationError startTrackingMultiplex(const LocationOptions& options);
     LocationError startTracking(const LocationOptions& options);
     LocationError stopTrackingMultiplex(LocationAPI* client, uint32_t id);
     LocationError stopTracking();
+    LocationError updateTrackingMultiplex(LocationAPI* client, uint32_t id,
+                                          const LocationOptions& options);
 
     /* ==== NI ============================================================================= */
     /* ======== COMMANDS ====(Called from Client Thread)==================================== */
@@ -231,29 +233,8 @@ public:
     bool requestNiNotify(const GnssNiNotification& notify, const void* data);
     void reportGnssMeasurementData(const GnssMeasurementsNotification& measurementsNotify);
 
-    /*==== NMEA Generation =============================================================== */
-    /*======== SVS ======================================================================= */
-    void generateNmea(const GnssSvNotification& svNotify);
-    void generateNmeaGSV(const GnssSvNotification& svNotify,
-                         NmeaSvMeta& svMeta, char* sentence, size_t size);
-    /*======== POSITION ================================================================== */
-    void generateNmea(const UlpLocation& ulpLocation,
-                      const GpsLocationExtended& locationExtended);
-    void generateNmeaBlank();
-    uint8_t generateNmeaGSA(const GpsLocationExtended& locationExtended,
-                            NmeaSvMeta& svMeta, char* sentence, size_t size);
-    void generateNmeaVTG(const UlpLocation& ulpLocation,
-                         const GpsLocationExtended& locationExtended,
-                         NmeaSvMeta& svMeta, char* sentence, size_t size);
-    void generateNmeaRMC(const UlpLocation& ulpLocation,
-                         const GpsLocationExtended& locationExtended,
-                         NmeaSvMeta& svMeta, tm& utcTime, char* sentence, size_t size);
-    void generateNmeaGGA(const UlpLocation& ulpLocation,
-                         const GpsLocationExtended& locationExtended,
-                         NmeaSvMeta& svMeta, tm& utcTime, uint32_t svUsedCount,
-                         char* sentence, size_t size);
-    /*======== UTILITIES ================================================================*/
-    int nmeaPutChecksum(char *nmea, size_t maxSize);
+    /*======== GNSSDEBUG ================================================================*/
+    bool getDebugReport(GnssDebugReport& report);
 
     /*==== CONVERSION ===================================================================*/
     static uint32_t convertGpsLock(const GnssConfigGpsLock gpsLock);
@@ -270,7 +251,9 @@ public:
     static GnssConfigLppeUserPlaneMask convertLppeUp(const uint32_t lppeUserPlaneMask);
     static uint32_t convertAGloProt(const GnssConfigAGlonassPositionProtocolMask);
     static uint32_t convertSuplMode(const GnssConfigSuplModeMask suplModeMask);
-    
+    static void convertSatelliteInfo(std::vector<GnssDebugSatelliteInfo>& out,
+                                     const GnssSvType& in_constellation,
+                                     const SystemStatusReports& in);    
     void injectLocationCommand(double latitude, double longitude, float accuracy);
     void injectTimeCommand(int64_t time, int64_t timeReference, int32_t uncertainty);
 

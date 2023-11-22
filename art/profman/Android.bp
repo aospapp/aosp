@@ -19,6 +19,7 @@ cc_defaults {
     host_supported: true,
     defaults: ["art_defaults"],
     srcs: [
+        "boot_image_profile.cc",
         "profman.cc",
         "profile_assistant.cc",
     ],
@@ -49,8 +50,8 @@ art_cc_binary {
 art_cc_binary {
     name: "profmand",
     defaults: [
-        "profman-defaults",
         "art_debug_defaults",
+        "profman-defaults",
     ],
     shared_libs: [
         "libartd",

@@ -18,12 +18,12 @@ package android.view.cts;
 
 import static org.junit.Assert.assertEquals;
 
-import android.annotation.NonNull;
 import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Outline;
 import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
+import android.support.annotation.NonNull;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.annotation.UiThreadTest;
 import android.support.test.filters.SmallTest;

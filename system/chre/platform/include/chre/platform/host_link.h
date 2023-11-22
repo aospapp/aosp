@@ -17,6 +17,8 @@
 #ifndef CHRE_PLATFORM_HOST_LINK_H_
 #define CHRE_PLATFORM_HOST_LINK_H_
 
+#include <stdint.h>
+
 #include "chre/target_platform/host_link_base.h"
 #include "chre/util/non_copyable.h"
 
@@ -32,6 +34,17 @@ typedef HostMessage MessageToHost;
 class HostLink : public HostLinkBase,
                  public NonCopyable {
  public:
+  /**
+   * Flush (or purge) any messages sent by the given app ID that are currently
+   * pending delivery to the host. At the point that this function is called, it
+   * is guaranteed that no new messages will be generated from this nanoapp.
+   *
+   * This function must impose strict ordering constraints, such that after it
+   * returns, it is guaranteed that HostCommsManager::onMessageToHostComplete
+   * will not be invoked for the app with the given ID.
+   */
+  void flushMessagesSentByNanoapp(uint64_t appId);
+
   /**
    * Enqueues a message for sending to the host. Once sending the message is
    * complete (success or failure), the platform implementation must invoke

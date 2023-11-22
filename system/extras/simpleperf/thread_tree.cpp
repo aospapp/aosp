@@ -130,7 +130,7 @@ void ThreadTree::AddThreadMap(int pid, int tid, uint64_t start_addr,
                               uint64_t len, uint64_t pgoff, uint64_t time,
                               const std::string& filename) {
   ThreadEntry* thread = FindThreadOrNew(pid, tid);
-  Dso* dso = FindUserDsoOrNew(filename);
+  Dso* dso = FindUserDsoOrNew(filename, start_addr);
   MapEntry* map =
       AllocateMap(MapEntry(start_addr, len, pgoff, time, dso, false));
   FixOverlappedMap(thread->maps, map);
@@ -138,10 +138,11 @@ void ThreadTree::AddThreadMap(int pid, int tid, uint64_t start_addr,
   CHECK(pair.second);
 }
 
-Dso* ThreadTree::FindUserDsoOrNew(const std::string& filename) {
+Dso* ThreadTree::FindUserDsoOrNew(const std::string& filename, uint64_t start_addr) {
   auto it = user_dso_tree_.find(filename);
   if (it == user_dso_tree_.end()) {
-    user_dso_tree_[filename] = Dso::CreateDso(DSO_ELF_FILE, filename);
+    bool force_64bit = start_addr > UINT_MAX;
+    user_dso_tree_[filename] = Dso::CreateDso(DSO_ELF_FILE, filename, force_64bit);
     it = user_dso_tree_.find(filename);
   }
   return it->second.get();
@@ -322,7 +323,16 @@ std::vector<Dso*> ThreadTree::GetAllDsos() const {
   for (auto& p : user_dso_tree_) {
     result.push_back(p.second.get());
   }
+  result.push_back(unknown_dso_.get());
   return result;
+}
+
+std::vector<const ThreadEntry*> ThreadTree::GetAllThreads() const {
+  std::vector<const ThreadEntry*> threads;
+  for (auto& pair : thread_tree_) {
+    threads.push_back(pair.second.get());
+  }
+  return threads;
 }
 
 }  // namespace simpleperf

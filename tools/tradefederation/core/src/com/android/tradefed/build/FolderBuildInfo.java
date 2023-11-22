@@ -26,6 +26,7 @@ import java.io.IOException;
  */
 public class FolderBuildInfo extends BuildInfo implements IFolderBuildInfo {
 
+    private static final long serialVersionUID = BuildSerializedVersion.VERSION;
     private File mRootDir;
 
     /**

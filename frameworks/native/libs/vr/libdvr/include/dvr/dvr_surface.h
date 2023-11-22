@@ -6,15 +6,12 @@
 #include <stdint.h>
 #include <sys/cdefs.h>
 
+#include <dvr/dvr_api.h>
 #include <dvr/dvr_buffer.h>
 #include <dvr/dvr_buffer_queue.h>
 #include <dvr/dvr_display_types.h>
 
 __BEGIN_DECLS
-
-typedef struct DvrBuffer DvrBuffer;
-typedef struct DvrSurface DvrSurface;
-typedef struct DvrWriteBufferQueue DvrWriteBufferQueue;
 
 // Attribute types. The values are one-hot encoded to support singluar types or
 // masks of supported types.
@@ -79,12 +76,37 @@ int dvrSurfaceSetAttributes(DvrSurface* surface,
 int dvrSurfaceCreateWriteBufferQueue(DvrSurface* surface, uint32_t width,
                                      uint32_t height, uint32_t format,
                                      uint32_t layer_count, uint64_t usage,
-                                     size_t capacity,
+                                     size_t capacity, size_t metadata_size,
                                      DvrWriteBufferQueue** queue_out);
 
-// Get a named buffer from the display service.
+// Sets up a named buffer for shared memory data transfer between display
+// clients and the system. Protected API that may only be called with sufficient
+// privilege.
 // @return 0 on success. Otherwise returns a negative error value.
-int dvrGetNamedBuffer(const char* name, DvrBuffer** out_buffer);
+int dvrSetupGlobalBuffer(DvrGlobalBufferKey key, size_t size, uint64_t usage,
+                         DvrBuffer** buffer_out);
+
+// Deletes a named buffer. WARNING: This is dangerous because any existing
+// clients of this buffer will not be notified and will remain attached to
+// the old buffer. This is useful for tests, but probably not for production
+// code.
+// @return 0 on success. Otherwise returns a negative error value.
+int dvrDeleteGlobalBuffer(DvrGlobalBufferKey key);
+
+// Get a global buffer from the display service.
+// @return 0 on success. Otherwise returns a negative error value.
+int dvrGetGlobalBuffer(DvrGlobalBufferKey key, DvrBuffer** out_buffer);
+
+// Read the native device display metrics as reported by the hardware composer.
+// This is useful as otherwise the device metrics are only reported as
+// relative to the current device orientation.
+// @param sizeof_metrics the size of the passed in metrics struct. This is used
+//   to ensure we don't break each other during active development.
+// @param metrics on success holds the retrieved device metrics.
+// @return 0 on success. Otherwise returns a negative error value (typically
+//   this means the display service is not available).
+int dvrGetNativeDisplayMetrics(size_t metrics_struct_size,
+                               DvrNativeDisplayMetrics* metrics);
 
 __END_DECLS
 

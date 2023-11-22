@@ -19,7 +19,6 @@ public class TkoClient implements EntryPoint, TableSwitchListener {
     private CommonPanel commonPanel;
     private TabView spreadsheetView;
     private TableView tableView;
-    private GraphingView graphingView;
     private TestDetailView detailView;
     
     private CustomTabPanel mainTabPanel = new CustomTabPanel();
@@ -44,13 +43,11 @@ public class TkoClient implements EntryPoint, TableSwitchListener {
         commonPanel = CommonPanel.getPanel();
         spreadsheetView = new SpreadsheetView(this);
         tableView = new TableView(this);
-        graphingView = new GraphingView(this);
         detailView = TkoUtils.factory.getTestDetailView();
         
         mainTabPanel.getCommonAreaPanel().add(commonPanel);
         mainTabPanel.addTabView(spreadsheetView);
         mainTabPanel.addTabView(tableView);
-        mainTabPanel.addTabView(graphingView);
         mainTabPanel.addTabView(detailView);
         
         savedQueriesControl = new SavedQueriesControl();

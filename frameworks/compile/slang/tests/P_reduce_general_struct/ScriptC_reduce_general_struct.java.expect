@@ -21,6 +21,9 @@
 
 package struct;
 
+import android.os.Build;
+import android.os.Process;
+import java.lang.reflect.Field;
 import android.renderscript.*;
 import struct.reduce_general_structBitCode;
 

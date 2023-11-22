@@ -127,17 +127,17 @@ class CarSensorsProxy {
                 synchronized (CarSensorsProxy.this) {
                     switch (type) {
                         case Sensor.TYPE_GYROSCOPE:
-                            System.arraycopy(event.values, 0, mLastGyroscopeData, 0, 3);
+                            System.arraycopy((Object) event.values, 0, (Object) mLastGyroscopeData, 0, 3);
                             mLastGyroscopeDataTime = System.nanoTime();
                             pushSensorChanges(CarSensorManager.SENSOR_TYPE_GYROSCOPE);
                             break;
                         case Sensor.TYPE_MAGNETIC_FIELD:
-                            System.arraycopy(event.values, 0, mLastMagneticFieldData, 0, 3);
+                            System.arraycopy((Object) event.values, 0, (Object) mLastMagneticFieldData, 0, 3);
                             mLastMagneticFieldDataTime = System.nanoTime();
                             pushSensorChanges(CarSensorManager.SENSOR_TYPE_COMPASS);
                             break;
                         case Sensor.TYPE_ACCELEROMETER:
-                            System.arraycopy(event.values, 0, mLastAccelerometerData, 0, 3);
+                            System.arraycopy((Object) event.values, 0, (Object) mLastAccelerometerData, 0, 3);
                             mLastAccelerometerDataTime = System.nanoTime();
                             pushSensorChanges(CarSensorManager.SENSOR_TYPE_ACCELEROMETER);
                             pushSensorChanges(CarSensorManager.SENSOR_TYPE_COMPASS);
@@ -322,7 +322,7 @@ class CarSensorsProxy {
                 case CarSensorManager.SENSOR_TYPE_COMPASS:
                     if (mLastMagneticFieldDataTime != 0 && mLastAccelerometerDataTime != 0) {
                         event = new CarSensorEvent(sensorType, Math.max(mLastMagneticFieldDataTime,
-                                mLastAccelerometerDataTime), 3, 0);
+                                mLastAccelerometerDataTime), 3, 0, 0);
                         SensorManager.getRotationMatrix(mR, mI, mLastAccelerometerData,
                                 mLastMagneticFieldData);
                         SensorManager.getOrientation(mR, mOrientation);
@@ -336,13 +336,13 @@ class CarSensorsProxy {
                     break;
                 case CarSensorManager.SENSOR_TYPE_LOCATION:
                     if (mLastLocationTime != 0) {
-                        event = new CarSensorEvent(sensorType, mLastLocationTime, 6, 3);
+                        event = new CarSensorEvent(sensorType, mLastLocationTime, 6, 3, 0);
                         populateLocationCarSensorEvent(event, mLastLocation);
                     }
                     break;
                 case CarSensorManager.SENSOR_TYPE_ACCELEROMETER:
                     if (mLastAccelerometerDataTime != 0) {
-                        event = new CarSensorEvent(sensorType, mLastAccelerometerDataTime, 3, 0);
+                        event = new CarSensorEvent(sensorType, mLastAccelerometerDataTime, 3, 0, 0);
                         event.floatValues[CarSensorEvent.INDEX_ACCELEROMETER_X] =
                                 mLastAccelerometerData[0];
                         event.floatValues[CarSensorEvent.INDEX_ACCELEROMETER_Y] =
@@ -358,7 +358,7 @@ class CarSensorsProxy {
                     break;
                 case CarSensorManager.SENSOR_TYPE_GYROSCOPE:
                     if (mLastGyroscopeDataTime != 0) {
-                        event = new CarSensorEvent(sensorType, mLastGyroscopeDataTime, 3, 0);
+                        event = new CarSensorEvent(sensorType, mLastGyroscopeDataTime, 3, 0, 0);
                         event.floatValues[CarSensorEvent.INDEX_GYROSCOPE_X] = mLastGyroscopeData[0];
                         event.floatValues[CarSensorEvent.INDEX_GYROSCOPE_Y] = mLastGyroscopeData[1];
                         event.floatValues[CarSensorEvent.INDEX_GYROSCOPE_Z] = mLastGyroscopeData[2];
@@ -430,7 +430,7 @@ class CarSensorsProxy {
         int intValuesSize = CarSensorEvent.INDEX_GPS_SATELLITE_ARRAY_INT_INTERVAL * numberInView
                 + CarSensorEvent.INDEX_GPS_SATELLITE_ARRAY_INT_OFFSET;
         event = new CarSensorEvent(CarSensorManager.SENSOR_TYPE_GPS_SATELLITE, mLastGpsStatusTime,
-                floatValuesSize, intValuesSize);
+                floatValuesSize, intValuesSize, 0);
         event.intValues[CarSensorEvent.INDEX_GPS_SATELLITE_NUMBER_IN_USE] = numberInUse;
         event.intValues[CarSensorEvent.INDEX_GPS_SATELLITE_NUMBER_IN_VIEW] = numberInView;
         int i = 0;

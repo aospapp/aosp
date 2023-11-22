@@ -22,6 +22,7 @@ import android.media.tv.TvInputManager;
 import android.support.annotation.IntDef;
 
 import com.android.tv.common.SharedPreferencesUtils;
+import com.android.tv.dvr.data.RecordedProgram;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -36,9 +37,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
  * It will remember and provides previous watched position of DVR playback.
  */
 public class DvrWatchedPositionManager {
-    private final static String TAG = "DvrWatchedPositionManager";
-    private final boolean DEBUG = false;
-
     private SharedPreferences mWatchedPositions;
     private final Map<Long, Set> mListeners = new HashMap<>();
 

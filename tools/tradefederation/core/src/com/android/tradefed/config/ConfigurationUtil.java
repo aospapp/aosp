@@ -65,9 +65,18 @@ public class ConfigurationUtil {
      * @param serializer a {@link KXmlSerializer} to create the XML dump
      * @param classTypeName a {@link String} of the class type's name
      * @param obj {@link Object} to be added to the XML dump
+     * @param excludeClassTypes list of object configuration type to be excluded from the dump. for
+     *     example: {@link Configuration#TARGET_PREPARER_TYPE_NAME}.
      */
-    static void dumpClassToXml(KXmlSerializer serializer, String classTypeName, Object obj)
+    static void dumpClassToXml(
+            KXmlSerializer serializer,
+            String classTypeName,
+            Object obj,
+            List<String> excludeClassTypes)
             throws IOException {
+        if (excludeClassTypes.contains(classTypeName)) {
+            return;
+        }
         serializer.startTag(null, classTypeName);
         serializer.attribute(null, CLASS_NAME, obj.getClass().getName());
         dumpOptionsToXml(serializer, obj);

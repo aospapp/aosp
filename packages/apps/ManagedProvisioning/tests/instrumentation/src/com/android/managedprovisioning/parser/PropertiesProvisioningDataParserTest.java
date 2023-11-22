@@ -204,6 +204,7 @@ public class PropertiesProvisioningDataParserTest extends AndroidTestCase {
                         .setWifiInfo(TEST_WIFI_INFO)
                         .setAdminExtrasBundle(getTestAdminExtrasPersistableBundle())
                         .setStartedByTrustedSource(true)
+                        .setIsNfc(true)
                         .build(),
                 params);
     }

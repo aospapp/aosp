@@ -32,4 +32,6 @@ LOCAL_SHARED_LIBRARIES := libnativehelper_compat_libc++ liblog libdl
 LOCAL_STATIC_LIBRARIES := cpufeatures
 LOCAL_SDK_VERSION := 19
 
+LOCAL_CFLAGS := -Wno-unused-parameter
+
 include $(BUILD_SHARED_LIBRARY)

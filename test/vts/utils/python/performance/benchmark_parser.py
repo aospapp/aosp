@@ -47,7 +47,9 @@ class GoogleBenchmarkJsonParser(object):
 
     _BENCHMARKS = "benchmarks"
     _NAME = "name"
+    _ITERATIONS = "iterations"
     _REAL_TIME = "real_time"
+    _CPU_TIME = "cpu_time"
 
     def __init__(self, json_string):
         """Converts the JSON string to internal data structure.
@@ -58,7 +60,7 @@ class GoogleBenchmarkJsonParser(object):
         json_obj = json.loads(json_string)
         self._benchmarks = json_obj[self._BENCHMARKS]
 
-    def getArguments(self):
+    def GetArguments(self):
         """Returns the "name" properties with function names stripped.
 
         Returns:
@@ -70,10 +72,23 @@ class GoogleBenchmarkJsonParser(object):
             args.append(name[1].encode("utf-8") if len(name) >= 2 else "")
         return args
 
-    def getRealTime(self):
+    def GetRealTime(self):
         """Returns the "real_time" properties.
 
         Returns:
             A list of integers.
         """
         return [x[self._REAL_TIME] for x in self._benchmarks]
+
+    def ToTable(self):
+        """Returns the benchmarks in a table.
+
+        Returns:
+            A 2-dimensional list. The first row contains the column names. The
+            following rows are the benchmarks.
+        """
+        table = [[self._NAME, self._REAL_TIME, self._CPU_TIME,
+                  self._ITERATIONS]]
+        for record in self._benchmarks:
+            table.append([record[x] for x in table[0]])
+        return table

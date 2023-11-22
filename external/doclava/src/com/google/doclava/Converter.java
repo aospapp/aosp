@@ -16,7 +16,7 @@
 
 package com.google.doclava;
 
-
+import com.google.doclava.apicheck.ApiInfo;
 import com.sun.javadoc.AnnotationDesc;
 import com.sun.javadoc.AnnotationTypeDoc;
 import com.sun.javadoc.AnnotationTypeElementDoc;
@@ -42,12 +42,15 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 
 public class Converter {
   private static RootDoc root;
+  private static List<ApiInfo> apis;
 
   public static void makeInfo(RootDoc r) {
     root = r;
+    apis = new ArrayList<>();
 
     // create the objects
     ClassDoc[] classes = getClasses(r);
@@ -76,6 +79,15 @@ public class Converter {
 
     // fill in the "root" stuff
     mRootClasses = Converter.convertClasses(classes);
+  }
+
+  /**
+   * Adds additional APIs to be available from calls to obtain() methods.
+   *
+   * @param api the APIs to add, must be non-{@code null}
+   */
+  public static void addApiInfo(ApiInfo api) {
+    apis.add(api);
   }
 
   private static ClassDoc[] getClasses(RootDoc r) {
@@ -155,12 +167,54 @@ public class Converter {
                     Converter.convertClasses(c.innerClasses(false)))));
   }
 
+  /**
+   * Obtains a {@link ClassInfo} describing the specified class. If the class
+   * was not specified on the source path, this method will attempt to locate
+   * the class within the list of federated APIs.
+   *
+   * @param className the fully-qualified class name to search for
+   * @return info for the specified class, or {@code null} if not available
+   * @see #addApiInfo(ApiInfo)
+   */
   public static ClassInfo obtainClass(String className) {
-    return Converter.obtainClass(root.classNamed(className));
+    ClassInfo result = Converter.obtainClass(root.classNamed(className));
+    if (result != null) {
+      return result;
+    }
+
+    for (ApiInfo api : apis) {
+      result = api.findClass(className);
+      if (result != null) {
+        return result;
+      }
+    }
+
+    return null;
   }
 
+  /**
+   * Obtains a {@link PackageInfo} describing the specified package. If the
+   * package was not specified on the source path, this method will attempt to
+   * locate the package within the list of federated APIs.
+   *
+   * @param packageName the fully-qualified package name to search for
+   * @return info for the specified package, or {@code null} if not available
+   * @see #addApiInfo(ApiInfo)
+   */
   public static PackageInfo obtainPackage(String packageName) {
-    return Converter.obtainPackage(root.packageNamed(packageName));
+    PackageInfo result = Converter.obtainPackage(root.packageNamed(packageName));
+    if (result != null) {
+      return result;
+    }
+
+    for (ApiInfo api : apis) {
+      result = api.getPackages().get(packageName);
+      if (result != null) {
+        return result;
+      }
+    }
+
+    return null;
   }
 
   private static TagInfo convertTag(Tag tag) {
@@ -456,7 +510,7 @@ public class Converter {
         }
         // End of workaround.
         MethodInfo result =
-            new MethodInfo(m.getRawCommentText(), new ArrayList<TypeInfo>(Arrays.asList(Converter.convertTypes(m.typeParameters()))), 
+            new MethodInfo(m.getRawCommentText(), new ArrayList<TypeInfo>(Arrays.asList(Converter.convertTypes(m.typeParameters()))),
                 name, m.signature(), Converter.obtainClass(m.containingClass()), Converter
                 .obtainClass(m.containingClass()), m.isPublic(), m.isProtected(), m
                 .isPackagePrivate(), m.isPrivate(), m.isFinal(), m.isStatic(), m.isSynthetic(),

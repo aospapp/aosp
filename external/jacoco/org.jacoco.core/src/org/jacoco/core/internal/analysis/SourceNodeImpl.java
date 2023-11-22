@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -43,7 +43,7 @@ public class SourceNodeImpl extends CoverageNodeImpl implements ISourceNode {
 	/**
 	 * Make sure that the internal buffer can keep lines from first to last.
 	 * While the buffer is also incremented automatically, this method allows
-	 * optimization in case the total range in known in advance.
+	 * optimization in case the total range is known in advance.
 	 * 
 	 * @param first
 	 *            first line number or {@link ISourceNode#UNKNOWN_LINE}

@@ -102,10 +102,6 @@ bool Type::isPointer() const {
     return false;
 }
 
-std::string Type::typeName() const {
-    return "";
-}
-
 const ScalarType *Type::resolveToScalarType() const {
     return NULL;
 }

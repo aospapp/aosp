@@ -115,7 +115,8 @@ const (
 
 func init() {
 	pctx.VariableFunc("macSdkPath", func(config interface{}) (string, error) {
-		bytes, err := exec.Command("xcode-select", "--print-path").Output()
+		xcodeselect := config.(android.Config).HostSystemTool("xcode-select")
+		bytes, err := exec.Command(xcodeselect, "--print-path").Output()
 		return strings.TrimSpace(string(bytes)), err
 	})
 	pctx.VariableFunc("macSdkRoot", func(config interface{}) (string, error) {
@@ -123,18 +124,16 @@ func init() {
 	})
 	pctx.StaticVariable("macMinVersion", "10.8")
 	pctx.VariableFunc("MacArPath", func(config interface{}) (string, error) {
-		bytes, err := exec.Command("xcrun", "--find", "ar").Output()
-		return strings.TrimSpace(string(bytes)), err
+		return xcrun(config.(android.Config), "--find", "ar")
 	})
 
 	pctx.VariableFunc("MacStripPath", func(config interface{}) (string, error) {
-		bytes, err := exec.Command("xcrun", "--find", "strip").Output()
-		return strings.TrimSpace(string(bytes)), err
+		return xcrun(config.(android.Config), "--find", "strip")
 	})
 
 	pctx.VariableFunc("MacToolPath", func(config interface{}) (string, error) {
-		bytes, err := exec.Command("xcrun", "--find", "ld").Output()
-		return filepath.Dir(strings.TrimSpace(string(bytes))), err
+		path, err := xcrun(config.(android.Config), "--find", "ld")
+		return filepath.Dir(path), err
 	})
 
 	pctx.StaticVariable("DarwinGccVersion", darwinGccVersion)
@@ -160,15 +159,24 @@ func init() {
 		strings.Join(ClangFilterUnknownCflags(darwinX8664Cflags), " "))
 	pctx.StaticVariable("DarwinX86ClangLdflags", strings.Join(darwinX86ClangLdflags, " "))
 	pctx.StaticVariable("DarwinX8664ClangLdflags", strings.Join(darwinX8664ClangLdflags, " "))
+	pctx.StaticVariable("DarwinX86YasmFlags", "-f macho -m x86")
+	pctx.StaticVariable("DarwinX8664YasmFlags", "-f macho -m amd64")
+}
+
+func xcrun(config android.Config, args ...string) (string, error) {
+	xcrun := config.HostSystemTool("xcrun")
+	bytes, err := exec.Command(xcrun, args...).Output()
+	return strings.TrimSpace(string(bytes)), err
 }
 
 func xcrunSdk(config android.Config, arg string) (string, error) {
+	xcrun := config.HostSystemTool("xcrun")
 	if selected := config.Getenv("MAC_SDK_VERSION"); selected != "" {
 		if !inList(selected, darwinSupportedSdkVersions) {
 			return "", fmt.Errorf("MAC_SDK_VERSION %s isn't supported: %q", selected, darwinSupportedSdkVersions)
 		}
 
-		bytes, err := exec.Command("xcrun", "--sdk", "macosx"+selected, arg).Output()
+		bytes, err := exec.Command(xcrun, "--sdk", "macosx"+selected, arg).Output()
 		if err == nil {
 			return strings.TrimSpace(string(bytes)), err
 		}
@@ -176,7 +184,7 @@ func xcrunSdk(config android.Config, arg string) (string, error) {
 	}
 
 	for _, sdk := range darwinSupportedSdkVersions {
-		bytes, err := exec.Command("xcrun", "--sdk", "macosx"+sdk, arg).Output()
+		bytes, err := exec.Command(xcrun, "--sdk", "macosx"+sdk, arg).Output()
 		if err == nil {
 			return strings.TrimSpace(string(bytes)), err
 		}
@@ -268,6 +276,14 @@ func (t *toolchainDarwinX86) ClangLdflags() string {
 
 func (t *toolchainDarwinX8664) ClangLdflags() string {
 	return "${config.DarwinClangLdflags} ${config.DarwinX8664ClangLdflags}"
+}
+
+func (t *toolchainDarwinX86) YasmFlags() string {
+	return "${config.DarwinX86YasmFlags}"
+}
+
+func (t *toolchainDarwinX8664) YasmFlags() string {
+	return "${config.DarwinX8664YasmFlags}"
 }
 
 func (t *toolchainDarwin) ShlibSuffix() string {

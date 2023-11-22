@@ -1,4 +1,4 @@
-#!/usr/bin/python2.6
+#!/usr/bin/env python
 
 # Copyright (C) 2014 The Android Open Source Project
 #
@@ -23,16 +23,25 @@ To install pyserial, see http://pyserial.sourceforge.net/
 
 Example usages:
   Set the voltage of the device 7536 to 4.0V
-  python2.6 monsoon.py --voltage=4.0 --serialno 7536
+  python monsoon.py --voltage=4.0 --serialno 7536
 
   Get 5000hz data from device number 7536, with unlimited number of samples
-  python2.6 monsoon.py --samples -1 --hz 5000 --serialno 7536
+  python monsoon.py --samples -1 --hz 5000 --serialno 7536
 
   Get 200Hz data for 5 seconds (1000 events) from default device
-  python2.6 monsoon.py --samples 100 --hz 200
+  python monsoon.py --samples 100 --hz 200
 
   Get unlimited 200Hz data from device attached at /dev/ttyACM0
-  python2.6 monsoon.py --samples -1 --hz 200 --device /dev/ttyACM0
+  python monsoon.py --samples -1 --hz 200 --device /dev/ttyACM0
+
+Output columns for collection with --samples, separated by space:
+
+  TIMESTAMP OUTPUT OUTPUT_AVG USB USB_AVG
+   |                |          |   |
+   |                |          |   ` (if --includeusb and --avg)
+   |                |          ` (if --includeusb)
+   |                ` (if --avg)
+   ` (if --timestamp)
 """
 
 import fcntl
@@ -232,13 +241,18 @@ class Monsoon:
           print >>sys.stderr, "waiting for calibration, dropped data packet"
           continue
 
-        out = []
-        for main, usb, aux, voltage in data:
-          if main & 1:
-            out.append(((main & ~1) - self._coarse_zero) * self._coarse_scale)
+        def scale(val):
+          if val & 1:
+            return ((val & ~1) - self._coarse_zero) * self._coarse_scale
           else:
-            out.append((main - self._fine_zero) * self._fine_scale)
-        return out
+            return (val - self._fine_zero) * self._fine_scale
+
+        out_main = []
+        out_usb = []
+        for main, usb, aux, voltage in data:
+          out_main.append(scale(main))
+          out_usb.append(scale(usb))
+        return (out_main, out_usb)
 
       elif type == 1:
         self._fine_zero = data[0][0]
@@ -317,6 +331,11 @@ def main(argv):
     print FLAGS.MainModuleHelp()
     return
 
+  if FLAGS.includeusb:
+    num_channels = 2
+  else:
+    num_channels = 1
+
   if FLAGS.avg and FLAGS.avg < 0:
     print "--avg must be greater than 0"
     return
@@ -359,39 +378,50 @@ def main(argv):
     # 'offset' = (consumed samples) * FLAGS.hz - (emitted samples) * native_hz
     # This is the error accumulator in a variation of Bresenham's algorithm.
     emitted = offset = 0
-    collected = []
-    history_deque = collections.deque() # past n samples for rolling average
+    chan_buffers = tuple([] for _ in range(num_channels))
+    # past n samples for rolling average
+    history_deques = tuple(collections.deque() for _ in range(num_channels))
 
     try:
       last_flush = time.time()
       while emitted < FLAGS.samples or FLAGS.samples == -1:
         # The number of raw samples to consume before emitting the next output
         need = (native_hz - offset + FLAGS.hz - 1) / FLAGS.hz
-        if need > len(collected):     # still need more input samples
-          samples = mon.CollectData()
-          if not samples: break
-          collected.extend(samples)
+        if need > len(chan_buffers[0]):     # still need more input samples
+          chans_samples = mon.CollectData()
+          if not all(chans_samples): break
+          for chan_buffer, chan_samples in zip(chan_buffers, chans_samples):
+            chan_buffer.extend(chan_samples)
         else:
           # Have enough data, generate output samples.
           # Adjust for consuming 'need' input samples.
           offset += need * FLAGS.hz
           while offset >= native_hz:  # maybe multiple, if FLAGS.hz > native_hz
-            this_sample = sum(collected[:need]) / need
+            this_sample = [sum(chan[:need]) / need for chan in chan_buffers]
 
             if FLAGS.timestamp: print int(time.time()),
 
             if FLAGS.avg:
-              history_deque.appendleft(this_sample)
-              if len(history_deque) > FLAGS.avg: history_deque.pop()
-              print "%f %f" % (this_sample,
-                               sum(history_deque) / len(history_deque))
+              chan_avgs = []
+              for chan_deque, chan_sample in zip(history_deques, this_sample):
+                chan_deque.appendleft(chan_sample)
+                if len(chan_deque) > FLAGS.avg: chan_deque.pop()
+                chan_avgs.append(sum(chan_deque) / len(chan_deque))
+              # Interleave channel rolling avgs with latest channel data
+              data_to_print = [datum
+                               for pair in zip(this_sample, chan_avgs)
+                               for datum in pair]
             else:
-              print "%f" % this_sample
+              data_to_print = this_sample
+
+            fmt = ' '.join('%f' for _ in data_to_print)
+            print fmt % tuple(data_to_print)
+
             sys.stdout.flush()
 
             offset -= native_hz
             emitted += 1              # adjust for emitting 1 output sample
-          collected = collected[need:]
+          chan_buffers = tuple(c[need:] for c in chan_buffers)
           now = time.time()
           if now - last_flush >= 0.99:  # flush every second
             sys.stdout.flush()
@@ -410,7 +440,9 @@ if __name__ == '__main__':
   flags.DEFINE_float("voltage", None, "Set output voltage (0 for off)")
   flags.DEFINE_float("current", None, "Set max output current")
   flags.DEFINE_string("usbpassthrough", None, "USB control (on, off, auto)")
-  flags.DEFINE_integer("samples", None, "Collect and print this many samples")
+  flags.DEFINE_integer("samples", None,
+                       "Collect and print this many samples. "
+                       "-1 means collect indefinitely.")
   flags.DEFINE_integer("hz", 5000, "Print this many samples/sec")
   flags.DEFINE_string("device", None,
                       "Path to the device in /dev/... (ex:/dev/ttyACM1)")
@@ -418,5 +450,6 @@ if __name__ == '__main__':
   flags.DEFINE_boolean("timestamp", None,
                        "Also print integer (seconds) timestamp on each line")
   flags.DEFINE_boolean("ramp", True, "Gradually increase voltage")
+  flags.DEFINE_boolean("includeusb", False, "Include measurements from USB channel")
 
   main(FLAGS(sys.argv))

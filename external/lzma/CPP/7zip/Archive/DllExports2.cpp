@@ -2,6 +2,8 @@
 
 #include "StdAfx.h"
 
+#include "../../Common/MyWindows.h"
+
 #include "../../Common/MyInitGuid.h"
 
 #if defined(_7ZIP_LARGE_PAGES)
@@ -16,12 +18,15 @@
 #include "../ICoder.h"
 #include "../IPassword.h"
 
+#include "../Common/CreateCoder.h"
+
 #include "IArchive.h"
 
 HINSTANCE g_hInstance;
 
 #define NT_CHECK_FAIL_ACTION return FALSE;
 
+#ifdef _WIN32
 extern "C"
 BOOL WINAPI DllMain(
   #ifdef UNDER_CE
@@ -33,23 +38,29 @@ BOOL WINAPI DllMain(
 {
   if (dwReason == DLL_PROCESS_ATTACH)
   {
+    // OutputDebugStringA("7z.dll DLL_PROCESS_ATTACH");
     g_hInstance = (HINSTANCE)hInstance;
     NT_CHECK;
   }
+  /*
+  if (dwReason == DLL_PROCESS_DETACH)
+  {
+    OutputDebugStringA("7z.dll DLL_PROCESS_DETACH");
+  }
+  */
   return TRUE;
 }
+#endif
 
 DEFINE_GUID(CLSID_CArchiveHandler,
-0x23170F69, 0x40C1, 0x278A, 0x10, 0x00, 0x00, 0x01, 0x10, 0x00, 0x00, 0x00);
-
-static const UInt16 kDecodeId = 0x2790;
-
-DEFINE_GUID(CLSID_CCodec,
-0x23170F69, 0x40C1, kDecodeId, 0, 0, 0, 0, 0, 0, 0, 0);
+    k_7zip_GUID_Data1,
+    k_7zip_GUID_Data2,
+    k_7zip_GUID_Data3_Common,
+    0x10, 0x00, 0x00, 0x01, 0x10, 0x00, 0x00, 0x00);
 
 STDAPI CreateCoder(const GUID *clsid, const GUID *iid, void **outObject);
 STDAPI CreateHasher(const GUID *clsid, IHasher **hasher);
-STDAPI CreateArchiver(const GUID *classID, const GUID *iid, void **outObject);
+STDAPI CreateArchiver(const GUID *clsid, const GUID *iid, void **outObject);
 
 STDAPI CreateObject(const GUID *clsid, const GUID *iid, void **outObject)
 {
@@ -80,3 +91,32 @@ STDAPI SetCaseSensitive(Int32 caseSensitive)
   g_CaseSensitive = (caseSensitive != 0);
   return S_OK;
 }
+
+#ifdef EXTERNAL_CODECS
+
+CExternalCodecs g_ExternalCodecs;
+
+STDAPI SetCodecs(ICompressCodecsInfo *compressCodecsInfo)
+{
+  COM_TRY_BEGIN
+
+  // OutputDebugStringA(compressCodecsInfo ? "SetCodecs" : "SetCodecs NULL");
+  if (compressCodecsInfo)
+  {
+    g_ExternalCodecs.GetCodecs = compressCodecsInfo;
+    return g_ExternalCodecs.Load();
+  }
+  g_ExternalCodecs.ClearAndRelease();
+  return S_OK;
+
+  COM_TRY_END
+}
+
+#else
+
+STDAPI SetCodecs(ICompressCodecsInfo *)
+{
+  return S_OK;
+}
+
+#endif

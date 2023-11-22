@@ -41,7 +41,7 @@ TEST_F(GattTest, GattClientRegister) {
   // Registers gatt client.
   bt_uuid_t gatt_client_uuid;
   create_random_uuid(&gatt_client_uuid, DEFAULT_RANDOM_SEED);
-  gatt_client_interface()->register_client(&gatt_client_uuid);
+  gatt_client_interface()->register_client(gatt_client_uuid);
   semaphore_wait(register_client_callback_sem_);
   EXPECT_TRUE(status() == BT_STATUS_SUCCESS)
       << "Error registering GATT client app callback.";
@@ -54,7 +54,7 @@ TEST_F(GattTest, GattServerRegister) {
   // Registers gatt server.
   bt_uuid_t gatt_server_uuid;
   create_random_uuid(&gatt_server_uuid, DEFAULT_RANDOM_SEED);
-  gatt_server_interface()->register_server(&gatt_server_uuid);
+  gatt_server_interface()->register_server(gatt_server_uuid);
   semaphore_wait(register_server_callback_sem_);
   EXPECT_TRUE(status() == BT_STATUS_SUCCESS)
       << "Error registering GATT server app callback.";
@@ -67,7 +67,7 @@ TEST_F(GattTest, GattServerBuild) {
   // Registers gatt server.
   bt_uuid_t gatt_server_uuid;
   create_random_uuid(&gatt_server_uuid, DEFAULT_RANDOM_SEED);
-  gatt_server_interface()->register_server(&gatt_server_uuid);
+  gatt_server_interface()->register_server(gatt_server_uuid);
   semaphore_wait(register_server_callback_sem_);
   EXPECT_TRUE(status() == BT_STATUS_SUCCESS)
       << "Error registering GATT server app callback.";
@@ -98,16 +98,24 @@ TEST_F(GattTest, GattServerBuild) {
   gatt_server_interface()->add_service(server_if, service);
   semaphore_wait(service_added_callback_sem_);
   EXPECT_TRUE(status() == BT_STATUS_SUCCESS) << "Error adding service.";
+  EXPECT_TRUE(server_interface_id() == server_if) << "Wrong server_if added.";
+  int service_handle_added = service_handle();
 
   // Stops server.
   gatt_server_interface()->stop_service(server_if, service_handle());
   semaphore_wait(service_stopped_callback_sem_);
   EXPECT_TRUE(status() == BT_STATUS_SUCCESS) << "Error stopping server.";
+  EXPECT_TRUE(service_handle() == service_handle_added)
+      << "Wrong service handle stopped.";
+  EXPECT_TRUE(server_interface_id() == server_if) << "Wrong server_if stopped.";
 
   // Deletes service.
   gatt_server_interface()->delete_service(server_if, service_handle());
   semaphore_wait(service_deleted_callback_sem_);
   EXPECT_TRUE(status() == BT_STATUS_SUCCESS) << "Error deleting service.";
+  EXPECT_TRUE(service_handle() == service_handle_added)
+      << "Wrong service handle deleted.";
+  EXPECT_TRUE(server_interface_id() == server_if) << "Wrong server_if deleted.";
 
   // Unregisters gatt server. No callback is expected.
   gatt_server_interface()->unregister_server(server_if);

@@ -16,11 +16,13 @@
 
 package com.android.documentsui;
 
+import android.app.Instrumentation;
 import android.net.Uri;
 import android.os.RemoteException;
 import android.support.test.filters.LargeTest;
 
 import com.android.documentsui.files.FilesActivity;
+import com.android.documentsui.inspector.InspectorActivity;
 
 @LargeTest
 public class FilesActivityUiTest extends ActivityTest<FilesActivity> {
@@ -62,11 +64,14 @@ public class FilesActivityUiTest extends ActivityTest<FilesActivity> {
     }
 
     public void testProtectedFolder_showsAuthenticationUi() throws Exception {
-        bots.roots.openRoot("Demo Root");
-        bots.main.switchToListMode();
-        bots.directory.openDocument("throw a authentication exception");
-        bots.directory.assertHeaderMessageText(
-                "To view this directory, sign in to DocumentsUI Tests");
+        // If feature is disabled, this test is a no-op.
+        if (features.isRemoteActionsEnabled()) {
+            bots.roots.openRoot("Demo Root");
+            bots.main.switchToListMode();
+            bots.directory.openDocument("throw a authentication exception");
+            bots.directory.assertHeaderMessageText(
+                    "To view this directory, sign in to DocumentsUI Tests");
+        }
 
     }
 
@@ -104,6 +109,17 @@ public class FilesActivityUiTest extends ActivityTest<FilesActivity> {
             // ensure no exception is thrown while navigating to a different root
             bots.roots.openRoot(rootDir1.title);
         }
+    }
+
+    public void testNavigationToInspector() throws Exception {
+        if(!features.isInspectorEnabled()) {
+            return;
+        }
+        Instrumentation.ActivityMonitor monitor = new Instrumentation.ActivityMonitor(
+                InspectorActivity.class.getName(), null, false);
+        bots.directory.selectDocument("file0.log");
+        bots.main.clickActionItem("Properties");
+        monitor.waitForActivityWithTimeout(TIMEOUT);
     }
 
     public void testRootChange_UpdatesSortHeader() throws Exception {

@@ -232,8 +232,10 @@ public class CallAudioManager extends CallsManagerListenerBase {
             }
         }
 
-        // Turn off mute when a new incoming call is answered.
-        mute(false /* shouldMute */);
+        // Turn off mute when a new incoming call is answered iff it's not a handover.
+        if (!call.isHandoverInProgress()) {
+            mute(false /* shouldMute */);
+        }
 
         maybeStopRingingAndCallWaitingForAnsweredOrRejectedCall(call);
     }
@@ -406,7 +408,8 @@ public class CallAudioManager extends CallsManagerListenerBase {
                 return;
             case CallAudioState.ROUTE_WIRED_OR_EARPIECE:
                 mCallAudioRouteStateMachine.sendMessageWithSessionInfo(
-                        CallAudioRouteStateMachine.USER_SWITCH_BASELINE_ROUTE);
+                        CallAudioRouteStateMachine.USER_SWITCH_BASELINE_ROUTE,
+                        CallAudioRouteStateMachine.NO_INCLUDE_BLUETOOTH_IN_BASELINE);
                 return;
             default:
                 Log.wtf(this, "Invalid route specified: %d", route);
@@ -430,7 +433,9 @@ public class CallAudioManager extends CallsManagerListenerBase {
 
     @VisibleForTesting
     public void startCallWaiting() {
-        mRinger.startCallWaiting(mRingingCalls.iterator().next());
+        if (mRingingCalls.size() == 1) {
+            mRinger.startCallWaiting(mRingingCalls.iterator().next());
+        }
     }
 
     @VisibleForTesting
@@ -635,6 +640,13 @@ public class CallAudioManager extends CallsManagerListenerBase {
     }
 
     private void playToneForDisconnectedCall(Call call) {
+        // If this call is being disconnected as a result of being handed over to another call,
+        // we will not play a disconnect tone.
+        if (call.isHandoverInProgress()) {
+            Log.i(LOG_TAG, "Omitting tone because %s is being handed over.", call);
+            return;
+        }
+
         if (mForegroundCall != null && call != mForegroundCall && mCalls.size() > 1) {
             Log.v(LOG_TAG, "Omitting tone because we are not foreground" +
                     " and there is another call.");

@@ -52,8 +52,8 @@ import java.util.function.Function;
 final class RuntimeDocumentClipper implements DocumentClipper {
 
     private static final String TAG = "DocumentClipper";
-    private static final String SRC_PARENT_KEY = "srcParent";
-    private static final String OP_TYPE_KEY = "opType";
+    private static final String SRC_PARENT_KEY = "clipper:srcParent";
+    private static final String OP_TYPE_KEY = "clipper:opType";
 
     private final Context mContext;
     private final ClipStore mClipStore;
@@ -99,19 +99,36 @@ final class RuntimeDocumentClipper implements DocumentClipper {
             return null;
         }
 
-        return (selection.size() > Shared.MAX_DOCS_IN_INTENT)
-                ? createJumboClipData(uriBuilder, selection, opType)
-                : createStandardClipData(uriBuilder, selection, opType);
+        final List<Uri> uris = new ArrayList<>(selection.size());
+        for (String id : selection) {
+            uris.add(uriBuilder.apply(id));
+        }
+        return getClipDataForDocuments(uris, opType);
+    }
+
+    @Override
+    public ClipData getClipDataForDocuments(
+            List<Uri> uris, @OpType int opType, DocumentInfo parent) {
+        ClipData clipData = getClipDataForDocuments(uris, opType);
+        clipData.getDescription().getExtras().putString(
+                SRC_PARENT_KEY, parent.derivedUri.toString());
+        return clipData;
+    }
+
+    @Override
+    public ClipData getClipDataForDocuments(List<Uri> uris, @OpType int opType) {
+        return (uris.size() > Shared.MAX_DOCS_IN_INTENT)
+                ? createJumboClipData(uris, opType)
+                : createStandardClipData(uris, opType);
     }
 
     /**
      * Returns ClipData representing the selection.
      */
-    private ClipData createStandardClipData(
-            Function<String, Uri> uriBuilder, Selection selection, @OpType int opType) {
+    private ClipData createStandardClipData(List<Uri> uris, @OpType int opType) {
 
-        assert(!selection.isEmpty());
-        assert(selection.size() <= Shared.MAX_DOCS_IN_INTENT);
+        assert(!uris.isEmpty());
+        assert(uris.size() <= Shared.MAX_DOCS_IN_INTENT);
 
         final ContentResolver resolver = mContext.getContentResolver();
         final ArrayList<ClipData.Item> clipItems = new ArrayList<>();
@@ -120,9 +137,7 @@ final class RuntimeDocumentClipper implements DocumentClipper {
         PersistableBundle bundle = new PersistableBundle();
         bundle.putInt(OP_TYPE_KEY, opType);
 
-        for (String id : selection) {
-            assert(id != null);
-            Uri uri = uriBuilder.apply(id);
+        for (Uri uri : uris) {
             DocumentInfo.addMimeTypes(resolver, uri, clipTypes);
             clipItems.add(new ClipData.Item(uri));
         }
@@ -138,36 +153,29 @@ final class RuntimeDocumentClipper implements DocumentClipper {
     /**
      * Returns ClipData representing the list of docs
      */
-    private ClipData createJumboClipData(
-            Function<String, Uri> uriBuilder, Selection selection, @OpType int opType) {
+    private ClipData createJumboClipData(List<Uri> uris, @OpType int opType) {
 
-        assert(!selection.isEmpty());
-        assert(selection.size() > Shared.MAX_DOCS_IN_INTENT);
+        assert(!uris.isEmpty());
+        assert(uris.size() > Shared.MAX_DOCS_IN_INTENT);
 
-        final List<Uri> uris = new ArrayList<>(selection.size());
-
-        final int capacity = Math.min(selection.size(), Shared.MAX_DOCS_IN_INTENT);
+        final int capacity = Math.min(uris.size(), Shared.MAX_DOCS_IN_INTENT);
         final ArrayList<ClipData.Item> clipItems = new ArrayList<>(capacity);
 
         // Set up mime types for the first Shared.MAX_DOCS_IN_INTENT
         final ContentResolver resolver = mContext.getContentResolver();
         final Set<String> clipTypes = new HashSet<>();
         int docCount = 0;
-        for (String id : selection) {
-            assert(id != null);
-            Uri uri = uriBuilder.apply(id);
+        for (Uri uri : uris) {
             if (docCount++ < Shared.MAX_DOCS_IN_INTENT) {
                 DocumentInfo.addMimeTypes(resolver, uri, clipTypes);
                 clipItems.add(new ClipData.Item(uri));
             }
-
-            uris.add(uri);
         }
 
         // Prepare metadata
         PersistableBundle bundle = new PersistableBundle();
         bundle.putInt(OP_TYPE_KEY, opType);
-        bundle.putInt(OP_JUMBO_SELECTION_SIZE, selection.size());
+        bundle.putInt(OP_JUMBO_SELECTION_SIZE, uris.size());
 
         // Persists clip items and gets the slot they were saved under.
         int tag = mClipStore.persistUris(uris);
@@ -226,20 +234,10 @@ final class RuntimeDocumentClipper implements DocumentClipper {
 
     @Override
     public void copyFromClipData(
-            final RootInfo root,
-            final DocumentInfo destination,
-            final @Nullable ClipData clipData,
-            final FileOperations.Callback callback) {
-        DocumentStack dstStack = new DocumentStack(root, destination);
-        copyFromClipData(dstStack, clipData, callback);
-    }
-
-    @Override
-    public void copyFromClipData(
-            final DocumentInfo destination,
-            final DocumentStack docStack,
-            final @Nullable ClipData clipData,
-            final FileOperations.Callback callback) {
+            DocumentInfo destination,
+            DocumentStack docStack,
+            @Nullable ClipData clipData,
+            FileOperations.Callback callback) {
 
         DocumentStack dstStack = new DocumentStack(docStack, destination);
         copyFromClipData(dstStack, clipData, callback);
@@ -247,9 +245,20 @@ final class RuntimeDocumentClipper implements DocumentClipper {
 
     @Override
     public void copyFromClipData(
-            final DocumentStack dstStack,
-            final @Nullable ClipData clipData,
-            final FileOperations.Callback callback) {
+            DocumentStack dstStack,
+            ClipData clipData,
+            @OpType int opType,
+            FileOperations.Callback callback) {
+
+        clipData.getDescription().getExtras().putInt(OP_TYPE_KEY, opType);
+        copyFromClipData(dstStack, clipData, callback);
+    }
+
+    @Override
+    public void copyFromClipData(
+            DocumentStack dstStack,
+            @Nullable ClipData clipData,
+            FileOperations.Callback callback) {
 
         if (clipData == null) {
             Log.i(TAG, "Received null clipData. Ignoring.");
@@ -282,8 +291,8 @@ final class RuntimeDocumentClipper implements DocumentClipper {
                     .withSrcs(uris)
                     .build();
 
-            FileOperations.start(mContext, operation, callback);
-        } catch(IOException e) {
+            FileOperations.start(mContext, operation, callback, FileOperations.createJobId());
+        } catch (IOException e) {
             Log.e(TAG, "Cannot create uris supplier.", e);
             callback.onOperationResult(FileOperations.Callback.STATUS_REJECTED, opType, 0);
             return;
@@ -302,8 +311,7 @@ final class RuntimeDocumentClipper implements DocumentClipper {
         return dest != null && dest.isDirectory() && dest.isCreateSupported();
     }
 
-    @Override
-    public @OpType int getOpType(ClipData data) {
+    private @OpType int getOpType(ClipData data) {
         PersistableBundle bundle = data.getDescription().getExtras();
         return getOpType(bundle);
     }

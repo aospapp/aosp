@@ -103,13 +103,6 @@ class logging_CrashServices(test.test):
             return
 
         with chrome.Chrome():
-            if not utils.is_freon():
-                process_path = '/usr/bin/X'
-                crash_extensions = ['.core', '.dmp', '.meta']
-                self.job.run_test("logging_CrashServices",
-                                  process_path=process_path,
-                                  crash_extensions=crash_extensions,
-                                  tag=os.path.basename(process_path))
             for process_path in self.process_list.keys():
                 self.job.run_test("logging_CrashServices",
                                   process_path=process_path,

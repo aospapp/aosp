@@ -42,6 +42,9 @@ namespace {
 constexpr uint8_t kFakeMaxNumScanSSIDs = 10;
 constexpr uint8_t kFakeMaxNumSchedScanSSIDs = 16;
 constexpr uint8_t kFakeMaxMatchSets = 18;
+constexpr uint8_t kFakeMaxNumScanPlans = 8;
+constexpr uint8_t kFakeMaxScanPlanIntervals = 80;
+constexpr uint8_t kFakeMaxScanPlanIterations = 10;
 constexpr uint16_t kFakeFamilyId = 14;
 constexpr uint32_t kFakeFrequency1 = 2412;
 constexpr uint32_t kFakeFrequency2 = 2437;
@@ -78,6 +81,116 @@ NL80211Packet CreateControlMessageError(int error_code) {
 
 NL80211Packet CreateControlMessageAck() {
   return CreateControlMessageError(0);
+}
+
+void AppendScanCapabilitiesAttributes(NL80211Packet* packet,
+                                      bool supports_scan_plan) {
+  packet->AddAttribute(NL80211Attr<uint8_t>(NL80211_ATTR_MAX_NUM_SCAN_SSIDS,
+                                            kFakeMaxNumScanSSIDs));
+  packet->AddAttribute(NL80211Attr<uint8_t>(
+      NL80211_ATTR_MAX_NUM_SCHED_SCAN_SSIDS,
+      kFakeMaxNumSchedScanSSIDs));
+  packet->AddAttribute(NL80211Attr<uint8_t>(NL80211_ATTR_MAX_MATCH_SETS,
+                                            kFakeMaxMatchSets));
+  if (supports_scan_plan) {
+    packet->AddAttribute(NL80211Attr<uint32_t>(
+        NL80211_ATTR_MAX_NUM_SCHED_SCAN_PLANS,
+        kFakeMaxNumScanPlans));
+    packet->AddAttribute(NL80211Attr<uint32_t>(
+        NL80211_ATTR_MAX_SCAN_PLAN_INTERVAL,
+        kFakeMaxScanPlanIntervals));
+    packet->AddAttribute(NL80211Attr<uint32_t>(
+        NL80211_ATTR_MAX_SCAN_PLAN_ITERATIONS,
+        kFakeMaxScanPlanIterations));
+  }
+}
+
+void AppendBandInfoAttributes(NL80211Packet* packet) {
+  NL80211NestedAttr freq_2g_1(1);
+  NL80211NestedAttr freq_2g_2(2);
+  NL80211NestedAttr freq_2g_3(3);
+  NL80211NestedAttr freq_5g_1(4);
+  NL80211NestedAttr freq_5g_2(5);
+  NL80211NestedAttr freq_dfs_1(6);
+  freq_2g_1.AddAttribute(NL80211Attr<uint32_t>(NL80211_FREQUENCY_ATTR_FREQ,
+                                               kFakeFrequency1));
+  freq_2g_2.AddAttribute(NL80211Attr<uint32_t>(NL80211_FREQUENCY_ATTR_FREQ,
+                                               kFakeFrequency2));
+  freq_2g_3.AddAttribute(NL80211Attr<uint32_t>(NL80211_FREQUENCY_ATTR_FREQ,
+                                               kFakeFrequency3));
+  freq_5g_1.AddAttribute(NL80211Attr<uint32_t>(NL80211_FREQUENCY_ATTR_FREQ,
+                                               kFakeFrequency4));
+  freq_5g_2.AddAttribute(NL80211Attr<uint32_t>(NL80211_FREQUENCY_ATTR_FREQ,
+                                               kFakeFrequency5));
+  // DFS frequency.
+  freq_dfs_1.AddAttribute(NL80211Attr<uint32_t>(NL80211_FREQUENCY_ATTR_FREQ,
+                                                kFakeFrequency6));
+  freq_dfs_1.AddAttribute(NL80211Attr<uint32_t>(
+      NL80211_FREQUENCY_ATTR_DFS_STATE,
+      NL80211_DFS_USABLE));
+
+  NL80211NestedAttr band_2g_freqs(NL80211_BAND_ATTR_FREQS);
+  NL80211NestedAttr band_5g_freqs(NL80211_BAND_ATTR_FREQS);
+  band_2g_freqs.AddAttribute(freq_2g_1);
+  band_2g_freqs.AddAttribute(freq_2g_2);
+  band_2g_freqs.AddAttribute(freq_2g_3);
+  band_5g_freqs.AddAttribute(freq_5g_1);
+  band_5g_freqs.AddAttribute(freq_5g_2);
+  band_5g_freqs.AddAttribute(freq_dfs_1);
+
+  NL80211NestedAttr band_2g_attr(1);
+  NL80211NestedAttr band_5g_attr(2);
+  band_2g_attr.AddAttribute(band_2g_freqs);
+  band_5g_attr.AddAttribute(band_5g_freqs);
+
+  NL80211NestedAttr band_attr(NL80211_ATTR_WIPHY_BANDS);
+  band_attr.AddAttribute(band_2g_attr);
+  band_attr.AddAttribute(band_5g_attr);
+
+  packet->AddAttribute(band_attr);
+}
+
+void AppendWiphyFeaturesAttributes(NL80211Packet* packet) {
+  packet->AddAttribute(NL80211Attr<uint32_t>(
+      NL80211_ATTR_FEATURE_FLAGS,
+      NL80211_FEATURE_SCAN_RANDOM_MAC_ADDR));
+}
+
+void VerifyScanCapabilities(const ScanCapabilities& scan_capabilities,
+                            bool supports_scan_plan) {
+  EXPECT_EQ(scan_capabilities.max_num_scan_ssids,
+            kFakeMaxNumScanSSIDs);
+  EXPECT_EQ(scan_capabilities.max_num_sched_scan_ssids,
+            kFakeMaxNumSchedScanSSIDs);
+  EXPECT_EQ(scan_capabilities.max_match_sets,
+            kFakeMaxMatchSets);
+  if (supports_scan_plan) {
+    EXPECT_EQ(scan_capabilities.max_num_scan_plans,
+              kFakeMaxNumScanPlans);
+    EXPECT_EQ(scan_capabilities.max_scan_plan_interval,
+              kFakeMaxScanPlanIntervals);
+    EXPECT_EQ(scan_capabilities.max_scan_plan_iterations,
+              kFakeMaxScanPlanIterations);
+  } else {
+    EXPECT_EQ(scan_capabilities.max_num_scan_plans, (unsigned int) 0);
+    EXPECT_EQ(scan_capabilities.max_scan_plan_interval, (unsigned int) 0);
+    EXPECT_EQ(scan_capabilities.max_scan_plan_iterations, (unsigned int) 0);
+  }
+}
+
+void VerifyBandInfo(const BandInfo& band_info) {
+  vector<uint32_t> band_2g_expected = {kFakeFrequency1,
+      kFakeFrequency2, kFakeFrequency3};
+  vector<uint32_t> band_5g_expected = {kFakeFrequency4, kFakeFrequency5};
+  vector<uint32_t> band_dfs_expected = {kFakeFrequency6};
+  EXPECT_EQ(band_info.band_2g, band_2g_expected);
+  EXPECT_EQ(band_info.band_5g, band_5g_expected);
+  EXPECT_EQ(band_info.band_dfs, band_dfs_expected);
+}
+
+void VerifyWiphyFeatures(const WiphyFeatures& wiphy_features) {
+  EXPECT_TRUE(wiphy_features.supports_random_mac_oneshot_scan);
+  EXPECT_FALSE(wiphy_features.supports_random_mac_sched_scan);
 }
 
 }  // namespace
@@ -314,64 +427,9 @@ TEST_F(NetlinkUtilsTest, CanGetWiphyInfo) {
   new_wiphy.AddAttribute(NL80211Attr<uint32_t>(NL80211_ATTR_WIPHY,
                                                kFakeWiphyIndex));
 
-  // Insert band information to mock netlink response.
-
-  NL80211NestedAttr freq_2g_1(1);
-  NL80211NestedAttr freq_2g_2(2);
-  NL80211NestedAttr freq_2g_3(3);
-  NL80211NestedAttr freq_5g_1(4);
-  NL80211NestedAttr freq_5g_2(5);
-  NL80211NestedAttr freq_dfs_1(6);
-  freq_2g_1.AddAttribute(NL80211Attr<uint32_t>(NL80211_FREQUENCY_ATTR_FREQ,
-                                               kFakeFrequency1));
-  freq_2g_2.AddAttribute(NL80211Attr<uint32_t>(NL80211_FREQUENCY_ATTR_FREQ,
-                                               kFakeFrequency2));
-  freq_2g_3.AddAttribute(NL80211Attr<uint32_t>(NL80211_FREQUENCY_ATTR_FREQ,
-                                               kFakeFrequency3));
-  freq_5g_1.AddAttribute(NL80211Attr<uint32_t>(NL80211_FREQUENCY_ATTR_FREQ,
-                                               kFakeFrequency4));
-  freq_5g_2.AddAttribute(NL80211Attr<uint32_t>(NL80211_FREQUENCY_ATTR_FREQ,
-                                               kFakeFrequency5));
-  // DFS frequency.
-  freq_dfs_1.AddAttribute(NL80211Attr<uint32_t>(NL80211_FREQUENCY_ATTR_FREQ,
-                                                kFakeFrequency6));
-  freq_dfs_1.AddAttribute(NL80211Attr<uint32_t>(
-      NL80211_FREQUENCY_ATTR_DFS_STATE,
-      NL80211_DFS_USABLE));
-
-  NL80211NestedAttr band_2g_freqs(NL80211_BAND_ATTR_FREQS);
-  NL80211NestedAttr band_5g_freqs(NL80211_BAND_ATTR_FREQS);
-  band_2g_freqs.AddAttribute(freq_2g_1);
-  band_2g_freqs.AddAttribute(freq_2g_2);
-  band_2g_freqs.AddAttribute(freq_2g_3);
-  band_5g_freqs.AddAttribute(freq_5g_1);
-  band_5g_freqs.AddAttribute(freq_5g_2);
-  band_5g_freqs.AddAttribute(freq_dfs_1);
-
-  NL80211NestedAttr band_2g_attr(1);
-  NL80211NestedAttr band_5g_attr(2);
-  band_2g_attr.AddAttribute(band_2g_freqs);
-  band_5g_attr.AddAttribute(band_5g_freqs);
-
-  NL80211NestedAttr band_attr(NL80211_ATTR_WIPHY_BANDS);
-  band_attr.AddAttribute(band_2g_attr);
-  band_attr.AddAttribute(band_5g_attr);
-
-  new_wiphy.AddAttribute(band_attr);
-
-  // Insert scan capabilities to mock netlink response.
-  new_wiphy.AddAttribute(NL80211Attr<uint8_t>(NL80211_ATTR_MAX_NUM_SCAN_SSIDS,
-                                              kFakeMaxNumScanSSIDs));
-  new_wiphy.AddAttribute(NL80211Attr<uint8_t>(
-      NL80211_ATTR_MAX_NUM_SCHED_SCAN_SSIDS,
-      kFakeMaxNumSchedScanSSIDs));
-  new_wiphy.AddAttribute(NL80211Attr<uint8_t>(NL80211_ATTR_MAX_MATCH_SETS,
-                                              kFakeMaxMatchSets));
-
-  // Insert wiphy features to mock netlink response.
-  new_wiphy.AddAttribute(NL80211Attr<uint32_t>(
-      NL80211_ATTR_FEATURE_FLAGS,
-      NL80211_FEATURE_SCAN_RANDOM_MAC_ADDR));
+  AppendBandInfoAttributes(&new_wiphy);
+  AppendScanCapabilitiesAttributes(&new_wiphy, true);
+  AppendWiphyFeaturesAttributes(&new_wiphy);
 
   vector<NL80211Packet> response = {new_wiphy};
 
@@ -385,28 +443,41 @@ TEST_F(NetlinkUtilsTest, CanGetWiphyInfo) {
                                            &band_info,
                                            &scan_capabilities,
                                            &wiphy_features));
-
-  // Verify band information.
-  vector<uint32_t> band_2g_expected = {kFakeFrequency1,
-      kFakeFrequency2, kFakeFrequency3};
-  vector<uint32_t> band_5g_expected = {kFakeFrequency4, kFakeFrequency5};
-  vector<uint32_t> band_dfs_expected = {kFakeFrequency6};
-  EXPECT_EQ(band_info.band_2g, band_2g_expected);
-  EXPECT_EQ(band_info.band_5g, band_5g_expected);
-  EXPECT_EQ(band_info.band_dfs, band_dfs_expected);
-
-  // Verify scan capabilities.
-  EXPECT_EQ(scan_capabilities.max_num_scan_ssids,
-            kFakeMaxNumScanSSIDs);
-  EXPECT_EQ(scan_capabilities.max_num_sched_scan_ssids,
-            kFakeMaxNumSchedScanSSIDs);
-  EXPECT_EQ(scan_capabilities.max_match_sets,
-            kFakeMaxMatchSets);
-
-  // Verify wiphy features.
-  EXPECT_TRUE(wiphy_features.supports_random_mac_oneshot_scan);
-  EXPECT_FALSE(wiphy_features.supports_random_mac_sched_scan);
+  VerifyBandInfo(band_info);
+  VerifyScanCapabilities(scan_capabilities, true);
+  VerifyWiphyFeatures(wiphy_features);
 }
+
+TEST_F(NetlinkUtilsTest, CanGetWiphyInfoScanPlanNotSupported) {
+  NL80211Packet new_wiphy(
+      netlink_manager_->GetFamilyId(),
+      NL80211_CMD_NEW_WIPHY,
+      netlink_manager_->GetSequenceNumber(),
+      getpid());
+  new_wiphy.AddAttribute(NL80211Attr<uint32_t>(NL80211_ATTR_WIPHY,
+                                               kFakeWiphyIndex));
+
+  AppendBandInfoAttributes(&new_wiphy);
+  AppendScanCapabilitiesAttributes(&new_wiphy, false);
+  AppendWiphyFeaturesAttributes(&new_wiphy);
+
+  vector<NL80211Packet> response = {new_wiphy};
+
+  EXPECT_CALL(*netlink_manager_, SendMessageAndGetResponses(_, _)).
+      WillOnce(DoAll(MakeupResponse(response), Return(true)));
+
+  BandInfo band_info;
+  ScanCapabilities scan_capabilities;
+  WiphyFeatures wiphy_features;
+  EXPECT_TRUE(netlink_utils_->GetWiphyInfo(kFakeWiphyIndex,
+                                           &band_info,
+                                           &scan_capabilities,
+                                           &wiphy_features));
+  VerifyBandInfo(band_info);
+  VerifyScanCapabilities(scan_capabilities, false);
+  VerifyWiphyFeatures(wiphy_features);
+}
+
 
 TEST_F(NetlinkUtilsTest, CanHandleGetWiphyInfoError) {
   // Mock an error response from kernel.

@@ -42,7 +42,8 @@ LOCAL_JAR_MANIFEST := manifest.txt
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
 	antlr-runtime \
-	dexlib2
+	dexlib2 \
+	jcommander-host
 
 #create a new smali.properties file using the correct version
 $(intermediates)/resources/smali.properties: $(LOCAL_PATH)/../build.gradle

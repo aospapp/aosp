@@ -127,14 +127,14 @@ class SpectralAnalysisTest(unittest.TestCase):
 
 
     def testNotMeaningfulData(self):
-        """Checks that sepectral analysis rejects not meaningful data."""
+        """Checks that sepectral analysis handles un-meaningful data."""
         rate = 48000
         length_in_secs = 0.5
         samples = length_in_secs * rate
         noise_amplitude = audio_analysis.MEANINGFUL_RMS_THRESHOLD * 0.5
         noise = numpy.random.standard_normal(samples) * noise_amplitude
-        with self.assertRaises(audio_analysis.RMSTooSmallError):
-            results = audio_analysis.spectral_analysis(noise, rate)
+        results = audio_analysis.spectral_analysis(noise, rate)
+        self.assertEqual([(0, 0)], results)
 
 
     def testEmptyData(self):

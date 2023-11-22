@@ -28,6 +28,8 @@ package org.apache.harmony.jpda.tests.jdwp.ReferenceType;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 import org.apache.harmony.jpda.tests.share.SyncDebuggee;
 
+import java.util.Arrays;
+
 public class GetValues005Debuggee extends SyncDebuggee {
     
     static int intArrayField[]; // JDWP_TAG_ARRAY = 91
@@ -66,8 +68,8 @@ public class GetValues005Debuggee extends SyncDebuggee {
         classLoaderField = null;
 
         logWriter.println("\n--> Debuggee: GetValues005Debuggee: Before ReferenceType::GetValues command:");
-        logWriter.println("--> intArrayField value = " + intArrayField);
-        logWriter.println("--> objectArrayField value = " + objectArrayField);
+        logWriter.println("--> intArrayField value = " + Arrays.toString(intArrayField));
+        logWriter.println("--> objectArrayField value = " + Arrays.toString(objectArrayField));
         logWriter.println("--> objectField value = " + objectField);
         logWriter.println("--> stringField value = " + stringField);
         logWriter.println("--> threadField value = " + threadField);

@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All Rights Reserved.
+// Copyright 2015 The Gemmlowp Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,6 +35,11 @@
 
 #if defined(__arm__) && !defined(GEMMLOWP_NEON)
 #warning "Building without NEON support on ARM, check your compiler setup!"
+#endif
+
+#if defined(__SSE4_2__) && !defined(GEMMLOWP_SSE4)
+#warning \
+    "Building without SSE4.2 support on SSE4.2 enabled machine, check your compiler setup!"
 #endif
 
 namespace gemmlowp {
@@ -348,8 +353,8 @@ void benchmark_all() {
 
   {
     gemmlowp::GemmContext context;
-    std::cout << "Benchmarking default mode (typically multi-threaded)..."
-              << std::endl;
+    context.set_max_num_threads(0);
+    std::cout << "Benchmarking multi-threaded mode..." << std::endl;
     gemmlowp::benchmark(&context);
   }
 

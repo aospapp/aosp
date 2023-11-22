@@ -78,7 +78,6 @@
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"ข้อความเสียง (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"VM:"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"การแจ้งเตือน"</string>
-    <string name="networks" msgid="8873030692174541976">"ผู้ให้บริการเครือข่าย"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"การเผยแพร่ข้อมูลฉุกเฉิน"</string>
     <string name="call_settings" msgid="6112441768261754562">"การตั้งค่าการโทร"</string>
     <string name="additional_gsm_call_settings" msgid="1391795981938800617">"การตั้งค่าเพิ่มเติม"</string>
@@ -164,20 +163,18 @@
     <string name="label_available" msgid="1181658289009300430">"เครือข่ายที่ใช้งานได้"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"กำลังค้นหา…"</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"ไม่พบเครือข่าย"</string>
-    <string name="search_networks" msgid="1601136049300882441">"ค้นหาเครือข่าย"</string>
     <string name="network_query_error" msgid="6828516148953325006">"พบข้อผิดพลาดขณะค้นหาเครือข่าย"</string>
     <string name="register_on_network" msgid="9055203954040805084">"กำลังลงทะเบียนบน <xliff:g id="NETWORK">%s</xliff:g>…"</string>
     <string name="not_allowed" msgid="5613353860205691579">"ซิมการ์ดของคุณไม่อนุญาตให้เชื่อมต่อกับเครือข่ายนี้"</string>
     <string name="connect_later" msgid="2308119155752343975">"ไม่สามารถเชื่อมต่อเครือข่ายนี้ได้ในขณะนี้ ลองอีกครั้งในภายหลัง"</string>
     <string name="registration_done" msgid="495135664535876612">"ลงทะเบียนบนเครือข่ายแล้ว"</string>
-    <string name="sum_carrier_select" msgid="3494252551249882718">"เลือกผู้ให้บริการเครือข่าย"</string>
-    <string name="sum_search_networks" msgid="2921092249873272715">"ค้นหาเครือข่ายทั้งหมดที่ใช้ได้"</string>
-    <string name="select_automatically" msgid="5628402124471810174">"เลือกโดยอัตโนมัติ"</string>
-    <string name="sum_select_automatically" msgid="5614890115123292400">"เลือกเครือข่ายที่ต้องการอัตโนมัติ"</string>
+    <string name="select_automatically" msgid="1046727200631770962">"เลือกเครือข่ายโดยอัตโนมัติ"</string>
+    <string name="network_select_title" msgid="7733107364757544558">"เครือข่าย"</string>
     <string name="register_automatically" msgid="6017849844573519637">"การลงทะเบียนอัตโนมัติ..."</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"ประเภทเครือข่ายที่ต้องการ"</string>
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"เปลี่ยนโหมดปฏิบัติการของเครือข่าย"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"ประเภทเครือข่ายที่ต้องการ"</string>
+    <string name="forbidden_network" msgid="4384929668343563440">"(ห้ามใช้)"</string>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"โหมดเครือข่ายที่ต้องการ: ต้องการ WCDMA"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"โหมดเครือข่ายที่ต้องการ: GSM เท่านั้น"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"โหมดเครือข่ายที่ต้องการ: WCDMA เท่านั้น"</string>
@@ -210,18 +207,34 @@
     <item msgid="1524224863879435516">"GSM เท่านั้น"</item>
     <item msgid="3817924849415716259">"ต้องการ GSM/WCDMA"</item>
   </string-array>
+    <string name="call_category" msgid="5863978196309462052">"กำลังโทร"</string>
+    <string name="network_operator_category" msgid="4830701959205735636">"เครือข่าย"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"โหมด 4G LTE ที่ปรับปรุงแล้ว"</string>
     <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"การโทรขั้นสูง"</string>
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"ใช้บริการ LTE เพื่อปรับปรุงเสียงและการติดต่อสื่อสารด้วยวิธีอื่นๆ (แนะนำ)"</string>
     <string name="data_enabled" msgid="5972538663568715366">"เปิดใช้งานข้อมูลแล้ว"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"อนุญาตการใช้ข้อมูล"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"โปรดทราบ"</string>
-    <string name="roaming" msgid="8871412572928323707">"การโรมมิ่งข้อมูล"</string>
+    <string name="roaming" msgid="7894878421600247140">"โรมมิ่ง"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"เชื่อมต่ออินเทอร์เน็ตมือถือขณะโรมมิ่ง"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"เชื่อมต่ออินเทอร์เน็ตมือถือขณะโรมมิ่ง"</string>
     <string name="roaming_reenable_message" msgid="8913735676127858115">"การเชื่อมต่อข้อมูลของคุณหายไปเนื่องจากคุณออกจากเครือข่ายที่บ้านโดยปิดการโรมมิ่งข้อมูลไว้"</string>
     <string name="roaming_warning" msgid="1603164667540144353">"คุณอาจต้องเสียค่าใช้จ่ายมาก"</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"อนุญาตการโรมมิ่งอินเทอร์เน็ตไหม"</string>
+    <string name="data_usage_title" msgid="8759619109516889802">"ปริมาณการใช้อินเทอร์เน็ต"</string>
+    <string name="data_usage_template" msgid="8526428824844656364">"เน็ตมือถือ <xliff:g id="ID_1">%1$s</xliff:g> ที่ใช้ระหว่าง <xliff:g id="ID_2">%2$s</xliff:g>"</string>
+    <string name="advanced_options_title" msgid="8074895510265488035">"ขั้นสูง"</string>
+    <string name="carrier_settings_euicc" msgid="6714062862127226405">"ผู้ให้บริการ"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"ผู้ให้บริการ, esim, sim, euicc"</string>
+    <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> — <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
+    <string name="mobile_data_settings_title" msgid="4661165467914727157">"อินเทอร์เน็ตมือถือ"</string>
+    <string name="mobile_data_settings_summary" msgid="5087255915840576895">"เข้าถึงข้อมูลโดยใช้เครือข่ายมือถือ"</string>
+    <string name="data_usage_disable_mobile" msgid="3577275288809667615">"ปิดเน็ตมือถือไหม"</string>
+    <string name="sim_selection_required_pref" msgid="7049424902961844236">"ต้องเลือก"</string>
+    <string name="sim_change_data_title" msgid="5332425991853799280">"เปลี่ยนซิมอินเทอร์เน็ตไหม"</string>
+    <string name="sim_change_data_message" msgid="2163963581444907496">"ใช้ <xliff:g id="NEW_SIM">%1$s</xliff:g> แทน <xliff:g id="OLD_SIM">%2$s</xliff:g> เวลาใช้เน็ตมือถือใช่ไหม"</string>
+    <string name="wifi_calling_settings_title" msgid="7741961465416430470">"การโทรผ่าน Wi-Fi"</string>
+    <string name="video_calling_settings_title" msgid="539714564273795574">"การโทรวิดีโอผ่านผู้ให้บริการ"</string>
     <string name="gsm_umts_options" msgid="6538311689850981686">"ตัวเลือก GSM//UMTS"</string>
     <string name="cdma_options" msgid="4016822858172249884">"ตัวเลือก CDMA"</string>
     <string name="throttle_data_usage" msgid="3715677828160555808">"การใช้ข้อมูล"</string>
@@ -367,7 +380,7 @@
     <string name="tty_mode_option_summary" msgid="1073835131534808732">"ตั้งค่าโหมด TTY"</string>
     <string name="auto_retry_mode_title" msgid="4073265511427813322">"ลองซ้ำอัตโนมัติ"</string>
     <string name="auto_retry_mode_summary" msgid="4973886004067532288">"เปิดใช้งานโหมดลองซ้ำอัตโนมัติ"</string>
-    <string name="tty_mode_not_allowed_video_call" msgid="3795846787901909176">"ไม่อนุญาตการเปลี่ยนโหมด TTY ในระหว่างแฮงเอาท์วิดีโอ"</string>
+    <string name="tty_mode_not_allowed_video_call" msgid="3795846787901909176">"ไม่อนุญาตการเปลี่ยนโหมด TTY ในระหว่าง Hangouts วิดีโอ"</string>
     <string name="menu_add" msgid="1882023737425114762">"เพิ่มรายชื่อติดต่อ"</string>
     <string name="menu_edit" msgid="7143003705504672374">"แก้ไขรายชื่อติดต่อ"</string>
     <string name="menu_delete" msgid="3977150783449642851">"ลบรายชื่อติดต่อ"</string>
@@ -452,7 +465,7 @@
     <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"เครือข่ายมือถือไม่พร้อมใช้งาน โปรดเชื่อมต่อเครือข่ายไร้สายเพื่อโทรออก"</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"หากต้องการโทรออก โปรดป้อนหมายเลขที่ถูกต้อง"</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"การโทรล้มเหลว"</string>
-    <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"ไม่สามารถเพิ่มสายได้ในขณะนี้"</string>
+    <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"เพิ่มการโทรไม่ได้ในขณะนี้ คุณสามารถพยายามติดต่อได้โดยการส่งข้อความ"</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"บริการนี้ไม่ได้รับการสนับสนุน"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"ไม่สามารถสลับสายได้"</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"ไม่สามารถแยกสายได้"</string>
@@ -480,7 +493,7 @@
     <string name="onscreenManageCallsText" msgid="5473231160123254154">"จัดการการโทร"</string>
     <string name="onscreenManageConferenceText" msgid="6485935856534311346">"จัดการการประชุม"</string>
     <string name="onscreenAudioText" msgid="1710087112800041743">"เสียง"</string>
-    <string name="onscreenVideoCallText" msgid="4800924186056115442">"แฮงเอาท์วิดีโอ"</string>
+    <string name="onscreenVideoCallText" msgid="4800924186056115442">" Hangouts วิดีโอ"</string>
     <string name="importSimEntry" msgid="6614358325359736031">"นำเข้า"</string>
     <string name="importAllSimEntries" msgid="1503181169636198673">"นำเข้าทั้งหมด"</string>
     <string name="importingSimContacts" msgid="7374056215462575769">"กำลังนำเข้าสมุดโทรศัพท์ในซิม"</string>
@@ -556,8 +569,8 @@
     <string name="voicemail_change_pin_dialog_title" msgid="6035421908626121564">"เปลี่ยน PIN"</string>
     <string name="preference_category_ringtone" msgid="5197960752529332721">"เสียงเรียกเข้าและสั่น"</string>
     <string name="pstn_connection_service_label" msgid="1743245930577325900">"ซิมการ์ดในตัว"</string>
-    <string name="enable_video_calling_title" msgid="7237253660669000899">"เปิดแฮงเอาท์วิดีโอ"</string>
-    <string name="enable_video_calling_dialog_msg" msgid="8948186136957417948">"หากต้องการเปิดแฮงเอาท์วิดีโอ คุณจะต้องเปิดใช้โหมด 4G LTE ที่ปรับปรุงแล้วในการตั้งค่าเครือข่าย"</string>
+    <string name="enable_video_calling_title" msgid="7237253660669000899">"เปิด Hangouts วิดีโอ"</string>
+    <string name="enable_video_calling_dialog_msg" msgid="8948186136957417948">"หากต้องการเปิด Hangouts วิดีโอ คุณจะต้องเปิดใช้โหมด 4G LTE ที่ปรับปรุงแล้วในการตั้งค่าเครือข่าย"</string>
     <string name="enable_video_calling_dialog_settings" msgid="576528473599603249">"การตั้งค่าเครือข่าย"</string>
     <string name="enable_video_calling_dialog_close" msgid="7411471282167927991">"ปิด"</string>
     <string name="sim_label_emergency_calls" msgid="4847699229529306397">"หมายเลขฉุกเฉิน"</string>
@@ -572,6 +585,8 @@
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"มีสายที่ใช้งานอยู่มากเกินไป โปรดวางสายหรือรวมสายที่มีก่อนโทรออกครั้งใหม่"</string>
     <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"ไม่สามารถเชื่อมต่อ โปรดใส่ซิมการ์ดที่ถูกต้อง"</string>
     <string name="callFailed_wifi_lost" msgid="5968076625137297184">"การเชื่อมต่อ Wi-Fi ถูกตัด วางสายแล้ว"</string>
+    <string name="dialFailed_low_battery" msgid="8760548177088774268">"ไม่สามารถใช้วิดีโอคอลได้เนื่องจากแบตเตอรี่เหลือน้อย"</string>
+    <string name="callFailed_low_battery" msgid="4913582435905872616">"วิดีโอคอลสิ้นสุดแล้วเนื่องจากแบตเตอรี่เหลือน้อย"</string>
     <string name="change_pin_title" msgid="7790232089699034029">"เปลี่ยน PIN ข้อความเสียง"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"ดำเนินการต่อ"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"ยกเลิก"</string>
@@ -584,4 +599,18 @@
     <string name="change_pin_confirm_pins_dont_match" msgid="4795052654904027909">"PIN ไม่ตรงกัน"</string>
     <string name="change_pin_succeeded" msgid="2022852286442211151">"อัปเดต PIN ข้อความเสียงแล้ว"</string>
     <string name="change_pin_system_error" msgid="8308462387154257840">"ไม่สามารถตั้งค่า PIN"</string>
+    <string name="mobile_data_status_roaming_turned_off_subtext" msgid="935636805765823307">"การโรมมิ่งข้อมูลปิดอยู่"</string>
+    <string name="mobile_data_status_roaming_turned_on_subtext" msgid="1335176927083781041">"การโรมมิ่งข้อมูลเปิดอยู่"</string>
+    <string name="mobile_data_status_roaming_without_plan_subtext" msgid="3568412513831673037">"กำลังโรมมิ่ง ต้องมีแผนข้อมูล"</string>
+    <string name="mobile_data_status_roaming_with_plan_subtext" msgid="8721998948811064377">"กำลังโรมมิ่ง ใช้งานแผนข้อมูลอยู่"</string>
+    <string name="mobile_data_status_no_plan_subtext" msgid="4887747337017565725">"ไม่มีเน็ตมือถือเหลือ"</string>
+    <string name="mobile_data_activate_prepaid" msgid="7447025165850512683">"ไม่มีเน็ตมือถือเหลือ"</string>
+    <string name="mobile_data_activate_prepaid_summary" msgid="5705389791791637666">"เพิ่มเน็ตมือถือผ่าน <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
+    <string name="mobile_data_activate_roaming_plan" msgid="5998161536947086264">"ไม่มีแผนการโรมมิ่ง"</string>
+    <string name="mobile_data_activate_roaming_plan_summary" msgid="511202908883425459">"เพิ่มแผนการโรมมิ่งผ่าน <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
+    <string name="mobile_data_activate_footer" msgid="5979019929980140594">"คุณสามารถเพิ่มเน็ตมือถือหรือแผนการโรมมิ่งผ่านผู้ให้บริการ <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
+    <string name="mobile_data_activate_diag_title" msgid="9044252207707864493">"เพิ่มข้อมูลไหม"</string>
+    <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"คุณอาจต้องเพิ่มข้อมูลผ่าน <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
+    <string name="mobile_data_activate_button" msgid="3682400969184405446">"เพิ่มข้อมูล"</string>
+    <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"ยกเลิก"</string>
 </resources>

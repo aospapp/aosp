@@ -16,6 +16,7 @@
 
 #include <getopt.h>
 #include <signal.h>
+#include <unistd.h>
 
 #include <cstdlib>
 #include <cstring>
@@ -466,6 +467,12 @@ int main(int argc, char **argv) {
       }
       case NanotoolCommand::Test: {
         hub->DisableSensors(args->sensors);
+
+        /* Most of drivers complete enable/disable after SPI/I2C callback
+           transaction return. Since enable/disable functions return immediatly
+           before it, some time ensure entire process is completed. */
+        usleep(100000);
+
         success = hub->TestSensors(args->sensors);
         break;
       }

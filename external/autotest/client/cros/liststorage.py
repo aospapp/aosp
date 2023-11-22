@@ -21,7 +21,7 @@ import os, re
 # contains only the client/ subtree), on a normal autotest
 # installation/repository or as a python module used on a client-side test.
 import common
-from autotest_lib.client.common_lib import base_utils as utils
+from autotest_lib.client.common_lib import utils
 
 INFO_PATH = "/sys/block"
 

@@ -28,6 +28,7 @@ extern "C" {
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <unistd.h>
 #include <string>
 #include "CrcChecksum.h"
 #include "config.h"
@@ -81,7 +82,7 @@ void nfc_hal_nv_co_read(uint8_t* p_buf, uint16_t nbytes, uint8_t block) {
     size_t actualReadData = read(fileStream, p_buf, nbytes);
     close(fileStream);
     if (actualReadData > 0) {
-      ALOGD("%s: data size=%u", __func__, actualReadData);
+      ALOGD("%s: data size=%zu", __func__, actualReadData);
       nfc_hal_nv_ci_read(actualReadData, NFC_HAL_NV_CO_OK, block);
     } else {
       ALOGE("%s: fail to read", __func__);
@@ -132,7 +133,7 @@ void nfc_hal_nv_co_write(const uint8_t* p_buf, uint16_t nbytes, uint8_t block) {
     unsigned short checksum = crcChecksumCompute(p_buf, nbytes);
     size_t actualWrittenCrc = write(fileStream, &checksum, sizeof(checksum));
     size_t actualWrittenData = write(fileStream, p_buf, nbytes);
-    ALOGD("%s: %d bytes written", __func__, actualWrittenData);
+    ALOGD("%s: %zu bytes written", __func__, actualWrittenData);
     if ((actualWrittenData == nbytes) &&
         (actualWrittenCrc == sizeof(checksum))) {
       nfc_hal_nv_ci_write(NFC_HAL_NV_CO_OK);

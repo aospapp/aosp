@@ -94,6 +94,10 @@ public class FocusFinderTest {
         verifyNextFocus(null, View.FOCUS_LEFT, mBottomRight);
         verifyNextFocus(null, View.FOCUS_UP, mBottomRight);
 
+        // Check that left/right traversal works when top/bottom borders are equal.
+        verifyNextFocus(mTopRight, View.FOCUS_LEFT, mTopLeft);
+        verifyNextFocus(mBottomLeft, View.FOCUS_RIGHT, mBottomRight);
+
         // Edge-case where root has focus
         mActivityRule.runOnUiThread(() -> {
             mLayout.setFocusableInTouchMode(true);
@@ -245,7 +249,7 @@ public class FocusFinderTest {
         assertTrue(nextFocus == mBottomRight || nextFocus == mBottomLeft);
     }
 
-    @Test
+    @Test(timeout = 500)
     public void testChainVisibility() {
         mBottomRight.setNextFocusForwardId(mBottomLeft.getId());
         mBottomLeft.setNextFocusForwardId(mTopRight.getId());
@@ -256,6 +260,20 @@ public class FocusFinderTest {
         mBottomLeft.setNextFocusForwardId(View.NO_ID);
         next = mFocusFinder.findNextFocus(mLayout, mBottomRight, View.FOCUS_FORWARD);
         assertSame(mTopLeft, next);
+
+        // This shouldn't go into an infinite loop
+        mBottomRight.setNextFocusForwardId(mTopRight.getId());
+        mTopLeft.setNextFocusForwardId(mTopRight.getId());
+        mTopRight.setNextFocusForwardId(mBottomLeft.getId());
+        mBottomLeft.setNextFocusForwardId(mTopLeft.getId());
+        mActivityRule.getActivity().runOnUiThread(() -> {
+            mTopLeft.setVisibility(View.INVISIBLE);
+            mTopRight.setVisibility(View.INVISIBLE);
+            mBottomLeft.setVisibility(View.INVISIBLE);
+            mBottomRight.setVisibility(View.INVISIBLE);
+        });
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        mFocusFinder.findNextFocus(mLayout, mBottomRight, View.FOCUS_FORWARD);
     }
 
     private void verifyNextCluster(View currentCluster, int direction, View expectedNextCluster) {
@@ -386,8 +404,8 @@ public class FocusFinderTest {
         FrameLayout layout = new FrameLayout(mLayout.getContext());
         Button button1 = new Button(mLayout.getContext());
         Button button2 = new Button(mLayout.getContext());
-        button1.setLeftTopRightBottom(0, 0, 10, 10);
-        button2.setLeftTopRightBottom(0, 0, 10, 10);
+        setViewBox(button1, 0, 0, 10, 10);
+        setViewBox(button2, 0, 0, 10, 10);
         layout.addView(button1);
         layout.addView(button2);
         View[] views = new View[]{button2, button1};
@@ -401,7 +419,7 @@ public class FocusFinderTest {
         assertEquals(button2, views[0]);
         assertEquals(button1, views[1]);
         // make sure it will actually mutate input array.
-        button2.setLeftTopRightBottom(20, 0, 30, 10);
+        setViewBox(button2, 20, 0, 30, 10);
         FocusFinder.sort(views, 0, 2, layout, false);
         assertEquals(button1, views[0]);
         assertEquals(button2, views[1]);
@@ -427,5 +445,12 @@ public class FocusFinderTest {
         verifyNextFocus(mTopLeft, View.FOCUS_FORWARD, mTopRight);
         verifyNextFocus(mTopRight, View.FOCUS_FORWARD, mBottomLeft);
         verifyNextFocus(mBottomLeft, View.FOCUS_FORWARD, mBottomRight);
+    }
+
+    private void setViewBox(View view, int left, int top, int right, int bottom) {
+        view.setLeft(left);
+        view.setTop(top);
+        view.setRight(right);
+        view.setBottom(bottom);
     }
 }

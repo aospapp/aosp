@@ -37,12 +37,12 @@ import logging
 import os
 import sys
 
+from django.db import connection as db_connection
+from django.db import transaction
 from django.db.models import Count
+from django.db.utils import DatabaseError
 
 import common
-# TODO(akeshet): Replace with monarch stats once we know how to instrument rpc
-# server with ts_mon.
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
 from autotest_lib.client.common_lib import control_data
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
@@ -65,7 +65,6 @@ from autotest_lib.server.cros.dynamic_suite import suite as SuiteBase
 from autotest_lib.server.cros.dynamic_suite import tools
 from autotest_lib.server.cros.dynamic_suite.suite import Suite
 from autotest_lib.server.lib import status_history
-from autotest_lib.site_utils import host_history
 from autotest_lib.site_utils import job_history
 from autotest_lib.site_utils import server_manager_utils
 from autotest_lib.site_utils import stable_version_utils
@@ -575,14 +574,15 @@ def get_tests_status_counts_by_job_name_label(job_name_prefix, label_name):
     """Gets the counts of all passed and failed tests from the matching jobs.
 
     @param job_name_prefix: Name prefix of the jobs to get the summary
-           from, e.g., 'butterfly-release/R40-6457.21.0/bvt-cq/'.
+           from, e.g., 'butterfly-release/r40-6457.21.0/bvt-cq/'. Prefix
+           matching is case insensitive.
     @param label_name: Label that must be set in the jobs, e.g.,
             'cros-version:butterfly-release/R40-6457.21.0'.
 
     @returns A summary of the counts of all the passed and failed tests.
     """
     job_ids = list(models.Job.objects.filter(
-            name__startswith=job_name_prefix,
+            name__istartswith=job_name_prefix,
             dependency_labels__name=label_name).values_list(
                 'pk', flat=True))
     summary = {'passed': 0, 'failed': 0}
@@ -1183,6 +1183,48 @@ def _get_image_for_job(job, hostless):
     return image
 
 
+def get_host_queue_entries_by_insert_time(
+    insert_time_after=None, insert_time_before=None, **filter_data):
+    """Like get_host_queue_entries, but using the insert index table.
+
+    @param insert_time_after: A lower bound on insert_time
+    @param insert_time_before: An upper bound on insert_time
+    @returns A sequence of nested dictionaries of host and job information.
+    """
+    assert insert_time_after is not None or insert_time_before is not None, \
+      ('Caller to get_host_queue_entries_by_insert_time must provide either'
+       ' insert_time_after or insert_time_before.')
+    # Get insert bounds on the index of the host queue entries.
+    if insert_time_after:
+        query = models.HostQueueEntryStartTimes.objects.filter(
+            # Note: '-insert_time' means descending. We want the largest
+            # insert time smaller than the insert time.
+            insert_time__lte=insert_time_after).order_by('-insert_time')
+        try:
+            constraint = query[0].highest_hqe_id
+            if 'id__gte' in filter_data:
+                constraint = max(constraint, filter_data['id__gte'])
+            filter_data['id__gte'] = constraint
+        except IndexError:
+            pass
+
+    # Get end bounds.
+    if insert_time_before:
+        query = models.HostQueueEntryStartTimes.objects.filter(
+            insert_time__gte=insert_time_before).order_by('insert_time')
+        try:
+            constraint = query[0].highest_hqe_id
+            if 'id__lte' in filter_data:
+                constraint = min(constraint, filter_data['id__lte'])
+            filter_data['id__lte'] = constraint
+        except IndexError:
+            pass
+
+    return rpc_utils.prepare_rows_as_nested_dicts(
+            models.HostQueueEntry.query_objects(filter_data),
+            ('host', 'job'))
+
+
 def get_host_queue_entries(start_time=None, end_time=None, **filter_data):
     """\
     @returns A sequence of nested dictionaries of host and job information.
@@ -1552,6 +1594,15 @@ def get_server_time():
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 
 
+def ping_db():
+    """Simple connection test to db"""
+    try:
+        db_connection.cursor()
+    except DatabaseError:
+        return [False]
+    return [True]
+
+
 def get_hosts_by_attribute(attribute, value):
     """
     Get the list of valid hosts that share the same host attribute value.
@@ -1600,14 +1651,9 @@ def _get_control_file_by_build(build, ds, suite_name):
     """
     getter = control_file_getter.DevServerGetter.create(build, ds)
     devserver_name = ds.hostname
-    timer = autotest_stats.Timer('control_files.parse.%s.%s' %
-                                 (devserver_name.replace('.', '_'),
-                                  suite_name.rsplit('.')[-1]))
     # Get the control file for the suite.
     try:
-        with timer:
-            control_file_in = getter.get_control_file_contents_by_name(
-                    suite_name)
+        control_file_in = getter.get_control_file_contents_by_name(suite_name)
     except error.CrosDynamicSuiteException as e:
         raise type(e)('Failed to get control file for %s '
                       '(devserver: %s) (error: %s)' %
@@ -1658,11 +1704,8 @@ def _stage_build_artifacts(build, hostname=None):
     ds = dev_server.resolve(build, hostname=hostname)
     ds_name = ds.hostname
     timings[constants.DOWNLOAD_STARTED_TIME] = formatted_now()
-    timer = autotest_stats.Timer('control_files.stage.%s' % (
-            ds_name.replace('.', '_')))
     try:
-        with timer:
-            ds.stage_artifacts(image=build, artifacts=['test_suites'])
+        ds.stage_artifacts(image=build, artifacts=['test_suites'])
     except dev_server.DevServerException as e:
         raise error.StageControlFileFailure(
                 "Failed to stage %s on %s: %s" % (build, ds_name, e))
@@ -1868,35 +1911,9 @@ def get_job_history(**filter_data):
 
 
 def get_host_history(start_time, end_time, hosts=None, board=None, pool=None):
-    """Get history of a list of host.
-
-    The return is a JSON string of host history for each host, for example,
-    {'172.22.33.51': [{'status': 'Resetting'
-                       'start_time': '2014-08-07 10:02:16',
-                       'end_time': '2014-08-07 10:03:16',
-                       'log_url': 'http://autotest/reset-546546/debug',
-                       'dbg_str': 'Task: Special Task 19441991 (host ...)'},
-                       {'status': 'Running'
-                       'start_time': '2014-08-07 10:03:18',
-                       'end_time': '2014-08-07 10:13:00',
-                       'log_url': 'http://autotest/reset-546546/debug',
-                       'dbg_str': 'HQE: 15305005, for job: 14995562'}
-                     ]
-    }
-    @param start_time: start time to search for history, can be string value or
-                       epoch time.
-    @param end_time: end time to search for history, can be string value or
-                     epoch time.
-    @param hosts: A list of hosts to search for history. Default is None.
-    @param board: board type of hosts. Default is None.
-    @param pool: pool type of hosts. Default is None.
-    @returns: JSON string of the host history.
-    """
-    return rpc_utils.prepare_for_serialization(
-            host_history.get_history_details(
-                    start_time=start_time, end_time=end_time,
-                    hosts=hosts, board=board, pool=pool,
-                    process_pool_size=4))
+    """Deprecated."""
+    raise ValueError('get_host_history rpc is deprecated '
+                     'and no longer implemented.')
 
 
 def shard_heartbeat(shard_hostname, jobs=(), hqes=(), known_job_ids=(),
@@ -1948,25 +1965,24 @@ def shard_heartbeat(shard_hostname, jobs=(), hqes=(), known_job_ids=(),
     # A NOT IN query with 5000 ids took about 30ms in tests made.
     # These numbers seem low enough to outweigh the disadvantages of the
     # solutions described above.
-    timer = autotest_stats.Timer('shard_heartbeat')
-    with timer:
-        shard_obj = rpc_utils.retrieve_shard(shard_hostname=shard_hostname)
-        rpc_utils.persist_records_sent_from_shard(shard_obj, jobs, hqes)
-        assert len(known_host_ids) == len(known_host_statuses)
-        for i in range(len(known_host_ids)):
-            host_model = models.Host.objects.get(pk=known_host_ids[i])
-            if host_model.status != known_host_statuses[i]:
-                host_model.status = known_host_statuses[i]
-                host_model.save()
+    shard_obj = rpc_utils.retrieve_shard(shard_hostname=shard_hostname)
+    rpc_utils.persist_records_sent_from_shard(shard_obj, jobs, hqes)
+    assert len(known_host_ids) == len(known_host_statuses)
+    for i in range(len(known_host_ids)):
+        host_model = models.Host.objects.get(pk=known_host_ids[i])
+        if host_model.status != known_host_statuses[i]:
+            host_model.status = known_host_statuses[i]
+            host_model.save()
 
-        hosts, jobs, suite_keyvals = rpc_utils.find_records_for_shard(
-                shard_obj, known_job_ids=known_job_ids,
-                known_host_ids=known_host_ids)
-        return {
-            'hosts': [host.serialize() for host in hosts],
-            'jobs': [job.serialize() for job in jobs],
-            'suite_keyvals': [kv.serialize() for kv in suite_keyvals],
-        }
+    hosts, jobs, suite_keyvals, inc_ids = rpc_utils.find_records_for_shard(
+            shard_obj, known_job_ids=known_job_ids,
+            known_host_ids=known_host_ids)
+    return {
+        'hosts': [host.serialize() for host in hosts],
+        'jobs': [job.serialize() for job in jobs],
+        'suite_keyvals': [kv.serialize() for kv in suite_keyvals],
+        'incorrect_host_ids': [int(i) for i in inc_ids],
+    }
 
 
 def get_shards(**filter_data):
@@ -2062,6 +2078,30 @@ def add_board_to_shard(hostname, labels):
     return shard.id
 
 
+# Remove board RPCs are rare, so we can afford to make them a bit more
+# expensive (by performing in a transaction) in order to guarantee
+# atomicity.
+# TODO(akeshet): If we ever update to newer version of django, we need to
+# migrate to transaction.atomic instead of commit_on_success
+@transaction.commit_on_success
+def remove_board_from_shard(hostname, label):
+    """Remove board from the given shard.
+    @param hostname: The hostname of the shard to be changed.
+    @param labels: Board label.
+
+    @raises models.Label.DoesNotExist: If the label specified doesn't exist.
+
+    @returns: The id of the changed shard.
+    """
+    shard = models.Shard.objects.get(hostname=hostname)
+    label = models.Label.smart_get(label)
+    if label not in shard.labels.all():
+        raise error.RPCException(
+          'Cannot remove label from shard that does not belong to it.')
+    shard.labels.remove(label)
+    models.Host.objects.filter(labels__in=[label]).update(shard=None)
+
+
 def delete_shard(hostname):
     """Delete a shard and reclaim all resources from it.
 
@@ -2109,7 +2149,9 @@ def delete_shard(hostname):
                 'reboot_dut_for_shard_deletion',
                 priority=priorities.Priority.SUPER,
                 control_type='Server',
-                control_file=c, hosts=hostnames_to_lock)
+                control_file=c, hosts=hostnames_to_lock,
+                timeout_mins=10,
+                max_runtime_mins=10)
 
     # Unlock these shard-related hosts.
     dicts = {'locked': False, 'lock_time': None}

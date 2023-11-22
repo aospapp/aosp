@@ -18,6 +18,7 @@
 
 #include <sstream>
 
+#include "arch/context.h"
 #include "art_method-inl.h"
 #include "base/enums.h"
 #include "base/stl_util.h"
@@ -28,12 +29,16 @@
 #include "entrypoints/runtime_asm_entrypoints.h"
 #include "gc/accounting/bitmap-inl.h"
 #include "gc/scoped_gc_critical_section.h"
+#include "intern_table.h"
 #include "jit/jit.h"
 #include "jit/profiling_info.h"
 #include "linear_alloc.h"
 #include "mem_map.h"
 #include "oat_file-inl.h"
+#include "oat_quick_method_header.h"
+#include "object_callbacks.h"
 #include "scoped_thread_state_change-inl.h"
+#include "stack.h"
 #include "thread_list.h"
 
 namespace art {
@@ -62,9 +67,11 @@ JitCodeCache* JitCodeCache::Create(size_t initial_capacity,
   ScopedTrace trace(__PRETTY_FUNCTION__);
   CHECK_GE(max_capacity, initial_capacity);
 
-  // Generating debug information is mostly for using the 'perf' tool, which does
-  // not work with ashmem.
-  bool use_ashmem = !generate_debug_info;
+  // Generating debug information is for using the Linux perf tool on
+  // host which does not work with ashmem.
+  // Also, target linux does not support ashmem.
+  bool use_ashmem = !generate_debug_info && !kIsTargetLinux;
+
   // With 'perf', we want a 1-1 mapping between an address and a method.
   bool garbage_collect_code = !generate_debug_info;
 
@@ -85,17 +92,17 @@ JitCodeCache* JitCodeCache::Create(size_t initial_capacity,
   // We could do PC-relative addressing to avoid this problem, but that
   // would require reserving code and data area before submitting, which
   // means more windows for the code memory to be RWX.
-  MemMap* data_map = MemMap::MapAnonymous(
+  std::unique_ptr<MemMap> data_map(MemMap::MapAnonymous(
       "data-code-cache", nullptr,
       max_capacity,
-      kProtAll,
+      kProtData,
       /* low_4gb */ true,
       /* reuse */ false,
       &error_str,
-      use_ashmem);
+      use_ashmem));
   if (data_map == nullptr) {
     std::ostringstream oss;
-    oss << "Failed to create read write execute cache: " << error_str << " size=" << max_capacity;
+    oss << "Failed to create read write cache: " << error_str << " size=" << max_capacity;
     *error_msg = oss.str();
     return nullptr;
   }
@@ -124,7 +131,7 @@ JitCodeCache* JitCodeCache::Create(size_t initial_capacity,
   code_size = initial_capacity - data_size;
   DCHECK_EQ(code_size + data_size, initial_capacity);
   return new JitCodeCache(
-      code_map, data_map, code_size, data_size, max_capacity, garbage_collect_code);
+      code_map, data_map.release(), code_size, data_size, max_capacity, garbage_collect_code);
 }
 
 JitCodeCache::JitCodeCache(MemMap* code_map,
@@ -332,7 +339,8 @@ static uint8_t* GetRootTable(const void* code_ptr, uint32_t* number_of_roots = n
 // Use a sentinel for marking entries in the JIT table that have been cleared.
 // This helps diagnosing in case the compiled code tries to wrongly access such
 // entries.
-static mirror::Class* const weak_sentinel = reinterpret_cast<mirror::Class*>(0x1);
+static mirror::Class* const weak_sentinel =
+    reinterpret_cast<mirror::Class*>(Context::kBadGprBase + 0xff);
 
 // Helper for the GC to process a weak class in a JIT root table.
 static inline void ProcessWeakClass(GcRoot<mirror::Class>* root_ptr,
@@ -414,7 +422,7 @@ void JitCodeCache::FreeAllMethodHeaders(
     const std::unordered_set<OatQuickMethodHeader*>& method_headers) {
   {
     MutexLock mu(Thread::Current(), *Locks::cha_lock_);
-    Runtime::Current()->GetClassHierarchyAnalysis()
+    Runtime::Current()->GetClassLinker()->GetClassHierarchyAnalysis()
         ->RemoveDependentsWithMethodHeaders(method_headers);
   }
 
@@ -524,6 +532,18 @@ void JitCodeCache::CopyInlineCacheInto(const InlineCache& ic,
   }
 }
 
+static void ClearMethodCounter(ArtMethod* method, bool was_warm) {
+  if (was_warm) {
+    method->AddAccessFlags(kAccPreviouslyWarm);
+  }
+  // We reset the counter to 1 so that the profile knows that the method was executed at least once.
+  // This is required for layout purposes.
+  // We also need to make sure we'll pass the warmup threshold again, so we set to 0 if
+  // the warmup threshold is 1.
+  uint16_t jit_warmup_threshold = Runtime::Current()->GetJITOptions()->GetWarmupThreshold();
+  method->SetCounter(std::min(jit_warmup_threshold - 1, 1));
+}
+
 uint8_t* JitCodeCache::CommitCodeInternal(Thread* self,
                                           ArtMethod* method,
                                           uint8_t* stack_map,
@@ -595,11 +615,10 @@ uint8_t* JitCodeCache::CommitCodeInternal(Thread* self,
     bool single_impl_still_valid = true;
     for (ArtMethod* single_impl : cha_single_implementation_list) {
       if (!single_impl->HasSingleImplementation()) {
-        // We simply discard the compiled code. Clear the
-        // counter so that it may be recompiled later. Hopefully the
-        // class hierarchy will be more stable when compilation is retried.
+        // Simply discard the compiled code. Clear the counter so that it may be recompiled later.
+        // Hopefully the class hierarchy will be more stable when compilation is retried.
         single_impl_still_valid = false;
-        method->ClearCounter();
+        ClearMethodCounter(method, /*was_warm*/ false);
         break;
       }
     }
@@ -613,7 +632,7 @@ uint8_t* JitCodeCache::CommitCodeInternal(Thread* self,
         << "Should not be using cha on debuggable apps/runs!";
 
     for (ArtMethod* single_impl : cha_single_implementation_list) {
-      Runtime::Current()->GetClassHierarchyAnalysis()->AddDependency(
+      Runtime::Current()->GetClassLinker()->GetClassHierarchyAnalysis()->AddDependency(
           single_impl, method, method_header);
     }
 
@@ -669,6 +688,57 @@ uint8_t* JitCodeCache::CommitCodeInternal(Thread* self,
 size_t JitCodeCache::CodeCacheSize() {
   MutexLock mu(Thread::Current(), lock_);
   return CodeCacheSizeLocked();
+}
+
+bool JitCodeCache::RemoveMethod(ArtMethod* method, bool release_memory) {
+  MutexLock mu(Thread::Current(), lock_);
+  if (method->IsNative()) {
+    return false;
+  }
+
+  bool in_cache = false;
+  {
+    ScopedCodeCacheWrite ccw(code_map_.get());
+    for (auto code_iter = method_code_map_.begin(); code_iter != method_code_map_.end();) {
+      if (code_iter->second == method) {
+        if (release_memory) {
+          FreeCode(code_iter->first);
+        }
+        code_iter = method_code_map_.erase(code_iter);
+        in_cache = true;
+        continue;
+      }
+      ++code_iter;
+    }
+  }
+
+  bool osr = false;
+  auto code_map = osr_code_map_.find(method);
+  if (code_map != osr_code_map_.end()) {
+    osr_code_map_.erase(code_map);
+    osr = true;
+  }
+
+  if (!in_cache) {
+    return false;
+  }
+
+  ProfilingInfo* info = method->GetProfilingInfo(kRuntimePointerSize);
+  if (info != nullptr) {
+    auto profile = std::find(profiling_infos_.begin(), profiling_infos_.end(), info);
+    DCHECK(profile != profiling_infos_.end());
+    profiling_infos_.erase(profile);
+  }
+  method->SetProfilingInfo(nullptr);
+  method->ClearCounter();
+  Runtime::Current()->GetInstrumentation()->UpdateMethodsCode(
+      method, GetQuickToInterpreterBridge());
+  VLOG(jit)
+      << "JIT removed (osr=" << std::boolalpha << osr << std::noboolalpha << ") "
+      << ArtMethod::PrettyMethod(method) << "@" << method
+      << " ccache_size=" << PrettySize(CodeCacheSizeLocked()) << ": "
+      << " dcache_size=" << PrettySize(DataCacheSizeLocked());
+  return true;
 }
 
 // This notifies the code cache that the given method has been redefined and that it should remove
@@ -1068,7 +1138,7 @@ void JitCodeCache::DoCollection(Thread* self, bool collect_profiling_info) {
           info->SetSavedEntryPoint(nullptr);
           // We are going to move this method back to interpreter. Clear the counter now to
           // give it a chance to be hot again.
-          info->GetMethod()->ClearCounter();
+          ClearMethodCounter(info->GetMethod(), /*was_warm*/ true);
         }
       }
     } else if (kIsDebugBuild) {
@@ -1292,12 +1362,12 @@ void JitCodeCache::GetProfiledMethods(const std::set<std::string>& dex_base_loca
     // If the inline cache is empty the compiler will generate a regular invoke virtual/interface.
     if (method->GetCounter() < jit_compile_threshold) {
       methods.emplace_back(/*ProfileMethodInfo*/
-          dex_file, method->GetDexMethodIndex(), inline_caches);
+          MethodReference(dex_file, method->GetDexMethodIndex()), inline_caches);
       continue;
     }
 
     for (size_t i = 0; i < info->number_of_inline_caches_; ++i) {
-      std::vector<ProfileMethodInfo::ProfileClassReference> profile_classes;
+      std::vector<TypeReference> profile_classes;
       const InlineCache& cache = info->cache_[i];
       ArtMethod* caller = info->GetMethod();
       bool is_missing_types = false;
@@ -1349,7 +1419,7 @@ void JitCodeCache::GetProfiledMethods(const std::set<std::string>& dex_base_loca
       }
     }
     methods.emplace_back(/*ProfileMethodInfo*/
-        dex_file, method->GetDexMethodIndex(), inline_caches);
+        MethodReference(dex_file, method->GetDexMethodIndex()), inline_caches);
   }
 }
 
@@ -1375,10 +1445,9 @@ bool JitCodeCache::NotifyCompilationOf(ArtMethod* method, Thread* self, bool osr
   ProfilingInfo* info = method->GetProfilingInfo(kRuntimePointerSize);
   if (info == nullptr) {
     VLOG(jit) << method->PrettyMethod() << " needs a ProfilingInfo to be compiled";
-    // Because the counter is not atomic, there are some rare cases where we may not
-    // hit the threshold for creating the ProfilingInfo. Reset the counter now to
-    // "correct" this.
-    method->ClearCounter();
+    // Because the counter is not atomic, there are some rare cases where we may not hit the
+    // threshold for creating the ProfilingInfo. Reset the counter now to "correct" this.
+    ClearMethodCounter(method, /*was_warm*/ false);
     return false;
   }
 
@@ -1430,12 +1499,11 @@ void JitCodeCache::InvalidateCompiledCodeFor(ArtMethod* method,
   }
 
   if (method->GetEntryPointFromQuickCompiledCode() == header->GetEntryPoint()) {
-    // The entrypoint is the one to invalidate, so we just update
-    // it to the interpreter entry point and clear the counter to get the method
-    // Jitted again.
+    // The entrypoint is the one to invalidate, so we just update it to the interpreter entry point
+    // and clear the counter to get the method Jitted again.
     Runtime::Current()->GetInstrumentation()->UpdateMethodsCode(
         method, GetQuickToInterpreterBridge());
-    method->ClearCounter();
+    ClearMethodCounter(method, /*was_warm*/ profiling_info != nullptr);
   } else {
     MutexLock mu(Thread::Current(), lock_);
     auto it = osr_code_map_.find(method);

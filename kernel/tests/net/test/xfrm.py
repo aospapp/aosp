@@ -18,14 +18,10 @@
 
 # pylint: disable=g-bad-todo
 
-import errno
 import os
 from socket import *  # pylint: disable=wildcard-import
-import struct
 
-import csocket
 import cstruct
-import net_test
 import netlink
 
 # Base netlink constants. See include/uapi/linux/netlink.h.
@@ -134,7 +130,8 @@ XfrmLifetimeCur = cstruct.Struct(
 
 XfrmAlgo = cstruct.Struct("XfrmAlgo", "=64AI", "name key_len")
 
-XfrmAlgoAuth = cstruct.Struct("XfrmAlgo", "=64AII", "name key_len trunc_len")
+XfrmAlgoAuth = cstruct.Struct("XfrmAlgoAuth", "=64AII",
+                              "name key_len trunc_len")
 
 XfrmAlgoAead = cstruct.Struct("XfrmAlgoAead", "=64AII", "name key_len icv_len")
 
@@ -156,6 +153,9 @@ XfrmUsersaInfo = cstruct.Struct(
     "sel id saddr lft curlft stats seq reqid family mode replay_window flags",
     [XfrmSelector, XfrmId, XfrmLifetimeCfg, XfrmLifetimeCur, XfrmStats])
 
+XfrmUserSpiInfo = cstruct.Struct(
+    "XfrmUserSpiInfo", "=SII", "info min max", [XfrmUsersaInfo])
+
 XfrmUsersaId = cstruct.Struct(
     "XfrmUsersaInfo", "=16sIHBx", "daddr spi family proto")
 
@@ -163,6 +163,8 @@ XfrmUserpolicyInfo = cstruct.Struct(
     "XfrmUserpolicyInfo", "=SSSIIBBBBxxxx",
     "sel lft curlft priority index dir action flags share",
     [XfrmSelector, XfrmLifetimeCfg, XfrmLifetimeCur])
+
+XfrmUsersaFlush = cstruct.Struct("XfrmUsersaFlush", "=B", "proto")
 
 # Socket options. See include/uapi/linux/in.h.
 IP_IPSEC_POLICY = 16
@@ -178,6 +180,9 @@ UDP_ENCAP_ESPINUDP = 2
 _INF = 2 ** 64 -1
 NO_LIFETIME_CFG = XfrmLifetimeCfg((_INF, _INF, _INF, _INF, 0, 0, 0, 0))
 NO_LIFETIME_CUR = "\x00" * len(XfrmLifetimeCur)
+
+# IPsec constants.
+IPSEC_PROTO_ANY	= 255
 
 
 def RawAddress(addr):
@@ -217,6 +222,8 @@ class Xfrm(netlink.NetlinkSocket):
         struct_type = XfrmUsersaId
     elif command == XFRM_MSG_DELSA:
       struct_type = XfrmUsersaId
+    elif command == XFRM_MSG_ALLOCSPI:
+      struct_type = XfrmUserSpiInfo
     else:
       struct_type = None
 
@@ -275,12 +282,42 @@ class Xfrm(netlink.NetlinkSocket):
     flags = netlink.NLM_F_REQUEST | netlink.NLM_F_ACK
     self._SendNlRequest(XFRM_MSG_DELSA, usersa_id.Pack(), flags)
 
+  def AllocSpi(self, dst, proto, min_spi, max_spi):
+    """Allocate (reserve) an SPI.
+
+    This sends an XFRM_MSG_ALLOCSPI message and returns the resulting
+    XfrmUsersaInfo struct.
+    """
+    spi = XfrmUserSpiInfo("\x00" * len(XfrmUserSpiInfo))
+    spi.min = min_spi
+    spi.max = max_spi
+    spi.info.id.daddr = PaddedAddress(dst)
+    spi.info.id.proto = proto
+
+    msg = spi.Pack()
+    flags = netlink.NLM_F_REQUEST
+    self._SendNlRequest(XFRM_MSG_ALLOCSPI, msg, flags)
+    # Read the response message.
+    data = self._Recv()
+    nl_hdr, data = cstruct.Read(data, netlink.NLMsgHdr)
+    if nl_hdr.type == XFRM_MSG_NEWSA:
+      return XfrmUsersaInfo(data)
+    if nl_hdr.type == netlink.NLMSG_ERROR:
+      error = netlink.NLMsgErr(data).error
+      raise IOError(error, os.strerror(-error))
+    raise ValueError("Unexpected netlink message type: %d" % nl_hdr.type)
+
   def DumpSaInfo(self):
     return self._Dump(XFRM_MSG_GETSA, None, XfrmUsersaInfo, "")
 
   def FindSaInfo(self, spi):
     sainfo = [sa for sa, attrs in self.DumpSaInfo() if sa.id.spi == spi]
     return sainfo[0] if sainfo else None
+
+  def FlushSaInfo(self):
+    usersa_flush = XfrmUsersaFlush((IPSEC_PROTO_ANY,))
+    flags = netlink.NLM_F_REQUEST | netlink.NLM_F_ACK
+    self._SendNlRequest(XFRM_MSG_FLUSHSA, usersa_flush.Pack(), flags)
 
 
 if __name__ == "__main__":

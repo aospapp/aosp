@@ -6,15 +6,22 @@ cc_library {
     name: "libext2_misc",
     host_supported: true,
 
+    target: {
+        windows: {
+            include_dirs: [ "external/e2fsprogs/include/mingw" ],
+            enabled: true
+        },
+    },
+
     srcs: [
         "create_inode.c",
     ],
-    cflags: ["-W", "-Wall", "-Wno-macro-redefined"],
+    cflags: ["-W", "-Wall"],
     shared_libs: [
         "libext2_quota",
         "libext2fs",
     ],
-    system_shared_libs: ["libc"],
+    system_shared_libs: ["libc", "libdl"],
     export_include_dirs: ["."],
 }
 
@@ -30,18 +37,46 @@ cc_binary {
         "util.c",
         "mk_hugefiles.c",
         "default_profile.c",
-        "create_inode.c",
+    ],
+    required: [
+        "mke2fs.conf",
     ],
     cflags: ["-W", "-Wall", "-Wno-macro-redefined"],
-    shared_libs: [
-        "libext2fs",
-        "libext2_blkid",
-        "libext2_uuid",
-        "libext2_quota",
-        "libext2_com_err",
-        "libext2_e2p",
-    ],
-    system_shared_libs: ["libc"],
+    target: {
+        host: {
+            static_libs: [
+                "libext2_blkid",
+                "libext2_misc",
+                "libext2_uuid",
+                "libext2_quota",
+                "libext2_com_err",
+                "libext2_e2p",
+                "libext2fs",
+                "libsparse",
+                "libbase",
+                "libz",
+            ],
+        },
+        windows: {
+            include_dirs: [ "external/e2fsprogs/include/mingw" ],
+            cflags: ["-D_POSIX", "-D__USE_MINGW_ALARM"],
+            ldflags: ["-static"],
+            host_ldlibs: ["-lws2_32"],
+            enabled: true
+        },
+        android: {
+            shared_libs: [
+                "libext2fs",
+                "libext2_blkid",
+                "libext2_misc",
+                "libext2_uuid",
+                "libext2_quota",
+                "libext2_com_err",
+                "libext2_e2p",
+            ],
+        },
+    },
+    stl: "libc++_static",
     include_dirs: ["external/e2fsprogs/e2fsck"],
 }
 
@@ -78,7 +113,7 @@ cc_binary {
     defaults: ["tune2fs-defaults"],
 
     shared_libs: tune2fs_libs,
-    system_shared_libs: ["libc"],
+    system_shared_libs: ["libc", "libdl"],
 }
 
 cc_binary {
@@ -113,7 +148,7 @@ cc_binary {
         "libext2_blkid",
         "libext2_e2p",
     ],
-    system_shared_libs: ["libc"],
+    system_shared_libs: ["libc", "libdl"],
 }
 
 //########################################################################
@@ -129,7 +164,7 @@ cc_binary {
         "libext2_com_err",
         "libext2_e2p",
     ],
-    system_shared_libs: ["libc"],
+    system_shared_libs: ["libc", "libdl"],
 }
 
 //########################################################################
@@ -152,7 +187,7 @@ cc_binary {
     defaults: ["lsattr-defaults"],
 
     shared_libs: lsattr_libs,
-    system_shared_libs: ["libc"],
+    system_shared_libs: ["libc", "libdl"],
 }
 
 cc_binary {
@@ -177,7 +212,7 @@ cc_binary {
         "libext2_com_err",
         "libext2_e2p",
     ],
-    system_shared_libs: ["libc"],
+    system_shared_libs: ["libc", "libdl"],
 }
 
 //########################################################################
@@ -193,7 +228,7 @@ cc_binary {
         "libext2fs",
         "libext2_uuid",
     ],
-    system_shared_libs: ["libc"],
+    system_shared_libs: ["libc", "libdl"],
 
     target: {
         darwin: {
@@ -217,5 +252,5 @@ cc_binary {
         "libext2_com_err",
         "libext2_quota",
     ],
-    system_shared_libs: ["libc"],
+    system_shared_libs: ["libc", "libdl"],
 }

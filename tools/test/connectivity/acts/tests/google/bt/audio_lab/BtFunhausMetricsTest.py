@@ -13,6 +13,7 @@
 # the License.
 import time
 
+from acts.test_decorators import test_tracker_info
 from acts import asserts
 from acts.test_utils.bt.BtFunhausBaseTest import BtFunhausBaseTest
 
@@ -30,6 +31,7 @@ class BtFunhausMetricsTest(BtFunhausBaseTest):
     def setup_test(self):
         return super(BtFunhausMetricsTest, self).setup_test()
 
+    @test_tracker_info(uuid='b712ed0e-c1fb-4bc8-9dee-83891aa22205')
     def test_run_bt_audio(self):
         """Test run Bluetooth A2DP audio for one iteration
 
@@ -56,16 +58,14 @@ class BtFunhausMetricsTest(BtFunhausBaseTest):
         """
         play_duration_seconds = 60
         start_time = time.time()
-        status, bluetooth_off_list, device_not_connected_list = \
-            self.play_music_for_duration(play_duration_seconds)
-        if not status:
-            return status
-        self.stop_playing_music_on_all_devices()
+        if not self.play_music_for_duration(play_duration_seconds):
+            return False
+        self.ad.droid.mediaPlayStopAll()
         time.sleep(20)
         bt_duration = time.time() - start_time
         bluetooth_logs, bluetooth_logs_ascii = \
             self.collect_bluetooth_manager_metrics_logs(
-                [self.android_devices[0]])
+                [self.ad])
         bluetooth_log = bluetooth_logs[0]
         bluetooth_log_ascii = bluetooth_logs_ascii[0]
         self.log.info(bluetooth_log_ascii)
@@ -79,6 +79,7 @@ class BtFunhausMetricsTest(BtFunhausBaseTest):
             delta=10000)
         return True
 
+    @test_tracker_info(uuid='ab6b8c61-057b-4bf6-b0cf-8bec3ae3a7eb')
     def test_run_multiple_bt_audio(self):
         """Test metrics for multiple Bluetooth audio sessions
 
@@ -110,10 +111,8 @@ class BtFunhausMetricsTest(BtFunhausBaseTest):
         a2dp_duration = 0
         for i in range(num_play):
             start_time = time.time()
-            status, bluetooth_off_list, device_not_connected_list = \
-                self.play_music_for_duration(play_duration_seconds)
-            if not status:
-                return status
+            if not self.play_music_for_duration(play_duration_seconds):
+                return False
             a2dp_duration += (time.time() - start_time)
             time.sleep(20)
             bt_duration += (time.time() - start_time)
@@ -158,10 +157,8 @@ class BtFunhausMetricsTest(BtFunhausBaseTest):
         play_duration_seconds = 30
         for i in range(num_play):
             start_time = time.time()
-            status, bluetooth_off_list, device_not_connected_list = \
-                self.play_music_for_duration(play_duration_seconds)
-            if not status:
-                return status
+            if not self.play_music_for_duration(play_duration_seconds):
+                return False
             time.sleep(20)
             bt_duration = time.time() - start_time
             bluetooth_logs, bluetooth_logs_ascii = \

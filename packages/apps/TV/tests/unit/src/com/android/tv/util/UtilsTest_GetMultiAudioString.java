@@ -16,21 +16,26 @@
 
 package com.android.tv.util;
 
+import static android.support.test.InstrumentationRegistry.getTargetContext;
+import static org.junit.Assert.assertEquals;
+
 import android.content.Context;
 import android.media.tv.TvTrackInfo;
 import android.support.test.filters.SmallTest;
-import android.test.AndroidTestCase;
+
+import org.junit.Test;
 
 /**
  * Tests for {@link com.android.tv.util.Utils#getMultiAudioString}.
  */
 @SmallTest
-public class UtilsTest_GetMultiAudioString extends AndroidTestCase {
+public class UtilsTest_GetMultiAudioString {
     private static final String TRACK_ID = "test_track_id";
     private static final int AUDIO_SAMPLE_RATE = 48000;
 
+    @Test
     public void testAudioTrackLanguage() {
-        Context context = getContext();
+        Context context = getTargetContext();
         assertEquals("Korean",
                 Utils.getMultiAudioString(context, createAudioTrackInfo("kor"), false));
         assertEquals("English",
@@ -42,8 +47,9 @@ public class UtilsTest_GetMultiAudioString extends AndroidTestCase {
         assertEquals("abc", Utils.getMultiAudioString(context, createAudioTrackInfo("abc"), false));
     }
 
+    @Test
     public void testAudioTrackCount() {
-        Context context = getContext();
+        Context context = getTargetContext();
         assertEquals("English",
                 Utils.getMultiAudioString(context, createAudioTrackInfo("eng", -1), false));
         assertEquals("English",
@@ -66,11 +72,14 @@ public class UtilsTest_GetMultiAudioString extends AndroidTestCase {
                 Utils.getMultiAudioString(context, createAudioTrackInfo("eng", 8), false));
     }
 
+    @Test
     public void testShowSampleRate() {
         assertEquals("Korean (48kHz)",
-                Utils.getMultiAudioString(getContext(), createAudioTrackInfo("kor", 0), true));
+                Utils.getMultiAudioString(getTargetContext(),
+                createAudioTrackInfo("kor", 0), true));
         assertEquals("Korean (7.1 surround, 48kHz)",
-                Utils.getMultiAudioString(getContext(), createAudioTrackInfo("kor", 8), true));
+                Utils.getMultiAudioString(getTargetContext(),
+                createAudioTrackInfo("kor", 8), true));
     }
 
     private static TvTrackInfo createAudioTrackInfo(String language) {

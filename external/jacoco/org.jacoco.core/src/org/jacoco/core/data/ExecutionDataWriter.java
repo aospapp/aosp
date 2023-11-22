@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -24,7 +24,12 @@ public class ExecutionDataWriter implements ISessionInfoVisitor,
 		IExecutionDataVisitor {
 
 	/** File format version, will be incremented for each incompatible change. */
-	public static final char FORMAT_VERSION = 0x1007;
+	public static final char FORMAT_VERSION;
+
+	static {
+		// Runtime initialize to ensure javac does not inline the value.
+		FORMAT_VERSION = 0x1007;
+	}
 
 	/** Magic number in header for file format identification. */
 	public static final char MAGIC_NUMBER = 0xC0C0;
@@ -90,13 +95,15 @@ public class ExecutionDataWriter implements ISessionInfoVisitor,
 	}
 
 	public void visitClassExecution(final ExecutionData data) {
-		try {
-			out.writeByte(BLOCK_EXECUTIONDATA);
-			out.writeLong(data.getId());
-			out.writeUTF(data.getName());
-			out.writeBooleanArray(data.getProbes());
-		} catch (final IOException e) {
-			throw new RuntimeException(e);
+		if (data.hasHits()) {
+			try {
+				out.writeByte(BLOCK_EXECUTIONDATA);
+				out.writeLong(data.getId());
+				out.writeUTF(data.getName());
+				out.writeBooleanArray(data.getProbes());
+			} catch (final IOException e) {
+				throw new RuntimeException(e);
+			}
 		}
 	}
 

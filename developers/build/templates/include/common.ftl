@@ -39,7 +39,7 @@
 <#elseif (sample.compileSdkVersion)?has_content>
     <#assign compile_sdk = sample.compileSdkVersion/>
 <#else>
-    <#assign compile_sdk = "25"/>
+    <#assign compile_sdk = "26"/>
 </#if>
 <#-- Set the MinSDK version. This is more complicated than it should be, because
       the version can be either a number or a string (e.g. KeyLimePie) so we need to test
@@ -78,13 +78,13 @@
 </#macro>
 
 <#-- Set the global build tools version -->
-<#assign build_tools_version='"25.0.3"'/>
+<#assign build_tools_version='"26.0.1"'/>
 
-<#assign play_services_version="10.2.4"/>
+<#assign play_services_version="11.4.0"/>
 <#assign play_services_wearable_dependency="'com.google.android.gms:play-services-wearable:${play_services_version}'"/>
 
-<#assign android_support_v13_dependency="'com.android.support:support-v13:25.3.1'"/>
+<#assign android_support_v13_dependency="'com.android.support:support-v13:26.1.0'"/>
 
-<#assign wearable_support_dependency="'com.google.android.support:wearable:2.0.3'"/>
+<#assign wearable_support_dependency="'com.google.android.support:wearable:2.0.5'"/>
 
-<#assign wearable_support_provided_dependency="'com.google.android.wearable:wearable:2.0.3'"/>
+<#assign wearable_support_provided_dependency="'com.google.android.wearable:wearable:2.0.5'"/>

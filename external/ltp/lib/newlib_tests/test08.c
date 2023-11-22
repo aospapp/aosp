@@ -51,6 +51,8 @@ static void *worker(void *id)
 	tst_res(TINFO, "Thread %ld waiting...", (long)id);
 	pthread_barrier_wait(&barrier);
 	tst_brk(TBROK, "Failure %ld", (long)id);
+
+	return NULL;
 }
 
 static void do_test(void)

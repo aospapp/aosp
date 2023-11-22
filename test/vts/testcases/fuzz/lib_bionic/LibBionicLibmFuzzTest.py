@@ -19,21 +19,21 @@ import logging
 
 from vts.runners.host import base_test
 from vts.runners.host import test_runner
-from vts.utils.python.controllers import android_device
 
 
 class LibBionicLibmFuzzTest(base_test.BaseTestClass):
     """A fuzz testcase for a libm shared library of bionic."""
 
     def setUpClass(self):
-        self.dut = self.registerController(android_device)[0]
-        self.dut.lib.InitSharedLib(target_type="bionic_libm",
-                                   target_basepaths=["/system/lib64"],
-                                   target_version=1.0,
-                                   target_filename="libm.so",
-                                   bits=64,
-                                   handler_name="libm",
-                                   target_package="lib.ndk.bionic")
+        self.dut = self.android_devices[0]
+        self.dut.lib.InitSharedLib(
+            target_type="bionic_libm",
+            target_basepaths=["/system/lib64"],
+            target_version=1.0,
+            target_filename="libm.so",
+            bits=64,
+            handler_name="libm",
+            target_package="lib.ndk.bionic")
 
     def testFabs(self):
         """A simple testcase which just calls the fabs function."""

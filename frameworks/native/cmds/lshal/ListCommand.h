@@ -48,18 +48,26 @@ private:
     Status fetchPassthrough(const sp<::android::hidl::manager::V1_0::IServiceManager> &manager);
     Status fetchBinderized(const sp<::android::hidl::manager::V1_0::IServiceManager> &manager);
     Status fetchAllLibraries(const sp<::android::hidl::manager::V1_0::IServiceManager> &manager);
-    bool getReferencedPids(
-        pid_t serverPid, std::map<uint64_t, Pids> *objects) const;
+
+    struct PidInfo {
+        std::map<uint64_t, Pids> refPids; // pids that are referenced
+        uint32_t threadUsage; // number of threads in use
+        uint32_t threadCount; // number of threads total
+    };
+    bool getPidInfo(pid_t serverPid, PidInfo *info) const;
+
     void dumpTable();
     void dumpVintf() const;
     void printLine(
             const std::string &interfaceName,
             const std::string &transport,
             const std::string &arch,
+            const std::string &threadUsage,
             const std::string &server,
             const std::string &serverCmdline,
-            const std::string &address, const std::string &clients,
-            const std::string &clientCmdlines) const ;
+            const std::string &address,
+            const std::string &clients,
+            const std::string &clientCmdlines) const;
     // Return /proc/{pid}/cmdline if it exists, else empty string.
     const std::string &getCmdline(pid_t pid);
     // Call getCmdline on all pid in pids. If it returns empty string, the process might
@@ -85,7 +93,12 @@ private:
     // If true, calls IBase::debug(...) on each service.
     bool mEmitDebugInfo = false;
 
+    // If true, output in VINTF format.
     bool mVintf = false;
+
+    // If true, explanatory text are not emitted.
+    bool mNeat = false;
+
     // If an entry does not exist, need to ask /proc/{pid}/cmdline to get it.
     // If an entry exist but is an empty string, process might have died.
     // If an entry exist and not empty, it contains the cached content of /proc/{pid}/cmdline.

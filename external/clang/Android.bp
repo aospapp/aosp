@@ -49,6 +49,7 @@ clang_generated_headers = [
 
 cc_library_headers {
     name: "clang-headers",
+    vendor_available: true,
     host_supported: true,
     generated_headers: clang_generated_headers,
     export_include_dirs: ["include"],

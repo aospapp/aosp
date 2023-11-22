@@ -205,8 +205,10 @@ public class SendRequest extends MmsRequest {
             }
             if (sendConf != null) {
                 values.put(Telephony.Mms.RESPONSE_STATUS, sendConf.getResponseStatus());
-                values.put(Telephony.Mms.MESSAGE_ID,
-                        PduPersister.toIsoString(sendConf.getMessageId()));
+                byte[] messageId = sendConf.getMessageId();
+                if (messageId != null) {
+                    values.put(Telephony.Mms.MESSAGE_ID, PduPersister.toIsoString(messageId));
+                }
             }
             values.put(Telephony.Mms.DATE, System.currentTimeMillis() / 1000L);
             values.put(Telephony.Mms.READ, 1);

@@ -126,6 +126,15 @@ public abstract class RequesterTestActivity  extends PassFailButtons.Activity
     }
 
     @Override
+    protected void onDestroy() {
+        if (mChannel != null) {
+            mChannel.close();
+        }
+
+        super.onDestroy();
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         /*

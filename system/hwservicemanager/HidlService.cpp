@@ -2,12 +2,12 @@
 #include "HidlService.h"
 
 #include <android-base/logging.h>
+#include <hidl/HidlTransportSupport.h>
 #include <sstream>
 
 namespace android {
 namespace hidl {
 namespace manager {
-namespace V1_0 {
 namespace implementation {
 
 HidlService::HidlService(
@@ -56,10 +56,12 @@ void HidlService::addListener(const sp<IServiceNotification> &listener) {
 }
 
 bool HidlService::removeListener(const wp<IBase>& listener) {
+    using ::android::hardware::interfacesEqual;
+
     bool found = false;
 
     for (auto it = mListeners.begin(); it != mListeners.end();) {
-        if (*it == listener) {
+        if (interfacesEqual(*it, listener.promote())) {
             it = mListeners.erase(it);
             found = true;
         } else {
@@ -105,7 +107,6 @@ void HidlService::sendRegistrationNotifications() {
 }
 
 }  // namespace implementation
-}  // namespace V1_0
 }  // namespace manager
 }  // namespace hidl
 }  // namespace android

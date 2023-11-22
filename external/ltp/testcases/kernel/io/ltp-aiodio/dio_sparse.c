@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <signal.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -44,6 +45,7 @@ static void setup(void);
 static void cleanup(void);
 static void usage(void);
 static int debug = 0;
+static int fd;
 
 char *TCID = "dio_sparse";
 int TST_TOTAL = 1;
@@ -53,40 +55,27 @@ int TST_TOTAL = 1;
 /*
  * Write zeroes using O_DIRECT into sparse file.
  */
-int dio_sparse(char *filename, int align, int writesize, int filesize)
+int dio_sparse(int fd, int align, int writesize, int filesize, int offset)
 {
-	int fd;
 	void *bufptr;
 	int i, w;
 
-	fd = open(filename, O_DIRECT | O_WRONLY | O_CREAT | O_EXCL, 0600);
-
-	if (fd < 0) {
-		tst_resm(TBROK | TERRNO, "open()");
-		return 1;
-	}
-
-	SAFE_FTRUNCATE(cleanup, fd, filesize);
-
-	if (posix_memalign(&bufptr, align, writesize)) {
-		close(fd);
-		tst_resm(TBROK | TERRNO, "posix_memalign()");
+	TEST(posix_memalign(&bufptr, align, writesize));
+	if (TEST_RETURN) {
+		tst_resm(TBROK | TRERRNO, "cannot allocate aligned memory");
 		return 1;
 	}
 
 	memset(bufptr, 0, writesize);
-	for (i = 0; i < filesize;) {
+	lseek(fd, offset, SEEK_SET);
+	for (i = offset; i < filesize;) {
 		if ((w = write(fd, bufptr, writesize)) != writesize) {
 			tst_resm(TBROK | TERRNO, "write() returned %d", w);
-			close(fd);
 			return 1;
 		}
 
 		i += w;
 	}
-
-	close(fd);
-	unlink(filename);
 
 	return 0;
 }
@@ -94,7 +83,7 @@ int dio_sparse(char *filename, int align, int writesize, int filesize)
 void usage(void)
 {
 	fprintf(stderr, "usage: dio_sparse [-d] [-n children] [-s filesize]"
-		" [-w writesize]\n");
+		" [-w writesize] [-o offset]]\n");
 	exit(1);
 }
 
@@ -107,11 +96,12 @@ int main(int argc, char **argv)
 	long alignment = 512;
 	int writesize = 65536;
 	int filesize = 100 * 1024 * 1024;
+	int offset = 0;
 	int c;
 	int children_errors = 0;
 	int ret;
 
-	while ((c = getopt(argc, argv, "dw:n:a:s:")) != -1) {
+	while ((c = getopt(argc, argv, "dw:n:a:s:o:")) != -1) {
 		char *endp;
 		switch (c) {
 		case 'd':
@@ -128,6 +118,10 @@ int main(int argc, char **argv)
 		case 's':
 			filesize = strtol(optarg, &endp, 0);
 			filesize = scale_by_kmg(filesize, *endp);
+			break;
+		case 'o':
+			offset = strtol(optarg, &endp, 0);
+			offset = scale_by_kmg(offset, *endp);
 			break;
 		case 'n':
 			num_children = atoi(optarg);
@@ -148,11 +142,16 @@ int main(int argc, char **argv)
 	tst_resm(TINFO, "Dirtying free blocks");
 	dirty_freeblocks(filesize);
 
+	fd = SAFE_OPEN(cleanup, filename,
+		O_DIRECT | O_WRONLY | O_CREAT | O_EXCL, 0600);
+	SAFE_FTRUNCATE(cleanup, fd, filesize);
+
 	tst_resm(TINFO, "Starting I/O tests");
 	signal(SIGTERM, SIG_DFL);
 	for (i = 0; i < num_children; i++) {
 		switch (pid[i] = fork()) {
 		case 0:
+			SAFE_CLOSE(NULL, fd);
 			read_sparse(filename, filesize);
 			break;
 		case -1:
@@ -166,7 +165,7 @@ int main(int argc, char **argv)
 	}
 	tst_sig(FORK, DEF_HANDLER, cleanup);
 
-	ret = dio_sparse(filename, alignment, writesize, filesize);
+	ret = dio_sparse(fd, alignment, writesize, filesize, offset);
 
 	tst_resm(TINFO, "Killing childrens(s)");
 
@@ -205,5 +204,8 @@ static void setup(void)
 
 static void cleanup(void)
 {
+	if (fd > 0 && close(fd))
+		tst_resm(TWARN | TERRNO, "Failed to close file");
+
 	tst_rmdir();
 }

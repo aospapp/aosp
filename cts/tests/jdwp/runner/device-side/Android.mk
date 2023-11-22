@@ -30,6 +30,6 @@ LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util junit
 LOCAL_MODULE_TAGS := optional
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 include $(BUILD_JAVA_LIBRARY)

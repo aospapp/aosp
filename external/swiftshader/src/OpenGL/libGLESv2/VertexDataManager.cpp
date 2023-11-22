@@ -153,7 +153,7 @@ GLenum VertexDataManager::prepareVertexData(GLint start, GLsizei count, Translat
 
 				Buffer *buffer = attrib.mBoundBuffer;
 
-				if(!buffer && attrib.mPointer == nullptr)
+				if((!buffer && attrib.mPointer == nullptr) || (buffer && !buffer->data()))
 				{
 					// This is an application error that would normally result in a crash, but we catch it and return an error
 					ERR("An enabled vertex array has no buffer and no pointer.");
@@ -165,7 +165,7 @@ GLenum VertexDataManager::prepareVertexData(GLint start, GLsizei count, Translat
 				if(staticBuffer)
 				{
 					translated[i].vertexBuffer = staticBuffer;
-					translated[i].offset = firstVertexIndex * attrib.stride() + attrib.mOffset;
+					translated[i].offset = firstVertexIndex * attrib.stride() + static_cast<int>(attrib.mOffset);
 					translated[i].stride = isInstanced ? 0 : attrib.stride();
 				}
 				else
@@ -193,6 +193,7 @@ GLenum VertexDataManager::prepareVertexData(GLint start, GLsizei count, Translat
 				case GL_FIXED:          translated[i].type = sw::STREAMTYPE_FIXED;  break;
 				case GL_FLOAT:          translated[i].type = sw::STREAMTYPE_FLOAT;  break;
 				case GL_HALF_FLOAT:     translated[i].type = sw::STREAMTYPE_HALF;   break;
+				case GL_HALF_FLOAT_OES: translated[i].type = sw::STREAMTYPE_HALF;   break;
 				case GL_INT_2_10_10_10_REV:          translated[i].type = sw::STREAMTYPE_2_10_10_10_INT;  break;
 				case GL_UNSIGNED_INT_2_10_10_10_REV: translated[i].type = sw::STREAMTYPE_2_10_10_10_UINT; break;
 				default: UNREACHABLE(attrib.mType); translated[i].type = sw::STREAMTYPE_FLOAT;  break;
@@ -212,10 +213,22 @@ GLenum VertexDataManager::prepareVertexData(GLint start, GLsizei count, Translat
 
 				translated[i].vertexBuffer = mCurrentValueBuffer[i]->getResource();
 
-				translated[i].type = sw::STREAMTYPE_FLOAT;
+				switch(attrib.currentValueType())
+				{
+				case GL_INT:
+					translated[i].type = sw::STREAMTYPE_INT;
+					break;
+				case GL_UNSIGNED_INT:
+					translated[i].type = sw::STREAMTYPE_UINT;
+					break;
+				default:
+					translated[i].type = sw::STREAMTYPE_FLOAT;
+					break;
+				}
 				translated[i].count = 4;
 				translated[i].stride = 0;
 				translated[i].offset = 0;
+				translated[i].normalized = false;
 			}
 		}
 	}

@@ -7,7 +7,6 @@ import logging
 import os
 import time
 
-from autotest_lib.client.bin import site_utils
 from autotest_lib.client.bin import test
 from autotest_lib.client.bin import utils
 
@@ -32,10 +31,10 @@ class performance_Tracker(test.test):
         @returns percentage cpu used as a float.
 
         """
-        cpu_usage_start = site_utils.get_cpu_usage()
+        cpu_usage_start = utils.get_cpu_usage()
         time.sleep(MEASUREMENT_DURATION)
-        cpu_usage_end = site_utils.get_cpu_usage()
-        return site_utils.compute_active_cpu_time(cpu_usage_start,
+        cpu_usage_end = utils.get_cpu_usage()
+        return utils.compute_active_cpu_time(cpu_usage_start,
                                                       cpu_usage_end) * 100
 
 
@@ -45,8 +44,8 @@ class performance_Tracker(test.test):
         @returns percentage memory used as a float.
 
         """
-        total_memory = site_utils.get_mem_total()
-        return (total_memory - site_utils.get_mem_free()) * 100 / total_memory
+        total_memory = utils.get_mem_total()
+        return (total_memory - utils.get_mem_free()) * 100 / total_memory
 
 
     def run_once(self):

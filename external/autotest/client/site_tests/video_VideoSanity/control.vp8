@@ -23,4 +23,4 @@ DOC = """
 This test verify the media elements and video sanity.
 """
 
-job.run_test('video_VideoSanity', video_file='720_vp8.webm')
+job.run_test('video_VideoSanity', video_file='720_vp8.webm', tag='vp8')

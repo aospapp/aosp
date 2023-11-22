@@ -17,8 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="more_string" msgid="8495478259330621990">"+<xliff:g id="COUNT">%1$d</xliff:g>"</string>
-    <string name="copy_email" msgid="7869435992461603532">"ईमेल पते की प्रतिलिपि बनाएं"</string>
-    <string name="copy_number" msgid="530057841276106843">"फोन नंबर की प्रतिलिपि बनाएं"</string>
+    <string name="copy_email" msgid="7869435992461603532">"ईमेल पते को कॉपी करें"</string>
+    <string name="copy_number" msgid="530057841276106843">"फ़ोन नंबर को कॉपी करें"</string>
     <string name="action_label" msgid="1318401633653605424">"Return"</string>
     <string name="accessbility_suggestion_dropdown_opened" msgid="3231589819168382515">"संपर्क सुझाव खुले हैं"</string>
     <string name="accessbility_suggestion_dropdown_closed" msgid="5545766162855459747">"कोई सुझाव उपलब्ध नहीं"</string>

@@ -23,7 +23,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.telecom.Log;
-import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
@@ -34,10 +33,10 @@ import android.text.style.ForegroundColorSpan;
 import android.util.ArraySet;
 
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.telephony.CallerInfo;
 import com.android.server.telecom.Call;
 import com.android.server.telecom.CallState;
 import com.android.server.telecom.CallsManagerListenerBase;
+import com.android.server.telecom.HandoverState;
 import com.android.server.telecom.R;
 import com.android.server.telecom.TelecomBroadcastIntentProcessor;
 import com.android.server.telecom.components.TelecomBroadcastReceiver;
@@ -133,7 +132,8 @@ public class IncomingCallNotifier extends CallsManagerListenerBase {
     private void updateIncomingCall() {
         Optional<Call> incomingCallOp = mCalls.stream()
                 .filter(call -> call.isSelfManaged() && call.isIncoming() &&
-                        call.getState() == CallState.RINGING)
+                        call.getState() == CallState.RINGING &&
+                        call.getHandoverState() == HandoverState.HANDOVER_NONE)
                 .findFirst();
         Call incomingCall = incomingCallOp.orElse(null);
         if (incomingCall != null && mCallsManagerProxy != null &&

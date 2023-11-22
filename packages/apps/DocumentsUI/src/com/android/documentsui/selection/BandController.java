@@ -37,6 +37,7 @@ import com.android.documentsui.DirectoryReloadLock;
 import com.android.documentsui.R;
 import com.android.documentsui.base.Events.InputEvent;
 import com.android.documentsui.dirlist.DocumentsAdapter;
+import com.android.documentsui.dirlist.FocusHandler;
 import com.android.documentsui.ui.ViewAutoScroller;
 import com.android.documentsui.ui.ViewAutoScroller.ScrollActionDelegate;
 import com.android.documentsui.ui.ViewAutoScroller.ScrollDistanceDelegate;
@@ -65,6 +66,7 @@ public class BandController extends OnScrollListener {
     private final DirectoryReloadLock mLock;
     private final Runnable mViewScroller;
     private final GridModel.OnSelectionChangedListener mGridListener;
+    private final List<Runnable> mStartBandSelectListeners = new ArrayList<>();
 
     @Nullable private Rect mBounds;
     @Nullable private Point mCurrentPosition;
@@ -79,7 +81,8 @@ public class BandController extends OnScrollListener {
             SelectionManager selectionManager,
             DirectoryReloadLock lock,
             IntPredicate gridItemTester) {
-        this(new RuntimeSelectionEnvironment(view), adapter, selectionManager, lock, gridItemTester);
+        this(new RuntimeSelectionEnvironment(view), adapter, selectionManager,
+                lock, gridItemTester);
     }
 
     @VisibleForTesting
@@ -197,6 +200,14 @@ public class BandController extends OnScrollListener {
         return isActive();
     }
 
+    public void addBandSelectStartedListener(Runnable listener) {
+        mStartBandSelectListeners.add(listener);
+    }
+
+    public void removeBandSelectStartedListener(Runnable listener) {
+        mStartBandSelectListeners.remove(listener);
+    }
+
     /**
      * Handle a change in layout by cleaning up and getting rid of the old model and creating
      * a new model which will track the new layout.
@@ -275,9 +286,16 @@ public class BandController extends OnScrollListener {
         if (DEBUG) Log.d(TAG, "Starting band select @ " + origin);
 
         mLock.block();
+        notifyBandSelectStartedListeners();
         mOrigin = origin;
         mModelBuilder.run();  // Creates a new selection model.
         mModel.startSelection(mOrigin);
+    }
+
+    private void notifyBandSelectStartedListeners() {
+        for (Runnable listener : mStartBandSelectListeners) {
+            listener.run();
+        }
     }
 
     /**

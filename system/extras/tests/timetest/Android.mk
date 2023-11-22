@@ -26,6 +26,7 @@ test_src_files := \
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := time-unit-tests
+LOCAL_COMPATIBILITY_SUITE := device-tests
 LOCAL_MODULE_TAGS := tests
 LOCAL_CFLAGS += $(test_c_flags)
 LOCAL_SRC_FILES := $(test_src_files)

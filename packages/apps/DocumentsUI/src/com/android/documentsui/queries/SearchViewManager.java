@@ -35,6 +35,7 @@ import android.widget.SearchView.OnQueryTextListener;
 import com.android.documentsui.R;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.DocumentStack;
+import com.android.documentsui.base.EventHandler;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.Shared;
 
@@ -48,7 +49,7 @@ public class SearchViewManager implements
     private static final String TAG = "SearchManager";
 
     private final SearchManagerListener mListener;
-    private final CommandInterceptor mCommandProcessor;
+    private final EventHandler<String> mCommandProcessor;
 
     private @Nullable String mCurrentSearch;
     private boolean mSearchExpanded;
@@ -61,7 +62,7 @@ public class SearchViewManager implements
 
     public SearchViewManager(
             SearchManagerListener listener,
-            CommandInterceptor commandProcessor,
+            EventHandler<String> commandProcessor,
             @Nullable Bundle savedState) {
 
         assert (listener != null);
@@ -74,7 +75,7 @@ public class SearchViewManager implements
 
     public void install(Menu menu, boolean isFullBarSearch) {
         mMenu = menu;
-        mMenuItem = mMenu.findItem(R.id.menu_search);
+        mMenuItem = mMenu.findItem(R.id.option_menu_search);
         mSearchView = (SearchView) mMenuItem.getActionView();
 
         mSearchView.setOnQueryTextListener(this);

@@ -99,7 +99,8 @@ bool IsArchTheSame(ArchType arch1, ArchType arch2, bool strict_check) {
 uint64_t GetSupportedRegMask(ArchType arch) {
   switch (arch) {
     case ARCH_X86_32:
-      return ((1ULL << PERF_REG_X86_32_MAX) - 1);
+      return ((1ULL << PERF_REG_X86_32_MAX) - 1) & ~(1ULL << PERF_REG_X86_DS) &
+          ~(1ULL << PERF_REG_X86_ES) & ~(1ULL << PERF_REG_X86_FS) & ~(1ULL << PERF_REG_X86_GS);
     case ARCH_X86_64:
       return (((1ULL << PERF_REG_X86_64_MAX) - 1) & ~(1ULL << PERF_REG_X86_DS) &
               ~(1ULL << PERF_REG_X86_ES) & ~(1ULL << PERF_REG_X86_FS) & ~(1ULL << PERF_REG_X86_GS));

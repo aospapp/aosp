@@ -18,6 +18,8 @@ package android.media.cts.bitstreams;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.log.LogUtil.CLog;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -32,13 +34,14 @@ public class SupportedBitstreamsProcessor extends ReportProcessor {
     private final String mPrefix;
     private final boolean mDebugTargetDevice;
     private final Set<String> mSupportedBitstreams = new LinkedHashSet<>();
+    private final Map<String, Map<String, Boolean>> mDecodersForPath = new HashMap<>();
 
     public SupportedBitstreamsProcessor() {
         this("",false);
     }
 
     /**
-     * @param prefix only bitstreams whose relative path starts with {@code prefix}
+     * @param prefix only bitstreams whose relative paths start with {@code prefix}
      * would be processed
      * @param debugTargetDevice whether to pause {@code device} for debugging
      */
@@ -48,10 +51,24 @@ public class SupportedBitstreamsProcessor extends ReportProcessor {
     }
 
     /**
-     * @return paths of supported devices on device
+     * @return paths to bitstreams that are supported on device
      */
     public Set<String> getSupportedBitstreams() {
         return mSupportedBitstreams;
+    }
+
+    /**
+     * @return paths to all bitstreams whose relative paths start with <code>prefix</code>
+     */
+    public Set<String> getBitstreams() {
+        return mDecodersForPath.keySet();
+    }
+
+    public Map<String, Boolean> getDecoderCapabilitiesForPath(String path) {
+        if (mDecodersForPath.containsKey(path)) {
+            return mDecodersForPath.get(path);
+        }
+        return Collections.emptyMap();
     }
 
     @Override
@@ -65,11 +82,29 @@ public class SupportedBitstreamsProcessor extends ReportProcessor {
     @Override
     void process(ITestDevice device, String reportPath) throws DeviceNotAvailableException {
         mSupportedBitstreams.clear();
-        for (String path: getReportLines(device, reportPath)) {
-            if (path.isEmpty()) {
-                continue;
+        String[] lines = getReportLines(device, reportPath);
+        try {
+            for (int i = 0; i < lines.length;) {
+                String path = lines[i++];
+                int n = Integer.parseInt(lines[i++]);
+                for (int j = 0; j < n; j++) {
+                    String name = lines[i++];
+                    String status = lines[i++];
+                    boolean supported = status.equals("true");
+                    if (supported) {
+                        mSupportedBitstreams.add(path);
+                    }
+                    Map<String, Boolean> decoderCapabilities;
+                    if (mDecodersForPath.containsKey(path)) {
+                        decoderCapabilities = mDecodersForPath.get(path);
+                    } else {
+                        mDecodersForPath.put(path, decoderCapabilities = new HashMap<>());
+                    }
+                    decoderCapabilities.put(name, supported);
+                }
             }
-            mSupportedBitstreams.add(path);
+        } catch (Exception e) {
+            CLog.w(e);
         }
     }
 

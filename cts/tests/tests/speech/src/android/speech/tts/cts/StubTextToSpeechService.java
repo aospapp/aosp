@@ -16,6 +16,7 @@
 package android.speech.tts.cts;
 
 import android.media.AudioFormat;
+import android.os.ConditionVariable;
 import android.speech.tts.SynthesisCallback;
 import android.speech.tts.SynthesisRequest;
 import android.speech.tts.TextToSpeech;
@@ -33,8 +34,8 @@ import java.util.Locale;
 public class StubTextToSpeechService extends TextToSpeechService {
     private static final String LOG_TAG = "StubTextToSpeechService";
 
-    // Object that onSynthesizeText will #wait on, if set to non-null
-    public static volatile Object sSynthesizeTextWait;
+    // Object that onSynthesizeText will #block on, if set to non-null
+    public static volatile ConditionVariable sSynthesizeTextWait;
 
     private ArrayList<Locale> supportedLanguages = new ArrayList<Locale>();
     private ArrayList<Locale> supportedCountries = new ArrayList<Locale>();
@@ -79,15 +80,9 @@ public class StubTextToSpeechService extends TextToSpeechService {
             return;
         }
 
-        final Object synthesizeTextWait = sSynthesizeTextWait;
+        final ConditionVariable synthesizeTextWait = sSynthesizeTextWait;
         if (synthesizeTextWait != null) {
-            synchronized (synthesizeTextWait) {
-                try {
-                    synthesizeTextWait.wait(10000);  // 10s timeout
-                } catch (InterruptedException e) {
-                    Log.e(LOG_TAG, "onSynthesizeText wait interrupted", e);
-                }
-            }
+            synthesizeTextWait.block(10000);  // 10s timeout
         }
 
         // Ten chunks with each a time point.

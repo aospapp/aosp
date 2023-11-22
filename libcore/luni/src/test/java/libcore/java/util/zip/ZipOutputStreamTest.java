@@ -17,6 +17,7 @@
 package libcore.java.util.zip;
 
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -25,6 +26,8 @@ import java.util.Arrays;
 import java.util.Random;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
+import java.util.zip.ZipFile;
+import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 import libcore.junit.junit3.TestCaseWithRules;
 import libcore.junit.util.ResourceLeakageDetector;
@@ -96,6 +99,36 @@ public final class ZipOutputStreamTest extends TestCaseWithRules {
             out.write(new byte[1]);
             out.closeEntry();
             out.finish();
+        }
+    }
+
+    /**
+     * Test {@link ZipOutputStream#putNextEntry(ZipEntry)} that the current time will be used
+     * if the entry has no set modification time.
+     */
+    public void testPutNextEntryUsingCurrentTime() throws IOException {
+        // Zip file truncates time into 1s (before 1980) or 2s precision.
+        long timeBeforeZip = System.currentTimeMillis() / 2000 * 2000;
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        try (ZipOutputStream out = new ZipOutputStream(bos)) {
+            ZipEntry entryWithoutExplicitTime = new ZipEntry("name");
+            // We do not set a time on the entry. We expect ZipOutputStream to use the current
+            // system clock value.
+            out.putNextEntry(entryWithoutExplicitTime);
+            out.closeEntry();
+            out.finish();
+        }
+        // timeAfterZip will normally be rounded down to  1 / 2 seconds boundary as well, but this
+        // test accepts either exact or rounded-down values because the rounding behavior is outside
+        // of this test's purpose
+        long timeAfterZip = System.currentTimeMillis();
+
+        // Read it back, and check the modification time is almost the system clock value
+        try (ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(bos.toByteArray()))) {
+            ZipEntry entry = zis.getNextEntry();
+            assertEquals("name", entry.getName());
+            assertTrue(timeBeforeZip <= entry.getTime());
+            assertTrue(timeAfterZip >= entry.getTime());
         }
     }
 }

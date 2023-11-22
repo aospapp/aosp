@@ -31,6 +31,31 @@ import android.view.ViewGroup;
  * Test utilities for touch emulation.
  */
 public final class CtsTouchUtils {
+    /**
+     * Interface definition for a callback to be invoked when an event has been injected.
+     */
+    public interface EventInjectionListener {
+        /**
+         * Callback method to be invoked when a {MotionEvent#ACTION_DOWN} has been injected.
+         * @param xOnScreen X coordinate of the injected event.
+         * @param yOnScreen Y coordinate of the injected event.
+         */
+        public void onDownInjected(int xOnScreen, int yOnScreen);
+
+        /**
+         * Callback method to be invoked when a {MotionEvent#ACTION_MOVE} has been injected.
+         * @param xOnScreen X coordinates of the injected event.
+         * @param yOnScreen Y coordinates of the injected event.
+         */
+        public void onMoveInjected(int[] xOnScreen, int[] yOnScreen);
+
+        /**
+         * Callback method to be invoked when a {MotionEvent#ACTION_UP} has been injected.
+         * @param xOnScreen X coordinate of the injected event.
+         * @param yOnScreen Y coordinate of the injected event.
+         */
+        public void onUpInjected(int xOnScreen, int yOnScreen);
+    }
 
     private CtsTouchUtils() {}
 
@@ -64,9 +89,9 @@ public final class CtsTouchUtils {
         final UiAutomation uiAutomation = instrumentation.getUiAutomation();
         final long downTime = SystemClock.uptimeMillis();
 
-        injectDownEvent(uiAutomation, downTime, xOnScreen, yOnScreen);
+        injectDownEvent(uiAutomation, downTime, xOnScreen, yOnScreen, null);
         injectMoveEventForTap(uiAutomation, downTime, touchSlop, xOnScreen, yOnScreen);
-        injectUpEvent(uiAutomation, downTime, false, xOnScreen, yOnScreen);
+        injectUpEvent(uiAutomation, downTime, false, xOnScreen, yOnScreen, null);
 
         // Wait for the system to process all events in the queue
         instrumentation.waitForIdleSync();
@@ -102,12 +127,12 @@ public final class CtsTouchUtils {
         final UiAutomation uiAutomation = instrumentation.getUiAutomation();
         final long downTime = SystemClock.uptimeMillis();
 
-        injectDownEvent(uiAutomation, downTime, xOnScreen, yOnScreen);
+        injectDownEvent(uiAutomation, downTime, xOnScreen, yOnScreen, null);
         injectMoveEventForTap(uiAutomation, downTime, touchSlop, xOnScreen, yOnScreen);
-        injectUpEvent(uiAutomation, downTime, false, xOnScreen, yOnScreen);
-        injectDownEvent(uiAutomation, downTime, xOnScreen, yOnScreen);
+        injectUpEvent(uiAutomation, downTime, false, xOnScreen, yOnScreen, null);
+        injectDownEvent(uiAutomation, downTime, xOnScreen, yOnScreen, null);
         injectMoveEventForTap(uiAutomation, downTime, touchSlop, xOnScreen, yOnScreen);
-        injectUpEvent(uiAutomation, downTime, false, xOnScreen, yOnScreen);
+        injectUpEvent(uiAutomation, downTime, false, xOnScreen, yOnScreen, null);
 
         // Wait for the system to process all events in the queue
         instrumentation.waitForIdleSync();
@@ -125,26 +150,35 @@ public final class CtsTouchUtils {
     public static void emulateDragGesture(Instrumentation instrumentation,
             int dragStartX, int dragStartY, int dragAmountX, int dragAmountY) {
         emulateDragGesture(instrumentation, dragStartX, dragStartY, dragAmountX, dragAmountY,
-                2000, 20);
+                2000, 20, null);
     }
 
     private static void emulateDragGesture(Instrumentation instrumentation,
             int dragStartX, int dragStartY, int dragAmountX, int dragAmountY,
             int dragDurationMs, int moveEventCount) {
+        emulateDragGesture(instrumentation, dragStartX, dragStartY, dragAmountX, dragAmountY,
+                dragDurationMs, moveEventCount, null);
+    }
+
+    private static void emulateDragGesture(Instrumentation instrumentation,
+            int dragStartX, int dragStartY, int dragAmountX, int dragAmountY,
+            int dragDurationMs, int moveEventCount,
+            EventInjectionListener eventInjectionListener) {
         // We are using the UiAutomation object to inject events so that drag works
         // across view / window boundaries (such as for the emulated drag and drop
         // sequences)
         final UiAutomation uiAutomation = instrumentation.getUiAutomation();
         final long downTime = SystemClock.uptimeMillis();
 
-        injectDownEvent(uiAutomation, downTime, dragStartX, dragStartY);
+        injectDownEvent(uiAutomation, downTime, dragStartX, dragStartY, eventInjectionListener);
 
         // Inject a sequence of MOVE events that emulate the "move" part of the gesture
         injectMoveEventsForDrag(uiAutomation, downTime, true, dragStartX, dragStartY,
-                dragStartX + dragAmountX, dragStartY + dragAmountY, moveEventCount, dragDurationMs);
+                dragStartX + dragAmountX, dragStartY + dragAmountY, moveEventCount, dragDurationMs,
+            eventInjectionListener);
 
         injectUpEvent(uiAutomation, downTime, true, dragStartX + dragAmountX,
-                dragStartY + dragAmountY);
+                dragStartY + dragAmountY, eventInjectionListener);
 
         // Wait for the system to process all events in the queue
         instrumentation.waitForIdleSync();
@@ -175,7 +209,7 @@ public final class CtsTouchUtils {
         final UiAutomation uiAutomation = instrumentation.getUiAutomation();
         final long downTime = SystemClock.uptimeMillis();
 
-        injectDownEvent(uiAutomation, downTime, coordinates.get(0).x, coordinates.get(0).y);
+        injectDownEvent(uiAutomation, downTime, coordinates.get(0).x, coordinates.get(0).y, null);
 
         // Move to each coordinate.
         for (int i = 0; i < coordinatesSize - 1; i++) {
@@ -188,25 +222,30 @@ public final class CtsTouchUtils {
                     coordinates.get(i + 1).x,
                     coordinates.get(i + 1).y,
                     moveEventCount,
-                    dragDurationMs);
+                    dragDurationMs,
+                    null);
         }
 
         injectUpEvent(uiAutomation,
                 downTime,
                 true,
                 coordinates.get(coordinatesSize - 1).x,
-                coordinates.get(coordinatesSize - 1).y);
+                coordinates.get(coordinatesSize - 1).y,
+                null);
 
         // Wait for the system to process all events in the queue
         instrumentation.waitForIdleSync();
     }
 
     private static long injectDownEvent(UiAutomation uiAutomation, long downTime, int xOnScreen,
-            int yOnScreen) {
+            int yOnScreen, EventInjectionListener eventInjectionListener) {
         MotionEvent eventDown = MotionEvent.obtain(
                 downTime, downTime, MotionEvent.ACTION_DOWN, xOnScreen, yOnScreen, 1);
         eventDown.setSource(InputDevice.SOURCE_TOUCHSCREEN);
         uiAutomation.injectInputEvent(eventDown, true);
+        if (eventInjectionListener != null) {
+            eventInjectionListener.onDownInjected(xOnScreen, yOnScreen);
+        }
         eventDown.recycle();
         return downTime;
     }
@@ -222,7 +261,7 @@ public final class CtsTouchUtils {
 
     private static void injectMoveEventsForDrag(UiAutomation uiAutomation, long downTime,
             boolean useCurrentEventTime, int dragStartX, int dragStartY, int dragEndX, int dragEndY,
-            int moveEventCount, int dragDurationMs) {
+            int moveEventCount, int dragDurationMs, EventInjectionListener eventInjectionListener) {
         final int dragAmountX = dragEndX - dragStartX;
         final int dragAmountY = dragEndY - dragStartY;
         final int sleepTime = dragDurationMs / moveEventCount;
@@ -242,10 +281,18 @@ public final class CtsTouchUtils {
             // to be spaced at 10 millisecond intervals, interpolating the coordinates from the
             // last generated MOVE event to our current one.
             int historyEventCount = (int) ((eventTime - prevEventTime) / 10);
+            int[] xCoordsForListener = (eventInjectionListener == null) ? null :
+                    new int[Math.max(1, historyEventCount)];
+            int[] yCoordsForListener = (eventInjectionListener == null) ? null :
+                    new int[Math.max(1, historyEventCount)];
             MotionEvent eventMove = null;
             if (historyEventCount == 0) {
                 eventMove = MotionEvent.obtain(
                         downTime, eventTime, MotionEvent.ACTION_MOVE, moveX, moveY, 1);
+                if (eventInjectionListener != null) {
+                    xCoordsForListener[0] = moveX;
+                    yCoordsForListener[0] = moveY;
+                }
             } else {
                 final int prevMoveX = dragStartX + dragAmountX * i / moveEventCount;
                 final int prevMoveY = dragStartY + dragAmountY * i / moveEventCount;
@@ -266,11 +313,18 @@ public final class CtsTouchUtils {
                         // and then add to it
                         eventMove.addBatch(stepEventTime, stepMoveX, stepMoveY, 1.0f, 1.0f, 1);
                     }
+                    if (eventInjectionListener != null) {
+                        xCoordsForListener[historyIndex] = stepMoveX;
+                        yCoordsForListener[historyIndex] = stepMoveY;
+                    }
                 }
             }
 
             eventMove.setSource(InputDevice.SOURCE_TOUCHSCREEN);
             uiAutomation.injectInputEvent(eventMove, true);
+            if (eventInjectionListener != null) {
+                eventInjectionListener.onMoveInjected(xCoordsForListener, yCoordsForListener);
+            }
             eventMove.recycle();
             prevEventTime = eventTime;
 
@@ -280,12 +334,16 @@ public final class CtsTouchUtils {
     }
 
     private static void injectUpEvent(UiAutomation uiAutomation, long downTime,
-            boolean useCurrentEventTime, int xOnScreen, int yOnScreen) {
+            boolean useCurrentEventTime, int xOnScreen, int yOnScreen,
+            EventInjectionListener eventInjectionListener) {
         long eventTime = useCurrentEventTime ? SystemClock.uptimeMillis() : downTime;
         MotionEvent eventUp = MotionEvent.obtain(
                 downTime, eventTime, MotionEvent.ACTION_UP, xOnScreen, yOnScreen, 1);
         eventUp.setSource(InputDevice.SOURCE_TOUCHSCREEN);
         uiAutomation.injectInputEvent(eventUp, true);
+        if (eventInjectionListener != null) {
+            eventInjectionListener.onUpInjected(xOnScreen, yOnScreen);
+        }
         eventUp.recycle();
     }
 
@@ -300,6 +358,22 @@ public final class CtsTouchUtils {
      */
     public static int emulateFlingGesture(Instrumentation instrumentation,
             View view, boolean isDownwardsFlingGesture) {
+        return emulateFlingGesture(instrumentation, view, isDownwardsFlingGesture, null);
+    }
+
+    /**
+     * Emulates a fling gesture across the horizontal center of the passed view.
+     *
+     * @param instrumentation the instrumentation used to run the test
+     * @param view the view to fling
+     * @param isDownwardsFlingGesture if <code>true</code>, the emulated fling will
+     *      be a downwards gesture
+     * @param eventInjectionListener optional listener to notify about the injected events
+     * @return The vertical amount of emulated fling in pixels
+     */
+    public static int emulateFlingGesture(Instrumentation instrumentation,
+            View view, boolean isDownwardsFlingGesture,
+            EventInjectionListener eventInjectionListener) {
         final ViewConfiguration configuration = ViewConfiguration.get(view.getContext());
         final int flingVelocity = (configuration.getScaledMinimumFlingVelocity() +
                 configuration.getScaledMaximumFlingVelocity()) / 2;
@@ -320,7 +394,8 @@ public final class CtsTouchUtils {
         final int durationMs = (1000 * viewHeight) / (2 * flingVelocity);
 
         // And do the same event injection sequence as our generic drag gesture
-        emulateDragGesture(instrumentation, x, startY, 0, amountY, durationMs, durationMs / 16);
+        emulateDragGesture(instrumentation, x, startY, 0, amountY, durationMs, durationMs / 16,
+            eventInjectionListener);
 
         return amountY;
     }
@@ -480,11 +555,11 @@ public final class CtsTouchUtils {
         final UiAutomation uiAutomation = instrumentation.getUiAutomation();
         final long downTime = SystemClock.uptimeMillis();
 
-        injectDownEvent(uiAutomation, downTime, xOnScreen, yOnScreen);
+        injectDownEvent(uiAutomation, downTime, xOnScreen, yOnScreen, null);
         injectMoveEventForTap(uiAutomation, downTime, touchSlop, xOnScreen, yOnScreen);
         SystemClock.sleep((long) (ViewConfiguration.getLongPressTimeout() * 1.5f) + extraWaitMs);
         if (upGesture) {
-            injectUpEvent(uiAutomation, downTime, false, xOnScreen, yOnScreen);
+            injectUpEvent(uiAutomation, downTime, false, xOnScreen, yOnScreen, null);
         }
 
         // Wait for the system to process all events in the queue

@@ -157,14 +157,17 @@ uint32_t constructBuildChecksum(uint8_t const *bitcode, size_t bitcodeSize,
 
 #ifdef __LP64__
 #define SYSLIBPATH "/system/lib64"
+#define SYSLIBPATH_VNDK "/system/lib64/vndk-sp"
 #define SYSLIBPATH_BC "/system/lib64"
 #define SYSLIBPATH_VENDOR "/system/vendor/lib64"
 #elif defined(BUILD_ARM_FOR_X86) && defined(__arm__)
 #define SYSLIBPATH "/system/lib/arm"
+#define SYSLIBPATH_VNDK "/system/lib/arm/vndk-sp"
 #define SYSLIBPATH_BC "/system/lib"
 #define SYSLIBPATH_VENDOR "/system/vendor/lib/arm"
 #else
 #define SYSLIBPATH "/system/lib"
+#define SYSLIBPATH_VNDK "/system/lib/vndk-sp"
 #define SYSLIBPATH_BC "/system/lib"
 #define SYSLIBPATH_VENDOR "/system/vendor/lib"
 #endif

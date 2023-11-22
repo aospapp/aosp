@@ -55,10 +55,10 @@ public class TunerDebug {
         return LazyHolder.INSTANCE;
     }
 
-    public static void notifyVideoFrameDrop(long delta) {
+    public static void notifyVideoFrameDrop(int count, long delta) {
         // TODO: provide timestamp mismatch information using delta
         TunerDebug sTunerDebug = getInstance();
-        sTunerDebug.mVideoFrameDrop++;
+        sTunerDebug.mVideoFrameDrop += count;
     }
 
     public static int getVideoFrameDrop() {

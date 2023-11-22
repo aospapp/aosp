@@ -27,12 +27,17 @@
 # called.
 #
 
-import errno, os, json, shutil, sys, tempfile, time
+import errno
+import json
+import os
+import sys
 
 import common
-from autotest_lib.client.bin import os_dep, utils
+from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import global_config
-from autotest_lib.tko import models, parse, utils as tko_utils
+from autotest_lib.tko import models
+from autotest_lib.tko import parse
+from autotest_lib.tko import utils as tko_utils
 from autotest_lib.tko.parsers import version_0
 
 

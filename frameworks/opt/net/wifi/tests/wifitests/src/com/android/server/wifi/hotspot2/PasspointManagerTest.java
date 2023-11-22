@@ -18,9 +18,7 @@ package com.android.server.wifi.hotspot2;
 
 import static android.net.wifi.WifiManager.ACTION_PASSPOINT_DEAUTH_IMMINENT;
 import static android.net.wifi.WifiManager.ACTION_PASSPOINT_ICON;
-import static android.net.wifi.WifiManager.ACTION_PASSPOINT_OSU_PROVIDERS_LIST;
 import static android.net.wifi.WifiManager.ACTION_PASSPOINT_SUBSCRIPTION_REMEDIATION;
-import static android.net.wifi.WifiManager.EXTRA_ANQP_ELEMENT_DATA;
 import static android.net.wifi.WifiManager.EXTRA_BSSID_LONG;
 import static android.net.wifi.WifiManager.EXTRA_DELAY;
 import static android.net.wifi.WifiManager.EXTRA_ESS;
@@ -49,10 +47,13 @@ import static org.mockito.MockitoAnnotations.initMocks;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Icon;
+import android.net.Uri;
 import android.net.wifi.EAPConstants;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiEnterpriseConfig;
+import android.net.wifi.WifiSsid;
+import android.net.wifi.hotspot2.OsuProvider;
 import android.net.wifi.hotspot2.PasspointConfiguration;
 import android.net.wifi.hotspot2.pps.Credential;
 import android.net.wifi.hotspot2.pps.HomeSp;
@@ -68,11 +69,14 @@ import com.android.server.wifi.SIMAccessor;
 import com.android.server.wifi.WifiConfigManager;
 import com.android.server.wifi.WifiConfigStore;
 import com.android.server.wifi.WifiKeyStore;
+import com.android.server.wifi.WifiMetrics;
 import com.android.server.wifi.WifiNative;
 import com.android.server.wifi.hotspot2.anqp.ANQPElement;
 import com.android.server.wifi.hotspot2.anqp.Constants.ANQPElementType;
 import com.android.server.wifi.hotspot2.anqp.DomainNameElement;
-import com.android.server.wifi.hotspot2.anqp.RawByteElement;
+import com.android.server.wifi.hotspot2.anqp.HSOsuProvidersElement;
+import com.android.server.wifi.hotspot2.anqp.I18Name;
+import com.android.server.wifi.hotspot2.anqp.OsuProviderInfo;
 import com.android.server.wifi.util.ScanResultUtil;
 
 import org.junit.Before;
@@ -87,6 +91,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -124,6 +129,7 @@ public class PasspointManagerTest {
     @Mock WifiConfigManager mWifiConfigManager;
     @Mock WifiConfigStore mWifiConfigStore;
     @Mock PasspointConfigStoreData.DataSource mDataSource;
+    @Mock WifiMetrics mWifiMetrics;
     PasspointManager mManager;
 
     /** Sets up test. */
@@ -135,7 +141,7 @@ public class PasspointManagerTest {
                 .thenReturn(mAnqpRequestManager);
         when(mObjectFactory.makeCertificateVerifier()).thenReturn(mCertVerifier);
         mManager = new PasspointManager(mContext, mWifiNative, mWifiKeyStore, mClock,
-                mSimAccessor, mObjectFactory, mWifiConfigManager, mWifiConfigStore);
+                mSimAccessor, mObjectFactory, mWifiConfigManager, mWifiConfigStore, mWifiMetrics);
         ArgumentCaptor<PasspointEventHandler.Callbacks> callbacks =
                 ArgumentCaptor.forClass(PasspointEventHandler.Callbacks.class);
         verify(mObjectFactory).makePasspointEventHandler(any(WifiNative.class),
@@ -268,6 +274,7 @@ public class PasspointManagerTest {
         scanResult.SSID = TEST_SSID;
         scanResult.BSSID = TEST_BSSID_STRING;
         scanResult.hessid = TEST_HESSID;
+        scanResult.flags = ScanResult.FLAG_PASSPOINT_NETWORK;
         return scanResult;
     }
 
@@ -288,36 +295,6 @@ public class PasspointManagerTest {
         verify(mAnqpCache).addEntry(TEST_ANQP_KEY, anqpElementMap);
         verify(mContext, never()).sendBroadcastAsUser(any(Intent.class), any(UserHandle.class),
                 any(String.class));
-    }
-
-    /**
-     * Verify that the ANQP elements will be added to the AQNP cache and an
-     * {@link WifiManager#ACTION_PASSPOINT_OSU_PROVIDER_LIST} intent will be broadcasted when
-     * receiving an ANQP response containing OSU Providers element.
-     *
-     * @throws Exception
-     */
-    @Test
-    public void anqpResponseWithOSUProviders() throws Exception {
-        Map<ANQPElementType, ANQPElement> anqpElementMap = new HashMap<>();
-        byte[] testData = new byte[] {0x12, 0x34, 0x56, 0x78};
-        anqpElementMap.put(ANQPElementType.HSOSUProviders,
-                new RawByteElement(ANQPElementType.HSOSUProviders, testData));
-
-        when(mAnqpRequestManager.onRequestCompleted(TEST_BSSID, true)).thenReturn(TEST_ANQP_KEY);
-        mCallbacks.onANQPResponse(TEST_BSSID, anqpElementMap);
-        verify(mAnqpCache).addEntry(TEST_ANQP_KEY, anqpElementMap);
-
-        // Verify the broadcast intent for OSU providers.
-        ArgumentCaptor<Intent> intent = ArgumentCaptor.forClass(Intent.class);
-        verify(mContext).sendBroadcastAsUser(intent.capture(), eq(UserHandle.ALL),
-                eq(android.Manifest.permission.ACCESS_WIFI_STATE));
-        assertEquals(ACTION_PASSPOINT_OSU_PROVIDERS_LIST, intent.getValue().getAction());
-        assertTrue(intent.getValue().getExtras().containsKey(EXTRA_BSSID_LONG));
-        assertEquals(TEST_BSSID, intent.getValue().getExtras().getLong(EXTRA_BSSID_LONG));
-        assertTrue(intent.getValue().getExtras().containsKey(EXTRA_ANQP_ELEMENT_DATA));
-        assertTrue(Arrays.equals(testData,
-                intent.getValue().getExtras().getByteArray(EXTRA_ANQP_ELEMENT_DATA)));
     }
 
     /**
@@ -436,6 +413,8 @@ public class PasspointManagerTest {
     @Test
     public void addProviderWithNullConfig() throws Exception {
         assertFalse(mManager.addOrUpdateProvider(null, TEST_CREATOR_UID));
+        verify(mWifiMetrics).incrementNumPasspointProviderInstallation();
+        verify(mWifiMetrics, never()).incrementNumPasspointProviderInstallSuccess();
     }
 
     /**
@@ -446,6 +425,8 @@ public class PasspointManagerTest {
     @Test
     public void addProviderWithEmptyConfig() throws Exception {
         assertFalse(mManager.addOrUpdateProvider(new PasspointConfiguration(), TEST_CREATOR_UID));
+        verify(mWifiMetrics).incrementNumPasspointProviderInstallation();
+        verify(mWifiMetrics, never()).incrementNumPasspointProviderInstallSuccess();
     }
 
     /**
@@ -460,6 +441,8 @@ public class PasspointManagerTest {
         // EAP-TLS not allowed for user credential.
         config.getCredential().getUserCredential().setEapType(EAPConstants.EAP_TLS);
         assertFalse(mManager.addOrUpdateProvider(config, TEST_CREATOR_UID));
+        verify(mWifiMetrics).incrementNumPasspointProviderInstallation();
+        verify(mWifiMetrics, never()).incrementNumPasspointProviderInstallSuccess();
     }
 
     /**
@@ -476,6 +459,9 @@ public class PasspointManagerTest {
         assertTrue(mManager.addOrUpdateProvider(config, TEST_CREATOR_UID));
         verifyInstalledConfig(config);
         verify(mWifiConfigManager).saveToStore(true);
+        verify(mWifiMetrics).incrementNumPasspointProviderInstallation();
+        verify(mWifiMetrics).incrementNumPasspointProviderInstallSuccess();
+        reset(mWifiMetrics);
         reset(mWifiConfigManager);
 
         // Verify content in the data source.
@@ -489,6 +475,8 @@ public class PasspointManagerTest {
         assertTrue(mManager.removeProvider(TEST_FQDN));
         verify(provider).uninstallCertsAndKeys();
         verify(mWifiConfigManager).saveToStore(true);
+        verify(mWifiMetrics).incrementNumPasspointProviderUninstallation();
+        verify(mWifiMetrics).incrementNumPasspointProviderUninstallSuccess();
         assertTrue(mManager.getProviderConfigs().isEmpty());
 
         // Verify content in the data source.
@@ -511,6 +499,9 @@ public class PasspointManagerTest {
         assertTrue(mManager.addOrUpdateProvider(config, TEST_CREATOR_UID));
         verifyInstalledConfig(config);
         verify(mWifiConfigManager).saveToStore(true);
+        verify(mWifiMetrics).incrementNumPasspointProviderInstallation();
+        verify(mWifiMetrics).incrementNumPasspointProviderInstallSuccess();
+        reset(mWifiMetrics);
         reset(mWifiConfigManager);
 
         // Verify content in the data source.
@@ -524,6 +515,8 @@ public class PasspointManagerTest {
         assertTrue(mManager.removeProvider(TEST_FQDN));
         verify(provider).uninstallCertsAndKeys();
         verify(mWifiConfigManager).saveToStore(true);
+        verify(mWifiMetrics).incrementNumPasspointProviderUninstallation();
+        verify(mWifiMetrics).incrementNumPasspointProviderUninstallSuccess();
         assertTrue(mManager.getProviderConfigs().isEmpty());
 
         // Verify content in the data source.
@@ -549,6 +542,9 @@ public class PasspointManagerTest {
         assertTrue(mManager.addOrUpdateProvider(origConfig, TEST_CREATOR_UID));
         verifyInstalledConfig(origConfig);
         verify(mWifiConfigManager).saveToStore(true);
+        verify(mWifiMetrics).incrementNumPasspointProviderInstallation();
+        verify(mWifiMetrics).incrementNumPasspointProviderInstallSuccess();
+        reset(mWifiMetrics);
         reset(mWifiConfigManager);
 
         // Verify data source content.
@@ -566,6 +562,8 @@ public class PasspointManagerTest {
         assertTrue(mManager.addOrUpdateProvider(newConfig, TEST_CREATOR_UID));
         verifyInstalledConfig(newConfig);
         verify(mWifiConfigManager).saveToStore(true);
+        verify(mWifiMetrics).incrementNumPasspointProviderInstallation();
+        verify(mWifiMetrics).incrementNumPasspointProviderInstallSuccess();
 
         // Verify data source content.
         List<PasspointProvider> newProviders = mDataSource.getProviders();
@@ -588,6 +586,8 @@ public class PasspointManagerTest {
         when(mObjectFactory.makePasspointProvider(eq(config), eq(mWifiKeyStore),
                 eq(mSimAccessor), anyLong(), eq(TEST_CREATOR_UID))).thenReturn(provider);
         assertFalse(mManager.addOrUpdateProvider(config, TEST_CREATOR_UID));
+        verify(mWifiMetrics).incrementNumPasspointProviderInstallation();
+        verify(mWifiMetrics, never()).incrementNumPasspointProviderInstallSuccess();
     }
 
     /**
@@ -601,6 +601,8 @@ public class PasspointManagerTest {
         doThrow(new GeneralSecurityException())
                 .when(mCertVerifier).verifyCaCert(any(X509Certificate.class));
         assertFalse(mManager.addOrUpdateProvider(config, TEST_CREATOR_UID));
+        verify(mWifiMetrics).incrementNumPasspointProviderInstallation();
+        verify(mWifiMetrics, never()).incrementNumPasspointProviderInstallSuccess();
     }
 
     /**
@@ -619,6 +621,8 @@ public class PasspointManagerTest {
         assertTrue(mManager.addOrUpdateProvider(config, TEST_CREATOR_UID));
         verify(mCertVerifier, never()).verifyCaCert(any(X509Certificate.class));
         verifyInstalledConfig(config);
+        verify(mWifiMetrics).incrementNumPasspointProviderInstallation();
+        verify(mWifiMetrics).incrementNumPasspointProviderInstallSuccess();
     }
 
     /**
@@ -629,6 +633,8 @@ public class PasspointManagerTest {
     @Test
     public void removeNonExistingProvider() throws Exception {
         assertFalse(mManager.removeProvider(TEST_FQDN));
+        verify(mWifiMetrics).incrementNumPasspointProviderUninstallation();
+        verify(mWifiMetrics, never()).incrementNumPasspointProviderUninstallSuccess();
     }
 
     /**
@@ -803,14 +809,140 @@ public class PasspointManagerTest {
     }
 
     /**
-     * Verify that a {@code null} will returned when trying to get a matching
-     * {@link WifiConfiguration} a {@code null} {@link ScanResult}.
+     * Verify that a {@code null} will be returned when trying to get a matching
+     * {@link WifiConfiguration} for a {@code null} {@link ScanResult}.
      *
      * @throws Exception
      */
     @Test
     public void getMatchingWifiConfigWithNullScanResult() throws Exception {
         assertNull(mManager.getMatchingWifiConfig(null));
+    }
+
+    /**
+     * Verify that a {@code null} will be returned when trying to get a matching
+     * {@link WifiConfiguration} for a {@link ScanResult} with a {@code null} BSSID.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void getMatchingWifiConfigWithNullBSSID() throws Exception {
+        ScanResult scanResult = createTestScanResult();
+        scanResult.BSSID = null;
+        assertNull(mManager.getMatchingWifiConfig(scanResult));
+    }
+
+    /**
+     * Verify that a {@code null} will be returned when trying to get a matching
+     * {@link WifiConfiguration} for a {@link ScanResult} with an invalid BSSID.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void getMatchingWifiConfigWithInvalidBSSID() throws Exception {
+        ScanResult scanResult = createTestScanResult();
+        scanResult.BSSID = "asdfdasfas";
+        assertNull(mManager.getMatchingWifiConfig(scanResult));
+    }
+
+    /**
+     * Verify that a {@code null} will be returned when trying to get a matching
+     * {@link WifiConfiguration} for a non-Passpoint AP.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void getMatchingWifiConfigForNonPasspointAP() throws Exception {
+        ScanResult scanResult = createTestScanResult();
+        scanResult.flags = 0;
+        assertNull(mManager.getMatchingWifiConfig(scanResult));
+    }
+
+    /**
+     * Verify that an empty list will be returned when retrieving OSU providers for an AP with
+     * null scan result.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void getMatchingOsuProvidersForNullScanResult() throws Exception {
+        assertTrue(mManager.getMatchingOsuProviders(null).isEmpty());
+    }
+
+    /**
+     * Verify that an empty list will be returned when retrieving OSU providers for an AP with
+     * invalid BSSID.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void getMatchingOsuProvidersForInvalidBSSID() throws Exception {
+        ScanResult scanResult = createTestScanResult();
+        scanResult.BSSID = "asdfdasfas";
+        assertTrue(mManager.getMatchingOsuProviders(scanResult).isEmpty());
+    }
+
+    /**
+     * Verify that an empty list will be returned when retrieving OSU providers for a
+     * non-Passpoint AP.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void getMatchingOsuProvidersForNonPasspointAP() throws Exception {
+        ScanResult scanResult = createTestScanResult();
+        scanResult.flags = 0;
+        assertTrue(mManager.getMatchingOsuProviders(scanResult).isEmpty());
+    }
+
+    /**
+     * Verify that an empty list will be returned when no match is found from the ANQP cache.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void getMatchingOsuProviderWithNoMatch() throws Exception {
+        when(mAnqpCache.getEntry(TEST_ANQP_KEY)).thenReturn(null);
+        assertTrue(mManager.getMatchingOsuProviders(createTestScanResult()).isEmpty());
+    }
+
+    /**
+     * Verify that an expected provider list will be returned when a match is found from
+     * the ANQP cache.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void getMatchingOsuProvidersWithMatch() throws Exception {
+        // Test data.
+        WifiSsid osuSsid = WifiSsid.createFromAsciiEncoded("Test SSID");
+        String friendlyName = "Test Provider";
+        String serviceDescription = "Dummy Service";
+        Uri serverUri = Uri.parse("https://test.com");
+        String nai = "access.test.com";
+        List<Integer> methodList = Arrays.asList(1);
+        List<I18Name> friendlyNames = Arrays.asList(
+                new I18Name(Locale.ENGLISH.getLanguage(), Locale.ENGLISH, friendlyName));
+        List<I18Name> serviceDescriptions = Arrays.asList(
+                new I18Name(Locale.ENGLISH.getLanguage(), Locale.ENGLISH, serviceDescription));
+
+        // Setup OSU providers ANQP element.
+        List<OsuProviderInfo> providerInfoList = new ArrayList<>();
+        providerInfoList.add(new OsuProviderInfo(
+                friendlyNames, serverUri, methodList, null, nai, serviceDescriptions));
+        Map<ANQPElementType, ANQPElement> anqpElementMap = new HashMap<>();
+        anqpElementMap.put(ANQPElementType.HSOSUProviders,
+                new HSOsuProvidersElement(osuSsid, providerInfoList));
+        ANQPData entry = new ANQPData(mClock, anqpElementMap);
+
+        // Setup expectation.
+        OsuProvider provider = new OsuProvider(
+                osuSsid, friendlyName, serviceDescription, serverUri, nai, methodList, null);
+        List<OsuProvider> expectedList = new ArrayList<>();
+        expectedList.add(provider);
+
+        when(mAnqpCache.getEntry(TEST_ANQP_KEY)).thenReturn(entry);
+        assertEquals(expectedList, mManager.getMatchingOsuProviders(createTestScanResult()));
     }
 
     /**
@@ -1082,5 +1214,63 @@ public class PasspointManagerTest {
         wifiConfig.enterpriseConfig.setCaCertificateAlias(caCertificateAlias);
 
         assertFalse(PasspointManager.addLegacyPasspointConfig(wifiConfig));
+    }
+
+    /**
+     * Verify that the provider's "hasEverConnected" flag will be set to true and the associated
+     * metric is updated after the provider was used to successfully connect to a Passpoint
+     * network for the first time.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void providerNetworkConnectedFirstTime() throws Exception {
+        PasspointProvider provider = addTestProvider();
+        when(provider.getHasEverConnected()).thenReturn(false);
+        mManager.onPasspointNetworkConnected(TEST_FQDN);
+        verify(provider).setHasEverConnected(eq(true));
+    }
+
+    /**
+     * Verify that the provider's "hasEverConnected" flag the associated metric is not updated
+     * after the provider was used to successfully connect to a Passpoint network for non-first
+     * time.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void providerNetworkConnectedNotFirstTime() throws Exception {
+        PasspointProvider provider = addTestProvider();
+        when(provider.getHasEverConnected()).thenReturn(true);
+        mManager.onPasspointNetworkConnected(TEST_FQDN);
+        verify(provider, never()).setHasEverConnected(anyBoolean());
+    }
+
+    /**
+     * Verify that the expected Passpoint metrics are updated when
+     * {@link PasspointManager#updateMetrics} is invoked.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void updateMetrics() throws Exception {
+        PasspointProvider provider = addTestProvider();
+
+        // Provider have not provided a successful network connection.
+        int expectedInstalledProviders = 1;
+        int expectedConnectedProviders = 0;
+        when(provider.getHasEverConnected()).thenReturn(false);
+        mManager.updateMetrics();
+        verify(mWifiMetrics).updateSavedPasspointProfiles(
+                eq(expectedInstalledProviders), eq(expectedConnectedProviders));
+        reset(provider);
+        reset(mWifiMetrics);
+
+        // Provider have provided a successful network connection.
+        expectedConnectedProviders = 1;
+        when(provider.getHasEverConnected()).thenReturn(true);
+        mManager.updateMetrics();
+        verify(mWifiMetrics).updateSavedPasspointProfiles(
+                eq(expectedInstalledProviders), eq(expectedConnectedProviders));
     }
 }

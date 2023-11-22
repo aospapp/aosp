@@ -44,7 +44,7 @@
 #include <signal.h>
 #include <errno.h>
 #include <stdio.h>
-#include <wait.h>
+#include <sys/wait.h>
 #include "ipcsem.h"
 #include "test.h"
 
@@ -61,8 +61,9 @@ int main(int argc, char *argv[])
 {
 	int status;
 	struct semid_ds buf_ds;
-
 	union semun arg;
+
+	tst_parse_opts(argc, argv, NULL, NULL);
 
 	setup();
 

@@ -17,6 +17,9 @@
 
 package com.android.cts.managedprofile;
 
+import static com.android.cts.managedprofile.DummyConnectionService.MISSED_PHONE_NUMBER;
+import static com.android.cts.managedprofile.DummyConnectionService.NORMAL_PHONE_NUMBER;
+
 import android.app.Instrumentation;
 import android.content.ComponentName;
 import android.content.Context;
@@ -36,6 +39,8 @@ import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.test.InstrumentationTestCase;
 
+import com.android.compatibility.common.util.BlockingBroadcastReceiver;
+import com.android.cts.managedprofile.MissedCallNotificationReceiver.IntentListener;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.InputStream;
@@ -43,6 +48,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 public class PhoneAccountTest extends InstrumentationTestCase {
@@ -50,8 +56,6 @@ public class PhoneAccountTest extends InstrumentationTestCase {
     static final String CALL_PROVIDER_ID = "testapps_TestConnectionService_CALL_PROVIDER_ID";
 
     private static final String COMMAND_ENABLE = "telecom set-phone-account-enabled";
-
-    private static final String PHONE_NUMBER = "886";
 
     private static final String QUERY_CALL_THROUGH_OUR_CONNECTION_SERVICE = Calls.NUMBER
             + " = ? AND " + Calls.PHONE_ACCOUNT_COMPONENT_NAME + " = ?";
@@ -95,8 +99,9 @@ public class PhoneAccountTest extends InstrumentationTestCase {
      *  properly.
      */
     private void internalTestOutgoingCall(boolean usingTelecomManager) throws Exception {
+        final String phoneNumber = NORMAL_PHONE_NUMBER;
         // Make sure no lingering values from previous runs.
-        cleanupCall(false);
+        cleanupCall(phoneNumber, false /*verifyDeletion*/);
         final Context context = getInstrumentation().getContext();
         final HandlerThread handlerThread = new HandlerThread("Observer");
         // Register the phone account.
@@ -112,32 +117,35 @@ public class PhoneAccountTest extends InstrumentationTestCase {
 
             // Place the call.
             if (usingTelecomManager) {
-                placeCallUsingTelecomManager(phoneAccountHandle);
+                placeCallUsingTelecomManager(phoneAccountHandle, phoneNumber);
             } else {
-                placeCallUsingActionCall(phoneAccountHandle);
+                placeCallUsingActionCall(phoneAccountHandle, phoneNumber);
             }
 
             // Make sure the call inserted is correct.
             boolean calllogProviderChanged = countDownLatch.await(1, TimeUnit.MINUTES);
             assertTrue(calllogProviderChanged);
-            assertCalllogInserted(Calls.OUTGOING_TYPE);
+            assertCalllogInserted(Calls.OUTGOING_TYPE, phoneNumber);
         } finally {
             handlerThread.quit();
-            cleanupCall(true /* verifyDeletion */ );
+            cleanupCall(phoneNumber, true /* verifyDeletion */ );
             unregisterPhoneAccount();
         }
     }
 
-    private void placeCallUsingTelecomManager(PhoneAccountHandle phoneAccountHandle) {
-        Uri phoneUri = Uri.fromParts(PhoneAccount.SCHEME_TEL, PHONE_NUMBER, null);
+    private void placeCallUsingTelecomManager(
+        PhoneAccountHandle phoneAccountHandle, String phoneNumber) {
+        Uri phoneUri = Uri.fromParts(
+            PhoneAccount.SCHEME_TEL, phoneNumber, null);
         Bundle extras = new Bundle();
         extras.putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, phoneAccountHandle);
         mTelecomManager.placeCall(phoneUri, extras);
     }
 
-    private void placeCallUsingActionCall(PhoneAccountHandle phoneAccountHandle) {
+    private void placeCallUsingActionCall(
+        PhoneAccountHandle phoneAccountHandle, String phoneNumber) {
         Intent intent = new Intent(Intent.ACTION_CALL);
-        intent.setData(Uri.parse("tel:" + PHONE_NUMBER));
+        intent.setData(Uri.parse("tel:" + phoneNumber));
         intent.putExtra(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, phoneAccountHandle);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         mContext.startActivity(intent);
@@ -147,8 +155,34 @@ public class PhoneAccountTest extends InstrumentationTestCase {
      *  Add an incoming call with our phone account and verify the call is inserted properly.
      */
     public void testIncomingCall() throws Exception {
+        internalTestIncomingCall(false /* missedCall */);
+    }
+
+    /**
+     *  Add an missed incoming call with our phone account and verify the call is inserted properly.
+     */
+    public void testIncomingMissedCall() throws Exception {
+        final LinkedBlockingQueue<Intent> queue = new LinkedBlockingQueue<>(1);
+        MissedCallNotificationReceiver.setIntentListener(new IntentListener() {
+            @Override
+            public void onIntentReceived(Intent intent) {
+                queue.offer(intent);
+            }
+        });
+        internalTestIncomingCall(true /* missedCall */);
+        Intent intent = queue.poll(10, TimeUnit.SECONDS);
+        assertNotNull(intent);
+        assertEquals(TelecomManager.ACTION_SHOW_MISSED_CALLS_NOTIFICATION, intent.getAction());
+        assertEquals(
+                MISSED_PHONE_NUMBER,
+                intent.getStringExtra(TelecomManager.EXTRA_NOTIFICATION_PHONE_NUMBER));
+    }
+
+    private void internalTestIncomingCall(boolean missedCall) throws Exception {
+        final String phoneNumber = missedCall ? MISSED_PHONE_NUMBER : NORMAL_PHONE_NUMBER;
+        final int callType = missedCall ? Calls.MISSED_TYPE : Calls.INCOMING_TYPE;
         // Make sure no lingering values from previous runs.
-        cleanupCall(false);
+        cleanupCall(phoneNumber, false /* verifyDeletion */ );
         final Context context = getInstrumentation().getContext();
         final HandlerThread handlerThread = new HandlerThread("Observer");
         // Register the phone account.
@@ -159,22 +193,24 @@ public class PhoneAccountTest extends InstrumentationTestCase {
             final CountDownLatch countDownLatch = new CountDownLatch(1);
             handlerThread.start();
             context.getContentResolver().registerContentObserver(Calls.CONTENT_URI, false,
-                    new CalllogContentObserver(new Handler(handlerThread.getLooper()),
-                            countDownLatch));
+                new CalllogContentObserver(new Handler(handlerThread.getLooper()),
+                    countDownLatch));
 
             // Add a incoming call.
             final Bundle bundle = new Bundle();
-            final Uri phoneUri = Uri.fromParts(PhoneAccount.SCHEME_TEL, PHONE_NUMBER, null);
+            final Uri phoneUri = Uri.fromParts(
+                PhoneAccount.SCHEME_TEL, phoneNumber, null);
             bundle.putParcelable(TelecomManager.EXTRA_INCOMING_CALL_ADDRESS, phoneUri);
+
             mTelecomManager.addNewIncomingCall(phoneAccountHandle, bundle);
 
             // Make sure the call inserted is correct.
             boolean calllogProviderChanged = countDownLatch.await(1, TimeUnit.MINUTES);
             assertTrue(calllogProviderChanged);
-            assertCalllogInserted(Calls.INCOMING_TYPE);
+            assertCalllogInserted(callType, phoneNumber);
         } finally {
             handlerThread.quit();
-            cleanupCall(true /* verifyDeletion */ );
+            cleanupCall(phoneNumber, true /* verifyDeletion */ );
             unregisterPhoneAccount();
         }
     }
@@ -183,8 +219,8 @@ public class PhoneAccountTest extends InstrumentationTestCase {
         Cursor cursor = null;
         try {
             cursor = mContext.getContentResolver()
-                    .query(Calls.CONTENT_URI, null, Calls.NUMBER + " = ?",
-                            new String[]{PHONE_NUMBER}, null);
+                    .query(Calls.CONTENT_URI, null, Calls.NUMBER + " in (?,?)",
+                            new String[]{NORMAL_PHONE_NUMBER, MISSED_PHONE_NUMBER}, null);
             assertEquals(0, cursor.getCount());
         } finally {
             if (cursor != null) {
@@ -205,17 +241,21 @@ public class PhoneAccountTest extends InstrumentationTestCase {
         assertNull(mTelecomManager.getPhoneAccount(PHONE_ACCOUNT_HANDLE));
     }
 
-    private void assertCalllogInserted(int type) {
+    private void assertCalllogInserted(int type, String phoneNumber) {
         Cursor cursor = null;
         try {
             final String connectionServiceComponentName = new ComponentName(mContext,
-                    DummyConnectionService.class).flattenToString();
+                DummyConnectionService.class).flattenToString();
             cursor = mContext.getContentResolver()
-                    .query(Calls.CONTENT_URI, null,
-                            QUERY_CALL_THROUGH_OUR_CONNECTION_SERVICE + " AND " +
-                                    Calls.TYPE + " = ?",
-                            new String[]{PHONE_NUMBER, connectionServiceComponentName,
-                                    String.valueOf(type)}, null);
+                .query(Calls.CONTENT_URI, null,
+                    QUERY_CALL_THROUGH_OUR_CONNECTION_SERVICE + " AND " +
+                        Calls.TYPE + " = ?",
+                    new String[]{
+                        phoneNumber,
+                        connectionServiceComponentName,
+                        String.valueOf(type)
+                    },
+                    null);
             assertEquals(1, cursor.getCount());
         } finally {
             if (cursor != null) {
@@ -224,12 +264,12 @@ public class PhoneAccountTest extends InstrumentationTestCase {
         }
     }
 
-    private void cleanupCall(boolean verifyDeletion) {
+    private void cleanupCall(String phoneNumber, boolean verifyDeletion) {
         final String connectionServiceComponentName = new ComponentName(mContext,
                 DummyConnectionService.class).flattenToString();
         int numRowDeleted = mContext.getContentResolver()
                 .delete(Calls.CONTENT_URI, QUERY_CALL_THROUGH_OUR_CONNECTION_SERVICE,
-                        new String[]{PHONE_NUMBER, connectionServiceComponentName});
+                        new String[]{phoneNumber, connectionServiceComponentName});
         if (verifyDeletion) {
             assertEquals(1, numRowDeleted);
         }

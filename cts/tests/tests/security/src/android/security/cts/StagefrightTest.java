@@ -45,6 +45,7 @@ import android.util.Log;
 import android.view.Surface;
 import android.webkit.cts.CtsTestServer;
 
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -72,6 +73,31 @@ public class StagefrightTest extends InstrumentationTestCase {
      to prevent merge conflicts, add K tests below this comment,
      before any existing test methods
      ***********************************************************/
+
+    @SecurityTest
+    public void testStagefright_bug_64710074() throws Exception {
+        doStagefrightTest(R.raw.bug_64710074);
+    }
+
+    @SecurityTest
+    public void testStagefright_cve_2017_0643() throws Exception {
+        doStagefrightTest(R.raw.cve_2017_0643);
+    }
+
+    @SecurityTest
+    public void testStagefright_cve_2017_0728() throws Exception {
+        doStagefrightTest(R.raw.cve_2017_0728);
+    }
+
+    @SecurityTest
+    public void testStagefright_bug_62187433() throws Exception {
+        doStagefrightTest(R.raw.bug_62187433);
+    }
+
+    @SecurityTest
+    public void testStagefrightANR_bug_62673844() throws Exception {
+        doStagefrightTestANR(R.raw.bug_62673844);
+    }
 
     @SecurityTest
     public void testStagefright_bug_37079296() throws Exception {
@@ -206,10 +232,56 @@ public class StagefrightTest extends InstrumentationTestCase {
         doStagefrightTest(R.raw.cve_2016_2429_b_27211885);
     }
 
+    @SecurityTest
+    public void testStagefright_bug_34031018() throws Exception {
+        doStagefrightTest(R.raw.bug_34031018_32bit);
+        doStagefrightTest(R.raw.bug_34031018_64bit);
+    }
+
+    /***********************************************************
+     to prevent merge conflicts, add L tests below this comment,
+     before any existing test methods
+     ***********************************************************/
+
+    @SecurityTest
+    public void testStagefright_cve_2017_0852_b_62815506() throws Exception {
+        doStagefrightTest(R.raw.cve_2017_0852_b_62815506);
+    }
+
     /***********************************************************
      to prevent merge conflicts, add M tests below this comment,
      before any existing test methods
      ***********************************************************/
+
+    @SecurityTest
+    public void testStagefright_bug_65717533() throws Exception {
+        doStagefrightTest(R.raw.bug_65717533_header_corrupt);
+    }
+
+    @SecurityTest
+    public void testStagefright_cve_2017_0857() throws Exception {
+        doStagefrightTest(R.raw.cve_2017_0857);
+    }
+
+    @SecurityTest
+    public void testStagefright_cve_2017_0600() throws Exception {
+        doStagefrightTest(R.raw.cve_2017_0600);
+    }
+
+    @SecurityTest
+    public void testStagefright_cve_2017_0599() throws Exception {
+        doStagefrightTest(R.raw.cve_2017_0599);
+    }
+
+    @SecurityTest
+    public void testStagefright_cve_2016_0842() throws Exception {
+        doStagefrightTest(R.raw.cve_2016_0842);
+    }
+
+    @SecurityTest
+    public void testStagefright_cve_2016_6712() throws Exception {
+        doStagefrightTest(R.raw.cve_2016_6712);
+    }
 
     @SecurityTest
     public void testStagefright_bug_34097672() throws Exception {
@@ -344,11 +416,6 @@ public class StagefrightTest extends InstrumentationTestCase {
         doStagefrightTest(R.raw.bug_35467107);
     }
 
-    public void testStagefright_bug_34031018() throws Exception {
-        doStagefrightTest(R.raw.bug_34031018_32bit);
-        doStagefrightTest(R.raw.bug_34031018_64bit);
-    }
-
     private void doStagefrightTest(final int rid) throws Exception {
         doStagefrightTestMediaPlayer(rid);
         doStagefrightTestMediaCodec(rid);
@@ -363,6 +430,10 @@ public class StagefrightTest extends InstrumentationTestCase {
         doStagefrightTestMediaCodec(url);
         doStagefrightTestMediaMetadataRetriever(url);
         server.shutdown();
+    }
+
+    private void doStagefrightTestANR(final int rid) throws Exception {
+        doStagefrightTestMediaPlayerANR(rid, null);
     }
 
     private Surface getDummySurface() {
@@ -418,6 +489,7 @@ public class StagefrightTest extends InstrumentationTestCase {
         public void onCompletion(MediaPlayer mp) {
             // preserve error condition, if any
             lock.lock();
+            completed = true;
             condition.signal();
             lock.unlock();
         }
@@ -437,9 +509,19 @@ public class StagefrightTest extends InstrumentationTestCase {
             return what;
         }
 
+        public boolean waitForErrorOrCompletion() throws InterruptedException {
+            lock.lock();
+            if (condition.awaitNanos(TIMEOUT_NS) <= 0) {
+                Log.d(TAG, "timed out on waiting for error or completion");
+            }
+            lock.unlock();
+            return (what != 0 && what != MediaPlayer.MEDIA_ERROR_SERVER_DIED) || completed;
+        }
+
         ReentrantLock lock = new ReentrantLock();
         Condition condition = lock.newCondition();
         int what;
+        boolean completed = false;
     }
 
     class LooperThread extends Thread {
@@ -618,6 +700,7 @@ public class StagefrightTest extends InstrumentationTestCase {
                     MediaCodecInfo.CodecCapabilities caps = info.getCapabilitiesForType(mime);
                     if (caps != null) {
                         matchingCodecs.add(info.getName());
+                        Log.i(TAG, "Found matching codec " + info.getName() + " for track " + t);
                     }
                 } catch (IllegalArgumentException e) {
                     // type is not supported
@@ -771,5 +854,218 @@ public class StagefrightTest extends InstrumentationTestCase {
                     mpcl.waitForError() == MediaPlayer.MEDIA_ERROR_SERVER_DIED);
         thr.stopLooper();
         thr.join();
+    }
+
+    public void testBug36215950() throws Exception {
+        doStagefrightTestRawBlob(R.raw.bug_36215950, "video/hevc", 320, 240);
+    }
+
+    public void testBug36816007() throws Exception {
+        doStagefrightTestRawBlob(R.raw.bug_36816007, "video/avc", 320, 240);
+    }
+
+    public void testBug36895511() throws Exception {
+        doStagefrightTestRawBlob(R.raw.bug_36895511, "video/hevc", 320, 240);
+    }
+
+    public void testBug64836894() throws Exception {
+        doStagefrightTestRawBlob(R.raw.bug_64836894, "video/avc", 320, 240);
+    }
+
+    @SecurityTest
+    public void testCve_2017_0762() throws Exception {
+        doStagefrightTestRawBlob(R.raw.cve_2017_0762, "video/hevc", 320, 240);
+    }
+
+    @SecurityTest
+    public void testCve_2017_0687() throws Exception {
+        doStagefrightTestRawBlob(R.raw.cve_2017_0687, "video/avc", 320, 240);
+    }
+
+    @SecurityTest
+    public void testBug_37930177() throws Exception {
+        doStagefrightTestRawBlob(R.raw.bug_37930177_hevc, "video/hevc", 320, 240);
+    }
+
+    private void runWithTimeout(Runnable runner, int timeout) {
+        Thread t = new Thread(runner);
+        t.start();
+        try {
+            t.join(timeout);
+        } catch (InterruptedException e) {
+            fail("operation was interrupted");
+        }
+        if (t.isAlive()) {
+            fail("operation not completed within timeout of " + timeout + "ms");
+        }
+    }
+
+    private void releaseCodec(final MediaCodec codec) {
+        runWithTimeout(new Runnable() {
+            @Override
+            public void run() {
+                codec.release();
+            }
+        }, 5000);
+    }
+
+    private void doStagefrightTestRawBlob(int rid, String mime, int initWidth, int initHeight) throws Exception {
+
+        final MediaPlayerCrashListener mpcl = new MediaPlayerCrashListener();
+        final Context context = getInstrumentation().getContext();
+        final Resources resources =  context.getResources();
+
+        LooperThread thr = new LooperThread(new Runnable() {
+            @Override
+            public void run() {
+
+                MediaPlayer mp = new MediaPlayer();
+                mp.setOnErrorListener(mpcl);
+                AssetFileDescriptor fd = null;
+                try {
+                    fd = resources.openRawResourceFd(R.raw.good);
+
+                    // the onErrorListener won't receive MEDIA_ERROR_SERVER_DIED until
+                    // setDataSource has been called
+                    mp.setDataSource(fd.getFileDescriptor(),
+                                     fd.getStartOffset(),
+                                     fd.getLength());
+                    fd.close();
+                } catch (Exception e) {
+                    // this is a known-good file, so no failure should occur
+                    fail("setDataSource of known-good file failed");
+                }
+
+                synchronized(mpcl) {
+                    mpcl.notify();
+                }
+                Looper.loop();
+                mp.release();
+            }
+        });
+        thr.start();
+        // wait until the thread has initialized the MediaPlayer
+        synchronized(mpcl) {
+            mpcl.wait();
+        }
+
+        AssetFileDescriptor fd = resources.openRawResourceFd(rid);
+        byte [] blob = new byte[(int)fd.getLength()];
+        FileInputStream fis = fd.createInputStream();
+        int numRead = fis.read(blob);
+        fis.close();
+        //Log.i("@@@@", "read " + numRead + " bytes");
+
+        // find all the available decoders for this format
+        ArrayList<String> matchingCodecs = new ArrayList<String>();
+        int numCodecs = MediaCodecList.getCodecCount();
+        for (int i = 0; i < numCodecs; i++) {
+            MediaCodecInfo info = MediaCodecList.getCodecInfoAt(i);
+            if (info.isEncoder()) {
+                continue;
+            }
+            try {
+                MediaCodecInfo.CodecCapabilities caps = info.getCapabilitiesForType(mime);
+                if (caps != null) {
+                    matchingCodecs.add(info.getName());
+                }
+            } catch (IllegalArgumentException e) {
+                // type is not supported
+            }
+        }
+
+        if (matchingCodecs.size() == 0) {
+            Log.w(TAG, "no codecs for mime type " + mime);
+        }
+        String rname = resources.getResourceEntryName(rid);
+        // decode this blob once with each matching codec
+        for (String codecName: matchingCodecs) {
+            Log.i(TAG, "Decoding blob " + rname + " using codec " + codecName);
+            MediaCodec codec = MediaCodec.createByCodecName(codecName);
+            MediaFormat format = MediaFormat.createVideoFormat(mime, initWidth, initHeight);
+            codec.configure(format, null, null, 0);
+            codec.start();
+
+            try {
+                MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+                ByteBuffer [] inputBuffers = codec.getInputBuffers();
+                // enqueue the bad data a number of times, in case
+                // the codec needs multiple buffers to fail.
+                for(int i = 0; i < 64; i++) {
+                    int bufidx = codec.dequeueInputBuffer(5000);
+                    if (bufidx >= 0) {
+                        Log.i(TAG, "got input buffer of size " + inputBuffers[bufidx].capacity());
+                        inputBuffers[bufidx].rewind();
+                        inputBuffers[bufidx].put(blob, 0, numRead);
+                        codec.queueInputBuffer(bufidx, 0, numRead, 0, 0);
+                    } else {
+                        Log.i(TAG, "no input buffer");
+                    }
+                    bufidx = codec.dequeueOutputBuffer(info, 5000);
+                    if (bufidx >= 0) {
+                        Log.i(TAG, "got output buffer");
+                        codec.releaseOutputBuffer(bufidx, false);
+                    } else {
+                        Log.i(TAG, "no output buffer");
+                    }
+                }
+            } catch (Exception e) {
+                // ignore, not a security issue
+            } finally {
+                releaseCodec(codec);
+            }
+        }
+
+        String cve = rname.replace("_", "-").toUpperCase();
+        assertFalse("Device *IS* vulnerable to " + cve,
+                    mpcl.waitForError() == MediaPlayer.MEDIA_ERROR_SERVER_DIED);
+        thr.stopLooper();
+        thr.join();
+    }
+
+    private void doStagefrightTestMediaPlayerANR(final int rid, final String uri) throws Exception {
+        String name = uri != null ? uri :
+            getInstrumentation().getContext().getResources().getResourceEntryName(rid);
+        Log.i(TAG, "start mediaplayerANR test for: " + name);
+
+        final MediaPlayerCrashListener mpl = new MediaPlayerCrashListener();
+
+        LooperThread t = new LooperThread(new Runnable() {
+            @Override
+            public void run() {
+                MediaPlayer mp = new MediaPlayer();
+                mp.setOnErrorListener(mpl);
+                mp.setOnPreparedListener(mpl);
+                mp.setOnCompletionListener(mpl);
+                Surface surface = getDummySurface();
+                mp.setSurface(surface);
+                AssetFileDescriptor fd = null;
+                try {
+                    if (uri == null) {
+                        fd = getInstrumentation().getContext().getResources()
+                                .openRawResourceFd(rid);
+
+                        mp.setDataSource(fd.getFileDescriptor(),
+                                fd.getStartOffset(),
+                                fd.getLength());
+                    } else {
+                        mp.setDataSource(uri);
+                    }
+                    mp.prepareAsync();
+                } catch (Exception e) {
+                } finally {
+                    closeQuietly(fd);
+                }
+
+                Looper.loop();
+                mp.release();
+            }
+        });
+
+        t.start();
+        String cve = name.replace("_", "-").toUpperCase();
+        assertTrue("Device *IS* vulnerable to " + cve, mpl.waitForErrorOrCompletion());
+        t.stopLooper();
+        t.join(); // wait for thread to exit so we're sure the player was released
     }
 }

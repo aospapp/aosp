@@ -8,13 +8,12 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 # Include the testing libraries (JUnit4 + Robolectric libs).
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    platform-system-robolectric \
+    mockito-robolectric-prebuilt \
     truth-prebuilt
 
 LOCAL_JAVA_LIBRARIES := \
     junit \
-    platform-robolectric-prebuilt \
-    sdk_vcurrent
+    platform-robolectric-prebuilt
 
 # TODO: Remove the use of LOCAL_INSTRUMENTATION_FOR and use a different build flag.
 LOCAL_INSTRUMENTATION_FOR := StorageManager

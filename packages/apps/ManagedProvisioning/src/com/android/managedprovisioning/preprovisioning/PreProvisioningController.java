@@ -44,6 +44,7 @@ import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.UserInfo;
 import android.graphics.Bitmap;
@@ -53,6 +54,7 @@ import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.UserManager;
 import android.service.persistentdata.PersistentDataBlockManager;
+import android.text.TextUtils;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.managedprovisioning.R;
@@ -199,11 +201,11 @@ public class PreProvisioningController {
             String callingPackage) {
         mProvisioningAnalyticsTracker.logProvisioningSessionStarted(mContext);
 
-        if (!checkFactoryResetProtection()) {
+        if (!tryParseParameters(intent, params)) {
             return;
         }
 
-        if (!tryParseParameters(intent, params)) {
+        if (!checkFactoryResetProtection(mParams, callingPackage)) {
             return;
         }
 
@@ -372,7 +374,11 @@ public class PreProvisioningController {
     }
 
     /** @return False if condition preventing further provisioning */
-    private boolean checkFactoryResetProtection() {
+    @VisibleForTesting
+    boolean checkFactoryResetProtection(ProvisioningParams params, String callingPackage) {
+        if (skipFactoryResetProtectionCheck(params, callingPackage)) {
+            return true;
+        }
         if (factoryResetProtected()) {
             mUi.showErrorAndClose(R.string.cant_set_up_device,
                     R.string.device_has_reset_protection_contact_admin,
@@ -380,6 +386,30 @@ public class PreProvisioningController {
             return false;
         }
         return true;
+    }
+
+    private boolean skipFactoryResetProtectionCheck(
+            ProvisioningParams params, String callingPackage) {
+        if (TextUtils.isEmpty(callingPackage)) {
+            return false;
+        }
+        String persistentDataPackageName = mContext.getResources()
+                .getString(com.android.internal.R.string.config_persistentDataPackageName);
+        try {
+            // Only skip the FRP check if the caller is the package responsible for maintaining FRP
+            // - i.e. if this is a flow for restoring device owner after factory reset.
+            PackageInfo callingPackageInfo = mPackageManager.getPackageInfo(callingPackage, 0);
+            return callingPackageInfo != null
+                    && callingPackageInfo.applicationInfo != null
+                    && callingPackageInfo.applicationInfo.isSystemApp()
+                    && !TextUtils.isEmpty(persistentDataPackageName)
+                    && callingPackage.equals(persistentDataPackageName)
+                    && params != null
+                    && params.startedByTrustedSource;
+        } catch (PackageManager.NameNotFoundException e) {
+            ProvisionLogger.loge("Calling package not found.", e);
+            return false;
+        }
     }
 
     /** @return False if condition preventing further provisioning */
@@ -669,21 +699,21 @@ public class PreProvisioningController {
             case CODE_ADD_MANAGED_PROFILE_DISALLOWED:
             case CODE_MANAGED_USERS_NOT_SUPPORTED:
                 mUi.showErrorAndClose(R.string.cant_add_work_profile,
-                        R.string.user_cant_have_work_profile_contact_admin,
+                        R.string.work_profile_cant_be_added_contact_admin,
                         "Exiting managed profile provisioning, managed profiles feature is not available");
                 break;
             case CODE_CANNOT_ADD_MANAGED_PROFILE:
                 if (!userInfo.canHaveProfile()) {
                     mUi.showErrorAndClose(R.string.cant_add_work_profile,
-                            R.string.user_cannot_have_work_profiles_contact_admin,
+                            R.string.work_profile_cant_be_added_contact_admin,
                             "Exiting managed profile provisioning, calling user cannot have managed profiles");
                 } else if (isRemovingManagedProfileDisallowed()){
-                    mUi.showErrorAndClose(null,
-                            R.string.managed_provisioning_error_text,
+                    mUi.showErrorAndClose(R.string.cant_replace_or_remove_work_profile,
+                            R.string.for_help_contact_admin,
                             "Exiting managed profile provisioning, removing managed profile is disallowed");
                 } else {
                     mUi.showErrorAndClose(R.string.cant_add_work_profile,
-                            R.string.too_many_users_on_device_remove_user_try_again,
+                            R.string.work_profile_cant_be_added_contact_admin,
                             "Exiting managed profile provisioning, cannot add more managed profiles");
                 }
                 break;

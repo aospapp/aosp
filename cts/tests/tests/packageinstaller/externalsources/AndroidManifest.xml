@@ -21,13 +21,6 @@
 
     <application android:label="Cts External Sources Test">
         <uses-library android:name="android.test.runner"/>
-        <provider android:authorities="android.packageinstaller.externalsources.cts.fileprovider"
-                  android:name="android.support.v4.content.FileProvider"
-                  android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"

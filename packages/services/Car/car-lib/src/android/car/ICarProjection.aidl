@@ -42,10 +42,10 @@ interface ICarProjection {
      * Registers projection callback.
      * Re-registering same callback with different filter will cause only filter to update.
      */
-    void regsiterProjectionListener(ICarProjectionCallback callback, int filter) = 2;
+    void registerProjectionListener(ICarProjectionCallback callback, int filter) = 2;
 
     /**
      * Unregisters projection callback.
      */
-    void unregsiterProjectionListener(ICarProjectionCallback callback) = 3;
+    void unregisterProjectionListener(ICarProjectionCallback callback) = 3;
 }

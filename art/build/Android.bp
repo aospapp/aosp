@@ -59,17 +59,6 @@ art_global_defaults {
         "-Wunreachable-code-break",
         "-Wunreachable-code-return",
 
-        // Bug: http://b/29823425  Disable -Wconstant-conversion and
-        // -Wundefined-var-template for Clang update to r271374
-        "-Wno-constant-conversion",
-        "-Wno-undefined-var-template",
-
-        "-DART_STACK_OVERFLOW_GAP_arm=8192",
-        "-DART_STACK_OVERFLOW_GAP_arm64=8192",
-        "-DART_STACK_OVERFLOW_GAP_mips=16384",
-        "-DART_STACK_OVERFLOW_GAP_mips64=16384",
-        "-DART_STACK_OVERFLOW_GAP_x86=8192",
-        "-DART_STACK_OVERFLOW_GAP_x86_64=8192",
         // Enable thread annotations for std::mutex, etc.
         "-D_LIBCPP_ENABLE_THREAD_SAFETY_ANNOTATIONS",
     ],
@@ -151,6 +140,25 @@ art_global_defaults {
 
     tidy_checks: [
         "-google-default-arguments",
+        // We have local stores that are only used for debug checks.
+        "-clang-analyzer-deadcode.DeadStores",
+        // We are OK with some static globals and that they can, in theory, throw.
+        "-cert-err58-cpp",
+        // We have lots of C-style variadic functions, and are OK with them. JNI ensures
+        // that working around this warning would be extra-painful.
+        "-cert-dcl50-cpp",
+        // No exceptions.
+        "-misc-noexcept-move-constructor",
+    ],
+
+    tidy_flags: [
+        // The static analyzer treats DCHECK as always enabled; we sometimes get
+        // false positives when we use DCHECKs with code that relies on NDEBUG.
+        "-extra-arg=-UNDEBUG",
+        // clang-tidy complains about functions like:
+        // void foo() { CHECK(kIsFooEnabled); /* do foo... */ }
+        // not being marked noreturn if kIsFooEnabled is false.
+        "-extra-arg=-Wno-missing-noreturn",
     ],
 }
 

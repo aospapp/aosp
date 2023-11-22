@@ -6,7 +6,7 @@
 
 import os
 
-from autotest_lib.client.bin import utils, site_utils
+from autotest_lib.client.bin import utils
 
 
 class SystemFacadeNativeError(Exception):
@@ -25,6 +25,7 @@ class SystemFacadeNative(object):
             'performance',
             'ondemand',
             'powersave',
+            'sched'
             ]
 
     def set_scaling_governor_mode(self, index, mode):
@@ -67,7 +68,7 @@ class SystemFacadeNative(object):
                 'idle': 2859878,
             }
         """
-        return site_utils.get_cpu_usage()
+        return utils.get_cpu_usage()
 
 
     def compute_active_cpu_time(self, cpu_usage_start, cpu_usage_end):
@@ -76,24 +77,24 @@ class SystemFacadeNative(object):
         This function should be invoked using before/after values from calls to
         get_cpu_usage().
         """
-        return site_utils.compute_active_cpu_time(cpu_usage_start,
+        return utils.compute_active_cpu_time(cpu_usage_start,
                                                   cpu_usage_end)
 
 
     def get_mem_total(self):
         """Returns the total memory available in the system in MBytes."""
-        return site_utils.get_mem_total()
+        return utils.get_mem_total()
 
 
     def get_mem_free(self):
         """Returns the currently free memory in the system in MBytes."""
-        return site_utils.get_mem_free()
+        return utils.get_mem_free()
 
 
     def get_ec_temperatures(self):
         """Uses ectool to return a list of all sensor temperatures in Celsius.
         """
-        return site_utils.get_ec_temperatures()
+        return utils.get_ec_temperatures()
 
 
     def get_current_board(self):

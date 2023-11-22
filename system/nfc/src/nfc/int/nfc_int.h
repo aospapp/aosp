@@ -49,6 +49,7 @@ extern "C" {
 /* NFC Timer events */
 #define NFC_TTYPE_NCI_WAIT_RSP 0
 #define NFC_TTYPE_WAIT_2_DEACTIVATE 1
+#define NFC_WAIT_RSP_RAW_VS 0x02
 
 #define NFC_TTYPE_LLCP_LINK_MANAGER 100
 #define NFC_TTYPE_LLCP_LINK_INACT 101
@@ -128,6 +129,7 @@ typedef struct {
   BUFFER_Q rx_q;        /* receive queue                                    */
   uint8_t id;           /* NFCEE ID or RF Discovery ID or NFC_TEST_ID       */
   uint8_t act_protocol; /* the active protocol on this logical connection   */
+  uint8_t act_interface; /* the active interface on this logical connection   */
   uint8_t conn_id;      /* the connection id assigned by NFCC for this conn */
   uint8_t buff_size;    /* the max buffer size for this connection.     .   */
   uint8_t num_buff;     /* num of buffers left to send on this connection   */
@@ -185,6 +187,8 @@ typedef struct {
   uint8_t vs_interface
       [NFC_NFCC_MAX_NUM_VS_INTERFACE]; /* the NCI VS interfaces of NFCC    */
   uint16_t nci_interfaces;             /* the NCI interfaces of NFCC       */
+  uint8_t nci_intf_extensions;
+  uint8_t nci_intf_extension_map[NCI_INTERFACE_EXTENSION_MAX];
   uint8_t num_disc_maps; /* number of RF Discovery interface mappings */
   void* p_disc_pending;  /* the parameters associated with pending
                             NFC_DiscoveryStart */
@@ -214,6 +218,17 @@ typedef struct {
                               HAL_NFC_POST_INIT_CPLT_EVT */
   tHAL_NFC_ENTRY* p_hal;
 
+  uint8_t nci_version; /* NCI version used for NCI communication*/
+
+  uint8_t hci_packet_size; /* maximum hci payload size*/
+
+  uint8_t hci_conn_credits; /* maximum conn credits for static HCI*/
+
+  uint16_t nci_max_v_size; /*maximum NFC V rf frame size*/
+
+  uint8_t rawVsCbflag;
+  uint8_t deact_reason;
+
 } tNFC_CB;
 
 /*****************************************************************************
@@ -226,6 +241,10 @@ extern tNFC_CB nfc_cb;
 /****************************************************************************
 ** Internal nfc functions
 ****************************************************************************/
+
+#define NCI_CALCULATE_ACK(a, v) \
+  { a &= ((1 << v) - 1); }
+#define MAX_NUM_VALID_BITS_FOR_ACK 0x07
 
 extern void nfc_init(void);
 
@@ -271,8 +290,11 @@ extern void nfc_ncif_proc_get_config_rsp(NFC_HDR* p_msg);
 extern void nfc_ncif_proc_data(NFC_HDR* p_msg);
 extern bool nfa_dm_p2p_prio_logic(uint8_t event, uint8_t* p, uint8_t ntf_rsp);
 extern void nfa_dm_p2p_timer_event();
+extern bool nfc_ncif_proc_proprietary_rsp(uint8_t mt, uint8_t gid, uint8_t oid);
 extern void nfa_dm_p2p_prio_logic_cleanup();
-
+extern void nfc_ncif_proc_isodep_nak_presence_check_status(uint8_t status,
+                                                           bool is_ntf);
+extern void nfc_ncif_update_window(void);
 #if (NFC_RW_ONLY == FALSE)
 extern void nfc_ncif_proc_rf_field_ntf(uint8_t rf_status);
 #else

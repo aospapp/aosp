@@ -43,6 +43,7 @@ PRODUCT_PACKAGES += \
     libstagefright_soft_amrwbenc \
     libstagefright_soft_avcdec \
     libstagefright_soft_avcenc \
+    libstagefright_soft_flacdec \
     libstagefright_soft_flacenc \
     libstagefright_soft_g711dec \
     libstagefright_soft_gsmdec \
@@ -124,6 +125,10 @@ PRODUCT_COPY_FILES += \
 
 PRODUCT_COPY_FILES += \
     device/google/atv/tutorial-library-google.zip:system/media/tutorial-library-google.zip
+
+# Copy .kl file for generic voice remotes
+PRODUCT_COPY_FILES += \
+    device/google/atv/Generic.kl:system/usr/keylayout/Generic.kl
 
 $(call inherit-product-if-exists, frameworks/base/data/sounds/AudioTv.mk)
 $(call inherit-product-if-exists, external/svox/pico/lang/all_pico_languages.mk)

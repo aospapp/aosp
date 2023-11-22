@@ -106,6 +106,14 @@ public class BleScanReceiver extends BroadcastReceiver {
 
             mBleScanner = bleAdaptor.getBluetoothLeScanner();
             mScanFilterList = new ArrayList<ScanFilter>();
+
+            // Create ScanFilter object, to force scan even with screen OFF
+            // using deviceName string of "dummy" for example
+            ScanFilter scanFilterDeviceName = new ScanFilter.Builder().setDeviceName(
+                       "dummy").build();
+            // Add the object to FilterList
+            mScanFilterList.add(scanFilterDeviceName);
+
             Log.d(TAG, "End BleScanListener()");
         }
 

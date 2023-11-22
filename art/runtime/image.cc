@@ -26,7 +26,7 @@
 namespace art {
 
 const uint8_t ImageHeader::kImageMagic[] = { 'a', 'r', 't', '\n' };
-const uint8_t ImageHeader::kImageVersion[] = { '0', '4', '3', '\0' };  // hash-based DexCache fields
+const uint8_t ImageHeader::kImageVersion[] = { '0', '4', '6', '\0' };  // Hash-based methods array.
 
 ImageHeader::ImageHeader(uint32_t image_begin,
                          uint32_t image_size,
@@ -147,6 +147,19 @@ const ImageSection& ImageHeader::GetImageSection(ImageSections index) const {
 
 std::ostream& operator<<(std::ostream& os, const ImageSection& section) {
   return os << "size=" << section.Size() << " range=" << section.Offset() << "-" << section.End();
+}
+
+void ImageHeader::VisitObjects(ObjectVisitor* visitor,
+                               uint8_t* base,
+                               PointerSize pointer_size) const {
+  DCHECK_EQ(pointer_size, GetPointerSize());
+  const ImageSection& objects = GetObjectsSection();
+  static const size_t kStartPos = RoundUp(sizeof(ImageHeader), kObjectAlignment);
+  for (size_t pos = kStartPos; pos < objects.Size(); ) {
+    mirror::Object* object = reinterpret_cast<mirror::Object*>(base + objects.Offset() + pos);
+    visitor->Visit(object);
+    pos += RoundUp(object->SizeOf(), kObjectAlignment);
+  }
 }
 
 void ImageHeader::VisitPackedArtFields(ArtFieldVisitor* visitor, uint8_t* base) const {

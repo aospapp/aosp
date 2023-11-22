@@ -183,28 +183,30 @@ class Relocate_task : public Task
   Relocate_task(const Symbol_table* symtab, const Layout* layout,
 		Relobj* object, Output_file* of,
 		Task_token* input_sections_blocker,
-		Task_token* output_sections_blocker, Task_token* final_blocker)
+		Task_token* output_sections_blocker, Task_token* final_blocker,
+                bool defer_object_cleanup)
     : symtab_(symtab), layout_(layout), object_(object), of_(of),
       input_sections_blocker_(input_sections_blocker),
       output_sections_blocker_(output_sections_blocker),
-      final_blocker_(final_blocker)
+      final_blocker_(final_blocker),
+      defer_object_cleanup_(defer_object_cleanup)
   { }
 
   // The standard Task methods.
 
-  Task_token*
+  virtual Task_token*
   is_runnable();
 
-  void
+  virtual void
   locks(Task_locker*);
 
-  void
+  virtual void
   run(Workqueue*);
 
-  std::string
+  virtual std::string
   get_name() const;
 
- private:
+ protected:
   const Symbol_table* symtab_;
   const Layout* layout_;
   Relobj* object_;
@@ -212,6 +214,41 @@ class Relocate_task : public Task
   Task_token* input_sections_blocker_;
   Task_token* output_sections_blocker_;
   Task_token* final_blocker_;
+
+ private:
+  // When this is true, do not do object cleanup, because later, Relocstub_task
+  // will do the chores. Only use this in Relocate_task. Do not use it in
+  // subclasses.
+  bool defer_object_cleanup_;
+};
+
+// This task relocates stub_tables. It does similar things as a
+// Relocate_task. The reason why we have this is that we have to wait for all
+// instructions to be relocated before we can copy the instruction into
+// stub_tables. More details here - pr/21491.
+
+class Relocstub_task : public Relocate_task
+{
+ public:
+
+  Relocstub_task(const Symbol_table* symtab,
+                 const Layout* layout,
+                 Relobj* object,
+                 Output_file* of,
+                 Task_token* input_sections_blocker,
+                 Task_token* output_sections_blocker,
+                 Task_token* final_blocker)
+      : Relocate_task(symtab, layout, object, of,
+                      input_sections_blocker,
+                      output_sections_blocker,
+                      final_blocker, true)
+  {}
+
+  virtual void
+  run(Workqueue*);
+
+  virtual std::string
+  get_name() const;
 };
 
 // During a relocatable link, this class records how relocations

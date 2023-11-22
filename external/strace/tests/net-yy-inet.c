@@ -2,6 +2,7 @@
  * This file is part of net-yy-inet strace test.
  *
  * Copyright (c) 2014-2016 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2016-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,12 +42,14 @@
 int
 main(void)
 {
+	skip_if_unavailable("/proc/self/fd/");
+
 	const struct sockaddr_in addr = {
 		.sin_family = AF_INET,
 		.sin_addr.s_addr = htonl(INADDR_LOOPBACK)
 	};
 	struct sockaddr * const listen_sa = tail_memdup(&addr, sizeof(addr));
-	socklen_t * const len = tail_alloc(sizeof(socklen_t));
+	TAIL_ALLOC_OBJECT_CONST_PTR(socklen_t, len);
 	*len = sizeof(addr);
 
 	const int listen_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -71,13 +74,13 @@ main(void)
 	if (getsockname(listen_fd, listen_sa, len))
 		perror_msg_and_fail("getsockname");
 	const unsigned int listen_port =
-		ntohs(((struct sockaddr_in *) listen_sa) -> sin_port);
+		ntohs(((struct sockaddr_in *) listen_sa)->sin_port);
 	printf("getsockname(%d<TCP:[127.0.0.1:%u]>, {sa_family=AF_INET"
 	       ", sin_port=htons(%u), sin_addr=inet_addr(\"127.0.0.1\")}"
 	       ", [%u]) = 0\n",
 	       listen_fd, listen_port, listen_port, (unsigned) *len);
 
-	unsigned int * const optval = tail_alloc(sizeof(unsigned int));
+	TAIL_ALLOC_OBJECT_CONST_PTR(unsigned int, optval);
 	*len = sizeof(*optval);
 	if (getsockopt(listen_fd, SOL_TCP, TCP_MAXSEG, optval, len))
 		perror_msg_and_fail("getsockopt");
@@ -106,7 +109,7 @@ main(void)
 	if (accept_fd < 0)
 		perror_msg_and_fail("accept");
 	const unsigned int connect_port =
-		ntohs(((struct sockaddr_in *) accept_sa) -> sin_port);
+		ntohs(((struct sockaddr_in *) accept_sa)->sin_port);
 	printf("accept(%d<TCP:[127.0.0.1:%u]>, {sa_family=AF_INET"
 	       ", sin_port=htons(%u), sin_addr=inet_addr(\"127.0.0.1\")}"
 	       ", [%u]) = %d<TCP:[127.0.0.1:%u->127.0.0.1:%u]>\n",

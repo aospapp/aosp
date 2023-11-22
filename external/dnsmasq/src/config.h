@@ -68,15 +68,9 @@
 #define DHCP_CLIENT_PORT 68
 #define DHCP_SERVER_ALTPORT 1067
 #define DHCP_CLIENT_ALTPORT 1068
-#define TFTP_PORT 69
-#define TFTP_MAX_CONNECTIONS 50 /* max simultaneous connections */
 #define LOG_MAX 5 /* log-queue length */
 #define RANDFILE "/dev/urandom"
 #define DAD_WAIT 20 /* retry binding IPv6 sockets for this long */
-
-/* DBUS interface specifics */
-#define DNSMASQ_SERVICE "uk.org.thekelleys.dnsmasq"
-#define DNSMASQ_PATH "/uk/org/thekelleys/dnsmasq"
 
 /* A small collection of RR-types which are missing on some platforms */
 
@@ -124,9 +118,6 @@ HAVE_BROKEN_RTC
    NOTE: when enabling or disabling this, be sure to delete any old
    leases file, otherwise dnsmasq may get very confused.
 
-HAVE_TFTP
-   define this to get dnsmasq's built-in TFTP server.
-
 HAVE_DHCP
    define this to get dnsmasq's DHCP server.
 
@@ -142,11 +133,6 @@ HAVE_ARC4RANDOM
 
 HAVE_SOCKADDR_SA_LEN
    define this if struct sockaddr has sa_len field (*BSD) 
-
-HAVE_DBUS
-   Define this if you want to link against libdbus, and have dnsmasq
-   define some methods to allow (re)configuration of the upstream DNS 
-   servers via DBus.
 
 NOTES:
    For Linux you should define 
@@ -168,15 +154,8 @@ NOTES:
 
 /* platform independent options- uncomment to enable */
 #define HAVE_DHCP
-#define HAVE_TFTP
 #define HAVE_SCRIPT
 /* #define HAVE_BROKEN_RTC */
-/* #define HAVE_DBUS */
-
-/* Allow TFTP to be disabled with COPTS=-DNO_TFTP */
-#ifdef NO_TFTP
-#undef HAVE_TFTP
-#endif
 
 /* Allow DHCP to be disabled with COPTS=-DNO_DHCP */
 #ifdef NO_DHCP

@@ -904,6 +904,7 @@ def ndkdoc(metadata, indent = 4):
   """
   def ndkdoc_formatter(text):
     # render with markdown => HTML
+    # Turn off the table plugin since doxygen doesn't recognize generated <thead> <tbody> tags
     ndktext = md(text, NDKDOC_IMAGE_SRC_METADATA, False)
 
     # Convert metadata entry "android.x.y.z" to form

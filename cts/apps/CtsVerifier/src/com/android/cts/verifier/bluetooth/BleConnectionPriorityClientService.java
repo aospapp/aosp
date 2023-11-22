@@ -235,6 +235,11 @@ public class BleConnectionPriorityClientService extends Service {
                         mConnectionTimer.cancel();
                         mConnectionTimer = null;
                     }
+                    // The STOP_CHARACTERISTIC_UUID is critical in syncing the client and server
+                    // states.  Delay the write by 2 seconds to improve the chance of this
+                    // characteristic going through.  Consider changing the code to use callbacks
+                    // in the future to make it more robust.
+                    sleep(2000);
                     // write termination data (contains current priority and number of messages wrote)
                     String msg = "" + mPriority + "," + mWriteCount;
                     writeCharacteristic(STOP_CHARACTERISTIC_UUID, msg);

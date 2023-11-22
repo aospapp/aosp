@@ -16,40 +16,66 @@
 
 package com.android.documentsui.dirlist;
 
-import android.content.ClipData;
-import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.SmallTest;
+import static junit.framework.Assert.assertFalse;
+import static junit.framework.Assert.assertTrue;
+import static junit.framework.TestCase.fail;
+
+import android.provider.DocumentsContract;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.MotionEvent;
 import android.view.View;
 
+import com.android.documentsui.MenuManager;
+import com.android.documentsui.MenuManager.SelectionDetails;
+import com.android.documentsui.base.DocumentInfo;
+import com.android.documentsui.base.Providers;
 import com.android.documentsui.base.State;
 import com.android.documentsui.dirlist.DragStartListener.ActiveListener;
-import com.android.documentsui.DragShadowBuilder;
 import com.android.documentsui.base.Events.InputEvent;
 import com.android.documentsui.selection.SelectionManager;
 import com.android.documentsui.selection.Selection;
+import com.android.documentsui.testing.TestDragAndDropManager;
 import com.android.documentsui.testing.TestEvent;
 import com.android.documentsui.testing.SelectionManagers;
+import com.android.documentsui.testing.TestSelectionDetails;
 import com.android.documentsui.testing.Views;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
 
+@RunWith(AndroidJUnit4.class)
 @SmallTest
-public class DragStartListenerTest extends AndroidTestCase {
+public class DragStartListenerTest {
 
     private ActiveListener mListener;
     private TestEvent.Builder mEvent;
     private SelectionManager mMultiSelectManager;
+    private SelectionDetails mSelectionDetails;
     private String mViewModelId;
-    private boolean mDragStarted;
+    private TestDragAndDropManager mManager;
 
-    @Override
+    @Before
     public void setUp() throws Exception {
         mMultiSelectManager = SelectionManagers.createTestInstance();
+        mManager = new TestDragAndDropManager();
+        mSelectionDetails = new TestSelectionDetails();
 
+        DocumentInfo doc = new DocumentInfo();
+        doc.authority = Providers.AUTHORITY_STORAGE;
+        doc.documentId = "id";
+        doc.derivedUri = DocumentsContract.buildDocumentUri(doc.authority, doc.documentId);
+
+        State state = new State();
+        state.stack.push(doc);
         mListener = new DragStartListener.ActiveListener(
-                new State(),
+                null, // icon helper
+                state,
                 mMultiSelectManager,
+                mSelectionDetails,
                 // view finder
                 (float x, float y) -> {
                     return Views.createTestView(x, y);
@@ -60,30 +86,10 @@ public class DragStartListenerTest extends AndroidTestCase {
                 },
                 // docInfo Converter
                 (Selection selection) -> {
-                    return new ArrayList<>();
+                    return new ArrayList<DocumentInfo>();
                 },
-                // ClipDataFactory
-                (Selection selection, int operationType) -> {
-                    return null;
-                },
-                // shawdowBuilderFactory
-                (Selection selection) -> {
-                    return null;
-                }) {
+                mManager);
 
-            @Override
-            void startDragAndDrop(
-                    View view,
-                    ClipData data,
-                    DragShadowBuilder shadowBuilder,
-                    Object localState,
-                    int flags) {
-
-                mDragStarted = true;
-            }
-        };
-
-        mDragStarted = false;
         mViewModelId = "1234";
 
         mEvent = TestEvent.builder()
@@ -94,17 +100,20 @@ public class DragStartListenerTest extends AndroidTestCase {
                 .primary();
     }
 
+    @Test
     public void testDragStarted_OnMouseMove() {
         assertTrue(mListener.onMouseDragEvent(mEvent.build()));
-        assertTrue(mDragStarted);
+        mManager.startDragHandler.assertCalled();
     }
 
+    @Test
     public void testDragNotStarted_NonModelBackedView() {
         mViewModelId = null;
         assertFalse(mListener.onMouseDragEvent(mEvent.build()));
-        assertFalse(mDragStarted);
+        mManager.startDragHandler.assertNotCalled();
     }
 
+    @Test
     public void testThrows_OnNonMouseMove() {
         TestEvent e = TestEvent.builder()
                 .at(1)
@@ -112,18 +121,22 @@ public class DragStartListenerTest extends AndroidTestCase {
         assertThrows(e);
     }
 
+    @Test
     public void testThrows_OnNonPrimaryMove() {
         assertThrows(mEvent.pressButton(MotionEvent.BUTTON_PRIMARY).build());
     }
 
+    @Test
     public void testThrows_OnNonMove() {
         assertThrows(mEvent.action(MotionEvent.ACTION_UP).build());
     }
 
+    @Test
     public void testThrows_WhenNotOnItem() {
         assertThrows(mEvent.at(-1).build());
     }
 
+    @Test
     public void testDragStart_nonSelectedItem() {
         Selection selection = mListener.getSelectionToBeCopied("1234",
                 mEvent.action(MotionEvent.ACTION_MOVE).build());
@@ -131,6 +144,7 @@ public class DragStartListenerTest extends AndroidTestCase {
         assertTrue(selection.contains("1234"));
     }
 
+    @Test
     public void testDragStart_selectedItem() {
         Selection selection = new Selection();
         selection.add("1234");
@@ -144,6 +158,7 @@ public class DragStartListenerTest extends AndroidTestCase {
         assertTrue(selection.contains("5678"));
     }
 
+    @Test
     public void testDragStart_newNonSelectedItem() {
         Selection selection = new Selection();
         selection.add("5678");
@@ -157,6 +172,7 @@ public class DragStartListenerTest extends AndroidTestCase {
         assertFalse(mMultiSelectManager.hasSelection());
     }
 
+    @Test
     public void testCtrlDragStart_newNonSelectedItem() {
         Selection selection = new Selection();
         selection.add("5678");

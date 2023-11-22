@@ -210,7 +210,7 @@ public:
     /* insert before the current node; returns iterator at new node */
     iterator insert(iterator posn, const T& val) 
     {
-        _Node* newNode = new _Node(val);        // alloc & copy-construct
+        _Node* newNode = new(std::nothrow) _Node(val);        // alloc & copy-construct
         newNode->setNext(posn.getNode());
         newNode->setPrev(posn.getNode()->getPrev());
         posn.getNode()->getPrev()->setNext(newNode);
@@ -289,7 +289,7 @@ private:
      * slightly uncouth storage alloc.
      */
     void prep() {
-        mpMiddle = (_Node*) new unsigned char[sizeof(_Node)];
+        mpMiddle = (_Node*) new(std::nothrow) unsigned char[sizeof(_Node)];
         mpMiddle->setPrev(mpMiddle);
         mpMiddle->setNext(mpMiddle);
     }

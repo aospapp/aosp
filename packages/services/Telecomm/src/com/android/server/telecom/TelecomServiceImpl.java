@@ -77,6 +77,7 @@ public class TelecomServiceImpl {
         }
     }
 
+    private static final String TIME_LINE_ARG = "timeline";
     private static final int DEFAULT_VIDEO_STATE = -1;
 
     private final ITelecomService.Stub mBinderImpl = new ITelecomService.Stub() {
@@ -203,10 +204,16 @@ public class TelecomServiceImpl {
                 String callingPackage) {
             try {
                 Log.startSession("TSI.gPASS");
+                try {
+                    enforceModifyPermission(
+                            "getPhoneAccountsSupportingScheme requires MODIFY_PHONE_STATE");
+                } catch (SecurityException e) {
+                    EventLog.writeEvent(0x534e4554, "62347125", Binder.getCallingUid(),
+                            "getPhoneAccountsSupportingScheme: " + callingPackage);
+                    return Collections.emptyList();
+                }
+
                 synchronized (mLock) {
-                    if (!canReadPhoneState(callingPackage, "getPhoneAccountsSupportingScheme")) {
-                        return Collections.emptyList();
-                    }
                     final UserHandle callingUserHandle = Binder.getCallingUserHandle();
                     long token = Binder.clearCallingIdentity();
                     try {
@@ -269,33 +276,57 @@ public class TelecomServiceImpl {
 
         @Override
         public int getAllPhoneAccountsCount() {
-            synchronized (mLock) {
+            try {
+                Log.startSession("TSI.gAPAC");
                 try {
-                    Log.startSession("TSI.gAPAC");
-                    // This list is pre-filtered for the calling user.
-                    return getAllPhoneAccounts().size();
-                } catch (Exception e) {
-                    Log.e(this, e, "getAllPhoneAccountsCount");
+                    enforceModifyPermission(
+                            "getAllPhoneAccountsCount requires MODIFY_PHONE_STATE permission.");
+                } catch (SecurityException e) {
+                    EventLog.writeEvent(0x534e4554, "62347125", Binder.getCallingUid(),
+                            "getAllPhoneAccountsCount");
                     throw e;
-                } finally {
-                    Log.endSession();
                 }
+
+                synchronized (mLock) {
+                    try {
+                        // This list is pre-filtered for the calling user.
+                        return getAllPhoneAccounts().size();
+                    } catch (Exception e) {
+                        Log.e(this, e, "getAllPhoneAccountsCount");
+                        throw e;
+
+                    }
+                }
+            } finally {
+                Log.endSession();
             }
         }
 
         @Override
         public List<PhoneAccount> getAllPhoneAccounts() {
             synchronized (mLock) {
-                final UserHandle callingUserHandle = Binder.getCallingUserHandle();
-                long token = Binder.clearCallingIdentity();
                 try {
                     Log.startSession("TSI.gAPA");
-                    return mPhoneAccountRegistrar.getAllPhoneAccounts(callingUserHandle);
-                } catch (Exception e) {
-                    Log.e(this, e, "getAllPhoneAccounts");
-                    throw e;
+                    try {
+                        enforceModifyPermission(
+                                "getAllPhoneAccounts requires MODIFY_PHONE_STATE permission.");
+                    } catch (SecurityException e) {
+                        EventLog.writeEvent(0x534e4554, "62347125", Binder.getCallingUid(),
+                                "getAllPhoneAccounts");
+                        throw e;
+                    }
+
+                    final UserHandle callingUserHandle = Binder.getCallingUserHandle();
+                    long token = Binder.clearCallingIdentity();
+                    try {
+                        return mPhoneAccountRegistrar.getAllPhoneAccounts(callingUserHandle);
+                    } catch (Exception e) {
+                        Log.e(this, e, "getAllPhoneAccounts");
+                        throw e;
+                    } finally {
+                        Binder.restoreCallingIdentity(token);
+                    }
                 } finally {
-                    Binder.restoreCallingIdentity(token);
                     Log.endSession();
                 }
             }
@@ -303,19 +334,31 @@ public class TelecomServiceImpl {
 
         @Override
         public List<PhoneAccountHandle> getAllPhoneAccountHandles() {
-            synchronized (mLock) {
-                final UserHandle callingUserHandle = Binder.getCallingUserHandle();
-                long token = Binder.clearCallingIdentity();
+            try {
+                Log.startSession("TSI.gAPAH");
                 try {
-                    Log.startSession("TSI.gAPAH");
-                    return mPhoneAccountRegistrar.getAllPhoneAccountHandles(callingUserHandle);
-                } catch (Exception e) {
-                    Log.e(this, e, "getAllPhoneAccounts");
+                    enforceModifyPermission(
+                            "getAllPhoneAccountHandles requires MODIFY_PHONE_STATE permission.");
+                } catch (SecurityException e) {
+                    EventLog.writeEvent(0x534e4554, "62347125", Binder.getCallingUid(),
+                            "getAllPhoneAccountHandles");
                     throw e;
-                } finally {
-                    Binder.restoreCallingIdentity(token);
-                    Log.endSession();
                 }
+
+                synchronized (mLock) {
+                    final UserHandle callingUserHandle = Binder.getCallingUserHandle();
+                    long token = Binder.clearCallingIdentity();
+                    try {
+                        return mPhoneAccountRegistrar.getAllPhoneAccountHandles(callingUserHandle);
+                    } catch (Exception e) {
+                        Log.e(this, e, "getAllPhoneAccounts");
+                        throw e;
+                    } finally {
+                        Binder.restoreCallingIdentity(token);
+                    }
+                }
+            } finally {
+                Log.endSession();
             }
         }
 
@@ -681,8 +724,14 @@ public class TelecomServiceImpl {
         public boolean isRinging(String callingPackage) {
             try {
                 Log.startSession("TSI.iR");
-                if (!canReadPhoneState(callingPackage, "isRinging")) {
-                    return false;
+                if (!isPrivilegedDialerCalling(callingPackage)) {
+                    try {
+                        enforceModifyPermission(
+                                "isRinging requires MODIFY_PHONE_STATE permission.");
+                    } catch (SecurityException e) {
+                        EventLog.writeEvent(0x534e4554, "62347125", "isRinging: " + callingPackage);
+                        throw e;
+                    }
                 }
 
                 synchronized (mLock) {
@@ -931,8 +980,15 @@ public class TelecomServiceImpl {
         public boolean isTtySupported(String callingPackage) {
             try {
                 Log.startSession("TSI.iTS");
-                if (!canReadPhoneState(callingPackage, "hasVoiceMailNumber")) {
-                    return false;
+                if (!isPrivilegedDialerCalling(callingPackage)) {
+                    try {
+                        enforceModifyPermission(
+                                "isTtySupported requires MODIFY_PHONE_STATE permission.");
+                    } catch (SecurityException e) {
+                        EventLog.writeEvent(0x534e4554, "62347125", "isTtySupported: " +
+                                callingPackage);
+                        throw e;
+                    }
                 }
 
                 synchronized (mLock) {
@@ -1032,6 +1088,15 @@ public class TelecomServiceImpl {
         public void addNewUnknownCall(PhoneAccountHandle phoneAccountHandle, Bundle extras) {
             try {
                 Log.startSession("TSI.aNUC");
+                try {
+                    enforceModifyPermission(
+                            "addNewUnknownCall requires MODIFY_PHONE_STATE permission.");
+                } catch (SecurityException e) {
+                    EventLog.writeEvent(0x534e4554, "62347125", Binder.getCallingUid(),
+                            "addNewUnknownCall");
+                    throw e;
+                }
+
                 synchronized (mLock) {
                     if (phoneAccountHandle != null &&
                             phoneAccountHandle.getComponentName() != null) {
@@ -1082,6 +1147,10 @@ public class TelecomServiceImpl {
                 if (extras != null) {
                     phoneAccountHandle = extras.getParcelable(
                             TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE);
+                    if (extras.containsKey(TelecomManager.EXTRA_IS_HANDOVER)) {
+                        // This extra is for Telecom use only so should never be passed in.
+                        extras.remove(TelecomManager.EXTRA_IS_HANDOVER);
+                    }
                 }
                 boolean isSelfManaged = phoneAccountHandle != null &&
                         isSelfManagedConnectionService(phoneAccountHandle);
@@ -1222,6 +1291,7 @@ public class TelecomServiceImpl {
                 Analytics.dumpToEncodedProto(writer, args);
                 return;
             }
+            boolean isTimeLineView = (args.length > 0 && TIME_LINE_ARG.equalsIgnoreCase(args[0]));
 
             final IndentingPrintWriter pw = new IndentingPrintWriter(writer, "  ");
             if (mCallsManager != null) {
@@ -1240,8 +1310,11 @@ public class TelecomServiceImpl {
                 Analytics.dump(pw);
                 pw.decreaseIndent();
             }
-
-            Log.dumpEvents(pw);
+            if (isTimeLineView) {
+                Log.dumpEventsTimeline(pw);
+            } else {
+                Log.dumpEvents(pw);
+            }
         }
 
         /**
@@ -1505,6 +1578,10 @@ public class TelecomServiceImpl {
 
     private void enforceModifyPermission() {
         enforcePermission(MODIFY_PHONE_STATE);
+    }
+
+    private void enforceModifyPermission(String message) {
+        mContext.enforceCallingOrSelfPermission(MODIFY_PHONE_STATE, message);
     }
 
     private void enforcePermission(String permission) {

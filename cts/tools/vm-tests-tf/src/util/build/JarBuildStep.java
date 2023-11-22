@@ -16,28 +16,36 @@
 
 package util.build;
 
-import sun.tools.jar.Main;
-
+import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
 
-
+/**
+ * JarBuildStep takes a single input file and embeds it into a (new) jar file as a single entry.
+ */
 public class JarBuildStep extends BuildStep {
 
-    String destFileName;
+    String outputJarEntryName;
     private final boolean deleteInputFileAfterBuild;
 
-    public JarBuildStep(BuildFile inputFile, String destFileName,
-            BuildFile outputFile, boolean deleteInputFileAfterBuild) {
-        super(inputFile, outputFile);
-        this.destFileName = destFileName;
+    public JarBuildStep(BuildFile inputFile, String outputJarEntryName,
+            BuildFile outputJarFile, boolean deleteInputFileAfterBuild) {
+        super(inputFile, outputJarFile);
+        this.outputJarEntryName = outputJarEntryName;
         this.deleteInputFileAfterBuild = deleteInputFileAfterBuild;
     }
 
     @Override
     boolean build() {
         if (super.build()) {
-            File tempFile = new File(inputFile.folder, destFileName);
+            File tempFile = new File(inputFile.folder, outputJarEntryName);
             try {
                 if (!inputFile.fileName.equals(tempFile)) {
                     copyFile(inputFile.fileName, tempFile);
@@ -56,25 +64,53 @@ public class JarBuildStep extends BuildStep {
                         + outDir.getAbsolutePath());
                 return false;
             }
-            String[] arguments = new String[] {
-                    "-cMf", outputFile.fileName.getAbsolutePath(), "-C",
-                    inputFile.folder.getAbsolutePath(), destFileName};
-            Main main = new Main(System.out, System.err, "jar");
-            boolean success = main.run(arguments);
 
-            if (success) {
-                if (tempFile != null) {
-                    tempFile.delete();
-                }
-                if (deleteInputFileAfterBuild) {
-                    inputFile.fileName.delete();
-                }
-            } else {
-                System.err.println("exception in JarBuildStep while calling jar with args:" +
-                        " \"-cMf\", "+outputFile.fileName.getAbsolutePath()+", \"-C\"," + 
-                        inputFile.folder.getAbsolutePath()+", "+ destFileName);
+            // Find the input. We'll need to look into the input folder, but check with the
+            // (relative) destination filename (this is effectively removing the inputFile folder
+            // from the entry path in the jar file).
+            Path absoluteInputPath = Paths.get(inputFile.folder.getAbsolutePath())
+                    .resolve(outputJarEntryName);
+            File absoluteInputFile = absoluteInputPath.toFile();
+            if (!absoluteInputFile.exists()) {
+                // Something went wrong.
+                throw new IllegalArgumentException(absoluteInputFile.getAbsolutePath());
             }
-            return success;
+
+            // Use a JarOutputStream to create the output jar file.
+            File jarOutFile = outputFile.fileName;
+            try (JarOutputStream jarOut = new JarOutputStream(new FileOutputStream(jarOutFile))) {
+                // Create the JAR entry for the file. Use destFileName, and copy the timestamp
+                // from the input.
+                JarEntry entry = new JarEntry(outputJarEntryName);
+                entry.setTime(absoluteInputFile.lastModified());
+
+                // Push the entry. The stream will then be ready to accept content.
+                jarOut.putNextEntry(entry);
+
+                // Copy absoluteInputFile into the jar file.
+                Files.copy(absoluteInputPath, jarOut);
+
+                // Finish the entry.
+                jarOut.closeEntry();
+
+                // (Implicitly close the stream, finishing the jar file.)
+            } catch (Exception e) {
+                System.err.println("exception in JarBuildStep for " +
+                        outputFile.fileName.getAbsolutePath() + ", " + outputJarEntryName);
+                e.printStackTrace(System.err);
+                jarOutFile.delete();
+                return false;
+            }
+
+            // Clean up.
+            if (tempFile != null) {
+                tempFile.delete();
+            }
+            if (deleteInputFileAfterBuild) {
+                inputFile.fileName.delete();
+            }
+
+            return true;
         }
         return false;
     }
@@ -82,7 +118,7 @@ public class JarBuildStep extends BuildStep {
     @Override
     public int hashCode() {
         return inputFile.hashCode() ^ outputFile.hashCode()
-                ^ destFileName.hashCode();
+                ^ outputJarEntryName.hashCode();
     }
 
     @Override
@@ -91,7 +127,7 @@ public class JarBuildStep extends BuildStep {
             JarBuildStep other = (JarBuildStep) obj;
             return inputFile.equals(other.inputFile)
                     && outputFile.equals(other.outputFile)
-                    && destFileName.equals(other.destFileName);
+                    && outputJarEntryName.equals(other.outputJarEntryName);
 
         }
         return false;

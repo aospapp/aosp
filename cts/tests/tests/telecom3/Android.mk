@@ -29,8 +29,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util ctstestrunner
 src_dirs := src \
     ../telecom/src/android/telecom/cts/SelfManagedConnection.java \
     ../telecom/src/android/telecom/cts/CtsSelfManagedConnectionService.java \
-    ../telecom/src/android/telecom/cts/TestUtils.java \
-    ../telecom/src/android/telecom/cts/MockDialerActivity.java
+    ../telecom/src/android/telecom/cts/TestUtils.java
 
 res_dirs := ../telecom/res
 
@@ -46,6 +45,6 @@ LOCAL_AAPT_FLAGS := \
 LOCAL_SDK_VERSION := current
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 include $(BUILD_CTS_PACKAGE)

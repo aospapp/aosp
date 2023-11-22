@@ -89,7 +89,7 @@ static void osExpApiLogLogv(uintptr_t *retValP, va_list args)
     const char *str = va_arg(args, const char*);
     va_list innerArgs;
     va_copy(innerArgs, INTEGER_TO_VA_LIST(va_arg(args, uintptr_t)));
-    osLogv((char)level, str, innerArgs);
+    osLogv((char)level, 0, str, innerArgs);
     va_end(innerArgs);
 }
 
@@ -178,7 +178,7 @@ static void osExpApiSensorTrigger(uintptr_t *retValP, va_list args)
     *retValP = sensorTriggerOndemand(0, sensorHandle);
 }
 
-static void osExpApiSensorGetRate(uintptr_t *retValP, va_list args)
+static void osExpApiSensorGetCurRate(uintptr_t *retValP, va_list args)
 {
     uint32_t sensorHandle = va_arg(args, uint32_t);
 
@@ -189,6 +189,13 @@ static void osExpApiSensorGetTime(uintptr_t *retValP, va_list args)
 {
     uint64_t *timeNanos = va_arg(args, uint64_t *);
     *timeNanos = sensorGetTime();
+}
+
+static void osExpApiSensorGetReqRate(uintptr_t *retValP, va_list args)
+{
+    uint32_t sensorHandle = va_arg(args, uint32_t);
+
+    *retValP = sensorGetReqRate(sensorHandle);
 }
 
 static void osExpApiTimGetTime(uintptr_t *retValP, va_list args)
@@ -482,9 +489,9 @@ void osApiExport(struct SlabAllocator *mainSlubAllocator)
     static const struct SyscallTable osMainEvtqTable = {
         .numEntries = SYSCALL_OS_MAIN_EVTQ_LAST,
         .entry = {
-            [SYSCALL_OS_MAIN_EVTQ_SUBCRIBE]        = { .func = osExpApiEvtqSubscribe,   },
-            [SYSCALL_OS_MAIN_EVTQ_UNSUBCRIBE]      = { .func = osExpApiEvtqUnsubscribe, },
-            [SYSCALL_OS_MAIN_EVTQ_ENQUEUE]         = { .func = osExpApiEvtqEnqueue,     },
+            [SYSCALL_OS_MAIN_EVTQ_SUBCRIBE]        = { .func = osExpApiEvtqSubscribe,      },
+            [SYSCALL_OS_MAIN_EVTQ_UNSUBCRIBE]      = { .func = osExpApiEvtqUnsubscribe,    },
+            [SYSCALL_OS_MAIN_EVTQ_ENQUEUE]         = { .func = osExpApiEvtqEnqueue,        },
             [SYSCALL_OS_MAIN_EVTQ_ENQUEUE_PRIVATE] = { .func = osExpApiEvtqEnqueuePrivate, },
             [SYSCALL_OS_MAIN_EVTQ_RETAIN_EVT]      = { .func = osExpApiEvtqRetainEvt,      },
             [SYSCALL_OS_MAIN_EVTQ_FREE_RETAINED]   = { .func = osExpApiEvtqFreeRetained,   },
@@ -501,17 +508,18 @@ void osApiExport(struct SlabAllocator *mainSlubAllocator)
     static const struct SyscallTable osMainSensorsTable = {
         .numEntries = SYSCALL_OS_MAIN_SENSOR_LAST,
         .entry = {
-            [SYSCALL_OS_MAIN_SENSOR_SIGNAL]        = { .func = osExpApiSensorSignal,  },
-            [SYSCALL_OS_MAIN_SENSOR_REG]           = { .func = osExpApiSensorReg,     },
-            [SYSCALL_OS_MAIN_SENSOR_UNREG]         = { .func = osExpApiSensorUnreg,   },
+            [SYSCALL_OS_MAIN_SENSOR_SIGNAL]        = { .func = osExpApiSensorSignal,     },
+            [SYSCALL_OS_MAIN_SENSOR_REG]           = { .func = osExpApiSensorReg,        },
+            [SYSCALL_OS_MAIN_SENSOR_UNREG]         = { .func = osExpApiSensorUnreg,      },
             [SYSCALL_OS_MAIN_SENSOR_REG_INIT_COMP] = { .func = osExpApiSensorRegInitComp },
-            [SYSCALL_OS_MAIN_SENSOR_FIND]          = { .func = osExpApiSensorFind,    },
-            [SYSCALL_OS_MAIN_SENSOR_REQUEST]       = { .func = osExpApiSensorReq,     },
-            [SYSCALL_OS_MAIN_SENSOR_RATE_CHG]      = { .func = osExpApiSensorRateChg, },
-            [SYSCALL_OS_MAIN_SENSOR_RELEASE]       = { .func = osExpApiSensorRel,     },
-            [SYSCALL_OS_MAIN_SENSOR_TRIGGER]       = { .func = osExpApiSensorTrigger, },
-            [SYSCALL_OS_MAIN_SENSOR_GET_RATE]      = { .func = osExpApiSensorGetRate, },
-            [SYSCALL_OS_MAIN_SENSOR_GET_TIME]      = { .func = osExpApiSensorGetTime, },
+            [SYSCALL_OS_MAIN_SENSOR_FIND]          = { .func = osExpApiSensorFind,       },
+            [SYSCALL_OS_MAIN_SENSOR_REQUEST]       = { .func = osExpApiSensorReq,        },
+            [SYSCALL_OS_MAIN_SENSOR_RATE_CHG]      = { .func = osExpApiSensorRateChg,    },
+            [SYSCALL_OS_MAIN_SENSOR_RELEASE]       = { .func = osExpApiSensorRel,        },
+            [SYSCALL_OS_MAIN_SENSOR_TRIGGER]       = { .func = osExpApiSensorTrigger,    },
+            [SYSCALL_OS_MAIN_SENSOR_GET_CUR_RATE]  = { .func = osExpApiSensorGetCurRate, },
+            [SYSCALL_OS_MAIN_SENSOR_GET_TIME]      = { .func = osExpApiSensorGetTime,    },
+            [SYSCALL_OS_MAIN_SENSOR_GET_REQ_RATE]  = { .func = osExpApiSensorGetReqRate, },
 
         },
     };
@@ -519,9 +527,9 @@ void osApiExport(struct SlabAllocator *mainSlubAllocator)
     static const struct SyscallTable osMainTimerTable = {
         .numEntries = SYSCALL_OS_MAIN_TIME_LAST,
         .entry = {
-            [SYSCALL_OS_MAIN_TIME_GET_TIME]     = { .func = osExpApiTimGetTime,  },
-            [SYSCALL_OS_MAIN_TIME_SET_TIMER]    = { .func = osExpApiTimSetTimer,     },
-            [SYSCALL_OS_MAIN_TIME_CANCEL_TIMER] = { .func = osExpApiTimCancelTimer,   },
+            [SYSCALL_OS_MAIN_TIME_GET_TIME]     = { .func = osExpApiTimGetTime,     },
+            [SYSCALL_OS_MAIN_TIME_SET_TIMER]    = { .func = osExpApiTimSetTimer,    },
+            [SYSCALL_OS_MAIN_TIME_CANCEL_TIMER] = { .func = osExpApiTimCancelTimer, },
         },
     };
 
@@ -529,17 +537,17 @@ void osApiExport(struct SlabAllocator *mainSlubAllocator)
         .numEntries = SYSCALL_OS_MAIN_HEAP_LAST,
         .entry = {
             [SYSCALL_OS_MAIN_HEAP_ALLOC] = { .func = osExpApiHeapAlloc },
-            [SYSCALL_OS_MAIN_HEAP_FREE]  = { .func = osExpApiHeapFree },
+            [SYSCALL_OS_MAIN_HEAP_FREE]  = { .func = osExpApiHeapFree  },
         },
     };
 
     static const struct SyscallTable osMainSlabTable = {
         .numEntries = SYSCALL_OS_MAIN_SLAB_LAST,
         .entry = {
-            [SYSCALL_OS_MAIN_SLAB_NEW]     = { .func = osExpApiSlabNew },
+            [SYSCALL_OS_MAIN_SLAB_NEW]     = { .func = osExpApiSlabNew     },
             [SYSCALL_OS_MAIN_SLAB_DESTROY] = { .func = osExpApiSlabDestroy },
-            [SYSCALL_OS_MAIN_SLAB_ALLOC]   = { .func = osExpApiSlabAlloc },
-            [SYSCALL_OS_MAIN_SLAB_FREE]    = { .func = osExpApiSlabFree },
+            [SYSCALL_OS_MAIN_SLAB_ALLOC]   = { .func = osExpApiSlabAlloc   },
+            [SYSCALL_OS_MAIN_SLAB_FREE]    = { .func = osExpApiSlabFree    },
         },
     };
 

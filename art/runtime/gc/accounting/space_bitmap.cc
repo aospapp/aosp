@@ -48,16 +48,21 @@ SpaceBitmap<kAlignment>* SpaceBitmap<kAlignment>::CreateFromMemMap(
   CHECK(mem_map != nullptr);
   uintptr_t* bitmap_begin = reinterpret_cast<uintptr_t*>(mem_map->Begin());
   const size_t bitmap_size = ComputeBitmapSize(heap_capacity);
-  return new SpaceBitmap(name, mem_map, bitmap_begin, bitmap_size, heap_begin);
+  return new SpaceBitmap(name, mem_map, bitmap_begin, bitmap_size, heap_begin, heap_capacity);
 }
 
 template<size_t kAlignment>
-SpaceBitmap<kAlignment>::SpaceBitmap(const std::string& name, MemMap* mem_map, uintptr_t* bitmap_begin,
-                                     size_t bitmap_size, const void* heap_begin)
+SpaceBitmap<kAlignment>::SpaceBitmap(const std::string& name,
+                                     MemMap* mem_map,
+                                     uintptr_t* bitmap_begin,
+                                     size_t bitmap_size,
+                                     const void* heap_begin,
+                                     size_t heap_capacity)
     : mem_map_(mem_map),
       bitmap_begin_(reinterpret_cast<Atomic<uintptr_t>*>(bitmap_begin)),
       bitmap_size_(bitmap_size),
       heap_begin_(reinterpret_cast<uintptr_t>(heap_begin)),
+      heap_limit_(reinterpret_cast<uintptr_t>(heap_begin) + heap_capacity),
       name_(name) {
   CHECK(bitmap_begin_ != nullptr);
   CHECK_NE(bitmap_size, 0U);
@@ -89,6 +94,7 @@ void SpaceBitmap<kAlignment>::SetHeapLimit(uintptr_t new_end) {
   if (new_size < bitmap_size_) {
     bitmap_size_ = new_size;
   }
+  heap_limit_ = new_end;
   // Not sure if doing this trim is necessary, since nothing past the end of the heap capacity
   // should be marked.
 }
@@ -133,27 +139,6 @@ void SpaceBitmap<kAlignment>::CopyFrom(SpaceBitmap* source_bitmap) {
   Atomic<uintptr_t>* const dest = Begin();
   for (size_t i = 0; i < count; ++i) {
     dest[i].StoreRelaxed(src[i].LoadRelaxed());
-  }
-}
-
-template<size_t kAlignment>
-void SpaceBitmap<kAlignment>::Walk(ObjectCallback* callback, void* arg) {
-  CHECK(bitmap_begin_ != nullptr);
-  CHECK(callback != nullptr);
-
-  uintptr_t end = OffsetToIndex(HeapLimit() - heap_begin_ - 1);
-  Atomic<uintptr_t>* bitmap_begin = bitmap_begin_;
-  for (uintptr_t i = 0; i <= end; ++i) {
-    uintptr_t w = bitmap_begin[i].LoadRelaxed();
-    if (w != 0) {
-      uintptr_t ptr_base = IndexToOffset(i) + heap_begin_;
-      do {
-        const size_t shift = CTZ(w);
-        mirror::Object* obj = reinterpret_cast<mirror::Object*>(ptr_base + shift * kAlignment);
-        (*callback)(obj, arg);
-        w ^= (static_cast<uintptr_t>(1)) << shift;
-      } while (w != 0);
-    }
   }
 }
 

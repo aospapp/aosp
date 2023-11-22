@@ -13,7 +13,7 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  V4L2Device v4l2_dev(argv[1], V4L2Device::IO_METHOD_MMAP, 4);
+  V4L2Device v4l2_dev(argv[1], 4);
   if (!v4l2_dev.OpenDevice()) {
     printf("[Error] Can not open device '%s'\n", argv[1]);
     return 1;

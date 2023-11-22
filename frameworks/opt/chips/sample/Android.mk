@@ -14,10 +14,6 @@
 
 LOCAL_PATH:= $(call my-dir)
 
-# Include res dir from chips
-chips_dir := ../res
-local_res_dirs := res $(chips_dir)
-
 ##################################################
 # Build APK
 include $(CLEAR_VARS)
@@ -25,15 +21,17 @@ include $(CLEAR_VARS)
 src_dirs := src
 LOCAL_PACKAGE_NAME := libChipsSample
 
-LOCAL_STATIC_JAVA_LIBRARIES += libchips
+LOCAL_STATIC_ANDROID_LIBRARIES := \
+     libchips \
+     android-support-compat \
+     android-support-annotations
 
 LOCAL_SDK_VERSION := current
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src) \
         $(call all-logtags-files-under, $(src_dirs))
-LOCAL_RESOURCE_DIR := $(addprefix $(LOCAL_PATH)/, $(local_res_dirs)) $(LOCAL_PATH)/../../../../$(SUPPORT_LIBRARY_ROOT)/compat/res
-LOCAL_AAPT_FLAGS := --auto-add-overlay
-LOCAL_AAPT_FLAGS += --extra-packages com.android.ex.chips:android.support.compat
+LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
+LOCAL_USE_AAPT2 := true
 
 include $(BUILD_PACKAGE)
 

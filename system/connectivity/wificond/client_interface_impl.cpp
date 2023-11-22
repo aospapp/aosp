@@ -24,6 +24,7 @@
 #include "wificond/client_interface_binder.h"
 #include "wificond/net/mlme_event.h"
 #include "wificond/net/netlink_utils.h"
+#include "wificond/scanning/offload/offload_service_utils.h"
 #include "wificond/scanning/scan_result.h"
 #include "wificond/scanning/scan_utils.h"
 #include "wificond/scanning/scanner_impl.h"
@@ -116,6 +117,7 @@ ClientInterfaceImpl::ClientInterfaceImpl(
       supplicant_manager_(supplicant_manager),
       netlink_utils_(netlink_utils),
       scan_utils_(scan_utils),
+      offload_service_utils_(new OffloadServiceUtils()),
       mlme_event_handler_(new MlmeEventHandlerImpl(this)),
       binder_(new ClientInterfaceBinder(this)),
       is_associated_(false) {
@@ -136,7 +138,8 @@ ClientInterfaceImpl::ClientInterfaceImpl(
                              wiphy_features_,
                              this,
                              netlink_utils_,
-                             scan_utils_);
+                             scan_utils_,
+                             offload_service_utils_);
 }
 
 ClientInterfaceImpl::~ClientInterfaceImpl() {
@@ -161,6 +164,12 @@ void ClientInterfaceImpl::Dump(std::stringstream* ss) const {
       << static_cast<int>(scan_capabilities_.max_num_sched_scan_ssids) << endl;
   *ss << "Max number of match sets for scheduled scan: "
       << static_cast<int>(scan_capabilities_.max_match_sets) << endl;
+  *ss << "Maximum number of scan plans: "
+      << scan_capabilities_.max_num_scan_plans << endl;
+  *ss << "Max scan plan interval in seconds: "
+      << scan_capabilities_.max_scan_plan_interval << endl;
+  *ss << "Max scan plan iterations: "
+      << scan_capabilities_.max_scan_plan_iterations << endl;
   *ss << "Device supports random MAC for single shot scan: "
       << wiphy_features_.supports_random_mac_oneshot_scan << endl;
   *ss << "Device supports random MAC for scheduled scan: "
@@ -179,7 +188,7 @@ bool ClientInterfaceImpl::DisableSupplicant() {
 bool ClientInterfaceImpl::GetPacketCounters(vector<int32_t>* out_packet_counters) {
   StationInfo station_info;
   if (!netlink_utils_->GetStationInfo(interface_index_,
-                                      interface_mac_addr_,
+                                      bssid_,
                                       &station_info)) {
     return false;
   }
@@ -190,6 +199,11 @@ bool ClientInterfaceImpl::GetPacketCounters(vector<int32_t>* out_packet_counters
 }
 
 bool ClientInterfaceImpl::SignalPoll(vector<int32_t>* out_signal_poll_results) {
+  if (!IsAssociated()) {
+    LOG(INFO) << "Fail RSSI polling because wifi is not associated.";
+    return false;
+  }
+
   StationInfo station_info;
   if (!netlink_utils_->GetStationInfo(interface_index_,
                                       bssid_,

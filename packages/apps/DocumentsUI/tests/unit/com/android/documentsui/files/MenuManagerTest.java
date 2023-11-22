@@ -53,28 +53,52 @@ import org.junit.runner.RunWith;
 public final class MenuManagerTest {
 
     private TestMenu testMenu;
-    private TestMenuItem rename;
-    private TestMenuItem selectAll;
-    private TestMenuItem moveTo;
-    private TestMenuItem copyTo;
-    private TestMenuItem compress;
-    private TestMenuItem extractTo;
-    private TestMenuItem share;
-    private TestMenuItem delete;
-    private TestMenuItem createDir;
-    private TestMenuItem settings;
-    private TestMenuItem newWindow;
-    private TestMenuItem open;
-    private TestMenuItem openWith;
-    private TestMenuItem openInNewWindow;
-    private TestMenuItem cut;
-    private TestMenuItem copy;
-    private TestMenuItem paste;
-    private TestMenuItem pasteInto;
-    private TestMenuItem advanced;
-    private TestMenuItem eject;
-    private TestMenuItem view;
-    private TestMenuItem debug;
+
+    /* Directory Context Menu items */
+    private TestMenuItem dirShare;
+    private TestMenuItem dirOpen;
+    private TestMenuItem dirOpenWith;
+    private TestMenuItem dirCutToClipboard;
+    private TestMenuItem dirCopyToClipboard;
+    private TestMenuItem dirPasteFromClipboard;
+    private TestMenuItem dirCreateDir;
+    private TestMenuItem dirSelectAll;
+    private TestMenuItem dirRename;
+    private TestMenuItem dirDelete;
+    private TestMenuItem dirViewInOwner;
+    private TestMenuItem dirOpenInNewWindow;
+    private TestMenuItem dirPasteIntoFolder;
+
+    /* Root List Context Menu items */
+    private TestMenuItem rootEjectRoot;
+    private TestMenuItem rootOpenInNewWindow;
+    private TestMenuItem rootPasteIntoFolder;
+    private TestMenuItem rootSettings;
+
+    /* Action Mode menu items */
+    private TestMenuItem actionModeOpen;
+    private TestMenuItem actionModeOpenWith;
+    private TestMenuItem actionModeShare;
+    private TestMenuItem actionModeDelete;
+    private TestMenuItem actionModeSelectAll;
+    private TestMenuItem actionModeCopyTo;
+    private TestMenuItem actionModeExtractTo;
+    private TestMenuItem actionModeMoveTo;
+    private TestMenuItem actionModeCompress;
+    private TestMenuItem actionModeRename;
+    private TestMenuItem actionModeViewInOwner;
+    private TestMenuItem actionModeInspector;
+
+    /* Option Menu items */
+    private TestMenuItem optionSearch;
+    private TestMenuItem optionDebug;
+    private TestMenuItem optionGrid;
+    private TestMenuItem optionList;
+    private TestMenuItem optionNewWindow;
+    private TestMenuItem optionCreateDir;
+    private TestMenuItem optionSelectAll;
+    private TestMenuItem optionAdvanced;
+    private TestMenuItem optionSettings;
 
     private TestFeatures features;
     private TestSelectionDetails selectionDetails;
@@ -91,34 +115,54 @@ public final class MenuManagerTest {
     @Before
     public void setUp() {
         testMenu = TestMenu.create();
-        rename = testMenu.findItem(R.id.menu_rename);
-        selectAll = testMenu.findItem(R.id.menu_select_all);
-        moveTo = testMenu.findItem(R.id.menu_move_to);
-        copyTo = testMenu.findItem(R.id.menu_copy_to);
-        compress = testMenu.findItem(R.id.menu_compress);
-        extractTo = testMenu.findItem(R.id.menu_extract_to);
-        share = testMenu.findItem(R.id.menu_share);
-        delete = testMenu.findItem(R.id.menu_delete);
-        createDir = testMenu.findItem(R.id.menu_create_dir);
-        settings = testMenu.findItem(R.id.menu_settings);
-        newWindow = testMenu.findItem(R.id.menu_new_window);
-        open = testMenu.findItem(R.id.menu_open);
-        openWith = testMenu.findItem(R.id.menu_open_with);
-        openInNewWindow = testMenu.findItem(R.id.menu_open_in_new_window);
-        cut = testMenu.findItem(R.id.menu_cut_to_clipboard);
-        copy = testMenu.findItem(R.id.menu_copy_to_clipboard);
-        paste = testMenu.findItem(R.id.menu_paste_from_clipboard);
-        pasteInto = testMenu.findItem(R.id.menu_paste_into_folder);
-        advanced = testMenu.findItem(R.id.menu_advanced);
-        eject = testMenu.findItem(R.id.menu_eject_root);
-        view = testMenu.findItem(R.id.menu_view_in_owner);
-        debug = testMenu.findItem(R.id.menu_debug);
+        dirShare = testMenu.findItem(R.id.dir_menu_share);
+        dirOpen = testMenu.findItem(R.id.dir_menu_open);
+        dirOpenWith = testMenu.findItem(R.id.dir_menu_open_with);
+        dirCutToClipboard = testMenu.findItem(R.id.dir_menu_cut_to_clipboard);
+        dirCopyToClipboard = testMenu.findItem(R.id.dir_menu_copy_to_clipboard);
+        dirPasteFromClipboard = testMenu.findItem(R.id.dir_menu_paste_from_clipboard);
+        dirCreateDir = testMenu.findItem(R.id.dir_menu_create_dir);
+        dirSelectAll = testMenu.findItem(R.id.dir_menu_select_all);
+        dirRename = testMenu.findItem(R.id.dir_menu_rename);
+        dirDelete = testMenu.findItem(R.id.dir_menu_delete);
+        dirViewInOwner = testMenu.findItem(R.id.dir_menu_view_in_owner);
+        dirOpenInNewWindow = testMenu.findItem(R.id.dir_menu_open_in_new_window);
+        dirPasteIntoFolder = testMenu.findItem(R.id.dir_menu_paste_into_folder);
+
+        rootEjectRoot = testMenu.findItem(R.id.root_menu_eject_root);
+        rootOpenInNewWindow = testMenu.findItem(R.id.root_menu_open_in_new_window);
+        rootPasteIntoFolder = testMenu.findItem(R.id.root_menu_paste_into_folder);
+        rootSettings = testMenu.findItem(R.id.root_menu_settings);
+
+        actionModeOpen = testMenu.findItem(R.id.action_menu_open);
+        actionModeOpenWith = testMenu.findItem(R.id.action_menu_open_with);
+        actionModeShare = testMenu.findItem(R.id.action_menu_share);
+        actionModeDelete = testMenu.findItem(R.id.action_menu_delete);
+        actionModeSelectAll = testMenu.findItem(R.id.action_menu_select_all);
+        actionModeCopyTo = testMenu.findItem(R.id.action_menu_copy_to);
+        actionModeExtractTo = testMenu.findItem(R.id.action_menu_extract_to);
+        actionModeMoveTo = testMenu.findItem(R.id.action_menu_move_to);
+        actionModeCompress = testMenu.findItem(R.id.action_menu_compress);
+        actionModeRename = testMenu.findItem(R.id.action_menu_rename);
+        actionModeInspector = testMenu.findItem(R.id.action_menu_inspector);
+        actionModeViewInOwner = testMenu.findItem(R.id.action_menu_view_in_owner);
+
+        optionSearch = testMenu.findItem(R.id.option_menu_search);
+        optionDebug = testMenu.findItem(R.id.option_menu_debug);
+        optionGrid = testMenu.findItem(R.id.option_menu_grid);
+        optionList = testMenu.findItem(R.id.option_menu_list);
+        optionNewWindow = testMenu.findItem(R.id.option_menu_new_window);
+        optionCreateDir = testMenu.findItem(R.id.option_menu_create_dir);
+        optionSelectAll = testMenu.findItem(R.id.option_menu_select_all);
+        optionAdvanced = testMenu.findItem(R.id.option_menu_advanced);
+        optionSettings = testMenu.findItem(R.id.option_menu_settings);
 
         features = new TestFeatures();
 
         // These items by default are visible
-        testMenu.findItem(R.id.menu_select_all).setVisible(true);
-        testMenu.findItem(R.id.menu_list).setVisible(true);
+        testMenu.findItem(R.id.dir_menu_select_all).setVisible(true);
+        testMenu.findItem(R.id.option_menu_select_all).setVisible(true);
+        testMenu.findItem(R.id.option_menu_list).setVisible(true);
 
         selectionDetails = new TestSelectionDetails();
         dirDetails = new TestDirectoryDetails();
@@ -156,14 +200,14 @@ public final class MenuManagerTest {
 
         mgr.updateActionMenu(testMenu, selectionDetails);
 
-        rename.assertEnabled();
-        delete.assertVisible();
-        share.assertVisible();
-        copyTo.assertEnabled();
-        compress.assertEnabled();
-        extractTo.assertInvisible();
-        moveTo.assertEnabled();
-        view.assertInvisible();
+        actionModeRename.assertEnabled();
+        actionModeDelete.assertVisible();
+        actionModeShare.assertVisible();
+        actionModeCopyTo.assertEnabled();
+        actionModeCompress.assertEnabled();
+        actionModeExtractTo.assertInvisible();
+        actionModeMoveTo.assertEnabled();
+        actionModeViewInOwner.assertInvisible();
     }
 
     @Test
@@ -172,13 +216,13 @@ public final class MenuManagerTest {
         dirDetails.canCreateDoc = true;
         mgr.updateActionMenu(testMenu, selectionDetails);
 
-        rename.assertDisabled();
-        share.assertInvisible();
-        copyTo.assertDisabled();
-        compress.assertDisabled();
-        extractTo.assertDisabled();
-        moveTo.assertDisabled();
-        view.assertInvisible();
+        actionModeRename.assertDisabled();
+        actionModeShare.assertInvisible();
+        actionModeCopyTo.assertDisabled();
+        actionModeCompress.assertDisabled();
+        actionModeExtractTo.assertDisabled();
+        actionModeMoveTo.assertDisabled();
+        actionModeViewInOwner.assertInvisible();
     }
 
     @Test
@@ -187,8 +231,8 @@ public final class MenuManagerTest {
         dirDetails.canCreateDoc = true;
         mgr.updateActionMenu(testMenu, selectionDetails);
 
-        compress.assertInvisible();
-        compress.assertDisabled();
+        actionModeCompress.assertInvisible();
+        actionModeCompress.assertDisabled();
     }
 
     @Test
@@ -196,7 +240,7 @@ public final class MenuManagerTest {
         dirDetails.canCreateDoc = true;
         mgr.updateActionMenu(testMenu, selectionDetails);
 
-        compress.assertEnabled();
+        actionModeCompress.assertEnabled();
     }
 
     @Test
@@ -204,7 +248,7 @@ public final class MenuManagerTest {
         dirDetails.canCreateDoc = false;
         mgr.updateActionMenu(testMenu, selectionDetails);
 
-        compress.assertDisabled();
+        actionModeCompress.assertDisabled();
     }
 
     @Test
@@ -212,7 +256,7 @@ public final class MenuManagerTest {
         selectionDetails.canRename = false;
         mgr.updateActionMenu(testMenu, selectionDetails);
 
-        rename.assertDisabled();
+        actionModeRename.assertDisabled();
     }
 
     @Test
@@ -220,9 +264,9 @@ public final class MenuManagerTest {
         selectionDetails.canDelete = false;
         mgr.updateActionMenu(testMenu, selectionDetails);
 
-        delete.assertInvisible();
+        actionModeDelete.assertInvisible();
         // We shouldn't be able to move files if we can't delete them
-        moveTo.assertDisabled();
+        actionModeMoveTo.assertDisabled();
     }
 
     @Test
@@ -230,7 +274,7 @@ public final class MenuManagerTest {
         selectionDetails.canViewInOwner = true;
         mgr.updateActionMenu(testMenu, selectionDetails);
 
-        view.assertVisible();
+        actionModeViewInOwner.assertVisible();
     }
 
     @Test
@@ -241,10 +285,10 @@ public final class MenuManagerTest {
         selectionDetails.canDelete = true;
         mgr.updateActionMenu(testMenu, selectionDetails);
 
-        delete.assertVisible();
-        delete.assertEnabled();
-        moveTo.assertVisible();
-        moveTo.assertEnabled();
+        actionModeDelete.assertVisible();
+        actionModeDelete.assertEnabled();
+        actionModeMoveTo.assertVisible();
+        actionModeMoveTo.assertEnabled();
     }
 
     @Test
@@ -253,7 +297,7 @@ public final class MenuManagerTest {
         mgr.updateActionMenu(testMenu, selectionDetails);
 
         // We can't share directories
-        share.assertInvisible();
+        actionModeShare.assertInvisible();
     }
 
     @Test
@@ -264,8 +308,8 @@ public final class MenuManagerTest {
         selectionDetails.containDirectories = false;
         mgr.updateActionMenu(testMenu, selectionDetails);
 
-        share.assertVisible();
-        share.assertEnabled();
+        actionModeShare.assertVisible();
+        actionModeShare.assertEnabled();
     }
 
     @Test
@@ -273,7 +317,7 @@ public final class MenuManagerTest {
         selectionDetails.canExtract = false;
         mgr.updateActionMenu(testMenu, selectionDetails);
 
-        extractTo.assertInvisible();
+        actionModeExtractTo.assertInvisible();
     }
 
     @Test
@@ -283,9 +327,9 @@ public final class MenuManagerTest {
         dirDetails.canCreateDoc = true;
         mgr.updateActionMenu(testMenu, selectionDetails);
 
-        extractTo.assertEnabled();
-        copyTo.assertDisabled();
-        compress.assertDisabled();
+        actionModeExtractTo.assertEnabled();
+        actionModeCopyTo.assertDisabled();
+        actionModeCompress.assertDisabled();
     }
 
     @Test
@@ -293,8 +337,8 @@ public final class MenuManagerTest {
         selectionDetails.canOpenWith = true;
         mgr.updateActionMenu(testMenu, selectionDetails);
 
-        openWith.assertVisible();
-        openWith.assertEnabled();
+        actionModeOpenWith.assertVisible();
+        actionModeOpenWith.assertEnabled();
     }
 
     @Test
@@ -302,18 +346,18 @@ public final class MenuManagerTest {
         selectionDetails.canOpenWith = false;
         mgr.updateActionMenu(testMenu, selectionDetails);
 
-        openWith.assertVisible();
-        openWith.assertDisabled();
+        actionModeOpenWith.assertVisible();
+        actionModeOpenWith.assertDisabled();
     }
 
     @Test
     public void testOptionMenu() {
         mgr.updateOptionMenu(testMenu);
 
-        advanced.assertInvisible();
-        advanced.assertTitle(R.string.menu_advanced_show);
-        createDir.assertDisabled();
-        debug.assertInvisible();
+        optionAdvanced.assertInvisible();
+        optionAdvanced.assertTitle(R.string.menu_advanced_show);
+        optionCreateDir.assertDisabled();
+        optionDebug.assertInvisible();
         assertTrue(testSearchManager.updateMenuCalled());
     }
 
@@ -323,8 +367,8 @@ public final class MenuManagerTest {
         state.showDeviceStorageOption = true;
         mgr.updateOptionMenu(testMenu);
 
-        advanced.assertVisible();
-        advanced.assertTitle(R.string.menu_advanced_hide);
+        optionAdvanced.assertVisible();
+        optionAdvanced.assertTitle(R.string.menu_advanced_hide);
     }
 
     @Test
@@ -332,7 +376,7 @@ public final class MenuManagerTest {
         dirDetails.canCreateDirectory = true;
         mgr.updateOptionMenu(testMenu);
 
-        createDir.assertEnabled();
+        optionCreateDir.assertEnabled();
     }
 
     @Test
@@ -340,7 +384,7 @@ public final class MenuManagerTest {
         dirDetails.hasRootSettings = true;
         mgr.updateOptionMenu(testMenu);
 
-        settings.assertVisible();
+        optionSettings.assertVisible();
     }
 
     @Test
@@ -380,12 +424,12 @@ public final class MenuManagerTest {
     public void testContextMenu_EmptyArea() {
         mgr.updateContextMenuForContainer(testMenu);
 
-        selectAll.assertVisible();
-        selectAll.assertEnabled();
-        paste.assertVisible();
-        paste.assertDisabled();
-        createDir.assertVisible();
-        createDir.assertDisabled();
+        dirSelectAll.assertVisible();
+        dirSelectAll.assertEnabled();
+        dirPasteFromClipboard.assertVisible();
+        dirPasteFromClipboard.assertDisabled();
+        dirCreateDir.assertVisible();
+        dirCreateDir.assertDisabled();
     }
 
     @Test
@@ -395,12 +439,12 @@ public final class MenuManagerTest {
 
         mgr.updateContextMenuForContainer(testMenu);
 
-        selectAll.assertVisible();
-        selectAll.assertEnabled();
-        paste.assertVisible();
-        paste.assertDisabled();
-        createDir.assertVisible();
-        createDir.assertDisabled();
+        dirSelectAll.assertVisible();
+        dirSelectAll.assertEnabled();
+        dirPasteFromClipboard.assertVisible();
+        dirPasteFromClipboard.assertDisabled();
+        dirCreateDir.assertVisible();
+        dirCreateDir.assertDisabled();
     }
 
     @Test
@@ -410,12 +454,12 @@ public final class MenuManagerTest {
 
         mgr.updateContextMenuForContainer(testMenu);
 
-        selectAll.assertVisible();
-        selectAll.assertEnabled();
-        paste.assertVisible();
-        paste.assertDisabled();
-        createDir.assertVisible();
-        createDir.assertDisabled();
+        dirSelectAll.assertVisible();
+        dirSelectAll.assertEnabled();
+        dirPasteFromClipboard.assertVisible();
+        dirPasteFromClipboard.assertDisabled();
+        dirCreateDir.assertVisible();
+        dirCreateDir.assertDisabled();
     }
 
     @Test
@@ -425,12 +469,12 @@ public final class MenuManagerTest {
 
         mgr.updateContextMenuForContainer(testMenu);
 
-        selectAll.assertVisible();
-        selectAll.assertEnabled();
-        paste.assertVisible();
-        paste.assertEnabled();
-        createDir.assertVisible();
-        createDir.assertDisabled();
+        dirSelectAll.assertVisible();
+        dirSelectAll.assertEnabled();
+        dirPasteFromClipboard.assertVisible();
+        dirPasteFromClipboard.assertEnabled();
+        dirCreateDir.assertVisible();
+        dirCreateDir.assertDisabled();
     }
 
     @Test
@@ -439,49 +483,49 @@ public final class MenuManagerTest {
 
         mgr.updateContextMenuForContainer(testMenu);
 
-        selectAll.assertVisible();
-        selectAll.assertEnabled();
-        paste.assertVisible();
-        paste.assertDisabled();
-        createDir.assertVisible();
-        createDir.assertEnabled();
+        dirSelectAll.assertVisible();
+        dirSelectAll.assertEnabled();
+        dirPasteFromClipboard.assertVisible();
+        dirPasteFromClipboard.assertDisabled();
+        dirCreateDir.assertVisible();
+        dirCreateDir.assertEnabled();
     }
 
     @Test
     public void testContextMenu_OnFile() {
         selectionDetails.size = 1;
         mgr.updateContextMenuForFiles(testMenu, selectionDetails);
-        open.assertVisible();
-        open.assertEnabled();
-        cut.assertVisible();
-        copy.assertVisible();
-        rename.assertVisible();
-        createDir.assertVisible();
-        delete.assertVisible();
+        dirOpen.assertVisible();
+        dirOpen.assertEnabled();
+        dirCutToClipboard.assertVisible();
+        dirCopyToClipboard.assertVisible();
+        dirRename.assertVisible();
+        dirCreateDir.assertVisible();
+        dirDelete.assertVisible();
     }
 
     @Test
     public void testContextMenu_OnFile_CanOpenWith() {
         selectionDetails.canOpenWith = true;
         mgr.updateContextMenuForFiles(testMenu, selectionDetails);
-        openWith.assertVisible();
-        openWith.assertEnabled();
+        dirOpenWith.assertVisible();
+        dirOpenWith.assertEnabled();
     }
 
     @Test
     public void testContextMenu_OnFile_NoOpenWith() {
         selectionDetails.canOpenWith = false;
         mgr.updateContextMenuForFiles(testMenu, selectionDetails);
-        openWith.assertVisible();
-        openWith.assertDisabled();
+        dirOpenWith.assertVisible();
+        dirOpenWith.assertDisabled();
     }
 
     @Test
     public void testContextMenu_OnMultipleFiles() {
         selectionDetails.size = 3;
         mgr.updateContextMenuForFiles(testMenu, selectionDetails);
-        open.assertVisible();
-        open.assertDisabled();
+        dirOpen.assertVisible();
+        dirOpen.assertDisabled();
     }
 
     @Test
@@ -490,14 +534,14 @@ public final class MenuManagerTest {
         selectionDetails.canPasteInto = true;
         dirDetails.hasItemsToPaste = true;
         mgr.updateContextMenuForDirs(testMenu, selectionDetails);
-        openInNewWindow.assertVisible();
-        openInNewWindow.assertEnabled();
-        cut.assertVisible();
-        copy.assertVisible();
-        pasteInto.assertVisible();
-        pasteInto.assertEnabled();
-        rename.assertVisible();
-        delete.assertVisible();
+        dirOpenInNewWindow.assertVisible();
+        dirOpenInNewWindow.assertEnabled();
+        dirCutToClipboard.assertVisible();
+        dirCopyToClipboard.assertVisible();
+        dirPasteIntoFolder.assertVisible();
+        dirPasteIntoFolder.assertEnabled();
+        dirRename.assertVisible();
+        dirDelete.assertVisible();
     }
 
     @Test
@@ -505,14 +549,14 @@ public final class MenuManagerTest {
         selectionDetails.size = 1;
         selectionDetails.canPasteInto = false;
         mgr.updateContextMenuForDirs(testMenu, selectionDetails);
-        openInNewWindow.assertVisible();
-        openInNewWindow.assertEnabled();
-        cut.assertVisible();
-        copy.assertVisible();
-        pasteInto.assertVisible();
-        pasteInto.assertDisabled();
-        rename.assertVisible();
-        delete.assertVisible();
+        dirOpenInNewWindow.assertVisible();
+        dirOpenInNewWindow.assertEnabled();
+        dirCutToClipboard.assertVisible();
+        dirCopyToClipboard.assertVisible();
+        dirPasteIntoFolder.assertVisible();
+        dirPasteIntoFolder.assertDisabled();
+        dirRename.assertVisible();
+        dirDelete.assertVisible();
     }
 
     @Test
@@ -521,16 +565,16 @@ public final class MenuManagerTest {
         selectionDetails.size = 1;
         dirDetails.hasItemsToPaste = false;
         mgr.updateContextMenuForDirs(testMenu, selectionDetails);
-        pasteInto.assertVisible();
-        pasteInto.assertDisabled();
+        dirPasteIntoFolder.assertVisible();
+        dirPasteIntoFolder.assertDisabled();
     }
 
     @Test
     public void testContextMenu_OnMultipleDirectories() {
         selectionDetails.size = 3;
         mgr.updateContextMenuForDirs(testMenu, selectionDetails);
-        openInNewWindow.assertVisible();
-        openInNewWindow.assertDisabled();
+        dirOpenInNewWindow.assertVisible();
+        dirOpenInNewWindow.assertDisabled();
     }
 
     @Test
@@ -540,12 +584,12 @@ public final class MenuManagerTest {
         selectionDetails.size = 2;
         selectionDetails.canDelete = true;
         mgr.updateContextMenu(testMenu, selectionDetails);
-        cut.assertVisible();
-        cut.assertEnabled();
-        copy.assertVisible();
-        copy.assertEnabled();
-        delete.assertVisible();
-        delete.assertEnabled();
+        dirCutToClipboard.assertVisible();
+        dirCutToClipboard.assertEnabled();
+        dirCopyToClipboard.assertVisible();
+        dirCopyToClipboard.assertEnabled();
+        dirDelete.assertVisible();
+        dirDelete.assertEnabled();
     }
 
     @Test
@@ -556,12 +600,12 @@ public final class MenuManagerTest {
         selectionDetails.containPartial = true;
         selectionDetails.canDelete = true;
         mgr.updateContextMenu(testMenu, selectionDetails);
-        cut.assertVisible();
-        cut.assertDisabled();
-        copy.assertVisible();
-        copy.assertDisabled();
-        delete.assertVisible();
-        delete.assertEnabled();
+        dirCutToClipboard.assertVisible();
+        dirCutToClipboard.assertDisabled();
+        dirCopyToClipboard.assertVisible();
+        dirCopyToClipboard.assertDisabled();
+        dirDelete.assertVisible();
+        dirDelete.assertEnabled();
     }
 
     @Test
@@ -571,12 +615,12 @@ public final class MenuManagerTest {
         selectionDetails.size = 2;
         selectionDetails.canDelete = false;
         mgr.updateContextMenu(testMenu, selectionDetails);
-        cut.assertVisible();
-        cut.assertDisabled();
-        copy.assertVisible();
-        copy.assertEnabled();
-        delete.assertVisible();
-        delete.assertDisabled();
+        dirCutToClipboard.assertVisible();
+        dirCutToClipboard.assertDisabled();
+        dirCopyToClipboard.assertVisible();
+        dirCopyToClipboard.assertEnabled();
+        dirDelete.assertVisible();
+        dirDelete.assertDisabled();
     }
 
     @Test
@@ -585,16 +629,16 @@ public final class MenuManagerTest {
 
         mgr.updateRootContextMenu(testMenu, testRootInfo, testDocInfo);
 
-        eject.assertInvisible();
+        rootEjectRoot.assertInvisible();
 
-        openInNewWindow.assertVisible();
-        openInNewWindow.assertEnabled();
+        rootOpenInNewWindow.assertVisible();
+        rootOpenInNewWindow.assertEnabled();
 
-        pasteInto.assertVisible();
-        pasteInto.assertDisabled();
+        rootPasteIntoFolder.assertVisible();
+        rootPasteIntoFolder.assertDisabled();
 
-        settings.assertVisible();
-        settings.assertDisabled();
+        rootSettings.assertVisible();
+        rootSettings.assertDisabled();
     }
 
     @Test
@@ -602,7 +646,7 @@ public final class MenuManagerTest {
         testRootInfo.flags = Root.FLAG_HAS_SETTINGS;
         mgr.updateRootContextMenu(testMenu, testRootInfo, testDocInfo);
 
-        settings.assertEnabled();
+        rootSettings.assertEnabled();
     }
 
     @Test
@@ -610,8 +654,8 @@ public final class MenuManagerTest {
         dirDetails.hasItemsToPaste = true;
         mgr.updateRootContextMenu(testMenu, testRootInfo, testDocInfo);
 
-        pasteInto.assertVisible();
-        pasteInto.assertDisabled();
+        rootPasteIntoFolder.assertVisible();
+        rootPasteIntoFolder.assertDisabled();
     }
 
     @Test
@@ -621,8 +665,8 @@ public final class MenuManagerTest {
         dirDetails.hasItemsToPaste = false;
         mgr.updateRootContextMenu(testMenu, testRootInfo, testDocInfo);
 
-        pasteInto.assertVisible();
-        pasteInto.assertDisabled();
+        rootPasteIntoFolder.assertVisible();
+        rootPasteIntoFolder.assertDisabled();
     }
 
     @Test
@@ -632,8 +676,8 @@ public final class MenuManagerTest {
         dirDetails.hasItemsToPaste = true;
         mgr.updateRootContextMenu(testMenu, testRootInfo, testDocInfo);
 
-        pasteInto.assertVisible();
-        pasteInto.assertEnabled();
+        rootPasteIntoFolder.assertVisible();
+        rootPasteIntoFolder.assertEnabled();
     }
 
     @Test
@@ -641,7 +685,7 @@ public final class MenuManagerTest {
         testRootInfo.flags = Root.FLAG_SUPPORTS_EJECT;
         mgr.updateRootContextMenu(testMenu, testRootInfo, testDocInfo);
 
-        eject.assertEnabled();
+        rootEjectRoot.assertEnabled();
     }
 
     @Test
@@ -650,6 +694,6 @@ public final class MenuManagerTest {
         testRootInfo.ejecting = true;
         mgr.updateRootContextMenu(testMenu, testRootInfo, testDocInfo);
 
-        eject.assertDisabled();
+        rootEjectRoot.assertDisabled();
     }
 }

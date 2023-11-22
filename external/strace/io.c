@@ -3,6 +3,7 @@
  * Copyright (c) 1993 Branko Lankester <branko@hacktic.nl>
  * Copyright (c) 1993, 1994, 1995, 1996 Rick Sladkey <jrs@world.std.com>
  * Copyright (c) 1996-1999 Wichert Akkerman <wichert@cistron.nl>
+ * Copyright (c) 1999-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -69,7 +70,7 @@ print_iovec(struct tcb *tcp, void *elem_buf, size_t elem_size, void *data)
 	kernel_ulong_t iov_buf[2], len;
 	struct print_iovec_config *c = data;
 
-        if (elem_size < sizeof(iov_buf)) {
+	if (elem_size < sizeof(iov_buf)) {
 		iov_buf[0] = ((unsigned int *) elem_buf)[0];
 		iov_buf[1] = ((unsigned int *) elem_buf)[1];
 		iov = iov_buf;
@@ -94,7 +95,8 @@ print_iovec(struct tcb *tcp, void *elem_buf, size_t elem_size, void *data)
 				len = c->data_size;
 			if (c->data_size != (kernel_ulong_t) -1)
 				c->data_size -= len;
-			decode_netlink(tcp, iov[0], iov[1]);
+			/* assume that the descriptor is 1st syscall argument */
+			decode_netlink(tcp, tcp->u_arg[0], iov[0], len);
 			break;
 		default:
 			printaddr(iov[0]);
@@ -116,8 +118,9 @@ tprint_iov_upto(struct tcb *const tcp, const kernel_ulong_t len,
 		const kernel_ulong_t data_size)
 {
 	kernel_ulong_t iov[2];
-	struct print_iovec_config config =
-		{ .decode_iov = decode_iov, .data_size = data_size };
+	struct print_iovec_config config = {
+		.decode_iov = decode_iov, .data_size = data_size
+	};
 
 	print_array(tcp, addr, len, iov, current_wordsize * 2,
 		    umoven_or_printaddr_ignore_syserror, print_iovec, &config);
@@ -224,11 +227,6 @@ SYS_FUNC(preadv)
 	return do_preadv(tcp, -1);
 }
 
-SYS_FUNC(preadv2)
-{
-	return do_preadv(tcp, 5);
-}
-
 static int
 do_pwritev(struct tcb *tcp, const int flags_arg)
 {
@@ -253,9 +251,29 @@ SYS_FUNC(pwritev)
 	return do_pwritev(tcp, -1);
 }
 
+/*
+ * x32 is the only architecture where preadv2 takes 5 arguments
+ * instead of 6, see preadv64v2 in kernel sources.
+ * Likewise, x32 is the only architecture where pwritev2 takes 5 arguments
+ * instead of 6, see pwritev64v2 in kernel sources.
+ */
+
+#if defined X86_64
+# define PREADV2_PWRITEV2_FLAGS_ARG_NO (current_personality == 2 ? 4 : 5)
+#elif defined X32
+# define PREADV2_PWRITEV2_FLAGS_ARG_NO (current_personality == 0 ? 4 : 5)
+#else
+# define PREADV2_PWRITEV2_FLAGS_ARG_NO 5
+#endif
+
+SYS_FUNC(preadv2)
+{
+	return do_preadv(tcp, PREADV2_PWRITEV2_FLAGS_ARG_NO);
+}
+
 SYS_FUNC(pwritev2)
 {
-	return do_pwritev(tcp, 5);
+	return do_pwritev(tcp, PREADV2_PWRITEV2_FLAGS_ARG_NO);
 }
 
 #include "xlat/splice_flags.h"

@@ -27,6 +27,7 @@ import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.StubTest;
@@ -43,6 +44,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.List;
 
 /**
  * Unit tests for {@link TfSuiteRunner}.
@@ -178,9 +180,12 @@ public class TfSuiteRunnerTest {
         mRunner.setDevice(mock(ITestDevice.class));
         mRunner.setBuild(mock(IBuildInfo.class));
         mRunner.setSystemStatusChecker(new ArrayList<>());
+        mRunner.setInvocationContext(new InvocationContext());
         // runs the expanded suite
+        listener.testModuleStarted(EasyMock.anyObject());
         listener.testRunStarted("suite/stub1", 0);
         listener.testRunEnded(EasyMock.anyLong(), EasyMock.anyObject());
+        listener.testModuleEnded();
         EasyMock.replay(listener);
         mRunner.run(listener);
         EasyMock.verify(listener);
@@ -203,9 +208,11 @@ public class TfSuiteRunnerTest {
             File zipDir = FileUtil.getFileForPath(tmpDir, "suite");
             FileUtil.mkdirsRWX(zipDir);
 
-            // Create a test config inside a zip.
+            // Create 2 test configs inside a zip.
             File testConfig = new File(zipDir, "test1.config");
             FileUtil.writeToFile(TEST_CONFIG, testConfig);
+            File testConfig2 = new File(zipDir, "test2.config");
+            FileUtil.writeToFile(TEST_CONFIG, testConfig2);
             additionalTestsZipFile = ZipUtil.createZip(zipDir);
 
             OptionSetter setter = new OptionSetter(mRunner);
@@ -219,13 +226,14 @@ public class TfSuiteRunnerTest {
 
             EasyMock.replay(deviceBuildInfo);
             LinkedHashMap<String, IConfiguration> configMap = mRunner.loadTests();
-            assertEquals(3, configMap.size());
-            assertTrue(configMap.containsKey("suite/stub1"));
-            assertTrue(configMap.containsKey("suite/stub2"));
-            assertTrue(
-                    configMap.containsKey(
-                            FileUtil.getFileForPath(deviceTestDir, "suite/test1.config")
-                                    .getAbsolutePath()));
+            assertEquals(4, configMap.size());
+            // The keySet should be stable and always ensure the same order of files.
+            List<String> keyList = new ArrayList<>(configMap.keySet());
+            // test1 and test2 name was sanitized to look like the included configs.
+            assertEquals("suite/test1", keyList.get(0));
+            assertEquals("suite/test2", keyList.get(1));
+            assertEquals("suite/stub1", keyList.get(2));
+            assertEquals("suite/stub2", keyList.get(3));
             EasyMock.verify(deviceBuildInfo);
         } finally {
             FileUtil.recursiveDelete(deviceTestDir);

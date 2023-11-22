@@ -53,14 +53,6 @@ struct Vec4 {
   float x, y, z, w;
 };
 
-#define NANO_PI (3.14159265359f)
-
-#define NANO_ABS(x) ((x) > 0 ? (x) : -(x))
-
-#define NANO_MAX(a, b) ((a) > (b)) ? (a) : (b)
-
-#define NANO_MIN(a, b) ((a) < (b)) ? (a) : (b)
-
 // 3-DIMENSIONAL VECTOR MATH ///////////////////////////////////////////
 static inline void initVec3(struct Vec3 *v, float x, float y, float z) {
   ASSERT_NOT_NULL(v);
@@ -165,35 +157,35 @@ static inline void initVec4(struct Vec4 *v, float x, float y, float z,
 
 // Adds two vectors and returns the sum in the provided vector, i.e.
 // u = v + w.
-void vecAdd(float *u, const float *v, const float *w, int dim);
+void vecAdd(float *u, const float *v, const float *w, size_t dim);
 
 // Adds two vectors and returns the sum in the first vector, i.e.
 // v = v + w.
-void vecAddInPlace(float *v, const float *w, int dim);
+void vecAddInPlace(float *v, const float *w, size_t dim);
 
 // Subtracts two vectors and returns in the provided vector, i.e.
 // u = v - w.
-void vecSub(float *u, const float *v, const float *w, int dim);
+void vecSub(float *u, const float *v, const float *w, size_t dim);
 
 // Scales vector by a scalar and returns in the provided vector, i.e.
 // u = c * v.
-void vecScalarMul(float *u, const float *v, float c, int dim);
+void vecScalarMul(float *u, const float *v, float c, size_t dim);
 
 // Scales vector by a scalar and returns in the same vector, i.e.
 // v = c * v.
-void vecScalarMulInPlace(float *v, float c, int dim);
+void vecScalarMulInPlace(float *v, float c, size_t dim);
 
 // Returns the L2-norm of the given vector.
-float vecNorm(const float *v, int dim);
+float vecNorm(const float *v, size_t dim);
 
 // Returns the square of the L2-norm of the given vector.
-float vecNormSquared(const float *v, int dim);
+float vecNormSquared(const float *v, size_t dim);
 
 // Returns the dot product of v and w.
-float vecDot(const float *v, const float *w, int dim);
+float vecDot(const float *v, const float *w, size_t dim);
 
 // Returns the maximum absolute value in vector.
-float vecMaxAbsoluteValue(const float *v, int dim);
+float vecMaxAbsoluteValue(const float *v, size_t dim);
 
 #ifdef __cplusplus
 }

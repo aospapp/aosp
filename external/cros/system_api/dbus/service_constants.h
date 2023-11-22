@@ -11,6 +11,7 @@
 // Chromium OS and Chromium environment.
 #include "apmanager/dbus-constants.h"
 #include "authpolicy/dbus-constants.h"
+#include "biod/dbus-constants.h"
 #include "cros-disks/dbus-constants.h"
 #include "cryptohome/dbus-constants.h"
 #include "debugd/dbus-constants.h"
@@ -91,7 +92,6 @@ const char kLibCrosServiceName[] = "org.chromium.LibCrosService";
 const char kLibCrosServicePath[] = "/org/chromium/LibCrosService";
 const char kLibCrosServiceInterface[] = "org.chromium.LibCrosServiceInterface";
 // Methods
-const char kResolveNetworkProxy[] = "ResolveNetworkProxy";
 // TODO(teravest): Remove this once CheckLiveness is removed from
 // LibCrosService.
 const char kCheckLiveness[] = "CheckLiveness";
@@ -149,6 +149,18 @@ const char kModemGsmNetworkInterface[] =
     "org.freedesktop.ModemManager.Modem.Gsm.Network";
 const char kModemGobiInterface[] = "org.chromium.ModemManager.Modem.Gobi";
 }  // namespace cromo
+
+namespace media_perception {
+
+const char kMediaPerceptionServiceName[] = "org.chromium.MediaPerception";
+const char kMediaPerceptionServicePath[] = "/org/chromium/MediaPerception";
+const char kMediaPerceptionInterface[] = "org.chromium.MediaPerception";
+
+const char kStateFunction[] = "State";
+const char kGetDiagnosticsFunction[] = "GetDiagnostics";
+const char kDetectionSignal[] = "MediaPerceptionDetection";
+
+}  // namespace media_perception
 
 namespace modemmanager {
 // ModemManager D-Bus service identifiers
@@ -220,6 +232,13 @@ const char kBluetoothPluginInterface[] = "org.chromium.BluetoothDevice";
 
 // Bluetooth Device plugin methods.
 const char kGetConnInfo[] = "GetConnInfo";
+const char kSetLEConnectionParameters[] = "SetLEConnectionParameters";
+// Valid connection parameters that can be passed to the
+// SetLEConnectionParameters API as dictionary keys.
+const char kLEConnectionParameterMinimumConnectionInterval[] =
+    "MinimumConnectionInterval";
+const char kLEConnectionParameterMaximumConnectionInterval[] =
+    "MaximumConnectionInterval";
 }  // namespace bluetooth_plugin_device
 
 namespace bluetooth_adapter {
@@ -650,6 +669,7 @@ const char kBluetoothAdvertisingManagerInterface[] =
 const char kRegisterAdvertisement[] = "RegisterAdvertisement";
 const char kUnregisterAdvertisement[] = "UnregisterAdvertisement";
 const char kSetAdvertisingIntervals[] = "SetAdvertisingIntervals";
+const char kResetAdvertising[] = "ResetAdvertising";
 
 // Bluetooth LE Advertising Manager errors.
 const char kErrorAlreadyExists[] = "org.bluez.Error.AlreadyExists";
@@ -980,55 +1000,5 @@ const char kGenerateEcP256KeyPairMethod[] = "GenerateEcP256KeyPair";
 const char kCreateSecureMessageMethod[] = "CreateSecureMessage";
 const char kUnwrapSecureMessageMethod[] = "UnwrapSecureMessage";
 }  // namespace easy_unlock
-
-namespace biod {
-const char kBiodServicePath[] = "/org/chromium/BiometricsDaemon";
-const char kBiodServiceName[] = "org.chromium.BiometricsDaemon";
-
-// Interfaces for objects exported by biod
-const char kBiometricsManagerInterface[] =
-    "org.chromium.BiometricsDaemon.BiometricsManager";
-const char kAuthSessionInterface[] =
-    "org.chromium.BiometricsDaemon.AuthSession";
-const char kEnrollSessionInterface[] =
-    "org.chromium.BiometricsDaemon.EnrollSession";
-const char kRecordInterface[] = "org.chromium.BiometricsDaemon.Record";
-
-// Methods
-const char kBiometricsManagerStartEnrollSessionMethod[] = "StartEnrollSession";
-const char kBiometricsManagerGetRecordsForUserMethod[] = "GetRecordsForUser";
-const char kBiometricsManagerDestroyAllRecordsMethod[] = "DestroyAllRecords";
-const char kBiometricsManagerStartAuthSessionMethod[] = "StartAuthSession";
-const char kAuthSessionEndMethod[] = "End";
-const char kEnrollSessionCancelMethod[] = "Cancel";
-const char kRecordRemoveMethod[] = "Remove";
-const char kRecordSetLabelMethod[] = "SetLabel";
-
-// Signals
-const char kBiometricsManagerEnrollScanDoneSignal[] = "EnrollScanDone";
-const char kBiometricsManagerAuthScanDoneSignal[] = "AuthScanDone";
-const char kBiometricsManagerSessionFailedSignal[] = "SessionFailed";
-
-// Properties
-const char kBiometricsManagerBiometricTypeProperty[] = "Type";
-const char kRecordLabelProperty[] = "Label";
-
-// Values
-enum BiometricType {
-  BIOMETRIC_TYPE_UNKNOWN = 0,
-  BIOMETRIC_TYPE_FINGERPRINT = 1,
-  BIOMETRIC_TYPE_MAX,
-};
-enum ScanResult {
-  SCAN_RESULT_SUCCESS = 0,
-  SCAN_RESULT_PARTIAL = 1,
-  SCAN_RESULT_INSUFFICIENT = 2,
-  SCAN_RESULT_SENSOR_DIRTY = 3,
-  SCAN_RESULT_TOO_SLOW = 4,
-  SCAN_RESULT_TOO_FAST = 5,
-  SCAN_RESULT_IMMOBILE = 6,
-  SCAN_RESULT_MAX,
-};
-}  // namespace biod
 
 #endif  // SYSTEM_API_DBUS_SERVICE_CONSTANTS_H_

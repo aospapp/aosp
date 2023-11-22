@@ -41,20 +41,109 @@ import static org.conscrypt.NativeConstants.SSL3_RT_HEADER_LENGTH;
 import static org.conscrypt.NativeConstants.SSL3_RT_MAX_PACKET_SIZE;
 
 import java.nio.ByteBuffer;
+import java.security.cert.CertificateEncodingException;
+import java.security.cert.X509Certificate;
+import java.util.HashSet;
+import java.util.Set;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLHandshakeException;
+import javax.net.ssl.SSLPeerUnverifiedException;
+import javax.security.cert.CertificateException;
 
 /**
  * Utility methods for SSL packet processing. Copied from the Netty project.
  * <p>
  * This is a public class to allow testing to occur on Android via CTS.
- *
- * @hide
  */
-public final class SSLUtils {
-    static final boolean USE_ENGINE_SOCKET_BY_DEFAULT =
-            Boolean.parseBoolean(System.getProperty("org.conscrypt.useEngineSocketByDefault"));
-    static final int MAX_PROTOCOL_LENGTH = 255;
+final class SSLUtils {
+    static final boolean USE_ENGINE_SOCKET_BY_DEFAULT = Boolean.parseBoolean(
+            System.getProperty("org.conscrypt.useEngineSocketByDefault", "false"));
+    private static final int MAX_PROTOCOL_LENGTH = 255;
+
+    // TODO(nathanmittler): Should these be in NativeConstants?
+    enum SessionType {
+        /**
+         * Identifies OpenSSL sessions.
+         */
+        OPEN_SSL(1),
+
+        /**
+         * Identifies OpenSSL sessions with OCSP stapled data.
+         */
+        OPEN_SSL_WITH_OCSP(2),
+
+        /**
+         * Identifies OpenSSL sessions with TLS SCT data.
+         */
+        OPEN_SSL_WITH_TLS_SCT(3);
+
+        SessionType(int value) {
+            this.value = value;
+        }
+
+        static final boolean isSupportedType(int type) {
+            return type == OPEN_SSL.value || type == OPEN_SSL_WITH_OCSP.value
+                    || type == OPEN_SSL_WITH_TLS_SCT.value;
+        }
+
+        final int value;
+    }
+
+    /**
+     * States for SSL engines.
+     */
+    static final class EngineStates {
+        private EngineStates() {}
+
+        /**
+         * The engine is constructed, but the initial handshake hasn't been started
+         */
+        static final int STATE_NEW = 0;
+
+        /**
+         * The client/server mode of the engine has been set.
+         */
+        static final int STATE_MODE_SET = 1;
+
+        /**
+         * The handshake has been started
+         */
+        static final int STATE_HANDSHAKE_STARTED = 2;
+
+        /**
+         * Listeners of the handshake have been notified of completion but the handshake call
+         * hasn't returned.
+         */
+        static final int STATE_HANDSHAKE_COMPLETED = 3;
+
+        /**
+         * The handshake call returned but the listeners have not yet been notified. This is expected
+         * behaviour in cut-through mode, where SSL_do_handshake returns before the handshake is
+         * complete. We can now start writing data to the socket.
+         */
+        static final int STATE_READY_HANDSHAKE_CUT_THROUGH = 4;
+
+        /**
+         * The handshake call has returned and the listeners have been notified. Ready to begin
+         * writing data.
+         */
+        static final int STATE_READY = 5;
+
+        /**
+         * The inbound direction of the engine has been closed.
+         */
+        static final int STATE_CLOSED_INBOUND = 6;
+
+        /**
+         * The outbound direction of the engine has been closed.
+         */
+        static final int STATE_CLOSED_OUTBOUND = 7;
+
+        /**
+         * The engine has been closed.
+         */
+        static final int STATE_CLOSED = 8;
+    }
 
     /**
      * This is the maximum overhead when encrypting plaintext as defined by
@@ -76,11 +165,111 @@ public final class SSLUtils {
     private static final int MAX_ENCRYPTION_OVERHEAD_DIFF =
             Integer.MAX_VALUE - MAX_ENCRYPTION_OVERHEAD_LENGTH;
 
+    /** Key type: RSA certificate. */
+    private static final String KEY_TYPE_RSA = "RSA";
+
+    /** Key type: Elliptic Curve certificate. */
+    private static final String KEY_TYPE_EC = "EC";
+
+    /**
+     * Returns key type constant suitable for calling X509KeyManager.chooseServerAlias or
+     * X509ExtendedKeyManager.chooseEngineServerAlias. Returns {@code null} for key exchanges that
+     * do not use X.509 for server authentication.
+     */
+    static String getServerX509KeyType(long sslCipherNative) throws SSLException {
+        String kx_name = NativeCrypto.SSL_CIPHER_get_kx_name(sslCipherNative);
+        if (kx_name.equals("RSA") || kx_name.equals("DHE_RSA") || kx_name.equals("ECDHE_RSA")) {
+            return KEY_TYPE_RSA;
+        } else if (kx_name.equals("ECDHE_ECDSA")) {
+            return KEY_TYPE_EC;
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * Similar to getServerKeyType, but returns value given TLS
+     * ClientCertificateType byte values from a CertificateRequest
+     * message for use with X509KeyManager.chooseClientAlias or
+     * X509ExtendedKeyManager.chooseEngineClientAlias.
+     * <p>
+     * Visible for testing.
+     */
+    static String getClientKeyType(byte clientCertificateType) {
+        // See also http://www.ietf.org/assignments/tls-parameters/tls-parameters.xml
+        switch (clientCertificateType) {
+            case NativeConstants.TLS_CT_RSA_SIGN:
+                return KEY_TYPE_RSA; // RFC rsa_sign
+            case NativeConstants.TLS_CT_ECDSA_SIGN:
+                return KEY_TYPE_EC; // RFC ecdsa_sign
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * Gets the supported key types for client certificates based on the
+     * {@code ClientCertificateType} values provided by the server.
+     *
+     * @param clientCertificateTypes {@code ClientCertificateType} values provided by the server.
+     *        See https://www.ietf.org/assignments/tls-parameters/tls-parameters.xml.
+     * @return supported key types that can be used in {@code X509KeyManager.chooseClientAlias} and
+     *         {@code X509ExtendedKeyManager.chooseEngineClientAlias}.
+     *
+     * Visible for testing.
+     */
+    static Set<String> getSupportedClientKeyTypes(byte[] clientCertificateTypes) {
+        Set<String> result = new HashSet<String>(clientCertificateTypes.length);
+        for (byte keyTypeCode : clientCertificateTypes) {
+            String keyType = SSLUtils.getClientKeyType(keyTypeCode);
+            if (keyType == null) {
+                // Unsupported client key type -- ignore
+                continue;
+            }
+            result.add(keyType);
+        }
+        return result;
+    }
+
+    static byte[][] encodeIssuerX509Principals(X509Certificate[] certificates)
+            throws CertificateEncodingException {
+        byte[][] principalBytes = new byte[certificates.length][];
+        for (int i = 0; i < certificates.length; i++) {
+            principalBytes[i] = certificates[i].getIssuerX500Principal().getEncoded();
+        }
+        return principalBytes;
+    }
+
+    /**
+     * Converts the peer certificates into a cert chain.
+     */
+    static javax.security.cert.X509Certificate[] toCertificateChain(X509Certificate[] certificates)
+            throws SSLPeerUnverifiedException {
+        try {
+            javax.security.cert.X509Certificate[] chain =
+                    new javax.security.cert.X509Certificate[certificates.length];
+
+            for (int i = 0; i < certificates.length; i++) {
+                byte[] encoded = certificates[i].getEncoded();
+                chain[i] = javax.security.cert.X509Certificate.getInstance(encoded);
+            }
+            return chain;
+        } catch (CertificateEncodingException e) {
+            SSLPeerUnverifiedException exception = new SSLPeerUnverifiedException(e.getMessage());
+            exception.initCause(exception);
+            throw exception;
+        } catch (CertificateException e) {
+            SSLPeerUnverifiedException exception = new SSLPeerUnverifiedException(e.getMessage());
+            exception.initCause(exception);
+            throw exception;
+        }
+    }
+
     /**
      * Calculates the minimum bytes required in the encrypted output buffer for the given number of
      * plaintext source bytes.
      */
-    public static int calculateOutNetBufSize(int pendingBytes) {
+    static int calculateOutNetBufSize(int pendingBytes) {
         return min(SSL3_RT_MAX_PACKET_SIZE,
                 MAX_ENCRYPTION_OVERHEAD_LENGTH + min(MAX_ENCRYPTION_OVERHEAD_DIFF, pendingBytes));
     }
@@ -119,7 +308,7 @@ public final class SSLUtils {
      * @throws IllegalArgumentException Is thrown if the given {@link ByteBuffer} has not at least
      * {@link org.conscrypt.NativeConstants#SSL3_RT_HEADER_LENGTH} bytes to read.
      */
-    public static int getEncryptedPacketLength(ByteBuffer[] buffers, int offset) {
+    static int getEncryptedPacketLength(ByteBuffer[] buffers, int offset) {
         ByteBuffer buffer = buffers[offset];
 
         // Check if everything we need is in one ByteBuffer. If so we can make use of the fast-path.
@@ -158,7 +347,7 @@ public final class SSLUtils {
      * @param protocols the list of protocols to be encoded
      * @return the encoded form of the protocol list.
      */
-    public static byte[] toLengthPrefixedList(String... protocols) {
+    static byte[] toLengthPrefixedList(String... protocols) {
         // Calculate the encoded length.
         int length = 0;
         for (int i = 0; i < protocols.length; ++i) {

@@ -1,0 +1,26 @@
+# Copyright 2017 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+AUTHOR = 'krisr, bmahadev, gmoturu'
+NAME = 'android_ACTS.WiFiDynamicAP'
+TIME = 'MEDIUM'
+TEST_TYPE = 'Server'
+ATTRIBUTES = 'suite:android_wifi_dynamicAP'
+DEPENDENCIES = 'androidwificell'
+
+DOC = """
+This test runs WiFiManager tests against a WiFi dynamic AP test bed.
+
+"""
+
+def run(machine):
+    job.run_test('android_ACTS',
+                 testbed=hosts.create_testbed(machine),
+                 config_file='wifi_dynamic_testbed.config',
+                 testtracker_owner='android-comms-tvc@google.com',
+                 test_file='wifi_dynamic_testbed',
+                 testtracker_project_id=733,
+                 acts_timeout=18000)
+
+parallel_simple(run, machines)

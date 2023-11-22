@@ -28,6 +28,7 @@ import java.util.List;
  */
 public class AppBuildInfo extends BuildInfo implements IAppBuildInfo {
 
+    private static final long serialVersionUID = BuildSerializedVersion.VERSION;
     private List<VersionedFile> mAppPackageFiles = new ArrayList<VersionedFile>();
 
     /**

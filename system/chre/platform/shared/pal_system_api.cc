@@ -59,14 +59,6 @@ void palSystemApiLog(enum chreLogLevel level, const char *formatStr, ...) {
   }
 }
 
-void *palSystemApiMemoryAlloc(size_t size) {
-  return memoryAlloc(size);
-}
-
-void palSystemApiMemoryFree(void *pointer) {
-  memoryFree(pointer);
-}
-
 // Initialize the CHRE System API with function implementations provided above.
 const chrePalSystemApi gChrePalSystemApi = {
   CHRE_PAL_SYSTEM_API_CURRENT_VERSION, /* version */

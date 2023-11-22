@@ -360,6 +360,9 @@
 /* Define to 1 if you have the <sys/types.h> header file. */
 #define HAVE_SYS_TYPES_H 1
 
+/* Define to 1 if you have the <sys/xattr.h> header file. */
+#define HAVE_SYS_XATTR_H 1
+
 /* Define to 1 if you have the `tee' function. */
 #define HAVE_TEE 1
 

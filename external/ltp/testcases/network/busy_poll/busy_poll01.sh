@@ -1,6 +1,5 @@
 #!/bin/sh
-
-# Copyright (c) 2015 Oracle and/or its affiliates. All Rights Reserved.
+# Copyright (c) 2015-2016 Oracle and/or its affiliates. All Rights Reserved.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -21,17 +20,11 @@
 TST_TOTAL=1
 TCID="busy_poll01"
 
-# tst_netload() parameters
-clients_num=2
-client_requests=500000
-# num of requests after which TCP connection is closed
-max_requests=500000
-
 . test_net.sh
+. busy_poll_lib.sh
 
 cleanup()
 {
-	tst_rhost_run -c "pkill -9 tcp_fastopen\$"
 	tst_rmdir
 
 	sysctl -q -w net.core.busy_read=$busy_read_old
@@ -40,17 +33,6 @@ cleanup()
 	tst_rhost_run -c "sysctl -q -w net.core.busy_read=$rbusy_read_old"
 	tst_rhost_run -c "sysctl -q -w net.core.busy_poll=$rbusy_poll_old"
 }
-
-
-tst_require_root
-
-tst_kvercmp 3 11 0
-[ $? -eq 0 ] && tst_brkm TCONF "test must be run with kernel 3.11 or newer"
-
-if [ ! -f "/proc/sys/net/core/busy_read" -a \
-     ! -f "/proc/sys/net/core/busy_poll" ]; then
-	tst_brkm TCONF "busy poll not configured, CONFIG_NET_RX_BUSY_POLL"
-fi
 
 set_busy_poll()
 {
@@ -61,8 +43,6 @@ set_busy_poll()
 	tst_rhost_run -s -c "sysctl -q -w net.core.busy_read=$value"
 	tst_rhost_run -s -c "sysctl -q -w net.core.busy_poll=$value"
 }
-
-tst_check_cmds pkill sysctl
 
 tst_tmpdir
 
@@ -78,9 +58,7 @@ trap "tst_brkm TBROK 'test interrupted'" INT
 for x in 50 0; do
 	tst_resm TINFO "set low latency busy poll to $x"
 	set_busy_poll $x
-	tst_netload $(tst_ipaddr rhost) res_$x TFO || \
-		tst_brkm TBROK "netload() failed"
-	tst_resm TINFO "time spent is '$(cat res_$x)' ms"
+	tst_netload -H $(tst_ipaddr rhost) -d res_$x
 done
 
 poll_cmp=$(( 100 - ($(cat res_50) * 100) / $(cat res_0) ))

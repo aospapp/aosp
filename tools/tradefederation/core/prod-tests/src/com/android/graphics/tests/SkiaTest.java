@@ -189,10 +189,10 @@ public class SkiaTest implements IRemoteTest, IDeviceTest {
             listener.testFailed(testId, "Failed to pull " + remotePath);
         } else {
             CLog.v("pulled result file to " + localFile.getPath());
-            FileInputStreamSource source = new FileInputStreamSource(localFile);
-            // Use the original name, for clarity.
-            listener.testLog(remoteFile.getName(), type, source);
-            source.cancel();
+            try (FileInputStreamSource source = new FileInputStreamSource(localFile)) {
+                // Use the original name, for clarity.
+                listener.testLog(remoteFile.getName(), type, source);
+            }
             if (!localFile.delete()) {
                 CLog.w("Failed to delete temporary file %s", localFile.getPath());
             }

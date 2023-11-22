@@ -158,10 +158,12 @@ class telemetry_Crosperf(test.test):
         else:
             # The telemetry scripts will run on server.
             format_string = ('python %s --browser=cros-chrome --remote=%s '
+                             '--output-dir="%s" '
                              '--output-format=chartjson %s %s')
             command = format_string % (os.path.join(_find_chrome_root_dir(),
                                                     RUN_BENCHMARK),
-                                       client_ip, test_args, test_name)
+                                       client_ip, self.resultsdir, test_args,
+                                       test_name)
             runner = utils
 
         # Run the test.
@@ -187,19 +189,12 @@ class telemetry_Crosperf(test.test):
                          stdout_str, stderr_str)
 
         # Copy the results-chart.json file into the test_that results
-        # directory.
+        # directory, if necessary.
         if args.get('run_local', 'false').lower() == 'true':
             result = self.scp_telemetry_results(client_ip, dut)
         else:
-            src_dir = os.path.dirname(os.path.join(_find_chrome_root_dir(),
-                                                   RUN_BENCHMARK))
-
-            filepath = os.path.join(src_dir, 'results-chart.json')
-            if os.path.exists(filepath):
-                command = 'cp %s %s' % (filepath, self.resultsdir)
-                result = utils.run(command)
-            else:
-                raise IOError('Missing results file: %s' % filepath)
-
+            filepath = os.path.join(self.resultsdir, 'results-chart.json')
+            if not os.path.exists(filepath):
+                raise RuntimeError('Missing results file: %s' % filepath)
 
         return result

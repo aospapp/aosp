@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -26,11 +26,13 @@ public interface IProbeArrayStrategy {
 	 * 
 	 * @param mv
 	 *            visitor to create code
+	 * @param clinit
+	 *            true in case of {@code <clinit>} method
 	 * @param variable
 	 *            variable index to store probe array to
 	 * @return maximum stack size required by the generated code
 	 */
-	int storeInstance(MethodVisitor mv, int variable);
+	int storeInstance(MethodVisitor mv, boolean clinit, int variable);
 
 	/**
 	 * Adds additional class members required by this strategy. This method is

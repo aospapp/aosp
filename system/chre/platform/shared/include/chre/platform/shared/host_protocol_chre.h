@@ -45,6 +45,14 @@ class HostMessageHandlers {
       uint16_t hostClientId, uint32_t transactionId, uint64_t appId,
       uint32_t appVersion, uint32_t targetApiVersion, const void *appBinary,
       size_t appBinaryLen);
+
+  static void handleUnloadNanoappRequest(
+      uint16_t hostClientId, uint32_t transactionId, uint64_t appId,
+      bool allowSystemNanoappUnload);
+
+  static void handleTimeSyncMessage(int64_t offset);
+
+  static void handleDebugDumpRequest(uint16_t hostClientId);
 };
 
 /**
@@ -123,6 +131,43 @@ class HostProtocolChre : public HostProtocolCommon {
   static void encodeLoadNanoappResponse(
       flatbuffers::FlatBufferBuilder& builder, uint16_t hostClientId,
       uint32_t transactionId, bool success);
+
+  /**
+   * Encodes a response to the host communicating the result of dynamically
+   * unloading a nanoapp.
+   */
+  static void encodeUnloadNanoappResponse(
+      flatbuffers::FlatBufferBuilder& builder, uint16_t hostClientId,
+      uint32_t transactionId, bool success);
+
+  /**
+   * Encodes a buffer of log messages to the host.
+   */
+  static void encodeLogMessages(
+      flatbuffers::FlatBufferBuilder& builder, const char *logBuffer,
+      size_t bufferSize);
+
+  /**
+   * Encodes a string into a DebugDumpData message.
+   *
+   * @param debugStr Null-terminated ASCII string containing debug information
+   * @param debugStrSize Size of the debugStr buffer, including null termination
+   */
+  static void encodeDebugDumpData(
+      flatbuffers::FlatBufferBuilder& builder, uint16_t hostClientId,
+      const char *debugStr, size_t debugStrSize);
+
+  /**
+   * Encodes the final response to a debug dump request.
+   */
+  static void encodeDebugDumpResponse(
+      flatbuffers::FlatBufferBuilder& builder, uint16_t hostClientId,
+      bool success, uint32_t dataCount);
+
+  /**
+   * Encodes a message requesting time sync from host.
+   */
+  static void encodeTimeSyncRequest(flatbuffers::FlatBufferBuilder& builder);
 };
 
 }  // namespace chre

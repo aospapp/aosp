@@ -265,6 +265,13 @@ public final class MenuManager extends com.android.documentsui.MenuManager {
     }
 
     @Override
+    protected void updateInspector(MenuItem properties, SelectionDetails selectionDetails) {
+        boolean visible = mFeatures.isInspectorEnabled();
+        properties.setVisible(visible);
+        properties.setEnabled(visible && selectionDetails.size() == 1);
+    }
+
+    @Override
     protected void updateViewInOwner(MenuItem view, SelectionDetails selectionDetails) {
         if (selectionDetails.canViewInOwner()) {
             view.setVisible(true);

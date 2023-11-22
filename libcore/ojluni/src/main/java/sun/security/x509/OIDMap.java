@@ -112,6 +112,8 @@ public class OIDMap {
     /** Map String(friendly name) -> OIDInfo(info) */
     private final static Map<String,OIDInfo> nameMap;
 
+    // BEGIN Android-changed: Specify Class objects rather for oidMap rather than String
+    // literals + reflection.
     static {
         oidMap = new HashMap<ObjectIdentifier,OIDInfo>();
         nameMap = new HashMap<String,OIDInfo>();
@@ -200,6 +202,8 @@ public class OIDMap {
             return clazz;
         }
     }
+    // END Android-changed: Specify Class objects rather for oidMap rather than String
+    // literals + reflection.
 
     /**
      * Add a name to lookup table.

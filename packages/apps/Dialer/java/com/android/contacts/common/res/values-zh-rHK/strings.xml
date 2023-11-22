@@ -64,16 +64,18 @@
     <string name="sms_mms" msgid="5187888900503248542">"傳送短訊至 MMS 電話號碼"</string>
     <string name="sms_by_shortcut" msgid="8005496406639963582">"<xliff:g id="CONTACT_NAME">%s</xliff:g> (訊息)"</string>
     <string name="clearFrequentsConfirmation_title" msgid="7465690215775790243">"清除常用聯絡人？"</string>
-    <string name="clearFrequentsConfirmation" msgid="5750611450893399198">"您將清除「通訊錄」應用程式和「電話」應用程式中的常用聯絡人名單，並強制電子郵件應用程式重新取得您的寄件喜好設定。"</string>
+    <string name="clearFrequentsConfirmation" msgid="5750611450893399198">"您將清除「通訊錄」應用程式和「電話」應用程式中的常用聯絡人名單，並強制電子郵件應用程式重新取得您的寄件偏好設定。"</string>
     <string name="clearFrequentsProgress_title" msgid="2057183487226039454">"正在清除常用聯絡人…"</string>
     <string name="status_available" msgid="2648156525685472626">"在線"</string>
     <string name="status_away" msgid="2298688367552893953">"離開"</string>
     <string name="status_busy" msgid="5990832098713248503">"忙碌"</string>
     <string name="contactsList" msgid="8806067891419291513">"通訊錄"</string>
+    <string name="contact_suggestions" msgid="3324166754807120006">"熱門建議"</string>
     <string name="local_invisible_directory" msgid="4723238462733650090">"其他"</string>
     <string name="directory_search_label" msgid="4621215895484025229">"名錄"</string>
     <string name="directory_search_label_work" msgid="7679326282707414897">"工作目錄"</string>
     <string name="local_search_label" msgid="907622822323119235">"所有聯絡人"</string>
+    <string name="local_suggestions_search_label" msgid="1178575146224386118">"建議"</string>
     <string name="user_profile_contacts_list_header" msgid="9180620153828279580">"我"</string>
     <string name="search_results_searching" msgid="3710866752172327451">"正在搜尋..."</string>
     <string name="foundTooManyContacts" msgid="3685002426663730799">"找到超過 <xliff:g id="COUNT">%d</xliff:g> 位聯絡人。"</string>
@@ -248,7 +250,7 @@
     <string name="call_subject_hint" msgid="7233138753650420800">"撥號時可以書寫和傳送筆記…"</string>
     <string name="send_and_call_button" msgid="4735168294120154013">"傳送和撥號"</string>
     <string name="call_subject_limit" msgid="8273208736191593939">"<xliff:g id="COUNT">%1$s</xliff:g> / <xliff:g id="LIMIT">%2$s</xliff:g>"</string>
-    <string name="call_subject_type_and_number" msgid="8726132674272173486">"<xliff:g id="TYPE">%1$s</xliff:g> • <xliff:g id="NUMBER">%2$s</xliff:g>"</string>
+    <string name="call_subject_type_and_number" msgid="6338030032554019678">"<xliff:g id="TYPE">%1$s</xliff:g> <xliff:g id="NUMBER">%2$s</xliff:g>"</string>
     <string name="tab_title" msgid="3387876802026074288">"「<xliff:g id="TITLE">%1$s</xliff:g>」標籤。"</string>
     <plurals name="tab_title_with_unread_items" formatted="false" msgid="8548492980702182785">
       <item quantity="other">「<xliff:g id="TITLE_2">%1$s</xliff:g>」標籤 (<xliff:g id="COUNT_3">%2$d</xliff:g> 個未讀取項目)。</item>

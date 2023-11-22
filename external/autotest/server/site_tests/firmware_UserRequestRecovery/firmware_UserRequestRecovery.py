@@ -45,8 +45,17 @@ class firmware_UserRequestRecovery(FirmwareTest):
         self.check_state((self.checkers.crossystem_checker, {
                            'mainfw_type': 'developer' if dev_mode else 'normal',
                            }))
+        # Execute on DUT: crossystem recovery_request=193
         self.faft_client.system.request_recovery_boot()
+        # Execute from desktop:
+        #   dut-control warm_reset:on sleep:0.5000 warm_reset:off
         self.switcher.mode_aware_reboot(wait_for_dut_up=False)
+        # DUT should be waiting for USB after reboot.
+        # Connect servo USB to DUT and DUT should boot from USB.
+        # dut-control usb_mux_sel1:dut_sees_usbkey
+        # bypass_rec_mode will issue power_state:rec if host did not response in
+        # delay_reboot_to_ping seconds, which may reset recovery_reason and
+        # fail this tests.
         self.switcher.bypass_rec_mode()
         self.switcher.wait_for_client()
 

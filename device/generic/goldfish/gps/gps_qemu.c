@@ -240,7 +240,6 @@ nmea_reader_set_callback( NmeaReader*  r, gps_location_callback  cb )
     if (cb != NULL && r->fix.flags != 0) {
         D("%s: sending latest fix to new callback", __FUNCTION__);
         r->callback( &r->fix );
-        r->fix.flags = 0;
     }
 }
 
@@ -466,6 +465,7 @@ nmea_reader_parse( NmeaReader*  r )
         Token  tok_altitude      = nmea_tokenizer_get(tzer,9);
         Token  tok_altitudeUnits = nmea_tokenizer_get(tzer,10);
 
+        r->fix.flags = 0;
         nmea_reader_update_time(r, tok_time);
         nmea_reader_update_latlong(r, tok_latitude,
                                       tok_latitudeHemi.p[0],
@@ -489,6 +489,7 @@ nmea_reader_parse( NmeaReader*  r )
         D("in RMC, fixStatus=%c", tok_fixStatus.p[0]);
         if (tok_fixStatus.p[0] == 'A')
         {
+            r->fix.flags = 0;
             nmea_reader_update_date( r, tok_date, tok_time );
 
             nmea_reader_update_latlong( r, tok_latitude,
@@ -536,7 +537,6 @@ nmea_reader_parse( NmeaReader*  r )
 #endif
         if (r->callback) {
             r->callback( &r->fix );
-            r->fix.flags = 0;
         }
         else {
             D("no callback, keeping data until needed !");
@@ -688,6 +688,17 @@ gps_state_thread( void*  arg )
     int         started    = 0;
     int         gps_fd     = state->fd;
     int         control_fd = state->control[1];
+    GpsStatus gps_status;
+    gps_status.size = sizeof(gps_status);
+    GpsSvStatus  gps_sv_status;
+    memset(&gps_sv_status, 0, sizeof(gps_sv_status));
+    gps_sv_status.size = sizeof(gps_sv_status);
+    gps_sv_status.num_svs = 1;
+    gps_sv_status.sv_list[0].size = sizeof(gps_sv_status.sv_list[0]);
+    gps_sv_status.sv_list[0].prn = 17;
+    gps_sv_status.sv_list[0].snr = 60.0;
+    gps_sv_status.sv_list[0].elevation = 30.0;
+    gps_sv_status.sv_list[0].azimuth = 30.0;
 
     nmea_reader_init( reader );
 
@@ -702,7 +713,15 @@ gps_state_thread( void*  arg )
         struct epoll_event   events[2];
         int                  ne, nevents;
 
-        nevents = epoll_wait( epoll_fd, events, 2, -1 );
+        int timeout = -1;
+        if (gps_status.status == GPS_STATUS_SESSION_BEGIN) {
+            timeout = 10 * 1000; // 10 seconds
+        }
+        nevents = epoll_wait( epoll_fd, events, 2, timeout );
+        if (state->callbacks.sv_status_cb) {
+            state->callbacks.sv_status_cb(&gps_sv_status);
+        }
+        // update satilite info
         if (nevents < 0) {
             if (errno != EINTR)
                 ALOGE("epoll_wait() unexpected error: %s", strerror(errno));
@@ -735,6 +754,10 @@ gps_state_thread( void*  arg )
                             D("gps thread starting  location_cb=%p", state->callbacks.location_cb);
                             started = 1;
                             nmea_reader_set_callback( reader, state->callbacks.location_cb );
+                            gps_status.status = GPS_STATUS_SESSION_BEGIN;
+                            if (state->callbacks.status_cb) {
+                                state->callbacks.status_cb(&gps_status);
+                            }
                         }
                     }
                     else if (cmd == CMD_STOP) {
@@ -742,6 +765,10 @@ gps_state_thread( void*  arg )
                             D("gps thread stopping");
                             started = 0;
                             nmea_reader_set_callback( reader, NULL );
+                            gps_status.status = GPS_STATUS_SESSION_END;
+                            if (state->callbacks.status_cb) {
+                                state->callbacks.status_cb(&gps_status);
+                            }
                         }
                     }
                 }
@@ -806,6 +833,16 @@ gps_state_init( GpsState*  state, GpsCallbacks* callbacks )
     }
 
     state->callbacks = *callbacks;
+
+    // Explicitly initialize capabilities
+    state->callbacks.set_capabilities_cb(0);
+
+
+    // Setup system info, we are pre 2016 hardware.
+    GnssSystemInfo sysinfo;
+    sysinfo.size = sizeof(GnssSystemInfo);
+    sysinfo.year_of_hw = 2015;
+    state->callbacks.set_system_info_cb(&sysinfo);
 
     D("gps state initialized");
     return;

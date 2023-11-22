@@ -31,4 +31,33 @@ public class ListsHelper {
 
         return true;
     }
+
+    static private boolean hasValue(int[] a, int value) {
+        // one can't use indexOf on an int[], so just scan.
+        for (int aVal : a) {
+            if (aVal == value) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * return true if the values in "a" are a subset of those in "b".
+     * Assume values are represented no more than once in each array.
+     */
+    static public boolean isSubset(int[] a, int[] b) {
+        if (a.length > b.length) {
+            return false;
+        }
+
+        for (int aVal : a) {
+            if (!hasValue(b, aVal)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }

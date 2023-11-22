@@ -27,9 +27,9 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"برنامه زیر نیاز به دسترسی به این نمایه خواهد داشت:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"برنامه زیر، دستگاهتان را مدیریت می‌کند:"</string>
     <string name="next" msgid="1004321437324424398">"بعدی"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"در حال راه اندازی نمایه کاری‌تان…"</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"درحال راه‌اندازی نمایه کاری…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"سرپرست سیستمتان می‌تواند تنظیمات، دسترسی شرکتی، برنامه‌ها، مجوزها و داده‌های مرتبط با این نمایه (ازجمله فعالیت شما در شبکه و همچنین مکان دستگاه، سابقه تماس و سابقه جستجوی مخاطب) را پایش و مدیریت کند.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>برای دریافت اطلاعات بیشتر (ازجمله خط‌مشی‌های رازداری سازمانتان)، با سرپرست سیستم تماس بگیرید."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"سرپرست سیستمتان می‌تواند تنظیمات، دسترسی شرکتی، برنامه‌ها، مجوزها و داده‌های مرتبط با این دستگاه (ازجمله فعالیت شما در شبکه و همچنین مکان دستگاه، سابقه تماس و سابقه جستجوی مخاطب) را پایش و مدیریت کند.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>برای دریافت اطلاعات بیشتر (ازجمله خط‌مشی‌های رازداری سازمانتان)، با سرپرست سیستم تماس بگیرید."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"سرپرست سیستمتان می‌تواند تنظیمات، دسترسی شرکتی، برنامه‌ها، مجوزها و داده‌های مرتبط با این دستگاه (ازجمله فعالیت شما در شبکه و همچنین مکان دستگاه، سابقه تماس و سابقه جستجوی مخاطب) را پایش و مدیریت کند.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>برای دریافت اطلاعات بیشتر (ازجمله خط‌مشی‌های رازداری سازمانتان)، با سرپرست سیستم تماس بگیرید."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"برای استفاده از قابلیت‌های محافظت دربرابر دزدی، باید برای دستگاهتان قفل صفحه با محافظت گذرواژه داشته باشید."</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"برای دریافت اطلاعات بیشتر، از جمله خط‌مشی‌های رازداری سازمانتان، با سرپرست سیستمتان تماس بگیرید."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"بیشتر بدانید"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"نمایه کاری"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"کاربر اصلی"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"نمایه موجود حذف شود؟"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"از قبل یک نمایه کاری دارید که توسط برنامه زیر مدیریت می‌شود:"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"درحال‌حاضر یک نمایه کاری دارید. این نمایه کاری با استفاده از برنامه زیر مدیریت می‌شود:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"قبل از ادامه، "<a href="#read_this_link">"این را بخوانید"</a>"."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"اگر ادامه دهید، همه برنامه‌ها و داده‌ها در این نمایه حذف خواهند شد."</string>
     <string name="delete_profile" msgid="2299218578684663459">"حذف"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"برای ادامه راه‌اندازی نمایه کاری‌تان، ضربه بزنید"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"نمایه کاریتان تنظیم نشد. با بخش فناوری اطلاعات مربوط به خودتان تماس بگیرید یا دوباره بعداً امتحان کنید."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"نمی‌توان نمایه کاری اضافه کرد"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"این کاربر نمی‌تواند نمایه کاری داشته باشد. برای دریافت راهنمایی با سرپرست سیستم تماس بگیرید."</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"این کاربر نمی‌تواند نمایه کاری داشته باشد. با سرپرست سیستم تماس بگیرید."</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"نمی‌توان نمایه‌های کاری را در دستگاه مدیریت شده تنظیم کرد"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"ممکن است تعداد کاربران در این دستگاه خیلی زیاد باشد. کاربری را بردارید، سپس دوباره امتحان کنید."</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"نمی‌توان نمایه کاری را جایگزین کرد یا برداشت"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"نمی‌توان به این دستگاه نمایه کاری اضافه کرد. اگر سؤالی دارید، با سرپرست سیستم تماس بگیرید."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"راه‌انداز دستگاه را تغییر دهید"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"این برنامه راه‌اندازی نمی‌تواند توسط نمایه کاری‌تان استفاده شود"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"لغو"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"تأیید"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"تنظیم کاربر کامل نیست"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"کاربر دستگاه کاری"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"راه‌اندازی دستگاه کاری"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"درحال راه‌اندازی دستگاه کاری…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"درحال پردازش داده‌های تنظیم…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"‏در حال برقراری اتصال به Wi-Fi…"</string>
     <string name="progress_download" msgid="3522436271691064624">"در حال بارگیری برنامه سرپرست…"</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"لغو"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"بازنشانی دستگاه"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> و <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> و <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> و <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>، <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>، <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

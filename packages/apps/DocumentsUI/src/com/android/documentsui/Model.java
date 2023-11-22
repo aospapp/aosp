@@ -120,6 +120,7 @@ public class Model {
 
         if (result.exception != null) {
             Log.e(TAG, "Error while loading directory contents", result.exception);
+            reset(); // Resets this model to avoid access to old cursors.
             notifyUpdateListeners(result.exception);
             return;
         }
@@ -196,10 +197,6 @@ public class Model {
         }
 
         return mCursor;
-    }
-
-    public boolean isEmpty() {
-        return mCursorCount == 0;
     }
 
     public boolean isLoading() {

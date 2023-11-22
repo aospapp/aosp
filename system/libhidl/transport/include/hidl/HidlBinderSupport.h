@@ -40,18 +40,9 @@ namespace hardware {
 // DeathRecipient interface.
 struct hidl_binder_death_recipient : IBinder::DeathRecipient {
     hidl_binder_death_recipient(const sp<hidl_death_recipient> &recipient,
-            uint64_t cookie, const sp<::android::hidl::base::V1_0::IBase> &base) :
-        mRecipient(recipient), mCookie(cookie), mBase(base) {
-    }
-    virtual void binderDied(const wp<IBinder>& /*who*/) {
-        sp<hidl_death_recipient> recipient = mRecipient.promote();
-        if (recipient != nullptr) {
-            recipient->serviceDied(mCookie, mBase);
-        }
-    }
-    wp<hidl_death_recipient> getRecipient() {
-        return mRecipient;
-    }
+            uint64_t cookie, const sp<::android::hidl::base::V1_0::IBase> &base);
+    virtual void binderDied(const wp<IBinder>& /*who*/);
+    wp<hidl_death_recipient> getRecipient();
 private:
     wp<hidl_death_recipient> mRecipient;
     uint64_t mCookie;
@@ -315,25 +306,42 @@ static status_t writeReferenceToParcel(
 // Otherwise, the smallest possible BnChild is found where IChild is a subclass of IType
 // and iface is of class IChild. BnChild will be used to wrapped the given iface.
 // Return nullptr if iface is null or any failure.
-template <typename IType, typename ProxyType>
+template <typename IType>
 sp<IBinder> toBinder(sp<IType> iface) {
     IType *ifacePtr = iface.get();
     if (ifacePtr == nullptr) {
         return nullptr;
     }
     if (ifacePtr->isRemote()) {
-        return ::android::hardware::IInterface::asBinder(static_cast<ProxyType *>(ifacePtr));
+        return ::android::hardware::IInterface::asBinder(
+            static_cast<BpInterface<IType>*>(ifacePtr));
     } else {
         std::string myDescriptor = details::getDescriptor(ifacePtr);
         if (myDescriptor.empty()) {
             // interfaceDescriptor fails
             return nullptr;
         }
-        auto func = details::gBnConstructorMap.get(myDescriptor, nullptr);
-        if (!func) {
-            return nullptr;
+
+        // for get + set
+        std::unique_lock<std::mutex> _lock = details::gBnMap.lock();
+
+        wp<BHwBinder> wBnObj = details::gBnMap.getLocked(ifacePtr, nullptr);
+        sp<IBinder> sBnObj = wBnObj.promote();
+
+        if (sBnObj == nullptr) {
+            auto func = details::gBnConstructorMap.get(myDescriptor, nullptr);
+            if (!func) {
+                return nullptr;
+            }
+
+            sBnObj = sp<IBinder>(func(static_cast<void*>(ifacePtr)));
+
+            if (sBnObj != nullptr) {
+                details::gBnMap.setLocked(ifacePtr, static_cast<BHwBinder*>(sBnObj.get()));
+            }
         }
-        return sp<IBinder>(func(static_cast<void *>(ifacePtr)));
+
+        return sBnObj;
     }
 }
 

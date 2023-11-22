@@ -37,6 +37,7 @@ import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
+
 import com.android.car.radio.service.IRadioCallback;
 import com.android.car.radio.service.IRadioManager;
 import com.android.car.radio.service.RadioRds;
@@ -59,7 +60,7 @@ public class RadioController implements
      * The percentage by which to darken the color that should be set on the status bar.
      * This darkening gives the status bar the illusion that it is transparent.
      *
-     * @see {@link RadioController#setShouldColorStatusBar(boolean)}
+     * @see RadioController#setShouldColorStatusBar(boolean)
      */
     private static final float STATUS_BAR_DARKEN_PERCENTAGE = 0.4f;
 
@@ -69,7 +70,7 @@ public class RadioController implements
     private static final int BACKGROUND_CHANGE_ANIM_TIME_MS = 450;
     private static final int INVALID_BACKGROUND_COLOR = 0;
 
-    private final int CHANNEL_CHANGE_DURATION_MS = 200;
+    private static final int CHANNEL_CHANGE_DURATION_MS = 200;
 
     private int mCurrentChannelNumber = RadioStorage.INVALID_RADIO_CHANNEL;
 
@@ -646,7 +647,7 @@ public class RadioController implements
             Log.d(TAG, "onLoadFinished(); number of pre-scanned stations: " + size);
         }
 
-        if (Log.isLoggable(TAG, Log.VERBOSE)) {
+        if (Log.isLoggable(TAG, Log.VERBOSE) && preScannedStations != null) {
             for (RadioStation station : preScannedStations) {
                 Log.v(TAG, "station: " + station.toString());
             }
@@ -981,11 +982,8 @@ public class RadioController implements
     };
 
     private final ValueAnimator.AnimatorUpdateListener mBackgroundColorUpdater =
-            new ValueAnimator.AnimatorUpdateListener() {
-                @Override
-                public void onAnimationUpdate(ValueAnimator animator) {
-                    int backgroundColor = (int) animator.getAnimatedValue();
-                    setBackgroundColor(backgroundColor);
-                }
+            animator -> {
+                int backgroundColor = (int) animator.getAnimatedValue();
+                setBackgroundColor(backgroundColor);
             };
 }

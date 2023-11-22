@@ -25,15 +25,14 @@ log = logging
 def setup_native_bluetooth(native_devices):
     for n in native_devices:
         droid = n.droid
-        pid = n.adb.shell("ps | grep bluetoothtbd | awk '{print $2}'").decode(
-            'ascii')
+        pid = n.adb.shell("pidof -s bluetoothtbd")
         if not pid:
             call(
                 ["adb -s " + n.serial + " shell sh -c \"bluetoothtbd\" &"],
                 shell=True)
-        droid.BluetoothBinderInitInterface()
+        droid.BtBinderInitInterface()
         time.sleep(5)  #temporary sleep statement
-        droid.BluetoothBinderEnable()
+        droid.BtBinderEnable()
         time.sleep(5)  #temporary sleep statement
-        droid.BluetoothBinderRegisterBLE()
+        droid.BtBinderRegisterBLE()
         time.sleep(5)  #temporary sleep statement

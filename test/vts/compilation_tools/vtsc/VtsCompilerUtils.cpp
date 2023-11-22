@@ -29,7 +29,6 @@
 
 #include <google/protobuf/text_format.h>
 
-#include "specification_parser/InterfaceSpecificationParser.h"
 #include "utils/InterfaceSpecUtil.h"
 #include "utils/StringUtil.h"
 
@@ -52,6 +51,8 @@ string ComponentClassToString(int component_class) {
       return "hal_hidl";
     case HAL_HIDL_WRAPPED_CONVENTIONAL:
       return "hal_hidl_wrapped_conventional";
+    case HAL_LEGACY:
+      return "hal_legacy";
     case LIB_SHARED:
       return "lib_shared";
   }
@@ -107,6 +108,10 @@ string ComponentTypeToString(int component_type) {
       return "radio";
     case MEDIA_OMX:
       return "media_omx";
+    case BIONIC_LIBC:
+      return "bionic_libc";
+    case VNDK_LIBCUTILS:
+      return "vndk_libcutils";
   }
   cerr << "error: invalid component_type " << component_type << endl;
   exit(-1);
@@ -547,6 +552,39 @@ string RemoveBaseDir(const string& file_path, const string& base_path) {
     result = &result.c_str()[1];
   }
   return result;
+}
+
+string GetPackageName(const ComponentSpecificationMessage& message) {
+  if (!message.package().empty()) {
+    return message.package();
+  }
+  return "";
+}
+
+string GetPackagePath(const ComponentSpecificationMessage& message) {
+  string package_path = GetPackageName(message);
+  ReplaceSubString(package_path, ".", "/");
+  return package_path;
+}
+
+string GetPackageNamespaceToken(const ComponentSpecificationMessage& message) {
+  string package_token = GetPackageName(message);
+  ReplaceSubString(package_token, ".", "::");
+  return package_token;
+}
+
+string GetVersion(const ComponentSpecificationMessage& message,
+                  bool for_macro) {
+  return GetVersionString(message.component_type_version(), for_macro);
+}
+
+string GetComponentBaseName(const ComponentSpecificationMessage& message) {
+  if (!message.component_name().empty()) {
+    return (message.component_name() == "types"
+                ? "types"
+                : message.component_name().substr(1));
+  } else
+    return GetComponentName(message);
 }
 
 string GetComponentName(const ComponentSpecificationMessage& message) {

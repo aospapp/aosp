@@ -445,6 +445,15 @@ uint32_t chreWifiGetCapabilities(void);
  * of this registration must not contain cached results - they are always
  * expected to contain the fresh results from a recent scan.
  *
+ * An active scan monitor subscription must persist across temporary conditions
+ * under which no WiFi scans will be performed, for example if WiFi is
+ * completely disabled via user-controlled settings, or if the WiFi system
+ * restarts independently of CHRE. Likewise, a request to enable a scan monitor
+ * subscription must succeed under normal conditions, even in circumstances
+ * where no WiFi scans will be performed. In these cases, the scan monitor
+ * implementation must produce scan results once the temporary condition is
+ * cleared, for example after WiFi is enabled by the user.
+ *
  * These scan results are delivered to the Nanoapp's handle event callback using
  * CHRE_EVENT_WIFI_SCAN_RESULT.
  *

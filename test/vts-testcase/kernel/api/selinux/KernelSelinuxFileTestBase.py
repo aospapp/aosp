@@ -17,7 +17,8 @@
 from abc import ABCMeta
 from abc import abstractmethod
 
-from vts.utils.python.file import file_utils
+from vts.utils.python.file import target_file_utils
+
 
 class KernelSelinuxFileTestBase(object):
     """Abstract test for the formatting of a selinux file.
@@ -50,11 +51,11 @@ class KernelSelinuxFileTestBase(object):
         """Gets the function handle to use for validating file permissions.
 
         Return the function that will check if the permissions are correct.
-        By default, return the IsReadOnly function from file_utils.
+        By default, return the IsReadOnly function from target_file_utils.
 
         Returns:
             function which takes one argument (the unix file permission bits
             in octal format) and returns True if the permissions are correct,
             False otherwise.
         """
-        return file_utils.IsReadOnly
+        return target_file_utils.IsReadOnly

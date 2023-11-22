@@ -26,9 +26,9 @@ from vts.runners.host import base_test
 from vts.runners.host import test_runner
 from vts.runners.host import utils
 from vts.utils.python.controllers import android_device
-from vts.utils.python.file import file_utils
+from vts.utils.python.file import target_file_utils
+from vts.utils.python.library import elf_parser
 from vts.utils.python.os import path_utils
-from vts.testcases.vndk.dependency import elf_parser
 
 
 class VtsVndkDependencyTest(base_test.BaseTestClass):
@@ -52,45 +52,28 @@ class VtsVndkDependencyTest(base_test.BaseTestClass):
 
     # copied from development/vndk/tools/definition-tool/vndk_definition_tool.py
     _LOW_LEVEL_NDK = [
-        "libandroid_net.so",
-        "libc.so",
-        "libdl.so",
-        "liblog.so",
-        "libm.so",
-        "libstdc++.so",
-        "libvndksupport.so",
-        "libz.so"
+        "libandroid_net.so", "libc.so", "libdl.so", "liblog.so", "libm.so",
+        "libstdc++.so", "libvndksupport.so", "libz.so"
     ]
-    _SAME_PROCESS_HAL = [re.compile(p) for p in [
-        "android\\.hardware\\.graphics\\.mapper@\\d+\\.\\d+-impl\\.so$",
-        "gralloc\\..*\\.so$",
-        "libEGL_.*\\.so$",
-        "libGLES_.*\\.so$",
-        "libGLESv1_CM_.*\\.so$",
-        "libGLESv2_.*\\.so$",
-        "libGLESv3_.*\\.so$",
-        "libPVRRS\\.so$",
-        "libRSDriver.*\\.so$",
-        "vulkan.*\\.so$"
-    ]]
+    _SAME_PROCESS_HAL = [
+        re.compile(p)
+        for p in [
+            "android\\.hardware\\.graphics\\.mapper@\\d+\\.\\d+-impl\\.so$",
+            "gralloc\\..*\\.so$", "libEGL_.*\\.so$", "libGLES_.*\\.so$",
+            "libGLESv1_CM_.*\\.so$", "libGLESv2_.*\\.so$",
+            "libGLESv3_.*\\.so$", "libPVRRS\\.so$", "libRSDriver.*\\.so$",
+            "vulkan.*\\.so$"
+        ]
+    ]
     _SAME_PROCESS_NDK = [
-        "libEGL.so",
-        "libGLESv1_CM.so",
-        "libGLESv2.so",
-        "libGLESv3.so",
-        "libnativewindow.so",
-        "libsync.so",
-        "libvulkan.so"
+        "libEGL.so", "libGLESv1_CM.so", "libGLESv2.so", "libGLESv3.so",
+        "libnativewindow.so", "libsync.so", "libvulkan.so"
     ]
     _SP_HAL_LINK_PATHS_32 = [
-        "/vendor/lib/egl",
-        "/vendor/lib/hw",
-        "/vendor/lib"
+        "/vendor/lib/egl", "/vendor/lib/hw", "/vendor/lib"
     ]
     _SP_HAL_LINK_PATHS_64 = [
-        "/vendor/lib64/egl",
-        "/vendor/lib64/hw",
-        "/vendor/lib64"
+        "/vendor/lib64/egl", "/vendor/lib64/hw", "/vendor/lib64"
     ]
 
     class ElfObject(object):
@@ -103,6 +86,7 @@ class VtsVndkDependencyTest(base_test.BaseTestClass):
             bitness: Integer. Bitness of the ELF.
             deps: List of strings. The names of the depended libraries.
         """
+
         def __init__(self, target_path, bitness, deps):
             self.target_path = target_path
             self.name = path_utils.TargetBaseName(target_path)
@@ -117,8 +101,8 @@ class VtsVndkDependencyTest(base_test.BaseTestClass):
         self._shell = self._dut.shell.one
         self._temp_dir = tempfile.mkdtemp()
         logging.info("adb pull %s %s", self._TARGET_VENDOR_DIR, self._temp_dir)
-        pull_output = self._dut.adb.pull(
-                self._TARGET_VENDOR_DIR, self._temp_dir)
+        pull_output = self._dut.adb.pull(self._TARGET_VENDOR_DIR,
+                                         self._temp_dir)
         logging.debug(pull_output)
 
     def tearDownClass(self):
@@ -144,25 +128,26 @@ class VtsVndkDependencyTest(base_test.BaseTestClass):
             full_path = os.path.join(root_dir, file_name)
             rel_path = os.path.relpath(full_path, host_dir)
             target_path = path_utils.JoinTargetPath(
-                    target_dir, *rel_path.split(os.path.sep));
+                target_dir, *rel_path.split(os.path.sep))
             try:
                 elf = elf_parser.ElfParser(full_path)
             except elf_parser.ElfError:
                 logging.debug("%s is not an ELF file", target_path)
                 continue
             try:
-                deps = elf.listDependencies()
+                deps = elf.ListDependencies()
             except elf_parser.ElfError as e:
                 elf_error_handler(target_path, e)
                 continue
             finally:
-                elf.close()
+                elf.Close()
 
             logging.info("%s depends on: %s", target_path, ", ".join(deps))
             objs.append(self.ElfObject(target_path, elf.bitness, deps))
         return objs
 
-    def _isAllowedSpHalDependency(self, lib_name, vndk_sp_names, linkable_libs):
+    def _isAllowedSpHalDependency(self, lib_name, vndk_sp_names,
+                                  linkable_libs):
         """Checks whether a same-process HAL library dependency is allowed.
 
         A same-process HAL library is allowed to depend on
@@ -182,9 +167,8 @@ class VtsVndkDependencyTest(base_test.BaseTestClass):
             A boolean representing whether the dependency is allowed.
         """
         if (lib_name in self._LOW_LEVEL_NDK or
-            lib_name in self._SAME_PROCESS_NDK or
-            lib_name in vndk_sp_names or
-            lib_name in linkable_libs):
+                lib_name in self._SAME_PROCESS_NDK or
+                lib_name in vndk_sp_names or lib_name in linkable_libs):
             return True
         return False
 
@@ -242,8 +226,8 @@ class VtsVndkDependencyTest(base_test.BaseTestClass):
         searched.add(lib)
         for dep_name in lib.deps:
             if dep_name in searchable:
-                self._dfsDependencies(
-                        searchable[dep_name], searched, searchable)
+                self._dfsDependencies(searchable[dep_name], searched,
+                                      searchable)
 
     def _testSpHalDependency(self, bitness, objs):
         """Scans same-process HAL dependency on vendor partition.
@@ -253,32 +237,38 @@ class VtsVndkDependencyTest(base_test.BaseTestClass):
             disallowed dependencies and list of the dependencies.
         """
         vndk_sp_dir = self._getTargetVndkSpDir(bitness)
-        vndk_sp_paths = file_utils.FindFiles(self._shell, vndk_sp_dir, "*.so")
-        vndk_sp_names = set(path_utils.TargetBaseName(x) for x in vndk_sp_paths)
-        logging.info("%s libraries: %s" % (
-                vndk_sp_dir, ", ".join(vndk_sp_names)))
+        vndk_sp_paths = target_file_utils.FindFiles(self._shell, vndk_sp_dir,
+                                                    "*.so")
+        vndk_sp_names = set(
+            path_utils.TargetBaseName(x) for x in vndk_sp_paths)
+        logging.info("%s libraries: %s" % (vndk_sp_dir,
+                                           ", ".join(vndk_sp_names)))
         # map file names to libraries which can be linked to same-process HAL
         linkable_libs = dict()
-        for obj in [x for x in objs
-                    if x.bitness == bitness and self._isInSpHalLinkPaths(x)]:
+        for obj in [
+                x for x in objs
+                if x.bitness == bitness and self._isInSpHalLinkPaths(x)
+        ]:
             if obj.name not in linkable_libs:
                 linkable_libs[obj.name] = obj
             else:
-                linkable_libs[obj.name] = min(linkable_libs[obj.name], obj,
-                                              key=self._spHalLinkOrder)
+                linkable_libs[obj.name] = min(
+                    linkable_libs[obj.name], obj, key=self._spHalLinkOrder)
         # find same-process HAL and dependencies
         sp_hal_libs = set()
         for file_name, obj in linkable_libs.iteritems():
             if any([x.match(file_name) for x in self._SAME_PROCESS_HAL]):
                 self._dfsDependencies(obj, sp_hal_libs, linkable_libs)
-        logging.info("%d-bit SP HAL libraries: %s" % (
-                bitness, ", ".join([x.name for x in sp_hal_libs])))
+        logging.info("%d-bit SP HAL libraries: %s" %
+                     (bitness, ", ".join([x.name for x in sp_hal_libs])))
         # check disallowed dependencies
         dep_errors = []
         for obj in sp_hal_libs:
-            disallowed_libs = [x for x in obj.deps
-                    if not self._isAllowedSpHalDependency(x, vndk_sp_names,
-                                                          linkable_libs)]
+            disallowed_libs = [
+                x for x in obj.deps
+                if not self._isAllowedSpHalDependency(x, vndk_sp_names,
+                                                      linkable_libs)
+            ]
             if disallowed_libs:
                 dep_errors.append((obj.target_path, disallowed_libs))
         return dep_errors
@@ -287,9 +277,9 @@ class VtsVndkDependencyTest(base_test.BaseTestClass):
         """Scans library/executable dependency on vendor partition."""
         read_errors = []
         objs = self._loadElfObjects(
-                self._temp_dir,
-                path_utils.TargetDirName(self._TARGET_VENDOR_DIR),
-                lambda p, e: read_errors.append((p, str(e))))
+            self._temp_dir,
+            path_utils.TargetDirName(self._TARGET_VENDOR_DIR),
+            lambda p, e: read_errors.append((p, str(e))))
 
         dep_errors = self._testSpHalDependency(32, objs)
         if self._dut.is64Bit:
@@ -306,7 +296,7 @@ class VtsVndkDependencyTest(base_test.BaseTestClass):
                 logging.error("%s: %s", x[0], ", ".join(x[1]))
         error_count = len(read_errors) + len(dep_errors)
         asserts.assertEqual(error_count, 0,
-                "Total number of errors: " + str(error_count))
+                            "Total number of errors: " + str(error_count))
 
 
 if __name__ == "__main__":

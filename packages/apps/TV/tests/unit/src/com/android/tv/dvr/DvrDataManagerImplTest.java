@@ -16,24 +16,29 @@
 
 package com.android.tv.dvr;
 
+import static org.junit.Assert.assertEquals;
+
+import android.os.Build;
+import android.support.test.filters.SdkSuppress;
 import android.support.test.filters.SmallTest;
 
+import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.testing.dvr.RecordingTestUtils;
 
-import junit.framework.TestCase;
+import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Tests for {@link DvrDataManagerImpl}
- */
+/** Tests for {@link DvrDataManagerImpl} */
 @SmallTest
-public class DvrDataManagerImplTest extends TestCase {
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.N)
+public class DvrDataManagerImplTest {
     private static final String INPUT_ID = "input_id";
     private static final int CHANNEL_ID = 273;
 
-    public void testGetNextScheduledStartTimeAfter() throws Exception {
+    @Test
+    public void testGetNextScheduledStartTimeAfter() {
         long id = 1;
         List<ScheduledRecording> scheduledRecordings = new ArrayList<>();
         assertNextStartTime(scheduledRecordings, 0L, DvrDataManager.NEXT_START_TIME_NOT_FOUND);

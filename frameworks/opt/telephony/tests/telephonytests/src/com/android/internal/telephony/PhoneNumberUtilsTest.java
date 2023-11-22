@@ -26,6 +26,7 @@ import android.support.test.filters.FlakyTest;
 import android.telephony.PhoneNumberUtils;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.text.SpannableStringBuilder;
+import android.text.style.TtsSpan;
 
 import org.junit.Ignore;
 import org.junit.Test;
@@ -428,6 +429,7 @@ public class PhoneNumberUtilsTest {
 
     // To run this test, the device has to be registered with network
     @FlakyTest
+    @Ignore
     public void testCheckAndProcessPlusCode() {
         assertEquals("0118475797000",
                 PhoneNumberUtils.cdmaCheckAndProcessPlusCode("+8475797000"));
@@ -732,5 +734,39 @@ public class PhoneNumberUtilsTest {
         assertTrue(PhoneNumberUtils.isInternationalNumber("01161396694916", "US"));
         assertTrue(PhoneNumberUtils.isInternationalNumber("011-613-966-94916", "US"));
         assertFalse(PhoneNumberUtils.isInternationalNumber("011-613-966-94916", "AU"));
+    }
+
+    @SmallTest
+    @Test
+    public void testIsUriNumber() {
+        assertTrue(PhoneNumberUtils.isUriNumber("foo@google.com"));
+        assertTrue(PhoneNumberUtils.isUriNumber("xyz@zzz.org"));
+        assertFalse(PhoneNumberUtils.isUriNumber("+15103331245"));
+        assertFalse(PhoneNumberUtils.isUriNumber("+659231235"));
+    }
+
+    @SmallTest
+    @Test
+    public void testGetUsernameFromUriNumber() {
+        assertEquals("john", PhoneNumberUtils.getUsernameFromUriNumber("john@myorg.com"));
+        assertEquals("tim_123", PhoneNumberUtils.getUsernameFromUriNumber("tim_123@zzz.org"));
+        assertEquals("5103331245", PhoneNumberUtils.getUsernameFromUriNumber("5103331245"));
+    }
+
+    @SmallTest
+    @Test
+    public void testCreateTtsSpan() {
+        checkTtsNumber("650 555 1212", "650-555-1212");
+        checkTtsNumber("6505551212", "+1-650-555-1212");
+        checkTtsNumber("232", "232");
+        checkTtsNumber("*232", "*232");
+        checkTtsNumber("*232#", "*232#");
+        checkTtsNumber("*650 555 1212#", "*650-555-1212#");
+    }
+
+    private void checkTtsNumber(String expected, String sourceNumber) {
+        TtsSpan ttsSpan = PhoneNumberUtils.createTtsSpan(sourceNumber);
+        assertEquals(TtsSpan.TYPE_TELEPHONE, ttsSpan.getType());
+        assertEquals(expected, ttsSpan.getArgs().getString(TtsSpan.ARG_NUMBER_PARTS));
     }
 }

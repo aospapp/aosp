@@ -4,14 +4,15 @@
 
 import logging
 import os
+import re
 import shutil
 import tempfile
+import xml.etree.ElementTree as ET
 
 import common
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import constants
-from autotest_lib.client.cros.graphics import graphics_utils
 
 
 class ChromeBinaryTest(test.test):
@@ -53,6 +54,47 @@ class ChromeBinaryTest(test.test):
     def get_chrome_binary_path(self, binary_to_run):
         return os.path.join(self.test_binary_dir, binary_to_run)
 
+    def parse_fail_reason(self, err, gtest_xml):
+        """
+        Parse reason of failure from CmdError and gtest result.
+
+        @param err: CmdError raised from utils.system().
+        @param gtest_xml: filename of gtest result xml.
+        @returns reason string
+        """
+        reasons = {}
+
+        # Parse gtest result.
+        if os.path.exists(gtest_xml):
+            tree = ET.parse(gtest_xml)
+            root = tree.getroot()
+            for suite in root.findall('testsuite'):
+                for case in suite.findall('testcase'):
+                    failure = case.find('failure')
+                    if failure is None:
+                        continue
+                    testname = '%s.%s' % (suite.get('name'), case.get('name'))
+                    reasons[testname] = failure.attrib['message']
+
+        # Parse messages from chrome's test_launcher.
+        # This provides some information not available from gtest, like timeout.
+        for line in err.result_obj.stdout.splitlines():
+            m = re.match(r'\[\d+/\d+\] (\S+) \(([A-Z ]+)\)$', line)
+            if not m:
+                continue
+            testname, reason = m.group(1, 2)
+            # Existing reason from gtest has more detail, don't overwrite.
+            if testname not in reasons:
+                reasons[testname] = reason
+
+        if reasons:
+            message = '%d failures' % len(reasons)
+            for testname, reason in sorted(reasons.items()):
+                message += '; <%s>: %s' % (testname, reason.replace('\n', '; '))
+            return message
+
+        return 'Unable to parse fail reason: ' + str(err)
+
     def run_chrome_test_binary(self,
                                binary_to_run,
                                extra_params='',
@@ -69,24 +111,24 @@ class ChromeBinaryTest(test.test):
 
         @raises: error.TestFail if there is error running the command.
         """
+        gtest_xml = tempfile.mktemp(prefix='gtest_xml', suffix='.xml')
+
         cmd = '%s/%s %s' % (self.test_binary_dir, binary_to_run, extra_params)
-        env_vars = 'HOME=%s CR_SOURCE_ROOT=%s CHROME_DEVEL_SANDBOX=%s' % (
-            self.home_dir, self.cr_source_dir, self.CHROME_SANDBOX)
+        env_vars = ' '.join([
+            'HOME=' + self.home_dir,
+            'CR_SOURCE_ROOT=' + self.cr_source_dir,
+            'CHROME_DEVEL_SANDBOX=' + self.CHROME_SANDBOX,
+            'GTEST_OUTPUT=xml:' + gtest_xml,
+            ])
         cmd = '%s %s' % (env_vars, prefix + cmd)
 
         try:
-            if utils.is_freon():
-                if as_chronos:
-                    utils.system('su %s -c \'%s\'' % ('chronos', cmd))
-                else:
-                    utils.system(cmd)
+            if as_chronos:
+                utils.system('su %s -c \'%s\'' % ('chronos', cmd))
             else:
-                if as_chronos:
-                    graphics_utils.xsystem(cmd, user='chronos')
-                else:
-                    graphics_utils.xsystem(cmd)
+                utils.system(cmd)
         except error.CmdError as e:
-            raise error.TestFail('%s failed! %s' % (binary_to_run, e))
+            raise error.TestFail(self.parse_fail_reason(e, gtest_xml))
 
 
 def nuke_chrome(func):

@@ -77,6 +77,7 @@ void HidlInstrumentor::registerInstrumentationCallbacks(
         instrumentationLibPaths.push_back(instrumentationLibPath);
     } else {
         instrumentationLibPaths.push_back(HAL_LIBRARY_PATH_SYSTEM);
+        instrumentationLibPaths.push_back(HAL_LIBRARY_PATH_VNDK_SP);
         instrumentationLibPaths.push_back(HAL_LIBRARY_PATH_VENDOR);
         instrumentationLibPaths.push_back(HAL_LIBRARY_PATH_ODM);
     }

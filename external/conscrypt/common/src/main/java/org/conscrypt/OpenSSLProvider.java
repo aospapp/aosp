@@ -29,6 +29,8 @@ import java.security.Provider;
  * href="http://csrc.nist.gov/groups/ST/crypto_apps_infra/csor/algorithms.html">NIST cryptographic
  * algorithms</a></li>
  * </ul>
+ *
+ * @hide
  */
 @Internal
 public final class OpenSSLProvider extends Provider {
@@ -38,7 +40,7 @@ public final class OpenSSLProvider extends Provider {
      * Default name used in the {@link java.security.Security JCE system} by {@code OpenSSLProvider}
      * if the {@link #OpenSSLProvider() default constructor} is used.
      */
-    public static final String PROVIDER_NAME = "AndroidOpenSSL";
+    private static final String PROVIDER_NAME = "AndroidOpenSSL";
 
     private static final String PREFIX = OpenSSLProvider.class.getPackage().getName() + ".";
 
@@ -70,6 +72,12 @@ public final class OpenSSLProvider extends Provider {
         put("SSLContext.TLSv1.2", tls12SSLContext);
         put("SSLContext.Default", PREFIX + "DefaultSSLContextImpl");
 
+        /* === AlgorithmParameters === */
+        put("AlgorithmParameters.GCM", PREFIX + "GCMParameters");
+        put("Alg.Alias.AlgorithmParameters.2.16.840.1.101.3.4.1.6", "GCM");
+        put("Alg.Alias.AlgorithmParameters.2.16.840.1.101.3.4.1.26", "GCM");
+        put("Alg.Alias.AlgorithmParameters.2.16.840.1.101.3.4.1.46", "GCM");
+
         /* === Message Digests === */
         put("MessageDigest.SHA-1", PREFIX + "OpenSSLMessageDigestJDK$SHA1");
         put("Alg.Alias.MessageDigest.SHA1", "SHA-1");
@@ -96,6 +104,44 @@ public final class OpenSSLProvider extends Provider {
         put("MessageDigest.MD5", PREFIX + "OpenSSLMessageDigestJDK$MD5");
         put("Alg.Alias.MessageDigest.1.2.840.113549.2.5", "MD5");
 
+        /* == KeyGenerators == */
+        put("KeyGenerator.AES", PREFIX + "KeyGeneratorImpl$AES");
+
+        put("KeyGenerator.DESEDE", PREFIX + "KeyGeneratorImpl$DESEDE");
+        put("Alg.Alias.KeyGenerator.TDEA", "DESEDE");
+
+        put("KeyGenerator.HmacMD5", PREFIX + "KeyGeneratorImpl$HmacMD5");
+        put("Alg.Alias.KeyGenerator.1.3.6.1.5.5.8.1.1", "HmacMD5");
+        put("Alg.Alias.KeyGenerator.HMAC-MD5", "HmacMD5");
+        put("Alg.Alias.KeyGenerator.HMAC/MD5", "HmacMD5");
+
+        put("KeyGenerator.HmacSHA1", PREFIX + "KeyGeneratorImpl$HmacSHA1");
+        put("Alg.Alias.KeyGenerator.1.2.840.113549.2.7", "HmacSHA1");
+        put("Alg.Alias.KeyGenerator.1.3.6.1.5.5.8.1.2", "HmacSHA1");
+        put("Alg.Alias.KeyGenerator.HMAC-SHA1", "HmacSHA1");
+        put("Alg.Alias.KeyGenerator.HMAC/SHA1", "HmacSHA1");
+
+        put("KeyGenerator.HmacSHA224", PREFIX + "KeyGeneratorImpl$HmacSHA224");
+        put("Alg.Alias.KeyGenerator.1.2.840.113549.2.8", "HmacSHA224");
+        put("Alg.Alias.KeyGenerator.HMAC-SHA224", "HmacSHA224");
+        put("Alg.Alias.KeyGenerator.HMAC/SHA224", "HmacSHA224");
+
+        put("KeyGenerator.HmacSHA256", PREFIX + "KeyGeneratorImpl$HmacSHA256");
+        put("Alg.Alias.KeyGenerator.1.2.840.113549.2.9", "HmacSHA256");
+        put("Alg.Alias.KeyGenerator.2.16.840.1.101.3.4.2.1", "HmacSHA256");
+        put("Alg.Alias.KeyGenerator.HMAC-SHA256", "HmacSHA256");
+        put("Alg.Alias.KeyGenerator.HMAC/SHA256", "HmacSHA256");
+
+        put("KeyGenerator.HmacSHA384", PREFIX + "KeyGeneratorImpl$HmacSHA384");
+        put("Alg.Alias.KeyGenerator.1.2.840.113549.2.10", "HmacSHA384");
+        put("Alg.Alias.KeyGenerator.HMAC-SHA384", "HmacSHA384");
+        put("Alg.Alias.KeyGenerator.HMAC/SHA384", "HmacSHA384");
+
+        put("KeyGenerator.HmacSHA512", PREFIX + "KeyGeneratorImpl$HmacSHA512");
+        put("Alg.Alias.KeyGenerator.1.2.840.113549.2.11", "HmacSHA512");
+        put("Alg.Alias.KeyGenerator.HMAC-SHA512", "HmacSHA512");
+        put("Alg.Alias.KeyGenerator.HMAC/SHA512", "HmacSHA512");
+
         /* == KeyPairGenerators == */
         put("KeyPairGenerator.RSA", PREFIX + "OpenSSLRSAKeyPairGenerator");
         put("Alg.Alias.KeyPairGenerator.1.2.840.113549.1.1.1", "RSA");
@@ -115,6 +161,10 @@ public final class OpenSSLProvider extends Provider {
         put("KeyFactory.EC", PREFIX + "OpenSSLECKeyFactory");
         put("Alg.Alias.KeyFactory.1.2.840.10045.2.1", "EC");
         put("Alg.Alias.KeyFactory.1.3.133.16.840.63.0.2", "EC");
+
+        /* == SecretKeyFactory == */
+        put("SecretKeyFactory.DESEDE", PREFIX + "DESEDESecretKeyFactory");
+        put("Alg.Alias.SecretKeyFactory.TDEA", "DESEDE");
 
         /* == KeyAgreement == */
         putECDHKeyAgreementImplClass("OpenSSLECDHKeyAgreement");
@@ -175,6 +225,8 @@ public final class OpenSSLProvider extends Provider {
                 "SHA512WithRSA");
 
         putRAWRSASignatureImplClass("OpenSSLSignatureRawRSA");
+
+        putSignatureImplClass("NONEwithECDSA", "OpenSSLSignatureRawECDSA");
 
         putSignatureImplClass("SHA1withECDSA", "OpenSSLSignature$SHA1ECDSA");
         put("Alg.Alias.Signature.ECDSA", "SHA1withECDSA");
@@ -336,17 +388,15 @@ public final class OpenSSLProvider extends Provider {
         put("Alg.Alias.Cipher.1.2.840.113549.3.4", "ARC4");
         put("Alg.Alias.Cipher.OID.1.2.840.113549.3.4", "ARC4");
 
-        if (NativeConstants.HAS_EVP_AEAD) {
-            putSymmetricCipherImplClass("AES/GCM/NoPadding", "OpenSSLCipher$EVP_AEAD$AES$GCM");
-            put("Alg.Alias.Cipher.GCM", "AES/GCM/NoPadding");
-            put("Alg.Alias.Cipher.2.16.840.1.101.3.4.1.6", "AES/GCM/NoPadding");
-            put("Alg.Alias.Cipher.2.16.840.1.101.3.4.1.26", "AES/GCM/NoPadding");
-            put("Alg.Alias.Cipher.2.16.840.1.101.3.4.1.46", "AES/GCM/NoPadding");
-            putSymmetricCipherImplClass(
-                    "AES_128/GCM/NoPadding", "OpenSSLCipher$EVP_AEAD$AES$GCM$AES_128");
-            putSymmetricCipherImplClass(
-                    "AES_256/GCM/NoPadding", "OpenSSLCipher$EVP_AEAD$AES$GCM$AES_256");
-        }
+        putSymmetricCipherImplClass("AES/GCM/NoPadding", "OpenSSLCipher$EVP_AEAD$AES$GCM");
+        put("Alg.Alias.Cipher.GCM", "AES/GCM/NoPadding");
+        put("Alg.Alias.Cipher.2.16.840.1.101.3.4.1.6", "AES/GCM/NoPadding");
+        put("Alg.Alias.Cipher.2.16.840.1.101.3.4.1.26", "AES/GCM/NoPadding");
+        put("Alg.Alias.Cipher.2.16.840.1.101.3.4.1.46", "AES/GCM/NoPadding");
+        putSymmetricCipherImplClass(
+                "AES_128/GCM/NoPadding", "OpenSSLCipher$EVP_AEAD$AES$GCM$AES_128");
+        putSymmetricCipherImplClass(
+                "AES_256/GCM/NoPadding", "OpenSSLCipher$EVP_AEAD$AES$GCM$AES_256");
 
         /* === Mac === */
 

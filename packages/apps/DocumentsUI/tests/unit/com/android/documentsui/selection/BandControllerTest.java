@@ -26,6 +26,7 @@ import android.view.MotionEvent;
 import com.android.documentsui.DirectoryReloadLock;
 import com.android.documentsui.dirlist.TestData;
 import com.android.documentsui.dirlist.TestDocumentsAdapter;
+import com.android.documentsui.dirlist.TestFocusHandler;
 import com.android.documentsui.testing.SelectionManagers;
 import com.android.documentsui.testing.TestEvent.Builder;
 

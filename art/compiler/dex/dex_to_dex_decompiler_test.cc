@@ -27,8 +27,10 @@
 #include "verifier/method_verifier-inl.h"
 #include "mirror/class_loader.h"
 #include "runtime.h"
-#include "thread.h"
 #include "scoped_thread_state_change-inl.h"
+#include "thread.h"
+#include "verifier/method_verifier-inl.h"
+#include "verifier/verifier_deps.h"
 
 namespace art {
 
@@ -39,10 +41,12 @@ class DexToDexDecompilerTest : public CommonCompilerTest {
     TimingLogger::ScopedTiming t(__FUNCTION__, &timings);
     compiler_options_->boot_image_ = false;
     compiler_options_->SetCompilerFilter(CompilerFilter::kQuicken);
-    compiler_driver_->CompileAll(class_loader,
-                                 GetDexFiles(class_loader),
-                                 /* verifier_deps */ nullptr,
-                                 &timings);
+    // Create the main VerifierDeps, here instead of in the compiler since we want to aggregate
+    // the results for all the dex files, not just the results for the current dex file.
+    Runtime::Current()->GetCompilerCallbacks()->SetVerifierDeps(
+        new verifier::VerifierDeps(GetDexFiles(class_loader)));
+    compiler_driver_->SetDexFilesForOatFile(GetDexFiles(class_loader));
+    compiler_driver_->CompileAll(class_loader, GetDexFiles(class_loader), &timings);
   }
 
   void RunTest(const char* dex_name) {
@@ -85,13 +89,7 @@ class DexToDexDecompilerTest : public CommonCompilerTest {
         continue;
       }
       ClassDataItemIterator it(*updated_dex_file, class_data);
-      // Skip fields
-      while (it.HasNextStaticField()) {
-        it.Next();
-      }
-      while (it.HasNextInstanceField()) {
-        it.Next();
-      }
+      it.SkipAllFields();
 
       // Unquicken each method.
       while (it.HasNextDirectMethod()) {

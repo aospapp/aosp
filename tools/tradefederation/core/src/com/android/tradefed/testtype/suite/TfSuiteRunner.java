@@ -34,6 +34,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 
@@ -42,6 +43,8 @@ import java.util.List;
  * folder.
  */
 public class TfSuiteRunner extends ITestSuite {
+
+    private static final String CONFIG_EXT = ".config";
 
     @Option(name = "run-suite-tag", description = "The tag that must be run.",
             mandatory = true)
@@ -82,7 +85,9 @@ public class TfSuiteRunner extends ITestSuite {
                 new LinkedHashMap<String, IConfiguration>();
         IConfigurationFactory configFactory = ConfigurationFactory.getInstance();
         // TODO: Do a better job searching for configs.
-        List<String> configs = configFactory.getConfigList(mSuitePrefix);
+        // We do not load config from environment, they should be inside the testsDir of the build
+        // info.
+        List<String> configs = configFactory.getConfigList(mSuitePrefix, false);
 
         if (getBuildInfo() instanceof IDeviceBuildInfo) {
             IDeviceBuildInfo deviceBuildInfo = (IDeviceBuildInfo) getBuildInfo();
@@ -117,7 +122,8 @@ public class TfSuiteRunner extends ITestSuite {
                         ConfigurationUtil.getConfigNamesFromDirs(mSuitePrefix, extraTestCasesDirs));
             }
         }
-
+        // Sort configs to ensure they are always evaluated and added in the same order.
+        Collections.sort(configs);
         for (String configName : configs) {
             try {
                 IConfiguration testConfig =
@@ -175,7 +181,7 @@ public class TfSuiteRunner extends ITestSuite {
         }
         // If we have any IRemoteTests remaining in the base configuration, it will run.
         if (!config.getTests().isEmpty()) {
-            configMap.put(configName, config);
+            configMap.put(sanitizeModuleName(configName), config);
         }
 
         return configMap;
@@ -183,5 +189,25 @@ public class TfSuiteRunner extends ITestSuite {
 
     private String getSuiteTag() {
         return mSuiteTag;
+    }
+
+    /**
+     * Some module names are currently the absolute path name of some config files. We want to
+     * sanitize that look more like a short included config name.
+     */
+    private String sanitizeModuleName(String originalName) {
+        if (originalName.endsWith(CONFIG_EXT)) {
+            originalName = originalName.substring(0, originalName.length() - CONFIG_EXT.length());
+        }
+        if (!originalName.startsWith("/")) {
+            return originalName;
+        }
+        // if it's an absolute path
+        String[] segments = originalName.split("/");
+        if (segments.length < 3) {
+            return originalName;
+        }
+        // return last two segments only
+        return String.join("/", segments[segments.length - 2], segments[segments.length - 1]);
     }
 }

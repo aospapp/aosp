@@ -114,4 +114,6 @@ endif
 
 LOCAL_PACKAGE_NAME := FrameworksWifiTests
 
+LOCAL_COMPATIBILITY_SUITE := device-tests
+
 include $(BUILD_PACKAGE)

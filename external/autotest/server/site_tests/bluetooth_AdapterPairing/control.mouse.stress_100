@@ -9,7 +9,7 @@ NAME = 'bluetooth_AdapterPairing.mouse.stress_100'
 PURPOSE = ('Stree test for 100 iterations on bluetooth adapter pairing '
            'and connection.')
 CRITERIA = 'Adapter should work in correct states.'
-ATTRIBUTES = 'suite:bluetooth'
+ATTRIBUTES = 'suite:bluetooth, suite:bluetooth_stress'
 TIME = 'MEDIUM'   # This test takes about 1 hour 45 minutes.
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'bluetooth'

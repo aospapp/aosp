@@ -31,10 +31,11 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.app.Instrumentation;
 import android.app.UiAutomation;
+import android.content.Context;
 import android.content.res.Resources;
+import android.os.RemoteException;
 import android.os.SystemClock;
 import android.service.autofill.SaveInfo;
-import android.support.test.InstrumentationRegistry;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.UiDevice;
@@ -43,6 +44,7 @@ import android.text.Html;
 import android.util.Log;
 import android.view.accessibility.AccessibilityWindowInfo;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -54,6 +56,7 @@ final class UiBot {
 
     private static final String RESOURCE_ID_DATASET_PICKER = "autofill_dataset_picker";
     private static final String RESOURCE_ID_SAVE_SNACKBAR = "autofill_save";
+    private static final String RESOURCE_ID_SAVE_ICON = "autofill_save_icon";
     private static final String RESOURCE_ID_SAVE_TITLE = "autofill_save_title";
     private static final String RESOURCE_ID_CONTEXT_MENUITEM = "floating_toolbar_menu_item_text";
 
@@ -75,13 +78,22 @@ final class UiBot {
 
     private static final String TAG = "AutoFillCtsUiBot";
 
+    /** Pass to {@link #setScreenOrientation(int)} to change the display to portrait mode */
+    public static int PORTRAIT = 0;
+
+    /** Pass to {@link #setScreenOrientation(int)} to change the display to landscape mode */
+    public static int LANDSCAPE = 1;
+
+
     private final UiDevice mDevice;
+    private final Context mContext;
     private final String mPackageName;
     private final UiAutomation mAutoman;
 
     UiBot(Instrumentation instrumentation) throws Exception {
         mDevice = UiDevice.getInstance(instrumentation);
-        mPackageName = instrumentation.getContext().getPackageName();
+        mContext = instrumentation.getContext();
+        mPackageName = mContext.getPackageName();
         mAutoman = instrumentation.getUiAutomation();
     }
 
@@ -170,8 +182,23 @@ final class UiBot {
      * {@link #assertDatasets(String...)}.
      */
     public UiObject2 assertShownByText(String text) {
-        final UiObject2 object = waitForObject(By.text(text));
-        assertWithMessage(text).that(object).isNotNull();
+        return assertShownByText(text, UI_TIMEOUT_MS);
+    }
+
+    public UiObject2 assertShownByText(String text, int timeoutMs) {
+        final UiObject2 object = waitForObject(By.text(text), timeoutMs);
+        assertWithMessage("No node with text '%s'", text).that(object).isNotNull();
+        return object;
+    }
+
+    /**
+     * Asserts a node with the given content description is shown.
+     *
+     */
+    public UiObject2 assertShownByContentDescription(String contentDescription) {
+        final UiObject2 object = waitForObject(By.desc(contentDescription));
+        assertWithMessage("No node with content description '%s'", contentDescription).that(object)
+                .isNotNull();
         return object;
     }
 
@@ -199,6 +226,15 @@ final class UiBot {
      */
     void assertShownById(String id) {
         assertThat(waitForObject(By.res(id))).isNotNull();
+    }
+
+    /**
+     * Asserts the id is shown on the screen, using a resource id from the test package.
+     */
+    UiObject2 assertShownByRelativeId(String id) {
+        final UiObject2 obj = waitForObject(By.res(mPackageName, id));
+        assertThat(obj).isNotNull();
+        return obj;
     }
 
     /**
@@ -239,7 +275,7 @@ final class UiBot {
     }
 
     /**
-     * Presses the back button.
+     * Presses the Back button.
      */
     void pressBack() {
         Log.d(TAG, "pressBack()");
@@ -247,12 +283,25 @@ final class UiBot {
     }
 
     /**
-     * Presses the home button.
+     * Presses the Home button.
      */
     void pressHome() {
         Log.d(TAG, "pressHome()");
         mDevice.pressHome();
     }
+
+    /**
+     * Uses the Recents button to switch back to previous activity
+     */
+    void switchAppsUsingRecents() throws RemoteException {
+        Log.d(TAG, "switchAppsUsingRecents()");
+
+        // Press once to show list of apps...
+        mDevice.pressRecentApps();
+        // ...press again to go back to the activity.
+        mDevice.pressRecentApps();
+    }
+
     /**
      * Asserts the save snackbar is not showing and returns it.
      */
@@ -311,8 +360,15 @@ final class UiBot {
         final UiObject2 snackbar = waitForObject(By.res("android", RESOURCE_ID_SAVE_SNACKBAR),
                 timeout);
 
-        final UiObject2 titleView = snackbar.findObject(By.res("android", RESOURCE_ID_SAVE_TITLE));
-        assertWithMessage("save title (%s)", RESOURCE_ID_SAVE_TITLE).that(titleView).isNotNull();
+        final UiObject2 titleView =
+                waitForObject(snackbar, By.res("android", RESOURCE_ID_SAVE_TITLE), UI_TIMEOUT_MS);
+        assertWithMessage("save title (%s) is not shown", RESOURCE_ID_SAVE_TITLE).that(titleView)
+                .isNotNull();
+
+        final UiObject2 iconView =
+                waitForObject(snackbar, By.res("android", RESOURCE_ID_SAVE_ICON), UI_TIMEOUT_MS);
+        assertWithMessage("save icon (%s) is not shown", RESOURCE_ID_SAVE_ICON).that(iconView)
+                .isNotNull();
 
         final String actualTitle = titleView.getText();
         Log.d(TAG, "save title: " + actualTitle);
@@ -431,7 +487,7 @@ final class UiBot {
      * Gets a string from the Android resources.
      */
     private String getString(String id) {
-        final Resources resources = InstrumentationRegistry.getContext().getResources();
+        final Resources resources = mContext.getResources();
         final int stringId = resources.getIdentifier(id, "string", "android");
         return resources.getString(stringId);
     }
@@ -440,7 +496,7 @@ final class UiBot {
      * Gets a string from the Android resources.
      */
     private String getString(String id, Object... formatArgs) {
-        final Resources resources = InstrumentationRegistry.getContext().getResources();
+        final Resources resources = mContext.getResources();
         final int stringId = resources.getIdentifier(id, "string", "android");
         return resources.getString(stringId, formatArgs);
     }
@@ -457,15 +513,18 @@ final class UiBot {
     /**
      * Waits for and returns an object.
      *
+     * @param parent where to find the object (or {@code null} to use device's root).
      * @param selector {@link BySelector} that identifies the object.
      * @param timeout timeout in ms
      */
-    private UiObject2 waitForObject(BySelector selector, long timeout) {
+    private UiObject2 waitForObject(UiObject2 parent, BySelector selector, long timeout) {
         // NOTE: mDevice.wait does not work for the save snackbar, so we need a polling approach.
         final int maxTries = 5;
         final long napTime = timeout / maxTries;
         for (int i = 1; i <= maxTries; i++) {
-            final UiObject2 uiObject = mDevice.findObject(selector);
+            final UiObject2 uiObject = parent != null
+                    ? parent.findObject(selector)
+                    : mDevice.findObject(selector);
             if (uiObject != null) {
                 return uiObject;
             }
@@ -473,6 +532,17 @@ final class UiBot {
         }
         throw new RetryableException("Object with selector '%s' not found in %d ms",
                 selector, UI_TIMEOUT_MS);
+
+    }
+
+    /**
+     * Waits for and returns an object.
+     *
+     * @param selector {@link BySelector} that identifies the object.
+     * @param timeout timeout in ms
+     */
+    private UiObject2 waitForObject(BySelector selector, long timeout) {
+        return waitForObject(null, selector, timeout);
     }
 
     /**
@@ -532,5 +602,51 @@ final class UiBot {
             }
         }
         throw new RetryableException("Title '%s' not found for %s", expectedTitle, object);
+    }
+
+    /**
+     * Sets the the screen orientation.
+     *
+     * @param orientation typically {@link #LANDSCAPE} or {@link #PORTRAIT}.
+     *
+     * @throws RetryableException if value didn't change.
+     */
+    public void setScreenOrientation(int orientation) {
+        mAutoman.setRotation(orientation);
+
+        long startTime = System.currentTimeMillis();
+
+        while (System.currentTimeMillis() - startTime <= Helper.UI_SCREEN_ORIENTATION_TIMEOUT_MS) {
+            final int actualValue = getScreenOrientation();
+            if (actualValue == orientation) {
+                return;
+            }
+            Log.w(TAG, "setScreenOrientation(): sleeping " + Helper.RETRY_MS
+                    + "ms until orientation is " + orientation
+                    + " (instead of " + actualValue + ")");
+            try {
+                Thread.sleep(Helper.RETRY_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        throw new RetryableException("Screen orientation didn't change to %d in %d ms", orientation,
+                Helper.UI_SCREEN_ORIENTATION_TIMEOUT_MS);
+    }
+
+    /**
+     * Gets the value of the screen orientation.
+     *
+     * @return typically {@link #LANDSCAPE} or {@link #PORTRAIT}.
+     */
+    public int getScreenOrientation() {
+        return mDevice.getDisplayRotation();
+    }
+
+    /**
+     * Dumps the current view hierarchy int the output stream.
+     */
+    public void dumpScreen() throws IOException {
+        mDevice.dumpWindowHierarchy(System.out);
     }
 }

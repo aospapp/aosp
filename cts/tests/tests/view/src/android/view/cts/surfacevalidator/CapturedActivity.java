@@ -40,6 +40,7 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.SparseArray;
 import android.view.Display;
+import android.view.PointerIcon;
 import android.view.View;
 import android.view.cts.R;
 import android.widget.FrameLayout;
@@ -89,6 +90,9 @@ public class CapturedActivity extends Activity {
 
         getWindow().getDecorView().setSystemUiVisibility(
                 View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN);
+        // Set the NULL pointer icon so that it won't obstruct the captured image.
+        getWindow().getDecorView().setPointerIcon(
+                PointerIcon.getSystemIcon(this, PointerIcon.TYPE_NULL));
 
         mProjectionManager =
                 (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);

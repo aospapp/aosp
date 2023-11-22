@@ -25,13 +25,13 @@ from vts.testcases.kernel.api.selinux import SelinuxCheckReqProtTest
 from vts.testcases.kernel.api.selinux import SelinuxPolicyTest
 from vts.testcases.kernel.api.selinux import SelinuxNullTest
 from vts.utils.python.controllers import android_device
-from vts.utils.python.file import file_utils
+from vts.utils.python.file import target_file_utils
 
 TEST_OBJECTS = {
     SelinuxCheckReqProtTest.SelinuxCheckReqProt(),
-    SelinuxPolicyTest.SelinuxPolicy(),
-    SelinuxNullTest.SelinuxNull()
+    SelinuxPolicyTest.SelinuxPolicy(), SelinuxNullTest.SelinuxNull()
 }
+
 
 class VtsKernelSelinuxFileApiTest(base_test.BaseTestClass):
     """Test cases which check content of selinuxfs files.
@@ -52,30 +52,33 @@ class VtsKernelSelinuxFileApiTest(base_test.BaseTestClass):
         logging.info("Testing existence of %s" % (test_object.get_path()))
 
         asserts.assertTrue(
-            file_utils.Exists(test_object.get_path(), self.shell),
+            target_file_utils.Exists(test_object.get_path(), self.shell),
             "%s: File does not exist." % test_object.get_path())
 
         logging.info("Testing permissions of %s" % (test_object.get_path()))
         try:
-            permissions = file_utils.GetPermission(
+            permissions = target_file_utils.GetPermission(
                 test_object.get_path(), self.shell)
-            asserts.assertTrue(test_object.get_permission_checker()(permissions),
-                               "%s: File has invalid permissions (%s)" %
-                               (test_object.get_path(), permissions))
+            asserts.assertTrue(
+                test_object.get_permission_checker()(permissions),
+                "%s: File has invalid permissions (%s)" %
+                (test_object.get_path(), permissions))
         except (ValueError, IOError) as e:
             asserts.fail("Failed to assert permissions: %s" % str(e))
 
         logging.info("Testing format of %s" % (test_object.get_path()))
-        file_content = file_utils.ReadFileContent(
+        file_content = target_file_utils.ReadFileContent(
             test_object.get_path(), self.shell)
         asserts.assertTrue(
             test_object.result_correct(file_content), "Results not valid!")
 
     def generateProcFileTests(self):
         """Run all selinux file tests."""
-        self.runGeneratedTests(test_func=self.runSelinuxFileTest,
-                settings=TEST_OBJECTS,
-                name_func=lambda test_obj: "test" + test_obj.__class__.__name__)
+        self.runGeneratedTests(
+            test_func=self.runSelinuxFileTest,
+            settings=TEST_OBJECTS,
+            name_func=lambda test_obj: "test" + test_obj.__class__.__name__)
+
 
 if __name__ == "__main__":
     test_runner.main()

@@ -16,6 +16,7 @@
 
 package com.android.cts.monkey;
 
+import com.android.ddmlib.NullOutputReceiver;
 import com.android.tradefed.device.DeviceNotAvailableException;
 
 import java.util.Scanner;
@@ -32,7 +33,8 @@ public class MonkeyTest extends AbstractMonkeyTest {
 
     public void testNotMonkey() throws Exception {
         mDevice.executeShellCommand("am start -W -a android.intent.action.MAIN "
-                + "-n com.android.cts.monkey/com.android.cts.monkey.MonkeyActivity");
+                + "-n com.android.cts.monkey/com.android.cts.monkey.MonkeyActivity",
+                new NullOutputReceiver());
         assertIsUserAMonkey(false);
     }
 

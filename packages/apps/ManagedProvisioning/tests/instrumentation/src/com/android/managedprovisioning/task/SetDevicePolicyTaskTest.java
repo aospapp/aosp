@@ -18,6 +18,9 @@ package com.android.managedprovisioning.task;
 
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -77,10 +80,28 @@ public class SetDevicePolicyTaskTest extends AndroidTestCase {
     }
 
     @SmallTest
-    public void testEnableDevicePolicyApp() {
+    public void testEnableDevicePolicyApp_DefaultToDefault() {
         // GIVEN that we are provisioning device owner
         createTask(ACTION_PROVISION_MANAGED_DEVICE);
-        // GIVEN that the management app is currently not enabled
+        // GIVEN that the management app is currently the manifest default
+        when(mPackageManager.getApplicationEnabledSetting(ADMIN_PACKAGE_NAME))
+                .thenReturn(PackageManager.COMPONENT_ENABLED_STATE_DEFAULT);
+
+        // WHEN running the task
+        mTask.run(TEST_USER_ID);
+
+        // THEN the management app should still be default
+        verify(mPackageManager, never()).setApplicationEnabledSetting(eq(ADMIN_PACKAGE_NAME),
+                anyInt(), anyInt());
+        verify(mCallback).onSuccess(mTask);
+        verifyNoMoreInteractions(mCallback);
+    }
+
+    @SmallTest
+    public void testEnableDevicePolicyApp_DisabledToDefault() {
+        // GIVEN that we are provisioning device owner
+        createTask(ACTION_PROVISION_MANAGED_DEVICE);
+        // GIVEN that the management app is currently disabled
         when(mPackageManager.getApplicationEnabledSetting(ADMIN_PACKAGE_NAME))
                 .thenReturn(PackageManager.COMPONENT_ENABLED_STATE_DISABLED);
 
@@ -91,6 +112,24 @@ public class SetDevicePolicyTaskTest extends AndroidTestCase {
         verify(mPackageManager).setApplicationEnabledSetting(ADMIN_PACKAGE_NAME,
                 PackageManager.COMPONENT_ENABLED_STATE_DEFAULT,
                 PackageManager.DONT_KILL_APP);
+        verify(mCallback).onSuccess(mTask);
+        verifyNoMoreInteractions(mCallback);
+    }
+
+    @SmallTest
+    public void testEnableDevicePolicyApp_EnabledToEnabled() {
+        // GIVEN that we are provisioning device owner
+        createTask(ACTION_PROVISION_MANAGED_DEVICE);
+        // GIVEN that the management app is currently enabled
+        when(mPackageManager.getApplicationEnabledSetting(ADMIN_PACKAGE_NAME))
+                .thenReturn(PackageManager.COMPONENT_ENABLED_STATE_ENABLED);
+
+        // WHEN running the task
+        mTask.run(TEST_USER_ID);
+
+        // THEN the management app should have been untouched
+        verify(mPackageManager, never()).setApplicationEnabledSetting(eq(ADMIN_PACKAGE_NAME),
+                anyInt(), anyInt());
         verify(mCallback).onSuccess(mTask);
         verifyNoMoreInteractions(mCallback);
     }

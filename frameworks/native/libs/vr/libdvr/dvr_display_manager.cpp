@@ -2,20 +2,19 @@
 
 #include <dvr/dvr_buffer.h>
 #include <pdx/rpc/variant.h>
-#include <private/android/AHardwareBufferHelpers.h>
 #include <private/dvr/buffer_hub_client.h>
 #include <private/dvr/buffer_hub_queue_client.h>
+#include <private/dvr/display_client.h>
 #include <private/dvr/display_manager_client.h>
 
 #include "dvr_internal.h"
+#include "dvr_buffer_queue_internal.h"
 
-using android::AHardwareBuffer_convertToGrallocUsageBits;
 using android::dvr::BufferConsumer;
 using android::dvr::display::DisplayManagerClient;
 using android::dvr::display::SurfaceAttributes;
 using android::dvr::display::SurfaceAttribute;
 using android::dvr::display::SurfaceState;
-using android::dvr::CreateDvrReadBufferQueueFromConsumerQueue;
 using android::pdx::rpc::EmptyVariant;
 
 namespace {
@@ -111,26 +110,6 @@ int dvrDisplayManagerCreate(DvrDisplayManager** client_out) {
 
 void dvrDisplayManagerDestroy(DvrDisplayManager* client) { delete client; }
 
-int dvrDisplayManagerSetupNamedBuffer(DvrDisplayManager* client,
-                                      const char* name, size_t size,
-                                      uint64_t usage, DvrBuffer** buffer_out) {
-  if (!client || !name || !buffer_out)
-    return -EINVAL;
-
-  uint64_t gralloc_usage = AHardwareBuffer_convertToGrallocUsageBits(usage);
-
-  auto buffer_status =
-      client->client->SetupNamedBuffer(name, size, gralloc_usage);
-  if (!buffer_status) {
-    ALOGE("dvrDisplayManagerSetupPoseBuffer: Failed to setup named buffer: %s",
-          buffer_status.GetErrorMessage().c_str());
-    return -buffer_status.error();
-  }
-
-  *buffer_out = CreateDvrBufferFromIonBuffer(buffer_status.take());
-  return 0;
-}
-
 int dvrDisplayManagerGetEventFd(DvrDisplayManager* client) {
   if (!client)
     return -EINVAL;
@@ -177,7 +156,7 @@ int dvrDisplayManagerGetReadBufferQueue(DvrDisplayManager* client,
     return -status.error();
   }
 
-  *queue_out = CreateDvrReadBufferQueueFromConsumerQueue(status.take());
+  *queue_out = new DvrReadBufferQueue(status.take());
   return 0;
 }
 

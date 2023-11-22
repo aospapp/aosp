@@ -8,7 +8,7 @@
    This file is part of MemCheck, a heavyweight Valgrind tool for
    detecting memory errors.
 
-   Copyright (C) 2000-2015 Julian Seward 
+   Copyright (C) 2000-2017 Julian Seward 
       jseward@acm.org
 
    This program is free software; you can redistribute it and/or
@@ -36,12 +36,16 @@
 #include "pub_tool_libcbase.h"
 #include "pub_tool_libcassert.h"
 #include "pub_tool_libcprint.h"
+#include "pub_tool_libcproc.h"
 #include "pub_tool_mallocfree.h"
 #include "pub_tool_options.h"
 #include "pub_tool_replacemalloc.h"
 #include "pub_tool_threadstate.h"
 #include "pub_tool_tooliface.h"     // Needed for mc_include.h
 #include "pub_tool_stacktrace.h"    // For VG_(get_and_pp_StackTrace)
+#include "pub_tool_xarray.h"
+#include "pub_tool_xtree.h"
+#include "pub_tool_xtmemory.h"
 
 #include "mc_include.h"
 
@@ -303,20 +307,37 @@ void  MC_(set_allocated_at) (ThreadId tid, MC_Chunk* mc)
       default: tl_assert (0);
    }
    mc->where[0] = VG_(record_ExeContext) ( tid, 0/*first_ip_delta*/ );
+   if (UNLIKELY(VG_(clo_xtree_memory) == Vg_XTMemory_Full))
+       VG_(XTMemory_Full_alloc)(mc->szB, mc->where[0]);
 }
 
 void  MC_(set_freed_at) (ThreadId tid, MC_Chunk* mc)
 {
-   UInt pos;
+   Int pos;
+   ExeContext* ec_free;
+
    switch (MC_(clo_keep_stacktraces)) {
       case KS_none:            return;
-      case KS_alloc:           return;
+      case KS_alloc:           
+                               if (LIKELY(VG_(clo_xtree_memory) 
+                                          != Vg_XTMemory_Full))
+                                  return;
+                               pos = -1; break;
       case KS_free:            pos = 0; break;
       case KS_alloc_then_free: pos = 0; break;
       case KS_alloc_and_free:  pos = 1; break;
       default: tl_assert (0);
    }
-   mc->where[pos] = VG_(record_ExeContext) ( tid, 0/*first_ip_delta*/ );
+   /* We need the execontext for the free operation, either to store
+      it in the mc chunk and/or for full xtree memory profiling.
+      Note: we are guaranteed to find the ec_alloc in mc->where[0], as
+      mc_post_clo_init verifies the consistency of --xtree-memory and
+      --keep-stacktraces. */
+   ec_free = VG_(record_ExeContext) ( tid, 0/*first_ip_delta*/ );
+   if (UNLIKELY(VG_(clo_xtree_memory) == Vg_XTMemory_Full))
+       VG_(XTMemory_Full_free)(mc->szB, mc->where[0], ec_free);
+   if (LIKELY(pos >= 0))
+      mc->where[pos] = ec_free;
 }
 
 UInt MC_(n_where_pointers) (void)
@@ -338,7 +359,8 @@ UInt MC_(n_where_pointers) (void)
 /* Allocate memory and note change in memory available */
 void* MC_(new_block) ( ThreadId tid,
                        Addr p, SizeT szB, SizeT alignB,
-                       Bool is_zeroed, MC_AllocKind kind, VgHashTable *table)
+                       Bool is_zeroed, MC_AllocKind kind,
+                       VgHashTable *table)
 {
    MC_Chunk* mc;
 
@@ -650,6 +672,9 @@ void MC_(handle_resizeInPlace)(ThreadId tid, Addr p,
    if (oldSizeB == newSizeB)
       return;
 
+   if (UNLIKELY(VG_(clo_xtree_memory) == Vg_XTMemory_Full))
+       VG_(XTMemory_Full_resize_in_place)(oldSizeB,  newSizeB, mc->where[0]);
+
    mc->szB = newSizeB;
    if (newSizeB < oldSizeB) {
       MC_(make_mem_noaccess)( p + newSizeB, oldSizeB - newSizeB + rzB );
@@ -674,16 +699,53 @@ void MC_(handle_resizeInPlace)(ThreadId tid, Addr p,
 
 static void check_mempool_sane(MC_Mempool* mp); /*forward*/
 
+static void free_mallocs_in_mempool_block (MC_Mempool* mp,
+                                           Addr StartAddr,
+                                           Addr EndAddr)
+{
+   MC_Chunk *mc;
+   ThreadId tid;
 
-void MC_(create_mempool)(Addr pool, UInt rzB, Bool is_zeroed)
+   tl_assert(mp->auto_free);
+
+   if (VG_(clo_verbosity) > 2) {
+      VG_(message)(Vg_UserMsg,
+          "free_mallocs_in_mempool_block: Start 0x%lx size %lu\n",
+          StartAddr, (SizeT) (EndAddr - StartAddr));
+   }
+
+   tid = VG_(get_running_tid)();
+
+   VG_(HT_ResetIter)(MC_(malloc_list));
+   while ( (mc = VG_(HT_Next)(MC_(malloc_list))) ) {
+      if (mc->data >= StartAddr && mc->data + mc->szB <= EndAddr) {
+	 if (VG_(clo_verbosity) > 2) {
+	    VG_(message)(Vg_UserMsg, "Auto-free of 0x%lx size=%lu\n",
+			    mc->data, (mc->szB + 0UL));
+	 }
+
+	 VG_(HT_remove_at_Iter)(MC_(malloc_list));
+	 die_and_free_mem(tid, mc, mp->rzB);
+      }
+   }
+}
+
+void MC_(create_mempool)(Addr pool, UInt rzB, Bool is_zeroed,
+                         Bool auto_free, Bool metapool)
 {
    MC_Mempool* mp;
 
-   if (VG_(clo_verbosity) > 2) {
-      VG_(message)(Vg_UserMsg, "create_mempool(0x%lx, %u, %d)\n",
-                               pool, rzB, is_zeroed);
+   if (VG_(clo_verbosity) > 2 || (auto_free && !metapool)) {
+      VG_(message)(Vg_UserMsg,
+                   "create_mempool(0x%lx, rzB=%u, zeroed=%d,"
+                   " autofree=%d, metapool=%d)\n",
+                   pool, rzB, is_zeroed,
+                   auto_free, metapool);
       VG_(get_and_pp_StackTrace)
          (VG_(get_running_tid)(), MEMPOOL_DEBUG_STACKTRACE_DEPTH);
+      if (auto_free && !metapool)
+         VG_(tool_panic)("Inappropriate use of mempool:"
+                         " an auto free pool must be a meta pool. Aborting\n");
    }
 
    mp = VG_(HT_lookup)(MC_(mempool_list), (UWord)pool);
@@ -695,6 +757,8 @@ void MC_(create_mempool)(Addr pool, UInt rzB, Bool is_zeroed)
    mp->pool       = pool;
    mp->rzB        = rzB;
    mp->is_zeroed  = is_zeroed;
+   mp->auto_free  = auto_free;
+   mp->metapool   = metapool;
    mp->chunks     = VG_(HT_construct)( "MC_(create_mempool)" );
    check_mempool_sane(mp);
 
@@ -882,10 +946,14 @@ void MC_(mempool_free)(Addr pool, Addr addr)
       return;
    }
 
+   if (mp->auto_free) {
+      free_mallocs_in_mempool_block(mp, mc->data, mc->data + (mc->szB + 0UL));
+   }
+
    if (VG_(clo_verbosity) > 2) {
       VG_(message)(Vg_UserMsg, 
-		   "mempool_free(0x%lx, 0x%lx) freed chunk of %lu bytes\n",
-		   pool, addr, mc->szB + 0UL);
+                   "mempool_free(0x%lx, 0x%lx) freed chunk of %lu bytes\n",
+                   pool, addr, mc->szB + 0UL);
    }
 
    die_and_free_mem ( tid, mc, mp->rzB );
@@ -1073,6 +1141,25 @@ Bool MC_(mempool_exists)(Addr pool)
    return True;
 }
 
+static void xtmemory_report_next_block(XT_Allocs* xta, ExeContext** ec_alloc)
+{
+   MC_Chunk* mc = VG_(HT_Next)(MC_(malloc_list));
+   if (mc) {
+      xta->nbytes = mc->szB;
+      xta->nblocks = 1;
+      *ec_alloc = MC_(allocated_at)(mc);
+   } else
+      xta->nblocks = 0;
+}
+
+void MC_(xtmemory_report) ( const HChar* filename, Bool fini )
+{ 
+   // Make xtmemory_report_next_block ready to be called.
+   VG_(HT_ResetIter)(MC_(malloc_list));
+
+   VG_(XTMemory_report)(filename, fini, xtmemory_report_next_block,
+                        VG_(XT_filter_1top_and_maybe_below_main));
+}
 
 /*------------------------------------------------------------*/
 /*--- Statistics printing                                  ---*/

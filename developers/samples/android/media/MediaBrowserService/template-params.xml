@@ -17,14 +17,15 @@
 <sample>
     <name>MediaBrowserService</name>
     <group>Media</group>
-    <package>com.example.android.mediabrowserservice</package>
+    <package>com.example.android.mediasession</package>
 
     <minSdk>19</minSdk>
+    <auto_add_support_lib>true</auto_add_support_lib>
+    <use_java8>true</use_java8>
 
     <!-- Include additional dependencies here.-->
-    <dependency>com.android.support:support-compat:25.3.0</dependency>
-    <dependency>com.android.support:support-media-compat:25.3.0</dependency>
-    <dependency>com.android.support:appcompat-v7:25.3.0</dependency>
+    <dependency>com.android.support:appcompat-v7:26.1.0</dependency>
+    <dependency>com.android.support.constraint:constraint-layout:1.0.2</dependency>
 
     <strings>
         <intro>
@@ -32,21 +33,13 @@
 This sample shows how to implement an audio media app that provides
 media library metadata and playback controls through a standard
 service. It exposes a simple music library through the new
-MediaBrowserService and provides MediaSession callbacks. This allows
-it to be used in Android Auto, for example.
-When not connected to a car, the app has a very simple UI that browses
-the media library and provides simple playback controls. When
-connected to Android Auto, the same service provides data and callback
-to the Android Auto UI in the same manner as it provides them to the
-local UI.
-]]></intro>
+MediaBrowserService and provides MediaSession callbacks.]]>
+        </intro>
     </strings>
 
     <!-- The basic templates have already been enabled. Uncomment more as desired. -->
     <template src="base-build" />
     <template src="base-application" />
-
-    <use_support_library_vector_drawables>true</use_support_library_vector_drawables>
 
     <metadata>
     <status>PUBLISHED</status>
@@ -58,28 +51,33 @@ local UI.
     <icon>screenshots/icon-web.png</icon>
     <screenshots>
         <img>screenshots/1-main.png</img>
-        <img>screenshots/2-music-play.png</img>
-        <img>screenshots/3-music-notification.png</img>
+        <img>screenshots/2-notification.png</img>
     </screenshots>
     <api_refs>
         <android>android.support.v4.media.MediaBrowserServiceCompat</android>
         <android>android.support.v4.media.MediaBrowserCompat</android>
         <android>android.support.v4.media.session.MediaSessionCompat</android>
         <android>android.support.v4.media.session.MediaControllerCompat</android>
-        <android>android.support.v7.app.NotificationCompat.MediaStyle</android>
+        <android>android.support.v4.media.app.NotificationCompat.MediaStyle</android>
     </api_refs>
     <description>
 <![CDATA[
-This sample shows how to implement an audio media app that provides
-media library metadata and playback controls through a standard
-service. It exposes a simple music library through the new
-MediaBrowserService and provides MediaSession callbacks. This allows
-it to be used in Android Auto, for example.
-When not connected to a car, the app has a very simple UI that browses
-the media library and provides simple playback controls. When
-connected to Android Auto, the same service provides data and callback
-to the Android Auto UI in the same manner as it provides them to the
-local UI.
+This sample shows how to implement a media app that allows
+background playback of audio, and provide a media library
+that is exposed to other apps.
+1. It allows other apps control media playback externally
+using MediaSession. This allows playback to be controlled by
+the Google Assistant, for example.
+2. It exposes a simple music library through MediaBrowserService.
+And it provides MediaSession callbacks. This allows it to be used
+by Android Auto, for example.
+When not connected to a car, the app has a very simple UI that
+allows for playback as well as skip to previous and next tracks.
+To learn more about MediaSession and MediaBrowserService, read
+this [article on Medium](https://medium.com/google-developers/understanding-mediasession-part-4-4-dcc77c535f99)
+that goes into the architectural details of these APIs.
+
+<img src="screenshots/architecture.png" height="400" alt="Architecture Diagram"/>
 ]]></description>
     <intro>
 <![CDATA[

@@ -33,7 +33,7 @@
         </receiver>
 
         <activity android:name=".LauncherActivity">
-            <intent-filter>
+            <intent-filter android:priority="-999">
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.HOME" />

@@ -11,7 +11,7 @@ namespace android {
 namespace vts {
 static string callback_socket_name_;
 
-class vts_callback_FuzzerExtended_camera_module_t_camera_module_callbacks_t : public FuzzerCallbackBase {
+class vts_callback_FuzzerExtended_camera_module_t_camera_module_callbacks_t : public DriverCallbackBase {
  public:
     vts_callback_FuzzerExtended_camera_module_t_camera_module_callbacks_t(const string& callback_socket_name) {
         callback_socket_name_ = callback_socket_name;
@@ -293,8 +293,8 @@ bool FuzzerExtended_camera_module_t::VerifyResults(const FunctionSpecificationMe
     return true;
 }
 extern "C" {
-android::vts::FuzzerBase* vts_func_1_2_2_() {
-    return (android::vts::FuzzerBase*) new android::vts::FuzzerExtended_camera_module_t();
+android::vts::DriverBase* vts_func_1_2_V2_1_() {
+    return (android::vts::DriverBase*) new android::vts::FuzzerExtended_camera_module_t();
 }
 
 }

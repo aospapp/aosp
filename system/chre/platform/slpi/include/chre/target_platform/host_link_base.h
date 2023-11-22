@@ -17,14 +17,41 @@
 #ifndef CHRE_PLATFORM_SLPI_HOST_LINK_BASE_H_
 #define CHRE_PLATFORM_SLPI_HOST_LINK_BASE_H_
 
-#include "chre/util/fixed_size_blocking_queue.h"
+#include "qurt_timer.h"
 
 namespace chre {
 
 class HostLinkBase {
  public:
+  /**
+   * Blocks the current thread until the host has retrieved all messages pending
+   * in the outbound queue, or a timeout occurs. For proper function, it should
+   * not be possible for new messages to be added to the queue at the point when
+   * this is called.
+   *
+   * @return true if the outbound queue was successfully emptied
+   */
+  static bool flushOutboundQueue();
+
+  /**
+   * Attempts to flush the outbound queue and gracefully inform the host that we
+   * are exiting.
+   */
   static void shutdown();
+
+ private:
+  static constexpr qurt_timer_duration_t kPollingIntervalUsec = 5000;
 };
+
+/**
+ * Requests that the HostLink send the log buffer to the host.
+ */
+void requestHostLinkLogBufferFlush();
+
+/**
+ * Sends a request to the host for a time sync message.
+ */
+void sendTimeSyncRequest();
 
 }  // namespace chre
 

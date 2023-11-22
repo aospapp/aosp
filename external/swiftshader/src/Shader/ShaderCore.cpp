@@ -69,92 +69,6 @@ namespace sw
 		return x;
 	}
 
-	Vector4i::Vector4i()
-	{
-	}
-
-	Vector4i::Vector4i(int x, int y, int z, int w)
-	{
-		this->x = Int4(x);
-		this->y = Int4(y);
-		this->z = Int4(z);
-		this->w = Int4(w);
-	}
-
-	Vector4i::Vector4i(const Vector4i &rhs)
-	{
-		x = rhs.x;
-		y = rhs.y;
-		z = rhs.z;
-		w = rhs.w;
-	}
-
-	Vector4i &Vector4i::operator=(const Vector4i &rhs)
-	{
-		x = rhs.x;
-		y = rhs.y;
-		z = rhs.z;
-		w = rhs.w;
-
-		return *this;
-	}
-
-	Int4 &Vector4i::operator[](int i)
-	{
-		switch(i)
-		{
-		case 0: return x;
-		case 1: return y;
-		case 2: return z;
-		case 3: return w;
-		}
-
-		return x;
-	}
-
-	Vector4u::Vector4u()
-	{
-	}
-
-	Vector4u::Vector4u(unsigned int x, unsigned int y, unsigned int z, unsigned int w)
-	{
-		this->x = UInt4(x);
-		this->y = UInt4(y);
-		this->z = UInt4(z);
-		this->w = UInt4(w);
-	}
-
-	Vector4u::Vector4u(const Vector4u &rhs)
-	{
-		x = rhs.x;
-		y = rhs.y;
-		z = rhs.z;
-		w = rhs.w;
-	}
-
-	Vector4u &Vector4u::operator=(const Vector4u &rhs)
-	{
-		x = rhs.x;
-		y = rhs.y;
-		z = rhs.z;
-		w = rhs.w;
-
-		return *this;
-	}
-
-	UInt4 &Vector4u::operator[](int i)
-	{
-		switch(i)
-		{
-		case 0: return x;
-		case 1: return y;
-		case 2: return z;
-		case 3: return w;
-		}
-
-		return x;
-	}
-
 	Vector4f::Vector4f()
 	{
 	}
@@ -417,7 +331,7 @@ namespace sw
 	Float4 arctan(RValue<Float4> x, bool pp)
 	{
 		Int4 O = CmpNLT(Abs(x), Float4(1.0f));
-		Float4 y = As<Float4>(O & As<Int4>(Float4(1.0f) / x) | ~O & As<Int4>(x));   // FIXME: Vector select
+		Float4 y = As<Float4>((O & As<Int4>(Float4(1.0f) / x)) | (~O & As<Int4>(x)));   // FIXME: Vector select
 
 		// Approximation of atan in [-1..1]
 		Float4 theta = y * (Float4(-0.27f) * Abs(y) + Float4(1.05539816f));
@@ -425,7 +339,7 @@ namespace sw
 		// +/-pi/2 depending on sign of x
 		Float4 sgnPi_2 = As<Float4>(As<Int4>(Float4(1.57079632e+0f)) ^ (As<Int4>(x) & Int4(0x80000000)));
 
-		theta = As<Float4>(O & As<Int4>(sgnPi_2 - theta) | ~O & As<Int4>(theta));   // FIXME: Vector select
+		theta = As<Float4>((O & As<Int4>(sgnPi_2 - theta)) | (~O & As<Int4>(theta)));   // FIXME: Vector select
 
 		return theta;
 	}
@@ -441,14 +355,14 @@ namespace sw
 		// Rotate to right quadrant when in left quadrant
 		Int4 Q = CmpLT(x0, Float4(0.0f));
 		theta += As<Float4>(Q & As<Int4>(Float4(1.57079632e+0f)));   // pi/2
-		Float4 x1 = As<Float4>(Q & As<Int4>(y0) | ~Q & As<Int4>(x0));    // FIXME: Vector select
-		Float4 y1 = As<Float4>(Q & As<Int4>(-x0) | ~Q & As<Int4>(y0));   // FIXME: Vector select
+		Float4 x1 = As<Float4>((Q & As<Int4>(y0)) | (~Q & As<Int4>(x0)));    // FIXME: Vector select
+		Float4 y1 = As<Float4>((Q & As<Int4>(-x0)) | (~Q & As<Int4>(y0)));   // FIXME: Vector select
 
 		// Rotate to first octant when in second octant
 		Int4 O = CmpNLT(y1, x1);
 		theta += As<Float4>(O & As<Int4>(Float4(7.85398163e-1f)));   // pi/4
-		Float4 x2 = As<Float4>(O & As<Int4>(Float4(7.07106781e-1f) * x1 + Float4(7.07106781e-1f) * y1) | ~O & As<Int4>(x1));   // sqrt(2)/2   // FIXME: Vector select
-		Float4 y2 = As<Float4>(O & As<Int4>(Float4(7.07106781e-1f) * y1 - Float4(7.07106781e-1f) * x1) | ~O & As<Int4>(y1));   // FIXME: Vector select
+		Float4 x2 = As<Float4>((O & As<Int4>(Float4(7.07106781e-1f) * x1 + Float4(7.07106781e-1f) * y1)) | (~O & As<Int4>(x1)));   // sqrt(2)/2   // FIXME: Vector select
+		Float4 y2 = As<Float4>((O & As<Int4>(Float4(7.07106781e-1f) * y1 - Float4(7.07106781e-1f) * x1)) | (~O & As<Int4>(y1)));   // FIXME: Vector select
 
 		// Approximation of atan in [0..1]
 		Float4 y_x = y2 / x2;
@@ -511,10 +425,10 @@ namespace sw
 		Int2 tmp2 = UnpackLow(row0, row1);
 		Int2 tmp3 = UnpackLow(row2, row3);
 
-		row0 = As<Short4>(UnpackLow(tmp2, tmp3));
-		row1 = As<Short4>(UnpackHigh(tmp2, tmp3));
-		row2 = As<Short4>(UnpackLow(tmp0, tmp1));
-		row3 = As<Short4>(UnpackHigh(tmp0, tmp1));
+		row0 = UnpackLow(tmp2, tmp3);
+		row1 = UnpackHigh(tmp2, tmp3);
+		row2 = UnpackLow(tmp0, tmp1);
+		row3 = UnpackHigh(tmp0, tmp1);
 	}
 
 	void transpose4x4(Float4 &row0, Float4 &row1, Float4 &row2, Float4 &row3)
@@ -561,18 +475,13 @@ namespace sw
 
 	void transpose2x4(Float4 &row0, Float4 &row1, Float4 &row2, Float4 &row3)
 	{
-		row0 = UnpackLow(row0, row1);
-		row1 = Float4(row0.zw, row1.zw);
-		row2 = UnpackHigh(row0, row1);
-		row3 = Float4(row2.zw, row3.zw);
-	}
+		Float4 tmp01 = UnpackLow(row0, row1);
+		Float4 tmp23 = UnpackHigh(row0, row1);
 
-	void transpose2x4h(Float4 &row0, Float4 &row1, Float4 &row2, Float4 &row3)
-	{
-		row0 = UnpackLow(row2, row3);
-		row1 = Float4(row0.zw, row1.zw);
-		row2 = UnpackHigh(row2, row3);
-		row3 = Float4(row2.zw, row3.zw);
+		row0 = tmp01;
+		row1 = Float4(tmp01.zw, row1.zw);
+		row2 = tmp23;
+		row3 = Float4(tmp23.zw, row3.zw);
 	}
 
 	void transpose4xN(Float4 &row0, Float4 &row1, Float4 &row2, Float4 &row3, int N)
@@ -1069,10 +978,10 @@ namespace sw
 
 	void ShaderCore::log2(Vector4f &dst, const Vector4f &src, bool pp)
 	{
-		dst.x = logarithm2(src.x, pp);
-		dst.y = logarithm2(src.y, pp);
-		dst.z = logarithm2(src.z, pp);
-		dst.w = logarithm2(src.w, pp);
+		dst.x = logarithm2(src.x, false, pp);
+		dst.y = logarithm2(src.y, false, pp);
+		dst.z = logarithm2(src.z, false, pp);
+		dst.w = logarithm2(src.w, false, pp);
 	}
 
 	void ShaderCore::log(Vector4f &dst, const Vector4f &src, bool pp)
@@ -1715,7 +1624,7 @@ namespace sw
 	void ShaderCore::select(Float4 &dst, RValue<Int4> src0, const Float4 &src1, const Float4 &src2)
 	{
 		// FIXME: LLVM vector select
-		dst = As<Float4>(src0 & As<Int4>(src1) | ~src0 & As<Int4>(src2));
+		dst = As<Float4>((src0 & As<Int4>(src1)) | (~src0 & As<Int4>(src2)));
 	}
 
 	void ShaderCore::cmp(Vector4f &dst, const Vector4f &src0, const Vector4f &src1, Control control)
@@ -1863,7 +1772,7 @@ namespace sw
 		dst = As<Float4>(As<Int4>(src.x) | As<Int4>(src.y) | As<Int4>(src.z) | As<Int4>(src.w));
 	}
 
-	void ShaderCore::not(Vector4f &dst, const Vector4f &src)
+	void ShaderCore::bitwise_not(Vector4f &dst, const Vector4f &src)
 	{
 		dst.x = As<Float4>(As<Int4>(src.x) ^ Int4(0xFFFFFFFF));
 		dst.y = As<Float4>(As<Int4>(src.y) ^ Int4(0xFFFFFFFF));
@@ -1871,7 +1780,7 @@ namespace sw
 		dst.w = As<Float4>(As<Int4>(src.w) ^ Int4(0xFFFFFFFF));
 	}
 
-	void ShaderCore::or(Vector4f &dst, const Vector4f &src0, const Vector4f &src1)
+	void ShaderCore::bitwise_or(Vector4f &dst, const Vector4f &src0, const Vector4f &src1)
 	{
 		dst.x = As<Float4>(As<Int4>(src0.x) | As<Int4>(src1.x));
 		dst.y = As<Float4>(As<Int4>(src0.y) | As<Int4>(src1.y));
@@ -1879,7 +1788,7 @@ namespace sw
 		dst.w = As<Float4>(As<Int4>(src0.w) | As<Int4>(src1.w));
 	}
 
-	void ShaderCore::xor(Vector4f &dst, const Vector4f &src0, const Vector4f &src1)
+	void ShaderCore::bitwise_xor(Vector4f &dst, const Vector4f &src0, const Vector4f &src1)
 	{
 		dst.x = As<Float4>(As<Int4>(src0.x) ^ As<Int4>(src1.x));
 		dst.y = As<Float4>(As<Int4>(src0.y) ^ As<Int4>(src1.y));
@@ -1887,7 +1796,7 @@ namespace sw
 		dst.w = As<Float4>(As<Int4>(src0.w) ^ As<Int4>(src1.w));
 	}
 
-	void ShaderCore::and(Vector4f &dst, const Vector4f &src0, const Vector4f &src1)
+	void ShaderCore::bitwise_and(Vector4f &dst, const Vector4f &src0, const Vector4f &src1)
 	{
 		dst.x = As<Float4>(As<Int4>(src0.x) & As<Int4>(src1.x));
 		dst.y = As<Float4>(As<Int4>(src0.y) & As<Int4>(src1.y));

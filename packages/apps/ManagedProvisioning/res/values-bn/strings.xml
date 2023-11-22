@@ -27,12 +27,12 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"নিম্নোল্লিখিত অ্যাপ্লিকেশানটিকে এই প্রোফাইলটি অ্যাক্সেস করতে হবে:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"নিম্নলিখিত অ্যাপ্লিকেশানটি আপনার ডিভাইস পরিচালনা করবে:"</string>
     <string name="next" msgid="1004321437324424398">"পরবর্তী"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"আপনার কর্মস্থলের প্রোফাইল সেট আপ হচ্ছে..."</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"আপনার প্রশাসক আপনার প্রোফাইলের সেটিংস, কর্পোরেট অ্যাক্সেস, অ্যাপ, অনুমতি, এবং নেটওয়ার্ক কার্যকলাপ সহ আপনার প্রোফাইলের সাথে সম্পর্কিত ডেটা, এবং আপনার ডিভাইসের অবস্থান, এবং কল ও পরিচিতি অনুসন্ধানের ইতিহাসের উপরে নজর রাখতে ও সেগুলি পরিচালনা করতে পারেন।<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>আপনার প্রতিষ্ঠানের গোপনীয়তা নীতি সহ আরো তথ্যের জন্য আপনার প্রশাসকের সাথে যোগাযোগ করুন।"</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"আপনার প্রশাসক আপনার ডিভাইসের সেটিংস, কর্পোরেট অ্যাক্সেস, অ্যাপ, অনুমতি, এবং নেটওয়ার্ক কার্যকলাপ সহ ডিভাইসের সাথে সম্পর্কিত ডেটা, ডিভাইসের অবস্থান, এবং কল ও পরিচিতি অনুসন্ধানের ইতিহাসের উপরে নজর রাখতে ও সেগুলি পরিচালনা করতে পারেন।<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>আপনার প্রতিষ্ঠানের গোপনীয়তা নীতি সহ আরো তথ্যের জন্য আপনার প্রশাসকের সাথে যোগাযোগ করুন।"</string>
-    <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"চুরির-সুরক্ষা বৈশিষ্ট্যগুলি ব্যবহার করতে আপনার ডিভাইসে অবশ্যই একটি পাসওয়ার্ড দ্বারা সুরক্ষিত স্ক্রীন লক ব্যবস্থাটিকে সক্ষম রাখতে হবে৷"</string>
-    <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"আপনার প্রতিষ্ঠানের গোপনীয়তা নীতিগুলি সহ আরো তথ্যের জন্য আপনার প্রশাসকের সাথে যোগাযোগ করুন।"</string>
-    <string name="learn_more_link" msgid="3012495805919550043">"আরো জানুন"</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"কর্মস্থলের প্রোফাইল সেট-আপ করা হচ্ছে…"</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"আপনার প্রশাসক আপনার প্রোফাইলের সেটিংস, কর্পোরেট অ্যাক্সেস, অ্যাপ, অনুমতি, এবং নেটওয়ার্ক কার্যকলাপ সহ আপনার প্রোফাইলের সাথে সম্পর্কিত ডেটা, এবং আপনার ডিভাইসের অবস্থান, এবং কল ও পরিচিতি অনুসন্ধানের ইতিহাসের উপরে নজর রাখতে ও সেগুলি পরিচালনা করতে পারেন।<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>আপনার প্রতিষ্ঠানের গোপনীয়তা নীতি সহ আরও তথ্যের জন্য আপনার প্রশাসকের সাথে যোগাযোগ করুন।"</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"আপনার প্রশাসক আপনার ডিভাইসের সেটিংস, কর্পোরেট অ্যাক্সেস, অ্যাপ, অনুমতি, এবং নেটওয়ার্ক কার্যকলাপ সহ ডিভাইসের সাথে সম্পর্কিত ডেটা, ডিভাইসের অবস্থান, এবং কল ও পরিচিতি অনুসন্ধানের ইতিহাসের উপরে নজর রাখতে ও সেগুলি পরিচালনা করতে পারেন।<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>আপনার প্রতিষ্ঠানের গোপনীয়তা নীতি সহ আরও তথ্যের জন্য আপনার প্রশাসকের সাথে যোগাযোগ করুন।"</string>
+    <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"চুরির-সুরক্ষা বৈশিষ্ট্যগুলি ব্যবহার করতে আপনার ডিভাইসে অবশ্যই একটি পাসওয়ার্ড দ্বারা সুরক্ষিত স্ক্রিন লক ব্যবস্থাটিকে সক্ষম রাখতে হবে৷"</string>
+    <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"আপনার প্রতিষ্ঠানের গোপনীয়তা নীতিগুলি সহ আরও তথ্যের জন্য আপনার প্রশাসকের সাথে যোগাযোগ করুন।"</string>
+    <string name="learn_more_link" msgid="3012495805919550043">"আরও জানুন"</string>
     <string name="cancel_setup" msgid="2949928239276274745">"বাতিল করুন"</string>
     <string name="ok_setup" msgid="4593707675416137504">"ঠিক আছে"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"আমি সম্মতি জানাচ্ছি"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"কর্মস্থলের প্রোফাইল"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"প্রাথমিক ব্যবহারকারী"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"বর্তমান প্রোফাইলটি মুছবেন?"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"এই অ্যাপটি ব্যবহার করে আগে থেকেই আপনার একটি কর্মস্থলের প্রোফাইল পরিচালনা করা হয়:"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"আগে থেকেই আপনার একটি কর্মস্থলের প্রোফাইল আছে। এই অ্যাপটি ব্যবহার করে সেটির পরিচালনা করা হয়:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"প্রক্রিয়ার আগে, "<a href="#read_this_link">"এটি পড়ুন"</a>"৷"</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"যদি আপনি চালিয়ে যান তবে এই প্রোফাইলের সমস্ত অ্যাপ্লিকেশান ও ডেটা মুছে ফেলা হবে।"</string>
     <string name="delete_profile" msgid="2299218578684663459">"মুছুন"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"আপনার কর্মস্থলের প্রোফাইল সেট আপ করা অব্যাহত রাখতে আলতো চাপ দিন"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"আপনার কর্মস্থলের প্রোফাইলটি সেটআপ করা যায়নি। আপনার IT বিভাগের সাথে যোগাযোগ করুন অথবা পরে আবার চেষ্টা করুন।"</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"কর্মস্থলের প্রোফাইল যোগ করা যাবে না"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"এই ব্যবহারকারী কর্মস্থলের প্রোফাইল তৈরি করতে পারবেন না৷ সহায়তার জন্য প্রশাসকের সাথে যোগাযোগ করুন।"</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"এই ব্যবহারকারী কর্মস্থলের প্রোফাইল তৈরি করতে পারবেন না৷ প্রশাসকের সাথে যোগাযোগ করুন।"</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"কাজের প্রোফাইলগুলি একটি পরিচালিত ডিভাইসে সেটআপ করা যাবে না"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"মনে হচ্ছে এই ডিভাইসের ব্যবহারকারীর সংখ্য খুব বেশি। একজন ব্যবহারকারীকে সরিয়ে আবার চেষ্টা করুন।"</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"কর্মস্থলের প্রোফাইল পরিবর্তন করা বা সরানো যাবে না"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"এই ডিভাইসে অফিস প্রোফাইল যোগ করা যাবে না। আপনার যদি কোনও প্রশ্ন থাকে, তাহলে আপনার প্রশাসকের সাথে যোগাযোগ করুন।"</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"ডিভাইস লঞ্চার পরিবর্তন করুন"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"আপনার কর্মস্থলের প্রোফাইল থেকে এই লঞ্চার অ্যাপটি ব্যবহার করা যাবে না"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"বাতিল করুন"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"ঠিক আছে"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"ব্যবহারকারীর সেট-আপ সম্পূর্ণ হয়নি"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"কর্মস্থলের ডিভাইসের ব্যবহারকারী"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"কর্মস্থলের ডিভাইস সেট আপ করুন"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"কর্মস্থলের ডিভাইস সেট-আপ করা হচ্ছে…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"সেটআপ ডেটার প্রক্রিয়া হচ্ছে..."</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"ওয়াই-ফাই -এ সংযুক্ত হচ্ছে..."</string>
     <string name="progress_download" msgid="3522436271691064624">"প্রশাসক অ্যাপ্লিকেশান ডাউনলোড হচ্ছে..."</string>
@@ -111,8 +109,8 @@
     <string name="device_owner_info" msgid="2883639372446424007">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> এই ডিভাইসটি পরিচালনা করবে ও নিরাপদ রাখবে। শর্তাবলী প্রযোজ্য। <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
     <string name="device_owner_info_with_terms_headers" msgid="7333703548160002079">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> এই ডিভাইসটি. পরিচালনা করবে ও নিরাপদ রাখবে। <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> এ থাকা শর্তাবলী প্রযোজ্য। <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"এই লিঙ্কটি নিরাপদ নয় এবং ডিভাইস সেট আপ সম্পূর্ণ না হওয়া পর্যন্ত খোলা যাবে না: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
-    <string name="contact_device_provider" msgid="9100405424740726066">"কোনো প্রশ্ন থাকলে <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g> এর সাথে যোগাযোগ করুন।"</string>
-    <string name="if_questions_contact_admin" msgid="6147462485780267795">"কোনো প্রশ্ন থাকলে আপনার প্রতিষ্ঠানের প্রশাসকের সাথে যোগাযোগ করুন"</string>
+    <string name="contact_device_provider" msgid="9100405424740726066">"কোনও প্রশ্ন থাকলে <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g> এর সাথে যোগাযোগ করুন।"</string>
+    <string name="if_questions_contact_admin" msgid="6147462485780267795">"কোনও প্রশ্ন থাকলে আপনার প্রতিষ্ঠানের প্রশাসকের সাথে যোগাযোগ করুন"</string>
     <string name="setup_isnt_finished_contact_admin" msgid="235011880559615998">"সেট আপ শেষ হয়নি। সহায়তার জন্য প্রশাসকের সাথে যোগাযোগ করুন৷"</string>
     <string name="for_help_contact_admin" msgid="8687037236275184653">"সহায়তার জন্য প্রশাসকের সাথে যোগাযোগ করুন।"</string>
     <string name="organization_admin" msgid="1595001081906025683">"প্রতিষ্ঠানের প্রশাসক"</string>
@@ -137,11 +135,11 @@
     <string name="setup_device" msgid="6725265673245816366">"আপনার ডিভাইস সেট আপ করুন"</string>
     <string name="setup_device_encryption" msgid="7852944465414197103">"আপনার ডিভাইস সেট আপ করুন৷ এনক্রিপশন"</string>
     <string name="setup_device_progress" msgid="7035335208571175393">"আপনার ডিভাইস সেট আপ করুন৷ অগ্রগতি দেখাচ্ছে"</string>
-    <string name="learn_more_label" msgid="2723716758654655009">"আরো জানুন বোতাম"</string>
+    <string name="learn_more_label" msgid="2723716758654655009">"বোতামের ব্যাপারে আরও জানুন"</string>
     <string name="mdm_icon_label" msgid="3399134595549660561">"<xliff:g id="ICON_LABEL">%1$s</xliff:g> আইকন"</string>
     <string name="section_heading" msgid="3924666803774291908">"<xliff:g id="SECTION_HEADING">%1$s</xliff:g> বিভাগের শিরোনাম।"</string>
-    <string name="section_content" msgid="8875502515704374394">"<xliff:g id="SECTION_HEADING">%1$s</xliff:g> বিভাগের সামগ্রী: <xliff:g id="SECTION_CONTENT">%2$s</xliff:g>"</string>
-    <string name="expand" msgid="37188292156131304">"প্রসারিত করুন"</string>
+    <string name="section_content" msgid="8875502515704374394">"<xliff:g id="SECTION_HEADING">%1$s</xliff:g> বিভাগের কন্টেন্ট: <xliff:g id="SECTION_CONTENT">%2$s</xliff:g>"</string>
+    <string name="expand" msgid="37188292156131304">"বড় করুন"</string>
     <string name="collapse" msgid="7817530505064432580">"সঙ্কুচিত করুন"</string>
     <string name="access_list_of_links" msgid="7094123315959323372">"লিঙ্কের তালিকা অ্যাক্সেস করুন"</string>
     <string name="access_links" msgid="7991363727326168600">"লিঙ্কগুলি অ্যাক্সেস করুন"</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"বাতিল করুন"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"ডিভাইস আবার সেট করুন"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> এবং <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> এবং <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g>, এবং <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

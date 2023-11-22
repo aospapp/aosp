@@ -16,11 +16,14 @@
 
 #include "java_lang_reflect_Proxy.h"
 
+#include "nativehelper/jni_macros.h"
+
 #include "class_linker.h"
 #include "jni_internal.h"
 #include "mirror/class_loader.h"
 #include "mirror/object_array.h"
 #include "mirror/string.h"
+#include "native_util.h"
 #include "scoped_fast_native_object_access-inl.h"
 #include "verify_object.h"
 

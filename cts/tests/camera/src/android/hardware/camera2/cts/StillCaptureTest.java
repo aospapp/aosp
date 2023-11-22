@@ -624,6 +624,7 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
             focuser = new Camera2Focuser(mCamera, mSession, mPreviewSurface, afListener,
                     mStaticInfo.getCharacteristics(), mHandler);
             if (canSetAfRegion) {
+                previewRequest.set(CaptureRequest.CONTROL_AF_REGIONS, afRegions);
                 stillRequest.set(CaptureRequest.CONTROL_AF_REGIONS, afRegions);
             }
             focuser.startAutoFocus(afRegions);

@@ -28,6 +28,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.function.Predicate;
 
 public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolvable {
   public static final Comparator<MethodInfo> comparator = new Comparator<MethodInfo>() {
@@ -108,7 +109,7 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
     ArrayList<ClassInfo> queue = new ArrayList<ClassInfo>();
     if (containingClass().realSuperclass() != null
         && containingClass().realSuperclass().isAbstract()) {
-      queue.add(containingClass());
+      queue.add(containingClass().realSuperclass());
     }
     addInterfaces(containingClass().realInterfaces(), queue);
     for (ClassInfo iface : queue) {
@@ -123,17 +124,13 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
     return null;
   }
 
-  public MethodInfo findSuperclassImplementation(HashSet notStrippable) {
+  public MethodInfo findPredicateOverriddenMethod(Predicate<MethodInfo> predicate) {
     if (mReturnType == null) {
       // ctor
       return null;
     }
     if (mOverriddenMethod != null) {
-      // Even if we're told outright that this was the overridden method, we want to
-      // be conservative and ignore mismatches of parameter types -- they arise from
-      // extending generic specializations, and we want to consider the derived-class
-      // method to be a non-override.
-      if (this.signature().equals(mOverriddenMethod.signature())) {
+      if (predicate.test(mOverriddenMethod)) {
         return mOverriddenMethod;
       }
     }
@@ -141,13 +138,12 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
     ArrayList<ClassInfo> queue = new ArrayList<ClassInfo>();
     if (containingClass().realSuperclass() != null
         && containingClass().realSuperclass().isAbstract()) {
-      queue.add(containingClass());
+      queue.add(containingClass().realSuperclass());
     }
     addInterfaces(containingClass().realInterfaces(), queue);
     for (ClassInfo iface : queue) {
       for (MethodInfo me : iface.methods()) {
-        if (me.name().equals(this.name()) && me.signature().equals(this.signature())
-            && notStrippable.contains(me.containingClass())) {
+        if (predicate.test(me)) {
           return me;
         }
       }
@@ -167,7 +163,7 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
     ArrayList<ClassInfo> queue = new ArrayList<ClassInfo>();
     if (containingClass().realSuperclass() != null
         && containingClass().realSuperclass().isAbstract()) {
-      queue.add(containingClass());
+      queue.add(containingClass().realSuperclass());
     }
     addInterfaces(containingClass().realInterfaces(), queue);
     for (ClassInfo iface : queue) {
@@ -893,6 +889,8 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
           + " to " + mInfo.scope());
     }
 
+    // Changing the deprecated annotation is binary- and source-compatible, but
+    // we still need to log the API change.
     if (!isDeprecated() == mInfo.isDeprecated()) {
       Errors.error(Errors.CHANGED_DEPRECATED, mInfo.position(), "Method "
           + mInfo.prettyQualifiedSignature() + " has changed deprecation state " + isDeprecated()
@@ -900,16 +898,14 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
       consistent = false;
     }
 
-    // see JLS 3 13.4.20 "Adding or deleting a synchronized modifier of a method does not break "
-    // "compatibility with existing binaries."
-    /*
+    // Changing the synchronized modifier is binary- and source-compatible (see
+    // JLS 3 13.4.20), but we still need to log the API change.
     if (mIsSynchronized != mInfo.mIsSynchronized) {
       Errors.error(Errors.CHANGED_SYNCHRONIZED, mInfo.position(), "Method " + mInfo.qualifiedName()
           + " has changed 'synchronized' qualifier from " + mIsSynchronized + " to "
           + mInfo.mIsSynchronized);
       consistent = false;
     }
-    */
 
     for (ClassInfo exception : thrownExceptions()) {
       if (!mInfo.throwsException(exception)) {

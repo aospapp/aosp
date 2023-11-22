@@ -104,6 +104,12 @@ void jniSetFileDescriptorOfFD(C_JNIEnv* env, jobject fileDescriptor, int value);
 jobject jniGetReferent(C_JNIEnv* env, jobject ref);
 
 /*
+ * Returns a Java String object created from UTF-16 data either from jchar or,
+ * if called from C++11, char16_t (a bitwise identical distinct type).
+ */
+jstring jniCreateString(C_JNIEnv* env, const jchar* unicodeChars, jsize len);
+
+/*
  * Log a message and an exception.
  * If exception is NULL, logs the current exception in the JNI environment.
  */
@@ -167,6 +173,16 @@ inline void jniSetFileDescriptorOfFD(JNIEnv* env, jobject fileDescriptor, int va
 inline jobject jniGetReferent(JNIEnv* env, jobject ref) {
     return jniGetReferent(&env->functions, ref);
 }
+
+inline jstring jniCreateString(JNIEnv* env, const jchar* unicodeChars, jsize len) {
+    return jniCreateString(&env->functions, unicodeChars, len);
+}
+
+#if __cplusplus >= 201103L
+inline jstring jniCreateString(JNIEnv* env, const char16_t* unicodeChars, jsize len) {
+    return jniCreateString(&env->functions, reinterpret_cast<const jchar*>(unicodeChars), len);
+}
+#endif  // __cplusplus >= 201103L
 
 inline void jniLogException(JNIEnv* env, int priority, const char* tag, jthrowable exception = NULL) {
     jniLogException(&env->functions, priority, tag, exception);

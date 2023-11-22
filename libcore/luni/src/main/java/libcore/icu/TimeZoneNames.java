@@ -43,15 +43,6 @@ public final class TimeZoneNames {
     public static final int NAME_COUNT = 5;
 
     private static final ZoneStringsCache cachedZoneStrings = new ZoneStringsCache();
-    static {
-        // Ensure that we pull in the zone strings for the root locale, en_US, and the
-        // user's default locale. (All devices must support the root locale and en_US,
-        // and they're used for various system things like HTTP headers.) Pre-populating
-        // the cache is especially useful on Android because we'll share this via the Zygote.
-        cachedZoneStrings.get(Locale.ROOT);
-        cachedZoneStrings.get(Locale.US);
-        cachedZoneStrings.get(Locale.getDefault());
-    }
 
     public static class ZoneStringsCache extends BasicLruCache<Locale, String[][]> {
         public ZoneStringsCache() {
@@ -71,6 +62,7 @@ public final class TimeZoneNames {
             fillZoneStrings(locale.toLanguageTag(), result);
             long nativeEnd = System.nanoTime();
 
+            addOffsetStrings(result);
             internStrings(result);
             // Ending up in this method too often is an easy way to make your app slow, so we ensure
             // it's easy to tell from the log (a) what we were doing, (b) how long it took, and
@@ -83,8 +75,33 @@ public final class TimeZoneNames {
             return result;
         }
 
+        /**
+         * Generate offset strings for cases where we don't have a name. Note that this is a
+         * potentially slow operation, as we need to load the timezone data for all affected
+         * time zones.
+         */
+        private void addOffsetStrings(String[][] result) {
+            for (int i = 0; i < result.length; ++i) {
+                TimeZone tz = null;
+                for (int j = 1; j < NAME_COUNT; ++j) {
+                    if (result[i][j] != null) {
+                        continue;
+                    }
+                    if (tz == null) {
+                        tz = TimeZone.getTimeZone(result[i][0]);
+                    }
+                    int offsetMillis = tz.getRawOffset();
+                    if (j == LONG_NAME_DST || j == SHORT_NAME_DST) {
+                        offsetMillis += tz.getDSTSavings();
+                    }
+                    result[i][j] = TimeZone.createGmtOffsetString(
+                            /* includeGmt */ true, /*includeMinuteSeparator */true, offsetMillis);
+                }
+            }
+        }
+
         // De-duplicate the strings (http://b/2672057).
-        private synchronized void internStrings(String[][] result) {
+        private void internStrings(String[][] result) {
             HashMap<String, String> internTable = new HashMap<String, String>();
             for (int i = 0; i < result.length; ++i) {
                 for (int j = 1; j < NAME_COUNT; ++j) {

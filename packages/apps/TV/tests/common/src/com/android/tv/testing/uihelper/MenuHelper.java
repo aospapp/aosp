@@ -139,6 +139,11 @@ public class MenuHelper extends BaseUiDeviceHelper {
                 R.string.channels_item_program_guide);
     }
 
+    public UiObject2 assertPressDvrLibrary() {
+        return assertPressMenuItem(R.string.menu_title_channels,
+                R.string.channels_item_dvr);
+    }
+
     /**
      * Navigate to the menu item with the text {@code itemTextResId} in the row with text
      * {@code rowTitleResId}.
@@ -171,7 +176,11 @@ public class MenuHelper extends BaseUiDeviceHelper {
     public void showMenu() {
         if (!mUiDevice.hasObject(MENU)) {
             mUiDevice.pressMenu();
-            UiDeviceAsserts.assertWaitForCondition(mUiDevice, Until.hasObject(MENU));
+            if (!UiDeviceAsserts.waitForCondition(mUiDevice, Until.hasObject(MENU))) {
+                // Sometimes animations might block menu key, try again to make sure it's received.
+                mUiDevice.pressMenu();
+                UiDeviceAsserts.assertWaitForCondition(mUiDevice, Until.hasObject(MENU));
+            }
         }
     }
 }

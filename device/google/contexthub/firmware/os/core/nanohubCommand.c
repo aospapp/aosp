@@ -1078,22 +1078,26 @@ static void halQueryApps(void *rx, uint8_t rx_len)
     uint64_t appId;
     uint32_t appVer, appSize;
 
-    if (osAppInfoByIndex(le32toh(req->idx), &appId, &appVer, &appSize)) {
+    if (osExtAppInfoByIndex(le32toh(req->idx), &appId, &appVer, &appSize)) {
         resp = heapAlloc(sizeof(*resp));
-        resp->hdr.appId = APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 0);
-        resp->hdr.len = sizeof(*resp) - sizeof(struct NanohubHalHdr) + 1;
-        resp->hdr.msg = NANOHUB_HAL_QUERY_APPS;
-        resp->appId = appId;
-        resp->version = appVer;
-        resp->flashUse = appSize;
-        resp->ramUse = 0;
-        osEnqueueEvtOrFree(EVT_APP_TO_HOST, resp, heapFree);
+        if (resp) {
+            resp->hdr.appId = APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 0);
+            resp->hdr.len = sizeof(*resp) - sizeof(struct NanohubHalHdr) + 1;
+            resp->hdr.msg = NANOHUB_HAL_QUERY_APPS;
+            resp->appId = appId;
+            resp->version = appVer;
+            resp->flashUse = appSize;
+            resp->ramUse = 0;
+            osEnqueueEvtOrFree(EVT_APP_TO_HOST, resp, heapFree);
+        }
     } else {
         hdr = heapAlloc(sizeof(*hdr));
-        hdr->appId = APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 0);
-        hdr->len = 1;
-        hdr->msg = NANOHUB_HAL_QUERY_APPS;
-        osEnqueueEvtOrFree(EVT_APP_TO_HOST, hdr, heapFree);
+        if (hdr) {
+            hdr->appId = APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 0);
+            hdr->len = 1;
+            hdr->msg = NANOHUB_HAL_QUERY_APPS;
+            osEnqueueEvtOrFree(EVT_APP_TO_HOST, hdr, heapFree);
+        }
     }
 }
 

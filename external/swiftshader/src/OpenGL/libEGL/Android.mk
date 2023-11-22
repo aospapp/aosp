@@ -8,7 +8,11 @@ COMMON_CFLAGS := \
 	-Wno-unused-parameter \
 	-Wno-implicit-exception-spec-mismatch \
 	-Wno-overloaded-virtual \
-	-DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
+	-Wno-attributes \
+	-Wno-unknown-attributes \
+	-Wno-unknown-warning-option \
+	-DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION) \
+	-DNO_SANITIZE_FUNCTION=
 
 ifneq (16,${PLATFORM_SDK_VERSION})
 COMMON_CFLAGS += -Xclang -fuse-init-array
@@ -29,15 +33,24 @@ COMMON_C_INCLUDES := \
 	$(LOCAL_PATH)/../ \
 	$(LOCAL_PATH)/../../
 
-COMMON_STATIC_LIBRARIES := \
-	libLLVM_swiftshader \
-	libnativewindow
-
 COMMON_SHARED_LIBRARIES := \
 	libdl \
 	liblog \
 	libcutils \
 	libhardware
+
+# libnativewindow is introduced from O
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo O),O)
+COMMON_SHARED_LIBRARIES += libnativewindow
+COMMON_STATIC_LIBRARIES += libarect
+COMMON_HEADER_LIBRARIES += libnativebase_headers
+endif
+
+# gralloc1 is introduced from N MR1
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 25 && echo NMR1),NMR1)
+COMMON_CFLAGS += -DHAVE_GRALLOC1
+COMMON_SHARED_LIBRARIES += libsync
+endif
 
 # Marshmallow does not have stlport, but comes with libc++ by default
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -lt 23 && echo PreMarshmallow),PreMarshmallow)
@@ -68,6 +81,7 @@ LOCAL_SRC_FILES := $(COMMON_SRC_FILES)
 LOCAL_C_INCLUDES += $(COMMON_C_INCLUDES)
 LOCAL_STATIC_LIBRARIES += swiftshader_top_debug $(COMMON_STATIC_LIBRARIES)
 LOCAL_SHARED_LIBRARIES += $(COMMON_SHARED_LIBRARIES)
+LOCAL_HEADER_LIBRARIES := $(COMMON_HEADER_LIBRARIES)
 LOCAL_LDFLAGS += $(COMMON_LDFLAGS)
 LOCAL_CFLAGS += $(COMMON_CFLAGS) -UNDEBUG -g -O0
 include $(BUILD_SHARED_LIBRARY)
@@ -91,6 +105,7 @@ LOCAL_SRC_FILES := $(COMMON_SRC_FILES)
 LOCAL_C_INCLUDES += $(COMMON_C_INCLUDES)
 LOCAL_STATIC_LIBRARIES += swiftshader_top_release $(COMMON_STATIC_LIBRARIES)
 LOCAL_SHARED_LIBRARIES += $(COMMON_SHARED_LIBRARIES)
+LOCAL_HEADER_LIBRARIES := $(COMMON_HEADER_LIBRARIES)
 LOCAL_LDFLAGS += $(COMMON_LDFLAGS)
 LOCAL_CFLAGS += $(COMMON_CFLAGS) -DANGLE_DISABLE_TRACE
 include $(BUILD_SHARED_LIBRARY)

@@ -199,7 +199,8 @@ static SLresult ValidateRecorderConfig(IAndroidConfiguration* iConfig) {
 //                        SL_LOGE("Error creating routing object - Couldn't get AudioRecord.");
 //                    } else if (iConfig->mRoutingProxy != NULL) {
 //                        result = SL_RESULT_PRECONDITIONS_VIOLATED;
-//                        SL_LOGE("Error creating routing object - Routing Proxy Already Acquired.");
+//                        SL_LOGE("Error creating routing object - Routing Proxy Already Acquired."
+//                                );
 //                    } else {
                         result = SL_RESULT_SUCCESS;
 //                    }

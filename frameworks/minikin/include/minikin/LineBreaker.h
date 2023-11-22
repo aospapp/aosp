@@ -22,11 +22,14 @@
 #ifndef MINIKIN_LINE_BREAKER_H
 #define MINIKIN_LINE_BREAKER_H
 
+#include <gtest/gtest_prod.h>
 #include "unicode/brkiter.h"
 #include "unicode/locid.h"
 #include <cmath>
 #include <vector>
+#include "minikin/FontCollection.h"
 #include "minikin/Hyphenator.h"
+#include "minikin/MinikinFont.h"
 #include "minikin/WordBreaker.h"
 
 namespace minikin {
@@ -113,7 +116,7 @@ class LineBreaker {
         // That logic could be here but it's better for performance that it's upstream because of
         // the cost of constructing and comparing the ICU Locale object.
         // Note: caller is responsible for managing lifetime of hyphenator
-        void setLocale(const icu::Locale& locale, Hyphenator* hyphenator);
+        void setLocales(const char* locales, const std::vector<Hyphenator*>& hyphenators);
 
         void resize(size_t size) {
             mTextBuf.resize(size);
@@ -252,6 +255,8 @@ class LineBreaker {
         uint32_t mLastHyphenation;  // hyphen edit of last break kept for next line
         int mFirstTabIndex;
         size_t mSpaceCount;
+
+        FRIEND_TEST(LineBreakerTest, setLocales);
 };
 
 }  // namespace minikin

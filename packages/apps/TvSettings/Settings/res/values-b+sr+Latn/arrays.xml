@@ -17,18 +17,18 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
   <string-array name="sleep_timeout_entries">
-    <item msgid="1213527366819650274">"5 minuta"</item>
-    <item msgid="6561800022721381078">"15 minuta"</item>
-    <item msgid="7718735533503035428">"30 minuta"</item>
-    <item msgid="8784595382489738498">"1 sat"</item>
-    <item msgid="1529312035777735084">"2 sata"</item>
+    <item msgid="1213527366819650274">"za 5 minuta"</item>
+    <item msgid="6561800022721381078">"za 15 minuta"</item>
+    <item msgid="7718735533503035428">"za 30 minuta"</item>
+    <item msgid="8784595382489738498">"za 1 sat"</item>
+    <item msgid="1529312035777735084">"za 2 sata"</item>
   </string-array>
   <string-array name="screen_off_timeout_entries">
-    <item msgid="8244337465472020927">"30 minuta"</item>
-    <item msgid="1001586019759702505">"1 sat"</item>
-    <item msgid="5216959047515554188">"3 sata"</item>
-    <item msgid="4152882798140628647">"6 sati"</item>
-    <item msgid="412984226950404956">"12 sati"</item>
+    <item msgid="8244337465472020927">"za 30 minuta"</item>
+    <item msgid="1001586019759702505">"za 1 sat"</item>
+    <item msgid="5216959047515554188">"za 3 sata"</item>
+    <item msgid="4152882798140628647">"za 6 sati"</item>
+    <item msgid="412984226950404956">"za 12 sati"</item>
     <item msgid="2178434662173258997">"Nikada"</item>
   </string-array>
   <string-array name="captioning_typeface_selector_titles">

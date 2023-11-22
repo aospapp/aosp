@@ -25,6 +25,20 @@ extern "C" {
 #define com_android_tv_tuner_TunerHal_DEFAULT_VSB_TUNE_TIMEOUT_MS 2000L
 #undef com_android_tv_tuner_TunerHal_DEFAULT_QAM_TUNE_TIMEOUT_MS
 #define com_android_tv_tuner_TunerHal_DEFAULT_QAM_TUNE_TIMEOUT_MS 4000L
+#undef com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_UNDEFINED
+#define com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_UNDEFINED 0L
+#undef com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_ATSC
+#define com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_ATSC 1L
+#undef com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_DVBC
+#define com_android_tv_tuner_TunerHal_DDELIVERY_SYSTEM_DVBC 2L
+#undef com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_DVBS
+#define com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_DVBS 3L
+#undef com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_DVBS2
+#define com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_DVBS2 4L
+#undef com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_DVBT
+#define com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_DVBT 5L
+#undef com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_DVBT2
+#define com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_DVBT2 6L
 /*
  * Class:     com_android_tv_tuner_TunerHal
  * Method:    nativeFinalize
@@ -80,6 +94,14 @@ JNIEXPORT jint JNICALL Java_com_android_tv_tuner_TunerHal_nativeWriteInBuffer
  */
 JNIEXPORT void JNICALL Java_com_android_tv_tuner_TunerHal_nativeSetHasPendingTune
   (JNIEnv *, jobject, jlong, jboolean);
+
+/*
+ * Class:     com_android_tv_tuner_TunerHal
+ * Method:    nativeGetDeliverySystemType
+ * Signature: (J)I
+ */
+JNIEXPORT int JNICALL Java_com_android_tv_tuner_TunerHal_nativeGetDeliverySystemType
+  (JNIEnv *, jobject, jlong);
 
 #ifdef __cplusplus
 }

@@ -23,8 +23,8 @@
     android:versionName="1.0">
 
     <uses-sdk
-        android:minSdkVersion="23"
-        android:targetSdkVersion="23"/>
+        android:minSdkVersion="24"
+        android:targetSdkVersion="24"/>
 
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
@@ -56,255 +56,24 @@
 
     <application
         android:icon="@drawable/ic_launcher_settings"
+        android:theme="@style/CarSettingTheme"
         android:label="@string/settings_label">
 
         <activity
-            android:name=".home.HomepageActivity"
+            android:name=".common.CarSettingActivity"
             android:label="@string/settings_label"
+            android:windowSoftInputMode="adjustPan"
             android:launchMode="singleTask"
             android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
+            <!-- Set priority high enough to trump the phone setting app -->
+            <!-- TODO: once phone setting is removed from car system image, set priority to 1 -->
+            <intent-filter android:priority="10">
+                <action android:name="android.intent.action.MAIN" />
+                <action android:name="android.settings.SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".display.DisplaySettingsActivity"
-            android:label="@string/display_settings"
-            android:theme="@style/CarSettingTheme"
-            android:icon="@drawable/ic_settings_display">
-            <intent-filter android:priority="1">
-                <action android:name="com.android.settings.action.SETTINGS"/>
-            </intent-filter>
-
-            <meta-data
-                android:name="com.android.settings.FRAGMENT_CLASS"
-                android:value="com.android.car.settings.display.DisplaySettings"/>
-            <meta-data
-                android:name="com.android.settings.PRIMARY_PROFILE_CONTROLLED"
-                android:value="true"/>
-            <meta-data
-                android:name="com.android.settings.category"
-                android:value="com.android.settings.category.ia.homepage"/>
-        </activity>
-
-        <activity
-            android:name=".wifi.WifiSettingsActivity"
-            android:label="@string/wifi_settings"
-            android:theme="@style/CarSettingTheme"
-            android:icon="@drawable/ic_settings_wifi">
-            <intent-filter android:priority="1">
-                <action android:name="com.android.settings.action.SETTINGS"/>
-            </intent-filter>
-
-            <meta-data
-                android:name="com.android.settings.FRAGMENT_CLASS"
-                android:value="com.android.car.settings.wifi.WifiSettings"/>
-            <meta-data
-                android:name="com.android.settings.PRIMARY_PROFILE_CONTROLLED"
-                android:value="true"/>
-            <meta-data
-                android:name="com.android.settings.category"
-                android:value="com.android.settings.category.ia.homepage"/>
-        </activity>
-
-        <activity
-            android:name=".wifi.WifiDetailActivity"
-            android:label="@string/wifi_settings"
-            android:theme="@style/CarSettingTheme"
-            android:icon="@drawable/ic_settings_wifi">
-            <intent-filter android:priority="1">
-                <action android:name="com.android.settings.action.SETTINGS"/>
-            </intent-filter>
-
-            <meta-data
-                android:name="com.android.settings.PRIMARY_PROFILE_CONTROLLED"
-                android:value="true"/>
-        </activity>
-
-        <activity
-            android:name=".wifi.AddWifiActivity"
-            android:label="@string/wifi_settings"
-            android:theme="@style/CarSettingTheme"
-            android:icon="@drawable/ic_settings_wifi">
-            <intent-filter android:priority="1">
-                <action android:name="com.android.settings.action.SETTINGS"/>
-            </intent-filter>
-
-            <meta-data
-                android:name="com.android.settings.PRIMARY_PROFILE_CONTROLLED"
-                android:value="true"/>
-        </activity>
-
-        <activity
-            android:name=".bluetooth.BluetoothSettingsActivity"
-            android:label="@string/bluetooth_settings"
-            android:theme="@style/CarSettingTheme"
-            android:icon="@drawable/ic_settings_bluetooth">
-            <intent-filter android:priority="1">
-                <action android:name="com.android.settings.action.SETTINGS"/>
-            </intent-filter>
-
-            <meta-data
-                android:name="com.android.settings.PRIMARY_PROFILE_CONTROLLED"
-                android:value="true"/>
-            <meta-data
-                android:name="com.android.settings.category"
-                android:value="com.android.settings.category.ia.homepage"/>
-        </activity>
-
-        <activity
-            android:name=".bluetooth.BluetoothDetailActivity"
-            android:label="@string/bluetooth_settings"
-            android:theme="@style/CarSettingTheme"
-            android:icon="@drawable/ic_settings_bluetooth">
-            <intent-filter android:priority="1">
-                <action android:name="com.android.settings.action.SETTINGS"/>
-            </intent-filter>
-
-            <meta-data
-                android:name="com.android.settings.PRIMARY_PROFILE_CONTROLLED"
-                android:value="true"/>
-        </activity>
-
-        <activity
-            android:name=".sound.SoundSettingsActivity"
-            android:label="@string/sound_settings"
-            android:theme="@style/CarSettingTheme"
-            android:icon="@drawable/ic_settings_sound">
-            <intent-filter android:priority="1">
-                <action android:name="com.android.settings.action.SETTINGS"/>
-            </intent-filter>
-
-            <meta-data
-                android:name="com.android.settings.PRIMARY_PROFILE_CONTROLLED"
-                android:value="true"/>
-            <meta-data
-                android:name="com.android.settings.category"
-                android:value="com.android.settings.category.ia.homepage"/>
-        </activity>
-
-        <!-- Applications settings -->
-        <activity
-            android:name=".applications.ApplicationSettingsActivity"
-            android:label="@string/applications_settings"
-            android:theme="@style/CarSettingTheme"
-            android:icon="@drawable/ic_settings_applications">
-            <intent-filter android:priority="1">
-                <action android:name="com.android.settings.action.SETTINGS"/>
-            </intent-filter>
-
-            <meta-data
-              android:name="com.android.settings.PRIMARY_PROFILE_CONTROLLED"
-              android:value="true"/>
-            <meta-data
-              android:name="com.android.settings.category"
-              android:value="com.android.settings.category.ia.homepage"/>
-        </activity>
-
-        <activity
-            android:name=".applications.ApplicationDetailActivity"
-            android:label="@string/applications_settings"
-            android:theme="@style/CarSettingTheme"
-            android:icon="@drawable/ic_settings_applications">
-            <intent-filter android:priority="1">
-                <action android:name="com.android.settings.action.SETTINGS"/>
-            </intent-filter>
-
-            <meta-data
-                android:name="com.android.settings.PRIMARY_PROFILE_CONTROLLED"
-                android:value="true"/>
-        </activity>
-
-
-        <activity
-            android:name=".datetime.DatetimeSettingsActivity"
-            android:label="@string/date_and_time_settings_title"
-            android:theme="@style/CarSettingTheme"
-            android:icon="@drawable/ic_settings_date_time">
-            <intent-filter android:priority="1">
-                <action android:name="com.android.settings.action.SETTINGS"/>
-            </intent-filter>
-
-            <meta-data
-                android:name="com.android.settings.PRIMARY_PROFILE_CONTROLLED"
-                android:value="true"/>
-            <meta-data
-                android:name="com.android.settings.category"
-                android:value="com.android.settings.category.ia.homepage"/>
-        </activity>
-
-        <activity
-            android:name=".datetime.DatePickerActivity"
-            android:label="@string/date_and_time_settings_title"
-            android:theme="@style/CarSettingTheme"
-            android:icon="@drawable/ic_settings_date_time">
-            <intent-filter android:priority="1">
-                <action android:name="com.android.settings.action.SETTINGS"/>
-            </intent-filter>
-
-            <meta-data
-                android:name="com.android.settings.PRIMARY_PROFILE_CONTROLLED"
-                android:value="true"/>
-        </activity>
-
-        <activity
-            android:name=".datetime.TimePickerActivity"
-            android:label="@string/date_and_time_settings_title"
-            android:theme="@style/CarSettingTheme"
-            android:icon="@drawable/ic_settings_date_time">
-            <intent-filter android:priority="1">
-                <action android:name="com.android.settings.action.SETTINGS"/>
-            </intent-filter>
-
-            <meta-data
-                android:name="com.android.settings.PRIMARY_PROFILE_CONTROLLED"
-                android:value="true"/>
-        </activity>
-
-        <activity
-            android:name=".datetime.TimeZonePickerActivity"
-            android:label="@string/date_and_time_settings_title"
-            android:theme="@style/CarSettingTheme"
-            android:icon="@drawable/ic_settings_date_time">
-            <intent-filter android:priority="1">
-                <action android:name="com.android.settings.action.SETTINGS"/>
-            </intent-filter>
-
-            <meta-data
-                android:name="com.android.settings.PRIMARY_PROFILE_CONTROLLED"
-                android:value="true"/>
-        </activity>
-
-        <activity
-            android:name=".system.SystemSettingsActivity"
-            android:label="@string/system_setting_title"
-            android:theme="@style/CarSettingTheme"
-            android:icon="@drawable/ic_settings_about">
-            <intent-filter android:priority="1">
-                <action android:name="com.android.settings.action.SETTINGS"/>
-            </intent-filter>
-
-            <meta-data
-                android:name="com.android.settings.PRIMARY_PROFILE_CONTROLLED"
-                android:value="true"/>
-            <meta-data
-                android:name="com.android.settings.category"
-                android:value="com.android.settings.category.ia.homepage"/>
-        </activity>
-        <activity
-            android:name=".system.AboutSettingsActivity"
-            android:label="@string/system_setting_title"
-            android:theme="@style/CarSettingTheme"
-            android:icon="@drawable/ic_settings_about">
-            <intent-filter android:priority="1">
-                <action android:name="com.android.settings.action.SETTINGS"/>
-            </intent-filter>
-
-            <meta-data
-                android:name="com.android.settings.PRIMARY_PROFILE_CONTROLLED"
-                android:value="true"/>
-        </activity>
     </application>
 </manifest>

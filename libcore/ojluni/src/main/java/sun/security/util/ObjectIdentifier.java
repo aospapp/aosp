@@ -255,7 +255,13 @@ class ObjectIdentifier implements Serializable
                 + " (tag = " +  type_id + ")"
                 );
 
-        encoding = new byte[in.getLength()];
+        int len = in.getLength();
+        if (len > in.available()) {
+            throw new IOException("ObjectIdentifier() -- length exceeds" +
+                    "data available.  Length: " + len + ", Available: " +
+                    in.available());
+        }
+        encoding = new byte[len];
         in.getBytes(encoding);
         check(encoding);
     }
@@ -354,6 +360,7 @@ class ObjectIdentifier implements Serializable
      * @return components in an int array, if all the components are less than
      *         Integer.MAX_VALUE. Otherwise, null.
      */
+    // Android-changed: s/private/public: Needed to keep sort order of RDN from prev impl
     public int[] toIntArray() {
         int length = encoding.length;
         int[] result = new int[20];

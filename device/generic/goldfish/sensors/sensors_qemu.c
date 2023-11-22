@@ -33,7 +33,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h>
-#include <cutils/log.h>
+#include <log/log.h>
 #include <cutils/sockets.h>
 #include <hardware/sensors.h>
 
@@ -50,40 +50,46 @@
 /** SENSOR IDS AND NAMES
  **/
 
-#define MAX_NUM_SENSORS 8
+#define MAX_NUM_SENSORS 10
 
 #define SUPPORTED_SENSORS  ((1<<MAX_NUM_SENSORS)-1)
 
-#define  ID_BASE           SENSORS_HANDLE_BASE
-#define  ID_ACCELERATION   (ID_BASE+0)
-#define  ID_MAGNETIC_FIELD (ID_BASE+1)
-#define  ID_ORIENTATION    (ID_BASE+2)
-#define  ID_TEMPERATURE    (ID_BASE+3)
-#define  ID_PROXIMITY      (ID_BASE+4)
-#define  ID_LIGHT          (ID_BASE+5)
-#define  ID_PRESSURE       (ID_BASE+6)
-#define  ID_HUMIDITY       (ID_BASE+7)
+#define  ID_BASE                        SENSORS_HANDLE_BASE
+#define  ID_ACCELERATION                (ID_BASE+0)
+#define  ID_GYROSCOPE                   (ID_BASE+1)
+#define  ID_MAGNETIC_FIELD              (ID_BASE+2)
+#define  ID_ORIENTATION                 (ID_BASE+3)
+#define  ID_TEMPERATURE                 (ID_BASE+4)
+#define  ID_PROXIMITY                   (ID_BASE+5)
+#define  ID_LIGHT                       (ID_BASE+6)
+#define  ID_PRESSURE                    (ID_BASE+7)
+#define  ID_HUMIDITY                    (ID_BASE+8)
+#define  ID_MAGNETIC_FIELD_UNCALIBRATED (ID_BASE+9)
 
-#define  SENSORS_ACCELERATION    (1 << ID_ACCELERATION)
-#define  SENSORS_MAGNETIC_FIELD  (1 << ID_MAGNETIC_FIELD)
-#define  SENSORS_ORIENTATION     (1 << ID_ORIENTATION)
-#define  SENSORS_TEMPERATURE     (1 << ID_TEMPERATURE)
-#define  SENSORS_PROXIMITY       (1 << ID_PROXIMITY)
-#define  SENSORS_LIGHT           (1 << ID_LIGHT)
-#define  SENSORS_PRESSURE        (1 << ID_PRESSURE)
-#define  SENSORS_HUMIDITY        (1 << ID_HUMIDITY)
+#define  SENSORS_ACCELERATION                 (1 << ID_ACCELERATION)
+#define  SENSORS_GYROSCOPE                    (1 << ID_GYROSCOPE)
+#define  SENSORS_MAGNETIC_FIELD               (1 << ID_MAGNETIC_FIELD)
+#define  SENSORS_ORIENTATION                  (1 << ID_ORIENTATION)
+#define  SENSORS_TEMPERATURE                  (1 << ID_TEMPERATURE)
+#define  SENSORS_PROXIMITY                    (1 << ID_PROXIMITY)
+#define  SENSORS_LIGHT                        (1 << ID_LIGHT)
+#define  SENSORS_PRESSURE                     (1 << ID_PRESSURE)
+#define  SENSORS_HUMIDITY                     (1 << ID_HUMIDITY)
+#define  SENSORS_MAGNETIC_FIELD_UNCALIBRATED  (1 << ID_MAGNETIC_FIELD_UNCALIBRATED)
 
 #define  ID_CHECK(x)  ((unsigned)((x) - ID_BASE) < MAX_NUM_SENSORS)
 
 #define  SENSORS_LIST  \
     SENSOR_(ACCELERATION,"acceleration") \
+    SENSOR_(GYROSCOPE,"gyroscope") \
     SENSOR_(MAGNETIC_FIELD,"magnetic-field") \
     SENSOR_(ORIENTATION,"orientation") \
     SENSOR_(TEMPERATURE,"temperature") \
     SENSOR_(PROXIMITY,"proximity") \
     SENSOR_(LIGHT, "light") \
     SENSOR_(PRESSURE, "pressure") \
-    SENSOR_(HUMIDITY, "humidity")
+    SENSOR_(HUMIDITY, "humidity") \
+    SENSOR_(MAGNETIC_FIELD_UNCALIBRATED,"magnetic-field-uncalibrated") \
 
 static const struct {
     const char*  name;
@@ -317,6 +323,18 @@ static int sensor_device_poll_event_locked(SensorDevice* dev)
             continue;
         }
 
+        /* "gyroscope:<x>:<y>:<z>" corresponds to a gyroscope event */
+        if (sscanf(buff, "gyroscope:%g:%g:%g", params+0, params+1, params+2)
+                == 3) {
+            new_sensors |= SENSORS_GYROSCOPE;
+            if (events[ID_GYROSCOPE].type == SENSOR_TYPE_META_DATA) continue;
+            events[ID_GYROSCOPE].gyro.x = params[0];
+            events[ID_GYROSCOPE].gyro.y = params[1];
+            events[ID_GYROSCOPE].gyro.z = params[2];
+            events[ID_GYROSCOPE].type = SENSOR_TYPE_GYROSCOPE;
+            continue;
+        }
+
         /* "orientation:<azimuth>:<pitch>:<roll>" is sent when orientation
          * changes */
         if (sscanf(buff, "orientation:%g:%g:%g", params+0, params+1, params+2)
@@ -344,6 +362,19 @@ static int sensor_device_poll_event_locked(SensorDevice* dev)
             events[ID_MAGNETIC_FIELD].magnetic.status =
                     SENSOR_STATUS_ACCURACY_HIGH;
             events[ID_MAGNETIC_FIELD].type = SENSOR_TYPE_MAGNETIC_FIELD;
+            continue;
+        }
+
+        if (sscanf(buff, "magnetic-uncalibrated:%g:%g:%g", params+0, params+1, params+2)
+                == 3) {
+            new_sensors |= SENSORS_MAGNETIC_FIELD_UNCALIBRATED;
+            if (events[ID_MAGNETIC_FIELD_UNCALIBRATED].type == SENSOR_TYPE_META_DATA) continue;
+            events[ID_MAGNETIC_FIELD_UNCALIBRATED].magnetic.x = params[0];
+            events[ID_MAGNETIC_FIELD_UNCALIBRATED].magnetic.y = params[1];
+            events[ID_MAGNETIC_FIELD_UNCALIBRATED].magnetic.z = params[2];
+            events[ID_MAGNETIC_FIELD_UNCALIBRATED].magnetic.status =
+                    SENSOR_STATUS_ACCURACY_HIGH;
+            events[ID_MAGNETIC_FIELD_UNCALIBRATED].type = SENSOR_TYPE_MAGNETIC_FIELD_UNCALIBRATED;
             continue;
         }
 
@@ -656,6 +687,19 @@ static const struct sensor_t sSensorListInit[] = {
           .reserved   = {}
         },
 
+        { .name       = "Goldfish 3-axis Gyroscope",
+          .vendor     = "The Android Open Source Project",
+          .version    = 1,
+          .handle     = ID_GYROSCOPE,
+          .type       = SENSOR_TYPE_GYROSCOPE,
+          .maxRange   = 11.1111111,
+          .resolution = 1.0f/1000.0f,
+          .power      = 3.0f,
+          .minDelay   = 10000,
+          .maxDelay   = 60 * 1000 * 1000,
+          .reserved   = {}
+        },
+
         { .name       = "Goldfish 3-axis Magnetic field sensor",
           .vendor     = "The Android Open Source Project",
           .version    = 1,
@@ -780,7 +824,20 @@ static const struct sensor_t sSensorListInit[] = {
           .requiredPermission = 0,
           .flags = SENSOR_FLAG_CONTINUOUS_MODE,
           .reserved   = {}
-        }
+        },
+
+        { .name       = "Goldfish 3-axis Magnetic field sensor (uncalibrated)",
+          .vendor     = "The Android Open Source Project",
+          .version    = 1,
+          .handle     = ID_MAGNETIC_FIELD_UNCALIBRATED,
+          .type       = SENSOR_TYPE_MAGNETIC_FIELD_UNCALIBRATED,
+          .maxRange   = 2000.0f,
+          .resolution = 1.0f,
+          .power      = 6.7f,
+          .minDelay   = 10000,
+          .maxDelay   = 60 * 1000 * 1000,
+          .reserved   = {}
+        },
 };
 
 static struct sensor_t  sSensorList[MAX_NUM_SENSORS];

@@ -24,5 +24,6 @@ def destroy(objs):
 """
 """This is a list of all the top level controller modules"""
 __all__ = [
-    "android_device", "attenuator", "monsoon", "access_point", "iperf_server"
+    "android_device", "attenuator", "monsoon", "access_point", "iperf_server",
+    "packet_sender"
 ]

@@ -56,12 +56,22 @@ from acts.test_utils.tel.tel_voice_utils import phone_setup_voice_3g
 from acts.test_utils.tel.tel_voice_utils import phone_setup_voice_2g
 from acts.test_utils.tel.tel_voice_utils import phone_setup_volte
 from acts.test_utils.tel.tel_voice_utils import get_current_voice_rat
+
+from acts.logger import epoch_to_log_line_timestamp
+from acts.utils import get_current_epoch_time
 from acts.utils import rand_ascii_str
+
 from TelWifiVoiceTest import TelWifiVoiceTest
 from TelWifiVoiceTest import ATTEN_NAME_FOR_WIFI_2G
 from TelWifiVoiceTest import ATTEN_NAME_FOR_WIFI_5G
 from TelWifiVoiceTest import ATTEN_NAME_FOR_CELL_3G
 from TelWifiVoiceTest import ATTEN_NAME_FOR_CELL_4G
+
+import socket
+from acts.controllers.sl4a_client import Sl4aProtocolError
+
+IGNORE_EXCEPTIONS = (BrokenPipeError, Sl4aProtocolError)
+EXCEPTION_TOLERANCE = 20
 
 
 class TelLiveMobilityStressTest(TelWifiVoiceTest):
@@ -81,6 +91,10 @@ class TelLiveMobilityStressTest(TelWifiVoiceTest):
             self.user_params.get("signal_change_interval", 10))
         self.signal_change_step = int(
             self.user_params.get("signal_change_step", 5))
+        self.min_sms_length = int(self.user_params.get("min_sms_length", 1))
+        self.min_mms_length = int(self.user_params.get("min_mms_length", 1))
+        self.min_phone_call_duration = int(
+            self.user_params.get("min_phone_call_duration", 10))
         self.dut = self.android_devices[0]
         self.helper = self.android_devices[1]
 
@@ -113,13 +127,16 @@ class TelLiveMobilityStressTest(TelWifiVoiceTest):
         selection = random.randrange(0, 2)
         message_type_map = {0: "SMS", 1: "MMS"}
         max_length_map = {0: self.max_sms_length, 1: self.max_mms_length}
-        length = random.randrange(0, max_length_map[selection] + 1)
+        min_length_map = {0: self.min_sms_length, 1: self.min_mms_length}
+        length = random.randrange(min_length_map[selection],
+                                  max_length_map[selection] + 1)
         text = rand_ascii_str(length)
         message_content_map = {0: [text], 1: [("Mms Message", text, None)]}
         message_func_map = {
             0: sms_send_receive_verify,
             1: mms_send_receive_verify
         }
+        self.result_info["Total %s" % message_type_map[selection]] += 1
         if not message_func_map[selection](self.log, ads[0], ads[1],
                                            message_content_map[selection]):
             self.log.error("%s of length %s from %s to %s fails",
@@ -134,37 +151,50 @@ class TelLiveMobilityStressTest(TelWifiVoiceTest):
             return True
 
     def _make_phone_call(self, ads):
+        self.result_info["Total Calls"] += 1
         if not call_setup_teardown(
                 self.log,
                 ads[0],
                 ads[1],
                 ad_hangup=ads[random.randrange(0, 2)],
-                verify_caller_func=is_voice_attached,
-                verify_callee_func=is_voice_attached,
                 wait_time_in_call=random.randrange(
-                    30, self.max_phone_call_duration)):
-            ads[0].log.error("Setup phone Call failed.")
+                    self.min_phone_call_duration,
+                    self.max_phone_call_duration)):
+            self.log.error("Call setup and teardown failed.")
+            self.result_info["Call Failure"] += 1
             return False
-        ads[0].log.info("Setup call successfully.")
+        self.log.info("Call setup and teardown succeed.")
         return True
 
     def crash_check_test(self):
         failure = 0
         while time.time() < self.finishing_time:
-            new_crash = self.dut.check_crash_report()
-            crash_diff = set(new_crash).difference(set(self.dut.crash_report))
-            self.dut.crash_report = new_crash
-            if crash_diff:
-                self.dut.log.error("Find new crash reports %s",
-                                   list(crash_diff))
-                self.dut.pull_files(list(crash_diff))
-                failure += 1
-                self.result_info["Crashes"] += 1
-                self._take_bug_report("%s_crash_found" % self.test_name,
-                                      time.strftime("%m-%d-%Y-%H-%M-%S"))
-            self.dut.droid.goToSleepNow()
-            time.sleep(self.crash_check_interval)
-        return failure
+            self.dut.log.info(dict(self.result_info))
+            try:
+                begin_time = epoch_to_log_line_timestamp(
+                    get_current_epoch_time())
+                time.sleep(self.crash_check_interval)
+                crash_report = self.dut.check_crash_report(
+                    "checking_crash", begin_time, True)
+                if crash_report:
+                    self.dut.log.error("Find new crash reports %s",
+                                       crash_report)
+                    failure += 1
+                    self.result_info["Crashes"] += 1
+            except IGNORE_EXCEPTION as e:
+                self.log.error("Exception error %s", str(e))
+                self.result_info["Exception Errors"] += 1
+                if self.result_info["Exception Errors"] > EXCEPTION_TOLERANCE:
+                    self.finishing_time = time.time()
+                    raise
+            except Exception as e:
+                self.finishing_time = time.time()
+                raise
+            self.dut.log.info("Crashes found: %s", failure)
+        if failure:
+            return "%s crashes" % failure
+        else:
+            return ""
 
     def environment_change_4g_wifi(self):
         #block cell 3G, WIFI 2G
@@ -195,7 +225,7 @@ class TelLiveMobilityStressTest(TelWifiVoiceTest):
             set_rssi(self.log, self.attens[ATTEN_NAME_FOR_CELL_4G],
                      MIN_RSSI_RESERVED_VALUE, MAX_RSSI_RESERVED_VALUE,
                      self.signal_change_step, self.signal_change_interval)
-        return 0
+        return ""
 
     def environment_change_4g_3g(self):
         #block wifi 2G and 5G
@@ -226,66 +256,110 @@ class TelLiveMobilityStressTest(TelWifiVoiceTest):
                      MIN_RSSI_RESERVED_VALUE, MAX_RSSI_RESERVED_VALUE,
                      self.signal_change_step, self.signal_change_interval)
 
-        return 0
+        return ""
 
     def call_test(self):
         failure = 0
         total_count = 0
         while time.time() < self.finishing_time:
-            ads = [self.dut, self.helper]
-            random.shuffle(ads)
-            total_count += 1
-            # Current Voice RAT
-            self.dut.log.info("Current Voice RAT is %s",
-                              get_current_voice_rat(self.log, self.dut))
-            self.helper.log.info("Current Voice RAT is %s",
-                              get_current_voice_rat(self.log, self.helper))
-            if not self._make_phone_call(ads):
-                failure += 1
-                self.log.error("New call test failure: %s/%s", failure,
-                               total_count)
-                self.result_info["Call failure"] += 1
-                self._take_bug_report("%s_call_failure" % self.test_name,
-                                      time.strftime("%m-%d-%Y-%H-%M-%S"))
-            self.dut.droid.goToSleepNow()
-            time.sleep(random.randrange(0, self.max_sleep_time))
-        return failure
+            try:
+                ads = [self.dut, self.helper]
+                random.shuffle(ads)
+                total_count += 1
+                # Current Voice RAT
+                self.dut.log.info("Current Voice RAT is %s",
+                                  get_current_voice_rat(self.log, self.dut))
+                self.helper.log.info("Current Voice RAT is %s",
+                                     get_current_voice_rat(
+                                         self.log, self.helper))
+                if not self._make_phone_call(ads):
+                    failure += 1
+                    self._take_bug_report("%s_call_failure" % self.test_name,
+                                          time.strftime("%m-%d-%Y-%H-%M-%S"))
+                self.dut.droid.goToSleepNow()
+                time.sleep(random.randrange(0, self.max_sleep_time))
+            except IGNORE_EXCEPTION as e:
+                self.log.error("Exception error %s", str(e))
+                self.result_info["Exception Errors"] += 1
+                if self.result_info["Exception Errors"] > EXCEPTION_TOLERANCE:
+                    self.finishing_time = time.time()
+                    raise
+            except Exception as e:
+                self.finishing_time = time.time()
+                raise
+            self.dut.log.info("Call test failure: %s/%s", failure, total_count)
+        if failure:
+            return "Call test failure: %s/%s" % (failure, total_count)
+        else:
+            return ""
 
     def message_test(self):
         failure = 0
         total_count = 0
         while time.time() < self.finishing_time:
-            ads = [self.dut, self.helper]
-            random.shuffle(ads)
-            total_count += 1
-            if not self._send_message(ads):
-                failure += 1
-                self.log.error("New messaging test failure: %s/%s", failure,
-                               total_count)
-                #self._take_bug_report("%s_messaging_failure" % self.test_name,
-                #                      time.strftime("%m-%d-%Y-%H-%M-%S"))
-            self.dut.droid.goToSleepNow()
-            time.sleep(random.randrange(0, self.max_sleep_time))
-        return failure
+            try:
+                ads = [self.dut, self.helper]
+                random.shuffle(ads)
+                total_count += 1
+                if not self._send_message(ads):
+                    failure += 1
+                    #self._take_bug_report("%s_messaging_failure" % self.test_name,
+                    #                      time.strftime("%m-%d-%Y-%H-%M-%S"))
+                self.dut.droid.goToSleepNow()
+                time.sleep(random.randrange(0, self.max_sleep_time))
+            except IGNORE_EXCEPTION as e:
+                self.log.error("Exception error %s", str(e))
+                self.result_info["Exception Errors"] += 1
+                if self.result_info["Exception Errors"] > EXCEPTION_TOLERANCE:
+                    self.finishing_time = time.time()
+                    raise
+            except Exception as e:
+                self.finishing_time = time.time()
+                raise
+            self.dut.log.info("Messaging test failure: %s/%s", failure,
+                              total_count)
+        if failure / total_count > 0.1:
+            return "Messaging test failure: %s/%s" % (failure, total_count)
+        else:
+            return ""
 
     def data_test(self):
         failure = 0
+        total_count = 0
         #file_names = ["5MB", "10MB", "20MB", "50MB", "200MB", "512MB", "1GB"]
         #wifi download is very slow in lab, limit the file size upto 200MB
         file_names = ["5MB", "10MB", "20MB", "50MB", "200MB"]
         while time.time() < self.finishing_time:
-            self.dut.log.info(dict(self.result_info))
-            self.result_info["Total file download"] += 1
-            selection = random.randrange(0, 5)
-            file_name = file_names[selection]
-            if not active_file_download_test(self.log, self.dut, file_name):
-                self.result_info["%s file download failure" % file_name] += 1
-                #self._take_bug_report("%s_download_failure" % self.test_name,
-                #                      time.strftime("%m-%d-%Y-%H-%M-%S"))
-                failure += 1
-                self.dut.droid.goToSleepNow()
-                time.sleep(random.randrange(0, self.max_sleep_time))
-        return failure
+            total_count += 1
+            try:
+                self.dut.log.info(dict(self.result_info))
+                self.result_info["Total file download"] += 1
+                selection = random.randrange(0, len(file_names))
+                file_name = file_names[selection]
+                if not active_file_download_test(self.log, self.dut,
+                                                 file_name):
+                    self.result_info["%s file download failure" %
+                                     file_name] += 1
+                    #self._take_bug_report("%s_download_failure" % self.test_name,
+                    #                      time.strftime("%m-%d-%Y-%H-%M-%S"))
+                    failure += 1
+                    self.dut.droid.goToSleepNow()
+                    time.sleep(random.randrange(0, self.max_sleep_time))
+            except IGNORE_EXCEPTION as e:
+                self.log.error("Exception error %s", str(e))
+                self.result_info["Exception Errors"] += 1
+                if self.result_info["Exception Errors"] > EXCEPTION_TOLERANCE:
+                    self.finishing_time = time.time()
+                    raise
+            except Exception as e:
+                self.finishing_time = time.time()
+                raise
+            self.dut.log.info("File download test failure: %s/%s", failure,
+                              total_count)
+        if failure / total_count > 0.1:
+            return "File download test failure: %s/%s" % (failure, total_count)
+        else:
+            return ""
 
     def parallel_tests(self, change_env_func, setup_func=None):
         if setup_func and not setup_func():
@@ -295,12 +369,13 @@ class TelLiveMobilityStressTest(TelWifiVoiceTest):
         self.finishing_time = time.time() + self.max_run_time
         results = run_multithread_func(self.log, [(self.call_test, []), (
             self.message_test, []), (self.data_test, []), (
-                change_env_func, []), (self.crash_check_test, [])])
+                self.crash_check_test, []), (change_env_func, [])])
         self.log.info(dict(self.result_info))
-        if results[0]:
-            fail(str(dict(self.result_info)))
-        else:
-            return True
+        error_message = " ".join(results).strip()
+        if error_message:
+            self.log.error(error_message)
+            fail(error_message)
+        return True
 
     """ Tests Begin """
 

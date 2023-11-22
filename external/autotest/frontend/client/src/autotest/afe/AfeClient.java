@@ -28,7 +28,7 @@ public class AfeClient implements EntryPoint {
     private HostListView hostListView;
     private HostDetailView hostDetailView;
 
-    public CustomTabPanel mainTabPanel = new CustomTabPanel();
+    public CustomTabPanel mainTabPanel;
 
     /**
      * Application entry point.
@@ -64,6 +64,7 @@ public class AfeClient implements EntryPoint {
         }
         boolean is_moblab = StaticDataRepository.getRepository().getData(
             "is_moblab").isBoolean().booleanValue();
+        mainTabPanel = new CustomTabPanel(is_moblab);
         if (is_moblab) {
             Document.get().getElementById("moblab_setup").removeClassName("hidden");
             Document.get().getElementById("mobmonitor_link").setAttribute("href",

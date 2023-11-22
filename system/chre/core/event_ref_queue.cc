@@ -25,10 +25,6 @@ EventRefQueue::~EventRefQueue() {
                   "when destroyed");
 }
 
-bool EventRefQueue::empty() const {
-  return mQueue.empty();
-}
-
 bool EventRefQueue::push(Event *event) {
   CHRE_ASSERT(event != nullptr);
 

@@ -119,9 +119,9 @@ public class DataIdleTest implements IDeviceTest, IRemoteTest {
      * @param listener {@link ITestInvocationListener}
      */
     void logBugReport(ITestInvocationListener listener) {
-        InputStreamSource bugreport = mTestDevice.getBugreport();
-        listener.testLog(BUG_REPORT_LABEL, LogDataType.BUGREPORT, bugreport);
-        bugreport.cancel();
+        try (InputStreamSource bugreport = mTestDevice.getBugreport()) {
+            listener.testLog(BUG_REPORT_LABEL, LogDataType.BUGREPORT, bugreport);
+        }
     }
 
     /**

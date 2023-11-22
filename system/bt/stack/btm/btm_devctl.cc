@@ -43,7 +43,6 @@
 
 #include "gatt_int.h"
 
-extern fixed_queue_t* btu_general_alarm_queue;
 extern thread_t* bt_workqueue_thread;
 
 /******************************************************************************/
@@ -83,6 +82,10 @@ void btm_dev_init(void) {
 
   btm_cb.devcb.read_local_name_timer = alarm_new("btm.read_local_name_timer");
   btm_cb.devcb.read_rssi_timer = alarm_new("btm.read_rssi_timer");
+  btm_cb.devcb.read_failed_contact_counter_timer =
+      alarm_new("btm.read_failed_contact_counter_timer");
+  btm_cb.devcb.read_automatic_flush_timeout_timer =
+      alarm_new("btm.read_automatic_flush_timeout_timer");
   btm_cb.devcb.read_link_quality_timer =
       alarm_new("btm.read_link_quality_timer");
   btm_cb.devcb.read_inq_tx_power_timer =
@@ -129,7 +132,21 @@ static void btm_db_reset(void) {
     p_cb = btm_cb.devcb.p_rssi_cmpl_cb;
     btm_cb.devcb.p_rssi_cmpl_cb = NULL;
 
-    if (p_cb) (*p_cb)((tBTM_RSSI_RESULTS*)&status);
+    if (p_cb) (*p_cb)((tBTM_RSSI_RESULT*)&status);
+  }
+
+  if (btm_cb.devcb.p_failed_contact_counter_cmpl_cb) {
+    p_cb = btm_cb.devcb.p_failed_contact_counter_cmpl_cb;
+    btm_cb.devcb.p_failed_contact_counter_cmpl_cb = NULL;
+
+    if (p_cb) (*p_cb)((tBTM_FAILED_CONTACT_COUNTER_RESULT*)&status);
+  }
+
+  if (btm_cb.devcb.p_automatic_flush_timeout_cmpl_cb) {
+    p_cb = btm_cb.devcb.p_automatic_flush_timeout_cmpl_cb;
+    btm_cb.devcb.p_automatic_flush_timeout_cmpl_cb = NULL;
+
+    if (p_cb) (*p_cb)((tBTM_AUTOMATIC_FLUSH_TIMEOUT_RESULT*)&status);
   }
 }
 
@@ -446,9 +463,9 @@ tBTM_STATUS BTM_ReadLocalDeviceNameFromController(
   btm_cb.devcb.p_rln_cmpl_cb = p_rln_cmpl_cback;
 
   btsnd_hcic_read_name();
-  alarm_set_on_queue(btm_cb.devcb.read_local_name_timer,
+  alarm_set_on_mloop(btm_cb.devcb.read_local_name_timer,
                      BTM_DEV_NAME_REPLY_TIMEOUT_MS, btm_read_local_name_timeout,
-                     NULL, btu_general_alarm_queue);
+                     NULL);
 
   return BTM_CMD_STARTED;
 }
@@ -768,27 +785,26 @@ tBTM_STATUS BTM_EnableTestMode(void) {
  *                                 the results
  *
  ******************************************************************************/
-tBTM_STATUS BTM_DeleteStoredLinkKey(BD_ADDR bd_addr, tBTM_CMPL_CB* p_cb) {
-  BD_ADDR local_bd_addr;
-  bool delete_all_flag = false;
-
+tBTM_STATUS BTM_DeleteStoredLinkKey(const RawAddress* bd_addr,
+                                    tBTM_CMPL_CB* p_cb) {
   /* Check if the previous command is completed */
   if (btm_cb.devcb.p_stored_link_key_cmpl_cb) return (BTM_BUSY);
 
-  if (!bd_addr) {
-    /* This is to delete all link keys */
-    delete_all_flag = true;
-
-    /* We don't care the BD address. Just pass a non zero pointer */
-    bd_addr = local_bd_addr;
-  }
+  bool delete_all_flag = !bd_addr;
 
   BTM_TRACE_EVENT("BTM: BTM_DeleteStoredLinkKey: delete_all_flag: %s",
                   delete_all_flag ? "true" : "false");
 
-  /* Send the HCI command */
   btm_cb.devcb.p_stored_link_key_cmpl_cb = p_cb;
-  btsnd_hcic_delete_stored_key(bd_addr, delete_all_flag);
+  if (!bd_addr) {
+    /* This is to delete all link keys */
+    /* We don't care the BD address. Just pass a non zero pointer */
+    RawAddress local_bd_addr = RawAddress::kEmpty;
+    btsnd_hcic_delete_stored_key(local_bd_addr, delete_all_flag);
+  } else {
+    btsnd_hcic_delete_stored_key(*bd_addr, delete_all_flag);
+  }
+
   return (BTM_SUCCESS);
 }
 

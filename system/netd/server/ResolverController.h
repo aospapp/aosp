@@ -39,6 +39,15 @@ public:
     int setDnsServers(unsigned netId, const char* searchDomains, const char** servers,
             int numservers, const __res_params* params);
 
+    // Given a netId and the address of an insecure (i.e. normal) DNS server, this method checks
+    // if there is a known secure DNS server with the same IP address that has been validated as
+    // accessible on this netId.  If so, it returns true, providing the server's address
+    // (including port) and pin fingerprints (possibly empty) in the output parameters.
+    // TODO: Add support for optional stronger security, by returning true even if the secure
+    // server is not accessible.
+    bool shouldUseTls(unsigned netId, const sockaddr_storage& insecureServer,
+            sockaddr_storage* secureServer, std::set<std::vector<uint8_t>>* fingerprints);
+
     int clearDnsServers(unsigned netid);
 
     int flushDnsCache(unsigned netid);
@@ -56,6 +65,11 @@ public:
             std::vector<std::string>* domains, std::vector<int32_t>* params,
             std::vector<int32_t>* stats);
     void dump(DumpWriter& dw, unsigned netId);
+
+    int addPrivateDnsServer(const std::string& server, int32_t port,
+            const std::string& fingerprintAlgorithm,
+            const std::set<std::vector<uint8_t>>& fingerprints);
+    int removePrivateDnsServer(const std::string& server);
 };
 
 }  // namespace net

@@ -39,10 +39,12 @@
             android:background="@color/car_card"
             android:paddingTop="@dimen/lens_header_height" >
 
-            <android.support.car.ui.PagedListView
+            <com.android.car.view.PagedListView
                 android:id="@+id/drawer_list"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent" />
+                android:layout_height="match_parent"
+                app:rightMargin="@dimen/car_drawer_margin_right"
+                app:offsetScrollBar="true" />
 
             <ProgressBar
                 android:id="@+id/drawer_progress"
@@ -57,15 +59,14 @@
 
     <!-- Placing toolbar last so it appears above the content/drawer -->
     <FrameLayout
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="@dimen/lens_header_height">
+        <!-- This keeps the toolbar centered within lens_header_height -->
         <android.support.v7.widget.Toolbar
             android:id="@+id/main_toolbar"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_vertical"
-            app:titleTextAppearance="@style/CarTitle.Light"
-            app:contentInsetStart="@dimen/stream_content_keyline_1" />
+            style="@style/CarToolbarTheme" />
     </FrameLayout>
-
 </FrameLayout>

@@ -40,7 +40,7 @@ C_STATIC_ASSERT(uintptr_size, sizeof(uintptr_t) >= sizeof(uint32_t));
 
 #define SYSCALL_CHRE_MAIN_API_GET_APP_ID             0 // (void) -> uint64_t
 #define SYSCALL_CHRE_MAIN_API_GET_INST_ID            1 // (void) -> uint32_t
-#define SYSCALL_CHRE_MAIN_API_LOG                    2 // (enum LogLevel, const char *, uintptr_t) -> void
+#define SYSCALL_CHRE_MAIN_API_LOG_OLD                2 // (enum LogLevel, const char *, uintptr_t) -> void
 #define SYSCALL_CHRE_MAIN_API_GET_TIME               3 // (void) -> uint64_t
 #define SYSCALL_CHRE_MAIN_API_TIMER_SET              4 // (uint64_t, const void *, bool) -> uint32_t
 #define SYSCALL_CHRE_MAIN_API_TIMER_CANCEL           5 // (uint32_t) -> bool
@@ -56,7 +56,8 @@ C_STATIC_ASSERT(uintptr_size, sizeof(uintptr_t) >= sizeof(uint32_t));
 #define SYSCALL_CHRE_MAIN_API_GET_OS_API_VERSION    15 //
 #define SYSCALL_CHRE_MAIN_API_GET_OS_VERSION        16 //
 #define SYSCALL_CHRE_MAIN_API_GET_PLATFORM_ID       17 //
-#define SYSCALL_CHRE_MAIN_API_LAST                  18 // always last. holes are allowed, but not immediately before this
+#define SYSCALL_CHRE_MAIN_API_LOG                   18 // (enum LogLevel, const char *, uintptr_t) -> void
+#define SYSCALL_CHRE_MAIN_API_LAST                  19 // always last. holes are allowed, but not immediately before this
 
 //called by os entry point to export the api
 void osChreApiExport(void);

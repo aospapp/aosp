@@ -5,9 +5,13 @@
 include $(CHRE_PREFIX)/build/clean_build_template_args.mk
 
 TARGET_NAME = google_hexagonv62_slpi
-TARGET_CFLAGS = -DCHRE_MESSAGE_TO_HOST_MAX_SIZE=2048
+# Sized based on the buffer allocated in the host daemon (4096 bytes), minus
+# FlatBuffer overhead (max 80 bytes), minus some extra space to make a nice
+# round number and allow for addition of new fields to the FlatBuffer
+TARGET_CFLAGS = -DCHRE_MESSAGE_TO_HOST_MAX_SIZE=4000
 TARGET_CFLAGS += $(GOOGLE_HEXAGONV62_SLPI_CFLAGS)
 TARGET_VARIANT_SRCS = $(GOOGLE_HEXAGONV62_SLPI_SRCS)
+TARGET_SO_LATE_LIBS = $(GOOGLE_HEXAGONV62_SLPI_LATE_LIBS)
 HEXAGON_ARCH = v62
 
 ifneq ($(filter $(TARGET_NAME)% all, $(MAKECMDGOALS)),)

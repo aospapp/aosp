@@ -71,10 +71,8 @@ class DashboardRestClient(object):
         """
         return str(self.auth_token.get_access_token().access_token)
 
-    def PostData(self, post_message):
-        """Post data to the dashboard database.
-
-        Puts data into the dashboard database using its proto REST endpoint.
+    def AddAuthToken(self, post_message):
+        """Add OAuth2 token to the dashboard message.
 
         Args:
             post_message: DashboardPostMessage, The data to post.
@@ -87,6 +85,18 @@ class DashboardRestClient(object):
             return False
 
         post_message.access_token = token
+
+    def PostData(self, post_message):
+        """Post data to the dashboard database.
+
+        Puts data into the dashboard database using its proto REST endpoint.
+
+        Args:
+            post_message: DashboardPostMessage, The data to post.
+
+        Returns:
+            True if successful, False otherwise
+        """
         post_bytes = base64.b64encode(post_message.SerializeToString())
 
         with tempfile.NamedTemporaryFile(delete=False) as file:

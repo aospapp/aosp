@@ -19,6 +19,7 @@ package android.widget.cts;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
@@ -39,6 +40,7 @@ import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.view.KeyEvent;
 import android.view.View;
+import android.view.autofill.AutofillValue;
 import android.widget.TimePicker;
 
 import com.android.compatibility.common.util.CtsKeyEventUtil;
@@ -50,7 +52,10 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
+import java.util.GregorianCalendar;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Test {@link TimePicker}.
@@ -115,9 +120,59 @@ public class TimePickerTest {
 
         mTimePicker.setEnabled(false);
         assertFalse(mTimePicker.isEnabled());
+        assertNull(mTimePicker.getAutofillValue());
+        assertEquals(View.AUTOFILL_TYPE_NONE, mTimePicker.getAutofillType());
 
         mTimePicker.setEnabled(true);
         assertTrue(mTimePicker.isEnabled());
+        assertNotNull(mTimePicker.getAutofillValue());
+        assertEquals(View.AUTOFILL_TYPE_DATE, mTimePicker.getAutofillType());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testAutofill() {
+        mTimePicker.setEnabled(true);
+
+        final AtomicInteger numberOfListenerCalls = new AtomicInteger();
+        mTimePicker.setOnTimeChangedListener((v, h, m) -> numberOfListenerCalls.incrementAndGet());
+
+        final Calendar calendar = new GregorianCalendar();
+        calendar.set(Calendar.HOUR_OF_DAY, 4);
+        calendar.set(Calendar.MINUTE, 20);
+
+        final AutofillValue autofilledValue = AutofillValue.forDate(calendar.getTimeInMillis());
+        mTimePicker.autofill(autofilledValue);
+        assertEquals(autofilledValue, mTimePicker.getAutofillValue());
+        assertEquals(4, mTimePicker.getHour());
+        assertEquals(20, mTimePicker.getMinute());
+        assertEquals(1, numberOfListenerCalls.get());
+
+        // Make sure autofill() is ignored when value is null.
+        numberOfListenerCalls.set(0);
+        mTimePicker.autofill((AutofillValue) null);
+        assertEquals(autofilledValue, mTimePicker.getAutofillValue());
+        assertEquals(4, mTimePicker.getHour());
+        assertEquals(20, mTimePicker.getMinute());
+        assertEquals(0, numberOfListenerCalls.get());
+
+        // Make sure autofill() is ignored when value is not a date.
+        numberOfListenerCalls.set(0);
+        mTimePicker.autofill(AutofillValue.forText("Y U NO IGNORE ME?"));
+        assertEquals(autofilledValue, mTimePicker.getAutofillValue());
+        assertEquals(4, mTimePicker.getHour());
+        assertEquals(20, mTimePicker.getMinute());
+        assertEquals(0, numberOfListenerCalls.get());
+
+        // Make sure getAutofillValue() is reset when value is manually filled.
+        mTimePicker.autofill(autofilledValue); // 04:20
+        mTimePicker.setHour(10);
+        calendar.setTimeInMillis(mTimePicker.getAutofillValue().getDateValue());
+        assertEquals(10, calendar.get(Calendar.HOUR));
+        mTimePicker.autofill(autofilledValue); // 04:20
+        mTimePicker.setMinute(8);
+        calendar.setTimeInMillis(mTimePicker.getAutofillValue().getDateValue());
+        assertEquals(8, calendar.get(Calendar.MINUTE));
     }
 
     @UiThreadTest

@@ -8,12 +8,13 @@
 #include "../../../Windows/Control/Static.h"
 #include "../../../Windows/ErrorMsg.h"
 
-#include "ProgressDialog2.h"
-#include "DialogSize.h"
-
-#include "ProgressDialog2Res.h"
-
 #include "../GUI/ExtractRes.h"
+
+#include "LangUtils.h"
+
+#include "DialogSize.h"
+#include "ProgressDialog2.h"
+#include "ProgressDialog2Res.h"
 
 using namespace NWindows;
 
@@ -28,7 +29,7 @@ static const UINT kTimerElapse =
   #ifdef UNDER_CE
   500
   #else
-  100
+  200
   #endif
   ;
 
@@ -41,8 +42,6 @@ static const UINT kCreateDelay =
   ;
 
 static const DWORD kPauseSleepTime = 100;
-
-#include "LangUtils.h"
 
 #ifdef LANG
 
@@ -104,13 +103,13 @@ HRESULT CProgressSync::CheckStop()
   }
 }
 
-HRESULT CProgressSync::ScanProgress(UInt64 numFiles, UInt64 totalSize, const UString &fileName, bool isDir)
+HRESULT CProgressSync::ScanProgress(UInt64 numFiles, UInt64 totalSize, const FString &fileName, bool isDir)
 {
   {
     CRITICAL_LOCK
     _totalFiles = numFiles;
     _totalBytes = totalSize;
-    _filePath = fileName;
+    _filePath = fs2us(fileName);
     _isDir = isDir;
     // _completedBytes = 0;
     CHECK_STOP
@@ -118,10 +117,14 @@ HRESULT CProgressSync::ScanProgress(UInt64 numFiles, UInt64 totalSize, const USt
   return CheckStop();
 }
 
-void CProgressSync::Set_NumFilesTotal(UInt64 val)
+HRESULT CProgressSync::Set_NumFilesTotal(UInt64 val)
 {
-  CRITICAL_LOCK
-  _totalFiles = val;
+  {
+    CRITICAL_LOCK
+    _totalFiles = val;
+    CHECK_STOP
+  }
+  return CheckStop();
 }
 
 void CProgressSync::Set_NumBytesTotal(UInt64 val)
@@ -171,16 +174,34 @@ void CProgressSync::Set_TitleFileName(const UString &fileName)
   CRITICAL_LOCK
   _titleFileName = fileName;
 }
+
 void CProgressSync::Set_Status(const UString &s)
 {
   CRITICAL_LOCK
   _status = s;
 }
 
-void CProgressSync::Set_FilePath(const UString &path, bool isDir)
+HRESULT CProgressSync::Set_Status2(const UString &s, const wchar_t *path, bool isDir)
+{
+  {
+    CRITICAL_LOCK
+    _status = s;
+    if (path)
+      _filePath = path;
+    else
+      _filePath.Empty();
+    _isDir = isDir;
+  }
+  return CheckStop();
+}
+
+void CProgressSync::Set_FilePath(const wchar_t *path, bool isDir)
 {
   CRITICAL_LOCK
-  _filePath = path;
+  if (path)
+    _filePath = path;
+  else
+    _filePath.Empty();
   _isDir = isDir;
 }
 
@@ -199,7 +220,7 @@ void CProgressSync::AddError_Message_Name(const wchar_t *message, const wchar_t 
   if (message && *message != 0 )
   {
     if (!s.IsEmpty())
-      s += L'\n';
+      s.Add_LF();
     s += message;
     if (!s.IsEmpty() && s.Back() == L'\n')
       s.DeleteBack();
@@ -633,7 +654,6 @@ static unsigned GetPower64(UInt64 val)
   if (high == 0)
     return GetPower32((UInt32)val);
   return GetPower32(high) + 32;
-
 }
 
 static UInt64 MyMultAndDiv(UInt64 mult1, UInt64 mult2, UInt64 divider)
@@ -684,10 +704,9 @@ void CProgressDialog::UpdateStatInfo(bool showAll)
 
   UInt32 curTime = ::GetTickCount();
 
+  const UInt64 progressTotal = bytesProgressMode ? total : totalFiles;
+  const UInt64 progressCompleted = bytesProgressMode ? completed : completedFiles;
   {
-    UInt64 progressTotal = bytesProgressMode ? total : totalFiles;
-    UInt64 progressCompleted = bytesProgressMode ? completed : completedFiles;
-    
     if (IS_UNDEFINED_VAL(progressTotal))
     {
       // SetPos(0);
@@ -736,9 +755,9 @@ void CProgressDialog::UpdateStatInfo(bool showAll)
       }
     }
 
-    if (completed != 0)
+    if (progressCompleted != 0)
     {
-      if (IS_UNDEFINED_VAL(total))
+      if (IS_UNDEFINED_VAL(progressTotal))
       {
         if (IS_DEFINED_VAL(_prevRemainingSec))
         {
@@ -749,8 +768,8 @@ void CProgressDialog::UpdateStatInfo(bool showAll)
       else
       {
         UInt64 remainingTime = 0;
-        if (completed < total)
-          remainingTime = MyMultAndDiv(_elapsedTime, total - completed, completed);
+        if (progressCompleted < progressTotal)
+          remainingTime = MyMultAndDiv(_elapsedTime, progressTotal - progressCompleted, progressCompleted);
         UInt64 remainingSec = remainingTime / 1000;
         if (remainingSec != _prevRemainingSec)
         {
@@ -762,7 +781,7 @@ void CProgressDialog::UpdateStatInfo(bool showAll)
       }
       {
         UInt64 elapsedTime = (_elapsedTime == 0) ? 1 : _elapsedTime;
-        UInt64 v = (completed * 1000) / elapsedTime;
+        UInt64 v = (progressCompleted * 1000) / elapsedTime;
         Byte c = 0;
         unsigned moveBits = 0;
              if (v >= ((UInt64)10000 << 10)) { moveBits = 20; c = 'M'; }
@@ -790,11 +809,11 @@ void CProgressDialog::UpdateStatInfo(bool showAll)
     {
       UInt64 percent = 0;
       {
-        if (IS_DEFINED_VAL(total))
+        if (IS_DEFINED_VAL(progressTotal))
         {
-          percent = completed * 100;
-          if (total != 0)
-            percent /= total;
+          percent = progressCompleted * 100;
+          if (progressTotal != 0)
+            percent /= progressTotal;
         }
       }
       if (percent != _prevPercentValue)
@@ -867,7 +886,7 @@ void CProgressDialog::UpdateStatInfo(bool showAll)
       s1 = _filePath;
     else
     {
-      int slashPos = _filePath.ReverseFind(WCHAR_PATH_SEPARATOR);
+      int slashPos = _filePath.ReverseFind_PathSepar();
       if (slashPos >= 0)
       {
         s1.SetFrom(_filePath, slashPos + 1);
@@ -878,7 +897,7 @@ void CProgressDialog::UpdateStatInfo(bool showAll)
     }
     ReduceString(s1, _numReduceSymbols);
     ReduceString(s2, _numReduceSymbols);
-    s1 += L'\n';
+    s1.Add_LF();
     s1 += s2;
     SetItemText(IDT_PROGRESS_FILE_NAME, s1);
   }
@@ -920,8 +939,8 @@ INT_PTR CProgressDialog::Create(const UString &title, NWindows::CThread &thread,
       CWaitCursor waitCursor;
       HANDLE h[] = { thread, _createDialogEvent };
       
-      WRes res = WaitForMultipleObjects(ARRAY_SIZE(h), h, FALSE, kCreateDelay);
-      if (res == WAIT_OBJECT_0 && !Sync.ThereIsMessage())
+      WRes res2 = WaitForMultipleObjects(ARRAY_SIZE(h), h, FALSE, kCreateDelay);
+      if (res2 == WAIT_OBJECT_0 && !Sync.ThereIsMessage())
         return 0;
     }
     _title = title;
@@ -1025,22 +1044,22 @@ void CProgressDialog::SetTitleText()
   if (Sync.Get_Paused())
   {
     s += _paused_String;
-    s += L' ';
+    s.Add_Space();
   }
   if (IS_DEFINED_VAL(_prevPercentValue))
   {
-    wchar_t temp[32];
+    char temp[32];
     ConvertUInt64ToString(_prevPercentValue, temp);
-    s += temp;
+    s.AddAscii(temp);
     s += L'%';
   }
   if (!_foreground)
   {
-    s += L' ';
+    s.Add_Space();
     s += _backgrounded_String;
   }
 
-  s += L' ';
+  s.Add_Space();
   #ifndef _SFX
   {
     unsigned len = s.Len();
@@ -1055,7 +1074,7 @@ void CProgressDialog::SetTitleText()
   {
     UString fileName = _titleFileName;
     ReduceString(fileName, kTitleFileNameSizeLimit);
-    s += L' ';
+    s.Add_Space();
     s += fileName;
   }
   SetText(s);
@@ -1208,7 +1227,7 @@ void CProgressDialog::CheckNeedClose()
 {
   if (_needClose)
   {
-    PostMessage(kCloseMessage);
+    PostMsg(kCloseMessage);
     _needClose = false;
   }
 }
@@ -1220,7 +1239,7 @@ void CProgressDialog::ProcessWasFinished()
     WaitCreating();
   
   if (_wasCreated)
-    PostMessage(kCloseMessage);
+    PostMsg(kCloseMessage);
   else
     _needClose = true;
 }
@@ -1239,7 +1258,7 @@ static void AddMessageToString(UString &dest, const UString &src)
   if (!src.IsEmpty())
   {
     if (!dest.IsEmpty())
-      dest += L'\n';
+      dest.Add_LF();
     dest += src;
   }
 }
@@ -1266,8 +1285,15 @@ void CProgressThreadVirt::Process()
       m = HResultToMessage(Result);
   }
   AddMessageToString(m, FinalMessage.ErrorMessage.Message);
-  AddMessageToString(m, fs2us(ErrorPath1));
-  AddMessageToString(m, fs2us(ErrorPath2));
+
+  {
+    FOR_VECTOR(i, ErrorPaths)
+    {
+      if (i >= 32)
+        break;
+      AddMessageToString(m, fs2us(ErrorPaths[i]));
+    }
+  }
 
   CProgressSync &sync = ProgressDialog.Sync;
   NSynchronization::CCriticalSectionLock lock(sync._cs);

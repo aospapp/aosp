@@ -13,11 +13,15 @@ if any of the following conditions occur:
   - If streaming is not supported
   - If a required resolution is not supported when capturing a stream
 """
-ATTRIBUTES = "suite:hwqual"
+ATTRIBUTES = "suite:bvt-perbuild"
 TIME='MEDIUM'
 TEST_CATEGORY = 'V4L2'
 TEST_TYPE = 'client'
 DEPENDENCIES = 'webcam'
+BUG_TEMPLATE = {
+    'labels': ['OS-Chrome', 'VideoTestFailure'],
+    'cc': ['chromeos-video-test-failures@google.com'],
+}
 
 DOC = """
 This test executes media_v4l2_test and media_v4l2_unittest binaries.

@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2011, Comtrol Corp.
+ * Copyright (c) 2011 Comtrol Corp.
+ * Copyright (c) 2011-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,8 +33,8 @@
 
 #include "syscall.h"
 
-const char **paths_selected = NULL;
-static unsigned num_selected = 0;
+const char **paths_selected;
+static unsigned int num_selected;
 
 /*
  * Return true if specified path matches one that we're tracing.
@@ -58,7 +59,7 @@ upathmatch(struct tcb *const tcp, const kernel_ulong_t upath)
 {
 	char path[PATH_MAX + 1];
 
-	return umovestr(tcp, upath, sizeof path, path) > 0 &&
+	return umovestr(tcp, upath, sizeof(path), path) > 0 &&
 		pathmatch(path);
 }
 
@@ -183,6 +184,7 @@ pathtrace_match(struct tcb *tcp)
 	case SEN_newfstatat:
 	case SEN_openat:
 	case SEN_readlinkat:
+	case SEN_statx:
 	case SEN_unlinkat:
 	case SEN_utimensat:
 		/* fd, path */

@@ -26,30 +26,32 @@ import javax.net.ssl.*;
  * This is returned in the place of a {@link SSLSession} when no TLS connection could be negotiated,
  * but one was requested from a method that can't throw an exception such as {@link
  * SSLSocket#getSession()} before {@link SSLSocket#startHandshake()} is called.
- *
- * @hide
  */
-@Internal
-public final class SSLNullSession implements SSLSession, Cloneable {
+final class SSLNullSession implements SSLSession, Cloneable {
+    static final String INVALID_CIPHER = "SSL_NULL_WITH_NULL_NULL";
 
     /*
      * Holds default instances so class preloading doesn't create an instance of
      * it.
      */
     private static class DefaultHolder {
-        public static final SSLNullSession NULL_SESSION = new SSLNullSession();
+        static final SSLNullSession NULL_SESSION = new SSLNullSession();
     }
 
     private final HashMap<String, Object> values = new HashMap<String, Object>();
 
-    long creationTime;
-    long lastAccessedTime;
+    private long creationTime;
+    private long lastAccessedTime;
 
-    public static SSLSession getNullSession() {
+    static SSLSession getNullSession() {
         return DefaultHolder.NULL_SESSION;
     }
 
-    public SSLNullSession() {
+    static boolean isNullSession(SSLSession session) {
+        return session == DefaultHolder.NULL_SESSION;
+    }
+
+    private SSLNullSession() {
         creationTime = System.currentTimeMillis();
         lastAccessedTime = creationTime;
     }
@@ -61,7 +63,7 @@ public final class SSLNullSession implements SSLSession, Cloneable {
 
     @Override
     public String getCipherSuite() {
-        return "SSL_NULL_WITH_NULL_NULL";
+        return INVALID_CIPHER;
     }
 
     @Override

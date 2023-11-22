@@ -16,7 +16,7 @@
 
 #include "hkdf.h"
 
-#include <new>
+#include <keymaster/new>
 
 #include <keymaster/android_keymaster_utils.h>
 
@@ -37,7 +37,7 @@ bool Rfc5869Sha256Kdf::GenerateKey(const uint8_t* info, size_t info_len, uint8_t
     if (salt_.get() != nullptr && salt_len_ > 0) {
         result = prk_hmac.Init(salt_.get(), salt_len_);
     } else {
-        UniquePtr<uint8_t[]> zeros(new uint8_t[digest_size_]);
+        UniquePtr<uint8_t[]> zeros(new(std::nothrow) uint8_t[digest_size_]);
         if (zeros.get() == nullptr)
             return false;
         /* If salt is not given, digest size of zeros are used. */
@@ -47,7 +47,7 @@ bool Rfc5869Sha256Kdf::GenerateKey(const uint8_t* info, size_t info_len, uint8_t
     if (!result)
         return false;
 
-    UniquePtr<uint8_t[]> pseudo_random_key(new uint8_t[digest_size_]);
+    UniquePtr<uint8_t[]> pseudo_random_key(new(std::nothrow) uint8_t[digest_size_]);
     if (pseudo_random_key.get() == nullptr || digest_size_ != prk_hmac.DigestLength())
         return false;
     result =
@@ -63,8 +63,8 @@ bool Rfc5869Sha256Kdf::GenerateKey(const uint8_t* info, size_t info_len, uint8_t
     if (num_blocks >= 256u)
         return false;
 
-    UniquePtr<uint8_t[]> buf(new uint8_t[digest_size_ + info_len + 1]);
-    UniquePtr<uint8_t[]> digest(new uint8_t[digest_size_]);
+    UniquePtr<uint8_t[]> buf(new(std::nothrow) uint8_t[digest_size_ + info_len + 1]);
+    UniquePtr<uint8_t[]> digest(new(std::nothrow) uint8_t[digest_size_]);
     if (buf.get() == nullptr || digest.get() == nullptr)
         return false;
     HmacSha256 hmac;

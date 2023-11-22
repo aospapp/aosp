@@ -18,7 +18,9 @@ package android.webkit.cts;
 
 import android.graphics.Bitmap;
 import android.os.Message;
+import android.os.SystemClock;
 import android.test.ActivityInstrumentationTestCase2;
+import android.view.MotionEvent;
 import android.view.ViewGroup;
 import android.webkit.JsPromptResult;
 import android.webkit.JsResult;
@@ -203,6 +205,7 @@ public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebVie
         if (!NullWebViewUtils.isWebViewAvailable()) {
             return;
         }
+
         final MockWebChromeClient webChromeClient = new MockWebChromeClient();
         mOnUiThread.setWebChromeClient(webChromeClient);
 
@@ -213,6 +216,10 @@ public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebVie
         assertFalse(webChromeClient.hadOnJsBeforeUnload());
 
         mOnUiThread.loadUrlAndWaitForCompletion(mWebServer.getAssetUrl(TestHtmlConstants.JS_UNLOAD_URL));
+
+        // Send a user gesture, required for unload to execute since WebView version 60.
+        tapWebView();
+
         // unload should trigger when we try to navigate away
         mOnUiThread.loadUrlAndWaitForCompletion(mWebServer.getAssetUrl(TestHtmlConstants.HELLO_WORLD_URL));
 
@@ -306,6 +313,28 @@ public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebVie
             }
         }.run();
         assertEquals(webChromeClient.getMessage(), "testOnJsPrompt");
+    }
+
+    /**
+     * Taps in the the center of a webview.
+     */
+    private void tapWebView() {
+        int[] location = mOnUiThread.getLocationOnScreen();
+        int middleX = location[0] + mOnUiThread.getWebView().getWidth() / 2;
+        int middleY = location[1] + mOnUiThread.getWebView().getHeight() / 2;
+
+        long timeDown = SystemClock.uptimeMillis();
+        getInstrumentation().sendPointerSync(
+                MotionEvent.obtain(timeDown, timeDown, MotionEvent.ACTION_DOWN,
+                        middleX, middleY, 0));
+
+        long timeUp = SystemClock.uptimeMillis();
+        getInstrumentation().sendPointerSync(
+                MotionEvent.obtain(timeUp, timeUp, MotionEvent.ACTION_UP,
+                        middleX, middleY, 0));
+
+        // Wait for the system to process all events in the queue
+        getInstrumentation().waitForIdleSync();
     }
 
     private class MockWebChromeClient extends WaitForProgressClient {

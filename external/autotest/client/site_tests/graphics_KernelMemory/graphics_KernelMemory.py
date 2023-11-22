@@ -7,16 +7,16 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.graphics import graphics_utils
 
 
-class graphics_KernelMemory(test.test):
+class graphics_KernelMemory(graphics_utils.GraphicsTest):
     """
     Reads from sysfs to determine kernel gem objects and memory info.
     """
     version = 1
-    GSC = None
 
     def initialize(self):
-        self.GSC = graphics_utils.GraphicsStateChecker()
+        super(graphics_KernelMemory, self).initialize()
 
+    @graphics_utils.GraphicsTest.failure_report_decorator('graphics_KernelMemory')
     def run_once(self):
         # TODO(ihf): We want to give this test something well-defined to
         # measure. For now that will be the CrOS login-screen memory use.
@@ -24,16 +24,8 @@ class graphics_KernelMemory(test.test):
         # still flaky. So for now we, lame as we are, just sleep a bit.
         time.sleep(10.0)
 
-        keyvals = self.GSC.get_memory_keyvals()
-        for key, val in keyvals.iteritems():
-            self.output_perf_value(
-                description=key,
-                value=val,
-                units='bytes',
-                higher_is_better=False)
-        self.GSC.finalize()
-        self.write_perf_keyval(keyvals)
+        self._GSC.finalize()
         # We should still be in the login screen and memory use > 0.
-        if self.GSC.get_memory_access_errors() > 0:
+        if self._GSC.get_memory_access_errors() > 0:
             raise error.TestFail('Failed: Detected %d errors accessing graphics'
                                  ' memory.' % self.GKM.num_errors)

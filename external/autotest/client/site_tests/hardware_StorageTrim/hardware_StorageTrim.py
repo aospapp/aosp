@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 import logging, os
-from autotest_lib.client.bin import site_utils, test, utils
+from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 
 
@@ -34,7 +34,7 @@ class hardware_StorageTrim(test.test):
             raise error.TestFail(msg)
 
         # Check that device is not rootdev.
-        rootdev = site_utils.get_root_device()
+        rootdev = utils.get_root_device()
         if dev == rootdev:
             raise error.TestFail('Can not test on root device')
 

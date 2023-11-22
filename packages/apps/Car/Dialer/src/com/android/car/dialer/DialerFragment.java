@@ -19,17 +19,19 @@ import android.content.Context;
 import android.media.AudioManager;
 import android.media.ToneGenerator;
 import android.os.Bundle;
-import android.os.Handler;
-import android.support.car.ui.FabDrawable;
+import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.text.TextUtils;
-import android.util.ArrayMap;
 import android.util.Log;
+import android.util.SparseArray;
+import android.util.SparseIntArray;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+
+import com.android.car.apps.common.FabDrawable;
 import com.android.car.dialer.telecom.TelecomUtils;
 import com.android.car.dialer.telecom.UiCallManager;
 import com.android.car.dialer.telecom.UiCallManager.CallListener;
@@ -40,12 +42,14 @@ import com.android.car.dialer.telecom.UiCallManager.CallListener;
 public class DialerFragment extends Fragment {
     private static final String TAG = "Em.DialerFragment";
     private static final String INPUT_ACTIVE_KEY = "INPUT_ACTIVE_KEY";
-    private static final int TONE_RELATIVE_VOLUME = 80;
-    private static final int ABANDON_AUDIO_FOCUS_DELAY_MS = 250;
-    private static final int MAX_DIAL_NUMBER = 20;
-    private static final int NO_TONE = -1;
+    private static final String DIAL_NUMBER_KEY = "DIAL_NUMBER_KEY";
 
-    private static final ArrayMap<Integer, Integer> mToneMap = new ArrayMap<>();
+    private static final int TONE_LENGTH_MS = 150;
+    private static final int TONE_RELATIVE_VOLUME = 80;
+    private static final int MAX_DIAL_NUMBER = 20;
+
+    private static final SparseIntArray mToneMap = new SparseIntArray();
+    private static final SparseArray<String> mDialValueMap = new SparseArray<>();
 
     static {
         mToneMap.put(KeyEvent.KEYCODE_1, ToneGenerator.TONE_DTMF_1);
@@ -60,13 +64,25 @@ public class DialerFragment extends Fragment {
         mToneMap.put(KeyEvent.KEYCODE_0, ToneGenerator.TONE_DTMF_0);
         mToneMap.put(KeyEvent.KEYCODE_STAR, ToneGenerator.TONE_DTMF_S);
         mToneMap.put(KeyEvent.KEYCODE_POUND, ToneGenerator.TONE_DTMF_P);
+
+        mDialValueMap.put(KeyEvent.KEYCODE_1, "1");
+        mDialValueMap.put(KeyEvent.KEYCODE_2, "2");
+        mDialValueMap.put(KeyEvent.KEYCODE_3, "3");
+        mDialValueMap.put(KeyEvent.KEYCODE_4, "4");
+        mDialValueMap.put(KeyEvent.KEYCODE_5, "5");
+        mDialValueMap.put(KeyEvent.KEYCODE_6, "6");
+        mDialValueMap.put(KeyEvent.KEYCODE_7, "7");
+        mDialValueMap.put(KeyEvent.KEYCODE_8, "8");
+        mDialValueMap.put(KeyEvent.KEYCODE_9, "9");
+        mDialValueMap.put(KeyEvent.KEYCODE_0, "0");
+        mDialValueMap.put(KeyEvent.KEYCODE_STAR, "*");
+        mDialValueMap.put(KeyEvent.KEYCODE_POUND, "#");
     }
 
     private Context mContext;
+    private UiCallManager mUiCallManager;
     private final StringBuffer mNumber = new StringBuffer(MAX_DIAL_NUMBER);
-    private AudioManager mAudioManager;
     private ToneGenerator mToneGenerator;
-    private final Handler mHandler = new Handler();
     private final Object mToneGeneratorLock = new Object();
     private TextView mNumberView;
     private boolean mShowInput = true;
@@ -87,20 +103,34 @@ public class DialerFragment extends Fragment {
     }
 
     /**
-     * Sets the given {@link DialerBackButtonListener} to be notified whenever the back button
-     * on the dialer has been clicked. Passing {@code null} to this method will clear all listeners.
+     * Creates a new instance of the {@link DialerFragment} and display the given number as the one
+     * to dial.
      */
-    public void setDialerBackButtonListener(DialerBackButtonListener listener) {
-        mBackListener = listener;
+    static DialerFragment newInstance(UiCallManager callManager,
+            DialerBackButtonListener listener, @Nullable String dialNumber) {
+        DialerFragment fragment = new DialerFragment();
+        fragment.mUiCallManager = callManager;
+        fragment.mBackListener = listener;
+
+        if (!TextUtils.isEmpty(dialNumber)) {
+            Bundle args = new Bundle();
+            args.putString(DIAL_NUMBER_KEY, dialNumber);
+            fragment.setArguments(args);
+        }
+
+        return fragment;
     }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        mAudioManager =
-                (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
         if (savedInstanceState != null && savedInstanceState.containsKey(INPUT_ACTIVE_KEY)) {
             mShowInput = savedInstanceState.getBoolean(INPUT_ACTIVE_KEY);
+        }
+
+        Bundle args = getArguments();
+        if (args != null) {
+            setDialNumber(args.getString(DIAL_NUMBER_KEY));
         }
     }
 
@@ -118,47 +148,44 @@ public class DialerFragment extends Fragment {
             Log.v(TAG, "onCreateView: inflated successfully");
         }
 
-        view.findViewById(R.id.exit_dialer_button).setOnClickListener((unusedView) -> {
+        view.findViewById(R.id.exit_dialer_button).setOnClickListener(v -> {
             if (mBackListener != null) {
                 mBackListener.onDialerBackClick();
             }
         });
 
         mNumberView = (TextView) view.findViewById(R.id.number);
-        final boolean hasTouch = getResources().getBoolean(R.bool.has_touch);
 
         if (Log.isLoggable(TAG, Log.VERBOSE)) {
-            Log.v(TAG, "hasTouch: " + hasTouch + ", mShowInput: " + mShowInput);
+            Log.v(TAG, "mShowInput: " + mShowInput);
         }
 
-        if (hasTouch) {
-            // Only show the delete and call buttons in touch mode.
-            // Buttons are in rotary input itself.
-            View callButton = view.findViewById(R.id.call);
-            FabDrawable answerCallDrawable = new FabDrawable(mContext);
-            answerCallDrawable.setFabAndStrokeColor(getResources().getColor(R.color.phone_call));
-            callButton.setBackground(answerCallDrawable);
-            callButton.setVisibility(View.VISIBLE);
-            callButton.setOnClickListener((unusedView) -> {
-                if (Log.isLoggable(TAG, Log.DEBUG)) {
-                    Log.d(TAG, "Call button clicked, placing a call: " + mNumber.toString());
-                }
+        FabDrawable answerCallDrawable = new FabDrawable(mContext);
+        answerCallDrawable.setFabAndStrokeColor(getContext().getColor(R.color.phone_call));
 
-                if (!TextUtils.isEmpty(mNumber.toString())) {
-                    getUiCallManager().safePlaceCall(mNumber.toString(), false);
-                }
-            });
-            View deleteButton = view.findViewById(R.id.delete);
-            deleteButton.setVisibility(View.VISIBLE);
-            deleteButton.setOnClickListener((unusedView) -> {
-                if (mNumber.length() != 0) {
-                    mNumber.deleteCharAt(mNumber.length() - 1);
-                    mNumberView.setText(getFormattedNumber(mNumber.toString()));
-                }
-            });
-        }
+        View callButton = view.findViewById(R.id.call);
+        callButton.setBackground(answerCallDrawable);
+        callButton.setVisibility(View.VISIBLE);
+        callButton.setOnClickListener((unusedView) -> {
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "Call button clicked, placing a call: " + mNumber.toString());
+            }
 
-        setupKeypad(view);
+            if (!TextUtils.isEmpty(mNumber.toString())) {
+                mUiCallManager.safePlaceCall(mNumber.toString(), false);
+            }
+        });
+
+        View deleteButton = view.findViewById(R.id.delete);
+        deleteButton.setVisibility(View.VISIBLE);
+        deleteButton.setOnClickListener(v -> {
+            if (mNumber.length() != 0) {
+                mNumber.deleteCharAt(mNumber.length() - 1);
+                mNumberView.setText(getFormattedNumber(mNumber.toString()));
+            }
+        });
+
+        setupKeypadClickListeners(view);
 
         return view;
     }
@@ -168,35 +195,47 @@ public class DialerFragment extends Fragment {
      * associated value to {@link #mNumber}.
      */
     private class DialpadClickListener implements View.OnClickListener {
-        private String mValue;
+        private final int mTone;
+        private final String mValue;
 
-        public DialpadClickListener(String value) {
-            mValue = value;
+        DialpadClickListener(int keyCode) {
+            mTone = mToneMap.get(keyCode);
+            mValue = mDialValueMap.get(keyCode);
         }
 
         @Override
         public void onClick(View v) {
             mNumber.append(mValue);
             mNumberView.setText(getFormattedNumber(mNumber.toString()));
+            playTone(mTone);
         }
-    };
+    }
 
-    /**
-     * Sets up the click listeners for all the dialpad buttons.
-     */
-    private void setupKeypad(View parent) {
-        parent.findViewById(R.id.zero).setOnClickListener(new DialpadClickListener("0"));
-        parent.findViewById(R.id.one).setOnClickListener(new DialpadClickListener("1"));
-        parent.findViewById(R.id.two).setOnClickListener(new DialpadClickListener("2"));
-        parent.findViewById(R.id.three).setOnClickListener(new DialpadClickListener("3"));
-        parent.findViewById(R.id.four).setOnClickListener(new DialpadClickListener("4"));
-        parent.findViewById(R.id.five).setOnClickListener(new DialpadClickListener("5"));
-        parent.findViewById(R.id.six).setOnClickListener(new DialpadClickListener("6"));
-        parent.findViewById(R.id.seven).setOnClickListener(new DialpadClickListener("7"));
-        parent.findViewById(R.id.eight).setOnClickListener(new DialpadClickListener("8"));
-        parent.findViewById(R.id.nine).setOnClickListener(new DialpadClickListener("9"));
-        parent.findViewById(R.id.star).setOnClickListener(new DialpadClickListener("*"));
-        parent.findViewById(R.id.pound).setOnClickListener(new DialpadClickListener("#"));
+    private void setupKeypadClickListeners(View parent) {
+        parent.findViewById(R.id.zero).setOnClickListener(
+                new DialpadClickListener(KeyEvent.KEYCODE_0));
+        parent.findViewById(R.id.one).setOnClickListener(
+                new DialpadClickListener(KeyEvent.KEYCODE_1));
+        parent.findViewById(R.id.two).setOnClickListener(
+                new DialpadClickListener(KeyEvent.KEYCODE_2));
+        parent.findViewById(R.id.three).setOnClickListener(
+                new DialpadClickListener(KeyEvent.KEYCODE_3));
+        parent.findViewById(R.id.four).setOnClickListener(
+                new DialpadClickListener(KeyEvent.KEYCODE_4));
+        parent.findViewById(R.id.five).setOnClickListener(
+                new DialpadClickListener(KeyEvent.KEYCODE_5));
+        parent.findViewById(R.id.six).setOnClickListener(
+                new DialpadClickListener(KeyEvent.KEYCODE_6));
+        parent.findViewById(R.id.seven).setOnClickListener(
+                new DialpadClickListener(KeyEvent.KEYCODE_7));
+        parent.findViewById(R.id.eight).setOnClickListener(
+                new DialpadClickListener(KeyEvent.KEYCODE_8));
+        parent.findViewById(R.id.nine).setOnClickListener(
+                new DialpadClickListener(KeyEvent.KEYCODE_9));
+        parent.findViewById(R.id.star).setOnClickListener(
+                new DialpadClickListener(KeyEvent.KEYCODE_STAR));
+        parent.findViewById(R.id.pound).setOnClickListener(
+                new DialpadClickListener(KeyEvent.KEYCODE_POUND));
     }
 
     @Override
@@ -207,7 +246,7 @@ public class DialerFragment extends Fragment {
                 mToneGenerator = new ToneGenerator(AudioManager.STREAM_MUSIC, TONE_RELATIVE_VOLUME);
             }
         }
-        UiCallManager.getInstance(mContext).addListener(mCallListener);
+        mUiCallManager.addListener(mCallListener);
 
         if (mPendingRunnable != null) {
             mPendingRunnable.run();
@@ -218,7 +257,7 @@ public class DialerFragment extends Fragment {
     @Override
     public void onPause() {
         super.onPause();
-        UiCallManager.getInstance(mContext).removeListener(mCallListener);
+        mUiCallManager.removeListener(mCallListener);
         stopTone();
         synchronized (mToneGeneratorLock) {
             if (mToneGenerator != null) {
@@ -235,7 +274,7 @@ public class DialerFragment extends Fragment {
         mNumberView = null;
     }
 
-    public void setDialNumber(final String number) {
+    private void setDialNumber(final String number) {
         if (TextUtils.isEmpty(number)) {
             return;
         }
@@ -254,6 +293,18 @@ public class DialerFragment extends Fragment {
         mNumberView.setText(getFormattedNumber(mNumber.toString()));
     }
 
+    private void playTone(int tone) {
+        synchronized (mToneGeneratorLock) {
+            if (mToneGenerator == null) {
+                Log.w(TAG, "playTone: mToneGenerator == null, tone: " + tone);
+                return;
+            }
+
+            // Start the new tone (will stop any playing tone)
+            mToneGenerator.startTone(tone, TONE_LENGTH_MS);
+        }
+    }
+
     private void stopTone() {
         synchronized (mToneGeneratorLock) {
             if (mToneGenerator == null) {
@@ -261,19 +312,7 @@ public class DialerFragment extends Fragment {
                 return;
             }
             mToneGenerator.stopTone();
-            mHandler.postDelayed(mDelayedAbandonAudioFocusRunnable, ABANDON_AUDIO_FOCUS_DELAY_MS);
         }
-    }
-
-    private final Runnable mDelayedAbandonAudioFocusRunnable = new Runnable() {
-        @Override
-        public void run() {
-            mAudioManager.abandonAudioFocus(null);
-        }
-    };
-
-    private UiCallManager getUiCallManager() {
-        return UiCallManager.getInstance(mContext);
     }
 
     private String getFormattedNumber(String number) {
@@ -286,7 +325,7 @@ public class DialerFragment extends Fragment {
             if (event.getKeyCode() == KeyEvent.KEYCODE_CALL &&
                     event.getAction() == KeyEvent.ACTION_UP &&
                     !TextUtils.isEmpty(mNumber.toString())) {
-                getUiCallManager().safePlaceCall(mNumber.toString(), false);
+                mUiCallManager.safePlaceCall(mNumber.toString(), false);
             }
         }
     };

@@ -918,19 +918,31 @@ void Backend::dumpExportFunctionInfo(llvm::Module *M) {
         llvm::StructType *PaddedHelperFunctionParameterTy = nullptr;
 
         std::vector<unsigned> OrigFieldNumToPaddedFieldNum;
-        std::vector<bool> isStructInput;
+        std::vector<bool> isPassedViaPtr;
 
         if (!F->getArgumentList().empty()) {
           std::vector<llvm::Type*> HelperFunctionParameterTys;
           for (llvm::Function::arg_iterator AI = F->arg_begin(),
-                   AE = F->arg_end(); AI != AE; AI++) {
-              if (AI->getType()->isPointerTy() && AI->getType()->getPointerElementType()->isStructTy()) {
-                  HelperFunctionParameterTys.push_back(AI->getType()->getPointerElementType());
-                  isStructInput.push_back(true);
-              } else {
-                  HelperFunctionParameterTys.push_back(AI->getType());
-                  isStructInput.push_back(false);
+                                            AE = F->arg_end();
+               AI != AE; AI++) {
+            if (AI->getType()->isPointerTy() &&
+                AI->getType()->getPointerElementType()->isStructTy()) {
+              HelperFunctionParameterTys.push_back(
+                  AI->getType()->getPointerElementType());
+              isPassedViaPtr.push_back(true);
+            } else {
+              // on 64-bit architecture(s), a vector type could be too big
+              // to be passed in a register and instead passed
+              // via a pointer to a temporary copy
+              llvm::Type *Ty = AI->getType();
+              bool viaPtr = false;
+              if (Ty->isPointerTy() && Ty->getPointerElementType()) {
+                Ty = Ty->getPointerElementType();
+                viaPtr = true;
               }
+              HelperFunctionParameterTys.push_back(Ty);
+              isPassedViaPtr.push_back(viaPtr);
+            }
           }
           OrigHelperFunctionParameterTy =
               llvm::StructType::get(mLLVMContext, HelperFunctionParameterTys);
@@ -953,6 +965,7 @@ void Backend::dumpExportFunctionInfo(llvm::Module *M) {
             fprintf(stderr, "Got:\n");
             OrigHelperFunctionParameterTy->dump();
           }
+          abort();
         }
 
         std::vector<llvm::Type*> Params;
@@ -1001,7 +1014,7 @@ void Backend::dumpExportFunctionInfo(llvm::Module *M) {
             Ptr = IB->CreateInBoundsGEP(HelperFunctionParameter, Idx);
 
             // Load is only required for non-struct ptrs
-            if (isStructInput[origFieldNum]) {
+            if (isPassedViaPtr[origFieldNum]) {
                 Params.push_back(Ptr);
             } else {
                 llvm::Value *V = IB->CreateLoad(Ptr);

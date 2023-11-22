@@ -49,3 +49,5 @@ $(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/permissions/android.hard
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/permissions/android.hardware.location.gps.xml)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/permissions/android.hardware.camera.full.xml)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/permissions/android.hardware.camera.manual_sensor.xml)
+$(call add-clean-step, rm -f $(PRODUCT_OUT)/system/lib/hw/android.hardware.broadcastradio@1.0-impl.so)
+$(call add-clean-step, rm -f $(PRODUCT_OUT)/system/lib64/hw/android.hardware.broadcastradio@1.0-impl.so)

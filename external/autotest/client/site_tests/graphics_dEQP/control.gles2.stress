@@ -16,9 +16,12 @@ TEST_TYPE = 'client'
 DOC = """
 This test runs the drawElements Quality Program test suite.
 """
-
-job.run_test('graphics_dEQP', opts = args + ['filter=dEQP-GLES2.stress',
-                                             'subset_to_run=Pass',
-                                             'hasty=False',
-                                             'shard_number=0',
-                                             'shard_count=1'])
+job.run_test('graphics_dEQP',
+             tag = 'stress',
+             opts = args + [
+                 'filter=dEQP-GLES2.stress',
+                 'subset_to_run=Pass',
+                 'hasty=False',
+                 'shard_number=0',
+                 'shard_count=1'
+             ])

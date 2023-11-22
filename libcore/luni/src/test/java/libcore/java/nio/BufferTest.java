@@ -19,6 +19,8 @@ package libcore.java.nio;
 import junit.framework.TestCase;
 import java.io.File;
 import java.io.RandomAccessFile;
+import java.lang.ref.PhantomReference;
+import java.lang.ref.ReferenceQueue;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.nio.Buffer;
@@ -37,8 +39,9 @@ import java.nio.ReadOnlyBufferException;
 import java.nio.ShortBuffer;
 import java.nio.channels.FileChannel;
 import java.util.Arrays;
-import libcore.io.SizeOf;
 import libcore.io.Memory;
+import libcore.io.SizeOf;
+import libcore.java.lang.ref.FinalizationTester;
 
 public class BufferTest extends TestCase {
 
@@ -1464,5 +1467,35 @@ public class BufferTest extends TestCase {
         assertFalse(db_be.get() == db_le.get());
         assertFalse(cb_be.get() == cb_le.get());
         assertFalse(fb_be.get() == fb_le.get());
+    }
+
+    // Allocate new direct byte buffer using JNI NewDirectByteBuffer
+    public static native ByteBuffer jniNewDirectByteBuffer();
+
+    // http://b/62133955
+    public void test_DirectByteBuffer_PhantomReference() throws Exception {
+        ByteBuffer bb = jniNewDirectByteBuffer();
+        ReferenceQueue rq = new ReferenceQueue();
+        PhantomReference pr = new PhantomReference(bb, rq);
+
+        // The phantom reference pr should still be valid while 'bb' still
+        // has a strong reference to the ByteBuffer.
+        FinalizationTester.induceFinalization();
+        assertTrue(!pr.isEnqueued());
+
+        // Create a read-only, derived buffer from the jni buffer and clear original
+        // reference. The phantom reference should still be valid because the
+        // 'otherBuffer' references the MemoryRef which contains reference to buffer
+        // previously stored in 'bb'.
+        ByteBuffer otherBuffer = bb.asReadOnlyBuffer();
+        bb = null;
+        FinalizationTester.induceFinalization();
+        assertTrue(!pr.isEnqueued());
+
+        // Clear reference to derived buffer. The phantom reference should be
+        // eligible for collection because there are no strong references left.
+        otherBuffer = null;
+        FinalizationTester.induceFinalization();
+        assertTrue(pr.isEnqueued());
     }
 }

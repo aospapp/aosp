@@ -317,8 +317,11 @@ class MemoryChunk {
   static const intptr_t kAlignmentMask = kAlignment - 1;
 
   static const intptr_t kSizeOffset = 0;
-
-  static const intptr_t kFlagsOffset = kSizeOffset + kPointerSize;
+  static const intptr_t kFlagsOffset = kSizeOffset + kSizetSize;
+  static const intptr_t kAreaStartOffset = kFlagsOffset + kIntptrSize;
+  static const intptr_t kAreaEndOffset = kAreaStartOffset + kPointerSize;
+  static const intptr_t kReservationOffset = kAreaEndOffset + kPointerSize;
+  static const intptr_t kOwnerOffset = kReservationOffset + 2 * kPointerSize;
 
   static const size_t kMinHeaderSize =
       kSizeOffset + kSizetSize  // size_t size
@@ -367,8 +370,7 @@ class MemoryChunk {
 
   static const int kAllocatableMemory = kPageSize - kObjectStartOffset;
 
-  static inline void IncrementLiveBytesFromMutator(HeapObject* object, int by);
-  static inline void IncrementLiveBytesFromGC(HeapObject* object, int by);
+  static inline void IncrementLiveBytes(HeapObject* object, int by);
 
   // Only works if the pointer is in the first kPageSize of the MemoryChunk.
   static MemoryChunk* FromAddress(Address a) {
@@ -553,10 +555,11 @@ class MemoryChunk {
   void set_prev_chunk(MemoryChunk* prev) { prev_chunk_.SetValue(prev); }
 
   Space* owner() const {
-    if ((reinterpret_cast<intptr_t>(owner_) & kPageHeaderTagMask) ==
-        kPageHeaderTag) {
-      return reinterpret_cast<Space*>(reinterpret_cast<intptr_t>(owner_) -
-                                      kPageHeaderTag);
+    intptr_t owner_value = base::NoBarrierAtomicValue<intptr_t>::FromAddress(
+                               const_cast<Address*>(&owner_))
+                               ->Value();
+    if ((owner_value & kPageHeaderTagMask) == kPageHeaderTag) {
+      return reinterpret_cast<Space*>(owner_value - kPageHeaderTag);
     } else {
       return nullptr;
     }
@@ -768,6 +771,8 @@ class Page : public MemoryChunk {
   }
 
   size_t ShrinkToHighWaterMark();
+
+  void CreateBlackArea(Address start, Address end);
 
 #ifdef DEBUG
   void Print();
@@ -1092,7 +1097,7 @@ class SkipList {
 // A space acquires chunks of memory from the operating system. The memory
 // allocator allocates and deallocates pages for the paged heap spaces and large
 // pages for large object space.
-class MemoryAllocator {
+class V8_EXPORT_PRIVATE MemoryAllocator {
  public:
   // Unmapper takes care of concurrently unmapping and uncommitting memory
   // chunks.
@@ -1103,7 +1108,10 @@ class MemoryAllocator {
     explicit Unmapper(MemoryAllocator* allocator)
         : allocator_(allocator),
           pending_unmapping_tasks_semaphore_(0),
-          concurrent_unmapping_tasks_active_(0) {}
+          concurrent_unmapping_tasks_active_(0) {
+      chunks_[kRegular].reserve(kReservedQueueingSlots);
+      chunks_[kPooled].reserve(kReservedQueueingSlots);
+    }
 
     void AddMemoryChunkSafe(MemoryChunk* chunk) {
       if ((chunk->size() == Page::kPageSize) &&
@@ -1136,12 +1144,19 @@ class MemoryAllocator {
     void TearDown();
 
    private:
+    static const int kReservedQueueingSlots = 64;
+
     enum ChunkQueueType {
       kRegular,     // Pages of kPageSize that do not live in a CodeRange and
                     // can thus be used for stealing.
       kNonRegular,  // Large chunks and executable chunks.
       kPooled,      // Pooled chunks, already uncommited and ready for reuse.
       kNumberOfChunkQueues,
+    };
+
+    enum class FreeMode {
+      kUncommitPooled,
+      kReleasePooled,
     };
 
     template <ChunkQueueType type>
@@ -1159,17 +1174,18 @@ class MemoryAllocator {
     MemoryChunk* GetMemoryChunkSafe() {
       base::LockGuard<base::Mutex> guard(&mutex_);
       if (chunks_[type].empty()) return nullptr;
-      MemoryChunk* chunk = chunks_[type].front();
-      chunks_[type].pop_front();
+      MemoryChunk* chunk = chunks_[type].back();
+      chunks_[type].pop_back();
       return chunk;
     }
 
     void ReconsiderDelayedChunks();
+    template <FreeMode mode>
     void PerformFreeMemoryOnQueuedChunks();
 
     base::Mutex mutex_;
     MemoryAllocator* allocator_;
-    std::list<MemoryChunk*> chunks_[kNumberOfChunkQueues];
+    std::vector<MemoryChunk*> chunks_[kNumberOfChunkQueues];
     // Delayed chunks cannot be processed in the current unmapping cycle because
     // of dependencies such as an active sweeper.
     // See MemoryAllocator::CanFreeMemoryChunk.
@@ -1187,6 +1203,7 @@ class MemoryAllocator {
 
   enum FreeMode {
     kFull,
+    kAlreadyPooled,
     kPreFreeAndQueue,
     kPooledAndQueue,
   };
@@ -1376,6 +1393,15 @@ class MemoryAllocator {
   DISALLOW_IMPLICIT_CONSTRUCTORS(MemoryAllocator);
 };
 
+extern template Page*
+MemoryAllocator::AllocatePage<MemoryAllocator::kRegular, PagedSpace>(
+    size_t size, PagedSpace* owner, Executability executable);
+extern template Page*
+MemoryAllocator::AllocatePage<MemoryAllocator::kRegular, SemiSpace>(
+    size_t size, SemiSpace* owner, Executability executable);
+extern template Page*
+MemoryAllocator::AllocatePage<MemoryAllocator::kPooled, SemiSpace>(
+    size_t size, SemiSpace* owner, Executability executable);
 
 // -----------------------------------------------------------------------------
 // Interface for heap object iterator to be implemented by all object space
@@ -1419,6 +1445,8 @@ class PageRange {
   typedef PageIterator iterator;
   PageRange(Page* begin, Page* end) : begin_(begin), end_(end) {}
   explicit PageRange(Page* page) : PageRange(page, page->next_page()) {}
+  inline PageRange(Address start, Address limit);
+
   iterator begin() { return iterator(begin_); }
   iterator end() { return iterator(end_); }
 
@@ -1641,7 +1669,7 @@ class AllocationStats BASE_EMBEDDED {
 //   words in size.
 // At least 16384 words (huge): This list is for objects of 2048 words or
 //   larger. Empty pages are also added to this list.
-class FreeList {
+class V8_EXPORT_PRIVATE FreeList {
  public:
   // This method returns how much memory can be allocated after freeing
   // maximum_freed memory.
@@ -1878,18 +1906,7 @@ class LocalAllocationBuffer {
   AllocationInfo allocation_info_;
 };
 
-class NewSpacePageRange {
- public:
-  typedef PageRange::iterator iterator;
-  inline NewSpacePageRange(Address start, Address limit);
-  iterator begin() { return range_.begin(); }
-  iterator end() { return range_.end(); }
-
- private:
-  PageRange range_;
-};
-
-class PagedSpace : public Space {
+class V8_EXPORT_PRIVATE PagedSpace : NON_EXPORTED_BASE(public Space) {
  public:
   typedef PageIterator iterator;
 
@@ -1914,12 +1931,6 @@ class PagedSpace : public Space {
   inline bool Contains(Address a);
   inline bool Contains(Object* o);
   bool ContainsSlow(Address addr);
-
-  // Given an address occupied by a live object, return that object if it is
-  // in this space, or a Smi if it is not.  The implementation iterates over
-  // objects in the page containing the address, the cost is linear in the
-  // number of objects in the page.  It may be slow.
-  Object* FindObject(Address addr);
 
   // During boot the free_space_map is created, and afterwards we may need
   // to write it into the free list nodes that were already created.
@@ -2034,7 +2045,9 @@ class PagedSpace : public Space {
 
   void MarkAllocationInfoBlack();
 
-  void Allocate(int bytes) { accounting_stats_.AllocateBytes(bytes); }
+  void AccountAllocatedBytes(size_t bytes) {
+    accounting_stats_.AllocateBytes(bytes);
+  }
 
   void IncreaseCapacity(size_t bytes);
 
@@ -2448,34 +2461,24 @@ class NewSpace : public Space {
   }
 
   size_t AllocatedSinceLastGC() {
-    bool seen_age_mark = false;
-    Address age_mark = to_space_.age_mark();
-    Page* current_page = to_space_.first_page();
-    Page* age_mark_page = Page::FromAddress(age_mark);
-    Page* last_page = Page::FromAddress(top() - kPointerSize);
-    if (age_mark_page == last_page) {
-      if (top() - age_mark >= 0) {
-        return top() - age_mark;
-      }
-      // Top was reset at some point, invalidating this metric.
-      return 0;
-    }
-    while (current_page != last_page) {
-      if (current_page == age_mark_page) {
-        seen_age_mark = true;
-        break;
-      }
+    const Address age_mark = to_space_.age_mark();
+    DCHECK_NOT_NULL(age_mark);
+    DCHECK_NOT_NULL(top());
+    Page* const age_mark_page = Page::FromAllocationAreaAddress(age_mark);
+    Page* const last_page = Page::FromAllocationAreaAddress(top());
+    Page* current_page = age_mark_page;
+    size_t allocated = 0;
+    if (current_page != last_page) {
+      DCHECK_EQ(current_page, age_mark_page);
+      DCHECK_GE(age_mark_page->area_end(), age_mark);
+      allocated += age_mark_page->area_end() - age_mark;
       current_page = current_page->next_page();
+    } else {
+      DCHECK_GE(top(), age_mark);
+      return top() - age_mark;
     }
-    if (!seen_age_mark) {
-      // Top was reset at some point, invalidating this metric.
-      return 0;
-    }
-    DCHECK_GE(age_mark_page->area_end(), age_mark);
-    size_t allocated = age_mark_page->area_end() - age_mark;
-    DCHECK_EQ(current_page, age_mark_page);
-    current_page = age_mark_page->next_page();
     while (current_page != last_page) {
+      DCHECK_NE(current_page, age_mark_page);
       allocated += Page::kAllocatableMemory;
       current_page = current_page->next_page();
     }
@@ -2820,6 +2823,9 @@ class LargeObjectSpace : public Space {
   // The function iterates through all objects in this space, may be slow.
   Object* FindObject(Address a);
 
+  // Takes the chunk_map_mutex_ and calls FindPage after that.
+  LargePage* FindPageThreadSafe(Address a);
+
   // Finds a large object page containing the given address, returns NULL
   // if such a page doesn't exist.
   LargePage* FindPage(Address a);
@@ -2870,6 +2876,9 @@ class LargeObjectSpace : public Space {
   size_t size_;            // allocated bytes
   int page_count_;         // number of chunks
   size_t objects_size_;    // size of objects
+  // The chunk_map_mutex_ has to be used when the chunk map is accessed
+  // concurrently.
+  base::Mutex chunk_map_mutex_;
   // Map MemoryChunk::kAlignment-aligned chunks to large pages covering them
   base::HashMap chunk_map_;
 

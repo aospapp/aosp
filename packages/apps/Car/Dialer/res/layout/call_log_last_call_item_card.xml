@@ -24,6 +24,7 @@
 
     <com.android.car.stream.ui.StreamCardView
         android:id="@+id/call_log_card"
+        android:foreground="@drawable/dialer_ripple_background"
         android:layout_gravity="center"
         android:layout_width="wrap_content"
         android:layout_height="@dimen/call_log_item_height" >

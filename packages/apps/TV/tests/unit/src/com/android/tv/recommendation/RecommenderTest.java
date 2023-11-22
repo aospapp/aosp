@@ -16,13 +16,20 @@
 
 package com.android.tv.recommendation;
 
+import static android.support.test.InstrumentationRegistry.getContext;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import android.support.test.filters.SmallTest;
-import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
 
 import com.android.tv.data.Channel;
 import com.android.tv.recommendation.RecommendationUtils.ChannelRecordSortedMapHelper;
 import com.android.tv.testing.Utils;
+
+import org.junit.Before;
+import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,7 +41,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 @SmallTest
-public class RecommenderTest extends AndroidTestCase {
+public class RecommenderTest {
     private static final int DEFAULT_NUMBER_OF_CHANNELS = 5;
     private static final long DEFAULT_WATCH_START_TIME_MS =
             System.currentTimeMillis() - TimeUnit.DAYS.toMillis(2);
@@ -72,16 +79,15 @@ public class RecommenderTest extends AndroidTestCase {
     private Channel mChannel_3;
     private Channel mChannel_4;
 
-    @Override
-    public void setUp() throws Exception {
-        super.setUp();
-
+    @Before
+    public void setUp() {
         mChannelRecordSortedMap = new ChannelRecordSortedMapHelper(getContext());
         mDataManager = RecommendationUtils
                 .createMockRecommendationDataManager(mChannelRecordSortedMap);
         mChannelRecordSortedMap.resetRandom(Utils.createTestRandom());
     }
 
+    @Test
     public void testRecommendChannels_includeRecommendedOnly_allChannelsHaveNoScore() {
         createRecommender(true, START_DATAMANAGER_RUNNABLE_ADD_FOUR_CHANNELS);
 
@@ -94,6 +100,7 @@ public class RecommenderTest extends AndroidTestCase {
         assertEquals(0, mRecommender.recommendChannels(5).size());
     }
 
+    @Test
     public void testRecommendChannels_notIncludeRecommendedOnly_allChannelsHaveNoScore() {
         createRecommender(false, START_DATAMANAGER_RUNNABLE_ADD_FOUR_CHANNELS);
 
@@ -106,6 +113,7 @@ public class RecommenderTest extends AndroidTestCase {
         assertEquals(4, mRecommender.recommendChannels(5).size());
     }
 
+    @Test
     public void testRecommendChannels_includeRecommendedOnly_allChannelsHaveScore() {
         createRecommender(true, START_DATAMANAGER_RUNNABLE_ADD_FOUR_CHANNELS);
 
@@ -125,6 +133,7 @@ public class RecommenderTest extends AndroidTestCase {
                 mChannel_4, mChannel_3, mChannel_2, mChannel_1);
     }
 
+    @Test
     public void testRecommendChannels_notIncludeRecommendedOnly_allChannelsHaveScore() {
         createRecommender(false, START_DATAMANAGER_RUNNABLE_ADD_FOUR_CHANNELS);
 
@@ -144,6 +153,7 @@ public class RecommenderTest extends AndroidTestCase {
                 mChannel_4, mChannel_3, mChannel_2, mChannel_1);
     }
 
+    @Test
     public void testRecommendChannels_includeRecommendedOnly_fewChannelsHaveScore() {
         createRecommender(true, START_DATAMANAGER_RUNNABLE_ADD_FOUR_CHANNELS);
 
@@ -163,6 +173,7 @@ public class RecommenderTest extends AndroidTestCase {
                 mChannel_1, mChannel_2);
     }
 
+    @Test
     public void testRecommendChannels_notIncludeRecommendedOnly_fewChannelsHaveScore() {
         createRecommender(false, START_DATAMANAGER_RUNNABLE_ADD_FOUR_CHANNELS);
 
@@ -189,6 +200,7 @@ public class RecommenderTest extends AndroidTestCase {
                 mChannel_1, mChannel_2);
     }
 
+    @Test
     public void testGetChannelSortKey_recommendAllChannels() {
         createRecommender(true, START_DATAMANAGER_RUNNABLE_ADD_FOUR_CHANNELS);
 
@@ -203,6 +215,7 @@ public class RecommenderTest extends AndroidTestCase {
         assertSortKeyNotInvalid(channelList);
     }
 
+    @Test
     public void testGetChannelSortKey_recommendFewChannels() {
         // Test with recommending 3 channels.
         createRecommender(true, START_DATAMANAGER_RUNNABLE_ADD_FOUR_CHANNELS);
@@ -221,6 +234,7 @@ public class RecommenderTest extends AndroidTestCase {
         assertSortKeyNotInvalid(channelList);
     }
 
+    @Test
     public void testListener_onRecommendationChanged() {
         createRecommender(true, START_DATAMANAGER_RUNNABLE_ADD_FOUR_CHANNELS);
         // FakeEvaluator doesn't recommend a channel with empty watch log. As every channel
@@ -245,6 +259,7 @@ public class RecommenderTest extends AndroidTestCase {
         assertTrue(mOnRecommendationChanged);
     }
 
+    @Test
     public void testListener_onRecommenderReady() {
         createRecommender(true, new Runnable() {
             @Override

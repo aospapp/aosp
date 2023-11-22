@@ -168,6 +168,35 @@ public class WifiHelperTest {
         EasyMock.verify(mMockDevice);
     }
 
+    @Test
+    public void testEnsureDeviceSetup_alternateWifiUtilAPKPath() throws Exception {
+        final String apkPath = "/path/to/WifiUtil.APK";
+        EasyMock.reset(mMockDevice);
+        EasyMock.expect(mMockDevice.executeShellCommand(WifiHelper.CHECK_PACKAGE_CMD))
+                .andReturn(String.format("versionCode=%d", WifiHelper.PACKAGE_VERSION_CODE - 1));
+        EasyMock.expect(mMockDevice.installPackage(EasyMock.<File>anyObject(), EasyMock.eq(true)))
+                .andReturn(null);
+        EasyMock.replay(mMockDevice);
+        WifiHelper wifiHelper = new WifiHelper(mMockDevice, apkPath);
+        File wifiUtilApkFile = wifiHelper.getWifiUtilApkFile();
+        assertEquals(wifiUtilApkFile.getPath(), apkPath);
+        EasyMock.verify(mMockDevice);
+    }
+
+    @Test
+    public void testEnsureDeviceSetup_deleteAPK() throws Exception {
+        EasyMock.reset(mMockDevice);
+        EasyMock.expect(mMockDevice.executeShellCommand(WifiHelper.CHECK_PACKAGE_CMD))
+                .andReturn(String.format("versionCode=%d", WifiHelper.PACKAGE_VERSION_CODE - 1));
+        EasyMock.expect(mMockDevice.installPackage(EasyMock.<File>anyObject(), EasyMock.eq(true)))
+                .andReturn(null);
+        EasyMock.replay(mMockDevice);
+        WifiHelper wifiHelper = new WifiHelper(mMockDevice);
+        File wifiUtilApkFile = wifiHelper.getWifiUtilApkFile();
+        assertFalse(wifiUtilApkFile.exists());
+        EasyMock.verify(mMockDevice);
+    }
+
     /** Test that {@link WifiHelper#cleanUp()} calls uninstall on the instrumentation package. */
     @Test
     public void testCleanPackage() throws Exception {

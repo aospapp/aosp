@@ -99,6 +99,7 @@ public class AudioRoutingPolicyTest extends MockedCarTestBase {
         int contexts = v.get(VehicleAudioRoutingPolicyIndex.CONTEXTS);
         // check if all contexts are allowed ones.
         assertTrue((contexts & ~(
+                VehicleAudioContextFlag.RINGTONE_FLAG |
                 VehicleAudioContextFlag.ALARM_FLAG |
                 VehicleAudioContextFlag.CALL_FLAG |
                 VehicleAudioContextFlag.MUSIC_FLAG |

@@ -30,4 +30,6 @@ PRODUCT_PACKAGES := \
     RobotoCondensed-Italic.ttf \
     RobotoCondensed-BoldItalic.ttf \
     RobotoCondensed-Light.ttf \
-    RobotoCondensed-LightItalic.ttf
+    RobotoCondensed-LightItalic.ttf \
+    RobotoCondensed-Medium.ttf \
+    RobotoCondensed-MediumItalic.ttf

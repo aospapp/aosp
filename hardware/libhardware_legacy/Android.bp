@@ -20,11 +20,17 @@ cc_library {
     export_include_dirs: ["include"],
     shared_libs: ["libcutils", "liblog"],
     vendor_available: true,
+    vndk: {
+        enabled: true,
+    },
 }
 
 cc_library_shared {
     name: "libhardware_legacy",
     vendor_available: true,
+    vndk: {
+        enabled: true,
+    },
 
     shared_libs: [
         "libbase",

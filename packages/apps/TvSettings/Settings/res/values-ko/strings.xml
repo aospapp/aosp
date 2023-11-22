@@ -43,8 +43,8 @@
     <string name="connectivity_network" msgid="8321537111272398501">"네트워크"</string>
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"이더넷"</string>
-    <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Wi‑Fi 항상 검색"</string>
-    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Wi-Fi가 껴져 있을 때에도 Google의 위치 서비스 및 기타 앱이 네트워크를 스캔하도록 합니다."</string>
+    <string name="wifi_setting_always_scan" msgid="8883713018717323351">"항상 검색"</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Wi-Fi가 꺼져 있을 때에도 Google의 위치 서비스 및 기타 앱이 네트워크를 검색하도록 합니다."</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"화면 보호기"</string>
     <string name="device_display" msgid="101455384386372747">"디스플레이"</string>
@@ -52,7 +52,7 @@
     <string name="device_surround_sound" msgid="6272196310566546860">"서라운드 사운드"</string>
     <string name="device_sound_effects" msgid="7793281745920228622">"시스템 사운드"</string>
     <string name="device_apps" msgid="9180435229638772838">"앱"</string>
-    <string name="device_storage_reset" msgid="1425978936501134425">"저장소 및 초기화"</string>
+    <string name="device_storage_reset" msgid="1425978936501134425">"저장소 및 재설정"</string>
     <string name="device_backup_restore" msgid="5627523987587511884">"백업 및 복원"</string>
     <string name="device_reset" msgid="2827002349560023125">"초기화"</string>
     <string name="device_calibration" msgid="8632962533376605191">"보정"</string>
@@ -73,7 +73,7 @@
     <string name="accessory_unpairing" msgid="7568241162181184667">"기기 페어링 해제 중…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"연결됨"</string>
     <string name="accessory_change_name" msgid="8958916008739792785">"이름 변경"</string>
-    <string name="accessory_change_name_title" msgid="4630819456923061184">"이 액세서리의 새 이름 입력"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"액세서리의 새 이름 입력"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"액세서리 검색 중…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"블루투스 기기를 페어링하기 전에 페어링 모드인지 확인하세요."</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"기기가 발견되었습니다. <xliff:g id="COUNTDOWN">%1$s</xliff:g>초 후에 자동으로 페어링됩니다."</string>
@@ -336,11 +336,11 @@
     <string name="desc_set_time_format" msgid="3131006238681763219">"<xliff:g id="STATE">%1$s</xliff:g>(<xliff:g id="SAMPLE">%2$s</xliff:g>)"</string>
     <string name="system_auto_date_time" msgid="3629668599205033272">"날짜/시간 자동설정"</string>
   <string-array name="auto_date_time_entries">
-    <item msgid="4590792581242018007">"네트워크에서 제공하는 시간 정보를 사용합니다."</item>
+    <item msgid="4590792581242018007">"네트워크 제공 시간 사용"</item>
     <item msgid="3807025813081244357">"사용 안함"</item>
   </string-array>
   <string-array name="auto_date_time_ts_entries">
-    <item msgid="8463479794795616025">"네트워크에서 제공하는 시간 정보를 사용합니다."</item>
+    <item msgid="8463479794795616025">"네트워크 제공 시간 사용"</item>
     <item msgid="2475903014233987786">"전송 스트림에서 제공하는 시간 정보를 사용합니다."</item>
     <item msgid="150957081326946463">"사용 안함"</item>
   </string-array>
@@ -368,7 +368,11 @@
     <string name="system_services" msgid="7230571820151215779">"서비스"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"서비스 설정"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"고대비 텍스트"</string>
-    <string name="accessibility_captions" msgid="6133896463407851079">"캡션"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"접근성 단축키"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"접근성 단축키 사용"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"단축키 서비스"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"단축키가 사용 설정되어 있다면 뒤로 버튼과 아래 버튼을 3초 동안 동시에 눌러 접근성 기능을 실행할 수 있습니다."</string>
+    <string name="accessibility_captions" msgid="6133896463407851079">"자막"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"동영상 캡션 텍스트 오버레이 설정"</string>
     <string name="captions_display" msgid="735692527287125548">"디스플레이"</string>
     <string name="captions_display_on" msgid="1989009878719500520">"사용"</string>
@@ -378,7 +382,7 @@
     <string name="captions_language" msgid="2835554055388996343">"언어"</string>
     <string name="captions_language_default" msgid="8113979489252033676">"기본값"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"텍스트 크기"</string>
-    <string name="captions_captionstyle" msgid="7423638523487868230">"캡션 스타일"</string>
+    <string name="captions_captionstyle" msgid="7423638523487868230">"자막 스타일"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"맞춤 옵션"</string>
     <string name="captions_fontfamily" msgid="6840670778173003604">"글꼴 모음"</string>
     <string name="captions_textcolor" msgid="3233568269335050287">"텍스트 색상"</string>
@@ -407,8 +411,8 @@
     <string name="color_magenta" msgid="6395786485839439122">"자홍색"</string>
     <string name="system_accessibility_status" msgid="6150600992901856367">"사용"</string>
     <string name="system_accessibility_config" msgid="3216531917536720277">"설정"</string>
-    <string name="system_accessibility_service_on_confirm_title" msgid="8200707259067035823">"<xliff:g id="SERVICE">%1$s</xliff:g>을(를) 사용하시겠습니까?"</string>
-    <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"<xliff:g id="SERVICE">%1$s</xliff:g>은(는) 비밀번호를 제외하고 사용자가 입력한 모든 텍스트를 수집할 수 있습니다. 여기에는 신용카드 번호와 같은 개인정보도 포함됩니다."</string>
+    <string name="system_accessibility_service_on_confirm_title" msgid="8200707259067035823">"<xliff:g id="SERVICE">%1$s</xliff:g> 사용"</string>
+    <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"<xliff:g id="SERVICE">%1$s</xliff:g>에서는 비밀번호를 제외하고 사용자가 입력하는 모든 텍스트를 수집할 수 있습니다. 여기에는 신용카드 번호와 같은 개인정보도 포함됩니다."</string>
     <string name="system_accessibility_service_off_confirm_title" msgid="963297812889694832">"<xliff:g id="SERVICE">%1$s</xliff:g>을(를) 중지하시겠습니까?"</string>
     <string name="system_accessibility_service_off_confirm_desc" msgid="6714782635926048678">"확인을 선택하면 <xliff:g id="SERVICE">%1$s</xliff:g>이(가) 중지됩니다."</string>
     <string name="system_accessibility_tts_output" msgid="8905477795536714590">"텍스트 음성 변환"</string>
@@ -480,7 +484,7 @@
     <string name="security_unknown_sources_title" msgid="769762478057744545">"알 수 없는 출처"</string>
     <string name="security_unknown_sources_desc" msgid="7197053279914817124">"Play 스토어가 아닌 출처의 앱을 설치하도록 허용합니다."</string>
     <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"알 수 없는 소스 허용"</string>
-    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"기기 및 개인 정보는 출처를 알 수 없는 앱의 공격에 더욱 취약합니다. 이러한 앱을 사용하여 발생할 수 있는 기기 손상이나 데이터 손실에 대해 사용자가 단독으로 책임이 있음을 동의합니다."</string>
+    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"기기 및 개인 정보는 출처를 알 수 없는 앱의 공격에 더욱 취약합니다. 이러한 앱을 사용하여 발생할 수 있는 기기 손상이나 데이터 손실에 대한 책임은 전적으로 사용자에게 있음에 동의합니다."</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"앱 확인"</string>
     <string name="security_verify_apps_desc" msgid="1456317893117818733">"유해할 수 있는 앱은 설치를 허용하지 않거나 설치 전에 경고를 표시합니다."</string>
     <string name="system_hdcp_checking_never" msgid="1758043078676276985">"안함"</string>
@@ -649,7 +653,7 @@
     <item msgid="1389347662738182100">"침실 TV"</item>
   </string-array>
     <string name="custom_room" msgid="8655516733933892458">"맞춤 이름 입력..."</string>
-    <string name="device_rename_title" msgid="2629557295786267185">"이 <xliff:g id="DEVICEMODEL">%1$s</xliff:g>의 이름 바꾸기"</string>
+    <string name="device_rename_title" msgid="2629557295786267185">"<xliff:g id="DEVICEMODEL">%1$s</xliff:g> 이름 변경"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"이 <xliff:g id="DEVICEMODEL">%1$s</xliff:g>의 이름은 현재 \'<xliff:g id="DEVICENAME">%2$s</xliff:g>\'입니다."</string>
     <string name="change_setting" msgid="2047402388786162246">"변경"</string>
     <string name="keep_settings" msgid="6798327196645732517">"변경 안함"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"버그 신고 캡처 중"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"사용 가능한 가상 키보드"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"키보드 관리"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"허용됨"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"허용되지 않음"</string>
+    <string name="usage_access" msgid="1914242907684452328">"사용 기록 액세스"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"앱에서 사용 기록에 액세스할 수 있도록 허용하면 사용 중인 다른 앱의 종류와 사용 빈도, 이동통신사, 언어 설정, 기타 세부정보를 추적할 수 있게 됩니다."</string>
 </resources>

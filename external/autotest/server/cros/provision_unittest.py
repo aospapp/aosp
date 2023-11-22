@@ -1,3 +1,4 @@
+#!/usr/bin/python2.7
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -13,6 +14,23 @@ _TESTBED_VERSION_SAMPLES = [
     ','.join(_ANDROID_VERSION_SAMPLES * 2),
     _ANDROID_VERSION_SAMPLES[0] + '#4'
 ]
+
+
+class ActionTestCase(unittest.TestCase):
+    """Tests for Action functions."""
+
+    def test__get_label_action_with_keyval_label(self):
+        got = provision._get_label_action('cros-version:foo')
+        self.assertEqual(got, provision._Action('cros-version', 'foo'))
+
+    def test__get_label_action_with_plain_label(self):
+        got = provision._get_label_action('webcam')
+        self.assertEqual(got, provision._Action('webcam', None))
+
+    def test__get_label_action_with_empty_string(self):
+        got = provision._get_label_action('')
+        self.assertEqual(got, provision._Action('', None))
+
 
 class ImageParsingTests(unittest.TestCase):
     """Unit tests for `provision.get_version_label_prefix()`."""

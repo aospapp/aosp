@@ -37,6 +37,7 @@ public class WebDialogFragment extends SafeDismissDialogFragment {
     private static final String TITLE = "TITLE";
     private static final String TRACKER_LABEL = "TRACKER_LABEL";
 
+    private WebView mWebView;
     private String mTrackerLabel;
 
     /**
@@ -73,13 +74,21 @@ public class WebDialogFragment extends SafeDismissDialogFragment {
         String title = getArguments().getString(TITLE);
         getDialog().setTitle(title);
 
-        WebView webView = new WebView(getActivity());
-        webView.setWebViewClient(new WebViewClient());
+        mWebView = new WebView(getActivity());
+        mWebView.setWebViewClient(new WebViewClient());
         String url = getArguments().getString(URL);
-        webView.loadUrl(url);
+        mWebView.loadUrl(url);
         Log.d(TAG, "Loading web content from " + url);
 
-        return webView;
+        return mWebView;
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        if (mWebView != null) {
+            mWebView.destroy();
+        }
     }
 
     @Override

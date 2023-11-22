@@ -171,6 +171,7 @@ cc_binary_host {
         "slang_rs_object_ref_count.cpp",
         "slang_rs_reflection.cpp",
         "slang_rs_reflection_cpp.cpp",
+        "slang_rs_reflection_state.cpp",
         "slang_rs_reflect_utils.cpp",
         "slang_rs_special_func.cpp",
         "slang_rs_special_kernel_param.cpp",

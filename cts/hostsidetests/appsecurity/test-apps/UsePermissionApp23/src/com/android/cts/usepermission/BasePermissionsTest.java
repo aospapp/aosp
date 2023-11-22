@@ -17,6 +17,7 @@
 package com.android.cts.usepermission;
 
 import static junit.framework.Assert.assertEquals;
+
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 
@@ -34,7 +35,6 @@ import android.provider.Settings;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.runner.AndroidJUnit4;
 import android.support.test.uiautomator.By;
-import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject;
 import android.support.test.uiautomator.UiObject2;
@@ -44,9 +44,12 @@ import android.util.ArrayMap;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
-import android.widget.Switch;
+import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction;
 import android.widget.ScrollView;
+import android.widget.Switch;
+
 import junit.framework.Assert;
+
 import org.junit.Before;
 import org.junit.runner.RunWith;
 
@@ -433,22 +436,35 @@ public abstract class BasePermissionsTest {
 
     private static void scroll(AccessibilityNodeInfo node, boolean forward) throws Exception {
         getInstrumentation().getUiAutomation().executeAndWaitForEvent(
-                () -> node.performAction(forward
-                        ? AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
-                        : AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD),
+                () -> {
+                    if (isTv()) {
+                        if (forward) {
+                            getUiDevice().pressDPadDown();
+                        } else {
+                            for (int i = 0; i < 50; i++) {
+                                getUiDevice().pressDPadUp();
+                            }
+                        }
+                    } else {
+                        node.performAction(forward
+                                ? AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
+                                : AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD);
+                    }
+                },
                 (AccessibilityEvent event) -> event.getEventType()
-                        == AccessibilityEvent.TYPE_VIEW_SCROLLED,
+                        == AccessibilityEvent.TYPE_VIEW_SCROLLED
+                        || event.getEventType() == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
                 GLOBAL_TIMEOUT_MILLIS);
         node.refresh();
         waitForIdle();
     }
 
-
     private static void click(AccessibilityNodeInfo node) throws Exception {
         getInstrumentation().getUiAutomation().executeAndWaitForEvent(
                 () -> node.performAction(AccessibilityNodeInfo.ACTION_CLICK),
                 (AccessibilityEvent event) -> event.getEventType()
-                        == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
+                        == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
+                        || event.getEventType() == AccessibilityEvent.TYPE_WINDOWS_CHANGED,
                 GLOBAL_TIMEOUT_MILLIS);
     }
 

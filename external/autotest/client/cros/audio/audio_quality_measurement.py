@@ -9,7 +9,14 @@ import logging
 import math
 import numpy
 
-from autotest_lib.client.cros.audio import audio_analysis
+# Normal autotest environment.
+try:
+    import common
+    from autotest_lib.client.cros.audio import audio_analysis
+# Standalone execution without autotest environment.
+except ImportError:
+    import audio_analysis
+
 
 # The input signal should be one sine wave with fixed frequency which
 # can have silence before and/or after sine wave.

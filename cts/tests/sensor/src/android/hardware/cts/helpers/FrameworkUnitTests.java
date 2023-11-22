@@ -23,6 +23,7 @@ import android.hardware.cts.helpers.sensoroperations.SensorOperationTest;
 import android.hardware.cts.helpers.sensorverification.EventGapVerificationTest;
 import android.hardware.cts.helpers.sensorverification.EventOrderingVerificationTest;
 import android.hardware.cts.helpers.sensorverification.FrequencyVerificationTest;
+import android.hardware.cts.helpers.sensorverification.InitialValueVerificationTest;
 import android.hardware.cts.helpers.sensorverification.JitterVerificationTest;
 import android.hardware.cts.helpers.sensorverification.MagnitudeVerificationTest;
 import android.hardware.cts.helpers.sensorverification.MeanVerificationTest;
@@ -42,12 +43,13 @@ public class FrameworkUnitTests extends TestSuite {
         addTestSuite(SensorStatsTest.class);
 
         // sensorverification
+        addTestSuite(EventGapVerificationTest.class);
         addTestSuite(EventOrderingVerificationTest.class);
         addTestSuite(FrequencyVerificationTest.class);
+        addTestSuite(InitialValueVerificationTest.class);
         addTestSuite(JitterVerificationTest.class);
         addTestSuite(MagnitudeVerificationTest.class);
         addTestSuite(MeanVerificationTest.class);
-        addTestSuite(EventGapVerificationTest.class);
         addTestSuite(StandardDeviationVerificationTest.class);
         addTestSuite(TimestampClockSourceVerificationTest.class);
 

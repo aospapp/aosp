@@ -26,6 +26,7 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.support.annotation.AnyThread;
 import android.support.annotation.MainThread;
 import android.support.annotation.VisibleForTesting;
 import android.util.ArraySet;
@@ -35,8 +36,6 @@ import android.util.LruCache;
 
 import com.android.tv.common.MemoryManageable;
 import com.android.tv.common.SoftPreconditions;
-import com.android.tv.data.epg.EpgFetcher;
-import com.android.tv.experiments.Experiments;
 import com.android.tv.util.AsyncDbTask;
 import com.android.tv.util.Clock;
 import com.android.tv.util.MultiLongSparseArray;
@@ -51,6 +50,7 @@ import java.util.ListIterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 @MainThread
@@ -85,10 +85,12 @@ public class ProgramDataManager implements MemoryManageable {
     private final Clock mClock;
     private final ContentResolver mContentResolver;
     private boolean mStarted;
+    // Updated only on the main thread.
+    private volatile boolean mCurrentProgramsLoadFinished;
     private ProgramsUpdateTask mProgramsUpdateTask;
     private final LongSparseArray<UpdateCurrentProgramForChannelTask> mProgramUpdateTaskMap =
             new LongSparseArray<>();
-    private final Map<Long, Program> mChannelIdCurrentProgramMap = new HashMap<>();
+    private final Map<Long, Program> mChannelIdCurrentProgramMap = new ConcurrentHashMap<>();
     private final MultiLongSparseArray<OnCurrentProgramUpdatedListener>
             mChannelId2ProgramUpdatedListeners = new MultiLongSparseArray<>();
     private final Handler mHandler;
@@ -109,17 +111,14 @@ public class ProgramDataManager implements MemoryManageable {
 
     private boolean mPauseProgramUpdate = false;
     private final LruCache<Long, Program> mZeroLengthProgramCache = new LruCache<>(10);
-    private final EpgFetcher mEpgFetcher;
 
+    @MainThread
     public ProgramDataManager(Context context) {
-        this(context.getContentResolver(), Clock.SYSTEM, Looper.myLooper(),
-                EpgFetcher.getInstance(context));
+        this(context.getContentResolver(), Clock.SYSTEM, Looper.myLooper());
     }
 
     @VisibleForTesting
-    ProgramDataManager(ContentResolver contentResolver, Clock time, Looper looper,
-            EpgFetcher epgFetcher) {
-        mEpgFetcher = epgFetcher;
+    ProgramDataManager(ContentResolver contentResolver, Clock time, Looper looper) {
         mClock = time;
         mContentResolver = contentResolver;
         mHandler = new MyHandler(looper);
@@ -175,9 +174,6 @@ public class ProgramDataManager implements MemoryManageable {
         }
         mContentResolver.registerContentObserver(Programs.CONTENT_URI,
                 true, mProgramObserver);
-        if (mEpgFetcher != null && Experiments.CLOUD_EPG.get()) {
-            mEpgFetcher.start();
-        }
     }
 
     /**
@@ -190,10 +186,6 @@ public class ProgramDataManager implements MemoryManageable {
             return;
         }
         mStarted = false;
-
-        if (mEpgFetcher != null) {
-            mEpgFetcher.stop();
-        }
         mContentResolver.unregisterContentObserver(mProgramObserver);
         mHandler.removeCallbacksAndMessages(null);
 
@@ -205,11 +197,21 @@ public class ProgramDataManager implements MemoryManageable {
         }
     }
 
-    /**
-     * Returns the current program at the specified channel.
-     */
+    @AnyThread
+    public boolean isCurrentProgramsLoadFinished() {
+        return mCurrentProgramsLoadFinished;
+    }
+
+    /** Returns the current program at the specified channel. */
+    @AnyThread
     public Program getCurrentProgram(long channelId) {
         return mChannelIdCurrentProgramMap.get(channelId);
+    }
+
+    /** Returns all the current programs. */
+    @AnyThread
+    public List<Program> getCurrentPrograms() {
+        return new ArrayList<>(mChannelIdCurrentProgramMap.values());
     }
 
     /**
@@ -338,19 +340,19 @@ public class ProgramDataManager implements MemoryManageable {
     }
 
     private void notifyCurrentProgramUpdate(long channelId, Program program) {
-
         for (OnCurrentProgramUpdatedListener listener : mChannelId2ProgramUpdatedListeners
                 .get(channelId)) {
             listener.onCurrentProgramUpdated(channelId, program);
-            }
+        }
         for (OnCurrentProgramUpdatedListener listener : mChannelId2ProgramUpdatedListeners
                 .get(Channel.INVALID_ID)) {
             listener.onCurrentProgramUpdated(channelId, program);
-            }
+        }
     }
 
     private void updateCurrentProgram(long channelId, Program program) {
-        Program previousProgram = mChannelIdCurrentProgramMap.put(channelId, program);
+        Program previousProgram = program == null ? mChannelIdCurrentProgramMap.remove(channelId)
+                : mChannelIdCurrentProgramMap.put(channelId, program);
         if (!Objects.equals(program, previousProgram)) {
             if (mPrefetchEnabled) {
                 removePreviousProgramsAndUpdateCurrentProgramInCache(channelId, program);
@@ -581,22 +583,22 @@ public class ProgramDataManager implements MemoryManageable {
         protected void onPostExecute(List<Program> programs) {
             if (DEBUG) Log.d(TAG, "ProgramsUpdateTask done");
             mProgramsUpdateTask = null;
-            if (programs == null) {
-                return;
-            }
-            Set<Long> removedChannelIds = new HashSet<>(mChannelIdCurrentProgramMap.keySet());
-            for (Program program : programs) {
-                long channelId = program.getChannelId();
-                updateCurrentProgram(channelId, program);
-                removedChannelIds.remove(channelId);
-            }
-            for (Long channelId : removedChannelIds) {
-                if (mPrefetchEnabled) {
-                    mChannelIdProgramCache.remove(channelId);
+            if (programs != null) {
+                Set<Long> removedChannelIds = new HashSet<>(mChannelIdCurrentProgramMap.keySet());
+                for (Program program : programs) {
+                    long channelId = program.getChannelId();
+                    updateCurrentProgram(channelId, program);
+                    removedChannelIds.remove(channelId);
                 }
-                mChannelIdCurrentProgramMap.remove(channelId);
-                notifyCurrentProgramUpdate(channelId, null);
+                for (Long channelId : removedChannelIds) {
+                    if (mPrefetchEnabled) {
+                        mChannelIdProgramCache.remove(channelId);
+                    }
+                    mChannelIdCurrentProgramMap.remove(channelId);
+                    notifyCurrentProgramUpdate(channelId, null);
+                }
             }
+            mCurrentProgramsLoadFinished = true;
         }
     }
 

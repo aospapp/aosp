@@ -19,6 +19,7 @@ import fileinput
 import os
 import os.path
 import re
+import pprint
 
 # Parses the output of make install --dry-run and generates directives in the
 # form
@@ -67,3 +68,26 @@ class MakeInstallParser(object):
                 result.append("install['%s'] = ['%s']" % (target, src))
 
         return result
+
+def main():
+    arg_parser = argparse.ArgumentParser(
+        description='Parse the LTP make install --dry-run output into a list')
+    arg_parser.add_argument(
+        '--ltp-root',
+        dest='ltp_root',
+        required=True,
+        help='LTP Root dir')
+    arg_parser.add_argument(
+        '--dry-run-file',
+        dest='input_path',
+        required=True,
+        help='Path to LTP make install --dry-run output file')
+    args = arg_parser.parse_args()
+
+    make_install_parser = MakeInstallParser(args.ltp_root)
+    result = make_install_parser.ParseFile(args.input_path)
+
+    print pprint.pprint(result)
+
+if __name__ == '__main__':
+    main()

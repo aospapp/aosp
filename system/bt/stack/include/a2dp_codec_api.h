@@ -409,8 +409,8 @@ class A2dpCodecs {
 
  private:
   struct CompareBtBdaddr
-      : public std::binary_function<bt_bdaddr_t, bt_bdaddr_t, bool> {
-    bool operator()(const bt_bdaddr_t& lhs, const bt_bdaddr_t& rhs) const {
+      : public std::binary_function<RawAddress, RawAddress, bool> {
+    bool operator()(const RawAddress& lhs, const RawAddress& rhs) const {
       return (memcmp(&lhs, &rhs, sizeof(lhs)) < 0);
     }
   };
@@ -430,7 +430,7 @@ class A2dpCodecs {
   // A2DP Sink codecs ordered by priority
   std::list<A2dpCodecConfig*> ordered_sink_codecs_;
 
-  std::map<bt_bdaddr_t, IndexedCodecs*, CompareBtBdaddr> peer_codecs_;
+  std::map<RawAddress, IndexedCodecs*, CompareBtBdaddr> peer_codecs_;
 };
 
 /**
@@ -579,12 +579,6 @@ bool A2DP_CodecEquals(const uint8_t* p_codec_info_a,
 // contains invalid codec information.
 int A2DP_GetTrackSampleRate(const uint8_t* p_codec_info);
 
-// Gets the bits per audio sample for the A2DP codec.
-// |p_codec_info| is a pointer to the codec_info to decode.
-// Returns the bits per audio sample on success, or -1 if |p_codec_info|
-// contains invalid codec information.
-int A2DP_GetTrackBitsPerSample(const uint8_t* p_codec_info);
-
 // Gets the channel count for the A2DP codec.
 // |p_codec_info| is a pointer to the codec_info to decode.
 // Returns the channel count on success, or -1 if |p_codec_info|
@@ -648,6 +642,11 @@ const char* A2DP_CodecIndexStr(btav_a2dp_codec_index_t codec_index);
 // Returns true on success, otherwise false.
 bool A2DP_InitCodecConfig(btav_a2dp_codec_index_t codec_index,
                           tAVDT_CFG* p_cfg);
+
+// Decodes and displays A2DP codec info when using |LOG_DEBUG|.
+// |p_codec_info| is a pointer to the codec_info to decode and display.
+// Returns true if the codec information is valid, otherwise false.
+bool A2DP_DumpCodecInfo(const uint8_t* p_codec_info);
 
 // Add enum-based flag operators to the btav_a2dp_codec_config_t fields
 #ifndef DEFINE_ENUM_FLAG_OPERATORS

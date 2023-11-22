@@ -82,12 +82,6 @@
                             </td>
                         </tr>
                         <tr>
-                            <td class="rowtitle">Tests Not Executed</td>
-                            <td>
-                                <xsl:value-of select="Result/Summary/@not_executed"/>
-                            </td>
-                        </tr>
-                        <tr>
                             <td class="rowtitle">Modules Done</td>
                             <td>
                                 <xsl:value-of select="Result/Summary/@modules_done"/>
@@ -134,7 +128,6 @@
                             <th>Module</th>
                             <th>Passed</th>
                             <th>Failed</th>
-                            <th>Not Executed</th>
                             <th>Total Tests</th>
                         </tr>
                         <xsl:for-each select="Result/Module">
@@ -150,10 +143,7 @@
                                     <xsl:value-of select="count(TestCase/Test[@result = 'fail'])"/>
                                 </td>
                                 <td>
-                                    <xsl:value-of select="@not_executed"/>
-                                </td>
-                                <td>
-                                    <xsl:value-of select="count(TestCase/Test) + @not_executed"/>
+                                    <xsl:value-of select="count(TestCase/Test)"/>
                                 </td>
                             </tr>
                         </xsl:for-each> <!-- end Module -->

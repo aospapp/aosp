@@ -19,7 +19,7 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(call all-subdir-cpp-files)
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/include $(LOCAL_PATH)/src
 LOCAL_STATIC_LIBRARIES += libutils liblog libtinyalsa libcutils libtinyxml2
-LOCAL_CFLAGS:= -g -fno-exceptions
+LOCAL_CFLAGS:= -g -fno-exceptions -Wno-unused-parameter
 LOCAL_LDFLAGS:= -g -lrt -ldl -lm -fno-exceptions
 LOCAL_MODULE_HOST_OS := linux
 LOCAL_MODULE:= libcts_audio_quality

@@ -20,14 +20,20 @@ LOCAL_SRC_FILES := $(call all-java-files-under, ../../common/host-side/tradefed/
 
 LOCAL_JAVA_RESOURCE_DIRS := res
 LOCAL_JAVA_RESOURCE_DIRS += ../../common/host-side/tradefed/res
+LOCAL_MODULE := cts-tradefed-harness
+LOCAL_JAVA_LIBRARIES += tradefed compatibility-host-util
+include $(BUILD_HOST_JAVA_LIBRARY)
 
+include $(CLEAR_VARS)
 LOCAL_SUITE_BUILD_NUMBER := $(BUILD_NUMBER_FROM_FILE)
 LOCAL_SUITE_TARGET_ARCH := $(TARGET_ARCH)
 LOCAL_SUITE_NAME := CTS
 LOCAL_SUITE_FULLNAME := "Compatibility Test Suite"
-LOCAL_SUITE_VERSION := 8.0_r1
+LOCAL_SUITE_VERSION := 8.1_r1
+LOCAL_STATIC_JAVA_LIBRARIES += cts-tradefed-harness
 
 LOCAL_MODULE := cts-tradefed
+LOCAL_COMPATIBILITY_SUITE := general-tests
 include cts/error_prone_rules.mk
 include $(BUILD_COMPATIBILITY_SUITE)
 

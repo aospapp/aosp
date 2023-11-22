@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 import re
-import shlex
+import subprocess
 
 from autotest_lib.client.cros.audio import cmd_utils
 
@@ -11,10 +11,10 @@ from autotest_lib.client.cros.audio import cmd_utils
 ARECORD_PATH = '/usr/bin/arecord'
 APLAY_PATH = '/usr/bin/aplay'
 AMIXER_PATH = '/usr/bin/amixer'
-CARD_NUM_RE = re.compile('(\d+) \[.*\]:.*')
-DEV_NUM_RE = re.compile('.* \[.*\], device (\d+):.*')
-CONTROL_NAME_RE = re.compile("name='(.*)'")
-SCONTROL_NAME_RE = re.compile("Simple mixer control '(.*)'")
+CARD_NUM_RE = re.compile(r'(\d+) \[.*\]:')
+DEV_NUM_RE = re.compile(r'.* \[.*\], device (\d+):')
+CONTROL_NAME_RE = re.compile(r"name='(.*)'")
+SCONTROL_NAME_RE = re.compile(r"Simple mixer control '(.*)'")
 
 CARD_PREF_RECORD_DEV_IDX = {
     'bxtda7219max': 3,
@@ -72,8 +72,8 @@ def _get_soundcard_controls(card_id):
     Controls with iface=CARD are parsed from the output and returned in a set.
     '''
 
-    cmd = AMIXER_PATH + ' -c %d controls' % card_id
-    p = cmd_utils.popen(shlex.split(cmd), stdout=cmd_utils.PIPE)
+    cmd = [AMIXER_PATH, '-c', str(card_id), 'controls']
+    p = cmd_utils.popen(cmd, stdout=subprocess.PIPE)
     output, _ = p.communicate()
     if p.wait() != 0:
         raise RuntimeError('amixer command failed')
@@ -105,8 +105,8 @@ def _get_soundcard_scontrols(card_id):
     Simple controls are parsed from the output and returned in a set.
     '''
 
-    cmd = AMIXER_PATH + ' -c %d scontrols' % card_id
-    p = cmd_utils.popen(shlex.split(cmd), stdout=cmd_utils.PIPE)
+    cmd = [AMIXER_PATH, '-c', str(card_id), 'scontrols']
+    p = cmd_utils.popen(cmd, stdout=subprocess.PIPE)
     output, _ = p.communicate()
     if p.wait() != 0:
         raise RuntimeError('amixer command failed')
@@ -153,9 +153,9 @@ def get_record_card_name(card_idx):
 
     Returns the card name inside the square brackets of arecord output lines.
     '''
-    card_name_re = re.compile('card %d: .*?\[(.*?)\]' % card_idx)
-    cmd = ARECORD_PATH + ' -l'
-    p = cmd_utils.popen(shlex.split(cmd), stdout=cmd_utils.PIPE)
+    card_name_re = re.compile(r'card %d: .*?\[(.*?)\]' % card_idx)
+    cmd = [ARECORD_PATH, '-l']
+    p = cmd_utils.popen(cmd, stdout=subprocess.PIPE)
     output, _ = p.communicate()
     if p.wait() != 0:
         raise RuntimeError('arecord -l command failed')
@@ -195,8 +195,8 @@ def get_default_record_device():
         return 'plughw:%d,%d' % (card_id, CARD_PREF_RECORD_DEV_IDX[card_name])
 
     # Get first device id of this card.
-    cmd = ARECORD_PATH + ' -l'
-    p = cmd_utils.popen(shlex.split(cmd), stdout=cmd_utils.PIPE)
+    cmd = [ARECORD_PATH, '-l']
+    p = cmd_utils.popen(cmd, stdout=subprocess.PIPE)
     output, _ = p.communicate()
     if p.wait() != 0:
         raise RuntimeError('arecord -l command failed')
@@ -212,7 +212,7 @@ def get_default_record_device():
 
 
 def _get_sysdefault(cmd):
-    p = cmd_utils.popen(shlex.split(cmd), stdout=cmd_utils.PIPE)
+    p = cmd_utils.popen(cmd, stdout=subprocess.PIPE)
     output, _ = p.communicate()
     if p.wait() != 0:
         raise RuntimeError('%s failed' % cmd)
@@ -226,13 +226,13 @@ def _get_sysdefault(cmd):
 def get_sysdefault_playback_device():
     '''Gets the sysdefault device from aplay -L output.'''
 
-    return _get_sysdefault(APLAY_PATH + ' -L')
+    return _get_sysdefault([APLAY_PATH, '-L'])
 
 
 def get_sysdefault_record_device():
     '''Gets the sysdefault device from arecord -L output.'''
 
-    return _get_sysdefault(ARECORD_PATH + ' -L')
+    return _get_sysdefault([ARECORD_PATH, '-L'])
 
 
 def playback(*args, **kwargs):
@@ -308,14 +308,15 @@ def mixer_cmd(card_id, cmd):
     @param cmd: Amixer command to execute.
     @raise RuntimeError: If failed to execute command.
 
-    Amixer command like "set PCM 2dB+" with card_id 1 will be executed as:
+    Amixer command like ['set', 'PCM', '2dB+'] with card_id 1 will be executed
+    as:
         amixer -c 1 set PCM 2dB+
 
     Command output will be returned if any.
     '''
 
-    cmd = AMIXER_PATH + ' -c %d ' % card_id + cmd
-    p = cmd_utils.popen(shlex.split(cmd), stdout=cmd_utils.PIPE)
+    cmd = [AMIXER_PATH, '-c', str(card_id)] + cmd
+    p = cmd_utils.popen(cmd, stdout=subprocess.PIPE)
     output, _ = p.communicate()
     if p.wait() != 0:
         raise RuntimeError('amixer command failed')

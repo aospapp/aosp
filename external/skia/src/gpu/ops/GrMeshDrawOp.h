@@ -25,52 +25,21 @@ class GrMeshDrawOp : public GrDrawOp {
 public:
     class Target;
 
-    /**
-     * Performs analysis of the fragment processors in GrProcessorSet and GrAppliedClip using the
-     * initial color and coverage from this op's geometry processor.
-     */
-    void analyzeProcessors(GrProcessorSet::FragmentProcessorAnalysis* analysis,
-                           const GrProcessorSet& processors,
-                           const GrAppliedClip* appliedClip,
-                           const GrCaps& caps) const {
-        GrPipelineAnalysisColor inputColor;
-        GrPipelineAnalysisCoverage inputCoverage;
-        this->getFragmentProcessorAnalysisInputs(&inputColor, &inputCoverage);
-        analysis->init(inputColor, inputCoverage, processors, appliedClip, caps);
-    }
-
-    void initPipeline(const GrPipeline::InitArgs& args) {
-        this->applyPipelineOptimizations(fPipeline.init(args));
-    }
-
-    /**
-     * Mesh draw ops use a legacy system in GrRenderTargetContext where the pipeline is created when
-     * the op is recorded. These methods are unnecessary as this information is in the pipeline.
-     */
-    FixedFunctionFlags fixedFunctionFlags() const override {
-        SkFAIL("This should never be called for mesh draw ops.");
-        return FixedFunctionFlags::kNone;
-    }
-    bool xpRequiresDstTexture(const GrCaps&, const GrAppliedClip*) override {
-        SkFAIL("Should never be called for mesh draw ops.");
-        return false;
-    }
-
 protected:
     GrMeshDrawOp(uint32_t classID);
 
-    /** Helper for rendering instances using an instanced index index buffer. This class creates the
+    /** Helper for rendering repeating meshes using a patterned index buffer. This class creates the
         space for the vertices and flushes the draws to the GrMeshDrawOp::Target. */
-    class InstancedHelper {
+    class PatternHelper {
     public:
-        InstancedHelper() {}
+        PatternHelper(GrPrimitiveType primitiveType) : fMesh(primitiveType) {}
         /** Returns the allocated storage for the vertices. The caller should populate the vertices
             before calling recordDraws(). */
-        void* init(Target*, GrPrimitiveType, size_t vertexStride, const GrBuffer*,
-                   int verticesPerInstance, int indicesPerInstance, int instancesToDraw);
+        void* init(Target*, size_t vertexStride, const GrBuffer*, int verticesPerRepetition,
+                   int indicesPerRepetition, int repeatCount);
 
         /** Call after init() to issue draws to the GrMeshDrawOp::Target.*/
-        void recordDraw(Target*, const GrGeometryProcessor*);
+        void recordDraw(Target*, const GrGeometryProcessor*, const GrPipeline*);
 
     private:
         GrMesh fMesh;
@@ -80,39 +49,21 @@ protected:
     static const int kIndicesPerQuad = 6;
 
     /** A specialization of InstanceHelper for quad rendering. */
-    class QuadHelper : private InstancedHelper {
+    class QuadHelper : private PatternHelper {
     public:
-        QuadHelper() : INHERITED() {}
+        QuadHelper() : INHERITED(GrPrimitiveType::kTriangles) {}
         /** Finds the cached quad index buffer and reserves vertex space. Returns nullptr on failure
             and on success a pointer to the vertex data that the caller should populate before
             calling recordDraws(). */
         void* init(Target*, size_t vertexStride, int quadsToDraw);
 
-        using InstancedHelper::recordDraw;
+        using PatternHelper::recordDraw;
 
     private:
-        typedef InstancedHelper INHERITED;
+        typedef PatternHelper INHERITED;
     };
 
-    const GrPipeline* pipeline() const {
-        SkASSERT(fPipeline.isInitialized());
-        return &fPipeline;
-    }
-
 private:
-    /**
-     * Provides information about the GrPrimitiveProccesor color and coverage outputs which become
-     * inputs to the first color and coverage fragment processors.
-     */
-    virtual void getFragmentProcessorAnalysisInputs(GrPipelineAnalysisColor*,
-                                                    GrPipelineAnalysisCoverage*) const = 0;
-
-    /**
-     * After GrPipeline analysis is complete this is called so that the op can use the analysis
-     * results when constructing its GrPrimitiveProcessor.
-     */
-    virtual void applyPipelineOptimizations(const GrPipelineOptimizations&) = 0;
-
     void onPrepare(GrOpFlushState* state) final;
     void onExecute(GrOpFlushState* state) final;
 
@@ -126,13 +77,13 @@ private:
     struct QueuedDraw {
         int fMeshCnt = 0;
         GrPendingProgramElement<const GrGeometryProcessor> fGeometryProcessor;
+        const GrPipeline* fPipeline;
     };
 
     // All draws in all the GrMeshDrawOps have implicit tokens based on the order they are enqueued
     // globally across all ops. This is the offset of the first entry in fQueuedDraws.
     // fQueuedDraws[i]'s token is fBaseDrawToken + i.
     GrDrawOpUploadToken fBaseDrawToken;
-    GrPipeline fPipeline;
     SkSTArray<4, GrMesh> fMeshes;
     SkSTArray<4, QueuedDraw, true> fQueuedDraws;
 

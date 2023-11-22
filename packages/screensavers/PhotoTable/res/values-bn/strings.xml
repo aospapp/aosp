@@ -24,7 +24,7 @@
     <string name="stock_photo_album_name" msgid="3150527596227525460">"ফটো ভান্ডার"</string>
     <string name="local_source_name" msgid="6487253091085518505">"ডিভাইসে থাকা ফটোগুলি"</string>
     <string name="need_to_configure" msgid="1269102638159389032">"কোনো ফটো নির্বাচিত নেই"</string>
-    <string name="photodream_select_all" msgid="6364858563337927827">"সকল নির্বাচন করুন"</string>
+    <string name="photodream_select_all" msgid="6364858563337927827">"সকল বেছে নিন"</string>
     <string name="photodream_select_none" msgid="8816452124894525861">"সবগুলিকে নির্বাচনমুক্ত করুন"</string>
     <string name="no_photos" msgid="4262083523147564199">"ডিভাইসে কোনো ফটো নেয়৷"</string>
 </resources>

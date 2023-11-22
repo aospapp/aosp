@@ -169,7 +169,7 @@ void LibSharedCodeGen::GenerateCppBodyGetAttributeFunction(
 void LibSharedCodeGen::GenerateClassConstructionFunction(Formatter& out,
     const ComponentSpecificationMessage& /*message*/,
     const string& fuzzer_extended_class_name) {
-  out << fuzzer_extended_class_name << "() : FuzzerBase(LIB_SHARED) {}\n";
+  out << fuzzer_extended_class_name << "() : DriverBase(LIB_SHARED) {}\n";
 }
 
 }  // namespace vts

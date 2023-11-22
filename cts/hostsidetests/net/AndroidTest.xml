@@ -15,6 +15,7 @@
 -->
 <configuration description="Config for CTS net host test cases">
     <option name="config-descriptor:metadata" key="component" value="networking" />
+    <target_preparer class="com.android.cts.net.NetPolicyTestsPreparer" />
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
         <option name="jar" value="CtsHostsideNetworkTests.jar" />
         <option name="runtime-hint" value="3m56s" />

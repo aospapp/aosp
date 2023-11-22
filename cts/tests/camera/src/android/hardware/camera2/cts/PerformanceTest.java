@@ -66,7 +66,7 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
     private static final String TAG = "PerformanceTest";
     private static final String REPORT_LOG_NAME = "CtsCameraTestCases";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
-    private static final int NUM_TEST_LOOPS = 5;
+    private static final int NUM_TEST_LOOPS = 10;
     private static final int NUM_MAX_IMAGES = 4;
     private static final int NUM_RESULTS_WAIT = 30;
     private static final int[] REPROCESS_FORMATS = {ImageFormat.YUV_420_888, ImageFormat.PRIVATE};
@@ -205,6 +205,39 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
             }
             counter++;
             mReportLog.submit(getInstrumentation());
+
+            if (VERBOSE) {
+                Log.v(TAG, "Camera " + id + " device open times(ms): "
+                        + Arrays.toString(cameraOpenTimes)
+                        + ". Average(ms): " + Stat.getAverage(cameraOpenTimes)
+                        + ". Min(ms): " + Stat.getMin(cameraOpenTimes)
+                        + ". Max(ms): " + Stat.getMax(cameraOpenTimes));
+                Log.v(TAG, "Camera " + id + " configure stream times(ms): "
+                        + Arrays.toString(configureStreamTimes)
+                        + ". Average(ms): " + Stat.getAverage(configureStreamTimes)
+                        + ". Min(ms): " + Stat.getMin(configureStreamTimes)
+                        + ". Max(ms): " + Stat.getMax(configureStreamTimes));
+                Log.v(TAG, "Camera " + id + " start preview times(ms): "
+                        + Arrays.toString(startPreviewTimes)
+                        + ". Average(ms): " + Stat.getAverage(startPreviewTimes)
+                        + ". Min(ms): " + Stat.getMin(startPreviewTimes)
+                        + ". Max(ms): " + Stat.getMax(startPreviewTimes));
+                Log.v(TAG, "Camera " + id + " stop preview times(ms): "
+                        + Arrays.toString(stopPreviewTimes)
+                        + ". Average(ms): " + Stat.getAverage(stopPreviewTimes)
+                        + ". nMin(ms): " + Stat.getMin(stopPreviewTimes)
+                        + ". nMax(ms): " + Stat.getMax(stopPreviewTimes));
+                Log.v(TAG, "Camera " + id + " device close times(ms): "
+                        + Arrays.toString(cameraCloseTimes)
+                        + ". Average(ms): " + Stat.getAverage(cameraCloseTimes)
+                        + ". Min(ms): " + Stat.getMin(cameraCloseTimes)
+                        + ". Max(ms): " + Stat.getMax(cameraCloseTimes));
+                Log.v(TAG, "Camera " + id + " camera launch times(ms): "
+                        + Arrays.toString(cameraLaunchTimes)
+                        + ". Average(ms): " + Stat.getAverage(cameraLaunchTimes)
+                        + ". Min(ms): " + Stat.getMin(cameraLaunchTimes)
+                        + ". Max(ms): " + Stat.getMax(cameraLaunchTimes));
+            }
         }
         if (mCameraIds.length != 0) {
             String streamName = "test_camera_launch_average";
@@ -436,14 +469,15 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
                     // Find minimum frame duration for YUV_420_888
                     StreamConfigurationMap config = mStaticInfo.getCharacteristics().get(
                             CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+
                     final long minStillFrameDuration =
                             config.getOutputMinFrameDuration(ImageFormat.YUV_420_888, maxYuvSize);
-                    Range<Integer> targetRange = getSuitableFpsRangeForDuration(id,
-                            minStillFrameDuration);
-                    previewBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
-                            targetRange);
-                    captureBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
-                            targetRange);
+                    if (minStillFrameDuration > 0) {
+                        Range<Integer> targetRange = getSuitableFpsRangeForDuration(id,
+                                minStillFrameDuration);
+                        previewBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, targetRange);
+                        captureBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, targetRange);
+                    }
 
                     prepareCaptureAndStartPreview(previewBuilder, captureBuilder,
                             mOrderedPreviewSizes.get(0), maxYuvSize,
@@ -1085,7 +1119,7 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
 
             if (imageAvailable.block(timeout)) {
                 imageAvailable.close();
-                imageReceived = false;
+                imageReceived = true;
             } else {
                 throw new TimeoutRuntimeException("Unable to get the first image after "
                         + CameraTestUtils.CAPTURE_IMAGE_TIMEOUT_MS + "ms");

@@ -18,7 +18,9 @@ package com.android.tv.dvr;
 
 import android.support.annotation.MainThread;
 
-import com.android.tv.dvr.ScheduledRecording.RecordingState;
+import com.android.tv.dvr.data.ScheduledRecording;
+import com.android.tv.dvr.data.ScheduledRecording.RecordingState;
+import com.android.tv.dvr.data.SeriesRecording;
 
 /**
  * Full data manager.
@@ -27,7 +29,7 @@ import com.android.tv.dvr.ScheduledRecording.RecordingState;
  * for internal use only. Do not call them from UI directly.
  */
 @MainThread
-interface WritableDvrDataManager extends DvrDataManager {
+public interface WritableDvrDataManager extends DvrDataManager {
     /**
      * Adds new recordings.
      */

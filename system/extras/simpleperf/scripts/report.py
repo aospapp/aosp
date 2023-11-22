@@ -28,9 +28,16 @@ import os.path
 import re
 import subprocess
 import sys
-from tkFont import *
-from Tkinter import *
-from ttk import *
+
+try:
+    from tkinter import *
+    from tkinter.font import Font
+    from tkinter.ttk import *
+except ImportError:
+    from Tkinter import *
+    from tkFont import Font
+    from ttk import *
+
 from utils import *
 
 PAD_X = 3
@@ -111,6 +118,8 @@ def parse_event_reports(lines):
   vertical_columns = []
   last_node = None
 
+  has_skipped_callgraph = False
+
   for line in lines[line_id:]:
     if not line:
       in_report_context = not in_report_context
@@ -139,6 +148,10 @@ def parse_event_reports(lines):
 
       if not line.strip('| \t'):
         continue
+      if line.find('skipped in brief callgraph mode') != -1:
+        has_skipped_callgraph = True
+        continue
+
       if line.find('-') == -1:
         line = line.strip('| \t')
         function_name = line
@@ -168,6 +181,9 @@ def parse_event_reports(lines):
         call_tree_stack[depth] = node
         last_node = node
 
+  if has_skipped_callgraph:
+      log_warning('some callgraphs are skipped in brief callgraph mode')
+
   return event_reports
 
 
@@ -179,7 +195,7 @@ class ReportWindow(object):
     frame = Frame(master)
     frame.pack(fill=BOTH, expand=1)
 
-    font = Font(family='courier', size=10)
+    font = Font(family='courier', size=12)
 
     # Report Context
     for line in report_context:
@@ -230,20 +246,19 @@ class ReportWindow(object):
 
   def display_call_tree(self, tree, parent_id, node, indent):
     id = parent_id
-    indent_str = '  ' * indent
+    indent_str = '    ' * indent
 
     if node.percentage != 100.0:
-      percentage_str = '%.2f%%' % node.percentage
+      percentage_str = '%.2f%% ' % node.percentage
     else:
       percentage_str = ''
-    first_open = True if node.percentage == 100.0 else False
 
     for i in range(len(node.call_stack)):
       s = indent_str
-      s += '+ ' if node.children else '  '
+      s += '+ ' if node.children and i == len(node.call_stack) - 1 else '  '
       s += percentage_str if i == 0 else ' ' * len(percentage_str)
       s += node.call_stack[i]
-      child_open = first_open if i == 0 else True
+      child_open = False if i == len(node.call_stack) - 1 and indent > 1 else True
       id = tree.insert(id, 'end', None, values=[s], open=child_open,
                        tag='set_font')
 
@@ -271,7 +286,7 @@ def display_report_file(report_file):
 def call_simpleperf_report(args, report_file):
   output_fh = open(report_file, 'w')
   simpleperf_path = get_host_binary_path('simpleperf')
-  args = [simpleperf_path, 'report'] + args
+  args = [simpleperf_path, 'report', '--full-callgraph'] + args
   subprocess.check_call(args, stdout=output_fh)
   output_fh.close()
 

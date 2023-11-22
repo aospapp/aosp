@@ -14,10 +14,10 @@ include $(LOCAL_PATH)/../../../android-webrtc.mk
 
 LOCAL_ARM_MODE := arm
 LOCAL_MODULE := libwebrtc_system_wrappers
+LOCAL_VENDOR_MODULE := true
 LOCAL_MODULE_TAGS := optional
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := \
-    android/cpu-features.c \
     cpu_features_android.c \
     sort.cc \
     aligned_malloc.cc \
@@ -61,5 +61,7 @@ LOCAL_NDK_STL_VARIANT := $(WEBRTC_STL)
 LOCAL_SDK_VERSION := 14
 LOCAL_MODULE := $(LOCAL_MODULE)_$(WEBRTC_STL)
 endif
+
+LOCAL_WHOLE_STATIC_LIBRARIES += cpufeatures
 
 include $(BUILD_STATIC_LIBRARY)

@@ -22,11 +22,13 @@ class moblab_RunSuite(moblab_test.MoblabTest):
     version = 1
 
 
-    def run_once(self, host, suite_name):
+    def run_once(self, host, suite_name, moblab_suite_max_retries):
         """Runs a suite on a Moblab Host against its test DUTS.
 
         @param host: Moblab Host that will run the suite.
         @param suite_name: Name of the suite to run.
+        @param moblab_suite_max_retries: The maximum number of test retries
+                allowed within the suite launched on moblab.
 
         @raises AutoservRunError if the suite does not complete successfully.
         """
@@ -47,9 +49,10 @@ class moblab_RunSuite(moblab_test.MoblabTest):
         try:
             result = host.run_as_moblab(
                     "%s/site_utils/run_suite.py --pool='' "
-                    "--board=%s --build=%s --suite_name=%s" %
+                    "--board=%s --build=%s --suite_name=%s --retry=True "
+                    "--max_retries=%d" %
                     (moblab_host.AUTOTEST_INSTALL_DIR, board, build,
-                     suite_name), timeout=10800)
+                     suite_name, moblab_suite_max_retries), timeout=10800)
         except error.AutoservRunError as e:
             # Collect the results and logs from the moblab device.
             moblab_logs_dir = os.path.join(self.resultsdir, 'moblab_logs')

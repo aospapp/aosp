@@ -30,7 +30,6 @@ static constexpr int DEX2OAT_FROM_SCRATCH        = 1;
 static constexpr int DEX2OAT_FOR_BOOT_IMAGE      = 2;
 static constexpr int DEX2OAT_FOR_FILTER          = 3;
 static constexpr int DEX2OAT_FOR_RELOCATION      = 4;
-static constexpr int PATCHOAT_FOR_RELOCATION     = 5;
 
 // Clear the reference profile for the primary apk of the given package.
 bool clear_primary_reference_profile(const std::string& pkgname);
@@ -51,6 +50,10 @@ bool analyze_primary_profiles(uid_t uid, const std::string& pkgname);
 
 bool dump_profiles(int32_t uid, const std::string& pkgname, const char* code_paths);
 
+bool copy_system_profile(const std::string& system_profile,
+                         uid_t packageUid,
+                         const std::string& data_profile_location);
+
 bool delete_odex(const char* apk_path, const char* instruction_set, const char* output_path);
 
 bool reconcile_secondary_dex_file(const std::string& dex_path,
@@ -60,7 +63,8 @@ bool reconcile_secondary_dex_file(const std::string& dex_path,
 
 int dexopt(const char *apk_path, uid_t uid, const char *pkgName, const char *instruction_set,
         int dexopt_needed, const char* oat_dir, int dexopt_flags, const char* compiler_filter,
-        const char* volume_uuid, const char* shared_libraries, const char* se_info);
+        const char* volume_uuid, const char* class_loader_context, const char* se_info,
+        bool downgrade);
 
 }  // namespace installd
 }  // namespace android

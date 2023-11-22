@@ -210,12 +210,9 @@ public class DialogTest extends ActivityInstrumentationTestCase2<DialogStubActiv
         assertFalse(d.isShowing());
     }
 
-    public void testOnSaveInstanceState() {
+    public void testOnSaveInstanceState() throws InterruptedException {
         startDialogActivity(DialogStubActivity.TEST_ONSTART_AND_ONSTOP);
         final TestDialog d = (TestDialog) mActivity.getDialog();
-
-        assertFalse(d.isOnSaveInstanceStateCalled);
-        assertFalse(TestDialog.isOnRestoreInstanceStateCalled);
 
         //skip if the device doesn't support both of portrait and landscape orientation screens.
         final PackageManager pm = mContext.getPackageManager();
@@ -224,10 +221,11 @@ public class DialogTest extends ActivityInstrumentationTestCase2<DialogStubActiv
             return;
         }
 
-        OrientationTestUtils.toggleOrientationSync(mActivity, mInstrumentation);
-
-        assertTrue(d.isOnSaveInstanceStateCalled);
-        assertTrue(TestDialog.isOnRestoreInstanceStateCalled);
+        d.onSaveInstanceStateObserver.startObserving();
+        TestDialog.onRestoreInstanceStateObserver.startObserving();
+        OrientationTestUtils.toggleOrientation(mActivity);
+        d.onSaveInstanceStateObserver.await();
+        TestDialog.onRestoreInstanceStateObserver.await();
     }
 
     public void testGetCurrentFocus() throws Throwable {

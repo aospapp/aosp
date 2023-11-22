@@ -21,7 +21,7 @@
 #   docs.html
 #   ../src/camera_metadata_tag_info.c
 #   ../src/camera_metadata_tags.h
-#   ../../../../frameworks/av/include/camera/ndk/NdkCameraMetadataTags.h
+#   ../../../../frameworks/av/camera/ndk/include/camera/NdkCameraMetadataTags.h
 #   ../../../../frameworks/av/camera/ndk/impl/ACameraMetadata.cpp
 #   ../../../../cts/tests/camera/src/android/hardware/camera2/cts/CaptureResultTest.java
 #   ../../../../frameworks/base/core/java/android/hardware/camera2/CameraCharacteristics.java
@@ -38,7 +38,7 @@ fwkdir="$ANDROID_BUILD_TOP/frameworks/base/core/java/android/hardware/camera2/"
 fwkdir_html="$ANDROID_BUILD_TOP/frameworks/base/docs/html"
 ctsdir="$ANDROID_BUILD_TOP/cts/tests/camera/src/android/hardware/camera2/cts"
 outdir="$ANDROID_PRODUCT_OUT/obj/ETC/system-media-camera-docs_intermediates"
-ndk_header_dir="$ANDROID_BUILD_TOP/frameworks/av/include/camera/ndk"
+ndk_header_dir="$ANDROID_BUILD_TOP/frameworks/av/camera/ndk/include/camera"
 ndk_impl_dir="$ANDROID_BUILD_TOP/frameworks/av/camera/ndk/impl"
 device_info_dir="$ANDROID_BUILD_TOP/cts/tools/cts-device-info/"`
         `"src/com/android/cts/deviceinfo"

@@ -16,12 +16,14 @@
 package com.android.documentsui.testing;
 
 import android.provider.DocumentsContract.Document;
+import android.support.test.InstrumentationRegistry;
 import android.test.mock.MockContentResolver;
 
 import com.android.documentsui.FocusManager;
 import com.android.documentsui.Injector;
 import com.android.documentsui.archives.ArchivesProvider;
 import com.android.documentsui.base.DocumentInfo;
+import com.android.documentsui.base.Features;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.State;
 import com.android.documentsui.dirlist.TestFocusHandler;
@@ -52,10 +54,11 @@ public class TestEnv {
     public static DocumentInfo FILE_ARCHIVE;
     public static DocumentInfo FILE_IN_ARCHIVE;
     public static DocumentInfo FILE_VIRTUAL;
+    public static DocumentInfo FILE_READ_ONLY;
 
     public final TestScheduledExecutorService mExecutor;
     public final State state = new State();
-    public final TestProvidersAccess roots = new TestProvidersAccess();
+    public final TestProvidersAccess providers = new TestProvidersAccess();
     public final TestDocumentsAccess docs = new TestDocumentsAccess();
     public final TestFocusHandler focusHandler = new TestFocusHandler();
     public final TestDialogController dialogs = new TestDialogController();
@@ -64,15 +67,17 @@ public class TestEnv {
     public final SelectionManager selectionMgr;
     public final TestSearchViewManager searchViewManager;
     public final Injector injector;
-    public final TestFeatures features;
+    public final Features features;
 
     public final MockContentResolver contentResolver;
-    public final Map<String, TestDocumentsProvider> providers;
+    public final Map<String, TestDocumentsProvider> mockProviders;
 
     private TestEnv(String authority) {
         state.sortModel = SortModel.createModel();
         mExecutor = new TestScheduledExecutorService();
-        features = new TestFeatures();
+        features = new Features.RuntimeFeatures(
+                InstrumentationRegistry.getInstrumentation().getTargetContext().getResources(),
+                null);
         model = new TestModel(authority, features);
         archiveModel = new TestModel(ArchivesProvider.AUTHORITY, features);
         selectionMgr = SelectionManagers.createTestInstance();
@@ -83,22 +88,25 @@ public class TestEnv {
                 null,       //ScopedPreferences are not required for tests
                 null,   //a MessageBuilder is not required for tests
                 dialogs,
+                new TestFileTypeLookup(),
+                (roots) -> {},  // not sure why, but java gets angry when I declare roots type.
                 model);
+
         injector.selectionMgr = selectionMgr;
         injector.focusManager = new FocusManager(features, selectionMgr, null, null, 0);
         injector.searchManager = searchViewManager;
 
         contentResolver = new MockContentResolver();
-        providers = new HashMap<>(roots.getRootsBlocking().size());
+        mockProviders = new HashMap<>(providers.getRootsBlocking().size());
         registerProviders();
     }
 
     private void registerProviders() {
-        for (RootInfo root : roots.getRootsBlocking()) {
-            if (!providers.containsKey(root.authority)) {
+        for (RootInfo root : providers.getRootsBlocking()) {
+            if (!mockProviders.containsKey(root.authority)) {
                 TestDocumentsProvider provider = new TestDocumentsProvider(root.authority);
                 contentResolver.addProvider(root.authority, provider);
-                providers.put(root.authority, provider);
+                mockProviders.put(root.authority, provider);
             }
         }
     }
@@ -133,8 +141,9 @@ public class TestEnv {
                 "UbuntuFlappyBird.iso",
                 Document.FLAG_SUPPORTS_DELETE
                         | Document.FLAG_PARTIAL);
+        FILE_READ_ONLY = model.createFile("topsecretsystemfile.bin", 0);
         FILE_ARCHIVE = model.createFile("whatsinthere.zip");
-        FILE_IN_ARCHIVE = archiveModel.createFile("whatsinthere.png");
+        FILE_IN_ARCHIVE = archiveModel.createFile("whatsinthere.png", 0);
         FILE_VIRTUAL = model.createDocument(
                 "virtualdoc.vnd",
                 "application/vnd.google-apps.document",

@@ -25,6 +25,7 @@ from acts import records
 from acts import signals
 from acts import tracelogger
 from acts import utils
+from acts.test_utils.tel.tel_test_utils import run_multithread_func
 
 # Macro strings for test result reporting
 TEST_CASE_TOKEN = "[Test Case]"
@@ -223,12 +224,10 @@ class BaseTestClass(object):
             record: The records.TestResultRecord object for the failed test
                     case.
         """
-        test_name = record.test_name
         if record.details:
             self.log.error(record.details)
-        begin_time = logger.epoch_to_log_line_timestamp(record.begin_time)
-        self.log.info(RESULT_LINE_TEMPLATE, test_name, record.result)
-        self.on_fail(test_name, begin_time)
+        self.log.info(RESULT_LINE_TEMPLATE, record.test_name, record.result)
+        self.on_fail(record.test_name, record.log_begin_time)
 
     def on_fail(self, test_name, begin_time):
         """A function that is executed upon a test case failure.
@@ -248,13 +247,11 @@ class BaseTestClass(object):
             record: The records.TestResultRecord object for the passed test
                     case.
         """
-        test_name = record.test_name
-        begin_time = logger.epoch_to_log_line_timestamp(record.begin_time)
         msg = record.details
         if msg:
             self.log.info(msg)
-        self.log.info(RESULT_LINE_TEMPLATE, test_name, record.result)
-        self.on_pass(test_name, begin_time)
+        self.log.info(RESULT_LINE_TEMPLATE, record.test_name, record.result)
+        self.on_pass(record.test_name, record.log_begin_time)
 
     def on_pass(self, test_name, begin_time):
         """A function that is executed upon a test case passing.
@@ -274,11 +271,9 @@ class BaseTestClass(object):
             record: The records.TestResultRecord object for the skipped test
                     case.
         """
-        test_name = record.test_name
-        begin_time = logger.epoch_to_log_line_timestamp(record.begin_time)
-        self.log.info(RESULT_LINE_TEMPLATE, test_name, record.result)
+        self.log.info(RESULT_LINE_TEMPLATE, record.test_name, record.result)
         self.log.info("Reason to skip: %s", record.details)
-        self.on_skip(test_name, begin_time)
+        self.on_skip(record.test_name, record.log_begin_time)
 
     def on_skip(self, test_name, begin_time):
         """A function that is executed upon a test case being skipped.
@@ -298,11 +293,9 @@ class BaseTestClass(object):
             record: The records.TestResultRecord object for the blocked test
                     case.
         """
-        test_name = record.test_name
-        begin_time = logger.epoch_to_log_line_timestamp(record.begin_time)
-        self.log.info(RESULT_LINE_TEMPLATE, test_name, record.result)
+        self.log.info(RESULT_LINE_TEMPLATE, record.test_name, record.result)
         self.log.info("Reason to block: %s", record.details)
-        self.on_blocked(test_name, begin_time)
+        self.on_blocked(record.test_name, record.log_begin_time)
 
     def on_blocked(self, test_name, begin_time):
         """A function that is executed upon a test begin skipped.
@@ -320,10 +313,8 @@ class BaseTestClass(object):
             record: The records.TestResultRecord object for the failed test
                     case.
         """
-        test_name = record.test_name
         self.log.exception(record.details)
-        begin_time = logger.epoch_to_log_line_timestamp(record.begin_time)
-        self.on_exception(test_name, begin_time)
+        self.on_exception(record.test_name, record.log_begin_time)
 
     def on_exception(self, test_name, begin_time):
         """A function that is executed upon an unhandled exception from a test
@@ -375,6 +366,8 @@ class BaseTestClass(object):
         is_generate_trigger = False
         tr_record = records.TestResultRecord(test_name, self.TAG)
         tr_record.test_begin()
+        self.begin_time = tr_record.log_begin_time
+        self.test_name = tr_record.test_name
         self.log.info("%s %s", TEST_CASE_TOKEN, test_name)
         verdict = None
         try:
@@ -383,7 +376,7 @@ class BaseTestClass(object):
                     for ad in self.android_devices:
                         if not ad.is_adb_logcat_on:
                             ad.start_adb_logcat(cont_logcat_file=True)
-                ret = self._setup_test(test_name)
+                ret = self._setup_test(self.test_name)
                 asserts.assert_true(ret is not False,
                                     "Setup for %s failed." % test_name)
                 if args or kwargs:
@@ -392,7 +385,7 @@ class BaseTestClass(object):
                     verdict = test_func()
             finally:
                 try:
-                    self._teardown_test(test_name)
+                    self._teardown_test(self.test_name)
                 except signals.TestAbortAll:
                     raise
                 except Exception as e:
@@ -410,6 +403,7 @@ class BaseTestClass(object):
         except (signals.TestAbortClass, signals.TestAbortAll) as e:
             # Abort signals, pass along.
             tr_record.test_fail(e)
+            self._exec_procedure_func(self._on_fail, tr_record)
             raise e
         except signals.TestPass as e:
             # Explicit test pass.
@@ -683,27 +677,25 @@ class BaseTestClass(object):
         user.
         """
 
+    def _ad_take_reports(self, ad, test_name, begin_time):
+        try:
+            ad.take_bug_report(test_name, begin_time)
+            bugreport_path = os.path.join(ad.log_path, test_name)
+            utils.create_dir(bugreport_path)
+            ad.check_crash_report(test_name, begin_time, True)
+            if getattr(ad, "qxdm_always_on", False):
+                ad.get_qxdm_logs()
+        except Exception as e:
+            ad.log.error("Failed to take a bug report for %s with error %s",
+                         test_name, e)
+
     def _take_bug_report(self, test_name, begin_time):
         if "no_bug_report_on_fail" in self.user_params:
             return
 
-        # magical sleep to ensure the runtime restart or reboot begins
-        time.sleep(1)
-        for ad in self.android_devices:
-            try:
-                ad.adb.wait_for_device()
-                ad.take_bug_report(test_name, begin_time)
-                bugreport_path = os.path.join(ad.log_path, test_name)
-                utils.create_dir(bugreport_path)
-                ad.check_crash_report(True, test_name)
-                if getattr(ad, "qxdm_always_on", False):
-                    ad.log.info("Pull QXDM Logs")
-                    ad.pull_files(["/data/vendor/radio/diag_logs/logs/"],
-                                  bugreport_path)
-            except Exception as e:
-                ad.log.error(
-                    "Failed to take a bug report for %s with error %s",
-                    test_name, e)
+        tasks = [(self._ad_take_reports, (ad, test_name, begin_time))
+                 for ad in self.android_devices]
+        run_multithread_func(self.log, tasks)
 
     def _reboot_device(self, ad):
         ad.log.info("Rebooting device.")

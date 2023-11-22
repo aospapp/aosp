@@ -35,6 +35,7 @@
 #include "base/enums.h"
 #include "base/file_magic.h"
 #include "base/logging.h"
+#include "base/stl_util.h"
 #include "base/systrace.h"
 #include "base/unix_file/fd_file.h"
 #include "dex_file-inl.h"
@@ -204,7 +205,7 @@ std::unique_ptr<const DexFile> DexFile::Open(const std::string& location,
                                                  verify_checksum,
                                                  error_msg);
   if (dex_file != nullptr) {
-    dex_file->mem_map_.reset(map.release());
+    dex_file->mem_map_ = std::move(map);
   }
   return dex_file;
 }
@@ -323,7 +324,7 @@ std::unique_ptr<const DexFile> DexFile::OpenFile(int fd,
                                                  verify_checksum,
                                                  error_msg);
   if (dex_file != nullptr) {
-    dex_file->mem_map_.reset(map.release());
+    dex_file->mem_map_ = std::move(map);
   }
 
   return dex_file;
@@ -397,7 +398,7 @@ std::unique_ptr<const DexFile> DexFile::OpenOneDexFileFromZip(const ZipArchive& 
     }
     return nullptr;
   }
-  dex_file->mem_map_.reset(map.release());
+  dex_file->mem_map_ = std::move(map);
   if (!dex_file->DisableWrite()) {
     *error_msg = StringPrintf("Failed to make dex file '%s' read only", location.c_str());
     *error_code = ZipOpenErrorCode::kMakeReadOnlyError;
@@ -655,13 +656,7 @@ uint32_t DexFile::FindCodeItemOffset(const DexFile::ClassDef& class_def,
   const uint8_t* class_data = GetClassData(class_def);
   CHECK(class_data != nullptr);
   ClassDataItemIterator it(*this, class_data);
-  // Skip fields
-  while (it.HasNextStaticField()) {
-    it.Next();
-  }
-  while (it.HasNextInstanceField()) {
-    it.Next();
-  }
+  it.SkipAllFields();
   while (it.HasNextDirectMethod()) {
     if (it.GetMemberIndex() == method_idx) {
       return it.GetMethodCodeItemOffset();
@@ -676,6 +671,32 @@ uint32_t DexFile::FindCodeItemOffset(const DexFile::ClassDef& class_def,
   }
   LOG(FATAL) << "Unable to find method " << method_idx;
   UNREACHABLE();
+}
+
+uint32_t DexFile::GetCodeItemSize(const DexFile::CodeItem& code_item) {
+  uintptr_t code_item_start = reinterpret_cast<uintptr_t>(&code_item);
+  uint32_t insns_size = code_item.insns_size_in_code_units_;
+  uint32_t tries_size = code_item.tries_size_;
+  const uint8_t* handler_data = GetCatchHandlerData(code_item, 0);
+
+  if (tries_size == 0 || handler_data == nullptr) {
+    uintptr_t insns_end = reinterpret_cast<uintptr_t>(&code_item.insns_[insns_size]);
+    return insns_end - code_item_start;
+  } else {
+    // Get the start of the handler data.
+    uint32_t handlers_size = DecodeUnsignedLeb128(&handler_data);
+    // Manually read each handler.
+    for (uint32_t i = 0; i < handlers_size; ++i) {
+      int32_t uleb128_count = DecodeSignedLeb128(&handler_data) * 2;
+      if (uleb128_count <= 0) {
+        uleb128_count = -uleb128_count + 1;
+      }
+      for (int32_t j = 0; j < uleb128_count; ++j) {
+        DecodeUnsignedLeb128(&handler_data);
+      }
+    }
+    return reinterpret_cast<uintptr_t>(handler_data) - code_item_start;
+  }
 }
 
 const DexFile::FieldId* DexFile::FindFieldId(const DexFile::TypeId& declaring_klass,
@@ -1072,13 +1093,13 @@ bool DexFile::DecodeDebugLocalInfo(const CodeItem* code_item, bool is_static, ui
                      << code_item->registers_size_ << ") in " << GetLocation();
           return false;
         }
-        if (!local_in_reg[reg].is_live_) {
-          LOG(ERROR) << "invalid stream - end without start in " << GetLocation();
-          return false;
+        // If the register is live, close it properly. Otherwise, closing an already
+        // closed register is sloppy, but harmless if no further action is taken.
+        if (local_in_reg[reg].is_live_) {
+          local_in_reg[reg].end_address_ = address;
+          local_cb(context, local_in_reg[reg]);
+          local_in_reg[reg].is_live_ = false;
         }
-        local_in_reg[reg].end_address_ = address;
-        local_cb(context, local_in_reg[reg]);
-        local_in_reg[reg].is_live_ = false;
         break;
       }
       case DBG_RESTART_LOCAL: {

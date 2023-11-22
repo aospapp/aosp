@@ -239,7 +239,7 @@ void CallbackNotifier::onNextFrameAvailable(nsecs_t timestamp,
         // format it expects and the preview callback (or data callback) below
         // gets the format that is configured in camera parameters.
         const size_t frameSize = camera_dev->getVideoFrameBufferSize();
-        camera_memory_t* cam_buff = mGetMemoryCB(-1, frameSize, 1, NULL);
+        camera_memory_t* cam_buff = mGetMemoryCB(-1, frameSize, 1, mCBOpaque);
         if (NULL != cam_buff && NULL != cam_buff->data) {
             camera_dev->getCurrentFrame(cam_buff->data, V4L2_PIX_FMT_YUV420);
             mDataCBTimestamp(timestamp, CAMERA_MSG_VIDEO_FRAME,
@@ -252,7 +252,7 @@ void CallbackNotifier::onNextFrameAvailable(nsecs_t timestamp,
 
     if (isMessageEnabled(CAMERA_MSG_PREVIEW_FRAME)) {
         camera_memory_t* cam_buff =
-            mGetMemoryCB(-1, camera_dev->getFrameBufferSize(), 1, NULL);
+            mGetMemoryCB(-1, camera_dev->getFrameBufferSize(), 1, mCBOpaque);
         if (NULL != cam_buff && NULL != cam_buff->data) {
             camera_dev->getCurrentFrame(cam_buff->data,
                                         camera_dev->getOriginalPixelFormat());
@@ -313,7 +313,7 @@ void CallbackNotifier::onNextFrameAvailable(nsecs_t timestamp,
                                                        mJpegQuality, exifData);
             if (res == NO_ERROR) {
                 camera_memory_t* jpeg_buff =
-                    mGetMemoryCB(-1, compressor.getCompressedSize(), 1, NULL);
+                    mGetMemoryCB(-1, compressor.getCompressedSize(), 1, mCBOpaque);
                 if (NULL != jpeg_buff && NULL != jpeg_buff->data) {
                     compressor.getCompressedImage(jpeg_buff->data);
                     mDataCB(CAMERA_MSG_COMPRESSED_IMAGE, jpeg_buff, 0, NULL, mCBOpaque);

@@ -35,12 +35,12 @@
 #include <vector>
 
 #include "jni.h"
-#include "ScopedLocalRef.h"
-#include "ScopedUtfChars.h"
+#include "nativehelper/ScopedLocalRef.h"
+#include "nativehelper/ScopedUtfChars.h"
 
 #include "art_jvmti.h"
 #include "runtime.h"
-#include "thread-inl.h"
+#include "thread-current-inl.h"
 #include "ti_phase.h"
 #include "well_known_classes.h"
 

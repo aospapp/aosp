@@ -162,7 +162,7 @@ public class AggregatingProfilerTest {
         metric1.put("hello1", 1.0);
         mProfiler.setAggregateMetrics(metric1);
         ITestInvocationListener mockListener = EasyMock.createMock(ITestInvocationListener.class);
-        mockListener.testLog((String)EasyMock.anyObject(), EasyMock.eq(LogDataType.TEXT),
+        mockListener.testLog((String)EasyMock.anyObject(), EasyMock.eq(LogDataType.MUGSHOT_LOG),
                 (InputStreamSource)EasyMock.anyObject());
         EasyMock.replay(mockListener);
         mProfiler.reportAllMetrics(mockListener);

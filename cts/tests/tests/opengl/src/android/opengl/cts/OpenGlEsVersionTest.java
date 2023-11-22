@@ -197,6 +197,41 @@ public class OpenGlEsVersionTest {
         }
     }
 
+    @Test
+    public void testRequiredEglExtensions() {
+        // See CDD section 7.1.4
+        final String requiredEglList[] = {
+            "EGL_KHR_image",
+            "EGL_KHR_image_base",
+            "EGL_ANDROID_image_native_buffer",
+            "EGL_ANDROID_get_native_client_buffer",
+            "EGL_KHR_wait_sync",
+            "EGL_KHR_get_all_proc_addresses",
+            "EGL_ANDROID_presentation_time",
+            "EGL_KHR_swap_buffers_with_damage"
+        };
+
+        EGL10 egl = (EGL10) EGLContext.getEGL();
+        EGLDisplay display = egl.eglGetDisplay(EGL10.EGL_DEFAULT_DISPLAY);
+
+        if (egl.eglInitialize(display, null)) {
+            try {
+                String eglExtensions = egl.eglQueryString(display, EGL10.EGL_EXTENSIONS);
+                for (int i = 0; i < requiredEglList.length; ++i) {
+                    assertTrue("EGL Extension required by CDD section 7.1.4 missing: " +
+                               requiredEglList[i], hasExtension(eglExtensions, requiredEglList[i]));
+                }
+                if (hasExtension(eglExtensions, "EGL_KHR_mutable_render_buffer")) {
+                    assertTrue("Devices exposes EGL_KHR_mutable_render_buffer but not EGL_ANDROID_front_buffer_auto_refresh", hasExtension(eglExtensions, "EGL_ANDROID_front_buffer_auto_refresh"));
+                }
+            } finally {
+                egl.eglTerminate(display);
+            }
+        } else {
+            Log.e(TAG, "Couldn't initialize EGL.");
+        }
+    }
+
     private static boolean hasExtension(String extensions, String name) {
         return OpenGlEsVersionCtsActivity.hasExtension(extensions, name);
     }

@@ -255,7 +255,8 @@ public class MediaCodecTest extends AndroidTestCase {
             if (!isEncoder) {
                 fail("createInputSurface should not work on a decoder");
             }
-        } catch (IllegalStateException e) { // expected for decoder and audio encoder
+        } catch (IllegalStateException |
+                 IllegalArgumentException e) { // expected for decoder and audio encoder
             if (isVideoEncoder) {
                 throw e;
             }
@@ -1756,6 +1757,11 @@ public class MediaCodecTest extends AndroidTestCase {
      * <br> getInputBuffer() after the failed queueSecureInputBuffer() succeeds.
      */
     public void testCryptoError() throws Exception {
+        if (!supportsCodec(MIME_TYPE, true)) {
+            Log.i(TAG, "No encoder found for mimeType= " + MIME_TYPE);
+            return;
+        }
+
         MediaDrm drm = new MediaDrm(CLEARKEY_SCHEME_UUID);
         byte[] sessionId = drm.openSession();
         MediaCrypto crypto = new MediaCrypto(CLEARKEY_SCHEME_UUID, new byte[0]);

@@ -7,8 +7,10 @@ from autotest_lib.server import utils
 AUTHOR = "mruthven"
 NAME = "firmware_Cr50DeepSleepStress"
 PURPOSE = "Verify deep sleep"
-TIME = "Long"
+ATTRIBUTES = "suite:cr50_stress_experimental"
+TIME = "LONG"
 TEST_TYPE = "server"
+DEPENDENCIES = "servo"
 
 DOC = """
 Cr50 should enter deep sleep every time the system goes into S3. Run
@@ -22,11 +24,9 @@ servo_args = hosts.CrosHost.get_servo_arguments(args_dict)
 def run(machine):
     host = hosts.create_host(machine, servo_args=servo_args)
 
-    duration = int(args_dict.get("duration", 600))
-    suspend_iterations = int(args_dict.get("suspend_iterations", 0))
+    suspend_iterations = int(args_dict.get("suspend_iterations", 1000))
 
-    job.run_test("firmware_Cr50DeepSleepStress", host=host,
-                 duration=duration, suspend_iterations=suspend_iterations,
-                 cmdline_args=args)
+    job.run_test("firmware_Cr50DeepSleepStress", host=host, cmdline_args=args,
+                 suspend_iterations=suspend_iterations)
 
 parallel_simple(run, machines)

@@ -27,9 +27,9 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"ಕೆಳಗಿನ ಅಪ್ಲಿಕೇಶನ್‌ಗೆ ಈ ಪ್ರೊಫೈಲ್ ಪ್ರವೇಶಿಸುವ ಅಗತ್ಯವಿದೆ:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"ಈ ಅಪ್ಲಿಕೇಶನ್ ನಿಮ್ಮ ಸಾಧನವನ್ನು ನಿರ್ವಹಿಸುತ್ತದೆ:"</string>
     <string name="next" msgid="1004321437324424398">"ಮುಂದೆ"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"ನಿಮ್ಮ ಕೆಲಸದ ಪ್ರೊಫೈಲ್‌ ಹೊಂದಿಸಲಾಗುತ್ತಿದೆ…"</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"ಕೆಲಸದ ಪ್ರೊಫೈಲ್ ಹೊಂದಿಸಲಾಗುತ್ತಿದೆ..."</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"ಸೆಟ್ಟಿಂಗ್‌ಗಳು, ಕಾರ್ಪೊರೇಟ್ ಪ್ರವೇಶ, ಅಪ್ಲಿಕೇಶನ್‌ಗಳು, ಅನುಮತಿಗಳ ನಿಗಾ ವಹಿಸುವ ಮತ್ತು ನಿರ್ವಹಿಸುವ ಸಾಮರ್ಥ್ಯ ನಿಮ್ಮ ನಿರ್ವಾಹಕರಿಗಿರುತ್ತದೆ. ಮಾತ್ರವಲ್ಲ, ಈ ಪ್ರೊಫೈಲ್‌ಗೆ ಸಂಬಂಧಿಸಿದ ಡೇಟಾ ಮತ್ತು ನಿಮ್ಮ ನೆಟ್‌ವರ್ಕ್ ಚಟುವಟಿಕೆಯೂ ಸೇರಿದಂತೆ ನಿಮ್ಮ ಸಾಧನದ ಸ್ಥಳ, ಕರೆಯ ಇತಿಹಾಸ ಮತ್ತು ಸಂಪರ್ಕಗಳ ಹುಡುಕಾಟದ ಇತಿಹಾಸವನ್ನು ಕೂಡ ಮೇಲ್ವಿಚಾರಣೆ ಮಾಡುವ ಮತ್ತು ನಿರ್ವಹಿಸುವ ಅಧಿಕಾರ ಅವರಿಗಿರುತ್ತದೆ.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>ನಿಮ್ಮ ಸಂಸ್ಥೆಯ ಗೌಪ್ಯತೆ ನೀತಿಗಳೂ ಸೇರಿದಂತೆ ಹೆಚ್ಚಿನ ಮಾಹಿತಿಗಾಗಿ ನಿಮ್ಮ ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"ಸೆಟ್ಟಿಂಗ್‌ಗಳು, ಕಾರ್ಪೊರೇಟ್ ಪ್ರವೇಶ, ಅಪ್ಲಿಕೇಶನ್‌ಗಳು, ಅನುಮತಿಗಳ ನಿಗಾ ವಹಿಸುವ ಮತ್ತು ನಿರ್ವಹಿಸುವ ಸಾಮರ್ಥ್ಯ ನಿಮ್ಮ ನಿರ್ವಾಹಕರಿಗಿರುತ್ತದೆ. ಮಾತ್ರವಲ್ಲ, ಈ ಸಾಧನಕ್ಕೆ ಸಂಬಂಧಿಸಿದ ಡೇಟಾ ಮತ್ತು ನಿಮ್ಮ ನೆಟ್‌ವರ್ಕ್ ಚಟುವಟಿಕೆಯೂ ಸೇರಿದಂತೆ ನಿಮ್ಮ ಸಾಧನದ ಸ್ಥಳ, ಕರೆಯ ಇತಿಹಾಸ ಮತ್ತು ಸಂಪರ್ಕಗಳ ಹುಡುಕಾಟದ ಇತಿಹಾಸವನ್ನು ಕೂಡ ಮೇಲ್ವಿಚಾರಣೆ ಮಾಡುವ ಮತ್ತು ನಿರ್ವಹಿಸುವ ಅಧಿಕಾರ ಅವರಿಗಿರುತ್ತದೆ.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>ನಿಮ್ಮ ಸಂಸ್ಥೆಯ ಗೌಪ್ಯತೆ ನೀತಿಗಳೂ ಸೇರಿದಂತೆ ಹೆಚ್ಚಿನ ಮಾಹಿತಿಗಾಗಿ ನಿಮ್ಮ ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"ಸೆಟ್ಟಿಂಗ್‌ಗಳು, ಕಾರ್ಪೊರೇಟ್ ಪ್ರವೇಶ, ಅಪ್ಲಿಕೇಶನ್‌ಗಳು, ಅನುಮತಿಗಳ ನಿಗಾ ವಹಿಸುವ ಮತ್ತು ನಿರ್ವಹಿಸುವ ಸಾಮರ್ಥ್ಯ ನಿಮ್ಮ ನಿರ್ವಾಹಕರಿಗಿರುತ್ತದೆ. ಮಾತ್ರವಲ್ಲ, ಈ ಸಾಧನಕ್ಕೆ ಸಂಬಂಧಿಸಿದ ಡೇಟಾ ಮತ್ತು ನಿಮ್ಮ ನೆಟ್‌ವರ್ಕ್ ಚಟುವಟಿಕೆಯೂ ಸೇರಿದಂತೆ ನಿಮ್ಮ ಸಾಧನದ ಸ್ಥಳ, ಕರೆಯ ಇತಿಹಾಸ ಮತ್ತು ಸಂಪರ್ಕಗಳ ಹುಡುಕಾಟದ ಇತಿಹಾಸವನ್ನು ಕೂಡ ಮೇಲ್ವಿಚಾರಣೆ ಮಾಡುವ ಮತ್ತು ನಿರ್ವಹಿಸುವ ಅಧಿಕಾರ ಅವರಿಗಿರುತ್ತದೆ.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>ನಿಮ್ಮ ಸಂಸ್ಥೆಯ ಗೌಪ್ಯತೆ ನೀತಿಗಳೂ ಸೇರಿದಂತೆ ಹೆಚ್ಚಿನ ಮಾಹಿತಿಗಾಗಿ ನಿಮ್ಮ ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"ಕಳವು ಸಂರಕ್ಷಣಾ ವೈಶಿಷ್ಟ್ಯತೆಗಳನ್ನು ಉಪಯೋಗಿಸಲು, ನಿಮ್ಮ ಸಾಧನವು ಪಾಸ್‌ವರ್ಡ್ ರಕ್ಷಣೆಯ ಸ್ಕ್ರೀನ್ ಲಾಕ್‌ ಅನ್ನು ಹೊಂದಿರಬೇಕು."</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"ನಿಮ್ಮ ಸಂಸ್ಥೆಯ ಗೌಪ್ಯತೆ ನೀತಿಗಳನ್ನು ಒಳಗೊಂಡಂತೆ, ಹೆಚ್ಚಿನ ಮಾಹಿತಿಗಾಗಿ ನಿಮ್ಮ ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"ಇನ್ನಷ್ಟು ತಿಳಿಯಿರಿ"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"ಕೆಲಸದ ಪ್ರೊಫೈಲ್"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"ಪ್ರಾಥಮಿಕ ಬಳಕೆದಾರ"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"ಅಸ್ತಿತ್ವದಲ್ಲಿರುವ ಪ್ರೊಫೈಲ್ ಅನ್ನು ಅಳಿಸುವುದೇ?"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"ಈ ಕೆಳಗಿನ ಅಪ್ಲಿಕೇಶನ್ ಬಳಸಿಕೊಂಡು ನಿರ್ವಹಿಸುವ ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್ ಅನ್ನು ನೀವು ಈಗಾಗಲೇ ಹೊಂದಿರುವಿರಿ"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"ನೀವು ಈಗಾಗಲೇ ಕೆಲಸದ ಪ್ರೊಫೈಲ್ ಹೊಂದಿರುವಿರಿ. ಅದನ್ನು ಕೆಳಗಿನ ಅಪ್ಲಿಕೇಶನ್ ಬಳಸಿಕೊಂಡು ನಿರ್ವಹಿಸಲಾಗಿದೆ:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"ಮುಂದುವರಿಯುವ ಮೊದಲು, "<a href="#read_this_link">"ಇದನ್ನು ಓದಿ"</a>"."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"ನೀವು ಮುಂದುವರಿಸಿದರೆ, ಈ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿನ ಎಲ್ಲ ಅಪ್ಲಿಕೇಶನ್‌ಗಳು ಮತ್ತು ಡೇಟಾವನ್ನು ಅಳಿಸಲಾಗುತ್ತದೆ."</string>
     <string name="delete_profile" msgid="2299218578684663459">"ಅಳಿಸಿ"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"ನಿಮ್ಮ ಕೆಲಸದ ಪ್ರೊಫೈಲ್ ಹೊಂದಿಸುವುದನ್ನು ಮುಂದುವರಿಸಲು ಟ್ಯಾಪ್ ಮಾಡಿ"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"ನಿಮ್ಮ ಕೆಲಸದ ಪ್ರೊಫೈಲ್ ಹೊಂದಿಸಲು ಸಾಧ್ಯವಾಗುತ್ತಿಲ್ಲ. ನಿಮ್ಮ IT ವಿಭಾಗವನ್ನು ಸಂಪರ್ಕಿಸಿ ಅಥವಾ ನಂತರ ಮತ್ತೊಮ್ಮೆ ಪ್ರಯತ್ನಿಸಿ."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್ ಸೇರಿಸಲಾಗುತ್ತಿಲ್ಲ"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"ಈ ಬಳಕೆದಾರರು ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್‌ ಹೊಂದಿರುವಂತಿಲ್ಲ.ಸಹಾಯಕ್ಕಾಗಿ ನಿಮ್ಮ ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"ಈ ಬಳಕೆದಾರರು ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್‌ಗಳನ್ನು ಹೊಂದುವಂತಿಲ್ಲ. ನಿಮ್ಮ ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"ನಿರ್ವಹಿಸಿದ ಸಾಧನದಲ್ಲಿ ಕೆಲಸದ ಪ್ರೊಫೈಲ್‌ಗಳನ್ನು ಹೊಂದಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"ಈ ಸಾಧನದಲ್ಲಿ ಅತಿ ಹೆಚ್ಚು ಬಳಕೆದಾರರು ಇರುವಂತೆ ಕಾಣಿಸುತ್ತಿದೆ. ಓರ್ವ ಬಳಕೆದಾರರನ್ನು ತೆಗೆದುಹಾಕಿ, ಪುನಃ ಪ್ರಯತ್ನಿಸಿ."</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"ಉದ್ಯೋಗದ ಪ್ರೊಫೈಲ್‌ ಅನ್ನು ಬದಲಾಯಿಸಲು ಅಥವಾ ತೆಗೆದುಹಾಕಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"ಉದ್ಯೋಗದ ಪ್ರೊಫೈಲ್‌ ಅನ್ನು ಈ ಸಾಧನಕ್ಕೆ ಸೇರಿಸಲಾಗುವುದಿಲ್ಲ. ನಿಮ್ಮಲ್ಲಿ ಯಾವುದೇ ಪ್ರಶ್ನೆಗಳಿದ್ದರೆ, ನಿಮ್ಮ ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"ಸಾಧನದ ಲಾಂಚರ್ ಬದಲಾಯಿಸಿ"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"ಈ ಲಾಂಚರ್ ಅಪ್ಲಿಕೇಶನ್ ಅನ್ನು ನಿಮ್ಮ ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್‌ ಬಳಸಿಕೊಳ್ಳಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"ರದ್ದುಮಾಡಿ"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"ಸರಿ"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"ಬಳಕೆದಾರ ಸೆಟಪ್ ಅಪೂರ್ಣವಾಗಿದೆ"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"ಕೆಲಸದ ಸಾಧನದ ಬಳಕೆದಾರರು"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"ಕೆಲಸದ ಸಾಧನವನ್ನು ಹೊಂದಿಸಿ"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"ಕೆಲಸದ ಸಾಧನವನ್ನು ಹೊಂದಿಸಲಾಗುತ್ತಿದೆ..."</string>
     <string name="progress_data_process" msgid="1707745321954672971">"ಸೆಟಪ್‌ ಡೇಟಾ ಪ್ರಕ್ರಿಯೆಗೊಳಿಸಲಾಗುತ್ತಿದೆ…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"ವೈ-ಫೈಗೆ ಸಂಪರ್ಕಗೊಳಿಸಲಾಗುತ್ತಿದೆ…"</string>
     <string name="progress_download" msgid="3522436271691064624">"ನಿರ್ವಾಹಕ ಅಪ್ಲಿಕೇಶನ್‌ ಡೌನ್‌ಲೋಡ್‌ ಮಾಡಲಾಗುತ್ತಿದೆ…"</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"ರದ್ದುಮಾಡಿ"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"ಸಾಧನವನ್ನು ಮರುಹೊಂದಿಸಿ"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> ಮತ್ತು <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> ಮತ್ತು <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g>, ಮತ್ತು <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

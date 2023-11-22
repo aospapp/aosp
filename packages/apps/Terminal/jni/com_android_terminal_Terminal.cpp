@@ -21,9 +21,9 @@
 #include "android_runtime/AndroidRuntime.h"
 
 #include "jni.h"
-#include "JNIHelp.h"
-#include "ScopedLocalRef.h"
-#include "ScopedPrimitiveArray.h"
+#include <nativehelper/JNIHelp.h>
+#include <nativehelper/ScopedLocalRef.h>
+#include <nativehelper/ScopedPrimitiveArray.h>
 
 #include <fcntl.h>
 #include <pty.h>

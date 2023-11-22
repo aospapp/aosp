@@ -16,6 +16,11 @@
 
 cc_library_shared {
     name: "libbcinfo",
+    vendor_available: true,
+    vndk: {
+        enabled: true,
+        support_system_process: true,
+    },
     host_supported: true,
     defaults: [
         "llvm-defaults",
@@ -110,6 +115,7 @@ cc_library_shared {
 
 cc_library_headers {
     name: "libbcinfo-headers",
+    vendor_available: true,
     host_supported: true,
     export_include_dirs: ["include"],
     target: {

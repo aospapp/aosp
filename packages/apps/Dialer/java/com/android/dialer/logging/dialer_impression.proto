@@ -5,11 +5,12 @@ option java_package = "com.android.dialer.logging";
 option java_multiple_files = true;
 option optimize_for = LITE_RUNTIME;
 
+
+
 message DialerImpression {
   // Event enums to be used for Impression Logging in Dialer.
   // It's perfectly acceptable for this enum to be large
   // Values should be from 1000 to 100000.
-  // Next Tag:1191
   enum Type {
 
     UNKNOWN_AOSP_EVENT_TYPE = 1000;
@@ -248,24 +249,24 @@ message DialerImpression {
     VOICEMAIL_CONFIGURATION_STATE_CORRUPTION_DETECTED_FROM_NOTIFICATION = 1080;
 
     // Android Auto Backup and Restore (Dolly)
-    BACKUP_ON_BACKUP = 1081;
-    BACKUP_ON_FULL_BACKUP = 1082;
-    BACKUP_ON_BACKUP_DISABLED = 1083;
-    BACKUP_VOICEMAIL_BACKED_UP = 1084;
-    BACKUP_FULL_BACKED_UP = 1085;
-    BACKUP_ON_BACKUP_JSON_EXCEPTION = 1086;
+    BACKUP_ON_BACKUP = 1081 [deprecated = true];
+    BACKUP_ON_FULL_BACKUP = 1082 [deprecated = true];
+    BACKUP_ON_BACKUP_DISABLED = 1083 [deprecated = true];
+    BACKUP_VOICEMAIL_BACKED_UP = 1084 [deprecated = true];
+    BACKUP_FULL_BACKED_UP = 1085 [deprecated = true];
+    BACKUP_ON_BACKUP_JSON_EXCEPTION = 1086 [deprecated = true];
 
-    BACKUP_ON_QUOTA_EXCEEDED = 1087;
+    BACKUP_ON_QUOTA_EXCEEDED = 1087 [deprecated = true];
 
-    BACKUP_ON_RESTORE = 1088;
-    BACKUP_RESTORED_FILE = 1089;
-    BACKUP_RESTORED_VOICEMAIL = 1090;
-    BACKUP_ON_RESTORE_FINISHED = 1091;
-    BACKUP_ON_RESTORE_DISABLED = 1092;
-    BACKUP_ON_RESTORE_JSON_EXCEPTION = 1093;
-    BACKUP_ON_RESTORE_IO_EXCEPTION = 1094;
+    BACKUP_ON_RESTORE = 1088 [deprecated = true];
+    BACKUP_RESTORED_FILE = 1089 [deprecated = true];
+    BACKUP_RESTORED_VOICEMAIL = 1090 [deprecated = true];
+    BACKUP_ON_RESTORE_FINISHED = 1091 [deprecated = true];
+    BACKUP_ON_RESTORE_DISABLED = 1092 [deprecated = true];
+    BACKUP_ON_RESTORE_JSON_EXCEPTION = 1093 [deprecated = true];
+    BACKUP_ON_RESTORE_IO_EXCEPTION = 1094 [deprecated = true];
 
-    BACKUP_MAX_VM_BACKUP_REACHED = 1095;
+    BACKUP_MAX_VM_BACKUP_REACHED = 1095 [deprecated = true];
 
     EVENT_ANSWER_HINT_ACTIVATED = 1096;
     EVENT_ANSWER_HINT_DEACTIVATED = 1097;
@@ -279,7 +280,7 @@ message DialerImpression {
     INCOMING_VIDEO_CALL = 1102;
     USER_PARTICIPATED_IN_A_VIDEO_CALL = 1103;
 
-    BACKUP_ON_RESTORE_VM_DUPLICATE_NOT_RESTORING = 1104;
+    BACKUP_ON_RESTORE_VM_DUPLICATE_NOT_RESTORING = 1104 [deprecated = true];
 
     // User tapped the 'Share and call' button to start the call composer
     CALL_LOG_SHARE_AND_CALL = 1105;
@@ -386,5 +387,80 @@ message DialerImpression {
     VVM_STATUS_CHECK_REACTIVATION = 1189;
 
     VVM_ARCHIVE_AUTO_DELETE_FAILED_DUE_TO_FAILED_QUOTA_CHECK = 1190;
+
+    // User pressed the speaker phone button on the return-to-call bubble
+    BUBBLE_TURN_ON_SPEAKERPHONE = 1191;
+    // User pressed the speaker phone button again on the return-to-call bubble
+    BUBBLE_TURN_ON_WIRED_OR_EARPIECE = 1192;
+    // User muted the call from the return-to-call bubble
+    BUBBLE_MUTE_CALL = 1193;
+    // User unmuted the call from the return-to-call bubble
+    BUBBLE_UNMUTE_CALL = 1194;
+    // User ended the call from the return-to-call bubble
+    BUBBLE_END_CALL = 1195;
+
+    LIGHTBRINGER_VIDEO_REQUESTED_FROM_SEARCH = 1196;
+    LIGHTBRINGER_VIDEO_REQUESTED_FROM_CALL_LOG =
+        1197;  // Including call history
+    IMS_VIDEO_REQUESTED_FROM_SEARCH = 1198;
+    IMS_VIDEO_REQUESTED_FROM_CALL_LOG = 1199;  // Including call history
+
+    // Multi select impressions
+    MULTISELECT_LONG_PRESS_ENTER_MULTI_SELECT_MODE = 1200;
+    MULTISELECT_LONG_PRESS_TAP_ENTRY = 1201;
+    MULTISELECT_SINGLE_PRESS_SELECT_ENTRY = 1202;
+    MULTISELECT_SINGLE_PRESS_UNSELECT_ENTRY = 1203;
+    MULTISELECT_SINGLE_PRESS_TAP_VIA_CONTACT_BADGE = 1204;
+    MULTISELECT_SELECT_ALL = 1205;
+    MULTISELECT_UNSELECT_ALL = 1206;
+    MULTISELECT_TAP_DELETE_ICON = 1207;
+    MULTISELECT_DISPLAY_DELETE_CONFIRMATION_DIALOG = 1208;
+    MULTISELECT_DELETE_ENTRY_VIA_CONFIRMATION_DIALOG = 1209;
+    MULTISELECT_CANCEL_CONFIRMATION_DIALOG_VIA_CANCEL_BUTTON = 1210;
+    MULTISELECT_CANCEL_CONFIRMATION_DIALOG_VIA_CANCEL_TOUCH = 1211;
+    MULTISELECT_ROTATE_AND_SHOW_ACTION_MODE= 1212;
+
+    // Impressions for verizon VVM with backup and transcription ToS
+    VOICEMAIL_VVM3_TOS_V2_CREATED = 1213;
+    VOICEMAIL_VVM3_TOS_V2_ACCEPTED = 1214;
+    VOICEMAIL_VVM3_TOS_V2_DECLINE_CLICKED = 1215;
+    // Impressions for dialer voicemail with backup and transcription ToS
+    VOICEMAIL_DIALER_TOS_CREATED = 1216;
+    VOICEMAIL_DIALER_TOS_ACCEPTED = 1217;
+    VOICEMAIL_DIALER_TOS_DECLINE_CLICKED = 1218;
+
+    // Add or create contact
+    // Creating new contact fab was logged as NEW_CONTACT_FAB
+    CREATE_NEW_CONTACT_FROM_CALL_LOG = 1219;
+    CREATE_NEW_CONTACT_FROM_DIALPAD = 1220;
+    CREATE_NEW_CONTACT_FROM_VOICEMAIL = 1221;
+    CREATE_NEW_CONTACT_FROM_CALL_HISTORY = 1222;
+    ADD_TO_A_CONTACT_FROM_CALL_LOG = 1223;
+    ADD_TO_A_CONTACT_FROM_DIALPAD = 1224;
+    ADD_TO_A_CONTACT_FROM_VOICEMAIL = 1225;
+    ADD_TO_A_CONTACT_FROM_CALL_HISTORY = 1226;
+
+    // Impressions for dialer reporting caller id as inaccurate
+    CALLER_ID_REPORTED = 1227;
+    CALLER_ID_REPORT_FAILED = 1228;
+
+    // Impressions for interactions with the voicemail transcription server
+    VVM_TRANSCRIPTION_REQUEST_SENT = 1229;
+    VVM_TRANSCRIPTION_REQUEST_RETRY = 1230;
+    VVM_TRANSCRIPTION_RESPONSE_SUCCESS = 1231;
+    VVM_TRANSCRIPTION_RESPONSE_EMPTY = 1232;
+    VVM_TRANSCRIPTION_RESPONSE_INVALID = 1233;
+    VVM_TRANSCRIPTION_RESPONSE_RECOVERABLE_ERROR = 1234;
+    VVM_TRANSCRIPTION_RESPONSE_FATAL_ERROR = 1235;
+
+    // In in call UI
+    UPGRADE_TO_VIDEO_CALL_BUTTON_SHOWN = 1236;
+
+    // Dialer Key/Value Backup and Restore
+    BACKUP_KEY_VALUE_ON_BACKUP = 1239;
+    BACKUP_KEY_VALUE_ON_RESTORE = 1240;
+    BACKUP_KEY_VALUE_ON_RESTORE_FINISHED = 1241;
+    BACKUP_KEY_VALUE_GET_BACKUP_SPECIFICATION = 1242;
+    BACKUP_KEY_VALUE_BACKUP_AGENT_CONSTRUCTOR = 1243;
   }
 }

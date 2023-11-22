@@ -19,7 +19,9 @@ import android.car.cluster.renderer.InstrumentClusterRenderingService;
 import android.car.cluster.renderer.NavigationRenderer;
 import android.car.navigation.CarNavigationInstrumentCluster;
 import android.graphics.Bitmap;
+import android.os.Bundle;
 import android.util.Log;
+import com.google.android.collect.Lists;
 
 /**
  * Dummy implementation of {@link LoggingClusterRenderingService} to log all interaction.
@@ -36,6 +38,7 @@ public class LoggingClusterRenderingService extends InstrumentClusterRenderingSe
                 Log.i(TAG, "getNavigationProperties");
                 CarNavigationInstrumentCluster config =
                         CarNavigationInstrumentCluster.createCluster(1000);
+                config.getExtra().putIntegerArrayList("dummy", Lists.newArrayList(1, 2, 3, 4));
                 Log.i(TAG, "getNavigationProperties, returns: " + config);
                 return config;
             }
@@ -66,6 +69,11 @@ public class LoggingClusterRenderingService extends InstrumentClusterRenderingSe
                         + ", timeSeconds: " + timeSeconds
                         + ", displayDistanceMillis: " + displayDistanceMillis
                         + ", displayDistanceUnit: " + displayDistanceUnit);
+            }
+
+            @Override
+            public void onEvent(int eventType, Bundle bundle) {
+                Log.i(TAG, "onEvent, eventType: " + eventType + ", bundle: " + bundle);
             }
         };
 

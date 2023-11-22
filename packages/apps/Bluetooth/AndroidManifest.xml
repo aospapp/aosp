@@ -147,6 +147,8 @@
                 <data android:mimeType="video/*" />
                 <data android:mimeType="audio/*" />
                 <data android:mimeType="text/x-vcard" />
+                <data android:mimeType="text/x-vcalendar" />
+                <data android:mimeType="text/calendar" />
                 <data android:mimeType="text/plain" />
                 <data android:mimeType="text/html" />
                 <data android:mimeType="text/xml" />
@@ -208,7 +210,12 @@
                   android:label=""
                   android:excludeFromRecents="true"
                   android:configChanges="orientation|keyboardHidden"
-                  android:enabled="@bool/profile_supported_opp">
+                  android:enabled="@bool/profile_supported_opp"
+                  android:theme="@android:style/Theme.DeviceDefault.Settings">
+            <intent-filter>
+                <action android:name="com.android.bluetooth.action.TransferHistory" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
         <activity android:name=".pbap.BluetoothPbapActivity"
             android:process="@string/process"

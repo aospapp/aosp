@@ -16,6 +16,7 @@
 package com.android.compatibility.common.util;
 
 import com.android.json.stream.JsonWriter;
+import com.android.tradefed.util.FileUtil;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -91,6 +92,8 @@ public class ReportLogHostInfoStore extends HostInfoStore {
                 // Copy from temp file directly to avoid large metrics string in memory.
                 metricsWriter.write(line, 0, line.length());
             }
+        } finally {
+            FileUtil.deleteFile(tempJsonFile);
         }
     }
 }

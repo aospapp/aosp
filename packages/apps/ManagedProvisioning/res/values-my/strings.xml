@@ -27,9 +27,9 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"အောက်ပါ အက်ပ်က ဒီပရိုဖိုင်ကို ရယူသုံးရန် လိုအပ်မည်:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"အောက်ပါအပ်ဖ်မှ သင့်ကိရိယာကို စီမံခန့်ခွဲလိမ့်မည်။"</string>
     <string name="next" msgid="1004321437324424398">"ရှေ့သို့"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"သင်၏အလုပ် ကိုယ်ရေးအချက်အလက်ကို အသင့်သုံးနိုင်ရန်စီစဉ်နေသည်..."</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"အလုပ်ပရိုဖိုင်ကို ပြင်ဆင်သတ်မှတ်နေပါသည်…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"စီမံခန့်ခွဲသူသည် စက်ပစ္စည်း၏တည်နေရာ၊ ခေါ်ဆိုမှုမှတ်တမ်းနှင့် အဆက်အသွယ်ရှာဖွေမှု မှတ်တမ်းများအပြင် သင်၏ ကွန်ရက်လုပ်ဆောင်ချက်များ အပါအဝင် ဆက်တင်များ၊ ပူးပေါင်းအသုံးပြုမှု၊ အက်ပ်များ၊ ခွင့်ပြုချက်များနှင့် သင့်ပရိုဖိုင်နှင့် ဆက်စပ်လျက်ရှိသည့် ဒေတာများကို စောင့်ကြည့်စီမံနိုင်ပါသည်။<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>သင့်အဖွဲ့အစည်း၏ ပုဂ္ဂိုလ်ရေးဆိုင်ရာ မူဝါဒများ အပါအဝင် ထပ်မံသိရှိလိုပါက စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ။"</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"စီမံခန့်ခွဲသူသည် စက်ပစ္စည်း၏တည်နေရာ၊ ခေါ်ဆိုမှုမှတ်တမ်းနှင့် အဆက်အသွယ်ရှာဖွေမှု မှတ်တမ်းများအပြင် သင်၏ ကွန်ရက်လုပ်ဆောင်ချက်များ အပါအဝင် ဆက်တင်များ၊ ပူးပေါင်းအသုံးပြုမှု၊ အက်ပ်များ၊ ခွင့်ပြုချက်များနှင့် ဤစက်ပစ္စည်းနှင့် ဆက်စပ်လျက်ရှိသည့် ဒေတာများကို စောင့်ကြည့်စီမံနိုင်ပါသည်။<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>သင့်အဖွဲ့အစည်း၏ ပုဂ္ဂိုလ်ရေးဆိုင်ရာ မူဝါဒများ အပါအဝင် ထပ်မံသိရှိလိုပါက စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ။"</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"စီမံခန့်ခွဲသူသည် စက်ပစ္စည်း၏တည်နေရာ၊ ခေါ်ဆိုမှုမှတ်တမ်းနှင့် အဆက်အသွယ်ရှာဖွေမှု မှတ်တမ်းများအပြင် သင်၏ ကွန်ရက်လုပ်ဆောင်ချက်များ အပါအဝင် ဆက်တင်များ၊ ပူးပေါင်းအသုံးပြုမှု၊ အက်ပ်များ၊ ခွင့်ပြုချက်များနှင့် ဤစက်ပစ္စည်းနှင့် ဆက်စပ်လျက်ရှိသည့် ဒေတာများကို စောင့်ကြည့်စီမံနိုင်ပါသည်။<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>သင့်အဖွဲ့အစည်း၏ ပုဂ္ဂိုလ်ရေးဆိုင်ရာ မူဝါဒများ အပါအဝင် ထပ်မံသိရှိလိုပါက သင်၏စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ။"</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"သူခိုးရန်မှကာကွယ်ခြင်း ဝန်ဆောင်မှုများကိုအသုံးပြုရန်၊ သင့်စက်ပစ္စည်းတွင် စကားဝှက်ဖြင့်ကာကွယ်ထားသည့် ဖန်သားပြင်လော့ခ်ချခြင်း ရှိရပါမည်။"</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"သင့်အဖွဲ့အစည်း၏ ပုဂ္ဂိုလ်ရေးဆိုင်ရာ လုံခြုံရေးမူဝါဒများအပါအဝင်၊ နောက်ထပ်အချက်အလက်များအတွက် သင့်စီမံခန့်ခွဲသူကိုဆက်သွယ်ပါ။"</string>
     <string name="learn_more_link" msgid="3012495805919550043">"ပိုမိုသိလိုလျှင်"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"အလုပ် ပရိုဖိုင်"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"ပထမအသုံးပြုသူ"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"လက်ရှိပရိုဖိုင်ကို ဖျက်လိုပါသလား။"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"အောက်ပါအက်ပ်ကို သုံး၍ စီမံခန့်ခွဲထားသော အလုပ်ပရိုဖိုင်တစ်ခု ရှိပြီးသားဖြစ်သည်−"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"သင့်တွင် အလုပ်ပရိုဖိုင်တစ်ခုရှိပြီးသားဖြစ်ပါသည်။ ၎င်းကို အောက်ပါ အက်ပ်က စီမံခန့်ခွဲပါသည်-"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"ရှေ့မဆက်မှီ၊ "<a href="#read_this_link">"ဖတ်ပါ"</a>"။"</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"သင်ရှေ့ဆက်လျှင်၊ ဤပရိုဖိုင်ရှိ အက်ပ်များနှင့် ဒေတာများအားလုံးကို ဖျက်လိုက်ပါမည်။"</string>
     <string name="delete_profile" msgid="2299218578684663459">"ဖျက်ရန်"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"သင့်အလုပ်ပရိုဖိုင်ကို ရှေ့ဆက်စနစ်ထည့်သွင်းမှု ပြုလုပ်ရန် တို့ပါ"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"သင်၏ အလုပ် ပရိုဖိုင်ကို စဖွင့်စီစဉ် မရခဲ့ပါ။ သင်၏ IT ဌာနကို ဆက်သွယ်ပါ သို့မဟုတ် နောက်မှာ ထပ်စမ်းပါ။"</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"အလုပ်ပရိုဖိုင်ကို ထည့်၍မရပါ"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"ဤအသုံးပြုသူအတွက် အလုပ်ပရိုဖိုင်ပြုလုပ်၍မရပါ။ အကူအညီရယူရန် သင်၏ စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ။"</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"ဤအသုံးပြုသူအတွက် အလုပ်ပရိုဖိုင်ပြုလုပ်၍မရပါ။ သင်၏ စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ။"</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"စီမံထားသော စက်ကိရိယာတစ်ခုတွင် အလုပ်ပရိုဖိုင်များ ပြင်ဆင်သတ်မှတ်နိုင်ခြင်း မရှိပါ"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"ဤစက်ပစ္စည်းတွင် အသုံးပြုသူ အလွန်များနေသောကြောင့် ဖြစ်နိုင်ပါသည်။ အသုံးပြုသူတစ်ဦးကို ဖယ်ရှားပြီး ထပ်လုပ်ကြည့်ပါ။"</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"အလုပ်ပရိုဖိုင်ကို အစားထိုး သို့မဟုတ် ဖယ်ရှား ၍မရပါ"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"အလုပ်ပရိုဖိုင်ကို ဤစက်ပစ္စည်းသို့ ထည့်သွင်း၍မရပါ။ မေးမြန်းစရာများရှိပါက စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ။"</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"စက်ပစ္စည်း launcher ကို ပြောင်းပါ"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"ဤ launcher အက်ပ်ကို သင်၏ အလုပ်ပရိုဖိုင်အတွက် အသုံးပြု၍မရပါ"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"မလုပ်တော့"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"အိုကေ"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"အသုံးပြုသူ ပြင်ဆင်သတ်မှတ်မှု မပြီးစီးပါ"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"အလုပ်စက်ပစ္စည်း အသုံးပြုသူ"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"အလုပ်စက်ပစ္စည်းကို စနစ်ထည့်သွင်းမှုပြုလုပ်ပါ"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"အလုပ်စက်ပစ္စည်းကို ပြင်ဆင်သတ်မှတ်နေပါသည်…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"ဖွဲ့စည်းပုံအချက်အလက်ကို စီမံဆောင်ရွက်နေသည်..."</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"ကြိုးမဲ့အင်တာနက်သို့ ချိတ်ဆက်နေသည်..."</string>
     <string name="progress_download" msgid="3522436271691064624">"စီမံအုပ်ချုပ်သူ အပ်ဖ်ကို ဒေါင်းလုဒ်လုပ်နေသည်..."</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"မလုပ်တော့"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"စက်ပစ္စည်းကို မူလဆက်တင်သို့ ပြန်လည်သတ်မှတ်ပါ"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> နှင့် <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> နှင့် <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> နှင့် <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>၊ <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>၊ <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

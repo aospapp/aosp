@@ -19,6 +19,8 @@ package android.view.cts;
 import static org.junit.Assert.fail;
 
 import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.FlakyTest;
+import android.support.test.filters.MediumTest;
 import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
 
@@ -26,7 +28,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-@SmallTest
+@FlakyTest
 @RunWith(AndroidJUnit4.class)
 public class ChoreographerNativeTest {
     private long mChoreographerPtr;
@@ -49,11 +51,13 @@ public class ChoreographerNativeTest {
         }
     }
 
+    @MediumTest
     @Test
     public void testPostCallbackWithoutDelayEventuallyRunsCallbacks() {
         nativeTestPostCallbackWithoutDelayEventuallyRunsCallbacks(mChoreographerPtr);
     }
 
+    @SmallTest
     @Test
     public void testPostCallbackWithDelayEventuallyRunsCallbacks() {
         nativeTestPostCallbackWithDelayEventuallyRunsCallbacks(mChoreographerPtr);

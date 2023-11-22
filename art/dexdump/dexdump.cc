@@ -1376,12 +1376,7 @@ static void dumpCfg(const DexFile* dex_file, int idx) {
     return;
   }
   ClassDataItemIterator it(*dex_file, class_data);
-  while (it.HasNextStaticField()) {
-    it.Next();
-  }
-  while (it.HasNextInstanceField()) {
-    it.Next();
-  }
+  it.SkipAllFields();
   while (it.HasNextDirectMethod()) {
     dumpCfg(dex_file,
             it.GetMemberIndex(),
@@ -1587,31 +1582,53 @@ static void dumpClass(const DexFile* pDexFile, int idx, char** pLastPackage) {
 
 static void dumpMethodHandle(const DexFile* pDexFile, u4 idx) {
   const DexFile::MethodHandleItem& mh = pDexFile->GetMethodHandle(idx);
+  const char* type = nullptr;
+  bool is_instance = false;
   bool is_invoke = false;
-  const char* type;
   switch (static_cast<DexFile::MethodHandleType>(mh.method_handle_type_)) {
     case DexFile::MethodHandleType::kStaticPut:
       type = "put-static";
+      is_instance = false;
+      is_invoke = false;
       break;
     case DexFile::MethodHandleType::kStaticGet:
       type = "get-static";
+      is_instance = false;
+      is_invoke = false;
       break;
     case DexFile::MethodHandleType::kInstancePut:
       type = "put-instance";
+      is_instance = true;
+      is_invoke = false;
       break;
     case DexFile::MethodHandleType::kInstanceGet:
       type = "get-instance";
+      is_instance = true;
+      is_invoke = false;
       break;
     case DexFile::MethodHandleType::kInvokeStatic:
       type = "invoke-static";
+      is_instance = false;
       is_invoke = true;
       break;
     case DexFile::MethodHandleType::kInvokeInstance:
       type = "invoke-instance";
+      is_instance = true;
       is_invoke = true;
       break;
     case DexFile::MethodHandleType::kInvokeConstructor:
       type = "invoke-constructor";
+      is_instance = true;
+      is_invoke = true;
+      break;
+    case DexFile::MethodHandleType::kInvokeDirect:
+      type = "invoke-direct";
+      is_instance = true;
+      is_invoke = true;
+      break;
+    case DexFile::MethodHandleType::kInvokeInterface:
+      type = "invoke-interface";
+      is_instance = true;
       is_invoke = true;
       break;
   }
@@ -1619,16 +1636,26 @@ static void dumpMethodHandle(const DexFile* pDexFile, u4 idx) {
   const char* declaring_class;
   const char* member;
   std::string member_type;
-  if (is_invoke) {
-    const DexFile::MethodId& method_id = pDexFile->GetMethodId(mh.field_or_method_idx_);
-    declaring_class = pDexFile->GetMethodDeclaringClassDescriptor(method_id);
-    member = pDexFile->GetMethodName(method_id);
-    member_type = pDexFile->GetMethodSignature(method_id).ToString();
+  if (type != nullptr) {
+    if (is_invoke) {
+      const DexFile::MethodId& method_id = pDexFile->GetMethodId(mh.field_or_method_idx_);
+      declaring_class = pDexFile->GetMethodDeclaringClassDescriptor(method_id);
+      member = pDexFile->GetMethodName(method_id);
+      member_type = pDexFile->GetMethodSignature(method_id).ToString();
+    } else {
+      const DexFile::FieldId& field_id = pDexFile->GetFieldId(mh.field_or_method_idx_);
+      declaring_class = pDexFile->GetFieldDeclaringClassDescriptor(field_id);
+      member = pDexFile->GetFieldName(field_id);
+      member_type = pDexFile->GetFieldTypeDescriptor(field_id);
+    }
+    if (is_instance) {
+      member_type = android::base::StringPrintf("(%s%s", declaring_class, member_type.c_str() + 1);
+    }
   } else {
-    const DexFile::FieldId& field_id = pDexFile->GetFieldId(mh.field_or_method_idx_);
-    declaring_class = pDexFile->GetFieldDeclaringClassDescriptor(field_id);
-    member = pDexFile->GetFieldName(field_id);
-    member_type = pDexFile->GetFieldTypeDescriptor(field_id);
+    type = "?";
+    declaring_class = "?";
+    member = "?";
+    member_type = "?";
   }
 
   if (gOptions.outputFormat == OUTPUT_PLAIN) {
@@ -1666,12 +1693,12 @@ static void dumpCallSite(const DexFile* pDexFile, u4 idx) {
   it.Next();
 
   if (gOptions.outputFormat == OUTPUT_PLAIN) {
-    fprintf(gOutFile, "Call site #%u:\n", idx);
+    fprintf(gOutFile, "Call site #%u: // offset %u\n", idx, call_site_id.data_off_);
     fprintf(gOutFile, "  link_argument[0] : %u (MethodHandle)\n", method_handle_idx);
     fprintf(gOutFile, "  link_argument[1] : %s (String)\n", method_name);
     fprintf(gOutFile, "  link_argument[2] : %s (MethodType)\n", method_type.c_str());
   } else {
-    fprintf(gOutFile, "<call_site index=\"%u\">\n", idx);
+    fprintf(gOutFile, "<call_site index=\"%u\" offset=\"%u\">\n", idx, call_site_id.data_off_);
     fprintf(gOutFile,
             "<link_argument index=\"0\" type=\"MethodHandle\" value=\"%u\"/>\n",
             method_handle_idx);
@@ -1747,9 +1774,8 @@ static void dumpCallSite(const DexFile* pDexFile, u4 idx) {
       case EncodedArrayValueIterator::ValueType::kArray:
       case EncodedArrayValueIterator::ValueType::kAnnotation:
         // Unreachable based on current EncodedArrayValueIterator::Next().
-        UNIMPLEMENTED(FATAL) << " type " << type;
+        UNIMPLEMENTED(FATAL) << " type " << it.GetValueType();
         UNREACHABLE();
-        break;
       case EncodedArrayValueIterator::ValueType::kNull:
         type = "Null";
         value = "null";

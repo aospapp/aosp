@@ -24,12 +24,12 @@
     <string name="setup_work_profile" msgid="1468934631731845267">"కార్యాలయ ప్రొఫైల్‌ను సెటప్ చేయండి"</string>
     <string name="company_controls_workspace" msgid="2808025277267917221">"మీ సంస్థ ఈ ప్రొఫైల్‌ను నియంత్రిస్తుంది మరియు దాన్ని సురక్షితంగా ఉంచుతుంది. మీరు మీ పరికరంలో మిగిలిన అన్నింటిని నియంత్రిస్తారు."</string>
     <string name="company_controls_device" msgid="8230957518758871390">"మీ సంస్థ ఈ పరికరాన్ని నియంత్రిస్తుంది మరియు సురక్షితంగా ఉంచుతుంది."</string>
-    <string name="the_following_is_your_mdm" msgid="6613658218262376404">"క్రింది అనువర్తనం ఈ ప్రొఫైల్‌ను ప్రాప్యత చేయాలి:"</string>
-    <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"క్రింది అనువర్తనం మీ పరికరాన్ని నిర్వహిస్తుంది:"</string>
-    <string name="next" msgid="1004321437324424398">"తదుపరి"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"మీ కార్యాలయ ప్రొఫైల్‌ను సెటప్ చేస్తోంది..."</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"మీ పరికరం యొక్క స్థానం, కాల్ చరిత్ర మరియు పరిచయ శోధన చరిత్రతో పాటు ఈ ప్రొఫైల్‌కు అనుబంధితమైన సెట్టింగ్‌లు, కార్పొరేట్ ప్రాప్యత, అనువర్తనాలు, అనుమతులు మరియు డేటాతో సహా మీ నెట్‌వర్క్ కార్యాచరణను కూడా పర్యవేక్షించగల మరియు నిర్వహించగల సామర్థ్యం మీ నిర్వాహకులకు ఉంది.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>మీ సంస్థ యొక్క గోప్యతా విధానాలతో పాటు మరింత సమాచారం కోసం మీ నిర్వాహకులను సంప్రదించండి."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"మీ పరికరం యొక్క స్థానం, కాల్ చరిత్ర మరియు పరిచయ శోధన చరిత్రతో పాటు ఈ పరికరానికి అనుబంధితమైన సెట్టింగ్‌లు, కార్పొరేట్ ప్రాప్యత, అనువర్తనాలు, అనుమతులు మరియు డేటాతో సహా మీ నెట్‌వర్క్ కార్యాచరణను కూడా పర్యవేక్షించగల మరియు నిర్వహించగల సామర్థ్యం మీ నిర్వాహకులకు ఉంది.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>మీ సంస్థ యొక్క గోప్యతా విధానాలతో పాటు మరింత సమాచారం కోసం మీ నిర్వాహకులను సంప్రదించండి."</string>
+    <string name="the_following_is_your_mdm" msgid="6613658218262376404">"క్రింది యాప్ ఈ ప్రొఫైల్‌ను యాక్సెస్ చేయాలి:"</string>
+    <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"క్రింది యాప్ మీ డివైజ్‌ను నిర్వహిస్తుంది:"</string>
+    <string name="next" msgid="1004321437324424398">"తర్వాత"</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"కార్యాలయ ప్రొఫైల్‌ను సెటప్ చేస్తోంది..."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"మీ పరికరం యొక్క స్థానం, కాల్ చరిత్ర మరియు పరిచయ శోధన చరిత్రతో పాటు ఈ ప్రొఫైల్‌కు అనుబంధితమైన సెట్టింగ్‌లు, కార్పొరేట్ యాక్సెస్, యాప్‌లు, అనుమతులు మరియు డేటాతో సహా మీ నెట్‌వర్క్ కార్యకలాపాన్ని కూడా పర్యవేక్షించగల మరియు నిర్వహించగల సామర్థ్యం మీ నిర్వాహకులకు ఉంది.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>మీ సంస్థ యొక్క గోప్యతా విధానాలతో పాటు మరింత సమాచారం కోసం మీ నిర్వాహకులను సంప్రదించండి."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"మీ పరికరం యొక్క స్థానం, కాల్ చరిత్ర మరియు పరిచయ శోధన చరిత్రతో పాటు ఈ పరికరానికి అనుబంధితమైన సెట్టింగ్‌లు, కార్పొరేట్ యాక్సెస్, యాప్‌లు, అనుమతులు మరియు డేటాతో సహా మీ నెట్‌వర్క్ కార్యాచరణను కూడా పర్యవేక్షించగల మరియు నిర్వహించగల సామర్థ్యం మీ నిర్వాహకులకు ఉంది.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>మీ సంస్థ యొక్క గోప్యతా విధానాలతో పాటు మరింత సమాచారం కోసం మీ నిర్వాహకులను సంప్రదించండి."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"అపహరణ జరగకుండా రక్షణనిచ్చే లక్షణాలను ఉపయోగించడానికి, మీరు మీ పరికరం కోసం తప్పనిసరిగా పాస్‌వర్డ్ సురక్షిత స్క్రీన్ లాక్‌ను కలిగి ఉండాలి."</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"మీ సంస్థ గోప్యతా విధానాలతో సహా మరింత సమాచారం కోసం మీ నిర్వాహకుని సంప్రదించండి."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"మరింత తెలుసుకోండి"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"కార్యాలయ ప్రొఫైల్‌"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"ప్రాథమిక వినియోగదారు"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"ప్రస్తుతం ఉన్న ప్రొఫైల్‌ని తొలగించాలా?"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"మీరు ఇప్పటికే కింది అనువర్తనం ద్వారా నిర్వహించబడుతున్న ఒక కార్యాలయ ప్రొఫైల్‌ని కలిగి ఉన్నారు:"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"ఇప్పటికే మీ వద్ద కార్యాలయ ప్రొఫైల్ ఉంది. కింది యాప్ ద్వారా ఇది నిర్వహించబడుతోంది:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"కొనసాగడానికి ముందు, "<a href="#read_this_link">"దీన్ని చదవండి"</a>"."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"మీరు కొనసాగిస్తే, ఈ ప్రొఫైల్‌లోని అన్ని అనువర్తనాలు మరియు డేటా తొలగించబడతాయి."</string>
     <string name="delete_profile" msgid="2299218578684663459">"తొలగించు"</string>
@@ -51,26 +51,24 @@
     <string name="encrypt_device_text_for_profile_owner_setup" msgid="7828515754696057140">"మీ కార్యాలయ ప్రొఫైల్‌ని సెటప్ చేయడానికి, మొదట మీ పరికరం గుప్తీకరించబడాలి. దీనికి కొంత సమయం పట్టవచ్చు."</string>
     <string name="encrypt_device_text_for_device_owner_setup" msgid="5194673142404735676">"ఈ పరికరం సెటప్ చేయడానికి, మొదట అది గుప్తీకరించబడాలి. దీనికి కొంత సమయం పట్టవచ్చు."</string>
     <string name="encrypt_this_device_question" msgid="8719916619866892601">"ఈ పరికరాన్ని గుప్తీకరించాలా?"</string>
-    <string name="encrypt" msgid="1749320161747489212">"గుప్తీకరించు"</string>
-    <string name="continue_provisioning_notify_title" msgid="5191449100153186648">"గుప్తీకరణ పూర్తయింది"</string>
+    <string name="encrypt" msgid="1749320161747489212">"ఎన్‌క్రిప్ట్ చేయి"</string>
+    <string name="continue_provisioning_notify_title" msgid="5191449100153186648">"ఎన్‌క్రిప్షన్ పూర్తయింది"</string>
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"మీ కార్యాలయ ప్రొఫైల్‌ను సెటప్ చేయడాన్ని కొనసాగించడానికి నొక్కండి"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"మీ కార్యాలయ ప్రొఫైల్‌ను సెటప్ చేయడం సాధ్యపడలేదు. మీ IT విభాగాన్ని సంప్రదించండి లేదా తర్వాత మళ్లీ ప్రయత్నించండి."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"కార్యాలయ ప్రొఫైల్‌ని జోడించడం సాధ్యపడదు"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"ఈ వినియోగదారుకు కార్యాలయ ప్రొఫైల్‌ను రూపొందించలేరు. సహాయం కోసం, మీ నిర్వాహకులను సంప్రదించండి."</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"ఈ వినియోగదారుకు కార్యాలయ ప్రొఫైల్‌లను రూపొందించలేరు. మీ నిర్వాహకులను సంప్రదించండి."</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"కార్యాలయ ప్రొఫైల్‌లను నిర్వహిత పరికరంలో సెటప్ చేయలేరు"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"ఈ పరికరంలో చాలా మంది వినియోగదారులు ఉండవచ్చు. ఒక వినియోగదారుని తీసివేసి, మళ్లీ ప్రయత్నించండి."</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"కార్యాలయ ప్రొఫైల్‌ని భర్తీ చేయలేరు లేదా తీసివేయలేరు"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"ఈ పరికరానికి కార్యాలయ ప్రొఫైల్‌ని జోడించలేరు. మీకు సందేహాలుంటే, మీ నిర్వాహకులను సంప్రదించండి."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"పరికర లాంచర్‌‌ని మార్చండి"</string>
-    <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"మీ కార్యాలయ ప్రొఫైల్ ద్వారా ఈ లాంచర్ అనువర్తనం ఉపయోగించలేరు"</string>
+    <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"మీ కార్యాలయ ప్రొఫైల్ ద్వారా ఈ లాంచర్ యాప్ ఉపయోగించలేరు"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"రద్దు చేయి"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"సరే"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"వినియోగదారు సెటప్ పూర్తికాలేదు"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"కార్యాలయ పరికర వినియోగదారు"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"కార్యాలయ పరికరాన్ని సెటప్ చేయండి"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"కార్యాలయ పరికరాన్ని సెటప్ చేస్తోంది…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"సెటప్ డేటాను ప్రాసెస్ చేస్తోంది..."</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Wi-Fiకి కనెక్ట్ చేస్తోంది..."</string>
     <string name="progress_download" msgid="3522436271691064624">"నిర్వాహక అనువర్తనాన్ని డౌన్‌లోడ్ చేస్తోంది..."</string>
-    <string name="progress_install" msgid="2258045670385866183">"నిర్వాహక అనువర్తనం ఇన్‌స్టాల్ చేస్తోంది..."</string>
+    <string name="progress_install" msgid="2258045670385866183">"నిర్వాహక యాప్ ఇన్‌స్టాల్ చేస్తోంది..."</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"అనావశ్యక సిస్టమ్ అనువర్తనాలను తీసివేస్తోంది…"</string>
     <string name="progress_finishing_touches" msgid="9037776404089697198">"తుది మెరుగులు చేస్తోంది…"</string>
     <string name="progress_set_owner" msgid="8214062820093757961">"పరికర యజమానిని సెట్ చేస్తోంది..."</string>
@@ -91,7 +89,7 @@
     <string name="device_has_reset_protection_contact_admin" msgid="1221351721899290155">"మీ పరికరంలో రీసెట్ రక్షణ ఆన్ చేయబడింది. సహాయం కోసం, మీ నిర్వాహకులను సంప్రదించండి."</string>
     <string name="frp_clear_progress_title" msgid="8628074089458234965">"ఎరేజ్ చేస్తోంది"</string>
     <string name="frp_clear_progress_text" msgid="1740164332830598827">"దయచేసి వేచి ఉండండి..."</string>
-    <string name="device_owner_error_hash_mismatch" msgid="7256273143549784838">"చెక్‌సమ్ లోపం కారణంగా నిర్వాహక అనువర్తనాన్ని ఉపయోగించడం సాధ్యపడలేదు. సహాయం కోసం, మీ నిర్వాహకులను సంప్రదించండి."</string>
+    <string name="device_owner_error_hash_mismatch" msgid="7256273143549784838">"చెక్‌సమ్ లోపం కారణంగా నిర్వాహక యాప్‌ను ఉపయోగించడం సాధ్యపడలేదు. సహాయం కోసం, మీ నిర్వాహకులను సంప్రదించండి."</string>
     <string name="device_owner_error_download_failed" msgid="4520111971592657116">"నిర్వాహక అనువర్తనాన్ని డౌన్‌లోడ్ చేయడం సాధ్యపడలేదు"</string>
     <string name="device_owner_error_package_invalid" msgid="1096901016820157695">"నిర్వాహక అనువర్తనాన్ని ఉపయోగించడం సాధ్యపడదు. ఇందులో కొన్ని భాగాలు లేవు లేదా పాడైంది. సహాయం కోసం, మీ నిర్వాహకులను సంప్రదించండి."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"నిర్వాహక అనువర్తనాన్ని ఇన్‌స్టాల్ చేయడం సాధ్యపడలేదు"</string>
@@ -132,10 +130,10 @@
     <string name="setup_profile" msgid="5573950582159698549">"మీ ప్రొఫైల్‌ను సెటప్ చేయండి"</string>
     <string name="profile_benefits_description" msgid="758432985984252636">"కార్యాలయ ప్రొఫైల్‌ని ఉపయోగించడం ద్వారా, మీరు వ్యక్తిగత డేటాని మరియు కార్యాలయ డేటాని విడివిడిగా ఉంచవచ్చు"</string>
     <string name="comp_profile_benefits_description" msgid="379837075456998273">"కార్యాలయ ప్రొఫైల్‌ని ఉపయోగించడం ద్వారా, మీ కార్యాలయ అనువర్తనాలన్నీ మీరు ఒకే చోట ఉంచవచ్చు"</string>
-    <string name="setup_profile_encryption" msgid="5241291404536277038">"మీ ప్రొఫైల్‌ను సెటప్ చేయండి. గుప్తీకరణ"</string>
+    <string name="setup_profile_encryption" msgid="5241291404536277038">"మీ ప్రొఫైల్‌ను సెటప్ చేయండి. ఎన్‌క్రిప్షన్"</string>
     <string name="setup_profile_progress" msgid="7742718527853325656">"మీ ప్రొఫైల్‌ను సెటప్ చేయండి. ప్రోగ్రెస్‌ను చూపుతోంది"</string>
     <string name="setup_device" msgid="6725265673245816366">"మీ పరికరాన్ని సెటప్ చేయండి"</string>
-    <string name="setup_device_encryption" msgid="7852944465414197103">"మీ పరికరాన్ని సెటప్ చేయండి. గుప్తీకరణ"</string>
+    <string name="setup_device_encryption" msgid="7852944465414197103">"మీ పరికరాన్ని సెటప్ చేయండి. ఎన్‌క్రిప్షన్"</string>
     <string name="setup_device_progress" msgid="7035335208571175393">"మీ పరికరాన్ని సెటప్ చేయండి. ప్రోగ్రెస్‌ను చూపుతోంది"</string>
     <string name="learn_more_label" msgid="2723716758654655009">"మరింత తెలుసుకోండి బటన్"</string>
     <string name="mdm_icon_label" msgid="3399134595549660561">"<xliff:g id="ICON_LABEL">%1$s</xliff:g> చిహ్నం"</string>
@@ -143,9 +141,9 @@
     <string name="section_content" msgid="8875502515704374394">"<xliff:g id="SECTION_HEADING">%1$s</xliff:g> విభాగం కంటెంట్: <xliff:g id="SECTION_CONTENT">%2$s</xliff:g>"</string>
     <string name="expand" msgid="37188292156131304">"విస్తరింపజేస్తుంది"</string>
     <string name="collapse" msgid="7817530505064432580">"కుదిస్తుంది"</string>
-    <string name="access_list_of_links" msgid="7094123315959323372">"లింక్‌ల జాబితాను ప్రాప్యత చేస్తుంది"</string>
-    <string name="access_links" msgid="7991363727326168600">"లింక్‌లను ప్రాప్యత చేస్తుంది"</string>
-    <string name="access_terms" msgid="1982500872249763745">"ప్రాప్యత నిబంధనలు"</string>
+    <string name="access_list_of_links" msgid="7094123315959323372">"లింక్‌ల జాబితాను యాక్సెస్ చేస్తుంది"</string>
+    <string name="access_links" msgid="7991363727326168600">"లింక్‌లను యాక్సెస్ చేస్తుంది"</string>
+    <string name="access_terms" msgid="1982500872249763745">"యాక్సెస్ నిబంధనలు"</string>
     <string name="read_terms" msgid="1745011123626640728">"నిబంధనలను చదవండి"</string>
     <string name="close_list" msgid="9053538299788717597">"జాబితాను మూసివేయి"</string>
     <string name="cancel_setup_and_factory_reset_dialog_title" msgid="5416045931532004811">"సెటప్‌ను ముగించి, ఫ్యాక్టరీ రీసెట్ చేయాలా?"</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"రద్దు చేయి"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"పరికరాన్ని రీసెట్ చేయి"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> మరియు <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> మరియు <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> మరియు <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

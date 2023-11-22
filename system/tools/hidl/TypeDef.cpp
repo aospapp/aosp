@@ -21,10 +21,8 @@
 
 namespace android {
 
-TypeDef::TypeDef(const char* localName, const Location &location, Type *type)
-    : NamedType(localName, location),
-      mReferencedType(type) {
-}
+TypeDef::TypeDef(const char* localName, const Location& location, Scope* parent, Type* type)
+    : NamedType(localName, location, parent), mReferencedType(type) {}
 
 const ScalarType *TypeDef::resolveToScalarType() const {
     CHECK(!"Should not be here");
@@ -42,6 +40,10 @@ bool TypeDef::isInterface() const {
 bool TypeDef::isEnum() const {
     CHECK(!"Should not be here");
     return false;
+}
+
+std::string TypeDef::typeName() const {
+    return "typedef " + localName();
 }
 
 bool TypeDef::isTypeDef() const {

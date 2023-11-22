@@ -25,6 +25,7 @@
     <include name="cts-preconditions" />
     <include name="cts-system-checkers" />
     <include name="cts-known-failures" />
+    <include name="cts-exclude" />
 
     <option name="plan" value="cts-retry" />
     <option name="test-tag" value="cts" />

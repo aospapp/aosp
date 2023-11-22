@@ -30,18 +30,27 @@
 #include <android-base/strings.h>
 #include <android-base/stringprintf.h>
 
+#include <netdutils/MockSyscalls.h>
 #include "BandwidthController.h"
 #include "IptablesBaseTest.h"
 #include "tun_interface.h"
 
+using ::testing::ByMove;
+using ::testing::Invoke;
+using ::testing::Return;
+using ::testing::StrictMock;
+using ::testing::Test;
+using ::testing::_;
+
+using android::base::Join;
 using android::base::StringPrintf;
 using android::net::TunInterface;
+using android::netdutils::status::ok;
+using android::netdutils::UniqueFile;
 
 class BandwidthControllerTest : public IptablesBaseTest {
-public:
+protected:
     BandwidthControllerTest() {
-        BandwidthController::execFunction = fake_android_fork_exec;
-        BandwidthController::popenFunction = fake_popen;
         BandwidthController::iptablesRestoreFunction = fakeExecIptablesRestoreWithOutput;
     }
     BandwidthController mBw;
@@ -112,6 +121,29 @@ public:
     int runIptablesAlertFwdCmd(IptOp a, const char *b, int64_t c) {
         return mBw.runIptablesAlertFwdCmd(a, b, c);
     }
+
+    int setCostlyAlert(const std::string a, int64_t b, int64_t *c) {
+        return mBw.setCostlyAlert(a, b, c);
+    }
+
+    int removeCostlyAlert(const std::string a, int64_t *b) {
+        return mBw.removeCostlyAlert(a, b);
+    }
+
+    void expectUpdateQuota(uint64_t quota) {
+        uintptr_t dummy;
+        FILE* dummyFile = reinterpret_cast<FILE*>(&dummy);
+
+        EXPECT_CALL(mSyscalls, fopen(_, _)).WillOnce(Return(ByMove(UniqueFile(dummyFile))));
+        EXPECT_CALL(mSyscalls, vfprintf(dummyFile, _, _))
+            .WillOnce(Invoke([quota](FILE*, const std::string&, va_list ap) {
+                EXPECT_EQ(quota, va_arg(ap, uint64_t));
+                return 0;
+            }));
+        EXPECT_CALL(mSyscalls, fclose(dummyFile)).WillOnce(Return(ok));
+    }
+
+    StrictMock<android::netdutils::ScopedMockSyscalls> mSyscalls;
 };
 
 TEST_F(BandwidthControllerTest, TestSetupIptablesHooks) {
@@ -189,23 +221,41 @@ TEST_F(BandwidthControllerTest, TestDisableBandwidthControl) {
 
 TEST_F(BandwidthControllerTest, TestEnableDataSaver) {
     mBw.enableDataSaver(true);
-    std::vector<std::string> expected = {
+    std::string expected4 =
         "*filter\n"
-        "-R bw_data_saver 1 --jump REJECT\n"
-        "COMMIT\n"
-    };
-    expectIptablesRestoreCommands(expected);
+        ":bw_data_saver -\n"
+        "-A bw_data_saver --jump REJECT\n"
+        "COMMIT\n";
+    std::string expected6 =
+        "*filter\n"
+        ":bw_data_saver -\n"
+        "-A bw_data_saver -p icmpv6 --icmpv6-type packet-too-big -j RETURN\n"
+        "-A bw_data_saver -p icmpv6 --icmpv6-type router-solicitation -j RETURN\n"
+        "-A bw_data_saver -p icmpv6 --icmpv6-type router-advertisement -j RETURN\n"
+        "-A bw_data_saver -p icmpv6 --icmpv6-type neighbour-solicitation -j RETURN\n"
+        "-A bw_data_saver -p icmpv6 --icmpv6-type neighbour-advertisement -j RETURN\n"
+        "-A bw_data_saver -p icmpv6 --icmpv6-type redirect -j RETURN\n"
+        "-A bw_data_saver --jump REJECT\n"
+        "COMMIT\n";
+    expectIptablesRestoreCommands({
+        {V4, expected4},
+        {V6, expected6},
+    });
 
     mBw.enableDataSaver(false);
-    expected = {
+    std::string expected = {
         "*filter\n"
-        "-R bw_data_saver 1 --jump RETURN\n"
+        ":bw_data_saver -\n"
+        "-A bw_data_saver --jump RETURN\n"
         "COMMIT\n"
     };
-    expectIptablesRestoreCommands(expected);
+    expectIptablesRestoreCommands({
+        {V4, expected},
+        {V6, expected},
+    });
 }
 
-std::string kIPv4TetherCounters = android::base::Join(std::vector<std::string> {
+std::string kIPv4TetherCounters = Join(std::vector<std::string> {
     "Chain natctrl_tether_counters (4 references)",
     "    pkts      bytes target     prot opt in     out     source               destination",
     "      26     2373 RETURN     all  --  wlan0  rmnet0  0.0.0.0/0            0.0.0.0/0",
@@ -214,7 +264,7 @@ std::string kIPv4TetherCounters = android::base::Join(std::vector<std::string> {
     "    1450  1708806 RETURN     all  --  rmnet0 bt-pan  0.0.0.0/0            0.0.0.0/0",
 }, '\n');
 
-std::string kIPv6TetherCounters = android::base::Join(std::vector<std::string> {
+std::string kIPv6TetherCounters = Join(std::vector<std::string> {
     "Chain natctrl_tether_counters (2 references)",
     "    pkts      bytes target     prot opt in     out     source               destination",
     "   10000 10000000 RETURN     all      wlan0  rmnet0  ::/0                 ::/0",
@@ -321,7 +371,7 @@ TEST_F(BandwidthControllerTest, TestGetTetherStats) {
     std::vector<std::string> counterLines = android::base::Split(kIPv4TetherCounters, "\n");
     std::vector<std::string> brokenCounterLines = counterLines;
     counterLines.resize(4);
-    std::string counters = android::base::Join(counterLines, "\n") + "\n";
+    std::string counters = Join(counterLines, "\n") + "\n";
     addIptablesRestoreOutput(counters, counters);
     expected =
             "114 wlan0 rmnet0 4746 52 4004 54\n"
@@ -333,7 +383,7 @@ TEST_F(BandwidthControllerTest, TestGetTetherStats) {
     // But if interfaces aren't paired, it's always an error.
     err = "";
     counterLines.resize(3);
-    counters = android::base::Join(counterLines, "\n") + "\n";
+    counters = Join(counterLines, "\n") + "\n";
     addIptablesRestoreOutput(counters, counters);
     ASSERT_EQ(-1, mBw.getTetherStats(&cli, filter, err));
     expectNoSocketClientResponse(socketPair[1]);
@@ -344,7 +394,6 @@ TEST_F(BandwidthControllerTest, TestGetTetherStats) {
     std::string expectedError = counters;
     EXPECT_EQ(expectedError, err);
 
-    // popen() failing is always an error.
     addIptablesRestoreOutput(kIPv4TetherCounters);
     ASSERT_EQ(-1, mBw.getTetherStats(&cli, filter, err));
     expectNoSocketClientResponse(socketPair[1]);
@@ -355,52 +404,157 @@ TEST_F(BandwidthControllerTest, TestGetTetherStats) {
     clearIptablesRestoreOutput();
 }
 
-const std::vector<std::string> makeInterfaceQuotaCommands(const char *iface, int ruleIndex,
+const std::vector<std::string> makeInterfaceQuotaCommands(const std::string& iface, int ruleIndex,
                                                           int64_t quota) {
+    const std::string chain = "bw_costly_" + iface;
+    const char* c_chain = chain.c_str();
+    const char* c_iface = iface.c_str();
     std::vector<std::string> cmds = {
-        StringPrintf("-F bw_costly_%s", iface),
-        StringPrintf("-N bw_costly_%s", iface),
-        StringPrintf("-A bw_costly_%s -j bw_penalty_box", iface),
-        StringPrintf("-D bw_INPUT -i %s --jump bw_costly_%s", iface, iface),
-        StringPrintf("-I bw_INPUT %d -i %s --jump bw_costly_%s", ruleIndex, iface, iface),
-        StringPrintf("-D bw_OUTPUT -o %s --jump bw_costly_%s", iface, iface),
-        StringPrintf("-I bw_OUTPUT %d -o %s --jump bw_costly_%s", ruleIndex, iface, iface),
-        StringPrintf("-D bw_FORWARD -o %s --jump bw_costly_%s", iface, iface),
-        StringPrintf("-A bw_FORWARD -o %s --jump bw_costly_%s", iface, iface),
-        StringPrintf("-A bw_costly_%s -m quota2 ! --quota %" PRIu64 " --name %s --jump REJECT",
-                     iface, quota, iface),
+        "*filter",
+        StringPrintf(":%s -", c_chain),
+        StringPrintf("-A %s -j bw_penalty_box", c_chain),
+        StringPrintf("-I bw_INPUT %d -i %s --jump %s", ruleIndex, c_iface, c_chain),
+        StringPrintf("-I bw_OUTPUT %d -o %s --jump %s", ruleIndex, c_iface, c_chain),
+        StringPrintf("-A bw_FORWARD -o %s --jump %s", c_iface, c_chain),
+        StringPrintf("-A %s -m quota2 ! --quota %" PRIu64 " --name %s --jump REJECT", c_chain,
+                     quota, c_iface),
+        "COMMIT\n",
     };
-    return cmds;
+    return {Join(cmds, "\n")};
 }
 
-const std::vector<std::string> removeInterfaceQuotaCommands(const char *iface) {
+const std::vector<std::string> removeInterfaceQuotaCommands(const std::string& iface) {
+    const std::string chain = "bw_costly_" + iface;
+    const char* c_chain = chain.c_str();
+    const char* c_iface = iface.c_str();
     std::vector<std::string> cmds = {
-        StringPrintf("-D bw_INPUT -i %s --jump bw_costly_%s", iface, iface),
-        StringPrintf("-D bw_OUTPUT -o %s --jump bw_costly_%s", iface, iface),
-        StringPrintf("-D bw_FORWARD -o %s --jump bw_costly_%s", iface, iface),
-        StringPrintf("-F bw_costly_%s", iface),
-        StringPrintf("-X bw_costly_%s", iface),
+        "*filter",
+        StringPrintf("-D bw_INPUT -i %s --jump %s", c_iface, c_chain),
+        StringPrintf("-D bw_OUTPUT -o %s --jump %s", c_iface, c_chain),
+        StringPrintf("-D bw_FORWARD -o %s --jump %s", c_iface, c_chain),
+        StringPrintf("-F %s", c_chain),
+        StringPrintf("-X %s", c_chain),
+        "COMMIT\n",
     };
-    return cmds;
+    return {Join(cmds, "\n")};
 }
 
 TEST_F(BandwidthControllerTest, TestSetInterfaceQuota) {
-    const char *iface = mTun.name().c_str();
-    std::vector<std::string> expected = makeInterfaceQuotaCommands(iface, 1, 123456);
+    constexpr uint64_t kOldQuota = 123456;
+    const std::string iface = mTun.name();
+    std::vector<std::string> expected = makeInterfaceQuotaCommands(iface, 1, kOldQuota);
 
-    // prepCostlyInterface assumes that exactly one of the "-F chain" and "-N chain" commands fails.
-    // So pretend that the first two commands (the IPv4 -F and the IPv6 -F) fail.
-    std::deque<int> returnValues(expected.size() * 2, 0);
-    returnValues[0] = 1;
-    returnValues[1] = 1;
-    setReturnValues(returnValues);
+    EXPECT_EQ(0, mBw.setInterfaceQuota(iface, kOldQuota));
+    expectIptablesRestoreCommands(expected);
 
-    EXPECT_EQ(0, mBw.setInterfaceQuota(iface, 123456));
-    expectIptablesCommands(expected);
+    constexpr uint64_t kNewQuota = kOldQuota + 1;
+    expected = {};
+    expectUpdateQuota(kNewQuota);
+    EXPECT_EQ(0, mBw.setInterfaceQuota(iface, kNewQuota));
+    expectIptablesRestoreCommands(expected);
 
     expected = removeInterfaceQuotaCommands(iface);
     EXPECT_EQ(0, mBw.removeInterfaceQuota(iface));
-    expectIptablesCommands(expected);
+    expectIptablesRestoreCommands(expected);
+}
+
+const std::vector<std::string> makeInterfaceSharedQuotaCommands(const std::string& iface,
+                                                                int ruleIndex, int64_t quota,
+                                                                bool insertQuota) {
+    const std::string chain = "bw_costly_shared";
+    const char* c_chain = chain.c_str();
+    const char* c_iface = iface.c_str();
+    std::vector<std::string> cmds = {
+        "*filter",
+        StringPrintf("-I bw_INPUT %d -i %s --jump %s", ruleIndex, c_iface, c_chain),
+        StringPrintf("-I bw_OUTPUT %d -o %s --jump %s", ruleIndex, c_iface, c_chain),
+        StringPrintf("-A bw_FORWARD -o %s --jump %s", c_iface, c_chain),
+    };
+    if (insertQuota) {
+        cmds.push_back(StringPrintf(
+            "-I %s -m quota2 ! --quota %" PRIu64 " --name shared --jump REJECT", c_chain, quota));
+    }
+    cmds.push_back("COMMIT\n");
+    return {Join(cmds, "\n")};
+}
+
+const std::vector<std::string> removeInterfaceSharedQuotaCommands(const std::string& iface,
+                                                                  int64_t quota, bool deleteQuota) {
+    const std::string chain = "bw_costly_shared";
+    const char* c_chain = chain.c_str();
+    const char* c_iface = iface.c_str();
+    std::vector<std::string> cmds = {
+        "*filter",
+        StringPrintf("-D bw_INPUT -i %s --jump %s", c_iface, c_chain),
+        StringPrintf("-D bw_OUTPUT -o %s --jump %s", c_iface, c_chain),
+        StringPrintf("-D bw_FORWARD -o %s --jump %s", c_iface, c_chain),
+    };
+    if (deleteQuota) {
+        cmds.push_back(StringPrintf(
+            "-D %s -m quota2 ! --quota %" PRIu64 " --name shared --jump REJECT", c_chain, quota));
+    }
+    cmds.push_back("COMMIT\n");
+    return {Join(cmds, "\n")};
+}
+
+TEST_F(BandwidthControllerTest, TestSetInterfaceSharedQuotaDuplicate) {
+    constexpr uint64_t kQuota = 123456;
+    const std::string iface = mTun.name();
+    std::vector<std::string> expected = makeInterfaceSharedQuotaCommands(iface, 1, 123456, true);
+    EXPECT_EQ(0, mBw.setInterfaceSharedQuota(iface, kQuota));
+    expectIptablesRestoreCommands(expected);
+
+    expected = {};
+    EXPECT_EQ(0, mBw.setInterfaceSharedQuota(iface, kQuota));
+    expectIptablesRestoreCommands(expected);
+
+    expected = removeInterfaceSharedQuotaCommands(iface, kQuota, true);
+    EXPECT_EQ(0, mBw.removeInterfaceSharedQuota(iface));
+    expectIptablesRestoreCommands(expected);
+}
+
+TEST_F(BandwidthControllerTest, TestSetInterfaceSharedQuotaUpdate) {
+    constexpr uint64_t kOldQuota = 123456;
+    const std::string iface = mTun.name();
+    std::vector<std::string> expected = makeInterfaceSharedQuotaCommands(iface, 1, kOldQuota, true);
+    EXPECT_EQ(0, mBw.setInterfaceSharedQuota(iface, kOldQuota));
+    expectIptablesRestoreCommands(expected);
+
+    constexpr uint64_t kNewQuota = kOldQuota + 1;
+    expected = {};
+    expectUpdateQuota(kNewQuota);
+    EXPECT_EQ(0, mBw.setInterfaceSharedQuota(iface, kNewQuota));
+    expectIptablesRestoreCommands(expected);
+
+    expected = removeInterfaceSharedQuotaCommands(iface, kNewQuota, true);
+    EXPECT_EQ(0, mBw.removeInterfaceSharedQuota(iface));
+    expectIptablesRestoreCommands(expected);
+}
+
+TEST_F(BandwidthControllerTest, TestSetInterfaceSharedQuotaTwoInterfaces) {
+    constexpr uint64_t kQuota = 123456;
+    const std::vector<std::string> ifaces{
+        {"a" + mTun.name()},
+        {"b" + mTun.name()},
+    };
+
+    for (const auto& iface : ifaces) {
+        // Quota rule is only added when the total number of
+        // interfaces transitions from 0 -> 1.
+        bool first = (iface == ifaces[0]);
+        auto expected = makeInterfaceSharedQuotaCommands(iface, 1, kQuota, first);
+        EXPECT_EQ(0, mBw.setInterfaceSharedQuota(iface, kQuota));
+        expectIptablesRestoreCommands(expected);
+    }
+
+    for (const auto& iface : ifaces) {
+        // Quota rule is only removed when the total number of
+        // interfaces transitions from 1 -> 0.
+        bool last = (iface == ifaces[1]);
+        auto expected = removeInterfaceSharedQuotaCommands(iface, kQuota, last);
+        EXPECT_EQ(0, mBw.removeInterfaceSharedQuota(iface));
+        expectIptablesRestoreCommands(expected);
+    }
 }
 
 TEST_F(BandwidthControllerTest, IptablesAlertCmd) {
@@ -438,6 +592,35 @@ TEST_F(BandwidthControllerTest, IptablesAlertFwdCmd) {
         "COMMIT\n"
     };
     EXPECT_EQ(0, runIptablesAlertFwdCmd(IptOp::IptOpDelete, "MyWonderfulAlert", 123456));
+    expectIptablesRestoreCommands(expected);
+}
+
+TEST_F(BandwidthControllerTest, CostlyAlert) {
+    const int64_t kQuota = 123456;
+    int64_t alertBytes = 0;
+
+    std::vector<std::string> expected = {
+        "*filter\n"
+        "-A bw_costly_shared -m quota2 ! --quota 123456 --name sharedAlert\n"
+        "COMMIT\n"
+    };
+    EXPECT_EQ(0, setCostlyAlert("shared", kQuota, &alertBytes));
+    EXPECT_EQ(kQuota, alertBytes);
+    expectIptablesRestoreCommands(expected);
+
+    expected = {};
+    expectUpdateQuota(kQuota);
+    EXPECT_EQ(0, setCostlyAlert("shared", kQuota + 1, &alertBytes));
+    EXPECT_EQ(kQuota + 1, alertBytes);
+    expectIptablesRestoreCommands(expected);
+
+    expected = {
+        "*filter\n"
+        "-D bw_costly_shared -m quota2 ! --quota 123457 --name sharedAlert\n"
+        "COMMIT\n"
+    };
+    EXPECT_EQ(0, removeCostlyAlert("shared", &alertBytes));
+    EXPECT_EQ(0, alertBytes);
     expectIptablesRestoreCommands(expected);
 }
 

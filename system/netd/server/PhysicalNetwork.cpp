@@ -86,6 +86,18 @@ int PhysicalNetwork::destroySocketsLackingPermission(Permission permission) {
     return 0;
 }
 
+void PhysicalNetwork::invalidateRouteCache(const std::string& interface) {
+    for (const auto& dst : { "0.0.0.0/0", "::/0" }) {
+        // If any of these operations fail, there's no point in logging because RouteController will
+        // have already logged a message. There's also no point returning an error since there's
+        // nothing we can do.
+        (void) RouteController::addRoute(interface.c_str(), dst, "throw",
+                                         RouteController::INTERFACE);
+        (void) RouteController::removeRoute(interface.c_str(), dst, "throw",
+                                         RouteController::INTERFACE);
+    }
+}
+
 int PhysicalNetwork::setPermission(Permission permission) {
     if (permission == mPermission) {
         return 0;
@@ -103,6 +115,7 @@ int PhysicalNetwork::setPermission(Permission permission) {
                   interface.c_str(), mNetId, mPermission, permission);
             return ret;
         }
+        invalidateRouteCache(interface);
     }
     if (mIsDefault) {
         for (const std::string& interface : mInterfaces) {

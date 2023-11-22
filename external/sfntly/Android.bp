@@ -125,6 +125,9 @@ cc_library_static {
         "-Wno-error=c++0x-compat",
         "-Wno-non-virtual-dtor",
         "-Wno-sign-promo",
+
+        // Temporarily suppress the warning http://b/37911198
+        "-Wno-error=user-defined-warnings",
     ],
 
     debug: {

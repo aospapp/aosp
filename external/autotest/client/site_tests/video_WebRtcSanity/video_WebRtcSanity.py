@@ -9,6 +9,7 @@ from autotest_lib.client.bin import test
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
+from autotest_lib.client.cros.video import helper_logger
 
 EXTRA_BROWSER_ARGS = ['--use-fake-ui-for-media-stream',
                       '--use-fake-device-for-media-stream']
@@ -50,9 +51,11 @@ class video_WebRtcSanity(test.test):
             _test_done, timeout=timeout_secs, sleep_interval=1,
             desc = 'getusermedia.html reports itself as finished')
 
+    @helper_logger.video_log_wrapper
     def run_once(self):
         """Runs the test."""
-        with chrome.Chrome(extra_browser_args=EXTRA_BROWSER_ARGS,
+        with chrome.Chrome(extra_browser_args=EXTRA_BROWSER_ARGS +\
+                           [helper_logger.chrome_vmodule_flag()],
                            init_network_controller=True) as cr:
             self.start_getusermedia(cr)
             self.wait_test_completed(SHORT_TIMEOUT_IN_SECS)

@@ -22,6 +22,7 @@ include $(CLEAR_VARS)
 ifneq ($(TARGET_BUILD_PDK),true)
 
 include $(CLEAR_VARS)
+LOCAL_VENDOR_MODULE := true
 
 jpeg_module_relative_path := hw
 jpeg_cflags := -fno-short-enums -DQEMU_HARDWARE
@@ -32,7 +33,7 @@ jpeg_shared_libraries := \
     libexif \
     libjpeg \
     liblog \
-    libandroid_runtime
+
 jpeg_c_includes := external/libjpeg-turbo \
                    external/libexif \
                    frameworks/native/include
@@ -59,6 +60,7 @@ include $(BUILD_SHARED_LIBRARY)
 
 include ${CLEAR_VARS}
 
+LOCAL_VENDOR_MODULE := true
 LOCAL_MODULE := camera.ranchu.jpeg
 
 LOCAL_MODULE_RELATIVE_PATH := ${jpeg_module_relative_path}

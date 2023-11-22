@@ -17,17 +17,18 @@ package com.android.tv.data;
 
 import static android.media.tv.TvContract.Programs.Genres.COMEDY;
 import static android.media.tv.TvContract.Programs.Genres.FAMILY_KIDS;
-
-import com.android.tv.data.Program.CriticScore;
-import com.android.tv.dvr.SeriesRecording;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 import android.media.tv.TvContentRating;
 import android.media.tv.TvContract.Programs.Genres;
 import android.os.Parcel;
 import android.support.test.filters.SmallTest;
-import android.util.Log;
 
-import junit.framework.TestCase;
+import com.android.tv.data.Program.CriticScore;
+
+import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -37,19 +38,20 @@ import java.util.List;
  * Tests for {@link Program}.
  */
 @SmallTest
-public class ProgramTest extends TestCase {
-
+public class ProgramTest {
     private static final int NOT_FOUND_GENRE = 987;
 
     private static final int FAMILY_GENRE_ID = GenreItems.getId(FAMILY_KIDS);
 
     private static final int COMEDY_GENRE_ID = GenreItems.getId(COMEDY);
 
+    @Test
     public void testBuild() {
         Program program = new Program.Builder().build();
         assertEquals("isValid", false, program.isValid());
     }
 
+    @Test
     public void testNoGenres() {
         Program program = new Program.Builder()
                 .setCanonicalGenres("")
@@ -61,6 +63,7 @@ public class ProgramTest extends TestCase {
         assertHasGenre(program, GenreItems.ID_ALL_CHANNELS, true);
     }
 
+    @Test
     public void testFamilyGenre() {
         Program program = new Program.Builder()
                 .setCanonicalGenres(FAMILY_KIDS)
@@ -72,6 +75,7 @@ public class ProgramTest extends TestCase {
         assertHasGenre(program, GenreItems.ID_ALL_CHANNELS, true);
     }
 
+    @Test
     public void testFamilyComedyGenre() {
         Program program = new Program.Builder()
                 .setCanonicalGenres(FAMILY_KIDS + ", " + COMEDY)
@@ -83,6 +87,7 @@ public class ProgramTest extends TestCase {
         assertHasGenre(program, GenreItems.ID_ALL_CHANNELS, true);
     }
 
+    @Test
     public void testOtherGenre() {
         Program program = new Program.Builder()
                 .setCanonicalGenres("other")
@@ -94,7 +99,8 @@ public class ProgramTest extends TestCase {
         assertHasGenre(program, GenreItems.ID_ALL_CHANNELS, true);
     }
 
-    public void testParcelable() throws Exception {
+    @Test
+    public void testParcelable() {
         List<CriticScore> criticScores = new ArrayList<>();
         criticScores.add(new CriticScore("1", "2", "3"));
         criticScores.add(new CriticScore("4", "5", "6"));
@@ -139,6 +145,7 @@ public class ProgramTest extends TestCase {
         }
     }
 
+    @Test
     public void testParcelableWithCriticScore() {
         Program program = new Program.Builder()
                 .setTitle("MyTitle")

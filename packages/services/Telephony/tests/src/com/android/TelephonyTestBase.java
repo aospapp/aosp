@@ -20,6 +20,7 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.support.test.InstrumentationRegistry;
+import android.util.Log;
 
 import org.mockito.MockitoAnnotations;
 
@@ -66,6 +67,14 @@ public class TelephonyTestBase {
             } catch (InterruptedException e) {
                 // do nothing
             }
+        }
+    }
+
+    protected void waitForMs(long ms) {
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException e) {
+            Log.e("TelephonyTestBase", "InterruptedException while waiting: " + e);
         }
     }
 }

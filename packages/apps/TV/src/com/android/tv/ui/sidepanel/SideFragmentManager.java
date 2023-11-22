@@ -24,6 +24,7 @@ import android.app.FragmentManager;
 import android.app.FragmentTransaction;
 import android.os.Handler;
 import android.view.View;
+import android.view.ViewTreeObserver;
 
 import com.android.tv.R;
 
@@ -34,6 +35,7 @@ public class SideFragmentManager {
     private final FragmentManager mFragmentManager;
     private final Runnable mPreShowRunnable;
     private final Runnable mPostHideRunnable;
+    private ViewTreeObserver.OnGlobalLayoutListener mShowOnGlobalLayoutListener;
 
     // To get the count reliably while using popBackStack(),
     // instead of using getBackStackEntryCount() with popBackStackImmediate().
@@ -99,17 +101,10 @@ public class SideFragmentManager {
      * Shows the given {@link SideFragment}.
      */
     public void show(SideFragment sideFragment, boolean showEnterAnimation) {
-        SideFragment.preloadRecycledViews(mActivity);
         if (isHiding()) {
             mHideAnimator.end();
         }
         boolean isFirst = (mFragmentCount == 0);
-        if (isFirst) {
-            if (mPreShowRunnable != null) {
-                mPreShowRunnable.run();
-            }
-        }
-
         FragmentTransaction ft = mFragmentManager.beginTransaction();
         if (!isFirst) {
             ft.setCustomAnimations(
@@ -123,8 +118,22 @@ public class SideFragmentManager {
         mFragmentCount++;
 
         if (isFirst) {
+            // We should wait for fragment transition and intital layouting finished to start the
+            // slide-in animation to prevent jankiness resulted by performing transition and
+            // layouting at the same time with animation.
             mPanel.setVisibility(View.VISIBLE);
-            mShowAnimator.start();
+            mShowOnGlobalLayoutListener = new ViewTreeObserver.OnGlobalLayoutListener() {
+                @Override
+                public void onGlobalLayout() {
+                    mPanel.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                    mShowOnGlobalLayoutListener = null;
+                    if (mPreShowRunnable != null) {
+                        mPreShowRunnable.run();
+                    }
+                    mShowAnimator.start();
+                }
+            };
+            mPanel.getViewTreeObserver().addOnGlobalLayoutListener(mShowOnGlobalLayoutListener);
         }
         scheduleHideAll();
     }
@@ -142,6 +151,18 @@ public class SideFragmentManager {
     }
 
     public void hideAll(boolean withAnimation) {
+        if (mShowAnimator.isStarted()) {
+            mShowAnimator.end();
+        }
+        if (mShowOnGlobalLayoutListener != null) {
+            // The show operation maybe requested but the show animator is not started yet, in this
+            // case, we show still run mPreShowRunnable.
+            mPanel.getViewTreeObserver().removeOnGlobalLayoutListener(mShowOnGlobalLayoutListener);
+            mShowOnGlobalLayoutListener = null;
+            if (mPreShowRunnable != null) {
+                mPreShowRunnable.run();
+            }
+        }
         if (withAnimation) {
             if (!isHiding()) {
                 mHideAnimator.start();
@@ -178,7 +199,6 @@ public class SideFragmentManager {
      * @param withAnimation specifies if animation should be shown.
      */
     public void showSidePanel(boolean withAnimation) {
-        SideFragment.preloadRecycledViews(mActivity);
         if (mFragmentCount == 0) {
             return;
         }

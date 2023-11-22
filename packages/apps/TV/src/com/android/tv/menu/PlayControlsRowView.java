@@ -18,10 +18,10 @@ package com.android.tv.menu;
 
 import android.content.Context;
 import android.content.res.Resources;
+import android.text.TextUtils;
 import android.text.format.DateFormat;
 import android.util.AttributeSet;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -34,17 +34,16 @@ import com.android.tv.common.SoftPreconditions;
 import com.android.tv.common.feature.CommonFeatures;
 import com.android.tv.data.Channel;
 import com.android.tv.data.Program;
+import com.android.tv.dialog.HalfSizedDialogFragment;
 import com.android.tv.dvr.DvrDataManager;
 import com.android.tv.dvr.DvrDataManager.OnDvrScheduleLoadFinishedListener;
 import com.android.tv.dvr.DvrDataManager.ScheduledRecordingListener;
 import com.android.tv.dvr.DvrManager;
-import com.android.tv.dvr.DvrUiHelper;
-import com.android.tv.dvr.ScheduledRecording;
+import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.dvr.ui.DvrStopRecordingFragment;
-import com.android.tv.dvr.ui.HalfSizedDialogFragment;
+import com.android.tv.dvr.ui.DvrUiHelper;
 import com.android.tv.menu.Menu.MenuShowReason;
 import com.android.tv.ui.TunableTvView;
-import com.android.tv.util.Utils;
 
 public class PlayControlsRowView extends MenuRowView {
     private static final int NORMAL_WIDTH_MAX_BUTTON_COUNT = 5;
@@ -53,14 +52,10 @@ public class PlayControlsRowView extends MenuRowView {
     private final int mTimeTextLeftMargin;
     private final int mTimelineWidth;
     // Views
-    private View mBackgroundView;
+    private TextView mBackgroundView;
     private View mTimeIndicator;
     private TextView mTimeText;
-    private View mProgressEmptyBefore;
-    private View mProgressWatched;
-    private View mProgressBuffered;
-    private View mProgressEmptyAfter;
-    private View mControlBar;
+    private PlaybackProgressBar mProgress;
     private PlayControlsButton mJumpPreviousButton;
     private PlayControlsButton mRewindButton;
     private PlayControlsButton mPlayPauseButton;
@@ -69,7 +64,6 @@ public class PlayControlsRowView extends MenuRowView {
     private PlayControlsButton mRecordButton;
     private TextView mProgramStartTimeText;
     private TextView mProgramEndTimeText;
-    private View mUnavailableMessageText;
     private TunableTvView mTvView;
     private TimeShiftManager mTimeShiftManager;
     private final DvrDataManager mDvrDataManager;
@@ -82,6 +76,8 @@ public class PlayControlsRowView extends MenuRowView {
     private boolean mUseCompactLayout;
     private final int mNormalButtonMargin;
     private final int mCompactButtonMargin;
+
+    private final String mUnavailableMessage;
 
     private final ScheduledRecordingListener mScheduledRecordingListener
             = new ScheduledRecordingListener() {
@@ -138,6 +134,7 @@ public class PlayControlsRowView extends MenuRowView {
             mDvrManager = null;
         }
         mMainActivity = (MainActivity) context;
+        mUnavailableMessage = res.getString(R.string.play_controls_unavailable);
     }
 
     @Override
@@ -171,14 +168,10 @@ public class PlayControlsRowView extends MenuRowView {
         super.onFinishInflate();
         // Clip the ViewGroup(body) to the rounded rectangle of outline.
         findViewById(R.id.body).setClipToOutline(true);
-        mBackgroundView = findViewById(R.id.background);
+        mBackgroundView = (TextView) findViewById(R.id.background);
         mTimeIndicator = findViewById(R.id.time_indicator);
         mTimeText = (TextView) findViewById(R.id.time_text);
-        mProgressEmptyBefore = findViewById(R.id.timeline_bg_start);
-        mProgressWatched = findViewById(R.id.watched);
-        mProgressBuffered = findViewById(R.id.buffered);
-        mProgressEmptyAfter = findViewById(R.id.timeline_bg_end);
-        mControlBar = findViewById(R.id.play_control_bar);
+        mProgress = (PlaybackProgressBar) findViewById(R.id.progress);
         mJumpPreviousButton = (PlayControlsButton) findViewById(R.id.jump_previous);
         mRewindButton = (PlayControlsButton) findViewById(R.id.rewind);
         mPlayPauseButton = (PlayControlsButton) findViewById(R.id.play_pause);
@@ -187,7 +180,6 @@ public class PlayControlsRowView extends MenuRowView {
         mRecordButton = (PlayControlsButton) findViewById(R.id.record);
         mProgramStartTimeText = (TextView) findViewById(R.id.program_start_time);
         mProgramEndTimeText = (TextView) findViewById(R.id.program_end_time);
-        mUnavailableMessageText = findViewById(R.id.unavailable_text);
 
         initializeButton(mJumpPreviousButton, R.drawable.lb_ic_skip_previous,
                 R.string.play_controls_description_skip_previous, null, new Runnable() {
@@ -195,7 +187,7 @@ public class PlayControlsRowView extends MenuRowView {
             public void run() {
                 if (mTimeShiftManager.isAvailable()) {
                     mTimeShiftManager.jumpToPrevious();
-                    updateControls();
+                    updateControls(true);
                 }
             }
         });
@@ -235,7 +227,7 @@ public class PlayControlsRowView extends MenuRowView {
             public void run() {
                 if (mTimeShiftManager.isAvailable()) {
                     mTimeShiftManager.jumpToNext();
-                    updateControls();
+                    updateControls(true);
                 }
             }
         });
@@ -265,18 +257,17 @@ public class PlayControlsRowView extends MenuRowView {
             if (!(mDvrManager != null && mDvrManager.isChannelRecordable(currentChannel))) {
                 Toast.makeText(mMainActivity, R.string.dvr_msg_cannot_record_channel,
                         Toast.LENGTH_SHORT).show();
-            } else if (DvrUiHelper.checkStorageStatusAndShowErrorMessage(mMainActivity,
-                    currentChannel.getInputId())) {
+            } else {
                 Program program = TvApplication.getSingletons(mMainActivity).getProgramDataManager()
                         .getCurrentProgram(currentChannel.getId());
-                if (program == null) {
-                    DvrUiHelper.showChannelRecordDurationOptions(mMainActivity, currentChannel);
-                } else if (DvrUiHelper.handleCreateSchedule(mMainActivity, program)) {
-                    String msg = mMainActivity.getString(R.string.dvr_msg_current_program_scheduled,
-                            program.getTitle(),
-                            Utils.toTimeString(program.getEndTimeUtcMillis(), false));
-                    Toast.makeText(mMainActivity, msg, Toast.LENGTH_SHORT).show();
-                }
+                DvrUiHelper.checkStorageStatusAndShowErrorMessage(mMainActivity,
+                        currentChannel.getInputId(), new Runnable() {
+                            @Override
+                            public void run() {
+                                DvrUiHelper.requestRecordingCurrentProgram(mMainActivity,
+                                        currentChannel, program, true);
+                            }
+                        });
             }
         } else if (currentChannel != null) {
             DvrUiHelper.showStopRecordingDialog(mMainActivity, currentChannel.getId(),
@@ -318,39 +309,37 @@ public class PlayControlsRowView extends MenuRowView {
             @Override
             public void onAvailabilityChanged() {
                 updateMenuVisibility();
-                if (isShown()) {
-                    PlayControlsRowView.this.updateAll();
-                }
+                PlayControlsRowView.this.updateAll(false);
             }
 
             @Override
             public void onPlayStatusChanged(int status) {
                 updateMenuVisibility();
-                if (mTimeShiftManager.isAvailable() && isShown()) {
-                    updateControls();
+                if (mTimeShiftManager.isAvailable()) {
+                    updateControls(false);
                 }
             }
 
             @Override
             public void onRecordTimeRangeChanged() {
-                if (mTimeShiftManager.isAvailable() && isShown()) {
-                    updateControls();
+                if (mTimeShiftManager.isAvailable()) {
+                    updateControls(false);
                 }
             }
 
             @Override
             public void onCurrentPositionChanged() {
-                if (mTimeShiftManager.isAvailable() && isShown()) {
+                if (mTimeShiftManager.isAvailable()) {
                     initializeTimeline();
-                    updateControls();
+                    updateControls(false);
                 }
             }
 
             @Override
             public void onProgramInfoChanged() {
-                if (mTimeShiftManager.isAvailable() && isShown()) {
+                if (mTimeShiftManager.isAvailable()) {
                     initializeTimeline();
-                    updateControls();
+                    updateControls(false);
                 }
             }
 
@@ -372,7 +361,8 @@ public class PlayControlsRowView extends MenuRowView {
                 }
             }
         });
-        updateAll();
+        // force update to initialize everything
+        updateAll(true);
     }
 
     private void initializeTimeline() {
@@ -380,6 +370,8 @@ public class PlayControlsRowView extends MenuRowView {
                 mTimeShiftManager.getCurrentPositionMs());
         mProgramStartTimeMs = program.getStartTimeUtcMillis();
         mProgramEndTimeMs = program.getEndTimeUtcMillis();
+        mProgress.setMax(mProgramEndTimeMs - mProgramStartTimeMs);
+        updateRecTimeText();
         SoftPreconditions.checkArgument(mProgramStartTimeMs <= mProgramEndTimeMs);
     }
 
@@ -389,10 +381,13 @@ public class PlayControlsRowView extends MenuRowView {
         getMenu().setKeepVisible(keepMenuVisible);
     }
 
+    public void onPreselected() {
+        updateControls(true);
+    }
+
     @Override
     public void onSelected(boolean showTitle) {
         super.onSelected(showTitle);
-        updateControls();
         postHideRippleAnimation();
     }
 
@@ -474,28 +469,32 @@ public class PlayControlsRowView extends MenuRowView {
      * Updates the view contents. It is called from the PlayControlsRow.
      */
     public void update() {
-        updateAll();
+        updateAll(false);
     }
 
-    private void updateAll() {
+    private void updateAll(boolean forceUpdate) {
         if (mTimeShiftManager.isAvailable() && !mTvView.isScreenBlocked()) {
             setEnabled(true);
             initializeTimeline();
             mBackgroundView.setEnabled(true);
+            setTextIfNeeded(mBackgroundView, null);
         } else {
             setEnabled(false);
             mBackgroundView.setEnabled(false);
+            setTextIfNeeded(mBackgroundView, mUnavailableMessage);
         }
-        updateControls();
+        // force the controls be updated no matter it's visible or not.
+        updateControls(forceUpdate);
     }
 
-    private void updateControls() {
-        updateTime();
-        updateProgress();
-        updateRecTimeText();
-        updateButtons();
-        updateRecordButton();
-        updateButtonMargin();
+    private void updateControls(boolean forceUpdate) {
+        if (forceUpdate || getContentsView().isShown()) {
+            updateTime();
+            updateProgress();
+            updateButtons();
+            updateRecordButton();
+            updateButtonMargin();
+        }
     }
 
     private void updateTime() {
@@ -504,70 +503,39 @@ public class PlayControlsRowView extends MenuRowView {
             mTimeIndicator.setVisibility(View.VISIBLE);
         } else {
             mTimeText.setVisibility(View.INVISIBLE);
-            mTimeIndicator.setVisibility(View.INVISIBLE);
+            mTimeIndicator.setVisibility(View.GONE);
             return;
         }
         long currentPositionMs = mTimeShiftManager.getCurrentPositionMs();
-        ViewGroup.MarginLayoutParams params =
-                (ViewGroup.MarginLayoutParams) mTimeText.getLayoutParams();
         int currentTimePositionPixel =
                 convertDurationToPixel(currentPositionMs - mProgramStartTimeMs);
-        params.leftMargin = currentTimePositionPixel + mTimeTextLeftMargin;
-        mTimeText.setLayoutParams(params);
-        mTimeText.setText(getTimeString(currentPositionMs));
-        params = (ViewGroup.MarginLayoutParams) mTimeIndicator.getLayoutParams();
-        params.leftMargin = currentTimePositionPixel + mTimeIndicatorLeftMargin;
-        mTimeIndicator.setLayoutParams(params);
+        mTimeText.setTranslationX(currentTimePositionPixel + mTimeTextLeftMargin);
+        setTextIfNeeded(mTimeText, getTimeString(currentPositionMs));
+        mTimeIndicator.setTranslationX(currentTimePositionPixel + mTimeIndicatorLeftMargin);
     }
 
     private void updateProgress() {
         if (isEnabled()) {
-            mProgressWatched.setVisibility(View.VISIBLE);
-            mProgressBuffered.setVisibility(View.VISIBLE);
-            mProgressEmptyAfter.setVisibility(View.VISIBLE);
-        } else {
-            mProgressWatched.setVisibility(View.INVISIBLE);
-            mProgressBuffered.setVisibility(View.INVISIBLE);
-            mProgressEmptyAfter.setVisibility(View.INVISIBLE);
-            if (mProgramStartTimeMs < mProgramEndTimeMs) {
-                layoutProgress(mProgressEmptyBefore, mProgramStartTimeMs, mProgramEndTimeMs);
-            } else {
-                // Not initialized yet.
-                layoutProgress(mProgressEmptyBefore, mTimelineWidth);
-            }
-            return;
-        }
-
-        long progressStartTimeMs = Math.min(mProgramEndTimeMs,
+            long progressStartTimeMs = Math.min(mProgramEndTimeMs,
                     Math.max(mProgramStartTimeMs, mTimeShiftManager.getRecordStartTimeMs()));
-        long currentPlayingTimeMs = Math.min(mProgramEndTimeMs,
+            long currentPlayingTimeMs = Math.min(mProgramEndTimeMs,
                     Math.max(mProgramStartTimeMs, mTimeShiftManager.getCurrentPositionMs()));
-        long progressEndTimeMs = Math.min(mProgramEndTimeMs,
+            long progressEndTimeMs = Math.min(mProgramEndTimeMs,
                     Math.max(mProgramStartTimeMs, mTimeShiftManager.getRecordEndTimeMs()));
-
-        layoutProgress(mProgressEmptyBefore, mProgramStartTimeMs, progressStartTimeMs);
-        layoutProgress(mProgressWatched, progressStartTimeMs, currentPlayingTimeMs);
-        layoutProgress(mProgressBuffered, currentPlayingTimeMs, progressEndTimeMs);
-    }
-
-    private void layoutProgress(View progress, long progressStartTimeMs, long progressEndTimeMs) {
-        layoutProgress(progress, Math.max(0,
-                convertDurationToPixel(progressEndTimeMs - progressStartTimeMs)) + 1);
-    }
-
-    private void layoutProgress(View progress, int width) {
-        ViewGroup.MarginLayoutParams params =
-                (ViewGroup.MarginLayoutParams) progress.getLayoutParams();
-        params.width = width;
-        progress.setLayoutParams(params);
+            mProgress.setProgressRange(progressStartTimeMs - mProgramStartTimeMs,
+                    progressEndTimeMs - mProgramStartTimeMs);
+            mProgress.setProgress(currentPlayingTimeMs - mProgramStartTimeMs);
+        } else {
+            mProgress.setProgressRange(0, 0);
+        }
     }
 
     private void updateRecTimeText() {
         if (isEnabled()) {
             mProgramStartTimeText.setVisibility(View.VISIBLE);
-            mProgramStartTimeText.setText(getTimeString(mProgramStartTimeMs));
+            setTextIfNeeded(mProgramStartTimeText, getTimeString(mProgramStartTimeMs));
             mProgramEndTimeText.setVisibility(View.VISIBLE);
-            mProgramEndTimeText.setText(getTimeString(mProgramEndTimeMs));
+            setTextIfNeeded(mProgramEndTimeText, getTimeString(mProgramEndTimeMs));
         } else {
             mProgramStartTimeText.setVisibility(View.GONE);
             mProgramEndTimeText.setVisibility(View.GONE);
@@ -576,11 +544,17 @@ public class PlayControlsRowView extends MenuRowView {
 
     private void updateButtons() {
         if (isEnabled()) {
-            mControlBar.setVisibility(View.VISIBLE);
-            mUnavailableMessageText.setVisibility(View.GONE);
+            mPlayPauseButton.setVisibility(View.VISIBLE);
+            mJumpPreviousButton.setVisibility(View.VISIBLE);
+            mJumpNextButton.setVisibility(View.VISIBLE);
+            mRewindButton.setVisibility(View.VISIBLE);
+            mFastForwardButton.setVisibility(View.VISIBLE);
         } else {
-            mControlBar.setVisibility(View.INVISIBLE);
-            mUnavailableMessageText.setVisibility(View.VISIBLE);
+            mPlayPauseButton.setVisibility(View.GONE);
+            mJumpPreviousButton.setVisibility(View.GONE);
+            mJumpNextButton.setVisibility(View.GONE);
+            mRewindButton.setVisibility(View.GONE);
+            mFastForwardButton.setVisibility(View.GONE);
             return;
         }
 
@@ -622,6 +596,12 @@ public class PlayControlsRowView extends MenuRowView {
     }
 
     private void updateRecordButton() {
+        if (isEnabled()) {
+            mRecordButton.setVisibility(VISIBLE);
+        } else {
+            mRecordButton.setVisibility(GONE);
+            return;
+        }
         if (!(mDvrManager != null
                 && mDvrManager.isChannelRecordable(mMainActivity.getCurrentChannel()))) {
             mRecordButton.setVisibility(View.GONE);
@@ -680,6 +660,12 @@ public class PlayControlsRowView extends MenuRowView {
         super.onDetachedFromWindow();
         if (mDvrDataManager != null) {
             mDvrDataManager.removeScheduledRecordingListener(mScheduledRecordingListener);
+        }
+    }
+
+    private void setTextIfNeeded(TextView textView, String text) {
+        if (!TextUtils.equals(textView.getText(), text)) {
+            textView.setText(text);
         }
     }
 }

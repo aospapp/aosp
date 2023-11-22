@@ -142,7 +142,8 @@ class ResultCollectorUnittest(unittest.TestCase):
         collector = run_suite.ResultCollector(
                 'fake_server', self.afe, self.tko,
                 build='fake/build', board='fake', suite_name='dummy',
-                suite_job_id=suite_job_id)
+                suite_job_id=suite_job_id,
+                return_code_function=run_suite._ReturnCodeComputer())
         collector._missing_results = {
                 test_missing['test_name']: [14, 15],
         }
@@ -197,7 +198,8 @@ class ResultCollectorUnittest(unittest.TestCase):
                                 [good_job_id, bad_job_id, missing_job_id])
         collector = run_suite.ResultCollector(
                 'fake_server', self.afe, self.tko,
-                build, board, suite_name, suite_job_id)
+                build, board, suite_name, suite_job_id,
+                return_code_function=run_suite._ReturnCodeComputer())
         child_views, retry_counts, missing_results = (
                 collector._fetch_test_views_of_child_jobs())
         # child_views should contain tests 21, 22, 23
@@ -241,7 +243,8 @@ class ResultCollectorUnittest(unittest.TestCase):
 
         collector = run_suite.ResultCollector(
                 'fake_server', self.afe, self.tko,
-                build, board, suite_name, suite_job_id, user='chromeos-test')
+                build, board, suite_name, suite_job_id, user='chromeos-test',
+                return_code_function=run_suite._ReturnCodeComputer())
         collector._suite_views = [suite_job_view]
         collector._test_views = [suite_job_view, good_test, bad_test]
         collector._max_testname_width = max(
@@ -267,19 +270,22 @@ class ResultCollectorUnittest(unittest.TestCase):
                                 '%s-%s' % (v['afe_job_id'], 'chromeos-test')))
                  for v in collector._test_views if v['status'] != 'GOOD']
         # Verify buildbot links are generated correctly.
-        for i in range(len(collector._buildbot_links)):
+        for i in range(len(collector.buildbot_links)):
             expect = expected_buildbot_links[i]
-            self.assertEqual(collector._buildbot_links[i].anchor, expect[0])
-            self.assertEqual(collector._buildbot_links[i].url, expect[1])
-            self.assertEqual(collector._buildbot_links[i].retry_count, 0)
+            self.assertEqual(collector.buildbot_links[i].anchor, expect[0])
+            self.assertEqual(collector.buildbot_links[i].url, expect[1])
+            self.assertEqual(collector.buildbot_links[i].retry_count, 0)
             # Assert that a wmatrix retry dashboard link is created.
             self.assertNotEqual(
-                    collector._buildbot_links[i].GenerateWmatrixRetryLink(),'')
+                    collector.buildbot_links[i].GenerateWmatrixRetryLink(), '')
+            self.assertNotEqual(
+                    collector.buildbot_links[i].GenerateWmatrixHistoryLink(),
+                    '')
 
 
     def _end_to_end_test_helper(
             self, include_bad_test=False, include_warn_test=False,
-            include_experimental_bad_test=False, include_timeout_test=False,
+            include_timeout_test=False,
             include_self_aborted_test=False,
             include_aborted_by_suite_test=False,
             include_good_retry=False, include_bad_retry=False,
@@ -293,9 +299,6 @@ class ResultCollectorUnittest(unittest.TestCase):
                 If True, include a view of a test which has status 'FAIL'.
         @param include_warn_test:
                 If True, include a view of a test which has status 'WARN'
-        @param include_experimental_bad_test:
-                If True, include a view of an experimental test
-                which has status 'FAIL'.
         @param include_timeout_test:
                 If True, include a view of a test which was aborted before
                 started.
@@ -317,7 +320,6 @@ class ResultCollectorUnittest(unittest.TestCase):
         good_job_id = 101
         bad_job_id = 102
         warn_job_id = 102
-        experimental_bad_job_id = 102
         timeout_job_id = 100
         self_aborted_job_id = 104
         aborted_by_suite_job_id = 105
@@ -360,13 +362,6 @@ class ResultCollectorUnittest(unittest.TestCase):
                 warn_job_id, 'lumpy-release/R27-3888.0.0/dummy/dummy_Fail.Warn',
                 'always warn', {}, '2014-04-29 13:16:00',
                 '2014-04-29 13:16:02')
-        experimental_bad_test = self._build_view(
-                14, 'experimental_dummy_Fail.Fail',
-                '102-user/host/dummy_Fail.Fail', 'FAIL',
-                experimental_bad_job_id,
-                'lumpy-release/R27-3888.0.0/dummy/experimental_dummy_Fail.Fail',
-                'always fail', {'experimental': 'True'}, '2014-04-29 13:16:06',
-                '2014-04-29 13:16:07')
         timeout_test = self._build_view(
                 15, 'dummy_Timeout', '', 'ABORT',
                 timeout_job_id,
@@ -424,9 +419,6 @@ class ResultCollectorUnittest(unittest.TestCase):
         if include_warn_test:
             test_views.append(warn_test)
             child_jobs.add(warn_job_id)
-        if include_experimental_bad_test:
-            test_views.append(experimental_bad_test)
-            child_jobs.add(experimental_bad_job_id)
         if include_timeout_test:
             test_views.append(timeout_test)
         if include_self_aborted_test:
@@ -445,7 +437,8 @@ class ResultCollectorUnittest(unittest.TestCase):
         self._mock_afe_get_jobs(suite_job_id, child_jobs)
         collector = run_suite.ResultCollector(
                'fake_server', self.afe, self.tko,
-               'lumpy-release/R36-5788.0.0', 'lumpy', 'dummy', suite_job_id)
+               'lumpy-release/R36-5788.0.0', 'lumpy', 'dummy', suite_job_id,
+               return_code_function=run_suite._ReturnCodeComputer())
         collector.run()
         return collector
 
@@ -453,13 +446,6 @@ class ResultCollectorUnittest(unittest.TestCase):
     def testEndToEndSuitePass(self):
         """Test it returns code OK when all test pass."""
         collector = self._end_to_end_test_helper()
-        self.assertEqual(collector.return_code, run_suite.RETURN_CODES.OK)
-
-
-    def testEndToEndExperimentalTestFails(self):
-        """Test that it returns code OK when only experimental test fails."""
-        collector = self._end_to_end_test_helper(
-                include_experimental_bad_test=True)
         self.assertEqual(collector.return_code, run_suite.RETURN_CODES.OK)
 
 
@@ -471,18 +457,7 @@ class ResultCollectorUnittest(unittest.TestCase):
 
     def testEndToEndSuiteFail(self):
         """Test it returns code ERROR when there is a test that fails."""
-        # Test that it returns ERROR when there is test that fails.
         collector = self._end_to_end_test_helper(include_bad_test=True)
-        self.assertEqual(collector.return_code, run_suite.RETURN_CODES.ERROR)
-
-        # Test that it returns ERROR when both experimental and non-experimental
-        # test fail.
-        collector = self._end_to_end_test_helper(
-                include_bad_test=True, include_warn_test=True,
-                include_experimental_bad_test=True)
-        self.assertEqual(collector.return_code, run_suite.RETURN_CODES.ERROR)
-
-        collector = self._end_to_end_test_helper(include_self_aborted_test=True)
         self.assertEqual(collector.return_code, run_suite.RETURN_CODES.ERROR)
 
 

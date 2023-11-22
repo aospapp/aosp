@@ -41,11 +41,11 @@
     <string name="sync_failed" msgid="5514824149810480551">"Synchronizácia zlyhala"</string>
     <string name="sync_active" msgid="6891115263481154378">"Synchronizácia je aktívna"</string>
     <string name="connectivity_network" msgid="8321537111272398501">"Sieť"</string>
-    <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
+    <string name="connectivity_wifi" msgid="489974791299647708">"Wi‑Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Vyhľadávanie je vždy k dispozícii"</string>
-    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Povoliť službe určovania polohy Google a ostatným aplikáciám vyhľadávať siete aj v prípade, že je sieť Wi-Fi vypnutá"</string>
-    <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Povoliť službe určovania polohy Google a ostatným aplikáciám vyhľadávať siete aj v prípade, že je sieť Wi‑Fi vypnutá"</string>
+    <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi‑Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"Šetrič obrazovky"</string>
     <string name="device_display" msgid="101455384386372747">"Obrazovka"</string>
     <string name="device_sound" msgid="9214182566287657481">"Zvuk"</string>
@@ -133,7 +133,7 @@
     <string name="device_status_summary" msgid="180586140242936323">"Sieť, sériové čísla a ďalšie informácie"</string>
     <string name="manual" msgid="4957388668881541669">"Ručne"</string>
     <string name="regulatory_information" msgid="5448865708097003189">"Regulačné informácie"</string>
-    <string name="device_feedback" msgid="209146642122579479">"Spätná väzba o tomto zariadení"</string>
+    <string name="device_feedback" msgid="209146642122579479">"Spätná väzba o zariadení"</string>
     <string name="fcc_equipment_id" msgid="8295142996591094301">"Identifikátor zariadenia"</string>
     <string name="baseband_version" msgid="2229081246529676107">"Verzia základného pásma"</string>
     <string name="kernel_version" msgid="2418845475938044903">"Verzia jadra"</string>
@@ -162,7 +162,7 @@
     <string name="title_mac_address" msgid="3428401680168668544">"Adresa MAC"</string>
     <string name="title_signal_strength" msgid="205478650262078041">"Sila signálu"</string>
     <string name="title_ip_address" msgid="4533523100923004711">"Adresa IP"</string>
-    <string name="title_ssid" msgid="4858945903642469730">"Zadajte názov siete Wi–Fi"</string>
+    <string name="title_ssid" msgid="4858945903642469730">"Zadajte názov siete Wi‑Fi"</string>
     <string name="title_internet_connection" msgid="8710084774588697646">"Internetové pripojenie"</string>
     <string name="connected" msgid="7563100162902079938">"Pripojené"</string>
     <string name="not_connected" msgid="6858480380326923017">"Nepripojené"</string>
@@ -184,8 +184,8 @@
     <string name="title_wifi_could_not_save" msgid="708638317882707069">"Nepodarilo sa uložiť konfigurácie siete <xliff:g id="SSID">%1$s</xliff:g>"</string>
     <string name="title_wifi_could_not_connect" msgid="9080004548419447580">"Nepodarilo sa pripojiť k sieti <xliff:g id="SSID">%1$s</xliff:g>"</string>
     <string name="title_wifi_could_not_connect_timeout" msgid="5158184646985406394">"Sieť <xliff:g id="SSID">%1$s</xliff:g> sa nepodarilo nájsť"</string>
-    <string name="title_wifi_could_not_connect_authentication_failure" msgid="4836595650380723944">"Heslo siete Wi-Fi je neplatné"</string>
-    <string name="title_wifi_could_not_connect_ap_reject" msgid="328274688839033015">"Sieť Wi-Fi neprijala pripojenie"</string>
+    <string name="title_wifi_could_not_connect_authentication_failure" msgid="4836595650380723944">"Heslo siete Wi‑Fi je neplatné"</string>
+    <string name="title_wifi_could_not_connect_ap_reject" msgid="328274688839033015">"Sieť Wi‑Fi neprijala pripojenie"</string>
     <string name="title_wifi_advanced_options" msgid="5389467736846644832">"Konfigurovať nastavenia servera proxy a adresy IP pre sieť <xliff:g id="SSID">%1$s</xliff:g>?"</string>
     <string name="title_wifi_proxy_settings" msgid="7728120764469991303">"Nastavenia servera proxy"</string>
     <string name="title_wifi_proxy_hostname" msgid="4655634673840885248">"Názov hostiteľa servera proxy:"</string>
@@ -321,12 +321,12 @@
     <string name="learn_more_action" msgid="7015991954404958779">"Ďalšie informácie"</string>
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"Skúsiť znova"</string>
     <string name="wifi_wps_title" msgid="1872305810119408482">"Prebieha vyhľadávanie smerovača s funkciou WPS…"</string>
-    <string name="wifi_wps_instructions" msgid="3618110962669110034">"Stlačte na svojom smerovači tlačidlo Chránené nastavenie Wi-Fi.\nMôže byť označené písmenami WPS alebo symbolom uvedeným vľavo."</string>
-    <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"Na smerovači Wi-Fi zadajte číslo PIN <xliff:g id="NUMBER">%1$s</xliff:g>"</string>
+    <string name="wifi_wps_instructions" msgid="3618110962669110034">"Stlačte na svojom smerovači tlačidlo Chránené nastavenie Wi‑Fi.\nMôže byť označené písmenami WPS alebo symbolom uvedeným vľavo."</string>
+    <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"Na smerovači Wi‑Fi zadajte číslo PIN <xliff:g id="NUMBER">%1$s</xliff:g>"</string>
     <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"Dokončenie nastavenia môže po zadaní čísla PIN trvať až dve minúty."</string>
-    <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"Nepodarilo sa nájsť smerovač Wi-Fi"</string>
-    <string name="wifi_wps_failed_wep" msgid="9158670824165143348">"Nastavenie zabezpečenia smerovača Wi-Fi (WEP) nie je podporované."</string>
-    <string name="wifi_wps_failed_tkip" msgid="1712545345594227319">"Nastavenie zabezpečenia smerovača Wi-Fi (TKIP) nie je podporované."</string>
+    <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"Nepodarilo sa nájsť smerovač Wi‑Fi"</string>
+    <string name="wifi_wps_failed_wep" msgid="9158670824165143348">"Nastavenie zabezpečenia smerovača Wi‑Fi (WEP) nie je podporované."</string>
+    <string name="wifi_wps_failed_tkip" msgid="1712545345594227319">"Nastavenie zabezpečenia smerovača Wi‑Fi (TKIP) nie je podporované."</string>
     <string name="wifi_wps_failed_overlap" msgid="3091222818050940041">"Spustila sa ďalšia relácia WPS. Skúste to znova o niekoľko minút."</string>
     <string name="system_date" msgid="2767108116769558081">"Dátum"</string>
     <string name="system_time" msgid="6726022312605226285">"Čas"</string>
@@ -354,7 +354,7 @@
     <string name="location_no_recent_apps" msgid="4218851908476344030">"V poslednom čase žiadne aplikácie o polohu nepožiadali"</string>
     <string name="location_high_battery_use" msgid="576143332793626088">"Vysoká spotreba batérie"</string>
     <string name="location_low_battery_use" msgid="5756040390248358148">"Nízka spotreba batérie"</string>
-    <string name="location_mode_wifi_description" msgid="2778774510654527264">"Odhadovať polohu pomocou siete Wi-Fi"</string>
+    <string name="location_mode_wifi_description" msgid="2778774510654527264">"Odhadovať polohu pomocou siete Wi‑Fi"</string>
     <string name="location_status" msgid="3456414279428237558">"Stav polohy"</string>
     <string name="location_services" msgid="5441085185119797200">"Služby určovania polohy"</string>
     <string name="on" msgid="6683600681314500652">"Zapnuté"</string>
@@ -370,6 +370,10 @@
     <string name="system_services" msgid="7230571820151215779">"Služby"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Nastavenia služby"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Text s vysokým kontrastom"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Skratka dostupnosti"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Povoliť skratku dostupnosti"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Služba klávesových skratiek"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Keď je skratka zapnutá, funkciu dostupnosti môžete spustiť tým, že na tri sekundy stlačíte tlačidlá späť a nadol."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Titulky"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Nastavenia textového prekrytia videa skrytými titulkami"</string>
     <string name="captions_display" msgid="735692527287125548">"Zobrazenie"</string>
@@ -436,14 +440,14 @@
     <string name="system_always_check" msgid="1866566828098009853">"Vždy kontrolovať"</string>
     <string name="system_bt_hci_log" msgid="2425757846046504431">"Zaznamenávanie prostredníctvom protokolu Bluetooth HCI"</string>
     <string name="system_email_address" msgid="8669468986250302378">"E-mailová adresa"</string>
-    <string name="system_usb_debugging" msgid="3777895294421924323">"Ladenie USB"</string>
+    <string name="system_usb_debugging" msgid="3777895294421924323">"Ladenie cez USB"</string>
     <string name="system_allow_mock_locations" msgid="3635672039775772910">"Povoliť simulované polohy"</string>
     <string name="system_select_debug_app" msgid="8592021815119618485">"Vybrať aplikáciu na ladenie"</string>
     <string name="system_wait_for_debugger" msgid="4007354935701089555">"Čakať na ladiaci nástroj"</string>
     <string name="system_verify_apps_over_usb" msgid="7340861918835270609">"Overovať aplikácie z USB"</string>
     <string name="system_desc_verify_apps_over_usb" msgid="6722973410408262393">"Kontrolovať škodlivosť aplikácií nainštalovaných pomocou nástroja ADB/ADT"</string>
-    <string name="system_wifi_verbose_logging" msgid="3474525355071613242">"Prihlasovanie Wi-Fi Verbose"</string>
-    <string name="system_desc_wifi_verbose_logging" msgid="1559904751873455868">"Povoliť prihlasovanie Wi-Fi Verbose"</string>
+    <string name="system_wifi_verbose_logging" msgid="3474525355071613242">"Prihlasovanie Wi‑Fi Verbose"</string>
+    <string name="system_desc_wifi_verbose_logging" msgid="1559904751873455868">"Povoliť prihlasovanie Wi‑Fi Verbose"</string>
     <string name="system_show_touches" msgid="2179121368437801757">"Zobraziť dotyky"</string>
     <string name="system_pointer_location" msgid="2673764026490179227">"Umiestnenie ukazovateľa"</string>
     <string name="system_show_layout_bounds" msgid="645732439882291943">"Zobraziť hranice rozloženia"</string>
@@ -521,9 +525,9 @@
     <string name="title_configure" msgid="6929522003149212388">"Konfigurovať"</string>
     <string name="desc_configure_keyboard" msgid="7187242843867404657">"Možnosti klávesnice"</string>
     <string name="computing_size" msgid="2955133568424704042">"Prebieha výpočet…"</string>
-    <string name="title_select_wifi_network" msgid="1038871400014761952">"Vyberte sieť Wi-Fi"</string>
+    <string name="title_select_wifi_network" msgid="1038871400014761952">"Vyberte sieť Wi‑Fi"</string>
     <string name="accessories_wifi_display_rename_device" msgid="7416728299196887186">"Premenovať"</string>
-    <string name="accessories_wifi_display_enable" msgid="4779506305656453262">"Displej cez Wi-Fi"</string>
+    <string name="accessories_wifi_display_enable" msgid="4779506305656453262">"Displej cez Wi‑Fi"</string>
     <string name="accessories_wifi_display_pin_required" msgid="3242645267864813273">"Vyžaduje sa kód PIN"</string>
     <string name="whichApplication" msgid="8382179653567099571">"Dokončiť akciu pomocou aplikácie"</string>
     <string name="alwaysUseQuestion" msgid="7128459989232213727">"Chcete pre túto akciu vždy používať túto možnosť?"</string>
@@ -631,18 +635,18 @@
     <string name="settings_ok" msgid="3321630456511355983">"OK"</string>
     <string name="settings_cancel" msgid="304280412158061225">"Zrušiť"</string>
     <string name="settings_on" msgid="6892236264945435013">"Zapnúť"</string>
-    <string name="settings_off" msgid="449272161738237637">"Vypnúť"</string>
+    <string name="settings_off" msgid="449272161738237637">"Vypnuté"</string>
     <string name="device_daydreams_none" msgid="2767107052779579259">"Vypnúť obrazovku"</string>
     <string name="device_daydreams_select" msgid="2112338101206187695">"Šetrič obrazovky"</string>
-    <string name="device_daydreams_test" msgid="9038920213402659591">"Začať"</string>
-    <string name="device_daydreams_sleep" msgid="7676938708373592766">"Čas spustenia"</string>
+    <string name="device_daydreams_test" msgid="9038920213402659591">"Spustiť"</string>
+    <string name="device_daydreams_sleep" msgid="7676938708373592766">"Čas do spustenia"</string>
     <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"Šetrič obrazovky sa spustí po tomto čase nečinnosti. Ak nie je vybraný žiadny šetrič obrazovky, obrazovka sa vypne."</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"Po nečinnosti trvajúcej <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>"</string>
-    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Prepnúť zariadenie do režimu spánku"</string>
+    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Čas do režimu spánku"</string>
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"Po tomto čase bez aktivity sa vypne obrazovka."</string>
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"V súčasnosti neuchováva zálohované údaje žiadny účet"</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
-    <string name="backup_erase_dialog_message" msgid="2608496013975068701">"Chcete zastaviť zálohovanie hesiel sietí Wi-Fi, záložiek, ďalších nastavení a údajov aplikácií a vymazať všetky kópie na serveroch spoločnosti Google?"</string>
+    <string name="backup_erase_dialog_message" msgid="2608496013975068701">"Chcete zastaviť zálohovanie hesiel sietí Wi‑Fi, záložiek, ďalších nastavení a údajov aplikácií a vymazať všetky kópie na serveroch spoločnosti Google?"</string>
     <string name="privacy_backup_data" msgid="1796662583830120812">"Zálohovať moje údaje"</string>
     <string name="privacy_backup_account" msgid="9059939814827165020">"Záložný účet"</string>
     <string name="privacy_automatic_restore" msgid="1409885318093199628">"Automatické obnovenie"</string>
@@ -664,7 +668,7 @@
     <string name="change_setting" msgid="2047402388786162246">"Zmeniť"</string>
     <string name="keep_settings" msgid="6798327196645732517">"Nemeniť"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"Povolenia"</string>
-    <string name="device_apps_permissions" msgid="2966387603529725982">"Povolenia aplikácie"</string>
+    <string name="device_apps_permissions" msgid="2966387603529725982">"Povolenia aplikácií"</string>
     <string name="app_permissions_group_summary" msgid="7906834786705287901">"Povolené aplikácie: <xliff:g id="COUNT_0">%d</xliff:g> z <xliff:g id="COUNT_1">%d</xliff:g>"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"Žiadosť o povolenie použiť rozhranie Bluetooth"</string>
     <string name="security_patch" msgid="2131617390189164481">"Úroveň opráv zabezpečenia systému"</string>
@@ -676,4 +680,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Hlásenie chyby sa zaznamenáva"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Dostupné virtuálne klávesnice"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Spravovať klávesnice"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Povolené"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Nepovolené"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Prístup k dátam o využití"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Prístup k dátam o využití umožňuje aplikácii sledovať, aké ďalšie aplikácie používate, ako často ich používate, a taktiež nastavenia jazyka, operátora a ďalšie podrobnosti."</string>
 </resources>

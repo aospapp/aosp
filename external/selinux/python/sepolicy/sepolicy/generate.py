@@ -92,7 +92,7 @@ def get_rpm_nvr_list(package):
             nvr = get_rpm_nvr_from_header(h)
             break
     except:
-        print("Failed to retrieve rpm info for %s") % package
+        print(("Failed to retrieve rpm info for %s") % package)
         nvr = None
 
     return nvr
@@ -1329,7 +1329,7 @@ allow %s_t %s_t:%s_socket name_%s;
             self.add_dir("/var/lib/%s" % self.name)
 
         if os.path.isfile("/etc/rc.d/init.d/%s" % self.name):
-            self.set_init_script("/etc/rc\.d/init\.d/%s" % self.name)
+            self.set_init_script(r"/etc/rc\.d/init\.d/%s" % self.name)
 
         # we don't want to have subdir in the .fc policy file
         # if we already specify labeling for parent dir

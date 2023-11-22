@@ -30,8 +30,8 @@ import com.android.tv.R;
 import com.android.tv.TvApplication;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.dvr.DvrManager;
-import com.android.tv.dvr.ScheduledRecording;
 import com.android.tv.dvr.ui.list.SchedulesHeaderRow.DateHeaderRow;
+import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.util.Utils;
 
 import java.util.ArrayList;
@@ -43,7 +43,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * An adapter for {@link ScheduleRow}.
  */
-public class ScheduleRowAdapter extends ArrayObjectAdapter {
+class ScheduleRowAdapter extends ArrayObjectAdapter {
     private static final String TAG = "ScheduleRowAdapter";
     private static final boolean DEBUG = false;
 

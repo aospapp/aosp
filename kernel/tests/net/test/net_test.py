@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import errno
 import fcntl
 import os
 import random
@@ -41,6 +40,7 @@ SO_BINDTODEVICE = 25
 SO_MARK = 36
 SO_PROTOCOL = 38
 SO_DOMAIN = 39
+SO_COOKIE = 57
 
 ETH_P_IP = 0x0800
 ETH_P_IPV6 = 0x86dd
@@ -322,6 +322,14 @@ def SetFlowLabel(s, addr, label):
   # Caller also needs to do s.setsockopt(SOL_IPV6, IPV6_FLOWINFO_SEND, 1).
 
 
+def RunIptablesCommand(version, args):
+  iptables = {4: "iptables", 6: "ip6tables"}[version]
+  iptables_path = "/sbin/" + iptables
+  if not os.access(iptables_path, os.X_OK):
+    iptables_path = "/system/bin" + iptables
+  return os.spawnvp(os.P_WAIT, iptables_path, [iptables_path] + args.split(" "))
+
+
 # Determine network configuration.
 try:
   GetDefaultRoute(version=4)
@@ -335,36 +343,60 @@ try:
 except ValueError:
   HAVE_IPV6 = False
 
-
-CONTINUOUS_BUILD = re.search("net_test_mode=builder",
-                             open("/proc/cmdline").read())
-
-
-class RunAsUid(object):
+class RunAsUidGid(object):
   """Context guard to run a code block as a given UID."""
 
-  def __init__(self, uid):
+  def __init__(self, uid, gid):
     self.uid = uid
+    self.gid = gid
 
   def __enter__(self):
     if self.uid:
       self.saved_uid = os.geteuid()
       self.saved_groups = os.getgroups()
-      if self.uid:
-        os.setgroups(self.saved_groups + [AID_INET])
-        os.seteuid(self.uid)
+      os.setgroups(self.saved_groups + [AID_INET])
+      os.seteuid(self.uid)
+    if self.gid:
+      self.saved_gid = os.getgid()
+      os.setgid(self.gid)
 
   def __exit__(self, unused_type, unused_value, unused_traceback):
     if self.uid:
       os.seteuid(self.saved_uid)
       os.setgroups(self.saved_groups)
+    if self.gid:
+      os.setgid(self.saved_gid)
+
+class RunAsUid(RunAsUidGid):
+  """Context guard to run a code block as a given GID and UID."""
+
+  def __init__(self, uid):
+    RunAsUidGid.__init__(self, uid, 0)
 
 
 class NetworkTest(unittest.TestCase):
 
-  def assertRaisesErrno(self, err_num, f, *args):
+  def assertRaisesErrno(self, err_num, f=None, *args):
+    """Test that the system returns an errno error.
+
+    This works similarly to unittest.TestCase.assertRaises. You can call it as
+    an assertion, or use it as a context manager.
+    e.g.
+        self.assertRaisesErrno(errno.ENOENT, do_things, arg1, arg2)
+    or
+        with self.assertRaisesErrno(errno.ENOENT):
+          do_things(arg1, arg2)
+
+    Args:
+      err_num: an errno constant
+      f: (optional) A callable that should result in error
+      *args: arguments passed to f
+    """
     msg = os.strerror(err_num)
-    self.assertRaisesRegexp(EnvironmentError, msg, f, *args)
+    if f is None:
+      return self.assertRaisesRegexp(EnvironmentError, msg)
+    else:
+      self.assertRaisesRegexp(EnvironmentError, msg, f, *args)
 
   def ReadProcNetSocket(self, protocol):
     # Read file.

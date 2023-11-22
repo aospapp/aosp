@@ -57,31 +57,6 @@ static void GetLocalsCb(void* context, const DexFile::LocalInfo& entry) {
                     entry.reg_)));
 }
 
-static uint32_t GetCodeItemSize(const DexFile::CodeItem& disk_code_item) {
-  uintptr_t code_item_start = reinterpret_cast<uintptr_t>(&disk_code_item);
-  uint32_t insns_size = disk_code_item.insns_size_in_code_units_;
-  uint32_t tries_size = disk_code_item.tries_size_;
-  if (tries_size == 0) {
-    uintptr_t insns_end = reinterpret_cast<uintptr_t>(&disk_code_item.insns_[insns_size]);
-    return insns_end - code_item_start;
-  } else {
-    // Get the start of the handler data.
-    const uint8_t* handler_data = DexFile::GetCatchHandlerData(disk_code_item, 0);
-    uint32_t handlers_size = DecodeUnsignedLeb128(&handler_data);
-    // Manually read each handler.
-    for (uint32_t i = 0; i < handlers_size; ++i) {
-      int32_t uleb128_count = DecodeSignedLeb128(&handler_data) * 2;
-      if (uleb128_count <= 0) {
-        uleb128_count = -uleb128_count + 1;
-      }
-      for (int32_t j = 0; j < uleb128_count; ++j) {
-        DecodeUnsignedLeb128(&handler_data);
-      }
-    }
-    return reinterpret_cast<uintptr_t>(handler_data) - code_item_start;
-  }
-}
-
 static uint32_t GetDebugInfoStreamSize(const uint8_t* debug_info_stream) {
   const uint8_t* stream = debug_info_stream;
   DecodeUnsignedLeb128(&stream);  // line_start
@@ -461,8 +436,8 @@ AnnotationItem* Collections::CreateAnnotationItem(const DexFile::AnnotationItem*
   }
   uint8_t visibility = annotation->visibility_;
   const uint8_t* annotation_data = annotation->annotation_;
-  EncodedValue* encoded_value =
-      ReadEncodedValue(&annotation_data, DexFile::kDexAnnotationAnnotation, 0);
+  std::unique_ptr<EncodedValue> encoded_value(
+      ReadEncodedValue(&annotation_data, DexFile::kDexAnnotationAnnotation, 0));
   // TODO: Calculate the size of the annotation.
   AnnotationItem* annotation_item =
       new AnnotationItem(visibility, encoded_value->ReleaseEncodedAnnotation());
@@ -686,7 +661,7 @@ CodeItem* Collections::CreateCodeItem(const DexFile& dex_file,
     }
   }
 
-  uint32_t size = GetCodeItemSize(disk_code_item);
+  uint32_t size = DexFile::GetCodeItemSize(disk_code_item);
   CodeItem* code_item = new CodeItem(
       registers_size, ins_size, outs_size, debug_info, insns_size, insns, tries, handler_list);
   code_item->SetSize(size);
@@ -818,8 +793,10 @@ void Collections::CreateMethodHandleItem(const DexFile& dex_file, uint32_t i) {
       static_cast<DexFile::MethodHandleType>(disk_method_handle.method_handle_type_);
   bool is_invoke = type == DexFile::MethodHandleType::kInvokeStatic ||
                    type == DexFile::MethodHandleType::kInvokeInstance ||
-                   type == DexFile::MethodHandleType::kInvokeConstructor;
-  static_assert(DexFile::MethodHandleType::kLast == DexFile::MethodHandleType::kInvokeConstructor,
+                   type == DexFile::MethodHandleType::kInvokeConstructor ||
+                   type == DexFile::MethodHandleType::kInvokeDirect ||
+                   type == DexFile::MethodHandleType::kInvokeInterface;
+  static_assert(DexFile::MethodHandleType::kLast == DexFile::MethodHandleType::kInvokeInterface,
                 "Unexpected method handle types.");
   IndexedItem* field_or_method_id;
   if (is_invoke) {

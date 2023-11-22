@@ -21,13 +21,15 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.util.Log;
 
 import com.android.tv.Features;
 import com.android.tv.TvActivity;
 import com.android.tv.TvApplication;
-import com.android.tv.common.feature.CommonFeatures;
-import com.android.tv.dvr.DvrRecordingService;
+import com.android.tv.dvr.recorder.DvrRecordingService;
+import com.android.tv.dvr.recorder.RecordingScheduler;
+import com.android.tv.recommendation.ChannelPreviewUpdater;
 import com.android.tv.recommendation.NotificationService;
 import com.android.tv.util.OnboardingUtils;
 import com.android.tv.util.SetupUtils;
@@ -49,12 +51,20 @@ public class BootCompletedReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
+        if (!TvApplication.getSingletons(context).getTvInputManagerHelper().hasTvInputManager()) {
+            Log.wtf(TAG, "Stopping because device does not have a TvInputManager");
+            return;
+        }
         if (DEBUG) Log.d(TAG, "boot completed " + intent);
         TvApplication.setCurrentRunningProcess(context, true);
-        // Start {@link NotificationService}.
-        Intent notificationIntent = new Intent(context, NotificationService.class);
-        notificationIntent.setAction(NotificationService.ACTION_SHOW_RECOMMENDATION);
-        context.startService(notificationIntent);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ChannelPreviewUpdater.getInstance(context).updatePreviewDataForChannelsImmediately();
+        } else {
+            Intent notificationIntent = new Intent(context, NotificationService.class);
+            notificationIntent.setAction(NotificationService.ACTION_SHOW_RECOMMENDATION);
+            context.startService(notificationIntent);
+        }
 
         // Grant permission to already set up packages after the system has finished booting.
         SetupUtils.grantEpgPermissionToSetUpPackages(context);
@@ -74,8 +84,9 @@ public class BootCompletedReceiver extends BroadcastReceiver {
             }
         }
 
-        if (CommonFeatures.DVR.isEnabled(context)) {
-            DvrRecordingService.startService(context);
+        RecordingScheduler scheduler = TvApplication.getSingletons(context).getRecordingScheduler();
+        if (scheduler != null) {
+            scheduler.updateAndStartServiceIfNeeded();
         }
     }
 }

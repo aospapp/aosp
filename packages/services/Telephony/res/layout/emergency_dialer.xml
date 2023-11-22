@@ -19,8 +19,9 @@
         android:id="@+id/top"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:paddingLeft="16dp"
-        android:paddingRight="16dp">
+        android:paddingLeft="36dp"
+        android:paddingRight="36dp"
+        android:paddingBottom="@dimen/dialpad_bottom_padding">
 
     <LinearLayout
             android:layout_width="match_parent"
@@ -36,26 +37,29 @@
                 android:layout_marginTop="16dp"
                 android:layout_marginBottom="24dp">
 
+            <!-- Button that says: Emergency Information -->
             <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="match_parent">
                 <Button android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
-                        android:id="@+id/action1"
-                        />
+                        android:background="@drawable/btn_emergency"
+                        android:id="@+id/action1" />
                 <Button android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
-                        android:id="@+id/action2"
-                        />
+                        android:background="@drawable/btn_emergency"
+                        android:id="@+id/action2" />
                 <Button android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
-                        android:id="@+id/action3"
-                        />
+                        android:background="@drawable/btn_emergency"
+                        android:id="@+id/action3" />
             </LinearLayout>
 
+            <!-- View that shows up on top of "emergency information" button
+            and asks you to tap again to confirm the action -->
             <FrameLayout
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
@@ -76,7 +80,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:id="@+id/ripple_view"
-                        android:backgroundTint="#22000000"
+                        android:backgroundTint="#22ffffff"
                         android:visibility="invisible"
                         android:focusable="false"
                         android:clickable="false"
@@ -91,15 +95,21 @@
                         android:backgroundTint="#00000000"
                         style="?android:attr/buttonStyle">
                     <TextView
-                            android:layout_width="wrap_content"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:maxLines="1"
                             android:id="@+id/selected_label"
+                            android:textColor="@android:color/white"
                             android:textAppearance="?android:attr/textAppearanceButton" />
                     <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:id="@+id/launch_hint"
+                            android:maxLines="1"
+                            android:autoSizeTextType="uniform"
                             android:text="@string/emergency_action_launch_hint"
+                            android:textColor="@android:color/white"
                             android:textStyle="italic" />
                 </LinearLayout>
 
@@ -108,7 +118,7 @@
         </com.android.phone.EmergencyActionGroup>
 
         <include layout="@layout/dialpad_view_unthemed"
-                android:theme="@style/Dialpad_Dark" />
+                android:theme="?attr/dialpadTheme" />
 
     </LinearLayout>
 

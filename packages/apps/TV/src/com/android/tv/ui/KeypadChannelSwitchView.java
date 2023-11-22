@@ -39,7 +39,7 @@ import android.widget.TextView;
 import com.android.tv.MainActivity;
 import com.android.tv.R;
 import com.android.tv.TvApplication;
-import com.android.tv.analytics.DurationTimer;
+import com.android.tv.util.DurationTimer;
 import com.android.tv.analytics.Tracker;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.data.Channel;

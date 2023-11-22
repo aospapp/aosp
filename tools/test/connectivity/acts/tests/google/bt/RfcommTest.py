@@ -24,6 +24,7 @@ import time
 from queue import Empty
 from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
+from acts.test_utils.bt.bt_constants import bt_rfcomm_uuids
 from acts.test_utils.bt.bt_test_utils import clear_bonded_devices
 from acts.test_utils.bt.bt_test_utils import kill_bluetooth_process
 from acts.test_utils.bt.bt_test_utils import orchestrate_rfcomm_connection
@@ -222,7 +223,7 @@ class RfcommTest(BluetoothBaseTest):
         self.server_ad.droid.bluetoothStartPairingHelper()
         self.client_ad.droid.bluetoothStartPairingHelper()
         self.server_ad.droid.bluetoothRfcommBeginAcceptThread(
-            RfcommUuid.DEFAULT_UUID.value, short_socket_timeout)
+            bt_rfcomm_uuids['default_uuid'], short_socket_timeout)
         time.sleep(wait_time_before_connect_attempt)
 
         # Try to connect
@@ -262,8 +263,8 @@ class RfcommTest(BluetoothBaseTest):
         TAGS: Classic, RFCOMM
         Priority: 3
         """
-        return self._test_rfcomm_connection_with_uuid(
-            RfcommUuid.BASE_UUID.value)
+        return self._test_rfcomm_connection_with_uuid(bt_rfcomm_uuids[
+            'base_uuid'])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='42c8d861-48b3-423b-ae8c-df140ebaad9d')
@@ -288,7 +289,7 @@ class RfcommTest(BluetoothBaseTest):
         TAGS: Classic, RFCOMM
         Priority: 3
         """
-        return self._test_rfcomm_connection_with_uuid(RfcommUuid.SDP.value)
+        return self._test_rfcomm_connection_with_uuid(bt_rfcomm_uuids['sdp'])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='97cc310d-4096-481e-940f-abe6811784f3')
@@ -313,7 +314,7 @@ class RfcommTest(BluetoothBaseTest):
         TAGS: Classic, RFCOMM
         Priority: 3
         """
-        return self._test_rfcomm_connection_with_uuid(RfcommUuid.UDP.value)
+        return self._test_rfcomm_connection_with_uuid(bt_rfcomm_uuids['udp'])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='5998a0cf-fc05-433a-abd8-c52717ea755c')
@@ -338,7 +339,8 @@ class RfcommTest(BluetoothBaseTest):
         TAGS: Classic, RFCOMM
         Priority: 3
         """
-        return self._test_rfcomm_connection_with_uuid(RfcommUuid.RFCOMM.value)
+        return self._test_rfcomm_connection_with_uuid(bt_rfcomm_uuids[
+            'rfcomm'])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='e3c05357-99ec-4819-86e4-1363e3359317')
@@ -363,7 +365,7 @@ class RfcommTest(BluetoothBaseTest):
         TAGS: Classic, RFCOMM
         Priority: 3
         """
-        return self._test_rfcomm_connection_with_uuid(RfcommUuid.TCP.value)
+        return self._test_rfcomm_connection_with_uuid(bt_rfcomm_uuids['tcp'])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='7304f8dc-f568-4489-9926-0b940ba7a45b')
@@ -388,7 +390,8 @@ class RfcommTest(BluetoothBaseTest):
         TAGS: Classic, RFCOMM
         Priority: 3
         """
-        return self._test_rfcomm_connection_with_uuid(RfcommUuid.TCS_BIN.value)
+        return self._test_rfcomm_connection_with_uuid(bt_rfcomm_uuids[
+            'tcs_bin'])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='ea1cfc32-d3f0-4420-a8e5-793c6ddf5820')
@@ -413,7 +416,8 @@ class RfcommTest(BluetoothBaseTest):
         TAGS: Classic, RFCOMM
         Priority: 3
         """
-        return self._test_rfcomm_connection_with_uuid(RfcommUuid.TCS_AT.value)
+        return self._test_rfcomm_connection_with_uuid(bt_rfcomm_uuids[
+            'tcs_at'])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='5b0d5608-38a5-48f7-b3e5-dc52a4a681dd')
@@ -438,7 +442,7 @@ class RfcommTest(BluetoothBaseTest):
         TAGS: Classic, RFCOMM
         Priority: 3
         """
-        return self._test_rfcomm_connection_with_uuid(RfcommUuid.ATT.value)
+        return self._test_rfcomm_connection_with_uuid(bt_rfcomm_uuids['att'])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='e81f37ba-e914-4eb1-b144-b079f91c6734')
@@ -463,7 +467,7 @@ class RfcommTest(BluetoothBaseTest):
         TAGS: Classic, RFCOMM
         Priority: 3
         """
-        return self._test_rfcomm_connection_with_uuid(RfcommUuid.OBEX.value)
+        return self._test_rfcomm_connection_with_uuid(bt_rfcomm_uuids['obex'])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='5edd766f-17fb-459c-985e-9c21afe1b104')
@@ -488,7 +492,7 @@ class RfcommTest(BluetoothBaseTest):
         TAGS: Classic, RFCOMM
         Priority: 3
         """
-        return self._test_rfcomm_connection_with_uuid(RfcommUuid.IP.value)
+        return self._test_rfcomm_connection_with_uuid(bt_rfcomm_uuids['ip'])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='7a429cca-bc65-4344-8fa5-13ca0d49a351')
@@ -513,7 +517,7 @@ class RfcommTest(BluetoothBaseTest):
         TAGS: Classic, RFCOMM
         Priority: 3
         """
-        return self._test_rfcomm_connection_with_uuid(RfcommUuid.FTP.value)
+        return self._test_rfcomm_connection_with_uuid(bt_rfcomm_uuids['ftp'])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='a8ecdd7b-8529-4e0b-ad18-0d0cf61f4b02')
@@ -538,7 +542,7 @@ class RfcommTest(BluetoothBaseTest):
         TAGS: Classic, RFCOMM
         Priority: 3
         """
-        return self._test_rfcomm_connection_with_uuid(RfcommUuid.HTTP.value)
+        return self._test_rfcomm_connection_with_uuid(bt_rfcomm_uuids['http'])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='816569e6-6189-45b5-95c3-ea27b69698ff')
@@ -563,7 +567,7 @@ class RfcommTest(BluetoothBaseTest):
         TAGS: Classic, RFCOMM
         Priority: 3
         """
-        return self._test_rfcomm_connection_with_uuid(RfcommUuid.WSP.value)
+        return self._test_rfcomm_connection_with_uuid(bt_rfcomm_uuids['wsp'])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='cd5e8c87-4df9-4f1d-ae0b-b47f84c75e44')
@@ -588,7 +592,7 @@ class RfcommTest(BluetoothBaseTest):
         TAGS: Classic, RFCOMM
         Priority: 3
         """
-        return self._test_rfcomm_connection_with_uuid(RfcommUuid.BNEP.value)
+        return self._test_rfcomm_connection_with_uuid(bt_rfcomm_uuids['bnep'])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='fda073d3-d856-438b-b208-61cce67689dd')
@@ -613,7 +617,7 @@ class RfcommTest(BluetoothBaseTest):
         TAGS: Classic, RFCOMM
         Priority: 3
         """
-        return self._test_rfcomm_connection_with_uuid(RfcommUuid.UPNP.value)
+        return self._test_rfcomm_connection_with_uuid(bt_rfcomm_uuids['upnp'])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='0ab329bb-ef61-4574-a5c1-440fb45938ff')
@@ -638,7 +642,7 @@ class RfcommTest(BluetoothBaseTest):
         TAGS: Classic, RFCOMM
         Priority: 3
         """
-        return self._test_rfcomm_connection_with_uuid(RfcommUuid.HIDP.value)
+        return self._test_rfcomm_connection_with_uuid(bt_rfcomm_uuids['hidp'])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='5b1d8c64-4f92-4a22-b61b-28b1a1086b39')
@@ -663,8 +667,8 @@ class RfcommTest(BluetoothBaseTest):
         TAGS: Classic, RFCOMM
         Priority: 3
         """
-        return self._test_rfcomm_connection_with_uuid(
-            RfcommUuid.HARDCOPY_CONTROL_CHANNEL.value)
+        return self._test_rfcomm_connection_with_uuid(bt_rfcomm_uuids[
+            'hardcopy_control_channel'])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='1ae6ca34-87ab-48ad-8da8-98c997538af4')
@@ -689,8 +693,8 @@ class RfcommTest(BluetoothBaseTest):
         TAGS: Classic, RFCOMM
         Priority: 3
         """
-        return self._test_rfcomm_connection_with_uuid(
-            RfcommUuid.HARDCOPY_DATA_CHANNEL.value)
+        return self._test_rfcomm_connection_with_uuid(bt_rfcomm_uuids[
+            'hardcopy_data_channel'])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='d18ed311-a533-4306-944a-6f0f95eac141')
@@ -715,8 +719,8 @@ class RfcommTest(BluetoothBaseTest):
         TAGS: Classic, RFCOMM
         Priority: 3
         """
-        return self._test_rfcomm_connection_with_uuid(
-            RfcommUuid.HARDCOPY_NOTIFICATION.value)
+        return self._test_rfcomm_connection_with_uuid(bt_rfcomm_uuids[
+            'hardcopy_notification'])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='ab0af819-7d26-451d-8275-1119ee3c8df8')
@@ -741,7 +745,7 @@ class RfcommTest(BluetoothBaseTest):
         TAGS: Classic, RFCOMM
         Priority: 3
         """
-        return self._test_rfcomm_connection_with_uuid(RfcommUuid.AVCTP.value)
+        return self._test_rfcomm_connection_with_uuid(bt_rfcomm_uuids['avctp'])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='124b545e-e842-433d-b541-9710a139c8fb')
@@ -766,7 +770,7 @@ class RfcommTest(BluetoothBaseTest):
         TAGS: Classic, RFCOMM
         Priority: 3
         """
-        return self._test_rfcomm_connection_with_uuid(RfcommUuid.AVDTP.value)
+        return self._test_rfcomm_connection_with_uuid(bt_rfcomm_uuids['avdtp'])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='aea354b9-2ba5-4d7e-90a9-b637cb2fd48c')
@@ -791,7 +795,7 @@ class RfcommTest(BluetoothBaseTest):
         TAGS: Classic, RFCOMM
         Priority: 3
         """
-        return self._test_rfcomm_connection_with_uuid(RfcommUuid.CMTP.value)
+        return self._test_rfcomm_connection_with_uuid(bt_rfcomm_uuids['cmtp'])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='b547b8d9-6453-41af-959f-8bc0d9a6c89a')
@@ -816,8 +820,8 @@ class RfcommTest(BluetoothBaseTest):
         TAGS: Classic, RFCOMM
         Priority: 3
         """
-        return self._test_rfcomm_connection_with_uuid(
-            RfcommUuid.MCAP_CONTROL_CHANNEL.value)
+        return self._test_rfcomm_connection_with_uuid(bt_rfcomm_uuids[
+            'mcap_control_channel'])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='ba3ab84c-bc61-442c-944c-af4fbca157f1')
@@ -842,8 +846,8 @@ class RfcommTest(BluetoothBaseTest):
         TAGS: Classic, RFCOMM
         Priority: 3
         """
-        return self._test_rfcomm_connection_with_uuid(
-            RfcommUuid.MCAP_DATA_CHANNEL.value)
+        return self._test_rfcomm_connection_with_uuid(bt_rfcomm_uuids[
+            'mcap_data_channel'])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='d6c7523d-9247-480e-8154-edd51ae1be50')
@@ -868,4 +872,4 @@ class RfcommTest(BluetoothBaseTest):
         TAGS: Classic, RFCOMM
         Priority: 3
         """
-        return self._test_rfcomm_connection_with_uuid(RfcommUuid.L2CAP.value)
+        return self._test_rfcomm_connection_with_uuid(bt_rfcomm_uuids['l2cap'])

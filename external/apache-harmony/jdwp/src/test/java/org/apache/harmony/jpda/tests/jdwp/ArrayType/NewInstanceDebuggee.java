@@ -28,6 +28,8 @@ package org.apache.harmony.jpda.tests.jdwp.ArrayType;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 import org.apache.harmony.jpda.tests.share.SyncDebuggee;
 
+import java.util.Arrays;
+
 /**
  * Debuggee for JDWP NewInstanceTest unit test which 
  * exercises ArrayType.NewInstance command.
@@ -44,7 +46,7 @@ public class NewInstanceDebuggee extends SyncDebuggee {
         logWriter.println("-> array of classes "+ clazz[0].name + " is created");
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
         logWriter.println("-> Hello World");
-        logWriter.println("DUMP{" + checkString + checkInt + ia + ca + "}");
+        logWriter.println("DUMP{" + Arrays.toString(checkString) + Arrays.toString(checkInt) + Arrays.toString(ia) + Arrays.toString(ca) + "}");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
     }
 

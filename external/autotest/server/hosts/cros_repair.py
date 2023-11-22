@@ -11,6 +11,7 @@ import common
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import hosts
+from autotest_lib.client.common_lib.cros import retry
 from autotest_lib.server import afe_utils
 from autotest_lib.server import crashcollect
 from autotest_lib.server.hosts import repair
@@ -26,6 +27,45 @@ _DEV_MODE_ALLOWED_POOLS = set(
             type=str,
             default='',
             allow_blank=True).split(','))
+
+# Setting to suppress dev mode check; primarily used for moblab where all
+# DUT's are in dev mode.
+_DEV_MODE_ALWAYS_ALLOWED = global_config.global_config.get_config_value(
+            'CROS',
+            'dev_mode_allowed',
+            type=bool,
+            default=False)
+
+# Triggers for the 'au', 'powerwash', and 'usb' repair actions.
+# These are also used as dependencies in the `CrosHost` repair
+# sequence, as follows:
+#
+# au:
+#   - triggers: _CROS_AU_TRIGGERS
+#   - depends on: _CROS_USB_TRIGGERS + _CROS_POWERWASH_TRIGGERS
+#
+# powerwash:
+#   - triggers: _CROS_POWERWASH_TRIGGERS + _CROS_AU_TRIGGERS
+#   - depends on: _CROS_USB_TRIGGERS
+#
+# usb:
+#   - triggers: _CROS_USB_TRIGGERS + _CROS_POWERWASH_TRIGGERS +
+#               _CROS_AU_TRIGGERS
+#   - no dependencies
+#
+# N.B. AC power detection depends on software on the DUT, and there
+# have been bugs where detection failed even though the DUT really
+# did have power.  So, we make the 'power' verifier a trigger for
+# reinstall repair actions, too.
+#
+# TODO(jrbarnette):  AU repair can't fix all problems reported by
+# the 'cros' verifier; it's listed as an AU trigger as a
+# simplification.  The ultimate fix is to split the 'cros' verifier
+# into smaller individual verifiers.
+_CROS_AU_TRIGGERS = ('power', 'rwfw', 'python', 'cros',)
+_CROS_POWERWASH_TRIGGERS = ('tpm', 'good_au', 'ext4',)
+_CROS_USB_TRIGGERS = ('ssh', 'writable',)
+
 
 class ACPowerVerifier(hosts.Verifier):
     """Check for AC power and a reasonable battery charge."""
@@ -243,7 +283,8 @@ class DevModeVerifier(hosts.Verifier):
     def verify(self, host):
         # Some pools are allowed to be in dev mode
         info = host.host_info_store.get()
-        if (bool(info.pools & _DEV_MODE_ALLOWED_POOLS)):
+        if (_DEV_MODE_ALWAYS_ALLOWED or
+                bool(info.pools & _DEV_MODE_ALLOWED_POOLS)):
             return
 
         result = host.run('crossystem devsw_boot', ignore_status=True).stdout
@@ -253,6 +294,31 @@ class DevModeVerifier(hosts.Verifier):
     @property
     def description(self):
         return 'The host should not be in dev mode'
+
+
+class JetstreamServicesVerifier(hosts.Verifier):
+    """Verify that Jetstream services are running."""
+
+    # Retry for b/62576902
+    @retry.retry(error.AutoservError, timeout_min=1, delay_sec=10)
+    def verify(self, host):
+        try:
+            if not host.upstart_status('ap-controller'):
+                raise hosts.AutoservVerifyError(
+                    'ap-controller service is not running')
+        except error.AutoservRunError:
+            raise hosts.AutoservVerifyError(
+                'ap-controller service not found')
+
+        try:
+            host.run('pgrep ap-controller')
+        except error.AutoservRunError:
+            raise hosts.AutoservVerifyError(
+                'ap-controller process is not running')
+
+    @property
+    def description(self):
+        return 'Jetstream services must be running'
 
 
 class ServoSysRqRepair(hosts.RepairAction):
@@ -288,11 +354,11 @@ class ServoSysRqRepair(hosts.RepairAction):
             crashcollect.get_crashinfo(host, None)
             return
         raise hosts.AutoservRepairError(
-                '%s is still offline after reset.' % host.hostname)
+                '%s is still offline after sysrq-x.' % host.hostname)
 
     @property
     def description(self):
-        return 'Reset the DUT via kernel sysrq'
+        return 'Reset the DUT via keyboard sysrq-x'
 
 
 class ServoResetRepair(hosts.RepairAction):
@@ -311,11 +377,26 @@ class ServoResetRepair(hosts.RepairAction):
             crashcollect.get_crashinfo(host, None)
             return
         raise hosts.AutoservRepairError(
-                '%s is still offline after reset.' % host.hostname)
+                '%s is still offline after servo reset.' % host.hostname)
 
     @property
     def description(self):
         return 'Reset the DUT via servo'
+
+
+class CrosRebootRepair(repair.RebootRepair):
+    """Repair a CrOS target by clearing dev mode and rebooting it."""
+
+    def repair(self, host):
+        # N.B. We need to reboot regardless of whether set_gbb_flags
+        # succeeds or fails.
+        host.run('/usr/share/vboot/bin/set_gbb_flags.sh 0',
+                 ignore_status=True)
+        super(CrosRebootRepair, self).repair(host)
+
+    @property
+    def description(self):
+        return 'Reset GBB flags and Reboot the host'
 
 
 class AutoUpdateRepair(hosts.RepairAction):
@@ -372,50 +453,46 @@ class ServoInstallRepair(hosts.RepairAction):
         return 'Reinstall from USB using servo'
 
 
-def create_cros_repair_strategy():
-    """Return a `RepairStrategy` for a `CrosHost`."""
+class JetstreamRepair(hosts.RepairAction):
+    """Repair by restarting Jetstrem services."""
+
+    def repair(self, host):
+        host.cleanup_services()
+
+    @property
+    def description(self):
+        return 'Restart Jetstream services'
+
+
+def _cros_verify_dag():
+    """Return the verification DAG for a `CrosHost`."""
     FirmwareStatusVerifier = cros_firmware.FirmwareStatusVerifier
     FirmwareVersionVerifier = cros_firmware.FirmwareVersionVerifier
-    verify_dag = [
-        (repair.SshVerifier,         'ssh',      []),
-        (DevModeVerifier,            'devmode',  ['ssh']),
-        (ACPowerVerifier,            'power',    ['ssh']),
-        (EXT4fsErrorVerifier,        'ext4',     ['ssh']),
-        (WritableVerifier,           'writable', ['ssh']),
-        (TPMStatusVerifier,          'tpm',      ['ssh']),
-        (UpdateSuccessVerifier,      'good_au',  ['ssh']),
-        (FirmwareStatusVerifier,     'fwstatus', ['ssh']),
-        (FirmwareVersionVerifier,    'rwfw',     ['ssh']),
-        (PythonVerifier,             'python',   ['ssh']),
-        (repair.LegacyHostVerifier,  'cros',     ['ssh']),
-    ]
+    verify_dag = (
+        (repair.SshVerifier,         'ssh',      ()),
+        (DevModeVerifier,            'devmode',  ('ssh',)),
+        (ACPowerVerifier,            'power',    ('ssh',)),
+        (EXT4fsErrorVerifier,        'ext4',     ('ssh',)),
+        (WritableVerifier,           'writable', ('ssh',)),
+        (TPMStatusVerifier,          'tpm',      ('ssh',)),
+        (UpdateSuccessVerifier,      'good_au',  ('ssh',)),
+        (FirmwareStatusVerifier,     'fwstatus', ('ssh',)),
+        (FirmwareVersionVerifier,    'rwfw',     ('ssh',)),
+        (PythonVerifier,             'python',   ('ssh',)),
+        (repair.LegacyHostVerifier,  'cros',     ('ssh',)),
+    )
+    return verify_dag
 
-    # The dependencies and triggers for the 'au', 'powerwash', and 'usb'
-    # repair actions stack up:  Each one is able to repair progressively
-    # more verifiers than the one before.  The 'triggers' lists below
-    # show the progression.
-    #
-    # N.B. AC power detection depends on software on the DUT, and there
-    # have been bugs where detection failed even though the DUT really
-    # did have power.  So, we make the 'power' verifier a trigger for
-    # reinstall repair actions, too.
-    #
-    # TODO(jrbarnette):  AU repair can't fix all problems reported by
-    # the 'cros' verifier; it's listed as an AU trigger as a
-    # simplification.  The ultimate fix is to split the 'cros' verifier
-    # into smaller individual verifiers.
 
-    usb_triggers       = ['ssh', 'writable']
-    powerwash_triggers = ['tpm', 'good_au', 'ext4']
-    au_triggers        = ['power', 'rwfw', 'python', 'cros']
-
+def _cros_basic_repair_actions():
+    """Return the basic repair actions for a `CrosHost`"""
     FirmwareRepair = cros_firmware.FirmwareRepair
-    repair_actions = [
+    repair_actions = (
         # RPM cycling must precede Servo reset:  if the DUT has a dead
         # battery, we need to reattach AC power before we reset via servo.
-        (repair.RPMCycleRepair, 'rpm', [], ['ssh', 'power']),
-        (ServoSysRqRepair, 'sysrq', [], ['ssh']),
-        (ServoResetRepair, 'servoreset', [], ['ssh']),
+        (repair.RPMCycleRepair, 'rpm', (), ('ssh', 'power',)),
+        (ServoSysRqRepair, 'sysrq', (), ('ssh',)),
+        (ServoResetRepair, 'servoreset', (), ('ssh',)),
 
         # N.B. FirmwareRepair can't fix a 'good_au' failure directly,
         # because it doesn't remove the flag file that triggers the
@@ -423,19 +500,68 @@ def create_cros_repair_strategy():
         # possible the the last update failed because of the firmware,
         # and we want the repair steps below to be able to trust the
         # firmware.
-        (FirmwareRepair, 'firmware', [], ['ssh', 'fwstatus', 'good_au']),
+        (FirmwareRepair, 'firmware', (), ('ssh', 'fwstatus', 'good_au',)),
 
-        (repair.RebootRepair, 'reboot', ['ssh'], ['devmode', 'writable']),
+        (CrosRebootRepair, 'reboot', ('ssh',), ('devmode', 'writable',)),
+    )
+    return repair_actions
 
+
+def _cros_extended_repair_actions(au_triggers=_CROS_AU_TRIGGERS,
+                                  powerwash_triggers=_CROS_POWERWASH_TRIGGERS,
+                                  usb_triggers=_CROS_USB_TRIGGERS):
+    """Return the extended repair actions for a `CrosHost`"""
+
+    # The dependencies and triggers for the 'au', 'powerwash', and 'usb'
+    # repair actions stack up:  Each one is able to repair progressively
+    # more verifiers than the one before.  The 'triggers' lists specify
+    # the progression.
+
+    repair_actions = (
         (AutoUpdateRepair, 'au',
                 usb_triggers + powerwash_triggers, au_triggers),
         (PowerWashRepair, 'powerwash',
                 usb_triggers, powerwash_triggers + au_triggers),
         (ServoInstallRepair, 'usb',
-                [], usb_triggers + powerwash_triggers + au_triggers),
-    ]
+                (), usb_triggers + powerwash_triggers + au_triggers),
+    )
+    return repair_actions
+
+
+def _cros_repair_actions():
+    """Return the repair actions for a `CrosHost`."""
+    repair_actions = (_cros_basic_repair_actions() +
+                      _cros_extended_repair_actions())
+    return repair_actions
+
+
+def create_cros_repair_strategy():
+    """Return a `RepairStrategy` for a `CrosHost`."""
+    verify_dag = _cros_verify_dag()
+    repair_actions = _cros_repair_actions()
     return hosts.RepairStrategy(verify_dag, repair_actions)
 
+
+def _moblab_verify_dag():
+    """Return the verification DAG for a `MoblabHost`."""
+    FirmwareVersionVerifier = cros_firmware.FirmwareVersionVerifier
+    verify_dag = (
+        (repair.SshVerifier,         'ssh',     ()),
+        (ACPowerVerifier,            'power',   ('ssh',)),
+        (FirmwareVersionVerifier,    'rwfw',    ('ssh',)),
+        (PythonVerifier,             'python',  ('ssh',)),
+        (repair.LegacyHostVerifier,  'cros',    ('ssh',)),
+    )
+    return verify_dag
+
+
+def _moblab_repair_actions():
+    """Return the repair actions for a `MoblabHost`."""
+    repair_actions = (
+        (repair.RPMCycleRepair, 'rpm', (), ('ssh', 'power',)),
+        (AutoUpdateRepair, 'au', ('ssh',), _CROS_AU_TRIGGERS),
+    )
+    return repair_actions
 
 
 def create_moblab_repair_strategy():
@@ -460,17 +586,39 @@ def create_moblab_repair_strategy():
     'powerwash':  Powerwash on Moblab causes trouble with deleting the
         DHCP leases file, so we skip it.
     """
-    FirmwareVersionVerifier = cros_firmware.FirmwareVersionVerifier
-    verify_dag = [
-        (repair.SshVerifier,         'ssh',     []),
-        (ACPowerVerifier,            'power',   ['ssh']),
-        (FirmwareVersionVerifier,    'rwfw',    ['ssh']),
-        (PythonVerifier,             'python',  ['ssh']),
-        (repair.LegacyHostVerifier,  'cros',    ['ssh']),
-    ]
-    au_triggers = ['power', 'rwfw', 'python', 'cros']
-    repair_actions = [
-        (repair.RPMCycleRepair, 'rpm', [], ['ssh', 'power']),
-        (AutoUpdateRepair, 'au', ['ssh'], au_triggers),
-    ]
+    verify_dag = _moblab_verify_dag()
+    repair_actions = _moblab_repair_actions()
+    return hosts.RepairStrategy(verify_dag, repair_actions)
+
+
+def _jetstream_repair_actions():
+    """Return the repair actions for a `JetstreamHost`."""
+    au_triggers = _CROS_AU_TRIGGERS + ('jetstream_services',)
+    repair_actions = (
+        _cros_basic_repair_actions() +
+        (
+            (JetstreamRepair, 'jetstream_repair',
+             _CROS_USB_TRIGGERS + _CROS_POWERWASH_TRIGGERS, au_triggers),
+        ) +
+        _cros_extended_repair_actions(au_triggers=au_triggers))
+    return repair_actions
+
+
+def _jetstream_verify_dag():
+    """Return the verification DAG for a `JetstreamHost`."""
+    verify_dag = _cros_verify_dag() + (
+        (JetstreamServicesVerifier, 'jetstream_services', ('ssh',)),
+    )
+    return verify_dag
+
+
+def create_jetstream_repair_strategy():
+    """
+    Return a `RepairStrategy` for a `JetstreamHost`.
+
+    The Jetstream repair strategy is based on the CrOS verify and repair,
+    but adds the JetstreamServicesVerifier.
+    """
+    verify_dag = _jetstream_verify_dag()
+    repair_actions = _jetstream_repair_actions()
     return hosts.RepairStrategy(verify_dag, repair_actions)

@@ -43,4 +43,10 @@ public final class DeviceTestConstants {
     public static final String TEST_CREATE_IME1 = "testCreateIme1";
     public static final String TEST_SWITCH_IME1_TO_IME2 = "testSwitchIme1ToIme2";
     public static final String TEST_IME1_IS_NOT_CURRENT_IME = "testIme1IsNotCurrentIme";
+    public static final String TEST_SEARCH_VIEW_GIVE_FOCUS_SHOW_IME1
+            = "testSearchView_giveFocusShowIme1";
+    public static final String TEST_SEARCH_VIEW_SET_QUERY_HIDE_IME1
+            = "testSearchView_setQueryHideIme1";
+    public static final String TEST_ON_START_INPUT_CALLED_ONCE_IME1
+            = "testOnStartInputCalledOnceIme1";
 }

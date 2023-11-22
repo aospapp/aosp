@@ -2,6 +2,7 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := android.hardware.gnss@1.0-impl-qti
+LOCAL_VENDOR_MODULE := true
 LOCAL_MODULE_OWNER := qti
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_SRC_FILES := \
@@ -12,6 +13,8 @@ LOCAL_SRC_FILES := \
     GnssMeasurement.cpp \
     GnssNi.cpp \
     GnssConfiguration.cpp \
+    GnssDebug.cpp \
+    AGnssRil.cpp
 
 LOCAL_SRC_FILES += \
     location_api/LocationUtil.cpp \
@@ -49,6 +52,7 @@ LOCAL_MODULE := android.hardware.gnss@1.0-service-qti
 LOCAL_MODULE_OWNER := qti
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_INIT_RC := android.hardware.gnss@1.0-service-qti.rc
+LOCAL_VENDOR_MODULE := true
 LOCAL_SRC_FILES := \
     service.cpp \
 

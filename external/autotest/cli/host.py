@@ -24,9 +24,10 @@ import re
 import socket
 
 from autotest_lib.cli import action_common, rpc, topic_common
-from autotest_lib.client.bin import utils
+from autotest_lib.client.bin import utils as bin_utils
 from autotest_lib.client.common_lib import error, host_protections
 from autotest_lib.server import frontend, hosts
+from autotest_lib.server.hosts import host_info
 
 
 class host(topic_common.atest):
@@ -654,9 +655,16 @@ class host_create(BaseHostModCreate):
         # data was already in afe
         data = {'attributes': self.attributes, 'labels': self.labels}
         afe_host = frontend.Host(None, data)
-        machine = {'hostname': host, 'afe_host': afe_host}
+        store = host_info.InMemoryHostInfoStore(
+                host_info.HostInfo(labels=self.labels,
+                                   attributes=self.attributes))
+        machine = {
+                'hostname': host,
+                'afe_host': afe_host,
+                'host_info_store': store
+        }
         try:
-            if utils.ping(host, tries=1, deadline=1) == 0:
+            if bin_utils.ping(host, tries=1, deadline=1) == 0:
                 serials = self.attributes.get('serials', '').split(',')
                 if serials and len(serials) > 1:
                     host_dut = hosts.create_testbed(machine,
@@ -666,21 +674,21 @@ class host_create(BaseHostModCreate):
                     host_dut = hosts.create_host(machine,
                                                  adb_serial=adb_serial)
 
-                host_info = HostInfo(host, host_dut.get_platform(),
-                                     host_dut.get_labels())
+                info = HostInfo(host, host_dut.get_platform(),
+                                host_dut.get_labels())
                 # Clean host to make sure nothing left after calling it,
                 # e.g. tunnels.
                 if hasattr(host_dut, 'close'):
                     host_dut.close()
             else:
                 # Can't ping the host, use default information.
-                host_info = HostInfo(host, None, [])
+                info = HostInfo(host, None, [])
         except (socket.gaierror, error.AutoservRunError,
                 error.AutoservSSHTimeout):
             # We may be adding a host that does not exist yet or we can't
             # reach due to hostname/address issues or if the host is down.
-            host_info = HostInfo(host, None, [])
-        return host_info
+            info = HostInfo(host, None, [])
+        return info
 
 
     def _execute_add_one_host(self, host):
@@ -692,10 +700,10 @@ class host_create(BaseHostModCreate):
         self.execute_rpc('add_host', hostname=host, status="Ready", **self.data)
 
         # If there are labels avaliable for host, use them.
-        host_info = self._detect_host_info(host)
+        info = self._detect_host_info(host)
         labels = set(self.labels)
-        if host_info.labels:
-            labels.update(host_info.labels)
+        if info.labels:
+            labels.update(info.labels)
 
         if labels:
             self._set_labels(host, list(labels))
@@ -703,7 +711,7 @@ class host_create(BaseHostModCreate):
         # Now add the platform label.
         # If a platform was not provided and we were able to retrieve it
         # from the host, use the retrieved platform.
-        platform = self.platform if self.platform else host_info.platform
+        platform = self.platform if self.platform else info.platform
         if platform:
             self._set_platform_label(host, platform)
 

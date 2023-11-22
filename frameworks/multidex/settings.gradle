@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-include ':support-multidex'
-project(':support-multidex').projectDir = new File(rootDir, 'library')
+include ':multidex'
+project(':multidex').projectDir = new File(rootDir, 'library')
 
-include ':support-multidex-instrumentation'
-project(':support-multidex-instrumentation').projectDir = new File(rootDir, 'instrumentation')
+include ':multidex-instrumentation'
+project(':multidex-instrumentation').projectDir = new File(rootDir, 'instrumentation')

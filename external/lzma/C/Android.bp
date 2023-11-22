@@ -4,6 +4,10 @@ cc_library {
     name: "liblzma",
     host_supported: true,
     vendor_available: true,
+    vndk: {
+        enabled: true,
+        support_system_process: true,
+    },
     sdk_version: "9",
     stl: "none",
 
@@ -58,6 +62,13 @@ cc_library {
         },
         windows: {
             enabled: true,
+            srcs: [
+                "Bcj2Enc.c",
+                "DllSecur.c",
+                "LzFindMt.c",
+                "MtCoder.c",
+                "Threads.c",
+            ],
         },
     },
 }

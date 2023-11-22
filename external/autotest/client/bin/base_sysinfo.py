@@ -1,4 +1,10 @@
-import os, shutil, re, glob, subprocess, logging
+import abc
+import glob
+import logging
+import os
+import re
+import shutil
+import subprocess
 
 from distutils import dir_util
 
@@ -58,6 +64,14 @@ class loggable(object):
             return utils.read_one_line(path)
         else:
             return ""
+
+    @abc.abstractmethod
+    def run(self, logdir):
+        """Executes this loggable creating output in logdir.
+
+        @param logdir: The output directory.
+        """
+        raise NotImplementedError()
 
 
 class logfile(loggable):
@@ -284,8 +298,9 @@ class base_sysinfo(object):
         if not os.path.exists(logdir):
             os.mkdir(logdir)
 
-        for log in (self.test_loggables | self.boot_loggables):
-            log.run(logdir)
+        _run_loggables_ignoring_errors(
+                self.test_loggables | self.boot_loggables,
+                logdir)
 
         # also log any installed packages
         installed_path = os.path.join(logdir, "installed_packages")
@@ -338,8 +353,7 @@ class base_sysinfo(object):
                                                               symlink_dest)
 
         # run all the standard logging commands
-        for log in self.test_loggables:
-            log.run(test_sysinfodir)
+        _run_loggables_ignoring_errors(self.test_loggables, test_sysinfodir)
 
         # grab any new data from /var/log/messages
         self._log_messages(test_sysinfodir)
@@ -372,9 +386,7 @@ class base_sysinfo(object):
         if not iteration:
             iteration = test.iteration
         logdir = self._get_iteration_subdir(test, iteration)
-
-        for log in self.before_iteration_loggables:
-            log.run(logdir)
+        _run_loggables_ignoring_errors(self.before_iteration_loggables, logdir)
         # Start each log with the board name for orientation.
         board = utils.get_board_with_frequency_and_memory()
         logging.info('ChromeOS BOARD = %s', board)
@@ -394,9 +406,7 @@ class base_sysinfo(object):
         if not iteration:
             iteration = test.iteration
         logdir = self._get_iteration_subdir(test, iteration)
-
-        for log in self.after_iteration_loggables:
-            log.run(logdir)
+        _run_loggables_ignoring_errors(self.after_iteration_loggables, logdir)
         utils.system('logger "autotest finished iteration %s"' % logdir,
                      ignore_status=True)
 
@@ -478,3 +488,20 @@ class base_sysinfo(object):
 
         # return what we collected
         return keyval
+
+def _run_loggables_ignoring_errors(loggables, output_dir):
+    """Runs the given loggables robustly.
+
+    In the event of any one of the loggables raising an exception, we print a
+    traceback and continue on.
+
+    @param loggables: An iterable of base_sysinfo.loggable objects.
+    @param output_dir: Path to the output directory.
+    """
+    for log in loggables:
+        try:
+            log.run(output_dir)
+        except Exception:
+            logging.exception(
+                    'Failed to collect loggable %r to %s. Continuing...',
+                    log, output_dir)

@@ -27,6 +27,7 @@
 #include "HostConnection.h"
 #include "ProcessPipe.h"
 #include "glUtils.h"
+#include <utils/CallStack.h>
 #include <cutils/log.h>
 #include <cutils/properties.h>
 
@@ -390,6 +391,15 @@ static void updateHostColorBuffer(cb_handle_t* cb,
     if (convertedBuf) delete [] convertedBuf;
 }
 
+#ifndef GL_RGBA16F
+#define GL_RGBA16F                        0x881A
+#endif // GL_RGBA16F
+#ifndef GL_UNSIGNED_INT_10_10_10_2
+#define GL_UNSIGNED_INT_10_10_10_2        0x8DF6
+#endif // GL_UNSIGNED_INT_10_10_10_2
+#ifndef GL_HALF_FLOAT
+#define GL_HALF_FLOAT                     0x140B
+#endif // GL_HALF_FLOAT
 //
 // gralloc device functions (alloc interface)
 //
@@ -489,6 +499,18 @@ static int gralloc_alloc(alloc_device_t* dev,
             glFormat = GL_RGB;
             glType = GL_UNSIGNED_SHORT_5_6_5;
             break;
+#if PLATFORM_SDK_VERSION >= 26
+        case HAL_PIXEL_FORMAT_RGBA_FP16:
+            bpp = 8;
+            glFormat = GL_RGBA16F;
+            glType = GL_HALF_FLOAT;
+            break;
+        case HAL_PIXEL_FORMAT_RGBA_1010102:
+            bpp = 4;
+            glFormat = GL_RGBA;
+            glType = GL_UNSIGNED_INT_10_10_10_2;
+            break;
+#endif // PLATFORM_SDK_VERSION >= 26
 #if PLATFORM_SDK_VERSION >= 21
         case HAL_PIXEL_FORMAT_RAW16:
         case HAL_PIXEL_FORMAT_Y16:
@@ -508,8 +530,10 @@ static int gralloc_alloc(alloc_device_t* dev,
 #if PLATFORM_SDK_VERSION >= 17
         case HAL_PIXEL_FORMAT_BLOB:
             bpp = 1;
-            if (! (sw_read && hw_cam_write) ) {
+            if (! (sw_read) ) {
                 // Blob data cannot be used by HW other than camera emulator
+                // But there is a CTS test trying to have access to it
+                // BUG: https://buganizer.corp.google.com/issues/37719518
                 return -EINVAL;
             }
             // Not expecting to actually create any GL surfaces for this
@@ -581,7 +605,11 @@ static int gralloc_alloc(alloc_device_t* dev,
         }
     }
 
-    if (sw_read || sw_write || hw_cam_write || hw_vid_enc_read) {
+    // API26 always expect at least one file descriptor is associated with
+    // one color buffer
+    // BUG: 37719038
+    if (PLATFORM_SDK_VERSION >= 26 ||
+        sw_read || sw_write || hw_cam_write || hw_vid_enc_read) {
         // keep space for image on guest memory if SW access is needed
         // or if the camera is doing writing
         if (yuv_format) {
@@ -1458,6 +1486,15 @@ struct private_module_t HAL_MODULE_INFO_SYM = {
  *
  * If not, then load gralloc.default instead as a fallback.
  */
+
+#if __LP64__
+static const char kGrallocDefaultSystemPath[] = "/system/lib64/hw/gralloc.default.so";
+static const char kGrallocDefaultVendorPath[] = "/vendor/lib64/hw/gralloc.default.so";
+#else
+static const char kGrallocDefaultSystemPath[] = "/system/lib/hw/gralloc.default.so";
+static const char kGrallocDefaultVendorPath[] = "/vendor/lib/hw/gralloc.default.so";
+#endif
+
 static void
 fallback_init(void)
 {
@@ -1471,12 +1508,17 @@ fallback_init(void)
     if (atoi(prop) == 1) {
         return;
     }
-    ALOGD("Emulator without host-side GPU emulation detected.");
-#if __LP64__
-    module = dlopen("/vendor/lib64/hw/gralloc.default.so", RTLD_LAZY|RTLD_LOCAL);
-#else
-    module = dlopen("/vendor/lib/hw/gralloc.default.so", RTLD_LAZY|RTLD_LOCAL);
-#endif
+    ALOGD("Emulator without host-side GPU emulation detected. "
+          "Loading gralloc.default.so from %s...",
+          kGrallocDefaultVendorPath);
+    module = dlopen(kGrallocDefaultVendorPath, RTLD_LAZY | RTLD_LOCAL);
+    if (!module) {
+        // vendor folder didn't work. try system
+        ALOGD("gralloc.default.so not found in /vendor. Trying %s...",
+              kGrallocDefaultSystemPath);
+        module = dlopen(kGrallocDefaultSystemPath, RTLD_LAZY | RTLD_LOCAL);
+    }
+
     if (module != NULL) {
         sFallback = reinterpret_cast<gralloc_module_t*>(dlsym(module, HAL_MODULE_INFO_SYM_AS_STR));
         if (sFallback == NULL) {
@@ -1484,6 +1526,6 @@ fallback_init(void)
         }
     }
     if (sFallback == NULL) {
-        ALOGE("Could not find software fallback module!?");
+        ALOGE("FATAL: Could not find gralloc.default.so!");
     }
 }

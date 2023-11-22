@@ -103,7 +103,7 @@ std::string EventFd::Name() const {
 uint64_t EventFd::Id() const {
   if (id_ == 0) {
     PerfCounter counter;
-    if (ReadCounter(&counter)) {
+    if (InnerReadCounter(&counter)) {
       id_ = counter.id;
     }
   }
@@ -119,23 +119,30 @@ bool EventFd::EnableEvent() {
   return true;
 }
 
-bool EventFd::ReadCounter(PerfCounter* counter) const {
+bool EventFd::InnerReadCounter(PerfCounter* counter) const {
   CHECK(counter != nullptr);
-  uint64_t pre_counter = counter->value;
   if (!android::base::ReadFully(perf_event_fd_, counter, sizeof(*counter))) {
     PLOG(ERROR) << "ReadCounter from " << Name() << " failed";
+    return false;
+  }
+  return true;
+}
+
+bool EventFd::ReadCounter(PerfCounter* counter) {
+  if (!InnerReadCounter(counter)) {
     return false;
   }
   // Trace is always available to systrace if enabled
   if (tid_ > 0) {
     ATRACE_INT64(android::base::StringPrintf(
                    "%s_tid%d_cpu%d", event_name_.c_str(), tid_,
-                   cpu_).c_str(), counter->value - pre_counter);
+                   cpu_).c_str(), counter->value - last_counter_value_);
   } else {
     ATRACE_INT64(android::base::StringPrintf(
                    "%s_cpu%d", event_name_.c_str(),
-                   cpu_).c_str(), counter->value - pre_counter);
+                   cpu_).c_str(), counter->value - last_counter_value_);
   }
+  last_counter_value_ = counter->value;
   return true;
 }
 

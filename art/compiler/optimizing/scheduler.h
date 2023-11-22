@@ -21,8 +21,10 @@
 
 #include "base/time_utils.h"
 #include "driver/compiler_driver.h"
+#include "load_store_analysis.h"
 #include "nodes.h"
 #include "optimization.h"
+#include "code_generator.h"
 
 namespace art {
 
@@ -245,7 +247,8 @@ class SchedulingGraph : public ValueObject {
       : scheduler_(scheduler),
         arena_(arena),
         contains_scheduling_barrier_(false),
-        nodes_map_(arena_->Adapter(kArenaAllocScheduler)) {}
+        nodes_map_(arena_->Adapter(kArenaAllocScheduler)),
+        heap_location_collector_(nullptr) {}
 
   SchedulingNode* AddNode(HInstruction* instr, bool is_scheduling_barrier = false) {
     SchedulingNode* node = new (arena_) SchedulingNode(instr, arena_, is_scheduling_barrier);
@@ -258,6 +261,10 @@ class SchedulingGraph : public ValueObject {
   void Clear() {
     nodes_map_.Clear();
     contains_scheduling_barrier_ = false;
+  }
+
+  void SetHeapLocationCollector(const HeapLocationCollector& heap_location_collector) {
+    heap_location_collector_ = &heap_location_collector;
   }
 
   SchedulingNode* GetNode(const HInstruction* instr) const {
@@ -293,6 +300,13 @@ class SchedulingGraph : public ValueObject {
   void AddOtherDependency(SchedulingNode* node, SchedulingNode* dependency) {
     AddDependency(node, dependency, /*is_data_dependency*/false);
   }
+  bool HasMemoryDependency(const HInstruction* node, const HInstruction* other) const;
+  bool HasExceptionDependency(const HInstruction* node, const HInstruction* other) const;
+  bool HasSideEffectDependency(const HInstruction* node, const HInstruction* other) const;
+  bool ArrayAccessMayAlias(const HInstruction* node, const HInstruction* other) const;
+  bool FieldAccessMayAlias(const HInstruction* node, const HInstruction* other) const;
+  size_t ArrayAccessHeapLocation(HInstruction* array, HInstruction* index) const;
+  size_t FieldAccessHeapLocation(HInstruction* obj, const FieldInfo* field) const;
 
   // Add dependencies nodes for the given `HInstruction`: inputs, environments, and side-effects.
   void AddDependencies(HInstruction* instruction, bool is_scheduling_barrier = false);
@@ -304,6 +318,8 @@ class SchedulingGraph : public ValueObject {
   bool contains_scheduling_barrier_;
 
   ArenaHashMap<const HInstruction*, SchedulingNode*> nodes_map_;
+
+  const HeapLocationCollector* heap_location_collector_;
 };
 
 /*
@@ -469,8 +485,9 @@ inline bool SchedulingGraph::IsSchedulingBarrier(const HInstruction* instruction
 
 class HInstructionScheduling : public HOptimization {
  public:
-  HInstructionScheduling(HGraph* graph, InstructionSet instruction_set)
+  HInstructionScheduling(HGraph* graph, InstructionSet instruction_set, CodeGenerator* cg = nullptr)
       : HOptimization(graph, kInstructionScheduling),
+        codegen_(cg),
         instruction_set_(instruction_set) {}
 
   void Run() {
@@ -480,9 +497,9 @@ class HInstructionScheduling : public HOptimization {
 
   static constexpr const char* kInstructionScheduling = "scheduler";
 
-  const InstructionSet instruction_set_;
-
  private:
+  CodeGenerator* const codegen_;
+  const InstructionSet instruction_set_;
   DISALLOW_COPY_AND_ASSIGN(HInstructionScheduling);
 };
 

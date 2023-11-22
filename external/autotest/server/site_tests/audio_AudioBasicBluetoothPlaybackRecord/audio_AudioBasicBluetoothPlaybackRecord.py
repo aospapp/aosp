@@ -154,7 +154,7 @@ class audio_AudioBasicBluetoothPlaybackRecord(audio_test.AudioTest):
                 # Bluetooth output node should be selected explicitly.
                 output_nodes, _ = self.audio_facade.get_plugged_node_types()
                 audio_jack_plugged = False
-                if 'HEADPHONE' in output_nodes:
+                if 'HEADPHONE' in output_nodes or 'LINEOUT' in output_nodes:
                     audio_jack_plugged = True
                     audio_test_utils.check_audio_nodes(self.audio_facade,
                                                        (None, ['MIC']))

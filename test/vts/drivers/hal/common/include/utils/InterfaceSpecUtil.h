@@ -28,11 +28,31 @@ using namespace std;
 namespace android {
 namespace vts {
 
+// Reads the given file and parse the file contents into a
+// ComponentSpecificationMessage.
+bool ParseInterfaceSpec(const char* file_path,
+                        ComponentSpecificationMessage* message);
+
 // Returns the function name prefix of a given interface specification.
 string GetFunctionNamePrefix(const ComponentSpecificationMessage& message);
 
 // Get HAL version string to be used to build a relevant dir path.
 string GetVersionString(float version, bool for_macro=false);
+
+// Get the driver library name for a given HIDL HAL.
+string GetHidlHalDriverLibName(const string& package_name, const float version);
+
+// Extract package name from full hidl type name
+// e.g. ::android::hardware::nfc::V1_0::INfc -> android.hardware.nfc
+string GetPackageName(const string& type_name);
+
+// Extract version from full hidl type name
+// e.g. ::android::hardware::nfc::V1_0::INfc -> 1.0
+float GetVersion(const string& type_name);
+
+// Extract component name from full hidl type name
+// e.g. ::android::hardware::nfc::V1_0::INfc -> INfc
+string GetComponentName(const string& type_name);
 
 }  // namespace vts
 }  // namespace android

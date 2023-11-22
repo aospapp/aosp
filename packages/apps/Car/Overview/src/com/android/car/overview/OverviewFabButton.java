@@ -18,9 +18,9 @@ package com.android.car.overview;
 
 import android.content.Context;
 import android.support.annotation.ColorInt;
-import android.support.car.ui.FabDrawable;
 import android.util.AttributeSet;
 import android.widget.ImageView;
+import com.android.car.apps.common.FabDrawable;
 
 /**
  * A FAB button with an affordance for setting the accent color.

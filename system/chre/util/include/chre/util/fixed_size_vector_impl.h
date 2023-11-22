@@ -25,6 +25,35 @@
 namespace chre {
 
 template<typename ElementType, size_t kCapacity>
+FixedSizeVector<ElementType, kCapacity>::~FixedSizeVector() {
+  destroy(data(), size());
+}
+
+template<typename ElementType, size_t kCapacity>
+ElementType& FixedSizeVector<ElementType, kCapacity>::back() {
+  CHRE_ASSERT(mSize > 0);
+  return data()[mSize - 1];
+}
+
+template<typename ElementType, size_t kCapacity>
+const ElementType& FixedSizeVector<ElementType, kCapacity>::back() const {
+  CHRE_ASSERT(mSize > 0);
+  return data()[mSize - 1];
+}
+
+template<typename ElementType, size_t kCapacity>
+ElementType& FixedSizeVector<ElementType, kCapacity>::front() {
+  CHRE_ASSERT(mSize > 0);
+  return data()[0];
+}
+
+template<typename ElementType, size_t kCapacity>
+const ElementType& FixedSizeVector<ElementType, kCapacity>::front() const {
+  CHRE_ASSERT(mSize > 0);
+  return data()[0];
+}
+
+template<typename ElementType, size_t kCapacity>
 ElementType *FixedSizeVector<ElementType, kCapacity>::data() {
   return reinterpret_cast<ElementType *>(mData);
 }

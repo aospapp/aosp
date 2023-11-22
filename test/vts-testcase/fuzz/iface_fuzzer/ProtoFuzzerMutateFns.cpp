@@ -91,8 +91,9 @@ VarInstance ProtoFuzzerMutator::EnumMutate(const VarInstance &var_instance) {
 
 VarInstance ProtoFuzzerMutator::ScalarRandomGen(const VarSpec &var_spec) {
   VarInstance result{VarInstanceStubFromSpec(var_spec)};
+  result.set_scalar_type(var_spec.scalar_type());
   (*result.mutable_scalar_value()) =
-      RandomGen(var_spec.scalar_value(), var_spec.scalar_type());
+      RandomGen(result.scalar_value(), result.scalar_type());
   return result;
 }
 
@@ -100,6 +101,58 @@ VarInstance ProtoFuzzerMutator::ScalarMutate(const VarInstance &var_instance) {
   VarInstance result{var_instance};
   (*result.mutable_scalar_value()) =
       Mutate(result.scalar_value(), result.scalar_type());
+  return result;
+}
+
+VarInstance ProtoFuzzerMutator::StringRandomGen(const VarSpec &var_spec) {
+  VarInstance result{VarInstanceStubFromSpec(var_spec)};
+
+  size_t str_size = mutator_config_.default_string_size_;
+  string str(str_size, 0);
+  auto rand_char = std::bind(&ProtoFuzzerMutator::RandomAsciiChar, this);
+  std::generate_n(str.begin(), str_size, rand_char);
+
+  StringDataValueMessage string_data;
+  string_data.set_message(str.c_str());
+  string_data.set_length(str_size);
+
+  *result.mutable_string_value() = string_data;
+  return result;
+}
+
+VarInstance ProtoFuzzerMutator::StringMutate(const VarInstance &var_instance) {
+  VarInstance result{var_instance};
+  string str = result.string_value().message();
+  size_t str_size = result.string_value().length();
+
+  // Three things can happen when mutating a string:
+  // 1. A random char is inserted into a random position.
+  // 2. A randomly selected char is removed from the string.
+  // 3. A randomly selected char in the string is replaced by a random char.
+  size_t dice_roll = str.empty() ? 0 : rand_(3);
+  size_t idx = rand_(str_size);
+  switch (dice_roll) {
+    case 0:
+      // Insert a random char.
+      str.insert(str.begin() + idx, RandomAsciiChar());
+      ++str_size;
+      break;
+    case 1:
+      // Remove a randomly selected char.
+      str.erase(str.begin() + idx);
+      --str_size;
+      break;
+    case 2:
+      // Replace a randomly selected char.
+      str[idx] = RandomAsciiChar();
+      break;
+    default:
+      // Do nothing.
+      break;
+  }
+
+  result.mutable_string_value()->set_message(str);
+  result.mutable_string_value()->set_length(str_size);
   return result;
 }
 
@@ -248,9 +301,7 @@ T ProtoFuzzerMutator::Mutate(T value) {
   return value ^ mask;
 }
 
-bool ProtoFuzzerMutator::Mutate(bool value) {
-  return RandomGen(value);
-}
+bool ProtoFuzzerMutator::Mutate(bool value) { return RandomGen(value); }
 
 float ProtoFuzzerMutator::Mutate(float value) {
   uint32_t copy;
@@ -268,6 +319,16 @@ double ProtoFuzzerMutator::Mutate(double value) {
   copy ^= mask;
   memcpy(&value, &copy, sizeof(double));
   return value;
+}
+
+char ProtoFuzzerMutator::RandomAsciiChar() {
+  const char char_set[] =
+      "0123456789"
+      "`~!@#$%^&*()-_=+[{]};:',<.>/? "
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      "abcdefghijklmnopqrstuvwxyz";
+  size_t num_chars = sizeof(char_set) - 1;
+  return char_set[rand_(num_chars)];
 }
 
 }  // namespace fuzzer

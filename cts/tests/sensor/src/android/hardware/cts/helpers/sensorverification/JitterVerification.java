@@ -110,11 +110,9 @@ public class JitterVerification extends AbstractSensorVerification {
         }
 
         List<Long> deltas = getDeltaValues();
-        float percentiles[] = new float[2];
-        percentiles[0] = mOutlierMargin;
-        percentiles[1] = 1 - percentiles[0];
+        List<Long> percentileValues =
+                SensorCtsHelper.getPercentileValue(deltas, mOutlierMargin, 1 - mOutlierMargin);
 
-        List<Long> percentileValues = SensorCtsHelper.getPercentileValue(deltas, percentiles);
         double normalizedRange =
                 (double)(percentileValues.get(1) - percentileValues.get(0)) / mThresholdNs;
 

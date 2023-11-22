@@ -17,7 +17,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
         package="com.android.cts.emptydeviceadmin" >
 
-    <uses-sdk android:minSdkVersion="23"/>
+    <uses-sdk android:minSdkVersion="12"/>
 
     <application android:label="Test Device Admin">
         <receiver

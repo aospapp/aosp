@@ -53,7 +53,6 @@ class SensorsHidlTest(base_test.BaseTestClass):
             target_version=1.0,
             target_package="android.hardware.sensors",
             target_component_name="ISensors",
-            hw_binder_service_name=None,
             bits=int(self.abi_bitness))
 
     def tearDownClass(self):

@@ -16,18 +16,25 @@
 
 package com.android.tv.ui.sidepanel;
 
+import static com.android.tv.Features.TUNER;
+
+import android.app.ApplicationErrorReport;
+import android.content.Intent;
+import android.media.tv.TvInputInfo;
 import android.view.View;
 import android.widget.Toast;
 
 import com.android.tv.MainActivity;
 import com.android.tv.R;
 import com.android.tv.TvApplication;
+import com.android.tv.customization.TvCustomizationManager;
 import com.android.tv.dialog.PinDialogFragment;
-import com.android.tv.dialog.WebDialogFragment;
-import com.android.tv.license.LicenseUtils;
-import com.android.tv.ui.sidepanel.parentalcontrols.ParentalControlsFragment;
+import com.android.tv.license.LicenseSideFragment;
+import com.android.tv.license.Licenses;
+import com.android.tv.tuner.TunerPreferences;
 import com.android.tv.util.PermissionUtils;
 import com.android.tv.util.SetupUtils;
+import com.android.tv.util.Utils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,33 +44,6 @@ import java.util.List;
  */
 public class SettingsFragment extends SideFragment {
     private static final String TRACKER_LABEL = "settings";
-
-    private final long mCurrentChannelId;
-
-    public SettingsFragment(long currentChannelId) {
-        mCurrentChannelId = currentChannelId;
-    }
-
-    /**
-     * Opens a dialog showing open source licenses.
-     */
-    public static final class LicenseActionItem extends ActionItem {
-        public final static String DIALOG_TAG = LicenseActionItem.class.getSimpleName();
-        public static final String TRACKER_LABEL = "Open Source Licenses";
-        private final MainActivity mMainActivity;
-
-        public LicenseActionItem(MainActivity mainActivity) {
-            super(mainActivity.getString(R.string.settings_menu_licenses));
-            mMainActivity = mainActivity;
-        }
-
-        @Override
-        protected void onSelected() {
-            WebDialogFragment dialog = WebDialogFragment.newInstance(LicenseUtils.LICENSE_FILE,
-                    mMainActivity.getString(R.string.dialog_title_licenses), TRACKER_LABEL);
-            mMainActivity.getOverlayManager().showDialogFragment(DIALOG_TAG, dialog, false);
-        }
-    }
 
     @Override
     protected String getTitle() {
@@ -80,11 +60,11 @@ public class SettingsFragment extends SideFragment {
         List<Item> items = new ArrayList<>();
         final Item customizeChannelListItem = new SubMenuItem(
                 getString(R.string.settings_channel_source_item_customize_channels),
-                getString(R.string.settings_channel_source_item_customize_channels_description), 0,
+                getString(R.string.settings_channel_source_item_customize_channels_description),
                 getMainActivity().getOverlayManager().getSideFragmentManager()) {
             @Override
             protected SideFragment getFragment() {
-                return new CustomizeChannelListFragment(mCurrentChannelId);
+                return new CustomizeChannelListFragment();
             }
 
             @Override
@@ -122,25 +102,11 @@ public class SettingsFragment extends SideFragment {
                             : R.string.option_toggle_parental_controls_off)) {
                 @Override
                 protected void onSelected() {
-                    final MainActivity tvActivity = getMainActivity();
-                    final SideFragmentManager sideFragmentManager = tvActivity.getOverlayManager()
-                            .getSideFragmentManager();
-                    sideFragmentManager.hideSidePanel(true);
-                    PinDialogFragment fragment = new PinDialogFragment(
-                            PinDialogFragment.PIN_DIALOG_TYPE_ENTER_PIN,
-                            new PinDialogFragment.ResultListener() {
-                                @Override
-                                public void done(boolean success) {
-                                    if (success) {
-                                        sideFragmentManager
-                                                .show(new ParentalControlsFragment(), false);
-                                        sideFragmentManager.showSidePanel(true);
-                                    } else {
-                                        sideFragmentManager.hideAll(false);
-                                    }
-                                }
-                            });
-                    tvActivity.getOverlayManager()
+                    getMainActivity().getOverlayManager()
+                            .getSideFragmentManager().hideSidePanel(true);
+                    PinDialogFragment fragment = PinDialogFragment
+                            .create(PinDialogFragment.PIN_DIALOG_TYPE_ENTER_PIN);
+                    getMainActivity().getOverlayManager()
                             .showDialogFragment(PinDialogFragment.DIALOG_TAG, fragment, true);
                 }
             });
@@ -149,12 +115,73 @@ public class SettingsFragment extends SideFragment {
             // But, we may be able to turn on channel lock feature regardless of the permission.
             // It's TBD.
         }
-        if (LicenseUtils.hasLicenses(activity.getAssets())) {
-            items.add(new LicenseActionItem(activity));
+        boolean showTrickplaySetting = false;
+        if (TUNER.isEnabled(getContext())) {
+            for (TvInputInfo inputInfo : TvApplication.getSingletons(getContext())
+                    .getTvInputManagerHelper().getTvInputInfos(true, true)) {
+                if (Utils.isInternalTvInput(getContext(), inputInfo.getId())) {
+                    showTrickplaySetting = true;
+                    break;
+                }
+            }
+            if (showTrickplaySetting) {
+                showTrickplaySetting =
+                        TvCustomizationManager.getTrickplayMode(getContext())
+                                == TvCustomizationManager.TRICKPLAY_MODE_ENABLED;
+            }
+        }
+        if (showTrickplaySetting) {
+            items.add(
+                    new SwitchItem(getString(R.string.settings_trickplay),
+                            getString(R.string.settings_trickplay),
+                            getString(R.string.settings_trickplay_description),
+                            getResources().getInteger(R.integer.trickplay_description_max_lines)) {
+                        @Override
+                        protected void onUpdate() {
+                            super.onUpdate();
+                            boolean enabled = TunerPreferences.getTrickplaySetting(getContext())
+                                    != TunerPreferences.TRICKPLAY_SETTING_DISABLED;
+                            setChecked(enabled);
+                        }
+
+                        @Override
+                        protected void onSelected() {
+                            super.onSelected();
+                            @TunerPreferences.TrickplaySetting int setting =
+                                    isChecked() ? TunerPreferences.TRICKPLAY_SETTING_ENABLED
+                                            : TunerPreferences.TRICKPLAY_SETTING_DISABLED;
+                            TunerPreferences.setTrickplaySetting(getContext(), setting);
+                        }
+                    });
+        }
+        items.add(new ActionItem(getString(R.string.settings_send_feedback)) {
+            @Override
+            protected void onSelected() {
+                Intent intent = new Intent(Intent.ACTION_APP_ERROR);
+                ApplicationErrorReport report = new ApplicationErrorReport();
+                report.packageName = report.processName = getContext().getPackageName();
+                report.time = System.currentTimeMillis();
+                report.type = ApplicationErrorReport.TYPE_NONE;
+                intent.putExtra(Intent.EXTRA_BUG_REPORT, report);
+                startActivityForResult(intent, 0);
+            }
+        });
+        if (Licenses.hasLicenses(getContext())) {
+            items.add(
+                    new SubMenuItem(
+                            getString(R.string.settings_menu_licenses),
+                            getMainActivity().getOverlayManager().getSideFragmentManager()) {
+                        @Override
+                        protected SideFragment getFragment() {
+                            return new LicenseSideFragment();
+                        }
+                    });
         }
         // Show version.
-        items.add(new SimpleItem(getString(R.string.settings_menu_version),
-                ((TvApplication) activity.getApplicationContext()).getVersionName()));
+        SimpleActionItem version = new SimpleActionItem(getString(R.string.settings_menu_version),
+                ((TvApplication) activity.getApplicationContext()).getVersionName());
+        version.setClickable(false);
+        items.add(version);
         return items;
     }
 

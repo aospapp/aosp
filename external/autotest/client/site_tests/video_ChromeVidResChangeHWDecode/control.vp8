@@ -26,4 +26,5 @@ This test verifies VP8 resolution-changing video decode acceleration works.
 
 video = ('http://commondatastorage.googleapis.com/'
             'chromiumos-test-assets-public/MSE/switch_1080p_720p.webm')
-job.run_test('video_ChromeVidResChangeHWDecode', video_file=video, video_len=30)
+job.run_test('video_ChromeVidResChangeHWDecode', video_file=video, video_len=30,
+             tag='vp8')

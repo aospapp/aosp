@@ -192,20 +192,6 @@ include $(BUILD_EXECUTABLE)
 endif # Don't build in unbundled branches
 
 #=====================================================================
-# Device executable bcc_rsov
-#=====================================================================
-
-include $(CLEAR_VARS)
-include $(CLEAR_TBLGEN_VARS)
-
-LOCAL_MODULE:= bcc_rsov
-LOCAL_MULTILIB := first
-LOCAL_MODULE_CLASS := EXECUTABLES
-LOCAL_SRC_FILES := bcc_rsov.sh
-
-include $(BUILD_PREBUILT)
-
-#=====================================================================
 # Include Subdirectories
 #=====================================================================
 

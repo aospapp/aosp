@@ -52,7 +52,7 @@
     <string name="device_surround_sound" msgid="6272196310566546860">"Опкружувачки звук"</string>
     <string name="device_sound_effects" msgid="7793281745920228622">"Системски звуци"</string>
     <string name="device_apps" msgid="9180435229638772838">"Апликации"</string>
-    <string name="device_storage_reset" msgid="1425978936501134425">"Меморија и ресетирање"</string>
+    <string name="device_storage_reset" msgid="1425978936501134425">"Капацитет и ресетирање"</string>
     <string name="device_backup_restore" msgid="5627523987587511884">"Направи резервна копија и обнови"</string>
     <string name="device_reset" msgid="2827002349560023125">"Фабричко ресетирање на податоци"</string>
     <string name="device_calibration" msgid="8632962533376605191">"Калибрација"</string>
@@ -134,7 +134,7 @@
     <string name="device_feedback" msgid="209146642122579479">"Испрати информации за уредот"</string>
     <string name="fcc_equipment_id" msgid="8295142996591094301">"ID на опрема"</string>
     <string name="baseband_version" msgid="2229081246529676107">"Верзија на радиомодул"</string>
-    <string name="kernel_version" msgid="2418845475938044903">"Верзија на јадро"</string>
+    <string name="kernel_version" msgid="2418845475938044903">"Верзија на кернел"</string>
     <string name="status_unavailable" msgid="831018565485085059">"Недостапно"</string>
     <string name="device_status_title" msgid="1629253652287243543">"Статус"</string>
     <string name="battery_status_title" msgid="2557264957661087826">"Статус на батеријата"</string>
@@ -149,7 +149,7 @@
     <string name="license_title" msgid="4482927105870812604">"Лиценца"</string>
     <string name="terms_title" msgid="8480859222932736291">"Правила и услови"</string>
     <string name="webview_license_title" msgid="8843666223583780825">"Системска лиценца за WebView"</string>
-    <string name="wallpaper_attributions" msgid="8622098625739634898">"Позадини"</string>
+    <string name="wallpaper_attributions" msgid="8622098625739634898">"Тапети"</string>
     <string name="wallpaper_attributions_values" msgid="1565931506291182879">"Даватели на сателитски снимки:\n©2014 CNES/Astrium, DigitalGlobe, Bluesky"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="6926038943588801452">"Слаба"</item>
@@ -159,7 +159,7 @@
   </string-array>
     <string name="title_mac_address" msgid="3428401680168668544">"Адреса на MAC"</string>
     <string name="title_signal_strength" msgid="205478650262078041">"Јачина на сигнал"</string>
-    <string name="title_ip_address" msgid="4533523100923004711">"ИП адреса"</string>
+    <string name="title_ip_address" msgid="4533523100923004711">"IP-адреса"</string>
     <string name="title_ssid" msgid="4858945903642469730">"Внесете име на Wi-Fi мрежа"</string>
     <string name="title_internet_connection" msgid="8710084774588697646">"Поврзување на интернет"</string>
     <string name="connected" msgid="7563100162902079938">"Поврзано"</string>
@@ -190,7 +190,7 @@
     <string name="title_wifi_proxy_port" msgid="9194893429116021337">"Порта на прокси:"</string>
     <string name="title_wifi_proxy_bypass" msgid="4522775396659538614">"Заобиколи прокси за:"</string>
     <string name="title_wifi_ip_settings" msgid="1176973848286865602">"Поставки за ИП"</string>
-    <string name="title_wifi_ip_address" msgid="1176502993805009566">"ИП адреса:"</string>
+    <string name="title_wifi_ip_address" msgid="1176502993805009566">"IP-адреса:"</string>
     <string name="title_wifi_gateway" msgid="7210935277165358134">"Капија:"</string>
     <string name="title_wifi_network_prefix_length" msgid="4821632382990582038">"Должина на префикс на мрежа:"</string>
     <string name="title_wifi_dns1" msgid="8202712852864206601">"DNS 1:"</string>
@@ -240,7 +240,7 @@
     <string name="wifi_summary_unknown_network" msgid="7903601448928422642">"непозната мрежа"</string>
     <string name="title_ok" msgid="1021329453788761592">"Во ред"</string>
     <string name="title_cancel" msgid="4846143417666038604">"Откажи"</string>
-    <string name="storage_title" msgid="2132026108559493394">"Меморија"</string>
+    <string name="storage_title" msgid="2132026108559493394">"Капацитет"</string>
     <string name="storage_available" msgid="1241005580092138871">"Достапна"</string>
     <string name="storage_size" msgid="8958530823208352781">"Вкупно простор: <xliff:g id="TOTAL_SPACE">%1$s</xliff:g>"</string>
     <string name="storage_calculating_size" msgid="2644732407412520565">"Пресметување..."</string>
@@ -261,7 +261,7 @@
     <string name="storage_no_apps" msgid="579118619398668670">"Нема апликации за бекап"</string>
     <string name="storage_forget" msgid="8731986045697320463">"Заборави ја меморијата на уредов"</string>
     <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"За да ги користите апликациите или податоците што ги содржи дисков, повторно приклучете го. Покрај тоа, може да изберете да се заборави меморијава ако дискот не е достапен.\n\nАко изберете Заборави, засекогаш ќе ги изгубите податоците што ги содржи дискот.\n\nПодоцна може повторно да ги инсталирате апликациите, но податоците складирани на дискот ќе се изгубат."</string>
-    <string name="storage_device_storage_section" msgid="7797805634316822741">"Меморија на уредот"</string>
+    <string name="storage_device_storage_section" msgid="7797805634316822741">"Капацитет на уредот"</string>
     <string name="storage_removable_storage_section" msgid="3264955106565590076">"Пренослива меморија"</string>
     <string name="storage_reset_section" msgid="7324235036547192861">"Ресетирај"</string>
     <string name="storage_mount_success" msgid="4624254886950093443">"<xliff:g id="NAME">%1$s</xliff:g> е монтирано"</string>
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"Услуги"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Поставки на услуга"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Текст со висок контраст"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Кратенка за пристапност"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Овозможување кратенка за пристапност"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Услуга со кратенка"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Кога кратенката е вклучена, може да ги притиснете копчето за назад и за надолу во времетраење од 3 секунди за да стартувате функција за пристапност."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Титли"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Поставки за затворени слоеви од титлови на видео"</string>
     <string name="captions_display" msgid="735692527287125548">"Приказ"</string>
@@ -634,7 +638,7 @@
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
     <string name="backup_erase_dialog_message" msgid="2608496013975068701">"Да се престане со создавање резервни копии на вашите лозинки на Wi-Fi, обележувачи, други поставки и податоци за апликацијата и да се избришат сите копии на серверите на Google?"</string>
     <string name="privacy_backup_data" msgid="1796662583830120812">"Создај резервна копија на моите податоци"</string>
-    <string name="privacy_backup_account" msgid="9059939814827165020">"Резервна сметка"</string>
+    <string name="privacy_backup_account" msgid="9059939814827165020">"Сметка за бекап"</string>
     <string name="privacy_automatic_restore" msgid="1409885318093199628">"Обнови автоматски"</string>
     <string name="factory_reset_device" msgid="7422459553658815011">"Ресетирај уред"</string>
     <string name="factory_reset_description" msgid="5381170999141355891">"Ова ќе ги избрише сите податоци од внатрешната меморија на уредот, вклучувајќи ја сметката на Google, податоците на системот и апликациите и поставките, а и преземените апликации"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Се снима извештај за грешка"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Достапни виртуелни тастатури"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Управување со тастатури"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Дозволено"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Не е дозволено"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Пристап за користење"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Пристапот за користење овозможува апликацијата да следи кои други апликации ги користите и колку често, како и давателот на услуга, поставките за јазик и други детали."</string>
 </resources>

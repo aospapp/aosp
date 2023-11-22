@@ -21,7 +21,10 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.Range;
 
-import com.android.tv.dvr.ScheduledRecording.RecordingState;
+import com.android.tv.dvr.data.RecordedProgram;
+import com.android.tv.dvr.data.ScheduledRecording;
+import com.android.tv.dvr.data.ScheduledRecording.RecordingState;
+import com.android.tv.dvr.data.SeriesRecording;
 
 import java.util.Collection;
 import java.util.List;
@@ -209,6 +212,13 @@ public interface DvrDataManager {
      */
     @NonNull
     Collection<Long> getDisallowedProgramIds();
+
+    /**
+     * Checks each of the give series recordings to see if it's empty, i.e., it doesn't contains
+     * any available schedules or recorded programs, and it's status is
+     * {@link SeriesRecording#STATE_SERIES_STOPPED}; and removes those empty series recordings.
+     */
+    void checkAndRemoveEmptySeriesRecording(long... seriesRecordingIds);
 
     /**
      * Listens for the DVR schedules loading finished.

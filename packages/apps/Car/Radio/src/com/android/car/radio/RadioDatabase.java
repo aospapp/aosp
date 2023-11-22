@@ -211,7 +211,7 @@ public final class RadioDatabase extends SQLiteOpenHelper {
         }
 
         SQLiteDatabase db = getWritableDatabase();
-        long status = -1;
+        long status;
 
         db.beginTransaction();
         try {
@@ -237,7 +237,7 @@ public final class RadioDatabase extends SQLiteOpenHelper {
         assertNotMainThread();
 
         SQLiteDatabase db = getWritableDatabase();
-        long rowsDeleted = 0;
+        long rowsDeleted;
 
         db.beginTransaction();
         try {

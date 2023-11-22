@@ -24,6 +24,7 @@
 
     <minSdk>18</minSdk>
     <targetSdkVersion>25</targetSdkVersion>
+    <minSdkVersionWear>23</minSdkVersionWear>
     <targetSdkVersionWear>25</targetSdkVersionWear>
 
     <dependency>com.android.support:design:24.0.0</dependency>

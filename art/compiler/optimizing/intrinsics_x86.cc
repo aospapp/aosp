@@ -31,7 +31,7 @@
 #include "mirror/reference.h"
 #include "mirror/string.h"
 #include "scoped_thread_state_change-inl.h"
-#include "thread-inl.h"
+#include "thread-current-inl.h"
 #include "utils/x86/assembler_x86.h"
 #include "utils/x86/constants_x86.h"
 
@@ -143,8 +143,7 @@ class ReadBarrierSystemArrayCopySlowPathX86 : public SlowPathCode {
     // explanations.)
     DCHECK_NE(temp2, ESP);
     DCHECK(0 <= temp2 && temp2 < kNumberOfCpuRegisters) << temp2;
-    int32_t entry_point_offset =
-        CodeGenerator::GetReadBarrierMarkEntryPointsOffset<kX86PointerSize>(temp2);
+    int32_t entry_point_offset = Thread::ReadBarrierMarkEntryPointsOffset<kX86PointerSize>(temp2);
     // This runtime call does not require a stack map.
     x86_codegen->InvokeRuntimeWithoutRecordingPcInfo(entry_point_offset, instruction_, this);
     __ MaybePoisonHeapReference(temp2);
@@ -796,7 +795,6 @@ static void InvokeOutOfLineIntrinsic(CodeGeneratorX86* codegen, HInvoke* invoke)
   DCHECK(invoke->IsInvokeStaticOrDirect());
   codegen->GenerateStaticOrDirectCall(invoke->AsInvokeStaticOrDirect(),
                                       Location::RegisterLocation(EAX));
-  codegen->RecordPcInfo(invoke, invoke->GetDexPc());
 
   // Copy the result back to the expected output.
   Location out = invoke->GetLocations()->Out();
@@ -2819,65 +2817,6 @@ void IntrinsicCodeGeneratorX86::VisitLongNumberOfTrailingZeros(HInvoke* invoke) 
   GenTrailingZeros(GetAssembler(), codegen_, invoke, /* is_long */ true);
 }
 
-void IntrinsicLocationsBuilderX86::VisitReferenceGetReferent(HInvoke* invoke) {
-  if (kEmitCompilerReadBarrier) {
-    // Do not intrinsify this call with the read barrier configuration.
-    return;
-  }
-  LocationSummary* locations = new (arena_) LocationSummary(invoke,
-                                                            LocationSummary::kCallOnSlowPath,
-                                                            kIntrinsified);
-  locations->SetInAt(0, Location::RequiresRegister());
-  locations->SetOut(Location::SameAsFirstInput());
-  locations->AddTemp(Location::RequiresRegister());
-}
-
-void IntrinsicCodeGeneratorX86::VisitReferenceGetReferent(HInvoke* invoke) {
-  DCHECK(!kEmitCompilerReadBarrier);
-  LocationSummary* locations = invoke->GetLocations();
-  X86Assembler* assembler = GetAssembler();
-
-  Register obj = locations->InAt(0).AsRegister<Register>();
-  Register out = locations->Out().AsRegister<Register>();
-
-  SlowPathCode* slow_path = new (GetAllocator()) IntrinsicSlowPathX86(invoke);
-  codegen_->AddSlowPath(slow_path);
-
-  // Load ArtMethod first.
-  HInvokeStaticOrDirect* invoke_direct = invoke->AsInvokeStaticOrDirect();
-  DCHECK(invoke_direct != nullptr);
-  Location temp_loc = codegen_->GenerateCalleeMethodStaticOrDirectCall(
-      invoke_direct, locations->GetTemp(0));
-  DCHECK(temp_loc.Equals(locations->GetTemp(0)));
-  Register temp = temp_loc.AsRegister<Register>();
-
-  // Now get declaring class.
-  __ movl(temp, Address(temp, ArtMethod::DeclaringClassOffset().Int32Value()));
-
-  uint32_t slow_path_flag_offset = codegen_->GetReferenceSlowFlagOffset();
-  uint32_t disable_flag_offset = codegen_->GetReferenceDisableFlagOffset();
-  DCHECK_NE(slow_path_flag_offset, 0u);
-  DCHECK_NE(disable_flag_offset, 0u);
-  DCHECK_NE(slow_path_flag_offset, disable_flag_offset);
-
-  // Check static flags preventing us for using intrinsic.
-  if (slow_path_flag_offset == disable_flag_offset + 1) {
-    __ cmpw(Address(temp, disable_flag_offset), Immediate(0));
-    __ j(kNotEqual, slow_path->GetEntryLabel());
-  } else {
-    __ cmpb(Address(temp, disable_flag_offset), Immediate(0));
-    __ j(kNotEqual, slow_path->GetEntryLabel());
-    __ cmpb(Address(temp, slow_path_flag_offset), Immediate(0));
-    __ j(kNotEqual, slow_path->GetEntryLabel());
-  }
-
-  // Fast path.
-  __ movl(out, Address(obj, mirror::Reference::ReferentOffset().Int32Value()));
-  codegen_->MaybeRecordImplicitNullCheck(invoke);
-  __ MaybeUnpoisonHeapReference(out);
-  __ Bind(slow_path->GetExitLabel());
-}
-
 static bool IsSameInput(HInstruction* instruction, size_t input0, size_t input1) {
   return instruction->InputAt(input0) == instruction->InputAt(input1);
 }
@@ -3407,7 +3346,29 @@ void IntrinsicCodeGeneratorX86::VisitIntegerValueOf(HInvoke* invoke) {
   }
 }
 
+void IntrinsicLocationsBuilderX86::VisitThreadInterrupted(HInvoke* invoke) {
+  LocationSummary* locations = new (arena_) LocationSummary(invoke,
+                                                            LocationSummary::kNoCall,
+                                                            kIntrinsified);
+  locations->SetOut(Location::RequiresRegister());
+}
+
+void IntrinsicCodeGeneratorX86::VisitThreadInterrupted(HInvoke* invoke) {
+  X86Assembler* assembler = GetAssembler();
+  Register out = invoke->GetLocations()->Out().AsRegister<Register>();
+  Address address = Address::Absolute(Thread::InterruptedOffset<kX86PointerSize>().Int32Value());
+  NearLabel done;
+  __ fs()->movl(out, address);
+  __ testl(out, out);
+  __ j(kEqual, &done);
+  __ fs()->movl(address, Immediate(0));
+  codegen_->MemoryFence();
+  __ Bind(&done);
+}
+
+
 UNIMPLEMENTED_INTRINSIC(X86, MathRoundDouble)
+UNIMPLEMENTED_INTRINSIC(X86, ReferenceGetReferent)
 UNIMPLEMENTED_INTRINSIC(X86, FloatIsInfinite)
 UNIMPLEMENTED_INTRINSIC(X86, DoubleIsInfinite)
 UNIMPLEMENTED_INTRINSIC(X86, IntegerHighestOneBit)

@@ -73,11 +73,6 @@ public class HfpClientConference extends Conference {
 
     @Override
     public void onUnhold() {
-        if (getPrimaryConnection().getConnectionService()
-                .getAllConnections().size() > 1) {
-            Log.w(TAG, "Ignoring unhold; call hold on the foreground call");
-            return;
-        }
         Log.d(TAG, "onUnhold");
         mHeadsetProfile.acceptCall(mDevice, BluetoothHeadsetClient.CALL_ACCEPT_HOLD);
     }

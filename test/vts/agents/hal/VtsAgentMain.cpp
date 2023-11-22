@@ -20,8 +20,8 @@
 
 #include "TcpServerForRunner.h"
 
-#define DEFAULT_HAL_DRIVER_FILE_PATH32 "./fuzzer32"
-#define DEFAULT_HAL_DRIVER_FILE_PATH64 "./fuzzer64"
+#define DEFAULT_HAL_DRIVER_FILE_PATH32 "./vts_hal_driver32"
+#define DEFAULT_HAL_DRIVER_FILE_PATH64 "./vts_hal_driver64"
 #define DEFAULT_SHELL_DRIVER_FILE_PATH32 "./vts_shell_driver32"
 #define DEFAULT_SHELL_DRIVER_FILE_PATH64 "./vts_shell_driver64"
 

@@ -29,6 +29,9 @@ allow dumpstate system_file:file execute_no_trans;
 not_full_treble(`allow dumpstate vendor_file:file execute_no_trans;')
 allow dumpstate toolbox_exec:file rx_file_perms;
 
+# hidl searches for files in /system/lib(64)/hw/
+allow dumpstate system_file:dir r_dir_perms;
+
 # Create and write into /data/anr/
 allow dumpstate self:capability { dac_override chown fowner fsetid };
 allow dumpstate anr_data_file:dir rw_dir_perms;
@@ -70,6 +73,7 @@ allow dumpstate {
   hal_bluetooth_server
   hal_camera_server
   hal_graphics_composer_server
+  hal_sensors_server
   hal_vr_server
   mediacodec # TODO(b/36375899): hal_omx_server
 }:process signal;
@@ -83,10 +87,19 @@ allow dumpstate sysfs_usb:file w_file_perms;
 # Other random bits of data we want to collect
 allow dumpstate qtaguid_proc:file r_file_perms;
 allow dumpstate debugfs:file r_file_perms;
-# df for /storage/emulated needs search
-allow dumpstate { storage_file block_device }:dir { search getattr };
+
+# df for
+allow dumpstate {
+  block_device
+  cache_file
+  rootfs
+  selinuxfs
+  storage_file
+  tmpfs
+}:dir { search getattr };
 allow dumpstate fuse_device:chr_file getattr;
 allow dumpstate { dm_device cache_block_device }:blk_file getattr;
+allow dumpstate { cache_file rootfs }:lnk_file { getattr read };
 
 # Read /dev/cpuctl and /dev/cpuset
 r_dir_file(dumpstate, cgroup)
@@ -137,8 +150,10 @@ read_logd(dumpstate)
 control_logd(dumpstate)
 read_runtime_log_tags(dumpstate)
 
-# Read /proc/net
+# Read files in /proc
+allow dumpstate proc_meminfo:file r_file_perms;
 allow dumpstate proc_net:file r_file_perms;
+r_dir_file(dumpstate, proc)
 
 # Read network state info files.
 allow dumpstate net_data_file:dir search;
@@ -198,6 +213,26 @@ allow dumpstate proc_zoneinfo:file r_file_perms;
 
 # Create a service for talking back to system_server
 add_service(dumpstate, dumpstate_service)
+
+# use /dev/ion for screen capture
+allow dumpstate ion_device:chr_file r_file_perms;
+
+# read default labeled files in /sys
+r_dir_file(dumpstate, sysfs)
+
+# Allow dumpstate to run top
+allow dumpstate proc_stat:file r_file_perms;
+
+# Allow dumpstate to read backlight details
+allow dumpstate sysfs_leds:lnk_file r_file_perms;
+allow dumpstate sysfs_leds:file r_file_perms;
+allow dumpstate sysfs_leds:dir search;
+
+# Allow dumpstate to talk to installd over binder
+binder_call(dumpstate, installd);
+
+# Allow dumpstate to run ip xfrm policy
+allow dumpstate self:netlink_xfrm_socket { create_socket_perms_no_ioctl nlmsg_read };
 
 ###
 ### neverallow rules

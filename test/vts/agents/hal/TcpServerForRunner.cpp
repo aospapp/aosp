@@ -47,9 +47,10 @@ namespace vts {
 
 // Starts to run a TCP server (foreground).
 int StartTcpServerForRunner(const char* spec_dir_path,
-                            const char* fuzzer_path32,
-                            const char* fuzzer_path64, const char* shell_path32,
-                            const char* shell_path64) {
+                            const char* hal_driver_path32,
+                            const char* hal_driver_path64,
+                            const char* shell_driver_path32,
+                            const char* shell_driver_path64) {
   int sockfd;
   socklen_t clilen;
   struct sockaddr_in serv_addr;
@@ -110,8 +111,9 @@ int StartTcpServerForRunner(const char* spec_dir_path,
     if (pid == 0) {  // child
       close(sockfd);
       cout << "[agent] process for a runner - pid = " << getpid() << endl;
-      AgentRequestHandler handler(spec_dir_path, fuzzer_path32, fuzzer_path64,
-                                  shell_path32, shell_path64);
+      AgentRequestHandler handler(spec_dir_path, hal_driver_path32,
+                                  hal_driver_path64, shell_driver_path32,
+                                  shell_driver_path64);
       handler.SetSockfd(newsockfd);
       while (handler.ProcessOneCommand())
         ;

@@ -10,7 +10,7 @@
 #
 # include(CXXFeatureCheck)
 # cxx_feature_check(STD_REGEX)
-# Requires CMake 2.6+
+# Requires CMake 2.8.12+
 
 if(__cxx_feature_check)
   return()
@@ -22,6 +22,8 @@ function(cxx_feature_check FILE)
   string(TOUPPER ${FILE} VAR)
   string(TOUPPER "HAVE_${VAR}" FEATURE)
   if (DEFINED HAVE_${VAR})
+    set(HAVE_${VAR} 1 CACHE INTERNAL "Feature test for ${FILE}" PARENT_SCOPE)
+    add_definitions(-DHAVE_${VAR})
     return()
   endif()
   message("-- Performing Test ${FEATURE}")

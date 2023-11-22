@@ -22,6 +22,12 @@ void __fio_mutex_remove(struct fio_mutex *mutex)
 {
 	assert(mutex->magic == FIO_MUTEX_MAGIC);
 	pthread_cond_destroy(&mutex->cond);
+
+	/*
+	 * Ensure any subsequent attempt to grab this mutex will fail
+	 * with an assert, instead of just silently hanging.
+	 */
+	memset(mutex, 0, sizeof(*mutex));
 }
 
 void fio_mutex_remove(struct fio_mutex *mutex)
@@ -30,16 +36,39 @@ void fio_mutex_remove(struct fio_mutex *mutex)
 	munmap((void *) mutex, sizeof(*mutex));
 }
 
-int __fio_mutex_init(struct fio_mutex *mutex, int value)
+int cond_init_pshared(pthread_cond_t *cond)
 {
-	pthread_mutexattr_t attr;
-	pthread_condattr_t cond;
+	pthread_condattr_t cattr;
 	int ret;
 
-	mutex->value = value;
-	mutex->magic = FIO_MUTEX_MAGIC;
+	ret = pthread_condattr_init(&cattr);
+	if (ret) {
+		log_err("pthread_condattr_init: %s\n", strerror(ret));
+		return ret;
+	}
 
-	ret = pthread_mutexattr_init(&attr);
+#ifdef CONFIG_PSHARED
+	ret = pthread_condattr_setpshared(&cattr, PTHREAD_PROCESS_SHARED);
+	if (ret) {
+		log_err("pthread_condattr_setpshared: %s\n", strerror(ret));
+		return ret;
+	}
+#endif
+	ret = pthread_cond_init(cond, &cattr);
+	if (ret) {
+		log_err("pthread_cond_init: %s\n", strerror(ret));
+		return ret;
+	}
+
+	return 0;
+}
+
+int mutex_init_pshared(pthread_mutex_t *mutex)
+{
+	pthread_mutexattr_t mattr;
+	int ret;
+
+	ret = pthread_mutexattr_init(&mattr);
 	if (ret) {
 		log_err("pthread_mutexattr_init: %s\n", strerror(ret));
 		return ret;
@@ -48,28 +77,48 @@ int __fio_mutex_init(struct fio_mutex *mutex, int value)
 	/*
 	 * Not all platforms support process shared mutexes (FreeBSD)
 	 */
-#ifdef FIO_HAVE_PSHARED_MUTEX
-	ret = pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
+#ifdef CONFIG_PSHARED
+	ret = pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED);
 	if (ret) {
 		log_err("pthread_mutexattr_setpshared: %s\n", strerror(ret));
 		return ret;
 	}
 #endif
-
-	pthread_condattr_init(&cond);
-#ifdef FIO_HAVE_PSHARED_MUTEX
-	pthread_condattr_setpshared(&cond, PTHREAD_PROCESS_SHARED);
-#endif
-	pthread_cond_init(&mutex->cond, &cond);
-
-	ret = pthread_mutex_init(&mutex->lock, &attr);
+	ret = pthread_mutex_init(mutex, &mattr);
 	if (ret) {
 		log_err("pthread_mutex_init: %s\n", strerror(ret));
 		return ret;
 	}
 
-	pthread_condattr_destroy(&cond);
-	pthread_mutexattr_destroy(&attr);
+	return 0;
+}
+
+int mutex_cond_init_pshared(pthread_mutex_t *mutex, pthread_cond_t *cond)
+{
+	int ret;
+
+	ret = mutex_init_pshared(mutex);
+	if (ret)
+		return ret;
+
+	ret = cond_init_pshared(cond);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+int __fio_mutex_init(struct fio_mutex *mutex, int value)
+{
+	int ret;
+
+	mutex->value = value;
+	mutex->magic = FIO_MUTEX_MAGIC;
+
+	ret = mutex_cond_init_pshared(&mutex->lock, &mutex->cond);
+	if (ret)
+		return ret;
+
 	return 0;
 }
 
@@ -92,12 +141,15 @@ struct fio_mutex *fio_mutex_init(int value)
 	return NULL;
 }
 
-static int mutex_timed_out(struct timeval *t, unsigned int seconds)
+static bool mutex_timed_out(struct timeval *t, unsigned int msecs)
 {
-	return mtime_since_now(t) >= seconds * 1000;
+	struct timeval now;
+
+	gettimeofday(&now, NULL);
+	return mtime_since(t, &now) >= msecs;
 }
 
-int fio_mutex_down_timeout(struct fio_mutex *mutex, unsigned int seconds)
+int fio_mutex_down_timeout(struct fio_mutex *mutex, unsigned int msecs)
 {
 	struct timeval tv_s;
 	struct timespec t;
@@ -106,43 +158,50 @@ int fio_mutex_down_timeout(struct fio_mutex *mutex, unsigned int seconds)
 	assert(mutex->magic == FIO_MUTEX_MAGIC);
 
 	gettimeofday(&tv_s, NULL);
-	t.tv_sec = tv_s.tv_sec + seconds;
+	t.tv_sec = tv_s.tv_sec;
 	t.tv_nsec = tv_s.tv_usec * 1000;
+
+	t.tv_sec += msecs / 1000;
+	t.tv_nsec += ((msecs * 1000000ULL) % 1000000000);
+	if (t.tv_nsec >= 1000000000) {
+		t.tv_nsec -= 1000000000;
+		t.tv_sec++;
+	}
 
 	pthread_mutex_lock(&mutex->lock);
 
+	mutex->waiters++;
 	while (!mutex->value && !ret) {
-		mutex->waiters++;
-
 		/*
 		 * Some platforms (FreeBSD 9?) seems to return timed out
 		 * way too early, double check.
 		 */
 		ret = pthread_cond_timedwait(&mutex->cond, &mutex->lock, &t);
-		if (ret == ETIMEDOUT && !mutex_timed_out(&tv_s, seconds))
+		if (ret == ETIMEDOUT && !mutex_timed_out(&tv_s, msecs))
 			ret = 0;
-
-		mutex->waiters--;
 	}
+	mutex->waiters--;
 
 	if (!ret) {
 		mutex->value--;
 		pthread_mutex_unlock(&mutex->lock);
+		return 0;
 	}
 
+	pthread_mutex_unlock(&mutex->lock);
 	return ret;
 }
 
-int fio_mutex_down_trylock(struct fio_mutex *mutex)
+bool fio_mutex_down_trylock(struct fio_mutex *mutex)
 {
-	int ret = 1;
+	bool ret = true;
 
 	assert(mutex->magic == FIO_MUTEX_MAGIC);
 
 	pthread_mutex_lock(&mutex->lock);
 	if (mutex->value) {
 		mutex->value--;
-		ret = 0;
+		ret = false;
 	}
 	pthread_mutex_unlock(&mutex->lock);
 
@@ -228,7 +287,7 @@ struct fio_rwlock *fio_rwlock_init(void)
 		log_err("pthread_rwlockattr_init: %s\n", strerror(ret));
 		goto err;
 	}
-#ifdef FIO_HAVE_PSHARED_MUTEX
+#ifdef CONFIG_PSHARED
 	ret = pthread_rwlockattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
 	if (ret) {
 		log_err("pthread_rwlockattr_setpshared: %s\n", strerror(ret));

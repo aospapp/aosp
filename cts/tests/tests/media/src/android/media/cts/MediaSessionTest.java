@@ -39,10 +39,14 @@ import android.view.KeyEvent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class MediaSessionTest extends AndroidTestCase {
-    // The maximum time to wait for an operation.
+    // The maximum time to wait for an operation that is expected to succeed.
     private static final long TIME_OUT_MS = 3000L;
+    // The maximum time to wait for an operation that is expected to fail.
+    private static final long WAIT_MS = 100L;
     private static final int MAX_AUDIO_INFO_CHANGED_CALLBACK_COUNT = 10;
     private static final String TEST_SESSION_TAG = "test-session-tag";
     private static final String TEST_KEY = "test-key";
@@ -322,71 +326,106 @@ public class MediaSessionTest extends AndroidTestCase {
         PendingIntent pi = PendingIntent.getBroadcast(getContext(), 0, mediaButtonIntent, 0);
         mSession.setMediaButtonReceiver(pi);
 
-        long supportedActions = PlaybackState.ACTION_PLAY | PlaybackState.ACTION_PAUSE
-                | PlaybackState.ACTION_PLAY_PAUSE | PlaybackState.ACTION_STOP
-                | PlaybackState.ACTION_SKIP_TO_NEXT | PlaybackState.ACTION_SKIP_TO_PREVIOUS
-                | PlaybackState.ACTION_FAST_FORWARD | PlaybackState.ACTION_REWIND;
-
         // Set state to STATE_PLAYING to get higher priority.
-        PlaybackState defaultState = new PlaybackState.Builder().setActions(supportedActions)
-                .setState(PlaybackState.STATE_PLAYING, 0L, 0.0f).build();
-        mSession.setPlaybackState(defaultState);
+        setPlaybackState(PlaybackState.STATE_PLAYING);
 
         // A media playback is also needed to receive media key events.
         Utils.assertMediaPlaybackStarted(getContext());
 
+        sessionCallback.reset(1);
+        simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_PLAY);
+        assertTrue(sessionCallback.await(TIME_OUT_MS));
+        assertEquals(1, sessionCallback.mOnPlayCalledCount);
+
+        sessionCallback.reset(1);
+        simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_PAUSE);
+        assertTrue(sessionCallback.await(TIME_OUT_MS));
+        assertTrue(sessionCallback.mOnPauseCalled);
+
+        sessionCallback.reset(1);
+        simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_NEXT);
+        assertTrue(sessionCallback.await(TIME_OUT_MS));
+        assertTrue(sessionCallback.mOnSkipToNextCalled);
+
+        sessionCallback.reset(1);
+        simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_PREVIOUS);
+        assertTrue(sessionCallback.await(TIME_OUT_MS));
+        assertTrue(sessionCallback.mOnSkipToPreviousCalled);
+
+        sessionCallback.reset(1);
+        simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_STOP);
+        assertTrue(sessionCallback.await(TIME_OUT_MS));
+        assertTrue(sessionCallback.mOnStopCalled);
+
+        sessionCallback.reset(1);
+        simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_FAST_FORWARD);
+        assertTrue(sessionCallback.await(TIME_OUT_MS));
+        assertTrue(sessionCallback.mOnFastForwardCalled);
+
+        sessionCallback.reset(1);
+        simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_REWIND);
+        assertTrue(sessionCallback.await(TIME_OUT_MS));
+        assertTrue(sessionCallback.mOnRewindCalled);
+
+        // Test PLAY_PAUSE button twice.
+        // First, simulate PLAY_PAUSE button while in STATE_PAUSED.
+        sessionCallback.reset(1);
+        setPlaybackState(PlaybackState.STATE_PAUSED);
+        simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
+        assertTrue(sessionCallback.await(TIME_OUT_MS));
+        assertEquals(1, sessionCallback.mOnPlayCalledCount);
+
+        // Next, simulate PLAY_PAUSE button while in STATE_PLAYING.
+        sessionCallback.reset(1);
+        setPlaybackState(PlaybackState.STATE_PLAYING);
+        simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
+        assertTrue(sessionCallback.await(TIME_OUT_MS));
+        assertTrue(sessionCallback.mOnPauseCalled);
+
+        // Double tap of PLAY_PAUSE is the next track instead of changing PLAY/PAUSE.
+        sessionCallback.reset(2);
+        setPlaybackState(PlaybackState.STATE_PLAYING);
+        simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
+        simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
+        assertFalse(sessionCallback.await(WAIT_MS));
+        assertTrue(sessionCallback.mOnSkipToNextCalled);
+        assertEquals(0, sessionCallback.mOnPlayCalledCount);
+        assertFalse(sessionCallback.mOnPauseCalled);
+
+        // Test if PLAY_PAUSE double tap is considered as two single taps when another media
+        // key is pressed.
+        sessionCallback.reset(3);
+        setPlaybackState(PlaybackState.STATE_PAUSED);
+        simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
+        simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_STOP);
+        simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
+        assertTrue(sessionCallback.await(TIME_OUT_MS));
+        assertEquals(2, sessionCallback.mOnPlayCalledCount);
+        assertTrue(sessionCallback.mOnStopCalled);
+
+        // Test if media keys are handled in order.
+        sessionCallback.reset(2);
+        setPlaybackState(PlaybackState.STATE_PAUSED);
+        simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
+        simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_STOP);
+        assertTrue(sessionCallback.await(TIME_OUT_MS));
+        assertEquals(1, sessionCallback.mOnPlayCalledCount);
+        assertTrue(sessionCallback.mOnStopCalled);
         synchronized (mWaitLock) {
-            sessionCallback.reset();
-            simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_PLAY);
-            mWaitLock.wait(TIME_OUT_MS);
-            assertTrue(sessionCallback.mOnPlayCalled);
+            assertEquals(PlaybackState.STATE_STOPPED,
+                    mSession.getController().getPlaybackState().getState());
+        }
+    }
 
-            sessionCallback.reset();
-            simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_PAUSE);
-            mWaitLock.wait(TIME_OUT_MS);
-            assertTrue(sessionCallback.mOnPauseCalled);
-
-            sessionCallback.reset();
-            simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_NEXT);
-            mWaitLock.wait(TIME_OUT_MS);
-            assertTrue(sessionCallback.mOnSkipToNextCalled);
-
-            sessionCallback.reset();
-            simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_PREVIOUS);
-            mWaitLock.wait(TIME_OUT_MS);
-            assertTrue(sessionCallback.mOnSkipToPreviousCalled);
-
-            sessionCallback.reset();
-            simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_STOP);
-            mWaitLock.wait(TIME_OUT_MS);
-            assertTrue(sessionCallback.mOnStopCalled);
-
-            sessionCallback.reset();
-            simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_FAST_FORWARD);
-            mWaitLock.wait(TIME_OUT_MS);
-            assertTrue(sessionCallback.mOnFastForwardCalled);
-
-            sessionCallback.reset();
-            simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_REWIND);
-            mWaitLock.wait(TIME_OUT_MS);
-            assertTrue(sessionCallback.mOnRewindCalled);
-
-            // Test PLAY_PAUSE button twice.
-            // First, simulate PLAY_PAUSE button while in STATE_PAUSED.
-            sessionCallback.reset();
-            mSession.setPlaybackState(new PlaybackState.Builder().setActions(supportedActions)
-                    .setState(PlaybackState.STATE_PAUSED, 0L, 0.0f).build());
-            simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
-            mWaitLock.wait(TIME_OUT_MS);
-            assertTrue(sessionCallback.mOnPlayCalled);
-
-            // Next, simulate PLAY_PAUSE button while in STATE_PLAYING.
-            sessionCallback.reset();
-            mSession.setPlaybackState(new PlaybackState.Builder().setActions(supportedActions)
-                    .setState(PlaybackState.STATE_PLAYING, 0L, 0.0f).build());
-            simulateMediaKeyInput(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
-            mWaitLock.wait(TIME_OUT_MS);
-            assertTrue(sessionCallback.mOnPauseCalled);
+    private void setPlaybackState(int state) {
+        final long allActions = PlaybackState.ACTION_PLAY | PlaybackState.ACTION_PAUSE
+                | PlaybackState.ACTION_PLAY_PAUSE | PlaybackState.ACTION_STOP
+                | PlaybackState.ACTION_SKIP_TO_NEXT | PlaybackState.ACTION_SKIP_TO_PREVIOUS
+                | PlaybackState.ACTION_FAST_FORWARD | PlaybackState.ACTION_REWIND;
+        PlaybackState playbackState = new PlaybackState.Builder().setActions(allActions)
+                .setState(state, 0L, 0.0f).build();
+        synchronized (mWaitLock) {
+            mSession.setPlaybackState(playbackState);
         }
     }
 
@@ -419,12 +458,26 @@ public class MediaSessionTest extends AndroidTestCase {
      * Tests {@link MediaSession.QueueItem}.
      */
     public void testQueueItem() {
-        QueueItem item = new QueueItem(new MediaDescription.Builder()
-                .setMediaId("media-id").setTitle("title").build(), TEST_QUEUE_ID);
+        MediaDescription.Builder descriptionBuilder = new MediaDescription.Builder()
+                .setMediaId("media-id")
+                .setTitle("title");
+
+        QueueItem item = new QueueItem(descriptionBuilder.build(), TEST_QUEUE_ID);
         assertEquals(TEST_QUEUE_ID, item.getQueueId());
         assertEquals("media-id", item.getDescription().getMediaId());
         assertEquals("title", item.getDescription().getTitle());
         assertEquals(0, item.describeContents());
+
+        QueueItem sameItem = new QueueItem(descriptionBuilder.build(), TEST_QUEUE_ID);
+        assertTrue(item.equals(sameItem));
+
+        QueueItem differentQueueId = new QueueItem(
+            descriptionBuilder.build(), TEST_QUEUE_ID + 1);
+        assertFalse(item.equals(differentQueueId));
+
+        QueueItem differentDescription = new QueueItem(
+            descriptionBuilder.setTitle("title2").build(), TEST_QUEUE_ID);
+        assertFalse(item.equals(differentDescription));
 
         Parcel p = Parcel.obtain();
         item.writeToParcel(p, 0);
@@ -576,7 +629,8 @@ public class MediaSessionTest extends AndroidTestCase {
     }
 
     private class MediaSessionCallback extends MediaSession.Callback {
-        private boolean mOnPlayCalled;
+        private CountDownLatch mLatch;
+        private int mOnPlayCalledCount;
         private boolean mOnPauseCalled;
         private boolean mOnStopCalled;
         private boolean mOnFastForwardCalled;
@@ -584,8 +638,9 @@ public class MediaSessionTest extends AndroidTestCase {
         private boolean mOnSkipToPreviousCalled;
         private boolean mOnSkipToNextCalled;
 
-        public void reset() {
-            mOnPlayCalled = false;
+        public void reset(int count) {
+            mLatch = new CountDownLatch(count);
+            mOnPlayCalledCount = 0;
             mOnPauseCalled = false;
             mOnStopCalled = false;
             mOnFastForwardCalled = false;
@@ -594,60 +649,57 @@ public class MediaSessionTest extends AndroidTestCase {
             mOnSkipToNextCalled = false;
         }
 
+        public boolean await(long waitMs) {
+            try {
+                return mLatch.await(waitMs, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                return false;
+            }
+        }
+
         @Override
         public void onPlay() {
-            synchronized (mWaitLock) {
-                mOnPlayCalled = true;
-                mWaitLock.notify();
-            }
+            mOnPlayCalledCount++;
+            setPlaybackState(PlaybackState.STATE_PLAYING);
+            mLatch.countDown();
         }
 
         @Override
         public void onPause() {
-            synchronized (mWaitLock) {
-                mOnPauseCalled = true;
-                mWaitLock.notify();
-            }
+            mOnPauseCalled = true;
+            setPlaybackState(PlaybackState.STATE_PAUSED);
+            mLatch.countDown();
         }
 
         @Override
         public void onStop() {
-            synchronized (mWaitLock) {
-                mOnStopCalled = true;
-                mWaitLock.notify();
-            }
+            mOnStopCalled = true;
+            setPlaybackState(PlaybackState.STATE_STOPPED);
+            mLatch.countDown();
         }
 
         @Override
         public void onFastForward() {
-            synchronized (mWaitLock) {
-                mOnFastForwardCalled = true;
-                mWaitLock.notify();
-            }
+            mOnFastForwardCalled = true;
+            mLatch.countDown();
         }
 
         @Override
         public void onRewind() {
-            synchronized (mWaitLock) {
-                mOnRewindCalled = true;
-                mWaitLock.notify();
-            }
+            mOnRewindCalled = true;
+            mLatch.countDown();
         }
 
         @Override
         public void onSkipToPrevious() {
-            synchronized (mWaitLock) {
-                mOnSkipToPreviousCalled = true;
-                mWaitLock.notify();
-            }
+            mOnSkipToPreviousCalled = true;
+            mLatch.countDown();
         }
 
         @Override
         public void onSkipToNext() {
-            synchronized (mWaitLock) {
-                mOnSkipToNextCalled = true;
-                mWaitLock.notify();
-            }
+            mOnSkipToNextCalled = true;
+            mLatch.countDown();
         }
     }
 }

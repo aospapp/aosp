@@ -21,30 +21,30 @@
     <group
         android:id="@+id/menu_open_group">
         <item
-            android:id="@+id/menu_open_in_new_window"
+            android:id="@+id/dir_menu_open_in_new_window"
             android:title="@string/menu_open_in_new_window" />
     </group>
 
     <group
         android:id="@+id/menu_clipboard_group">
         <item
-            android:id="@+id/menu_cut_to_clipboard"
+            android:id="@+id/dir_menu_cut_to_clipboard"
             android:title="@string/menu_cut_to_clipboard" />
         <item
-            android:id="@+id/menu_copy_to_clipboard"
+            android:id="@+id/dir_menu_copy_to_clipboard"
             android:title="@string/menu_copy_to_clipboard" />
         <item
-            android:id="@+id/menu_paste_into_folder"
+            android:id="@+id/dir_menu_paste_into_folder"
             android:title="@string/menu_paste_into_folder" />
     </group>
 
     <group
         android:id="@+id/menu_modifier_group">
         <item
-            android:id="@+id/menu_rename"
+            android:id="@+id/dir_menu_rename"
             android:title="@string/menu_rename" />
         <item
-            android:id="@+id/menu_delete"
+            android:id="@+id/dir_menu_delete"
             android:title="@string/menu_delete" />
     </group>
 </menu>

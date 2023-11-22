@@ -27,8 +27,9 @@
 #include "gc/space/space.h"
 #include "mirror/object-inl.h"
 #include "mirror/object-refvisitor-inl.h"
+#include "object_callbacks.h"
 #include "space_bitmap-inl.h"
-#include "thread-inl.h"
+#include "thread-current-inl.h"
 
 namespace art {
 namespace gc {
@@ -383,7 +384,7 @@ void ModUnionTableReferenceCache::Dump(std::ostream& os) {
   }
 }
 
-void ModUnionTableReferenceCache::VisitObjects(ObjectCallback* callback, void* arg) {
+void ModUnionTableReferenceCache::VisitObjects(ObjectCallback callback, void* arg) {
   CardTable* const card_table = heap_->GetCardTable();
   ContinuousSpaceBitmap* live_bitmap = space_->GetLiveBitmap();
   for (uint8_t* card : cleared_cards_) {
@@ -391,7 +392,7 @@ void ModUnionTableReferenceCache::VisitObjects(ObjectCallback* callback, void* a
     uintptr_t end = start + CardTable::kCardSize;
     live_bitmap->VisitMarkedRange(start,
                                   end,
-                                  [this, callback, arg](mirror::Object* obj) {
+                                  [callback, arg](mirror::Object* obj) {
       callback(obj, arg);
     });
   }
@@ -402,7 +403,7 @@ void ModUnionTableReferenceCache::VisitObjects(ObjectCallback* callback, void* a
     uintptr_t end = start + CardTable::kCardSize;
     live_bitmap->VisitMarkedRange(start,
                                   end,
-                                  [this, callback, arg](mirror::Object* obj) {
+                                  [callback, arg](mirror::Object* obj) {
       callback(obj, arg);
     });
   }
@@ -550,7 +551,7 @@ void ModUnionTableCardCache::UpdateAndMarkReferences(MarkObjectVisitor* visitor)
       0, RoundUp(space_->Size(), CardTable::kCardSize) / CardTable::kCardSize, bit_visitor);
 }
 
-void ModUnionTableCardCache::VisitObjects(ObjectCallback* callback, void* arg) {
+void ModUnionTableCardCache::VisitObjects(ObjectCallback callback, void* arg) {
   card_bitmap_->VisitSetBits(
       0,
       RoundUp(space_->Size(), CardTable::kCardSize) / CardTable::kCardSize,
@@ -560,7 +561,7 @@ void ModUnionTableCardCache::VisitObjects(ObjectCallback* callback, void* arg) {
             << start << " " << *space_;
         space_->GetLiveBitmap()->VisitMarkedRange(start,
                                                   start + CardTable::kCardSize,
-                                                  [this, callback, arg](mirror::Object* obj) {
+                                                  [callback, arg](mirror::Object* obj) {
           callback(obj, arg);
         });
       });

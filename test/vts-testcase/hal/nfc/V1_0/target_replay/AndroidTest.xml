@@ -28,8 +28,8 @@
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
         <option name="test-module-name" value="VtsHalNfcV1_0TargetReplay"/>
         <option name="binary-test-type" value="hal_hidl_replay_test"/>
-        <option name="hal-hidl-replay-test-trace-path" value="test/vts-testcase/hal-trace/nfc/V1_0/android.hardware.nfc@1.0_sailfish_2.vts.trace"/>
-        <option name="hal-hidl-replay-test-trace-path" value="test/vts-testcase/hal-trace/nfc/V1_0/android.hardware.nfc@1.0_sailfish_1.vts.trace"/>
+        <option name="hal-hidl-replay-test-trace-path" value="test/vts-testcase/hal-trace/nfc/V1_0/android.hardware.nfc_1.0_17270843854.vts.trace"/>
+        <option name="hal-hidl-replay-test-trace-path" value="test/vts-testcase/hal-trace/nfc/V1_0/android.hardware.nfc_1.0_17261139999.vts.trace"/>
         <option name="hal-hidl-package-name" value="android.hardware.nfc@1.0"/>
         <option name="precondition-lshal" value="android.hardware.nfc@1.0"/>
         <option name="test-timeout" value="15m"/>

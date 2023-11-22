@@ -19,6 +19,7 @@ Test the HFP profile for conference calling functionality.
 
 import time
 
+from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.BluetoothCarHfpBaseTest import BluetoothCarHfpBaseTest
 from acts.test_utils.bt import BtEnum
@@ -55,7 +56,7 @@ class BtCarHfpConferenceTest(BluetoothCarHfpBaseTest):
             attempts -= 1
         return connected
 
-    #@BluetoothTest(UUID=a9657693-b534-4625-bf91-69a1d1b9a943)
+    @test_tracker_info(uuid='a9657693-b534-4625-bf91-69a1d1b9a943')
     @BluetoothBaseTest.bt_test_wrap
     def test_multi_way_call_accept(self):
         """

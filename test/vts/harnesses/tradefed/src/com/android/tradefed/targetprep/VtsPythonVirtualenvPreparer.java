@@ -28,13 +28,21 @@ import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.util.StreamUtil;
+import com.android.tradefed.util.VtsVendorConfigFileUtil;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
 import java.io.InputStream;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.io.IOException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.NoSuchElementException;
@@ -56,8 +64,6 @@ public class VtsPythonVirtualenvPreparer implements ITargetPreparer, ITargetClea
     private static final String OS_NAME = "os.name";
     private static final String WINDOWS = "Windows";
     private static final String LOCAL_PYPI_PATH_ENV_VAR_NAME = "VTS_PYPI_PATH";
-    private static final String VENDOR_TEST_CONFIG_FILE_PATH =
-            "/config/google-tradefed-vts-config.config";
     private static final String LOCAL_PYPI_PATH_KEY = "pypi_packages_path";
     protected static final String PYTHONPATH = "PYTHONPATH";
     protected static final String VIRTUAL_ENV_PATH = "VIRTUALENVPATH";
@@ -77,6 +83,7 @@ public class VtsPythonVirtualenvPreparer implements ITargetPreparer, ITargetClea
     @Option(name = "dep-module", description = "modules which need to be installed by pip")
     private Collection<String> mDepModules = new TreeSet<>(Arrays.asList(DEFAULT_DEP_MODULES));
 
+    IBuildInfo mBuildInfo = null;
     IRunUtil mRunUtil = new RunUtil();
     String mPip = PIP;
     String mLocalPypiPath = null;
@@ -87,6 +94,7 @@ public class VtsPythonVirtualenvPreparer implements ITargetPreparer, ITargetClea
     @Override
     public void setUp(ITestDevice device, IBuildInfo buildInfo)
             throws TargetSetupError, BuildError, DeviceNotAvailableException {
+        mBuildInfo = buildInfo;
         startVirtualenv(buildInfo);
         setLocalPypiPath();
         installDeps(buildInfo);
@@ -99,8 +107,12 @@ public class VtsPythonVirtualenvPreparer implements ITargetPreparer, ITargetClea
     public void tearDown(ITestDevice device, IBuildInfo buildInfo, Throwable e)
             throws DeviceNotAvailableException {
         if (mVenvDir != null) {
-            FileUtil.recursiveDelete(mVenvDir);
-            CLog.i("Deleted the virtual env's temp working dir, %s.", mVenvDir);
+            try {
+                recursiveDelete(mVenvDir.toPath());
+                CLog.i("Deleted the virtual env's temp working dir, %s.", mVenvDir);
+            } catch (IOException exception) {
+                CLog.e("Failed to delete %s: %s", mVenvDir, exception);
+            }
             mVenvDir = null;
         }
     }
@@ -113,34 +125,18 @@ public class VtsPythonVirtualenvPreparer implements ITargetPreparer, ITargetClea
      * @throws JSONException
      */
     protected void setLocalPypiPath() throws RuntimeException {
-        CLog.i("Loading vendor test config %s", VENDOR_TEST_CONFIG_FILE_PATH);
-        InputStream config = getClass().getResourceAsStream(VENDOR_TEST_CONFIG_FILE_PATH);
-
-        // First try to load local PyPI directory path from vendor config file
-        if (config != null) {
+        VtsVendorConfigFileUtil configReader = new VtsVendorConfigFileUtil();
+        if (configReader.LoadVendorConfig(mBuildInfo)) {
+            // First try to load local PyPI directory path from vendor config file
             try {
-                String content = StreamUtil.getStringFromStream(config);
-                CLog.i("Loaded vendor test config %s", content);
-                if (content != null) {
-                    JSONObject vendorConfigJson = new JSONObject(content);
-                    try {
-                        String pypiPath = vendorConfigJson.getString(LOCAL_PYPI_PATH_KEY);
-                        if (pypiPath.length() > 0 && dirExistsAndHaveReadAccess(pypiPath)) {
-                            mLocalPypiPath = pypiPath;
-                            CLog.i(String.format(
-                                    "Loaded %s: %s", LOCAL_PYPI_PATH_KEY, mLocalPypiPath));
-                        }
-                    } catch (NoSuchElementException e) {
-                        CLog.i("Vendor test config file does not define %s", LOCAL_PYPI_PATH_KEY);
-                    }
+                String pypiPath = configReader.GetVendorConfigVariable(LOCAL_PYPI_PATH_KEY);
+                if (pypiPath.length() > 0 && dirExistsAndHaveReadAccess(pypiPath)) {
+                    mLocalPypiPath = pypiPath;
+                    CLog.i(String.format("Loaded %s: %s", LOCAL_PYPI_PATH_KEY, mLocalPypiPath));
                 }
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to read vendor config json file");
-            } catch (JSONException e) {
-                throw new RuntimeException("Failed to parse vendor config json data");
+            } catch (NoSuchElementException e) {
+                /* continue */
             }
-        } else {
-            CLog.i("Vendor test config file %s does not exist", VENDOR_TEST_CONFIG_FILE_PATH);
         }
 
         // If loading path from vendor config file is unsuccessful,
@@ -276,17 +272,38 @@ public class VtsPythonVirtualenvPreparer implements ITargetPreparer, ITargetClea
         try {
             mVenvDir = buildInfo.getFile(VIRTUAL_ENV_PATH);
             if (mVenvDir == null) {
-                mVenvDir = FileUtil.createTempDir(buildInfo.getTestTag() + "-virtualenv");
+                mVenvDir = FileUtil.createTempDir(getMD5(buildInfo.getTestTag()) + "-virtualenv");
             }
             String virtualEnvPath = mVenvDir.getAbsolutePath();
-            mRunUtil.runTimedCmd(BASE_TIMEOUT, "virtualenv", virtualEnvPath);
+            CommandResult c = mRunUtil.runTimedCmd(BASE_TIMEOUT, "virtualenv", virtualEnvPath);
+            if (c.getStatus() != CommandStatus.SUCCESS) {
+                CLog.e(String.format("Failed to create virtualenv with : %s.", virtualEnvPath));
+                throw new TargetSetupError("Failed to create virtualenv");
+            }
             CLog.i(VIRTUAL_ENV_PATH + " = " + virtualEnvPath + "\n");
             buildInfo.setFile(VIRTUAL_ENV_PATH, new File(virtualEnvPath),
                               buildInfo.getBuildId());
             activate();
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             CLog.e("Failed to create temp directory for virtualenv");
             throw new TargetSetupError("Error creating virtualenv", e);
+        }
+    }
+
+    /**
+     * This method returns a MD5 hash string for the given string.
+     */
+    private String getMD5(String str) throws RuntimeException {
+        try {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("MD5");
+            byte[] array = md.digest(str.getBytes());
+            StringBuffer sb = new StringBuffer();
+            for (int i = 0; i < array.length; ++i) {
+                sb.append(Integer.toHexString((array[i] & 0xFF) | 0x100).substring(1, 3));
+            }
+            return sb.toString();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new RuntimeException("Error generating MD5 hash.", e);
         }
     }
 
@@ -296,6 +313,31 @@ public class VtsPythonVirtualenvPreparer implements ITargetPreparer, ITargetClea
 
     protected void setRequirementsFile(File f) {
         mRequirementsFile = f;
+    }
+
+    /**
+     * This method recursively deletes a file tree without following symbolic links.
+     *
+     * @param rootPath the path to delete.
+     * @throws IOException if fails to traverse or delete the files.
+     */
+    private static void recursiveDelete(Path rootPath) throws IOException {
+        Files.walkFileTree(rootPath, new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+                    throws IOException {
+                Files.delete(file);
+                return FileVisitResult.CONTINUE;
+            }
+            @Override
+            public FileVisitResult postVisitDirectory(Path dir, IOException e) throws IOException {
+                if (e != null) {
+                    throw e;
+                }
+                Files.delete(dir);
+                return FileVisitResult.CONTINUE;
+            }
+        });
     }
 
     /**

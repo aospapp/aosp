@@ -20,7 +20,7 @@ import logging
 from vts.runners.host import asserts
 from vts.runners.host import base_test
 from vts.runners.host import test_runner
-from vts.utils.python.controllers import android_device
+
 from vts.runners.host import const
 
 
@@ -28,14 +28,15 @@ class LibcTest(base_test.BaseTestClass):
     """A basic test of the libc API."""
 
     def setUpClass(self):
-        self.dut = self.registerController(android_device)[0]
-        self.dut.lib.InitSharedLib(target_type="bionic_libc",
-                                   target_basepaths=["/system/lib64"],
-                                   target_version=1.0,
-                                   target_filename="libc.so",
-                                   bits=64,
-                                   handler_name="libc",
-                                   target_package="lib.ndk.bionic")
+        self.dut = self.android_devices[0]
+        self.dut.lib.InitSharedLib(
+            target_type="bionic_libc",
+            target_basepaths=["/system/lib64"],
+            target_version=1.0,
+            target_filename="libc.so",
+            bits=64,
+            handler_name="libc",
+            target_package="lib.ndk.bionic")
 
     def testOpenCloseLocalSocketStream(self):
         """Tests open and close socket operations for local communication.
@@ -126,6 +127,7 @@ class LibcTest(base_test.BaseTestClass):
             result.return_type.scalar_value.int32_t)
         asserts.assertNotEqual(result.return_type.scalar_value.int32_t, -1,
                                "libc.close: unable to close socket.")
+
 
 if __name__ == "__main__":
     test_runner.main()

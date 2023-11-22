@@ -180,6 +180,7 @@ void accelCalInit(struct AccelCal *acc, uint32_t t0, uint32_t n_s, float th,
 
   acc->x_bias = acc->y_bias = acc->z_bias = 0;
   acc->x_bias_new = acc->y_bias_new = acc->z_bias_new = 0;
+  acc->average_temperature_celsius = 0;
 
 #ifdef IMU_TEMP_DBG_ENABLED
   acc->temp_time_nanos = 0;
@@ -422,7 +423,11 @@ static int accEigenTest(struct KasaFit *akf, struct AccelGoodData *agd) {
   float evmin = (eigenvals.x < eigenvals.y) ? eigenvals.x : eigenvals.y;
   evmin = (eigenvals.z < evmin) ? eigenvals.z : evmin;
 
-  float evmag = sqrtf(eigenvals.x + eigenvals.y + eigenvals.z);
+  float eigenvals_sum = eigenvals.x + eigenvals.y + eigenvals.z;
+
+  // Testing for negative number.
+  float evmag = (eigenvals_sum > 0) ? sqrtf(eigenvals_sum) : 0;
+
   // Passing when evmin/evmax> EIGEN_RATIO.
   int eigen_pass = (evmin > evmax * EIGEN_RATIO) && (evmag > EIGEN_MAG);
 
@@ -526,10 +531,11 @@ void accelCalRun(struct AccelCal *acc, uint64_t sample_time_nanos, float x,
           // Eigen Ratio Test.
           if (accEigenTest(&acc->ac1[temp_gate].akf,
                            &acc->ac1[temp_gate].agd)) {
-            // Storing the new offsets.
+            // Storing the new offsets and average temperature.
             acc->x_bias_new = bias.x * KSCALE2;
             acc->y_bias_new = bias.y * KSCALE2;
             acc->z_bias_new = bias.z * KSCALE2;
+            acc->average_temperature_celsius = acc->ac1[temp_gate].agd.mean_t;
           }
 #ifdef ACCEL_CAL_DBG_ENABLED
           //// Debug ///////

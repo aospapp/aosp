@@ -26,14 +26,14 @@ import java.util.Objects;
 import java.util.Optional;
 
 public class DiagnosticJson {
-    public final int type;
+    public final String type;
     public final long timestamp;
     public final SparseArray<Integer> intValues;
     public final SparseArray<Float> floatValues;
     public final String dtc;
 
     DiagnosticJson(
-            int type,
+            String type,
             long timestamp,
             SparseArray<Integer> intValues,
             SparseArray<Float> floatValues,
@@ -81,7 +81,7 @@ public class DiagnosticJson {
             }
         }
 
-        final WriteOnce<Integer> mType = new WriteOnce<>();
+        final WriteOnce<String> mType = new WriteOnce<>();
         final WriteOnce<Long> mTimestamp = new WriteOnce<>();
         final SparseArray<Integer> mIntValues = new SparseArray<>();
         final SparseArray<Float> mFloatValues = new SparseArray<>();
@@ -119,12 +119,11 @@ public class DiagnosticJson {
 
         Builder(JsonReader jsonReader) throws IOException {
             jsonReader.beginObject();
-            long timestamp = 0;
             while (jsonReader.hasNext()) {
                 String name = jsonReader.nextName();
                 switch (name) {
                     case "type":
-                        mType.write(jsonReader.nextInt());
+                        mType.write(jsonReader.nextString());
                         break;
                     case "timestamp":
                         mTimestamp.write(jsonReader.nextLong());
@@ -153,9 +152,9 @@ public class DiagnosticJson {
             return new DiagnosticJson(
                     mType.get(), mTimestamp.get(), mIntValues, mFloatValues, mDtc.get(null));
         }
+    }
 
-        public static DiagnosticJson build(JsonReader jsonReader) throws IOException {
-            return new Builder(jsonReader).build();
-        }
+    public static DiagnosticJson build(JsonReader jsonReader) throws IOException {
+        return new Builder(jsonReader).build();
     }
 }

@@ -16,6 +16,8 @@
 
 package android.text.cts;
 
+import static android.text.Layout.Alignment.ALIGN_NORMAL;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -27,6 +29,7 @@ import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
 import android.text.DynamicLayout;
 import android.text.Layout;
+import android.text.StaticLayout;
 import android.text.TextPaint;
 import android.text.TextUtils;
 
@@ -189,5 +192,65 @@ public class DynamicLayoutTest {
         assertEquals(0, mDynamicLayout.getLineStart(LINE0));
         assertEquals(TEXT[0].length(), mDynamicLayout.getLineStart(LINE1));
         assertEquals(TEXT[0].length() + TEXT[1].length(), mDynamicLayout.getLineStart(LINE2));
+    }
+
+    private Layout createStaticLayout(CharSequence text, TextPaint textPaint, int width,
+            float spacingAdd, float spacingMultiplier) {
+        return StaticLayout.Builder.obtain(text, 0,
+                text.length(), textPaint, width)
+                .setAlignment(ALIGN_NORMAL)
+                .setIncludePad(false)
+                .setLineSpacing(spacingAdd, spacingMultiplier)
+                .build();
+    }
+
+    private void assertLineSpecs(Layout expected, DynamicLayout actual) {
+        final int lineCount = expected.getLineCount();
+        assertTrue(lineCount > 1);
+        assertEquals(lineCount, actual.getLineCount());
+
+        for (int i = 0; i < lineCount; i++) {
+            assertEquals(expected.getLineTop(i), actual.getLineTop(i));
+            assertEquals(expected.getLineDescent(i), actual.getLineDescent(i));
+            assertEquals(expected.getLineBaseline(i), actual.getLineBaseline(i));
+            assertEquals(expected.getLineBottom(i), actual.getLineBottom(i));
+        }
+    }
+
+    @Test
+    public void testLineSpacing_notAffectedByPreviousEllipsization() {
+        // Create an ellipsized DynamicLayout, but throw it away.
+        final String ellipsizedText = "Some arbitrary relatively long text";
+        final DynamicLayout ellipsizedLayout = new DynamicLayout(
+                ellipsizedText,
+                ellipsizedText,
+                mDefaultPaint,
+                1 << 20 /* width */,
+                DEFAULT_ALIGN,
+                SPACING_MULT_NO_SCALE,
+                SPACING_ADD_NO_SCALE,
+                true /* include pad */,
+                TextUtils.TruncateAt.END,
+                2 * (int) mDefaultPaint.getTextSize() /* ellipsizedWidth */);
+
+        // Now try to measure linespacing in a non-ellipsized DynamicLayout.
+        final String text = "a\nb\nc";
+        final float spacingMultiplier = 2f;
+        final float spacingAdd = 4f;
+        final int width = 1000;
+        final TextPaint textPaint = new TextPaint();
+        // create the DynamicLayout
+        final DynamicLayout dynamicLayout = new DynamicLayout(text,
+                textPaint,
+                width,
+                ALIGN_NORMAL,
+                spacingMultiplier,
+                spacingAdd,
+                false /*includepad*/);
+
+        // create a StaticLayout with same text, this will define the expectations
+        Layout expected = createStaticLayout(text.toString(), textPaint, width, spacingAdd,
+                spacingMultiplier);
+        assertLineSpecs(expected, dynamicLayout);
     }
 }

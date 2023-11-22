@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "VtsDriverCommUtil"
 #include "VtsDriverCommUtil.h"
 
 #include <errno.h>
@@ -26,6 +27,8 @@
 #include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
+
+#include <android-base/logging.h>
 
 #include <iostream>
 #include <sstream>
@@ -43,6 +46,7 @@ bool VtsDriverCommUtil::Connect(const string& socket_name) {
   struct sockaddr_un serv_addr;
   struct hostent* server;
 
+  LOG(INFO) << __func__ << " socket name: " << socket_name << endl;
   sockfd_ = socket(PF_UNIX, SOCK_STREAM, 0);
   if (sockfd_ < 0) {
     cerr << __func__ << " ERROR opening socket" << endl;
@@ -69,7 +73,6 @@ bool VtsDriverCommUtil::Connect(const string& socket_name) {
 }
 
 int VtsDriverCommUtil::Close() {
-  cout << getpid() << " " << __func__ << endl;
   int result = 0;
   if (sockfd_ != -1) {
     result = close(sockfd_);
@@ -85,14 +88,13 @@ int VtsDriverCommUtil::Close() {
 }
 
 bool VtsDriverCommUtil::VtsSocketSendBytes(const string& message) {
-  cout << getpid() << " " << __func__ << endl;
   if (sockfd_ == -1) {
     cerr << __func__ << " ERROR sockfd not set" << endl;
     return false;
   }
   std::stringstream header;
   header << message.length() << "\n";
-  cout << getpid() << " [agent->driver] len = " << message.length() << endl;
+  LOG(INFO) << "[agent->driver] len = " << message.length() << endl;
   int n = write(sockfd_, header.str().c_str(), header.str().length());
   if (n < 0) {
     cerr << getpid() << " " << __func__ << ":" << __LINE__
@@ -115,7 +117,6 @@ bool VtsDriverCommUtil::VtsSocketSendBytes(const string& message) {
 }
 
 string VtsDriverCommUtil::VtsSocketRecvBytes() {
-  cout << getpid() << " " << __func__ << endl;
   if (sockfd_ == -1) {
     cerr << getpid() << " " << __func__ << " ERROR sockfd not set" << endl;
     return string();
@@ -159,13 +160,11 @@ string VtsDriverCommUtil::VtsSocketRecvBytes() {
     bytes_read += result;
   }
   msg[msg_len] = '\0';
-  cout << getpid() << " " << __func__ << " recv" << endl;
   return string(msg, msg_len);
 }
 
 bool VtsDriverCommUtil::VtsSocketSendMessage(
     const google::protobuf::Message& message) {
-  cout << getpid() << " " << __func__ << endl;
   if (sockfd_ == -1) {
     cerr << getpid() << " " << __func__ << " ERROR sockfd not set" << endl;
     return false;
@@ -182,7 +181,6 @@ bool VtsDriverCommUtil::VtsSocketSendMessage(
 
 bool VtsDriverCommUtil::VtsSocketRecvMessage(
     google::protobuf::Message* message) {
-  cout << getpid() << " " << __func__ << endl;
   if (sockfd_ == -1) {
     cerr << getpid() << " " << __func__ << " ERROR sockfd not set" << endl;
     return false;

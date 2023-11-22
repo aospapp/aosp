@@ -28,6 +28,8 @@ package org.apache.harmony.jpda.tests.jdwp.ObjectReference;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 import org.apache.harmony.jpda.tests.share.SyncDebuggee;
 
+import java.util.Arrays;
+
 public class GetValues003Debuggee extends SyncDebuggee {
     
     static GetValues003Debuggee testedObject;
@@ -69,8 +71,8 @@ public class GetValues003Debuggee extends SyncDebuggee {
         testedObject.classLoaderField = null;
 
         logWriter.println("\n--> Debuggee: GetValues003Debuggee: Before ObjectReference::GetValues command:");
-        logWriter.println("--> intArrayField value = " + testedObject.intArrayField);
-        logWriter.println("--> objectArrayField value = " + testedObject.objectArrayField);
+        logWriter.println("--> intArrayField value = " + Arrays.toString(testedObject.intArrayField));
+        logWriter.println("--> objectArrayField value = " + Arrays.toString(testedObject.objectArrayField));
         logWriter.println("--> objectField value = " + testedObject.objectField);
         logWriter.println("--> stringField value = " + testedObject.stringField);
         logWriter.println("--> threadField value = " + testedObject.threadField);

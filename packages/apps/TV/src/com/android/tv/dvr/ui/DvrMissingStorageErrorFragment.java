@@ -17,29 +17,27 @@
 package com.android.tv.dvr.ui;
 
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
 import android.os.Bundle;
-import android.support.v17.leanback.app.GuidedStepFragment;
+import android.provider.Settings;
 import android.support.v17.leanback.widget.GuidanceStylist.Guidance;
 import android.support.v17.leanback.widget.GuidedAction;
-import android.text.TextUtils;
+import android.util.Log;
 
 import com.android.tv.R;
-import com.android.tv.common.SoftPreconditions;
+import com.android.tv.dvr.ui.browse.DvrDetailsActivity;
 
 import java.util.List;
 
 public class DvrMissingStorageErrorFragment extends DvrGuidedStepFragment {
-    private static final int ACTION_CANCEL = 1;
-    private static final int ACTION_FORGET_STORAGE = 2;
-    private String mInputId;
+    private static final String TAG = "DvrMissingStorageError";
+
+    private static final int ACTION_OK = 1;
+    private static final int ACTION_OPEN_STORAGE_SETTINGS = 2;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        Bundle args = getArguments();
-        if (args != null) {
-            mInputId = args.getString(DvrHalfSizedDialogFragment.KEY_INPUT_ID);
-        }
-        SoftPreconditions.checkArgument(!TextUtils.isEmpty(mInputId));
         super.onCreate(savedInstanceState);
     }
 
@@ -55,25 +53,46 @@ public class DvrMissingStorageErrorFragment extends DvrGuidedStepFragment {
     public void onCreateActions(List<GuidedAction> actions, Bundle savedInstanceState) {
         Activity activity = getActivity();
         actions.add(new GuidedAction.Builder(activity)
-                .id(ACTION_CANCEL)
-                .title(getResources().getString(R.string.dvr_action_error_cancel))
+                .id(ACTION_OK)
+                .title(android.R.string.ok)
                 .build());
         actions.add(new GuidedAction.Builder(activity)
-                .id(ACTION_FORGET_STORAGE)
-                .title(getResources().getString(R.string.dvr_action_error_forget_storage))
+                .id(ACTION_OPEN_STORAGE_SETTINGS)
+                .title(getResources().getString(R.string.dvr_action_error_storage_settings))
                 .build());
     }
 
     @Override
-    public void onGuidedActionClicked(GuidedAction action) {
-        if (action.getId() == ACTION_FORGET_STORAGE) {
-            DvrForgetStorageErrorFragment fragment = new DvrForgetStorageErrorFragment();
-            Bundle args = new Bundle();
-            args.putString(DvrHalfSizedDialogFragment.KEY_INPUT_ID, mInputId);
-            fragment.setArguments(args);
-            GuidedStepFragment.add(getFragmentManager(), fragment, R.id.halfsized_dialog_host);
+    public void onTrackedGuidedActionClicked(GuidedAction action) {
+        Activity activity = getActivity();
+        if (activity instanceof DvrDetailsActivity) {
+            activity.finish();
+        } else {
+            dismissDialog();
+        }
+        if (action.getId() != ACTION_OPEN_STORAGE_SETTINGS) {
             return;
         }
-        dismissDialog();
+        final Intent intent = new Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS);
+        try {
+            getContext().startActivity(intent);
+        } catch (ActivityNotFoundException e) {
+            Log.e(TAG, "Can't start internal storage settings activity", e);
+        }
+    }
+
+    @Override
+    public String getTrackerPrefix() {
+        return "DvrMissingStorageErrorFragment";
+    }
+
+    @Override
+    public String getTrackerLabelForGuidedAction(GuidedAction action) {
+        long actionId = action.getId();
+        if (actionId == ACTION_OPEN_STORAGE_SETTINGS) {
+            return "open-storage-settings";
+        } else {
+            return super.getTrackerLabelForGuidedAction(action);
+        }
     }
 }

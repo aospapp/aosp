@@ -21,6 +21,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
 import android.media.MediaCodec;
+import android.media.MediaCodecInfo;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.cts.bitstreams.MediaBitstreams;
@@ -67,7 +68,7 @@ public class MediaBitstreamsDeviceSideTest {
 
     private static File mAppCache = InstrumentationRegistry.getContext().getExternalCacheDir();
     private static String mDeviceBitstreamsPath = InstrumentationRegistry.getArguments().getString(
-            MediaBitstreams.OPT_DEVICE_BITSTEAMS_PATH,
+            MediaBitstreams.OPT_DEVICE_BITSTREAMS_PATH,
             MediaBitstreams.DEFAULT_DEVICE_BITSTEAMS_PATH);
 
     @BeforeClass
@@ -161,12 +162,18 @@ public class MediaBitstreamsDeviceSideTest {
                 }
 
                 MediaFormat format = parseTrackFormat(formatStr);
-                if (!MediaUtils.checkDecoderForFormat(format)) {
-                    continue;
-                }
+                String mime = format.getString(MediaFormat.KEY_MIME);
+                String[] decoders = MediaUtils.getDecoderNamesForMime(mime);
 
                 ps.println(path);
+                ps.println(decoders.length);
+                for (String name : decoders) {
+                    ps.println(name);
+                    ps.println(MediaUtils.supports(name, format));
+                }
+
             }
+
             ps.flush();
         }
     }
@@ -278,13 +285,19 @@ public class MediaBitstreamsDeviceSideTest {
             MediaExtractor ex = new MediaExtractor();
             MediaCodec d = null;
             try {
-                MediaCodec decoder = d = MediaCodec.createByCodecName(name);
-                ex.setDataSource(path);
-                ex.selectTrack(0);
-                ex.seekTo(0, MediaExtractor.SEEK_TO_NEXT_SYNC);
+                Future<MediaCodec> dec = mExecutorService.submit(new Callable<MediaCodec>() {
+                    @Override
+                    public MediaCodec call() throws Exception {
+                        return MediaCodec.createByCodecName(name);
+                    }
+                });
+                MediaCodec decoder = d = dec.get(1, TimeUnit.SECONDS);
                 Future<Boolean> conform = mExecutorService.submit(new Callable<Boolean>() {
                     @Override
                     public Boolean call() throws Exception {
+                        ex.setDataSource(path);
+                        ex.selectTrack(0);
+                        ex.seekTo(0, MediaExtractor.SEEK_TO_NEXT_SYNC);
                         return MediaUtils.verifyDecoder(decoder, ex, frameChecksums);
                     }
                 });

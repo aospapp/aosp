@@ -52,32 +52,41 @@ cc_library_shared {
     generated_headers: ["android.hardware.camera.device@3.2-vts.driver_genc++_headers"],
     export_generated_headers: ["android.hardware.camera.device@3.2-vts.driver_genc++_headers"],
     shared_libs: [
+        "libcamera_metadata",
+        "libcutils",
+        "libfmq",
         "libhidlbase",
         "libhidltransport",
         "libhwbinder",
         "liblog",
+        "libprotobuf-cpp-full",
         "libutils",
-        "libcutils",
         "libvts_common",
         "libvts_datatype",
         "libvts_drivercomm",
         "libvts_measurement",
         "libvts_multidevice_proto",
-        "libcamera_metadata",
-        "libprotobuf-cpp-full",
+        "android.hidl.allocator@1.0",
         "android.hardware.camera.device@3.2",
         "android.hardware.camera.common@1.0",
         "android.hardware.camera.common@1.0-vts.driver",
         "android.hardware.graphics.common@1.0",
         "android.hardware.graphics.common@1.0-vts.driver",
-        "android.hidl.base@1.0",
     ],
     export_shared_lib_headers: [
         "android.hardware.camera.common@1.0",
         "android.hardware.camera.common@1.0-vts.driver",
         "android.hardware.graphics.common@1.0",
         "android.hardware.graphics.common@1.0-vts.driver",
-        "android.hidl.base@1.0",
+    ],
+    cflags: [
+        "-Wall",
+        "-Werror",
+
+        // These warnings are in code generated with vtsc
+        // b/31362043
+        "-Wno-duplicate-decl-specifier",
+        "-Wno-implicitly-unsigned-literal",
     ],
 }
 
@@ -119,8 +128,11 @@ cc_library_shared {
     export_generated_headers: ["android.hardware.camera.device@3.2-vts.profiler_genc++_headers"],
     shared_libs: [
         "libbase",
+        "libcutils",
+        "libfmq",
         "libhidlbase",
         "libhidltransport",
+        "libvts_common",
         "libvts_profiling",
         "libvts_multidevice_proto",
         "libprotobuf-cpp-full",
@@ -129,7 +141,15 @@ cc_library_shared {
         "android.hardware.camera.common@1.0-vts.profiler",
         "android.hardware.graphics.common@1.0",
         "android.hardware.graphics.common@1.0-vts.profiler",
-        "android.hidl.base@1.0",
+    ],
+    cflags: [
+        "-Wall",
+        "-Werror",
+
+        // These warnings are in code generated with vtsc
+        // b/31362043
+        "-Wno-duplicate-decl-specifier",
+        "-Wno-implicitly-unsigned-literal",
     ],
 }
 

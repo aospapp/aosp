@@ -45,8 +45,6 @@ public class MonkeyPairedBase extends MonkeyBase implements IMultiDeviceTest {
 
     private ITestDevice mCompanion;
     private List<ITestDevice> mDeviceList = new ArrayList<>();
-    private Map<ITestDevice, IBuildInfo> mInfoMap = null;
-    private Object mCompanionLock = new Object();
     private ScheduledExecutorService mScheduler;
 
     /**
@@ -104,6 +102,5 @@ public class MonkeyPairedBase extends MonkeyBase implements IMultiDeviceTest {
     public void setDeviceInfos(Map<ITestDevice, IBuildInfo> deviceInfos) {
         ClockworkUtils cwUtils = new ClockworkUtils();
         mCompanion = cwUtils.setUpMultiDevice(deviceInfos, mDeviceList);
-        mInfoMap = deviceInfos;
     }
 }

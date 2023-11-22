@@ -35,6 +35,10 @@
 #include <SensorEventCallback.h>
 #endif
 
+#ifdef LEFTY_SERVICE_ENABLED
+#include "lefty_service.h"
+#endif
+
 using namespace android;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -101,28 +105,7 @@ int SensorContext::poll(sensors_event_t *data, int count) {
     // Release wakelock if held and no more events in ring buffer
     mHubConnection->releaseWakeLockIfAppropriate();
 
-    ssize_t n = mHubConnection->read(data, count);
-
-    if (n < 0) {
-        return -1;
-    }
-
-    // If we have wake events in the queue, determine how many we're sending
-    // up this round and decrement that count now so that when we get called back,
-    // we'll have an accurate count of how many wake events are STILL in the HAL queue
-    // to be able to determine whether we can release our wakelock if held.
-    if (mHubConnection->getWakeEventCount() != 0) {
-        for (ssize_t i = 0; i < n; i++) {
-            if (mHubConnection->isWakeEvent(data[i].sensor)) {
-                ssize_t count = mHubConnection->decrementWakeEventCount();
-                if (count == 0) {
-                    break;
-                }
-            }
-        }
-    }
-
-    return n;
+    return mHubConnection->read(data, count);
 }
 
 int SensorContext::batch(
@@ -407,6 +390,9 @@ static int open_sensors(
     gHubAlive = ctx->getHubAlive();
     *dev = &ctx->device.common;
 
+#ifdef LEFTY_SERVICE_ENABLED
+    register_lefty_service();
+#endif
     return 0;
 }
 

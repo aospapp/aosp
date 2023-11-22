@@ -27,8 +27,7 @@ from acts.asserts import assert_equal
 from acts.asserts import assert_true
 from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
-from acts.test_utils.bt.BleEnum import ScanSettingsPhy
-from acts.test_utils.bt.BleEnum import ScanSettingsScanMode
+from acts.test_utils.bt.bt_constants import ble_scan_settings_modes
 from acts.test_utils.bt.bt_test_utils import advertising_set_started
 from acts.test_utils.bt.bt_test_utils import advertising_set_stopped
 from acts.test_utils.bt.bt_test_utils import advertising_set_enabled

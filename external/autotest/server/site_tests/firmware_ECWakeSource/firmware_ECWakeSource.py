@@ -24,8 +24,8 @@ class firmware_ECWakeSource(FirmwareTest):
         self.switcher.setup_mode('normal')
 
     def hibernate_and_wake_by_power_button(self):
-        """Shutdown and hibernate EC. Then wake by power button."""
-        self.faft_client.system.run_shell_command("shutdown -P now")
+        """Shutdown to G2/S5, then hibernate EC. Finally, wake by power button."""
+        self.faft_client.system.run_shell_command("shutdown -H now")
         time.sleep(self.SHUTDOWN_DELAY)
         self.switcher.wait_for_client_offline()
         self.ec.send_command("hibernate 1000")

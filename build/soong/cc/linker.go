@@ -48,8 +48,8 @@ type BaseLinkerProperties struct {
 	No_default_compiler_flags *bool
 
 	// list of system libraries that will be dynamically linked to
-	// shared library and executable modules.  If unset, generally defaults to libc
-	// and libm.  Set to [] to prevent linking against libc and libm.
+	// shared library and executable modules.  If unset, generally defaults to libc,
+	// libm, and libdl.  Set to [] to prevent linking against the defaults.
 	System_shared_libs []string
 
 	// allow the module to contain undefined symbols.  By default,
@@ -87,6 +87,14 @@ type BaseLinkerProperties struct {
 	// group static libraries.  This can resolve missing symbols issues with interdependencies
 	// between static libraries, but it is generally better to order them correctly instead.
 	Group_static_libs *bool `android:"arch_variant"`
+
+	Target struct {
+		Vendor struct {
+			// list of shared libs that should not be used to build
+			// the vendor variant of the C/C++ module.
+			Exclude_shared_libs []string
+		}
+	}
 }
 
 func NewBaseLinker() *baseLinker {
@@ -128,6 +136,11 @@ func (linker *baseLinker) linkerDeps(ctx BaseModuleContext, deps Deps) Deps {
 	deps.ReexportSharedLibHeaders = append(deps.ReexportSharedLibHeaders, linker.Properties.Export_shared_lib_headers...)
 	deps.ReexportGeneratedHeaders = append(deps.ReexportGeneratedHeaders, linker.Properties.Export_generated_headers...)
 
+	if ctx.vndk() {
+		deps.SharedLibs = removeListFromList(deps.SharedLibs, linker.Properties.Target.Vendor.Exclude_shared_libs)
+		deps.ReexportSharedLibHeaders = removeListFromList(deps.ReexportSharedLibHeaders, linker.Properties.Target.Vendor.Exclude_shared_libs)
+	}
+
 	if ctx.ModuleName() != "libcompiler_rt-extras" {
 		deps.LateStaticLibs = append(deps.LateStaticLibs, "libcompiler_rt-extras")
 	}
@@ -140,26 +153,37 @@ func (linker *baseLinker) linkerDeps(ctx BaseModuleContext, deps Deps) Deps {
 		}
 
 		if !ctx.static() {
-			if linker.Properties.System_shared_libs != nil {
-				deps.LateSharedLibs = append(deps.LateSharedLibs,
-					linker.Properties.System_shared_libs...)
-			} else if !ctx.sdk() && !ctx.vndk() {
-				deps.LateSharedLibs = append(deps.LateSharedLibs, "libc", "libm")
+			systemSharedLibs := linker.Properties.System_shared_libs
+			if systemSharedLibs == nil {
+				systemSharedLibs = []string{"libc", "libm", "libdl"}
 			}
-		}
 
-		if ctx.sdk() {
-			deps.SharedLibs = append(deps.SharedLibs,
-				"libc",
-				"libm",
-			)
-		}
-		if ctx.vndk() {
-			deps.LateSharedLibs = append(deps.LateSharedLibs, "libc", "libm")
+			if inList("libdl", deps.SharedLibs) {
+				// If system_shared_libs has libc but not libdl, make sure shared_libs does not
+				// have libdl to avoid loading libdl before libc.
+				if inList("libc", systemSharedLibs) {
+					if !inList("libdl", systemSharedLibs) {
+						ctx.PropertyErrorf("shared_libs",
+							"libdl must be in system_shared_libs, not shared_libs")
+					}
+					_, deps.SharedLibs = removeFromList("libdl", deps.SharedLibs)
+				}
+			}
+
+			// If libc and libdl are both in system_shared_libs make sure libd comes after libc
+			// to avoid loading libdl before libc.
+			if inList("libdl", systemSharedLibs) && inList("libc", systemSharedLibs) &&
+				indexList("libdl", systemSharedLibs) < indexList("libc", systemSharedLibs) {
+				ctx.PropertyErrorf("system_shared_libs", "libdl must be after libc")
+			}
+
+			deps.LateSharedLibs = append(deps.LateSharedLibs, systemSharedLibs...)
+		} else if ctx.sdk() || ctx.vndk() {
+			deps.LateSharedLibs = append(deps.LateSharedLibs, "libc", "libm", "libdl")
 		}
 	}
 
-	if ctx.Os() == android.Windows {
+	if ctx.Windows() {
 		deps.LateStaticLibs = append(deps.LateStaticLibs, "libwinpthread")
 	}
 

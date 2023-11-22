@@ -31,6 +31,7 @@
 #include <iostream>
 #include <vector>
 
+#define LOG_TAG "DNSResponder"
 #include <log/log.h>
 
 namespace test {

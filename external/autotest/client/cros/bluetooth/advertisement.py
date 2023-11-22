@@ -46,14 +46,31 @@ class Advertisement(dbus.service.Object):
         self.service_uuids = advertisement_data.get('ServiceUUIDs', [])
         self.solicit_uuids = advertisement_data.get('SolicitUUIDs', [])
 
-        # Should convert the key of manufacturer_data from string to hex value.
-        # It is due to xmlrpclib limitation which only allows string key.
-        self.manufacturer_data = {}
+        # The xmlrpclib library requires that only string keys are allowed in
+        # python dictionary. Hence, we need to define the manufacturer data
+        # in an advertisement dictionary like
+        #    'ManufacturerData': {'0xff00': [0xa1, 0xa2, 0xa3, 0xa4, 0xa5]},
+        # in order to let autotest server transmit the advertisement to
+        # a client DUT for testing.
+        # On the other hand, the dbus method of advertising requires that
+        # the signature of the manufacturer data to be 'qv' where 'q' stands
+        # for unsigned 16-bit integer. Hence, we need to convert the key
+        # from a string, e.g., '0xff00', to its hex value, 0xff00.
+        # For signatures of the advertising properties, refer to
+        #     device_properties in src/third_party/bluez/src/device.c
+        # For explanation about signature types, refer to
+        #     https://dbus.freedesktop.org/doc/dbus-specification.html
+        self.manufacturer_data = dbus.Dictionary({}, signature='qv')
         manufacturer_data = advertisement_data.get('ManufacturerData', {})
         for key, value in manufacturer_data.items():
-            self.manufacturer_data[int(key, 16)] = value
+            self.manufacturer_data[int(key, 16)] = dbus.Array(value,
+                                                              signature='y')
 
-        self.service_data = advertisement_data.get('ServiceData')
+        self.service_data = dbus.Dictionary({}, signature='sv')
+        service_data = advertisement_data.get('ServiceData', {})
+        for uuid, data in service_data.items():
+            self.service_data[uuid] = dbus.Array(data, signature='y')
+
         self.include_tx_power = advertisement_data.get('IncludeTxPower')
 
 
@@ -90,11 +107,11 @@ class Advertisement(dbus.service.Object):
                                                     signature='s')
         if self.manufacturer_data is not None:
             properties['ManufacturerData'] = dbus.Dictionary(
-                self.manufacturer_data, signature='qay')
+                self.manufacturer_data, signature='qv')
 
         if self.service_data is not None:
             properties['ServiceData'] = dbus.Dictionary(self.service_data,
-                                                        signature='say')
+                                                        signature='sv')
         if self.include_tx_power is not None:
             properties['IncludeTxPower'] = dbus.Boolean(self.include_tx_power)
 

@@ -33,10 +33,6 @@ bool ScalarType::isValidEnumStorageType() const {
     return mKind >= KIND_INT8 && mKind <= KIND_UINT64;
 }
 
-void ScalarType::addNamedTypesToSet(std::set<const FQName> &) const {
-    // do nothing
-}
-
 bool ScalarType::isScalar() const {
     return true;
 }

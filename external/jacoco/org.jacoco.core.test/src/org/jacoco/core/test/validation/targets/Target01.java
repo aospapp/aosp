@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -21,71 +21,130 @@ import java.util.Collections;
 /**
  * This target exercises a set of common Java control structures.
  */
-public class Target01 implements Runnable {
+public class Target01 {
 
-	public void run() {
+	public static void main(String[] args) {
 
-		// 1. Unconditional execution
+		unconditionalExecution();
+		missedIfBlock();
+		executedIfBlock();
+		missedWhileBlock();
+		alwaysExecutedWhileBlock();
+		executedWhileBlock();
+		executedDoWhileBlock();
+		missedForBlock();
+		executedForBlock();
+		missedForEachBlock();
+		executedForEachBlock();
+		tableSwitchWithHit();
+		continuedTableSwitchWithHit();
+		tableSwitchWithoutHit();
+		lookupSwitchWithHit();
+		continuedLookupSwitchWithHit();
+		lookupSwitchWithoutHit();
+		breakStatement();
+		continueStatement();
+		conditionalReturn();
+		implicitReturn();
+		explicitReturn();
+
+	}
+
+	private static void unconditionalExecution() {
+
 		nop(); // $line-unconditional$
 
-		// 2. Missed if block
+	}
+
+	private static void missedIfBlock() {
+
 		if (f()) { // $line-iffalse$
 			nop(); // $line-missedif$
 		} else {
 			nop(); // $line-executedelse$
 		}
 
-		// 3. Executed if block
+	}
+
+	private static void executedIfBlock() {
+
 		if (t()) { // $line-iftrue$
 			nop(); // $line-executedif$
 		} else {
 			nop(); // $line-missedelse$
 		}
 
-		// 4. Missed while block
+	}
+
+	private static void missedWhileBlock() {
+
 		while (f()) { // $line-whilefalse$
 			nop(); // $line-missedwhile$
 		}
 
-		// 5. Always executed while block
+	}
+
+	private static void alwaysExecutedWhileBlock() {
+
 		while (t()) { // $line-whiletrue$
 			if (t()) {
 				break;
 			}
 		}
 
-		// 6. Executed while block
+	}
+
+	private static void executedWhileBlock() {
+
 		int i = 0;
 		while (i++ < 3) { // $line-whiletruefalse$
 			nop(); // $line-executedwhile$
 		}
 
-		// 7. Executed do while block
+	}
+
+	private static void executedDoWhileBlock() {
+
 		do {
 			nop(); // $line-executeddowhile$
-		} while (f());
+		} while (f()); // $line-executeddowhilefalse$
 
-		// 8. Missed for block
+	}
+
+	private static void missedForBlock() {
+
 		for (nop(); f(); nop()) { // $line-missedforincrementer$
 			nop(); // $line-missedfor$
 		}
 
-		// 9. Executed for block
+	}
+
+	private static void executedForBlock() {
+
 		for (int j = 0; j < 1; j++) { // $line-executedforincrementer$
 			nop(); // $line-executedfor$
 		}
 
-		// 10. Missed for each block
+	}
+
+	private static void missedForEachBlock() {
+
 		for (Object o : Collections.emptyList()) { // $line-missedforeachincrementer$
 			nop(o); // $line-missedforeach$
 		}
 
-		// 11. Executed for each block
+	}
+
+	private static void executedForEachBlock() {
+
 		for (Object o : Collections.singleton(new Object())) { // $line-executedforeachincrementer$
 			nop(o); // $line-executedforeach$
 		}
 
-		// 12. Table switch with hit
+	}
+
+	private static void tableSwitchWithHit() {
+
 		switch (i2()) { // $line-tswitch1$
 		case 1:
 			nop(); // $line-tswitch1case1$
@@ -101,7 +160,10 @@ public class Target01 implements Runnable {
 			break;
 		}
 
-		// 13. Continued table switch with hit
+	}
+
+	private static void continuedTableSwitchWithHit() {
+
 		switch (i2()) { // $line-tswitch2$
 		case 1:
 			nop(); // $line-tswitch2case1$
@@ -113,7 +175,10 @@ public class Target01 implements Runnable {
 			nop(); // $line-tswitch2default$
 		}
 
-		// 14. Table switch without hit
+	}
+
+	private static void tableSwitchWithoutHit() {
+
 		switch (i2()) { // $line-tswitch3$
 		case 3:
 			nop(); // $line-tswitch3case1$
@@ -129,7 +194,10 @@ public class Target01 implements Runnable {
 			break;
 		}
 
-		// 15. Lookup switch with hit
+	}
+
+	private static void lookupSwitchWithHit() {
+
 		switch (i2()) { // $line-lswitch1$
 		case -123:
 			nop(); // $line-lswitch1case1$
@@ -145,7 +213,10 @@ public class Target01 implements Runnable {
 			break;
 		}
 
-		// 16. Continued lookup switch with hit
+	}
+
+	private static void continuedLookupSwitchWithHit() {
+
 		switch (i2()) { // $line-lswitch2$
 		case -123:
 			nop(); // $line-lswitch2case1$
@@ -157,7 +228,10 @@ public class Target01 implements Runnable {
 			nop(); // $line-lswitch2default$
 		}
 
-		// 17. Lookup switch without hit
+	}
+
+	private static void lookupSwitchWithoutHit() {
+
 		switch (i2()) { // $line-lswitch3$
 		case -123:
 			nop(); // $line-lswitch3case1$
@@ -173,7 +247,10 @@ public class Target01 implements Runnable {
 			break;
 		}
 
-		// 18. Break statement
+	}
+
+	private static void breakStatement() {
+
 		while (true) {
 			if (t()) {
 				break; // $line-executedbreak$
@@ -181,7 +258,10 @@ public class Target01 implements Runnable {
 			nop(); // $line-missedafterbreak$
 		}
 
-		// 19. Continue statement
+	}
+
+	private static void continueStatement() {
+
 		for (int j = 0; j < 1; j++) {
 			if (t()) {
 				continue; // $line-executedcontinue$
@@ -189,28 +269,25 @@ public class Target01 implements Runnable {
 			nop(); // $line-missedaftercontinue$
 		}
 
-		runReturn();
-		runImplicitReturn();
-
 	}
 
-	private void runReturn() {
+	private static void conditionalReturn() {
 
-		// 20. Return statement
 		if (t()) {
-			return; // $line-return$
+			return; // $line-conditionalreturn$
 		}
-		nop(); // $line-afterreturn$
+		nop(); // $line-afterconditionalreturn$
 
 	}
 
-	private void runImplicitReturn() {
+	private static void implicitReturn() {
 
-		// 21. Implicit return
 	} // $line-implicitreturn$
 
-	public static void main(String[] args) {
-		new Target01().run();
-	}
+	private static void explicitReturn() {
+
+		return; // $line-explicitreturn$
+
+	} // $line-afterexplicitreturn$
 
 }

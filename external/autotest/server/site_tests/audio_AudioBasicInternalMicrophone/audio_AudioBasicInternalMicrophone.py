@@ -33,7 +33,7 @@ class audio_AudioBasicInternalMicrophone(audio_test.AudioTest):
         if not audio_test_utils.has_internal_microphone(host):
             return
 
-        golden_file = audio_test_data.SIMPLE_FREQUENCY_TEST_FILE
+        golden_file = audio_test_data.SIMPLE_FREQUENCY_TEST_1330_FILE
 
         chameleon_board = host.chameleon
         factory = remote_facade_factory.RemoteFacadeFactory(

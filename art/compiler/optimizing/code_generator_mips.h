@@ -23,8 +23,8 @@
 #include "nodes.h"
 #include "parallel_move_resolver.h"
 #include "string_reference.h"
+#include "type_reference.h"
 #include "utils/mips/assembler_mips.h"
-#include "utils/type_reference.h"
 
 namespace art {
 namespace mips {
@@ -60,6 +60,8 @@ static constexpr FRegister kFpuCalleeSaves[] =
 
 
 class CodeGeneratorMIPS;
+
+VectorRegister VectorRegisterFrom(Location location);
 
 class InvokeDexCallingConvention : public CallingConvention<Register, FRegister> {
  public:
@@ -229,9 +231,10 @@ class InstructionCodeGeneratorMIPS : public InstructionCodeGenerator {
   // We switch to the table-based method starting with 7 cases.
   static constexpr uint32_t kPackedSwitchJumpTableThreshold = 6;
 
+  void GenerateMemoryBarrier(MemBarrierKind kind);
+
  private:
   void GenerateClassInitializationCheck(SlowPathCodeMIPS* slow_path, Register class_reg);
-  void GenerateMemoryBarrier(MemBarrierKind kind);
   void GenerateSuspendCheck(HSuspendCheck* check, HBasicBlock* successor);
   void HandleBinaryOp(HBinaryOperation* operation);
   void HandleCondition(HCondition* instruction);
@@ -294,6 +297,7 @@ class InstructionCodeGeneratorMIPS : public InstructionCodeGenerator {
   void GenerateIntCompareAndBranch(IfCondition cond,
                                    LocationSummary* locations,
                                    MipsLabel* label);
+  void GenerateLongCompare(IfCondition cond, LocationSummary* locations);
   void GenerateLongCompareAndBranch(IfCondition cond,
                                     LocationSummary* locations,
                                     MipsLabel* label);
@@ -342,6 +346,10 @@ class InstructionCodeGeneratorMIPS : public InstructionCodeGenerator {
                                  uint32_t num_entries,
                                  HBasicBlock* switch_block,
                                  HBasicBlock* default_block);
+
+  int32_t VecAddress(LocationSummary* locations,
+                     size_t size,
+                     /* out */ Register* adjusted_base);
   void GenConditionalMoveR2(HSelect* select);
   void GenConditionalMoveR6(HSelect* select);
 
@@ -366,13 +374,15 @@ class CodeGeneratorMIPS : public CodeGenerator {
 
   void Bind(HBasicBlock* block) OVERRIDE;
 
-  void Move32(Location destination, Location source);
-  void Move64(Location destination, Location source);
   void MoveConstant(Location location, HConstant* c);
 
   size_t GetWordSize() const OVERRIDE { return kMipsWordSize; }
 
-  size_t GetFloatingPointSpillSlotSize() const OVERRIDE { return kMipsDoublewordSize; }
+  size_t GetFloatingPointSpillSlotSize() const OVERRIDE {
+    return GetGraph()->HasSIMD()
+        ? 2 * kMipsDoublewordSize   // 16 bytes for each spill.
+        : 1 * kMipsDoublewordSize;  //  8 bytes for each spill.
+  }
 
   uintptr_t GetAddressOf(HBasicBlock* block) OVERRIDE {
     return assembler_.GetLabelLocation(GetLabelOf(block));
@@ -550,8 +560,10 @@ class CodeGeneratorMIPS : public CodeGenerator {
       const HInvokeStaticOrDirect::DispatchInfo& desired_dispatch_info,
       HInvokeStaticOrDirect* invoke) OVERRIDE;
 
-  void GenerateStaticOrDirectCall(HInvokeStaticOrDirect* invoke, Location temp);
-  void GenerateVirtualCall(HInvokeVirtual* invoke, Location temp) OVERRIDE;
+  void GenerateStaticOrDirectCall(
+      HInvokeStaticOrDirect* invoke, Location temp, SlowPathCode* slow_path = nullptr) OVERRIDE;
+  void GenerateVirtualCall(
+      HInvokeVirtual* invoke, Location temp, SlowPathCode* slow_path = nullptr) OVERRIDE;
 
   void MoveFromReturnRegister(Location trg ATTRIBUTE_UNUSED,
                               Primitive::Type type ATTRIBUTE_UNUSED) OVERRIDE {
@@ -564,34 +576,68 @@ class CodeGeneratorMIPS : public CodeGenerator {
 
   // The PcRelativePatchInfo is used for PC-relative addressing of dex cache arrays
   // and boot image strings. The only difference is the interpretation of the offset_or_index.
+  // The 16-bit halves of the 32-bit PC-relative offset are patched separately, necessitating
+  // two patches/infos. There can be more than two patches/infos if the instruction supplying
+  // the high half is shared with e.g. a slow path, while the low half is supplied by separate
+  // instructions, e.g.:
+  //     lui   r1, high       // patch
+  //     addu  r1, r1, rbase
+  //     lw    r2, low(r1)    // patch
+  //     beqz  r2, slow_path
+  //   back:
+  //     ...
+  //   slow_path:
+  //     ...
+  //     sw    r2, low(r1)    // patch
+  //     b     back
   struct PcRelativePatchInfo {
-    PcRelativePatchInfo(const DexFile& dex_file, uint32_t off_or_idx)
-        : target_dex_file(dex_file), offset_or_index(off_or_idx) { }
-    PcRelativePatchInfo(PcRelativePatchInfo&& other) = default;
+    PcRelativePatchInfo(const DexFile& dex_file,
+                        uint32_t off_or_idx,
+                        const PcRelativePatchInfo* info_high)
+        : target_dex_file(dex_file),
+          offset_or_index(off_or_idx),
+          label(),
+          pc_rel_label(),
+          patch_info_high(info_high) { }
 
     const DexFile& target_dex_file;
     // Either the dex cache array element offset or the string/type index.
     uint32_t offset_or_index;
-    // Label for the instruction loading the most significant half of the offset that's added to PC
-    // to form the base address (the least significant half is loaded with the instruction that
-    // follows).
-    MipsLabel high_label;
-    // Label for the instruction corresponding to PC+0.
+    // Label for the instruction to patch.
+    MipsLabel label;
+    // Label for the instruction corresponding to PC+0. Not bound or used in low half patches.
+    // Not bound in high half patches on R2 when using HMipsComputeBaseMethodAddress.
+    // Bound in high half patches on R2 when using the NAL instruction instead of
+    // HMipsComputeBaseMethodAddress.
+    // Bound in high half patches on R6.
     MipsLabel pc_rel_label;
+    // Pointer to the info for the high half patch or nullptr if this is the high half patch info.
+    const PcRelativePatchInfo* patch_info_high;
+
+   private:
+    PcRelativePatchInfo(PcRelativePatchInfo&& other) = delete;
+    DISALLOW_COPY_AND_ASSIGN(PcRelativePatchInfo);
   };
 
+  PcRelativePatchInfo* NewPcRelativeMethodPatch(MethodReference target_method,
+                                                const PcRelativePatchInfo* info_high = nullptr);
+  PcRelativePatchInfo* NewMethodBssEntryPatch(MethodReference target_method,
+                                              const PcRelativePatchInfo* info_high = nullptr);
+  PcRelativePatchInfo* NewPcRelativeTypePatch(const DexFile& dex_file,
+                                              dex::TypeIndex type_index,
+                                              const PcRelativePatchInfo* info_high = nullptr);
+  PcRelativePatchInfo* NewTypeBssEntryPatch(const DexFile& dex_file,
+                                            dex::TypeIndex type_index,
+                                            const PcRelativePatchInfo* info_high = nullptr);
   PcRelativePatchInfo* NewPcRelativeStringPatch(const DexFile& dex_file,
-                                                dex::StringIndex string_index);
-  PcRelativePatchInfo* NewPcRelativeTypePatch(const DexFile& dex_file, dex::TypeIndex type_index);
-  PcRelativePatchInfo* NewTypeBssEntryPatch(const DexFile& dex_file, dex::TypeIndex type_index);
-  PcRelativePatchInfo* NewPcRelativeDexCacheArrayPatch(const DexFile& dex_file,
-                                                       uint32_t element_offset);
-  Literal* DeduplicateBootImageStringLiteral(const DexFile& dex_file,
-                                             dex::StringIndex string_index);
-  Literal* DeduplicateBootImageTypeLiteral(const DexFile& dex_file, dex::TypeIndex type_index);
+                                                dex::StringIndex string_index,
+                                                const PcRelativePatchInfo* info_high = nullptr);
   Literal* DeduplicateBootImageAddressLiteral(uint32_t address);
 
-  void EmitPcRelativeAddressPlaceholderHigh(PcRelativePatchInfo* info, Register out, Register base);
+  void EmitPcRelativeAddressPlaceholderHigh(PcRelativePatchInfo* info_high,
+                                            Register out,
+                                            Register base,
+                                            PcRelativePatchInfo* info_low);
 
   // The JitPatchInfo is used for JIT string and class loads.
   struct JitPatchInfo {
@@ -622,18 +668,11 @@ class CodeGeneratorMIPS : public CodeGenerator {
   Register GetInvokeStaticOrDirectExtraParameter(HInvokeStaticOrDirect* invoke, Register temp);
 
   using Uint32ToLiteralMap = ArenaSafeMap<uint32_t, Literal*>;
-  using MethodToLiteralMap = ArenaSafeMap<MethodReference, Literal*, MethodReferenceComparator>;
-  using BootStringToLiteralMap = ArenaSafeMap<StringReference,
-                                              Literal*,
-                                              StringReferenceValueComparator>;
-  using BootTypeToLiteralMap = ArenaSafeMap<TypeReference,
-                                            Literal*,
-                                            TypeReferenceValueComparator>;
 
   Literal* DeduplicateUint32Literal(uint32_t value, Uint32ToLiteralMap* map);
-  Literal* DeduplicateMethodLiteral(MethodReference target_method, MethodToLiteralMap* map);
   PcRelativePatchInfo* NewPcRelativePatch(const DexFile& dex_file,
                                           uint32_t offset_or_index,
+                                          const PcRelativePatchInfo* info_high,
                                           ArenaDeque<PcRelativePatchInfo>* patches);
 
   template <LinkerPatch (*Factory)(size_t, const DexFile*, uint32_t, uint32_t)>
@@ -651,18 +690,17 @@ class CodeGeneratorMIPS : public CodeGenerator {
 
   // Deduplication map for 32-bit literals, used for non-patchable boot image addresses.
   Uint32ToLiteralMap uint32_literals_;
-  // PC-relative patch info for each HMipsDexCacheArraysBase.
-  ArenaDeque<PcRelativePatchInfo> pc_relative_dex_cache_patches_;
-  // Deduplication map for boot string literals for kBootImageLinkTimeAddress.
-  BootStringToLiteralMap boot_image_string_patches_;
-  // PC-relative String patch info; type depends on configuration (app .bss or boot image PIC).
-  ArenaDeque<PcRelativePatchInfo> pc_relative_string_patches_;
-  // Deduplication map for boot type literals for kBootImageLinkTimeAddress.
-  BootTypeToLiteralMap boot_image_type_patches_;
+  // PC-relative method patch info for kBootImageLinkTimePcRelative.
+  ArenaDeque<PcRelativePatchInfo> pc_relative_method_patches_;
+  // PC-relative method patch info for kBssEntry.
+  ArenaDeque<PcRelativePatchInfo> method_bss_entry_patches_;
   // PC-relative type patch info for kBootImageLinkTimePcRelative.
   ArenaDeque<PcRelativePatchInfo> pc_relative_type_patches_;
   // PC-relative type patch info for kBssEntry.
   ArenaDeque<PcRelativePatchInfo> type_bss_entry_patches_;
+  // PC-relative String patch info; type depends on configuration (app .bss or boot image PIC).
+  ArenaDeque<PcRelativePatchInfo> pc_relative_string_patches_;
+
   // Patches for string root accesses in JIT compiled code.
   ArenaDeque<JitPatchInfo> jit_string_patches_;
   // Patches for class root accesses in JIT compiled code.

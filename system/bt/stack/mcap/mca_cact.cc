@@ -34,8 +34,6 @@
 
 #include "btu.h"
 
-extern fixed_queue_t* btu_general_alarm_queue;
-
 /*****************************************************************************
  * constants
  ****************************************************************************/
@@ -117,7 +115,7 @@ void mca_ccb_snd_req(tMCA_CCB* p_ccb, tMCA_CCB_EVT* p_data) {
   if ((!p_ccb->p_tx_req) || is_abort) {
     p_ccb->p_tx_req = p_msg;
     if (!p_ccb->cong) {
-      BT_HDR* p_pkt = (BT_HDR*)osi_malloc(MCA_CTRL_MTU);
+      BT_HDR* p_pkt = (BT_HDR*)osi_malloc(MCA_CTRL_MTU + sizeof(BT_HDR));
 
       p_pkt->offset = L2CAP_MIN_OFFSET;
       p = p_start = (uint8_t*)(p_pkt + 1) + L2CAP_MIN_OFFSET;
@@ -131,8 +129,8 @@ void mca_ccb_snd_req(tMCA_CCB* p_ccb, tMCA_CCB_EVT* p_data) {
       p_pkt->len = p - p_start;
       L2CA_DataWrite(p_ccb->lcid, p_pkt);
       period_ms_t interval_ms = p_ccb->p_rcb->reg.rsp_tout * 1000;
-      alarm_set_on_queue(p_ccb->mca_ccb_timer, interval_ms,
-                         mca_ccb_timer_timeout, p_ccb, btu_general_alarm_queue);
+      alarm_set_on_mloop(p_ccb->mca_ccb_timer, interval_ms,
+                         mca_ccb_timer_timeout, p_ccb);
     }
     /* else the L2CAP channel is congested. keep the message to be sent later */
   } else {
@@ -154,7 +152,7 @@ void mca_ccb_snd_req(tMCA_CCB* p_ccb, tMCA_CCB_EVT* p_data) {
 void mca_ccb_snd_rsp(tMCA_CCB* p_ccb, tMCA_CCB_EVT* p_data) {
   tMCA_CCB_MSG* p_msg = (tMCA_CCB_MSG*)p_data;
   uint8_t *p, *p_start;
-  BT_HDR* p_pkt = (BT_HDR*)osi_malloc(MCA_CTRL_MTU);
+  BT_HDR* p_pkt = (BT_HDR*)osi_malloc(MCA_CTRL_MTU + sizeof(BT_HDR));
 
   MCA_TRACE_DEBUG("%s cong=%d req=%d", __func__, p_ccb->cong, p_msg->op_code);
   /* assume that API functions verified the parameters */
@@ -367,7 +365,7 @@ void mca_ccb_hdl_req(tMCA_CCB* p_ccb, tMCA_CCB_EVT* p_data) {
   if (((reject_code != MCA_RSP_SUCCESS) &&
        (evt_data.hdr.op_code != MCA_OP_SYNC_INFO_IND)) ||
       send_rsp) {
-    BT_HDR* p_buf = (BT_HDR*)osi_malloc(MCA_CTRL_MTU);
+    BT_HDR* p_buf = (BT_HDR*)osi_malloc(MCA_CTRL_MTU + sizeof(BT_HDR));
     p_buf->offset = L2CAP_MIN_OFFSET;
     p = p_start = (uint8_t*)(p_buf + 1) + L2CAP_MIN_OFFSET;
     *p++ = reject_opcode;
@@ -526,7 +524,7 @@ void mca_ccb_ll_open(tMCA_CCB* p_ccb, tMCA_CCB_EVT* p_data) {
   tMCA_CTRL evt_data;
   p_ccb->cong = false;
   evt_data.connect_ind.mtu = p_data->open.peer_mtu;
-  memcpy(evt_data.connect_ind.bd_addr, p_ccb->peer_addr, BD_ADDR_LEN);
+  evt_data.connect_ind.bd_addr = p_ccb->peer_addr;
   mca_ccb_report_event(p_ccb, MCA_CONNECT_IND_EVT, &evt_data);
 }
 

@@ -3,5 +3,4 @@
 subdirs = [
     "evs/V1_0",
     "vehicle/V2_0",
-    "vehicle/V2_1",
 ]

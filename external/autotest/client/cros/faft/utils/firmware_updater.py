@@ -163,9 +163,15 @@ class FirmwareUpdater(object):
                 self._temp_path, 'chromeos-firmwareupdate-%s' % updater_append)
         else:
             updater = os.path.join(self._temp_path, 'chromeos-firmwareupdate')
+        command = '/bin/sh %s --mode %s %s' % (updater, mode, ' '.join(options))
 
-        self.os_if.run_shell_command(
-            '/bin/sh %s --mode %s %s' % (updater, mode, ' '.join(options)))
+        if mode == 'bootok':
+            # Since CL:459837, bootok is moved to chromeos-setgoodfirmware.
+            new_command = '/usr/sbin/chromeos-setgoodfirmware'
+            command = 'if [ -e %s ]; then %s; else %s; fi' % (
+                    new_command, new_command, command)
+
+        self.os_if.run_shell_command(command)
 
 
     def get_temp_path(self):

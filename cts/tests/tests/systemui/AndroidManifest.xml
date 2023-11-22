@@ -23,6 +23,8 @@
     <application>
         <activity android:name=".LightBarActivity"
                 android:theme="@android:style/Theme.Material.NoActionBar"></activity>
+        <activity android:name=".LightBarThemeActivity"
+            android:theme="@style/LightBarTheme"></activity>
         <uses-library android:name="android.test.runner" />
     </application>
 

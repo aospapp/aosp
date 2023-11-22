@@ -18,6 +18,7 @@ package com.android.tradefed.util;
 import static org.junit.Assert.*;
 
 import com.android.tradefed.build.BuildInfo;
+import com.android.tradefed.build.BuildSerializedVersion;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -39,6 +40,7 @@ public class SerializationUtilTest {
      * Test class that implements {@link Serializable} but has an attribute that is not serializable
      */
     public static class SerialTestClass implements Serializable {
+        private static final long serialVersionUID = BuildSerializedVersion.VERSION;
         public InputStream mStream;
 
         public SerialTestClass() {

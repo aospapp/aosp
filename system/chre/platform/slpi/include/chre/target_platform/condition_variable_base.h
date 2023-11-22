@@ -23,10 +23,22 @@ extern "C" {
 
 }  // extern "C"
 
+#include "chre/platform/system_timer.h"
+
+namespace chre {
+
 class ConditionVariableBase {
  protected:
   //! The underlying QURT condition variable.
   qurt_cond_t mConditionVariable;
+
+  //! The timer used for timed condition variable wait.
+  SystemTimer mTimeoutTimer;
+
+  //! Set to true when the timeout timer is initialized.
+  bool mTimerInitialized = false;
 };
+
+}  // namespace chre
 
 #endif  // CHRE_PLATFORM_SLPI_CONDITION_VARIABLE_BASE_H_

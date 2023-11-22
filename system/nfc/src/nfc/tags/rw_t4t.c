@@ -976,7 +976,7 @@ static bool rw_t4t_validate_cc_file(void) {
   }
 
   if ((p_t4t->cc_file.ndef_fc.write_access != T4T_FC_WRITE_ACCESS) &&
-      (p_t4t->cc_file.ndef_fc.write_access != T4T_FC_NO_WRITE_ACCESS)) {
+      (p_t4t->cc_file.ndef_fc.write_access < T4T_FC_WRITE_ACCESS_PROP_START)) {
     RW_TRACE_ERROR1(
         "rw_t4t_validate_cc_file (): Write Access (0x%02X) is invalid",
         p_t4t->cc_file.ndef_fc.write_access);
@@ -1736,6 +1736,27 @@ void rw_t4t_process_timeout(TIMER_LIST_ENT* p_tle) {
 
 /*******************************************************************************
 **
+** Function         rw_t4t_handle_isodep_nak_rsp
+**
+** Description      This function handles the response and ntf .
+**
+** Returns          none
+**
+*******************************************************************************/
+void rw_t4t_handle_isodep_nak_rsp(uint8_t status, bool is_ntf) {
+  tRW_DATA rw_data;
+  tRW_T4T_CB* p_t4t = &rw_cb.tcb.t4t;
+  RW_TRACE_DEBUG1("rw_t4t_handle_isodep_nak_rsp %d", status);
+  if (is_ntf || (status != NFC_STATUS_OK)) {
+    rw_data.status = status;
+    nfc_stop_quick_timer(&p_t4t->timer);
+    p_t4t->state = RW_T4T_STATE_IDLE;
+    (*(rw_cb.p_cback))(RW_T4T_PRESENCE_CHECK_EVT, &rw_data);
+  }
+}
+
+/*******************************************************************************
+**
 ** Function         rw_t4t_data_cback
 **
 ** Description      This callback function receives the data from NFCC.
@@ -2124,6 +2145,8 @@ tNFC_STATUS RW_T4tPresenceCheck(uint8_t option) {
         if (NFC_SendData(NFC_RF_CONN_ID, (NFC_HDR*)p_data) == NFC_STATUS_OK)
           status = true;
       }
+    } else if (option == RW_T4T_CHK_ISO_DEP_NAK_PRES_CHK) {
+      if (NFC_ISODEPNakPresCheck() == NFC_STATUS_OK) status = true;
     } else {
       /* use read binary on the given channel */
       rw_cb.tcb.t4t.channel = 0;

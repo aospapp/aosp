@@ -26,14 +26,14 @@ from queue import Empty
 from acts import asserts
 from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
-from acts.test_utils.bt.BleEnum import ScanSettingsPhy
-from acts.test_utils.bt.BleEnum import ScanSettingsScanMode
+from acts.test_utils.bt.bt_constants import ble_scan_settings_phys
+from acts.test_utils.bt.bt_constants import ble_scan_settings_modes
 from acts.test_utils.bt.bt_test_utils import batch_scan_result
 from acts.test_utils.bt.bt_test_utils import cleanup_scanners_and_advertisers
 from acts.test_utils.bt.bt_test_utils import generate_ble_advertise_objects
 from acts.test_utils.bt.bt_test_utils import generate_ble_scan_objects
 from acts.test_utils.bt.bt_test_utils import reset_bluetooth
-from acts.test_utils.bt.bt_test_utils import scan_result
+from acts.test_utils.bt.bt_constants import scan_result
 from acts.test_utils.bt.bt_test_utils import advertising_set_on_own_address_read
 from acts.test_utils.bt.bt_test_utils import advertising_set_started
 from acts import signals
@@ -163,8 +163,7 @@ class Bt5ScanTest(BluetoothBaseTest):
         }, self.big_adv_data, None, None, None, 0, 0, adv_callback)
 
         self.scn_ad.droid.bleSetScanSettingsLegacy(False)
-        self.scn_ad.droid.bleSetScanSettingsPhy(
-            ScanSettingsPhy.PHY_LE_1M.value)
+        self.scn_ad.droid.bleSetScanSettingsPhy(ble_scan_settings_phys['1m'])
 
         filter_list, scan_settings, scan_callback = generate_ble_scan_objects(
             self.scn_ad.droid)
@@ -221,8 +220,7 @@ class Bt5ScanTest(BluetoothBaseTest):
         }, self.big_adv_data, None, None, None, 0, 0, adv_callback)
 
         self.scn_ad.droid.bleSetScanSettingsLegacy(False)
-        self.scn_ad.droid.bleSetScanSettingsPhy(
-            ScanSettingsPhy.PHY_LE_1M.value)
+        self.scn_ad.droid.bleSetScanSettingsPhy(ble_scan_settings_phys['1m'])
 
         filter_list, scan_settings, scan_callback = generate_ble_scan_objects(
             self.scn_ad.droid)
@@ -278,8 +276,7 @@ class Bt5ScanTest(BluetoothBaseTest):
         }, {"includeDeviceName": True}, None, None, None, 0, 0, adv_callback)
 
         self.scn_ad.droid.bleSetScanSettingsLegacy(True)
-        self.scn_ad.droid.bleSetScanSettingsPhy(
-            ScanSettingsPhy.PHY_LE_1M.value)
+        self.scn_ad.droid.bleSetScanSettingsPhy(ble_scan_settings_phys['1m'])
 
         filter_list, scan_settings, scan_callback = generate_ble_scan_objects(
             self.scn_ad.droid)
@@ -337,8 +334,7 @@ class Bt5ScanTest(BluetoothBaseTest):
         }, self.big_adv_data, None, None, None, 0, 0, adv_callback)
 
         self.scn_ad.droid.bleSetScanSettingsLegacy(False)
-        self.scn_ad.droid.bleSetScanSettingsPhy(
-            ScanSettingsPhy.PHY_LE_1M.value)
+        self.scn_ad.droid.bleSetScanSettingsPhy(ble_scan_settings_phys['1m'])
 
         filter_list, scan_settings, scan_callback = generate_ble_scan_objects(
             self.scn_ad.droid)
@@ -396,8 +392,7 @@ class Bt5ScanTest(BluetoothBaseTest):
         }, self.big_adv_data, None, None, None, 0, 0, adv_callback)
 
         self.scn_ad.droid.bleSetScanSettingsLegacy(False)
-        self.scn_ad.droid.bleSetScanSettingsPhy(
-            ScanSettingsPhy.PHY_LE_1M.value)
+        self.scn_ad.droid.bleSetScanSettingsPhy(ble_scan_settings_phys['1m'])
 
         filter_list, scan_settings, scan_callback = generate_ble_scan_objects(
             self.scn_ad.droid)

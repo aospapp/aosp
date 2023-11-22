@@ -359,7 +359,7 @@ static size_t
 drm_intel_probe_agp_aperture_size(int fd)
 {
 	/* Nothing seems to rely on this value on Android anyway... */
-	fprintf(stderr, "%s: Mappable aperture size hardcoded to 64MiB\n");
+	fprintf(stderr, "%s: Mappable aperture size hardcoded to 64MiB\n", __func__);
 	return 64 * 1024 * 1024;
 }
 #endif

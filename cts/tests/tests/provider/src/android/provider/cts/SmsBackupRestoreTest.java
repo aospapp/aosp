@@ -51,6 +51,8 @@ public class SmsBackupRestoreTest extends TestCaseThatRunsIfTelephonyIsEnabled {
     private static final String mmsBody = "MMS body CTS";
 
     private static final String[] ID_PROJECTION = new String[] { BaseColumns._ID };
+    private static final String[] ID_TEXT_ONLY_PROJECTION = new String[] { BaseColumns._ID,
+            Telephony.Mms.TEXT_ONLY };
     private static final String SMS_SELECTION = Telephony.Sms.ADDRESS + " = ? and "
             + Telephony.Sms.BODY + " = ?";
 
@@ -130,7 +132,7 @@ public class SmsBackupRestoreTest extends TestCaseThatRunsIfTelephonyIsEnabled {
     /**
      * Test adds 2 SMS messages, 1 text-only MMS messages and 1 non-text-only, runs backup,
      * deletes the messages from the provider, runs restore, check if the messages are in the
-     * provider (w/o non-text-only one).
+     * provider (with non-text-only one).
      * @throws Exception
      */
     public void testSmsBackupRestore() throws Exception {
@@ -163,39 +165,42 @@ public class SmsBackupRestoreTest extends TestCaseThatRunsIfTelephonyIsEnabled {
         assertEquals(1,
                 mContentResolver.delete(Telephony.Sms.CONTENT_URI, SMS_SELECTION, smsAddressBody2));
 
-        try (Cursor mmsCursor = mContentResolver.query(Telephony.Mms.CONTENT_URI, ID_PROJECTION,
-                MMS_SELECTION, new String[] {mmsSubject}, null)) {
+        try (Cursor mmsCursor = mContentResolver.query(Telephony.Mms.CONTENT_URI,
+              ID_TEXT_ONLY_PROJECTION, MMS_SELECTION, new String[] {mmsSubject}, null)) {
             assertNotNull(mmsCursor);
-            assertEquals(1, mmsCursor.getCount());
-            mmsCursor.moveToFirst();
-            final long mmsId = mmsCursor.getLong(0);
-            final Uri partUri = Telephony.Mms.CONTENT_URI.buildUpon()
-                    .appendPath(String.valueOf(mmsId)).appendPath("part").build();
-            // Check the body.
-            try (Cursor partCursor = mContentResolver.query(partUri, MMS_PART_TEXT_PROJECTION,
+            assertEquals(2, mmsCursor.getCount());
+            for (mmsCursor.moveToFirst(); !mmsCursor.isAfterLast(); mmsCursor.moveToNext()) {
+              final long mmsId = mmsCursor.getLong(0);
+              final long mmsTextOnly = mmsCursor.getLong(1);
+              assertEquals(mmsTextOnly, 1);
+              final Uri partUri = Telephony.Mms.CONTENT_URI.buildUpon()
+                  .appendPath(String.valueOf(mmsId)).appendPath("part").build();
+              // Check the body.
+              try (Cursor partCursor = mContentResolver.query(partUri, MMS_PART_TEXT_PROJECTION,
                     MMS_PART_TEXT_SELECTION, new String[]{ ContentType.TEXT_PLAIN }, null)) {
                 assertNotNull(partCursor);
                 assertEquals(1, partCursor.getCount());
                 assertTrue(partCursor.moveToFirst());
-                assertEquals(mmsBody, partCursor.getString(0));
-            }
+                assertTrue(partCursor.getString(0).startsWith(mmsBody));
+              }
 
-            // Check if there are 2 parts (smil and body).
-            assertEquals(2, mContentResolver.delete(partUri, MMS_PART_SELECTION,
+              // Check if there are 2 parts (smil and body).
+              assertEquals(2, mContentResolver.delete(partUri, MMS_PART_SELECTION,
                     new String[]{String.valueOf(mmsId)}));
 
-            // Check addresses.
-            final Uri addrUri = getMmsAddrUri(mmsId);
-            try (Cursor addrCursor = mContentResolver.query(addrUri, MMS_ADDR_PROJECTION,
+              // Check addresses.
+              final Uri addrUri = getMmsAddrUri(mmsId);
+              try (Cursor addrCursor = mContentResolver.query(addrUri, MMS_ADDR_PROJECTION,
                     MMS_ADDR_SELECTION, new String[]{String.valueOf(mmsId)}, null)) {
                 assertNotNull(addrCursor);
                 for (String addr : mmsAddresses) {
-                    addrCursor.moveToNext();
-                    assertEquals(addr, addrCursor.getString(0));
+                  addrCursor.moveToNext();
+                  assertEquals(addr, addrCursor.getString(0));
                 }
-            }
-            assertEquals(mmsAddresses.length, mContentResolver.delete(addrUri, MMS_ADDR_SELECTION,
+              }
+              assertEquals(mmsAddresses.length, mContentResolver.delete(addrUri, MMS_ADDR_SELECTION,
                     new String[]{String.valueOf(mmsId)}));
+            }
         }
     }
 

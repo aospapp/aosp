@@ -19,6 +19,7 @@ import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.OptionCopier;
 import com.android.tradefed.targetprep.ITargetPreparer;
+import com.android.tradefed.targetprep.multi.IMultiTargetPreparer;
 import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.IShardableTest;
@@ -88,12 +89,18 @@ public class ModuleSplitter {
             boolean dynamicModule) {
         // If this particular configuration module is declared as 'not shardable' we take it whole
         // but still split the individual IRemoteTest in a pool.
-        if (config.getConfigurationDescription().isNotShardable()) {
+        if (config.getConfigurationDescription().isNotShardable()
+                || (!dynamicModule
+                        && config.getConfigurationDescription().isNotStrictShardable())) {
             for (int i = 0; i < config.getTests().size(); i++) {
                 if (dynamicModule) {
                     ModuleDefinition module =
                             new ModuleDefinition(
-                                    moduleName, config.getTests(), clonePreparers(config));
+                                    moduleName,
+                                    config.getTests(),
+                                    clonePreparers(config.getTargetPreparers()),
+                                    clonePreparers(config.getMultiTargetPreparers()),
+                                    config.getConfigurationDescription());
                     currentList.add(module);
                 } else {
                     addModuleToListFromSingleTest(
@@ -114,7 +121,11 @@ public class ModuleSplitter {
                         for (int i = 0; i < shardCount; i++) {
                             ModuleDefinition module =
                                     new ModuleDefinition(
-                                            moduleName, shardedTests, clonePreparers(config));
+                                            moduleName,
+                                            shardedTests,
+                                            clonePreparers(config.getTargetPreparers()),
+                                            clonePreparers(config.getMultiTargetPreparers()),
+                                            config.getConfigurationDescription());
                             currentList.add(module);
                         }
                     } else {
@@ -144,7 +155,12 @@ public class ModuleSplitter {
         List<IRemoteTest> testList = new ArrayList<>();
         testList.add(test);
         ModuleDefinition module =
-                new ModuleDefinition(moduleName, testList, clonePreparers(config));
+                new ModuleDefinition(
+                        moduleName,
+                        testList,
+                        clonePreparers(config.getTargetPreparers()),
+                        clonePreparers(config.getMultiTargetPreparers()),
+                        config.getConfigurationDescription());
         currentList.add(module);
     }
 
@@ -159,16 +175,17 @@ public class ModuleSplitter {
     }
 
     /**
-     * Deep clone a list of {@link ITargetPreparer}. We are ensured to find a default constructor
-     * with no arguments since that's the expectation from Tradefed when loading configuration.
-     * Cloning preparers is required since they may be stateful and we cannot share instance across
-     * devices.
+     * Deep clone a list of {@link ITargetPreparer} or {@link IMultiTargetPreparer}. We are ensured
+     * to find a default constructor with no arguments since that's the expectation from Tradefed
+     * when loading configuration. Cloning preparers is required since they may be stateful and we
+     * cannot share instance across devices.
      */
-    private static List<ITargetPreparer> clonePreparers(IConfiguration config) {
-        List<ITargetPreparer> clones = new ArrayList<>();
-        for (ITargetPreparer prep : config.getTargetPreparers()) {
+    private static <T> List<T> clonePreparers(List<T> preparerList) {
+        List<T> clones = new ArrayList<>();
+        for (T prep : preparerList) {
             try {
-                ITargetPreparer clone = prep.getClass().newInstance();
+                @SuppressWarnings("unchecked")
+                T clone = (T) prep.getClass().newInstance();
                 OptionCopier.copyOptions(prep, clone);
                 // Ensure we copy the Abi too.
                 if (clone instanceof IAbiReceiver) {

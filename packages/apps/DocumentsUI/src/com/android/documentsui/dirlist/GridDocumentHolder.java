@@ -22,6 +22,7 @@ import static com.android.documentsui.base.DocumentInfo.getCursorString;
 import android.annotation.ColorInt;
 import android.content.Context;
 import android.database.Cursor;
+import android.graphics.Rect;
 import android.provider.DocumentsContract.Document;
 import android.text.format.Formatter;
 import android.view.View;
@@ -48,6 +49,7 @@ final class GridDocumentHolder extends DocumentHolder {
     final IconHelper mIconHelper;
 
     private final @ColorInt int mDisabledBgColor;
+    private final @ColorInt int mDefaultBgColor;
     // This is used in as a convenience in our bind method.
     private final DocumentInfo mDoc = new DocumentInfo();
 
@@ -55,6 +57,7 @@ final class GridDocumentHolder extends DocumentHolder {
         super(context, parent, R.layout.item_doc_grid);
 
         mDisabledBgColor = context.getColor(R.color.item_doc_background_disabled);
+        mDefaultBgColor = context.getColor(R.color.item_doc_background);
 
         mTitle = (TextView) itemView.findViewById(android.R.id.title);
         mDate = (TextView) itemView.findViewById(R.id.date);
@@ -114,11 +117,18 @@ final class GridDocumentHolder extends DocumentHolder {
         return true;
     }
 
+    @Override
+    public boolean isOverDocIcon(InputEvent event) {
+        Rect iconRect = new Rect();
+        mIconMimeSm.getGlobalVisibleRect(iconRect);
+
+        return iconRect.contains((int) event.getRawX(), (int) event.getRawY());
+    }
+
     /**
      * Bind this view to the given document for display.
      * @param cursor Pointing to the item to be bound.
      * @param modelId The model ID of the item.
-     * @param state Current display state.
      */
     @Override
     public void bind(Cursor cursor, String modelId) {
@@ -161,10 +171,6 @@ final class GridDocumentHolder extends DocumentHolder {
                 mDetails.setVisibility(View.VISIBLE);
                 mDetails.setText(Formatter.formatFileSize(mContext, docSize));
             }
-        }
-
-        if (DebugFlags.getDocumentDetailsEnabled()) {
-            includeDebugInfo(mDoc);
         }
     }
 }

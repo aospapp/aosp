@@ -92,13 +92,13 @@ public class UsbAccessoryTestActivity extends PassFailButtons.Activity implement
             @Override
             protected Throwable doInBackground(Void... params) {
                 try {
+                    assertEquals("Android CTS", accessory.getManufacturer());
+                    assertEquals("Android CTS test companion device", accessory.getModel());
                     assertEquals("Android device running CTS verifier", accessory.getDescription());
-                    assertEquals("Android", accessory.getManufacturer());
-                    assertEquals("Android device", accessory.getModel());
-                    assertEquals("0", accessory.getSerial());
+                    assertEquals("2", accessory.getVersion());
                     assertEquals("https://source.android.com/compatibility/cts/verifier.html",
                             accessory.getUri());
-                    assertEquals("1", accessory.getVersion());
+                    assertEquals("0", accessory.getSerial());
 
                     assertTrue(Arrays.asList(usbManager.getAccessoryList()).contains(accessory));
 

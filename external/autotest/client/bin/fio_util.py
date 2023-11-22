@@ -14,7 +14,12 @@ Decoding class can be invoked independently.
 
 """
 
-import json, logging, re, utils
+import json
+import logging
+import re
+
+import common
+from autotest_lib.client.bin import utils
 
 class fio_graph_generator():
     """

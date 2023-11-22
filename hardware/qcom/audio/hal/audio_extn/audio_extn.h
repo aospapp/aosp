@@ -79,6 +79,10 @@ int audio_extn_hfp_set_mic_mute(struct audio_device *adev, bool state);
 #define audio_extn_usb_enable_sidetone(device, enable)                 (0)
 #define audio_extn_usb_set_sidetone_gain(parms, value, len)            (0)
 #define audio_extn_usb_is_capture_supported()                          (false)
+#define audio_extn_usb_get_max_channels(dir)                           (0)
+#define audio_extn_usb_get_max_bit_width(dir)                          (0)
+#define audio_extn_usb_sup_sample_rates(t, s, l)                       (0)
+#define audio_extn_usb_alive(adev)                                     (false)
 #else
 void audio_extn_usb_init(void *adev);
 void audio_extn_usb_deinit();
@@ -92,6 +96,10 @@ int audio_extn_usb_enable_sidetone(int device, bool enable);
 int audio_extn_usb_set_sidetone_gain(struct str_parms *parms,
                                      char *value, int len);
 bool audio_extn_usb_is_capture_supported();
+int audio_extn_usb_get_max_channels(bool is_playback);
+int audio_extn_usb_get_max_bit_width(bool is_playback);
+int audio_extn_usb_sup_sample_rates(bool is_playback, uint32_t *sr, uint32_t l);
+bool audio_extn_usb_alive(int card);
 #endif
 
 
@@ -137,6 +145,11 @@ void audio_extn_dsm_feedback_enable(struct audio_device *adev,
 void audio_extn_utils_send_default_app_type_cfg(void *platform, struct mixer *mixer);
 int audio_extn_utils_send_app_type_cfg(struct audio_device *adev,
                                        struct audio_usecase *usecase);
+void audio_extn_utils_send_audio_calibration(struct audio_device *adev,
+                                             struct audio_usecase *usecase);
+int audio_extn_utils_send_app_type_gain(struct audio_device *adev,
+                                        int app_type,
+                                        int *gain);
 #ifndef HWDEP_CAL_ENABLED
 #define  audio_extn_hwdep_cal_send(snd_card, acdb_handle) (0)
 #else
@@ -178,4 +191,8 @@ int audio_extn_snd_mon_register_listener(void *stream, snd_mon_cb cb);
 int audio_extn_snd_mon_unregister_listener(void *stream);
 #endif
 
+bool audio_extn_utils_resolve_config_file(char[]);
+int audio_extn_utils_get_platform_info(const char* snd_card_name,
+                                       char* platform_info_file);
+int audio_extn_utils_get_snd_card_num();
 #endif /* AUDIO_EXTN_H */

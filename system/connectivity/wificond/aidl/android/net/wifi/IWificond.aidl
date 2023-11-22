@@ -19,8 +19,6 @@ package android.net.wifi;
 import android.net.wifi.IApInterface;
 import android.net.wifi.IClientInterface;
 import android.net.wifi.IInterfaceEventCallback;
-import android.net.wifi.IRttClient;
-import android.net.wifi.IRttController;
 
 // Service interface that exposes primitives for controlling the WiFi
 // subsystems of a device.
@@ -57,14 +55,4 @@ interface IWificond {
     //
     // @param callback object to remove from the set of registered callbacks.
     oneway void UnregisterCallback(IInterfaceEventCallback callback);
-
-    // Obtain a reference to a IRttController that can be used to
-    // request ranging information.
-    // Results will be returned via the registered IRttClient.
-    IRttController registerRttClient(IRttClient rttClient);
-
-    // Remove an IRttClient from the set of registered IRttClient callbacks.
-    // @param rttClient object to remove from the set of registered
-    // IRttClient callbacks.
-    void unregisterRttClient(IRttClient rttClient);
 }

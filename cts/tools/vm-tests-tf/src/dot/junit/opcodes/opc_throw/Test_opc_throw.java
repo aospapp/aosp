@@ -47,10 +47,11 @@ public class Test_opc_throw extends DxTestCase {
         T_opc_throw_2 t = new T_opc_throw_2();
         try {
             t.run();
-            fail("must throw a Throwable");
         } catch (Throwable e) {
             // expected
+            return;
         }
+        fail("must throw a Throwable");
     }
 
     /**
@@ -60,10 +61,11 @@ public class Test_opc_throw extends DxTestCase {
         T_opc_throw_8 t = new T_opc_throw_8();
         try {
             t.run();
-            fail("must throw a Error");
         } catch (Error e) {
             // expected
+            return;
         }
+        fail("must throw a Error");
     }
 
     /**

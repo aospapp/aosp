@@ -221,11 +221,6 @@ public class CallFeaturesSetting extends PreferenceActivity
                 (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
         telephonyManager.listen(mPhoneStateListener, PhoneStateListener.LISTEN_CALL_STATE);
 
-        Preference phoneAccountSettingsPreference = findPreference(PHONE_ACCOUNT_SETTINGS_KEY);
-        if (telephonyManager.isMultiSimEnabled() || !SipUtil.isVoipSupported(mPhone.getContext())) {
-            getPreferenceScreen().removePreference(phoneAccountSettingsPreference);
-        }
-
         PreferenceScreen prefSet = getPreferenceScreen();
         mVoicemailSettingsScreen =
                 (PreferenceScreen) findPreference(VOICEMAIL_SETTING_SCREEN_PREF_KEY);

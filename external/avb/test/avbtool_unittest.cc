@@ -37,6 +37,7 @@
 #include <libavb/libavb.h>
 
 #include "avb_unittest_util.h"
+#include "fake_avb_ops.h"
 
 namespace avb {
 
@@ -44,9 +45,20 @@ class AvbToolTest : public BaseAvbToolTest {
  public:
   AvbToolTest() {}
 
+  virtual void SetUp() override {
+    BaseAvbToolTest::SetUp();
+    ops_.set_partition_dir(testdir_);
+    ops_.set_stored_rollback_indexes({{0, 0}, {1, 0}, {2, 0}, {3, 0}});
+    ops_.set_stored_is_device_unlocked(false);
+  }
+
   void AddHashFooterTest(bool sparse_image);
   void AddHashtreeFooterTest(bool sparse_image);
   void AddHashtreeFooterFECTest(bool sparse_image);
+
+  void GenerateImageWithHashAndHashtreeSetup();
+
+  FakeAvbOps ops_;
 };
 
 // This test ensure that the version is increased in both
@@ -251,6 +263,35 @@ TEST_F(AvbToolTest, CheckDescriptors) {
   EXPECT_EQ('\n', s[20]);
 }
 
+TEST_F(AvbToolTest, Padding) {
+  GenerateVBMetaImage("vbmeta.img",
+                      "SHA256_RSA2048",
+                      0,
+                      base::FilePath("test/data/testkey_rsa2048.pem"),
+                      "--internal_release_string \"\"");
+
+  GenerateVBMetaImage("vbmeta_padded.img",
+                      "SHA256_RSA2048",
+                      0,
+                      base::FilePath("test/data/testkey_rsa2048.pem"),
+                      "--internal_release_string \"\" --padding_size 4096");
+
+  base::FilePath vbmeta_path = testdir_.Append("vbmeta.img");
+  base::FilePath vbmeta_padded_path = testdir_.Append("vbmeta_padded.img");
+  int64_t vbmeta_size, vbmeta_padded_size;
+  ASSERT_TRUE(base::GetFileSize(vbmeta_path, &vbmeta_size));
+  ASSERT_TRUE(base::GetFileSize(vbmeta_padded_path, &vbmeta_padded_size));
+
+  EXPECT_NE(vbmeta_size, vbmeta_padded_size);
+
+  // The padded size should be a multiple of 4096.
+  EXPECT_EQ(vbmeta_padded_size % 4096, 0);
+
+  // When rounded up the unpadded size should equal the padded size.
+  int64_t vbmeta_size_rounded_up = ((vbmeta_size + 4095) / 4096) * 4096;
+  EXPECT_EQ(vbmeta_size_rounded_up, vbmeta_padded_size);
+}
+
 TEST_F(AvbToolTest, CheckRollbackIndex) {
   uint64_t rollback_index = 42;
   GenerateVBMetaImage("vbmeta.img",
@@ -342,9 +383,41 @@ static bool collect_descriptors(const AvbDescriptor* descriptor,
   return true;  // Keep iterating.
 }
 
+static std::string AddHashFooterGetExpectedVBMetaInfo(
+    const bool sparse_image, const uint64_t partition_size) {
+  return base::StringPrintf(
+      "Footer version:           1.0\n"
+      "Image size:               %" PRIu64
+      " bytes\n"
+      "Original image size:      1052672 bytes\n"
+      "VBMeta offset:            1052672\n"
+      "VBMeta size:              1280 bytes\n"
+      "--\n"
+      "Minimum libavb version:   1.0%s\n"
+      "Header Block:             256 bytes\n"
+      "Authentication Block:     320 bytes\n"
+      "Auxiliary Block:          704 bytes\n"
+      "Algorithm:                SHA256_RSA2048\n"
+      "Rollback Index:           0\n"
+      "Flags:                    0\n"
+      "Release String:           ''\n"
+      "Descriptors:\n"
+      "    Hash descriptor:\n"
+      "      Image Size:            1052672 bytes\n"
+      "      Hash Algorithm:        sha256\n"
+      "      Partition Name:        foobar\n"
+      "      Salt:                  d00df00d\n"
+      "      Digest:                "
+      "9a58cc996d405e08a1e00f96dbfe9104fedf41cb83b1f"
+      "5e4ed357fbcf58d88d9\n",
+      partition_size,
+      sparse_image ? " (Sparse)" : "");
+}
+
 void AvbToolTest::AddHashFooterTest(bool sparse_image) {
   const size_t rootfs_size = 1028 * 1024;
   const size_t partition_size = 1536 * 1024;
+  const size_t resized_partition_size = 1280 * 1024;
 
   // Generate a 1028 KiB file with known content. Some content have
   // been arranged to ensure FILL_DATA segments in the sparse file.
@@ -393,30 +466,7 @@ void AvbToolTest::AddHashFooterTest(bool sparse_image) {
                    (int)partition_size,
                    ext_vbmeta_path.value().c_str());
 
-    ASSERT_EQ(base::StringPrintf("Footer version:           1.0\n"
-                                 "Image size:               1572864 bytes\n"
-                                 "Original image size:      1052672 bytes\n"
-                                 "VBMeta offset:            1052672\n"
-                                 "VBMeta size:              1280 bytes\n"
-                                 "--\n"
-                                 "Minimum libavb version:   1.0%s\n"
-                                 "Header Block:             256 bytes\n"
-                                 "Authentication Block:     320 bytes\n"
-                                 "Auxiliary Block:          704 bytes\n"
-                                 "Algorithm:                SHA256_RSA2048\n"
-                                 "Rollback Index:           0\n"
-                                 "Flags:                    0\n"
-                                 "Release String:           ''\n"
-                                 "Descriptors:\n"
-                                 "    Hash descriptor:\n"
-                                 "      Image Size:            1052672 bytes\n"
-                                 "      Hash Algorithm:        sha256\n"
-                                 "      Partition Name:        foobar\n"
-                                 "      Salt:                  d00df00d\n"
-                                 "      Digest:                "
-                                 "9a58cc996d405e08a1e00f96dbfe9104fedf41cb83b1f"
-                                 "5e4ed357fbcf58d88d9\n",
-                                 sparse_image ? " (Sparse)" : ""),
+    ASSERT_EQ(AddHashFooterGetExpectedVBMetaInfo(sparse_image, partition_size),
               InfoImage(rootfs_path));
 
     ASSERT_EQ(
@@ -439,6 +489,25 @@ void AvbToolTest::AddHashFooterTest(bool sparse_image) {
         "5e4ed357fbcf58d88d9\n",
         InfoImage(ext_vbmeta_path));
   }
+
+  // Resize the image and check that the only thing that has changed
+  // is where the footer is. First check that resizing to a smaller
+  // size than the original rootfs fails. Then resize to something
+  // larger than the original rootfs but smaller than the current
+  // partition size.
+  EXPECT_COMMAND(1,
+                 "./avbtool resize_image --image %s "
+                 "--partition_size %d",
+                 rootfs_path.value().c_str(),
+                 (int)(rootfs_size - 16 * 1024));
+  EXPECT_COMMAND(0,
+                 "./avbtool resize_image --image %s "
+                 "--partition_size %d",
+                 rootfs_path.value().c_str(),
+                 (int)resized_partition_size);
+  ASSERT_EQ(
+      AddHashFooterGetExpectedVBMetaInfo(sparse_image, resized_partition_size),
+      InfoImage(rootfs_path));
 
   if (sparse_image) {
     EXPECT_COMMAND(0,
@@ -635,6 +704,40 @@ TEST_F(AvbToolTest, AddHashFooterSparseWithHoleAtTheEnd) {
   EXPECT_COMMAND(0, "rm -f %s.sparse", partition_path.value().c_str());
 }
 
+TEST_F(AvbToolTest, AddHashFooterCalcMaxImageSize) {
+  const size_t partition_size = 10 * 1024 * 1024;
+  base::FilePath output_path = testdir_.Append("max_size.txt");
+
+  EXPECT_COMMAND(0,
+                 "./avbtool add_hash_footer "
+                 "--partition_size %zd "
+                 "--calc_max_image_size > %s",
+                 partition_size,
+                 output_path.value().c_str());
+  std::string max_image_size_data;
+  EXPECT_TRUE(base::ReadFileToString(output_path, &max_image_size_data));
+  EXPECT_EQ("10416128\n", max_image_size_data);
+  size_t max_image_size = atoll(max_image_size_data.c_str());
+
+  // Metadata takes up 68 KiB.
+  EXPECT_EQ(68 * 1024ULL, partition_size - max_image_size);
+
+  // Check that we can add a hash footer for an image this size for
+  // such a partition size.
+  base::FilePath boot_path = GenerateImage("boot", max_image_size);
+  EXPECT_COMMAND(0,
+                 "./avbtool add_hash_footer"
+                 " --image %s"
+                 " --partition_name boot"
+                 " --partition_size %zd"
+                 " --salt deadbeef"
+                 " --algorithm SHA512_RSA4096 "
+                 " --key test/data/testkey_rsa4096.pem"
+                 " --internal_release_string \"\"",
+                 boot_path.value().c_str(),
+                 partition_size);
+}
+
 void AvbToolTest::AddHashtreeFooterTest(bool sparse_image) {
   const size_t rootfs_size = 1028 * 1024;
   const size_t partition_size = 1536 * 1024;
@@ -672,7 +775,8 @@ void AvbToolTest::AddHashtreeFooterTest(bool sparse_image) {
                    "--algorithm SHA256_RSA2048 "
                    "--key test/data/testkey_rsa2048.pem "
                    "--output_vbmeta_image %s "
-                   "--internal_release_string \"\"",
+                   "--internal_release_string \"\" "
+                   "--do_not_generate_fec",
                    rootfs_path.value().c_str(),
                    (int)partition_size,
                    ext_vbmeta_path.value().c_str());
@@ -858,7 +962,7 @@ void AvbToolTest::AddHashtreeFooterTest(bool sparse_image) {
       "      Kernel Cmdline:        'dm=\"1 vroot none ro 1,0 2056 verity 1 "
       "PARTUUID=$(ANDROID_SYSTEM_PARTUUID) PARTUUID=$(ANDROID_SYSTEM_PARTUUID) "
       "4096 4096 257 257 sha1 e811611467dcd6e8dc4324e45f706c2bdd51db67 "
-      "d00df00d 2 restart_on_corruption ignore_zero_blocks\" root=/dev/dm-0'\n"
+      "d00df00d 2 $(ANDROID_VERITY_MODE) ignore_zero_blocks\" root=/dev/dm-0'\n"
       "    Kernel Cmdline descriptor:\n"
       "      Flags:                 2\n"
       "      Kernel Cmdline:        "
@@ -886,7 +990,8 @@ void AvbToolTest::AddHashtreeFooterTest(bool sparse_image) {
                  "--algorithm SHA256_RSA2048 "
                  "--key test/data/testkey_rsa2048.pem "
                  "--output_vbmeta %s_2nd_run --do_not_append_vbmeta_image "
-                 "--internal_release_string \"\"",
+                 "--internal_release_string \"\" "
+                 "--do_not_generate_fec",
                  rootfs_path.value().c_str(),
                  (int)partition_size,
                  ext_vbmeta_path.value().c_str());
@@ -940,7 +1045,6 @@ void AvbToolTest::AddHashtreeFooterFECTest(bool sparse_image) {
     EXPECT_COMMAND(0,
                    "./avbtool add_hashtree_footer --salt d00df00d --image %s "
                    "--partition_size %d --partition_name foobar "
-                   "--generate_fec "
                    "--algorithm SHA256_RSA2048 "
                    "--key test/data/testkey_rsa2048.pem "
                    "--internal_release_string \"\"",
@@ -1086,7 +1190,7 @@ void AvbToolTest::AddHashtreeFooterFECTest(bool sparse_image) {
       "      Kernel Cmdline:        'dm=\"1 vroot none ro 1,0 2056 verity 1 "
       "PARTUUID=$(ANDROID_SYSTEM_PARTUUID) PARTUUID=$(ANDROID_SYSTEM_PARTUUID) "
       "4096 4096 257 257 sha1 e811611467dcd6e8dc4324e45f706c2bdd51db67 "
-      "d00df00d 10 restart_on_corruption ignore_zero_blocks "
+      "d00df00d 10 $(ANDROID_VERITY_MODE) ignore_zero_blocks "
       "use_fec_from_device "
       "PARTUUID=$(ANDROID_SYSTEM_PARTUUID) fec_roots 2 fec_blocks 261 "
       "fec_start 261\" root=/dev/dm-0'\n"
@@ -1121,7 +1225,8 @@ TEST_F(AvbToolTest, AddHashtreeFooterCalcMaxImageSize) {
 
   EXPECT_COMMAND(0,
                  "./avbtool add_hashtree_footer "
-                 "--partition_size %zd --calc_max_image_size > %s",
+                 "--partition_size %zd --calc_max_image_size "
+                 "--do_not_generate_fec > %s",
                  partition_size,
                  output_path.value().c_str());
   std::string max_image_size_data;
@@ -1144,7 +1249,8 @@ TEST_F(AvbToolTest, AddHashtreeFooterCalcMaxImageSize) {
                  " --salt deadbeef"
                  " --algorithm SHA512_RSA4096 "
                  " --key test/data/testkey_rsa4096.pem"
-                 " --internal_release_string \"\"",
+                 " --internal_release_string \"\" "
+                 "--do_not_generate_fec",
                  system_path.value().c_str(),
                  partition_size);
 }
@@ -1155,8 +1261,7 @@ TEST_F(AvbToolTest, AddHashtreeFooterCalcMaxImageSizeWithFEC) {
 
   EXPECT_COMMAND(0,
                  "./avbtool add_hashtree_footer "
-                 "--partition_size %zd --generate_fec "
-                 "--calc_max_image_size > %s",
+                 "--partition_size %zd --calc_max_image_size > %s",
                  partition_size,
                  output_path.value().c_str());
   std::string max_image_size_data;
@@ -1177,7 +1282,6 @@ TEST_F(AvbToolTest, AddHashtreeFooterCalcMaxImageSizeWithFEC) {
                  " --partition_name system"
                  " --partition_size %zd"
                  " --salt deadbeef"
-                 " --generate_fec "
                  " --algorithm SHA512_RSA4096 "
                  " --key test/data/testkey_rsa4096.pem"
                  " --internal_release_string \"\"",
@@ -1391,6 +1495,32 @@ TEST_F(AvbToolTest, ChainedPartition) {
                         d.public_key_len));
 }
 
+TEST_F(AvbToolTest, ChainedPartitionNoLocationCollision) {
+  base::FilePath vbmeta_path = testdir_.Append("vbmeta_cp.bin");
+
+  base::FilePath pk_path = testdir_.Append("testkey_rsa2048.avbpubkey");
+
+  EXPECT_COMMAND(
+      0,
+      "./avbtool extract_public_key --key test/data/testkey_rsa2048.pem"
+      " --output %s",
+      pk_path.value().c_str());
+
+  // Check that avbtool bails if the same Rollback Index Location is
+  // used for multiple chained partitions.
+  EXPECT_COMMAND(
+      1,
+      "./avbtool make_vbmeta_image "
+      "--output %s "
+      "--chain_partition system:1:%s "
+      "--chain_partition other:1:%s "
+      "--algorithm SHA256_RSA2048 --key test/data/testkey_rsa2048.pem "
+      "--internal_release_string \"\"",
+      vbmeta_path.value().c_str(),
+      pk_path.value().c_str(),
+      pk_path.value().c_str());
+}
+
 TEST_F(AvbToolTest, AppendVBMetaImage) {
   size_t boot_size = 5 * 1024 * 1024;
   size_t boot_partition_size = 32 * 1024 * 1024;
@@ -1474,6 +1604,27 @@ TEST_F(AvbToolTest, SigningHelperBasic) {
   EXPECT_EQ("DONE", value);
 }
 
+TEST_F(AvbToolTest, SigningHelperWithFilesBasic) {
+  base::FilePath vbmeta_path = testdir_.Append("vbmeta.bin");
+  base::FilePath signing_helper_test_path =
+      testdir_.Append("signing_helper_test");
+  EXPECT_COMMAND(
+      0,
+      "SIGNING_HELPER_TEST=\"%s\" ./avbtool make_vbmeta_image "
+      "--output %s "
+      "--algorithm SHA256_RSA2048 --key test/data/testkey_rsa2048.pem "
+      "--signing_helper_with_files "
+      "test/avbtool_signing_helper_with_files_test.py "
+      "--internal_release_string \"\"",
+      signing_helper_test_path.value().c_str(),
+      vbmeta_path.value().c_str());
+
+  // Now check the value in test file.
+  std::string value;
+  ASSERT_TRUE(base::ReadFileToString(signing_helper_test_path, &value));
+  EXPECT_EQ("DONE", value);
+}
+
 TEST_F(AvbToolTest, SigningHelperReturnError) {
   base::FilePath vbmeta_path = testdir_.Append("vbmeta.bin");
   EXPECT_COMMAND(
@@ -1484,6 +1635,319 @@ TEST_F(AvbToolTest, SigningHelperReturnError) {
       "--signing_helper test/avbtool_signing_helper_test.py "
       "--internal_release_string \"\"",
       vbmeta_path.value().c_str());
+}
+
+TEST_F(AvbToolTest, SigningHelperWithFilesReturnError) {
+  base::FilePath vbmeta_path = testdir_.Append("vbmeta.bin");
+  EXPECT_COMMAND(
+      1,
+      "./avbtool make_vbmeta_image "
+      "--output %s "
+      "--algorithm SHA256_RSA2048 --key test/data/testkey_rsa2048.pem "
+      "--signing_helper_with_files "
+      "test/avbtool_signing_helper_with_files_test.py "
+      "--internal_release_string \"\"",
+      vbmeta_path.value().c_str());
+}
+
+TEST_F(AvbToolTest, VerifyImageNoSignature) {
+  GenerateVBMetaImage("vbmeta.img",
+                      "",  // NONE
+                      0,
+                      base::FilePath());
+
+  EXPECT_COMMAND(0,
+                 "./avbtool verify_image "
+                 "--image %s ",
+                 vbmeta_image_path_.value().c_str());
+}
+
+TEST_F(AvbToolTest, VerifyImageValidSignature) {
+  GenerateVBMetaImage("vbmeta.img",
+                      "SHA256_RSA2048",
+                      0,
+                      base::FilePath("test/data/testkey_rsa2048.pem"));
+
+  EXPECT_COMMAND(0,
+                 "./avbtool verify_image "
+                 "--image %s ",
+                 vbmeta_image_path_.value().c_str());
+}
+
+TEST_F(AvbToolTest, VerifyImageCorruptedVBMeta) {
+  GenerateVBMetaImage("vbmeta.img",
+                      "SHA256_RSA2048",
+                      0,
+                      base::FilePath("test/data/testkey_rsa2048.pem"));
+
+  // Corrupt four bytes of data in the end of the image. Since the aux
+  // data is at the end and this data is signed, this will change the
+  // value of the computed hash.
+  uint8_t corrupt_data[4] = {0xff, 0xff, 0xff, 0xff};
+  EXPECT_EQ(AVB_IO_RESULT_OK,
+            ops_.avb_ops()->write_to_partition(ops_.avb_ops(),
+                                               "vbmeta",
+                                               -4,  // offset from end
+                                               sizeof corrupt_data,
+                                               corrupt_data));
+
+  EXPECT_COMMAND(1,
+                 "./avbtool verify_image "
+                 "--image %s ",
+                 vbmeta_image_path_.value().c_str());
+}
+
+TEST_F(AvbToolTest, VerifyImageOtherKeyMatching) {
+  GenerateVBMetaImage("vbmeta.img",
+                      "SHA256_RSA2048",
+                      0,
+                      base::FilePath("test/data/testkey_rsa2048.pem"));
+
+  EXPECT_COMMAND(0,
+                 "./avbtool verify_image "
+                 "--image %s --key test/data/testkey_rsa2048.pem",
+                 vbmeta_image_path_.value().c_str());
+}
+
+TEST_F(AvbToolTest, VerifyImageOtherKeyNotMatching) {
+  GenerateVBMetaImage("vbmeta.img",
+                      "SHA256_RSA2048",
+                      0,
+                      base::FilePath("test/data/testkey_rsa2048.pem"));
+
+  EXPECT_COMMAND(1,
+                 "./avbtool verify_image "
+                 "--image %s --key test/data/testkey_rsa4096.pem",
+                 vbmeta_image_path_.value().c_str());
+}
+
+TEST_F(AvbToolTest, VerifyImageBrokenSignature) {
+  base::FilePath vbmeta_path = testdir_.Append("vbmeta.bin");
+  base::FilePath signing_helper_test_path =
+      testdir_.Append("signing_helper_test");
+
+  // Intentionally make the signer generate a wrong signature.
+  EXPECT_COMMAND(
+      0,
+      "SIGNING_HELPER_GENERATE_WRONG_SIGNATURE=1 ./avbtool make_vbmeta_image "
+      "--output %s "
+      "--algorithm SHA256_RSA2048 --key test/data/testkey_rsa2048.pem "
+      "--signing_helper test/avbtool_signing_helper_test.py "
+      "--internal_release_string \"\"",
+      vbmeta_path.value().c_str());
+
+  EXPECT_COMMAND(1,
+                 "./avbtool verify_image "
+                 "--image %s ",
+                 vbmeta_path.value().c_str());
+}
+
+// Helper to generate boot.img, unsparse system.img, and vbmeta.img.
+void AvbToolTest::GenerateImageWithHashAndHashtreeSetup() {
+  const size_t boot_partition_size = 16 * 1024 * 1024;
+  const size_t boot_image_size = 5 * 1024 * 1024;
+  base::FilePath boot_path = GenerateImage("boot.img", boot_image_size);
+  EXPECT_COMMAND(0,
+                 "./avbtool add_hash_footer"
+                 " --image %s"
+                 " --rollback_index 0"
+                 " --partition_name boot"
+                 " --partition_size %zd"
+                 " --salt deadbeef"
+                 " --internal_release_string \"\"",
+                 boot_path.value().c_str(),
+                 boot_partition_size);
+
+  const size_t system_partition_size = 10 * 1024 * 1024;
+  const size_t system_image_size = 8 * 1024 * 1024;
+  base::FilePath system_path = GenerateImage("system.img", system_image_size);
+  EXPECT_COMMAND(0,
+                 "./avbtool add_hashtree_footer --salt d00df00d --image %s "
+                 "--partition_size %zd --partition_name system "
+                 "--internal_release_string \"\" ",
+                 system_path.value().c_str(),
+                 system_partition_size);
+
+  GenerateVBMetaImage("vbmeta.img",
+                      "SHA256_RSA2048",
+                      0,
+                      base::FilePath("test/data/testkey_rsa2048.pem"),
+                      base::StringPrintf("--include_descriptors_from_image %s "
+                                         "--include_descriptors_from_image %s",
+                                         boot_path.value().c_str(),
+                                         system_path.value().c_str()));
+}
+
+TEST_F(AvbToolTest, VerifyImageWithHashAndHashtree) {
+  GenerateImageWithHashAndHashtreeSetup();
+
+  // Do two checks - one for system.img not sparse, and one where it
+  // is sparse.
+  for (int n = 0; n < 2; n++) {
+    EXPECT_COMMAND(0,
+                   "./avbtool verify_image "
+                   "--image %s ",
+                   vbmeta_image_path_.value().c_str());
+    if (n == 0) {
+      EXPECT_COMMAND(0,
+                     "img2simg %s %s.sparse",
+                     testdir_.Append("system.img").value().c_str(),
+                     testdir_.Append("system.img").value().c_str());
+      EXPECT_COMMAND(0,
+                     "mv %s.sparse %s",
+                     testdir_.Append("system.img").value().c_str(),
+                     testdir_.Append("system.img").value().c_str());
+    }
+  }
+}
+
+TEST_F(AvbToolTest, VerifyImageWithHashAndHashtreeCorruptHash) {
+  GenerateImageWithHashAndHashtreeSetup();
+
+  // Corrupt four bytes of data in the middle of boot.img.
+  uint8_t corrupt_data[4] = {0xff, 0xff, 0xff, 0xff};
+  EXPECT_EQ(AVB_IO_RESULT_OK,
+            ops_.avb_ops()->write_to_partition(ops_.avb_ops(),
+                                               "boot",
+                                               105 * 1024,  // offset from start
+                                               sizeof corrupt_data,
+                                               corrupt_data));
+
+  EXPECT_COMMAND(1,
+                 "./avbtool verify_image "
+                 "--image %s ",
+                 vbmeta_image_path_.value().c_str());
+}
+
+TEST_F(AvbToolTest, VerifyImageWithHashAndHashtreeCorruptHashtree) {
+  GenerateImageWithHashAndHashtreeSetup();
+
+  // Corrupt four bytes of data in the middle of system.img.
+  uint8_t corrupt_data[4] = {0xff, 0xff, 0xff, 0xff};
+  EXPECT_EQ(AVB_IO_RESULT_OK,
+            ops_.avb_ops()->write_to_partition(ops_.avb_ops(),
+                                               "system",
+                                               123 * 1024,  // offset from start
+                                               sizeof corrupt_data,
+                                               corrupt_data));
+
+  // Do two checks - one for system.img not sparse, and one where it
+  // is sparse.
+  for (int n = 0; n < 2; n++) {
+    EXPECT_COMMAND(1,
+                   "./avbtool verify_image "
+                   "--image %s ",
+                   vbmeta_image_path_.value().c_str());
+    if (n == 0) {
+      EXPECT_COMMAND(0,
+                     "img2simg %s %s.sparse",
+                     testdir_.Append("system.img").value().c_str(),
+                     testdir_.Append("system.img").value().c_str());
+      EXPECT_COMMAND(0,
+                     "mv %s.sparse %s",
+                     testdir_.Append("system.img").value().c_str(),
+                     testdir_.Append("system.img").value().c_str());
+    }
+  }
+}
+
+TEST_F(AvbToolTest, VerifyImageChainPartition) {
+  base::FilePath pk4096_path = testdir_.Append("testkey_rsa4096.avbpubkey");
+  EXPECT_COMMAND(
+      0,
+      "./avbtool extract_public_key --key test/data/testkey_rsa4096.pem"
+      " --output %s",
+      pk4096_path.value().c_str());
+
+  base::FilePath pk8192_path = testdir_.Append("testkey_rsa8192.avbpubkey");
+  EXPECT_COMMAND(
+      0,
+      "./avbtool extract_public_key --key test/data/testkey_rsa8192.pem"
+      " --output %s",
+      pk8192_path.value().c_str());
+
+  GenerateVBMetaImage("vbmeta.img",
+                      "SHA256_RSA2048",
+                      0,
+                      base::FilePath("test/data/testkey_rsa2048.pem"),
+                      base::StringPrintf("--chain_partition system:1:%s ",
+                                         pk4096_path.value().c_str()));
+
+  // Should not fail (name, rollback_index, contents all correct).
+  EXPECT_COMMAND(0,
+                 "./avbtool verify_image "
+                 "--image %s "
+                 "--expected_chain_partition system:1:%s",
+                 vbmeta_image_path_.value().c_str(),
+                 pk4096_path.value().c_str());
+
+  // Should fail because we didn't use --expected_chain_partition.
+  EXPECT_COMMAND(1,
+                 "./avbtool verify_image "
+                 "--image %s ",
+                 vbmeta_image_path_.value().c_str());
+
+  // Should fail because partition name is wrong.
+  EXPECT_COMMAND(1,
+                 "./avbtool verify_image "
+                 "--image %s "
+                 "--expected_chain_partition xyz:1:%s",
+                 vbmeta_image_path_.value().c_str(),
+                 pk4096_path.value().c_str());
+
+  // Should fail because rollback index location is wrong.
+  EXPECT_COMMAND(1,
+                 "./avbtool verify_image "
+                 "--image %s "
+                 "--expected_chain_partition system:2:%s",
+                 vbmeta_image_path_.value().c_str(),
+                 pk4096_path.value().c_str());
+
+  // Should fail because public key blob is wrong.
+  EXPECT_COMMAND(1,
+                 "./avbtool verify_image "
+                 "--image %s "
+                 "--expected_chain_partition system:1:%s",
+                 vbmeta_image_path_.value().c_str(),
+                 pk8192_path.value().c_str());
+}
+
+TEST_F(AvbToolTest, PrintRequiredLibavbVersion) {
+  base::FilePath output_path = testdir_.Append("versions.txt");
+
+  const size_t boot_partition_size = 16 * 1024 * 1024;
+  EXPECT_COMMAND(0,
+                 "./avbtool add_hash_footer"
+                 " --rollback_index 0"
+                 " --partition_name boot"
+                 " --partition_size %zd"
+                 " --salt deadbeef"
+                 " --internal_release_string \"\""
+                 " --print_required_libavb_version >> %s",
+                 boot_partition_size,
+                 output_path.value().c_str());
+
+  const size_t system_partition_size = 10 * 1024 * 1024;
+  EXPECT_COMMAND(0,
+                 "./avbtool add_hashtree_footer --salt d00df00d "
+                 "--partition_size %zd --partition_name system "
+                 "--internal_release_string \"\""
+                 " --print_required_libavb_version >> %s",
+                 system_partition_size,
+                 output_path.value().c_str());
+
+  EXPECT_COMMAND(0,
+                 "./avbtool make_vbmeta_image "
+                 "--algorithm SHA256_RSA2048 "
+                 "--key test/data/testkey_rsa2048.pem "
+                 "--internal_release_string \"\""
+                 " --print_required_libavb_version >> %s",
+                 output_path.value().c_str());
+
+  // Check that "1.0\n" was printed for all three invocations.
+  std::string versions;
+  ASSERT_TRUE(base::ReadFileToString(output_path, &versions));
+  EXPECT_EQ(versions, std::string("1.0\n1.0\n1.0\n"));
 }
 
 TEST_F(AvbToolTest, MakeAtxPikCertificate) {

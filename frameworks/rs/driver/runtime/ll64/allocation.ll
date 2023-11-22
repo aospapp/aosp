@@ -82,10 +82,11 @@ define <3 x i8> @rsGetElementAtImpl_char3(%struct.rs_allocation* nocapture reado
 }
 
 !24 = !{!"char4", !15}
-define void @rsSetElementAtImpl_char4(%struct.rs_allocation* nocapture readonly %a, <4 x i8> %val, i32 %x, i32 %y, i32 %z) #1 {
+define void @rsSetElementAtImpl_char4(%struct.rs_allocation* nocapture readonly %a, i32 %val, i32 %x, i32 %y, i32 %z) #1 {
   %1 = tail call i8* @rsOffset(%struct.rs_allocation* %a, i32 4, i32 %x, i32 %y, i32 %z) #2
   %2 = bitcast i8* %1 to <4 x i8>*
-  store <4 x i8> %val, <4 x i8>* %2, align 4, !tbaa !24
+  %3 = bitcast i32 %val to <4 x i8>
+  store <4 x i8> %3, <4 x i8>* %2, align 4, !tbaa !24
   ret void
 }
 
@@ -144,10 +145,11 @@ define <3 x i8> @rsGetElementAtImpl_uchar3(%struct.rs_allocation* nocapture read
 }
 
 !28 = !{!"uchar4", !15}
-define void @rsSetElementAtImpl_uchar4(%struct.rs_allocation* nocapture readonly %a, <4 x i8> %val, i32 %x, i32 %y, i32 %z) #1 {
+define void @rsSetElementAtImpl_uchar4(%struct.rs_allocation* nocapture readonly %a, i32 %val, i32 %x, i32 %y, i32 %z) #1 {
   %1 = tail call i8* @rsOffset(%struct.rs_allocation* %a, i32 4, i32 %x, i32 %y, i32 %z) #2
   %2 = bitcast i8* %1 to <4 x i8>*
-  store <4 x i8> %val, <4 x i8>* %2, align 4, !tbaa !28
+  %3 = bitcast i32 %val to <4 x i8>
+  store <4 x i8> %3, <4 x i8>* %2, align 4, !tbaa !28
   ret void
 }
 
@@ -174,10 +176,11 @@ define signext i16 @rsGetElementAtImpl_short(%struct.rs_allocation* nocapture re
 }
 
 !30 = !{!"short2", !15}
-define void @rsSetElementAtImpl_short2(%struct.rs_allocation* nocapture readonly %a, <2 x i16> %val, i32 %x, i32 %y, i32 %z) #1 {
+define void @rsSetElementAtImpl_short2(%struct.rs_allocation* nocapture readonly %a, i32 %val, i32 %x, i32 %y, i32 %z) #1 {
   %1 = tail call i8* @rsOffset(%struct.rs_allocation* %a, i32 4, i32 %x, i32 %y, i32 %z) #2
   %2 = bitcast i8* %1 to <2 x i16>*
-  store <2 x i16> %val, <2 x i16>* %2, align 4, !tbaa !30
+  %3 = bitcast i32 %val to <2 x i16>
+  store <2 x i16> %3, <2 x i16>* %2, align 4, !tbaa !30
   ret void
 }
 
@@ -237,10 +240,11 @@ define zeroext i16 @rsGetElementAtImpl_ushort(%struct.rs_allocation* nocapture r
 }
 
 !34 = !{!"ushort2", !15}
-define void @rsSetElementAtImpl_ushort2(%struct.rs_allocation* nocapture readonly %a, <2 x i16> %val, i32 %x, i32 %y, i32 %z) #1 {
+define void @rsSetElementAtImpl_ushort2(%struct.rs_allocation* nocapture readonly %a, i32 %val, i32 %x, i32 %y, i32 %z) #1 {
   %1 = tail call i8* @rsOffset(%struct.rs_allocation* %a, i32 4, i32 %x, i32 %y, i32 %z) #2
   %2 = bitcast i8* %1 to <2 x i16>*
-  store <2 x i16> %val, <2 x i16>* %2, align 4, !tbaa !34
+  %3 = bitcast i32 %val to <2 x i16>
+  store <2 x i16> %3, <2 x i16>* %2, align 4, !tbaa !34
   ret void
 }
 
@@ -685,10 +689,11 @@ define half @rsGetElementAtImpl_half(%struct.rs_allocation* nocapture readonly %
 }
 
 !62 = !{!"half2", !15}
-define void @rsSetElementAtImpl_half2(%struct.rs_allocation* nocapture readonly %a.coerce, <2 x half> %val, i32 %x, i32 %y, i32 %z) #1 {
+define void @rsSetElementAtImpl_half2(%struct.rs_allocation* nocapture readonly %a.coerce, i32 %val, i32 %x, i32 %y, i32 %z) #1 {
   %1 = tail call i8* @rsOffset(%struct.rs_allocation* %a.coerce, i32 4, i32 %x, i32 %y, i32 %z) #2
   %2 = bitcast i8* %1 to <2 x half>*
-  store <2 x half> %val, <2 x half>* %2, align 4, !tbaa !62
+  %3 = bitcast i32 %val to <2 x half>
+  store <2 x half> %3, <2 x half>* %2, align 4, !tbaa !62
   ret void
 }
 
@@ -1026,10 +1031,11 @@ define void @__rsAllocationVStoreXImpl_short3(%struct.rs_allocation* nocapture r
   store <3 x i16> %4, <3 x i16>* %2, align 2
   ret void
 }
-define void @__rsAllocationVStoreXImpl_short2(%struct.rs_allocation* nocapture readonly %a, <2 x i16> %val, i32 %x, i32 %y, i32 %z) #1 {
+define void @__rsAllocationVStoreXImpl_short2(%struct.rs_allocation* nocapture readonly %a, i32 %val, i32 %x, i32 %y, i32 %z) #1 {
   %1 = tail call i8* @rsOffsetNs(%struct.rs_allocation* %a, i32 %x, i32 %y, i32 %z) #2
   %2 = bitcast i8* %1 to <2 x i16>*
-  store <2 x i16> %val, <2 x i16>* %2, align 2
+  %3 = bitcast i32 %val to <2 x i16>
+  store <2 x i16> %3, <2 x i16>* %2, align 2
   ret void
 }
 
@@ -1047,17 +1053,19 @@ define void @__rsAllocationVStoreXImpl_ushort3(%struct.rs_allocation* nocapture 
   store <3 x i16> %4, <3 x i16>* %2, align 2
   ret void
 }
-define void @__rsAllocationVStoreXImpl_ushort2(%struct.rs_allocation* nocapture readonly %a, <2 x i16> %val, i32 %x, i32 %y, i32 %z) #1 {
+define void @__rsAllocationVStoreXImpl_ushort2(%struct.rs_allocation* nocapture readonly %a, i32 %val, i32 %x, i32 %y, i32 %z) #1 {
   %1 = tail call i8* @rsOffsetNs(%struct.rs_allocation* %a, i32 %x, i32 %y, i32 %z) #2
   %2 = bitcast i8* %1 to <2 x i16>*
-  store <2 x i16> %val, <2 x i16>* %2, align 2
+  %3 = bitcast i32 %val to <2 x i16>
+  store <2 x i16> %3, <2 x i16>* %2, align 2
   ret void
 }
 
-define void @__rsAllocationVStoreXImpl_char4(%struct.rs_allocation* nocapture readonly %a, <4 x i8> %val, i32 %x, i32 %y, i32 %z) #1 {
+define void @__rsAllocationVStoreXImpl_char4(%struct.rs_allocation* nocapture readonly %a, i32 %val, i32 %x, i32 %y, i32 %z) #1 {
   %1 = tail call i8* @rsOffsetNs(%struct.rs_allocation* %a, i32 %x, i32 %y, i32 %z) #2
   %2 = bitcast i8* %1 to <4 x i8>*
-  store <4 x i8> %val, <4 x i8>* %2, align 1
+  %3 = bitcast i32 %val to <4 x i8>
+  store <4 x i8> %3, <4 x i8>* %2, align 1
   ret void
 }
 define void @__rsAllocationVStoreXImpl_char3(%struct.rs_allocation* nocapture readonly %a, i32 %val, i32 %x, i32 %y, i32 %z) #1 {
@@ -1076,10 +1084,11 @@ define void @__rsAllocationVStoreXImpl_char2(%struct.rs_allocation* nocapture re
   ret void
 }
 
-define void @__rsAllocationVStoreXImpl_uchar4(%struct.rs_allocation* nocapture readonly %a, <4 x i8> %val, i32 %x, i32 %y, i32 %z) #1 {
+define void @__rsAllocationVStoreXImpl_uchar4(%struct.rs_allocation* nocapture readonly %a, i32 %val, i32 %x, i32 %y, i32 %z) #1 {
   %1 = tail call i8* @rsOffsetNs(%struct.rs_allocation* %a, i32 %x, i32 %y, i32 %z) #2
   %2 = bitcast i8* %1 to <4 x i8>*
-  store <4 x i8> %val, <4 x i8>* %2, align 1
+  %3 = bitcast i32 %val to <4 x i8>
+  store <4 x i8> %3, <4 x i8>* %2, align 1
   ret void
 }
 define void @__rsAllocationVStoreXImpl_uchar3(%struct.rs_allocation* nocapture readonly %a, i32 %val, i32 %x, i32 %y, i32 %z) #1 {

@@ -19,20 +19,18 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="bt_app_name" msgid="5515382901862469770">"Тјунер за ТВ"</string>
     <string name="ut_app_name" msgid="8557698013780762454">"USB тјунер за ТВ"</string>
-    <string name="ut_setup_on" msgid="7755608253387551795">"Укључи"</string>
-    <string name="ut_setup_off" msgid="1333878787059290524">"Искључи"</string>
+    <string name="nt_app_name" msgid="4627006858832620833">"Мрежни тјунер за ТВ (BETA)"</string>
     <string name="ut_setup_cancel" msgid="5318292052302751909">"Сачекајте да се заврши обрада"</string>
-    <string name="ut_select_channel_map" msgid="4831940000362338865">"Изаберите извор канала"</string>
-    <string name="ut_no_signal" msgid="7390099185275997984">"Нема сигнала"</string>
-    <string name="ut_fail_to_tune" msgid="2964582177222053143">"Укључивање канала <xliff:g id="CHANNEL_NAME">%s</xliff:g> није успело"</string>
-    <string name="ut_fail_to_tune_to_unknown_channel" msgid="7078953579048783762">"Укључивање канала није успело"</string>
     <string name="ut_rescan_needed" msgid="2273655435759849436">"Софтвер тјунера је недавно ажуриран. Претражите канале поново."</string>
     <string name="ut_surround_sound_disabled" msgid="6465044734143962900">"Омогући звучни систем у подешавањима звука да бисте омогућили аудио"</string>
+    <string name="audio_passthrough_not_supported" msgid="8766302073295760976">"Звук не може да се пусти. Испробајте други ТВ уређај"</string>
     <string name="ut_setup_breadcrumb" msgid="2810318605327367247">"Подешавање тјунера за канале"</string>
     <string name="bt_setup_new_title" msgid="8447554965697762891">"Подешавање тјунера за ТВ"</string>
     <string name="ut_setup_new_title" msgid="2118880835101453405">"Подешавање USB тјунера за канале"</string>
+    <string name="nt_setup_new_title" msgid="2996573474450060002">"Подешавање мрежног тјунера"</string>
     <string name="bt_setup_new_description" msgid="256690722062003128">"Проверите да ли је ТВ повезан са извором ТВ сигнала.\n\nАко користите антену за сигнал преко мреже, можда треба да прилагодите њен положај или смер да бисте имали највише канала. Ако желите најбоље резултате, поставите је високо и близу прозора."</string>
     <string name="ut_setup_new_description" msgid="2610122936163002137">"Проверите да ли је USB тјунер прикључен и повезан са извором ТВ сигнала.\n\nАко користите антену за сигнал преко мреже, можда треба да прилагодите њен положај или смер да бисте имали највише канала. Ако желите најбоље резултате, поставите је високо и близу прозора."</string>
+    <string name="nt_setup_new_description" msgid="8315318180352515751">"Проверите да ли је мрежни тјунер укључен и повезан са извором ТВ сигнала.\n\nАко користите антену за сигнал преко мреже, можда треба да прилагодите њен положај или смер да бисте имали највише канала. Ако желите најбоље резултате, поставите је високо и близу прозора."</string>
   <string-array name="ut_setup_new_choices">
     <item msgid="8728069574888601683">"Настави"</item>
     <item msgid="727245208787621142">"Не сада"</item>
@@ -40,6 +38,7 @@
     <string name="bt_setup_again_title" msgid="884713873101099572">"Желите ли да поново покренете подешавање канала?"</string>
     <string name="bt_setup_again_description" msgid="1247792492948741337">"На овај начин уклањате канале пронађене помоћу тјунера за ТВ и поново тражите нове канале.\n\nПроверите да ли је ТВ повезан са извором ТВ сигнала.\n\nАко користите антену за сигнал преко мреже, можда треба да прилагодите њен положај или смер да бисте имали највише канала. Ако желите најбоље резултате, поставите је високо и близу прозора."</string>
     <string name="ut_setup_again_description" msgid="7837706010887799255">"На овај начин уклањате канале пронађене помоћу USB тјунера и поново тражите нове канале.\n\nПроверите да ли је USB тјунер прикључен и повезан са извором ТВ сигнала.\n\nАко користите антену за сигнал преко мреже, можда треба да прилагодите њен положај или смер да бисте имали највише канала. Ако желите најбоље резултате, поставите је високо и близу прозора."</string>
+    <string name="nt_setup_again_description" msgid="681642895365018072">"На овај начин уклањате канале пронађене помоћу мрежног тјунера и поново скенирате нове канале.\n\nПроверите да ли је мрежни тјунер укључен и повезан са извором ТВ сигнала.\n\nАко користите антену за сигнал преко мреже, можда треба да прилагодите њен положај или смер да бисте имали највише канала. Ако желите најбоље резултате, поставите је високо и близу прозора."</string>
   <string-array name="ut_setup_again_choices">
     <item msgid="2557527790311851317">"Настави"</item>
     <item msgid="235450158666155406">"Откажи"</item>
@@ -54,6 +53,7 @@
   </string-array>
     <string name="bt_channel_scan" msgid="3291924771702347469">"Подешавање тјунера за ТВ"</string>
     <string name="ut_channel_scan" msgid="6100090671500464604">"Подешавање USB тјунера за канале"</string>
+    <string name="nt_channel_scan" msgid="30206992732534178">"Подешавање мрежног тјунера за канале"</string>
     <string name="ut_channel_scan_time" msgid="1844845425359642393">"Ово може да потраје неколико минута"</string>
     <string name="ut_channel_scan_tuner_unavailable" msgid="3135723754380409658">"Тјунер привремено није доступан или се већ користи за снимање."</string>
     <plurals name="ut_channel_scan_message" formatted="false" msgid="3131606783282632056">
@@ -79,12 +79,15 @@
     <string name="ut_result_not_found_title" msgid="4649533929056795595">"Није пронађен ниједан канал"</string>
     <string name="bt_result_not_found_description" msgid="7378208337325024042">"Претрагом није пронађен ниједан канал. Проверите да ли је ТВ повезан са извором ТВ сигнала.\n\nАко користите антену за сигнал преко мреже, прилагодите њен положај или смер. Ако желите најбоље резултате, поставите је високо и близу прозора, па поново обавите претрагу."</string>
     <string name="ut_result_not_found_description" msgid="1080746285957681414">"Претрагом није пронађен ниједан канал. Проверите да ли је USB тјунер прикључен и повезан са извором ТВ сигнала.\n\nАко користите антену за сигнал преко мреже, прилагодите њен положај или смер. Ако желите најбоље резултате, поставите је високо и близу прозора, па поново обавите претрагу."</string>
+    <string name="nt_result_not_found_description" msgid="2177919867285510855">"Скенирањем није пронађен ниједан канал. Проверите да ли је мрежни тјунер укључен и повезан са извором ТВ сигнала.\n\nАко користите антену за сигнал преко мреже, прилагодите њен положај или смер. Ако желите најбоље резултате, поставите је високо и близу прозора, па поново обавите скенирање."</string>
   <string-array name="ut_result_not_found_choices">
     <item msgid="5436884968471542030">"Претражи поново"</item>
     <item msgid="2092797862490235174">"Готово"</item>
   </string-array>
-    <string name="ut_setup_recommendation_card_focused_title" msgid="7434151993964505386">"Потражите ТВ канале"</string>
-    <string name="bt_setup_recommendation_card_title" msgid="1026906771141769829">"Подешавање тјунера за ТВ"</string>
-    <string name="ut_setup_recommendation_card_title" msgid="1093869817128338226">"Подешавање USB тјунера за ТВ"</string>
-    <string name="msg_usb_device_detached" msgid="5123930566630230724">"USB тјунер за ТВ није прикључен."</string>
+    <string name="ut_setup_notification_content_title" msgid="3439301313253273422">"Потражите ТВ канале"</string>
+    <string name="bt_setup_notification_content_text" msgid="7578820978070596694">"Подешавање тјунера за ТВ"</string>
+    <string name="ut_setup_notification_content_text" msgid="1656697878628557384">"Подешавање USB тјунера за ТВ"</string>
+    <string name="nt_setup_notification_content_text" msgid="1186152789699583895">"Подешавање мрежног тјунера за ТВ"</string>
+    <string name="msg_usb_tuner_disconnected" msgid="1206606328815245830">"USB тјунер за ТВ није прикључен."</string>
+    <string name="msg_network_tuner_disconnected" msgid="7103193099674978964">"Мрежни тјунер није прикључен."</string>
 </resources>

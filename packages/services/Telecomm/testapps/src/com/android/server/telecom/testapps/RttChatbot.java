@@ -116,7 +116,12 @@ public class RttChatbot {
         mHandler = new ReplyHandler(ht.getLooper());
         mReceiverThread = new Thread(() -> {
             while (true) {
-                String charsReceived = mRttTextStream.read();
+                String charsReceived;
+                try {
+                    charsReceived = mRttTextStream.read();
+                } catch (IOException e) {
+                    break;
+                }
                 if (charsReceived == null) {
                     if (Thread.currentThread().isInterrupted()) {
                         Log.w(LOG_TAG, "Thread interrupted");

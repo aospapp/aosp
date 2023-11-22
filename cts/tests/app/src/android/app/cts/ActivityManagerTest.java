@@ -283,13 +283,13 @@ public class ActivityManagerTest extends InstrumentationTestCase {
         // Test illegal parameter
         List<RunningServiceInfo> runningServiceInfo;
         runningServiceInfo = mActivityManager.getRunningServices(-1);
-        assertTrue(runningServiceInfo.size() == 0);
+        assertTrue(runningServiceInfo.isEmpty());
 
         runningServiceInfo = mActivityManager.getRunningServices(0);
-        assertTrue(runningServiceInfo.size() == 0);
+        assertTrue(runningServiceInfo.isEmpty());
 
         runningServiceInfo = mActivityManager.getRunningServices(5);
-        assertTrue(runningServiceInfo.size() >= 0 && runningServiceInfo.size() <= 5);
+        assertTrue(runningServiceInfo.size() <= 5);
 
         Intent intent = new Intent();
         intent.setClass(mInstrumentation.getTargetContext(), MockService.class);

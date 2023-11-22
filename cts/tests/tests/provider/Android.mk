@@ -26,17 +26,16 @@ LOCAL_MULTILIB := both
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
-LOCAL_JAVA_LIBRARIES := android.test.runner telephony-common
+LOCAL_JAVA_LIBRARIES := android.test.mock legacy-android-test telephony-common
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
     android-support-v4 \
     compatibility-device-util \
     ctstestrunner \
     ub-uiautomator \
-    junit \
-    legacy-android-test
+    junit
 
 LOCAL_JNI_SHARED_LIBRARIES := libcts_jni libnativehelper_compat_libc++
 

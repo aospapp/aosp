@@ -20,7 +20,6 @@
 #include <cstddef>
 #include <type_traits>
 
-#include "chre/util/fixed_size_vector.h"
 #include "chre/util/non_copyable.h"
 
 namespace chre {
@@ -83,12 +82,9 @@ class MemoryPool : public NonCopyable {
    * of the next free block in the same space.
    */
   union MemoryPoolBlock {
-    /**
-     * Construct a MemoryPoolBlock given the index of the next free block.
-     *
-     * @param The index of the next free block in the free list.
-     */
-    MemoryPoolBlock(size_t nextFreeBlockIndex);
+    //! Intentionally not destructing any leaked blocks, will consider doing
+    //! this differently later if required.
+    ~MemoryPoolBlock() = delete;
 
     //! The element stored in the slot.
     ElementType mElement;
@@ -97,8 +93,17 @@ class MemoryPool : public NonCopyable {
     size_t mNextFreeBlockIndex;
   };
 
-  //! A vector of memory pool blocks.
-  FixedSizeVector<MemoryPoolBlock, kSize> mBlocks;
+  /**
+   * Obtains a pointer to the underlying storage for the memory pool blocks.
+   *
+   * @return A pointer to the memory pool block storage.
+   */
+  MemoryPoolBlock *blocks();
+
+  //! Storage for memory pool blocks. To avoid static initialization of members,
+  //! std::aligned_storage is used.
+  typename std::aligned_storage<sizeof(MemoryPoolBlock),
+      alignof(MemoryPoolBlock)>::type mBlocks[kSize];
 
   //! The index of the head of the free slot list.
   size_t mNextFreeBlockIndex = 0;

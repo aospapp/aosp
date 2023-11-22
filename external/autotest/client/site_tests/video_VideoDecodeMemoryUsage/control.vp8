@@ -28,4 +28,4 @@ testcases = [
     ['OpenTabPlayVideo', [tp101_1080p]],
 ]
 
-job.run_test('video_VideoDecodeMemoryUsage', testcases=testcases)
+job.run_test('video_VideoDecodeMemoryUsage', testcases=testcases, tag='vp8')

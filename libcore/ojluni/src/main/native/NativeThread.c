@@ -30,13 +30,15 @@
 #include "jvm.h"
 #include "jlong.h"
 #include "nio_util.h"
-#include "JNIHelp.h"
+#include <nativehelper/JNIHelp.h>
 
 #ifdef __linux__
   #include <pthread.h>
   #include <sys/signal.h>
+  // Android-changed: Bionic (and AsynchronousCloseMonitor) expects libcore to use
+  // __SIGRTMIN + 2, not __SIGRTMAX - 2
   /* Also defined in net/linux_close.c */
-  #define INTERRUPT_SIGNAL (__SIGRTMAX - 2)
+  #define INTERRUPT_SIGNAL (__SIGRTMIN + 2)
 #elif __solaris__
   #include <thread.h>
   #include <signal.h>

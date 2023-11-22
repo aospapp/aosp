@@ -1,6 +1,6 @@
 // OpenGL ES 2.0 code
 
-#include <nativehelper/jni.h>
+#include <jni.h>
 #define LOG_TAG "GL2JNI gl_code.cpp"
 #include <utils/Log.h>
 
@@ -153,12 +153,12 @@ extern "C" {
     JNIEXPORT void JNICALL Java_com_android_gldual_GLDualLib_step(JNIEnv * env, jobject obj);
 };
 
-JNIEXPORT void JNICALL Java_com_android_gldual_GLDualLib_init(JNIEnv * env, jobject obj, jint width, jint height)
+JNIEXPORT void JNICALL Java_com_android_gldual_GLDualLib_init(JNIEnv * /*env*/, jobject /*obj*/, jint width, jint height)
 {
     setupGraphics(width, height);
 }
 
-JNIEXPORT void JNICALL Java_com_android_gldual_GLDualLib_step(JNIEnv * env, jobject obj)
+JNIEXPORT void JNICALL Java_com_android_gldual_GLDualLib_step(JNIEnv * /*env*/, jobject /*obj*/)
 {
     renderFrame();
 }

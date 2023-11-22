@@ -19,23 +19,37 @@
 
     <!-- General styles -->
 
-    <style name="SuwThemeGlifPixel" parent="SuwThemeGlif">
+    <style name="SuwThemeGlifV2" parent="SuwThemeGlif">
+        <item name="android:colorBackground">@color/suw_glif_background_color_dark</item>
         <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
 
         <item name="suwBackgroundBaseColor">?android:attr/colorBackground</item>
         <item name="suwBackgroundPatterned">false</item>
+        <item name="suwDividerInsetEnd">?attr/suwMarginSides</item>
+        <item name="suwDividerInsetStart">?attr/suwMarginSides</item>
+        <item name="suwDividerInsetStartNoIcon">?attr/suwMarginSides</item>
         <item name="suwGlifHeaderGravity">center_horizontal</item>
         <item name="suwScrollIndicators">top|bottom</item>
     </style>
 
-    <style name="SuwThemeGlifPixel.Light" parent="SuwThemeGlif.Light">
+    <!-- Deprecated. Use SuwThemeGlifV2 instead -->
+    <style name="SuwThemeGlifPixel" parent="SuwThemeGlifV2" />
+
+    <style name="SuwThemeGlifV2.Light" parent="SuwThemeGlif.Light">
+        <item name="android:colorBackground">@color/suw_glif_background_color_light</item>
         <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
 
         <item name="suwBackgroundBaseColor">?android:attr/colorBackground</item>
         <item name="suwBackgroundPatterned">false</item>
+        <item name="suwDividerInsetEnd">?attr/suwMarginSides</item>
+        <item name="suwDividerInsetStart">?attr/suwMarginSides</item>
+        <item name="suwDividerInsetStartNoIcon">?attr/suwMarginSides</item>
         <item name="suwGlifHeaderGravity">center_horizontal</item>
         <item name="suwScrollIndicators">top|bottom</item>
     </style>
+
+    <!-- Deprecated. Use SuwThemeGlifV2.Light instead -->
+    <style name="SuwThemeGlifPixel.Light" parent="SuwThemeGlifV2.Light" />
 
     <style name="Animation.SuwWindowAnimation" parent="@android:style/Animation.Activity">
         <item name="android:activityOpenEnterAnimation">@anim/suw_slide_next_in</item>
@@ -109,6 +123,21 @@
         <item name="android:gravity">top</item>
     </style>
 
+    <style name="SuwFillContentLayout">
+        <item name="android:minWidth">@dimen/suw_content_illustration_min_width</item>
+        <item name="android:minHeight">@dimen/suw_content_illustration_min_height</item>
+        <item name="android:maxWidth">@dimen/suw_content_illustration_max_width</item>
+        <item name="android:maxHeight">@dimen/suw_content_illustration_max_height</item>
+        <item name="android:paddingTop">@dimen/suw_content_illustration_padding_vertical</item>
+        <item name="android:paddingBottom">@dimen/suw_content_illustration_padding_vertical</item>
+    </style>
+
+    <!-- Ignore UnusedResources: used by clients -->
+    <style name="SuwContentIllustration" tools:ignore="UnusedResources">
+        <item name="android:layout_gravity">center</item>
+        <item name="android:scaleType">fitCenter</item>
+    </style>
+
     <!-- Card layout (for tablets) -->
 
     <style name="SuwBaseCardTitle">
@@ -160,7 +189,7 @@
 
     <!-- Use this style with a Button not a TextView, so that TalkBack will announce it as a
          button. -->
-    <style name="SuwGlifButton.Tertiary" parent="SuwGlifButton.Secondary">
+    <style name="SuwGlifButton.BaseTertiary" parent="SuwGlifButton.Secondary">
         <!-- This style can be applied to a button either as a "style" in XML, or as a theme in
              ContextThemeWrapper. These self-referencing attributes make sure this is applied as
              both to the button. -->
@@ -169,23 +198,32 @@
 
         <item name="android:background">@null</item>
         <item name="android:fontFamily" tools:targetApi="jelly_bean">sans-serif</item>
+        <item name="android:layout_gravity">?attr/suwGlifHeaderGravity</item>
         <item name="android:padding">0dp</item>
         <item name="android:textAllCaps" tools:targetApi="ice_cream_sandwich">false</item>
     </style>
 
+    <style name="SuwGlifButton.Tertiary" parent="SuwGlifButton.BaseTertiary" />
+
     <!-- The start and end paddings are asymmetric because start buttons are borderless buttons
          which aligns the text label. -->
     <style name="SuwGlifButtonBar">
+        <item name="android:baselineAligned">false</item>
         <item name="android:clipChildren">false</item>
         <item name="android:clipToPadding">false</item>
         <item name="android:gravity">center_vertical</item>
         <item name="android:minHeight">@dimen/suw_glif_footer_min_height</item>
         <item name="android:orientation">horizontal</item>
-        <item name="android:paddingBottom">@dimen/suw_glif_footer_bottom_padding</item>
+        <item name="android:paddingTop">@dimen/suw_glif_footer_padding_vertical</item>
+        <item name="android:paddingBottom">@dimen/suw_glif_footer_padding_vertical</item>
         <item name="android:paddingEnd" tools:ignore="NewApi">@dimen/suw_glif_button_margin_end</item>
         <item name="android:paddingLeft">@dimen/suw_glif_button_margin_start</item>
         <item name="android:paddingRight">@dimen/suw_glif_button_margin_end</item>
         <item name="android:paddingStart" tools:ignore="NewApi">@dimen/suw_glif_button_margin_start</item>
+    </style>
+
+    <style name="SuwGlifButtonBar.Stackable" parent="SuwGlifButtonBar">
+        <item name="android:gravity">center</item>
     </style>
 
     <!-- Items styles -->
@@ -206,7 +244,7 @@
         <item name="android:paddingTop">@dimen/suw_items_verbose_padding_vertical</item>
     </style>
 
-    <style name="SuwItemTitle.Description" parent="SuwItemTitle">
+    <style name="SuwItemTitle.GlifDescription" parent="SuwItemTitle">
         <item name="android:gravity">?attr/suwGlifHeaderGravity</item>
         <item name="android:textAlignment" tools:targetApi="jelly_bean_mr1">gravity</item>
     </style>
@@ -228,6 +266,7 @@
         <item name="android:layout_marginLeft">?attr/suwMarginSides</item>
         <item name="android:layout_marginRight">?attr/suwMarginSides</item>
         <item name="android:layout_marginTop">@dimen/suw_glif_header_title_margin_top</item>
+        <item name="android:fontFamily" tools:targetApi="jelly_bean">google-sans</item>
         <item name="android:textAlignment" tools:targetApi="jelly_bean_mr1">gravity</item>
         <item name="android:textColor">?android:attr/textColorPrimary</item>
     </style>

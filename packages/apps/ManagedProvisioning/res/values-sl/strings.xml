@@ -27,9 +27,9 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"Ta aplikacija bo morala dostopati do tega profila:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Ta aplikacija bo upravljala napravo:"</string>
     <string name="next" msgid="1004321437324424398">"Naprej"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"Nastavljanje delovnega profila …"</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"Nastavljanje delovnega profila …"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"Skrbnik lahko nadzira in upravlja nastavitve, dostop za podjetje, aplikacije, dovoljenja in podatke, povezane s tem profilom, vključno z omrežno dejavnostjo, podatki o lokaciji naprave, zgodovino klicev in zgodovino iskanja stikov.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Za več informacij, vključno s pravilniki organizacije o zasebnosti, se obrnite na skrbnika."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"Skrbnik lahko nadzira in upravlja nastavitve, dostop za podjetje, aplikacije, dovoljenja in podatke, povezane s to napravo, vključno z omrežno dejavnostjo, podatki o lokaciji naprave, zgodovino klicev in zgodovino iskanja stikov.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Za več informacij, vključno s pravilniki organizacije o zasebnosti, se obrnite na skrbnika."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"Skrbnik lahko nadzira in upravlja nastavitve, dostop za podjetje, aplikacije, dovoljenja in podatke, povezane s to napravo, vključno z omrežno dejavnostjo, podatki o lokaciji naprave, zgodovino klicev in zgodovino iskanja stikov.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Za več informacij, vključno s pravilniki organizacije o zasebnosti, se obrnite na skrbnika."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Za uporabo funkcij za zaščito pred krajo morate imeti v napravi nastavljeno zaklepanje zaslona z geslom."</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Za več informacij, vključno s pravilniki organizacije o zasebnosti, se obrnite na skrbnika."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Več o tem"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Delovni profil"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"Primarni uporabnik"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Želite izbrisati obstoječi profil?"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"Delovni profil že imate. Upravlja ga ta aplikacija:"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Delovni profil že imate. Upravlja ga ta aplikacija:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Preden nadaljujete, "<a href="#read_this_link">"preberite to"</a>"."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Če nadaljujete, bodo izbrisane vse aplikacije in podatki v tem profilu."</string>
     <string name="delete_profile" msgid="2299218578684663459">"Izbriši"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"Če želite nadaljevati z nastavljanjem delovnega profila, se dotaknite"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Delovnega profila ni bilo mogoče nastaviti. Obrnite se na oddelek za IT ali poskusite znova pozneje."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Delovnega profila ni mogoče dodati"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"Ta uporabnik ne more imeti delovnega profila. Za pomoč se obrnite na skrbnika."</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"Ta uporabnik ne more imeti delovnih profilov. Obrnite se na skrbnika."</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"Delovnih profilov ni mogoče nastaviti v upravljani napravi"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"V tej napravi je morda preveč uporabnikov. Odstranite uporabnika in poskusite znova."</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Delovnega profila ni mogoče zamenjati ali odstraniti"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"Delovnega profila ni mogoče dodati v to napravo. Če imate vprašanja, se obrnite na skrbnika."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Spremenite zaganjalnik naprave"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Delovni profil ne more uporabljati te aplikacije zaganjalnika"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Prekliči"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"V redu"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Nastavitev uporabnika ni dokončana"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Uporabnik delovne naprave"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"Nastavitev delovne naprave"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"Nastavljanje delovne naprave …"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Obdelava podatkov za nastavitev …"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Vzpostavljanje povezave z omrežjem Wi-Fi …"</string>
     <string name="progress_download" msgid="3522436271691064624">"Prenašanje skrbniške aplikacije …"</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"Prekliči"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"Ponastavitev naprave"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> in <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> in <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> in <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

@@ -231,7 +231,7 @@ public class ScoredNetworkEvaluatorTest {
                 scanDetails, scores, meteredHints);
 
         // No saved networks.
-        when(mWifiConfigManager.getSavedNetworkForScanDetailAndCache(any(ScanDetail.class)))
+        when(mWifiConfigManager.getConfiguredNetworkForScanDetailAndCache(any(ScanDetail.class)))
                 .thenReturn(null);
 
         ScanResult scanResult = scanDetails.get(1).getScanResult();
@@ -270,7 +270,7 @@ public class ScoredNetworkEvaluatorTest {
                 scanDetails, scores, meteredHints);
 
         // No saved networks.
-        when(mWifiConfigManager.getSavedNetworkForScanDetailAndCache(any(ScanDetail.class)))
+        when(mWifiConfigManager.getConfiguredNetworkForScanDetailAndCache(any(ScanDetail.class)))
                 .thenReturn(null);
 
         for (int i = 0; i < 2; i++) {
@@ -308,7 +308,7 @@ public class ScoredNetworkEvaluatorTest {
                 scanDetails, scores, meteredHints);
 
         // No saved networks.
-        when(mWifiConfigManager.getSavedNetworkForScanDetailAndCache(any(ScanDetail.class)))
+        when(mWifiConfigManager.getConfiguredNetworkForScanDetailAndCache(any(ScanDetail.class)))
                 .thenReturn(null);
 
         WifiNetworkSelectorTestUtil.setupEphemeralNetwork(
@@ -524,7 +524,7 @@ public class ScoredNetworkEvaluatorTest {
                 mScoreCache, scanDetails, null, meteredHints);
 
         // No saved networks.
-        when(mWifiConfigManager.getSavedNetworkForScanDetailAndCache(any(ScanDetail.class)))
+        when(mWifiConfigManager.getConfiguredNetworkForScanDetailAndCache(any(ScanDetail.class)))
                 .thenReturn(null);
 
         for (int i = 0; i < 2; i++) {

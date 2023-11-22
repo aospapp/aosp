@@ -6,4 +6,4 @@ export TARGET_BUILD_DENSITY="alldpi"
 export TARGET_BUILD_TYPE="release"
 export TARGET_BUILD_APPS="setup-wizard-lib"
 
-./gradlew
+./gradlew buildProjectFull test

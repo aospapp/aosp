@@ -20,9 +20,12 @@ import static android.inputmethodservice.cts.DeviceEvent.isFrom;
 import static android.inputmethodservice.cts.DeviceEvent.isType;
 import static android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType.TEST_START;
 
+import android.app.Instrumentation;
+import android.app.Activity;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Resources;
 import android.database.Cursor;
 import android.inputmethodservice.cts.DeviceEvent;
 import android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType;
@@ -54,6 +57,7 @@ final class TestHelper {
     private final ContentResolver mResolver;
     private final Context mTargetContext;
     private final UiDevice mUiDevice;
+    private final Instrumentation mInstrumentation;
 
     /**
      * Construct a helper object of specified test method.
@@ -66,7 +70,8 @@ final class TestHelper {
         mTestInfo = new TestInfo(testContext.getPackageName(), testClass.getName(), testMethod);
         mResolver = testContext.getContentResolver();
         mTargetContext = InstrumentationRegistry.getTargetContext();
-        mUiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mUiDevice = UiDevice.getInstance(mInstrumentation);
     }
 
     /**
@@ -102,6 +107,22 @@ final class TestHelper {
     UiObject2 findUiObject(@IdRes int resId) {
         final String resourceName = mTargetContext.getResources().getResourceName(resId);
         return mUiDevice.findObject(By.res(resourceName));
+    }
+
+    /**
+     * Launch test activity synchronously.
+     *
+     * @param packageName activity's app package name.
+     * @param className   activity's class name.
+     * @return instance of Activity
+     */
+    Activity launchActivitySync(final String packageName, final String className) {
+        final Intent intent = new Intent()
+                .setAction(Intent.ACTION_MAIN)
+                .setClassName(packageName, className)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        return mInstrumentation.startActivitySync(intent);
     }
 
     /**

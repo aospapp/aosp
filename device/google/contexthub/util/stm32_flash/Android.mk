@@ -25,7 +25,8 @@ LOCAL_SRC_FILES := \
         i2c.c \
         spi.c \
         stm32_bl.c \
-        stm32f4_crc.c
+        stm32f4_crc.c \
+        uart.c
 
 LOCAL_CFLAGS := -Wall -Werror -Wextra
 

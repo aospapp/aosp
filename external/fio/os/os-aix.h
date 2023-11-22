@@ -14,8 +14,6 @@
 #define FIO_USE_GENERIC_RAND
 #define FIO_USE_GENERIC_INIT_RANDOM_STATE
 
-#define FIO_HAVE_PSHARED_MUTEX
-
 #define OS_MAP_ANON		MAP_ANON
 #define OS_MSG_DONTWAIT		0
 
@@ -23,7 +21,7 @@
 
 static inline int blockdev_invalidate_cache(struct fio_file *f)
 {
-	return EINVAL;
+	return ENOTSUP;
 }
 
 static inline int blockdev_size(struct fio_file *f, unsigned long long *bytes)

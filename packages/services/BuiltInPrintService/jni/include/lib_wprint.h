@@ -206,6 +206,8 @@ typedef struct {
     const char *uri_path;
     const char *uri_scheme;
     int port_num;
+    /* Timeout per retry in milliseconds */
+    long timeout;
 } wprint_connect_info_t;
 
 /*
@@ -290,7 +292,7 @@ status_t wprintGetFinalJobParams(wprint_job_params_t *job_param,
 wJob_t wprintStartJob(const char *printer_addr, port_t port_num,
         const wprint_job_params_t *job_params, const printer_capabilities_t *printer_cap,
         const char *mime_type, const char *pathname, wprint_status_cb_t cb_fn,
-        const char *debugDir);
+        const char *debugDir, const char *scheme);
 
 /*
  * Sent once per job at the end of the job. A current print job must end for the next one

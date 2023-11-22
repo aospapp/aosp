@@ -23,10 +23,19 @@ import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.net.Uri;
 import android.os.SystemClock;
+import android.support.annotation.NonNull;
+import android.support.annotation.VisibleForTesting;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.android.tv.TvApplication;
+import com.android.tv.common.SoftPreconditions;
+import com.android.tv.common.TvCommonUtils;
+import com.android.tv.perf.EventNames;
+import com.android.tv.perf.PerformanceMonitor;
+import com.android.tv.perf.TimerEvent;
 import com.android.tv.util.PermissionUtils;
+import com.android.tv.util.TvUriMatcher;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -35,6 +44,9 @@ import java.util.List;
 public class LocalSearchProvider extends ContentProvider {
     private static final String TAG = "LocalSearchProvider";
     private static final boolean DEBUG = false;
+
+    /** The authority for LocalSearchProvider. */
+    public static final String AUTHORITY = "com.android.tv.search";
 
     public static final int PROGRESS_PERCENTAGE_HIDE = -1;
 
@@ -56,58 +68,93 @@ public class LocalSearchProvider extends ContentProvider {
     };
 
     private static final String EXPECTED_PATH_PREFIX = "/" + SearchManager.SUGGEST_URI_PATH_QUERY;
+    static final String SUGGEST_PARAMETER_ACTION = "action";
     // The launcher passes 10 as a 'limit' parameter by default.
-    private static final int DEFAULT_SEARCH_LIMIT = 10;
+    @VisibleForTesting
+    static final int DEFAULT_SEARCH_LIMIT = 10;
+    @VisibleForTesting
+    static final int DEFAULT_SEARCH_ACTION = SearchInterface.ACTION_TYPE_AMBIGUOUS;
 
     private static final String NO_LIVE_CONTENTS = "0";
     private static final String LIVE_CONTENTS = "1";
 
-    static final String SUGGEST_PARAMETER_ACTION = "action";
-    static final int DEFAULT_SEARCH_ACTION = SearchInterface.ACTION_TYPE_AMBIGUOUS;
+    private PerformanceMonitor mPerformanceMonitor;
+
+    /** Used only for testing */
+    private SearchInterface mSearchInterface;
 
     @Override
     public boolean onCreate() {
+        mPerformanceMonitor = TvApplication.getSingletons(getContext()).getPerformanceMonitor();
         return true;
     }
 
+    @VisibleForTesting
+    void setSearchInterface(SearchInterface searchInterface) {
+        SoftPreconditions.checkState(TvCommonUtils.isRunningInTest());
+        mSearchInterface = searchInterface;
+    }
+
     @Override
-    public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs,
-            String sortOrder) {
+    public Cursor query(@NonNull Uri uri, String[] projection, String selection,
+            String[] selectionArgs, String sortOrder) {
+        if (TvUriMatcher.match(uri) != TvUriMatcher.MATCH_ON_DEVICE_SEARCH) {
+            throw new IllegalArgumentException("Unknown URI: " + uri);
+        }
+        TimerEvent queryTimer = mPerformanceMonitor.startTimer();
         if (DEBUG) {
             Log.d(TAG, "query(" + uri + ", " + Arrays.toString(projection) + ", " + selection + ", "
                     + Arrays.toString(selectionArgs) + ", " + sortOrder + ")");
         }
         long time = SystemClock.elapsedRealtime();
-        SearchInterface search;
-        if (PermissionUtils.hasAccessAllEpg(getContext())) {
-            if (DEBUG) Log.d(TAG, "Performing TV Provider search.");
-            search = new TvProviderSearch(getContext());
-        } else {
-            if (DEBUG) Log.d(TAG, "Performing Data Manager search.");
-            search = new DataManagerSearch(getContext());
+        SearchInterface search = mSearchInterface;
+        if (search == null) {
+            if (PermissionUtils.hasAccessAllEpg(getContext())) {
+                if (DEBUG) Log.d(TAG, "Performing TV Provider search.");
+                search = new TvProviderSearch(getContext());
+            } else {
+                if (DEBUG) Log.d(TAG, "Performing Data Manager search.");
+                search = new DataManagerSearch(getContext());
+            }
         }
         String query = uri.getLastPathSegment();
-        int limit = DEFAULT_SEARCH_LIMIT;
-        int action = DEFAULT_SEARCH_ACTION;
-        try {
-            limit = Integer.parseInt(uri.getQueryParameter(SearchManager.SUGGEST_PARAMETER_LIMIT));
-            action = Integer.parseInt(uri.getQueryParameter(SUGGEST_PARAMETER_ACTION));
-        } catch (NumberFormatException | UnsupportedOperationException e) {
-            // Ignore the exceptions
+        int limit = getQueryParamater(uri, SearchManager.SUGGEST_PARAMETER_LIMIT,
+                DEFAULT_SEARCH_LIMIT);
+        if (limit <= 0) {
+            limit = DEFAULT_SEARCH_LIMIT;
+        }
+        int action = getQueryParamater(uri, SUGGEST_PARAMETER_ACTION, DEFAULT_SEARCH_ACTION);
+        if (action < SearchInterface.ACTION_TYPE_START
+                || action > SearchInterface.ACTION_TYPE_END) {
+            action = DEFAULT_SEARCH_ACTION;
         }
         List<SearchResult> results = new ArrayList<>();
         if (!TextUtils.isEmpty(query)) {
             results.addAll(search.search(query, limit, action));
         }
         Cursor c = createSuggestionsCursor(results);
-        if (DEBUG) Log.d(TAG, "Elapsed time: " + (SystemClock.elapsedRealtime() - time) + "(msec)");
+        if (DEBUG) {
+            Log.d(TAG, "Elapsed time(count=" + c.getCount() + "): "
+                    + (SystemClock.elapsedRealtime() - time) + "(msec)");
+        }
+        mPerformanceMonitor.stopTimer(queryTimer, EventNames.ON_DEVICE_SEARCH);
         return c;
+    }
+
+    private int getQueryParamater(Uri uri, String key, int defaultValue) {
+        try {
+            return Integer.parseInt(uri.getQueryParameter(key));
+        } catch (NumberFormatException | UnsupportedOperationException e) {
+            // Ignore the exceptions
+        }
+        return defaultValue;
     }
 
     private Cursor createSuggestionsCursor(List<SearchResult> results) {
         MatrixCursor cursor = new MatrixCursor(SEARCHABLE_COLUMNS, results.size());
         List<String> row = new ArrayList<>(SEARCHABLE_COLUMNS.length);
 
+        int index = 0;
         for (SearchResult result : results) {
             row.clear();
             row.add(result.title);
@@ -122,6 +169,7 @@ public class LocalSearchProvider extends ContentProvider {
             row.add(result.duration == 0 ? null : String.valueOf(result.duration));
             row.add(String.valueOf(result.progressPercentage));
             cursor.addRow(row);
+            if (DEBUG) Log.d(TAG, "Result[" + (++index) + "]: " + result);
         }
         return cursor;
     }
@@ -171,9 +219,20 @@ public class LocalSearchProvider extends ContentProvider {
 
         @Override
         public String toString() {
-            return "channelId: " + channelId +
-                    ", channelNumber: " + channelNumber +
-                    ", title: " + title;
+            return "SearchResult{channelId=" + channelId +
+                    ", channelNumber=" + channelNumber +
+                    ", title=" + title +
+                    ", description=" + description +
+                    ", imageUri=" + imageUri +
+                    ", intentAction=" + intentAction +
+                    ", intentData=" + intentData +
+                    ", contentType=" + contentType +
+                    ", isLive=" + isLive +
+                    ", videoWidth=" + videoWidth +
+                    ", videoHeight=" + videoHeight +
+                    ", duration=" + duration +
+                    ", progressPercentage=" + progressPercentage +
+                    "}";
         }
     }
 }

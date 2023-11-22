@@ -18,6 +18,7 @@
 
 #include <sstream>
 
+#include "base/logging.h"
 #include "base/stringpiece.h"
 #include "debugger.h"
 #include "gc/heap.h"
@@ -120,7 +121,7 @@ std::unique_ptr<RuntimeParser> ParsedOptions::MakeParser(bool ignore_unrecognize
           .WithType<double>().WithRange(0.1, 0.9)
           .IntoKey(M::HeapTargetUtilization)
       .Define("-XX:ForegroundHeapGrowthMultiplier=_")
-          .WithType<double>().WithRange(0.1, 1.0)
+          .WithType<double>().WithRange(0.1, 5.0)
           .IntoKey(M::ForegroundHeapGrowthMultiplier)
       .Define("-XX:ParallelGCThreads=_")
           .WithType<unsigned int>()
@@ -158,6 +159,10 @@ std::unique_ptr<RuntimeParser> ParsedOptions::MakeParser(bool ignore_unrecognize
           .WithType<bool>()
           .WithValueMap({{"false", false}, {"true", true}})
           .IntoKey(M::DumpNativeStackOnSigQuit)
+      .Define("-XX:MadviseRandomAccess:_")
+          .WithType<bool>()
+          .WithValueMap({{"false", false}, {"true", true}})
+          .IntoKey(M::MadviseRandomAccess)
       .Define("-Xusejit:_")
           .WithType<bool>()
           .WithValueMap({{"false", false}, {"true", true}})
@@ -238,6 +243,12 @@ std::unique_ptr<RuntimeParser> ParsedOptions::MakeParser(bool ignore_unrecognize
       .Define("-Xlockprofthreshold:_")
           .WithType<unsigned int>()
           .IntoKey(M::LockProfThreshold)
+      .Define("-Xstackdumplockprofthreshold:_")
+          .WithType<unsigned int>()
+          .IntoKey(M::StackDumpLockProfThreshold)
+      .Define("-Xusetombstonedtraces")
+          .WithValue(true)
+          .IntoKey(M::UseTombstonedTraces)
       .Define("-Xstacktracefile:_")
           .WithType<std::string>()
           .IntoKey(M::StackTraceFile)
@@ -303,6 +314,10 @@ std::unique_ptr<RuntimeParser> ParsedOptions::MakeParser(bool ignore_unrecognize
       .Define("-XX:ThreadSuspendTimeout=_")  // in ms
           .WithType<MillisecondsToNanoseconds>()  // store as ns
           .IntoKey(M::ThreadSuspendTimeout)
+      .Define("-XX:SlowDebug=_")
+          .WithType<bool>()
+          .WithValueMap({{"false", false}, {"true", true}})
+          .IntoKey(M::SlowDebug)
       .Ignore({
           "-ea", "-da", "-enableassertions", "-disableassertions", "--runtime-arg", "-esa",
           "-dsa", "-enablesystemassertions", "-disablesystemassertions", "-Xrs", "-Xint:_",
@@ -514,6 +529,8 @@ bool ParsedOptions::DoParse(const RuntimeOptions& options,
 
   MaybeOverrideVerbosity();
 
+  SetRuntimeDebugFlagsEnabled(args.Get(M::SlowDebug));
+
   // -Xprofile:
   Trace::SetDefaultClockSource(args.GetOrDefault(M::ProfileClock));
 
@@ -701,12 +718,14 @@ void ParsedOptions::Usage(const char* fmt, ...) {
   UsageMessage(stream, "  -XX:LargeObjectSpace={disabled,map,freelist}\n");
   UsageMessage(stream, "  -XX:LargeObjectThreshold=N\n");
   UsageMessage(stream, "  -XX:DumpNativeStackOnSigQuit=booleanvalue\n");
+  UsageMessage(stream, "  -XX:MadviseRandomAccess:booleanvalue\n");
+  UsageMessage(stream, "  -XX:SlowDebug={false,true}\n");
   UsageMessage(stream, "  -Xmethod-trace\n");
   UsageMessage(stream, "  -Xmethod-trace-file:filename");
   UsageMessage(stream, "  -Xmethod-trace-file-size:integervalue\n");
   UsageMessage(stream, "  -Xps-min-save-period-ms:integervalue\n");
   UsageMessage(stream, "  -Xps-save-resolved-classes-delay-ms:integervalue\n");
-  UsageMessage(stream, "  -Xps-startup-method-samples:integervalue\n");
+  UsageMessage(stream, "  -Xps-hot-startup-method-samples:integervalue\n");
   UsageMessage(stream, "  -Xps-min-methods-to-save:integervalue\n");
   UsageMessage(stream, "  -Xps-min-classes-to-save:integervalue\n");
   UsageMessage(stream, "  -Xps-min-notification-before-wake:integervalue\n");

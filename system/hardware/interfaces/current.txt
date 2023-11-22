@@ -3,5 +3,8 @@
 
 # Frameworks HALs released in Android O
 
-
 b0ff0dc756845dd132f998e8c55f1a0d7e3efd8aa85f6253776fb7012814524b android.system.wifi.keystore@1.0::IKeystore
+
+# Frameworks HALs released in Android O-MR1
+
+2cfd7918acf09462fe8fe3f5608be2956c9f737c78d3bb3f176cc5531c09f5d6 android.system.net.netd@1.0::INetd

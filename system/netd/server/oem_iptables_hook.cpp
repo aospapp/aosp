@@ -27,40 +27,17 @@
 #include <logwrap/logwrap.h>
 #include "NetdConstants.h"
 
-static int runIptablesCmd(int argc, const char **argv) {
-    int res;
-
-    res = android_fork_execvp(argc, (char **)argv, NULL, false, false);
-    return res;
-}
-
 static bool oemCleanupHooks() {
-    const char *cmd1[] = {
-            IPTABLES_PATH,
-            "-w",
-            "-F",
-            "oem_out"
-    };
-    runIptablesCmd(ARRAY_SIZE(cmd1), cmd1);
+    std::string cmd =
+        "*filter\n"
+        ":oem_out -\n"
+        ":oem_fwd -\n"
+        "COMMIT\n"
+        "*nat\n"
+        ":oem_nat_pre -\n"
+        "COMMIT\n";
 
-    const char *cmd2[] = {
-            IPTABLES_PATH,
-            "-w",
-            "-F",
-            "oem_fwd"
-    };
-    runIptablesCmd(ARRAY_SIZE(cmd2), cmd2);
-
-    const char *cmd3[] = {
-            IPTABLES_PATH,
-            "-w",
-            "-t",
-            "nat",
-            "-F",
-            "oem_nat_pre"
-    };
-    runIptablesCmd(ARRAY_SIZE(cmd3), cmd3);
-    return true;
+    return (execIptablesRestore(V4V6, cmd) == 0);
 }
 
 static bool oemInitChains() {

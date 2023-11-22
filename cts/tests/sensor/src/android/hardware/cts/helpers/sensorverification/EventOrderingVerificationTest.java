@@ -58,7 +58,7 @@ public class EventOrderingVerificationTest extends TestCase {
         EventOrderingVerification verification = getVerification(0, 2, 1, 3, 4);
         try {
             verification.verify(stats);
-            fail("Expected an AssertionError");
+            throw new Error("Expected an AssertionError");
         } catch (AssertionError e) {
             // Expected;
         }
@@ -75,7 +75,7 @@ public class EventOrderingVerificationTest extends TestCase {
         EventOrderingVerification verification = getVerification(4, 0, 1, 2, 3);
         try {
             verification.verify(stats);
-            fail("Expected an AssertionError");
+            throw new Error("Expected an AssertionError");
         } catch (AssertionError e) {
             // Expected;
         }

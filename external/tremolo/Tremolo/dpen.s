@@ -430,6 +430,8 @@ vbdvva_loop1:
 	LDR	r0, [r9, # 5*4]		@ r0 = book->dim
 	LDR	r1, [r9, #14*4]		@ r1 = v = dec_buf
 vbdvva_loop2:
+	CMP	r5,#0
+	BLE	vbdvva_exit
 	LDR	r2, [r10],#4		@ r2 = a[chptr++]
 	LDR	r12,[r1], #4		@ r1 = v[j++]
 	CMP	r10,r8			@ if (chptr == ch)

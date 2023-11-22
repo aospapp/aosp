@@ -19,6 +19,7 @@
 #include "chre/core/event_loop_manager.h"
 #include "chre/platform/fatal_error.h"
 #include "chre_api/chre/version.h"
+#include "chre/util/system/debug_dump.h"
 
 namespace chre {
 namespace {
@@ -29,28 +30,22 @@ bool isSensorRequestValid(const Sensor& sensor,
       sensorRequest.getMode());
   bool isRequestOneShot = sensorModeIsOneShot(sensorRequest.getMode());
   uint64_t requestedInterval = sensorRequest.getInterval().toRawNanoseconds();
-  uint64_t requestedLatency = sensorRequest.getLatency().toRawNanoseconds();
   SensorType sensorType = sensor.getSensorType();
 
   bool success = true;
-  if (isRequestContinuous) {
+  if (requestedInterval < sensor.getMinInterval()) {
+    success = false;
+    LOGE("Requested interval %" PRIu64 " < sensor's minInterval %" PRIu64,
+         requestedInterval, sensor.getMinInterval());
+  } else if (isRequestContinuous) {
     if (sensorTypeIsOneShot(sensorType)) {
       success = false;
       LOGE("Invalid continuous request for a one-shot sensor.");
-    } else if (requestedInterval < sensor.getMinInterval()) {
-      success = false;
-      LOGE("Invalid requested interval %" PRIu64 " for a continuous sensor"
-           " with minInterval %" PRIu64,
-           requestedInterval, sensor.getMinInterval());
     }
   } else if (isRequestOneShot) {
     if (!sensorTypeIsOneShot(sensorType)) {
       success = false;
       LOGE("Invalid one-shot request for a continuous sensor.");
-    } else if (requestedInterval != CHRE_SENSOR_INTERVAL_DEFAULT ||
-               requestedLatency != CHRE_SENSOR_LATENCY_DEFAULT) {
-      success = false;
-      LOGE("Invalid interval and/or latency for a one-shot request.");
     }
   }
   return success;
@@ -61,23 +56,20 @@ bool isSensorRequestValid(const Sensor& sensor,
 SensorRequestManager::SensorRequestManager() {
   mSensorRequests.resize(mSensorRequests.capacity());
 
-  DynamicVector<PlatformSensor> platformSensors;
-  if (!PlatformSensor::getSensors(&platformSensors)) {
+  DynamicVector<Sensor> sensors;
+  sensors.reserve(8);  // Avoid some initial reallocation churn
+  if (!PlatformSensor::getSensors(&sensors)) {
     LOGE("Failed to query the platform for sensors");
-    return;
-  }
-
-  if (platformSensors.empty()) {
+  } else if (sensors.empty()) {
     LOGW("Platform returned zero sensors");
-  }
+  } else {
+    for (size_t i = 0; i < sensors.size(); i++) {
+      SensorType sensorType = sensors[i].getSensorType();
+      size_t sensorIndex = getSensorTypeArrayIndex(sensorType);
+      LOGD("Found sensor: %s", getSensorTypeName(sensorType));
 
-  for (size_t i = 0; i < platformSensors.size(); i++) {
-    SensorType sensorType = platformSensors[i].getSensorType();
-    size_t sensorIndex = getSensorTypeArrayIndex(sensorType);
-    LOGD("Found sensor: %s", getSensorTypeName(sensorType));
-
-    mSensorRequests[sensorIndex].sensor =
-        Sensor(std::move(platformSensors[i]));
+      mSensorRequests[sensorIndex].sensor = std::move(sensors[i]);
+    }
   }
 }
 
@@ -85,8 +77,9 @@ SensorRequestManager::~SensorRequestManager() {
   SensorRequest nullRequest = SensorRequest();
   for (size_t i = 0; i < mSensorRequests.size(); i++) {
     // Disable sensors that have been enabled previously.
-    Sensor& sensor = mSensorRequests[i].sensor;
-    sensor.setRequest(nullRequest);
+    if (mSensorRequests[i].sensor.has_value()) {
+      mSensorRequests[i].sensor->setRequest(nullRequest);
+    }
   }
 }
 
@@ -99,7 +92,7 @@ bool SensorRequestManager::getSensorHandle(SensorType sensorType,
     LOGW("Querying for unknown sensor type");
   } else {
     size_t sensorIndex = getSensorTypeArrayIndex(sensorType);
-    sensorHandleIsValid = mSensorRequests[sensorIndex].sensor.isValid();
+    sensorHandleIsValid = mSensorRequests[sensorIndex].sensor.has_value();
     if (sensorHandleIsValid) {
       *sensorHandle = getSensorHandleFromSensorType(sensorType);
     }
@@ -115,19 +108,20 @@ bool SensorRequestManager::setSensorRequest(Nanoapp *nanoapp,
   // Validate the input to ensure that a valid handle has been provided.
   SensorType sensorType = getSensorTypeFromSensorHandle(sensorHandle);
   if (sensorType == SensorType::Unknown) {
-    LOGW("Attempting to configure an invalid handle");
+    LOGW("Attempting to configure an invalid sensor handle");
     return false;
   }
 
   // Ensure that the runtime is aware of this sensor type.
   size_t sensorIndex = getSensorTypeArrayIndex(sensorType);
   SensorRequests& requests = mSensorRequests[sensorIndex];
-  const Sensor& sensor = requests.sensor;
-
-  if (!sensor.isValid()) {
+  if (!requests.sensor.has_value()) {
     LOGW("Attempting to configure non-existent sensor");
     return false;
-  } else if (!isSensorRequestValid(sensor, sensorRequest)) {
+  }
+
+  const Sensor& sensor = requests.sensor.value();
+  if (!isSensorRequestValid(sensor, sensorRequest)) {
     return false;
   }
 
@@ -165,9 +159,10 @@ bool SensorRequestManager::setSensorRequest(Nanoapp *nanoapp,
       // Deliver last valid event to new clients of on-change sensors
       if (sensorTypeIsOnChange(sensor.getSensorType())
           && sensor.getLastEvent() != nullptr) {
-        EventLoopManagerSingleton::get()->postEvent(
-            getSampleEventTypeForSensorType(sensorType), sensor.getLastEvent(),
-            nullptr, kSystemInstanceId, nanoapp->getInstanceId());
+        EventLoopManagerSingleton::get()->getEventLoop()
+            .postEvent(getSampleEventTypeForSensorType(sensorType),
+                       sensor.getLastEvent(), nullptr, kSystemInstanceId,
+                       nanoapp->getInstanceId());
       }
     }
   } else {
@@ -184,9 +179,8 @@ bool SensorRequestManager::setSensorRequest(Nanoapp *nanoapp,
 }
 
 bool SensorRequestManager::getSensorInfo(uint32_t sensorHandle,
-                                         const Nanoapp *nanoapp,
+                                         const Nanoapp& nanoapp,
                                          struct chreSensorInfo *info) const {
-  CHRE_ASSERT(nanoapp);
   CHRE_ASSERT(info);
 
   bool success = false;
@@ -197,25 +191,31 @@ bool SensorRequestManager::getSensorInfo(uint32_t sensorHandle,
     LOGW("Attempting to access sensor with an invalid handle %" PRIu32,
          sensorHandle);
   } else {
-    success = true;
-
-    // Platform-independent properties.
-    info->sensorType = getUnsignedIntFromSensorType(sensorType);
-    info->isOnChange = sensorTypeIsOnChange(sensorType);
-    info->isOneShot = sensorTypeIsOneShot(sensorType);
-    info->unusedFlags = 0;
-
-    // Platform-specific properties.
     size_t sensorIndex = getSensorTypeArrayIndex(sensorType);
-    const Sensor& sensor = mSensorRequests[sensorIndex].sensor;
-    info->sensorName = sensor.getSensorName();
+    if (!mSensorRequests[sensorIndex].sensor.has_value()) {
+      LOGW("Attempting to get sensor info for unsupported sensor handle %"
+           PRIu32, sensorHandle);
+    } else {
+      // Platform-independent properties.
+      info->sensorType = getUnsignedIntFromSensorType(sensorType);
+      info->isOnChange = sensorTypeIsOnChange(sensorType);
+      info->isOneShot  = sensorTypeIsOneShot(sensorType);
+      info->unusedFlags = 0;
 
-    // minInterval was added in CHRE API 1.1.
-    if (nanoapp->getTargetApiVersion() >= CHRE_API_VERSION_1_1) {
-      info->minInterval = info->isOneShot ? CHRE_SENSOR_INTERVAL_DEFAULT :
-          sensor.getMinInterval();
+      // Platform-specific properties.
+      const Sensor& sensor = mSensorRequests[sensorIndex].sensor.value();
+      info->sensorName = sensor.getSensorName();
+
+      // minInterval was added in CHRE API v1.1 - do not attempt to populate for
+      // nanoapps targeting v1.0 as their struct will not be large enough
+      if (nanoapp.getTargetApiVersion() >= CHRE_API_VERSION_1_1) {
+        info->minInterval = sensor.getMinInterval();
+      }
+
+      success = true;
     }
   }
+
   return success;
 }
 
@@ -240,13 +240,71 @@ bool SensorRequestManager::removeAllRequests(SensorType sensorType) {
 
 Sensor *SensorRequestManager::getSensor(SensorType sensorType) {
   Sensor *sensorPtr = nullptr;
-  if (sensorType == SensorType::Unknown) {
-    LOGW("Attempting to get Sensor of an invalid SensorType");
+  if (sensorType == SensorType::Unknown
+      || sensorType >= SensorType::SENSOR_TYPE_COUNT) {
+    LOGW("Attempting to get Sensor of an invalid SensorType %d",
+         static_cast<int>(sensorType));
   } else {
     size_t sensorIndex = getSensorTypeArrayIndex(sensorType);
-    sensorPtr = &mSensorRequests[sensorIndex].sensor;
+    if (mSensorRequests[sensorIndex].sensor.has_value()) {
+      sensorPtr = &mSensorRequests[sensorIndex].sensor.value();
+    }
   }
   return sensorPtr;
+}
+
+bool SensorRequestManager::getSensorSamplingStatus(
+    uint32_t sensorHandle, struct chreSensorSamplingStatus *status) const {
+  CHRE_ASSERT(status);
+
+  bool success = false;
+  SensorType sensorType = getSensorTypeFromSensorHandle(sensorHandle);
+  if (sensorType == SensorType::Unknown) {
+    LOGW("Attempting to access sensor with an invalid handle %" PRIu32,
+         sensorHandle);
+  } else {
+    size_t sensorIndex = getSensorTypeArrayIndex(sensorType);
+    if (mSensorRequests[sensorIndex].sensor.has_value()) {
+      success = mSensorRequests[sensorIndex].sensor->getSamplingStatus(status);
+    }
+  }
+  return success;
+}
+
+const DynamicVector<SensorRequest>& SensorRequestManager::getRequests(
+    SensorType sensorType) const {
+  size_t sensorIndex = 0;
+  if (sensorType == SensorType::Unknown
+      || sensorType >= SensorType::SENSOR_TYPE_COUNT) {
+    LOGW("Attempting to get requests of an invalid SensorType");
+  } else {
+    sensorIndex = getSensorTypeArrayIndex(sensorType);
+  }
+  return mSensorRequests[sensorIndex].multiplexer.getRequests();
+}
+
+bool SensorRequestManager::logStateToBuffer(char *buffer, size_t *bufferPos,
+                                            size_t bufferSize) const {
+  bool success = debugDumpPrint(buffer, bufferPos, bufferSize, "\nSensors:\n");
+  for (uint8_t i = 0; i < static_cast<uint8_t>(SensorType::SENSOR_TYPE_COUNT);
+       i++) {
+    SensorType sensor = static_cast<SensorType>(i);
+    if (sensor != SensorType::Unknown) {
+      for (const auto& request : getRequests(sensor)) {
+        uint32_t instanceId = (request.getNanoapp() != nullptr) ?
+            request.getNanoapp()->getInstanceId() : kInvalidInstanceId;
+        success &= debugDumpPrint(buffer, bufferPos, bufferSize, " %s: mode=%d"
+                                  " interval(ns)=%" PRIu64 " latency(ns)=%"
+                                  PRIu64 " nanoappId=%" PRIu32 "\n",
+                                  getSensorTypeName(sensor), request.getMode(),
+                                  request.getInterval().toRawNanoseconds(),
+                                  request.getLatency().toRawNanoseconds(),
+                                  instanceId);
+      }
+    }
+  }
+
+  return success;
 }
 
 const SensorRequest *SensorRequestManager::SensorRequests::find(
@@ -268,6 +326,7 @@ const SensorRequest *SensorRequestManager::SensorRequests::find(
 bool SensorRequestManager::SensorRequests::add(const SensorRequest& request,
                                                bool *requestChanged) {
   CHRE_ASSERT(requestChanged != nullptr);
+  CHRE_ASSERT(sensor.has_value());
 
   size_t addIndex;
   bool success = true;
@@ -276,7 +335,7 @@ bool SensorRequestManager::SensorRequests::add(const SensorRequest& request,
     success = false;
     LOG_OOM();
   } else if (*requestChanged) {
-    success = sensor.setRequest(multiplexer.getCurrentMaximalRequest());
+    success = sensor->setRequest(multiplexer.getCurrentMaximalRequest());
     if (!success) {
       // Remove the newly added request since the platform failed to handle it.
       // The sensor is expected to maintain the existing request so there is no
@@ -295,11 +354,12 @@ bool SensorRequestManager::SensorRequests::add(const SensorRequest& request,
 bool SensorRequestManager::SensorRequests::remove(size_t removeIndex,
                                                   bool *requestChanged) {
   CHRE_ASSERT(requestChanged != nullptr);
+  CHRE_ASSERT(sensor.has_value());
 
   bool success = true;
   multiplexer.removeRequest(removeIndex, requestChanged);
   if (*requestChanged) {
-    success = sensor.setRequest(multiplexer.getCurrentMaximalRequest());
+    success = sensor->setRequest(multiplexer.getCurrentMaximalRequest());
     if (!success) {
       LOGE("SensorRequestManager failed to remove a request");
 
@@ -322,12 +382,13 @@ bool SensorRequestManager::SensorRequests::update(size_t updateIndex,
                                                   const SensorRequest& request,
                                                   bool *requestChanged) {
   CHRE_ASSERT(requestChanged != nullptr);
+  CHRE_ASSERT(sensor.has_value());
 
   bool success = true;
   SensorRequest previousRequest = multiplexer.getRequests()[updateIndex];
   multiplexer.updateRequest(updateIndex, request, requestChanged);
   if (*requestChanged) {
-    success = sensor.setRequest(multiplexer.getCurrentMaximalRequest());
+    success = sensor->setRequest(multiplexer.getCurrentMaximalRequest());
     if (!success) {
       // Roll back the request since sending it to the sensor failed. The
       // request will roll back to the previous maximal. The sensor is
@@ -345,13 +406,15 @@ bool SensorRequestManager::SensorRequests::update(size_t updateIndex,
 }
 
 bool SensorRequestManager::SensorRequests::removeAll() {
+  CHRE_ASSERT(sensor.has_value());
+
   bool requestChanged;
   multiplexer.removeAllRequests(&requestChanged);
 
   bool success = true;
   if (requestChanged) {
     SensorRequest maximalRequest = multiplexer.getCurrentMaximalRequest();
-    success = sensor.setRequest(maximalRequest);
+    success = sensor->setRequest(maximalRequest);
     if (!success) {
       LOGE("SensorRequestManager failed to remove all request");
 

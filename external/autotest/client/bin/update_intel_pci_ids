@@ -6,7 +6,7 @@
 """Create a JSON file containing PCI ID-to-name mappings for Intel GPUs.
 
 This script uses upstream Mesa to get the latest PCI ID list.
-The list is used by get_gpu_family() in site_utils.py.
+The list is used by get_gpu_family() in utils.py.
 This script should be run occasionally to keep the list up-to-date.
 """
 

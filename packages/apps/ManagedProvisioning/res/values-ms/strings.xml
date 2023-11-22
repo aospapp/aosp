@@ -27,9 +27,9 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"Apl berikut perlu mengakses profil ini:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Apl berikut akan mengurus peranti anda:"</string>
     <string name="next" msgid="1004321437324424398">"Seterusnya"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"Menyediakan profil kerja anda…"</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"Menyediakan profil kerja…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"Pentadbir anda berupaya memantau dan mengurus tetapan, akses korporat, apl, kebenaran dan data yang berkaitan dengan profil ini, termasuk aktiviti rangkaian anda serta lokasi, sejarah panggilan dan sejarah carian kenalan peranti anda.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Hubungi pentadbir anda untuk mendapatkan maklumat lanjut, termasuk dasar privasi organisasi anda."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"Pentadbir anda berupaya memantau dan mengurus tetapan, akses korporat, apl, kebenaran dan data yang berkaitan dengan peranti ini, termasuk aktiviti rangkaian anda serta lokasi, sejarah panggilan dan sejarah carian kenalan peranti anda.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Hubungi pentadbir anda untuk mendapatkan maklumat lanjut, termasuk dasar privasi organisasi anda."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"Pentadbir anda berupaya memantau dan mengurus tetapan, akses korporat, apl, kebenaran dan data yang berkaitan dengan peranti ini, termasuk aktiviti rangkaian anda serta lokasi, sejarah panggilan dan sejarah carian kenalan peranti anda.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Hubungi pentadbir anda untuk mendapatkan maklumat lanjut, termasuk dasar privasi organisasi anda."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Untuk menggunakan ciri perlindungan kecurian, anda mesti mempunyai kunci skrin yang dilindungi kata laluan untuk peranti anda."</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Hubungi pentadbir anda untuk mendapatkan maklumat lanjut, termasuk dasar privasi organisasi anda."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Ketahui lebih lanjut"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Profil kerja"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"Pengguna utama"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Padamkan profil semasa?"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"Anda sudah mempunyai profil kerja yang diurus menggunakan apl berikut:"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Anda sudah pun mempunyai profil kerja. Profil itu diurus menggunakan apl berikut:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Sebelum meneruskan, "<a href="#read_this_link">"baca ini"</a>"."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Jika anda meneruskan, semua apl dan data dalam profil ini akan dipadamkan."</string>
     <string name="delete_profile" msgid="2299218578684663459">"Padam"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"Ketik untuk terus menyediakan profil kerja anda"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Tidak dapat menyediakan profil kerja anda. Hubungi jabatan IT anda atau cuba sebentar lagi."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Tidak dapat menambahkan profil kerja"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"Pengguna ini tidak boleh mempunyai profil kerja. Untuk mendapatkan bantuan, hubungi pentadbir anda."</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"Pengguna ini tidak boleh mempunyai profil kerja. Hubungi pentadbir anda."</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"Profil kerja tidak boleh disediakan pada peranti terurus"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"Peranti ini mungkin digunakan oleh terlalu ramai pengguna. Alih keluar seorang pengguna, kemudian cuba lagi."</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Tidak dapat menggantikan atau mengalih keluar profil kerja"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"Profil kerja tidak dapat ditambahkan pada peranti ini. Jika anda ingin mengemukakan pertanyaan, hubungi pentadbir anda."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Tukar pelancar peranti"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Apl pelancar ini tidak dapat digunakan oleh profil kerja anda"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Batal"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"Ok"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Persediaan Pengguna Tidak Lengkap"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Pengguna peranti kerja"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"Sediakan peranti kerja"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"Menyediakan peranti kerja…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Memproses data persediaan…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Menyambung ke Wi-Fi…"</string>
     <string name="progress_download" msgid="3522436271691064624">"Memuat turun apl pentadbir…"</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"Batal"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"Tetapkan semula peranti"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> dan <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> dan <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> dan <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

@@ -13,6 +13,6 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<!-- Dummy version to replace any non-car stuffs with this -->
+<!-- Empty permissions to replace any non-car permissions with. -->
 <permissions>
 </permissions>

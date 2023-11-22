@@ -55,6 +55,7 @@ std::unique_ptr<SensorEvent> SensorEvent::FromBytes(
       case SensorType::Temperature:
       case SensorType::AmbientLightSensor:
       case SensorType::Proximity:
+      case SensorType::Humidity:
         sensor_event = new SingleAxisSensorEvent();
         break;
 

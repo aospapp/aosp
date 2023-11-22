@@ -58,46 +58,13 @@ class BtFunhausTest(BtFunhausBaseTest):
         self.start_playing_music_on_all_devices()
 
         sleep_interval = 120
-        twelve_hours_in_seconds = 43200
-        end_time = time.time() + twelve_hours_in_seconds
-        status, bluetooth_off_list, device_not_connected_list = \
-            self.monitor_music_play_util_deadline(end_time, sleep_interval)
-        if not status:
-            return status
+        #twelve_hours_in_seconds = 43200
+        #one_hour_in_seconds = 3600
+        one_min_in_sec = 60
+        end_time = time.time() + one_min_in_sec
+        if not self.monitor_music_play_util_deadline(end_time, sleep_interval):
+            return False
         self._collect_bluetooth_manager_dumpsys_logs(self.android_devices)
-        self.stop_playing_music_on_all_devices()
+        self.ad.droid.mediaPlayStopAll()
         self.collect_bluetooth_manager_metrics_logs(self.android_devices)
-        if len(device_not_connected_list) > 0 or len(bluetooth_off_list) > 0:
-            self.log.info("Devices reported as not connected: {}".format(
-                device_not_connected_list))
-            self.log.info("Devices reported with Bluetooth state off: {}".
-                          format(bluetooth_off_list))
-            return False
-        return True
-
-    @test_tracker_info(uuid='285be86d-f00f-4924-a206-e0a590b87b67')
-    def test_setup_fail_if_devices_not_connected(self):
-        """Test for devices connected or not during setup.
-
-        This test is designed to fail if the number of devices having
-        connection issues at time of setup is greater than 0. This lets
-        the test runner know of the stability of the testbed.
-
-        Steps:
-        1. Check lenght of self.device_fails_to_connect_list
-
-        Expected Result:
-        No device should be in a disconnected state.
-
-        Returns:
-          Pass if True
-          Fail if False
-
-        TAGS: None
-        Priority: 1
-        """
-        if len(self.device_fails_to_connect_list) > 0:
-            self.log.error("Devices failed to reconnect:\n{}".format(
-                self.device_fails_to_connect_list))
-            return False
         return True

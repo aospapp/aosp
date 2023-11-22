@@ -32,12 +32,12 @@
 #include "mem_map.h"
 #include "mirror/class-inl.h"
 #include "mirror/class_loader.h"
-#include "mirror/object_array-inl.h"
 #include "mirror/object-inl.h"
+#include "mirror/object_array-inl.h"
 #include "mirror/stack_trace_element.h"
+#include "nativehelper/ScopedLocalRef.h"
 #include "nativeloader/native_loader.h"
 #include "runtime.h"
-#include "ScopedLocalRef.h"
 #include "scoped_thread_state_change-inl.h"
 #include "thread.h"
 
@@ -48,6 +48,9 @@ extern "C" JNIEXPORT jint JNICALL Java_MyClassNatives_bar(JNIEnv*, jobject, jint
 extern "C" JNIEXPORT jint JNICALL Java_MyClassNatives_sbar(JNIEnv*, jclass, jint count) {
   return count + 1;
 }
+
+// TODO: In the Baker read barrier configuration, add checks to ensure
+// the Marking Register's value is correct.
 
 namespace art {
 
@@ -244,9 +247,9 @@ class JniCompilerTest : public CommonCompilerTest {
     // Compile the native method before starting the runtime
     mirror::Class* c = class_linker_->FindClass(soa.Self(), "LMyClassNatives;", loader);
     const auto pointer_size = class_linker_->GetImagePointerSize();
-    ArtMethod* method = direct ? c->FindDirectMethod(method_name, method_sig, pointer_size) :
-        c->FindVirtualMethod(method_name, method_sig, pointer_size);
+    ArtMethod* method = c->FindClassMethod(method_name, method_sig, pointer_size);
     ASSERT_TRUE(method != nullptr) << method_name << " " << method_sig;
+    ASSERT_EQ(direct, method->IsDirect()) << method_name << " " << method_sig;
     if (check_generic_jni_) {
       method->SetEntryPointFromQuickCompiledCode(class_linker_->GetRuntimeQuickGenericJniStub());
     } else {

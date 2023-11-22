@@ -1,5 +1,4 @@
 #!/usr/bin/python
-#pylint: disable-msg=C0111
 
 """Utility module that executes management commands on the drone.
 
@@ -10,17 +9,35 @@
 5. The caller is responsible for monitoring asynchronous calls through pidfiles.
 """
 
+#pylint: disable-msg=missing-docstring
 
 import argparse
-import pickle, subprocess, os, shutil, sys, time, signal, getpass
-import datetime, traceback, tempfile, itertools, logging
+import collections
+import datetime
+import getpass
+import itertools
+import logging
+import multiprocessing
+import os
+import pickle
+import shutil
+import signal
+import subprocess
+import sys
+import tempfile
+import time
+import traceback
+
 import common
-from autotest_lib.client.common_lib import utils, global_config, error
+
+from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import logging_manager
+from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.cros import retry
 from autotest_lib.scheduler import drone_logging_config
-from autotest_lib.scheduler import email_manager, scheduler_config
-from autotest_lib.server import hosts, subcommand
+from autotest_lib.scheduler import scheduler_config
+from autotest_lib.server import subcommand
 
 
 # An environment variable we add to the environment to enable us to
@@ -62,7 +79,7 @@ def call(method, *args, **kwargs):
     return _MethodCall(method, args, kwargs)
 
 
-class BaseDroneUtility(object):
+class DroneUtility(object):
     """
     This class executes actual OS calls on the drone machine.
 
@@ -102,119 +119,18 @@ class BaseDroneUtility(object):
         self.warnings.append(warning)
 
 
-    @staticmethod
-    def _check_pid_for_dark_mark(pid, open=open):
-        try:
-            env_file = open('/proc/%s/environ' % pid, 'rb')
-        except EnvironmentError:
-            return False
-        try:
-            env_data = env_file.read()
-        finally:
-            env_file.close()
-        return DARK_MARK_ENVIRONMENT_VAR in env_data
+    def refresh(self, pidfile_paths):
+        """Refreshes our view of the processes referred to by pdfile_paths.
 
-
-    _PS_ARGS = ('pid', 'pgid', 'ppid', 'comm', 'args')
-
-
-    @classmethod
-    def _get_process_info(cls):
-        """Parse ps output for all process information.
-
-        @returns A generator of dicts with cls._PS_ARGS as keys and
-            string values each representing a running process. eg:
-            {
-                'comm': command_name,
-                'pgid': process group id,
-                'ppid': parent process id,
-                'pid': process id,
-                'args': args the command was invoked with,
-            }
+        See drone_utility.ProcessRefresher.__call__ for details.
         """
-        @retry.retry(subprocess.CalledProcessError,
-                     timeout_min=0.5, delay_sec=0.25)
-        def run_ps():
-            return subprocess.check_output(
-                    ['/bin/ps', 'x', '-o', ','.join(cls._PS_ARGS)])
-
-        ps_output = run_ps()
-        # split each line into the columns output by ps
-        split_lines = [line.split(None, 4) for line in ps_output.splitlines()]
-        return (dict(itertools.izip(cls._PS_ARGS, line_components))
-                for line_components in split_lines)
-
-
-    def _refresh_processes(self, command_name, open=open,
-                           site_check_parse=None):
-        """Refreshes process info for the given command_name.
-
-        Examines ps output as returned by get_process_info and returns
-        the process dicts for processes matching the given command name.
-
-        @param command_name: The name of the command, eg 'autoserv'.
-
-        @return: A list of process info dictionaries as returned by
-            _get_process_info.
-        """
-        # The open argument is used for test injection.
         check_mark = global_config.global_config.get_config_value(
             'SCHEDULER', 'check_processes_for_dark_mark', bool, False)
-        processes = []
-        for info in self._get_process_info():
-            is_parse = (site_check_parse and site_check_parse(info))
-            if info['comm'] == command_name or is_parse:
-                if (check_mark and not
-                        self._check_pid_for_dark_mark(info['pid'], open=open)):
-                    self._warn('%(comm)s process pid %(pid)s has no '
-                               'dark mark; ignoring.' % info)
-                    continue
-                processes.append(info)
-
-        return processes
-
-
-    def _read_pidfiles(self, pidfile_paths):
-        pidfiles = {}
-        for pidfile_path in pidfile_paths:
-            if not os.path.exists(pidfile_path):
-                continue
-            try:
-                file_object = open(pidfile_path, 'r')
-                pidfiles[pidfile_path] = file_object.read()
-                file_object.close()
-            except IOError:
-                continue
-        return pidfiles
-
-
-    def refresh(self, pidfile_paths):
-        """
-        pidfile_paths should be a list of paths to check for pidfiles.
-
-        Returns a dict containing:
-        * pidfiles: dict mapping pidfile paths to file contents, for pidfiles
-        that exist.
-        * autoserv_processes: list of dicts corresponding to running autoserv
-        processes.  each dict contain pid, pgid, ppid, comm, and args (see
-        "man ps" for details).
-        * parse_processes: likewise, for parse processes.
-        * pidfiles_second_read: same info as pidfiles, but gathered after the
-        processes are scanned.
-        """
-        site_check_parse = utils.import_site_function(
-                __file__, 'autotest_lib.scheduler.site_drone_utility',
-                'check_parse', lambda x: False)
-        results = {
-            'pidfiles' : self._read_pidfiles(pidfile_paths),
-            # element 0 of _get_process_info() is the headers from `ps`
-            'all_processes' : list(self._get_process_info())[1:],
-            'autoserv_processes' : self._refresh_processes('autoserv'),
-            'parse_processes' : self._refresh_processes(
-                    'parse', site_check_parse=site_check_parse),
-            'pidfiles_second_read' : self._read_pidfiles(pidfile_paths),
-        }
-        return results
+        use_pool = global_config.global_config.get_config_value(
+            'SCHEDULER', 'drone_utility_refresh_use_pool', bool, False)
+        result, warnings = ProcessRefresher(check_mark, use_pool)(pidfile_paths)
+        self.warnings += warnings
+        return result
 
 
     def get_signal_queue_to_kill(self, process):
@@ -326,8 +242,7 @@ class BaseDroneUtility(object):
                 out_file.write("%s> %s\n" % (time.strftime("%X %x"), command))
                 out_file.write(separator)
             except (OSError, IOError):
-                email_manager.manager.log_stacktrace(
-                    'Error opening log file %s' % log_file)
+                pass
 
         if not out_file:
             out_file = open('/dev/null', 'w')
@@ -409,7 +324,11 @@ class BaseDroneUtility(object):
             link_to = os.readlink(source_path)
             os.symlink(link_to, destination_path)
         else:
-            shutil.copy(source_path, destination_path)
+            try:
+                shutil.copy(source_path, destination_path)
+            except IOError:
+                # Ignore copy error following the same above reason.
+                pass
 
 
     def _same_file(self, source_path, destination_path):
@@ -546,7 +465,139 @@ class BaseDroneUtility(object):
         return dict(results=results, warnings=warnings)
 
 
+_MAX_REFRESH_POOL_SIZE = 50
+
+class ProcessRefresher(object):
+    """Object to refresh process information from give pidfiles.
+
+    Usage: ProcessRefresh(True)(pidfile_list)
+    """
+
+    def __init__(self, check_mark, use_pool=False):
+        """
+        @param check_mark: If True, only consider processes that were
+                explicitly marked by a former drone_utility call as autotest
+                related processes.
+        @param use_pool: If True, use a multiprocessing.Pool to parallelize
+                costly operations.
+        """
+        self._check_mark = check_mark
+        self._use_pool = use_pool
+        self._pool = None
+
+
+    def __call__(self, pidfile_paths):
+        """
+        @param pidfile_paths: A list of paths to check for pidfiles.
+
+        @returns (result, warnings)
+            where result is a dict with the following keys:
+            - pidfiles: dict mapping pidfile paths to file contents, for
+              pidfiles that exist.
+            - all_processes: list of dicts corresponding to all running
+              processes. Each dict contain pid, pgid, ppid, comm, and args (see
+              "man ps" for details).
+            - autoserv_processes: likewise, restricted to autoserv processes.
+            - parse_processes: likewise, restricted to parse processes.
+            - pidfiles_second_read: same info as pidfiles, but gathered after
+              the processes are scanned.
+            and warnings is a list of warnings genearted during process refresh.
+        """
+
+        if self._use_pool:
+            pool_size = max(
+                    min(len(pidfile_paths), _MAX_REFRESH_POOL_SIZE),
+                    1)
+            self._pool = multiprocessing.Pool(pool_size)
+        else:
+            pool_size = 0
+        logging.info('Refreshing %d pidfiles with %d helper processes',
+                     len(pidfile_paths), pool_size)
+
+        warnings = []
+        # It is necessary to explicitly force this to be a list because results
+        # are pickled by DroneUtility.
+        proc_infos = list(_get_process_info())
+
+        autoserv_processes, extra_warnings = self._filter_proc_infos(
+                proc_infos, 'autoserv')
+        warnings += extra_warnings
+        parse_processes, extra_warnings = self._filter_proc_infos(proc_infos,
+                                                                  'parse')
+        warnings += extra_warnings
+        site_parse_processes, extra_warnings = self._filter_proc_infos(
+                proc_infos, 'site_parse')
+        warnings += extra_warnings
+
+        result = {
+                'pidfiles': self._read_pidfiles(pidfile_paths),
+                'all_processes': proc_infos,
+                'autoserv_processes': autoserv_processes,
+                'parse_processes': (parse_processes + site_parse_processes),
+                'pidfiles_second_read': self._read_pidfiles(pidfile_paths),
+        }
+        return result, warnings
+
+
+    def _read_pidfiles(self, pidfile_paths):
+        """Uses a process pool to read requested pidfile_paths."""
+        if self._use_pool:
+            contents = self._pool.map(_read_pidfile, pidfile_paths)
+            contents = [c for c in contents if c is not None]
+            return {k: v for k, v in contents}
+        else:
+            pidfiles = {}
+            for path in pidfile_paths:
+                content = _read_pidfile(path)
+                if content is None:
+                    continue
+                pidfiles[content.path] = content.content
+            return pidfiles
+
+
+    def _filter_proc_infos(self, proc_infos, command_name):
+        """Filters process info for the given command_name.
+
+        Examines ps output as returned by get_process_info and return
+        the process dicts for processes matching the given command name.
+
+        @proc_infos: ps output as returned by _get_process_info.
+        @param command_name: The name of the command, eg 'autoserv'.
+
+        @return: (proc_infos, warnings) where proc_infos is a list of ProcInfo
+                as returned by _get_process_info and warnings is a list of
+                warnings generated while filtering.
+                """
+        proc_infos = [info for info in proc_infos
+                      if info['comm'] == command_name]
+        if not self._check_mark:
+            return proc_infos, []
+
+        if self._use_pool:
+            dark_marks = self._pool.map(
+                    _process_has_dark_mark,
+                    [info['pid'] for info in proc_infos]
+            )
+        else:
+            dark_marks = [_process_has_dark_mark(info['pid'])
+                          for info in proc_infos]
+
+        marked_proc_infos = []
+        warnings = []
+        for marked, info in itertools.izip(dark_marks, proc_infos):
+            if marked:
+                marked_proc_infos.append(info)
+            else:
+                warnings.append(
+                        '%(comm)s process pid %(pid)s has no dark mark; '
+                        'ignoring.' % info)
+        return marked_proc_infos, warnings
+
+
 def create_host(hostname):
+    # TODO(crbug.com/739466) Delay import to avoid a ~0.7 second penalty
+    # drone_utility calls that don't actually interact with DUTs.
+    from autotest_lib.server import hosts
     username = global_config.global_config.get_config_value(
         'SCHEDULER', hostname + '_username', default=getpass.getuser())
     return hosts.SSHHost(hostname, user=username)
@@ -580,17 +631,60 @@ def _parse_args(args):
     return parser.parse_args(args)
 
 
-SiteDroneUtility = utils.import_site_class(
-   __file__, 'autotest_lib.scheduler.site_drone_utility',
-   'SiteDroneUtility', BaseDroneUtility)
-
-
-class DroneUtility(SiteDroneUtility):
-    pass
-
-
 def return_data(data):
     print pickle.dumps(data)
+
+def _process_has_dark_mark(pid):
+    """Checks if a process was launched earlier by drone_utility.
+
+    @param pid: The pid of the process to check.
+    """
+    try:
+        with open('/proc/%s/environ' % pid, 'rb') as env_file:
+            env_data = env_file.read()
+    except EnvironmentError:
+        return False
+    return DARK_MARK_ENVIRONMENT_VAR in env_data
+
+
+_PS_ARGS = ('pid', 'pgid', 'ppid', 'comm', 'args')
+def _get_process_info():
+    """Parse ps output for all process information.
+
+    @returns A generator of dicts. Each dict has the following keys:
+        - comm: command_name,
+        - pgid: process group id,
+        - ppid: parent process id,
+        - pid: process id,
+        - args: args the command was invoked with,
+    """
+    @retry.retry(subprocess.CalledProcessError,
+                    timeout_min=0.5, delay_sec=0.25)
+    def run_ps():
+        return subprocess.check_output(
+                ['/bin/ps', '--no-header', 'x', '-o', ','.join(_PS_ARGS)])
+
+    ps_output = run_ps()
+    # split each line into the columns output by ps
+    split_lines = [line.split(None, 4) for line in ps_output.splitlines()]
+    return (dict(itertools.izip(_PS_ARGS, line_components))
+            for line_components in split_lines)
+
+
+_PidfileContent = collections.namedtuple('_PidfileContent', ['path', 'content'])
+def _read_pidfile(pidfile_path):
+    """Reads the content of the given pidfile if it exists
+
+    @param: pidfile_path: Path of the file to read.
+    @returns: _PidfileContent tuple on success, None otherwise.
+    """
+    if not os.path.exists(pidfile_path):
+        return None
+    try:
+        with open(pidfile_path, 'r') as file_object:
+            return _PidfileContent(pidfile_path, file_object.read())
+    except IOError:
+        return None
 
 
 def main():

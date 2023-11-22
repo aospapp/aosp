@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -20,9 +20,14 @@ import org.jacoco.core.test.validation.targets.Stubs.StubException;
 /**
  * This target produces exception based control flow examples.
  */
-public class Target03 implements Runnable {
+public class Target03 {
 
-	public void run() {
+	public static void main(String[] args) {
+
+		try {
+			implicitNullPointerException(null);
+		} catch (NullPointerException e) {
+		}
 		try {
 			implicitException();
 		} catch (StubException e) {
@@ -46,27 +51,33 @@ public class Target03 implements Runnable {
 		}
 	}
 
-	private void implicitException() {
+	private static void implicitNullPointerException(int[] a) {
+		nop(); // $line-implicitNullPointerException.before$
+		a[0] = 0; // $line-implicitNullPointerException.exception$
+		nop(); // $line-implicitNullPointerException.after$
+	}
+
+	private static void implicitException() {
 		nop(); // $line-implicitException.before$
 		ex(); // $line-implicitException.exception$
 		nop(); // $line-implicitException.after$
 	}
 
-	private void explicitException() {
+	private static void explicitException() {
 		nop(); // $line-explicitException.before$
 		throw new StubException(); // $line-explicitException.throw$
 	}
 
-	private void noExceptionTryCatch() {
+	private static void noExceptionTryCatch() {
 		nop(); // $line-noExceptionTryCatch.beforeBlock$
 		try {
 			nop(); // $line-noExceptionTryCatch.tryBlock$
 		} catch (StubException e) { // $line-noExceptionTryCatch.catch$
 			nop(); // $line-noExceptionTryCatch.catchBlock$
-		}
-	}
+		} // $line-noExceptionTryCatch.catchBlockEnd$
+	} // $line-noExceptionTryCatch.afterBlock$
 
-	private void implicitExceptionTryCatch() {
+	private static void implicitExceptionTryCatch() {
 		nop(); // $line-implicitExceptionTryCatch.beforeBlock$
 		try {
 			nop(); // $line-implicitExceptionTryCatch.before$
@@ -74,10 +85,10 @@ public class Target03 implements Runnable {
 			nop(); // $line-implicitExceptionTryCatch.after$
 		} catch (StubException e) { // $line-implicitExceptionTryCatch.catch$
 			nop(); // $line-implicitExceptionTryCatch.catchBlock$
-		}
-	}
+		} // $line-implicitExceptionTryCatch.catchBlockEnd$
+	} // $line-implicitExceptionTryCatch.afterBlock$
 
-	private void implicitExceptionTryCatchAfterCondition() {
+	private static void implicitExceptionTryCatchAfterCondition() {
 		if (f()) { // $line-implicitExceptionTryCatchAfterCondition.condition$
 			return;
 		}
@@ -88,26 +99,26 @@ public class Target03 implements Runnable {
 		}
 	}
 
-	private void explicitExceptionTryCatch() {
+	private static void explicitExceptionTryCatch() {
 		nop(); // $line-explicitExceptionTryCatch.beforeBlock$
 		try {
 			nop(); // $line-explicitExceptionTryCatch.before$
 			throw new StubException(); // $line-explicitExceptionTryCatch.throw$
 		} catch (StubException e) { // $line-explicitExceptionTryCatch.catch$
 			nop(); // $line-explicitExceptionTryCatch.catchBlock$
-		}
-	}
+		} // $line-explicitExceptionTryCatch.catchBlockEnd$
+	} // $line-explicitExceptionTryCatch.afterBlock$
 
-	private void noExceptionFinally() {
+	private static void noExceptionFinally() {
 		nop(); // $line-noExceptionFinally.beforeBlock$
 		try {
 			nop(); // $line-noExceptionFinally.tryBlock$
-		} finally { // $line-noExceptionFinallyFinally$
+		} finally { // $line-noExceptionFinally.finally$
 			nop(); // $line-noExceptionFinally.finallyBlock$
-		}
-	}
+		} // $line-noExceptionFinally.finallyBlockEnd$
+	} // $line-noExceptionFinally.afterBlock$
 
-	private void implicitExceptionFinally() {
+	private static void implicitExceptionFinally() {
 		nop(); // $line-implicitExceptionFinally.beforeBlock$
 		try {
 			nop(); // $line-implicitExceptionFinally.before$
@@ -115,21 +126,17 @@ public class Target03 implements Runnable {
 			nop(); // $line-implicitExceptionFinally.after$
 		} finally { // $line-implicitExceptionFinally.finally$
 			nop(); // $line-implicitExceptionFinally.finallyBlock$
-		}
-	}
+		} // $line-implicitExceptionFinally.finallyBlockEnd$
+	} // $line-implicitExceptionFinally.afterBlock$
 
-	private void explicitExceptionFinally() {
+	private static void explicitExceptionFinally() {
 		nop(); // $line-explicitExceptionFinally.beforeBlock$
 		try {
 			nop(); // $line-explicitExceptionFinally.before$
 			throw new StubException(); // $line-explicitExceptionFinally.throw$
 		} finally { // $line-explicitExceptionFinally.finally$
 			nop(); // $line-explicitExceptionFinally.finallyBlock$
-		}
-	}
-
-	public static void main(String[] args) {
-		new Target03().run();
-	}
+		} // $line-explicitExceptionFinally.finallyBlockEnd$
+	} // $line-explicitExceptionFinally.afterBlock$
 
 }

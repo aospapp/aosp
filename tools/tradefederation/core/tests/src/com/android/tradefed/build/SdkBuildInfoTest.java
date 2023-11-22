@@ -36,12 +36,15 @@ public class SdkBuildInfoTest extends TestCase {
     @Override
     protected void setUp() throws Exception {
         mMockRunUtil = EasyMock.createMock(IRunUtil.class);
-        mSdkBuild = new SdkBuildInfo() {
-            @Override
-            IRunUtil getRunUtil() {
-                return mMockRunUtil;
-            }
-        };
+        mSdkBuild =
+                new SdkBuildInfo() {
+                    private static final long serialVersionUID = BuildSerializedVersion.VERSION;
+
+                    @Override
+                    IRunUtil getRunUtil() {
+                        return mMockRunUtil;
+                    }
+                };
         mSdkBuild.setSdkDir(new File("tmp"));
     }
     /**

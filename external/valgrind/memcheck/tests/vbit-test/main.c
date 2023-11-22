@@ -4,7 +4,7 @@
    This file is part of MemCheck, a heavyweight Valgrind tool for
    detecting memory errors.
 
-   Copyright (C) 2012-2015  Florian Krohm
+   Copyright (C) 2012-2017  Florian Krohm
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License as
@@ -80,10 +80,45 @@ static void
 fixup_irops(void)
 {
 #ifdef __powerpc__
-   get_irop(Iop_ShlD64)->shift_amount_is_immediate = 1;
-   get_irop(Iop_ShrD64)->shift_amount_is_immediate = 1;
-   get_irop(Iop_ShlD128)->shift_amount_is_immediate = 1;
-   get_irop(Iop_ShrD128)->shift_amount_is_immediate = 1;
+   irop_t* tmp;
+
+   /* Iops with immediate shift value */
+   tmp = get_irop(Iop_ShlD64);
+   if (tmp) {
+      tmp->immediate_index = 2;
+      tmp->immediate_type = Ity_I8;
+   }
+
+   tmp = get_irop(Iop_ShrD64);
+   if (tmp) {
+      tmp->immediate_index = 2;
+      tmp->immediate_type = Ity_I8;
+   }
+
+   tmp = get_irop(Iop_ShlD128);
+   if (tmp) {
+      tmp->immediate_index = 2;
+      tmp->immediate_type = Ity_I8;
+   }
+
+   tmp = get_irop(Iop_ShrD128);
+   if (tmp) {
+      tmp->immediate_index = 2;
+      tmp->immediate_type = Ity_I8;
+   }
+
+   /* Iops with immediate value that controls PPC instruction behavior */
+   tmp = get_irop(Iop_SHA256);
+   if (tmp) {
+      tmp->immediate_index = 2;
+      tmp->immediate_type = Ity_I8;
+   }
+
+   tmp = get_irop(Iop_SHA512);
+   if (tmp) {
+      tmp->immediate_index = 2;
+      tmp->immediate_type = Ity_I8;
+   }
 #endif
 }
 

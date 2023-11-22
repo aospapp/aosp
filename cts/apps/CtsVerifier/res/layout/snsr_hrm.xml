@@ -34,11 +34,9 @@
         android:layout_marginBottom="10dip"
         android:background="@drawable/gray_bubble"
         android:drawablePadding="10dip"
-        android:paddingBottom="5dip"
         android:paddingLeft="10dip"
         android:paddingRight="10dip"
-        android:paddingTop="5dip"
-        android:textSize="28dip" />
+        android:textSize="20dip" />
 
     <TextView
         android:id="@+id/sensor_accuracy_value"
@@ -49,10 +47,8 @@
         android:layout_marginBottom="10dip"
         android:background="@drawable/gray_bubble"
         android:drawablePadding="10dip"
-        android:paddingBottom="5dip"
         android:paddingLeft="10dip"
         android:paddingRight="10dip"
-        android:paddingTop="5dip"
-        android:textSize="28dip" />
+        android:textSize="20dip" />
 
 </RelativeLayout>

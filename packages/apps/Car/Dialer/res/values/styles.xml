@@ -13,27 +13,7 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<resources xmlns:android="http://schemas.android.com/apk/res/android"
-    >
-
-    <style name="AppTheme" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:colorControlHighlight">@color/car_card_ripple_background_light</item>
-        <item name="android:windowBackground">@null</item>
-    </style>
-
-    <!-- Gearhead app themes -->
-    <!-- Primary colors will be used as the list overscroll glow at 0x33 opacity. This is the only
-         way to set the overscroll glow color. -->
-    <style name="ProjectedTheme" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:colorPrimary">@color/car_overscroll_glow</item>
-        <item name="android:windowBackground">@null</item>
-    </style>
-
-    <style name="TelecomTheme" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:colorPrimary">@color/phone_theme</item>
-        <item name="android:colorPrimaryDark">@color/phone_theme_dark</item>
-        <item name="android:windowBackground">@null</item>
-    </style>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- Phone -->
     <style name="DialpadKeyButtonStyle">
@@ -57,5 +37,11 @@
         <item name="android:textStyle">normal</item>
         <item name="android:textSize">@dimen/keyboard_key_letter_height</item>
         <item name="android:textColor">@color/car_headline1</item>
+    </style>
+
+    <style name="NoHfpText" parent="CarBody2.Light">
+        <item name="android:textColor">@color/car_body1_light</item>
+        <item name="android:gravity">center</item>
+        <item name="android:maxLines">3</item>
     </style>
 </resources>

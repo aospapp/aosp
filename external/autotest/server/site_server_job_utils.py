@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""Utility classes used by site_server_job.distribute_across_machines().
+"""Utility classes used by server_job.distribute_across_machines().
 
 test_item: extends the basic test tuple to add include/exclude attributes and
     pre/post actions.

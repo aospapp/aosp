@@ -20,9 +20,9 @@
 
 #define INTERFACE_IOpenCallbackUI_Crypto(x) \
   virtual HRESULT Open_CryptoGetTextPassword(BSTR *password) x; \
-  virtual HRESULT Open_GetPasswordIfAny(bool &passwordIsDefined, UString &password) x; \
-  virtual bool Open_WasPasswordAsked() x; \
-  virtual void Open_ClearPasswordWasAskedFlag() x; \
+  /* virtual HRESULT Open_GetPasswordIfAny(bool &passwordIsDefined, UString &password) x; */ \
+  /* virtual bool Open_WasPasswordAsked() x; */ \
+  /* virtual void Open_Clear_PasswordWasAsked_Flag() x; */  \
   
 #endif
 
@@ -30,6 +30,7 @@
   virtual HRESULT Open_CheckBreak() x; \
   virtual HRESULT Open_SetTotal(const UInt64 *files, const UInt64 *bytes) x; \
   virtual HRESULT Open_SetCompleted(const UInt64 *files, const UInt64 *bytes) x; \
+  virtual HRESULT Open_Finished() x; \
   INTERFACE_IOpenCallbackUI_Crypto(x)
 
 struct IOpenCallbackUI
@@ -47,18 +48,13 @@ class COpenCallbackImp:
   public CMyUnknownImp
 {
 public:
+  MY_QUERYINTERFACE_BEGIN2(IArchiveOpenVolumeCallback)
+  MY_QUERYINTERFACE_ENTRY(IArchiveOpenSetSubArchiveName)
   #ifndef _NO_CRYPTO
-  MY_UNKNOWN_IMP3(
-      IArchiveOpenVolumeCallback,
-      ICryptoGetTextPassword,
-      IArchiveOpenSetSubArchiveName
-      )
-  #else
-  MY_UNKNOWN_IMP2(
-      IArchiveOpenVolumeCallback,
-      IArchiveOpenSetSubArchiveName
-      )
+  MY_QUERYINTERFACE_ENTRY(ICryptoGetTextPassword)
   #endif
+  MY_QUERYINTERFACE_END
+  MY_ADDREF_RELEASE
 
   INTERFACE_IArchiveOpenCallback(;)
   INTERFACE_IArchiveOpenVolumeCallback(;)
@@ -85,12 +81,15 @@ public:
   UStringVector FileNames;
   CBoolVector FileNames_WasUsed;
   CRecordVector<UInt64> FileSizes;
+  
+  bool PasswordWasAsked;
 
   IOpenCallbackUI *Callback;
   CMyComPtr<IArchiveOpenCallback> ReOpenCallback;
   // UInt64 TotalSize;
 
-  COpenCallbackImp(): Callback(NULL) {}
+  COpenCallbackImp(): Callback(NULL), _subArchiveMode(false) {}
+  
   void Init(const FString &folderPrefix, const FString &fileName)
   {
     _folderPrefix = folderPrefix;
@@ -101,7 +100,9 @@ public:
     FileSizes.Clear();
     _subArchiveMode = false;
     // TotalSize = 0;
+    PasswordWasAsked = false;
   }
+
   bool SetSecondFileInfo(CFSTR newName)
   {
     return _fileInfo.Find(newName) && !_fileInfo.IsDir();

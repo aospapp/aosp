@@ -7,6 +7,7 @@
 import functools
 import glob
 import logging
+import numpy as np
 import os
 import tempfile
 
@@ -38,6 +39,16 @@ def check_arc_resource(func):
             raise AudioFacadeNativeError('There is no ARC resource.')
         return func(instance, *args, **kwargs)
     return wrapper
+
+
+def file_contains_all_zeros(path):
+    """Reads a file and checks whether the file contains all zeros."""
+    with open(path) as f:
+        binary = f.read()
+        # Assume data is in 16 bit signed int format. The real format
+        # does not matter though since we only care if there is nonzero data.
+        np_array = np.fromstring(binary, dtype='<i2')
+        return not np.any(np_array)
 
 
 class AudioFacadeNative(object):
@@ -230,9 +241,14 @@ class AudioFacadeNative(object):
         """Stops recording an audio file.
 
         @returns: The path to the recorded file.
+                  None if capture device is not functional.
 
         """
         self._recorder.stop()
+        if file_contains_all_zeros(self._recorder.file_path):
+            logging.error('Recorded file contains all zeros. '
+                          'Capture device is not functional')
+            return None
         return self._recorder.file_path
 
 

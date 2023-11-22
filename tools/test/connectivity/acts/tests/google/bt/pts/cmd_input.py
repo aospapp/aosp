@@ -16,7 +16,6 @@
 """
 Python script for wrappers to various libraries.
 """
-
 from acts.test_utils.bt.BtEnum import BluetoothScanModeType
 from acts.test_utils.bt.GattEnum import GattServerResponses
 from ble_lib import BleLib
@@ -26,6 +25,7 @@ from gattc_lib import GattClientLib
 from gatts_lib import GattServerLib
 from rfcomm_lib import RfcommLib
 
+import time
 import cmd
 import gatt_test_database
 """Various Global Strings"""
@@ -36,6 +36,30 @@ FAILURE = "CMD {} threw exception: {}"
 class CmdInput(cmd.Cmd):
     """Simple command processor for Bluetooth PTS Testing"""
     gattc_lib = None
+
+    def connect_hsp_helper(self, ad):
+        """A helper function for making HSP connections"""
+        end_time = time.time() + 20
+        connected_hsp_devices = len(ad.droid.bluetoothHspGetConnectedDevices())
+        while connected_hsp_devices != 1 and time.time() < end_time:
+            try:
+                ad.droid.bluetoothHspConnect(self.mac_addr)
+                time.sleep(3)
+                if len(ad.droid.bluetoothHspGetConnectedDevices() == 1):
+                    break
+            except Exception:
+                self.log.debug("Failed to connect hsp trying again...")
+            try:
+                ad.droid.bluetoothConnectBonded(self.mac_addr)
+            except Exception:
+                self.log.info("Failed to connect to bonded device...")
+            connected_hsp_devices = len(
+                ad.droid.bluetoothHspGetConnectedDevices())
+        if connected_hsp_devices != 1:
+            self.log.error("Failed to reconnect to HSP service...")
+            return False
+        self.log.info("Connected to HSP service...")
+        return True
 
     def setup_vars(self, android_devices, mac_addr, log):
         self.pri_dut = android_devices[0]
@@ -324,6 +348,14 @@ class CmdInput(cmd.Cmd):
         except Exception as err:
             self.log.info(FAILURE.format(cmd, err))
 
+    def do_gattc_read_all_desc(self, line):
+        """Read all Descriptor values"""
+        cmd = "Read all Descriptor values"
+        try:
+            self.gattc_lib.read_all_desc()
+        except Exception as err:
+            self.log.info(FAILURE.format(cmd, err))
+
     """End GATT Client wrappers"""
     """Begin GATT Server wrappers"""
 
@@ -337,8 +369,8 @@ class CmdInput(cmd.Cmd):
 
     def complete_gatts_setup_database(self, text, line, begidx, endidx):
         if not text:
-            completions = list(
-                gatt_test_database.GATT_SERVER_DB_MAPPING.keys())[:]
+            completions = list(gatt_test_database.GATT_SERVER_DB_MAPPING.keys(
+            ))[:]
         else:
             completions = [
                 s for s in gatt_test_database.GATT_SERVER_DB_MAPPING.keys()
@@ -585,7 +617,7 @@ class CmdInput(cmd.Cmd):
         """Stop an LE advertisement"""
         cmd = "Stop a connectable LE advertisement"
         try:
-            self.do_ble_stop_advertisement(line)
+            self.ble_lib.ble_stop_advertisement(line)
         except Exception as err:
             self.log.info(FAILURE.format(cmd, err))
 
@@ -728,6 +760,21 @@ class CmdInput(cmd.Cmd):
         except Exception as err:
             self.log.info(FAILURE.format(cmd, err))
 
+    def do_bta_connect_profiles(self, line):
+        """Connect available profiles"""
+        cmd = "Connect all profiles possible"
+        try:
+            self.bta_lib.connect_profiles()
+        except Exception as err:
+            self.log.info(FAILURE.format(cmd, err))
+
+    def do_bta_tts_speak(self, line):
+        cmd = "Open audio channel by speaking characters"
+        try:
+            self.bta_lib.tts_speak()
+        except Exception as err:
+            self.log.info(FAILURE.format(cmd, err))
+
     """End Bta wrappers"""
     """Begin Rfcomm wrappers"""
 
@@ -825,3 +872,111 @@ class CmdInput(cmd.Cmd):
             self.log.info(FAILURE.format(cmd, err))
 
     """End Config wrappers"""
+    """Begin HFP/HSP wrapper"""
+
+    def do_bta_hsp_force_sco_audio_on(self, line):
+        """HFP/HSP Force SCO Audio ON"""
+        cmd = "HFP/HSP Force SCO Audio ON"
+        try:
+            if not self.pri_dut.droid.bluetoothHspForceScoAudio(True):
+                self.log.info(
+                    FAILURE.format(cmd,
+                                   "bluetoothHspForceScoAudio returned false"))
+        except Exception as err:
+            self.log.info(FAILURE.format(cmd, err))
+
+    def do_bta_hsp_force_sco_audio_off(self, line):
+        """HFP/HSP Force SCO Audio OFF"""
+        cmd = "HFP/HSP Force SCO Audio OFF"
+        try:
+            if not self.pri_dut.droid.bluetoothHspForceScoAudio(False):
+                self.log.info(
+                    FAILURE.format(cmd,
+                                   "bluetoothHspForceScoAudio returned false"))
+        except Exception as err:
+            self.log.info(FAILURE.format(cmd, err))
+
+    def do_bta_hsp_connect_audio(self, line):
+        """HFP/HSP connect audio"""
+        cmd = "HFP/HSP connect audio"
+        try:
+            if not self.pri_dut.droid.bluetoothHspConnectAudio(self.mac_addr):
+                self.log.info(
+                    FAILURE.format(
+                        cmd, "bluetoothHspConnectAudio returned false for " +
+                        self.mac_addr))
+        except Exception as err:
+            self.log.info(FAILURE.format(cmd, err))
+
+    def do_bta_hsp_disconnect_audio(self, line):
+        """HFP/HSP disconnect audio"""
+        cmd = "HFP/HSP disconnect audio"
+        try:
+            if not self.pri_dut.droid.bluetoothHspDisconnectAudio(
+                    self.mac_addr):
+                self.log.info(
+                    FAILURE.format(
+                        cmd, "bluetoothHspDisconnectAudio returned false for "
+                        + self.mac_addr))
+        except Exception as err:
+            self.log.info(FAILURE.format(cmd, err))
+
+    def do_bta_hsp_connect_slc(self, line):
+        """HFP/HSP connect SLC with additional tries and help"""
+        cmd = "Connect to hsp with some help"
+        try:
+            if not self.connect_hsp_helper(self.pri_dut):
+                self.log.error("Failed to connect to HSP")
+        except Exception as err:
+            self.log.info(FAILURE.format(cmd, err))
+
+    def do_bta_hsp_disconnect_slc(self, line):
+        """HFP/HSP disconnect SLC"""
+        cmd = "HFP/HSP disconnect SLC"
+        try:
+            if not self.pri_dut.droid.bluetoothHspDisconnect(self.mac_addr):
+                self.log.info(
+                    FAILURE.format(
+                        cmd, "bluetoothHspDisconnect returned false for " +
+                        self.mac_addr))
+        except Exception as err:
+            self.log.info(FAILURE.format(cmd, err))
+
+    """End HFP/HSP wrapper"""
+    """Begin HID wrappers"""
+
+    def do_hid_get_report(self, line):
+        """Get HID Report"""
+        cmd = "Get HID Report"
+        try:
+            self.pri_dut.droid.bluetoothHidGetReport(self.mac_addr, "1", "1",
+                                                     1024)
+        except Exception as err:
+            self.log.info(FAILURE.format(cmd, err))
+
+    def do_hid_set_report(self, line):
+        """Get HID Report"""
+        cmd = "Get HID Report"
+        try:
+            self.pri_dut.droid.bluetoothHidSetReport(self.mac_addr, "1",
+                                                     "Test")
+        except Exception as err:
+            self.log.info(FAILURE.format(cmd, err))
+
+    def do_hid_virtual_unplug(self, line):
+        """Get HID Report"""
+        cmd = "Get HID Report"
+        try:
+            self.pri_dut.droid.bluetoothHidVirtualUnplug(self.mac_addr)
+        except Exception as err:
+            self.log.info(FAILURE.format(cmd, err))
+
+    def do_hid_send_report(self, line):
+        """Get HID Report"""
+        cmd = "Get HID Report"
+        try:
+            self.pri_dut.droid.bluetoothHidSendData(device_id, "42")
+        except Exception as err:
+            self.log.info(FAILURE.format(cmd, err))
+
+    """End HID wrappers"""

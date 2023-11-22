@@ -39,7 +39,7 @@
 #include "jni_util.h"
 #include "jvm.h"
 
-#include "JNIHelp.h"
+#include <nativehelper/JNIHelp.h>
 
 #include "nativehelper/jni_macros.h"
 

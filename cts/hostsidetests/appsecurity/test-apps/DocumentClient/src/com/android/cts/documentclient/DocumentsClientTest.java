@@ -85,8 +85,8 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
         revealRoot(rootsList, rootLabel);
 
         final UiScrollable rootsListObject = new UiScrollable(rootsList);
-        final UiObject rootItem =
-                rootsListObject.getChildByText(new UiSelector(), rootLabel, false);
+        final UiObject rootItem = rootsListObject.getChildByText(
+                new UiSelector().className("android.widget.LinearLayout"), rootLabel, false);
         final UiSelector ejectIcon =
                 new UiSelector().resourceId("com.android.documentsui:id/eject_icon");
         return new UiObject(rootItem.getSelector().childSelector(ejectIcon));

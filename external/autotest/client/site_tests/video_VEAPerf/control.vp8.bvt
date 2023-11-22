@@ -30,4 +30,4 @@ test_cases = [
     ('media/test/data/bear_320x192_40frames.yuv', False, 320, 192, 200000, 11, 30)
 ]
 
-job.run_test('video_VEAPerf', test_cases=test_cases)
+job.run_test('video_VEAPerf', test_cases=test_cases, tag='vp8')

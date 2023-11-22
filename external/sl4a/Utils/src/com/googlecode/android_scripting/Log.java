@@ -18,6 +18,7 @@ package com.googlecode.android_scripting;
 
 import android.app.AlertDialog;
 import android.app.Notification;
+import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
@@ -25,6 +26,7 @@ import android.content.DialogInterface;
 import android.widget.Toast;
 
 public class Log {
+  private static final String CHANNEL_ID = "log_channel";
   private Log() {
     // Utility class.
   }
@@ -41,14 +43,32 @@ public class Log {
     Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
   }
 
+  private static int getStringId(String identifier, Context context) {
+    String packageName = context.getPackageName();
+    return context.getResources().getIdentifier(identifier, "string", packageName);
+  }
+
+  private static void createNotificationChannel(Context context, NotificationManager notificationManager) {
+    CharSequence name = context.getString(getStringId("notification_channel_name", context));
+    String description = context.getString(getStringId("notification_channel_description", context));
+    int importance = NotificationManager.IMPORTANCE_DEFAULT;
+    NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
+    channel.setDescription(description);
+    channel.enableLights(false);
+    channel.enableVibration(false);
+    notificationManager.createNotificationChannel(channel);
+  }
+
   public static void notify(Context context, String title, String contentTitle, String message) {
     android.util.Log.v(getTag(), String.format("%s %s", contentTitle, message));
 
-    String packageName = context.getPackageName();
-    int iconId = context.getResources().getIdentifier("stat_sys_warning", "drawable", packageName);
     NotificationManager notificationManager =
         (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-    Notification.Builder builder = new Notification.Builder(context);
+    createNotificationChannel(context, notificationManager);
+
+    String packageName = context.getPackageName();
+    int iconId = context.getResources().getIdentifier("stat_sys_warning", "drawable", packageName);
+    Notification.Builder builder = new Notification.Builder(context, CHANNEL_ID);
     builder.setSmallIcon(iconId > 0 ? iconId : -1)
            .setTicker(title)
            .setWhen(0)

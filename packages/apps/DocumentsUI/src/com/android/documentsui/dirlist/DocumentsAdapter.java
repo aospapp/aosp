@@ -61,6 +61,8 @@ public abstract class DocumentsAdapter
      */
     public abstract List<String> getModelIds();
 
+    public abstract int getAdapterPosition(String modelId);
+
     /**
      * Triggers item-change notifications by stable ID (as opposed to position).
      * Passing an unrecognized ID will result in a warning in logcat, but no other error.

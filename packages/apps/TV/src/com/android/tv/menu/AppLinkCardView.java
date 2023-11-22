@@ -24,6 +24,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.os.AsyncTask;
 import android.support.annotation.Nullable;
 import android.support.v7.graphics.Palette;
 import android.text.TextUtils;
@@ -40,10 +41,12 @@ import com.android.tv.util.BitmapUtils;
 import com.android.tv.util.ImageLoader;
 import com.android.tv.util.TvInputManagerHelper;
 
+import java.util.Objects;
+
 /**
  * A view to render an app link card.
  */
-public class AppLinkCardView extends BaseCardView<Channel> {
+public class AppLinkCardView extends BaseCardView<ChannelsRowItem> {
     private static final String TAG = MenuView.TAG;
     private static final boolean DEBUG = MenuView.DEBUG;
 
@@ -53,9 +56,9 @@ public class AppLinkCardView extends BaseCardView<Channel> {
     private final int mIconHeight;
     private final int mIconPadding;
     private final int mIconColorFilter;
+    private final Drawable mDefaultDrawable;
 
     private ImageView mImageView;
-    private View mGradientView;
     private TextView mAppInfoView;
     private View mMetaViewHolder;
     private Channel mChannel;
@@ -82,6 +85,7 @@ public class AppLinkCardView extends BaseCardView<Channel> {
         mPackageManager = context.getPackageManager();
         mTvInputManagerHelper = ((MainActivity) context).getTvInputManagerHelper();
         mIconColorFilter = getResources().getColor(R.color.app_link_card_icon_color_filter, null);
+        mDefaultDrawable = getResources().getDrawable(R.drawable.ic_recent_thumbnail_default, null);
     }
 
     /**
@@ -92,65 +96,153 @@ public class AppLinkCardView extends BaseCardView<Channel> {
     }
 
     @Override
-    public void onBind(Channel channel, boolean selected) {
+    public void onBind(ChannelsRowItem item, boolean selected) {
+        Channel newChannel = item.getChannel();
+        boolean channelChanged = !Objects.equals(mChannel, newChannel);
+        String previousPosterArtUri = mChannel == null ? null : mChannel.getAppLinkPosterArtUri();
+        boolean posterArtChanged = previousPosterArtUri == null
+                || newChannel.getAppLinkPosterArtUri() == null
+                || !TextUtils.equals(previousPosterArtUri, newChannel.getAppLinkPosterArtUri());
+        mChannel = newChannel;
         if (DEBUG) {
-            Log.d(TAG, "onBind(channelName=" + channel.getDisplayName() + ", selected=" + selected
+            Log.d(TAG, "onBind(channelName=" + mChannel.getDisplayName() + ", selected=" + selected
                     + ")");
         }
-        mChannel = channel;
         ApplicationInfo appInfo = mTvInputManagerHelper.getTvInputAppInfo(mChannel.getInputId());
-        int linkType = mChannel.getAppLinkType(getContext());
-        mIntent = mChannel.getAppLinkIntent(getContext());
+        if (channelChanged) {
+            int linkType = mChannel.getAppLinkType(getContext());
+            mIntent = mChannel.getAppLinkIntent(getContext());
 
-        switch (linkType) {
-            case Channel.APP_LINK_TYPE_CHANNEL:
-                setText(mChannel.getAppLinkText());
-                mAppInfoView.setVisibility(VISIBLE);
-                mGradientView.setVisibility(VISIBLE);
-                mAppInfoView.setCompoundDrawablePadding(mIconPadding);
-                mAppInfoView.setCompoundDrawables(null, null, null, null);
-                mAppInfoView.setText(mPackageManager.getApplicationLabel(appInfo));
-                if (!TextUtils.isEmpty(mChannel.getAppLinkIconUri())) {
-                    mChannel.loadBitmap(getContext(), Channel.LOAD_IMAGE_TYPE_APP_LINK_ICON,
-                            mIconWidth, mIconHeight, createChannelLogoCallback(this, mChannel,
-                                    Channel.LOAD_IMAGE_TYPE_APP_LINK_ICON));
-                } else if (appInfo.icon != 0) {
-                    Drawable appIcon = mPackageManager.getApplicationIcon(appInfo);
-                    BitmapUtils.setColorFilterToDrawable(mIconColorFilter, appIcon);
-                    appIcon.setBounds(0, 0, mIconWidth, mIconHeight);
-                    mAppInfoView.setCompoundDrawables(appIcon, null, null, null);
-                }
-                break;
-            case Channel.APP_LINK_TYPE_APP:
-                setText(getContext().getString(
-                        R.string.channels_item_app_link_app_launcher,
-                        mPackageManager.getApplicationLabel(appInfo)));
-                mAppInfoView.setVisibility(GONE);
-                mGradientView.setVisibility(GONE);
-                break;
-            default:
-                mAppInfoView.setVisibility(GONE);
-                mGradientView.setVisibility(GONE);
-                Log.d(TAG, "Should not be here.");
-        }
+            CharSequence appLabel;
+            switch (linkType) {
+                case Channel.APP_LINK_TYPE_CHANNEL:
+                    setText(mChannel.getAppLinkText());
+                    mAppInfoView.setVisibility(VISIBLE);
+                    mAppInfoView.setCompoundDrawablePadding(mIconPadding);
+                    mAppInfoView.setCompoundDrawablesRelative(null, null, null, null);
+                    appLabel = mTvInputManagerHelper
+                            .getTvInputApplicationLabel(mChannel.getInputId());
+                    if (appLabel != null) {
+                        mAppInfoView.setText(appLabel);
+                    } else {
+                        new AsyncTask<Void, Void, CharSequence>() {
+                            private final String mLoadTvInputId = mChannel.getInputId();
 
-        if (mChannel.getAppLinkColor() == 0) {
-            mMetaViewHolder.setBackgroundResource(R.color.channel_card_meta_background);
-        } else {
-            mMetaViewHolder.setBackgroundColor(mChannel.getAppLinkColor());
-        }
+                            @Override
+                            protected CharSequence doInBackground(Void... params) {
+                                if (appInfo != null) {
+                                    return mPackageManager.getApplicationLabel(appInfo);
+                                }
+                                return null;
+                            }
 
-        if (!TextUtils.isEmpty(mChannel.getAppLinkPosterArtUri())) {
-            mImageView.setImageResource(R.drawable.ic_recent_thumbnail_default);
-            mChannel.loadBitmap(getContext(), Channel.LOAD_IMAGE_TYPE_APP_LINK_POSTER_ART,
-                    mCardImageWidth, mCardImageHeight, createChannelLogoCallback(this, mChannel,
-                            Channel.LOAD_IMAGE_TYPE_APP_LINK_POSTER_ART));
-        } else {
-            setCardImageWithBanner(appInfo);
+                            @Override
+                            protected void onPostExecute(CharSequence appLabel) {
+                                mTvInputManagerHelper.setTvInputApplicationLabel(
+                                        mLoadTvInputId, appLabel);
+                                if (mLoadTvInputId != mChannel.getInputId()
+                                        || !isAttachedToWindow()) {
+                                    return;
+                                }
+                                mAppInfoView.setText(appLabel);
+                            }
+                        }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+                    }
+                    if (!TextUtils.isEmpty(mChannel.getAppLinkIconUri())) {
+                        mChannel.loadBitmap(getContext(), Channel.LOAD_IMAGE_TYPE_APP_LINK_ICON,
+                                mIconWidth, mIconHeight, createChannelLogoCallback(
+                                        this, mChannel, Channel.LOAD_IMAGE_TYPE_APP_LINK_ICON));
+                    } else if (appInfo.icon != 0) {
+                        Drawable appIcon = mTvInputManagerHelper
+                                .getTvInputApplicationIcon(mChannel.getInputId());
+                        if (appIcon != null) {
+                            BitmapUtils.setColorFilterToDrawable(mIconColorFilter, appIcon);
+                            appIcon.setBounds(0, 0, mIconWidth, mIconHeight);
+                            mAppInfoView.setCompoundDrawablesRelative(appIcon, null, null, null);
+                        } else {
+                            new AsyncTask<Void, Void, Drawable>() {
+                                private final String mLoadTvInputId = mChannel.getInputId();
+
+                                @Override
+                                protected Drawable doInBackground(Void... params) {
+                                    return mPackageManager.getApplicationIcon(appInfo);
+                                }
+
+                                @Override
+                                protected void onPostExecute(Drawable appIcon) {
+                                    mTvInputManagerHelper.setTvInputApplicationIcon(
+                                            mLoadTvInputId, appIcon);
+                                    if (!mLoadTvInputId.equals(mChannel.getInputId())
+                                            || !isAttachedToWindow()) {
+                                        return;
+                                    }
+                                    BitmapUtils.setColorFilterToDrawable(mIconColorFilter, appIcon);
+                                    appIcon.setBounds(0, 0, mIconWidth, mIconHeight);
+                                    mAppInfoView.setCompoundDrawablesRelative(
+                                            appIcon, null, null, null);
+                                }
+                            }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+                        }
+                    }
+                    break;
+                case Channel.APP_LINK_TYPE_APP:
+                    appLabel = mTvInputManagerHelper
+                        .getTvInputApplicationLabel(mChannel.getInputId());
+                    if (appLabel != null) {
+                        setText(getContext()
+                            .getString(R.string.channels_item_app_link_app_launcher, appLabel));
+                    } else {
+                        new AsyncTask<Void, Void, CharSequence>() {
+                            private final String mLoadTvInputId = mChannel.getInputId();
+
+                            @Override
+                            protected CharSequence doInBackground(Void... params) {
+                                if (appInfo != null) {
+                                    return mPackageManager.getApplicationLabel(appInfo);
+                                }
+                                return null;
+                            }
+
+                            @Override
+                            protected void onPostExecute(CharSequence appLabel) {
+                                mTvInputManagerHelper.setTvInputApplicationLabel(
+                                    mLoadTvInputId, appLabel);
+                                if (!mLoadTvInputId.equals(mChannel.getInputId())
+                                    || !isAttachedToWindow()) {
+                                    return;
+                                }
+                                setText(getContext()
+                                    .getString(
+                                        R.string.channels_item_app_link_app_launcher,
+                                        appLabel));
+                            }
+                        }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+                    }
+                    mAppInfoView.setVisibility(GONE);
+                    break;
+                default:
+                    mAppInfoView.setVisibility(GONE);
+                    Log.d(TAG, "Should not be here.");
+            }
+
+            if (mChannel.getAppLinkColor() == 0) {
+                mMetaViewHolder.setBackgroundResource(R.color.channel_card_meta_background);
+            } else {
+                mMetaViewHolder.setBackgroundColor(mChannel.getAppLinkColor());
+            }
         }
-        // Call super.onBind() at the end intentionally. In order to correctly handle extension of
-        // text view, text should be set before calling super.onBind.
-        super.onBind(channel, selected);
+        if (posterArtChanged) {
+            mImageView.setImageDrawable(mDefaultDrawable);
+            mImageView.setForeground(null);
+            if (!TextUtils.isEmpty(mChannel.getAppLinkPosterArtUri())) {
+                mChannel.loadBitmap(getContext(), Channel.LOAD_IMAGE_TYPE_APP_LINK_POSTER_ART,
+                        mCardImageWidth, mCardImageHeight, createChannelLogoCallback(this, mChannel,
+                                Channel.LOAD_IMAGE_TYPE_APP_LINK_POSTER_ART));
+            } else {
+                setCardImageWithBanner(appInfo);
+            }
+        }
+        super.onBind(item, selected);
     }
 
     private static ImageLoader.ImageLoaderCallback<AppLinkCardView> createChannelLogoCallback(
@@ -182,13 +274,14 @@ public class AppLinkCardView extends BaseCardView<Channel> {
                 }
             }
             BitmapUtils.setColorFilterToDrawable(mIconColorFilter, drawable);
-            mAppInfoView.setCompoundDrawables(drawable, null, null, null);
+            mAppInfoView.setCompoundDrawablesRelative(drawable, null, null, null);
         } else if (type == Channel.LOAD_IMAGE_TYPE_APP_LINK_POSTER_ART) {
             if (bitmap == null) {
                 setCardImageWithBanner(
                         mTvInputManagerHelper.getTvInputAppInfo(mChannel.getInputId()));
             } else {
                 mImageView.setImageBitmap(bitmap);
+                mImageView.setForeground(getContext().getDrawable(R.drawable.card_image_gradient));
                 if (mChannel.getAppLinkColor() == 0) {
                     extractAndSetMetaViewBackgroundColor(bitmap);
                 }
@@ -200,7 +293,6 @@ public class AppLinkCardView extends BaseCardView<Channel> {
     protected void onFinishInflate() {
         super.onFinishInflate();
         mImageView = (ImageView) findViewById(R.id.image);
-        mGradientView = findViewById(R.id.image_gradient);
         mAppInfoView = (TextView) findViewById(R.id.app_info);
         mMetaViewHolder = findViewById(R.id.app_link_text_holder);
     }
@@ -209,37 +301,85 @@ public class AppLinkCardView extends BaseCardView<Channel> {
     // 1) Provided poster art image, 2) Activity banner, 3) Activity icon, 4) Application banner,
     // 5) Application icon, and 6) default image.
     private void setCardImageWithBanner(ApplicationInfo appInfo) {
-        Drawable banner = null;
-        if (mIntent != null) {
-            try {
-                banner = mPackageManager.getActivityBanner(mIntent);
-                if (banner == null) {
-                    banner = mPackageManager.getActivityIcon(mIntent);
+        new AsyncTask<Void, Void, Drawable>() {
+            private String mLoadTvInputId = mChannel.getInputId();
+            @Override
+            protected Drawable doInBackground(Void... params) {
+                Drawable banner = null;
+                if (mIntent != null) {
+                    try {
+                        banner = mPackageManager.getActivityBanner(mIntent);
+                        if (banner == null) {
+                            banner = mPackageManager.getActivityIcon(mIntent);
+                        }
+                    } catch (PackageManager.NameNotFoundException e) {
+                        // do nothing.
+                    }
                 }
-            } catch (PackageManager.NameNotFoundException e) {
-                // do nothing.
+                return banner;
             }
-        }
 
-        if (banner == null && appInfo != null) {
-            if (appInfo.banner != 0) {
-                banner = mPackageManager.getApplicationBanner(appInfo);
+            @Override
+            protected void onPostExecute(Drawable banner) {
+                if (mLoadTvInputId != mChannel.getInputId() || !isAttachedToWindow()) {
+                    return;
+                }
+                if (banner != null) {
+                    setCardImageWithBannerInternal(banner);
+                } else {
+                    setCardImageWithApplicationInfoBanner(appInfo);
+                }
             }
-            if (banner == null && appInfo.icon != 0) {
-                banner = mPackageManager.getApplicationIcon(appInfo);
-            }
-        }
+        }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+    }
 
+    private void setCardImageWithApplicationInfoBanner(ApplicationInfo appInfo) {
+        Drawable appBanner =
+                mTvInputManagerHelper.getTvInputApplicationBanner(mChannel.getInputId());
+        if (appBanner != null) {
+            setCardImageWithBannerInternal(appBanner);
+        } else {
+            new AsyncTask<Void, Void, Drawable>() {
+                private final String mLoadTvInputId = mChannel.getInputId();
+                @Override
+                protected Drawable doInBackground(Void... params) {
+                    Drawable banner = null;
+                    if (appInfo != null) {
+                        if (appInfo.banner != 0) {
+                            banner = mPackageManager.getApplicationBanner(appInfo);
+                        }
+                        if (banner == null && appInfo.icon != 0) {
+                            banner = mPackageManager.getApplicationIcon(appInfo);
+                        }
+                    }
+                    return banner;
+                }
+
+                @Override
+                protected void onPostExecute(Drawable banner) {
+                    mTvInputManagerHelper.setTvInputApplicationBanner(mLoadTvInputId, banner);
+                    if (!TextUtils.equals(mLoadTvInputId, mChannel.getInputId())
+                            || !isAttachedToWindow()) {
+                        return;
+                    }
+                    setCardImageWithBannerInternal(banner);
+                }
+            }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        }
+    }
+
+    private void setCardImageWithBannerInternal(Drawable banner) {
         if (banner == null) {
-            mImageView.setImageResource(R.drawable.ic_recent_thumbnail_default);
+            mImageView.setImageDrawable(mDefaultDrawable);
             mImageView.setBackgroundResource(R.color.channel_card);
         } else {
-            Bitmap bitmap =
-                    Bitmap.createBitmap(mCardImageWidth, mCardImageHeight, Bitmap.Config.ARGB_8888);
+            Bitmap bitmap = Bitmap.createBitmap(
+                    mCardImageWidth, mCardImageHeight, Bitmap.Config.ARGB_8888);
             Canvas canvas = new Canvas(bitmap);
             banner.setBounds(0, 0, mCardImageWidth, mCardImageHeight);
             banner.draw(canvas);
             mImageView.setImageDrawable(banner);
+            mImageView.setForeground(getContext().getDrawable(R.drawable.card_image_gradient));
             if (mChannel.getAppLinkColor() == 0) {
                 extractAndSetMetaViewBackgroundColor(bitmap);
             }

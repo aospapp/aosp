@@ -15,15 +15,13 @@
  */
 package android.autofillservice.cts;
 
-import android.support.test.rule.ActivityTestRule;
-
 import org.junit.Rule;
 
 public class DatePickerSpinnerActivityTest extends DatePickerTestCase<DatePickerSpinnerActivity> {
 
     @Rule
-    public final ActivityTestRule<DatePickerSpinnerActivity> mActivityRule =
-        new ActivityTestRule<DatePickerSpinnerActivity>(DatePickerSpinnerActivity.class);
+    public final AutofillActivityTestRule<DatePickerSpinnerActivity> mActivityRule =
+        new AutofillActivityTestRule<DatePickerSpinnerActivity>(DatePickerSpinnerActivity.class);
 
     @Override
     protected DatePickerSpinnerActivity getDatePickerActivity() {

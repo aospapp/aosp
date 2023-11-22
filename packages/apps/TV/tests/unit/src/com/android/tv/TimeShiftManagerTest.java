@@ -22,23 +22,25 @@ import static com.android.tv.TimeShiftManager.TIME_SHIFT_ACTION_ID_JUMP_TO_PREVI
 import static com.android.tv.TimeShiftManager.TIME_SHIFT_ACTION_ID_PAUSE;
 import static com.android.tv.TimeShiftManager.TIME_SHIFT_ACTION_ID_PLAY;
 import static com.android.tv.TimeShiftManager.TIME_SHIFT_ACTION_ID_REWIND;
+import static org.junit.Assert.assertEquals;
 
 import android.support.test.filters.MediumTest;
+
+import org.junit.Before;
+import org.junit.Test;
 
 @MediumTest
 public class TimeShiftManagerTest extends BaseMainActivityTestCase {
     private TimeShiftManager mTimeShiftManager;
 
-    public TimeShiftManagerTest() {
-        super(MainActivity.class);
-    }
-
     @Override
-    protected void setUp() throws Exception {
+    @Before
+    public void setUp() {
         super.setUp();
         mTimeShiftManager = mActivity.getTimeShiftManager();
     }
 
+    @Test
     public void testDisableActions() {
         enableAllActions(true);
         assertActionState(true, true, true, true, true, true);
@@ -56,6 +58,7 @@ public class TimeShiftManagerTest extends BaseMainActivityTestCase {
         assertActionState(false, false, false, false, false, false);
     }
 
+    @Test
     public void testEnableActions() {
         enableAllActions(false);
         assertActionState(false, false, false, false, false, false);

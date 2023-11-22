@@ -28,5 +28,6 @@
     </logger>
     <log_saver class="com.android.tradefed.result.FileSystemLogSaver" />
     <result_reporter class="com.android.tradefed.result.ConsoleResultReporter" />
+    <result_reporter class="com.android.tradefed.result.suite.SuiteResultReporter" />
     <template-include name="reporters" default="empty" />
 </configuration>

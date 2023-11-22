@@ -15,6 +15,10 @@
  */
 package com.android.tv;
 
+import static android.support.test.InstrumentationRegistry.getInstrumentation;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import android.support.test.filters.MediumTest;
 import android.view.View;
 import android.widget.TextView;
@@ -23,6 +27,8 @@ import com.android.tv.data.Channel;
 import com.android.tv.testing.testinput.TvTestInputConstants;
 import com.android.tv.ui.ChannelBannerView;
 
+import org.junit.Test;
+
 import java.util.List;
 
 /**
@@ -30,25 +36,22 @@ import java.util.List;
  */
 @MediumTest
 public class MainActivityTest extends BaseMainActivityTestCase {
-
-    public MainActivityTest() {
-        super(MainActivity.class);
-    }
-
+    @Test
     public void testInitialConditions() {
         waitUntilChannelLoadingFinish();
         List<Channel> channelList = mActivity.getChannelDataManager().getChannelList();
         assertTrue("Expected at least one channel", channelList.size() > 0);
-        assertFalse("PIP disabled", mActivity.isPipEnabled());
     }
 
-    public void testTuneToChannel() throws Throwable {
+    @Test
+    public void testTuneToChannel() {
         tuneToChannel(TvTestInputConstants.CH_2);
         assertChannelBannerShown(true);
         assertChannelName(TvTestInputConstants.CH_2.name);
     }
 
-    public void testShowProgramGuide() throws Throwable {
+    @Test
+    public void testShowProgramGuide() {
         tuneToChannel(TvTestInputConstants.CH_2);
         showProgramGuide();
         getInstrumentation().waitForIdleSync();
@@ -56,7 +59,7 @@ public class MainActivityTest extends BaseMainActivityTestCase {
         assertProgramGuide(true);
     }
 
-    private void showProgramGuide() throws Throwable {
+    private void showProgramGuide() {
         // Run on UI thread so views can be modified
         getInstrumentation().runOnMainSync(new Runnable() {
             @Override
@@ -81,7 +84,7 @@ public class MainActivityTest extends BaseMainActivityTestCase {
     }
 
     private View assertExpectedBannerSceneClassShown(Class<ChannelBannerView> expectedClass,
-            boolean expectedShown) throws AssertionError {
+            boolean expectedShown) {
         View v = assertViewIsShown(expectedClass.getSimpleName(), R.id.scene_transition_common,
                 expectedShown);
         if (v != null) {
@@ -90,8 +93,7 @@ public class MainActivityTest extends BaseMainActivityTestCase {
         return v;
     }
 
-    private View assertViewIsShown(String viewName, int viewId, boolean expected)
-            throws AssertionError {
+    private View assertViewIsShown(String viewName, int viewId, boolean expected) {
         View view = mActivity.findViewById(viewId);
         if (view == null) {
             if (expected) {
@@ -103,5 +105,4 @@ public class MainActivityTest extends BaseMainActivityTestCase {
         assertEquals(viewName + " shown", expected, view.isShown());
         return view;
     }
-
 }

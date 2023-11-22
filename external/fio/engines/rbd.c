@@ -8,12 +8,25 @@
 #include <rbd/librbd.h>
 
 #include "../fio.h"
+#include "../optgroup.h"
+#ifdef CONFIG_RBD_BLKIN
+#include <zipkin_c.h>
+#endif
+
+#ifdef CONFIG_RBD_POLL
+/* add for poll */
+#include <poll.h>
+#include <sys/eventfd.h>
+#endif
 
 struct fio_rbd_iou {
 	struct io_u *io_u;
 	rbd_completion_t completion;
 	int io_seen;
 	int io_complete;
+#ifdef CONFIG_RBD_BLKIN
+	struct blkin_trace_info info;
+#endif
 };
 
 struct rbd_data {
@@ -22,10 +35,13 @@ struct rbd_data {
 	rbd_image_t image;
 	struct io_u **aio_events;
 	struct io_u **sort_events;
+	int fd; /* add for poll */
+	bool connected;
 };
 
 struct rbd_options {
 	void *pad;
+	char *cluster_name;
 	char *rbd_name;
 	char *pool_name;
 	char *client_name;
@@ -33,6 +49,15 @@ struct rbd_options {
 };
 
 static struct fio_option options[] = {
+        {
+		.name		= "clustername",
+		.lname		= "ceph cluster name",
+		.type		= FIO_OPT_STR_STORE,
+		.help		= "Cluster name for ceph",
+		.off1		= offsetof(struct rbd_options, cluster_name),
+		.category	= FIO_OPT_C_ENGINE,
+		.group		= FIO_OPT_G_RBD,
+        },
 	{
 		.name		= "rbdname",
 		.lname		= "rbd engine rbdname",
@@ -80,12 +105,17 @@ static int _fio_setup_rbd_data(struct thread_data *td,
 {
 	struct rbd_data *rbd;
 
-	if (td->io_ops->data)
+	if (td->io_ops_data)
 		return 0;
 
 	rbd = calloc(1, sizeof(struct rbd_data));
 	if (!rbd)
 		goto failed;
+
+	rbd->connected = false;
+
+	/* add for poll, init fd: -1 */
+	rbd->fd = -1;
 
 	rbd->aio_events = calloc(td->o.iodepth, sizeof(struct io_u *));
 	if (!rbd->aio_events)
@@ -99,19 +129,79 @@ static int _fio_setup_rbd_data(struct thread_data *td,
 	return 0;
 
 failed:
-	if (rbd)
+	if (rbd) {
+		if (rbd->aio_events) 
+			free(rbd->aio_events);
+		if (rbd->sort_events)
+			free(rbd->sort_events);
 		free(rbd);
+	}
 	return 1;
 
 }
 
+#ifdef CONFIG_RBD_POLL
+static bool _fio_rbd_setup_poll(struct rbd_data *rbd)
+{
+	int r;
+
+	/* add for rbd poll */
+	rbd->fd = eventfd(0, EFD_NONBLOCK);
+	if (rbd->fd < 0) {
+		log_err("eventfd failed.\n");
+		return false;
+	}
+
+	r = rbd_set_image_notification(rbd->image, rbd->fd, EVENT_TYPE_EVENTFD);
+	if (r < 0) {
+		log_err("rbd_set_image_notification failed.\n");
+		close(rbd->fd);
+		rbd->fd = -1;
+		return false;
+	}
+
+	return true;
+}
+#else
+static bool _fio_rbd_setup_poll(struct rbd_data *rbd)
+{
+	return true;
+}
+#endif
+
 static int _fio_rbd_connect(struct thread_data *td)
 {
-	struct rbd_data *rbd = td->io_ops->data;
+	struct rbd_data *rbd = td->io_ops_data;
 	struct rbd_options *o = td->eo;
 	int r;
 
-	r = rados_create(&rbd->cluster, o->client_name);
+	if (o->cluster_name) {
+		char *client_name = NULL; 
+
+		/*
+		 * If we specify cluser name, the rados_create2
+		 * will not assume 'client.'. name is considered
+		 * as a full type.id namestr
+		 */
+		if (o->client_name) {
+			if (!index(o->client_name, '.')) {
+				client_name = calloc(1, strlen("client.") +
+						    strlen(o->client_name) + 1);
+				strcat(client_name, "client.");
+				strcat(client_name, o->client_name);
+			} else {
+				client_name = o->client_name;
+			}
+		}
+
+		r = rados_create2(&rbd->cluster, o->cluster_name,
+				 client_name, 0);
+
+		if (client_name && !index(o->client_name, '.'))
+			free(client_name);
+	} else
+		r = rados_create(&rbd->cluster, o->client_name);
+	
 	if (r < 0) {
 		log_err("rados_create failed.\n");
 		goto failed_early;
@@ -140,8 +230,15 @@ static int _fio_rbd_connect(struct thread_data *td)
 		log_err("rbd_open failed.\n");
 		goto failed_open;
 	}
+
+	if (!_fio_rbd_setup_poll(rbd))
+		goto failed_poll;
+
 	return 0;
 
+failed_poll:
+	rbd_close(rbd->image);
+	rbd->image = NULL;
 failed_open:
 	rados_ioctx_destroy(rbd->io_ctx);
 	rbd->io_ctx = NULL;
@@ -156,6 +253,12 @@ static void _fio_rbd_disconnect(struct rbd_data *rbd)
 {
 	if (!rbd)
 		return;
+
+	/* close eventfd */
+	if (rbd->fd != -1) {
+		close(rbd->fd);
+		rbd->fd = -1;
+	}
 
 	/* shutdown everything */
 	if (rbd->image) {
@@ -185,19 +288,19 @@ static void _fio_rbd_finish_aiocb(rbd_completion_t comp, void *data)
 	 * a specific error. So we have to assume that it can't do
 	 * partial completions.
 	 */
-	fri->io_complete = 1;
-	
 	ret = rbd_aio_get_return_value(fri->completion);
 	if (ret < 0) {
-		io_u->error = ret;
+		io_u->error = -ret;
 		io_u->resid = io_u->xfer_buflen;
 	} else
 		io_u->error = 0;
+
+	fri->io_complete = 1;
 }
 
 static struct io_u *fio_rbd_event(struct thread_data *td, int event)
 {
-	struct rbd_data *rbd = td->io_ops->data;
+	struct rbd_data *rbd = td->io_ops_data;
 
 	return rbd->aio_events[event];
 }
@@ -253,13 +356,35 @@ static int rbd_io_u_cmp(const void *p1, const void *p2)
 static int rbd_iter_events(struct thread_data *td, unsigned int *events,
 			   unsigned int min_evts, int wait)
 {
-	struct rbd_data *rbd = td->io_ops->data;
+	struct rbd_data *rbd = td->io_ops_data;
 	unsigned int this_events = 0;
 	struct io_u *io_u;
-	int i, sidx;
+	int i, sidx = 0;
 
-	sidx = 0;
+#ifdef CONFIG_RBD_POLL
+	int ret = 0;
+	int event_num = 0;
+	struct fio_rbd_iou *fri = NULL;
+	rbd_completion_t comps[min_evts];
+
+	struct pollfd pfd;
+	pfd.fd = rbd->fd;
+	pfd.events = POLLIN;
+
+	ret = poll(&pfd, 1, -1);
+	if (ret <= 0)
+		return 0;
+
+	assert(pfd.revents & POLLIN);
+
+	event_num = rbd_poll_io_events(rbd->image, comps, min_evts);
+
+	for (i = 0; i < event_num; i++) {
+		fri = rbd_aio_get_arg(comps[i]);
+		io_u = fri->io_u;
+#else
 	io_u_qiter(&td->io_u_all, io_u, i) {
+#endif
 		if (!(io_u->flags & IO_U_F_FLIGHT))
 			continue;
 		if (rbd_io_u_seen(io_u))
@@ -332,7 +457,7 @@ static int fio_rbd_getevents(struct thread_data *td, unsigned int min,
 
 static int fio_rbd_queue(struct thread_data *td, struct io_u *io_u)
 {
-	struct rbd_data *rbd = td->io_ops->data;
+	struct rbd_data *rbd = td->io_ops_data;
 	struct fio_rbd_iou *fri = io_u->engine_data;
 	int r = -1;
 
@@ -349,16 +474,28 @@ static int fio_rbd_queue(struct thread_data *td, struct io_u *io_u)
 	}
 
 	if (io_u->ddir == DDIR_WRITE) {
+#ifdef CONFIG_RBD_BLKIN
+		blkin_init_trace_info(&fri->info);
+		r = rbd_aio_write_traced(rbd->image, io_u->offset, io_u->xfer_buflen,
+					 io_u->xfer_buf, fri->completion, &fri->info);
+#else
 		r = rbd_aio_write(rbd->image, io_u->offset, io_u->xfer_buflen,
 					 io_u->xfer_buf, fri->completion);
+#endif
 		if (r < 0) {
 			log_err("rbd_aio_write failed.\n");
 			goto failed_comp;
 		}
 
 	} else if (io_u->ddir == DDIR_READ) {
+#ifdef CONFIG_RBD_BLKIN
+		blkin_init_trace_info(&fri->info);
+		r = rbd_aio_read_traced(rbd->image, io_u->offset, io_u->xfer_buflen,
+					io_u->xfer_buf, fri->completion, &fri->info);
+#else
 		r = rbd_aio_read(rbd->image, io_u->offset, io_u->xfer_buflen,
 					io_u->xfer_buf, fri->completion);
+#endif
 
 		if (r < 0) {
 			log_err("rbd_aio_read failed.\n");
@@ -387,7 +524,7 @@ static int fio_rbd_queue(struct thread_data *td, struct io_u *io_u)
 failed_comp:
 	rbd_aio_release(fri->completion);
 failed:
-	io_u->error = r;
+	io_u->error = -r;
 	td_verror(td, io_u->error, "xfer");
 	return FIO_Q_COMPLETED;
 }
@@ -395,6 +532,10 @@ failed:
 static int fio_rbd_init(struct thread_data *td)
 {
 	int r;
+	struct rbd_data *rbd = td->io_ops_data;
+
+	if (rbd->connected)
+		return 0;
 
 	r = _fio_rbd_connect(td);
 	if (r) {
@@ -410,7 +551,7 @@ failed:
 
 static void fio_rbd_cleanup(struct thread_data *td)
 {
-	struct rbd_data *rbd = td->io_ops->data;
+	struct rbd_data *rbd = td->io_ops_data;
 
 	if (rbd) {
 		_fio_rbd_disconnect(rbd);
@@ -425,12 +566,7 @@ static int fio_rbd_setup(struct thread_data *td)
 	rbd_image_info_t info;
 	struct fio_file *f;
 	struct rbd_data *rbd = NULL;
-	int major, minor, extra;
 	int r;
-
-	/* log version of librbd. No cluster connection required. */
-	rbd_version(&major, &minor, &extra);
-	log_info("rbd engine: RBD version: %d.%d.%d\n", major, minor, extra);
 
 	/* allocate engine specific structure to deal with librbd. */
 	r = _fio_setup_rbd_data(td, &rbd);
@@ -438,7 +574,7 @@ static int fio_rbd_setup(struct thread_data *td)
 		log_err("fio_setup_rbd_data failed.\n");
 		goto cleanup;
 	}
-	td->io_ops->data = rbd;
+	td->io_ops_data = rbd;
 
 	/* librbd does not allow us to run first in the main thread and later
 	 * in a fork child. It needs to be the same process context all the
@@ -455,13 +591,19 @@ static int fio_rbd_setup(struct thread_data *td)
 		log_err("fio_rbd_connect failed.\n");
 		goto cleanup;
 	}
+	rbd->connected = true;
 
 	/* get size of the RADOS block device */
 	r = rbd_stat(rbd->image, &info, sizeof(info));
 	if (r < 0) {
 		log_err("rbd_status failed.\n");
-		goto disconnect;
+		goto cleanup;
+	} else if (info.size == 0) {
+		log_err("image size should be larger than zero.\n");
+		r = -EINVAL;
+		goto cleanup;
 	}
+
 	dprint(FD_IO, "rbd-engine: image size: %lu\n", info.size);
 
 	/* taken from "net" engine. Pretend we deal with files,
@@ -476,14 +618,8 @@ static int fio_rbd_setup(struct thread_data *td)
 	f = td->files[0];
 	f->real_file_size = info.size;
 
-	/* disconnect, then we were only connected to determine
-	 * the size of the RBD.
-	 */
-	_fio_rbd_disconnect(rbd);
 	return 0;
 
-disconnect:
-	_fio_rbd_disconnect(rbd);
 cleanup:
 	fio_rbd_cleanup(td);
 	return r;
@@ -497,7 +633,7 @@ static int fio_rbd_open(struct thread_data *td, struct fio_file *f)
 static int fio_rbd_invalidate(struct thread_data *td, struct fio_file *f)
 {
 #if defined(CONFIG_RBD_INVAL)
-	struct rbd_data *rbd = td->io_ops->data;
+	struct rbd_data *rbd = td->io_ops_data;
 
 	return rbd_invalidate_cache(rbd->image);
 #else

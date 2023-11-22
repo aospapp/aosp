@@ -31,15 +31,32 @@ public class PropertyUtil {
      * Name of read-only property detailing the first API level for which the product was
      * shipped. Property should be undefined for factory ROM products.
      */
-    public static String FIRST_API_LEVEL = "ro.product.first_api_level";
+    public static final String FIRST_API_LEVEL = "ro.product.first_api_level";
+    private static final String BUILD_TYPE_PROPERTY = "ro.build.type";
+    private static final String TAG_DEV_KEYS = "dev-keys";
 
     /** Value to be returned by getPropertyInt() if property is not found */
     public static int INT_VALUE_IF_UNSET = -1;
+
+    /** Returns whether the device build is a user build */
+    public static boolean isUserBuild() {
+        return propertyEquals(BUILD_TYPE_PROPERTY, "user");
+    }
 
     /** Returns whether the device build is the factory ROM */
     public static boolean isFactoryROM() {
         // property should be undefined if and only if the product is factory ROM.
         return getPropertyInt(FIRST_API_LEVEL) == INT_VALUE_IF_UNSET;
+    }
+
+    /** Returns whether this build is built with dev-keys */
+    public static boolean isDevKeysBuild() {
+        for (String tag : Build.TAGS.split(",")) {
+            if (TAG_DEV_KEYS.equals(tag.trim())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -52,23 +69,48 @@ public class PropertyUtil {
         return (firstApiLevel == INT_VALUE_IF_UNSET) ? Build.VERSION.SDK_INT : firstApiLevel;
     }
 
+    /** Returns whether the property exists on this device */
+    public static boolean propertyExists(String property) {
+        return getProperty(property) != null;
+    }
+
+    /** Returns whether the property value is equal to a given string */
+    public static boolean propertyEquals(String property, String value) {
+        if (value == null) {
+            return !propertyExists(property); // null value implies property does not exist
+        }
+        return value.equals(getProperty(property));
+    }
+
     /**
      * Retrieves the desired integer property, returning INT_VALUE_IF_UNSET if not found.
      */
     public static int getPropertyInt(String property) {
+        String value = getProperty(property);
+        if (value == null) {
+            return INT_VALUE_IF_UNSET;
+        }
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            return INT_VALUE_IF_UNSET;
+        }
+    }
+
+    /** Retrieves the desired property value in string form */
+    public static String getProperty(String property) {
         Scanner scanner = null;
-        int val = INT_VALUE_IF_UNSET;
         try {
             Process process = new ProcessBuilder("getprop", property).start();
             scanner = new Scanner(process.getInputStream());
-            val = Integer.parseInt(scanner.nextLine().trim());
-        } catch (IOException | NumberFormatException e) {
-            return val = INT_VALUE_IF_UNSET;
+            String value = scanner.nextLine().trim();
+            return (value.isEmpty()) ? null : value;
+        } catch (IOException e) {
+            return null;
         } finally {
             if (scanner != null) {
                 scanner.close();
             }
         }
-        return val;
     }
 }

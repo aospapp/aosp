@@ -24,15 +24,18 @@
 
 #define LOG_TAG "bt_vendor"
 
-#include <utils/Log.h>
-#include <termios.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <stdio.h>
 #include "bt_vendor_qcom.h"
 #include "hci_smd.h"
+
+#include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
 #include <string.h>
+#include <termios.h>
+#include <unistd.h>
+
 #include <cutils/properties.h>
+#include <utils/Log.h>
 
 /*****************************************************************************
 **   Macros & Constants

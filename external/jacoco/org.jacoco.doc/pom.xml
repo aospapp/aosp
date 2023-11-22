@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-   Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+   Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
    All rights reserved. This program and the accompanying materials
    are made available under the terms of the Eclipse Public License v1.0
    which accompanies this distribution, and is available at
@@ -15,7 +15,7 @@
   <parent>
     <groupId>org.jacoco</groupId>
     <artifactId>org.jacoco.build</artifactId>
-    <version>0.7.5.201505241946</version>
+    <version>0.7.10-SNAPSHOT</version>
     <relativePath>../org.jacoco.build</relativePath>
   </parent>
 
@@ -36,11 +36,29 @@
     </dependency>
     <dependency>
       <groupId>${project.groupId}</groupId>
+      <artifactId>org.jacoco.core.test</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
       <artifactId>org.jacoco.report</artifactId>
     </dependency>
     <dependency>
       <groupId>${project.groupId}</groupId>
+      <artifactId>org.jacoco.report.test</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
       <artifactId>org.jacoco.agent</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>org.jacoco.agent.test</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>${project.groupId}</groupId>
@@ -48,9 +66,9 @@
     </dependency>
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>org.jacoco.agent</artifactId>
+      <artifactId>org.jacoco.agent.rt.test</artifactId>
       <version>${project.version}</version>
-      <classifier>runtime</classifier>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>${project.groupId}</groupId>
@@ -58,14 +76,41 @@
     </dependency>
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>org.jacoco.ant</artifactId>
-      <classifier>nodeps</classifier>
+      <artifactId>org.jacoco.ant.test</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>org.jacoco.cli</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>org.jacoco.cli.test</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>${project.groupId}</groupId>
       <artifactId>org.jacoco.examples</artifactId>
       <version>${project.version}</version>
-      <type>zip</type>
+    </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>org.jacoco.examples.test</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>jacoco-maven-plugin</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>jacoco-maven-plugin.test</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 
@@ -73,6 +118,32 @@
     <sourceDirectory>src</sourceDirectory>
 
     <plugins>
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>${project.version}</version>
+        <executions>
+          <execution>
+            <id>report-aggregate</id>
+            <phase>prepare-package</phase>
+            <goals>
+              <goal>report-aggregate</goal>
+            </goals>
+            <configuration>
+              <title>JaCoCo</title>
+              <footer>Code Coverage Report for JaCoCo ${project.version}</footer>
+              <includes>
+                <!-- Analyze class files only to exclude shaded agent JAR from report -->
+                <include>**/*.class</include>
+              </includes>
+              <excludes>
+                <exclude>**/HelpMojo.class</exclude>
+              </excludes>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-antrun-plugin</artifactId>
@@ -85,90 +156,13 @@
             </goals>
             <configuration>
               <target>
-                <typedef resource="org/jacoco/ant/antlib.xml"/>
-                <echo message="Coverage report"/>
-                <report>
-                  <executiondata>
-                    <fileset dir="../org.jacoco.agent.test/target" includes="jacoco.exec"/>
-                    <fileset dir="../org.jacoco.agent.rt.test/target" includes="jacoco.exec"/>
-                    <fileset dir="../org.jacoco.ant.test/target" includes="jacoco.exec"/>
-                    <fileset dir="../org.jacoco.core.test/target" includes="jacoco.exec"/>
-                    <fileset dir="../org.jacoco.examples.test/target" includes="jacoco.exec"/>
-                    <fileset dir="../org.jacoco.report.test/target" includes="jacoco.exec"/>
-                    <fileset dir="../jacoco-maven-plugin.test/target" includes="jacoco.exec"/>
-                  </executiondata>
-                  <structure name="JaCoCo">
-                    <group name="org.jacoco.agent">
-                      <classfiles>
-                        <!-- Process class files only, ignore jacocoagent.jar -->
-                        <fileset dir="../org.jacoco.agent/target/classes" includes="**/*.class"/>
-                      </classfiles>
-                      <sourcefiles>
-                        <fileset dir="../org.jacoco.agent/src"/>
-                      </sourcefiles>
-                    </group>
-                    <group name="org.jacoco.agent.rt">
-                      <classfiles>
-                        <fileset dir="../org.jacoco.agent.rt/target/classes"/>
-                      </classfiles>
-                      <sourcefiles>
-                        <fileset dir="../org.jacoco.agent.rt/src"/>
-                      </sourcefiles>
-                    </group>
-                    <group name="org.jacoco.ant">
-                      <classfiles>
-                        <fileset dir="../org.jacoco.ant/target/classes"/>
-                      </classfiles>
-                      <sourcefiles>
-                        <fileset dir="../org.jacoco.ant/src"/>
-                      </sourcefiles>
-                    </group>
-                    <group name="org.jacoco.core">
-                      <classfiles>
-                        <fileset dir="../org.jacoco.core/target/classes"/>
-                      </classfiles>
-                      <sourcefiles>
-                        <fileset dir="../org.jacoco.core/src"/>
-                      </sourcefiles>
-                    </group>
-                    <group name="org.jacoco.examples">
-                      <classfiles>
-                        <fileset dir="../org.jacoco.examples/target/classes"/>
-                      </classfiles>
-                      <sourcefiles>
-                        <fileset dir="../org.jacoco.examples/src"/>
-                      </sourcefiles>
-                    </group>
-                    <group name="org.jacoco.report">
-                      <classfiles>
-                        <fileset dir="../org.jacoco.report/target/classes"/>
-                      </classfiles>
-                      <sourcefiles>
-                        <fileset dir="../org.jacoco.report/src"/>
-                      </sourcefiles>
-                    </group>
-                    <group name="jacoco-maven-plugin">
-                      <classfiles>
-                        <fileset dir="../jacoco-maven-plugin/target/classes" excludes="**/HelpMojo.class"/>
-                      </classfiles>
-                      <sourcefiles>
-                        <fileset dir="../jacoco-maven-plugin/src"/>
-                      </sourcefiles>
-                    </group>
-                  </structure>
-                  <html destdir="${project.build.directory}/coverage"
-                        footer="Code Coverage Report for JaCoCo ${project.version}"
-                        locale="en"/>
-                  <csv destfile="${project.build.directory}/coverage/coverage.csv"/>
-                  <xml destfile="${project.build.directory}/coverage/coverage.xml"/>
-                </report>
-
                 <echo message="JUnit report"/>
                 <mkdir dir="${project.build.directory}/junit"/>
                 <junitreport todir="${project.build.directory}/junit">
                   <fileset dir="../org.jacoco.agent.test/target" includes="surefire-reports/**/*.xml"/>
                   <fileset dir="../org.jacoco.agent.rt.test/target" includes="surefire-reports/**/*.xml"/>
                   <fileset dir="../org.jacoco.ant.test/target" includes="surefire-reports/**/*.xml"/>
+                  <fileset dir="../org.jacoco.cli.test/target" includes="surefire-reports/**/*.xml"/>
                   <fileset dir="../org.jacoco.core.test/target" includes="surefire-reports/**/*.xml"/>
                   <fileset dir="../org.jacoco.report.test/target" includes="surefire-reports/**/*.xml"/>
                   <fileset dir="../org.jacoco.examples.test/target" includes="surefire-reports/**/*.xml"/>
@@ -184,11 +178,6 @@
           </execution>
         </executions>
         <dependencies>
-          <dependency>
-            <groupId>${project.groupId}</groupId>
-            <artifactId>org.jacoco.ant</artifactId>
-            <version>${project.version}</version>
-          </dependency>
           <dependency>
             <groupId>org.apache.ant</groupId>
             <artifactId>ant-junit</artifactId>
@@ -210,7 +199,7 @@
             <configuration>
               <reportOutputDirectory>${project.build.directory}/apidocs</reportOutputDirectory>
               <includeDependencySources>true</includeDependencySources>
-              <excludePackageNames>*.internal,org.jacoco.ant</excludePackageNames>
+              <excludePackageNames>*.internal,org.jacoco.ant,org.jacoco.maven,org.jacoco.examples</excludePackageNames>
               <dependencySourceIncludes>
                 <dependencySourceInclude>org.jacoco:*</dependencySourceInclude>
               </dependencySourceIncludes>
@@ -252,7 +241,7 @@
         <artifactId>xml-maven-plugin</artifactId>
         <executions>
           <execution>
-            <id>default-transform</id>
+            <id>transform-generated-doc</id>
             <goals>
               <goal>transform</goal>
             </goals>
@@ -264,6 +253,32 @@
                     <include>*.xml</include>
                   </includes>
                   <stylesheet>xsl/maven-goal.xsl</stylesheet>
+                  <fileMappers>
+                    <fileMapper implementation="org.codehaus.plexus.components.io.filemappers.FileExtensionMapper">
+                      <targetExtension>.html</targetExtension>
+                    </fileMapper>
+                  </fileMappers>
+                  <parameters>
+                    <parameter>
+                      <name>qualified.bundle.version</name>
+                      <value>${qualified.bundle.version}</value>
+                    </parameter>
+                    <parameter>
+                      <name>jacoco.home.url</name>
+                      <value>${jacoco.home.url}</value>
+                    </parameter>
+                    <parameter>
+                      <name>copyright.years</name>
+                      <value>${copyright.years}</value>
+                    </parameter>
+                  </parameters>
+                </transformationSet>
+                <transformationSet>
+                  <dir>../org.jacoco.cli/target/generated-documentation</dir>
+                  <includes>
+                    <include>*.xml</include>
+                  </includes>
+                  <stylesheet>xsl/cli.xsl</stylesheet>
                   <fileMappers>
                     <fileMapper implementation="org.codehaus.plexus.components.io.filemappers.FileExtensionMapper">
                       <targetExtension>.html</targetExtension>

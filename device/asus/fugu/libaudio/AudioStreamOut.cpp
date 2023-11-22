@@ -265,9 +265,10 @@ void AudioStreamOut::finishedWriteOp(size_t framesWritten,
 }
 
 static const String8 keyRouting(AudioParameter::keyRouting);
-static const String8 keySupSampleRates("sup_sampling_rates");
-static const String8 keySupFormats("sup_formats");
-static const String8 keySupChannels("sup_channels");
+static const String8 keyFormat(AudioParameter::keyFormat);
+static const String8 keySupSampleRates(AudioParameter::keyStreamSupportedSamplingRates);
+static const String8 keySupFormats(AudioParameter::keyStreamSupportedFormats);
+static const String8 keySupChannels(AudioParameter::keyStreamSupportedChannels);
 status_t AudioStreamOut::setParameters(__unused struct audio_stream *stream, const char *kvpairs)
 {
     AudioParameter param = AudioParameter(String8(kvpairs));
@@ -291,36 +292,42 @@ status_t AudioStreamOut::setParameters(__unused struct audio_stream *stream, con
 char* AudioStreamOut::getParameters(const char* k)
 {
     AudioParameter param = AudioParameter(String8(k));
-    String8 value;
+    String8 stringValue;
+    int intValue;
 
-    if (param.get(keyRouting, value) == NO_ERROR) {
+    if (param.get(keyRouting, stringValue) == NO_ERROR) {
         param.addInt(keyRouting, (int)mAudioFlingerTgtDevices);
     }
 
     HDMIAudioCaps& hdmiCaps = mOwnerHAL.getHDMIAudioCaps();
 
-    if (param.get(keySupSampleRates, value) == NO_ERROR) {
+    if (param.get(keySupFormats, stringValue) == NO_ERROR) {
         if (mIsMCOutput) {
-            hdmiCaps.getRatesForAF(value);
-            param.add(keySupSampleRates, value);
-        } else {
-            param.add(keySupSampleRates, String8("48000"));
-        }
-    }
-
-    if (param.get(keySupFormats, value) == NO_ERROR) {
-        if (mIsMCOutput) {
-            hdmiCaps.getFmtsForAF(value);
-            param.add(keySupFormats, value);
+            hdmiCaps.getFmtsForAF(stringValue);
+            param.add(keySupFormats, stringValue);
         } else {
             param.add(keySupFormats, String8("AUDIO_FORMAT_PCM_16_BIT|AUDIO_FORMAT_PCM_8_24_BIT"));
         }
     }
 
-    if (param.get(keySupChannels, value) == NO_ERROR) {
+    audio_format_t format = AUDIO_FORMAT_INVALID;
+    if (param.getInt(keyFormat, intValue) == NO_ERROR) {
+        format = (audio_format_t)intValue;
+    }
+
+    if (param.get(keySupSampleRates, stringValue) == NO_ERROR) {
         if (mIsMCOutput) {
-            hdmiCaps.getChannelMasksForAF(value);
-            param.add(keySupChannels, value);
+            hdmiCaps.getRatesForAF(stringValue, format);
+            param.add(keySupSampleRates, stringValue);
+        } else {
+            param.add(keySupSampleRates, String8("48000"));
+        }
+    }
+
+    if (param.get(keySupChannels, stringValue) == NO_ERROR) {
+        if (mIsMCOutput) {
+            hdmiCaps.getChannelMasksForAF(stringValue, format);
+            param.add(keySupChannels, stringValue);
         } else {
             param.add(keySupChannels, String8("AUDIO_CHANNEL_OUT_STEREO"));
         }

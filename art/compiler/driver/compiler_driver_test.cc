@@ -23,7 +23,7 @@
 #include "art_method-inl.h"
 #include "class_linker-inl.h"
 #include "common_compiler_test.h"
-#include "compiled_class.h"
+#include "compiler_callbacks.h"
 #include "dex_file.h"
 #include "dex_file_types.h"
 #include "gc/heap.h"
@@ -43,10 +43,9 @@ class CompilerDriverTest : public CommonCompilerTest {
   void CompileAll(jobject class_loader) REQUIRES(!Locks::mutator_lock_) {
     TimingLogger timings("CompilerDriverTest::CompileAll", false, false);
     TimingLogger::ScopedTiming t(__FUNCTION__, &timings);
-    compiler_driver_->CompileAll(class_loader,
-                                 GetDexFiles(class_loader),
-                                 /* verifier_deps */ nullptr,
-                                 &timings);
+    dex_files_ = GetDexFiles(class_loader);
+    compiler_driver_->SetDexFilesForOatFile(dex_files_);;
+    compiler_driver_->CompileAll(class_loader, dex_files_, &timings);
     t.NewTiming("MakeAllExecutable");
     MakeAllExecutable(class_loader);
   }
@@ -99,6 +98,7 @@ class CompilerDriverTest : public CommonCompilerTest {
   JNIEnv* env_;
   jclass class_;
   jmethodID mid_;
+  std::vector<const DexFile*> dex_files_;
 };
 
 // Disabled due to 10 second runtime on host
@@ -122,10 +122,12 @@ TEST_F(CompilerDriverTest, DISABLED_LARGE_CompileDexLibCore) {
     EXPECT_TRUE(type != nullptr) << "type_idx=" << i
                               << " " << dex.GetTypeDescriptor(dex.GetTypeId(dex::TypeIndex(i)));
   }
-  EXPECT_EQ(dex.NumMethodIds(), dex_cache->NumResolvedMethods());
+  EXPECT_TRUE(dex_cache->StaticMethodSize() == dex_cache->NumResolvedMethods()
+      || dex.NumMethodIds() ==  dex_cache->NumResolvedMethods());
   auto* cl = Runtime::Current()->GetClassLinker();
   auto pointer_size = cl->GetImagePointerSize();
   for (size_t i = 0; i < dex_cache->NumResolvedMethods(); i++) {
+    // FIXME: This is outdated for hash-based method array.
     ArtMethod* method = dex_cache->GetResolvedMethod(i, pointer_size);
     EXPECT_TRUE(method != nullptr) << "method_idx=" << i
                                 << " " << dex.GetMethodDeclaringClassDescriptor(dex.GetMethodId(i))
@@ -137,6 +139,7 @@ TEST_F(CompilerDriverTest, DISABLED_LARGE_CompileDexLibCore) {
   EXPECT_TRUE(dex_cache->StaticArtFieldSize() == dex_cache->NumResolvedFields()
       || dex.NumFieldIds() ==  dex_cache->NumResolvedFields());
   for (size_t i = 0; i < dex_cache->NumResolvedFields(); i++) {
+    // FIXME: This is outdated for hash-based field array.
     ArtField* field = dex_cache->GetResolvedField(i, cl->GetImagePointerSize());
     EXPECT_TRUE(field != nullptr) << "field_idx=" << i
                                << " " << dex.GetFieldDeclaringClassDescriptor(dex.GetFieldId(i))
@@ -240,8 +243,10 @@ class CompilerDriverProfileTest : public CompilerDriverTest {
 
     ProfileCompilationInfo info;
     for (const std::unique_ptr<const DexFile>& dex_file : dex_files) {
-      profile_info_.AddMethodIndex(dex_file->GetLocation(), dex_file->GetLocationChecksum(), 1);
-      profile_info_.AddMethodIndex(dex_file->GetLocation(), dex_file->GetLocationChecksum(), 2);
+      profile_info_.AddMethodIndex(ProfileCompilationInfo::MethodHotness::kFlagHot,
+                                   MethodReference(dex_file.get(), 1));
+      profile_info_.AddMethodIndex(ProfileCompilationInfo::MethodHotness::kFlagHot,
+                                   MethodReference(dex_file.get(), 2));
     }
     return &profile_info_;
   }
@@ -339,10 +344,11 @@ class CompilerDriverVerifyTest : public CompilerDriverTest {
     ASSERT_NE(klass, nullptr);
     EXPECT_TRUE(klass->IsVerified());
 
-    CompiledClass* compiled_class = compiler_driver_->GetCompiledClass(
-        ClassReference(&klass->GetDexFile(), klass->GetDexTypeIndex().index_));
-    ASSERT_NE(compiled_class, nullptr);
-    EXPECT_EQ(compiled_class->GetStatus(), mirror::Class::kStatusVerified);
+    mirror::Class::Status status;
+    bool found = compiler_driver_->GetCompiledClass(
+        ClassReference(&klass->GetDexFile(), klass->GetDexTypeIndex().index_), &status);
+    ASSERT_TRUE(found);
+    EXPECT_EQ(status, mirror::Class::kStatusVerified);
   }
 };
 
@@ -359,6 +365,49 @@ TEST_F(CompilerDriverVerifyTest, VerifyCompilation) {
 
   CheckVerifiedClass(class_loader, "LMain;");
   CheckVerifiedClass(class_loader, "LSecond;");
+}
+
+// Test that a class of status kStatusRetryVerificationAtRuntime is indeed recorded that way in the
+// driver.
+// Test that checks that classes can be assumed as verified if unloading mode is enabled and
+// the class status is at least verified.
+TEST_F(CompilerDriverVerifyTest, RetryVerifcationStatusCheckVerified) {
+  Thread* const self = Thread::Current();
+  jobject class_loader;
+  std::vector<const DexFile*> dex_files;
+  const DexFile* dex_file = nullptr;
+  {
+    ScopedObjectAccess soa(self);
+    class_loader = LoadDex("ProfileTestMultiDex");
+    ASSERT_NE(class_loader, nullptr);
+    dex_files = GetDexFiles(class_loader);
+    ASSERT_GT(dex_files.size(), 0u);
+    dex_file = dex_files.front();
+  }
+  compiler_driver_->SetDexFilesForOatFile(dex_files);
+  callbacks_->SetDoesClassUnloading(true, compiler_driver_.get());
+  ClassReference ref(dex_file, 0u);
+  // Test that the status is read from the compiler driver as expected.
+  for (size_t i = mirror::Class::kStatusRetryVerificationAtRuntime;
+      i < mirror::Class::kStatusMax;
+      ++i) {
+    const mirror::Class::Status expected_status = static_cast<mirror::Class::Status>(i);
+    // Skip unsupported status that are not supposed to be ever recorded.
+    if (expected_status == mirror::Class::kStatusVerifyingAtRuntime ||
+        expected_status == mirror::Class::kStatusInitializing) {
+      continue;
+    }
+    compiler_driver_->RecordClassStatus(ref, expected_status);
+    mirror::Class::Status status = {};
+    ASSERT_TRUE(compiler_driver_->GetCompiledClass(ref, &status));
+    EXPECT_EQ(status, expected_status);
+
+    // Check that we can assume verified if we are a status that is at least verified.
+    if (status >= mirror::Class::kStatusVerified) {
+      // Check that the class can be assumed as verified in the compiler driver.
+      EXPECT_TRUE(callbacks_->CanAssumeVerified(ref)) << status;
+    }
+  }
 }
 
 // TODO: need check-cast test (when stub complete & we can throw/catch

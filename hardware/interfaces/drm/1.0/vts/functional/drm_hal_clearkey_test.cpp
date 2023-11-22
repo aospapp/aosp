@@ -16,7 +16,6 @@
 
 #define LOG_TAG "drm_hal_clearkey_test@1.0"
 
-#include <android-base/logging.h>
 #include <android/hardware/drm/1.0/ICryptoFactory.h>
 #include <android/hardware/drm/1.0/ICryptoPlugin.h>
 #include <android/hardware/drm/1.0/IDrmFactory.h>
@@ -27,8 +26,8 @@
 #include <hidl/HidlSupport.h>
 #include <hidlmemory/mapping.h>
 #include <log/log.h>
-#include <openssl/aes.h>
 #include <memory>
+#include <openssl/aes.h>
 #include <random>
 
 #include "VtsHalHidlTargetTestBase.h"
@@ -77,9 +76,14 @@ using std::vector;
 #define ASSERT_OK(ret) ASSERT_TRUE(ret.isOk())
 #define EXPECT_OK(ret) EXPECT_TRUE(ret.isOk())
 
-static const uint8_t kClearKeyUUID[16] = {
+static const uint8_t kCommonPsshBoxUUID[16] = {
     0x10, 0x77, 0xEF, 0xEC, 0xC0, 0xB2, 0x4D, 0x02,
     0xAC, 0xE3, 0x3C, 0x1E, 0x52, 0xE2, 0xFB, 0x4B};
+
+// To be used in mpd to specify drm scheme for players
+static const uint8_t kClearKeyUUID[16] = {
+    0xE2, 0x71, 0x9D, 0x58, 0xA9, 0x85, 0xB3, 0xC9,
+    0x78, 0x1A, 0xB0, 0x30, 0xAF, 0x78, 0xD3, 0x0E};
 
 static const uint8_t kInvalidUUID[16] = {
     0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80,
@@ -95,10 +99,10 @@ class DrmHalClearkeyFactoryTest : public ::testing::VtsHalHidlTargetTestBase {
 
         drmFactory =
                 ::testing::VtsHalHidlTargetTestBase::getService<IDrmFactory>();
-        ASSERT_NE(drmFactory, nullptr);
+        ASSERT_NE(nullptr, drmFactory.get());
         cryptoFactory =
                 ::testing::VtsHalHidlTargetTestBase::getService<ICryptoFactory>();
-        ASSERT_NE(cryptoFactory, nullptr);
+        ASSERT_NE(nullptr, cryptoFactory.get());
     }
 
     virtual void TearDown() override {}
@@ -109,9 +113,12 @@ class DrmHalClearkeyFactoryTest : public ::testing::VtsHalHidlTargetTestBase {
 };
 
 /**
- * Ensure the factory supports the clearkey scheme UUID
+ * Ensure the factory supports both Common Pssh Box UUID and Clearkey Scheme UUID
  */
 TEST_F(DrmHalClearkeyFactoryTest, ClearKeyPluginSupported) {
+    EXPECT_TRUE(drmFactory->isCryptoSchemeSupported(kCommonPsshBoxUUID));
+    EXPECT_TRUE(cryptoFactory->isCryptoSchemeSupported(kCommonPsshBoxUUID));
+
     EXPECT_TRUE(drmFactory->isCryptoSchemeSupported(kClearKeyUUID));
     EXPECT_TRUE(cryptoFactory->isCryptoSchemeSupported(kClearKeyUUID));
 }
@@ -159,29 +166,57 @@ TEST_F(DrmHalClearkeyFactoryTest, ValidContentTypeSupported) {
 }
 
 /**
- * Ensure clearkey drm plugin can be created
+ * Ensure clearkey drm plugin can be created using Common Pssh Box UUID
  */
-TEST_F(DrmHalClearkeyFactoryTest, CreateClearKeyDrmPlugin) {
+TEST_F(DrmHalClearkeyFactoryTest, CreateClearKeyDrmPluginUsingCommonPsshBoxUuid) {
     hidl_string packageName("android.hardware.drm.test");
     auto res = drmFactory->createPlugin(
-            kClearKeyUUID, packageName,
+            kCommonPsshBoxUUID, packageName,
             [&](Status status, const sp<IDrmPlugin>& plugin) {
                 EXPECT_EQ(Status::OK, status);
-                EXPECT_NE(plugin, nullptr);
+                EXPECT_NE(nullptr, plugin.get());
             });
     EXPECT_OK(res);
 }
 
 /**
- * Ensure clearkey crypto plugin can be created
+ * Ensure clearkey drm plugin can be created using ClearKey UUID
  */
-TEST_F(DrmHalClearkeyFactoryTest, CreateClearKeyCryptoPlugin) {
+ TEST_F(DrmHalClearkeyFactoryTest, CreateClearKeyDrmPluginUsingClearKeyUuid) {
+    hidl_string packageName("android.hardware.drm.test");
+    auto res = drmFactory->createPlugin(
+            kClearKeyUUID, packageName,
+            [&](Status status, const sp<IDrmPlugin>& plugin) {
+                EXPECT_EQ(Status::OK, status);
+                EXPECT_NE(nullptr, plugin.get());
+            });
+    EXPECT_OK(res);
+}
+
+/**
+ * Ensure clearkey crypto plugin can be created using Common Pssh Box UUID
+ */
+TEST_F(DrmHalClearkeyFactoryTest, CreateClearKeyCryptoPluginUsingCommonPsshBoxUuid) {
+    hidl_vec<uint8_t> initVec;
+    auto res = cryptoFactory->createPlugin(
+            kCommonPsshBoxUUID, initVec,
+            [&](Status status, const sp<ICryptoPlugin>& plugin) {
+                EXPECT_EQ(Status::OK, status);
+                EXPECT_NE(nullptr, plugin.get());
+            });
+    EXPECT_OK(res);
+}
+
+/**
+ * Ensure clearkey crypto plugin can be created using ClearKey UUID
+ */
+TEST_F(DrmHalClearkeyFactoryTest, CreateClearKeyCryptoPluginUsingClearKeyUuid) {
     hidl_vec<uint8_t> initVec;
     auto res = cryptoFactory->createPlugin(
             kClearKeyUUID, initVec,
             [&](Status status, const sp<ICryptoPlugin>& plugin) {
                 EXPECT_EQ(Status::OK, status);
-                EXPECT_NE(plugin, nullptr);
+                EXPECT_NE(nullptr, plugin.get());
             });
     EXPECT_OK(res);
 }
@@ -195,7 +230,7 @@ TEST_F(DrmHalClearkeyFactoryTest, CreateInvalidDrmPlugin) {
             kInvalidUUID, packageName,
             [&](Status status, const sp<IDrmPlugin>& plugin) {
                 EXPECT_EQ(Status::ERROR_DRM_CANNOT_HANDLE, status);
-                EXPECT_EQ(plugin, nullptr);
+                EXPECT_EQ(nullptr, plugin.get());
             });
     EXPECT_OK(res);
 }
@@ -209,7 +244,7 @@ TEST_F(DrmHalClearkeyFactoryTest, CreateInvalidCryptoPlugin) {
             kInvalidUUID, initVec,
             [&](Status status, const sp<ICryptoPlugin>& plugin) {
                 EXPECT_EQ(Status::ERROR_DRM_CANNOT_HANDLE, status);
-                EXPECT_EQ(plugin, nullptr);
+                EXPECT_EQ(nullptr, plugin.get());
             });
     EXPECT_OK(res);
 }
@@ -220,13 +255,13 @@ class DrmHalClearkeyPluginTest : public DrmHalClearkeyFactoryTest {
         // Create factories
         DrmHalClearkeyFactoryTest::SetUp();
 
-        ASSERT_NE(drmFactory, nullptr);
+        ASSERT_NE(nullptr, drmFactory.get());
         hidl_string packageName("android.hardware.drm.test");
         auto res = drmFactory->createPlugin(
                 kClearKeyUUID, packageName,
                 [this](Status status, const sp<IDrmPlugin>& plugin) {
                     EXPECT_EQ(Status::OK, status);
-                    ASSERT_NE(plugin, nullptr);
+                    ASSERT_NE(nullptr, plugin.get());
                     drmPlugin = plugin;
                 });
         ASSERT_OK(res);
@@ -236,7 +271,7 @@ class DrmHalClearkeyPluginTest : public DrmHalClearkeyFactoryTest {
                 kClearKeyUUID, initVec,
                 [this](Status status, const sp<ICryptoPlugin>& plugin) {
                     EXPECT_EQ(Status::OK, status);
-                    ASSERT_NE(plugin, nullptr);
+                    ASSERT_NE(nullptr, plugin.get());
                     cryptoPlugin = plugin;
                 });
         ASSERT_OK(res);
@@ -327,32 +362,29 @@ hidl_vec<uint8_t> DrmHalClearkeyPluginTest::loadKeys(
         // full box header (version = 1 flags = 0)
         0x01, 0x00, 0x00, 0x00,
         // system id
-        0x10, 0x77, 0xef, 0xec, 0xc0, 0xb2, 0x4d, 0x02, 0xac, 0xe3, 0x3c, 0x1e,
-        0x52, 0xe2, 0xfb, 0x4b,
+        0x10, 0x77, 0xef, 0xec, 0xc0, 0xb2, 0x4d, 0x02, 0xac, 0xe3, 0x3c,
+        0x1e, 0x52, 0xe2, 0xfb, 0x4b,
         // number of key ids
         0x00, 0x00, 0x00, 0x01,
         // key id
-        0x60, 0x06, 0x1e, 0x01, 0x7e, 0x47, 0x7e, 0x87, 0x7e, 0x57, 0xd0, 0x0d,
-        0x1e, 0xd0, 0x0d, 0x1e,
+        0x60, 0x06, 0x1e, 0x01, 0x7e, 0x47, 0x7e, 0x87, 0x7e, 0x57, 0xd0,
+        0x0d, 0x1e, 0xd0, 0x0d, 0x1e,
         // size of data, must be zero
         0x00, 0x00, 0x00, 0x00};
 
     hidl_vec<uint8_t> expectedKeyRequest = {
-        0x7b, 0x22, 0x6b, 0x69, 0x64, 0x73, 0x22, 0x3a, 0x5b, 0x22, 0x59,
-        0x41, 0x59, 0x65, 0x41, 0x58, 0x35, 0x48, 0x66, 0x6f, 0x64, 0x2b,
-        0x56, 0x39, 0x41, 0x4e, 0x48, 0x74, 0x41, 0x4e, 0x48, 0x67, 0x22,
-        0x5d, 0x2c, 0x22, 0x74, 0x79, 0x70, 0x65, 0x22, 0x3a, 0x22, 0x74,
-        0x65, 0x6d, 0x70, 0x6f, 0x72, 0x61, 0x72, 0x79, 0x22, 0x7d};
+        0x7b, 0x22, 0x6b, 0x69, 0x64, 0x73, 0x22, 0x3a, 0x5b, 0x22, 0x59, 0x41, 0x59, 0x65,
+        0x41, 0x58, 0x35, 0x48, 0x66, 0x6f, 0x64, 0x2d, 0x56, 0x39, 0x41, 0x4e, 0x48, 0x74,
+        0x41, 0x4e, 0x48, 0x67, 0x22, 0x5d, 0x2c, 0x22, 0x74, 0x79, 0x70, 0x65, 0x22, 0x3a,
+        0x22, 0x74, 0x65, 0x6d, 0x70, 0x6f, 0x72, 0x61, 0x72, 0x79, 0x22, 0x7d};
 
     hidl_vec<uint8_t> knownKeyResponse = {
-        0x7b, 0x22, 0x6b, 0x65, 0x79, 0x73, 0x22, 0x3a, 0x5b, 0x7b, 0x22,
-        0x6b, 0x74, 0x79, 0x22, 0x3a, 0x22, 0x6f, 0x63, 0x74, 0x22, 0x2c,
-        0x22, 0x6b, 0x69, 0x64, 0x22, 0x3a, 0x22, 0x59, 0x41, 0x59, 0x65,
-        0x41, 0x58, 0x35, 0x48, 0x66, 0x6f, 0x64, 0x2b, 0x56, 0x39, 0x41,
-        0x4e, 0x48, 0x74, 0x41, 0x4e, 0x48, 0x67, 0x22, 0x2c, 0x22, 0x6b,
-        0x22, 0x3a, 0x22, 0x47, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x54, 0x65,
-        0x73, 0x74, 0x4b, 0x65, 0x79, 0x42, 0x61, 0x73, 0x65, 0x36, 0x34,
-        0x67, 0x67, 0x67, 0x22, 0x7d, 0x5d, 0x7d, 0x0a};
+        0x7b, 0x22, 0x6b, 0x65, 0x79, 0x73, 0x22, 0x3a, 0x5b, 0x7b, 0x22, 0x6b, 0x74, 0x79, 0x22,
+        0x3a, 0x22, 0x6f, 0x63, 0x74, 0x22, 0x2c, 0x22, 0x6b, 0x69, 0x64, 0x22, 0x3a, 0x22, 0x59,
+        0x41, 0x59, 0x65, 0x41, 0x58, 0x35, 0x48, 0x66, 0x6f, 0x64, 0x2d, 0x56, 0x39, 0x41, 0x4e,
+        0x48, 0x74, 0x41, 0x4e, 0x48, 0x67, 0x22, 0x2c, 0x22, 0x6b, 0x22, 0x3a, 0x22, 0x47, 0x6f,
+        0x6f, 0x67, 0x6c, 0x65, 0x54, 0x65, 0x73, 0x74, 0x4b, 0x65, 0x79, 0x42, 0x61, 0x73, 0x65,
+        0x36, 0x34, 0x67, 0x67, 0x67, 0x22, 0x7d, 0x5d, 0x7d, 0x0a};
 
     hidl_string mimeType = "video/mp4";
     KeyedVector optionalParameters;
@@ -867,7 +899,7 @@ TEST_F(DrmHalClearkeyPluginTest, NotifyResolution) {
 sp<IMemory> DrmHalClearkeyPluginTest::getDecryptMemory(size_t size,
                                                        size_t index) {
     sp<IAllocator> ashmemAllocator = IAllocator::getService("ashmem");
-    EXPECT_NE(ashmemAllocator, nullptr);
+    EXPECT_NE(nullptr, ashmemAllocator.get());
 
     hidl_memory hidlMemory;
     auto res = ashmemAllocator->allocate(
@@ -879,6 +911,7 @@ sp<IMemory> DrmHalClearkeyPluginTest::getDecryptMemory(size_t size,
     EXPECT_OK(res);
 
     sp<IMemory> mappedMemory = mapMemory(hidlMemory);
+    EXPECT_NE(nullptr, mappedMemory.get());
     EXPECT_OK(cryptoPlugin->setSharedBufferBase(hidlMemory, index));
     return mappedMemory;
 }
@@ -1064,8 +1097,6 @@ void DrmHalClearkeyDecryptTest::aes_cbc_decrypt(uint8_t* dest, uint8_t* src,
     AES_set_encrypt_key(&key[0], 128, &decryptionKey);
 
     size_t offset = 0;
-    size_t num = 0;
-    size_t ecount_buf = 0;
     for (size_t i = 0; i < subSamples.size(); i++) {
         memcpy(dest + offset, src + offset, subSamples[i].numBytesOfClearData);
         offset += subSamples[i].numBytesOfClearData;
@@ -1081,12 +1112,11 @@ void DrmHalClearkeyDecryptTest::aes_cbc_decrypt(uint8_t* dest, uint8_t* src,
  */
 TEST_F(DrmHalClearkeyDecryptTest, TestQueryKeyStatus) {
     auto sessionId = openSession();
-    auto res = drmPlugin->queryKeyStatus(sessionId,
-            [&](Status status, KeyedVector /* info */) {
-                // clearkey doesn't support this method
-                EXPECT_EQ(Status::ERROR_DRM_CANNOT_HANDLE, status);
-            });
+    auto res = drmPlugin->queryKeyStatus(
+        sessionId, [&](Status status, KeyedVector /* info */) { EXPECT_EQ(Status::OK, status); });
     EXPECT_OK(res);
+
+    closeSession(sessionId);
 }
 
 
@@ -1106,7 +1136,6 @@ TEST_F(DrmHalClearkeyDecryptTest, ClearSegmentTest) {
     Status status = cryptoPlugin->setMediaDrmSession(sessionId);
     EXPECT_EQ(Status::OK, status);
 
-    const bool kNotSecure = false;
     uint32_t byteCount = decrypt(Mode::UNENCRYPTED, &iv[0], subSamples,
             noPattern, Status::OK);
     EXPECT_EQ(kByteCount, byteCount);
@@ -1133,7 +1162,6 @@ TEST_F(DrmHalClearkeyDecryptTest, EncryptedAesCtrSegmentTest) {
     Status status = cryptoPlugin->setMediaDrmSession(sessionId);
     EXPECT_EQ(Status::OK, status);
 
-    const bool kNotSecure = false;
     uint32_t byteCount = decrypt(Mode::AES_CTR, &iv[0], subSamples,
             noPattern, Status::OK);
     EXPECT_EQ(kClearBytes + kEncryptedBytes, byteCount);
@@ -1154,7 +1182,6 @@ TEST_F(DrmHalClearkeyDecryptTest, EncryptedAesCtrSegmentTestNoKeys) {
     Status status = cryptoPlugin->setMediaDrmSession(sessionId);
     EXPECT_EQ(Status::OK, status);
 
-    const bool kNotSecure = false;
     uint32_t byteCount = decrypt(Mode::AES_CTR, &iv[0], subSamples,
             noPattern, Status::ERROR_DRM_NO_LICENSE);
     EXPECT_EQ(0u, byteCount);

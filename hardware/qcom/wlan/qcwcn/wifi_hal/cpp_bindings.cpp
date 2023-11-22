@@ -1003,5 +1003,5 @@ wifi_error initialize_vendor_cmd(wifi_interface_handle iface,
 
 cleanup:
     delete *vCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }

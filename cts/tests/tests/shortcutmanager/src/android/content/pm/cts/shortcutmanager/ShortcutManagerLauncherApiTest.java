@@ -31,6 +31,14 @@ import android.test.suitebuilder.annotation.SmallTest;
 
 @SmallTest
 public class ShortcutManagerLauncherApiTest extends ShortcutManagerCtsTestsBase {
+    @Override
+    protected String getOverrideConfig() {
+        return "max_icon_dimension_dp=96,"
+                + "max_icon_dimension_dp_lowram=96,"
+                + "icon_format=PNG,"
+                + "icon_quality=100";
+    }
+
     public void testPinShortcuts() {
         runWithCaller(mPackageContext1, () -> {
             enableManifestActivity("Launcher_manifest_1", true);

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -20,9 +20,9 @@ import static org.jacoco.core.test.validation.targets.Stubs.t;
 /**
  * This target exercises boolean expressions.
  */
-public class Target02 implements Runnable {
+public class Target02 {
 
-	public void run() {
+	public static void main(String[] args) {
 
 		// 1. Boolean comparison result (one case)
 		nop(i2() > 3); // $line-booleancmp1$
@@ -115,10 +115,6 @@ public class Target02 implements Runnable {
 			nop(!b); // $line-notTF$
 		}
 
-	}
-
-	public static void main(String[] args) {
-		new Target02().run();
 	}
 
 }

@@ -101,6 +101,8 @@ class BluetoothBaseTest(BaseTestClass):
         self.timer_list = []
         for a in self.android_devices:
             a.ed.clear_all_events()
+            a.droid.setScreenTimeout(500)
+            a.droid.wakeUpNow()
         return True
 
     def teardown_test(self):

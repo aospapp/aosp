@@ -17,6 +17,7 @@ package com.android.cts.verifier.vr;
 
 import android.content.ComponentName;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -36,6 +37,8 @@ import com.android.cts.verifier.R;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class VrListenerVerifierActivity extends PassFailButtons.Activity {
@@ -53,6 +56,7 @@ public class VrListenerVerifierActivity extends PassFailButtons.Activity {
     private Handler mMainHandler;
     private Handler mTestHandler;
     private HandlerThread mTestThread;
+    private PersistentTestStatusHandler persistentTestStatusHandler;
 
     public enum Status {
         SETUP,
@@ -67,6 +71,7 @@ public class VrListenerVerifierActivity extends PassFailButtons.Activity {
         super.onCreate(savedState);
         mCurrentIdx = (savedState == null) ? 0 : savedState.getInt(STATE, 0);
 
+        persistentTestStatusHandler = new PersistentTestStatusHandler();
         mTestThread = new HandlerThread("VrTestThread");
         mTestThread.start();
         mTestHandler = new Handler(mTestThread.getLooper());
@@ -117,7 +122,47 @@ public class VrListenerVerifierActivity extends PassFailButtons.Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        runNext();
+
+        final InteractiveTestCase current = mTests[mCurrentIdx];
+        final Status currentTestStatus = current.getStatus();
+        if (currentTestStatus == Status.RUNNING) {
+          // The previous instance of this class was interurpted while a test
+          // was running most likely due to a configuration change
+          // We must wait for the previous test results to be written to the
+          // shared configuration file before continuing with the next test
+          waitForPreviousRunningTest();
+        } else if (currentTestStatus == Status.PASS) {
+          // The previous instance of this class was interrupted after a test
+          // has finished running most likely due to a configuration change
+          selectNext();
+        } else {
+          runNext();
+        }
+    }
+
+    private void waitForPreviousRunningTest() {
+      final InteractiveTestCase current = mTests[mCurrentIdx];
+      ScheduledExecutorService s = Executors.newSingleThreadScheduledExecutor();
+
+      s.scheduleAtFixedRate(new Runnable() {
+        private void handleTestFinished() {
+          selectNext();
+          s.shutdown();
+        }
+
+        @Override
+        public void run() {
+          Status status = persistentTestStatusHandler.getStatusOfTest(mCurrentIdx);
+
+          if (status == Status.PASS) {
+            current.markPassed();
+            handleTestFinished();
+          } else if (status == Status.FAIL) {
+            current.markFailed();
+            handleTestFinished();
+          }
+        }
+      }, 0, POLL_DELAY_MS, TimeUnit.MILLISECONDS);
     }
 
     private void updateUiState() {
@@ -166,6 +211,7 @@ public class VrListenerVerifierActivity extends PassFailButtons.Activity {
             @Override
             public void run() {
                 Log.i(TAG, "Starting test: " + current.getClass().getSimpleName());
+                persistentTestStatusHandler.setStatusOfTest(mCurrentIdx, Status.RUNNING);
                 boolean passed = true;
                 try {
                     current.setUp();
@@ -184,6 +230,11 @@ public class VrListenerVerifierActivity extends PassFailButtons.Activity {
                         passed = false;
                     }
                 }
+
+                // Write to persistent store in the event that the activity was
+                // destroyed while this test was running
+                persistentTestStatusHandler.setStatusOfTest(mCurrentIdx, passed ? Status.PASS : Status.FAIL);
+
                 if (passed) {
                     current.markPassed();
                     mMainHandler.post(new Runnable() {
@@ -200,6 +251,7 @@ public class VrListenerVerifierActivity extends PassFailButtons.Activity {
 
     private void done() {
         updateUiState();
+        persistentTestStatusHandler.clear();
         Log.i(TAG, "Completed run!");
     }
 
@@ -456,6 +508,8 @@ public class VrListenerVerifierActivity extends PassFailButtons.Activity {
 
         @Override
         void test() throws Throwable {
+            markRunning();
+
             ArrayBlockingQueue<MockVrListenerService.Event> q =
                     MockVrListenerService.getPendingEvents();
             MockVrListenerService.Event e = q.poll(POLL_DELAY_MS, TimeUnit.MILLISECONDS);
@@ -503,8 +557,6 @@ public class VrListenerVerifierActivity extends PassFailButtons.Activity {
                     MockVrListenerService.EventType.ONDESTROY
             });
 
-            markRunning();
-
             e = q.poll(POLL_DELAY_MS, TimeUnit.MILLISECONDS);
             if (e != null) {
                 throw new IllegalStateException("Spurious event received after onDestroy: "
@@ -528,6 +580,8 @@ public class VrListenerVerifierActivity extends PassFailButtons.Activity {
 
         @Override
         void test() throws Throwable {
+            markRunning();
+
             ArrayBlockingQueue<MockVrListenerService.Event> q =
                     MockVrListenerService.getPendingEvents();
             MockVrListenerService.Event e = q.poll(POLL_DELAY_MS, TimeUnit.MILLISECONDS);
@@ -590,8 +644,6 @@ public class VrListenerVerifierActivity extends PassFailButtons.Activity {
                     MockVrListenerService.EventType.ONDESTROY
             });
 
-            markRunning();
-
             e = q.poll(POLL_DELAY_MS, TimeUnit.MILLISECONDS);
             if (e != null) {
                 throw new IllegalStateException("Spurious event received after onDestroy: "
@@ -623,4 +675,31 @@ public class VrListenerVerifierActivity extends PassFailButtons.Activity {
         }
     }
 
+    private class PersistentTestStatusHandler {
+
+      private final String PREFERENCE_FILE_NAME = "VrListenerVerifierActivityTestStatus";
+      private final SharedPreferences sharedPref = getSharedPreferences(PREFERENCE_FILE_NAME, 0);
+
+      Status getStatusOfTest(int testIndex) {
+        String key = Integer.toString(testIndex);
+        String stringStatus = sharedPref.getString(key, Status.WAIT_FOR_USER.name());
+
+        return Status.valueOf(stringStatus);
+      }
+
+      void setStatusOfTest(int testIndex, Status status) {
+        String key = Integer.toString(testIndex);
+        String stringStatus = status.name();
+
+        SharedPreferences.Editor editor = sharedPref.edit();
+        editor.putString(key, stringStatus);
+        editor.apply();
+      }
+
+      void clear() {
+        SharedPreferences.Editor editor = sharedPref.edit();
+        editor.clear();
+        editor.apply();
+      }
+    }
 }

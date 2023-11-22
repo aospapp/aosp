@@ -5,7 +5,7 @@
 import csv, logging, os
 import time
 
-from autotest_lib.client.bin import site_utils, test, utils
+from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
 
@@ -33,17 +33,17 @@ class enterprise_KioskPerf(test.test):
 
         @returns a dictionary that contains the test result.
         """
-        cpu_usage_start = site_utils.get_cpu_usage()
+        cpu_usage_start = utils.get_cpu_usage()
         time.sleep(MEASUREMENT_DURATION)
-        cpu_usage_end = site_utils.get_cpu_usage()
-        return site_utils.compute_active_cpu_time(cpu_usage_start,
+        cpu_usage_end = utils.get_cpu_usage()
+        return utils.compute_active_cpu_time(cpu_usage_start,
                                                   cpu_usage_end) * 100
 
 
     def used_mem(self):
         """Returns total used memory in %."""
-        total_memory = site_utils.get_mem_total()
-        return (total_memory - site_utils.get_mem_free()) * 100 / total_memory
+        total_memory = utils.get_mem_total()
+        return (total_memory - utils.get_mem_free()) * 100 / total_memory
 
     def verify_enrollment(self, user_id):
         """Verifies enterprise enrollment using /home/.shadow config."""

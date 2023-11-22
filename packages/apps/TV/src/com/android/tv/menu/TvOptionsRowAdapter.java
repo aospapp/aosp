@@ -21,7 +21,6 @@ import android.media.tv.TvTrackInfo;
 import android.support.annotation.VisibleForTesting;
 
 import com.android.tv.Features;
-import com.android.tv.R;
 import com.android.tv.TvOptionsManager;
 import com.android.tv.customization.CustomAction;
 import com.android.tv.data.DisplayMode;
@@ -30,7 +29,7 @@ import com.android.tv.ui.sidepanel.ClosedCaptionFragment;
 import com.android.tv.ui.sidepanel.DeveloperOptionFragment;
 import com.android.tv.ui.sidepanel.DisplayModeFragment;
 import com.android.tv.ui.sidepanel.MultiAudioFragment;
-import com.android.tv.util.PipInputManager;
+import com.android.tv.util.Utils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,12 +38,6 @@ import java.util.List;
  * An adapter of options.
  */
 public class TvOptionsRowAdapter extends CustomizableOptionsRowAdapter {
-    private static final boolean ENABLE_IN_APP_PIP = false;
-
-    private int mPositionPipAction;
-    // If mInAppPipAction is false, system-wide PIP is used.
-    private boolean mInAppPipAction = true;
-
     public TvOptionsRowAdapter(Context context, List<CustomAction> customActions) {
         super(context, customActions);
     }
@@ -53,123 +46,73 @@ public class TvOptionsRowAdapter extends CustomizableOptionsRowAdapter {
     protected List<MenuAction> createBaseActions() {
         List<MenuAction> actionList = new ArrayList<>();
         actionList.add(MenuAction.SELECT_CLOSED_CAPTION_ACTION);
-        setOptionChangedListener(MenuAction.SELECT_CLOSED_CAPTION_ACTION);
         actionList.add(MenuAction.SELECT_DISPLAY_MODE_ACTION);
-        setOptionChangedListener(MenuAction.SELECT_DISPLAY_MODE_ACTION);
-        actionList.add(MenuAction.PIP_IN_APP_ACTION);
-        setOptionChangedListener(MenuAction.PIP_IN_APP_ACTION);
-        mPositionPipAction = actionList.size() - 1;
+        if (Features.PICTURE_IN_PICTURE.isEnabled(getMainActivity())) {
+            actionList.add(MenuAction.SYSTEMWIDE_PIP_ACTION);
+        }
         actionList.add(MenuAction.SELECT_AUDIO_LANGUAGE_ACTION);
-        setOptionChangedListener(MenuAction.SELECT_AUDIO_LANGUAGE_ACTION);
         actionList.add(MenuAction.MORE_CHANNELS_ACTION);
-        if (DeveloperOptionFragment.shouldShow()) {
+        if (Utils.isDeveloper()) {
             actionList.add(MenuAction.DEV_ACTION);
         }
         actionList.add(MenuAction.SETTINGS_ACTION);
 
-        if (getCustomActions() != null) {
-            // Adjust Pip action position which will be changed by applying custom actions.
-            for (CustomAction customAction : getCustomActions()) {
-                if (customAction.isFront()) {
-                    mPositionPipAction++;
-                }
-            }
-        }
-
+        updateClosedCaptionAction();
+        updatePipAction();
+        updateMultiAudioAction();
+        updateDisplayModeAction();
         return actionList;
     }
 
     @Override
-    protected boolean updateActions() {
-        boolean changed = false;
+    protected void updateActions() {
+        if (updateClosedCaptionAction()) {
+            notifyItemChanged(getItemPosition(MenuAction.SELECT_CLOSED_CAPTION_ACTION));
+        }
         if (updatePipAction()) {
-            changed = true;
+            notifyItemChanged(getItemPosition(MenuAction.SYSTEMWIDE_PIP_ACTION));
         }
         if (updateMultiAudioAction()) {
-            changed = true;
+            notifyItemChanged(getItemPosition(MenuAction.SELECT_AUDIO_LANGUAGE_ACTION));
         }
         if (updateDisplayModeAction()) {
-            changed = true;
+            notifyItemChanged(getItemPosition(MenuAction.SELECT_DISPLAY_MODE_ACTION));
         }
-        return changed;
-    }
-
-    private boolean updatePipAction() {
-        // There are four states.
-        // Case 1. The device doesn't even have any input for PIP. (e.g. OTT box without HDMI input)
-        //    => Remove the icon.
-        // Case 2. The device has one or more inputs for PIP but none of them are currently
-        // available.
-        //    => Show the icon but disable it.
-        // Case 3. The device has one or more available PIP inputs and now it's tuned off.
-        //    => Show the icon with "Off".
-        // Case 4. The device has one or more available PIP inputs but it's already turned on.
-        //    => Show the icon with "On".
-
-        boolean changed = false;
-
-        // Case 1
-        PipInputManager pipInputManager = getMainActivity().getPipInputManager();
-        if (ENABLE_IN_APP_PIP && pipInputManager.getPipInputSize(false) > 1) {
-            if (!mInAppPipAction) {
-                removeAction(mPositionPipAction);
-                addAction(mPositionPipAction, MenuAction.PIP_IN_APP_ACTION);
-                mInAppPipAction = true;
-                changed = true;
-            }
-        } else {
-            if (mInAppPipAction) {
-                removeAction(mPositionPipAction);
-                mInAppPipAction = false;
-                if (Features.PICTURE_IN_PICTURE.isEnabled(getMainActivity())) {
-                    addAction(mPositionPipAction, MenuAction.SYSTEMWIDE_PIP_ACTION);
-                }
-                return true;
-            }
-            return false;
-        }
-
-        // Case 2
-        boolean isPipEnabled = getMainActivity().isPipEnabled();
-        boolean oldEnabled = MenuAction.PIP_IN_APP_ACTION.isEnabled();
-        boolean newEnabled = pipInputManager.getPipInputSize(true) > 0;
-        if (oldEnabled != newEnabled) {
-            // Should not disable the item if the PIP is already turned on so that the user can
-            // force exit it.
-            if (newEnabled || !isPipEnabled) {
-                MenuAction.PIP_IN_APP_ACTION.setEnabled(newEnabled);
-                changed = true;
-            }
-        }
-
-        // Case 3 & 4 - we just need to update the icon.
-        MenuAction.PIP_IN_APP_ACTION.setDrawableResId(
-                isPipEnabled ? R.drawable.ic_tvoption_pip : R.drawable.ic_tvoption_pip_off);
-        return changed;
     }
 
     @VisibleForTesting
-    boolean updateMultiAudioAction() {
-        List<TvTrackInfo> audioTracks = getMainActivity().getTracks(TvTrackInfo.TYPE_AUDIO);
-        boolean oldEnabled = MenuAction.SELECT_AUDIO_LANGUAGE_ACTION.isEnabled();
-        boolean newEnabled = audioTracks != null && audioTracks.size() > 1;
-        if (oldEnabled != newEnabled) {
-            MenuAction.SELECT_AUDIO_LANGUAGE_ACTION.setEnabled(newEnabled);
-            return true;
+    private boolean updateClosedCaptionAction() {
+        return updateActionDescription(MenuAction.SELECT_CLOSED_CAPTION_ACTION);
+    }
+
+    private boolean updatePipAction() {
+        if (containsItem(MenuAction.SYSTEMWIDE_PIP_ACTION)) {
+            return MenuAction.setEnabled(MenuAction.SYSTEMWIDE_PIP_ACTION,
+                    !getMainActivity().isScreenBlockedByResourceConflictOrParentalControl());
         }
         return false;
+    }
+
+    boolean updateMultiAudioAction() {
+        List<TvTrackInfo> audioTracks = getMainActivity().getTracks(TvTrackInfo.TYPE_AUDIO);
+        boolean enabled = audioTracks != null && audioTracks.size() > 1;
+        // Use "|" operator for non-short-circuit evaluation.
+        return MenuAction.setEnabled(MenuAction.SELECT_AUDIO_LANGUAGE_ACTION, enabled)
+                | updateActionDescription(MenuAction.SELECT_AUDIO_LANGUAGE_ACTION);
     }
 
     private boolean updateDisplayModeAction() {
         TvViewUiManager uiManager = getMainActivity().getTvViewUiManager();
-        boolean oldEnabled = MenuAction.SELECT_DISPLAY_MODE_ACTION.isEnabled();
-        boolean newEnabled = uiManager.isDisplayModeAvailable(DisplayMode.MODE_FULL)
+        boolean enabled = uiManager.isDisplayModeAvailable(DisplayMode.MODE_FULL)
                 || uiManager.isDisplayModeAvailable(DisplayMode.MODE_ZOOM);
-        if (oldEnabled != newEnabled) {
-            MenuAction.SELECT_DISPLAY_MODE_ACTION.setEnabled(newEnabled);
-            return true;
-        }
-        return false;
+        // Use "|" operator for non-short-circuit evaluation.
+        return MenuAction.setEnabled(MenuAction.SELECT_DISPLAY_MODE_ACTION, enabled)
+                | updateActionDescription(MenuAction.SELECT_DISPLAY_MODE_ACTION);
+    }
+
+    private boolean updateActionDescription(MenuAction action) {
+        return MenuAction.setActionDescription(action,
+                getMainActivity().getTvOptionsManager().getOptionString(action.getType()));
     }
 
     @Override
@@ -182,9 +125,6 @@ public class TvOptionsRowAdapter extends CustomizableOptionsRowAdapter {
             case TvOptionsManager.OPTION_DISPLAY_MODE:
                 getMainActivity().getOverlayManager().getSideFragmentManager()
                         .show(new DisplayModeFragment());
-                break;
-            case TvOptionsManager.OPTION_IN_APP_PIP:
-                getMainActivity().togglePipView();
                 break;
             case TvOptionsManager.OPTION_SYSTEMWIDE_PIP:
                 getMainActivity().enterPictureInPictureMode();

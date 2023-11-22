@@ -23,7 +23,7 @@ from abc import ABCMeta
 from abc import abstractmethod
 from ply import lex
 from ply import yacc
-from vts.utils.python.file import file_utils
+from vts.utils.python.file import target_file_utils
 
 
 def repeat_rule(to_repeat, zero_ok=False):
@@ -152,7 +152,8 @@ class KernelProcFileTestBase(object):
         """
         parsed = parse.parse(rule, line, custom)
         if parsed is None:
-            raise SyntaxError("Failed to parse line %s according to rule %s" % (line, rule))
+            raise SyntaxError("Failed to parse line %s according to rule %s" %
+                              (line, rule))
         return list(parsed)
 
     def parse_contents(self, file_contents):
@@ -200,11 +201,11 @@ class KernelProcFileTestBase(object):
         """Gets the function handle to use for validating file permissions.
 
         Return the function that will check if the permissions are correct.
-        By default, return the IsReadOnly function from file_utils.
+        By default, return the IsReadOnly function from target_file_utils.
 
         Returns:
             function which takes one argument (the unix file permission bits
             in octal format) and returns True if the permissions are correct,
             False otherwise.
         """
-        return file_utils.IsReadOnly
+        return target_file_utils.IsReadOnly

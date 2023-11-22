@@ -46,7 +46,8 @@ export RUN="${progdir}/etc/run-test-jar"
 export DEX_LOCATION=/data/run-test/${test_dir}
 export NEED_DEX="true"
 export USE_JACK="true"
-export SMALI_ARGS="--experimental"
+export USE_DESUGAR="true"
+export SMALI_ARGS=""
 
 # If dx was not set by the environment variable, assume it is in the path.
 if [ -z "$DX" ]; then
@@ -89,6 +90,11 @@ if [ -z "$JACK_CLASSPATH" ]; then
 fi
 
 export JACK="$JACK -g -cp $JACK_CLASSPATH"
+
+# Allow changing DESUGAR script to something else, or to disable it with DESUGAR=false.
+if [ -z "$DESUGAR" ]; then
+  export DESUGAR="$ANDROID_BUILD_TOP/art/tools/desugar.sh"
+fi
 
 # Zipalign is not on the PATH in some configs, auto-detect it.
 if [ -z "$ZIPALIGN" ]; then
@@ -137,7 +143,10 @@ trace_stream="false"
 basic_verify="false"
 gc_verify="false"
 gc_stress="false"
-jvmti_stress="false"
+jvmti_trace_stress="false"
+jvmti_field_stress="false"
+jvmti_step_stress="false"
+jvmti_redefine_stress="false"
 strace="false"
 always_clean="no"
 never_clean="no"
@@ -234,8 +243,17 @@ while true; do
         basic_verify="true"
         gc_stress="true"
         shift
-    elif [ "x$1" = "x--jvmti-stress" ]; then
-        jvmti_stress="true"
+    elif [ "x$1" = "x--jvmti-step-stress" ]; then
+        jvmti_step_stress="true"
+        shift
+    elif [ "x$1" = "x--jvmti-redefine-stress" ]; then
+        jvmti_redefine_stress="true"
+        shift
+    elif [ "x$1" = "x--jvmti-field-stress" ]; then
+        jvmti_field_stress="true"
+        shift
+    elif [ "x$1" = "x--jvmti-trace-stress" ]; then
+        jvmti_trace_stress="true"
         shift
     elif [ "x$1" = "x--suspend-timeout" ]; then
         shift
@@ -447,8 +465,17 @@ fi
 if [ "$gc_stress" = "true" ]; then
   run_args="${run_args} --gc-stress --runtime-option -Xgc:gcstress --runtime-option -Xms2m --runtime-option -Xmx16m"
 fi
-if [ "$jvmti_stress" = "true" ]; then
-    run_args="${run_args} --no-app-image --jvmti-stress"
+if [ "$jvmti_redefine_stress" = "true" ]; then
+    run_args="${run_args} --no-app-image --jvmti-redefine-stress"
+fi
+if [ "$jvmti_step_stress" = "true" ]; then
+    run_args="${run_args} --no-app-image --jvmti-step-stress"
+fi
+if [ "$jvmti_field_stress" = "true" ]; then
+    run_args="${run_args} --no-app-image --jvmti-field-stress"
+fi
+if [ "$jvmti_trace_stress" = "true" ]; then
+    run_args="${run_args} --no-app-image --jvmti-trace-stress"
 fi
 if [ "$trace" = "true" ]; then
     run_args="${run_args} --runtime-option -Xmethod-trace --runtime-option -Xmethod-trace-file-size:2000000"
@@ -658,7 +685,10 @@ if [ "$usage" = "yes" ]; then
         echo "    --stream              Run method tracing in streaming mode (requires --trace)"
         echo "    --gcstress            Run with gc stress testing"
         echo "    --gcverify            Run with gc verification"
-        echo "    --jvmti-stress        Run with jvmti stress testing"
+        echo "    --jvmti-trace-stress  Run with jvmti method tracing stress testing"
+        echo "    --jvmti-step-stress   Run with jvmti single step stress testing"
+        echo "    --jvmti-redefine-stress"
+        echo "                          Run with jvmti method redefinition stress testing"
         echo "    --always-clean        Delete the test files even if the test fails."
         echo "    --never-clean         Keep the test files even if the test succeeds."
         echo "    --android-root [path] The path on target for the android root. (/system by default)."
@@ -727,9 +757,9 @@ export TEST_NAME=`basename ${test_dir}`
 # Tests named '<number>-checker-*' will also have their CFGs verified with
 # Checker when compiled with Optimizing on host.
 if [[ "$TEST_NAME" =~ ^[0-9]+-checker- ]]; then
-  if [ "$runtime" = "art" -a "$image_suffix" = "" -a "$USE_JACK" = "true" ]; then
-    # In no-prebuild mode, the compiler only quickens so disable the checker.
-    if [ "$prebuild_mode" = "yes" ]; then
+  if [ "$runtime" = "art" -a "$image_suffix" = "" ]; then
+    # In no-prebuild or no-image mode, the compiler only quickens so disable the checker.
+    if [ "$prebuild_mode" = "yes" -a "$have_image" = "yes" ]; then
       run_checker="yes"
 
       if [ "$target_mode" = "no" ]; then
@@ -760,6 +790,16 @@ fi
 # script for the particular test in question.
 if ! ulimit -f 128000; then
   err_echo "ulimit file size setting failed"
+fi
+
+if [[ "$target_mode" == "yes" ]]; then
+  build_args="$build_args --target"
+else
+  build_args="$build_args --host"
+fi
+
+if [[ "$dev_mode" == "yes" ]]; then
+  build_args="$build_args --dev"
 fi
 
 good="no"

@@ -138,6 +138,8 @@ status_t EmulatedQemuCamera::Initialize(const char* device_name,
     mParameters.set(EmulatedCamera::FACING_KEY, facing_dir);
     mParameters.set(EmulatedCamera::ORIENTATION_KEY,
                     gEmulatedCameraFactory.getQemuCameraOrientation());
+    mParameters.set(CameraParameters::KEY_ROTATION,
+                    gEmulatedCameraFactory.getQemuCameraOrientation());
     mParameters.set(CameraParameters::KEY_SUPPORTED_PICTURE_SIZES,
                     sizes.c_str());
     mParameters.set(CameraParameters::KEY_SUPPORTED_PREVIEW_SIZES,

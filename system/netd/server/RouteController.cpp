@@ -81,6 +81,16 @@ const char* const ROUTE_TABLE_NAME_LEGACY_SYSTEM  = "legacy_system";
 const char* const ROUTE_TABLE_NAME_LOCAL = "local";
 const char* const ROUTE_TABLE_NAME_MAIN  = "main";
 
+// None of our routes specify priority, which causes them to have the default
+// priority. For throw routes, we use a fixed priority of 100000. This is
+// because we use throw routes either for maximum-length routes (/32 for IPv4,
+// /128 for IPv6), which we never create with any other priority, or for
+// purposely-low-priority default routes that should never match if there is
+// any other route in the table.
+uint32_t PRIO_THROW = 100000;
+
+const char* const RouteController::LOCAL_MANGLE_INPUT = "routectrl_mangle_INPUT";
+
 // These values are upstream, but not yet in our headers.
 // TODO: delete these definitions when updating the headers.
 const uint16_t FRA_UID_RANGE = 20;
@@ -118,6 +128,7 @@ rtattr FRATTR_UID_RANGE = { U16_RTA_LENGTH(sizeof(fib_rule_uid_range)), FRA_UID_
 
 rtattr RTATTR_TABLE     = { U16_RTA_LENGTH(sizeof(uint32_t)),           RTA_TABLE };
 rtattr RTATTR_OIF       = { U16_RTA_LENGTH(sizeof(uint32_t)),           RTA_OIF };
+rtattr RTATTR_PRIO      = { U16_RTA_LENGTH(sizeof(uint32_t)),           RTA_PRIORITY };
 
 uint8_t PADDING_BUFFER[RTA_ALIGNTO] = {0, 0, 0, 0};
 
@@ -371,6 +382,8 @@ WARN_UNUSED_RESULT int modifyIpRoute(uint16_t action, uint32_t table, const char
         }
     }
 
+    bool isDefaultThrowRoute = (type == RTN_THROW && prefixLength == 0);
+
     // Assemble a rtmsg and put it in an array of iovec structures.
     rtmsg route = {
         .rtm_protocol = RTPROT_STATIC,
@@ -394,6 +407,8 @@ WARN_UNUSED_RESULT int modifyIpRoute(uint16_t action, uint32_t table, const char
         { &ifindex,      interface != OIF_NONE ? sizeof(ifindex) : 0 },
         { &rtaGateway,   nexthop ? sizeof(rtaGateway) : 0 },
         { rawNexthop,    nexthop ? static_cast<size_t>(rawLength) : 0 },
+        { &RTATTR_PRIO,  isDefaultThrowRoute ? sizeof(RTATTR_PRIO) : 0 },
+        { &PRIO_THROW,   isDefaultThrowRoute ? sizeof(PRIO_THROW) : 0 },
     };
 
     uint16_t flags = (action == RTM_NEWROUTE) ? NETLINK_CREATE_REQUEST_FLAGS :
@@ -422,8 +437,9 @@ WARN_UNUSED_RESULT int modifyIncomingPacketMark(unsigned netId, const char* inte
     fwmark.protectedFromVpn = true;
     fwmark.permission = permission;
 
-    std::string cmd = StringPrintf("%s INPUT -i %s -j MARK --set-mark 0x%x",
-                                   add ? "-A" : "-D", interface, fwmark.intValue);
+    std::string cmd = StringPrintf("%s %s -i %s -j MARK --set-mark 0x%x",
+                                   add ? "-A" : "-D", RouteController::LOCAL_MANGLE_INPUT,
+                                   interface, fwmark.intValue);
     if (RouteController::iptablesRestoreCommandFunction(V4V6, "mangle", cmd, nullptr) != 0) {
         ALOGE("failed to change iptables rule that sets incoming packet mark");
         return -EREMOTEIO;
@@ -550,8 +566,7 @@ WARN_UNUSED_RESULT int modifyOutputInterfaceRules(const char* interface, uint32_
 // This is for sockets that have not explicitly requested a particular network, but have been
 // bound to one when they called connect(). This ensures that sockets connected on a particular
 // network stay on that network even if the default network changes.
-WARN_UNUSED_RESULT int modifyImplicitNetworkRule(unsigned netId, uint32_t table,
-                                                 Permission permission, bool add) {
+WARN_UNUSED_RESULT int modifyImplicitNetworkRule(unsigned netId, uint32_t table, bool add) {
     Fwmark fwmark;
     Fwmark mask;
 
@@ -561,8 +576,8 @@ WARN_UNUSED_RESULT int modifyImplicitNetworkRule(unsigned netId, uint32_t table,
     fwmark.explicitlySelected = false;
     mask.explicitlySelected = true;
 
-    fwmark.permission = permission;
-    mask.permission = permission;
+    fwmark.permission = PERMISSION_NONE;
+    mask.permission = PERMISSION_NONE;
 
     return modifyIpRule(add ? RTM_NEWRULE : RTM_DELRULE, RULE_PRIORITY_IMPLICIT_NETWORK, table,
                         fwmark.intValue, mask.intValue);
@@ -724,7 +739,31 @@ WARN_UNUSED_RESULT int modifyPhysicalNetwork(unsigned netId, const char* interfa
                                             add)) {
         return ret;
     }
-    return modifyImplicitNetworkRule(netId, table, permission, add);
+
+    // Only set implicit rules for networks that don't require permissions.
+    //
+    // This is so that if the default network ceases to be the default network and then switches
+    // from requiring no permissions to requiring permissions, we ensure that apps only use the
+    // network if they explicitly select it. This is consistent with destroySocketsLackingPermission
+    // - it closes all sockets on the network except sockets that are explicitly selected.
+    //
+    // The lack of this rule only affects the special case above, because:
+    // - The only cases where we implicitly bind a socket to a network are the default network and
+    //   the bypassable VPN that applies to the app, if any.
+    // - This rule doesn't affect VPNs because they don't support permissions at all.
+    // - The default network doesn't require permissions. While we support doing this, the framework
+    //   never does it (partly because we'd end up in the situation where we tell apps that there is
+    //   a default network, but they can't use it).
+    // - If the network is still the default network, the presence or absence of this rule does not
+    //   matter.
+    //
+    // Therefore, for the lack of this rule to affect a socket, the socket has to have been
+    // implicitly bound to a network because at the time of connect() it was the default, and that
+    // network must no longer be the default, and must now require permissions.
+    if (permission == PERMISSION_NONE) {
+        return modifyImplicitNetworkRule(netId, table, add);
+    }
+    return 0;
 }
 
 WARN_UNUSED_RESULT int modifyRejectNonSecureNetworkRule(const UidRanges& uidRanges, bool add) {

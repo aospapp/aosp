@@ -17,7 +17,6 @@ import time
 import urllib
 import urllib2
 
-from autotest_lib.client.bin import site_utils
 from autotest_lib.client.bin import test
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
@@ -64,10 +63,10 @@ class longevity_Tracker(test.test):
         """
         # Time between measurements is ~90% of the sample interval.
         measurement_time_delta = SAMPLE_INTERVAL * 0.90
-        cpu_usage_start = site_utils.get_cpu_usage()
+        cpu_usage_start = utils.get_cpu_usage()
         time.sleep(measurement_time_delta)
-        cpu_usage_end = site_utils.get_cpu_usage()
-        return site_utils.compute_active_cpu_time(cpu_usage_start,
+        cpu_usage_end = utils.get_cpu_usage()
+        return utils.compute_active_cpu_time(cpu_usage_start,
                                                   cpu_usage_end) * 100
 
     def _get_mem_usage(self):
@@ -75,8 +74,8 @@ class longevity_Tracker(test.test):
 
         @returns float of percent memory in use.
         """
-        total_memory = site_utils.get_mem_total()
-        free_memory = site_utils.get_mem_free()
+        total_memory = utils.get_mem_total()
+        free_memory = utils.get_mem_free()
         return ((total_memory - free_memory) / total_memory) * 100
 
     def _get_max_temperature(self):

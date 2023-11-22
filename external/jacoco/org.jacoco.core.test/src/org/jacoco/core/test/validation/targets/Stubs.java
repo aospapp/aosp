@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -10,6 +10,9 @@
  *    
  *******************************************************************************/
 package org.jacoco.core.test.validation.targets;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Collection of stub methods that are called from the coverage targets. *
@@ -115,6 +118,26 @@ public class Stubs {
 	 * Never executes the given runnable.
 	 */
 	public static void noexec(Runnable task) {
+	}
+
+	/**
+	 * List of logged events. Using a static member here works as this class is
+	 * loaded in a new class loader for every test case.
+	 */
+	private static List<String> events = new ArrayList<String>();
+
+	/**
+	 * Records a event with the given id for later verification.
+	 */
+	public static void logEvent(String id) {
+		events.add(id);
+	}
+
+	/**
+	 * Returns a list of all recorded events in the sequence of recording.
+	 */
+	public static List<String> getLogEvents() {
+		return events;
 	}
 
 }

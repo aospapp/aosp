@@ -17,12 +17,8 @@
 package com.android.tv.settings.device.apps.specialaccess;
 
 import android.Manifest;
-import android.app.ActivityThread;
 import android.app.AppOpsManager;
-import android.content.pm.IPackageManager;
-import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.os.RemoteException;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.support.annotation.Keep;
@@ -31,9 +27,7 @@ import android.support.annotation.Nullable;
 import android.support.v14.preference.SwitchPreference;
 import android.support.v7.preference.Preference;
 import android.support.v7.preference.TwoStatePreference;
-import android.util.Log;
 
-import com.android.internal.util.ArrayUtils;
 import com.android.settingslib.applications.ApplicationsState;
 import com.android.tv.settings.R;
 
@@ -43,37 +37,23 @@ import java.util.Comparator;
  * Fragment for controlling if apps can install other apps
  */
 @Keep
-public class ManageExternalSources extends ManageApplications {
-    private static final String TAG = "ManageExternalSources";
-
-    private IPackageManager mIpm;
+public class ManageExternalSources extends ManageAppOp {
     private AppOpsManager mAppOpsManager;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        mIpm = ActivityThread.getPackageManager();
         mAppOpsManager = getContext().getSystemService(AppOpsManager.class);
         super.onCreate(savedInstanceState);
     }
 
-    @NonNull
     @Override
-    public ApplicationsState.AppFilter getFilter() {
-        return new ApplicationsState.AppFilter() {
+    public int getAppOpsOpCode() {
+        return AppOpsManager.OP_REQUEST_INSTALL_PACKAGES;
+    }
 
-            @Override
-            public void init() {
-            }
-
-            @Override
-            public boolean filterApp(ApplicationsState.AppEntry entry) {
-                if (!(entry.extraInfo instanceof InstallAppsState)) {
-                    loadInstallAppsState(entry);
-                }
-                InstallAppsState state = (InstallAppsState) entry.extraInfo;
-                return state.isPotentialAppSource();
-            }
-        };
+    @Override
+    public String getPermission() {
+        return Manifest.permission.REQUEST_INSTALL_PACKAGES;
     }
 
     @Nullable
@@ -107,9 +87,8 @@ public class ManageExternalSources extends ManageApplications {
             return true;
         });
 
-        loadInstallAppsState(entry);
-        InstallAppsState state = (InstallAppsState) entry.extraInfo;
-        switchPref.setChecked(state.canInstallApps());
+        PermissionState state = (PermissionState) entry.extraInfo;
+        switchPref.setChecked(state.isAllowed());
         switchPref.setSummary(getPreferenceSummary(entry));
         switchPref.setEnabled(canChange(entry));
         return switchPref;
@@ -143,14 +122,8 @@ public class ManageExternalSources extends ManageApplications {
                 return getContext().getString(R.string.disabled);
         }
 
-        final InstallAppsState appsState;
-        if (entry.extraInfo instanceof InstallAppsState) {
-            appsState = (InstallAppsState) entry.extraInfo;
-        } else {
-            entry.extraInfo = appsState =
-                    createInstallAppsStateFor(entry.info.packageName, entry.info.uid);
-        }
-        return getContext().getString(appsState.canInstallApps() ? R.string.external_source_trusted
+        return getContext().getString(((PermissionState) entry.extraInfo).isAllowed()
+                ? R.string.external_source_trusted
                 : R.string.external_source_untrusted);
     }
 
@@ -159,78 +132,5 @@ public class ManageExternalSources extends ManageApplications {
                 entry.info.uid, entry.info.packageName,
                 newState ? AppOpsManager.MODE_ALLOWED : AppOpsManager.MODE_ERRORED);
         updateAppList();
-    }
-
-
-    private boolean hasRequestedAppOpPermission(String permission, String packageName) {
-        try {
-            String[] packages = mIpm.getAppOpPermissionPackages(permission);
-            return ArrayUtils.contains(packages, packageName);
-        } catch (RemoteException exc) {
-            Log.e(TAG, "PackageManager dead. Cannot get permission info");
-            return false;
-        }
-    }
-
-    private boolean hasPermission(String permission, int uid) {
-        try {
-            int result = mIpm.checkUidPermission(permission, uid);
-            return result == PackageManager.PERMISSION_GRANTED;
-        } catch (RemoteException e) {
-            Log.e(TAG, "PackageManager dead. Cannot get permission info");
-            return false;
-        }
-    }
-
-    private int getAppOpMode(int appOpCode, int uid, String packageName) {
-        return mAppOpsManager.checkOpNoThrow(appOpCode, uid, packageName);
-    }
-
-    private void loadInstallAppsState(ApplicationsState.AppEntry entry) {
-        entry.extraInfo = createInstallAppsStateFor(entry.info.packageName, entry.info.uid);
-    }
-
-    private InstallAppsState createInstallAppsStateFor(String packageName, int uid) {
-        final InstallAppsState appState = new InstallAppsState();
-        appState.permissionRequested = hasRequestedAppOpPermission(
-                Manifest.permission.REQUEST_INSTALL_PACKAGES, packageName);
-        appState.permissionGranted = hasPermission(Manifest.permission.REQUEST_INSTALL_PACKAGES,
-                uid);
-        appState.appOpMode = getAppOpMode(AppOpsManager.OP_REQUEST_INSTALL_PACKAGES, uid,
-                packageName);
-        return appState;
-    }
-
-    /**
-     * Collection of information to be used as {@link ApplicationsState.AppEntry#extraInfo} objects
-     */
-    private static class InstallAppsState {
-        public boolean permissionRequested;
-        public boolean permissionGranted;
-        public int appOpMode;
-
-        private InstallAppsState() {
-            this.appOpMode = AppOpsManager.MODE_DEFAULT;
-        }
-
-        public boolean canInstallApps() {
-            if (appOpMode == AppOpsManager.MODE_DEFAULT) {
-                return permissionGranted;
-            } else {
-                return appOpMode == AppOpsManager.MODE_ALLOWED;
-            }
-        }
-
-        public boolean isPotentialAppSource() {
-            return appOpMode != AppOpsManager.MODE_DEFAULT || permissionRequested;
-        }
-
-        @Override
-        public String toString() {
-            return "[permissionGranted: " + permissionGranted
-                    + ", permissionRequested: " + permissionRequested
-                    + ", appOpMode: " + appOpMode
-                    + "]";
-        }
     }
 }

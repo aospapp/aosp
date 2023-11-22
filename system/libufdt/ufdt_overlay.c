@@ -30,7 +30,7 @@
 #include "ufdt_overlay.h"
 
 #include "libufdt.h"
-
+#include "ufdt_node_pool.h"
 
 /*
  * The original version of fdt_overlay.c is slow in searching for particular
@@ -68,7 +68,7 @@ static void fdt_increase_u32(void *pos, uint32_t offset) {
  * Gets the max phandle of a given ufdt.
  */
 static uint32_t ufdt_get_max_phandle(struct ufdt *tree) {
-  struct static_phandle_table sorted_table = tree->phandle_table;
+  struct ufdt_static_phandle_table sorted_table = tree->phandle_table;
   if (sorted_table.len > 0)
     return sorted_table.data[sorted_table.len - 1].phandle;
   else
@@ -97,7 +97,7 @@ static void ufdt_node_try_increase_phandle(struct ufdt_node *node,
  * in O(n) time.
  */
 static void ufdt_try_increase_phandle(struct ufdt *tree, uint32_t offset) {
-  struct static_phandle_table sorted_table = tree->phandle_table;
+  struct ufdt_static_phandle_table sorted_table = tree->phandle_table;
   int i;
 
   for (i = 0; i < sorted_table.len; i++) {
@@ -131,12 +131,18 @@ static void *ufdt_get_fixup_location(struct ufdt *tree, const char *fixup) {
   char *path, *prop_ptr, *offset_ptr, *end_ptr;
   int prop_offset, prop_len;
   const char *prop_data;
+  char path_buf[1024];
+  char *path_mem = NULL;
 
-  /*
-   * TODO(akaineko): Keep track of substring lengths so we don't have to
-   * dto_malloc a copy and split it up.
-   */
-  path = dto_strdup(fixup);
+  size_t fixup_len = strlen(fixup) + 1;
+  if (fixup_len > sizeof(path_buf)) {
+    path_mem = dto_malloc(fixup_len);
+    path = path_mem;
+  } else {
+    path = path_buf;
+  }
+  dto_memcpy(path, fixup, fixup_len);
+
   prop_ptr = dto_strchr(path, ':');
   if (prop_ptr == NULL) {
     dto_error("Missing property part in '%s'\n", path);
@@ -182,11 +188,11 @@ static void *ufdt_get_fixup_location(struct ufdt *tree, const char *fixup) {
     goto fail;
   }
 
-  dto_free(path);
+  if (path_mem) dto_free(path_mem);
   return (char *)prop_data + prop_offset;
 
 fail:
-  dto_free(path);
+  if (path_mem) dto_free(path_mem);
   return NULL;
 }
 
@@ -259,10 +265,11 @@ static int ufdt_overlay_do_fixups(struct ufdt *main_tree,
 
     struct ufdt_node *fixups = *it;
     char *symbol_path = ufdt_node_get_fdt_prop_data_by_name(
-        main_symbols_node, name_of(fixups), &len);
+        main_symbols_node, ufdt_node_name(fixups), &len);
 
     if (!symbol_path) {
-      dto_error("Couldn't find '%s' symbol in main dtb\n", name_of(fixups));
+      dto_error("Couldn't find '%s' symbol in main dtb\n",
+                ufdt_node_name(fixups));
       return -1;
     }
 
@@ -294,7 +301,7 @@ static int ufdt_overlay_do_fixups(struct ufdt *main_tree,
  * What is "overlay fragment"? The main purpose is to add some subtrees to the
  * main_tree in order to complete the entire device tree.
  *
- * A frgament consists of two parts: 1. the subtree to be added 2. where it
+ * A fragment consists of two parts: 1. the subtree to be added 2. where it
  * should be added.
  *
  * Overlaying a fragment requires: 1. find the node in the main_tree 2. merge
@@ -307,8 +314,9 @@ static int ufdt_overlay_do_fixups(struct ufdt *main_tree,
  * Overlay the overlay_node over target_node.
  */
 static int ufdt_overlay_node(struct ufdt_node *target_node,
-                             struct ufdt_node *overlay_node) {
-  return merge_ufdt_into(target_node, overlay_node);
+                             struct ufdt_node *overlay_node,
+                             struct ufdt_node_pool *pool) {
+  return ufdt_node_merge_into(target_node, overlay_node, pool);
 }
 
 /*
@@ -328,7 +336,8 @@ enum overlay_result {
  * Apply one overlay fragment (subtree).
  */
 static enum overlay_result ufdt_apply_fragment(struct ufdt *tree,
-                                               struct ufdt_node *frag_node) {
+                                               struct ufdt_node *frag_node,
+                                               struct ufdt_node_pool *pool) {
   uint32_t target;
   const char *target_path;
   const void *val;
@@ -366,11 +375,11 @@ static enum overlay_result ufdt_apply_fragment(struct ufdt *tree,
     return OVERLAY_RESULT_MISSING_OVERLAY;
   }
 
-  int err = ufdt_overlay_node(target_node, overlay_node);
+  int err = ufdt_overlay_node(target_node, overlay_node, pool);
 
   if (err < 0) {
-    dto_error("failed to overlay node %s to target %s\n", name_of(overlay_node),
-              name_of(target_node));
+    dto_error("failed to overlay node %s to target %s\n",
+              ufdt_node_name(overlay_node), ufdt_node_name(target_node));
     return OVERLAY_RESULT_MERGE_FAIL;
   }
 
@@ -381,7 +390,8 @@ static enum overlay_result ufdt_apply_fragment(struct ufdt *tree,
  * Applies all fragments to the main_tree.
  */
 static int ufdt_overlay_apply_fragments(struct ufdt *main_tree,
-                                        struct ufdt *overlay_tree) {
+                                        struct ufdt *overlay_tree,
+                                        struct ufdt_node_pool *pool) {
   enum overlay_result err;
   struct ufdt_node **it;
   /*
@@ -389,7 +399,7 @@ static int ufdt_overlay_apply_fragments(struct ufdt *main_tree,
    * In such case, ufdt_apply_fragment would fail with return value = -1.
    */
   for_each_node(it, overlay_tree->root) {
-    err = ufdt_apply_fragment(main_tree, *it);
+    err = ufdt_apply_fragment(main_tree, *it, pool);
     if (err == OVERLAY_RESULT_MERGE_FAIL) {
       return -1;
     }
@@ -461,8 +471,8 @@ static int ufdt_local_fixup_node(struct ufdt_node *target_node,
   struct ufdt_node *sub_target_node;
 
   for_each_prop(it_local_fixups, local_fixups_node) {
-    sub_target_node =
-        ufdt_node_get_property_by_name(target_node, name_of(*it_local_fixups));
+    sub_target_node = ufdt_node_get_property_by_name(
+        target_node, ufdt_node_name(*it_local_fixups));
 
     if (sub_target_node != NULL) {
       int err = ufdt_local_fixup_prop(sub_target_node, *it_local_fixups,
@@ -474,8 +484,8 @@ static int ufdt_local_fixup_node(struct ufdt_node *target_node,
   }
 
   for_each_node(it_local_fixups, local_fixups_node) {
-    sub_target_node =
-        ufdt_node_get_node_by_path(target_node, name_of(*it_local_fixups));
+    sub_target_node = ufdt_node_get_node_by_path(
+        target_node, ufdt_node_name(*it_local_fixups));
     if (sub_target_node != NULL) {
       int err = ufdt_local_fixup_node(sub_target_node, *it_local_fixups,
                                       phandle_offset);
@@ -552,7 +562,8 @@ static int _ufdt_overlay_fdtps(struct ufdt *main_tree,
 }
 
 static int ufdt_overlay_apply(struct ufdt *main_tree, struct ufdt *overlay_tree,
-                              size_t overlay_length) {
+                              size_t overlay_length,
+                              struct ufdt_node_pool *pool) {
   if (_ufdt_overlay_fdtps(main_tree, overlay_tree) < 0) {
     dto_error("failed to add more fdt into main ufdt tree.\n");
     return -1;
@@ -573,7 +584,7 @@ static int ufdt_overlay_apply(struct ufdt *main_tree, struct ufdt *overlay_tree,
     dto_error("failed to perform fixups in overlay\n");
     return -1;
   }
-  if (ufdt_overlay_apply_fragments(main_tree, overlay_tree) < 0) {
+  if (ufdt_overlay_apply_fragments(main_tree, overlay_tree, pool) < 0) {
     dto_error("failed to apply fragments\n");
     return -1;
   }
@@ -641,13 +652,11 @@ struct fdt_header *ufdt_apply_overlay(struct fdt_header *main_fdt_header,
     return NULL;
   }
 
-  struct ufdt *main_tree = NULL;
-  struct ufdt *overlay_tree = NULL;
-
-  main_tree = fdt_to_ufdt(main_fdt_header, main_fdt_size);
-  overlay_tree = fdt_to_ufdt(overlay_fdtp, overlay_size);
-
-  int err = ufdt_overlay_apply(main_tree, overlay_tree, overlay_size);
+  struct ufdt_node_pool pool;
+  ufdt_node_pool_construct(&pool);
+  struct ufdt *main_tree = ufdt_from_fdt(main_fdt_header, main_fdt_size, &pool);
+  struct ufdt *overlay_tree = ufdt_from_fdt(overlay_fdtp, overlay_size, &pool);
+  int err = ufdt_overlay_apply(main_tree, overlay_tree, overlay_size, &pool);
   if (err < 0) {
     goto fail;
   }
@@ -658,14 +667,16 @@ struct fdt_header *ufdt_apply_overlay(struct fdt_header *main_fdt_header,
     goto fail;
   }
 
-  ufdt_destruct(overlay_tree);
-  ufdt_destruct(main_tree);
+  ufdt_destruct(overlay_tree, &pool);
+  ufdt_destruct(main_tree, &pool);
+  ufdt_node_pool_destruct(&pool);
 
   return out_fdt_header;
 
 fail:
-  ufdt_destruct(overlay_tree);
-  ufdt_destruct(main_tree);
+  ufdt_destruct(overlay_tree, &pool);
+  ufdt_destruct(main_tree, &pool);
+  ufdt_node_pool_destruct(&pool);
   dto_free(out_fdt_header);
 
   return NULL;

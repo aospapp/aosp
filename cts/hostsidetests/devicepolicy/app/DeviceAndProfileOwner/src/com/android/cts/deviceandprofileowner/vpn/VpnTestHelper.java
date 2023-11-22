@@ -16,6 +16,16 @@
 
 package com.android.cts.deviceandprofileowner.vpn;
 
+import static android.system.OsConstants.AF_INET;
+import static android.system.OsConstants.IPPROTO_ICMP;
+import static android.system.OsConstants.POLLIN;
+import static android.system.OsConstants.SOCK_DGRAM;
+
+import static junit.framework.Assert.assertEquals;
+import static junit.framework.Assert.assertNotNull;
+import static junit.framework.Assert.assertTrue;
+import static junit.framework.Assert.fail;
+
 import android.annotation.TargetApi;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
@@ -43,14 +53,6 @@ import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import static android.system.OsConstants.AF_INET;
-import static android.system.OsConstants.IPPROTO_ICMP;
-import static android.system.OsConstants.POLLIN;
-import static android.system.OsConstants.SOCK_DGRAM;
-import static junit.framework.Assert.assertEquals;
-import static junit.framework.Assert.assertTrue;
-import static junit.framework.Assert.fail;
-
 /**
  * Helper class to test vpn status
  */
@@ -70,46 +72,61 @@ public class VpnTestHelper {
     private static final int NETWORK_TIMEOUT_MS = 5000;
     private static final ComponentName ADMIN_RECEIVER_COMPONENT =
             BaseDeviceAdminTest.ADMIN_RECEIVER_COMPONENT;
+    private static final NetworkRequest VPN_NETWORK_REQUEST = new NetworkRequest.Builder()
+            .addTransportType(NetworkCapabilities.TRANSPORT_VPN)
+            .removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+            .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .build();
 
-    public static void setAndWaitForVpn(Context context, String packageName, boolean usable) {
-        ConnectivityManager connectivityManager =
-                context.getSystemService(ConnectivityManager.class);
+    /**
+     * Wait for a VPN app to establish VPN.
+     *
+     * @param context Caller's context.
+     * @param packageName {@code null} if waiting for the existing VPN to connect. Otherwise we set
+     *         this package as the new always-on VPN app and wait for it to connect.
+     * @param usable Whether the resulting VPN tunnel is expected to be usable.
+     */
+    public static void waitForVpn(Context context, String packageName, boolean usable) {
         DevicePolicyManager dpm = context.getSystemService(DevicePolicyManager.class);
+        if (packageName == null) {
+            assertNotNull(dpm.getAlwaysOnVpnPackage(ADMIN_RECEIVER_COMPONENT));
+        }
+
+        ConnectivityManager cm = context.getSystemService(ConnectivityManager.class);
         final CountDownLatch vpnLatch = new CountDownLatch(1);
-        final NetworkRequest request = new NetworkRequest.Builder()
-                .addTransportType(NetworkCapabilities.TRANSPORT_VPN)
-                .removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
-                .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                .build();
-        final ConnectivityManager.NetworkCallback callback
-                = new ConnectivityManager.NetworkCallback() {
-            @Override
-            public void onAvailable(Network net) {
-                vpnLatch.countDown();
-            }
-        };
-        connectivityManager.registerNetworkCallback(request, callback);
+        final ConnectivityManager.NetworkCallback callback =
+                new ConnectivityManager.NetworkCallback() {
+                    @Override
+                    public void onAvailable(Network net) {
+                        vpnLatch.countDown();
+                    }
+                };
+        cm.registerNetworkCallback(VPN_NETWORK_REQUEST, callback);
+
         try {
-            dpm.setAlwaysOnVpnPackage(ADMIN_RECEIVER_COMPONENT, packageName, true);
-            assertEquals(packageName, dpm.getAlwaysOnVpnPackage(ADMIN_RECEIVER_COMPONENT));
+            if (packageName != null) {
+                dpm.setAlwaysOnVpnPackage(ADMIN_RECEIVER_COMPONENT, packageName, true);
+                assertEquals(packageName, dpm.getAlwaysOnVpnPackage(ADMIN_RECEIVER_COMPONENT));
+            }
             if (!vpnLatch.await(NETWORK_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
-                fail("Took too long waiting to establish a VPN-backed connection");
+                if (!isNetworkVpn(context)) {
+                    fail("Took too long waiting to establish a VPN-backed connection");
+                }
             }
             Thread.sleep(NETWORK_SETTLE_GRACE_MS);
         } catch (InterruptedException | PackageManager.NameNotFoundException e) {
-            fail("Failed to send ping: " + e);
+            fail("Failed while waiting for VPN: " + e);
         } finally {
-            connectivityManager.unregisterNetworkCallback(callback);
+            cm.unregisterNetworkCallback(callback);
         }
 
         // Do we have a network?
-        NetworkInfo vpnInfo = connectivityManager.getNetworkInfo(ConnectivityManager.TYPE_VPN);
-        assertTrue(vpnInfo != null);
+        NetworkInfo vpnInfo = cm.getNetworkInfo(ConnectivityManager.TYPE_VPN);
+        assertNotNull(vpnInfo);
 
         // Is it usable?
         assertEquals(usable, vpnInfo.isConnected());
     }
-
 
     public static boolean isNetworkVpn(Context context) {
         ConnectivityManager connectivityManager =

@@ -12,6 +12,14 @@ $(error "You must supply a HEXAGON_TOOLS_PREFIX environment variable \
          export HEXAGON_TOOLS_PREFIX=$$HOME/Qualcomm/HEXAGON_Tools/8.0.07")
 endif
 
+ifeq ($(IS_NANOAPP_BUILD),)
+ifeq ($(SLPI_PREFIX),)
+$(error "You must supply an SLPI_PREFIX environment variable \
+         containing a path to the SLPI source tree. Example: \
+         export SLPI_PREFIX=$$HOME/slpi_proc")
+endif
+endif
+
 # Hexagon Tools ################################################################
 
 TARGET_AR = $(HEXAGON_TOOLS_PREFIX)/Tools/bin/hexagon-ar
@@ -29,12 +37,20 @@ TARGET_CFLAGS += -fpic
 # Disable splitting double registers.
 TARGET_CFLAGS += -mllvm -disable-hsdr
 
+# Enable default visibility for FastRPC entry points.
+TARGET_CFLAGS += -D'__QAIC_SKEL_EXPORT=__attribute__((visibility("default")))'
+
 # This code is loaded into a dynamic module. Define this symbol in the event
 # that any Qualcomm code needs it.
 TARGET_CFLAGS += -D__V_DYNAMIC__
 
+# This flag is used by some QC-supplied code to differentiate things intended to
+# run on Hexagon vs. other architectures
+TARGET_CFLAGS += -DQDSP6
+
 # Hexagon Shared Object Linker Flags ###########################################
 
+TARGET_SO_LDFLAGS += --gc-sections
 TARGET_SO_LDFLAGS += -shared
 TARGET_SO_LDFLAGS += -call_shared
 TARGET_SO_LDFLAGS += -Bsymbolic

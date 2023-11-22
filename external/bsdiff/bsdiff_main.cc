@@ -4,7 +4,7 @@
 
 #include <err.h>
 
-#include "bsdiff.h"
+#include "bsdiff/bsdiff.h"
 
 int main(int argc, char* argv[]) {
   if (argc != 4)

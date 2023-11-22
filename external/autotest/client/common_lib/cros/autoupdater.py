@@ -20,9 +20,14 @@ try:
 except ImportError:
     metrics = utils.metrics_mock
 
+try:
+    import devserver
+    STATEFUL_UPDATE_PATH = devserver.__path__[0]
+except ImportError:
+    STATEFUL_UPDATE_PATH = '/usr/bin'
+
 # Local stateful update path is relative to the CrOS source directory.
-LOCAL_STATEFUL_UPDATE_PATH = 'src/platform/dev/stateful_update'
-LOCAL_CHROOT_STATEFUL_UPDATE_PATH = '/usr/bin/stateful_update'
+STATEFUL_UPDATE_SCRIPT = 'stateful_update'
 UPDATER_IDLE = 'UPDATE_STATUS_IDLE'
 UPDATER_NEED_REBOOT = 'UPDATE_STATUS_UPDATED_NEED_REBOOT'
 # A list of update engine client states that occur after an update is triggered.
@@ -33,10 +38,6 @@ UPDATER_PROCESSING_UPDATE = ['UPDATE_STATUS_CHECKING_FORUPDATE',
 
 class ChromiumOSError(error.InstallError):
     """Generic error for ChromiumOS-specific exceptions."""
-
-
-class BrilloError(error.InstallError):
-    """Generic error for Brillo-specific exceptions."""
 
 
 class RootFSUpdateError(ChromiumOSError):
@@ -251,12 +252,21 @@ class BaseUpdater(object):
         run_args = {'command': autoupdate_cmd}
         err_prefix = 'Failed to trigger an update on %s. ' % self.host.hostname
         logging.info('Triggering update via: %s', autoupdate_cmd)
+        metric_fields = {'success': False}
         try:
-            to_raise = None
             self._base_update_handler(run_args, err_prefix)
-        except Exception as e:
-            to_raise = e
+            metric_fields['success'] = True
+        finally:
+            c = metrics.Counter('chromeos/autotest/autoupdater/trigger')
+            metric_fields.update(self._get_metric_fields())
+            c.increment(fields=metric_fields)
 
+
+    def _get_metric_fields(self):
+        """Return a dict of metric fields.
+
+        This is used for sending autoupdate metrics for this instance.
+        """
         build_name = url_to_image_name(self.update_url)
         try:
             board, build_type, milestone, _ = server_utils.ParseBuildName(
@@ -265,16 +275,12 @@ class BaseUpdater(object):
             logging.warning('Unable to parse build name %s for metrics. '
                             'Continuing anyway.', build_name)
             board, build_type, milestone = ('', '', '')
-        c = metrics.Counter('chromeos/autotest/autoupdater/trigger')
-        f = {'dev_server':
-             dev_server.get_hostname(self.update_url),
-             'success': to_raise is None,
-             'board': board,
-             'build_type': build_type,
-             'milestone': milestone}
-        c.increment(fields=f)
-        if to_raise:
-            raise to_raise
+        return {
+            'dev_server': dev_server.get_hostname(self.update_url),
+            'board': board,
+            'build_type': build_type,
+            'milestone': milestone,
+        }
 
 
     def _verify_update_completed(self):
@@ -300,38 +306,25 @@ class BaseUpdater(object):
         err_prefix = ('Failed to install device image using payload at %s '
                       'on %s. ' % (self.update_url, self.host.hostname))
         logging.info('Updating image via: %s', autoupdate_cmd)
+        metric_fields = {'success': False}
         try:
-            to_raise = None
             self._base_update_handler(run_args, err_prefix)
-        except Exception as e:
-            to_raise = e
+            metric_fields['success'] = True
+        finally:
+            c = metrics.Counter('chromeos/autotest/autoupdater/update')
+            metric_fields.update(self._get_metric_fields())
+            c.increment(fields=metric_fields)
 
-        build_name = url_to_image_name(self.update_url)
-        try:
-            board, build_type, milestone, _ = server_utils.ParseBuildName(
-                build_name)
-        except server_utils.ParseBuildNameException:
-            logging.warning('Unable to parse build name %s for metrics. '
-                            'Continuing anyway.', build_name)
-            board, build_type, milestone = ('', '', '')
-        c = metrics.Counter('chromeos/autotest/autoupdater/update')
-        f = {'dev_server':
-             dev_server.get_hostname(self.update_url),
-             'success': to_raise is None,
-             'board': board,
-             'build_type': build_type,
-             'milestone': milestone}
-        c.increment(fields=f)
-        if to_raise:
-            raise to_raise
         self._verify_update_completed()
 
 
 class ChromiumOSUpdater(BaseUpdater):
     """Helper class used to update DUT with image of desired version."""
-    REMOTE_STATEUL_UPDATE_PATH = '/usr/local/bin/stateful_update'
+    REMOTE_STATEFUL_UPDATE_PATH = os.path.join(
+            '/usr/local/bin', STATEFUL_UPDATE_SCRIPT)
+    REMOTE_TMP_STATEFUL_UPDATE = os.path.join(
+            '/tmp', STATEFUL_UPDATE_SCRIPT)
     UPDATER_BIN = '/usr/bin/update_engine_client'
-    STATEFUL_UPDATE = '/tmp/stateful_update'
     UPDATED_MARKER = '/var/run/update_engine_autoupdate_completed'
     UPDATER_LOGS = ['/var/log/messages', '/var/log/update_engine']
 
@@ -422,34 +415,31 @@ class ChromiumOSUpdater(BaseUpdater):
 
 
     def get_stateful_update_script(self):
-        """Returns the path to the stateful update script on the target."""
-        # We attempt to load the local stateful update path in 3 different
-        # ways. First we use the location specified in the autotest global
-        # config. If this doesn't exist, we attempt to use the Chromium OS
-        # Chroot path to the installed script. If all else fails, we use the
-        # stateful update script on the host.
-        stateful_update_path = os.path.join(
-                global_config.global_config.get_config_value(
-                        'CROS', 'source_tree', default=''),
-                LOCAL_STATEFUL_UPDATE_PATH)
+        """Returns the path to the stateful update script on the target.
 
-        if not os.path.exists(stateful_update_path):
-            logging.warning('Could not find Chrome OS source location for '
-                            'stateful_update script at %s, falling back to '
-                            'chroot copy.', stateful_update_path)
-            stateful_update_path = LOCAL_CHROOT_STATEFUL_UPDATE_PATH
+        When runnning test_that, stateful_update is in chroot /usr/sbin,
+        as installed by chromeos-base/devserver packages.
+        In the lab, it is installed with the python module devserver, by
+        build_externals.py command.
 
-        if not os.path.exists(stateful_update_path):
-            logging.warning('Could not chroot stateful_update script, falling '
-                            'back on client copy.')
-            statefuldev_script = self.REMOTE_STATEUL_UPDATE_PATH
-        else:
+        If we can find it, we hope it exists already on the DUT, we assert
+        otherwise.
+        """
+        stateful_update_file = os.path.join(STATEFUL_UPDATE_PATH,
+                                            STATEFUL_UPDATE_SCRIPT)
+        if os.path.exists(stateful_update_file):
             self.host.send_file(
-                    stateful_update_path, self.STATEFUL_UPDATE,
+                    stateful_update_file, self.REMOTE_TMP_STATEFUL_UPDATE,
                     delete_dest=True)
-            statefuldev_script = self.STATEFUL_UPDATE
+            return self.REMOTE_TMP_STATEFUL_UPDATE
 
-        return statefuldev_script
+        if self.host.path_exists(self.REMOTE_STATEFUL_UPDATE_PATH):
+            logging.warning('Could not chroot %s script, falling back on %s',
+                   STATEFUL_UPDATE_SCRIPT, self.REMOTE_STATEFUL_UPDATE_PATH)
+            return self.REMOTE_STATEFUL_UPDATE_PATH
+        else:
+            raise ChromiumOSError('Could not locate %s',
+                                  STATEFUL_UPDATE_SCRIPT)
 
 
     def reset_stateful_partition(self):
@@ -736,15 +726,3 @@ class ChromiumOSUpdater(BaseUpdater):
                     'within %d seconds' % (event,
                                            self.KERNEL_UPDATE_TIMEOUT))
 
-
-class BrilloUpdater(BaseUpdater):
-    """Helper class for updating a Brillo DUT."""
-
-    def __init__(self, update_url, host=None):
-        """Initialize the object.
-
-        @param update_url: The URL we want the update to use.
-        @param host: A client.common_lib.hosts.Host implementation.
-        """
-        super(BrilloUpdater, self).__init__(
-                '/system/bin/update_engine_client', update_url, host)

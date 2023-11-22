@@ -127,34 +127,31 @@ public class PreferenceRecycleTest {
             screen.addPreference(noRecyclePref);
         });
 
+        // Select the last item in the list to make sure the newly added prefs is actually
+        // displayed even on small screen like watches.
+        mActivityRule.runOnUiThread(() -> {
+            mActivity.getListView().setSelection(mActivity.getListView().getCount() - 1);
+        });
+
         // Grab the preferences we just created on the Ui thread.
         RecycleCheckPreference recyclePref =
                 (RecycleCheckPreference)screen.findPreference("recyclePref");
         RecycleCheckPreference noRecyclePref =
                 (RecycleCheckPreference)screen.findPreference("noRecyclePref");
 
-        // Wait for the views to be created
+        // Wait for the views to be created (because we may scroll the screen to display the
+        // latest views, these views may get refreshed more than once).
         PollingCheck.waitFor(TIMEOUT_MS,
-                () -> recyclePref.getViewCalledCnt == 1 && noRecyclePref.getViewCalledCnt == 1);
-
-        // At the beginning the views must be always created (no recycling involved).
-        assertEquals(1, recyclePref.getViewCalledCnt);
-        assertTrue(recyclePref.wasConvertViewNullInLastCall);
-
-        assertEquals(1, noRecyclePref.getViewCalledCnt);
-        assertTrue(noRecyclePref.wasConvertViewNullInLastCall);
+                () -> recyclePref.getViewCalledCnt > 0 && noRecyclePref.getViewCalledCnt > 0);
 
         // Change a value of some pref to force the list to refresh
         mActivityRule.runOnUiThread(() -> recyclePref.setChecked(!recyclePref.isChecked()));
 
         // Wait for the list to refresh
         PollingCheck.waitFor(TIMEOUT_MS,
-                () -> recyclePref.getViewCalledCnt == 2 && noRecyclePref.getViewCalledCnt == 2);
+                () -> recyclePref.getViewCalledCnt > 1 && noRecyclePref.getViewCalledCnt > 1);
 
-        assertEquals(2, recyclePref.getViewCalledCnt);
         assertFalse(recyclePref.wasConvertViewNullInLastCall); // Recycling
-
-        assertEquals(2, noRecyclePref.getViewCalledCnt);
         assertTrue(noRecyclePref.wasConvertViewNullInLastCall); // Not recycling
     }
 }

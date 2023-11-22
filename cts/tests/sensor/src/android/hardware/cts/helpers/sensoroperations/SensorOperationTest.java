@@ -59,7 +59,7 @@ public class SensorOperationTest extends TestCase {
         op = new FakeSensorOperation(true, 0, TimeUnit.MILLISECONDS);
         try {
             op.execute(mTestNode);
-            fail("AssertionError expected");
+            throw new Error("AssertionError expected");
         } catch (AssertionError e) {
             // Expected
         }

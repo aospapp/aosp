@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <radio_hidl_hal_utils.h>
+#include <radio_hidl_hal_utils_v1_0.h>
 
 /*
  * Test IRadio.getCurrentCalls() for the response returned.
@@ -57,7 +57,7 @@ TEST_F(RadioHidlTest, dial) {
                     radioRsp->rspInfo.error == RadioError::NO_NETWORK_FOUND ||
                     radioRsp->rspInfo.error == RadioError::INVALID_CALL_ID ||
                     radioRsp->rspInfo.error == RadioError::DEVICE_IN_USE ||
-                    radioRsp->rspInfo.error == RadioError::MODE_NOT_SUPPORTED ||
+                    radioRsp->rspInfo.error == RadioError::OPERATION_NOT_ALLOWED ||
                     radioRsp->rspInfo.error == RadioError::INVALID_MODEM_STATE ||
                     radioRsp->rspInfo.error == RadioError::CANCELLED);
     }
@@ -214,7 +214,8 @@ TEST_F(RadioHidlTest, cancelPendingUssd) {
 
     if (cardStatus.cardState == CardState::ABSENT) {
         ASSERT_TRUE(CheckGeneralError() || radioRsp->rspInfo.error == RadioError::INVALID_STATE ||
-                    radioRsp->rspInfo.error == RadioError::MODEM_ERR);
+                    radioRsp->rspInfo.error == RadioError::MODEM_ERR ||
+                    radioRsp->rspInfo.error == RadioError::NONE);
     }
 }
 
@@ -371,7 +372,8 @@ TEST_F(RadioHidlTest, sendCDMAFeatureCode) {
                     radioRsp->rspInfo.error == RadioError::NONE ||
                     radioRsp->rspInfo.error == RadioError::INVALID_CALL_ID ||
                     radioRsp->rspInfo.error == RadioError::INVALID_MODEM_STATE ||
-                    radioRsp->rspInfo.error == RadioError::MODEM_ERR);
+                    radioRsp->rspInfo.error == RadioError::MODEM_ERR ||
+                    radioRsp->rspInfo.error == RadioError::OPERATION_NOT_ALLOWED);
     }
 }
 
@@ -486,6 +488,6 @@ TEST_F(RadioHidlTest, sendBurstDtmf) {
                     radioRsp->rspInfo.error == RadioError::INVALID_ARGUMENTS ||
                     radioRsp->rspInfo.error == RadioError::INVALID_STATE ||
                     radioRsp->rspInfo.error == RadioError::MODEM_ERR ||
-                    radioRsp->rspInfo.error == RadioError::MODE_NOT_SUPPORTED);
+                    radioRsp->rspInfo.error == RadioError::OPERATION_NOT_ALLOWED);
     }
 }

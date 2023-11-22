@@ -37,8 +37,6 @@ import com.android.tv.TvApplication;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.data.Channel;
 import com.android.tv.data.ChannelDataManager;
-import com.android.tv.data.epg.EpgFetcher;
-import com.android.tv.experiments.Experiments;
 import com.android.tv.tuner.tvinput.TunerTvInputService;
 
 import java.util.Collections;
@@ -114,7 +112,7 @@ public class SetupUtils {
                 @Override
                 public void onLoadFinished() {
                     manager.removeListener(this);
-                    updateChannelBrowsable(mTvApplication, inputId, postRunnable);
+                    updateChannelsAfterSetup(mTvApplication, inputId, postRunnable);
                 }
 
                 @Override
@@ -124,17 +122,18 @@ public class SetupUtils {
                 public void onChannelBrowsableChanged() { }
             });
         } else {
-            updateChannelBrowsable(mTvApplication, inputId, postRunnable);
+            updateChannelsAfterSetup(mTvApplication, inputId, postRunnable);
         }
     }
 
-    private static void updateChannelBrowsable(Context context, final String inputId,
+    private static void updateChannelsAfterSetup(Context context, final String inputId,
             final Runnable postRunnable) {
         ApplicationSingletons appSingletons = TvApplication.getSingletons(context);
         final ChannelDataManager manager = appSingletons.getChannelDataManager();
         manager.updateChannels(new Runnable() {
             @Override
             public void run() {
+                Channel firstChannelForInput = null;
                 boolean browsableChanged = false;
                 for (Channel channel : manager.getChannelList()) {
                     if (channel.getInputId().equals(inputId)) {
@@ -142,7 +141,13 @@ public class SetupUtils {
                             manager.updateBrowsable(channel.getId(), true, true);
                             browsableChanged = true;
                         }
+                        if (firstChannelForInput == null) {
+                            firstChannelForInput = channel;
+                        }
                     }
+                }
+                if (firstChannelForInput != null) {
+                    Utils.setLastWatchedChannel(context, firstChannelForInput);
                 }
                 if (browsableChanged) {
                     manager.notifyChannelBrowsableChanged();
@@ -381,14 +386,6 @@ public class SetupUtils {
         if (!mSetUpInputs.contains(inputId)) {
             mSetUpInputs.add(inputId);
             mSharedPreferences.edit().putStringSet(PREF_KEY_SET_UP_INPUTS, mSetUpInputs).apply();
-        }
-        // Start fetching program guide data for internal tuners.
-        Context context = mTvApplication.getApplicationContext();
-        if (Utils.isInternalTvInput(context, inputId)) {
-            if (context.checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION)
-                    == PackageManager.PERMISSION_GRANTED && Experiments.CLOUD_EPG.get()) {
-                EpgFetcher.getInstance(context).startImmediately();
-            }
         }
     }
 }

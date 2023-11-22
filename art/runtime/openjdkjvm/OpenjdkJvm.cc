@@ -53,12 +53,12 @@
 #include "mirror/string-inl.h"
 #include "monitor.h"
 #include "native/scoped_fast_native_object_access-inl.h"
+#include "nativehelper/ScopedLocalRef.h"
+#include "nativehelper/ScopedUtfChars.h"
 #include "runtime.h"
+#include "scoped_thread_state_change-inl.h"
 #include "thread.h"
 #include "thread_list.h"
-#include "scoped_thread_state_change-inl.h"
-#include "ScopedLocalRef.h"
-#include "ScopedUtfChars.h"
 #include "verify_object.h"
 
 #undef LOG_TAG
@@ -422,14 +422,18 @@ JNIEXPORT void JVM_SetNativeThreadName(JNIEnv* env, jobject jthread, jstring jav
   // Take suspend thread lock to avoid races with threads trying to suspend this one.
   art::Thread* thread;
   {
-    thread = thread_list->SuspendThreadByPeer(jthread, true, false, &timed_out);
+    thread = thread_list->SuspendThreadByPeer(jthread,
+                                              true,
+                                              art::SuspendReason::kInternal,
+                                              &timed_out);
   }
   if (thread != NULL) {
     {
       art::ScopedObjectAccess soa(env);
       thread->SetThreadName(name.c_str());
     }
-    thread_list->Resume(thread, false);
+    bool resumed = thread_list->Resume(thread, art::SuspendReason::kInternal);
+    DCHECK(resumed);
   } else if (timed_out) {
     LOG(ERROR) << "Trying to set thread name to '" << name.c_str() << "' failed as the thread "
         "failed to suspend within a generous timeout.";

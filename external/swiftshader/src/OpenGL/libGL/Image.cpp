@@ -71,6 +71,16 @@ namespace gl
 		unlockExternal();
 	}
 
+	void *Image::lockInternal(int x, int y, int z, sw::Lock lock, sw::Accessor client)
+	{
+		return Surface::lockInternal(x, y, z, lock, client);
+	}
+
+	void Image::unlockInternal()
+	{
+		Surface::unlockInternal();
+	}
+
 	int Image::getWidth()
 	{
 		return width;
@@ -672,7 +682,7 @@ namespace gl
 			}
 		}
 
-		unsigned char *stencil = reinterpret_cast<unsigned char*>(lockStencil(0, sw::PUBLIC));
+		unsigned char *stencil = reinterpret_cast<unsigned char*>(lockStencil(0, 0, 0, sw::PUBLIC));
 
 		if(stencil)
 		{

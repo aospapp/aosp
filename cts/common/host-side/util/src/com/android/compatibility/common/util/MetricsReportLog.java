@@ -32,7 +32,7 @@ public final class MetricsReportLog extends ReportLog {
 
     // Temporary folder must match the temp-dir value configured in ReportLogCollector target
     // preparer in cts/tools/cts-tradefed/res/config/cts-oreconditions.xml
-    private static final String TEMPORARY_REPORT_FOLDER = "temp-report-logs/";
+    private static final String TEMPORARY_REPORT_FOLDER = "temp-report-logs";
     private ReportLogHostInfoStore store;
 
     /**
@@ -45,12 +45,30 @@ public final class MetricsReportLog extends ReportLog {
      */
     public MetricsReportLog(IBuildInfo buildInfo, String abi, String classMethodName,
             String reportLogName, String streamName) {
+        this(buildInfo, abi, classMethodName, reportLogName, streamName, false);
+    }
+
+    /**
+     * @param buildInfo the test build info.
+     * @param abi abi the test was run on.
+     * @param classMethodName class name and method name of the test in class#method format.
+     *        Note that ReportLog.getClassMethodNames() provide this.
+     * @param reportLogName the name of the report log file. Metrics will be written out to this.
+     * @param streamName the key for the JSON object of the set of metrics to be logged.
+     * @param deviceDir whether to create unique directory for each device
+     */
+    public MetricsReportLog(IBuildInfo buildInfo, String abi, String classMethodName,
+            String reportLogName, String streamName, boolean deviceDir) {
         super(reportLogName, streamName);
         mBuildInfo = buildInfo;
         mAbi = abi;
         mClassMethodName = classMethodName;
         try {
-            final File dir = FileUtil.createNamedTempDir(TEMPORARY_REPORT_FOLDER);
+            String tmpDirName = TEMPORARY_REPORT_FOLDER;
+            if (deviceDir) {
+                tmpDirName += "-" + buildInfo.getDeviceSerial();
+            }
+            final File dir = FileUtil.createNamedTempDir(tmpDirName);
             File jsonFile = new File(dir, mReportLogName + ".reportlog.json");
             store = new ReportLogHostInfoStore(jsonFile, mStreamName);
             store.open();

@@ -32,7 +32,7 @@ import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IBuildReceiver;
 
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.Message;
+import com.google.protobuf.MessageLite;
 import com.google.protobuf.Parser;
 
 import java.io.FileNotFoundException;
@@ -73,7 +73,7 @@ public class ProtoDumpTestCase extends DeviceTestCase implements IBuildReceiver 
      * @throws InvalidProtocolBufferException If there was an error parsing
      *      the proto. Note that a 0 length buffer is not necessarily an error.
      */
-    public <T extends Message> T getDump(Parser<T> parser, String command)
+    public <T extends MessageLite> T getDump(Parser<T> parser, String command)
             throws DeviceNotAvailableException, InvalidProtocolBufferException {
         final CollectingByteOutputReceiver receiver = new CollectingByteOutputReceiver();
         getDevice().executeShellCommand(command, receiver);

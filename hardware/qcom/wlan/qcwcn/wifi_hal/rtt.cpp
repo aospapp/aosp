@@ -80,7 +80,7 @@ wifi_error wifi_get_rtt_capabilities(wifi_interface_handle iface,
     }
 
 cleanup:
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /* API to request RTT measurement */
@@ -143,7 +143,7 @@ wifi_error wifi_rtt_range_request(wifi_request_id id,
     }
 
 cleanup:
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /* API to cancel RTT measurements */
@@ -195,7 +195,7 @@ wifi_error wifi_rtt_range_cancel(wifi_request_id id,
     }
 
 cleanup:
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 // API to configure the LCI. Used in RTT Responder mode only
@@ -239,7 +239,7 @@ wifi_error wifi_set_lci(wifi_request_id id, wifi_interface_handle iface,
     }
 
 cleanup:
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 // API to configure the LCR. Used in RTT Responder mode only.
@@ -283,7 +283,7 @@ wifi_error wifi_set_lcr(wifi_request_id id, wifi_interface_handle iface,
     }
 
 cleanup:
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /*
@@ -320,7 +320,7 @@ wifi_error wifi_rtt_get_responder_info(wifi_interface_handle iface,
     }
 
 cleanup:
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /**
@@ -366,7 +366,7 @@ wifi_error wifi_enable_responder(wifi_request_id id,
     }
 
 cleanup:
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 
@@ -404,5 +404,5 @@ wifi_error wifi_disable_responder(wifi_request_id id,
     }
 
 cleanup:
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }

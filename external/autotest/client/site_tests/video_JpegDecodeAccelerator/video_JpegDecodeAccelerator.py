@@ -6,6 +6,7 @@
 
 import logging
 from autotest_lib.client.cros import chrome_binary_test
+from autotest_lib.client.cros.video import helper_logger
 
 class video_JpegDecodeAccelerator(chrome_binary_test.ChromeBinaryTest):
     """
@@ -22,12 +23,20 @@ class video_JpegDecodeAccelerator(chrome_binary_test.ChromeBinaryTest):
     binary = 'jpeg_decode_accelerator_unittest'
 
 
+    @helper_logger.video_log_wrapper
     @chrome_binary_test.nuke_chrome
-    def run_once(self):
+    def run_once(self, gtest_filter=None):
         """
         Runs jpeg_decode_accelerator_unittest on the device.
+
+        @param gtest_filter: test case filter.
 
         @raises: error.TestFail for jpeg_decode_accelerator_unittest failures.
         """
         logging.debug('Starting video_JpegDecodeAccelerator')
-        self.run_chrome_test_binary(self.binary)
+        cmd_line_list = [helper_logger.chrome_vmodule_flag()]
+        if gtest_filter:
+            cmd_line_list.append('--gtest_filter="%s"' % gtest_filter)
+
+        cmd_line = ' '.join(cmd_line_list)
+        self.run_chrome_test_binary(self.binary, cmd_line)

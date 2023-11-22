@@ -2671,6 +2671,12 @@ Sized_relobj_incr<size, big_endian>::do_set_section_offset(unsigned int,
 {
 }
 
+template<int size, bool big_endian>
+void
+Sized_relobj_incr<size, big_endian>::clear_views()
+{
+}
+
 // Class Sized_incr_dynobj.  Most of these methods are not used for
 // Incremental objects, but are required to be implemented by the
 // base class Object.

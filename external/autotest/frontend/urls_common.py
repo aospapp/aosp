@@ -1,5 +1,5 @@
 import os
-from django.conf.urls import defaults
+from django.conf import urls
 from django.views import generic
 
 
@@ -13,13 +13,13 @@ def generate_patterns(django_name, gwt_name):
     @return the common standard and the debug pattern lists, as a tuple
     """
 
-    pattern_list = defaults.patterns(
+    pattern_list = urls.patterns(
             django_name,
             (r'^(?:|noauth/)rpc/', 'views.handle_rpc'),
             (r'^rpc_doc', 'views.rpc_documentation'),
         )
 
-    debug_pattern_list = defaults.patterns('',
+    debug_pattern_list = urls.patterns('',
             # for GWT hosted mode
             (r'^(?P<forward_addr>autotest.*)',
              'autotest_lib.frontend.afe.views.gwt_forward'),

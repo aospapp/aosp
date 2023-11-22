@@ -9,10 +9,16 @@ import android.os.PowerManager;
  */
 class ScreenStateHelper {
 
-    static final int SCREEN_STATE_UNKNOWN = 0;
-    static final int SCREEN_STATE_OFF = 1;
-    static final int SCREEN_STATE_ON_LOCKED = 2;
-    static final int SCREEN_STATE_ON_UNLOCKED = 3;
+    static final int SCREEN_STATE_UNKNOWN = 0x00;
+    static final int SCREEN_STATE_OFF_UNLOCKED = 0x01;
+    static final int SCREEN_STATE_OFF_LOCKED = 0x02;
+    static final int SCREEN_STATE_ON_LOCKED = 0x04;
+    static final int SCREEN_STATE_ON_UNLOCKED = 0x08;
+
+    //Polling mask
+    static final int SCREEN_POLLING_TAG_MASK = 0x10;
+    static final int SCREEN_POLLING_P2P_MASK = 0x20;
+    static final int SCREEN_POLLING_READER_MASK = 0x40;
 
     private final PowerManager mPowerManager;
     private final KeyguardManager mKeyguardManager;
@@ -26,7 +32,11 @@ class ScreenStateHelper {
     int checkScreenState() {
         //TODO: fix deprecated api
         if (!mPowerManager.isScreenOn()) {
-            return SCREEN_STATE_OFF;
+            if(mKeyguardManager.isKeyguardLocked()) {
+                return SCREEN_STATE_OFF_LOCKED;
+            } else {
+                return SCREEN_STATE_OFF_UNLOCKED;
+            }
         } else if (mKeyguardManager.isKeyguardLocked()) {
             return SCREEN_STATE_ON_LOCKED;
         } else {
@@ -39,12 +49,14 @@ class ScreenStateHelper {
      */
     static String screenStateToString(int screenState) {
         switch (screenState) {
-            case SCREEN_STATE_OFF:
-                return "OFF";
+            case SCREEN_STATE_OFF_LOCKED:
+                return "OFF_LOCKED";
             case SCREEN_STATE_ON_LOCKED:
                 return "ON_LOCKED";
             case SCREEN_STATE_ON_UNLOCKED:
                 return "ON_UNLOCKED";
+            case SCREEN_STATE_OFF_UNLOCKED:
+                return "OFF_UNLOCKED";
             default:
                 return "UNKNOWN";
         }

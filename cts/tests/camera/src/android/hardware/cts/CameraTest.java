@@ -48,6 +48,7 @@ import android.view.SurfaceHolder;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.text.ParseException;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -861,9 +862,8 @@ public class CameraTest extends ActivityInstrumentationTestCase2<CameraCtsActivi
 
     private void testJpegExifByCamera(boolean recording) throws Exception {
         if (!recording) mCamera.startPreview();
-        Date date = new Date(System.currentTimeMillis());
-        String localDatetime = new SimpleDateFormat("yyyy:MM:dd HH:").format(date);
-
+        // Get current time in milliseconds, removing the millisecond part
+        long captureStartTime = System.currentTimeMillis() / 1000 * 1000;
         mCamera.takePicture(mShutterCallback, mRawPictureCallback, mJpegPictureCallback);
         waitForSnapshotDone();
 
@@ -878,9 +878,19 @@ public class CameraTest extends ActivityInstrumentationTestCase2<CameraCtsActivi
         if (VERBOSE) Log.v(TAG, "Testing exif tag TAG_DATETIME");
         String datetime = exif.getAttribute(ExifInterface.TAG_DATETIME);
         assertNotNull(datetime);
+        assertTrue(datetime.length() == 19); // EXIF spec is "yyyy:MM:dd HH:mm:ss".
         // Datetime should be local time.
-        assertTrue(datetime.startsWith(localDatetime));
-        assertTrue(datetime.length() == 19); // EXIF spec is "YYYY:MM:DD HH:MM:SS".
+        SimpleDateFormat exifDateFormat = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss");
+        try {
+            Date exifDateTime = exifDateFormat.parse(datetime);
+            long captureFinishTime = exifDateTime.getTime();
+            long timeDelta = captureFinishTime - captureStartTime;
+            assertTrue(String.format("Snapshot delay (%d ms) is not in range of [0, %d]", timeDelta,
+                    WAIT_FOR_SNAPSHOT_TO_COMPLETE),
+                    timeDelta >= 0 && timeDelta <= WAIT_FOR_SNAPSHOT_TO_COMPLETE);
+        } catch (ParseException e) {
+            fail(String.format("Invalid string value on exif tag TAG_DATETIME: %s", datetime));
+        }
         checkGpsDataNull(exif);
         double exifFocalLength = exif.getAttributeDouble(ExifInterface.TAG_FOCAL_LENGTH, -1);
         assertEquals(focalLength, exifFocalLength, 0.001);

@@ -109,7 +109,16 @@ enum {
 enum {
         FLAT_BINDER_FLAG_SCHEDPOLICY_MASK = 0x600,
         FLAT_BINDER_FLAG_SCHEDPOLICY_SHIFT = 9,
+        FLAT_BINDER_FLAG_INHERIT_RT = 0x800,
 };
 
+struct binder_node_debug_info {
+	binder_uintptr_t ptr;
+	binder_uintptr_t cookie;
+	__u32 has_strong_ref;
+	__u32 has_weak_ref;
+};
+
+#define BINDER_GET_NODE_DEBUG_INFO _IOWR('b', 11, struct binder_node_debug_info)
 
 #endif // ANDROID_HARDWARE_BINDER_KERNEL_H

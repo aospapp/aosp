@@ -26,6 +26,7 @@ import android.database.MatrixCursor;
 import android.os.Bundle;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
+import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
 
 import com.android.documentsui.base.DocumentInfo;
@@ -33,6 +34,7 @@ import com.android.documentsui.base.Shared;
 import com.android.documentsui.roots.RootCursorWrapper;
 import com.android.documentsui.sorting.SortModel.SortDimensionId;
 import com.android.documentsui.testing.SortModels;
+import com.android.documentsui.testing.TestFileTypeLookup;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -46,6 +48,7 @@ import java.util.Random;
 import java.util.Set;
 
 @RunWith(AndroidJUnit4.class)
+@SmallTest
 public class SortingCursorWrapperTest {
     private static final int ITEM_COUNT = 10;
     private static final String AUTHORITY = "test_authority";
@@ -73,12 +76,40 @@ public class SortingCursorWrapperTest {
             "%$%VD"
     };
 
+    private static final String[] MIMES = new String[] {
+            "application/zip",
+            "video/3gp",
+            "image/png",
+            "text/plain",
+            "application/msword",
+            "text/html",
+            "application/pdf",
+            "image/png",
+            "audio/flac",
+            "audio/mp3"
+    };
+
+    private static final String[] TYPES = new String[] {
+            "Zip archive",
+            "3GP video",
+            "PNG image",
+            "Plain text",
+            "Word document",
+            "HTML document",
+            "PDF document",
+            "PNG image",
+            "FLAC audio",
+            "MP3 audio"
+    };
+
+    private TestFileTypeLookup fileTypeLookup;
     private SortModel sortModel;
     private Cursor cursor;
 
     @Before
     public void setUp() {
         sortModel = SortModels.createTestSortModel();
+        fileTypeLookup = new TestFileTypeLookup();
 
         Random rand = new Random();
         MatrixCursor c = new MatrixCursor(COLUMNS);
@@ -91,6 +122,7 @@ public class SortingCursorWrapperTest {
             // to actually do something.
             row.add(Document.COLUMN_DISPLAY_NAME, NAMES[i]);
             row.add(Document.COLUMN_SIZE, rand.nextInt());
+            row.add(Document.COLUMN_MIME_TYPE, MIMES[i]);
         }
 
         cursor = c;
@@ -368,6 +400,76 @@ public class SortingCursorWrapperTest {
     }
 
     @Test
+    public void testSort_type_ascending() {
+        populateTypeMap();
+
+        sortModel.sortByUser(
+                SortModel.SORT_DIMENSION_ID_FILE_TYPE, SortDimension.SORT_DIRECTION_ASCENDING);
+
+        final Cursor cursor = createSortingCursorWrapper();
+
+        assertEquals(ITEM_COUNT, cursor.getCount());
+        final BitSet seen = new BitSet(ITEM_COUNT);
+        List<String> types = new ArrayList<>(ITEM_COUNT);
+        for (int i = 0; i < ITEM_COUNT; ++i) {
+            cursor.moveToPosition(i);
+            final String mime =
+                    DocumentInfo.getCursorString(cursor, Document.COLUMN_MIME_TYPE);
+            final String type = fileTypeLookup.lookup(mime);
+            types.add(type);
+
+            seen.set(DocumentInfo.getCursorInt(cursor, Document.COLUMN_DOCUMENT_ID));
+        }
+
+        // Check all items were accounted for
+        assertEquals(ITEM_COUNT, seen.cardinality());
+        for (int i = 0; i < ITEM_COUNT - 1; ++i) {
+            final String lhs = types.get(i);
+            final String rhs = types.get(i + 1);
+            assertTrue(lhs + " is not smaller than " + rhs,
+                    Shared.compareToIgnoreCaseNullable(lhs, rhs) <= 0);
+        }
+    }
+
+    @Test
+    public void testSort_type_descending() {
+        populateTypeMap();
+
+        sortModel.sortByUser(
+                SortModel.SORT_DIMENSION_ID_FILE_TYPE, SortDimension.SORT_DIRECTION_DESCENDING);
+
+        final Cursor cursor = createSortingCursorWrapper();
+
+        assertEquals(ITEM_COUNT, cursor.getCount());
+        final BitSet seen = new BitSet(ITEM_COUNT);
+        List<String> types = new ArrayList<>(ITEM_COUNT);
+        for (int i = 0; i < ITEM_COUNT; ++i) {
+            cursor.moveToPosition(i);
+            final String mime =
+                    DocumentInfo.getCursorString(cursor, Document.COLUMN_MIME_TYPE);
+            final String type = fileTypeLookup.lookup(mime);
+            types.add(type);
+
+            seen.set(DocumentInfo.getCursorInt(cursor, Document.COLUMN_DOCUMENT_ID));
+        }
+
+        // Check all items were accounted for
+        assertEquals(ITEM_COUNT, seen.cardinality());
+        for (int i = 0; i < ITEM_COUNT - 1; ++i) {
+            final String lhs = types.get(i);
+            final String rhs = types.get(i + 1);
+            assertTrue(lhs + " is not smaller than " + rhs,
+                    Shared.compareToIgnoreCaseNullable(lhs, rhs) >= 0);
+        }
+    }
+
+    private void populateTypeMap() {
+        for (int i = 0; i < ITEM_COUNT; ++i) {
+            fileTypeLookup.fileTypes.put(MIMES[i], TYPES[i]);
+        }
+    }
+
+    @Test
     public void testReturnsWrappedExtras() {
         MatrixCursor c = new MatrixCursor(COLUMNS);
         Bundle extras = new Bundle();
@@ -394,6 +496,6 @@ public class SortingCursorWrapperTest {
 
     private Cursor createSortingCursorWrapper(Cursor c) {
         final @SortDimensionId int id = sortModel.getSortedDimensionId();
-        return new SortingCursorWrapper(c, sortModel.getDimensionById(id));
+        return new SortingCursorWrapper(c, sortModel.getDimensionById(id), fileTypeLookup);
     }
 }

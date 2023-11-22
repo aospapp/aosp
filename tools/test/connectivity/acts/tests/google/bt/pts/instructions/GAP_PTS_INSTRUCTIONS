@@ -268,7 +268,7 @@ Note: Run the test a first time and it will fail. Change the address to
 be the peer address in the PTS logs that start with: 
   SEC_LE?SEC_LE_REMOTE_CSRK_REQUEST_IND=PDU
     peerAddr: 'xxxxxxxxxxxx'O
-BOND_BON_BV_03
+TC_BOND_BON_BV_03
   config_reset
   Note: Send conenction request before pairing happens
   gattc_connect_over_le
@@ -283,6 +283,15 @@ TC_BOND_BON_BV_04_C
   gattc_disconnect
   gattc_connect_over_le
   bta_unbond
+
+TC_SEC_AUT_BV_11_C
+  ble_start_pairing_helper
+  gatts_setup_database LARGE_DB_3
+  ble_start_generic_connectable_advertisement
+  gatts_send_response GATT_INSUFFICIENT_AUTHENTICATION
+  [PTS interaction] Enter pin from PTS to phone
+  gatts_send_response GATT_SUCCESS
+  [Wait 30 seconds for PTS to complete]
 
 Note: Run the test a first time and it will fail. Change the address to
 be the peer address in the PTS logs that start with: 
@@ -309,7 +318,7 @@ Note: Run the test a first time and it will fail. Change the address to
 be the peer address in the PTS logs that start with: 
   SEC_LE?SEC_LE_REMOTE_CSRK_REQUEST_IND=PDU
     peerAddr: 'xxxxxxxxxxxx'O
-SEC_AUT_BV_17_C
+TC_SEC_AUT_BV_17_C
   Use PEER Address
   config_set_disable_mitm
   gatts_setup_database LARGE_DB_1
@@ -320,7 +329,7 @@ SEC_AUT_BV_17_C
   bta_bond
   gattc_read_char_by_instance_id 7
 
-SEC_AUT_BV_18_C
+TC_SEC_AUT_BV_18_C
   Use LE address
   config_set_disable_mitm
   gatts_setup_database LARGE_DB_1
@@ -334,7 +343,25 @@ TC_ADV_BV_01_C
   ble_adv_add_service_uuid_list 1802 1801
   ble_start_generic_connectable_advertisement true
 
-SEC_AUT_BV_20_C
+Note: Very flacky
+Note: Run the test a first time and it will fail. Change the address to
+be the peer address in the PTS logs that start with: 
+  SEC_LE?SEC_LE_REMOTE_CSRK_REQUEST_IND=PDU
+    peerAddr: 'xxxxxxxxxxxx'O
+TC_SEC_AUT_BV_19_C
+  config_set_disable_mtim
+  gattc_connect_over_le
+  bta_bond
+  [PTS Interaction] Press OK to disconnect
+  Note: Before PTS asks you to reconnect via gatt, perform next two commands quickly
+  bta_unbond
+  gattc_disconnect
+  gattc_connect_over_le
+  gattc_list_all_uuids
+  gattc_read_all_char
+  gattc_disconnect
+
+TC_SEC_AUT_BV_20_C
   Note: Set IXIT value requires MITM to false
   config_set_disable_mitm
   bta_start_pairing_helper false

@@ -61,29 +61,6 @@ int IptablesBaseTest::fake_android_fork_exec(int argc, char* argv[], int *status
     return ret;
 }
 
-int IptablesBaseTest::fakeExecIptables(IptablesTarget target, ...) {
-    std::string cmd = " -w";
-    va_list args;
-    va_start(args, target);
-    const char *arg;
-    do {
-        arg = va_arg(args, const char *);
-        if (arg != nullptr) {
-            cmd += " ";
-            cmd += arg;
-        }
-    } while (arg);
-
-    if (target == V4 || target == V4V6) {
-        sCmds.push_back(IPTABLES_PATH + cmd);
-    }
-    if (target == V6 || target == V4V6) {
-        sCmds.push_back(IP6TABLES_PATH + cmd);
-    }
-
-    return 0;
-}
-
 FILE *IptablesBaseTest::fake_popen(const char * /* cmd */, const char *type) {
     if (sPopenContents.empty() || strcmp(type, "r") != 0) {
         return NULL;
@@ -119,62 +96,9 @@ int IptablesBaseTest::fakeExecIptablesRestoreCommand(IptablesTarget target,
     return fakeExecIptablesRestoreWithOutput(target, fullCmd, output);
 }
 
-int IptablesBaseTest::expectIptablesCommand(IptablesTarget target, int pos,
-                                            const std::string& cmd) {
-
-    if ((unsigned) pos >= sCmds.size()) {
-        ADD_FAILURE() << "Expected too many iptables commands, want command "
-               << pos + 1 << "/" << sCmds.size();
-        return -1;
-    }
-
-    if (target == V4 || target == V4V6) {
-        EXPECT_EQ("/system/bin/iptables -w " + cmd, sCmds[pos++]);
-    }
-    if (target == V6 || target == V4V6) {
-        EXPECT_EQ("/system/bin/ip6tables -w " + cmd, sCmds[pos++]);
-    }
-
-    return target == V4V6 ? 2 : 1;
-}
-
-void IptablesBaseTest::expectIptablesCommands(const std::vector<std::string>& expectedCmds) {
-    ExpectedIptablesCommands expected;
-    for (auto cmd : expectedCmds) {
-        expected.push_back({ V4V6, cmd });
-    }
-    expectIptablesCommands(expected);
-}
-
-void IptablesBaseTest::expectIptablesCommands(const ExpectedIptablesCommands& expectedCmds) {
-    size_t pos = 0;
-    for (size_t i = 0; i < expectedCmds.size(); i ++) {
-        auto target = expectedCmds[i].first;
-        auto cmd = expectedCmds[i].second;
-        int numConsumed = expectIptablesCommand(target, pos, cmd);
-        if (numConsumed < 0) {
-            // Read past the end of the array.
-            break;
-        }
-        pos += numConsumed;
-    }
-
-    EXPECT_EQ(pos, sCmds.size());
-    sCmds.clear();
-}
-
-void IptablesBaseTest::expectIptablesCommands(
-        const std::vector<ExpectedIptablesCommands>& snippets) {
-    ExpectedIptablesCommands expected;
-    for (const auto& snippet: snippets) {
-        expected.insert(expected.end(), snippet.begin(), snippet.end());
-    }
-    expectIptablesCommands(expected);
-}
-
 void IptablesBaseTest::expectIptablesRestoreCommands(const std::vector<std::string>& expectedCmds) {
     ExpectedIptablesCommands expected;
-    for (auto cmd : expectedCmds) {
+    for (const auto& cmd : expectedCmds) {
         expected.push_back({ V4V6, cmd });
     }
     expectIptablesRestoreCommands(expected);

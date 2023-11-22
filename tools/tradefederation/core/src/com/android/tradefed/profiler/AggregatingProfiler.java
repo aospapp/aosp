@@ -114,7 +114,8 @@ public class AggregatingProfiler implements IAggregatingTestProfiler {
     @Override
     public void reportAllMetrics(ITestInvocationListener listener) {
         mOutputUtil.addMetrics("aggregate", mContext.getTestTag(), mAggregateMetrics);
-        listener.testLog(getDescription(), LogDataType.TEXT, mOutputUtil.getFormattedMetrics());
+        listener.testLog(getDescription(), LogDataType.MUGSHOT_LOG,
+                mOutputUtil.getFormattedMetrics());
     }
 
     /**

@@ -22,13 +22,6 @@
 namespace android {
 namespace vts {
 
-ProfilerCodeGenBase::ProfilerCodeGenBase(const std::string& input_vts_file_path)
-    : input_vts_file_path_(input_vts_file_path) {
-}
-
-ProfilerCodeGenBase::~ProfilerCodeGenBase() {
-}
-
 void ProfilerCodeGenBase::GenerateAll(
     Formatter& header_out, Formatter& source_out,
     const ComponentSpecificationMessage& message) {
@@ -108,16 +101,17 @@ void ProfilerCodeGenBase::GenerateSourceFile(
         << "(\n";
     out.indent();
     out.indent();
-    out << "details::HidlInstrumentor::InstrumentationEvent event,\n";
+    out << "details::HidlInstrumentor::InstrumentationEvent event "
+           "__attribute__((__unused__)),\n";
     out << "const char* package,\n";
     out << "const char* version,\n";
     out << "const char* interface,\n";
-    out << "const char* method,\n";
-    out << "std::vector<void *> *args) {\n";
+    out << "const char* method __attribute__((__unused__)),\n";
+    out << "std::vector<void *> *args __attribute__((__unused__))) {\n";
     out.unindent();
 
     // Generate code for sanity check.
-    GenerateProfierSanityCheck(out, message);
+    GenerateProfilerSanityCheck(out, message);
 
     // Generate code to define local variables.
     GenerateLocalVariableDefinition(out, message);
@@ -197,6 +191,10 @@ void ProfilerCodeGenBase::GenerateProfilerForTypedVariable(Formatter& out,
       GenerateProfilerForMaskVariable(out, val, arg_name, arg_value);
       break;
     }
+    case TYPE_HANDLE: {
+      GenerateProfilerForHandleVariable(out, val, arg_name, arg_value);
+      break;
+    }
     case TYPE_HIDL_MEMORY:
     {
       GenerateProfilerForHidlMemoryVariable(out, val, arg_name, arg_value);
@@ -256,8 +254,8 @@ void ProfilerCodeGenBase::GenerateProfilerMethodImplForAttribute(
   std::string attribute_name = attribute.name();
   ReplaceSubString(attribute_name, "::", "__");
   out << "void profile__" << attribute_name
-      << "(VariableSpecificationMessage* arg_name,\n" << attribute.name()
-      << " arg_val_name) {\n";
+      << "(VariableSpecificationMessage* arg_name,\n"
+      << attribute.name() << " arg_val_name __attribute__((__unused__))) {\n";
   out.indent();
   GenerateProfilerForTypedVariable(out, attribute, "arg_name", "arg_val_name");
   out.unindent();
@@ -274,19 +272,6 @@ void ProfilerCodeGenBase::GenerateCloseNameSpaces(Formatter& out,
     const ComponentSpecificationMessage& /*message*/) {
   out << "}  // namespace vts\n";
   out << "}  // namespace android\n";
-}
-
-std::string ProfilerCodeGenBase::GetPackage(
-    const ComponentSpecificationMessage& message) {
-  return message.package();
-}
-std::string ProfilerCodeGenBase::GetPackageVersion(
-    const ComponentSpecificationMessage& message) {
-  return GetVersionString(message.component_type_version());
-}
-std::string ProfilerCodeGenBase::GetComponentName(
-    const ComponentSpecificationMessage& message) {
-  return message.component_name();
 }
 
 }  // namespace vts

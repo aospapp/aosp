@@ -11,6 +11,8 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.InvalidParameterSpecException;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.crypto.spec.IvParameterSpec;
 
@@ -33,6 +35,7 @@ import org.bouncycastle.crypto.Mac;
 import org.bouncycastle.crypto.engines.AESEngine;
 import org.bouncycastle.crypto.engines.AESWrapEngine;
 // BEGIN android-removed
+// import org.bouncycastle.crypto.engines.AESWrapPadEngine;
 // import org.bouncycastle.crypto.engines.RFC3211WrapEngine;
 // import org.bouncycastle.crypto.engines.RFC5649WrapEngine;
 // import org.bouncycastle.crypto.generators.Poly1305KeyGenerator;
@@ -66,6 +69,14 @@ import org.bouncycastle.jcajce.spec.AEADParameterSpec;
 public final class AES
 {
     private static final Class gcmSpecClass = lookup("javax.crypto.spec.GCMParameterSpec");
+
+    private static final Map<String, String> generalAesAttributes = new HashMap<String, String>();
+
+    static
+    {
+        generalAesAttributes.put("SupportedKeyClasses", "javax.crypto.SecretKey");
+        generalAesAttributes.put("SupportedKeyFormats", "RAW");
+    }
 
     private AES()
     {
@@ -262,6 +273,15 @@ public final class AES
     }
 
     // BEGIN android-removed
+    // public static class WrapPad
+    //         extends BaseWrapCipher
+    // {
+    //     public WrapPad()
+    //     {
+    //         super(new AESWrapPadEngine());
+    //     }
+    // }
+
     // public static class RFC3211Wrap
     //     extends BaseWrapCipher
     // {
@@ -852,6 +872,7 @@ public final class AES
             // provider.addAlgorithm("Alg.Alias.AlgorithmParameterGenerator." + NISTObjectIdentifiers.id_aes256_CBC, "AES");
             // END android-removed
 
+            provider.addAttributes("Cipher.AES", generalAesAttributes);
             provider.addAlgorithm("Cipher.AES", PREFIX + "$ECB");
             provider.addAlgorithm("Alg.Alias.Cipher." + wrongAES128, "AES");
             provider.addAlgorithm("Alg.Alias.Cipher." + wrongAES192, "AES");
@@ -870,6 +891,8 @@ public final class AES
             // provider.addAlgorithm("Cipher", NISTObjectIdentifiers.id_aes192_CFB, PREFIX + "$CFB");
             // provider.addAlgorithm("Cipher", NISTObjectIdentifiers.id_aes256_CFB, PREFIX + "$CFB");
             // END android-removed
+
+            provider.addAttributes("Cipher.AESWRAP", generalAesAttributes);
             provider.addAlgorithm("Cipher.AESWRAP", PREFIX + "$Wrap");
             provider.addAlgorithm("Alg.Alias.Cipher", NISTObjectIdentifiers.id_aes128_wrap, "AESWRAP");
             provider.addAlgorithm("Alg.Alias.Cipher", NISTObjectIdentifiers.id_aes192_wrap, "AESWRAP");
@@ -877,6 +900,13 @@ public final class AES
             provider.addAlgorithm("Alg.Alias.Cipher.AESKW", "AESWRAP");
 
             // BEGIN android-removed
+            // provider.addAttributes("Cipher.AESWRAPPAD", generalAesAttributes);
+            // provider.addAlgorithm("Cipher.AESWRAPPAD", PREFIX + "$WrapPad");
+            // provider.addAlgorithm("Alg.Alias.Cipher", NISTObjectIdentifiers.id_aes128_wrap_pad, "AESWRAPPAD");
+            // provider.addAlgorithm("Alg.Alias.Cipher", NISTObjectIdentifiers.id_aes192_wrap_pad, "AESWRAPPAD");
+            // provider.addAlgorithm("Alg.Alias.Cipher", NISTObjectIdentifiers.id_aes256_wrap_pad, "AESWRAPPAD");
+            // provider.addAlgorithm("Alg.Alias.Cipher.AESKWP", "AESWRAPPAD");
+            //
             // provider.addAlgorithm("Cipher.AESRFC3211WRAP", PREFIX + "$RFC3211Wrap");
             // provider.addAlgorithm("Cipher.AESRFC5649WRAP", PREFIX + "$RFC5649Wrap");
             //
@@ -885,6 +915,7 @@ public final class AES
             // provider.addAlgorithm("Alg.Alias.AlgorithmParameterGenerator." + NISTObjectIdentifiers.id_aes192_CCM, "CCM");
             // provider.addAlgorithm("Alg.Alias.AlgorithmParameterGenerator." + NISTObjectIdentifiers.id_aes256_CCM, "CCM");
             //
+            // provider.addAttributes("Cipher.CCM", generalAesAttributes);
             // provider.addAlgorithm("Cipher.CCM", PREFIX + "$CCM");
             // provider.addAlgorithm("Alg.Alias.Cipher", NISTObjectIdentifiers.id_aes128_CCM, "CCM");
             // provider.addAlgorithm("Alg.Alias.Cipher", NISTObjectIdentifiers.id_aes192_CCM, "CCM");
@@ -897,6 +928,7 @@ public final class AES
             // END android-removed
 
             // BEGIN android-changed
+            provider.addAttributes("Cipher.AES/GCM/NOPADDING", generalAesAttributes);
             provider.addAlgorithm("Cipher.AES/GCM/NOPADDING", PREFIX + "$GCM");
             provider.addAlgorithm("Alg.Alias.Cipher." + NISTObjectIdentifiers.id_aes128_GCM, "AES/GCM/NOPADDING");
             provider.addAlgorithm("Alg.Alias.Cipher." + NISTObjectIdentifiers.id_aes192_GCM, "AES/GCM/NOPADDING");
@@ -930,6 +962,10 @@ public final class AES
             // provider.addAlgorithm("KeyGenerator", NISTObjectIdentifiers.id_aes128_CCM, PREFIX + "$KeyGen128");
             // provider.addAlgorithm("KeyGenerator", NISTObjectIdentifiers.id_aes192_CCM, PREFIX + "$KeyGen192");
             // provider.addAlgorithm("KeyGenerator", NISTObjectIdentifiers.id_aes256_CCM, PREFIX + "$KeyGen256");
+            // provider.addAlgorithm("KeyGenerator.AESWRAPPAD", PREFIX + "$KeyGen");
+            // provider.addAlgorithm("KeyGenerator", NISTObjectIdentifiers.id_aes128_wrap_pad, PREFIX + "$KeyGen128");
+            // provider.addAlgorithm("KeyGenerator", NISTObjectIdentifiers.id_aes192_wrap_pad, PREFIX + "$KeyGen192");
+            // provider.addAlgorithm("KeyGenerator", NISTObjectIdentifiers.id_aes256_wrap_pad, PREFIX + "$KeyGen256");
 
             // provider.addAlgorithm("Mac.AESCMAC", PREFIX + "$AESCMAC");
 

@@ -17,7 +17,9 @@ def run(machine):
     job.run_test('android_ACTS',
                  testbed=hosts.create_testbed(machine),
                  config_file='android1758-test-station-chamber-wifi-1.config',
+                 testtracker_owner='android-comms-tvc@google.com',
                  test_file='wifi_iot_ent',
+                 testtracker_project_id=733,
                  acts_timeout=18000)
 
 parallel_simple(run, machines)

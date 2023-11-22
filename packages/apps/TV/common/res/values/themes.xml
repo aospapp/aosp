@@ -31,7 +31,6 @@
         <item name="guidedActionItemDescriptionStyle">@style/Widget.Setup.GuidedActionItemDescriptionStyle</item>
         <item name="guidedActionsBackground">@color/common_setup_action_background</item>
         <item name="guidedActionsElevation">0dp</item>
-        <item name="guidedActionsListStyle">@style/Widget.Setup.GuidedActionsListStyle</item>
         <item name="guidedActionsSelectorDrawable">@drawable/setup_selector_background</item>
         <item name="guidedStepBackground">@android:color/transparent</item>
         <item name="setupCommonGuidanceBackground">@android:color/transparent</item>

@@ -1,12 +1,9 @@
-apply plugin: android.support.SupportLibraryPlugin
-archivesBaseName = 'exifinterface'
+apply plugin: android.support.SupportAndroidLibraryPlugin
 
 dependencies {
-    compile project(':support-annotations')
+    api project(':support-annotations')
 
-    androidTestCompile (libs.test_runner) {
-        exclude module: 'support-annotations'
-    }
+    androidTestImplementation libs.test_runner,   { exclude module: 'support-annotations' }
 }
 
 android {
@@ -22,6 +19,7 @@ android {
 
 supportLibrary {
     name 'Android Support ExifInterface'
+    publish true
     inceptionYear '2016'
     description 'Android Support ExifInterface'
 }

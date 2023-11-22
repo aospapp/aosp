@@ -18,8 +18,8 @@ package com.android.car.vehiclehal;
 
 import android.hardware.automotive.vehicle.V2_0.VehiclePropConfig;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
-import android.hardware.automotive.vehicle.V2_1.Obd2FloatSensorIndex;
-import android.hardware.automotive.vehicle.V2_1.Obd2IntegerSensorIndex;
+import android.hardware.automotive.vehicle.V2_0.DiagnosticFloatSensorIndex;
+import android.hardware.automotive.vehicle.V2_0.DiagnosticIntegerSensorIndex;
 import android.util.SparseArray;
 import java.util.BitSet;
 import java.util.Iterator;
@@ -109,9 +109,9 @@ public class DiagnosticEventBuilder {
     public DiagnosticEventBuilder(
             int propertyId, int numVendorIntSensors, int numVendorFloatSensors) {
         mPropertyId = propertyId;
-        mNumIntSensors = Obd2IntegerSensorIndex.LAST_SYSTEM_INDEX + 1 + numVendorIntSensors;
+        mNumIntSensors = DiagnosticIntegerSensorIndex.LAST_SYSTEM_INDEX + 1 + numVendorIntSensors;
         final int numFloatSensors =
-                Obd2FloatSensorIndex.LAST_SYSTEM_INDEX + 1 + numVendorFloatSensors;
+                DiagnosticFloatSensorIndex.LAST_SYSTEM_INDEX + 1 + numVendorFloatSensors;
         mBitmask = new BitSet(mNumIntSensors + numFloatSensors);
         mIntValues = new DefaultedArray<>(mNumIntSensors, 0);
         mFloatValues = new DefaultedArray<>(numFloatSensors, 0.0f);

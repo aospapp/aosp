@@ -57,7 +57,7 @@
     <string name="add_blocked_dialog_body" msgid="9030243212265516828">"ਇਸ ਨੰਬਰ ਤੋਂ ਕਾਲਾਂ ਅਤੇ ਲਿਖਤੀ ਸੁਨੇਹਿਆਂ ਨੂੰ ਬਲੌਕ ਕਰੋ"</string>
     <string name="add_blocked_number_hint" msgid="6847675097085433553">"ਫ਼ੋਨ ਨੰਬਰ"</string>
     <string name="block_button" msgid="8822290682524373357">"ਬਲੌਕ ਕਰੋ"</string>
-    <string name="non_primary_user" msgid="5180129233352533459">"ਸਿਰਫ਼ ਡੀਵਾਈਸ ਮਾਲਕ ਹੀ ਬਲੌਕ ਕੀਤੇ ਗਏ ਨੰਬਰਾਂ ਨੂੰ ਵੇਖ ਅਤੇ ਪ੍ਰਬੰਧਿਤ ਕਰ ਸਕਦਾ ਹੈ।"</string>
+    <string name="non_primary_user" msgid="5180129233352533459">"ਸਿਰਫ਼ ਡੀਵਾਈਸ ਮਾਲਕ ਹੀ ਬਲੌਕ ਕੀਤੇ ਗਏ ਨੰਬਰਾਂ ਨੂੰ  ਦੇਖ  ਅਤੇ ਪ੍ਰਬੰਧਿਤ ਕਰ ਸਕਦਾ ਹੈ।"</string>
     <string name="delete_icon_description" msgid="8903995728252556724">"ਅਨਬਲੌਕ ਕਰੋ"</string>
     <string name="blocked_numbers_butter_bar_title" msgid="438170866438793182">"ਬਲੌਕਿੰਗ ਆਰਜ਼ੀ ਤੌਰ \'ਤੇ ਬੰਦ ਹੈ"</string>
     <string name="blocked_numbers_butter_bar_body" msgid="2223244484319442431">"ਤੁਹਾਡੇ ਵੱਲੋਂ ਇੱਕ ਐਮਰਜੈਂਸੀ ਨੰਬਰ ਨੂੰ ਡਾਇਲ ਕੀਤੇ ਜਾਣ ਜਾਂ ਲਿਖਤ ਸੁਨੇਹਾ ਭੇਜੇ ਜਾਣ ਤੋਂ ਬਾਅਦ, ਇਹ ਯਕੀਨੀ ਬਣਾਉਣ ਲਈ ਬਲੌਕਿੰਗ ਨੂੰ ਬੰਦ ਕੀਤਾ ਜਾਂਦਾ ਹੈ ਕਿ ਐਮਰਜੈਂਸੀ ਸੇਵਾਵਾਂ ਤੁਹਾਨੂੰ ਸੰਪਰਕ ਕਰ ਸਕਣ।"</string>

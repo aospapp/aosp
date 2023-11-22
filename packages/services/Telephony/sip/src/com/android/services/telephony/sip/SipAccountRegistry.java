@@ -111,7 +111,10 @@ public final class SipAccountRegistry {
         return INSTANCE;
     }
 
-    void setup(Context context) {
+    /**
+     * Sets up the Account registry and performs any upgrade operations before it is used.
+     */
+    public void setup(Context context) {
         verifyAndPurgeInvalidPhoneAccounts(context);
         startSipProfilesAsync(context, (String) null, false);
     }
@@ -157,7 +160,7 @@ public final class SipAccountRegistry {
      *
      * @param sipProfileName Name of the SIP profile.
      */
-    void removeSipProfile(String sipProfileName) {
+    public void removeSipProfile(String sipProfileName) {
         AccountEntry accountEntry = getAccountEntry(sipProfileName);
 
         if (accountEntry != null) {

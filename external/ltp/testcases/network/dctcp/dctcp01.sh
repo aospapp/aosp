@@ -29,16 +29,13 @@ set_cong_alg()
 	local alg=$1
 	tst_resm TINFO "setting $alg"
 
-	ROD sysctl -q -w net.ipv4.tcp_congestion_control=$alg
-	tst_rhost_run -s -c "sysctl -q -w net.ipv4.tcp_congestion_control=$alg"
+	tst_set_sysctl net.ipv4.tcp_congestion_control $alg safe
 }
 
 cleanup()
 {
 	if [ "$prev_cong_ctl" ]; then
-		sysctl -q -w net.ipv4.tcp_congestion_control=$prev_alg
-		tst_rhost_run -c \
-			"sysctl -q -w net.ipv4.tcp_congestion_control=$prev_alg"
+		tst_set_sysctl net.ipv4.tcp_congestion_control $prev_alg
 	fi
 	tst_rmdir
 	tc qdisc del dev $(tst_iface) root netem loss 0.03% ecn
@@ -46,8 +43,9 @@ cleanup()
 
 setup()
 {
-	tst_kvercmp 3 18 0
-	[ $? -eq 0 ] && tst_brkm TCONF "test requires kernel 3.18 or newer"
+	if tst_kvcmp -lt "3.18"; then
+		tst_brkm TCONF "test requires kernel 3.18 or newer"
+	fi
 
 	tst_require_root
 	tst_check_cmds ip sysctl tc
@@ -60,7 +58,7 @@ setup()
 
 	tst_tmpdir
 
-	prev_alg="$(cat /proc/sys/net/ipv4/tcp_congestion_control)"
+	prev_alg="$(sysctl -n net.ipv4.tcp_congestion_control)"
 }
 
 test_run()
@@ -69,23 +67,13 @@ test_run()
 
 	set_cong_alg "$def_alg"
 
-	tst_netload $(tst_ipaddr rhost) tfo_res TFO
-	if [ $? -ne 0 ]; then
-		tst_resm TFAIL "test with '$def_alg' has failed"
-		return
-	fi
-	local res0="$(cat tfo_res)"
-	tst_resm TINFO "$def_alg time '$res0' ms"
+	tst_netload -H $(tst_ipaddr rhost)
+	local res0="$(cat tst_netload.res)"
 
 	set_cong_alg "dctcp"
 
-	tst_netload $(tst_ipaddr rhost) tfo_res TFO
-	if [ $? -ne 0 ]; then
-		tst_resm TFAIL "test with 'dctcp' has failed"
-		return
-	fi
-	local res1="$(cat tfo_res)"
-	tst_resm TINFO "dctcp time '$res1' ms"
+	tst_netload -H $(tst_ipaddr rhost)
+	local res1="$(cat tst_netload.res)"
 
 	local per=$(( $res0 * 100 / $res1 - 100 ))
 

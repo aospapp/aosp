@@ -1,4 +1,4 @@
-ifneq ($(filter msm8974 msm8226 msm8084 msm8992 msm8994 msm8996 msm8909,$(TARGET_BOARD_PLATFORM)),)
+ifneq ($(filter msm8974 msm8226 msm8084 msm8992 msm8994 msm8996 msm8909 msm8998,$(TARGET_BOARD_PLATFORM)),)
 
 LOCAL_PATH:= $(call my-dir)
 
@@ -30,12 +30,14 @@ LOCAL_C_INCLUDES := \
 	external/tinyalsa/include \
 	$(call include-path-for, audio-effects)
 
+LOCAL_HEADER_LIBRARIES += libhardware_headers
+LOCAL_HEADER_LIBRARIES += libsystem_headers
 include $(BUILD_SHARED_LIBRARY)
 endif
 
 ################################################################################
 
-ifneq ($(filter msm8992 msm8994 msm8996 msm8909,$(TARGET_BOARD_PLATFORM)),)
+ifneq ($(filter msm8992 msm8994 msm8996 msm8909 msm8998,$(TARGET_BOARD_PLATFORM)),)
 
 include $(CLEAR_VARS)
 
@@ -60,6 +62,8 @@ LOCAL_C_INCLUDES := \
         hardware/qcom/audio/hal \
 	$(call include-path-for, audio-effects)
 
+LOCAL_HEADER_LIBRARIES += libhardware_headers
+LOCAL_HEADER_LIBRARIES += libsystem_headers
 include $(BUILD_SHARED_LIBRARY)
 
 endif

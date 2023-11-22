@@ -12,11 +12,16 @@ import os
 import random
 import re
 import time
+import traceback
 import urllib2
 
 import common
+from autotest_lib.client.bin.result_tools import utils as result_utils
+from autotest_lib.client.bin.result_tools import utils_lib as result_utils_lib
+from autotest_lib.client.bin.result_tools import view as result_view
 from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import file_utils
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import host_queue_entry_states
 from autotest_lib.client.common_lib import host_states
@@ -25,14 +30,9 @@ from autotest_lib.server.cros.dynamic_suite import constants
 from autotest_lib.server.cros.dynamic_suite import job_status
 
 try:
-    from chromite.lib import cros_build_lib
-    from chromite.lib import ts_mon_config
+    from chromite.lib import metrics
 except ImportError:
-    logging.warn('Unable to import chromite. Monarch is disabled.')
-    # Init the module variable to None. Access to this module can check if it
-    # is not None before making calls.
-    cros_build_lib = None
-    ts_mon_config = None
+    metrics = utils.metrics_mock
 
 
 CONFIG = global_config.global_config
@@ -63,6 +63,8 @@ ANDROID_BOARD_TO_TARGET_MAP = {
         'gm4g_sprout': 'seed_l8150',
         'bat': 'bat_land'
         }
+# Prefix for the metrics name for result size information.
+RESULT_METRICS_PREFIX = 'chromeos/autotest/result_collection/'
 
 class TestLabException(Exception):
     """Exception raised when the Test Lab blocks a test or suite."""
@@ -606,7 +608,17 @@ def is_inside_chroot():
              cannot be imported.
 
     """
-    return not cros_build_lib or cros_build_lib.IsInsideChroot()
+    try:
+        # TODO(crbug.com/739466) This module import is delayed because it adds
+        # 1-2 seconds to the module import time and most users of site_utils
+        # don't need it. The correct fix is to break apart site_utils into more
+        # meaningful chunks.
+        from chromite.lib import cros_build_lib
+    except ImportError:
+        logging.warn('Unable to import chromite. Can not detect chroot. '
+                     'Defaulting to False')
+        return False
+    return cros_build_lib.IsInsideChroot()
 
 
 def parse_job_name(name):
@@ -725,6 +737,13 @@ def get_afe_host_from_machine(machine):
     return afe_host
 
 
+def get_connection_pool_from_machine(machine):
+    """Returns the ssh_multiplex.ConnectionPool from machine if possible."""
+    if not isinstance(machine, dict):
+        return None
+    return machine.get('connection_pool')
+
+
 def get_creds_abspath(creds_file):
     """Returns the abspath of the credentials file.
 
@@ -765,17 +784,24 @@ def SetupTsMonGlobalState(*args, **kwargs):
     @param *args: Args to pass through.
     @param **kwargs: Kwargs to pass through.
     """
-    if ts_mon_config:
-        try:
-            context = ts_mon_config.SetupTsMonGlobalState(*args, **kwargs)
-            if hasattr(context, '__exit__'):
-                return context
-        except Exception as e:
-            logging.warning('Caught an exception trying to setup ts_mon, '
-                            'monitoring is disabled: %s', e, exc_info=True)
+    try:
+        # TODO(crbug.com/739466) This module import is delayed because it adds
+        # 1-2 seconds to the module import time and most users of site_utils
+        # don't need it. The correct fix is to break apart site_utils into more
+        # meaningful chunks.
+        from chromite.lib import ts_mon_config
+    except ImportError:
+        logging.warn('Unable to import chromite. Monarch is disabled.')
         return TrivialContextManager()
-    else:
-        return TrivialContextManager()
+
+    try:
+        context = ts_mon_config.SetupTsMonGlobalState(*args, **kwargs)
+        if hasattr(context, '__exit__'):
+            return context
+    except Exception as e:
+        logging.warning('Caught an exception trying to setup ts_mon, '
+                        'monitoring is disabled: %s', e, exc_info=True)
+    return TrivialContextManager()
 
 
 @contextlib.contextmanager
@@ -793,7 +819,7 @@ def wait_for_idle_duts(duts, afe, max_wait=IDLE_DUT_WAIT_TIMEOUT):
 
     @param duts: List of duts to check for idle state.
     @param afe: afe instance.
-    @param max_wait: Max wait time in seconds.
+    @param max_wait: Max wait time in seconds to wait for duts to be idle.
 
     @returns Boolean True if all hosts are idle or False if any hosts did not
             go idle within max_wait.
@@ -832,6 +858,8 @@ def lock_duts_and_wait(duts, afe, lock_msg='default lock message',
 
     @param duts: List of duts to lock.
     @param afe: afe instance.
+    @param lock_msg: message for afe on locking this host.
+    @param max_wait: Max wait time in seconds to wait for duts to be idle.
 
     @returns Boolean lock_success where True if all duts locked successfully or
              False if we timed out waiting too long for hosts to go idle.
@@ -868,3 +896,91 @@ def board_labels_allowed(boards):
         if not re.match('board:[^-]+-\d+', board):
             return False
     return True
+
+
+def _get_default_size_info(path):
+    """Get the default result size information.
+
+    In case directory summary is failed to build, assume the test result is not
+    throttled and all result sizes are the size of existing test results.
+
+    @return: A namedtuple of result size informations, including:
+            client_result_collected_KB: The total size (in KB) of test results
+                    collected from test device. Set to be the total size of the
+                    given path.
+            original_result_total_KB: The original size (in KB) of test results
+                    before being trimmed. Set to be the total size of the given
+                    path.
+            result_uploaded_KB: The total size (in KB) of test results to be
+                    uploaded. Set to be the total size of the given path.
+            result_throttled: True if test results collection is throttled.
+                    It's set to False in this default behavior.
+    """
+    total_size = file_utils.get_directory_size_kibibytes(path);
+    return result_utils_lib.ResultSizeInfo(
+            client_result_collected_KB=total_size,
+            original_result_total_KB=total_size,
+            result_uploaded_KB=total_size,
+            result_throttled=False)
+
+
+def _report_result_size_metrics(result_size_info):
+    """Report result sizes information to metrics.
+
+    @param result_size_info: A ResultSizeInfo namedtuple containing information
+            of test result sizes.
+    """
+    fields = {'result_throttled' : result_size_info.result_throttled}
+    metrics.Counter(RESULT_METRICS_PREFIX + 'client_result_collected_KB',
+                    description='The total size (in KB) of test results '
+                    'collected from test device. Set to be the total size of '
+                    'the given path.'
+                    ).increment_by(result_size_info.client_result_collected_KB,
+                                   fields=fields)
+    metrics.Counter(RESULT_METRICS_PREFIX + 'original_result_total_KB',
+                    description='The original size (in KB) of test results '
+                    'before being trimmed.'
+                    ).increment_by(result_size_info.original_result_total_KB,
+                                   fields=fields)
+    metrics.Counter(RESULT_METRICS_PREFIX + 'result_uploaded_KB',
+                    description='The total size (in KB) of test results to be '
+                    'uploaded.'
+                    ).increment_by(result_size_info.result_uploaded_KB,
+                                   fields=fields)
+
+
+def collect_result_sizes(path, log=logging.debug):
+    """Collect the result sizes information and build result summary.
+
+    It first tries to merge directory summaries and calculate the result sizes
+    including:
+    client_result_collected_KB: The volume in KB that's transfered from the test
+            device.
+    original_result_total_KB: The volume in KB that's the original size of the
+            result files before being trimmed.
+    result_uploaded_KB: The volume in KB that will be uploaded.
+    result_throttled: Indicating if the result files were throttled.
+
+    If directory summary merging failed for any reason, fall back to use the
+    total size of the given result directory.
+
+    @param path: Path of the result directory to get size information.
+    @param log: The logging method, default to logging.debug
+    @return: A ResultSizeInfo namedtuple containing information of test result
+             sizes.
+    """
+    try:
+        client_collected_bytes, summary = result_utils.merge_summaries(path)
+        result_size_info = result_utils_lib.get_result_size_info(
+                client_collected_bytes, summary)
+        html_file = os.path.join(path, result_view.DEFAULT_RESULT_SUMMARY_NAME)
+        result_view.build(client_collected_bytes, summary, html_file)
+    except:
+        log('Failed to calculate result sizes based on directory summaries for '
+            'directory %s. Fall back to record the total size.\nException: %s' %
+            (path, traceback.format_exc()))
+        result_size_info = _get_default_size_info(path)
+
+    _report_result_size_metrics(result_size_info)
+
+    return result_size_info

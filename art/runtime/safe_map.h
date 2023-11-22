@@ -46,6 +46,7 @@ class SafeMap {
 
   SafeMap() = default;
   SafeMap(const SafeMap&) = default;
+  SafeMap(SafeMap&&) = default;
   explicit SafeMap(const key_compare& cmp, const allocator_type& allocator = allocator_type())
     : map_(cmp, allocator) {
   }
@@ -77,6 +78,9 @@ class SafeMap {
 
   iterator lower_bound(const K& k) { return map_.lower_bound(k); }
   const_iterator lower_bound(const K& k) const { return map_.lower_bound(k); }
+
+  iterator upper_bound(const K& k) { return map_.upper_bound(k); }
+  const_iterator upper_bound(const K& k) const { return map_.upper_bound(k); }
 
   size_type count(const K& k) const { return map_.count(k); }
 
@@ -149,6 +153,11 @@ class SafeMap {
 
   bool Equals(const Self& rhs) const {
     return map_ == rhs.map_;
+  }
+
+  template <class... Args>
+  std::pair<iterator, bool> emplace(Args&&... args) {
+    return map_.emplace(std::forward<Args>(args)...);
   }
 
  private:

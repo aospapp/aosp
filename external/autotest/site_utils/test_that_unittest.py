@@ -62,9 +62,19 @@ class TestThatUnittests(unittest.TestCase):
         self.assertEqual('some_remote', args.remote)
         self.assertEqual(['test1', 'test2'], args.tests)
 
-    def test_fetch_local_suite(self):
-        # Deferred until fetch_local_suite knows about non-local builds.
-        pass
+    def test_parse_arguments_lab_run_requires_build(self):
+        """Running against :lab: requires certain extra arguments."""
+        args = test_that.parse_arguments(['-b', 'some_board', ':lab:', 'test1'])
+        with self.assertRaises(ValueError):
+            test_that.validate_arguments(args)
+
+    def test_parse_arguments_lab_run_disallows_suite_args(self):
+        """Running against :lab: requires certain extra arguments."""
+        args = test_that.parse_arguments([
+                '-b', 'some_board', '-i', 'some_image', '--args', 'some_args',
+                ':lab:', 'test1'])
+        with self.assertRaises(ValueError):
+            test_that.validate_arguments(args)
 
 
 if __name__ == '__main__':

@@ -31,7 +31,7 @@
 #include "io_util_md.h"
 
 #include <fcntl.h>
-#include "JNIHelp.h"
+#include <nativehelper/JNIHelp.h>
 
 #define NATIVE_METHOD(className, functionName, signature) \
 { #functionName, signature, (void*)(className ## _ ## functionName) }

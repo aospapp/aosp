@@ -34,6 +34,8 @@ class GCNOParserTest(unittest.TestCase):
     parsing of functions, blocks, arcs, and lines.
     """
 
+    GOLDEN_GCNO_PATH = 'testdata/sample.gcno'
+
     def setUp(self):
         """Creates a stream for each test.
         """
@@ -186,10 +188,9 @@ class GCNOParserTest(unittest.TestCase):
         Verifies the blocks and lines for each function in
         the file.
         """
-        path = os.path.join(
-            os.getenv('ANDROID_BUILD_TOP'),
-            'test/vts/utils/python/coverage/testdata/sample.gcno')
-        summary = gcno_parser.ParseGcnoFile(path)
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        file_path = os.path.join(dir_path, self.GOLDEN_GCNO_PATH)
+        summary = gcno_parser.ParseGcnoFile(file_path)
         self.assertEqual(len(summary.functions), 2)
 
         # Check function: testFunctionName

@@ -17,7 +17,7 @@
 # Base platform for car builds
 # car packages should be added to car.mk instead of here
 
-PRODUCT_PACKAGE_OVERLAYS := packages/services/Car/car_product/overlay
+PRODUCT_PACKAGE_OVERLAYS += packages/services/Car/car_product/overlay
 
 PRODUCT_PACKAGES += \
     ContactsProvider \
@@ -62,6 +62,7 @@ PRODUCT_PACKAGES += \
     libstagefright_soft_amrwbenc \
     libstagefright_soft_avcdec \
     libstagefright_soft_avcenc \
+    libstagefright_soft_flacdec \
     libstagefright_soft_flacenc \
     libstagefright_soft_g711dec \
     libstagefright_soft_gsmdec \
@@ -83,15 +84,20 @@ PRODUCT_PACKAGES += \
     A2dpSinkService \
 
 # EVS resources
-PRODUCT_PACKAGES += android.hardware.automotive.evs@1.0-service
 PRODUCT_PACKAGES += android.automotive.evs.manager@1.0
 PRODUCT_PACKAGES += evs_app
+# The following packages, or their vendor specific equivalents should be include in the device.mk
+#PRODUCT_PACKAGES += evs_app_default_resources
+#PRODUCT_PACKAGES += android.hardware.automotive.evs@1.0-service
+#PRODUCT_PACKAGES += android.hardware.automotive.evs@1.0-sample
 
-ifeq ($(TARGET_USES_CAR_FUTURE_FEATURES),true)
-PRODUCT_PACKAGES += android.hardware.automotive.vehicle@2.1-service
-else
-PRODUCT_PACKAGES += android.hardware.automotive.vehicle@2.0-service
-endif
+# Device running Android is a car
+PRODUCT_COPY_FILES += \
+    frameworks/native/data/etc/android.hardware.type.automotive.xml:system/etc/permissions/android.hardware.type.automotive.xml
+
+# Default permission grant exceptions
+PRODUCT_COPY_FILES += \
+    packages/services/Car/car_product/build/default-car-permissions.xml:system/etc/default-permissions/default-car-permissions.xml
 
 $(call inherit-product, $(SRC_TARGET_DIR)/product/core_minimal.mk)
 

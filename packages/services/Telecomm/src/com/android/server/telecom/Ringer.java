@@ -19,6 +19,7 @@ package com.android.server.telecom;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.content.Context;
+import android.os.VibrationEffect;
 import android.telecom.Log;
 import android.media.AudioAttributes;
 import android.media.AudioManager;
@@ -33,19 +34,29 @@ import com.android.internal.annotations.VisibleForTesting;
  */
 @VisibleForTesting
 public class Ringer {
-    private static final long[] VIBRATION_PATTERN = new long[] {
-        0, // No delay before starting
-        1000, // How long to vibrate
-        1000, // How long to wait before vibrating again
-    };
+    VibrationEffect mVibrationEffect;
+
+    private static final long[] PULSE_PATTERN = {0,12,250,12,500, // priming  + interval
+            50,50,50,50,50,50,50,50,50,50,50,50,50,50, // ease-in
+            300, // Peak
+            1000}; // pause before repetition
+
+    private static final int[] PULSE_AMPLITUDE = {0,255,0,255,0, // priming  + interval
+            77,77,78,79,81,84,87,93,101,114,133,162,205,255, // ease-in (min amplitude = 30%)
+            255, // Peak
+            0}; // pause before repetition
+
+    /**
+     * Indicates that vibration should be repeated at element 5 in the {@link #PULSE_AMPLITUDE} and
+     * {@link #PULSE_PATTERN} arrays.  This means repetition will happen for the main ease-in/peak
+     * pattern, but the priming + interval part will not be repeated.
+     */
+    private static final int REPEAT_VIBRATION_AT = 5;
 
     private static final AudioAttributes VIBRATION_ATTRIBUTES = new AudioAttributes.Builder()
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
             .build();
-
-    /** Indicate that we want the pattern to repeat at the step which turns on vibration. */
-    private static final int VIBRATION_PATTERN_REPEAT = 1;
 
     /**
      * Used to keep ordering of unanswered incoming calls. There can easily exist multiple incoming
@@ -95,6 +106,9 @@ public class Ringer {
         mRingtonePlayer = asyncRingtonePlayer;
         mRingtoneFactory = ringtoneFactory;
         mInCallController = inCallController;
+
+        mVibrationEffect = VibrationEffect.createWaveform(PULSE_PATTERN, PULSE_AMPLITUDE,
+                REPEAT_VIBRATION_AT);
     }
 
     public boolean startRinging(Call foregroundCall, boolean isHfpDeviceAttached) {
@@ -151,8 +165,7 @@ public class Ringer {
 
         if (shouldVibrate(mContext, foregroundCall) && !mIsVibrating && shouldRingForContact) {
             mVibratingCall = foregroundCall;
-            mVibrator.vibrate(VIBRATION_PATTERN, VIBRATION_PATTERN_REPEAT,
-                    VIBRATION_ATTRIBUTES);
+            mVibrator.vibrate(mVibrationEffect, VIBRATION_ATTRIBUTES);
             mIsVibrating = true;
         } else if (mIsVibrating) {
             Log.addEvent(foregroundCall, LogUtils.Events.SKIP_VIBRATION, "already vibrating");

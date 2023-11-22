@@ -1,15 +1,11 @@
-apply plugin: android.support.SupportLibraryPlugin
-archivesBaseName = 'animated-vector-drawable'
+apply plugin: android.support.SupportAndroidLibraryPlugin
 
 dependencies {
-    compile project(':support-vector-drawable')
-    androidTestCompile (libs.test_runner) {
-        exclude module: 'support-annotations'
-    }
-    androidTestCompile (libs.espresso_core) {
-        exclude module: 'support-annotations'
-    }
-    compile project(path: ':support-core-ui')
+    api project(':support-vector-drawable')
+    api project(':support-core-ui')
+
+    androidTestImplementation libs.test_runner,   { exclude module: 'support-annotations' }
+    androidTestImplementation libs.espresso_core, { exclude module: 'support-annotations' }
 }
 
 android {
@@ -34,6 +30,7 @@ android {
 
 supportLibrary {
     name 'Android Support AnimatedVectorDrawable'
+    publish true
     inceptionYear '2015'
     description 'Android Support AnimatedVectorDrawable'
 }

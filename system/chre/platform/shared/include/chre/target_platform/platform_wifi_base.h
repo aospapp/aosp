@@ -17,6 +17,7 @@
 #ifndef CHRE_PLATFORM_SHARED_PLATFORM_WIFI_BASE_H_
 #define CHRE_PLATFORM_SHARED_PLATFORM_WIFI_BASE_H_
 
+#include "chre/platform/shared/platform_pal.h"
 #include "chre/pal/wifi.h"
 
 namespace chre {
@@ -25,7 +26,7 @@ namespace chre {
  * Provides an instance of the PlatformWifiBase class that uses the CHRE PAL to
  * access the wifi subsystem.
  */
-class PlatformWifiBase {
+class PlatformWifiBase : public PlatformPal {
  protected:
   //! The instance of the CHRE PAL API. This will be set to nullptr if the
   //! platform does not supply an implementation.

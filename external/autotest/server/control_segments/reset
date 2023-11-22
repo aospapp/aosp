@@ -33,8 +33,8 @@ def reset(machine):
             target.verify()
             provision.run_special_task_actions(job, target, labels_list,
                                                provision.Verify)
-    except Exception as e:
-        logging.exception(e)
+    except Exception:
+        logging.exception('Reset failed due to Exception.')
         job.record('END FAIL', None, 'reset')
         # See the provision control segment for the explanation of why we're
         # doing this.

@@ -41,6 +41,7 @@ import android.os.Handler;
 import android.os.Message;
 import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
+import android.provider.Settings;
 import android.util.MutableInt;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -135,6 +136,10 @@ public class MtpHostTestActivity extends PassFailButtons.Activity implements Han
                 new int[] { R.id.next_item_button }));
         mItems.add(new TestItem(
                 inflater,
+                R.string.mtp_host_test_file_browse_message,
+                new int[] { R.id.settings_button, R.id.pass_item_button, R.id.fail_item_button }));
+        mItems.add(new TestItem(
+                inflater,
                 R.string.mtp_host_grant_permission_message,
                 null));
         mItems.add(new TestItem(
@@ -145,10 +150,6 @@ public class MtpHostTestActivity extends PassFailButtons.Activity implements Han
                 inflater,
                 R.string.mtp_host_test_send_object_message,
                 null));
-        mItems.add(new TestItem(
-                inflater,
-                R.string.mtp_host_test_notification_message,
-                new int[] { R.id.pass_item_button, R.id.fail_item_button }));
         for (final TestItem item : mItems) {
             itemsView.addView(item.view);
         }
@@ -186,12 +187,23 @@ public class MtpHostTestActivity extends PassFailButtons.Activity implements Han
                     @Override
                     public void run() {
                         try {
-                            int i = mCurrentStep;
-                            if (i-- == 0) stepFindMtpDevice();
-                            if (i-- == 0) stepGrantPermission();
-                            if (i-- == 0) stepTestReadEvent();
-                            if (i-- == 0) stepTestSendObject();
-                            if (i-- == 0) stepTestNotification();
+                            switch (mCurrentStep) {
+                                case 0:
+                                    stepFindMtpDevice();
+                                    break;
+                                case 1:
+                                    stepTestFileBrowse();
+                                    break;
+                                case 2:
+                                    stepGrantPermission();
+                                    break;
+                                case 3:
+                                    stepTestReadEvent();
+                                    break;
+                                case 4:
+                                    stepTestSendObject();
+                                    break;
+                            }
                             mHandler.sendEmptyMessage(MESSAGE_PASS);
                         } catch (Exception | AssertionFailedError exception) {
                             mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_FAIL, exception));
@@ -330,8 +342,16 @@ public class MtpHostTestActivity extends PassFailButtons.Activity implements Han
         }
     }
 
-    private void stepTestNotification() throws InterruptedException {
-        assertEquals(R.id.pass_item_button, waitForButtonClick());
+    private void stepTestFileBrowse() throws InterruptedException {
+        while (true) {
+            final int id = waitForButtonClick();
+            if (id == R.id.settings_button) {
+                startActivity(new Intent(Settings.ACTION_APPLICATION_SETTINGS));
+                continue;
+            }
+            assertEquals(R.id.pass_item_button, waitForButtonClick());
+            break;
+        }
     }
 
     private int waitForButtonClick() throws InterruptedException {

@@ -588,6 +588,7 @@ enum StaRoamingState : uint8_t {
 /**
  * Size limits for parameters used in the NAN interface.
  */
+@export
 enum NanParamSizeLimits : uint32_t {
   /** Minimum length of Passphrase argument for data-path configuration */
   MIN_PASSPHRASE_LENGTH = 8,
@@ -1354,8 +1355,8 @@ struct NanCapabilities {
    */
   uint32_t maxNdiInterfaces;
   /**
-   * Maximum number of data paths (NDP) which can be created concurrently on each individual
-   * data interface (NDI).
+   * Maximum number of data paths (NDP) which can be created concurrently on the device, across all
+   * data interfaces (NDI).
    */
   uint32_t maxNdpSessions;
   /**

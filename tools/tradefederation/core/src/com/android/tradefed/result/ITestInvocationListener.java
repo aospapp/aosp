@@ -20,6 +20,7 @@ import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.command.ICommandScheduler;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.log.ITestLogger;
+import com.android.tradefed.testtype.suite.ITestSuite;
 
 import java.util.Map;
 
@@ -93,6 +94,18 @@ public interface ITestInvocationListener extends ITestRunListener, ITestLogger {
     default public void invocationInterrupted() {
         // do nothing in default implementation.
     }
+
+    /**
+     * Reports the beginning of a module running. This callback is associated with {@link
+     * #testModuleEnded()} and is optional in the sequence. It is only used during a run that uses
+     * modules: {@link ITestSuite} based runners.
+     *
+     * @param moduleContext the {@link IInvocationContext} of the module.
+     */
+    public default void testModuleStarted(IInvocationContext moduleContext) {}
+
+    /** Reports the end of a module run. */
+    public default void testModuleEnded() {}
 
     /**
      * {@inheritDoc}

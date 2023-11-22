@@ -28,6 +28,7 @@
  */
 #include "psb_surface.h"
 #ifdef ANDROID
+#include <system/graphics-base.h>
 static uint32_t VAROTATION2HAL(int va_rotate) {
         switch (va_rotate) {
         case VA_ROTATION_90:

@@ -102,6 +102,14 @@ public final class ServiceConnectionHandler implements ServiceConnection {
         }
     }
 
+    public void stopMonitoringIfNeeded() {
+        synchronized (this) {
+            if (mMonitoring) {
+                stopMonitoring();
+            }
+        }
+    }
+
     public void stopMonitoring() {
         synchronized (this) {
             if (!mMonitoring) {

@@ -34,7 +34,7 @@
     <string name="incoming_file_confirm_content" msgid="2752605552743148036">"هل تقبل الملف الوارد؟"</string>
     <string name="incoming_file_confirm_cancel" msgid="2973321832477704805">"رفض"</string>
     <string name="incoming_file_confirm_ok" msgid="281462442932231475">"قبول"</string>
-    <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"موافق"</string>
+    <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"حسنًا"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"انتهت المهلة أثناء قبول ملف وراد من \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"ملف وارد"</string>
     <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> جاهز لإرسال <xliff:g id="FILE">%2$s</xliff:g>"</string>
@@ -59,19 +59,19 @@
     <string name="download_fail_line1" msgid="3846450148862894552">"لم يتم استلام الملف"</string>
     <string name="download_fail_line2" msgid="8950394574689971071">"الملف: <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="download_fail_line3" msgid="3451040656154861722">"السبب: <xliff:g id="REASON">%1$s</xliff:g>"</string>
-    <string name="download_fail_ok" msgid="1521733664438320300">"موافق"</string>
+    <string name="download_fail_ok" msgid="1521733664438320300">"حسنًا"</string>
     <string name="download_succ_line5" msgid="4509944688281573595">"تم استلام الملف"</string>
     <string name="download_succ_ok" msgid="7053688246357050216">"فتح"</string>
     <string name="upload_line1" msgid="2055952074059709052">"إلى: \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\""</string>
     <string name="upload_line3" msgid="4920689672457037437">"نوع الملف: <xliff:g id="TYPE">%1$s</xliff:g> (<xliff:g id="SIZE">%2$s</xliff:g>)"</string>
     <string name="upload_line5" msgid="7759322537674229752">"جارٍ إرسال الملف..."</string>
     <string name="upload_succ_line5" msgid="5687317197463383601">"تم إرسال الملف"</string>
-    <string name="upload_succ_ok" msgid="7705428476405478828">"موافق"</string>
+    <string name="upload_succ_ok" msgid="7705428476405478828">"حسنًا"</string>
     <string name="upload_fail_line1" msgid="7899394672421491701">"لم يتم إرسال الملف إلى \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\"."</string>
     <string name="upload_fail_line1_2" msgid="2108129204050841798">"الملف: <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="upload_fail_ok" msgid="5807702461606714296">"حاول مرة أخرى"</string>
     <string name="upload_fail_cancel" msgid="9118496285835687125">"إغلاق"</string>
-    <string name="bt_error_btn_ok" msgid="5965151173011534240">"موافق"</string>
+    <string name="bt_error_btn_ok" msgid="5965151173011534240">"حسنًا"</string>
     <string name="unknown_file" msgid="6092727753965095366">"ملف غير معروف"</string>
     <string name="unknown_file_desc" msgid="480434281415453287">"ليس هناك تطبيق لمعالجة هذا النوع من الملفات. \n"</string>
     <string name="not_exist_file" msgid="3489434189599716133">"ليست هناك أية ملفات"</string>

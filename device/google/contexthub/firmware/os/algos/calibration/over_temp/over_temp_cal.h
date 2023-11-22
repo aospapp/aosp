@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2017 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,31 +15,70 @@
  */
 
 /*
- * This module provides an online algorithm for compensating a 3-axis sensor's
- * offset over its operating temperature:
+ * [OTC Sensor Offset Calibration]
+ * This module implements a runtime algorithm for provisioning over-temperature
+ * compensated (OTC) estimates of a 3-axis sensor's offset (i.e., bias):
  *
  *   1) Estimates of sensor offset with associated temperature are consumed,
  *      {offset, offset_temperature}.
- *   2) A temperature dependence model is extracted from the collected set of
- *      data pairs.
- *   3) Until a "complete" model has been built and a model equation has been
- *      computed, the compensation will use the collected offset nearest in
- *      temperature. If a model is available, then the compensation will take
- *      the form of:
  *
- * Linear Compensation Model Equation:
+ *   2) A linear temperature dependence model is extracted from the collected
+ *      set of data pairs.
+ *
+ *   3) The linear model is used for compensation when no other model points
+ *      (e.g., nearest-temperature, or the latest received offset estimate) can
+ *      be used as a better reference to construct the OTC offset.
+ *
+ *   4) The linear model is used as an extrapolator to provide better
+ *      compensated offset estimates with rapid changes in temperature.
+ *
+ *   5) Other key features of this algorithm:
+ *        a) Jump Detection - The model may contain old data having a variety of
+ *           different thermal histories (hysteresis) which could produce
+ *           discontinuities when using nearest-temperature compensation. If a
+ *           "jump" is detected in comparison to the linear model (or current
+ *           compensation vector, depending on the age of the model), then the
+ *           discontinuity may be minimized by selecting the alternative.
+ *
+ *        b) Outlier Detection - This checks new offset estimates against the
+ *           available linear model. If deviations exceeed a specified limit,
+ *           then the estimate is rejected.
+ *
+ *        c) Model Data Pruning - Old model data that age beyond a specified
+ *           limit is eventually removed from the data set.
+ *
+ *        d) Model Parameter Limits - Bounds on the linear model parameters may
+ *           be specified to qualify acceptable models.
+ *
+ *        e) Offset Update Rate Limits - To minimize computational burden, a
+ *           temporal limit is placed on offset updates prompted from an
+ *           arbitrarily high temperature sampling rate; and a minimum offset
+ *           change is applied to gate small variations in offset during stable
+ *           periods.
+ *
+ *        f) Model-Weighting Based on Age - The least-squares fit uses a
+ *           weighting function based on the age of the model estimate data to
+ *           favor recent estimates and emphasize localized OTC model fitting
+ *           when new updates arrive.
+ *
+ * General Compensation Model Equation:
  *   sensor_out = sensor_in - compensated_offset
- *   Where,
+ *
+ *   When the linear model is used,
  *     compensated_offset = (temp_sensitivity * current_temp + sensor_intercept)
  *
- * NOTE - 'current_temp' is the current measured temperature. 'temp_sensitivity'
- *        is the modeled temperature sensitivity (i.e., linear slope).
- *        'sensor_intercept' is linear model intercept.
+ *   NOTE - 'current_temp' is the current measured temperature.
+ *     'temp_sensitivity' is the modeled temperature sensitivity (i.e., linear
+ *     slope). 'sensor_intercept' is linear model intercept.
+ *
+ *   When the nearest-temperature or latest-offset is used as a "reference",
+ *     delta_temp = current_temp - reference_offset_temperature
+ *     extrapolation_term = temp_sensitivity * delta_temp
+ *     compensated_offset = reference_offset + extrapolation_term
  *
  * Assumptions:
- *
- *   1) Sensor hysteresis is negligible.
- *   2) Sensor offset temperature dependence is sufficiently "linear".
+ *   1) Sensor offset temperature dependence is sufficiently "linear".
+ *   2) Impact of sensor hysteresis is small relative to thermal sensitivity.
  *   3) The impact of long-term offset drift/aging compared to the magnitude of
  *      deviation resulting from the thermal sensitivity of the offset is
  *      relatively small.
@@ -66,32 +105,58 @@ extern "C" {
 #endif
 
 // Defines the maximum size of the 'model_data' array.
-#define OVERTEMPCAL_MODEL_SIZE (40)
+#define OTC_MODEL_SIZE (40)
 
-// A common sensor operating temperature at which to start producing the model
-// jump-start data.
+// A common sensor operating temperature at which to begin the model jump-start
+// data.
 #define JUMPSTART_START_TEMP_CELSIUS (30.0f)
 
 // The maximum number of successive outliers that may be rejected.
-#define OVERTEMPCAL_MAX_OUTLIER_COUNT (3)
+#define OTC_MAX_OUTLIER_COUNT (3)
 
 // The 'temp_sensitivity' parameters are set to this value to indicate that the
 // model is in its initial state.
 #define OTC_INITIAL_SENSITIVITY (1e6f)
 
-// Minimum "significant" change of offset value.
-#define SIGNIFICANT_OFFSET_CHANGE_RPS (5.23e-5f)  // 3mDPS
-
 // Valid sensor temperature operating range.
-#define OVERTEMPCAL_TEMP_MIN_CELSIUS (-40.0f)
-#define OVERTEMPCAL_TEMP_MAX_CELSIUS (85.0f)
+#define OTC_TEMP_MIN_CELSIUS (-40.0f)
+#define OTC_TEMP_MAX_CELSIUS (85.0f)
+
+// Invalid sensor temperature.
+#define OTC_TEMP_INVALID_CELSIUS (-274.0f)
+
+// Number of time-interval levels used to define the least-squares weighting
+// function.
+#define OTC_NUM_WEIGHT_LEVELS (2)
+
+// Rate-limits the check of old data to every 2 hours.
+#define OTC_STALE_CHECK_TIME_NANOS (HRS_TO_NANOS(2))
+
+// Time duration in which to enforce using the last offset estimate for
+// compensation (30 seconds).
+#define OTC_USE_RECENT_OFFSET_TIME_NANOS (SEC_TO_NANOS(30))
+
+// The age at which an offset estimate is considered stale (30 minutes).
+#define OTC_OFFSET_IS_STALE_NANOS (MIN_TO_NANOS(30))
+
+// The refresh interval for the OTC model (30 seconds).
+#define OTC_REFRESH_MODEL_NANOS (SEC_TO_NANOS(30))
+
+// Defines a weighting function value for the linear model fit routine.
+struct OverTempCalWeightPt {
+  // The age limit below which an offset will use this weight value.
+  uint64_t offset_age_nanos;
+
+  // The weighting applied (>0).
+  float weight;
+};
 
 // Over-temperature sensor offset estimate structure.
 struct OverTempCalDataPt {
   // Sensor offset estimate, temperature, and timestamp.
-  float offset[3];
-  float offset_temp_celsius;  // [Celsius]
   uint64_t timestamp_nanos;   // [nanoseconds]
+  float offset_temp_celsius;  // [Celsius]
+  float offset[3];
 };
 
 #ifdef OVERTEMPCAL_DBG_ENABLED
@@ -107,17 +172,14 @@ enum OverTempCalDebugState {
 
 // OverTempCal debug information/data tracking structure.
 struct DebugOverTempCal {
-  uint64_t modelupdate_timestamp_nanos;
-
-  // The offset estimate nearest the current sensor temperature.
-  struct OverTempCalDataPt nearest_offset;
+  // The latest received offset estimate data.
+  struct OverTempCalDataPt latest_offset;
 
   // The maximum model error over all model_data points.
   float max_error[3];
 
   float temp_sensitivity[3];
   float sensor_intercept[3];
-  float temperature_celsius;
   size_t num_model_pts;
 };
 #endif  // OVERTEMPCAL_DBG_ENABLED
@@ -127,28 +189,33 @@ struct DebugOverTempCal {
 // offset corrections.
 struct OverTempCal {
   // Storage for over-temperature model data.
-  struct OverTempCalDataPt model_data[OVERTEMPCAL_MODEL_SIZE];
+  struct OverTempCalDataPt model_data[OTC_MODEL_SIZE];
 
-  // Total number of model data points collected.
-  size_t num_model_pts;
+  // Implements a weighting function to emphasize fitting a linear model to
+  // younger offset estimates.
+  struct OverTempCalWeightPt weighting_function[OTC_NUM_WEIGHT_LEVELS];
 
-  // Modeled temperature sensitivity, dOffset/dTemp [sensor_units/Celsius].
-  float temp_sensitivity[3];
+  // The active over-temperature compensated offset estimate data. Contains the
+  // current sensor temperature at which offset compensation is performed.
+  struct OverTempCalDataPt compensated_offset;
 
-  // Sensor model equation intercept [sensor_units].
-  float sensor_intercept[3];
+  // Timer used to limit the rate at which old estimates are removed from
+  // the 'model_data' collection.
+  uint64_t stale_data_timer;             // [nanoseconds]
 
-  // Timestamp of the last model update.
-  uint64_t modelupdate_timestamp_nanos;  // [nanoseconds]
+  // Duration beyond which data will be removed to avoid corrupting the model
+  // with drift-compromised data.
+  uint64_t age_limit_nanos;              // [nanoseconds]
 
-  // The temperature at which the offset compensation is performed.
-  float temperature_celsius;
+  // Timestamp of the last OTC offset compensation update.
+  uint64_t last_offset_update_nanos;     // [nanoseconds]
 
-  // The stored value of the temperature compensated sensor offset.
-  float compensated_offset_previous[3];
+  // Timestamp of the last OTC model update.
+  uint64_t last_model_update_nanos;      // [nanoseconds]
 
-  // Pointer to the offset estimate closest to the current sensor temperature.
-  struct OverTempCalDataPt *nearest_offset;
+  // Limit on the minimum interval for offset update calculations resulting from
+  // an arbitrarily high temperature sampling rate.
+  uint64_t min_temp_update_period_nanos;    // [nanoseconds]
 
   ///// Online Model Identification Parameters ////////////////////////////////
   //
@@ -160,26 +227,42 @@ struct OverTempCal {
   //       kept per temperature bin (spanning a thermal range specified by
   //       'delta_temp_per_bin'), implies that model data covers at least,
   //          model_temp_span >= 'num_model_pts' * delta_temp_per_bin
-  //    2) New model updates will not occur for intervals less than:
-  //          (current_timestamp_nanos - modelupdate_timestamp_nanos) <
-  //            min_update_interval_nanos
-  //    3) A new set of model parameters are accepted if:
-  //         i.  The model fit error is less than, 'max_error_limit'. See
-  //             overTempGetModelError() for error metric description.
-  //         ii. The model fit parameters must be within certain absolute
-  //             bounds:
-  //               a. ABS(temp_sensitivity) < temp_sensitivity_limit
-  //               b. ABS(sensor_intercept) < sensor_intercept_limit
-  size_t min_num_model_pts;
-  uint64_t min_update_interval_nanos;  // [nanoseconds]
-  float max_error_limit;               // [sensor units]
+  //    2) A new set of model parameters are accepted if:
+  //         i. The model fit parameters must be within certain absolute bounds:
+  //              a. ABS(temp_sensitivity) < temp_sensitivity_limit
+  //              b. ABS(sensor_intercept) < sensor_intercept_limit
   float temp_sensitivity_limit;        // [sensor units/Celsius]
   float sensor_intercept_limit;        // [sensor units]
+  size_t min_num_model_pts;
 
-  // The number of successive outliers rejected in a row. This is used to
-  // prevent the possibility of a bad state where an initial bad fit causes
-  // good data to be continually rejected.
-  size_t num_outliers;
+  // Pointer to the offset estimate closest to the current sensor temperature.
+  struct OverTempCalDataPt *nearest_offset;
+
+  // Pointer to the most recent offset estimate.
+  struct OverTempCalDataPt *latest_offset;
+
+  // Modeled temperature sensitivity, dOffset/dTemp [sensor_units/Celsius].
+  float temp_sensitivity[3];
+
+  // Sensor model equation intercept [sensor_units].
+  float sensor_intercept[3];
+
+  // A limit on the error between nearest-temperature estimate and the model fit
+  // above which the model fit is preferred for providing offset compensation
+  // (also applies to checks between the nearest-temperature and the current
+  // compensated estimate).
+  float jump_tolerance;                // [sensor units]
+
+  // A limit used to reject new offset estimates that deviate from the current
+  // model fit.
+  float outlier_limit;                 // [sensor units]
+
+  // This parameter is used to detect offset changes that require updates to
+  // system calibration and persistent memory storage.
+  float significant_offset_change;     // [sensor units]
+
+  // Used to track the previous significant change in temperature.
+  float last_temp_check_celsius;
 
   // The rules for accepting new offset estimates into the 'model_data'
   // collection:
@@ -199,37 +282,52 @@ struct OverTempCal {
   // recent estimates in cases where they arrive frequently near a given
   // temperature, and prevents model oversampling (i.e., dominance of estimates
   // concentrated at a given set of temperatures).
-  float delta_temp_per_bin;        // [Celsius/bin]
+  float delta_temp_per_bin;            // [Celsius/bin]
 
-  // Timer used to limit the rate at which a search for the nearest offset
-  // estimate is performed.
-  uint64_t nearest_search_timer;   // [nanoseconds]
+  // Total number of model data points collected.
+  size_t num_model_pts;
 
-  // Timer used to limit the rate at which old estimates are removed from
-  // the 'model_data' collection.
-  uint64_t stale_data_timer;       // [nanoseconds]
-
-  // Duration beyond which data will be removed to avoid corrupting the model
-  // with drift-compromised data.
-  uint64_t age_limit_nanos;        // [nanoseconds]
+  // The number of successive outliers rejected in a row. This is used to
+  // prevent the possibility of a bad state where an initial poor model fit
+  // causes good data to be continually rejected.
+  size_t num_outliers;
 
   // Flag set by user to control whether over-temp compensation is used.
   bool over_temp_enable;
 
   // True when new compensation model values have been computed; and reset when
   // overTempCalNewModelUpdateAvailable() is called. This variable indicates
-  // that the following should be stored/updated in persistent system memory:
+  // that the following should be stored in persistent system memory:
   //    1) 'temp_sensitivity' and 'sensor_intercept'.
-  //    2) The sensor offset data pointed to by 'nearest_offset'
+  //    2) The 'compensated_offset' offset data
   //       (saving timestamp information is not required).
   bool new_overtemp_model_available;
+
+  // True when a new offset estimate has been computed and registers as a
+  // significant change (i.e., any of the axis offsets change by more than
+  // 'significant_offset_change'); and reset when
+  // overTempCalNewOffsetAvailable() is called. This variable indicates that new
+  // offset data should be stored in persistent system memory.
+  bool new_overtemp_offset_available;
 
 #ifdef OVERTEMPCAL_DBG_ENABLED
   struct DebugOverTempCal debug_overtempcal;  // Debug data structure.
   enum OverTempCalDebugState debug_state;     // Debug printout state machine.
-  size_t debug_num_model_updates;  // Total number of model updates.
-  size_t debug_num_estimates;      // Total number of offset estimates.
-  bool debug_print_trigger;        // Flag used to trigger data printout.
+  enum OverTempCalDebugState next_state;      // Debug state machine next state.
+  uint64_t wait_timer_nanos;                  // Debug message throttle timer.
+
+#ifdef OVERTEMPCAL_DBG_LOG_TEMP
+  uint64_t temperature_print_timer;
+#endif  // OVERTEMPCAL_DBG_LOG_TEMP
+
+  size_t model_counter;                // Model output print counter.
+  float otc_unit_conversion;           // Unit conversion for debug display.
+  char otc_unit_tag[16];               // Unit descriptor (e.g., "mDPS").
+  char otc_sensor_tag[16];             // OTC sensor descriptor (e.g., "GYRO").
+  char otc_debug_tag[32];              // Temporary string descriptor.
+  size_t debug_num_model_updates;      // Total number of model updates.
+  size_t debug_num_estimates;          // Total number of offset estimates.
+  bool debug_print_trigger;            // Flag used to trigger data printout.
 #endif  // OVERTEMPCAL_DBG_ENABLED
 };
 
@@ -242,10 +340,12 @@ struct OverTempCal {
  *   over_temp_cal:             Over-temp main data structure.
  *   min_num_model_pts:         Minimum number of model points per model
  *                              calculation update.
- *   min_update_interval_nanos: Minimum model update interval.
+ *   min_temp_update_period_nanos: Limits the rate of offset updates due to an
+ *                                 arbitrarily high temperature sampling rate.
  *   delta_temp_per_bin:        Temperature span that defines the spacing of
  *                              collected model estimates.
- *   max_error_limit:           Model acceptance fit error tolerance.
+ *   jump_tolerance:            Tolerance on acceptable jumps in offset updates.
+ *   outlier_limit:             Outlier offset estimate rejection tolerance.
  *   age_limit_nanos:           Sets the age limit beyond which a offset
  *                              estimate is removed from 'model_data'.
  *   temp_sensitivity_limit:    Values that define the upper limits for the
@@ -253,15 +353,17 @@ struct OverTempCal {
  *                              parameters must satisfy:
  *                          i.  ABS(temp_sensitivity) < temp_sensitivity_limit
  *                          ii. ABS(sensor_intercept) < sensor_intercept_limit
+ *   significant_offset_change  Minimum limit that triggers offset updates.
  *   over_temp_enable:          Flag that determines whether over-temp sensor
  *                              offset compensation is applied.
  */
 void overTempCalInit(struct OverTempCal *over_temp_cal,
                      size_t min_num_model_pts,
-                     uint64_t min_update_interval_nanos,
-                     float delta_temp_per_bin, float max_error_limit,
-                     uint64_t age_limit_nanos, float temp_sensitivity_limit,
-                     float sensor_intercept_limit, bool over_temp_enable);
+                     uint64_t min_temp_update_period_nanos,
+                     float delta_temp_per_bin, float jump_tolerance,
+                     float outlier_limit, uint64_t age_limit_nanos,
+                     float temp_sensitivity_limit, float sensor_intercept_limit,
+                     float significant_offset_change, bool over_temp_enable);
 
 /*
  * Sets the over-temp calibration model parameters.
@@ -309,11 +411,12 @@ void overTempCalGetModel(struct OverTempCal *over_temp_cal, float *offset,
  *   over_temp_cal:    Over-temp main data structure.
  *   model_data:       Array of the new model data set.
  *   data_length:      Number of model data entries in 'model_data'.
+ *   timestamp_nanos:  Timestamp for the model estimates [nanoseconds].
  *
- * NOTE: Max array length for 'model_data' is OVERTEMPCAL_MODEL_SIZE.
+ * NOTE: Max array length for 'model_data' is OTC_MODEL_SIZE.
  */
 void overTempCalSetModelData(struct OverTempCal *over_temp_cal,
-                             size_t data_length,
+                             size_t data_length, uint64_t timestamp_nanos,
                              const struct OverTempCalDataPt *model_data);
 
 /*
@@ -325,29 +428,24 @@ void overTempCalSetModelData(struct OverTempCal *over_temp_cal,
  *   model_data:       Array containing the model data set.
  *   data_length:      Number of model data entries in 'model_data'.
  *
- * NOTE: Max array length for 'model_data' is OVERTEMPCAL_MODEL_SIZE.
+ * NOTE: Max array length for 'model_data' is OTC_MODEL_SIZE.
  */
 void overTempCalGetModelData(struct OverTempCal *over_temp_cal,
                              size_t *data_length,
                              struct OverTempCalDataPt *model_data);
 
 /*
- * Returns 'true' if the estimated offset has changed by
- * 'SIGNIFICANT_OFFSET_CHANGE_RPS' and provides the current over-temperature
- * compensated offset vector. This function is useful for detecting changes in
- * the offset vector.
+ * Gets the current over-temp compensated offset estimate data.
  *
  * INPUTS:
  *   over_temp_cal:    Over-temp data structure.
- *   timestamp_nanos:  The current system timestamp.
  * OUTPUTS:
  *   compensated_offset: Temperature compensated offset estimate array.
  *   compensated_offset_temperature_celsius: Compensated offset temperature.
  *
  * NOTE: Arrays are all 3-dimensional with indices: 0=x, 1=y, 2=z.
  */
-bool overTempCalGetOffset(struct OverTempCal *over_temp_cal,
-                          uint64_t timestamp_nanos,
+void overTempCalGetOffset(struct OverTempCal *over_temp_cal,
                           float *compensated_offset_temperature_celsius,
                           float *compensated_offset);
 
@@ -368,6 +466,10 @@ void overTempCalRemoveOffset(struct OverTempCal *over_temp_cal,
 // Returns true when a new over-temp model update is available; and the
 // 'new_overtemp_model_available' flag is reset.
 bool overTempCalNewModelUpdateAvailable(struct OverTempCal *over_temp_cal);
+
+// Returns true when a new over-temp over-temperature offset estimate is
+// available; and the 'new_overtemp_offset_available' flag is reset.
+bool overTempCalNewOffsetAvailable(struct OverTempCal *over_temp_cal);
 
 /*
  * Updates the sensor's offset estimate and conditionally assimilates it into
@@ -416,11 +518,49 @@ void overTempGetModelError(const struct OverTempCal *over_temp_cal,
                            const float *temp_sensitivity,
                            const float *sensor_intercept, float *max_error);
 
+/*
+ * Defines an element in the weighting function that is used to control the
+ * fitting behavior of the simple linear model regression used in this module.
+ * The total number of weighting levels that define this functionality is set by
+ * 'OTC_NUM_WEIGHT_LEVELS'. The weight values are expected to be greater than
+ * zero. A particular weight is assigned to a given offset estimate when it's
+ * age is less than 'offset_age_nanos'. NOTE: The ordering of the
+ * 'offset_age_nanos' values in the weight function array should be
+ * monotonically increasing from lowest index to highest so that weighting
+ * selection can be conveniently evaluated.
+ *
+ * INPUTS:
+ *   over_temp_cal:    Over-temp data structure.
+ *   index:            Weighting function index.
+ *   new_otc_weight:   Pointer to the settings for the new non-zero weighting
+ *                     value and corresponding age limit below which an offset
+ *                     will use the weight.
+ */
+void overTempSetWeightingFunction(
+    struct OverTempCal *over_temp_cal, size_t index,
+    const struct OverTempCalWeightPt *new_otc_weight);
+
 #ifdef OVERTEMPCAL_DBG_ENABLED
 // This debug printout function assumes the input sensor data is a gyroscope
-// [rad/sec].
+// [rad/sec]. 'timestamp_nanos' is the current system time.
 void overTempCalDebugPrint(struct OverTempCal *over_temp_cal,
                            uint64_t timestamp_nanos);
+
+/*
+ * Call this after calling 'overTempCalInit' to set the debug sensor descriptor,
+ * displayed units, and the conversion factor from raw sensor units to the
+ * desired display units. Note the maximum string length allocations.
+ *
+ * INPUTS:
+ *   over_temp_cal:       Over-temp data structure.
+ *   otc_sensor_tag:      Sensor descriptor prefixes debug output.
+ *   otc_unit_tag:        Display unit string.
+ *   otc_unit_conversion: Display unit conversion factor from raw sensor units.
+ */
+void overTempCalDebugDescriptors(struct OverTempCal *over_temp_cal,
+                                 const char *otc_sensor_tag,
+                                 const char *otc_unit_tag,
+                                 float otc_unit_conversion);
 #endif  // OVERTEMPCAL_DBG_ENABLED
 
 #ifdef __cplusplus

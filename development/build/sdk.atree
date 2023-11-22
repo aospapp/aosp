@@ -44,6 +44,8 @@ development/sdk/plat_tools_source.properties  platform-tools/source.properties
 # host tools from out/host/$(HOST_OS)-$(HOST_ARCH)/
 bin/adb                                 strip platform-tools/adb
 bin/fastboot                            strip platform-tools/fastboot
+bin/mke2fs                              strip platform-tools/mke2fs
+bin/e2fsdroid                           strip platform-tools/e2fsdroid
 bin/sqlite3                             strip platform-tools/sqlite3
 bin/dmtracedump                         strip platform-tools/dmtracedump
 bin/etc1tool                            strip platform-tools/etc1tool
@@ -138,9 +140,9 @@ framework/dx.jar                              build-tools/${PLATFORM_NAME}/lib/d
 bin/dexdump                                   build-tools/${PLATFORM_NAME}/dexdump
 
 # multi-dex
-prebuilts/sdk/tools/lib/shrinkedAndroid.jar   build-tools/${PLATFORM_NAME}/lib/shrinkedAndroid.jar
-dalvik/dx/etc/mainDexClasses.rules            build-tools/${PLATFORM_NAME}/mainDexClasses.rules
-dalvik/dx/etc/mainDexClassesNoAapt.rules      build-tools/${PLATFORM_NAME}/mainDexClassesNoAapt.rules
+${OUT_DIR}/host/common/obj/JAVA_LIBRARIES/shrinkedAndroid_intermediates/shrinkedAndroid.jar  build-tools/${PLATFORM_NAME}/lib/shrinkedAndroid.jar
+dalvik/dx/etc/mainDexClasses.rules                                                           build-tools/${PLATFORM_NAME}/mainDexClasses.rules
+dalvik/dx/etc/mainDexClassesNoAapt.rules                                                     build-tools/${PLATFORM_NAME}/mainDexClassesNoAapt.rules
 
 # Jack & Jill
 prebuilts/sdk/tools/jacks/jack-${JACK_SDKTOOL_VERSION}.jar                build-tools/${PLATFORM_NAME}/jack.jar
@@ -220,7 +222,7 @@ docs/features.txt                         platforms/${PLATFORM_NAME}/data/featur
 ${FONT_OUT}                       platforms/${PLATFORM_NAME}/data/fonts
 
 # timezone data for layoutlib
-bionic/libc/zoneinfo/tzdata       platforms/${PLATFORM_NAME}/data/tzdata
+system/timezone/output_data/iana/tzdata   platforms/${PLATFORM_NAME}/data/tzdata
 
 # NOTICE files are copied by build/core/Makefile from sdk.git
 development/sdk/sdk_files_NOTICE.txt      platforms/${PLATFORM_NAME}/templates/NOTICE.txt
@@ -233,7 +235,8 @@ development/sdk/sdk_files_NOTICE.txt      platforms/${PLATFORM_NAME}/skins/NOTIC
 ##############################################################################
 
 # System images + Kernel
-system.img                                 system-images/${PLATFORM_NAME}/${TARGET_CPU_ABI}/system.img
+system-qemu.img                                 system-images/${PLATFORM_NAME}/${TARGET_CPU_ABI}/system.img
+vendor-qemu.img                                 system-images/${PLATFORM_NAME}/${TARGET_CPU_ABI}/vendor.img
 ramdisk.img                                system-images/${PLATFORM_NAME}/${TARGET_CPU_ABI}/ramdisk.img
 userdata.img                               system-images/${PLATFORM_NAME}/${TARGET_CPU_ABI}/userdata.img
 system/build.prop                          system-images/${PLATFORM_NAME}/${TARGET_CPU_ABI}/build.prop

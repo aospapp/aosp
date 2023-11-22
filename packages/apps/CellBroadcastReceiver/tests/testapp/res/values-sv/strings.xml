@@ -23,7 +23,7 @@
     <string name="button_etws_other_type" msgid="4129451610585426791">"Gör en annan nödsituationssändning från ETWS (Earthquake and Tsunami Warning System)"</string>
     <string name="button_etws_cancel_type" msgid="4770911191572322801">"Skicka ETWS avbryt sändning"</string>
     <string name="button_etws_test_type" msgid="5520113823851979673">"Skicka ETWS testsändning"</string>
-    <string name="button_cmas_pres_alert" msgid="1269455100893365889">"Skicka varningar utfärdade av presidenten via CMAS"</string>
+    <string name="button_cmas_pres_alert" msgid="1269455100893365889">"Skicka nationella varningar via CMAS"</string>
     <string name="button_cmas_extreme_alert" msgid="5922644977169679386">"Skicka varningar om extrem fara via CMAS"</string>
     <string name="button_cmas_severe_alert" msgid="5197711586353552255">"Skicka varningar om allvarlig fara via CMAS"</string>
     <string name="button_cmas_amber_alert" msgid="860091654456014191">"Skicka AMBER-meddelanden via CMAS"</string>

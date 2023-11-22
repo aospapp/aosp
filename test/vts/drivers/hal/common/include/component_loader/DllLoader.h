@@ -22,10 +22,11 @@
 namespace android {
 namespace vts {
 
-class FuzzerBase;
+class DriverBase;
 
 // Pointer type for a function in a loaded component.
-typedef FuzzerBase* (*loader_function)();
+typedef DriverBase* (*loader_function)();
+typedef DriverBase* (*loader_function_with_arg)(uint64_t arg);
 typedef void (*writeout_fn)();
 typedef void (*flush_fn)();
 
@@ -49,7 +50,9 @@ class DllLoader {
 
   // Finds and returns a requested function defined in the loaded file.
   // Returns NULL if not found.
-  loader_function GetLoaderFunction(const char* function_name);
+  loader_function GetLoaderFunction(const char* function_name) const;
+  loader_function_with_arg GetLoaderFunctionWithArg(
+      const char* function_name) const;
 
   // (for sancov) Reset coverage data.
   bool SancovResetCoverage();
@@ -72,7 +75,7 @@ class DllLoader {
 
   // Loads a symbol and prints error message.
   // Returns the symbol value if successful; NULL otherwise.
-  void* LoadSymbol(const char* symbol_name);
+  void* LoadSymbol(const char* symbol_name) const;
 };
 
 }  // namespace vts

@@ -28,6 +28,7 @@ import android.support.annotation.UiThread;
 import android.support.v4.view.animation.FastOutLinearInInterpolator;
 import android.support.v4.view.animation.FastOutSlowInInterpolator;
 import android.support.v4.view.animation.LinearOutSlowInInterpolator;
+import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.util.Property;
 import android.view.View;
@@ -56,12 +57,14 @@ public class MenuLayoutManager {
 
     // The visible duration of the title before it is hidden.
     private static final long TITLE_SHOW_DURATION_BEFORE_HIDDEN_MS = TimeUnit.SECONDS.toMillis(2);
+    private static final int INVALID_POSITION = -1;
 
     private final MenuView mMenuView;
     private final List<MenuRow> mMenuRows = new ArrayList<>();
     private final List<MenuRowView> mMenuRowViews = new ArrayList<>();
     private final List<Integer> mRemovingRowViews = new ArrayList<>();
-    private int mSelectedPosition = -1;
+    private int mSelectedPosition = INVALID_POSITION;
+    private int mPendingSelectedPosition = INVALID_POSITION;
 
     private final int mRowAlignFromBottom;
     private final int mRowContentsPaddingTop;
@@ -130,8 +133,8 @@ public class MenuLayoutManager {
         MenuRowView currentView = mMenuRowViews.get(mSelectedPosition);
         if (currentView.getVisibility() == View.GONE) {
             // If the selected row is not visible, select the first visible row.
-            int firstVisiblePosition = findNextVisiblePosition(-1);
-            if (firstVisiblePosition != -1) {
+            int firstVisiblePosition = findNextVisiblePosition(INVALID_POSITION);
+            if (firstVisiblePosition != INVALID_POSITION) {
                 mSelectedPosition = firstVisiblePosition;
             } else {
                 // No rows are visible.
@@ -157,6 +160,10 @@ public class MenuLayoutManager {
                 view.onDeselected();
             }
         }
+
+        if (mPendingSelectedPosition != INVALID_POSITION) {
+            setSelectedPositionSmooth(mPendingSelectedPosition);
+        }
     }
 
     private int findNextVisiblePosition(int start) {
@@ -166,7 +173,7 @@ public class MenuLayoutManager {
                 return i;
             }
         }
-        return -1;
+        return INVALID_POSITION;
     }
 
     private void dumpChildren(String prefix) {
@@ -327,6 +334,7 @@ public class MenuLayoutManager {
             mMenuRowViews.get(mSelectedPosition).onDeselected();
         }
         mSelectedPosition = position;
+        mPendingSelectedPosition = INVALID_POSITION;
         if (Utils.isIndexValid(mMenuRowViews, mSelectedPosition)) {
             mMenuRowViews.get(mSelectedPosition).onSelected(false);
         }
@@ -380,14 +388,29 @@ public class MenuLayoutManager {
             // again from the intermediate state.
             mTitleFadeOutAnimator.cancel();
         }
-        final int oldPosition = mSelectedPosition;
-        mSelectedPosition = position;
         if (DEBUG) dumpChildren("startRowAnimation()");
 
-        MenuRowView currentView = mMenuRowViews.get(position);
         // Show the children of the next row.
-        currentView.getTitleView().setVisibility(View.VISIBLE);
-        currentView.getContentsView().setVisibility(View.VISIBLE);
+        final MenuRowView currentView = mMenuRowViews.get(position);
+        TextView currentTitleView = currentView.getTitleView();
+        View currentContentsView = currentView.getContentsView();
+        currentTitleView.setVisibility(View.VISIBLE);
+        currentContentsView.setVisibility(View.VISIBLE);
+        if (currentView instanceof PlayControlsRowView) {
+            ((PlayControlsRowView) currentView).onPreselected();
+        }
+        // When contents view's visibility is gone, layouting might be delayed until it's shown and
+        // thus cause onBindViewHolder() and menu action updating occurs in front of users' sight.
+        // Therefore we call requestLayout() here if there are pending adapter updates.
+        if (currentContentsView instanceof RecyclerView
+                && ((RecyclerView) currentContentsView).hasPendingAdapterUpdates()) {
+            currentContentsView.requestLayout();
+            mPendingSelectedPosition = position;
+            return;
+        }
+        final int oldPosition = mSelectedPosition;
+        mSelectedPosition = position;
+        mPendingSelectedPosition = INVALID_POSITION;
         // Request focus after the new contents view shows up.
         mMenuView.requestFocus();
         if (mTempTitleViewForOld == null) {
@@ -407,7 +430,7 @@ public class MenuLayoutManager {
 
         // Old row.
         MenuRow oldRow = mMenuRows.get(oldPosition);
-        MenuRowView oldView = mMenuRowViews.get(oldPosition);
+        final MenuRowView oldView = mMenuRowViews.get(oldPosition);
         View oldContentsView = oldView.getContentsView();
         // Old contents view.
         animators.add(createAlphaAnimator(oldContentsView, 1.0f, 0.0f, 1.0f, mLinearOutSlowIn)
@@ -468,8 +491,6 @@ public class MenuLayoutManager {
         }
         // Current row.
         Rect currentLayoutRect = new Rect(layouts.get(position));
-        TextView currentTitleView = currentView.getTitleView();
-        View currentContentsView = currentView.getContentsView();
         currentContentsView.setAlpha(0.0f);
         if (scrollDown) {
             // Current title view.
@@ -529,7 +550,7 @@ public class MenuLayoutManager {
         int nextPosition;
         if (scrollDown) {
             nextPosition = findNextVisiblePosition(position);
-            if (nextPosition != -1) {
+            if (nextPosition != INVALID_POSITION) {
                 MenuRowView nextView = mMenuRowViews.get(nextPosition);
                 Rect nextLayoutRect = layouts.get(nextPosition);
                 animators.add(createTranslationYAnimator(nextView,
@@ -539,7 +560,7 @@ public class MenuLayoutManager {
             }
         } else {
             nextPosition = findNextVisiblePosition(oldPosition);
-            if (nextPosition != -1) {
+            if (nextPosition != INVALID_POSITION) {
                 MenuRowView nextView = mMenuRowViews.get(nextPosition);
                 animators.add(createTranslationYAnimator(nextView, 0, mRowScrollUpAnimationOffset));
                 animators.add(createAlphaAnimator(nextView,
@@ -572,9 +593,8 @@ public class MenuLayoutManager {
                 for (ViewPropertyValueHolder holder : propertyValuesAfterAnimation) {
                     holder.property.set(holder.view, holder.value);
                 }
-                oldTitleView.setVisibility(View.VISIBLE);
-                mMenuRowViews.get(oldPosition).onDeselected();
-                mMenuRowViews.get(position).onSelected(true);
+                oldView.onDeselected();
+                currentView.onSelected(true);
                 mTempTitleViewForOld.setVisibility(View.GONE);
                 mTempTitleViewForCurrent.setVisibility(View.GONE);
                 layout(mMenuView.getLeft(), mMenuView.getTop(), mMenuView.getRight(),

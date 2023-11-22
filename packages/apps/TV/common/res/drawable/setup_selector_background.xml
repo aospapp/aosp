@@ -17,8 +17,7 @@
 
 <ripple xmlns:android="http://schemas.android.com/apk/res/android"
     android:color="?android:attr/colorControlHighlight">
-    <!-- Note that android:start and android:end is not supported in L platform. -->
-    <item android:id="@android:id/mask" android:left="24dp" android:right="24dp">
+    <item android:id="@android:id/mask">
         <shape>
             <solid android:color="@android:color/white"/>
             <corners android:radius="2dp" />

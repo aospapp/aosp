@@ -26,7 +26,7 @@ public class UiCall {
     private int mState;
     private boolean mHasParent;
     private String mNumber;
-    private CharSequence mDisconnectClause;
+    private CharSequence mDisconnectCause;
     private boolean mHasChildren;
     private Uri mGatewayInfoOriginalAddress;
     private long connectTimeMillis;
@@ -71,12 +71,12 @@ public class UiCall {
         mNumber = number;
     }
 
-    public CharSequence getDisconnectClause() {
-        return mDisconnectClause;
+    public CharSequence getDisconnectCause() {
+        return mDisconnectCause;
     }
 
-    public void setDisconnectClause(CharSequence disconnectClause) {
-        mDisconnectClause = disconnectClause;
+    public void setDisconnectCause(CharSequence disconnectCause) {
+        mDisconnectCause = disconnectCause;
     }
 
     public Uri getGatewayInfoOriginalAddress() {

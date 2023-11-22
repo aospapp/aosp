@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2000-2015 Julian Seward 
+   Copyright (C) 2000-2017 Julian Seward 
       jseward@acm.org
 
    This program is free software; you can redistribute it and/or
@@ -135,6 +135,20 @@ static void fill_phdr(ESZ(Phdr) *phdr, const NSegment *seg, UInt off, Bool write
    phdr->p_align = VKI_PAGE_SIZE;
 }
 
+#if 0 /* We've had Elf32_Nhdr since at least froyo! */
+#if defined(VGPV_arm_linux_android) || defined(VGPV_x86_linux_android) \
+    || defined(VGPV_mips32_linux_android)
+/* Android's libc doesn't provide a definition for this.  Hence: */
+typedef
+   struct {
+      Elf32_Word n_namesz;
+      Elf32_Word n_descsz;
+      Elf32_Word n_type;
+   }
+   Elf32_Nhdr;
+#endif
+#endif
+
 struct note {
    struct note *next;
    ESZ(Nhdr) note;
@@ -214,7 +228,11 @@ static void fill_prstatus(const ThreadState *tst,
 			  /*OUT*/struct vki_elf_prstatus *prs, 
 			  const vki_siginfo_t *si)
 {
+#if defined(VGP_mips32_linux) || defined(VGP_mips64_linux)
+   vki_elf_greg_t *regs;
+#else
    struct vki_user_regs_struct *regs;
+#endif
    const ThreadArchState* arch = &tst->arch;
 
    VG_(memset)(prs, 0, sizeof(*prs));
@@ -233,6 +251,8 @@ static void fill_prstatus(const ThreadState *tst,
 #if defined(VGP_s390x_linux)
    /* prs->pr_reg has struct type. Need to take address. */
    regs = (struct vki_user_regs_struct *)&(prs->pr_reg);
+#elif defined(VGP_mips32_linux) || defined(VGP_mips64_linux)
+   regs = (vki_elf_greg_t *)prs->pr_reg;
 #else
    regs = (struct vki_user_regs_struct *)prs->pr_reg;
    vg_assert(sizeof(*regs) == sizeof(prs->pr_reg));
@@ -377,35 +397,27 @@ static void fill_prstatus(const ThreadState *tst,
    regs->orig_gpr2 = arch->vex.guest_r2;
 
 #elif defined(VGP_mips32_linux)
-#  define DO(n)  regs->MIPS_r##n = arch->vex.guest_r##n
-   DO(0);  DO(1);  DO(2);  DO(3);  DO(4);  DO(5);  DO(6);  DO(7);
-   DO(8);  DO(9);  DO(10); DO(11); DO(12); DO(13); DO(14); DO(15);
-   DO(16); DO(17); DO(18); DO(19); DO(20); DO(21); DO(22); DO(23);
-   DO(24); DO(25); DO(26); DO(27); DO(28); DO(29); DO(30); DO(31);
+#  define DO(n)  regs[VKI_MIPS32_EF_R##n] = arch->vex.guest_r##n
+   DO(1);  DO(2);  DO(3);  DO(4);  DO(5);  DO(6);  DO(7);  DO(8);
+   DO(9);  DO(10); DO(11); DO(12); DO(13); DO(14); DO(15); DO(16);
+   DO(17); DO(18); DO(19); DO(20); DO(21); DO(22); DO(23); DO(24);
+   DO(25); DO(28); DO(29); DO(30); DO(31);
 #  undef DO
-   regs->MIPS_hi   = arch->vex.guest_HI;
-   regs->MIPS_lo   = arch->vex.guest_LO;
-
+   regs[VKI_MIPS32_EF_LO]         = arch->vex.guest_LO;
+   regs[VKI_MIPS32_EF_HI]         = arch->vex.guest_HI;
+   regs[VKI_MIPS32_EF_CP0_STATUS] = arch->vex.guest_CP0_status;
+   regs[VKI_MIPS32_EF_CP0_EPC]    = arch->vex.guest_PC;
 #elif defined(VGP_mips64_linux)
-#  define DO(n)  regs->MIPS_r##n = arch->vex.guest_r##n
-   DO(0);  DO(1);  DO(2);  DO(3);  DO(4);  DO(5);  DO(6);  DO(7);
-   DO(8);  DO(9);  DO(10); DO(11); DO(12); DO(13); DO(14); DO(15);
-   DO(16); DO(17); DO(18); DO(19); DO(20); DO(21); DO(22); DO(23);
-   DO(24); DO(25); DO(26); DO(27); DO(28); DO(29); DO(30); DO(31);
+#  define DO(n)  regs[VKI_MIPS64_EF_R##n] = arch->vex.guest_r##n
+   DO(1);  DO(2);  DO(3);  DO(4);  DO(5);  DO(6);  DO(7);  DO(8);
+   DO(9);  DO(10); DO(11); DO(12); DO(13); DO(14); DO(15); DO(16);
+   DO(17); DO(18); DO(19); DO(20); DO(21); DO(22); DO(23); DO(24);
+   DO(25); DO(28); DO(29); DO(30); DO(31);
 #  undef DO
-   regs->MIPS_hi   = arch->vex.guest_HI;
-   regs->MIPS_lo   = arch->vex.guest_LO;
-#elif defined(VGP_tilegx_linux)
-#  define DO(n)  regs->regs[n] = arch->vex.guest_r##n
-   DO(0);  DO(1);  DO(2);  DO(3);  DO(4);  DO(5);  DO(6);  DO(7);
-   DO(8);  DO(9);  DO(10); DO(11); DO(12); DO(13); DO(14); DO(15);
-   DO(16); DO(17); DO(18); DO(19); DO(20); DO(21); DO(22); DO(23);
-   DO(24); DO(25); DO(26); DO(27); DO(28); DO(29); DO(30); DO(31);
-   DO(32); DO(33); DO(34); DO(35); DO(36); DO(37); DO(38); DO(39);
-   DO(40); DO(41); DO(42); DO(43); DO(44); DO(45); DO(46); DO(47);
-   DO(48); DO(49); DO(50); DO(51); DO(52); DO(53); DO(54); DO(55);
-   regs->pc = arch->vex.guest_pc;
-   regs->orig_r0 =  arch->vex.guest_r0;
+   regs[VKI_MIPS64_EF_LO]         = arch->vex.guest_LO;
+   regs[VKI_MIPS64_EF_HI]         = arch->vex.guest_HI;
+   regs[VKI_MIPS64_EF_CP0_STATUS] = arch->vex.guest_CP0_status;
+   regs[VKI_MIPS64_EF_CP0_EPC]    = arch->vex.guest_PC;
 #else
 #  error Unknown ELF platform
 #endif
@@ -478,7 +490,7 @@ static void fill_fpu(const ThreadState *tst, vki_elf_fpregset_t *fpu)
    DO(24); DO(25); DO(26); DO(27); DO(28); DO(29); DO(30); DO(31);
 #  undef DO
 
-#elif defined(VGP_arm_linux) || defined(VGP_tilegx_linux)
+#elif defined(VGP_arm_linux)
    // umm ...
 
 #elif defined(VGP_arm64_linux)
@@ -489,15 +501,8 @@ static void fill_fpu(const ThreadState *tst, vki_elf_fpregset_t *fpu)
    DO(0);  DO(1);  DO(2);  DO(3);  DO(4);  DO(5);  DO(6);  DO(7);
    DO(8);  DO(9);  DO(10); DO(11); DO(12); DO(13); DO(14); DO(15);
 # undef DO
-#elif defined(VGP_mips32_linux)
-#  define DO(n)  (*fpu)[n] = *(double*)(&arch->vex.guest_f##n)
-   DO(0);  DO(1);  DO(2);  DO(3);  DO(4);  DO(5);  DO(6);  DO(7);
-   DO(8);  DO(9);  DO(10); DO(11); DO(12); DO(13); DO(14); DO(15);
-   DO(16); DO(17); DO(18); DO(19); DO(20); DO(21); DO(22); DO(23);
-   DO(24); DO(25); DO(26); DO(27); DO(28); DO(29); DO(30); DO(31);
-#  undef DO
 #elif defined(VGP_mips32_linux) || defined(VGP_mips64_linux)
-#  define DO(n)  (*fpu)[n] = *(double*)(&arch->vex.guest_f##n)
+#  define DO(n)  (*fpu)[n] = *(const double*)(&arch->vex.guest_f##n)
    DO(0);  DO(1);  DO(2);  DO(3);  DO(4);  DO(5);  DO(6);  DO(7);
    DO(8);  DO(9);  DO(10); DO(11); DO(12); DO(13); DO(14); DO(15);
    DO(16); DO(17); DO(18); DO(19); DO(20); DO(21); DO(22); DO(23);
@@ -583,10 +588,10 @@ void make_elf_coredump(ThreadId tid, const vki_siginfo_t *si, ULong max_size)
    Addr *seg_starts;
    Int n_seg_starts;
 
-   if (VG_(clo_log_fname_expanded) != NULL) {
+   if (VG_(clo_log_fname_unexpanded) != NULL) {
       coreext = ".core";
       basename = VG_(expand_file_name)("--log-file",
-                                       VG_(clo_log_fname_expanded));
+                                       VG_(clo_log_fname_unexpanded));
    }
 
    vg_assert(coreext);
@@ -628,7 +633,7 @@ void make_elf_coredump(ThreadId tid, const vki_siginfo_t *si, ULong max_size)
    /* First, count how many memory segments to dump */
    num_phdrs = 1;		/* start with notes */
    for(i = 0; i < n_seg_starts; i++) {
-      if (!may_dump(VG_(am_find_nsegment(seg_starts[i]))))
+      if (!may_dump(VG_(am_find_nsegment)(seg_starts[i])))
 	 continue;
 
       num_phdrs++;
@@ -686,7 +691,7 @@ void make_elf_coredump(ThreadId tid, const vki_siginfo_t *si, ULong max_size)
    off = VG_PGROUNDUP(off);
 
    for(i = 0, idx = 1; i < n_seg_starts; i++) {
-      seg = VG_(am_find_nsegment(seg_starts[i]));
+      seg = VG_(am_find_nsegment)(seg_starts[i]);
 
       if (!may_dump(seg))
 	 continue;
@@ -709,7 +714,7 @@ void make_elf_coredump(ThreadId tid, const vki_siginfo_t *si, ULong max_size)
    VG_(lseek)(core_fd, phdrs[1].p_offset, VKI_SEEK_SET);
 
    for(i = 0, idx = 1; i < n_seg_starts; i++) {
-      seg = VG_(am_find_nsegment(seg_starts[i]));
+      seg = VG_(am_find_nsegment)(seg_starts[i]);
 
       if (!should_dump(seg))
 	 continue;

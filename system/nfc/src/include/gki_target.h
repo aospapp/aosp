@@ -129,11 +129,6 @@
 **
 ******************************************************************************/
 
-/* TRUE if GKI uses dynamic buffers. */
-#ifndef GKI_USE_DYNAMIC_BUFFERS
-#define GKI_USE_DYNAMIC_BUFFERS FALSE
-#endif
-
 /* The size of the buffers in pool 0. */
 #ifndef GKI_BUF0_SIZE
 #define GKI_BUF0_SIZE 64
@@ -286,11 +281,6 @@ of order */
 #define GKI_SEVERE(code)
 #endif
 
-/* TRUE if GKI includes debug functionality. */
-#ifndef GKI_DEBUG
-#define GKI_DEBUG FALSE
-#endif
-
 /* Maximum number of exceptions logged. */
 #ifndef GKI_MAX_EXCEPTION
 #define GKI_MAX_EXCEPTION 8
@@ -371,41 +361,6 @@ over HCI data and intentionally kept out of order */
 #define GKI_BUF8_MAX 30
 #endif
 
-#if (GKI_DEBUG == TRUE)
-#ifdef LOG_TAG
-#undef LOG_TAG
-#endif
-#define LOG_TAG "GKI_LINUX"
-/* GKI Trace Macros */
-#define GKI_TRACE_0(m)                                          \
-  LogMsg(TRACE_CTRL_GENERAL | TRACE_LAYER_GKI | TRACE_ORG_GKI | \
-             TRACE_TYPE_GENERIC,                                \
-         m)
-#define GKI_TRACE_1(m, p1)                                      \
-  LogMsg(TRACE_CTRL_GENERAL | TRACE_LAYER_GKI | TRACE_ORG_GKI | \
-             TRACE_TYPE_GENERIC,                                \
-         m, p1)
-#define GKI_TRACE_2(m, p1, p2)                                  \
-  LogMsg(TRACE_CTRL_GENERAL | TRACE_LAYER_GKI | TRACE_ORG_GKI | \
-             TRACE_TYPE_GENERIC,                                \
-         m, p1, p2)
-#define GKI_TRACE_3(m, p1, p2, p3)                              \
-  LogMsg(TRACE_CTRL_GENERAL | TRACE_LAYER_GKI | TRACE_ORG_GKI | \
-             TRACE_TYPE_GENERIC,                                \
-         m, p1, p2, p3)
-#define GKI_TRACE_4(m, p1, p2, p3, p4)                          \
-  LogMsg(TRACE_CTRL_GENERAL | TRACE_LAYER_GKI | TRACE_ORG_GKI | \
-             TRACE_TYPE_GENERIC,                                \
-         m, p1, p2, p3, p4)
-#define GKI_TRACE_5(m, p1, p2, p3, p4, p5)                      \
-  LogMsg(TRACE_CTRL_GENERAL | TRACE_LAYER_GKI | TRACE_ORG_GKI | \
-             TRACE_TYPE_GENERIC,                                \
-         m, p1, p2, p3, p4, p5)
-#define GKI_TRACE_6(m, p1, p2, p3, p4, p5, p6)                  \
-  LogMsg(TRACE_CTRL_GENERAL | TRACE_LAYER_GKI | TRACE_ORG_GKI | \
-             TRACE_TYPE_GENERIC,                                \
-         m, p1, p2, p3, p4, p5, p6)
-#else
 #define GKI_TRACE_0(m)
 #define GKI_TRACE_1(m, p1)
 #define GKI_TRACE_2(m, p1, p2)
@@ -413,8 +368,6 @@ over HCI data and intentionally kept out of order */
 #define GKI_TRACE_4(m, p1, p2, p3, p4)
 #define GKI_TRACE_5(m, p1, p2, p3, p4, p5)
 #define GKI_TRACE_6(m, p1, p2, p3, p4, p5, p6)
-
-#endif
 
 #define GKI_TRACE_ERROR_0(m)                                                   \
   LogMsg(                                                                      \

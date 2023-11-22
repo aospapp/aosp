@@ -4,8 +4,8 @@
 
 import logging
 import os
+import subprocess
 import tempfile
-import time
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
@@ -19,19 +19,21 @@ _TEST_TONE_ONE = 440
 _TEST_TONE_TWO = 523
 
 class audio_CRASFormatConversion(audio_helper.cras_rms_test):
+    """Checks that sample rate conversion works in CRAS."""
+
     version = 1
 
 
-    def play_sine_tone(self, frequence, rate):
+    def play_sine_tone(self, frequency, rate):
         """Plays a sine tone by cras and returns the processes.
-        Args:
-            frequence: the frequence of the sine wave.
-            rate: the sampling rate.
+
+        @param frequency: the frequency of the sine wave.
+        @param rate: the sampling rate.
         """
         p1 = cmd_utils.popen(
             sox_utils.generate_sine_tone_cmd(
-                    filename='-', rate=rate, frequencies=frequence, gain=-6),
-            stdout=cmd_utils.PIPE)
+                    filename='-', rate=rate, frequencies=frequency, gain=-6),
+            stdout=subprocess.PIPE)
         p2 = cmd_utils.popen(
             cras_utils.playback_cmd(playback_file='-', rate=rate),
             stdin=p1.stdout)
@@ -39,6 +41,15 @@ class audio_CRASFormatConversion(audio_helper.cras_rms_test):
 
 
     def wait_for_active_stream_count(self, expected_count):
+        """Waits until the number of active streams matches the requested
+        number or until a timeout occurs.
+
+        @param expected_count: the exact number of streams required to
+                               be active for execution to continue.
+
+        @raise TestError: if a timeout occurs.
+        """
+
         utils.poll_for_condition(
                 lambda: cras_utils.get_active_stream_count() == expected_count,
                 exception=error.TestError(

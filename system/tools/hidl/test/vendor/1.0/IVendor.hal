@@ -30,4 +30,8 @@ interface IVendor extends IBaz {
     fun4(string a) generates(string b);
     fun5(uint8_t[4][4] a) generates(uint8_t[4][4] b);
 
+    // Testing static functions in derived class
+    // overriding virtual functions in parent class
+    // due to namespace resolution.
+    registerForNotifications();
 };

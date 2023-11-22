@@ -155,14 +155,14 @@ void BTA_AgDeregister(uint16_t handle) {
  * Returns          void
  *
  ******************************************************************************/
-void BTA_AgOpen(uint16_t handle, BD_ADDR bd_addr, tBTA_SEC sec_mask,
+void BTA_AgOpen(uint16_t handle, const RawAddress& bd_addr, tBTA_SEC sec_mask,
                 tBTA_SERVICE_MASK services) {
   tBTA_AG_API_OPEN* p_buf =
       (tBTA_AG_API_OPEN*)osi_malloc(sizeof(tBTA_AG_API_OPEN));
 
   p_buf->hdr.event = BTA_AG_API_OPEN_EVT;
   p_buf->hdr.layer_specific = handle;
-  bdcpy(p_buf->bd_addr, bd_addr);
+  p_buf->bd_addr = bd_addr;
   p_buf->services = services;
   p_buf->sec_mask = sec_mask;
 
@@ -273,6 +273,16 @@ void BTA_AgSetCodec(uint16_t handle, tBTA_AG_PEER_CODEC codec) {
   p_buf->hdr.event = BTA_AG_API_SETCODEC_EVT;
   p_buf->hdr.layer_specific = handle;
   p_buf->codec = codec;
+
+  bta_sys_sendmsg(p_buf);
+}
+
+void BTA_AgSetScoAllowed(bool value) {
+  tBTA_AG_API_SET_SCO_ALLOWED* p_buf = (tBTA_AG_API_SET_SCO_ALLOWED*)osi_malloc(
+      sizeof(tBTA_AG_API_SET_SCO_ALLOWED));
+
+  p_buf->hdr.event = BTA_AG_API_SET_SCO_ALLOWED_EVT;
+  p_buf->value = value;
 
   bta_sys_sendmsg(p_buf);
 }

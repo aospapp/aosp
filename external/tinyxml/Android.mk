@@ -62,10 +62,6 @@ LOCAL_VENDOR_MODULE := true
 
 LOCAL_CFLAGS+= $(commonFlags)
 
-LOCAL_SHARED_LIBRARIES := \
-    libc \
-    libstdc++
-
 include $(BUILD_SHARED_LIBRARY)
 
 

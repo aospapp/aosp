@@ -72,7 +72,7 @@ wifi_error wifi_set_iface_event_handler(wifi_request_id id,
     }
     mwifiEventHandler->setCallbackHandler(eh);
 
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /* Reset monitoring for the NL event*/
@@ -96,7 +96,7 @@ wifi_error wifi_reset_iface_event_handler(wifi_request_id id,
         ALOGV("Object mwifiEventHandler for id = %d already Deleted", id);
     }
 
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /* This function will be the main handler for the registered incoming

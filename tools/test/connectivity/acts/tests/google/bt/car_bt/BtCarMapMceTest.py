@@ -21,6 +21,7 @@ import time
 import queue
 
 import acts
+from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.BluetoothCarHfpBaseTest import BluetoothCarHfpBaseTest
 from acts.test_utils.bt import bt_test_utils
@@ -93,12 +94,14 @@ class BtCarMapMceTest(BluetoothCarHfpBaseTest):
             return False
         return True
 
+    @test_tracker_info(uuid='0858347a-e649-4f18-85b6-6990cc311dee')
     @BluetoothBaseTest.bt_test_wrap
     def test_send_message(self):
         bt_test_utils.connect_pri_to_sec(
             self.MCE, self.MSE, set([BtEnum.BluetoothProfile.MAP_MCE.value]))
         return self.send_message([self.REMOTE])
 
+    @test_tracker_info(uuid='b25caa53-3c7f-4cfa-a0ec-df9a8f925fe5')
     @BluetoothBaseTest.bt_test_wrap
     def test_receive_message(self):
         bt_test_utils.connect_pri_to_sec(
@@ -114,6 +117,7 @@ class BtCarMapMceTest(BluetoothCarHfpBaseTest):
         self.MCE.log.info(receivedMessage['data'])
         return True
 
+    @test_tracker_info(uuid='5b7b3ded-0a1a-470f-b119-9a03bc092805')
     @BluetoothBaseTest.bt_test_wrap
     def test_send_message_failure_no_cellular(self):
         if not toggle_airplane_mode_by_adb(self.log, self.MSE, True):
@@ -123,10 +127,12 @@ class BtCarMapMceTest(BluetoothCarHfpBaseTest):
             self.MCE, self.MSE, set([BtEnum.BluetoothProfile.MAP_MCE.value]))
         return not self.send_message([self.REMOTE])
 
+    @test_tracker_info(uuid='19444142-1d07-47dc-860b-f435cba46fca')
     @BluetoothBaseTest.bt_test_wrap
     def test_send_message_failure_no_map_connection(self):
         return not self.send_message([self.REMOTE])
 
+    @test_tracker_info(uuid='c7e569c0-9f6c-49a4-8132-14bc544ccb53')
     @BluetoothBaseTest.bt_test_wrap
     def test_send_message_failure_no_bluetooth(self):
         if not toggle_airplane_mode_by_adb(self.log, self.MSE, True):
@@ -139,6 +145,7 @@ class BtCarMapMceTest(BluetoothCarHfpBaseTest):
             self.MCE.log.info("Failed to connect as expected")
         return not self.send_message([self.REMOTE])
 
+    @test_tracker_info(uuid='8cdb4a54-3f18-482f-be3d-acda9c4cbeed')
     @BluetoothBaseTest.bt_test_wrap
     def test_disconnect_failure_send_message(self):
         connected = bt_test_utils.connect_pri_to_sec(
@@ -157,6 +164,7 @@ class BtCarMapMceTest(BluetoothCarHfpBaseTest):
         return connected and disconnected and not self.send_message(
             [self.REMOTE])
 
+    @test_tracker_info(uuid='2d79a896-b1c1-4fb7-9924-db8b5c698be5')
     @BluetoothBaseTest.bt_test_wrap
     def manual_test_send_message_to_contact(self):
         bt_test_utils.connect_pri_to_sec(
@@ -170,6 +178,7 @@ class BtCarMapMceTest(BluetoothCarHfpBaseTest):
                 selected_contact['data'], "Don't Text and Drive!")
         return False
 
+    @test_tracker_info(uuid='8ce9a7dd-3b5e-4aee-a897-30740e2439c3')
     @BluetoothBaseTest.bt_test_wrap
     def test_send_message_to_multiple_phones(self):
         bt_test_utils.connect_pri_to_sec(

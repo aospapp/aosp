@@ -29,10 +29,11 @@ public final class DexTask extends Task {
     private final File jar;
     private final Action action;
     private final File localDex;
+    private final File localTempDir;
     private final boolean multidex;
 
     public DexTask(AndroidSdk androidSdk, Classpath classpath, boolean benchmark, String name,
-            File jar, Action action, File localDex, boolean multidex) {
+            File jar, Action action, File localDex, File localTempDir, boolean multidex) {
         super("dex " + name);
         this.androidSdk = androidSdk;
         this.classpath = classpath;
@@ -40,16 +41,20 @@ public final class DexTask extends Task {
         this.jar = jar;
         this.action = action;
         this.localDex = localDex;
+        this.localTempDir = localTempDir;
         this.multidex = multidex;
     }
 
     @Override protected Result execute() throws Exception {
         // make the local dex (inside a jar)
         Classpath cp = Classpath.of(jar);
+        Classpath dependentCp = classpath;
         if (benchmark && action != null) {
             cp.addAll(classpath);
+            // Everything is already in 'cp' so the dependent classpath becomes empty.
+            dependentCp = new Classpath();
         }
-        androidSdk.dex(multidex, localDex, cp);
+        androidSdk.dex(multidex, localDex, localTempDir, cp, dependentCp);
         return Result.SUCCESS;
     }
 }

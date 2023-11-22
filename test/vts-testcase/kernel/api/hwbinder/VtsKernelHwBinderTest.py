@@ -22,9 +22,10 @@ from vts.runners.host import base_test
 from vts.runners.host import const
 from vts.runners.host import test_runner
 from vts.utils.python.controllers import android_device
-from vts.utils.python.file import file_utils
+from vts.utils.python.file import target_file_utils
 
 HWBINDER_PATH = "/dev/hwbinder"
+
 
 class VtsKernelHwBinderTest(base_test.BaseTestClass):
     """Test case to validate existence of hwbinder node.
@@ -41,16 +42,19 @@ class VtsKernelHwBinderTest(base_test.BaseTestClass):
         """
         logging.info("Testing existence of %s", HWBINDER_PATH)
         asserts.assertTrue(
-            file_utils.Exists(HWBINDER_PATH, self.shell),
+            target_file_utils.Exists(HWBINDER_PATH, self.shell),
             "%s: File does not exist." % HWBINDER_PATH)
 
         try:
-            permissions = file_utils.GetPermission(HWBINDER_PATH, self.shell)
-            asserts.assertTrue(file_utils.IsReadWrite(permissions),
-                               "%s: File has invalid permissions (%s)" %
-                               (HWBINDER_PATH, permissions))
+            permissions = target_file_utils.GetPermission(
+                HWBINDER_PATH, self.shell)
+            asserts.assertTrue(
+                target_file_utils.IsReadWrite(permissions),
+                "%s: File has invalid permissions (%s)" % (HWBINDER_PATH,
+                                                           permissions))
         except (ValueError, IOError) as e:
             asserts.fail("Failed to assert permissions: %s" % str(e))
+
 
 if __name__ == "__main__":
     test_runner.main()

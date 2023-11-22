@@ -19,20 +19,20 @@ import logging
 
 from vts.runners.host import base_test
 from vts.runners.host import test_runner
-from vts.utils.python.controllers import android_device
 
 
 class SampleSl4aTest(base_test.BaseTestClass):
     """An example showing making SL4A calls in VTS."""
 
     def setUpClass(self):
-        self.dut = self.registerController(android_device)[0]
+        self.dut = self.android_devices[0]
 
     def testToast(self):
         """A sample test controlling Android device with sl4a. This will make a
         toast message on the device screen."""
         logging.info("A toast message should show up on the devce's screen.")
         self.dut.sl4a.makeToast("Hello World!")
+
 
 if __name__ == "__main__":
     test_runner.main()

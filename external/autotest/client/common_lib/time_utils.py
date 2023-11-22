@@ -5,7 +5,6 @@
 # This module contains some commonly used time conversion function.
 
 import datetime
-import logging
 import time
 
 from autotest_lib.client.common_lib import decorators
@@ -15,14 +14,12 @@ try:
     import pytz
 except ImportError:
     pytz = None
-    logging.error('Could not import pytz.')
 
 
 try:
     import tzlocal
 except ImportError:
     tzlocal = None
-    logging.error('Could not import tzlocal.')
 
 
 # This format is used to parse datetime value in MySQL database and should not
@@ -115,6 +112,9 @@ def to_utc_timestamp(datetime_val):
     @returns A datetime as a UTC floating point timestamp in seconds since
              epoch.
     """
+    if datetime_val is None:
+        return None
+
     epoch = datetime.datetime(1970, 1, 1, tzinfo=pytz.utc)
     local_datetime = datetime_val.replace(tzinfo=tzlocal.get_localzone())
     utc_datetime = local_datetime.astimezone(tz=pytz.utc)

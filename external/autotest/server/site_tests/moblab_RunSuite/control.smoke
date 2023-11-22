@@ -35,6 +35,7 @@ from autotest_lib.client.common_lib import utils
 def run(machine):
     host = hosts.create_host(machine)
     args_dict = utils.args_to_dict(args)
-    job.run_test('moblab_RunSuite', host=host, suite_name='smoke', **args_dict)
+    job.run_test('moblab_RunSuite', host=host, suite_name='smoke',
+                 moblab_suite_max_retries=1, **args_dict)
 
 parallel_simple(run, machines)

@@ -58,4 +58,20 @@ public class SystemPropertiesProxy {
         }
         return def;
     }
+
+    public static String getString(String key, String def) throws IllegalArgumentException {
+        try {
+            Class SystemPropertiesClass = Class.forName("android.os.SystemProperties");
+            Method getIntMethod =
+                    SystemPropertiesClass.getDeclaredMethod("get", String.class, String.class);
+            getIntMethod.setAccessible(true);
+            return (String) getIntMethod.invoke(SystemPropertiesClass, key, def);
+        } catch (InvocationTargetException
+                | IllegalAccessException
+                | NoSuchMethodException
+                | ClassNotFoundException e) {
+            Log.e(TAG, "Failed to invoke SystemProperties.get()", e);
+        }
+        return def;
+    }
 }

@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 from vts.testcases.kernel.api.selinux import KernelSelinuxFileTestBase
-from vts.utils.python.file import file_utils
+from vts.utils.python.file import target_file_utils
 
 
 class SelinuxCheckReqProt(KernelSelinuxFileTestBase.KernelSelinuxFileTestBase):
@@ -39,4 +39,4 @@ class SelinuxCheckReqProt(KernelSelinuxFileTestBase.KernelSelinuxFileTestBase):
 
     def get_permission_checker(self):
         """Gets the function handle to validate r/w file permissions."""
-        return file_utils.IsReadWrite
+        return target_file_utils.IsReadWrite

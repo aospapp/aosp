@@ -82,9 +82,21 @@ namespace NArchive
         kUnexpectedEnd,
         kDataAfterEnd,
         kIsNotArc,
-        kHeadersError
+        kHeadersError,
+        kWrongPassword
       };
     }
+  }
+
+  namespace NEventIndexType
+  {
+    enum
+    {
+      kNoIndex = 0,
+      kInArcIndex,
+      kBlockIndex,
+      kOutArcIndex
+    };
   }
   
   namespace NUpdate
@@ -110,21 +122,82 @@ ARCHIVE_INTERFACE(IArchiveOpenCallback, 0x10)
 };
 
 /*
-IArchiveExtractCallback::GetStream
-  Result:
+IArchiveExtractCallback::
+
+7-Zip doesn't call IArchiveExtractCallback functions
+  GetStream()
+  PrepareOperation()
+  SetOperationResult()
+from different threads simultaneously.
+But 7-Zip can call functions for IProgress or ICompressProgressInfo functions
+from another threads simultaneously with calls for IArchiveExtractCallback interface.
+
+IArchiveExtractCallback::GetStream()
+  UInt32 index - index of item in Archive
+  Int32 askExtractMode  (Extract::NAskMode)
+    if (askMode != NExtract::NAskMode::kExtract)
+    {
+      then the callee can not real stream: (*inStream == NULL)
+    }
+  
+  Out:
       (*inStream == NULL) - for directories
       (*inStream == NULL) - if link (hard link or symbolic link) was created
+      if (*inStream == NULL && askMode == NExtract::NAskMode::kExtract)
+      {
+        then the caller must skip extracting of that file.
+      }
+
+  returns:
+    S_OK     : OK
+    S_FALSE  : data error (for decoders)
+
+if (IProgress::SetTotal() was called)
+{
+  IProgress::SetCompleted(completeValue) uses
+    packSize   - for some stream formats (xz, gz, bz2, lzma, z, ppmd).
+    unpackSize - for another formats.
+}
+else
+{
+  IProgress::SetCompleted(completeValue) uses packSize.
+}
+
+SetOperationResult()
+  7-Zip calls SetOperationResult at the end of extracting,
+  so the callee can close the file, set attributes, timestamps and security information.
+
+  Int32 opRes (NExtract::NOperationResult)
 */
 
 #define INTERFACE_IArchiveExtractCallback(x) \
   INTERFACE_IProgress(x) \
   STDMETHOD(GetStream)(UInt32 index, ISequentialOutStream **outStream, Int32 askExtractMode) x; \
   STDMETHOD(PrepareOperation)(Int32 askExtractMode) x; \
-  STDMETHOD(SetOperationResult)(Int32 resultEOperationResult) x; \
+  STDMETHOD(SetOperationResult)(Int32 opRes) x; \
 
 ARCHIVE_INTERFACE_SUB(IArchiveExtractCallback, IProgress, 0x20)
 {
   INTERFACE_IArchiveExtractCallback(PURE)
+};
+
+
+
+/*
+IArchiveExtractCallbackMessage can be requested from IArchiveExtractCallback object
+  by Extract() or UpdateItems() functions to report about extracting errors
+ReportExtractResult()
+  UInt32 indexType (NEventIndexType)
+  UInt32 index
+  Int32 opRes (NExtract::NOperationResult)
+*/
+
+#define INTERFACE_IArchiveExtractCallbackMessage(x) \
+  STDMETHOD(ReportExtractResult)(UInt32 indexType, UInt32 index, Int32 opRes) x; \
+
+ARCHIVE_INTERFACE_SUB(IArchiveExtractCallbackMessage, IProgress, 0x21)
+{
+  INTERFACE_IArchiveExtractCallbackMessage(PURE)
 };
 
 
@@ -183,9 +256,6 @@ Notes:
   Some IInArchive handlers will work incorrectly in that case.
 */
 
-/* MSVC allows the code where there is throw() in declaration of function,
-   but there is no throw() in definition of function. */
-
 #ifdef _MSC_VER
   #define MY_NO_THROW_DECL_ONLY throw()
 #else
@@ -202,7 +272,7 @@ Notes:
   STDMETHOD(GetNumberOfProperties)(UInt32 *numProps) MY_NO_THROW_DECL_ONLY x; \
   STDMETHOD(GetPropertyInfo)(UInt32 index, BSTR *name, PROPID *propID, VARTYPE *varType) MY_NO_THROW_DECL_ONLY x; \
   STDMETHOD(GetNumberOfArchiveProperties)(UInt32 *numProps) MY_NO_THROW_DECL_ONLY x; \
-  STDMETHOD(GetArchivePropertyInfo)(UInt32 index, BSTR *name, PROPID *propID, VARTYPE *varType) MY_NO_THROW_DECL_ONLY x;
+  STDMETHOD(GetArchivePropertyInfo)(UInt32 index, BSTR *name, PROPID *propID, VARTYPE *varType) MY_NO_THROW_DECL_ONLY x; \
 
 ARCHIVE_INTERFACE(IInArchive, 0x60)
 {
@@ -223,12 +293,14 @@ namespace NPropDataType
   const UInt32 kMask_ZeroEnd   = 1 << 4;
   // const UInt32 kMask_BigEndian = 1 << 5;
   const UInt32 kMask_Utf       = 1 << 6;
-  // const UInt32 kMask_Utf8  = kMask_Utf | 0;
+  const UInt32 kMask_Utf8  = kMask_Utf | 0;
   const UInt32 kMask_Utf16 = kMask_Utf | 1;
   // const UInt32 kMask_Utf32 = kMask_Utf | 2;
 
   const UInt32 kNotDefined = 0;
   const UInt32 kRaw = 1;
+
+  const UInt32 kUtf8z  = kMask_Utf8  | kMask_ZeroEnd;
   const UInt32 kUtf16z = kMask_Utf16 | kMask_ZeroEnd;
 };
 
@@ -324,6 +396,8 @@ The order of calling for hard links:
   - GetStream()
   - GetProperty(kpidHardLink)
 
+SetOperationResult()
+  Int32 opRes (NExtract::NOperationResult::kOK)
 */
 
 #define INTERFACE_IArchiveUpdateCallback(x) \
@@ -347,6 +421,40 @@ ARCHIVE_INTERFACE_SUB(IArchiveUpdateCallback2, IArchiveUpdateCallback, 0x82)
 {
   INTERFACE_IArchiveUpdateCallback2(PURE);
 };
+
+namespace NUpdateNotifyOp
+{
+  enum
+  {
+    kAdd = 0,
+    kUpdate,
+    kAnalyze,
+    kReplicate,
+    kRepack,
+    kSkip,
+    kDelete,
+    kHeader
+
+    // kNumDefined
+  };
+};
+
+/*
+IArchiveUpdateCallbackFile::ReportOperation
+  UInt32 indexType (NEventIndexType)
+  UInt32 index
+  UInt32 notifyOp (NUpdateNotifyOp)
+*/
+
+#define INTERFACE_IArchiveUpdateCallbackFile(x) \
+  STDMETHOD(GetStream2)(UInt32 index, ISequentialInStream **inStream, UInt32 notifyOp) x; \
+  STDMETHOD(ReportOperation)(UInt32 indexType, UInt32 index, UInt32 notifyOp) x; \
+
+ARCHIVE_INTERFACE(IArchiveUpdateCallbackFile, 0x83)
+{
+  INTERFACE_IArchiveUpdateCallbackFile(PURE);
+};
+
 
 /*
 UpdateItems()
@@ -382,7 +490,7 @@ ARCHIVE_INTERFACE(IOutArchive, 0xA0)
 
 ARCHIVE_INTERFACE(ISetProperties, 0x03)
 {
-  STDMETHOD(SetProperties)(const wchar_t **names, const PROPVARIANT *values, UInt32 numProps) PURE;
+  STDMETHOD(SetProperties)(const wchar_t * const *names, const PROPVARIANT *values, UInt32 numProps) PURE;
 };
 
 ARCHIVE_INTERFACE(IArchiveKeepModeForNextOpen, 0x04)
@@ -406,12 +514,26 @@ ARCHIVE_INTERFACE(IArchiveAllowTail, 0x05)
     { if (index >= ARRAY_SIZE(k)) return E_INVALIDARG; \
     *propID = k[index]; *varType = k7z_PROPID_To_VARTYPE[(unsigned)*propID];  *name = 0; return S_OK; } \
 
+
+struct CStatProp
+{
+  const char *Name;
+  UInt32 PropID;
+  VARTYPE vt;
+};
+
+namespace NWindows {
+namespace NCOM {
+// PropVariant.cpp
+BSTR AllocBstrFromAscii(const char *s) throw();
+}}
+
 #define IMP_IInArchive_GetProp_WITH_NAME(k) \
   (UInt32 index, BSTR *name, PROPID *propID, VARTYPE *varType) \
     { if (index >= ARRAY_SIZE(k)) return E_INVALIDARG; \
-    const STATPROPSTG &srcItem = k[index]; \
-    *propID = srcItem.propid; *varType = srcItem.vt; \
-    if (srcItem.lpwstrName == 0) *name = 0; else *name = ::SysAllocString(srcItem.lpwstrName); return S_OK; } \
+    const CStatProp &prop = k[index]; \
+    *propID = (PROPID)prop.PropID; *varType = prop.vt; \
+    *name = NWindows::NCOM::AllocBstrFromAscii(prop.Name); return S_OK; } \
 
 #define IMP_IInArchive_Props \
   STDMETHODIMP CHandler::GetNumberOfProperties(UInt32 *numProps) \

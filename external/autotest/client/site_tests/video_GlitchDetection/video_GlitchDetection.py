@@ -17,6 +17,7 @@ from autotest_lib.client.cros.image_comparison import publisher
 from autotest_lib.client.cros.video import constants
 from autotest_lib.client.cros.video import frame_checksum_utils
 from autotest_lib.client.cros.video import native_html5_player
+from autotest_lib.client.cros.video import helper_logger
 from autotest_lib.client.cros.multimedia import local_facade_factory
 
 
@@ -31,7 +32,7 @@ class video_GlitchDetection(test.test):
     """
     version = 2
 
-
+    @helper_logger.video_log_wrapper
     def run_once(self, source_path, codec, resolution, host, args,
                  collect_only = False):
 
@@ -42,6 +43,7 @@ class video_GlitchDetection(test.test):
         file_utils.make_leaf_dir(constants.TEST_DIR)
 
         with chrome.Chrome(
+                extra_browser_args=helper_logger.chrome_vmodule_flag(),
                 extension_paths = [cros_constants.MULTIMEDIA_TEST_EXTENSION],
                 autotest_ext=True,
                 init_network_controller=True) as cr:
@@ -79,7 +81,7 @@ class video_GlitchDetection(test.test):
                 player.verify_video_can_play()
 
                 display_facade.move_to_display(
-                    display_facade.get_first_external_display_index())
+                    display_facade.get_first_external_display_id())
                 display_facade.set_fullscreen(True)
                 # HACK: Unset and reset fullscreen. There is a bug in Chrome
                 # that fails to move the window to a correct position.

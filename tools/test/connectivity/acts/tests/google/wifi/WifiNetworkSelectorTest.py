@@ -55,7 +55,7 @@ class WifiNetworkSelectorTest(WifiBaseTest):
             req_param_names=req_params, opt_param_names=opt_param)
 
         if "AccessPoint" in self.user_params:
-            self.legacy_configure_ap_and_start()
+            self.legacy_configure_ap_and_start(ap_count=2)
 
     def setup_test(self):
         #reset and clear all saved networks on the DUT
@@ -76,6 +76,11 @@ class WifiNetworkSelectorTest(WifiBaseTest):
     def on_fail(self, test_name, begin_time):
         self.dut.take_bug_report(test_name, begin_time)
         self.dut.cat_adb_log(test_name, begin_time)
+
+    def teardown_class(self):
+        if "AccessPoint" in self.user_params:
+            del self.user_params["reference_networks"]
+            del self.user_params["open_network"]
 
     """ Helper Functions """
 
@@ -187,7 +192,7 @@ class WifiNetworkSelectorTest(WifiBaseTest):
         """
         #add a open network and a secure saved network to DUT
         networks = [
-            self.open_network['5g'], self.reference_networks[AP_1]['5g']
+            self.open_network[AP_1]['5g'], self.reference_networks[AP_1]['5g']
         ]
         self.add_networks(self.dut, networks)
         #move the DUT in range

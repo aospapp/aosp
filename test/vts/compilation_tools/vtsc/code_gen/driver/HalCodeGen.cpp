@@ -35,8 +35,7 @@ namespace vts {
 
 const char* const HalCodeGen::kInstanceVariableName = "device_";
 
-
-void HalCodeGen::GenerateCppBodyCallbackFunction(
+void HalCodeGen::GenerateCppBodyInterfaceImpl(
     Formatter& out, const ComponentSpecificationMessage& message,
     const string& fuzzer_extended_class_name) {
   bool first_callback = true;
@@ -53,7 +52,8 @@ void HalCodeGen::GenerateCppBodyCallbackFunction(
       first_callback = false;
     }
     out << "\n";
-    out << "class " << name << " : public FuzzerCallbackBase {" << "\n";
+    out << "class " << name << " : public DriverCallbackBase {"
+        << "\n";
     out << " public:" << "\n";
     out.indent();
     out << name << "(const string& callback_socket_name) {" << "\n";
@@ -854,7 +854,7 @@ void HalCodeGen::GenerateCppBodyGetAttributeFunction(
 void HalCodeGen::GenerateClassConstructionFunction(Formatter& out,
       const ComponentSpecificationMessage& /*message*/,
       const string& fuzzer_extended_class_name) {
-  out << fuzzer_extended_class_name << "() : FuzzerBase(HAL_CONVENTIONAL) {}\n";
+  out << fuzzer_extended_class_name << "() : DriverBase(HAL_CONVENTIONAL) {}\n";
 }
 
 void HalCodeGen::GenerateSubStructFuzzFunctionCall(

@@ -153,7 +153,7 @@
     <string name="wallpaper_attributions_values" msgid="1565931506291182879">"Ofruesit e imazheve satelitore:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="6926038943588801452">"I dobët"</item>
-    <item msgid="5986166866411161790">"Mesatar"</item>
+    <item msgid="5986166866411161790">"Pak i dobët"</item>
     <item msgid="7541004325985469896">"I mirë"</item>
     <item msgid="1546771355788926692">"I shkëlqyer"</item>
   </string-array>
@@ -275,7 +275,7 @@
     <string name="storage_wizard_format_as_private_title" msgid="1887035626526247913">"Formato si hapësirë ruajtëse pajisjeje"</string>
     <string name="storage_wizard_format_as_private_description" msgid="5814513630861655168">"Kjo kërkon që njësia USB të formatohet për ta bërë atë të sigurt. Pas formatimit të sigurt, kjo njësi disku do të funksionojë vetëm me këtë pajisje. Formatimi spastron të gjitha të dhënat e ruajtura aktualisht në njësinë e diskut. Për të shmangur humbjen e të dhënave, ki parasysh që ta rezervosh atë."</string>
     <string name="storage_wizard_format_as_public_title" msgid="977475385015522171">"Spastro dhe formato"</string>
-    <string name="storage_wizard_format_as_public_description" msgid="184405877453834449">"Pas formatimit, mund ta përdorësh këtë njësi USB në pajisje të tjera. Të gjitha të dhënat do të spastrohen. Ki parasysh ta rezervosh në fillim duke i zhvendosur aplikacionet te një hapësirë ruajtëse tjetër pajisjeje."</string>
+    <string name="storage_wizard_format_as_public_description" msgid="184405877453834449">"Pas formatimit, mund ta përdorësh këtë njësi USB në pajisje të tjera. Të gjitha të dhënat do të spastrohen. Ki parasysh ta rezervosh në fillim duke i zhvendosur aplikacionet te një hapësirë ruajtëse tjetër e pajisjes."</string>
     <string name="storage_wizard_format_progress_title" msgid="143911640282435570">"Njësia USB po formatohet…"</string>
     <string name="storage_wizard_format_progress_description" msgid="5320980721352781920">"Kjo mund të zgjasë një çast. Mos e hiq njësinë e diskut."</string>
     <string name="storage_wizard_migrate_choose_title" msgid="4247584708563925746">"Zgjidh hapësirën ruajtëse ku do të migrosh të dhënat"</string>
@@ -361,13 +361,17 @@
     <string name="third_party_location_services_title" msgid="4089136801976399147">"Shërbimet e vendndodhjes së palës së tretë"</string>
     <string name="location_reporting" msgid="3054236612250063073">"Raportimi i vendndodhjes"</string>
     <string name="location_history" msgid="2946680949724247804">"Historiku i vendndodhjeve"</string>
-    <string name="location_reporting_desc" msgid="6256424995139430823">"Google e përdor këtë funksion në produkte si \"Google Tani\" dhe \"Hartat Google\". Aktivizimi i \"Raportimit të vendndodhjes\" lejon që çdo produkt i Google që përdor këtë funksion të ruajë dhe të përdorë të dhënat më të fundit të vendndodhjes të pajisjes tënde në lidhje me llogarinë tënde të Google."</string>
+    <string name="location_reporting_desc" msgid="6256424995139430823">"Google e përdor këtë funksion në produkte si \"Google Tani\" dhe \"Hartat e Google\". Aktivizimi i \"Raportimit të vendndodhjes\" lejon që çdo produkt i Google që përdor këtë funksion të ruajë dhe të përdorë të dhënat më të fundit të vendndodhjes të pajisjes tënde në lidhje me llogarinë tënde të Google."</string>
     <string name="location_history_desc" msgid="3861249867748294369">"Kur \"Historiku i vendndodhjeve\" është i aktivizuar për këtë llogari, Google mund të ruajë të dhënat e vendndodhjes së pajisjes tënde për përdorim nga aplikacionet e tua.\n\nPër shembull, \"Hartat e Google\" mund të të japin udhëzime dhe \"Google Tani\" mund të të informojë për trafikun për udhëtimet e përditshme.\n\nMund ta çaktivizosh \"Historikun e vendndodhjeve\" në çdo kohë, por ky veprim nuk e fshin atë. Për të parë dhe menaxhuar \"Historikun e vendndodhjeve\", vizito maps.google.com/locationhistory."</string>
     <string name="delete_location_history_title" msgid="5804802702252280549">"Fshi historikun e vendndodhjeve"</string>
     <string name="delete_location_history_desc" msgid="4142806827237093397">"Kjo do të fshijë të gjithë \"Historikun e vendndodhjeve\" të ruajtur nga kjo pajisje për këtë llogari të Google. Këtë fshirje nuk mund ta zhbësh. Disa aplikacione, duke përfshirë \"Google Tani\", nuk do të funksionojnë më."</string>
     <string name="system_services" msgid="7230571820151215779">"Shërbimet"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Cilësimet e shërbimit"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Tekst me kontrast të lartë"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Shkurtorja e qasshmërisë"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Aktivizo shkurtoren e qasshmërisë"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Shërbimi i shkurtores"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Kur shkurtorja është e aktivizuar, shtypja njëkohësisht e butonit të pasmë dhe të poshtëm për 3 sekonda do të nisë një funksion qasshmërie."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Titrat"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Cilësimet për mbivendosjen e tekstit të titrave në video"</string>
     <string name="captions_display" msgid="735692527287125548">"Ekrani"</string>
@@ -478,7 +482,7 @@
     <string name="agree" msgid="1235622082275451350">"Pranoj"</string>
     <string name="disagree" msgid="9170636026862400981">"Nuk pranoj"</string>
     <string name="security_unknown_sources_title" msgid="769762478057744545">"Burime të panjohura"</string>
-    <string name="security_unknown_sources_desc" msgid="7197053279914817124">"Lejo instalimin e aplikacioneve nga burime të ndryshme nga \"Dyqani\""</string>
+    <string name="security_unknown_sources_desc" msgid="7197053279914817124">"Lejo instalimin e aplikacioneve nga burime të ndryshme nga \"Dyqani i Play\""</string>
     <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"Lejo burimet e panjohura"</string>
     <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"Pajisja dhe të dhënat e tua personale janë më të cenueshme për t\'u sulmuar nga aplikacione nga burime të panjohura. Ti pranon se je plotësisht përgjegjës për çdo dëm ndaj pajisjes ose çdo humbje të dhënash që mund të rezultojë nga përdorimi i këtyre aplikacioneve."</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"Verifiko aplikacionet"</string>
@@ -536,7 +540,7 @@
     <string name="inputs_cable" msgid="9081641596942038538">"Kabllo"</string>
     <string name="inputs_dvd" msgid="602486238850738828">"DVD"</string>
     <string name="inputs_game" msgid="1114086481110094757">"Konsola e lojërave"</string>
-    <string name="inputs_aux" msgid="5704676433978730340">"Hyrja ndihmëse"</string>
+    <string name="inputs_aux" msgid="5704676433978730340">"Aux"</string>
     <string name="inputs_custom_name" msgid="5584925321693432362">"Emri i personalizuar"</string>
     <string name="inputs_custom_name_description_fmt" msgid="7123031859468901866">"Fut një emër për hyrjen <xliff:g id="INPUT">%1$s</xliff:g>."</string>
     <string name="inputs_hide" msgid="1575971556150395486">"E fshehur"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Raporti i defekteve në kod po regjistrohet"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Tastierat virtuale në dispozicion"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Menaxho tastierat"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Lejohet"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Nuk lejohet"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Qasja në përdorim"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Qasja në përdorim lejon që një aplikacion të gjurmojë se çfarë përdorin aplikacionet e tjera dhe sa shpesh e përdorin, si edhe operatorin celular, cilësimet e gjuhës dhe detaje të tjera."</string>
 </resources>

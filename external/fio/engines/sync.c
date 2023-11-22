@@ -13,11 +13,12 @@
 #include <assert.h>
 
 #include "../fio.h"
+#include "../optgroup.h"
 
 /*
  * Sync engine uses engine_data to store last offset
  */
-#define LAST_POS(f)	((f)->engine_data)
+#define LAST_POS(f)	((f)->engine_pos)
 
 struct syncio_data {
 	struct iovec *iovecs;
@@ -30,6 +31,28 @@ struct syncio_data {
 	struct fio_file *last_file;
 	enum fio_ddir last_ddir;
 };
+
+#ifdef FIO_HAVE_PWRITEV2
+struct psyncv2_options {
+	void *pad;
+	unsigned int hipri;
+};
+
+static struct fio_option options[] = {
+	{
+		.name	= "hipri",
+		.lname	= "RWF_HIPRI",
+		.type	= FIO_OPT_STR_SET,
+		.off1	= offsetof(struct psyncv2_options, hipri),
+		.help	= "Set RWF_HIPRI for pwritev2/preadv2",
+		.category = FIO_OPT_C_ENGINE,
+		.group	= FIO_OPT_G_INVALID,
+	},
+	{
+		.name	= NULL,
+	},
+};
+#endif
 
 static int fio_syncio_prep(struct thread_data *td, struct io_u *io_u)
 {
@@ -74,7 +97,7 @@ static int fio_io_end(struct thread_data *td, struct io_u *io_u, int ret)
 #ifdef CONFIG_PWRITEV
 static int fio_pvsyncio_queue(struct thread_data *td, struct io_u *io_u)
 {
-	struct syncio_data *sd = td->io_ops->data;
+	struct syncio_data *sd = td->io_ops_data;
 	struct iovec *iov = &sd->iovecs[0];
 	struct fio_file *f = io_u->file;
 	int ret;
@@ -97,6 +120,38 @@ static int fio_pvsyncio_queue(struct thread_data *td, struct io_u *io_u)
 	return fio_io_end(td, io_u, ret);
 }
 #endif
+
+#ifdef FIO_HAVE_PWRITEV2
+static int fio_pvsyncio2_queue(struct thread_data *td, struct io_u *io_u)
+{
+	struct syncio_data *sd = td->io_ops_data;
+	struct psyncv2_options *o = td->eo;
+	struct iovec *iov = &sd->iovecs[0];
+	struct fio_file *f = io_u->file;
+	int ret, flags = 0;
+
+	fio_ro_check(td, io_u);
+
+	if (o->hipri)
+		flags |= RWF_HIPRI;
+
+	iov->iov_base = io_u->xfer_buf;
+	iov->iov_len = io_u->xfer_buflen;
+
+	if (io_u->ddir == DDIR_READ)
+		ret = preadv2(f->fd, iov, 1, io_u->offset, flags);
+	else if (io_u->ddir == DDIR_WRITE)
+		ret = pwritev2(f->fd, iov, 1, io_u->offset, flags);
+	else if (io_u->ddir == DDIR_TRIM) {
+		do_io_u_trim(td, io_u);
+		return FIO_Q_COMPLETED;
+	} else
+		ret = do_io_u_sync(td, io_u);
+
+	return fio_io_end(td, io_u, ret);
+}
+#endif
+
 
 static int fio_psyncio_queue(struct thread_data *td, struct io_u *io_u)
 {
@@ -142,7 +197,7 @@ static int fio_vsyncio_getevents(struct thread_data *td, unsigned int min,
 				 unsigned int max,
 				 const struct timespec fio_unused *t)
 {
-	struct syncio_data *sd = td->io_ops->data;
+	struct syncio_data *sd = td->io_ops_data;
 	int ret;
 
 	if (min) {
@@ -157,14 +212,14 @@ static int fio_vsyncio_getevents(struct thread_data *td, unsigned int min,
 
 static struct io_u *fio_vsyncio_event(struct thread_data *td, int event)
 {
-	struct syncio_data *sd = td->io_ops->data;
+	struct syncio_data *sd = td->io_ops_data;
 
 	return sd->io_us[event];
 }
 
 static int fio_vsyncio_append(struct thread_data *td, struct io_u *io_u)
 {
-	struct syncio_data *sd = td->io_ops->data;
+	struct syncio_data *sd = td->io_ops_data;
 
 	if (ddir_sync(io_u->ddir))
 		return 0;
@@ -191,7 +246,7 @@ static void fio_vsyncio_set_iov(struct syncio_data *sd, struct io_u *io_u,
 
 static int fio_vsyncio_queue(struct thread_data *td, struct io_u *io_u)
 {
-	struct syncio_data *sd = td->io_ops->data;
+	struct syncio_data *sd = td->io_ops_data;
 
 	fio_ro_check(td, io_u);
 
@@ -231,7 +286,7 @@ static int fio_vsyncio_queue(struct thread_data *td, struct io_u *io_u)
  */
 static int fio_vsyncio_end(struct thread_data *td, ssize_t bytes)
 {
-	struct syncio_data *sd = td->io_ops->data;
+	struct syncio_data *sd = td->io_ops_data;
 	struct io_u *io_u;
 	unsigned int i;
 	int err;
@@ -271,7 +326,7 @@ static int fio_vsyncio_end(struct thread_data *td, ssize_t bytes)
 
 static int fio_vsyncio_commit(struct thread_data *td)
 {
-	struct syncio_data *sd = td->io_ops->data;
+	struct syncio_data *sd = td->io_ops_data;
 	struct fio_file *f;
 	ssize_t ret;
 
@@ -309,17 +364,19 @@ static int fio_vsyncio_init(struct thread_data *td)
 	sd->iovecs = malloc(td->o.iodepth * sizeof(struct iovec));
 	sd->io_us = malloc(td->o.iodepth * sizeof(struct io_u *));
 
-	td->io_ops->data = sd;
+	td->io_ops_data = sd;
 	return 0;
 }
 
 static void fio_vsyncio_cleanup(struct thread_data *td)
 {
-	struct syncio_data *sd = td->io_ops->data;
+	struct syncio_data *sd = td->io_ops_data;
 
-	free(sd->iovecs);
-	free(sd->io_us);
-	free(sd);
+	if (sd) {
+		free(sd->iovecs);
+		free(sd->io_us);
+		free(sd);
+	}
 }
 
 static struct ioengine_ops ioengine_rw = {
@@ -372,6 +429,22 @@ static struct ioengine_ops ioengine_pvrw = {
 };
 #endif
 
+#ifdef FIO_HAVE_PWRITEV2
+static struct ioengine_ops ioengine_pvrw2 = {
+	.name		= "pvsync2",
+	.version	= FIO_IOOPS_VERSION,
+	.init		= fio_vsyncio_init,
+	.cleanup	= fio_vsyncio_cleanup,
+	.queue		= fio_pvsyncio2_queue,
+	.open_file	= generic_open_file,
+	.close_file	= generic_close_file,
+	.get_file_size	= generic_get_file_size,
+	.flags		= FIO_SYNCIO,
+	.options	= options,
+	.option_struct_size	= sizeof(struct psyncv2_options),
+};
+#endif
+
 static void fio_init fio_syncio_register(void)
 {
 	register_ioengine(&ioengine_rw);
@@ -379,6 +452,9 @@ static void fio_init fio_syncio_register(void)
 	register_ioengine(&ioengine_vrw);
 #ifdef CONFIG_PWRITEV
 	register_ioengine(&ioengine_pvrw);
+#endif
+#ifdef FIO_HAVE_PWRITEV2
+	register_ioengine(&ioengine_pvrw2);
 #endif
 }
 
@@ -389,5 +465,8 @@ static void fio_exit fio_syncio_unregister(void)
 	unregister_ioengine(&ioengine_vrw);
 #ifdef CONFIG_PWRITEV
 	unregister_ioengine(&ioengine_pvrw);
+#endif
+#ifdef FIO_HAVE_PWRITEV2
+	unregister_ioengine(&ioengine_pvrw2);
 #endif
 }

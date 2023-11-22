@@ -40,8 +40,8 @@ import java.util.Random;
  */
 public class MainActivity extends Activity {
     public static final String TAG = "BackupCTSApp";
+    public static final String FILE_NAME = "file_name";
 
-    private static final String FILE_NAME = "file_name";
     private static final String FILE_SIZE_EXTRA = "file_size";
     private static final int DATA_CHUNK_SIZE = 1024 * 1024;
 
@@ -60,6 +60,7 @@ public class MainActivity extends Activity {
         } else {
             Log.d(TAG, "No file size was provided");
         }
+        finish();
     }
 
     private void createFile(int size) throws IOException {

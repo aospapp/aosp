@@ -396,6 +396,8 @@ class AvailableHostRequestHandler(BaseHostRequestHandler):
 
         logging.debug('Processing %s host acquisition requests',
                       len(host_requests))
+        metrics.Gauge('chromeos/autotest/scheduler/pending_host_acq_requests'
+                      ).set(len(host_requests))
 
         self.request_accountant = rdb_utils.RequestAccountant(host_requests)
         # First pass tries to satisfy min_duts for each suite.

@@ -439,7 +439,7 @@ public class ComponentContextFixture implements TestFixture<Context> {
         mResourceConfiguration.setLocale(Locale.TAIWAN);
 
         // TODO: Move into actual tests
-        when(mAudioManager.isWiredHeadsetOn()).thenReturn(false);
+        doReturn(false).when(mAudioManager).isWiredHeadsetOn();
 
         doAnswer(new Answer<List<ResolveInfo>>() {
             @Override

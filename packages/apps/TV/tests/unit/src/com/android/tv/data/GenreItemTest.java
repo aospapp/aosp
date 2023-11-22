@@ -16,23 +16,32 @@
 
 package com.android.tv.data;
 
+import static android.support.test.InstrumentationRegistry.getTargetContext;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
 import android.media.tv.TvContract.Programs.Genres;
 import android.os.Build;
 import android.support.test.filters.SmallTest;
-import android.test.AndroidTestCase;
+
+import org.junit.Test;
 
 /**
  * Tests for {@link Channel}.
  */
 @SmallTest
-public class GenreItemTest extends AndroidTestCase {
+public class GenreItemTest {
     private static final String INVALID_GENRE = "INVALID GENRE";
 
+    @Test
     public void testGetLabels() {
         // Checks if no exception is thrown.
-        GenreItems.getLabels(getContext());
+        GenreItems.getLabels(getTargetContext());
     }
 
+    @Test
     public void testGetCanonicalGenre() {
         int count = GenreItems.getGenreCount();
         assertNull(GenreItems.getCanonicalGenre(GenreItems.ID_ALL_CHANNELS));
@@ -41,6 +50,7 @@ public class GenreItemTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testGetId_base() {
         int count = GenreItems.getGenreCount();
         assertEquals(GenreItems.ID_ALL_CHANNELS, GenreItems.getId(null));
@@ -58,6 +68,7 @@ public class GenreItemTest extends AndroidTestCase {
         assertInRange(GenreItems.getId(Genres.GAMING), 1, count - 1);
     }
 
+    @Test
     public void testGetId_lmp_mr1() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP_MR1) {
             assertEquals(GenreItems.ID_ALL_CHANNELS, GenreItems.getId(Genres.ARTS));

@@ -19,7 +19,9 @@ package android.car.apitest;
 import android.car.Car;
 import android.car.CarInfoManager;
 import android.os.Bundle;
+import android.test.suitebuilder.annotation.SmallTest;
 
+@SmallTest
 public class CarInfoManagerTest extends CarApiTestBase {
 
     private CarInfoManager mInfoManager;

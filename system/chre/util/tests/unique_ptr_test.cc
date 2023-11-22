@@ -1,9 +1,12 @@
+#include <cstring>
+
 #include "gtest/gtest.h"
 
 #include "chre/util/unique_ptr.h"
 
 using chre::UniquePtr;
 using chre::MakeUnique;
+using chre::MakeUniqueZeroFill;
 
 struct Value {
   Value(int value) : value(value) {
@@ -32,6 +35,21 @@ TEST(UniquePtr, Construct) {
   EXPECT_EQ(myInt->value, 0xcafe);
   EXPECT_EQ((*myInt).value, 0xcafe);
   EXPECT_EQ(myInt[0].value, 0xcafe);
+}
+
+struct BigArray {
+  int x[2048];
+};
+
+TEST(UniquePtr, MakeUniqueZeroFill) {
+  BigArray baseline = {};
+  auto myArray = MakeUniqueZeroFill<BigArray>();
+  ASSERT_FALSE(myArray.isNull());
+  // Note that this doesn't actually test things properly, because we don't
+  // guarantee that malloc is not already giving us zeroed out memory. To
+  // properly do it, we could inject the allocator, but this function is simple
+  // enough that it's not really worth the effort.
+  EXPECT_EQ(std::memcmp(&baseline, myArray.get(), sizeof(baseline)), 0);
 }
 
 TEST(UniquePtr, MoveConstruct) {

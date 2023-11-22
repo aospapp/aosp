@@ -17,7 +17,9 @@
 #ifndef ANDROID_HARDWARE_CONTEXTHUB_V1_0_CONTEXTHUB_H
 #define ANDROID_HARDWARE_CONTEXTHUB_V1_0_CONTEXTHUB_H
 
-#include <future>
+#include <condition_variable>
+#include <functional>
+#include <mutex>
 
 #include <android/hardware/contexthub/1.0/IContexthub.h>
 #include <hidl/MQDescriptor.h>
@@ -38,6 +40,7 @@ using ::android::hardware::contexthub::V1_0::IContexthub;
 using ::android::hardware::contexthub::V1_0::IContexthubCallback;
 using ::android::hardware::contexthub::V1_0::NanoAppBinary;
 using ::android::hardware::contexthub::V1_0::Result;
+using ::android::hardware::hidl_handle;
 using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_vec;
 using ::android::hardware::Return;
@@ -46,6 +49,8 @@ using ::android::sp;
 class GenericContextHub : public IContexthub {
  public:
   GenericContextHub();
+
+  Return<void> debug(const hidl_handle& fd, const hidl_vec<hidl_string>& options) override;
 
   // Methods from ::android::hardware::contexthub::V1_0::IContexthub follow.
   Return<void> getHubs(getHubs_cb _hidl_cb) override;
@@ -60,6 +65,7 @@ class GenericContextHub : public IContexthub {
  private:
   ::android::chre::SocketClient mClient;
   sp<IContexthubCallback> mCallbacks;
+  std::mutex mCallbacksLock;
 
   class SocketCallbacks : public ::android::chre::SocketClient::ICallbacks,
                           public ::android::chre::IChreMessageHandlers {
@@ -72,6 +78,7 @@ class GenericContextHub : public IContexthub {
     void handleNanoappMessage(
         uint64_t appId, uint32_t messageType, uint16_t hostEndpoint,
         const void *messageData, size_t messageDataLen) override;
+
     void handleHubInfoResponse(
         const char *name, const char *vendor,
         const char *toolchain, uint32_t legacyPlatformVersion,
@@ -85,12 +92,39 @@ class GenericContextHub : public IContexthub {
     void handleLoadNanoappResponse(
       const ::chre::fbs::LoadNanoappResponseT& response) override;
 
+    void handleUnloadNanoappResponse(
+      const ::chre::fbs::UnloadNanoappResponseT& response) override;
+
+    void handleDebugDumpData(
+      const ::chre::fbs::DebugDumpDataT& data) override;
+
+    void handleDebugDumpResponse(
+      const ::chre::fbs::DebugDumpResponseT& response) override;
+
    private:
     GenericContextHub& mParent;
     bool mHaveConnected = false;
+
+    /**
+     * Acquires mParent.mCallbacksLock and invokes the synchronous callback
+     * argument if mParent.mCallbacks is not null.
+     */
+    void invokeClientCallback(std::function<void()> callback);
+  };
+
+  class DeathRecipient : public hidl_death_recipient {
+   public:
+    DeathRecipient(const sp<GenericContextHub> contexthub);
+    void serviceDied(uint64_t cookie,
+                     const wp<::android::hidl::base::V1_0::IBase>& who)
+        override;
+
+   private:
+    sp<GenericContextHub> mGenericContextHub;
   };
 
   sp<SocketCallbacks> mSocketCallbacks;
+  sp<DeathRecipient> mDeathRecipient;
 
   // Cached hub info used for getHubs(), and synchronization primitives to make
   // that function call synchronous if we need to query it
@@ -98,6 +132,19 @@ class GenericContextHub : public IContexthub {
   bool mHubInfoValid = false;
   std::mutex mHubInfoMutex;
   std::condition_variable mHubInfoCond;
+
+  static constexpr int kInvalidFd = -1;
+  int mDebugFd = kInvalidFd;
+  bool mDebugDumpPending = false;
+  std::mutex mDebugDumpMutex;
+  std::condition_variable mDebugDumpCond;
+
+  // Write a string to mDebugFd
+  void writeToDebugFile(const char *str);
+  void writeToDebugFile(const char *str, size_t len);
+
+  // Unregisters callback when context hub service dies
+  void handleServiceDeath(uint32_t hubId);
 };
 
 extern "C" IContexthub* HIDL_FETCH_IContexthub(const char* name);

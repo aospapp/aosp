@@ -93,7 +93,6 @@ public class Loader {
             } else {
                 throw new IllegalStateException("Access mode not supported.");
             }
-            boolean closedDueToRefcount = false;
             synchronized (mLock) {
                 if (mRefCount == 0) {
                     mArchive.close();
@@ -109,11 +108,16 @@ public class Loader {
             }
             throw new IllegalStateException("Failed to open the archive.", e);
         } finally {
-            // Notify observers that the root directory is loaded (or failed)
-            // so clients reload it.
-            mContext.getContentResolver().notifyChange(
-                    ArchivesProvider.buildUriForArchive(mArchiveUri, mAccessMode),
-                    null /* observer */, false /* syncToNetwork */);
+            synchronized (mLock) {
+                // Only notify when there might be someone listening.
+                if (mRefCount > 0) {
+                    // Notify observers that the root directory is loaded (or failed)
+                    // so clients reload it.
+                    mContext.getContentResolver().notifyChange(
+                            ArchivesProvider.buildUriForArchive(mArchiveUri, mAccessMode),
+                            null /* observer */, false /* syncToNetwork */);
+                }
+            }
         }
 
         return mArchive;
@@ -135,17 +139,26 @@ public class Loader {
         synchronized (mLock) {
             mRefCount--;
             if (mRefCount == 0) {
-                if (mStatus == STATUS_OPENED) {
-                    try {
-                        mArchive.close();
+                assert(mStatus == STATUS_OPENING
+                        || mStatus == STATUS_OPENED
+                        || mStatus == STATUS_FAILED);
+
+                switch (mStatus) {
+                    case STATUS_OPENED:
+                        try {
+                            mArchive.close();
+                            mStatus = STATUS_CLOSED;
+                        } catch (IOException e) {
+                            Log.e(TAG, "Failed to close the archive on release.", e);
+                        }
+                        break;
+                    case STATUS_FAILED:
                         mStatus = STATUS_CLOSED;
-                    } catch (IOException e) {
-                        Log.e(TAG, "Failed to close the archive on release.", e);
-                        mStatus = STATUS_FAILED;
-                    }
-                } else {
-                    mStatus = STATUS_CLOSING;
-                    // ::get() will close the archive once opened.
+                        break;
+                    case STATUS_OPENING:
+                        mStatus = STATUS_CLOSING;
+                        // ::get() will close the archive once opened.
+                        break;
                 }
             }
         }

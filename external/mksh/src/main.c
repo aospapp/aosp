@@ -5,7 +5,7 @@
 
 /*-
  * Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
- *		 2011, 2012, 2013, 2014, 2015, 2016
+ *		 2011, 2012, 2013, 2014, 2015, 2016, 2017
  *	mirabilos <m@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
@@ -34,7 +34,7 @@
 #include <locale.h>
 #endif
 
-__RCSID("$MirOS: src/bin/mksh/main.c,v 1.322 2016/11/11 23:48:30 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/main.c,v 1.332 2017/04/12 16:01:45 tg Exp $");
 
 extern char **environ;
 
@@ -56,8 +56,6 @@ static mksh_uari_t rndsetup(void);
 static void x_sigwinch(int);
 #endif
 
-static const char initifs[] = "IFS= \t\n";
-
 static const char initsubs[] =
     "${PS2=> }"
     "${PS3=#? }"
@@ -71,18 +69,18 @@ static const char *initcoms[] = {
 	Ttypeset, "-x", "HOME", TPATH, TSHELL, NULL,
 	Ttypeset, "-i10", "COLUMNS", "LINES", "SECONDS", "TMOUT", NULL,
 	Talias,
-	"integer=\\typeset -i",
-	"local=\\typeset",
+	"integer=\\\\builtin typeset -i",
+	"local=\\\\builtin typeset",
 	/* not "alias -t --": hash -r needs to work */
-	"hash=\\builtin alias -t",
-	"type=\\builtin whence -v",
-	"autoload=\\typeset -fu",
-	"functions=\\typeset -f",
-	"history=\\builtin fc -l",
-	"nameref=\\typeset -n",
+	"hash=\\\\builtin alias -t",
+	"type=\\\\builtin whence -v",
+	"autoload=\\\\builtin typeset -fu",
+	"functions=\\\\builtin typeset -f",
+	"history=\\\\builtin fc -l",
+	"nameref=\\\\builtin typeset -n",
 	"nohup=nohup ",
-	"r=\\builtin fc -e -",
-	"login=\\exec login",
+	"r=\\\\builtin fc -e -",
+	"login=\\\\builtin exec login",
 	NULL,
 	 /* this is what AT&T ksh seems to track, with the addition of emacs */
 	Talias, "-tU",
@@ -100,6 +98,51 @@ static bool initio_done;
 /* top-level parsing and execution environment */
 static struct env env;
 struct env *e = &env;
+
+/* compile-time assertions */
+#define cta(name, expr) struct cta_ ## name { char t[(expr) ? 1 : -1]; }
+
+/* this one should be defined by the standard */
+cta(char_is_1_char, (sizeof(char) == 1) && (sizeof(signed char) == 1) &&
+    (sizeof(unsigned char) == 1));
+cta(char_is_8_bits, ((CHAR_BIT) == 8) && ((int)(unsigned char)0xFF == 0xFF) &&
+    ((int)(unsigned char)0x100 == 0) && ((int)(unsigned char)(int)-1 == 0xFF));
+/* the next assertion is probably not really needed */
+cta(short_is_2_char, sizeof(short) == 2);
+cta(short_size_no_matter_of_signedness, sizeof(short) == sizeof(unsigned short));
+/* the next assertion is probably not really needed */
+cta(int_is_4_char, sizeof(int) == 4);
+cta(int_size_no_matter_of_signedness, sizeof(int) == sizeof(unsigned int));
+
+cta(long_ge_int, sizeof(long) >= sizeof(int));
+cta(long_size_no_matter_of_signedness, sizeof(long) == sizeof(unsigned long));
+
+#ifndef MKSH_LEGACY_MODE
+/* the next assertion is probably not really needed */
+cta(ari_is_4_char, sizeof(mksh_ari_t) == 4);
+/* but this is */
+cta(ari_has_31_bit, 0 < (mksh_ari_t)(((((mksh_ari_t)1 << 15) << 15) - 1) * 2 + 1));
+/* the next assertion is probably not really needed */
+cta(uari_is_4_char, sizeof(mksh_uari_t) == 4);
+/* but the next three are; we REQUIRE unsigned integer wraparound */
+cta(uari_has_31_bit, 0 < (mksh_uari_t)(((((mksh_uari_t)1 << 15) << 15) - 1) * 2 + 1));
+cta(uari_has_32_bit, 0 < (mksh_uari_t)(((((mksh_uari_t)1 << 15) << 15) - 1) * 4 + 3));
+cta(uari_wrap_32_bit,
+    (mksh_uari_t)(((((mksh_uari_t)1 << 15) << 15) - 1) * 4 + 3) >
+    (mksh_uari_t)(((((mksh_uari_t)1 << 15) << 15) - 1) * 4 + 4));
+#endif
+/* these are always required */
+cta(ari_is_signed, (mksh_ari_t)-1 < (mksh_ari_t)0);
+cta(uari_is_unsigned, (mksh_uari_t)-1 > (mksh_uari_t)0);
+/* we require these to have the precisely same size and assume 2s complement */
+cta(ari_size_no_matter_of_signedness, sizeof(mksh_ari_t) == sizeof(mksh_uari_t));
+
+cta(sizet_size_no_matter_of_signedness, sizeof(ssize_t) == sizeof(size_t));
+cta(sizet_voidptr_same_size, sizeof(size_t) == sizeof(void *));
+cta(sizet_funcptr_same_size, sizeof(size_t) == sizeof(void (*)(void)));
+/* our formatting routines assume this */
+cta(ptr_fits_in_long, sizeof(size_t) <= sizeof(long));
+cta(ari_fits_in_long, sizeof(mksh_ari_t) <= sizeof(long));
 
 static mksh_uari_t
 rndsetup(void)
@@ -197,6 +240,8 @@ main_init(int argc, const char *argv[], Source **sp, struct block **lp)
 	for (i = 0; i < 3; ++i)
 		if (!isatty(i))
 			setmode(i, O_BINARY);
+
+	os2_init(&argc, &argv);
 #endif
 
 	/* do things like getpgrp() et al. */
@@ -369,9 +414,10 @@ main_init(int argc, const char *argv[], Source **sp, struct block **lp)
 #endif
 
 	/* for security */
-	typeset(initifs, 0, 0, 0, 0);
+	typeset("IFS= \t\n", 0, 0, 0, 0);
 
 	/* assign default shell variable values */
+	typeset("PATHSEP=" MKSH_PATHSEPS, 0, 0, 0, 0);
 	substitute(initsubs, 0);
 
 	/* Figure out the current working directory and set $PWD */
@@ -388,7 +434,7 @@ main_init(int argc, const char *argv[], Source **sp, struct block **lp)
 		setstr(vp, current_wd, KSH_RETURN_ERROR);
 
 	for (wp = initcoms; *wp != NULL; wp++) {
-		shcomexec(wp);
+		c_builtin(wp);
 		while (*wp != NULL)
 			wp++;
 	}
@@ -474,7 +520,9 @@ main_init(int argc, const char *argv[], Source **sp, struct block **lp)
 		 * to search for it. This changes the behaviour of a
 		 * simple "mksh foo", but can't be helped.
 		 */
-		s->file = search_path(argv[argi++], path, X_OK, NULL);
+		s->file = argv[argi++];
+		if (search_access(s->file, X_OK) != 0)
+			s->file = search_path(s->file, path, X_OK, NULL);
 		if (!s->file || !*s->file)
 			s->file = argv[argi - 1];
 #else
@@ -633,7 +681,7 @@ main_init(int argc, const char *argv[], Source **sp, struct block **lp)
 	}
 
 	if (restricted_shell) {
-		shcomexec(restr_com);
+		c_builtin(restr_com);
 		/* After typeset command... */
 		Flag(FRESTRICTED) = 1;
 	}
@@ -663,9 +711,9 @@ main(int argc, const char *argv[])
 
 	if ((rv = main_init(argc, argv, &s, &l)) == 0) {
 		if (Flag(FAS_BUILTIN)) {
-			rv = shcomexec(l->argv);
+			rv = c_builtin(l->argv);
 		} else {
-			shell(s, true);
+			shell(s, 0);
 			/* NOTREACHED */
 		}
 	}
@@ -718,7 +766,7 @@ include(const char *name, int argc, const char **argv, bool intr_ok)
 			unwind(i);
 			/* NOTREACHED */
 		default:
-			internal_errorf("include %d", i);
+			internal_errorf(Tunexpected_type, Tunwind, Tsource, i);
 			/* NOTREACHED */
 		}
 	}
@@ -729,7 +777,7 @@ include(const char *name, int argc, const char **argv, bool intr_ok)
 	s = pushs(SFILE, ATEMP);
 	s->u.shf = shf;
 	strdupx(s->file, name, ATEMP);
-	i = shell(s, false);
+	i = shell(s, 1);
 	quitenv(s->u.shf);
 	if (old_argv) {
 		e->loc->argv = old_argv;
@@ -749,7 +797,7 @@ command(const char *comm, int line)
 	s = pushs(SSTRING, ATEMP);
 	s->start = s->str = comm;
 	s->line = line;
-	rv = shell(s, false);
+	rv = shell(s, 1);
 	source = sold;
 	return (rv);
 }
@@ -758,22 +806,33 @@ command(const char *comm, int line)
  * run the commands from the input source, returning status.
  */
 int
-shell(Source * volatile s, volatile bool toplevel)
+shell(Source * volatile s, volatile int level)
 {
 	struct op *t;
 	volatile bool wastty = tobool(s->flags & SF_TTY);
 	volatile uint8_t attempts = 13;
-	volatile bool interactive = Flag(FTALKING) && toplevel;
+	volatile bool interactive = (level == 0) && Flag(FTALKING);
 	volatile bool sfirst = true;
 	Source *volatile old_source = source;
 	int i;
 
-	newenv(E_PARSE);
+	newenv(level == 2 ? E_EVAL : E_PARSE);
 	if (interactive)
 		really_exit = false;
 	switch ((i = kshsetjmp(e->jbuf))) {
 	case 0:
 		break;
+	case LBREAK:
+	case LCONTIN:
+		if (level != 2) {
+			source = old_source;
+			quitenv(NULL);
+			internal_errorf(Tf_cant_s, Tshell,
+			    i == LBREAK ? Tbreak : Tcontinue);
+			/* NOTREACHED */
+		}
+		/* assert: interactive == false */
+		/* FALLTHROUGH */
 	case LINTR:
 		/* we get here if SIGINT not caught or ignored */
 	case LERROR:
@@ -813,7 +872,7 @@ shell(Source * volatile s, volatile bool toplevel)
 	default:
 		source = old_source;
 		quitenv(NULL);
-		internal_errorf("shell %d", i);
+		internal_errorf(Tunexpected_type, Tunwind, Tshell, i);
 		/* NOTREACHED */
 	}
 	while (/* CONSTCOND */ 1) {
@@ -830,7 +889,7 @@ shell(Source * volatile s, volatile bool toplevel)
 			j_notify();
 			set_prompt(PS1, s);
 		}
-		t = compile(s, sfirst);
+		t = compile(s, sfirst, true);
 		if (interactive)
 			histsave(&s->line, NULL, HIST_FLUSH, true);
 		sfirst = false;
@@ -851,7 +910,7 @@ shell(Source * volatile s, volatile bool toplevel)
 				 * immediately after the last command
 				 * executed.
 				 */
-				if (toplevel)
+				if (level == 0)
 					unwind(LEXIT);
 				break;
 			}
@@ -914,6 +973,7 @@ unwind(int i)
 		case E_INCL:
 		case E_LOOP:
 		case E_ERRH:
+		case E_EVAL:
 			kshlongjmp(e->jbuf, i);
 			/* NOTREACHED */
 		case E_NONE:
@@ -1277,12 +1337,10 @@ bi_errorf(const char *fmt, ...)
 	    VWARNINGF_BUILTIN, fmt, va);
 	va_end(va);
 
-	/*
-	 * POSIX special builtins and ksh special builtins cause
-	 * non-interactive shells to exit. XXX may not want LERROR here
-	 */
+	/* POSIX special builtins cause non-interactive shells to exit */
 	if (builtin_spec) {
 		builtin_argv0 = NULL;
+		/* may not want to use LERROR here */
 		unwind(LERROR);
 	}
 }
@@ -1385,19 +1443,19 @@ initio(void)
 #ifdef DF
 	if ((lfp = getenv("SDMKSH_PATH")) == NULL) {
 		if ((lfp = getenv("HOME")) == NULL || !mksh_abspath(lfp))
-			errorf("cannot get home directory");
+			errorf("can't get home directory");
 		lfp = shf_smprintf(Tf_sSs, lfp, "mksh-dbg.txt");
 	}
 
 	if ((shl_dbg_fd = open(lfp, O_WRONLY | O_APPEND | O_CREAT, 0600)) < 0)
-		errorf("cannot open debug output file %s", lfp);
+		errorf("can't open debug output file %s", lfp);
 	if (shl_dbg_fd < FDBASE) {
 		int nfd;
 
 		nfd = fcntl(shl_dbg_fd, F_DUPFD, FDBASE);
 		close(shl_dbg_fd);
 		if ((shl_dbg_fd = nfd) == -1)
-			errorf("cannot dup debug output file");
+			errorf("can't dup debug output file");
 	}
 	fcntl(shl_dbg_fd, F_SETFD, FD_CLOEXEC);
 	shf_fdopen(shl_dbg_fd, SHF_WR, shl_dbg);
@@ -1413,7 +1471,7 @@ ksh_dup2(int ofd, int nfd, bool errok)
 	int rv;
 
 	if (((rv = dup2(ofd, nfd)) < 0) && !errok && (errno != EBADF))
-		errorf("too many files open in shell");
+		errorf(Ttoo_many_files);
 
 #ifdef __ultrix
 	/*XXX imake style */
@@ -1437,7 +1495,7 @@ savefd(int fd)
 	    (errno == EBADF || errno == EPERM))
 		return (-1);
 	if (nfd < 0 || nfd > SHRT_MAX)
-		errorf("too many files open in shell");
+		errorf(Ttoo_many_files);
 	fcntl(nfd, F_SETFD, FD_CLOEXEC);
 	return ((short)nfd);
 }
@@ -1470,6 +1528,10 @@ openpipe(int *pv)
 	pv[1] = savefd(lpv[1]);
 	if (pv[1] != lpv[1])
 		close(lpv[1]);
+#ifdef __OS2__
+	setmode(pv[0], O_BINARY);
+	setmode(pv[1], O_BINARY);
+#endif
 }
 
 void

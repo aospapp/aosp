@@ -309,6 +309,7 @@ public class MissedCallNotifierImpl extends CallsManagerListenerBase implements 
         publicBuilder.setSmallIcon(android.R.drawable.stat_notify_missed_call)
                 .setColor(mContext.getResources().getColor(R.color.theme_color))
                 .setWhen(callInfo.getCreationTimeMillis())
+                .setShowWhen(true)
                 // Show "Phone" for notification title.
                 .setContentTitle(mContext.getText(R.string.userCallActivityLabel))
                 // Notification details shows that there are missed call(s), but does not reveal
@@ -323,6 +324,7 @@ public class MissedCallNotifierImpl extends CallsManagerListenerBase implements 
         builder.setSmallIcon(android.R.drawable.stat_notify_missed_call)
                 .setColor(mContext.getResources().getColor(R.color.theme_color))
                 .setWhen(callInfo.getCreationTimeMillis())
+                .setShowWhen(true)
                 .setContentTitle(mContext.getText(titleResId))
                 .setContentText(expandedText)
                 .setContentIntent(createCallLogPendingIntent(userHandle))

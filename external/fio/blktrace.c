@@ -4,12 +4,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
+#include <linux/fs.h>
 #include <dirent.h>
 
 #include "flist.h"
 #include "fio.h"
 #include "blktrace_api.h"
-#include "lib/linux-dev-lookup.h"
+#include "oslib/linux-dev-lookup.h"
 
 #define TRACE_FIFO_SIZE	8192
 
@@ -127,17 +129,37 @@ static void trace_add_open_close_event(struct thread_data *td, int fileno, enum 
 	flist_add_tail(&ipo->list, &td->io_log_list);
 }
 
-static int trace_add_file(struct thread_data *td, __u32 device)
+static int get_dev_blocksize(const char *dev, unsigned int *bs)
 {
-	static unsigned int last_maj, last_min, last_fileno;
+	int fd;
+
+	fd = open(dev, O_RDONLY);
+	if (fd < 0)
+		return 1;
+
+	if (ioctl(fd, BLKSSZGET, bs) < 0) {
+		close(fd);
+		return 1;
+	}
+
+	close(fd);
+	return 0;
+}
+
+static int trace_add_file(struct thread_data *td, __u32 device,
+			  unsigned int *bs)
+{
+	static unsigned int last_maj, last_min, last_fileno, last_bs;
 	unsigned int maj = FMAJOR(device);
 	unsigned int min = FMINOR(device);
 	struct fio_file *f;
-	char dev[256];
 	unsigned int i;
+	char dev[256];
 
-	if (last_maj == maj && last_min == min)
+	if (last_maj == maj && last_min == min) {
+		*bs = last_bs;
 		return last_fileno;
+	}
 
 	last_maj = maj;
 	last_min = min;
@@ -145,14 +167,17 @@ static int trace_add_file(struct thread_data *td, __u32 device)
 	/*
 	 * check for this file in our list
 	 */
-	for_each_file(td, f, i)
+	for_each_file(td, f, i) {
 		if (f->major == maj && f->minor == min) {
 			last_fileno = f->fileno;
-			return last_fileno;
+			last_bs = f->bs;
+			goto out;
 		}
+	}
 
 	strcpy(dev, "/dev");
 	if (blktrace_lookup_device(td->o.replay_redirect, dev, maj, min)) {
+		unsigned int this_bs;
 		int fileno;
 
 		if (td->o.replay_redirect)
@@ -164,14 +189,31 @@ static int trace_add_file(struct thread_data *td, __u32 device)
 
 		dprint(FD_BLKTRACE, "add devices %s\n", dev);
 		fileno = add_file_exclusive(td, dev);
+
+		if (get_dev_blocksize(dev, &this_bs))
+			this_bs = 512;
+
 		td->o.open_files++;
 		td->files[fileno]->major = maj;
 		td->files[fileno]->minor = min;
+		td->files[fileno]->bs = this_bs;
 		trace_add_open_close_event(td, fileno, FIO_LOG_OPEN_FILE);
+
 		last_fileno = fileno;
+		last_bs = this_bs;
 	}
 
+out:
+	*bs = last_bs;
 	return last_fileno;
+}
+
+static void t_bytes_align(struct thread_options *o, struct blk_io_trace *t)
+{
+	if (!o->replay_align)
+		return;
+
+	t->bytes = (t->bytes + o->replay_align - 1) & ~(o->replay_align - 1);
 }
 
 /*
@@ -179,16 +221,16 @@ static int trace_add_file(struct thread_data *td, __u32 device)
  */
 static void store_ipo(struct thread_data *td, unsigned long long offset,
 		      unsigned int bytes, int rw, unsigned long long ttime,
-		      int fileno)
+		      int fileno, unsigned int bs)
 {
 	struct io_piece *ipo = malloc(sizeof(*ipo));
 
 	init_ipo(ipo);
 
-	/*
-	 * the 512 is wrong here, it should be the hardware sector size...
-	 */
-	ipo->offset = offset * 512;
+	ipo->offset = offset * bs;
+	if (td->o.replay_scale)
+		ipo->offset = ipo->offset / td->o.replay_scale;
+	ipo_bytes_align(td->o.replay_align, ipo);
 	ipo->len = bytes;
 	ipo->delay = ttime / 1000;
 	if (rw)
@@ -225,27 +267,28 @@ static void handle_trace_notify(struct blk_io_trace *t)
 static void handle_trace_discard(struct thread_data *td,
 				 struct blk_io_trace *t,
 				 unsigned long long ttime,
-				 unsigned long *ios, unsigned int *bs)
+				 unsigned long *ios, unsigned int *rw_bs)
 {
 	struct io_piece *ipo = malloc(sizeof(*ipo));
+	unsigned int bs;
 	int fileno;
 
 	init_ipo(ipo);
-	fileno = trace_add_file(td, t->device);
+	fileno = trace_add_file(td, t->device, &bs);
 
 	ios[DDIR_TRIM]++;
-	if (t->bytes > bs[DDIR_TRIM])
-		bs[DDIR_TRIM] = t->bytes;
+	if (t->bytes > rw_bs[DDIR_TRIM])
+		rw_bs[DDIR_TRIM] = t->bytes;
 
 	td->o.size += t->bytes;
 
 	memset(ipo, 0, sizeof(*ipo));
 	INIT_FLIST_HEAD(&ipo->list);
 
-	/*
-	 * the 512 is wrong here, it should be the hardware sector size...
-	 */
-	ipo->offset = t->sector * 512;
+	ipo->offset = t->sector * bs;
+	if (td->o.replay_scale)
+		ipo->offset = ipo->offset / td->o.replay_scale;
+	ipo_bytes_align(td->o.replay_align, ipo);
 	ipo->len = t->bytes;
 	ipo->delay = ttime / 1000;
 	ipo->ddir = DDIR_TRIM;
@@ -259,21 +302,22 @@ static void handle_trace_discard(struct thread_data *td,
 
 static void handle_trace_fs(struct thread_data *td, struct blk_io_trace *t,
 			    unsigned long long ttime, unsigned long *ios,
-			    unsigned int *bs)
+			    unsigned int *rw_bs)
 {
+	unsigned int bs;
 	int rw;
 	int fileno;
 
-	fileno = trace_add_file(td, t->device);
+	fileno = trace_add_file(td, t->device, &bs);
 
 	rw = (t->action & BLK_TC_ACT(BLK_TC_WRITE)) != 0;
 
-	if (t->bytes > bs[rw])
-		bs[rw] = t->bytes;
+	if (t->bytes > rw_bs[rw])
+		rw_bs[rw] = t->bytes;
 
 	ios[rw]++;
 	td->o.size += t->bytes;
-	store_ipo(td, t->sector, t->bytes, rw, ttime, fileno);
+	store_ipo(td, t->sector, t->bytes, rw, ttime, fileno, bs);
 }
 
 /*
@@ -284,7 +328,7 @@ static void handle_trace(struct thread_data *td, struct blk_io_trace *t,
 			 unsigned long *ios, unsigned int *bs)
 {
 	static unsigned long long last_ttime;
-	unsigned long long delay;
+	unsigned long long delay = 0;
 
 	if ((t->action & 0xffff) != __BLK_TA_QUEUE)
 		return;
@@ -298,6 +342,8 @@ static void handle_trace(struct thread_data *td, struct blk_io_trace *t,
 			last_ttime = t->time;
 		}
 	}
+
+	t_bytes_align(&td->o, t);
 
 	if (t->action & BLK_TC_ACT(BLK_TC_NOTIFY))
 		handle_trace_notify(t);
@@ -327,6 +373,47 @@ static int t_is_write(struct blk_io_trace *t)
 	return (t->action & BLK_TC_ACT(BLK_TC_WRITE | BLK_TC_DISCARD)) != 0;
 }
 
+static enum fio_ddir t_get_ddir(struct blk_io_trace *t)
+{
+	if (t->action & BLK_TC_ACT(BLK_TC_READ))
+		return DDIR_READ;
+	else if (t->action & BLK_TC_ACT(BLK_TC_WRITE))
+		return DDIR_WRITE;
+	else if (t->action & BLK_TC_ACT(BLK_TC_DISCARD))
+		return DDIR_TRIM;
+
+	return DDIR_INVAL;
+}
+
+static void depth_inc(struct blk_io_trace *t, int *depth)
+{
+	enum fio_ddir ddir;
+
+	ddir = t_get_ddir(t);
+	if (ddir != DDIR_INVAL)
+		depth[ddir]++;
+}
+
+static void depth_dec(struct blk_io_trace *t, int *depth)
+{
+	enum fio_ddir ddir;
+
+	ddir = t_get_ddir(t);
+	if (ddir != DDIR_INVAL)
+		depth[ddir]--;
+}
+
+static void depth_end(struct blk_io_trace *t, int *this_depth, int *depth)
+{
+	enum fio_ddir ddir = DDIR_INVAL;
+
+	ddir = t_get_ddir(t);
+	if (ddir != DDIR_INVAL) {
+		depth[ddir] = max(depth[ddir], this_depth[ddir]);
+		this_depth[ddir] = 0;
+	}
+}
+
 /*
  * Load a blktrace file by reading all the blk_io_trace entries, and storing
  * them as io_pieces like the fio text version would do.
@@ -339,7 +426,7 @@ int load_blktrace(struct thread_data *td, const char *filename, int need_swap)
 	struct fifo *fifo;
 	int fd, i, old_state;
 	struct fio_file *f;
-	int this_depth, depth;
+	int this_depth[DDIR_RWDIR_CNT], depth[DDIR_RWDIR_CNT], max_depth;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
@@ -353,10 +440,14 @@ int load_blktrace(struct thread_data *td, const char *filename, int need_swap)
 
 	td->o.size = 0;
 
-	ios[0] = ios[1] = 0;
-	rw_bs[0] = rw_bs[1] = 0;
+	for (i = 0; i < DDIR_RWDIR_CNT; i++) {
+		ios[i] = 0;
+		rw_bs[i] = 0;
+		this_depth[i] = 0;
+		depth[i] = 0;
+	}
+
 	skipped_writes = 0;
-	this_depth = depth = 0;
 	do {
 		int ret = trace_fifo_get(td, fifo, fd, &t, sizeof(t));
 
@@ -392,11 +483,12 @@ int load_blktrace(struct thread_data *td, const char *filename, int need_swap)
 		}
 		if ((t.action & BLK_TC_ACT(BLK_TC_NOTIFY)) == 0) {
 			if ((t.action & 0xffff) == __BLK_TA_QUEUE)
-				this_depth++;
-			else if ((t.action & 0xffff) == __BLK_TA_COMPLETE) {
-				depth = max(depth, this_depth);
-				this_depth = 0;
-			}
+				depth_inc(&t, this_depth);
+			else if (((t.action & 0xffff) == __BLK_TA_BACKMERGE) ||
+				((t.action & 0xffff) == __BLK_TA_FRONTMERGE))
+				depth_dec(&t, this_depth);
+			else if ((t.action & 0xffff) == __BLK_TA_COMPLETE)
+				depth_end(&t, this_depth, depth);
 
 			if (t_is_write(&t) && read_only) {
 				skipped_writes++;
@@ -426,8 +518,14 @@ int load_blktrace(struct thread_data *td, const char *filename, int need_swap)
 	 * For stacked devices, we don't always get a COMPLETE event so
 	 * the depth grows to insane values. Limit it to something sane(r).
 	 */
-	if (!depth || depth > 1024)
-		depth = 1024;
+	max_depth = 0;
+	for (i = 0; i < DDIR_RWDIR_CNT; i++) {
+		if (depth[i] > 1024)
+			depth[i] = 1024;
+		else if (!depth[i] && ios[i])
+			depth[i] = 1;
+		max_depth = max(depth[i], max_depth);
+	}
 
 	if (skipped_writes)
 		log_err("fio: %s skips replay of %lu writes due to read-only\n",
@@ -451,16 +549,17 @@ int load_blktrace(struct thread_data *td, const char *filename, int need_swap)
 
 	/*
 	 * We need to do direct/raw ios to the device, to avoid getting
-	 * read-ahead in our way.
+	 * read-ahead in our way. But only do so if the minimum block size
+	 * is a multiple of 4k, otherwise we don't know if it's safe to do so.
 	 */
-	td->o.odirect = 1;
+	if (!fio_option_is_set(&td->o, odirect) && !(td_min_bs(td) & 4095))
+		td->o.odirect = 1;
 
 	/*
-	 * we don't know if this option was set or not. it defaults to 1,
-	 * so we'll just guess that we should override it if it's still 1
+	 * If depth wasn't manually set, use probed depth
 	 */
-	if (td->o.iodepth == 1)
-		td->o.iodepth = td->o.iodepth_low = depth;
+	if (!fio_option_is_set(&td->o, iodepth))
+		td->o.iodepth = td->o.iodepth_low = max_depth;
 
 	return 0;
 err:

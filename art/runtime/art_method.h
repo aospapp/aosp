@@ -22,21 +22,20 @@
 #include "base/bit_utils.h"
 #include "base/casts.h"
 #include "base/enums.h"
+#include "base/logging.h"
 #include "dex_file.h"
 #include "gc_root.h"
-#include "invoke_type.h"
-#include "method_reference.h"
 #include "modifiers.h"
-#include "mirror/dex_cache.h"
-#include "mirror/object.h"
 #include "obj_ptr.h"
+#include "offsets.h"
+#include "primitive.h"
 #include "read_barrier_option.h"
-#include "utils.h"
 
 namespace art {
 
 template<class T> class Handle;
 class ImtConflictTable;
+enum InvokeType : uint32_t;
 union JValue;
 class OatQuickMethodHeader;
 class ProfilingInfo;
@@ -47,13 +46,23 @@ class ShadowFrame;
 namespace mirror {
 class Array;
 class Class;
+class ClassLoader;
+class DexCache;
 class IfTable;
+class Object;
+template <typename MirrorType> class ObjectArray;
 class PointerArray;
+class String;
+
+template <typename T> struct NativeDexCachePair;
+using MethodDexCachePair = NativeDexCachePair<ArtMethod>;
+using MethodDexCacheType = std::atomic<MethodDexCachePair>;
 }  // namespace mirror
 
 class ArtMethod FINAL {
  public:
-  static constexpr bool kCheckDeclaringClassState = kIsDebugBuild;
+  // Should the class state be checked on sensitive operations?
+  DECLARE_RUNTIME_DEBUG_FLAG(kCheckDeclaringClassState);
 
   // The runtime dex_method_index is kDexNoIndex. To lower dependencies, we use this
   // constexpr, and ensure that the value is correct in art_method.cc.
@@ -318,11 +327,11 @@ class ArtMethod FINAL {
   }
 
   static MemberOffset DexMethodIndexOffset() {
-    return OFFSET_OF_OBJECT_MEMBER(ArtMethod, dex_method_index_);
+    return MemberOffset(OFFSETOF_MEMBER(ArtMethod, dex_method_index_));
   }
 
   static MemberOffset MethodIndexOffset() {
-    return OFFSET_OF_OBJECT_MEMBER(ArtMethod, method_index_);
+    return MemberOffset(OFFSETOF_MEMBER(ArtMethod, method_index_));
   }
 
   uint32_t GetCodeItemOffset() {
@@ -347,7 +356,7 @@ class ArtMethod FINAL {
     dex_method_index_ = new_idx;
   }
 
-  ALWAYS_INLINE ArtMethod** GetDexCacheResolvedMethods(PointerSize pointer_size)
+  ALWAYS_INLINE mirror::MethodDexCacheType* GetDexCacheResolvedMethods(PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
   ALWAYS_INLINE ArtMethod* GetDexCacheResolvedMethod(uint16_t method_index,
                                                      PointerSize pointer_size)
@@ -357,13 +366,14 @@ class ArtMethod FINAL {
                                                ArtMethod* new_method,
                                                PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
-  ALWAYS_INLINE void SetDexCacheResolvedMethods(ArtMethod** new_dex_cache_methods,
+  ALWAYS_INLINE void SetDexCacheResolvedMethods(mirror::MethodDexCacheType* new_dex_cache_methods,
                                                 PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
   bool HasDexCacheResolvedMethods(PointerSize pointer_size) REQUIRES_SHARED(Locks::mutator_lock_);
   bool HasSameDexCacheResolvedMethods(ArtMethod* other, PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
-  bool HasSameDexCacheResolvedMethods(ArtMethod** other_cache, PointerSize pointer_size)
+  bool HasSameDexCacheResolvedMethods(mirror::MethodDexCacheType* other_cache,
+                                      PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Get the Class* from the type index into this method's dex cache.
@@ -446,7 +456,11 @@ class ArtMethod FINAL {
   }
 
   ProfilingInfo* GetProfilingInfo(PointerSize pointer_size) {
-    DCHECK(!IsNative());
+    // Don't do a read barrier in the DCHECK, as GetProfilingInfo is called in places
+    // where the declaring class is treated as a weak reference (accessing it with
+    // a read barrier would either prevent unloading the class, or crash the runtime if
+    // the GC wants to unload it).
+    DCHECK(!IsNative<kWithoutReadBarrier>());
     return reinterpret_cast<ProfilingInfo*>(GetDataPtrSize(pointer_size));
   }
 
@@ -473,6 +487,12 @@ class ArtMethod FINAL {
       ClearAccessFlags(kAccSingleImplementation);
     }
   }
+
+  // Takes a method and returns a 'canonical' one if the method is default (and therefore
+  // potentially copied from some other class). For example, this ensures that the debugger does not
+  // get confused as to which method we are in.
+  ArtMethod* GetCanonicalMethod(PointerSize pointer_size = kRuntimePointerSize)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   ArtMethod* GetSingleImplementation(PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
@@ -524,10 +544,6 @@ class ArtMethod FINAL {
 
   bool IsImtUnimplementedMethod() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  MethodReference ToMethodReference() REQUIRES_SHARED(Locks::mutator_lock_) {
-    return MethodReference(GetDexFile(), GetDexMethodIndex());
-  }
-
   // Find the catch block for the given exception type and dex_pc. When a catch block is found,
   // indicates whether the found catch block is responsible for clearing the exception or whether
   // a move-exception instruction is present.
@@ -570,6 +586,8 @@ class ArtMethod FINAL {
   const DexFile::ClassDef& GetClassDef() REQUIRES_SHARED(Locks::mutator_lock_);
 
   const char* GetReturnTypeDescriptor() REQUIRES_SHARED(Locks::mutator_lock_);
+
+  ALWAYS_INLINE Primitive::Type GetReturnTypePrimitive() REQUIRES_SHARED(Locks::mutator_lock_);
 
   const char* GetTypeDescriptorFromTypeIdx(dex::TypeIndex type_idx)
       REQUIRES_SHARED(Locks::mutator_lock_);
@@ -666,6 +684,27 @@ class ArtMethod FINAL {
   template <ReadBarrierOption kReadBarrierOption = kWithReadBarrier, typename Visitor>
   ALWAYS_INLINE void UpdateEntrypoints(const Visitor& visitor, PointerSize pointer_size);
 
+  // Visit the individual members of an ArtMethod.  Used by imgdiag.
+  // As imgdiag does not support mixing instruction sets or pointer sizes (e.g., using imgdiag32
+  // to inspect 64-bit images, etc.), we can go beneath the accessors directly to the class members.
+  template <typename VisitorFunc>
+  void VisitMembers(VisitorFunc& visitor) {
+    DCHECK(IsImagePointerSize(kRuntimePointerSize));
+    visitor(this, &declaring_class_, "declaring_class_");
+    visitor(this, &access_flags_, "access_flags_");
+    visitor(this, &dex_code_item_offset_, "dex_code_item_offset_");
+    visitor(this, &dex_method_index_, "dex_method_index_");
+    visitor(this, &method_index_, "method_index_");
+    visitor(this, &hotness_count_, "hotness_count_");
+    visitor(this,
+            &ptr_sized_fields_.dex_cache_resolved_methods_,
+            "ptr_sized_fields_.dex_cache_resolved_methods_");
+    visitor(this, &ptr_sized_fields_.data_, "ptr_sized_fields_.data_");
+    visitor(this,
+            &ptr_sized_fields_.entry_point_from_quick_compiled_code_,
+            "ptr_sized_fields_.entry_point_from_quick_compiled_code_");
+  }
+
  protected:
   // Field order required by test "ValidateFieldOrderOfJavaCppUnionClasses".
   // The class we are a part of.
@@ -701,7 +740,7 @@ class ArtMethod FINAL {
   // Must be the last fields in the method.
   struct PtrSizedFields {
     // Short cuts to declaring_class_->dex_cache_ member for fast compiled code access.
-    ArtMethod** dex_cache_resolved_methods_;
+    mirror::MethodDexCacheType* dex_cache_resolved_methods_;
 
     // Pointer to JNI function registered to this method, or a function to resolve the JNI function,
     // or the profiling data for non-native methods, or an ImtConflictTable, or the

@@ -32,7 +32,7 @@ class WpaCliProxy(object):
     ANDROID_CMD_FORMAT = '/system/bin/wpa_cli IFNAME={0[ifname]} {0[cmd]}'
     BRILLO_CMD_FORMAT = 'su system /system/bin/wpa_cli -i{0[ifname]} -p/data/misc/wifi/sockets {0[cmd]}'
     CROS_CMD_FORMAT = 'su wpa -s /bin/bash -c "/usr/bin/wpa_cli {0[cmd]}"'
-
+    CAST_CMD_FORMAT = '/system/bin/wpa_cli {0[cmd]}'
 
 
     def __init__(self, host, wifi_if):
@@ -48,6 +48,8 @@ class WpaCliProxy(object):
             self._wpa_cli_cmd_format = self.BRILLO_CMD_FORMAT
         elif host.get_os_type() == 'cros':
             self._wpa_cli_cmd_format = self.CROS_CMD_FORMAT
+        elif host.get_os_type() == 'cast_os':
+            self._wpa_cli_cmd_format = self.CAST_CMD_FORMAT
 
 
     def _add_network(self, ssid):

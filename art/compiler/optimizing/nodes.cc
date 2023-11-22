@@ -528,6 +528,15 @@ HCurrentMethod* HGraph::GetCurrentMethod() {
   return cached_current_method_;
 }
 
+const char* HGraph::GetMethodName() const {
+  const DexFile::MethodId& method_id = dex_file_.GetMethodId(method_idx_);
+  return dex_file_.GetMethodName(method_id);
+}
+
+std::string HGraph::PrettyMethod(bool with_signature) const {
+  return dex_file_.PrettyMethod(method_idx_, with_signature);
+}
+
 HConstant* HGraph::GetConstant(Primitive::Type type, int64_t value, uint32_t dex_pc) {
   switch (type) {
     case Primitive::Type::kPrimBoolean:
@@ -958,6 +967,7 @@ void HInstructionList::AddInstruction(HInstruction* instruction) {
     DCHECK(last_instruction_ == nullptr);
     first_instruction_ = last_instruction_ = instruction;
   } else {
+    DCHECK(last_instruction_ != nullptr);
     last_instruction_->next_ = instruction;
     instruction->previous_ = last_instruction_;
     last_instruction_ = instruction;
@@ -1147,6 +1157,95 @@ void HVariableInputSizeInstruction::RemoveInputAt(size_t index) {
   for (size_t i = index, e = inputs_.size(); i < e; ++i) {
     DCHECK_EQ(inputs_[i].GetUseNode()->GetIndex(), i + 1u);
     inputs_[i].GetUseNode()->SetIndex(i);
+  }
+}
+
+void HVariableInputSizeInstruction::RemoveAllInputs() {
+  RemoveAsUserOfAllInputs();
+  DCHECK(!HasNonEnvironmentUses());
+
+  inputs_.clear();
+  DCHECK_EQ(0u, InputCount());
+}
+
+void HConstructorFence::RemoveConstructorFences(HInstruction* instruction) {
+  DCHECK(instruction->GetBlock() != nullptr);
+  // Removing constructor fences only makes sense for instructions with an object return type.
+  DCHECK_EQ(Primitive::kPrimNot, instruction->GetType());
+
+  // Efficient implementation that simultaneously (in one pass):
+  // * Scans the uses list for all constructor fences.
+  // * Deletes that constructor fence from the uses list of `instruction`.
+  // * Deletes `instruction` from the constructor fence's inputs.
+  // * Deletes the constructor fence if it now has 0 inputs.
+
+  const HUseList<HInstruction*>& uses = instruction->GetUses();
+  // Warning: Although this is "const", we might mutate the list when calling RemoveInputAt.
+  for (auto it = uses.begin(), end = uses.end(); it != end; ) {
+    const HUseListNode<HInstruction*>& use_node = *it;
+    HInstruction* const use_instruction = use_node.GetUser();
+
+    // Advance the iterator immediately once we fetch the use_node.
+    // Warning: If the input is removed, the current iterator becomes invalid.
+    ++it;
+
+    if (use_instruction->IsConstructorFence()) {
+      HConstructorFence* ctor_fence = use_instruction->AsConstructorFence();
+      size_t input_index = use_node.GetIndex();
+
+      // Process the candidate instruction for removal
+      // from the graph.
+
+      // Constructor fence instructions are never
+      // used by other instructions.
+      //
+      // If we wanted to make this more generic, it
+      // could be a runtime if statement.
+      DCHECK(!ctor_fence->HasUses());
+
+      // A constructor fence's return type is "kPrimVoid"
+      // and therefore it can't have any environment uses.
+      DCHECK(!ctor_fence->HasEnvironmentUses());
+
+      // Remove the inputs first, otherwise removing the instruction
+      // will try to remove its uses while we are already removing uses
+      // and this operation will fail.
+      DCHECK_EQ(instruction, ctor_fence->InputAt(input_index));
+
+      // Removing the input will also remove the `use_node`.
+      // (Do not look at `use_node` after this, it will be a dangling reference).
+      ctor_fence->RemoveInputAt(input_index);
+
+      // Once all inputs are removed, the fence is considered dead and
+      // is removed.
+      if (ctor_fence->InputCount() == 0u) {
+        ctor_fence->GetBlock()->RemoveInstruction(ctor_fence);
+      }
+    }
+  }
+
+  if (kIsDebugBuild) {
+    // Post-condition checks:
+    // * None of the uses of `instruction` are a constructor fence.
+    // * The `instruction` itself did not get removed from a block.
+    for (const HUseListNode<HInstruction*>& use_node : instruction->GetUses()) {
+      CHECK(!use_node.GetUser()->IsConstructorFence());
+    }
+    CHECK(instruction->GetBlock() != nullptr);
+  }
+}
+
+HInstruction* HConstructorFence::GetAssociatedAllocation() {
+  HInstruction* new_instance_inst = GetPrevious();
+  // Check if the immediately preceding instruction is a new-instance/new-array.
+  // Otherwise this fence is for protecting final fields.
+  if (new_instance_inst != nullptr &&
+      (new_instance_inst->IsNewInstance() || new_instance_inst->IsNewArray())) {
+    // TODO: Need to update this code to handle multiple inputs.
+    DCHECK_EQ(InputCount(), 1u);
+    return new_instance_inst;
+  } else {
+    return nullptr;
   }
 }
 
@@ -2525,7 +2624,7 @@ const DexFile& HInvokeStaticOrDirect::GetDexFileForPcRelativeDexCache() const {
 }
 
 bool HInvokeStaticOrDirect::NeedsDexCacheOfDeclaringClass() const {
-  if (GetMethodLoadKind() != MethodLoadKind::kDexCacheViaMethod) {
+  if (GetMethodLoadKind() != MethodLoadKind::kRuntimeCall) {
     return false;
   }
   if (!IsIntrinsic()) {
@@ -2538,15 +2637,17 @@ bool HInvokeStaticOrDirect::NeedsDexCacheOfDeclaringClass() const {
 std::ostream& operator<<(std::ostream& os, HInvokeStaticOrDirect::MethodLoadKind rhs) {
   switch (rhs) {
     case HInvokeStaticOrDirect::MethodLoadKind::kStringInit:
-      return os << "string_init";
+      return os << "StringInit";
     case HInvokeStaticOrDirect::MethodLoadKind::kRecursive:
-      return os << "recursive";
+      return os << "Recursive";
+    case HInvokeStaticOrDirect::MethodLoadKind::kBootImageLinkTimePcRelative:
+      return os << "BootImageLinkTimePcRelative";
     case HInvokeStaticOrDirect::MethodLoadKind::kDirectAddress:
-      return os << "direct";
-    case HInvokeStaticOrDirect::MethodLoadKind::kDexCachePcRelative:
-      return os << "dex_cache_pc_relative";
-    case HInvokeStaticOrDirect::MethodLoadKind::kDexCacheViaMethod:
-      return os << "dex_cache_via_method";
+      return os << "DirectAddress";
+    case HInvokeStaticOrDirect::MethodLoadKind::kBssEntry:
+      return os << "BssEntry";
+    case HInvokeStaticOrDirect::MethodLoadKind::kRuntimeCall:
+      return os << "RuntimeCall";
     default:
       LOG(FATAL) << "Unknown MethodLoadKind: " << static_cast<int>(rhs);
       UNREACHABLE();
@@ -2590,7 +2691,7 @@ bool HLoadClass::InstructionDataEquals(const HInstruction* other) const {
 void HLoadClass::SetLoadKind(LoadKind load_kind) {
   SetPackedField<LoadKindField>(load_kind);
 
-  if (load_kind != LoadKind::kDexCacheViaMethod &&
+  if (load_kind != LoadKind::kRuntimeCall &&
       load_kind != LoadKind::kReferrersClass) {
     RemoveAsUserOfInput(0u);
     SetRawInputAt(0u, nullptr);
@@ -2606,8 +2707,6 @@ std::ostream& operator<<(std::ostream& os, HLoadClass::LoadKind rhs) {
   switch (rhs) {
     case HLoadClass::LoadKind::kReferrersClass:
       return os << "ReferrersClass";
-    case HLoadClass::LoadKind::kBootImageLinkTimeAddress:
-      return os << "BootImageLinkTimeAddress";
     case HLoadClass::LoadKind::kBootImageLinkTimePcRelative:
       return os << "BootImageLinkTimePcRelative";
     case HLoadClass::LoadKind::kBootImageAddress:
@@ -2616,8 +2715,8 @@ std::ostream& operator<<(std::ostream& os, HLoadClass::LoadKind rhs) {
       return os << "BssEntry";
     case HLoadClass::LoadKind::kJitTableAddress:
       return os << "JitTableAddress";
-    case HLoadClass::LoadKind::kDexCacheViaMethod:
-      return os << "DexCacheViaMethod";
+    case HLoadClass::LoadKind::kRuntimeCall:
+      return os << "RuntimeCall";
     default:
       LOG(FATAL) << "Unknown HLoadClass::LoadKind: " << static_cast<int>(rhs);
       UNREACHABLE();
@@ -2645,10 +2744,10 @@ bool HLoadString::InstructionDataEquals(const HInstruction* other) const {
 
 void HLoadString::SetLoadKind(LoadKind load_kind) {
   // Once sharpened, the load kind should not be changed again.
-  DCHECK_EQ(GetLoadKind(), LoadKind::kDexCacheViaMethod);
+  DCHECK_EQ(GetLoadKind(), LoadKind::kRuntimeCall);
   SetPackedField<LoadKindField>(load_kind);
 
-  if (load_kind != LoadKind::kDexCacheViaMethod) {
+  if (load_kind != LoadKind::kRuntimeCall) {
     RemoveAsUserOfInput(0u);
     SetRawInputAt(0u, nullptr);
   }
@@ -2660,8 +2759,6 @@ void HLoadString::SetLoadKind(LoadKind load_kind) {
 
 std::ostream& operator<<(std::ostream& os, HLoadString::LoadKind rhs) {
   switch (rhs) {
-    case HLoadString::LoadKind::kBootImageLinkTimeAddress:
-      return os << "BootImageLinkTimeAddress";
     case HLoadString::LoadKind::kBootImageLinkTimePcRelative:
       return os << "BootImageLinkTimePcRelative";
     case HLoadString::LoadKind::kBootImageAddress:
@@ -2670,8 +2767,8 @@ std::ostream& operator<<(std::ostream& os, HLoadString::LoadKind rhs) {
       return os << "BssEntry";
     case HLoadString::LoadKind::kJitTableAddress:
       return os << "JitTableAddress";
-    case HLoadString::LoadKind::kDexCacheViaMethod:
-      return os << "DexCacheViaMethod";
+    case HLoadString::LoadKind::kRuntimeCall:
+      return os << "RuntimeCall";
     default:
       LOG(FATAL) << "Unknown HLoadString::LoadKind: " << static_cast<int>(rhs);
       UNREACHABLE();

@@ -20,7 +20,6 @@ import unittest
 
 from socket import *
 
-import iproute
 import multinetwork_base
 import net_test
 import packets

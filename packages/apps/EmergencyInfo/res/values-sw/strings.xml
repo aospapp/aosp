@@ -17,6 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Maelezo ya dharura"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"Maelezo ya matibabu"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"Badilisha maelezo"</string>
     <string name="edit_info" msgid="5973929805855224805">"Badilisha maelezo ya dharura"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Maelezo"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Anwani"</string>
@@ -96,12 +98,12 @@
     <string name="cancel" msgid="7401575239009060939">"Ghairi"</string>
     <string name="ok" msgid="163967937451981024">"Sawa"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"Maelezo ya dharura"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"Maelezo unayoandika hapa yanaweza kuwasaidia watu wa kwanza kuchukua hatua jambo la dharura likitokea. Maelezo haya huhifadhiwa kwenye kifaa chako pekee na mtu yeyote anaweza kuyasoma kutoka kipiga simu ya dharura bila kufungua simu yako."</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"Endelea"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Hatuna maelezo kuhusu mwenye simu hii"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"Ikiwa hii ni simu yako, gonga aikoni ya penseli ili uongeze maelezo ambayo yataonekana hapa wakati wa dharura."</string>
     <string name="clear_all" msgid="8899013032870561633">"Futa yote"</string>
     <string name="clear" msgid="3648880442502887163">"Futa"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Je, ungependa kufuta maelezo na anwani zote?"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"Hatua ya kuongeza maelezo ya matibabu ya anwani za dharura inaweza kuwasaidia wahudumu wa hali za dharura.\n\nMtu yeyote anaweza kusoma maelezo haya kwenye skrini ya simu yako iliyofungwa na kuwapigia simu watu unaowasiliana nao kwa kugonga majina yao bila kufungua simu yako."</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"Ongeza maelezo ya dharura"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"Wasaidie wahudumu wa kwanza wapate maelezo muhimu"</string>
 </resources>

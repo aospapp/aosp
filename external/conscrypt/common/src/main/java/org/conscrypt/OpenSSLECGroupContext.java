@@ -27,24 +27,19 @@ import java.security.spec.EllipticCurve;
 
 /**
  * Represents a BoringSSL EC_GROUP object.
- *
- * @hide
  */
-@Internal
-public final class OpenSSLECGroupContext {
+final class OpenSSLECGroupContext {
     private final NativeRef.EC_GROUP groupCtx;
 
-    public OpenSSLECGroupContext(NativeRef.EC_GROUP groupCtx) {
+    OpenSSLECGroupContext(NativeRef.EC_GROUP groupCtx) {
         this.groupCtx = groupCtx;
     }
 
-    public static OpenSSLECGroupContext getCurveByName(String curveName) {
-        // Workaround for OpenSSL not supporting SECG names for NIST P-192 and P-256
-        // (aka ANSI X9.62 prime192v1 and prime256v1) curve names.
+    static OpenSSLECGroupContext getCurveByName(String curveName) {
+        // Workaround for OpenSSL not supporting SECG names for NIST P-256 (aka
+        // ANSI X9.62 prime256v1).
         if ("secp256r1".equals(curveName)) {
             curveName = "prime256v1";
-        } else if ("secp192r1".equals(curveName)) {
-            curveName = "prime192v1";
         }
 
         final long ctx = NativeCrypto.EC_GROUP_new_by_curve_name(curveName);
@@ -67,11 +62,11 @@ public final class OpenSSLECGroupContext {
         return super.hashCode();
     }
 
-    public NativeRef.EC_GROUP getNativeRef() {
+    NativeRef.EC_GROUP getNativeRef() {
         return groupCtx;
     }
 
-    public static OpenSSLECGroupContext getInstance(ECParameterSpec params)
+    static OpenSSLECGroupContext getInstance(ECParameterSpec params)
             throws InvalidAlgorithmParameterException {
         String curveName = Platform.getCurveName(params);
         if (curveName != null) {
@@ -159,7 +154,7 @@ public final class OpenSSLECGroupContext {
         return new OpenSSLECGroupContext(groupRef);
     }
 
-    public ECParameterSpec getECParameterSpec() {
+    ECParameterSpec getECParameterSpec() {
         final String curveName = NativeCrypto.EC_GROUP_get_curve_name(groupCtx);
 
         final byte[][] curveParams = NativeCrypto.EC_GROUP_get_curve(groupCtx);

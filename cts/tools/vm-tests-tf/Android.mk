@@ -25,7 +25,7 @@ LOCAL_MODULE := cts-tf-dalvik-lib
 LOCAL_MODULE_CLASS := JAVA_LIBRARIES
 LOCAL_MODULE_TAGS := optional
 LOCAL_JAVA_LIBRARIES := junit
-
+-include cts/error_prone_rules_tests.mk
 include $(BUILD_JAVA_LIBRARY)
 
 cts-tf-dalvik-lib.jack := $(full_classes_jack)
@@ -68,11 +68,13 @@ LOCAL_INSTALLED_MODULE_STEM := android.core.vm-tests-tf.jar
 LOCAL_MODULE_PATH := $(intermediates)
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 include $(BUILD_SYSTEM)/base_rules.mk
 
-vmteststf_dep_jars := $(addprefix $(HOST_OUT_JAVA_LIBRARIES)/, cts-tf-dalvik-buildutil.jar dasm.jar dx.jar cfassembler.jar junit-host.jar)
+vmteststf_dep_jars := \
+    $(HOST_JDK_TOOLS_JAR) \
+    $(addprefix $(HOST_OUT_JAVA_LIBRARIES)/, cts-tf-dalvik-buildutil.jar dasm.jar dx.jar cfassembler.jar junit-host.jar)
 
 $(LOCAL_BUILT_MODULE): PRIVATE_JACK_EXTRA_ARGS := $(LOCAL_JACK_EXTRA_ARGS)
 
@@ -86,7 +88,7 @@ $(LOCAL_BUILT_MODULE): PRIVATE_INTERMEDIATES := $(intermediates)/tests
 $(LOCAL_BUILT_MODULE): PRIVATE_INTERMEDIATES_DEXCORE_JAR := $(intermediates)/tests/dot/junit/dexcore.jar
 $(LOCAL_BUILT_MODULE): PRIVATE_INTERMEDIATES_MAIN_FILES := $(intermediates)/main_files
 $(LOCAL_BUILT_MODULE): PRIVATE_INTERMEDIATES_HOSTJUNIT_FILES := $(intermediates)/hostjunit_files
-$(LOCAL_BUILT_MODULE): PRIVATE_CLASS_PATH := $(subst $(space),:,$(vmteststf_dep_jars)):$(HOST_JDK_TOOLS_JAR)
+$(LOCAL_BUILT_MODULE): PRIVATE_CLASS_PATH := $(call normalize-path-list, $(vmteststf_dep_jars))
 $(LOCAL_BUILT_MODULE): PRIVATE_JACK_VERSION := $(LOCAL_JACK_VERSION)
 ifndef LOCAL_JACK_ENABLED
 $(LOCAL_BUILT_MODULE) : $(vmteststf_dep_jars) $(HOST_OUT_JAVA_LIBRARIES)/tradefed.jar
@@ -94,11 +96,13 @@ $(LOCAL_BUILT_MODULE) : $(vmteststf_dep_jars) $(HOST_OUT_JAVA_LIBRARIES)/tradefe
 	$(hide) mkdir -p $(PRIVATE_INTERMEDIATES_HOSTJUNIT_FILES)/dot/junit $(dir $(PRIVATE_INTERMEDIATES_DEXCORE_JAR))
 	# generated and compile the host side junit tests
 	@echo "Write generated Main_*.java files to $(PRIVATE_INTERMEDIATES_MAIN_FILES)"
-	$(hide) java -cp $(PRIVATE_CLASS_PATH) util.build.BuildDalvikSuite $(PRIVATE_SRC_FOLDER) $(PRIVATE_INTERMEDIATES) \
+	$(hide) $(JAVA) \
+	    $(if $(EXPERIMENTAL_USE_OPENJDK9),--add-exports jdk.jartool/sun.tools.jar=ALL-UNNAMED) \
+	    -cp $(PRIVATE_CLASS_PATH) util.build.BuildDalvikSuite $(PRIVATE_SRC_FOLDER) $(PRIVATE_INTERMEDIATES) \
 		$(HOST_OUT_JAVA_LIBRARIES)/cts-tf-dalvik-buildutil.jar:$(HOST_OUT_JAVA_LIBRARIES)/tradefed.jar \
 		$(PRIVATE_INTERMEDIATES_MAIN_FILES) $(PRIVATE_INTERMEDIATES_CLASSES) $(PRIVATE_INTERMEDIATES_HOSTJUNIT_FILES) $$RUN_VM_TESTS_RTO
 	@echo "Generate $(PRIVATE_INTERMEDIATES_DEXCORE_JAR)"
-	$(hide) jar -cf $(PRIVATE_INTERMEDIATES_DEXCORE_JAR).jar \
+	$(hide) $(JAR) -cf $(PRIVATE_INTERMEDIATES_DEXCORE_JAR).jar \
 		$(addprefix -C $(PRIVATE_INTERMEDIATES_CLASSES) , dot/junit/DxUtil.class dot/junit/DxAbstractMain.class)
 	$(hide) $(DX) -JXms16M -JXmx768M --dex --output=$(PRIVATE_INTERMEDIATES_DEXCORE_JAR) \
 		$(if $(NO_OPTIMIZE_DX), --no-optimize) $(PRIVATE_INTERMEDIATES_DEXCORE_JAR).jar && rm -f $(PRIVATE_INTERMEDIATES_DEXCORE_JAR).jar
@@ -113,11 +117,11 @@ $(LOCAL_BUILT_MODULE) : $(vmteststf_dep_jars) $(JACK) $(oj_jack) $(libart_jack) 
 	$(hide) mkdir -p $(PRIVATE_INTERMEDIATES_HOSTJUNIT_FILES)/dot/junit $(dir $(PRIVATE_INTERMEDIATES_DEXCORE_JAR))
 	# generated and compile the host side junit tests
 	@echo "Write generated Main_*.java files to $(PRIVATE_INTERMEDIATES_MAIN_FILES)"
-	$(hide) JACK_VERSION=$(PRIVATE_JACK_VERSION) java -cp $(PRIVATE_CLASS_PATH) util.build.JackBuildDalvikSuite $(JACK) $(PRIVATE_SRC_FOLDER) $(PRIVATE_INTERMEDIATES) \
+	$(hide) JACK_VERSION=$(PRIVATE_JACK_VERSION) $(JAVA) -cp $(PRIVATE_CLASS_PATH) util.build.JackBuildDalvikSuite $(JACK) $(PRIVATE_SRC_FOLDER) $(PRIVATE_INTERMEDIATES) \
 		$(PRIVATE_DALVIK_SUITE_CLASSPATH) \
 		$(PRIVATE_INTERMEDIATES_MAIN_FILES) $(PRIVATE_INTERMEDIATES_CLASSES) $(PRIVATE_INTERMEDIATES_HOSTJUNIT_FILES) $$RUN_VM_TESTS_RTO
 	@echo "Generate $(PRIVATE_INTERMEDIATES_DEXCORE_JAR)"
-	$(hide) jar -cf $(PRIVATE_INTERMEDIATES_DEXCORE_JAR)-class.jar \
+	$(hide) $(JAR) -cf $(PRIVATE_INTERMEDIATES_DEXCORE_JAR)-class.jar \
 		$(addprefix -C $(PRIVATE_INTERMEDIATES_CLASSES) , dot/junit/DxUtil.class dot/junit/DxAbstractMain.class)
 	$(hide) $(call call-jack) --import $(PRIVATE_INTERMEDIATES_DEXCORE_JAR)-class.jar --output-jack $(PRIVATE_INTERMEDIATES_DEXCORE_JAR).jack
 	$(hide) mkdir -p $(PRIVATE_INTERMEDIATES_DEXCORE_JAR).tmp

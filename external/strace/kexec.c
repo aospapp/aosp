@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014-2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2014-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,7 +44,7 @@ print_seg(struct tcb *tcp, void *elem_buf, size_t elem_size, void *data)
 	const kernel_ulong_t *seg;
 	kernel_ulong_t seg_buf[4];
 
-        if (elem_size < sizeof(seg_buf)) {
+	if (elem_size < sizeof(seg_buf)) {
 		unsigned int i;
 
 		for (i = 0; i < ARRAY_SIZE(seg_buf); ++i)

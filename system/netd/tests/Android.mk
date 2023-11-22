@@ -18,13 +18,14 @@ LOCAL_PATH := $(call my-dir)
 # APCT build target
 include $(CLEAR_VARS)
 LOCAL_MODULE := netd_integration_test
+LOCAL_COMPATIBILITY_SUITE := device-tests
 LOCAL_CFLAGS := -Wall -Werror -Wunused-parameter
 # Bug: http://b/29823425 Disable -Wvarargs for Clang update to r271374
 LOCAL_CFLAGS += -Wno-varargs
 
 EXTRA_LDLIBS := -lpthread
-LOCAL_SHARED_LIBRARIES += libbase libbinder libcutils liblog liblogwrap libnetdaidl libnetd_client \
-                          libnetutils libutils
+LOCAL_SHARED_LIBRARIES += libbase libbinder libcrypto libcutils liblog liblogwrap libnetdaidl \
+                          libnetd_client libnetutils libssl libutils libnetdutils
 LOCAL_STATIC_LIBRARIES += libnetd_test_dnsresponder
 LOCAL_AIDL_INCLUDES := system/netd/server/binder
 LOCAL_C_INCLUDES += system/netd/include system/netd/binder/include \

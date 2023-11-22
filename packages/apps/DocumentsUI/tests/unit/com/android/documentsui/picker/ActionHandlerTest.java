@@ -64,13 +64,13 @@ public class ActionHandlerTest {
     public void setUp() {
         mEnv = TestEnv.create();
         mActivity = TestActivity.create(mEnv);
-        mEnv.roots.configurePm(mActivity.packageMgr);
+        mEnv.providers.configurePm(mActivity.packageMgr);
         mLastAccessed = new TestLastAccessedStorage();
 
         mHandler = new ActionHandler<>(
                 mActivity,
                 mEnv.state,
-                mEnv.roots,
+                mEnv.providers,
                 mEnv.docs,
                 mEnv.searchViewManager,
                 mEnv::lookupExecutor,
@@ -91,6 +91,23 @@ public class ActionHandlerTest {
     }
 
     @Test
+    public void testInitLocation_RestoresIfStackIsLoaded() throws Exception {
+        mEnv.state.stack.changeRoot(TestProvidersAccess.DOWNLOADS);
+        mEnv.state.stack.push(TestEnv.FOLDER_0);
+
+        mHandler.initLocation(mActivity.getIntent());
+        mActivity.restoreRootAndDirectory.assertCalled();
+    }
+
+    @Test
+    public void testInitLocation_LoadsRootDocIfStackOnlyHasRoot() throws Exception {
+        mEnv.state.stack.changeRoot(TestProvidersAccess.HAMMY);
+
+        mHandler.initLocation(mActivity.getIntent());
+        assertRootPicked(TestProvidersAccess.HAMMY.getUri());
+    }
+
+    @Test
     public void testInitLocation_CopyDestination_DefaultsToDownloads() throws Exception {
         mActivity.resources.bools.put(R.bool.show_documents_root, false);
 
@@ -103,6 +120,7 @@ public class ActionHandlerTest {
     @Test
     public void testInitLocation_CopyDestination_DocumentsRootEnabled() throws Exception {
         mActivity.resources.bools.put(R.bool.show_documents_root, true);
+        mActivity.resources.strings.put(R.string.default_root_uri, TestProvidersAccess.HOME.getUri().toString());
 
         Intent intent = mActivity.getIntent();
         intent.setAction(Shared.ACTION_PICK_COPY_DESTINATION);
@@ -112,6 +130,10 @@ public class ActionHandlerTest {
 
     @Test
     public void testInitLocation_LaunchToDocuments() throws Exception {
+        if (!mEnv.features.isLaunchToDocumentEnabled()) {
+            return;
+        }
+
         mEnv.docs.nextIsDocumentsUri = true;
         mEnv.docs.nextPath = new Path(
                 TestProvidersAccess.HOME.rootId,
@@ -270,6 +292,10 @@ public class ActionHandlerTest {
 
     @Test
     public void testSaveDocument_ConfirmsOverwrite() {
+        if (!mEnv.features.isOverwriteConfirmationEnabled()) {
+            return;
+        }
+
         mEnv.state.action = State.ACTION_CREATE;
         mEnv.state.stack.changeRoot(TestProvidersAccess.HOME);
         mEnv.state.stack.push(TestEnv.FOLDER_1);
@@ -463,8 +489,8 @@ public class ActionHandlerTest {
     }
 
     private void assertLastAccessedStackUpdated() {
-        assertEquals(
-                mEnv.state.stack, mLastAccessed.getLastAccessed(mActivity, mEnv.roots, mEnv.state));
+        assertEquals(mEnv.state.stack, mLastAccessed.getLastAccessed(
+                mActivity, mEnv.providers, mEnv.state));
     }
 
     private void assertPermission(Intent intent, int permission, boolean granted) {

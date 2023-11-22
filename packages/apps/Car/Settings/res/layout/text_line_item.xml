@@ -15,19 +15,43 @@
   ~ limitations under the License
   -->
 
-<LinearLayout
+<RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="vertical" >
-    <TextView
-        android:id="@+id/title"
-        android:layout_width="wrap_content"
+    style="@style/LineItem" >
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textSize="@dimen/medium_text_size"/>
-    <TextView
-        android:id="@+id/desc"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textSize="@dimen/small_text_size"/>
-</LinearLayout>
+        android:orientation="vertical"
+        android:layout_centerVertical="true"
+        android:gravity="center_vertical"
+        android:layout_alignParentStart="true"
+        android:layout_marginBottom="@dimen/optical_center_offset"
+        android:layout_marginStart="@dimen/stream_card_keyline_1"
+        android:layout_marginEnd="@dimen/stream_card_keyline_3" >
+        <TextView
+            android:id="@+id/title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            style="@style/CarBody1.SingleLine" />
+        <TextView
+            android:id="@+id/desc"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            style="@style/CarBody2.SingleLine"
+            android:layout_marginTop="@dimen/double_line_text_margin" />
+    </LinearLayout>
+    <ImageView
+        android:id="@+id/right_chevron"
+        style="@style/SettingIcon"
+        android:layout_marginEnd="@dimen/stream_card_keyline_1"
+        android:layout_alignParentEnd="true"
+        android:layout_centerVertical="true"
+        android:src="@drawable/ic_chevron_right"
+        android:tint="@color/text_body_1"/>
+    <View
+        android:id="@+id/line_item_divider"
+        android:layout_alignParentBottom="true"
+        android:background="@color/car_list_divider"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/car_divider_height" />
+</RelativeLayout>

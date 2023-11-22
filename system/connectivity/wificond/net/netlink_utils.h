@@ -65,16 +65,30 @@ struct ScanCapabilities {
   ScanCapabilities() = default;
   ScanCapabilities(uint8_t max_num_scan_ssids_,
                    uint8_t max_num_sched_scan_ssids_,
-                   uint8_t max_match_sets_)
+                   uint8_t max_match_sets_,
+                   uint32_t max_num_scan_plans_,
+                   uint32_t max_scan_plan_interval_,
+                   uint32_t max_scan_plan_iterations_)
       : max_num_scan_ssids(max_num_scan_ssids_),
         max_num_sched_scan_ssids(max_num_sched_scan_ssids_),
-        max_match_sets(max_match_sets_) {}
+        max_match_sets(max_match_sets_),
+        max_num_scan_plans(max_num_scan_plans_),
+        max_scan_plan_interval(max_scan_plan_interval_),
+        max_scan_plan_iterations(max_scan_plan_iterations_) {}
   // Number of SSIDs you can scan with a single scan request.
   uint8_t max_num_scan_ssids;
   // Number of SSIDs you can scan with a single scheduled scan request.
   uint8_t max_num_sched_scan_ssids;
   // Maximum number of sets that can be used with NL80211_ATTR_SCHED_SCAN_MATCH.
   uint8_t max_match_sets;
+  // Maximum number of scan plans that can be specified.
+  uint32_t max_num_scan_plans;
+  // Maximum interval in seconds for a particular scan plan that can be
+  // specified.
+  uint32_t max_scan_plan_interval;
+  // Maximum number of iterations for a particular scan plan that can be
+  // specified.
+  uint32_t max_scan_plan_iterations;
 };
 
 struct WiphyFeatures {

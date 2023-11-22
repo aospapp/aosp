@@ -18,7 +18,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="description_dialpad_back" msgid="8370856774250260053">"পিছনে যান"</string>
-    <string name="description_dialpad_overflow" msgid="4853244877599437286">"আরো বিকল্প"</string>
+    <string name="description_dialpad_overflow" msgid="4853244877599437286">"আরও বিকল্প"</string>
     <string name="description_delete_button" msgid="88733669653753441">"ব্যাক-স্পেস"</string>
     <string name="description_image_button_plus" msgid="7821061347207448362">"যোগ চিহ্ন"</string>
     <string name="description_voicemail_button" msgid="6281470684653439120">"ভয়েসমেল"</string>
@@ -28,7 +28,7 @@
     <string name="callFailed_timedOut" msgid="7772951976278867294">"কোনো প্রতিক্রিয়া নেই, সময় শেষ হয়ে গেছে"</string>
     <string name="callFailed_server_unreachable" msgid="4766146133909799091">"সার্ভারে পৌঁছানো যাচ্ছে না"</string>
     <string name="callFailed_number_unreachable" msgid="1243366438388873914">"নম্বরটিতে সংযোগ স্থাপন করা যাচ্ছে না"</string>
-    <string name="callFailed_invalid_credentials" msgid="6115412108261660271">"ভুল ব্যবহারকারী নাম বা পাসওয়ার্ড"</string>
+    <string name="callFailed_invalid_credentials" msgid="6115412108261660271">"ভুল ইউজারনেম বা পাসওয়ার্ড"</string>
     <string name="callFailed_out_of_network" msgid="6970725831030399542">"নেটওয়ার্ক-বহিস্থ কল"</string>
     <string name="callFailed_server_error" msgid="1391421251190688379">"সার্ভার ত্রুটি৷ পরে আবার চেষ্টা করুন৷"</string>
     <string name="callFailed_noSignal" msgid="1758972490451048086">"কোনো সিগন্যাল নেই"</string>

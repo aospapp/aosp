@@ -44,7 +44,6 @@ import com.android.documentsui.LoadDocStackTask.LoadDocStackCallback;
 import com.android.documentsui.base.BooleanConsumer;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.DocumentStack;
-import com.android.documentsui.base.Features;
 import com.android.documentsui.base.Lookup;
 import com.android.documentsui.base.Providers;
 import com.android.documentsui.base.RootInfo;
@@ -231,6 +230,10 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
         throw new UnsupportedOperationException("Can't open document.");
     }
 
+    public void showInspector(DocumentInfo doc) {
+        throw new UnsupportedOperationException("Can't open properties.");
+    }
+
     @Override
     public void springOpenDirectory(DocumentInfo doc) {
         throw new UnsupportedOperationException("Can't spring open directories.");
@@ -292,6 +295,13 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
         if (changed) {
             mDisplayStateChangedListener.run();
         }
+    }
+
+    @Override
+    public void showCreateDirectoryDialog() {
+        Metrics.logUserAction(mActivity, Metrics.USER_ACTION_CREATE_DIR);
+
+        CreateDirectoryFragment.show(mActivity.getFragmentManager());
     }
 
     @Override
@@ -394,6 +404,7 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
 
         mState.debugMode = enabled;
         mInjector.features.forceFeature(R.bool.feature_command_interceptor, enabled);
+        mInjector.features.forceFeature(R.bool.feature_inspector, enabled);
         mActivity.invalidateOptionsMenu();
 
         if (enabled) {
@@ -501,6 +512,14 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
 
     protected abstract void launchToDefaultLocation();
 
+    protected void restoreRootAndDirectory() {
+        if (!mState.stack.getRoot().isRecents() && mState.stack.isEmpty()) {
+            mActivity.onRootPicked(mState.stack.getRoot());
+        } else {
+            mActivity.restoreRootAndDirectory();
+        }
+    }
+
     protected final void loadHomeDir() {
         loadRoot(Shared.getDefaultRootUri(mActivity));
     }
@@ -525,8 +544,13 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
             if (mState.stack.isRecents()) {
 
                 if (DEBUG) Log.d(TAG, "Creating new loader recents.");
-                return new RecentsLoader(context, mProviders, mState, mInjector.features);
-
+                return new RecentsLoader(
+                        context,
+                        mProviders,
+                        mState,
+                        mInjector.features,
+                        mExecutors,
+                        mInjector.fileTypeLookup);
             } else {
 
                 Uri contentsUri = mSearchMgr.isSearching()
@@ -553,6 +577,7 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
                         mState.stack.peek(),
                         contentsUri,
                         mState.sortModel,
+                        mInjector.fileTypeLookup,
                         mDirectoryReloadLock,
                         mSearchMgr.isSearching());
             }
@@ -575,6 +600,7 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
      * from our concrete activity implementations.
      */
     public interface CommonAddons {
+        void restoreRootAndDirectory();
         void refreshCurrentRootAndDirectory(@AnimationType int anim);
         void onRootPicked(RootInfo root);
         // TODO: Move this to PickAddons as multi-document picking is exclusive to that activity.

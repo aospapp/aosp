@@ -24,6 +24,7 @@ import org.apache.harmony.jpda.tests.share.SyncDebuggee;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 
 /**
  * Debuggee for GetValues002Test and SetValues002Test.
@@ -544,7 +545,7 @@ public class StackTrace002Debuggee extends SyncDebuggee {
     }
 
     public void breakpointArray(int[] param) {
-        logWriter.println("breakpointArray(param=\"" + param + "\")");
+        logWriter.println("breakpointArray(param=\"" + Arrays.toString(param) + "\")");
         synchronizeWithTest();
     }
 

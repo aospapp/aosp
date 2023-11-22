@@ -31,6 +31,7 @@
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
+#include <android-base/stringprintf.h>
 
 #include <7zCrc.h>
 #include <Xz.h>
@@ -336,4 +337,10 @@ timeval SecondToTimeval(double time_in_sec) {
   tv.tv_sec = static_cast<time_t>(time_in_sec);
   tv.tv_usec = static_cast<int>((time_in_sec - tv.tv_sec) * 1000000);
   return tv;
+}
+
+constexpr int SIMPLEPERF_VERSION = 1;
+
+std::string GetSimpleperfVersion() {
+  return android::base::StringPrintf("%d.%s", SIMPLEPERF_VERSION, SIMPLEPERF_REVISION);
 }

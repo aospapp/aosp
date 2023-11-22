@@ -246,7 +246,7 @@
     <string name="storage_calculating_size" msgid="2644732407412520565">"A calcular..."</string>
     <string name="storage_apps_usage" msgid="4366049071039081219">"Aplicações"</string>
     <string name="storage_downloads_usage" msgid="6172975879962599380">"Transferências"</string>
-    <string name="storage_dcim_usage" msgid="2977564696540645452">"Fotografias e vídeos"</string>
+    <string name="storage_dcim_usage" msgid="2977564696540645452">"Fotos e vídeos"</string>
     <string name="storage_music_usage" msgid="3509327591741514083">"Áudio"</string>
     <string name="storage_media_misc_usage" msgid="6066868724030127457">"Diversos"</string>
     <string name="storage_media_cache_usage" msgid="5906737163212649904">"Dados em cache"</string>
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"Serviços"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Definições de serviços"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Texto de alto contraste"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Atalho de acessibilidade"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Ativar atalho de acessibilidade"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Serviço do atalho"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Quando o atalho estiver ativado, pode premir o botão Anterior e o botão para baixo em simultâneo durante 3 segundos para iniciar uma funcionalidade de acessibilidade."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Legendas"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Definições para sobreposição de texto de legendas ocultas em vídeo"</string>
     <string name="captions_display" msgid="735692527287125548">"Visualização"</string>
@@ -628,7 +632,7 @@
     <string name="device_daydreams_sleep" msgid="7676938708373592766">"Quando iniciar"</string>
     <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"A proteção de ecrã é iniciada após este período de inatividade. Se não for selecionada qualquer proteção de ecrã, o ecrã desliga-se."</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"Após <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> de inatividade"</string>
-    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Colocar o dispositivo em suspensão"</string>
+    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Colocar o disp. em suspensão"</string>
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"O ecrã desliga-se após este período de inatividade."</string>
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"De momento, não há nenhuma conta a armazenar dados de cópia de segurança"</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"A capturar o relatório de erro"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Teclados virtuais disponíveis"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Gerir teclados"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Permitida"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Não permitida"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Acesso de utilização"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"O acesso de utilização permite a uma aplicação monitorizar que outras aplicações está a utilizar e com que frequência, bem como o operador e as definições de idioma, entre outros detalhes."</string>
 </resources>

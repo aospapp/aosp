@@ -137,6 +137,15 @@ public class CommandOptions implements ICommandOptions {
     )
     private boolean mUseTfSharding = false;
 
+    public static final String USE_SANDBOX = "use-sandbox";
+
+    @Option(
+        name = USE_SANDBOX,
+        description = "Set if the invocation should use a sandbox to run or not."
+    )
+    private boolean mUseSandbox = false;
+
+
     /**
      * Set the help mode for the config.
      * <p/>
@@ -387,5 +396,17 @@ public class CommandOptions implements ICommandOptions {
     @Override
     public boolean shouldUseTfSharding() {
         return mUseTfSharding;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean shouldUseSandboxing() {
+        return mUseSandbox;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setShouldUseSandboxing(boolean use) {
+        mUseSandbox = use;
     }
 }

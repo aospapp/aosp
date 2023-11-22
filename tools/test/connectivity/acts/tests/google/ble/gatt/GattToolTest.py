@@ -27,19 +27,19 @@ import pprint
 from queue import Empty
 import time
 
-from acts.test_utils.bt.BleEnum import ScanSettingsScanMode
+from acts.test_utils.bt.bt_constants import ble_scan_settings_modes
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
-from acts.test_utils.bt.GattEnum import GattCbErr
-from acts.test_utils.bt.GattEnum import GattCbStrings
-from acts.test_utils.bt.GattEnum import GattDescriptor
-from acts.test_utils.bt.GattEnum import GattTransport
+from acts.test_utils.bt.bt_constants import gatt_cb_err
+from acts.test_utils.bt.bt_constants import gatt_cb_strings
+from acts.test_utils.bt.bt_constants import gatt_descriptor
+from acts.test_utils.bt.bt_constants import gatt_transport
 from acts.test_utils.bt.bt_gatt_utils import GattTestUtilsError
 from acts.test_utils.bt.bt_gatt_utils import disconnect_gatt_connection
 from acts.test_utils.bt.bt_test_utils import generate_ble_scan_objects
 from acts.test_utils.bt.bt_gatt_utils import setup_gatt_connection
 from acts.test_utils.bt.bt_gatt_utils import log_gatt_server_uuids
 from acts.test_utils.bt.bt_test_utils import reset_bluetooth
-from acts.test_utils.bt.bt_test_utils import scan_result
+from acts.test_utils.bt.bt_constants import scan_result
 
 
 class GattToolTest(BluetoothBaseTest):
@@ -84,8 +84,8 @@ class GattToolTest(BluetoothBaseTest):
 
     def _is_peripheral_advertising(self):
         self.cen_ad.droid.bleSetScanFilterDeviceAddress(self.ble_mac_address)
-        self.cen_ad.droid.bleSetScanSettingsScanMode(
-            ScanSettingsScanMode.SCAN_MODE_LOW_LATENCY.value)
+        self.cen_ad.droid.bleSetScanSettingsScanMode(ble_scan_settings_modes[
+            'low_latency'])
         filter_list, scan_settings, scan_callback = generate_ble_scan_objects(
             self.cen_ad.droid)
         self.cen_ad.droid.bleBuildScanFilter(filter_list)
@@ -145,9 +145,9 @@ class GattToolTest(BluetoothBaseTest):
         self.AUTOCONNECT = False
         start_time = self._get_time_in_milliseconds()
         try:
-            bluetooth_gatt, gatt_callback = (setup_gatt_connection(
-                self.cen_ad, self.ble_mac_address, self.AUTOCONNECT,
-                GattTransport.TRANSPORT_LE.value))
+            bluetooth_gatt, gatt_callback = (
+                setup_gatt_connection(self.cen_ad, self.ble_mac_address,
+                                      self.AUTOCONNECT, gatt_transport['le']))
         except GattTestUtilsError as err:
             self.log.error(err)
             return False
@@ -203,7 +203,7 @@ class GattToolTest(BluetoothBaseTest):
             try:
                 bluetooth_gatt, gatt_callback = (setup_gatt_connection(
                     self.cen_ad, self.ble_mac_address, self.AUTOCONNECT,
-                    GattTransport.TRANSPORT_LE.value))
+                    gatt_transport['le']))
             except GattTestUtilsError as err:
                 self.log.error(err)
                 return False
@@ -247,22 +247,22 @@ class GattToolTest(BluetoothBaseTest):
         Priority: 2
         """
         try:
-            bluetooth_gatt, gatt_callback = (setup_gatt_connection(
-                self.cen_ad, self.ble_mac_address, self.AUTOCONNECT,
-                GattTransport.TRANSPORT_LE.value))
+            bluetooth_gatt, gatt_callback = (
+                setup_gatt_connection(self.cen_ad, self.ble_mac_address,
+                                      self.AUTOCONNECT, gatt_transport['le']))
         except GattTestUtilsError as err:
             self.log.error(err)
             return False
         if self.cen_ad.droid.gattClientDiscoverServices(bluetooth_gatt):
-            expected_event = GattCbStrings.GATT_SERV_DISC.value.format(
+            expected_event = gatt_cb_strings['gatt_serv_disc'].format(
                 gatt_callback)
             try:
                 event = self.cen_ad.ed.pop_event(expected_event,
                                                  self.DEFAULT_TIMEOUT)
                 discovered_services_index = event['data']['ServicesIndex']
             except Empty:
-                self.log.error(
-                    GattCbErr.GATT_SERV_DISC_ERR.value.format(expected_event))
+                self.log.error(gatt_cb_err['gatt_serv_disc'].format(
+                    expected_event))
                 return False
             log_gatt_server_uuids(self.cen_ad, discovered_services_index)
         try:
@@ -382,22 +382,22 @@ class GattToolTest(BluetoothBaseTest):
         if not self._pair_with_peripheral():
             return False
         try:
-            bluetooth_gatt, gatt_callback = (setup_gatt_connection(
-                self.cen_ad, self.ble_mac_address, self.AUTOCONNECT,
-                GattTransport.TRANSPORT_LE.value))
+            bluetooth_gatt, gatt_callback = (
+                setup_gatt_connection(self.cen_ad, self.ble_mac_address,
+                                      self.AUTOCONNECT, gatt_transport['le']))
         except GattTestUtilsError as err:
             self.log.error(err)
             return False
         if self.cen_ad.droid.gattClientDiscoverServices(bluetooth_gatt):
-            expected_event = GattCbStrings.GATT_SERV_DISC.value.format(
+            expected_event = gatt_cb_strings['gatt_serv_disc'].format(
                 gatt_callback)
             try:
                 event = self.cen_ad.ed.pop_event(expected_event,
                                                  self.DEFAULT_TIMEOUT)
                 discovered_services_index = event['data']['ServicesIndex']
             except Empty:
-                self.log.error(
-                    GattCbErr.GATT_SERV_DISC_ERR.value.format(expected_event))
+                self.log.error(gatt_cb_err['gatt_serv_disc'].format(
+                    expected_event))
                 return False
         # TODO: in setup save service_cound and discovered_services_index
         # programatically
@@ -418,7 +418,7 @@ class GattToolTest(BluetoothBaseTest):
         self.cen_ad.droid.gattClientDescriptorSetValue(
             bluetooth_gatt, discovered_services_index, test_service_index,
             self.NOTIFIABLE_CHAR_UUID, self.CCC_DESC_UUID,
-            GattDescriptor.ENABLE_NOTIFICATION_VALUE.value)
+            gatt_descriptor['enable_notification_value'])
 
         self.cen_ad.droid.gattClientWriteDescriptor(
             bluetooth_gatt, discovered_services_index, test_service_index,
@@ -435,7 +435,7 @@ class GattToolTest(BluetoothBaseTest):
         while time.time() < end_time:
             try:
                 event = self.cen_ad.ed.pop_event(expected_event,
-                    self.DEFAULT_TIMEOUT)
+                                                 self.DEFAULT_TIMEOUT)
                 self.log.info(event)
             except Empty as err:
                 print(err)

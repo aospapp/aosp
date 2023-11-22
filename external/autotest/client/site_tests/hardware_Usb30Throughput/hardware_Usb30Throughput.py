@@ -9,7 +9,7 @@ import os
 
 from autotest_lib.client.cros import storage as storage_mod
 from autotest_lib.client.common_lib import autotemp, error
-from autotest_lib.client.bin  import base_utils
+from autotest_lib.client.bin import utils
 
 USECS_IN_SEC = 1000000.0
 
@@ -101,9 +101,9 @@ def get_xfer_rate(src, dst):
     assert os.path.isfile(src)
     assert os.path.isfile(dst)
 
-    base_utils.drop_caches()
+    utils.drop_caches()
     start = datetime.datetime.now()
-    base_utils.force_copy(src, dst)
+    utils.force_copy(src, dst)
     end = datetime.datetime.now()
     delta = end - start
 

@@ -59,7 +59,7 @@ public class HoldEventsTest extends JDWPSyncTestCase {
     public void testHoldEvents001() {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        debuggeeWrapper.vmMirror.setThreadStart();
+        debuggeeWrapper.vmMirror.setThreadStart(JDWPConstants.SuspendPolicy.ALL);
 
         //send HoldEvents command
         logWriter.println("send HoldEvents");

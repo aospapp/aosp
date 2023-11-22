@@ -21,6 +21,15 @@
 
 namespace chre {
 
+//! The number of nanoseconds in one second.
+constexpr uint64_t kOneSecondInNanoseconds(1000000000);
+
+//! The number of nanoseconds in one millisecond.
+constexpr uint64_t kOneMillisecondInNanoseconds(1000000);
+
+//! The number of nanoseconds in one millisecond.
+constexpr uint64_t kOneMicrosecondInNanoseconds(1000);
+
 // Forward declare classes for unit-conversion constructors.
 class Milliseconds;
 class Microseconds;
@@ -52,6 +61,11 @@ class Seconds {
 class Milliseconds {
  public:
   /**
+   * Default constructs a milliseconds time duration to zero.
+   */
+  constexpr Milliseconds();
+
+  /**
    * Construct a Milliseconds time duration given a value.
    */
   constexpr explicit Milliseconds(uint64_t milliseconds);
@@ -75,6 +89,13 @@ class Milliseconds {
    * @return the value of milliseconds.
    */
   constexpr uint64_t getMilliseconds() const;
+
+  /**
+   * Performs an equality comparison to another Milliseconds value.
+   *
+   * @return Returns true if this milliseconds object is equal to another.
+   */
+  constexpr bool operator==(const Milliseconds& millis) const;
 
  private:
   //! Store the time duration.
@@ -179,8 +200,7 @@ class Nanoseconds {
  * @param nanoseconds the nanoseconds duration
  * @return the added time quantity expressed in nanoseconds
  */
-constexpr Nanoseconds operator+(const Seconds& seconds,
-                                const Nanoseconds& nanoseconds);
+constexpr Nanoseconds operator+(const Seconds& secs, const Nanoseconds& nanos);
 
 /**
  * Add nanoseconds to nanoseconds.
@@ -234,6 +254,6 @@ constexpr bool operator>(const Nanoseconds& nanos_a,
 
 }  // namespace chre
 
-#include "time_impl.h"
+#include "chre/util/time_impl.h"
 
 #endif // CHRE_UTIL_TIME_H_

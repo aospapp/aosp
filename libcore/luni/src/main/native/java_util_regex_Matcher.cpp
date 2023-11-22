@@ -20,14 +20,14 @@
 #include <stdlib.h>
 
 #include <android-base/logging.h>
+#include <nativehelper/JNIHelp.h>
+#include <nativehelper/JniConstants.h>
+#include <nativehelper/ScopedPrimitiveArray.h>
+#include <nativehelper/ScopedStringChars.h>
 
 #include "IcuUtilities.h"
-#include "JNIHelp.h"
-#include "JniConstants.h"
 #include "JniException.h"
 #include "ScopedJavaUnicodeString.h"
-#include "ScopedPrimitiveArray.h"
-#include "ScopedStringChars.h"
 #include "jni.h"
 #include "unicode/parseerr.h"
 #include "unicode/regex.h"

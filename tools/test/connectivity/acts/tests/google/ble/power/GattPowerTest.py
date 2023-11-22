@@ -22,6 +22,7 @@ Shield box one: Two Android Devices and Monsoon tool box
 import json
 import os
 
+from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BleEnum import ScanSettingsScanMode
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.PowerBaseTest import PowerBaseTest
@@ -114,6 +115,7 @@ class GattPowerTest(PowerBaseTest):
         self.per_ad.take_bug_report(self.current_test_name, current_time)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='8c5213fc-ffe8-4c32-bb63-1d2b7394dc0c')
     def test_power_for_60_sec_n_30_sec_idle_gatt_write(self):
         """Test power usage when do 60 sec GATT write & 30 sec idle
 
@@ -146,6 +148,7 @@ class GattPowerTest(PowerBaseTest):
             self.WRITE_TIME_60, self.IDLE_TIME_30, self.REPETITIONS_40)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='fd682d46-89db-432d-aaa6-35ed63d6d764')
     def test_power_for_60_min_non_stop_gatt_write(self):
         """Test power usage when do a single GATT write.
 

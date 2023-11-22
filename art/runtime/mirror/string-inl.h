@@ -26,7 +26,6 @@
 #include "common_throws.h"
 #include "gc/heap-inl.h"
 #include "globals.h"
-#include "intern_table.h"
 #include "runtime.h"
 #include "thread.h"
 #include "utf.h"
@@ -161,10 +160,6 @@ class SetStringCountAndValueVisitorFromString {
   const int32_t offset_;
 };
 
-inline ObjPtr<String> String::Intern() {
-  return Runtime::Current()->GetInternTable()->InternWeak(this);
-}
-
 inline uint16_t String::CharAt(int32_t index) {
   int32_t count = GetLength();
   if (UNLIKELY((index < 0) || (index >= count))) {
@@ -256,6 +251,7 @@ inline String* String::AllocFromByteArray(Thread* self, int32_t byte_length,
                                           Handle<ByteArray> array, int32_t offset,
                                           int32_t high_byte, gc::AllocatorType allocator_type) {
   const uint8_t* const src = reinterpret_cast<uint8_t*>(array->GetData()) + offset;
+  high_byte &= 0xff;  // Extract the relevant bits before determining `compressible`.
   const bool compressible =
       kUseStringCompression && String::AllASCII<uint8_t>(src, byte_length) && (high_byte == 0);
   const int32_t length_with_flag = String::GetFlaggedCount(byte_length, compressible);

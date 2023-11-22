@@ -10,9 +10,8 @@ Local modifications:
   (e.g. bits.h) to leak into
 - Removed build files necessary for building via autoconf/automake tools
   These files are not required to build via Android.mk
-- Added a local copy of cpu-features.[hc] to src/dsp
-- Removed WEBP_ANDROID_NEON check in dsp.h to avoid breaking non-NEON builds
-  where the flags in Android.mk are not set correctly currently.
+- Undefine WEBP_ANDROID_NEON on Android targets and use __ARM_NEON__
+  instead.
 
 The Android.mk file creates WebP decoder and encoder static libraries which
 can be added to any application by adding to LOCAL_STATIC_LIBRARIES

@@ -19,4 +19,6 @@ subdirs = [
      "libcodecoverage",
      "libdatatype",
      "libmeasurement",
+     "replayer",
+     "server",
 ]

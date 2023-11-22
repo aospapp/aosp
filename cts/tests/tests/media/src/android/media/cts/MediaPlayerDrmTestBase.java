@@ -52,6 +52,7 @@ import java.net.HttpCookie;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.Charset;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -739,6 +740,32 @@ public class MediaPlayerDrmTestBase extends ActivityInstrumentationTestCase2<Med
         handlerThread.quit();
     }
 
+    // Converts a BMFF PSSH initData to a raw cenc initData
+    protected byte[] makeCencPSSH(UUID uuid, byte[] bmffPsshData) {
+        byte[] pssh_header = new byte[] { (byte)'p', (byte)'s', (byte)'s', (byte)'h' };
+        byte[] pssh_version = new byte[] { 1, 0, 0, 0 };
+        int boxSizeByteCount = 4;
+        int uuidByteCount = 16;
+        int dataSizeByteCount = 4;
+        // Per "W3C cenc Initialization Data Format" document:
+        // box size + 'pssh' + version + uuid + payload + size of data
+        int boxSize = boxSizeByteCount + pssh_header.length + pssh_version.length +
+            uuidByteCount + bmffPsshData.length + dataSizeByteCount;
+        int dataSize = 0;
+
+        // the default write is big-endian, i.e., network byte order
+        ByteBuffer rawPssh = ByteBuffer.allocate(boxSize);
+        rawPssh.putInt(boxSize);
+        rawPssh.put(pssh_header);
+        rawPssh.put(pssh_version);
+        rawPssh.putLong(uuid.getMostSignificantBits());
+        rawPssh.putLong(uuid.getLeastSignificantBits());
+        rawPssh.put(bmffPsshData);
+        rawPssh.putInt(dataSize);
+
+        return rawPssh.array();
+    }
+
     /*
      * Sets up the DRM for the first DRM scheme from the supported list.
      *
@@ -773,13 +800,16 @@ public class MediaPlayerDrmTestBase extends ActivityInstrumentationTestCase2<Med
                     mMediaPlayer.prepareDrm(drmScheme);
                 }
 
-                initData = drmInfo.getPssh().get(drmScheme);
+                byte[] psshData = drmInfo.getPssh().get(drmScheme);
                 // diverging from GTS
-                if (initData == null) {
+                if (psshData == null) {
                     initData = CLEARKEY_PSSH;
                     Log.d(TAG, "setupDrm: CLEARKEY scheme not found in PSSH. Using default data.");
+                } else {
+                    // Can skip conversion if ClearKey adds support for BMFF initData (b/64863112)
+                    initData = makeCencPSSH(CLEARKEY_SCHEME_UUID, psshData);
                 }
-                Log.d(TAG, "setupDrm: initData[" + drmScheme + "]: " + initData);
+                Log.d(TAG, "setupDrm: initData[" + drmScheme + "]: " + Arrays.toString(initData));
 
                 // diverging from GTS
                 mime = "cenc";
@@ -818,7 +848,7 @@ public class MediaPlayerDrmTestBase extends ActivityInstrumentationTestCase2<Med
             byte[] keySetId = mMediaPlayer.provideKeyResponse(
                     (keyType == MediaDrm.KEY_TYPE_RELEASE) ? mKeySetId : null,
                     response);
-            Log.d(TAG, "setupDrm: provideKeyResponse -> " + keySetId);
+            Log.d(TAG, "setupDrm: provideKeyResponse -> " + Arrays.toString(keySetId));
             // storing offline key for a later restore
             mKeySetId = (keyType == MediaDrm.KEY_TYPE_OFFLINE) ? keySetId : null;
 

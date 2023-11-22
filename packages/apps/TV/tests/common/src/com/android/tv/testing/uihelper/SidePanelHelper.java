@@ -47,17 +47,23 @@ public class SidePanelHelper extends BaseUiDeviceHelper {
     }
 
     public UiObject2 assertNavigateToItem(int resId) {
-        String title = mTargetResources.getString(resId);
-        return assertNavigateToItem(title);
+        return assertNavigateToItem(resId, Direction.DOWN);
     }
 
+    public UiObject2 assertNavigateToItem(int resId, Direction direction) {
+        String title = mTargetResources.getString(resId);
+        return assertNavigateToItem(title, direction);
+    }
     public UiObject2 assertNavigateToItem(String title) {
+        return assertNavigateToItem(title, Direction.DOWN);
+    }
+
+    public UiObject2 assertNavigateToItem(String title, Direction direction) {
         BySelector sidePanelSelector = ByResource.id(mTargetResources, R.id.side_panel_list);
         UiObject2 sidePanelList = mUiDevice.findObject(sidePanelSelector);
         Assert.assertNotNull(sidePanelSelector + " not found", sidePanelList);
 
-        return UiDeviceAsserts
-                .assertNavigateTo(mUiDevice, sidePanelList, By.hasDescendant(By.text(title)),
-                        Direction.DOWN);
+        return UiDeviceAsserts.assertNavigateTo(mUiDevice, sidePanelList,
+                By.hasDescendant(By.text(title)), direction);
     }
 }

@@ -17,10 +17,19 @@
 <resources>
     <!-- Music -->
     <item name="media_scrim_alpha" format="float" type="dimen">0.6</item>
+    <item name="media_scrim_darkened_alpha" format="float" type="dimen">0.9</item>
     <dimen name="apps_max_content_width">748dp</dimen>
 
     <!-- Music now playing screen -->
     <dimen name="music_action_icon_inset">0dp</dimen>
     <dimen name="music_action_ripple_inset">32dp</dimen>
     <dimen name="now_playing_metadata_top_margin">0dp</dimen>
+
+    <dimen name="missing_permission_icon_size">208dp</dimen>
+
+    <dimen name="controls_tap_target_width">64dp</dimen>
+    <dimen name="controls_tap_target_height">64dp</dimen>
+    <dimen name="controls_margin">46dp</dimen>
+    <dimen name="controls_spacing_inner">16dp</dimen>
+    <dimen name="controls_spacing_outer">81dp</dimen>
 </resources>

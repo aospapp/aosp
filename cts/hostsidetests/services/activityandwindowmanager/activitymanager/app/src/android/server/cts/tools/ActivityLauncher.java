@@ -81,6 +81,10 @@ public class ActivityLauncher {
             newIntent.addFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK);
         }
 
-        context.startActivity(newIntent, options != null ? options.toBundle() : null);
+        try {
+            context.startActivity(newIntent, options != null ? options.toBundle() : null);
+        } catch (SecurityException e) {
+            Log.e(TAG, "SecurityException launching activity");
+        }
     }
 }

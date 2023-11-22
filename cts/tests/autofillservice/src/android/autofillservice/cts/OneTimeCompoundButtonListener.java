@@ -16,9 +16,9 @@
 
 package android.autofillservice.cts;
 
-import static com.google.common.truth.Truth.assertWithMessage;
+import static android.autofillservice.cts.Helper.FILL_TIMEOUT_MS;
 
-import static android.autofillservice.cts.Helper.*;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.widget.CompoundButton;
 

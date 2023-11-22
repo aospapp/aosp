@@ -27,6 +27,7 @@ import android.content.SyncRequest;
 import android.content.SyncResult;
 import android.content.cts.FlakyTestRule;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Bundle;
@@ -36,6 +37,7 @@ import android.support.test.InstrumentationRegistry;
 import android.support.test.runner.AndroidJUnit4;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
+import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
 import org.junit.After;
 import org.junit.Before;
@@ -118,12 +120,17 @@ public class CtsSyncAccountAccessOtherCertTestCases {
             assertFalse(latch.await(SYNC_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS));
 
             UiDevice uiDevice = getUiDevice();
+            if (isWatch()) {
+                UiObject2 notification = findPermissionNotificationInStream(uiDevice);
+                notification.click();
+            } else {
+                uiDevice.openNotification();
+                uiDevice.wait(Until.hasObject(By.text("Permission requested")),
+                        UI_TIMEOUT_MILLIS);
 
-            uiDevice.openNotification();
-            uiDevice.wait(Until.hasObject(By.text("Permission requested")),
-                    UI_TIMEOUT_MILLIS);
+                uiDevice.findObject(By.text("Permission requested")).click();
+            }
 
-            uiDevice.findObject(By.text("Permission requested")).click();
             uiDevice.wait(Until.hasObject(By.text("ALLOW")),
                     UI_TIMEOUT_MILLIS);
 
@@ -136,7 +143,42 @@ public class CtsSyncAccountAccessOtherCertTestCases {
             // Ask the differently signed authenticator to drop all accounts
             accountManager.getAuthToken(addedAccount, TOKEN_TYPE_REMOVE_ACCOUNTS,
                     null, false, null, null);
+            activity.finish();
         }
+    }
+
+    private UiObject2 findPermissionNotificationInStream(UiDevice uiDevice) {
+        uiDevice.pressHome();
+        swipeUp(uiDevice);
+        if (uiDevice.hasObject(By.text("Permission requested"))) {
+          return uiDevice.findObject(By.text("Permission requested"));
+        }
+        for (int i = 0; i < 100; i++) {
+          if (!swipeUp(uiDevice)) {
+            // We have reached the end of the stream and not found the target.
+            break;
+          }
+          if (uiDevice.hasObject(By.text("Permission requested"))) {
+            return uiDevice.findObject(By.text("Permission requested"));
+          }
+        }
+        return null;
+    }
+
+    private boolean swipeUp(UiDevice uiDevice) {
+        int width = uiDevice.getDisplayWidth();
+        int height = uiDevice.getDisplayHeight();
+        return uiDevice.swipe(
+            width / 2 /* startX */,
+            height - 1 /* startY */,
+            width / 2 /* endX */,
+            1 /* endY */,
+            50 /* numberOfSteps */);
+    }
+
+    private boolean isWatch() {
+        return (getContext().getResources().getConfiguration().uiMode
+                & Configuration.UI_MODE_TYPE_WATCH) == Configuration.UI_MODE_TYPE_WATCH;
     }
 
     private Context getContext() {
@@ -161,8 +203,9 @@ public class CtsSyncAccountAccessOtherCertTestCases {
     }
 
     private boolean hasNotificationSupport() {
-        return !getContext().getPackageManager()
-                .hasSystemFeature(PackageManager.FEATURE_LEANBACK);
+        final PackageManager manager = getContext().getPackageManager();
+        return !manager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
+                && !manager.hasSystemFeature(PackageManager.FEATURE_EMBEDDED);
     }
 
     private void allowSyncAdapterRunInBackgroundAndDataInBackground() throws IOException {

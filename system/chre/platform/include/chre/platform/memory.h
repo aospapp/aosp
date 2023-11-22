@@ -32,15 +32,6 @@ void *memoryAlloc(size_t size);
  */
 void memoryFree(void *pointer);
 
-/**
- * Allocates memory for an object of size T and constructs the object in the
- * newly allocated object by forwarding the provided parameters.
- */
-template<typename T, typename... Args>
-T *memoryAlloc(Args&&... args);
-
 }  // namespace chre
-
-#include "chre/platform/memory_impl.h"
 
 #endif  // CHRE_PLATFORM_MEMORY_H_

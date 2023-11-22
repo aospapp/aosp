@@ -15,16 +15,18 @@
 #include "GrTextureProducer.h"
 #include "GrTypes.h"
 #include "GrXferProcessor.h"
+#include "instanced/InstancedRendering.h"
 #include "SkPath.h"
 #include "SkTArray.h"
 #include <map>
 
+class GrBackendRenderTarget;
+class GrBackendSemaphore;
 class GrBuffer;
 class GrContext;
 struct GrContextOptions;
 class GrGLContext;
 class GrMesh;
-class GrNonInstancedVertices;
 class GrPath;
 class GrPathRange;
 class GrPathRenderer;
@@ -39,7 +41,11 @@ class GrStencilSettings;
 class GrSurface;
 class GrTexture;
 
-namespace gr_instanced { class InstancedRendering; }
+namespace gr_instanced {
+    class InstancedOp;
+    class InstancedRendering;
+    class OpAllocator;
+}
 
 class GrGpu : public SkRefCnt {
 public:
@@ -95,46 +101,37 @@ public:
      * @param budgeted    does this texture count against the resource cache budget?
      * @param texels      array of mipmap levels containing texel data to load.
      *                    Each level begins with full-size palette data for paletted textures.
-     *                    For compressed formats the level contains the compressed pixel data.
-     *                    Otherwise, it contains width*height texels. If there is only one
+     *                    It contains width*height texels. If there is only one
      *                    element and it contains nullptr fPixels, texture data is
      *                    uninitialized.
+     * @param mipLevelCount the number of levels in 'texels'
      * @return    The texture object if successful, otherwise nullptr.
      */
-    GrTexture* createTexture(const GrSurfaceDesc& desc, SkBudgeted budgeted,
-                             const SkTArray<GrMipLevel>& texels);
+    sk_sp<GrTexture> createTexture(const GrSurfaceDesc& desc, SkBudgeted budgeted,
+                                   const GrMipLevel texels[], int mipLevelCount);
 
     /**
      * Simplified createTexture() interface for when there is no initial texel data to upload.
      */
-    GrTexture* createTexture(const GrSurfaceDesc& desc, SkBudgeted budgeted) {
-        return this->createTexture(desc, budgeted, SkTArray<GrMipLevel>());
-    }
-
-    /** Simplified createTexture() interface for when there is only a base level */
-    GrTexture* createTexture(const GrSurfaceDesc& desc, SkBudgeted budgeted, const void* level0Data,
-                             size_t rowBytes) {
-        SkASSERT(level0Data);
-        GrMipLevel level = { level0Data, rowBytes };
-        SkSTArray<1, GrMipLevel> array;
-        array.push_back() = level;
-        return this->createTexture(desc, budgeted, array);
-    }
+    sk_sp<GrTexture> createTexture(const GrSurfaceDesc& desc, SkBudgeted budgeted);
 
     /**
      * Implements GrResourceProvider::wrapBackendTexture
      */
-    sk_sp<GrTexture> wrapBackendTexture(const GrBackendTextureDesc&, GrWrapOwnership);
+    sk_sp<GrTexture> wrapBackendTexture(const GrBackendTexture&, GrSurfaceOrigin,
+                                        GrBackendTextureFlags, int sampleCnt, GrWrapOwnership);
 
     /**
      * Implements GrResourceProvider::wrapBackendRenderTarget
      */
-    sk_sp<GrRenderTarget> wrapBackendRenderTarget(const GrBackendRenderTargetDesc&);
+    sk_sp<GrRenderTarget> wrapBackendRenderTarget(const GrBackendRenderTarget&, GrSurfaceOrigin);
 
     /**
      * Implements GrResourceProvider::wrapBackendTextureAsRenderTarget
      */
-    sk_sp<GrRenderTarget> wrapBackendTextureAsRenderTarget(const GrBackendTextureDesc&);
+    sk_sp<GrRenderTarget> wrapBackendTextureAsRenderTarget(const GrBackendTexture&,
+                                                           GrSurfaceOrigin,
+                                                           int sampleCnt);
 
     /**
      * Creates a buffer in GPU memory. For a client-side buffer use GrBuffer::CreateCPUBacked.
@@ -152,6 +149,7 @@ public:
     /**
      * Creates an instanced rendering object if it is supported on this platform.
      */
+    std::unique_ptr<gr_instanced::OpAllocator> createInstancedRenderingAllocator();
     gr_instanced::InstancedRendering* createInstancedRendering();
 
     /**
@@ -269,11 +267,12 @@ public:
      * @param height        height of rectangle to write in pixels.
      * @param config        the pixel config of the source buffer
      * @param texels        array of mipmap levels containing texture data
+     * @param mipLevelCount number of levels in 'texels'
      */
     bool writePixels(GrSurface* surface,
                      int left, int top, int width, int height,
                      GrPixelConfig config,
-                     const SkTArray<GrMipLevel>& texels);
+                     const GrMipLevel texels[], int mipLevelCount);
 
     /**
      * This function is a shim which creates a SkTArray<GrMipLevel> of size 1.
@@ -289,23 +288,26 @@ public:
                      size_t rowBytes);
 
     /**
-     * Updates the pixels in a rectangle of a surface using a buffer
+     * Updates the pixels in a rectangle of a texture using a buffer
      *
-     * @param surface          The surface to write to.
+     * There are a couple of assumptions here. First, we only update the top miplevel.
+     * And second, that any y flip needed has already been done in the buffer.
+     *
+     * @param texture          The texture to write to.
      * @param left             left edge of the rectangle to write (inclusive)
      * @param top              top edge of the rectangle to write (inclusive)
      * @param width            width of rectangle to write in pixels.
      * @param height           height of rectangle to write in pixels.
      * @param config           the pixel config of the source buffer
-     * @param transferBuffer   GrBuffer to read pixels from (type must be "kCpuToGpu")
+     * @param transferBuffer   GrBuffer to read pixels from (type must be "kXferCpuToGpu")
      * @param offset           offset from the start of the buffer
-     * @param rowBytes         number of bytes between consecutive rows. Zero
+     * @param rowBytes         number of bytes between consecutive rows in the buffer. Zero
      *                         means rows are tightly packed.
      */
-    bool transferPixels(GrSurface* surface,
+    bool transferPixels(GrTexture* texture,
                         int left, int top, int width, int height,
                         GrPixelConfig config, GrBuffer* transferBuffer,
-                        size_t offset, size_t rowBytes, GrFence* fence);
+                        size_t offset, size_t rowBytes);
 
     // After the client interacts directly with the 3D context state the GrGpu
     // must resync its internal state and assumptions about 3D context state.
@@ -367,21 +369,26 @@ public:
             const GrGpuCommandBuffer::LoadAndStoreInfo& colorInfo,
             const GrGpuCommandBuffer::LoadAndStoreInfo& stencilInfo) = 0;
 
-    // Called by GrOpList when flushing.
+    // Called by GrDrawingManager when flushing.
     // Provides a hook for post-flush actions (e.g. Vulkan command buffer submits).
-    virtual void finishOpList() {}
+    virtual void finishFlush() {}
 
     virtual GrFence SK_WARN_UNUSED_RESULT insertFence() = 0;
     virtual bool waitFence(GrFence, uint64_t timeout = 1000) = 0;
     virtual void deleteFence(GrFence) const = 0;
 
-    virtual sk_sp<GrSemaphore> SK_WARN_UNUSED_RESULT makeSemaphore() = 0;
-    virtual void insertSemaphore(sk_sp<GrSemaphore> semaphore) = 0;
+    virtual sk_sp<GrSemaphore> SK_WARN_UNUSED_RESULT makeSemaphore(bool isOwned = true) = 0;
+    virtual sk_sp<GrSemaphore> wrapBackendSemaphore(const GrBackendSemaphore& semaphore,
+                                                    GrWrapOwnership ownership) = 0;
+    virtual void insertSemaphore(sk_sp<GrSemaphore> semaphore, bool flush = false) = 0;
     virtual void waitSemaphore(sk_sp<GrSemaphore> semaphore) = 0;
 
-    // Ensures that all queued up driver-level commands have been sent to the GPU. For example, on
-    // OpenGL, this calls glFlush.
-    virtual void flush() = 0;
+    /**
+     *  Put this texture in a safe and known state for use across multiple GrContexts. Depending on
+     *  the backend, this may return a GrSemaphore. If so, other contexts should wait on that
+     *  semaphore before using this texture.
+     */
+    virtual sk_sp<GrSemaphore> prepareTextureForCrossContextUsage(GrTexture*) = 0;
 
     ///////////////////////////////////////////////////////////////////////////
     // Debugging and Stats
@@ -467,9 +474,6 @@ public:
     // clears target's entire stencil buffer to 0
     virtual void clearStencil(GrRenderTarget* target) = 0;
 
-    // draws an outline rectangle for debugging/visualization purposes.
-    virtual void drawDebugWireRect(GrRenderTarget*, const SkIRect&, GrColor) = 0;
-
     // Determines whether a texture will need to be rescaled in order to be used with the
     // GrSamplerParams. This variation is called when the caller will create a new texture using the
     // resource provider from a non-texture src (cpu-backed image, ...).
@@ -534,21 +538,29 @@ private:
 
     // overridden by backend-specific derived class to create objects.
     // Texture size and sample size will have already been validated in base class before
-    // onCreateTexture/CompressedTexture are called.
-    virtual GrTexture* onCreateTexture(const GrSurfaceDesc& desc,
-                                       SkBudgeted budgeted,
-                                       const SkTArray<GrMipLevel>& texels) = 0;
-    virtual GrTexture* onCreateCompressedTexture(const GrSurfaceDesc& desc,
-                                                 SkBudgeted budgeted,
-                                                 const SkTArray<GrMipLevel>& texels) = 0;
+    // onCreateTexture is called.
+    virtual sk_sp<GrTexture> onCreateTexture(const GrSurfaceDesc& desc,
+                                             SkBudgeted budgeted,
+                                             const GrMipLevel texels[],
+                                             int mipLevelCount) = 0;
 
-    virtual sk_sp<GrTexture> onWrapBackendTexture(const GrBackendTextureDesc&, GrWrapOwnership) = 0;
-    virtual sk_sp<GrRenderTarget> onWrapBackendRenderTarget(const GrBackendRenderTargetDesc&) = 0;
-    virtual sk_sp<GrRenderTarget> onWrapBackendTextureAsRenderTarget(const GrBackendTextureDesc&)=0;
+    virtual sk_sp<GrTexture> onWrapBackendTexture(const GrBackendTexture&,
+                                                  GrSurfaceOrigin,
+                                                  GrBackendTextureFlags,
+                                                  int sampleCnt,
+                                                  GrWrapOwnership) = 0;
+    virtual sk_sp<GrRenderTarget> onWrapBackendRenderTarget(const GrBackendRenderTarget&,
+                                                            GrSurfaceOrigin) = 0;
+    virtual sk_sp<GrRenderTarget> onWrapBackendTextureAsRenderTarget(const GrBackendTexture&,
+                                                                     GrSurfaceOrigin,
+                                                                     int sampleCnt)=0;
     virtual GrBuffer* onCreateBuffer(size_t size, GrBufferType intendedType, GrAccessPattern,
                                      const void* data) = 0;
 
     virtual gr_instanced::InstancedRendering* onCreateInstancedRendering() = 0;
+    virtual std::unique_ptr<gr_instanced::OpAllocator> onCreateInstancedRenderingAllocator() {
+        return nullptr;
+    }
 
     virtual bool onIsACopyNeededForTextureParams(GrTextureProxy* proxy, const GrSamplerParams&,
                                                  GrTextureProducer::CopyParams*,
@@ -575,10 +587,10 @@ private:
     virtual bool onWritePixels(GrSurface*,
                                int left, int top, int width, int height,
                                GrPixelConfig config,
-                               const SkTArray<GrMipLevel>& texels) = 0;
+                               const GrMipLevel texels[], int mipLevelCount) = 0;
 
-    // overridden by backend-specific derived class to perform the surface write
-    virtual bool onTransferPixels(GrSurface*,
+    // overridden by backend-specific derived class to perform the texture transfer
+    virtual bool onTransferPixels(GrTexture*,
                                   int left, int top, int width, int height,
                                   GrPixelConfig config, GrBuffer* transferBuffer,
                                   size_t offset, size_t rowBytes) = 0;
@@ -616,7 +628,7 @@ private:
     GrContext*                             fContext;
 
     friend class GrPathRendering;
-    friend class gr_instanced::InstancedRendering;
+    friend class gr_instanced::InstancedOp; // for xferBarrier
     typedef SkRefCnt INHERITED;
 };
 

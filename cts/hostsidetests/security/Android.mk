@@ -23,7 +23,7 @@ LOCAL_JAVA_RESOURCE_DIRS := res
 LOCAL_MODULE_TAGS := optional
 
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 # Must match the package name in CtsTestCaseList.mk
 LOCAL_MODULE := CtsSecurityHostTestCases

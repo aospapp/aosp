@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2016 The Android Open Source Project
+<!-- Copyright (C) 2017 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -13,21 +13,24 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<configuration description="Config for VTS Light HIDL HAL's target-side replay test cases">
+<configuration description="Config for VTS VtsHalLightV2_0TargetReplay test cases">
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsFilePusher">
         <option name="abort-on-push-failure" value="false"/>
-        <option name="push-group" value="HalHidlHostTest.push" />
-        <option name="cleanup" value="true" />
-        <option name="push" value="spec/hardware/interfaces/light/2.0/vts/Light.vts->/data/local/tmp/spec/target.vts" />
+        <option name="push-group" value="HalHidlHostTest.push"/>
+        <option name="cleanup" value="true"/>
+        <option name="push" value="spec/hardware/interfaces/light/2.0/vts/Light.vts->/data/local/tmp/spec/android/hardware/light/2.0/Light.vts"/>
+        <option name="push" value="spec/hardware/interfaces/light/2.0/vts/types.vts->/data/local/tmp/spec/android/hardware/light/2.0/types.vts"/>
         <option name="push" value="DATA/lib/android.hardware.light@2.0-vts.driver.so->/data/local/tmp/32/android.hardware.light@2.0-vts.driver.so"/>
         <option name="push" value="DATA/lib64/android.hardware.light@2.0-vts.driver.so->/data/local/tmp/64/android.hardware.light@2.0-vts.driver.so"/>
     </target_preparer>
-    <target_preparer class="com.android.tradefed.targetprep.VtsPythonVirtualenvPreparer" />
+    <target_preparer class="com.android.tradefed.targetprep.VtsPythonVirtualenvPreparer"/>
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
-        <option name="test-module-name" value="VtsHalLightV2_0TargetReplay" />
-        <option name="binary-test-type" value="hal_hidl_replay_test" />
-        <option name="hal-hidl-replay-test-trace-path" value="test/vts-testcase/hal-trace/light/V2_0/android.hardware.light@2.0_sailfish_1.vts.trace" />
-        <option name="hal-hidl-package-name" value="android.hardware.light@2.0" />
+        <option name="test-module-name" value="VtsHalLightV2_0TargetReplay"/>
+        <option name="binary-test-type" value="hal_hidl_replay_test"/>
+        <option name="hal-hidl-replay-test-trace-path" value="test/vts-testcase/hal-trace/light/V2_0/android.hardware.light_2.0_19050569395.vts.trace"/>
+        <option name="hal-hidl-replay-test-trace-path" value="test/vts-testcase/hal-trace/light/V2_0/android.hardware.light_2.0_17887988342.vts.trace"/>
+        <option name="hal-hidl-package-name" value="android.hardware.light@2.0"/>
+        <option name="precondition-lshal" value="android.hardware.light@2.0"/>
         <option name="test-timeout" value="5m" />
     </test>
 </configuration>

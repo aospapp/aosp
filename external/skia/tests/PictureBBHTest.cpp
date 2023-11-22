@@ -5,6 +5,7 @@
  * found in the LICENSE file.
  */
 
+#include "SkBitmap.h"
 #include "SkCanvas.h"
 #include "SkBBoxHierarchy.h"
 #include "SkPaint.h"
@@ -90,4 +91,16 @@ DEF_TEST(PictureBBH, reporter) {
 
     EmptyClipPictureBBHTest emptyClipPictureTest;
     emptyClipPictureTest.run(reporter);
+}
+
+DEF_TEST(RTreeMakeLargest, r) {
+    // A call to insert() with 2 or more rects and a bounds of SkRect::MakeLargest()
+    // used to fall into an infinite loop.
+
+    SkRTreeFactory factory;
+    std::unique_ptr<SkBBoxHierarchy> bbh{ factory(SkRect::MakeLargest()) };
+
+    SkRect rects[] = { {0,0, 10,10}, {5,5,15,15} };
+    bbh->insert(rects, SK_ARRAY_COUNT(rects));
+    REPORTER_ASSERT(r, bbh->getRootBound() == SkRect::MakeWH(15,15));
 }

@@ -396,7 +396,8 @@ tNFA_STATUS NFA_EeSetDefaultProtoRouting(
 **
 *******************************************************************************/
 tNFA_STATUS NFA_EeAddAidRouting(tNFA_HANDLE ee_handle, uint8_t aid_len,
-                                uint8_t* p_aid, tNFA_EE_PWR_STATE power_state) {
+                                uint8_t* p_aid, tNFA_EE_PWR_STATE power_state,
+                                uint8_t aidInfo) {
   tNFA_EE_API_ADD_AID* p_msg;
   tNFA_STATUS status = NFA_STATUS_FAILED;
   uint16_t size = sizeof(tNFA_EE_API_ADD_AID) + aid_len;
@@ -421,6 +422,7 @@ tNFA_STATUS NFA_EeAddAidRouting(tNFA_HANDLE ee_handle, uint8_t aid_len,
       p_msg->aid_len = aid_len;
       p_msg->power_state = power_state;
       p_msg->p_aid = (uint8_t*)(p_msg + 1);
+      p_msg->aidInfo = aidInfo;
       memcpy(p_msg->p_aid, p_aid, aid_len);
 
       nfa_sys_sendmsg(p_msg);

@@ -29,7 +29,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "JNIHelp.h"
+#include <nativehelper/JNIHelp.h>
 #include "jlong.h"
 #include "jni.h"
 #include "jni_util.h"

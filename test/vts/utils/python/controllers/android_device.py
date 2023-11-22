@@ -510,7 +510,7 @@ class AndroidDevice(object):
             raise AndroidDeviceError(("Android device %s already has an adb "
                                       "logcat thread going on. Cannot start "
                                       "another one.") % self.serial)
-        f_name = "adblog,%s,%s.txt" % (self.model, self.serial)
+        f_name = "adblog_%s_%s.txt" % (self.model, self.serial)
         utils.create_dir(self.log_path)
         logcat_file_path = os.path.join(self.log_path, f_name)
         try:
@@ -529,7 +529,10 @@ class AndroidDevice(object):
             raise AndroidDeviceError(
                 "Android device %s does not have an ongoing adb logcat collection."
                 % self.serial)
-        utils.stop_standing_subprocess(self.adb_logcat_process)
+        try:
+            utils.stop_standing_subprocess(self.adb_logcat_process)
+        except utils.VTSUtilsError as e:
+            logging.error("Cannot stop adb logcat. %s", e)
         self.adb_logcat_process = None
 
     def takeBugReport(self, test_name, begin_time):
@@ -726,15 +729,16 @@ class AndroidDevice(object):
             "rm -f /data/local/tmp/vts_agent_callback*"
         ]
         kill_commands = ["killall vts_hal_agent32", "killall vts_hal_agent64",
-                         "killall fuzzer32", "killall fuzzer64",
+                         "killall vts_hal_driver32",
+                         "killall vts_hal_driver64",
                          "killall vts_shell_driver32",
                          "killall vts_shell_driver64"]
         cleanup_commands.extend(kill_commands)
         chmod_commands = [
             "chmod 755 %s/32/vts_hal_agent32" % DEFAULT_AGENT_BASE_DIR,
             "chmod 755 %s/64/vts_hal_agent64" % DEFAULT_AGENT_BASE_DIR,
-            "chmod 755 %s/32/fuzzer32" % DEFAULT_AGENT_BASE_DIR,
-            "chmod 755 %s/64/fuzzer64" % DEFAULT_AGENT_BASE_DIR,
+            "chmod 755 %s/32/vts_hal_driver32" % DEFAULT_AGENT_BASE_DIR,
+            "chmod 755 %s/64/vts_hal_driver64" % DEFAULT_AGENT_BASE_DIR,
             "chmod 755 %s/32/vts_shell_driver32" % DEFAULT_AGENT_BASE_DIR,
             "chmod 755 %s/64/vts_shell_driver64" % DEFAULT_AGENT_BASE_DIR
         ]
@@ -754,7 +758,7 @@ class AndroidDevice(object):
             cmd = (
                 'adb -s {s} shell LD_LIBRARY_PATH={path}/{bitness} '
                 '{path}/{bitness}/vts_hal_agent{bitness}'
-                ' {path}/32/fuzzer32 {path}/64/fuzzer64 {path}/spec'
+                ' {path}/32/vts_hal_driver32 {path}/64/vts_hal_driver64 {path}/spec'
                 ' {path}/32/vts_shell_driver32 {path}/64/vts_shell_driver64 >> {log} 2>&1'
             ).format(s=self.serial,
                      bitness=bitness,
@@ -779,9 +783,13 @@ class AndroidDevice(object):
     def stopVtsAgent(self):
         """Stop the HAL agent running on the AndroidDevice.
         """
-        if self.vts_agent_process:
+        if not self.vts_agent_process:
+            return
+        try:
             utils.stop_standing_subprocess(self.vts_agent_process)
-            self.vts_agent_process = None
+        except utils.VTSUtilsError as e:
+            logging.error("Cannot stop VTS agent. %s", e)
+        self.vts_agent_process = None
 
     @property
     def product_type(self):
@@ -816,12 +824,23 @@ class AndroidDevice(object):
             ed = self._getSl4aEventDispatcher(droid)
         self.sl4a_event = ed
 
-    def getVintfXml(self):
-        """Return vendor interface manifest string."""
-        # TODO: (b/36137939) use vintf instead of lshal.
+    def getVintfXml(self, use_lshal=True):
+        """Reads the vendor interface manifest Xml.
+
+        Args:
+            use_hal: bool, set True to use lshal command and False to fetch
+                     /vendor/manifest.xml directly.
+
+        Returns:
+            Vendor interface manifest string.
+        """
         try:
-            stdout = self.adb.shell('"lshal --init-vintf 2> /dev/null"')
-            return str(stdout)
+            if use_lshal:
+                stdout = self.adb.shell('"lshal --init-vintf 2> /dev/null"')
+                return str(stdout)
+            else:
+                stdout = self.adb.shell('cat /vendor/manifest.xml')
+                return str(stdout)
         except adb.AdbError as e:
             return None
 

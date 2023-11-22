@@ -62,7 +62,7 @@ public class StorageDeviceInfo extends DeviceInfo {
     private List<String> scanPartitions() {
         List<String> partitionList = new ArrayList<>();
         try {
-            Process df = new ProcessBuilder("df").start();
+            Process df = new ProcessBuilder("df -k").start();
             Scanner scanner = new Scanner(df.getInputStream());
             try {
                 while (scanner.hasNextLine()) {

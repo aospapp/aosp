@@ -47,27 +47,24 @@ class VtsDriverSocketClient : public VtsDriverCommUtil {
                   const string& module_name);
 
   // Sends a LIST_FUNCTIONS request.
-  const char* GetFunctions();
+  string GetFunctions();
 
   // Sends a VTS_DRIVER_COMMAND_READ_SPECIFICATION request.
-  const char* ReadSpecification(
-          const string& component_name,
-          int target_class,
-          int target_type,
-          float target_version,
-          const string& target_package);
+  string ReadSpecification(const string& component_name, int target_class,
+                           int target_type, float target_version,
+                           const string& target_package);
 
   // Sends a CALL_FUNCTION request.
-  const char* Call(const string& arg, const string& uid);
+  string Call(const string& arg, const string& uid);
 
   // Sends a GET_ATTRIBUTE request.
-  const char* GetAttribute(const string& arg);
+  string GetAttribute(const string& arg);
 
   // Sends a GET_STATUS request.
   int32_t Status(int32_t type);
 
   // Sends a EXECUTE request.
-  VtsDriverControlResponseMessage* ExecuteShellCommand(
+  unique_ptr<VtsDriverControlResponseMessage> ExecuteShellCommand(
       const ::google::protobuf::RepeatedPtrField<::std::string> shell_command);
 };
 

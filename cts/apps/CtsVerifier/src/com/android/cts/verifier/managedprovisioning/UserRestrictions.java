@@ -108,12 +108,12 @@ public class UserRestrictions {
             Settings.ACTION_WIRELESS_SETTINGS,
             Settings.ACTION_WIFI_SETTINGS,
             Settings.ACTION_DEVICE_INFO_SETTINGS,
-            Settings.ACTION_PRIVACY_SETTINGS,
+            Settings.ACTION_SETTINGS,
             Settings.ACTION_DEVICE_INFO_SETTINGS,
             Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
             Settings.ACTION_SYNC_SETTINGS,
-            Settings.ACTION_WIRELESS_SETTINGS,
-            Settings.ACTION_WIRELESS_SETTINGS,
+            Settings.ACTION_SETTINGS,
+            Settings.ACTION_NFC_SETTINGS,
             Settings.ACTION_SETTINGS,
             Settings.ACTION_SETTINGS,
             Settings.ACTION_LOCATION_SOURCE_SETTINGS,
@@ -223,6 +223,9 @@ public class UserRestrictions {
                 return pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY);
             case UserManager.DISALLOW_CONFIG_WIFI:
                 return pm.hasSystemFeature(PackageManager.FEATURE_WIFI);
+            case UserManager.DISALLOW_NETWORK_RESET:
+                // This test should not run on watch
+                return !pm.hasSystemFeature(PackageManager.FEATURE_WATCH);
             case UserManager.DISALLOW_OUTGOING_BEAM:
                 return pm.hasSystemFeature(PackageManager.FEATURE_NFC);
             case UserManager.DISALLOW_SHARE_LOCATION:

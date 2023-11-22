@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1996, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1996, 2014, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -48,6 +48,7 @@ public class VM {
         return suspended;
     }
 
+    @SuppressWarnings("deprecation")
     public static boolean allowThreadSuspension(ThreadGroup g, boolean b) {
         return g.allowThreadSuspension(b);
     }
@@ -91,6 +92,11 @@ public class VM {
     public static final int getState() {
         return STATE_GREEN;
     }
+
+    // Android-removed: Not used
+    /** @deprecated */
+    // @Deprecated
+    // public static void registerVMNotification(VMNotification n) { }
 
     /** @deprecated */
     @Deprecated
@@ -143,6 +149,7 @@ public class VM {
 
 
     private static volatile boolean booted = false;
+    private static final Object lock = new Object();
 
     // Invoked by by System.initializeSystemClass just before returning.
     // Subsystems that are invoked during initialization can check this
@@ -150,11 +157,25 @@ public class VM {
     // application class loader has been set up.
     //
     public static void booted() {
-        booted = true;
+        synchronized (lock) {
+            booted = true;
+            lock.notifyAll();
+        }
     }
 
     public static boolean isBooted() {
         return booted;
+    }
+
+    // Waits until VM completes initialization
+    //
+    // This method is invoked by the Finalizer thread
+    public static void awaitBooted() throws InterruptedException {
+        synchronized (lock) {
+            while (!booted) {
+                lock.wait();
+            }
+        }
     }
 
     // A user-settable upper limit on the maximum amount of allocatable direct
@@ -163,7 +184,7 @@ public class VM {
     //
     // The initial value of this field is arbitrary; during JRE initialization
     // it will be reset to the value specified on the command line, if any,
-    // otherwise to Runtime.getRuntime.maxDirectMemory().
+    // otherwise to Runtime.getRuntime().maxMemory().
     //
     private static long directMemory = 64 * 1024 * 1024;
 
@@ -212,16 +233,15 @@ public class VM {
         return allowArraySyntax;
     }
 
-    private static boolean allowGetCallerClass = true;
-
-    // Reflection.getCallerClass(int) is enabled by default.
-    // It can be disabled by setting the system property
-    // "jdk.reflect.allowGetCallerClass" to "false". It cannot be
-    // disabled if the logging stack walk (to find resource bundles)
-    // is enabled.
-    public static boolean allowGetCallerClass() {
-        return allowGetCallerClass;
-    }
+    // BEGIN Android-removed: Not used on android
+    /**
+     * Returns true if the given class loader is in the system domain
+     * in which all permissions are granted.
+     */
+    // public static boolean isSystemDomainLoader(ClassLoader loader) {
+    //     return loader == null;
+    // }
+    // END Android-removed: Not used on android
 
     /**
      * Returns the system property of the specified key saved at
@@ -288,15 +308,6 @@ public class VM {
                                ? defaultAllowArraySyntax
                                : Boolean.parseBoolean(s));
 
-        // Reflection.getCallerClass(int) is enabled by default.
-        // It can be disabled by setting a system property (but only if
-        // the logging stack walk is not enabled)
-        s = props.getProperty("jdk.reflect.allowGetCallerClass");
-        allowGetCallerClass = (s != null
-                                   ? (s.isEmpty() || Boolean.parseBoolean(s))
-                                   : true) ||
-             Boolean.parseBoolean(props.getProperty("jdk.logging.allowStackWalkSearch"));
-
         // Remove other private system properties
         // used by java.lang.Integer.IntegerCache
         props.remove("java.lang.Integer.IntegerCache.high");
@@ -306,12 +317,19 @@ public class VM {
 
         // used by sun.launcher.LauncherHelper
         props.remove("sun.java.launcher.diag");
+
+        // used by sun.misc.URLClassPath
+        props.remove("sun.cds.enableSharedLookupCache");
     }
 
     // Initialize any miscellenous operating system settings that need to be
     // set for the class libraries.
     //
     public static void initializeOSEnvironment() {
+        // Android-removed: OSEnvironment.initialize() not supported
+        //if (!booted) {
+        //    OSEnvironment.initialize();
+        //}
     }
 
     /* Current count of objects pending for finalization */
@@ -384,4 +402,17 @@ public class VM {
     private final static int JVMTI_THREAD_STATE_BLOCKED_ON_MONITOR_ENTER = 0x0400;
     private final static int JVMTI_THREAD_STATE_WAITING_INDEFINITELY = 0x0010;
     private final static int JVMTI_THREAD_STATE_WAITING_WITH_TIMEOUT = 0x0020;
+
+    // BEGIN Android-removed: latestUserDefinedLoader()/initialize() not supported
+    // /*
+    //  * Returns the first non-null class loader up the execution stack,
+    //  * or null if only code from the null class loader is on the stack.
+    //  */
+    // public static native ClassLoader latestUserDefinedLoader();
+
+    // static {
+    //     initialize();
+    // }
+    // private native static void initialize();
+    // END Android-removed: latestUserDefinedLoader()/initialize() not supported
 }

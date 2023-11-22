@@ -99,6 +99,7 @@ struct SampleTree {
   std::vector<SampleEntry*> samples;
   uint64_t total_samples;
   uint64_t total_period;
+  uint64_t total_error_callchains;
 };
 
 BUILD_COMPARE_VALUE_FUNCTION(CompareVaddrInFile, vaddr_in_file);
@@ -112,7 +113,8 @@ class ReportCmdSampleTreeBuilder
       : SampleTreeBuilder(sample_comparator),
         thread_tree_(thread_tree),
         total_samples_(0),
-        total_period_(0) {}
+        total_period_(0),
+        total_error_callchains_(0) {}
 
   void SetFilters(const std::unordered_set<int>& pid_filter,
                   const std::unordered_set<int>& tid_filter,
@@ -126,11 +128,13 @@ class ReportCmdSampleTreeBuilder
     symbol_filter_ = symbol_filter;
   }
 
-  SampleTree GetSampleTree() const {
+  SampleTree GetSampleTree() {
+    AddCallChainDuplicateInfo();
     SampleTree sample_tree;
     sample_tree.samples = GetSamples();
     sample_tree.total_samples = total_samples_;
     sample_tree.total_period = total_period_;
+    sample_tree.total_error_callchains = total_error_callchains_;
     return sample_tree;
   }
 
@@ -178,6 +182,11 @@ class ReportCmdSampleTreeBuilder
                                      const uint64_t& acc_info) override {
     const ThreadEntry* thread = sample->thread;
     const MapEntry* map = thread_tree_->FindMap(thread, ip, in_kernel);
+    if (thread_tree_->IsUnknownDso(map->dso)) {
+      // The unwinders can give wrong ip addresses, which can't map to a valid dso. Skip them.
+      total_error_callchains_++;
+      return nullptr;
+    }
     uint64_t vaddr_in_file;
     const Symbol* symbol = thread_tree_->FindSymbol(map, ip, &vaddr_in_file);
     std::unique_ptr<SampleEntry> callchain_sample(new SampleEntry(
@@ -241,6 +250,7 @@ class ReportCmdSampleTreeBuilder
 
   uint64_t total_samples_;
   uint64_t total_period_;
+  uint64_t total_error_callchains_;
 };
 
 struct SampleTreeBuilderOptions {
@@ -297,12 +307,15 @@ class ReportCommand : public Command {
             "report", "report sampling information in perf.data",
             // clang-format off
 "Usage: simpleperf report [options]\n"
+"The default options are: -i perf.data --sort comm,pid,tid,dso,symbol.\n"
 "-b    Use the branch-to addresses in sampled take branches instead of the\n"
 "      instruction addresses. Only valid for perf.data recorded with -b/-j\n"
 "      option.\n"
 "--children    Print the overhead accumulated by appearing in the callchain.\n"
 "--comms comm1,comm2,...   Report only for selected comms.\n"
 "--dsos dso1,dso2,...      Report only for selected dsos.\n"
+"--full-callgraph  Print full call graph. Used with -g option. By default,\n"
+"                  brief call graph is printed.\n"
 "-g [callee|caller]    Print call graph. If callee mode is used, the graph\n"
 "                      shows how functions are called from others. Otherwise,\n"
 "                      the graph shows how functions call others.\n"
@@ -351,7 +364,8 @@ class ReportCommand : public Command {
         callgraph_show_callee_(false),
         callgraph_max_stack_(UINT32_MAX),
         callgraph_percent_limit_(0),
-        raw_period_(false) {}
+        raw_period_(false),
+        brief_callgraph_(true) {}
 
   bool Run(const std::vector<std::string>& args);
 
@@ -386,6 +400,7 @@ class ReportCommand : public Command {
   uint32_t callgraph_max_stack_;
   double callgraph_percent_limit_;
   bool raw_period_;
+  bool brief_callgraph_;
 
   std::string report_filename_;
 };
@@ -443,7 +458,8 @@ bool ReportCommand::ParseOptions(const std::vector<std::string>& args) {
       }
       std::vector<std::string> strs = android::base::Split(args[i], ",");
       filter.insert(strs.begin(), strs.end());
-
+    } else if (args[i] == "--full-callgraph") {
+      brief_callgraph_ = false;
     } else if (args[i] == "-g") {
       print_callgraph_ = true;
       accumulate_callchain_ = true;
@@ -640,7 +656,7 @@ bool ReportCommand::ParseOptions(const std::vector<std::string>& args) {
             ReportCmdCallgraphDisplayerWithVaddrInFile());
       } else {
         displayer.AddExclusiveDisplayFunction(ReportCmdCallgraphDisplayer(
-            callgraph_max_stack_, callgraph_percent_limit_));
+            callgraph_max_stack_, callgraph_percent_limit_, brief_callgraph_));
       }
     }
   }
@@ -650,6 +666,10 @@ bool ReportCommand::ParseOptions(const std::vector<std::string>& args) {
 
   SampleComparator<SampleEntry> sort_comparator;
   sort_comparator.AddCompareFunction(CompareTotalPeriod);
+  if (print_callgraph_) {
+    sort_comparator.AddCompareFunction(CompareCallGraphDuplicated);
+  }
+  sort_comparator.AddCompareFunction(ComparePeriod);
   sort_comparator.AddComparator(comparator);
   sample_tree_sorter_.reset(new ReportCmdSampleTreeSorter(sort_comparator));
   sample_tree_displayer_.reset(new ReportCmdSampleTreeDisplayer(displayer));
@@ -798,6 +818,11 @@ bool ReportCommand::PrintReport() {
     fprintf(report_fp, "Event: %s (type %u, config %llu)\n", attr.name.c_str(),
             attr.attr.type, attr.attr.config);
     fprintf(report_fp, "Samples: %" PRIu64 "\n", sample_tree.total_samples);
+    if (sample_tree.total_error_callchains != 0) {
+      fprintf(report_fp, "Error Callchains: %" PRIu64 ", %f%%\n",
+              sample_tree.total_error_callchains,
+              sample_tree.total_error_callchains * 100.0 / sample_tree.total_samples);
+    }
     fprintf(report_fp, "Event count: %" PRIu64 "\n\n", sample_tree.total_period);
     sample_tree_displayer_->DisplaySamples(report_fp, sample_tree.samples, &sample_tree);
   }

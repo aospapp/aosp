@@ -244,6 +244,23 @@ class TestBed(object):
     def locate_devices(self, images):
         """Locate device for each image in the given images list.
 
+        If the given images all have no serial associated and have the same
+        image for the same board, testbed will assign all devices with the
+        desired board to the image. This allows tests to randomly pick devices
+        to run.
+        As an example, a testbed with 4 devices, 2 for board_1 and 2 for
+        board_2. If the given images value is:
+        [('board_1_build', None), ('board_2_build', None)]
+        The testbed will return following device allocation:
+        {'serial_1_board_1': 'board_1_build',
+         'serial_2_board_1': 'board_1_build',
+         'serial_1_board_2': 'board_2_build',
+         'serial_2_board_2': 'board_2_build',
+        }
+        That way, all board_1 duts will be installed with board_1_build, and
+        all board_2 duts will be installed with board_2_build. Test can pick
+        any dut from board_1 duts and same applies to board_2 duts.
+
         @param images: A list of tuples of (build, serial). serial could be None
                 if it's not specified. Following are some examples:
                 [('branch1/shamu-userdebug/100', None),
@@ -293,11 +310,24 @@ class TestBed(object):
         # Pair build with dut with matching board.
         for name, builds in builds_by_name.iteritems():
             duts = duts_by_name.get(name, [])
-            if len(duts) != len(builds):
+            if len(duts) < len(builds):
                 raise error.InstallError(
                         'Expected number of DUTs for name %s is %d, got %d' %
                         (name, len(builds), len(duts) if duts else 0))
-            serial_build_pairs.update(dict(zip(duts, builds)))
+            elif len(duts) == len(builds):
+                serial_build_pairs.update(dict(zip(duts, builds)))
+            else:
+                # In this cases, available dut number is greater than the number
+                # of builds.
+                if len(set(builds)) > 1:
+                    raise error.InstallError(
+                            'Number of available DUTs are greater than builds '
+                            'needed, testbed cannot allocate DUTs for testing '
+                            'deterministically.')
+                # Set all DUTs to the same build.
+                for serial in duts:
+                    serial_build_pairs[serial] = builds[0]
+
         return serial_build_pairs
 
 
@@ -395,6 +425,7 @@ class TestBed(object):
         build_url, build_local_path, teststation = self._stage_shared_build(
                 serial_build_map)
 
+        thread_pool = None
         try:
             arguments = []
             for serial, build in serial_build_map.iteritems():
@@ -415,7 +446,12 @@ class TestBed(object):
             thread_pool = pool.ThreadPool(_POOL_SIZE)
             thread_pool.map(self._install_device, arguments)
             thread_pool.close()
+        except Exception as err:
+            logging.error(err.message)
         finally:
+            if thread_pool:
+                thread_pool.join()
+
             if build_local_path:
                 logging.debug('Clean up build artifacts %s:%s',
                               teststation.hostname, build_local_path)

@@ -644,33 +644,33 @@ typedef struct
      * if 1, , for the highest temporal sub-layers, the temporal distance between the HRD output times
      * of consecutive pictures in output order is constrained refer to Table E-6
      */
-    UWORD8 au1_fixed_pic_rate_general_flag[6];
+    UWORD8 au1_fixed_pic_rate_general_flag[VPS_MAX_SUB_LAYERS];
 
-    UWORD8 au1_fixed_pic_rate_within_cvs_flag[6];
+    UWORD8 au1_fixed_pic_rate_within_cvs_flag[VPS_MAX_SUB_LAYERS];
 
     /**
      * if 1, , for the highest temporal sub-layers, the temporal distance (in clock ticks) between the
      * element units that specify HRD output times of consecutive pictures in output order is constrained
      * refer to Table E-6
      */
-    UWORD8 au1_elemental_duration_in_tc_minus1[6];
+    UWORD8 au1_elemental_duration_in_tc_minus1[VPS_MAX_SUB_LAYERS];
 
     /**
      * specifies the HRD operational mode
      */
-    UWORD8 au1_low_delay_hrd_flag[6];
+    UWORD8 au1_low_delay_hrd_flag[VPS_MAX_SUB_LAYERS];
 
     /**
      * 1 specifies the number of alternative CPB specifications in the
      * bitstream of the cvs when HighestTid is equal to i
      */
-    UWORD8 au1_cpb_cnt_minus1[6];
+    UWORD8 au1_cpb_cnt_minus1[VPS_MAX_SUB_LAYERS];
 
 
     /**
      * VUI level Sub-layer HRD parameters
      */
-    sub_lyr_hrd_params_t as_sub_layer_hrd_params[6];
+    sub_lyr_hrd_params_t as_sub_layer_hrd_params[VPS_MAX_SUB_LAYERS];
 
 }hrd_params_t;
 

@@ -314,6 +314,24 @@ TEST(CmapCoverageTest, SingleFormat4_brokenCmap) {
         EXPECT_EQ(0U, coverage.length());
         EXPECT_TRUE(vsTables.empty());
     }
+    {
+        SCOPED_TRACE("Reversed range");
+        std::vector<uint8_t> cmap = CmapBuilder::buildSingleFormat4Cmap(0, 0, std::vector<uint16_t>(
+                {'b', 'b', 'a', 'a'}));
+
+        SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
+        EXPECT_EQ(0U, coverage.length());
+        EXPECT_TRUE(vsTables.empty());
+    }
+    {
+        SCOPED_TRACE("Reversed range - partially readable");
+        std::vector<uint8_t> cmap = CmapBuilder::buildSingleFormat4Cmap(0, 0, std::vector<uint16_t>(
+                { 'a', 'a', 'c', 'c', 'b', 'b'}));
+
+        SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
+        EXPECT_EQ(0U, coverage.length());
+        EXPECT_TRUE(vsTables.empty());
+    }
 }
 
 TEST(CmapCoverageTest, SingleFormat4) {
@@ -521,6 +539,22 @@ TEST(CmapCoverageTest, brokenFormat12Table) {
         std::vector<uint8_t> cmap = CmapBuilder::buildSingleFormat12Cmap(
                 0, 0, std::vector<uint32_t>({0x110000, 0x110000}));
 
+        SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
+        EXPECT_EQ(0U, coverage.length());
+        EXPECT_TRUE(vsTables.empty());
+    }
+    {
+        SCOPED_TRACE("Reversed range");
+        std::vector<uint8_t> cmap = CmapBuilder::buildSingleFormat12Cmap(
+                0, 0, std::vector<uint32_t>({'b', 'b', 'a', 'a'}));
+        SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
+        EXPECT_EQ(0U, coverage.length());
+        EXPECT_TRUE(vsTables.empty());
+    }
+    {
+        SCOPED_TRACE("Reversed range - partially readable");
+        std::vector<uint8_t> cmap = CmapBuilder::buildSingleFormat12Cmap(
+                0, 0, std::vector<uint32_t>({'a', 'a', 'c', 'c', 'b', 'b'}));
         SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
         EXPECT_EQ(0U, coverage.length());
         EXPECT_TRUE(vsTables.empty());
@@ -804,7 +838,7 @@ TEST(CmapCoverageTest, TableSelection_InterSection) {
 }
 
 TEST(CmapCoverageTest, TableSelection_brokenVSTable) {
-    std::vector<uint8_t> cmap12Table = buildCmapFormat12Table(std::vector<uint32_t>({'a', 'a'}));
+    std::vector<uint8_t> cmap12Table = buildCmapFormat12Table(std::vector<uint32_t>({'a', 'z'}));
     {
         SCOPED_TRACE("Too small cmap size");
         std::vector<uint8_t> vsTable = buildCmapFormat14Table(std::vector<VariationSelectorRecord>({
@@ -889,6 +923,62 @@ TEST(CmapCoverageTest, TableSelection_brokenVSTable) {
         }));
         // 29 is the offset of the numUnicodeValueRanges in the fist defulat UVS table.
         writeU32(5000, vsTable.data(), 29);
+        CmapBuilder builder(2);
+        builder.appendTable(3, 1, cmap12Table);
+        builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);
+        std::vector<uint8_t> cmap = builder.build();
+
+        std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+        SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
+        ASSERT_TRUE(vsTables.empty());
+    }
+    {
+        SCOPED_TRACE("Reversed range in default UVS table");
+        std::vector<uint8_t> vsTable = buildCmapFormat14Table(std::vector<VariationSelectorRecord>({
+            { 0xFE0F, { 'b', 'b', 'a', 'a' }, { } }
+        }));
+        CmapBuilder builder(2);
+        builder.appendTable(3, 1, cmap12Table);
+        builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);
+        std::vector<uint8_t> cmap = builder.build();
+
+        std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+        SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
+        ASSERT_TRUE(vsTables.empty());
+    }
+    {
+        SCOPED_TRACE("Reversed range in default UVS table - partially readable");
+        std::vector<uint8_t> vsTable = buildCmapFormat14Table(std::vector<VariationSelectorRecord>({
+            { 0xFE0F, { 'a', 'a', 'c', 'c', 'b', 'b' }, { } }
+        }));
+        CmapBuilder builder(2);
+        builder.appendTable(3, 1, cmap12Table);
+        builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);
+        std::vector<uint8_t> cmap = builder.build();
+
+        std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+        SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
+        ASSERT_TRUE(vsTables.empty());
+    }
+    {
+        SCOPED_TRACE("Reversed mapping entries in non default UVS table");
+        std::vector<uint8_t> vsTable = buildCmapFormat14Table(std::vector<VariationSelectorRecord>({
+            { 0xFE0F, { }, { 'b', 'a' } }
+        }));
+        CmapBuilder builder(2);
+        builder.appendTable(3, 1, cmap12Table);
+        builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);
+        std::vector<uint8_t> cmap = builder.build();
+
+        std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+        SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
+        ASSERT_TRUE(vsTables.empty());
+    }
+    {
+        SCOPED_TRACE("Reversed mapping entries in non default UVS table");
+        std::vector<uint8_t> vsTable = buildCmapFormat14Table(std::vector<VariationSelectorRecord>({
+            { 0xFE0F, { }, { 'a', 'c', 'b' } }
+        }));
         CmapBuilder builder(2);
         builder.appendTable(3, 1, cmap12Table);
         builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);

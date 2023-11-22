@@ -10,7 +10,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "client"
-ATTRIBUTES = "suite:platform_input"
+ATTRIBUTES = "suite:bvt-perbuild"
 
 DOC = """
 Increase and decrease the brightness using keyboard shortcuts.

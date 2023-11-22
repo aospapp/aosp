@@ -28,4 +28,5 @@
     <string name="import_vcard" msgid="5104299047930666528">"Import ^1 ကို ထည့်သွင်းသည်"</string>
     <string name="mime_display_name" msgid="5926357152623764485">"NFC မှတ်သားမှု မှ ဒေတာ"</string>
     <string name="vcard_title" msgid="7122634780732426007">"^1မှ လိပ်စာအချက်အလက်"</string>
+    <string name="call_phone_permission_denied" msgid="8515177111984654599">"ဤအပလီကေးရှင်းများသည် ဖုန်းခေါ်ရန်အတွက် တယ်လီဖုန်းကို အသုံးပြုခွင့် လိုအပ်ပါသည်။ ဆက်တင်များထဲတွင် တဂ်ခွင့်ပြုချက်ကို စီမံခန့်ခွဲနိုင်ပါသည်"</string>
 </resources>

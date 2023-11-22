@@ -18,25 +18,22 @@ package com.android.documentsui.dirlist;
 
 import static com.android.documentsui.base.Shared.DEBUG;
 
-import android.content.ClipData;
-import android.content.Context;
-import android.graphics.drawable.Drawable;
+import android.net.Uri;
 import android.support.annotation.VisibleForTesting;
 import android.util.Log;
 import android.view.View;
 
-import com.android.documentsui.DragShadowBuilder;
+import com.android.documentsui.DragAndDropManager;
+import com.android.documentsui.MenuManager.SelectionDetails;
 import com.android.documentsui.Model;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.Events;
 import com.android.documentsui.base.Events.InputEvent;
 import com.android.documentsui.base.State;
-import com.android.documentsui.clipping.DocumentClipper;
 import com.android.documentsui.selection.Selection;
 import com.android.documentsui.selection.SelectionManager;
-import com.android.documentsui.services.FileOperationService;
-import com.android.documentsui.services.FileOperationService.OpType;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 
@@ -49,7 +46,7 @@ import javax.annotation.Nullable;
  */
 interface DragStartListener {
 
-    public static final DragStartListener DUMMY = new DragStartListener() {
+    static final DragStartListener DUMMY = new DragStartListener() {
         @Override
         public boolean onMouseDragEvent(InputEvent event) {
             return false;
@@ -64,36 +61,39 @@ interface DragStartListener {
     boolean onTouchDragEvent(InputEvent event);
 
     @VisibleForTesting
-    static class ActiveListener implements DragStartListener {
+    class ActiveListener implements DragStartListener {
 
         private static String TAG = "DragStartListener";
 
+        private final IconHelper mIconHelper;
         private final State mState;
         private final SelectionManager mSelectionMgr;
+        private final SelectionDetails mSelectionDetails;
         private final ViewFinder mViewFinder;
         private final Function<View, String> mIdFinder;
-        private final ClipDataFactory mClipFactory;
-        private final Function<Selection, DragShadowBuilder> mShadowFactory;
-        private Function<Selection, List<DocumentInfo>> mDocsConverter;
+        private final Function<Selection, List<DocumentInfo>> mDocsConverter;
+        private final DragAndDropManager mDragAndDropManager;
 
         // use DragStartListener.create
         @VisibleForTesting
         public ActiveListener(
+                IconHelper iconHelper,
                 State state,
                 SelectionManager selectionMgr,
+                SelectionDetails selectionDetails,
                 ViewFinder viewFinder,
                 Function<View, String> idFinder,
                 Function<Selection, List<DocumentInfo>> docsConverter,
-                ClipDataFactory clipFactory,
-                Function<Selection, DragShadowBuilder> shadowFactory) {
+                DragAndDropManager dragAndDropManager) {
 
+            mIconHelper = iconHelper;
             mState = state;
             mSelectionMgr = selectionMgr;
+            mSelectionDetails = selectionDetails;
             mViewFinder = viewFinder;
             mIdFinder = idFinder;
             mDocsConverter = docsConverter;
-            mClipFactory = clipFactory;
-            mShadowFactory = shadowFactory;
+            mDragAndDropManager = dragAndDropManager;
         }
 
         @Override
@@ -110,7 +110,7 @@ interface DragStartListener {
         /**
          * May be called externally when drag is initiated from other event handling code.
          */
-        private final boolean startDrag(@Nullable View view, InputEvent event) {
+        private boolean startDrag(@Nullable View view, InputEvent event) {
 
             if (view == null) {
                 if (DEBUG) Log.d(TAG, "Ignoring drag event, null view.");
@@ -125,23 +125,21 @@ interface DragStartListener {
 
             Selection selection = getSelectionToBeCopied(modelId, event);
 
-            final List<DocumentInfo> invalidDest = mDocsConverter.apply(selection);
-            invalidDest.add(mState.stack.peek());
-            // NOTE: Preparation of the ClipData object can require a lot of time
-            // and ideally should be done in the background. Unfortunately
-            // the current code layout and framework assumptions don't support
-            // this. So for now, we could end up doing a bunch of i/o on main thread.
-            startDragAndDrop(
-                    view,
-                    mClipFactory.create(
-                            selection,
-                            FileOperationService.OPERATION_COPY),
-                    mShadowFactory.apply(selection),
-                    invalidDest,
-                    View.DRAG_FLAG_GLOBAL
-                            | View.DRAG_FLAG_OPAQUE
-                            | View.DRAG_FLAG_GLOBAL_URI_READ
-                            | View.DRAG_FLAG_GLOBAL_URI_WRITE);
+            final List<DocumentInfo> srcs = mDocsConverter.apply(selection);
+
+            final List<Uri> invalidDest = new ArrayList<>(srcs.size() + 1);
+            for (DocumentInfo doc : srcs) {
+                invalidDest.add(doc.derivedUri);
+            }
+
+            final DocumentInfo parent = mState.stack.peek();
+            // parent is null when we're in Recents
+            if (parent != null) {
+                invalidDest.add(parent.derivedUri);
+            }
+
+            mDragAndDropManager.startDrag(view, srcs, mState.stack.getRoot(), invalidDest,
+                    mSelectionDetails, mIconHelper, parent);
 
             return true;
         }
@@ -168,63 +166,31 @@ interface DragStartListener {
             }
             return selection;
         }
-
-        /**
-         * This exists as a testing workaround since {@link View#startDragAndDrop} is final.
-         */
-        @VisibleForTesting
-        void startDragAndDrop(
-                View view,
-                ClipData data,
-                DragShadowBuilder shadowBuilder,
-                Object localState,
-                int flags) {
-
-            view.startDragAndDrop(data, shadowBuilder, localState, flags);
-        }
     }
 
-    public static DragStartListener create(
+    static DragStartListener create(
             IconHelper iconHelper,
-            Context context,
             Model model,
             SelectionManager selectionMgr,
-            DocumentClipper clipper,
+            SelectionDetails selectionDetails,
             State state,
             Function<View, String> idFinder,
             ViewFinder viewFinder,
-            Drawable defaultDragIcon,
-            DragShadowBuilder shadowBuilder) {
-
-        DragShadowBuilder.Updater shadowFactory = new DragShadowBuilder.Updater(
-                context,
-                shadowBuilder,
-                model,
-                iconHelper,
-                defaultDragIcon);
+            DragAndDropManager dragAndDropManager) {
 
         return new ActiveListener(
+                iconHelper,
                 state,
                 selectionMgr,
+                selectionDetails,
                 viewFinder,
                 idFinder,
                 model::getDocuments,
-                (Selection selection, @OpType int operationType) -> {
-                    return clipper.getClipDataForDocuments(
-                            model::getItemUri,
-                            selection,
-                            FileOperationService.OPERATION_COPY);
-                },
-                shadowFactory);
+                dragAndDropManager);
     }
 
     @FunctionalInterface
     interface ViewFinder {
         @Nullable View findView(float x, float y);
-    }
-
-    @FunctionalInterface
-    interface ClipDataFactory {
-        ClipData create(Selection selection, @OpType int operationType);
     }
 }

@@ -19,6 +19,9 @@ import android.net.Uri;
 
 import com.android.documentsui.archives.ArchivesProvider;
 
+import java.util.HashSet;
+import java.util.Set;
+
 /**
  * Details about various system providers. These all need to be in sync with the
  * resources in their respective packages.
@@ -39,7 +42,21 @@ public final class Providers {
 
     public static final String AUTHORITY_MTP = "com.android.mtp.documents";
 
+    private static final String DOCSUI_PACKAGE = "com.android.documentsui";
+    private static final Set<String> SYSTEM_AUTHORITIES = new HashSet<String>() {{
+        add(AUTHORITY_STORAGE);
+        add(AUTHORITY_DOWNLOADS);
+        add(AUTHORITY_MEDIA);
+        add(AUTHORITY_MTP);
+    }};
+
     public static boolean isArchiveUri(Uri uri) {
         return uri != null && ArchivesProvider.AUTHORITY.equals(uri.getAuthority());
+    }
+
+    public static boolean isSystemProvider(String authority) {
+        return SYSTEM_AUTHORITIES.contains(authority)
+                || authority == null  // Recents
+                || authority.startsWith(DOCSUI_PACKAGE);  // covers internal and test providers
     }
 }

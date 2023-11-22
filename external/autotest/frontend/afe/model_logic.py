@@ -9,9 +9,6 @@ from django.db import models as dbmodels
 from django.db import transaction
 from django.db.models.sql import query
 import django.db.models.sql.where
-# TODO(akeshet): Replace with monarch stats once we know how to instrument rpc
-# handling with ts_mon.
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
 from autotest_lib.frontend.afe import rdb_model_extensions
 
 
@@ -932,22 +929,18 @@ class ModelExtensions(rdb_model_extensions.ModelValidators):
         @returns: Dictionary representation of the object.
         """
         serialized = {}
-        timer = autotest_stats.Timer('serialize_latency.%s' % (
-                type(self).__name__))
-        with timer.get_client('local'):
-            for field in self._meta.concrete_model._meta.local_fields:
-                if field.rel is None:
-                    serialized[field.name] = field._get_val_from_obj(self)
-                elif field.name in self.SERIALIZATION_LINKS_TO_KEEP:
-                    # attname will contain "_id" suffix for foreign keys,
-                    # e.g. HostAttribute.host will be serialized as 'host_id'.
-                    # Use it for easy deserialization.
-                    serialized[field.attname] = field._get_val_from_obj(self)
+        for field in self._meta.concrete_model._meta.local_fields:
+            if field.rel is None:
+                serialized[field.name] = field._get_val_from_obj(self)
+            elif field.name in self.SERIALIZATION_LINKS_TO_KEEP:
+                # attname will contain "_id" suffix for foreign keys,
+                # e.g. HostAttribute.host will be serialized as 'host_id'.
+                # Use it for easy deserialization.
+                serialized[field.attname] = field._get_val_from_obj(self)
 
         if include_dependencies:
-            with timer.get_client('related'):
-                for link in self.SERIALIZATION_LINKS_TO_FOLLOW:
-                    serialized[link] = self._serialize_relation(link)
+            for link in self.SERIALIZATION_LINKS_TO_FOLLOW:
+                serialized[link] = self._serialize_relation(link)
 
         return serialized
 
@@ -1117,12 +1110,8 @@ class ModelExtensions(rdb_model_extensions.ModelValidators):
         except cls.DoesNotExist:
             instance = cls()
 
-        timer = autotest_stats.Timer('deserialize_latency.%s' % (
-                type(instance).__name__))
-        with timer.get_client('local'):
-            instance._deserialize_local(local)
-        with timer.get_client('related'):
-            instance._deserialize_relations(related)
+        instance._deserialize_local(local)
+        instance._deserialize_relations(related)
 
         return instance
 

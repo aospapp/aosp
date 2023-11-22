@@ -20,19 +20,27 @@
     <package>com.example.android.wearable.wear.wearnotifications</package>
 
     <minSdk>18</minSdk>
-    <targetSdkVersion>25</targetSdkVersion>
-    <targetSdkVersionWear>25</targetSdkVersionWear>
+    <compileSdkVersion>26</compileSdkVersion>
+    <targetSdkVersion>26</targetSdkVersion>
+
+    <minSdkVersionWear>23</minSdkVersionWear>
+    <compileSdkVersionWear>26</compileSdkVersionWear>
+    <targetSdkVersionWear>26</targetSdkVersionWear>
+    <multiDexEnabled>true</multiDexEnabled>
 
     <wearable>
         <has_handheld_app>true</has_handheld_app>
     </wearable>
 
-    <dependency>com.android.support:appcompat-v7:25.3.1</dependency>
-    <dependency>com.android.support:cardview-v7:25.3.1</dependency>
-    <dependency>com.android.support:design:25.3.1</dependency>
+    <dependency>com.android.support:appcompat-v7:26.0.0</dependency>
+    <dependency>com.android.support:cardview-v7:26.0.0</dependency>
+    <dependency>com.android.support:design:26.0.0</dependency>
 
-    <dependency_wearable>com.android.support:appcompat-v7:25.3.1</dependency_wearable>
-    <dependency_wearable>com.android.support:design:25.3.1</dependency_wearable>
+    <dependency_shared>com.android.support:support-v4:26.0.0</dependency_shared>
+
+    <dependency_wearable>com.android.support:appcompat-v7:26.0.0</dependency_wearable>
+    <dependency_wearable>com.android.support:wear:26.0.0</dependency_wearable>
+    <dependency_wearable>com.android.support:design:26.0.0</dependency_wearable>
 
     <!-- Include additional dependencies here.-->
     <!-- dependency>com.google.android.gms:play-services:5.0.+</dependency -->
@@ -50,7 +58,7 @@
     </strings>
 
     <template src="base" />
-    <template src="Wear" />
+    <template src="WearPlusShared" />
 
     <metadata>
         <!-- Values: {DRAFT | PUBLISHED | INTERNAL | DEPRECATED | SUPERCEDED} -->

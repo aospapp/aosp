@@ -19,22 +19,21 @@ package com.android.car;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.car.Car;
-import android.car.annotation.FutureFeature;
-import android.car.hardware.CarDiagnosticEvent;
-import android.car.hardware.CarDiagnosticManager;
-import android.car.hardware.ICarDiagnostic;
-import android.car.hardware.ICarDiagnosticEventListener;
+import android.car.diagnostic.CarDiagnosticEvent;
+import android.car.diagnostic.CarDiagnosticManager;
+import android.car.diagnostic.ICarDiagnostic;
+import android.car.diagnostic.ICarDiagnosticEventListener;
 import android.content.Context;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.util.ArrayMap;
 import android.util.Log;
+import com.android.car.hal.DiagnosticHalService.DiagnosticCapabilities;
 import com.android.car.internal.CarPermission;
 import com.android.car.Listeners.ClientWithRate;
 import com.android.car.hal.DiagnosticHalService;
 import com.android.internal.annotations.GuardedBy;
 import java.io.PrintWriter;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.ConcurrentModificationException;
 import java.util.HashMap;
@@ -45,7 +44,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.locks.ReentrantLock;
 
-@FutureFeature
 /** @hide */
 public class CarDiagnosticService extends ICarDiagnostic.Stub
         implements CarServiceBase, DiagnosticHalService.DiagnosticListener {
@@ -80,7 +78,8 @@ public class CarDiagnosticService extends ICarDiagnostic.Stub
     public CarDiagnosticService(Context context, DiagnosticHalService diagnosticHal) {
         mContext = context;
         mDiagnosticHal = diagnosticHal;
-        mDiagnosticReadPermission = new CarPermission(mContext, Car.PERMISSION_CAR_DIAGNOSTIC_READ);
+        mDiagnosticReadPermission = new CarPermission(mContext,
+                Car.PERMISSION_CAR_DIAGNOSTIC_READ_ALL);
         mDiagnosticClearPermission = new CarPermission(mContext,
                 Car.PERMISSION_CAR_DIAGNOSTIC_CLEAR);
     }
@@ -161,10 +160,10 @@ public class CarDiagnosticService extends ICarDiagnostic.Stub
             if (event.isLiveFrame()) {
                 // record recent-most live frame information
                 setRecentmostLiveFrame(event);
-                listeners = mDiagnosticListeners.get(CarDiagnosticManager.FRAME_TYPE_FLAG_LIVE);
+                listeners = mDiagnosticListeners.get(CarDiagnosticManager.FRAME_TYPE_LIVE);
             } else if (event.isFreezeFrame()) {
                 setRecentmostFreezeFrame(event);
-                listeners = mDiagnosticListeners.get(CarDiagnosticManager.FRAME_TYPE_FLAG_FREEZE);
+                listeners = mDiagnosticListeners.get(CarDiagnosticManager.FRAME_TYPE_FREEZE);
             } else {
                 Log.w(
                         CarLog.TAG_DIAGNOSTIC,
@@ -198,24 +197,6 @@ public class CarDiagnosticService extends ICarDiagnostic.Stub
         processDiagnosticData(events);
     }
 
-    private List<CarDiagnosticEvent> getCachedEventsLocked(int frameType) {
-        ArrayList<CarDiagnosticEvent> events = new ArrayList<>();
-        switch (frameType) {
-            case CarDiagnosticManager.FRAME_TYPE_FLAG_LIVE:
-                mLiveFrameDiagnosticRecord.lock();
-                events.add(mLiveFrameDiagnosticRecord.getLastEvent());
-                mLiveFrameDiagnosticRecord.unlock();
-                break;
-            case CarDiagnosticManager.FRAME_TYPE_FLAG_FREEZE:
-                mFreezeFrameDiagnosticRecords.lock();
-                mFreezeFrameDiagnosticRecords.getEvents().forEach(events::add);
-                mFreezeFrameDiagnosticRecords.unlock();
-                break;
-            default: break;
-        }
-        return events;
-    }
-
     @Override
     public boolean registerOrUpdateDiagnosticListener(int frameType, int rate,
                 ICarDiagnosticEventListener listener) {
@@ -242,8 +223,6 @@ public class CarDiagnosticService extends ICarDiagnostic.Stub
                 }
                 mClients.add(diagnosticClient);
             }
-            // If we have a cached event for this diagnostic, send the event.
-            diagnosticClient.dispatchDiagnosticUpdate(getCachedEventsLocked(frameType));
             diagnosticListeners = mDiagnosticListeners.get(frameType);
             if (diagnosticListeners == null) {
                 diagnosticListeners = new Listeners<>(rate);
@@ -306,21 +285,21 @@ public class CarDiagnosticService extends ICarDiagnostic.Stub
                 return false;
             }
             switch (frameType) {
-                case CarDiagnosticManager.FRAME_TYPE_FLAG_LIVE:
+                case CarDiagnosticManager.FRAME_TYPE_LIVE:
                     if (mLiveFrameDiagnosticRecord.isEnabled()) {
                         return true;
                     }
-                    if (diagnosticHal.requestSensorStart(CarDiagnosticManager.FRAME_TYPE_FLAG_LIVE,
+                    if (diagnosticHal.requestSensorStart(CarDiagnosticManager.FRAME_TYPE_LIVE,
                             rate)) {
                         mLiveFrameDiagnosticRecord.enable();
                         return true;
                     }
                     break;
-                case CarDiagnosticManager.FRAME_TYPE_FLAG_FREEZE:
+                case CarDiagnosticManager.FRAME_TYPE_FREEZE:
                     if (mFreezeFrameDiagnosticRecords.isEnabled()) {
                         return true;
                     }
-                    if (diagnosticHal.requestSensorStart(CarDiagnosticManager.FRAME_TYPE_FLAG_FREEZE,
+                    if (diagnosticHal.requestSensorStart(CarDiagnosticManager.FRAME_TYPE_FREEZE,
                             rate)) {
                         mFreezeFrameDiagnosticRecords.enable();
                         return true;
@@ -394,19 +373,42 @@ public class CarDiagnosticService extends ICarDiagnostic.Stub
             return;
         }
         switch (frameType) {
-            case CarDiagnosticManager.FRAME_TYPE_FLAG_LIVE:
+            case CarDiagnosticManager.FRAME_TYPE_LIVE:
                 if (mLiveFrameDiagnosticRecord.disableIfNeeded())
-                    diagnosticHal.requestSensorStop(CarDiagnosticManager.FRAME_TYPE_FLAG_LIVE);
+                    diagnosticHal.requestSensorStop(CarDiagnosticManager.FRAME_TYPE_LIVE);
                 break;
-            case CarDiagnosticManager.FRAME_TYPE_FLAG_FREEZE:
+            case CarDiagnosticManager.FRAME_TYPE_FREEZE:
                 if (mFreezeFrameDiagnosticRecords.disableIfNeeded())
-                    diagnosticHal.requestSensorStop(CarDiagnosticManager.FRAME_TYPE_FLAG_FREEZE);
+                    diagnosticHal.requestSensorStop(CarDiagnosticManager.FRAME_TYPE_FREEZE);
                 break;
         }
     }
 
     private DiagnosticHalService getDiagnosticHal() {
         return mDiagnosticHal;
+    }
+
+    // Expose DiagnosticCapabilities
+    public boolean isLiveFrameSupported() {
+        return getDiagnosticHal().getDiagnosticCapabilities().isLiveFrameSupported();
+    }
+
+    public boolean isFreezeFrameNotificationSupported() {
+        return getDiagnosticHal().getDiagnosticCapabilities().isFreezeFrameSupported();
+    }
+
+    public boolean isGetFreezeFrameSupported() {
+        DiagnosticCapabilities diagnosticCapabilities =
+                getDiagnosticHal().getDiagnosticCapabilities();
+        return diagnosticCapabilities.isFreezeFrameInfoSupported() &&
+                diagnosticCapabilities.isFreezeFrameSupported();
+    }
+
+    public boolean isClearFreezeFramesSupported() {
+        DiagnosticCapabilities diagnosticCapabilities =
+            getDiagnosticHal().getDiagnosticCapabilities();
+        return diagnosticCapabilities.isFreezeFrameClearSupported() &&
+            diagnosticCapabilities.isFreezeFrameSupported();
     }
 
     // ICarDiagnostic implementations
@@ -496,12 +498,9 @@ public class CarDiagnosticService extends ICarDiagnostic.Stub
 
         @Override
         public boolean equals(Object o) {
-            if (o instanceof CarDiagnosticService.DiagnosticClient
-                    && mListener.asBinder()
-                            == ((CarDiagnosticService.DiagnosticClient) o).mListener.asBinder()) {
-                return true;
-            }
-            return false;
+            return o instanceof DiagnosticClient
+                && mListener.asBinder()
+                == ((DiagnosticClient) o).mListener.asBinder();
         }
 
         boolean isHoldingListenerBinder(IBinder listenerBinder) {
@@ -536,16 +535,12 @@ public class CarDiagnosticService extends ICarDiagnostic.Stub
         }
 
         void dispatchDiagnosticUpdate(List<CarDiagnosticEvent> events) {
-            if (events.size() == 0) {
-                return;
-            }
-            if (mActive) {
+            if (events.size() != 0 && mActive) {
                 try {
                     mListener.onDiagnosticEvents(events);
                 } catch (RemoteException e) {
                     //ignore. crash will be handled by death handler
                 }
-            } else {
             }
         }
 

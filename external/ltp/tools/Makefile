@@ -17,16 +17,14 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
-# Garrett Cooper, July 2009
+# Ngie Cooper, July 2009
 #
 
 top_srcdir		?= ..
 
 include $(top_srcdir)/include/mk/testcases.mk
 
-# top-LTP is really broken, apparently, and netpipe needs some fixing and
-# reorganization..
-FILTER_OUT_DIRS		:= netpipe% pounder21 top-LTP
+FILTER_OUT_DIRS		:= pounder21
 
 INSTALL_TARGETS		:= *.awk *.pl *.sh html_report_header.txt
 

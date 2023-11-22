@@ -86,9 +86,9 @@ public class ImageProcessingTest implements IDeviceTest, IRemoteTest {
         mTestDevice.runInstrumentationTests(runner, collectListener, bugListener, standardListener);
 
         // Capture a bugreport after the test
-        InputStreamSource bugreport = mTestDevice.getBugreport();
-        standardListener.testLog("bugreport.txt", LogDataType.BUGREPORT, bugreport);
-        bugreport.cancel();
+        try (InputStreamSource bugreport = mTestDevice.getBugreport()) {
+            standardListener.testLog("bugreport.txt", LogDataType.BUGREPORT, bugreport);
+        }
 
         // Collect test metrics from the instrumentation test output.
         Map<String, String> resultMetrics = new HashMap<String, String>();

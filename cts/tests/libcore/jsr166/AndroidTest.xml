@@ -32,9 +32,6 @@
         <option name="instrumentation-arg" key="filter"
                 value="com.android.cts.core.runner.ExpectationBasedFilter" />
         <option name="core-expectation" value="/knownfailures.txt" />
-        <option name="core-expectation" value="/brokentests.txt" />
-        <option name="core-expectation" value="/icebox.txt" />
-        <option name="core-expectation" value="/taggedtests.txt" />
         <option name="runtime-hint" value="10m"/>
         <!-- 20x default timeout of 600sec -->
         <option name="shell-timeout" value="12000000"/>

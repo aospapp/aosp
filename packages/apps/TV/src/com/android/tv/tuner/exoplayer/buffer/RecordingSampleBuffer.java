@@ -66,9 +66,14 @@ public class RecordingSampleBuffer implements BufferManager.SampleBuffer,
     public static final int BUFFER_REASON_RECORDING = 2;
 
     /**
-     * The duration of a chunk of samples, {@link SampleChunk}.
+     * The minimum duration to support seek in Trickplay.
      */
-    static final long CHUNK_DURATION_US = TimeUnit.MILLISECONDS.toMicros(500);
+    static final long MIN_SEEK_DURATION_US = TimeUnit.MILLISECONDS.toMicros(500);
+
+    /**
+     * The duration of a {@link SampleChunk} for recordings.
+     */
+    static final long RECORDING_CHUNK_DURATION_US = MIN_SEEK_DURATION_US * 1200; // 10 minutes
     private static final long BUFFER_WRITE_TIMEOUT_MS = 10 * 1000;  // 10 seconds
     private static final long BUFFER_NEEDED_US =
             1000L * Math.max(MpegTsPlayer.MIN_BUFFER_MS, MpegTsPlayer.MIN_REBUFFER_MS);
@@ -79,7 +84,6 @@ public class RecordingSampleBuffer implements BufferManager.SampleBuffer,
 
     private int mTrackCount;
     private boolean[] mTrackSelected;
-    private List<String> mIds;
     private List<SampleQueue> mReadSampleQueues;
     private final SamplePool mSamplePool = new SamplePool();
     private long mLastBufferedPositionUs = C.UNKNOWN_TIME_US;
@@ -130,7 +134,6 @@ public class RecordingSampleBuffer implements BufferManager.SampleBuffer,
         if (mTrackCount <= 0) {
             throw new IOException("No tracks to initialize");
         }
-        mIds = ids;
         mTrackSelected = new boolean[mTrackCount];
         mReadSampleQueues = new ArrayList<>();
         mSampleChunkIoHelper = new SampleChunkIoHelper(ids, mediaFormats, mBufferReason,
@@ -139,6 +142,9 @@ public class RecordingSampleBuffer implements BufferManager.SampleBuffer,
             mReadSampleQueues.add(i, new SampleQueue(mSamplePool));
         }
         mSampleChunkIoHelper.init();
+        for (int i = 0; i < mTrackCount; ++i) {
+            mBufferManager.registerChunkEvictedListener(ids.get(i), RecordingSampleBuffer.this);
+        }
     }
 
     @Override
@@ -146,8 +152,6 @@ public class RecordingSampleBuffer implements BufferManager.SampleBuffer,
         if (!mTrackSelected[index]) {
             mTrackSelected[index] = true;
             mReadSampleQueues.get(index).clear();
-            mBufferManager.registerChunkEvictedListener(mIds.get(index),
-                    RecordingSampleBuffer.this);
             mSampleChunkIoHelper.openRead(index, mCurrentPlaybackPositionUs);
         }
     }
@@ -157,7 +161,7 @@ public class RecordingSampleBuffer implements BufferManager.SampleBuffer,
         if (mTrackSelected[index]) {
             mTrackSelected[index] = false;
             mReadSampleQueues.get(index).clear();
-            mBufferManager.unregisterChunkEvictedListener(mIds.get(index));
+            mSampleChunkIoHelper.closeRead(index);
         }
     }
 
@@ -193,7 +197,6 @@ public class RecordingSampleBuffer implements BufferManager.SampleBuffer,
         }
         // Disables buffering samples afterwards, and notifies the disk speed is slow.
         Log.w(TAG, "Disk is too slow for trickplay");
-        mBufferManager.disable();
         mBufferListener.onDiskTooSlow();
     }
 
@@ -205,7 +208,7 @@ public class RecordingSampleBuffer implements BufferManager.SampleBuffer,
     private boolean maybeReadSample(SampleQueue queue, int index) {
         if (queue.getLastQueuedPositionUs() != null
                 && queue.getLastQueuedPositionUs() > mCurrentPlaybackPositionUs + BUFFER_NEEDED_US
-                && queue.isDurationGreaterThan(CHUNK_DURATION_US)) {
+                && queue.isDurationGreaterThan(MIN_SEEK_DURATION_US)) {
             // The speed of queuing samples can be higher than the playback speed.
             // If the duration of the samples in the queue is not limited,
             // samples can be accumulated and there can be out-of-memory issues.
@@ -300,7 +303,7 @@ public class RecordingSampleBuffer implements BufferManager.SampleBuffer,
     public void onChunkEvicted(String id, long createdTimeMs) {
         if (mBufferListener != null) {
             mBufferListener.onBufferStartTimeChanged(
-                    createdTimeMs + TimeUnit.MICROSECONDS.toMillis(CHUNK_DURATION_US));
+                    createdTimeMs + TimeUnit.MICROSECONDS.toMillis(MIN_SEEK_DURATION_US));
         }
     }
 }

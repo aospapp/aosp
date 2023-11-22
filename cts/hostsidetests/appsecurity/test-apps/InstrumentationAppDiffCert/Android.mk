@@ -21,12 +21,12 @@ LOCAL_MODULE_TAGS := tests
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_SDK_VERSION := current
-LOCAL_STATIC_JAVA_LIBRARIES := android-support-test
+LOCAL_STATIC_JAVA_LIBRARIES := android-support-test legacy-android-test
 
 LOCAL_PACKAGE_NAME := CtsInstrumentationAppDiffCert
 
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 # sign this app with different cert than CtsTargetInstrumentationApp
 LOCAL_CERTIFICATE := cts/hostsidetests/appsecurity/certs/cts-testkey2

@@ -17,7 +17,6 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES:= \
-    MediaCasService.cpp \
     MediaDrmService.cpp \
     main_mediadrmserver.cpp
 
@@ -25,19 +24,13 @@ LOCAL_SHARED_LIBRARIES:= \
     libbinder \
     liblog \
     libmediadrm \
-    libutils
-ifneq ($(DISABLE_TREBLE_DRM), true)
-LOCAL_SHARED_LIBRARIES += \
+    libutils \
     libhidlbase \
     libhidlmemory \
-    android.hidl.base@1.0 \
+    libhidltransport \
     android.hardware.drm@1.0
-endif
 
 LOCAL_CFLAGS += -Wall -Wextra -Werror
-ifeq ($(DISABLE_TREBLE_DRM), true)
-LOCAL_CFLAGS += -DDISABLE_TREBLE_DRM=1
-endif
 
 LOCAL_MODULE:= mediadrmserver
 

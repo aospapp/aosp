@@ -28,9 +28,8 @@
 #include <regex>
 
 #include <android-base/file.h>
+#include <android-base/scopeguard.h>
 #include <android-base/stringprintf.h>
-
-#include "private/ScopeGuard.h"
 
 #if defined(__LP64__)
 #define PATH_TO_SYSTEM_LIB "/system/lib64/"
@@ -45,6 +44,8 @@
 #endif
 
 #if defined(__linux__)
+
+#include <sys/sysmacros.h>
 
 struct map_record {
   uintptr_t addr_start;
@@ -68,9 +69,7 @@ class Maps {
       return false;
     }
 
-    auto fp_guard = make_scope_guard([&]() {
-      fclose(fp);
-    });
+    auto fp_guard = android::base::make_scope_guard([&]() { fclose(fp); });
 
     char line[BUFSIZ];
     while (fgets(line, sizeof(line), fp) != nullptr) {

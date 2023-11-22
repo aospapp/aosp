@@ -1030,7 +1030,7 @@ public class SupplicantP2pIfaceHalTest {
         // Default value when service is not initialized.
         assertNull(mDut.getSsid(mPeerMacAddress));
         executeAndValidateInitializationSequence(false, false, false);
-        assertEquals(mSsid, mDut.getSsid(mPeerMacAddress));
+        assertEquals(NativeUtil.removeEnclosingQuotes(mSsid), mDut.getSsid(mPeerMacAddress));
     }
 
     /**

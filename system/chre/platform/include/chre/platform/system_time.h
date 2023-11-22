@@ -46,6 +46,14 @@ class SystemTime {
    * @return The uptime of CHRE.
    */
   static Nanoseconds getUptime();
+
+  /**
+   * Returns the estimated offset between the host and CHRE time. The offset is
+   * defined as the host time minus the CHRE time.
+   *
+   * @return The current estimated offset in nanoseconds.
+   */
+  static int64_t getEstimatedHostTimeOffset();
 };
 
 }  // namespace chre

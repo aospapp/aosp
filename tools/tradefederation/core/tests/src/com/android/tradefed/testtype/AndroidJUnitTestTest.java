@@ -28,6 +28,7 @@ import com.android.tradefed.util.FileUtil;
 import junit.framework.TestCase;
 
 import java.io.File;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -79,6 +80,7 @@ public class AndroidJUnitTestTest extends TestCase {
         mAndroidJUnitTest.setTestTimeout(TEST_TIMEOUT);
         mAndroidJUnitTest.setShellTimeout(SHELL_TIMEOUT);
         mMockRemoteRunner.setMaxTimeToOutputResponse(SHELL_TIMEOUT, TimeUnit.MILLISECONDS);
+        mMockRemoteRunner.setMaxTimeout(0L, TimeUnit.MILLISECONDS);
         mMockRemoteRunner.addInstrumentationArg(InstrumentationTest.TEST_TIMEOUT_INST_ARGS_KEY,
                 Long.toString(SHELL_TIMEOUT));
     }
@@ -194,7 +196,8 @@ public class AndroidJUnitTestTest extends TestCase {
         EasyMock.expect(mMockTestDevice.pushFile(
                 EasyMock.<File>anyObject(), EasyMock.<String>anyObject())).andReturn(Boolean.TRUE);
         EasyMock.expect(mMockTestDevice.executeShellCommand(EasyMock.<String>anyObject()))
-                .andReturn("");
+                .andReturn("")
+                .times(2);
         EasyMock.replay(mMockRemoteRunner, mMockTestDevice);
 
         File tmpFile = FileUtil.createTempFile("testFile", ".txt");
@@ -218,7 +221,8 @@ public class AndroidJUnitTestTest extends TestCase {
         EasyMock.expect(mMockTestDevice.pushFile(
                 EasyMock.<File>anyObject(), EasyMock.<String>anyObject())).andReturn(Boolean.TRUE);
         EasyMock.expect(mMockTestDevice.executeShellCommand(EasyMock.<String>anyObject()))
-                .andReturn("");
+                .andReturn("")
+                .times(2);
         EasyMock.replay(mMockRemoteRunner, mMockTestDevice);
 
         File tmpFile = FileUtil.createTempFile("notTestFile", ".txt");
@@ -247,7 +251,7 @@ public class AndroidJUnitTestTest extends TestCase {
                 EasyMock.<String>anyObject())).andReturn(Boolean.TRUE).times(2);
         EasyMock.expect(mMockTestDevice.executeShellCommand(EasyMock.<String>anyObject()))
                 .andReturn("")
-                .times(2);
+                .times(4);
         EasyMock.replay(mMockRemoteRunner, mMockTestDevice);
 
         File tmpFileInclude = FileUtil.createTempFile("includeFile", ".txt");
@@ -266,6 +270,40 @@ public class AndroidJUnitTestTest extends TestCase {
     }
 
     /**
+     * Test that when pushing the filters fails, we have a test run failure since we were not able
+     * to run anything.
+     */
+    public void testRun_testFileAndFilters_fails() throws Exception {
+        mMockRemoteRunner = EasyMock.createMock(IRemoteAndroidTestRunner.class);
+        EasyMock.expect(
+                        mMockTestDevice.pushFile(
+                                EasyMock.<File>anyObject(), EasyMock.<String>anyObject()))
+                .andThrow(new DeviceNotAvailableException("failed to push", "device1"));
+
+        mMockListener.testRunStarted(EasyMock.anyObject(), EasyMock.eq(0));
+        mMockListener.testRunFailed("failed to push");
+        mMockListener.testRunEnded(0, Collections.emptyMap());
+
+        EasyMock.replay(mMockRemoteRunner, mMockTestDevice, mMockListener);
+        File tmpFileInclude = FileUtil.createTempFile("includeFile", ".txt");
+        File tmpFileExclude = FileUtil.createTempFile("excludeFile", ".txt");
+        try {
+            mAndroidJUnitTest.addIncludeFilter(TEST1.getClassName());
+            mAndroidJUnitTest.addExcludeFilter(TEST2.toString());
+            mAndroidJUnitTest.setIncludeTestFile(tmpFileInclude);
+            mAndroidJUnitTest.setExcludeTestFile(tmpFileExclude);
+            mAndroidJUnitTest.run(mMockListener);
+            fail("Should have thrown an exception.");
+        } catch (DeviceNotAvailableException expected) {
+            //expected
+        } finally {
+            FileUtil.deleteFile(tmpFileInclude);
+            FileUtil.deleteFile(tmpFileExclude);
+        }
+        EasyMock.verify(mMockRemoteRunner, mMockTestDevice, mMockListener);
+    }
+
+    /**
      * Test that setting option for "test-file-filter" works as intended
      */
     public void testRun_setTestFileOptions() throws Exception {
@@ -281,7 +319,7 @@ public class AndroidJUnitTestTest extends TestCase {
                 .times(2);
         EasyMock.expect(mMockTestDevice.executeShellCommand(EasyMock.<String>anyObject()))
                 .andReturn("")
-                .times(2);
+                .times(4);
         EasyMock.replay(mMockRemoteRunner, mMockTestDevice);
 
         File tmpFileInclude = FileUtil.createTempFile("includeFile", ".txt");
@@ -330,9 +368,7 @@ public class AndroidJUnitTestTest extends TestCase {
         assertNull(mAndroidJUnitTest.split());
     }
 
-    /**
-     * Test that {@link AndroidJUnitTest#split()} returns 3 shards when requested to do so.
-     */
+    /** Test that {@link AndroidJUnitTest#split(int)} returns 3 shards when requested to do so. */
     public void testSplit_threeShards() throws Exception {
         mAndroidJUnitTest = new AndroidJUnitTest();
         assertEquals(AndroidJUnitTest.AJUR, mAndroidJUnitTest.getRunnerName());
@@ -345,6 +381,26 @@ public class AndroidJUnitTestTest extends TestCase {
         assertEquals(20000L, ((AndroidJUnitTest)res.get(0)).getRuntimeHint());
         assertEquals(20000L, ((AndroidJUnitTest)res.get(1)).getRuntimeHint());
         assertEquals(20000L, ((AndroidJUnitTest)res.get(2)).getRuntimeHint());
+        // Make sure shards cannot be re-sharded
+        assertNull(((AndroidJUnitTest) res.get(0)).split(2));
+        assertNull(((AndroidJUnitTest) res.get(0)).split());
+    }
+
+    /**
+     * Test that {@link AndroidJUnitTest#split(int)} can only split up to the ajur-max-shard option.
+     */
+    public void testSplit_maxShard() throws Exception {
+        mAndroidJUnitTest = new AndroidJUnitTest();
+        assertEquals(AndroidJUnitTest.AJUR, mAndroidJUnitTest.getRunnerName());
+        OptionSetter setter = new OptionSetter(mAndroidJUnitTest);
+        setter.setOptionValue("runtime-hint", "60s");
+        setter.setOptionValue("ajur-max-shard", "2");
+        List<IRemoteTest> res = (List<IRemoteTest>) mAndroidJUnitTest.split(3);
+        assertNotNull(res);
+        assertEquals(2, res.size());
+        // Third of the execution time on each shard.
+        assertEquals(30000L, ((AndroidJUnitTest) res.get(0)).getRuntimeHint());
+        assertEquals(30000L, ((AndroidJUnitTest) res.get(1)).getRuntimeHint());
         // Make sure shards cannot be re-sharded
         assertNull(((AndroidJUnitTest) res.get(0)).split(2));
         assertNull(((AndroidJUnitTest) res.get(0)).split());

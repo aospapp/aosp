@@ -43,8 +43,8 @@
     <string name="connectivity_network" msgid="8321537111272398501">"Мрежа"</string>
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
-    <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Сканирането винаги е налице"</string>
-    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Позволете на услугата на Google за местоположение и другите приложения да сканират за мрежи дори когато функцията за Wi-Fi е изключена"</string>
+    <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Активно сканиране"</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Позволете на услугата на Google за местоположение и на другите приложения да сканират за мрежи дори когато функцията за Wi-Fi е изключена."</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"Скрийнсейвър"</string>
     <string name="device_display" msgid="101455384386372747">"Дисплей"</string>
@@ -68,12 +68,12 @@
     <string name="accessory_state_canceled" msgid="4419328837733619447">"Анулирано"</string>
     <string name="accessory_state_paired" msgid="1959238931866401476">"Сдвоено"</string>
     <string name="accessory_options" msgid="4799658564005710297">"Аксесоар"</string>
-    <string name="accessory_unpair" msgid="8242725516604465355">"Раздвояване"</string>
+    <string name="accessory_unpair" msgid="8242725516604465355">"Прекратяване на сдвояването"</string>
     <string name="accessory_battery" msgid="7021788232835772126">"Батерия: <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"Устройството се раздвоява…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Установена е връзка"</string>
     <string name="accessory_change_name" msgid="8958916008739792785">"Промяна на името"</string>
-    <string name="accessory_change_name_title" msgid="4630819456923061184">"Въведете ново име за този аксесоар"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"Ново име за този аксесоар"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Търсят се аксесоари…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Преди да сдвоите устройствата си с Bluetooth, се уверете, че са в съответния режим"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"Бе намерено устройство и то ще се сдвои автоматично след <xliff:g id="COUNTDOWN">%1$s</xliff:g> секунди"</string>
@@ -181,7 +181,7 @@
     <string name="title_wifi_no_networks_available" msgid="7127675763248224969">"Сканира се…"</string>
     <string name="title_wifi_could_not_save" msgid="708638317882707069">"Конфигурацията за <xliff:g id="SSID">%1$s</xliff:g> не можа да се запази"</string>
     <string name="title_wifi_could_not_connect" msgid="9080004548419447580">"Не можа да се установи връзка със: <xliff:g id="SSID">%1$s</xliff:g>"</string>
-    <string name="title_wifi_could_not_connect_timeout" msgid="5158184646985406394">"<xliff:g id="SSID">%1$s</xliff:g> не можа да се намери"</string>
+    <string name="title_wifi_could_not_connect_timeout" msgid="5158184646985406394">"Неуспешно намиране на <xliff:g id="SSID">%1$s</xliff:g>"</string>
     <string name="title_wifi_could_not_connect_authentication_failure" msgid="4836595650380723944">"Паролата за Wi-Fi не е валидна"</string>
     <string name="title_wifi_could_not_connect_ap_reject" msgid="328274688839033015">"Wi-Fi мрежата не прие връзката"</string>
     <string name="title_wifi_advanced_options" msgid="5389467736846644832">"Да се конфигурират ли настройките за прокси сървър и IP на <xliff:g id="SSID">%1$s</xliff:g>?"</string>
@@ -293,7 +293,7 @@
     <string name="storage_wizard_backup_apps_action" msgid="7246092320517630760">"Създаване на резервно копие на приложенията"</string>
     <string name="storage_wizard_back_up_apps_title" msgid="452805102278225533">"Приложения, съхранени в/ъв <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_wizard_back_up_apps_and_data_title" msgid="1738767666148200795">"Приложения и данни, съхранени в/ъв <xliff:g id="NAME">%1$s</xliff:g>"</string>
-    <string name="storage_wizard_back_up_apps_space_available" msgid="7209210725057470544">"Налице: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_back_up_apps_space_available" msgid="7209210725057470544">"Налични: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="storage_wizard_eject_private_title" msgid="2844023177159233031">"Изваждане на хранилището на устройството"</string>
     <string name="storage_wizard_eject_private_description" msgid="8966427719795472538">"Приложенията в това вътрешно хранилище ще спрат да работят, след като го извадите. USB паметта е форматирана да функционира само на това устройство и няма да работи другаде."</string>
     <string name="storage_wizard_eject_progress_title" msgid="8823133087157003820">"<xliff:g id="NAME">%1$s</xliff:g> се изважда…"</string>
@@ -318,7 +318,7 @@
     <string name="move_error_device_admin" msgid="2060627704270836951">"Администраторът на устройството не може да се инсталира на външен носител."</string>
     <string name="learn_more_action" msgid="7015991954404958779">"Научете повече"</string>
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"Нов опит"</string>
-    <string name="wifi_wps_title" msgid="1872305810119408482">"Маршрутизаторът за WPS се търси…"</string>
+    <string name="wifi_wps_title" msgid="1872305810119408482">"Търсене на маршрутизатора за WPS…"</string>
     <string name="wifi_wps_instructions" msgid="3618110962669110034">"Натиснете бутона за Wi-Fi Protected Setup на маршрутизатора си.\nТой може да е с името „WPS“ или да съдържа символа вляво."</string>
     <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"Въведете ПИН кода <xliff:g id="NUMBER">%1$s</xliff:g> на маршрутизатора си за Wi-Fi"</string>
     <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"След като въведете ПИН кода, завършването на настройването може да отнеме до 2 минути"</string>
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"Услуги"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Настройки на услугите"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Текст с висок контраст"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Пряк път към функцията за достъпност"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Активиране на пряк път към функцията за достъпност"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Услуга за прекия път"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Когато прекият път е включен, можете да стартирате дадена функция за достъпност, като натиснете бутоните за назад и за надолу и ги задържите за 3 секунди."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Надписи"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Настройки за наслагване на надписи върху видеоклип"</string>
     <string name="captions_display" msgid="735692527287125548">"Показване"</string>
@@ -610,7 +614,7 @@
     <string name="device_apps_app_management_storage_used" msgid="4611351576179140634">"Използвано хранилище"</string>
     <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"От <xliff:g id="VOLUME">%2$s</xliff:g> се използва/т <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="device_apps_app_management_clear_data" msgid="4439114679323274127">"Изчистване на данните"</string>
-    <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"Всички данни на това приложение ще се изтрият за постоянно.\nВключително файлове, настройки, профили, бази от данни и др."</string>
+    <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"Всички данни на приложението ще се изтрият за постоянно.\nТова включва файлове, настройки, профили, бази от данни и др."</string>
     <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"Изчистване на стандартните действия"</string>
     <string name="device_apps_app_management_clear_default_set" msgid="4191720055364731307">"Задайте прил. да се старт. за някои действия"</string>
     <string name="device_apps_app_management_clear_default_none" msgid="196932966641339141">"Не са зададени стандартни действия"</string>
@@ -628,7 +632,7 @@
     <string name="device_daydreams_sleep" msgid="7676938708373592766">"Стартиране"</string>
     <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"Скрийнсейвърът започва след този период на неактивност. Ако не е избран скрийнсейвър, дисплеят се изключва."</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"След <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> на неактивност"</string>
-    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Преминаване на устройството в спящ режим"</string>
+    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Активиране на спящ режим"</string>
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"Екранът се изключва след този период на неактивност."</string>
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"Понастоящем няма профил, който да съхранява данните от резервното копие"</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
@@ -637,7 +641,7 @@
     <string name="privacy_backup_account" msgid="9059939814827165020">"Резервно копие на профила"</string>
     <string name="privacy_automatic_restore" msgid="1409885318093199628">"Автоматично възстановяване"</string>
     <string name="factory_reset_device" msgid="7422459553658815011">"Нулиране на устройството"</string>
-    <string name="factory_reset_description" msgid="5381170999141355891">"Това ще изтрие всички данни от вътрешното хранилище на устройството ви, включително профила ви в Google, данните и настройките от системата и приложенията и изтеглените приложения"</string>
+    <string name="factory_reset_description" msgid="5381170999141355891">"Това действие ще изтрие всички данни от вътрешното хранилище на устройството ви, включително профила ви в Google, данните и настройките от системата и приложенията и изтеглените приложения"</string>
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Да се изтрие ли цялата ви лична информация и всички изтеглени приложения? Не можете да отмените това действие!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Изтриване на всичко"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"Изберете име за устройството си <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
@@ -648,13 +652,13 @@
     <item msgid="8122798759665439456">"Телевизор в хола"</item>
     <item msgid="1389347662738182100">"Телевизор в спалнята"</item>
   </string-array>
-    <string name="custom_room" msgid="8655516733933892458">"Въвеждане на персонализирано име…"</string>
+    <string name="custom_room" msgid="8655516733933892458">"Персонализирано име…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"Преименуване на това устройство <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"Понастоящем името на това устройство <xliff:g id="DEVICEMODEL">%1$s</xliff:g> е „<xliff:g id="DEVICENAME">%2$s</xliff:g>“"</string>
     <string name="change_setting" msgid="2047402388786162246">"Промяна"</string>
     <string name="keep_settings" msgid="6798327196645732517">"Отказ от промяната"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"Разрешения"</string>
-    <string name="device_apps_permissions" msgid="2966387603529725982">"Прилож.: Разрешения"</string>
+    <string name="device_apps_permissions" msgid="2966387603529725982">"Разрешения"</string>
     <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_0">%d</xliff:g> от <xliff:g id="COUNT_1">%d</xliff:g> приложения имат разрешение"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"Заявка за разрешение на Bluetooth"</string>
     <string name="security_patch" msgid="2131617390189164481">"Ниво на корекцията на сигурността под Android"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Сигналът за програмна грешка се заснема"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Налични виртуални клавиатури"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Управление на клавиатурите"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Разрешено"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Не е разрешено"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Достъп до данни за ползването"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Достъпът до данните за ползването разрешава на приложението да проследява какви други приложения използвате и колко често, както и оператора ви, настройките ви за езика и други подробности."</string>
 </resources>

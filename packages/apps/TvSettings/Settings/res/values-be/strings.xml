@@ -370,6 +370,10 @@
     <string name="system_services" msgid="7230571820151215779">"Сэрвісы"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Налады службы"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Высокая кантрастнасць тэксту"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Ярлык для спецыяльных магчымасцей"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Уключыць ярлык спецыяльных магчымасцей"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Сэрвіс ярлыкоў"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Калі камбінацыя хуткага доступу ўключана, вы можаце націснуць кнопкі \"Назад\" і \"Уніз\" і ўтрымліваць іх 3 секунды, каб уключыць функцыю спецыяльных магчымасцей."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Цітры"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Налады для накладання тэксту схаваных цітраў на відэа"</string>
     <string name="captions_display" msgid="735692527287125548">"Дысплэй"</string>
@@ -618,7 +622,7 @@
     <string name="device_apps_app_management_enable" msgid="3246823119203444608">"Уключыць"</string>
     <string name="device_apps_app_management_enable_desc" msgid="7490219375247065314">"Вы хочаце ўключыць гэту праграму?"</string>
     <string name="device_apps_app_management_storage_used" msgid="4611351576179140634">"Выкарыстанае сховішча"</string>
-    <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"<xliff:g id="SIZE">%1$s</xliff:g> выкарыстана ў <xliff:g id="VOLUME">%2$s</xliff:g>"</string>
+    <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"<xliff:g id="SIZE">%1$s</xliff:g> (<xliff:g id="VOLUME">%2$s</xliff:g>)"</string>
     <string name="device_apps_app_management_clear_data" msgid="4439114679323274127">"Ачысціць даныя"</string>
     <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"Усе даныя гэтай праграмы будуць выдалены.\nГэта ўключае ў сябе ўсе файлы, налады, уліковыя запісы, базы даных і інш."</string>
     <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"Скінуць стандартныя налады"</string>
@@ -676,4 +680,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Ідзе збор даных для справаздачы пра памылку"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Даступныя віртуальныя клавіятуры"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Кіраванне клавіятурамі"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Ёсць дазвол"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Няма дазволу"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Доступ да даных аб выкарыст."</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Доступ да даных аб выкарыстанні дазваляе праграме адсочваць, якія іншыя праграмы вы выкарыстоўваеце і як часта, а таксама атрымліваць даныя пра вашага аператара, моўныя налады і іншую інфармацыю."</string>
 </resources>

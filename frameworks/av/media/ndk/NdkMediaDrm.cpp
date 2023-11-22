@@ -17,7 +17,7 @@
 //#define LOG_NDEBUG 0
 #define LOG_TAG "NdkMediaDrm"
 
-#include "NdkMediaDrm.h"
+#include <media/NdkMediaDrm.h>
 
 #include <cutils/properties.h>
 #include <utils/Log.h>
@@ -29,7 +29,7 @@
 #include <media/stagefright/MediaErrors.h>
 #include <binder/IServiceManager.h>
 #include <media/IMediaDrmService.h>
-#include <ndk/NdkMediaCrypto.h>
+#include <media/NdkMediaCrypto.h>
 
 
 using namespace android;
@@ -421,7 +421,7 @@ media_status_t AMediaDrm_queryKeyStatus(AMediaDrm *mObj, const AMediaDrmSessionI
 
     for (size_t i = 0; i < mObj->mQueryResults.size(); i++) {
         keyValuePairs[i].mKey = mObj->mQueryResults.keyAt(i).string();
-        keyValuePairs[i].mValue = mObj->mQueryResults.keyAt(i).string();
+        keyValuePairs[i].mValue = mObj->mQueryResults.valueAt(i).string();
     }
     *numPairs = mObj->mQueryResults.size();
     return AMEDIA_OK;

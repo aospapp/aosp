@@ -16,6 +16,6 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="6121278918841215202">"Écrans de veille interactifs basiques"</string>
+    <string name="app_name" msgid="6121278918841215202">"Écrans de veille interactifs de base"</string>
     <string name="color_dream_name" msgid="9063813186991472050">"Couleurs"</string>
 </resources>

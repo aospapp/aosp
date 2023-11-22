@@ -18,9 +18,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
       package="com.android.cts.verifier"
       android:versionCode="5"
-      android:versionName="8.0_r1">
+      android:versionName="8.1_r1">
 
-    <uses-sdk android:minSdkVersion="19" android:targetSdkVersion="26"/>
+    <uses-sdk android:minSdkVersion="19" android:targetSdkVersion="27"/>
 
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_LOCATION_EXTRA_COMMANDS"/>
@@ -67,6 +67,9 @@
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
+    <!-- Needed by UsbTest tapjacking -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
     <!-- Needed by the Audio Quality Verifier to store the sound samples that will be mailed. -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
@@ -93,6 +96,14 @@
 
         <provider android:name=".TestResultsProvider"
                 android:authorities="com.android.cts.verifier.testresultsprovider" />
+
+        <activity android:name=".admin.tapjacking.UsbTest" android:label="@string/usb_tapjacking_test">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.cts.intent.category.MANUAL_TEST" />
+            </intent-filter>
+            <meta-data android:name="test_category" android:value="@string/test_category_device_admin" />
+        </activity>
 
         <activity android:name=".admin.PolicySerializationTestActivity"
                 android:label="@string/da_policy_serialization_test"
@@ -1066,6 +1077,17 @@
             <meta-data android:name="test_required_features" android:value="android.hardware.location.gps" />
         </activity>
 
+        <activity android:name=".location.GnssPseudorangeVerificationTestsActivity"
+            android:label="@string/location_pseudorange_value_test"
+            android:screenOrientation="locked">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.cts.intent.category.MANUAL_TEST"/>
+            </intent-filter>
+            <meta-data android:name="test_category" android:value="@string/test_category_hardware"/>
+            <meta-data android:name="test_required_features" android:value="android.hardware.location.gps" />
+        </activity>
+
         <activity android:name=".location.GnssTtffTestsActivity"
             android:label="@string/location_gnss_ttff_test"
             android:screenOrientation="locked">
@@ -1659,7 +1681,6 @@
                 <category android:name="android.cts.intent.category.MANUAL_TEST" />
             </intent-filter>
             <meta-data android:name="test_category" android:value="@string/test_category_camera" />
-            <meta-data android:name="test_required_features" android:value="android.hardware.sensor.gyroscope" />
             <meta-data android:name="test_required_features" android:value="android.hardware.camera.any"/>
         </activity>
         <activity
@@ -2060,6 +2081,8 @@
             <meta-data android:name="test_category" android:value="@string/test_category_other" />
             <meta-data android:name="test_required_features"
                     android:value="android.software.app_widgets" />
+            <meta-data android:name="test_excluded_features"
+                    android:value="android.hardware.type.automotive" />
         </activity>
 
         <activity android:name=".deskclock.DeskClockTestsActivity"
@@ -2290,6 +2313,14 @@
             </intent-filter>
         </service>
 
+        <activity android:name=".managedprovisioning.AlwaysOnVpnSettingsTestActivity"
+                android:label="@string/provisioning_byod_always_on_vpn">
+            <intent-filter>
+                <action android:name="com.android.cts.verifier.managedprovisioning.action.ALWAYS_ON_VPN_SETTINGS_TEST" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <activity android:name=".managedprovisioning.PermissionLockdownTestActivity"
                 android:label="@string/device_profile_owner_permission_lockdown_test">
             <intent-filter>
@@ -2409,7 +2440,8 @@
             </intent-filter>
         </service>
 
-        <activity android:name=".managedprovisioning.AuthenticationBoundKeyTestActivity">
+        <activity android:name=".managedprovisioning.AuthenticationBoundKeyTestActivity"
+                android:configChanges="keyboardHidden|orientation|screenSize">
             <intent-filter>
                 <action android:name="com.android.cts.verifier.managedprovisioning.action.AUTH_BOUND_KEY_TEST" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -2496,15 +2528,6 @@
                 android:resource="@xml/filepaths" />
         </provider>
 
-        <provider
-            android:name="com.android.cts.verifier.admin.DeviceAdminUninstallTestActivity$DeviceAdminApkFileProvider"
-            android:authorities="com.android.cts.verifier.admin.fileprovider"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/filepaths_admin" />
-        </provider>
-
         <activity android:name=".managedprovisioning.ByodIconSamplerActivity">
             <intent-filter>
                 <action android:name="com.android.cts.verifier.managedprovisioning.BYOD_SAMPLE_ICON" />
@@ -2525,7 +2548,6 @@
                 <action android:name="android.intent.action.WEB_SEARCH" />
                 <action android:name="android.intent.action.VIEW_DOWNLOADS" />
                 <action android:name="android.media.action.DISPLAY_AUDIO_EFFECT_CONTROL_PANEL" />
-                <action android:name="android.settings.SHOW_INPUT_METHOD_PICKER" />
                 <action android:name="android.intent.action.MANAGE_NETWORK_USAGE" />
                 <action android:name="com.android.settings.TTS_SETTINGS" />
                 <action android:name="android.settings.ZEN_MODE_SETTINGS" />

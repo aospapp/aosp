@@ -19,6 +19,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <set>
 
 #include "benchmark_api.h"  // For forward declaration of BenchmarkReporter
 
@@ -54,7 +55,8 @@ class BenchmarkReporter {
           complexity_lambda(),
           complexity_n(0),
           report_big_o(false),
-          report_rms(false) {}
+          report_rms(false),
+          counters() {}
 
     std::string benchmark_name;
     std::string report_label;  // Empty if not set by benchmark.
@@ -93,6 +95,8 @@ class BenchmarkReporter {
     // Inform print function whether the current run is a complexity report
     bool report_big_o;
     bool report_rms;
+
+    UserCounters counters;
   };
 
   // Construct a BenchmarkReporter with the output stream set to 'std::cout'
@@ -153,20 +157,29 @@ class BenchmarkReporter {
 // Simple reporter that outputs benchmark data to the console. This is the
 // default reporter used by RunSpecifiedBenchmarks().
 class ConsoleReporter : public BenchmarkReporter {
- public:
-  enum OutputOptions { OO_None, OO_Color };
-  explicit ConsoleReporter(OutputOptions color_output = OO_Color)
-      : name_field_width_(0), color_output_(color_output == OO_Color) {}
+public:
+  enum OutputOptions {
+    OO_None = 0,
+    OO_Color = 1,
+    OO_Tabular = 2,
+    OO_ColorTabular = OO_Color|OO_Tabular,
+    OO_Defaults = OO_ColorTabular
+  };
+  explicit ConsoleReporter(OutputOptions opts_ = OO_Defaults)
+      : output_options_(opts_), name_field_width_(0),
+        prev_counters_(), printed_header_(false) {}
 
   virtual bool ReportContext(const Context& context);
   virtual void ReportRuns(const std::vector<Run>& reports);
 
  protected:
   virtual void PrintRunData(const Run& report);
-  size_t name_field_width_;
+  virtual void PrintHeader(const Run& report);
 
- private:
-  bool color_output_;
+  OutputOptions output_options_;
+  size_t name_field_width_;
+  UserCounters prev_counters_;
+  bool printed_header_;
 };
 
 class JSONReporter : public BenchmarkReporter {
@@ -184,11 +197,15 @@ class JSONReporter : public BenchmarkReporter {
 
 class CSVReporter : public BenchmarkReporter {
  public:
+  CSVReporter() : printed_header_(false) {}
   virtual bool ReportContext(const Context& context);
   virtual void ReportRuns(const std::vector<Run>& reports);
 
  private:
   void PrintRunData(const Run& report);
+
+  bool printed_header_;
+  std::set< std::string > user_counter_names_;
 };
 
 inline const char* GetTimeUnitString(TimeUnit unit) {

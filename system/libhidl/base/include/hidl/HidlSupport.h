@@ -316,6 +316,27 @@ struct hidl_vec {
         *this = other;
     }
 
+    template <typename InputIterator,
+              typename = typename std::enable_if<std::is_convertible<
+                  typename std::iterator_traits<InputIterator>::iterator_category,
+                  std::input_iterator_tag>::value>::type>
+    hidl_vec(InputIterator first, InputIterator last) : mOwnsBuffer(true) {
+        auto size = std::distance(first, last);
+        if (size > static_cast<int64_t>(UINT32_MAX)) {
+            details::logAlwaysFatal("hidl_vec can't hold more than 2^32 elements.");
+        }
+        if (size < 0) {
+            details::logAlwaysFatal("size can't be negative.");
+        }
+        mSize = static_cast<uint32_t>(size);
+        mBuffer = new T[mSize];
+
+        size_t idx = 0;
+        for (; first != last; ++first) {
+            mBuffer[idx++] = static_cast<T>(*first);
+        }
+    }
+
     ~hidl_vec() {
         if (mOwnsBuffer) {
             delete[] mBuffer;

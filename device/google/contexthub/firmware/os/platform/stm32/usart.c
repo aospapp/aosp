@@ -144,6 +144,17 @@ void usartClose(const struct usart* __restrict usart)
     gpioRelease(usart->tx);
 }
 
+/*
+ * don't use this immediately after usart initialization
+ * the test is valid only after the first char has been sent out
+ */
+void usartFlush(const struct usart* __restrict usart)
+{
+    struct StmUsart *block = (struct StmUsart*)mUsartPorts[usart->unit];
+
+    while ((block->SR & 0x00c0) != 0x00c0);
+}
+
 void usartPutchar(const struct usart* __restrict usart, char c)
 {
     struct StmUsart *block = (struct StmUsart*)mUsartPorts[usart->unit];

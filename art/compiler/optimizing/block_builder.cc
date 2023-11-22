@@ -17,6 +17,7 @@
 #include "block_builder.h"
 
 #include "bytecode_utils.h"
+#include "quicken_info.h"
 
 namespace art {
 
@@ -121,13 +122,18 @@ void HBasicBlockBuilder::ConnectBasicBlocks() {
   HBasicBlock* block = graph_->GetEntryBlock();
   graph_->AddBlock(block);
 
+  size_t quicken_index = 0;
   bool is_throwing_block = false;
+  // Calculate the qucikening index here instead of CreateBranchTargets since it's easier to
+  // calculate in dex_pc order.
   for (CodeItemIterator it(code_item_); !it.Done(); it.Advance()) {
     uint32_t dex_pc = it.CurrentDexPc();
 
     // Check if this dex_pc address starts a new basic block.
     HBasicBlock* next_block = GetBlockAt(dex_pc);
     if (next_block != nullptr) {
+      // We only need quicken index entries for basic block boundaries.
+      quicken_index_for_dex_pc_.Put(dex_pc, quicken_index);
       if (block != nullptr) {
         // Last instruction did not end its basic block but a new one starts here.
         // It must have been a block falling through into the next one.
@@ -136,6 +142,10 @@ void HBasicBlockBuilder::ConnectBasicBlocks() {
       block = next_block;
       is_throwing_block = false;
       graph_->AddBlock(block);
+    }
+    // Make sure to increment this before the continues.
+    if (QuickenInfoTable::NeedsIndexForInstruction(&it.CurrentInstruction())) {
+      ++quicken_index;
     }
 
     if (block == nullptr) {
@@ -310,16 +320,18 @@ void HBasicBlockBuilder::InsertTryBoundaryBlocks() {
   // least one predecessor is not covered by the same TryItem as the try block.
   // We do not split each edge separately, but rather create one boundary block
   // that all predecessors are relinked to. This preserves loop headers (b/23895756).
-  for (auto entry : try_block_info) {
-    HBasicBlock* try_block = graph_->GetBlocks()[entry.first];
+  for (const auto& entry : try_block_info) {
+    uint32_t block_id = entry.first;
+    const DexFile::TryItem* try_item = entry.second;
+    HBasicBlock* try_block = graph_->GetBlocks()[block_id];
     for (HBasicBlock* predecessor : try_block->GetPredecessors()) {
-      if (GetTryItem(predecessor, try_block_info) != entry.second) {
+      if (GetTryItem(predecessor, try_block_info) != try_item) {
         // Found a predecessor not covered by the same TryItem. Insert entering
         // boundary block.
         HTryBoundary* try_entry =
             new (arena_) HTryBoundary(HTryBoundary::BoundaryKind::kEntry, try_block->GetDexPc());
         try_block->CreateImmediateDominator()->AddInstruction(try_entry);
-        LinkToCatchBlocks(try_entry, code_item_, entry.second, catch_blocks);
+        LinkToCatchBlocks(try_entry, code_item_, try_item, catch_blocks);
         break;
       }
     }
@@ -327,8 +339,10 @@ void HBasicBlockBuilder::InsertTryBoundaryBlocks() {
 
   // Do a second pass over the try blocks and insert exit TryBoundaries where
   // the successor is not in the same TryItem.
-  for (auto entry : try_block_info) {
-    HBasicBlock* try_block = graph_->GetBlocks()[entry.first];
+  for (const auto& entry : try_block_info) {
+    uint32_t block_id = entry.first;
+    const DexFile::TryItem* try_item = entry.second;
+    HBasicBlock* try_block = graph_->GetBlocks()[block_id];
     // NOTE: Do not use iterators because SplitEdge would invalidate them.
     for (size_t i = 0, e = try_block->GetSuccessors().size(); i < e; ++i) {
       HBasicBlock* successor = try_block->GetSuccessors()[i];
@@ -337,7 +351,7 @@ void HBasicBlockBuilder::InsertTryBoundaryBlocks() {
       // covered by the same TryItem. Otherwise the previous pass would have
       // created a non-throwing boundary block.
       if (GetTryItem(successor, try_block_info) != nullptr) {
-        DCHECK_EQ(entry.second, GetTryItem(successor, try_block_info));
+        DCHECK_EQ(try_item, GetTryItem(successor, try_block_info));
         continue;
       }
 
@@ -345,7 +359,7 @@ void HBasicBlockBuilder::InsertTryBoundaryBlocks() {
       HTryBoundary* try_exit =
           new (arena_) HTryBoundary(HTryBoundary::BoundaryKind::kExit, successor->GetDexPc());
       graph_->SplitEdge(try_block, successor)->AddInstruction(try_exit);
-      LinkToCatchBlocks(try_exit, code_item_, entry.second, catch_blocks);
+      LinkToCatchBlocks(try_exit, code_item_, try_item, catch_blocks);
     }
   }
 }
@@ -365,6 +379,10 @@ bool HBasicBlockBuilder::Build() {
   InsertTryBoundaryBlocks();
 
   return true;
+}
+
+size_t HBasicBlockBuilder::GetQuickenIndex(uint32_t dex_pc) const {
+  return quicken_index_for_dex_pc_.Get(dex_pc);
 }
 
 }  // namespace art

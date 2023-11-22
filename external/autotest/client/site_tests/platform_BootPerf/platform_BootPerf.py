@@ -52,9 +52,7 @@ class platform_BootPerf(test.test):
 
     version = 2
 
-    # Names of keyvals, their associated bootstat events, 'needs_x' flag and
-    # 'Required' flag.
-    # Events that needs X are not checked in the freon world.
+    # Names of keyvals, their associated bootstat events, and 'Required' flag.
     # Test fails if a required event is not found.
     # Each event samples statistics measured since kernel startup
     # at a specific moment on the boot critical path:
@@ -84,20 +82,19 @@ class platform_BootPerf(test.test):
         # 'rdbytes_', so we have 22 characters wiggle room.
         #
         # ----+----1----+----2--
-        ('kernel_to_startup',       'pre-startup',               False, True),
-        ('kernel_to_startup_done',  'post-startup',              False, True),
-        ('kernel_to_x_started',     'x-started',                 True,  True),
-        ('kernel_to_chrome_exec',   'chrome-exec',               False, True),
-        ('kernel_to_chrome_main',   'chrome-main',               False, True),
+        ('kernel_to_startup',       'pre-startup',                     True),
+        ('kernel_to_startup_done',  'post-startup',                    True),
+        ('kernel_to_chrome_exec',   'chrome-exec',                     True),
+        ('kernel_to_chrome_main',   'chrome-main',                     True),
         # These two events do not happen if device is in OOBE.
-        ('kernel_to_signin_start',  'login-start-signin-screen', False, False),
+        ('kernel_to_signin_start',  'login-start-signin-screen',       False),
         ('kernel_to_signin_wait',
-            'login-wait-for-signin-state-initialize',            False, False),
+            'login-wait-for-signin-state-initialize',                  False),
         # This event doesn't happen if device has no users.
-        ('kernel_to_signin_users',  'login-send-user-list',      False, False),
-        ('kernel_to_signin_seen',   'login-prompt-visible',      False, True),
-        ('kernel_to_login',         'boot-complete',             False, True),
-        ('kernel_to_android_start', 'android-start',             False, False)
+        ('kernel_to_signin_users',  'login-send-user-list',            False),
+        ('kernel_to_signin_seen',   'login-prompt-visible',            True),
+        ('kernel_to_login',         'boot-complete',                   True),
+        ('kernel_to_android_start', 'android-start',                   False)
     ]
 
     _CPU_FREQ_FILE = ('/sys/devices/system/cpu/cpu0'
@@ -293,9 +290,7 @@ class platform_BootPerf(test.test):
                                 be determined.
 
         """
-        for keyval_name, event_name, needs_x, required in self._EVENT_KEYVALS:
-            if needs_x and utils.is_freon():
-                continue
+        for keyval_name, event_name, required in self._EVENT_KEYVALS:
             key = 'seconds_' + keyval_name
             try:
                 results[key] = self._parse_uptime(event_name)
@@ -347,9 +342,7 @@ class platform_BootPerf(test.test):
         # "chrome-main" event because Chrome (not bootstat) generates
         # that event, and it doesn't include the disk statistics.
         # We get around that by ignoring all errors.
-        for keyval_name, event_name, needs_x, required in self._EVENT_KEYVALS:
-            if needs_x and utils.is_freon():
-                continue
+        for keyval_name, event_name, required in self._EVENT_KEYVALS:
             try:
                 key = 'rdbytes_' + keyval_name
                 results[key] = 512 * self._parse_diskstat(event_name)

@@ -22,6 +22,7 @@ tethering allowed.
 
 This device was not intended to run in a sheild box.
 """
+from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.bt_test_utils import bluetooth_enabled_check
 from acts.test_utils.bt.bt_test_utils import orchestrate_and_verify_pan_connection
@@ -37,6 +38,7 @@ class BtPanTest(BluetoothBaseTest):
         self.panu_dut = self.android_devices[1]
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='54f86e21-6d31-439c-bf57-426e9005cbc3')
     def test_pan_connection(self):
         """Test bluetooth PAN connection
 
@@ -64,6 +66,7 @@ class BtPanTest(BluetoothBaseTest):
                                                      self.panu_dut)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='fa40a0b9-f326-4382-967a-fe4c73483a68')
     def test_pan_connection_then_disconnect(self):
         """Test bluetooth PAN connection then disconnect service
 

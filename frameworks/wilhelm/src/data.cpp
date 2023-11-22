@@ -22,8 +22,6 @@
 #include "data.h"
 #endif
 
-#include <cutils/bitops.h>
-
 /** \brief Check a data locator and make local deep copy */
 
 static SLresult checkDataLocator(const char *name, void *pLocator, DataLocator *pDataLocator,

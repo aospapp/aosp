@@ -104,7 +104,7 @@ public class TestSetupInstrumentation extends Instrumentation {
                     throw new TestSetupException(
                             "Unknown " + TEST_SETUP_MODE_ARG + " of " + testSetupMode);
             }
-            TestTvInputSetupActivity.registerChannels(getContext(), mInputId, true, channelCount);
+            TestTvInputSetupActivity.registerChannels(getContext(), mInputId, channelCount);
         }
     }
 

@@ -18,14 +18,13 @@ from autotest_lib.client.cros.graphics import graphics_utils
 # start ui
 
 
-class graphics_GpuReset(test.test):
+class graphics_GpuReset(graphics_utils.GraphicsTest):
   """
   Reset the GPU and check recovery mechanism.
   """
   version = 1
   preserve_srcdir = True
   loops = 1
-  GSC = None
 
   def setup(self):
     os.chdir(self.srcdir)
@@ -35,12 +34,12 @@ class graphics_GpuReset(test.test):
   def initialize(self):
     # GpuReset should pretty much be the only test where we don't want to raise
     # a test error when we detect a GPU hang.
-    self.GSC = graphics_utils.GraphicsStateChecker(raise_error_on_hang=False)
+    super(graphics_GpuReset, self).initialize(raise_error_on_hang=False)
 
   def cleanup(self):
-    if self.GSC:
-      self.GSC.finalize()
+    super(graphics_GpuReset, self).cleanup()
 
+  @graphics_utils.GraphicsTest.failure_report_decorator('graphics_GpuReset')
   def run_once(self, options=''):
     exefile = os.path.join(self.srcdir, 'gpureset')
     if not os.path.isfile(exefile):
@@ -115,8 +114,3 @@ class graphics_GpuReset(test.test):
 
     # We need to wait a bit for X to come back after the 'start ui'.
     time.sleep(5)
-
-    keyvals = self.GSC.get_memory_keyvals()
-    for key, val in keyvals.iteritems():
-      self.output_perf_value(
-          description=key, value=val, units='bytes', higher_is_better=False)

@@ -110,7 +110,7 @@
  *#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#**/
 
 #include <sys/types.h>
-#include <sys/fcntl.h>
+#include <fcntl.h>
 #include <sys/statfs.h>
 #include <errno.h>
 #include <string.h>
@@ -139,7 +139,7 @@ int main(int ac, char **av)
 
 		tst_count = 0;
 
-		if (write(fd, &buf, strlen(buf)) == -1)
+		if (write(fd, buf, strlen(buf)) == -1)
 			tst_brkm(TBROK | TERRNO, cleanup, "write failed");
 		TEST(fsync(fd));
 

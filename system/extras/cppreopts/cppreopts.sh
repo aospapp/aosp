@@ -50,7 +50,7 @@ if [ $# -eq 1 ]; then
   # For each odex and vdex file do the copy task
   # NOTE: this implementation will break in any path with spaces to favor
   # background copy tasks
-  for file in $(find ${mountpoint} -type f -name "*.odex" -o -type f -name "*.vdex"); do
+  for file in $(find ${mountpoint} -type f -name "*.odex" -o -type f -name "*.vdex" -o -type f -name "*.art"); do
     real_name=${file/${mountpoint}/\/system}
     dest_name=$(preopt2cachename ${real_name})
     if ! test $? -eq 0 ; then

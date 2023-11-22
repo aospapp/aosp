@@ -28,4 +28,5 @@
     <string name="import_vcard" msgid="5104299047930666528">"Voer ^1 in"</string>
     <string name="mime_display_name" msgid="5926357152623764485">"Data van NFC-merker"</string>
     <string name="vcard_title" msgid="7122634780732426007">"Kontakinligting vir ^1"</string>
+    <string name="call_phone_permission_denied" msgid="8515177111984654599">"Hierdie program moet die telefoontoestemming hê om oproepe te maak. Jy kan die merkertoestemming in Instellings bestuur"</string>
 </resources>

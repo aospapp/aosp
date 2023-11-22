@@ -45,7 +45,7 @@ typedef struct {
 static long int _wprint_timeout_msec = DEFAULT_TIMEOUT;
 
 static status_t _init(const ifc_print_job_t *this_p, const char *printer_addr, int port,
-        const char *printer_uri) {
+        const char *printer_uri, bool use_secure_uri) {
     _print_job_t *print_job = IMPL(_print_job_t, ifc, this_p);
 
     if (!print_job) return ERROR;

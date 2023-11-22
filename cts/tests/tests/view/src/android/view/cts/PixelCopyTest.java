@@ -17,6 +17,7 @@
 package android.view.cts;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -24,6 +25,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import android.app.Instrumentation;
+import android.content.pm.ActivityInfo;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.graphics.Color;
@@ -36,6 +38,7 @@ import android.support.test.filters.LargeTest;
 import android.support.test.filters.MediumTest;
 import android.support.test.rule.ActivityTestRule;
 import android.support.test.runner.AndroidJUnit4;
+import android.util.Half;
 import android.util.Log;
 import android.view.PixelCopy;
 import android.view.Surface;
@@ -52,6 +55,8 @@ import org.junit.runner.Description;
 import org.junit.runner.RunWith;
 import org.junit.runners.model.Statement;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -71,6 +76,11 @@ public class PixelCopyTest {
     @Rule
     public ActivityTestRule<PixelCopyViewProducerActivity> mWindowSourceActivityRule =
             new ActivityTestRule<>(PixelCopyViewProducerActivity.class, false, false);
+
+    @Rule
+    public ActivityTestRule<PixelCopyWideGamutViewProducerActivity>
+            mWideGamutWindowSourceActivityRule = new ActivityTestRule<>(
+                    PixelCopyWideGamutViewProducerActivity.class, false, false);
 
     @Rule
     public SurfaceTextureRule mSurfaceRule = new SurfaceTextureRule();
@@ -231,6 +241,30 @@ public class PixelCopyTest {
                 Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
     }
 
+    @Test
+    public void testReuseBitmap() {
+        // Since we only sample mid-pixel of each qudrant, filtering
+        // quality isn't tested
+        PixelCopyGLProducerCtsActivity activity = waitForGlProducerActivity();
+        Bitmap bitmap = Bitmap.createBitmap(20, 20, Config.ARGB_8888);
+        int result = mCopyHelper.request(activity.getView(), bitmap);
+        // Make sure nothing messed with the bitmap
+        assertEquals(20, bitmap.getWidth());
+        assertEquals(20, bitmap.getHeight());
+        assertEquals(Config.ARGB_8888, bitmap.getConfig());
+        assertBitmapQuadColor(bitmap,
+                Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
+        int generationId = bitmap.getGenerationId();
+        result = mCopyHelper.request(activity.getView(), bitmap);
+        // Make sure nothing messed with the bitmap
+        assertEquals(20, bitmap.getWidth());
+        assertEquals(20, bitmap.getHeight());
+        assertEquals(Config.ARGB_8888, bitmap.getConfig());
+        assertBitmapQuadColor(bitmap,
+                Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
+        assertNotEquals(generationId, bitmap.getGenerationId());
+    }
+
     private Window waitForWindowProducerActivity() {
         PixelCopyViewProducerActivity activity =
                 mWindowSourceActivityRule.launchActivity(null);
@@ -317,6 +351,125 @@ public class PixelCopyTest {
             assertBitmapQuadColor(bitmap,
                     Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
         } while (activity.rotate());
+    }
+
+    @Test
+    public void testWindowProducerCopyToRGBA16F() {
+        Window window = waitForWindowProducerActivity();
+        PixelCopyViewProducerActivity activity = mWindowSourceActivityRule.getActivity();
+
+        Bitmap bitmap;
+        do {
+            Rect src = makeWindowRect(0, 0, 100, 100);
+            bitmap = Bitmap.createBitmap(src.width(), src.height(), Config.RGBA_F16);
+            int result = mCopyHelper.request(window, src, bitmap);
+            // On OpenGL ES 2.0 devices a copy to RGBA_F16 can fail because there's
+            // not support for float textures
+            if (result != PixelCopy.ERROR_DESTINATION_INVALID) {
+                assertEquals("Fullsize copy request failed", PixelCopy.SUCCESS, result);
+                assertEquals(Config.RGBA_F16, bitmap.getConfig());
+                assertBitmapQuadColor(bitmap,
+                        Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
+                assertBitmapEdgeColor(bitmap, Color.YELLOW);
+            }
+        } while (activity.rotate());
+    }
+
+    private Window waitForWideGamutWindowProducerActivity() {
+        PixelCopyWideGamutViewProducerActivity activity =
+                mWideGamutWindowSourceActivityRule.launchActivity(null);
+        activity.waitForFirstDrawCompleted(3, TimeUnit.SECONDS);
+        return activity.getWindow();
+    }
+
+    private Rect makeWideGamutWindowRect(int left, int top, int right, int bottom) {
+        Rect r = new Rect(left, top, right, bottom);
+        mWideGamutWindowSourceActivityRule.getActivity().offsetForContent(r);
+        return r;
+    }
+
+    @Test
+    public void testWideGamutWindowProducerCopyToRGBA8888() {
+        Window window = waitForWideGamutWindowProducerActivity();
+        assertEquals(
+                ActivityInfo.COLOR_MODE_WIDE_COLOR_GAMUT, window.getAttributes().getColorMode());
+
+        // Early out if the device does not support wide color gamut rendering
+        if (!window.isWideColorGamut()) {
+            return;
+        }
+
+        PixelCopyWideGamutViewProducerActivity activity =
+                mWideGamutWindowSourceActivityRule.getActivity();
+
+        Bitmap bitmap;
+        do {
+            Rect src = makeWideGamutWindowRect(0, 0, 128, 128);
+            bitmap = Bitmap.createBitmap(src.width(), src.height(), Config.ARGB_8888);
+            int result = mCopyHelper.request(window, src, bitmap);
+
+            assertEquals("Fullsize copy request failed", PixelCopy.SUCCESS, result);
+            assertEquals(Config.ARGB_8888, bitmap.getConfig());
+
+            assertEquals("Top left", Color.RED, bitmap.getPixel(32, 32));
+            assertEquals("Top right", Color.GREEN, bitmap.getPixel(96, 32));
+            assertEquals("Bottom left", Color.BLUE, bitmap.getPixel(32, 96));
+            assertEquals("Bottom right", Color.YELLOW, bitmap.getPixel(96, 96));
+        } while (activity.rotate());
+    }
+
+    @Test
+    public void testWideGamutWindowProducerCopyToRGBA16F() {
+        Window window = waitForWideGamutWindowProducerActivity();
+        assertEquals(
+                ActivityInfo.COLOR_MODE_WIDE_COLOR_GAMUT, window.getAttributes().getColorMode());
+
+        // Early out if the device does not support wide color gamut rendering
+        if (!window.isWideColorGamut()) {
+            return;
+        }
+
+        PixelCopyWideGamutViewProducerActivity activity =
+                mWideGamutWindowSourceActivityRule.getActivity();
+
+        Bitmap bitmap;
+        int i = 0;
+        do {
+            Rect src = makeWideGamutWindowRect(0, 0, 128, 128);
+            bitmap = Bitmap.createBitmap(src.width(), src.height(), Config.RGBA_F16);
+            int result = mCopyHelper.request(window, src, bitmap);
+
+            assertEquals("Fullsize copy request failed", PixelCopy.SUCCESS, result);
+            assertEquals(Config.RGBA_F16, bitmap.getConfig());
+
+            ByteBuffer dst = ByteBuffer.allocateDirect(bitmap.getAllocationByteCount());
+            bitmap.copyPixelsToBuffer(dst);
+            dst.rewind();
+            dst.order(ByteOrder.LITTLE_ENDIAN);
+
+            // ProPhoto RGB red in scRGB-nl
+            assertEqualsRgba16f("Top left",     bitmap, 32, 32, dst,  1.36f, -0.52f, -0.09f, 1.0f);
+            // ProPhoto RGB green in scRGB-nl
+            assertEqualsRgba16f("Top right",    bitmap, 96, 32, dst, -0.87f,  1.10f, -0.43f, 1.0f);
+            // ProPhoto RGB blue in scRGB-nl
+            assertEqualsRgba16f("Bottom left",  bitmap, 32, 96, dst, -0.59f, -0.04f,  1.07f, 1.0f);
+            // ProPhoto RGB yellow in scRGB-nl
+            assertEqualsRgba16f("Bottom right", bitmap, 96, 96, dst,  1.12f,  1.00f, -0.44f, 1.0f);
+        } while (activity.rotate());
+    }
+
+    private static void assertEqualsRgba16f(String message, Bitmap bitmap, int x, int y,
+            ByteBuffer dst, float r, float g, float b, float a) {
+        int index = y * bitmap.getRowBytes() + (x << 3);
+        short cR = dst.getShort(index);
+        short cG = dst.getShort(index + 2);
+        short cB = dst.getShort(index + 4);
+        short cA = dst.getShort(index + 6);
+
+        assertEquals(message, r, Half.toFloat(cR), 0.01);
+        assertEquals(message, g, Half.toFloat(cG), 0.01);
+        assertEquals(message, b, Half.toFloat(cB), 0.01);
+        assertEquals(message, a, Half.toFloat(cA), 0.01);
     }
 
     private void runGcAndFinalizersSync() {

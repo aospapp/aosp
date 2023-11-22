@@ -63,11 +63,16 @@ LOCAL_JAVA_LIBRARIES := \
 	services
 LOCAL_STATIC_JAVA_LIBRARIES := \
 	android.hardware.wifi-V1.0-java \
+	android.hardware.wifi-V1.1-java \
 	android.hardware.wifi.supplicant-V1.0-java
 LOCAL_REQUIRED_MODULES := services
 LOCAL_MODULE_TAGS :=
 LOCAL_MODULE := wifi-service
 LOCAL_INIT_RC := wifi-events.rc
+
+LOCAL_DEX_PREOPT_APP_IMAGE := false
+LOCAL_DEX_PREOPT_GENERATE_PROFILE := true
+LOCAL_DEX_PREOPT_PROFILE_CLASS_LISTING := frameworks/base/services/art-profile
 
 ifeq ($(EMMA_INSTRUMENT_FRAMEWORK),true)
 LOCAL_EMMA_INSTRUMENT := true

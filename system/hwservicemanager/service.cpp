@@ -36,11 +36,11 @@ using android::hardware::hidl_vec;
 
 // hidl types
 using android::hidl::manager::V1_0::BnHwServiceManager;
-using android::hidl::manager::V1_0::IServiceManager;
+using android::hidl::manager::V1_1::IServiceManager;
 using android::hidl::token::V1_0::ITokenManager;
 
 // implementations
-using android::hidl::manager::V1_0::implementation::ServiceManager;
+using android::hidl::manager::implementation::ServiceManager;
 using android::hidl::token::V1_0::implementation::TokenManager;
 
 static std::string serviceName = "default";

@@ -35,9 +35,7 @@ using ::android::hardware::tests::baz::V1_0::IBazCallback;
 using ::android::hardware::hidl_array;
 using ::android::hardware::hidl_vec;
 using ::android::hardware::hidl_string;
-using ::android::hardware::configureRpcThreadpool;
 using ::android::hardware::defaultPassthroughServiceImplementation;
-using ::android::hardware::joinRpcThreadpool;
 using ::android::hardware::Return;
 using ::android::hardware::Void;
 

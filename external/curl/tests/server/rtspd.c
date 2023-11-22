@@ -129,7 +129,7 @@ static void storerequest(char *reqbuf, size_t totalsize);
 
 const char *serverlogfile = DEFAULT_LOGFILE;
 
-#define RTSPDVERSION "cURL test suite RTSP server/0.1"
+#define RTSPDVERSION "curl test suite RTSP server/0.1"
 
 #define REQUEST_DUMP  "log/server.input"
 #define RESPONSE_DUMP "log/server.response"
@@ -590,7 +590,7 @@ static int ProcessRequest(struct httprequest *req)
     if(got_exit_signal)
       return 1; /* done */
 
-    if((req->cl==0) && curlx_strnequal("Content-Length:", line, 15)) {
+    if((req->cl==0) && strncasecompare("Content-Length:", line, 15)) {
       /* If we don't ignore content-length, we read it and we read the whole
          request including the body before we return. If we've been told to
          ignore the content-length, we will return as soon as all headers
@@ -616,7 +616,7 @@ static int ProcessRequest(struct httprequest *req)
         logmsg("... but will abort after %zu bytes", req->cl);
       break;
     }
-    else if(curlx_strnequal("Transfer-Encoding: chunked", line,
+    else if(strncasecompare("Transfer-Encoding: chunked", line,
                             strlen("Transfer-Encoding: chunked"))) {
       /* chunked data coming in */
       chunked = TRUE;

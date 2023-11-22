@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,7 +11,7 @@
  *******************************************************************************/
 package org.jacoco.core.internal.flow;
 
-import org.jacoco.core.JaCoCo;
+import org.jacoco.core.internal.instr.InstrSupport;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.commons.AnalyzerAdapter;
@@ -44,7 +44,7 @@ public class ClassProbesAdapter extends ClassVisitor implements
 	 */
 	public ClassProbesAdapter(final ClassProbesVisitor cv,
 			final boolean trackFrames) {
-		super(JaCoCo.ASM_API_VERSION, cv);
+		super(InstrSupport.ASM_API_VERSION, cv);
 		this.cv = cv;
 		this.trackFrames = trackFrames;
 	}
@@ -84,9 +84,9 @@ public class ClassProbesAdapter extends ClassVisitor implements
 							ClassProbesAdapter.this.name, access, name, desc,
 							probesAdapter);
 					probesAdapter.setAnalyzer(analyzer);
-					this.accept(analyzer);
+					methodProbes.accept(this, analyzer);
 				} else {
-					this.accept(probesAdapter);
+					methodProbes.accept(this, probesAdapter);
 				}
 			}
 		};

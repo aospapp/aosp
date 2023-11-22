@@ -315,22 +315,23 @@ class DeviceUtilsEnableRootTest(DeviceUtilsTest):
 
   def testEnableRoot_succeeds(self):
     with self.assertCalls(
-        (self.call.device.IsUserBuild(), False),
-         self.call.adb.Root(),
-         self.call.device.WaitUntilFullyBooted()):
+        self.call.adb.Root(),
+        self.call.adb.WaitForDevice(),
+        (self.call.device.GetProp('service.adb.root', cache=False), '1')):
       self.device.EnableRoot()
 
   def testEnableRoot_userBuild(self):
     with self.assertCalls(
+        (self.call.adb.Root(), self.AdbCommandError()),
         (self.call.device.IsUserBuild(), True)):
       with self.assertRaises(device_errors.CommandFailedError):
         self.device.EnableRoot()
 
   def testEnableRoot_rootFails(self):
     with self.assertCalls(
-        (self.call.device.IsUserBuild(), False),
-        (self.call.adb.Root(), self.CommandError())):
-      with self.assertRaises(device_errors.CommandFailedError):
+        (self.call.adb.Root(), self.AdbCommandError()),
+        (self.call.device.IsUserBuild(), False)):
+      with self.assertRaises(device_errors.AdbCommandFailedError):
         self.device.EnableRoot()
 
 
@@ -1539,10 +1540,17 @@ class DeviceUtilsGoHomeTest(DeviceUtilsTest):
 class DeviceUtilsForceStopTest(DeviceUtilsTest):
 
   def testForceStop(self):
+    with self.assertCalls(
+        (self.call.device.GetPids('test.package'), {'test.package': [1111]}),
+        (self.call.device.RunShellCommand(
+            ['am', 'force-stop', 'test.package'],
+            check_return=True),
+         ['Success'])):
+      self.device.ForceStop('test.package')
+
+  def testForceStop_NoProcessFound(self):
     with self.assertCall(
-        self.call.adb.Shell('p=test.package;if [[ "$(ps)" = *$p* ]]; then '
-                            'am force-stop $p; fi'),
-        ''):
+        self.call.device.GetPids('test.package'), {}):
       self.device.ForceStop('test.package')
 
 

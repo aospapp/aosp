@@ -32,7 +32,6 @@ import android.provider.ContactsContract;
 import android.provider.ContactsContract.CommonDataKinds.Email;
 import android.provider.ContactsContract.CommonDataKinds.Phone;
 import android.provider.ContactsContract.CommonDataKinds.StructuredName;
-import android.service.notification.NotificationListenerService;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
@@ -47,7 +46,7 @@ import java.util.Set;
 
 public class AttentionManagementVerifierActivity
         extends InteractiveVerifierActivity {
-    private static final String TAG = "NoListenerAttentionVerifier";
+    private static final String TAG = "AttentionVerifier";
 
     private static final String NOTIFICATION_CHANNEL_ID = TAG;
     private static final String NOTIFICATION_CHANNEL_ID_NOISY = TAG + "/noisy";
@@ -92,12 +91,8 @@ public class AttentionManagementVerifierActivity
         tests.add(new IsEnabledTest());
         tests.add(new ServiceStartedTest());
         tests.add(new InsertContactsTest());
-        tests.add(new SetModeNoneTest());
         tests.add(new NoneInterceptsAllTest());
-        tests.add(new SetModeAllTest());
-        tests.add(new SetModePriorityTest());
         tests.add(new PriorityInterceptsSomeTest());
-        tests.add(new SetModeAllTest());
         tests.add(new AllInterceptsNothingTest());
         tests.add(new DefaultOrderTest());
         tests.add(new PriorityOrderTest());
@@ -139,8 +134,6 @@ public class AttentionManagementVerifierActivity
             insertSingleContact(BOB, BOB_PHONE, BOB_EMAIL, false);
             // charlie is not in contacts
             status = READY;
-            // wait for insertions to move through the system
-            delay();
         }
 
         @Override
@@ -157,7 +150,6 @@ public class AttentionManagementVerifierActivity
             if (status == PASS && !isStarred(mAliceUri)) {
                 status = RETEST;
                 Log.i("InsertContactsTest", "Alice is not yet starred");
-                delay();
             } else {
                 Log.i("InsertContactsTest", "Alice is: " + mAliceUri);
                 Log.i("InsertContactsTest", "Bob is: " + mBobUri);
@@ -193,37 +185,6 @@ public class AttentionManagementVerifierActivity
         }
     }
 
-    protected class SetModeNoneTest extends InteractiveTestCase {
-        @Override
-        View inflate(ViewGroup parent) {
-            return createRetryItem(parent, R.string.attention_filter_none);
-        }
-
-        @Override
-        void test() {
-            MockListener.probeFilter(mContext,
-                    new MockListener.IntegerResultCatcher() {
-                        @Override
-                        public void accept(int mode) {
-                            if (mode == NotificationListenerService.INTERRUPTION_FILTER_NONE) {
-                                status = PASS;
-                                next();
-                            } else {
-                                Log.i("SetModeNoneTest", "waiting, current mode is: " + mode);
-                                status = WAIT_FOR_USER;
-                            }
-                        }
-                    });
-        }
-
-        @Override
-        void tearDown() {
-            mNm.cancelAll();
-            MockListener.resetListenerData(mContext);
-            delay();
-        }
-    }
-
     protected class NoneInterceptsAllTest extends InteractiveTestCase {
         @Override
         View inflate(ViewGroup parent) {
@@ -232,90 +193,57 @@ public class AttentionManagementVerifierActivity
 
         @Override
         void setUp() {
+            mNm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_NONE);
             createChannels();
             sendNotifications(MODE_URI, false, false);
             status = READY;
-            // wait for notifications to move through the system
-            delay();
         }
 
         @Override
         void test() {
-            MockListener.probeListenerPayloads(mContext,
-                    new MockListener.StringListResultCatcher() {
-                        @Override
-                        public void accept(List<String> result) {
-                            Set<String> found = new HashSet<String>();
-                            if (result == null || result.size() == 0) {
-                                status = FAIL;
-                                next();
-                                return;
-                            }
-                            boolean pass = true;
-                            for (String payloadData : result) {
-                                try {
-                                    JSONObject payload = new JSONObject(payloadData);
-                                    String tag = payload.getString(JSON_TAG);
-                                    boolean zen = payload.getBoolean(JSON_MATCHES_ZEN_FILTER);
-                                    Log.e(TAG, tag + (zen ? "" : " not") + " intercepted");
-                                    if (found.contains(tag)) {
-                                        // multiple entries for same notification!
-                                        pass = false;
-                                    } else if (ALICE.equals(tag)) {
-                                        found.add(ALICE);
-                                        pass &= !zen;
-                                    } else if (BOB.equals(tag)) {
-                                        found.add(BOB);
-                                        pass &= !zen;
-                                    } else if (CHARLIE.equals(tag)) {
-                                        found.add(CHARLIE);
-                                        pass &= !zen;
-                                    }
-                                } catch (JSONException e) {
-                                    pass = false;
-                                    Log.e(TAG, "failed to unpack data from mocklistener", e);
-                                }
-                            }
-                            pass &= found.size() == 3;
-                            status = pass ? PASS : FAIL;
-                            next();
-                        }
-                    });
-            delay();  // in case the catcher never returns
+            List<JSONObject> result = new ArrayList<>(MockListener.getInstance().getPosted());
+
+            Set<String> found = new HashSet<String>();
+            if (result.size() == 0) {
+                status = FAIL;
+                return;
+            }
+            boolean pass = true;
+            for (JSONObject payload : result) {
+                try {
+                    String tag = payload.getString(JSON_TAG);
+                    boolean zen = payload.getBoolean(JSON_MATCHES_ZEN_FILTER);
+                    Log.e(TAG, tag + (zen ? "" : " not") + " intercepted");
+                    if (found.contains(tag)) {
+                        // multiple entries for same notification!
+                        pass = false;
+                    } else if (ALICE.equals(tag)) {
+                        found.add(ALICE);
+                        pass &= !zen;
+                    } else if (BOB.equals(tag)) {
+                        found.add(BOB);
+                        pass &= !zen;
+                    } else if (CHARLIE.equals(tag)) {
+                        found.add(CHARLIE);
+                        pass &= !zen;
+                    }
+                } catch (JSONException e) {
+                    pass = false;
+                    Log.e(TAG, "failed to unpack data from mocklistener", e);
+                }
+            }
+            pass &= found.size() == 3;
+            status = pass ? PASS : FAIL;
         }
 
         @Override
         void tearDown() {
+            mNm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
             mNm.cancelAll();
             deleteChannels();
-            MockListener.resetListenerData(mContext);
-            delay();
+            MockListener.getInstance().resetData();
         }
 
-    }
-
-    protected class SetModeAllTest extends InteractiveTestCase {
-        @Override
-        View inflate(ViewGroup parent) {
-            return createRetryItem(parent, R.string.attention_filter_all);
-        }
-
-        @Override
-        void test() {
-            MockListener.probeFilter(mContext,
-                    new MockListener.IntegerResultCatcher() {
-                        @Override
-                        public void accept(int mode) {
-                            if (mode == NotificationListenerService.INTERRUPTION_FILTER_ALL) {
-                                status = PASS;
-                                next();
-                            } else {
-                                Log.i("SetModeAllTest", "waiting, current mode is: " + mode);
-                                status = WAIT_FOR_USER;
-                            }
-                        }
-                    });
-        }
     }
 
     protected class AllInterceptsNothingTest extends InteractiveTestCase {
@@ -329,84 +257,50 @@ public class AttentionManagementVerifierActivity
             createChannels();
             sendNotifications(MODE_URI, false, false);
             status = READY;
-            // wait for notifications to move through the system
-            delay();
         }
 
         @Override
         void test() {
-            MockListener.probeListenerPayloads(mContext,
-                    new MockListener.StringListResultCatcher() {
-                        @Override
-                        public void accept(List<String> result) {
-                            Set<String> found = new HashSet<String>();
-                            if (result == null || result.size() == 0) {
-                                status = FAIL;
-                                return;
-                            }
-                            boolean pass = true;
-                            for (String payloadData : result) {
-                                try {
-                                    JSONObject payload = new JSONObject(payloadData);
-                                    String tag = payload.getString(JSON_TAG);
-                                    boolean zen = payload.getBoolean(JSON_MATCHES_ZEN_FILTER);
-                                    Log.e(TAG, tag + (zen ? "" : " not") + " intercepted");
-                                    if (found.contains(tag)) {
-                                        // multiple entries for same notification!
-                                        pass = false;
-                                    } else if (ALICE.equals(tag)) {
-                                        found.add(ALICE);
-                                        pass &= zen;
-                                    } else if (BOB.equals(tag)) {
-                                        found.add(BOB);
-                                        pass &= zen;
-                                    } else if (CHARLIE.equals(tag)) {
-                                        found.add(CHARLIE);
-                                        pass &= zen;
-                                    }
-                                } catch (JSONException e) {
-                                    pass = false;
-                                    Log.e(TAG, "failed to unpack data from mocklistener", e);
-                                }
-                            }
-                            pass &= found.size() == 3;
-                            status = pass ? PASS : FAIL;
-                            next();
-                        }
-                    });
-            delay();  // in case the catcher never returns
+            List<JSONObject> result = new ArrayList<>(MockListener.getInstance().getPosted());
+
+            Set<String> found = new HashSet<String>();
+            if (result.size() == 0) {
+                status = FAIL;
+                return;
+            }
+            boolean pass = true;
+            for (JSONObject payload : result) {
+                try {
+                    String tag = payload.getString(JSON_TAG);
+                    boolean zen = payload.getBoolean(JSON_MATCHES_ZEN_FILTER);
+                    Log.e(TAG, tag + (zen ? "" : " not") + " intercepted");
+                    if (found.contains(tag)) {
+                        // multiple entries for same notification!
+                        pass = false;
+                    } else if (ALICE.equals(tag)) {
+                        found.add(ALICE);
+                        pass &= zen;
+                    } else if (BOB.equals(tag)) {
+                        found.add(BOB);
+                        pass &= zen;
+                    } else if (CHARLIE.equals(tag)) {
+                        found.add(CHARLIE);
+                        pass &= zen;
+                    }
+                } catch (JSONException e) {
+                    pass = false;
+                    Log.e(TAG, "failed to unpack data from mocklistener", e);
+                }
+            }
+            pass &= found.size() == 3;
+            status = pass ? PASS : FAIL;
         }
 
         @Override
         void tearDown() {
             mNm.cancelAll();
             deleteChannels();
-            MockListener.resetListenerData(mContext);
-            delay();
-        }
-    }
-
-    protected class SetModePriorityTest extends InteractiveTestCase {
-        @Override
-        View inflate(ViewGroup parent) {
-            return createRetryItem(parent, R.string.attention_filter_priority);
-        }
-
-        @Override
-        void test() {
-            MockListener.probeFilter(mContext,
-                    new MockListener.IntegerResultCatcher() {
-                        @Override
-                        public void accept(int mode) {
-                            if (mode == NotificationListenerService.INTERRUPTION_FILTER_PRIORITY) {
-                                status = PASS;
-                                next();
-                            } else {
-                                Log.i("SetModePriorityTest", "waiting, current mode is: " + mode);
-                                status = WAIT_FOR_USER;
-                            }
-                        }
-                    });
+            MockListener.getInstance().resetData();
         }
     }
 
@@ -418,63 +312,61 @@ public class AttentionManagementVerifierActivity
 
         @Override
         void setUp() {
+            mNm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY);
+            NotificationManager.Policy policy = mNm.getNotificationPolicy();
+            policy = new NotificationManager.Policy(policy.priorityCategories
+                    | NotificationManager.Policy.PRIORITY_CATEGORY_MESSAGES,
+                    policy.priorityCallSenders,
+                    NotificationManager.Policy.PRIORITY_SENDERS_STARRED);
+            mNm.setNotificationPolicy(policy);
             createChannels();
             sendNotifications(MODE_URI, false, false);
             status = READY;
-            // wait for notifications to move through the system
-            delay();
         }
 
         @Override
         void test() {
-            MockListener.probeListenerPayloads(mContext,
-                    new MockListener.StringListResultCatcher() {
-                        @Override
-                        public void accept(List<String> result) {
-                            Set<String> found = new HashSet<String>();
-                            if (result == null || result.size() == 0) {
-                                status = FAIL;
-                                return;
-                            }
-                            boolean pass = true;
-                            for (String payloadData : result) {
-                                try {
-                                    JSONObject payload = new JSONObject(payloadData);
-                                    String tag = payload.getString(JSON_TAG);
-                                    boolean zen = payload.getBoolean(JSON_MATCHES_ZEN_FILTER);
-                                    Log.e(TAG, tag + (zen ? "" : " not") + " intercepted");
-                                    if (found.contains(tag)) {
-                                        // multiple entries for same notification!
-                                        pass = false;
-                                    } else if (ALICE.equals(tag)) {
-                                        found.add(ALICE);
-                                        pass &= zen;
-                                    } else if (BOB.equals(tag)) {
-                                        found.add(BOB);
-                                        pass &= !zen;
-                                    } else if (CHARLIE.equals(tag)) {
-                                        found.add(CHARLIE);
-                                        pass &= !zen;
-                                    }
-                                } catch (JSONException e) {
-                                    pass = false;
-                                    Log.e(TAG, "failed to unpack data from mocklistener", e);
-                                }
-                            }
-                            pass &= found.size() == 3;
-                            status = pass ? PASS : FAIL;
-                            next();
-                        }
-                    });
-            delay();  // in case the catcher never returns
+            List<JSONObject> result = new ArrayList<>(MockListener.getInstance().getPosted());
+
+            Set<String> found = new HashSet<String>();
+            if (result.size() == 0) {
+                status = FAIL;
+                return;
+            }
+            boolean pass = true;
+            for (JSONObject payload : result) {
+                try {
+                    String tag = payload.getString(JSON_TAG);
+                    boolean zen = payload.getBoolean(JSON_MATCHES_ZEN_FILTER);
+                    Log.e(TAG, tag + (zen ? "" : " not") + " intercepted");
+                    if (found.contains(tag)) {
+                        // multiple entries for same notification!
+                        pass = false;
+                    } else if (ALICE.equals(tag)) {
+                        found.add(ALICE);
+                        pass &= zen;
+                    } else if (BOB.equals(tag)) {
+                        found.add(BOB);
+                        pass &= !zen;
+                    } else if (CHARLIE.equals(tag)) {
+                        found.add(CHARLIE);
+                        pass &= !zen;
+                    }
+                } catch (JSONException e) {
+                    pass = false;
+                    Log.e(TAG, "failed to unpack data from mocklistener", e);
+                }
+            }
+            pass &= found.size() == 3;
+            status = pass ? PASS : FAIL;
         }
 
         @Override
         void tearDown() {
+            mNm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
             mNm.cancelAll();
             deleteChannels();
-            MockListener.resetListenerData(mContext);
-            delay();
+            MockListener.getInstance().resetData();
         }
     }
 
@@ -490,37 +382,27 @@ public class AttentionManagementVerifierActivity
             createChannels();
             sendNotifications(MODE_NONE, false, false);
             status = READY;
-            // wait for notifications to move through the system
-            delay();
         }
 
         @Override
         void test() {
-            MockListener.probeListenerOrder(mContext,
-                    new MockListener.StringListResultCatcher() {
-                        @Override
-                        public void accept(List<String> orderedKeys) {
-                            int rankA = findTagInKeys(ALICE, orderedKeys);
-                            int rankB = findTagInKeys(BOB, orderedKeys);
-                            int rankC = findTagInKeys(CHARLIE, orderedKeys);
-                            if (rankC < rankB && rankB < rankA) {
-                                status = PASS;
-                            } else {
-                                logFail(rankA + ", " + rankB + ", " + rankC);
-                                status = FAIL;
-                            }
-                            next();
-                        }
-                    });
-            delay();  // in case the catcher never returns
+            List<String> orderedKeys = new ArrayList<>(MockListener.getInstance().mOrder);
+            int rankA = findTagInKeys(ALICE, orderedKeys);
+            int rankB = findTagInKeys(BOB, orderedKeys);
+            int rankC = findTagInKeys(CHARLIE, orderedKeys);
+            if (rankC < rankB && rankB < rankA) {
+                status = PASS;
+            } else {
+                logFail(rankA + ", " + rankB + ", " + rankC);
+                status = FAIL;
+            }
         }
 
         @Override
         void tearDown() {
             mNm.cancelAll();
             deleteChannels();
-            MockListener.resetListenerData(mContext);
-            delay();
+            MockListener.getInstance().resetData();
         }
     }
 
@@ -536,37 +418,27 @@ public class AttentionManagementVerifierActivity
             createChannels();
             sendNotifications(MODE_NONE, true, false);
             status = READY;
-            // wait for notifications to move through the system
-            delay();
         }
 
         @Override
         void test() {
-            MockListener.probeListenerOrder(mContext,
-                    new MockListener.StringListResultCatcher() {
-                        @Override
-                        public void accept(List<String> orderedKeys) {
-                            int rankA = findTagInKeys(ALICE, orderedKeys);
-                            int rankB = findTagInKeys(BOB, orderedKeys);
-                            int rankC = findTagInKeys(CHARLIE, orderedKeys);
-                            if (rankB < rankC && rankC < rankA) {
-                                status = PASS;
-                            } else {
-                                logFail(rankA + ", " + rankB + ", " + rankC);
-                                status = FAIL;
-                            }
-                            next();
-                        }
-                    });
-            delay();  // in case the catcher never returns
+            List<String> orderedKeys = new ArrayList<>(MockListener.getInstance().mOrder);
+            int rankA = findTagInKeys(ALICE, orderedKeys);
+            int rankB = findTagInKeys(BOB, orderedKeys);
+            int rankC = findTagInKeys(CHARLIE, orderedKeys);
+            if (rankB < rankC && rankC < rankA) {
+                status = PASS;
+            } else {
+                logFail(rankA + ", " + rankB + ", " + rankC);
+                status = FAIL;
+            }
         }
 
         @Override
         void tearDown() {
             mNm.cancelAll();
             deleteChannels();
-            MockListener.resetListenerData(mContext);
-            delay();
+            MockListener.getInstance().resetData();
         }
     }
 
@@ -581,59 +453,50 @@ public class AttentionManagementVerifierActivity
 
         @Override
         void setUp() {
+            delayTime = 15000;
             createChannels();
             // send B & C noisy with contact affinity
-            sendNotifications(SEND_B | SEND_C, MODE_URI, false, true);
-            status = READY;
-            // wait for then to not be recently noisy any more
-            delay(15000);
+            sendNotifications(SEND_B, MODE_URI, false, true);
+            sleep(1000);
+            sendNotifications(SEND_C, MODE_URI, false, true);
+            status = READY_AFTER_LONG_DELAY;
         }
 
         @Override
         void test() {
-            if (status == READY) {
+            if (status == READY_AFTER_LONG_DELAY) {
                 // send A noisy but no contact affinity
                 sendNotifications(SEND_A, MODE_NONE, false, true);
                 status = RETEST;
-                delay();
-            } else if (status == RETEST) {
-                MockListener.probeListenerOrder(mContext,
-                        new MockListener.StringListResultCatcher() {
-                            @Override
-                            public void accept(List<String> orderedKeys) {
-                                int rankA = findTagInKeys(ALICE, orderedKeys);
-                                int rankB = findTagInKeys(BOB, orderedKeys);
-                                int rankC = findTagInKeys(CHARLIE, orderedKeys);
-                                if (!mSawElevation) {
-                                    if (rankA < rankB && rankA < rankC) {
-                                        mSawElevation = true;
-                                        status = RETEST;
-                                        delay(15000);
-                                    } else {
-                                        logFail("noisy notification did not sort to top.");
-                                        status = FAIL;
-                                        next();
-                                    }
-                                } else {
-                                    if (rankA > rankB && rankA > rankC) {
-                                        status = PASS;
-                                    } else {
-                                        logFail("noisy notification did not fade back into the list.");
-                                        status = FAIL;
-                                    }
-                                }
-                            }
-                        });
-                delay();  // in case the catcher never returns
-           }
+            } else if (status == RETEST || status == RETEST_AFTER_LONG_DELAY) {
+                List<String> orderedKeys = new ArrayList<>(MockListener.getInstance().mOrder);
+                int rankA = findTagInKeys(ALICE, orderedKeys);
+                int rankB = findTagInKeys(BOB, orderedKeys);
+                int rankC = findTagInKeys(CHARLIE, orderedKeys);
+                if (!mSawElevation) {
+                    if (rankA < rankB && rankA < rankC) {
+                        mSawElevation = true;
+                        status = RETEST_AFTER_LONG_DELAY;
+                    } else {
+                        logFail("noisy notification did not sort to top.");
+                        status = FAIL;
+                    }
+                } else {
+                    if (rankA > rankB && rankA > rankC) {
+                        status = PASS;
+                    } else {
+                        logFail("noisy notification did not fade back into the list.");
+                        status = FAIL;
+                    }
+                }
+            }
         }
 
         @Override
         void tearDown() {
             mNm.cancelAll();
             deleteChannels();
-            MockListener.resetListenerData(mContext);
-            delay();
+            MockListener.getInstance().resetData();
         }
     }
 
@@ -650,60 +513,50 @@ public class AttentionManagementVerifierActivity
             sendNotifications(SEND_B | SEND_C, MODE_NONE, true, true);
             sendNotifications(SEND_A, MODE_NONE, true, false);
             status = READY;
-            // wait for notifications to move through the system
-            delay();
         }
 
         @Override
         void test() {
-            MockListener.probeListenerPayloads(mContext,
-                    new MockListener.StringListResultCatcher() {
-                        @Override
-                        public void accept(List<String> result) {
-                            Set<String> found = new HashSet<String>();
-                            if (result == null || result.size() == 0) {
-                                status = FAIL;
-                                return;
-                            }
-                            boolean pass = true;
-                            for (String payloadData : result) {
-                                try {
-                                    JSONObject payload = new JSONObject(payloadData);
-                                    String tag = payload.getString(JSON_TAG);
-                                    boolean ambient = payload.getBoolean(JSON_AMBIENT);
-                                    Log.e(TAG, tag + (ambient ? " is" : " isn't") + " ambient");
-                                    if (found.contains(tag)) {
-                                        // multiple entries for same notification!
-                                        pass = false;
-                                    } else if (ALICE.equals(tag)) {
-                                        found.add(ALICE);
-                                        pass &= ambient;
-                                    } else if (BOB.equals(tag)) {
-                                        found.add(BOB);
-                                        pass &= !ambient;
-                                    } else if (CHARLIE.equals(tag)) {
-                                        found.add(CHARLIE);
-                                        pass &= !ambient;
-                                    }
-                                } catch (JSONException e) {
-                                    pass = false;
-                                    Log.e(TAG, "failed to unpack data from mocklistener", e);
-                                }
-                            }
-                            pass &= found.size() == 3;
-                            status = pass ? PASS : FAIL;
-                            next();
-                        }
-                    });
-            delay();  // in case the catcher never returns
+            List<JSONObject> result = new ArrayList<>(MockListener.getInstance().getPosted());
+
+            Set<String> found = new HashSet<String>();
+            if (result.size() == 0) {
+                status = FAIL;
+                return;
+            }
+            boolean pass = true;
+            for (JSONObject payload : result) {
+                try {
+                    String tag = payload.getString(JSON_TAG);
+                    boolean ambient = payload.getBoolean(JSON_AMBIENT);
+                    Log.e(TAG, tag + (ambient ? " is" : " isn't") + " ambient");
+                    if (found.contains(tag)) {
+                        // multiple entries for same notification!
+                        pass = false;
+                    } else if (ALICE.equals(tag)) {
+                        found.add(ALICE);
+                        pass &= ambient;
+                    } else if (BOB.equals(tag)) {
+                        found.add(BOB);
+                        pass &= !ambient;
+                    } else if (CHARLIE.equals(tag)) {
+                        found.add(CHARLIE);
+                        pass &= !ambient;
+                    }
+                } catch (JSONException e) {
+                    pass = false;
+                    Log.e(TAG, "failed to unpack data from mocklistener", e);
+                }
+            }
+            pass &= found.size() == 3;
+            status = pass ? PASS : FAIL;
         }
 
         @Override
         void tearDown() {
             mNm.cancelAll();
             deleteChannels();
-            MockListener.resetListenerData(mContext);
-            delay();
+            MockListener.getInstance().resetData();
         }
     }
 
@@ -719,37 +572,27 @@ public class AttentionManagementVerifierActivity
             createChannels();
             sendNotifications(MODE_URI, false, false);
             status = READY;
-            // wait for notifications to move through the system
-            delay();
         }
 
         @Override
         void test() {
-            MockListener.probeListenerOrder(mContext,
-                    new MockListener.StringListResultCatcher() {
-                        @Override
-                        public void accept(List<String> orderedKeys) {
-                            int rankA = findTagInKeys(ALICE, orderedKeys);
-                            int rankB = findTagInKeys(BOB, orderedKeys);
-                            int rankC = findTagInKeys(CHARLIE, orderedKeys);
-                            if (rankA < rankB && rankB < rankC) {
-                                status = PASS;
-                            } else {
-                                logFail(rankA + ", " + rankB + ", " + rankC);
-                                status = FAIL;
-                            }
-                            next();
-                        }
-                    });
-            delay();  // in case the catcher never returns
+            List<String> orderedKeys = new ArrayList<>(MockListener.getInstance().mOrder);
+            int rankA = findTagInKeys(ALICE, orderedKeys);
+            int rankB = findTagInKeys(BOB, orderedKeys);
+            int rankC = findTagInKeys(CHARLIE, orderedKeys);
+            if (rankA < rankB && rankB < rankC) {
+                status = PASS;
+            } else {
+                logFail(rankA + ", " + rankB + ", " + rankC);
+                status = FAIL;
+            }
         }
 
         @Override
         void tearDown() {
             mNm.cancelAll();
             deleteChannels();
-            MockListener.resetListenerData(mContext);
-            delay();
+            MockListener.getInstance().resetData();
         }
     }
 
@@ -765,37 +608,27 @@ public class AttentionManagementVerifierActivity
             createChannels();
             sendNotifications(MODE_EMAIL, false, false);
             status = READY;
-            // wait for notifications to move through the system
-            delay();
         }
 
         @Override
         void test() {
-            MockListener.probeListenerOrder(mContext,
-                    new MockListener.StringListResultCatcher() {
-                        @Override
-                        public void accept(List<String> orderedKeys) {
-                            int rankA = findTagInKeys(ALICE, orderedKeys);
-                            int rankB = findTagInKeys(BOB, orderedKeys);
-                            int rankC = findTagInKeys(CHARLIE, orderedKeys);
-                            if (rankA < rankB && rankB < rankC) {
-                                status = PASS;
-                            } else {
-                                logFail(rankA + ", " + rankB + ", " + rankC);
-                                status = FAIL;
-                            }
-                            next();
-                        }
-                    });
-            delay();  // in case the catcher never returns
+            List<String> orderedKeys = new ArrayList<>(MockListener.getInstance().mOrder);
+            int rankA = findTagInKeys(ALICE, orderedKeys);
+            int rankB = findTagInKeys(BOB, orderedKeys);
+            int rankC = findTagInKeys(CHARLIE, orderedKeys);
+            if (rankA < rankB && rankB < rankC) {
+                status = PASS;
+            } else {
+                logFail(rankA + ", " + rankB + ", " + rankC);
+                status = FAIL;
+            }
         }
 
         @Override
         void tearDown() {
             mNm.cancelAll();
             deleteChannels();
-            MockListener.resetListenerData(mContext);
-            delay();
+            MockListener.getInstance().resetData();
         }
     }
 
@@ -811,37 +644,27 @@ public class AttentionManagementVerifierActivity
             createChannels();
             sendNotifications(MODE_PHONE, false, false);
             status = READY;
-            // wait for notifications to move through the system
-            delay();
         }
 
         @Override
         void test() {
-            MockListener.probeListenerOrder(mContext,
-                    new MockListener.StringListResultCatcher() {
-                        @Override
-                        public void accept(List<String> orderedKeys) {
-                            int rankA = findTagInKeys(ALICE, orderedKeys);
-                            int rankB = findTagInKeys(BOB, orderedKeys);
-                            int rankC = findTagInKeys(CHARLIE, orderedKeys);
-                            if (rankA < rankB && rankB < rankC) {
-                                status = PASS;
-                            } else {
-                                logFail(rankA + ", " + rankB + ", " + rankC);
-                                status = FAIL;
-                            }
-                            next();
-                        }
-                    });
-            delay();  // in case the catcher never returns
+            List<String> orderedKeys = new ArrayList<>(MockListener.getInstance().mOrder);
+            int rankA = findTagInKeys(ALICE, orderedKeys);
+            int rankB = findTagInKeys(BOB, orderedKeys);
+            int rankC = findTagInKeys(CHARLIE, orderedKeys);
+            if (rankA < rankB && rankB < rankC) {
+                status = PASS;
+            } else {
+                logFail(rankA + ", " + rankB + ", " + rankC);
+                status = FAIL;
+            }
         }
 
         @Override
         void tearDown() {
             mNm.cancelAll();
             deleteChannels();
-            MockListener.resetListenerData(mContext);
-            delay();
+            MockListener.getInstance().resetData();
         }
     }
 

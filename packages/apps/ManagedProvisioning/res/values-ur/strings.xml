@@ -27,9 +27,9 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"مندرجہ ذیل ایپ کو اس پروفائل تک رسائی حاصل کرنے کی ضرورت ہوگی:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"مندرجہ ذیل ایپ آپ کے آلہ کا نظم کرے گی:"</string>
     <string name="next" msgid="1004321437324424398">"اگلا"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"آپ کا دفتری پروفائل سیٹ اپ کیا جا رہا ہے…"</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"دفتری پروفائل ترتیب دیا جا رہا ہے…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"آپ کا منتظم آپ کے نیٹ ورک کی سرگرمی اور اس کے ساتھ ساتھ آپ کے آلے کے مقام، کال کی سرگزشت اور رابطے کی تلاش کی سرگزشت سمیت ترتیبات، کارپوریٹ رسائی، ایپس، اجازتوں اور اس پروفائل کے ساتھ وابستہ ڈیٹا کو مانیٹر کرنے اور ان کا نظم کرنے کا اہل ہے۔<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>اپنی تنظیم کی رازداری پالیسی سمیت مزید معلومات کیلئے اپنے منتظم سے رابطہ کریں۔"</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"آپ کا منتظم آپ کے نیٹ ورک کی سرگرمی اور اس کے ساتھ ساتھ آپ کے آلے کے مقام، کال کی سرگزشت اور رابطے کی تلاش کی سرگزشت سمیت ترتیبات، کارپوریٹ رسائی، ایپس، اجازتوں اور اس آلے کے ساتھ وابستہ ڈیٹا کو مانیٹر کرنے اور ان کا نظم کرنے کا اہل ہے۔<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>اپنی تنظیم کی رازداری پالیسی سمیت مزید معلومات کیلئے اپنے منتظم سے رابطہ کریں۔"</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"آپ کا منتظم آپ کے نیٹ ورک کی سرگرمی اور اس کے ساتھ ساتھ آپ کے آلے کے مقام، کال کی سرگزشت اور رابطے کی تلاش کی سرگزشت سمیت ترتیبات، کارپوریٹ رسائی، ایپس، اجازتوں اور اس آلے کے ساتھ وابستہ ڈیٹا کو مانیٹر کرنے اور ان کا نظم کرنے کا اہل ہے۔<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>اپنی تنظیم کی رازداری پالیسی سمیت مزید معلومات کیلئے اپنے منتظم سے رابطہ کریں۔"</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"چوری سے تحٖفظ کی خصوصیات استعمال کرنے کیلئے آپ کے پاس آپ کے آلہ کیلئے پاسورڈ کے ذریعے تحفظ یافتہ ایک اسکرین قفل ہونا چاہیئیے۔"</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"اپنی تنظیم کی رازداری کی پالیسیوں سمیت مزید معلومات کیلئے اپنے منتظم سے رابطہ کریں۔"</string>
     <string name="learn_more_link" msgid="3012495805919550043">"مزید جانیں"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"دفتر کا پروفائل"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"بنیادی صارف"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"موجودہ پروفائل حذف کریں؟"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"آپ کے پاس پہلے ہی سے ایک ایسا دفتری پروفائل ہے جو مندرجہ ذیل ایپ کے زیر انتظام ہے:"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"آپ کے پاس پہلے سے ہی ایک دفتری پروفائل ہے۔ مندرجہ ذیل ایپ استعمال کر کے اس کا نظم کیا جاتا ہے:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"آگے بڑھنے سے پہلے، "<a href="#read_this_link">"یہ پڑھیں"</a>"۔"</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"اگر آپ جاری رکھتے ہیں تو اس پروفائل میں موجود سبھی ایپس اور ڈیٹا کو حذف کر دیا جائے گا۔"</string>
     <string name="delete_profile" msgid="2299218578684663459">"حذف کریں"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"اپنا دفتری پروفائل سیٹ اپ کرنا جاری رکھنے کیلئے تھپتھپائیں"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"‏آپ کے دفتر کے پروفائل کو ترتیب نہیں دیا جا سکا۔ اپنے IT ڈیپارٹمنٹ سے رابطہ کریں یا بعد میں دوبارہ کوشش کریں۔"</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"دفتری پروفائل شامل نہیں کر سکتا"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"اس صارف کا دفتری پروفائل نہیں ہو سکتا۔ مدد کیلئے، اپنے منتظم سے رابطہ کریں۔"</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"اس صارف کے دفتری پروفائلز نہیں ہو سکتے۔ اپنے منتظم سے رابطہ کریں۔"</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"دفتری پروفائلز کو نظم کردہ آلہ پر ترتیب نہیں دیا جا سکتا ہے"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"ممکن ہے اس آلے پر بہت سارے صارفین ہوں۔ ایک صارف کو ہٹا کر دوبارہ کوشش کریں۔"</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"دفتری پروفائل کو بدلا یا ہٹایا نہیں جا سکتا"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"دفتری پروفائل اس آلہ میں شامل نہیں کیا جا سکتا۔ اگر آپ کے پاس سوالات ہیں، تو اپنے منتظم سے رابطہ کریں۔"</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"آلہ لانچر تبدیل کریں"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"یہ لانچر ایپ آپ کے دفتری پروفائل کے ذریعے استعمال نہیں کی جا سکتی"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"منسوخ کریں"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"ٹھیک ہے"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"صارف سیٹ اپ نا مکمل ہے"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"کام کے آلہ کا صارف"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"دفتری آلہ سیٹ اپ کریں"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"دفتری آلہ ترتیب دیا جا رہا ہے…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"سیٹ اپ ڈیٹا پر کارروائی کی جا رہی ہے…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"‏Wi-Fi سے منسلک ہو رہا ہے…"</string>
     <string name="progress_download" msgid="3522436271691064624">"منتظم کی ایپ ڈاؤن لوڈ ہو رہی ہے…"</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"منسوخ کریں"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"آلہ کو ری سیٹ کریں"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> اور <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> اور <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g>، اور <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>، <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>، <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

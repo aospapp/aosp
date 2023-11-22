@@ -21,13 +21,14 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
 import android.support.annotation.Nullable;
 import android.support.v7.widget.RecyclerView;
 import android.view.MenuItem;
-import android.view.View;
 
 import com.android.documentsui.MenuManager.SelectionDetails;
+import com.android.documentsui.base.DebugHelper;
 import com.android.documentsui.base.EventHandler;
 import com.android.documentsui.base.Features;
+import com.android.documentsui.base.Lookup;
+import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.dirlist.DocumentsAdapter;
-import com.android.documentsui.base.DebugHelper;
 import com.android.documentsui.prefs.ScopedPreferences;
 import com.android.documentsui.queries.SearchViewManager;
 import com.android.documentsui.selection.SelectionManager;
@@ -38,6 +39,8 @@ import com.android.internal.annotations.VisibleForTesting;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
+import java.util.Collection;
+import java.util.function.Consumer;
 
 /**
  * Provides access to runtime dependencies.
@@ -48,10 +51,14 @@ public class Injector<T extends ActionHandler> {
     public final ActivityConfig config;
     public final ScopedPreferences prefs;
     public final MessageBuilder messages;
+    public final Lookup<String, String> fileTypeLookup;
+    public final Consumer<Collection<RootInfo>> shortcutsUpdater;
 
     public MenuManager menuManager;
     public DialogController dialogs;
     public SearchViewManager searchManager;
+
+    public final DebugHelper debugHelper;
 
     @ContentScoped
     public ActionModeController actionModeController;
@@ -67,8 +74,6 @@ public class Injector<T extends ActionHandler> {
 
     private final Model mModel;
 
-    public final DebugHelper debugHelper;
-
     // must be initialized before calling super.onCreate because prefs
     // are used in State initialization.
     public Injector(
@@ -76,8 +81,11 @@ public class Injector<T extends ActionHandler> {
             ActivityConfig config,
             ScopedPreferences prefs,
             MessageBuilder messages,
-            DialogController dialogs) {
-        this(features, config, prefs, messages, dialogs, new Model(features));
+            DialogController dialogs,
+            Lookup<String, String> fileTypeLookup,
+            Consumer<Collection<RootInfo>> shortcutsUpdater) {
+        this(features, config, prefs, messages, dialogs, fileTypeLookup,
+                shortcutsUpdater, new Model(features));
     }
 
     @VisibleForTesting
@@ -87,6 +95,8 @@ public class Injector<T extends ActionHandler> {
             ScopedPreferences prefs,
             MessageBuilder messages,
             DialogController dialogs,
+            Lookup<String, String> fileTypeLookup,
+            Consumer<Collection<RootInfo>> shortcutsUpdater,
             Model model) {
 
         this.features = features;
@@ -94,6 +104,8 @@ public class Injector<T extends ActionHandler> {
         this.prefs = prefs;
         this.messages = messages;
         this.dialogs = dialogs;
+        this.fileTypeLookup = fileTypeLookup;
+        this.shortcutsUpdater = shortcutsUpdater;
         this.mModel = model;
         this.debugHelper = new DebugHelper(this);
     }

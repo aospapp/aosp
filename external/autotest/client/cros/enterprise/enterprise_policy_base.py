@@ -58,11 +58,7 @@ class EnterprisePolicyTest(test.test):
 
     WEB_PORT = 8080
     WEB_HOST = 'http://localhost:%d' % WEB_PORT
-    CHROME_SETTINGS_PAGE = 'chrome://settings'
     CHROME_POLICY_PAGE = 'chrome://policy'
-    SETTING_LABEL = 0
-    SETTING_CHECKED = 1
-    SETTING_DISABLED = 2
 
     def setup(self):
         os.chdir(self.srcdir)
@@ -399,7 +395,7 @@ class EnterprisePolicyTest(test.test):
                                 username=self.username,
                                 password=self.password,
                                 gaia_login=not self.dms_is_fake,
-                                disable_gaia_services=False,
+                                disable_gaia_services=self.dms_is_fake,
                                 autotest_ext=True)
 
 
@@ -433,34 +429,6 @@ class EnterprisePolicyTest(test.test):
             raise error.TestFail('Unable to find matching elements on '
                                  'the test page: %s\n %r' %(tab.url, err))
         return elements
-
-
-    def _get_settings_checkbox_properties(self, pref):
-        """Get properties of the |pref| check box on the settings page.
-
-        @param pref: pref attribute value of the check box setting.
-        @returns: element properties of the check box setting.
-        """
-        js_cmd_get_props = ('''
-        settings = document.getElementsByClassName(
-                'checkbox controlled-setting-with-label');
-        settingValues = '';
-        for (var i = 0, setting; setting = settings[i]; i++) {
-           var setting_label = setting.getElementsByTagName("label")[0];
-           var label_input = setting_label.getElementsByTagName("input")[0];
-           var input_pref = label_input.getAttribute("pref");
-           if (input_pref == '%s') {
-              settingValues = [setting_label.innerText.trim(),
-                               label_input.checked, label_input.disabled];
-              break;
-           }
-        }
-        settingValues;
-        ''' % pref)
-        tab = self.navigate_to_url(self.CHROME_SETTINGS_PAGE)
-        checkbox_props = self.get_elements_from_page(tab, js_cmd_get_props)
-        tab.Close()
-        return checkbox_props
 
 
     def run_once(self):

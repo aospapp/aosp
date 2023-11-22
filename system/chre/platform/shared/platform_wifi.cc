@@ -24,7 +24,17 @@
 
 namespace chre {
 
-PlatformWifi::PlatformWifi() {
+PlatformWifi::~PlatformWifi() {
+  if (mWifiApi != nullptr) {
+    LOGD("Platform WiFi closing");
+    prePalApiCall();
+    mWifiApi->close();
+    LOGD("Platform WiFi closed");
+  }
+}
+
+void PlatformWifi::init() {
+  prePalApiCall();
   mWifiApi = chrePalWifiGetApi(CHRE_PAL_WIFI_API_CURRENT_VERSION);
   if (mWifiApi != nullptr) {
     mWifiCallbacks.scanMonitorStatusChangeCallback =
@@ -43,14 +53,9 @@ PlatformWifi::PlatformWifi() {
   }
 }
 
-PlatformWifi::~PlatformWifi() {
-  if (mWifiApi != nullptr) {
-    mWifiApi->close();
-  }
-}
-
 uint32_t PlatformWifi::getCapabilities() {
   if (mWifiApi != nullptr) {
+    prePalApiCall();
     return mWifiApi->getCapabilities();
   } else {
     return CHRE_WIFI_CAPABILITIES_NONE;
@@ -59,6 +64,7 @@ uint32_t PlatformWifi::getCapabilities() {
 
 bool PlatformWifi::configureScanMonitor(bool enable) {
   if (mWifiApi != nullptr) {
+    prePalApiCall();
     return mWifiApi->configureScanMonitor(enable);
   } else {
     return false;
@@ -67,6 +73,7 @@ bool PlatformWifi::configureScanMonitor(bool enable) {
 
 bool PlatformWifi::requestScan(const struct chreWifiScanParams *params) {
   if (mWifiApi != nullptr) {
+    prePalApiCall();
     return mWifiApi->requestScan(params);
   } else {
     return false;
@@ -75,6 +82,7 @@ bool PlatformWifi::requestScan(const struct chreWifiScanParams *params) {
 
 void PlatformWifi::releaseScanEvent(struct chreWifiScanEvent *event) {
   if (mWifiApi != nullptr) {
+    prePalApiCall();
     mWifiApi->releaseScanEvent(event);
   }
 }

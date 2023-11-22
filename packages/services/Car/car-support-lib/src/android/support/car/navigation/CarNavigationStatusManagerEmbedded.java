@@ -16,6 +16,7 @@
 package android.support.car.navigation;
 
 import android.graphics.Bitmap;
+import android.os.Bundle;
 import android.support.car.CarNotConnectedException;
 
 /**
@@ -71,6 +72,15 @@ public class CarNavigationStatusManagerEmbedded extends CarNavigationStatusManag
     }
 
     @Override
+    public void sendEvent(int eventType, Bundle bundle) throws CarNotConnectedException {
+        try {
+            mManager.sendEvent(eventType, bundle);
+        } catch (android.car.CarNotConnectedException e) {
+            throw new CarNotConnectedException(e);
+        }
+    }
+
+    @Override
     public void onCarDisconnected() {
         //nothing to do
     }
@@ -103,6 +113,7 @@ public class CarNavigationStatusManagerEmbedded extends CarNavigationStatusManag
             return null;
         }
         return new CarNavigationInstrumentCluster(ic.getMinIntervalMillis(), ic.getType(),
-                ic.getImageWidth(), ic.getImageHeight(), ic.getImageColorDepthBits());
+                ic.getImageWidth(), ic.getImageHeight(), ic.getImageColorDepthBits(),
+                ic.getExtra());
     }
 }

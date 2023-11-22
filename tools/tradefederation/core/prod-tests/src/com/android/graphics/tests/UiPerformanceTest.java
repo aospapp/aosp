@@ -151,9 +151,9 @@ public class UiPerformanceTest implements IDeviceTest, IRemoteTest {
     private void logOutputFile(ITestInvocationListener listener)
             throws DeviceNotAvailableException {
         // catch a bugreport after the test
-        InputStreamSource bugreport = mTestDevice.getBugreport();
-        listener.testLog("bugreport", LogDataType.BUGREPORT, bugreport);
-        bugreport.cancel();
+        try (InputStreamSource bugreport = mTestDevice.getBugreport()) {
+            listener.testLog("bugreport", LogDataType.BUGREPORT, bugreport);
+        }
 
         File resFile = null;
         InputStreamSource outputSource = null;

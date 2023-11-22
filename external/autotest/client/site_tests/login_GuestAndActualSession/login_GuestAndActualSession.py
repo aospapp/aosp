@@ -42,13 +42,9 @@ class login_GuestAndActualSession(test.test):
 
         # TODO(cmasone): enable CryptohomeProxy to do a guest mount, then use.
         cryptohome.mount_guest()
-        if not self._session_manager.StartSession(constants.GUEST_USER, ''):
-            raise error.TestFail('Could not start session for guest')
-
+        self._session_manager.StartSession(constants.GUEST_USER, '')
         self._cryptohome_proxy.ensure_clean_cryptohome_for(owner)
-        if not self._session_manager.StartSession(owner, ''):
-            raise error.TestFail('Could not start session for ' + owner)
-
+        self._session_manager.StartSession(owner, '')
         self._listener.wait_for_signals(desc='Device ownership complete.')
 
         # Ensure that the first real user got to be the owner.

@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import org.jf.dexlib2.AccessFlags;
 import org.jf.dexlib2.Opcode;
+import org.jf.dexlib2.base.reference.BaseMethodReference;
 import org.jf.dexlib2.iface.*;
 import org.jf.dexlib2.iface.instruction.*;
 import org.jf.dexlib2.iface.instruction.formats.*;
@@ -89,10 +90,10 @@ public class MethodAnalyzer {
 
     @Nullable private AnalysisException analysisException = null;
 
-    //This is a dummy instruction that occurs immediately before the first real instruction. We can initialize the
-    //register types for this instruction to the parameter types, in order to have them propagate to all of its
-    //successors, e.g. the first real instruction, the first instructions in any exception handlers covering the first
-    //instruction, etc.
+    // This is a dummy instruction that occurs immediately before the first real instruction. We can initialize the
+    // register types for this instruction to the parameter types, in order to have them propagate to all of its
+    // successors, e.g. the first real instruction, the first instructions in any exception handlers covering the first
+    // instruction, etc.
     private final AnalyzedInstruction startOfMethod;
 
     public MethodAnalyzer(@Nonnull ClassPath classPath, @Nonnull Method method,
@@ -110,27 +111,16 @@ public class MethodAnalyzer {
 
         this.methodImpl = methodImpl;
 
-        //override AnalyzedInstruction and provide custom implementations of some of the methods, so that we don't
-        //have to handle the case this special case of instruction being null, in the main class
-        startOfMethod = new AnalyzedInstruction(this, null, -1, methodImpl.getRegisterCount()) {
-            public boolean setsRegister() {
-                return false;
+        // Override AnalyzedInstruction and provide custom implementations of some of the methods, so that we don't
+        // have to handle the case this special case of instruction being null, in the main class
+        startOfMethod = new AnalyzedInstruction(this, new ImmutableInstruction10x(Opcode.NOP), -1, methodImpl.getRegisterCount()) {
+            @Override protected boolean addPredecessor(AnalyzedInstruction predecessor) {
+                throw new UnsupportedOperationException();
             }
 
-            @Override
-            public boolean setsWideRegister() {
-                return false;
-            }
-
-            @Override
-            public boolean setsRegister(int registerNumber) {
-                return false;
-            }
-
-            @Override
-            public int getDestinationRegister() {
-                assert false;
-                return -1;
+            @Override @Nonnull
+            public RegisterType getPredecessorRegisterType(@Nonnull AnalyzedInstruction predecessor, int registerNumber) {
+                throw new UnsupportedOperationException();
             }
         };
 
@@ -141,6 +131,7 @@ public class MethodAnalyzer {
         analyze();
     }
 
+    @Nonnull
     public ClassPath getClassPath() {
         return classPath;
     }
@@ -362,6 +353,7 @@ public class MethodAnalyzer {
     private void overridePredecessorRegisterTypeAndPropagateChanges(
             @Nonnull AnalyzedInstruction analyzedInstruction, @Nonnull AnalyzedInstruction predecessor,
             int registerNumber, @Nonnull RegisterType registerType) {
+
         BitSet changedInstructions = new BitSet(analyzedInstructions.size());
 
         if (!analyzedInstruction.overridePredecessorRegisterType(
@@ -380,6 +372,28 @@ public class MethodAnalyzer {
             checkWidePair(registerNumber, analyzedInstruction);
             overridePredecessorRegisterTypeAndPropagateChanges(analyzedInstruction, predecessor, registerNumber + 1,
                     RegisterType.DOUBLE_HI_TYPE);
+        }
+    }
+
+    private void initializeRefAndPropagateChanges(@Nonnull AnalyzedInstruction analyzedInstruction,
+                                                  int registerNumber, @Nonnull RegisterType registerType) {
+
+        BitSet changedInstructions = new BitSet(analyzedInstructions.size());
+
+        if (!analyzedInstruction.setPostRegisterType(registerNumber, registerType)) {
+            return;
+        }
+
+        propagateRegisterToSuccessors(analyzedInstruction, registerNumber, changedInstructions, false);
+
+        propagateChanges(changedInstructions, registerNumber, false);
+
+        if (registerType.category == RegisterType.LONG_LO) {
+            checkWidePair(registerNumber, analyzedInstruction);
+            setPostRegisterTypeAndPropagateChanges(analyzedInstruction, registerNumber+1, RegisterType.LONG_HI_TYPE);
+        } else if (registerType.category == RegisterType.DOUBLE_LO) {
+            checkWidePair(registerNumber, analyzedInstruction);
+            setPostRegisterTypeAndPropagateChanges(analyzedInstruction, registerNumber+1, RegisterType.DOUBLE_HI_TYPE);
         }
     }
 
@@ -1176,32 +1190,46 @@ public class MethodAnalyzer {
         setDestinationRegisterTypeAndPropagateChanges(analyzedInstruction, castRegisterType);
     }
 
-    static boolean canNarrowAfterInstanceOf(AnalyzedInstruction analyzedInstanceOfInstruction,
-                                            AnalyzedInstruction analyzedIfInstruction, ClassPath classPath) {
+    public static boolean isNotWideningConversion(RegisterType originalType, RegisterType newType) {
+        if (originalType.type == null || newType.type == null) {
+            return true;
+        }
+        if (originalType.type.isInterface()) {
+            return newType.type.implementsInterface(originalType.type.getType());
+        } else {
+            TypeProto commonSuperclass = newType.type.getCommonSuperclass(originalType.type);
+            if (commonSuperclass.getType().equals(originalType.type.getType())) {
+                return true;
+        }
+            if (commonSuperclass.getType().equals(newType.type.getType())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    static boolean canPropagateTypeAfterInstanceOf(AnalyzedInstruction analyzedInstanceOfInstruction,
+                                                   AnalyzedInstruction analyzedIfInstruction, ClassPath classPath) {
+        if (!classPath.isArt()) {
+            return false;
+        }
+
         Instruction ifInstruction = analyzedIfInstruction.instruction;
-        assert analyzedIfInstruction.instruction != null;
         if (((Instruction21t)ifInstruction).getRegisterA() == analyzedInstanceOfInstruction.getDestinationRegister()) {
             Reference reference = ((Instruction22c)analyzedInstanceOfInstruction.getInstruction()).getReference();
             RegisterType registerType = RegisterType.getRegisterType(classPath, (TypeReference)reference);
 
-            if (registerType.type != null && !registerType.type.isInterface()) {
-                int objectRegister = ((TwoRegisterInstruction)analyzedInstanceOfInstruction.getInstruction())
-                        .getRegisterB();
+            try {
+                if (registerType.type != null && !registerType.type.isInterface()) {
+                    int objectRegister = ((TwoRegisterInstruction)analyzedInstanceOfInstruction.getInstruction())
+                            .getRegisterB();
 
-                RegisterType originalType = analyzedIfInstruction.getPreInstructionRegisterType(objectRegister);
+                    RegisterType originalType = analyzedIfInstruction.getPreInstructionRegisterType(objectRegister);
 
-                if (originalType.type != null) {
-                    // Only override if we're going from an interface to a class, or are going to a narrower class
-                    if (originalType.type.isInterface()) {
-                        return true;
-                    } else {
-                        TypeProto commonSuperclass = registerType.type.getCommonSuperclass(originalType.type);
-                        // only if it's a narrowing conversion
-                        if (commonSuperclass.getType().equals(originalType.type.getType())) {
-                            return true;
-                        }
-                    }
+                    return isNotWideningConversion(originalType, registerType);
                 }
+            } catch (UnresolvedClassException ex) {
+                return false;
             }
         }
         return false;
@@ -1210,21 +1238,16 @@ public class MethodAnalyzer {
     /**
      * Art uses a peephole optimization for an if-eqz or if-nez that occur immediately after an instance-of. It will
      * narrow the type if possible, and then NOP out any corresponding check-cast instruction later on
-     *
-     * TODO: Is this still safe to do even for dalvik odexes? I think it should be..
      */
     private void analyzeIfEqzNez(@Nonnull AnalyzedInstruction analyzedInstruction) {
-        int instructionIndex = analyzedInstruction.getInstructionIndex();
-        if (instructionIndex > 0) {
-            AnalyzedInstruction prevAnalyzedInstruction = analyzedInstructions.valueAt(instructionIndex - 1);
-            if (prevAnalyzedInstruction.instruction != null &&
-                    prevAnalyzedInstruction.instruction.getOpcode() == Opcode.INSTANCE_OF) {
-                if (canNarrowAfterInstanceOf(prevAnalyzedInstruction, analyzedInstruction, classPath)) {
-                    // Propagate the original type to the failing branch, and the new type to the successful branch
-                    int narrowingRegister = ((Instruction22c)prevAnalyzedInstruction.instruction).getRegisterB();
-                    RegisterType originalType = analyzedInstruction.getPreInstructionRegisterType(narrowingRegister);
-                    RegisterType newType = RegisterType.getRegisterType(classPath,
-                            (TypeReference)((Instruction22c)prevAnalyzedInstruction.instruction).getReference());
+        if (classPath.isArt()) {
+            int instructionIndex = analyzedInstruction.getInstructionIndex();
+            if (instructionIndex > 0) {
+                if (analyzedInstruction.getPredecessorCount() != 1) {
+                    return;
+                }
+                AnalyzedInstruction prevAnalyzedInstruction = analyzedInstruction.getPredecessors().first();
+                if (prevAnalyzedInstruction.instruction.getOpcode() == Opcode.INSTANCE_OF) {
 
                     AnalyzedInstruction fallthroughInstruction = analyzedInstructions.valueAt(
                             analyzedInstruction.getInstructionIndex() + 1);
@@ -1233,16 +1256,25 @@ public class MethodAnalyzer {
                             ((Instruction21t)analyzedInstruction.instruction).getCodeOffset();
                     AnalyzedInstruction branchInstruction = analyzedInstructions.get(nextAddress);
 
-                    if (analyzedInstruction.instruction.getOpcode() == Opcode.IF_EQZ) {
-                        overridePredecessorRegisterTypeAndPropagateChanges(fallthroughInstruction, analyzedInstruction,
-                                narrowingRegister, newType);
-                        overridePredecessorRegisterTypeAndPropagateChanges(branchInstruction, analyzedInstruction,
-                                narrowingRegister, originalType);
-                    } else {
-                        overridePredecessorRegisterTypeAndPropagateChanges(fallthroughInstruction, analyzedInstruction,
-                                narrowingRegister, originalType);
-                        overridePredecessorRegisterTypeAndPropagateChanges(branchInstruction, analyzedInstruction,
-                                narrowingRegister, newType);
+                    int narrowingRegister = ((Instruction22c)prevAnalyzedInstruction.instruction).getRegisterB();
+                    RegisterType originalType = analyzedInstruction.getPreInstructionRegisterType(narrowingRegister);
+
+                    Instruction22c instanceOfInstruction = (Instruction22c)prevAnalyzedInstruction.instruction;
+                    RegisterType newType = RegisterType.getRegisterType(classPath,
+                            (TypeReference)instanceOfInstruction.getReference());
+
+                    for (int register : analyzedInstruction.getSetRegisters()) {
+                        if (analyzedInstruction.instruction.getOpcode() == Opcode.IF_EQZ) {
+                            overridePredecessorRegisterTypeAndPropagateChanges(fallthroughInstruction,
+                                    analyzedInstruction, register, newType);
+                            overridePredecessorRegisterTypeAndPropagateChanges(branchInstruction, analyzedInstruction,
+                                    register, originalType);
+                        } else {
+                            overridePredecessorRegisterTypeAndPropagateChanges(fallthroughInstruction,
+                                    analyzedInstruction, register, originalType);
+                            overridePredecessorRegisterTypeAndPropagateChanges(branchInstruction, analyzedInstruction,
+                                    register, newType);
+                        }
                     }
                 }
             }
@@ -1380,44 +1412,32 @@ public class MethodAnalyzer {
     }
 
     private void analyzeInvokeDirectCommon(@Nonnull AnalyzedInstruction analyzedInstruction, int objectRegister) {
-        //the only time that an invoke instruction changes a register type is when using invoke-direct on a
-        //constructor (<init>) method, which changes the uninitialized reference (and any register that the same
-        //uninit reference has been copied to) to an initialized reference
+        // This handles the case of invoking a constructor on an uninitialized reference. This propagates the
+        // initialized type for the object register, and also any known aliased registers.
+        //
+        // In some cases, unrelated uninitialized references may not have been propagated past this instruction. This
+        // happens when propagating those types and the type of object register of this instruction isn't known yet.
+        // In this case, we can't determine if the uninitialized reference being propagated in an alias of the object
+        // register, so we don't stop propagation.
+        //
+        // We check for any of these unpropagated uninitialized references here and propagate them.
+        if (analyzedInstruction.isInvokeInit()) {
+            RegisterType uninitRef = analyzedInstruction.getPreInstructionRegisterType(objectRegister);
+            if (uninitRef.category != RegisterType.UNINIT_REF && uninitRef.category != RegisterType.UNINIT_THIS) {
+                assert analyzedInstruction.getSetRegisters().isEmpty();
+                return;
+            }
 
-        ReferenceInstruction instruction = (ReferenceInstruction)analyzedInstruction.instruction;
+            RegisterType initRef = RegisterType.getRegisterType(RegisterType.REFERENCE, uninitRef.type);
 
-        MethodReference methodReference = (MethodReference)instruction.getReference();
+            for (int register: analyzedInstruction.getSetRegisters()) {
+                RegisterType registerType = analyzedInstruction.getPreInstructionRegisterType(register);
 
-        if (!methodReference.getName().equals("<init>")) {
-            return;
-        }
-
-        RegisterType objectRegisterType = analyzedInstruction.getPreInstructionRegisterType(objectRegister);
-
-        if (objectRegisterType.category != RegisterType.UNINIT_REF &&
-                objectRegisterType.category != RegisterType.UNINIT_THIS) {
-            return;
-        }
-
-        setPostRegisterTypeAndPropagateChanges(analyzedInstruction, objectRegister,
-                RegisterType.getRegisterType(RegisterType.REFERENCE, objectRegisterType.type));
-
-        for (int i=0; i<analyzedInstruction.postRegisterMap.length; i++) {
-            RegisterType postInstructionRegisterType = analyzedInstruction.postRegisterMap[i];
-            if (postInstructionRegisterType.category == RegisterType.UNKNOWN) {
-                RegisterType preInstructionRegisterType =
-                        analyzedInstruction.getPreInstructionRegisterType(i);
-
-                if (preInstructionRegisterType.category == RegisterType.UNINIT_REF ||
-                        preInstructionRegisterType.category == RegisterType.UNINIT_THIS) {
-                    RegisterType registerType;
-                    if (preInstructionRegisterType.equals(objectRegisterType)) {
-                        registerType = analyzedInstruction.postRegisterMap[objectRegister];
-                    } else {
-                        registerType = preInstructionRegisterType;
-                    }
-
-                    setPostRegisterTypeAndPropagateChanges(analyzedInstruction, i, registerType);
+                if (registerType == uninitRef) {
+                    setPostRegisterTypeAndPropagateChanges(analyzedInstruction, register, initRef);
+                } else {
+                    // This is unrelated uninitialized reference. propagate it as-is
+                    setPostRegisterTypeAndPropagateChanges(analyzedInstruction, register, registerType);
                 }
             }
         }
@@ -1695,13 +1715,13 @@ public class MethodAnalyzer {
 
             // fieldClass is now the first accessible class found. Now. we need to make sure that the field is
             // actually valid for this class
-            resolvedField = classPath.getClass(fieldClass.getType()).getFieldByOffset(fieldOffset);
-            if (resolvedField == null) {
+            FieldReference newResolvedField = classPath.getClass(fieldClass.getType()).getFieldByOffset(fieldOffset);
+            if (newResolvedField == null) {
                 throw new ExceptionWithContext("Couldn't find accessible class while resolving field %s",
                         ReferenceUtil.getShortFieldDescriptor(resolvedField));
             }
-            resolvedField = new ImmutableFieldReference(fieldClass.getType(), resolvedField.getName(),
-                    resolvedField.getType());
+            resolvedField = new ImmutableFieldReference(fieldClass.getType(), newResolvedField.getName(),
+                    newResolvedField.getType());
         }
 
         String fieldType = resolvedField.getType();
@@ -1733,41 +1753,9 @@ public class MethodAnalyzer {
             targetMethod = (MethodReference)instruction.getReference();
         }
 
-        TypeProto typeProto = classPath.getClass(targetMethod.getDefiningClass());
-        int methodIndex;
-        try {
-            methodIndex = typeProto.findMethodIndexInVtable(targetMethod);
-        } catch (UnresolvedClassException ex) {
-            return true;
-        }
+        MethodReference replacementMethod = normalizeMethodReference(targetMethod);
 
-        if (methodIndex < 0) {
-            return true;
-        }
-
-        Method replacementMethod = typeProto.getMethodByVtableIndex(methodIndex);
-        assert replacementMethod != null;
-        while (true) {
-            String superType = typeProto.getSuperclass();
-            if (superType == null) {
-                break;
-            }
-            typeProto = classPath.getClass(superType);
-            Method resolvedMethod = typeProto.getMethodByVtableIndex(methodIndex);
-            if (resolvedMethod == null) {
-                break;
-            }
-
-            if (!resolvedMethod.equals(replacementMethod)) {
-                if (!AnalyzedMethodUtil.canAccess(typeProto, replacementMethod, true, true, true)) {
-                    continue;
-                }
-
-                replacementMethod = resolvedMethod;
-            }
-        }
-
-        if (replacementMethod.equals(method)) {
+        if (replacementMethod == null || replacementMethod.equals(targetMethod)) {
             return true;
         }
 
@@ -1839,7 +1827,9 @@ public class MethodAnalyzer {
         // no need to check class access for invoke-super. A class can obviously access its superclass.
         ClassDef thisClass = classPath.getClassDef(method.getDefiningClass());
 
-        if (!isSuper && !TypeUtils.canAccessClass(
+        if (classPath.getClass(resolvedMethod.getDefiningClass()).isInterface()) {
+            resolvedMethod = new ReparentedMethodReference(resolvedMethod, objectRegisterTypeProto.getType());
+        } else if (!isSuper && !TypeUtils.canAccessClass(
                 thisClass.getType(), classPath.getClassDef(resolvedMethod.getDefiningClass()))) {
 
             // the class is not accessible. So we start looking at objectRegisterTypeProto (which may be different
@@ -1860,13 +1850,20 @@ public class MethodAnalyzer {
             MethodReference newResolvedMethod =
                     classPath.getClass(methodClass.getType()).getMethodByVtableIndex(methodIndex);
             if (newResolvedMethod == null) {
-                // TODO: fix NPE here
                 throw new ExceptionWithContext("Couldn't find accessible class while resolving method %s",
                         ReferenceUtil.getMethodDescriptor(resolvedMethod, true));
             }
             resolvedMethod = newResolvedMethod;
             resolvedMethod = new ImmutableMethodReference(methodClass.getType(), resolvedMethod.getName(),
                     resolvedMethod.getParameterTypes(), resolvedMethod.getReturnType());
+
+        }
+
+        if (normalizeVirtualMethods) {
+            MethodReference replacementMethod = normalizeMethodReference(resolvedMethod);
+            if (replacementMethod != null) {
+                resolvedMethod = replacementMethod;
+            }
         }
 
         Instruction deodexedInstruction;
@@ -1965,6 +1962,72 @@ public class MethodAnalyzer {
         if (registerNumber + 1 >= analyzedInstruction.postRegisterMap.length) {
             throw new AnalysisException(String.format("v%d cannot be used as the first register in a wide register" +
                     "pair because it is the last register.", registerNumber));
+        }
+    }
+
+    @Nullable
+    private MethodReference normalizeMethodReference(@Nonnull MethodReference methodRef) {
+        TypeProto typeProto = classPath.getClass(methodRef.getDefiningClass());
+        int methodIndex;
+        try {
+            methodIndex = typeProto.findMethodIndexInVtable(methodRef);
+        } catch (UnresolvedClassException ex) {
+            return null;
+        }
+
+        if (methodIndex < 0) {
+            return null;
+        }
+
+        ClassProto thisClass = (ClassProto)classPath.getClass(method.getDefiningClass());
+
+        Method replacementMethod = typeProto.getMethodByVtableIndex(methodIndex);
+        assert replacementMethod != null;
+        while (true) {
+            String superType = typeProto.getSuperclass();
+            if (superType == null) {
+                break;
+            }
+            typeProto = classPath.getClass(superType);
+            Method resolvedMethod = typeProto.getMethodByVtableIndex(methodIndex);
+            if (resolvedMethod == null) {
+                break;
+            }
+
+            if (!resolvedMethod.equals(replacementMethod)) {
+                if (!AnalyzedMethodUtil.canAccess(thisClass, resolvedMethod, false, false, true)) {
+                    continue;
+                }
+
+                replacementMethod = resolvedMethod;
+            }
+        }
+        return replacementMethod;
+    }
+
+    private static class ReparentedMethodReference extends BaseMethodReference {
+        private final MethodReference baseReference;
+        private final String definingClass;
+
+        public ReparentedMethodReference(MethodReference baseReference, String definingClass) {
+            this.baseReference = baseReference;
+            this.definingClass = definingClass;
+        }
+
+        @Override @Nonnull public String getName() {
+            return baseReference.getName();
+        }
+
+        @Override @Nonnull public List<? extends CharSequence> getParameterTypes() {
+            return baseReference.getParameterTypes();
+        }
+
+        @Override @Nonnull public String getReturnType() {
+            return baseReference.getReturnType();
+        }
+
+        @Nonnull @Override public String getDefiningClass() {
+            return definingClass;
         }
     }
 }

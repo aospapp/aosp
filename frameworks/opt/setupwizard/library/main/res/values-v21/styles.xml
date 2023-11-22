@@ -36,6 +36,12 @@
         <item name="android:background">?android:attr/colorPrimary</item>
     </style>
 
+    <!-- Button styles -->
+
+    <style name="SuwGlifButton.Tertiary" parent="SuwGlifButton.BaseTertiary">
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
     <!-- Items styles -->
 
     <style name="SuwItemContainer">

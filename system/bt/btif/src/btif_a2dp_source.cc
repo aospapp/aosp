@@ -18,8 +18,12 @@
  ******************************************************************************/
 
 #define LOG_TAG "bt_btif_a2dp_source"
+#define ATRACE_TAG ATRACE_TAG_AUDIO
 
 #include <base/logging.h>
+#ifndef OS_GENERIC
+#include <cutils/trace.h>
+#endif
 #include <limits.h>
 #include <string.h>
 #include <algorithm>
@@ -27,7 +31,6 @@
 #include "audio_a2dp_hw/include/audio_a2dp_hw.h"
 #include "bt_common.h"
 #include "bta_av_ci.h"
-#include "btcore/include/bdaddr.h"
 #include "btif_a2dp.h"
 #include "btif_a2dp_control.h"
 #include "btif_a2dp_source.h"
@@ -185,6 +188,9 @@ static void log_tstamps_us(const char* comment, uint64_t timestamp_us);
 static void update_scheduling_stats(scheduling_stats_t* stats, uint64_t now_us,
                                     uint64_t expected_delta);
 static void btm_read_rssi_cb(void* data);
+static void btm_read_failed_contact_counter_cb(void* data);
+static void btm_read_automatic_flush_timeout_cb(void* data);
+static void btm_read_tx_power_cb(void* data);
 
 UNUSED_ATTR static const char* dump_media_event(uint16_t event) {
   switch (event) {
@@ -660,10 +666,13 @@ static void btif_a2dp_source_audio_handle_timer(UNUSED_ATTR void* context) {
 
   if (alarm_is_scheduled(btif_a2dp_source_cb.media_alarm)) {
     CHECK(btif_a2dp_source_cb.encoder_interface != NULL);
+    size_t transmit_queue_length =
+        fixed_queue_length(btif_a2dp_source_cb.tx_audio_queue);
+#ifndef OS_GENERIC
+    ATRACE_INT("btif TX queue", transmit_queue_length);
+#endif
     if (btif_a2dp_source_cb.encoder_interface->set_transmit_queue_length !=
         NULL) {
-      size_t transmit_queue_length =
-          fixed_queue_length(btif_a2dp_source_cb.tx_audio_queue);
       btif_a2dp_source_cb.encoder_interface->set_transmit_queue_length(
           transmit_queue_length);
     }
@@ -737,9 +746,30 @@ static bool btif_a2dp_source_enqueue_callback(BT_HDR* p_buf, size_t frames_n) {
       osi_free(fixed_queue_try_dequeue(btif_a2dp_source_cb.tx_audio_queue));
     }
 
-    // Request RSSI for log purposes if we had to flush buffers
-    bt_bdaddr_t peer_bda = btif_av_get_addr();
-    BTM_ReadRSSI(peer_bda.address, btm_read_rssi_cb);
+    // Request additional debug info if we had to flush buffers
+    RawAddress peer_bda = btif_av_get_addr();
+    tBTM_STATUS status = BTM_ReadRSSI(peer_bda, btm_read_rssi_cb);
+    if (status != BTM_CMD_STARTED) {
+      LOG_WARN(LOG_TAG, "%s: Cannot read RSSI: status %d", __func__, status);
+    }
+    status = BTM_ReadFailedContactCounter(peer_bda,
+                                          btm_read_failed_contact_counter_cb);
+    if (status != BTM_CMD_STARTED) {
+      LOG_WARN(LOG_TAG, "%s: Cannot read Failed Contact Counter: status %d",
+               __func__, status);
+    }
+    status = BTM_ReadAutomaticFlushTimeout(peer_bda,
+                                           btm_read_automatic_flush_timeout_cb);
+    if (status != BTM_CMD_STARTED) {
+      LOG_WARN(LOG_TAG, "%s: Cannot read Automatic Flush Timeout: status %d",
+               __func__, status);
+    }
+    status =
+        BTM_ReadTxPower(peer_bda, BT_TRANSPORT_BR_EDR, btm_read_tx_power_cb);
+    if (status != BTM_CMD_STARTED) {
+      LOG_WARN(LOG_TAG, "%s: Cannot read Tx Power: status %d", __func__,
+               status);
+    }
   }
 
   /* Update the statistics */
@@ -1075,20 +1105,72 @@ void btif_a2dp_source_update_metrics(void) {
 
 static void btm_read_rssi_cb(void* data) {
   if (data == nullptr) {
-    LOG_ERROR(LOG_TAG, "%s RSSI request timed out", __func__);
+    LOG_ERROR(LOG_TAG, "%s Read RSSI request timed out", __func__);
     return;
   }
 
-  tBTM_RSSI_RESULTS* result = (tBTM_RSSI_RESULTS*)data;
+  tBTM_RSSI_RESULT* result = (tBTM_RSSI_RESULT*)data;
   if (result->status != BTM_SUCCESS) {
     LOG_ERROR(LOG_TAG, "%s unable to read remote RSSI (status %d)", __func__,
               result->status);
     return;
   }
 
-  char temp_buffer[20] = {0};
   LOG_WARN(LOG_TAG, "%s device: %s, rssi: %d", __func__,
-           bdaddr_to_string((bt_bdaddr_t*)result->rem_bda, temp_buffer,
-                            sizeof(temp_buffer)),
-           result->rssi);
+           result->rem_bda.ToString().c_str(), result->rssi);
+}
+
+static void btm_read_failed_contact_counter_cb(void* data) {
+  if (data == nullptr) {
+    LOG_ERROR(LOG_TAG, "%s Read Failed Contact Counter request timed out",
+              __func__);
+    return;
+  }
+
+  tBTM_FAILED_CONTACT_COUNTER_RESULT* result =
+      (tBTM_FAILED_CONTACT_COUNTER_RESULT*)data;
+  if (result->status != BTM_SUCCESS) {
+    LOG_ERROR(LOG_TAG, "%s unable to read Failed Contact Counter (status %d)",
+              __func__, result->status);
+    return;
+  }
+
+  LOG_WARN(LOG_TAG, "%s device: %s, Failed Contact Counter: %u", __func__,
+           result->rem_bda.ToString().c_str(), result->failed_contact_counter);
+}
+
+static void btm_read_automatic_flush_timeout_cb(void* data) {
+  if (data == nullptr) {
+    LOG_ERROR(LOG_TAG, "%s Read Automatic Flush Timeout request timed out",
+              __func__);
+    return;
+  }
+
+  tBTM_AUTOMATIC_FLUSH_TIMEOUT_RESULT* result =
+      (tBTM_AUTOMATIC_FLUSH_TIMEOUT_RESULT*)data;
+  if (result->status != BTM_SUCCESS) {
+    LOG_ERROR(LOG_TAG, "%s unable to read Automatic Flush Timeout (status %d)",
+              __func__, result->status);
+    return;
+  }
+
+  LOG_WARN(LOG_TAG, "%s device: %s, Automatic Flush Timeout: %u", __func__,
+           result->rem_bda.ToString().c_str(), result->automatic_flush_timeout);
+}
+
+static void btm_read_tx_power_cb(void* data) {
+  if (data == nullptr) {
+    LOG_ERROR(LOG_TAG, "%s Read Tx Power request timed out", __func__);
+    return;
+  }
+
+  tBTM_TX_POWER_RESULT* result = (tBTM_TX_POWER_RESULT*)data;
+  if (result->status != BTM_SUCCESS) {
+    LOG_ERROR(LOG_TAG, "%s unable to read Tx Power (status %d)", __func__,
+              result->status);
+    return;
+  }
+
+  LOG_WARN(LOG_TAG, "%s device: %s, Tx Power: %d", __func__,
+           result->rem_bda.ToString().c_str(), result->tx_power);
 }

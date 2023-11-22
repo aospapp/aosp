@@ -90,7 +90,9 @@ public class ManualPrintersFragment extends PreferenceFragment implements Servic
         mManualDiscovery.start(this);
 
         // Simulate a click on add printer since that is likely what the user came here to do.
-        addPrinterPreference.onPreferenceClick(addPrinterPreference);
+        if (mManualDiscovery.getPrinters().isEmpty()) {
+            addPrinterPreference.onPreferenceClick(addPrinterPreference);
+        }
     }
 
     @Override

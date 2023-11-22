@@ -48,7 +48,7 @@ class network_TwoShills(test.test):
         try:
             # Run shill, expecting it to abort quickly. If the new
             # process does not exit within the allotted time,
-            # base_utils.run() will kill the new process
+            # utils.run() will kill the new process
             # explicitly. (First with SIGTERM, then SIGKILL.)
             cmd_result = utils.run(
                 "shill --foreground --device-black-list=%s" % default_netdev,

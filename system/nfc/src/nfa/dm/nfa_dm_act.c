@@ -133,17 +133,38 @@ static void nfa_dm_set_init_nci_params(void) {
 
   /* set NCI default value if other than zero */
 
-  /* LF_T3T_IDENTIFIERS_1/2/.../16 */
-  for (xx = 0; xx < NFA_CE_LISTEN_INFO_MAX; xx++) {
-    nfa_dm_cb.params.lf_t3t_id[xx][0] = 0xFF;
-    nfa_dm_cb.params.lf_t3t_id[xx][1] = 0xFF;
-    nfa_dm_cb.params.lf_t3t_id[xx][2] = 0x02;
-    nfa_dm_cb.params.lf_t3t_id[xx][3] = 0xFE;
-  }
+  if (NFC_GetNCIVersion() == NCI_VERSION_2_0) {
+    /* Default Values: For each identifier
+     * Octet 0-1   = OxFF
+     * Octet 2     = Ox02
+     * Octet 3     = 0xFE
+     * Octet 4-9   = 0x00
+     * Octet 10-17 = 0xFF*/
+    for (xx = 0; xx < NFA_CE_LISTEN_INFO_MAX; xx++) {
+      nfa_dm_cb.params.lf_t3t_id[xx][0] = 0xFF;
+      nfa_dm_cb.params.lf_t3t_id[xx][1] = 0xFF;
+      nfa_dm_cb.params.lf_t3t_id[xx][2] = 0x02;
+      nfa_dm_cb.params.lf_t3t_id[xx][3] = 0xFE;
+    }
 
-  /* LF_T3T_PMM */
-  for (xx = 0; xx < NCI_PARAM_LEN_LF_T3T_PMM; xx++) {
-    nfa_dm_cb.params.lf_t3t_pmm[xx] = 0xFF;
+    /* LF_T3T_PMM value is added to LF_T3T_IDENTIFIERS_X in NCI2.0. */
+    for (xx = 0; xx < NFA_CE_LISTEN_INFO_MAX; xx++) {
+      for (uint8_t yy = 10; yy < NCI_PARAM_LEN_LF_T3T_ID(NCI_VERSION_2_0); yy++)
+        nfa_dm_cb.params.lf_t3t_id[xx][yy] = 0xFF;
+    }
+  } else {
+    /* LF_T3T_IDENTIFIERS_1/2/.../16 */
+    for (xx = 0; xx < NFA_CE_LISTEN_INFO_MAX; xx++) {
+      nfa_dm_cb.params.lf_t3t_id[xx][0] = 0xFF;
+      nfa_dm_cb.params.lf_t3t_id[xx][1] = 0xFF;
+      nfa_dm_cb.params.lf_t3t_id[xx][2] = 0x02;
+      nfa_dm_cb.params.lf_t3t_id[xx][3] = 0xFE;
+    }
+
+    /* LF_T3T_PMM */
+    for (xx = 0; xx < NCI_PARAM_LEN_LF_T3T_PMM; xx++) {
+      nfa_dm_cb.params.lf_t3t_pmm[xx] = 0xFF;
+    }
   }
 
   /* LF_T3T_FLAGS:
@@ -343,6 +364,12 @@ static void nfa_dm_nfc_response_cback(tNFC_RESPONSE_EVT event,
     case NFC_GET_ROUTING_REVT: /* Retrieve Routing response */
       break;
 #endif
+
+    case NFC_SET_POWER_SUB_STATE_REVT:
+      dm_cback_data.power_sub_state.status = p_data->status;
+      dm_cback_data.power_sub_state.power_state = nfa_dm_cb.power_state;
+      (*nfa_dm_cb.p_dm_cback)(NFA_DM_SET_POWER_SUB_STATE_EVT, &dm_cback_data);
+      break;
 
     case NFC_RF_FIELD_REVT: /* RF Field information            */
       dm_cback_data.rf_field.status = NFA_STATUS_OK;
@@ -562,7 +589,39 @@ bool nfa_dm_get_config(tNFA_DM_MSG* p_data) {
 
   return true;
 }
+/*******************************************************************************
+**
+** Function         nfa_dm_set_power_sub_state
+**
+** Description      Process the power sub state command
+**
+** Returns          TRUE (message buffer to be freed by caller)
+**
+*******************************************************************************/
+bool nfa_dm_set_power_sub_state(tNFA_DM_MSG* p_data) {
+  tNFC_STATUS status;
+  tNFA_DM_CBACK_DATA dm_cback_data;
 
+  NFA_TRACE_DEBUG0(" nfa_dm_set_power_sub_state ()");
+
+  nfa_dm_cb.power_state = p_data->set_power_state.screen_state;
+  if (nfa_dm_cb.disc_cb.disc_state == NFA_DM_RFST_LISTEN_ACTIVE) {
+    NFA_TRACE_DEBUG0(
+        "nfa_dm_set_power_sub_state () : NFA_DM_RFST_LISTEN_ACTIVE");
+    /* NFCC will give semantic error for power sub state command in Rf listen
+     * active state */
+    status = NFC_STATUS_SEMANTIC_ERROR;
+  } else {
+    status = NFC_SetPowerSubState(p_data->set_power_state.screen_state);
+  }
+
+  if (status != NFC_STATUS_OK) {
+    dm_cback_data.power_sub_state.status = NFC_STATUS_FAILED;
+    dm_cback_data.power_sub_state.power_state = nfa_dm_cb.power_state;
+    (*nfa_dm_cb.p_dm_cback)(NFA_DM_SET_POWER_SUB_STATE_EVT, &dm_cback_data);
+  }
+  return (true);
+}
 /*******************************************************************************
 **
 ** Function         nfa_dm_conn_cback_event_notify
@@ -702,16 +761,21 @@ bool nfa_dm_act_deactivate(tNFA_DM_MSG* p_data) {
 
   /* Always allow deactivate to IDLE */
   /* Do not allow deactivate to SLEEP for T1T,NFCDEP, ISO15693 */
-  if ((p_data->deactivate.sleep_mode == false) ||
-      ((nfa_dm_cb.disc_cb.activated_protocol != NFA_PROTOCOL_T1T) &&
-       (nfa_dm_cb.disc_cb.activated_protocol != NFA_PROTOCOL_NFC_DEP) &&
-       (nfa_dm_cb.disc_cb.activated_protocol != NFA_PROTOCOL_ISO15693) &&
-       (nfa_dm_cb.disc_cb.activated_protocol != NFC_PROTOCOL_KOVIO))) {
+  if (p_data->deactivate.sleep_mode == false ||
+      (nfa_dm_cb.disc_cb.activated_protocol != NFA_PROTOCOL_T1T &&
+       (nfa_dm_cb.disc_cb.activated_protocol != NFA_PROTOCOL_NFC_DEP ||
+        appl_dta_mode_flag) &&
+       nfa_dm_cb.disc_cb.activated_protocol != NFA_PROTOCOL_T5T &&
+       nfa_dm_cb.disc_cb.activated_protocol != NFC_PROTOCOL_KOVIO)) {
     deact_type = NFA_DEACTIVATE_TYPE_DISCOVERY;
     if (p_data->deactivate.sleep_mode) {
       if (nfa_dm_cb.disc_cb.disc_state == NFA_DM_RFST_W4_HOST_SELECT) {
         /* Deactivate to sleep mode not allowed in this state. */
         deact_type = NFA_DEACTIVATE_TYPE_IDLE;
+      } else if (appl_dta_mode_flag == true &&
+                 (nfa_dm_cb.disc_cb.disc_state != NFA_DM_RFST_LISTEN_SLEEP ||
+                  nfa_dm_cb.disc_cb.disc_state == NFA_DM_RFST_POLL_ACTIVE)) {
+        deact_type = NFA_DEACTIVATE_TYPE_SLEEP;
       } else if (nfa_dm_cb.disc_cb.disc_state != NFA_DM_RFST_LISTEN_SLEEP) {
         deact_type = NFA_DEACTIVATE_TYPE_SLEEP;
       }
@@ -722,7 +786,8 @@ bool nfa_dm_act_deactivate(tNFA_DM_MSG* p_data) {
     }
 
     if ((nfa_dm_cb.disc_cb.activated_protocol == NFA_PROTOCOL_NFC_DEP) &&
-        ((nfa_dm_cb.flags & NFA_DM_FLAGS_EXCL_RF_ACTIVE) == 0x00)) {
+        ((nfa_dm_cb.flags & NFA_DM_FLAGS_EXCL_RF_ACTIVE) == 0x00) &&
+        appl_dta_mode_flag != true) {
       /* Exclusive RF control doesn't use NFA P2P */
       /* NFA P2P will deactivate NFC link after deactivating LLCP link */
       if (!(nfa_dm_cb.flags & NFA_DM_FLAGS_P2P_PAUSED)) {
@@ -802,6 +867,29 @@ bool nfa_dm_act_send_vsc(tNFA_DM_MSG* p_data) {
   NFC_SendVsCommand(p_data->send_vsc.oid, p_cmd, p_data->send_vsc.p_cback);
 
   /* Most dm action functions return TRUE, so nfa-sys frees the GKI buffer
+   * carrying the message, This action function re-use the GKI buffer to
+   * send the VSC, so the GKI buffer can not be freed by nfa-sys */
+
+  return false;
+}
+
+/*******************************************************************************
+**
+** Function         nfa_dm_act_send_raw_vs
+**
+** Description      Send the raw vs command to the NCI command queue
+**
+** Returns          FALSE (message buffer is NOT freed by caller)
+**
+*******************************************************************************/
+bool nfa_dm_act_send_raw_vs(tNFA_DM_MSG* p_data) {
+  NFC_HDR* p_cmd = (NFC_HDR*)p_data;
+
+  p_cmd->offset = sizeof(tNFA_DM_API_SEND_VSC) - NFC_HDR_SIZE;
+  p_cmd->len = p_data->send_vsc.cmd_params_len;
+  NFC_SendRawVsCommand(p_cmd, p_data->send_vsc.p_cback);
+
+  /* Most dm action functions return TRUE, so nfa-sys frees the GKI buffer
    * carrying the message,
    * This action function re-use the GKI buffer to send the VSC, so the GKI
    * buffer can not be freed by nfa-sys */
@@ -835,8 +923,17 @@ tNFA_STATUS nfa_dm_start_polling(void) {
       poll_disc_mask |= NFA_DM_DISC_MASK_PA_NFC_DEP;
       poll_disc_mask |= NFA_DM_DISC_MASK_P_LEGACY;
     }
-    if (poll_tech_mask & NFA_TECHNOLOGY_MASK_A_ACTIVE) {
-      poll_disc_mask |= NFA_DM_DISC_MASK_PAA_NFC_DEP;
+    if (NFC_GetNCIVersion() == NCI_VERSION_2_0) {
+      if (poll_tech_mask & NFA_TECHNOLOGY_MASK_ACTIVE) {
+        poll_disc_mask |= NFA_DM_DISC_MASK_PACM_NFC_DEP;
+      }
+    } else {
+      if (poll_tech_mask & NFA_TECHNOLOGY_MASK_A_ACTIVE) {
+        poll_disc_mask |= NFA_DM_DISC_MASK_PAA_NFC_DEP;
+      }
+      if (poll_tech_mask & NFA_TECHNOLOGY_MASK_F_ACTIVE) {
+        poll_disc_mask |= NFA_DM_DISC_MASK_PFA_NFC_DEP;
+      }
     }
     if (poll_tech_mask & NFA_TECHNOLOGY_MASK_B) {
       poll_disc_mask |= NFA_DM_DISC_MASK_PB_ISO_DEP;
@@ -845,11 +942,8 @@ tNFA_STATUS nfa_dm_start_polling(void) {
       poll_disc_mask |= NFA_DM_DISC_MASK_PF_T3T;
       poll_disc_mask |= NFA_DM_DISC_MASK_PF_NFC_DEP;
     }
-    if (poll_tech_mask & NFA_TECHNOLOGY_MASK_F_ACTIVE) {
-      poll_disc_mask |= NFA_DM_DISC_MASK_PFA_NFC_DEP;
-    }
-    if (poll_tech_mask & NFA_TECHNOLOGY_MASK_ISO15693) {
-      poll_disc_mask |= NFA_DM_DISC_MASK_P_ISO15693;
+    if (poll_tech_mask & NFA_TECHNOLOGY_MASK_V) {
+      poll_disc_mask |= NFA_DM_DISC_MASK_P_T5T;
     }
     if (poll_tech_mask & NFA_TECHNOLOGY_MASK_B_PRIME) {
       poll_disc_mask |= NFA_DM_DISC_MASK_P_B_PRIME;
@@ -1082,7 +1176,7 @@ bool nfa_dm_act_send_raw_frame(tNFA_DM_MSG* p_data) {
          (nfa_dm_cb.disc_cb.activated_protocol == NFA_PROTOCOL_T2T) ||
          (nfa_dm_cb.disc_cb.activated_protocol == NFA_PROTOCOL_T3T) ||
          (nfa_dm_cb.disc_cb.activated_protocol == NFA_PROTOCOL_ISO_DEP) ||
-         (nfa_dm_cb.disc_cb.activated_protocol == NFA_PROTOCOL_ISO15693))) {
+         (nfa_dm_cb.disc_cb.activated_protocol == NFA_PROTOCOL_T5T))) {
       /* if RW is checking presence then it will put into pending queue */
       status = nfa_rw_send_raw_frame((NFC_HDR*)p_data);
     } else {
@@ -1398,7 +1492,7 @@ static void nfa_dm_excl_disc_cback(tNFA_DM_RF_DISC_EVT event,
               (nfa_dm_cb.disc_cb.activated_protocol == NFC_PROTOCOL_T2T) ||
               (nfa_dm_cb.disc_cb.activated_protocol == NFC_PROTOCOL_T3T) ||
               (nfa_dm_cb.disc_cb.activated_protocol == NFC_PROTOCOL_ISO_DEP) ||
-              (nfa_dm_cb.disc_cb.activated_protocol == NFA_PROTOCOL_ISO15693) ||
+              (nfa_dm_cb.disc_cb.activated_protocol == NFA_PROTOCOL_T5T) ||
               (nfa_dm_cb.disc_cb.activated_protocol == NFC_PROTOCOL_KOVIO)) {
             /* Notify NFA tag sub-system */
             nfa_rw_proc_disc_evt(NFA_DM_RF_DISC_ACTIVATED_EVT, p_data, false);
@@ -1484,28 +1578,35 @@ static void nfa_dm_poll_disc_cback(tNFA_DM_RF_DISC_EVT event,
       if (nfa_dm_cb.p_activate_ntf) {
         memcpy(nfa_dm_cb.p_activate_ntf, &(p_data->activate),
                sizeof(tNFC_ACTIVATE_DEVT));
-
         if ((nfa_dm_cb.disc_cb.activated_protocol == NFC_PROTOCOL_NFC_DEP) &&
             (nfa_dm_cb.disc_cb.activated_rf_interface ==
              NFC_INTERFACE_NFC_DEP)) {
-          if (!(nfa_dm_cb.flags & NFA_DM_FLAGS_P2P_PAUSED)) {
-            /* activate LLCP */
-            nfa_p2p_activate_llcp(p_data);
-            if (nfa_dm_cb.p_activate_ntf) {
-              GKI_freebuf(nfa_dm_cb.p_activate_ntf);
-              nfa_dm_cb.p_activate_ntf = NULL;
-            }
-          } else {
-            NFA_TRACE_DEBUG0("P2P is paused");
+          /* For P2P mode(Default DTA mode) open Raw channel to bypass LLCP
+           * layer. For LLCP DTA mode activate LLCP */
+          if ((appl_dta_mode_flag == 1) &&
+              ((nfa_dm_cb.eDtaMode & 0x0F) == NFA_DTA_DEFAULT_MODE)) {
+            /* Open raw channel in case of p2p for DTA testing */
+            NFC_SetStaticRfCback(nfa_dm_act_data_cback);
             nfa_dm_notify_activation_status(NFA_STATUS_OK, NULL);
+          } else {
+            if (!(nfa_dm_cb.flags & NFA_DM_FLAGS_P2P_PAUSED)) {
+              /* activate LLCP */
+              nfa_p2p_activate_llcp(p_data);
+              if (nfa_dm_cb.p_activate_ntf) {
+                GKI_freebuf(nfa_dm_cb.p_activate_ntf);
+                nfa_dm_cb.p_activate_ntf = NULL;
+              }
+            } else {
+              NFA_TRACE_DEBUG0("P2P is paused");
+              nfa_dm_notify_activation_status(NFA_STATUS_OK, NULL);
+            }
           }
         } else if ((nfa_dm_cb.disc_cb.activated_protocol == NFC_PROTOCOL_T1T) ||
                    (nfa_dm_cb.disc_cb.activated_protocol == NFC_PROTOCOL_T2T) ||
                    (nfa_dm_cb.disc_cb.activated_protocol == NFC_PROTOCOL_T3T) ||
                    (nfa_dm_cb.disc_cb.activated_protocol ==
                     NFC_PROTOCOL_ISO_DEP) ||
-                   (nfa_dm_cb.disc_cb.activated_protocol ==
-                    NFC_PROTOCOL_15693) ||
+                   (nfa_dm_cb.disc_cb.activated_protocol == NFC_PROTOCOL_T5T) ||
                    (nfa_dm_cb.disc_cb.activated_protocol ==
                     NFC_PROTOCOL_KOVIO) ||
                    (nfa_dm_cb.disc_cb.activated_protocol ==
@@ -1581,6 +1682,19 @@ static void nfa_dm_poll_disc_cback(tNFA_DM_RF_DISC_EVT event,
 }
 
 /*******************************************************************************
+** Function         nfa_dm_poll_disc_cback_dta_wrapper
+**
+** Description      Accessing the nfa_dm_poll_disc_cback for DTA wrapper
+**
+** Returns          None
+**
+*******************************************************************************/
+void nfa_dm_poll_disc_cback_dta_wrapper(tNFA_DM_RF_DISC_EVT event,
+                                        tNFC_DISCOVER* p_data) {
+  nfa_dm_poll_disc_cback(event, p_data);
+}
+
+/*******************************************************************************
 **
 ** Function         nfa_dm_notify_activation_status
 **
@@ -1633,7 +1747,7 @@ void nfa_dm_notify_activation_status(tNFA_STATUS status,
     } else if (p_tech_params->mode == NFC_DISCOVERY_TYPE_POLL_F) {
       nfcid_len = NFC_NFCID2_LEN;
       p_nfcid = p_tech_params->param.pf.nfcid2;
-    } else if (p_tech_params->mode == NFC_DISCOVERY_TYPE_POLL_ISO15693) {
+    } else if (p_tech_params->mode == NFC_DISCOVERY_TYPE_POLL_V) {
       nfcid_len = NFC_ISO15693_UID_LEN;
       p_nfcid = p_tech_params->param.pi93.uid;
     } else if (p_tech_params->mode == NFC_DISCOVERY_TYPE_POLL_KOVIO) {
@@ -1669,7 +1783,7 @@ void nfa_dm_notify_activation_status(tNFA_STATUS status,
             ((nfa_dm_cb.disc_cb.activated_protocol == NFC_PROTOCOL_ISO_DEP) &&
              (nfa_dm_cb.disc_cb.activated_rf_interface ==
               NFC_INTERFACE_ISO_DEP)) ||
-            (nfa_dm_cb.disc_cb.activated_protocol == NFA_PROTOCOL_ISO15693)) {
+            (nfa_dm_cb.disc_cb.activated_protocol == NFA_PROTOCOL_T5T)) {
           if (p_nfa_dm_cfg->auto_detect_ndef) {
             if (p_nfa_dm_cfg->auto_read_ndef) {
               nfa_dm_cb.flags |= NFA_DM_FLAGS_AUTO_READING_NDEF;

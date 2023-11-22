@@ -20,6 +20,5 @@ __Table of Contents__
 1. [VTS User Manual](doc/user_manual.md)
 2. [Where to find VTS test cases](testcases/README.md)
 3. [VTS Test Developer
-   Manual](https://codelabs.developers.google.com/codelabs/android-vts/index.html)
-4. [VTS Framework Developer Manual](doc/framework_developer_manual.md)
+   Manual (Codelab)](https://codelabs.developers.google.com/codelabs/android-vts)
 

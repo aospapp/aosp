@@ -33,8 +33,8 @@ namespace vts {
 
 class HalHidlCodeGen : public DriverCodeGenBase {
  public:
-  HalHidlCodeGen(const char* input_vts_file_path, const string& vts_name)
-      : DriverCodeGenBase(input_vts_file_path, vts_name) {}
+  HalHidlCodeGen(const char* input_vts_file_path)
+      : DriverCodeGenBase(input_vts_file_path) {}
 
  protected:
   void GenerateClassHeader(Formatter& out,
@@ -61,8 +61,11 @@ class HalHidlCodeGen : public DriverCodeGenBase {
       const ComponentSpecificationMessage& message,
       const string& fuzzer_extended_class_name) override;
 
-  void GenerateCppBodyCallbackFunction(Formatter& out,
-      const ComponentSpecificationMessage& message,
+  void GenerateHeaderInterfaceImpl(
+      Formatter& out, const ComponentSpecificationMessage& message) override;
+
+  void GenerateCppBodyInterfaceImpl(
+      Formatter& out, const ComponentSpecificationMessage& message,
       const string& fuzzer_extended_class_name) override;
 
   void GenerateClassConstructionFunction(Formatter& out,
@@ -70,11 +73,13 @@ class HalHidlCodeGen : public DriverCodeGenBase {
       const string& fuzzer_extended_class_name) override;
 
   void GenerateHeaderGlobalFunctionDeclarations(Formatter& out,
-      const ComponentSpecificationMessage& message) override;
+      const ComponentSpecificationMessage& message,
+      const bool print_extern_block = true) override;
 
   void GenerateCppBodyGlobalFunctions(Formatter& out,
       const ComponentSpecificationMessage& message,
-      const string& fuzzer_extended_class_name) override;
+      const string& fuzzer_extended_class_name,
+      const bool print_extern_block = true) override;
 
   void GenerateHeaderIncludeFiles(Formatter& out,
       const ComponentSpecificationMessage& message,
@@ -88,13 +93,21 @@ class HalHidlCodeGen : public DriverCodeGenBase {
       const ComponentSpecificationMessage& message,
       const string& fuzzer_extended_class_name) override;
 
+  void GeneratePublicFunctionDeclarations(
+      Formatter& out, const ComponentSpecificationMessage& message) override;
+
   void GeneratePrivateMemberDeclarations(Formatter& out,
       const ComponentSpecificationMessage& message) override;
 
+ private:
   void GenerateCppBodyFuzzFunction(Formatter& out,
       const StructSpecificationMessage& message,
       const string& fuzzer_extended_class_name,
       const string& original_data_structure_name, const string& parent_path);
+
+  // Generates the code to declar the impl class for an interface.
+  void GenerateClassDecalrationForInterface(
+      Formatter& out, const ComponentSpecificationMessage& message);
 
   // Generates a scalar type in C/C++.
   void GenerateScalarTypeInC(Formatter& out, const string& type);

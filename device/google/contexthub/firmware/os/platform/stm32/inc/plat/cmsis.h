@@ -24,6 +24,7 @@ extern "C" {
 
 #define __NVIC_PRIO_BITS 4
 #define __FPU_PRESENT 1
+#define __MPU_PRESENT 1
 
 
 

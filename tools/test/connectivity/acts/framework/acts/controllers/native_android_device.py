@@ -15,7 +15,7 @@
 #   limitations under the License.
 
 from acts.controllers.android_device import AndroidDevice
-from acts.controllers.utils_lib  import host_utils
+from acts.controllers.utils_lib import host_utils
 import acts.controllers.native as native
 from subprocess import call
 
@@ -29,8 +29,8 @@ ACTS_CONTROLLER_REFERENCE_NAME = "native_android_devices"
 
 
 def create(configs):
-    logger = logging.getLogger()
-    ads = get_instances(configs, logger)
+    logger = logging
+    ads = get_instances(configs)
     for ad in ads:
         try:
             ad.get_droid()
@@ -43,7 +43,7 @@ def destroy(ads):
     pass
 
 
-def get_instances(serials, logger=None):
+def get_instances(serials, ):
     """Create AndroidDevice instances from a list of serials.
 
     Args:
@@ -55,7 +55,7 @@ def get_instances(serials, logger=None):
     """
     results = []
     for s in serials:
-        results.append(NativeAndroidDevice(s, logger=logger))
+        results.append(NativeAndroidDevice(s))
     return results
 
 
@@ -97,12 +97,10 @@ class NativeAndroidDevice(AndroidDevice):
         if not self.h_port or not host_utils.is_port_available(self.h_port):
             self.h_port = host_utils.get_available_host_port()
         self.adb.tcp_forward(self.h_port, self.d_port)
-        pid = self.adb.shell("ps | grep sl4n | awk '{print $2}'").decode(
-            'ascii')
+        pid = self.adb.shell("pidof -s sl4n", ignore_status=True)
         while (pid):
             self.adb.shell("kill {}".format(pid))
-            pid = self.adb.shell("ps | grep sl4n | awk '{print $2}'").decode(
-                'ascii')
+            pid = self.adb.shell("pidof -s sl4n", ignore_status=True)
         call(
             ["adb -s " + self.serial + " shell sh -c \"/system/bin/sl4n\" &"],
             shell=True)
@@ -127,6 +125,7 @@ class NativeAndroidDevice(AndroidDevice):
             existing uid to a new session.
         """
         droid = native.NativeAndroid(port=self.h_port)
+        droid.open()
         if droid.uid in self._droid_sessions:
             raise bt.SL4NException(("SL4N returned an existing uid for a "
                                     "new session. Abort."))

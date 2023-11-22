@@ -370,6 +370,10 @@
     <string name="system_services" msgid="7230571820151215779">"Paslaugos"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Paslaugos nustatymai"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Didelio kontrasto tekstas"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Spartusis pritaikymo neįgaliesiems funkc. klavišas"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Įgal. spartųjį pritaik. neįgal. funk. klavišą"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Sparčiojo klavišo paslauga"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Kai įjungtas spartusis klavišas, galite paspausti abu mygtukus „Atgal“ bei „Žemyn“ ir palaikyti 3 sekundes, kad būtų paleista pritaikymo neįgaliesiems funkcija."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Subtitrai"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Subtitrų teksto perdangos vaizdo įrašuose nustatymai"</string>
     <string name="captions_display" msgid="735692527287125548">"Pateiktis"</string>
@@ -638,7 +642,7 @@
     <string name="device_daydreams_sleep" msgid="7676938708373592766">"Kada pradėti"</string>
     <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"Ekrano užsklanda paleidžiama praėjus šiam neveiklumo laikotarpiui. Jei ekrano užsklanda nepasirinkta, ekranas išjungiamas."</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"Po <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> neveiklumo"</string>
-    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Įjunkite įrenginio miego būseną"</string>
+    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Įjunkite įrengin. miego būseną"</string>
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"Ekranas išsijungs, kai šį laikotarpį nebus atliekama jokių veiksmų."</string>
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"Šiuo metu nėra paskyrų, kuriose saugomi atsarginės kopijos duomenys"</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
@@ -676,4 +680,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Užfiksuojamas pranešimas apie riktą"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Pasiekiamos virtualiosios klaviatūros"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Tvarkyti klaviatūras"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Leidžiama"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Neleidžiama"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Naudojimo prieiga"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Taikant naudojimo prieigą programa gali stebėti, kokias kitas programas naudojate ir kaip dažnai jas naudojate bei išsamią operatoriaus, kalbos nustatymų ir kitą informaciją."</string>
 </resources>

@@ -22,10 +22,22 @@ auto launches.
 def run_test(machine):
     host = hosts.create_host(machine)
     # Kiosk app attributes include app name, extension id and extension page
-    kiosk_app_attributes = \
-            'riseplayer:mfpgpdablffhbfofnhlpgmokokbahooi:index.html'
-    job.run_test('enterprise_LongevityTrackerServer', host=host,
-            kiosk_app_attributes=kiosk_app_attributes, tag='riseplayer')
+    # See README.txt for perf_params format
+    perf_params = {
+    	'perf_capture_iterations': 1,
+		'perf_capture_duration': 1200,
+		'sample_interval': 60,
+		'metric_interval': 300,
+		'test_type': 'single_sample',
+		'kiosk_app_attributes': ('riseplayer:'
+				'mfpgpdablffhbfofnhlpgmokokbahooi:'
+				'index.html')
+    }
+
+    job.run_test('enterprise_LongevityTrackerServer',
+    		host=host,
+    		perf_params=perf_params,
+            tag='riseplayer')
 
 
 parallel_simple(run_test, machines)

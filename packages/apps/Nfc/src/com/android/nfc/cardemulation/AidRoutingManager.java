@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Set;
 
 public class AidRoutingManager {
+
     static final String TAG = "AidRoutingManager";
 
     static final boolean DBG = false;
@@ -40,7 +41,8 @@ public class AidRoutingManager {
     static final int AID_MATCHING_EXACT_OR_PREFIX = 0x01;
     // Every routing table entry is matched as a prefix
     static final int AID_MATCHING_PREFIX_ONLY = 0x02;
-
+    // Every routing table entry can be matched either exact or prefix or subset only
+    static final int AID_MATCHING_EXACT_OR_SUBSET_OR_PREFIX = 0x03;
     // This is the default IsoDep protocol route; it means
     // that for any AID that needs to be routed to this
     // destination, we won't need to add a rule to the routing
@@ -72,6 +74,11 @@ public class AidRoutingManager {
     private native int doGetDefaultOffHostRouteDestination();
     private native int doGetAidMatchingMode();
 
+    final class AidEntry {
+        boolean isOnHost;
+        int aidInfo;
+    }
+
     public AidRoutingManager() {
         mDefaultRoute = doGetDefaultRouteDestination();
         if (DBG) Log.d(TAG, "mDefaultRoute=0x" + Integer.toHexString(mDefaultRoute));
@@ -83,7 +90,12 @@ public class AidRoutingManager {
 
     public boolean supportsAidPrefixRouting() {
         return mAidMatchingSupport == AID_MATCHING_EXACT_OR_PREFIX ||
-                mAidMatchingSupport == AID_MATCHING_PREFIX_ONLY;
+                mAidMatchingSupport == AID_MATCHING_PREFIX_ONLY ||
+                 mAidMatchingSupport == AID_MATCHING_EXACT_OR_SUBSET_OR_PREFIX;
+    }
+
+    public boolean supportsAidSubsetRouting() {
+        return mAidMatchingSupport == AID_MATCHING_EXACT_OR_SUBSET_OR_PREFIX;
     }
 
     void clearNfcRoutingTableLocked() {
@@ -97,8 +109,22 @@ public class AidRoutingManager {
                     if (DBG) Log.d(TAG, "Unrouting prefix AID " + aid);
                     // Cut off '*' since controller anyway treats all AIDs as a prefix
                     aid = aid.substring(0, aid.length() - 1);
-                } else if (mAidMatchingSupport == AID_MATCHING_EXACT_OR_PREFIX) {
+                } else if (mAidMatchingSupport == AID_MATCHING_EXACT_OR_PREFIX ||
+                    mAidMatchingSupport == AID_MATCHING_EXACT_OR_SUBSET_OR_PREFIX) {
+                    aid = aid.substring(0, aid.length() - 1);
                     if (DBG) Log.d(TAG, "Unrouting prefix AID " + aid);
+                }
+            }  else if (aid.endsWith("#")) {
+                if (mAidMatchingSupport == AID_MATCHING_EXACT_ONLY) {
+                    Log.e(TAG, "Device does not support subset AIDs but AID [" + aid
+                            + "] is registered");
+                } else if (mAidMatchingSupport == AID_MATCHING_PREFIX_ONLY ||
+                    mAidMatchingSupport == AID_MATCHING_EXACT_OR_PREFIX) {
+                    Log.e(TAG, "Device does not support subset AIDs but AID [" + aid
+                            + "] is registered");
+                } else if (mAidMatchingSupport == AID_MATCHING_EXACT_OR_SUBSET_OR_PREFIX) {
+                    if (DBG) Log.d(TAG, "Unrouting subset AID " + aid);
+                    aid = aid.substring(0, aid.length() - 1);
                 }
             } else {
                 if (DBG) Log.d(TAG, "Unrouting exact AID " + aid);
@@ -108,17 +134,20 @@ public class AidRoutingManager {
         }
     }
 
-    public boolean configureRouting(HashMap<String, Boolean> aidMap) {
+    public boolean configureRouting(HashMap<String, AidEntry> aidMap) {
         SparseArray<Set<String>> aidRoutingTable = new SparseArray<Set<String>>(aidMap.size());
         HashMap<String, Integer> routeForAid = new HashMap<String, Integer>(aidMap.size());
+        HashMap<String, Integer> infoForAid = new HashMap<String, Integer>(aidMap.size());
         // Then, populate internal data structures first
-        for (Map.Entry<String, Boolean> aidEntry : aidMap.entrySet())  {
-            int route = aidEntry.getValue() ? ROUTE_HOST : mDefaultOffHostRoute;
+        for (Map.Entry<String, AidEntry> aidEntry : aidMap.entrySet())  {
+            int route = aidEntry.getValue().isOnHost ? ROUTE_HOST : mDefaultOffHostRoute;
+            int aidType = aidEntry.getValue().aidInfo;
             String aid = aidEntry.getKey();
             Set<String> entries = aidRoutingTable.get(route, new HashSet<String>());
             entries.add(aid);
             aidRoutingTable.put(route, entries);
             routeForAid.put(aid, route);
+            infoForAid.put(aid, aidType);
         }
 
         synchronized (mLock) {
@@ -155,11 +184,11 @@ public class AidRoutingManager {
                             String aid = aidEntry.getKey();
                             int route = aidEntry.getValue();
                             if (defaultRouteAid.startsWith(aid) && route != mDefaultRoute) {
-                                if (DBG)
-                                    Log.d(TAG, "Adding AID " + defaultRouteAid + " for default " +
-                                            "route, because a conflicting shorter AID will be " +
-                                            "added to the routing table");
-                                NfcService.getInstance().routeAids(defaultRouteAid, mDefaultRoute);
+                                if (DBG) Log.d(TAG, "Adding AID " + defaultRouteAid + " for default " +
+                                        "route, because a conflicting shorter AID will be " +
+                                        "added to the routing table");
+                                NfcService.getInstance().routeAids(defaultRouteAid, mDefaultRoute,
+                                        infoForAid.get(defaultRouteAid));
                             }
                         }
                     }
@@ -180,16 +209,32 @@ public class AidRoutingManager {
                                         + Integer.toString(route));
                                 // Cut off '*' since controller anyway treats all AIDs as a prefix
                                 NfcService.getInstance().routeAids(aid.substring(0,
-                                                aid.length() - 1), route);
-                            } else if (mAidMatchingSupport == AID_MATCHING_EXACT_OR_PREFIX) {
+                                                aid.length() - 1), route, infoForAid.get(aid));
+                            } else if (mAidMatchingSupport == AID_MATCHING_EXACT_OR_PREFIX ||
+                              mAidMatchingSupport == AID_MATCHING_EXACT_OR_SUBSET_OR_PREFIX) {
                                 if (DBG) Log.d(TAG, "Routing prefix AID " + aid + " to route "
                                         + Integer.toString(route));
-                                NfcService.getInstance().routeAids(aid, route);
+                                NfcService.getInstance().routeAids(aid.substring(0,aid.length() - 1),
+                                        route, infoForAid.get(aid));
+                            }
+                        } else if (aid.endsWith("#")) {
+                            if (mAidMatchingSupport == AID_MATCHING_EXACT_ONLY) {
+                                Log.e(TAG, "Device does not support subset AIDs but AID [" + aid
+                                        + "] is registered");
+                            } else if (mAidMatchingSupport == AID_MATCHING_PREFIX_ONLY ||
+                                mAidMatchingSupport == AID_MATCHING_EXACT_OR_PREFIX) {
+                                Log.e(TAG, "Device does not support subset AIDs but AID [" + aid
+                                        + "] is registered");
+                            } else if (mAidMatchingSupport == AID_MATCHING_EXACT_OR_SUBSET_OR_PREFIX) {
+                                if (DBG) Log.d(TAG, "Routing subset AID " + aid + " to route "
+                                        + Integer.toString(route));
+                                  NfcService.getInstance().routeAids(aid.substring(0,aid.length() - 1),
+                                          route, infoForAid.get(aid));
                             }
                         } else {
                             if (DBG) Log.d(TAG, "Routing exact AID " + aid + " to route "
                                     + Integer.toString(route));
-                            NfcService.getInstance().routeAids(aid, route);
+                            NfcService.getInstance().routeAids(aid, route, infoForAid.get(aid));
                         }
                     }
                 }

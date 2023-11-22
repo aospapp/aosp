@@ -28,6 +28,7 @@ import vogar.Action;
 import vogar.Classpath;
 import vogar.Console;
 import vogar.HostFileCache;
+import vogar.Language;
 import vogar.Mode;
 import vogar.Run;
 import vogar.Target;
@@ -69,8 +70,9 @@ public abstract class AbstractModeTest {
         rm = new Rm(console);
 
         androidSdk = new AndroidSdk(console, mkdir,
-                new File[] {new File("classpath")}, "android.jar",
-                new HostFileCache(console, mkdir));
+                new File[] {new File("classpath")}, "android.jar", "desugar.jar",
+                new HostFileCache(console, mkdir),
+                Language.CUR);
         Target target = createTarget();
 
         final Vogar vogar = new Vogar();

@@ -41,6 +41,7 @@ import android.widget.ImageView;
 
 import com.android.compatibility.common.util.PollingCheck;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -64,6 +65,7 @@ public class AnimationDrawableTest {
 
     private AnimationDrawable mAnimationDrawable;
     private Resources mResources;
+    private boolean mInitialOneShotValue;
 
     @Rule
     public ActivityTestRule<ImageViewCtsActivity> mActivityRule =
@@ -75,9 +77,23 @@ public class AnimationDrawableTest {
         final Activity activity = mActivityRule.getActivity();
         mResources = activity.getResources();
 
-        ImageView imageView = (ImageView) activity.findViewById(R.id.imageview);
-        imageView.setBackgroundResource(R.drawable.animationdrawable);
-        mAnimationDrawable = (AnimationDrawable) imageView.getBackground();
+        try {
+            mActivityRule.runOnUiThread(new Runnable() {
+                public void run() {
+                    ImageView imageView = (ImageView) activity.findViewById(R.id.imageview);
+                    imageView.setBackgroundResource(R.drawable.animationdrawable);
+                    mAnimationDrawable = (AnimationDrawable) imageView.getBackground();
+                    mInitialOneShotValue = mAnimationDrawable.isOneShot();
+                }
+            });
+        } catch (Throwable t) {
+            throw new Exception(t);
+        }
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        mAnimationDrawable.setOneShot(mInitialOneShotValue);
     }
 
     @Test

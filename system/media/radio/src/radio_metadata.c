@@ -30,7 +30,7 @@
 
 const radio_metadata_type_t metadata_key_type_table[] =
 {
-    RADIO_METADATA_TYPE_TEXT,
+    RADIO_METADATA_TYPE_INT,
     RADIO_METADATA_TYPE_TEXT,
     RADIO_METADATA_TYPE_INT,
     RADIO_METADATA_TYPE_INT,

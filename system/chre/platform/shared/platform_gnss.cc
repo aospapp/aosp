@@ -24,7 +24,17 @@
 
 namespace chre {
 
-PlatformGnss::PlatformGnss() {
+PlatformGnss::~PlatformGnss() {
+  if (mGnssApi != nullptr) {
+    LOGD("Platform GNSS closing");
+    prePalApiCall();
+    mGnssApi->close();
+    LOGD("Platform GNSS closed");
+  }
+}
+
+void PlatformGnss::init() {
+  prePalApiCall();
   mGnssApi = chrePalGnssGetApi(CHRE_PAL_GNSS_API_CURRENT_VERSION);
   if (mGnssApi != nullptr) {
     mGnssCallbacks.requestStateResync =
@@ -47,17 +57,31 @@ PlatformGnss::PlatformGnss() {
   }
 }
 
-PlatformGnss::~PlatformGnss() {
-  if (mGnssApi != nullptr) {
-    mGnssApi->close();
-  }
-}
-
 uint32_t PlatformGnss::getCapabilities() {
   if (mGnssApi != nullptr) {
+    prePalApiCall();
     return mGnssApi->getCapabilities();
   } else {
     return CHRE_GNSS_CAPABILITIES_NONE;
+  }
+}
+
+bool PlatformGnss::controlLocationSession(bool enable, Milliseconds minInterval,
+                                          Milliseconds minTimeToNextFix) {
+  if (mGnssApi != nullptr) {
+    prePalApiCall();
+    return mGnssApi->controlLocationSession(enable,
+        static_cast<uint32_t>(minInterval.getMilliseconds()),
+        static_cast<uint32_t>(minTimeToNextFix.getMilliseconds()));
+  } else {
+    return false;
+  }
+}
+
+void PlatformGnss::releaseLocationEvent(chreGnssLocationEvent *event) {
+  if (mGnssApi != nullptr) {
+    prePalApiCall();
+    mGnssApi->releaseLocationEvent(event);
   }
 }
 
@@ -67,12 +91,14 @@ void PlatformGnssBase::requestStateResyncCallback() {
 
 void PlatformGnssBase::locationStatusChangeCallback(bool enabled,
                                                     uint8_t errorCode) {
-  // TODO: Implement this.
+  EventLoopManagerSingleton::get()->getGnssRequestManager()
+      .handleLocationSessionStatusChange(enabled, errorCode);
 }
 
 void PlatformGnssBase::locationEventCallback(
     struct chreGnssLocationEvent *event) {
-  // TODO: Implement this.
+  EventLoopManagerSingleton::get()->getGnssRequestManager()
+      .handleLocationEvent(event);
 }
 
 void PlatformGnssBase::measurementStatusChangeCallback(bool enabled,

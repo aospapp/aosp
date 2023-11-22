@@ -40,7 +40,7 @@
 
 #define BD_ADDR_LEN 6
 
-#define UUID_PARAMS(uuid_ptr) uuid_lsb(uuid_ptr), uuid_msb(uuid_ptr)
+#define UUID_PARAMS(uuid) uuid_lsb(uuid), uuid_msb(uuid)
 
 static void set_uuid(uint8_t* uuid, jlong uuid_msb, jlong uuid_lsb) {
   for (int i = 0; i != 8; ++i) {
@@ -49,67 +49,40 @@ static void set_uuid(uint8_t* uuid, jlong uuid_msb, jlong uuid_lsb) {
   }
 }
 
-static uint64_t uuid_lsb(const bt_uuid_t* uuid) {
+static uint64_t uuid_lsb(const bt_uuid_t& uuid) {
   uint64_t lsb = 0;
 
   for (int i = 7; i >= 0; i--) {
     lsb <<= 8;
-    lsb |= uuid->uu[i];
+    lsb |= uuid.uu[i];
   }
 
   return lsb;
 }
 
-static uint64_t uuid_msb(const bt_uuid_t* uuid) {
+static uint64_t uuid_msb(const bt_uuid_t& uuid) {
   uint64_t msb = 0;
 
   for (int i = 15; i >= 8; i--) {
     msb <<= 8;
-    msb |= uuid->uu[i];
+    msb |= uuid.uu[i];
   }
 
   return msb;
 }
 
-static void bd_addr_str_to_addr(const char* str, uint8_t* bd_addr) {
-  int i;
-  char c;
+static RawAddress str2addr(JNIEnv* env, jstring address) {
+  RawAddress bd_addr;
+  const char* c_address = env->GetStringUTFChars(address, NULL);
+  if (!c_address) return bd_addr;
 
-  c = *str++;
-  for (i = 0; i < BD_ADDR_LEN; i++) {
-    if (c >= '0' && c <= '9')
-      bd_addr[i] = c - '0';
-    else if (c >= 'a' && c <= 'z')
-      bd_addr[i] = c - 'a' + 10;
-    else  // (c >= 'A' && c <= 'Z')
-      bd_addr[i] = c - 'A' + 10;
+  RawAddress::FromString(std::string(c_address), bd_addr);
+  env->ReleaseStringUTFChars(address, c_address);
 
-    c = *str++;
-    if (c != ':') {
-      bd_addr[i] <<= 4;
-      if (c >= '0' && c <= '9')
-        bd_addr[i] |= c - '0';
-      else if (c >= 'a' && c <= 'z')
-        bd_addr[i] |= c - 'a' + 10;
-      else  // (c >= 'A' && c <= 'Z')
-        bd_addr[i] |= c - 'A' + 10;
-
-      c = *str++;
-    }
-
-    c = *str++;
-  }
+  return bd_addr;
 }
 
-static void jstr2bdaddr(JNIEnv* env, bt_bdaddr_t* bda, jstring address) {
-  const char* c_bda = env->GetStringUTFChars(address, NULL);
-  if (c_bda != NULL && bda != NULL && strlen(c_bda) == 17) {
-    bd_addr_str_to_addr(c_bda, bda->address);
-    env->ReleaseStringUTFChars(address, c_bda);
-  }
-}
-
-static jstring bdaddr2newjstr(JNIEnv* env, bt_bdaddr_t* bda) {
+static jstring bdaddr2newjstr(JNIEnv* env, const RawAddress* bda) {
   char c_address[32];
   snprintf(c_address, sizeof(c_address), "%02X:%02X:%02X:%02X:%02X:%02X",
            bda->address[0], bda->address[1], bda->address[2], bda->address[3],
@@ -219,7 +192,8 @@ static jobject mPeriodicScanCallbacksObj = NULL;
  * BTA client callbacks
  */
 
-void btgattc_register_app_cb(int status, int clientIf, bt_uuid_t* app_uuid) {
+void btgattc_register_app_cb(int status, int clientIf,
+                             const bt_uuid_t& app_uuid) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onClientRegistered, status,
@@ -227,7 +201,7 @@ void btgattc_register_app_cb(int status, int clientIf, bt_uuid_t* app_uuid) {
 }
 
 void btgattc_scan_result_cb(uint16_t event_type, uint8_t addr_type,
-                            bt_bdaddr_t* bda, uint8_t primary_phy,
+                            RawAddress* bda, uint8_t primary_phy,
                             uint8_t secondary_phy, uint8_t advertising_sid,
                             int8_t tx_power, int8_t rssi,
                             uint16_t periodic_adv_int,
@@ -248,22 +222,24 @@ void btgattc_scan_result_cb(uint16_t event_type, uint8_t addr_type,
                                periodic_adv_int, jb.get());
 }
 
-void btgattc_open_cb(int conn_id, int status, int clientIf, bt_bdaddr_t* bda) {
+void btgattc_open_cb(int conn_id, int status, int clientIf,
+                     const RawAddress& bda) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jstring> address(sCallbackEnv.get(),
-                                  bdaddr2newjstr(sCallbackEnv.get(), bda));
+                                  bdaddr2newjstr(sCallbackEnv.get(), &bda));
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onConnected, clientIf,
                                conn_id, status, address.get());
 }
 
-void btgattc_close_cb(int conn_id, int status, int clientIf, bt_bdaddr_t* bda) {
+void btgattc_close_cb(int conn_id, int status, int clientIf,
+                      const RawAddress& bda) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jstring> address(sCallbackEnv.get(),
-                                  bdaddr2newjstr(sCallbackEnv.get(), bda));
+                                  bdaddr2newjstr(sCallbackEnv.get(), &bda));
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onDisconnected, clientIf,
                                conn_id, status, address.get());
 }
@@ -285,19 +261,19 @@ void btgattc_register_for_notification_cb(int conn_id, int registered,
                                conn_id, status, registered, handle);
 }
 
-void btgattc_notify_cb(int conn_id, btgatt_notify_params_t* p_data) {
+void btgattc_notify_cb(int conn_id, const btgatt_notify_params_t& p_data) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jstring> address(
-      sCallbackEnv.get(), bdaddr2newjstr(sCallbackEnv.get(), &p_data->bda));
+      sCallbackEnv.get(), bdaddr2newjstr(sCallbackEnv.get(), &p_data.bda));
   ScopedLocalRef<jbyteArray> jb(sCallbackEnv.get(),
-                                sCallbackEnv->NewByteArray(p_data->len));
-  sCallbackEnv->SetByteArrayRegion(jb.get(), 0, p_data->len,
-                                   (jbyte*)p_data->value);
+                                sCallbackEnv->NewByteArray(p_data.len));
+  sCallbackEnv->SetByteArrayRegion(jb.get(), 0, p_data.len,
+                                   (jbyte*)p_data.value);
 
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onNotify, conn_id,
-                               address.get(), p_data->handle, p_data->is_notify,
+                               address.get(), p_data.handle, p_data.is_notify,
                                jb.get());
 }
 
@@ -338,21 +314,21 @@ void btgattc_execute_write_cb(int conn_id, int status) {
 }
 
 void btgattc_read_descriptor_cb(int conn_id, int status,
-                                btgatt_read_params_t* p_data) {
+                                const btgatt_read_params_t& p_data) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> jb(sCallbackEnv.get(), NULL);
-  if (p_data->value.len != 0) {
-    jb.reset(sCallbackEnv->NewByteArray(p_data->value.len));
-    sCallbackEnv->SetByteArrayRegion(jb.get(), 0, p_data->value.len,
-                                     (jbyte*)p_data->value.value);
+  if (p_data.value.len != 0) {
+    jb.reset(sCallbackEnv->NewByteArray(p_data.value.len));
+    sCallbackEnv->SetByteArrayRegion(jb.get(), 0, p_data.value.len,
+                                     (jbyte*)p_data.value.value);
   } else {
     jb.reset(sCallbackEnv->NewByteArray(1));
   }
 
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onReadDescriptor, conn_id,
-                               status, p_data->handle, jb.get());
+                               status, p_data.handle, jb.get());
 }
 
 void btgattc_write_descriptor_cb(int conn_id, int status, uint16_t handle) {
@@ -363,13 +339,13 @@ void btgattc_write_descriptor_cb(int conn_id, int status, uint16_t handle) {
                                status, handle);
 }
 
-void btgattc_remote_rssi_cb(int client_if, bt_bdaddr_t* bda, int rssi,
+void btgattc_remote_rssi_cb(int client_if, const RawAddress& bda, int rssi,
                             int status) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jstring> address(sCallbackEnv.get(),
-                                  bdaddr2newjstr(sCallbackEnv.get(), bda));
+                                  bdaddr2newjstr(sCallbackEnv.get(), &bda));
 
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onReadRemoteRssi,
                                client_if, address.get(), rssi, status);
@@ -488,7 +464,7 @@ void fillGattDbElementArray(JNIEnv* env, jobject* array,
 
     ScopedLocalRef<jobject> uuid(
         env, env->NewObject(uuidClazz.get(), uuidConstructor,
-                            uuid_msb(&curr.uuid), uuid_lsb(&curr.uuid)));
+                            uuid_msb(curr.uuid), uuid_lsb(curr.uuid)));
     fid = env->GetFieldID(gattDbElementClazz.get(), "uuid", "Ljava/util/UUID;");
     env->SetObjectField(element.get(), fid, uuid.get());
 
@@ -511,7 +487,8 @@ void fillGattDbElementArray(JNIEnv* env, jobject* array,
   }
 }
 
-void btgattc_get_gatt_db_cb(int conn_id, btgatt_db_element_t* db, int count) {
+void btgattc_get_gatt_db_cb(int conn_id, const btgatt_db_element_t* db,
+                            int count) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
@@ -579,7 +556,7 @@ static const btgatt_client_callbacks_t sGattClientCallbacks = {
  * BTA server callbacks
  */
 
-void btgatts_register_app_cb(int status, int server_if, bt_uuid_t* uuid) {
+void btgatts_register_app_cb(int status, int server_if, const bt_uuid_t& uuid) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onServerRegistered, status,
@@ -587,12 +564,12 @@ void btgatts_register_app_cb(int status, int server_if, bt_uuid_t* uuid) {
 }
 
 void btgatts_connection_cb(int conn_id, int server_if, int connected,
-                           bt_bdaddr_t* bda) {
+                           const RawAddress& bda) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jstring> address(sCallbackEnv.get(),
-                                  bdaddr2newjstr(sCallbackEnv.get(), bda));
+                                  bdaddr2newjstr(sCallbackEnv.get(), &bda));
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onClientConnected,
                                address.get(), connected, conn_id, server_if);
 }
@@ -631,41 +608,42 @@ void btgatts_service_deleted_cb(int status, int server_if, int srvc_handle) {
 }
 
 void btgatts_request_read_characteristic_cb(int conn_id, int trans_id,
-                                            bt_bdaddr_t* bda, int attr_handle,
-                                            int offset, bool is_long) {
+                                            const RawAddress& bda,
+                                            int attr_handle, int offset,
+                                            bool is_long) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jstring> address(sCallbackEnv.get(),
-                                  bdaddr2newjstr(sCallbackEnv.get(), bda));
+                                  bdaddr2newjstr(sCallbackEnv.get(), &bda));
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onServerReadCharacteristic,
                                address.get(), conn_id, trans_id, attr_handle,
                                offset, is_long);
 }
 
 void btgatts_request_read_descriptor_cb(int conn_id, int trans_id,
-                                        bt_bdaddr_t* bda, int attr_handle,
+                                        const RawAddress& bda, int attr_handle,
                                         int offset, bool is_long) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jstring> address(sCallbackEnv.get(),
-                                  bdaddr2newjstr(sCallbackEnv.get(), bda));
+                                  bdaddr2newjstr(sCallbackEnv.get(), &bda));
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onServerReadDescriptor,
                                address.get(), conn_id, trans_id, attr_handle,
                                offset, is_long);
 }
 
 void btgatts_request_write_characteristic_cb(int conn_id, int trans_id,
-                                             bt_bdaddr_t* bda, int attr_handle,
-                                             int offset, bool need_rsp,
-                                             bool is_prep,
+                                             const RawAddress& bda,
+                                             int attr_handle, int offset,
+                                             bool need_rsp, bool is_prep,
                                              std::vector<uint8_t> value) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jstring> address(sCallbackEnv.get(),
-                                  bdaddr2newjstr(sCallbackEnv.get(), bda));
+                                  bdaddr2newjstr(sCallbackEnv.get(), &bda));
   ScopedLocalRef<jbyteArray> val(sCallbackEnv.get(),
                                  sCallbackEnv->NewByteArray(value.size()));
   if (val.get())
@@ -678,7 +656,7 @@ void btgatts_request_write_characteristic_cb(int conn_id, int trans_id,
 }
 
 void btgatts_request_write_descriptor_cb(int conn_id, int trans_id,
-                                         bt_bdaddr_t* bda, int attr_handle,
+                                         const RawAddress& bda, int attr_handle,
                                          int offset, bool need_rsp,
                                          bool is_prep,
                                          std::vector<uint8_t> value) {
@@ -686,7 +664,7 @@ void btgatts_request_write_descriptor_cb(int conn_id, int trans_id,
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jstring> address(sCallbackEnv.get(),
-                                  bdaddr2newjstr(sCallbackEnv.get(), bda));
+                                  bdaddr2newjstr(sCallbackEnv.get(), &bda));
   ScopedLocalRef<jbyteArray> val(sCallbackEnv.get(),
                                  sCallbackEnv->NewByteArray(value.size()));
   if (val.get())
@@ -698,13 +676,13 @@ void btgatts_request_write_descriptor_cb(int conn_id, int trans_id,
                                val.get());
 }
 
-void btgatts_request_exec_write_cb(int conn_id, int trans_id, bt_bdaddr_t* bda,
-                                   int exec_write) {
+void btgatts_request_exec_write_cb(int conn_id, int trans_id,
+                                   const RawAddress& bda, int exec_write) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jstring> address(sCallbackEnv.get(),
-                                  bdaddr2newjstr(sCallbackEnv.get(), bda));
+                                  bdaddr2newjstr(sCallbackEnv.get(), &bda));
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onExecuteWrite,
                                address.get(), conn_id, trans_id, exec_write);
 }
@@ -848,7 +826,7 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
   method_onGetGattDb =
       env->GetMethodID(clazz, "onGetGattDb", "(ILjava/util/ArrayList;)V");
   method_onClientPhyRead =
-      env->GetMethodID(clazz, "onClientPhyRead", "(IIII)V");
+      env->GetMethodID(clazz, "onClientPhyRead", "(ILjava/lang/String;III)V");
   method_onClientPhyUpdate =
       env->GetMethodID(clazz, "onClientPhyUpdate", "(IIII)V");
   method_onClientConnUpdate =
@@ -884,7 +862,7 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
       env->GetMethodID(clazz, "onServerCongestion", "(IZ)V");
   method_onServerMtuChanged = env->GetMethodID(clazz, "onMtuChanged", "(II)V");
   method_onServerPhyRead =
-      env->GetMethodID(clazz, "onServerPhyRead", "(IIII)V");
+      env->GetMethodID(clazz, "onServerPhyRead", "(ILjava/lang/String;III)V");
   method_onServerPhyUpdate =
       env->GetMethodID(clazz, "onServerPhyUpdate", "(IIII)V");
   method_onServerConnUpdate =
@@ -955,9 +933,7 @@ static void cleanupNative(JNIEnv* env, jobject object) {
 static int gattClientGetDeviceTypeNative(JNIEnv* env, jobject object,
                                          jstring address) {
   if (!sGattIf) return 0;
-  bt_bdaddr_t bda;
-  jstr2bdaddr(env, &bda, address);
-  return sGattIf->client->get_device_type(&bda);
+  return sGattIf->client->get_device_type(str2addr(env, address));
 }
 
 static void gattClientRegisterAppNative(JNIEnv* env, jobject object,
@@ -967,7 +943,7 @@ static void gattClientRegisterAppNative(JNIEnv* env, jobject object,
 
   if (!sGattIf) return;
   set_uuid(uuid.uu, app_uuid_msb, app_uuid_lsb);
-  sGattIf->client->register_client(&uuid);
+  sGattIf->client->register_client(uuid);
 }
 
 static void gattClientUnregisterAppNative(JNIEnv* env, jobject object,
@@ -981,7 +957,7 @@ void btgattc_register_scanner_cb(bt_uuid_t app_uuid, uint8_t scannerId,
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onScannerRegistered,
-                               status, scannerId, UUID_PARAMS(&app_uuid));
+                               status, scannerId, UUID_PARAMS(app_uuid));
 }
 
 static void registerScannerNative(JNIEnv* env, jobject object,
@@ -1008,54 +984,55 @@ static void gattClientScanNative(JNIEnv* env, jobject object, jboolean start) {
 
 static void gattClientConnectNative(JNIEnv* env, jobject object, jint clientif,
                                     jstring address, jboolean isDirect,
-                                    jint transport, jint initiating_phys) {
+                                    jint transport, jboolean opportunistic,
+                                    jint initiating_phys) {
   if (!sGattIf) return;
 
-  bt_bdaddr_t bda;
-  jstr2bdaddr(env, &bda, address);
-  sGattIf->client->connect(clientif, &bda, isDirect, transport,
-                           initiating_phys);
+  sGattIf->client->connect(clientif, str2addr(env, address), isDirect,
+                           transport, opportunistic, initiating_phys);
 }
 
 static void gattClientDisconnectNative(JNIEnv* env, jobject object,
                                        jint clientIf, jstring address,
                                        jint conn_id) {
   if (!sGattIf) return;
-  bt_bdaddr_t bda;
-  jstr2bdaddr(env, &bda, address);
-  sGattIf->client->disconnect(clientIf, &bda, conn_id);
+  sGattIf->client->disconnect(clientIf, str2addr(env, address), conn_id);
 }
 
 static void gattClientSetPreferredPhyNative(JNIEnv* env, jobject object,
-                                            jint clientIf, jint conn_id,
+                                            jint clientIf, jstring address,
                                             jint tx_phy, jint rx_phy,
                                             jint phy_options) {
   if (!sGattIf) return;
-  sGattIf->client->set_preferred_phy(conn_id, tx_phy, rx_phy, phy_options);
+  sGattIf->client->set_preferred_phy(str2addr(env, address), tx_phy, rx_phy,
+                                     phy_options);
 }
 
-static void readClientPhyCb(int conn_id, uint8_t tx_phy, uint8_t rx_phy,
-                            uint8_t status) {
+static void readClientPhyCb(uint8_t clientIf, RawAddress bda, uint8_t tx_phy,
+                            uint8_t rx_phy, uint8_t status) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
-  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onClientPhyRead, conn_id,
-                               tx_phy, rx_phy, status);
+  ScopedLocalRef<jstring> address(sCallbackEnv.get(),
+                                  bdaddr2newjstr(sCallbackEnv.get(), &bda));
+
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onClientPhyRead, clientIf,
+                               address.get(), tx_phy, rx_phy, status);
 }
 
 static void gattClientReadPhyNative(JNIEnv* env, jobject object, jint clientIf,
-                                    jint conn_id) {
+                                    jstring address) {
   if (!sGattIf) return;
-  sGattIf->client->read_phy(conn_id, base::Bind(readClientPhyCb, conn_id));
+
+  RawAddress bda = str2addr(env, address);
+  sGattIf->client->read_phy(bda, base::Bind(&readClientPhyCb, clientIf, bda));
 }
 
 static void gattClientRefreshNative(JNIEnv* env, jobject object, jint clientIf,
                                     jstring address) {
   if (!sGattIf) return;
 
-  bt_bdaddr_t bda;
-  jstr2bdaddr(env, &bda, address);
-  sGattIf->client->refresh(clientIf, &bda);
+  sGattIf->client->refresh(clientIf, str2addr(env, address));
 }
 
 static void gattClientSearchServiceNative(JNIEnv* env, jobject object,
@@ -1077,7 +1054,7 @@ static void gattClientDiscoverServiceByUuidNative(JNIEnv* env, jobject object,
 
   bt_uuid_t uuid;
   set_uuid(uuid.uu, service_uuid_msb, service_uuid_lsb);
-  sGattIf->client->btif_gattc_discover_service_by_uuid(conn_id, &uuid);
+  sGattIf->client->btif_gattc_discover_service_by_uuid(conn_id, uuid);
 }
 
 static void gattClientGetGattDbNative(JNIEnv* env, jobject object,
@@ -1102,7 +1079,7 @@ static void gattClientReadUsingCharacteristicUuidNative(
 
   bt_uuid_t uuid;
   set_uuid(uuid.uu, uuid_msb, uuid_lsb);
-  sGattIf->client->read_using_characteristic_uuid(conn_id, &uuid, s_handle,
+  sGattIf->client->read_using_characteristic_uuid(conn_id, uuid, s_handle,
                                                   e_handle, authReq);
 }
 
@@ -1168,24 +1145,18 @@ static void gattClientRegisterForNotificationsNative(
     jboolean enable) {
   if (!sGattIf) return;
 
-  bt_bdaddr_t bd_addr;
-  const char* c_address = env->GetStringUTFChars(address, NULL);
-  bd_addr_str_to_addr(c_address, bd_addr.address);
-
+  RawAddress bd_addr = str2addr(env, address);
   if (enable)
-    sGattIf->client->register_for_notification(clientIf, &bd_addr, handle);
+    sGattIf->client->register_for_notification(clientIf, bd_addr, handle);
   else
-    sGattIf->client->deregister_for_notification(clientIf, &bd_addr, handle);
+    sGattIf->client->deregister_for_notification(clientIf, bd_addr, handle);
 }
 
 static void gattClientReadRemoteRssiNative(JNIEnv* env, jobject object,
                                            jint clientif, jstring address) {
   if (!sGattIf) return;
 
-  bt_bdaddr_t bda;
-  jstr2bdaddr(env, &bda, address);
-
-  sGattIf->client->read_remote_rssi(clientif, &bda);
+  sGattIf->client->read_remote_rssi(clientif, str2addr(env, address));
 }
 
 void set_scan_params_cmpl_cb(int client_if, uint8_t status) {
@@ -1299,8 +1270,7 @@ static void gattClientScanFilterAddRemoveNative(
   switch (filt_type) {
     case 0:  // BTM_BLE_PF_ADDR_FILTER
     {
-      bt_bdaddr_t bda;
-      jstr2bdaddr(env, &bda, address);
+      RawAddress bda = str2addr(env, address);
       sGattIf->scanner->ScanFilterAddRemove(
           action, filt_type, filt_index, 0, 0, NULL, NULL, &bda, addr_type, {},
           {}, base::Bind(&scan_filter_cfg_cb, client_if));
@@ -1441,10 +1411,8 @@ static void gattConnectionParameterUpdateNative(JNIEnv* env, jobject object,
                                                 jint max_interval, jint latency,
                                                 jint timeout) {
   if (!sGattIf) return;
-  bt_bdaddr_t bda;
-  jstr2bdaddr(env, &bda, address);
-  sGattIf->client->conn_parameter_update(&bda, min_interval, max_interval,
-                                         latency, timeout);
+  sGattIf->client->conn_parameter_update(str2addr(env, address), min_interval,
+                                         max_interval, latency, timeout);
 }
 
 void batchscan_cfg_storage_cb(uint8_t client_if, uint8_t status) {
@@ -1504,7 +1472,7 @@ static void gattServerRegisterAppNative(JNIEnv* env, jobject object,
   bt_uuid_t uuid;
   if (!sGattIf) return;
   set_uuid(uuid.uu, app_uuid_msb, app_uuid_lsb);
-  sGattIf->server->register_server(&uuid);
+  sGattIf->server->register_server(uuid);
 }
 
 static void gattServerUnregisterAppNative(JNIEnv* env, jobject object,
@@ -1518,43 +1486,44 @@ static void gattServerConnectNative(JNIEnv* env, jobject object, jint server_if,
                                     jint transport) {
   if (!sGattIf) return;
 
-  bt_bdaddr_t bd_addr;
-  const char* c_address = env->GetStringUTFChars(address, NULL);
-  bd_addr_str_to_addr(c_address, bd_addr.address);
-
-  sGattIf->server->connect(server_if, &bd_addr, is_direct, transport);
+  RawAddress bd_addr = str2addr(env, address);
+  sGattIf->server->connect(server_if, bd_addr, is_direct, transport);
 }
 
 static void gattServerDisconnectNative(JNIEnv* env, jobject object,
                                        jint serverIf, jstring address,
                                        jint conn_id) {
   if (!sGattIf) return;
-  bt_bdaddr_t bda;
-  jstr2bdaddr(env, &bda, address);
-  sGattIf->server->disconnect(serverIf, &bda, conn_id);
+  sGattIf->server->disconnect(serverIf, str2addr(env, address), conn_id);
 }
 
 static void gattServerSetPreferredPhyNative(JNIEnv* env, jobject object,
-                                            jint serverIf, jint conn_id,
+                                            jint serverIf, jstring address,
                                             jint tx_phy, jint rx_phy,
                                             jint phy_options) {
   if (!sGattIf) return;
-  sGattIf->server->set_preferred_phy(conn_id, tx_phy, rx_phy, phy_options);
+  RawAddress bda = str2addr(env, address);
+  sGattIf->server->set_preferred_phy(bda, tx_phy, rx_phy, phy_options);
 }
 
-static void readServerPhyCb(int conn_id, uint8_t tx_phy, uint8_t rx_phy,
-                            uint8_t status) {
+static void readServerPhyCb(uint8_t serverIf, RawAddress bda, uint8_t tx_phy,
+                            uint8_t rx_phy, uint8_t status) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
-  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onServerPhyRead, conn_id,
-                               tx_phy, rx_phy, status);
+  ScopedLocalRef<jstring> address(sCallbackEnv.get(),
+                                  bdaddr2newjstr(sCallbackEnv.get(), &bda));
+
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onServerPhyRead, serverIf,
+                               address.get(), tx_phy, rx_phy, status);
 }
 
 static void gattServerReadPhyNative(JNIEnv* env, jobject object, jint serverIf,
-                                    jint conn_id) {
+                                    jstring address) {
   if (!sGattIf) return;
-  sGattIf->server->read_phy(conn_id, base::Bind(readServerPhyCb, conn_id));
+
+  RawAddress bda = str2addr(env, address);
+  sGattIf->server->read_phy(bda, base::Bind(&readServerPhyCb, serverIf, bda));
 }
 
 static void gattServerAddServiceNative(JNIEnv* env, jobject object,
@@ -1689,7 +1658,7 @@ static void gattServerSendResponseNative(JNIEnv* env, jobject object,
     env->ReleaseByteArrayElements(val, array, JNI_ABORT);
   }
 
-  sGattIf->server->send_response(conn_id, trans_id, status, &response);
+  sGattIf->server->send_response(conn_id, trans_id, status, response);
 }
 
 static void advertiseClassInitNative(JNIEnv* env, jclass clazz) {
@@ -1730,6 +1699,10 @@ static void advertiseCleanupNative(JNIEnv* env, jobject object) {
   }
 }
 
+static uint32_t INTERVAL_MAX = 0xFFFFFF;
+// Always give controller 31.25ms difference between min and max
+static uint32_t INTERVAL_DELTA = 50;
+
 static AdvertiseParameters parseParams(JNIEnv* env, jobject i) {
   AdvertiseParameters p;
 
@@ -1762,9 +1735,13 @@ static AdvertiseParameters parseParams(JNIEnv* env, jobject i) {
   if (isAnonymous) props |= 0x20;
   if (includeTxPower) props |= 0x40;
 
+  if (interval > INTERVAL_MAX - INTERVAL_DELTA) {
+    interval = INTERVAL_MAX - INTERVAL_DELTA;
+  }
+
   p.advertising_event_properties = props;
   p.min_interval = interval;
-  p.max_interval = interval + 50;
+  p.max_interval = interval + INTERVAL_DELTA;
   p.channel_map = 0x07; /* all channels */
   p.tx_power = txPowerLevel;
   p.primary_advertising_phy = primaryPhy;
@@ -1860,7 +1837,7 @@ static void stopAdvertisingSetNative(JNIEnv* env, jobject object,
 }
 
 static void getOwnAddressCb(uint8_t advertiser_id, uint8_t address_type,
-                            bt_bdaddr_t address) {
+                            RawAddress address) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
@@ -2011,8 +1988,8 @@ static void periodicScanCleanupNative(JNIEnv* env, jobject object) {
 }
 
 static void onSyncStarted(int reg_id, uint8_t status, uint16_t sync_handle,
-                          uint8_t sid, uint8_t address_type,
-                          bt_bdaddr_t address, uint8_t phy, uint16_t interval) {
+                          uint8_t sid, uint8_t address_type, RawAddress address,
+                          uint8_t phy, uint16_t interval) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
@@ -2049,12 +2026,10 @@ static void startSyncNative(JNIEnv* env, jobject object, jint sid,
                             jint reg_id) {
   if (!sGattIf) return;
 
-  bt_bdaddr_t tmp;
-  jstr2bdaddr(env, &tmp, address);
-
-  sGattIf->scanner->StartSync(
-      sid, tmp, skip, timeout, base::Bind(&onSyncStarted, reg_id),
-      base::Bind(&onSyncReport), base::Bind(&onSyncLost));
+  sGattIf->scanner->StartSync(sid, str2addr(env, address), skip, timeout,
+                              base::Bind(&onSyncStarted, reg_id),
+                              base::Bind(&onSyncReport),
+                              base::Bind(&onSyncLost));
 }
 
 static void stopSyncNative(int sync_handle) {
@@ -2068,8 +2043,7 @@ static void gattTestNative(JNIEnv* env, jobject object, jint command,
                            jint p1, jint p2, jint p3, jint p4, jint p5) {
   if (!sGattIf) return;
 
-  bt_bdaddr_t bt_bda1;
-  jstr2bdaddr(env, &bt_bda1, bda1);
+  RawAddress bt_bda1 = str2addr(env, bda1);
 
   bt_uuid_t uuid1;
   set_uuid(uuid1.uu, uuid1_msb, uuid1_lsb);
@@ -2082,7 +2056,7 @@ static void gattTestNative(JNIEnv* env, jobject object, jint command,
   params.u3 = p3;
   params.u4 = p4;
   params.u5 = p5;
-  sGattIf->client->test_command(command, &params);
+  sGattIf->client->test_command(command, params);
 }
 
 /**
@@ -2172,13 +2146,14 @@ static JNINativeMethod sMethods[] = {
      (void*)gattClientRegisterAppNative},
     {"gattClientUnregisterAppNative", "(I)V",
      (void*)gattClientUnregisterAppNative},
-    {"gattClientConnectNative", "(ILjava/lang/String;ZII)V",
+    {"gattClientConnectNative", "(ILjava/lang/String;ZIZI)V",
      (void*)gattClientConnectNative},
     {"gattClientDisconnectNative", "(ILjava/lang/String;I)V",
      (void*)gattClientDisconnectNative},
-    {"gattClientSetPreferredPhyNative", "(IIIII)V",
+    {"gattClientSetPreferredPhyNative", "(ILjava/lang/String;III)V",
      (void*)gattClientSetPreferredPhyNative},
-    {"gattClientReadPhyNative", "(II)V", (void*)gattClientReadPhyNative},
+    {"gattClientReadPhyNative", "(ILjava/lang/String;)V",
+     (void*)gattClientReadPhyNative},
     {"gattClientRefreshNative", "(ILjava/lang/String;)V",
      (void*)gattClientRefreshNative},
     {"gattClientSearchServiceNative", "(IZJJ)V",
@@ -2214,9 +2189,10 @@ static JNINativeMethod sMethods[] = {
      (void*)gattServerConnectNative},
     {"gattServerDisconnectNative", "(ILjava/lang/String;I)V",
      (void*)gattServerDisconnectNative},
-    {"gattServerSetPreferredPhyNative", "(IIIII)V",
+    {"gattServerSetPreferredPhyNative", "(ILjava/lang/String;III)V",
      (void*)gattServerSetPreferredPhyNative},
-    {"gattServerReadPhyNative", "(II)V", (void*)gattServerReadPhyNative},
+    {"gattServerReadPhyNative", "(ILjava/lang/String;)V",
+     (void*)gattServerReadPhyNative},
     {"gattServerAddServiceNative", "(ILjava/util/List;)V",
      (void*)gattServerAddServiceNative},
     {"gattServerStopServiceNative", "(II)V",

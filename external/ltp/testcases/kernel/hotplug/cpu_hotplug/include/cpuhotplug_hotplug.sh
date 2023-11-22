@@ -150,8 +150,8 @@ get_present_cpus()
             range_low=$(echo $part | cut -d - -f 1)
             range_high=$(echo $part | cut -d - -f 2)
         else
-            range_low=$(part)
-            range_high=$(part)
+            range_low=$part
+            range_high=$part
         fi
         for cpu in $(seq $range_low $range_high); do
             if [ -e /sys/devices/system/cpu/cpu$cpu ]; then
@@ -178,7 +178,7 @@ get_present_cpus_num()
 #
 get_hotplug_cpus()
 {
-    local present_cpus=$(get_present_cpus)
+    local present_cpus="$(get_present_cpus)"
     local hotplug_cpus=""
 
     for cpu in $present_cpus; do

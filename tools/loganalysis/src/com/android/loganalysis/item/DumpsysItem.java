@@ -27,12 +27,15 @@ public class DumpsysItem extends GenericItem {
     /** Constant for JSON output */
     private static final String BATTERY_STATS = "BATTERY_STATS";
     /** Constant for JSON output */
+    private static final String PACKAGE_STATS = "PACKAGE_STATS";
+    /** Constant for JSON output */
     private static final String PROC_STATS = "PROC_STATS";
     /** Constant for JSON output */
     private static final String WIFI_STATS = "WIFI_STATS";
 
-    private static final Set<String> ATTRIBUTES = new HashSet<String>(Arrays.asList(
-            BATTERY_STATS, PROC_STATS, WIFI_STATS));
+    private static final Set<String> ATTRIBUTES =
+            new HashSet<String>(
+                    Arrays.asList(BATTERY_STATS, PACKAGE_STATS, PROC_STATS, WIFI_STATS));
 
     /**
      * The constructor for {@link DumpsysItem}.
@@ -48,9 +51,12 @@ public class DumpsysItem extends GenericItem {
         setAttribute(BATTERY_STATS, batteryStats);
     }
 
-    /**
-     * Set the {@link DumpsysProcStatsItem} of the bugreport.
-     */
+    /** Set the {@link DumpsysPackageStatsItem} of the bugreport. */
+    public void setPackageStats(DumpsysPackageStatsItem packageStats) {
+        setAttribute(PACKAGE_STATS, packageStats);
+    }
+
+    /** Set the {@link DumpsysProcStatsItem} of the bugreport. */
     public void setProcStats(DumpsysProcStatsItem procStats) {
         setAttribute(PROC_STATS, procStats);
     }
@@ -69,9 +75,12 @@ public class DumpsysItem extends GenericItem {
         return (DumpsysBatteryStatsItem) getAttribute(BATTERY_STATS);
     }
 
-    /**
-     * Get the {@link DumpsysProcStatsItem} of the bugreport.
-     */
+    /** Get the {@link DumpsysPackageStatsItem} of the bugreport. */
+    public DumpsysPackageStatsItem getPackageStats() {
+        return (DumpsysPackageStatsItem) getAttribute(PACKAGE_STATS);
+    }
+
+    /** Get the {@link DumpsysProcStatsItem} of the bugreport. */
     public DumpsysProcStatsItem getProcStats() {
         return (DumpsysProcStatsItem) getAttribute(PROC_STATS);
     }

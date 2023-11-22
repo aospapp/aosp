@@ -141,6 +141,7 @@ public:
 
     uint32_t                getLayerStack() const { return mLayerStack; }
     int32_t                 getDisplayType() const { return mType; }
+    bool                    isPrimary() const { return mType == DISPLAY_PRIMARY; }
     int32_t                 getHwcDisplayId() const { return mHwcDisplayId; }
     const wp<IBinder>&      getDisplayToken() const { return mDisplayToken; }
 
@@ -189,6 +190,7 @@ public:
 #ifdef USE_HWC2
     android_color_mode_t getActiveColorMode() const;
     void setActiveColorMode(android_color_mode_t mode);
+    void setCompositionDataSpace(android_dataspace dataspace);
 #endif
 
     /* ------------------------------------------------------------------------

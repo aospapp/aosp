@@ -16,7 +16,7 @@ LOCAL_PATH:= $(call my-dir)
 
 ANDROID_HARDWARE := ANDROID_HARDWARE_generic
 
-ifneq ($(filter arm arm64 x86 x86_64,$(TARGET_ARCH)),)
+ifneq ($(filter arm arm64 x86_64,$(TARGET_ARCH)),)
 
 vg_arch:=$(TARGET_ARCH)
 
@@ -27,7 +27,7 @@ endif
 common_cflags := \
 	-Wall -Wmissing-prototypes -Wshadow -Wpointer-arith -Wmissing-declarations \
 	-Wno-pointer-sign -Wno-sign-compare -Wno-unused-parameter -Wno-shadow \
-	-fno-strict-aliasing -fno-stack-protector \
+	-fno-strict-aliasing -fno-stack-protector -Wno-tautological-compare -Wno-self-assign \
 	-DVGO_linux=1 \
 	-DANDROID_SYMBOLS_DIR=\"/data/local/symbols\" \
   -std=gnu99
@@ -193,6 +193,8 @@ vg_local_src_files := \
 	coregrind/m_vkiscnums.c \
 	coregrind/m_wordfm.c \
 	coregrind/m_xarray.c \
+	coregrind/m_xtmemory.c \
+	coregrind/m_xtree.c \
 	coregrind/m_aspacehl.c \
 	coregrind/m_aspacemgr/aspacemgr-common.c \
 	coregrind/m_aspacemgr/aspacemgr-linux.c \
@@ -210,12 +212,15 @@ vg_local_src_files := \
 	coregrind/m_debuginfo/readmacho.c \
 	coregrind/m_debuginfo/readpdb.c \
 	coregrind/m_debuginfo/storage.c \
+	coregrind/m_debuginfo/tinfl.c \
 	coregrind/m_debuginfo/tytypes.c \
 	coregrind/m_deduppoolalloc.c \
 	coregrind/m_demangle/cp-demangle.c \
 	coregrind/m_demangle/cplus-dem.c \
+	coregrind/m_demangle/d-demangle.c \
 	coregrind/m_demangle/demangle.c \
 	coregrind/m_demangle/dyn-string.c \
+	coregrind/m_demangle/rust-demangle.c \
 	coregrind/m_demangle/safe-ctype.c \
 	coregrind/m_dispatch/dispatch-x86-linux.S \
 	coregrind/m_dispatch/dispatch-amd64-linux.S \

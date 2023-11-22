@@ -23,8 +23,8 @@
 
 #include "base/array_ref.h"
 #include "base/mutex.h"
+#include "dex_file_types.h"
 #include "handle.h"
-#include "method_resolution_kind.h"
 #include "obj_ptr.h"
 #include "thread.h"
 #include "verifier_enums.h"  // For MethodVerifier::FailureKind.
@@ -39,7 +39,7 @@ class VariableIndentationOutputStream;
 namespace mirror {
 class Class;
 class ClassLoader;
-}
+}  // namespace mirror
 
 namespace verifier {
 
@@ -87,12 +87,10 @@ class VerifierDeps {
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::verifier_deps_lock_);
 
-  // Record the outcome `method` of resolving method `method_idx` from `dex_file`
-  // using `res_kind` kind of method resolution algorithm. If `method` is null,
-  // the method is assumed unresolved.
+  // Record the outcome `method` of resolving method `method_idx` from `dex_file`.
+  // If `method` is null, the method is assumed unresolved.
   static void MaybeRecordMethodResolution(const DexFile& dex_file,
                                           uint32_t method_idx,
-                                          MethodResolutionKind res_kind,
                                           ArtMethod* method)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::verifier_deps_lock_);
@@ -119,8 +117,12 @@ class VerifierDeps {
   bool ValidateDependencies(Handle<mirror::ClassLoader> class_loader, Thread* self) const
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  const std::vector<dex::TypeIndex>& GetUnverifiedClasses(const DexFile& dex_file) const {
+  const std::set<dex::TypeIndex>& GetUnverifiedClasses(const DexFile& dex_file) const {
     return GetDexFileDeps(dex_file)->unverified_classes_;
+  }
+
+  bool OutputOnly() const {
+    return output_only_;
   }
 
  private:
@@ -192,15 +194,15 @@ class VerifierDeps {
     // Sets of recorded class/field/method resolutions.
     std::set<ClassResolution> classes_;
     std::set<FieldResolution> fields_;
-    std::set<MethodResolution> direct_methods_;
-    std::set<MethodResolution> virtual_methods_;
-    std::set<MethodResolution> interface_methods_;
+    std::set<MethodResolution> methods_;
 
     // List of classes that were not fully verified in that dex file.
-    std::vector<dex::TypeIndex> unverified_classes_;
+    std::set<dex::TypeIndex> unverified_classes_;
 
     bool Equals(const DexFileDeps& rhs) const;
   };
+
+  VerifierDeps(const std::vector<const DexFile*>& dex_files, bool output_only);
 
   // Finds the DexFileDep instance associated with `dex_file`, or nullptr if
   // `dex_file` is not reported as being compiled.
@@ -266,7 +268,6 @@ class VerifierDeps {
 
   void AddMethodResolution(const DexFile& dex_file,
                            uint32_t method_idx,
-                           MethodResolutionKind res_kind,
                            ArtMethod* method)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::verifier_deps_lock_);
@@ -320,12 +321,14 @@ class VerifierDeps {
   bool VerifyMethods(Handle<mirror::ClassLoader> class_loader,
                      const DexFile& dex_file,
                      const std::set<MethodResolution>& methods,
-                     MethodResolutionKind kind,
                      Thread* self) const
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Map from DexFiles into dependencies collected from verification of their methods.
   std::map<const DexFile*, std::unique_ptr<DexFileDeps>> dex_deps_;
+
+  // Output only signifies if we are using the verifier deps to verify or just to generate them.
+  const bool output_only_;
 
   friend class VerifierDepsTest;
   ART_FRIEND_TEST(VerifierDepsTest, StringToId);

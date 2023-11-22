@@ -14,6 +14,10 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS Telephony test cases">
+    <target_preparer class="android.telephony.cts.preconditions.TelephonyPreparer">
+        <option name="apk" value="CtsTelephonyPreparerApp.apk" />
+        <option name="package" value="android.telephony.cts.preconditions.app" />
+    </target_preparer>
     <option name="config-descriptor:metadata" key="component" value="telecom" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.TokenRequirement">
         <option name="token" value="sim-card" />
@@ -25,4 +29,14 @@
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.telephony.cts" />
     </test>
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="pm disable com.google.android.dialer/com.android.voicemail.impl.StatusCheckJobService" />
+        <option name="run-command" value="pm disable com.google.android.dialer/com.android.voicemail.impl.OmtpService" />
+        <option name="teardown-command" value="pm enable com.google.android.dialer/com.android.voicemail.impl.StatusCheckJobService" />
+        <option name="teardown-command" value="pm enable com.google.android.dialer/com.android.voicemail.impl.OmtpService" />
+        <option name="run-command" value="pm disable com.android.dialer/com.android.voicemail.impl.StatusCheckJobService" />
+        <option name="run-command" value="pm disable com.android.dialer/com.android.voicemail.impl.OmtpService" />
+        <option name="teardown-command" value="pm enable com.android.dialer/com.android.voicemail.impl.StatusCheckJobService" />
+        <option name="teardown-command" value="pm enable com.android.dialer/com.android.voicemail.impl.OmtpService" />
+    </target_preparer>
 </configuration>

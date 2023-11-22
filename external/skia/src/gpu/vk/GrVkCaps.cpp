@@ -6,7 +6,7 @@
  */
 
 #include "GrVkCaps.h"
-#include "GrRenderTarget.h"
+#include "GrRenderTargetProxy.h"
 #include "GrShaderCaps.h"
 #include "GrVkUtil.h"
 #include "vk/GrVkBackendContext.h"
@@ -20,7 +20,7 @@ GrVkCaps::GrVkCaps(const GrContextOptions& contextOptions, const GrVkInterface* 
     fSupportsCopiesAsDraws = false;
     fMustSubmitCommandsBeforeCopyOp = false;
     fMustSleepOnTearDown  = false;
-    fNewSecondaryCBOnPipelineChange = false;
+    fNewCBOnPipelineChange = false;
 
     /**************************************************************************
     * GrDrawTargetCaps fields
@@ -28,17 +28,15 @@ GrVkCaps::GrVkCaps(const GrContextOptions& contextOptions, const GrVkInterface* 
     fMipMapSupport = true;   // always available in Vulkan
     fSRGBSupport = true;   // always available in Vulkan
     fNPOTTextureTileSupport = true;  // always available in Vulkan
-    fTwoSidedStencilSupport = true;  // always available in Vulkan
-    fStencilWrapOpsSupport = true; // always available in Vulkan
     fDiscardRenderTargetSupport = true;
     fReuseScratchTextures = true; //TODO: figure this out
     fGpuTracingSupport = false; //TODO: figure this out
-    fCompressedTexSubImageSupport = false; //TODO: figure this out
     fOversizedStencilSupport = false; //TODO: figure this out
+    fInstanceAttribSupport = true;
 
     fUseDrawInsteadOfClear = false;
     fFenceSyncSupport = true;   // always available in Vulkan
-    fCrossContextTextureSupport = false; // TODO: Add thread-safe memory pools so we can enable this
+    fCrossContextTextureSupport = false;
 
     fMapBufferFlags = kNone_MapFlags; //TODO: figure this out
     fBufferMapThreshold = SK_MaxS32;  //TODO: figure this out
@@ -53,13 +51,18 @@ GrVkCaps::GrVkCaps(const GrContextOptions& contextOptions, const GrVkInterface* 
     this->init(contextOptions, vkInterface, physDev, featureFlags, extensionFlags);
 }
 
-bool GrVkCaps::initDescForDstCopy(const GrRenderTarget* src, GrSurfaceDesc* desc) const {
+bool GrVkCaps::initDescForDstCopy(const GrRenderTargetProxy* src, GrSurfaceDesc* desc,
+                                  bool* rectsMustMatch, bool* disallowSubrect) const {
+    // Vk doesn't use rectsMustMatch or disallowSubrect. Always return false.
+    *rectsMustMatch = false;
+    *disallowSubrect = false;
+
     // We can always succeed here with either a CopyImage (none msaa src) or ResolveImage (msaa).
     // For CopyImage we can make a simple texture, for ResolveImage we require the dst to be a
     // render target as well.
     desc->fOrigin = src->origin();
     desc->fConfig = src->config();
-    if (src->numColorSamples() > 1 || (src->asTexture() && this->supportsCopiesAsDraws())) {
+    if (src->numColorSamples() > 1 || (src->asTextureProxy() && this->supportsCopiesAsDraws())) {
         desc->fFlags = kRenderTarget_GrSurfaceFlag;
     } else {
         // Just going to use CopyImage here
@@ -94,8 +97,15 @@ void GrVkCaps::init(const GrContextOptions& contextOptions, const GrVkInterface*
     }
 
     if (kNvidia_VkVendor == properties.vendorID) {
-        fSupportsCopiesAsDraws = true;
         fMustSubmitCommandsBeforeCopyOp = true;
+    }
+
+    if (kQualcomm_VkVendor != properties.vendorID) {
+        fSupportsCopiesAsDraws = true;
+    }
+
+    if (fSupportsCopiesAsDraws) {
+        fCrossContextTextureSupport = true;
     }
 
 #if defined(SK_BUILD_FOR_WIN)
@@ -140,6 +150,9 @@ void GrVkCaps::initSampleCount(const VkPhysicalDeviceProperties& properties) {
     VkSampleCountFlags stencilSamples = properties.limits.framebufferStencilSampleCounts;
 
     fMaxColorSampleCount = get_max_sample_count(colorSamples);
+    if (kImagination_VkVendor == properties.vendorID) {
+        fMaxColorSampleCount = 0;
+    }
     fMaxStencilSampleCount = get_max_sample_count(stencilSamples);
 }
 
@@ -170,15 +183,20 @@ void GrVkCaps::initGrCaps(const VkPhysicalDeviceProperties& properties,
 
     fMapBufferFlags = kCanMap_MapFlag | kSubset_MapFlag;
 
-    fStencilWrapOpsSupport = true;
     fOversizedStencilSupport = true;
     fSampleShadingSupport = SkToBool(featureFlags & kSampleRateShading_GrVkFeatureFlag);
 
     // AMD seems to have issues binding new VkPipelines inside a secondary command buffer.
     // Current workaround is to use a different secondary command buffer for each new VkPipeline.
     if (kAMD_VkVendor == properties.vendorID) {
-        fNewSecondaryCBOnPipelineChange = true;
+        fNewCBOnPipelineChange = true;
     }
+
+#if defined(SK_CPU_X86)
+    if (kImagination_VkVendor == properties.vendorID) {
+        fSRGBSupport = false;
+    }
+#endif
 }
 
 void GrVkCaps::initShaderCaps(const VkPhysicalDeviceProperties& properties, uint32_t featureFlags) {
@@ -230,6 +248,9 @@ void GrVkCaps::initShaderCaps(const VkPhysicalDeviceProperties& properties, uint
     }
 
     shaderCaps->fIntegerSupport = true;
+    shaderCaps->fTexelBufferSupport = true;
+    shaderCaps->fTexelFetchSupport = true;
+    shaderCaps->fVertexIDSupport = true;
 
     // Assume the minimum precisions mandated by the SPIR-V spec.
     shaderCaps->fShaderPrecisionVaries = true;
@@ -292,24 +313,22 @@ void GrVkCaps::initConfigTable(const GrVkInterface* interface, VkPhysicalDevice 
     for (int i = 0; i < kGrPixelConfigCnt; ++i) {
         VkFormat format;
         if (GrPixelConfigToVkFormat(static_cast<GrPixelConfig>(i), &format)) {
-            fConfigTable[i].init(interface, physDev, format);
+            if (!GrPixelConfigIsSRGB(static_cast<GrPixelConfig>(i)) || fSRGBSupport) {
+                fConfigTable[i].init(interface, physDev, format);
+            }
         }
     }
-
-    // We currently do not support compressed textures in Vulkan
-    const uint16_t kFlagsToRemove = ConfigInfo::kTextureable_Flag|ConfigInfo::kRenderable_Flag;
-    fConfigTable[kETC1_GrPixelConfig].fOptimalFlags &= ~kFlagsToRemove;
-    fConfigTable[kETC1_GrPixelConfig].fLinearFlags &= ~kFlagsToRemove;
 }
 
 void GrVkCaps::ConfigInfo::InitConfigFlags(VkFormatFeatureFlags vkFlags, uint16_t* flags) {
     if (SkToBool(VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT & vkFlags) &&
         SkToBool(VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT & vkFlags)) {
         *flags = *flags | kTextureable_Flag;
-    }
 
-    if (SkToBool(VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT & vkFlags)) {
-        *flags = *flags | kRenderable_Flag;
+        // Ganesh assumes that all renderable surfaces are also texturable
+        if (SkToBool(VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT & vkFlags)) {
+            *flags = *flags | kRenderable_Flag;
+        }
     }
 
     if (SkToBool(VK_FORMAT_FEATURE_BLIT_SRC_BIT & vkFlags)) {
@@ -321,6 +340,47 @@ void GrVkCaps::ConfigInfo::InitConfigFlags(VkFormatFeatureFlags vkFlags, uint16_
     }
 }
 
+void GrVkCaps::ConfigInfo::initSampleCounts(const GrVkInterface* interface,
+                                            VkPhysicalDevice physDev,
+                                            VkFormat format) {
+    VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                              VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                              VK_IMAGE_USAGE_SAMPLED_BIT |
+                              VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    VkImageCreateFlags createFlags = GrVkFormatIsSRGB(format, nullptr)
+        ? VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT : 0;
+    VkImageFormatProperties properties;
+    GR_VK_CALL(interface, GetPhysicalDeviceImageFormatProperties(physDev,
+                                                                 format,
+                                                                 VK_IMAGE_TYPE_2D,
+                                                                 VK_IMAGE_TILING_OPTIMAL,
+                                                                 usage,
+                                                                 createFlags,
+                                                                 &properties));
+    VkSampleCountFlags flags = properties.sampleCounts;
+    if (flags & VK_SAMPLE_COUNT_1_BIT) {
+        fColorSampleCounts.push(0);
+    }
+    if (flags & VK_SAMPLE_COUNT_2_BIT) {
+        fColorSampleCounts.push(2);
+    }
+    if (flags & VK_SAMPLE_COUNT_4_BIT) {
+        fColorSampleCounts.push(4);
+    }
+    if (flags & VK_SAMPLE_COUNT_8_BIT) {
+        fColorSampleCounts.push(8);
+    }
+    if (flags & VK_SAMPLE_COUNT_16_BIT) {
+        fColorSampleCounts.push(16);
+    }
+    if (flags & VK_SAMPLE_COUNT_32_BIT) {
+        fColorSampleCounts.push(32);
+    }
+    if (flags & VK_SAMPLE_COUNT_64_BIT) {
+        fColorSampleCounts.push(64);
+    }
+}
+
 void GrVkCaps::ConfigInfo::init(const GrVkInterface* interface,
                                 VkPhysicalDevice physDev,
                                 VkFormat format) {
@@ -329,4 +389,22 @@ void GrVkCaps::ConfigInfo::init(const GrVkInterface* interface,
     GR_VK_CALL(interface, GetPhysicalDeviceFormatProperties(physDev, format, &props));
     InitConfigFlags(props.linearTilingFeatures, &fLinearFlags);
     InitConfigFlags(props.optimalTilingFeatures, &fOptimalFlags);
+    if (fOptimalFlags & kRenderable_Flag) {
+        this->initSampleCounts(interface, physDev, format);
+    }
 }
+
+int GrVkCaps::getSampleCount(int requestedCount, GrPixelConfig config) const {
+    int count = fConfigTable[config].fColorSampleCounts.count();
+    if (!count || !this->isConfigRenderable(config, true)) {
+        return 0;
+    }
+
+    for (int i = 0; i < count; ++i) {
+        if (fConfigTable[config].fColorSampleCounts[i] >= requestedCount) {
+            return fConfigTable[config].fColorSampleCounts[i];
+        }
+    }
+    return fConfigTable[config].fColorSampleCounts[count-1];
+}
+

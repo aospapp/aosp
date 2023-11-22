@@ -36,7 +36,7 @@ below) or instantiated inline as local varibles.
 
 To invoke this test locally:
 
-  test_that --args="<ARGLIST>" <DUT-IPADDR> autoupdate_EndToEndTest
+  test_that <DUT-IPADDR> autoupdate_EndToEndTest --args="<ARGLIST>"
 
 where ARGLIST is a whitespace separated list of the following key=value pairs.
 Values pertaining to the test case include:
@@ -64,65 +64,110 @@ Values pertaining to the test case include:
                           payload location is separate from that of the build
                           artifacts (e.g. it is in gs://chromeos-releases).
 
-Please note, this test spawns omaha server instances (devserver) on a devserver
-configured in your global_config using autotest's ssh mechanism. This means that
-if you are running this locally and intend to use a local devserver, you will
-need to setup your ssh keys for public key authentication e.g. create keys,
-ssh-add the private key, add the public key to your authorized keys and finally
-enable public key authentication in your sshd config.
 
 To run locally:
-  Create src/third_party/autotest/files/shadow_config.ini:
+1. Find the Google Storage URIs of the images you want to use during the test.
+    You can choose payloads from either of these two buckets:
+      gs://chromeos-image-archive/
+      gs://chromeos-releases/
+
+    Sample full payload URL:
+      gs://chromeos-image-archive/lumpy-release/R30-4462.0.0/
+      chromeos_R30-4462.0.0_lumpy_full_dev.bin
+
+    Sample delta payload URL:
+      gs://chromeos-image-archive/lumpy-release/R30-4463.0.0/
+      chromeos_R30-4462.0.0_R30-4463.0.0_lumpy_delta_dev.bin
+
+    Sample from gs://chromeos-releases:
+      gs://chromeos-releases/dev-channel/samus/9433.0.0/payloads/chromeos_9433.0
+      .0_samus_dev-channel_full_test.bin-1e2db02f3bd9d9ebe74dc81fc7038919
+
+2. Choose the devserver you want to use.
+    This test uses a devserver to control the autoupdate. You can point to a
+    devserver on your workstation to aid debugging or you can choose to use a
+    devserver in the lab.
+
+    To start your own devserver, run this (outside the chroot):
+    src/platform/dev/devserver.py --port=8084
+
+    (Note: DO NOT use start_devserver! Even though it gives the impression of
+    running the server outside the chroot, it actually starts a chroot and runs
+    the server inside of it.)
+
+    Create src/third_party/autotest/files/shadow_config.ini and add these lines:
     [CROS]
-    devserver_dir = <full repo path>/src/platform/dev
-    dev_server = http://<hostname>:8080
+    devserver_dir = ~/chromiumos/src/platform/dev
+    dev_server = http://<hostname>:<port>
 
-  Configure SSH for passwordless loopback access to your account.
-    ssh-keygen (If you don't already have SSH keys setup)
-    cp ~/.ssh/id_rsa chroot/home/<user>/.ssh/
+    For a devserver running on your workstation use 127.0.0.1 as the hostname.
+    For a devserver running in the lab the port is usually 8082.
 
-    # This is NOT permanent, you'll have to redo it about once a day.
-    sudo sed -i 's/PubkeyAuthentication no/PubkeyAuthentication yes/' \
-        /etc/ssh/sshd_config
-    sudo /etc/init.d/ssh restart
+    The devserver needs to be able to reach the DUT you choose in the next
+    section. Look up the dev_server_common.ini.erb (in repo chromeos_admin) for
+    dev_server & restricted_subnet fields to pick a devserver in the same
+    subnet with the testing DUT.
 
-    Enter a chroot, and ssh to <hostname>. If it doesn't work, fix that.
+3. Choose the DUT you want to use for the test.
+   You can use a DUT on your desk connected to corp or you can lock a DUT
+   in the lab for use in the test.
 
-  Make sure you have your gsutil permissions (your .boto file).
+4. Setup ssh correctly (Helpful for debugging, skip as needed)
+    Run ssh-keygen to generate your id_rsa and id_rsa.pub files into ~/.ssh/
+
+    Download the testing_rsa ssh keys from here:
+    https://chromium.googlesource.com/chromiumos/chromite/+/master/ssh_keys
+    Save both to ~/.ssh
+    chmod 600 ~/.ssh/testing_rsa* (otherwise permissions are too loose and
+    will be ignored)
+
+    Add these lines to your ~/.ssh/config
+    Host *.cros
+      User root
+      IdentityFile /usr/local/google/home/<your ldap here>/.ssh/testing_rsa
+
+    You should now be able to ssh into DUTs in the lab without a password.
+
+    To ssh into lab devservers you need to download the chromium key file from:
+    chromeos_internal//chromeos-admin/puppet/modules/users/files/chromeos
+    -test/ssh/chromium
+
+    Save the file to ~/.ssh/ and run chmod 600 on it.
+    Then add these lines to your ~/.ssh/config
+
+    Host <devserver hostname>
+      GSSAPITrustDns no
+      GSSAPIDelegateCredentials no
+      GSSAPIAuthentication no
+      ForwardAgent no
+      ForwardX11 no
+      PreferredAuthentications publickey
+      StrictHostKeyChecking no
+      User chromeos-test
+      IdentityFile %d/.ssh/chromium
+
+    Check that you can now ssh into a lab devserver without a password.
+
+    Copy the ssh files to your chroot's .ssh folder to ssh from there.
+
+5. Make sure you have your gsutil permissions (your .boto file).
     Your .boto file must be available inside the chroot.
     cp ~/.boto chroot/home/<user>/
 
-  Make sure the gsutil command is available outside the chroot (note:
-  the gsutil package in Ubuntu is not what you're looking for.)
+    Make sure the gsutil command is available outside the chroot (note:
+    the gsutil package in Ubuntu is not what you're looking for.)
 
-  Start a devserver (outside the chroot):
-    src/platform/dev/devserver.py
+6. Kick off the test with test_that from a chroot. e.g
+      test_that <IP OF DUT> autoupdate_EndToEndTest
+      --args="target_release=9436.0.0
+      source_payload_uri='gs://chromeos-image-archive/samus-release/
+      R59-9433.0.0/chromeos_R59-9433.0.0_samus_full_dev.bin'
+      target_payload_uri='gs://chromeos-image-archive/samus-release/
+      R59-9436.0.0/chromeos_R59-9436.0.0_samus_full_dev.bin'
+      source_release=9433.0.0 update_type=full"
 
-  (Note: DO NOT use start_devserver! Even though it gives the impression of
-  running the server outside the chroot, it actually starts a chroot and runs
-  the server inside of it.)
+7. Unlock any DUTs you locked for debugging when you are done.
 
-  To make sure your test edits are used:
-    cros_sdk
-    cros_workon start autotest
-
-  Example:
-    cros_sdk
-    test_that <dut_ip> autoupdate_EndToEndTest \
-      --args="target_release=<Target Build Id> \
-              source_payload_uri=<Full Payload URI> \
-              target_payload_uri=<Tested Payload URI>"
-
-  Sample full payload URL:
-    gs://chromeos-image-archive/lumpy-release/R30-4462.0.0/
-    chromeos_R30-4462.0.0_lumpy_full_dev.bin
-
-  Sample target build id:
-    4463.0.0
-
-  Sample test payload URL:
-    gs://chromeos-image-archive/lumpy-release/R30-4463.0.0/
-    chromeos_R30-4462.0.0_R30-4463.0.0_lumpy_delta_dev.bin
 """
 
 TEST_CONF_KEYS = (

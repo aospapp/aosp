@@ -15,7 +15,7 @@ from autotest_lib.client.cros.input_playback import input_playback
 class platform_InputScreenshot(test.test):
     """Tests if key combinations will create a screenshot."""
     version = 1
-    _WAIT = 2
+    _WAIT = 5
     _TMP = '/tmp'
     _DOWNLOADS = '/home/chronos/user/Downloads'
     _SCREENSHOT = 'Screenshot*'

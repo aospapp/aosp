@@ -16,9 +16,11 @@ non_openjdk_javadoc_files := \
   luni/src/main/java/android/system/StructLinger.java \
   luni/src/main/java/android/system/StructPasswd.java \
   luni/src/main/java/android/system/StructPollfd.java \
+  luni/src/main/java/android/system/StructRlimit.java \
   luni/src/main/java/android/system/StructStat.java \
   luni/src/main/java/android/system/StructStatVfs.java \
   luni/src/main/java/android/system/StructTimeval.java \
+  luni/src/main/java/android/system/StructTimespec.java \
   luni/src/main/java/android/system/StructUcred.java \
   luni/src/main/java/android/system/StructUtsname.java \
   luni/src/main/java/android/util/MutableBoolean.java \
@@ -51,6 +53,7 @@ non_openjdk_javadoc_files := \
   dalvik/src/main/java/dalvik/system/CloseGuard.java \
   dalvik/src/main/java/dalvik/system/DalvikLogHandler.java \
   dalvik/src/main/java/dalvik/system/DalvikLogging.java \
+  dalvik/src/main/java/dalvik/system/DelegateLastClassLoader.java \
   dalvik/src/main/java/dalvik/system/DexClassLoader.java \
   dalvik/src/main/java/dalvik/system/DexFile.java \
   dalvik/src/main/java/dalvik/system/DexPathList.java \
@@ -237,17 +240,6 @@ non_openjdk_javadoc_files := \
   xml/src/main/java/org/xmlpull/v1/sax2/Driver.java \
 
 non_openjdk_java_files := \
-  dalvik/src/main/java/dalvik/system/profiler/AsciiHprofWriter.java \
-  dalvik/src/main/java/dalvik/system/profiler/BinaryHprof.java \
-  dalvik/src/main/java/dalvik/system/profiler/BinaryHprofReader.java \
-  dalvik/src/main/java/dalvik/system/profiler/BinaryHprofWriter.java \
-  dalvik/src/main/java/dalvik/system/profiler/DalvikThreadSampler.java \
-  dalvik/src/main/java/dalvik/system/profiler/HprofBinaryToAscii.java \
-  dalvik/src/main/java/dalvik/system/profiler/HprofData.java \
-  dalvik/src/main/java/dalvik/system/profiler/MalformedHprofException.java \
-  dalvik/src/main/java/dalvik/system/profiler/PortableThreadSampler.java \
-  dalvik/src/main/java/dalvik/system/profiler/SamplingProfiler.java \
-  dalvik/src/main/java/dalvik/system/profiler/ThreadSampler.java \
   luni/src/main/java/android/system/UnixSocketAddress.java \
   luni/src/main/java/java/net/AddressCache.java \
   luni/src/main/java/libcore/icu/CollationKeyICU.java \

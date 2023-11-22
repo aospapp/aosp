@@ -50,11 +50,74 @@ public class ModuleSplitterTest {
 
         IConfiguration config = new Configuration("fakeConfig", "desc");
         config.setTargetPreparer(new StubTargetPreparer());
+        StubTest test = new StubTest();
+        OptionSetter setterTest = new OptionSetter(test);
+        // allow StubTest to shard in 6 sub tests
+        setterTest.setOptionValue("num-shards", "6");
+        config.setTest(test);
 
         OptionSetter setter = new OptionSetter(config.getConfigurationDescription());
         setter.setOptionValue("not-shardable", "true");
         runConfig.put("module1", config);
         List<ModuleDefinition> res = ModuleSplitter.splitConfiguration(runConfig, 5, true);
+        // matching 1 for 1, config to ModuleDefinition since not shardable
+        assertEquals(1, res.size());
+        // The original target preparer is changed since we split multiple <test> tags.
+        assertNotSame(config.getTargetPreparers().get(0), res.get(0).getTargetPreparers().get(0));
+        // The original IRemoteTest is still there because we use a pool.
+        assertSame(config.getTests().get(0), res.get(0).getTests().get(0));
+    }
+
+    /**
+     * Tests that {@link ModuleSplitter#splitConfiguration(LinkedHashMap, int, boolean)} on a non
+     * strict shardable configuration and a dynamic context results in a matching ModuleDefinitions
+     * to be created for each shards since they will be sharded.
+     */
+    @Test
+    public void testSplitModule_configNotStrictShardable_dynamic() throws Exception {
+        LinkedHashMap<String, IConfiguration> runConfig = new LinkedHashMap<>();
+
+        IConfiguration config = new Configuration("fakeConfig", "desc");
+        config.setTargetPreparer(new StubTargetPreparer());
+        StubTest test = new StubTest();
+        OptionSetter setterTest = new OptionSetter(test);
+        // allow StubTest to shard in 6 sub tests
+        setterTest.setOptionValue("num-shards", "6");
+        config.setTest(test);
+
+        OptionSetter setter = new OptionSetter(config.getConfigurationDescription());
+        setter.setOptionValue("not-strict-shardable", "true");
+        runConfig.put("module1", config);
+        List<ModuleDefinition> res = ModuleSplitter.splitConfiguration(runConfig, 5, true);
+        // We are sharding since even if we are not-strict-shardable, we are in dynamic context
+        assertEquals(10, res.size());
+        // The original target preparer is changed since we split multiple <test> tags.
+        assertNotSame(config.getTargetPreparers().get(0), res.get(0).getTargetPreparers().get(0));
+        // The original IRemoteTest is changed since it was sharded
+        assertNotSame(config.getTests().get(0), res.get(0).getTests().get(0));
+    }
+
+    /**
+     * Tests that {@link ModuleSplitter#splitConfiguration(LinkedHashMap, int, boolean)} on a non
+     * strict shardable configuration and not dymaic results in a matching ModuleDefinition to be
+     * created with the same objects, since we will not be sharding.
+     */
+    @Test
+    public void testSplitModule_configNotStrictShardable_notDynamic() throws Exception {
+        LinkedHashMap<String, IConfiguration> runConfig = new LinkedHashMap<>();
+
+        IConfiguration config = new Configuration("fakeConfig", "desc");
+        config.setTargetPreparer(new StubTargetPreparer());
+        StubTest test = new StubTest();
+        OptionSetter setterTest = new OptionSetter(test);
+        // allow StubTest to shard in 6 sub tests
+        setterTest.setOptionValue("num-shards", "6");
+        config.setTest(test);
+
+        OptionSetter setter = new OptionSetter(config.getConfigurationDescription());
+        setter.setOptionValue("not-strict-shardable", "true");
+        runConfig.put("module1", config);
+        List<ModuleDefinition> res = ModuleSplitter.splitConfiguration(runConfig, 5, false);
         // matching 1 for 1, config to ModuleDefinition since not shardable
         assertEquals(1, res.size());
         // The original target preparer is changed since we split multiple <test> tags.

@@ -301,12 +301,6 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".system.AccessibilityActivity"
-            android:theme="@style/Theme.Settings.Transparent"
-            android:configChanges="keyboard|keyboardHidden|navigation"
-            android:excludeFromRecents="true"
-            android:exported="true" />
-        <activity
             android:name=".system.CaptionSetupActivity"
             android:configChanges="keyboard|keyboardHidden|navigation"
             android:excludeFromRecents="true"

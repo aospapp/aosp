@@ -1,0 +1,45 @@
+# Copyright 2016 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# TODO Integrate these changes back into cts_N as soon as partners have a
+# chance to configure their DUT's correctly and documentation is complete.
+
+AUTHOR = 'ARC++ Team'
+NAME = 'cheets_CTS_N.x86.CtsUsageStatsTestCasesPreconditions'
+ATTRIBUTES = 'suite:cts_N_Pre'
+DEPENDENCIES = 'arc, cts_abi_x86'
+JOB_RETRIES = 2
+TEST_TYPE = 'server'
+TIME = 'LENGTHY'
+
+DOC = ('Run module CtsUsageStatsTestCases of the '
+       'Android 7.1_r6 Compatibility Test Suite (CTS), build 4009365,'
+       'using x86 ABI in the ARC++ container.')
+
+if not ssid:
+  ssid = 'GoogleGuest'
+
+if not wifipass:
+  wifipass = ''
+
+def run_CTS(machine):
+    host = hosts.create_host(machine)
+    job.run_test(
+        'cheets_CTS_N',
+        host=host,
+        iterations=1,
+        max_retry=3,
+        needs_push_media=False,
+        tag='CtsUsageStatsTestCases',
+        target_module='CtsUsageStatsTestCases',
+        bundle='x86',
+        timeout=3600,
+        warn_on_test_retry=False,
+        pre_condition_commands=[
+	   '/usr/local/autotest/cros/scripts/wifi connect %s %s' % (ssid, wifipass),
+	   '/usr/local/autotest/cros/scripts/reorder-services-moblab.sh wifi',
+
+        ])
+
+parallel_simple(run_CTS, machines)

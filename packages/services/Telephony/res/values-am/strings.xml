@@ -78,7 +78,6 @@
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"የድምጽ መልዕክት (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"VM:"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"ማሳወቂያዎች"</string>
-    <string name="networks" msgid="8873030692174541976">"የአውታረ መረብ ትእምርተ ከዋኝ"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"የአስቸኳይ አደጋ ስርጭቶች"</string>
     <string name="call_settings" msgid="6112441768261754562">"የጥሪ ቅንብሮች"</string>
     <string name="additional_gsm_call_settings" msgid="1391795981938800617">"ተጨማሪ ቅንብሮች"</string>
@@ -164,20 +163,18 @@
     <string name="label_available" msgid="1181658289009300430">"የሚገኙ አውታረመረቦች"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"በመፈለግ ላይ…"</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"ምንም አውታረመረብ አልተገኘም።"</string>
-    <string name="search_networks" msgid="1601136049300882441">"አውታረመረቦች ፈልግ"</string>
     <string name="network_query_error" msgid="6828516148953325006">"አውታረ መረቦች በመፈለግ ላይ ስህተት"</string>
     <string name="register_on_network" msgid="9055203954040805084">"በ<xliff:g id="NETWORK">%s</xliff:g> ላይ በመመዝገብ ላይ..."</string>
     <string name="not_allowed" msgid="5613353860205691579">"የSIM ካርድህ ወደዚህ አውታረመረብ  ግንኙነት አይፈቅድም።"</string>
     <string name="connect_later" msgid="2308119155752343975">"በአሁን ጊዜ ወደዚህ አውታረ መረብ ማገናኘት አልተቻለም፡፡ በኋላ እንደገና ሞክር፡፡"</string>
     <string name="registration_done" msgid="495135664535876612">"በአውታረ መረብ ላይ የተመዘገበ።"</string>
-    <string name="sum_carrier_select" msgid="3494252551249882718">"የአውታረ መረብ ከዋኝ ምረጥ"</string>
-    <string name="sum_search_networks" msgid="2921092249873272715">"የሚገኙ አውታረመረቦች በሙሉ ፈልግ"</string>
-    <string name="select_automatically" msgid="5628402124471810174">"በራስ ሰር ምረጥ"</string>
-    <string name="sum_select_automatically" msgid="5614890115123292400">"ተመራጭ አውታረ መረብን በራስ ሰር ምረጥ"</string>
+    <string name="select_automatically" msgid="1046727200631770962">"አውታረ መረብን በራስ ሰር ይምረጡ"</string>
+    <string name="network_select_title" msgid="7733107364757544558">"አውታረ መረብ"</string>
     <string name="register_automatically" msgid="6017849844573519637">"ራስ ሰር ምዝገባ...."</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"የሚመረጠው የአውታረ መረብ አይነት"</string>
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"የአውታረመረቡንመከወኛ ሁነታ ለውጥ"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"የሚመረጠው የአውታረ መረብ አይነት"</string>
+    <string name="forbidden_network" msgid="4384929668343563440">"(የተከለከለ)"</string>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"ተመራጭ የአውታረመረብ ፡WCDMA ሁነታ ተመራጭ"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"ተመራጭ የአውታረመረብ ፡GSM ሁነታ ብቻ"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"ተመራጭ የአውታረመረብ ፡WCDMA ሁነታ ብቻ"</string>
@@ -210,18 +207,34 @@
     <item msgid="1524224863879435516">"GSM ብቻ"</item>
     <item msgid="3817924849415716259">"GSM / WCDMA ተመራጭ"</item>
   </string-array>
+    <string name="call_category" msgid="5863978196309462052">"በመደወል ላይ"</string>
+    <string name="network_operator_category" msgid="4830701959205735636">"አውታረ መረብ"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"የተሻሻለ የ4ጂ LTE ሁነታ"</string>
     <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"የላቀ ጥሪ ማድረግ"</string>
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"የድምፅ እና ሌሎች የመልዕክት ልውውጦችን ለማሻሻል LTE አገልግሎቶችን ይጠቀሙ (የሚመከር)"</string>
     <string name="data_enabled" msgid="5972538663568715366">"ውሂብ ነቅቷል"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"የውሂብ አጠቃቀም ፍቀድ"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"ትኩረት"</string>
-    <string name="roaming" msgid="8871412572928323707">"ውሂብ በእንቅስቃሴ ላይ"</string>
+    <string name="roaming" msgid="7894878421600247140">"በማዛወር ላይ"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"በእንቅስቃሴ ላይ ሲሆን ወደ ውሂብ አገልግሎቶች ተያያዝ"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"በእንቅስቃሴ ላይ ሲሆን ወደ ውሂብ አገልግሎቶች ተያያዝ"</string>
     <string name="roaming_reenable_message" msgid="8913735676127858115">"የውሂብ ተያያዥነት የጠፋበት ምክንያት የቤትህን አውታረ መረብ እንቅስቃሴ ውሂብ በማጥፋትህ ነው።"</string>
     <string name="roaming_warning" msgid="1603164667540144353">"ከፍተኛ ክፍያዎችን ሊያስከትልብዎት ይችላል።"</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"የውሂብ ዝውውር ፍቀድ?"</string>
+    <string name="data_usage_title" msgid="8759619109516889802">"የውሂብ አጠቃቀም"</string>
+    <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_1">%1$s</xliff:g> ጥቅም ላይ የዋለ የተንቀሳቃሽ ስልክ ውሂብ <xliff:g id="ID_2">%2$s</xliff:g>"</string>
+    <string name="advanced_options_title" msgid="8074895510265488035">"የላቀ"</string>
+    <string name="carrier_settings_euicc" msgid="6714062862127226405">"አገልግሎት አቅራቢ"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"አገልግሎት አቅራቢ፣ esim፣ ሲም፣ euicc"</string>
+    <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> — <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
+    <string name="mobile_data_settings_title" msgid="4661165467914727157">"የተንቀሳቃሽ ስልክ ውሂብ"</string>
+    <string name="mobile_data_settings_summary" msgid="5087255915840576895">"የተንቀሳቃሽ ስልክ አውታረ መረብን በመጠቀም ውሂብን ይድረሱበት"</string>
+    <string name="data_usage_disable_mobile" msgid="3577275288809667615">"የተንቀሳቃሽ ስልክ ውሂብ ይጥፋ?"</string>
+    <string name="sim_selection_required_pref" msgid="7049424902961844236">"መምረጥ ያስፈልጋል"</string>
+    <string name="sim_change_data_title" msgid="5332425991853799280">"የውሂብ ሲም ይቀየር?"</string>
+    <string name="sim_change_data_message" msgid="2163963581444907496">"ለተንቀሳቃሽ ስልክ ውሂብ በ<xliff:g id="OLD_SIM">%2$s</xliff:g> ፈንታ <xliff:g id="NEW_SIM">%1$s</xliff:g>ን ይጠቀማሉ?"</string>
+    <string name="wifi_calling_settings_title" msgid="7741961465416430470">"የWi-Fi ጥሪ"</string>
+    <string name="video_calling_settings_title" msgid="539714564273795574">"የአገልግሎት አቅራቢ የቪዲዮ ጥሪ"</string>
     <string name="gsm_umts_options" msgid="6538311689850981686">"GSM/UMTS አማራጮች"</string>
     <string name="cdma_options" msgid="4016822858172249884">"CDMA አማራጮች"</string>
     <string name="throttle_data_usage" msgid="3715677828160555808">"የውሂብ አጠቃቀም"</string>
@@ -452,7 +465,7 @@
     <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"የተንቀሳቃሽ ስልክ አውታረ መረብ አይገኝም። ጥሪ ለማድረግ ከሽቦ አልባ አውታረ መረብ ጋር ያገናኙ።"</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"አንድ ጥሪ ለማድረግ የሚሰራ ቁጥር ያስገቡ።"</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"ጥሪ አልተሳካም።"</string>
-    <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"ጥሪ በአሁኑ ጊዜ ሊታከል አይችልም።"</string>
+    <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"ጥሪ አሁን መታከል አይችልም። መልዕክት በመላክ ለማግኘት መሞከር ይችላሉ።"</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"አገልግሎት አይደገፍም"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"ጥሪዎችን መቀያየር አልተቻለም።"</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"ጥሪን መለየት አልተቻለም።"</string>
@@ -572,6 +585,8 @@
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"እጅግ በጣም ብዙ ንቁ ጥሪዎች አሉ። እባክዎ አዲስ ከማስቀመጥዎ በፊት ያሉትን ጥሪዎች ይጨርሱ ወይም ያዋህዱ።"</string>
     <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"መገናኘት አልተቻለም፣ እባክዎ ትክክል የሆነ SIM ካርድ ያስገቡ።"</string>
     <string name="callFailed_wifi_lost" msgid="5968076625137297184">"የWi-Fi ግንኙነት ጠፍቷል። ጥሪ አብቅቷል።"</string>
+    <string name="dialFailed_low_battery" msgid="8760548177088774268">"የቪዲዮ ጥሪዎ በዝቅተኛ ባትሪ ምክንያት መደረግ አይችልም።"</string>
+    <string name="callFailed_low_battery" msgid="4913582435905872616">"ቪዲዮ ጥሪ በዝቅተኛ ባትሪ ምክንያት ተቋርጧል።"</string>
     <string name="change_pin_title" msgid="7790232089699034029">"የድምፅ መልዕክት ፒን ለውጥ"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"ቀጥል"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"ይቅር"</string>
@@ -584,4 +599,18 @@
     <string name="change_pin_confirm_pins_dont_match" msgid="4795052654904027909">"ፒኖች አይዛመዱም"</string>
     <string name="change_pin_succeeded" msgid="2022852286442211151">"የድምፅ መልዕክት ፒን ዘምኗል"</string>
     <string name="change_pin_system_error" msgid="8308462387154257840">"ፒን ማዘጋጀት አልተቻለም"</string>
+    <string name="mobile_data_status_roaming_turned_off_subtext" msgid="935636805765823307">"የውሂብ ዝውውር ጠፍቷል"</string>
+    <string name="mobile_data_status_roaming_turned_on_subtext" msgid="1335176927083781041">"የውሂብ ዝውውር በርቷል"</string>
+    <string name="mobile_data_status_roaming_without_plan_subtext" msgid="3568412513831673037">"አሁን በመዘዋወር ላይ፣ የውሂብ ዕቅድ ያስፈልጋል"</string>
+    <string name="mobile_data_status_roaming_with_plan_subtext" msgid="8721998948811064377">"አሁን በመዘዋወር ላይ፣ የውሂብ ዕቅድ ነቅቷል"</string>
+    <string name="mobile_data_status_no_plan_subtext" msgid="4887747337017565725">"የቀረ የተንቃሳቃሽ ስልክ ውሂብ የለም"</string>
+    <string name="mobile_data_activate_prepaid" msgid="7447025165850512683">"የቀረ የተንቃሳቃሽ ስልክ ውሂብ የለም"</string>
+    <string name="mobile_data_activate_prepaid_summary" msgid="5705389791791637666">"የተንቀሳቃሽ ስልክ ውሂብ በ<xliff:g id="PROVIDER_NAME">%s</xliff:g> በኩል ያክሉ"</string>
+    <string name="mobile_data_activate_roaming_plan" msgid="5998161536947086264">"የመዘዋወር ዕቅድ የለም"</string>
+    <string name="mobile_data_activate_roaming_plan_summary" msgid="511202908883425459">"የመዘዋወር ዕቅድ በ<xliff:g id="PROVIDER_NAME">%s</xliff:g> በኩል ያክሉ"</string>
+    <string name="mobile_data_activate_footer" msgid="5979019929980140594">"በአገልግሎት አቅራቢዎ <xliff:g id="PROVIDER_NAME">%s</xliff:g> በኩል የተንቀሳቃሽ ስልክ ውሂብ ወይም የመዘዋወር ዕቅድ ማከል ይችላሉ።"</string>
+    <string name="mobile_data_activate_diag_title" msgid="9044252207707864493">"ውሂብ ይታከል?"</string>
+    <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"በ<xliff:g id="PROVIDER_NAME">%s</xliff:g> በኩል ውሂብ ማከል ሊያስፈልግዎ ይችላል"</string>
+    <string name="mobile_data_activate_button" msgid="3682400969184405446">"ውሂብ አክል"</string>
+    <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"ይቅር"</string>
 </resources>

@@ -17,9 +17,11 @@
 package com.android.tv.tuner.source;
 
 import android.content.Context;
+import android.support.annotation.VisibleForTesting;
 
-import com.android.tv.tuner.data.nano.Channel;
+import com.android.tv.tuner.TunerHal;
 import com.android.tv.tuner.data.TunerChannel;
+import com.android.tv.tuner.data.nano.Channel;
 import com.android.tv.tuner.tvinput.EventDetector;
 
 import java.util.Map;
@@ -31,8 +33,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * One TsDataSourceManager should be created for per session.
  */
 public class TsDataSourceManager {
-    private static String TAG = "TsDataSourceManager";
-
     private static final Object sLock = new Object();
     private static final Map<TsDataSource, TsStreamer> sTsStreamers =
             new ConcurrentHashMap<>();
@@ -80,7 +80,7 @@ public class TsDataSourceManager {
             if (mIsRecording) {
                 return null;
             }
-            FileTsStreamer streamer = new FileTsStreamer(eventListener);
+            FileTsStreamer streamer = new FileTsStreamer(eventListener, context);
             if (streamer.startStream(channel)) {
                 TsDataSource source = streamer.createDataSource();
                 sTsStreamers.put(source, streamer);
@@ -124,6 +124,14 @@ public class TsDataSourceManager {
      */
     public void setKeepTuneStatus(boolean keepTuneStatus) {
         mKeepTuneStatus = keepTuneStatus;
+    }
+
+    /**
+     * Add tuner hal into TunerTsStreamerManager for test.
+     */
+    @VisibleForTesting
+    public void addTunerHalForTest(TunerHal tunerHal) {
+        mTunerStreamerManager.addTunerHal(tunerHal, mId);
     }
 
     /**

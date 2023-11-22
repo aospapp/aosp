@@ -30,6 +30,8 @@ class FwmarkServer : public SocketListener {
 public:
     explicit FwmarkServer(NetworkController* networkController, EventReporter* eventReporter);
 
+    static constexpr const char* SOCKET_NAME = "fwmarkd";
+
 private:
     // Overridden from SocketListener:
     bool onDataAvailable(SocketClient* client);

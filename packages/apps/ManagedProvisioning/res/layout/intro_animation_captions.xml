@@ -20,6 +20,7 @@
 <!--Visible part of the text strip acting as a viewport.-->
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/text_animation_viewport"
     android:layout_width="@dimen/info_view_width"
     android:layout_height="wrap_content"
     android:layout_marginTop="@dimen/spacer_24">

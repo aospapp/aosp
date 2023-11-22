@@ -16,8 +16,6 @@
 
 package libcore.javax.crypto;
 
-import static libcore.java.security.SignatureTest.hexToBytes;
-
 import junit.framework.AssertionFailedError;
 import junit.framework.TestCase;
 
@@ -45,34 +43,35 @@ import java.util.List;
 import javax.crypto.KeyAgreement;
 import javax.crypto.SecretKey;
 import javax.crypto.ShortBufferException;
+import libcore.util.HexEncoding;
 
 /**
  * Tests for all registered Elliptic Curve Diffie-Hellman {@link KeyAgreement} providers.
  */
 public class ECDHKeyAgreementTest extends TestCase {
     // Two key pairs and the resulting shared secret for the Known Answer Test
-    private static final byte[] KAT_PUBLIC_KEY1_X509 = hexToBytes(
+    private static final byte[] KAT_PUBLIC_KEY1_X509 = HexEncoding.decode(
             "3059301306072a8648ce3d020106082a8648ce3d030107034200049fc2f71f85446b1371244491d83"
             + "9cf97b5d27cedbb04d2c0058b59709df3a216e6b4ca1b2d622588c5a0e6968144a8965e816a600c"
             + "05305a1da3df2bf02b41d1");
-    private static final byte[] KAT_PRIVATE_KEY1_PKCS8 = hexToBytes(
+    private static final byte[] KAT_PRIVATE_KEY1_PKCS8 = HexEncoding.decode(
             "308193020100301306072a8648ce3d020106082a8648ce3d030107047930770201010420e1e683003"
             + "c8b963a92742e5f955ce7fddc81d0c3ae9b149d6af86a0cacb2271ca00a06082a8648ce3d030107"
             + "a144034200049fc2f71f85446b1371244491d839cf97b5d27cedbb04d2c0058b59709df3a216e6b"
             + "4ca1b2d622588c5a0e6968144a8965e816a600c05305a1da3df2bf02b41d1");
 
-    private static final byte[] KAT_PUBLIC_KEY2_X509 = hexToBytes(
+    private static final byte[] KAT_PUBLIC_KEY2_X509 = HexEncoding.decode(
             "3059301306072a8648ce3d020106082a8648ce3d03010703420004358efb6d91e5bbcae21774af3f6"
             + "d85d0848630e7e61dbeb5ac9e47036ed0f8d38c7a1d1bb249f92861c7c9153fff33f45ab5b171eb"
             + "e8cad741125e6bb4fc6b07");
-    private static final byte[] KAT_PRIVATE_KEY2_PKCS8 = hexToBytes(
+    private static final byte[] KAT_PRIVATE_KEY2_PKCS8 = HexEncoding.decode(
             "308193020100301306072a8648ce3d020106082a8648ce3d0301070479307702010104202b1810a69"
             + "e12b74d50bf0343168f705f0104f76299855268aa526fdb31e6eec0a00a06082a8648ce3d030107"
             + "a14403420004358efb6d91e5bbcae21774af3f6d85d0848630e7e61dbeb5ac9e47036ed0f8d38c7"
             + "a1d1bb249f92861c7c9153fff33f45ab5b171ebe8cad741125e6bb4fc6b07");
 
     private static final byte[] KAT_SECRET =
-            hexToBytes("4faa0594c0e773eb26c8df2163af2443e88aab9578b9e1f324bc61e42d222783");
+            HexEncoding.decode("4faa0594c0e773eb26c8df2163af2443e88aab9578b9e1f324bc61e42d222783");
 
     private static final ECPublicKey KAT_PUBLIC_KEY1;
     private static final ECPrivateKey KAT_PRIVATE_KEY1;

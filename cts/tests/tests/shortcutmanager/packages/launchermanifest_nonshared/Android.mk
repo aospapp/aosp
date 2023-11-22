@@ -37,7 +37,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
 LOCAL_SDK_VERSION := current
 
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 LOCAL_AAPT_FLAGS += --rename-manifest-package android.content.pm.cts.shortcutmanager.packages.launcher4
 

@@ -16,6 +16,8 @@
 
 package com.android.tv.ui.sidepanel;
 
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.media.tv.TvContract.Channels;
 import android.os.Bundle;
 import android.support.v17.leanback.widget.VerticalGridView;
@@ -27,6 +29,7 @@ import android.widget.TextView;
 
 import com.android.tv.MainActivity;
 import com.android.tv.R;
+import com.android.tv.common.SharedPreferencesUtils;
 import com.android.tv.data.Channel;
 import com.android.tv.data.ChannelNumber;
 import com.android.tv.ui.OnRepeatedKeyInterceptListener;
@@ -36,39 +39,38 @@ import com.android.tv.util.Utils;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.List;
 import java.util.Iterator;
+import java.util.List;
 
 public class CustomizeChannelListFragment extends SideFragment {
     private static final int GROUP_BY_SOURCE = 0;
     private static final int GROUP_BY_HD_SD = 1;
     private static final String TRACKER_LABEL = "customize channel list";
 
-    private final List<Channel> mChannels = new ArrayList<>();
-    private final long mInitialChannelId;
+    private static final String PREF_KEY_GROUP_SETTINGS = "pref_key_group_settigns";
 
+    private final List<Channel> mChannels = new ArrayList<>();
+    private long mInitialChannelId = Channel.INVALID_ID;
     private long mLastFocusedChannelId = Channel.INVALID_ID;
 
-    private int mGroupingType = GROUP_BY_SOURCE;
+    private static Integer sGroupingType;
     private TvInputManagerHelper mInputManager;
     private Channel.DefaultComparator mChannelComparator;
     private boolean mGroupByFragmentRunning;
 
     private final List<Item> mItems = new ArrayList<>();
 
-    public CustomizeChannelListFragment() {
-        this(Channel.INVALID_ID);
-    }
-
-    public CustomizeChannelListFragment(long initialChannelId) {
-        mInitialChannelId = initialChannelId;
-    }
-
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mInputManager = getMainActivity().getTvInputManagerHelper();
+        mInitialChannelId = getMainActivity().getCurrentChannelId();
         mChannelComparator = new Channel.DefaultComparator(getActivity(), mInputManager);
+        if (sGroupingType == null) {
+            SharedPreferences sharedPreferences = getContext().getSharedPreferences(
+                    SharedPreferencesUtils.SHARED_PREF_UI_SETTINGS, Context.MODE_PRIVATE);
+            sGroupingType = sharedPreferences.getInt(PREF_KEY_GROUP_SETTINGS, GROUP_BY_SOURCE);
+        }
     }
 
     @Override
@@ -128,10 +130,13 @@ public class CustomizeChannelListFragment extends SideFragment {
     @Override
     public void onDestroyView() {
         getChannelDataManager().applyUpdatedValuesToDb();
-        if (!mGroupByFragmentRunning) {
-            getMainActivity().endShrunkenTvView();
-        }
         super.onDestroyView();
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        getMainActivity().endShrunkenTvView();
     }
 
     @Override
@@ -149,7 +154,7 @@ public class CustomizeChannelListFragment extends SideFragment {
         mItems.clear();
         mChannels.clear();
         mChannels.addAll(getChannelDataManager().getChannelList());
-        if (mGroupingType == GROUP_BY_SOURCE) {
+        if (sGroupingType == GROUP_BY_SOURCE) {
             addItemForGroupBySource(mItems);
         } else {
             // GROUP_BY_HD_SD
@@ -321,6 +326,49 @@ public class CustomizeChannelListFragment extends SideFragment {
         }
     }
 
+    public static class GroupByFragment extends SideFragment {
+        @Override
+        protected String getTitle() {
+            return getString(R.string.side_panel_title_group_by);
+        }
+        @Override
+        public String getTrackerLabel() {
+            return GroupBySubMenu.TRACKER_LABEL;
+        }
+
+        @Override
+        protected List<Item> getItemList() {
+            List<Item> items = new ArrayList<>();
+            items.add(new RadioButtonItem(
+                    getString(R.string.edit_channels_group_by_sources)) {
+                @Override
+                protected void onSelected() {
+                    super.onSelected();
+                    setGroupingType(GROUP_BY_SOURCE);
+                    closeFragment();
+                }
+            });
+            items.add(new RadioButtonItem(
+                    getString(R.string.edit_channels_group_by_hd_sd)) {
+                @Override
+                protected void onSelected() {
+                    super.onSelected();
+                    setGroupingType(GROUP_BY_HD_SD);
+                    closeFragment();
+                }
+            });
+            ((RadioButtonItem) items.get(sGroupingType)).setChecked(true);
+            return items;
+        }
+
+        private void setGroupingType(int groupingType) {
+            sGroupingType = groupingType;
+            SharedPreferences sharedPreferences = getContext().getSharedPreferences(
+                    SharedPreferencesUtils.SHARED_PREF_UI_SETTINGS, Context.MODE_PRIVATE);
+            sharedPreferences.edit().putInt(PREF_KEY_GROUP_SETTINGS, groupingType).apply();
+        }
+    }
+
     private class GroupBySubMenu extends SubMenuItem {
         private static final String TRACKER_LABEL = "Group by";
         public GroupBySubMenu(String description) {
@@ -330,41 +378,7 @@ public class CustomizeChannelListFragment extends SideFragment {
 
         @Override
         protected SideFragment getFragment() {
-            return new SideFragment() {
-                @Override
-                protected String getTitle() {
-                    return getString(R.string.side_panel_title_group_by);
-                }
-                @Override
-                public String getTrackerLabel() {
-                    return GroupBySubMenu.TRACKER_LABEL;
-                }
-
-                @Override
-                protected List<Item> getItemList() {
-                    List<Item> items = new ArrayList<>();
-                    items.add(new RadioButtonItem(
-                            getString(R.string.edit_channels_group_by_sources)) {
-                        @Override
-                        protected void onSelected() {
-                            super.onSelected();
-                            mGroupingType = GROUP_BY_SOURCE;
-                            closeFragment();
-                        }
-                    });
-                    items.add(new RadioButtonItem(
-                            getString(R.string.edit_channels_group_by_hd_sd)) {
-                        @Override
-                        protected void onSelected() {
-                            super.onSelected();
-                            mGroupingType = GROUP_BY_HD_SD;
-                            closeFragment();
-                        }
-                    });
-                    ((RadioButtonItem) items.get(mGroupingType)).setChecked(true);
-                    return items;
-                }
-            };
+            return new GroupByFragment();
         }
 
         @Override

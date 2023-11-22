@@ -68,6 +68,7 @@ int do_delay = 0;
 int verbose = 0;
 int summary_mode = 0;
 int quick_mode = 0;
+char *blockdev_name = NULL;	/* if user would like to specify blockdev */
 
 #if 0
 static long gettid()
@@ -78,7 +79,7 @@ static long gettid()
 
 void usage()
 {
-	fprintf(stderr, "%s [-d preserve_delays] [-n num_iterations] [-t num_threads] -q -v | -s <list of parsed input files>\n",
+	fprintf(stderr, "%s [-b blockdev_name] [-d preserve_delays] [-n num_iterations] [-t num_threads] -q -v | -s <list of parsed input files>\n",
 		progname);
 	fprintf(stderr, "%s -s, -v are mutually exclusive\n",
 		progname);
@@ -661,8 +662,11 @@ main(int argc, char **argv)
 	struct thread_state_s *state;
 
 	progname = argv[0];
-        while ((c = getopt(argc, argv, "dn:st:qv")) != EOF) {
+        while ((c = getopt(argc, argv, "b:dn:st:qv")) != EOF) {
                 switch (c) {
+                case 'b':
+			blockdev_name = strdup(optarg);
+			break;
                 case 'd':
 			do_delay = 1;
 			break;

@@ -11,9 +11,9 @@
  * indicates a map entry, so it can caculate the amount of maps by reading
  * the file lines' number to check the tunable performance.
  *
- * The program trys to invoke mmap() endless until triggering MAP_FAILED,
- * then read the process's maps file /proc/[pid]/maps, save the line number
- * to map_count variable, and compare it with /proc/sys/vm/max_map_count,
+ * The program tries to invoke mmap() endlessly until it triggers MAP_FAILED,
+ * then reads the process's maps file /proc/[pid]/maps, save the line number to
+ * map_count variable, and compare it with /proc/sys/vm/max_map_count,
  * map_count should be greater than max_map_count by 1;
  *
  * Note: On some architectures there is a special vma VSYSCALL, which
@@ -63,7 +63,7 @@
 #include "test.h"
 #include "mem.h"
 
-#define MAP_COUNT_DEFAULT	64
+#define MAP_COUNT_DEFAULT	1024
 #define MAX_MAP_COUNT		65536L
 
 char *TCID = "max_map_count";
@@ -139,7 +139,8 @@ static bool filter_map(const char *line)
 		return true;
 #elif defined(__arm__)
 	/* Skip it when run it in aarch64 */
-	if (strcmp(un.machine, "aarch64"))
+	if ((!strcmp(un.machine, "aarch64"))
+	|| (!strcmp(un.machine, "aarch64_be")))
 		return false;
 
 	/* Older arm kernels didn't label their vdso maps */
@@ -247,6 +248,6 @@ static void max_map_count_test(void)
 		if (waitpid(pid, &status, 0) == -1)
 			tst_brkm(TBROK | TERRNO, cleanup, "waitpid");
 
-		max_maps = max_maps << 2;
+		max_maps = max_maps << 1;
 	}
 }

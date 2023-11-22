@@ -90,33 +90,20 @@ NO_RETURN static void Usage(const char* fmt, ...) {
 }
 
 JitCompiler::JitCompiler() {
-  compiler_options_.reset(new CompilerOptions(
-      CompilerFilter::kDefaultCompilerFilter,
-      CompilerOptions::kDefaultHugeMethodThreshold,
-      CompilerOptions::kDefaultLargeMethodThreshold,
-      CompilerOptions::kDefaultSmallMethodThreshold,
-      CompilerOptions::kDefaultTinyMethodThreshold,
-      CompilerOptions::kDefaultNumDexMethodsThreshold,
-      CompilerOptions::kDefaultInlineMaxCodeUnits,
-      /* no_inline_from */ nullptr,
-      CompilerOptions::kDefaultTopKProfileThreshold,
-      Runtime::Current()->IsJavaDebuggable(),
-      CompilerOptions::kDefaultGenerateDebugInfo,
-      /* implicit_null_checks */ true,
-      /* implicit_so_checks */ true,
-      /* implicit_suspend_checks */ false,
-      /* pic */ true,  // TODO: Support non-PIC in optimizing.
-      /* verbose_methods */ nullptr,
-      /* init_failure_output */ nullptr,
-      /* abort_on_hard_verifier_failure */ false,
-      /* dump_cfg_file_name */ "",
-      /* dump_cfg_append */ false,
-      /* force_determinism */ false,
-      RegisterAllocator::kRegisterAllocatorDefault,
-      /* passes_to_run */ nullptr));
+  compiler_options_.reset(new CompilerOptions());
   for (const std::string& argument : Runtime::Current()->GetCompilerOptions()) {
     compiler_options_->ParseCompilerOption(argument, Usage);
   }
+  // JIT is never PIC, no matter what the runtime compiler options specify.
+  compiler_options_->SetNonPic();
+
+  // Set debuggability based on the runtime value.
+  compiler_options_->SetDebuggable(Runtime::Current()->IsJavaDebuggable());
+
+  // Special case max code units for inlining, whose default is "unset" (implictly
+  // meaning no limit).
+  compiler_options_->SetInlineMaxCodeUnits(CompilerOptions::kDefaultInlineMaxCodeUnits);
+
   const InstructionSet instruction_set = kRuntimeISA;
   for (const StringPiece option : Runtime::Current()->GetCompilerOptions()) {
     VLOG(compiler) << "JIT compiler option " << option;
@@ -197,10 +184,8 @@ bool JitCompiler::CompileMethod(Thread* self, ArtMethod* method, bool osr) {
   {
     TimingLogger::ScopedTiming t2("Compiling", &logger);
     JitCodeCache* const code_cache = runtime->GetJit()->GetCodeCache();
-    success = compiler_driver_->GetCompiler()->JitCompile(self, code_cache, method, osr);
-    if (success && (jit_logger_ != nullptr)) {
-      jit_logger_->WriteLog(code_cache, method, osr);
-    }
+    success = compiler_driver_->GetCompiler()->JitCompile(
+        self, code_cache, method, osr, jit_logger_.get());
   }
 
   // Trim maps to reduce memory usage.

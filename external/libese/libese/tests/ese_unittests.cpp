@@ -103,7 +103,15 @@ TEST_F(EseInterfaceTest, EseClosePending) {
 
 TEST_F(EseInterfaceTest, EseTransceiveSendNothing) {
   EXPECT_EQ(0, ese_open(&ese_, NULL));
-  EXPECT_EQ(0, ese_transceive(&ese_, NULL, 0, NULL, 0));
+  // Relying on hw transmit/recieve alone is not supported.
+  uint8_t *tx = NULL;
+  uint8_t *rx = NULL;
+  EXPECT_EQ(-1, ese_transceive(&ese_, tx, 0, rx, 0));
+  EXPECT_EQ(-1, ese_transceive(&ese_, tx+1, 0, rx, 0));
+  EXPECT_EQ(-1, ese_transceive(&ese_, tx, 0, rx+1, 0));
+  EXPECT_EQ(-1, ese_transceive(&ese_, tx, 0, rx, 100));
+  EXPECT_EQ(-1, ese_transceive(&ese_, tx, 220, rx, 100));
+  EXPECT_EQ(-1, ese_transceive(&ese_, tx+1, 0, rx+1, 0));
   ese_close(&ese_);
 };
 

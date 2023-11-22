@@ -16,4 +16,4 @@
 
 source $ANDROID_BUILD_TOP/device/common/clear-factory-images-variables.sh
 # HiKey unfortunately can't use the ./generate-factory-images-common.sh script
-source $ANDROID_BUILD_TOP/device/linaro/hikey/factory-images/generate-factory-images-hikey.sh
+source $ANDROID_BUILD_TOP/device/linaro/hikey/factory-images/generate-factory-images-$TARGET_PRODUCT.sh

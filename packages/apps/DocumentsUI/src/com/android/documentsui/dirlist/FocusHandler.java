@@ -70,6 +70,11 @@ public interface FocusHandler extends View.OnFocusChangeListener {
     boolean hasFocusedItem();
 
     /**
+     * If there is an item which has focus, the focus is removed.
+     */
+    void clearFocus();
+
+    /**
      * @return The modelId of the last focused item. If no item is focused, this should return null.
      */
     @Nullable String getFocusModelId();

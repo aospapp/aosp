@@ -20,6 +20,7 @@ import java.io.Serializable;
 
 /** Data structure representing a file that has an associated version. */
 public class VersionedFile implements Serializable {
+    private static final long serialVersionUID = BuildSerializedVersion.VERSION;
     private final File mFile;
     private final String mVersion;
 

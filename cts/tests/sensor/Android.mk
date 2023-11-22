@@ -32,7 +32,7 @@ LOCAL_JAVA_LIBRARIES := platform-test-annotations
 LOCAL_SDK_VERSION := current
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
-
+-include cts/error_prone_rules_tests.mk
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
 #
@@ -60,7 +60,7 @@ LOCAL_SHARED_LIBRARIES := libandroid liblog
 LOCAL_SDK_VERSION := current
 
 LOCAL_NDK_STL_VARIANT := c++_shared
-
+-include cts/error_prone_rules_tests.mk
 include $(BUILD_SHARED_LIBRARY)
 
 #
@@ -73,7 +73,7 @@ LOCAL_MODULE_TAGS := tests
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 # include both the 32 and 64 bit versions
 LOCAL_MULTILIB := both

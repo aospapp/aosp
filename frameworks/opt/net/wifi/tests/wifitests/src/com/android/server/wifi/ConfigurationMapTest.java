@@ -17,12 +17,14 @@
 package com.android.server.wifi;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.when;
 
 import android.app.test.MockAnswerUtil.AnswerWithArguments;
 import android.content.pm.UserInfo;
+import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
 import android.os.UserHandle;
 import android.os.UserManager;
@@ -36,6 +38,7 @@ import org.mockito.MockitoAnnotations;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -89,19 +92,38 @@ public class ConfigurationMapTest {
         mConfigs = new ConfigurationMap(mUserManager);
     }
 
-    public void switchUser(int newUserId) {
+    private void switchUser(int newUserId) {
         mCurrentUserId = newUserId;
         mConfigs.setNewUser(newUserId);
         mConfigs.clear();
     }
 
-    public void addNetworks(List<WifiConfiguration> configs) {
+    private Collection<WifiConfiguration> getEnabledNetworksForCurrentUser() {
+        List<WifiConfiguration> list = new ArrayList<>();
+        for (WifiConfiguration config : mConfigs.valuesForCurrentUser()) {
+            if (config.status != WifiConfiguration.Status.DISABLED) {
+                list.add(config);
+            }
+        }
+        return list;
+    }
+
+    private WifiConfiguration getEphemeralForCurrentUser(String ssid) {
+        for (WifiConfiguration config : mConfigs.valuesForCurrentUser()) {
+            if (ssid.equals(config.SSID) && config.ephemeral) {
+                return config;
+            }
+        }
+        return null;
+    }
+
+    private void addNetworks(List<WifiConfiguration> configs) {
         for (WifiConfiguration config : configs) {
             assertNull(mConfigs.put(config));
         }
     }
 
-    public void verifyGetters(List<WifiConfiguration> configs) {
+    private void verifyGetters(List<WifiConfiguration> configs) {
         final Set<WifiConfiguration> configsForCurrentUser = new HashSet<>();
         final Set<WifiConfiguration> enabledConfigsForCurrentUser = new HashSet<>();
         final List<WifiConfiguration> configsNotForCurrentUser = new ArrayList<>();
@@ -127,15 +149,12 @@ public class ConfigurationMapTest {
         // visible to the current user.
         for (WifiConfiguration config : configsForCurrentUser) {
             assertEquals(config, mConfigs.getForCurrentUser(config.networkId));
-            if (config.FQDN != null) {
-                assertEquals(config, mConfigs.getByFQDNForCurrentUser(config.FQDN));
-            }
             assertEquals(config, mConfigs.getByConfigKeyForCurrentUser(config.configKey()));
             final boolean wasEphemeral = config.ephemeral;
             config.ephemeral = false;
-            assertNull(mConfigs.getEphemeralForCurrentUser(config.SSID));
+            assertNull(getEphemeralForCurrentUser(config.SSID));
             config.ephemeral = true;
-            assertEquals(config, mConfigs.getEphemeralForCurrentUser(config.SSID));
+            assertEquals(config, getEphemeralForCurrentUser(config.SSID));
             config.ephemeral = wasEphemeral;
         }
 
@@ -143,15 +162,12 @@ public class ConfigurationMapTest {
         // visible to the current user.
         for (WifiConfiguration config : configsNotForCurrentUser) {
             assertNull(mConfigs.getForCurrentUser(config.networkId));
-            if (config.FQDN != null) {
-                assertNull(mConfigs.getByFQDNForCurrentUser(config.FQDN));
-            }
             assertNull(mConfigs.getByConfigKeyForCurrentUser(config.configKey()));
             final boolean wasEphemeral = config.ephemeral;
             config.ephemeral = false;
-            assertNull(mConfigs.getEphemeralForCurrentUser(config.SSID));
+            assertNull(getEphemeralForCurrentUser(config.SSID));
             config.ephemeral = true;
-            assertNull(mConfigs.getEphemeralForCurrentUser(config.SSID));
+            assertNull(getEphemeralForCurrentUser(config.SSID));
             config.ephemeral = wasEphemeral;
         }
 
@@ -160,9 +176,27 @@ public class ConfigurationMapTest {
         assertEquals(configs.size(), mConfigs.sizeForAllUsers());
         assertEquals(configsForCurrentUser.size(), mConfigs.sizeForCurrentUser());
         assertEquals(enabledConfigsForCurrentUser,
-                new HashSet<WifiConfiguration>(mConfigs.getEnabledNetworksForCurrentUser()));
+                new HashSet<WifiConfiguration>(getEnabledNetworksForCurrentUser()));
         assertEquals(new HashSet<>(configs),
                 new HashSet<WifiConfiguration>(mConfigs.valuesForAllUsers()));
+    }
+
+    private ScanResult createScanResultForNetwork(WifiConfiguration config) {
+        return WifiConfigurationTestUtil.createScanDetailForNetwork(config, "", 0, 0, 0, 0)
+                .getScanResult();
+    }
+
+    /**
+     * Helper function to create a scan result matching the network and ensuring that
+     * {@link ConfigurationMap#getByScanResultForCurrentUser(ScanResult)} can match that network.
+     */
+    private void verifyScanResultMatchWithNetwork(WifiConfiguration config) {
+        mConfigs.put(config);
+        ScanResult scanResult = createScanResultForNetwork(config);
+        WifiConfiguration retrievedConfig =
+                mConfigs.getByScanResultForCurrentUser(scanResult);
+        assertNotNull(retrievedConfig);
+        assertEquals(config.configKey(), retrievedConfig.configKey());
     }
 
     /**
@@ -229,5 +263,68 @@ public class ConfigurationMapTest {
         // Verify that the getters do not return any network configurations.
         configs.clear();
         verifyGetters(configs);
+    }
+
+    /**
+     * Verifies that {@link ConfigurationMap#getByScanResultForCurrentUser(ScanResult)} can
+     * positively match the corresponding networks.
+     */
+    @Test
+    public void testScanResultDoesMatchCorrespondingNetworks() {
+        verifyScanResultMatchWithNetwork(WifiConfigurationTestUtil.createOpenNetwork());
+        verifyScanResultMatchWithNetwork(WifiConfigurationTestUtil.createPskNetwork());
+        verifyScanResultMatchWithNetwork(WifiConfigurationTestUtil.createWepNetwork());
+        verifyScanResultMatchWithNetwork(WifiConfigurationTestUtil.createEapNetwork());
+    }
+
+    /**
+     * Verifies that {@link ConfigurationMap#getByScanResultForCurrentUser(ScanResult)} does not
+     * match other networks.
+     */
+    @Test
+    public void testScanResultDoesNotMatchWithOtherNetworks() {
+        WifiConfiguration config = WifiConfigurationTestUtil.createOpenNetwork();
+        ScanResult scanResult = createScanResultForNetwork(config);
+        // Change the network security type and the old scan result should not match now.
+        config.allowedKeyManagement.clear();
+        config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
+        mConfigs.put(config);
+        assertNull(mConfigs.getByScanResultForCurrentUser(scanResult));
+    }
+
+    /**
+     * Verifies that {@link ConfigurationMap#getByScanResultForCurrentUser(ScanResult)} does not
+     * match networks which have been removed.
+     */
+    @Test
+    public void testScanResultDoesNotMatchAfterNetworkRemove() {
+        WifiConfiguration config = WifiConfigurationTestUtil.createOpenNetwork();
+        ScanResult scanResult = createScanResultForNetwork(config);
+        config.networkId = 5;
+        mConfigs.put(config);
+        // Create another network in the map.
+        mConfigs.put(WifiConfigurationTestUtil.createPskNetwork());
+        assertNotNull(mConfigs.getByScanResultForCurrentUser(scanResult));
+
+        mConfigs.remove(config.networkId);
+        assertNull(mConfigs.getByScanResultForCurrentUser(scanResult));
+    }
+
+    /**
+     * Verifies that {@link ConfigurationMap#getByScanResultForCurrentUser(ScanResult)} does not
+     * match networks after clear.
+     */
+    @Test
+    public void testScanResultDoesNotMatchAfterClear() {
+        WifiConfiguration config = WifiConfigurationTestUtil.createOpenNetwork();
+        ScanResult scanResult = createScanResultForNetwork(config);
+        config.networkId = 5;
+        mConfigs.put(config);
+        // Create another network in the map.
+        mConfigs.put(WifiConfigurationTestUtil.createPskNetwork());
+        assertNotNull(mConfigs.getByScanResultForCurrentUser(scanResult));
+
+        mConfigs.clear();
+        assertNull(mConfigs.getByScanResultForCurrentUser(scanResult));
     }
 }

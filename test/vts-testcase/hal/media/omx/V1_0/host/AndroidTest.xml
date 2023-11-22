@@ -35,10 +35,14 @@
         <option name="push" value="DATA/lib/android.hardware.media.omx@1.0-vts.driver.so->/data/local/tmp/32/android.hardware.media.omx@1.0-vts.driver.so"/>
         <option name="push" value="DATA/lib64/android.hardware.media.omx@1.0-vts.driver.so->/data/local/tmp/64/android.hardware.media.omx@1.0-vts.driver.so"/>
         <option name="push" value="DATA/media/res/bbb_352x288_420p_30fps_32frames.yuv->/sdcard/media/bbb_352x288_420p_30fps_32frames.yuv"/>
+        <option name="push" value="DATA/media/res/bbb_avc_176x144_300kbps_60fps.h264->/sdcard/media/bbb_avc_176x144_300kbps_60fps.h264"/>
+        <option name="push" value="DATA/media/res/bbb_avc_176x144_300kbps_60fps.info->/sdcard/media/bbb_avc_176x144_300kbps_60fps.info"/>
         <option name="push" value="DATA/media/res/bbb_avc_1920x1080_5000kbps_30fps.h264->/sdcard/media/bbb_avc_1920x1080_5000kbps_30fps.h264"/>
         <option name="push" value="DATA/media/res/bbb_avc_1920x1080_5000kbps_30fps.info->/sdcard/media/bbb_avc_1920x1080_5000kbps_30fps.info"/>
         <option name="push" value="DATA/media/res/bbb_mp3_stereo_192kbps_48000hz.info->/sdcard/media/bbb_mp3_stereo_192kbps_48000hz.info"/>
         <option name="push" value="DATA/media/res/bbb_mp3_stereo_192kbps_48000hz.mp3->/sdcard/media/bbb_mp3_stereo_192kbps_48000hz.mp3"/>
+        <option name="push" value="DATA/media/res/bbb_flac_stereo_680kbps_48000hz.flac->/sdcard/media/bbb_flac_stereo_680kbps_48000hz.flac"/>
+        <option name="push" value="DATA/media/res/bbb_flac_stereo_680kbps_48000hz.info->/sdcard/media/bbb_flac_stereo_680kbps_48000hz.info"/>
         <option name="push" value="DATA/media/res/bbb_raw_1ch_16khz_s16le.raw->/sdcard/media/bbb_raw_1ch_16khz_s16le.raw"/>
         <option name="push" value="DATA/media/res/bbb_raw_1ch_8khz_s16le.raw->/sdcard/media/bbb_raw_1ch_8khz_s16le.raw"/>
         <option name="push" value="DATA/media/res/bbb_raw_2ch_48khz_s16le.raw->/sdcard/media/bbb_raw_2ch_48khz_s16le.raw"/>
@@ -46,14 +50,22 @@
         <option name="push" value="DATA/media/res/sine_amrnb_1ch_12kbps_8000hz.info->/sdcard/media/sine_amrnb_1ch_12kbps_8000hz.info"/>
         <option name="push" value="DATA/media/res/bbb_h263_352x288_300kbps_12fps.h263->/sdcard/media/bbb_h263_352x288_300kbps_12fps.h263"/>
         <option name="push" value="DATA/media/res/bbb_h263_352x288_300kbps_12fps.info->/sdcard/media/bbb_h263_352x288_300kbps_12fps.info"/>
+        <option name="push" value="DATA/media/res/bbb_hevc_176x144_176kbps_60fps.hevc->/sdcard/media/bbb_hevc_176x144_176kbps_60fps.hevc"/>
+        <option name="push" value="DATA/media/res/bbb_hevc_176x144_176kbps_60fps.info->/sdcard/media/bbb_hevc_176x144_176kbps_60fps.info"/>
         <option name="push" value="DATA/media/res/bbb_hevc_640x360_1600kbps_30fps.hevc->/sdcard/media/bbb_hevc_640x360_1600kbps_30fps.hevc"/>
         <option name="push" value="DATA/media/res/bbb_hevc_640x360_1600kbps_30fps.info->/sdcard/media/bbb_hevc_640x360_1600kbps_30fps.info"/>
         <option name="push" value="DATA/media/res/bbb_mpeg2_176x144_105kbps_25fps.m2v->/sdcard/media/bbb_mpeg2_176x144_105kbps_25fps.m2v"/>
         <option name="push" value="DATA/media/res/bbb_mpeg2_176x144_105kbps_25fps.info->/sdcard/media/bbb_mpeg2_176x144_105kbps_25fps.info"/>
+        <option name="push" value="DATA/media/res/bbb_mpeg2_352x288_1mbps_60fps.m2v->/sdcard/media/bbb_mpeg2_352x288_1mbps_60fps.m2v"/>
+        <option name="push" value="DATA/media/res/bbb_mpeg2_352x288_1mbps_60fps.info->/sdcard/media/bbb_mpeg2_352x288_1mbps_60fps.info"/>
         <option name="push" value="DATA/media/res/bbb_mpeg4_1280x720_1000kbps_25fps.m4v->/sdcard/media/bbb_mpeg4_1280x720_1000kbps_25fps.m4v"/>
         <option name="push" value="DATA/media/res/bbb_mpeg4_1280x720_1000kbps_25fps.info->/sdcard/media/bbb_mpeg4_1280x720_1000kbps_25fps.info"/>
+        <option name="push" value="DATA/media/res/bbb_vp8_176x144_240kbps_60fps.vp8->/sdcard/media/bbb_vp8_176x144_240kbps_60fps.vp8"/>
+        <option name="push" value="DATA/media/res/bbb_vp8_176x144_240kbps_60fps.info->/sdcard/media/bbb_vp8_176x144_240kbps_60fps.info"/>
         <option name="push" value="DATA/media/res/bbb_vp8_640x360_2mbps_30fps.vp8->/sdcard/media/bbb_vp8_640x360_2mbps_30fps.vp8"/>
         <option name="push" value="DATA/media/res/bbb_vp8_640x360_2mbps_30fps.info->/sdcard/media/bbb_vp8_640x360_2mbps_30fps.info"/>
+        <option name="push" value="DATA/media/res/bbb_vp9_176x144_285kbps_60fps.vp9->/sdcard/media/bbb_vp9_176x144_285kbps_60fps.vp9"/>
+        <option name="push" value="DATA/media/res/bbb_vp9_176x144_285kbps_60fps.info->/sdcard/media/bbb_vp9_176x144_285kbps_60fps.info"/>
         <option name="push" value="DATA/media/res/bbb_vp9_640x360_1600kbps_30fps.vp9->/sdcard/media/bbb_vp9_640x360_1600kbps_30fps.vp9"/>
         <option name="push" value="DATA/media/res/bbb_vp9_640x360_1600kbps_30fps.info->/sdcard/media/bbb_vp9_640x360_1600kbps_30fps.info"/>
         <option name="push" value="DATA/media/res/bbb_aac_stereo_128kbps_48000hz.aac->/sdcard/media/bbb_aac_stereo_128kbps_48000hz.aac"/>
@@ -77,15 +89,22 @@
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
         <option name="test-module-name" value="VtsHalMediaOmxV1_0Host"/>
         <option name="test-case-path" value="vts/testcases/hal/media/omx/V1_0/host/VtsHalMediaOmxV1_0HostTest"/>
+        <option name="binary-test-working-directory" value="_32bit::/data/nativetest/" />
         <option name="binary-test-source" value="_32bit::DATA/nativetest/VtsHalMediaOmxV1_0TargetComponentTest/VtsHalMediaOmxV1_0TargetComponentTest"/>
         <option name="binary-test-source" value="_32bit::DATA/nativetest/VtsHalMediaOmxV1_0TargetAudioEncTest/VtsHalMediaOmxV1_0TargetAudioEncTest"/>
         <option name="binary-test-source" value="_32bit::DATA/nativetest/VtsHalMediaOmxV1_0TargetAudioDecTest/VtsHalMediaOmxV1_0TargetAudioDecTest"/>
         <option name="binary-test-source" value="_32bit::DATA/nativetest/VtsHalMediaOmxV1_0TargetVideoEncTest/VtsHalMediaOmxV1_0TargetVideoEncTest"/>
         <option name="binary-test-source" value="_32bit::DATA/nativetest/VtsHalMediaOmxV1_0TargetVideoDecTest/VtsHalMediaOmxV1_0TargetVideoDecTest"/>
+        <option name="binary-test-source" value="_64bit::DATA/nativetest64/VtsHalMediaOmxV1_0TargetComponentTest/VtsHalMediaOmxV1_0TargetComponentTest"/>
+        <option name="binary-test-source" value="_64bit::DATA/nativetest64/VtsHalMediaOmxV1_0TargetAudioEncTest/VtsHalMediaOmxV1_0TargetAudioEncTest"/>
+        <option name="binary-test-source" value="_64bit::DATA/nativetest64/VtsHalMediaOmxV1_0TargetAudioDecTest/VtsHalMediaOmxV1_0TargetAudioDecTest"/>
+        <option name="binary-test-source" value="_64bit::DATA/nativetest64/VtsHalMediaOmxV1_0TargetVideoEncTest/VtsHalMediaOmxV1_0TargetVideoEncTest"/>
+        <option name="binary-test-source" value="_64bit::DATA/nativetest64/VtsHalMediaOmxV1_0TargetVideoDecTest/VtsHalMediaOmxV1_0TargetVideoDecTest"/>
         <option name="binary-test-disable-framework" value="true"/>
         <option name="binary-test-stop-native-servers" value="true"/>
         <option name="hal-hidl-package-name" value="android.hardware.media.omx@1.0"/>
         <option name="precondition-lshal" value="android.hardware.media.omx@1.0"/>
         <option name="test-timeout" value="2h"/>
+        <option name="runtime-hint" value="40m"/>
     </test>
 </configuration>

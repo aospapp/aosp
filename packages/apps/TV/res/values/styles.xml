@@ -92,7 +92,7 @@
         <item name="android:textSize">14sp</item>
         <item name="android:textColor">@color/lb_basic_card_title_text_color</item>
         <item name="android:fontFamily">sans-serif-condensed</item>
-        <item name="android:singleLine">true</item>
+        <item name="android:maxLines">@integer/dvr_card_title_max_lines_folded</item>
         <item name="android:ellipsize">end</item>
     </style>
 
@@ -143,7 +143,7 @@
         <item name="android:layout_height">60dp</item>
     </style>
 
-    <style name="TV.Dvr.GuidedActionsListStyle" parent="Widget.Setup.GuidedActionsListStyle">
+    <style name="TV.Dvr.GuidedActionsListStyle" parent="Widget.Leanback.GuidedActionsListStyle">
         <item name="android:layout_marginTop">51dp</item>
         <item name="android:layout_marginBottom">10dp</item>
         <item name="android:layout_marginEnd">56dp</item>
@@ -151,11 +151,8 @@
 
     <style name="TV.Dvr.GuidedActionItemContainerStyle" parent="Widget.Setup.GuidedActionItemContainerStyle">
         <item name="android:layout_height">48dp</item>
-        <item name="android:layout_marginTop">7dp</item>
-        <item name="android:paddingBottom">15dp</item>
         <item name="android:paddingEnd">16dp</item>
         <item name="android:paddingStart">16dp</item>
-        <item name="android:paddingTop">14dp</item>
     </style>
 
     <style name="TV.Dvr.GuidedActionItemContainerStyle.Twoline.Action" parent="TV.Dvr.GuidedActionItemContainerStyle">

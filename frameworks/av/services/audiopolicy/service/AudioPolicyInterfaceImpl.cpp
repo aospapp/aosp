@@ -167,7 +167,7 @@ status_t AudioPolicyService::getOutputForAttr(const audio_attributes_t *attr,
                                               uid_t uid,
                                               const audio_config_t *config,
                                               audio_output_flags_t flags,
-                                              audio_port_handle_t selectedDeviceId,
+                                              audio_port_handle_t *selectedDeviceId,
                                               audio_port_handle_t *portId)
 {
     if (mAudioPolicyManager == NULL) {
@@ -277,7 +277,7 @@ status_t AudioPolicyService::getInputForAttr(const audio_attributes_t *attr,
                                              uid_t uid,
                                              const audio_config_base_t *config,
                                              audio_input_flags_t flags,
-                                             audio_port_handle_t selectedDeviceId,
+                                             audio_port_handle_t *selectedDeviceId,
                                              audio_port_handle_t *portId)
 {
     if (mAudioPolicyManager == NULL) {
@@ -288,13 +288,6 @@ status_t AudioPolicyService::getInputForAttr(const audio_attributes_t *attr,
         attr->source != AUDIO_SOURCE_FM_TUNER) {
         return BAD_VALUE;
     }
-
-    if ((attr->source == AUDIO_SOURCE_HOTWORD) && !captureHotwordAllowed()) {
-        return BAD_VALUE;
-    }
-    sp<AudioPolicyEffects>audioPolicyEffects;
-    status_t status;
-    AudioPolicyInterface::input_type_t inputType;
 
     bool updatePid = (pid == -1);
     const uid_t callingUid = IPCThreadState::self()->getCallingUid();
@@ -313,7 +306,15 @@ status_t AudioPolicyService::getInputForAttr(const audio_attributes_t *attr,
         pid = callingPid;
     }
 
+    if ((attr->source == AUDIO_SOURCE_HOTWORD) && !captureHotwordAllowed(pid, uid)) {
+        return BAD_VALUE;
+    }
+
+    sp<AudioPolicyEffects>audioPolicyEffects;
     {
+        status_t status;
+        AudioPolicyInterface::input_type_t inputType;
+
         Mutex::Autolock _l(mLock);
         // the audio_in_acoustics_t parameter is ignored by get_input()
         status = mAudioPolicyManager->getInputForAttr(attr, input, session, uid,
@@ -693,6 +694,7 @@ status_t AudioPolicyService::acquireSoundTriggerSession(audio_session_t *session
                                        audio_io_handle_t *ioHandle,
                                        audio_devices_t *device)
 {
+    Mutex::Autolock _l(mLock);
     if (mAudioPolicyManager == NULL) {
         return NO_INIT;
     }
@@ -702,6 +704,7 @@ status_t AudioPolicyService::acquireSoundTriggerSession(audio_session_t *session
 
 status_t AudioPolicyService::releaseSoundTriggerSession(audio_session_t session)
 {
+    Mutex::Autolock _l(mLock);
     if (mAudioPolicyManager == NULL) {
         return NO_INIT;
     }
@@ -768,5 +771,17 @@ status_t AudioPolicyService::getMasterMono(bool *mono)
     Mutex::Autolock _l(mLock);
     return mAudioPolicyManager->getMasterMono(mono);
 }
+
+
+float AudioPolicyService::getStreamVolumeDB(
+            audio_stream_type_t stream, int index, audio_devices_t device)
+{
+    if (mAudioPolicyManager == NULL) {
+        return NAN;
+    }
+    Mutex::Autolock _l(mLock);
+    return mAudioPolicyManager->getStreamVolumeDB(stream, index, device);
+}
+
 
 }; // namespace android

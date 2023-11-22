@@ -28,4 +28,5 @@
     <string name="import_vcard" msgid="5104299047930666528">"^1 ஐ இறக்குமதி செய்"</string>
     <string name="mime_display_name" msgid="5926357152623764485">"NFC குறிச்சொல்லின் தரவு"</string>
     <string name="vcard_title" msgid="7122634780732426007">"^1 க்கானத் தொடர்புத் தகவல்"</string>
+    <string name="call_phone_permission_denied" msgid="8515177111984654599">"அழைப்புகளைச் செய்ய, பயன்பாட்டிடம் ஃபோனிற்கான அனுமதி இருக்க வேண்டும். Tagக்கான அனுமதியை, அமைப்புகளில் நிர்வகிக்கலாம்"</string>
 </resources>

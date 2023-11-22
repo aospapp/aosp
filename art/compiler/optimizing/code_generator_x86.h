@@ -408,18 +408,19 @@ class CodeGeneratorX86 : public CodeGenerator {
       HInvokeStaticOrDirect* invoke) OVERRIDE;
 
   // Generate a call to a static or direct method.
-  Location GenerateCalleeMethodStaticOrDirectCall(HInvokeStaticOrDirect* invoke, Location temp);
-  void GenerateStaticOrDirectCall(HInvokeStaticOrDirect* invoke, Location temp) OVERRIDE;
+  void GenerateStaticOrDirectCall(
+      HInvokeStaticOrDirect* invoke, Location temp, SlowPathCode* slow_path = nullptr) OVERRIDE;
   // Generate a call to a virtual method.
-  void GenerateVirtualCall(HInvokeVirtual* invoke, Location temp) OVERRIDE;
+  void GenerateVirtualCall(
+      HInvokeVirtual* invoke, Location temp, SlowPathCode* slow_path = nullptr) OVERRIDE;
 
-  void RecordBootStringPatch(HLoadString* load_string);
+  void RecordBootMethodPatch(HInvokeStaticOrDirect* invoke);
+  Label* NewMethodBssEntryPatch(HX86ComputeBaseMethodAddress* method_address,
+                                MethodReference target_method);
   void RecordBootTypePatch(HLoadClass* load_class);
   Label* NewTypeBssEntryPatch(HLoadClass* load_class);
+  void RecordBootStringPatch(HLoadString* load_string);
   Label* NewStringBssEntryPatch(HLoadString* load_string);
-  Label* NewPcRelativeDexCacheArrayPatch(HX86ComputeBaseMethodAddress* method_address,
-                                         const DexFile& dex_file,
-                                         uint32_t element_offset);
   Label* NewJitRootStringPatch(const DexFile& dex_file,
                                dex::StringIndex dex_index,
                                Handle<mirror::String> handle);
@@ -631,18 +632,19 @@ class CodeGeneratorX86 : public CodeGenerator {
   X86Assembler assembler_;
   const X86InstructionSetFeatures& isa_features_;
 
-  // PC-relative DexCache access info.
-  ArenaDeque<X86PcRelativePatchInfo> pc_relative_dex_cache_patches_;
-  // String patch locations; type depends on configuration (app .bss or boot image PIC/non-PIC).
-  ArenaDeque<X86PcRelativePatchInfo> string_patches_;
-  // Type patch locations for boot image; type depends on configuration (boot image PIC/non-PIC).
+  // PC-relative method patch info for kBootImageLinkTimePcRelative.
+  ArenaDeque<X86PcRelativePatchInfo> boot_image_method_patches_;
+  // PC-relative method patch info for kBssEntry.
+  ArenaDeque<X86PcRelativePatchInfo> method_bss_entry_patches_;
+  // PC-relative type patch info for kBootImageLinkTimePcRelative.
   ArenaDeque<X86PcRelativePatchInfo> boot_image_type_patches_;
   // Type patch locations for kBssEntry.
   ArenaDeque<X86PcRelativePatchInfo> type_bss_entry_patches_;
+  // String patch locations; type depends on configuration (app .bss or boot image).
+  ArenaDeque<X86PcRelativePatchInfo> string_patches_;
 
   // Patches for string root accesses in JIT compiled code.
   ArenaDeque<PatchInfo<Label>> jit_string_patches_;
-
   // Patches for class root accesses in JIT compiled code.
   ArenaDeque<PatchInfo<Label>> jit_class_patches_;
 

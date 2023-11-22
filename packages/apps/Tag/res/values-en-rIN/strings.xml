@@ -28,4 +28,5 @@
     <string name="import_vcard" msgid="5104299047930666528">"Import ^1"</string>
     <string name="mime_display_name" msgid="5926357152623764485">"Data from NFC tag"</string>
     <string name="vcard_title" msgid="7122634780732426007">"Contact info for ^1"</string>
+    <string name="call_phone_permission_denied" msgid="8515177111984654599">"This application needs to access Telephone permission in order to make calls. You can manage Tag permission in Settings"</string>
 </resources>

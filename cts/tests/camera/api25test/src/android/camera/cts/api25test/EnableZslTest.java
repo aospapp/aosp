@@ -20,6 +20,7 @@ import android.content.Context;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.cts.CameraTestUtils;
 import android.hardware.camera2.cts.helpers.CameraErrorCollector;
 import android.hardware.camera2.cts.helpers.StaticMetadata;
@@ -33,6 +34,8 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.Set;
+import java.util.HashSet;
 
 public class EnableZslTest extends AndroidTestCase {
     private static final String TAG = "EnableZslTest";
@@ -53,6 +56,14 @@ public class EnableZslTest extends AndroidTestCase {
             CameraDevice.TEMPLATE_VIDEO_SNAPSHOT,
             CameraDevice.TEMPLATE_ZERO_SHUTTER_LAG,
     };
+
+    // Request templates that are unsupported by LEGACY mode.
+    private static Set<Integer> sLegacySkipTemplates = new HashSet<>();
+    static {
+        sLegacySkipTemplates.add(CameraDevice.TEMPLATE_VIDEO_SNAPSHOT);
+        sLegacySkipTemplates.add(CameraDevice.TEMPLATE_ZERO_SHUTTER_LAG);
+        sLegacySkipTemplates.add(CameraDevice.TEMPLATE_MANUAL);
+    }
 
     @Override
     public void setContext(Context context) {
@@ -122,18 +133,39 @@ public class EnableZslTest extends AndroidTestCase {
                 mCollector);
 
         for (int i = 0; i < sTemplates.length; i++) {
-            CaptureRequest.Builder request = camera.createCaptureRequest(sTemplates[i]);
-            Boolean enableZsl = getEnableZslValue(request);
-            if (enableZsl != null) {
-                if (VERBOSE) {
-                    Log.v(TAG, "enableZsl is " + enableZsl + " for template " + sTemplates[i]);
-                }
+            try {
+                CaptureRequest.Builder request = camera.createCaptureRequest(sTemplates[i]);
+                Boolean enableZsl = getEnableZslValue(request);
+                if (enableZsl != null) {
+                    if (VERBOSE) {
+                        Log.v(TAG, "enableZsl is " + enableZsl + " for template " + sTemplates[i]);
+                    }
 
-                mCollector.expectTrue("CaptureRequest.CONTROL_ENABLE_ZSL should be false.",
-                        !enableZsl);
+                    mCollector.expectTrue("CaptureRequest.CONTROL_ENABLE_ZSL should be false.",
+                            !enableZsl);
+                }
+            } catch (IllegalArgumentException e) {
+                if (sTemplates[i] == CameraDevice.TEMPLATE_MANUAL &&
+                        !staticInfo.isCapabilitySupported(CameraCharacteristics.
+                                REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR)) {
+                    // OK
+                } else if (sTemplates[i] == CameraDevice.TEMPLATE_ZERO_SHUTTER_LAG &&
+                        !staticInfo.isCapabilitySupported(CameraCharacteristics.
+                                REQUEST_AVAILABLE_CAPABILITIES_PRIVATE_REPROCESSING) &&
+                        !staticInfo.isCapabilitySupported(CameraCharacteristics.
+                                REQUEST_AVAILABLE_CAPABILITIES_YUV_REPROCESSING)) {
+                   // OK.
+                } else if (sLegacySkipTemplates.contains(sTemplates[i]) &&
+                        staticInfo.isHardwareLevelLegacy()) {
+                   // OK
+                } else if (sTemplates[i] != CameraDevice.TEMPLATE_PREVIEW &&
+                        !staticInfo.isColorOutputSupported()) {
+                   // OK, depth-only devices need only support PREVIEW template
+                } else {
+                   throw e; // rethrow
+                }
             }
         }
-
         camera.close();
     }
 

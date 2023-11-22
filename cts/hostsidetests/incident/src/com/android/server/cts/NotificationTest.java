@@ -29,6 +29,9 @@ import android.service.notification.ZenModeProto;
  * cts-tradefed run singleCommand cts-dev -d --module CtsIncidentHostTestCases
  */
 public class NotificationTest extends ProtoDumpTestCase {
+    // These constants are those in PackageManager.
+    public static final String FEATURE_WATCH = "android.hardware.type.watch";
+
     /**
      * Tests that at least one notification is posted, and verify its properties are plausible.
      */
@@ -67,9 +70,13 @@ public class NotificationTest extends ProtoDumpTestCase {
 
         assertEquals(ZenMode.ZEN_MODE_OFF, zenProto.getZenMode());
         assertEquals(0, zenProto.getEnabledActiveConditionsCount());
-        assertEquals(0, zenProto.getSuppressedEffects());
-        assertEquals(0, zenProto.getSuppressorsCount());
+
+        // b/64606626 Watches intentionally suppress notifications always
+        if (!getDevice().hasFeature(FEATURE_WATCH)) {
+            assertEquals(0, zenProto.getSuppressedEffects());
+            assertEquals(0, zenProto.getSuppressorsCount());
+        }
+
         zenProto.getPolicy();
     }
 }
-

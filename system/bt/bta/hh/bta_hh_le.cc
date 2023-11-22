@@ -378,7 +378,7 @@ void bta_hh_le_deregister(void) { BTA_GATTC_AppDeregister(bta_hh_cb.gatt_if); }
  * Parameters:
  *
  ******************************************************************************/
-bool bta_hh_is_le_device(tBTA_HH_DEV_CB* p_cb, BD_ADDR remote_bda) {
+bool bta_hh_is_le_device(tBTA_HH_DEV_CB* p_cb, const RawAddress& remote_bda) {
   p_cb->is_le_device = BTM_UseLeLink(remote_bda);
 
   return p_cb->is_le_device;
@@ -393,10 +393,10 @@ bool bta_hh_is_le_device(tBTA_HH_DEV_CB* p_cb, BD_ADDR remote_bda) {
  * Parameters:
  *
  ******************************************************************************/
-void bta_hh_le_open_conn(tBTA_HH_DEV_CB* p_cb, BD_ADDR remote_bda) {
+void bta_hh_le_open_conn(tBTA_HH_DEV_CB* p_cb, const RawAddress& remote_bda) {
   /* update cb_index[] map */
   p_cb->hid_handle = BTA_HH_GET_LE_DEV_HDL(p_cb->index);
-  memcpy(p_cb->addr, remote_bda, BD_ADDR_LEN);
+  p_cb->addr = remote_bda;
   bta_hh_cb.le_cb_index[BTA_HH_GET_LE_CB_IDX(p_cb->hid_handle)] = p_cb->index;
   p_cb->in_use = true;
 
@@ -429,13 +429,12 @@ tBTA_HH_DEV_CB* bta_hh_le_find_dev_cb_by_conn_id(uint16_t conn_id) {
  * Description      Utility function find a device control block by BD address.
  *
  ******************************************************************************/
-tBTA_HH_DEV_CB* bta_hh_le_find_dev_cb_by_bda(BD_ADDR bda) {
+tBTA_HH_DEV_CB* bta_hh_le_find_dev_cb_by_bda(const RawAddress& bda) {
   uint8_t i;
   tBTA_HH_DEV_CB* p_dev_cb = &bta_hh_cb.kdev[0];
 
   for (i = 0; i < BTA_HH_MAX_DEVICE; i++, p_dev_cb++) {
-    if (p_dev_cb->in_use && memcmp(p_dev_cb->addr, bda, BD_ADDR_LEN) == 0)
-      return p_dev_cb;
+    if (p_dev_cb->in_use && p_dev_cb->addr == bda) return p_dev_cb;
   }
   return NULL;
 }
@@ -1037,7 +1036,7 @@ void bta_hh_le_get_protocol_mode(tBTA_HH_DEV_CB* p_cb) {
  * Parameters:
  *
  ******************************************************************************/
-void bta_hh_le_dis_cback(BD_ADDR addr, tDIS_VALUE* p_dis_value) {
+void bta_hh_le_dis_cback(const RawAddress& addr, tDIS_VALUE* p_dis_value) {
   tBTA_HH_DEV_CB* p_cb = bta_hh_le_find_dev_cb_by_bda(addr);
 
   if (p_cb == NULL || p_dis_value == NULL) {
@@ -1101,10 +1100,10 @@ void bta_hh_le_pri_service_discovery(tBTA_HH_DEV_CB* p_cb) {
  * Returns          None
  *
  ******************************************************************************/
-void bta_hh_le_encrypt_cback(BD_ADDR bd_addr,
+void bta_hh_le_encrypt_cback(const RawAddress* bd_addr,
                              UNUSED_ATTR tBTA_GATT_TRANSPORT transport,
                              UNUSED_ATTR void* p_ref_data, tBTM_STATUS result) {
-  uint8_t idx = bta_hh_find_cb(bd_addr);
+  uint8_t idx = bta_hh_find_cb(*bd_addr);
   tBTA_HH_DEV_CB* p_dev_cb;
 
   if (idx != BTA_HH_IDX_INVALID)
@@ -1275,7 +1274,7 @@ void bta_hh_gatt_open(tBTA_HH_DEV_CB* p_cb, tBTA_HH_DATA* p_buf) {
   /* if received invalid callback data , ignore it */
   if (p_cb == NULL || p_data == NULL) return;
 
-  p2 = p_data->remote_bda;
+  p2 = p_data->remote_bda.address;
 
   APPL_TRACE_DEBUG(
       "bta_hh_gatt_open BTA_GATTC_OPEN_EVT bda= [%08x%04x] status =%d",
@@ -1489,7 +1488,7 @@ void read_pref_conn_params_cb(uint16_t conn_id, tGATT_STATUS status,
   tBTA_HH_DEV_CB* p_dev_cb = (tBTA_HH_DEV_CB*)data;
 
   if (interop_match_addr(INTEROP_HID_PREF_CONN_SUP_TIMEOUT_3S,
-                         (bt_bdaddr_t*)&p_dev_cb->addr) == true) {
+                         (RawAddress*)&p_dev_cb->addr) == true) {
     if (tout < 300) tout = 300;
   }
 
@@ -1763,7 +1762,7 @@ void bta_hh_le_open_fail(tBTA_HH_DEV_CB* p_cb, tBTA_HH_DATA* p_data) {
   p_cb->disc_active = BTA_HH_LE_DISC_NONE;
   /* Failure in opening connection or GATT discovery failure */
   conn_dat.handle = p_cb->hid_handle;
-  memcpy(conn_dat.bda, p_cb->addr, BD_ADDR_LEN);
+  conn_dat.bda = p_cb->addr;
   conn_dat.le_hid = true;
   conn_dat.scps_supported = p_cb->scps_supported;
 
@@ -2257,7 +2256,7 @@ static void read_report_descriptor_ccc_cb(uint16_t conn_id, tGATT_STATUS status,
  * Returns          void
  *
  ******************************************************************************/
-void bta_hh_le_hid_read_rpt_clt_cfg(BD_ADDR bd_addr, uint8_t rpt_id) {
+void bta_hh_le_hid_read_rpt_clt_cfg(const RawAddress& bd_addr, uint8_t rpt_id) {
   tBTA_HH_DEV_CB* p_cb = NULL;
   tBTA_HH_LE_RPT* p_rpt;
   uint8_t index = BTA_HH_IDX_INVALID;

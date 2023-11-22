@@ -26,6 +26,10 @@ public class RetryableException extends RuntimeException {
     }
 
     public RetryableException(String format, Object...args) {
-        this(String.format(format, args));
+        super(String.format(format, args));
+    }
+
+    public RetryableException(Throwable cause, String format, Object...args) {
+        super(String.format(format, args), cause);
     }
 }

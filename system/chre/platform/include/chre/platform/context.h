@@ -17,19 +17,16 @@
 #ifndef CHRE_PLATFORM_CONTEXT_H_
 #define CHRE_PLATFORM_CONTEXT_H_
 
-#include "chre/core/event_loop.h"
-
 namespace chre {
 
+// TODO: Consider removing this. The event loop should be interacted with by
+// posting an event to the EventLoop thread to avoid synchronization issues.
 /**
- * Obtains a pointer to the currently executing EventLoop or nullptr if there is
- * no such event loop. In a multi-threaded system, this function will return the
- * event loop bound to the current thread.
- *
- * @return A pointer to the currently executing event loop or nullptr if there
- *         is no event loop in the current context.
+ * @return true to indicate that the current thread is the thread that is
+ * currently blocked by the event loop. This is used by the event loop to
+ * determine whether it needs to lock shared data structures or not.
  */
-EventLoop *getCurrentEventLoop();
+bool inEventLoopThread();
 
 }  // namespace chre
 

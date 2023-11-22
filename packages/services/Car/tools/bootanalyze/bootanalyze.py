@@ -30,6 +30,7 @@ import select
 import subprocess
 import sys
 import time
+import threading
 import yaml
 
 from datetime import datetime, date
@@ -92,10 +93,12 @@ def main():
   if args.iterate > 1 and args.bootchart:
     run_adb_shell_cmd_as_root('touch /data/bootchart/enabled')
 
-  search_events = {key: re.compile(pattern)
+  search_events_pattern = {key: re.compile(pattern)
                    for key, pattern in cfg['events'].iteritems()}
-  timing_events = {key: re.compile(pattern)
+  timing_events_pattern = {key: re.compile(pattern)
                    for key, pattern in cfg['timings'].iteritems()}
+  shutdown_events_pattern = {key: re.compile(pattern)
+                   for key, pattern in cfg['shutdown_events'].iteritems()}
 
   data_points = {}
   kernel_timing_points = collections.OrderedDict()
@@ -103,6 +106,8 @@ def main():
   boottime_points = collections.OrderedDict()
   boot_chart_file_name_prefix = "bootchart-" + datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
   systrace_file_name_prefix = "systrace-" + datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+  shutdown_event_all = collections.OrderedDict()
+  shutdown_timing_event_all = collections.OrderedDict()
   for it in range(0, args.iterate):
     if args.iterate > 1:
       print "Run: {0}".format(it)
@@ -112,9 +117,24 @@ def main():
     boottime_events = None
     while attempt <= MAX_RETRIES and processing_data is None:
       attempt += 1
-      processing_data, kernel_timings, logcat_timings, boottime_events = iterate(
-        args, search_events, timing_events, cfg, error_time, components_to_monitor)
-
+      processing_data, kernel_timings, logcat_timings, boottime_events, shutdown_events,\
+          shutdown_timing_events = iterate(\
+        args, search_events_pattern, timing_events_pattern, shutdown_events_pattern, cfg,\
+        error_time, components_to_monitor)
+    if shutdown_events:
+      for k, v in shutdown_events.iteritems():
+        events = shutdown_event_all.get(k)
+        if not events:
+          events = []
+          shutdown_event_all[k] = events
+        events.append(v)
+    if shutdown_timing_events:
+      for k, v in shutdown_timing_events.iteritems():
+        events = shutdown_timing_event_all.get(k)
+        if not events:
+          events = []
+          shutdown_timing_event_all[k] = events
+        events.append(v)
     if not processing_data or not boottime_events:
       # Processing error
       print "Failed to collect valid samples for run {0}".format(it)
@@ -150,6 +170,24 @@ def main():
     run_adb_shell_cmd('"rm -rf /storage/emulated/0/stressfs_data*"')
 
   if args.iterate > 1:
+    print "-----------------"
+    print "\nshutdown events after {0} runs".format(args.iterate)
+    print '{0:30}: {1:<7} {2:<7} {3}'.format("Event", "Mean", "stddev", "#runs")
+    for item in shutdown_event_all.items():
+      num_runs = len(item[1])
+      print '{0:30}: {1:<7.5} {2:<7.5} {3} {4}'.format(
+          item[0], sum(item[1])/num_runs, stddev(item[1]),\
+          "*time taken" if item[0].startswith("init.") else "",\
+          num_runs if num_runs != args.iterate else "")
+    print "\nshutdown timing events after {0} runs".format(args.iterate)
+    print '{0:30}: {1:<7} {2:<7} {3}'.format("Event", "Mean", "stddev", "#runs")
+    for item in shutdown_timing_event_all.items():
+      num_runs = len(item[1])
+      print '{0:30}: {1:<7.5} {2:<7.5} {3} {4}'.format(
+          item[0], sum(item[1])/num_runs, stddev(item[1]),\
+          "*time taken" if item[0].startswith("init.") else "",\
+          num_runs if num_runs != args.iterate else "")
+
     print "-----------------"
     print "ro.boottime.* after {0} runs".format(args.iterate)
     print '{0:30}: {1:<7} {2:<7} {3}'.format("Event", "Mean", "stddev", "#runs")
@@ -243,19 +281,41 @@ def dump_timing_points(msg_header, timing_points):
         item[0], item[1])
     print "-----------------"
 
-def iterate(args, search_events, timings, cfg, error_time, components_to_monitor):
-  if args.reboot:
-    reboot(args.serial, args.stressfs != '', args.permissive, args.adb_reboot)
+def handle_reboot_log(capture_log_on_error, shutdown_events_pattern, components_to_monitor):
+  shutdown_events, shutdown_timing_events = collect_logcat_for_shutdown(capture_log_on_error,\
+		shutdown_events_pattern, components_to_monitor)
+  print "\nshutdown events: time"
+  for item in shutdown_events.items():
+    print '{0:30}: {1:<7.5}'.format(item[0], item[1])
+  print "\nshutdown timing events: time"
+  for item in shutdown_timing_events.items():
+    print '{0:30}: {1:<7.5}'.format(item[0], item[1])
+  return shutdown_events, shutdown_timing_events
 
-  dmesg_events, kernel_timing_events = collect_events(search_events, ADB_CMD +\
-                                                      ' shell su root dmesg -w', timings,\
+def iterate(args, search_events_pattern, timings_pattern, shutdown_events_pattern, cfg, error_time,\
+    components_to_monitor):
+  shutdown_events = None
+  shutdown_timing_events = None
+  if args.reboot:
+    # sleep to make sure that logcat reader is reading before adb is gone by reboot. ugly but make
+    # impl simple.
+    t = threading.Thread(target = lambda : (time.sleep(2), reboot(args.serial, args.stressfs != '',\
+        args.permissive, args.adb_reboot)))
+    t.start()
+    shutdown_events, shutdown_timing_events = handle_reboot_log(True, shutdown_events_pattern,\
+        components_to_monitor)
+    t.join()
+
+  dmesg_events, kernel_timing_events = collect_events(search_events_pattern, ADB_CMD +\
+                                                      ' shell su root dmesg -w', timings_pattern,\
                                                       [ KERNEL_BOOT_COMPLETE ], True)
 
   logcat_stop_events = [ LOGCAT_BOOT_COMPLETE, KERNEL_BOOT_COMPLETE, LAUNCHER_START]
   if args.fs_check:
     logcat_stop_events.append("FsStat")
   logcat_events, logcat_timing_events = collect_events(
-    search_events, ADB_CMD + ' logcat -b all -v epoch', timings, logcat_stop_events, False)
+    search_events_pattern, ADB_CMD + ' logcat -b all -v epoch', timings_pattern,\
+    logcat_stop_events, False)
   logcat_event_time = extract_time(
     logcat_events, TIME_LOGCAT, float);
   logcat_original_time = extract_time(
@@ -338,8 +398,8 @@ def iterate(args, search_events, timings, cfg, error_time, components_to_monitor
   print "-----------------"
 
   if args.timings:
-    kernel_timing_points = generate_timing_points(kernel_timing_events, timings)
-    logcat_timing_points = generate_timing_points(logcat_timing_events, timings)
+    kernel_timing_points = generate_timing_points(kernel_timing_events, timings_pattern)
+    logcat_timing_points = generate_timing_points(logcat_timing_events, timings_pattern)
     dump_timing_points("Kernel", kernel_timing_points)
     dump_timing_points("Logcat", logcat_timing_points)
 
@@ -401,7 +461,8 @@ def iterate(args, search_events, timings, cfg, error_time, components_to_monitor
       if (fs_stat_val & ~0x17) != 0:
         capture_bugreport("fs_stat_" + fs_stat, events[LOGCAT_BOOT_COMPLETE])
 
-  return data_points, kernel_timing_points, logcat_timing_points, boottime_events
+  return data_points, kernel_timing_points, logcat_timing_points, boottime_events, shutdown_events,\
+      shutdown_timing_events
 
 def debug(string):
   if DEBUG:
@@ -503,6 +564,64 @@ def update_name_if_already_exist(events, name):
     existing_event = events.get(new_name)
   return new_name
 
+def collect_logcat_for_shutdown(capture_log_on_error, shutdown_events_pattern,\
+    log_capture_conditions):
+  events = collections.OrderedDict()
+  # shutdown does not have timing_events but calculated from checking Xyz - XyzDone / XyzTimeout
+  timing_events = collections.OrderedDict()
+  process = subprocess.Popen(ADB_CMD + ' logcat -b all -v epoch', shell=True,
+                             stdout=subprocess.PIPE);
+  lines = []
+  capture_log = False
+  shutdown_start_time = 0
+  while (True):
+    line = process.stdout.readline().lstrip().rstrip()
+    if not line:
+      break
+    lines.append(line)
+    event = get_boot_event(line, shutdown_events_pattern);
+    if not event:
+      continue
+    time = extract_a_time(line, TIME_LOGCAT, float)
+    if not time:
+      print "cannot get time from: " + line
+      continue
+    if shutdown_start_time == 0:
+      shutdown_start_time = time
+    time = time - shutdown_start_time
+    events[event] = time
+    time_limit1 = log_capture_conditions.get(event)
+    if time_limit1 and time_limit1 <= time:
+      capture_log = True
+    pair_event = None
+    if event.endswith('Done'):
+	  pair_event = event[:-4]
+    elif event.endswith('Timeout'):
+      pair_event = event[:-7]
+      if capture_log_on_error:
+        capture_log = True
+    if not pair_event:
+      continue
+    start_time = events.get(pair_event)
+    if not start_time:
+      print "No start event for " + event
+      continue
+    time_spent = time - start_time
+    timing_event_name = pair_event + "Duration"
+    timing_events[timing_event_name] = time_spent
+    time_limit2 = log_capture_conditions.get(timing_event_name)
+    if time_limit2 and time_limit2 <= time_spent:
+      capture_log = True
+
+  if capture_log:
+    now = datetime.now()
+    log_file = ("shutdownlog-error-%s.txt") % (now.strftime("%Y-%m-%d-%H-%M-%S"))
+    print "Shutdown error, capture log to %s" % (log_file)
+    with open(log_file, 'w') as f:
+      f.write('\n'.join(lines))
+  return events, timing_events
+
+
 def collect_events(search_events, command, timings, stop_events, disable_timing_after_zygote):
   events = collections.OrderedDict()
   timing_events = {}
@@ -522,7 +641,7 @@ def collect_events(search_events, command, timings, stop_events, disable_timing_
       print "timeout waiting for event, continue", time_left
       break
     read_r = read_poll.poll(time_left * 1000.0)
-    if read_r:
+    if len(read_r) > 0 and read_r[0][1] == select.POLLIN:
         line = process.stdout.readline()
     else:
       print "poll timeout waiting for event, continue", time_left

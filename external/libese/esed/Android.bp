@@ -14,11 +14,9 @@
 // limitations under the License.
 //
 
-subdirs = ["pn81a"]
-
 cc_defaults {
-    name: "esed_cflags_defaults",
-    vendor: true,
+    name: "esed_defaults",
+    proprietary: true,
     cflags: [
         "-pedantic",
         "-Wall",
@@ -33,29 +31,25 @@ cc_defaults {
     },
 }
 
-cc_defaults {
-    name: "esed_defaults",
-    defaults: ["esed_cflags_defaults"],
-    shared_libs: [
-        "libbase",
-        "libese",
-        "libhidlbase",
-        "libhidltransport",
-        "libhwbinder",
-        "libutils",
-    ],
-}
-
 cc_binary {
     name: "esed",
     srcs: [
         "esed.cpp",
+        "Weaver.cpp",
     ],
     init_rc = ["esed.rc"],
     defaults: ["esed_defaults"],
     shared_libs: [
-        "liblog",
+        "android.hardware.weaver@1.0",
+        "libese",
+        "libbase",
+        "libese-app-boot",
+        "libese_cpp_nxp_pn80t_nq_nci",
+        "libese-app-weaver",
+        "libhidlbase",
         "libhidltransport",
-        "esed_pn81a"
+        "libhwbinder",
+        "liblog",
+        "libutils",
     ],
 }

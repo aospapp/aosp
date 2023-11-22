@@ -20,5 +20,9 @@ adb root && adb wait-for-device remount
 echo "========================================"
 echo "testing primitives"
 adb push $OUT/system/lib/libaudioutils.so /system/lib
-adb push $OUT/data/nativetest/primitives_tests /system/bin
+adb push $OUT/data/nativetest/primitives_tests/primitives_tests /system/bin
 adb shell /system/bin/primitives_tests
+
+echo "testing power"
+adb push $OUT/data/nativetest/power_tests/power_tests /system/bin
+adb shell /system/bin/power_tests

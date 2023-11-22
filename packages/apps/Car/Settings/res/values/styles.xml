@@ -15,32 +15,40 @@
 -->
 
 <resources>
-    <attr name="wifi_signal_color" format="reference" />
-    <style name="TextAppearance.Medium" parent="@android:style/TextAppearance.Material.Medium" >
-        <item name="android:textSize">@dimen/medium_text_size</item>
-    </style>
-    <style name="TextAppearance.Small" parent="@android:style/TextAppearance.Material.Small" >
-        <item name="android:textSize">@dimen/small_text_size</item>
-    </style>
-    <style name="TextAppearance.Switch" parent="@android:style/TextAppearance.Material.Title" />
-
-    <style name="TextAppearance.CategoryTitle" parent="@android:style/TextAppearance.Material.Body2">
-        <item name="android:textColor">?android:attr/textColorSecondary</item>
+    <style name="LineItem">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">@dimen/double_line_item_height</item>
+        <item name="android:foreground">@drawable/car_list_item_background</item>
     </style>
 
-    <style name="TextAppearance.TileTitle" parent="@android:style/TextAppearance.Material.Subhead" >
-        <item name="android:textSize">@dimen/medium_text_size</item>
+    <style name="LineItem.SingleItem" parent="LineItem">
+        <item name="android:layout_height">@dimen/single_line_item_height</item>
     </style>
-    <style name="TextAppearance.TileSubTitle" parent="@android:style/TextAppearance.Material.Body1" />
-    <style name="TextAppearance.RecentsTitle" parent="TextAppearance.CategoryTitle" />
-    <style name="TextAppearance.ResultTitle" parent="TextAppearance.CategoryTitle" />
+
+    <style name="CarBody1.SingleLine" parent="@style/CarBody1">
+        <item name="android:maxLines">1</item>
+        <item name="android:textColor">@color/text_body_1</item>
+        <item name="android:ellipsize">marquee</item>
+    </style>
+
+    <style name="CarBody2.SingleLine" parent="@style/CarBody2">
+        <item name="android:maxLines">1</item>
+        <item name="android:textColor">@color/text_body_2</item>
+        <item name="android:ellipsize">end</item>
+    </style>
 
     <style name="Theme.SettingsBase" parent="@android:style/Theme.Material.Settings" />
 
-    <style name="CarSettingTheme" parent="Theme.SettingsBase">
+    <attr name="WifiSignalColor" format="reference" />
+
+    <style name="CarSettingTheme" parent="@style/Theme.AppCompat.Light.NoActionBar">
         <item name="wifi_signal">@drawable/wifi_signal</item>
-        <item name="wifi_signal_color">?android:attr/colorAccent</item>
-        <item name="preferenceTheme">@style/PreferenceThemeOverlay</item>
+        <item name="WifiSignalColor">?android:attr/colorAccent</item>
+        <item name="android:background">@color/car_card</item>
+    </style>
+
+    <style name="ActionBarStyle.Car" parent="@style/Theme.AppCompat">
+        <item name="actionBarSize">@dimen/lens_header_height</item>
     </style>
 
     <style name="TrimmedHorizontalProgressBar" parent="android:Widget.Material.ProgressBar.Horizontal">
@@ -49,11 +57,32 @@
         <item name="android:maxHeight">3dp</item>
     </style>
     <style name="SettingIcon">
-        <item name="android:layout_width">@dimen/tile_icon_size</item>
-        <item name="android:layout_height">@dimen/tile_icon_size</item>
-        <item name="android:layout_alignParentStart">true</item>
+        <item name="android:layout_width">@dimen/stream_button_icon_size</item>
+        <item name="android:layout_height">@dimen/stream_button_icon_size</item>
         <item name="android:layout_centerVertical">true</item>
-        <item name="android:layout_marginStart">@dimen/stream_content_keyline_1</item>
-        <item name="android:layout_marginEnd">@dimen/stream_content_keyline_1</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:scaleType">fitCenter</item>
+        <item name="android:tint">@color/car_tint</item>
+    </style>
+
+    <style name="SettingIcon.ActionBar" parent="SettingIcon">
+        <item name="android:tint">@color/car_teal_700</item>
+        <item name="android:layout_gravity">center</item>
+        <item name="android:src">@drawable/ic_arrow_back</item>
+    </style>
+
+    <style name="SettingSwitch">
+        <item name="android:layout_width">@dimen/stream_button_icon_size</item>
+        <item name="android:layout_height">@dimen/stream_button_icon_size</item>
+        <item name="android:paddingEnd">@dimen/switch_end_padding</item>
+        <item name="android:scaleX">1.5</item>
+        <item name="android:scaleY">1.5</item>
+    </style>
+
+    <style name="SettingPagedList">
+        <item name="scrollbarContainerWidth">@dimen/side_margin</item>
+        <item name="showDivider">false</item>
+        <item name="offsetScrollBar">true</item>
+        <item name="rightMargin">@dimen/side_margin</item>
     </style>
 </resources>

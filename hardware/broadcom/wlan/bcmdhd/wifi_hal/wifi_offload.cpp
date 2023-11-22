@@ -22,13 +22,11 @@
 
 #define LOG_TAG  "WifiHAL"
 
-#include <utils/Log.h>
+#include <log/log.h>
 
 #include "wifi_hal.h"
 #include "common.h"
 #include "cpp_bindings.h"
-
-using namespace android;
 
 typedef enum {
     WIFI_OFFLOAD_START_MKEEP_ALIVE = ANDROID_NL80211_SUBCMD_WIFI_OFFLOAD_RANGE_START,

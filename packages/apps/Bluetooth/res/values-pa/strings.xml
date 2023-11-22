@@ -17,10 +17,10 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"ਡਾਊਨਲੋਡ ਪ੍ਰਬੰਧਕ ਤੱਕ ਪਹੁੰਚ।"</string>
-    <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"ਐਪ ਨੂੰ BluetoothShare ਪ੍ਰਬੰਧਕ ਤੱਕ ਪਹੁੰਚ ਅਤੇ ਫਾਈਲਾਂ ਟ੍ਰਾਂਸਫਰ ਕਰਨ ਲਈ ਇਸਦੀ ਵਰਤੋਂ ਕਰਨ ਦੀ ਆਗਿਆ ਦਿੰਦਾ ਹੈ।"</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"ਵਾਈਟਲਿਸਟ bluetooth ਡੀਵਾਈਸ ਪਹੁੰਚ।"</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"ਐਪ ਨੂੰ ਇਹ ਆਗਿਆ ਦਿੰਦੇ ਹੋਏ ਕਿ ਡੀਵਾਈਸ ਉਪਭੋਗਤਾ ਦੀ ਪੁਸ਼ਟੀ ਤੋਂ ਬਿਨਾਂ ਇਸ ਡੀਵਾਈਸ ਨੂੰ ਫਾਈਲਾਂ ਭੇਜੇ, ਇੱਕ Bluetooth ਡੀਵਾਈਸ ਨੂੰ ਅਸਥਾਈ ਤੌਰ ਤੇ ਵਾਈਟਲਿਸਟ ਕਰਨ ਦੀ ਆਗਿਆ ਦਿੰਦਾ ਹੈ।"</string>
-    <string name="bt_share_picker_label" msgid="6268100924487046932">"Bluetooth"</string>
+    <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"ਐਪ ਨੂੰ ਬਲੂਟੁੱਥShare ਪ੍ਰਬੰਧਕ ਤੱਕ ਪਹੁੰਚ ਅਤੇ ਫ਼ਾਈਲਾਂ ਟ੍ਰਾਂਸਫਰ ਕਰਨ ਲਈ ਇਸਦੀ ਵਰਤੋਂ ਕਰਨ ਦੀ ਆਗਿਆ ਦਿੰਦਾ ਹੈ।"</string>
+    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"ਵਾਈਟਲਿਸਟ ਬਲੂਟੱਥ ਡੀਵਾਈਸ ਪਹੁੰਚ।"</string>
+    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"ਐਪ ਨੂੰ ਇਹ ਆਗਿਆ ਦਿੰਦੇ ਹੋਏ ਕਿ ਡੀਵਾਈਸ ਵਰਤੋਂਕਾਰ ਦੀ ਪੁਸ਼ਟੀ ਤੋਂ ਬਿਨਾਂ ਇਸ ਡੀਵਾਈਸ ਨੂੰ ਫ਼ਾਈਲਾਂ ਭੇਜੇ, ਇੱਕ ਬਲੂਟੁੱਥ ਡੀਵਾਈਸ ਨੂੰ ਅਸਥਾਈ ਤੌਰ ਤੇ ਵਾਈਟਲਿਸਟ ਕਰਨ ਦੀ ਆਗਿਆ ਦਿੰਦਾ ਹੈ।"</string>
+    <string name="bt_share_picker_label" msgid="6268100924487046932">"ਬਲੂਟੁੱਥ"</string>
     <string name="unknown_device" msgid="9221903979877041009">"ਅਗਿਆਤ ਡੀਵਾਈਸ"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"ਅਗਿਆਤ"</string>
     <string name="airplane_error_title" msgid="2683839635115739939">"ਏਅਰਪਲੇਨ ਮੋਡ"</string>
@@ -63,7 +63,7 @@
     <string name="download_succ_line5" msgid="4509944688281573595">"ਫਾਈਲ ਪ੍ਰਾਪਤ ਕੀਤੀ"</string>
     <string name="download_succ_ok" msgid="7053688246357050216">"ਖੋਲ੍ਹੋ"</string>
     <string name="upload_line1" msgid="2055952074059709052">"ਨੂੰ: \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\""</string>
-    <string name="upload_line3" msgid="4920689672457037437">"ਫਾਈਲ ਪ੍ਰਕਾਰ: <xliff:g id="TYPE">%1$s</xliff:g> (<xliff:g id="SIZE">%2$s</xliff:g>)"</string>
+    <string name="upload_line3" msgid="4920689672457037437">"ਫ਼ਾਈਲ ਦੀ ਕਿਸਮ: <xliff:g id="TYPE">%1$s</xliff:g> (<xliff:g id="SIZE">%2$s</xliff:g>)"</string>
     <string name="upload_line5" msgid="7759322537674229752">"ਫਾਈਲ ਭੇਜ ਰਿਹਾ ਹੈ…"</string>
     <string name="upload_succ_line5" msgid="5687317197463383601">"ਫਾਈਲ ਭੇਜੀ ਗਈ"</string>
     <string name="upload_succ_ok" msgid="7705428476405478828">"ਠੀਕ"</string>
@@ -73,19 +73,19 @@
     <string name="upload_fail_cancel" msgid="9118496285835687125">"ਬੰਦ ਕਰੋ"</string>
     <string name="bt_error_btn_ok" msgid="5965151173011534240">"ਠੀਕ"</string>
     <string name="unknown_file" msgid="6092727753965095366">"ਅਗਿਆਤ ਫਾਈਲ"</string>
-    <string name="unknown_file_desc" msgid="480434281415453287">"ਇਸ ਪ੍ਰਕਾਰ ਦੀ ਫਾਈਲ ਨੂੰ ਸੰਭਾਲਣ ਲਈ ਕੋਈ ਐਪ ਨਹੀਂ ਹੈ। \n"</string>
+    <string name="unknown_file_desc" msgid="480434281415453287">"ਇਸ ਕਿਸਮ ਦੀ ਫ਼ਾਈਲ ਨੂੰ ਸੰਭਾਲਣ ਲਈ ਕੋਈ ਐਪ ਨਹੀਂ ਹੈ। \n"</string>
     <string name="not_exist_file" msgid="3489434189599716133">"ਕੋਈ ਫਾਈਲ ਨਹੀਂ"</string>
     <string name="not_exist_file_desc" msgid="4059531573790529229">"ਫਾਈਲ ਮੌਜੂਦ ਨਹੀਂ ਹੈ। \n"</string>
     <string name="enabling_progress_title" msgid="436157952334723406">"ਕਿਰਪਾ ਕਰਕੇ ਠਹਿਰੋ..."</string>
     <string name="enabling_progress_content" msgid="4601542238119927904">"Bluetooth ਚਾਲੂ ਕਰ ਰਿਹਾ ਹੈ…"</string>
-    <string name="bt_toast_1" msgid="972182708034353383">"ਫਾਈਲ ਪ੍ਰਾਪਤ ਕੀਤੀ ਜਾਏਗੀ। ਸੂਚਨਾਵਾਂ ਪੈਨਲ ਵਿੱਚ ਪ੍ਰਗਤੀ ਦੀ ਜਾਂਚ ਕਰੋ।"</string>
+    <string name="bt_toast_1" msgid="972182708034353383">"ਫ਼ਾਈਲ ਪ੍ਰਾਪਤ ਕੀਤੀ ਜਾਵੇਗੀ। ਸੂਚਨਾਵਾਂ ਪੈਨਲ ਵਿੱਚ ਪ੍ਰਗਤੀ ਦੀ ਜਾਂਚ ਕਰੋ।"</string>
     <string name="bt_toast_2" msgid="8602553334099066582">"ਫਾਈਲ ਪ੍ਰਾਪਤ ਨਹੀਂ ਕੀਤੀ ਜਾ ਸਕਦੀ।"</string>
     <string name="bt_toast_3" msgid="6707884165086862518">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" ਤੋਂ ਫਾਈਲ ਪ੍ਰਾਪਤ ਕਰਨਾ ਰੋਕਿਆ ਗਿਆ"</string>
     <string name="bt_toast_4" msgid="4678812947604395649">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" ਨੂੰ ਫਾਈਲ ਭੇਜ ਰਿਹਾ ਹੈ"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"\"<xliff:g id="RECIPIENT">%2$s</xliff:g>\" ਨੂੰ <xliff:g id="NUMBER">%1$s</xliff:g> ਫਾਈਲਾਂ ਭੇਜ ਰਿਹਾ ਹੈ"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" ਨੂੰ ਫਾਈਲ ਭੇਜਣਾ ਰੋਕਿਆ ਗਿਆ"</string>
-    <string name="bt_sm_2_1" product="nosdcard" msgid="352165168004521000">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" ਦੀ ਫਾਈਲ ਸੁਰੱਖਿਅਤ ਕਰਨ ਲਈ USB ਸਟੋਰੇਜ ਵਿੱਚ ਪੂਰਾ ਸਪੇਸ ਨਹੀਂ ਹੈ।"</string>
-    <string name="bt_sm_2_1" product="default" msgid="1989018443456803630">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" ਦੀ ਫਾਈਲ ਸੁਰੱਖਿਅਤ ਕਰਨ ਲਈ SD ਕਾਰਡ ਵਿੱਚ ਪੂਰਾ ਸਪੇਸ ਨਹੀਂ ਹੈ।"</string>
+    <string name="bt_sm_2_1" product="nosdcard" msgid="352165168004521000">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" ਦੀ ਫ਼ਾਈਲ ਰੱਖਿਅਤ ਕਰਨ ਲਈ USB ਸਟੋਰੇਜ ਵਿੱਚ ਪੂਰੀ ਜਗ੍ਹਾ ਨਹੀਂ ਹੈ।"</string>
+    <string name="bt_sm_2_1" product="default" msgid="1989018443456803630">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" ਦੀ ਫ਼ਾਈਲ ਰੱਖਿਅਤ ਕਰਨ ਲਈ SD ਕਾਰਡ ਵਿੱਚ ਪੂਰੀ ਜਗ੍ਹਾ ਨਹੀਂ ਹੈ।"</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"ਲੁੜੀਂਦਾ ਸਪੇਸ: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"ਬਹੁਤ ਜ਼ਿਆਦਾ ਬੇਨਤੀਆਂ ਦੀ ਪ੍ਰਕਿਰਿਆ ਕੀਤੀ ਜਾ ਰਹੀ ਹੈ। ਬਾਅਦ ਵਿੱਚ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।"</string>
     <string name="status_pending" msgid="2503691772030877944">"ਫਾਈਲ ਟ੍ਰਾਂਸਫਰ ਅਜੇ ਚਾਲੂ ਨਹੀਂ ਹੋਈ।"</string>
@@ -95,8 +95,8 @@
     <string name="status_forbidden" msgid="613956401054050725">"ਟੀਚਾ ਡੀਵਾਈਸ ਵੱਲੋਂ ਟ੍ਰਾਂਸਫਰ ਵਰਜਿਤ।"</string>
     <string name="status_canceled" msgid="6664490318773098285">"ਉਪਭੋਗਤਾ ਵੱਲੋਂ ਟ੍ਰਾਂਸਫਰ ਰੱਦ ਕੀਤਾ ਗਿਆ।"</string>
     <string name="status_file_error" msgid="3671917770630165299">"ਸਟੋਰੇਜ ਸਮੱਸਿਆ।"</string>
-    <string name="status_no_sd_card" product="nosdcard" msgid="1112125377088421469">"ਕੋਈ USB ਸਟੋਰੇਜ ਨਹੀਂ।"</string>
-    <string name="status_no_sd_card" product="default" msgid="5760944071743325592">"ਕੋਈ SD ਕਾਰਡ ਨਹੀਂ। ਟ੍ਰਾਂਸਫਰ ਕੀਤੀਆਂ ਫਾਈਲਾਂ ਨੂੰ ਸੁਰੱਖਿਅਤ ਕਰਨ ਲਈ ਇੱਕ SD ਕਾਰਡ ਪਾਓ।"</string>
+    <string name="status_no_sd_card" product="nosdcard" msgid="1112125377088421469">"ਕੋਈ USB ਸਟੋਰੇਜ ਨਹੀਂ ਹੈ।"</string>
+    <string name="status_no_sd_card" product="default" msgid="5760944071743325592">"ਕੋਈ SD ਕਾਰਡ ਨਹੀਂ। ਟ੍ਰਾਂਸਫ਼ਰ ਕੀਤੀਆਂ ਫਾਈਲਾਂ ਨੂੰ ਰੱਖਿਅਤ ਕਰਨ ਲਈ ਇੱਕ SD ਕਾਰਡ ਪਾਓ।"</string>
     <string name="status_connection_error" msgid="947681831523219891">"ਕਨੈਕਸ਼ਨ ਅਸਫਲ।"</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"ਬੇਨਤੀ ਨੂੰ ਸਹੀ ਢੰਗ ਨਾਲ ਸੰਭਾਲਿਆ ਨਹੀਂ ਜਾ ਸਕਦਾ।"</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"ਅਗਿਆਤ ਅਸ਼ੁੱਧੀ।"</string>
@@ -126,10 +126,10 @@
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"ਰੱਦ ਕਰੋ"</string>
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"ਉਹਨਾਂ ਖਾਤਿਆਂ ਨੂੰ ਚੁਣੋ ਜਿਨ੍ਹਾਂ ਨੂੰ ਤੁਸੀਂ ਬਲੂਟੁੱਥ ਦੇ ਰਾਹੀਂ ਸਾਂਝਾ ਕਰਨਾ ਚਾਹੁੰਦੇ ਹੋ। ਤੁਹਾਨੂੰ ਹਾਲੇ ਵੀ ਕਨੈਕਟ ਕਰਨ ਦੌਰਾਨ ਖਾਤਿਆਂ \'ਤੇ ਕਿਸੇ ਵੀ ਪਹੁੰਚ ਨੂੰ ਸਵੀਕਾਰ ਕਰਨਾ ਹੋਵੇਗਾ।"</string>
     <string name="bluetooth_map_settings_count" msgid="4557473074937024833">"ਸਲੌਟ ਬਾਕੀ:"</string>
-    <string name="bluetooth_map_settings_app_icon" msgid="7105805610929114707">"ਐਪਲੀਕੇਸ਼ਨ ਆਈਕਨ"</string>
-    <string name="bluetooth_map_settings_title" msgid="7420332483392851321">"ਬਲੂਟੁੱਥ ਸੁਨੇਹਾ ਸ਼ੇਅਰਿੰਗ ਸੈੱਟਿੰਗਜ਼"</string>
+    <string name="bluetooth_map_settings_app_icon" msgid="7105805610929114707">"ਐਪਲੀਕੇਸ਼ਨ ਪ੍ਰਤੀਕ"</string>
+    <string name="bluetooth_map_settings_title" msgid="7420332483392851321">"ਬਲੂਟੁੱਥ ਸੁਨੇਹਾ ਸਾਂਝਾਕਰਨ ਸੈਟਿੰਗਾਂ"</string>
     <string name="bluetooth_map_settings_no_account_slots_left" msgid="1796029082612965251">"ਖਾਤਾ ਨਹੀਂ ਚੁਣ ਸਕਦਾ। 0 ਸਲੌਟ ਬਾਕੀ"</string>
-    <string name="bluetooth_connected" msgid="6718623220072656906">"ਬਲੂਟੁੱਥ ਔਡੀਓ ਕਨੈਕਟ ਕੀਤੀ ਗਈ"</string>
-    <string name="bluetooth_disconnected" msgid="3318303728981478873">"ਬਲੂਟੁੱਥ ਔਡੀਓ ਡਿਸਕਨੈਕਟ ਕੀਤੀ ਗਈ"</string>
-    <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"ਬਲੂਟੁੱਥ ਔਡੀਓ"</string>
+    <string name="bluetooth_connected" msgid="6718623220072656906">"ਬਲੂਟੁੱਥ  ਆਡੀਓ  ਕਨੈਕਟ ਕੀਤੀ ਗਈ"</string>
+    <string name="bluetooth_disconnected" msgid="3318303728981478873">"ਬਲੂਟੁੱਥ  ਆਡੀਓ  ਡਿਸਕਨੈਕਟ ਕੀਤੀ ਗਈ"</string>
+    <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"ਬਲੂਟੁੱਥ  ਆਡੀਓ"</string>
 </resources>

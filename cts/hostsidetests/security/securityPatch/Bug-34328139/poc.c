@@ -41,7 +41,7 @@ void *threadForConfig(void *arg)
     while (cmd != 1) {
         usleep(10);
     }
-    
+
     if (cmd == -1)
         goto failed;
 
@@ -56,7 +56,7 @@ failed:
 void *threadForClose()
 {
     status[0] = 1;
-    
+
     while (cmd != 1) {
         usleep(10);
     }
@@ -67,7 +67,7 @@ void *threadForClose()
     usleep(50);
     ioctl(fd, MDSS_ROTATION_CLOSE, id);
 failed:
-    status[0] = 2;   
+    status[0] = 2;
     return NULL;
 }
 
@@ -75,36 +75,35 @@ int main()
 {
     int ret, i, count;
     pthread_t tid[5];
-    int p = 5;    
- 
+    int p = 5;
+
     count = 0;
 retry:
     if (p-- > 0){
         fork();
     }
-    
+
     cmd = 0;
     for (i = 0; i < 10; i++)
         status[i] = 0;
-    
+
     fd = open("/dev/mdss_rotator", O_RDONLY, 0);
     if (fd < 0) {
-	return -1;
+         return -1;
     }
 
     ret = ioctl(fd, MDSS_ROTATION_OPEN, &config);
     if (ret < 0) {
-	goto failed;
+            goto failed;
     } else {
         id = config.session_id;
     }
-    
+
     ret = pthread_create(&tid[0], NULL, threadForClose, NULL);
     if (ret != 0) {
-        printf("thread failed! errno:%d err:%s\n",errno,strerror(errno));
         goto failed;
     }
-    
+
     for (i = 1; i < 10; i++) {
         ret = pthread_create(&tid[1], NULL, threadForConfig, (void *)(unsigned long)i);
         if (ret != 0) {
@@ -130,12 +129,10 @@ retry:
         || status[9] != 2) {
         usleep(50);
     }
-    
-    	
+
 failed:
     close(fd);
-    printf("[pid:%d] try %d again!\n", getpid(), ++count);
     goto retry;
 
-    return 0;	
+    return 0;
 }

@@ -19,3 +19,13 @@ LOCAL_MODULE := tagsouplib
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 include $(BUILD_HOST_JAVA_LIBRARY)
+
+# build a android library jar
+# ----------------------
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := tagsoup-android
+LOCAL_SRC_FILES := $(call all-java-files-under, src)
+
+include $(BUILD_STATIC_JAVA_LIBRARY)
+

@@ -3,6 +3,7 @@
  *
  * Copyright (c) 2016 Eugene Syromyatnikov <evgsyr@gmail.com>
  * Copyright (c) 2016 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2016-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -70,7 +71,7 @@ struct fs_quota_statv {
 	struct fs_qfilestatv	qs_pquota;	/* project quota information */
 	int32_t		qs_btimelimit;		/* limit for blks timer */
 	int32_t		qs_itimelimit;		/* limit for inodes timer */
-	int32_t		qs_rtbtimelimit; 	/* limit for rt blks timer */
+	int32_t		qs_rtbtimelimit;	/* limit for rt blks timer */
 	uint16_t	qs_bwarnlimit;		/* limit for num warnings */
 	uint16_t	qs_iwarnlimit;		/* limit for num warnings */
 	uint64_t	qs_pad2[8];		/* for future proofing */
@@ -96,29 +97,29 @@ print_xdisk_quota(int rc, void *ptr, void *arg)
 		return;
 	}
 
-	PRINT_FIELD_D("{", dq, d_version);
+	PRINT_FIELD_D("{", *dq, d_version);
 	printf(", d_flags=");
 	printflags(xfs_dqblk_flags, (uint8_t) dq->d_flags, "XFS_???_QUOTA");
 
-	PRINT_FIELD_X(", ", dq, d_fieldmask);
-	PRINT_FIELD_U(", ", dq, d_id);
-	PRINT_FIELD_U(", ", dq, d_blk_hardlimit);
-	PRINT_FIELD_U(", ", dq, d_blk_softlimit);
-	PRINT_FIELD_U(", ", dq, d_ino_hardlimit);
-	PRINT_FIELD_U(", ", dq, d_ino_softlimit);
-	PRINT_FIELD_U(", ", dq, d_bcount);
-	PRINT_FIELD_U(", ", dq, d_icount);
+	PRINT_FIELD_X(", ", *dq, d_fieldmask);
+	PRINT_FIELD_U(", ", *dq, d_id);
+	PRINT_FIELD_U(", ", *dq, d_blk_hardlimit);
+	PRINT_FIELD_U(", ", *dq, d_blk_softlimit);
+	PRINT_FIELD_U(", ", *dq, d_ino_hardlimit);
+	PRINT_FIELD_U(", ", *dq, d_ino_softlimit);
+	PRINT_FIELD_U(", ", *dq, d_bcount);
+	PRINT_FIELD_U(", ", *dq, d_icount);
 
 # if VERBOSE
-	PRINT_FIELD_D(", ", dq, d_itimer);
-	PRINT_FIELD_D(", ", dq, d_btimer);
-	PRINT_FIELD_U(", ", dq, d_iwarns);
-	PRINT_FIELD_U(", ", dq, d_bwarns);
-	PRINT_FIELD_U(", ", dq, d_rtb_hardlimit);
-	PRINT_FIELD_U(", ", dq, d_rtb_softlimit);
-	PRINT_FIELD_U(", ", dq, d_rtbcount);
-	PRINT_FIELD_D(", ", dq, d_rtbtimer);
-	PRINT_FIELD_U(", ", dq, d_rtbwarns);
+	PRINT_FIELD_D(", ", *dq, d_itimer);
+	PRINT_FIELD_D(", ", *dq, d_btimer);
+	PRINT_FIELD_U(", ", *dq, d_iwarns);
+	PRINT_FIELD_U(", ", *dq, d_bwarns);
+	PRINT_FIELD_U(", ", *dq, d_rtb_hardlimit);
+	PRINT_FIELD_U(", ", *dq, d_rtb_softlimit);
+	PRINT_FIELD_U(", ", *dq, d_rtbcount);
+	PRINT_FIELD_D(", ", *dq, d_rtbtimer);
+	PRINT_FIELD_U(", ", *dq, d_rtbwarns);
 # else
 	printf(", ...");
 # endif /* !VERBOSE */
@@ -136,23 +137,23 @@ print_xquota_stat(int rc, void *ptr, void *arg)
 		return;
 	}
 
-	PRINT_FIELD_D("{", qs, qs_version);
+	PRINT_FIELD_D("{", *qs, qs_version);
 
 # if VERBOSE
 	printf(", qs_flags=");
 	printflags(xfs_quota_flags, qs->qs_flags, "XFS_QUOTA_???");
-	PRINT_FIELD_U(", qs_uquota={", &qs->qs_uquota, qfs_ino);
-	PRINT_FIELD_U(", ", &qs->qs_uquota, qfs_nblks);
-	PRINT_FIELD_U(", ", &qs->qs_uquota, qfs_nextents);
-	PRINT_FIELD_U("}, qs_gquota={", &qs->qs_gquota, qfs_ino);
-	PRINT_FIELD_U(", ", &qs->qs_gquota, qfs_nblks);
-	PRINT_FIELD_U(", ", &qs->qs_gquota, qfs_nextents);
-	PRINT_FIELD_U("}, ", qs, qs_incoredqs);
-	PRINT_FIELD_D(", ", qs, qs_btimelimit);
-	PRINT_FIELD_D(", ", qs, qs_itimelimit);
-	PRINT_FIELD_D(", ", qs, qs_rtbtimelimit);
-	PRINT_FIELD_U(", ", qs, qs_bwarnlimit);
-	PRINT_FIELD_U(", ", qs, qs_iwarnlimit);
+	PRINT_FIELD_U(", qs_uquota={", qs->qs_uquota, qfs_ino);
+	PRINT_FIELD_U(", ", qs->qs_uquota, qfs_nblks);
+	PRINT_FIELD_U(", ", qs->qs_uquota, qfs_nextents);
+	PRINT_FIELD_U("}, qs_gquota={", qs->qs_gquota, qfs_ino);
+	PRINT_FIELD_U(", ", qs->qs_gquota, qfs_nblks);
+	PRINT_FIELD_U(", ", qs->qs_gquota, qfs_nextents);
+	PRINT_FIELD_U("}, ", *qs, qs_incoredqs);
+	PRINT_FIELD_D(", ", *qs, qs_btimelimit);
+	PRINT_FIELD_D(", ", *qs, qs_itimelimit);
+	PRINT_FIELD_D(", ", *qs, qs_rtbtimelimit);
+	PRINT_FIELD_U(", ", *qs, qs_bwarnlimit);
+	PRINT_FIELD_U(", ", *qs, qs_iwarnlimit);
 # else
 	printf(", ...");
 # endif /* !VERBOSE */
@@ -170,26 +171,26 @@ print_xquota_statv(int rc, void *ptr, void *arg)
 		return;
 	}
 
-	PRINT_FIELD_D("{", qs, qs_version);
+	PRINT_FIELD_D("{", *qs, qs_version);
 
 # if VERBOSE
 	printf(", qs_flags=");
 	printflags(xfs_quota_flags, qs->qs_flags, "XFS_QUOTA_???");
-	PRINT_FIELD_U(", ", qs, qs_incoredqs);
-	PRINT_FIELD_U(", qs_uquota={", &qs->qs_uquota, qfs_ino);
-	PRINT_FIELD_U(", ", &qs->qs_uquota, qfs_nblks);
-	PRINT_FIELD_U(", ", &qs->qs_uquota, qfs_nextents);
-	PRINT_FIELD_U("}, qs_gquota={", &qs->qs_gquota, qfs_ino);
-	PRINT_FIELD_U(", ", &qs->qs_gquota, qfs_nblks);
-	PRINT_FIELD_U(", ", &qs->qs_gquota, qfs_nextents);
-	PRINT_FIELD_U("}, qs_pquota={", &qs->qs_pquota, qfs_ino);
-	PRINT_FIELD_U(", ", &qs->qs_pquota, qfs_nblks);
-	PRINT_FIELD_U(", ", &qs->qs_pquota, qfs_nextents);
-	PRINT_FIELD_D("}, ", qs, qs_btimelimit);
-	PRINT_FIELD_D(", ", qs, qs_itimelimit);
-	PRINT_FIELD_D(", ", qs, qs_rtbtimelimit);
-	PRINT_FIELD_U(", ", qs, qs_bwarnlimit);
-	PRINT_FIELD_U(", ", qs, qs_iwarnlimit);
+	PRINT_FIELD_U(", ", *qs, qs_incoredqs);
+	PRINT_FIELD_U(", qs_uquota={", qs->qs_uquota, qfs_ino);
+	PRINT_FIELD_U(", ", qs->qs_uquota, qfs_nblks);
+	PRINT_FIELD_U(", ", qs->qs_uquota, qfs_nextents);
+	PRINT_FIELD_U("}, qs_gquota={", qs->qs_gquota, qfs_ino);
+	PRINT_FIELD_U(", ", qs->qs_gquota, qfs_nblks);
+	PRINT_FIELD_U(", ", qs->qs_gquota, qfs_nextents);
+	PRINT_FIELD_U("}, qs_pquota={", qs->qs_pquota, qfs_ino);
+	PRINT_FIELD_U(", ", qs->qs_pquota, qfs_nblks);
+	PRINT_FIELD_U(", ", qs->qs_pquota, qfs_nextents);
+	PRINT_FIELD_D("}, ", *qs, qs_btimelimit);
+	PRINT_FIELD_D(", ", *qs, qs_itimelimit);
+	PRINT_FIELD_D(", ", *qs, qs_rtbtimelimit);
+	PRINT_FIELD_U(", ", *qs, qs_bwarnlimit);
+	PRINT_FIELD_U(", ", *qs, qs_iwarnlimit);
 # else
 	printf(", ...");
 # endif /* !VERBOSE */
@@ -207,10 +208,10 @@ main(void)
 	char unterminated_str[sizeof(void *) * 2 + sizeof("0x")];
 
 	long rc;
-	struct fs_disk_quota *xdq = tail_alloc(sizeof(*xdq));
-	struct fs_quota_stat *xqstat = tail_alloc(sizeof(*xqstat));
-	struct fs_quota_statv *xqstatv = tail_alloc(sizeof(*xqstatv));
-	uint32_t *flags = tail_alloc(sizeof(*flags));
+	TAIL_ALLOC_OBJECT_CONST_PTR(struct fs_disk_quota, xdq);
+	TAIL_ALLOC_OBJECT_CONST_PTR(struct fs_quota_stat, xqstat);
+	TAIL_ALLOC_OBJECT_CONST_PTR(struct fs_quota_statv, xqstatv);
+	TAIL_ALLOC_OBJECT_CONST_PTR(uint32_t, flags);
 	char *unterminated = tail_memdup(unterminated_data,
 		sizeof(unterminated_data));
 

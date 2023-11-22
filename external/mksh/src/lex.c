@@ -2,7 +2,7 @@
 
 /*-
  * Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
- *		 2011, 2012, 2013, 2014, 2015, 2016
+ *		 2011, 2012, 2013, 2014, 2015, 2016, 2017
  *	mirabilos <m@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
@@ -23,7 +23,7 @@
 
 #include "sh.h"
 
-__RCSID("$MirOS: src/bin/mksh/lex.c,v 1.228 2016/08/01 21:38:03 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/lex.c,v 1.234 2017/04/06 01:59:55 tg Exp $");
 
 /*
  * states while lexing word
@@ -489,7 +489,7 @@ yylex(int cf)
 					 * If this is a trim operation,
 					 * treat (,|,) specially in STBRACE.
 					 */
-					if (ctype(c, C_SUBOP2)) {
+					if (ksh_issubop2(c)) {
 						ungetsc(c);
 						if (Flag(FSH))
 							PUSH_STATE(STBRACEBOURNE);
@@ -532,7 +532,7 @@ yylex(int cf)
 			case '`':
  subst_gravis:
 				PUSH_STATE(SBQUOTE);
-				*wp++ = COMSUB;
+				*wp++ = COMASUB;
 				/*
 				 * We need to know whether we are within double
 				 * quotes in order to translate \" to " within
@@ -885,7 +885,7 @@ yylex(int cf)
 	Xcheck(ws, wp);
 	if (statep != &states[1])
 		/* XXX figure out what is missing */
-		yyerror("no closing quote\n");
+		yyerror("no closing quote");
 
 	/* This done to avoid tests for SHEREDELIM wherever SBASE tested */
 	if (state == SHEREDELIM)
@@ -893,9 +893,7 @@ yylex(int cf)
 
 	dp = Xstring(ws, wp);
 	if (state == SBASE && (
-#ifndef MKSH_LEGACY_MODE
 	    (c == '&' && !Flag(FSH) && !Flag(FPOSIX)) ||
-#endif
 	    c == '<' || c == '>') && ((c2 = Xlength(ws, wp)) == 0 ||
 	    (c2 == 2 && dp[0] == CHAR && ksh_isdigit(dp[1])))) {
 		struct ioword *iop = alloc(sizeof(struct ioword), ATEMP);
@@ -1016,15 +1014,12 @@ yylex(int cf)
 	while ((dp - ident) < IDENT && (c = *sp++) == CHAR)
 		*dp++ = *sp++;
 	if (c != EOS)
-		/* word is not unquoted */
+		/* word is not unquoted, or space ran out */
 		dp = ident;
 	/* make sure the ident array stays NUL padded */
 	memset(dp, 0, (ident + IDENT) - dp + 1);
 
-	if (!(cf & (KEYWORD | ALIAS)))
-		return (LWORD);
-
-	if (*ident != '\0') {
+	if (*ident != '\0' && (cf & (KEYWORD | ALIAS))) {
 		struct tbl *p;
 		uint32_t h = hash(ident);
 
@@ -1068,6 +1063,7 @@ yylex(int cf)
 				s->start = s->str = p->val.s;
 				s->u.tblp = p;
 				s->flags |= SF_HASALIAS;
+				s->line = source->line;
 				s->next = source;
 				if (source->type == SEOF) {
 					/* prevent infinite recursion at EOS */
@@ -1079,9 +1075,12 @@ yylex(int cf)
 				goto Again;
 			}
 		}
-	} else if (cf & ALIAS) {
+	} else if (*ident == '\0') {
 		/* retain typeset et al. even when quoted */
-		if (assign_command((dp = wdstrip(yylval.cp, 0)), true))
+		struct tbl *tt = get_builtin((dp = wdstrip(yylval.cp, 0)));
+		uint32_t flag = tt ? tt->flag : 0;
+
+		if (flag & (DECL_UTIL | DECL_FWDR))
 			strlcpy(ident, dp, sizeof(ident));
 		afree(dp, ATEMP);
 	}
@@ -1204,6 +1203,7 @@ yyerror(const char *fmt, ...)
 	error_prefix(true);
 	va_start(va, fmt);
 	shf_vfprintf(shl_out, fmt, va);
+	shf_putc('\n', shl_out);
 	va_end(va);
 	errorfz();
 }
@@ -1625,7 +1625,7 @@ get_brace_var(XString *wsp, char *wp)
 					char *tmp, *p;
 
 					if (!arraysub(&tmp))
-						yyerror("missing ]\n");
+						yyerror("missing ]");
 					*wp++ = c;
 					for (p = tmp; *p; ) {
 						Xcheck(*wsp, wp);

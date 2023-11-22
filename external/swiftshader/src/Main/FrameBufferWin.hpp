@@ -31,7 +31,10 @@ namespace sw
 	public:
 		FrameBufferWin(HWND windowHandle, int width, int height, bool fullscreen, bool topLeftOrigin);
 
-		virtual ~FrameBufferWin();
+		~FrameBufferWin() override;
+
+		void flip(void *source, Format sourceFormat, size_t sourceStride) override = 0;
+		void blit(void *source, const Rect *sourceRect, const Rect *destRect, Format sourceFormat, size_t sourceStride) override = 0;
 
 		virtual void flip(HWND windowOverride, void *source, Format sourceFormat, size_t sourceStride) = 0;
 		virtual void blit(HWND windowOverride, void *source, const Rect *sourceRect, const Rect *destRect, Format sourceFormat, size_t sourceStride) = 0;

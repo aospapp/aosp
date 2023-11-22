@@ -264,13 +264,10 @@ public class DecodeAccuracyTest extends DecodeAccuracyTestBase {
             public int getHeight() {
                 return super.getHeight() + OFFSET;
             }
+
             @Override
-            public int getMaxHeight() {
-                return super.getHeight() * 2 + OFFSET;
-            }
-            @Override
-            public int getMaxWidth() {
-                return super.getWidth() * 2 + OFFSET;
+            public boolean isAbrEnabled() {
+                return true;
             }
         };
     }
@@ -281,13 +278,10 @@ public class DecodeAccuracyTest extends DecodeAccuracyTestBase {
             public int getWidth() {
                 return super.getWidth() + OFFSET;
             }
+
             @Override
-            public int getMaxHeight() {
-                return super.getHeight() * 2 + OFFSET;
-            }
-            @Override
-            public int getMaxWidth() {
-                return super.getWidth() * 2 + OFFSET;
+            public boolean isAbrEnabled() {
+                return true;
             }
         };
     }

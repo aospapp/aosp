@@ -12,15 +12,54 @@
   limitations under the License.
   -->
 
-<android.support.wearable.view.WatchViewStub
+<android.support.wear.widget.BoxInsetLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/watch_view_stub"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    app:rectLayout="@layout/rect_activity_main"
-    app:roundLayout="@layout/round_activity_main"
-    tools:context=".MainActivity"
+    tools:context=".MainWearActivity"
     tools:deviceIds="wear">
-</android.support.wearable.view.WatchViewStub>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        app:boxedEdges="all">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <Button
+                android:id="@+id/wear_body_sensors_permission_button"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:drawableLeft="@drawable/ic_permission_denied"
+                android:textSize="8sp"
+                android:text="@string/button_wear_label_activity_main"
+                android:onClick="onClickWearBodySensors" />
+
+            <Button
+                android:id="@+id/phone_storage_permission_button"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:drawableLeft="@drawable/ic_permission_denied"
+                android:textSize="8sp"
+                android:text="@string/button_phone_label_activity_main"
+                android:onClick="onClickPhoneStorage" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/output"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="2"
+            android:paddingLeft="8dp"
+            android:paddingRight="8dp"
+            android:text="@string/hello_wear_activity_main" />
+    </LinearLayout>
+
+</android.support.wear.widget.BoxInsetLayout>

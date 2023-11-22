@@ -8,6 +8,7 @@ from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error, file_utils, utils
 from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros.video import histogram_verifier
+from autotest_lib.client.cros.video import helper_logger
 
 
 # Chrome flags to use fake camera and skip camera permission.
@@ -57,7 +58,7 @@ class video_ChromeRTCHWDecodeUsed(test.test):
             os.path.join(self.bindir, 'loopback.html')))
         tab.WaitForDocumentReadyStateToBeComplete()
 
-
+    @helper_logger.video_log_wrapper
     def run_once(self, video_name, histogram_name, histogram_bucket_val):
         if self.is_skipping_test():
             raise error.TestNAError('Skipping test run on this board.')
@@ -69,6 +70,7 @@ class video_ChromeRTCHWDecodeUsed(test.test):
 
         # Start chrome with test flags.
         EXTRA_BROWSER_ARGS.append(FAKE_FILE_ARG % local_path)
+        EXTRA_BROWSER_ARGS.append(helper_logger.chrome_vmodule_flag())
         with chrome.Chrome(extra_browser_args=EXTRA_BROWSER_ARGS,
                            init_network_controller=True) as cr:
             # Open WebRTC loopback page.

@@ -250,8 +250,15 @@ class autoserv_parser(object):
         if self.options.image:
             self.options.install_before = True
             self.options.image =  self.options.image.strip()
+
         self.options.host_attributes = ast.literal_eval(
                 self.options.host_attributes)
+        if self.options.lab and self.options.host_attributes:
+            logging.warn(
+                    '--lab and --host-attributes are mutually exclusive. '
+                    'Ignoring custom host attributes: %s',
+                    str(self.options.host_attributes))
+            self.options.host_attributes = []
 
 
 # create the one and only one instance of autoserv_parser

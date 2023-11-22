@@ -34,9 +34,6 @@
 
 namespace android {
 
-const unsigned int Sensor::kResolution[2]  = {640, 480};
-const unsigned int Sensor::kActiveArray[4]  = {0, 0, 640, 480};
-
 //const nsecs_t Sensor::kExposureTimeRange[2] =
 //    {1000L, 30000000000L} ; // 1 us - 30 sec
 //const nsecs_t Sensor::kFrameDurationRange[2] =
@@ -76,13 +73,6 @@ const float Sensor::kReadNoiseVarAfterGain =
             Sensor::kReadNoiseStddevAfterGain *
             Sensor::kReadNoiseStddevAfterGain;
 
-// While each row has to read out, reset, and then expose, the (reset +
-// expose) sequence can be overlapped by other row readouts, so the final
-// minimum frame duration is purely a function of row readout time, at least
-// if there's a reasonable number of rows.
-const nsecs_t Sensor::kRowReadoutTime =
-            Sensor::kFrameDurationRange[0] / Sensor::kResolution[1];
-
 const int32_t Sensor::kSensitivityRange[2] = {100, 1600};
 const uint32_t Sensor::kDefaultSensitivity = 100;
 
@@ -105,8 +95,11 @@ float sqrtf_approx(float r) {
 
 
 
-Sensor::Sensor():
+Sensor::Sensor(uint32_t width, uint32_t height):
         Thread(false),
+        mResolution{width, height},
+        mActiveArray{0, 0, width, height},
+        mRowReadoutTime(kFrameDurationRange[0] / height),
         mGotVSync(false),
         mExposureTime(kFrameDurationRange[0]-kMinVerticalBlank),
         mFrameDuration(kFrameDurationRange[0]),
@@ -115,9 +108,9 @@ Sensor::Sensor():
         mFrameNumber(0),
         mCapturedBuffers(NULL),
         mListener(NULL),
-        mScene(kResolution[0], kResolution[1], kElectronsPerLuxSecond)
+        mScene(width, height, kElectronsPerLuxSecond)
 {
-
+    ALOGV("Sensor created with pixel array %d x %d", width, height);
 }
 
 Sensor::~Sensor() {
@@ -207,9 +200,8 @@ bool Sensor::waitForNewFrame(nsecs_t reltime,
             ALOGE("Error waiting for sensor readout signal: %d", res);
             return false;
         }
-    } else {
-        mReadoutComplete.signal();
     }
+    mReadoutComplete.signal();
 
     *captureTime = mCaptureTime;
     mCapturedBuffers = NULL;
@@ -279,7 +271,7 @@ bool Sensor::threadLoop() {
     nsecs_t simulatedTime    = startRealTime;
     nsecs_t frameEndRealTime = startRealTime + frameDuration;
     nsecs_t frameReadoutEndRealTime = startRealTime +
-            kRowReadoutTime * kResolution[1];
+            mRowReadoutTime * mResolution[1];
 
     if (mNextCapturedBuffers != NULL) {
         ALOGVV("Sensor starting readout");
@@ -287,7 +279,7 @@ bool Sensor::threadLoop() {
         capturedBuffers = mNextCapturedBuffers;
         captureTime    = mNextCaptureTime;
     }
-    simulatedTime += kRowReadoutTime + kMinVerticalBlank;
+    simulatedTime += mRowReadoutTime + kMinVerticalBlank;
 
     // TODO: Move this signal to another thread to simulate readout
     // time properly
@@ -357,7 +349,7 @@ bool Sensor::threadLoop() {
                         captureDepthCloud(b.img);
                     }
                     break;
-                case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+                case HAL_PIXEL_FORMAT_YCbCr_420_888:
                     captureNV21(b.img, gain, b.stride);
                     break;
                 case HAL_PIXEL_FORMAT_YV12:
@@ -403,10 +395,10 @@ void Sensor::captureRaw(uint8_t *img, uint32_t gain, uint32_t stride) {
 
     int bayerSelect[4] = {Scene::R, Scene::Gr, Scene::Gb, Scene::B}; // RGGB
     mScene.setReadoutPixel(0,0);
-    for (unsigned int y = 0; y < kResolution[1]; y++ ) {
+    for (unsigned int y = 0; y < mResolution[1]; y++ ) {
         int *bayerRow = bayerSelect + (y & 0x1) * 2;
         uint16_t *px = (uint16_t*)img + y * stride;
-        for (unsigned int x = 0; x < kResolution[0]; x++) {
+        for (unsigned int x = 0; x < mResolution[0]; x++) {
             uint32_t electronCount;
             electronCount = mScene.getPixelElectrons()[bayerRow[x & 0x1]];
 
@@ -431,7 +423,7 @@ void Sensor::captureRaw(uint8_t *img, uint32_t gain, uint32_t stride) {
             *px++ = rawCount;
         }
         // TODO: Handle this better
-        //simulatedTime += kRowReadoutTime;
+        //simulatedTime += mRowReadoutTime;
     }
     ALOGVV("Raw sensor image captured");
 }
@@ -440,12 +432,12 @@ void Sensor::captureRGBA(uint8_t *img, uint32_t gain, uint32_t stride) {
     float totalGain = gain/100.0 * kBaseGainFactor;
     // In fixed-point math, calculate total scaling from electrons to 8bpp
     int scale64x = 64 * totalGain * 255 / kMaxRawValue;
-    uint32_t inc = kResolution[0] / stride;
+    uint32_t inc = ceil( (float) mResolution[0] / stride);
 
-    for (unsigned int y = 0, outY = 0; y < kResolution[1]; y+=inc, outY++ ) {
+    for (unsigned int y = 0, outY = 0; y < mResolution[1]; y+=inc, outY++ ) {
         uint8_t *px = img + outY * stride * 4;
         mScene.setReadoutPixel(0, y);
-        for (unsigned int x = 0; x < kResolution[0]; x+=inc) {
+        for (unsigned int x = 0; x < mResolution[0]; x+=inc) {
             uint32_t rCount, gCount, bCount;
             // TODO: Perfect demosaicing is a cheat
             const uint32_t *pixel = mScene.getPixelElectrons();
@@ -461,7 +453,7 @@ void Sensor::captureRGBA(uint8_t *img, uint32_t gain, uint32_t stride) {
                 mScene.getPixelElectrons();
         }
         // TODO: Handle this better
-        //simulatedTime += kRowReadoutTime;
+        //simulatedTime += mRowReadoutTime;
     }
     ALOGVV("RGBA sensor image captured");
 }
@@ -470,12 +462,12 @@ void Sensor::captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) {
     float totalGain = gain/100.0 * kBaseGainFactor;
     // In fixed-point math, calculate total scaling from electrons to 8bpp
     int scale64x = 64 * totalGain * 255 / kMaxRawValue;
-    uint32_t inc = kResolution[0] / stride;
+    uint32_t inc = ceil( (float) mResolution[0] / stride);
 
-    for (unsigned int y = 0, outY = 0; y < kResolution[1]; y += inc, outY++ ) {
+    for (unsigned int y = 0, outY = 0; y < mResolution[1]; y += inc, outY++ ) {
         mScene.setReadoutPixel(0, y);
         uint8_t *px = img + outY * stride * 3;
-        for (unsigned int x = 0; x < kResolution[0]; x += inc) {
+        for (unsigned int x = 0; x < mResolution[0]; x += inc) {
             uint32_t rCount, gCount, bCount;
             // TODO: Perfect demosaicing is a cheat
             const uint32_t *pixel = mScene.getPixelElectrons();
@@ -490,7 +482,7 @@ void Sensor::captureRGB(uint8_t *img, uint32_t gain, uint32_t stride) {
                 mScene.getPixelElectrons();
         }
         // TODO: Handle this better
-        //simulatedTime += kRowReadoutTime;
+        //simulatedTime += mRowReadoutTime;
     }
     ALOGVV("RGB sensor image captured");
 }
@@ -512,10 +504,13 @@ void Sensor::captureNV21(uint8_t *img, uint32_t gain, uint32_t stride) {
     const int scaleOut = 64;
     const int scaleOutSq = scaleOut * scaleOut; // after multiplies
 
-    uint32_t inc = kResolution[0] / stride;
-    uint32_t outH = kResolution[1] / inc;
+    // inc = how many pixels to skip while reading every next pixel
+    // horizontally.
+    uint32_t inc = ceil( (float) mResolution[0] / stride);
+    // outH = projected vertical resolution based on stride.
+    uint32_t outH = mResolution[1] / inc;
     for (unsigned int y = 0, outY = 0;
-         y < kResolution[1]; y+=inc, outY++) {
+         y < mResolution[1]; y+=inc, outY++) {
         uint8_t *pxY = img + outY * stride;
         uint8_t *pxVU = img + (outH + outY / 2) * stride;
         mScene.setReadoutPixel(0,y);
@@ -554,12 +549,12 @@ void Sensor::captureDepth(uint8_t *img, uint32_t gain, uint32_t stride) {
     float totalGain = gain/100.0 * kBaseGainFactor;
     // In fixed-point math, calculate scaling factor to 13bpp millimeters
     int scale64x = 64 * totalGain * 8191 / kMaxRawValue;
-    uint32_t inc = kResolution[0] / stride;
+    uint32_t inc = ceil( (float) mResolution[0] / stride);
 
-    for (unsigned int y = 0, outY = 0; y < kResolution[1]; y += inc, outY++ ) {
+    for (unsigned int y = 0, outY = 0; y < mResolution[1]; y += inc, outY++ ) {
         mScene.setReadoutPixel(0, y);
         uint16_t *px = ((uint16_t*)img) + outY * stride;
-        for (unsigned int x = 0; x < kResolution[0]; x += inc) {
+        for (unsigned int x = 0; x < mResolution[0]; x += inc) {
             uint32_t depthCount;
             // TODO: Make up real depth scene instead of using green channel
             // as depth
@@ -571,7 +566,7 @@ void Sensor::captureDepth(uint8_t *img, uint32_t gain, uint32_t stride) {
                 mScene.getPixelElectrons();
         }
         // TODO: Handle this better
-        //simulatedTime += kRowReadoutTime;
+        //simulatedTime += mRowReadoutTime;
     }
     ALOGVV("Depth sensor image captured");
 }

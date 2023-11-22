@@ -155,6 +155,10 @@ public final class SnepServer {
         if (((request.getVersion() & 0xF0) >> 4) != SnepMessage.VERSION_MAJOR) {
             messenger.sendMessage(SnepMessage.getMessage(
                     SnepMessage.RESPONSE_UNSUPPORTED_VERSION));
+        } else if (NfcService.sIsDtaMode && ((request.getLength() > SnepMessage.MAL_IUT) ||
+                                              request.getLength() == SnepMessage.MAL)) {
+            if (DBG) Log.d(TAG, "Bad requested length");
+            messenger.sendMessage(SnepMessage.getMessage(SnepMessage.RESPONSE_REJECT));
         } else if (request.getField() == SnepMessage.REQUEST_GET) {
             messenger.sendMessage(callback.doGet(request.getAcceptableLength(),
                     request.getNdefMessage()));

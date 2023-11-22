@@ -256,7 +256,7 @@ public class MyDocumentsProvider extends DocumentsProvider {
     @Override
     public void deleteDocument(String documentId) throws FileNotFoundException {
         final Doc doc = mDocs.get(documentId);
-        mDocs.remove(doc);
+        mDocs.remove(doc.docId);
         for (Doc parentDoc : mDocs.values()) {
             parentDoc.children.remove(doc);
         }
@@ -268,7 +268,7 @@ public class MyDocumentsProvider extends DocumentsProvider {
         // There are no multi-parented documents in this provider, so it's safe to remove the
         // document from mDocs.
         final Doc doc = mDocs.get(documentId);
-        mDocs.remove(doc);
+        mDocs.remove(doc.docId);
         mDocs.get(parentDocumentId).children.remove(doc);
     }
 

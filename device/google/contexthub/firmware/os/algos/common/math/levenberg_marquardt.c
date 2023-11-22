@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "common/math/macros.h"
 #include "common/math/mat.h"
 #include "common/math/vec.h"
 

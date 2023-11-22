@@ -170,7 +170,7 @@ bool AddWrapper(const char *name, const uint32_t signature,
   for (uint32_t i = 0; i < numInput; i++) {
     FunctionParameterInst *param = kernel->getParameter(i);
     Instruction *elementType = param->mResultType.mInstruction;
-    VariableInst *inputBuffer = AddBuffer(elementType, i + 2, b, m);
+    VariableInst *inputBuffer = AddBuffer(elementType, i + 3, b, m);
 
     TypePointerInst *PtrTy =
         m->getPointerType(StorageClass::Function, elementType);
@@ -202,7 +202,7 @@ bool AddWrapper(const char *name, const uint32_t signature,
   Blk->addInstruction(kernelCall);
 
   if (MetadataExtractor::hasForEachSignatureOut(signature)) {
-    VariableInst *OutputBuffer = AddBuffer(resultType, 1, b, m);
+    VariableInst *OutputBuffer = AddBuffer(resultType, 2, b, m);
     auto resultPtrType = m->getPointerType(StorageClass::Function, resultType);
     AccessChainInst *OutPtr =
         b.MakeAccessChain(resultPtrType, OutputBuffer, {ConstZero, Index});
@@ -261,6 +261,7 @@ bool DecorateGlobalBuffer(llvm::Module &LM, Builder &b, Module *m) {
 
   const llvm::GlobalVariable &G = *Found;
 
+  rs2spirv::Context &Ctxt = rs2spirv::Context::getInstance();
   bool IsCorrectTy = false;
   if (const auto *LPtrTy = llvm::dyn_cast<llvm::PointerType>(G.getType())) {
     if (auto *LStructTy =
@@ -274,6 +275,7 @@ bool DecorateGlobalBuffer(llvm::Module &LM, Builder &b, Module *m) {
         std::cerr << "struct layout is null" << std::endl;
         return false;
       }
+      std::vector<uint32_t> offsets;
       for (uint32_t i = 0, e = LStructTy->getNumElements(); i != e; ++i) {
         auto decor = StructTy->memberDecorate(i, Decoration::Offset);
         if (!decor) {
@@ -283,7 +285,21 @@ bool DecorateGlobalBuffer(llvm::Module &LM, Builder &b, Module *m) {
         }
         const uint32_t offset = (uint32_t)SLayout->getElementOffset(i);
         decor->addExtraOperand(offset);
+        offsets.push_back(offset);
       }
+      std::stringstream ssOffsets;
+      // TODO: define this string in a central place
+      ssOffsets << ".rsov.ExportedVars:";
+      for(uint32_t slot = 0; slot < Ctxt.getNumExportVar(); slot++) {
+        const uint32_t index = Ctxt.getExportVarIndex(slot);
+        const uint32_t offset = offsets[index];
+        ssOffsets << offset << ';';
+      }
+      m->addString(ssOffsets.str().c_str());
+
+      std::stringstream ssGlobalSize;
+      ssGlobalSize << ".rsov.GlobalSize:" << Ctxt.getGlobalSize();
+      m->addString(ssGlobalSize.str().c_str());
     }
   }
 
@@ -314,9 +330,7 @@ bool DecorateGlobalBuffer(llvm::Module &LM, Builder &b, Module *m) {
 
 void AddHeader(Module *m) {
   m->addCapability(Capability::Shader);
-  // TODO: avoid duplicated capability
-  // m->addCapability(Capability::Addresses);
-  m->setMemoryModel(AddressingModel::Physical32, MemoryModel::GLSL450);
+  m->setMemoryModel(AddressingModel::Logical, MemoryModel::GLSL450);
 
   m->addSource(SourceLanguage::GLSL, 450);
   m->addSourceExtension("GL_ARB_separate_shader_objects");

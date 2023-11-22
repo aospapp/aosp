@@ -18,6 +18,8 @@
 #define ART_RUNTIME_CLASS_TABLE_INL_H_
 
 #include "class_table.h"
+
+#include "gc_root-inl.h"
 #include "oat_file.h"
 
 namespace art {
@@ -128,6 +130,13 @@ inline ClassTable::TableSlot::TableSlot(ObjPtr<mirror::Class> klass, uint32_t de
     const uint32_t hash = ComputeModifiedUtf8Hash(klass->GetDescriptor(&temp));
     CHECK_EQ(descriptor_hash, hash);
   }
+}
+
+template <typename Filter>
+inline void ClassTable::RemoveStrongRoots(const Filter& filter) {
+  WriterMutexLock mu(Thread::Current(), lock_);
+  strong_roots_.erase(std::remove_if(strong_roots_.begin(), strong_roots_.end(), filter),
+                      strong_roots_.end());
 }
 
 }  // namespace art

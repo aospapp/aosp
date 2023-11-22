@@ -56,6 +56,7 @@ class JpegCompressor: private Thread, public virtual RefBase {
 
     // Start compressing COMPRESSED format buffers; JpegCompressor takes
     // ownership of the Buffers vector.
+    // Reserve() must be called first.
     status_t start(Buffers *buffers, JpegListener *listener);
 
     // Compress and block until buffer is complete.
@@ -67,6 +68,9 @@ class JpegCompressor: private Thread, public virtual RefBase {
     bool isStreamInUse(uint32_t id);
 
     bool waitForDone(nsecs_t timeout);
+
+    // Reserve the compressor for a later start() call.
+    status_t reserve();
 
     // TODO: Measure this
     static const size_t kMaxJpegSize = 300000;

@@ -50,6 +50,7 @@ constexpr int kPollNoTimeout = -1;
 static const std::vector<std::tuple<const char *, SensorType>> kCalibrationKeys = {
     std::make_tuple("accel",     SensorType::Accel),
     std::make_tuple("gyro",      SensorType::Gyro),
+    std::make_tuple("mag",       SensorType::Magnetometer),
     std::make_tuple("proximity", SensorType::Proximity),
     std::make_tuple("barometer", SensorType::Barometer),
     std::make_tuple("light",     SensorType::AmbientLightSensor),
@@ -77,6 +78,21 @@ static bool CopyInt32Array(const char *key,
     return false;
 }
 
+static bool CopyFloatArray(const char *key,
+        sp<JSONObject> json, std::vector<uint8_t>& bytes) {
+    sp<JSONArray> array;
+    if (json->getArray(key, &array)) {
+        for (size_t i = 0; i < array->size(); i++) {
+            float val = 0;
+            array->getFloat(i, &val);
+            AppendBytes(&val, sizeof(float), bytes);
+        }
+
+        return true;
+    }
+    return false;
+}
+
 static bool GetCalibrationBytes(const char *key, SensorType sensor_type,
         std::vector<uint8_t>& bytes) {
     bool success = true;
@@ -90,6 +106,10 @@ static bool GetCalibrationBytes(const char *key, SensorType sensor_type,
       case SensorType::Accel:
       case SensorType::Gyro:
         success = CopyInt32Array(key, json, bytes);
+        break;
+
+      case SensorType::Magnetometer:
+        success = CopyFloatArray(key, json, bytes);
         break;
 
       case SensorType::AmbientLightSensor:

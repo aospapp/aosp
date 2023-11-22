@@ -21,6 +21,7 @@ cc_defaults {
 
 cc_library_static {
     name: "llvm-arm-headers",
+    vendor_available: true,
     host_supported: true,
     target: {
         windows: {

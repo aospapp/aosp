@@ -73,6 +73,11 @@ cc_library_static {
 
 cc_library {
     name: "libcompiler_rt",
+    vendor_available: true,
+    vndk: {
+        enabled: true,
+        support_system_process: true,
+    },
     host_supported: true,
     // The following list contains platform-independent functionalities.
     //

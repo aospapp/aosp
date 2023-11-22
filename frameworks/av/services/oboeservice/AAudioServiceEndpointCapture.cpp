@@ -30,20 +30,22 @@
 #include "AAudioServiceEndpoint.h"
 #include "AAudioServiceStreamShared.h"
 #include "AAudioServiceEndpointCapture.h"
+#include "AAudioServiceEndpointShared.h"
 
 using namespace android;  // TODO just import names needed
 using namespace aaudio;   // TODO just import names needed
 
 AAudioServiceEndpointCapture::AAudioServiceEndpointCapture(AAudioService &audioService)
         : mStreamInternalCapture(audioService, true) {
+    mStreamInternal = &mStreamInternalCapture;
 }
 
 AAudioServiceEndpointCapture::~AAudioServiceEndpointCapture() {
     delete mDistributionBuffer;
 }
 
-aaudio_result_t AAudioServiceEndpointCapture::open(int32_t deviceId) {
-    aaudio_result_t result = AAudioServiceEndpoint::open(deviceId);
+aaudio_result_t AAudioServiceEndpointCapture::open(const aaudio::AAudioStreamRequest &request) {
+    aaudio_result_t result = AAudioServiceEndpointShared::open(request);
     if (result == AAUDIO_OK) {
         delete mDistributionBuffer;
         int distributionBufferSizeBytes = getStreamInternal()->getFramesPerBurst()
@@ -57,13 +59,14 @@ aaudio_result_t AAudioServiceEndpointCapture::open(int32_t deviceId) {
 void *AAudioServiceEndpointCapture::callbackLoop() {
     ALOGD("AAudioServiceEndpointCapture(): callbackLoop() entering");
     int32_t underflowCount = 0;
-
-    aaudio_result_t result = getStreamInternal()->requestStart();
-
+    aaudio_result_t result = AAUDIO_OK;
     int64_t timeoutNanos = getStreamInternal()->calculateReasonableTimeout();
 
     // result might be a frame count
     while (mCallbackEnabled.load() && getStreamInternal()->isActive() && (result >= 0)) {
+
+        int64_t mmapFramesRead = getStreamInternal()->getFramesRead();
+
         // Read audio data from stream using a blocking read.
         result = getStreamInternal()->read(mDistributionBuffer, getFramesPerBurst(), timeoutNanos);
         if (result == AAUDIO_ERROR_DISCONNECTED) {
@@ -76,22 +79,51 @@ void *AAudioServiceEndpointCapture::callbackLoop() {
         }
 
         // Distribute data to each active stream.
-        { // use lock guard
+        { // brackets are for lock_guard
+
             std::lock_guard <std::mutex> lock(mLockStreams);
-            for (AAudioServiceStreamShared *sharedStream : mRunningStreams) {
-                FifoBuffer *fifo = sharedStream->getDataFifoBuffer();
-                if (fifo->getFifoControllerBase()->getEmptyFramesAvailable() <
-                    getFramesPerBurst()) {
-                    underflowCount++;
-                } else {
-                    fifo->write(mDistributionBuffer, getFramesPerBurst());
+            for (const auto clientStream : mRegisteredStreams) {
+                if (clientStream->isRunning()) {
+                    int64_t clientFramesWritten = 0;
+                    sp<AAudioServiceStreamShared> streamShared =
+                            static_cast<AAudioServiceStreamShared *>(clientStream.get());
+
+                    {
+                        // Lock the AudioFifo to protect against close.
+                        std::lock_guard <std::mutex> lock(streamShared->getAudioDataQueueLock());
+
+                        FifoBuffer *fifo = streamShared->getAudioDataFifoBuffer_l();
+                        if (fifo != nullptr) {
+
+                            // Determine offset between framePosition in client's stream
+                            // vs the underlying MMAP stream.
+                            clientFramesWritten = fifo->getWriteCounter();
+                            // There are two indices that refer to the same frame.
+                            int64_t positionOffset = mmapFramesRead - clientFramesWritten;
+                            streamShared->setTimestampPositionOffset(positionOffset);
+
+                            if (fifo->getFifoControllerBase()->getEmptyFramesAvailable() <
+                                getFramesPerBurst()) {
+                                underflowCount++;
+                            } else {
+                                fifo->write(mDistributionBuffer, getFramesPerBurst());
+                            }
+                            clientFramesWritten = fifo->getWriteCounter();
+                        }
+                    }
+
+                    if (clientFramesWritten > 0) {
+                        // This timestamp represents the completion of data being written into the
+                        // client buffer. It is sent to the client and used in the timing model
+                        // to decide when data will be available to read.
+                        Timestamp timestamp(clientFramesWritten, AudioClock::getNanoseconds());
+                        streamShared->markTransferTime(timestamp);
+                    }
+
                 }
-                sharedStream->markTransferTime(AudioClock::getNanoseconds());
             }
         }
     }
-
-    result = getStreamInternal()->requestStop();
 
     ALOGD("AAudioServiceEndpointCapture(): callbackLoop() exiting, %d underflows", underflowCount);
     return NULL; // TODO review

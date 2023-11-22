@@ -23,7 +23,7 @@ LOCAL_PACKAGE_NAME := CtsKeySetSigningAUpgradeA
 LOCAL_CERTIFICATE := cts/hostsidetests/appsecurity/certs/keysets/cts-keyset-test-a
 LOCAL_DEX_PREOPT := false
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)
 
@@ -36,7 +36,7 @@ LOCAL_PACKAGE_NAME := CtsKeySetSigningBUpgradeA
 LOCAL_CERTIFICATE := cts/hostsidetests/appsecurity/certs/keysets/cts-keyset-test-b
 LOCAL_DEX_PREOPT := false
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)
 
@@ -49,7 +49,7 @@ LOCAL_PACKAGE_NAME := CtsKeySetSigningEcAUpgradeA
 LOCAL_CERTIFICATE := cts/hostsidetests/appsecurity/certs/keysets/cts-keyset-test-ec-a
 LOCAL_DEX_PREOPT := false
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)
 
@@ -63,6 +63,6 @@ LOCAL_CERTIFICATE := cts/hostsidetests/appsecurity/certs/keysets/cts-keyset-test
 LOCAL_ADDITIONAL_CERTIFICATES := cts/hostsidetests/appsecurity/certs/keysets/cts-keyset-test-b
 LOCAL_DEX_PREOPT := false
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)

@@ -59,7 +59,7 @@ static jmethodID method_sdpSapsRecordFoundCallback;
 
 static const btsdp_interface_t* sBluetoothSdpInterface = NULL;
 
-static void sdp_search_callback(bt_status_t status, bt_bdaddr_t* bd_addr,
+static void sdp_search_callback(bt_status_t status, RawAddress* bd_addr,
                                 uint8_t* uuid_in, int record_size,
                                 bluetooth_sdp_record* record);
 
@@ -135,7 +135,7 @@ static jboolean sdpSearchNative(JNIEnv* env, jobject obj, jbyteArray address,
   }
   ALOGD("%s UUID %.*s", __func__, 16, (uint8_t*)uuid);
 
-  int ret = sBluetoothSdpInterface->sdp_search((bt_bdaddr_t*)addr,
+  int ret = sBluetoothSdpInterface->sdp_search((RawAddress*)addr,
                                                (const uint8_t*)uuid);
   if (ret != BT_STATUS_SUCCESS) {
     ALOGE("SDP Search initialization failed: %d", ret);
@@ -146,21 +146,21 @@ static jboolean sdpSearchNative(JNIEnv* env, jobject obj, jbyteArray address,
   return (ret == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
 }
 
-static void sdp_search_callback(bt_status_t status, bt_bdaddr_t* bd_addr,
+static void sdp_search_callback(bt_status_t status, RawAddress* bd_addr,
                                 uint8_t* uuid_in, int count,
                                 bluetooth_sdp_record* records) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> addr(
-      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(bt_bdaddr_t)));
+      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(RawAddress)));
   if (!addr.get()) return;
 
   ScopedLocalRef<jbyteArray> uuid(
       sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(bt_uuid_t)));
   if (!uuid.get()) return;
 
-  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(bt_bdaddr_t),
+  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
                                    (jbyte*)bd_addr);
   sCallbackEnv->SetByteArrayRegion(uuid.get(), 0, sizeof(bt_uuid_t),
                                    (jbyte*)uuid_in);

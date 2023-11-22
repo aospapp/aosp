@@ -16,6 +16,7 @@
 package com.android.cts.delegate;
 
 import static android.app.admin.DevicePolicyManager.DELEGATION_APP_RESTRICTIONS;
+import static com.android.cts.delegate.DelegateTestUtils.assertExpectException;
 
 import android.app.admin.DevicePolicyManager;
 import android.content.BroadcastReceiver;
@@ -86,22 +87,16 @@ public class AppRestrictionsDelegateTest extends InstrumentationTestCase {
     public void testCannotAccessApis() {
         assertFalse("DelegateApp should not be an app restrictions delegate",
                 amIAppRestrictionsDelegate());
-        try {
-            mDpm.setApplicationRestrictions(null, APP_RESTRICTIONS_TARGET_PKG, null);
-            fail("Expected SecurityException not thrown");
-        } catch (SecurityException expected) {
-            MoreAsserts.assertContainsRegex(
-                    "Caller with uid \\d+ is not a delegate of scope delegation-app-restrictions.",
-                    expected.getMessage());
-        }
-        try {
-            mDpm.getApplicationRestrictions(null, APP_RESTRICTIONS_TARGET_PKG);
-            fail("Expected SecurityException not thrown");
-        } catch (SecurityException expected) {
-            MoreAsserts.assertContainsRegex(
-                    "Caller with uid \\d+ is not a delegate of scope delegation-app-restrictions.",
-                    expected.getMessage());
-        }
+
+        assertExpectException(SecurityException.class,
+                "Caller with uid \\d+ is not a delegate of scope", () -> {
+                    mDpm.setApplicationRestrictions(null, APP_RESTRICTIONS_TARGET_PKG, null);
+                });
+
+        assertExpectException(SecurityException.class,
+                "Caller with uid \\d+ is not a delegate of scope", () -> {
+                    mDpm.getApplicationRestrictions(null, APP_RESTRICTIONS_TARGET_PKG);
+                });
     }
 
     public void testCanAccessApis() throws InterruptedException {

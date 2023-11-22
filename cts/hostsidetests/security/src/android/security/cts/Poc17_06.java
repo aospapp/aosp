@@ -28,7 +28,7 @@ public class Poc17_06 extends SecurityTestCase {
     public void testPocBug_34328139() throws Exception {
         enableAdbRoot(getDevice());
         if(containsDriver(getDevice(), "/dev/mdss_rotator")) {
-            AdbUtils.runPoc("Bug-34328139", getDevice(), 60);
+            AdbUtils.runPocNoOutput("Bug-34328139", getDevice(), 60);
         }
     }
 
@@ -71,7 +71,9 @@ public class Poc17_06 extends SecurityTestCase {
     @SecurityTest
     public void testPocBug_35047780() throws Exception {
         enableAdbRoot(getDevice());
-        AdbUtils.runPoc("Bug-35047780", getDevice(), 60);
+        if(containsDriver(getDevice(), "/dev/ipa")) {
+          AdbUtils.runPoc("Bug-35047780", getDevice(), 60);
+        }
     }
 
     /**
@@ -80,7 +82,9 @@ public class Poc17_06 extends SecurityTestCase {
     @SecurityTest
     public void testPocBug_35048450() throws Exception {
         enableAdbRoot(getDevice());
-        AdbUtils.runPoc("Bug-35048450", getDevice(), 60);
+        if(containsDriver(getDevice(), "/dev/ipa")) {
+          AdbUtils.runPoc("Bug-35048450", getDevice(), 60);
+        }
     }
 
     /**
@@ -89,6 +93,31 @@ public class Poc17_06 extends SecurityTestCase {
     @SecurityTest
     public void testPocBug_35047217() throws Exception {
         enableAdbRoot(getDevice());
-        AdbUtils.runPoc("Bug-35047217", getDevice(), 60);
+        if(containsDriver(getDevice(), "/dev/ipa")) {
+          AdbUtils.runPoc("Bug-35047217", getDevice(), 60);
+        }
+    }
+
+    /**
+     *  b/35644815
+     */
+    @SecurityTest
+    public void testPocBug_35644815() throws Exception {
+        enableAdbRoot(getDevice());
+        if(containsDriver(getDevice(), "/sys/kernel/debug/ion/clients/pids/")) {
+          String pocOut = AdbUtils.runPoc("Bug-35644815", getDevice(), 60);
+          assertNotMatches("[\\s\\n\\S]*INFO DISC FLAG[\\s\\n\\S]*", pocOut);
+        }
+    }
+
+    /**
+     * b/35216793
+     */
+    @SecurityTest
+    public void testPocBug_35216793() throws Exception {
+        enableAdbRoot(getDevice());
+        if(containsDriver(getDevice(), "/dev/v4l-subdev*")) {
+          AdbUtils.runPocNoOutput("Bug-35216793", getDevice(), 60);
+        }
     }
 }

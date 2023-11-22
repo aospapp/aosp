@@ -18,13 +18,18 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
-LOCAL_STATIC_JAVA_LIBRARIES := android-support-test legacy-android-test
+LOCAL_STATIC_JAVA_LIBRARIES := android-support-test
 
-LOCAL_SRC_FILES := $(call all-java-files-under, src) $(call all-renderscript-files-under, src)
+LOCAL_SRC_FILES := \
+    $(call all-java-files-under,src) \
+    $(call all-java-files-under,../RSUnitTests/gui) \
+    $(call all-java-files-under,../RSUnitTests/src) \
+    $(call all-renderscript-files-under,../RSUnitTests/src) \
 
-LOCAL_RENDERSCRIPT_FLAGS := -target-api 0
+LOCAL_RENDERSCRIPT_TARGET_API := 0
 
 LOCAL_PACKAGE_NAME := RSTest
 LOCAL_COMPATIBILITY_SUITE := device-tests
 
 include $(BUILD_PACKAGE)
+

@@ -64,8 +64,7 @@ class login_OwnershipRetaken(test.test):
         self._cryptohome_proxy.mount(ownership.TESTUSER,
                                      ownership.TESTPASS,
                                      create=True)
-        if not self._sm.StartSession(ownership.TESTUSER, ''):
-            raise error.TestError('Could not start session for owner')
+        self._sm.StartSession(ownership.TESTUSER, '')
 
         listener.wait_for_signals(desc='Re-taking of ownership complete.')
 

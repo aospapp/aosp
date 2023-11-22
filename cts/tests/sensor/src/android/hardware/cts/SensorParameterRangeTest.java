@@ -177,7 +177,7 @@ public class SensorParameterRangeTest extends SensorTestCase {
         for (Sensor s : sensors) {
             int id = s.getId();
             if (id != 0) {
-                errors.add(String.format("sensor \"%s\" has id %d", s.getName(), s));
+                errors.add(String.format("sensor \"%s\" has id %d", s.getName(), id));
             }
         }
         if (errors.size() > 0) {

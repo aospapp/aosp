@@ -32,7 +32,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.text.DateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Formatter;
@@ -186,46 +185,6 @@ public class DateUtilsTest {
         StringBuilder sb = new StringBuilder();
         assertEquals(expected, DateUtils.formatElapsedTime(sb, elapsedTime));
         assertEquals(expected, sb.toString());
-    }
-
-    @Test
-    public void testFormatSameDayTime() {
-        if (!LocaleUtils.isCurrentLocale(mContext, Locale.US)) {
-            return;
-        }
-
-        // This test assumes a default DateFormat.is24Hour setting.
-        DateFormat.is24Hour = null;
-        Date date = new Date(109, 0, 19, 3, 30, 15);
-        long fixedTime = date.getTime();
-
-        int currentYear = Calendar.getInstance().get(Calendar.YEAR);
-        Date dateWithCurrentYear = new Date(currentYear - 1900, 0, 19, 3, 30, 15);
-
-        final long DAY_DURATION = 5 * 24 * 60 * 60 * 1000;
-        assertEquals("Saturday, January 24, 2009", DateUtils.formatSameDayTime(
-                fixedTime + DAY_DURATION, fixedTime, java.text.DateFormat.FULL,
-                java.text.DateFormat.FULL));
-        assertEquals("Jan 24, 2009", DateUtils.formatSameDayTime(fixedTime + DAY_DURATION,
-                fixedTime, java.text.DateFormat.DEFAULT, java.text.DateFormat.FULL));
-        assertEquals("January 24, 2009", DateUtils.formatSameDayTime(fixedTime + DAY_DURATION,
-                fixedTime, java.text.DateFormat.LONG, java.text.DateFormat.FULL));
-        assertEquals("Jan 24, 2009", DateUtils.formatSameDayTime(fixedTime + DAY_DURATION,
-                fixedTime, java.text.DateFormat.MEDIUM, java.text.DateFormat.FULL));
-        assertEquals("1/24/09", DateUtils.formatSameDayTime(fixedTime + DAY_DURATION,
-                fixedTime, java.text.DateFormat.SHORT, java.text.DateFormat.FULL));
-
-        final long HOUR_DURATION = 2 * 60 * 60 * 1000;
-        assertEquals("5:30:15 AM GMT+00:00", DateUtils.formatSameDayTime(fixedTime + HOUR_DURATION,
-                fixedTime, java.text.DateFormat.FULL, java.text.DateFormat.FULL));
-        assertEquals("5:30:15 AM", DateUtils.formatSameDayTime(fixedTime + HOUR_DURATION,
-                fixedTime, java.text.DateFormat.FULL, java.text.DateFormat.DEFAULT));
-        assertEquals("5:30:15 AM GMT+00:00", DateUtils.formatSameDayTime(fixedTime + HOUR_DURATION,
-                fixedTime, java.text.DateFormat.FULL, java.text.DateFormat.LONG));
-        assertEquals("5:30:15 AM", DateUtils.formatSameDayTime(fixedTime + HOUR_DURATION,
-                fixedTime, java.text.DateFormat.FULL, java.text.DateFormat.MEDIUM));
-        assertEquals("5:30 AM", DateUtils.formatSameDayTime(fixedTime + HOUR_DURATION,
-                fixedTime, java.text.DateFormat.FULL, java.text.DateFormat.SHORT));
     }
 
     // This is just to exercise the wrapper that calls the libcore/icu4c implementation.

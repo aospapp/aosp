@@ -16,7 +16,7 @@
 
 cc_binary {
     name: "ese_nxp_sample",
-    vendor: true,
+    proprietary: true,
     srcs: ["ese_nxp_sample.c"],
     host_supported: false,
     target: {

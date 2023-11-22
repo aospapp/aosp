@@ -40,15 +40,19 @@ namespace chre {
 class Nanoapp : public PlatformNanoapp {
  public:
   /**
-   * @return uint32_t The globally unique identifier for this Nanoapp instance
+   * @return The unique identifier for this Nanoapp instance
    */
-  uint32_t getInstanceId() const;
+  uint32_t getInstanceId() const {
+    return mInstanceId;
+  }
 
   /**
    * Assigns an instance ID to this Nanoapp. This must be called prior to
-   * starting this nanoapp.
+   * starting this Nanoapp.
    */
-  void setInstanceId(uint32_t instanceId);
+  void setInstanceId(uint32_t instanceId) {
+    mInstanceId = instanceId;
+  }
 
   /**
    * @return true if the nanoapp should receive broadcast events with the given
@@ -82,17 +86,38 @@ class Nanoapp : public PlatformNanoapp {
   /**
    * Indicates whether there are any pending events in this apps queue.
    *
-   * @return True indicating that there are events available to be processed.
+   * @return true if there are events waiting to be processed
    */
   bool hasPendingEvent();
+
+  /**
+   * Configures whether nanoapp info events will be sent to the nanoapp.
+   * Nanoapps are not sent nanoapp start/stop events by default.
+   *
+   * @param enable true if events are to be sent, false otherwise.
+   */
+  void configureNanoappInfoEvents(bool enable);
 
   /**
    * Sends the next event in the queue to the nanoapp and returns the processed
    * event. The hasPendingEvent() method should be tested before invoking this.
    *
-   * @return a pointer to the processed event.
+   * @return A pointer to the processed event
    */
   Event *processNextEvent();
+
+  /**
+   * Prints state in a string buffer. Must only be called from the context of
+   * the main CHRE thread.
+   *
+   * @param buffer Pointer to the start of the buffer.
+   * @param bufferPos Pointer to buffer position to start the print (in-out).
+   * @param size Size of the buffer in bytes.
+   *
+   * @return true if entire log printed, false if overflow or error.
+   */
+  bool logStateToBuffer(char *buffer, size_t *bufferPos,
+                        size_t bufferSize) const;
 
  private:
   uint32_t mInstanceId = kInvalidInstanceId;

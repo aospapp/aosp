@@ -23,8 +23,9 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     android-support-test \
     compatibility-device-util \
     ctstestrunner \
-    ub-uiautomator \
-    legacy-android-test
+    ub-uiautomator
+
+LOCAL_JAVA_LIBRARIES := legacy-android-test
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src) \
     ../ExternalStorageApp/src/com/android/cts/externalstorageapp/CommonExternalStorageTest.java
@@ -32,7 +33,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src) \
 LOCAL_PACKAGE_NAME := CtsUsePermissionApp23
 
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 LOCAL_CERTIFICATE := cts/hostsidetests/appsecurity/certs/cts-testkey2
 

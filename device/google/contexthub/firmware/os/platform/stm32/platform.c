@@ -45,7 +45,7 @@
 #include <variant/variant.h>
 
 
-struct StmDbg {
+struct StmDbgmcu {
     volatile uint32_t IDCODE;
     volatile uint32_t CR;
     volatile uint32_t APB1FZ;
@@ -92,8 +92,16 @@ struct StmTim {
     uint8_t unused14[2];
 };
 
+#define TIM2        ((struct StmTim*)TIM2_BASE)
+#define DBGMCU      ((struct StmDbgmcu*)DBGMCU_BASE)
+
 /* RTC bit defintions */
-#define TIM_EGR_UG          0x0001
+#define TIM_EGR_UG  0x0001
+
+/* DBGMCU bit definition */
+#define DBG_SLEEP   0x00000001
+#define DBG_STOP    0x00000002
+#define DBG_STANDBY 0x00000004
 
 
 #ifdef DEBUG_UART_UNITNO
@@ -102,7 +110,7 @@ static struct usart mDbgUart;
 
 #ifdef DEBUG_LOG_EVT
 #ifndef EARLY_LOG_BUF_SIZE
-#define EARLY_LOG_BUF_SIZE      1024
+#define EARLY_LOG_BUF_SIZE      2048
 #endif
 #define HOSTINTF_HEADER_SIZE    4
 uint8_t *mEarlyLogBuffer;
@@ -176,6 +184,9 @@ void platEarlyLogFlush(void)
 
 void platLogFlush(void *userData)
 {
+#ifdef DEBUG_UART_UNITNO
+    usartFlush(&mDbgUart);
+#endif
 #if defined(DEBUG_LOG_EVT)
     if (userData && mLateBoot)
         osEnqueueEvtOrFree(EVENT_TYPE_BIT_DISCARDABLE | EVT_DEBUG_LOG, userData, heapFree);
@@ -190,6 +201,8 @@ bool platLogPutcharF(void *userData, char ch)
     gpioBitbangedUartOut(ch);
 #endif
 #if defined(DEBUG_UART_UNITNO)
+    if (ch == '\n')
+        usartPutchar(&mDbgUart, '\r');
     usartPutchar(&mDbgUart, ch);
 #endif
 #if defined(DEBUG_LOG_EVT)
@@ -218,9 +231,7 @@ bool platLogPutcharF(void *userData, char ch)
 
 void platInitialize(void)
 {
-    const uint32_t debugStateInSleepMode = 0x00000007; /* debug in all modes */
-    struct StmTim *tim = (struct StmTim*)TIM2_BASE;
-    struct StmDbg *dbg = (struct StmDbg*)DBG_BASE;
+    const uint32_t debugStateInSleepMode = DBG_SLEEP | DBG_STOP | DBG_STANDBY;
     uint32_t i;
 
     pwrSystemInit();
@@ -263,9 +274,9 @@ void platInitialize(void)
 
     /* set up debugging */
 #if defined(DEBUG) && defined(DEBUG_SWD)
-    dbg->CR |= debugStateInSleepMode;
+    DBGMCU->CR |= debugStateInSleepMode;
 #else
-    dbg->CR &=~ debugStateInSleepMode;
+    DBGMCU->CR &=~ debugStateInSleepMode;
 #endif
 
     /* enable MPU */
@@ -273,11 +284,11 @@ void platInitialize(void)
 
     /* set up timer used for alarms */
     pwrUnitClock(PERIPH_BUS_APB1, PERIPH_APB1_TIM2, true);
-    tim->CR1 = (tim->CR1 &~ 0x03E1) | 0x0010; //count down mode with no clock division, disabled
-    tim->PSC = 15; // prescale by 16, so that at 16MHz CPU clock, we get 1MHz timer
-    tim->DIER |= 1; // interrupt when updated (underflowed)
-    tim->ARR = 0xffffffff;
-    tim->EGR = TIM_EGR_UG; // force a reload of the prescaler
+    TIM2->CR1 = (TIM2->CR1 &~ 0x03E1) | 0x0010; //count down mode with no clock division, disabled
+    TIM2->PSC = 15; // prescale by 16, so that at 16MHz CPU clock, we get 1MHz timer
+    TIM2->DIER |= 1; // interrupt when updated (underflowed)
+    TIM2->ARR = 0xffffffff;
+    TIM2->EGR = TIM_EGR_UG; // force a reload of the prescaler
     NVIC_EnableIRQ(TIM2_IRQn);
 
     rtcInit();

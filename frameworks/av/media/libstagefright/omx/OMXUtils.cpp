@@ -19,12 +19,13 @@
 
 #include <string.h>
 
-#include <media/hardware/HardwareAPI.h>
+#include <media/stagefright/omx/OMXUtils.h>
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/foundation/AUtils.h>
 #include <media/stagefright/MediaErrors.h>
+#include <media/hardware/HardwareAPI.h>
 #include <media/MediaDefs.h>
-#include "OMXUtils.h"
+#include <system/graphics-base.h>
 
 namespace android {
 

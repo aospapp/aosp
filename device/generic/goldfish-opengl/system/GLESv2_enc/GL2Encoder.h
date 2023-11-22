@@ -30,6 +30,13 @@ public:
     void setClientState(GLClientState *state) {
         m_state = state;
     }
+    void setVersion(int major, int minor,
+                    int deviceMajor, int deviceMinor) {
+        m_currMajorVersion = major;
+        m_currMinorVersion = minor;
+        m_deviceMajorVersion = deviceMajor;
+        m_deviceMinorVersion = deviceMinor;
+    }
     void setClientStateMakeCurrent(GLClientState *state,
                                    int majorVersion,
                                    int minorVersion,
@@ -128,6 +135,21 @@ private:
     bool isCompleteFbo(GLenum target, const GLClientState* state, GLenum attachment) const;
     bool checkFramebufferCompleteness(GLenum target, const GLClientState* state) const;
 
+    // Utility classes for safe queries that
+    // need access to private class members
+    class ErrorUpdater;
+    template<class T> class ScopedQueryUpdate;
+    
+    // General queries
+    void safe_glGetBooleanv(GLenum param, GLboolean *val);
+    void safe_glGetFloatv(GLenum param, GLfloat *val);
+    void safe_glGetIntegerv(GLenum param, GLint *val);
+    void safe_glGetInteger64v(GLenum param, GLint64 *val);
+    void safe_glGetIntegeri_v(GLenum param, GLuint index, GLint *val);
+    void safe_glGetInteger64i_v(GLenum param, GLuint index, GLint64 *val);
+    void safe_glGetBooleani_v(GLenum param, GLuint index, GLboolean *val);
+
+    // API implementation
     glGetError_client_proc_t    m_glGetError_enc;
     static GLenum s_glGetError(void * self);
 
@@ -161,7 +183,6 @@ private:
     glDrawElements_client_proc_t m_glDrawElements_enc;
     static void s_glDrawElements(void *self, GLenum mode, GLsizei count, GLenum type, const void *indices);
 
-
     glGetIntegerv_client_proc_t m_glGetIntegerv_enc;
     static void s_glGetIntegerv(void *self, GLenum pname, GLint *ptr);
 
@@ -170,6 +191,12 @@ private:
 
     glGetBooleanv_client_proc_t m_glGetBooleanv_enc;
     static void s_glGetBooleanv(void *self, GLenum pname, GLboolean *ptr);
+
+    glGetInteger64v_client_proc_t m_glGetInteger64v_enc;
+    static void s_glGetInteger64v(void* self, GLenum param, GLint64* val);
+
+    glGetBooleani_v_client_proc_t m_glGetBooleani_v_enc;
+    static void s_glGetBooleani_v(void* self, GLenum param, GLuint index, GLboolean* val);
 
     glVertexAttribPointer_client_proc_t m_glVertexAttribPointer_enc;
     static void s_glVertexAttribPointer(void *self, GLuint indx, GLint size, GLenum type,

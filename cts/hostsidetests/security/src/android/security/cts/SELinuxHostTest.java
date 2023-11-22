@@ -46,6 +46,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.Scanner;
@@ -59,6 +60,8 @@ import java.util.Set;
  * device which otherwise would not be available to a normal apk.
  */
 public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, IDeviceTest {
+
+    private static final Map<ITestDevice, File> cachedDevicePolicyFiles = new HashMap<>(1);
 
     private File sepolicyAnalyze;
     private File checkSeapp;
@@ -133,10 +136,33 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
         sepolicyAnalyze = buildHelper.getTestFile("sepolicy-analyze");
         sepolicyAnalyze.setExecutable(true);
 
-        /* obtain sepolicy file from running device */
-        devicePolicyFile = File.createTempFile("sepolicy", ".tmp");
-        devicePolicyFile.deleteOnExit();
-        mDevice.pullFile("/sys/fs/selinux/policy", devicePolicyFile);
+        devicePolicyFile = getDevicePolicyFile(mDevice);
+    }
+
+    // NOTE: cts/tools/selinux depends on this method. Rename/change with caution.
+    /**
+     * Returns the host-side file containing the SELinux policy of the device under test.
+     */
+    public static File getDevicePolicyFile(ITestDevice device) throws Exception {
+        // IMPLEMENTATION DETAILS: We cache the host-side policy file on per-device basis (in case
+        // CTS supports running against multiple devices at the same time). HashMap is used instead
+        // of WeakHashMap because in the grand scheme of things, keeping ITestDevice and
+        // corresponding File objects from being garbage-collected is not a big deal in CTS. If this
+        // becomes a big deal, this can be switched to WeakHashMap.
+        File file;
+        synchronized (cachedDevicePolicyFiles) {
+            file = cachedDevicePolicyFiles.get(device);
+        }
+        if (file != null) {
+            return file;
+        }
+        file = File.createTempFile("sepolicy", ".tmp");
+        file.deleteOnExit();
+        device.pullFile("/sys/fs/selinux/policy", file);
+        synchronized (cachedDevicePolicyFiles) {
+            cachedDevicePolicyFiles.put(device, file);
+        }
+        return file;
     }
 
     /**
@@ -241,7 +267,7 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
      */
     public static boolean isFullTrebleDevice(ITestDevice device)
             throws DeviceNotAvailableException {
-        return PropertyUtil.getFirstApiLevel(device) > 25;
+        return PropertyUtil.getFirstApiLevel(device) > 26;
     }
 
     private boolean isFullTrebleDevice() throws DeviceNotAvailableException {

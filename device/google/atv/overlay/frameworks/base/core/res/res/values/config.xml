@@ -58,4 +58,7 @@
     <!-- Package of the unbundled tv remote service which can connect to tv remote provider -->
     <string translatable="false" name="config_tvRemoteServicePackage">com.google.android.tv.remote.service</string>
 
+    <!-- Default service to enable with accessibility shortcut [DO NOT TRANSLATE] -->
+    <string name="config_defaultAccessibilityService" translatable="false">com.google.android.marvin.talkback/.TalkBackService</string>
+
 </resources>

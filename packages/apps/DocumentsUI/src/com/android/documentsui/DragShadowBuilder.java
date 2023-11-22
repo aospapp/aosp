@@ -16,6 +16,8 @@
 
 package com.android.documentsui;
 
+import com.android.documentsui.DragAndDropManager.State;
+
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -27,15 +29,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.TextView;
 
-import com.android.documentsui.base.DocumentInfo;
-import com.android.documentsui.base.Shared;
-import com.android.documentsui.dirlist.IconHelper;
-import com.android.documentsui.selection.Selection;
-
-import java.util.List;
-import java.util.function.Function;
-
-public final class DragShadowBuilder extends View.DragShadowBuilder {
+class DragShadowBuilder extends View.DragShadowBuilder {
 
     private final View mShadowView;
     private final TextView mTitle;
@@ -46,7 +40,7 @@ public final class DragShadowBuilder extends View.DragShadowBuilder {
     private int mPadding;
     private Paint paint;
 
-    public DragShadowBuilder(Context context) {
+    DragShadowBuilder(Context context) {
         mWidth = context.getResources().getDimensionPixelSize(R.dimen.drag_shadow_width);
         mHeight = context.getResources().getDimensionPixelSize(R.dimen.drag_shadow_height);
         mShadowRadius = context.getResources().getDimensionPixelSize(R.dimen.drag_shadow_radius);
@@ -93,76 +87,15 @@ public final class DragShadowBuilder extends View.DragShadowBuilder {
         mShadowView.draw(canvas);
     }
 
-    public void updateTitle(String title) {
+    void updateTitle(String title) {
         mTitle.setText(title);
     }
 
-    public void updateIcon(Drawable icon) {
+    void updateIcon(Drawable icon) {
         mIcon.updateIcon(icon);
     }
 
-    public void resetBackground() {
-        mIcon.setDropHovered(false);
-        mIcon.setEnabled(false);
-    }
-
-    public void setAppearDroppable(boolean droppable) {
-        mIcon.setDropHovered(true);
-        mIcon.setDroppable(droppable);
-    }
-
-    /**
-     * Provides a means of fully isolating the mechanics of building drag shadows (and builders)
-     * in support of testing.
-     */
-    public static final class Updater implements Function<Selection, DragShadowBuilder> {
-
-        private final Context mContext;
-        private final IconHelper mIconHelper;
-        private final Drawable mDefaultDragIcon;
-        private final Model mModel;
-        private final DragShadowBuilder mShadowBuilder;
-
-        public Updater(
-                Context context, DragShadowBuilder shadowBuilder, Model model,
-                IconHelper iconHelper, Drawable defaultDragIcon) {
-            mContext = context;
-            mShadowBuilder = shadowBuilder;
-            mModel = model;
-            mIconHelper = iconHelper;
-            mDefaultDragIcon = defaultDragIcon;
-        }
-
-        @Override
-        public DragShadowBuilder apply(Selection selection) {
-            mShadowBuilder.updateTitle(getDragTitle(selection));
-            mShadowBuilder.updateIcon(getDragIcon(selection));
-
-            return mShadowBuilder;
-        }
-
-        private Drawable getDragIcon(Selection selection) {
-            if (selection.size() == 1) {
-                DocumentInfo doc = getSingleSelectedDocument(selection);
-                return mIconHelper.getDocumentIcon(mContext, doc);
-            }
-            return mDefaultDragIcon;
-        }
-
-        private String getDragTitle(Selection selection) {
-            assert (!selection.isEmpty());
-            if (selection.size() == 1) {
-                DocumentInfo doc = getSingleSelectedDocument(selection);
-                return doc.displayName;
-            }
-            return Shared.getQuantityString(mContext, R.plurals.elements_dragged, selection.size());
-        }
-
-        private DocumentInfo getSingleSelectedDocument(Selection selection) {
-            assert (selection.size() == 1);
-            final List<DocumentInfo> docs = mModel.getDocuments(selection);
-            assert (docs.size() == 1);
-            return docs.get(0);
-        }
+    void onStateUpdated(@State int state) {
+        mIcon.updateState(state);
     }
 }

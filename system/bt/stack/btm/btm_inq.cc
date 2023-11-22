@@ -51,8 +51,6 @@
 #define BTM_INQ_DEBUG FALSE
 #endif
 
-extern fixed_queue_t* btu_general_alarm_queue;
-
 /******************************************************************************/
 /*               L O C A L    D A T A    D E F I N I T I O N S                */
 /******************************************************************************/
@@ -765,8 +763,8 @@ tBTM_STATUS BTM_StartInquiry(tBTM_INQ_PARMS* p_inqparms,
       btm_cb.ble_ctr_cb.inq_var.scan_type = BTM_BLE_SCAN_MODE_NONE;
       btm_send_hci_scan_enable(BTM_BLE_SCAN_DISABLE, BTM_BLE_DUPLICATE_ENABLE);
     } else {
-      return (BTM_BUSY);
       BTM_TRACE_API("BTM_StartInquiry: return BUSY");
+      return (BTM_BUSY);
     }
   } else
     p_inq->scan_type = INQ_GENERAL;
@@ -954,11 +952,10 @@ tBTM_STATUS BTM_StartInquiry(tBTM_INQ_PARMS* p_inqparms,
  *                  BTM_WRONG_MODE if the device is not up.
  *
  ******************************************************************************/
-tBTM_STATUS BTM_ReadRemoteDeviceName(BD_ADDR remote_bda, tBTM_CMPL_CB* p_cb,
+tBTM_STATUS BTM_ReadRemoteDeviceName(const RawAddress& remote_bda,
+                                     tBTM_CMPL_CB* p_cb,
                                      tBT_TRANSPORT transport) {
-  BTM_TRACE_API("%s: bd addr [%02x%02x%02x%02x%02x%02x]", __func__,
-                remote_bda[0], remote_bda[1], remote_bda[2], remote_bda[3],
-                remote_bda[4], remote_bda[5]);
+  VLOG(1) << __func__ << ": bd addr " << remote_bda;
   /* Use LE transport when LE is the only available option */
   if (transport == BT_TRANSPORT_LE) {
     return btm_ble_read_remote_name(remote_bda, p_cb);
@@ -1017,9 +1014,8 @@ tBTM_STATUS BTM_CancelRemoteDeviceName(void) {
  * Returns          pointer to entry, or NULL if not found
  *
  ******************************************************************************/
-tBTM_INQ_INFO* BTM_InqDbRead(const BD_ADDR p_bda) {
-  BTM_TRACE_API("BTM_InqDbRead: bd addr [%02x%02x%02x%02x%02x%02x]", p_bda[0],
-                p_bda[1], p_bda[2], p_bda[3], p_bda[4], p_bda[5]);
+tBTM_INQ_INFO* BTM_InqDbRead(const RawAddress& p_bda) {
+  VLOG(1) << __func__ << ": bd addr " << p_bda;
 
   tINQ_DB_ENT* p_ent = btm_inq_db_find(p_bda);
   if (!p_ent) return NULL;
@@ -1096,7 +1092,7 @@ tBTM_INQ_INFO* BTM_InqDbNext(tBTM_INQ_INFO* p_cur) {
  *                          is active, otherwise BTM_SUCCESS
  *
  ******************************************************************************/
-tBTM_STATUS BTM_ClearInqDb(BD_ADDR p_bda) {
+tBTM_STATUS BTM_ClearInqDb(const RawAddress* p_bda) {
   tBTM_INQUIRY_VAR_ST* p_inq = &btm_cb.btm_inq_vars;
 
   /* If an inquiry or remote name is in progress return busy */
@@ -1123,9 +1119,9 @@ tBTM_STATUS BTM_ReadInquiryRspTxPower(tBTM_CMPL_CB* p_cb) {
   if (btm_cb.devcb.p_inq_tx_power_cmpl_cb) return (BTM_BUSY);
 
   btm_cb.devcb.p_inq_tx_power_cmpl_cb = p_cb;
-  alarm_set_on_queue(btm_cb.devcb.read_inq_tx_power_timer,
+  alarm_set_on_mloop(btm_cb.devcb.read_inq_tx_power_timer,
                      BTM_INQ_REPLY_TIMEOUT_MS, btm_read_inq_tx_power_timeout,
-                     NULL, btu_general_alarm_queue);
+                     NULL);
 
   btsnd_hcic_read_inq_tx_power();
   return (BTM_CMD_STARTED);
@@ -1177,7 +1173,7 @@ void btm_inq_db_reset(void) {
   if (p_inq->remname_active) {
     alarm_cancel(p_inq->remote_name_timer);
     p_inq->remname_active = false;
-    memset(p_inq->remname_bda, 0, BD_ADDR_LEN);
+    p_inq->remname_bda = RawAddress::kEmpty;
 
     if (p_inq->p_remname_cmpl_cb) {
       rem_name.status = BTM_DEV_RESET;
@@ -1292,7 +1288,7 @@ void btm_inq_clear_ssp(void) {
  * Returns          void
  *
  ******************************************************************************/
-void btm_clr_inq_db(BD_ADDR p_bda) {
+void btm_clr_inq_db(const RawAddress* p_bda) {
   tBTM_INQUIRY_VAR_ST* p_inq = &btm_cb.btm_inq_vars;
   tINQ_DB_ENT* p_ent = p_inq->inq_db;
   uint16_t xx;
@@ -1304,8 +1300,7 @@ void btm_clr_inq_db(BD_ADDR p_bda) {
   for (xx = 0; xx < BTM_INQ_DB_SIZE; xx++, p_ent++) {
     if (p_ent->in_use) {
       /* If this is the specified BD_ADDR or clearing all devices */
-      if (p_bda == NULL || (!memcmp(p_ent->inq_info.results.remote_bd_addr,
-                                    p_bda, BD_ADDR_LEN))) {
+      if (p_bda == NULL || (p_ent->inq_info.results.remote_bd_addr == *p_bda)) {
         p_ent->in_use = false;
       }
     }
@@ -1344,7 +1339,7 @@ static void btm_clr_inq_result_flt(void) {
  * Returns          true if found, else false (new entry)
  *
  ******************************************************************************/
-bool btm_inq_find_bdaddr(BD_ADDR p_bda) {
+bool btm_inq_find_bdaddr(const RawAddress& p_bda) {
   tBTM_INQUIRY_VAR_ST* p_inq = &btm_cb.btm_inq_vars;
   tINQ_BDADDR* p_db = &p_inq->p_bd_db[0];
   uint16_t xx;
@@ -1354,14 +1349,13 @@ bool btm_inq_find_bdaddr(BD_ADDR p_bda) {
     return (false);
 
   for (xx = 0; xx < p_inq->num_bd_entries; xx++, p_db++) {
-    if (!memcmp(p_db->bd_addr, p_bda, BD_ADDR_LEN) &&
-        p_db->inq_count == p_inq->inq_counter)
+    if (p_db->bd_addr == p_bda && p_db->inq_count == p_inq->inq_counter)
       return (true);
   }
 
   if (xx < p_inq->max_bd_entries) {
     p_db->inq_count = p_inq->inq_counter;
-    memcpy(p_db->bd_addr, p_bda, BD_ADDR_LEN);
+    p_db->bd_addr = p_bda;
     p_inq->num_bd_entries++;
   }
 
@@ -1379,13 +1373,12 @@ bool btm_inq_find_bdaddr(BD_ADDR p_bda) {
  * Returns          pointer to entry, or NULL if not found
  *
  ******************************************************************************/
-tINQ_DB_ENT* btm_inq_db_find(const BD_ADDR p_bda) {
+tINQ_DB_ENT* btm_inq_db_find(const RawAddress& p_bda) {
   uint16_t xx;
   tINQ_DB_ENT* p_ent = btm_cb.btm_inq_vars.inq_db;
 
   for (xx = 0; xx < BTM_INQ_DB_SIZE; xx++, p_ent++) {
-    if ((p_ent->in_use) &&
-        (!memcmp(p_ent->inq_info.results.remote_bd_addr, p_bda, BD_ADDR_LEN)))
+    if (p_ent->in_use && p_ent->inq_info.results.remote_bd_addr == p_bda)
       return (p_ent);
   }
 
@@ -1404,7 +1397,7 @@ tINQ_DB_ENT* btm_inq_db_find(const BD_ADDR p_bda) {
  * Returns          pointer to entry
  *
  ******************************************************************************/
-tINQ_DB_ENT* btm_inq_db_new(BD_ADDR p_bda) {
+tINQ_DB_ENT* btm_inq_db_new(const RawAddress& p_bda) {
   uint16_t xx;
   tINQ_DB_ENT* p_ent = btm_cb.btm_inq_vars.inq_db;
   tINQ_DB_ENT* p_old = btm_cb.btm_inq_vars.inq_db;
@@ -1413,7 +1406,7 @@ tINQ_DB_ENT* btm_inq_db_new(BD_ADDR p_bda) {
   for (xx = 0; xx < BTM_INQ_DB_SIZE; xx++, p_ent++) {
     if (!p_ent->in_use) {
       memset(p_ent, 0, sizeof(tINQ_DB_ENT));
-      memcpy(p_ent->inq_info.results.remote_bd_addr, p_bda, BD_ADDR_LEN);
+      p_ent->inq_info.results.remote_bd_addr = p_bda;
       p_ent->in_use = true;
 
       return (p_ent);
@@ -1428,7 +1421,7 @@ tINQ_DB_ENT* btm_inq_db_new(BD_ADDR p_bda) {
   /* If here, no free entry found. Return the oldest. */
 
   memset(p_old, 0, sizeof(tINQ_DB_ENT));
-  memcpy(p_old->inq_info.results.remote_bd_addr, p_bda, BD_ADDR_LEN);
+  p_old->inq_info.results.remote_bd_addr = p_bda;
   p_old->in_use = true;
 
   return (p_old);
@@ -1469,11 +1462,7 @@ static tBTM_STATUS btm_set_inq_event_filter(uint8_t filter_cond_type,
   BTM_TRACE_DEBUG(
       "btm_set_inq_event_filter: filter type %d [Clear-0, COD-1, BDADDR-2]",
       filter_cond_type);
-  BTM_TRACE_DEBUG(
-      "                       condition [%02x%02x%02x %02x%02x%02x]",
-      p_filt_cond->bdaddr_cond[0], p_filt_cond->bdaddr_cond[1],
-      p_filt_cond->bdaddr_cond[2], p_filt_cond->bdaddr_cond[3],
-      p_filt_cond->bdaddr_cond[4], p_filt_cond->bdaddr_cond[5]);
+  VLOG(2) << "condition " << p_filt_cond->bdaddr_cond;
 #endif
 
   /* Load the correct filter condition to pass to the lower layer */
@@ -1489,7 +1478,7 @@ static tBTM_STATUS btm_set_inq_event_filter(uint8_t filter_cond_type,
       break;
 
     case BTM_FILTER_COND_BD_ADDR:
-      p_cond = p_filt_cond->bdaddr_cond;
+      p_cond = (uint8_t*)&p_filt_cond->bdaddr_cond;
 
       /* condition length should already be set as the default */
       break;
@@ -1692,7 +1681,7 @@ static void btm_initiate_inquiry(tBTM_INQUIRY_VAR_ST* p_inq) {
  ******************************************************************************/
 void btm_process_inq_results(uint8_t* p, uint8_t inq_res_mode) {
   uint8_t num_resp, xx;
-  BD_ADDR bda;
+  RawAddress bda;
   tINQ_DB_ENT* p_i;
   tBTM_INQ_RESULTS* p_cur = NULL;
   bool is_new = true;
@@ -2062,7 +2051,7 @@ void btm_process_cancel_complete(uint8_t status, uint8_t mode) {
  *                  BTM_WRONG_MODE if the device is not up.
  *
  ******************************************************************************/
-tBTM_STATUS btm_initiate_rem_name(BD_ADDR remote_bda, uint8_t origin,
+tBTM_STATUS btm_initiate_rem_name(const RawAddress& remote_bda, uint8_t origin,
                                   period_ms_t timeout_ms, tBTM_CMPL_CB* p_cb) {
   tBTM_INQUIRY_VAR_ST* p_inq = &btm_cb.btm_inq_vars;
 
@@ -2083,11 +2072,10 @@ tBTM_STATUS btm_initiate_rem_name(BD_ADDR remote_bda, uint8_t origin,
       /* If there is no remote name request running,call the callback function
        * and start timer */
       p_inq->p_remname_cmpl_cb = p_cb;
-      memcpy(p_inq->remname_bda, remote_bda, BD_ADDR_LEN);
+      p_inq->remname_bda = remote_bda;
 
-      alarm_set_on_queue(p_inq->remote_name_timer, timeout_ms,
-                         btm_inq_remote_name_timer_timeout, NULL,
-                         btu_general_alarm_queue);
+      alarm_set_on_mloop(p_inq->remote_name_timer, timeout_ms,
+                         btm_inq_remote_name_timer_timeout, NULL);
 
       /* If the database entry exists for the device, use its clock offset */
       tINQ_DB_ENT* p_i = btm_inq_db_find(remote_bda);
@@ -2122,8 +2110,8 @@ tBTM_STATUS btm_initiate_rem_name(BD_ADDR remote_bda, uint8_t origin,
  * Returns          void
  *
  ******************************************************************************/
-void btm_process_remote_name(BD_ADDR bda, BD_NAME bdn, uint16_t evt_len,
-                             uint8_t hci_status) {
+void btm_process_remote_name(const RawAddress* bda, BD_NAME bdn,
+                             uint16_t evt_len, uint8_t hci_status) {
   tBTM_REMOTE_DEV_NAME rem_name;
   tBTM_INQUIRY_VAR_ST* p_inq = &btm_cb.btm_inq_vars;
   tBTM_CMPL_CB* p_cb = p_inq->p_remname_cmpl_cb;
@@ -2131,23 +2119,16 @@ void btm_process_remote_name(BD_ADDR bda, BD_NAME bdn, uint16_t evt_len,
 
   uint16_t temp_evt_len;
 
-  if (bda != NULL) {
-    BTM_TRACE_EVENT("BDA %02x:%02x:%02x:%02x:%02x:%02x", bda[0], bda[1], bda[2],
-                    bda[3], bda[4], bda[5]);
+  if (bda) {
+    VLOG(2) << "BDA " << *bda;
   }
 
-  BTM_TRACE_EVENT("Inquire BDA %02x:%02x:%02x:%02x:%02x:%02x",
-                  p_inq->remname_bda[0], p_inq->remname_bda[1],
-                  p_inq->remname_bda[2], p_inq->remname_bda[3],
-                  p_inq->remname_bda[4], p_inq->remname_bda[5]);
+  VLOG(2) << "Inquire BDA " << p_inq->remname_bda;
 
   /* If the inquire BDA and remote DBA are the same, then stop the timer and set
    * the active to false */
   if ((p_inq->remname_active == true) &&
-      (((bda != NULL) && (memcmp(bda, p_inq->remname_bda, BD_ADDR_LEN) == 0)) ||
-       bda == NULL))
-
-  {
+      (!bda || (*bda == p_inq->remname_bda))) {
     if (BTM_UseLeLink(p_inq->remname_bda)) {
       if (hci_status == HCI_ERR_UNSPECIFIED)
         btm_ble_cancel_remote_name(p_inq->remname_bda);
@@ -2183,7 +2164,7 @@ void btm_process_remote_name(BD_ADDR bda, BD_NAME bdn, uint16_t evt_len,
       rem_name.remote_bd_name[0] = 0;
     }
     /* Reset the remote BAD to zero and call callback if possible */
-    memset(p_inq->remname_bda, 0, BD_ADDR_LEN);
+    p_inq->remname_bda = RawAddress::kEmpty;
 
     p_inq->p_remname_cmpl_cb = NULL;
     if (p_cb) (p_cb)((tBTM_REMOTE_DEV_NAME*)&rem_name);
@@ -2210,7 +2191,7 @@ void btm_inq_rmt_name_failed(void) {
                   btm_cb.btm_inq_vars.remname_active);
 
   if (btm_cb.btm_inq_vars.remname_active)
-    btm_process_remote_name(btm_cb.btm_inq_vars.remname_bda, NULL, 0,
+    btm_process_remote_name(&btm_cb.btm_inq_vars.remname_bda, NULL, 0,
                             HCI_ERR_UNSPECIFIED);
   else
     btm_process_remote_name(NULL, NULL, 0, HCI_ERR_UNSPECIFIED);
@@ -2244,7 +2225,7 @@ void btm_read_inq_tx_power_timeout(UNUSED_ATTR void* data) {
  ******************************************************************************/
 void btm_read_inq_tx_power_complete(uint8_t* p) {
   tBTM_CMPL_CB* p_cb = btm_cb.devcb.p_inq_tx_power_cmpl_cb;
-  tBTM_INQ_TXPWR_RESULTS results;
+  tBTM_INQ_TXPWR_RESULT result;
 
   BTM_TRACE_DEBUG("%s", __func__);
   alarm_cancel(btm_cb.devcb.read_inq_tx_power_timer);
@@ -2252,19 +2233,20 @@ void btm_read_inq_tx_power_complete(uint8_t* p) {
 
   /* If there was a registered callback, call it */
   if (p_cb) {
-    STREAM_TO_UINT8(results.hci_status, p);
+    STREAM_TO_UINT8(result.hci_status, p);
 
-    if (results.hci_status == HCI_SUCCESS) {
-      results.status = BTM_SUCCESS;
+    if (result.hci_status == HCI_SUCCESS) {
+      result.status = BTM_SUCCESS;
 
-      STREAM_TO_UINT8(results.tx_power, p);
+      STREAM_TO_UINT8(result.tx_power, p);
       BTM_TRACE_EVENT(
           "BTM INQ TX POWER Complete: tx_power %d, hci status 0x%02x",
-          results.tx_power, results.hci_status);
-    } else
-      results.status = BTM_ERR_PROCESSING;
+          result.tx_power, result.hci_status);
+    } else {
+      result.status = BTM_ERR_PROCESSING;
+    }
 
-    (*p_cb)(&results);
+    (*p_cb)(&result);
   }
 }
 /*******************************************************************************

@@ -3,8 +3,8 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-  <link rel="stylesheet" href=".resources/doc.css" charset="UTF-8" type="text/css" />
-  <link rel="shortcut icon" href=".resources/report.gif" type="image/gif" />
+  <link rel="stylesheet" href="resources/doc.css" charset="UTF-8" type="text/css" />
+  <link rel="shortcut icon" href="resources/report.gif" type="image/gif" />
   <title>JaCoCo - FAQ</title>
 </head>
 <body>
@@ -140,6 +140,29 @@
   It does. To make the JaCoCo agent work please set the VM option
   <code>-Xshareclasses:none</code>.
 </p>
+
+<h3>Why do I get an error "<code>ClassNotFoundException: org.jacoco.agent[...]Offline</code>"?</h3>
+<p>
+  If you use <a href="offline.html">offline instrumentation</a> the instrumented
+  classes get a direct dependency on the JaCoCo runtime. Therefore
+  <code>jacocoagent.jar</code> of the same JaCoCo version must be on the
+  classpath and accessible from by the instrumented classes. 
+</p>
+
+<h3>Why do I get a <code>StackOverflowError</code> during code coverage analysis?</h3>
+<p>
+  There are two known reasons for this:
+</p>
+<ul>
+  <li>Misconfiguration: If you configure two JaCoCo agents of different releases
+      they will instrument each other and cause a endless recursion. Check the
+      effective java command line and avoid such configurations.</li>
+  <li>Heavy stack usage: JaCoCo instrumentation adds a small runtime overhead
+      by adding a local variable to each method. If your application is already
+      close to the maximum stack size this can eventually lead to an
+      <code>StackOverflowError</code>. Increase the maximum java stack size with
+      the <code>-Xss</code> JVM option.</li>
+</ul>
 
 </div>
 <div class="footer">

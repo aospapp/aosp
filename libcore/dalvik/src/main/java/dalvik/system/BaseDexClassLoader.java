@@ -65,7 +65,39 @@ public class BaseDexClassLoader extends ClassLoader {
         this.pathList = new DexPathList(this, dexPath, librarySearchPath, null);
 
         if (reporter != null) {
-            reporter.report(this.pathList.getDexPaths());
+            reportClassLoaderChain();
+        }
+    }
+
+    /**
+     * Reports the current class loader chain to the registered {@code reporter}.
+     * The chain is reported only if all its elements are {@code BaseDexClassLoader}.
+     */
+    private void reportClassLoaderChain() {
+        ArrayList<BaseDexClassLoader> classLoadersChain = new ArrayList<>();
+        ArrayList<String> classPaths = new ArrayList<>();
+
+        classLoadersChain.add(this);
+        classPaths.add(String.join(File.pathSeparator, pathList.getDexPaths()));
+
+        boolean onlySawSupportedClassLoaders = true;
+        ClassLoader bootClassLoader = ClassLoader.getSystemClassLoader().getParent();
+        ClassLoader current = getParent();
+
+        while (current != null && current != bootClassLoader) {
+            if (current instanceof BaseDexClassLoader) {
+                BaseDexClassLoader bdcCurrent = (BaseDexClassLoader) current;
+                classLoadersChain.add(bdcCurrent);
+                classPaths.add(String.join(File.pathSeparator, bdcCurrent.pathList.getDexPaths()));
+            } else {
+                onlySawSupportedClassLoaders = false;
+                break;
+            }
+            current = current.getParent();
+        }
+
+        if (onlySawSupportedClassLoaders) {
+            reporter.report(classLoadersChain, classPaths);
         }
     }
 
@@ -206,6 +238,19 @@ public class BaseDexClassLoader extends ClassLoader {
      * @hide
      */
     public interface Reporter {
-        public void report(List<String> dexPaths);
+        /**
+         * Reports the construction of a BaseDexClassLoader and provides information about the
+         * class loader chain.
+         * Note that this only reports if all class loader in the chain are BaseDexClassLoader.
+         *
+         * @param classLoadersChain the chain of class loaders used during the construction of the
+         *     class loader. The first element is the BaseDexClassLoader being constructed,
+         *     the second element is its parent, and so on.
+         * @param classPaths the class paths of the class loaders present in
+         *     {@param classLoadersChain}. The first element corresponds to the first class
+         *     loader and so on. A classpath is represented as a list of dex files separated by
+         *     {@code File.pathSeparator}.
+         */
+        void report(List<BaseDexClassLoader> classLoadersChain, List<String> classPaths);
     }
 }

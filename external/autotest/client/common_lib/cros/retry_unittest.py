@@ -6,10 +6,13 @@
 
 """Unit tests for client/common_lib/cros/retry.py."""
 
+import itertools
 import mox
 import time
 import unittest
 import signal
+
+import mock
 
 import common
 from autotest_lib.client.common_lib.cros import retry
@@ -28,44 +31,44 @@ class RetryTest(mox.MoxTestBase):
         super(RetryTest, self).setUp()
         self._FLAKY_FLAG = False
 
+        patcher = mock.patch('time.sleep', autospec=True)
+        self._sleep_mock = patcher.start()
+        self.addCleanup(patcher.stop)
+
+        patcher = mock.patch('time.time', autospec=True)
+        self._time_mock = patcher.start()
+        self.addCleanup(patcher.stop)
+
 
     def testRetryDecoratorSucceeds(self):
         """Tests that a wrapped function succeeds without retrying."""
         @retry.retry(Exception)
         def succeed():
             return True
-
-        self.mox.StubOutWithMock(time, 'sleep')
-        self.mox.ReplayAll()
         self.assertTrue(succeed())
+        self.assertFalse(self._sleep_mock.called)
 
 
     def testRetryDecoratorFlakySucceeds(self):
         """Tests that a wrapped function can retry and succeed."""
         delay_sec = 10
+        self._time_mock.side_effect = itertools.count(delay_sec)
         @retry.retry(Exception, delay_sec=delay_sec)
         def flaky_succeed():
             if self._FLAKY_FLAG:
                 return True
             self._FLAKY_FLAG = True
             raise Exception()
-
-        self.mox.StubOutWithMock(time, 'sleep')
-        time.sleep(mox.Func(lambda x: abs(x - delay_sec) <= .5 * delay_sec))
-        self.mox.ReplayAll()
         self.assertTrue(flaky_succeed())
 
 
     def testRetryDecoratorFails(self):
         """Tests that a wrapped function retries til the timeout, then fails."""
         delay_sec = 10
+        self._time_mock.side_effect = itertools.count(delay_sec)
         @retry.retry(Exception, delay_sec=delay_sec)
         def fail():
             raise Exception()
-
-        self.mox.StubOutWithMock(time, 'sleep')
-        time.sleep(mox.Func(lambda x: abs(x - delay_sec) <= .5 * delay_sec))
-        self.mox.ReplayAll()
         self.assertRaises(Exception, fail)
 
 
@@ -74,11 +77,13 @@ class RetryTest(mox.MoxTestBase):
         @retry.retry(Exception)
         def fail():
             raise error.ControlFileNotFound()
-
-        self.mox.StubOutWithMock(time, 'sleep')
-        self.mox.ReplayAll()
         self.assertRaises(error.ControlFileNotFound, fail)
 
+
+
+
+class ActualRetryTest(unittest.TestCase):
+    """Unit tests for retry decorators with real sleep."""
 
     def testRetryDecoratorFailsWithTimeout(self):
         """Tests that a wrapped function retries til the timeout, then fails."""
@@ -86,9 +91,6 @@ class RetryTest(mox.MoxTestBase):
         def fail():
             time.sleep(2)
             return True
-
-        self.mox.ReplayAll()
-        #self.assertEquals(None, fail())
         self.assertRaises(error.TimeoutException, fail)
 
 
@@ -98,8 +100,6 @@ class RetryTest(mox.MoxTestBase):
         def succeed():
             time.sleep(0.1)
             return True
-
-        self.mox.ReplayAll()
         self.assertTrue(succeed())
 
 
@@ -127,13 +127,13 @@ class RetryTest(mox.MoxTestBase):
 
         signal.signal(signal.SIGALRM, testHandler)
         signal.alarm(1)
-        self.mox.ReplayAll()
         self.assertRaises(TestTimeoutException, testFunc)
 
 
     def testRetryDecoratorWithNoAlarmLeak(self):
         """Tests that a wrapped function throws exception before the timeout
         and no signal is leaked."""
+
         def testFunc():
             @retry.retry(Exception, timeout_min=0.06, delay_sec=0.1)
             def fail():
@@ -159,7 +159,6 @@ class RetryTest(mox.MoxTestBase):
             time.sleep(2)
             return self.alarm_leaked
 
-        self.mox.ReplayAll()
         self.assertFalse(testFunc())
 
 

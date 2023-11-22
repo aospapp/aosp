@@ -15,9 +15,15 @@
  */
 package com.android.tv.util;
 
+import static android.support.test.InstrumentationRegistry.getContext;
+import static org.junit.Assert.assertEquals;
+
 import android.support.test.filters.SmallTest;
-import android.test.AndroidTestCase;
 import android.text.format.DateUtils;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 import java.util.Calendar;
 import java.util.GregorianCalendar;
@@ -32,7 +38,7 @@ import java.util.Locale;
  * and it should be defined in TV app, not this test.
  */
 @SmallTest
-public class UtilsTest_GetDurationString extends AndroidTestCase {
+public class UtilsTest_GetDurationString {
     // TODO: Mock Context so we can specify current time and locale for test.
     private Locale mLocale;
     private static final long DATE_THIS_YEAR_2_1_MS = getFebOfThisYearInMillis(1, 0, 0);
@@ -40,12 +46,17 @@ public class UtilsTest_GetDurationString extends AndroidTestCase {
     // All possible list for a parameter to test parameter independent result.
     private static final boolean[] PARAM_USE_SHORT_FORMAT = {false, true};
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() {
         // Set locale to US
         mLocale = Locale.getDefault();
         Locale.setDefault(Locale.US);
+    }
+
+    @After
+    public void tearDown() {
+        // Revive system locale.
+        Locale.setDefault(mLocale);
     }
 
     /**
@@ -76,6 +87,7 @@ public class UtilsTest_GetDurationString extends AndroidTestCase {
         return new GregorianCalendar().get(GregorianCalendar.YEAR);
     }
 
+    @Test
     public void testSameDateAndTime() {
         assertEquals("3:00 AM", Utils.getDurationString(getContext(), DATE_THIS_YEAR_2_1_MS,
                         getFebOfThisYearInMillis(1, 3), getFebOfThisYearInMillis(1, 3), false,
@@ -85,6 +97,7 @@ public class UtilsTest_GetDurationString extends AndroidTestCase {
                         DateUtils.FORMAT_24HOUR));
     }
 
+    @Test
     public void testDurationWithinToday() {
         assertEquals("12:00 – 3:00 AM",
                 Utils.getDurationString(getContext(), DATE_THIS_YEAR_2_1_MS, DATE_THIS_YEAR_2_1_MS,
@@ -96,6 +109,7 @@ public class UtilsTest_GetDurationString extends AndroidTestCase {
                         DateUtils.FORMAT_24HOUR));
     }
 
+    @Test
     public void testDurationFromYesterdayToToday() {
         assertEquals("Jan 31, 3:00 AM – Feb 1, 4:00 AM",
                 Utils.getDurationString(getContext(), DATE_THIS_YEAR_2_1_MS,
@@ -115,6 +129,7 @@ public class UtilsTest_GetDurationString extends AndroidTestCase {
                         true, DateUtils.FORMAT_24HOUR));
     }
 
+    @Test
     public void testDurationFromTodayToTomorrow() {
         assertEquals("Feb 1, 3:00 AM – Feb 2, 4:00 AM",
                 Utils.getDurationString(getContext(), DATE_THIS_YEAR_2_1_MS,
@@ -154,6 +169,7 @@ public class UtilsTest_GetDurationString extends AndroidTestCase {
                         DateUtils.FORMAT_24HOUR));
     }
 
+    @Test
     public void testDurationWithinTomorrow() {
         assertEquals("Feb 2, 2:00 – 4:00 AM",
                 Utils.getDurationString(getContext(), DATE_THIS_YEAR_2_1_MS,
@@ -173,6 +189,7 @@ public class UtilsTest_GetDurationString extends AndroidTestCase {
                         DateUtils.FORMAT_24HOUR));
     }
 
+    @Test
     public void testStartOfDay() {
         assertEquals("12:00 – 1:00 AM",
                 Utils.getDurationString(getContext(), DATE_THIS_YEAR_2_1_MS, DATE_THIS_YEAR_2_1_MS,
@@ -201,6 +218,7 @@ public class UtilsTest_GetDurationString extends AndroidTestCase {
                         DateUtils.FORMAT_24HOUR));
     }
 
+    @Test
     public void testEndOfDay() {
         for (boolean useShortFormat : PARAM_USE_SHORT_FORMAT) {
             assertEquals("11:00 PM – 12:00 AM",
@@ -241,6 +259,7 @@ public class UtilsTest_GetDurationString extends AndroidTestCase {
                         DateUtils.FORMAT_24HOUR));
     }
 
+    @Test
     public void testMidnight() {
         for (boolean useShortFormat : PARAM_USE_SHORT_FORMAT) {
             assertEquals("12:00 AM", Utils.getDurationString(getContext(), DATE_THIS_YEAR_2_1_MS,
@@ -250,12 +269,5 @@ public class UtilsTest_GetDurationString extends AndroidTestCase {
                             DATE_THIS_YEAR_2_1_MS, DATE_THIS_YEAR_2_1_MS, useShortFormat,
                             DateUtils.FORMAT_24HOUR));
         }
-    }
-
-    @Override
-    protected void tearDown() throws Exception {
-        super.tearDown();
-        // Revive system locale.
-        Locale.setDefault(mLocale);
     }
 }

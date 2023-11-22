@@ -196,6 +196,66 @@ HandleErase (
 }
 
 STATIC
+EFI_STATUS
+HandleKernel (
+  IN CHAR8 *PartitionName
+  )
+{
+  VOID       *BootBuffer;
+  UINTN       BootSize = 0;
+  UINT32      KernelOff;
+  UINT32      RamdiskOff;
+  UINT32      NewRamdiskOff;
+  EFI_STATUS  Status;
+  ANDROID_BOOTIMG_HEADER *Header;
+  CHAR16      OutputString[FASTBOOT_STRING_MAX_LENGTH];
+
+  Header = (ANDROID_BOOTIMG_HEADER *)mDataBuffer;
+  if ((AsciiStrnCmp (Header->BootMagic, BOOT_MAGIC, BOOT_MAGIC_LENGTH) == 0) &&
+      (Header->RamdiskSize != 0)) {
+    mTextOut->OutputString (mTextOut, L"It is boot.img\r\n");
+    return EFI_INVALID_PARAMETER;
+  }
+  mTextOut->OutputString (mTextOut, L"Booting downloaded kernel\r\n");
+  Status = mPlatform->ReadPartition (
+                        PartitionName,
+                        &BootSize,
+                        &BootBuffer);
+  if (EFI_ERROR (Status)) {
+    UnicodeSPrint (OutputString, sizeof (OutputString), L"Fastboot: Fail to read %a partition: %r\r\n", PartitionName, Status);
+    mTextOut->OutputString (mTextOut, OutputString);
+    return Status;
+  }
+
+  Header = (ANDROID_BOOTIMG_HEADER *)BootBuffer;
+  if (AsciiStrnCmp (Header->BootMagic, BOOT_MAGIC, BOOT_MAGIC_LENGTH) != 0) {
+    return EFI_INVALID_PARAMETER;
+  }
+  KernelOff = Header->PageSize;
+  RamdiskOff = KernelOff +
+               Header->PageSize *
+               ((Header->KernelSize + Header->PageSize - 1) / Header->PageSize);
+  if (mNumDataBytes < KernelOff) {
+    return EFI_INVALID_PARAMETER;
+  }
+  Header->KernelSize = mNumDataBytes - KernelOff;
+  NewRamdiskOff = KernelOff +
+               Header->PageSize *
+               ((Header->KernelSize + Header->PageSize - 1) / Header->PageSize);
+  if (NewRamdiskOff + Header->RamdiskSize > BootSize) {
+    return EFI_INVALID_PARAMETER;
+  }
+  CopyMem(BootBuffer + NewRamdiskOff, BootBuffer + RamdiskOff, Header->RamdiskSize);
+  CopyMem(BootBuffer + KernelOff, mDataBuffer + KernelOff, Header->KernelSize);
+  FreePool (mDataBuffer);
+  Status = BootAndroidBootImg (NewRamdiskOff + Header->RamdiskSize, BootBuffer);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((EFI_D_ERROR, "Fastboot: Couldn't boot with new kernel: %r\n", Status));
+  }
+  return Status;
+}
+
+STATIC
 VOID
 HandleBoot (
   VOID
@@ -215,9 +275,12 @@ HandleBoot (
   // boot we lose control of the system.
   SEND_LITERAL ("OKAY");
 
-  Status = BootAndroidBootImg (mNumDataBytes, mDataBuffer);
+  Status = HandleKernel ("boot");
   if (EFI_ERROR (Status)) {
-    DEBUG ((EFI_D_ERROR, "Failed to boot downloaded image: %r\n", Status));
+    Status = BootAndroidBootImg (mNumDataBytes, mDataBuffer);
+    if (EFI_ERROR (Status)) {
+      DEBUG ((EFI_D_ERROR, "Failed to boot downloaded image: %r\n", Status));
+    }
   }
   // We shouldn't get here
 }

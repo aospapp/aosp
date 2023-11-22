@@ -45,3 +45,5 @@
 #$(call add-clean-step, rm -rf $(PRODUCT_OUT)/data/*)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/data/nativetest64/hidl_test*)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/data/nativetest/hidl_test*)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/lib/tests.vendor*)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/lib/vndk/tests.vendor*)

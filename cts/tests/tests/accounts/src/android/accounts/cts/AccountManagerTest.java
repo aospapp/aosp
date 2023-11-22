@@ -2297,9 +2297,32 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
         try {
             StrictMode.setThreadPolicy(
                     new StrictMode.ThreadPolicy.Builder().detectDiskReads().penaltyDeath().build());
+            // getAccounts()
             Account[] accounts = am.getAccounts();
             assertNotNull(accounts);
             assertTrue(accounts.length > 0);
+
+            // getAccountsAndVisibilityForPackage(...)
+            Map<Account, Integer> accountsAndVisibility =
+                am.getAccountsAndVisibilityForPackage(PACKAGE_NAME_PRIVILEGED, ACCOUNT_TYPE);
+            assertNotNull(accountsAndVisibility);
+            assertTrue(accountsAndVisibility.size() > 0);
+
+            // getAccountsByType(...)
+            Account[] accountsByType = am.getAccountsByType(ACCOUNT_TYPE);
+            assertNotNull(accountsByType);
+            assertTrue(accountsByType.length > 0);
+
+            // getAccountsByTypeForPackage(...)
+            Account[] accountsByTypeForPackage =
+                am.getAccountsByTypeForPackage(ACCOUNT_TYPE, PACKAGE_NAME_PRIVILEGED);
+            assertNotNull(accountsByTypeForPackage);
+            assertTrue(accountsByTypeForPackage.length > 0);
+
+            // getAccountsByTypeAndFeatures(...)
+            am.getAccountsByTypeAndFeatures(ACCOUNT_TYPE, null /* features */, null, null);
+            am.getAccountsByTypeAndFeatures(ACCOUNT_TYPE, REQUIRED_FEATURES, null, null);
+
         } finally {
             StrictMode.setThreadPolicy(oldPolicy);
         }

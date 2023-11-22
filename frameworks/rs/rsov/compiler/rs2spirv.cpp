@@ -19,6 +19,7 @@
 #include "spirit/file_utils.h"
 
 #include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
@@ -29,6 +30,10 @@
 #include "llvm/Support/Signals.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/raw_ostream.h"
+
+#include "Context.h"
+#include "GlobalMergePass.h"
+#include "RSSPIRVWriter.h"
 
 #define DEBUG_TYPE "rs2spirv"
 
@@ -45,11 +50,26 @@ static cl::opt<std::string> OutputFile("o",
                                        cl::desc("Override output filename"),
                                        cl::value_desc("filename"));
 
+static cl::opt<std::string> OutputBitcodeFile("bc",
+                                              cl::desc("Override output bitcode filename"),
+                                              cl::value_desc("bitcode filename"));
+
 static std::string removeExt(const std::string &FileName) {
   size_t Pos = FileName.find_last_of(".");
   if (Pos != std::string::npos)
     return FileName.substr(0, Pos);
   return FileName;
+}
+
+static bool WriteBitcode(rs2spirv::Context &Ctxt, Module *M,
+                         raw_ostream &OS, std::string &ErrMsg) {
+  llvm::legacy::PassManager PassMgr;
+  PassMgr.add(rs2spirv::createGlobalMergePass(true));
+  PassMgr.run(*M);
+
+  WriteBitcodeToFile(M, OS);
+
+  return true;
 }
 
 static int convertLLVMToSPIRV() {
@@ -76,6 +96,28 @@ static int convertLLVMToSPIRV() {
     return -1;
   }
 
+  std::error_code EC;
+
+  std::vector<char> bitcode = android::spirit::readFile<char>(InputFile);
+  std::unique_ptr<bcinfo::MetadataExtractor> ME(
+      new bcinfo::MetadataExtractor(bitcode.data(), bitcode.size()));
+
+  rs2spirv::Context &Ctxt = rs2spirv::Context::getInstance();
+
+  if (!Ctxt.Initialize(std::move(ME))) {
+    return -2;
+  }
+
+  if (!OutputBitcodeFile.empty()) {
+    llvm::StringRef outBCFile(OutputBitcodeFile);
+    llvm::raw_fd_ostream OFS_BC(outBCFile, EC, llvm::sys::fs::F_None);
+    if (!WriteBitcode(Ctxt, M.get(), OFS_BC, Err)) {
+      errs() << "compiler error: " << Err << '\n';
+      return -3;
+    }
+    return 0;
+  }
+
   if (OutputFile.empty()) {
     if (InputFile == "-")
       OutputFile = "-";
@@ -84,16 +126,11 @@ static int convertLLVMToSPIRV() {
   }
 
   llvm::StringRef outFile(OutputFile);
-  std::error_code EC;
   llvm::raw_fd_ostream OFS(outFile, EC, llvm::sys::fs::F_None);
 
-  std::vector<char> bitcode = android::spirit::readFile<char>(InputFile);
-  std::unique_ptr<bcinfo::MetadataExtractor> ME(
-      new bcinfo::MetadataExtractor(bitcode.data(), bitcode.size()));
-
-  if (!rs2spirv::WriteSPIRV(M.get(), std::move(ME), OFS, Err)) {
+  if (!rs2spirv::WriteSPIRV(Ctxt, M.get(), OFS, Err)) {
     errs() << "compiler error: " << Err << '\n';
-    return -1;
+    return -4;
   }
 
   return 0;

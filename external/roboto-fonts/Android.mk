@@ -65,6 +65,10 @@ $(eval $(call create-font-symlink,RobotoCondensed-Regular.ttf,Roboto-Regular.ttf
 $(eval $(call create-font-symlink,RobotoCondensed-Bold.ttf,Roboto-Bold.ttf))
 $(eval $(call create-font-symlink,RobotoCondensed-Italic.ttf,Roboto-Italic.ttf))
 $(eval $(call create-font-symlink,RobotoCondensed-BoldItalic.ttf,Roboto-BoldItalic.ttf))
+$(eval $(call create-font-symlink,RobotoCondensed-Light.ttf,Roboto-Regular.ttf))
+$(eval $(call create-font-symlink,RobotoCondensed-LightItalic.ttf,Roboto-Italic.ttf))
+$(eval $(call create-font-symlink,RobotoCondensed-Medium.ttf,Roboto-Regular.ttf))
+$(eval $(call create-font-symlink,RobotoCondensed-MediumItalic.ttf,Roboto-Italic.ttf))
 
 else # !MINIMAL_FONT
 font_src_files += \
@@ -81,7 +85,9 @@ font_src_files += \
     RobotoCondensed-Italic.ttf \
     RobotoCondensed-BoldItalic.ttf \
     RobotoCondensed-Light.ttf \
-    RobotoCondensed-LightItalic.ttf
+    RobotoCondensed-LightItalic.ttf \
+    RobotoCondensed-Medium.ttf \
+    RobotoCondensed-MediumItalic.ttf
 
 endif # !MINIMAL_FONT
 

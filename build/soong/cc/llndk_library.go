@@ -18,8 +18,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/google/blueprint"
-
 	"android/soong/android"
 )
 
@@ -61,6 +59,11 @@ type llndkStubDecorator struct {
 
 	exportHeadersTimestamp android.OptionalPath
 	versionScriptPath      android.ModuleGenPath
+}
+
+func (stub *llndkStubDecorator) compilerFlags(ctx ModuleContext, flags Flags) Flags {
+	flags = stub.baseCompiler.compilerFlags(ctx, flags)
+	return addStubLibraryCompilerFlags(flags)
 }
 
 func (stub *llndkStubDecorator) compile(ctx ModuleContext, flags Flags, deps PathDeps) Objects {
@@ -136,7 +139,7 @@ func (stub *llndkStubDecorator) link(ctx ModuleContext, flags Flags, deps PathDe
 	return stub.libraryDecorator.link(ctx, flags, deps, objs)
 }
 
-func newLLndkStubLibrary() (*Module, []interface{}) {
+func newLLndkStubLibrary() *Module {
 	module, library := NewLibrary(android.DeviceSupported)
 	library.BuildOnlyShared()
 	module.stl = nil
@@ -150,13 +153,18 @@ func newLLndkStubLibrary() (*Module, []interface{}) {
 	module.linker = stub
 	module.installer = nil
 
-	return module, []interface{}{&stub.Properties, &library.MutatedProperties, &library.flagExporter.Properties}
+	module.AddProperties(
+		&stub.Properties,
+		&library.MutatedProperties,
+		&library.flagExporter.Properties)
+
+	return module
 }
 
-func llndkLibraryFactory() (blueprint.Module, []interface{}) {
-	module, properties := newLLndkStubLibrary()
-	return android.InitAndroidArchModule(module, android.DeviceSupported,
-		android.MultilibBoth, properties...)
+func llndkLibraryFactory() android.Module {
+	module := newLLndkStubLibrary()
+	android.InitAndroidArchModule(module, android.DeviceSupported, android.MultilibBoth)
+	return module
 }
 
 func init() {

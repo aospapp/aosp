@@ -28,6 +28,23 @@
 namespace android {
 namespace hardware {
 
+hidl_binder_death_recipient::hidl_binder_death_recipient(const sp<hidl_death_recipient> &recipient,
+        uint64_t cookie, const sp<::android::hidl::base::V1_0::IBase> &base) :
+    mRecipient(recipient), mCookie(cookie), mBase(base) {
+}
+
+void hidl_binder_death_recipient::binderDied(const wp<IBinder>& /*who*/) {
+    sp<hidl_death_recipient> recipient = mRecipient.promote();
+    if (recipient != nullptr && mBase != nullptr) {
+        recipient->serviceDied(mCookie, mBase);
+    }
+    mBase = nullptr;
+}
+
+wp<hidl_death_recipient> hidl_binder_death_recipient::getRecipient() {
+    return mRecipient;
+}
+
 const size_t hidl_memory::kOffsetOfHandle = offsetof(hidl_memory, mHandle);
 const size_t hidl_memory::kOffsetOfName = offsetof(hidl_memory, mName);
 static_assert(hidl_memory::kOffsetOfHandle == 0, "wrong offset");
@@ -69,7 +86,6 @@ status_t writeEmbeddedToParcel(const hidl_memory &memory,
 
     return _hidl_err;
 }
-// static
 const size_t hidl_string::kOffsetOfBuffer = offsetof(hidl_string, mBuffer);
 static_assert(hidl_string::kOffsetOfBuffer == 0, "wrong offset");
 

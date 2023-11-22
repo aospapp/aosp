@@ -19,6 +19,7 @@ Test script to test the pairing scenarios and setting priorities.
 
 import time
 
+from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.base_test import BaseTestClass
 from acts.test_utils.bt import bt_test_utils
@@ -37,7 +38,7 @@ class BtCarPairingTest(BluetoothBaseTest):
         self.car = self.android_devices[0]
         self.ph = self.android_devices[1]
 
-    #@BluetoothTest(UUID=bf56e915-eef7-45cd-b5a6-771f6ef72602)
+    @test_tracker_info(uuid='f56e915-eef7-45cd-b5a6-771f6ef72602')
     @BluetoothBaseTest.bt_test_wrap
     def test_simple_pairing(self):
         """
@@ -89,7 +90,7 @@ class BtCarPairingTest(BluetoothBaseTest):
             return False
         return True
 
-    #@BluetoothTest(UUID=be4db211-10a0-479a-8958-dff0ccadca1a)
+    @test_tracker_info(uuid='be4db211-10a0-479a-8958-dff0ccadca1a')
     @BluetoothBaseTest.bt_test_wrap
     def test_repairing(self):
         """

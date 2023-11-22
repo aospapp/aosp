@@ -24,16 +24,11 @@
 
 #include "android-base/strings.h"
 
-#ifdef ART_ENABLE_CODEGEN_arm
-#include "dex_cache_array_fixups_arm.h"
-#endif
-
 #ifdef ART_ENABLE_CODEGEN_arm64
 #include "instruction_simplifier_arm64.h"
 #endif
 
 #ifdef ART_ENABLE_CODEGEN_mips
-#include "dex_cache_array_fixups_mips.h"
 #include "pc_relative_fixups_mips.h"
 #endif
 
@@ -81,8 +76,10 @@
 #include "jit/debugger_interface.h"
 #include "jit/jit.h"
 #include "jit/jit_code_cache.h"
+#include "jit/jit_logger.h"
 #include "jni/quick/jni_compiler.h"
 #include "licm.h"
+#include "load_store_analysis.h"
 #include "load_store_elimination.h"
 #include "loop_optimization.h"
 #include "nodes.h"
@@ -338,7 +335,11 @@ class OptimizingCompiler FINAL : public Compiler {
     }
   }
 
-  bool JitCompile(Thread* self, jit::JitCodeCache* code_cache, ArtMethod* method, bool osr)
+  bool JitCompile(Thread* self,
+                  jit::JitCodeCache* code_cache,
+                  ArtMethod* method,
+                  bool osr,
+                  jit::JitLogger* jit_logger)
       OVERRIDE
       REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -465,7 +466,8 @@ static HOptimization* BuildOptimization(
     const DexCompilationUnit& dex_compilation_unit,
     VariableSizedHandleScope* handles,
     SideEffectsAnalysis* most_recent_side_effects,
-    HInductionVarAnalysis* most_recent_induction) {
+    HInductionVarAnalysis* most_recent_induction,
+    LoadStoreAnalysis* most_recent_lsa) {
   std::string opt_name = ConvertPassNameToOptimizationName(pass_name);
   if (opt_name == BoundsCheckElimination::kBoundsCheckEliminationPassName) {
     CHECK(most_recent_side_effects != nullptr && most_recent_induction != nullptr);
@@ -499,15 +501,18 @@ static HOptimization* BuildOptimization(
   } else if (opt_name == HInductionVarAnalysis::kInductionPassName) {
     return new (arena) HInductionVarAnalysis(graph);
   } else if (opt_name == InstructionSimplifier::kInstructionSimplifierPassName) {
-    return new (arena) InstructionSimplifier(graph, codegen, stats, pass_name.c_str());
+    return new (arena) InstructionSimplifier(graph, codegen, driver, stats, pass_name.c_str());
   } else if (opt_name == IntrinsicsRecognizer::kIntrinsicsRecognizerPassName) {
     return new (arena) IntrinsicsRecognizer(graph, stats);
   } else if (opt_name == LICM::kLoopInvariantCodeMotionPassName) {
     CHECK(most_recent_side_effects != nullptr);
     return new (arena) LICM(graph, *most_recent_side_effects, stats);
+  } else if (opt_name == LoadStoreAnalysis::kLoadStoreAnalysisPassName) {
+    return new (arena) LoadStoreAnalysis(graph);
   } else if (opt_name == LoadStoreElimination::kLoadStoreEliminationPassName) {
     CHECK(most_recent_side_effects != nullptr);
-    return new (arena) LoadStoreElimination(graph, *most_recent_side_effects);
+    CHECK(most_recent_lsa != nullptr);
+    return new (arena) LoadStoreElimination(graph, *most_recent_side_effects, *most_recent_lsa);
   } else if (opt_name == SideEffectsAnalysis::kSideEffectsAnalysisPassName) {
     return new (arena) SideEffectsAnalysis(graph);
   } else if (opt_name == HLoopOptimization::kLoopOptimizationPassName) {
@@ -517,8 +522,6 @@ static HOptimization* BuildOptimization(
   } else if (opt_name == CodeSinking::kCodeSinkingPassName) {
     return new (arena) CodeSinking(graph, stats);
 #ifdef ART_ENABLE_CODEGEN_arm
-  } else if (opt_name == arm::DexCacheArrayFixups::kDexCacheArrayFixupsArmPassName) {
-    return new (arena) arm::DexCacheArrayFixups(graph, codegen, stats);
   } else if (opt_name == arm::InstructionSimplifierArm::kInstructionSimplifierArmPassName) {
     return new (arena) arm::InstructionSimplifierArm(graph, stats);
 #endif
@@ -527,8 +530,6 @@ static HOptimization* BuildOptimization(
     return new (arena) arm64::InstructionSimplifierArm64(graph, stats);
 #endif
 #ifdef ART_ENABLE_CODEGEN_mips
-  } else if (opt_name == mips::DexCacheArrayFixups::kDexCacheArrayFixupsMipsPassName) {
-    return new (arena) mips::DexCacheArrayFixups(graph, codegen, stats);
   } else if (opt_name == mips::PcRelativeFixups::kPcRelativeFixupsMipsPassName) {
     return new (arena) mips::PcRelativeFixups(graph, codegen, stats);
 #endif
@@ -556,6 +557,7 @@ static ArenaVector<HOptimization*> BuildOptimizations(
   // in the pass name list.
   SideEffectsAnalysis* most_recent_side_effects = nullptr;
   HInductionVarAnalysis* most_recent_induction = nullptr;
+  LoadStoreAnalysis* most_recent_lsa = nullptr;
   ArenaVector<HOptimization*> ret(arena->Adapter());
   for (const std::string& pass_name : pass_names) {
     HOptimization* opt = BuildOptimization(
@@ -568,7 +570,8 @@ static ArenaVector<HOptimization*> BuildOptimizations(
         dex_compilation_unit,
         handles,
         most_recent_side_effects,
-        most_recent_induction);
+        most_recent_induction,
+        most_recent_lsa);
     CHECK(opt != nullptr) << "Couldn't build optimization: \"" << pass_name << "\"";
     ret.push_back(opt);
 
@@ -577,6 +580,8 @@ static ArenaVector<HOptimization*> BuildOptimizations(
       most_recent_side_effects = down_cast<SideEffectsAnalysis*>(opt);
     } else if (opt_name == HInductionVarAnalysis::kInductionPassName) {
       most_recent_induction = down_cast<HInductionVarAnalysis*>(opt);
+    } else if (opt_name == LoadStoreAnalysis::kLoadStoreAnalysisPassName) {
+      most_recent_lsa = down_cast<LoadStoreAnalysis*>(opt);
     }
   }
   return ret;
@@ -632,17 +637,17 @@ void OptimizingCompiler::RunArchOptimizations(InstructionSet instruction_set,
 #if defined(ART_ENABLE_CODEGEN_arm)
     case kThumb2:
     case kArm: {
-      arm::DexCacheArrayFixups* fixups =
-          new (arena) arm::DexCacheArrayFixups(graph, codegen, stats);
       arm::InstructionSimplifierArm* simplifier =
           new (arena) arm::InstructionSimplifierArm(graph, stats);
       SideEffectsAnalysis* side_effects = new (arena) SideEffectsAnalysis(graph);
       GVNOptimization* gvn = new (arena) GVNOptimization(graph, *side_effects, "GVN$after_arch");
+      HInstructionScheduling* scheduling =
+          new (arena) HInstructionScheduling(graph, instruction_set, codegen);
       HOptimization* arm_optimizations[] = {
         simplifier,
         side_effects,
         gvn,
-        fixups
+        scheduling,
       };
       RunOptimizations(arm_optimizations, arraysize(arm_optimizations), pass_observer);
       break;
@@ -670,11 +675,8 @@ void OptimizingCompiler::RunArchOptimizations(InstructionSet instruction_set,
     case kMips: {
       mips::PcRelativeFixups* pc_relative_fixups =
           new (arena) mips::PcRelativeFixups(graph, codegen, stats);
-      mips::DexCacheArrayFixups* dex_cache_array_fixups =
-          new (arena) mips::DexCacheArrayFixups(graph, codegen, stats);
       HOptimization* mips_optimizations[] = {
           pc_relative_fixups,
-          dex_cache_array_fixups
       };
       RunOptimizations(mips_optimizations, arraysize(mips_optimizations), pass_observer);
       break;
@@ -760,7 +762,8 @@ void OptimizingCompiler::RunOptimizations(HGraph* graph,
   HDeadCodeElimination* dce3 = new (arena) HDeadCodeElimination(
       graph, stats, "dead_code_elimination$final");
   HConstantFolding* fold1 = new (arena) HConstantFolding(graph, "constant_folding");
-  InstructionSimplifier* simplify1 = new (arena) InstructionSimplifier(graph, codegen, stats);
+  InstructionSimplifier* simplify1 = new (arena) InstructionSimplifier(
+      graph, codegen, driver, stats);
   HSelectGenerator* select_generator = new (arena) HSelectGenerator(graph, stats);
   HConstantFolding* fold2 = new (arena) HConstantFolding(
       graph, "constant_folding$after_inlining");
@@ -774,15 +777,16 @@ void OptimizingCompiler::RunOptimizations(HGraph* graph,
   HInductionVarAnalysis* induction = new (arena) HInductionVarAnalysis(graph);
   BoundsCheckElimination* bce = new (arena) BoundsCheckElimination(graph, *side_effects1, induction);
   HLoopOptimization* loop = new (arena) HLoopOptimization(graph, driver, induction);
-  LoadStoreElimination* lse = new (arena) LoadStoreElimination(graph, *side_effects2);
+  LoadStoreAnalysis* lsa = new (arena) LoadStoreAnalysis(graph);
+  LoadStoreElimination* lse = new (arena) LoadStoreElimination(graph, *side_effects2, *lsa);
   HSharpening* sharpening = new (arena) HSharpening(
       graph, codegen, dex_compilation_unit, driver, handles);
   InstructionSimplifier* simplify2 = new (arena) InstructionSimplifier(
-      graph, codegen, stats, "instruction_simplifier$after_inlining");
+      graph, codegen, driver, stats, "instruction_simplifier$after_inlining");
   InstructionSimplifier* simplify3 = new (arena) InstructionSimplifier(
-      graph, codegen, stats, "instruction_simplifier$after_bce");
+      graph, codegen, driver, stats, "instruction_simplifier$after_bce");
   InstructionSimplifier* simplify4 = new (arena) InstructionSimplifier(
-      graph, codegen, stats, "instruction_simplifier$before_codegen");
+      graph, codegen, driver, stats, "instruction_simplifier$before_codegen");
   IntrinsicsRecognizer* intrinsics = new (arena) IntrinsicsRecognizer(graph, stats);
   CHAGuardOptimization* cha_guard = new (arena) CHAGuardOptimization(graph);
   CodeSinking* code_sinking = new (arena) CodeSinking(graph, stats);
@@ -814,6 +818,7 @@ void OptimizingCompiler::RunOptimizations(HGraph* graph,
     fold3,  // evaluates code generated by dynamic bce
     simplify3,
     side_effects2,
+    lsa,
     lse,
     cha_guard,
     dce3,
@@ -1136,7 +1141,8 @@ bool CanEncodeInlinedMethodInStackMap(const DexFile& caller_dex_file, ArtMethod*
 bool OptimizingCompiler::JitCompile(Thread* self,
                                     jit::JitCodeCache* code_cache,
                                     ArtMethod* method,
-                                    bool osr) {
+                                    bool osr,
+                                    jit::JitLogger* jit_logger) {
   StackHandleScope<3> hs(self);
   Handle<mirror::ClassLoader> class_loader(hs.NewHandle(
       method->GetDeclaringClass()->GetClassLoader()));
@@ -1272,6 +1278,9 @@ bool OptimizingCompiler::JitCompile(Thread* self,
   }
 
   Runtime::Current()->GetJit()->AddMemoryUsage(method, arena.BytesUsed());
+  if (jit_logger != nullptr) {
+    jit_logger->WriteLog(code, code_allocator.GetSize(), method);
+  }
 
   return true;
 }

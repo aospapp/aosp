@@ -426,6 +426,7 @@ public class NotificationService extends Service implements Recommender.Listener
                 : 100 - (int) (programLeftTimsMs * 100 / programDurationMs);
         Intent intent = new Intent(Intent.ACTION_VIEW, channel.getUri());
         intent.putExtra(TUNE_PARAMS_RECOMMENDATION_TYPE, mRecommendationType);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         final PendingIntent notificationIntent = PendingIntent.getActivity(this, 0, intent, 0);
 
         // This callback will run on the main thread.
@@ -455,11 +456,17 @@ public class NotificationService extends Service implements Recommender.Listener
     }
 
     private Bitmap overlayChannelLogo(Bitmap logo, Bitmap background) {
-        Bitmap result = BitmapUtils.scaleBitmap(
+        Bitmap result = BitmapUtils.getScaledMutableBitmap(
                 background, Integer.MAX_VALUE, mCardImageHeight);
         Bitmap scaledLogo = BitmapUtils.scaleBitmap(
                 logo, mChannelLogoMaxWidth, mChannelLogoMaxHeight);
-        Canvas canvas = new Canvas(result);
+        Canvas canvas;
+        try {
+            canvas = new Canvas(result);
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to create Canvas", e);
+            return background;
+        }
         canvas.drawBitmap(result, new Matrix(), null);
         Rect rect = new Rect();
         int startPadding;

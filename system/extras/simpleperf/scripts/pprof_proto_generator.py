@@ -31,7 +31,6 @@ import os.path
 import profile_pb2
 import re
 import shutil
-import subprocess
 import sys
 import time
 
@@ -256,12 +255,16 @@ class PprofProfileGenerator(object):
         self.config = config
         self.lib = ReportLib()
 
-        if config.get('binary_cache_dir'):
+        config['binary_cache_dir'] = 'binary_cache'
+        if not os.path.isdir(config['binary_cache_dir']):
+            config['binary_cache_dir'] = None
+        else:
             self.lib.SetSymfs(config['binary_cache_dir'])
         if config.get('record_file'):
             self.lib.SetRecordFile(config['record_file'])
-        if config.get('kallsyms'):
-            self.lib.SetKallsymsFile(config['kallsyms'])
+        kallsyms = 'binary_cache/kallsyms'
+        if os.path.isfile(kallsyms):
+            self.lib.SetKallsymsFile(kallsyms)
         self.comm_filter = set(config['comm_filters']) if config.get('comm_filters') else None
         if config.get('pid_filters'):
             self.pid_filter = {int(x) for x in config['pid_filters']}
@@ -379,11 +382,14 @@ class PprofProfileGenerator(object):
     def get_location_id(self, ip, symbol):
         mapping_id = self.get_mapping_id(symbol.mapping[0], symbol.dso_name)
         location = Location(mapping_id, ip, symbol.vaddr_in_file)
-        # Default line info only contains the function name
-        line = Line()
-        line.function_id = self.get_function_id(symbol.symbol_name, symbol.dso_name,
-                                                symbol.symbol_addr)
-        location.lines.append(line)
+        function_id = self.get_function_id(symbol.symbol_name, symbol.dso_name,
+                                           symbol.symbol_addr)
+        if function_id:
+            # Add Line only when it has a valid function id, see http://b/36988814.
+            # Default line info only contains the function name
+            line = Line()
+            line.function_id = function_id
+            location.lines.append(line)
 
         exist_location = self.location_map.get(location.key)
         if exist_location:
@@ -440,6 +446,15 @@ class PprofProfileGenerator(object):
 
     def gen_source_lines(self):
         # 1. Create Addr2line instance
+        if not self.config.get('binary_cache_dir'):
+            log_info("Can't generate line information because binary_cache is missing.")
+            return
+        if not self.config['addr2line_path'] or not is_executable_available(
+            self.config['addr2line_path']):
+            if not find_tool_path('addr2line'):
+                log_info("Can't generate line information because can't find addr2line.")
+                return
+
         addr2line = Addr2Line(self.config['addr2line_path'], self.config['binary_cache_dir'])
 
         # 2. Put all needed addresses to it.
@@ -462,10 +477,13 @@ class PprofProfileGenerator(object):
             source_id = 0
             for source in sources:
                 if source.file and source.function and source.line:
+                    function_id = self.get_function_id(source.function, dso_name, 0)
+                    if function_id == 0:
+                        continue
                     if source_id == 0:
                         # Clear default line info
                         location.lines = []
-                    location.lines.append(self.add_line(source, dso_name))
+                    location.lines.append(self.add_line(source, dso_name, function_id))
                     source_id += 1
 
         for function in self.function_list:
@@ -478,9 +496,8 @@ class PprofProfileGenerator(object):
                     if source.line:
                         function.start_line = source.line
 
-    def add_line(self, source, dso_name):
+    def add_line(self, source, dso_name, function_id):
         line = Line()
-        function_id = self.get_function_id(source.function, dso_name, 0)
         function = self.get_function(function_id)
         function.source_filename_id = self.get_string_id(source.file)
         line.function_id = function_id
@@ -506,8 +523,12 @@ class PprofProfileGenerator(object):
         profile_mapping.build_id = mapping.build_id_id
         profile_mapping.has_filenames = True
         profile_mapping.has_functions = True
-        profile_mapping.has_line_numbers = True
-        profile_mapping.has_inline_frames = True
+        if self.config.get('binary_cache_dir'):
+            profile_mapping.has_line_numbers = True
+            profile_mapping.has_inline_frames = True
+        else:
+            profile_mapping.has_line_numbers = False
+            profile_mapping.has_inline_frames = False
 
     def gen_profile_location(self, location):
         profile_location = self.profile.location.add()
@@ -530,16 +551,38 @@ class PprofProfileGenerator(object):
 
 def main():
     parser = argparse.ArgumentParser(description='Generate pprof profile data in pprof.profile.')
-    parser.add_argument('--show', nargs=1, help='print existing profile.pprof')
-    parser.add_argument('--config', nargs=1, default='pprof_proto_generator.config',
-                        help='Set config file, default is gen_pprof_proto.config.')
-    args = parser.parse_args(sys.argv[1:])
+    parser.add_argument('--show', nargs='?', action='append', help='print existing pprof.profile.')
+    parser.add_argument('-i', '--perf_data_path', default='perf.data', help=
+"""The path of profiling data.""")
+    parser.add_argument('-o', '--output_file', default='pprof.profile', help=
+"""The path of generated pprof profile data.""")
+    parser.add_argument('--comm', nargs='+', action='append', help=
+"""Use samples only in threads with selected names.""")
+    parser.add_argument('--pid', nargs='+', action='append', help=
+"""Use samples only in processes with selected process ids.""")
+    parser.add_argument('--tid', nargs='+', action='append', help=
+"""Use samples only in threads with selected thread ids.""")
+    parser.add_argument('--dso', nargs='+', action='append', help=
+"""Use samples only in selected binaries.""")
+    parser.add_argument('--addr2line', help=
+"""Set the path of addr2line.""")
+
+    args = parser.parse_args()
     if args.show:
-        profile = load_pprof_profile(args.show[0])
+        show_file = args.show[0] if args.show[0] else 'pprof.profile'
+        profile = load_pprof_profile(show_file)
         printer = PprofProfilePrinter(profile)
         printer.show()
         return
-    config = load_config(args.config)
+
+    config = {}
+    config['perf_data_path'] = args.perf_data_path
+    config['output_file'] = args.output_file
+    config['comm_filters'] = flatten_arg_list(args.comm)
+    config['pid_filters'] = flatten_arg_list(args.pid)
+    config['tid_filters'] = flatten_arg_list(args.tid)
+    config['dso_filters'] = flatten_arg_list(args.dso)
+    config['addr2line_path'] = args.addr2line
     generator = PprofProfileGenerator(config)
     profile = generator.gen()
     store_pprof_profile(config['output_file'], profile)

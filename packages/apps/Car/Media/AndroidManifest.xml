@@ -20,8 +20,8 @@
     android:sharedUserId="com.android.car.media" >
 
     <uses-sdk
-        android:minSdkVersion="22"
-        android:targetSdkVersion='23'/>
+        android:minSdkVersion="24"
+        android:targetSdkVersion='24'/>
 
     <application android:label="CarMediaApp"
         android:icon="@drawable/ic_music">
@@ -39,6 +39,10 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.INFO" />
                 <category android:name="android.intent.category.APP_MUSIC" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.car.intent.action.MEDIA_TEMPLATE" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
     </application>

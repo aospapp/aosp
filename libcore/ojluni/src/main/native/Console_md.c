@@ -31,7 +31,7 @@
 #include <unistd.h>
 #include <termios.h>
 
-#include "JNIHelp.h"
+#include <nativehelper/JNIHelp.h>
 
 #define NATIVE_METHOD(className, functionName, signature) \
 { #functionName, signature, (void*)(Java_java_io_ ## className ## _ ## functionName) }

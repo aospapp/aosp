@@ -97,12 +97,16 @@ class audio_AudioWebRTCLoopback(audio_test.AudioTest):
                 audio_test_utils.dump_cros_audio_logs(
                         host, audio_facade, self.resultsdir, 'after_binding')
 
+                # Checks whether line-out or headphone is detected.
+                hp_jack_node_type = audio_test_utils.check_hp_or_lineout_plugged(
+                        audio_facade)
+
                 # Checks headphone and USB nodes are plugged.
                 # Let Chrome select the proper I/O nodes.
                 # Input is USB, output is headphone.
                 audio_test_utils.check_and_set_chrome_active_node_types(
                         audio_facade=audio_facade,
-                        output_type='HEADPHONE',
+                        output_type=hp_jack_node_type,
                         input_type='USB')
 
                 logging.info('Setting playback data on Chameleon')

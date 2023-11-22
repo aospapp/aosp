@@ -204,7 +204,11 @@ public class AuptTestRunner extends InstrumentationTestRunner {
                     injectInstrumentation(test);
                 }
 
-                super.runTest(result);
+                try {
+                    super.runTest(result);
+                } finally {
+                    mDataCollector.stop();
+                }
             }
         };
 
@@ -226,11 +230,6 @@ public class AuptTestRunner extends InstrumentationTestRunner {
 
         // Start the test
         super.onCreate(params);
-    }
-
-    @Override
-    public void onDestroy() {
-        mDataCollector.stop();
     }
 
     /* Option-parsing helpers */
@@ -423,10 +422,9 @@ public class AuptTestRunner extends InstrumentationTestRunner {
 
             try {
                 MemHealthRecord.saveVerbose(mMemHealthRecords,
-                    mResultsDirectory + "memory-health.txt");
-
+                        new File(mResultsDirectory, "memory-health.txt").getPath());
                 MemHealthRecord.saveCsv(mMemHealthRecords,
-                    mResultsDirectory + "memory-health-details.txt");
+                        new File(mResultsDirectory, "memory-health-details.txt").getPath());
 
                 mMemHealthRecords.clear();
             } catch (IOException ioex) {

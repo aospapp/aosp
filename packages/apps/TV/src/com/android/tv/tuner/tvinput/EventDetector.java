@@ -21,12 +21,12 @@ import android.util.SparseArray;
 import android.util.SparseBooleanArray;
 
 import com.android.tv.tuner.TunerHal;
-import com.android.tv.tuner.data.nano.Track.AtscAudioTrack;
-import com.android.tv.tuner.data.nano.Track.AtscCaptionTrack;
-import com.android.tv.tuner.data.TunerChannel;
 import com.android.tv.tuner.ts.TsParser;
 import com.android.tv.tuner.data.PsiData;
 import com.android.tv.tuner.data.PsipData;
+import com.android.tv.tuner.data.TunerChannel;
+import com.android.tv.tuner.data.nano.Track.AtscAudioTrack;
+import com.android.tv.tuner.data.nano.Track.AtscCaptionTrack;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -48,10 +48,11 @@ public class EventDetector {
 
     // To prevent channel duplication
     private final Set<Integer> mVctProgramNumberSet = new HashSet<>();
+    private final Set<Integer> mSdtProgramNumberSet = new HashSet<>();
     private final SparseArray<TunerChannel> mChannelMap = new SparseArray<>();
     private final SparseBooleanArray mVctCaptionTracksFound = new SparseBooleanArray();
     private final SparseBooleanArray mEitCaptionTracksFound = new SparseBooleanArray();
-    private final EventListener mEventListener;
+    private final List<EventListener> mEventListeners = new ArrayList<>();
     private int mFrequency;
     private String mModulation;
     private int mProgramNumber = ALL_PROGRAM_NUMBERS;
@@ -105,8 +106,10 @@ public class EventDetector {
                     item.setHasCaptionTrack();
                 }
             }
-            if (tunerChannel != null && mEventListener != null) {
-                mEventListener.onEventDetected(tunerChannel, items);
+            if (tunerChannel != null && !mEventListeners.isEmpty()) {
+                for (EventListener eventListener : mEventListeners) {
+                    eventListener.onEventDetected(tunerChannel, items);
+                }
             }
         }
 
@@ -117,8 +120,10 @@ public class EventDetector {
 
         @Override
         public void onAllVctItemsParsed() {
-            if (mEventListener != null) {
-                mEventListener.onChannelScanDone();
+            if (!mEventListeners.isEmpty()) {
+                for (EventListener eventListener : mEventListeners) {
+                    eventListener.onChannelScanDone();
+                }
             }
         }
 
@@ -161,8 +166,47 @@ public class EventDetector {
             if (!found) {
                 mVctProgramNumberSet.add(channelProgramNumber);
             }
-            if (mEventListener != null) {
-                mEventListener.onChannelDetected(tunerChannel, !found);
+            if (!mEventListeners.isEmpty()) {
+                for (EventListener eventListener : mEventListeners) {
+                    eventListener.onChannelDetected(tunerChannel, !found);
+                }
+            }
+        }
+
+        @Override
+        public void onSdtItemParsed(PsipData.SdtItem channel, List<PsiData.PmtItem> pmtItems) {
+            if (DEBUG) {
+                Log.d(TAG, "onSdtItemParsed SDT " + channel);
+                Log.d(TAG, "                PMT " + pmtItems);
+            }
+
+            // Merges the audio and caption tracks located in PMT items into the tracks of the given
+            // tuner channel.
+            TunerChannel tunerChannel = new TunerChannel(channel, pmtItems);
+            List<AtscAudioTrack> audioTracks = new ArrayList<>();
+            List<AtscCaptionTrack> captionTracks = new ArrayList<>();
+            for (PsiData.PmtItem pmtItem : pmtItems) {
+                if (pmtItem.getAudioTracks() != null) {
+                    audioTracks.addAll(pmtItem.getAudioTracks());
+                }
+                if (pmtItem.getCaptionTracks() != null) {
+                    captionTracks.addAll(pmtItem.getCaptionTracks());
+                }
+            }
+            int channelProgramNumber = channel.getServiceId();
+            tunerChannel.setAudioTracks(audioTracks);
+            tunerChannel.setCaptionTracks(captionTracks);
+            tunerChannel.setFrequency(mFrequency);
+            tunerChannel.setModulation(mModulation);
+            mChannelMap.put(tunerChannel.getProgramNumber(), tunerChannel);
+            boolean found = mSdtProgramNumberSet.contains(channelProgramNumber);
+            if (!found) {
+                mSdtProgramNumberSet.add(channelProgramNumber);
+            }
+            if (!mEventListeners.isEmpty()) {
+                for (EventListener eventListener : mEventListeners) {
+                    eventListener.onChannelDetected(tunerChannel, !found);
+                }
             }
         }
     };
@@ -196,18 +240,23 @@ public class EventDetector {
 
     /**
      * Creates a detector for ATSC TV channles and program information.
+     *
      * @param usbTunerInteface {@link TunerHal}
-     * @param listener for ATSC TV channels and program information
      */
-    public EventDetector(TunerHal usbTunerInteface, EventListener listener) {
+    public EventDetector(TunerHal usbTunerInteface) {
         mTunerHal = usbTunerInteface;
-        mEventListener = listener;
     }
 
     private void reset() {
-        mTsParser = new TsParser(mTsOutputListener); // TODO: Use TsParser.reset()
+        // TODO: Use TsParser.reset()
+        int deliverySystemType = mTunerHal.getDeliverySystemType();
+        mTsParser =
+                new TsParser(
+                        mTsOutputListener,
+                        TunerHal.isDvbDeliverySystem(mTunerHal.getDeliverySystemType()));
         mPidSet.clear();
         mVctProgramNumberSet.clear();
+        mSdtProgramNumberSet.clear();
         mVctCaptionTracksFound.clear();
         mEitCaptionTracksFound.clear();
         mChannelMap.clear();
@@ -257,5 +306,29 @@ public class EventDetector {
      */
     public List<TunerChannel> getMalFormedChannels() {
         return mTsParser.getMalFormedChannels();
+    }
+
+    /**
+     * Registers an EventListener.
+     * @param eventListener the listener to be registered
+     */
+    public void registerListener(EventListener eventListener) {
+        if (mTsParser != null) {
+            // Resets the version numbers so that the new listener can receive the EIT items.
+            // Otherwise, each EIT session is handled only once unless there is a new version.
+            mTsParser.resetDataVersions();
+        }
+        mEventListeners.add(eventListener);
+    }
+
+    /**
+     * Unregisters an EventListener.
+     * @param eventListener the listener to be unregistered
+     */
+    public void unregisterListener(EventListener eventListener) {
+        boolean removed = mEventListeners.remove(eventListener);
+        if (!removed && DEBUG) {
+            Log.d(TAG, "Cannot unregister a non-registered listener!");
+        }
     }
 }

@@ -97,11 +97,15 @@ public class LooperTest extends AndroidTestCase {
     public void testMyQueue() throws Throwable {
         TestThread t = new TestThread(new Runnable() {
             public void run() {
+                boolean didThrow = false;
                 try {
                     assertNull(Looper.myQueue());
-                    fail("should throw exception");
                 } catch (Throwable e) {
                     // expected
+                    didThrow = true;
+                }
+                if (!didThrow) {
+                    fail("should throw exception");
                 }
                 Looper.prepare();
                 MessageQueue mq = Looper.myQueue();
@@ -132,7 +136,7 @@ public class LooperTest extends AndroidTestCase {
                 try {
                     Looper.prepare();
                     fail("should throw exception");
-                } catch (Throwable e) {
+                } catch (Exception e) {
                     //expected
                 }
             }
@@ -147,7 +151,7 @@ public class LooperTest extends AndroidTestCase {
                 try {
                     Looper.prepareMainLooper();
                     fail("should throw exception because the main thread was already prepared");
-                } catch (Throwable e) {
+                } catch (Exception e) {
                     //expected
                 }
             }

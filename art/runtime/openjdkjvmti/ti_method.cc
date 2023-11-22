@@ -39,10 +39,10 @@
 #include "jni_internal.h"
 #include "mirror/object_array-inl.h"
 #include "modifiers.h"
+#include "nativehelper/ScopedLocalRef.h"
 #include "runtime_callbacks.h"
 #include "scoped_thread_state_change-inl.h"
-#include "ScopedLocalRef.h"
-#include "thread-inl.h"
+#include "thread-current-inl.h"
 #include "thread_list.h"
 #include "ti_phase.h"
 
@@ -89,6 +89,40 @@ void MethodUtil::Unregister() {
   art::ScopedSuspendAll ssa("Remove method callback");
   art::Runtime* runtime = art::Runtime::Current();
   runtime->GetRuntimeCallbacks()->RemoveMethodCallback(&gMethodCallback);
+}
+
+jvmtiError MethodUtil::GetBytecodes(jvmtiEnv* env,
+                                    jmethodID method,
+                                    jint* size_ptr,
+                                    unsigned char** bytecode_ptr) {
+  if (method == nullptr) {
+    return ERR(INVALID_METHODID);
+  }
+  art::ArtMethod* art_method = art::jni::DecodeArtMethod(method);
+
+  if (art_method->IsNative()) {
+    return ERR(NATIVE_METHOD);
+  }
+
+  if (size_ptr == nullptr || bytecode_ptr == nullptr) {
+    return ERR(NULL_POINTER);
+  }
+
+  art::ScopedObjectAccess soa(art::Thread::Current());
+  const art::DexFile::CodeItem* code_item = art_method->GetCodeItem();
+  if (code_item == nullptr) {
+    *size_ptr = 0;
+    *bytecode_ptr = nullptr;
+    return OK;
+  }
+  // 2 bytes per instruction for dex code.
+  *size_ptr = code_item->insns_size_in_code_units_ * 2;
+  jvmtiError err = env->Allocate(*size_ptr, bytecode_ptr);
+  if (err != OK) {
+    return err;
+  }
+  memcpy(*bytecode_ptr, code_item->insns_, *size_ptr);
+  return OK;
 }
 
 jvmtiError MethodUtil::GetArgumentsSize(jvmtiEnv* env ATTRIBUTE_UNUSED,

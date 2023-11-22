@@ -60,6 +60,8 @@ status_t EmulatedFakeCamera::Initialize()
 
     mParameters.set(EmulatedCamera::ORIENTATION_KEY,
                     gEmulatedCameraFactory.getFakeCameraOrientation());
+    mParameters.set(CameraParameters::KEY_ROTATION,
+                    gEmulatedCameraFactory.getFakeCameraOrientation());
 
     res = EmulatedCamera::Initialize();
     if (res != NO_ERROR) {

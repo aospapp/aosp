@@ -53,11 +53,12 @@ limitations under the License.
             android:background="?android:attr/selectableItemBackground"
             style="@style/PermissionsRequest" />
 
-    <android.support.car.ui.PagedListView
+    <com.android.car.view.PagedListView
             android:id="@+id/list_view"
             android:background="@android:color/transparent"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:visibility="gone"
-            app:offsetRows="true"/>
+            app:offsetRows="true"
+            app:showDivider="false" />
 </FrameLayout>

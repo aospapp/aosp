@@ -27,7 +27,7 @@ public class CellBroadcastAreaInfoReceiver extends BroadcastReceiver {
     private static final String TAG = "CBAreaInfoReceiver";
     static final boolean DBG = false;    // STOPSHIP: change to false before ship
     private static final String GET_LATEST_CB_AREA_INFO_ACTION =
-            "android.cellbroadcastreceiver.GET_LATEST_CB_AREA_INFO";
+            "com.android.cellbroadcastreceiver.GET_LATEST_CB_AREA_INFO";
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -40,6 +40,7 @@ public class CellBroadcastAreaInfoReceiver extends BroadcastReceiver {
             if (message != null) {
                 Intent areaInfoIntent = new Intent(
                         CellBroadcastAlertService.CB_AREA_INFO_RECEIVED_ACTION);
+                areaInfoIntent.setPackage(CellBroadcastAlertService.SETTINGS_APP);
                 areaInfoIntent.putExtra("message", message);
                 // Send broadcast twice, once for apps that have PRIVILEGED permission and once
                 // for those that have the runtime one

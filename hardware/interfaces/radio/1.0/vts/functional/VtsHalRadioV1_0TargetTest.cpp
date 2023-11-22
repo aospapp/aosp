@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <radio_hidl_hal_utils.h>
+#include <radio_hidl_hal_utils_v1_0.h>
 
 int main(int argc, char** argv) {
     ::testing::AddGlobalTestEnvironment(new RadioHidlEnvironment);

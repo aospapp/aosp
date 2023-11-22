@@ -31,7 +31,7 @@ import org.junit.runner.RunWith;
 @LargeTest
 @RunWith(AndroidJUnit4.class)
 public class TextureViewCameraTest {
-    private static final long WAIT_TIMEOUT_IN_SECS = 10;
+    private static final long WAIT_TIMEOUT_IN_SECS = 30;
 
     private TextureViewCameraActivity mActivity;
     private int mNumberOfCameras;

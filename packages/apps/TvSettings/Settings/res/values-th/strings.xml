@@ -192,7 +192,7 @@
     <string name="title_wifi_ip_settings" msgid="1176973848286865602">"การตั้งค่า IP"</string>
     <string name="title_wifi_ip_address" msgid="1176502993805009566">"ที่อยู่ IP:"</string>
     <string name="title_wifi_gateway" msgid="7210935277165358134">"เกตเวย์:"</string>
-    <string name="title_wifi_network_prefix_length" msgid="4821632382990582038">"ความยาวของหมายเลขเครือข่าย:"</string>
+    <string name="title_wifi_network_prefix_length" msgid="4821632382990582038">"ความยาวรหัสนำเครือข่าย:"</string>
     <string name="title_wifi_dns1" msgid="8202712852864206601">"DNS 1:"</string>
     <string name="title_wifi_dns2" msgid="2673986973918499478">"DNS 2:"</string>
     <string name="title_wifi_proxy_settings_invalid" msgid="7380479044141040849">"การตั้งค่าพร็อกซีไม่ถูกต้อง"</string>
@@ -224,7 +224,7 @@
     <string name="wifi_dns1_description" msgid="2463500547232077393">"ป้อนที่อยู่ IP ที่ถูกต้องหรือปล่อยว่างไว้\nตัวอย่างเช่น <xliff:g id="ID_1">8.8.8.8</xliff:g>"</string>
     <string name="wifi_dns2_description" msgid="8005473174044015359">"ป้อนที่อยู่ IP ที่ถูกต้องหรือปล่อยว่างไว้\nตัวอย่างเช่น <xliff:g id="ID_1">8.8.4.4</xliff:g>"</string>
     <string name="wifi_gateway_description" msgid="4773751224452216231">"ป้อนที่อยู่ IP ที่ถูกต้องหรือปล่อยว่างไว้\nตัวอย่างเช่น <xliff:g id="ID_1">192.168.1.1</xliff:g>"</string>
-    <string name="wifi_network_prefix_length_description" msgid="4849589333293194414">"ป้อนความยาวของหมายเลขเครือข่ายที่ถูกต้อง\nตัวอย่างเช่น <xliff:g id="ID_1">24</xliff:g>"</string>
+    <string name="wifi_network_prefix_length_description" msgid="4849589333293194414">"ป้อนความยาวรหัสนำเครือข่ายที่ถูกต้อง\nตัวอย่างเช่น <xliff:g id="ID_1">24</xliff:g>"</string>
     <string name="proxy_error_invalid_host" msgid="3660415920668138953">"ชื่อโฮสต์ไม่ถูกต้อง"</string>
     <string name="proxy_error_invalid_exclusion_list" msgid="4921547051724987804">"รายการยกเว้นนี้ไม่ถูกต้อง โปรดป้อนรายการโดเมนที่ยกเว้นโดยคั่นด้วยเครื่องหมายจุลภาค"</string>
     <string name="proxy_error_empty_port" msgid="6835658067776408062">"ต้องระบุข้อมูลในช่องพอร์ต"</string>
@@ -319,7 +319,7 @@
     <string name="learn_more_action" msgid="7015991954404958779">"เรียนรู้เพิ่มเติม"</string>
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"ลองอีกครั้ง"</string>
     <string name="wifi_wps_title" msgid="1872305810119408482">"ค้นหาเราเตอร์ WPS…"</string>
-    <string name="wifi_wps_instructions" msgid="3618110962669110034">"กดปุ่มการตั้งค่าการป้องกัน Wi-Fi บนเราเตอร์\nปุ่มนี้อาจเขียนว่า \"WPS\" หรือมีสัญลักษณ์ทางด้านซ้าย"</string>
+    <string name="wifi_wps_instructions" msgid="3618110962669110034">"กดปุ่ม \"การตั้งค่า WiFi แบบปลอดภัย\" บนเราเตอร์ของคุณ\nปุ่มนี้อาจเขียนว่า \"WPS\" หรือมีสัญลักษณ์ทางด้านซ้าย"</string>
     <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"ป้อน PIN <xliff:g id="NUMBER">%1$s</xliff:g> ในเราเตอร์ Wi-Fi ของคุณ"</string>
     <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"หลังจากที่คุณป้อน PIN แล้ว การตั้งค่าอาจใช้เวลาถึง 2 นาทีกว่าจะเสร็จสิ้น"</string>
     <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"ไม่พบเราเตอร์ Wi-Fi"</string>
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"บริการ"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"การตั้งค่าบริการ"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"ข้อความคอนทราสต์สูง"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"ทางลัดสำหรับการเข้าถึง"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"เปิดใช้ทางลัดการเข้าถึง"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"บริการทางลัด"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"เมื่อทางลัดเปิดอยู่ ให้กดปุ่มกลับและปุ่มลงค้างไว้ 3 วินาทีเพื่อเริ่มฟีเจอร์การเข้าถึง"</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"คำบรรยาย"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"การตั้งค่าการวางซ้อนข้อความคำบรรยายในวิดีโอ"</string>
     <string name="captions_display" msgid="735692527287125548">"จอแสดงผล"</string>
@@ -480,7 +484,7 @@
     <string name="security_unknown_sources_title" msgid="769762478057744545">"ไม่รู้จักที่มา"</string>
     <string name="security_unknown_sources_desc" msgid="7197053279914817124">"อนุญาตให้ติดตั้งแอปจากแหล่งอื่นๆ ที่นอกเหนือไปจาก Play Store"</string>
     <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"อนุญาตแหล่งที่มาที่ไม่รู้จัก"</string>
-    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"อุปกรณ์และข้อมูลส่วนบุคคลของคุณมีความเสี่ยงยิ่งขึ้นที่จะถูกโจมตีจากแอปที่ไม่รู้จักแหล่งที่มา คุณยอมรับว่าคุณจะเป็นผู้รับผิดชอบแต่เพียงผู้เดียวต่อความเสียหายใดๆ ที่เกิดกับอุปกรณ์หรือหรือการสูญเสียข้อมูลที่เป็นผลจากการใช้แอปเหล่านี้"</string>
+    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"อุปกรณ์และข้อมูลส่วนบุคคลของคุณมีความเสี่ยงยิ่งขึ้นที่จะถูกโจมตีจากแอปที่ไม่รู้จักแหล่งที่มา คุณยอมรับว่าคุณจะเป็นผู้รับผิดชอบแต่เพียงผู้เดียวต่อความเสียหายใดๆ ที่เกิดกับอุปกรณ์หรือการสูญเสียข้อมูลที่เป็นผลจากการใช้แอปเหล่านี้"</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"ยืนยันแอป"</string>
     <string name="security_verify_apps_desc" msgid="1456317893117818733">"ไม่อนุญาตหรือแจ้งเตือนก่อนที่จะติดตั้งแอปที่อาจก่อให้เกิดอันตราย"</string>
     <string name="system_hdcp_checking_never" msgid="1758043078676276985">"ไม่เคยใช้"</string>
@@ -599,7 +603,7 @@
     <string name="device_apps_app_management_version" msgid="2267065043941006486">"เวอร์ชัน <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
     <string name="device_apps_app_management_open" msgid="8009823973422120839">"เปิด"</string>
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"บังคับให้หยุด"</string>
-    <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"หากคุณบังคับให้หยุดแอป การทำงานอาจผิดพลาดได้"</string>
+    <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"หากคุณบังคับให้แอปหยุด การทำงานอาจผิดพลาดได้"</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"ถอนการติดตั้ง"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"ถอนการติดตั้งการอัปเดต"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"การอัปเดตทั้งหมดของแอประบบ Android นี้จะถูกถอนการติดตั้ง"</string>
@@ -625,10 +629,10 @@
     <string name="device_daydreams_none" msgid="2767107052779579259">"ปิดหน้าจอ"</string>
     <string name="device_daydreams_select" msgid="2112338101206187695">"โปรแกรมรักษาหน้าจอ"</string>
     <string name="device_daydreams_test" msgid="9038920213402659591">"เริ่มเลย"</string>
-    <string name="device_daydreams_sleep" msgid="7676938708373592766">"จะให้เริ่มเมื่อใด"</string>
+    <string name="device_daydreams_sleep" msgid="7676938708373592766">"เริ่มใช้งานเมื่อใด"</string>
     <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"โปรแกรมรักษาหน้าจอจะเริ่มทำงานหลังจากไม่มีการใช้งานตามระยะเวลานี้ หากไม่ได้เลือกโปรแกรมรักษาหน้าจอไว้ จอแสดงผลจะปิดลง"</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"หลังจากไม่ได้ใช้งานเป็นเวลา <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>"</string>
-    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"ให้อุปกรณ์นอนหลับ"</string>
+    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"ให้อุปกรณ์เข้าโหมดสลีป"</string>
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"หน้าจอจะดับลงหลังจากไม่มีการใช้งานระยะหนึ่ง"</string>
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"ไม่มีบัญชีใดในปัจจุบันที่จัดเก็บข้อมูลสำรองไว้"</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"กำลังบันทึกรายงานข้อบกพร่อง"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"แป้นพิมพ์เสมือนที่พร้อมใช้งาน"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"จัดการแป้นพิมพ์"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"ได้รับอนุญาต"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"ไม่อนุญาต"</string>
+    <string name="usage_access" msgid="1914242907684452328">"การเข้าถึงการใช้งาน"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"การเข้าถึงการใช้งานทำให้แอปสามารถติดตามว่าคุณกำลังใช้แอปอื่นใดอยู่ ความถี่ในการใช้ รวมทั้งผู้ให้บริการ การตั้งค่าภาษา และรายละเอียดอื่นๆ"</string>
 </resources>

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -12,7 +12,12 @@
 package org.jacoco.core.internal.instr;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.fail;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import org.jacoco.core.runtime.IExecutionDataAccessorGenerator;
 import org.jacoco.core.runtime.OfflineInstrumentationAccessGenerator;
@@ -43,120 +48,194 @@ public class ProbeArrayStrategyFactoryTest {
 
 	@Test
 	public void testClass1() {
-		test(Opcodes.V1_1, 0, false, true);
+		final IProbeArrayStrategy strategy = test(Opcodes.V1_1, 0, false, true,
+				true);
+		assertEquals(ClassFieldProbeArrayStrategy.class, strategy.getClass());
 		assertDataField(InstrSupport.DATAFIELD_ACC);
 		assertInitMethod(false);
 	}
 
 	@Test
 	public void testClass2() {
-		test(Opcodes.V1_2, 0, false, true);
+		final IProbeArrayStrategy strategy = test(Opcodes.V1_2, 0, false, true,
+				true);
+		assertEquals(ClassFieldProbeArrayStrategy.class, strategy.getClass());
 		assertDataField(InstrSupport.DATAFIELD_ACC);
 		assertInitMethod(false);
 	}
 
 	@Test
 	public void testClass3() {
-		test(Opcodes.V1_3, 0, false, true);
+		final IProbeArrayStrategy strategy = test(Opcodes.V1_3, 0, false, true,
+				true);
+		assertEquals(ClassFieldProbeArrayStrategy.class, strategy.getClass());
 		assertDataField(InstrSupport.DATAFIELD_ACC);
 		assertInitMethod(false);
 	}
 
 	@Test
 	public void testClass4() {
-		test(Opcodes.V1_4, 0, false, true);
+		final IProbeArrayStrategy strategy = test(Opcodes.V1_4, 0, false, true,
+				true);
+		assertEquals(ClassFieldProbeArrayStrategy.class, strategy.getClass());
 		assertDataField(InstrSupport.DATAFIELD_ACC);
 		assertInitMethod(false);
 	}
 
 	@Test
 	public void testClass5() {
-		test(Opcodes.V1_5, 0, false, true);
+		final IProbeArrayStrategy strategy = test(Opcodes.V1_5, 0, false, true,
+				true);
+		assertEquals(ClassFieldProbeArrayStrategy.class, strategy.getClass());
 		assertDataField(InstrSupport.DATAFIELD_ACC);
 		assertInitMethod(false);
 	}
 
 	@Test
 	public void testClass6() {
-		test(Opcodes.V1_6, 0, false, true);
+		final IProbeArrayStrategy strategy = test(Opcodes.V1_6, 0, false, true,
+				true);
+		assertEquals(ClassFieldProbeArrayStrategy.class, strategy.getClass());
 		assertDataField(InstrSupport.DATAFIELD_ACC);
 		assertInitMethod(true);
 	}
 
 	@Test
 	public void testClass7() {
-		test(Opcodes.V1_7, 0, false, true);
+		final IProbeArrayStrategy strategy = test(Opcodes.V1_7, 0, false, true,
+				true);
+		assertEquals(ClassFieldProbeArrayStrategy.class, strategy.getClass());
 		assertDataField(InstrSupport.DATAFIELD_ACC);
 		assertInitMethod(true);
 	}
 
 	@Test
 	public void testClass8() {
-		test(Opcodes.V1_8, 0, false, true);
+		final IProbeArrayStrategy strategy = test(Opcodes.V1_8, 0, false, true,
+				true);
+		assertEquals(ClassFieldProbeArrayStrategy.class, strategy.getClass());
 		assertDataField(InstrSupport.DATAFIELD_ACC);
 		assertInitMethod(true);
+
+		strategy.storeInstance(cv.visitMethod(0, null, null, null, null), false,
+				0);
 	}
 
 	@Test
 	public void testInterface7() {
-		test(Opcodes.V1_7, Opcodes.ACC_INTERFACE, true, false);
+		final IProbeArrayStrategy strategy = test(Opcodes.V1_7,
+				Opcodes.ACC_INTERFACE, true, false, true);
+		assertEquals(LocalProbeArrayStrategy.class, strategy.getClass());
 		assertNoDataField();
 		assertNoInitMethod();
 	}
 
 	@Test
 	public void testEmptyInterface7() {
-		test(Opcodes.V1_7, Opcodes.ACC_INTERFACE, false, false);
+		final IProbeArrayStrategy strategy = test(Opcodes.V1_7,
+				Opcodes.ACC_INTERFACE, false, false, false);
+		assertEquals(NoneProbeArrayStrategy.class, strategy.getClass());
 		assertNoDataField();
 		assertNoInitMethod();
 	}
 
 	@Test(expected = UnsupportedOperationException.class)
 	public void testEmptyInterface7StoreInstance() {
-		IProbeArrayStrategy strategy = test(Opcodes.V1_7,
-				Opcodes.ACC_INTERFACE, false, false);
-		strategy.storeInstance(null, 0);
+		IProbeArrayStrategy strategy = test(Opcodes.V1_7, Opcodes.ACC_INTERFACE,
+				false, false, false);
+		strategy.storeInstance(null, false, 0);
 	}
 
 	@Test
 	public void testInterface8() {
-		test(Opcodes.V1_8, Opcodes.ACC_INTERFACE, false, true);
+		cv.isInterface = true;
+		final IProbeArrayStrategy strategy = test(Opcodes.V1_8,
+				Opcodes.ACC_INTERFACE, false, true, true);
+		assertEquals(InterfaceFieldProbeArrayStrategy.class,
+				strategy.getClass());
 		assertDataField(InstrSupport.DATAFIELD_INTF_ACC);
-		assertInitMethod(true);
+		assertInitAndClinitMethods();
+
+		strategy.storeInstance(cv.visitMethod(0, null, null, null, null), false,
+				0);
 	}
 
 	@Test
 	public void testEmptyInterface8() {
-		test(Opcodes.V1_8, Opcodes.ACC_INTERFACE, false, false);
+		final IProbeArrayStrategy strategy = test(Opcodes.V1_8,
+				Opcodes.ACC_INTERFACE, false, false, false);
+		assertEquals(NoneProbeArrayStrategy.class, strategy.getClass());
+		assertNoDataField();
+		assertNoInitMethod();
+	}
+
+	@Test(expected = UnsupportedOperationException.class)
+	public void testEmptyInterface8StoreInstance() {
+		final IProbeArrayStrategy strategy = test(Opcodes.V1_8,
+				Opcodes.ACC_INTERFACE, false, false, false);
+		strategy.storeInstance(null, false, 0);
+	}
+
+	@Test
+	public void testClinitAndAbstractMethodsInterface8() {
+		final IProbeArrayStrategy strategy = test(Opcodes.V1_8,
+				Opcodes.ACC_INTERFACE, true, false, true);
+		assertEquals(LocalProbeArrayStrategy.class, strategy.getClass());
+		assertNoDataField();
+		assertNoInitMethod();
+
+		strategy.storeInstance(cv.visitMethod(0, null, null, null, null), false,
+				0);
+	}
+
+	@Test
+	public void testClinitInterface8() {
+		final IProbeArrayStrategy strategy = test(Opcodes.V1_8,
+				Opcodes.ACC_INTERFACE, true, false, false);
+		assertEquals(LocalProbeArrayStrategy.class, strategy.getClass());
 		assertNoDataField();
 		assertNoInitMethod();
 	}
 
 	@Test
-	public void testClinitInterface8() {
-		test(Opcodes.V1_8, Opcodes.ACC_INTERFACE, true, false);
-		assertNoDataField();
-		assertNoInitMethod();
+	public void testClinitAndMethodsInterface8() {
+		cv.isInterface = true;
+		final IProbeArrayStrategy strategy = test(Opcodes.V1_8,
+				Opcodes.ACC_INTERFACE, true, true, true);
+		assertEquals(InterfaceFieldProbeArrayStrategy.class,
+				strategy.getClass());
+		assertDataField(InstrSupport.DATAFIELD_INTF_ACC);
+		assertInitAndClinitMethods();
+
+		strategy.storeInstance(cv.visitMethod(0, "<clinit>", null, null, null),
+				true, 0);
 	}
 
 	private IProbeArrayStrategy test(int version, int access, boolean clinit,
-			boolean method) {
-		ClassWriter writer = new ClassWriter(0);
+			boolean method, boolean abstractMethod) {
+		final ClassWriter writer = new ClassWriter(0);
 		writer.visit(version, access, "Foo", "java/lang/Object", null, null);
 		if (clinit) {
-			MethodVisitor mv = writer.visitMethod(Opcodes.ACC_PUBLIC
-					| Opcodes.ACC_STATIC, "<clinit>", "()V", null, null);
+			final MethodVisitor mv = writer.visitMethod(
+					Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "<clinit>", "()V",
+					null, null);
 			mv.visitCode();
 			mv.visitInsn(Opcodes.RETURN);
 			mv.visitMaxs(0, 0);
 			mv.visitEnd();
 		}
 		if (method) {
-			MethodVisitor mv = writer.visitMethod(Opcodes.ACC_PUBLIC
-					| Opcodes.ACC_STATIC, "doit", "()V", null, null);
+			final MethodVisitor mv = writer.visitMethod(
+					Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "doit", "()V",
+					null, null);
 			mv.visitCode();
 			mv.visitInsn(Opcodes.RETURN);
 			mv.visitMaxs(0, 0);
+			mv.visitEnd();
+		}
+		if (abstractMethod) {
+			final MethodVisitor mv = writer.visitMethod(Opcodes.ACC_ABSTRACT,
+					"foo", "()V", null, null);
 			mv.visitEnd();
 		}
 		writer.visitEnd();
@@ -168,15 +247,40 @@ public class ProbeArrayStrategyFactoryTest {
 		return strategy;
 	}
 
+	private static class AddedMethod {
+		private final int access;
+		private final String name;
+		private final String desc;
+		private boolean frames;
+
+		AddedMethod(int access, String name, String desc) {
+			this.access = access;
+			this.name = name;
+			this.desc = desc;
+		}
+
+		void assertInitMethod(boolean frames) {
+			assertEquals(InstrSupport.INITMETHOD_NAME, name);
+			assertEquals(InstrSupport.INITMETHOD_DESC, desc);
+			assertEquals(InstrSupport.INITMETHOD_ACC, access);
+			assertEquals(Boolean.valueOf(frames), Boolean.valueOf(frames));
+		}
+
+		void assertClinit() {
+			assertEquals(InstrSupport.CLINIT_NAME, name);
+			assertEquals(InstrSupport.CLINIT_DESC, desc);
+			assertEquals(InstrSupport.CLINIT_ACC, access);
+			assertEquals(Boolean.valueOf(false), Boolean.valueOf(frames));
+		}
+	}
+
 	private static class ClassVisitorMock extends ClassVisitor {
+
+		private boolean isInterface;
 
 		private int fieldAccess;
 		private String fieldName;
-
-		private int methodAccess;
-		private String methodName;
-
-		private boolean frames;
+		private final List<AddedMethod> methods = new ArrayList<AddedMethod>();
 
 		ClassVisitorMock() {
 			super(Opcodes.ASM5);
@@ -194,14 +298,52 @@ public class ProbeArrayStrategyFactoryTest {
 		@Override
 		public MethodVisitor visitMethod(int access, String name, String desc,
 				String signature, String[] exceptions) {
-			assertNull(methodName);
-			methodAccess = access;
-			methodName = name;
+			final AddedMethod m = new AddedMethod(access, name, desc);
+			methods.add(m);
 			return new MethodVisitor(Opcodes.ASM5) {
 				@Override
 				public void visitFrame(int type, int nLocal, Object[] local,
 						int nStack, Object[] stack) {
-					frames = true;
+					m.frames = true;
+				}
+
+				@Override
+				public void visitFieldInsn(int opcode, String owner,
+						String name, String desc) {
+					assertEquals(InstrSupport.DATAFIELD_NAME, name);
+					assertEquals(InstrSupport.DATAFIELD_DESC, desc);
+
+					if (opcode == Opcodes.GETSTATIC) {
+						assertEquals(InstrSupport.INITMETHOD_NAME,
+								methods.get(methods.size() - 1).name);
+					} else if (opcode == Opcodes.PUTSTATIC) {
+						if (isInterface) {
+							assertEquals(InstrSupport.CLINIT_NAME,
+									methods.get(methods.size() - 1).name);
+						} else {
+							assertEquals(InstrSupport.INITMETHOD_NAME,
+									methods.get(methods.size() - 1).name);
+						}
+					} else {
+						fail();
+					}
+				}
+
+				@Override
+				public void visitMethodInsn(int opcode, String owner,
+						String name, String desc, boolean itf) {
+					if ("getProbes".equals(name)) {
+						// method's owner is not interface:
+						assertFalse(itf);
+						return;
+					}
+					assertEquals(Boolean.valueOf(itf),
+							Boolean.valueOf(isInterface));
+
+					assertEquals(Opcodes.INVOKESTATIC, opcode);
+					assertEquals("Foo", owner);
+					assertEquals(InstrSupport.INITMETHOD_NAME, name);
+					assertEquals(InstrSupport.INITMETHOD_DESC, desc);
 				}
 			};
 		}
@@ -217,13 +359,18 @@ public class ProbeArrayStrategyFactoryTest {
 	}
 
 	void assertInitMethod(boolean frames) {
-		assertEquals(InstrSupport.INITMETHOD_NAME, cv.methodName);
-		assertEquals(InstrSupport.INITMETHOD_ACC, cv.methodAccess);
-		assertEquals(Boolean.valueOf(frames), Boolean.valueOf(cv.frames));
+		assertEquals(cv.methods.size(), 1);
+		cv.methods.get(0).assertInitMethod(frames);
+	}
+
+	void assertInitAndClinitMethods() {
+		assertEquals(2, cv.methods.size());
+		cv.methods.get(0).assertInitMethod(true);
+		cv.methods.get(1).assertClinit();
 	}
 
 	void assertNoInitMethod() {
-		assertNull(cv.methodName);
+		assertEquals(0, cv.methods.size());
 	}
 
 }

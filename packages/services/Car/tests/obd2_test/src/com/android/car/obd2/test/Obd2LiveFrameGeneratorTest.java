@@ -16,7 +16,7 @@
 
 package com.android.car.obd2.test;
 
-import static android.hardware.automotive.vehicle.V2_1.VehicleProperty.OBD2_LIVE_FRAME;
+import static android.hardware.automotive.vehicle.V2_0.VehicleProperty.OBD2_LIVE_FRAME;
 import static com.android.car.obd2.test.Utils.concatIntArrays;
 import static com.android.car.obd2.test.Utils.stringsToIntArray;
 import static org.junit.Assert.*;
@@ -54,7 +54,7 @@ public class Obd2LiveFrameGeneratorTest {
             new String[] {"0100\r", "0120\r", "0140\r", "0160\r"};
 
     private static final String[] EXPECTED_DISCOVERY_RESPONSES =
-            new String[] {"00 00 00 0C 00 00", OBD2_PROMPT, OBD2_PROMPT, OBD2_PROMPT, OBD2_PROMPT};
+            new String[] {"00 00 00 18 00 00", OBD2_PROMPT, OBD2_PROMPT, OBD2_PROMPT, OBD2_PROMPT};
 
     private static final String[] EXPECTED_FRAME_COMMANDS = new String[] {"010C\r", "010D\r"};
 
@@ -82,7 +82,7 @@ public class Obd2LiveFrameGeneratorTest {
         DiagnosticJsonReader diagnosticJsonReader = new DiagnosticJsonReader();
         VehiclePropValue vehiclePropValue = diagnosticJsonReader.build(jsonReader);
         assertEquals(OBD2_LIVE_FRAME, vehiclePropValue.prop);
-        assertEquals(4611, (long) vehiclePropValue.value.int32Values.get(0xC));
+        assertEquals(1155, (long) vehiclePropValue.value.int32Values.get(0xC));
         assertEquals(130, (long) vehiclePropValue.value.int32Values.get(0xD));
     }
 }

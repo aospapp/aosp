@@ -62,7 +62,7 @@ class MainActivityTest {
         rule.runOnUiThread {
             // We are now in Picture-in-Picture mode
             assertTrue(rule.activity.isInPictureInPictureMode)
-            val view = rule.activity.findViewById(R.id.movie) as MovieView
+            val view = rule.activity.findViewById<MovieView>(R.id.movie)
             assertNotNull(view)
             // The video should still be playing
             assertTrue(view.isPlaying)

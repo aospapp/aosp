@@ -4,6 +4,7 @@
 
 import logging
 import re
+import subprocess
 
 from autotest_lib.client.cros.audio import cmd_utils
 
@@ -71,9 +72,9 @@ def generate_sine_tone_cmd(
     return args
 
 
-def noise_profile(*arg, **karg):
+def noise_profile(*args, **kwargs):
     """A helper function to execute the noise_profile_cmd."""
-    return cmd_utils.execute(noise_profile_cmd(*arg, **karg))
+    return cmd_utils.execute(noise_profile_cmd(*args, **kwargs))
 
 
 def noise_profile_cmd(input, output, channels=1, bits=16, rate=48000):
@@ -91,9 +92,9 @@ def noise_profile_cmd(input, output, channels=1, bits=16, rate=48000):
     return args
 
 
-def noise_reduce(*args, **kargs):
+def noise_reduce(*args, **kwargs):
     """A helper function to execute the noise_reduce_cmd."""
-    return cmd_utils.execute(noise_reduce_cmd(*args, **kargs))
+    return cmd_utils.execute(noise_reduce_cmd(*args, **kwargs))
 
 
 def noise_reduce_cmd(
@@ -101,7 +102,7 @@ def noise_reduce_cmd(
     """Reduce noise in the input audio by the given noise profile.
 
     @param input: The input audio file.
-    @param ouput: The output file in which the noise reduced audio is stored.
+    @param output: The output file in which the noise reduced audio is stored.
     @param noise_profile: The noise profile.
     @param channels: The number of channels.
     @param bits: The number of bits of each sample.
@@ -161,7 +162,7 @@ def get_stat(*args, **kargs):
     It returns the statistical information (in text) read from the standard
     error.
     """
-    p = cmd_utils.popen(stat_cmd(*args, **kargs), stderr=cmd_utils.PIPE)
+    p = cmd_utils.popen(stat_cmd(*args, **kargs), stderr=subprocess.PIPE)
 
     #The output is read from the stderr instead of stdout
     stat_output = p.stderr.read()

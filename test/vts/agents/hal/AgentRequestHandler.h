@@ -86,6 +86,11 @@ class AgentRequestHandler : public VtsDriverCommUtil {
   // Returns a default response message.
   bool DefaultResponse();
 
+  // Send SUCCESS response with given result and/or spec if it is not empty,
+  // otherwise send FAIL.
+  bool SendApiResult(const string& func_name, const string& result,
+                     const string& spec = "");
+
  protected:
   // the currently opened, connected service name.
   string service_name_;

@@ -15,8 +15,9 @@
  */
 package android.car.cluster.renderer;
 
-import android.graphics.Bitmap;
 import android.car.navigation.CarNavigationInstrumentCluster;
+import android.graphics.Bitmap;
+import android.os.Bundle;
 
 /**
  * Binder API for Instrument Cluster Navigation.
@@ -31,5 +32,6 @@ interface IInstrumentClusterNavigation {
         int turnSide);
     void onNextManeuverDistanceChanged(int distanceMeters, int timeSeconds,
         int displayDistanceMillis, int displayDistanceUnit);
+    void onEvent(int eventType, in Bundle bundle);
     CarNavigationInstrumentCluster getInstrumentClusterInfo();
 }

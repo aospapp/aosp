@@ -20,12 +20,14 @@ class VrComposer
       public ComposerView::Observer,
       public IBinder::DeathRecipient {
  public:
-  VrComposer();
+  explicit VrComposer(ComposerView* composer_view);
   ~VrComposer() override;
 
   // BnVrComposer:
   binder::Status registerObserver(
       const sp<IVrComposerCallback>& callback) override;
+
+  binder::Status clearObserver() override;
 
   // ComposerView::Observer:
   base::unique_fd OnNewFrame(const ComposerView::Frame& frame) override;
@@ -37,6 +39,8 @@ class VrComposer
   std::mutex mutex_;
 
   sp<IVrComposerCallback> callback_;
+
+  ComposerView* composer_view_;  // Not owned.
 
   VrComposer(const VrComposer&) = delete;
   void operator=(const VrComposer&) = delete;

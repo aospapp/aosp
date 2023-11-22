@@ -22,6 +22,7 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.hardware.usb.UsbDevice;
 import android.util.Log;
 import java.util.ArrayList;
 import java.util.List;
@@ -47,26 +48,43 @@ public final class UsbSettingsStorage {
         mDbHelper = new UsbSettingsDbHelper(context);
     }
 
+    private Cursor queryFor(SQLiteDatabase db, UsbDevice device) {
+        String serial = device.getSerialNumber();
+        String selection;
+        String[] selectionArgs;
+        if (AoapInterface.isDeviceInAoapMode(device)) {
+            selection = COLUMN_SERIAL + " = ? AND " + COLUMN_AOAP + " = 1";
+            selectionArgs = new String[] {serial};
+        } else if (serial == null) {
+            selection = COLUMN_SERIAL + " IS NULL AND "
+                    + COLUMN_VID + " = ? AND " + COLUMN_PID + " = ?";
+            selectionArgs = new String[] {
+                    Integer.toString(device.getVendorId()),
+                    Integer.toString(device.getProductId())};
+        } else {
+            selection =
+                    COLUMN_SERIAL + " = ? AND " + COLUMN_VID + " = ? AND " + COLUMN_PID + " = ?";
+            selectionArgs = new String[] {
+                    device.getSerialNumber(),
+                    Integer.toString(device.getVendorId()),
+                    Integer.toString(device.getProductId())};
+        }
+        return db.query(TABLE_USB_SETTINGS, null, selection, selectionArgs, null, null, null);
+    }
+
     /**
      * Returns settings for {@serialNumber} or null if it doesn't exist.
      */
     @Nullable
-    public UsbDeviceSettings getSettings(String serialNumber) {
+    public UsbDeviceSettings getSettings(UsbDevice device) {
         try (SQLiteDatabase db = mDbHelper.getReadableDatabase();
-             Cursor resultCursor = db.query(
-                     TABLE_USB_SETTINGS,
-                     null,
-                     COLUMN_SERIAL + " = ?",
-                     new String[]{serialNumber},
-                     null,
-                     null,
-                     null)) {
+                Cursor resultCursor = queryFor(db, device)) {
             if (resultCursor.getCount() > 1) {
-                throw new RuntimeException("Querying for serial number: " + serialNumber
+                throw new RuntimeException("Querying for device: " + device
                         + " returned " + resultCursor.getCount() + " results");
             }
             if (resultCursor.getCount() == 0) {
-                Log.w(TAG, "Usb setting missing for device serial: " + serialNumber);
+                Log.w(TAG, "Usb setting missing for device: " + device);
                 return null;
             }
             List<UsbDeviceSettings> settings = constructSettings(resultCursor);
@@ -168,7 +186,7 @@ public final class UsbSettingsStorage {
 
 
     private static class UsbSettingsDbHelper extends SQLiteOpenHelper {
-        private static final int DATABASE_VERSION = 1;
+        private static final int DATABASE_VERSION = 2;
         private static final String DATABASE_NAME = "usb_devices.db";
 
         UsbSettingsDbHelper(Context context) {
@@ -177,20 +195,47 @@ public final class UsbSettingsStorage {
 
         @Override
         public void onCreate(SQLiteDatabase db) {
-            db.execSQL("CREATE TABLE " + TABLE_USB_SETTINGS + " ("
+            createTable(db, TABLE_USB_SETTINGS);
+            createSerialIndex(db);
+        }
+
+        private void createTable(SQLiteDatabase db, String tableName) {
+            db.execSQL("CREATE TABLE " + tableName + " ("
                     + COLUMN_SERIAL + " TEXT,"
                     + COLUMN_VID + " INTEGER,"
                     + COLUMN_PID + " INTEGER,"
                     + COLUMN_NAME + " TEXT, "
                     + COLUMN_HANDLER + " TEXT,"
                     + COLUMN_AOAP + " INTEGER,"
-                    + COLUMN_DEFAULT_HANDLER + " INTEGER," + "PRIMARY KEY (" + COLUMN_SERIAL
+                    + COLUMN_DEFAULT_HANDLER + " INTEGER,"
+                    + "PRIMARY KEY (" + COLUMN_SERIAL + ", " + COLUMN_VID + ", " + COLUMN_PID
                     + "))");
+        }
+
+        private void createSerialIndex(SQLiteDatabase db) {
+            db.execSQL("CREATE INDEX " + TABLE_USB_SETTINGS + "_" + COLUMN_SERIAL + " ON "
+                    + TABLE_USB_SETTINGS + "(" + COLUMN_SERIAL + ")");
         }
 
         @Override
         public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-            // Do nothing at this point. Not required for v1 database.
+            for (; oldVersion != newVersion; oldVersion++) {
+                switch (oldVersion) {
+                    case 1:
+                        String tempTableName = "temp_" + TABLE_USB_SETTINGS;
+                        createTable(db, tempTableName);
+                        db.execSQL("INSERT INTO " + tempTableName
+                                + " SELECT * FROM " + TABLE_USB_SETTINGS);
+                        db.execSQL("DROP TABLE " + TABLE_USB_SETTINGS);
+                        db.execSQL("ALTER TABLE " + tempTableName + " RENAME TO "
+                                + TABLE_USB_SETTINGS);
+                        createSerialIndex(db);
+                        break;
+                    default:
+                        throw new IllegalArgumentException(
+                                "Unknown database version " + oldVersion);
+                }
+            }
         }
     }
 }

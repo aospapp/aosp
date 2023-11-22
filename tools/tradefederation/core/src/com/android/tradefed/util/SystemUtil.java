@@ -16,6 +16,8 @@
 
 package com.android.tradefed.util;
 
+import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.build.IDeviceBuildInfo;
 import com.android.tradefed.log.LogUtil.CLog;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -23,9 +25,8 @@ import com.google.common.annotations.VisibleForTesting;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
+
 
 /** Utility class for making system calls. */
 public class SystemUtil {
@@ -42,6 +43,9 @@ public class SystemUtil {
 
     static final String ENV_ANDROID_PRODUCT_OUT = "ANDROID_PRODUCT_OUT";
 
+    private static final String HOST_TESTCASES = "host/testcases";
+    private static final String TARGET_TESTCASES = "target/testcases";
+
     /**
      * Get the value of an environment variable.
      *
@@ -55,22 +59,20 @@ public class SystemUtil {
         return System.getenv(name);
     }
 
-    /**
-     * Get a list of {@link File} of the test cases directories
-     *
-     * @return a list of {@link File} of directories of the test cases folder of build output, based
-     *     on the value of environment variables.
-     */
-    public static List<File> getTestCasesDirs() {
+    /** Get a list of {@link File} pointing to tests directories external to Tradefed. */
+    public static List<File> getExternalTestCasesDirs() {
         List<File> testCasesDirs = new ArrayList<File>();
-        // TODO(b/36782030): Add ENV_ANDROID_HOST_OUT_TESTCASES back to the list.
-        Set<String> testCasesDirNames =
-                new HashSet<String>(
-                        Arrays.asList(singleton.getEnv(ENV_ANDROID_TARGET_OUT_TESTCASES)));
+        // TODO(b/36782030): Support running both HOST and TARGET tests.
+        List<String> testCasesDirNames =
+                // List order matters. ConfigurationFactory caller uses first dir with test config.
+                Arrays.asList(
+                        singleton.getEnv(ENV_ANDROID_TARGET_OUT_TESTCASES),
+                        singleton.getEnv(ENV_ANDROID_HOST_OUT_TESTCASES));
         for (String testCasesDirName : testCasesDirNames) {
             if (testCasesDirName != null) {
                 File dir = new File(testCasesDirName);
                 if (dir.exists() && dir.isDirectory()) {
+                    CLog.d("Found test case dir: %s", testCasesDirName);
                     testCasesDirs.add(dir);
                 } else {
                     CLog.w(
@@ -80,6 +82,38 @@ public class SystemUtil {
                 }
             }
         }
+        return testCasesDirs;
+    }
+
+    /**
+     * Get a list of {@link File} of the test cases directories
+     *
+     * @param buildInfo the build artifact information. Set it to null if build info is not
+     *     available or there is no need to get test cases directories from build info.
+     * @return a list of {@link File} of directories of the test cases folder of build output, based
+     *     on the value of environment variables and the given build info.
+     */
+    public static List<File> getTestCasesDirs(IBuildInfo buildInfo) {
+        List<File> testCasesDirs = new ArrayList<File>();
+        testCasesDirs.addAll(getExternalTestCasesDirs());
+
+        // TODO: Remove this logic after Versioned TF V2 is implemented, in which staging build
+        // artifact will be done by the parent process, and the test cases dirs will be set by
+        // environment variables.
+        // Add tests dir from build info.
+        if (buildInfo instanceof IDeviceBuildInfo) {
+            IDeviceBuildInfo deviceBuildInfo = (IDeviceBuildInfo) buildInfo;
+            File testsDir = deviceBuildInfo.getTestsDir();
+            // Add all possible paths to the testcases directory list.
+            if (testsDir != null) {
+                testCasesDirs.addAll(
+                        Arrays.asList(
+                                testsDir,
+                                FileUtil.getFileForPath(testsDir, HOST_TESTCASES),
+                                FileUtil.getFileForPath(testsDir, TARGET_TESTCASES)));
+            }
+        }
+
         return testCasesDirs;
     }
 

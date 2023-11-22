@@ -22,20 +22,22 @@ import android.signature.cts.JDiffClassDescription.JDiffMethod;
 import java.lang.reflect.Modifier;
 
 import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
-import org.xmlpull.v1.XmlPullParserFactory;
 
 /**
  * Helper methods and constants used for parsing the current api file.
  */
-class CurrentApi {
+public class CurrentApi {
 
     private CurrentApi() {}
 
-    static final String CURRENT_API_FILE =
-            "/data/local/tmp/signature-test/current.api";
-    static final String SYSTEM_CURRENT_API_FILE =
-            "/data/local/tmp/signature-test/system-current.api";
+    public static final String API_FILE_DIRECTORY = "/data/local/tmp/signature-test";
+
+    public static final String CURRENT_API_FILE =
+            API_FILE_DIRECTORY + "/current.api";
+    public static final String SYSTEM_CURRENT_API_FILE =
+            API_FILE_DIRECTORY + "/system-current.api";
+    public static final String SYSTEM_REMOVED_API_FILE =
+            API_FILE_DIRECTORY + "/system-removed.api";
 
     static final String TAG_ROOT = "api";
     static final String TAG_PACKAGE = "package";
@@ -48,23 +50,23 @@ class CurrentApi {
     static final String TAG_EXCEPTION = "exception";
     static final String TAG_FIELD = "field";
 
-    static final String MODIFIER_ABSTRACT = "abstract";
-    static final String MODIFIER_FINAL = "final";
-    static final String MODIFIER_NATIVE = "native";
-    static final String MODIFIER_PRIVATE = "private";
-    static final String MODIFIER_PROTECTED = "protected";
-    static final String MODIFIER_PUBLIC = "public";
-    static final String MODIFIER_STATIC = "static";
-    static final String MODIFIER_SYNCHRONIZED = "synchronized";
-    static final String MODIFIER_TRANSIENT = "transient";
-    static final String MODIFIER_VOLATILE = "volatile";
-    static final String MODIFIER_VISIBILITY = "visibility";
+    private static final String MODIFIER_ABSTRACT = "abstract";
+    private static final String MODIFIER_FINAL = "final";
+    private static final String MODIFIER_NATIVE = "native";
+    private static final String MODIFIER_PRIVATE = "private";
+    private static final String MODIFIER_PROTECTED = "protected";
+    private static final String MODIFIER_PUBLIC = "public";
+    private static final String MODIFIER_STATIC = "static";
+    private static final String MODIFIER_SYNCHRONIZED = "synchronized";
+    private static final String MODIFIER_TRANSIENT = "transient";
+    private static final String MODIFIER_VOLATILE = "volatile";
+    private static final String MODIFIER_VISIBILITY = "visibility";
 
     static final String ATTRIBUTE_NAME = "name";
-    static final String ATTRIBUTE_VALUE = "value";
-    static final String ATTRIBUTE_EXTENDS = "extends";
+    private static final String ATTRIBUTE_VALUE = "value";
+    private static final String ATTRIBUTE_EXTENDS = "extends";
     static final String ATTRIBUTE_TYPE = "type";
-    static final String ATTRIBUTE_RETURN = "return";
+    private static final String ATTRIBUTE_RETURN = "return";
 
     /**
      * Load field information from xml to memory.
@@ -103,7 +105,7 @@ class CurrentApi {
      * @return the new constructor
      */
     static JDiffConstructor loadConstructorInfo(
-                XmlPullParser parser, JDiffClassDescription currentClass) {
+            XmlPullParser parser, JDiffClassDescription currentClass) {
         String name = currentClass.getClassName();
         int modifier = jdiffModifierToReflectionFormat(name, parser);
         return new JDiffConstructor(name, modifier);
@@ -118,15 +120,9 @@ class CurrentApi {
      * @return the new class description.
      */
     static JDiffClassDescription loadClassInfo(
-            XmlPullParser parser, boolean isInterface, String pkg,
-            ResultObserver resultObserver) {
+            XmlPullParser parser, boolean isInterface, String pkg) {
         String className = parser.getAttributeValue(null, ATTRIBUTE_NAME);
-        JDiffClassDescription currentClass;
-        if (resultObserver != null) {
-            currentClass = new JDiffClassDescription(pkg, className, resultObserver);
-        } else {
-            currentClass = new JDiffClassDescription(pkg, className);
-        }
+        JDiffClassDescription currentClass = new JDiffClassDescription(pkg, className);
 
         currentClass.setModifier(jdiffModifierToReflectionFormat(className, parser));
         currentClass.setType(isInterface ? JDiffClassDescription.JDiffType.INTERFACE :
@@ -143,7 +139,7 @@ class CurrentApi {
      * @param value modifier value
      * @return converted modifier value
      */
-    static int modifierDescriptionToReflectedType(String name, String key, String value) {
+    private static int modifierDescriptionToReflectedType(String name, String key, String value) {
         if (key.equals(MODIFIER_ABSTRACT)) {
             return value.equals("true") ? Modifier.ABSTRACT : 0;
         } else if (key.equals(MODIFIER_FINAL)) {
@@ -183,7 +179,7 @@ class CurrentApi {
      * @param parser XML resource parser
      * @return converted modifier
      */
-    static int jdiffModifierToReflectionFormat(String name, XmlPullParser parser){
+    private static int jdiffModifierToReflectionFormat(String name, XmlPullParser parser){
         int modifier = 0;
         for (int i = 0;i < parser.getAttributeCount();i++) {
             modifier |= modifierDescriptionToReflectedType(name, parser.getAttributeName(i),

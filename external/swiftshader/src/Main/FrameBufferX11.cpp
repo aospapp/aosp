@@ -12,10 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Surface.cpp: Implements the egl::Surface class, representing a drawing surface
-// such as the client area of a window, including any back buffers.
-// Implements EGLSurface and related functionality. [EGL 1.4] section 2.2 page 3.
-
 #include "FrameBufferX11.hpp"
 
 #include "libX11.hpp"
@@ -127,7 +123,7 @@ namespace sw
 
 	void FrameBufferX11::unlock()
 	{
-		locked = 0;
+		locked = nullptr;
 	}
 
 	void FrameBufferX11::blit(void *source, const Rect *sourceRect, const Rect *destRect, Format sourceFormat, size_t sourceStride)
@@ -147,7 +143,7 @@ namespace sw
 	}
 }
 
-sw::FrameBuffer *createFrameBuffer(void *display, Window window, int width, int height)
+NO_SANITIZE_FUNCTION sw::FrameBuffer *createFrameBuffer(void *display, Window window, int width, int height)
 {
 	return new sw::FrameBufferX11((::Display*)display, window, width, height);
 }

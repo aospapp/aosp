@@ -33,10 +33,10 @@ class DarkResumeSuspend(object):
     def __init__(self, proxy, host):
         """Set up for a dark-resume-ready suspend to be carried out using
         |proxy| and for the subsequent wakeup to be carried out using
-        |servo|.
+        |host|.
 
         @param proxy: a dark resume xmlrpc server proxy object for the DUT
-        @param servo: a servo host connected to the DUT
+        @param host: a servo host connected to the DUT
 
         """
         self._client_proxy = proxy

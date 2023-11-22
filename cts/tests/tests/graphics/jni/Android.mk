@@ -24,12 +24,15 @@ LOCAL_SRC_FILES := \
 	CtsGraphicsJniOnLoad.cpp \
 	android_graphics_cts_ANativeWindowTest.cpp \
 	android_graphics_cts_BitmapTest.cpp \
+	android_graphics_cts_SyncTest.cpp \
+	android_graphics_cts_CameraGpuCtsActivity.cpp \
 	android_graphics_cts_VulkanFeaturesTest.cpp
 
-LOCAL_CFLAGS += -Wall -Werror
+LOCAL_CFLAGS += -std=c++14 -Wall -Werror -DGL_GLEXT_PROTOTYPES -DEGL_EGLEXT_PROTOTYPES
 
 LOCAL_STATIC_LIBRARIES := libvkjson_ndk
-LOCAL_SHARED_LIBRARIES := libandroid libvulkan libnativewindow liblog libdl libjnigraphics
+LOCAL_SHARED_LIBRARIES := libandroid libvulkan libnativewindow libsync liblog libdl libjnigraphics \
+                          libcamera2ndk libmediandk libEGL libGLESv2
 LOCAL_NDK_STL_VARIANT := c++_static
 
 LOCAL_SDK_VERSION := current

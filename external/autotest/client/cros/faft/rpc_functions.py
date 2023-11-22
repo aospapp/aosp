@@ -486,6 +486,21 @@ class RPCFunctions(object):
         """Get SHA1 hash of EC RW firmware section."""
         return self._ec_handler.get_section_sha('rw')
 
+    def _ec_dump_whole(self, ec_path):
+        """Dump the current EC firmware to a file, specified by ec_path.
+
+        @param ec_path: The path of the EC image to be written.
+        """
+        self._ec_handler.dump_whole(ec_path)
+
+    def _ec_write_whole(self, ec_path):
+        """Write the firmware from ec_path to the current system.
+
+        @param ec_path: The path of the source EC image.
+        """
+        self._ec_handler.new_image(ec_path)
+        self._ec_handler.write_whole()
+
     @allow_multiple_section_input
     def _ec_corrupt_sig(self, section):
         """Corrupt the requested EC section signature.

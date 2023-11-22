@@ -94,7 +94,7 @@ class SocketCallbacks : public SocketClient::ICallbacks,
     LOGI("  MIPS %.2f Power (mW): stopped %.2f sleep %.2f peak %.2f",
          peakMips, stoppedPower, sleepPower, peakPower);
     LOGI("  Max message len: %" PRIu32, maxMessageLen);
-    LOGI("  Platform ID: 0x%016" PRIx64 " Version: 0x%08x" PRIx32,
+    LOGI("  Platform ID: 0x%016" PRIx64 " Version: 0x%08" PRIx32,
          platformId, version);
   }
 
@@ -114,13 +114,19 @@ class SocketCallbacks : public SocketClient::ICallbacks,
     LOGI("Got load nanoapp response, transaction ID 0x%" PRIx32 " result %d",
          response.transaction_id, response.success);
   }
+
+  void handleUnloadNanoappResponse(
+      const ::chre::fbs::UnloadNanoappResponseT& response) override {
+    LOGI("Got unload nanoapp response, transaction ID 0x%" PRIx32 " result %d",
+         response.transaction_id, response.success);
+  }
 };
 
 void requestHubInfo(SocketClient& client) {
   FlatBufferBuilder builder(64);
   HostProtocolHost::encodeHubInfoRequest(builder);
 
-  LOGI("Sending hub info request (%u bytes)", builder.GetSize());
+  LOGI("Sending hub info request (%" PRIu32 " bytes)", builder.GetSize());
   if (!client.sendMessage(builder.GetBufferPointer(), builder.GetSize())) {
     LOGE("Failed to send message");
   }
@@ -130,7 +136,7 @@ void requestNanoappList(SocketClient& client) {
   FlatBufferBuilder builder(64);
   HostProtocolHost::encodeNanoappListRequest(builder);
 
-  LOGI("Sending app list request (%u bytes)", builder.GetSize());
+  LOGI("Sending app list request (%" PRIu32 " bytes)", builder.GetSize());
   if (!client.sendMessage(builder.GetBufferPointer(), builder.GetSize())) {
     LOGE("Failed to send message");
   }
@@ -140,10 +146,10 @@ void sendMessageToNanoapp(SocketClient& client) {
   FlatBufferBuilder builder(64);
   uint8_t messageData[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
   HostProtocolHost::encodeNanoappMessage(
-      builder, chre::kMessageWorldAppId, kHostEndpoint, 1234, messageData,
-      sizeof(messageData));
+      builder, chre::kMessageWorldAppId, kHostEndpoint,
+      1234 /* messageType */, messageData, sizeof(messageData));
 
-  LOGI("Sending message to nanoapp (%u bytes w/%zu bytes of payload)",
+  LOGI("Sending message to nanoapp (%" PRIu32 " bytes w/%zu bytes of payload)",
        builder.GetSize(), sizeof(messageData));
   if (!client.sendMessage(builder.GetBufferPointer(), builder.GetSize())) {
     LOGE("Failed to send message");
@@ -169,8 +175,21 @@ void sendLoadNanoappRequest(SocketClient& client, const char *filename) {
   HostProtocolHost::encodeLoadNanoappRequest(
       builder, 1, 0x476f6f676c00100b, 0, 0x01000000, buffer);
 
-  LOGI("Sending load nanoapp request (%u bytes total w/%zu bytes of payload)",
-       builder.GetSize(), buffer.size());
+  LOGI("Sending load nanoapp request (%" PRIu32 " bytes total w/%zu bytes of "
+       "payload)", builder.GetSize(), buffer.size());
+  if (!client.sendMessage(builder.GetBufferPointer(), builder.GetSize())) {
+    LOGE("Failed to send message");
+  }
+}
+
+void sendUnloadNanoappRequest(SocketClient& client, uint64_t appId) {
+  FlatBufferBuilder builder(48);
+  constexpr uint32_t kTransactionId = 4321;
+  HostProtocolHost::encodeUnloadNanoappRequest(
+      builder, kTransactionId, appId, true /* allowSystemNanoappUnload */);
+
+  LOGI("Sending unload request for nanoapp 0x%016" PRIx64 " (size %" PRIu32 ")",
+       appId, builder.GetSize());
   if (!client.sendMessage(builder.GetBufferPointer(), builder.GetSize())) {
     LOGE("Failed to send message");
   }
@@ -190,6 +209,7 @@ int main() {
     requestNanoappList(client);
     sendMessageToNanoapp(client);
     sendLoadNanoappRequest(client, "/data/activity.so");
+    sendUnloadNanoappRequest(client, chre::kSpammerAppId);
 
     LOGI("Sleeping, waiting on responses");
     std::this_thread::sleep_for(std::chrono::seconds(5));

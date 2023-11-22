@@ -40,6 +40,7 @@ Because of temporal dependency in deinterlacer one additional buffer is also nee
 #define DEC_ORDER               0
 
 #define MAX_BITSTREAM_BUFFER_SIZE       2000 * 1024
+#define MIN_BUFFER_BYTES_AT_EOS 8
 
 /* Flag to signal that buffer is held by deinterlacing */
 #define MPEG2_BUF_MGR_DEINT (BUF_MGR_DISP << 1)
@@ -330,6 +331,9 @@ typedef struct dec_state_struct_t
     disp_mgr_t      s_disp_mgr;
     UWORD8          *pu1_chroma_ref_buf[BUF_MGR_MAX_CNT];
     ivd_out_bufdesc_t as_disp_buffers[BUF_MGR_MAX_CNT];
+
+    /* Count the number of pictures decoded after init/reset */
+    WORD32          i4_pic_count;
 
     /* Flag to signal last coeff in a 8x8 block is one
     after mismatch contol */

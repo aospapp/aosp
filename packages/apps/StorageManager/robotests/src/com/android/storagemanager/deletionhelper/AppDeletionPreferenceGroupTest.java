@@ -16,6 +16,9 @@
 
 package com.android.storagemanager.deletionhelper;
 
+import static com.google.common.truth.Truth.assertThat;
+
+import android.support.v7.preference.Preference;
 import android.support.v7.preference.PreferenceScreen;
 import com.android.storagemanager.testing.TestingConstants;
 import java.util.ArrayList;
@@ -23,6 +26,7 @@ import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.robolectric.RobolectricTestRunner;
@@ -61,5 +65,16 @@ public class AppDeletionPreferenceGroupTest {
 
         // Verify that a preference was added to the screen for mPackage1
         verify(mScreen).addPreference(any());
+    }
+
+    @Test
+    public void addsPreferenceToScreenWithHighOrder_onNoThreshold() {
+        when(mBackend.getDeletionThreshold()).thenReturn(0L);
+
+        mGroup.onAppRebuild(mApps);
+        ArgumentCaptor<Preference> apps = ArgumentCaptor.forClass(Preference.class);
+        verify(mScreen).addPreference(apps.capture());
+
+        assertThat(apps.getValue().getOrder()).isGreaterThan(0);
     }
 }

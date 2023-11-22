@@ -66,17 +66,28 @@ public final class MetadataList extends Table {
         return o != 0 ? __vector_len(o) : 0;
     }
 
+    public String sourceSha() {
+        int o = __offset(8);
+        return o != 0 ? __string(o + bb_pos) : null;
+    }
+
+    public ByteBuffer sourceShaAsByteBuffer() {
+        return __vector_as_bytebuffer(8, 1);
+    }
+
     public static int createMetadataList(FlatBufferBuilder builder,
             int version,
-            int listOffset) {
-        builder.startObject(2);
+            int listOffset,
+            int sourceShaOffset) {
+        builder.startObject(3);
+        MetadataList.addSourceSha(builder, sourceShaOffset);
         MetadataList.addList(builder, listOffset);
         MetadataList.addVersion(builder, version);
         return MetadataList.endMetadataList(builder);
     }
 
     public static void startMetadataList(FlatBufferBuilder builder) {
-        builder.startObject(2);
+        builder.startObject(3);
     }
 
     public static void addVersion(FlatBufferBuilder builder, int version) {
@@ -95,6 +106,10 @@ public final class MetadataList extends Table {
 
     public static void startListVector(FlatBufferBuilder builder, int numElems) {
         builder.startVector(4, numElems, 4);
+    }
+
+    public static void addSourceSha(FlatBufferBuilder builder, int sourceShaOffset) {
+        builder.addOffset(2, sourceShaOffset, 0);
     }
 
     public static int endMetadataList(FlatBufferBuilder builder) {

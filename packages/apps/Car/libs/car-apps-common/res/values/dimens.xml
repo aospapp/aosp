@@ -16,4 +16,6 @@
 -->
 <resources>
     <item name="letter_to_tile_ratio" format="fraction" type="fraction">67%</item>
+    <dimen name="car_fab_focused_stroke_width">8dp</dimen>
+    <dimen name="car_fab_focused_growth">1.2dp</dimen>
 </resources>

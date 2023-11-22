@@ -34,7 +34,7 @@ import pseudomodem
 # TODO(pprabhu) Move this to the right utils file.
 # pprabhu: I haven't yet figured out which of the myriad utils files I should
 # update. There is an implementation of |nuke_subprocess| that does not take
-# timeout_hint_seconds in common_lib/base_utils.py, but |poll_for_condition|
+# timeout_hint_seconds in common_lib/utils.py, but |poll_for_condition|
 # is not available there.
 def nuke_subprocess(subproc, timeout_hint_seconds=0):
     """

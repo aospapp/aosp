@@ -55,9 +55,12 @@
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"Vklopi"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"Varnostno kopirane fotografije in filmi"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"Iskanje elementov …"</string>
+    <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"Prikaži vse elemente"</string>
+    <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"Skrij nedavne elemente"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="386144597646356521">"Iz naprave bo odstranjeno toliko podatkov: <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g>"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"Shrambo zdaj upravlja upravitelj shrambe"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"Ni elementov za odstranjevanje"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"Pregled nedavnih elementov"</string>
     <string name="empty_state_summary" msgid="8439893007424243790">"Ni starejših datotek, ki bi jih lahko odstranili. Če želite sprostiti prostor, odstranite nedavne fotografije, videoposnetke in aplikacije."</string>
+    <string name="app_requesting_space" msgid="857425181289960167">"Aplikacija <xliff:g id="APP">%1$s</xliff:g> potrebuje <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> prostora"</string>
 </resources>

@@ -177,7 +177,8 @@ public class MediaCasTest extends AndroidTestCase {
                     @Override
                     public void onEvent(MediaCas MediaCas, int event, int arg, byte[] data) {
                         Log.d(TAG, "Received MediaCas event: "
-                                + "event=" + event + ", arg=" + arg + ", data=" + data);
+                                + "event=" + event + ", arg=" + arg
+                                + ", data=" + Arrays.toString(data));
                     }
                 }, null);
             } finally {
@@ -509,9 +510,11 @@ public class MediaCasTest extends AndroidTestCase {
         @Override
         public void onEvent(MediaCas mediaCas, int event, int arg, byte[] data) {
             Log.d(TAG, "Received MediaCas event: event=" + event
-                    + ", arg=" + arg + ", data=" + data);
+                    + ", arg=" + arg + ", data=" + Arrays.toString(data));
             if (mediaCas == mMediaCas && event == mEvent
-                    && arg == mArg && Arrays.equals(data, mData)) {
+                    && arg == mArg && (Arrays.equals(data, mData) ||
+                            data == null && mData.length == 0 ||
+                            mData == null && data.length == 0)) {
                 mIsIdential = true;
             }
             mLatch.countDown();

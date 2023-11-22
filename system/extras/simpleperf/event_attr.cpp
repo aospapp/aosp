@@ -23,6 +23,7 @@
 
 #include <android-base/logging.h>
 
+#include "environment.h"
 #include "event_type.h"
 #include "utils.h"
 
@@ -92,7 +93,9 @@ perf_event_attr CreateDefaultPerfEventAttr(const EventType& event_type) {
 
   if (attr.type == PERF_TYPE_TRACEPOINT) {
     // Tracepoint information are stored in raw data in sample records.
-    attr.sample_type |= PERF_SAMPLE_RAW;
+    if (CanRecordRawData()) {
+      attr.sample_type |= PERF_SAMPLE_RAW;
+    }
   }
   return attr;
 }

@@ -877,6 +877,10 @@ void RsdCpuScriptIntrinsicBLAS::kernelBNNM(size_t m, size_t n, size_t k,
 #endif
 
     // Using gemmlowp to calculate the low precision 8 bit GEMM.
+    // Set MaxNumThreads to 0. The value 0 lets the implementation query
+    // the system to determine the number of hardware threads
+    gemmlowp::eight_bit_int_gemm::SetMaxNumThreads(0);
+
     bool transpose_a = true;
     bool transpose_b = false;
     bool transpose_c = true;

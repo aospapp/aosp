@@ -25,10 +25,29 @@
 #define NCI_POLL_DURATION 500
 #define HAL_NFC_ENABLE_I2C_FRAGMENTATION_EVT 0x07
 #undef P2P_PRIO_LOGIC_HAL_IMP
-
+#define NCI_VERSION_2_0 0x20
+#define NCI_VERSION_1_1 0x11
+#define NCI_VERSION_1_0 0x10
+#define NCI_VERSION_UNKNOWN 0x00
 typedef void(phNxpNciHal_control_granted_callback_t)();
 
+/*ROM CODE VERSION FW*/
+#define FW_MOBILE_ROM_VERSION_PN551 0x10
+#define FW_MOBILE_ROM_VERSION_PN553 0x11
+#define FW_MOBILE_ROM_VERSION_PN548AD 0x10
+#define FW_MOBILE_ROM_VERSION_PN547C2 0x08
 /* NCI Data */
+
+#define NCI_MT_CMD 0x20
+#define NCI_MT_RSP 0x40
+#define NCI_MT_NTF 0x60
+
+#define CORE_RESET_TRIGGER_TYPE_CORE_RESET_CMD_RECEIVED 0x02
+#define CORE_RESET_TRIGGER_TYPE_POWERED_ON 0x01
+#define NCI_MSG_CORE_RESET 0x00
+#define NCI_MSG_CORE_INIT 0x01
+#define NCI_MT_MASK 0xE0
+#define NCI_OID_MASK 0x3F
 typedef struct nci_data {
   uint16_t len;
   uint8_t p_data[NCI_MAX_DATA_LEN];
@@ -39,7 +58,10 @@ typedef enum { HAL_STATUS_CLOSE = 0, HAL_STATUS_OPEN } phNxpNci_HalStatus;
 /* Macros to enable and disable extensions */
 #define HAL_ENABLE_EXT() (nxpncihal_ctrl.hal_ext_enabled = 1)
 #define HAL_DISABLE_EXT() (nxpncihal_ctrl.hal_ext_enabled = 0)
-
+typedef struct phNxpNciInfo {
+  uint8_t nci_version;
+  bool_t wait_for_ntf;
+} phNxpNciInfo_t;
 /* NCI Control structure */
 typedef struct phNxpNciHal_Control {
   phNxpNci_HalStatus halStatus; /* Indicate if hal is open or closed */
@@ -75,6 +97,7 @@ typedef struct phNxpNciHal_Control {
   /* retry count used to force download */
   uint16_t retry_cnt;
   uint8_t read_retry_cnt;
+  phNxpNciInfo_t nci_info;
 } phNxpNciHal_Control_t;
 
 typedef struct phNxpNciClock {

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python
 #
 # Copyright (C) 2017 The Android Open Source Project
 #
@@ -168,6 +168,9 @@ class BuildRuleGen(object):
             """
             result = []
             for package in imported_packages:
+                if package in ["android.hidl.base@1.0",
+                               "android.hidl.manager@1.0"]:
+                    continue
                 prefix = 'android.hardware.'
                 if package.startswith(prefix):
                     # TODO(b/36475863)

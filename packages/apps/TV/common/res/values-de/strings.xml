@@ -18,10 +18,11 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="action_text_done" msgid="298287050387266501">"Fertig"</string>
+    <string name="action_text_skip" msgid="9158414021827546309">"Überspringen"</string>
     <string name="display_episode_number_format" msgid="6040735693510854344">"S<xliff:g id="SEASON_NUMBER">%1$s</xliff:g>: F<xliff:g id="EPISODE_NUMBER">%2$s</xliff:g>"</string>
     <string name="display_episode_number_format_no_season_number" msgid="8393554269654325741">"Folge <xliff:g id="EPISODE_NUMBER">%1$s</xliff:g>"</string>
     <string name="display_episode_title_format" msgid="5041103178918130554">"Staffel <xliff:g id="SEASON_NUMBER">%1$s</xliff:g>: Folge <xliff:g id="EPISODE_NUMBER">%2$s</xliff:g>, <xliff:g id="EPISODE_TITLE">%3$s</xliff:g>"</string>
     <string name="display_episode_title_format_no_season_number" msgid="4558449786705748989">"Folge <xliff:g id="EPISODE_NUMBER">%1$s</xliff:g>, <xliff:g id="EPISODE_TITLE">%2$s</xliff:g>"</string>
-    <string name="program_title_with_episode_number" msgid="5708628769757639737">"<xliff:g id="PROGRAMNAME">%1$s</xliff:g>, Staffel <xliff:g id="SEASONNUMBER">%2$s</xliff:g>: Folge <xliff:g id="EPISODENUMBER">%3$s</xliff:g>"</string>
-    <string name="program_title_with_episode_number_no_season" msgid="8299170840696856426">"<xliff:g id="PROGRAMNAME">%1$s</xliff:g>, Folge <xliff:g id="EPISODENUMBER">%2$s</xliff:g>"</string>
+    <string name="program_title_with_episode_number" msgid="2159336538427523610">"<xliff:g id="PROGRAMNAME">%1$s</xliff:g>, &lt;i&gt;Staffel <xliff:g id="SEASONNUMBER">%2$s</xliff:g>: Folge <xliff:g id="EPISODENUMBER">%3$s</xliff:g>&lt;/i&gt;"</string>
+    <string name="program_title_with_episode_number_no_season" msgid="6243727201916342169">"<xliff:g id="PROGRAMNAME">%1$s</xliff:g>, &lt;i&gt;Folge <xliff:g id="EPISODENUMBER">%2$s</xliff:g>&lt;/i&gt;"</string>
 </resources>

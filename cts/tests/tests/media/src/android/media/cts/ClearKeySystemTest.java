@@ -31,6 +31,7 @@ import android.media.CamcorderProfile;
 import android.net.Uri;
 import android.os.Environment;
 import android.os.Looper;
+import android.support.annotation.NonNull;
 import android.test.ActivityInstrumentationTestCase2;
 import android.util.Base64;
 import android.util.Log;
@@ -42,8 +43,10 @@ import java.nio.CharBuffer;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.Vector;
 
@@ -87,8 +90,10 @@ public class ClearKeySystemTest extends MediaPlayerTestBase {
     private static final Uri MPEG2TS_CLEAR_URL = Uri.parse(
             "android.resource://android.media.cts/" + R.raw.segment000001);
 
-    private static final UUID CLEARKEY_SCHEME_UUID =
+    private static final UUID COMMON_PSSH_SCHEME_UUID =
             new UUID(0x1077efecc0b24d02L, 0xace33c1e52e2fb4bL);
+    private static final UUID CLEARKEY_SCHEME_UUID =
+            new UUID(0xe2719d58a985b3c9L, 0x781ab030af78d30eL);
 
     private byte[] mDrmInitData;
     private byte[] mSessionId;
@@ -220,7 +225,7 @@ public class ClearKeySystemTest extends MediaPlayerTestBase {
         }
     }
 
-    private MediaDrm startDrm(final byte[][] clearKeys, final String initDataType) {
+    private @NonNull MediaDrm startDrm(final byte[][] clearKeys, final String initDataType, final UUID drmSchemeUuid) {
         new Thread() {
             @Override
             public void run() {
@@ -232,7 +237,7 @@ public class ClearKeySystemTest extends MediaPlayerTestBase {
                 mLooper = Looper.myLooper();
 
                 try {
-                    mDrm = new MediaDrm(CLEARKEY_SCHEME_UUID);
+                    mDrm = new MediaDrm(drmSchemeUuid);
                 } catch (MediaDrmException e) {
                     Log.e(TAG, "Failed to create MediaDrm: " + e.getMessage());
                     return;
@@ -277,7 +282,7 @@ public class ClearKeySystemTest extends MediaPlayerTestBase {
         mLooper.quit();
     }
 
-    private byte[] openSession(MediaDrm drm) {
+    private @NonNull byte[] openSession(MediaDrm drm) {
         byte[] mSessionId = null;
         boolean mRetryOpen;
         do {
@@ -295,7 +300,7 @@ public class ClearKeySystemTest extends MediaPlayerTestBase {
         drm.closeSession(sessionId);
     }
 
-    public boolean isResolutionSupported(String mime, String[] features,
+    private boolean isResolutionSupported(String mime, String[] features,
             int videoWidth, int videoHeight) {
         if (ApiLevelUtil.isBefore(android.os.Build.VERSION_CODES.JELLY_BEAN)) {
             if  (videoHeight <= 144) {
@@ -331,6 +336,7 @@ public class ClearKeySystemTest extends MediaPlayerTestBase {
      * Tests clear key system playback.
      */
     private void testClearKeyPlayback(
+            UUID drmSchemeUuid,
             String videoMime, String[] videoFeatures,
             String initDataType, byte[][] clearKeys,
             Uri audioUrl, boolean audioEncrypted,
@@ -339,12 +345,8 @@ public class ClearKeySystemTest extends MediaPlayerTestBase {
         MediaDrm drm = null;
         mSessionId = null;
         if (!scrambled) {
-            drm = startDrm(clearKeys, initDataType);
-            if (null == drm) {
-                throw new Error("Failed to create drm.");
-            }
-
-            if (!drm.isCryptoSchemeSupported(CLEARKEY_SCHEME_UUID)) {
+            drm = startDrm(clearKeys, initDataType, drmSchemeUuid);
+            if (!drm.isCryptoSchemeSupported(drmSchemeUuid)) {
                 stopDrm(drm);
                 throw new Error("Crypto scheme is not supported.");
             }
@@ -411,8 +413,80 @@ public class ClearKeySystemTest extends MediaPlayerTestBase {
         }
     }
 
+    private boolean queryKeyStatus(@NonNull final MediaDrm drm, @NonNull final byte[] sessionId) {
+        final HashMap<String, String> keyStatus = drm.queryKeyStatus(sessionId);
+        if (keyStatus.isEmpty()) {
+            Log.e(TAG, "queryKeyStatus: empty key status");
+            return false;
+        }
+
+        final Set<String> keySet = keyStatus.keySet();
+        final int numKeys = keySet.size();
+        final String[] keys = keySet.toArray(new String[numKeys]);
+        for (int i = 0; i < numKeys; ++i) {
+            final String key = keys[i];
+            Log.i(TAG, "queryKeyStatus: key=" + key + ", value=" + keyStatus.get(key));
+        }
+
+        return true;
+    }
+
+    public void testQueryKeyStatus() throws Exception {
+        MediaDrm drm = startDrm(new byte[][] { CLEAR_KEY_CENC }, "cenc", COMMON_PSSH_SCHEME_UUID);
+        if (!drm.isCryptoSchemeSupported(COMMON_PSSH_SCHEME_UUID)) {
+            stopDrm(drm);
+            throw new Error("Crypto scheme is not supported.");
+        }
+
+        mSessionId = openSession(drm);
+
+        // Test default key status, should not be defined
+        final HashMap<String, String> keyStatus = drm.queryKeyStatus(mSessionId);
+        if (!keyStatus.isEmpty()) {
+            closeSession(drm, mSessionId);
+            stopDrm(drm);
+            throw new Error("query default key status failed");
+        }
+
+        // Test valid key status
+        mMediaCodecPlayer = new MediaCodecClearKeyPlayer(
+                getActivity().getSurfaceHolder(),
+                mSessionId, false,
+                mContext.getResources());
+        mMediaCodecPlayer.setAudioDataSource(CENC_AUDIO_URL, null, false);
+        mMediaCodecPlayer.setVideoDataSource(CENC_VIDEO_URL, null, true);
+        mMediaCodecPlayer.start();
+        mMediaCodecPlayer.prepare();
+
+        mDrmInitData = mMediaCodecPlayer.getDrmInitData();
+        getKeys(drm, "cenc", mSessionId, mDrmInitData, new byte[][] { CLEAR_KEY_CENC });
+        boolean success = true;
+        if (!queryKeyStatus(drm, mSessionId)) {
+            success = false;
+        }
+
+        mMediaCodecPlayer.reset();
+        closeSession(drm, mSessionId);
+        stopDrm(drm);
+        if (!success) {
+            throw new Error("query key status failed");
+        }
+    }
+
     public void testClearKeyPlaybackCenc() throws Exception {
         testClearKeyPlayback(
+            COMMON_PSSH_SCHEME_UUID,
+            // using secure codec even though it is clear key DRM
+            MIME_VIDEO_AVC, new String[] { CodecCapabilities.FEATURE_SecurePlayback },
+            "cenc", new byte[][] { CLEAR_KEY_CENC },
+            CENC_AUDIO_URL, false,
+            CENC_VIDEO_URL, true,
+            VIDEO_WIDTH_CENC, VIDEO_HEIGHT_CENC, false);
+    }
+
+    public void testClearKeyPlaybackCenc2() throws Exception {
+        testClearKeyPlayback(
+            CLEARKEY_SCHEME_UUID,
             // using secure codec even though it is clear key DRM
             MIME_VIDEO_AVC, new String[] { CodecCapabilities.FEATURE_SecurePlayback },
             "cenc", new byte[][] { CLEAR_KEY_CENC },
@@ -423,6 +497,7 @@ public class ClearKeySystemTest extends MediaPlayerTestBase {
 
     public void testClearKeyPlaybackWebm() throws Exception {
         testClearKeyPlayback(
+            COMMON_PSSH_SCHEME_UUID,
             MIME_VIDEO_VP8, new String[0],
             "webm", new byte[][] { CLEAR_KEY_WEBM },
             WEBM_URL, true,
@@ -432,6 +507,7 @@ public class ClearKeySystemTest extends MediaPlayerTestBase {
 
     public void testClearKeyPlaybackMpeg2ts() throws Exception {
         testClearKeyPlayback(
+            COMMON_PSSH_SCHEME_UUID,
             MIME_VIDEO_AVC, new String[0],
             "mpeg2ts", null,
             MPEG2TS_SCRAMBLED_URL, false,
@@ -441,6 +517,7 @@ public class ClearKeySystemTest extends MediaPlayerTestBase {
 
     public void testPlaybackMpeg2ts() throws Exception {
         testClearKeyPlayback(
+            COMMON_PSSH_SCHEME_UUID,
             MIME_VIDEO_AVC, new String[0],
             "mpeg2ts", null,
             MPEG2TS_CLEAR_URL, false,

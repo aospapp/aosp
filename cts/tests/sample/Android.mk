@@ -25,12 +25,15 @@ LOCAL_DEX_PREOPT := false
 
 LOCAL_PROGUARD_ENABLED := disabled
 
-LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util android-support-test
+LOCAL_STATIC_JAVA_LIBRARIES := \
+    compatibility-device-util \
+    android-support-test \
+    legacy-android-test
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 LOCAL_PACKAGE_NAME := CtsSampleDeviceTestCases
 

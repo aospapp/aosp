@@ -281,7 +281,8 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
                 exerciseRemoteHost(network, mUrl);
                 mEndTime = System.currentTimeMillis() + mTolerance;
                 success = true;
-                metered = mCm.getNetworkInfo(network).isMetered();
+                metered = !mCm.getNetworkCapabilities(network)
+                        .hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED);
                 synchronized(NetworkUsageStatsTest.this) {
                     NetworkUsageStatsTest.this.notify();
                 }

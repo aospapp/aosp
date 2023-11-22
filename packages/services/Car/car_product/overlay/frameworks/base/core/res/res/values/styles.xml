@@ -64,4 +64,15 @@
         <item name="fragmentFadeEnterAnimation">@animator/fragment_fade_enter</item>
         <item name="fragmentFadeExitAnimation">@animator/fragment_fade_exit</item>
     </style>
+
+    <!-- The style for the container of media actions in a notification. -->
+    <style name="NotificationMediaActionContainer">
+        <item name="background">@color/notification_action_list</item>
+        <item name="layout_width">match_parent</item>
+        <item name="layout_height">@dimen/notification_action_list_height</item>
+        <item name="layout_marginTop">0dp</item>
+        <item name="paddingStart">0dp</item>
+        <item name="paddingBottom">@dimen/media_notification_actions_padding_bottom</item>
+        <item name="gravity">center</item>
+    </style>
 </resources>

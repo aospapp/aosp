@@ -31,6 +31,7 @@ class audio_AudioNodeSwitch(audio_test.AudioTest):
     _PLUG_DELAY = 5
     _VOLUMES = {'INTERNAL_SPEAKER': 100,
                 'HEADPHONE': 80,
+                'LINEOUT': 80,
                 'HDMI': 60,
                 'USB': 40,}
 
@@ -128,11 +129,17 @@ class audio_AudioNodeSwitch(audio_test.AudioTest):
             time.sleep(self._PLUG_DELAY)
             audio_test_utils.dump_cros_audio_logs(host, self.audio_facade,
                                                   self.resultsdir)
-            audio_test_utils.check_audio_nodes(self.audio_facade,
-                                               (['HEADPHONE'], ['MIC']))
 
-            self.set_active_volume_to_node_volume('HEADPHONE')
-            nodes.append('HEADPHONE')
+            # Checks whether line-out or headphone is detected.
+            hp_jack_node_type = audio_test_utils.check_hp_or_lineout_plugged(
+                    self.audio_facade)
+
+            audio_test_utils.check_audio_nodes(self.audio_facade,
+                                               (None, ['MIC']))
+
+            self.set_active_volume_to_node_volume(hp_jack_node_type)
+
+            nodes.append(hp_jack_node_type)
             self.switch_nodes_and_check_volume(nodes)
 
         if usb_node:
@@ -159,10 +166,10 @@ class audio_AudioNodeSwitch(audio_test.AudioTest):
         if jack_node:
             if usb_node:
                 audio_test_utils.check_audio_nodes(self.audio_facade,
-                                                   (['HEADPHONE'], ['MIC']))
+                                                   ([hp_jack_node_type], ['MIC']))
             jack_plugger.unplug()
             time.sleep(self._PLUG_DELAY)
-            nodes.remove('HEADPHONE')
+            nodes.remove(hp_jack_node_type)
             self.switch_nodes_and_check_volume(nodes)
 
         if hdmi_node:

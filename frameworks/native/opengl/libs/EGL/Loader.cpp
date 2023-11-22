@@ -28,7 +28,9 @@
 #include <cutils/properties.h>
 #include <log/log.h>
 
-#include <ui/GraphicsEnv.h>
+#ifndef __ANDROID_VNDK__
+#include <graphicsenv/GraphicsEnv.h>
+#endif
 #include <vndksupport/linker.h>
 
 #include "egl_trace.h"
@@ -325,17 +327,17 @@ static void* load_system_driver(const char* kind) {
             switch (emulationStatus) {
                 case 0:
 #if defined(__LP64__)
-                    result = "/system/lib64/egl/libGLES_android.so";
+                    result = "/vendor/lib64/egl/libGLES_android.so";
 #else
-                    result = "/system/lib/egl/libGLES_android.so";
+                    result = "/vendor/lib/egl/libGLES_android.so";
 #endif
                     return result;
                 case 1:
                     // Use host-side OpenGL through the "emulation" library
 #if defined(__LP64__)
-                    result = std::string("/system/lib64/egl/lib") + kind + "_emulation.so";
+                    result = std::string("/vendor/lib64/egl/lib") + kind + "_emulation.so";
 #else
-                    result = std::string("/system/lib/egl/lib") + kind + "_emulation.so";
+                    result = std::string("/vendor/lib/egl/lib") + kind + "_emulation.so";
 #endif
                     return result;
                 default:
@@ -477,10 +479,12 @@ void *Loader::load_driver(const char* kind,
     ATRACE_CALL();
 
     void* dso = nullptr;
+#ifndef __ANDROID_VNDK__
     android_namespace_t* ns = android_getDriverNamespace();
     if (ns) {
         dso = load_updated_driver(kind, ns);
     }
+#endif
     if (!dso) {
         dso = load_system_driver(kind);
         if (!dso)

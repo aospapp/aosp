@@ -89,7 +89,9 @@ class EmulatedFakeCamera2;
 class Sensor: private Thread, public virtual RefBase {
   public:
 
-    Sensor();
+    // width: Width of pixel array
+    // height: Height of pixel array
+    Sensor(uint32_t width, uint32_t height);
     ~Sensor();
 
     /*
@@ -157,8 +159,8 @@ class Sensor: private Thread, public virtual RefBase {
     /**
      * Static sensor characteristics
      */
-    static const unsigned int kResolution[2];
-    static const unsigned int kActiveArray[4];
+    const uint32_t mResolution[2];
+    const uint32_t mActiveArray[4];
 
     static const nsecs_t kExposureTimeRange[2];
     static const nsecs_t kFrameDurationRange[2];
@@ -187,7 +189,7 @@ class Sensor: private Thread, public virtual RefBase {
     // expose) sequence can be overlapped by other row readouts, so the final
     // minimum frame duration is purely a function of row readout time, at least
     // if there's a reasonable number of rows.
-    static const nsecs_t kRowReadoutTime;
+    const nsecs_t mRowReadoutTime;
 
     static const int32_t kSensitivityRange[2];
     static const uint32_t kDefaultSensitivity;

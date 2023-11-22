@@ -75,6 +75,11 @@
   <string
     name="notification_action_message">Tap to open Script Monitor.</string>
   <string
+    name="notification_channel_name">Scripting Layer Service</string>
+  <string
+      name="notification_channel_description">Notifications that come from the Scripting Layer
+    Service.</string>
+  <string
     name="no_running_scripts_message">There are no currently running scripts.</string>
   <string
     name="script_number_message">Number of running scripts:\t</string>

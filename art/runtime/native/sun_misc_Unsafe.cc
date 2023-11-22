@@ -15,18 +15,22 @@
  */
 
 #include "sun_misc_Unsafe.h"
+
+#include <atomic>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#include "nativehelper/jni_macros.h"
+
 #include "common_throws.h"
 #include "gc/accounting/card_table-inl.h"
 #include "jni_internal.h"
 #include "mirror/array.h"
 #include "mirror/class-inl.h"
 #include "mirror/object-inl.h"
+#include "native_util.h"
 #include "scoped_fast_native_object_access-inl.h"
-
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
-#include <atomic>
 
 namespace art {
 

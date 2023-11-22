@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import errno
+import fnmatch
 import hashlib
 import logging
 import os
@@ -11,6 +12,7 @@ from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import file_utils
 from autotest_lib.client.cros import chrome_binary_test
+from autotest_lib.client.cros.video import helper_logger
 
 DOWNLOAD_BASE = 'http://commondatastorage.googleapis.com/chromiumos-test-assets-public/'
 BINARY = 'video_encode_accelerator_unittest'
@@ -43,31 +45,76 @@ class video_VideoEncodeAccelerator(chrome_binary_test.ChromeBinaryTest):
 
     version = 1
 
-    def get_filter_option(self):
-        """Get option of filtering test
+    def get_filter_option(self, profile, size):
+        """Get option of filtering test.
+
+        @param profile: The profile to encode into.
+        @param size: The size of test stream in pair format (width, height).
         """
 
-        blacklist = {
-                # board: [tests to skip...]
+        # Profiles used in blacklist to filter test for specific profiles.
+        H264 = 1
+        VP8 = 11
+        VP9 = 12
 
-                # Kevin doesn't support HW encode for plane sizes not multiple
-                # of cache line
-                'kevin': ['CacheLineUnalignedInputTest/*']
+        blacklist = {
+                # (board, profile, size): [tests to skip...]
+
+                # "board" supports Unix shell-type wildcards.
+
+                # Use None for "profile" or "size" to indicate no filter on it.
+
+                # It is possible to match multiple keys for board/profile/size
+                # in the blacklist, e.g. veyron_minnie could match both
+                # "veyron_*" and "veyron_minnie".
+
+                # rk3399 doesn't support HW encode for plane sizes not multiple
+                # of cache line.
+                ('kevin', None, None): ['CacheLineUnalignedInputTest/*'],
+                ('bob', None, None): ['CacheLineUnalignedInputTest/*'],
+
+                # Still high failure rate of VP8 EncoderPerf for veyrons,
+                # disable it for now. crbug/720386
+                ('veyron_*', VP8, None): ['EncoderPerf/*'],
+
+                # Disable mid_stream_bitrate_switch test cases for elm/hana.
+                # crbug/725087
+                ('elm', None, None): ['MidStreamParamSwitchBitrate/*',
+                                      'MultipleEncoders/*'],
+                ('hana', None, None): ['MidStreamParamSwitchBitrate/*',
+                                       'MultipleEncoders/*'],
+
+                # Around 40% failure on elm and hana 320x180 test stream.
+                # crbug/728906
+                ('elm', H264, (320, 180)): ['ForceBitrate/*'],
+                ('elm', VP8, (320, 180)): ['ForceBitrate/*'],
+                ('hana', H264, (320, 180)): ['ForceBitrate/*'],
+                ('hana', VP8, (320, 180)): ['ForceBitrate/*'],
                 }
 
         board = utils.get_current_board()
-        if board in blacklist:
-            return ' --gtest_filter=-' + ':'.join(blacklist[board])
+
+        filter_list = []
+        for (board_key, profile_key, size_key), value in blacklist.items():
+            if (fnmatch.fnmatch(board, board_key) and
+                (profile_key is None or profile == profile_key) and
+                (size_key is None or size == size_key)):
+                filter_list += value
+
+        if filter_list:
+            return '-' + ':'.join(filter_list)
 
         return ''
 
+    @helper_logger.video_log_wrapper
     @chrome_binary_test.nuke_chrome
-    def run_once(self, in_cloud, streams, profile):
+    def run_once(self, in_cloud, streams, profile, gtest_filter=None):
         """Runs video_encode_accelerator_unittest on the streams.
 
         @param in_cloud: Input file needs to be downloaded first.
         @param streams: The test streams for video_encode_accelerator_unittest.
         @param profile: The profile to encode into.
+        @param gtest_filter: test case filter.
 
         @raises error.TestFail for video_encode_accelerator_unittest failures.
         """
@@ -83,11 +130,24 @@ class video_VideoEncodeAccelerator(chrome_binary_test.ChromeBinaryTest):
             output_path = os.path.join(self.tmpdir,
                     '%s.out' % input_path.split('/')[-1])
 
-            cmd_line = '--test_stream_data="%s:%s:%s:%s:%s:%s"' % (
-                    input_path, width, height, profile, output_path, bit_rate)
-            if utils.is_freon():
-                cmd_line += ' --ozone-platform=gbm'
-            cmd_line += self.get_filter_option()
+            cmd_line_list = []
+            cmd_line_list.append('--test_stream_data="%s:%s:%s:%s:%s:%s"' % (
+                    input_path, width, height, profile, output_path, bit_rate))
+            cmd_line_list.append(helper_logger.chrome_vmodule_flag())
+            cmd_line_list.append('--ozone-platform=gbm')
+
+            # Command line |gtest_filter| can override get_filter_option().
+            predefined_filter = self.get_filter_option(profile, (width, height))
+            if gtest_filter and predefined_filter:
+                logging.warning('predefined gtest filter is suppressed: %s',
+                    predefined_filter)
+                applied_filter = gtest_filter
+            else:
+                applied_filter = predefined_filter
+            if applied_filter:
+                cmd_line_list.append('--gtest_filter="%s"' % applied_filter)
+
+            cmd_line = ' '.join(cmd_line_list)
             try:
                 self.run_chrome_test_binary(BINARY, cmd_line, as_chronos=False)
             except error.TestFail as test_failure:

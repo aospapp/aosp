@@ -16,6 +16,10 @@
 #ifndef _IDLETIMER_CONTROLLER_H
 #define _IDLETIMER_CONTROLLER_H
 
+#include <stdint.h>
+
+#include "NetdConstants.h"
+
 class IdletimerController {
 public:
 
@@ -39,6 +43,9 @@ public:
     int runIpxtablesCmd(int argc, const char **cmd);
     int modifyInterfaceIdletimer(IptOp op, const char *iface, uint32_t timeout,
                                  const char *classLabel);
+
+    friend class IdletimerControllerTest;
+    static int (*execIptablesRestore)(IptablesTarget, const std::string&);
 };
 
 #endif

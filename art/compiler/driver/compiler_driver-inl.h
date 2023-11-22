@@ -24,10 +24,11 @@
 #include "base/enums.h"
 #include "class_linker-inl.h"
 #include "dex_compilation_unit.h"
+#include "handle_scope-inl.h"
 #include "mirror/class_loader.h"
 #include "mirror/dex_cache-inl.h"
+#include "runtime.h"
 #include "scoped_thread_state_change-inl.h"
-#include "handle_scope-inl.h"
 
 namespace art {
 
@@ -101,52 +102,28 @@ inline std::pair<bool, bool> CompilerDriver::IsFastInstanceField(
   return std::make_pair(fast_get, fast_put);
 }
 
-template <typename ArtMember>
-inline bool CompilerDriver::CanAccessResolvedMember(mirror::Class* referrer_class ATTRIBUTE_UNUSED,
-                                                    mirror::Class* access_to ATTRIBUTE_UNUSED,
-                                                    ArtMember* member ATTRIBUTE_UNUSED,
-                                                    mirror::DexCache* dex_cache ATTRIBUTE_UNUSED,
-                                                    uint32_t field_idx ATTRIBUTE_UNUSED) {
-  // Not defined for ArtMember values other than ArtField or ArtMethod.
-  UNREACHABLE();
-}
-
-template <>
-inline bool CompilerDriver::CanAccessResolvedMember<ArtField>(mirror::Class* referrer_class,
-                                                              mirror::Class* access_to,
-                                                              ArtField* field,
-                                                              mirror::DexCache* dex_cache,
-                                                              uint32_t field_idx) {
-  return referrer_class->CanAccessResolvedField(access_to, field, dex_cache, field_idx);
-}
-
-template <>
-inline bool CompilerDriver::CanAccessResolvedMember<ArtMethod>(
-    mirror::Class* referrer_class,
-    mirror::Class* access_to,
-    ArtMethod* method,
-    mirror::DexCache* dex_cache,
-    uint32_t field_idx) {
-  return referrer_class->CanAccessResolvedMethod(access_to, method, dex_cache, field_idx);
-}
-
 inline ArtMethod* CompilerDriver::ResolveMethod(
-    ScopedObjectAccess& soa, Handle<mirror::DexCache> dex_cache,
-    Handle<mirror::ClassLoader> class_loader, const DexCompilationUnit* mUnit,
-    uint32_t method_idx, InvokeType invoke_type, bool check_incompatible_class_change) {
+    ScopedObjectAccess& soa,
+    Handle<mirror::DexCache> dex_cache,
+    Handle<mirror::ClassLoader> class_loader,
+    const DexCompilationUnit* mUnit,
+    uint32_t method_idx,
+    InvokeType invoke_type) {
   DCHECK_EQ(class_loader.Get(), mUnit->GetClassLoader().Get());
   ArtMethod* resolved_method =
-      check_incompatible_class_change
-          ? mUnit->GetClassLinker()->ResolveMethod<ClassLinker::kForceICCECheck>(
-              *dex_cache->GetDexFile(), method_idx, dex_cache, class_loader, nullptr, invoke_type)
-          : mUnit->GetClassLinker()->ResolveMethod<ClassLinker::kNoICCECheckForCache>(
-              *dex_cache->GetDexFile(), method_idx, dex_cache, class_loader, nullptr, invoke_type);
+      mUnit->GetClassLinker()->ResolveMethod<ClassLinker::ResolveMode::kCheckICCEAndIAE>(
+          *dex_cache->GetDexFile(), method_idx, dex_cache, class_loader, nullptr, invoke_type);
   if (UNLIKELY(resolved_method == nullptr)) {
     DCHECK(soa.Self()->IsExceptionPending());
     // Clean up any exception left by type resolution.
     soa.Self()->ClearException();
   }
   return resolved_method;
+}
+
+inline VerificationResults* CompilerDriver::GetVerificationResults() const {
+  DCHECK(Runtime::Current()->IsAotCompiler());
+  return verification_results_;
 }
 
 }  // namespace art

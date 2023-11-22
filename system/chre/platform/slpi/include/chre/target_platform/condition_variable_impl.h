@@ -19,6 +19,9 @@
 
 #include "chre/platform/condition_variable.h"
 
+#include "chre/platform/fatal_error.h"
+#include "chre/platform/log.h"
+
 namespace chre {
 
 inline ConditionVariable::ConditionVariable() {
@@ -35,6 +38,43 @@ inline void ConditionVariable::notify_one() {
 
 inline void ConditionVariable::wait(Mutex& mutex) {
   qurt_cond_wait(&mConditionVariable, &mutex.mMutex);
+}
+
+// Note: The wait_for function is designed to work for a single thread waiting
+// on the condition variable.
+inline bool ConditionVariable::wait_for(Mutex& mutex, Nanoseconds timeout) {
+  if (!mTimerInitialized) {
+    if (!mTimeoutTimer.init()) {
+      FATAL_ERROR("Failed to initialize condition variable timer");
+    } else {
+      mTimerInitialized = true;
+    }
+  }
+
+  struct TimeoutCallbackData {
+    ConditionVariable *cvPtr;
+    bool timedOut;
+  };
+  auto callback = [](void *data) {
+    auto cbData = static_cast<TimeoutCallbackData*>(data);
+    cbData->timedOut = true;
+    cbData->cvPtr->notify_one();
+  };
+
+  TimeoutCallbackData callbackData;
+  callbackData.cvPtr = this;
+  callbackData.timedOut = false;
+  if (!mTimeoutTimer.set(callback, &callbackData, timeout)) {
+    LOGE("Failed to set condition variable timer");
+  }
+
+  wait(mutex);
+  if (mTimeoutTimer.isActive()) {
+    if (!mTimeoutTimer.cancel()) {
+      LOGD("Failed to cancel condition variable timer");
+    }
+  }
+  return !callbackData.timedOut;
 }
 
 }  // namespace chre

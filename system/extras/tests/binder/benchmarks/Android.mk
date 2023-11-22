@@ -34,6 +34,7 @@ LOCAL_C_INCLUDES += \
     frameworks/base/include
 
 LOCAL_MODULE := binderAddInts
+LOCAL_COMPATIBILITY_SUITE := device-tests
 LOCAL_SRC_FILES := binderAddInts.cpp
 
 include $(BUILD_NATIVE_BENCHMARK)

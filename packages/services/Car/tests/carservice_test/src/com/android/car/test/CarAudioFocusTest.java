@@ -16,6 +16,7 @@
 package com.android.car.test;
 
 import static android.hardware.automotive.vehicle.V2_0.VehicleProperty.AUDIO_FOCUS;
+import static com.android.car.test.AudioTestUtils.doRequestFocus;
 
 import android.car.Car;
 import android.car.media.CarAudioManager;
@@ -135,7 +136,7 @@ public class CarAudioFocusTest extends MockedCarTestBase {
     public void testMediaNavFocus() throws Exception {
         //music start
         AudioFocusListener listenerMusic = new AudioFocusListener();
-        int res = mAudioManager.requestAudioFocus(listenerMusic,
+        int res = doRequestFocus(mAudioManager, listenerMusic,
                 AudioManager.STREAM_MUSIC,
                 AudioManager.AUDIOFOCUS_GAIN);
         assertEquals(AudioManager.AUDIOFOCUS_REQUEST_GRANTED, res);
@@ -155,8 +156,8 @@ public class CarAudioFocusTest extends MockedCarTestBase {
                 setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).
                 setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE).
                 build();
-        mAudioManager.requestAudioFocus(listenerNav, navAttrib,
-                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK, 0);
+        doRequestFocus(mAudioManager, listenerNav, navAttrib,
+                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK);
         request = mAudioFocusPropertyHandler.waitForAudioFocusRequest(TIMEOUT_MS);
         assertEquals(VehicleAudioFocusRequest.REQUEST_GAIN, request[0]);
         assertEquals(0x3, request[1]);
@@ -193,7 +194,7 @@ public class CarAudioFocusTest extends MockedCarTestBase {
     public void testMediaExternalMediaNavFocus() throws Exception {
         // android music
         AudioFocusListener listenerMusic = new AudioFocusListener();
-        int res = mAudioManager.requestAudioFocus(listenerMusic,
+        int res = doRequestFocus(mAudioManager, listenerMusic,
                 AudioManager.STREAM_MUSIC,
                 AudioManager.AUDIOFOCUS_GAIN);
         assertEquals(AudioManager.AUDIOFOCUS_REQUEST_GRANTED, res);
@@ -221,8 +222,8 @@ public class CarAudioFocusTest extends MockedCarTestBase {
                 setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).
                 setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE).
                 build();
-        mAudioManager.requestAudioFocus(listenerNav, navAttrib,
-                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK, 0);
+        doRequestFocus(mAudioManager, listenerNav, navAttrib,
+                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK);
         request = mAudioFocusPropertyHandler.waitForAudioFocusRequest(TIMEOUT_MS);
         assertEquals(VehicleAudioFocusRequest.REQUEST_GAIN_TRANSIENT_MAY_DUCK,
                 request[0]);
@@ -258,7 +259,7 @@ public class CarAudioFocusTest extends MockedCarTestBase {
     public void testMediaExternalRadioNavMediaFocus() throws Exception {
         // android music
         AudioFocusListener listenerMusic = new AudioFocusListener();
-        int res = mAudioManager.requestAudioFocus(listenerMusic,
+        int res = doRequestFocus(mAudioManager, listenerMusic,
                 AudioManager.STREAM_MUSIC,
                 AudioManager.AUDIOFOCUS_GAIN);
         assertEquals(AudioManager.AUDIOFOCUS_REQUEST_GRANTED, res);
@@ -279,8 +280,8 @@ public class CarAudioFocusTest extends MockedCarTestBase {
         assertNotNull(carAudioManager);
         AudioAttributes radioAttributes = carAudioManager.getAudioAttributesForCarUsage(
                 CarAudioManager.CAR_AUDIO_USAGE_RADIO);
-        res = mAudioManager.requestAudioFocus(listenerRadio,
-                radioAttributes, AudioManager.AUDIOFOCUS_GAIN, 0);
+        res = doRequestFocus(mAudioManager, listenerRadio,
+                radioAttributes, AudioManager.AUDIOFOCUS_GAIN);
         assertEquals(AudioManager.AUDIOFOCUS_REQUEST_GRANTED, res);
         request = mAudioFocusPropertyHandler.waitForAudioFocusRequest(TIMEOUT_MS);
         assertEquals(VehicleAudioFocusRequest.REQUEST_GAIN, request[0]);
@@ -299,8 +300,8 @@ public class CarAudioFocusTest extends MockedCarTestBase {
                 setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).
                 setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE).
                 build();
-        res = mAudioManager.requestAudioFocus(listenerNav, navAttrib,
-                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK, 0);
+        res = doRequestFocus(mAudioManager, listenerNav, navAttrib,
+                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK);
         request = mAudioFocusPropertyHandler.waitForAudioFocusRequest(TIMEOUT_MS);
         assertEquals(VehicleAudioFocusRequest.REQUEST_GAIN,
                 request[0]);
@@ -360,7 +361,7 @@ public class CarAudioFocusTest extends MockedCarTestBase {
             int context)
             throws Exception {
         AudioFocusListener lister = new AudioFocusListener();
-        int res = mAudioManager.requestAudioFocus(lister,
+        int res = doRequestFocus(mAudioManager, lister,
                 streamType,
                 androidFocus);
         assertEquals(AudioManager.AUDIOFOCUS_REQUEST_GRANTED, res);
@@ -426,8 +427,8 @@ public class CarAudioFocusTest extends MockedCarTestBase {
         assertNotNull(carAudioManager);
         AudioAttributes radioAttributes = carAudioManager.getAudioAttributesForCarUsage(mediaUsage);
         Log.i(TAG, "request media Focus");
-        int res = mAudioManager.requestAudioFocus(listenerMedia,
-                radioAttributes, AudioManager.AUDIOFOCUS_GAIN, 0);
+        int res = doRequestFocus(mAudioManager, listenerMedia,
+                radioAttributes, AudioManager.AUDIOFOCUS_GAIN);
         assertEquals(AudioManager.AUDIOFOCUS_REQUEST_GRANTED, res);
         int[] request = mAudioFocusPropertyHandler.waitForAudioFocusRequest(TIMEOUT_MS);
         assertEquals(VehicleAudioFocusRequest.REQUEST_GAIN, request[0]);
@@ -461,8 +462,8 @@ public class CarAudioFocusTest extends MockedCarTestBase {
                 setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE).
                 build();
         Log.i(TAG, "request nav Focus");
-        res = mAudioManager.requestAudioFocus(listenerNav, navAttrib,
-                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK, 0);
+        res = doRequestFocus(mAudioManager, listenerNav, navAttrib,
+                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK);
         request = mAudioFocusPropertyHandler.waitForAudioFocusRequest(TIMEOUT_MS);
         assertEquals(VehicleAudioFocusRequest.REQUEST_GAIN_TRANSIENT_MAY_DUCK,
                 request[0]);

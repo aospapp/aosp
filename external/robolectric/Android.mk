@@ -30,7 +30,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     icu4j-icutzdata \
     ims-common \
     legacy-test \
-    libphonenumber \
+    libphonenumber-platform \
     okhttp \
     services \
     services.accessibility \
@@ -44,8 +44,8 @@ include $(BUILD_STATIC_JAVA_LIBRARY)
 
 # Copy the tzdata, preserving its path.
 $(LOCAL_INTERMEDIATE_TARGETS): $(call copy-many-files,\
-    bionic/libc/zoneinfo/tzdata:$(intermediates.COMMON)/usr/share/zoneinfo/tzdata \
-    bionic/libc/zoneinfo/tzlookup.xml:$(intermediates.COMMON)/usr/share/zoneinfo/tzlookup.xml)
+    system/timezone/output_data/iana/tzdata:$(intermediates.COMMON)/usr/share/zoneinfo/tzdata \
+    system/timezone/output_data/android/tzlookup.xml:$(intermediates.COMMON)/usr/share/zoneinfo/tzlookup.xml)
 $(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_EXTRA_JAR_ARGS += \
     -C "$(intermediates.COMMON)" "usr/share/zoneinfo"
 

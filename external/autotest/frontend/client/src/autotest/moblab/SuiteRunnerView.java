@@ -15,7 +15,7 @@ import com.google.gwt.user.client.ui.HorizontalPanel;
 import com.google.gwt.user.client.ui.Label;
 import com.google.gwt.user.client.ui.ListBox;
 import com.google.gwt.user.client.ui.SimplePanel;
-import com.google.gwt.user.client.ui.TextBox;
+import com.google.gwt.user.client.ui.TextArea;
 import com.google.gwt.user.client.ui.VerticalPanel;
 import com.google.gwt.user.client.ui.Widget;
 import java.util.Arrays;
@@ -35,10 +35,14 @@ public class SuiteRunnerView extends TabView {
   private ListBox roFirmwareSelector;
   private ListBox poolSelector;
   private Button actionButton;
+  private TextArea suiteArgsTextArea;
+  private HorizontalPanel thirdOptionalLine;
 
   private static List<String> suiteNames = Arrays.asList("bvt-cq", "bvt-inline",
       "cts", "cts_N", "gts", "hardware_storagequal", "hardware_memoryqual",
       "faft_setup", "faft_ec", "faft_bios");
+
+  private static String TEST_LIST_PLACEHOLDER = "arm.CtsAnimationTestCases, x86.CtsDeqpTestCases";
 
   @Override
   public String getElementId() {
@@ -54,6 +58,7 @@ public class SuiteRunnerView extends TabView {
     rwFirmwareSelector.clear();
     roFirmwareSelector.clear();
     poolSelector.clear();
+    suiteArgsTextArea.setText("");
 
     buildSelector.addItem("Select the build");
     suiteSelector.addItem("Select the suite");
@@ -81,6 +86,8 @@ public class SuiteRunnerView extends TabView {
     rwFirmwareSelector = new ListBox();
     roFirmwareSelector = new ListBox();
     poolSelector = new ListBox();
+    suiteArgsTextArea = new TextArea();
+    suiteArgsTextArea.getElement().setPropertyString("placeholder", TEST_LIST_PLACEHOLDER);
 
     boardSelector.addChangeHandler(new ChangeHandler() {
       @Override
@@ -115,9 +122,14 @@ public class SuiteRunnerView extends TabView {
     poolSelector.setEnabled(false);
     poolSelector.setStyleName("run_suite_selector");
 
+    suiteArgsTextArea.setStyleName("run_suite_test_args");
+
     HorizontalPanel firstLine = createHorizontalLineItem("Select board:", boardSelector);
     HorizontalPanel secondLine = createHorizontalLineItem("Select build:", buildSelector);
     HorizontalPanel thirdLine = createHorizontalLineItem("Select suite:", suiteSelector);
+    thirdOptionalLine = createHorizontalLineItem("Only run specified tests (Optional):",
+                                                 suiteArgsTextArea);
+    thirdOptionalLine.setVisible(false);
     HorizontalPanel fourthLine = createHorizontalLineItem("RW Firmware (Optional):", rwFirmwareSelector);
     HorizontalPanel fifthLine = createHorizontalLineItem("RO Firmware (Optional):", roFirmwareSelector);
     HorizontalPanel sixthLine = createHorizontalLineItem("Pool (Optional):", poolSelector);
@@ -147,8 +159,9 @@ public class SuiteRunnerView extends TabView {
               buildSelector.getItemText(buildSelection),
               suiteSelector.getItemText(suiteSelection),
               poolLabel,
-	      rwFirmware,
-	      roFirmware);
+              rwFirmware,
+              roFirmware,
+              suiteArgsTextArea.getText());
         } else {
           Window.alert("You have to select a valid board, build and suite.");
         }
@@ -163,6 +176,7 @@ public class SuiteRunnerView extends TabView {
     suiteRunnerMainPanel.add(firstLine);
     suiteRunnerMainPanel.add(secondLine);
     suiteRunnerMainPanel.add(thirdLine);
+    suiteRunnerMainPanel.add(thirdOptionalLine);
     suiteRunnerMainPanel.add(fourthLine);
     suiteRunnerMainPanel.add(fifthLine);
     suiteRunnerMainPanel.add(sixthLine);
@@ -198,6 +212,15 @@ public class SuiteRunnerView extends TabView {
       roFirmwareSelector.setEnabled(false);
       rwFirmwareSelector.setSelectedIndex(0);
       roFirmwareSelector.setSelectedIndex(0);
+    }
+
+    if (listIndex  == suiteNames.indexOf("gts") ||
+      listIndex == suiteNames.indexOf("cts") ||
+      listIndex == suiteNames.indexOf("cts_N")) {
+      thirdOptionalLine.setVisible(true);
+    } else {
+      suiteArgsTextArea.setText("");
+      thirdOptionalLine.setVisible(false);
     }
   }
 
@@ -238,7 +261,7 @@ public class SuiteRunnerView extends TabView {
   }
 
   /**
-   * Call an RPC to get the pools that are configured on the devices connected to the moblab. 
+   * Call an RPC to get the pools that are configured on the devices connected to the moblab.
    * and fill in the .
    */
   private void loadPools() {
@@ -313,15 +336,18 @@ public class SuiteRunnerView extends TabView {
    * @param build, a string that is a valid build for the specified board available in GCS.
    * @param suite, a string that specifies the name of a suite selected to run.
    * @param pool, an optional name of a pool to run the suite in.
+   * @param rwFirmware, an optional firmware to use for some qual tests.
+   * @param roFirmware, an optional firmware to use for some qual tests.
+   * @param suiteArgs, optional params to pass to the suite.
    */
   private void runSuite(String board, String build, String suite, String pool, String rwFirmware,
-      String roFirmware) {
+      String roFirmware, String suiteArgs) {
     String realPoolLabel = pool;
     if (pool != null && !pool.isEmpty()) {
       realPoolLabel = pool.trim();
     }
     MoblabRpcHelper.runSuite(board, build, suite, realPoolLabel, rwFirmware, roFirmware,
-        new RunSuiteCallback() {
+        suiteArgs, new RunSuiteCallback() {
       @Override
       public void onRunSuiteComplete() {
         Window.Location.assign("/afe");

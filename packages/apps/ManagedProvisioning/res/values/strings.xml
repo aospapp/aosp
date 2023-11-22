@@ -41,11 +41,11 @@
   <!-- String for positive button on user consent dialog for creating a profile [CHAR LIMIT=NONE] -->
   <string name="next">Next</string>
   <!-- Progress text shown when setting up work profile [CHAR LIMIT=NONE] -->
-  <string name="setting_up_workspace">Setting up your work profile\u2026</string>
+  <string name="setting_up_workspace">Setting up work profile\u2026</string>
   <!-- Text in a pop-up that asks the user to confirm that they allow the mobile device management app to take control of the profile they are creating. [CHAR LIMIT=NONE]-->
   <string name="admin_has_ability_to_monitor_profile">Your admin has the ability to monitor and manage settings, corporate access, apps, permissions, and data associated with this profile, including your network activity, as well as your device\'s location, call history, and contact search history.<xliff:g id="line_break">&lt;br&gt;&lt;br&gt;</xliff:g>Contact your admin for more information, including your organization\'s privacy policies.</string>
   <!-- Text in a pop-up that asks the user to confirm that they allow the mobile device management app to take control of the device. [CHAR LIMIT=NONE]-->
-  <string name="admin_has_ability_to_monitor_device">Your admin has the ability to monitor and manage settings, corporate access, apps, permissions, and data associated with this device including your network activity, as well as your device\'s location, call history, and contact search history.<xliff:g id="line_break">&lt;br&gt;&lt;br&gt;</xliff:g>Contact your admin for more information, including your organization\'s privacy policies.</string>
+  <string name="admin_has_ability_to_monitor_device">Your admin has the ability to monitor and manage settings, corporate access, apps, permissions, and data associated with this device, including your network activity, as well as your device\'s location, call history, and contact search history.<xliff:g id="line_break">&lt;br&gt;&lt;br&gt;</xliff:g>Contact your admin for more information, including your organization\'s privacy policies.</string>
   <!-- Text in a pop-up that asks the user to confirm that theft protection will only be enabled after a password-protected screen lock was chosen. [CHAR LIMIT=NONE]-->
   <string name="theft_protection_disabled_warning">To use theft-protection features, you must have a password-protected screen lock for your device.</string>
   <!-- String telling the user how to get more information about their work profile-->
@@ -81,7 +81,7 @@
   <!-- Opening string on the dialog that prompts the user to confirm that they really want to delete
        their existing work profile. The administration app icon and name appear after the final
        colon. [CHAR LIMIT=NONE] -->
-  <string name="opening_paragraph_delete_profile">You already have a work profile which is managed using the following app:</string>
+  <string name="opening_paragraph_delete_profile">You already have a work profile. It\'s managed using the following app:</string>
 
   <!-- String on the dialog that links through to more information about the profile management application. -->
   <string name="read_more_delete_profile">Before proceeding, <a href="#read_this_link">read this</a>.</string>
@@ -110,14 +110,10 @@
   <string name="managed_provisioning_error_text">Couldn\'t set up your work profile. Contact your IT department or try again later.</string>
   <!-- Error string displayed if this device doesn't support work profiles. -->
   <string name="cant_add_work_profile">Can\'t add work profile</string>
-  <!-- Error string displayed if this device doesn't support work profiles. -->
-  <string name="user_cant_have_work_profile_contact_admin">This user can\'t have a work profile. For help, contact your admin.</string>
-  <!-- Error string displayed if the user that initiated the provisioning is not the user owner. -->
-  <string name="user_cannot_have_work_profiles_contact_admin">This user cannot have work profiles. Contact your admin.</string>
-  <!-- Error string displayed if provisioning was initiated on a device with a Device Owner -->
-  <string name="device_owner_exists">Work profiles can not be setup on a managed device</string>
-  <!-- Error string displayed if maximum user limit is reached -->
-  <string name="too_many_users_on_device_remove_user_try_again">There may be too many users on this device. Remove a user, then try again.</string>
+  <!-- Title of an error dialog that appears when a user tries to set up a work profile. In this case, the work profile can't be added because one already exists and can't be replaced, or it isn't supported by the device or the IT admin. -->
+  <string name="cant_replace_or_remove_work_profile">Can\'t replace or remove work profile</string>
+  <!-- Message of an error dialog that appears when a user tries to set up a work profile. In this case, the work profile can't be added because one already exists and can't be replaced, or it isn't supported by the device or the IT admin. -->
+  <string name="work_profile_cant_be_added_contact_admin">A work profile can’t be added to this device. If you have questions, contact your admin.</string>
   <!-- Error string displayed if the selected launcher doesn't support work profiles. -->
   <string name="change_device_launcher">Change device launcher</string>
   <!-- Error string displayed if the selected launcher doesn't support work profiles. -->
@@ -136,7 +132,7 @@
   <string name="default_owned_device_username">User of work device</string>
 
   <!-- Title of the work device setup screen. [CHAR LIMIT=NONE] -->
-  <string name="setup_work_device">Set up work device</string>
+  <string name="setup_work_device">Setting up work device\u2026</string>
   <!-- Progress text indicating that the setup data is processed. [CHAR LIMIT=45] -->
   <string name="progress_data_process">Processing setup data\u2026</string>
   <!-- Progress text indicating that wifi is set up. [CHAR LIMIT=45] -->
@@ -324,7 +320,7 @@
   <!-- [CHAR_LIMIT=NONE] Format to put together two items in a list. -->
   <string name="join_two_items"><xliff:g id="first_item">%1$s</xliff:g> and <xliff:g id="second_item">%2$s</xliff:g></string>
   <!-- [CHAR_LIMIT=NONE] Format to put the last item at the end of a series of 3 or more items in a list -->
-  <string name="join_many_items_last"><xliff:g id="all_but_last_item">%1$s</xliff:g> and <xliff:g id="last_item">%2$s</xliff:g></string>
+  <string name="join_many_items_last"><xliff:g id="all_but_last_item">%1$s</xliff:g>, and <xliff:g id="last_item">%2$s</xliff:g></string>
   <!-- [CHAR_LIMIT=NONE] Format to put the first item at the start of a series of 3 or more items in a list -->
   <string name="join_many_items_first"><xliff:g id="first_item">%1$s</xliff:g>, <xliff:g id="all_but_first_and_last_item">%2$s</xliff:g></string>
   <!-- [CHAR_LIMIT=NONE] Format to put the middle items together in a series of 4 or more items in a list -->

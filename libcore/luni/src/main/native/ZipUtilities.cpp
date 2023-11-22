@@ -17,7 +17,8 @@
 
 #include <memory>
 
-#include "JniConstants.h"
+#include <nativehelper/JniConstants.h>
+
 #include "JniException.h"
 #include "ZipUtilities.h"
 

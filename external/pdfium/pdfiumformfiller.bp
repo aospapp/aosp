@@ -1,0 +1,32 @@
+cc_library_static {
+    name: "libpdfiumformfiller",
+    defaults: ["pdfium-defaults"],
+
+    cflags: [
+        "-DOPJ_STATIC",
+        "-DV8_DEPRECATION_WARNINGS",
+        "-D_CRT_SECURE_NO_WARNINGS",
+
+        // Mask some warnings. These are benign, but we probably want to fix them
+        // upstream at some point.
+        "-Wno-sign-compare",
+        "-Wno-unused-parameter",
+    ],
+
+    srcs: [
+        "fpdfsdk/formfiller/cba_fontmap.cpp",
+        "fpdfsdk/formfiller/cffl_checkbox.cpp",
+        "fpdfsdk/formfiller/cffl_combobox.cpp",
+        "fpdfsdk/formfiller/cffl_formfiller.cpp",
+        "fpdfsdk/formfiller/cffl_interactiveformfiller.cpp",
+        "fpdfsdk/formfiller/cffl_listbox.cpp",
+        "fpdfsdk/formfiller/cffl_pushbutton.cpp",
+        "fpdfsdk/formfiller/cffl_radiobutton.cpp",
+        "fpdfsdk/formfiller/cffl_textfield.cpp",
+    ],
+
+    include_dirs: [
+        "external/freetype/include",
+        "external/freetype/include/freetype",
+    ],
+}

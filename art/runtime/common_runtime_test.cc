@@ -20,30 +20,30 @@
 #include <dirent.h>
 #include <dlfcn.h>
 #include <fcntl.h>
-#include <ScopedLocalRef.h>
+#include "nativehelper/ScopedLocalRef.h"
 #include <stdlib.h>
 
 #include "../../external/icu/icu4c/source/common/unicode/uvernum.h"
 #include "android-base/stringprintf.h"
 
 #include "art_field-inl.h"
-#include "base/macros.h"
 #include "base/logging.h"
+#include "base/macros.h"
 #include "base/stl_util.h"
 #include "base/unix_file/fd_file.h"
 #include "class_linker.h"
 #include "compiler_callbacks.h"
 #include "dex_file-inl.h"
-#include "gc_root-inl.h"
 #include "gc/heap.h"
+#include "gc_root-inl.h"
 #include "gtest/gtest.h"
 #include "handle_scope-inl.h"
 #include "interpreter/unstarted_runtime.h"
 #include "java_vm_ext.h"
 #include "jni_internal.h"
+#include "mem_map.h"
 #include "mirror/class-inl.h"
 #include "mirror/class_loader.h"
-#include "mem_map.h"
 #include "native/dalvik_system_DexFile.h"
 #include "noop_compiler_callbacks.h"
 #include "os.h"
@@ -59,7 +59,7 @@ int main(int argc, char **argv) {
   // everything else. In case you want to see all messages, comment out the line.
   setenv("ANDROID_LOG_TAGS", "*:e", 1);
 
-  art::InitLogging(argv, art::Runtime::Aborter);
+  art::InitLogging(argv, art::Runtime::Abort);
   LOG(INFO) << "Running main() from common_runtime_test.cc...";
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
@@ -404,6 +404,9 @@ void CommonRuntimeTestImpl::SetUp() {
   options.push_back(std::make_pair("-Xcheck:jni", nullptr));
   options.push_back(std::make_pair(min_heap_string, nullptr));
   options.push_back(std::make_pair(max_heap_string, nullptr));
+  options.push_back(std::make_pair("-XX:SlowDebug=true", nullptr));
+  static bool gSlowDebugTestFlag = false;
+  RegisterRuntimeDebugFlag(&gSlowDebugTestFlag);
 
   callbacks_.reset(new NoopCompilerCallbacks());
 
@@ -422,7 +425,6 @@ void CommonRuntimeTestImpl::SetUp() {
   PostRuntimeCreate();
   runtime_.reset(Runtime::Current());
   class_linker_ = runtime_->GetClassLinker();
-  class_linker_->FixupDexCaches(runtime_->GetResolutionMethod());
 
   // Runtime::Create acquired the mutator_lock_ that is normally given away when we
   // Runtime::Start, give it away now and then switch to a more managable ScopedObjectAccess.
@@ -434,6 +436,9 @@ void CommonRuntimeTestImpl::SetUp() {
   java_lang_dex_file_ = boot_class_path_[0];
 
   FinalizeSetup();
+
+  // Ensure that we're really running with debug checks enabled.
+  CHECK(gSlowDebugTestFlag);
 }
 
 void CommonRuntimeTestImpl::FinalizeSetup() {
@@ -460,7 +465,7 @@ void CommonRuntimeTestImpl::FinalizeSetup() {
   runtime_->GetHeap()->SetMinIntervalHomogeneousSpaceCompactionByOom(0U);
 }
 
-void CommonRuntimeTestImpl::ClearDirectory(const char* dirpath) {
+void CommonRuntimeTestImpl::ClearDirectory(const char* dirpath, bool recursive) {
   ASSERT_TRUE(dirpath != nullptr);
   DIR* dir = opendir(dirpath);
   ASSERT_TRUE(dir != nullptr);
@@ -476,9 +481,11 @@ void CommonRuntimeTestImpl::ClearDirectory(const char* dirpath) {
     int stat_result = lstat(filename.c_str(), &s);
     ASSERT_EQ(0, stat_result) << "unable to stat " << filename;
     if (S_ISDIR(s.st_mode)) {
-      ClearDirectory(filename.c_str());
-      int rmdir_result = rmdir(filename.c_str());
-      ASSERT_EQ(0, rmdir_result) << filename;
+      if (recursive) {
+        ClearDirectory(filename.c_str());
+        int rmdir_result = rmdir(filename.c_str());
+        ASSERT_EQ(0, rmdir_result) << filename;
+      }
     } else {
       int unlink_result = unlink(filename.c_str());
       ASSERT_EQ(0, unlink_result) << filename;
@@ -581,18 +588,24 @@ std::unique_ptr<const DexFile> CommonRuntimeTestImpl::OpenTestDexFile(const char
 }
 
 std::vector<const DexFile*> CommonRuntimeTestImpl::GetDexFiles(jobject jclass_loader) {
-  std::vector<const DexFile*> ret;
-
   ScopedObjectAccess soa(Thread::Current());
 
-  StackHandleScope<2> hs(soa.Self());
+  StackHandleScope<1> hs(soa.Self());
   Handle<mirror::ClassLoader> class_loader = hs.NewHandle(
       soa.Decode<mirror::ClassLoader>(jclass_loader));
+  return GetDexFiles(soa, class_loader);
+}
 
-  DCHECK_EQ(class_loader->GetClass(),
-            soa.Decode<mirror::Class>(WellKnownClasses::dalvik_system_PathClassLoader));
-  DCHECK_EQ(class_loader->GetParent()->GetClass(),
-            soa.Decode<mirror::Class>(WellKnownClasses::java_lang_BootClassLoader));
+std::vector<const DexFile*> CommonRuntimeTestImpl::GetDexFiles(
+    ScopedObjectAccess& soa,
+    Handle<mirror::ClassLoader> class_loader) {
+  std::vector<const DexFile*> ret;
+
+  DCHECK(
+      (class_loader->GetClass() ==
+          soa.Decode<mirror::Class>(WellKnownClasses::dalvik_system_PathClassLoader)) ||
+      (class_loader->GetClass() ==
+          soa.Decode<mirror::Class>(WellKnownClasses::dalvik_system_DelegateLastClassLoader)));
 
   // The class loader is a PathClassLoader which inherits from BaseDexClassLoader.
   // We need to get the DexPathList and loop through it.
@@ -610,6 +623,7 @@ std::vector<const DexFile*> CommonRuntimeTestImpl::GetDexFiles(jobject jclass_lo
     // Loop through each dalvik.system.DexPathList$Element's dalvik.system.DexFile and look
     // at the mCookie which is a DexFile vector.
     if (dex_elements_obj != nullptr) {
+      StackHandleScope<1> hs(soa.Self());
       Handle<mirror::ObjectArray<mirror::Object>> dex_elements =
           hs.NewHandle(dex_elements_obj->AsObjectArray<mirror::Object>());
       for (int32_t i = 0; i < dex_elements->GetLength(); ++i) {
@@ -672,19 +686,66 @@ jobject CommonRuntimeTestImpl::LoadMultiDex(const char* first_dex_name,
 }
 
 jobject CommonRuntimeTestImpl::LoadDex(const char* dex_name) {
-  std::vector<std::unique_ptr<const DexFile>> dex_files = OpenTestDexFiles(dex_name);
+  jobject class_loader = LoadDexInPathClassLoader(dex_name, nullptr);
+  Thread::Current()->SetClassLoaderOverride(class_loader);
+  return class_loader;
+}
+
+jobject CommonRuntimeTestImpl::LoadDexInWellKnownClassLoader(const std::string& dex_name,
+                                                             jclass loader_class,
+                                                             jobject parent_loader) {
+  std::vector<std::unique_ptr<const DexFile>> dex_files = OpenTestDexFiles(dex_name.c_str());
   std::vector<const DexFile*> class_path;
   CHECK_NE(0U, dex_files.size());
   for (auto& dex_file : dex_files) {
     class_path.push_back(dex_file.get());
     loaded_dex_files_.push_back(std::move(dex_file));
   }
-
   Thread* self = Thread::Current();
-  jobject class_loader = Runtime::Current()->GetClassLinker()->CreatePathClassLoader(self,
-                                                                                     class_path);
-  self->SetClassLoaderOverride(class_loader);
-  return class_loader;
+  ScopedObjectAccess soa(self);
+
+  jobject result = Runtime::Current()->GetClassLinker()->CreateWellKnownClassLoader(
+      self,
+      class_path,
+      loader_class,
+      parent_loader);
+
+  {
+    // Verify we build the correct chain.
+
+    ObjPtr<mirror::ClassLoader> actual_class_loader = soa.Decode<mirror::ClassLoader>(result);
+    // Verify that the result has the correct class.
+    CHECK_EQ(soa.Decode<mirror::Class>(loader_class), actual_class_loader->GetClass());
+    // Verify that the parent is not null. The boot class loader will be set up as a
+    // proper object.
+    ObjPtr<mirror::ClassLoader> actual_parent(actual_class_loader->GetParent());
+    CHECK(actual_parent != nullptr);
+
+    if (parent_loader != nullptr) {
+      // We were given a parent. Verify that it's what we expect.
+      ObjPtr<mirror::ClassLoader> expected_parent = soa.Decode<mirror::ClassLoader>(parent_loader);
+      CHECK_EQ(expected_parent, actual_parent);
+    } else {
+      // No parent given. The parent must be the BootClassLoader.
+      CHECK(Runtime::Current()->GetClassLinker()->IsBootClassLoader(soa, actual_parent));
+    }
+  }
+
+  return result;
+}
+
+jobject CommonRuntimeTestImpl::LoadDexInPathClassLoader(const std::string& dex_name,
+                                                        jobject parent_loader) {
+  return LoadDexInWellKnownClassLoader(dex_name,
+                                       WellKnownClasses::dalvik_system_PathClassLoader,
+                                       parent_loader);
+}
+
+jobject CommonRuntimeTestImpl::LoadDexInDelegateLastClassLoader(const std::string& dex_name,
+                                                                jobject parent_loader) {
+  return LoadDexInWellKnownClassLoader(dex_name,
+                                       WellKnownClasses::dalvik_system_DelegateLastClassLoader,
+                                       parent_loader);
 }
 
 std::string CommonRuntimeTestImpl::GetCoreFileLocation(const char* suffix) {
@@ -700,6 +761,28 @@ std::string CommonRuntimeTestImpl::GetCoreFileLocation(const char* suffix) {
   }
 
   return location;
+}
+
+std::string CommonRuntimeTestImpl::CreateClassPath(
+    const std::vector<std::unique_ptr<const DexFile>>& dex_files) {
+  CHECK(!dex_files.empty());
+  std::string classpath = dex_files[0]->GetLocation();
+  for (size_t i = 1; i < dex_files.size(); i++) {
+    classpath += ":" + dex_files[i]->GetLocation();
+  }
+  return classpath;
+}
+
+std::string CommonRuntimeTestImpl::CreateClassPathWithChecksums(
+    const std::vector<std::unique_ptr<const DexFile>>& dex_files) {
+  CHECK(!dex_files.empty());
+  std::string classpath = dex_files[0]->GetLocation() + "*" +
+      std::to_string(dex_files[0]->GetLocationChecksum());
+  for (size_t i = 1; i < dex_files.size(); i++) {
+    classpath += ":" + dex_files[i]->GetLocation() + "*" +
+        std::to_string(dex_files[i]->GetLocationChecksum());
+  }
+  return classpath;
 }
 
 CheckJniAbortCatcher::CheckJniAbortCatcher() : vm_(Runtime::Current()->GetJavaVM()) {
@@ -728,13 +811,3 @@ void CheckJniAbortCatcher::Hook(void* data, const std::string& reason) {
 }
 
 }  // namespace art
-
-namespace std {
-
-template <typename T>
-std::ostream& operator<<(std::ostream& os, const std::vector<T>& rhs) {
-os << ::art::ToString(rhs);
-return os;
-}
-
-}  // namespace std

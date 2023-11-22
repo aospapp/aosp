@@ -108,7 +108,13 @@ static void setCompileArguments(std::vector<const char*>* args,
         // Only load additional libraries for compiles that don't use
         // the debug context.
         if (bccPluginName && strlen(bccPluginName) > 0) {
+#ifdef __ANDROID__
+            // For Android, -plugin option must be used in order to load the
+            // vendor plugin from the sphal namespace.
+            args->push_back("-plugin");
+#else
             args->push_back("-load");
+#endif
             args->push_back(bccPluginName);
         }
     }
@@ -156,6 +162,7 @@ static bool compileBitcode(const std::string &bcFileName,
 // reinstalled, which would already clear the code_cache/ directory.
 bool isChecksumNeeded(const char *cacheDir) {
     if ((::strcmp(SYSLIBPATH, cacheDir) == 0) ||
+        (::strcmp(SYSLIBPATH_VNDK, cacheDir) == 0) ||
         (::strcmp(SYSLIBPATH_VENDOR, cacheDir) == 0))
         return false;
     char buf[PROP_VALUE_MAX];
@@ -447,6 +454,9 @@ const char* RsdCpuScriptImpl::findCoreLib(const bcinfo::MetadataExtractor& ME, c
 
     // If we're debugging, use the debug library.
     if (mCtx->getContext()->getContextType() == RS_CONTEXT_TYPE_DEBUG) {
+        if (ME.hasDebugInfo()) {
+            return SYSLIBPATH_BC"/libclcore_debug_g.bc";
+        }
         return SYSLIBPATH_BC"/libclcore_debug.bc";
     }
 

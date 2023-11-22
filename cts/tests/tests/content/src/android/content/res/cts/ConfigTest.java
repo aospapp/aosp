@@ -1179,7 +1179,7 @@ public class ConfigTest extends AndroidTestCase {
         checkValue(res, R.configVarying.bag,
                 R.styleable.TestConfig, new String[]{"bag dpad 63x57"});
     }
-    
+
     @MediumTest
     public void testVersions() {
         // Check that we get the most recent resources that are <= our

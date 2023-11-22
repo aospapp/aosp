@@ -10,6 +10,7 @@ from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import file_utils
 from autotest_lib.client.common_lib.cros import chrome
+from autotest_lib.client.cros.video import helper_logger
 
 
 # Chrome flags to use fake camera and skip camera permission.
@@ -86,7 +87,7 @@ class video_ChromeRTCHWEncodeUsed(test.test):
                     sleep_interval=1)
             _histogram_success(histogram, bucket)
 
-
+    @helper_logger.video_log_wrapper
     def run_once(self, arc_mode=None):
         # Download test video.
         url = DOWNLOAD_BASE + VIDEO_NAME
@@ -95,6 +96,7 @@ class video_ChromeRTCHWEncodeUsed(test.test):
 
         # Start chrome with test flags.
         EXTRA_BROWSER_ARGS.append(FAKE_FILE_ARG % local_path)
+        EXTRA_BROWSER_ARGS.append(helper_logger.chrome_vmodule_flag())
         with chrome.Chrome(extra_browser_args=EXTRA_BROWSER_ARGS,
                            arc_mode=arc_mode,
                            init_network_controller=True) as cr:

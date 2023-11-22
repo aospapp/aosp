@@ -16,6 +16,7 @@
 
 package android.system.helpers;
 
+import android.app.Instrumentation;
 import android.app.KeyguardManager;
 import android.content.Context;
 import android.provider.Settings;
@@ -25,6 +26,9 @@ import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
 import android.system.helpers.ActivityHelper;
+import android.system.helpers.DeviceHelper;
+import android.graphics.Point;
+import android.graphics.Rect;
 
 import junit.framework.Assert;
 
@@ -40,12 +44,18 @@ public class LockscreenHelper {
     public static final String CAMERA2_PACKAGE = "com.android.camera2";
     public static final String CAMERA_PACKAGE = "com.google.android.GoogleCamera";
     public static final String MODE_PIN = "PIN";
+    public static final String MODE_PASSWORD = "Password";
+    public static final String MODE_PATTERN = "Pattern";
     private static final int SWIPE_MARGIN = 5;
+    private static final int SWIPE_MARGIN_BOTTOM = 100;
     private static final int DEFAULT_FLING_STEPS = 5;
     private static final int DEFAULT_SCROLL_STEPS = 15;
-
+    private static final String PIN_ENTRY = "com.android.systemui:id/pinEntry";
     private static final String SET_PIN_COMMAND = "locksettings set-pin %s";
+    private static final String SET_PASSWORD_COMMAND = "locksettings set-password %s";
+    private static final String SET_PATTERN_COMMAND = "locksettings set-pattern %s";
     private static final String CLEAR_COMMAND = "locksettings clear --old %s";
+    private static final String HOTSEAT = "hotseat";
 
     private static LockscreenHelper sInstance = null;
     private Context mContext = null;
@@ -62,7 +72,6 @@ public class LockscreenHelper {
         mCommandsHelper = CommandsHelper.getInstance(InstrumentationRegistry.getInstrumentation());
         mDeviceHelper = DeviceHelper.getInstance();
         mIsRyuDevice = mDeviceHelper.isRyuDevice();
-
     }
 
     public static LockscreenHelper getInstance() {
@@ -70,6 +79,10 @@ public class LockscreenHelper {
             sInstance = new LockscreenHelper();
         }
         return sInstance;
+    }
+
+    public String getLauncherPackage() {
+        return mDevice.getLauncherPackageName();
     }
 
     /**
@@ -94,8 +107,25 @@ public class LockscreenHelper {
      * @param mode indicate if its password or PIN
      * @throws InterruptedException
      */
-    public void setScreenLock(String pwd, String mode, boolean mIsNexusDevice) throws InterruptedException {
-        navigateToScreenLock();
+    public void setScreenLock(String pwd, String mode, boolean mIsNexusDevice)
+            throws InterruptedException {
+        enterScreenLockOnce(pwd, mode, mIsNexusDevice);
+        Thread.sleep(LONG_TIMEOUT);
+        // Re-enter password on confirmation screen
+        UiObject2 pinField = mDevice.wait(Until.findObject(By.clazz(EDIT_TEXT_CLASS_NAME)),
+                LONG_TIMEOUT);
+        pinField.setText(pwd);
+        Thread.sleep(LONG_TIMEOUT);
+        mDevice.wait(Until.findObject(By.text("OK")), LONG_TIMEOUT).click();
+    }
+
+    /**
+     * Enters the screen lock once on the setting screen
+     * @param pwd text of Password or Pin for lockscreen
+     * @param mode indicate if its password or PIN
+     * @throws InterruptedException
+     */
+    public void enterScreenLockOnce(String pwd, String mode, boolean mIsNexusDevice) {
         mDevice.wait(Until.findObject(By.text(mode)), LONG_TIMEOUT * 2).click();
         // set up Secure start-up page
         if (!mIsNexusDevice) {
@@ -106,9 +136,26 @@ public class LockscreenHelper {
         pinField.setText(pwd);
         // enter and verify password
         mDevice.pressEnter();
-        pinField.setText(pwd);
+    }
+
+    /*
+     * Enters non matching passcodes on both setting screens.
+     * Note: this will fail if you enter matching passcodes.
+     */
+    public void enterNonMatchingPasscodes(String firstPasscode, String secondPasscode,
+            String mode, boolean mIsNexusDevice) throws Exception {
+        enterScreenLockOnce(firstPasscode, mode, mIsNexusDevice);
+        Thread.sleep(LONG_TIMEOUT);
+        UiObject2 pinField = mDevice.wait(Until.findObject(By.clazz(EDIT_TEXT_CLASS_NAME)),
+                LONG_TIMEOUT);
+        pinField.setText(secondPasscode);
         mDevice.pressEnter();
-        mDevice.wait(Until.findObject(By.text("DONE")), LONG_TIMEOUT).click();
+        Thread.sleep(LONG_TIMEOUT);
+        // Verify that error is thrown.
+        UiObject2 dontMatchMessage = mDevice.wait(Until.findObject
+                (By.textContains("don’t match")), LONG_TIMEOUT);
+        Assert.assertNotNull("Error message for passcode confirmation not visible",
+                dontMatchMessage);
     }
 
     /**
@@ -143,11 +190,18 @@ public class LockscreenHelper {
     }
 
     /**
-     * unlock screen
+     * Enter a screen password or PIN.
+     * Pattern not supported, please use
+     * unlockDeviceWithPattern(String) below.
+     * Method assumes the device is on lockscreen.
+     * with keyguard exposed. It will wake
+     * up the device, swipe up to reveal the keyguard,
+     * and enter the password or pin and hit enter.
      * @throws InterruptedException, IOException
      */
     public void unlockScreen(String pwd)
             throws InterruptedException, IOException {
+        // Press menu key (82 is the code for the menu key)
         String command = String.format(" %s %s %s", "input", "keyevent", "82");
         mDevice.executeShellCommand(command);
         Thread.sleep(SHORT_TIMEOUT);
@@ -181,10 +235,16 @@ public class LockscreenHelper {
     /**
      * Sets a screen lock via shell.
      */
-    public void setScreenLockViaShell(String pwd, String mode) throws Exception {
+    public void setScreenLockViaShell(String passcode, String mode) throws Exception {
         switch (mode) {
             case MODE_PIN:
-                mCommandsHelper.executeShellCommand(String.format(SET_PIN_COMMAND, pwd));
+                mCommandsHelper.executeShellCommand(String.format(SET_PIN_COMMAND, passcode));
+                break;
+            case MODE_PASSWORD:
+                mCommandsHelper.executeShellCommand(String.format(SET_PASSWORD_COMMAND, passcode));
+                break;
+            case MODE_PATTERN:
+                mCommandsHelper.executeShellCommand(String.format(SET_PATTERN_COMMAND, passcode));
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported mode: " + mode);
@@ -211,4 +271,176 @@ public class LockscreenHelper {
                 DEFAULT_SCROLL_STEPS);
         mDevice.waitForIdle();
     }
+
+    /*
+     * Takes in the correct code (pin or password), the attempted
+     * code (pin or password), the mode for the code (whether pin or password)
+     * and whether or not they are expected to match.
+     * Asserts that the device has been successfully unlocked (or not).
+     */
+    public void setAndEnterLockscreenCode(String actualCode, String attemptedCode,
+            String mode, boolean shouldMatch) throws Exception {
+        setScreenLockViaShell(actualCode, mode);
+        Thread.sleep(LONG_TIMEOUT);
+        enterLockscreenCode(actualCode, attemptedCode, mode, shouldMatch);
+    }
+
+    public void enterLockscreenCode(String actualCode, String attemptedCode,
+            String mode, boolean shouldMatch) throws Exception {
+        mDevice.pressHome();
+        mDeviceHelper.sleepAndWakeUpDevice();
+        unlockScreen(attemptedCode);
+        checkForHotseatOnHome(shouldMatch);
+        removeScreenLockViaShell(actualCode);
+        Thread.sleep(LONG_TIMEOUT);
+        mDevice.pressHome();
+    }
+
+    /*
+     * Takes in the correct pattern, the attempted pattern,
+     * and whether or not they are expected to match.
+     * Asserts that the device has been successfully unlocked (or not).
+     */
+    public void setAndEnterLockscreenPattern(String actualPattern,
+        String attemptedPattern, boolean shouldMatch) throws Exception {
+        setScreenLockViaShell
+                (actualPattern, LockscreenHelper.MODE_PATTERN);
+        unlockDeviceWithPattern(attemptedPattern);
+        checkForHotseatOnHome(shouldMatch);
+        removeScreenLockViaShell(actualPattern);
+        Thread.sleep(LONG_TIMEOUT);
+        mDevice.pressHome();
+    }
+
+    public void checkForHotseatOnHome(boolean deviceUnlocked)  throws Exception {
+        mDevice.pressHome();
+        Thread.sleep(LONG_TIMEOUT);
+        UiObject2 hotseat = mDevice.findObject(By.res(getLauncherPackage(), HOTSEAT));
+        if (deviceUnlocked) {
+        Assert.assertNotNull("Device not unlocked correctly", hotseat);
+        }
+        else {
+            Assert.assertNull("Device should not be unlocked", hotseat);
+        }
+    }
+
+    /*
+     * The pattern below is always invalid as you need at least
+     * four dots for a valid lock. That action of changing
+     * directions while dragging is unsupported by
+     * uiautomator.
+     */
+    public void enterInvalidPattern() throws Exception {
+        // Get coordinates for left top dot
+        UiObject2 lockPattern = mDevice.wait(Until.findObject
+                (By.res("com.android.systemui:id/lockPatternView")),
+                LONG_TIMEOUT);
+        // Get coordinates for left side dots
+        int xCoordinate =(int) (lockPattern.getVisibleBounds().left +
+                 lockPattern.getVisibleBounds().left*0.16);
+        int y1Coordinate = (int) (lockPattern.getVisibleBounds().top +
+                lockPattern.getVisibleBounds().top*0.16);
+        int y2Coordinate = (int) (lockPattern.getVisibleBounds().bottom -
+                lockPattern.getVisibleBounds().bottom*0.16);
+        // Drag coordinates from one point to another
+        mDevice.swipe(xCoordinate, y1Coordinate, xCoordinate, y2Coordinate, 2);
+    }
+
+    /* Valid pattern unlock attempt
+     * Takes in a contiguous string as input
+     * 1 2 3
+     * 4 5 6
+     * 7 8 9
+     * with each number representing a dot. Eg: "1236"
+     */
+    public void unlockDeviceWithPattern(String unlockPattern) throws Exception {
+        mDeviceHelper.sleepAndWakeUpDevice();
+        unlockScreenSwipeUp();
+        Point[] coordinateArray = new Point[unlockPattern.length()];
+        for (int i=0; i < unlockPattern.length(); i++) {
+            coordinateArray[i] = calculateCoordinatesForPatternDot(unlockPattern.charAt(i),
+                                 "com.android.systemui:id/lockPatternView");
+        }
+        // Note: 50 controls the speed of the pattern drawing.
+        mDevice.swipe(coordinateArray, 50);
+        Thread.sleep(SHORT_TIMEOUT);
+    }
+
+    /* Pattern lock setting attempt
+     * Takes in a contiguous string as input
+     * 1 2 3
+     * 4 5 6
+     * 7 8 9
+     * with each number representing a dot. Eg: "1236"
+     */
+    public void enterPatternLockOnceForSettingLock(String unlockPattern)
+            throws InterruptedException {
+        Point[] coordinateArray = new Point[unlockPattern.length()];
+        for (int i=0; i < unlockPattern.length(); i++) {
+            coordinateArray[i] = calculateCoordinatesForPatternDot(unlockPattern.charAt(i),
+                                 "com.android.settings:id/lockPattern");
+        }
+        // Note: 50 controls the speed of the pattern drawing.
+        mDevice.swipe(coordinateArray, 50);
+        Thread.sleep(SHORT_TIMEOUT);
+    }
+
+    /* Pattern lock setting - this enters and reconfirms pattern to set
+     * using the UI.
+     * Takes in a contiguous string as input
+     * 1 2 3
+     * 4 5 6
+     * 7 8 9
+     * with each number representing a dot. Eg: "1236"
+     */
+    public void setPatternLockSettingLock(String unlockPattern)  throws Exception {
+        // Enter the same pattern twice, once on the initial set
+        // screen and once on the confirmation screen.
+        for (int i=0; i<2; i++) {
+            enterPatternLockOnceForSettingLock(unlockPattern);
+            mDevice.pressEnter();
+        }
+        mDevice.wait(Until.findObject(By.text("DONE")), LONG_TIMEOUT).click();
+    }
+
+    /* Returns screen coordinates for each pattern dot
+     * for the current device
+     * Represented as follows by chars
+     * 1 2 3
+     * 4 5 6
+     * 7 8 9
+     * this is consistent with the set-pattern command
+     * to avoid confusion.
+     */
+    private Point calculateCoordinatesForPatternDot(char dotNumber, String lockPatternResId) {
+        UiObject2 lockPattern = mDevice.wait(Until.findObject
+                (By.res(lockPatternResId)), LONG_TIMEOUT);
+        // Calculate x coordinate
+        int xCoordinate = 0;
+        int deltaX = (int) ((lockPattern.getVisibleBounds().right -
+                lockPattern.getVisibleBounds().left)*0.16);
+        if (dotNumber == '1' || dotNumber == '4' || dotNumber == '7') {
+            xCoordinate = lockPattern.getVisibleBounds().left + deltaX;
+        }
+        else if (dotNumber == '2' || dotNumber == '5' || dotNumber == '8') {
+            xCoordinate = lockPattern.getVisibleCenter().x;
+        }
+        else if (dotNumber == '3' || dotNumber == '6' || dotNumber == '9') {
+            xCoordinate = lockPattern.getVisibleBounds().right - deltaX;
+        }
+        // Calculate y coordinate
+        int yCoordinate = 0;
+        int deltaY = (int) ((lockPattern.getVisibleBounds().bottom -
+                lockPattern.getVisibleBounds().top)*0.16);
+        if (dotNumber == '1' || dotNumber == '2' || dotNumber == '3') {
+            yCoordinate = lockPattern.getVisibleBounds().top + deltaY;
+        }
+        else if (dotNumber == '4' || dotNumber == '5' || dotNumber == '6') {
+            yCoordinate = lockPattern.getVisibleCenter().y;
+        }
+        else if (dotNumber == '7' || dotNumber == '8' || dotNumber == '9') {
+            yCoordinate = lockPattern.getVisibleBounds().bottom - deltaY;
+        }
+        return new Point(xCoordinate, yCoordinate);
+     }
 }

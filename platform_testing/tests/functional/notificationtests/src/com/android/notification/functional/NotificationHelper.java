@@ -16,6 +16,9 @@
 
 package com.android.notification.functional;
 
+import static android.app.NotificationManager.IMPORTANCE_DEFAULT;
+import static android.app.NotificationManager.IMPORTANCE_LOW;
+
 import android.app.Instrumentation;
 import android.app.IntentService;
 import android.app.KeyguardManager;
@@ -27,7 +30,6 @@ import android.app.RemoteInput;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Typeface;
-import android.net.Uri;
 import android.os.Handler;
 import android.os.RemoteException;
 import android.provider.Settings;
@@ -65,6 +67,10 @@ public class NotificationHelper {
     public static final String FIRST_ACTION = "FIRST ACTION";
     public static final String SECOND_ACTION = "SECOND ACTION";
     public static final String CONTENT_TITLE = "THIS IS A NOTIFICATION";
+    private static final String BUZZY_CHANNEL_ID = "com.android.notification.functional.buzzy";
+    private static final String QUIET_CHANNEL_ID = "com.android.notification.functional.quiet";
+    private NotificationChannel mBuzzyChannel;
+    private NotificationChannel mQuietChannel;
 
     private UiDevice mDevice;
     private Instrumentation mInst;
@@ -76,6 +82,9 @@ public class NotificationHelper {
         mInst = inst;
         mNotificationManager = nm;
         mContext = inst.getContext();
+        // create the channels we need
+        mBuzzyChannel = getChannel(true);
+        mQuietChannel = getChannel(false);
     }
 
     public void sleepAndWakeUpDevice() throws RemoteException, InterruptedException {
@@ -126,7 +135,7 @@ public class NotificationHelper {
 
     public boolean removeScreenLock(int pin, String mode) throws Exception {
         navigateToScreenLock();
-        if (new UiObject(new UiSelector().text("Confirm your PIN")).exists()) {
+        if (new UiObject(new UiSelector().text("Re-enter your PIN")).exists()) {
             UiObject pinField = new UiObject(new UiSelector().className(EditText.class.getName()));
             pinField.setText(String.format("%04d", pin));
             mDevice.pressEnter();
@@ -186,7 +195,7 @@ public class NotificationHelper {
                 .setContentText(subtitle)
                 .setContentIntent(pendingIntent)
                 .setVisibility(visibility)
-                .setPriority(Notification.PRIORITY_HIGH)
+                .setChannelId(buzz ? BUZZY_CHANNEL_ID : QUIET_CHANNEL_ID)
                 .addAction(new Notification.Action.Builder(R.drawable.stat_notify_email,
                         FIRST_ACTION, emptyIntent)
                         .build())
@@ -194,9 +203,6 @@ public class NotificationHelper {
                         SECOND_ACTION, emptyIntent)
                         .build())
                 .setAutoCancel(false);
-        if (buzz) {
-            notification.setDefaults(Notification.DEFAULT_VIBRATE);
-        }
         mNotificationManager.notify(id, notification.build());
         Thread.sleep(LONG_TIMEOUT);
     }
@@ -359,6 +365,26 @@ public class NotificationHelper {
 
     public NotificationChannel getDefaultChannel() {
         return mNotificationManager.getNotificationChannel(NotificationChannel.DEFAULT_CHANNEL_ID);
+    }
+
+    public NotificationChannel getChannel(boolean buzz) {
+        String id = (buzz ? BUZZY_CHANNEL_ID : QUIET_CHANNEL_ID);
+        String name = (buzz ? "This channel is buzzy" : "This channel is quiet");
+        int importance = (buzz ? IMPORTANCE_DEFAULT : IMPORTANCE_LOW);
+
+        NotificationChannel channel = (buzz ? mBuzzyChannel : mQuietChannel);
+        if (channel == null) {
+            channel = mNotificationManager.getNotificationChannel(id);
+        }
+        if (channel == null){
+            channel = new NotificationChannel(id, name, importance);
+            if (buzz) {
+                channel.enableVibration(true);
+                channel.setSound(null, null);
+            }
+            mNotificationManager.createNotificationChannel(channel);
+        }
+        return channel;
     }
 
     public static class ToastService extends IntentService {

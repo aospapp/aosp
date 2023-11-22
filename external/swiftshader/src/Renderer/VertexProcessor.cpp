@@ -191,7 +191,7 @@ namespace sw
 		}
 	}
 
-	void VertexProcessor::setTransformFeedbackBuffer(int index, sw::Resource* buffer, int offset, unsigned int reg, unsigned int row, unsigned int col, size_t stride)
+	void VertexProcessor::setTransformFeedbackBuffer(int index, sw::Resource* buffer, int offset, unsigned int reg, unsigned int row, unsigned int col, unsigned int stride)
 	{
 		transformFeedbackInfo[index].buffer = buffer;
 		transformFeedbackInfo[index].offset = offset;
@@ -602,6 +602,15 @@ namespace sw
 		else ASSERT(false);
 	}
 
+	void VertexProcessor::setHighPrecisionFiltering(unsigned int sampler, bool highPrecisionFiltering)
+	{
+		if(sampler < TEXTURE_IMAGE_UNITS)
+		{
+			context->sampler[sampler].setHighPrecisionFiltering(highPrecisionFiltering);
+		}
+		else ASSERT(false);
+	}
+
 	void VertexProcessor::setSwizzleR(unsigned int sampler, SwizzleType swizzleR)
 	{
 		if(sampler < VERTEX_TEXTURE_IMAGE_UNITS)
@@ -634,6 +643,42 @@ namespace sw
 		if(sampler < VERTEX_TEXTURE_IMAGE_UNITS)
 		{
 			context->sampler[TEXTURE_IMAGE_UNITS + sampler].setSwizzleA(swizzleA);
+		}
+		else ASSERT(false);
+	}
+
+	void VertexProcessor::setBaseLevel(unsigned int sampler, int baseLevel)
+	{
+		if(sampler < VERTEX_TEXTURE_IMAGE_UNITS)
+		{
+			context->sampler[TEXTURE_IMAGE_UNITS + sampler].setBaseLevel(baseLevel);
+		}
+		else ASSERT(false);
+	}
+
+	void VertexProcessor::setMaxLevel(unsigned int sampler, int maxLevel)
+	{
+		if(sampler < VERTEX_TEXTURE_IMAGE_UNITS)
+		{
+			context->sampler[TEXTURE_IMAGE_UNITS + sampler].setMaxLevel(maxLevel);
+		}
+		else ASSERT(false);
+	}
+
+	void VertexProcessor::setMinLod(unsigned int sampler, float minLod)
+	{
+		if(sampler < VERTEX_TEXTURE_IMAGE_UNITS)
+		{
+			context->sampler[TEXTURE_IMAGE_UNITS + sampler].setMinLod(minLod);
+		}
+		else ASSERT(false);
+	}
+
+	void VertexProcessor::setMaxLod(unsigned int sampler, float maxLod)
+	{
+		if(sampler < VERTEX_TEXTURE_IMAGE_UNITS)
+		{
+			context->sampler[TEXTURE_IMAGE_UNITS + sampler].setMaxLod(maxLod);
 		}
 		else ASSERT(false);
 	}
@@ -873,8 +918,8 @@ namespace sw
 
 		state.fixedFunction = !context->vertexShader && context->pixelShaderVersion() < 0x0300;
 		state.textureSampling = context->vertexShader ? context->vertexShader->containsTextureSampling() : false;
-		state.positionRegister = context->vertexShader ? context->vertexShader->positionRegister : Pos;
-		state.pointSizeRegister = context->vertexShader ? context->vertexShader->pointSizeRegister : Pts;
+		state.positionRegister = context->vertexShader ? context->vertexShader->getPositionRegister() : Pos;
+		state.pointSizeRegister = context->vertexShader ? context->vertexShader->getPointSizeRegister() : Pts;
 
 		state.vertexBlendMatrixCount = context->vertexBlendMatrixCountActive();
 		state.indexedVertexBlendEnable = context->indexedVertexBlendActive();
@@ -922,6 +967,7 @@ namespace sw
 			state.input[i].type = context->input[i].type;
 			state.input[i].count = context->input[i].count;
 			state.input[i].normalized = context->input[i].normalized;
+			state.input[i].attribType = context->vertexShader ? context->vertexShader->getAttribType(i) : VertexShader::ATTRIBTYPE_FLOAT;
 		}
 
 		if(!context->vertexShader)
@@ -949,10 +995,10 @@ namespace sw
 		{
 			for(int i = 0; i < MAX_VERTEX_OUTPUTS; i++)
 			{
-				state.output[i].xWrite = context->vertexShader->output[i][0].active();
-				state.output[i].yWrite = context->vertexShader->output[i][1].active();
-				state.output[i].zWrite = context->vertexShader->output[i][2].active();
-				state.output[i].wWrite = context->vertexShader->output[i][3].active();
+				state.output[i].xWrite = context->vertexShader->getOutput(i, 0).active();
+				state.output[i].yWrite = context->vertexShader->getOutput(i, 1).active();
+				state.output[i].zWrite = context->vertexShader->getOutput(i, 2).active();
+				state.output[i].wWrite = context->vertexShader->getOutput(i, 3).active();
 			}
 		}
 		else if(!context->preTransformed || context->pixelShaderVersion() < 0x0300)
@@ -1031,7 +1077,7 @@ namespace sw
 
 		if(!routine)   // Create one
 		{
-			VertexRoutine *generator = 0;
+			VertexRoutine *generator = nullptr;
 
 			if(state.fixedFunction)
 			{

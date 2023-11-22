@@ -16,12 +16,12 @@
 
 #define LOG_TAG "NativeBN"
 
-#include "JNIHelp.h"
-#include "JniConstants.h"
 #include "JniException.h"
-#include "ScopedPrimitiveArray.h"
-#include "ScopedUtfChars.h"
 #include "jni.h"
+#include <nativehelper/JNIHelp.h>
+#include <nativehelper/JniConstants.h>
+#include <nativehelper/ScopedPrimitiveArray.h>
+#include <nativehelper/ScopedUtfChars.h>
 #include <openssl/bn.h>
 #include <openssl/crypto.h>
 #include <openssl/err.h>

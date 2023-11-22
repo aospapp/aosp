@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -21,6 +21,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Arrays;
@@ -35,6 +36,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 import org.jacoco.core.data.ExecutionDataStore;
+import org.jacoco.core.internal.Java9Support;
 import org.jacoco.core.internal.data.CRC64;
 import org.jacoco.core.test.TargetLoader;
 import org.junit.Before;
@@ -90,8 +92,9 @@ public class AnalyzerTest {
 
 	@Test
 	public void testAnalyzeClassIdMatch() throws IOException {
-		final byte[] bytes = TargetLoader
-				.getClassDataAsBytes(AnalyzerTest.class);
+		// class IDs are always calculated after downgrade of the version
+		final byte[] bytes = Java9Support.downgradeIfRequired(
+				TargetLoader.getClassDataAsBytes(AnalyzerTest.class));
 		executionData.get(Long.valueOf(CRC64.checksum(bytes)),
 				"org/jacoco/core/analysis/AnalyzerTest", 200);
 		analyzer.analyzeClass(bytes, "Test");
@@ -115,10 +118,10 @@ public class AnalyzerTest {
 				.getClassDataAsBytes(AnalyzerTest.class);
 		brokenclass[10] = 0x23;
 		try {
-			analyzer.analyzeClass(brokenclass, "Broken");
-			fail();
+			analyzer.analyzeClass(brokenclass, "Broken.class");
+			fail("expected exception");
 		} catch (IOException e) {
-			assertEquals("Error while analyzing class Broken.", e.getMessage());
+			assertEquals("Error while analyzing Broken.class.", e.getMessage());
 		}
 	}
 
@@ -155,6 +158,40 @@ public class AnalyzerTest {
 		assertEquals(0, count);
 	}
 
+	/**
+	 * Triggers exception in
+	 * {@link Analyzer#analyzeAll(java.io.InputStream, String)}.
+	 */
+	@Test
+	public void testAnalyzeAll_Broken() throws IOException {
+		try {
+			analyzer.analyzeAll(new InputStream() {
+				@Override
+				public int read() throws IOException {
+					throw new IOException();
+				}
+			}, "Test");
+			fail("expected exception");
+		} catch (IOException e) {
+			assertEquals("Error while analyzing Test.", e.getMessage());
+		}
+	}
+
+	/**
+	 * Triggers exception in
+	 * {@link Analyzer#analyzeGzip(java.io.InputStream, String)}.
+	 */
+	@Test
+	public void testAnalyzeAll_BrokenGZ() {
+		final byte[] buffer = new byte[] { 0x1f, (byte) 0x8b, 0x00, 0x00 };
+		try {
+			analyzer.analyzeAll(new ByteArrayInputStream(buffer), "Test.gz");
+			fail("expected exception");
+		} catch (IOException e) {
+			assertEquals("Error while analyzing Test.gz.", e.getMessage());
+		}
+	}
+
 	@Test
 	public void testAnalyzeAll_Pack200() throws IOException {
 		final ByteArrayOutputStream zipbuffer = new ByteArrayOutputStream();
@@ -175,6 +212,23 @@ public class AnalyzerTest {
 				pack200buffer.toByteArray()), "Test");
 		assertEquals(1, count);
 		assertClasses("org/jacoco/core/analysis/AnalyzerTest");
+	}
+
+	/**
+	 * Triggers exception in
+	 * {@link Analyzer#analyzePack200(java.io.InputStream, String)}.
+	 */
+	@Test
+	public void testAnalyzeAll_BrokenPack200() {
+		final byte[] buffer = new byte[] { (byte) 0xca, (byte) 0xfe,
+				(byte) 0xd0, 0x0d };
+		try {
+			analyzer.analyzeAll(new ByteArrayInputStream(buffer),
+					"Test.pack200");
+			fail("expected exception");
+		} catch (IOException e) {
+			assertEquals("Error while analyzing Test.pack200.", e.getMessage());
+		}
 	}
 
 	@Test
@@ -204,17 +258,56 @@ public class AnalyzerTest {
 				"org/jacoco/core/analysis/AnalyzerTest");
 	}
 
-	@Test(expected = IOException.class)
-	public void testAnalyzeAll_BrokenZip() throws IOException {
+	/**
+	 * Triggers exception in
+	 * {@link Analyzer#nextEntry(java.util.zip.ZipInputStream, String)}.
+	 */
+	@Test
+	public void testAnalyzeAll_BrokenZip() {
+		final byte[] buffer = new byte[30];
+		buffer[0] = 0x50;
+		buffer[1] = 0x4b;
+		buffer[2] = 0x03;
+		buffer[3] = 0x04;
+		Arrays.fill(buffer, 4, buffer.length, (byte) 0x42);
+		try {
+			analyzer.analyzeAll(new ByteArrayInputStream(buffer), "Test.zip");
+			fail("expected exception");
+		} catch (IOException e) {
+			assertEquals("Error while analyzing Test.zip.", e.getMessage());
+		}
+	}
+
+	/**
+	 * With JDK 5 triggers exception in
+	 * {@link Analyzer#nextEntry(ZipInputStream, String)},
+	 * i.e. message will contain only "broken.zip".
+	 *
+	 * With JDK > 5 triggers exception in
+	 * {@link Analyzer#analyzeAll(java.io.InputStream, String)},
+	 * i.e. message will contain only "broken.zip@brokenentry.txt".
+	 */
+	@Test
+	public void testAnalyzeAll_BrokenZipEntry() throws IOException {
 		File file = new File(folder.getRoot(), "broken.zip");
 		OutputStream out = new FileOutputStream(file);
 		ZipOutputStream zip = new ZipOutputStream(out);
 		zip.putNextEntry(new ZipEntry("brokenentry.txt"));
 		out.write(0x23); // Unexpected data here
 		zip.close();
-		analyzer.analyzeAll(file);
+		try {
+			analyzer.analyzeAll(file);
+			fail("expected exception");
+		} catch (IOException e) {
+			assertTrue(e.getMessage().startsWith("Error while analyzing"));
+			assertTrue(e.getMessage().contains("broken.zip"));
+		}
 	}
 
+	/**
+	 * Triggers exception in
+	 * {@link Analyzer#analyzeClass(java.io.InputStream, String)}.
+	 */
 	@Test
 	public void testAnalyzeAll_BrokenClassFileInZip() throws IOException {
 		final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
@@ -230,10 +323,10 @@ public class AnalyzerTest {
 		try {
 			analyzer.analyzeAll(new ByteArrayInputStream(buffer.toByteArray()),
 					"test.zip");
-			fail();
+			fail("expected exception");
 		} catch (IOException e) {
 			assertEquals(
-					"Error while analyzing class test.zip@org/jacoco/core/analysis/AnalyzerTest.class.",
+					"Error while analyzing test.zip@org/jacoco/core/analysis/AnalyzerTest.class.",
 					e.getMessage());
 		}
 	}

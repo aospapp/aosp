@@ -211,6 +211,7 @@ typedef enum
     NAN_TLV_TYPE_5G_CHANNEL,
     NAN_TLV_TYPE_DISC_MAC_ADDR_RANDOM_INTERVAL,
     NAN_TLV_TYPE_RANGING_AUTO_RESPONSE_CFG = 4134,
+    NAN_TLV_TYPE_SUBSCRIBE_SID_BEACON = 4135,
     NAN_TLV_TYPE_CONFIG_LAST = 8191,
 
     /* Attributes types */
@@ -347,7 +348,7 @@ typedef struct PACKED
 {
     u16 ttl;
     u16 period;
-    u32 reserved:1;
+    u32 replyIndFlag:1;
     u32 publishType:2;
     u32 txType:1;
     u32 rssiThresholdFlag:1;
@@ -406,6 +407,27 @@ typedef struct PACKED
     u16 reason;
     u16 reserved;
 } NanPublishTerminatedIndMsg, *pNanPublishTerminatedIndMsg;
+
+/* Params for NAN Publish Replied Ind */
+typedef struct PACKED
+{
+  u32  matchHandle;
+} NanPublishRepliedIndParams;
+
+/* NAN Publish Replied Ind */
+typedef struct PACKED
+{
+    NanMsgHeader fwHeader;
+    NanPublishRepliedIndParams publishRepliedIndParams;
+    /*
+     * Excludes TLVs
+     *
+     * Required: MAC Address
+     * Optional: Received RSSI Value
+     *
+     */
+    u8 ptlv[];
+} NanPublishRepliedIndMsg, *pNanPublishRepliedIndMsg;
 
 /* NAN Subscribe Service Req */
 typedef struct PACKED
@@ -940,6 +962,7 @@ typedef struct PACKED
     u32 discBeaconTxFailures;
     u32 amHopCountExpireCount;
     u32 ndpChannelFreq;
+    u32 ndpChannelFreq2;
 } FwNanSyncStats, *pFwNanSyncStats;
 
 /* NAN Misc DE Statistics */
@@ -974,6 +997,7 @@ typedef struct PACKED
   Definition of various NanIndication(events)
 */
 typedef enum {
+    NAN_INDICATION_PUBLISH_REPLIED         =0,
     NAN_INDICATION_PUBLISH_TERMINATED      =1,
     NAN_INDICATION_MATCH                   =2,
     NAN_INDICATION_MATCH_EXPIRED           =3,
@@ -1166,6 +1190,7 @@ typedef enum {
     NDP_I_MGMT_FRAME_CONFIRM_FAILED = 9011,
     NDP_I_END_FAILED = 9012,
     NDP_I_MGMT_FRAME_END_REQUEST_FAILED = 9013,
+    NDP_I_MGMT_FRAME_SECURITY_INSTALL_FAILED = 9014,
 
     /* 9500 onwards vendor specific error codes */
     NDP_I_VENDOR_SPECIFIC_ERROR = 9500
@@ -1234,7 +1259,8 @@ typedef struct PACKED
 */
 void NanErrorTranslation(NanInternalStatusType firmwareErrorRecvd,
                          u32 valueRcvd,
-                         void *pRsp);
+                         void *pRsp,
+                         bool is_ndp_rsp);
 
 #ifdef __cplusplus
 }

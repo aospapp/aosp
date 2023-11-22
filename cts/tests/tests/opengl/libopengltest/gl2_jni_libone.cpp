@@ -135,7 +135,7 @@ extern "C" JNIEXPORT jfloatArray JNICALL Java_android_opengl_cts_GL2JniLibOne_dr
         jclass obj, jint pCategory, jint pSubCategory, jfloatArray color)
 {
     LOGI("Inside draw %d %d", pCategory, pSubCategory);
-    jfloatArray result;
+    jfloatArray result = nullptr;
     if(pCategory == 3){
         if(pSubCategory == 1){
             result = env->NewFloatArray(4);
@@ -143,8 +143,8 @@ extern "C" JNIEXPORT jfloatArray JNICALL Java_android_opengl_cts_GL2JniLibOne_dr
             jfloat *lColor =  env->GetFloatArrayElements(color,0);
 
             float * actualColor = drawColorOne(lColor);
-            for( int i= 0; i < sizeof(actualColor); i++) {
-                LOGI("actualColor[%d] ; %f", i, actualColor[i]);
+            for(unsigned i = 0; i < sizeof(actualColor); i++) {
+                LOGI("actualColor[%u] ; %f", i, actualColor[i]);
             }
             env->SetFloatArrayRegion(result, 0, 4, actualColor);
         }

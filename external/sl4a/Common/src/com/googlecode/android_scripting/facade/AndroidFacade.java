@@ -18,10 +18,12 @@ package com.googlecode.android_scripting.facade;
 
 import android.app.AlertDialog;
 import android.app.Notification;
+import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -37,7 +39,6 @@ import android.os.Looper;
 import android.os.StatFs;
 import android.os.UserHandle;
 import android.os.Vibrator;
-import android.content.ClipboardManager;
 import android.text.InputType;
 import android.text.method.PasswordTransformationMethod;
 import android.widget.EditText;
@@ -56,6 +57,10 @@ import com.googlecode.android_scripting.rpc.RpcDeprecated;
 import com.googlecode.android_scripting.rpc.RpcOptional;
 import com.googlecode.android_scripting.rpc.RpcParameter;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -65,10 +70,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
-
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
 
 /**
  * Some general purpose Android routines.<br>
@@ -95,7 +96,10 @@ public class AndroidFacade extends RpcReceiver {
 
   public interface Resources {
     int getLogo48();
+    int getStringId(String identifier);
   }
+
+  private static final String CHANNEL_ID = "android_facade_channel";
 
   private final Service mService;
   private final Handler mHandler;
@@ -476,13 +480,6 @@ public class AndroidFacade extends RpcReceiver {
     }
   }
 
-  /**
-   * Creates a new AndroidFacade that simplifies the interface to various Android APIs.
-   *
-   * @param service
-   *          is the {@link Context} the APIs will run under
-   */
-
   @Rpc(description = "Put a text string in the clipboard.")
   public void setTextClip(@RpcParameter(name = "text")
                           String text,
@@ -844,12 +841,24 @@ public class AndroidFacade extends RpcReceiver {
     return getInputFromAlertDialog(title, message, true);
   }
 
+  private void createNotificationChannel() {
+    CharSequence name = mService.getString(mResources.getStringId("notification_channel_name"));
+    String description = mService.getString(mResources.getStringId("notification_channel_description"));
+    int importance = NotificationManager.IMPORTANCE_DEFAULT;
+    NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
+    channel.setDescription(description);
+    channel.enableLights(false);
+    channel.enableVibration(false);
+    mNotificationManager.createNotificationChannel(channel);
+  }
+
   @Rpc(description = "Displays a notification that will be canceled when the user clicks on it.")
   public void notify(@RpcParameter(name = "title", description = "title") String title,
       @RpcParameter(name = "message") String message) {
+    createNotificationChannel();
     // This contentIntent is a noop.
     PendingIntent contentIntent = PendingIntent.getService(mService, 0, new Intent(), 0);
-    Notification.Builder builder = new Notification.Builder(mService);
+    Notification.Builder builder = new Notification.Builder(mService, CHANNEL_ID);
     builder.setSmallIcon(mResources.getLogo48())
            .setTicker(message)
            .setWhen(System.currentTimeMillis())

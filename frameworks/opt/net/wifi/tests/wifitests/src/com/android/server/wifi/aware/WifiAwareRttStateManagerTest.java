@@ -74,7 +74,7 @@ public class WifiAwareRttStateManagerTest {
         mTestLooper = new TestLooper();
         BidirectionalAsyncChannelServer server = new BidirectionalAsyncChannelServer(
                 mMockContext, mTestLooper.getLooper(), mMockHandler);
-        when(mMockRttService.getMessenger()).thenReturn(server.getMessenger());
+        when(mMockRttService.getMessenger(null, new int[1])).thenReturn(server.getMessenger());
 
         mDut.startWithRttService(mMockContext, mTestLooper.getLooper(), mMockRttService);
     }

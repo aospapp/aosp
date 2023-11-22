@@ -203,6 +203,8 @@ public class GTestResultParser extends MultiLineReceiver {
         // different needs (parallelism of tests) that the GTest format can't describe well.
         private static final String ALT_OK_MARKER = "[    OK    ]"; // Non GTest format
         private static final String TIMEOUT_MARKER = "[ TIMEOUT  ]"; // Non GTest format
+        // Native test failures: shared library link failure.
+        private static final String LINK_FAILURE_MARKER = "CANNOT LINK EXECUTABLE ";
     }
 
     /**
@@ -255,10 +257,22 @@ public class GTestResultParser extends MultiLineReceiver {
      */
     @Override
     public void processNewLines(String[] lines) {
-        for (String line : lines) {
-            parse(line);
-            // in verbose mode, dump all adb output to log
-            CLog.v(line);
+        if (lines.length != 0 && lines[0].startsWith(Prefixes.LINK_FAILURE_MARKER)) {
+            for (String line : lines) {
+                // in verbose mode, dump all adb output to log
+                CLog.v(line);
+            }
+            for (ITestRunListener listener : mTestListeners) {
+                listener.testRunStarted(mTestRunName, 0);
+                listener.testRunFailed(lines[0]);
+                listener.testRunEnded(0, Collections.emptyMap());
+            }
+        } else {
+            for (String line : lines) {
+                parse(line);
+                // in verbose mode, dump all adb output to log
+                CLog.v(line);
+            }
         }
     }
 

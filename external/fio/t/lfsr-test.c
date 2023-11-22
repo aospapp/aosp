@@ -38,6 +38,8 @@ int main(int argc, char *argv[])
 	void *v = NULL, *v_start;
 	double total, mean;
 
+	arch_init(argv);
+
 	/* Read arguments */
 	switch (argc) {
 		case 5: if (strncmp(argv[4], "verify", 7) == 0)
@@ -78,7 +80,7 @@ int main(int argc, char *argv[])
 		v_size = numbers * sizeof(uint8_t);
 		v = malloc(v_size);
 		memset(v, 0, v_size);
-		printf("\nVerification table is %lf KBs\n", (double)(v_size) / 1024);
+		printf("\nVerification table is %lf KiB\n", (double)(v_size) / 1024);
 	}
 	v_start = v;
 
@@ -122,7 +124,7 @@ int main(int argc, char *argv[])
 	if (verify)
 		printf("(slower due to verification)");
 	printf("\n==============================\n");
-	printf("Elapsed: %lf s\n", total / pow(10,9));
+	printf("Elapsed: %lf s\n", total / pow(10,6));
 	printf("Mean:    %lf us\n", mean);
 
 	free(v_start);

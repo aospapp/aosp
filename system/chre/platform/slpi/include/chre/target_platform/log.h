@@ -17,19 +17,29 @@
 #ifndef CHRE_PLATFORM_SLPI_LOG_H_
 #define CHRE_PLATFORM_SLPI_LOG_H_
 
-// By default, FARF logs with MEDIUM level are compiled out of the binary so we
-// enable them with this define.
+#include "ash/debug.h"
+
+#ifndef __FILENAME__
+#define __FILENAME__ __FILE__
+#endif
+
+#ifndef FARF_MEDIUM
 #define FARF_MEDIUM 1
+#endif
 #include "HAP_farf.h"
 
-// TODO: Implement some more intelligent logging infrastructure. We will most
-// likely use some kind of FastRPC to the host and potentially buffer logs here
-// for a while to avoid chatter (and allow logging without waking the AP if it
-// goes asleep). This just gets the initial logging macros to be supported.
+// TODO: Replace ashLog with FARF and chre::PlatformLogSingleton::get()->log
+//       once it can log without waking up the AP
+#define LOGE(fmt, ...) \
+  ashLog(ASH_SOURCE_CHRE, ASH_LOG_ERROR, fmt, ##__VA_ARGS__)
 
-#define LOGE(fmt, ...) FARF(ERROR, fmt, ##__VA_ARGS__)
-#define LOGW(fmt, ...) FARF(HIGH, fmt, ##__VA_ARGS__)
-#define LOGI(fmt, ...) FARF(MEDIUM, fmt, ##__VA_ARGS__)
-#define LOGD(fmt, ...) FARF(MEDIUM, fmt, ##__VA_ARGS__)
+#define LOGW(fmt, ...) \
+  ashLog(ASH_SOURCE_CHRE, ASH_LOG_WARN, fmt, ##__VA_ARGS__)
+
+#define LOGI(fmt, ...) \
+  ashLog(ASH_SOURCE_CHRE, ASH_LOG_INFO, fmt, ##__VA_ARGS__)
+
+#define LOGD(fmt, ...) \
+  ashLog(ASH_SOURCE_CHRE, ASH_LOG_DEBUG, fmt, ##__VA_ARGS__)
 
 #endif  // CHRE_PLATFORM_SLPI_LOG_H_

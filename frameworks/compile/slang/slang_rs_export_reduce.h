@@ -85,7 +85,7 @@ class RSExportReduce : public RSExportable {
                  const llvm::StringRef &NameCombiner,
                  const llvm::StringRef &NameOutConverter,
                  const llvm::StringRef &NameHalter)
-    : RSExportable(Context, RSExportable::EX_REDUCE),
+    : RSExportable(Context, RSExportable::EX_REDUCE, Location),
       mLocation(Location),
       mNameReduce(NameReduce),
       mNameInitializer(NameInitializer),

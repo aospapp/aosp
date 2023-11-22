@@ -161,7 +161,7 @@ DEF_TEST(SkPDF_document_skbug_4734, r) {
     canvas->translate(20.0f, 10.0f);
     canvas->rotate(30.0f);
     const char text[] = "HELLO";
-    canvas->drawText(text, strlen(text), 0, 0, SkPaint());
+    canvas->drawString(text, 0, 0, SkPaint());
 }
 
 static bool contains(const uint8_t* result, size_t size, const char expectation[]) {
@@ -212,8 +212,8 @@ DEF_TEST(SkPDF_pdfa_document, r) {
 
     static const char* moreExpectations[] = {
         "/Producer (phoney library)",
-        "/ProductionLibrary (Skia/PDF ",
-        "<!-- <skia:ProductionLibrary>Skia/PDF ",
+        "/ProductionLibrary (Skia/PDF m",
+        "<!-- <skia:ProductionLibrary>Skia/PDF m",
         "<pdf:Producer>phoney library</pdf:Producer>",
     };
     for (const char* expectation : moreExpectations) {

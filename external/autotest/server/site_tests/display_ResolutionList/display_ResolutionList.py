@@ -62,24 +62,25 @@ class display_ResolutionList(test.test):
                 logging.info('Use EDID: %s', test_name)
 
                 with chameleon_port.use_edid_file(edid_path):
-                    index = utils.wait_for_value_changed(
-                            display_facade.get_first_external_display_index,
+                    display_id = utils.wait_for_value_changed(
+                            display_facade.get_first_external_display_id,
                             old_value=False)
-                    if not index:
+                    if display_id < 0:
                         raise error.TestFail("No external display is found.")
 
-                    # In mirror mode only display index is '0', as external
+                    # In mirror mode only display id is '0', as external
                     # is treated same as internal(single resolution applies)
                     if test_mirrored:
-                        index = 0
+                        display_id = display_facade.get_internal_display_id()
                     logging.info('Set mirrored: %s', test_mirrored)
                     display_facade.set_mirrored(test_mirrored)
                     settings_resolution_list = (
-                            display_facade.get_available_resolutions(index))
+                            display_facade.get_available_resolutions(
+                                    display_id))
                     if len(settings_resolution_list) == 0:
                         raise error.TestFail("No resolution list is found.")
-                    logging.info('External display %d: %d resolutions found.',
-                                index, len(settings_resolution_list))
+                    logging.info('External display %s: %d resolutions found.',
+                                display_id, len(settings_resolution_list))
 
                     for r in settings_resolution_list:
                         # FIXME: send a keystroke to keep display on.
@@ -90,7 +91,7 @@ class display_ResolutionList(test.test):
                         display_facade.hide_cursor()
 
                         logging.info('Set resolution to %dx%d', *r)
-                        display_facade.set_resolution(index, *r)
+                        display_facade.set_resolution(display_id, *r)
                         time.sleep(self.RESOLUTION_CHANGE_TIME)
 
                         chameleon_port.wait_video_input_stable()

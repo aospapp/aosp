@@ -40,6 +40,8 @@ public class SelectionMetadata
         implements MenuManager.SelectionDetails, SelectionManager.ItemCallback {
 
     private static final String TAG = "SelectionMetadata";
+    private final static int FLAG_CAN_DELETE =
+            Document.FLAG_SUPPORTS_REMOVE | Document.FLAG_SUPPORTS_DELETE;
 
     private final Function<String, Cursor> mDocFinder;
 
@@ -83,7 +85,7 @@ public class SelectionMetadata
         if ((docFlags & Document.FLAG_DIR_SUPPORTS_CREATE) != 0) {
             mWritableDirectoryCount += delta;
         }
-        if ((docFlags & Document.FLAG_SUPPORTS_DELETE) == 0) {
+        if ((docFlags & FLAG_CAN_DELETE) == 0) {
             mNoDeleteCount += delta;
         }
         if ((docFlags & Document.FLAG_SUPPORTS_RENAME) == 0) {
@@ -130,6 +132,11 @@ public class SelectionMetadata
     @Override
     public boolean containsPartialFiles() {
         return mPartialCount > 0;
+    }
+
+    @Override
+    public boolean containsFilesInArchive() {
+        return mInArchiveCount > 0;
     }
 
     @Override

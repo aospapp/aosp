@@ -16,9 +16,12 @@
 
 package com.android.documentsui.archives;
 
-import com.android.documentsui.archives.ArchivesProvider;
-import com.android.documentsui.archives.Archive;
-import com.android.documentsui.tests.R;
+import static junit.framework.Assert.assertEquals;
+import static junit.framework.Assert.assertFalse;
+import static junit.framework.Assert.assertNotNull;
+import static junit.framework.Assert.assertNull;
+import static junit.framework.Assert.assertTrue;
+import static junit.framework.Assert.fail;
 
 import android.content.ContentProviderClient;
 import android.content.ContentResolver;
@@ -28,58 +31,56 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
-import android.provider.DocumentsContract.Document;
+import android.os.RemoteException;
+import android.os.SystemClock;
 import android.provider.DocumentsContract;
 import android.support.test.InstrumentationRegistry;
-import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.MediumTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.TextUtils;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Scanner;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.CountDownLatch;
 
+@RunWith(AndroidJUnit4.class)
 @MediumTest
-public class ArchivesProviderTest extends AndroidTestCase {
-    private static final Uri ARCHIVE_URI = Uri.parse("content://i/love/strawberries");
-    private static final String NOTIFICATION_URI =
-            "content://com.android.documentsui.archives/notification-uri";
-    private ExecutorService mExecutor = null;
-    private Archive mArchive = null;
-    private TestUtils mTestUtils = null;
+public class ArchivesProviderTest {
 
-    @Override
+    private Context mContext;
+    private ExecutorService mExecutor = null;
+
+    @Before
     public void setUp() throws Exception {
-        super.setUp();
+        mContext = InstrumentationRegistry.getContext();
         mExecutor = Executors.newSingleThreadExecutor();
-        mTestUtils = new TestUtils(InstrumentationRegistry.getTargetContext(),
-                InstrumentationRegistry.getContext(), mExecutor);
     }
 
-    @Override
+    @After
     public void tearDown() throws Exception {
         mExecutor.shutdown();
         assertTrue(mExecutor.awaitTermination(3 /* timeout */, TimeUnit.SECONDS));
-        super.tearDown();
     }
 
-    public void testQueryRoots() throws InterruptedException {
-        final ContentResolver resolver = getContext().getContentResolver();
+    @Test
+    public void testQueryRoots() throws InterruptedException, RemoteException {
+        final ContentResolver resolver = mContext.getContentResolver();
         final Uri rootsUri = DocumentsContract.buildRootsUri(ArchivesProvider.AUTHORITY);
         try (final ContentProviderClient client = resolver.acquireUnstableContentProviderClient(
                 rootsUri)) {
-            final Cursor cursor = resolver.query(rootsUri, null, null, null, null, null);
+            final Cursor cursor = client.query(rootsUri, null, null, null, null, null);
             assertNotNull("Cursor must not be null.", cursor);
             assertEquals(0, cursor.getCount());
         }
     }
 
+    @Test
     public void testOpen_Success() throws InterruptedException {
         final Uri sourceUri = DocumentsContract.buildDocumentUri(
                 ResourcesProvider.AUTHORITY, "archive.zip");
@@ -89,7 +90,7 @@ public class ArchivesProviderTest extends AndroidTestCase {
         final Uri childrenUri = DocumentsContract.buildChildDocumentsUri(
                 ArchivesProvider.AUTHORITY, DocumentsContract.getDocumentId(archiveUri));
 
-        final ContentResolver resolver = getContext().getContentResolver();
+        final ContentResolver resolver = mContext.getContentResolver();
         final CountDownLatch latch = new CountDownLatch(1);
 
         final ContentProviderClient client = resolver.acquireUnstableContentProviderClient(
@@ -116,7 +117,7 @@ public class ArchivesProviderTest extends AndroidTestCase {
             });
         }
 
-        latch.await(30, TimeUnit.SECONDS);
+        latch.await(3, TimeUnit.SECONDS);
         {
             final Cursor cursor = resolver.query(childrenUri, null, null, null, null, null);
             assertNotNull("Cursor must not be null. File not found?", cursor);
@@ -131,6 +132,7 @@ public class ArchivesProviderTest extends AndroidTestCase {
         client.release();
     }
 
+    @Test
     public void testOpen_Failure() throws InterruptedException {
         final Uri sourceUri = DocumentsContract.buildDocumentUri(
                 ResourcesProvider.AUTHORITY, "broken.zip");
@@ -140,7 +142,7 @@ public class ArchivesProviderTest extends AndroidTestCase {
         final Uri childrenUri = DocumentsContract.buildChildDocumentsUri(
                 ArchivesProvider.AUTHORITY, DocumentsContract.getDocumentId(archiveUri));
 
-        final ContentResolver resolver = getContext().getContentResolver();
+        final ContentResolver resolver = mContext.getContentResolver();
         final CountDownLatch latch = new CountDownLatch(1);
 
         final ContentProviderClient client = resolver.acquireUnstableContentProviderClient(
@@ -168,7 +170,7 @@ public class ArchivesProviderTest extends AndroidTestCase {
             });
         }
 
-        latch.await(30, TimeUnit.SECONDS);
+        latch.await(3, TimeUnit.SECONDS);
         {
             final Cursor cursor = resolver.query(childrenUri, null, null, null, null, null);
             assertNotNull("Cursor must not be null. File not found?", cursor);
@@ -183,17 +185,17 @@ public class ArchivesProviderTest extends AndroidTestCase {
         client.release();
     }
 
+    @Test
     public void testOpen_ClosesOnRelease() throws InterruptedException {
         final Uri sourceUri = DocumentsContract.buildDocumentUri(
-                ResourcesProvider.AUTHORITY, "broken.zip");
+                ResourcesProvider.AUTHORITY, "archive.zip");
         final Uri archiveUri = ArchivesProvider.buildUriForArchive(sourceUri,
                 ParcelFileDescriptor.MODE_READ_ONLY);
 
         final Uri childrenUri = DocumentsContract.buildChildDocumentsUri(
                 ArchivesProvider.AUTHORITY, DocumentsContract.getDocumentId(archiveUri));
 
-        final ContentResolver resolver = getContext().getContentResolver();
-        final CountDownLatch latch = new CountDownLatch(1);
+        final ContentResolver resolver = mContext.getContentResolver();
 
         final ContentProviderClient client = resolver.acquireUnstableContentProviderClient(
                 archiveUri);
@@ -218,10 +220,47 @@ public class ArchivesProviderTest extends AndroidTestCase {
 
         try {
             resolver.query(childrenUri, null, null, null, null, null);
-            fail("The archive was expected to be invalited on the last release call.");
+            fail("The archive was expected to be invalid on the last release call.");
         } catch (IllegalStateException e) {
             // Expected.
         }
+
+        client.release();
+    }
+
+    @Test
+    public void testNoNotificationAfterAllReleased() throws InterruptedException, RemoteException {
+        final Uri sourceUri = DocumentsContract.buildDocumentUri(
+                ResourcesProvider.AUTHORITY, "archive.zip");
+        final Uri archiveUri = ArchivesProvider.buildUriForArchive(sourceUri,
+                ParcelFileDescriptor.MODE_READ_ONLY);
+
+        final Uri childrenUri = DocumentsContract.buildChildDocumentsUri(
+                ArchivesProvider.AUTHORITY, DocumentsContract.getDocumentId(archiveUri));
+
+        final ContentResolver resolver = mContext.getContentResolver();
+
+        final ContentProviderClient client = resolver.acquireUnstableContentProviderClient(
+                archiveUri);
+
+        ArchivesProvider.acquireArchive(client, archiveUri);
+        final Cursor cursor = client.query(childrenUri, null, null, null, null, null);
+        final Bundle extra = cursor.getExtras();
+        assertTrue(extra.getBoolean(DocumentsContract.EXTRA_LOADING, false));
+        final Uri notificationUri = cursor.getNotificationUri();
+
+        ArchivesProvider.releaseArchive(client, archiveUri);
+        final CountDownLatch latch = new CountDownLatch(1);
+        resolver.registerContentObserver(notificationUri, false, new ContentObserver(null) {
+            @Override
+            public void onChange(boolean selfChange, Uri uri) {
+                latch.countDown();
+            }
+        });
+
+        // Assert that there is no notification if no one has acquired this archive and this wait
+        // times out.
+        assertFalse(latch.await(1, TimeUnit.SECONDS));
 
         client.release();
     }

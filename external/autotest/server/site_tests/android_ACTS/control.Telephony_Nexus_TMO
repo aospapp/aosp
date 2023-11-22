@@ -1,0 +1,28 @@
+# Copyright 2017 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+AUTHOR = 'bettyzhou, jaineelm, krisr'
+NAME = 'android_ACTS.Telephony_Nexus_TMO'
+TIME = 'LONG'
+TEST_TYPE = 'Server'
+ATTRIBUTES = 'suite:android_telephony_nexus'
+DEPENDENCIES = 'carrier:tmobile,location:mtv'
+
+DOC = """
+This test runs telephony Nexus sanity against phones with Verizon SIMs.
+"""
+
+def run(machine):
+    job.run_test('android_ACTS',
+                 testbed=hosts.create_testbed(machine),
+                 config_file='android1758-telephony-test-station.config',
+                 test_file='telephony_tmo_nexus',
+                 additional_configs=['simcard_list.json'],
+                 override_build_url='git_master-release/sailfish-userdebug/latest',
+                 testtracker_project_id=11403,
+                 testtracker_owner='android-comms-tvc@google.com',
+                 testtracker_extra_env="tmobile",
+                 acts_timeout=25200)
+
+parallel_simple(run, machines)

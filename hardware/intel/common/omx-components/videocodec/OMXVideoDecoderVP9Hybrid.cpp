@@ -20,7 +20,6 @@
 #include <wrs_omxil_core/log.h>
 #include "OMXVideoDecoderVP9Hybrid.h"
 
-#include <system/window.h>
 #include <hardware/hardware.h>
 #include <hardware/gralloc.h>
 #include <system/graphics.h>

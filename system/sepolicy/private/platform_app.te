@@ -38,6 +38,9 @@ allow platform_app mnt_media_rw_file:dir r_dir_perms;
 allow platform_app vfat:dir create_dir_perms;
 allow platform_app vfat:file create_file_perms;
 
+# com.android.systemui
+allow platform_app rootfs:dir getattr;
+
 allow platform_app audioserver_service:service_manager find;
 allow platform_app cameraserver_service:service_manager find;
 allow platform_app drmserver_service:service_manager find;
@@ -46,10 +49,10 @@ allow platform_app mediametrics_service:service_manager find;
 allow platform_app mediaextractor_service:service_manager find;
 allow platform_app mediacodec_service:service_manager find;
 allow platform_app mediadrmserver_service:service_manager find;
-allow platform_app mediacasserver_service:service_manager find;
 allow platform_app persistent_data_block_service:service_manager find;
 allow platform_app radio_service:service_manager find;
 allow platform_app surfaceflinger_service:service_manager find;
+allow platform_app timezone_service:service_manager find;
 allow platform_app app_api_service:service_manager find;
 allow platform_app system_api_service:service_manager find;
 allow platform_app vr_manager_service:service_manager find;

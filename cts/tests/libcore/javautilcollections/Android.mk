@@ -29,6 +29,6 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     guava-testlib-20.0-prebuilt
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_PACKAGE_NAME := CtsLibcoreJavaUtilCollectionsTestCases
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 include $(BUILD_CTS_PACKAGE)

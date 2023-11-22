@@ -16,7 +16,6 @@
 -->
 <resources>
     <!-- Music -->
-    <item name="media_scrim_alpha" format="float" type="dimen">0.6</item>
     <dimen name="apps_max_content_width">748dp</dimen>
 
     <!-- Music now playing screen -->
@@ -32,10 +31,7 @@
     <dimen name="play_pause_elevation">6dp</dimen>
 
     <dimen name="controls_tap_target_width">188dp</dimen>
-    <dimen name="controls_tap_target_height">188dp</dimen>
-    <dimen name="controls_margin">46dp</dimen>
-    <dimen name="controls_spacing_inner">16dp</dimen>
-    <dimen name="controls_spacing_outer">81dp</dimen>
+    <dimen name="controls_tap_target_height">128dp</dimen>
 
     <dimen name="overflow_margin">46dp</dimen>
     <dimen name="overflow_spacing_outer">49dp</dimen>

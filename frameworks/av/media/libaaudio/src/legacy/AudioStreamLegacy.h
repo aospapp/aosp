@@ -24,6 +24,7 @@
 
 #include "AudioStream.h"
 #include "AAudioLegacy.h"
+#include "utility/AAudioUtilities.h"
 #include "utility/FixedBlockAdapter.h"
 
 namespace aaudio {
@@ -63,6 +64,8 @@ public:
 
     aaudio_legacy_callback_t getLegacyCallback();
 
+    int32_t callDataCallbackFrames(uint8_t *buffer, int32_t numFrames);
+
     // This is public so it can be called from the C callback function.
     // This is called from the AudioTrack/AudioRecord client.
     virtual void processCallback(int event, void *info) = 0;
@@ -73,6 +76,15 @@ public:
     int32_t onProcessFixedBlock(uint8_t *buffer, int32_t numBytes) override;
 
     virtual int64_t incrementClientFrameCounter(int32_t frames)  = 0;
+
+
+    virtual int64_t getFramesWritten() override {
+        return mFramesWritten.get();
+    }
+
+    virtual int64_t getFramesRead() override {
+        return mFramesRead.get();
+    }
 
 protected:
 
@@ -100,13 +112,31 @@ protected:
 
     void onAudioDeviceUpdate(audio_port_handle_t deviceId);
 
+    void checkForDisconnectRequest();
+
+    void forceDisconnect();
+
     void onStart() { mCallbackEnabled.store(true); }
     void onStop() { mCallbackEnabled.store(false); }
+
+    int64_t incrementFramesWritten(int32_t frames) {
+        return mFramesWritten.increment(frames);
+    }
+
+    int64_t incrementFramesRead(int32_t frames) {
+        return mFramesRead.increment(frames);
+    }
+
+    MonotonicCounter           mFramesWritten;
+    MonotonicCounter           mFramesRead;
+    MonotonicCounter           mTimestampPosition;
 
     FixedBlockAdapter         *mBlockAdapter = nullptr;
     aaudio_wrapping_frames_t   mPositionWhenStarting = 0;
     int32_t                    mCallbackBufferSize = 0;
     const android::sp<StreamDeviceCallback>   mDeviceCallback;
+
+    AtomicRequestor            mRequestDisconnect;
 };
 
 } /* namespace aaudio */

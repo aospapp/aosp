@@ -60,10 +60,8 @@ abstract class JDWPEventModifierTestCase extends JDWPSyncTestCase {
         long typeID = debuggeeWrapper.vmMirror.getTypeID(breakpoint.className, typeTag);
         long methodID = getMethodID(typeID, breakpoint.methodName);
         byte eventKind = JDWPConstants.EventKind.BREAKPOINT;
-        EventBuilder builder = new EventBuilder(eventKind, TEST_SUSPEND_POLICY);
-        builder.setLocationOnly(new Location(typeTag, typeID, methodID,
-                breakpoint.index));
-        return builder;
+        return Event.builder(eventKind, TEST_SUSPEND_POLICY)
+                .setLocationOnly(new Location(typeTag, typeID, methodID, breakpoint.index));
     }
 
     /**
@@ -78,13 +76,12 @@ abstract class JDWPEventModifierTestCase extends JDWPSyncTestCase {
     protected EventBuilder createExceptionEventBuilder(
             String exceptionClassSignature, boolean caught, boolean uncaught) {
         byte eventKind = JDWPConstants.EventKind.EXCEPTION;
-        EventBuilder builder = new EventBuilder(eventKind, TEST_SUSPEND_POLICY);
         long exceptionClassID = debuggeeWrapper.vmMirror.getClassID(
                 exceptionClassSignature);
         assertTrue("Failed to find type ID " + exceptionClassSignature,
                 exceptionClassID != 1);
-        builder.setExceptionOnly(exceptionClassID, caught, uncaught);
-        return builder;
+        return Event.builder(eventKind, TEST_SUSPEND_POLICY).setExceptionOnly(exceptionClassID,
+                caught, uncaught);
     }
 
     /**
@@ -96,9 +93,8 @@ abstract class JDWPEventModifierTestCase extends JDWPSyncTestCase {
      * @return a new {@link EventBuilder}
      */
     protected EventBuilder createMethodEntryEventBuilder(String className) {
-        EventBuilder builder = new EventBuilder(
-                JDWPConstants.EventKind.METHOD_ENTRY, TEST_SUSPEND_POLICY);
-        return builder.setClassMatch(className);
+        return Event.builder(JDWPConstants.EventKind.METHOD_ENTRY, TEST_SUSPEND_POLICY)
+                .setClassMatch(className);
     }
 
     /**
@@ -110,9 +106,8 @@ abstract class JDWPEventModifierTestCase extends JDWPSyncTestCase {
      * @return a new {@link EventBuilder}
      */
     protected EventBuilder createMethodExitEventBuilder(String className) {
-        EventBuilder builder = new EventBuilder(
-                JDWPConstants.EventKind.METHOD_EXIT, TEST_SUSPEND_POLICY);
-        return builder.setClassMatch(className);
+        return Event.builder(JDWPConstants.EventKind.METHOD_EXIT, TEST_SUSPEND_POLICY)
+                .setClassMatch(className);
     }
 
     /**
@@ -124,10 +119,9 @@ abstract class JDWPEventModifierTestCase extends JDWPSyncTestCase {
      * @return a new {@link EventBuilder}
      */
     protected EventBuilder createMethodExitWithReturnValueEventBuilder(String className) {
-        EventBuilder builder = new EventBuilder(
-                JDWPConstants.EventKind.METHOD_EXIT_WITH_RETURN_VALUE,
-                TEST_SUSPEND_POLICY);
-        return builder.setClassMatch(className);
+        return Event
+                .builder(JDWPConstants.EventKind.METHOD_EXIT_WITH_RETURN_VALUE, TEST_SUSPEND_POLICY)
+                .setClassMatch(className);
     }
 
     /**
@@ -136,8 +130,7 @@ abstract class JDWPEventModifierTestCase extends JDWPSyncTestCase {
      * @return a new {@link EventBuilder}
      */
     protected EventBuilder createThreadStartBuilder() {
-        return new EventBuilder(JDWPConstants.EventKind.THREAD_START,
-                TEST_SUSPEND_POLICY);
+        return Event.builder(JDWPConstants.EventKind.THREAD_START, TEST_SUSPEND_POLICY);
     }
 
     /**
@@ -146,8 +139,7 @@ abstract class JDWPEventModifierTestCase extends JDWPSyncTestCase {
      * @return a new {@link EventBuilder}
      */
     protected EventBuilder createThreadEndBuilder() {
-        return new EventBuilder(JDWPConstants.EventKind.THREAD_END,
-                TEST_SUSPEND_POLICY);
+        return Event.builder(JDWPConstants.EventKind.THREAD_END, TEST_SUSPEND_POLICY);
     }
 
     /**
@@ -188,14 +180,12 @@ abstract class JDWPEventModifierTestCase extends JDWPSyncTestCase {
         } else {
             eventKind = JDWPConstants.EventKind.FIELD_ACCESS;
         }
-        EventBuilder builder = new EventBuilder(eventKind, TEST_SUSPEND_POLICY);
         long typeID = debuggeeWrapper.vmMirror.getTypeID(typeSignature, typeTag);
         assertTrue("Failed to find type ID " + typeSignature, typeID != 1);
         long fieldID = debuggeeWrapper.vmMirror.getFieldID(typeID, fieldName);
         assertTrue("Failed to find field ID " + typeSignature + "." + fieldName,
                 fieldID != 1);
-        builder.setFieldOnly(typeID, fieldID);
-        return builder;
+        return Event.builder(eventKind, TEST_SUSPEND_POLICY).setFieldOnly(typeID, fieldID);
     }
 
     /**

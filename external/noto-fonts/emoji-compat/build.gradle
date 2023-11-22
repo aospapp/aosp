@@ -39,32 +39,16 @@ sourceSets {
     }
 }
 
-def tmpJarDir = new File(buildDir, "tmpjar")
-def jarName = "noto-emoji-compat-java"
-
-task createFatJar(type: Jar) {
-    // create a fat jar that includes FlatBuffers classes
-    archiveName = "${jarName}-all.jar"
-    destinationDir = tmpJarDir
-    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
-    with jar {
-        archiveName = "${jarName}-base.jar"
-        destinationDir = tmpJarDir
-    }
+compileJava {
+    sourceCompatibility = JavaVersion.VERSION_1_7
+    targetCompatibility = JavaVersion.VERSION_1_7
 }
 
-task repackage(type: Copy, dependsOn: createFatJar) {
-    from jarjar.repackage {
-        from files("${tmpJarDir}/${jarName}-all.jar")
-        classRename 'com.google.flatbuffers.**', 'android.support.text.emoji.flatbuffer.@1'
-        destinationName "${jarName}-repacked.jar"
-    }
-    into tmpJarDir
-}
-
-task repackageJar(type: Jar, dependsOn: repackage) {
-    archiveName = "${jarName}.jar"
-    from zipTree("${tmpJarDir}/${jarName}-repacked.jar")
+jarjar.repackage('rename') {
+    destinationName "noto-emoji-compat-java.jar"
+    from files(sourceSets.main.output.classesDirs)
+    dependsOn sourceSets.main.output
+    classRename 'com.google.flatbuffers.**', 'android.support.text.emoji.flatbuffer.@1'
 }
 
 configurations {
@@ -72,7 +56,9 @@ configurations {
 }
 
 artifacts {
-    archives repackageJar
-    parser repackageJar
+    parser(rename.destinationPath) {
+        name 'noto-emoji-compat'
+        type 'jar'
+        builtBy rename
+    }
 }
-

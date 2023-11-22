@@ -615,19 +615,17 @@ keymaster_error_t SoftKeymasterDevice::get_supported_export_formats(
 keymaster_error_t SoftKeymasterDevice::configure(const keymaster2_device_t* dev,
                                                  const keymaster_key_param_set_t* params) {
     AuthorizationSet params_copy(*params);
-    uint32_t os_version;
-    uint32_t os_patchlevel;
-    if (!params_copy.GetTagValue(TAG_OS_VERSION, &os_version) ||
-        !params_copy.GetTagValue(TAG_OS_PATCHLEVEL, &os_patchlevel)) {
+    ConfigureRequest request;
+    if (!params_copy.GetTagValue(TAG_OS_VERSION, &request.os_version) ||
+        !params_copy.GetTagValue(TAG_OS_PATCHLEVEL, &request.os_patchlevel)) {
         LOG_E("Configuration parameters must contain OS version and patch level", 0);
         return KM_ERROR_INVALID_ARGUMENT;
     }
-
-    keymaster_error_t error =
-        convert_device(dev)->context_->SetSystemVersion(os_version, os_patchlevel);
-    if (error == KM_ERROR_OK)
+    ConfigureResponse response;
+    convert_device(dev)->impl_->Configure(request, &response);
+    if (response.error == KM_ERROR_OK)
         convert_device(dev)->configured_ = true;
-    return error;
+    return response.error;
 }
 
 /* static */
@@ -1077,8 +1075,7 @@ keymaster_error_t SoftKeymasterDevice::attest_key(const keymaster2_device_t* dev
     if (!convert_device(dev)->configured())
         return KM_ERROR_KEYMASTER_NOT_CONFIGURED;
 
-    cert_chain->entry_count = 0;
-    cert_chain->entries = nullptr;
+    *cert_chain = {};
 
     AttestKeyRequest request;
     request.SetKeyMaterial(*key_to_attest);

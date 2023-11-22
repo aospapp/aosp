@@ -89,8 +89,9 @@ void pan_register_with_bnep(void) {
  * Returns          none
  *
  ******************************************************************************/
-void pan_conn_ind_cb(uint16_t handle, BD_ADDR p_bda, tBT_UUID* remote_uuid,
-                     tBT_UUID* local_uuid, bool is_role_change) {
+void pan_conn_ind_cb(uint16_t handle, const RawAddress& p_bda,
+                     tBT_UUID* remote_uuid, tBT_UUID* local_uuid,
+                     bool is_role_change) {
   tPAN_CONN* pcb;
   uint8_t req_role;
   bool wrong_uuid;
@@ -214,6 +215,39 @@ void pan_conn_ind_cb(uint16_t handle, BD_ADDR p_bda, tBT_UUID* remote_uuid,
     return;
   }
 
+  /* Check for valid interactions between the three PAN profile roles */
+  /*
+   * For reference, see Table 1 in PAN Profile v1.0 spec.
+   * Note: the remote is the initiator.
+   */
+  bool is_valid_interaction = false;
+  switch (remote_uuid->uu.uuid16) {
+    case UUID_SERVCLASS_NAP:
+    case UUID_SERVCLASS_GN:
+      if (local_uuid->uu.uuid16 == UUID_SERVCLASS_PANU)
+        is_valid_interaction = true;
+      break;
+    case UUID_SERVCLASS_PANU:
+      is_valid_interaction = true;
+      break;
+  }
+  /*
+   * Explicitly disable connections to the local PANU if the remote is
+   * not PANU.
+   */
+  if ((local_uuid->uu.uuid16 == UUID_SERVCLASS_PANU) &&
+      (remote_uuid->uu.uuid16 != UUID_SERVCLASS_PANU)) {
+    is_valid_interaction = false;
+  }
+  if (!is_valid_interaction) {
+    PAN_TRACE_ERROR(
+        "PAN Connection failed because of invalid PAN profile roles "
+        "interaction: Remote UUID 0x%x Local UUID 0x%x",
+        remote_uuid->uu.uuid16, local_uuid->uu.uuid16);
+    BNEP_ConnectResp(handle, BNEP_CONN_FAILED_SRC_UUID);
+    return;
+  }
+
   /* Requested destination role is */
   if (local_uuid->uu.uuid16 == UUID_SERVCLASS_PANU)
     req_role = PAN_ROLE_CLIENT;
@@ -313,7 +347,8 @@ void pan_conn_ind_cb(uint16_t handle, BD_ADDR p_bda, tBT_UUID* remote_uuid,
  * Returns          none
  *
  ******************************************************************************/
-void pan_connect_state_cb(uint16_t handle, UNUSED_ATTR BD_ADDR rem_bda,
+void pan_connect_state_cb(uint16_t handle,
+                          UNUSED_ATTR const RawAddress& rem_bda,
                           tBNEP_RESULT result, bool is_role_change) {
   tPAN_CONN* pcb;
   uint8_t peer_role;
@@ -412,9 +447,9 @@ void pan_connect_state_cb(uint16_t handle, UNUSED_ATTR BD_ADDR rem_bda,
  * Returns          none
  *
  ******************************************************************************/
-void pan_data_ind_cb(uint16_t handle, uint8_t* src, uint8_t* dst,
-                     uint16_t protocol, uint8_t* p_data, uint16_t len,
-                     bool ext) {
+void pan_data_ind_cb(uint16_t handle, const RawAddress& src,
+                     const RawAddress& dst, uint16_t protocol, uint8_t* p_data,
+                     uint16_t len, bool ext) {
   tPAN_CONN* pcb;
   uint16_t i;
   bool forward;
@@ -444,14 +479,14 @@ void pan_data_ind_cb(uint16_t handle, uint8_t* src, uint8_t* dst,
   }
 
   /* Check if it is broadcast packet */
-  if (dst[0] & 0x01) {
+  if (dst.address[0] & 0x01) {
     PAN_TRACE_DEBUG("PAN received broadcast packet on handle %d, src uuid 0x%x",
                     handle, pcb->src_uuid);
     for (i = 0; i < MAX_PAN_CONNS; i++) {
       if (pan_cb.pcb[i].con_state == PAN_STATE_CONNECTED &&
           pan_cb.pcb[i].handle != handle &&
           pcb->src_uuid == pan_cb.pcb[i].src_uuid) {
-        BNEP_Write(pan_cb.pcb[i].handle, dst, p_data, len, protocol, src, ext);
+        BNEP_Write(pan_cb.pcb[i].handle, dst, p_data, len, protocol, &src, ext);
       }
     }
 
@@ -466,8 +501,8 @@ void pan_data_ind_cb(uint16_t handle, uint8_t* src, uint8_t* dst,
   for (i = 0; i < MAX_PAN_CONNS; i++) {
     if (pan_cb.pcb[i].con_state == PAN_STATE_CONNECTED &&
         pcb->src_uuid == pan_cb.pcb[i].src_uuid) {
-      if (memcmp(pan_cb.pcb[i].rem_bda, dst, BD_ADDR_LEN) == 0) {
-        BNEP_Write(pan_cb.pcb[i].handle, dst, p_data, len, protocol, src, ext);
+      if (pan_cb.pcb[i].rem_bda == dst) {
+        BNEP_Write(pan_cb.pcb[i].handle, dst, p_data, len, protocol, &src, ext);
         return;
       }
     }
@@ -506,8 +541,9 @@ void pan_data_ind_cb(uint16_t handle, uint8_t* src, uint8_t* dst,
  * Returns          none
  *
  ******************************************************************************/
-void pan_data_buf_ind_cb(uint16_t handle, uint8_t* src, uint8_t* dst,
-                         uint16_t protocol, BT_HDR* p_buf, bool ext) {
+void pan_data_buf_ind_cb(uint16_t handle, const RawAddress& src,
+                         const RawAddress& dst, uint16_t protocol,
+                         BT_HDR* p_buf, bool ext) {
   tPAN_CONN *pcb, *dst_pcb;
   tBNEP_RESULT result;
   uint16_t i, len;
@@ -543,7 +579,7 @@ void pan_data_buf_ind_cb(uint16_t handle, uint8_t* src, uint8_t* dst,
 
   /* Check if it is broadcast or multicast packet */
   if (pcb->src_uuid != UUID_SERVCLASS_PANU) {
-    if (dst[0] & 0x01) {
+    if (dst.address[0] & 0x01) {
       PAN_TRACE_DEBUG(
           "PAN received broadcast packet on handle %d, src uuid 0x%x", handle,
           pcb->src_uuid);
@@ -551,7 +587,7 @@ void pan_data_buf_ind_cb(uint16_t handle, uint8_t* src, uint8_t* dst,
         if (pan_cb.pcb[i].con_state == PAN_STATE_CONNECTED &&
             pan_cb.pcb[i].handle != handle &&
             pcb->src_uuid == pan_cb.pcb[i].src_uuid) {
-          BNEP_Write(pan_cb.pcb[i].handle, dst, p_data, len, protocol, src,
+          BNEP_Write(pan_cb.pcb[i].handle, dst, p_data, len, protocol, &src,
                      ext);
         }
       }
@@ -576,7 +612,7 @@ void pan_data_buf_ind_cb(uint16_t handle, uint8_t* src, uint8_t* dst,
           __func__, dst_pcb->handle, len);
 
       result =
-          BNEP_Write(dst_pcb->handle, dst, p_data, len, protocol, src, ext);
+          BNEP_Write(dst_pcb->handle, dst, p_data, len, protocol, &src, ext);
       if (result != BNEP_SUCCESS && result != BNEP_IGNORE_CMD)
         PAN_TRACE_ERROR("Failed to write data for PAN connection handle %d",
                         dst_pcb->handle);
@@ -604,10 +640,10 @@ void pan_data_buf_ind_cb(uint16_t handle, uint8_t* src, uint8_t* dst,
  * Function         pan_proto_filt_ind_cb
  *
  * Description      This function is registered with BNEP to receive tx data
- *					flow status
+ *          flow status
  *
  * Parameters:      handle      - handle for the connection
- *					event       - flow status
+ *          event       - flow status
  *
  * Returns          none
  *

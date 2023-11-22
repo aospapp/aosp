@@ -188,6 +188,12 @@ static struct I2cTransfer *allocXfer(uint8_t state)
     return NULL;
 }
 
+// Helper function to release I2cTransfer structure
+static inline void releaseXfer(struct I2cTransfer *xfer)
+{
+    xfer->inUse = false;
+}
+
 // Helper function to write a one byte register. Returns true if we got a
 // successful return value from i2cMasterTx().
 static bool writeRegister(uint8_t reg, uint8_t value, uint8_t state)
@@ -199,6 +205,8 @@ static bool writeRegister(uint8_t reg, uint8_t value, uint8_t state)
         xfer->txrxBuf[0] = reg;
         xfer->txrxBuf[1] = value;
         ret = i2cMasterTx(I2C_BUS_ID, I2C_ADDR, xfer->txrxBuf, 2, i2cCallback, xfer);
+        if (ret)
+            releaseXfer(xfer);
     }
 
     return (ret == 0);
@@ -472,15 +480,17 @@ static void handleI2cEvent(struct I2cTransfer *xfer)
 {
     union EmbeddedDataPoint embeddedSample;
     struct SingleAxisDataEvent *baroSample;
-
     struct I2cTransfer *newXfer;
+    int ret;
 
     switch (xfer->state) {
         case STATE_RESET: {
             newXfer = allocXfer(STATE_VERIFY_ID);
             if (newXfer != NULL) {
                 newXfer->txrxBuf[0] = BOSCH_BMP280_REG_ID;
-                i2cMasterTxRx(I2C_BUS_ID, I2C_ADDR, newXfer->txrxBuf, 1, newXfer->txrxBuf, 1, i2cCallback, newXfer);
+                ret = i2cMasterTxRx(I2C_BUS_ID, I2C_ADDR, newXfer->txrxBuf, 1, newXfer->txrxBuf, 1, i2cCallback, newXfer);
+                if (ret)
+                    releaseXfer(newXfer);
             }
             break;
         }
@@ -496,7 +506,9 @@ static void handleI2cEvent(struct I2cTransfer *xfer)
             newXfer = allocXfer(STATE_AWAITING_COMP_PARAMS);
             if (newXfer != NULL) {
                 newXfer->txrxBuf[0] = BOSCH_BMP280_REG_DIG_T1;
-                i2cMasterTxRx(I2C_BUS_ID, I2C_ADDR, newXfer->txrxBuf, 1, (uint8_t*)&mTask.comp, 24, i2cCallback, newXfer);
+                ret = i2cMasterTxRx(I2C_BUS_ID, I2C_ADDR, newXfer->txrxBuf, 1, (uint8_t*)&mTask.comp, 24, i2cCallback, newXfer);
+                if (ret)
+                    releaseXfer(newXfer);
             }
 
             break;
@@ -533,6 +545,7 @@ static void handleI2cEvent(struct I2cTransfer *xfer)
         }
 
         case STATE_FINISH_INIT: {
+            osLog(LOG_INFO, "[BMP280] detected\n");
             sensorRegisterInitComplete(mTask.baroHandle);
             sensorRegisterInitComplete(mTask.tempHandle);
             break;
@@ -577,12 +590,13 @@ static void handleI2cEvent(struct I2cTransfer *xfer)
             break;
     }
 
-    xfer->inUse = false;
+    releaseXfer(xfer);
 }
 
 static void handleEvent(uint32_t evtType, const void* evtData)
 {
     struct I2cTransfer *newXfer;
+    int ret;
 
     switch (evtType) {
         case EVT_APP_START:
@@ -608,7 +622,9 @@ static void handleEvent(uint32_t evtType, const void* evtData)
                 newXfer = allocXfer(STATE_SAMPLING);
                 if (newXfer != NULL) {
                     newXfer->txrxBuf[0] = BOSCH_BMP280_REG_PRES_MSB;
-                    i2cMasterTxRx(I2C_BUS_ID, I2C_ADDR, newXfer->txrxBuf, 1, newXfer->txrxBuf, 6, i2cCallback, newXfer);
+                    ret = i2cMasterTxRx(I2C_BUS_ID, I2C_ADDR, newXfer->txrxBuf, 1, newXfer->txrxBuf, 6, i2cCallback, newXfer);
+                    if (ret)
+                        releaseXfer(newXfer);
                 }
             }
 
@@ -623,7 +639,9 @@ static void handleEvent(uint32_t evtType, const void* evtData)
                 newXfer = allocXfer(STATE_SAMPLING);
                 if (newXfer != NULL) {
                     newXfer->txrxBuf[0] = BOSCH_BMP280_REG_PRES_MSB;
-                    i2cMasterTxRx(I2C_BUS_ID, I2C_ADDR, newXfer->txrxBuf, 1, newXfer->txrxBuf, 6, i2cCallback, newXfer);
+                    ret = i2cMasterTxRx(I2C_BUS_ID, I2C_ADDR, newXfer->txrxBuf, 1, newXfer->txrxBuf, 6, i2cCallback, newXfer);
+                    if (ret)
+                        releaseXfer(newXfer);
                 }
             }
 

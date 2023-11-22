@@ -24,17 +24,16 @@ LOCAL_MODULE_TAGS := optional
 # and when built explicitly put it in the data partition
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
-LOCAL_JAVA_LIBRARIES := android.test.runner
-
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    ctstestrunner \
     android-support-test \
+    ctstestrunner \
     junit \
-    legacy-android-test
+    legacy-android-test \
+    ub-uiautomator
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 include $(BUILD_CTS_PACKAGE)

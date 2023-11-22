@@ -38,8 +38,8 @@
 
 #include "osi/include/osi.h"
 
-static void bta_hd_cback(BD_ADDR bd_addr, uint8_t event, uint32_t data,
-                         BT_HDR* pdata);
+static void bta_hd_cback(const RawAddress& bd_addr, uint8_t event,
+                         uint32_t data, BT_HDR* pdata);
 
 static bool check_descriptor(uint8_t* data, uint16_t length,
                              bool* has_report_id) {
@@ -285,7 +285,7 @@ extern void bta_hd_connect_act(tBTA_HD_DATA* p_data) {
     return;
   }
 
-  bdcpy(cback_data.conn.bda, p_ctrl->addr);
+  cback_data.conn.bda = p_ctrl->addr;
   cback_data.conn.status = BTHD_CONN_STATE_CONNECTING;
 
   bta_hd_cb.p_cback(BTA_HD_CONN_STATE_EVT, &cback_data);
@@ -449,8 +449,8 @@ extern void bta_hd_open_act(tBTA_HD_DATA* p_data) {
   HID_DevPlugDevice(p_cback->addr);
   bta_sys_conn_open(BTA_ID_HD, 1, p_cback->addr);
 
-  bdcpy(cback_data.conn.bda, p_cback->addr);
-  bdcpy(bta_hd_cb.bd_addr, p_cback->addr);
+  cback_data.conn.bda = p_cback->addr;
+  bta_hd_cb.bd_addr = p_cback->addr;
 
   bta_hd_cb.p_cback(BTA_HD_OPEN_EVT, &cback_data);
 }
@@ -479,8 +479,8 @@ extern void bta_hd_close_act(tBTA_HD_DATA* p_data) {
     cback_event = BTA_HD_VC_UNPLUG_EVT;
   }
 
-  bdcpy(cback_data.conn.bda, p_cback->addr);
-  memset(bta_hd_cb.bd_addr, 0, sizeof(BD_ADDR));
+  cback_data.conn.bda = p_cback->addr;
+  bta_hd_cb.bd_addr = RawAddress::kEmpty;
 
   bta_hd_cb.p_cback(cback_event, &cback_data);
 }
@@ -628,8 +628,8 @@ extern void bta_hd_vc_unplug_done_act(tBTA_HD_DATA* p_data) {
 
   HID_DevUnplugDevice(p_cback->addr);
 
-  bdcpy(cback_data.conn.bda, p_cback->addr);
-  bdcpy(bta_hd_cb.bd_addr, p_cback->addr);
+  cback_data.conn.bda = p_cback->addr;
+  bta_hd_cb.bd_addr = p_cback->addr;
 
   (*bta_hd_cb.p_cback)(BTA_HD_VC_UNPLUG_EVT, &cback_data);
 }
@@ -678,8 +678,8 @@ extern void bta_hd_exit_suspend_act(tBTA_HD_DATA* p_data) {
  * Returns          void
  *
  ******************************************************************************/
-static void bta_hd_cback(BD_ADDR bd_addr, uint8_t event, uint32_t data,
-                         BT_HDR* pdata) {
+static void bta_hd_cback(const RawAddress& bd_addr, uint8_t event,
+                         uint32_t data, BT_HDR* pdata) {
   tBTA_HD_CBACK_DATA* p_buf = NULL;
   uint16_t sm_event = BTA_HD_INVALID_EVT;
 
@@ -727,7 +727,7 @@ static void bta_hd_cback(BD_ADDR bd_addr, uint8_t event, uint32_t data,
       (p_buf = (tBTA_HD_CBACK_DATA*)osi_malloc(sizeof(tBTA_HD_CBACK_DATA) +
                                                sizeof(BT_HDR))) != NULL) {
     p_buf->hdr.event = sm_event;
-    bdcpy(p_buf->addr, bd_addr);
+    p_buf->addr = bd_addr;
     p_buf->data = data;
     p_buf->p_data = pdata;
 

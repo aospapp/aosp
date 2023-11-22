@@ -65,15 +65,24 @@ class DriverTest(mox.MoxTestBase):
         return [mock_nightly, mock_weekly, mock_new_build]
 
 
+    def _ExpectBoardListConfig(self):
+        board_lists = 'sub_board1,sub_board2'
+        self.config.add_section(driver.BOARD_WHITELIST_SECTION)
+        self.config.set(driver.BOARD_WHITELIST_SECTION,
+                        self._BOARDS[0], board_lists)
+
+
     def _ExpectTaskConfig(self):
         self.config.add_section(timed_event.Nightly.KEYWORD)
         self.config.add_section(timed_event.Weekly.KEYWORD)
         self.mox.StubOutWithMock(task.Task, 'CreateFromConfigSection')
         task.Task.CreateFromConfigSection(
-            self.config, timed_event.Nightly.KEYWORD).InAnyOrder().AndReturn(
+            self.config, timed_event.Nightly.KEYWORD,
+            board_lists=mox.IgnoreArg()).InAnyOrder().AndReturn(
                 (timed_event.Nightly.KEYWORD, self.nightly_bvt))
         task.Task.CreateFromConfigSection(
-            self.config, timed_event.Weekly.KEYWORD).InAnyOrder().AndReturn(
+            self.config, timed_event.Weekly.KEYWORD,
+            board_lists=mox.IgnoreArg()).InAnyOrder().AndReturn(
                 (timed_event.Weekly.KEYWORD, self.weekly_bvt))
 
 
@@ -125,6 +134,7 @@ class DriverTest(mox.MoxTestBase):
     def testTasksFromConfig(self):
         """Test that we can build a list of Tasks from a config."""
         self._ExpectTaskConfig()
+        self._ExpectBoardListConfig()
         self.mox.ReplayAll()
         tasks = self.driver.TasksFromConfig(self.config)
         self.assertTrue(self.nightly_bvt in tasks[timed_event.Nightly.KEYWORD])
@@ -135,6 +145,7 @@ class DriverTest(mox.MoxTestBase):
         """Test that we can build a list of Tasks from a config twice."""
         events = self._ExpectSetup()
         self._ExpectTaskConfig()
+        self._ExpectBoardListConfig()
         self.mox.ReplayAll()
 
         self.driver.SetUpEventsAndTasks(self.config, self.mv)
@@ -153,7 +164,8 @@ class DriverTest(mox.MoxTestBase):
         self._ExpectSetup()
         self.mox.StubOutWithMock(task.Task, 'CreateFromConfigSection')
         task.Task.CreateFromConfigSection(
-            self.config, timed_event.Nightly.KEYWORD).InAnyOrder().AndReturn(
+            self.config, timed_event.Nightly.KEYWORD,
+            board_lists=mox.IgnoreArg()).InAnyOrder().AndReturn(
                 (timed_event.Nightly.KEYWORD, self.nightly_bvt))
         self.mox.ReplayAll()
         self.driver.SetUpEventsAndTasks(self.config, self.mv)
@@ -167,6 +179,7 @@ class DriverTest(mox.MoxTestBase):
     def testHandleAllEventsOnce(self):
         """Test that all events being ready is handled correctly."""
         events = self._ExpectSetup()
+        self._ExpectBoardListConfig()
         self._ExpectEnumeration()
         launch_control_build_called = False
         for event in events:
@@ -182,6 +195,7 @@ class DriverTest(mox.MoxTestBase):
     def testHandleNightlyEventOnce(self):
         """Test that one ready event is handled correctly."""
         events = self._ExpectSetup()
+        self._ExpectBoardListConfig()
         self._ExpectEnumeration()
         for event in events:
             if event.keyword == timed_event.Nightly.KEYWORD:
@@ -198,6 +212,7 @@ class DriverTest(mox.MoxTestBase):
     def testForceOnceForBuild(self):
         """Test that one event being forced is handled correctly."""
         events = self._ExpectSetup()
+        self._ExpectBoardListConfig()
 
         board = 'board'
         type = 'release'

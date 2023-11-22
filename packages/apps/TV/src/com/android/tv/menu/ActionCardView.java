@@ -19,8 +19,8 @@ package com.android.tv.menu;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.util.Log;
-import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 import com.android.tv.R;
@@ -28,7 +28,7 @@ import com.android.tv.R;
 /**
  * A view to render an item of TV options.
  */
-public class ActionCardView extends FrameLayout implements ItemListRowView.CardView<MenuAction> {
+public class ActionCardView extends RelativeLayout implements ItemListRowView.CardView<MenuAction> {
     private static final String TAG = MenuView.TAG;
     private static final boolean DEBUG = MenuView.DEBUG;
 
@@ -66,7 +66,7 @@ public class ActionCardView extends FrameLayout implements ItemListRowView.CardV
         }
         mIconView.setImageDrawable(action.getDrawable(getContext()));
         mLabelView.setText(action.getActionName(getContext()));
-        mStateView.setText(action.getActionDescription(getContext()));
+        mStateView.setText(action.getActionDescription());
         if (action.isEnabled()) {
             setEnabled(true);
             setFocusable(true);

@@ -50,7 +50,16 @@ class IChreMessageHandlers {
       const ::chre::fbs::NanoappListResponseT& response) = 0;
 
   virtual void handleLoadNanoappResponse(
-      const ::chre::fbs::LoadNanoappResponseT& response) = 0;
+      const ::chre::fbs::LoadNanoappResponseT& /*response*/) {};
+
+  virtual void handleUnloadNanoappResponse(
+      const ::chre::fbs::UnloadNanoappResponseT& /*response*/) {};
+
+  virtual void handleDebugDumpData(
+      const ::chre::fbs::DebugDumpDataT& /*data*/) {};
+
+  virtual void handleDebugDumpResponse(
+      const ::chre::fbs::DebugDumpResponseT& /*response*/) {};
 };
 
 /**
@@ -104,6 +113,41 @@ class HostProtocolHost : public ::chre::HostProtocolCommon {
   static void encodeNanoappListRequest(flatbuffers::FlatBufferBuilder& builder);
 
   /**
+   * Encodes a message requesting to unload a nanoapp specified by app ID.
+   *
+   * @param builder A newly constructed FlatBufferBuilder that will be used to
+   *        construct the message
+   * @param transactionId A transaction identifier to tie the subsequent
+   *        response to this request
+   * @param appId Identifier for the app to unload
+   * @param allowSystemNanoappUnload Whether this request should be allowed to
+   *        result in unloading a system nanoapp (e.g. requests from the context
+   *        hub HAL should have set this to false, as system nanoapps are not
+   *        expected to be managed through that HAL)
+   */
+  static void encodeUnloadNanoappRequest(
+      flatbuffers::FlatBufferBuilder& builder, uint32_t transactionId,
+      uint64_t appId, bool allowSystemNanoappUnload);
+
+  /**
+   * Encodes a message to send the AP timestamp to CHRE
+   *
+   * @param builder A newly constructed FlatBufferBuilder that will be used to
+   *        construct the message
+   * @param offset The AP to SLPI offset in nanoseconds
+   */
+  static void encodeTimeSyncMessage(flatbuffers::FlatBufferBuilder& builder,
+                                    int64_t offset);
+
+  /**
+   * Encodes a message requesting debugging information from CHRE
+   *
+   * @param builder A newly constructed FlatBufferBuilder that will be used to
+   *        construct the message
+   */
+  static void encodeDebugDumpRequest(flatbuffers::FlatBufferBuilder& builder);
+
+  /**
    * Decodes the host client ID included in the message container
    *
    * @param message Buffer containing a complete FlatBuffers CHRE message
@@ -114,8 +158,9 @@ class HostProtocolHost : public ::chre::HostProtocolCommon {
    * @return true if the host client ID was successfully decoded from the
    *         message
    */
-  static bool extractHostClientId(const void *message, size_t messageLen,
-                                  uint16_t *hostClientId);
+  static bool extractHostClientIdAndType(
+      const void *message, size_t messageLen, uint16_t *hostClientId,
+      ::chre::fbs::ChreMessage *messageType);
 
   /**
    * Update the host client ID field in the MessageContainer.

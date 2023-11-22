@@ -411,7 +411,7 @@ public final class DexFile {
     /**
      * No dexopt should (or can) be done to update the apk/jar.
      *
-     * See {@link #getDexOptNeeded(String, String, int)}.
+     * See {@link #getDexOptNeeded(String, String, String, boolean, boolean)}.
      *
      * @hide
      */
@@ -420,7 +420,7 @@ public final class DexFile {
     /**
      * dex2oat should be run to update the apk/jar from scratch.
      *
-     * See {@link #getDexOptNeeded(String, String, int)}.
+     * See {@link #getDexOptNeeded(String, String, String, boolean, boolean)}.
      *
      * @hide
      */
@@ -430,7 +430,7 @@ public final class DexFile {
      * dex2oat should be run to update the apk/jar because the existing code
      * is out of date with respect to the boot image.
      *
-     * See {@link #getDexOptNeeded(String, String, int)}.
+     * See {@link #getDexOptNeeded(String, String, String, boolean, boolean)}.
      *
      * @hide
      */
@@ -440,7 +440,7 @@ public final class DexFile {
      * dex2oat should be run to update the apk/jar because the existing code
      * is out of date with respect to the target compiler filter.
      *
-     * See {@link #getDexOptNeeded(String, String, int)}.
+     * See {@link #getDexOptNeeded(String, String, String, boolean, boolean)}.
      *
      * @hide
      */
@@ -450,7 +450,7 @@ public final class DexFile {
      * dex2oat should be run to update the apk/jar because the existing code
      * is not relocated to match the boot image.
      *
-     * See {@link #getDexOptNeeded(String, String, int)}.
+     * See {@link #getDexOptNeeded(String, String, String, boolean, boolean)}.
      *
      * @hide
      */
@@ -467,6 +467,8 @@ public final class DexFile {
      * @param newProfile flag that describes whether a profile corresponding
      *        to the dex file has been recently updated and should be considered
      *        in the state of the file.
+     * @param downgrade flag that describes if the purpose of dexopt is to downgrade the
+     *        compiler filter. If set to false, will be evaluated as an upgrade request.
      * @return NO_DEXOPT_NEEDED, or DEX2OAT_*. See documentation
      *         of the particular status code for more information on its
      *         meaning. Returns a positive status code if the status refers to
@@ -481,7 +483,7 @@ public final class DexFile {
      * @hide
      */
     public static native int getDexOptNeeded(String fileName,
-            String instructionSet, String compilerFilter, boolean newProfile)
+            String instructionSet, String compilerFilter, boolean newProfile, boolean downgrade)
             throws FileNotFoundException, IOException;
 
     /**

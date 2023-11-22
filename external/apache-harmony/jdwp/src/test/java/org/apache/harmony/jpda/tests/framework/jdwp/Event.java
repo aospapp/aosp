@@ -25,35 +25,30 @@
  */
 package org.apache.harmony.jpda.tests.framework.jdwp;
 
+import java.util.Collections;
+import java.util.List;
+
 /**
  * This class provides description of event request. 
  */
 public class Event {
 
-    public byte eventKind;
-    public byte suspendPolicy;
+    public static EventBuilder builder(byte eventKind, byte suspendPolicy) {
+        return new EventBuilder(eventKind, suspendPolicy);
+    }
+
+    public final byte eventKind;
+    public final byte suspendPolicy;
 
     /** List of event modifiers. */
-    public EventMod[] mods;
-    public int modifiers;
-
-    /**
-     * Creates new instance with empty data.
-     */
-    public Event() {
-        eventKind = 0;
-        suspendPolicy = 0;
-        modifiers = -1;
-        mods = null;
-    }
+    public final List<EventMod> mods;
 
     /**
      * Create new instance with specified data.
      */
-    public Event(byte eventKind, byte suspendPolicy, EventMod[] mods) {
+    Event(byte eventKind, byte suspendPolicy, List<EventMod> mods) {
         this.eventKind = eventKind;
         this.suspendPolicy = suspendPolicy;
-        this.modifiers = mods.length;
-        this.mods = mods;
+        this.mods = Collections.unmodifiableList(mods);
     }
 }

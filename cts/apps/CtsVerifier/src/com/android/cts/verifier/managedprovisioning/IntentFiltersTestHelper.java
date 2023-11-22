@@ -248,8 +248,6 @@ public class IntentFiltersTestHelper {
             forwardedIntentsFromManaged.addAll(Arrays.asList(
                     new Intent(Settings.ACTION_INPUT_METHOD_SETTINGS),
                     new Intent(Settings.ACTION_INPUT_METHOD_SUBTYPE_SETTINGS)));
-            notForwardedIntentsFromManaged.add(
-                    new Intent("android.settings.SHOW_INPUT_METHOD_PICKER"));
         }
 
         if (!pm.hasSystemFeature(PackageManager.FEATURE_WATCH)) {

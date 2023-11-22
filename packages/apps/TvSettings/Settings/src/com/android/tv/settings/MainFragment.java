@@ -445,16 +445,11 @@ public class MainFragment extends LeanbackPreferenceFragment {
             final ResolveInfo info = systemIntentIsHandled(getContext(),
                     googleSettingsPref.getIntent());
             googleSettingsPref.setVisible(info != null);
-            if (info != null) {
-                try {
-                    final Context targetContext = getContext()
-                            .createPackageContext(info.resolvePackageName != null ?
-                                    info.resolvePackageName : info.activityInfo.packageName, 0);
-                    googleSettingsPref.setIcon(targetContext.getDrawable(info.iconResourceId));
-                } catch (Resources.NotFoundException | PackageManager.NameNotFoundException
-                        | SecurityException e) {
-                    Log.e(TAG, "Google settings icon not found", e);
-                }
+            if (info != null && info.activityInfo != null) {
+                googleSettingsPref.setIcon(
+                    info.activityInfo.loadIcon(getContext().getPackageManager()));
+                googleSettingsPref.setTitle(
+                    info.activityInfo.loadLabel(getContext().getPackageManager()));
             }
 
             final Preference speechPref = findPreference(KEY_SPEECH_SETTINGS);

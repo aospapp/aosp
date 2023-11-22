@@ -432,7 +432,8 @@ Sized_relobj_file<size, big_endian>::Sized_relobj_file(
     discarded_eh_frame_shndx_(-1U),
     is_deferred_layout_(false),
     deferred_layout_(),
-    deferred_layout_relocs_()
+    deferred_layout_relocs_(),
+    output_views_(NULL)
 {
   this->e_type_ = ehdr.get_e_type();
 }
@@ -613,6 +614,16 @@ Sized_relobj_file<size, big_endian>::find_eh_frame(
       if (this->check_eh_frame_flags(&shdr))
 	return true;
     }
+}
+
+
+template<int size, bool big_endian>
+void
+Sized_relobj_file<size, big_endian>::clear_views()
+{
+  gold_assert(this->output_views_);
+  delete this->output_views_;
+  this->output_views_ = NULL;
 }
 
 // Return TRUE if this is a section whose contents will be needed in the

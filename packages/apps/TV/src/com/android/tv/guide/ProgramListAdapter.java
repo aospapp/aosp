@@ -32,11 +32,12 @@ import com.android.tv.guide.ProgramManager.TableEntry;
  * Adapts a program list for a specific channel from {@link ProgramManager} to a row of the program
  * guide table.
  */
-public class ProgramListAdapter extends RecyclerView.Adapter<ProgramListAdapter.ProgramViewHolder>
+class ProgramListAdapter extends RecyclerView.Adapter<ProgramListAdapter.ProgramItemViewHolder>
         implements TableEntriesUpdatedListener {
     private static final String TAG = "ProgramListAdapter";
     private static final boolean DEBUG = false;
 
+    private final ProgramGuide mProgramGuide;
     private final ProgramManager mProgramManager;
     private final int mChannelIndex;
     private final String mNoInfoProgramTitle;
@@ -44,9 +45,10 @@ public class ProgramListAdapter extends RecyclerView.Adapter<ProgramListAdapter.
 
     private long mChannelId;
 
-    public ProgramListAdapter(Resources res, ProgramManager programManager, int channelIndex) {
+    ProgramListAdapter(Resources res, ProgramGuide programGuide, int channelIndex) {
         setHasStableIds(true);
-        mProgramManager = programManager;
+        mProgramGuide = programGuide;
+        mProgramManager = programGuide.getProgramManager();
         mChannelIndex = channelIndex;
         mNoInfoProgramTitle = res.getString(R.string.program_title_for_no_information);
         mBlockedProgramTitle = res.getString(R.string.program_title_for_blocked_channel);
@@ -65,10 +67,6 @@ public class ProgramListAdapter extends RecyclerView.Adapter<ProgramListAdapter.
         }
     }
 
-    public ProgramManager getProgramManager() {
-        return mProgramManager;
-    }
-
     @Override
     public int getItemCount() {
         return mProgramManager.getTableEntryCount(mChannelId);
@@ -85,38 +83,40 @@ public class ProgramListAdapter extends RecyclerView.Adapter<ProgramListAdapter.
     }
 
     @Override
-    public void onBindViewHolder(ProgramViewHolder holder, int position) {
+    public void onBindViewHolder(ProgramItemViewHolder holder, int position) {
         TableEntry tableEntry = mProgramManager.getTableEntry(mChannelId, position);
         String gapTitle = tableEntry.isBlocked() ? mBlockedProgramTitle : mNoInfoProgramTitle;
-        holder.onBind(tableEntry, this.getProgramManager(), gapTitle);
+        holder.onBind(tableEntry, mProgramGuide, gapTitle);
     }
 
     @Override
-    public void onViewRecycled(ProgramViewHolder holder) {
+    public void onViewRecycled(ProgramItemViewHolder holder) {
         holder.onUnbind();
     }
 
     @Override
-    public ProgramViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+    public ProgramItemViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
         View itemView = LayoutInflater.from(parent.getContext()).inflate(viewType, parent, false);
-        return new ProgramViewHolder(itemView);
+        return new ProgramItemViewHolder(itemView);
     }
 
-    public static class ProgramViewHolder extends RecyclerView.ViewHolder {
+    static class ProgramItemViewHolder extends RecyclerView.ViewHolder {
         // Should be called from main thread.
-        public ProgramViewHolder(View itemView) {
+        ProgramItemViewHolder(View itemView) {
             super(itemView);
         }
 
-        public void onBind(TableEntry entry, ProgramManager programManager, String gapTitle) {
+        void onBind(TableEntry entry, ProgramGuide programGuide, String gapTitle) {
             if (DEBUG) {
                 Log.d(TAG, "onBind. View = " + itemView + ", Entry = " + entry);
             }
-            ((ProgramItemView) itemView).setValues(entry, programManager.getSelectedGenreId(),
-                    programManager.getFromUtcMillis(), programManager.getToUtcMillis(), gapTitle);
+            ProgramManager programManager = programGuide.getProgramManager();
+            ((ProgramItemView) itemView).setValues(programGuide, entry,
+                    programManager.getSelectedGenreId(), programManager.getFromUtcMillis(),
+                    programManager.getToUtcMillis(), gapTitle);
         }
 
-        public void onUnbind() {
+        void onUnbind() {
             ((ProgramItemView) itemView).clearValues();
         }
     }

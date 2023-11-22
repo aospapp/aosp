@@ -5227,8 +5227,14 @@
     public static int INDEX_COMPASS_BEARING;
     public static int INDEX_COMPASS_PITCH;
     public static int INDEX_COMPASS_ROLL;
+    public static int INDEX_WHEEL_DISTANCE_FRONT_LEFT;
+    public static int INDEX_WHEEL_DISTANCE_FRONT_RIGHT;
+    public static int INDEX_WHEEL_DISTANCE_REAR_LEFT;
+    public static int INDEX_WHEEL_DISTANCE_REAR_RIGHT;
+    public static int INDEX_WHEEL_DISTANCE_RESET_COUNT;
     public float[] floatValues;
     public int[] intValues;
+    public long[] longValues;
     public int sensorType;
     public long timestamp;
 }
@@ -5286,10 +5292,13 @@
 
     public static int SENSOR_RATE_FASTEST;
     public static int SENSOR_RATE_NORMAL;
+    public static int SENSOR_TYPE_ABS_ACTIVE;
     public static int SENSOR_TYPE_COMPASS;
     public static int SENSOR_TYPE_DRIVING_STATUS;
     public static int SENSOR_TYPE_NIGHT;
     public static int SENSOR_TYPE_PARKING_BRAKE;
+    public static int SENSOR_TYPE_TRACTION_CONTROL_ACTIVE;
+    public static int SENSOR_TYPE_WHEEL_TICK_DISTANCE;
 }
 
 -keep class android.support.car.hardware.CarSensorManager$OnSensorChangedListener {

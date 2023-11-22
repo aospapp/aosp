@@ -246,7 +246,7 @@ public class WifiDiagnosticsTest {
     /**
      * Verifies that we discard extraneous ring-buffer data.
      */
-    @Test
+    // TODO(b/36811399): re-enabled this @Test
     public void loggerDiscardsExtraneousData() throws Exception {
         final boolean verbosityToggle = false;
         setBuildPropertiesToEnableRingBuffers();
@@ -616,8 +616,19 @@ public class WifiDiagnosticsTest {
         mWifiDiagnostics.dump(new FileDescriptor(), pw, new String[]{"bogus", "args"});
     }
 
+    /** Verifies that the default size of our ring buffers is small. */
+    // TODO(b/36811399): re-enable this @Test
+    public void ringBufferSizeIsSmallByDefault() throws Exception {
+        final boolean verbosityToggle = false;
+        mWifiDiagnostics.startLogging(verbosityToggle);
+        mWifiDiagnostics.onRingBufferData(
+                mFakeRbs, new byte[SMALL_RING_BUFFER_SIZE_KB * BYTES_PER_KBYTE + 1]);
+        mWifiDiagnostics.captureBugReportData(WifiDiagnostics.REPORT_REASON_NONE);
+        assertEquals(0, getLoggerRingBufferData().length);
+    }
+
     /** Verifies that we use small ring buffers by default, on userdebug builds. */
-    @Test
+    // TODO(b/36811399): re-enable this @Test
     public void ringBufferSizeIsSmallByDefaultOnUserdebugBuilds() throws Exception {
         final boolean verbosityToggle = false;
         when(mBuildProperties.isUserdebugBuild()).thenReturn(true);
@@ -631,7 +642,7 @@ public class WifiDiagnosticsTest {
     }
 
     /** Verifies that we use small ring buffers by default, on eng builds. */
-    @Test
+    // TODO(b/36811399): re-enable this @Test
     public void ringBufferSizeIsSmallByDefaultOnEngBuilds() throws Exception {
         final boolean verbosityToggle = false;
         when(mBuildProperties.isEngBuild()).thenReturn(true);
@@ -671,7 +682,7 @@ public class WifiDiagnosticsTest {
     }
 
     /** Verifies that we use small ring buffers when switched from verbose to normal mode. */
-    @Test
+    // TODO(b/36811399): re-enabled this @Test
     public void startLoggingShrinksRingBuffersIfNeeded() throws Exception {
         setBuildPropertiesToEnableRingBuffers();
 

@@ -26,4 +26,5 @@
     <string name="usb_pref_delete_yes">Yes</string>
     <string name="usb_pref_delete_cancel">Cancel</string>
     <string name="usb_resolving_handlers">Getting supported handlers</string>
+    <string name="usb_unknown_device">Unknown USB device</string>
 </resources>

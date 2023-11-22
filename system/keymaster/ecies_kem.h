@@ -19,7 +19,7 @@
 
 #include "kem.h"
 
-#include <UniquePtr.h>
+#include <keymaster/UniquePtr.h>
 #include <openssl/ec.h>
 
 #include <keymaster/authorization_set.h>

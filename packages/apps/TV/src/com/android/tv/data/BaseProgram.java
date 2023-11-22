@@ -17,12 +17,17 @@
 package com.android.tv.data;
 
 import android.content.Context;
+import android.media.tv.TvContentRating;
+import android.support.annotation.Nullable;
+import android.text.TextUtils;
+
+import com.android.tv.R;
 
 import java.util.Comparator;
 
 /**
  * Base class for {@link com.android.tv.data.Program} and
- * {@link com.android.tv.dvr.RecordedProgram}.
+ * {@link com.android.tv.dvr.data.RecordedProgram}.
  */
 public abstract class BaseProgram {
     /**
@@ -94,14 +99,29 @@ public abstract class BaseProgram {
     abstract public String getTitle();
 
     /**
-     * Returns the program's title withe its season and episode number.
+     * Returns the episode title.
      */
-    abstract public String getTitleWithEpisodeNumber(Context context);
+    abstract public String getEpisodeTitle();
 
     /**
      * Returns the displayed title of the program episode.
      */
-    abstract public String getEpisodeDisplayTitle(Context context);
+    public String getEpisodeDisplayTitle(Context context) {
+        if (!TextUtils.isEmpty(getEpisodeNumber())) {
+            String episodeTitle = getEpisodeTitle() == null ? "" : getEpisodeTitle();
+            if (TextUtils.equals(getSeasonNumber(), "0")) {
+                // Do not show "S0: ".
+                return String.format(context.getResources().getString(
+                        R.string.display_episode_title_format_no_season_number),
+                        getEpisodeNumber(), episodeTitle);
+            } else {
+                return String.format(context.getResources().getString(
+                        R.string.display_episode_title_format),
+                        getSeasonNumber(), getEpisodeNumber(), episodeTitle);
+            }
+        }
+        return getEpisodeTitle();
+    }
 
     /**
      * Returns the description of the program.
@@ -158,6 +178,10 @@ public abstract class BaseProgram {
      */
     abstract public int[] getCanonicalGenreIds();
 
+    /** Returns the array of content ratings. */
+    @Nullable
+    abstract public TvContentRating[] getContentRatings();
+
     /**
      * Returns channel's ID of the program.
      */
@@ -167,6 +191,13 @@ public abstract class BaseProgram {
      * Returns if the program is valid.
      */
     abstract public boolean isValid();
+
+    /**
+     * Checks whether the program is episodic or not.
+     */
+    public boolean isEpisodic() {
+        return getSeriesId() != null;
+    }
 
     /**
      * Generates the series ID for the other inputs than the tuner TV input.

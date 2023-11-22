@@ -18,10 +18,12 @@ package android.car.apitest;
 
 import android.car.hardware.CarPropertyConfig;
 import android.graphics.Point;
+import android.test.suitebuilder.annotation.MediumTest;
 
 /**
  * Unit tests for {@link CarPropertyConfig}
  */
+@MediumTest
 public class CarPropertyConfigTest extends CarPropertyTestBase {
 
     public void testCarPropertyConfigBuilder() {

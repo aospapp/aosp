@@ -142,8 +142,6 @@ public class A2dpReceiver extends BroadcastReceiver {
     private boolean initialize() {
         Log.d(TAG, "Start initialize()");
 
-        mPMCStatusLogger = new PMCStatusLogger(TAG + ".log", TAG);
-
         // Check if any Bluetooth devices are connected
         ArrayList<BluetoothDevice> results = new ArrayList<BluetoothDevice>();
         Set<BluetoothDevice> bondedDevices = mBluetoothAdapter.getBondedDevices();
@@ -207,6 +205,9 @@ public class A2dpReceiver extends BroadcastReceiver {
         String musicUrl;
         String tmpStr;
 
+        // Create the logger object
+        mPMCStatusLogger = new PMCStatusLogger(TAG + ".log", TAG);
+
         // For a baseline case when Blueooth is off but music is playing with speaker is muted
         boolean bt_off_mute = false;
 
@@ -216,10 +217,19 @@ public class A2dpReceiver extends BroadcastReceiver {
             Log.e(TAG, "No parameters specified");
             return;
         }
-        // Always initialize()
-        if (!initialize()) {
-            mPMCStatusLogger.logStatus("initialize() Failed");
-            return;
+
+        if (extras.containsKey("BT_OFF_Mute")) {
+            Log.v(TAG, "Mute is specified for Bluetooth off baseline case");
+            bt_off_mute = true;
+        }
+
+        // initialize() if we are testing over Bluetooth, we do NOT test
+        // over bluetooth for the play music with Bluetooth off test case.
+        if (!bt_off_mute) {
+            if (!initialize()) {
+                mPMCStatusLogger.logStatus("initialize() Failed");
+                return;
+            }
         }
         // Check if it is baseline Bluetooth is on but not stream
         if (extras.containsKey("BT_ON_NotPlay")) {
@@ -251,11 +261,7 @@ public class A2dpReceiver extends BroadcastReceiver {
             return;
         }
         // Check if it is the baseline that Bluetooth is off but streaming with speakers muted
-        if (extras.containsKey("BT_OFF_Mute")) {
-            Log.v(TAG, "Mute is specified for Bluetooth off baseline case");
-            bt_off_mute = true;
-        } else {
-
+        if (!bt_off_mute) {
             if (!extras.containsKey("CodecType")) {
                 Log.e(TAG, "No Codec Type specified");
                 return;
@@ -313,7 +319,7 @@ public class A2dpReceiver extends BroadcastReceiver {
             if (codecType == BluetoothCodecConfig.SOURCE_CODEC_TYPE_INVALID
                     || sampleRate == BluetoothCodecConfig.SAMPLE_RATE_NONE
                     || bitsPerSample == BluetoothCodecConfig.BITS_PER_SAMPLE_NONE) {
-                Log.d(TAG, "Invalid paramters");
+                Log.d(TAG, "Invalid parameters");
                 return;
             }
         }
@@ -338,7 +344,7 @@ public class A2dpReceiver extends BroadcastReceiver {
      * Function to setup MediaPlayer and play music
      *
      * @param musicURL - Music URL
-     * @param bt_off_mute - true is to mute speakers
+     * @param btOffMute - true is to mute speakers
      *
      */
     private boolean playMusic(String musicURL, boolean btOffMute) {
@@ -357,7 +363,6 @@ public class A2dpReceiver extends BroadcastReceiver {
             Log.d(TAG, "Set Normal Volume for speakers");
             mPlayer.setVolume(NORMAL_VOLUME, NORMAL_VOLUME);
         }
-
         // Play Music now and setup looping
         mPlayer.start();
         mPlayer.setLooping(true);

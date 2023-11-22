@@ -19,12 +19,13 @@ package com.android.cellbroadcastreceiver;
 import static com.android.cellbroadcastreceiver.CellBroadcastReceiver.DBG;
 import static com.android.cellbroadcastreceiver.CellBroadcastReceiver.VDBG;
 
-import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
+import android.media.AudioAttributes;
+import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.MediaPlayer.OnCompletionListener;
@@ -34,10 +35,13 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.Vibrator;
+import android.preference.PreferenceManager;
 import android.speech.tts.TextToSpeech;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
 import android.util.Log;
+
+import com.android.cellbroadcastreceiver.CellBroadcastAlertService.AlertType;
 
 import java.util.Locale;
 import java.util.MissingResourceException;
@@ -99,22 +103,15 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
     private boolean mTtsLanguageSupported;
     private boolean mEnableVibrate;
     private boolean mEnableAudio;
+    private boolean mUseFullVolume;
+    private boolean mResetAlarmVolumeNeeded;
+    private int mUserSetAlarmVolume;
 
     private Vibrator mVibrator;
     private MediaPlayer mMediaPlayer;
     private AudioManager mAudioManager;
     private TelephonyManager mTelephonyManager;
     private int mInitialCallState;
-
-    private PendingIntent mPlayReminderIntent;
-
-    public enum ToneType {
-        CMAS_DEFAULT,
-        ETWS_DEFAULT,
-        EARTHQUAKE,
-        TSUNAMI,
-        OTHER
-    }
 
     // Internal messages
     private static final int ALERT_SOUND_FINISHED = 1000;
@@ -138,6 +135,8 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                         stopSelf();
                         mState = STATE_IDLE;
                     }
+                    // Set alert reminder depending on user preference
+                    CellBroadcastAlertReminder.queueAlertReminder(getApplicationContext(), true);
                     break;
 
                 case ALERT_PAUSE_FINISHED:
@@ -279,8 +278,8 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
             // TTS is playing). We only want to release the focus when tone and TTS are played.
             mAudioManager.abandonAudioFocus(null);
         }
-        // release CPU wake lock acquired by CellBroadcastAlertService
-        CellBroadcastAlertWakeLock.releaseCpuLock();
+        // release the screen bright wakelock acquired by CellBroadcastAlertService
+        CellBroadcastAlertWakeLock.releaseScreenBrightWakeLock();
     }
 
     @Override
@@ -301,9 +300,12 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
         mMessagePreferredLanguage = intent.getStringExtra(ALERT_AUDIO_MESSAGE_PREFERRED_LANGUAGE);
         mMessageDefaultLanguage = intent.getStringExtra(ALERT_AUDIO_MESSAGE_DEFAULT_LANGUAGE);
 
+        // Get config of whether to always sound CBS alerts at full volume.
+        mUseFullVolume = PreferenceManager.getDefaultSharedPreferences(this)
+                .getBoolean(CellBroadcastSettings.KEY_USE_FULL_VOLUME, false);
+
         // retrieve the vibrate settings from cellbroadcast receiver settings.
         mEnableVibrate = intent.getBooleanExtra(ALERT_AUDIO_VIBRATE_EXTRA, true);
-
         switch (mAudioManager.getRingerMode()) {
             case AudioManager.RINGER_MODE_SILENT:
                 if (DBG) log("Ringer mode: silent");
@@ -324,6 +326,10 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                 break;
         }
 
+        if (mUseFullVolume) {
+            mEnableAudio = true;
+        }
+
         if (mMessageBody != null && mEnableAudio) {
             if (mTts == null) {
                 mTts = new TextToSpeech(this, this);
@@ -333,11 +339,11 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
         }
 
         if (mEnableAudio || mEnableVibrate) {
-            ToneType toneType = ToneType.CMAS_DEFAULT;
+            AlertType alertType = AlertType.CMAS_DEFAULT;
             if (intent.getSerializableExtra(ALERT_AUDIO_TONE_TYPE) != null) {
-                toneType = (ToneType) intent.getSerializableExtra(ALERT_AUDIO_TONE_TYPE);
+                alertType = (AlertType) intent.getSerializableExtra(ALERT_AUDIO_TONE_TYPE);
             }
-            playAlertTone(toneType);
+            playAlertTone(alertType);
         } else {
             stopSelf();
             return START_NOT_STICKY;
@@ -355,16 +361,18 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
 
     /**
      * Start playing the alert sound.
-     * @param toneType the alert tone type (e.g. default, earthquake, tsunami, etc..)
+     * @param alertType the alert type (e.g. default, earthquake, tsunami, etc..)
      */
-    private void playAlertTone(ToneType toneType) {
+    private void playAlertTone(AlertType alertType) {
         // stop() checks to see if we are already playing.
         stop();
 
-        log("playAlertTone: toneType=" + toneType);
+        log("playAlertTone: alertType=" + alertType);
 
         // Vibration duration in milliseconds
         long vibrateDuration = 0;
+
+        int customAlertDuration = getResources().getInteger(R.integer.alert_duration);
 
         // Start the vibration first.
         if (mEnableVibrate) {
@@ -377,8 +385,7 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                 vibrationPattern[i] = patternArray[i];
                 vibrateDuration += patternArray[i];
             }
-
-            mVibrator.vibrate(vibrationPattern, -1);
+            mVibrator.vibrate(vibrationPattern, 0);
         }
 
 
@@ -388,34 +395,31 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
             mMediaPlayer.setOnErrorListener(new OnErrorListener() {
                 public boolean onError(MediaPlayer mp, int what, int extra) {
                     loge("Error occurred while playing audio.");
-                    mp.stop();
-                    mp.release();
-                    mMediaPlayer = null;
+                    mHandler.sendMessage(mHandler.obtainMessage(ALERT_SOUND_FINISHED));
                     return true;
                 }
             });
 
-            mMediaPlayer.setOnCompletionListener(new OnCompletionListener() {
-                public void onCompletion(MediaPlayer mp) {
-                    if (DBG) log("Audio playback complete.");
-                    mHandler.sendMessage(mHandler.obtainMessage(ALERT_SOUND_FINISHED));
-                    return;
-                }
-            });
+            // If the duration is specified by the config, use the specified duration. Otherwise,
+            // just play the alert tone with the tone's duration.
+            if (customAlertDuration >= 0) {
+                mHandler.sendMessageDelayed(mHandler.obtainMessage(ALERT_SOUND_FINISHED),
+                        customAlertDuration);
+            } else {
+                mMediaPlayer.setOnCompletionListener(new OnCompletionListener() {
+                    public void onCompletion(MediaPlayer mp) {
+                        if (DBG) log("Audio playback complete.");
+                        mHandler.sendMessage(mHandler.obtainMessage(ALERT_SOUND_FINISHED));
+                        return;
+                    }
+                });
+            }
 
             try {
-                // Check if we are in a call. If we are, play the alert
-                // sound at a low volume to not disrupt the call.
-                if (mTelephonyManager.getCallState()
-                        != TelephonyManager.CALL_STATE_IDLE) {
-                    log("in call: reducing volume");
-                    mMediaPlayer.setVolume(IN_CALL_VOLUME, IN_CALL_VOLUME);
-                }
-
                 log("Locale=" + getResources().getConfiguration().getLocales());
 
                 // Load the tones based on type
-                switch (toneType) {
+                switch (alertType) {
                     case EARTHQUAKE:
                         setDataSourceFromResource(getResources(), mMediaPlayer,
                                 R.raw.etws_earthquake);
@@ -439,11 +443,16 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                 }
 
                 // start playing alert audio (unless master volume is vibrate only or silent).
-                mAudioManager.requestAudioFocus(null, AudioManager.STREAM_NOTIFICATION,
+                mAudioManager.requestAudioFocus(null, AudioManager.STREAM_ALARM,
                         AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
 
-                mMediaPlayer.setAudioStreamType(AudioManager.STREAM_NOTIFICATION);
-                mMediaPlayer.setLooping(false);
+                setAlertAudioAttributes();
+                setAlertVolume();
+
+                // If we are using the custom alert duration, set looping to true so we can repeat
+                // the alert. The tone playing will stop when ALERT_SOUND_FINISHED arrives.
+                // Otherwise we just play the alert tone once.
+                mMediaPlayer.setLooping(customAlertDuration >= 0);
                 mMediaPlayer.prepare();
                 mMediaPlayer.start();
 
@@ -459,7 +468,7 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
             // to stop the service. Unfortunately it's not like MediaPlayer has onCompletion()
             // callback that we can use, we'll have to use our own timer to stop the service.
             mHandler.sendMessageDelayed(mHandler.obtainMessage(ALERT_SOUND_FINISHED),
-                    vibrateDuration);
+                    customAlertDuration >= 0 ? customAlertDuration : vibrateDuration);
         }
 
         mState = STATE_ALERTING;
@@ -481,13 +490,10 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
     public void stop() {
         if (DBG) log("stop()");
 
-        if (mPlayReminderIntent != null) {
-            mPlayReminderIntent.cancel();
-            mPlayReminderIntent = null;
-        }
-
         mHandler.removeMessages(ALERT_SOUND_FINISHED);
         mHandler.removeMessages(ALERT_PAUSE_FINISHED);
+
+        resetAlarmStreamVolume();
 
         if (mState == STATE_ALERTING) {
             // Stop audio playing
@@ -513,6 +519,82 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
             }
         }
         mState = STATE_IDLE;
+    }
+
+    /**
+     * Set AudioAttributes for mMediaPlayer. Replacement of deprecated
+     * mMediaPlayer.setAudioStreamType.
+     */
+    private void setAlertAudioAttributes() {
+        AudioAttributes.Builder builder = new AudioAttributes.Builder();
+
+        builder.setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION);
+        builder.setUsage(AudioAttributes.USAGE_ALARM);
+        if (mUseFullVolume) {
+            // Set FLAG_BYPASS_INTERRUPTION_POLICY and FLAG_BYPASS_MUTE so that it enables
+            // audio in any DnD mode, even in total silence DnD mode (requires MODIFY_PHONE_STATE).
+            builder.setFlags(AudioAttributes.FLAG_BYPASS_INTERRUPTION_POLICY
+                    | AudioAttributes.FLAG_BYPASS_MUTE);
+        }
+
+        mMediaPlayer.setAudioAttributes(builder.build());
+    }
+
+    /**
+     * Set volume for alerts.
+     */
+    private void setAlertVolume() {
+        if (mTelephonyManager.getCallState() != TelephonyManager.CALL_STATE_IDLE
+                || isOnEarphone()) {
+            // If we are in a call, play the alert
+            // sound at a low volume to not disrupt the call.
+            log("in call: reducing volume");
+            mMediaPlayer.setVolume(IN_CALL_VOLUME);
+        } else if (mUseFullVolume) {
+            // If use_full_volume is configured,
+            // we overwrite volume setting of STREAM_ALARM to full, play at
+            // max possible volume, and reset it after it's finished.
+            setAlarmStreamVolumeToFull();
+        }
+    }
+
+    private boolean isOnEarphone() {
+        AudioDeviceInfo[] deviceList = mAudioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS);
+
+        for (AudioDeviceInfo devInfo : deviceList) {
+            int type = devInfo.getType();
+            if (type == AudioDeviceInfo.TYPE_WIRED_HEADSET
+                    || type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES
+                    || type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+                    || type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Set volume of STREAM_ALARM to full.
+     */
+    private void setAlarmStreamVolumeToFull() {
+        log("setting alarm volume to full for cell broadcast alerts.");
+        mUserSetAlarmVolume = mAudioManager.getStreamVolume(AudioManager.STREAM_ALARM);
+        mResetAlarmVolumeNeeded = true;
+        mAudioManager.setStreamVolume(AudioManager.STREAM_ALARM,
+                mAudioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM),
+                0);
+    }
+
+    /**
+     * Reset volume of STREAM_ALARM, if needed.
+     */
+    private void resetAlarmStreamVolume() {
+        if (mResetAlarmVolumeNeeded) {
+            log("resetting alarm volume to back to " + mUserSetAlarmVolume);
+            mAudioManager.setStreamVolume(AudioManager.STREAM_ALARM, mUserSetAlarmVolume, 0);
+            mResetAlarmVolumeNeeded = false;
+        }
     }
 
     private static void log(String msg) {

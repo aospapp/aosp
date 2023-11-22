@@ -24,7 +24,6 @@ import android.app.assist.AssistStructure;
 import android.support.annotation.IdRes;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.test.rule.ActivityTestRule;
 import android.support.test.runner.AndroidJUnit4;
 import android.view.View;
 import android.view.autofill.AutofillValue;
@@ -40,8 +39,8 @@ import java.util.function.Consumer;
 @RunWith(AndroidJUnit4.class)
 public class ViewAttributesTest extends AutoFillServiceTestCase {
     @Rule
-    public final ActivityTestRule<ViewAttributesTestActivity> mActivityRule =
-            new ActivityTestRule<>(ViewAttributesTestActivity.class);
+    public final AutofillActivityTestRule<ViewAttributesTestActivity> mActivityRule =
+            new AutofillActivityTestRule<>(ViewAttributesTestActivity.class);
 
     private ViewAttributesTestActivity mActivity;
 

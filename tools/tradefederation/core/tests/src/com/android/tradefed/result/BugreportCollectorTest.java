@@ -55,7 +55,7 @@ public class BugreportCollectorTest extends TestCase {
         }
 
         @Override
-        public void cancel() {
+        public void close() {
             // ignore
         }
 

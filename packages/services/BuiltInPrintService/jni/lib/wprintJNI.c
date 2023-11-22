@@ -1150,7 +1150,7 @@ static char *copyToNewString(JNIEnv *env, jstring source) {
  */
 JNIEXPORT jint JNICALL Java_com_android_bips_ipp_Backend_nativeGetCapabilities(
         JNIEnv *env, jobject obj, jstring address, jint port, jstring httpResource,
-        jstring uriScheme, jobject printerCaps) {
+        jstring uriScheme, jlong timeout, jobject printerCaps) {
     jint result;
     printer_capabilities_t caps;
     wprint_connect_info_t connect_info;
@@ -1159,6 +1159,7 @@ JNIEXPORT jint JNICALL Java_com_android_bips_ipp_Backend_nativeGetCapabilities(
     connect_info.uri_path = copyToNewString(env, httpResource);
     connect_info.uri_scheme = copyToNewString(env, uriScheme);
     connect_info.port_num = port;
+    connect_info.timeout = timeout;
 
     LOGI("nativeGetCapabilities for %s JNIenv is %p", connect_info.printer_addr, env);
 
@@ -1226,7 +1227,7 @@ JNIEXPORT jint JNICALL Java_com_android_bips_ipp_Backend_nativeGetFinalJobParame
  */
 JNIEXPORT jint JNICALL Java_com_android_bips_ipp_Backend_nativeStartJob(
         JNIEnv *env, jobject obj, jstring address, jint port, jstring mimeType, jobject jobParams,
-        jobject printerCaps, jobject fileArray, jstring jobDebugDir) {
+        jobject printerCaps, jobject fileArray, jstring jobDebugDir, jstring scheme) {
     LOGI("nativeStartJob, JNIenv is %p", env);
     jint result = ERROR;
     wJob_t job_handle = ERROR;
@@ -1244,6 +1245,7 @@ JNIEXPORT jint JNICALL Java_com_android_bips_ipp_Backend_nativeStartJob(
     const char *addressStr = (*env)->GetStringUTFChars(env, address, NULL);
     const char *mimeTypeStr = (*env)->GetStringUTFChars(env, mimeType, NULL);
     const char *dataDirStr = (*env)->GetStringUTFChars(env, _fakeDir, NULL);
+    const char *schemeStr = (*env)->GetStringUTFChars(env, scheme, NULL);
 
     jsize len = 0;
     jobjectArray array;
@@ -1308,7 +1310,7 @@ JNIEXPORT jint JNICALL Java_com_android_bips_ipp_Backend_nativeStartJob(
             jobDebugDirStr = (*env)->GetStringUTFChars(env, jobDebugDir, NULL);
         }
         result = wprintStartJob(addressStr, port, &params, &caps, (char *) mimeTypeStr,
-                (char *) dataDirStr, _wprint_callback_fn, jobDebugDirStr);
+                (char *) dataDirStr, _wprint_callback_fn, jobDebugDirStr, schemeStr);
         if (result == ERROR) {
             LOGE("failed to start job: error code :%d", errno);
         }
@@ -1361,6 +1363,7 @@ JNIEXPORT jint JNICALL Java_com_android_bips_ipp_Backend_nativeStartJob(
     (*env)->ReleaseStringUTFChars(env, mimeType, mimeTypeStr);
     (*env)->ReleaseStringUTFChars(env, address, addressStr);
     (*env)->ReleaseStringUTFChars(env, _fakeDir, dataDirStr);
+    (*env)->ReleaseStringUTFChars(env, scheme, schemeStr);
     return job_handle;
 }
 

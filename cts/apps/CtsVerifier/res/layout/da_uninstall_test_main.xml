@@ -46,18 +46,8 @@
                 android:layout_alignParentRight="true"
                 android:layout_alignParentTop="true"
                 android:layout_toRightOf="@id/install_admin_status"
+                android:layout_marginTop="10dip"
                 android:text="@string/da_install_admin_instructions" />
-
-            <Button
-                android:id="@+id/install_device_admin_button"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_alignParentRight="true"
-                android:layout_below="@id/install_admin_instructions"
-                android:layout_marginLeft="20dip"
-                android:layout_marginRight="20dip"
-                android:layout_toRightOf="@id/install_admin_status"
-                android:text="@string/da_install_admin_button_text" />
         </RelativeLayout>
 
         <!-- Enable device admin -->

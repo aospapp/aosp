@@ -19,6 +19,8 @@
 
 #include <cassert>
 
+#define CHRE_ASSERT_USES_STDLIB_ASSERT
+
 #ifdef GTEST
 
 #include "chre/platform/log.h"

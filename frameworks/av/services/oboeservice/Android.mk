@@ -22,18 +22,21 @@ LOCAL_C_INCLUDES := \
     $(TOP)/frameworks/av/media/libaaudio/src
 
 LOCAL_SRC_FILES += \
-    $(LIBAAUDIO_SRC_DIR)/utility/HandleTracker.cpp \
     SharedMemoryProxy.cpp \
     SharedRingBuffer.cpp \
+    AAudioClientTracker.cpp \
     AAudioEndpointManager.cpp \
     AAudioMixer.cpp \
     AAudioService.cpp \
     AAudioServiceEndpoint.cpp \
     AAudioServiceEndpointCapture.cpp \
+    AAudioServiceEndpointMMAP.cpp \
     AAudioServiceEndpointPlay.cpp \
+    AAudioServiceEndpointShared.cpp \
     AAudioServiceStreamBase.cpp \
     AAudioServiceStreamMMAP.cpp \
     AAudioServiceStreamShared.cpp \
+    AAudioStreamTracker.cpp \
     TimestampScheduler.cpp \
     AAudioThread.cpp
 
@@ -46,9 +49,11 @@ LOCAL_CFLAGS += -Wall -Werror
 LOCAL_SHARED_LIBRARIES :=  \
     libaaudio \
     libaudioflinger \
+    libaudioclient \
     libbinder \
     libcutils \
     libmediautils \
+    libserviceutility \
     libutils \
     liblog
 

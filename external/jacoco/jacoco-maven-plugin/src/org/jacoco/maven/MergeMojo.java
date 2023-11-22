@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -17,6 +17,9 @@ import java.util.List;
 
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.plugins.annotations.LifecyclePhase;
+import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.shared.model.fileset.FileSet;
 import org.apache.maven.shared.model.fileset.util.FileSetManager;
 import org.jacoco.core.tools.ExecFileLoader;
@@ -24,22 +27,17 @@ import org.jacoco.core.tools.ExecFileLoader;
 /**
  * Mojo for merging a set of execution data files (*.exec) into a single file
  * 
- * @phase generate-resources
- * @goal merge
- * @requiresProject true
- * @threadSafe
  * @since 0.6.4
  */
+@Mojo(name = "merge", defaultPhase = LifecyclePhase.GENERATE_RESOURCES, threadSafe = true)
 public class MergeMojo extends AbstractJacocoMojo {
 
 	private static final String MSG_SKIPPING = "Skipping JaCoCo merge execution due to missing execution data files";
 
 	/**
 	 * Path to the output file for execution data.
-	 * 
-	 * @parameter property="jacoco.destFile"
-	 *            default-value="${project.build.directory}/jacoco.exec"
 	 */
+	@Parameter(property = "jacoco.destFile", defaultValue = "${project.build.directory}/jacoco.exec")
 	private File destFile;
 
 	/**
@@ -52,7 +50,7 @@ public class MergeMojo extends AbstractJacocoMojo {
 	 * <code>
 	 * &lt;fileSets&gt;
 	 *   &lt;fileSet implementation="org.apache.maven.shared.model.fileset.FileSet"&gt;
-	 *     &lt;directory&gt;${project.parent.build.directory}&lt;/directory&gt;
+	 *     &lt;directory&gt;${project.build.directory}&lt;/directory&gt;
 	 *     &lt;includes&gt;
 	 *       &lt;include&gt;*.exec&lt;/include&gt;
 	 *     &lt;/includes&gt;
@@ -60,10 +58,8 @@ public class MergeMojo extends AbstractJacocoMojo {
 	 * &lt;/fileSets&gt;
 	 * </code>
 	 * </pre>
-	 * 
-	 * @parameter property="jacoco.fileSets"
-	 * @required
 	 */
+	@Parameter(property = "jacoco.fileSets", required = true)
 	private List<FileSet> fileSets;
 
 	@Override

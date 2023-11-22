@@ -44,31 +44,15 @@ class a11y_test_base(test.test):
         self._player.blocking_playback_of_default_file(
                 input_type='keyboard', filename='keyboard_ctrl+alt+z')
 
+    def _chromevox_move(self, direction):
+        """Use ChromeVox move commands (search + arrow key).
 
-    def _search_shift_move(self, direction):
-        """Playback the keyboard movement shortcut for given direction.
-
-        @param direction: right, left, up, or down.
+        @param direction:  The direction in which to move, e.g. 'down'.
 
         """
-        assert direction in ['right', 'left', 'up', 'down']
         self._player.blocking_playback_of_default_file(
                 input_type='keyboard',
-                filename='keyboard_search+shift+%s' % direction)
-
-
-    def _tab_move(self, direction='forwards'):
-        """Playback a tab or shift+tab for the given direction.
-
-        @param direction: forwards or backwards.
-
-        """
-        assert direction in ['forwards', 'backwards']
-        is_forwards = direction is 'forwards'
-        filename = 'keyboard_tab' if is_forwards else 'keyboard_shift+tab'
-        self._player.blocking_playback_of_default_file(
-                input_type='keyboard', filename=filename)
-
+                filename='keyboard_search+%s' % direction)
 
     def _set_feature(self, feature, value):
         """Set given feature to given value using a11y API call.
@@ -136,36 +120,6 @@ class a11y_test_base(test.test):
                 exception=error.TestFail('ChromeVox: enabled state '
                                          'was not %s.' % value),
                 timeout=self._CVOX_STATE_TIMEOUT)
-
-
-    def _get_chromevox_indicator(self, tab):
-        """Return whether the orange ChromeVox highlight is present or not.
-
-        Looks for the orange highlight on the given tab.
-
-        @returns: whether 'cvox_indicator_container' is found on the page
-
-        """
-        cmd = ('document.getElementsByClassName('
-               '  "cvox_indicator_container").length > 0;')
-        return tab.EvaluateJavaScript(cmd)
-
-
-    def _confirm_chromevox_indicator(self, value):
-        """Fail test unless indicator state is given value.
-
-        Presupposes self._tab (the tab on which to check).
-
-        @param value: True or False, whether ChromeVox indicator should show.
-
-        @raises: error.TestFail if actual state doesn't match expected.
-
-        """
-        utils.poll_for_condition(
-                lambda: self._get_chromevox_indicator(self._tab) == value,
-                exception=error.TestFail('ChromeVox: "Indicator present" '
-                                         'was not %s.' % value),
-                timeout=self._CVOX_INDICATOR_TIMEOUT)
 
 
     def _get_extension_path(self):

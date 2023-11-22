@@ -58,16 +58,15 @@ GTEST_API_ GTEST_DEFINE_STATIC_MUTEX_(g_gmock_mutex);
 // Logs a message including file and line number information.
 GTEST_API_ void LogWithLocation(testing::internal::LogSeverity severity,
                                 const char* file, int line,
-                                const string& message) {
+                                const std::string& message) {
   ::std::ostringstream s;
   s << file << ":" << line << ": " << message << ::std::endl;
   Log(severity, s.str(), 0);
 }
 
 // Constructs an ExpectationBase object.
-ExpectationBase::ExpectationBase(const char* a_file,
-                                 int a_line,
-                                 const string& a_source_text)
+ExpectationBase::ExpectationBase(const char* a_file, int a_line,
+                                 const std::string& a_source_text)
     : file_(a_file),
       line_(a_line),
       source_text_(a_source_text),
@@ -244,7 +243,7 @@ GTEST_API_ ThreadLocal<Sequence*> g_gmock_implicit_sequence;
 
 // Reports an uninteresting call (whose description is in msg) in the
 // manner specified by 'reaction'.
-void ReportUninterestingCall(CallReaction reaction, const string& msg) {
+void ReportUninterestingCall(CallReaction reaction, const std::string& msg) {
   // Include a stack trace only if --gmock_verbose=info is specified.
   const int stack_frames_to_skip =
       GMOCK_FLAG(verbose) == kInfoVerbosity ? 3 : -1;
@@ -258,8 +257,8 @@ void ReportUninterestingCall(CallReaction reaction, const string& msg) {
           "\nNOTE: You can safely ignore the above warning unless this "
           "call should not happen.  Do not suppress it by blindly adding "
           "an EXPECT_CALL() if you don't mean to enforce the call.  "
-          "See http://code.google.com/p/googlemock/wiki/CookBook#"
-          "Knowing_When_to_Expect for details.\n",
+          "See https://github.com/google/googletest/blob/master/googlemock/docs/CookBook.md#"
+          "knowing-when-to-expect for details.\n",
           stack_frames_to_skip);
       break;
     default:  // FAIL

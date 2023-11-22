@@ -21,6 +21,8 @@
 
 #include <sstream>
 
+#include "nativehelper/jni_macros.h"
+
 #include "base/histogram-inl.h"
 #include "base/time_utils.h"
 #include "class_linker.h"
@@ -37,8 +39,9 @@
 #include "jni_internal.h"
 #include "mirror/class.h"
 #include "mirror/object_array-inl.h"
-#include "ScopedLocalRef.h"
-#include "ScopedUtfChars.h"
+#include "native_util.h"
+#include "nativehelper/ScopedLocalRef.h"
+#include "nativehelper/ScopedUtfChars.h"
 #include "scoped_fast_native_object_access-inl.h"
 #include "trace.h"
 #include "well_known_classes.h"

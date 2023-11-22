@@ -33,9 +33,10 @@
 #include "linker_utils.h"
 
 #include <android-base/file.h>
+#include <android-base/scopeguard.h>
 #include <android-base/strings.h>
 
-#include <private/ScopeGuard.h>
+#include <async_safe/log.h>
 
 #include <stdlib.h>
 
@@ -150,7 +151,7 @@ static std::string create_error_msg(const char* file,
                                     size_t lineno,
                                     const std::string& msg) {
   char buf[1024];
-  __libc_format_buffer(buf, sizeof(buf), "%s:%zu: error: %s", file, lineno, msg.c_str());
+  async_safe_format_buffer(buf, sizeof(buf), "%s:%zu: error: %s", file, lineno, msg.c_str());
 
   return std::string(buf);
 }
@@ -319,7 +320,7 @@ class Properties {
     return (it == properties_.end()) ? "" : it->second.value();
   }
 
-  std::vector<std::string> get_paths(const std::string& name, size_t* lineno = nullptr) {
+  std::vector<std::string> get_paths(const std::string& name, bool resolve, size_t* lineno = nullptr) {
     std::string paths_str = get_string(name, lineno);
 
     std::vector<std::string> paths;
@@ -329,7 +330,7 @@ class Properties {
     params.push_back({ "LIB", kLibParamValue });
     if (target_sdk_version_ != 0) {
       char buf[16];
-      __libc_format_buffer(buf, sizeof(buf), "%d", target_sdk_version_);
+      async_safe_format_buffer(buf, sizeof(buf), "%d", target_sdk_version_);
       params.push_back({ "SDK_VER", buf });
     }
 
@@ -337,12 +338,16 @@ class Properties {
       format_string(&path, params);
     }
 
-    std::vector<std::string> resolved_paths;
+    if (resolve) {
+      std::vector<std::string> resolved_paths;
 
-    // do not remove paths that do not exist
-    resolve_paths(paths, &resolved_paths);
+      // do not remove paths that do not exist
+      resolve_paths(paths, &resolved_paths);
 
-    return resolved_paths;
+      return resolved_paths;
+    } else {
+      return paths;
+    }
   }
 
   void set_target_sdk_version(int target_sdk_version) {
@@ -370,15 +375,6 @@ bool Config::read_binary_config(const char* ld_config_file_path,
                                       bool is_asan,
                                       const Config** config,
                                       std::string* error_msg) {
-  // TODO(b/38114603) Currently, multiple namespaces does not support ASAN mode
-  // where some symbols should be intercepted via LD_PRELOAD; LD_PRELOADed libs
-  // are not being preloaded into the linked namespaces other than the default
-  // namespace. Until we fix the problem, we temporarily disable ld.config.txt
-  // in ASAN mode.
-  if (is_asan) {
-    return false;
-  }
-
   g_config.clear();
 
   std::unordered_map<std::string, PropertyValue> property_map;
@@ -388,9 +384,7 @@ bool Config::read_binary_config(const char* ld_config_file_path,
 
   Properties properties(std::move(property_map));
 
-  auto failure_guard = make_scope_guard([] {
-    g_config.clear();
-  });
+  auto failure_guard = android::base::make_scope_guard([] { g_config.clear(); });
 
   std::unordered_map<std::string, NamespaceConfig*> namespace_configs;
 
@@ -475,11 +469,21 @@ bool Config::read_binary_config(const char* ld_config_file_path,
       property_name_prefix += ".asan";
     }
 
-    ns_config->set_search_paths(properties.get_paths(property_name_prefix + ".search.paths"));
-    ns_config->set_permitted_paths(properties.get_paths(property_name_prefix + ".permitted.paths"));
+    // search paths are resolved (canonicalized). This is required mainly for
+    // the case when /vendor is a symlink to /system/vendor, which is true for
+    // non Treble-ized legacy devices.
+    ns_config->set_search_paths(properties.get_paths(property_name_prefix + ".search.paths", true));
+
+    // However, for permitted paths, we are not required to resolve the paths
+    // since they are only set for isolated namespaces, which implies the device
+    // is Treble-ized (= /vendor is not a symlink to /system/vendor).
+    // In fact, the resolving is causing an unexpected side effect of selinux
+    // denials on some executables which are not allowed to access some of the
+    // permitted paths.
+    ns_config->set_permitted_paths(properties.get_paths(property_name_prefix + ".permitted.paths", false));
   }
 
-  failure_guard.disable();
+  failure_guard.Disable();
   *config = &g_config;
   return true;
 }

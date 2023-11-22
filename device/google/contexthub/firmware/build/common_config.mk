@@ -40,6 +40,7 @@ LOCAL_CPPFLAGS +=       \
 
 LOCAL_LDFLAGS +=                        \
     -nostartfiles                       \
+    -nostdlib                           \
     -Wl,--gc-sections                   \
     -Wl,--no-undefined                  \
     -Wl,--no-allow-shlib-undefined      \
@@ -52,7 +53,6 @@ LOCAL_CFLAGS_cortexm4 += \
     -mfpu=fpv4-sp-d16 \
     -mno-thumb-interwork \
     -ffast-math \
-    -fshort-double \
     -fsingle-precision-constant \
     -DARM \
     -DUSE_NANOHUB_FLOAT_RUNTIME \

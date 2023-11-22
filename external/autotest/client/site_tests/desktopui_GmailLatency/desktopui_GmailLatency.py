@@ -2,8 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import logging, os, time, utils
-from autotest_lib.client.bin import test
+import logging, os, time
+from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import constants, cros_ui
 from autotest_lib.client.cros.graphics import graphics_utils
@@ -59,7 +59,7 @@ class desktopui_GmailLatency(test.test):
             # Setup parameters
             params = ('--url="%s" --wait_js_expr="%s" --wait_js_timeout=%d' %
                         (url, js_expr, timeout))
-            graphics_utils.xsystem('./%s %s' % (url_fetch_test, params))
+            utils.system('./%s %s' % (url_fetch_test, params))
 
         except error.CmdError, e:
             logging.debug(e)

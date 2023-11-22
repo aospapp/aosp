@@ -16,7 +16,6 @@
 
 static_library("btcore") {
   sources = [
-    "src/bdaddr.cc",
     "src/device_class.cc",
     "src/hal_util.cc",
     "src/module.cc",
@@ -52,6 +51,7 @@ executable("net_test_btcore") {
   deps = [
     "//btcore",
     "//osi",
+    "//types",
     "//third_party/googletest:gtest_main",
     "//third_party/libchrome:base",
   ]

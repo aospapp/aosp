@@ -59,12 +59,12 @@ class DisplayFacadeRemoteAdapter(object):
         return self._display_proxy.get_internal_connector_name()
 
 
-    def move_to_display(self, display_index):
+    def move_to_display(self, display_id):
         """Moves the current window to the indicated display.
 
-        @param display_index: The index of the indicated display.
+        @param display_id: The id of the indicated display.
         """
-        self._display_proxy.move_to_display(display_index)
+        self._display_proxy.move_to_display(display_id)
 
 
     def set_fullscreen(self, is_fullscreen):
@@ -269,14 +269,14 @@ class DisplayFacadeRemoteAdapter(object):
         return tuple(resolution) if resolution else None
 
 
-    def set_resolution(self, display_index, width, height):
+    def set_resolution(self, display_id, width, height):
         """Sets the resolution on the specified display.
 
-        @param display_index: index of the display to set resolutions for.
+        @param display_id: id of the display to set resolutions for.
         @param width: width of the resolution
         @param height: height of the resolution
         """
-        self._display_proxy.set_resolution(display_index, width, height)
+        self._display_proxy.set_resolution(display_id, width, height)
 
 
     # pylint: disable = W0141
@@ -289,74 +289,75 @@ class DisplayFacadeRemoteAdapter(object):
         return map(DisplayInfo, self._display_proxy.get_display_info())
 
 
-    def get_display_modes(self, display_index):
+    def get_display_modes(self, display_id):
         """Gets the display modes of the specified display.
 
-        @param display_index: index of the display to get modes from; the index
-            is from the DisplayInfo list obtained by get_display_info().
+        @param display_id: id of the display to get modes from; the id is from
+            the DisplayInfo list obtained by get_display_info().
 
         @return: list of DisplayMode dicts.
         """
-        return self._display_proxy.get_display_modes(display_index)
+        return self._display_proxy.get_display_modes(display_id)
 
 
-    def get_available_resolutions(self, display_index):
+    def get_available_resolutions(self, display_id):
         """Gets the resolutions from the specified display.
 
-        @param display_index: index of the display to get modes from.
+        @param display_id: id of the display to get modes from.
 
         @return a list of (width, height) tuples.
         """
         return [tuple(r) for r in
-                self._display_proxy.get_available_resolutions(display_index)]
+                self._display_proxy.get_available_resolutions(display_id)]
 
 
-    def get_display_rotation(self, display_index):
+    def get_display_rotation(self, display_id):
         """Gets the display rotation for the specified display.
 
-        @param display_index: index of the display to get modes from.
+        @param display_id: id of the display to get modes from.
 
         @return: Degree of rotation.
         """
-        return self._display_proxy.get_display_rotation(display_index)
+        return self._display_proxy.get_display_rotation(display_id)
 
 
-    def set_display_rotation(self, display_index, rotation,
+    def set_display_rotation(self, display_id, rotation,
                              delay_before_rotation=0, delay_after_rotation=0):
         """Sets the display rotation for the specified display.
 
-        @param display_index: index of the display to get modes from.
+        @param display_id: id of the display to get modes from.
         @param rotation: degree of rotation
         @param delay_before_rotation: time in second for delay before rotation
         @param delay_after_rotation: time in second for delay after rotation
         """
         self._display_proxy.set_display_rotation(
-                display_index, rotation, delay_before_rotation,
+                display_id, rotation, delay_before_rotation,
                 delay_after_rotation)
 
 
-    def get_first_external_display_index(self):
-        """Gets the first external display index.
+    def get_internal_display_id(self):
+        """Gets the internal display id.
 
-        @return the index of the first external display; False if not found.
+        @return the id of the internal display.
         """
-        return self._display_proxy.get_first_external_display_index()
+        return self._display_proxy.get_internal_display_id()
+
+
+    def get_first_external_display_id(self):
+        """Gets the first external display id.
+
+        @return the id of the first external display; -1 if not found.
+        """
+        return self._display_proxy.get_first_external_display_id()
 
 
     def reset_connector_if_applicable(self, connector_type):
-        """Resets video connector from host end if applicable.
+        """Resets Type-C video connector from host end if applicable.
 
-        This is currently for samus machine with hdmi only. It's the workaround
-        sequence since sometimes samus hdmi dongle becomes corrupted and needs
-        to be re-plugged.
+        It's the workaround sequence since sometimes Type-C dongle becomes
+        corrupted and needs to be re-plugged.
 
         @param connector_type: A string, like "VGA", "DVI", "HDMI", or "DP".
         """
-        board = self._client.get_board()
-        if 'samus' in board and connector_type == 'HDMI':
-            logging.info('Force PD re-communication for video connector. This '
-                         'is the workaround for samus with hdmi connection.')
-            self._client.run_short('ectool --name=cros_pd usbpd 0 sink')
-            self._client.run_short('ectool --name=cros_pd usbpd 0 auto')
-            self._client.run_short('ectool --name=cros_pd usbpd 1 sink')
-            self._client.run_short('ectool --name=cros_pd usbpd 1 auto')
+        logging.info('Connector Type %s.', connector_type)
+        return self._display_proxy.reset_connector_if_applicable(connector_type)

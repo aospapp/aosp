@@ -20,10 +20,10 @@ import android.annotation.DrawableRes;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothManager;
 import android.content.Context;
-import android.content.Intent;
 
 import com.android.car.settings.R;
-import com.android.car.settings.bluetooth.BluetoothSettingsActivity;
+import com.android.car.settings.bluetooth.BluetoothSettingsFragment;
+import com.android.car.settings.common.BaseFragment;
 import com.android.car.settings.common.IconToggleLineItem;
 
 
@@ -31,14 +31,15 @@ import com.android.car.settings.common.IconToggleLineItem;
  * Represents the Bluetooth line item on settings home page.
  */
 public class BluetoothLineItem extends IconToggleLineItem {
-    private final Context mContext;
     private BluetoothAdapter mBluetoothAdapter;
+    private BaseFragment.FragmentController mFragmentController;
 
-    public BluetoothLineItem(Context context) {
+    public BluetoothLineItem(Context context, BaseFragment.FragmentController fragmentController) {
         super(context.getText(R.string.bluetooth_settings), context);
-        mContext = context;
-        mBluetoothAdapter = ((BluetoothManager) mContext.getSystemService(Context.BLUETOOTH_SERVICE))
-                .getAdapter();
+        mFragmentController = fragmentController;
+        mBluetoothAdapter =
+                ((BluetoothManager) mContext.getSystemService(Context.BLUETOOTH_SERVICE))
+                        .getAdapter();
     }
 
     @Override
@@ -51,9 +52,18 @@ public class BluetoothLineItem extends IconToggleLineItem {
     }
 
     @Override
+    public boolean isExpandable() {
+        return false;
+    }
+
+    @Override
+    public boolean isClickable() {
+        return true;
+    }
+
+    @Override
     public void onClicked() {
-        Intent intent = new Intent(mContext, BluetoothSettingsActivity.class);
-        mContext.startActivity(intent);
+        mFragmentController.launchFragment(BluetoothSettingsFragment.getInstance());
     }
 
     @Override

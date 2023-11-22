@@ -12,12 +12,9 @@ cost in lines of code.
 """
 
 from ctypes import *
-import exceptions
 import mmap
 import os
 import subprocess
-
-from PIL import Image
 
 # drmModeConnection enum
 DRM_MODE_CONNECTED         = 1
@@ -41,6 +38,16 @@ DRM_MODE_CONNECTOR_TV          = 13
 DRM_MODE_CONNECTOR_eDP         = 14
 DRM_MODE_CONNECTOR_VIRTUAL     = 15
 DRM_MODE_CONNECTOR_DSI         = 16
+
+# This constant is not defined in any one header; it is the pieced-together
+# incantation for the ioctl that performs dumb mappings. I would love for this
+# to not have to be here, but it can't be imported from any header easily.
+DRM_IOCTL_MODE_MAP_DUMB = 0xc01064b3
+
+# This define should be equal to O_CLOEXEC, which should be available in
+# python's os module, but isn't until version 3.3.  If we version up, we can
+# set this to os.O_CLOEXEC.
+DRM_CLOEXEC = 02000000
 
 
 class DrmVersion(Structure):
@@ -298,12 +305,6 @@ class drm_mode_map_dumb(Structure):
     ]
 
 
-# This constant is not defined in any one header; it is the pieced-together
-# incantation for the ioctl that performs dumb mappings. I would love for this
-# to not have to be here, but it can't be imported from any header easily.
-DRM_IOCTL_MODE_MAP_DUMB = 0xc01064b3
-
-
 class DrmModeFB(Structure):
     """
     A DRM modesetting framebuffer.
@@ -373,6 +374,16 @@ class DrmModeFB(Structure):
             self._map.close()
             self._map = None
 
+    def getFD(self):
+        """
+        Convert handle to a FD.
+        """
+        prime_fd = c_int(0)
+        rv = self._l.drmPrimeHandleToFD(self._fd, self.handle,
+                                        DRM_CLOEXEC, byref(prime_fd))
+        if rv:
+            raise RuntimeError("Failed to convert FB handle to FD. %d" % rv)
+        return prime_fd
 
 def loadDRM():
     """
@@ -427,6 +438,9 @@ def loadDRM():
 
     l.drmIoctl.argtypes = [c_int, c_ulong, c_voidp]
     l.drmIoctl.restype = c_int
+
+    l.drmPrimeHandleToFD.argtypes = [c_int, c_uint, c_uint, POINTER(c_int)]
+    l.drmPrimeHandleToFD.restype = c_int
 
     return l
 
@@ -518,94 +532,23 @@ def drmFromPath(path):
 
     @param path: The path of the minor node to open.
     """
-
-    handle = open(path)
+    # Always open the device as RW (r+) so that mmap works later.
+    handle = open(path, "r+")
     return DRM.fromHandle(handle)
-
-
-def _bgrx24(i):
-    b = ord(next(i))
-    g = ord(next(i))
-    r = ord(next(i))
-    next(i)
-    return r, g, b
-
-
-def _copyImageBlocklinear(image, fb, unformat):
-    gobPitch = 64
-    gobHeight = 128
-    while gobHeight > 8 and gobHeight >= 2 * fb.height:
-        gobHeight //= 2
-    gobSize = gobPitch * gobHeight
-    gobWidth = gobPitch // (fb.bpp // 8)
-
-    gobCountX = (fb.pitch + gobPitch - 1) // gobPitch
-    gobCountY = (fb.height + gobHeight - 1) // gobHeight
-    fb.map(gobCountX * gobCountY * gobSize)
-    m = fb._map
-
-    offset = 0
-    for gobY in range(gobCountY):
-        gobTop = gobY * gobHeight
-        for gobX in range(gobCountX):
-            m.seek(offset)
-            gob = m.read(gobSize)
-            iterGob = iter(gob)
-            gobLeft = gobX * gobWidth
-            for i in range(gobWidth * gobHeight):
-                rgb = unformat(iterGob)
-                x = gobLeft + (((i >> 3) & 8) | ((i >> 1) & 4) | (i & 3))
-                y = gobTop + ((i >> 7 << 3) | ((i >> 3) & 6) | ((i >> 2) & 1))
-                if x < fb.width and y < fb.height:
-                    image.putpixel((x, y), rgb)
-            offset += gobSize
-    fb.unmap()
-
-
-def _copyImageLinear(image, fb, unformat):
-    fb.map(fb.pitch * fb.height)
-    m = fb._map
-    pitch = fb.pitch
-    lineLength = fb.width * fb.bpp // 8
-    for y in range(fb.height):
-        offset = y * pitch
-        m.seek(offset)
-        channels = m.read(lineLength)
-        ichannels = iter(channels)
-        for x in range(fb.width):
-            rgb = unformat(ichannels)
-            image.putpixel((x, y), rgb)
-    fb.unmap()
-
-
-def _screenshot(drm, image, fb):
-    if fb.depth == 24:
-        unformat = _bgrx24
-    else:
-        raise RuntimeError("Couldn't unformat FB: %r" % fb)
-
-    if drm.version().name == "tegra":
-        _copyImageBlocklinear(image, fb, unformat)
-    else:
-        _copyImageLinear(image, fb, unformat)
 
 
 _drm = None
 
 
-def crtcScreenshot(crtc_id=None):
+def getCrtc(crtc_id=None):
     """
-    Take a screenshot, returning an image object.
-
-    @param crtc_id: The CRTC to screenshot.
-                    None for first found CRTC with mode set
+    @param crtc_id: None for first found CRTC with mode set
                     or "internal" for crtc connected to internal LCD
                     or "external" for crtc connected to external display
                     or "usb" "evdi" or "udl" for crtc with valid mode on evdi or
                     udl display
                     or DRM integer crtc_id
     """
-
     global _drm
 
     if not _drm:
@@ -676,12 +619,6 @@ def crtcScreenshot(crtc_id=None):
                     break
 
     if _drm:
-        crtc = _drm.resources().getCrtcRobust(crtc_id)
-        if crtc is not None:
-            framebuffer = crtc.fb()
-            image = Image.new("RGB", (framebuffer.width, framebuffer.height))
-            _screenshot(_drm, image, framebuffer)
-            return image
+        return _drm.resources().getCrtcRobust(crtc_id)
 
-    raise RuntimeError(
-        "Unable to take screenshot. There may not be anything on the screen.")
+    return None

@@ -24,9 +24,10 @@ import com.android.tv.tuner.data.nano.Track.AtscAudioTrack;
 import com.android.tv.tuner.data.nano.Track.AtscCaptionTrack;
 import com.android.tv.tuner.ts.SectionParser;
 import com.android.tv.tuner.util.ConvertUtils;
-import com.android.tv.tuner.util.StringUtils;
+import com.android.tv.util.StringUtils;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 
@@ -223,6 +224,50 @@ public class PsipData {
 
         public String getDescription() {
             return mDescription;
+        }
+    }
+
+    public static class SdtItem {
+        private final String mServiceName;
+        private final String mServiceProviderName;
+        private final int mServiceType;
+        private final int mServiceId;
+        private final int mOriginalNetWorkId;
+
+        public SdtItem(String serviceName, String serviceProviderName, int serviceType,
+                       int serviceId, int originalNetWorkId) {
+            mServiceName = serviceName;
+            mServiceProviderName = serviceProviderName;
+            mServiceType = serviceType;
+            mServiceId = serviceId;
+            mOriginalNetWorkId = originalNetWorkId;
+        }
+
+        public String getServiceName() {
+            return mServiceName;
+        }
+
+        public String getServiceProviderName() {
+            return mServiceProviderName;
+        }
+
+        public int getServiceType() {
+            return mServiceType;
+        }
+
+        public int getServiceId() {
+            return mServiceId;
+        }
+
+        public int getOriginalNetworkId() {
+            return mOriginalNetWorkId;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("ServiceName: %s ServiceProviderName:%s ServiceType:%d "
+                            + "OriginalNetworkId:%d",
+                    mServiceName, mServiceProviderName, mServiceType, mOriginalNetWorkId);
         }
     }
 
@@ -459,6 +504,92 @@ public class PsipData {
         @Override
         public String toString() {
             return String.format("%s %s", getClass().getName(), mAudioTracks);
+        }
+    }
+
+    public static class ServiceDescriptor extends TsDescriptor {
+        private final int mServiceType;
+        private final String mServiceProviderName;
+        private final String mServiceName;
+
+        public ServiceDescriptor(int serviceType, String serviceProviderName, String serviceName) {
+            mServiceType = serviceType;
+            mServiceProviderName = serviceProviderName;
+            mServiceName = serviceName;
+        }
+
+        @Override
+        public int getTag() {
+            return SectionParser.DVB_DESCRIPTOR_TAG_SERVICE;
+        }
+
+        public int getServiceType() {
+            return mServiceType;
+        }
+
+        public String getServiceProviderName() {
+            return mServiceProviderName;
+        }
+
+        public String getServiceName() {
+            return mServiceName;
+        }
+
+        @Override
+        public String toString() {
+            return String.format(
+                    "Service descriptor, service type: %d, "
+                            + "service provider name: %s, "
+                            + "service name: %s", mServiceType, mServiceProviderName, mServiceName);
+        }
+    }
+
+    public static class ShortEventDescriptor extends TsDescriptor {
+        private final String mLanguage;
+        private final String mEventName;
+        private final String mText;
+
+        public ShortEventDescriptor(String language, String eventName, String text) {
+            mLanguage = language;
+            mEventName = eventName;
+            mText = text;
+        }
+
+        public String getEventName() {
+            return mEventName;
+        }
+
+        @Override
+        public int getTag() {
+            return SectionParser.DVB_DESCRIPTOR_TAG_SHORT_EVENT;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("ShortEvent Descriptor, language:%s, event name: %s, "
+                    + "text:%s", mLanguage, mEventName, mText);
+        }
+    }
+
+    public static class ParentalRatingDescriptor extends TsDescriptor {
+        private final HashMap<String, Integer> mRatings;
+
+        public ParentalRatingDescriptor(HashMap<String, Integer> ratings) {
+            mRatings = ratings;
+        }
+
+        @Override
+        public int getTag() {
+            return SectionParser.DVB_DESCRIPTOR_TAG_PARENTAL_RATING;
+        }
+
+        public HashMap<String, Integer> getRatings() {
+            return mRatings;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("Parental rating descriptor, ratings:" + mRatings);
         }
     }
 

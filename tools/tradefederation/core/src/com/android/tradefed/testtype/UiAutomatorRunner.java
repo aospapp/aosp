@@ -60,6 +60,7 @@ public class UiAutomatorRunner implements IRemoteAndroidTestRunner {
     private String[] mJarPaths;
     private String mPackageName;
     // default to no timeout
+    private long mMaxTimeout = 0l;
     private long mMaxTimeToOutputResponse = 0;
     private IDevice mRemoteDevice;
     private String mRunName;
@@ -306,8 +307,8 @@ public class UiAutomatorRunner implements IRemoteAndroidTestRunner {
         mParser = new InstrumentationResultParser(runName, listeners);
 
         try {
-            mRemoteDevice.executeShellCommand(cmdLine,
-                    mParser, mMaxTimeToOutputResponse, TimeUnit.MILLISECONDS);
+            mRemoteDevice.executeShellCommand(
+                    cmdLine, mParser, mMaxTimeout, mMaxTimeToOutputResponse, TimeUnit.MILLISECONDS);
         } catch (IOException e) {
             CLog.w(String.format("IOException %1$s when running tests %2$s on %3$s",
                     e.toString(), getPackageName(), mRemoteDevice.getSerialNumber()));
@@ -348,5 +349,10 @@ public class UiAutomatorRunner implements IRemoteAndroidTestRunner {
     @Override
     public void setEnforceTimeStamp(boolean arg0) {
         // ignore, UiAutomator runner does not need this.
+    }
+
+    @Override
+    public void setMaxTimeout(long maxTimeout, TimeUnit unit) {
+        mMaxTimeout = unit.toMillis(maxTimeout);
     }
 }

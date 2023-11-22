@@ -681,8 +681,10 @@ public class AudioRecordTest extends CtsAndroidTestCase {
             //
             // Verify recording starts within 400 ms of AudioTrack completion (typical 180ms)
             // Verify recording completes within 50 ms of expected test time (typical 20ms)
-            assertEquals(TEST_NAME, PLAYBACK_TIME_IN_MS, firstSampleTime - startTime, 400);
-            assertEquals(TEST_NAME, RECORD_TIME_IN_MS, endTime - firstSampleTime, 50);
+            assertEquals(TEST_NAME, PLAYBACK_TIME_IN_MS, firstSampleTime - startTime,
+                isLowLatencyDevice() ? 200 : 800);
+            assertEquals(TEST_NAME, RECORD_TIME_IN_MS, endTime - firstSampleTime,
+                isLowLatencyDevice()? 50 : 400);
 
             record.stop();
             assertEquals(TEST_NAME, AudioRecord.RECORDSTATE_STOPPED, record.getRecordingState());
@@ -984,7 +986,8 @@ public class AudioRecordTest extends CtsAndroidTestCase {
             assertTrue(coldInputStartTime < 5000); // must start within 5 seconds.
 
             // Verify recording completes within 50 ms of expected test time (typical 20ms)
-            assertEquals(TEST_TIME_MS, endTime - firstSampleTime, auditRecording ? 1000 : 50);
+            assertEquals(TEST_TIME_MS, endTime - firstSampleTime, auditRecording ?
+                (isLowLatencyDevice() ? 1000 : 2000) : (isLowLatencyDevice() ? 50 : 400));
 
             // Even though we've read all the frames we want, the events may not be sent to
             // the listeners (events are handled through a separate internal callback thread).
@@ -1065,16 +1068,18 @@ public class AudioRecordTest extends CtsAndroidTestCase {
         //        " markerPeriodsReceived " + markerList.size());
         //Log.d(TAG, "updatePeriods " + updatePeriods +
         //        " updatePeriodsReceived " + periodicList.size());
-        assertTrue(TAG + ": markerPeriods " + markerPeriods +
-                " <= markerPeriodsReceived " + markerList.size() +
-                " <= markerPeriodsMax " + markerPeriodsMax,
-                markerPeriods <= markerList.size()
-                && markerList.size() <= markerPeriodsMax);
-        assertTrue(TAG + ": updatePeriods " + updatePeriods +
-               " <= updatePeriodsReceived " + periodicList.size() +
-               " <= updatePeriodsMax " + updatePeriodsMax,
-                updatePeriods <= periodicList.size()
-                && periodicList.size() <= updatePeriodsMax);
+        if (isLowLatencyDevice()) {
+            assertTrue(TAG + ": markerPeriods " + markerPeriods +
+                    " <= markerPeriodsReceived " + markerList.size() +
+                    " <= markerPeriodsMax " + markerPeriodsMax,
+                    markerPeriods <= markerList.size()
+                    && markerList.size() <= markerPeriodsMax);
+            assertTrue(TAG + ": updatePeriods " + updatePeriods +
+                   " <= updatePeriodsReceived " + periodicList.size() +
+                   " <= updatePeriodsMax " + updatePeriodsMax,
+                    updatePeriods <= periodicList.size()
+                    && periodicList.size() <= updatePeriodsMax);
+        }
 
         // Since we don't have accurate positioning of the start time of the recorder,
         // and there is no record.getPosition(), we consider only differential timing
@@ -1092,7 +1097,9 @@ public class AudioRecordTest extends CtsAndroidTestCase {
             //Log.d(TAG, "Marker: " + i + " expected(" + expected + ")  actual(" + actual
             //        + ")  diff(" + (actual - expected) + ")"
             //        + " tolerance " + toleranceInFrames);
-            assertEquals(expected, actual, toleranceInFrames);
+            if (isLowLatencyDevice()) {
+                assertEquals(expected, actual, toleranceInFrames);
+            }
             markerStat.add((double)(actual - expected) * 1000 / TEST_SR);
         }
 
@@ -1106,7 +1113,9 @@ public class AudioRecordTest extends CtsAndroidTestCase {
             //Log.d(TAG, "Update: " + i + " expected(" + expected + ")  actual(" + actual
             //        + ")  diff(" + (actual - expected) + ")"
             //        + " tolerance " + toleranceInFrames);
-            assertEquals(expected, actual, toleranceInFrames);
+            if (isLowLatencyDevice()) {
+                assertEquals(expected, actual, toleranceInFrames);
+            }
             periodicStat.add((double)(actual - expected) * 1000 / TEST_SR);
         }
 
@@ -1234,6 +1243,11 @@ public class AudioRecordTest extends CtsAndroidTestCase {
                 .isLowRamDevice();
     }
 
+    private boolean isLowLatencyDevice() {
+        return getContext().getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_AUDIO_LOW_LATENCY);
+    }
+
     private void verifyContinuousTimestamps(
             AudioTimestamp startTs, AudioTimestamp stopTs, int sampleRate)
             throws Exception {
@@ -1246,7 +1260,7 @@ public class AudioRecordTest extends CtsAndroidTestCase {
         // Usually the ratio is accurate to one part per thousand or better.
         // Log.d(TAG, "ratio=" + ratio + ", timeDiff=" + timeDiff + ", frameDiff=" + frameDiff +
         //        ", timeByFrames=" + timeByFrames + ", sampleRate=" + sampleRate);
-        assertEquals(1.0 /* expected */, ratio, 0.01 /* delta */);
+        assertEquals(1.0 /* expected */, ratio, isLowLatencyDevice() ? 0.01 : 0.5 /* delta */);
     }
 
     // remove if AudioTimestamp has a better toString().

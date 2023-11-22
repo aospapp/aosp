@@ -16,68 +16,93 @@
 
 package android.hardware.input.cts.tests;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
+
+import android.app.Instrumentation;
 import android.app.UiAutomation;
-import android.hardware.input.cts.InputCtsActivity;
 import android.hardware.input.cts.InputCallback;
-import android.system.ErrnoException;
-import android.system.Os;
-import android.test.ActivityInstrumentationTestCase2;
-import android.util.Log;
+import android.hardware.input.cts.InputCtsActivity;
+import android.os.ParcelFileDescriptor;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.rule.ActivityTestRule;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.Writer;
-import java.util.ArrayList;
+
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.List;
-import java.util.UUID;
 
-public class InputTestCase extends ActivityInstrumentationTestCase2<InputCtsActivity> {
-    private static final String TAG = "InputTestCase";
-    private static final String HID_EXECUTABLE = "hid";
-    private static final int SHELL_UID = 2000;
+import libcore.io.IoUtils;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
+
+public class InputTestCase {
+    // hid executable expects "-" argument to read from stdin instead of a file
+    private static final String HID_COMMAND = "hid -";
     private static final String[] KEY_ACTIONS = {"DOWN", "UP", "MULTIPLE"};
 
-    private File mFifo;
-    private Writer mWriter;
+    private OutputStream mOutputStream;
 
-    private BlockingQueue<KeyEvent> mKeys;
-    private BlockingQueue<MotionEvent> mMotions;
+    private final BlockingQueue<KeyEvent> mKeys;
+    private final BlockingQueue<MotionEvent> mMotions;
     private InputListener mInputListener;
 
+    private Instrumentation mInstrumentation;
+
+    private volatile CountDownLatch mDeviceAddedSignal; // to wait for onInputDeviceAdded signal
+
     public InputTestCase() {
-        super(InputCtsActivity.class);
         mKeys = new LinkedBlockingQueue<KeyEvent>();
         mMotions = new LinkedBlockingQueue<MotionEvent>();
         mInputListener = new InputListener();
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mFifo = setupFifo();
+    @Rule
+    public ActivityTestRule<InputCtsActivity> mActivityRule =
+        new ActivityTestRule<>(InputCtsActivity.class);
+
+    @Before
+    public void setUp() throws Exception {
         clearKeys();
         clearMotions();
-        getActivity().setInputCallback(mInputListener);
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivityRule.getActivity().setInputCallback(mInputListener);
+        setupPipes();
     }
 
-    @Override
-    protected void tearDown() throws Exception {
-        if (mFifo != null) {
-            mFifo.delete();
-            mFifo = null;
+    @After
+    public void tearDown() throws Exception {
+        IoUtils.closeQuietly(mOutputStream);
+    }
+
+    /**
+     * Register an input device. May cause a failure if the device added notification
+     * is not received within the timeout period
+     *
+     * @param resourceId The resource id from which to send the register command.
+     */
+    public void registerInputDevice(int resourceId) {
+        mDeviceAddedSignal = new CountDownLatch(1);
+        sendHidCommands(resourceId);
+        try {
+            // Found that in kernel 3.10, the device registration takes a very long time
+            // The wait can be decreased to 2 seconds after kernel 3.10 is no longer supported
+            mDeviceAddedSignal.await(20L, TimeUnit.SECONDS);
+            if (mDeviceAddedSignal.getCount() != 0) {
+                fail("Device added notification was not received in time.");
+            }
+        } catch (InterruptedException ex) {
+            fail("Unexpectedly interrupted while waiting for device added notification.");
         }
-        closeQuietly(mWriter);
-        mWriter = null;
-        super.tearDown();
     }
 
     /**
@@ -89,9 +114,8 @@ public class InputTestCase extends ActivityInstrumentationTestCase2<InputCtsActi
      */
     public void sendHidCommands(int id) {
         try {
-            Writer w = getWriter();
-            w.write(getEvents(id));
-            w.flush();
+            mOutputStream.write(getEvents(id).getBytes());
+            mOutputStream.flush();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -153,38 +177,18 @@ public class InputTestCase extends ActivityInstrumentationTestCase2<InputCtsActi
         mMotions.clear();
     }
 
-    private File setupFifo() throws ErrnoException {
-        File dir = getActivity().getCacheDir();
-        String filename = dir.getAbsolutePath() + File.separator +  UUID.randomUUID().toString();
-        Os.mkfifo(filename, 0666);
-        File f = new File(filename);
-        return f;
-    }
+    private void setupPipes() throws IOException {
+        UiAutomation ui = mInstrumentation.getUiAutomation();
+        ParcelFileDescriptor[] pipes = ui.executeShellCommandRw(HID_COMMAND);
 
-    private Writer getWriter() throws IOException {
-        if (mWriter == null) {
-            UiAutomation ui = getInstrumentation().getUiAutomation();
-            ui.executeShellCommand("hid " + mFifo.getAbsolutePath());
-            mWriter = new FileWriter(mFifo);
-        }
-        return mWriter;
+        mOutputStream = new ParcelFileDescriptor.AutoCloseOutputStream(pipes[1]);
+        IoUtils.closeQuietly(pipes[0]); // hid command is write-only
     }
 
     private String getEvents(int id) throws IOException {
         InputStream is =
-            getInstrumentation().getTargetContext().getResources().openRawResource(id);
+            mInstrumentation.getTargetContext().getResources().openRawResource(id);
         return readFully(is);
-    }
-
-
-    private static void closeQuietly(AutoCloseable closeable) {
-        if (closeable != null) {
-            try {
-                closeable.close();
-            } catch (RuntimeException rethrown) {
-                throw rethrown;
-            } catch (Exception ignored) { }
-        }
     }
 
     private static String readFully(InputStream is) throws IOException {
@@ -198,6 +202,7 @@ public class InputTestCase extends ActivityInstrumentationTestCase2<InputCtsActi
     }
 
     private class InputListener implements InputCallback {
+        @Override
         public void onKeyEvent(KeyEvent ev) {
             boolean done = false;
             do {
@@ -208,6 +213,7 @@ public class InputTestCase extends ActivityInstrumentationTestCase2<InputCtsActi
             } while (!done);
         }
 
+        @Override
         public void onMotionEvent(MotionEvent ev) {
             boolean done = false;
             do {
@@ -217,5 +223,20 @@ public class InputTestCase extends ActivityInstrumentationTestCase2<InputCtsActi
                 } catch (InterruptedException ignore) { }
             } while (!done);
         }
+
+        @Override
+        public void onInputDeviceAdded(int deviceId) {
+            mDeviceAddedSignal.countDown();
+        }
+
+        @Override
+        public void onInputDeviceRemoved(int deviceId) {
+        }
+
+        @Override
+        public void onInputDeviceChanged(int deviceId) {
+        }
     }
+
+
 }

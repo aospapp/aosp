@@ -48,6 +48,7 @@ namespace sw
 	extern bool fullPixelPositionRegister;
 	extern bool leadingVertexFirst;         // Flat shading uses first vertex, else last
 	extern bool secondaryColor;             // Specular lighting is applied after texturing
+	extern bool colorsDefaultToZero;
 
 	extern bool forceWindowed;
 	extern bool complementaryDepthBuffer;
@@ -110,10 +111,12 @@ namespace sw
 		sw::fullPixelPositionRegister = conventions.fullPixelPositionRegister;
 		sw::leadingVertexFirst = conventions.leadingVertexFirst;
 		sw::secondaryColor = conventions.secondaryColor;
+		sw::colorsDefaultToZero = conventions.colorsDefaultToZero;
 		sw::exactColorRounding = exactColorRounding;
 
 		setRenderTarget(0, 0);
 		clipper = new Clipper(symmetricNormalizedDepth);
+		blitter = new Blitter;
 
 		updateViewMatrix = true;
 		updateBaseMatrix = true;
@@ -177,7 +180,10 @@ namespace sw
 		sync->destruct();
 
 		delete clipper;
-		clipper = 0;
+		clipper = nullptr;
+
+		delete blitter;
+		blitter = nullptr;
 
 		terminateThreads();
 		delete resumeApp;
@@ -190,19 +196,16 @@ namespace sw
 		delete swiftConfig;
 	}
 
-	void Renderer::clear(void *pixel, Format format, Surface *dest, const SliceRect &dRect, unsigned int rgbaMask)
+	// This object has to be mem aligned
+	void* Renderer::operator new(size_t size)
 	{
-		blitter.clear(pixel, format, dest, dRect, rgbaMask);
+		ASSERT(size == sizeof(Renderer)); // This operator can't be called from a derived class
+		return sw::allocate(sizeof(Renderer), 16);
 	}
 
-	void Renderer::blit(Surface *source, const SliceRect &sRect, Surface *dest, const SliceRect &dRect, bool filter)
+	void Renderer::operator delete(void * mem)
 	{
-		blitter.blit(source, sRect, dest, dRect, filter);
-	}
-
-	void Renderer::blit3D(Surface *source, Surface *dest)
-	{
-		blitter.blit3D(source, dest);
+		sw::deallocate(mem);
 	}
 
 	void Renderer::draw(DrawType drawType, unsigned int indexOffset, unsigned int count, bool update)
@@ -234,10 +237,6 @@ namespace sw
 
 			sync->lock(sw::PRIVATE);
 
-			Routine *vertexRoutine;
-			Routine *setupRoutine;
-			Routine *pixelRoutine;
-
 			if(update || oldMultiSampleMask != context->multiSampleMask)
 			{
 				vertexState = VertexProcessor::update(drawType);
@@ -268,7 +267,9 @@ namespace sw
 					setupPrimitives = &Renderer::setupVertexTriangle;
 					batch = 1;
 					break;
-				default: ASSERT(false);
+				default:
+					ASSERT(false);
+					return;
 				}
 			}
 			else if(context->isDrawLine())
@@ -447,7 +448,7 @@ namespace sw
 					draw->vsDirtyConstB = 0;
 				}
 
-				if(context->vertexShader->instanceIdDeclared)
+				if(context->vertexShader->isInstanceIdDeclared())
 				{
 					data->instanceID = context->instanceID;
 				}
@@ -624,7 +625,7 @@ namespace sw
 
 				if(draw->stencilBuffer)
 				{
-					data->stencilBuffer = (unsigned char*)context->stencilBuffer->lockStencil(q * ms, MANAGED);
+					data->stencilBuffer = (unsigned char*)context->stencilBuffer->lockStencil(0, 0, q * ms, MANAGED);
 					data->stencilPitchB = context->stencilBuffer->getStencilPitchB();
 					data->stencilSliceB = context->stencilBuffer->getStencilSliceB();
 				}
@@ -647,7 +648,16 @@ namespace sw
 			nextDraw++;
 			schedulerMutex.unlock();
 
-			if(threadCount > 1)
+			#ifndef NDEBUG
+			if(threadCount == 1)   // Use main thread for draw execution
+			{
+				threadsAwake = 1;
+				task[0].type = Task::RESUME;
+
+				taskLoop(0);
+			}
+			else
+			#endif
 			{
 				if(!threadsAwake)
 				{
@@ -659,14 +669,28 @@ namespace sw
 					resume[0]->signal();
 				}
 			}
-			else   // Use main thread for draw execution
-			{
-				threadsAwake = 1;
-				task[0].type = Task::RESUME;
-
-				taskLoop(0);
-			}
 		}
+	}
+
+	void Renderer::clear(void *value, Format format, Surface *dest, const Rect &clearRect, unsigned int rgbaMask)
+	{
+		SliceRect rect = clearRect;
+		int samples = dest->getDepth();
+
+		for(rect.slice = 0; rect.slice < samples; rect.slice++)
+		{
+			blitter->clear(value, format, dest, rect, rgbaMask);
+		}
+	}
+
+	void Renderer::blit(Surface *source, const SliceRect &sRect, Surface *dest, const SliceRect &dRect, bool filter, bool isStencil)
+	{
+		blitter->blit(source, sRect, dest, dRect, filter, isStencil);
+	}
+
+	void Renderer::blit3D(Surface *source, Surface *dest)
+	{
+		blitter->blit3D(source, dest);
 	}
 
 	void Renderer::threadFunction(void *parameters)
@@ -1523,7 +1547,6 @@ namespace sw
 
 		DrawCall &draw = *drawList[primitiveProgress[unit].drawCall % DRAW_COUNT];
 		SetupProcessor::State &state = draw.setupState;
-		SetupProcessor::RoutinePointer setupRoutine = draw.setupPointer;
 
 		const Vertex &v0 = triangle[0].v0;
 		const Vertex &v1 = triangle[0].v1;
@@ -2299,6 +2322,18 @@ namespace sw
 		}
 	}
 
+	void Renderer::setHighPrecisionFiltering(SamplerType type, int sampler, bool highPrecisionFiltering)
+	{
+		if(type == SAMPLER_PIXEL)
+		{
+			PixelProcessor::setHighPrecisionFiltering(sampler, highPrecisionFiltering);
+		}
+		else
+		{
+			VertexProcessor::setHighPrecisionFiltering(sampler, highPrecisionFiltering);
+		}
+	}
+
 	void Renderer::setSwizzleR(SamplerType type, int sampler, SwizzleType swizzleR)
 	{
 		if(type == SAMPLER_PIXEL)
@@ -2347,6 +2382,54 @@ namespace sw
 		}
 	}
 
+	void Renderer::setBaseLevel(SamplerType type, int sampler, int baseLevel)
+	{
+		if(type == SAMPLER_PIXEL)
+		{
+			PixelProcessor::setBaseLevel(sampler, baseLevel);
+		}
+		else
+		{
+			VertexProcessor::setBaseLevel(sampler, baseLevel);
+		}
+	}
+
+	void Renderer::setMaxLevel(SamplerType type, int sampler, int maxLevel)
+	{
+		if(type == SAMPLER_PIXEL)
+		{
+			PixelProcessor::setMaxLevel(sampler, maxLevel);
+		}
+		else
+		{
+			VertexProcessor::setMaxLevel(sampler, maxLevel);
+		}
+	}
+
+	void Renderer::setMinLod(SamplerType type, int sampler, float minLod)
+	{
+		if(type == SAMPLER_PIXEL)
+		{
+			PixelProcessor::setMinLod(sampler, minLod);
+		}
+		else
+		{
+			VertexProcessor::setMinLod(sampler, minLod);
+		}
+	}
+
+	void Renderer::setMaxLod(SamplerType type, int sampler, float maxLod)
+	{
+		if(type == SAMPLER_PIXEL)
+		{
+			PixelProcessor::setMaxLod(sampler, maxLod);
+		}
+		else
+		{
+			VertexProcessor::setMaxLod(sampler, maxLod);
+		}
+	}
+
 	void Renderer::setPointSpriteEnable(bool pointSpriteEnable)
 	{
 		context->setPointSpriteEnable(pointSpriteEnable);
@@ -2391,9 +2474,9 @@ namespace sw
 		loadConstants(shader);
 	}
 
-	void Renderer::setPixelShaderConstantF(int index, const float value[4], int count)
+	void Renderer::setPixelShaderConstantF(unsigned int index, const float value[4], unsigned int count)
 	{
-		for(int i = 0; i < DRAW_COUNT; i++)
+		for(unsigned int i = 0; i < DRAW_COUNT; i++)
 		{
 			if(drawCall[i]->psDirtyConstF < index + count)
 			{
@@ -2401,16 +2484,16 @@ namespace sw
 			}
 		}
 
-		for(int i = 0; i < count; i++)
+		for(unsigned int i = 0; i < count; i++)
 		{
 			PixelProcessor::setFloatConstant(index + i, value);
 			value += 4;
 		}
 	}
 
-	void Renderer::setPixelShaderConstantI(int index, const int value[4], int count)
+	void Renderer::setPixelShaderConstantI(unsigned int index, const int value[4], unsigned int count)
 	{
-		for(int i = 0; i < DRAW_COUNT; i++)
+		for(unsigned int i = 0; i < DRAW_COUNT; i++)
 		{
 			if(drawCall[i]->psDirtyConstI < index + count)
 			{
@@ -2418,16 +2501,16 @@ namespace sw
 			}
 		}
 
-		for(int i = 0; i < count; i++)
+		for(unsigned int i = 0; i < count; i++)
 		{
 			PixelProcessor::setIntegerConstant(index + i, value);
 			value += 4;
 		}
 	}
 
-	void Renderer::setPixelShaderConstantB(int index, const int *boolean, int count)
+	void Renderer::setPixelShaderConstantB(unsigned int index, const int *boolean, unsigned int count)
 	{
-		for(int i = 0; i < DRAW_COUNT; i++)
+		for(unsigned int i = 0; i < DRAW_COUNT; i++)
 		{
 			if(drawCall[i]->psDirtyConstB < index + count)
 			{
@@ -2435,16 +2518,16 @@ namespace sw
 			}
 		}
 
-		for(int i = 0; i < count; i++)
+		for(unsigned int i = 0; i < count; i++)
 		{
 			PixelProcessor::setBooleanConstant(index + i, *boolean);
 			boolean++;
 		}
 	}
 
-	void Renderer::setVertexShaderConstantF(int index, const float value[4], int count)
+	void Renderer::setVertexShaderConstantF(unsigned int index, const float value[4], unsigned int count)
 	{
-		for(int i = 0; i < DRAW_COUNT; i++)
+		for(unsigned int i = 0; i < DRAW_COUNT; i++)
 		{
 			if(drawCall[i]->vsDirtyConstF < index + count)
 			{
@@ -2452,16 +2535,16 @@ namespace sw
 			}
 		}
 
-		for(int i = 0; i < count; i++)
+		for(unsigned int i = 0; i < count; i++)
 		{
 			VertexProcessor::setFloatConstant(index + i, value);
 			value += 4;
 		}
 	}
 
-	void Renderer::setVertexShaderConstantI(int index, const int value[4], int count)
+	void Renderer::setVertexShaderConstantI(unsigned int index, const int value[4], unsigned int count)
 	{
-		for(int i = 0; i < DRAW_COUNT; i++)
+		for(unsigned int i = 0; i < DRAW_COUNT; i++)
 		{
 			if(drawCall[i]->vsDirtyConstI < index + count)
 			{
@@ -2469,16 +2552,16 @@ namespace sw
 			}
 		}
 
-		for(int i = 0; i < count; i++)
+		for(unsigned int i = 0; i < count; i++)
 		{
 			VertexProcessor::setIntegerConstant(index + i, value);
 			value += 4;
 		}
 	}
 
-	void Renderer::setVertexShaderConstantB(int index, const int *boolean, int count)
+	void Renderer::setVertexShaderConstantB(unsigned int index, const int *boolean, unsigned int count)
 	{
-		for(int i = 0; i < DRAW_COUNT; i++)
+		for(unsigned int i = 0; i < DRAW_COUNT; i++)
 		{
 			if(drawCall[i]->vsDirtyConstB < index + count)
 			{
@@ -2486,7 +2569,7 @@ namespace sw
 			}
 		}
 
-		for(int i = 0; i < count; i++)
+		for(unsigned int i = 0; i < count; i++)
 		{
 			VertexProcessor::setBooleanConstant(index + i, *boolean);
 			boolean++;

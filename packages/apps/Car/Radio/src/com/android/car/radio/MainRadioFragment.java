@@ -51,22 +51,6 @@ public class MainRadioFragment extends Fragment implements FragmentWithFade {
         void onPresetListClicked();
     }
 
-    /**
-     * Sets the {@link RadioController} that is responsible for updating the UI of this fragment
-     * with the information of the current radio station.
-     */
-    private void setRadioController(RadioController radioController) {
-        mRadioController = radioController;
-    }
-
-    /**
-     * Sets the listener that will be notified when the button to start the display of the user's
-     * presets has been clicked.
-     */
-    public void setPresetListClickListener(RadioPresetListClickListener starter) {
-        mPresetListListener = starter;
-    }
-
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
@@ -130,9 +114,11 @@ public class MainRadioFragment extends Fragment implements FragmentWithFade {
      * @param radioController The {@link RadioController} that is responsible for updating the UI
      *                        of the returned fragment.
      */
-    public static MainRadioFragment newInstance(RadioController radioController) {
+    static MainRadioFragment newInstance(RadioController radioController,
+            RadioPresetListClickListener clickListener) {
         MainRadioFragment fragment = new MainRadioFragment();
-        fragment.setRadioController(radioController);
+        fragment.mRadioController = radioController;
+        fragment.mPresetListListener = clickListener;
 
         return fragment;
     }

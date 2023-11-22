@@ -163,7 +163,6 @@ class ChameleonVideoInputFinder(ChameleonInputFinder):
         for port in all_ports.connected:
             if port.has_video_support():
                 chameleon.ChameleonVideoInput(port).unplug()
-                # This is the workaround for samus with hdmi connection.
                 self.display_facade.reset_connector_if_applicable(
                         port.get_connector_type())
 
@@ -173,7 +172,6 @@ class ChameleonVideoInputFinder(ChameleonInputFinder):
                 continue
 
             video_port = chameleon.ChameleonVideoInput(port)
-            connector_type = video_port.get_connector_type()
             # Plug the port to make it visible.
             video_port.plug()
             try:

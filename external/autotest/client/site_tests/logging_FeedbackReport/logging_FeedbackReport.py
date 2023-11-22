@@ -17,7 +17,7 @@ class logging_FeedbackReport(test.test):
     version = 1
     _FEEDBACK_ID = 'gfdkimpbcpahaombhbimeihdjnejgicl'
     _FEEDBACK_STATE_TIMEOUT = 40
-    _WAIT = 5
+    _WAIT = 10
 
     def warmup(self):
         """Test setup."""

@@ -11,16 +11,12 @@
 #include "SkDevice.h"
 #include "SkMallocPixelRef.h"
 
-static const size_t kIgnoreRowBytesValue = (size_t)~0;
-
 class SkSurface_Raster : public SkSurface_Base {
 public:
-    static bool Valid(const SkImageInfo&, size_t rb = kIgnoreRowBytesValue);
-
     SkSurface_Raster(const SkImageInfo&, void*, size_t rb,
                      void (*releaseProc)(void* pixels, void* context), void* context,
                      const SkSurfaceProps*);
-    SkSurface_Raster(sk_sp<SkPixelRef>, const SkSurfaceProps*);
+    SkSurface_Raster(const SkImageInfo& info, sk_sp<SkPixelRef>, const SkSurfaceProps*);
 
     SkCanvas* onNewCanvas() override;
     sk_sp<SkSurface> onNewSurface(const SkImageInfo&) override;
@@ -39,7 +35,7 @@ private:
 
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SkSurface_Raster::Valid(const SkImageInfo& info, size_t rowBytes) {
+bool SkSurfaceValidateRasterInfo(const SkImageInfo& info, size_t rowBytes) {
     if (info.isEmpty()) {
         return false;
     }
@@ -67,7 +63,7 @@ bool SkSurface_Raster::Valid(const SkImageInfo& info, size_t rowBytes) {
             shift = 2;
             break;
         case kRGBA_F16_SkColorType:
-            if (info.colorSpace() && !info.colorSpace()->gammaIsLinear()) {
+            if (!info.colorSpace() || !info.colorSpace()->gammaIsLinear()) {
                 return false;
             }
             shift = 3;
@@ -103,16 +99,15 @@ SkSurface_Raster::SkSurface_Raster(const SkImageInfo& info, void* pixels, size_t
                                    const SkSurfaceProps* props)
     : INHERITED(info, props)
 {
-    fBitmap.installPixels(info, pixels, rb, nullptr, releaseProc, context);
+    fBitmap.installPixels(info, pixels, rb, releaseProc, context);
     fRowBytes = 0;              // don't need to track the rowbytes
     fWeOwnThePixels = false;    // We are "Direct"
 }
 
-SkSurface_Raster::SkSurface_Raster(sk_sp<SkPixelRef> pr, const SkSurfaceProps* props)
-    : INHERITED(pr->info().width(), pr->info().height(), props)
+SkSurface_Raster::SkSurface_Raster(const SkImageInfo& info, sk_sp<SkPixelRef> pr,
+                                   const SkSurfaceProps* props)
+    : INHERITED(pr->width(), pr->height(), props)
 {
-    const SkImageInfo& info = pr->info();
-
     fBitmap.setInfo(info, pr->rowBytes());
     fRowBytes = pr->rowBytes(); // we track this, so that subsequent re-allocs will match
     fBitmap.setPixelRef(std::move(pr), 0, 0);
@@ -165,7 +160,6 @@ void SkSurface_Raster::onCopyOnWrite(ContentChangeMode mode) {
         } else {
             SkBitmap prev(fBitmap);
             fBitmap.allocPixels();
-            prev.lockPixels();
             SkASSERT(prev.info() == fBitmap.info());
             SkASSERT(prev.rowBytes() == fBitmap.rowBytes());
             memcpy(fBitmap.getPixels(), prev.getPixels(), fBitmap.getSafeSize());
@@ -188,7 +182,7 @@ sk_sp<SkSurface> SkSurface::MakeRasterDirectReleaseProc(const SkImageInfo& info,
     if (nullptr == releaseProc) {
         context = nullptr;
     }
-    if (!SkSurface_Raster::Valid(info, rb)) {
+    if (!SkSurfaceValidateRasterInfo(info, rb)) {
         return nullptr;
     }
     if (nullptr == pixels) {
@@ -205,16 +199,16 @@ sk_sp<SkSurface> SkSurface::MakeRasterDirect(const SkImageInfo& info, void* pixe
 
 sk_sp<SkSurface> SkSurface::MakeRaster(const SkImageInfo& info, size_t rowBytes,
                                        const SkSurfaceProps* props) {
-    if (!SkSurface_Raster::Valid(info)) {
+    if (!SkSurfaceValidateRasterInfo(info)) {
         return nullptr;
     }
 
-    sk_sp<SkPixelRef> pr(SkMallocPixelRef::NewZeroed(info, rowBytes, nullptr));
+    sk_sp<SkPixelRef> pr = SkMallocPixelRef::MakeZeroed(info, rowBytes);
     if (!pr) {
         return nullptr;
     }
     if (rowBytes) {
         SkASSERT(pr->rowBytes() == rowBytes);
     }
-    return sk_make_sp<SkSurface_Raster>(std::move(pr), props);
+    return sk_make_sp<SkSurface_Raster>(info, std::move(pr), props);
 }

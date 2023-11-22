@@ -26,13 +26,13 @@
     <string name="header_category_personal" msgid="8893959635328775096">"व्यक्तिगत"</string>
     <string name="accounts_category_title" msgid="7591072907146317425">"खाते"</string>
     <string name="add_account" msgid="4098060223200619258">"खाता जोड़ें"</string>
-    <string name="account_header_remove_account" msgid="3288957118207682685">"खाता हटाएं"</string>
-    <string name="account_sync" msgid="773808124331714965">"समन्वयित ऐप्लिकेशन चुनें"</string>
-    <string name="sync_now" msgid="8732244492880016471">"अभी समन्वयित करें"</string>
+    <string name="account_header_remove_account" msgid="3288957118207682685">"खाता निकालें"</string>
+    <string name="account_sync" msgid="773808124331714965">"सिंक किए गए ऐप्लिकेशन चुनें"</string>
+    <string name="sync_now" msgid="8732244492880016471">"अभी सिंक करें"</string>
     <string name="sync_in_progress" msgid="1330721038775646022">"समन्वयन हो रहा है…"</string>
     <string name="last_synced" msgid="6178494892357077274">"अंतिम बार समन्वयित: <xliff:g id="TIME">%1s</xliff:g>"</string>
     <string name="sync_disabled" msgid="3089360175872892781">"अक्षम किया गया"</string>
-    <string name="account_remove" msgid="4313580520737295272">"खाता हटाएं"</string>
+    <string name="account_remove" msgid="4313580520737295272">"खाता निकालें"</string>
     <string name="account_remove_failed" msgid="980654375770693544">"खाता निकाला नहीं जा सकता"</string>
     <!-- no translation found for sync_item_title (2716687595867726981) -->
     <skip />
@@ -75,7 +75,7 @@
     <string name="accessory_change_name" msgid="8958916008739792785">"नाम बदलें"</string>
     <string name="accessory_change_name_title" msgid="4630819456923061184">"इस एक्सेसरी के लिए कोई नया नाम डालें"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"एक्सेसरी की खोज हो रही है…"</string>
-    <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"अपने ब्लूटूथ उपकरणों को युग्मित करने से पहले, सुनिश्चित करें कि वे युग्मन मोड में हैं"</string>
+    <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"अपने ब्लूटूथ डिवाइसों को युग्मित करने से पहले, यह देख लें कि वे युग्मन मोड में हैं"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"एक डिवाइस मिला और वह <xliff:g id="COUNTDOWN">%1$s</xliff:g> सेकंड में अपने आप युग्मित हो जाएगा"</string>
     <string name="error_action_not_supported" msgid="300552308104354666">"यह कार्रवाई समर्थित नहीं है"</string>
     <string name="bluetooth_pairing_request" msgid="4523088117471287665">"ब्लूटूथ युग्‍मन अनुरोध"</string>
@@ -88,7 +88,7 @@
     <string name="bluetooth_pair" msgid="7836818609620478122">"युग्‍मित करें"</string>
     <string name="bluetooth_cancel" msgid="4152153558528588479">"अभी नहीं"</string>
     <string name="system_cast" msgid="6421567823845207156">"Google Cast"</string>
-    <string name="system_date_time" msgid="8898457978560618950">"तिथि और समय"</string>
+    <string name="system_date_time" msgid="8898457978560618950">"तारीख और समय"</string>
     <string name="system_language" msgid="2337138146114609247">"भाषा"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"कीबोर्ड"</string>
     <string name="system_home" msgid="2858989138172296012">"होम स्क्रीन"</string>
@@ -105,7 +105,7 @@
     <string name="about_system_update" msgid="7282772247661356586">"सिस्‍टम अपडेट"</string>
     <string name="about_preference" msgid="4131396784531360434">"संक्षिप्त विवरण"</string>
     <string name="device_name" msgid="2670488158531273028">"डिवाइस नाम"</string>
-    <string name="restart_button_label" msgid="8153112858638352970">"पुन: प्रारंभ करें"</string>
+    <string name="restart_button_label" msgid="8153112858638352970">"फिर से चालू करें"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"वैधानिक जानकारी"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"ओपन सोर्स लाइसेंस"</string>
     <string name="about_terms_of_service" msgid="7743088207977334874">"Google विधिक"</string>
@@ -168,10 +168,10 @@
     <string name="wifi_setting_see_all" msgid="3217814666041974878">"सभी देखें"</string>
     <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"कम देखें"</string>
     <string name="wifi_setting_available_networks" msgid="6713791371350513043">"उपलब्ध नेटवर्क"</string>
-    <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"WPS के द्वारा कनेक्ट करें"</string>
+    <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"WPS के ज़रिए कनेक्ट करें"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"नया नेटवर्क जोड़ें"</string>
     <string name="security_type" msgid="524443802004143058">"सुरक्षा का प्रकार"</string>
-    <string name="wps_network" msgid="1052148085426051873">"WPS के द्वारा कनेक्ट करें"</string>
+    <string name="wps_network" msgid="1052148085426051873">"WPS के ज़रिए कनेक्ट करें"</string>
     <string name="other_network" msgid="3539704463099544488">"अन्‍य नेटवर्क…"</string>
     <string name="skip_network" msgid="6380260543776712357">"अभी नहीं"</string>
     <string name="wifi_security_type_none" msgid="6622722325237471927">"कोई नहीं"</string>
@@ -328,19 +328,19 @@
     <string name="wifi_wps_failed_overlap" msgid="3091222818050940041">"अन्य WPS सत्र प्रगति में है. कुछ ही मिनट में फिर से प्रयास करें."</string>
     <string name="system_date" msgid="2767108116769558081">"तिथि"</string>
     <string name="system_time" msgid="6726022312605226285">"समय"</string>
-    <string name="system_set_date" msgid="2437586307768561116">"दिनांक सेट करें"</string>
+    <string name="system_set_date" msgid="2437586307768561116">"तारीख सेट करें"</string>
     <string name="system_set_time" msgid="4661804115501057452">"समय सेट करें"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"समय क्षेत्र सेट करें"</string>
     <string name="desc_set_time_zone" msgid="2948629174438460709">"<xliff:g id="OFFSET">%1$s</xliff:g>, <xliff:g id="NAME">%2$s</xliff:g>"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"24-घंटे के प्रारूप का उपयोग करें"</string>
     <string name="desc_set_time_format" msgid="3131006238681763219">"<xliff:g id="STATE">%1$s</xliff:g> (<xliff:g id="SAMPLE">%2$s</xliff:g>)"</string>
-    <string name="system_auto_date_time" msgid="3629668599205033272">"स्‍वचालित दिनांक और समय"</string>
+    <string name="system_auto_date_time" msgid="3629668599205033272">"ऑटोमैटिक तारीख और समय"</string>
   <string-array name="auto_date_time_entries">
-    <item msgid="4590792581242018007">"नेटवर्क-प्रदत्त समय का उपयोग करें"</item>
+    <item msgid="4590792581242018007">"नेटवर्क से मिलने वाले समय का उपयोग करें"</item>
     <item msgid="3807025813081244357">"बंद करें"</item>
   </string-array>
   <string-array name="auto_date_time_ts_entries">
-    <item msgid="8463479794795616025">"नेटवर्क-प्रदत्त समय का उपयोग करें"</item>
+    <item msgid="8463479794795616025">"नेटवर्क से मिलने वाले समय का उपयोग करें"</item>
     <item msgid="2475903014233987786">"परिवहन स्‍ट्रीम-प्रदत्त समय का उपयोग करें"</item>
     <item msgid="150957081326946463">"बंद करें"</item>
   </string-array>
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"सेवाएं"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"सेवा सेटिंग"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"उच्च कंट्रास्ट लेख"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"एक्सेस-योग्यता शॉर्टकट"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"एक्सेस-योग्यता शॉर्टकट सक्षम करें"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"शॉर्टकट सेवा"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"शॉर्टकट इस्तेमाल करने के दौरान, आप \'वापस जाएं\' और \'नीचे जाएं\' बटन को एक साथ 3 सेकंड तक दबा के, सुलभता सुविधा शुरू कर सकते हैं."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"कैप्शन"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"वीडियो पर बंद अनुशीर्षक देने वाले लेख ओवरले की सेटिंग"</string>
     <string name="captions_display" msgid="735692527287125548">"प्रदर्शन"</string>
@@ -427,7 +431,7 @@
     <string name="system_stay_awake" msgid="1212296404230848490">"सचेत रहें"</string>
     <string name="system_hdcp_checking" msgid="8470793875143334320">"HDCP जांच"</string>
     <string name="system_hdmi_optimization" msgid="9120919064234265144">"HDMI ऑप्टिमाइज़ेशन"</string>
-    <string name="system_reboot_confirm" msgid="534407910866199191">"अभी फिर से प्रारंभ करें?"</string>
+    <string name="system_reboot_confirm" msgid="534407910866199191">"अभी फिर से चालू करें?"</string>
     <string name="system_desc_reboot_confirm" msgid="1367498732529710136">"इस सेटिंग को अपडेट करने के लिए, आपके डिवाइस को फिर से प्रारंभ करना होगा"</string>
     <string name="system_never_check" msgid="6666520460705041617">"कभी न जांचें"</string>
     <string name="system_check_for_drm_content_only" msgid="8716366734950874267">"केवल DRM सामग्री जांचें"</string>
@@ -480,8 +484,8 @@
     <string name="security_unknown_sources_title" msgid="769762478057744545">"अज्ञात स्रोत"</string>
     <string name="security_unknown_sources_desc" msgid="7197053279914817124">"Play स्टोर के अलावा अन्‍य स्रोतों से ऐप्स  इंस्टॉल करने दें"</string>
     <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"अज्ञात स्रोतों को अनुमति दें"</string>
-    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"आपका डिवाइस और व्यक्तिगत डेटा अज्ञात स्रोतों वाले ऐप्स के आक्रमण के प्रति अधिक भेद्य हैं. आप इस बात से सहमत हैं कि इन ऐप्स के उपयोग के परिणामस्वरूप संभावित रूप से आपके डिवाइस को होने वाली क्षति या डेटा की हानि के लिए पूर्ण रूप से आप उत्तरदायी हैं."</string>
-    <string name="security_verify_apps_title" msgid="5787946958632254988">"ऐप्स  सत्यापित करें"</string>
+    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"आपका डिवाइस और व्यक्तिगत डेटा अज्ञात स्रोतों से होने वाले ऐप्स के आक्रमण के प्रति अधिक संवेदनशील हैं. आप इस बात से सहमत हैं कि इन ऐप्स के उपयोग के परिणामस्वरूप संभावित रूप से आपके डिवाइस को होने वाले नुकसान या डेटा की हानि के लिए पूरी तरह से आप उत्तरदायी हैं."</string>
+    <string name="security_verify_apps_title" msgid="5787946958632254988">"ऐप्स की पुष्टि करें"</string>
     <string name="security_verify_apps_desc" msgid="1456317893117818733">"हानि पहुंचा सकने वाले ऐप्स  का इंस्टॉलेशन अस्वीकार करें या पहले चेतावनी दें"</string>
     <string name="system_hdcp_checking_never" msgid="1758043078676276985">"कभी नहीं"</string>
     <string name="system_hdcp_checking_drm" msgid="8563220452241389905">"DRM सामग्री के लिए"</string>
@@ -615,7 +619,7 @@
     <string name="device_apps_app_management_clear_default_set" msgid="4191720055364731307">"कुछ कार्य हेतु यह ऐप लॉन्च के लिए सेट है"</string>
     <string name="device_apps_app_management_clear_default_none" msgid="196932966641339141">"कोई डिफ़ॉल्ट सेट नहीं किया गया है"</string>
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"संचय साफ़ करें"</string>
-    <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"नोटिफिकेशन"</string>
+    <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"नोटिफ़िकेशन"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"अनुमतियां"</string>
     <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"ऐप्लिकेशन अनुपलब्ध है"</string>
     <string name="settings_ok" msgid="3321630456511355983">"ठीक"</string>
@@ -624,8 +628,8 @@
     <string name="settings_off" msgid="449272161738237637">"बंद"</string>
     <string name="device_daydreams_none" msgid="2767107052779579259">"स्क्रीन बंद करें"</string>
     <string name="device_daydreams_select" msgid="2112338101206187695">"स्क्रीन सेवर"</string>
-    <string name="device_daydreams_test" msgid="9038920213402659591">"अभी प्रारंभ करें"</string>
-    <string name="device_daydreams_sleep" msgid="7676938708373592766">"कब प्रारंभ हो"</string>
+    <string name="device_daydreams_test" msgid="9038920213402659591">"अभी चालू करें"</string>
+    <string name="device_daydreams_sleep" msgid="7676938708373592766">"कब चालू हो"</string>
     <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"स्क्रीन सेवर निष्क्रियता की इस समयावधि के बाद शुरू होता है. यदि कोई भी स्क्रीर सेवर चयनित ना हो, तो डिस्प्ले बंद हो जाता है."</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"निष्क्रियता के <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> बाद"</string>
     <string name="device_daydreams_screen_off" msgid="1765925964376076171">"डिवाइस को निष्क्रिय करें"</string>
@@ -637,7 +641,7 @@
     <string name="privacy_backup_account" msgid="9059939814827165020">"बैकअप खाता"</string>
     <string name="privacy_automatic_restore" msgid="1409885318093199628">"अपने आप पुनर्स्थापित करें"</string>
     <string name="factory_reset_device" msgid="7422459553658815011">"डिवाइस रीसेट करें"</string>
-    <string name="factory_reset_description" msgid="5381170999141355891">"इससे आपके Google खाते, सिस्टम और ऐप डेटा तथा सेटिंग और डाउनलोड किए गए ऐप्स सहित आपके डिवाइस के मोबाइल मेमरि का सभी डेटा मिट जाएगा"</string>
+    <string name="factory_reset_description" msgid="5381170999141355891">"इससे आपके Google खाते, सिस्टम और ऐप डेटा तथा सेटिंग और डाउनलोड किए गए ऐप्स सहित आपके डिवाइस के मोबाइल मेमोरी का सभी डेटा मिट जाएगा"</string>
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"आपकी सभी निजी जानकारी और डाउनलोड किए गए ऐप्स मिटाएं? आप इस क्रिया को वापस नहीं ला सकते!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"सब कुछ मिटाएं"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"अपने <xliff:g id="DEVICEMODEL">%1$s</xliff:g> के लिए कोई नाम चुनें"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"बग रिपोर्ट कैप्‍चर की जा रही है"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"उपलब्ध वर्चुअल कीबोर्ड"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"कीबोर्ड प्रबंधित करें"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"अनुमति है"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"अनुमति नहीं है"</string>
+    <string name="usage_access" msgid="1914242907684452328">"उपयोग का एक्‍सेस"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"उपयोग का एक्‍सेस किसी ऐप्लिकेशन को यह ट्रैक करने देता है कि आप कौन से अन्य ऐप्लिकेशन का उपयोग कर रहे हैं और आप उनका उपयोग कितनी बार करते हैं, साथ ही आपके वाहक, भाषा सेटिंग और अन्‍य जानकारी भी ट्रैक करने देता है."</string>
 </resources>

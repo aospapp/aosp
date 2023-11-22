@@ -17,6 +17,8 @@
 package android.media.app.media_session_test_helper;
 
 import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Intent;
 import android.media.session.MediaSession;
@@ -41,6 +43,7 @@ public class MediaSessionTestHelperService extends Service {
     private static final String TAG = "MediaSessionTestHelperService";
 
     private static final int NOTIFICATION_ID = 100;
+    private static final String NOTIFICATION_CHANNEL = TAG;
 
     private MediaSession mMediaSession;
 
@@ -49,7 +52,13 @@ public class MediaSessionTestHelperService extends Service {
         super.onCreate();
 
         // Build notification UI to make this a foreground service.
-        Notification notification = new Notification.Builder(this)
+        NotificationManager manager =
+                (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        NotificationChannel notificationChannel = new NotificationChannel(NOTIFICATION_CHANNEL,
+                getString(R.string.label), NotificationManager.IMPORTANCE_DEFAULT);
+        manager.createNotificationChannel(notificationChannel);
+
+        Notification notification = new Notification.Builder(this, NOTIFICATION_CHANNEL)
                 .setSmallIcon(android.R.drawable.sym_def_app_icon)
                 .setContentTitle(getString(R.string.label)).build();
         startForeground(NOTIFICATION_ID, notification);

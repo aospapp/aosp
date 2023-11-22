@@ -28,8 +28,11 @@ public class TestFeatures implements Features {
     public boolean debugSupport = true;
     public boolean foldersInSearchResults = true;
     public boolean gestureScale = true;
+    public boolean inspector = true;
+    public boolean jobProgressDialog = false;
     public boolean launchToDocument = true;
     public boolean notificationChannel = true;
+    public boolean overwriteConfirmation = true;
     public boolean remoteActions = true;
     public boolean systemKeyboardNavigation = true;
     public boolean virtualFilesSharing = true;
@@ -65,8 +68,18 @@ public class TestFeatures implements Features {
     }
 
     @Override
+    public boolean isJobProgressDialogEnabled() {
+        return jobProgressDialog;
+    }
+
+    @Override
     public boolean isGestureScaleEnabled() {
         return gestureScale;
+    }
+
+    @Override
+    public boolean isInspectorEnabled() {
+        return inspector;
     }
 
     @Override
@@ -77,6 +90,11 @@ public class TestFeatures implements Features {
     @Override
     public boolean isNotificationChannelEnabled() {
         return notificationChannel;
+    }
+
+    @Override
+    public boolean isOverwriteConfirmationEnabled() {
+        return overwriteConfirmation;
     }
 
     @Override

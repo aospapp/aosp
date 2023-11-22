@@ -9,8 +9,8 @@ import pprint
 import time
 
 import common
-from autotest_lib.client.common_lib import error, site_utils
-from autotest_lib.client.common_lib import utils as base_utils
+from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import utils as client_utils
 from autotest_lib.client.common_lib.cros.network import ap_constants
 from autotest_lib.client.common_lib.cros.network import iw_runner
 from autotest_lib.server import hosts
@@ -127,7 +127,7 @@ class ChaosRunner(object):
             logging.info('Allow VM time to power on before creating a tunnel.')
             time.sleep(5)
 
-            if not site_utils.host_is_in_lab_zone(webdriver_instance.hostname):
+            if not client_utils.host_is_in_lab_zone(webdriver_instance.hostname):
                 self._ap_spec._webdriver_hostname = webdriver_instance.hostname
             else:
                 # If in the lab then port forwarding must be done so webdriver
@@ -138,7 +138,7 @@ class ChaosRunner(object):
                 logging.info('Wait for tunnel to be created.')
                 for i in range(3):
                     time.sleep(10)
-                    results = base_utils.run('lsof -i:%s' % WEBDRIVER_PORT,
+                    results = client_utils.run('lsof -i:%s' % WEBDRIVER_PORT,
                                              ignore_status=True)
                     if results:
                         break

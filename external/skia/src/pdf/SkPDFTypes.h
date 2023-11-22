@@ -247,6 +247,9 @@ public:
      */
     int size() const;
 
+    /** Preallocate space for n key-value pairs */
+    void reserve(int n);
+
     /** Add the value to the dictionary with the given key.
      *  @param key   The text of the key for this dictionary entry.
      *  @param value The value for this dictionary entry.
@@ -278,11 +281,6 @@ private:
     struct Record {
         SkPDFUnion fKey;
         SkPDFUnion fValue;
-        Record(SkPDFUnion&&, SkPDFUnion&&);
-        Record(Record&&) = default;
-        Record& operator=(Record&&) = default;
-        Record(const Record&) = delete;
-        Record& operator=(const Record&) = delete;
     };
     SkTArray<Record> fRecords;
     SkDEBUGCODE(bool fDumped;)

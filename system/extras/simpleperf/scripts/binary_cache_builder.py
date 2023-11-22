@@ -36,22 +36,23 @@ from utils import *
 class BinaryCacheBuilder(object):
     """Collect all binaries needed by perf.data in binary_cache."""
     def __init__(self, config):
-        config_names = ['perf_data_path', 'symfs_dirs', 'adb_path',
-                        'readelf_path', 'binary_cache_dir']
+        config_names = ['perf_data_path', 'symfs_dirs']
         for name in config_names:
-            if not config.has_key(name):
-                log_fatal('config for "%s" is missing' % name)
+            if name not in config:
+                log_exit('config for "%s" is missing' % name)
 
         self.perf_data_path = config.get('perf_data_path')
         if not os.path.isfile(self.perf_data_path):
-            log_fatal("can't find file %s" % self.perf_data_path)
+            log_exit("can't find file %s" % self.perf_data_path)
         self.symfs_dirs = config.get('symfs_dirs')
         for symfs_dir in self.symfs_dirs:
             if not os.path.isdir(symfs_dir):
-                log_fatal("symfs_dir '%s' is not a directory" % symfs_dir)
-        self.adb = AdbHelper(config['adb_path'])
-        self.readelf_path = config['readelf_path']
-        self.binary_cache_dir = config['binary_cache_dir']
+                log_exit("symfs_dir '%s' is not a directory" % symfs_dir)
+        self.adb = AdbHelper()
+        self.readelf_path = find_tool_path('readelf')
+        if not self.readelf_path and self.symfs_dirs:
+            log_warning("Debug shared libraries on host are not used because can't find readelf.")
+        self.binary_cache_dir = 'binary_cache'
         if not os.path.isdir(self.binary_cache_dir):
             os.makedirs(self.binary_cache_dir)
 
@@ -82,7 +83,7 @@ class BinaryCacheBuilder(object):
 
             for symbol in symbols:
                 dso_name = symbol.dso_name
-                if not binaries.has_key(dso_name):
+                if dso_name not in binaries:
                     binaries[dso_name] = lib.GetBuildIdForPath(dso_name)
         self.binaries = binaries
 
@@ -182,6 +183,7 @@ class BinaryCacheBuilder(object):
         if not self.readelf_path:
             return ""
         output = subprocess.check_output([self.readelf_path, '-n', file])
+        output = bytes_to_str(output)
         result = re.search(r'Build ID:\s*(\S+)', output)
         if result:
             build_id = result.group(1)
@@ -197,6 +199,7 @@ class BinaryCacheBuilder(object):
         if not self.readelf_path:
             return False
         output = subprocess.check_output([self.readelf_path, '-S', file])
+        output = bytes_to_str(output)
         if output.find('.symtab') != -1:
             return True
         return False
@@ -225,12 +228,22 @@ class BinaryCacheBuilder(object):
             self.adb.run(['pull', '/proc/kallsyms', file])
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description="Pull binaries needed by perf.data from device to binary_cache.")
-    parser.add_argument('--config', default='binary_cache_builder.config',
-                        help='Set configuration file. Default is binary_cache_builder.config.')
+def main():
+    parser = argparse.ArgumentParser(description=
+"""Pull binaries needed by perf.data from device to binary_cache directory.""")
+    parser.add_argument('-i', '--perf_data_path', default='perf.data', help=
+"""The path of profiling data.""")
+    parser.add_argument('-lib', '--native_lib_dir', nargs='+', help=
+"""Path to find debug version of native shared libraries used in the app.""",
+                        action='append')
     args = parser.parse_args()
-    config = load_config(args.config)
+    config = {}
+    config['perf_data_path'] = args.perf_data_path
+    config['symfs_dirs'] = flatten_arg_list(args.native_lib_dir)
+
     builder = BinaryCacheBuilder(config)
     builder.build_binary_cache()
+
+
+if __name__ == '__main__':
+    main()

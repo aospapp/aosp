@@ -28,8 +28,15 @@ ifeq ($(MAKECMDGOALS),)
 MAKECMDGOALS = all
 endif
 
+# Variant-specific Support Source Files ########################################
+
+SYS_SUPPORT_PATH = $(CHRE_PREFIX)/build/sys_support
+
 # Makefile Includes ############################################################
 
 # Common Includes
 include $(CHRE_PREFIX)/build/clean.mk
 include $(CHRE_PREFIX)/build/tools_config.mk
+
+# NanoPB Source Generation
+include $(CHRE_PREFIX)/build/nanopb.mk

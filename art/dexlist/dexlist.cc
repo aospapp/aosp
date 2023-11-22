@@ -149,9 +149,7 @@ void dumpClass(const DexFile* pDexFile, u4 idx) {
   const u1* pEncodedData = pDexFile->GetClassData(pClassDef);
   if (pEncodedData != nullptr) {
     ClassDataItemIterator pClassData(*pDexFile, pEncodedData);
-    // Skip the fields.
-    for (; pClassData.HasNextStaticField(); pClassData.Next()) {}
-    for (; pClassData.HasNextInstanceField(); pClassData.Next()) {}
+    pClassData.SkipAllFields();
     // Direct methods.
     for (; pClassData.HasNextDirectMethod(); pClassData.Next()) {
       dumpMethod(pDexFile, fileName,
@@ -213,7 +211,7 @@ static void usage(void) {
  */
 int dexlistDriver(int argc, char** argv) {
   // Art specific set up.
-  InitLogging(argv, Runtime::Aborter);
+  InitLogging(argv, Runtime::Abort);
   MemMap::Init();
 
   // Reset options.

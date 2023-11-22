@@ -138,11 +138,11 @@ public class PreloadedClassesTest implements IRemoteTest, IDeviceTest, IBuildRec
                 // Generate the corresponding preloaded classes
                 File classes = writePreloadedClasses(threshold);
                 if (classes != null) {
-                    FileInputStreamSource stream = new FileInputStreamSource(classes);
-                    String name = String.format("preloaded-classes-threshold-%s", thresholdStr);
-                    listener.testLog(name, LogDataType.TEXT, stream);
+                    try (FileInputStreamSource stream = new FileInputStreamSource(classes)) {
+                        String name = String.format("preloaded-classes-threshold-%s", thresholdStr);
+                        listener.testLog(name, LogDataType.TEXT, stream);
+                    }
                     // Clean up after uploading
-                    stream.cancel();
                     FileUtil.deleteFile(classes);
                 } else {
                     String msg = String.format(

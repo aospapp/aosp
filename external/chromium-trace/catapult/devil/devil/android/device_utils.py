@@ -39,7 +39,6 @@ from devil.android import logcat_monitor
 from devil.android import md5sum
 from devil.android.constants import chrome
 from devil.android.sdk import adb_wrapper
-from devil.android.sdk import gce_adb_wrapper
 from devil.android.sdk import intent
 from devil.android.sdk import keyevent
 from devil.android.sdk import split_select
@@ -131,7 +130,6 @@ _CURRENT_FOCUS_CRASH_RE = re.compile(
     r'\s*mCurrentFocus.*Application (Error|Not Responding): (\S+)}')
 
 _GETPROP_RE = re.compile(r'\[(.*?)\]: \[(.*?)\]')
-_IPV4_ADDRESS_RE = re.compile(r'([0-9]{1,3}\.){3}[0-9]{1,3}\:[0-9]{4,5}')
 
 # Regex to parse the long (-l) output of 'ls' command, c.f.
 # https://github.com/landley/toybox/blob/master/toys/posix/ls.c#L446
@@ -254,18 +252,11 @@ def _JoinLines(lines):
   return ''.join(s for line in lines for s in (line, '\n'))
 
 
-def _IsGceInstance(serial):
-  return _IPV4_ADDRESS_RE.match(serial)
-
-
 def _CreateAdbWrapper(device):
-  if _IsGceInstance(str(device)):
-    return gce_adb_wrapper.GceAdbWrapper(str(device))
+  if isinstance(device, adb_wrapper.AdbWrapper):
+    return device
   else:
-    if isinstance(device, adb_wrapper.AdbWrapper):
-      return device
-    else:
-      return adb_wrapper.AdbWrapper(device)
+    return adb_wrapper.AdbWrapper(device)
 
 
 def _FormatPartialOutputError(output):
@@ -453,13 +444,27 @@ class DeviceUtils(object):
       CommandFailedError if root could not be enabled.
       CommandTimeoutError on timeout.
     """
-    if self.IsUserBuild():
-      raise device_errors.CommandFailedError(
-          'Cannot enable root in user builds.', str(self))
     if 'needs_su' in self._cache:
       del self._cache['needs_su']
-    self.adb.Root()
-    self.WaitUntilFullyBooted()
+
+    try:
+      self.adb.Root()
+    except device_errors.AdbCommandFailedError:
+      if self.IsUserBuild():
+        raise device_errors.CommandFailedError(
+            'Unable to root device with user build.', str(self))
+      else:
+        raise  # Failed probably due to some other reason.
+
+    def device_online_with_root():
+      try:
+        self.adb.WaitForDevice()
+        return self.GetProp('service.adb.root', cache=False) == '1'
+      except (device_errors.AdbCommandFailedError,
+              device_errors.DeviceUnreachableError):
+        return False
+
+    timeout_retry.WaitFor(device_online_with_root, wait_period=1)
 
   @decorators.WithTimeoutAndRetriesFromInstance()
   def IsUserBuild(self, timeout=None, retries=None):
@@ -1190,8 +1195,8 @@ class DeviceUtils(object):
       CommandTimeoutError on timeout.
       DeviceUnreachableError on missing device.
     """
-    cmd = 'p=%s;if [[ "$(ps)" = *$p* ]]; then am force-stop $p; fi'
-    self.RunShellCommand(cmd % package, shell=True, check_return=True)
+    if self.GetPids(package):
+      self.RunShellCommand(['am', 'force-stop', package], check_return=True)
 
   @decorators.WithTimeoutAndRetriesFromInstance()
   def ClearApplicationState(

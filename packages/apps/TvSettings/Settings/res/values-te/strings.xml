@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"సేవలు"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"సేవా సెట్టింగ్‌లు"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"అధిక కాంట్రాస్ట్ వచనం"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"ప్రాప్యత సత్వరమార్గం"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"ప్రాప్యత సత్వరమార్గాన్ని ప్రారంభించండి"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"సత్వరమార్గం సేవ"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"సత్వరమార్గం ఆన్‌లో ఉన్నప్పుడు వెనుకకు మరియు కిందికి బటన్‌లను 3 సెకన్ల పాటు నొక్కడం ద్వారా యాక్సెస్ సౌలభ్య ఫీచర్‌‌ని ప్రారంభించవచ్చు."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"శీర్షికలు"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"వీడియోలో సంవృత శీర్షిక వచన అతివ్యాప్తికి సెట్టింగ్‌లు"</string>
     <string name="captions_display" msgid="735692527287125548">"ప్రదర్శన"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"బగ్ నివేదికను సంగ్రహిస్తోంది"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"అందుబాటులో ఉన్న వర్చువల్ కీబోర్డ్‌లు"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"కీబోర్డ్‌లను నిర్వహించండి"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"అనుమతించబడింది"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"అనుమతించబడలేదు"</string>
+    <string name="usage_access" msgid="1914242907684452328">"వినియోగ ప్రాప్యత"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"వినియోగ ప్రాప్యతతో ఒక అనువర్తనం మీరు ఉపయోగించే ఇతర అనువర్తనాల గురించి మరియు వాటిని ఎంత తరచుగా ఉపయోగిస్తున్నారనే దాని గురించి అలాగే మీ క్యారియర్, భాష సెట్టింగ్‌లు మరియు ఇతర వివరాలను ట్రాక్ చేయగలదు."</string>
 </resources>

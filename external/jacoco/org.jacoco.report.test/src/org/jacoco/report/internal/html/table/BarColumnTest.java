@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -101,7 +101,7 @@ public class BarColumnTest {
 				support.findStr(doc, "count(/html/body/table/tr[1]/td/img)"));
 
 		// red bar
-		assertEquals(".resources/redbar.gif",
+		assertEquals("jacoco-resources/redbar.gif",
 				support.findStr(doc, "/html/body/table/tr[1]/td/img[1]/@src"));
 		assertEquals("15",
 				support.findStr(doc, "/html/body/table/tr[1]/td/img[1]/@alt"));
@@ -109,7 +109,7 @@ public class BarColumnTest {
 				support.findStr(doc, "/html/body/table/tr[1]/td/img[1]/@width"));
 
 		// green bar
-		assertEquals(".resources/greenbar.gif",
+		assertEquals("jacoco-resources/greenbar.gif",
 				support.findStr(doc, "/html/body/table/tr[1]/td/img[2]/@src"));
 		assertEquals("5",
 				support.findStr(doc, "/html/body/table/tr[1]/td/img[2]/@alt"));
@@ -129,7 +129,7 @@ public class BarColumnTest {
 				support.findStr(doc, "count(/html/body/table/tr[1]/td/img)"));
 
 		// red bar
-		assertEquals(".resources/redbar.gif",
+		assertEquals("jacoco-resources/redbar.gif",
 				support.findStr(doc, "/html/body/table/tr[1]/td/img[1]/@src"));
 		assertEquals("20",
 				support.findStr(doc, "/html/body/table/tr[1]/td/img[1]/@alt"));
@@ -149,7 +149,7 @@ public class BarColumnTest {
 				support.findStr(doc, "count(/html/body/table/tr[1]/td/img)"));
 
 		// red bar
-		assertEquals(".resources/greenbar.gif",
+		assertEquals("jacoco-resources/greenbar.gif",
 				support.findStr(doc, "/html/body/table/tr[1]/td/img[1]/@src"));
 		assertEquals("20",
 				support.findStr(doc, "/html/body/table/tr[1]/td/img[1]/@alt"));

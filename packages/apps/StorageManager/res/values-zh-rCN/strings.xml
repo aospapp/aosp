@@ -55,9 +55,12 @@
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"开启"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"已备份的照片和视频"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"正在查找内容…"</string>
+    <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"显示所有内容"</string>
+    <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"隐藏近期内容"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="386144597646356521">"系统将从您的设备中移除 <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> 的内容"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"您的存储空间目前是由存储空间管理器管理"</string>
-    <string name="empty_state_title" msgid="4033285438176545309">"没有任何内容可供移除"</string>
+    <string name="empty_state_title" msgid="4033285438176545309">"没有可移除的内容"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"查看近期内容"</string>
     <string name="empty_state_summary" msgid="8439893007424243790">"没有任何旧文件可供移除。要腾出空间，您可以移除最近的照片、视频和应用。"</string>
+    <string name="app_requesting_space" msgid="857425181289960167">"“<xliff:g id="APP">%1$s</xliff:g>”需要 <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> 的空间"</string>
 </resources>

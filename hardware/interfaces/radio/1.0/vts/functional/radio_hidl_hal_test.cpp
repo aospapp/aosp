@@ -14,19 +14,21 @@
  * limitations under the License.
  */
 
-#include <radio_hidl_hal_utils.h>
+#include <radio_hidl_hal_utils_v1_0.h>
 
 void RadioHidlTest::SetUp() {
     radio =
         ::testing::VtsHalHidlTargetTestBase::getService<IRadio>(hidl_string(RADIO_SERVICE_NAME));
-    ASSERT_NE(radio, nullptr);
+    ASSERT_NE(nullptr, radio.get());
 
-    radioRsp = new RadioResponse(*this);
-    ASSERT_NE(radioRsp, nullptr);
+    radioRsp = new (std::nothrow) RadioResponse(*this);
+    ASSERT_NE(nullptr, radioRsp.get());
 
     count = 0;
 
-    radioInd = NULL;
+    radioInd = new (std::nothrow) RadioIndication(*this);
+    ASSERT_NE(nullptr, radioInd.get());
+
     radio->setResponseFunctions(radioRsp, radioInd);
 
     int serial = GetRandomSerialNumber();
@@ -35,6 +37,10 @@ void RadioHidlTest::SetUp() {
     EXPECT_EQ(RadioResponseType::SOLICITED, radioRsp->rspInfo.type);
     EXPECT_EQ(serial, radioRsp->rspInfo.serial);
     EXPECT_EQ(RadioError::NONE, radioRsp->rspInfo.error);
+
+    /* Vts Testing with Sim Absent only. This needs to be removed later in P when sim present
+     * scenarios will be tested. */
+    EXPECT_EQ(CardState::ABSENT, cardStatus.cardState);
 }
 
 void RadioHidlTest::TearDown() {}

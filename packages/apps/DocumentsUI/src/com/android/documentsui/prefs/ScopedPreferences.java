@@ -20,6 +20,8 @@ import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
 import android.text.TextUtils;
 
+import com.android.documentsui.R;
+
 /**
  * Provides an interface (and runtime implementation) for preferences that are
  * scoped (presumably to an activity). This eliminates the need to pass
@@ -39,25 +41,29 @@ public interface ScopedPreferences {
      *        for prefs that are set using this object.
      */
     public static ScopedPreferences create(Context context, String scope) {
-        return new RuntimeScopedPreferences(
+        return new RuntimeScopedPreferences(context,
                 PreferenceManager.getDefaultSharedPreferences(context), scope);
     }
 
     static final class RuntimeScopedPreferences implements ScopedPreferences {
 
-        private SharedPreferences mSharedPrefs;
-        private String mScope;
+        private final SharedPreferences mSharedPrefs;
+        private final String mScope;
+        private final boolean mDefaultShowDeviceRoot;
 
-        private RuntimeScopedPreferences(SharedPreferences sharedPrefs, String scope)  {
+        private RuntimeScopedPreferences(Context context, SharedPreferences sharedPrefs,
+                String scope)  {
             assert(!TextUtils.isEmpty(scope));
 
             mSharedPrefs = sharedPrefs;
             mScope = scope;
+            mDefaultShowDeviceRoot = context.getResources()
+                    .getBoolean(R.bool.config_default_show_device_root);
         }
 
         @Override
         public boolean getShowDeviceRoot() {
-            return mSharedPrefs.getBoolean(INCLUDE_DEVICE_ROOT, false);
+            return mSharedPrefs.getBoolean(INCLUDE_DEVICE_ROOT, mDefaultShowDeviceRoot);
         }
 
         @Override

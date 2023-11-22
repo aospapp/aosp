@@ -31,6 +31,7 @@ import com.android.documentsui.base.Features;
 import com.android.documentsui.base.State;
 import com.android.documentsui.testing.TestActionHandler;
 import com.android.documentsui.testing.TestEnv;
+import com.android.documentsui.testing.TestFileTypeLookup;
 
 @MediumTest
 public class DirectoryAddonsAdapterTest extends AndroidTestCase {
@@ -53,7 +54,7 @@ public class DirectoryAddonsAdapterTest extends AndroidTestCase {
         mAdapter = new DirectoryAddonsAdapter(
             env,
             new ModelBackedDocumentsAdapter(
-                    env, new IconHelper(testContext, State.MODE_GRID)));
+                    env, new IconHelper(testContext, State.MODE_GRID), new TestFileTypeLookup()));
 
         mEnv.model.addUpdateListener(mAdapter.getModelUpdateListener());
     }

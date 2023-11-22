@@ -55,9 +55,12 @@
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"Aktivieren"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"Gesicherte Fotos und Videos"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"Elemente werden gesucht…"</string>
+    <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"Alle Elemente anzeigen"</string>
+    <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"Kürzlich genutzte Elemente ausblenden"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="386144597646356521">"<xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> werden von deinem Gerät entfernt"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"Dein Speicher wird jetzt vom Speichermanager verwaltet"</string>
-    <string name="empty_state_title" msgid="4033285438176545309">"Keine zu entfernenden Elemente"</string>
+    <string name="empty_state_title" msgid="4033285438176545309">"Keine Elemente vorhanden"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"Aktuelle Elemente prüfen"</string>
     <string name="empty_state_summary" msgid="8439893007424243790">"Es sind keine älteren Dateien zum Entfernen vorhanden. Entferne aktuelle Fotos, Videos und Apps, um Speicherplatz freizugeben."</string>
+    <string name="app_requesting_space" msgid="857425181289960167">"<xliff:g id="APP">%1$s</xliff:g> benötigt <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> Speicherplatz"</string>
 </resources>

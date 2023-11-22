@@ -20,7 +20,7 @@ from autotest_lib.client.cros.graphics import graphics_utils
 #        "/usr/local/autotest/bin/screenshot.py screenshot2_generated.png"
 # start ui
 
-class graphics_Sanity(test.test):
+class graphics_Sanity(graphics_utils.GraphicsTest):
     """
     This test is meant to be used as a quick sanity check for GL/GLES.
     """
@@ -35,12 +35,14 @@ class graphics_Sanity(test.test):
 
 
     def initialize(self):
+        super(graphics_Sanity, self).initialize()
         # If UI is running, we must stop it and restore later.
         self._services = service_stopper.ServiceStopper(['ui'])
         self._services.stop_services()
 
 
     def cleanup(self):
+        super(graphics_Sanity, self).cleanup()
         if self._services:
           self._services.restore_services()
 
@@ -50,9 +52,10 @@ class graphics_Sanity(test.test):
         Draws a texture with a soft ellipse twice and captures each image.
         Compares the output fuzzily against reference images.
         """
-        if utils.is_freon() and graphics_utils.get_display_resolution() is None:
+        if graphics_utils.get_display_resolution() is None:
             logging.warning('Skipping test because there is no screen')
             return
+        self.add_failures('graphics_Sanity')
 
         dep = 'glbench'
         dep_dir = os.path.join(self.autodir, 'deps', dep)
@@ -78,25 +81,14 @@ class graphics_Sanity(test.test):
         options += ' --screenshot2_sec 1'
         options += ' --cooldown_sec 1'
         # perceptualdiff can handle only 8 bit images.
-        if not utils.is_freon():
-          screenshot_cmd = ' "DISPLAY=:1 import -window root %s"'
-        else:
-          screenshot_cmd = ' "/usr/local/autotest/bin/screenshot.py %s"'
+        screenshot_cmd = ' "/usr/local/autotest/bin/screenshot.py %s"'
         options += ' --screenshot1_cmd' + screenshot_cmd % screenshot1_generated
         options += ' --screenshot2_cmd' + screenshot_cmd % screenshot2_generated
 
         cmd = exefile + ' ' + options
-        if not utils.is_freon():
-          cmd = 'X :1 vt1 & sleep 1; chvt 1 && DISPLAY=:1 ' + cmd
-        try:
-          utils.run(cmd,
-                    stdout_tee=utils.TEE_TO_LOGS,
-                    stderr_tee=utils.TEE_TO_LOGS)
-        finally:
-          if not utils.is_freon():
-            # Just sending SIGTERM to X is not enough; we must wait for it to
-            # really die before we start a new X server (ie start ui).
-            utils.ensure_processes_are_dead_by_name('^X$')
+        utils.run(cmd,
+                  stdout_tee=utils.TEE_TO_LOGS,
+                  stderr_tee=utils.TEE_TO_LOGS)
 
         convert_cmd = ("convert -channel RGB -colorspace RGB -depth 8"
                        " -resize '100x100!' %s %s")
@@ -108,3 +100,5 @@ class graphics_Sanity(test.test):
         diff_cmd = 'perceptualdiff -verbose %s %s'
         utils.system(diff_cmd % (screenshot1_reference, screenshot1_resized))
         utils.system(diff_cmd % (screenshot2_reference, screenshot2_resized))
+
+        self.remove_failures('graphics_Sanity')

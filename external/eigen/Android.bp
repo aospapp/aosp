@@ -15,5 +15,8 @@
 cc_library_headers {
   export_include_dirs = [ "." ],
   name: "libeigen",
+  vendor_available: true,
+  host_supported: true,
 }
 
+subdirs = ["blas"]

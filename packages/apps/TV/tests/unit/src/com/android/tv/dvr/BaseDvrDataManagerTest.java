@@ -16,35 +16,51 @@
 
 package com.android.tv.dvr;
 
+import static android.support.test.InstrumentationRegistry.getContext;
+
+import android.os.Build;
 import android.support.annotation.NonNull;
+import android.support.test.filters.SdkSuppress;
 import android.support.test.filters.SmallTest;
-import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
 
+import com.android.tv.common.feature.CommonFeatures;
+import com.android.tv.common.feature.TestableFeature;
+import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.testing.FakeClock;
 import com.android.tv.testing.dvr.RecordingTestUtils;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Tests for {@link BaseDvrDataManager} using {@link DvrDataManagerInMemoryImpl}.
- */
+/** Tests for {@link BaseDvrDataManager} using {@link DvrDataManagerInMemoryImpl}. */
 @SmallTest
-public class BaseDvrDataManagerTest extends AndroidTestCase {
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.N)
+public class BaseDvrDataManagerTest {
     private static final String INPUT_ID = "input_id";
     private static final int CHANNEL_ID = 273;
 
+    private final TestableFeature mDvrFeature = CommonFeatures.DVR;
     private DvrDataManagerInMemoryImpl mDvrDataManager;
     private FakeClock mFakeClock;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() {
+        mDvrFeature.enableForTest();
         mFakeClock = FakeClock.createWithCurrentTime();
         mDvrDataManager = new DvrDataManagerInMemoryImpl(getContext(), mFakeClock);
     }
 
+    @After
+    public void tearDown() {
+        mDvrFeature.resetForTests();
+    }
+
+    @Test
     public void testGetNonStartedScheduledRecordings() {
         ScheduledRecording recording = mDvrDataManager
                 .addScheduledRecordingInternal(createNewScheduledRecordingStartingNow());
@@ -52,6 +68,7 @@ public class BaseDvrDataManagerTest extends AndroidTestCase {
         MoreAsserts.assertContentsInAnyOrder(result, recording);
     }
 
+    @Test
     public void testGetNonStartedScheduledRecordings_past() {
         mDvrDataManager.addScheduledRecordingInternal(createNewScheduledRecordingStartingNow());
         mFakeClock.increment(TimeUnit.MINUTES, 6);

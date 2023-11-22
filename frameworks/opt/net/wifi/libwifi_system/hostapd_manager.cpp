@@ -34,6 +34,7 @@
 
 using android::base::ParseInt;
 using android::base::ReadFileToString;
+using android::base::RemoveFileIfExists;
 using android::base::StringPrintf;
 using android::base::WriteStringToFile;
 using std::string;
@@ -103,6 +104,9 @@ bool HostapdManager::StopHostapd() {
 }
 
 bool HostapdManager::WriteHostapdConfig(const string& config) {
+  // Remove hostapd.conf because its file owner might be system
+  // in previous OS and chmod fails in that case.
+  RemoveFileIfExists(kHostapdConfigFilePath);
   if (!WriteStringToFile(config, kHostapdConfigFilePath,
                          S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP,
                          AID_WIFI, AID_WIFI)) {

@@ -44,6 +44,7 @@ public final class Bots {
     public final GestureBot gesture;
     public final MenuBot menu;
     public final UiBot main;
+    public final InspectorBot inspector;
 
     public Bots(UiDevice device, UiAutomation automation, Context context, int timeout) {
         main = new UiBot(device, context, TIMEOUT);
@@ -55,6 +56,7 @@ public final class Bots {
         search = new SearchBot(device, context, TIMEOUT);
         gesture = new GestureBot(device, automation, context, TIMEOUT);
         menu = new MenuBot(device, context, TIMEOUT);
+        inspector = new InspectorBot(device, context, TIMEOUT);
     }
 
     /**

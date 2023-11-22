@@ -41,6 +41,7 @@ extern "C" {
 #define NCI_MAX_CTRL_SIZE 0xFF /* max control message size */
 #define NCI_CTRL_INIT_SIZE 32  /* initial NFCC control payload size */
 #define NCI_MAX_VSC_SIZE 0xFF
+#define APPL_DTA_MODE FALSE
 /* NCI header (3) + callback function pointer(8; use 8 to be safe) + HCIT (1
  * byte) */
 #define NCI_VSC_MSG_HDR_SIZE 12
@@ -164,6 +165,11 @@ extern "C" {
 
 /* Logical target ID 0x01-0xFE */
 
+/* CORE_RESET_NTF reset trigger type*/
+#define NCI2_0_RESET_TRIGGER_TYPE_ERROR 0x00
+#define NCI2_0_RESET_TRIGGER_TYPE_POWERED_ON 0x01
+#define NCI2_0_RESET_TRIGGER_TYPE_CORE_RESET_CMD_RECEIVED 0x02
+
 /* Status Codes */
 #define NCI_STATUS_OK 0x00
 #define NCI_STATUS_REJECTED 0x01
@@ -197,7 +203,7 @@ typedef uint8_t tNCI_STATUS;
 #define NCI_RF_TECHNOLOGY_A 0x00
 #define NCI_RF_TECHNOLOGY_B 0x01
 #define NCI_RF_TECHNOLOGY_F 0x02
-#define NCI_RF_TECHNOLOGY_15693 0x03
+#define NCI_RF_TECHNOLOGY_V 0x03
 
 /* Bit Rates */
 #define NCI_BIT_RATE_106 0x00  /* 106 kbit/s */
@@ -220,6 +226,7 @@ typedef uint8_t tNCI_STATUS;
 #define NCI_MSG_CORE_CONN_CREDITS 6
 #define NCI_MSG_CORE_GEN_ERR_STATUS 7
 #define NCI_MSG_CORE_INTF_ERR_STATUS 8
+#define NCI_MSG_CORE_SET_POWER_SUB_STATE 9
 
 /**********************************************
  * RF MANAGEMENT Group Opcode    - 1
@@ -236,6 +243,7 @@ typedef uint8_t tNCI_STATUS;
 #define NCI_MSG_RF_EE_ACTION 9
 #define NCI_MSG_RF_EE_DISCOVERY_REQ 10
 #define NCI_MSG_RF_PARAMETER_UPDATE 11
+#define NCI_MSG_RF_ISO_DEP_NAK_PRESENCE 16
 
 /**********************************************
  * NFCEE MANAGEMENT Group Opcode - 2
@@ -254,12 +262,15 @@ typedef uint8_t tNCI_STATUS;
 #define NCI_CORE_PARAM_SIZE_RESET_RSP 0x03
 #define NCI_CORE_PARAM_SIZE_RESET_NTF 0x02
 
-#define NCI_CORE_PARAM_SIZE_INIT 0x00 /* no payload */
+#define NCI_CORE_PARAM_SIZE_INIT(X) (((X) == NCI_VERSION_2_0) ? (0x02) : (0x00))
+#define NCI2_0_CORE_INIT_CMD_BYTE_0 0x00
+#define NCI2_0_CORE_INIT_CMD_BYTE_1 0x00
 #define NCI_CORE_PARAM_SIZE_INIT_RSP 0x11
 #define NCI_CORE_INIT_RSP_OFFSET_NUM_INTF 0x05
 
 /* Status (1 octet) and number of params */
 #define NCI_CORE_PARAM_SIZE_SET_CONFIG_RSP 0x02
+#define NCI_CORE_PARAM_SIZE_SET_POWER_SUB_STATE 0x01
 
 /* octet 0 */
 #define NCI_FEAT_DISCOVERY_FREG 0x00000001
@@ -358,6 +369,8 @@ typedef uint8_t tNCI_STATUS;
 #define NCI_DEACTIVATE_REASON_ENDPOINT_REQ 1 /* Endpoint Request */
 #define NCI_DEACTIVATE_REASON_RF_LINK_LOSS 2 /* RF Link Loss     */
 #define NCI_DEACTIVATE_REASON_NFCB_BAD_AFI 3 /* NFC-B Bad AFI    */
+/* DH Request Failed due to error */
+#define NCI_DEACTIVATE_REASON_DH_REQ_FAILED 4
 
 /**********************************************
 * NCI Interface Mode
@@ -374,6 +387,7 @@ typedef uint8_t tNCI_STATUS;
 #define NCI_INTERFACE_ISO_DEP 2
 #define NCI_INTERFACE_NFC_DEP 3
 #define NCI_INTERFACE_MAX NCI_INTERFACE_NFC_DEP
+#define NCI_INTERFACE_EXTENSION_MAX 2
 #define NCI_INTERFACE_FIRST_VS 0x80
 typedef uint8_t tNCI_INTF_TYPE;
 
@@ -397,6 +411,7 @@ typedef uint8_t tNCI_INTF_TYPE;
 #define NCI_PROTOCOL_T1T 0x01
 #define NCI_PROTOCOL_T2T 0x02
 #define NCI_PROTOCOL_T3T 0x03
+#define NCI_PROTOCOL_T5T 0x06
 #define NCI_PROTOCOL_ISO_DEP 0x04
 #define NCI_PROTOCOL_NFC_DEP 0x05
 
@@ -404,14 +419,18 @@ typedef uint8_t tNCI_INTF_TYPE;
 #define NCI_DISCOVERY_TYPE_POLL_A 0x00
 #define NCI_DISCOVERY_TYPE_POLL_B 0x01
 #define NCI_DISCOVERY_TYPE_POLL_F 0x02
+#define NCI_DISCOVERY_TYPE_POLL_V 0x06
 #define NCI_DISCOVERY_TYPE_POLL_A_ACTIVE 0x03
+/* NCI2.0 standardizes P2P poll active*/
+#define NCI_DISCOVERY_TYPE_POLL_ACTIVE 0x03
 #define NCI_DISCOVERY_TYPE_POLL_F_ACTIVE 0x05
 #define NCI_DISCOVERY_TYPE_LISTEN_A 0x80
 #define NCI_DISCOVERY_TYPE_LISTEN_B 0x81
 #define NCI_DISCOVERY_TYPE_LISTEN_F 0x82
 #define NCI_DISCOVERY_TYPE_LISTEN_A_ACTIVE 0x83
+/* NCI2.0 standardizes P2P listen active*/
+#define NCI_DISCOVERY_TYPE_LISTEN_ACTIVE 0x83
 #define NCI_DISCOVERY_TYPE_LISTEN_F_ACTIVE 0x85
-#define NCI_DISCOVERY_TYPE_POLL_ISO15693 0x06
 #define NCI_DISCOVERY_TYPE_LISTEN_ISO15693 0x86
 #define NCI_DISCOVERY_TYPE_MAX NCI_DISCOVERY_TYPE_LISTEN_ISO15693
 
@@ -439,6 +458,12 @@ typedef uint8_t tNCI_DISCOVERY_TYPE;
 #define NCI_ROUTE_PWR_STATE_SWITCH_OFF 0x02
 /* The device's battery is removed */
 #define NCI_ROUTE_PWR_STATE_BATT_OFF 0x04
+/* The device is in screen off Unlock mode */
+#define NCI_ROUTE_PWR_STATE_SCREEN_OFF_UNLOCK 0x08
+/* The device is in screen on lock mode */
+#define NCI_ROUTE_PWR_STATE_SCREEN_ON_LOCK 0x10
+/* The device is in screen off lock mode */
+#define NCI_ROUTE_PWR_STATE_SCREEN_OFF_LOCK 0x20
 
 /* Hardware / Registration Identification  */
 #define NCI_NFCEE_TAG_HW_ID 0x00
@@ -460,6 +485,7 @@ typedef uint8_t tNCI_DISCOVERY_TYPE;
 
 #define NCI_PARAM_ID_TOTAL_DURATION 0x00
 #define NCI_PARAM_ID_CON_DEVICES_LIMIT 0x01
+#define NCI_PARAM_ID_CON_DISCOVERY_PARAM 0x02
 #define NCI_PARAM_ID_PA_BAILOUT 0x08
 #define NCI_PARAM_ID_PB_AFI 0x10
 #define NCI_PARAM_ID_PB_BAILOUT 0x11
@@ -506,6 +532,10 @@ typedef uint8_t tNCI_DISCOVERY_TYPE;
 #define NCI_PARAM_ID_LF_T3T_MAX 0x52
 #define NCI_PARAM_ID_LF_T3T_FLAGS2 0x53
 #define NCI_PARAM_ID_LF_CON_BITR_F 0x54
+#define NCI_PARAM_ID_LF_CON_ADV_FEAT 0x55
+/*LF_T3T name changed in NCI2.0*/
+#define NCI_PARAM_ID_LF_T3T_RD_ALLOWED 0x55
+
 #define NCI_PARAM_ID_FWI 0x58
 #define NCI_PARAM_ID_LA_HIST_BY 0x59
 #define NCI_PARAM_ID_LB_H_INFO_RSP 0x5A
@@ -544,6 +574,8 @@ typedef uint8_t tNCI_DISCOVERY_TYPE;
  **********************************************/
 #define NCI_PARAM_LEN_TOTAL_DURATION 2
 
+#define NCI_PARAM_LEN_CON_DISCOVERY_PARAM 1
+
 #define NCI_PARAM_LEN_PA_FSDI 1
 
 #define NCI_PARAM_LEN_PF_RC 1
@@ -560,7 +592,12 @@ typedef uint8_t tNCI_DISCOVERY_TYPE;
 #define NCI_PARAM_LEN_LF_PROTOCOL 1
 #define NCI_PARAM_LEN_LF_T3T_FLAGS2 2
 #define NCI_PARAM_LEN_LF_T3T_PMM 8
-#define NCI_PARAM_LEN_LF_T3T_ID 10
+#define NCI_PARAM_LEN_LF_T3T_ID(X) (((X) == NCI_VERSION_2_0) ? (0x12) : (0x0A))
+#define NCI_PARAM_LEN_LF_CON_ADV_FEAT 1
+
+#define NCI_PARAM_LEN_LF_T3T_RD_ALLOWED 1  // Listen F NCI2.0 Parameter
+#define NCI_PARAM_LEN_LF_T3T_ID_MAX 16     // LF T3T indentifier Max Value 16
+#define NFA_CE_LISTEN_INFO_LF_MAX 16       // LF T3T indentifier Max Value 16
 
 #define NCI_PARAM_LEN_FWI 1
 #define NCI_PARAM_LEN_WT 1
@@ -576,6 +613,23 @@ typedef uint8_t tNCI_DISCOVERY_TYPE;
 /* LF_T3T_FLAGS2 listen bits all-disabled definition */
 #define NCI_LF_T3T_FLAGS2_ALL_DISABLED 0x0000
 #define NCI_LF_T3T_FLAGS2_ID1_ENABLED 0x0001
+
+/* The DH-NFCEE listen is considered as a enable NFCEE */
+#define NCI_LISTEN_DH_NFCEE_ENABLE_MASK 0x00
+/* The DH-NFCEE listen is considered as a disable NFCEE */
+#define NCI_LISTEN_DH_NFCEE_DISABLE_MASK 0x02
+/* The DH polling is considered as a disable NFCEE */
+#define NCI_POLLING_DH_DISABLE_MASK 0x00
+/* The DH polling is considered as a enable NFCEE */
+#define NCI_POLLING_DH_ENABLE_MASK 0x01
+
+#define NCI_ROUTE_QUAL_MASK 0x70
+/* AID matching is allowed when the SELECT AID is longer */
+#define NCI_ROUTE_QUAL_LONG_SELECT 0x10
+/* AID matching is allowed when the SELECT AID is shorter */
+#define NCI_ROUTE_QUAL_SHORT_SELECT 0x20
+/* AID is blocked in unsupported power mode */
+#define NCI_ROUTE_QUAL_BLOCK_ROUTE 0x40
 
 typedef struct {
   uint16_t addr;
@@ -744,6 +798,15 @@ typedef struct {
   } intf_param; /* Activation Parameters   0 - n Bytes */
 } tNCI_INTF_PARAMS;
 
+typedef struct {
+  uint8_t atr_res_len;                      /* Length of ATR_RES            */
+  uint8_t atr_res[NCI_MAX_ATS_LEN];         /* ATR_RES (Byte 3 - Byte 17+n) */
+  uint8_t max_payload_size;                 /* 64, 128, 192 or 254          */
+  uint8_t gen_bytes_len;                    /* len of general bytes         */
+  uint8_t gen_bytes[NCI_MAX_GEN_BYTES_LEN]; /* general bytes                */
+  uint8_t waiting_time;                     /* WT -> Response Waiting Time
+                                               RWT = (256 x 16/fC) x 2WT    */
+} tNCI_RF_ACM_P_PARAMS;
 #ifdef __cplusplus
 }
 #endif

@@ -18,6 +18,8 @@
 
 #define CMDLINE_NDEBUG 1  // Do not output any debugging information for parsing.
 
+#include <list>
+
 #include "memory_representation.h"
 #include "detail/cmdline_debug_detail.h"
 #include "cmdline_type_parser.h"
@@ -710,6 +712,11 @@ struct CmdlineType<ProfileSaverOptions> : CmdlineTypeParser<ProfileSaverOptions>
       return Result::SuccessNoValue();
     }
 
+    if (option == "profile-boot-class-path") {
+      existing.profile_boot_class_path_ = true;
+      return Result::SuccessNoValue();
+    }
+
     // The rest of these options are always the wildcard from '-Xps-*'
     std::string suffix = RemovePrefix(option);
 
@@ -725,10 +732,10 @@ struct CmdlineType<ProfileSaverOptions> : CmdlineTypeParser<ProfileSaverOptions>
              &ProfileSaverOptions::save_resolved_classes_delay_ms_,
              type_parser.Parse(suffix));
     }
-    if (android::base::StartsWith(option, "startup-method-samples:")) {
+    if (android::base::StartsWith(option, "hot-startup-method-samples:")) {
       CmdlineType<unsigned int> type_parser;
       return ParseInto(existing,
-             &ProfileSaverOptions::startup_method_samples_,
+             &ProfileSaverOptions::hot_startup_method_samples_,
              type_parser.Parse(suffix));
     }
     if (android::base::StartsWith(option, "min-methods-to-save:")) {

@@ -84,7 +84,9 @@ import org.conscrypt.ct.CTVerifier;
  * be provided by some certification provider.
  *
  * @see javax.net.ssl.X509ExtendedTrustManager
+ * @hide
  */
+@Internal
 public final class TrustManagerImpl extends X509ExtendedTrustManager {
 
     /**
@@ -418,8 +420,8 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
 
     private byte[] getOcspDataFromSession(SSLSession session) {
         List<byte[]> ocspResponses = null;
-        if (session instanceof AbstractOpenSSLSession) {
-            AbstractOpenSSLSession opensslSession = (AbstractOpenSSLSession) session;
+        if (session instanceof ActiveSession) {
+            ActiveSession opensslSession = (ActiveSession) session;
             ocspResponses = opensslSession.getStatusResponses();
         } else {
             Method m_getResponses;
@@ -445,14 +447,14 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
     }
 
     private byte[] getTlsSctDataFromSession(SSLSession session) {
-        if (session instanceof AbstractOpenSSLSession) {
-            AbstractOpenSSLSession opensslSession = (AbstractOpenSSLSession) session;
-            return opensslSession.getTlsSctData();
+        if (session instanceof ActiveSession) {
+            ActiveSession opensslSession = (ActiveSession) session;
+            return opensslSession.getPeerSignedCertificateTimestamp();
         }
 
         byte[] data = null;
         try {
-            Method m_getTlsSctData = session.getClass().getDeclaredMethod("getTlsSctData");
+            Method m_getTlsSctData = session.getClass().getDeclaredMethod("getPeerSignedCertificateTimestamp");
             m_getTlsSctData.setAccessible(true);
             Object rawData = m_getTlsSctData.invoke(session);
             if (rawData instanceof byte[]) {
@@ -787,7 +789,7 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
 
 
     /**
-     * Comparator for sorting {@link TrustAnchor}s using a {@link CertificateComparator}.
+     * Comparator for sorting {@link TrustAnchor}s using a {@link CertificatePriorityComparator}.
      */
     private static class TrustAnchorComparator implements Comparator<TrustAnchor> {
         private static final CertificatePriorityComparator CERT_COMPARATOR =
@@ -842,6 +844,7 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
             return SUPPORTED_EXTENSIONS;
         }
 
+        @SuppressWarnings("ReferenceEquality")
         @Override
         public void check(Certificate c, Collection<String> unresolvedCritExts)
                 throws CertPathValidatorException {

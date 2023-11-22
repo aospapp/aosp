@@ -27,6 +27,22 @@ _VERSION = "version"
 _INTERFACE = "interface"
 _INSTANCE = "instance"
 
+def ParseHalVersion(hal_version):
+    """Returns major and minor verions extracted from hal_version string.
+
+    Args:
+        hal_version: string, HAL version (e.g., "1.2")
+
+    Returns:
+        integer: major version
+        integer: minor version
+
+    Raises:
+        ValueError if malformed version string is given.
+    """
+    hal_version_major, hal_version_minor = hal_version.split(".")
+    return int(hal_version_major), int(hal_version_minor)
+
 
 class HalInterfaceDescription(object):
     """Class to store the information of a running hal service interface.
@@ -46,7 +62,9 @@ class HalDescription(object):
 
     Attributes:
         hal_name: hal name e.g. android.hardware.nfc.
-        hal_version: hal version e.g. 1.0.
+        hal_version: string, hal version e.g. 1.0.
+        hal_version_major: integer, major version.
+        hal_version_minor: integer, minor version.
         hal_interfaces: a list of HalInterfaceDescription within the hal.
         hal_archs: a list of strings where each string indicates the supported
                    client bitness (e.g,. ["32", "64"]).
@@ -55,6 +73,12 @@ class HalDescription(object):
     def __init__(self, hal_name, hal_version, hal_interfaces, hal_archs):
         self.hal_name = hal_name
         self.hal_version = hal_version
+        if "." in hal_version:
+            self.hal_version_major, self.hal_version_minor = ParseHalVersion(
+                hal_version)
+        else:
+            self.hal_version_major = -1
+            self.hal_version_minor = -1
         self.hal_interfaces = hal_interfaces
         self.hal_archs = hal_archs
 
@@ -80,6 +104,9 @@ def GetHalDescriptions(vintf_xml):
     passthrough_hals = dict()
 
     for xml_hal in xml_root:
+        if xml_hal.tag != 'hal':
+            logging.debug('vintf has a non-hal child with tag: %s', xml_hal.tag)
+            continue
         hal_name = None
         hal_transport = None
         hal_version = None

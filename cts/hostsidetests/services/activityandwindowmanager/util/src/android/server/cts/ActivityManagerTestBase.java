@@ -24,7 +24,6 @@ import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.testtype.DeviceTestCase;
 
-import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.lang.Exception;
 import java.lang.Integer;
@@ -144,6 +143,10 @@ public abstract class ActivityManagerTestBase extends DeviceTestCase {
 
     private HashSet<String> mAvailableFeatures;
 
+    private boolean mLockCredentialsSet;
+
+    private boolean mLockDisabled;
+
     protected static String getAmStartCmd(final String activityName) {
         return "am start -n " + getActivityComponentName(activityName);
     }
@@ -200,6 +203,10 @@ public abstract class ActivityManagerTestBase extends DeviceTestCase {
         componentName = name;
     }
 
+    protected static void setDefaultComponentName() {
+        setComponentName(DEFAULT_COMPONENT_NAME);
+    }
+
     static String getBaseWindowName() {
         return getBaseWindowName(componentName);
     }
@@ -253,7 +260,7 @@ public abstract class ActivityManagerTestBase extends DeviceTestCase {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        setComponentName(DEFAULT_COMPONENT_NAME);
+        setDefaultComponentName();
 
         // Get the device, this gives a handle to run commands and install APKs.
         mDevice = getDevice();
@@ -265,12 +272,15 @@ public abstract class ActivityManagerTestBase extends DeviceTestCase {
         mInitialAccelerometerRotation = getAccelerometerRotation();
         mUserRotation = getUserRotation();
         mFontScale = getFontScale();
+        mLockCredentialsSet = false;
+        mLockDisabled = isLockDisabled();
     }
 
     @Override
     protected void tearDown() throws Exception {
         super.tearDown();
         try {
+            setLockDisabled(mLockDisabled);
             executeShellCommand(AM_FORCE_STOP_TEST_PACKAGE);
             executeShellCommand(AM_FORCE_STOP_SECOND_TEST_PACKAGE);
             executeShellCommand(AM_FORCE_STOP_THIRD_TEST_PACKAGE);
@@ -278,6 +288,7 @@ public abstract class ActivityManagerTestBase extends DeviceTestCase {
             setAccelerometerRotation(mInitialAccelerometerRotation);
             setUserRotation(mUserRotation);
             setFontScale(mFontScale);
+            setWindowTransitionAnimationDurationScale(1);
             // Remove special stacks.
             removeStacks(ALL_STACK_IDS_BUT_HOME_AND_FULLSCREEN);
             wakeUpAndUnlockDevice();
@@ -545,7 +556,8 @@ public abstract class ActivityManagerTestBase extends DeviceTestCase {
 
     protected boolean isHandheld() throws DeviceNotAvailableException {
         return !hasDeviceFeature("android.software.leanback")
-                && !hasDeviceFeature("android.software.watch");
+                && !hasDeviceFeature("android.hardware.type.watch")
+                && !hasDeviceFeature("android.hardware.type.embedded");
     }
 
     protected boolean supportsSplitScreenMultiWindow() throws DeviceNotAvailableException {
@@ -560,6 +572,17 @@ public abstract class ActivityManagerTestBase extends DeviceTestCase {
         executeShellCommand(AM_NO_HOME_SCREEN, outputReceiver);
         String output = outputReceiver.getOutput();
         return output.startsWith("true");
+    }
+
+    /**
+     * Rotation support is indicated by explicitly having both landscape and portrait
+     * features or not listing either at all.
+     */
+    protected boolean supportsRotation() throws DeviceNotAvailableException {
+        return (hasDeviceFeature("android.hardware.screen.landscape")
+                    && hasDeviceFeature("android.hardware.screen.portrait"))
+            || (!hasDeviceFeature("android.hardware.screen.landscape")
+                    && !hasDeviceFeature("android.hardware.screen.portrait"));
     }
 
     protected boolean hasDeviceFeature(String requiredFeature) throws DeviceNotAvailableException {
@@ -585,7 +608,7 @@ public abstract class ActivityManagerTestBase extends DeviceTestCase {
         return result;
     }
 
-    private boolean isDisplayOn() throws DeviceNotAvailableException {
+    protected boolean isDisplayOn() throws DeviceNotAvailableException {
         final CollectingOutputReceiver outputReceiver = new CollectingOutputReceiver();
         mDevice.executeShellCommand("dumpsys power", outputReceiver);
 
@@ -626,6 +649,11 @@ public abstract class ActivityManagerTestBase extends DeviceTestCase {
         unlockDevice();
     }
 
+    protected void wakeUpAndRemoveLock() throws DeviceNotAvailableException {
+        wakeUpDevice();
+        setLockDisabled(true);
+    }
+
     protected void wakeUpDevice() throws DeviceNotAvailableException {
         runCommandAndPrintOutput("input keyevent 224");
     }
@@ -658,11 +686,33 @@ public abstract class ActivityManagerTestBase extends DeviceTestCase {
     }
 
     protected void setLockCredential() throws DeviceNotAvailableException {
+        mLockCredentialsSet = true;
         runCommandAndPrintOutput("locksettings set-pin " + LOCK_CREDENTIAL);
     }
 
-    protected void removeLockCredential() throws DeviceNotAvailableException {
+    private void removeLockCredential() throws DeviceNotAvailableException {
         runCommandAndPrintOutput("locksettings clear --old " + LOCK_CREDENTIAL);
+    }
+
+    /**
+     * Returns whether the lock screen is disabled.
+     * @return true if the lock screen is disabled, false otherwise.
+     */
+    private boolean isLockDisabled() throws DeviceNotAvailableException {
+        final String isLockDisabled = runCommandAndPrintOutput("locksettings get-disabled").trim();
+        if ("null".equals(isLockDisabled)) {
+            return false;
+        }
+        return Boolean.parseBoolean(isLockDisabled);
+
+    }
+
+    /**
+     * Disable the lock screen.
+     * @param lockDisabled true if should disable, false otherwise.
+     */
+    void setLockDisabled(boolean lockDisabled) throws DeviceNotAvailableException {
+        runCommandAndPrintOutput("locksettings set-disabled " + lockDisabled);
     }
 
     /**
@@ -727,6 +777,12 @@ public abstract class ActivityManagerTestBase extends DeviceTestCase {
             runCommandAndPrintOutput(
                     "settings put system font_scale " + fontScale);
         }
+    }
+
+    protected void setWindowTransitionAnimationDurationScale(float animDurationScale)
+            throws DeviceNotAvailableException {
+        runCommandAndPrintOutput(
+                "settings put global transition_animation_scale " + animDurationScale);
     }
 
     protected float getFontScale() throws DeviceNotAvailableException {
@@ -927,7 +983,124 @@ public abstract class ActivityManagerTestBase extends DeviceTestCase {
         return filteredResult;
     }
 
+    void assertSingleLaunch(String activityName, String logSeparator) throws DeviceNotAvailableException {
+        int retriesLeft = 5;
+        String resultString;
+        do {
+            resultString = validateLifecycleCounts(activityName, logSeparator, 1 /* createCount */,
+                    1 /* startCount */, 1 /* resumeCount */, 0 /* pauseCount */, 0 /* stopCount */,
+                    0 /* destroyCount */);
+            if (resultString != null) {
+                log("***Waiting for valid lifecycle state: " + resultString);
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    log(e.toString());
+                }
+            } else {
+                break;
+            }
+        } while (retriesLeft-- > 0);
+
+        assertNull(resultString, resultString);
+    }
+
+    public void assertSingleLaunchAndStop(String activityName, String logSeparator) throws DeviceNotAvailableException {
+        int retriesLeft = 5;
+        String resultString;
+        do {
+            resultString = validateLifecycleCounts(activityName, logSeparator, 1 /* createCount */,
+                    1 /* startCount */, 1 /* resumeCount */, 1 /* pauseCount */, 1 /* stopCount */,
+                    0 /* destroyCount */);
+            if (resultString != null) {
+                log("***Waiting for valid lifecycle state: " + resultString);
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    log(e.toString());
+                }
+            } else {
+                break;
+            }
+        } while (retriesLeft-- > 0);
+
+        assertNull(resultString, resultString);
+    }
+
+    public void assertSingleStartAndStop(String activityName, String logSeparator) throws DeviceNotAvailableException {
+        int retriesLeft = 5;
+        String resultString;
+        do {
+            resultString =  validateLifecycleCounts(activityName, logSeparator, 0 /* createCount */,
+                    1 /* startCount */, 1 /* resumeCount */, 1 /* pauseCount */, 1 /* stopCount */,
+                    0 /* destroyCount */);
+            if (resultString != null) {
+                log("***Waiting for valid lifecycle state: " + resultString);
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    log(e.toString());
+                }
+            } else {
+                break;
+            }
+        } while (retriesLeft-- > 0);
+
+        assertNull(resultString, resultString);
+    }
+
+    void assertSingleStart(String activityName, String logSeparator) throws DeviceNotAvailableException {
+        int retriesLeft = 5;
+        String resultString;
+        do {
+            resultString = validateLifecycleCounts(activityName, logSeparator, 0 /* createCount */,
+                    1 /* startCount */, 1 /* resumeCount */, 0 /* pauseCount */, 0 /* stopCount */,
+                    0 /* destroyCount */);
+            if (resultString != null) {
+                log("***Waiting for valid lifecycle state: " + resultString);
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    log(e.toString());
+                }
+            } else {
+                break;
+            }
+        } while (retriesLeft-- > 0);
+
+        assertNull(resultString, resultString);
+    }
+
+    private String validateLifecycleCounts(String activityName, String logSeparator,
+            int createCount, int startCount, int resumeCount, int pauseCount, int stopCount,
+            int destroyCount) throws DeviceNotAvailableException {
+
+        final ActivityLifecycleCounts lifecycleCounts = new ActivityLifecycleCounts(activityName,
+                logSeparator);
+
+        if (lifecycleCounts.mCreateCount != createCount) {
+            return activityName + " created " + lifecycleCounts.mCreateCount + " times.";
+        }
+        if (lifecycleCounts.mStartCount != startCount) {
+            return activityName + " started " + lifecycleCounts.mStartCount + " times.";
+        }
+        if (lifecycleCounts.mResumeCount != resumeCount) {
+            return activityName + " resumed " + lifecycleCounts.mResumeCount + " times.";
+        }
+        if (lifecycleCounts.mPauseCount != pauseCount) {
+            return activityName + " paused " + lifecycleCounts.mPauseCount + " times.";
+        }
+        if (lifecycleCounts.mStopCount != stopCount) {
+            return activityName + " stopped " + lifecycleCounts.mStopCount + " times.";
+        }
+        if (lifecycleCounts.mDestroyCount != destroyCount) {
+            return activityName + " destroyed " + lifecycleCounts.mDestroyCount + " times.";
+        }
+        return null;
+    }
+
     private static final Pattern sCreatePattern = Pattern.compile("(.+): onCreate");
+    private static final Pattern sStartPattern = Pattern.compile("(.+): onStart");
     private static final Pattern sResumePattern = Pattern.compile("(.+): onResume");
     private static final Pattern sPausePattern = Pattern.compile("(.+): onPause");
     private static final Pattern sConfigurationChangedPattern =
@@ -1030,6 +1203,7 @@ public abstract class ActivityManagerTestBase extends DeviceTestCase {
 
     class ActivityLifecycleCounts {
         int mCreateCount;
+        int mStartCount;
         int mResumeCount;
         int mConfigurationChangedCount;
         int mLastConfigurationChangedLineIndex;
@@ -1053,6 +1227,12 @@ public abstract class ActivityManagerTestBase extends DeviceTestCase {
                 Matcher matcher = sCreatePattern.matcher(line);
                 if (matcher.matches()) {
                     mCreateCount++;
+                    continue;
+                }
+
+                matcher = sStartPattern.matcher(line);
+                if (matcher.matches()) {
+                    mStartCount++;
                     continue;
                 }
 
@@ -1227,5 +1407,18 @@ public abstract class ActivityManagerTestBase extends DeviceTestCase {
                         null /* stackIds */, false /* compareTaskAndStackBounds */, mTargetPackage);
             }
         }
+    }
+
+    void tearDownLockCredentials() throws Exception {
+        if (!mLockCredentialsSet) {
+            return;
+        }
+
+        removeLockCredential();
+        // Dismiss active keyguard after credential is cleared, so
+        // keyguard doesn't ask for the stale credential.
+        pressBackButton();
+        sleepDevice();
+        wakeUpAndUnlockDevice();
     }
 }

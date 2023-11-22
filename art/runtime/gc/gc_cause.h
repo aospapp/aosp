@@ -24,6 +24,8 @@ namespace gc {
 
 // What caused the GC?
 enum GcCause {
+  // Invalid GC cause used as a placeholder.
+  kGcCauseNone,
   // GC triggered by a failed allocation. Thread doing allocation is blocked waiting for GC before
   // retrying allocation.
   kGcCauseForAlloc,
@@ -31,10 +33,12 @@ enum GcCause {
   kGcCauseBackground,
   // An explicit System.gc() call.
   kGcCauseExplicit,
-  // GC triggered for a native allocation.
+  // GC triggered for a native allocation when NativeAllocationGcWatermark is exceeded.
+  // (This may be a blocking GC depending on whether we run a non-concurrent collector).
   kGcCauseForNativeAlloc,
-  // Background GC triggered for a native allocation.
-  kGcCauseForNativeAllocBackground,
+  // GC triggered for a native allocation when NativeAllocationBlockingGcWatermark is exceeded.
+  // (This is always a blocking GC).
+  kGcCauseForNativeAllocBlocking,
   // GC triggered for a collector transition.
   kGcCauseCollectorTransition,
   // Not a real GC cause, used when we disable moving GC (currently for GetPrimitiveArrayCritical).

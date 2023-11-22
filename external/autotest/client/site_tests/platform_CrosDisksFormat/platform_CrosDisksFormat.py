@@ -23,7 +23,7 @@ class CrosDisksFormatTester(CrosDisksTester):
         logging.info('Testing "%s"', config['description'])
         filesystem_type = config['filesystem_type']
         format_options = config.get('format_options')
-        # Create a zero-filled virtual filesystem image to help stimulate
+        # Create a zero-filled virtual filesystem image to help simulate
         # a removable drive.
         with VirtualFilesystemImage(
                 block_size=1024,

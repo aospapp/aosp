@@ -39,7 +39,7 @@ from vts.testcases.kernel.api.proc import ProcVmallocInfoTest
 from vts.testcases.kernel.api.proc import ProcZoneInfoTest
 
 from vts.utils.python.controllers import android_device
-from vts.utils.python.file import file_utils
+from vts.utils.python.file import target_file_utils
 
 TEST_OBJECTS = {
     ProcCmdlineTest.ProcCmdlineTest(),
@@ -86,7 +86,7 @@ class KernelProcFileApiTest(base_test.BaseTestClass):
         asserts.skipIf(test_object in TEST_OBJECTS_64 and not self.dut.is64Bit,
                        "Skip test for 64-bit kernel.")
         filepath = test_object.get_path()
-        file_utils.assertPermissionsAndExistence(
+        target_file_utils.assertPermissionsAndExistence(
             self.shell, filepath, test_object.get_permission_checker())
 
         logging.info("Testing format of %s", filepath)

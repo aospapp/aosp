@@ -35,7 +35,7 @@ using ParametersCb =
 void btm_ble_update_dmt_flag_bits(uint8_t* flag_value,
                                   const uint16_t connect_mode,
                                   const uint16_t disc_mode);
-void btm_acl_update_conn_addr(uint8_t conn_handle, BD_ADDR address);
+void btm_acl_update_conn_addr(uint16_t conn_handle, const RawAddress& address);
 
 // methods we expose to c code:
 void btm_ble_multi_adv_cleanup(void);
@@ -71,6 +71,7 @@ class BleAdvertisingManager {
 
   static void Initialize(BleAdvertiserHciInterface* interface);
   static void CleanUp();
+  static bool IsInitialized();
   static BleAdvertisingManager* Get();
 
   /* Register an advertising instance, status will be returned in |cb|
@@ -107,9 +108,9 @@ class BleAdvertisingManager {
           timeout_cb) = 0;
 
   /* Register an advertising instance, status will be returned in |cb|
-  * callback, with assigned id, if operation succeeds. Instance is freed when
-  * advertising is disabled by calling |BTM_BleDisableAdvInstance|, or when any
-  * of the operations fails. */
+   * callback, with assigned id, if operation succeeds. Instance is freed when
+   * advertising is disabled by calling |BTM_BleDisableAdvInstance|, or when any
+   * of the operations fails. */
   virtual void RegisterAdvertiser(
       base::Callback<void(uint8_t /* inst_id */, uint8_t /* status */)>) = 0;
 
@@ -145,6 +146,13 @@ class BleAdvertisingManager {
   /*  This function disable a Multi-ADV instance */
   virtual void Unregister(uint8_t inst_id) = 0;
 
+  /* When resolving list is used, we need to suspend and resume all advertising
+   * instances for the time of operation. Suspend() saves current state,
+   * Resume() resumes the advertising.
+   */
+  virtual void Suspend() = 0;
+  virtual void Resume() = 0;
+
   /* This method is a member of BleAdvertiserHciInterface, and is exposed here
    * just for tests. It should never be called from upper layers*/
   virtual void OnAdvertisingSetTerminated(
@@ -152,7 +160,7 @@ class BleAdvertisingManager {
       uint8_t num_completed_extended_adv_events) = 0;
 
   using GetAddressCallback =
-      base::Callback<void(uint8_t /* address_type*/, bt_bdaddr_t /*address*/)>;
+      base::Callback<void(uint8_t /* address_type*/, RawAddress /*address*/)>;
   virtual void GetOwnAddress(uint8_t inst_id, GetAddressCallback cb) = 0;
 };
 

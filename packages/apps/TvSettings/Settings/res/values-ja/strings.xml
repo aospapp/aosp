@@ -75,7 +75,7 @@
     <string name="accessory_change_name" msgid="8958916008739792785">"名前の変更"</string>
     <string name="accessory_change_name_title" msgid="4630819456923061184">"このアクセサリの新しい名前を入力してください"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"アクセサリを検索しています…"</string>
-    <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Bluetoothデバイスをペア設定する前に、デバイスがペア設定モードになっていることを確認してください"</string>
+    <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Bluetooth デバイスをペア設定する前に、デバイスがペア設定モードになっていることを確認してください"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"端末が見つかりました。<xliff:g id="COUNTDOWN">%1$s</xliff:g>秒以内にペア設定が自動的に開始します"</string>
     <string name="error_action_not_supported" msgid="300552308104354666">"この操作はサポートされていません"</string>
     <string name="bluetooth_pairing_request" msgid="4523088117471287665">"Bluetoothのペア設定リクエスト"</string>
@@ -107,8 +107,8 @@
     <string name="device_name" msgid="2670488158531273028">"端末名"</string>
     <string name="restart_button_label" msgid="8153112858638352970">"再起動"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"法的情報"</string>
-    <string name="about_legal_license" msgid="7867205982113209033">"オープンソースライセンス"</string>
-    <string name="about_terms_of_service" msgid="7743088207977334874">"Google利用規約"</string>
+    <string name="about_legal_license" msgid="7867205982113209033">"オープンソース ライセンス"</string>
+    <string name="about_terms_of_service" msgid="7743088207977334874">"Google 利用規約"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"ライセンスデータは使用できません"</string>
     <string name="about_model" msgid="6625269442206323995">"モデル"</string>
     <string name="about_version" msgid="1177287676732287266">"バージョン"</string>
@@ -157,10 +157,10 @@
     <item msgid="7541004325985469896">"強"</item>
     <item msgid="1546771355788926692">"非常に強い"</item>
   </string-array>
-    <string name="title_mac_address" msgid="3428401680168668544">"MACアドレス"</string>
+    <string name="title_mac_address" msgid="3428401680168668544">"MAC アドレス"</string>
     <string name="title_signal_strength" msgid="205478650262078041">"電波強度"</string>
-    <string name="title_ip_address" msgid="4533523100923004711">"IPアドレス"</string>
-    <string name="title_ssid" msgid="4858945903642469730">"Wi-Fiネットワークの名前を入力"</string>
+    <string name="title_ip_address" msgid="4533523100923004711">"IP アドレス"</string>
+    <string name="title_ssid" msgid="4858945903642469730">"Wi-Fi ネットワークの名前を入力"</string>
     <string name="title_internet_connection" msgid="8710084774588697646">"インターネット接続"</string>
     <string name="connected" msgid="7563100162902079938">"接続済み"</string>
     <string name="not_connected" msgid="6858480380326923017">"未接続"</string>
@@ -168,10 +168,10 @@
     <string name="wifi_setting_see_all" msgid="3217814666041974878">"すべて表示"</string>
     <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"表示数を減らす"</string>
     <string name="wifi_setting_available_networks" msgid="6713791371350513043">"利用可能なネットワーク"</string>
-    <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"WPS経由の接続"</string>
+    <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"WPS 経由の接続"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"新しいネットワークを追加"</string>
     <string name="security_type" msgid="524443802004143058">"セキュリティのタイプ"</string>
-    <string name="wps_network" msgid="1052148085426051873">"WPS経由の接続"</string>
+    <string name="wps_network" msgid="1052148085426051873">"WPS 経由の接続"</string>
     <string name="other_network" msgid="3539704463099544488">"他のネットワーク…"</string>
     <string name="skip_network" msgid="6380260543776712357">"スキップ"</string>
     <string name="wifi_security_type_none" msgid="6622722325237471927">"なし"</string>
@@ -184,23 +184,23 @@
     <string name="title_wifi_could_not_connect_timeout" msgid="5158184646985406394">"<xliff:g id="SSID">%1$s</xliff:g>が見つかりませんでした"</string>
     <string name="title_wifi_could_not_connect_authentication_failure" msgid="4836595650380723944">"Wi-Fiパスワードが正しくありません"</string>
     <string name="title_wifi_could_not_connect_ap_reject" msgid="328274688839033015">"Wi-Fiネットワークへの接続が拒否されました"</string>
-    <string name="title_wifi_advanced_options" msgid="5389467736846644832">"<xliff:g id="SSID">%1$s</xliff:g>プロキシとIP設定を設定しますか？"</string>
+    <string name="title_wifi_advanced_options" msgid="5389467736846644832">"<xliff:g id="SSID">%1$s</xliff:g> プロキシと IP 設定を設定しますか？"</string>
     <string name="title_wifi_proxy_settings" msgid="7728120764469991303">"プロキシ設定"</string>
     <string name="title_wifi_proxy_hostname" msgid="4655634673840885248">"プロキシのホスト名:"</string>
     <string name="title_wifi_proxy_port" msgid="9194893429116021337">"プロキシポート:"</string>
-    <string name="title_wifi_proxy_bypass" msgid="4522775396659538614">"プロキシを不使用:"</string>
-    <string name="title_wifi_ip_settings" msgid="1176973848286865602">"IP設定"</string>
-    <string name="title_wifi_ip_address" msgid="1176502993805009566">"IPアドレス:"</string>
+    <string name="title_wifi_proxy_bypass" msgid="4522775396659538614">"プロキシをバイパス:"</string>
+    <string name="title_wifi_ip_settings" msgid="1176973848286865602">"IP 設定"</string>
+    <string name="title_wifi_ip_address" msgid="1176502993805009566">"IP アドレス:"</string>
     <string name="title_wifi_gateway" msgid="7210935277165358134">"ゲートウェイ:"</string>
     <string name="title_wifi_network_prefix_length" msgid="4821632382990582038">"ネットワークプレフィックス長:"</string>
     <string name="title_wifi_dns1" msgid="8202712852864206601">"DNS 1:"</string>
     <string name="title_wifi_dns2" msgid="2673986973918499478">"DNS 2:"</string>
     <string name="title_wifi_proxy_settings_invalid" msgid="7380479044141040849">"プロキシ設定が正しくありません"</string>
-    <string name="title_wifi_ip_settings_invalid" msgid="7228948551397955678">"IP設定が正しくありません"</string>
+    <string name="title_wifi_ip_settings_invalid" msgid="7228948551397955678">"IP 設定が正しくありません"</string>
     <string name="title_wifi_known_network" msgid="819998498700202436">"<xliff:g id="SSID">%1$s</xliff:g>は保存済みのネットワークです"</string>
     <string name="wifi_action_try_again" msgid="3308643222864163092">"再試行"</string>
     <string name="wifi_action_view_available_networks" msgid="560074338908947419">"利用可能なネットワークを表示"</string>
-    <string name="wifi_connecting" msgid="1299861268647323455">"<xliff:g id="SSID">%1$s</xliff:g>に接続しています"</string>
+    <string name="wifi_connecting" msgid="1299861268647323455">"<xliff:g id="SSID">%1$s</xliff:g> に接続しています"</string>
     <string name="wifi_saving" msgid="1269061570772019215">"<xliff:g id="SSID">%1$s</xliff:g>の設定を保存しています"</string>
     <string name="wifi_connect" msgid="8570424816865506077">"接続"</string>
     <string name="wifi_forget_network" msgid="7302755141573045803">"ネットワークから切断"</string>
@@ -216,9 +216,9 @@
     <string name="wifi_action_static" msgid="1025855501453321749">"静的"</string>
     <string name="wifi_action_status_info" msgid="7664354971197839253">"ステータス情報"</string>
     <string name="wifi_action_advanced_options_title" msgid="3242132674399983503">"詳細オプション"</string>
-    <string name="wifi_ip_settings_invalid_ip_address" msgid="5228247770505105107">"有効なIPアドレスを入力してください"</string>
-    <string name="wifi_ip_settings_invalid_gateway" msgid="3292444764474145026">"有効なゲートウェイアドレスを入力してください"</string>
-    <string name="wifi_ip_settings_invalid_dns" msgid="6172189835428184828">"有効なDNSアドレスを入力してください"</string>
+    <string name="wifi_ip_settings_invalid_ip_address" msgid="5228247770505105107">"有効な IP アドレスを入力してください"</string>
+    <string name="wifi_ip_settings_invalid_gateway" msgid="3292444764474145026">"有効なゲートウェイ アドレスを入力してください"</string>
+    <string name="wifi_ip_settings_invalid_dns" msgid="6172189835428184828">"有効な DNS アドレスを入力してください"</string>
     <string name="wifi_ip_settings_invalid_network_prefix_length" msgid="6209978918929182270">"ネットワークプレフィックス長は0～32にしてください"</string>
     <string name="wifi_ip_address_description" msgid="6548838784556001283">"有効な IP アドレスを入力してください。\n例: <xliff:g id="ID_1">192.168.1.128</xliff:g>"</string>
     <string name="wifi_dns1_description" msgid="2463500547232077393">"有効な IP アドレスを入力するか、空白にしてください。\n例: <xliff:g id="ID_1">8.8.8.8</xliff:g>"</string>
@@ -230,13 +230,13 @@
     <string name="proxy_error_empty_port" msgid="6835658067776408062">"[ポート]フィールドは空にできません"</string>
     <string name="proxy_error_empty_host_set_port" msgid="4428793978424303244">"[ホスト]フィールドが空の場合は、[ポート]フィールドも空のままにしてください"</string>
     <string name="proxy_error_invalid_port" msgid="1434922103959603993">"ポートが無効です"</string>
-    <string name="proxy_warning_limited_support" msgid="6160239282535986523">"HTTPプロキシはブラウザで使用されていますが、他のアプリでは使用できません"</string>
+    <string name="proxy_warning_limited_support" msgid="6160239282535986523">"HTTP プロキシはブラウザで使用されていますが、他のアプリでは使用できません"</string>
     <string name="proxy_port_description" msgid="6791098212244367568">"有効なポートを入力してください。\n例: <xliff:g id="ID_1">8080</xliff:g>"</string>
     <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"除外するドメインをカンマ区切りリスト形式で入力するか、空白にしてください。\n例: <xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g>"</string>
     <string name="proxy_hostname_description" msgid="5824391500254472447">"有効なホスト名を入力してください。\n例: <xliff:g id="ID_1">proxy.example.com</xliff:g>"</string>
     <string name="wifi_summary_title_connected" msgid="8329216588732277139">"ネットワーク接続中"</string>
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"ネットワーク未接続"</string>
-    <string name="wifi_summary_description_connected_to_wifi_network" msgid="7583498018733069053">"既に<xliff:g id="SSID">%1$s</xliff:g>に接続しています。別のネットワークに接続しますか？"</string>
+    <string name="wifi_summary_description_connected_to_wifi_network" msgid="7583498018733069053">"すでに <xliff:g id="SSID">%1$s</xliff:g> に接続しています。別のネットワークに接続しますか？"</string>
     <string name="wifi_summary_unknown_network" msgid="7903601448928422642">"不明なネットワーク"</string>
     <string name="title_ok" msgid="1021329453788761592">"OK"</string>
     <string name="title_cancel" msgid="4846143417666038604">"キャンセル"</string>
@@ -318,10 +318,10 @@
     <string name="move_error_device_admin" msgid="2060627704270836951">"端末管理アプリは外部メディアにはインストールできません。"</string>
     <string name="learn_more_action" msgid="7015991954404958779">"詳細"</string>
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"再試行"</string>
-    <string name="wifi_wps_title" msgid="1872305810119408482">"WPSルーターを探しています…"</string>
-    <string name="wifi_wps_instructions" msgid="3618110962669110034">"ルーターのWi-Fi保護設定ボタンを押します。\nボタンには[WPS]または左に示すような記号が表示されている場合があります。"</string>
+    <string name="wifi_wps_title" msgid="1872305810119408482">"WPS ルーターを探しています…"</string>
+    <string name="wifi_wps_instructions" msgid="3618110962669110034">"ルーターの Wi-Fi 保護設定ボタンを押します。\nボタンには [WPS] または左に示すような記号が表示されている場合があります。"</string>
     <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"Wi-FiルーターのPIN<xliff:g id="NUMBER">%1$s</xliff:g>を入力してください"</string>
-    <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"PINを入力すると、セットアップは2分で完了します"</string>
+    <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"PIN を入力すると、セットアップは 2 分で完了します"</string>
     <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"Wi-Fiルーターが見つかりませんでした"</string>
     <string name="wifi_wps_failed_wep" msgid="9158670824165143348">"Wi-Fiルーターのセキュリティ設定（WEP）はサポートされていません"</string>
     <string name="wifi_wps_failed_tkip" msgid="1712545345594227319">"Wi-Fiルーターのセキュリティ設定（TKIP）はサポートされていません"</string>
@@ -332,7 +332,7 @@
     <string name="system_set_time" msgid="4661804115501057452">"時刻の設定"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"タイムゾーンの設定"</string>
     <string name="desc_set_time_zone" msgid="2948629174438460709">"<xliff:g id="OFFSET">%1$s</xliff:g>（<xliff:g id="NAME">%2$s</xliff:g>）"</string>
-    <string name="system_set_time_format" msgid="4447882066895090612">"24時間表示の使用"</string>
+    <string name="system_set_time_format" msgid="4447882066895090612">"24 時間表示の使用"</string>
     <string name="desc_set_time_format" msgid="3131006238681763219">"<xliff:g id="STATE">%1$s</xliff:g>（<xliff:g id="SAMPLE">%2$s</xliff:g>）"</string>
     <string name="system_auto_date_time" msgid="3629668599205033272">"日付と時刻の自動設定"</string>
   <string-array name="auto_date_time_entries">
@@ -352,7 +352,7 @@
     <string name="location_no_recent_apps" msgid="4218851908476344030">"位置情報を最近リクエストしたアプリはありません"</string>
     <string name="location_high_battery_use" msgid="576143332793626088">"高い電池使用量"</string>
     <string name="location_low_battery_use" msgid="5756040390248358148">"低い電池使用量"</string>
-    <string name="location_mode_wifi_description" msgid="2778774510654527264">"Wi‑Fiで現在地を推定します"</string>
+    <string name="location_mode_wifi_description" msgid="2778774510654527264">"Wi‑Fi で現在地を推定する"</string>
     <string name="location_status" msgid="3456414279428237558">"現在地のステータス"</string>
     <string name="location_services" msgid="5441085185119797200">"位置情報サービス"</string>
     <string name="on" msgid="6683600681314500652">"ON"</string>
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"サービス"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"サービスの設定"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"高コントラスト テキスト"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"ユーザー補助のショートカット"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"ユーザー補助機能のショートカットを有効にする"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"ショートカット サービス"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"ショートカットが ON の場合、戻るボタンと下ボタンの両方を 3 秒間押し続けるとユーザー補助機能が起動します。"</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"字幕"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"動画の字幕テキストオーバーレイの設定"</string>
     <string name="captions_display" msgid="735692527287125548">"ディスプレイ"</string>
@@ -478,7 +482,7 @@
     <string name="agree" msgid="1235622082275451350">"同意する"</string>
     <string name="disagree" msgid="9170636026862400981">"同意しない"</string>
     <string name="security_unknown_sources_title" msgid="769762478057744545">"提供元不明のアプリ"</string>
-    <string name="security_unknown_sources_desc" msgid="7197053279914817124">"提供元がPlayストアではないアプリのインストールを許可する"</string>
+    <string name="security_unknown_sources_desc" msgid="7197053279914817124">"提供元が Play ストアではないアプリのインストールを許可する"</string>
     <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"提供元不明のアプリの許可"</string>
     <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"提供元不明のアプリからモバイル端末や個人データが攻撃を受ける可能性が高くなります。 このようなアプリの使用により生じる可能性があるモバイル端末への損害やデータの損失について、 ユーザーご自身が単独で責任を負うことに同意するものとします。"</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"アプリの確認"</string>
@@ -519,7 +523,7 @@
     <string name="title_configure" msgid="6929522003149212388">"設定"</string>
     <string name="desc_configure_keyboard" msgid="7187242843867404657">"キーボードオプション"</string>
     <string name="computing_size" msgid="2955133568424704042">"計算しています…"</string>
-    <string name="title_select_wifi_network" msgid="1038871400014761952">"Wi-Fiネットワークの選択"</string>
+    <string name="title_select_wifi_network" msgid="1038871400014761952">"Wi-Fi ネットワークの選択"</string>
     <string name="accessories_wifi_display_rename_device" msgid="7416728299196887186">"名前を変更"</string>
     <string name="accessories_wifi_display_enable" msgid="4779506305656453262">"Wi-Fiディスプレイ"</string>
     <string name="accessories_wifi_display_pin_required" msgid="3242645267864813273">"PINが必要です"</string>
@@ -578,22 +582,22 @@
       <item quantity="one">1個のアプリを許可</item>
     </plurals>
     <string name="restricted_profile_allowed" msgid="2903829140619950232">"許可済み"</string>
-    <string name="restricted_profile_not_allowed" msgid="1622620680118897330">"未許可"</string>
+    <string name="restricted_profile_not_allowed" msgid="1622620680118897330">"許可しない"</string>
     <string name="restricted_profile_customize_restrictions" msgid="8418415019078825537">"制限をカスタマイズ"</string>
     <string name="restricted_profile_configure_apps_description_loading" msgid="5269477581791409700">"しばらくお待ちください…"</string>
-    <string name="restricted_profile_change_password_title" msgid="2848537651211816659">"PINの変更"</string>
+    <string name="restricted_profile_change_password_title" msgid="2848537651211816659">"PIN の変更"</string>
     <string name="restriction_description" msgid="3104855945910233028">"<xliff:g id="DESCRIPTION">%1$s</xliff:g>\n<xliff:g id="VALUE">%2$s</xliff:g>"</string>
     <string name="app_sees_restricted_accounts_and_controlled_by" msgid="6677671440081319908">"このアプリはお使いのアカウントにアクセスできます。「<xliff:g id="APP">%1$s</xliff:g>」で管理されています"</string>
     <string name="pin_enter_unlock_channel" msgid="5980400420298506069">"PINを入力してこのチャンネルを視聴"</string>
     <string name="pin_enter_unlock_program" msgid="52453773316071511">"PINを入力してこのプログラムを視聴"</string>
     <string name="pin_enter_pin" msgid="821552376577935497">"PINの入力"</string>
-    <string name="pin_enter_new_pin" msgid="4788218421265924211">"新しいPINの設定"</string>
-    <string name="pin_enter_again" msgid="1510456697040826496">"新しいPINの再入力"</string>
-    <string name="pin_enter_old_pin" msgid="851029058127630869">"以前のPINの入力"</string>
+    <string name="pin_enter_new_pin" msgid="4788218421265924211">"新しい PIN の設定"</string>
+    <string name="pin_enter_again" msgid="1510456697040826496">"新しい PIN の再入力"</string>
+    <string name="pin_enter_old_pin" msgid="851029058127630869">"以前の PIN の入力"</string>
     <string name="pin_enter_wrong_seconds" msgid="7541208202846169755">"PINの入力を5回間違えました。\n<xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g>秒後にもう一度お試しください。"</string>
     <string name="pin_toast_wrong" msgid="4628358195224633248">"PINが間違っています。もう一度お試しください。"</string>
     <string name="pin_toast_not_match" msgid="5886041789737632996">"もう一度お試しください。PINが一致しません。"</string>
-    <string name="wifi_setup_input_password" msgid="1596168874369038536">"<xliff:g id="SSID">%1$s</xliff:g>のパスワードを入力してください"</string>
+    <string name="wifi_setup_input_password" msgid="1596168874369038536">"<xliff:g id="SSID">%1$s</xliff:g> のパスワードを入力してください"</string>
     <string name="wifi_setup_connection_success" msgid="3846993789166071184">"接続しました"</string>
     <string name="wifi_setup_save_success" msgid="4785799603638549254">"保存しました"</string>
     <string name="device_apps_app_management_version" msgid="2267065043941006486">"バージョン<xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
@@ -609,9 +613,9 @@
     <string name="device_apps_app_management_enable_desc" msgid="7490219375247065314">"このアプリを有効にしますか？"</string>
     <string name="device_apps_app_management_storage_used" msgid="4611351576179140634">"使用されているストレージ"</string>
     <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"使用中の容量: <xliff:g id="SIZE">%1$s</xliff:g>（<xliff:g id="VOLUME">%2$s</xliff:g>）"</string>
-    <string name="device_apps_app_management_clear_data" msgid="4439114679323274127">"データを消去"</string>
+    <string name="device_apps_app_management_clear_data" msgid="4439114679323274127">"データを削除"</string>
     <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"このアプリのすべてのデータ（ファイル、設定、アカウント、\nデータベースを含む）が完全に削除されます。"</string>
-    <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"デフォルトを消去"</string>
+    <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"デフォルトを削除"</string>
     <string name="device_apps_app_management_clear_default_set" msgid="4191720055364731307">"特定の操作でこのアプリを使用するよう設定"</string>
     <string name="device_apps_app_management_clear_default_none" msgid="196932966641339141">"デフォルトは設定されていません"</string>
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"キャッシュを削除"</string>
@@ -624,12 +628,12 @@
     <string name="settings_off" msgid="449272161738237637">"OFF"</string>
     <string name="device_daydreams_none" msgid="2767107052779579259">"画面を OFF にする"</string>
     <string name="device_daydreams_select" msgid="2112338101206187695">"スクリーン セーバー"</string>
-    <string name="device_daydreams_test" msgid="9038920213402659591">"今すぐ開始"</string>
-    <string name="device_daydreams_sleep" msgid="7676938708373592766">"開始までの時間"</string>
+    <string name="device_daydreams_test" msgid="9038920213402659591">"今すぐ起動"</string>
+    <string name="device_daydreams_sleep" msgid="7676938708373592766">"起動までの時間"</string>
     <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"設定した時間以上、動作のない状態が続くと、スクリーン セーバーが開始します。選択していない場合は、画面が OFF になります。"</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"<xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>以上動作がない"</string>
     <string name="device_daydreams_screen_off" msgid="1765925964376076171">"端末をスリープ状態にする"</string>
-    <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"設定した時間以上、動作のない状態が続くと、画面がOFFになります。"</string>
+    <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"設定した時間以上、動作のない状態が続くと画面が OFF になります。"</string>
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"現在バックアップデータを保存しているアカウントはありません"</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
     <string name="backup_erase_dialog_message" msgid="2608496013975068701">"Wi-Fiパスワード、ブックマーク、その他の設定、およびアプリのデータのバックアップを停止し、Googleサーバー上のすべてのコピーを消去しますか？"</string>
@@ -637,7 +641,7 @@
     <string name="privacy_backup_account" msgid="9059939814827165020">"バックアップアカウント"</string>
     <string name="privacy_automatic_restore" msgid="1409885318093199628">"自動復元"</string>
     <string name="factory_reset_device" msgid="7422459553658815011">"端末をリセット"</string>
-    <string name="factory_reset_description" msgid="5381170999141355891">"これにより、お使いの端末の内部ストレージから、Googleアカウント、システムとアプリのデータと設定、ダウンロードしたアプリなどすべてのデータが消去されます"</string>
+    <string name="factory_reset_description" msgid="5381170999141355891">"これにより、お使いの端末の内部ストレージから、Googleアカウント、システムとアプリのデータと設定、ダウンロードしたアプリなどすべてのデータが削除されます"</string>
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"個人情報とダウンロードしたアプリをすべて消去しますか？この操作を元に戻すことはできません。"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"すべて消去"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"<xliff:g id="DEVICEMODEL">%1$s</xliff:g> の名前の選択"</string>
@@ -657,7 +661,7 @@
     <string name="device_apps_permissions" msgid="2966387603529725982">"アプリの権限"</string>
     <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_0">%d</xliff:g>/<xliff:g id="COUNT_1">%d</xliff:g>個のアプリを許可"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"Bluetooth許可リクエスト"</string>
-    <string name="security_patch" msgid="2131617390189164481">"Androidセキュリティパッチレベル"</string>
+    <string name="security_patch" msgid="2131617390189164481">"Android セキュリティ パッチ レベル"</string>
     <string name="choose_application" msgid="5662960665577780353">"アプリの選択"</string>
     <string name="experimental_preference" msgid="1137673985823581797">"（試験運用）"</string>
     <string name="reboot_safemode_action" msgid="8129550438717110406">"再起動してセーフモードに変更する"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"バグレポートを取得しています"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"利用可能な仮想キーボード"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"キーボードの管理"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"許可済み"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"許可しない"</string>
+    <string name="usage_access" msgid="1914242907684452328">"使用状況へのアクセス"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"使用状況へのアクセスにより、アプリは他のアプリの使用状況や使用頻度、携帯通信会社、言語設定などの情報を追跡できるようになります。"</string>
 </resources>

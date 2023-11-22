@@ -19,6 +19,8 @@
 
 import time
 from queue import Empty
+
+from acts.test_decorators import test_tracker_info
 from acts.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 from acts.test_utils.tel.tel_defines import AOSP_PREFIX
 from acts.test_utils.tel.tel_defines import CAPABILITY_PHONE
@@ -58,14 +60,19 @@ class TelLivePreflightTest(TelephonyBaseTest):
         TelephonyBaseTest.__init__(self, controllers)
 
         self.wifi_network_ssid = self.user_params.get(
-            "wifi_network_ssid") or self.user_params.get(
-                "wifi_network_ssid_2g")
+            "wifi_network_ssid") or self.user_params.get("wifi_network_ssid_2g")
         self.wifi_network_pass = self.user_params.get(
-            "wifi_network_pass") or self.user_params.get(
-                "wifi_network_pass_2g")
+            "wifi_network_pass") or self.user_params.get("wifi_network_pass_2g")
+
+    def setup_class(self):
+        pass
+
+    def setup_test(self):
+        pass
 
     """ Tests Begin """
 
+    @test_tracker_info(uuid="8390a2eb-a744-4cda-bade-f94a2cc83f02")
     @TelephonyBaseTest.tel_test_wrap
     def test_check_environment(self):
         ad = self.android_devices[0]
@@ -85,6 +92,7 @@ class TelLivePreflightTest(TelephonyBaseTest):
         # TODO: add more environment check here.
         return True
 
+    @test_tracker_info(uuid="7bb23ac7-6b7b-4d5e-b8d6-9dd10032b9ad")
     @TelephonyBaseTest.tel_test_wrap
     def test_pre_flight_check(self):
         for ad in self.android_devices:
@@ -93,10 +101,12 @@ class TelLivePreflightTest(TelephonyBaseTest):
                 abort_all_tests(ad.log, "Unable to find a valid subscription!")
         return True
 
+    @test_tracker_info(uuid="1070b160-902b-43bf-92a0-92cc2d05bb13")
     @TelephonyBaseTest.tel_test_wrap
     def test_check_crash(self):
         for ad in self.android_devices:
-            ad.crash_report_preflight = ad.check_crash_report()
+            ad.crash_report_preflight = ad.check_crash_report(
+                self.test_id, None, True)
             if ad.crash_report_preflight:
                 msg = "Find crash reports %s before test starts" % (
                     ad.crash_report_preflight)

@@ -49,13 +49,6 @@ cc_defaults {
         "include",
     ],
 
-    // TODO: enable LTP for mips
-    arch: {
-        mips: {
-            enabled: false,
-        },
-    },
-
     target: {
         // bionic has broken signal handling for signum > 32 on 32-bit ARM and x86
         // (for ABI reasons this can't be fixed)

@@ -21,30 +21,31 @@ from vts.runners.host import asserts
 from vts.runners.host import base_test
 from vts.runners.host import const
 from vts.runners.host import test_runner
-from vts.utils.python.controllers import android_device
 
 
 class VtsCodelabHelloWorldTest(base_test.BaseTestClass):
     """Two hello world test cases which use the shell driver."""
 
     def setUpClass(self):
-        self.dut = self.registerController(android_device)[0]
+        self.dut = self.android_devices[0]
+        self.shell = self.dut.shell
 
     def testEcho1(self):
         """A simple testcase which sends a command."""
-        self.dut.shell.InvokeTerminal("my_shell1")  # creates a remote shell instance.
-        results = self.dut.shell.my_shell1.Execute("echo hello_world")  # runs a shell command.
+        results = self.shell.Execute(
+            "echo hello_world")  # runs a shell command.
         logging.info(str(results[const.STDOUT]))  # prints the stdout
-        asserts.assertEqual(results[const.STDOUT][0].strip(), "hello_world")  # checks the stdout
-        asserts.assertEqual(results[const.EXIT_CODE][0], 0)  # checks the exit code
+        asserts.assertEqual(results[const.STDOUT][0].strip(),
+                            "hello_world")  # checks the stdout
+        asserts.assertEqual(results[const.EXIT_CODE][0],
+                            0)  # checks the exit code
 
     def testEcho2(self):
         """A simple testcase which sends two commands."""
-        self.dut.shell.InvokeTerminal("my_shell2")
-        my_shell = getattr(self.dut.shell, "my_shell2")
-        results = my_shell.Execute(["echo hello", "echo world"])
+        results = self.shell.Execute(["echo hello", "echo world"])
         logging.info(str(results[const.STDOUT]))
-        asserts.assertEqual(len(results[const.STDOUT]), 2)  # check the number of processed commands
+        asserts.assertEqual(len(results[const.STDOUT]),
+                            2)  # check the number of processed commands
         asserts.assertEqual(results[const.STDOUT][0].strip(), "hello")
         asserts.assertEqual(results[const.STDOUT][1].strip(), "world")
         asserts.assertEqual(results[const.EXIT_CODE][0], 0)

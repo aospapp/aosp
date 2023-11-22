@@ -15,4 +15,7 @@
 -->
 <resources>
     <color name="telecom_display_scrim">#52000000</color>  <!-- 32% black -->
+    <color name="phone_status_bar_theme">#ff00457c</color>
+    <color name="search_container_controls_tint">@color/car_grey_100</color>
+    <color name="search_container_text_hint">@color/car_body2_light</color>
 </resources>

@@ -19,10 +19,12 @@ import logging
 import itertools
 
 from vts.runners.host import const
-
 from vts.testcases.kernel.ltp import ltp_configs
 from vts.testcases.kernel.ltp import ltp_enums
 from vts.testcases.kernel.ltp import test_case
+from vts.testcases.kernel.ltp.configs import stable_tests
+from vts.testcases.kernel.ltp.configs import disabled_tests
+from vts.utils.python.common import filter_utils
 
 
 class TestCasesParser(object):
@@ -31,15 +33,16 @@ class TestCasesParser(object):
     Attributes:
         _data_path: string, the vts data path on host side
         _filter_func: function, a filter method that will emit exception if a test is filtered
-        disabled_tests: list of string
-        staging_tests: list of string
+        _ltp_tests_filter: list of string, filter for tests that are stable and disabled
     """
 
-    def __init__(self, data_path, filter_func, disabled_tests, staging_tests):
+    def __init__(self, data_path, filter_func):
         self._data_path = data_path
         self._filter_func = filter_func
-        self._disabled_tests = disabled_tests
-        self._staging_tests = staging_tests
+        self._ltp_tests_filter = filter_utils.Filter(
+            stable_tests.STABLE_TESTS,
+            disabled_tests.DISABLED_TESTS,
+            enable_regex=True)
 
     def ValidateDefinition(self, line):
         """Validate a tab delimited test case definition.
@@ -62,9 +65,26 @@ class TestCasesParser(object):
         else:
             return items
 
-    def Load(self, ltp_dir, n_bit, run_staging=False):
-        """Read the definition file and yields a TestCase generator."""
-        run_scritp = self.GenerateLtpRunScript()
+    def Load(self,
+             ltp_dir,
+             n_bit,
+             test_filter,
+             run_staging=False,
+             is_low_mem=False):
+        """Read the definition file and yields a TestCase generator.
+
+        Args:
+            ltp_dir: string, directory that contains ltp binaries and scripts
+            n_bit: int, bitness
+            test_filter: Filter object, test name filter from base_test
+            run_staging: bool, whether to use staging configuration
+            is_low_mem: bool, whether to use low memory device configuration
+        """
+        scenario_groups = (ltp_configs.TEST_SUITES_LOW_MEM
+                           if is_low_mem else ltp_configs.TEST_SUITES)
+        logging.info('LTP scenario groups: %s', scenario_groups)
+
+        run_scritp = self.GenerateLtpRunScript(scenario_groups)
 
         for line in run_scritp:
             items = self.ValidateDefinition(line)
@@ -72,6 +92,10 @@ class TestCasesParser(object):
                 continue
 
             testsuite, testname, command = items
+            if is_low_mem and testsuite.endswith(
+                    ltp_configs.LOW_MEMORY_SCENARIO_GROUP_SUFFIX):
+                testsuite = testsuite[:-len(
+                    ltp_configs.LOW_MEMORY_SCENARIO_GROUP_SUFFIX)]
 
             # Tests failed to build will have prefix "DISABLED_"
             if testname.startswith("DISABLED_"):
@@ -98,14 +122,16 @@ class TestCasesParser(object):
                 testcase.note = "filtered"
 
             # For skipping tests that are not designed or ready for Android
-            if test_display_name in self._disabled_tests:
+            if (self._ltp_tests_filter.IsInExcludeFilter(test_display_name) and
+                    not test_filter.IsInIncludeFilter(test_display_name)):
                 logging.info("[Parser] Skipping test case %s. Reason: "
                              "disabled" % testcase.fullname)
                 continue
 
             # For separating staging tests from stable tests
-            if test_display_name in self._staging_tests:
-                if not run_staging:
+            if not self._ltp_tests_filter.IsInIncludeFilter(test_display_name):
+                if not run_staging and not test_filter.IsInIncludeFilter(
+                        test_display_name):
                     # Skip staging tests in stable run
                     continue
                 else:
@@ -161,15 +187,15 @@ class TestCasesParser(object):
                                if testname in disabled_tests_list else '')
             testname_modified = testname_prefix + testname
 
-            result.append("\t".join([testsuite, testname_modified, line[len(
-                testname):].strip()]))
+            result.append("\t".join(
+                [testsuite, testname_modified, line[len(testname):].strip()]))
         return result
 
-    def GenerateLtpRunScript(self):
+    def GenerateLtpRunScript(self, scenario_groups):
         '''Given a scenario group generate test case script.
 
         Args:
-            scenario_group: string, file path of scanerio group file
+            scenario_groups: list of string, name of test scenario groups to use
 
         Returns:
             A list of string
@@ -179,7 +205,7 @@ class TestCasesParser(object):
         disabled_tests_list = self.ReadCommentedTxt(disabled_tests_path)
 
         result = []
-        for testsuite in ltp_configs.TEST_SUITES:
+        for testsuite in scenario_groups:
             result.extend(
                 self.GenerateLtpTestCases(testsuite, disabled_tests_list))
 

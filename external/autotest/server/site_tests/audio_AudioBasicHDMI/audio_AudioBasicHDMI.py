@@ -73,15 +73,17 @@ class audio_AudioBasicHDMI(audio_test.AudioTest):
                                         (['HDMI'], None))
 
 
-    def run_once(self, host, suspend=False, while_playback=False):
+    def run_once(self, host, suspend=False, while_playback=False,
+                 check_quality=False):
         """Running basic HDMI audio tests.
 
         @param host: device under test host
         @param suspend: whether to suspend
         @param while_playback: whether to suspend while audio playback
+        @param check_quality: True to check quality.
 
         """
-        golden_file = audio_test_data.SWEEP_TEST_FILE
+        golden_file = audio_test_data.FREQUENCY_TEST_FILE
         self.host = host
 
         # Dump audio diagnostics data for debugging.
@@ -95,7 +97,7 @@ class audio_AudioBasicHDMI(audio_test.AudioTest):
         audio_facade = self.factory.create_audio_facade()
         output_nodes, _ = audio_facade.get_selected_node_types()
         audio_jack_plugged = False
-        if output_nodes == ['HEADPHONE']:
+        if output_nodes == ['HEADPHONE'] or output_nodes == ['LINEOUT']:
             audio_jack_plugged = True
             logging.debug('Found audio jack plugged!')
 
@@ -154,4 +156,5 @@ class audio_AudioBasicHDMI(audio_test.AudioTest):
             logging.info('Saving recorded data to %s', recorded_file)
             recorder.save_file(recorded_file)
 
-            audio_test_utils.compare_recorded_correlation(golden_file, recorder)
+            audio_test_utils.check_recorded_frequency(
+                    golden_file, recorder, check_artifacts=check_quality)

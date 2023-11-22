@@ -21,7 +21,7 @@
 
 namespace chre {
 
-const char *getSensorNameForEventType(uint32_t eventType) {
+const char *getSensorNameForEventType(uint16_t eventType) {
   SensorType sensorType = getSensorTypeForSampleEventType(eventType);
   return getSensorTypeName(sensorType);
 }

@@ -33,7 +33,9 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     EmbeddedKitchenSinkApp \
     VmsPublisherClientSample \
-    VmsSubscriberClientSample
+    VmsSubscriberClientSample \
+    android.car.cluster.loggingrenderer \
+    DirectRenderingClusterSample \
 
 PRODUCT_COPY_FILES := \
     frameworks/av/media/libeffects/data/audio_effects.conf:system/etc/audio_effects.conf \
@@ -74,7 +76,6 @@ PRODUCT_PROPERTY_OVERRIDES += \
 PRODUCT_PACKAGES += \
     vehicle_monitor_service \
     CarService \
-    CarUiProvider \
     CarTrustAgentService \
     CarDialerApp \
     CarRadioApp \
@@ -83,7 +84,6 @@ PRODUCT_PACKAGES += \
     LocalMediaPlayer \
     CarMediaApp \
     CarMessengerApp \
-    Stream \
     CarHvacApp \
     CarMapsPlaceholder \
     CarLatinIME \
@@ -93,7 +93,7 @@ PRODUCT_PACKAGES += \
 
 # Boot animation
 PRODUCT_COPY_FILES += \
-    packages/services/Car/car_product/bootanimations/square_280/bootanimation.zip:system/media/bootanimation.zip
+    packages/services/Car/car_product/bootanimations/bootanimation-832.zip:system/media/bootanimation.zip
 
 PRODUCT_PROPERTY_OVERRIDES += \
     fmas.spkr_6ch=35,20,110 \

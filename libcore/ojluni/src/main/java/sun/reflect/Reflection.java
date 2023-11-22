@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, 2006, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2001, 2013, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -35,8 +35,10 @@ import java.util.Map;
 
 public class Reflection {
 
-    public static void ensureMemberAccess(Class currentClass,
-                                          Class memberClass,
+    // Android-removed: Dead code: Misc unused fields and methods.
+
+    public static void ensureMemberAccess(Class<?> currentClass,
+                                          Class<?> memberClass,
                                           Object target,
                                           int modifiers)
         throws IllegalAccessException
@@ -55,13 +57,13 @@ public class Reflection {
         }
     }
 
-    public static boolean verifyMemberAccess(Class currentClass,
+    public static boolean verifyMemberAccess(Class<?> currentClass,
                                              // Declaring class of field
                                              // or method
-                                             Class  memberClass,
+                                             Class<?> memberClass,
                                              // May be NULL in case of statics
-                                             Object target,
-                                             int    modifiers)
+                                             Object   target,
+                                             int      modifiers)
     {
         // Verify that currentClass can access a field, method, or
         // constructor of memberClass, where that member's access bits are
@@ -118,7 +120,7 @@ public class Reflection {
 
         if (Modifier.isProtected(modifiers)) {
             // Additional test for protected members: JLS 6.6.2
-            Class targetClass = (target == null ? memberClass : target.getClass());
+            Class<?> targetClass = (target == null ? memberClass : target.getClass());
             if (targetClass != currentClass) {
                 if (!gotIsSameClassPackage) {
                     isSameClassPackage = isSameClassPackage(currentClass, memberClass);
@@ -135,7 +137,7 @@ public class Reflection {
         return true;
     }
 
-    private static boolean isSameClassPackage(Class c1, Class c2) {
+    private static boolean isSameClassPackage(Class<?> c1, Class<?> c2) {
         return isSameClassPackage(c1.getClassLoader(), c1.getName(),
                                   c2.getClassLoader(), c2.getName());
     }
@@ -190,8 +192,8 @@ public class Reflection {
         }
     }
 
-    static boolean isSubclassOf(Class queryClass,
-                                Class ofClass)
+    static boolean isSubclassOf(Class<?> queryClass,
+                                Class<?> ofClass)
     {
         while (queryClass != null) {
             if (queryClass == ofClass) {
@@ -201,4 +203,7 @@ public class Reflection {
         }
         return false;
     }
+
+    // Android-removed: Dead code: Misc unused methods.
+
 }

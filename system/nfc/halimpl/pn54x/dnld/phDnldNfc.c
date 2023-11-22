@@ -766,8 +766,8 @@ NFCSTATUS phDnldNfc_InitImgInfo(void) {
 #endif
     wStatus = phDnldNfc_LoadFW(pathName, &pImageInfo, &ImageInfoLen);
 
-  NXPLOG_FWDNLD_D("FW Image Length - ImageInfoLen %d", ImageInfoLen);
-  NXPLOG_FWDNLD_D("FW Image Info Pointer - pImageInfo %p", pImageInfo);
+  NXPLOG_FWDNLD_E("FW Image Length - ImageInfoLen %d", ImageInfoLen);
+  NXPLOG_FWDNLD_E("FW Image Info Pointer - pImageInfo %p", pImageInfo);
 
   if ((pImageInfo == NULL) || (ImageInfoLen == 0)) {
     NXPLOG_FWDNLD_E(
@@ -791,12 +791,12 @@ NFCSTATUS phDnldNfc_InitImgInfo(void) {
     gpphDnldContext->nxp_nfc_fw_len = ImageInfoLen;
     if ((NULL != gpphDnldContext->nxp_nfc_fw) &&
         (0 != gpphDnldContext->nxp_nfc_fw_len)) {
-      NXPLOG_FWDNLD_D("FW Major Version Num - %x",
+      NXPLOG_FWDNLD_E("FW Major Version Num - %x",
                       gpphDnldContext->nxp_nfc_fw[5]);
-      NXPLOG_FWDNLD_D("FW Minor Version Num - %x",
+      NXPLOG_FWDNLD_E("FW Minor Version Num - %x",
                       gpphDnldContext->nxp_nfc_fw[4]);
-      NXPLOG_FWDNLD_D("FW Image Length - %d", ImageInfoLen);
-      NXPLOG_FWDNLD_D("FW Image Info Pointer - %p", pImageInfo);
+      NXPLOG_FWDNLD_E("FW Image Length - %d", ImageInfoLen);
+      NXPLOG_FWDNLD_E("FW Image Info Pointer - %p", pImageInfo);
 
       /* get the FW version */
       wFwVer = (((uint16_t)(gpphDnldContext->nxp_nfc_fw[5]) << 8U) |
@@ -1046,6 +1046,8 @@ NFCSTATUS phDnldNfc_LoadRecoveryFW(const char* pathName, uint8_t** pImgInfo,
     pathName = "/system/vendor/firmware/libpn548ad_fw.so";
 #elif (NFC_NXP_CHIP_TYPE == PN551)
     pathName = "/system/vendor/firmware/libpn551_fw.so";
+#elif (NFC_NXP_CHIP_TYPE == PN553)
+    pathName = "/system/vendor/firmware/libpn553_fw.so";
 #else
     pathName = "/system/vendor/firmware/libpn547_fw.so";
 #endif

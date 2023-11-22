@@ -49,6 +49,10 @@ import java.util.concurrent.TimeUnit;
  * Device side routines to be invoked by the host side KeyValueBackupRestoreHostSideTest. These
  * are not designed to be called in any other way, as they rely on state set up by the host side
  * test.
+ *
+ * Some tests invoked by KeyValueBackupRestoreHostSideTest#testSharedPreferencesRestore() are
+ * interacting with SharedPrefsRestoreTestActivity from another package.
+ *
  */
 @RunWith(AndroidJUnit4.class)
 public class KeyValueBackupRestoreTest {
@@ -83,6 +87,27 @@ public class KeyValueBackupRestoreTest {
     private static final String DEFAULT_STRING_VALUE = null;
     private static final String DEFAULT_FILE_CONTENT = "";
 
+
+    /** Package name of the test app for
+     * KeyValueBackupRestoreHostSideTest#testSharedPreferencesRestore() */
+    private static final String SHARED_PREFERENCES_RESTORE_PACKAGE_NAME =
+            "android.cts.backup.sharedprefrestoreapp";
+
+    /** Test activity for KeyValueBackupRestoreHostSideTest#testSharedPreferencesRestore() */
+    private static final String SHARED_PREFERENCES_RESTORE_ACTIVITY_NAME =
+            SHARED_PREFERENCES_RESTORE_PACKAGE_NAME + ".SharedPrefsRestoreTestActivity";
+
+    // Shared prefs test activity actions
+    private static final String INIT_ACTION = "android.backup.cts.backuprestore.INIT";
+    private static final String UPDATE_ACTION = "android.backup.cts.backuprestore.UPDATE";
+    private static final String TEST_ACTION = "android.backup.cts.backuprestore.TEST";
+
+    // Action for returning the result of shared preference activity's operations
+    private static final String RESULT_ACTION = "android.backup.cts.backuprestore.RESULT";
+    private static final String EXTRA_SUCCESS = "EXTRA_SUCCESS";
+
+    private static final int ACTIVITY_TEST_TIMEOUT_MS = 5000;
+
     private Context mContext;
 
     private int mIntValue;
@@ -93,11 +118,35 @@ public class KeyValueBackupRestoreTest {
     private String mFileContent1;
     private String mFileContent2;
 
+    private boolean mSharedPrefTestSuccess;
+    private CountDownLatch mLatch;
+    private Intent mSharedPrefActivityIntent;
+
+    private final BroadcastReceiver mSharedPrefencesReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Log.i(TAG, "Received shared preference activity result broadcast");
+            mSharedPrefTestSuccess = intent.getBooleanExtra(EXTRA_SUCCESS, false);
+            mLatch.countDown();
+        }
+    };
+
     @Before
     public void setUp() {
         Log.i(TAG, "set up");
 
         mContext = getTargetContext();
+        mLatch = new CountDownLatch(1);
+        mSharedPrefTestSuccess = false;
+        mSharedPrefActivityIntent = new Intent()
+                .setClassName(SHARED_PREFERENCES_RESTORE_PACKAGE_NAME,
+                        SHARED_PREFERENCES_RESTORE_ACTIVITY_NAME);
+        mContext.registerReceiver(mSharedPrefencesReceiver, new IntentFilter(RESULT_ACTION));
+    }
+
+    @After
+    public void tearDown() {
+        mContext.unregisterReceiver(mSharedPrefencesReceiver);
     }
 
     @Test
@@ -131,6 +180,34 @@ public class KeyValueBackupRestoreTest {
         assertEquals(STRING_PREF_VALUE, mStringValue);
         assertEquals(TEST_FILE_1_DATA, mFileContent1);
         assertEquals(TEST_FILE_2_DATA, mFileContent2);
+    }
+
+    @Test
+    public void launchSharedPrefActivity() throws Exception {
+        mContext.startActivity(mSharedPrefActivityIntent.setAction(INIT_ACTION));
+
+        assertTrue("Activity init timed out",
+                mLatch.await(ACTIVITY_TEST_TIMEOUT_MS, TimeUnit.MILLISECONDS));
+        assertTrue("Saving shared preferences didn't succeed", mSharedPrefTestSuccess);
+    }
+
+    @Test
+    public void updateSharedPrefActivity() throws Exception {
+        mContext.startActivity(mSharedPrefActivityIntent.setAction(UPDATE_ACTION));
+
+        assertTrue("Activity launch timed out",
+                mLatch.await(ACTIVITY_TEST_TIMEOUT_MS, TimeUnit.MILLISECONDS));
+        assertTrue("Saving shared preferences didn't succeed", mSharedPrefTestSuccess);
+    }
+
+    @Test
+    public void checkSharedPrefActivity() throws Exception {
+        mContext.startActivity(mSharedPrefActivityIntent.setAction(TEST_ACTION));
+
+        assertTrue("Activity test timed out",
+                mLatch.await(ACTIVITY_TEST_TIMEOUT_MS, TimeUnit.MILLISECONDS));
+        assertTrue("Shared preference value wasn't updated from the restore set",
+                mSharedPrefTestSuccess);
     }
 
     /** Saves predefined constant values to shared preferences and files. */

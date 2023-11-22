@@ -28,7 +28,6 @@ import android.hardware.SensorManager;
 import android.hardware.cts.helpers.SensorNotSupportedException;
 import android.hardware.cts.helpers.SuspendStateMonitor;
 import android.os.PowerManager;
-import android.os.PowerManager.WakeLock;
 import android.os.SystemClock;
 import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
@@ -55,10 +54,12 @@ public class OffBodySensorTestActivity
     private static String ACTION_ALARM = "OffBodySensorTestActivity.ACTION_ALARM";
     private static final int MAX_OFF_BODY_EVENT_LATENCY_MS = 1000;
     private static final int MAX_ON_BODY_EVENT_LATENCY_MS = 5000;
+    private static final int COUNTDOWN_INTERVAL_MS = 1000;
     private static final int LLOB_EVENT_MAX_DELAY_SEC = 20;
     private static final long MAX_ALLOWED_DELAY_MS = TimeUnit.SECONDS.toMillis(1);
     private static final long RESULT_REPORT_SHOW_TIME_MS = TimeUnit.SECONDS.toMillis(5);
     private static final int OFFBODY_EVENT_VALUES_LENGTH = 1;
+    private static final int COUNTDOWN_NUM_INTERVALS = 3;
 
     private static final float OFF_BODY_EVENT_VALUE = 0;
     private static final float ON_BODY_EVENT_VALUE = 1;
@@ -423,6 +424,18 @@ public class OffBodySensorTestActivity
             // Instruct user on how to perform offbody detect test
             logger.logInstructions(R.string.snsr_offbody_detect_test_instr);
             waitForUserToBegin();
+
+            // Count down before actually starting, leaving time to react after pressing the Next
+            // button.
+            for (int i = 0; i < COUNTDOWN_NUM_INTERVALS; i++) {
+                try {
+                    Thread.sleep(COUNTDOWN_INTERVAL_MS);
+                } catch (InterruptedException e) {
+                    // Ignore the interrupt and continue counting down.
+                }
+                logger.logInstructions(R.string.snsr_offbody_detect_test_countdown,
+                        COUNTDOWN_NUM_INTERVALS - i - 1);
+            }
             mTestStartTimestampMs = SystemClock.elapsedRealtime();
 
             // Verify off-body event latency is within spec

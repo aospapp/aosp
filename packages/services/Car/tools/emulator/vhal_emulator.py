@@ -18,37 +18,37 @@
 
 """
     This module provides a vhal class which sends and receives messages to the vehicle HAL module
-    on an Android Auto device.  It uses port forwarding via ADB to communicted with the Android
+    on an Android Auto device.  It uses port forwarding via ADB to communicate with the Android
     device.
 
     Example Usage:
 
-        import vhal_consts_1_0 as c
+        import vhal_consts_2_0 as c
         from vhal_emulator import Vhal
 
         # Create an instance of vhal class.  Need to pass the vhal_types constants.
-        v = Vhal(c.vhal_types_1_0)
+        v = Vhal(c.vhal_types_2_0)
 
         # Get the property config (if desired)
-        v.getConfig(c.VEHICLE_PROPERTY_HVAC_TEMPERATURE_SET)
+        v.getConfig(c.VEHICLEPROPERTY_HVAC_TEMPERATURE_SET)
 
         # Get the response message to getConfig()
         reply = v.rxMsg()
-        print reply
+        print(reply)
 
         # Set left temperature to 70 degrees
-        v.setProperty(c.VEHICLE_PROPERTY_HVAC_TEMPERATURE_SET, c.VEHICLE_ZONE_ROW_1_LEFT, 70)
+        v.setProperty(c.VEHICLEPROPERTY_HVAC_TEMPERATURE_SET, c.VEHICLEAREAZONE_ROW_1_LEFT, 70)
 
         # Get the response message to setProperty()
         reply = v.rxMsg()
-        print reply
+        print(reply)
 
         # Get the left temperature value
-        v.getProperty(c.VEHICLE_PROPERTY_HVAC_TEMPERATURE_SET, c.VEHICLE_ZONE_ROW_1_LEFT)
+        v.getProperty(c.VEHICLEPROPERTY_HVAC_TEMPERATURE_SET, c.VEHICLEAREAZONE_ROW_1_LEFT)
 
         # Get the response message to getProperty()
         reply = v.rxMsg()
-        print reply
+        print(reply)
 
     NOTE:  The rxMsg() is a blocking call, so it may be desirable to set up a separate RX thread
             to handle any asynchronous messages coming from the device.
@@ -57,7 +57,7 @@
 
         from threading import Thread
 
-        # Define a simple thread that receives messags from a vhal object (v) and prints them
+        # Define a simple thread that receives messages from a vhal object (v) and prints them
         def rxThread(v):
             while(1):
                 print v.rxMsg()
@@ -72,6 +72,8 @@
             protoc -I=<proto_dir> --python_out=<out_dir> <proto_dir>/VehicleHalProto.proto
 """
 
+from __future__ import print_function
+
 # Suppress .pyc files
 import sys
 sys.dont_write_bytecode = True
@@ -80,10 +82,24 @@ import socket
 import struct
 import subprocess
 
-# Generate the protobuf file from vendor/auto/embedded/lib/vehicle_hal:
+# Generate the protobuf file from hardware/interfaces/automotive/vehicle/2.0/default/impl/vhal_v2_0
+# It is recommended to use the protoc provided in: prebuilts/tools/common/m2/repository/com/google/protobuf/protoc/3.0.0
+# or a later version, in order to provide Python 3 compatibility
 #   protoc -I=proto --python_out=proto proto/VehicleHalProto.proto
 import VehicleHalProto_pb2
 
+# If container is a dictionary, retrieve the value for key item;
+# Otherwise, get the attribute named item out of container
+def getByAttributeOrKey(container, item, default=None):
+    if isinstance(container, dict):
+        try:
+            return container[item]
+        except KeyError as e:
+            return default
+    try:
+        return getattr(container, item)
+    except AttributeError as e:
+        return default
 
 class Vhal:
     """
@@ -102,28 +118,33 @@ class Vhal:
         # Convert the message length into int32 byte array
         msgHdr = struct.pack('!I', msgLen)
         # Send the message length first
-        self.sock.send(msgHdr)
+        self.sock.sendall(msgHdr)
         # Then send the protobuf
-        self.sock.send(msgStr)
+        self.sock.sendall(msgStr)
 
     ### Public Functions
     def printHex(self, data):
         """
             For debugging, print the protobuf message string in hex.
         """
-        print "len = ", len(data), "str = ", ":".join("{:02x}".format(ord(d)) for d in data)
+        print("len = ", len(data), "str = ", ":".join("{:02x}".format(ord(d)) for d in data))
 
-    def openSocket(self):
+    def openSocket(self, device=None):
         """
             Connects to an Android Auto device running a Vehicle HAL with simulator.
         """
         # Hard-coded socket port needs to match the one in DefaultVehicleHal
-        portNumber = 33452
-        # Setup ADB port forwarding
-        subprocess.call("adb forward tcp:%d tcp:%d" % (portNumber, portNumber), shell=True)
+        remotePortNumber = 33452
+        extraArgs = '' if device is None else '-s %s' % device
+        adbCmd = 'adb %s forward tcp:0 tcp:%d' % (extraArgs, remotePortNumber)
+        adbResp = subprocess.check_output(adbCmd, shell=True)[0:-1]
+        localPortNumber = int(adbResp)
+        print('Connecting local port %s to remote port %s on %s' % (
+            localPortNumber, remotePortNumber,
+            'default device' if device is None else 'device %s' % device))
         # Open the socket and connect
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect(('localhost', portNumber))
+        self.sock.connect(('localhost', localPortNumber))
 
     def rxMsg(self):
         """
@@ -143,6 +164,8 @@ class Vhal:
                     msg = VehicleHalProto_pb2.EmulatorMessage()
                     msg.ParseFromString(b)
                     return msg
+                else:
+                    print("Ignored message fragment")
 
     def getConfig(self, prop):
         """
@@ -156,7 +179,7 @@ class Vhal:
 
     def getConfigAll(self):
         """
-            Sends a getConfigAll message to the host.  This will return all configs avaialable.
+            Sends a getConfigAll message to the host.  This will return all configs available.
         """
         cmd = VehicleHalProto_pb2.EmulatorMessage()
         cmd.msg_type = VehicleHalProto_pb2.GET_CONFIG_ALL_CMD
@@ -175,7 +198,7 @@ class Vhal:
 
     def getPropertyAll(self):
         """
-            Sends a getPropertyAll message to the host.  This will return all properties avaialable.
+            Sends a getPropertyAll message to the host.  This will return all properties available.
         """
         cmd = VehicleHalProto_pb2.EmulatorMessage()
         cmd.msg_type = VehicleHalProto_pb2.GET_PROPERTY_ALL_CMD
@@ -215,20 +238,30 @@ class Vhal:
             propValue.int32_values.extend(value)
         elif valType in self._types.TYPE_FLOATS:
             propValue.float_values.extend(value)
+        elif valType in self._types.TYPE_COMPLEX:
+            propValue.string_value = \
+                getByAttributeOrKey(value, 'string_value', '')
+            propValue.bytes_value = \
+                getByAttributeOrKey(value, 'bytes_value', '')
+            for newValue in getByAttributeOrKey(value, 'int32_values', []):
+                propValue.int32_values.append(newValue)
+            for newValue in getByAttributeOrKey(value, 'int64_values', []):
+                propValue.int64_values.append(newValue)
+            for newValue in getByAttributeOrKey(value, 'float_values', []):
+                propValue.float_values.append(newValue)
         else:
             raise ValueError('value type not recognized:', valType)
             return
         self._txCmd(cmd)
 
-    def __init__(self, types):
+    def __init__(self, types, device=None):
         # Save the list of types constants
         self._types = types
         # Open the socket
-        self.openSocket()
+        self.openSocket(device)
         # Get the list of configs
         self.getConfigAll()
         msg = self.rxMsg()
         # Parse the list of configs to generate a dictionary of prop_id to type
         for cfg in msg.config:
             self._propToType[cfg.prop] = cfg.value_type
-

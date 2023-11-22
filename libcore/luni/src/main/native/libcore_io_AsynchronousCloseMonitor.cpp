@@ -16,9 +16,10 @@
 
 #define LOG_TAG "AsynchronousCloseMonitor"
 
-#include "AsynchronousCloseMonitor.h"
-#include "JNIHelp.h"
-#include "JniConstants.h"
+#include <nativehelper/AsynchronousCloseMonitor.h>
+#include <nativehelper/JNIHelp.h>
+#include <nativehelper/JniConstants.h>
+
 #include "jni.h"
 
 static void AsynchronousCloseMonitor_signalBlockedThreads(JNIEnv* env, jclass, jobject javaFd) {

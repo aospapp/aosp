@@ -110,6 +110,8 @@ public class FileMetadataCollector implements ILogSaverListener, ITestInvocation
                 return LogType.COMPACT_MEMINFO;
             case SERVICES:
                 return LogType.SERVICES;
+            case MUGSHOT_LOG:
+                return LogType.MUGSHOT;
             default: // All others
                 return LogType.UNKNOWN;
         }

@@ -113,7 +113,7 @@ class BaseSchedulerTest(unittest.TestCase,
         self.god.stub_with(monitor_db, '_db_manager', connection_manager)
         self.god.stub_with(monitor_db, '_db', self._database)
 
-        self.god.stub_with(monitor_db.BaseDispatcher,
+        self.god.stub_with(monitor_db.Dispatcher,
                            '_get_pending_queue_entries',
                            self._get_pending_hqes)
         self.god.stub_with(scheduler_models, '_db', self._database)

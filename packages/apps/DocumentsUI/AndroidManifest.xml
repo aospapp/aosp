@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.CACHE_CONTENT" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.SET_PREFERRED_APPLICATIONS" />
 
     <application
         android:name=".DocumentsApplication"
@@ -56,10 +57,18 @@
             android:theme="@android:style/Theme.NoDisplay">
         </activity>
 
+        <activity
+            android:name=".inspector.InspectorActivity"
+            android:label="@string/menu_inspector"
+            android:icon="@drawable/launcher_icon"
+            android:theme="@style/DocumentsTheme">
+        </activity>
+
         <!--  Preserve original launcher activity from Nougat. -->
         <activity-alias
             android:name=".LauncherActivity"
             android:targetActivity=".files.LauncherActivity"
+            android:enabled="@bool/is_launcher_enabled"
             android:label="@string/launcher_label"
             android:icon="@drawable/launcher_icon" >
             <intent-filter>
@@ -77,11 +86,6 @@
                 <action android:name="android.intent.action.MAIN" />
             </intent-filter>
             <intent-filter>
-                <action android:name="android.provider.action.BROWSE" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="vnd.android.document/root" />
-            </intent-filter>
-            <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="vnd.android.document/root" />
@@ -91,11 +95,16 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="vnd.android.document/directory" />
             </intent-filter>
+        </activity>
+
+        <activity-alias android:name="ViewDownloadsActivity"
+                        android:targetActivity=".files.FilesActivity"
+                        android:enabled="@bool/handle_view_downloads_intent">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW_DOWNLOADS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
-        </activity>
+        </activity-alias>
 
         <activity
             android:name=".OpenExternalDirectoryActivity"

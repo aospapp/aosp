@@ -26,7 +26,6 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Matchers.refEq;
 import static org.mockito.Mockito.doAnswer;
@@ -188,6 +187,19 @@ public class TextViewTest {
 
     private static final int SMARTSELECT_START = 0;
     private static final int SMARTSELECT_END = 40;
+    private static final TextClassifier FAKE_TEXT_CLASSIFIER = new TextClassifier() {
+        @Override
+        public TextSelection suggestSelection(
+                CharSequence text, int start, int end, LocaleList locales) {
+            return new TextSelection.Builder(SMARTSELECT_START, SMARTSELECT_END).build();
+        }
+
+        @Override
+        public TextClassification classifyText(
+                CharSequence text, int start, int end, LocaleList locales) {
+            return new TextClassification.Builder().build();
+        }
+    };
     private static final int CLICK_TIMEOUT = ViewConfiguration.getDoubleTapTimeout() + 50;
 
     private CharSequence mTransformedText;
@@ -979,6 +991,30 @@ public class TextViewTest {
         setMinLines(1);
         assertEquals("Setting minLines should return -1 for minHeight",
                 -1, mTextView.getMinHeight());
+    }
+
+    @Test
+    public void testSetMaxLines_toZero_shouldNotDisplayAnyLines() throws Throwable {
+        mTextView = findTextView(R.id.textview_text);
+        mActivityRule.runOnUiThread(() -> {
+            mTextView.setPadding(0, 0, 0, 0);
+            mTextView.setText("Single");
+            mTextView.setMaxLines(0);
+        });
+        mInstrumentation.waitForIdleSync();
+
+        final int expectedHeight = mTextView.getTotalPaddingBottom()
+                + mTextView.getTotalPaddingTop();
+
+        assertEquals(expectedHeight, mTextView.getHeight());
+
+        mActivityRule.runOnUiThread(() -> mTextView.setText("Two\nLines"));
+        mInstrumentation.waitForIdleSync();
+        assertEquals(expectedHeight, mTextView.getHeight());
+
+        mActivityRule.runOnUiThread(() -> mTextView.setTextIsSelectable(true));
+        mInstrumentation.waitForIdleSync();
+        assertEquals(expectedHeight, mTextView.getHeight());
     }
 
     @Test
@@ -3580,7 +3616,8 @@ public class TextViewTest {
         mActivityRule.runOnUiThread(() -> mActivity.setContentView(layout));
         mInstrumentation.waitForIdleSync();
 
-        final float halfCharWidth = (float) Math.ceil(mTextView.getPaint().measureText("a") / 2f);
+        final float horizontalPosFix = (float) Math.ceil(
+                mTextView.getPaint().measureText("a") * 2f / 3f);
         final int paddingTop = mTextView.getTotalPaddingTop();
         final int paddingLeft = mTextView.getTotalPaddingLeft();
 
@@ -3594,7 +3631,7 @@ public class TextViewTest {
         assertEquals(firstOffset, mTextView.getOffsetForPosition(x, y));
 
         // right edge of text
-        x = mTextView.getLayout().getLineWidth(0) + paddingLeft - halfCharWidth;
+        x = mTextView.getLayout().getLineWidth(0) + paddingLeft - horizontalPosFix;
         assertEquals(lastOffset, mTextView.getOffsetForPosition(x, y));
 
         // right edge of view
@@ -3606,7 +3643,7 @@ public class TextViewTest {
         assertEquals(firstOffset, mTextView.getOffsetForPosition(x, y));
 
         // horizontal center of text
-        x = mTextView.getLayout().getLineWidth(0) / 2f + paddingLeft - halfCharWidth;
+        x = mTextView.getLayout().getLineWidth(0) / 2f + paddingLeft - horizontalPosFix;
         assertEquals(midOffset, mTextView.getOffsetForPosition(x, y));
     }
 
@@ -3640,7 +3677,8 @@ public class TextViewTest {
         final Rect lineBounds = new Rect();
         mTextView.getLayout().getLineBounds(0, lineBounds);
 
-        final float halfCharWidth = (float) Math.ceil(mTextView.getPaint().measureText("a") / 2f);
+        final float horizontalPosFix = (float) Math.ceil(
+                mTextView.getPaint().measureText("a") * 2f / 3f);
         final int paddingTop = mTextView.getTotalPaddingTop();
         final int paddingLeft = mTextView.getTotalPaddingLeft();
 
@@ -3662,7 +3700,7 @@ public class TextViewTest {
         assertEquals(line.length(), mTextView.getOffsetForPosition(x, y));
 
         // right edge of text at second line
-        x = mTextView.getLayout().getLineWidth(1) + paddingLeft - halfCharWidth;
+        x = mTextView.getLayout().getLineWidth(1) + paddingLeft - horizontalPosFix;
         assertEquals(line.length() + line.length() - 1, mTextView.getOffsetForPosition(x, y));
 
         // right edge of view at second line
@@ -3670,7 +3708,7 @@ public class TextViewTest {
         assertEquals(line.length() + line.length() - 1, mTextView.getOffsetForPosition(x, y));
 
         // horizontal center of text at second line
-        x = mTextView.getLayout().getLineWidth(1) / 2f + paddingLeft - halfCharWidth;
+        x = mTextView.getLayout().getLineWidth(1) / 2f + paddingLeft - horizontalPosFix;
         // second line mid offset should not include next line, therefore subtract one
         assertEquals(line.length() + (line.length() - 1) / 2, mTextView.getOffsetForPosition(x, y));
     }
@@ -3705,8 +3743,8 @@ public class TextViewTest {
         final Rect lineBounds = new Rect();
         mTextView.getLayout().getLineBounds(0, lineBounds);
 
-        final float halfCharWidth = (float) Math.ceil(
-                mTextView.getPaint().measureText("\u0635") / 2f);
+        final float horizontalPosFix = (float) Math.ceil(
+                mTextView.getPaint().measureText("\u0635") * 2f / 3f);
         final int paddingTop = mTextView.getTotalPaddingTop();
         final int paddingRight = mTextView.getTotalPaddingRight();
 
@@ -3733,12 +3771,12 @@ public class TextViewTest {
 
         // left edge of text at second line
         x = mTextView.getWidth() - (mTextView.getLayout().getLineWidth(1) + paddingRight
-                - halfCharWidth);
+                - horizontalPosFix);
         assertEquals(line.length() + line.length() - 1, mTextView.getOffsetForPosition(x, y));
 
         // horizontal center of text at second line
         x = mTextView.getWidth() - (mTextView.getLayout().getLineWidth(1) / 2f + paddingRight
-                - halfCharWidth);
+                - horizontalPosFix);
         // second line mid offset should not include next line, therefore subtract one
         assertEquals(line.length() + (line.length() - 1) / 2, mTextView.getOffsetForPosition(x, y));
     }
@@ -6675,7 +6713,7 @@ public class TextViewTest {
         // Configure layout params and auto-size both in pixels to dodge flakiness on different
         // devices.
         final LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(
-                500, 500);
+                200, 200);
         mActivityRule.runOnUiThread(() -> {
             autoSizeTextView.setLayoutParams(layoutParams);
             autoSizeTextView.setAutoSizeTextTypeUniformWithConfiguration(
@@ -6684,7 +6722,8 @@ public class TextViewTest {
         mInstrumentation.waitForIdleSync();
 
         final String initialText = "13characters ";
-        StringBuilder textToSet = new StringBuilder().append(initialText);
+        final StringBuilder textToSet = new StringBuilder().append(initialText);
+        float initialSize = 0;
 
         // As we add characters the text size shrinks.
         for (int i = 0; i < 10; i++) {
@@ -6692,29 +6731,38 @@ public class TextViewTest {
                     autoSizeTextView.setText(textToSet.toString()));
             mInstrumentation.waitForIdleSync();
             float expectedLargerSize = autoSizeTextView.getTextSize();
+            if (i == 0) {
+                initialSize = expectedLargerSize;
+            }
 
             textToSet.append(initialText);
             mActivityRule.runOnUiThread(() ->
                     autoSizeTextView.setText(textToSet.toString()));
             mInstrumentation.waitForIdleSync();
 
-            assertTrue(expectedLargerSize > autoSizeTextView.getTextSize());
+            assertTrue(expectedLargerSize >= autoSizeTextView.getTextSize());
         }
+        assertTrue(initialSize > autoSizeTextView.getTextSize());
 
+        initialSize = Integer.MAX_VALUE;
         // As we remove characters the text size expands.
         for (int i = 9; i >= 0; i--) {
             mActivityRule.runOnUiThread(() ->
                     autoSizeTextView.setText(textToSet.toString()));
             mInstrumentation.waitForIdleSync();
             float expectedSmallerSize = autoSizeTextView.getTextSize();
+            if (i == 9) {
+                initialSize = expectedSmallerSize;
+            }
 
             textToSet.replace((textToSet.length() - initialText.length()), textToSet.length(), "");
             mActivityRule.runOnUiThread(() ->
                     autoSizeTextView.setText(textToSet.toString()));
             mInstrumentation.waitForIdleSync();
 
-            assertTrue(autoSizeTextView.getTextSize() > expectedSmallerSize);
+            assertTrue(autoSizeTextView.getTextSize() >= expectedSmallerSize);
         }
+        assertTrue(autoSizeTextView.getTextSize() > initialSize);
     }
 
     @Test
@@ -6773,6 +6821,31 @@ public class TextViewTest {
         assertNotEquals(-1, textView.getAutoSizeMaxTextSize());
         assertNotEquals(-1, textView.getAutoSizeStepGranularity());
         assertNotEquals(0, textView.getAutoSizeTextAvailableSizes().length);
+    }
+
+    @Test
+    public void testAutoSizeCallers_setTransformationMethod() throws Throwable {
+        final TextView autoSizeTextView = prepareAndRetrieveAutoSizeTestData(
+                R.id.textview_autosize_uniform, false);
+        // Mock transformation method to return the duplicated input text in order to measure
+        // auto-sizing.
+        TransformationMethod duplicateTextTransformationMethod = mock(TransformationMethod.class);
+        when(duplicateTextTransformationMethod
+                .getTransformation(any(CharSequence.class), any(View.class)))
+                .thenAnswer(invocation -> {
+                    CharSequence source = (CharSequence) invocation.getArguments()[0];
+                    return new StringBuilder().append(source).append(source).toString();
+                });
+
+        mActivityRule.runOnUiThread(() ->
+                autoSizeTextView.setTransformationMethod(null));
+        mInstrumentation.waitForIdleSync();
+        final float initialTextSize = autoSizeTextView.getTextSize();
+        mActivityRule.runOnUiThread(() ->
+                autoSizeTextView.setTransformationMethod(duplicateTextTransformationMethod));
+        mInstrumentation.waitForIdleSync();
+
+        assertTrue(autoSizeTextView.getTextSize() < initialTextSize);
     }
 
     @Test
@@ -6954,11 +7027,53 @@ public class TextViewTest {
     public void testAutoSizeCallers_setMaxLines() throws Throwable {
         final TextView autoSizeTextView = prepareAndRetrieveAutoSizeTestData(
                 R.id.textview_autosize_uniform, false);
-        final float initialTextSize = autoSizeTextView.getTextSize();
-        mActivityRule.runOnUiThread(() -> autoSizeTextView.setMaxLines(1));
+        // Configure layout params and auto-size both in pixels to dodge flakiness on different
+        // devices.
+        final LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(
+                200, 200);
+        final String text = "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine\nten";
+        mActivityRule.runOnUiThread(() -> {
+            autoSizeTextView.setLayoutParams(layoutParams);
+            autoSizeTextView.setAutoSizeTextTypeUniformWithConfiguration(
+                    1 /* autoSizeMinTextSize */,
+                    5000 /* autoSizeMaxTextSize */,
+                    1 /* autoSizeStepGranularity */,
+                    TypedValue.COMPLEX_UNIT_PX);
+            autoSizeTextView.setText(text);
+        });
         mInstrumentation.waitForIdleSync();
 
-        assertTrue(autoSizeTextView.getTextSize() < initialTextSize);
+        float initialSize = 0;
+        for (int i = 1; i < 10; i++) {
+            final int maxLines = i;
+            mActivityRule.runOnUiThread(() -> autoSizeTextView.setMaxLines(maxLines));
+            mInstrumentation.waitForIdleSync();
+            float expectedSmallerSize = autoSizeTextView.getTextSize();
+            if (i == 1) {
+                initialSize = expectedSmallerSize;
+            }
+
+            mActivityRule.runOnUiThread(() -> autoSizeTextView.setMaxLines(maxLines + 1));
+            mInstrumentation.waitForIdleSync();
+            assertTrue(expectedSmallerSize <= autoSizeTextView.getTextSize());
+        }
+        assertTrue(initialSize < autoSizeTextView.getTextSize());
+
+        initialSize = Integer.MAX_VALUE;
+        for (int i = 10; i > 1; i--) {
+            final int maxLines = i;
+            mActivityRule.runOnUiThread(() -> autoSizeTextView.setMaxLines(maxLines));
+            mInstrumentation.waitForIdleSync();
+            float expectedLargerSize = autoSizeTextView.getTextSize();
+            if (i == 10) {
+                initialSize = expectedLargerSize;
+            }
+
+            mActivityRule.runOnUiThread(() -> autoSizeTextView.setMaxLines(maxLines - 1));
+            mInstrumentation.waitForIdleSync();
+            assertTrue(expectedLargerSize >= autoSizeTextView.getTextSize());
+        }
+        assertTrue(initialSize > autoSizeTextView.getTextSize());
     }
 
     @Test
@@ -7393,7 +7508,7 @@ public class TextViewTest {
 
         final String someText = "This is a string";
         final LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(
-                500, 500);
+                200, 200);
         // Configure identically and attach to layout.
         mActivityRule.runOnUiThread(() -> {
             granularityTextView.setLayoutParams(layoutParams);
@@ -7630,17 +7745,10 @@ public class TextViewTest {
 
     private void initializeTextForSmartSelection(CharSequence text) throws Throwable {
         assertTrue(text.length() >= SMARTSELECT_END);
-        TextClassifier mockClassifier = mock(TextClassifier.class);
-        when(mockClassifier.suggestSelection(
-                any(CharSequence.class), anyInt(), anyInt(), any(LocaleList.class)))
-                .thenReturn(new TextSelection.Builder(SMARTSELECT_START, SMARTSELECT_END).build());
-        when(mockClassifier.classifyText(
-                any(CharSequence.class), anyInt(), anyInt(), any(LocaleList.class)))
-                .thenReturn(new TextClassification.Builder().build());
         mActivityRule.runOnUiThread(() -> {
             mTextView.setTextIsSelectable(true);
             mTextView.setText(text);
-            mTextView.setTextClassifier(mockClassifier);
+            mTextView.setTextClassifier(FAKE_TEXT_CLASSIFIER);
             mTextView.requestFocus();
         });
         mInstrumentation.waitForIdleSync();

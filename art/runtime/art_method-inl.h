@@ -20,6 +20,7 @@
 #include "art_method.h"
 
 #include "art_field.h"
+#include "base/callee_save_type.h"
 #include "base/logging.h"
 #include "class_linker-inl.h"
 #include "common_throws.h"
@@ -27,6 +28,7 @@
 #include "dex_file_annotations.h"
 #include "dex_file-inl.h"
 #include "gc_root-inl.h"
+#include "invoke_type.h"
 #include "jit/profiling_info.h"
 #include "mirror/class-inl.h"
 #include "mirror/dex_cache-inl.h"
@@ -35,11 +37,12 @@
 #include "mirror/string.h"
 #include "oat.h"
 #include "obj_ptr-inl.h"
+#include "primitive.h"
 #include "quick/quick_method_frame_info.h"
 #include "read_barrier-inl.h"
 #include "runtime-inl.h"
 #include "scoped_thread_state_change-inl.h"
-#include "thread-inl.h"
+#include "thread-current-inl.h"
 #include "utils.h"
 
 namespace art {
@@ -99,20 +102,21 @@ inline uint32_t ArtMethod::GetDexMethodIndex() {
   return GetDexMethodIndexUnchecked();
 }
 
-inline ArtMethod** ArtMethod::GetDexCacheResolvedMethods(PointerSize pointer_size) {
-  return GetNativePointer<ArtMethod**>(DexCacheResolvedMethodsOffset(pointer_size),
-                                       pointer_size);
+inline mirror::MethodDexCacheType* ArtMethod::GetDexCacheResolvedMethods(PointerSize pointer_size) {
+  return GetNativePointer<mirror::MethodDexCacheType*>(DexCacheResolvedMethodsOffset(pointer_size),
+                                                       pointer_size);
 }
 
 inline ArtMethod* ArtMethod::GetDexCacheResolvedMethod(uint16_t method_index,
                                                        PointerSize pointer_size) {
   // NOTE: Unchecked, i.e. not throwing AIOOB. We don't even know the length here
   // without accessing the DexCache and we don't want to do that in release build.
-  DCHECK_LT(method_index,
-            GetInterfaceMethodIfProxy(pointer_size)->GetDexCache()->NumResolvedMethods());
-  ArtMethod* method = mirror::DexCache::GetElementPtrSize(GetDexCacheResolvedMethods(pointer_size),
-                                                          method_index,
-                                                          pointer_size);
+  DCHECK_LT(method_index, GetInterfaceMethodIfProxy(pointer_size)->GetDexFile()->NumMethodIds());
+  uint32_t slot_idx = method_index % mirror::DexCache::kDexCacheMethodCacheSize;
+  DCHECK_LT(slot_idx, GetInterfaceMethodIfProxy(pointer_size)->GetDexCache()->NumResolvedMethods());
+  mirror::MethodDexCachePair pair = mirror::DexCache::GetNativePairPtrSize(
+      GetDexCacheResolvedMethods(pointer_size), slot_idx, pointer_size);
+  ArtMethod* method = pair.GetObjectForIndex(method_index);
   if (LIKELY(method != nullptr)) {
     auto* declaring_class = method->GetDeclaringClass();
     if (LIKELY(declaring_class == nullptr || !declaring_class->IsErroneous())) {
@@ -127,27 +131,27 @@ inline void ArtMethod::SetDexCacheResolvedMethod(uint16_t method_index,
                                                  PointerSize pointer_size) {
   // NOTE: Unchecked, i.e. not throwing AIOOB. We don't even know the length here
   // without accessing the DexCache and we don't want to do that in release build.
-  DCHECK_LT(method_index,
-            GetInterfaceMethodIfProxy(pointer_size)->GetDexCache()->NumResolvedMethods());
+  DCHECK_LT(method_index, GetInterfaceMethodIfProxy(pointer_size)->GetDexFile()->NumMethodIds());
   DCHECK(new_method == nullptr || new_method->GetDeclaringClass() != nullptr);
-  mirror::DexCache::SetElementPtrSize(GetDexCacheResolvedMethods(pointer_size),
-                                      method_index,
-                                      new_method,
-                                      pointer_size);
+  uint32_t slot_idx = method_index % mirror::DexCache::kDexCacheMethodCacheSize;
+  DCHECK_LT(slot_idx, GetInterfaceMethodIfProxy(pointer_size)->GetDexCache()->NumResolvedMethods());
+  mirror::MethodDexCachePair pair(new_method, method_index);
+  mirror::DexCache::SetNativePairPtrSize(
+      GetDexCacheResolvedMethods(pointer_size), slot_idx, pair, pointer_size);
 }
 
 inline bool ArtMethod::HasDexCacheResolvedMethods(PointerSize pointer_size) {
   return GetDexCacheResolvedMethods(pointer_size) != nullptr;
 }
 
-inline bool ArtMethod::HasSameDexCacheResolvedMethods(ArtMethod** other_cache,
-                                                      PointerSize pointer_size) {
-  return GetDexCacheResolvedMethods(pointer_size) == other_cache;
-}
-
 inline bool ArtMethod::HasSameDexCacheResolvedMethods(ArtMethod* other, PointerSize pointer_size) {
   return GetDexCacheResolvedMethods(pointer_size) ==
       other->GetDexCacheResolvedMethods(pointer_size);
+}
+
+inline bool ArtMethod::HasSameDexCacheResolvedMethods(mirror::MethodDexCacheType* other_cache,
+                                                      PointerSize pointer_size) {
+  return GetDexCacheResolvedMethods(pointer_size) == other_cache;
 }
 
 inline mirror::Class* ArtMethod::GetClassFromTypeIndex(dex::TypeIndex type_idx, bool resolve) {
@@ -199,8 +203,8 @@ inline bool ArtMethod::IsCalleeSaveMethod() {
   }
   Runtime* runtime = Runtime::Current();
   bool result = false;
-  for (int i = 0; i < Runtime::kLastCalleeSaveType; i++) {
-    if (this == runtime->GetCalleeSaveMethod(Runtime::CalleeSaveType(i))) {
+  for (uint32_t i = 0; i < static_cast<uint32_t>(CalleeSaveType::kLastCalleeSaveType); i++) {
+    if (this == runtime->GetCalleeSaveMethod(CalleeSaveType(i))) {
       result = true;
       break;
     }
@@ -271,12 +275,14 @@ inline const char* ArtMethod::GetName() {
     return "<runtime internal resolution method>";
   } else if (this == runtime->GetImtConflictMethod()) {
     return "<runtime internal imt conflict method>";
-  } else if (this == runtime->GetCalleeSaveMethod(Runtime::kSaveAllCalleeSaves)) {
+  } else if (this == runtime->GetCalleeSaveMethod(CalleeSaveType::kSaveAllCalleeSaves)) {
     return "<runtime internal callee-save all registers method>";
-  } else if (this == runtime->GetCalleeSaveMethod(Runtime::kSaveRefsOnly)) {
+  } else if (this == runtime->GetCalleeSaveMethod(CalleeSaveType::kSaveRefsOnly)) {
     return "<runtime internal callee-save reference registers method>";
-  } else if (this == runtime->GetCalleeSaveMethod(Runtime::kSaveRefsAndArgs)) {
+  } else if (this == runtime->GetCalleeSaveMethod(CalleeSaveType::kSaveRefsAndArgs)) {
     return "<runtime internal callee-save reference and argument registers method>";
+  } else if (this == runtime->GetCalleeSaveMethod(CalleeSaveType::kSaveEverything)) {
+    return "<runtime internal save-every-register method>";
   } else {
     return "<unknown runtime internal method>";
   }
@@ -340,6 +346,10 @@ inline const char* ArtMethod::GetReturnTypeDescriptor() {
   return dex_file->GetTypeDescriptor(dex_file->GetTypeId(proto_id.return_type_idx_));
 }
 
+inline Primitive::Type ArtMethod::GetReturnTypePrimitive() {
+  return Primitive::GetType(GetReturnTypeDescriptor()[0]);
+}
+
 inline const char* ArtMethod::GetTypeDescriptorFromTypeIdx(dex::TypeIndex type_idx) {
   DCHECK(!IsProxyMethod());
   const DexFile* dex_file = GetDexFile();
@@ -372,17 +382,21 @@ inline ArtMethod* ArtMethod::GetInterfaceMethodIfProxy(PointerSize pointer_size)
   if (LIKELY(!IsProxyMethod())) {
     return this;
   }
-  ArtMethod* interface_method = mirror::DexCache::GetElementPtrSize(
-      GetDexCacheResolvedMethods(pointer_size),
-      GetDexMethodIndex(),
-      pointer_size);
-  DCHECK(interface_method != nullptr);
-  DCHECK_EQ(interface_method,
-            Runtime::Current()->GetClassLinker()->FindMethodForProxy(GetDeclaringClass(), this));
+  uint32_t method_index = GetDexMethodIndex();
+  uint32_t slot_idx = method_index % mirror::DexCache::kDexCacheMethodCacheSize;
+  mirror::MethodDexCachePair pair = mirror::DexCache::GetNativePairPtrSize(
+      GetDexCacheResolvedMethods(pointer_size), slot_idx, pointer_size);
+  ArtMethod* interface_method = pair.GetObjectForIndex(method_index);
+  if (LIKELY(interface_method != nullptr)) {
+    DCHECK_EQ(interface_method, Runtime::Current()->GetClassLinker()->FindMethodForProxy(this));
+  } else {
+    interface_method = Runtime::Current()->GetClassLinker()->FindMethodForProxy(this);
+    DCHECK(interface_method != nullptr);
+  }
   return interface_method;
 }
 
-inline void ArtMethod::SetDexCacheResolvedMethods(ArtMethod** new_dex_cache_methods,
+inline void ArtMethod::SetDexCacheResolvedMethods(mirror::MethodDexCacheType* new_dex_cache_methods,
                                                   PointerSize pointer_size) {
   SetNativePointer(DexCacheResolvedMethodsOffset(pointer_size),
                    new_dex_cache_methods,
@@ -453,14 +467,8 @@ void ArtMethod::VisitRoots(RootVisitorType& visitor, PointerSize pointer_size) {
     if (UNLIKELY(klass->IsProxyClass())) {
       // For normal methods, dex cache shortcuts will be visited through the declaring class.
       // However, for proxies we need to keep the interface method alive, so we visit its roots.
-      ArtMethod* interface_method = mirror::DexCache::GetElementPtrSize(
-          GetDexCacheResolvedMethods(pointer_size),
-          GetDexMethodIndex(),
-          pointer_size);
+      ArtMethod* interface_method = GetInterfaceMethodIfProxy(pointer_size);
       DCHECK(interface_method != nullptr);
-      DCHECK_EQ(interface_method,
-                Runtime::Current()->GetClassLinker()->FindMethodForProxy<kReadBarrierOption>(
-                    klass, this));
       interface_method->VisitRoots(visitor, pointer_size);
     }
   }
@@ -474,8 +482,8 @@ inline void ArtMethod::UpdateObjectsForImageRelocation(const Visitor& visitor,
   if (old_class != new_class) {
     SetDeclaringClass(new_class);
   }
-  ArtMethod** old_methods = GetDexCacheResolvedMethods(pointer_size);
-  ArtMethod** new_methods = visitor(old_methods);
+  mirror::MethodDexCacheType* old_methods = GetDexCacheResolvedMethods(pointer_size);
+  mirror::MethodDexCacheType* new_methods = visitor(old_methods);
   if (old_methods != new_methods) {
     SetDexCacheResolvedMethods(new_methods, pointer_size);
   }

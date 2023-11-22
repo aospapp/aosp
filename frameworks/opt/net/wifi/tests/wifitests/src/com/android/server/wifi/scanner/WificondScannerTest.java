@@ -32,13 +32,18 @@ import com.android.server.wifi.ScanDetail;
 import com.android.server.wifi.ScanResults;
 import com.android.server.wifi.WifiMonitor;
 import com.android.server.wifi.WifiNative;
+import com.android.server.wifi.scanner.ChannelHelper.ChannelCollection;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.InOrder;
 
+import java.io.FileDescriptor;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * Unit tests for {@link com.android.server.wifi.scanner.WificondScannerImpl}.
@@ -50,6 +55,39 @@ public class WificondScannerTest extends BaseWifiScannerImplTest {
     public void setup() throws Exception {
         mScanner = new WificondScannerImpl(mContext, mWifiNative, mWifiMonitor,
                 mLooper.getLooper(), mClock);
+    }
+
+    /**
+     * Test that WificondScannerImpl will not issue a scan and report scan failure
+     * when there is no channel to scan for.
+     */
+    @Test
+    public void singleScanNotIssuedIfNoAvailableChannels() {
+        // Use mocked ChannelHelper and ChannelCollection to simulate the scenario
+        // that no channel is available for this request.
+        ChannelHelper channelHelper = mock(ChannelHelper.class);
+        ChannelCollection channelCollection = mock(ChannelCollection.class);
+        when(channelHelper.createChannelCollection()).thenReturn(channelCollection);
+        when(channelCollection.isEmpty()).thenReturn(true);
+
+        mScanner = new WificondScannerImpl(mContext, mWifiNative, mWifiMonitor,
+                channelHelper, mLooper.getLooper(), mClock);
+
+        WifiNative.ScanSettings settings = new NativeScanSettingsBuilder()
+                .withBasePeriod(10000) // ms
+                .withMaxApPerScan(10)
+                .addBucketWithBand(10000 /* ms */, WifiScanner.REPORT_EVENT_AFTER_EACH_SCAN,
+                        WifiScanner.WIFI_BAND_5_GHZ)
+                .build();
+        WifiNative.ScanEventHandler eventHandler = mock(WifiNative.ScanEventHandler.class);
+        mScanner.startSingleScan(settings, eventHandler);
+
+        mLooper.dispatchAll();
+
+        // No scan is issued to WifiNative.
+        verify(mWifiNative, never()).scan(any(), any(Set.class));
+        // A scan failed event must be reported.
+        verify(eventHandler).onScanStatus(WifiNative.WIFI_SCAN_FAILED);
     }
 
     @Test
@@ -551,6 +589,28 @@ public class WificondScannerTest extends BaseWifiScannerImplTest {
         expectSuccessfulBackgroundScan(order, eventHandler, expectedPeriods2[0], 0);
 
         verifyNoMoreInteractions(eventHandler);
+    }
+
+    /**
+     * Test that dump() of WificondScannerImpl dumps native scan results.
+     */
+    @Test
+    public void dumpContainsNativeScanResults() {
+        assertDumpContainsRequestLog("Latest native scan results:");
+    }
+
+    private void assertDumpContainsRequestLog(String log) {
+        String objectDump = dumpObject();
+        Pattern logLineRegex = Pattern.compile(".*" + log + ".*");
+        assertTrue("dump did not contain log = " + log + "\n " + objectDump + "\n",
+                logLineRegex.matcher(objectDump).find());
+    }
+
+    private String dumpObject() {
+        StringWriter stringWriter = new StringWriter();
+        mScanner.dump(new FileDescriptor(), new PrintWriter(stringWriter),
+                new String[0]);
+        return stringWriter.toString();
     }
 
     /**

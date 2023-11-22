@@ -14,7 +14,7 @@ from google.protobuf import descriptor_pb2
 DESCRIPTOR = _descriptor.FileDescriptor(
   name='TestSchedulingPolicyMessage.proto',
   package='android.vts',
-  serialized_pb='\n!TestSchedulingPolicyMessage.proto\x12\x0b\x61ndroid.vts\"\x98\x01\n\x1bTestSchedulingPolicyMessage\x12\x14\n\x0ctarget_plans\x18\x01 \x03(\x0c\x12\x14\n\x0ctarget_tests\x18\x02 \x03(\x0c\x12\x38\n\x0fscheduling_mode\x18\x65 \x01(\x0e\x32\x1f.android.vts.TestSchedulingMode\x12\x13\n\x0bperiod_secs\x18n \x01(\r*\x87\x01\n\x12TestSchedulingMode\x12$\n UKNOWN_TEST_SCHEDULING_MODE_TYPE\x10\x00\x12(\n$TEST_SCHEDULING_MODE_TOT_BEST_EFFORT\x10\x01\x12!\n\x1dTEST_SCHEDULING_MODE_PERIODIC\x10\x02')
+  serialized_pb='\n!TestSchedulingPolicyMessage.proto\x12\x0b\x61ndroid.vts\"\x98\x01\n\x1bTestSchedulingPolicyMessage\x12\x14\n\x0ctarget_plans\x18\x01 \x03(\x0c\x12\x14\n\x0ctarget_tests\x18\x02 \x03(\x0c\x12\x38\n\x0fscheduling_mode\x18\x65 \x01(\x0e\x32\x1f.android.vts.TestSchedulingMode\x12\x13\n\x0bperiod_secs\x18n \x01(\r*\x87\x01\n\x12TestSchedulingMode\x12$\n UKNOWN_TEST_SCHEDULING_MODE_TYPE\x10\x00\x12(\n$TEST_SCHEDULING_MODE_TOT_BEST_EFFORT\x10\x01\x12!\n\x1dTEST_SCHEDULING_MODE_PERIODIC\x10\x02\x42\x37\n\x15\x63om.android.vts.protoB\x1eVtsTestSchedulingPolicyMessage')
 
 _TESTSCHEDULINGMODE = _descriptor.EnumDescriptor(
   name='TestSchedulingMode',
@@ -106,4 +106,6 @@ class TestSchedulingPolicyMessage(_message.Message):
   # @@protoc_insertion_point(class_scope:android.vts.TestSchedulingPolicyMessage)
 
 
+DESCRIPTOR.has_options = True
+DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), '\n\025com.android.vts.protoB\036VtsTestSchedulingPolicyMessage')
 # @@protoc_insertion_point(module_scope)

@@ -130,17 +130,8 @@ public class ParentalControlsFragment extends SideFragment {
             protected void onSelected() {
                 final MainActivity tvActivity = getMainActivity();
                 tvActivity.getOverlayManager().getSideFragmentManager().hideSidePanel(true);
-
-                PinDialogFragment fragment =
-                        new PinDialogFragment(
-                                PinDialogFragment.PIN_DIALOG_TYPE_NEW_PIN,
-                                new PinDialogFragment.ResultListener() {
-                                    @Override
-                                    public void done(boolean success) {
-                                        tvActivity.getOverlayManager().getSideFragmentManager()
-                                                .showSidePanel(true);
-                                    }
-                                });
+                PinDialogFragment fragment = PinDialogFragment.create(
+                        PinDialogFragment.PIN_DIALOG_TYPE_NEW_PIN);
                 tvActivity.getOverlayManager().showDialogFragment(PinDialogFragment.DIALOG_TAG,
                         fragment, true);
             }

@@ -20,6 +20,19 @@ ACTS follows the Google Open-source
 [Python Style Guide](https://google.github.io/styleguide/pyguide.html), and
 it is recommended for all new test cases.
 
+System dependencies:
+  - adb
+  - python3.4+
+  - python3.4-setuptools
+
+Python dependencies (installed automatically by setup.py):
+  - future
+  - pyserial
+
+To run unit tests:
+$ python3 setup.py test
+$ python setup.py test
+
 ## ACTS Execution Flow Overview
 Below is a high level view of the ACTS flow:
 
@@ -57,9 +70,12 @@ In developer mode:
 displayed. Check the "Always" box and click "Yes".
 
 ## ACTS Setup
-From the ACTS directory, run setup
 
-- `$ sudo python setup.py develop`
+1. Install the system dependencies.
+     On Ubuntu, sudo apt-get install python3.4 python3-setuptools
+2. Run "python3.4 setup.py install" with elevated permissions
+3. To verify ACTS is ready to go, at the location for README, and run:
+     cd tests/ && act.py -c acts_sanity_test_config.json -tc IntegrationTest
 
 After installation, `act.py` will be in usr/bin and can be called as command
 line utilities. Components in ACTS are importable under the package "acts."
@@ -71,34 +87,15 @@ $ python
 >>> device_list = android_device.get_all_instances()
 ```
 
-## Verifying Setup
-To verify the host and device are ready, from the frameworks folder run:
+## Breaking Down a Sample Command
 
-- `$ act.py -c sample_config.json -tb SampleTestBed -tc SampleTest`
-
-If the above command executed successfully, the ouput should look something
-similar to following:
-
-```
-[SampleTestBed] 07-22 15:23:50.323 INFO ==========> SampleTest <==========
-[SampleTestBed] 07-22 15:23:50.327 INFO [Test Case] test_make_toast
-[SampleTestBed] 07-22 15:23:50.334 INFO [Test Case] test_make_toast PASS
-[SampleTestBed] 07-22 15:23:50.338 INFO Summary for test class SampleTest:
-Requested 1, Executed 1, Passed 1, Failed 0, Skipped 0
-[SampleTestBed] 07-22 15:23:50.338 INFO Summary for test run
-SampleTestBed@07-22-2015_1-23-44-096: Requested 1, Executed 1, Passed 1,
-Failed 0, Skipped 0
-```
-
-By default, all logs are saved in `/tmp/logs`
-
-## Breaking Down the Example
-Below are the components of the command run for the SampleTest:
+Above, the command `act.py -c acts_sanity_test_config.json -tc IntegrationTest`
+was run to verify ACTS was properly set up.
+Below are the components of that command:
 - `acts.py`: is the script that runs the test
--  -c sample_config: is the flag and name of the configuration file to be used
-in the test
--  -tb StampleTestBed: is the flag and name of the test bed to be used
--  -tc SampleTest: is the name of the test case
+-  -c acts_sanity_test_config: is the flag and name of the configuration file
+to be used in the test
+-  -tc IntegrationTest: is the name of the test case
 
 ### Configuration Files
 To run tests, required information must be provided via a json-formatted
@@ -133,8 +130,8 @@ controllers dictionary contains all resources provided to the test class
 and are created based on the provided configuration file.
 
 Test classes must also contain an iterable member self.tests that lists the
-test case names within the class.  More on this is discussed after the following
-code snippet.
+test case names within the class.  More on this is discussed after the
+following code snippet.
 
 ```
 from acts.base_test import BaseTestClass

@@ -56,9 +56,6 @@ class DisplayManagerService : public pdx::ServiceBase<DisplayManagerService> {
   pdx::Status<pdx::LocalChannelHandle> OnGetSurfaceQueue(pdx::Message& message,
                                                          int surface_id,
                                                          int queue_id);
-  pdx::Status<BorrowedNativeBufferHandle> OnSetupNamedBuffer(
-      pdx::Message& message, const std::string& name, size_t size,
-      uint64_t usage);
 
   // Called by the display service to indicate changes to display surfaces that
   // the display manager should evaluate.

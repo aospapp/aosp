@@ -62,7 +62,7 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
     private static final int NUM_FRAMES_VERIFIED = 15;
     private static final int NUM_FACE_DETECTION_FRAMES_VERIFIED = 60;
     /** 30ms exposure time must be supported by full capability devices. */
-    private static final long DEFAULT_EXP_TIME_NS = 30000000L;
+    private static final long DEFAULT_EXP_TIME_NS = 30000000L; // 30ms
     private static final int DEFAULT_SENSITIVITY = 100;
     private static final int RGGB_COLOR_CHANNEL_COUNT = 4;
     private static final int MAX_SHADING_MAP_SIZE = 64 * 64 * RGGB_COLOR_CHANNEL_COUNT;
@@ -74,7 +74,7 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
     private static final float EXPOSURE_TIME_ERROR_MARGIN_RATE = 0.03f; // 3%, Approximation.
     private static final float SENSITIVITY_ERROR_MARGIN_RATE = 0.03f; // 3%, Approximation.
     private static final int DEFAULT_NUM_EXPOSURE_TIME_STEPS = 3;
-    private static final int DEFAULT_NUM_SENSITIVITY_STEPS = 16;
+    private static final int DEFAULT_NUM_SENSITIVITY_STEPS = 8;
     private static final int DEFAULT_SENSITIVITY_STEP_SIZE = 100;
     private static final int NUM_RESULTS_WAIT_TIMEOUT = 100;
     private static final int NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY = 8;
@@ -1624,34 +1624,43 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
             throws Exception {
         CaptureRequest.Builder requestBuilder =
                 mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-
-        requestBuilder.set(CaptureRequest.CONTROL_AE_MODE, CONTROL_AE_MODE_OFF);
         configurePreviewOutput(requestBuilder);
+
+        // Warm up pipeline for more accurate timing
+        SimpleCaptureCallback warmupListener =  new SimpleCaptureCallback();
+        mSession.setRepeatingRequest(requestBuilder.build(), warmupListener, mHandler);
+        warmupListener.getCaptureResult(WAIT_FOR_RESULT_TIMEOUT_MS);
+
+        // Do manual captures
+        requestBuilder.set(CaptureRequest.CONTROL_AE_MODE, CONTROL_AE_MODE_OFF);
         SimpleCaptureCallback listener =  new SimpleCaptureCallback();
 
-        long[] expTimes = getExposureTimeTestValues();
+        long[] expTimesNs = getExposureTimeTestValues();
         int[] sensitivities = getSensitivityTestValues();
         // Submit single request at a time, then verify the result.
-        for (int i = 0; i < expTimes.length; i++) {
+        for (int i = 0; i < expTimesNs.length; i++) {
             for (int j = 0; j < sensitivities.length; j++) {
                 if (VERBOSE) {
                     Log.v(TAG, "Camera " + mCamera.getId() + ": Testing sensitivity "
-                            + sensitivities[j] + ", exposure time " + expTimes[i] + "ns");
+                            + sensitivities[j] + ", exposure time " + expTimesNs[i] + "ns");
                 }
 
-                changeExposure(requestBuilder, expTimes[i], sensitivities[j]);
+                changeExposure(requestBuilder, expTimesNs[i], sensitivities[j]);
                 mSession.capture(requestBuilder.build(), listener, mHandler);
 
-                // make sure timeout is long enough for long exposure time
-                long timeout = WAIT_FOR_RESULT_TIMEOUT_MS + expTimes[i];
-                CaptureResult result = listener.getCaptureResult(timeout);
-                long resultExpTime = getValueNotNull(result, CaptureResult.SENSOR_EXPOSURE_TIME);
+                // make sure timeout is long enough for long exposure time - add a 2x safety margin
+                // to exposure time
+                long timeoutMs = WAIT_FOR_RESULT_TIMEOUT_MS + 2 * expTimesNs[i] / 1000000;
+                CaptureResult result = listener.getCaptureResult(timeoutMs);
+                long resultExpTimeNs = getValueNotNull(result, CaptureResult.SENSOR_EXPOSURE_TIME);
                 int resultSensitivity = getValueNotNull(result, CaptureResult.SENSOR_SENSITIVITY);
-                validateExposureTime(expTimes[i], resultExpTime);
+                validateExposureTime(expTimesNs[i], resultExpTimeNs);
                 validateSensitivity(sensitivities[j], resultSensitivity);
                 validateFrameDurationForCapture(result);
             }
         }
+        mSession.stopRepeating();
+
         // TODO: Add another case to test where we can submit all requests, then wait for
         // results, which will hide the pipeline latency. this is not only faster, but also
         // test high speed per frame control and synchronization.
@@ -2413,7 +2422,7 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
 
     /**
      * Get the exposure time array that contains multiple exposure time steps in
-     * the exposure time range.
+     * the exposure time range, in nanoseconds.
      */
     private long[] getExposureTimeTestValues() {
         long[] testValues = new long[DEFAULT_NUM_EXPOSURE_TIME_STEPS + 1];

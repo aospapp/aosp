@@ -25,6 +25,11 @@
 #include <metrics/metrics_library.h>
 #include <policy/device_policy.h>
 
+#if USE_LIBCROS
+#include <libcros/dbus-proxies.h>
+#include <network_proxy/dbus-proxies.h>
+#endif  // USE_LIBCROS
+
 #include "update_engine/certificate_checker.h"
 #include "update_engine/common/boot_control_interface.h"
 #include "update_engine/common/clock.h"
@@ -37,7 +42,6 @@
 #include "update_engine/power_manager_interface.h"
 #include "update_engine/update_attempter.h"
 #include "update_engine/update_manager/update_manager.h"
-#include "update_engine/weave_service_interface.h"
 
 namespace chromeos_update_engine {
 
@@ -106,10 +110,6 @@ class RealSystemState : public SystemState, public DaemonStateInterface {
     return update_attempter_.get();
   }
 
-  inline WeaveServiceInterface* weave_service() override {
-    return weave_service_.get();
-  }
-
   inline OmahaRequestParams* request_params() override {
     return &request_params_;
   }
@@ -128,8 +128,10 @@ class RealSystemState : public SystemState, public DaemonStateInterface {
 
  private:
 #if USE_LIBCROS
-  // LibCros proxy using the DBus connection.
-  LibCrosProxy libcros_proxy_;
+  // Real DBus proxies using the DBus connection.
+  std::unique_ptr<org::chromium::LibCrosServiceInterfaceProxy> libcros_proxy_;
+  std::unique_ptr<org::chromium::NetworkProxyServiceInterfaceProxy>
+      network_proxy_service_proxy_;
 #endif  // USE_LIBCROS
 
   // Interface for the power manager.
@@ -175,8 +177,6 @@ class RealSystemState : public SystemState, public DaemonStateInterface {
   OmahaRequestParams request_params_{this};
 
   std::unique_ptr<P2PManager> p2p_manager_;
-
-  std::unique_ptr<WeaveServiceInterface> weave_service_;
 
   std::unique_ptr<chromeos_update_manager::UpdateManager> update_manager_;
 

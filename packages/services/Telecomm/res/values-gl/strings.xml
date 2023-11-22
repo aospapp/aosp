@@ -38,7 +38,7 @@
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"Resposta rápida"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"Mensaxe enviada ao <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
     <string name="enable_account_preference_title" msgid="2021848090086481720">"Contas de chamadas"</string>
-    <string name="outgoing_call_not_allowed_user_restriction" msgid="6872406278300131364">"Só se permiten chamadas de emerxencia."</string>
+    <string name="outgoing_call_not_allowed_user_restriction" msgid="6872406278300131364">"Só se permiten chamadas de urxencia."</string>
     <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"Esta aplicación non pode facer chamadas saíntes sen permiso do teléfono."</string>
     <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"Para realizar unha chamada, introduce un número válido."</string>
     <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"Neste momento non se pode engadir a chamada."</string>
@@ -60,11 +60,11 @@
     <string name="non_primary_user" msgid="5180129233352533459">"Só o propietario do dispositivo pode ver e xestionar os números bloqueados."</string>
     <string name="delete_icon_description" msgid="8903995728252556724">"Desbloquear"</string>
     <string name="blocked_numbers_butter_bar_title" msgid="438170866438793182">"O bloqueo desactivouse temporalmente"</string>
-    <string name="blocked_numbers_butter_bar_body" msgid="2223244484319442431">"Despois de facer unha chamada ou enviar unha mensaxe a un número de emerxencia, desactívase o bloqueo para garantir que os servizos de emerxencia poidan poñerse en contacto contigo."</string>
+    <string name="blocked_numbers_butter_bar_body" msgid="2223244484319442431">"Despois de facer unha chamada ou enviar unha mensaxe a un número de urxencia, desactívase o bloqueo para garantir que os servizos de urxencia poidan poñerse en contacto contigo."</string>
     <string name="blocked_numbers_butter_bar_button" msgid="2197943354922010696">"Volver activar agora"</string>
     <string name="blocked_numbers_number_blocked_message" msgid="7678509606805029540">"Bloqueouse o <xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g>"</string>
     <string name="blocked_numbers_number_unblocked_message" msgid="977894647366750418">"Desbloqueouse o <xliff:g id="UNBLOCKED_NUMBER">%1$s</xliff:g>"</string>
-    <string name="blocked_numbers_block_emergency_number_message" msgid="917851876780698387">"Non se pode bloquear o número de emerxencia."</string>
+    <string name="blocked_numbers_block_emergency_number_message" msgid="917851876780698387">"Non se pode bloquear o número de urxencia."</string>
     <string name="blocked_numbers_number_already_blocked_message" msgid="4392247814500811798">"O <xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g> xa está bloqueado."</string>
     <string name="toast_personal_call_msg" msgid="5115361633476779723">"Usando o marcador persoal para facer a chamada"</string>
     <string name="notification_incoming_call" msgid="7713197997773986670">"Chamada de <xliff:g id="CALL_FROM">%2$s</xliff:g> a través de <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>

@@ -209,20 +209,24 @@ public class EnterprisePrivacyTestListActivity extends PassFailButtons.TestListA
                         new ButtonInfo(R.string.enterprise_privacy_finish,
                                 buildCommandIntent(
                                         CommandReceiverActivity.COMMAND_CLEAR_ALWAYS_ON_VPN))}));
-        adapter.add(createInteractiveTestItem(this, ENTERPRISE_PRIVACY_COMP_ALWAYS_ON_VPN,
-                R.string.enterprise_privacy_comp_always_on_vpn,
-                R.string.enterprise_privacy_comp_always_on_vpn_info,
-                new ButtonInfo[] {
-                        new ButtonInfo(R.string.enterprise_privacy_start,
-                                buildCommandIntent(
-                                        CommandReceiverActivity.COMMAND_CREATE_MANAGED_PROFILE)),
-                        new ButtonInfo(R.string.enterprise_privacy_open_settings,
-                                new Intent(Settings.ACTION_ENTERPRISE_PRIVACY_SETTINGS)),
-                        new ButtonInfo(R.string.enterprise_privacy_set_always_on_vpn,
-                                new Intent(CompHelperActivity.ACTION_SET_ALWAYS_ON_VPN)),
-                        new ButtonInfo(R.string.enterprise_privacy_finish,
-                                buildCommandIntent(
-                                        CommandReceiverActivity.COMMAND_REMOVE_MANAGED_PROFILE))}));
+        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_MANAGED_USERS)) {
+            adapter.add(createInteractiveTestItem(this, ENTERPRISE_PRIVACY_COMP_ALWAYS_ON_VPN,
+                    R.string.enterprise_privacy_comp_always_on_vpn,
+                    R.string.enterprise_privacy_comp_always_on_vpn_info,
+                    new ButtonInfo[] {
+                            new ButtonInfo(R.string.enterprise_privacy_start,
+                                    buildCommandIntent(
+                                            CommandReceiverActivity.
+                                            COMMAND_CREATE_MANAGED_PROFILE)),
+                            new ButtonInfo(R.string.enterprise_privacy_open_settings,
+                                    new Intent(Settings.ACTION_ENTERPRISE_PRIVACY_SETTINGS)),
+                            new ButtonInfo(R.string.enterprise_privacy_set_always_on_vpn,
+                                    new Intent(CompHelperActivity.ACTION_SET_ALWAYS_ON_VPN)),
+                            new ButtonInfo(R.string.enterprise_privacy_finish,
+                                    buildCommandIntent(
+                                            CommandReceiverActivity.
+                                            COMMAND_REMOVE_MANAGED_PROFILE))}));
+        }
         adapter.add(createInteractiveTestItem(this, ENTERPRISE_PRIVACY_GLOBAL_HTTP_PROXY,
                 R.string.enterprise_privacy_global_http_proxy,
                 R.string.enterprise_privacy_global_http_proxy_info,
@@ -247,46 +251,56 @@ public class EnterprisePrivacyTestListActivity extends PassFailButtons.TestListA
                         new ButtonInfo(R.string.enterprise_privacy_finish,
                                 buildCommandIntent(
                                         CommandReceiverActivity.COMMAND_CLEAR_CA_CERT))}));
-        adapter.add(createInteractiveTestItem(this, ENTERPRISE_PRIVACY_COMP_CA_CERTS,
-                R.string.enterprise_privacy_comp_ca_certs,
-                R.string.enterprise_privacy_comp_ca_certs_info,
-                new ButtonInfo[] {
-                        new ButtonInfo(R.string.enterprise_privacy_start,
-                                buildCommandIntent(
-                                        CommandReceiverActivity.COMMAND_CREATE_MANAGED_PROFILE)),
-                        new ButtonInfo(R.string.enterprise_privacy_settings,
-                                new Intent(Settings.ACTION_ENTERPRISE_PRIVACY_SETTINGS)),
-                        new ButtonInfo(R.string.enterprise_privacy_install_cert,
-                                new Intent(CompHelperActivity.ACTION_INSTALL_CA_CERT)),
-                        new ButtonInfo(R.string.enterprise_privacy_finish,
-                                buildCommandIntent(
-                                        CommandReceiverActivity.COMMAND_REMOVE_MANAGED_PROFILE))}));
-        adapter.add(createInteractiveTestItem(this, ENTERPRISE_PRIVACY_FAILED_PASSWORD_WIPE,
-                R.string.enterprise_privacy_failed_password_wipe,
-                R.string.enterprise_privacy_failed_password_wipe_info,
-                new ButtonInfo[] {
-                        new ButtonInfo(R.string.enterprise_privacy_open_settings,
-                                new Intent(Settings.ACTION_ENTERPRISE_PRIVACY_SETTINGS)),
-                        new ButtonInfo(R.string.enterprise_privacy_set_limit,
-                                buildCommandIntent(CommandReceiverActivity
-                                        .COMMAND_SET_MAXIMUM_PASSWORD_ATTEMPTS)),
-                        new ButtonInfo(R.string.enterprise_privacy_finish,
-                                buildCommandIntent(CommandReceiverActivity
-                                        .COMMAND_CLEAR_MAXIMUM_PASSWORD_ATTEMPTS))}));
-        adapter.add(createInteractiveTestItem(this, ENTERPRISE_PRIVACY_COMP_FAILED_PASSWORD_WIPE,
-                R.string.enterprise_privacy_comp_failed_password_wipe,
-                R.string.enterprise_privacy_comp_failed_password_wipe_info,
-                new ButtonInfo[] {
-                        new ButtonInfo(R.string.enterprise_privacy_start,
-                                buildCommandIntent(
-                                        CommandReceiverActivity.COMMAND_CREATE_MANAGED_PROFILE)),
-                        new ButtonInfo(R.string.enterprise_privacy_open_settings,
-                                new Intent(Settings.ACTION_ENTERPRISE_PRIVACY_SETTINGS)),
-                        new ButtonInfo(R.string.enterprise_privacy_set_limit, new Intent(
-                                CompHelperActivity.ACTION_SET_MAXIMUM_PASSWORD_ATTEMPTS)),
-                        new ButtonInfo(R.string.enterprise_privacy_finish,
-                                buildCommandIntent(
-                                        CommandReceiverActivity.COMMAND_REMOVE_MANAGED_PROFILE))}));
+        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_MANAGED_USERS)) {
+            adapter.add(createInteractiveTestItem(this, ENTERPRISE_PRIVACY_COMP_CA_CERTS,
+                    R.string.enterprise_privacy_comp_ca_certs,
+                    R.string.enterprise_privacy_comp_ca_certs_info,
+                    new ButtonInfo[] {
+                            new ButtonInfo(R.string.enterprise_privacy_start,
+                                    buildCommandIntent(
+                                            CommandReceiverActivity.
+                                            COMMAND_CREATE_MANAGED_PROFILE)),
+                            new ButtonInfo(R.string.enterprise_privacy_settings,
+                                    new Intent(Settings.ACTION_ENTERPRISE_PRIVACY_SETTINGS)),
+                            new ButtonInfo(R.string.enterprise_privacy_install_cert,
+                                    new Intent(CompHelperActivity.ACTION_INSTALL_CA_CERT)),
+                            new ButtonInfo(R.string.enterprise_privacy_finish,
+                                    buildCommandIntent(
+                                            CommandReceiverActivity.
+                                            COMMAND_REMOVE_MANAGED_PROFILE))}));
+        }
+        // Disabled for API 26 due to b/63696536.
+        // adapter.add(createInteractiveTestItem(this, ENTERPRISE_PRIVACY_FAILED_PASSWORD_WIPE,
+        //         R.string.enterprise_privacy_failed_password_wipe,
+        //         R.string.enterprise_privacy_failed_password_wipe_info,
+        //         new ButtonInfo[] {
+        //                 new ButtonInfo(R.string.enterprise_privacy_open_settings,
+        //                         new Intent(Settings.ACTION_ENTERPRISE_PRIVACY_SETTINGS)),
+        //                 new ButtonInfo(R.string.enterprise_privacy_set_limit,
+        //                         buildCommandIntent(CommandReceiverActivity
+        //                                 .COMMAND_SET_MAXIMUM_PASSWORD_ATTEMPTS)),
+        //                 new ButtonInfo(R.string.enterprise_privacy_finish,
+        //                         buildCommandIntent(CommandReceiverActivity
+        //                                 .COMMAND_CLEAR_MAXIMUM_PASSWORD_ATTEMPTS))}));
+        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_MANAGED_USERS)) {
+            adapter.add(createInteractiveTestItem(this,
+                    ENTERPRISE_PRIVACY_COMP_FAILED_PASSWORD_WIPE,
+                    R.string.enterprise_privacy_comp_failed_password_wipe,
+                    R.string.enterprise_privacy_comp_failed_password_wipe_info,
+                    new ButtonInfo[]{
+                            new ButtonInfo(R.string.enterprise_privacy_start,
+                                    buildCommandIntent(
+                                            CommandReceiverActivity.
+                                                    COMMAND_CREATE_MANAGED_PROFILE)),
+                            new ButtonInfo(R.string.enterprise_privacy_open_settings,
+                                    new Intent(Settings.ACTION_ENTERPRISE_PRIVACY_SETTINGS)),
+                            new ButtonInfo(R.string.enterprise_privacy_set_limit, new Intent(
+                                    CompHelperActivity.ACTION_SET_MAXIMUM_PASSWORD_ATTEMPTS)),
+                            new ButtonInfo(R.string.enterprise_privacy_finish,
+                                    buildCommandIntent(
+                                            CommandReceiverActivity.
+                                                    COMMAND_REMOVE_MANAGED_PROFILE))}));
+        }
         adapter.add(createInteractiveTestItem(this, ENTERPRISE_PRIVACY_QUICK_SETTINGS,
                 R.string.enterprise_privacy_quick_settings,
                 R.string.enterprise_privacy_quick_settings_info,

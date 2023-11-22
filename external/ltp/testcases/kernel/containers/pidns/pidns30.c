@@ -51,10 +51,9 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <mqueue.h>
-#include "test.h"
 #include "linux_syscall_numbers.h"
-#include "libclone.h"
 #include "pidns_helper.h"
+#include "test.h"
 
 char *TCID = "pidns30";
 int TST_TOTAL = 1;
@@ -62,7 +61,6 @@ int TST_TOTAL = 1;
 char *mqname = "mq1";
 int result = TFAIL;
 
-int errno;
 int father_to_child[2];
 int child_to_father[2];
 

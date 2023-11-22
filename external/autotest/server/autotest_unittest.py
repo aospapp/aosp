@@ -180,7 +180,7 @@ class TestBaseAutotest(unittest.TestCase):
         self.base_autotest.install.expect_call(self.host, use_packaging=True)
         self.host.wait_up.expect_call(timeout=30)
         os.path.abspath.expect_call('.').and_return('.')
-        run_obj = autotest._Run.expect_new(self.host, '.', None, False, False)
+        run_obj = autotest._Run.expect_new(self.host, '.', None, False)
         tag = None
         run_obj.manual_control_file = os.path.join('autodir',
                                                    'control.%s' % tag)
@@ -189,7 +189,6 @@ class TestBaseAutotest(unittest.TestCase):
         run_obj.tag = tag
         run_obj.autodir = 'autodir'
         run_obj.verify_machine.expect_call()
-        run_obj.background = False
         debug = os.path.join('.', 'debug')
         os.makedirs.expect_call(debug)
         delete_file_list = [run_obj.remote_control_file,

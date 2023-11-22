@@ -46,6 +46,7 @@
 #include <vector>
 #include <algorithm>
 #include <string>
+#include <sstream>
 
 #include "hw_device.h"
 #include "hw_primary.h"
@@ -327,6 +328,10 @@ DisplayError HWDevice::Validate(HWLayers *hw_layers) {
     dest_scalar_data->dest_scaler_ndx = i;
     dest_scalar_data->lm_width = dest_scale_info->mixer_width;
     dest_scalar_data->lm_height = dest_scale_info->mixer_height;
+#ifdef MDP_DESTSCALER_ROI_ENABLE
+    SetRect(dest_scale_info->panel_roi, &dest_scalar_data->panel_roi);
+    dest_scalar_data->flags |= MDP_DESTSCALER_ROI_ENABLE;
+#endif
     dest_scalar_data->scale = reinterpret_cast <uint64_t>
       (hw_scale_->GetScaleDataRef(index, kHWDestinationScalar));
 
@@ -336,6 +341,11 @@ DisplayError HWDevice::Validate(HWLayers *hw_layers) {
              dest_scalar_data->dest_scaler_ndx);
     DLOGV_IF(kTagDriverConfig, "Mixer WxH %dx%d flags %x", dest_scalar_data->lm_width,
              dest_scalar_data->lm_height, dest_scalar_data->flags);
+#ifdef MDP_DESTSCALER_ROI_ENABLE
+    DLOGV_IF(kTagDriverConfig, "Panel ROI [%d, %d, %d, %d]", dest_scalar_data->panel_roi.x,
+             dest_scalar_data->panel_roi.y, dest_scalar_data->panel_roi.w,
+             dest_scalar_data->panel_roi.h);
+#endif
     DLOGV_IF(kTagDriverConfig, "*****************************************************************");
   }
   mdp_commit.dest_scaler_cnt = UINT32(hw_layer_info.dest_scale_info_map.size());
@@ -365,9 +375,16 @@ void HWDevice::DumpLayerCommit(const mdp_layer_commit &layer_commit) {
   DLOGI("right_roi: x = %d, y = %d, w = %d, h = %d", r_roi.x, r_roi.y, r_roi.w, r_roi.h);
   for (uint32_t i = 0; i < mdp_commit.dest_scaler_cnt; i++) {
     mdp_destination_scaler_data *dest_scalar_data = &mdp_dest_scalar_data_[i];
+    mdp_scale_data_v2 *mdp_scale = reinterpret_cast<mdp_scale_data_v2 *>(dest_scalar_data->scale);
 
     DLOGI("Dest scalar index %d Mixer WxH %dx%d", dest_scalar_data->dest_scaler_ndx,
           dest_scalar_data->lm_width, dest_scalar_data->lm_height);
+#ifdef MDP_DESTSCALER_ROI_ENABLE
+    DLOGI("Panel ROI [%d, %d, %d, %d]", dest_scalar_data->panel_roi.x,
+           dest_scalar_data->panel_roi.y, dest_scalar_data->panel_roi.w,
+           dest_scalar_data->panel_roi.h);
+#endif
+    DLOGI("Dest scalar Dst WxH %dx%d", mdp_scale->dst_width, mdp_scale->dst_height);
   }
   for (uint32_t i = 0; i < mdp_commit.input_layer_cnt; i++) {
     const mdp_input_layer &layer = mdp_layers[i];
@@ -375,6 +392,8 @@ void HWDevice::DumpLayerCommit(const mdp_layer_commit &layer_commit) {
     const mdp_rect &dst_rect = layer.dst_rect;
     DLOGI("layer = %d, pipe_ndx = %x, z = %d, flags = %x",
       i, layer.pipe_ndx, layer.z_order, layer.flags);
+    DLOGI("src_width = %d, src_height = %d, src_format = %d",
+      layer.buffer.width, layer.buffer.height, layer.buffer.format);
     DLOGI("src_rect: x = %d, y = %d, w = %d, h = %d",
       src_rect.x, src_rect.y, src_rect.w, src_rect.h);
     DLOGI("dst_rect: x = %d, y = %d, w = %d, h = %d",
@@ -469,6 +488,12 @@ DisplayError HWDevice::Commit(HWLayers *hw_layers) {
   if (synchronous_commit_) {
     mdp_commit.flags |= MDP_COMMIT_WAIT_FOR_FINISH;
   }
+  if (bl_update_commit && bl_level_update_commit >= 0) {
+#ifdef MDP_COMMIT_UPDATE_BRIGHTNESS
+    mdp_commit.bl_level = (uint32_t)bl_level_update_commit;
+    mdp_commit.flags |= MDP_COMMIT_UPDATE_BRIGHTNESS;
+#endif
+  }
   if (Sys::ioctl_(device_fd_, INT(MSMFB_ATOMIC_COMMIT), &mdp_disp_commit_) < 0) {
     if (errno == ESHUTDOWN) {
       DLOGI_IF(kTagDriverConfig, "Driver is processing shutdown sequence");
@@ -522,6 +547,9 @@ DisplayError HWDevice::Commit(HWLayers *hw_layers) {
     PopulateHWPanelInfo();
     synchronous_commit_ = false;
   }
+
+  if (bl_update_commit)
+    bl_update_commit = false;
 
   return kErrorNone;
 }
@@ -639,7 +667,6 @@ DisplayError HWDevice::SetStride(HWDeviceType device_type, LayerBufferFormat for
   case kFormatYCrCb420PlanarStride16:
   case kFormatYCbCr420SemiPlanar:
   case kFormatYCrCb420SemiPlanar:
-  case kFormatYCbCr420P010:
   case kFormatYCbCr420TP10Ubwc:
     *target = width;
     break;
@@ -649,6 +676,7 @@ DisplayError HWDevice::SetStride(HWDeviceType device_type, LayerBufferFormat for
   case kFormatYCrCb422H1V2SemiPlanar:
   case kFormatYCbCr422H2V1SemiPlanar:
   case kFormatYCbCr422H1V2SemiPlanar:
+  case kFormatYCbCr420P010:
   case kFormatRGBA5551:
   case kFormatRGBA4444:
     *target = width * 2;
@@ -1164,6 +1192,10 @@ DisplayError HWDevice::SetPanelBrightness(int level) {
   return kErrorNotSupported;
 }
 
+DisplayError HWDevice::CachePanelBrightness(int level) {
+  return kErrorNotSupported;
+}
+
 DisplayError HWDevice::GetHWScanInfo(HWScanInfo *scan_info) {
   return kErrorNotSupported;
 }
@@ -1321,6 +1353,49 @@ DisplayError HWDevice::GetMixerAttributes(HWMixerAttributes *mixer_attributes) {
 
   *mixer_attributes = mixer_attributes_;
 
+  return kErrorNone;
+}
+
+DisplayError HWDevice::DumpDebugData() {
+  DLOGW("Pingpong timeout occurred in the driver.");
+#ifdef USER_DEBUG
+  // Save the xlogs on ping pong time out
+  const char* xlog_path = "/data/vendor/display/mdp_xlog";
+  DLOGD("Dumping debugfs data to %s", xlog_path);
+  std::ostringstream  dst;
+  auto file = open(xlog_path, O_CREAT | O_DSYNC | O_RDWR, "w+");
+  if (file < 0) {
+    DLOGE("Couldn't open file: err:%d (%s)",errno, strerror(errno));
+    return kErrorResources;
+  }
+  dst << "+++ MDP:XLOG +++" << std::endl;
+  std::ifstream  src("/sys/kernel/debug/mdp/xlog/dump");
+  dst << src.rdbuf() << std::endl;
+  src.close();
+
+  dst << "+++ MDP:REG_XLOG +++" << std::endl;
+  src.open("/sys/kernel/debug/mdp/xlog/reg_xlog");
+  dst << src.rdbuf() << std::endl;
+  src.close();
+
+  dst << "+++ MDP:DBGBUS_XLOG +++" << std::endl;
+  src.open("/sys/kernel/debug/mdp/xlog/dbgbus_xlog");
+  dst << src.rdbuf() << std::endl;
+  src.close();
+
+  dst << "+++ MDP:VBIF_DBGBUS_XLOG +++" << std::endl;
+  src.open("/sys/kernel/debug/mdp/xlog/vbif_dbgbus_xlog");
+  dst << src.rdbuf() << std::endl;
+  src.close();
+  auto ret = write(file, dst.str().c_str(), dst.str().size());
+  if (ret < 0) {
+    DLOGE("Failed to write xlog data err: %d (%s)", errno, strerror(errno));
+  } else {
+    fsync(file);
+  }
+  close(file);
+  DLOGD("Finished dumping xlogs");;
+#endif
   return kErrorNone;
 }
 

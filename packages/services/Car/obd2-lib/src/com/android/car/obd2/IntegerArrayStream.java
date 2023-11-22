@@ -43,6 +43,10 @@ public class IntegerArrayStream {
         return mData.length - mIndex;
     }
 
+    public boolean isEmpty() {
+        return residualLength() == 0;
+    }
+
     public boolean hasAtLeast(int n) {
         return residualLength() >= n;
     }

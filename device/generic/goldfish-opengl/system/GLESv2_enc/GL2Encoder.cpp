@@ -285,6 +285,8 @@ GL2Encoder::GL2Encoder(IOStream *stream, ChecksumCalculator *protocol)
 
     OVERRIDE(glGetIntegeri_v);
     OVERRIDE(glGetInteger64i_v);
+    OVERRIDE(glGetInteger64v);
+    OVERRIDE(glGetBooleani_v);
 
     OVERRIDE(glGetShaderiv);
 
@@ -356,12 +358,112 @@ GLenum GL2Encoder::s_glGetError(void * self)
     GL2Encoder *ctx = (GL2Encoder *)self;
     GLenum err = ctx->getError();
     if(err != GL_NO_ERROR) {
+        ctx->m_glGetError_enc(ctx); // also clear host error
         ctx->setError(GL_NO_ERROR);
         return err;
     }
 
     return ctx->m_glGetError_enc(self);
+}
 
+class GL2Encoder::ErrorUpdater {
+public:
+    ErrorUpdater(GL2Encoder* ctx) :
+        mCtx(ctx),
+        guest_error(ctx->getError()),
+        host_error(ctx->m_glGetError_enc(ctx)) {
+            // Preserve any existing GL error in the guest:
+            // OpenGL ES 3.0.5 spec:
+            // The command enum GetError( void ); is used to obtain error information.
+            // Each detectable error is assigned a numeric code. When an error is
+            // detected, a flag is set and the code is recorded. Further errors, if
+            // they occur, do not affect this recorded code. When GetError is called,
+            // the code is returned and the flag is cleared, so that a further error
+            // will again record its code. If a call to GetError returns NO_ERROR, then
+            // there has been no detectable error since the last call to GetError (or
+            // since the GL was initialized).
+            if (guest_error == GL_NO_ERROR) {
+                guest_error = host_error;
+            }
+        }
+
+    GLenum getHostErrorAndUpdate() {
+        host_error = mCtx->m_glGetError_enc(mCtx);
+        if (guest_error == GL_NO_ERROR) {
+            guest_error = host_error;
+        }
+        return host_error;
+    }
+
+    void updateGuestErrorState() {
+        mCtx->setError(guest_error);
+    }
+
+private:
+    GL2Encoder* mCtx;
+    GLenum guest_error;
+    GLenum host_error;
+};
+
+template<class T>
+class GL2Encoder::ScopedQueryUpdate {
+public:
+    ScopedQueryUpdate(GL2Encoder* ctx, uint32_t bytes, T* target) :
+        mCtx(ctx),
+        mBuf(bytes, 0),
+        mTarget(target),
+        mErrorUpdater(ctx) {
+    }
+    T* hostStagingBuffer() {
+        return (T*)&mBuf[0];
+    }
+    ~ScopedQueryUpdate() {
+        GLint hostError = mErrorUpdater.getHostErrorAndUpdate();
+        if (hostError == GL_NO_ERROR) {
+            memcpy(mTarget, &mBuf[0], mBuf.size());
+        }
+        mErrorUpdater.updateGuestErrorState();
+    }
+private:
+    GL2Encoder* mCtx;
+    std::vector<char> mBuf;
+    T* mTarget;
+    ErrorUpdater mErrorUpdater;
+};
+
+void GL2Encoder::safe_glGetBooleanv(GLenum param, GLboolean* val) {
+    ScopedQueryUpdate<GLboolean> query(this, glUtilsParamSize(param) * sizeof(GLboolean), val);
+    m_glGetBooleanv_enc(this, param, query.hostStagingBuffer());
+}
+
+void GL2Encoder::safe_glGetFloatv(GLenum param, GLfloat* val) {
+    ScopedQueryUpdate<GLfloat> query(this, glUtilsParamSize(param) * sizeof(GLfloat), val);
+    m_glGetFloatv_enc(this, param, query.hostStagingBuffer());
+}
+
+void GL2Encoder::safe_glGetIntegerv(GLenum param, GLint* val) {
+    ScopedQueryUpdate<GLint> query(this, glUtilsParamSize(param) * sizeof(GLint), val);
+    m_glGetIntegerv_enc(this, param, query.hostStagingBuffer());
+}
+
+void GL2Encoder::safe_glGetInteger64v(GLenum param, GLint64* val) {
+    ScopedQueryUpdate<GLint64> query(this, glUtilsParamSize(param) * sizeof(GLint64), val);
+    m_glGetInteger64v_enc(this, param, query.hostStagingBuffer());
+}
+
+void GL2Encoder::safe_glGetIntegeri_v(GLenum param, GLuint index, GLint* val) {
+    ScopedQueryUpdate<GLint> query(this, sizeof(GLint), val);
+    m_glGetIntegeri_v_enc(this, param, index, query.hostStagingBuffer());
+}
+
+void GL2Encoder::safe_glGetInteger64i_v(GLenum param, GLuint index, GLint64* val) {
+    ScopedQueryUpdate<GLint64> query(this, sizeof(GLint64), val);
+    m_glGetInteger64i_v_enc(this, param, index, query.hostStagingBuffer());
+}
+
+void GL2Encoder::safe_glGetBooleani_v(GLenum param, GLuint index, GLboolean* val) {
+    ScopedQueryUpdate<GLboolean> query(this, sizeof(GLboolean), val);
+    m_glGetBooleani_v_enc(this, param, index, query.hostStagingBuffer());
 }
 
 void GL2Encoder::s_glFlush(void *self)
@@ -553,7 +655,7 @@ void GL2Encoder::s_glGetIntegerv(void *self, GLenum param, GLint *ptr)
     case GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS:
     case GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS:
     case GL_MAX_TEXTURE_IMAGE_UNITS:
-        ctx->m_glGetIntegerv_enc(self, param, ptr);
+        ctx->safe_glGetIntegerv(param, ptr);
         *ptr = MIN(*ptr, GLClientState::MAX_TEXTURE_UNITS);
         break;
 
@@ -566,7 +668,7 @@ void GL2Encoder::s_glGetIntegerv(void *self, GLenum param, GLint *ptr)
 
     case GL_MAX_VERTEX_ATTRIBS:
         if (!ctx->m_state->getClientStateParameter<GLint>(param, ptr)) {
-            ctx->m_glGetIntegerv_enc(self, param, ptr);
+            ctx->safe_glGetIntegerv(param, ptr);
             ctx->m_state->setMaxVertexAttribs(*ptr);
         }
         break;
@@ -574,7 +676,7 @@ void GL2Encoder::s_glGetIntegerv(void *self, GLenum param, GLint *ptr)
         if (ctx->m_max_vertexAttribStride != 0) {
             *ptr = ctx->m_max_vertexAttribStride;
         } else {
-            ctx->m_glGetIntegerv_enc(self, param, ptr);
+            ctx->safe_glGetIntegerv(param, ptr);
             ctx->m_max_vertexAttribStride = *ptr;
         }
         break;
@@ -582,7 +684,7 @@ void GL2Encoder::s_glGetIntegerv(void *self, GLenum param, GLint *ptr)
         if (ctx->m_max_cubeMapTextureSize != 0) {
             *ptr = ctx->m_max_cubeMapTextureSize;
         } else {
-            ctx->m_glGetIntegerv_enc(self, param, ptr);
+            ctx->safe_glGetIntegerv(param, ptr);
             ctx->m_max_cubeMapTextureSize = *ptr;
         }
         break;
@@ -590,7 +692,7 @@ void GL2Encoder::s_glGetIntegerv(void *self, GLenum param, GLint *ptr)
         if (ctx->m_max_renderBufferSize != 0) {
             *ptr = ctx->m_max_renderBufferSize;
         } else {
-            ctx->m_glGetIntegerv_enc(self, param, ptr);
+            ctx->safe_glGetIntegerv(param, ptr);
             ctx->m_max_renderBufferSize = *ptr;
         }
         break;
@@ -598,7 +700,7 @@ void GL2Encoder::s_glGetIntegerv(void *self, GLenum param, GLint *ptr)
         if (ctx->m_max_textureSize != 0) {
             *ptr = ctx->m_max_textureSize;
         } else {
-            ctx->m_glGetIntegerv_enc(self, param, ptr);
+            ctx->safe_glGetIntegerv(param, ptr);
             ctx->m_max_textureSize = *ptr;
         }
         break;
@@ -606,7 +708,7 @@ void GL2Encoder::s_glGetIntegerv(void *self, GLenum param, GLint *ptr)
         if (ctx->m_max_3d_textureSize != 0) {
             *ptr = ctx->m_max_3d_textureSize;
         } else {
-            ctx->m_glGetIntegerv_enc(self, param, ptr);
+            ctx->safe_glGetIntegerv(param, ptr);
             ctx->m_max_3d_textureSize = *ptr;
         }
         break;
@@ -614,7 +716,7 @@ void GL2Encoder::s_glGetIntegerv(void *self, GLenum param, GLint *ptr)
         if (ctx->m_ssbo_offset_align != 0) {
             *ptr = ctx->m_ssbo_offset_align;
         } else {
-            ctx->m_glGetIntegerv_enc(self, param, ptr);
+            ctx->safe_glGetIntegerv(param, ptr);
             ctx->m_ssbo_offset_align = *ptr;
         }
         break;
@@ -622,7 +724,7 @@ void GL2Encoder::s_glGetIntegerv(void *self, GLenum param, GLint *ptr)
         if (ctx->m_ubo_offset_align != 0) {
             *ptr = ctx->m_ubo_offset_align;
         } else {
-            ctx->m_glGetIntegerv_enc(self, param, ptr);
+            ctx->safe_glGetIntegerv(param, ptr);
             ctx->m_ubo_offset_align = *ptr;
         }
         break;
@@ -634,9 +736,31 @@ void GL2Encoder::s_glGetIntegerv(void *self, GLenum param, GLint *ptr)
     case GL_MAX_DEPTH_TEXTURE_SAMPLES:
         *ptr = 4;
         break;
+    // Checks for version-incompatible enums.
+    // Not allowed in vanilla ES 2.0.
+    case GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS:
+    case GL_MAX_UNIFORM_BUFFER_BINDINGS:
+        SET_ERROR_IF(ctx->majorVersion() < 3, GL_INVALID_ENUM);
+        ctx->safe_glGetIntegerv(param, ptr);
+        break;
+    case GL_MAX_COLOR_ATTACHMENTS:
+    case GL_MAX_DRAW_BUFFERS:
+        SET_ERROR_IF(ctx->majorVersion() < 3 &&
+                     !ctx->hasExtension("GL_EXT_draw_buffers"), GL_INVALID_ENUM);
+        ctx->safe_glGetIntegerv(param, ptr);
+        break;
+    // Not allowed in ES 3.0.
+    case GL_MAX_ATOMIC_COUNTER_BUFFER_BINDINGS:
+    case GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS:
+    case GL_MAX_VERTEX_ATTRIB_BINDINGS:
+        SET_ERROR_IF(ctx->majorVersion() < 3 ||
+                     (ctx->majorVersion() == 3 &&
+                      ctx->minorVersion() == 0), GL_INVALID_ENUM);
+        ctx->safe_glGetIntegerv(param, ptr);
+        break;
     default:
         if (!ctx->m_state->getClientStateParameter<GLint>(param, ptr)) {
-            ctx->m_glGetIntegerv_enc(self, param, ptr);
+            ctx->safe_glGetIntegerv(param, ptr);
         }
         break;
     }
@@ -671,7 +795,7 @@ void GL2Encoder::s_glGetFloatv(void *self, GLenum param, GLfloat *ptr)
     case GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS:
     case GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS:
     case GL_MAX_TEXTURE_IMAGE_UNITS:
-        ctx->m_glGetFloatv_enc(self, param, ptr);
+        ctx->safe_glGetFloatv(param, ptr);
         *ptr = MIN(*ptr, (GLfloat)GLClientState::MAX_TEXTURE_UNITS);
         break;
 
@@ -684,7 +808,7 @@ void GL2Encoder::s_glGetFloatv(void *self, GLenum param, GLfloat *ptr)
 
     default:
         if (!ctx->m_state->getClientStateParameter<GLfloat>(param, ptr)) {
-            ctx->m_glGetFloatv_enc(self, param, ptr);
+            ctx->safe_glGetFloatv(param, ptr);
         }
         break;
     }
@@ -726,7 +850,7 @@ void GL2Encoder::s_glGetBooleanv(void *self, GLenum param, GLboolean *ptr)
 
     default:
         if (!ctx->m_state->getClientStateParameter<GLboolean>(param, ptr)) {
-            ctx->m_glGetBooleanv_enc(self, param, ptr);
+            ctx->safe_glGetBooleanv(param, ptr);
         }
         *ptr = (*ptr != 0) ? GL_TRUE : GL_FALSE;
         break;
@@ -1313,7 +1437,7 @@ void GL2Encoder::s_glLinkProgram(void * self, GLuint program)
     ctx->m_glLinkProgram_enc(self, program);
 
     GLint linkStatus = 0;
-    ctx->glGetProgramiv(self,program,GL_LINK_STATUS,&linkStatus);
+    ctx->glGetProgramiv(self, program, GL_LINK_STATUS, &linkStatus);
     if (!linkStatus) {
         return;
     }
@@ -2095,9 +2219,16 @@ void GL2Encoder::override2DTextureTarget(GLenum target)
 void GL2Encoder::restore2DTextureTarget(GLenum target)
 {
     if (texture2DNeedsOverride(target)) {
-        m_glBindTexture_enc(this, GL_TEXTURE_2D,
+        GLuint priorityEnabledBoundTexture =
                 m_state->getBoundTexture(
-                    m_state->getPriorityEnabledTarget(GL_TEXTURE_2D)));
+                    m_state->getPriorityEnabledTarget(GL_TEXTURE_2D));
+        GLuint texture2DBoundTexture =
+                m_state->getBoundTexture(GL_TEXTURE_2D);
+        if (!priorityEnabledBoundTexture) {
+            m_glBindTexture_enc(this, GL_TEXTURE_2D, texture2DBoundTexture);
+        } else {
+            m_glBindTexture_enc(this, GL_TEXTURE_2D, priorityEnabledBoundTexture);
+        }
     }
 }
 
@@ -4133,7 +4264,7 @@ void GL2Encoder::s_glGetIntegeri_v(void* self, GLenum target, GLuint index, GLin
         break;
     }
 
-    ctx->m_glGetIntegeri_v_enc(self, target, index, params);
+    ctx->safe_glGetIntegeri_v(target, index, params);
 }
 
 void GL2Encoder::s_glGetInteger64i_v(void* self, GLenum target, GLuint index, GLint64* params) {
@@ -4182,7 +4313,17 @@ void GL2Encoder::s_glGetInteger64i_v(void* self, GLenum target, GLuint index, GL
         break;
     }
 
-    ctx->m_glGetInteger64i_v_enc(self, target, index, params);
+    ctx->safe_glGetInteger64i_v(target, index, params);
+}
+
+void GL2Encoder::s_glGetInteger64v(void* self, GLenum param, GLint64* val) {
+    GL2Encoder *ctx = (GL2Encoder *)self;
+    ctx->safe_glGetInteger64v(param, val);
+}
+
+void GL2Encoder::s_glGetBooleani_v(void* self, GLenum param, GLuint index, GLboolean* val) {
+    GL2Encoder *ctx = (GL2Encoder *)self;
+    ctx->safe_glGetBooleani_v(param, index, val);
 }
 
 void GL2Encoder::s_glGetShaderiv(void* self, GLuint shader, GLenum pname, GLint* params) {
@@ -4253,7 +4394,7 @@ GLuint GL2Encoder::s_glCreateShaderProgramv(void* self, GLenum type, GLsizei cou
     ctx->m_shared->associateGLShaderProgram(res, spDataId);
 
     GLint numUniforms = 0;
-    ctx->glGetProgramiv(ctx, res, GL_ACTIVE_UNIFORMS, &numUniforms);
+    ctx->glGetProgramiv(self, res, GL_ACTIVE_UNIFORMS, &numUniforms);
     ctx->m_shared->initShaderProgramData(res, numUniforms);
 
     GLint maxLength=0;

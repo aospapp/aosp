@@ -121,18 +121,14 @@ public class AlgorithmId implements Serializable, DerEncoder {
         try {
             algParams = AlgorithmParameters.getInstance(algidString);
         } catch (NoSuchAlgorithmException e) {
-            // BEGIN Android-changed
-            // It was searching for the EC parameters in an internal provider in the deleted package
-            // sun.security.ec before setting them to null. Since EC is in the OpenSSL provider,
-            // there's no need for such fallback. Setting it to null directly.
             /*
              * This algorithm parameter type is not supported, so we cannot
              * parse the parameters.
              */
             algParams = null;
             return;
-            // END Android-changed
         }
+
         // Decode (parse) the parameters
         algParams.init(params.toByteArray());
     }
@@ -246,11 +242,13 @@ public class AlgorithmId implements Serializable, DerEncoder {
             }
         }
 
+        // BEGIN Android-added: Update algorithm mapping tables for names when OID is used
         // Try to update the name <-> OID mapping table.
         synchronized (oidTable) {
             reinitializeMappingTableLocked();
             algName = nameTable.get(algid);
         }
+        // END Android-added: Update algorithm mapping tables for names when OID is used
 
         return (algName == null) ? algid.toString() : algName;
     }
@@ -566,6 +564,7 @@ public class AlgorithmId implements Serializable, DerEncoder {
 
         // See if any of the installed providers supply a mapping from
         // the given algorithm name to an OID string
+        // BEGIN Android-changed: Update algorithm mapping tables for names when OID is used
         synchronized (oidTable) {
             reinitializeMappingTableLocked();
             return oidTable.get(name.toUpperCase(Locale.ENGLISH));
@@ -644,17 +643,20 @@ public class AlgorithmId implements Serializable, DerEncoder {
 
             initOidTableVersion = currentVersion;
         }
+    // END Android-changed: Update algorithm mapping tables for names when OID is used
     }
 
     private static ObjectIdentifier oid(int ... values) {
         return ObjectIdentifier.newInternal(values);
     }
 
+    // BEGIN Android-changed: Parsing mapping as OID even if "OID." prefix isn't specified
     private static int initOidTableVersion = -1;
     private static final Map<String,ObjectIdentifier> oidTable =
         new HashMap<String,ObjectIdentifier>(1);
     private static final Map<ObjectIdentifier,String> nameTable =
         new HashMap<ObjectIdentifier,String>();
+    // END Android-changed: Parsing mapping as OID even if "OID." prefix isn't specified
 
     /*****************************************************************/
 
@@ -939,6 +941,8 @@ public class AlgorithmId implements Serializable, DerEncoder {
      */
         sha1WithDSA_oid = ObjectIdentifier.newInternal(dsaWithSHA1_PKIX_data);
 
+        // Android-removed: Parsing mapping as OID even if "OID." prefix isn't specified
+        //nameTable = new HashMap<ObjectIdentifier,String>();
         nameTable.put(MD5_oid, "MD5");
         nameTable.put(MD2_oid, "MD2");
         nameTable.put(SHA_oid, "SHA-1");

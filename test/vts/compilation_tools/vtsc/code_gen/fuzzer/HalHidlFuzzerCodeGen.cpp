@@ -31,13 +31,8 @@ namespace vts {
 void HalHidlFuzzerCodeGen::GenerateSourceIncludeFiles(Formatter &out) {
   out << "#include <iostream>\n\n";
   out << "#include \"FuncFuzzerUtils.h\"\n";
-
-  string package_path = comp_spec_.package();
-  ReplaceSubString(package_path, ".", "/");
-  string comp_version = GetVersionString(comp_spec_.component_type_version());
-  string comp_name = comp_spec_.component_name();
-
-  out << "#include <" << package_path << "/" << comp_version << "/" << comp_name
+  out << "#include <" << GetPackagePath(comp_spec_) << "/"
+      << GetVersion(comp_spec_) << "/" << GetComponentName(comp_spec_)
       << ".h>\n";
   out << "\n";
 }
@@ -49,8 +44,7 @@ void HalHidlFuzzerCodeGen::GenerateUsingDeclaration(Formatter &out) {
 
   string package_path = comp_spec_.package();
   ReplaceSubString(package_path, ".", "::");
-  string comp_version =
-      GetVersionString(comp_spec_.component_type_version(), true);
+  string comp_version = GetVersion(comp_spec_, true);
 
   out << "using namespace ::" << package_path << "::" << comp_version << ";\n";
   out << "using namespace ::android::hardware;\n";

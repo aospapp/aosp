@@ -19,7 +19,7 @@
     <string name="settings_app_name" msgid="4243616485579754401">"Setări"</string>
     <string name="launcher_settings_app_name" msgid="5782771766725939392">"Setări"</string>
     <string name="launcher_network_app_name" msgid="5107150533945388559">"Rețea"</string>
-    <string name="launcher_restricted_profile_app_name" msgid="671448012575234643">"Profil cu permisiuni limitate"</string>
+    <string name="launcher_restricted_profile_app_name" msgid="671448012575234643">"Profil cu acces limitat"</string>
     <string name="header_category_device" msgid="4855983928659541345">"Dispozitiv"</string>
     <string name="header_category_preferences" msgid="175105555164713972">"Preferințe"</string>
     <string name="header_category_accessories" msgid="823295909353025991">"Telecomandă și accesorii"</string>
@@ -54,7 +54,7 @@
     <string name="device_apps" msgid="9180435229638772838">"Aplicații"</string>
     <string name="device_storage_reset" msgid="1425978936501134425">"Stocare și resetare"</string>
     <string name="device_backup_restore" msgid="5627523987587511884">"Creați și restabiliți backupuri"</string>
-    <string name="device_reset" msgid="2827002349560023125">"Resetarea configurării din fabrică"</string>
+    <string name="device_reset" msgid="2827002349560023125">"Revenire la setările din fabrică"</string>
     <string name="device_calibration" msgid="8632962533376605191">"Calibrare"</string>
     <string name="device_storage_clear_cache_title" msgid="3365635664766067643">"Ștergeți datele memorate în cache?"</string>
     <string name="device_storage_clear_cache_message" msgid="6495570470005696210">"Datele din cache ale aplicațiilor vor fi șterse."</string>
@@ -68,7 +68,7 @@
     <string name="accessory_state_canceled" msgid="4419328837733619447">"Anulată"</string>
     <string name="accessory_state_paired" msgid="1959238931866401476">"Împerecheat"</string>
     <string name="accessory_options" msgid="4799658564005710297">"Accesoriu"</string>
-    <string name="accessory_unpair" msgid="8242725516604465355">"Anulați împerecherea"</string>
+    <string name="accessory_unpair" msgid="8242725516604465355">"Anulați asocierea"</string>
     <string name="accessory_battery" msgid="7021788232835772126">"Baterie <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"Se anulează împerecherea dispozitivului…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Conectat"</string>
@@ -151,7 +151,7 @@
     <string name="terms_title" msgid="8480859222932736291">"Termeni și condiții"</string>
     <string name="webview_license_title" msgid="8843666223583780825">"Licență de sistem pentru WebView"</string>
     <string name="wallpaper_attributions" msgid="8622098625739634898">"Imagini de fundal"</string>
-    <string name="wallpaper_attributions_values" msgid="1565931506291182879">"Furnizorii de imagini din satelit:\n©2014 CNES/Astrium, DigitalGlobe, Bluesky"</string>
+    <string name="wallpaper_attributions_values" msgid="1565931506291182879">"Furnizori de imagini din satelit:\n©2014 CNES/Astrium, DigitalGlobe, Bluesky"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="6926038943588801452">"Slab"</item>
     <item msgid="5986166866411161790">"Acceptabil"</item>
@@ -167,7 +167,7 @@
     <string name="not_connected" msgid="6858480380326923017">"Neconectat"</string>
     <string name="wifi_setting_header_other_options" msgid="3638677601577777216">"Alte opțiuni"</string>
     <string name="wifi_setting_see_all" msgid="3217814666041974878">"Afișați tot"</string>
-    <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"Vedeți mai puține"</string>
+    <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"Afișați mai puține"</string>
     <string name="wifi_setting_available_networks" msgid="6713791371350513043">"Rețele disponibile"</string>
     <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"Conectați-vă prin WPS"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"Adăugați o rețea nouă"</string>
@@ -250,7 +250,7 @@
     <string name="storage_dcim_usage" msgid="2977564696540645452">"Fotografii și videoclipuri"</string>
     <string name="storage_music_usage" msgid="3509327591741514083">"Audio"</string>
     <string name="storage_media_misc_usage" msgid="6066868724030127457">"Diverse"</string>
-    <string name="storage_media_cache_usage" msgid="5906737163212649904">"Datele memorate în cache"</string>
+    <string name="storage_media_cache_usage" msgid="5906737163212649904">"Date salvate în memoria cache"</string>
     <string name="storage_eject" msgid="113476702798691558">"Scoateți"</string>
     <string name="storage_format" msgid="3759273736493279595">"Ștergeți și formatați"</string>
     <string name="storage_format_as_private" msgid="4169495230765116075">"Ștergeți și formatați ca stocare pe dispozitiv"</string>
@@ -357,7 +357,7 @@
     <string name="location_status" msgid="3456414279428237558">"Starea locației"</string>
     <string name="location_services" msgid="5441085185119797200">"Servicii de localizare"</string>
     <string name="on" msgid="6683600681314500652">"Activate"</string>
-    <string name="off" msgid="5264189545064767245">"Dezactivate"</string>
+    <string name="off" msgid="5264189545064767245">"Dezactivată"</string>
     <string name="google_location_services_title" msgid="3382840371861269146">"Servicii de localizare Google"</string>
     <string name="third_party_location_services_title" msgid="4089136801976399147">"Servicii de localizare terță parte"</string>
     <string name="location_reporting" msgid="3054236612250063073">"Raportarea locației"</string>
@@ -369,6 +369,10 @@
     <string name="system_services" msgid="7230571820151215779">"Servicii"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Setări serviciu"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Text cu contrast mare"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Comandă rapidă pentru accesibilitate"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Activați comanda rapidă pentru accesibilitate"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Serviciul comenzii rapide"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Când comanda rapidă este activată, dacă apăsați ambele butoane înapoi și în jos timp de 3 secunde, veți lansa o funcție de accesibilitate."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Subtitrări"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Setări pentru suprapunerea textului subtitrării pe videoclip"</string>
     <string name="captions_display" msgid="735692527287125548">"Afișare"</string>
@@ -565,16 +569,16 @@
       <item quantity="one">Intrare neconectată</item>
     </plurals>
     <string name="user_add_profile_item_summary" msgid="2946168478936086933">"Restricționați accesul la aplicații și la alte tipuri de conținut din contul dvs."</string>
-    <string name="user_new_profile_name" msgid="336521054830056189">"Profil cu permisiuni limitate"</string>
+    <string name="user_new_profile_name" msgid="336521054830056189">"Profil cu acces limitat"</string>
     <string name="user_restrictions_controlled_by" msgid="2107349341393761750">"Controlate de <xliff:g id="APP">%1$s</xliff:g>"</string>
-    <string name="app_not_supported_in_limited" msgid="6818309827329010677">"Această aplicație nu este acceptată pentru profilurile cu permisiuni limitate"</string>
+    <string name="app_not_supported_in_limited" msgid="6818309827329010677">"Această aplicație nu este acceptată pentru profilurile cu acces limitat"</string>
     <string name="app_sees_restricted_accounts" msgid="1967195038085624916">"Această aplicație poate accesa conturile dvs."</string>
     <string name="restriction_location_enable_title" msgid="2575116135395354938">"Locație"</string>
     <string name="restriction_location_enable_summary" msgid="4195349388342385870">"Permiteți aplicațiilor să utilizeze informațiile privind locația dvs."</string>
-    <string name="restricted_profile_switch_to" msgid="1926433350907032138">"Intrați în profilul restricționat"</string>
-    <string name="restricted_profile_switch_out" msgid="1893784095623209495">"Ieșiți din profilul restricționat"</string>
-    <string name="restricted_profile_delete_title" msgid="3445944923018324707">"Ștergeți profilul restricționat"</string>
-    <string name="restricted_profile_create_title" msgid="1392190365829029390">"Creați un profil cu permisiuni limitate"</string>
+    <string name="restricted_profile_switch_to" msgid="1926433350907032138">"Intrați în profilul cu acces limitat"</string>
+    <string name="restricted_profile_switch_out" msgid="1893784095623209495">"Ieșiți din profilul cu acces limitat"</string>
+    <string name="restricted_profile_delete_title" msgid="3445944923018324707">"Ștergeți profilul cu acces limitat"</string>
+    <string name="restricted_profile_create_title" msgid="1392190365829029390">"Creați un profil cu acces limitat"</string>
     <string name="restricted_profile_configure_title" msgid="4684188123147519620">"Setări"</string>
     <string name="restricted_profile_configure_apps_title" msgid="11507255932348492">"Aplicații permise"</string>
     <plurals name="restricted_profile_configure_apps_description" formatted="false" msgid="1138147479259808487">
@@ -630,10 +634,10 @@
     <string name="device_daydreams_none" msgid="2767107052779579259">"Dezactivați ecranul"</string>
     <string name="device_daydreams_select" msgid="2112338101206187695">"Economizor de ecran"</string>
     <string name="device_daydreams_test" msgid="9038920213402659591">"Începeți acum"</string>
-    <string name="device_daydreams_sleep" msgid="7676938708373592766">"Când să înceapă"</string>
+    <string name="device_daydreams_sleep" msgid="7676938708373592766">"Când pornește"</string>
     <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"Economizorul de ecran începe după această perioadă de inactivitate. Dacă nu este selectat niciun economizor de ecran, ecranul se va dezactiva."</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"După <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> de inactivitate"</string>
-    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Dispozitivul trece în inactivitate"</string>
+    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Dispozitivul devine inactiv"</string>
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"Ecranul se dezactivează după perioada de inactivitate indicată."</string>
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"În prezent, niciun cont nu stochează backupuri pentru date"</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
@@ -646,7 +650,7 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Ștergeți toate informațiile personale și aplicațiile descărcate? Nu puteți anula această acțiune!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Ștergeți tot"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"Alegeți un nume pentru <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
-    <string name="select_device_name_description" msgid="6890879006777364213">"Denumiți dispozitivul <xliff:g id="DEVICEMODEL">%1$s</xliff:g> pentru a-l identifica mai ușor când îl proiectați sau când vă conectați la el de pe alte dispozitive."</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"Denumiți dispozitivul <xliff:g id="DEVICEMODEL">%1$s</xliff:g> pentru a-l identifica mai ușor când proiectați conținut sau când vă conectați la el de pe alte dispozitive."</string>
   <string-array name="rooms">
     <item msgid="9056203990862307284">"Android TV"</item>
     <item msgid="7449352861592960712">"Televizor în camera de zi"</item>
@@ -671,4 +675,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Se generează raportul de erori"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Tastaturi virtuale disponibile"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Gestionați tastaturile"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Permis"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Nepermis"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Acces la datele de utilizare"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Accesul la datele de utilizare permite unei aplicații să înregistreze ce alte aplicații folosiți și cât de des le folosiți, precum și operatorul, setările de limbă și alte detalii."</string>
 </resources>

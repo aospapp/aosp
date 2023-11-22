@@ -65,6 +65,8 @@ public class StubProvider extends DocumentsProvider {
     public static final String EXTRA_STREAM_TYPES
             = "com.android.documentsui.stubprovider.STREAM_TYPES";
     public static final String EXTRA_CONTENT = "com.android.documentsui.stubprovider.CONTENT";
+    public static final String EXTRA_ENABLE_ROOT_NOTIFICATION
+            = "com.android.documentsui.stubprovider.ROOT_NOTIFICATION";
 
     public static final String EXTRA_FLAGS = "com.android.documentsui.stubprovider.FLAGS";
     public static final String EXTRA_PARENT_ID = "com.android.documentsui.stubprovider.PARENT";
@@ -91,6 +93,7 @@ public class StubProvider extends DocumentsProvider {
     private SharedPreferences mPrefs;
     private Set<String> mSimulateReadErrorIds = new HashSet<>();
     private long mLoadingDuration = 0;
+    private boolean mRootNotification = true;
 
     @Override
     public void attachInfo(Context context, ProviderInfo info) {
@@ -630,16 +633,19 @@ public class StubProvider extends DocumentsProvider {
     private void configure(String arg, Bundle extras) {
         Log.d(TAG, "Configure " + arg);
         String rootName = extras.getString(EXTRA_ROOT, ROOT_0_ID);
-        long rootSize = extras.getLong(EXTRA_SIZE, 1) * 1024 * 1024;
+        long rootSize = extras.getLong(EXTRA_SIZE, 100) * 1024 * 1024;
         setSize(rootName, rootSize);
+        mRootNotification = extras.getBoolean(EXTRA_ENABLE_ROOT_NOTIFICATION, true);
     }
 
     private void notifyParentChanged(String parentId) {
         getContext().getContentResolver().notifyChange(
                 DocumentsContract.buildChildDocumentsUri(mAuthority, parentId), null, false);
-        // Notify also about possible change in remaining space on the root.
-        getContext().getContentResolver().notifyChange(DocumentsContract.buildRootsUri(mAuthority),
-                null, false);
+        if (mRootNotification) {
+            // Notify also about possible change in remaining space on the root.
+            getContext().getContentResolver().notifyChange(
+                    DocumentsContract.buildRootsUri(mAuthority), null, false);
+        }
     }
 
     private void includeDocument(MatrixCursor result, StubDocument document) {

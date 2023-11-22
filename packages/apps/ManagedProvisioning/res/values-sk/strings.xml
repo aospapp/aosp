@@ -27,12 +27,12 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"Nasledujúca aplikácia bude potrebovať prístup k tomuto profilu:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Vaše zariadenie bude spravovať nasledujúca aplikácia:"</string>
     <string name="next" msgid="1004321437324424398">"Ďalej"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"Nastavuje sa pracovný profil…"</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"Nastavuje sa pracovný profil…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"Správca môže sledovať a spravovať nastavenia, firemný prístup, aplikácie, povolenia a dáta priradené k tomuto profilu vrátane aktivity v sieti a informácií o polohe zariadenia, histórii hovorov a histórii vyhľadávania kontaktov.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Ďalšie informácie (vrátane pravidiel ochrany súkromia vašej organizácie) získate od správcu."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"Správca môže sledovať a spravovať nastavenia, firemný prístup, aplikácie, povolenia a dáta priradené k tomuto zariadeniu vrátane aktivity v sieti a informácií o polohe zariadenia, histórii hovorov a histórii vyhľadávania kontaktov.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Ďalšie informácie (vrátane pravidiel ochrany súkromia vašej organizácie) získate od správcu."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"Správca môže sledovať a spravovať nastavenia, firemný prístup, aplikácie, povolenia a dáta priradené k tomuto zariadeniu vrátane aktivity v sieti a informácií o polohe zariadenia, histórie hovorov a histórie vyhľadávania kontaktov.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Ďalšie informácie (vrátane pravidiel ochrany súkromia vašej organizácie) získate od správcu."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Ak chcete používať funkcie ochrany proti krádeži, musíte mať na zariadení zámku obrazovky chránenú heslom."</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Ďalšie informácie (vrátane pravidiel ochrany súkromia vašej organizácie) vám poskytne správca."</string>
-    <string name="learn_more_link" msgid="3012495805919550043">"Viac informácií"</string>
+    <string name="learn_more_link" msgid="3012495805919550043">"Ďalšie informácie"</string>
     <string name="cancel_setup" msgid="2949928239276274745">"Zrušiť"</string>
     <string name="ok_setup" msgid="4593707675416137504">"OK"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"Súhlasím"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Pracovný profil"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"Hlavný používateľ"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Odstrániť existujúci profil?"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"Už máte pracovný profil, ktorý je spravovaný nasledujúcou aplikáciou:"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Už máte pracovný profil. Je spravovaný nasledujúcou aplikáciou:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Skôr ako budete pokračovať, "<a href="#read_this_link">"prečítajte si tieto informácie"</a>"."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Ak budete pokračovať, všetky aplikácie a údaje v tomto profile sa odstránia."</string>
     <string name="delete_profile" msgid="2299218578684663459">"Odstrániť"</string>
@@ -56,19 +56,17 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"Klepnutím pokračujte v nastavení pracovného profilu"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Nastavenie pracovného profilu sa nepodarilo. Kontaktujte oddelenie IT alebo to skúste znova neskôr."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Pracovný profil sa nedá pridať"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"Tento používateľ nemôže mať pracovný profil. Kontaktujte správcu a požiadajte ho o pomoc."</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"Tento používateľ nemôže mať pracovný profil. Kontaktujte správcu."</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"Pracovné profily nie je možné nastaviť na spravovanom zariadení"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"Toto zariadenie má zrejme príliš veľa používateľov. Odstráňte niektorého z nich a skúste to znova."</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Pracovný profil nie je možné nahradiť ani odstrániť"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"Do tohto zariadenia nie je možné pridať pracovný profil. V prípade otázok kontaktujte správcu."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Zmeňte spúšťač zariadenia"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Váš pracovný profil nemôže používať túto aplikáciu spúšťača"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Zrušiť"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"OK"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Nastavenie používateľa nebolo dokončené"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Používateľ pracovného zariadenia"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"Nastavenie pracovného zariadenia"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"Nastavuje sa pracovné zariadenie…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Spracovávajú sa údaje nastavenia…"</string>
-    <string name="progress_connect_to_wifi" msgid="472251154628863539">"Pripája sa k sieti Wi-Fi…"</string>
+    <string name="progress_connect_to_wifi" msgid="472251154628863539">"Pripája sa k sieti Wi‑Fi…"</string>
     <string name="progress_download" msgid="3522436271691064624">"Sťahuje sa aplikácia na správu…"</string>
     <string name="progress_install" msgid="2258045670385866183">"Inštaluje sa aplikácia na správu…"</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"Odstraňujú sa nepotrebné systémové aplikácie…"</string>
@@ -87,7 +85,7 @@
     <string name="couldnt_set_up_device" msgid="60699158233724802">"Zariadenie sa nepodarilo nastaviť. Kontaktujte správcu a požiadajte ho o pomoc."</string>
     <string name="contact_your_admin_for_help" msgid="8045606258802719235">"Kontaktujte správcu a požiadajte ho o pomoc"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"Zariadenie je už nastavené"</string>
-    <string name="device_owner_error_wifi" msgid="4256310285761332378">"Nepodarilo sa pripojiť k sieti Wi-Fi"</string>
+    <string name="device_owner_error_wifi" msgid="4256310285761332378">"Nepodarilo sa pripojiť k sieti Wi‑Fi"</string>
     <string name="device_has_reset_protection_contact_admin" msgid="1221351721899290155">"Na zariadení je zapnutá ochrana proti obnoveniu. Kontaktujte správcu a požiadajte ho o pomoc."</string>
     <string name="frp_clear_progress_title" msgid="8628074089458234965">"Prebieha vymazávanie"</string>
     <string name="frp_clear_progress_text" msgid="1740164332830598827">"Čakajte..."</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"Zrušiť"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"Obnoviť zariadenie"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> a <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> a <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> a <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

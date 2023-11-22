@@ -6,6 +6,7 @@
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.bin import utils
+from autotest_lib.client.common_lib import error
 
 
 class firmware_TouchMTB(test.test):
@@ -13,4 +14,4 @@ class firmware_TouchMTB(test.test):
     version = 1
 
     def run_once(self):
-        utils.assert_has_X_server()
+        raise error.TestFail('Test is obsolete.')

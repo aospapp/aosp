@@ -8,8 +8,8 @@
 #ifndef GrGpuResource_DEFINED
 #define GrGpuResource_DEFINED
 
+#include "../private/GrTypesPriv.h"
 #include "GrResourceKey.h"
-#include "GrTypesPriv.h"
 
 class GrContext;
 class GrGpu;
@@ -259,11 +259,6 @@ protected:
     // should be called once the object is fully initialized (i.e. only from the constructors of the
     // final class).
     void registerWithCacheWrapped();
-
-    // This is only called by resources that are being exported from Ganesh to client code. It
-    // ensures that the cache can no longer reach this resource, and that it no longer counts
-    // against the budget.
-    void detachFromCache();
 
     GrGpuResource(GrGpu*);
     virtual ~GrGpuResource();

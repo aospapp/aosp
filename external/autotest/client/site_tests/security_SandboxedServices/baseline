@@ -1,60 +1,57 @@
-exe,euser,egroup,pidns,caps,filter
+exe,euser,egroup,pidns,caps,nonewprivs,filter
 
 # Since udev creates device nodes and changes owners/perms, it needs to run as
 # root.  TODO: We should namespace it.
-udevd,root,root,No,No,No
+udevd,root,root,No,No,No,No
 
 # Frecon needs to run as root and in the original namespace because it might
 # launch new shells via login.  Would be nice if it integrated things.
-frecon,root,root,No,No,No
+frecon,root,root,No,No,No,No
 
-session_manager,root,root,No,No,No
-rsyslogd,syslog,syslog,No,No,No
-dbus-daemon,messagebus,messagebus,No,No,No
-wpa_supplicant,wpa,wpa,No,No,No
-shill,root,root,No,No,No
-X,xorg,xorg,No,No,No
-chapsd,chaps,chronos-access,No,No,No
-cryptohomed,root,root,No,No,No
-powerd,power,power,No,No,No
-ModemManager,modem,modem,No,No,No
-dhcpcd,dhcp,dhcp,No,No,No
-metrics_daemon,root,root,No,No,No
-disks,root,root,No,No,No
-update_engine,root,root,No,No,No
-bluetoothd,bluetooth,bluetooth,No,Yes,No
-debugd,root,root,No,No,No
-cras,cras,cras,No,No,No
-tcsd,tss,root,No,No,No
-cromo,cromo,cromo,No,No,No
-wimax-manager,root,root,No,No,No
-mtpd,mtp,mtp,No,No,Yes
-tlsdated,tlsdate,tlsdate,No,No,No
-lid_touchpad_he,root,root,No,No,No
-thermal.sh,root,root,No,No,No
-daisydog,watchdog,watchdog,No,No,No
-permission_brok,devbroker,root,No,Yes,No
-netfilter-queue,nfqueue,nfqueue,No,Yes,Yes
-warn_collector,root,root,No,No,No
-tlsdated-setter,root,root,No,No,No
-attestationd,attestation,attestation,No,No,No
-periodic_schedu,root,root,No,No,No
-esif_ufd,root,root,No,No,No
-easy_unlock,easy-unlock,easy-unlock,No,No,No
-sslh-fork,sslh,sslh,Yes,No,No
-arc-networkd,root,root,Yes,No,No
-arc-obb-mounter,root,root,Yes,No,No
-upstart-socket-,root,root,No,No,No
-timberslide,root,root,No,No,No
-
-# We need to run as root due to caps not preserving across execs.
-# firewalld will fork+exec iptables to handle requests, and it
-# takes care of dropping root/caps for those commands.
-# TODO: We can fix this when minijail supports ambient caps.  http://b/32066154
-firewalld,root,root,No,No,No
+session_manager,root,root,No,No,No,No
+rsyslogd,syslog,syslog,No,Yes,No,No
+dbus-daemon,messagebus,messagebus,No,Yes,No,No
+wpa_supplicant,wpa,wpa,No,Yes,Yes,No
+shill,root,root,No,No,No,No
+chapsd,chaps,chronos-access,No,Yes,Yes,No
+cryptohomed,root,root,No,No,No,No
+powerd,power,power,No,Yes,No,No
+ModemManager,modem,modem,No,Yes,Yes,No
+dhcpcd,dhcp,dhcp,No,Yes,No,No
+metrics_daemon,root,root,No,No,No,No
+disks,root,root,No,No,No,No
+update_engine,root,root,No,No,No,No
+bluetoothd,bluetooth,bluetooth,No,Yes,Yes,No
+debugd,root,root,No,No,No,No
+cras,cras,cras,No,Yes,Yes,No
+tcsd,tss,root,No,Yes,No,No
+cromo,cromo,cromo,No,No,No,No
+wimax-manager,root,root,No,No,No,No
+mtpd,mtp,mtp,No,Yes,Yes,Yes
+tlsdated,tlsdate,tlsdate,No,Yes,No,No
+tlsdated-setter,root,root,No,No,Yes,Yes
+lid_touchpad_he,root,root,No,No,No,No
+thermal.sh,root,root,No,No,No,No
+daisydog,watchdog,watchdog,Yes,Yes,Yes,No
+permission_brok,devbroker,root,No,Yes,Yes,No
+netfilter-queue,nfqueue,nfqueue,No,Yes,No,Yes
+anomaly_collect,root,root,No,No,No,No
+attestationd,attestation,attestation,No,No,No,No
+periodic_schedu,root,root,No,No,No,No
+esif_ufd,root,root,No,No,No,No
+easy_unlock,easy-unlock,easy-unlock,No,No,No,No
+sslh-fork,sslh,sslh,Yes,Yes,No,Yes
+arc_camera_serv,arc-camera,arc-camera,No,Yes,No,No
+arc-networkd,root,root,Yes,No,No,No
+arc-obb-mounter,root,root,Yes,No,No,No
+upstart-socket-,root,root,No,No,No,No
+timberslide,root,root,No,No,No,No
+firewalld,firewall,firewall,Yes,Yes,Yes,No
+conntrackd,nfqueue,nfqueue,No,Yes,Yes,Yes
+avahi-daemon,avahi,avahi,No,Yes,No,No
 
 # Broadcomm bluetooth firmware patch downloader runs on some veyron boards.
-brcm_patchram_p,root,root,No,No,No
+brcm_patchram_p,root,root,No,No,No,No
 
 # tpm_manager runs on all TPM2 boards, such as reef.
-tpm_managerd,root,root,No,No,No
+tpm_managerd,root,root,No,No,No,No

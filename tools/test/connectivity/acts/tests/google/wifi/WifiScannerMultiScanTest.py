@@ -267,6 +267,11 @@ class WifiScannerMultiScanTest(WifiBaseTest):
             self.max_bugreports -= 1
         self.dut.cat_adb_log(test_name, begin_time)
 
+    def teardown_class(self):
+        if "AccessPoint" in self.user_params:
+            del self.user_params["reference_networks"]
+            del self.user_params["open_network"]
+
     """ Helper Functions Begin """
 
     def start_scan(self, scan_setting):

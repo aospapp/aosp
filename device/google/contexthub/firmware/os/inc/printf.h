@@ -25,9 +25,12 @@ extern "C" {
 #include <stdint.h>
 #include <stdarg.h>
 
-typedef bool (*printf_write_c)(void* userData, char c);		//callback can return false anytime to abort  printing immediately
+#define PRINTF_FLAG_CHRE            0x00000001
+#define PRINTF_FLAG_SHORT_DOUBLE    0x00000002
 
-uint32_t cvprintf(printf_write_c writeF, void* writeD, const char* fmtStr, va_list vl);
+typedef bool (*printf_write_c)(void* userData, char c);		//callback can return false anytime to abort printing immediately
+
+uint32_t cvprintf(printf_write_c writeF, uint32_t flags, void* writeD, const char* fmtStr, va_list vl);
 
 #ifdef __cplusplus
 }

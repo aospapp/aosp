@@ -59,16 +59,17 @@ def in_context(context_name):
     return wrap
 
 
-class _Property(object):
-    def __init__(self, func):
-        self._func = func
+class _CachedProperty(object):
 
-    def __get__(self, obj, type=None):
-        if not hasattr(obj, '_property_cache'):
-            obj._property_cache = {}
-        if self._func not in obj._property_cache:
-            obj._property_cache[self._func] = self._func(obj)
-        return obj._property_cache[self._func]
+
+    def __init__(self, func, name=None):
+        self._func = func
+        self._name = name if name is not None else func.__name__
+
+    def __get__(self, instance, owner):
+        value = self._func(instance)
+        setattr(instance, self._name, value)
+        return value
 
 
 def cached_property(func):
@@ -80,7 +81,7 @@ def cached_property(func):
     @param func: The function to calculate the property value.
     @returns: An object that abides by the descriptor protocol.
     """
-    return _Property(func)
+    return _CachedProperty(func)
 
 
 def test_module_available(module, raise_error=False):

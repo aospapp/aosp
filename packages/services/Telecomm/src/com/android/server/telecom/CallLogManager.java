@@ -21,7 +21,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.location.Country;
 import android.location.CountryDetector;
-import android.location.CountryListener;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Looper;
@@ -146,13 +145,17 @@ public final class CallLogManager extends CallsManagerListenerBase {
         // 2) It is a conference call
         // 3) Call was not explicitly canceled
         // 4) Call is not an external call
-        // 5) Call is not a self-managed call
+        // 5) Call is not a self-managed call OR call is a self-managed call which has indicated it
+        //    should be logged in its PhoneAccount
         if (isNewlyDisconnected &&
                 (oldState != CallState.SELECT_PHONE_ACCOUNT &&
-                 !call.isConference() &&
-                 !isCallCanceled) &&
+                        !call.isConference() &&
+                        !isCallCanceled) &&
                 !call.isExternalCall() &&
-                !call.isSelfManaged()) {
+                (!call.isSelfManaged() ||
+                        (call.isLoggedSelfManaged() &&
+                                (call.getHandoverState() == HandoverState.HANDOVER_NONE ||
+                                call.getHandoverState() == HandoverState.HANDOVER_COMPLETE)))) {
             int type;
             if (!call.isIncoming()) {
                 type = Calls.OUTGOING_TYPE;
@@ -165,7 +168,10 @@ public final class CallLogManager extends CallsManagerListenerBase {
             } else {
                 type = Calls.INCOMING_TYPE;
             }
-            logCall(call, type, true /*showNotificationForMissedCall*/);
+            // Always show the notification for managed calls. For self-managed calls, it is up to
+            // the app to show the notification, so suppress the notification when logging the call.
+            boolean showNotification = !call.isSelfManaged();
+            logCall(call, type, showNotification);
         }
     }
 

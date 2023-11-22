@@ -32,6 +32,7 @@
 #include <netinet/in.h>
 #include <linux/if.h>
 #include <linux/if_tun.h>
+#include <openssl/base64.h>
 
 #include <android-base/macros.h>
 #include <android-base/stringprintf.h>
@@ -48,11 +49,15 @@
 #include "android/net/UidRange.h"
 #include "binder/IServiceManager.h"
 
+#define IP_PATH "/system/bin/ip"
+#define IP6TABLES_PATH "/system/bin/ip6tables"
+#define IPTABLES_PATH "/system/bin/iptables"
 #define TUN_DEV "/dev/tun"
 
 using namespace android;
 using namespace android::base;
 using namespace android::binder;
+using android::base::StartsWith;
 using android::net::INetd;
 using android::net::TunInterface;
 using android::net::UidRange;
@@ -208,13 +213,29 @@ static int bandwidthDataSaverEnabled(const char *binary) {
     // Chain bw_data_saver (1 references)
     // target     prot opt source               destination
     // RETURN     all  --  0.0.0.0/0            0.0.0.0/0
-    EXPECT_EQ(3U, lines.size());
-    if (lines.size() != 3) return -1;
+    //
+    // or:
+    //
+    // Chain bw_data_saver (1 references)
+    // target     prot opt source               destination
+    // ... possibly connectivity critical packet rules here ...
+    // REJECT     all  --  ::/0            ::/0
 
-    EXPECT_TRUE(android::base::StartsWith(lines[2], "RETURN ") ||
-                android::base::StartsWith(lines[2], "REJECT "));
+    EXPECT_GE(lines.size(), 3U);
 
-    return android::base::StartsWith(lines[2], "REJECT");
+    if (lines.size() == 3 && StartsWith(lines[2], "RETURN ")) {
+        // Data saver disabled.
+        return 0;
+    }
+
+    size_t minSize = (std::string(binary) == IPTABLES_PATH) ? 3 : 9;
+
+    if (lines.size() >= minSize && StartsWith(lines[lines.size() -1], "REJECT ")) {
+        // Data saver enabled.
+        return 1;
+    }
+
+    return -1;
 }
 
 bool enableDataSaver(sp<INetd>& netd, bool enable) {
@@ -603,5 +624,92 @@ TEST_F(BinderTest, TestSetProcSysNet) {
             EXPECT_EQ(binder::Status::EX_SERVICE_SPECIFIC, status.exceptionCode());
             EXPECT_EQ(td.expectedReturnCode, status.serviceSpecificErrorCode());
         }
+    }
+}
+
+static std::string base64Encode(const std::vector<uint8_t>& input) {
+    size_t out_len;
+    EXPECT_EQ(1, EVP_EncodedLength(&out_len, input.size()));
+    // out_len includes the trailing NULL.
+    uint8_t output_bytes[out_len];
+    EXPECT_EQ(out_len - 1, EVP_EncodeBlock(output_bytes, input.data(), input.size()));
+    return std::string(reinterpret_cast<char*>(output_bytes));
+}
+
+TEST_F(BinderTest, TestAddPrivateDnsServer) {
+    std::vector<uint8_t> fp(SHA256_SIZE);
+    static const struct TestData {
+        const std::string address;
+        const int port;
+        const std::string fingerprintAlgorithm;
+        const std::set<std::vector<uint8_t>> fingerprints;
+        const int expectedReturnCode;
+    } kTestData[] = {
+        { "192.0.2.1", 853, "", {}, INetd::PRIVATE_DNS_SUCCESS },
+        { "2001:db8::2", 65535, "", {}, INetd::PRIVATE_DNS_SUCCESS },
+        { "192.0.2.3", 443, "SHA-256", { fp }, INetd::PRIVATE_DNS_SUCCESS },
+        { "2001:db8::4", 1, "SHA-256", { fp }, INetd::PRIVATE_DNS_SUCCESS },
+        { "192.0.*.5", 853, "", {}, INetd::PRIVATE_DNS_BAD_ADDRESS },
+        { "", 853, "", {}, INetd::PRIVATE_DNS_BAD_ADDRESS },
+        { "2001:dg8::6", 65535, "", {}, INetd::PRIVATE_DNS_BAD_ADDRESS },
+        { "192.0.2.7", 0, "SHA-256", { fp }, INetd::PRIVATE_DNS_BAD_PORT },
+        { "2001:db8::8", 65536, "", {}, INetd::PRIVATE_DNS_BAD_PORT },
+        { "192.0.2.9", 50053, "SHA-512", { fp }, INetd::PRIVATE_DNS_UNKNOWN_ALGORITHM },
+        { "2001:db8::a", 853, "", { fp }, INetd::PRIVATE_DNS_BAD_FINGERPRINT },
+        { "192.0.2.11", 853, "SHA-256", {}, INetd::PRIVATE_DNS_BAD_FINGERPRINT },
+        { "2001:db8::c", 853, "SHA-256", { { 1 } }, INetd::PRIVATE_DNS_BAD_FINGERPRINT },
+        { "192.0.2.12", 853, "SHA-256", { std::vector<uint8_t>(SHA256_SIZE + 1) },
+                INetd::PRIVATE_DNS_BAD_FINGERPRINT },
+        { "2001:db8::e", 1, "SHA-256", { fp, fp, fp }, INetd::PRIVATE_DNS_SUCCESS },
+        { "192.0.2.14", 853, "SHA-256", { fp, { 1 } }, INetd::PRIVATE_DNS_BAD_FINGERPRINT },
+    };
+
+    for (unsigned int i = 0; i < arraysize(kTestData); i++) {
+        const auto &td = kTestData[i];
+
+        std::vector<std::string> fingerprints;
+        for (const std::vector<uint8_t>& fingerprint : td.fingerprints) {
+            fingerprints.push_back(base64Encode(fingerprint));
+        }
+        const binder::Status status = mNetd->addPrivateDnsServer(
+                td.address, td.port, td.fingerprintAlgorithm, fingerprints);
+
+        if (td.expectedReturnCode == INetd::PRIVATE_DNS_SUCCESS) {
+            SCOPED_TRACE(String8::format("test case %d should have passed", i));
+            SCOPED_TRACE(status.toString8());
+            EXPECT_EQ(0, status.exceptionCode());
+        } else {
+            SCOPED_TRACE(String8::format("test case %d should have failed", i));
+            EXPECT_EQ(binder::Status::EX_SERVICE_SPECIFIC, status.exceptionCode());
+        }
+        EXPECT_EQ(td.expectedReturnCode, status.serviceSpecificErrorCode());
+    }
+}
+
+TEST_F(BinderTest, TestRemovePrivateDnsServer) {
+    static const struct TestData {
+        const std::string address;
+        const int expectedReturnCode;
+    } kTestData[] = {
+        { "192.0.2.1", INetd::PRIVATE_DNS_SUCCESS },
+        { "2001:db8::2", INetd::PRIVATE_DNS_SUCCESS },
+        { "192.0.*.3", INetd::PRIVATE_DNS_BAD_ADDRESS },
+        { "2001:dg8::4", INetd::PRIVATE_DNS_BAD_ADDRESS },
+        { "", INetd::PRIVATE_DNS_BAD_ADDRESS },
+    };
+
+    for (unsigned int i = 0; i < arraysize(kTestData); i++) {
+        const auto &td = kTestData[i];
+
+        const binder::Status status = mNetd->removePrivateDnsServer(td.address);
+
+        if (td.expectedReturnCode == INetd::PRIVATE_DNS_SUCCESS) {
+            SCOPED_TRACE(String8::format("test case %d should have passed", i));
+            EXPECT_EQ(0, status.exceptionCode());
+        } else {
+            SCOPED_TRACE(String8::format("test case %d should have failed", i));
+            EXPECT_EQ(binder::Status::EX_SERVICE_SPECIFIC, status.exceptionCode());
+        }
+        EXPECT_EQ(td.expectedReturnCode, status.serviceSpecificErrorCode());
     }
 }

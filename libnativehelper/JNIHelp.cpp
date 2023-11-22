@@ -362,3 +362,7 @@ jobject jniGetReferent(C_JNIEnv* env, jobject ref) {
     return (*env)->CallObjectMethod(e, ref, get);
 }
 
+jstring jniCreateString(C_JNIEnv* env, const jchar* unicodeChars, jsize len) {
+    JNIEnv* e = reinterpret_cast<JNIEnv*>(env);
+    return (*env)->NewString(e, unicodeChars, len);
+}

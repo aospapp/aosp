@@ -139,20 +139,20 @@ omx_venc::omx_venc()
 #endif
     bframes = entropy = 0;
     char property_value[PROPERTY_VALUE_MAX] = {0};
-    property_get("vidc.debug.level", property_value, "1");
+    property_get("vendor.vidc.debug.level", property_value, "1");
     debug_level = strtoul(property_value, NULL, 16);
     property_value[0] = '\0';
-    property_get("vidc.debug.bframes", property_value, "0");
+    property_get("vendor.vidc.debug.bframes", property_value, "0");
     bframes = atoi(property_value);
     property_value[0] = '\0';
-    property_get("vidc.debug.entropy", property_value, "1");
+    property_get("vendor.vidc.debug.entropy", property_value, "1");
     entropy = !!atoi(property_value);
     property_value[0] = '\0';
-    property_get("vidc.debug.perf.mode", property_value, "0");
+    property_get("vendor.vidc.debug.perf.mode", property_value, "0");
     perfmode = atoi(property_value);
     property_value[0] = '\0';
     handle = NULL;
-    property_get("vidc.debug.lowlatency", property_value, "0");
+    property_get("vendor.vidc.debug.lowlatency", property_value, "0");
     lowlatency = atoi(property_value);
     property_value[0] = '\0';
     m_perf_control.send_hint_to_mpctl(true);
@@ -574,6 +574,9 @@ OMX_ERRORTYPE omx_venc::component_init(OMX_STRING role)
 
     OMX_INIT_STRUCT(&m_sConfigTemporalLayers, OMX_VIDEO_CONFIG_ANDROID_TEMPORALLAYERINGTYPE);
 
+    OMX_INIT_STRUCT(&m_sParamAVTimerTimestampMode, QOMX_ENABLETYPE);
+    m_sParamAVTimerTimestampMode.bEnable = OMX_FALSE;
+
     m_state                   = OMX_StateLoaded;
     m_sExtraData = 0;
 
@@ -640,6 +643,13 @@ OMX_ERRORTYPE omx_venc::component_init(OMX_STRING role)
         }
     }
     DEBUG_PRINT_INFO("Component_init : %s : return = 0x%x", m_nkind, eRet);
+
+    {
+        VendorExtensionStore *extStore = const_cast<VendorExtensionStore *>(&mVendorExtensionStore);
+        init_vendor_extensions(*extStore);
+        mVendorExtensionStore.dumpExtensions((const char *)m_nkind);
+    }
+
     return eRet;
 init_error:
     handle->venc_close();
@@ -1180,11 +1190,11 @@ OMX_ERRORTYPE  omx_venc::set_parameter(OMX_IN OMX_HANDLETYPE     hComp,
                 AllocateNativeHandleParams* allocateNativeHandleParams = (AllocateNativeHandleParams *) paramData;
 
                 if (!secure_session) {
-                    DEBUG_PRINT_ERROR("Enable/Disable allocate-native-handle allowed only in secure session");
+                    DEBUG_PRINT_HIGH("Enable/Disable allocate-native-handle allowed only in secure session");
                     eRet = OMX_ErrorUnsupportedSetting;
                     break;
                 } else if (allocateNativeHandleParams->nPortIndex != PORT_INDEX_OUT) {
-                    DEBUG_PRINT_ERROR("Enable/Disable allocate-native-handle allowed only on Output port!");
+                    DEBUG_PRINT_HIGH("Enable/Disable allocate-native-handle allowed only on Output port!");
                     eRet = OMX_ErrorUnsupportedSetting;
                     break;
                 } else if (m_out_mem_ptr) {
@@ -1346,7 +1356,7 @@ OMX_ERRORTYPE  omx_venc::set_parameter(OMX_IN OMX_HANDLETYPE     hComp,
                             "valid for input port only in secure session");
                             return OMX_ErrorUnsupportedSetting;
                 } else {
-                    DEBUG_PRINT_ERROR("set_parameter: metamode is "
+                    DEBUG_PRINT_HIGH("set_parameter: metamode is "
                             "valid for input port only");
                     eRet = OMX_ErrorUnsupportedIndex;
                 }
@@ -1779,6 +1789,17 @@ OMX_ERRORTYPE  omx_venc::set_parameter(OMX_IN OMX_HANDLETYPE     hComp,
                 }
                 break;
             }
+        case OMX_QTIIndexParamEnableAVTimerTimestamps:
+            {
+                VALIDATE_OMX_PARAM_DATA(paramData, QOMX_ENABLETYPE);
+                if (!handle->venc_set_param(paramData,
+                            (OMX_INDEXTYPE)OMX_QTIIndexParamEnableAVTimerTimestamps)) {
+                    DEBUG_PRINT_ERROR("ERROR: Setting OMX_QTIIndexParamEnableAVTimerTimestamps failed");
+                    return OMX_ErrorUnsupportedSetting;
+                }
+                memcpy(&m_sParamAVTimerTimestampMode, paramData, sizeof(QOMX_ENABLETYPE));
+                break;
+            }
         case OMX_IndexParamVideoSliceFMO:
         default:
             {
@@ -1968,6 +1989,7 @@ OMX_ERRORTYPE  omx_venc::set_config(OMX_IN OMX_HANDLETYPE      hComp,
                     } else {
                         m_sParamAVC.nPFrames = pParam->nPFrames;
                         if ((m_sParamAVC.eProfile != OMX_VIDEO_AVCProfileBaseline) &&
+                            (m_sParamAVC.eProfile != (OMX_VIDEO_AVCPROFILETYPE) OMX_VIDEO_AVCProfileConstrainedBaseline) &&
                             (m_sParamAVC.eProfile != (OMX_VIDEO_AVCPROFILETYPE) QOMX_VIDEO_AVCProfileConstrainedBaseline))
                             m_sParamAVC.nBFrames = pParam->nBFrames;
                         else
@@ -2035,6 +2057,15 @@ OMX_ERRORTYPE  omx_venc::set_config(OMX_IN OMX_HANDLETYPE      hComp,
                         return OMX_ErrorUnsupportedSetting;
                 }
                 m_sConfigFrameRotation.nRotation = pParam->nRotation;
+
+                // Update output-port resolution (since it might have been flipped by rotation)
+                if (handle->venc_get_dimensions(PORT_INDEX_OUT,
+                        &m_sOutPortDef.format.video.nFrameWidth,
+                        &m_sOutPortDef.format.video.nFrameHeight)) {
+                    DEBUG_PRINT_HIGH("set Rotation: updated dimensions = %u x %u",
+                            m_sOutPortDef.format.video.nFrameWidth,
+                            m_sOutPortDef.format.video.nFrameHeight);
+                }
                 break;
             }
         case OMX_QcomIndexConfigVideoFramePackingArrangement:
@@ -2255,6 +2286,17 @@ OMX_ERRORTYPE  omx_venc::set_config(OMX_IN OMX_HANDLETYPE      hComp,
                VALIDATE_OMX_PARAM_DATA(configData, DescribeColorAspectsParams);
                DescribeColorAspectsParams *params = (DescribeColorAspectsParams *)configData;
                print_debug_color_aspects(&(params->sAspects), "set_config");
+
+               // WA: Android client does not set the correct color-aspects (from dataspace).
+               // Such a dataspace change is detected and set while in executing. This leads to
+               // a race condition where client is trying to set (wrong) color and component trying
+               // to set (right) color from ETB.
+               // Hence ignore this config in Executing state till the framework starts setting right color.
+               if (m_state == OMX_StateExecuting) {
+                    DEBUG_PRINT_HIGH("Ignoring ColorSpace setting in Executing state");
+                    return OMX_ErrorUnsupportedSetting;
+               }
+
                if (!handle->venc_set_config(configData, (OMX_INDEXTYPE)OMX_QTIIndexConfigDescribeColorAspects)) {
                    DEBUG_PRINT_ERROR("Failed to set OMX_QTIIndexConfigDescribeColorAspects");
                    return OMX_ErrorUnsupportedSetting;
@@ -2277,6 +2319,17 @@ OMX_ERRORTYPE  omx_venc::set_config(OMX_IN OMX_HANDLETYPE      hComp,
                     return OMX_ErrorUnsupportedSetting;
                 }
             }
+        case OMX_IndexConfigAndroidVendorExtension:
+            {
+                VALIDATE_OMX_PARAM_DATA(configData, OMX_CONFIG_ANDROID_VENDOR_EXTENSIONTYPE);
+
+                OMX_CONFIG_ANDROID_VENDOR_EXTENSIONTYPE *ext =
+                    reinterpret_cast<OMX_CONFIG_ANDROID_VENDOR_EXTENSIONTYPE *>(configData);
+                VALIDATE_OMX_VENDOR_EXTENSION_PARAM_DATA(ext);
+
+                return set_vendor_extension_config(ext);
+            }
+
         default:
             DEBUG_PRINT_ERROR("ERROR: unsupported index %d", (int) configIndex);
             break;
@@ -2355,11 +2408,6 @@ OMX_ERRORTYPE  omx_venc::component_deinit(OMX_IN OMX_HANDLETYPE hComp)
     m_cmd_q.m_read = m_cmd_q.m_write =0;
     m_etb_q.m_read = m_etb_q.m_write =0;
 
-#ifdef _ANDROID_
-    // Clear the strong reference
-    DEBUG_PRINT_HIGH("Calling m_heap_ptr.clear()");
-    m_heap_ptr.clear();
-#endif // _ANDROID_
     DEBUG_PRINT_HIGH("Calling venc_close()");
     if (handle) {
         handle->venc_close();

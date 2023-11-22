@@ -22,6 +22,7 @@ import java.io.IOException;
  * A {@link IBuildInfo} that represents a kernel build.
  */
 public class KernelBuildInfo extends BuildInfo implements IKernelBuildInfo {
+    private static final long serialVersionUID = BuildSerializedVersion.VERSION;
     private final static String KERNEL_FILE = "kernel";
 
     private String mSha1 = null;

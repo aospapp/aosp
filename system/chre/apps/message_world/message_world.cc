@@ -29,13 +29,17 @@ namespace {
 namespace {
 
 constexpr uint32_t kMessageType = 1234;
-uint8_t gMessageData[] = {1, 2, 3, 4, 5, 6, 7, 8};
+uint8_t gMessageData[CHRE_MESSAGE_TO_HOST_MAX_SIZE] = {1, 2, 3, 4, 5, 6, 7, 8};
 
 void messageFreeCallback(void *message, size_t messageSize) {
   LOGI("Got message free callback for message @"
-       " %p (expected %d) size %zu (expected %d)",
+       " %p (match? %d) size %zu (match? %d)",
        message, (message == gMessageData),
        messageSize, (messageSize == sizeof(gMessageData)));
+  if (!chreSendEvent(CHRE_EVENT_FIRST_USER_VALUE, nullptr, nullptr,
+                     chreGetInstanceId())) {
+    LOGE("Failed to send event");
+  }
 }
 
 }  // anonymous namespace
@@ -53,9 +57,6 @@ bool nanoappStart() {
 void nanoappHandleEvent(uint32_t senderInstanceId,
                         uint16_t eventType,
                         const void *eventData) {
-  LOGI("Got event 0x%" PRIx16 " from instance %" PRIu32,
-       eventType, senderInstanceId);
-
   if (eventType == CHRE_EVENT_MESSAGE_FROM_HOST) {
     auto *msg = static_cast<const chreMessageFromHostData *>(eventData);
     LOGI("Got message from host with type %" PRIu32 " size %" PRIu32

@@ -39,6 +39,9 @@ class audio_AudioAfterReboot(audio_test.AudioTest):
         """
         logging.debug('Plugging' if plug_state else 'Unplugging')
         jack_plugger = self.audio_board.get_jack_plugger()
+        if jack_plugger == None:
+            logging.debug('Jack plugger is NOT present!')
+            return
         if plug_state:
             jack_plugger.plug()
         else:

@@ -67,8 +67,8 @@ char* strchr(const char* _Nonnull, int) __attribute_pure__ __overloadable
 char* __strchr_chk(const char* _Nonnull, int, size_t) __INTRODUCED_IN(18);
 #if defined(__USE_GNU)
 #if defined(__cplusplus)
-extern "C++" char* strchrnul(char* _Nonnull, int) __RENAME(strchrnul) __attribute_pure__;
-extern "C++" const char* strchrnul(const char* _Nonnull, int) __RENAME(strchrnul) __attribute_pure__;
+extern "C++" char* strchrnul(char* _Nonnull, int) __RENAME(strchrnul) __attribute_pure__ __INTRODUCED_IN(24);
+extern "C++" const char* strchrnul(const char* _Nonnull, int) __RENAME(strchrnul) __attribute_pure__ __INTRODUCED_IN(24);
 #else
 char* strchrnul(const char* _Nonnull, int) __attribute_pure__ __INTRODUCED_IN(24);
 #endif
@@ -142,8 +142,8 @@ size_t strxfrm_l(char* __restrict, const char* _Nonnull __restrict, size_t, loca
  * It doesn't modify its argument, and in C++ it's const-correct.
  */
 #if defined(__cplusplus)
-extern "C++" char* basename(char* _Nonnull) __RENAME(__gnu_basename);
-extern "C++" const char* basename(const char* _Nonnull) __RENAME(__gnu_basename);
+extern "C++" char* basename(char* _Nonnull) __RENAME(__gnu_basename) __INTRODUCED_IN(23);
+extern "C++" const char* basename(const char* _Nonnull) __RENAME(__gnu_basename) __INTRODUCED_IN(23);
 #else
 char* basename(const char* _Nonnull) __RENAME(__gnu_basename) __INTRODUCED_IN(23);
 #endif
@@ -168,48 +168,47 @@ struct __bionic_zero_size_is_okay_t {};
 // trickery...
 #if __ANDROID_API__ >= __ANDROID_API_J_MR1__
 __BIONIC_FORTIFY_INLINE
-void* memcpy(void* _Nonnull __restrict const dst __pass_object_size0,
-        const void* _Nonnull __restrict src, size_t copy_amount) __overloadable {
+void* memcpy(void* _Nonnull __restrict const dst __pass_object_size0, const void* _Nonnull __restrict src, size_t copy_amount)
+        __overloadable {
     return __builtin___memcpy_chk(dst, src, copy_amount, __bos0(dst));
 }
 
 __BIONIC_FORTIFY_INLINE
-void* memmove(void* const _Nonnull dst __pass_object_size0,
-        const void* _Nonnull src, size_t len) __overloadable {
+void* memmove(void* const _Nonnull dst __pass_object_size0, const void* _Nonnull src, size_t len)
+        __overloadable {
     return __builtin___memmove_chk(dst, src, len, __bos0(dst));
 }
 #endif /* __ANDROID_API__ >= __ANDROID_API_J_MR1__ */
 
 #if __ANDROID_API__ >= __ANDROID_API_L__
 __BIONIC_FORTIFY_INLINE
-char* stpcpy(char* _Nonnull __restrict const dst __pass_object_size,
-        const char* _Nonnull __restrict src) __overloadable {
+char* stpcpy(char* _Nonnull __restrict const dst __pass_object_size, const char* _Nonnull __restrict src)
+        __overloadable {
     return __builtin___stpcpy_chk(dst, src, __bos(dst));
 }
 #endif /* __ANDROID_API__ >= __ANDROID_API_L__ */
 
 #if __ANDROID_API__ >= __ANDROID_API_J_MR1__
 __BIONIC_FORTIFY_INLINE
-char* strcpy(char* _Nonnull __restrict const dst __pass_object_size,
-        const char* _Nonnull __restrict src) __overloadable {
+char* strcpy(char* _Nonnull __restrict const dst __pass_object_size, const char* _Nonnull __restrict src)
+        __overloadable {
     return __builtin___strcpy_chk(dst, src, __bos(dst));
 }
 
 __BIONIC_FORTIFY_INLINE
-char* strcat(char* _Nonnull __restrict const dst __pass_object_size,
-        const char* _Nonnull __restrict src) __overloadable {
+char* strcat(char* _Nonnull __restrict const dst __pass_object_size, const char* _Nonnull __restrict src)
+        __overloadable {
     return __builtin___strcat_chk(dst, src, __bos(dst));
 }
 
 __BIONIC_FORTIFY_INLINE
-char* strncat(char* const _Nonnull __restrict dst __pass_object_size,
-        const char* _Nonnull __restrict src, size_t n) __overloadable {
+char* strncat(char* const _Nonnull __restrict dst __pass_object_size, const char* _Nonnull __restrict src, size_t n)
+        __overloadable {
     return __builtin___strncat_chk(dst, src, n, __bos(dst));
 }
 
 __BIONIC_FORTIFY_INLINE
-void* memset(void* const _Nonnull s __pass_object_size0, int c, size_t n)
-        __overloadable {
+void* memset(void* const _Nonnull s __pass_object_size0, int c, size_t n) __overloadable {
     return __builtin___memset_chk(s, c, n, __bos0(s));
 }
 #endif /* __ANDROID_API__ >= __ANDROID_API_J_MR1__ */
@@ -274,9 +273,8 @@ void* memrchr(const void* const _Nonnull s __pass_object_size, int c, size_t n)
 
 #if __ANDROID_API__ >= __ANDROID_API_L__
 __BIONIC_FORTIFY_INLINE
-char* stpncpy(char* __restrict const _Nonnull dst __pass_object_size,
-        const char* __restrict const _Nonnull src __pass_object_size,
-        size_t n) __overloadable {
+char* stpncpy(char* __restrict const _Nonnull dst __pass_object_size, const char* __restrict const _Nonnull src __pass_object_size, size_t n)
+        __overloadable {
     size_t bos_dst = __bos(dst);
     size_t bos_src = __bos(src);
 
@@ -289,9 +287,8 @@ char* stpncpy(char* __restrict const _Nonnull dst __pass_object_size,
 }
 
 __BIONIC_FORTIFY_INLINE
-char* strncpy(char* __restrict const _Nonnull dst __pass_object_size,
-        const char* __restrict const _Nonnull src __pass_object_size,
-        size_t n) __overloadable {
+char* strncpy(char* __restrict const _Nonnull dst __pass_object_size, const char* __restrict const _Nonnull src __pass_object_size, size_t n)
+        __overloadable {
     size_t bos_dst = __bos(dst);
     size_t bos_src = __bos(src);
 
@@ -306,8 +303,8 @@ char* strncpy(char* __restrict const _Nonnull dst __pass_object_size,
 
 #if __ANDROID_API__ >= __ANDROID_API_J_MR1__
 __BIONIC_FORTIFY_INLINE
-size_t strlcpy(char* const _Nonnull __restrict dst __pass_object_size,
-        const char *_Nonnull __restrict src, size_t size) __overloadable {
+size_t strlcpy(char* const _Nonnull __restrict dst __pass_object_size, const char *_Nonnull __restrict src, size_t size)
+        __overloadable {
     size_t bos = __bos(dst);
 
     if (bos == __BIONIC_FORTIFY_UNKNOWN_SIZE) {
@@ -318,8 +315,8 @@ size_t strlcpy(char* const _Nonnull __restrict dst __pass_object_size,
 }
 
 __BIONIC_FORTIFY_INLINE
-size_t strlcat(char* const _Nonnull __restrict dst __pass_object_size,
-        const char* _Nonnull __restrict src, size_t size) __overloadable {
+size_t strlcat(char* const _Nonnull __restrict dst __pass_object_size, const char* _Nonnull __restrict src, size_t size)
+        __overloadable {
     size_t bos = __bos(dst);
 
     if (bos == __BIONIC_FORTIFY_UNKNOWN_SIZE) {
@@ -358,15 +355,14 @@ size_t strlen(const char* const _Nonnull s __pass_object_size0)
 
 #if  __ANDROID_API__ >= __ANDROID_API_J_MR2__
 __BIONIC_FORTIFY_INLINE
-char* strchr(const char* const _Nonnull s __pass_object_size0, int c)
+char* strchr(const char* const _Nonnull s __pass_object_size, int c)
         __overloadable {
-    size_t bos = __bos0(s);
+    size_t bos = __bos(s);
 
     if (bos == __BIONIC_FORTIFY_UNKNOWN_SIZE) {
         return __builtin_strchr(s, c);
     }
 
-    // return __builtin_strchr(s, c);
     return __strchr_chk(s, c, bos);
 }
 
@@ -390,14 +386,12 @@ char* strrchr(const char* const _Nonnull s __pass_object_size, int c)
  * but we should also provide a FORTIFY'ed escape hatch.
  */
 __BIONIC_ERROR_FUNCTION_VISIBILITY
-void* memset(void* _Nonnull s, int c, size_t n,
-             struct __bionic_zero_size_is_okay_t ok)
+void* memset(void* _Nonnull s, int c, size_t n, struct __bionic_zero_size_is_okay_t ok)
         __overloadable
         __error_if_overflows_dst(memset, s, n, "size");
 
 __BIONIC_FORTIFY_INLINE
-void* memset(void* const _Nonnull s __pass_object_size0, int c, size_t n,
-             struct __bionic_zero_size_is_okay_t ok __attribute__((unused)))
+void* memset(void* const _Nonnull s __pass_object_size0, int c, size_t n, struct __bionic_zero_size_is_okay_t ok __attribute__((unused)))
         __overloadable {
     return __builtin___memset_chk(s, c, n, __bos0(s));
 }
@@ -514,8 +508,7 @@ char* strncpy(char* _Nonnull __restrict dst, const char* _Nonnull __restrict src
 
 #if __ANDROID_API__ >= __ANDROID_API_J_MR1__
 __BIONIC_FORTIFY_INLINE
-size_t strlcpy(char* _Nonnull __restrict dst __pass_object_size,
-        const char* _Nonnull __restrict src, size_t size) {
+size_t strlcpy(char* _Nonnull __restrict dst __pass_object_size, const char* _Nonnull __restrict src, size_t size) {
     size_t bos = __bos(dst);
 
     // Compiler doesn't know destination size. Don't call __strlcpy_chk
@@ -605,6 +598,92 @@ char* strrchr(const char* _Nonnull s, int c) {
 #endif /* __ANDROID_API__ >= __ANDROID_API_J_MR2__ */
 #endif /* defined(__clang__) */
 #endif /* defined(__BIONIC_FORTIFY) */
+
+/* Const-correct overloads. Placed after FORTIFY so we call those functions, if possible. */
+#if defined(__cplusplus) && defined(__clang__)
+/*
+ * Use two enable_ifs so these overloads don't conflict with + are preferred over libcxx's. This can
+ * be reduced to 1 after libcxx recognizes that we have const-correct overloads.
+ */
+#define __prefer_this_overload __enable_if(true, "preferred overload") __enable_if(true, "")
+extern "C++" {
+inline __always_inline
+void* __bionic_memchr(const void* const _Nonnull s __pass_object_size, int c, size_t n) {
+    return memchr(s, c, n);
+}
+
+inline __always_inline
+const void* memchr(const void* const _Nonnull s __pass_object_size, int c, size_t n)
+        __prefer_this_overload {
+    return __bionic_memchr(s, c, n);
+}
+
+inline __always_inline
+void* memchr(void* const _Nonnull s __pass_object_size, int c, size_t n) __prefer_this_overload {
+    return __bionic_memchr(s, c, n);
+}
+
+inline __always_inline
+char* __bionic_strchr(const char* const _Nonnull s __pass_object_size, int c) {
+    return strchr(s, c);
+}
+
+inline __always_inline
+const char* strchr(const char* const _Nonnull s __pass_object_size, int c)
+        __prefer_this_overload {
+    return __bionic_strchr(s, c);
+}
+
+inline __always_inline
+char* strchr(char* const _Nonnull s __pass_object_size, int c)
+        __prefer_this_overload {
+    return __bionic_strchr(s, c);
+}
+
+inline __always_inline
+char* __bionic_strrchr(const char* const _Nonnull s __pass_object_size, int c) {
+    return strrchr(s, c);
+}
+
+inline __always_inline
+const char* strrchr(const char* const _Nonnull s __pass_object_size, int c) __prefer_this_overload {
+    return __bionic_strrchr(s, c);
+}
+
+inline __always_inline
+char* strrchr(char* const _Nonnull s __pass_object_size, int c) __prefer_this_overload {
+    return __bionic_strrchr(s, c);
+}
+
+/* Functions with no FORTIFY counterpart. */
+inline __always_inline
+char* __bionic_strstr(const char* _Nonnull h, const char* _Nonnull n) { return strstr(h, n); }
+
+inline __always_inline
+const char* strstr(const char* _Nonnull h, const char* _Nonnull n) __prefer_this_overload {
+    return __bionic_strstr(h, n);
+}
+
+inline __always_inline
+char* strstr(char* _Nonnull h, const char* _Nonnull n) __prefer_this_overload {
+    return __bionic_strstr(h, n);
+}
+
+inline __always_inline
+char* __bionic_strpbrk(const char* _Nonnull h, const char* _Nonnull n) { return strpbrk(h, n); }
+
+inline __always_inline
+char* strpbrk(char* _Nonnull h, const char* _Nonnull n) __prefer_this_overload {
+    return __bionic_strpbrk(h, n);
+}
+
+inline __always_inline
+const char* strpbrk(const char* _Nonnull h, const char* _Nonnull n) __prefer_this_overload {
+    return __bionic_strpbrk(h, n);
+}
+}
+#undef __prefer_this_overload
+#endif
 
 #if defined(__clang__)
 #pragma clang diagnostic pop

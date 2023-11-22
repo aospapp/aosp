@@ -53,7 +53,20 @@ extern "C" {
 #endif
 
 #define THREE_AXIS_DATA_DIM (3)   // data is three-dimensional.
-#define NUM_DIVERSE_VECTORS (20)  // Storing 20 data points.
+#define NUM_DIVERSE_VECTORS (30)  // Storing 30 data points.
+
+// Debug Messages
+#ifdef DIVERSE_DEBUG_ENABLE
+struct DiversityDbg {
+  uint32_t diversity_count;
+  float var_log;
+  float mean_log;
+  float max_log;
+  float min_log;
+  float diverse_data_log[THREE_AXIS_DATA_DIM * NUM_DIVERSE_VECTORS];
+  size_t new_trigger;
+};
+#endif
 
 // Main data struct.
 struct DiversityChecker {
@@ -89,6 +102,11 @@ struct DiversityChecker {
   size_t max_num_max_distance;
   float var_threshold;
   float max_min_threshold;
+
+// Debug Messages
+#ifdef DIVERSE_DEBUG_ENABLE
+  struct DiversityDbg diversity_dbg;
+#endif
 };
 
 // Initialization of the function/struct, input:

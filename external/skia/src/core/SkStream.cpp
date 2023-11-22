@@ -13,6 +13,7 @@
 #include "SkMakeUnique.h"
 #include "SkString.h"
 #include "SkOSFile.h"
+#include "SkTraceEvent.h"
 #include "SkTypes.h"
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -240,10 +241,6 @@ SkStreamAsset* SkFILEStream::fork() const {
 
 size_t SkFILEStream::getLength() const {
     return fSize;
-}
-
-const void* SkFILEStream::getMemoryBase() {
-    return nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -549,10 +546,13 @@ void SkDynamicMemoryWStream::copyTo(void* dst) const {
     }
 }
 
-void SkDynamicMemoryWStream::writeToStream(SkWStream* dst) const {
+bool SkDynamicMemoryWStream::writeToStream(SkWStream* dst) const {
     for (Block* block = fHead; block != nullptr; block = block->fNext) {
-        dst->write(block->start(), block->written());
+        if (!dst->write(block->start(), block->written())) {
+            return false;
+        }
     }
+    return true;
 }
 
 void SkDynamicMemoryWStream::padToAlign4() {
@@ -586,6 +586,23 @@ void SkDynamicMemoryWStream::copyToAndReset(void* ptr) {
     }
     fHead = fTail = nullptr;
     fBytesWrittenBeforeTail = 0;
+}
+
+bool SkDynamicMemoryWStream::writeToAndReset(SkWStream* dst) {
+    // By looping through the source and freeing as we copy, we
+    // can reduce real memory use with large streams.
+    bool dstStreamGood = true;
+    for (Block* block = fHead; block != nullptr; ) {
+        if (dstStreamGood && !dst->write(block->start(), block->written())) {
+            dstStreamGood = false;
+        }
+        Block* next = block->fNext;
+        sk_free(block);
+        block = next;
+    }
+    fHead = fTail = nullptr;
+    fBytesWrittenBeforeTail = 0;
+    return dstStreamGood;
 }
 
 sk_sp<SkData> SkDynamicMemoryWStream::detachAsData() {
@@ -646,6 +663,7 @@ public:
         , fSize(size) , fOffset(0), fCurrentOffset(0) { }
 
     size_t read(void* buffer, size_t rawCount) override {
+        TRACE_EVENT0("skia-dynamic-memory-stream", "SkBlockMemoryStream::read");
         size_t count = rawCount;
         if (fOffset + count > fSize) {
             count = fSize - fOffset;

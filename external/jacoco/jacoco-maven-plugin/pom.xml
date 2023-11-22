@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-   Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+   Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
    All rights reserved. This program and the accompanying materials
    are made available under the terms of the Eclipse Public License v1.0
    which accompanies this distribution, and is available at
@@ -16,7 +16,7 @@
   <parent>
     <groupId>org.jacoco</groupId>
     <artifactId>org.jacoco.build</artifactId>
-    <version>0.7.5.201505241946</version>
+    <version>0.7.10-SNAPSHOT</version>
     <relativePath>../org.jacoco.build</relativePath>
   </parent>
 
@@ -44,7 +44,7 @@
     <dependency>
       <groupId>org.codehaus.plexus</groupId>
       <artifactId>plexus-utils</artifactId>
-      <version>1.5.6</version>
+      <version>3.0.22</version>
     </dependency>
     <dependency>
       <groupId>org.apache.maven.shared</groupId>
@@ -76,6 +76,14 @@
       <groupId>${project.groupId}</groupId>
       <artifactId>org.jacoco.report</artifactId>
     </dependency>
+
+    <dependency>
+      <groupId>org.apache.maven.plugin-tools</groupId>
+      <artifactId>maven-plugin-annotations</artifactId>
+      <version>3.4</version>
+      <!-- annotations are needed only to build the plugin: -->
+      <scope>provided</scope>
+    </dependency>
   </dependencies>
 
   <build>
@@ -106,7 +114,15 @@
         <artifactId>maven-plugin-plugin</artifactId>
         <executions>
           <execution>
+            <id>default-descriptor</id>
+            <phase>process-classes</phase>
+            <goals>
+              <goal>descriptor</goal>
+            </goals>
+          </execution>
+          <execution>
             <id>help-mojo</id>
+            <phase>process-classes</phase>
             <goals>
               <goal>helpmojo</goal>
             </goals>

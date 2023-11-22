@@ -503,10 +503,6 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-  // When run from netd, the environment variable ANDROID_DNS_MODE is set to
-  // "local", but that only works for the netd process itself.
-  unsetenv("ANDROID_DNS_MODE");
-
   configure_interface(uplink_interface, plat_prefix, &tunnel, net_id);
 
   update_clat_ipv6_address(&tunnel, uplink_interface);

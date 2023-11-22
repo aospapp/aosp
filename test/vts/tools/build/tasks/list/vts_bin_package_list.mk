@@ -15,6 +15,7 @@
 
 vts_bin_packages := \
   vts_hal_agent \
-  vtssysfuzzer \
+  vts_hal_driver \
+  vts_hal_replayer \
   vts_shell_driver \
   vts_profiling_configure \

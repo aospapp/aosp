@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -14,7 +14,7 @@ package org.jacoco.core.internal.flow;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.jacoco.core.JaCoCo;
+import org.jacoco.core.internal.instr.InstrSupport;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -44,7 +44,7 @@ public final class MethodProbesAdapter extends MethodVisitor {
 	 */
 	public MethodProbesAdapter(final MethodProbesVisitor probesVisitor,
 			final IProbeIdGenerator idGenerator) {
-		super(JaCoCo.ASM_API_VERSION, probesVisitor);
+		super(InstrSupport.ASM_API_VERSION, probesVisitor);
 		this.probesVisitor = probesVisitor;
 		this.idGenerator = idGenerator;
 		this.tryCatchProbeLabels = new HashMap<Label, Label>();

@@ -313,32 +313,6 @@ int A2DP_VendorGetTrackSampleRate(const uint8_t* p_codec_info) {
   return -1;
 }
 
-int A2DP_VendorGetTrackBitsPerSample(const uint8_t* p_codec_info) {
-  uint32_t vendor_id = A2DP_VendorCodecGetVendorId(p_codec_info);
-  uint16_t codec_id = A2DP_VendorCodecGetCodecId(p_codec_info);
-
-  // Check for aptX
-  if (vendor_id == A2DP_APTX_VENDOR_ID &&
-      codec_id == A2DP_APTX_CODEC_ID_BLUETOOTH) {
-    return A2DP_VendorGetTrackBitsPerSampleAptx(p_codec_info);
-  }
-
-  // Check for aptX-HD
-  if (vendor_id == A2DP_APTX_HD_VENDOR_ID &&
-      codec_id == A2DP_APTX_HD_CODEC_ID_BLUETOOTH) {
-    return A2DP_VendorGetTrackBitsPerSampleAptxHd(p_codec_info);
-  }
-
-  // Check for LDAC
-  if (vendor_id == A2DP_LDAC_VENDOR_ID && codec_id == A2DP_LDAC_CODEC_ID) {
-    return A2DP_VendorGetTrackBitsPerSampleLdac(p_codec_info);
-  }
-
-  // Add checks based on <vendor_id, codec_id>
-
-  return -1;
-}
-
 int A2DP_VendorGetTrackChannelCount(const uint8_t* p_codec_info) {
   uint32_t vendor_id = A2DP_VendorCodecGetVendorId(p_codec_info);
   uint16_t codec_id = A2DP_VendorCodecGetCodecId(p_codec_info);
@@ -566,6 +540,32 @@ bool A2DP_VendorInitCodecConfig(btav_a2dp_codec_index_t codec_index,
     case BTAV_A2DP_CODEC_INDEX_MAX:
       break;
   }
+
+  return false;
+}
+
+bool A2DP_VendorDumpCodecInfo(const uint8_t* p_codec_info) {
+  uint32_t vendor_id = A2DP_VendorCodecGetVendorId(p_codec_info);
+  uint16_t codec_id = A2DP_VendorCodecGetCodecId(p_codec_info);
+
+  // Check for aptX
+  if (vendor_id == A2DP_APTX_VENDOR_ID &&
+      codec_id == A2DP_APTX_CODEC_ID_BLUETOOTH) {
+    return A2DP_VendorDumpCodecInfoAptx(p_codec_info);
+  }
+
+  // Check for aptX-HD
+  if (vendor_id == A2DP_APTX_HD_VENDOR_ID &&
+      codec_id == A2DP_APTX_HD_CODEC_ID_BLUETOOTH) {
+    return A2DP_VendorDumpCodecInfoAptxHd(p_codec_info);
+  }
+
+  // Check for LDAC
+  if (vendor_id == A2DP_LDAC_VENDOR_ID && codec_id == A2DP_LDAC_CODEC_ID) {
+    return A2DP_VendorDumpCodecInfoLdac(p_codec_info);
+  }
+
+  // Add checks based on <vendor_id, codec_id>
 
   return false;
 }

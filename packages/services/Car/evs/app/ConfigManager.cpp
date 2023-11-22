@@ -49,24 +49,6 @@ static bool readChildNodeAsFloat(const char* groupName,
 }
 
 
-static bool ReadChildNodeAsUint(const char* groupName,
-                                const Json::Value& parentNode,
-                                const char* childName,
-                                unsigned* value) {
-    // Must have a place to put the value!
-    assert(value);
-
-    Json::Value childNode = parentNode[childName];
-    if (!childNode.isNumeric()) {
-        printf("Missing or invalid field %s in record %s", childName, groupName);
-        return false;
-    }
-
-    *value = childNode.asUInt();
-    return true;
-}
-
-
 bool ConfigManager::initialize(const char* configFileName)
 {
     bool complete = true;
@@ -110,8 +92,6 @@ bool ConfigManager::initialize(const char* configFileName)
             printf("Invalid configuration format -- we expect a display description\n");
             return false;
         }
-        complete &= ReadChildNodeAsUint("display", displayNode, "width",      &mPixelWidth);
-        complete &= ReadChildNodeAsUint("display", displayNode, "height",     &mPixelHeight);
         complete &= readChildNodeAsFloat("display", displayNode, "frontRange", &mFrontRangeInCarSpace);
         complete &= readChildNodeAsFloat("display", displayNode, "rearRange",  &mRearRangeInCarSpace);
     }
@@ -147,7 +127,6 @@ bool ConfigManager::initialize(const char* configFileName)
             // Get data from the configuration file
             Json::Value nameNode = node.get("cameraId", "MISSING");
             const char *cameraId = nameNode.asCString();
-            printf("Loading camera %s\n", cameraId);
 
             Json::Value usageNode = node.get("function", "");
             const char *function = usageNode.asCString();

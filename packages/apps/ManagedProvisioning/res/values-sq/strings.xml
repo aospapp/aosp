@@ -27,9 +27,9 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"Aplikacionit të mëposhtëm do i nevojitet qasje në këtë profil:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Aplikacioni i mëposhtëm do të menaxhojë pajisjen tënde:"</string>
     <string name="next" msgid="1004321437324424398">"Tjetri"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"Po konfiguron profilin tënd të punës..."</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"Profili i punës po konfigurohet…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"Administratori ka aftësinë e monitorimit dhe menaxhimit të cilësimeve, të qasjes së korporatës, të aplikacioneve, të lejeve dhe të të dhënave të lidhura me këtë profil, duke përfshirë aktivitetin e rrjetit si dhe vendndodhjen e pajisjes, historikun e telefonatave dhe historikun e kërkimit të kontakteve.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Kontakto me administratorin për më shumë informacione, duke përfshirë politikat e privatësisë së organizatës tënde."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"Administratori ka aftësinë e monitorimit dhe menaxhimit të cilësimeve, të qasjes së korporatës, të aplikacioneve, të lejeve dhe të të dhënave të lidhura me këtë pajisje, duke përfshirë aktivitetin e rrjetit si dhe vendndodhjen e pajisjes, historikun e telefonatave dhe historikun e kërkimit të kontakteve.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Kontakto me administratorin për më shumë informacione, duke përfshirë politikat e privatësisë së organizatës tënde."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"Administratori ka aftësinë e monitorimit dhe menaxhimit të cilësimeve, të qasjes së korporatës, të aplikacioneve, të lejeve dhe të të dhënave të lidhura me këtë pajisje, duke përfshirë aktivitetin e rrjetit si dhe vendndodhjen e pajisjes, historikun e telefonatave dhe historikun e kërkimit të kontakteve.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Kontakto me administratorin për më shumë informacione, duke përfshirë politikat e privatësisë së organizatës tënde."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Për të përdorur funksionet kundër vjedhjes, duhet të kesh ekran të mbrojtur me fjalëkalim për pajisjen tënde."</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Kontakto administratorin tënd për më shumë informacion, përfshi politikat e privatësisë së organizatës tënde."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Mëso më shumë"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Profili i punës"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"Përdoruesi parësor"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Të fshihet profili ekzistues?"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"E ke tashmë një profil pune i cili menaxhohet duke përdorur aplikacionin e mëposhtëm:"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"E ke tashmë një profil pune. Ai menaxhohet duke përdorur aplikacionin e mëposhtëm:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"para se të vazhdosh, "<a href="#read_this_link">"lexo këtë"</a>"."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Nëse vazhdon, të gjitha aplikacionet dhe të dhënat në këtë profil do të fshihen."</string>
     <string name="delete_profile" msgid="2299218578684663459">"Fshi"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"Trokit për të vazhduar konfigurimin e profilit të punës"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Nuk mundi ta konfiguronte profilin tënd të punës. Kontakto departamentin e informatikës ose provo sërish më vonë."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Nuk mund të shtojë profilin e punës"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"Ky përdorues nuk mund të ketë profil pune. Për ndihmë, kontakto me administratorin."</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"Ky përdorues nuk mund të ketë profile pune. Kontakto me administratorin."</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"Profilet e punës nuk mund të konfigurohen në një pajisje të menaxhuar"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"Mund të ketë shumë përdorues në këtë pajisje. Hiq një përdorues, më pas provo sërish."</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Profili i punës nuk mund të zëvendësohet ose hiqet"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"Në këtë pajisje nuk mund të shtohet profil pune. Nëse ke pyetje, kontakto me administratorin tënd."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Ndrysho nisësin e pajisjes"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Ky aplikacioni nisës nuk mund të përdoret për profilin tënd të punës"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Anulo"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"Në rregull"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Konfigurimi i përdoruesit është i paplotë"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Përdorues i pajisjes së punës"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"Konfiguro pajisjen e punës"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"Pajisja e punës po konfigurohet..."</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Po përpunon të dhënat e konfigurimit..."</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Po lidhet me Wi-Fi..."</string>
     <string name="progress_download" msgid="3522436271691064624">"Po shkarkon aplikacionin e administratorit..."</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"Anulo"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"Rivendose pajisjen"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> dhe <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> dhe <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> dhe <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

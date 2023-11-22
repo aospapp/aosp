@@ -17,10 +17,9 @@
 package com.android.cts.apicoverage;
 
 import com.android.compatibility.common.util.CddTest;
+import com.android.compatibility.common.util.ReadElf;
 
 import org.jf.dexlib2.DexFileFactory;
-import org.jf.dexlib2.DexFileFactory.DexFileNotFound;
-import org.jf.dexlib2.DexFileFactory.MultipleDexFilesException;
 import org.jf.dexlib2.Opcodes;
 import org.jf.dexlib2.iface.Annotation;
 import org.jf.dexlib2.iface.AnnotationElement;
@@ -44,6 +43,7 @@ import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 import javax.xml.transform.TransformerException;
@@ -71,13 +71,17 @@ public class CtsApiCoverage {
 
     private static final String CDD_REQUIREMENT_ELEMENT_NAME = "requirement";
 
+    private static final String NDK_PACKAGE_NAME = "ndk";
+
+    private static final String NDK_DUMMY_RETURN_TYPE = "na";
+
     private static void printUsage() {
         System.out.println("Usage: cts-api-coverage [OPTION]... [APK]...");
         System.out.println();
         System.out.println("Generates a report about what Android framework methods are called ");
         System.out.println("from the given APKs.");
         System.out.println();
-        System.out.println("Use the Makefiles rules in CtsTestCoverage.mk to generate the report ");
+        System.out.println("Use the Makefiles rules in CtsCoverage.mk to generate the report ");
         System.out.println("rather than executing this directly. If you still want to run this ");
         System.out.println("directly, then this must be used from the $ANDROID_BUILD_TOP ");
         System.out.println("directory and dexdeps must be built via \"make dexdeps\".");
@@ -87,9 +91,12 @@ public class CtsApiCoverage {
         System.out.println("  -f [txt|xml|html]      format of output");
         System.out.println("  -d PATH                path to dexdeps or expected to be in $PATH");
         System.out.println("  -a PATH                path to the API XML file");
+        System.out.println(
+                "  -n PATH                path to the NDK API XML file, which can be updated via ndk-api-report with the ndk target");
         System.out.println("  -p PACKAGENAMEPREFIX   report coverage only for package that start with");
         System.out.println("  -t TITLE               report title");
         System.out.println("  -a API                 the Android API Level");
+        System.out.println("  -b BITS                64 or 32 bits, default 64");
         System.out.println();
         System.exit(1);
     }
@@ -100,10 +107,15 @@ public class CtsApiCoverage {
         int format = FORMAT_TXT;
         String dexDeps = "dexDeps";
         String apiXmlPath = "";
+        String napiXmlPath = "";
         PackageFilter packageFilter = new PackageFilter();
         String reportTitle = "CTS API Coverage";
         int apiLevel = Integer.MAX_VALUE;
+        String testCasesFolder = "";
+        String bits = "64";
 
+        List<File> notFoundTestApks = new ArrayList<File>();
+        int numTestApkArgs = 0;
         for (int i = 0; i < args.length; i++) {
             if (args[i].startsWith("-")) {
                 if ("-o".equals(args[i])) {
@@ -123,23 +135,37 @@ public class CtsApiCoverage {
                     dexDeps = getExpectedArg(args, ++i);
                 } else if ("-a".equals(args[i])) {
                     apiXmlPath = getExpectedArg(args, ++i);
+                } else if ("-n".equals(args[i])) {
+                    napiXmlPath = getExpectedArg(args, ++i);
                 } else if ("-p".equals(args[i])) {
                     packageFilter.addPrefixToFilter(getExpectedArg(args, ++i));
                 } else if ("-t".equals(args[i])) {
                     reportTitle = getExpectedArg(args, ++i);
                 } else if ("-a".equals(args[i])) {
                     apiLevel = Integer.parseInt(getExpectedArg(args, ++i));
+                } else if ("-b".equals(args[i])) {
+                    bits = getExpectedArg(args, ++i);
                 } else {
                     printUsage();
                 }
             } else {
                 File file = new File(args[i]);
+                numTestApkArgs++;
                 if (file.isDirectory()) {
                     testApks.addAll(Arrays.asList(file.listFiles(SUPPORTED_FILE_NAME_FILTER)));
-                } else {
+                    testCasesFolder = args[i];
+                } else if (file.isFile()) {
                     testApks.add(file);
+                } else {
+                    notFoundTestApks.add(file);
                 }
             }
+        }
+
+        if (!notFoundTestApks.isEmpty()) {
+            String msg = String.format(Locale.US, "%d/%d testApks not found: %s",
+                    notFoundTestApks.size(), numTestApkArgs, notFoundTestApks);
+            throw new IllegalArgumentException(msg);
         }
 
         /*
@@ -155,11 +181,41 @@ public class CtsApiCoverage {
 
         ApiCoverage apiCoverage = getEmptyApiCoverage(apiXmlPath);
         CddCoverage cddCoverage = getEmptyCddCoverage();
+
+        if (!napiXmlPath.equals("")) {
+            System.out.println("napiXmlPath: " + napiXmlPath);
+            ApiCoverage napiCoverage = getEmptyApiCoverage(napiXmlPath);
+            ApiPackage napiPackage = napiCoverage.getPackage(NDK_PACKAGE_NAME);
+            System.out.println(
+                    String.format(
+                            "%s, NDK Methods = %d, MemberSize = %d",
+                            napiXmlPath,
+                            napiPackage.getTotalMethods(),
+                            napiPackage.getMemberSize()));
+            apiCoverage.addPackage(napiPackage);
+        }
+
         // Add superclass information into api coverage.
         apiCoverage.resolveSuperClasses();
         for (File testApk : testApks) {
             addApiCoverage(apiCoverage, testApk, dexDeps);
             addCddCoverage(cddCoverage, testApk, apiLevel);
+        }
+
+        try {
+            // Add coverage for GTest modules
+            addGTestNdkApiCoverage(apiCoverage, testCasesFolder, bits);
+        } catch (Exception e) {
+            System.out.println("warning: addGTestNdkApiCoverage failed to add to apiCoverage:");
+            e.printStackTrace();
+        }
+
+        try {
+            // Add coverage for APK with Share Objects
+            addNdkApiCoverage(apiCoverage, testCasesFolder, bits);
+        } catch (Exception e) {
+            System.out.println("warning: addNdkApiCoverage failed to add to apiCoverage:");
+            e.printStackTrace();
         }
 
         outputCoverageReport(apiCoverage, cddCoverage, testApks, outputFile,
@@ -229,6 +285,103 @@ public class CtsApiCoverage {
         }
     }
 
+    /**
+     * Adds coverage information from native code symbol array to the {@link ApiCoverage} object.
+     *
+     * @param apiPackage object to which the coverage statistics will be added to
+     * @param symArr containing native code symbols
+     * @param testModules containing a list of TestModule
+     * @param moduleName test module name
+     */
+    private static void addNdkSymArrToApiCoverage(
+            ApiCoverage apiCoverage, List<TestModule> testModules)
+            throws SAXException, IOException {
+
+        final List<String> parameterTypes = new ArrayList<String>();
+        final ApiPackage apiPackage = apiCoverage.getPackage(NDK_PACKAGE_NAME);
+
+        if (apiPackage != null) {
+            for (TestModule tm : testModules) {
+                final String moduleName = tm.getModuleName();
+                final ReadElf.Symbol[] symArr = tm.getDynSymArr();
+                if (symArr != null) {
+                    for (ReadElf.Symbol sym : symArr) {
+                        if (sym.isGlobalUnd()) {
+                            String className = sym.getExternalLibFileName();
+                            ApiClass apiClass = apiPackage.getClass(className);
+                            if (apiClass != null) {
+                                apiClass.markMethodCovered(
+                                        sym.name,
+                                        parameterTypes,
+                                        NDK_DUMMY_RETURN_TYPE,
+                                        moduleName);
+                            } else {
+                                System.err.println(
+                                        String.format(
+                                                "warning: addNdkApiCoverage failed to getClass: %s",
+                                                className));
+                            }
+                        }
+                    }
+                } else {
+                    System.err.println(
+                            String.format(
+                                    "warning: addNdkSymbolArrToApiCoverage failed to getSymArr: %s",
+                                    moduleName));
+                }
+            }
+        } else {
+            System.err.println(
+                    String.format(
+                            "warning: addNdkApiCoverage failed to getPackage: %s",
+                            NDK_PACKAGE_NAME));
+        }
+    }
+
+    /**
+     * Adds coverage information gleamed from readelf on so in the APK to the {@link ApiCoverage}
+     * object.
+     *
+     * @param apiCoverage object to which the coverage statistics will be added to
+     * @param testCasesFolder containing GTest modules
+     * @param bits 64 or 32 bits of executiable
+     */
+    private static void addNdkApiCoverage(
+            ApiCoverage apiCoverage, String testCasesFolder, String bits)
+            throws SAXException, IOException {
+        ApkNdkApiReport apiReport = ApkNdkApiReport.parseTestcasesFolder(testCasesFolder, bits);
+        if (apiReport != null) {
+            addNdkSymArrToApiCoverage(apiCoverage, apiReport.getTestModules());
+        } else {
+            System.err.println(
+                    String.format(
+                            "warning: addNdkApiCoverage failed to get GTestApiReport from: %s @ %s bits",
+                            testCasesFolder, bits));
+        }
+    }
+
+    /**
+     * Adds GTest coverage information gleamed from running ReadElf on the executiable to the {@link
+     * ApiCoverage} object.
+     *
+     * @param apiCoverage object to which the coverage statistics will be added to
+     * @param testCasesFolder containing GTest modules
+     * @param bits 64 or 32 bits of executiable
+     */
+    private static void addGTestNdkApiCoverage(
+            ApiCoverage apiCoverage, String testCasesFolder, String bits)
+            throws SAXException, IOException {
+        GTestApiReport apiReport = GTestApiReport.parseTestcasesFolder(testCasesFolder, bits);
+        if (apiReport != null) {
+            addNdkSymArrToApiCoverage(apiCoverage, apiReport.getTestModules());
+        } else {
+            System.err.println(
+                    String.format(
+                            "warning: addGTestNdkApiCoverage failed to get GTestApiReport from: %s @ %s bits",
+                            testCasesFolder, bits));
+        }
+    }
+
     private static void addCddCoverage(CddCoverage cddCoverage, File testSource, int api)
             throws IOException {
 
@@ -264,9 +417,8 @@ public class CtsApiCoverage {
 
         DexFile dexFile = null;
         try {
-            dexFile = DexFileFactory.loadDexFile(
-                testSource, null /*dexEntry*/, Opcodes.forApi(api));
-        } catch (IOException | DexFileFactory.DexFileNotFound e) {
+            dexFile = DexFileFactory.loadDexFile(testSource, Opcodes.forApi(api));
+        } catch (IOException | DexFileFactory.DexFileNotFoundException e) {
             System.err.println("Unable to load dex file: " + testSource.getPath());
             return;
         }

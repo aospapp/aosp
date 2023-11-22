@@ -44,19 +44,23 @@
             android:layout_height="match_parent"
             android:alpha="0"/>
 
+        <!-- Make parent focusable in case when the info_container is not focusable.
+             As the actions are GONE when the row is not selected, if info_container is not
+             focusable, there are no focusable views in the row, which causes that the row can't be
+             selected by the DPAD. To avoid this case, the parent should be focusable. -->
         <LinearLayout
             android:orientation="horizontal"
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="match_parent"
+            android:focusable="true"
+            android:descendantFocusability="afterDescendants">
 
             <LinearLayout android:id="@+id/info_container"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_marginEnd="@dimen/dvr_schedules_item_section_margin"
                 android:layout_weight="1"
-                android:clickable="true"
-                android:focusableInTouchMode="true"
-                android:focusable="true">
+                android:clickable="true">
 
                 <TextView android:id="@+id/time"
                     android:layout_width="@dimen/dvr_schedules_item_time_width"

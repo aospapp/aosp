@@ -48,7 +48,7 @@
 
         <com.android.setupwizardlib.view.RichTextView
             android:id="@+id/suw_items_title"
-            style="@style/SuwItemTitle.Description"
+            style="?attr/suwItemDescriptionTitleStyle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:lineSpacingExtra="@dimen/suw_description_line_spacing_extra"

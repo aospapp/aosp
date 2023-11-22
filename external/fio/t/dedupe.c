@@ -14,17 +14,17 @@
 #include <fcntl.h>
 #include <string.h>
 
-#include "../lib/rbtree.h"
 #include "../flist.h"
 #include "../log.h"
 #include "../mutex.h"
 #include "../smalloc.h"
 #include "../minmax.h"
 #include "../crc/md5.h"
-#include "../memalign.h"
+#include "../lib/memalign.h"
 #include "../os/os.h"
 #include "../gettime.h"
 #include "../fio_time.h"
+#include "../lib/rbtree.h"
 
 #include "../lib/bloom.h"
 #include "debug.h"
@@ -84,7 +84,7 @@ static uint64_t get_size(struct fio_file *f, struct stat *sb)
 	uint64_t ret;
 
 	if (S_ISBLK(sb->st_mode)) {
-		unsigned long long bytes;
+		unsigned long long bytes = 0;
 
 		if (blockdev_size(f, &bytes)) {
 			log_err("dedupe: failed getting bdev size\n");
@@ -363,7 +363,7 @@ static void show_progress(struct worker_thread *threads, unsigned long total)
 		tdiff = mtime_since_now(&last_tv);
 		if (tdiff) {
 			this_items = (this_items * 1000) / (tdiff * 1024);
-			printf("%3.2f%% done (%luKB/sec)\r", perc, this_items);
+			printf("%3.2f%% done (%luKiB/sec)\r", perc, this_items);
 			last_nitems = nitems;
 			fio_gettime(&last_tv, NULL);
 		} else
@@ -537,6 +537,7 @@ int main(int argc, char *argv[])
 	uint64_t nextents = 0, nchunks = 0;
 	int c, ret;
 
+	arch_init(argv);
 	debug_init();
 
 	while ((c = getopt(argc, argv, "b:t:d:o:c:p:B:")) != -1) {

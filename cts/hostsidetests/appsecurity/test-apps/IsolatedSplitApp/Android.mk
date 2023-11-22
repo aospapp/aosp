@@ -21,7 +21,7 @@ include $(CLEAR_VARS)
 LOCAL_USE_AAPT2 := true
 LOCAL_MODULE_TAGS := tests
 LOCAL_SDK_VERSION := current
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 LOCAL_EXPORT_PACKAGE_RESOURCES := true
 LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner android-support-test
 

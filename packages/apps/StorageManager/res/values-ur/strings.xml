@@ -27,7 +27,7 @@
     <string name="deletion_helper_app_summary_unknown_used" msgid="8576377054665785558">"یقین سے نہیں کہہ سکتے کہ آخری بار کب استعمال ہوا"</string>
     <string name="deletion_helper_free_button" msgid="1760529213407548661">"<xliff:g id="FREEABLE">%1$s</xliff:g> خالی کریں"</string>
     <string name="deletion_helper_photos_title" msgid="2602723121486729972">"بیک اپ کردہ تصاویر اور ویڈیوز"</string>
-    <string name="deletion_helper_photos_age_summary" msgid="1820871709448371984">"30 دن سے زیادہ پرانا"</string>
+    <string name="deletion_helper_photos_age_summary" msgid="1820871709448371984">"30 دن سے زیادہ پرانی"</string>
     <!-- no translation found for deletion_helper_photos_summary (3194825464552700889) -->
     <skip />
     <string name="deletion_helper_downloads_title" msgid="8002058095019254694">"ڈاؤن لوڈز"</string>
@@ -55,9 +55,12 @@
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"آن کریں"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"بیک اپ کردہ تصاویر اور ویڈیوز"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"آئٹمز کی تلاش ہو رہی ہے…"</string>
+    <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"سبھی آئٹمز دکھائیں"</string>
+    <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"حالیہ آئٹمز چھپائیں"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="386144597646356521">"<xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> کو آپ کے آلہ سے ہٹا دیا جائے گا"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"آپ کی اسٹوریج کا نظم اب اسٹوریج مینیجر کی جانب سے کیا جا رہا ہے"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"ہٹانے کیلئے کوئی آئٹم نہیں ہے"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"حالیہ آئٹمز کا جائزہ لیں"</string>
     <string name="empty_state_summary" msgid="8439893007424243790">"ہٹانے کیلئے کوئی پرانی فائلز نہیں ہیں۔ جگہ بنانے کیلئے حالیہ تصاویر، ویڈیوز اور ایپس ہٹائیں۔"</string>
+    <string name="app_requesting_space" msgid="857425181289960167">"<xliff:g id="APP">%1$s</xliff:g> کو <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> جگہ کی ضرورت ہے"</string>
 </resources>

@@ -16,6 +16,8 @@
 
 #include "java_lang_System.h"
 
+#include "nativehelper/jni_macros.h"
+
 #include "common_throws.h"
 #include "gc/accounting/card_table-inl.h"
 #include "jni_internal.h"
@@ -24,6 +26,7 @@
 #include "mirror/class-inl.h"
 #include "mirror/object-inl.h"
 #include "mirror/object_array-inl.h"
+#include "native_util.h"
 #include "scoped_fast_native_object_access-inl.h"
 
 namespace art {

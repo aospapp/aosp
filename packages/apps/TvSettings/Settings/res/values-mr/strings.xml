@@ -50,7 +50,7 @@
     <string name="device_display" msgid="101455384386372747">"प्रदर्शन"</string>
     <string name="device_sound" msgid="9214182566287657481">"ध्वनी"</string>
     <string name="device_surround_sound" msgid="6272196310566546860">"आसपसाचा ध्वनी"</string>
-    <string name="device_sound_effects" msgid="7793281745920228622">"सिस्टीम ध्वनी"</string>
+    <string name="device_sound_effects" msgid="7793281745920228622">"सिस्टम ध्वनी"</string>
     <string name="device_apps" msgid="9180435229638772838">"अॅप्स"</string>
     <string name="device_storage_reset" msgid="1425978936501134425">"संचयन आणि रीसेट"</string>
     <string name="device_backup_restore" msgid="5627523987587511884">"बॅकअप घ्या आणि पुनर्संचयित करा"</string>
@@ -59,7 +59,7 @@
     <string name="device_storage_clear_cache_title" msgid="3365635664766067643">"कॅश   केलेला डेटा साफ करायचा?"</string>
     <string name="device_storage_clear_cache_message" msgid="6495570470005696210">"हे सर्व अॅप्ससाठी कॅश   केलेला डेटा साफ करेल."</string>
     <string name="apps_downloaded" msgid="4222190849854323480">"डाउनलोड केलेले अॅप्स"</string>
-    <string name="apps_system" msgid="2499191125802829425">"सिस्टीम अॅप्स"</string>
+    <string name="apps_system" msgid="2499191125802829425">"सिस्टम अॅप्स"</string>
     <string name="apps_running" msgid="6430310491739956228">"अॅप्स चालविणे"</string>
     <string name="accessories_add" msgid="1347802656349218830">"उपसाधन जोडा"</string>
     <string name="accessory_state_pairing" msgid="7501989679637780963">"जोडत आहे…"</string>
@@ -102,7 +102,7 @@
     <string name="accessibility_none" msgid="3441648940134070004">"कोणतेही नाही"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"वापर आणि निदान"</string>
     <string name="tutorials" msgid="3731493987558093244">"ट्यूटोरियल"</string>
-    <string name="about_system_update" msgid="7282772247661356586">"सिस्टम अद्यतन"</string>
+    <string name="about_system_update" msgid="7282772247661356586">"सिस्टम अपडेट"</string>
     <string name="about_preference" msgid="4131396784531360434">"विषयी"</string>
     <string name="device_name" msgid="2670488158531273028">"डिव्हाइस नाव"</string>
     <string name="restart_button_label" msgid="8153112858638352970">"रीस्टार्ट करा"</string>
@@ -126,7 +126,7 @@
     <string name="selinux_status_disabled" msgid="4925733135520787807">"अक्षम केले"</string>
     <string name="selinux_status_permissive" msgid="4806219236988993826">"परवानगी"</string>
     <string name="selinux_status_enforcing" msgid="8839484208185347776">"अंमलबजावणी"</string>
-    <string name="additional_system_update_settings_list_item_title" msgid="6285273598178967613">"अतिरिक्त सिस्टम अद्यतने"</string>
+    <string name="additional_system_update_settings_list_item_title" msgid="6285273598178967613">"अतिरिक्त सिस्टम अपडेट"</string>
     <string name="device_status" msgid="4379924151946190768">"स्थिती"</string>
     <string name="device_status_summary" msgid="180586140242936323">"नेटवर्क, अनुक्रमांक आणि इतर माहिती"</string>
     <string name="manual" msgid="4957388668881541669">"व्‍यक्‍तिचलित"</string>
@@ -148,7 +148,7 @@
     <string name="copyright_title" msgid="5564228453228549353">"कॉपीराइट"</string>
     <string name="license_title" msgid="4482927105870812604">"परवाना"</string>
     <string name="terms_title" msgid="8480859222932736291">"अटी आणि नियम"</string>
-    <string name="webview_license_title" msgid="8843666223583780825">"सिस्टीम WebView परवाना"</string>
+    <string name="webview_license_title" msgid="8843666223583780825">"सिस्टम WebView परवाना"</string>
     <string name="wallpaper_attributions" msgid="8622098625739634898">"वॉलपेपर"</string>
     <string name="wallpaper_attributions_values" msgid="1565931506291182879">"उपग्रह प्रतिमा प्रदाते:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
   <string-array name="wifi_signal_strength">
@@ -260,7 +260,7 @@
     <string name="storage_migrate_away" msgid="3410590501311323877">"भिन्न संचयावर डेटा स्थलांतरित करा"</string>
     <string name="storage_no_apps" msgid="579118619398668670">"बॅकअप घेण्यासाठी कोणतेही अॅप्स नाहीत"</string>
     <string name="storage_forget" msgid="8731986045697320463">"हा डिव्हाइस संचय विसरा"</string>
-    <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"या ड्राइव्ह मध्‍ये असलेले अ‍ॅप्स किंवा डेटा वापरण्‍यासाठी, त्यास त्यामध्‍ये पुन्हा प्लग करा. वैकल्पिकपणे, ड्राइव्ह उपलब्ध नसल्यास आपण हे संचयन विसरणे निवडू शकता.\n\nआपण विसरा निवडल्‍यास, ड्राइव्हमध्‍ये असलेला सर्व डेटा कायमचा गमावला जाईल.\n\nआपण अ‍ॅप्‍स नंतर पुन्हा स्थापित करू शकता परंतु या ड्राइव्हवर संचयित केलेला डेटा गमावला जाईल."</string>
+    <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"या ड्राइव्ह मध्‍ये असलेले अ‍ॅप्स किंवा डेटा वापरण्‍यासाठी, त्यास त्यामध्‍ये पुन्हा प्लग करा. वैकल्पिकपणे, ड्राइव्ह उपलब्ध नसल्यास आपण हे संचयन विसरणे निवडू शकता.\n\nआपण विसरा निवडल्‍यास, ड्राइव्हमध्‍ये असलेला सर्व डेटा कायमचा गमावला जाईल.\n\nआपण अ‍ॅप्‍स नंतर पुन्हा इंस्टॉल करू शकता परंतु या ड्राइव्हवर संचयित केलेला डेटा गमावला जाईल."</string>
     <string name="storage_device_storage_section" msgid="7797805634316822741">"डिव्‍हाइस संचयन"</string>
     <string name="storage_removable_storage_section" msgid="3264955106565590076">"काढण्‍यायोग्य संचयन"</string>
     <string name="storage_reset_section" msgid="7324235036547192861">"रीसेट करा"</string>
@@ -314,8 +314,8 @@
     <string name="does_not_exist" msgid="4553235698171937217">"अॅप अस्तित्वात नाही."</string>
     <string name="app_forward_locked" msgid="6078781450044847966">"अॅप कॉपी-संरक्षित आहे."</string>
     <string name="invalid_location" msgid="5269044848535157307">"स्थापना स्थान वैध नाही."</string>
-    <string name="system_package" msgid="9200255718634512790">"बाह्य मीडियावर सिस्टम अद्यतने स्थापित केली जाऊ शकत नाहीत."</string>
-    <string name="move_error_device_admin" msgid="2060627704270836951">"बाह्य मीडियावर डिव्हाइस प्रशासक स्थापित केला जाऊ शकत नाही."</string>
+    <string name="system_package" msgid="9200255718634512790">"बाह्य मीडियावर सिस्टम अपडेट इंस्टॉल केली जाऊ शकत नाहीत."</string>
+    <string name="move_error_device_admin" msgid="2060627704270836951">"बाह्य मीडियावर डिव्हाइस प्रशासक इंस्टॉल केला जाऊ शकत नाही."</string>
     <string name="learn_more_action" msgid="7015991954404958779">"अधिक जाणून घ्या"</string>
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"पुन्हा प्रयत्न करा"</string>
     <string name="wifi_wps_title" msgid="1872305810119408482">"WPS राउटरकरिता शोधत आहे..."</string>
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"सेवा"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"सेवा सेटिंग्ज"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"उच्च तीव्रता मजकूर"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"प्रवेशयोग्यता शॉर्टकट"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"प्रवेशयोग्यता शॉर्टकट सक्षम करा"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"शॉर्टकट सेवा"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"शॉर्टकट चालू असताना प्रवेशसुलभता वैशिष्ट्य सुरू करण्यासाठी तुम्‍ही दोन्ही मागे आणि खाली 3 सेकंदांपर्यंत दाबून ठेवू शकता."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"मथळे"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"व्हिडिओवर उपशीर्षक मजकूर आच्छादनासाठी सेटिंग्ज"</string>
     <string name="captions_display" msgid="735692527287125548">"प्रदर्शन"</string>
@@ -417,7 +421,7 @@
     <string name="system_preferred_engine" msgid="8258210139854655567">"प्राधान्यकृत इंजिन"</string>
     <string name="system_speech_rate" msgid="8099856582088545576">"उच्चार दर"</string>
     <string name="system_play_sample" msgid="7187293932891811148">"नमुना प्ले करा"</string>
-    <string name="system_install_voice_data" msgid="8920883886563714355">"व्हॉइस डेटा स्थापित करा"</string>
+    <string name="system_install_voice_data" msgid="8920883886563714355">"व्हॉइस डेटा इंस्टॉल करा"</string>
     <string name="system_general" msgid="3535958631591158282">"सामान्य"</string>
     <string name="system_debugging" msgid="7204447785851191331">"डीबग करणे"</string>
     <string name="system_input" msgid="6164987320529039626">"इनपुट"</string>
@@ -428,7 +432,7 @@
     <string name="system_hdcp_checking" msgid="8470793875143334320">"HDCP तपासणी"</string>
     <string name="system_hdmi_optimization" msgid="9120919064234265144">"HDMI ऑप्टिमायझेशन"</string>
     <string name="system_reboot_confirm" msgid="534407910866199191">"आता रीस्टार्ट करायचे?"</string>
-    <string name="system_desc_reboot_confirm" msgid="1367498732529710136">"हे सेटिंग अद्यतनित करण्यासाठी, आपल्या डिव्हाइसला रीस्टार्ट करणे आवश्यक आहे"</string>
+    <string name="system_desc_reboot_confirm" msgid="1367498732529710136">"हे सेटिंग अपडेट करण्यासाठी, आपल्या डिव्हाइसला रीस्टार्ट करणे आवश्यक आहे"</string>
     <string name="system_never_check" msgid="6666520460705041617">"कधीही तपासू नका"</string>
     <string name="system_check_for_drm_content_only" msgid="8716366734950874267">"केवळ DRM सामग्रीसाठी तपासा"</string>
     <string name="system_always_check" msgid="1866566828098009853">"नेहमी तपासा"</string>
@@ -439,16 +443,16 @@
     <string name="system_select_debug_app" msgid="8592021815119618485">"डीबग अॅप निवडा"</string>
     <string name="system_wait_for_debugger" msgid="4007354935701089555">"डीबगरची प्रतीक्षा करा"</string>
     <string name="system_verify_apps_over_usb" msgid="7340861918835270609">"USB वरील अॅप्स सत्यापित करा"</string>
-    <string name="system_desc_verify_apps_over_usb" msgid="6722973410408262393">"हानिकारक वर्तनासाठी ADB/ADT द्वारे स्थापित केलेले अॅप्स तपासा"</string>
+    <string name="system_desc_verify_apps_over_usb" msgid="6722973410408262393">"हानिकारक वर्तनासाठी ADB/ADT द्वारे इंस्टॉल केलेले अॅप्स तपासा"</string>
     <string name="system_wifi_verbose_logging" msgid="3474525355071613242">"वाय-फाय पाल्हाळिक लॉगिंग"</string>
     <string name="system_desc_wifi_verbose_logging" msgid="1559904751873455868">"वाय-फाय पाल्हाळिक लॉगिंग सक्षम करा"</string>
     <string name="system_show_touches" msgid="2179121368437801757">"स्पर्श दर्शवा"</string>
     <string name="system_pointer_location" msgid="2673764026490179227">"पॉइंटर स्थान"</string>
     <string name="system_show_layout_bounds" msgid="645732439882291943">"लेआउट सीमा दर्शवा"</string>
-    <string name="system_show_gpu_view_updates" msgid="7936280271091152459">"GPU दृश्य अद्यतने दर्शवा"</string>
+    <string name="system_show_gpu_view_updates" msgid="7936280271091152459">"GPU दृश्य अपडेट दर्शवा"</string>
     <string name="system_show_hardware_layer" msgid="7301942527058509453">"हार्डवेअर स्‍तर दर्शवा"</string>
     <string name="system_show_gpu_overdraw" msgid="707861254106800199">"GPU अधिरेखांकन दर्शवा"</string>
-    <string name="system_show_surface_updates" msgid="8878834675712192327">"पृष्ठभाग अद्यतने दर्शवा"</string>
+    <string name="system_show_surface_updates" msgid="8878834675712192327">"पृष्ठभाग अपडेट दर्शवा"</string>
     <string name="system_window_animation_scale" msgid="3213952676672537856">"विंडो अॅनिमेशन स्केल"</string>
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"संक्रमण अॅनिमेशन स्केल"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"अॅनिमेटर कालावधी स्केल"</string>
@@ -463,7 +467,7 @@
     <string name="system_desc_hdmi_optimization" msgid="4400727262768931480">"अधिकतम रिझोल्यूशनसाठी किंवा अधिकतम फ्रेमरेटसाठी प्रदर्शन ऑप्टिमाइझ करा. हे केवळ Ultra HD प्रदर्शने प्रभावित करते. हे सेटिंग बदलण्याने आपले डिव्हाइस रीस्टार्ट होईल."</string>
     <string name="system_desc_bt_hci_log" msgid="4219265203570411773">"ब्लूटूथ HCI स्नूप लॉगिंग सक्षम करा"</string>
     <string name="system_desc_usb_debugging" msgid="5168830368191788731">"USB कनेक्‍ट केल्‍यावर मोड डीबग करा"</string>
-    <string name="system_desc_wait_for_debugger" msgid="2342968959255039368">"डीबग केलेला अनुप्रयोग अंमलात आणण्यापूर्वी डीबगर संलग्न करण्याची प्रतीक्षा करतो"</string>
+    <string name="system_desc_wait_for_debugger" msgid="2342968959255039368">"डीबग केलेला अॅप्लिकेशन अंमलात आणण्यापूर्वी डीबगर संलग्न करण्याची प्रतीक्षा करतो"</string>
     <string name="system_desc_show_layout_bounds" msgid="3449386884226708985">"क्लिप सीमा, समास इत्यादी दर्शवा."</string>
     <string name="system_desc_show_gpu_view_updates" msgid="8045162296029336710">"GPU सह रेखांकित करताना विंडोच्या आतील दृश्ये फ्लॅश करा"</string>
     <string name="system_desc_show_hardware_layer" msgid="642854466995400529">"हार्डवेअर स्तर अद्ययावत झाल्यावर ते हिरव्या रंगात फ्लॅश करा"</string>
@@ -600,9 +604,9 @@
     <string name="device_apps_app_management_open" msgid="8009823973422120839">"उघडा"</string>
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"सक्तीने थांबवा"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"आपण अ‍ॅपला सक्तीेने थांबविल्‍यास, ते कदाचित गैरवर्तन असू शकते."</string>
-    <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"विस्थापित करा"</string>
-    <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"अद्यतने विस्थापित करा"</string>
-    <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"या Android सिस्टम अॅप वरील सर्व अद्यतने विस्थापित केली जातील."</string>
+    <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"अनइंस्टॉल करा"</string>
+    <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"अपडेट अनइंस्टॉल करा"</string>
+    <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"या Android सिस्टम अॅप वरील सर्व अपडेट अनइंस्टॉल केली जातील."</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"अक्षम करा"</string>
     <string name="device_apps_app_management_disable_desc" msgid="1295507373252301108">"आपण हा अॅप अक्षम करू इच्छिता?"</string>
     <string name="device_apps_app_management_enable" msgid="3246823119203444608">"सक्षम करा"</string>
@@ -617,7 +621,7 @@
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"कॅश   साफ करा"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"सूचना"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"परवानग्या"</string>
-    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"अनुप्रयोग अनुपलब्ध आहे"</string>
+    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"अॅप्लिकेशन अनुपलब्ध आहे"</string>
     <string name="settings_ok" msgid="3321630456511355983">"ठीक"</string>
     <string name="settings_cancel" msgid="304280412158061225">"रद्द करा"</string>
     <string name="settings_on" msgid="6892236264945435013">"चालू"</string>
@@ -658,12 +662,16 @@
     <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_1">%d</xliff:g> पैकी <xliff:g id="COUNT_0">%d</xliff:g> अ‍ॅप्सना अनुमती आहे"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"ब्लुटूथ परवानगी विनंती"</string>
     <string name="security_patch" msgid="2131617390189164481">"Android सुरक्षितता पॅच दर्जा"</string>
-    <string name="choose_application" msgid="5662960665577780353">"अनुप्रयोग निवडा"</string>
+    <string name="choose_application" msgid="5662960665577780353">"अॅप्लिकेशन निवडा"</string>
     <string name="experimental_preference" msgid="1137673985823581797">"(प्रायोगिक)"</string>
     <string name="reboot_safemode_action" msgid="8129550438717110406">"सुरक्षित मोडमध्ये रीबूट करा"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"आपण सुरक्षित मोडमध्ये रीबूट करू इच्छिता?"</string>
-    <string name="reboot_safemode_desc" msgid="5031024337104679492">"हे आपण स्थापित केलेल्या सर्व तृतीय पक्ष अनुप्रयोगांना अक्षम करेल. आपण पुन्हा रीबूट कराल तेव्हा त्यांना पुनर्संचयित केले जाईल."</string>
+    <string name="reboot_safemode_desc" msgid="5031024337104679492">"हे आपण इंस्टॉल केलेल्या सर्व तृतीय पक्ष अनुप्रयोगांना अक्षम करेल. आपण पुन्हा रीबूट कराल तेव्हा त्यांना पुनर्संचयित केले जाईल."</string>
     <string name="capturing_bugreport" msgid="3291125403411239592">"दोष अहवाल कॅप्चर करीत आहे"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"उपलब्ध व्हर्च्युअल कीबोर्ड"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"कीबोर्ड व्यवस्थापित करा"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"परवानगी आहे"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"परवानगी नाही"</string>
+    <string name="usage_access" msgid="1914242907684452328">"वापर अॅक्सेस"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"वापर अॅक्सेस, तुम्ही इतर कोणते अ‍ॅप्स किती वारंवार वापरत आहात, तसेच तुमचा वाहक, भाषा सेटिंग्ज आणि इतर तपशील यांचा मागोवा घेण्‍याची परवानगी अ‍ॅपला देतो."</string>
 </resources>

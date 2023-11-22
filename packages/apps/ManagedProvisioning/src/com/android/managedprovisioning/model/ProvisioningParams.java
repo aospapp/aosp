@@ -74,6 +74,7 @@ public final class ProvisioningParams extends PersistableBundlable {
     public static final long DEFAULT_LOCAL_TIME = -1;
     public static final Integer DEFAULT_MAIN_COLOR = null;
     public static final boolean DEFAULT_STARTED_BY_TRUSTED_SOURCE = false;
+    public static final boolean DEFAULT_IS_NFC = false;
     public static final boolean DEFAULT_LEAVE_ALL_SYSTEM_APPS_ENABLED = false;
     public static final boolean DEFAULT_EXTRA_PROVISIONING_SKIP_ENCRYPTION = false;
     public static final boolean DEFAULT_EXTRA_PROVISIONING_SKIP_USER_CONSENT = false;
@@ -87,6 +88,7 @@ public final class ProvisioningParams extends PersistableBundlable {
     private static final String TAG_WIFI_INFO = "wifi-info";
     private static final String TAG_PACKAGE_DOWNLOAD_INFO = "download-info";
     private static final String TAG_STARTED_BY_TRUSTED_SOURCE = "started-by-trusted-source";
+    private static final String TAG_IS_NFC = "started-is-nfc";
     private static final String TAG_PROVISIONING_ACTION = "provisioning-action";
 
     public static final Parcelable.Creator<ProvisioningParams> CREATOR
@@ -178,6 +180,8 @@ public final class ProvisioningParams extends PersistableBundlable {
      */
     public final boolean startedByTrustedSource;
 
+    public final boolean isNfc;
+
     /** True if all system apps should be enabled after provisioning. */
     public final boolean leaveAllSystemAppsEnabled;
 
@@ -223,6 +227,7 @@ public final class ProvisioningParams extends PersistableBundlable {
         adminExtrasBundle = builder.mAdminExtrasBundle;
 
         startedByTrustedSource = builder.mStartedByTrustedSource;
+        isNfc = builder.mIsNfc;
         leaveAllSystemAppsEnabled = builder.mLeaveAllSystemAppsEnabled;
         skipEncryption = builder.mSkipEncryption;
         accountToMigrate = builder.mAccountToMigrate;
@@ -270,6 +275,7 @@ public final class ProvisioningParams extends PersistableBundlable {
                 disclaimersParam);
         bundle.putPersistableBundle(EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE, adminExtrasBundle);
         bundle.putBoolean(TAG_STARTED_BY_TRUSTED_SOURCE, startedByTrustedSource);
+        bundle.putBoolean(TAG_IS_NFC, isNfc);
         bundle.putBoolean(EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED,
                 leaveAllSystemAppsEnabled);
         bundle.putBoolean(EXTRA_PROVISIONING_SKIP_ENCRYPTION, skipEncryption);
@@ -314,6 +320,7 @@ public final class ProvisioningParams extends PersistableBundlable {
         builder.setAdminExtrasBundle(bundle.getPersistableBundle(
                 EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE));
         builder.setStartedByTrustedSource(bundle.getBoolean(TAG_STARTED_BY_TRUSTED_SOURCE));
+        builder.setIsNfc(bundle.getBoolean(TAG_IS_NFC));
         builder.setSkipEncryption(bundle.getBoolean(EXTRA_PROVISIONING_SKIP_ENCRYPTION));
         builder.setLeaveAllSystemAppsEnabled(bundle.getBoolean(
                 EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED));
@@ -415,6 +422,7 @@ public final class ProvisioningParams extends PersistableBundlable {
         private DisclaimersParam mDisclaimersParam;
         private PersistableBundle mAdminExtrasBundle;
         private boolean mStartedByTrustedSource = DEFAULT_STARTED_BY_TRUSTED_SOURCE;
+        private boolean mIsNfc = DEFAULT_IS_NFC;
         private boolean mLeaveAllSystemAppsEnabled = DEFAULT_LEAVE_ALL_SYSTEM_APPS_ENABLED;
         private boolean mSkipEncryption = DEFAULT_EXTRA_PROVISIONING_SKIP_ENCRYPTION;
         private boolean mSkipUserConsent = DEFAULT_EXTRA_PROVISIONING_SKIP_USER_CONSENT;
@@ -511,6 +519,12 @@ public final class ProvisioningParams extends PersistableBundlable {
             mStartedByTrustedSource = startedByTrustedSource;
             return this;
         }
+
+        public Builder setIsNfc(boolean isNfc) {
+            mIsNfc = isNfc;
+            return this;
+        }
+
 
         public Builder setLeaveAllSystemAppsEnabled(boolean leaveAllSystemAppsEnabled) {
             mLeaveAllSystemAppsEnabled = leaveAllSystemAppsEnabled;

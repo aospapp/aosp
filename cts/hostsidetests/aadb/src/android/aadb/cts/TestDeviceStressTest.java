@@ -16,12 +16,9 @@
 package android.aadb.cts;
 
 import com.android.ddmlib.IDevice;
-import com.android.ddmlib.Log;
-import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
-import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
-import com.android.tradefed.result.CollectingTestListener;
+import com.android.tradefed.device.TestDevice;
 import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.util.FileUtil;
 
@@ -36,10 +33,8 @@ import java.io.IOException;
  */
 public class TestDeviceStressTest extends DeviceTestCase {
 
-    private int mIterations = 25;
-
-    private static final String LOG_TAG = "TestDeviceStressTest";
     private static final int TEST_FILE_COUNT= 200;
+    private int mIterations = 25;
     private ITestDevice mTestDevice;
 
     @Override
@@ -87,9 +82,7 @@ public class TestDeviceStressTest extends DeviceTestCase {
                 assertTrue(mTestDevice.doesFileExist(deviceFilePath));
             }
         } finally {
-            if (tmpDir != null) {
-                FileUtil.recursiveDelete(tmpDir);
-            }
+            FileUtil.recursiveDelete(tmpDir);
             mTestDevice.executeShellCommand(String.format("rm -r %s", deviceFilePath));
             assertFalse(String.format("%s exists", deviceFilePath),
                     mTestDevice.doesFileExist(deviceFilePath));

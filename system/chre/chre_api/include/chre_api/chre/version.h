@@ -56,9 +56,6 @@ extern "C" {
  * The version of the CHRE API shipped with the Android O release. It adds
  * initial support for new GNSS, WiFi, and WWAN modules.
  *
- * @note This version of the CHRE API has not been finalized yet, and is
- * currently considered a preview that is subject to change.
- *
  * @see CHRE_API_VERSION
  */
 #define CHRE_API_VERSION_1_1  UINT32_C(0x01010000)

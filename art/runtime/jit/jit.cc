@@ -20,6 +20,8 @@
 
 #include "art_method-inl.h"
 #include "base/enums.h"
+#include "base/logging.h"
+#include "base/memory_tool.h"
 #include "debugger.h"
 #include "entrypoints/runtime_asm_entrypoints.h"
 #include "interpreter/interpreter.h"
@@ -31,7 +33,9 @@
 #include "profile_saver.h"
 #include "runtime.h"
 #include "runtime_options.h"
+#include "stack.h"
 #include "stack_map.h"
+#include "thread-inl.h"
 #include "thread_list.h"
 #include "utils.h"
 
@@ -42,6 +46,11 @@ static constexpr bool kEnableOnStackReplacement = true;
 // At what priority to schedule jit threads. 9 is the lowest foreground priority on device.
 static constexpr int kJitPoolThreadPthreadPriority = 9;
 
+// Different compilation threshold constants. These can be overridden on the command line.
+static constexpr size_t kJitDefaultCompileThreshold           = 10000;  // Non-debug default.
+static constexpr size_t kJitStressDefaultCompileThreshold     = 100;    // Fast-debug build.
+static constexpr size_t kJitSlowStressDefaultCompileThreshold = 2;      // Slow-debug build.
+
 // JIT compiler
 void* Jit::jit_library_handle_= nullptr;
 void* Jit::jit_compiler_handle_ = nullptr;
@@ -50,6 +59,11 @@ void (*Jit::jit_unload_)(void*) = nullptr;
 bool (*Jit::jit_compile_method_)(void*, ArtMethod*, Thread*, bool) = nullptr;
 void (*Jit::jit_types_loaded_)(void*, mirror::Class**, size_t count) = nullptr;
 bool Jit::generate_debug_info_ = false;
+
+struct StressModeHelper {
+  DECLARE_RUNTIME_DEBUG_FLAG(kSlowMode);
+};
+DEFINE_RUNTIME_DEBUG_FLAG(StressModeHelper, kSlowMode);
 
 JitOptions* JitOptions::CreateFromRuntimeArguments(const RuntimeArgumentMap& options) {
   auto* jit_options = new JitOptions;
@@ -64,7 +78,16 @@ JitOptions* JitOptions::CreateFromRuntimeArguments(const RuntimeArgumentMap& opt
   jit_options->profile_saver_options_ =
       options.GetOrDefault(RuntimeArgumentMap::ProfileSaverOpts);
 
-  jit_options->compile_threshold_ = options.GetOrDefault(RuntimeArgumentMap::JITCompileThreshold);
+  if (options.Exists(RuntimeArgumentMap::JITCompileThreshold)) {
+    jit_options->compile_threshold_ = *options.Get(RuntimeArgumentMap::JITCompileThreshold);
+  } else {
+    jit_options->compile_threshold_ =
+        kIsDebugBuild
+            ? (StressModeHelper::kSlowMode
+                   ? kJitSlowStressDefaultCompileThreshold
+                   : kJitStressDefaultCompileThreshold)
+            : kJitDefaultCompileThreshold;
+  }
   if (jit_options->compile_threshold_ > std::numeric_limits<uint16_t>::max()) {
     LOG(FATAL) << "Method compilation threshold is above its internal limit.";
   }
@@ -308,20 +331,23 @@ void Jit::DeleteThreadPool() {
   Thread* self = Thread::Current();
   DCHECK(Runtime::Current()->IsShuttingDown(self));
   if (thread_pool_ != nullptr) {
-    ThreadPool* cache = nullptr;
+    std::unique_ptr<ThreadPool> pool;
     {
       ScopedSuspendAll ssa(__FUNCTION__);
       // Clear thread_pool_ field while the threads are suspended.
       // A mutator in the 'AddSamples' method will check against it.
-      cache = thread_pool_.release();
+      pool = std::move(thread_pool_);
     }
-    cache->StopWorkers(self);
-    cache->RemoveAllTasks(self);
+
+    // When running sanitized, let all tasks finish to not leak. Otherwise just clear the queue.
+    if (!RUNNING_ON_MEMORY_TOOL) {
+      pool->StopWorkers(self);
+      pool->RemoveAllTasks(self);
+    }
     // We could just suspend all threads, but we know those threads
     // will finish in a short period, so it's not worth adding a suspend logic
     // here. Besides, this is only done for shutdown.
-    cache->Wait(self, false, false);
-    delete cache;
+    pool->Wait(self, false, false);
   }
 }
 

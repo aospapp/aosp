@@ -13,88 +13,93 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical">
-  <TextView
+    style="@style/RootLayoutPadding">
+  <LinearLayout
       android:layout_width="match_parent"
-      android:layout_height="wrap_content"
-      android:text="@string/dialer_shows_hun_test"/>
-
-  <LinearLayout
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:layout_marginTop="@dimen/js_padding"
-      android:layout_marginBottom="@dimen/js_padding">
-    <ImageView
-        android:id="@+id/set_default_dialer_image"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginRight="@dimen/js_padding"
-        android:src="@drawable/fs_indeterminate"/>
+      android:layout_height="match_parent"
+      android:orientation="vertical">
     <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/dialer_shows_hun_test"/>
+
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/dialer_shows_hun_test_instructions"
-        android:textSize="16dp"/>
-  </LinearLayout>
+        android:layout_marginTop="@dimen/js_padding"
+        android:layout_marginBottom="@dimen/js_padding">
+      <ImageView
+          android:id="@+id/set_default_dialer_image"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginRight="@dimen/js_padding"
+          android:src="@drawable/fs_indeterminate"/>
+      <TextView
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="@string/dialer_shows_hun_test_instructions"
+          android:textSize="16dp"/>
+    </LinearLayout>
 
-  <Button
-      android:id="@+id/set_default_dialer"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:text="@string/voicemail_set_default_dialer_button"/>
-
-  <LinearLayout
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:layout_marginTop="@dimen/js_padding"
-      android:layout_marginBottom="@dimen/js_padding">
-    <TextView
-        android:id="@+id/dialer_shows_hun_explanation"
+    <Button
+        android:id="@+id/set_default_dialer"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/dialer_shows_hun_explanation"
-        android:textSize="16dp"/>
-  </LinearLayout>
+        android:text="@string/voicemail_set_default_dialer_button"/>
 
-  <LinearLayout
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:layout_marginTop="@dimen/js_padding"
-      android:layout_marginBottom="@dimen/js_padding">
-    <CheckBox
-        android:id="@+id/dialer_shows_hun_check_box"
-        android:text="@string/dialer_shows_hun_check_box"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
-  </LinearLayout>
-
-  <LinearLayout
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:layout_marginTop="@dimen/js_padding"
-      android:layout_marginBottom="@dimen/js_padding">
-    <ImageView
-        android:id="@+id/restore_default_dialer_image"
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginRight="@dimen/js_padding"
-        android:src="@drawable/fs_indeterminate"/>
-    <TextView
-        android:id="@+id/restore_default_dialer_text"
+        android:layout_marginTop="@dimen/js_padding"
+        android:layout_marginBottom="@dimen/js_padding">
+      <TextView
+          android:id="@+id/dialer_shows_hun_explanation"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="@string/dialer_shows_hun_explanation"
+          android:textSize="16dp"/>
+    </LinearLayout>
+
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/voicemail_restore_default_dialer_description"
-        android:textSize="16dp"/>
+        android:layout_marginTop="@dimen/js_padding"
+        android:layout_marginBottom="@dimen/js_padding">
+      <CheckBox
+          android:id="@+id/dialer_shows_hun_check_box"
+          android:text="@string/dialer_shows_hun_check_box"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"/>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/js_padding"
+        android:layout_marginBottom="@dimen/js_padding">
+      <ImageView
+          android:id="@+id/restore_default_dialer_image"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginRight="@dimen/js_padding"
+          android:src="@drawable/fs_indeterminate"/>
+      <TextView
+          android:id="@+id/restore_default_dialer_text"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="@string/voicemail_restore_default_dialer_description"
+          android:textSize="16dp"/>
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/restore_default_dialer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/voicemail_restore_default_dialer_button"/>
+
+    <include layout="@layout/pass_fail_buttons"/>
   </LinearLayout>
-
-  <Button
-      android:id="@+id/restore_default_dialer"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:text="@string/voicemail_restore_default_dialer_button"/>
-
-  <include layout="@layout/pass_fail_buttons"/>
-</LinearLayout>
+</ScrollView>

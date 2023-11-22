@@ -332,7 +332,8 @@ public class ListeningPortsTest extends AndroidTestCase {
                     String[] fields = line.split("\\s+");
                     final int expectedNumColumns = 12;
                     assertTrue(procFilePath + " should have at least " + expectedNumColumns
-                            + " columns of output " + fields, fields.length >= expectedNumColumns);
+                            + " columns of output " + Arrays.toString(fields),
+                            fields.length >= expectedNumColumns);
 
                     String state = fields[3];
                     int uid = Integer.parseInt(fields[7]);

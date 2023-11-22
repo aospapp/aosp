@@ -49,7 +49,7 @@
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"يُسمح لمالك هذا الجهاز فقط تثبيت الشهادات."</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"استخدام بيانات الاعتماد:"</string>
   <string-array name="credential_usage">
-    <item msgid="375085478373011304">"شبكة ظاهرية وتطبيقات"</item>
+    <item msgid="375085478373011304">"شبكة افتراضية وتطبيقات"</item>
     <item msgid="692322974985472861">"Wi-Fi"</item>
   </string-array>
     <string name="wifi_title" msgid="8475811746333426489">"‏الملف الشخصي لاتصال Wi-Fi"</string>

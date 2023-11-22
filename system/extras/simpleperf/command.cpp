@@ -23,6 +23,8 @@
 
 #include <android-base/logging.h>
 
+#include "utils.h"
+
 bool Command::NextArgumentOrError(const std::vector<std::string>& args, size_t* pi) {
   if (*pi + 1 == args.size()) {
     LOG(ERROR) << "No argument following " << args[*pi] << " option. Try `simpleperf help " << name_
@@ -95,3 +97,49 @@ class CommandRegister {
 };
 
 CommandRegister command_register;
+
+bool RunSimpleperfCmd(int argc, char** argv) {
+  android::base::InitLogging(argv, android::base::StderrLogger);
+  std::vector<std::string> args;
+  android::base::LogSeverity log_severity = android::base::INFO;
+
+  for (int i = 1; i < argc; ++i) {
+    if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+      args.insert(args.begin(), "help");
+    } else if (strcmp(argv[i], "--log") == 0) {
+      if (i + 1 < argc) {
+        ++i;
+        if (!GetLogSeverity(argv[i], &log_severity)) {
+          LOG(ERROR) << "Unknown log severity: " << argv[i];
+          return false;
+        }
+      } else {
+        LOG(ERROR) << "Missing argument for --log option.\n";
+        return false;
+      }
+    } else if (strcmp(argv[i], "--version") == 0) {
+      LOG(INFO) << "Simpleperf version " << GetSimpleperfVersion();
+      return true;
+    } else {
+      args.push_back(argv[i]);
+    }
+  }
+  android::base::ScopedLogSeverity severity(log_severity);
+
+  if (args.empty()) {
+    args.push_back("help");
+  }
+  std::unique_ptr<Command> command = CreateCommandInstance(args[0]);
+  if (command == nullptr) {
+    LOG(ERROR) << "malformed command line: unknown command " << args[0];
+    return false;
+  }
+  std::string command_name = args[0];
+  args.erase(args.begin());
+
+  LOG(DEBUG) << "command '" << command_name << "' starts running";
+  bool result = command->Run(args);
+  LOG(DEBUG) << "command '" << command_name << "' "
+             << (result ? "finished successfully" : "failed");
+  return result;
+}

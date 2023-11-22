@@ -15,6 +15,9 @@
  */
 package com.android.internal.telephony;
 
+import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
+
 import android.app.AppOpsManager;
 import android.content.ContentValues;
 import android.content.Intent;
@@ -24,20 +27,18 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.UserHandle;
 import android.provider.Settings;
+import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
 import android.test.mock.MockContentProvider;
 import android.test.mock.MockContentResolver;
 import android.test.suitebuilder.annotation.SmallTest;
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import android.util.Log;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-
-import android.telephony.SubscriptionInfo;
-import android.telephony.SubscriptionManager;
-import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -71,7 +72,8 @@ public class SubscriptionControllerTest extends TelephonyTest {
                 SubscriptionManager.CB_ALERT_VIBRATE, SubscriptionManager.CB_ALERT_SPEECH,
                 SubscriptionManager.CB_ETWS_TEST_ALERT, SubscriptionManager.CB_CHANNEL_50_ALERT,
                 SubscriptionManager.CB_CMAS_TEST_ALERT, SubscriptionManager.CB_OPT_OUT_DIALOG,
-                SubscriptionManager.SIM_PROVISIONING_STATUS};
+                SubscriptionManager.SIM_PROVISIONING_STATUS, SubscriptionManager.IS_EMBEDDED,
+                SubscriptionManager.ACCESS_RULES};
 
         /* internal util function */
         private MatrixCursor convertFromContentToCursor(ContentValues initialValues) {
@@ -238,6 +240,33 @@ public class SubscriptionControllerTest extends TelephonyTest {
         verify(mContext, atLeast(1)).sendBroadcast(captorIntent.capture());
         assertEquals(TelephonyIntents.ACTION_SUBINFO_RECORD_UPDATED,
                 captorIntent.getValue().getAction());
+    }
+
+    @Test @SmallTest
+    public void testSetGetDisplayNameSrc() {
+        testInsertSim();
+
+        /* Get SUB ID */
+        int[] subIds = mSubscriptionControllerUT.getActiveSubIdList();
+        assertTrue(subIds != null && subIds.length != 0);
+        int subID = subIds[0];
+
+        /* Setting */
+        String disName = "TESTING";
+        long nameSource = 1;
+        mSubscriptionControllerUT.setDisplayNameUsingSrc(disName, subID, nameSource);
+        SubscriptionInfo subInfo = mSubscriptionControllerUT
+                .getActiveSubscriptionInfo(subID, mCallingPackage);
+        assertNotNull(subInfo);
+        assertEquals(disName, subInfo.getDisplayName());
+        assertEquals(nameSource, subInfo.getNameSource());
+
+        /* verify broadcast intent */
+        ArgumentCaptor<Intent> captorIntent = ArgumentCaptor.forClass(Intent.class);
+        verify(mContext, atLeast(1)).sendBroadcast(captorIntent.capture());
+        assertEquals(TelephonyIntents.ACTION_SUBINFO_RECORD_UPDATED,
+                captorIntent.getValue().getAction());
+
     }
 
     @Test @SmallTest

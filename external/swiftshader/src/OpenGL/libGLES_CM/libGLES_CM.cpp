@@ -1526,11 +1526,6 @@ void FramebufferTexture2DOES(GLenum target, GLenum attachment, GLenum textarget,
 				return error(GL_INVALID_OPERATION);
 			}
 
-			if(tex->isCompressed(textarget, level))
-			{
-				return error(GL_INVALID_OPERATION);
-			}
-
 			switch(textarget)
 			{
 			case GL_TEXTURE_2D:
@@ -1546,6 +1541,11 @@ void FramebufferTexture2DOES(GLenum target, GLenum attachment, GLenum textarget,
 			if(level != 0)
 			{
 				return error(GL_INVALID_VALUE);
+			}
+
+			if(tex->isCompressed(textarget, level))
+			{
+				return error(GL_INVALID_OPERATION);
 			}
 		}
 
@@ -1985,7 +1985,7 @@ void GetBufferParameteriv(GLenum target, GLenum pname, GLint* params)
 			*params = buffer->usage();
 			break;
 		case GL_BUFFER_SIZE:
-			*params = buffer->size();
+			*params = (GLint)buffer->size();
 			break;
 		default:
 			return error(GL_INVALID_ENUM);
@@ -2272,9 +2272,9 @@ const GLubyte* GetString(GLenum name)
 	case GL_VENDOR:
 		return (GLubyte*)"Google Inc.";
 	case GL_RENDERER:
-		return (GLubyte*)"Google SwiftShader";
+		return (GLubyte*)"Google SwiftShader " VERSION_STRING;
 	case GL_VERSION:
-		return (GLubyte*)"OpenGL ES 1.1 SwiftShader " VERSION_STRING;
+		return (GLubyte*)"OpenGL ES-CM 1.1";
 	case GL_EXTENSIONS:
 		// Keep list sorted in following order:
 		// OES extensions
@@ -4320,7 +4320,7 @@ void TexImage2D(GLenum target, GLint level, GLint internalformat, GLsizei width,
 				return error(GL_INVALID_OPERATION);
 			}
 
-			texture->setImage(level, width, height, format, type, context->getUnpackAlignment(), pixels);
+			texture->setImage(context, level, width, height, format, type, context->getUnpackAlignment(), pixels);
 		}
 		else UNREACHABLE(target);
 	}
@@ -4557,7 +4557,7 @@ void TexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLs
 
 			if(validateSubImageParams(false, width, height, xoffset, yoffset, target, level, format, texture))
 			{
-				texture->subImage(level, xoffset, yoffset, width, height, format, type, context->getUnpackAlignment(), pixels);
+				texture->subImage(context, level, xoffset, yoffset, width, height, format, type, context->getUnpackAlignment(), pixels);
 			}
 		}
 		else UNREACHABLE(target);
@@ -4623,16 +4623,11 @@ void EGLImageTargetTexture2DOES(GLenum target, GLeglImageOES image)
 		return error(GL_INVALID_ENUM);
 	}
 
-	if(!image)
-	{
-		return error(GL_INVALID_OPERATION);
-	}
-
 	es1::Context *context = es1::getContext();
 
 	if(context)
 	{
-		es1::Texture2D *texture = 0;
+		es1::Texture2D *texture = nullptr;
 
 		switch(target)
 		{
@@ -4646,9 +4641,14 @@ void EGLImageTargetTexture2DOES(GLenum target, GLeglImageOES image)
 			return error(GL_INVALID_OPERATION);
 		}
 
-		egl::Image *glImage = static_cast<egl::Image*>(image);
+		egl::Image *eglImage = context->getSharedImage(image);
 
-		texture->setImage(glImage);
+		if(!eglImage)
+		{
+			return error(GL_INVALID_OPERATION);
+		}
+
+		texture->setSharedImage(eglImage);
 	}
 }
 

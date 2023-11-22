@@ -31,6 +31,7 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <thread>
 
 #include "check.h"
@@ -69,6 +70,9 @@ class BenchmarkFamilies {
   // Registers a benchmark family and returns the index assigned to it.
   size_t AddBenchmark(std::unique_ptr<Benchmark> family);
 
+  // Clear all registered benchmark families.
+  void ClearBenchmarks();
+
   // Extract the list of benchmark instances that match the specified
   // regular expression.
   bool FindBenchmarks(const std::string& re,
@@ -92,6 +96,12 @@ size_t BenchmarkFamilies::AddBenchmark(std::unique_ptr<Benchmark> family) {
   size_t index = families_.size();
   families_.push_back(std::move(family));
   return index;
+}
+
+void BenchmarkFamilies::ClearBenchmarks() {
+  MutexLock l(mutex_);
+  families_.clear();
+  families_.shrink_to_fit();
 }
 
 bool BenchmarkFamilies::FindBenchmarks(
@@ -143,6 +153,7 @@ bool BenchmarkFamilies::FindBenchmarks(
         instance.time_unit = family->time_unit_;
         instance.range_multiplier = family->range_multiplier_;
         instance.min_time = family->min_time_;
+        instance.iterations = family->iterations_;
         instance.repetitions = family->repetitions_;
         instance.use_real_time = family->use_real_time_;
         instance.use_manual_time = family->use_manual_time_;
@@ -162,17 +173,18 @@ bool BenchmarkFamilies::FindBenchmarks(
                   StringPrintF("%s:", family->arg_names_[arg_i].c_str());
             }
           }
-
-          AppendHumanReadable(arg, &instance.name);
+          
+          instance.name += StringPrintF("%d", arg);
           ++arg_i;
         }
 
-        if (!IsZero(family->min_time_)) {
+        if (!IsZero(family->min_time_))
           instance.name += StringPrintF("/min_time:%0.3f", family->min_time_);
-        }
-        if (family->repetitions_ != 0) {
+        if (family->iterations_ != 0)
+          instance.name += StringPrintF("/iterations:%d", family->iterations_);
+        if (family->repetitions_ != 0)
           instance.name += StringPrintF("/repeats:%d", family->repetitions_);
-        }
+
         if (family->use_manual_time_) {
           instance.name += "/manual_time";
         } else if (family->use_real_time_) {
@@ -219,6 +231,7 @@ Benchmark::Benchmark(const char* name)
       time_unit_(kNanosecond),
       range_multiplier_(kRangeMultiplier),
       min_time_(0),
+      iterations_(0),
       repetitions_(0),
       use_real_time_(false),
       use_manual_time_(false),
@@ -344,6 +357,22 @@ Benchmark* Benchmark::RangeMultiplier(int multiplier) {
   return this;
 }
 
+
+Benchmark* Benchmark::MinTime(double t) {
+  CHECK(t > 0.0);
+  CHECK(iterations_ == 0);
+  min_time_ = t;
+  return this;
+}
+
+
+Benchmark* Benchmark::Iterations(size_t n) {
+  CHECK(n > 0);
+  CHECK(IsZero(min_time_));
+  iterations_ = n;
+  return this;
+}
+
 Benchmark* Benchmark::Repetitions(int n) {
   CHECK(n > 0);
   repetitions_ = n;
@@ -352,12 +381,6 @@ Benchmark* Benchmark::Repetitions(int n) {
 
 Benchmark* Benchmark::ReportAggregatesOnly(bool value) {
   report_mode_ = value ? RM_ReportAggregatesOnly : RM_Default;
-  return this;
-}
-
-Benchmark* Benchmark::MinTime(double t) {
-  CHECK(t > 0.0);
-  min_time_ = t;
   return this;
 }
 
@@ -436,4 +459,9 @@ int Benchmark::ArgsCnt() const {
 void FunctionBenchmark::Run(State& st) { func_(st); }
 
 }  // end namespace internal
+
+void ClearRegisteredBenchmarks() {
+  internal::BenchmarkFamilies::GetInstance()->ClearBenchmarks();
+}
+
 }  // end namespace benchmark

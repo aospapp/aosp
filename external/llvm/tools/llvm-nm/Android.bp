@@ -45,6 +45,4 @@ cc_binary_host {
         "libLLVMSupport",
         "libLLVMMCDisassembler",
     ],
-    // b/31938645, clang-tidy segmentation fault on llvm-nm.cpp.
-    tidy_checks: ["-llvm-twine-local"],
 }

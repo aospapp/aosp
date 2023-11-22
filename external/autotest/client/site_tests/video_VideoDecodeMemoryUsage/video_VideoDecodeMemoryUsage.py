@@ -13,6 +13,7 @@ from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros.graphics import graphics_utils
+from autotest_lib.client.cros.video import helper_logger
 
 TEST_PAGE = 'content.html'
 
@@ -359,11 +360,14 @@ class video_VideoDecodeMemoryUsage(test.test):
     """This is a memory usage test for video playback."""
     version = 1
 
+    @helper_logger.video_log_wrapper
     def run_once(self, testcases):
         last_error = None
         logging.getLogger().addFilter(TelemetryFilter())
 
-        with chrome.Chrome(init_network_controller=True) as cr:
+        with chrome.Chrome(
+                extra_browser_args=helper_logger.chrome_vmodule_flag(),
+                init_network_controller=True) as cr:
             cr.browser.platform.SetHTTPServerDirectories(self.bindir)
             for class_name, videos in testcases:
                 name = _get_testcase_name(class_name, videos)

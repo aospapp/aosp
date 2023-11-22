@@ -66,7 +66,7 @@ public class FileOperationService extends Service implements Job.Listener {
     public static final String EXTRA_OPERATION = "com.android.documentsui.OPERATION";
     public static final String EXTRA_CANCEL = "com.android.documentsui.CANCEL";
 
-    @IntDef(flag = true, value = {
+    @IntDef({
             OPERATION_UNKNOWN,
             OPERATION_COPY,
             OPERATION_COMPRESS,
@@ -82,6 +82,15 @@ public class FileOperationService extends Service implements Job.Listener {
     public static final int OPERATION_COMPRESS = 3;
     public static final int OPERATION_MOVE = 4;
     public static final int OPERATION_DELETE = 5;
+
+    @IntDef({
+            MESSAGE_PROGRESS,
+            MESSAGE_FINISH
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface MessageType {}
+    public static final int MESSAGE_PROGRESS = 0;
+    public static final int MESSAGE_FINISH = 1;
 
     // TODO: Move it to a shared file when more operations are implemented.
     public static final int FAILURE_COPY = 1;

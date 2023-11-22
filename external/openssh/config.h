@@ -129,6 +129,9 @@
 /* File names may not contain backslash characters */
 /* #undef FILESYSTEM_NO_BACKSLASH */
 
+#define OPENSSL_NO_BF 1
+#define OPENSSL_NO_CAST 1
+
 /* fsid_t has member val */
 /* #undef FSID_HAS_VAL */
 

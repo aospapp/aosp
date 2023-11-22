@@ -51,4 +51,6 @@
     </declare-styleable>
 
     <attr name="preferenceBackgroundColor" format="color" />
+    <attr name="emergencyButtonBackgroundColor" format="color" />
+    <attr name="dialpadTheme" format="reference" />
 </resources>

@@ -22,29 +22,20 @@
 		#define WIN32_LEAN_AND_MEAN
 	#endif
 	#include <windows.h>
+	#include <intrin.h>
 #else
 	#include <sys/mman.h>
 	#include <unistd.h>
-#endif
-
-#if defined(__ANDROID__) && defined(TAG_JIT_CODE_MEMORY)
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
-#include <sys/prctl.h>
-
-// Defined in bionic/libc/private/bionic_prctl.h, but that's not available outside of bionic.
-#define ANDROID_PR_SET_VMA           0x53564d41   // 'SVMA'
-#define ANDROID_PR_SET_VMA_ANON_NAME 0
 #endif
 
 #include <memory.h>
 
 #undef allocate
 #undef deallocate
-#undef allocateZero
-#undef deallocateZero
+
+#if (defined(__i386__) || defined(_M_IX86) || defined(__x86_64__) || defined (_M_X64)) && !defined(__x86__)
+#define __x86__
+#endif
 
 namespace sw
 {
@@ -72,10 +63,10 @@ struct Allocation
 	unsigned char *block;
 };
 
-void *allocate(size_t bytes, size_t alignment)
+inline void *allocateRaw(size_t bytes, size_t alignment)
 {
 	unsigned char *block = new unsigned char[bytes + sizeof(Allocation) + alignment];
-	unsigned char *aligned = 0;
+	unsigned char *aligned = nullptr;
 
 	if(block)
 	{
@@ -89,9 +80,9 @@ void *allocate(size_t bytes, size_t alignment)
 	return aligned;
 }
 
-void *allocateZero(size_t bytes, size_t alignment)
+void *allocate(size_t bytes, size_t alignment)
 {
-	void *memory = allocate(bytes, alignment);
+	void *memory = allocateRaw(bytes, alignment);
 
 	if(memory)
 	{
@@ -115,25 +106,8 @@ void deallocate(void *memory)
 void *allocateExecutable(size_t bytes)
 {
 	size_t pageSize = memoryPageSize();
-	size_t roundedSize = (bytes + pageSize - 1) & ~(pageSize - 1);
-	void *memory = allocate(roundedSize, pageSize);
 
-	#if defined(__ANDROID__) && defined(TAG_JIT_CODE_MEMORY)
-		if(memory)
-		{
-			char *name = nullptr;
-			asprintf(&name, "ss_x_%p", memory);
-
-			if(prctl(ANDROID_PR_SET_VMA, ANDROID_PR_SET_VMA_ANON_NAME, memory, roundedSize, name) == -1)
-			{
-				ALOGE("prctl failed %p 0x%zx (%s)", memory, roundedSize, strerror(errno));
-				free(name);
-			}
-			// The kernel retains a reference to name, so don't free it.
-		}
-	#endif
-
-	return memory;
+	return allocate((bytes + pageSize - 1) & ~(pageSize - 1), pageSize);
 }
 
 void markExecutable(void *memory, size_t bytes)
@@ -156,5 +130,33 @@ void deallocateExecutable(void *memory, size_t bytes)
 	#endif
 
 	deallocate(memory);
+}
+
+void clear(uint16_t *memory, uint16_t element, size_t count)
+{
+	#if defined(_MSC_VER) && defined(__x86__)
+		__stosw(memory, element, count);
+	#elif defined(__GNUC__) && defined(__x86__)
+		__asm__("rep stosw" : : "D"(memory), "a"(element), "c"(count));
+	#else
+		for(size_t i = 0; i < count; i++)
+		{
+			memory[i] = element;
+		}
+	#endif
+}
+
+void clear(uint32_t *memory, uint32_t element, size_t count)
+{
+	#if defined(_MSC_VER) && defined(__x86__)
+		__stosd((unsigned long*)memory, element, count);
+	#elif defined(__GNUC__) && defined(__x86__)
+		__asm__("rep stosl" : : "D"(memory), "a"(element), "c"(count));
+	#else
+		for(size_t i = 0; i < count; i++)
+		{
+			memory[i] = element;
+		}
+	#endif
 }
 }

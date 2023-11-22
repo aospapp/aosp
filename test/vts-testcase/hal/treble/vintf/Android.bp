@@ -20,13 +20,20 @@ cc_test {
     ],
     shared_libs: [
         "libbase",
-        "libutils",
+        "libcutils",
         "libhidlbase",
         "libhidltransport",
+        "liblog",
+        "libutils",
+        "libz",
+    ],
+    static_libs: [
         "libhidl-gen-hash",
         "libhidl-gen-utils",
+        "libselinux",
+        "libtinyxml2",
         "libvintf",
-        "android.hidl.manager@1.0",
     ],
+    group_static_libs: true,
 }
 

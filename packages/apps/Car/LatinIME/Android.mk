@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+ifneq ($(TARGET_BUILD_PDK), true)
+
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
@@ -29,8 +31,6 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
         android-common jsr305
 LOCAL_STATIC_ANDROID_LIBRARIES := android-support-v4
 
-LOCAL_USE_AAPT2 := true
-
 # Include all the resources regardless of system supported locales
 LOCAL_AAPT_INCLUDE_ALL_RESOURCES := true
 
@@ -41,6 +41,9 @@ LOCAL_PROGUARD_ENABLED := disabled
 
 LOCAL_DEX_PREOPT := false
 
+include packages/apps/Car/libs/car-stream-ui-lib/car-stream-ui-lib.mk
 include packages/services/Car/car-support-lib/car-support.mk
 
 include $(BUILD_PACKAGE)
+
+endif

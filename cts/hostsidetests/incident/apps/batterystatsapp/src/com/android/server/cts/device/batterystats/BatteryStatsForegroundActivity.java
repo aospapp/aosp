@@ -16,6 +16,7 @@
 
 package com.android.server.cts.device.batterystats;
 
+import static com.android.server.cts.device.batterystats.BatteryStatsBgVsFgActions.ACTION_SLEEP_WHILE_TOP;
 import static com.android.server.cts.device.batterystats.BatteryStatsBgVsFgActions.ACTION_SYNC;
 import static com.android.server.cts.device.batterystats.BatteryStatsBgVsFgActions.KEY_ACTION;
 import static com.android.server.cts.device.batterystats.BatteryStatsBgVsFgActions.KEY_REQUEST_CODE;
@@ -49,9 +50,17 @@ public class BatteryStatsForegroundActivity extends Activity {
 
         doAction(this, action, requestCode);
 
-        // ACTION_SYNC will finish itself. Others get finished here.
-        if (!ACTION_SYNC.equals(action)) {
+        if (!isActionAsync(action)) {
             finish();
         }
+    }
+
+    private boolean isActionAsync(String action) {
+        switch (action) {
+            case ACTION_SYNC:
+            case ACTION_SLEEP_WHILE_TOP:
+                return true;
+        }
+        return false;
     }
 }

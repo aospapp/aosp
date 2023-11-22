@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="phoneAppLabel" product="tablet" msgid="8576272342240415145">"ទិន្នន័យ​ចល័ត"</string>
+    <string name="phoneAppLabel" product="tablet" msgid="8576272342240415145">"ទិន្នន័យ​ទូរសព្ទចល័ត"</string>
     <string name="phoneAppLabel" product="default" msgid="6790717591729922998">"សេវាកម្មទូរស័ព្ទ"</string>
     <string name="emergencyDialerIconLabel" msgid="7812140032168171053">"អ្នក​ហៅ​នៅ​ពេល​មាន​អាសន្ន"</string>
     <string name="phoneIconLabel" msgid="2331230813161304895">"ទូរស័ព្ទ"</string>
@@ -78,7 +78,6 @@
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"សារជាសម្លេង (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"VM:"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"ការ​ជូនដំណឹង"</string>
-    <string name="networks" msgid="8873030692174541976">"ប្រតិបត្តិ​ករ​​​បណ្ដាញ"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"ការ​ផ្សាយ​ពេល​មាន​អាសន្ន"</string>
     <string name="call_settings" msgid="6112441768261754562">"កំណត់​ការ​ហៅ"</string>
     <string name="additional_gsm_call_settings" msgid="1391795981938800617">"ការ​កំណត់​បន្ថែម"</string>
@@ -164,20 +163,18 @@
     <string name="label_available" msgid="1181658289009300430">"បណ្ដាញ​ដែល​មាន"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"កំពុង​ស្វែងរក..."</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"រក​មិន​ឃើញ​បណ្ដាញ។"</string>
-    <string name="search_networks" msgid="1601136049300882441">"ស្វែងរក​បណ្ដាញ"</string>
     <string name="network_query_error" msgid="6828516148953325006">"កំហុស​ខណៈ​ស្វែងរក​បណ្ដាញ។"</string>
     <string name="register_on_network" msgid="9055203954040805084">"ចុះឈ្មោះ​នៅ​លើ <xliff:g id="NETWORK">%s</xliff:g>…"</string>
     <string name="not_allowed" msgid="5613353860205691579">"មិន​អនុញ្ញាត​ឲ្យ​ស៊ីមកាត​របស់​អ្នក​តភ្ជាប់​ទៅ​បណ្ដាញ​នេះ​ទេ។"</string>
     <string name="connect_later" msgid="2308119155752343975">"មិន​អាច​តភ្ជាប់​ទៅ​បណ្ដាញ​ឥឡូវ​នេះ​បាន​ទេ។ ព្យាយាម​ម្ដងទៀត​ពេលក្រោយ។"</string>
     <string name="registration_done" msgid="495135664535876612">"បាន​ចុះឈ្មោះ​នៅ​លើ​បណ្ដាញ។"</string>
-    <string name="sum_carrier_select" msgid="3494252551249882718">"ជ្រើស​ប្រតិបត្តិ​ករ​​បណ្ដាញ"</string>
-    <string name="sum_search_networks" msgid="2921092249873272715">"ស្វែងរក​បណ្ដាញ​ដែល​មាន​ទាំង​អស់"</string>
-    <string name="select_automatically" msgid="5628402124471810174">"ជ្រើស​ដោយ​ស្វ័យ​ប្រវត្តិ"</string>
-    <string name="sum_select_automatically" msgid="5614890115123292400">"ជ្រើស​បណ្ដាញ​ដែល​ចូលចិត្ត​ដោយ​ស្វ័យប្រវត្តិ"</string>
+    <string name="select_automatically" msgid="1046727200631770962">"ជ្រើសរើស​បណ្ដាញ​ដោយស្វ័យប្រវត្តិ"</string>
+    <string name="network_select_title" msgid="7733107364757544558">"បណ្ដាញ"</string>
     <string name="register_automatically" msgid="6017849844573519637">"ការ​ចុះ​ឈ្មោះ​ដោយ​ស្វ័យ​ប្រវត្តិ ..."</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"ប្រភេទ​បណ្ដាញ​​ដែល​​ពេញចិត្ត"</string>
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"ប្ដូរ​របៀប​ប្រតិបត្តិការ​បណ្ដាញ"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"ប្រភេទ​បណ្ដាញ​​ដែល​​ពេញចិត្ត"</string>
+    <string name="forbidden_network" msgid="4384929668343563440">"(ហាម)"</string>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"របៀប​បណ្ដាញ​ដែល​ចូលចិត្ត៖ WCDMA ដែល​ចូលចិត្ត"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"របៀប​បណ្ដាញ​ដែល​ចូលចិត្ត៖ តែ GSM ប៉ុណ្ណោះ"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"របៀប​បណ្ដាញ​ដែល​ចូលចិត្ត៖ តែ  WCDMA ប៉ុណ្ណោះ"</string>
@@ -210,18 +207,34 @@
     <item msgid="1524224863879435516">"តែ GSM ប៉ុណ្ណោះ"</item>
     <item msgid="3817924849415716259">"GSM/WCDMA ដែល​ចូលចិត្ត​"</item>
   </string-array>
+    <string name="call_category" msgid="5863978196309462052">"កំពុង​ហៅ"</string>
+    <string name="network_operator_category" msgid="4830701959205735636">"បណ្ដាញ"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"​របៀប 4G LTE ធ្វើឲ្យ​ប្រសើរ​ឡើង"</string>
     <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"ការ​ហៅ​ទូរសព្ទ​កម្រិត​ខ្ពស់"</string>
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"ប្រើសេវាកម្ម LTE ដើម្បីធ្វើឲ្យសម្លេង និងការទំនាក់ទំនងផ្សេងទៀតប្រសើរឡើង (បានណែនាំ)"</string>
     <string name="data_enabled" msgid="5972538663568715366">"បាន​បើក​ទិន្នន័យ"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"អនុញ្ញាត​​ឲ្យ​​ប្រើ​ប្រាស់​ទិន្នន័យ"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"ប្រយ័ត្ន"</string>
-    <string name="roaming" msgid="8871412572928323707">"រ៉ូមីង​​ទិន្នន័យ"</string>
+    <string name="roaming" msgid="7894878421600247140">"រ៉ូ​មីង"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"តភ្ជាប់​ទៅ​កាន់​សេវា​កម្ម​ទិន្នន័យ​នៅ​ពេល​ដែល​រ៉ូ​មីង"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"តភ្ជាប់​ទៅ​កាន់​សេវា​កម្ម​ទិន្នន័យ​នៅ​ពេល​ដែល​រ៉ូ​មីង"</string>
     <string name="roaming_reenable_message" msgid="8913735676127858115">"អ្នក​បាន​បាត់បង់​ការ​តភ្ជាប់​ទិន្នន័យ ពីព្រោះ​អ្នក​បាន​ចាកចេញ​ពី​បណ្ដាញ​ដើម​របស់​អ្នក​ជាមួយ​រ៉ូមីង​ទិន្នន័យ​បាន​បិទ។"</string>
-    <string name="roaming_warning" msgid="1603164667540144353">"អាចនាំឲ្យមានការគិតប្រាក់របស់អ្នកច្រើន។"</string>
+    <string name="roaming_warning" msgid="1603164667540144353">"អាចនាំឲ្យមានការគិតប្រាក់ច្រើនពីអ្នក។"</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"អនុញ្ញាតឲ្យរ៉ូមីងទិន្នន័យ?"</string>
+    <string name="data_usage_title" msgid="8759619109516889802">"ការ​ប្រើ​ប្រាស់ទិន្នន័យ"</string>
+    <string name="data_usage_template" msgid="8526428824844656364">"បានប្រើទិន្នន័យទូរសព្ទអស់ <xliff:g id="ID_1">%1$s</xliff:g> នៅថ្ងៃទី <xliff:g id="ID_2">%2$s</xliff:g>"</string>
+    <string name="advanced_options_title" msgid="8074895510265488035">"កម្រិតខ្ពស់"</string>
+    <string name="carrier_settings_euicc" msgid="6714062862127226405">"ក្រុមហ៊ុន​បម្រើ​សេវា​ទូរសព្ទ"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"carrier, esim, sim, euicc"</string>
+    <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> — <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
+    <string name="mobile_data_settings_title" msgid="4661165467914727157">"ទិន្នន័យ​ទូរសព្ទចល័ត"</string>
+    <string name="mobile_data_settings_summary" msgid="5087255915840576895">"ចូល​ប្រើប្រាស់​ទិន្នន័យ​តាម​បណ្ដាញ​​ទូរសព្ទ​ចល័ត"</string>
+    <string name="data_usage_disable_mobile" msgid="3577275288809667615">"បិទទិន្នន័យ​​ទូរសព្ទ​ចល័ត?"</string>
+    <string name="sim_selection_required_pref" msgid="7049424902961844236">"ជម្រើស​ដែល​ត្រូវមាន"</string>
+    <string name="sim_change_data_title" msgid="5332425991853799280">"ប្ដូរ​ស៊ីមទិន្នន័យ?"</string>
+    <string name="sim_change_data_message" msgid="2163963581444907496">"ប្រើប្រាស់ <xliff:g id="NEW_SIM">%1$s</xliff:g> ជំនួសឲ្យ <xliff:g id="OLD_SIM">%2$s</xliff:g> សម្រាប់​ទិន្នន័យ​ទូរសព្ទ​ចល័ត​ដែរ​ឬ​ទេ?"</string>
+    <string name="wifi_calling_settings_title" msgid="7741961465416430470">"ការហៅ​ទូរសព្ទ​តាម Wi-Fi"</string>
+    <string name="video_calling_settings_title" msgid="539714564273795574">"ការហៅវីដេអូ​តាម​ក្រុមផ្ដល់​សេវា​ទូរសព្ទ"</string>
     <string name="gsm_umts_options" msgid="6538311689850981686">"ជម្រើស GSM/UMTS"</string>
     <string name="cdma_options" msgid="4016822858172249884">"ជម្រើស CDMA"</string>
     <string name="throttle_data_usage" msgid="3715677828160555808">"ការ​ប្រើ​ប្រាស់​ទិន្នន័យ"</string>
@@ -452,7 +465,7 @@
     <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"មិនមានបណ្តាញទូរសព្ទទេ។ ភ្ជាប់ទៅបណ្តាញឥតខ្សែ ដើម្បី​អាច​ហៅ​ទូរសព្ទ​បាន។"</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"ដើម្បីធ្វើការហៅ បញ្ចូលលេខដែលមានសុពលភាព។"</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"បាន​បរាជ័យ​ការ​ហៅ។"</string>
-    <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"មិន​អាច​បន្ថែម​​​ការ​ហៅ​ទូរសព្ទ​នៅ​ពេល​នេះ​​បាន​ទេ។"</string>
+    <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"មិន​អាច​បញ្ចូល​ការហៅបាន​ទេ​នៅពេល​នេះ។ អ្នក​អាច​ព្យាយាម​ទាក់ទង​​តាមរយៈ​ការផ្ញើសារ។"</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"សេវាកម្មមិនត្រូវបានគាំទ្រទេ។"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"មិនអាចឆ្លាស់ការហៅបានទេ។"</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"មិនអាចបំបែកការហៅបានទេ។"</string>
@@ -572,6 +585,8 @@
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"មាន​ការ​ហៅ​ដែល​សកម្ម​ច្រើន​ពេក។ សូម​បញ្ចប់ ឬ​​ដាក់​​បញ្ចូល​គ្នា​ការ​ហៅ​ដែល​មាន​ស្រាប់​​មុន​ពេល​ដាក់​ការ​ហៅ​ថ្មី។"</string>
     <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"មិន​អាច​តភ្ជាប់​បាន​ទេ សូម​បញ្ចូល​ស៊ីម​កាត​​ដែល​ប្រើ​បាន។"</string>
     <string name="callFailed_wifi_lost" msgid="5968076625137297184">"បាត់ការភ្ជាប់ Wi-Fi។ បានបញ្ចប់ការហៅទូរស័ព្ទ។"</string>
+    <string name="dialFailed_low_battery" msgid="8760548177088774268">"ការហៅ​ជា​វីដេអូ​របស់​អ្នក​មិន​អាច​ធ្វើ​បាន​ទេ ដោយ​សារ​ខ្សោយ​ថ្ម។"</string>
+    <string name="callFailed_low_battery" msgid="4913582435905872616">"ការហៅ​ជា​វីដេអូ​ត្រូវ​បាន​បញ្ចប់​ ដោយ​សារ​ខ្សោយ​ថ្ម។"</string>
     <string name="change_pin_title" msgid="7790232089699034029">"ប្ដូរ​លេខ​កូដ PIN ជា​​សារ​សំឡេង"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"បន្ត"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"បោះបង់"</string>
@@ -584,4 +599,18 @@
     <string name="change_pin_confirm_pins_dont_match" msgid="4795052654904027909">"លេខ​កូដ PIN មិន​ត្រូវគ្នា"</string>
     <string name="change_pin_succeeded" msgid="2022852286442211151">"បាន​ធ្វើ​បច្ចុប្បន្នភាព​​លេខ​កូដ PIN ជា​សារ​សំលេង"</string>
     <string name="change_pin_system_error" msgid="8308462387154257840">"មិន​អាច​កំណត់​លេខ​កូដ PIN"</string>
+    <string name="mobile_data_status_roaming_turned_off_subtext" msgid="935636805765823307">"ការប្រើប្រាស់​​រ៉ូមីង​ទិន្នន័យ​ត្រូវបាន​បិទ"</string>
+    <string name="mobile_data_status_roaming_turned_on_subtext" msgid="1335176927083781041">"ការ​ប្រើប្រាស់​រ៉ូមីង​ទិន្នន័យ​ត្រូវបាន​បើក"</string>
+    <string name="mobile_data_status_roaming_without_plan_subtext" msgid="3568412513831673037">"កំពុងប្រើប្រាស់​​រ៉ូមីង​បច្ចុប្បន្ន ត្រូវការ​គម្រោង​ទិន្នន័យ"</string>
+    <string name="mobile_data_status_roaming_with_plan_subtext" msgid="8721998948811064377">"កំពុងប្រើប្រាស់​​រ៉ូមីង​បច្ចុប្បន្ន គម្រោង​ទិន្នន័យ​កំពុង​ដំណើរការ"</string>
+    <string name="mobile_data_status_no_plan_subtext" msgid="4887747337017565725">"មិន​មាន​ទិន្នន័យ​ទូរសព្ទ​នៅ​សល់​ទេ"</string>
+    <string name="mobile_data_activate_prepaid" msgid="7447025165850512683">"មិន​មាន​ទិន្នន័យ​ទូរសព្ទ​នៅ​សល់​ទេ"</string>
+    <string name="mobile_data_activate_prepaid_summary" msgid="5705389791791637666">"បញ្ចូល​ទិន្នន័យ​ទូរសព្ទ​តាមរយៈ <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
+    <string name="mobile_data_activate_roaming_plan" msgid="5998161536947086264">"មិន​មាន​គម្រោង​រ៉ូមីង​ទេ"</string>
+    <string name="mobile_data_activate_roaming_plan_summary" msgid="511202908883425459">"បញ្ចូល​គម្រោង​រ៉ូមីង​តាមរយៈ <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
+    <string name="mobile_data_activate_footer" msgid="5979019929980140594">"អ្នក​អាច​បញ្ចូល​ទិន្នន័យ​ទូរសព្ទ ឬ​គម្រោង​រ៉ូមីង​តាមរយៈ​​ក្រុមហ៊ុន​បម្រើ​សេវា​ទូរសព្ទ​របស់​អ្នក <xliff:g id="PROVIDER_NAME">%s</xliff:g> ។"</string>
+    <string name="mobile_data_activate_diag_title" msgid="9044252207707864493">"បញ្ចូល​ទិន្នន័យ​?"</string>
+    <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"អ្នក​ប្រហែល​ត្រូវ​បញ្ចូល​ទិន្នន័យ​តាម <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
+    <string name="mobile_data_activate_button" msgid="3682400969184405446">"បញ្ចូល​ទិន្នន័យ"</string>
+    <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"បោះបង់"</string>
 </resources>

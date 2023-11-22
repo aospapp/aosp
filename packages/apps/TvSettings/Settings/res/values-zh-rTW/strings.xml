@@ -352,7 +352,7 @@
     <string name="location_no_recent_apps" msgid="4218851908476344030">"最近沒有應用程式要求定位資訊"</string>
     <string name="location_high_battery_use" msgid="576143332793626088">"耗電量高"</string>
     <string name="location_low_battery_use" msgid="5756040390248358148">"耗電量低"</string>
-    <string name="location_mode_wifi_description" msgid="2778774510654527264">"使用 Wi-Fi 預估位置"</string>
+    <string name="location_mode_wifi_description" msgid="2778774510654527264">"使用 Wi-Fi 判斷約略位置"</string>
     <string name="location_status" msgid="3456414279428237558">"位置狀態"</string>
     <string name="location_services" msgid="5441085185119797200">"定位服務"</string>
     <string name="on" msgid="6683600681314500652">"開啟"</string>
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"服務"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"服務設定"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"高對比文字"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"協助工具快速鍵"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"啟用協助工具快速鍵"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"快速鍵服務"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"啟用這組快速鍵後，你只需同時按下返回和向下按鈕達 3 秒，就能開啟協助工具功能。"</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"字幕"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"影片字幕文字重疊設定"</string>
     <string name="captions_display" msgid="735692527287125548">"顯示"</string>
@@ -407,8 +411,8 @@
     <string name="color_magenta" msgid="6395786485839439122">"洋紅色"</string>
     <string name="system_accessibility_status" msgid="6150600992901856367">"啟用"</string>
     <string name="system_accessibility_config" msgid="3216531917536720277">"設定"</string>
-    <string name="system_accessibility_service_on_confirm_title" msgid="8200707259067035823">"要使用 <xliff:g id="SERVICE">%1$s</xliff:g> 嗎？"</string>
-    <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"<xliff:g id="SERVICE">%1$s</xliff:g> 可收集您輸入的所有文字 (密碼除外)，包括信用卡號等個人資料。"</string>
+    <string name="system_accessibility_service_on_confirm_title" msgid="8200707259067035823">"要使用「<xliff:g id="SERVICE">%1$s</xliff:g>」嗎？"</string>
+    <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"「<xliff:g id="SERVICE">%1$s</xliff:g>」可收集您輸入的所有文字 (密碼除外)，包括信用卡號等個人資料。"</string>
     <string name="system_accessibility_service_off_confirm_title" msgid="963297812889694832">"要停止 <xliff:g id="SERVICE">%1$s</xliff:g> 嗎？"</string>
     <string name="system_accessibility_service_off_confirm_desc" msgid="6714782635926048678">"如果您選取 [確定]，<xliff:g id="SERVICE">%1$s</xliff:g> 將停止運作。"</string>
     <string name="system_accessibility_tts_output" msgid="8905477795536714590">"文字轉語音"</string>
@@ -581,15 +585,15 @@
     <string name="restricted_profile_not_allowed" msgid="1622620680118897330">"不允許"</string>
     <string name="restricted_profile_customize_restrictions" msgid="8418415019078825537">"自訂限制"</string>
     <string name="restricted_profile_configure_apps_description_loading" msgid="5269477581791409700">"請稍候…"</string>
-    <string name="restricted_profile_change_password_title" msgid="2848537651211816659">"變更 PIN"</string>
+    <string name="restricted_profile_change_password_title" msgid="2848537651211816659">"變更 PIN 碼"</string>
     <string name="restriction_description" msgid="3104855945910233028">"<xliff:g id="DESCRIPTION">%1$s</xliff:g>\n<xliff:g id="VALUE">%2$s</xliff:g>"</string>
     <string name="app_sees_restricted_accounts_and_controlled_by" msgid="6677671440081319908">"這個應用程式可存取您的帳戶 (受到「<xliff:g id="APP">%1$s</xliff:g>」控制)。"</string>
     <string name="pin_enter_unlock_channel" msgid="5980400420298506069">"輸入 PIN 即可觀看這個頻道"</string>
     <string name="pin_enter_unlock_program" msgid="52453773316071511">"輸入 PIN 即可觀看這個節目"</string>
     <string name="pin_enter_pin" msgid="821552376577935497">"輸入 PIN"</string>
-    <string name="pin_enter_new_pin" msgid="4788218421265924211">"設定新 PIN"</string>
-    <string name="pin_enter_again" msgid="1510456697040826496">"重新輸入新 PIN"</string>
-    <string name="pin_enter_old_pin" msgid="851029058127630869">"輸入舊 PIN"</string>
+    <string name="pin_enter_new_pin" msgid="4788218421265924211">"設定新的 PIN 碼"</string>
+    <string name="pin_enter_again" msgid="1510456697040826496">"再次輸入新的 PIN 碼"</string>
+    <string name="pin_enter_old_pin" msgid="851029058127630869">"輸入舊的 PIN 碼"</string>
     <string name="pin_enter_wrong_seconds" msgid="7541208202846169755">"您已輸入 5 次錯誤的 PIN 碼。\n請於 <xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g> 秒後再試一次。"</string>
     <string name="pin_toast_wrong" msgid="4628358195224633248">"PIN 錯誤，請再試一次"</string>
     <string name="pin_toast_not_match" msgid="5886041789737632996">"PIN 碼不符，請再試一次"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"正在擷取錯誤報告"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"可用的虛擬鍵盤"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"管理鍵盤"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"允許"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"不允許"</string>
+    <string name="usage_access" msgid="1914242907684452328">"使用紀錄存取權"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"具有使用紀錄存取權的應用程式可以追蹤你使用的其他應用程式與頻率，以及你的電信業者、語言設定和其他詳細資料。"</string>
 </resources>

@@ -58,15 +58,22 @@
 #include "LayerVector.h"
 #include "MessageQueue.h"
 #include "SurfaceInterceptor.h"
-#include "StartBootAnimThread.h"
+#include "StartPropertySetThread.h"
 
+#ifdef USE_HWC2
+#include "DisplayHardware/HWC2.h"
 #include "DisplayHardware/HWComposer.h"
+#else
+#include "DisplayHardware/HWComposer_hwc1.h"
+#endif
+
 #include "Effects/Daltonizer.h"
 
 #include <map>
 #include <mutex>
 #include <queue>
 #include <string>
+#include <thread>
 #include <utility>
 
 namespace android {
@@ -99,7 +106,11 @@ enum {
 
 class SurfaceFlinger : public BnSurfaceComposer,
                        private IBinder::DeathRecipient,
+#ifdef USE_HWC2
+                       private HWC2::ComposerCallback
+#else
                        private HWComposer::EventHandler
+#endif
 {
 public:
 
@@ -181,6 +192,8 @@ public:
 
     // force full composition on all displays
     void repaintEverything();
+    // Can only be called from the main thread or with mStateLock held
+    void repaintEverythingLocked();
 
     // returns the default Display
     sp<const DisplayDevice> getDefaultDisplayDevice() const {
@@ -227,7 +240,6 @@ private:
     enum { LOG_FRAME_STATS_PERIOD =  30*60*60 };
 
     static const size_t MAX_LAYERS = 4096;
-    static constexpr const char* kTimestampProperty = "service.sf.present_timestamp";
 
     // We're reference counted, never destroy SurfaceFlinger directly
     virtual ~SurfaceFlinger();
@@ -314,17 +326,28 @@ private:
     virtual void onFirstRef();
 
     /* ------------------------------------------------------------------------
-     * HWComposer::EventHandler interface
+     * HWC2::ComposerCallback / HWComposer::EventHandler interface
      */
-    virtual void onVSyncReceived(HWComposer* composer, int type, nsecs_t timestamp);
-    virtual void onHotplugReceived(HWComposer* composer, int disp, bool connected);
-    virtual void onInvalidateReceived(HWComposer* composer);
+#ifdef USE_HWC2
+    void onVsyncReceived(int32_t sequenceId, hwc2_display_t display,
+                         int64_t timestamp) override;
+    void onHotplugReceived(int32_t sequenceId, hwc2_display_t display,
+                           HWC2::Connection connection,
+                           bool primaryDisplay) override;
+    void onRefreshReceived(int32_t sequenceId, hwc2_display_t display) override;
+#else
+    void onVSyncReceived(HWComposer* composer, int type, nsecs_t timestamp) override;
+    void onHotplugReceived(HWComposer* composer, int disp, bool connected) override;
+    void onInvalidateReceived(HWComposer* composer) override;
+#endif
 
     /* ------------------------------------------------------------------------
      * Message handling
      */
     void waitForEvent();
+    // Can only be called from the main thread or with mStateLock held
     void signalTransaction();
+    // Can only be called from the main thread or with mStateLock held
     void signalLayerUpdate();
     void signalRefresh();
 
@@ -333,7 +356,12 @@ private:
     // called on the main thread in response to setActiveConfig()
     void setActiveConfigInternal(const sp<DisplayDevice>& hw, int mode);
     // called on the main thread in response to setPowerMode()
+#ifdef USE_HWC2
+    void setPowerModeInternal(const sp<DisplayDevice>& hw, int mode,
+                              bool stateLockHeld);
+#else
     void setPowerModeInternal(const sp<DisplayDevice>& hw, int mode);
+#endif
 
     // Called on the main thread in response to setActiveColorMode()
     void setActiveColorModeInternal(const sp<DisplayDevice>& hw, android_color_mode_t colorMode);
@@ -362,6 +390,7 @@ private:
      */
     uint32_t getTransactionFlags(uint32_t flags);
     uint32_t peekTransactionFlags();
+    // Can only be called from the main thread or with mStateLock held
     uint32_t setTransactionFlags(uint32_t flags);
     void commitTransaction();
     uint32_t setClientStateLocked(const sp<Client>& client, const layer_state_t& s);
@@ -417,6 +446,14 @@ private:
             int32_t minLayerZ, int32_t maxLayerZ,
             bool yswap, bool useIdentityTransform, Transform::orientation_flags rotation);
 
+#ifdef USE_HWC2
+    status_t captureScreenImplLocked(const sp<const DisplayDevice>& device,
+                                     ANativeWindowBuffer* buffer, Rect sourceCrop,
+                                     uint32_t reqWidth, uint32_t reqHeight, int32_t minLayerZ,
+                                     int32_t maxLayerZ, bool useIdentityTransform,
+                                     Transform::orientation_flags rotation, bool isLocalScreenshot,
+                                     int* outSyncFd);
+#else
     status_t captureScreenImplLocked(
             const sp<const DisplayDevice>& hw,
             const sp<IGraphicBufferProducer>& producer,
@@ -424,8 +461,14 @@ private:
             int32_t minLayerZ, int32_t maxLayerZ,
             bool useIdentityTransform, Transform::orientation_flags rotation,
             bool isLocalScreenshot);
+#endif
 
-    sp<StartBootAnimThread> mStartBootAnimThread = nullptr;
+    sp<StartPropertySetThread> mStartPropertySetThread = nullptr;
+
+    /* ------------------------------------------------------------------------
+     * Properties
+     */
+    void readPersistentProperties();
 
     /* ------------------------------------------------------------------------
      * EGL
@@ -481,7 +524,7 @@ private:
 
     // mark a region of a layer stack dirty. this updates the dirty
     // region of all screens presenting this layer stack.
-    void invalidateLayerStack(uint32_t layerStack, const Region& dirty);
+    void invalidateLayerStack(const sp<const Layer>& layer, const Region& dirty);
 
 #ifndef USE_HWC2
     int32_t allocateHwcDisplayId(DisplayDevice::DisplayType type);
@@ -497,7 +540,7 @@ private:
      * Compositing
      */
     void invalidateHwcGeometry();
-    void computeVisibleRegions(uint32_t layerStack,
+    void computeVisibleRegions(const sp<const DisplayDevice>& displayDevice,
             Region& dirtyRegion, Region& opaqueRegion);
 
     void preComposition(nsecs_t refreshStartTime);
@@ -512,8 +555,10 @@ private:
 
     // Given a dataSpace, returns the appropriate color_mode to use
     // to display that dataSpace.
-    android_color_mode pickColorMode(android_dataspace dataSpace);
-    android_dataspace bestTargetDataSpace(android_dataspace a, android_dataspace b);
+    android_color_mode pickColorMode(android_dataspace dataSpace) const;
+    android_dataspace bestTargetDataSpace(android_dataspace a, android_dataspace b) const;
+
+    mat4 computeSaturationMatrix() const;
 
     void setUpHWComposer();
     void doComposition();
@@ -575,8 +620,7 @@ private:
     /* ------------------------------------------------------------------------
      * VrFlinger
      */
-    void clearHwcLayers(const LayerVector& layers);
-    void resetHwcLocked();
+    void resetDisplayState();
 
     // Check to see if we should handoff to vr flinger.
     void updateVrFlinger();
@@ -603,12 +647,28 @@ private:
     // access must be protected by mInvalidateLock
     volatile int32_t mRepaintEverything;
 
-    // current, real and vr hardware composers.
-    HWComposer* mHwc;
-#ifdef USE_HWC2
-    HWComposer* mRealHwc;
-    HWComposer* mVrHwc;
-#endif
+    // The current hardware composer interface.
+    //
+    // The following thread safety rules apply when accessing mHwc, either
+    // directly or via getHwComposer():
+    //
+    // 1. When recreating mHwc, acquire mStateLock. We currently recreate mHwc
+    //    only when switching into and out of vr. Recreating mHwc must only be
+    //    done on the main thread.
+    //
+    // 2. When accessing mHwc on the main thread, it's not necessary to acquire
+    //    mStateLock.
+    //
+    // 3. When accessing mHwc on a thread other than the main thread, we always
+    //    need to acquire mStateLock. This is because the main thread could be
+    //    in the process of destroying the current mHwc instance.
+    //
+    // The above thread safety rules only apply to SurfaceFlinger.cpp. In
+    // SurfaceFlinger_hwc1.cpp we create mHwc at surface flinger init and never
+    // destroy it, so it's always safe to access mHwc from any thread without
+    // acquiring mStateLock.
+    std::unique_ptr<HWComposer> mHwc;
+
     // constant members (no synchronization needed for access)
     RenderEngine* mRenderEngine;
     nsecs_t mBootTime;
@@ -621,10 +681,6 @@ private:
     EGLContext mEGLContext;
     EGLDisplay mEGLDisplay;
     sp<IBinder> mBuiltinDisplays[DisplayDevice::NUM_BUILTIN_DISPLAY_TYPES];
-
-#ifdef USE_HWC2
-    std::unique_ptr<dvr::VrFlinger> mVrFlinger;
-#endif
 
     // Can only accessed from the main thread, these members
     // don't need synchronization
@@ -693,6 +749,8 @@ private:
     };
     std::queue<CompositePresentTime> mCompositePresentTimes;
 
+    std::atomic<bool> mRefreshPending{false};
+
     /* ------------------------------------------------------------------------
      * Feature prototyping
      */
@@ -745,10 +803,19 @@ private:
     status_t CheckTransactCodeCredentials(uint32_t code);
 
 #ifdef USE_HWC2
+    std::unique_ptr<dvr::VrFlinger> mVrFlinger;
     std::atomic<bool> mVrFlingerRequestsDisplay;
     static bool useVrFlinger;
+    std::thread::id mMainThreadId;
+    // The composer sequence id is a monotonically increasing integer that we
+    // use to differentiate callbacks from different hardware composer
+    // instances. Each hardware composer instance gets a different sequence id.
+    int32_t mComposerSequenceId;
 #endif
-    };
+
+    float mSaturation = 1.0f;
+    bool mForceNativeColorMode = false;
+};
 }; // namespace android
 
 #endif // ANDROID_SURFACE_FLINGER_H

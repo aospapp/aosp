@@ -1,0 +1,36 @@
+cc_library_static {
+    name: "libpdfiumpdfwindow",
+    defaults: ["pdfium-defaults"],
+
+    cflags: [
+        "-DOPJ_STATIC",
+        "-DV8_DEPRECATION_WARNINGS",
+        "-D_CRT_SECURE_NO_WARNINGS",
+
+        // Mask some warnings. These are benign, but we probably want to fix them
+        // upstream at some point.
+        "-Wno-sign-compare",
+        "-Wno-unused-parameter",
+    ],
+
+    srcs: [
+        "fpdfsdk/pdfwindow/PWL_Button.cpp",
+        "fpdfsdk/pdfwindow/PWL_Caret.cpp",
+        "fpdfsdk/pdfwindow/PWL_ComboBox.cpp",
+        "fpdfsdk/pdfwindow/PWL_Edit.cpp",
+        "fpdfsdk/pdfwindow/PWL_EditCtrl.cpp",
+        "fpdfsdk/pdfwindow/PWL_FontMap.cpp",
+        "fpdfsdk/pdfwindow/PWL_Icon.cpp",
+        "fpdfsdk/pdfwindow/PWL_ListBox.cpp",
+        "fpdfsdk/pdfwindow/PWL_ScrollBar.cpp",
+        "fpdfsdk/pdfwindow/PWL_SpecialButton.cpp",
+        "fpdfsdk/pdfwindow/PWL_Utils.cpp",
+        "fpdfsdk/pdfwindow/PWL_Wnd.cpp",
+        "fpdfsdk/pdfwindow/cpwl_color.cpp",
+    ],
+
+    include_dirs: [
+        "external/freetype/include",
+        "external/freetype/include/freetype",
+    ],
+}

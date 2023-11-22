@@ -25,7 +25,6 @@ cc_library_shared {
     ],
 
     srcs: [
-        "specification_parser/InterfaceSpecificationParser.cpp",
         "utils/InterfaceSpecUtil.cpp",
         "utils/StringUtil.cpp",
     ],
@@ -51,11 +50,10 @@ cc_library_shared {
             srcs: [
                 "binder/VtsFuzzerBinderService.cpp",
                 "component_loader/DllLoader.cpp",
-                "fuzz_tester/FuzzerBase.cpp",
-                "fuzz_tester/FuzzerCallbackBase.cpp",
-                "fuzz_tester/FuzzerWrapper.cpp",
-                "specification_parser/SpecificationBuilder.cpp",
-                "replayer/VtsHidlHalReplayer.cpp",
+                "component_loader/HalDriverLoader.cpp",
+                "driver_base/DriverBase.cpp",
+                "driver_base/DriverCallbackBase.cpp",
+                "driver_manager/VtsHalDriverManager.cpp",
             ],
             shared_libs: [
                 "libbinder",

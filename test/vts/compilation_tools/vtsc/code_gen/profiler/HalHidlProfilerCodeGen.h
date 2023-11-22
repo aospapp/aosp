@@ -26,8 +26,7 @@ namespace vts {
  */
 class HalHidlProfilerCodeGen : public ProfilerCodeGenBase {
  public:
-  HalHidlProfilerCodeGen(const std::string& input_vts_file_path)
-      : ProfilerCodeGenBase(input_vts_file_path) {};
+  HalHidlProfilerCodeGen() : ProfilerCodeGenBase(){};
 
  protected:
   virtual void GenerateProfilerForScalarVariable(Formatter& out,
@@ -70,6 +69,10 @@ class HalHidlProfilerCodeGen : public ProfilerCodeGenBase {
       const VariableSpecificationMessage& val, const std::string& arg_name,
       const std::string& arg_value) override;
 
+  virtual void GenerateProfilerForHandleVariable(
+      Formatter& out, const VariableSpecificationMessage& val,
+      const std::string& arg_name, const std::string& arg_value) override;
+
   virtual void GenerateProfilerForHidlMemoryVariable(Formatter& out,
       const VariableSpecificationMessage& val, const std::string& arg_name,
       const std::string& arg_value) override;
@@ -97,8 +100,8 @@ class HalHidlProfilerCodeGen : public ProfilerCodeGenBase {
     const ComponentSpecificationMessage& message) override;
   void GenerateMacros(Formatter& out,
     const ComponentSpecificationMessage& message) override;
-  virtual void GenerateProfierSanityCheck(Formatter& out,
-    const ComponentSpecificationMessage& message) override;
+  virtual void GenerateProfilerSanityCheck(
+      Formatter& out, const ComponentSpecificationMessage& message) override;
   virtual void GenerateLocalVariableDefinition(Formatter& out,
     const ComponentSpecificationMessage& message) override;
 

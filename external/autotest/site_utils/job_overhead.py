@@ -9,7 +9,7 @@ import logging
 from autotest_lib.client.common_lib import enum
 from autotest_lib.client.common_lib import host_queue_entry_states
 from autotest_lib.client.common_lib import host_states
-from autotest_lib.client.common_lib.cros.graphite import autotest_es
+from autotest_lib.site_utils import metadata_reporter
 
 
 # Metadata db type string for job time stats
@@ -51,8 +51,9 @@ def record_state_duration(
             id_str: int(job_or_task_id),
             'hostname': hostname,
             'status': status,
-            'duration': duration_secs}
-    autotest_es.post(type_str=type_str, metadata=metadata)
+            'duration': duration_secs,
+            '_type': type_str}
+    metadata_reporter.queue(metadata)
 
 
 def record_suite_runtime(suite_job_id, suite_name, board, build, num_child_jobs,
@@ -75,5 +76,6 @@ def record_suite_runtime(suite_job_id, suite_name, board, build, num_child_jobs,
             'board': board,
             'build': build,
             'num_child_jobs': num_child_jobs,
-            'duration': runtime_in_secs}
-    autotest_es.post(type_str=SUITE_RUNTIME_KEY, metadata=metadata)
+            'duration': runtime_in_secs,
+            '_type': SUITE_RUNTIME_KEY}
+    metadata_reporter.queue(metadata)

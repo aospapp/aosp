@@ -25,6 +25,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     android-common \
     ctstestrunner \
     ctstestrunner \
+    ub-uiautomator \
     junit \
     legacy-android-test
 
@@ -35,6 +36,9 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_PACKAGE_NAME := CtsDatabaseTestCases
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+
+# Enforce public / test api only
+LOCAL_SDK_VERSION := test_current
 
 include $(BUILD_CTS_PACKAGE)

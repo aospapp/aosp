@@ -27,9 +27,9 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"Доступ к этому профилю потребуется следующему приложению:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Это приложение будет управлять вашим устройством:"</string>
     <string name="next" msgid="1004321437324424398">"Далее"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"Настройка рабочего профиля…"</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"Настройка рабочего профиля…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"Администратор может контролировать настройки, приложения, разрешения и параметры доступа к корпоративным ресурсам, а также данные, связанные с этим профилем, например сведения о действиях в Интернете, местоположении устройства, вызовах и поиске контактов.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Чтобы получить подробную информацию и ознакомиться с политикой конфиденциальности компании, обратитесь к администратору."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"Администратор может контролировать настройки, приложения, разрешения и параметры доступа к корпоративным ресурсам, а также данные, связанные с этим устройством, например сведения о действиях в Интернете, местоположении, вызовах и поиске контактов.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Чтобы получить подробную информацию и ознакомиться с политикой конфиденциальности компании, обратитесь к администратору."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"Администратор может управлять настройками, приложениями, разрешениями и корпоративным доступом, а также данными этого устройства, например историей поиска контактов, сведениями о действиях в Интернете, местоположении и вызовах.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Чтобы получить подробную информацию и ознакомиться с политикой конфиденциальности компании, обратитесь к администратору."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Чтобы воспользоваться функциями защиты от кражи, сначала установите пароль для разблокировки устройства."</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Чтобы получить подробную информацию и ознакомиться с политикой конфиденциальности компании, обратитесь к администратору."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Подробнее…"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Рабочий профиль"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"Основной пользователь"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Удалить существующий профиль?"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"У вас уже есть рабочий профиль. Им управляют с помощью этого приложения:"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"У вас уже есть рабочий профиль. Им управляют с помощью этого приложения:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Прежде чем продолжить, "<a href="#read_this_link">"ознакомьтесь с этой информацией"</a>"."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Все приложения и данные в этом профиле будут удалены. Продолжить?"</string>
     <string name="delete_profile" msgid="2299218578684663459">"Удалить"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"Нажмите, чтобы продолжить настройку рабочего профиля."</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Не удалось настроить рабочий профиль. Обратитесь в отдел технической поддержки вашей компании или повторите попытку позже."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Невозможно добавить рабочий профиль"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"Невозможно создать рабочий профиль для пользователя. Обратитесь за помощью к администратору."</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"У этого пользователя не может быть рабочего профиля. Обратитесь к администратору."</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"Рабочие профили не поддерживаются на управляемых устройствах"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"Слишком много пользователей на устройстве. Удалите одного из них и повторите попытку."</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Не удалось заменить или удалить рабочий профиль"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"Добавить рабочий профиль на это устройство нельзя. Если у вас есть вопросы, обратитесь к администратору."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Измените панель запуска на устройстве"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Эта панель запуска не поддерживает рабочие профили"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Отмена"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"ОК"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Не удалось настроить аккаунт пользователя"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Пользователь управляемого устройства"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"Настройка рабочего устройства"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"Настройка рабочего устройства…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Обработка данных…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Подключение к Wi-Fi…"</string>
     <string name="progress_download" msgid="3522436271691064624">"Скачивание приложения для администрирования…"</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"Отмена"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"Сбросить настройки устройства"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> и <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> и <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> и <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

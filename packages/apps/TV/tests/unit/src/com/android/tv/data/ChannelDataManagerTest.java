@@ -16,6 +16,12 @@
 
 package com.android.tv.data;
 
+import static android.support.test.InstrumentationRegistry.getInstrumentation;
+import static android.support.test.InstrumentationRegistry.getTargetContext;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import android.content.ContentProvider;
 import android.content.ContentUris;
 import android.content.ContentValues;
@@ -26,9 +32,7 @@ import android.media.tv.TvContract;
 import android.media.tv.TvContract.Channels;
 import android.net.Uri;
 import android.support.test.filters.SmallTest;
-import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
-import android.test.UiThreadTest;
 import android.test.mock.MockContentProvider;
 import android.test.mock.MockContentResolver;
 import android.test.mock.MockCursor;
@@ -38,9 +42,11 @@ import android.util.SparseArray;
 
 import com.android.tv.testing.ChannelInfo;
 import com.android.tv.testing.Constants;
-import com.android.tv.testing.Utils;
 import com.android.tv.util.TvInputManagerHelper;
 
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 import org.mockito.Matchers;
 import org.mockito.Mockito;
 
@@ -57,14 +63,13 @@ import java.util.concurrent.TimeUnit;
  * Note that all the methods of {@link ChannelDataManager} should be called from the UI thread.
  */
 @SmallTest
-public class ChannelDataManagerTest extends AndroidTestCase {
+public class ChannelDataManagerTest {
     private static final boolean DEBUG = false;
     private static final String TAG = "ChannelDataManagerTest";
 
     // Wait time for expected success.
     private static final long WAIT_TIME_OUT_MS = 1000L;
     private static final String DUMMY_INPUT_ID = "dummy";
-    // TODO: Use Channels.COLUMN_BROWSABLE and Channels.COLUMN_LOCKED instead.
     private static final String COLUMN_BROWSABLE = "browsable";
     private static final String COLUMN_LOCKED = "locked";
 
@@ -73,51 +78,59 @@ public class ChannelDataManagerTest extends AndroidTestCase {
     private FakeContentResolver mContentResolver;
     private FakeContentProvider mContentProvider;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() {
         assertTrue("More than 2 channels to test", Constants.UNIT_TEST_CHANNEL_COUNT > 2);
 
-        mContentProvider = new FakeContentProvider(getContext());
+        mContentProvider = new FakeContentProvider(getTargetContext());
         mContentResolver = new FakeContentResolver();
         mContentResolver.addProvider(TvContract.AUTHORITY, mContentProvider);
         mListener = new TestChannelDataManagerListener();
-        Utils.runOnMainSync(new Runnable() {
+        getInstrumentation().runOnMainSync(new Runnable() {
             @Override
             public void run() {
                 TvInputManagerHelper mockHelper = Mockito.mock(TvInputManagerHelper.class);
                 Mockito.when(mockHelper.hasTvInputInfo(Matchers.anyString())).thenReturn(true);
-                mChannelDataManager = new ChannelDataManager(getContext(), mockHelper,
+                mChannelDataManager = new ChannelDataManager(getTargetContext(), mockHelper,
                         mContentResolver);
                 mChannelDataManager.addListener(mListener);
             }
         });
     }
 
-    @Override
-    protected void tearDown() throws Exception {
-        Utils.runOnMainSync(new Runnable() {
+    @After
+    public void tearDown() {
+        getInstrumentation().runOnMainSync(new Runnable() {
             @Override
             public void run() {
                 mChannelDataManager.stop();
             }
         });
-        super.tearDown();
     }
 
-    private void startAndWaitForComplete() throws Exception {
-        mChannelDataManager.start();
+    private void startAndWaitForComplete() throws InterruptedException {
+        getInstrumentation().runOnMainSync(new Runnable() {
+            @Override
+            public void run() {
+                mChannelDataManager.start();
+            }
+        });
         assertTrue(mListener.loadFinishedLatch.await(WAIT_TIME_OUT_MS, TimeUnit.MILLISECONDS));
     }
 
-    private void restart() throws Exception {
-        mChannelDataManager.stop();
-        mListener.reset();
+    private void restart() throws InterruptedException {
+        getInstrumentation().runOnMainSync(new Runnable() {
+            @Override
+            public void run() {
+                mChannelDataManager.stop();
+                mListener.reset();
+            }
+        });
         startAndWaitForComplete();
     }
 
-    @UiThreadTest
-    public void testIsDbLoadFinished() throws Exception {
+    @Test
+    public void testIsDbLoadFinished() throws InterruptedException {
         startAndWaitForComplete();
         assertTrue(mChannelDataManager.isDbLoadFinished());
     }
@@ -128,8 +141,8 @@ public class ChannelDataManagerTest extends AndroidTestCase {
      *   - {@link ChannelDataManager#getChannelList}
      *   - {@link ChannelDataManager#getChannel}
      */
-    @UiThreadTest
-    public void testGetChannels() throws Exception {
+    @Test
+    public void testGetChannels() throws InterruptedException {
         startAndWaitForComplete();
 
         // Test {@link ChannelDataManager#getChannelCount}
@@ -138,7 +151,7 @@ public class ChannelDataManagerTest extends AndroidTestCase {
         // Test {@link ChannelDataManager#getChannelList}
         List<ChannelInfo> channelInfoList = new ArrayList<>();
         for (int i = 1; i <= Constants.UNIT_TEST_CHANNEL_COUNT; i++) {
-            channelInfoList.add(ChannelInfo.create(getContext(), i));
+            channelInfoList.add(ChannelInfo.create(getTargetContext(), i));
         }
         List<Channel> channelList = mChannelDataManager.getChannelList();
         for (Channel channel : channelList) {
@@ -163,8 +176,8 @@ public class ChannelDataManagerTest extends AndroidTestCase {
     /**
      * Test for {@link ChannelDataManager#getChannelCount} when no channel is available.
      */
-    @UiThreadTest
-    public void testGetChannels_noChannels() throws Exception {
+    @Test
+    public void testGetChannels_noChannels() throws InterruptedException {
         mContentProvider.clear();
         startAndWaitForComplete();
         assertEquals(0, mChannelDataManager.getChannelCount());
@@ -175,12 +188,12 @@ public class ChannelDataManagerTest extends AndroidTestCase {
      *   - {@link ChannelDataManager#updateBrowsable}
      *   - {@link ChannelDataManager#applyUpdatedValuesToDb}
      */
-    @UiThreadTest
-    public void testBrowsable() throws Exception {
+    @Test
+    public void testBrowsable() throws InterruptedException {
         startAndWaitForComplete();
 
         // Test if all channels are browsable
-        List<Channel> channelList = new ArrayList<>(mChannelDataManager.getChannelList());
+        List<Channel> channelList = mChannelDataManager.getChannelList();
         List<Channel> browsableChannelList = mChannelDataManager.getBrowsableChannelList();
         for (Channel browsableChannel : browsableChannelList) {
             boolean found = channelList.remove(browsableChannel);
@@ -189,9 +202,10 @@ public class ChannelDataManagerTest extends AndroidTestCase {
         assertEquals(0, channelList.size());
 
         // Prepare for next tests.
+        channelList = mChannelDataManager.getChannelList();
         TestChannelDataManagerChannelListener channelListener =
                 new TestChannelDataManagerChannelListener();
-        Channel channel1 = mChannelDataManager.getChannelList().get(0);
+        Channel channel1 = channelList.get(0);
         mChannelDataManager.addChannelListener(channel1.getId(), channelListener);
 
         // Test {@link ChannelDataManager#updateBrowsable} & notification.
@@ -216,15 +230,16 @@ public class ChannelDataManagerTest extends AndroidTestCase {
      *   - {@link ChannelDataManager#updateBrowsable}
      *   - {@link ChannelDataManager#applyUpdatedValuesToDb}
      */
-    @UiThreadTest
-    public void testBrowsable_skipNotification() throws Exception {
+    @Test
+    public void testBrowsable_skipNotification() throws InterruptedException {
         startAndWaitForComplete();
 
+        List<Channel> channels = mChannelDataManager.getChannelList();
         // Prepare for next tests.
         TestChannelDataManagerChannelListener channelListener =
                 new TestChannelDataManagerChannelListener();
-        Channel channel1 = mChannelDataManager.getChannelList().get(0);
-        Channel channel2 = mChannelDataManager.getChannelList().get(1);
+        Channel channel1 = channels.get(0);
+        Channel channel2 = channels.get(1);
         mChannelDataManager.addChannelListener(channel1.getId(), channelListener);
         mChannelDataManager.addChannelListener(channel2.getId(), channelListener);
 
@@ -252,8 +267,8 @@ public class ChannelDataManagerTest extends AndroidTestCase {
      *   - {@link ChannelDataManager#updateLocked}
      *   - {@link ChannelDataManager#applyUpdatedValuesToDb}
      */
-    @UiThreadTest
-    public void testLocked() throws Exception {
+    @Test
+    public void testLocked() throws InterruptedException {
         startAndWaitForComplete();
 
         // Test if all channels aren't locked at the first time.
@@ -283,14 +298,14 @@ public class ChannelDataManagerTest extends AndroidTestCase {
     /**
      * Test ChannelDataManager when channels in TvContract are updated, removed, or added.
      */
-    @UiThreadTest
-    public void testChannelListChanged() throws Exception {
+    @Test
+    public void testChannelListChanged() throws InterruptedException {
         startAndWaitForComplete();
 
         // Test channel add.
         mListener.reset();
         long testChannelId = Constants.UNIT_TEST_CHANNEL_COUNT + 1;
-        ChannelInfo testChannelInfo = ChannelInfo.create(getContext(), (int) testChannelId);
+        ChannelInfo testChannelInfo = ChannelInfo.create(getTargetContext(), (int) testChannelId);
         testChannelId = Constants.UNIT_TEST_CHANNEL_COUNT + 1;
         mContentProvider.simulateInsert(testChannelInfo);
         assertTrue(
@@ -376,7 +391,7 @@ public class ChannelDataManagerTest extends AndroidTestCase {
             super(context);
             for (int i = 1; i <= Constants.UNIT_TEST_CHANNEL_COUNT; i++) {
                 mChannelInfoList.put(i,
-                        new ChannelInfoWrapper(ChannelInfo.create(getContext(), i)));
+                        new ChannelInfoWrapper(ChannelInfo.create(getTargetContext(), i)));
             }
         }
 
@@ -466,8 +481,8 @@ public class ChannelDataManagerTest extends AndroidTestCase {
          */
         public void simulateInsert(ChannelInfo testChannelInfo) {
             long channelId = testChannelInfo.originalNetworkId;
-            mChannelInfoList.put((int) channelId,
-                    new ChannelInfoWrapper(ChannelInfo.create(getContext(), (int) channelId)));
+            mChannelInfoList.put((int) channelId, new ChannelInfoWrapper(
+                    ChannelInfo.create(getTargetContext(), (int) channelId)));
             mContentResolver.notifyChange(TvContract.buildChannelUri(channelId), null);
         }
 

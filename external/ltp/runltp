@@ -153,6 +153,7 @@ usage()
     -p              Human readable format logfiles.
     -q              Print less verbose output to screen.
     -r LTPROOT      Fully qualified path where testsuite is installed.
+    -R              Randomize test order.
     -s PATTERN      Only run test cases which match PATTERN.
     -S SKIPFILE     Skip tests specified in SKIPFILE
     -t DURATION     Execute the testsuite for given duration. Examples:
@@ -213,12 +214,13 @@ main()
     local EMAIL_TO=""
     local TAG_RESTRICT_STRING=""
     local PAN_COMMAND=""
+    local RANDOMRUN=0
     local DEFAULT_FILE_NAME_GENERATION_TIME=`date +"%Y_%m_%d-%Hh_%Mm_%Ss"`
     local scenfile=
 
     version_date=$(cat "$LTPROOT/Version")
 
-    while getopts a:c:C:T:d:D:f:F:ehi:I:K:g:l:m:M:Nno:pqr:s:S:t:T:w:x:b:B:z:Z: arg
+    while getopts a:c:C:T:d:D:f:F:ehi:I:K:g:l:m:M:Nno:pqr:Rs:S:t:T:w:x:b:B:z:Z: arg
     do  case $arg in
         a)  EMAIL_TO=$OPTARG
             ALT_EMAIL_OUT=1;;
@@ -409,6 +411,8 @@ main()
         q)  QUIET_MODE=" -q ";;
 
         r)  LTPROOT=$OPTARG;;
+
+        R)  RANDOMRUN=1;;
 
         s)  TAG_RESTRICT_STRING=$OPTARG;;
 
@@ -740,6 +744,10 @@ main()
          done
     fi
 
+    if [ "$RANDOMRUN" != "0" ]; then
+        sort -R ${TMP}/alltests -o ${TMP}/alltests
+    fi
+
     [ ! -z "$QUIET_MODE" ] && { echo "INFO: Test start time: $(date)" ; }
     PAN_COMMAND="${LTPROOT}/bin/ltp-pan $QUIET_MODE -e -S $INSTANCES $DURATION -a $$ \
     -n $$ $PRETTY_PRT -f ${TMP}/alltests $LOGFILE $OUTPUTFILE $FAILCMDFILE $TCONFCMDFILE"
@@ -868,8 +876,8 @@ main()
 
     if [ "$ALT_HTML_OUT" -eq 1 ] ; then        #User wants the HTML output to be created, it then needs to be generated
        export LTP_VERSION=$version_date
-       export TEST_START_TIME=$test_start_time
-       export TEST_END_TIME=$(date)
+       export TEST_START_TIME="$test_start_time"
+       export TEST_END_TIME="$(date)"
        OUTPUT_DIRECTORY=`echo $OUTPUTFILE | cut -c4-`
        LOGS_DIRECTORY="$LTPROOT/results"
        export TEST_OUTPUT_DIRECTORY="$LTPROOT/output"
@@ -978,7 +986,7 @@ main()
 create_block()
 {
     #create a block device
-    dd if=/dev/zero of=${TMP}/test.img bs=1kB count=102400 >/dev/null 2>&1
+    dd if=/dev/zero of=${TMP}/test.img bs=1024 count=262144 >/dev/null 2>&1
     if [ $? -ne 0 ]; then
         echo "Failed to create loopback device image, please check disk space and re-run"
         return 1

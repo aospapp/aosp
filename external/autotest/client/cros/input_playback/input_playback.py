@@ -52,6 +52,11 @@ class InputPlayback(object):
                                'keyboard': 'keyboard.prop'}
     _PLAYBACK_COMMAND = 'evemu-play --insert-slot0 %s < %s'
 
+    # Define the overhead (500 ms) elapsed for launching evemu-play and the
+    # latency from event injection to the first event read by Chrome Input
+    # thread.
+    _PLAYBACK_OVERHEAD_LATENCY = 0.5
+
     # Define a keyboard as anything with any keys #2 to #248 inclusive,
     # as defined in the linux input header.  This definition includes things
     # like the power button, so reserve the "keyboard" label for things with
@@ -148,19 +153,28 @@ class InputPlayback(object):
         if not os.path.isfile(property_file):
             raise error.TestError('Property file %s not found!' % property_file)
 
-        logging.info('Emulating %s %s', input_type, property_file)
-        num_events_before = len(self._get_input_events())
-        new_device.emulation_process = subprocess.Popen(
-                ['evemu-device', property_file], stdout=subprocess.PIPE)
-        utils.poll_for_condition(
-                lambda: len(self._get_input_events()) > num_events_before,
-                exception=error.TestError('Error emulating %s!' % input_type))
-
         with open(property_file) as fh:
             name_line = fh.readline()  # Format "N: NAMEOFDEVICE"
             new_device.name = name_line[3:-1]
 
+        logging.info('Emulating %s %s (%s).', input_type, new_device.name,
+                     property_file)
+        num_events_before = len(self._get_input_events())
+        new_device.emulation_process = subprocess.Popen(
+                ['evemu-device', property_file], stdout=subprocess.PIPE)
+
         self._emulated_device = new_device
+
+        # Ensure there are more input events than there were before.
+        try:
+            expected = num_events_before + 1
+            exception = error.TestError('Error emulating %s!' % input_type)
+            utils.poll_for_condition(
+                    lambda: len(self._get_input_events()) == expected,
+                    exception=exception)
+        except error.TestError as e:
+            self.close()
+            raise e
 
 
     def _find_device_properties(self, device):
@@ -277,7 +291,10 @@ class InputPlayback(object):
             if len(contents_of_input_folder) != 0:
                 i2c_name = i2c_path[len('/dev/'):]
                 cmd = 'wacom_flash dummy -a %s' % i2c_name
-                fw_id = utils.run(cmd).stdout.split()[-1]
+                # Do not throw an exception if wacom_flash does not exist.
+                result = utils.run(cmd, ignore_status=True)
+                if result.exit_status == 0:
+                    fw_id = result.stdout.split()[-1]
                 break
 
         if fw_id == '':
@@ -450,10 +467,15 @@ class InputPlayback(object):
             lines = fh.readlines()
             start = float(lines[0].split(' ')[1])
             end = float(lines[-1].split(' ')[1])
-            sleep_time = end - start
+            sleep_time = end - start + self._PLAYBACK_OVERHEAD_LATENCY
+        start_time = time.time()
         self.playback(filepath, input_type)
-        logging.info('Sleeping for %s seconds during playback.', sleep_time)
-        time.sleep(sleep_time)
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        if elapsed_time < sleep_time:
+            sleep_time -= elapsed_time
+            logging.info('Blocking for %s seconds after playback.', sleep_time)
+            time.sleep(sleep_time)
 
 
     def blocking_playback_of_default_file(self, filename, input_type='mouse'):
@@ -478,7 +500,21 @@ class InputPlayback(object):
     def close(self):
         """Kill emulation if necessary."""
         if self._emulated_device:
+            num_events_before = len(self._get_input_events())
+            device_name = self._emulated_device.name
+
             self._emulated_device.emulation_process.kill()
+
+            # Ensure there is one fewer input event before returning.
+            try:
+                expected = num_events_before - 1
+                utils.poll_for_condition(
+                        lambda: len(self._get_input_events()) == expected,
+                        exception=error.TestError())
+            except error.TestError as e:
+                logging.warning('Could not kill emulated %s!', device_name)
+
+            self._emulated_device = None
 
 
     def __exit__(self):

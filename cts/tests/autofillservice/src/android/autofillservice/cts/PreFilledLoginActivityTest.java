@@ -27,7 +27,6 @@ import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_PASSWORD;
 
 import android.autofillservice.cts.InstrumentedAutoFillService.FillRequest;
 import android.autofillservice.cts.InstrumentedAutoFillService.SaveRequest;
-import android.support.test.rule.ActivityTestRule;
 
 import org.junit.After;
 import org.junit.Before;
@@ -40,8 +39,8 @@ import org.junit.Test;
 public class PreFilledLoginActivityTest extends AutoFillServiceTestCase {
 
     @Rule
-    public final ActivityTestRule<PreFilledLoginActivity> mActivityRule =
-            new ActivityTestRule<PreFilledLoginActivity>(PreFilledLoginActivity.class);
+    public final AutofillActivityTestRule<PreFilledLoginActivity> mActivityRule =
+            new AutofillActivityTestRule<PreFilledLoginActivity>(PreFilledLoginActivity.class);
 
     private PreFilledLoginActivity mActivity;
 

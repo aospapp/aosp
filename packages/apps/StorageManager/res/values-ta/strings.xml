@@ -55,9 +55,12 @@
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"இயக்கு"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"காப்புப் பிரதி எடுத்த படங்களும் வீடியோக்களும்"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"கோப்புகளைக் கண்டறிகிறது…"</string>
+    <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"எல்லாம் காட்டு"</string>
+    <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"சமீபத்தியவற்றை மறை"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="386144597646356521">"சாதனத்திலிருந்து <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> அகற்றப்படும்"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"உங்கள் சேமிப்பகம் இப்போது சேமிப்பக நிர்வாகியால் நிர்வகிக்கப்படுகிறது"</string>
-    <string name="empty_state_title" msgid="4033285438176545309">"அகற்றுவதற்கு எதுவுமில்லை"</string>
-    <string name="empty_state_review_items_link" msgid="8411186441239304545">"சமீபத்தியவற்றைச் சரிபார்க்கவும்"</string>
-    <string name="empty_state_summary" msgid="8439893007424243790">"அகற்றுவதற்கு, பழைய கோப்புகள் எதுவுமில்லை. இடத்தை உருவாக்க, சமீபத்திய படங்கள், வீடியோக்கள், பயன்பாடுகள் ஆகியவற்றை அகற்றவும்."</string>
+    <string name="empty_state_title" msgid="4033285438176545309">"அகற்ற எதுவுமில்லை"</string>
+    <string name="empty_state_review_items_link" msgid="8411186441239304545">"சமீபத்தியவற்றைப் பார்க்கவும்"</string>
+    <string name="empty_state_summary" msgid="8439893007424243790">"பழைய கோப்புகள் எதுவுமில்லை. இடத்தை உருவாக்க, சமீபத்திய படங்கள், வீடியோக்கள், ஆப்ஸ் ஆகியவற்றை அகற்றவும்."</string>
+    <string name="app_requesting_space" msgid="857425181289960167">"<xliff:g id="APP">%1$s</xliff:g>க்கு <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> சேமிப்பிடம் தேவை"</string>
 </resources>

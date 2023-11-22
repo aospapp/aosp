@@ -27,9 +27,9 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"Следнава апликација ќе треба да пристапува до профилот:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Следнава апликација ќе управува со уредот:"</string>
     <string name="next" msgid="1004321437324424398">"Следно"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"Се поставува работниот профил..."</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"Се поставува работен профил…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"Администраторот може да ги следи и да управува со поставките, корпоративниот пристап, апликациите, дозволите и податоците поврзани со профилот, како и со активноста на мрежата, локацијата на уредот, историјата на повици и историјата на пребарување контакти.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Контактирајте со администраторот за повеќе информации, како и за политиките за приватност на вашата организација."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"Администраторот може да ги следи и да управува со поставките, корпоративниот пристап, апликациите, дозволите и податоците поврзани со уредот, како и со активноста на мрежата, локацијата на уредот, историјата на повици и историјата на пребарување контакти.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Контактирајте со администраторот за повеќе информации, како и за политиките за приватност на вашата организација."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"Администраторот може да ги следи и да управува со поставките, корпоративниот пристап, апликациите, дозволите и податоците поврзани со уредов, како и со активноста на мрежата, локацијата на уредот, историјата на повици и историјата на пребарување контакти.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Контактирајте со администраторот за повеќе информации, како и за политиките за приватност на вашата организација."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"За користење на карактеристиките за заштита од кражба, мора да имате поставено заклучување екран со лозинка за уредот."</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Контактирајте со администраторот за повеќе информации, како и за политиките за приватност на организацијата."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Дознај повеќе"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Работен профил"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"Примарен корисник"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Да се избрише постоечкиот профил?"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"Веќе имате работен профил со кој се управува со следната апликација:"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Веќе имате работен профил. Со него управува следната апликација:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Пред да продолжите, "<a href="#read_this_link">"прочитајте го ова"</a>"."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Доколку продолжите, сите апликации и податоци на профилот ќе се избришат."</string>
     <string name="delete_profile" msgid="2299218578684663459">"Избриши"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"Допрете за да продолжи поставувањето на работниот профил"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Не можевме да го поставиме работниот профил. Контактирајте со одделот за ИТ или обидете се повторно подоцна."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Не може да се додаде работен профил"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"Корисников не може да има работен профил. За помош, контактирајте со вашиот администратор."</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"Корисников не може да има работни профили. Контактирајте со вашиот администратор."</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"Работни профили не може да се поставуваат на управуван уред"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"Можно е да има премногу корисници на уредов. Отстранете некој корисник, па обидете се повторно."</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Не може да се замени или отстрани работен профил"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"Не може да се додаде работен профил на уредов. Ако имате прашања, контактирајте со администраторот."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Променете го стартерот на апликацијата"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Вашиот работен профил не може да ја користи оваа апликација на стартер"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Откажи"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"Во ред"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Поставувањето корисник е нецелосно"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Корисник на работен уред"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"Поставување работен уред"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"Се поставува работен уред…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Податоците за поставување се обработуваат..."</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Се поврзува на Wi-Fi..."</string>
     <string name="progress_download" msgid="3522436271691064624">"Администраторската апликација се презема..."</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"Откажи"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"Ресетирај го уредот"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> и <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> и <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> и <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

@@ -86,6 +86,12 @@ import com.android.bluetooth.btservice.BluetoothProto;
         /** Flag to signal that transport is congested */
         Boolean isCongested = false;
 
+        /** Whether the calling app has location permission */
+        boolean hasLocationPermisson;
+
+        /** Whether the calling app has peers mac address permission */
+        boolean hasPeersMacAddressPermission;
+
         /** Internal callback info queue, waiting to be send on congestion clear */
         private List<CallbackInfo> congestionQueue = new ArrayList<CallbackInfo>();
 
@@ -151,7 +157,7 @@ import com.android.bluetooth.btservice.BluetoothProto;
     /**
      * Add an entry to the application context list.
      */
-    void add(UUID uuid, WorkSource workSource, C callback, T info, GattService service) {
+    App add(UUID uuid, WorkSource workSource, C callback, T info, GattService service) {
         int appUid = Binder.getCallingUid();
         String appName = service.getPackageManager().getNameForUid(appUid);
         if (appName == null) {
@@ -164,8 +170,10 @@ import com.android.bluetooth.btservice.BluetoothProto;
                 appScanStats = new AppScanStats(appName, workSource, this, service);
                 mAppScanStats.put(appUid, appScanStats);
             }
-            mApps.add(new App(uuid, callback, info, appName, appScanStats));
+            App app = new App(uuid, callback, info, appName, appScanStats);
+            mApps.add(app);
             appScanStats.isRegistered = true;
+            return app;
         }
     }
 

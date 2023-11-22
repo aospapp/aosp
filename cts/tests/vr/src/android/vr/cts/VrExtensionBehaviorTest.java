@@ -20,9 +20,10 @@ import android.opengl.EGL14;
 import android.opengl.GLES32;
 import android.test.ActivityInstrumentationTestCase2;
 
-import java.nio.IntBuffer;
-
 public class VrExtensionBehaviorTest extends ActivityInstrumentationTestCase2<OpenGLESActivity> {
+    static {
+        System.loadLibrary("ctsvrextensions_jni");
+    }
 
     private static final int EGL_CONTEXT_PRIORITY_HIGH_IMG = 0x3101;
     private static final int EGL_CONTEXT_PRIORITY_MEDIUM_IMG = 0x3102;
@@ -53,7 +54,7 @@ public class VrExtensionBehaviorTest extends ActivityInstrumentationTestCase2<Op
      * Tests that protected content contexts and surfaces can be created.
      */
     public void testProtectedContent() throws Throwable {
-        mActivity = getGlEsActivity(1, 1, 0, 0);
+        mActivity = getGlEsActivity(OpenGLESActivity.RENDERER_BASIC, 1, 0, 0);
         if (!mActivity.supportsVrHighPerformance())
             return;
 
@@ -77,7 +78,7 @@ public class VrExtensionBehaviorTest extends ActivityInstrumentationTestCase2<Op
      * Tests that textures can be marked as protected.
      */
     public void testProtectedTextures() throws Throwable {
-        mActivity = getGlEsActivity(2, 1, 0, 0);
+        mActivity = getGlEsActivity(OpenGLESActivity.RENDERER_PROTECTEDTEXTURES, 1, 0, 0);
         if (!mActivity.supportsVrHighPerformance())
             return;
 
@@ -126,7 +127,7 @@ public class VrExtensionBehaviorTest extends ActivityInstrumentationTestCase2<Op
      */
     public void testMutableRenderBuffer() throws Throwable {
 
-        mActivity = getGlEsActivity(1, 0, 0, 1);
+        mActivity = getGlEsActivity(OpenGLESActivity.RENDERER_BASIC, 0, 0, 1);
         if (!mActivity.supportsVrHighPerformance())
             return;
 
@@ -155,10 +156,48 @@ public class VrExtensionBehaviorTest extends ActivityInstrumentationTestCase2<Op
     }
 
     /**
+     * Test that a layered EGLImage can be created and attached to a FBO.
+     * For more information, see the EGL_image_array spec:
+     * https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_EGL_image_array.txt
+     */
+    public void testEglImageArray() throws Throwable {
+        mActivity = getGlEsActivity(OpenGLESActivity.RENDERER_BASIC, 0, 0, 0);
+        if (!mActivity.supportsVrHighPerformance())
+            return;
+
+        assertEquals(GLES32.GL_NO_ERROR, mActivity.glGetError());
+
+        mActivity.runOnGlThread(new Runnable() {
+            public void run() {
+              nativeTestEglImageArray();
+            }
+        });
+    }
+
+    /**
+     * Test that an external buffer can be created, written to, and read from.
+     * For more information, see the GL_EXT_external_buffer spec:
+     * https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_external_buffer.txt
+     */
+    public void testExternalBuffer() throws Throwable {
+        mActivity = getGlEsActivity(OpenGLESActivity.RENDERER_BASIC, 0, 0, 0);
+        if (!mActivity.supportsVrHighPerformance())
+            return;
+
+        assertEquals(GLES32.GL_NO_ERROR, mActivity.glGetError());
+
+        mActivity.runOnGlThread(new Runnable() {
+            public void run() {
+              nativeTestExternalBuffer();
+            }
+        });
+    }
+
+    /**
      * Runs a context priority test.
      */
     private void runContextPriorityTest(int priority) throws Throwable {
-        mActivity = getGlEsActivity(1, 0, priority, 0);
+        mActivity = getGlEsActivity(OpenGLESActivity.RENDERER_BASIC, 0, priority, 0);
         if (!mActivity.supportsVrHighPerformance())
             return;
 
@@ -181,4 +220,7 @@ public class VrExtensionBehaviorTest extends ActivityInstrumentationTestCase2<Op
         EGL14.eglSwapBuffers(EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY),
             EGL14.eglGetCurrentSurface(EGL14.EGL_DRAW));
     }
+
+    private static native boolean nativeTestEglImageArray();
+    private static native boolean nativeTestExternalBuffer();
 }

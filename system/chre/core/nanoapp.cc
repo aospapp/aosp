@@ -20,16 +20,9 @@
 #include "chre/platform/assert.h"
 #include "chre/platform/fatal_error.h"
 #include "chre/platform/log.h"
+#include "chre/util/system/debug_dump.h"
 
 namespace chre {
-
-uint32_t Nanoapp::getInstanceId() const {
-  return mInstanceId;
-}
-
-void Nanoapp::setInstanceId(uint32_t instanceId) {
-  mInstanceId = instanceId;
-}
 
 bool Nanoapp::isRegisteredForBroadcastEvent(uint16_t eventType) const {
   return (mRegisteredEvents.find(eventType) != mRegisteredEvents.size());
@@ -65,6 +58,25 @@ bool Nanoapp::hasPendingEvent() {
   return !mEventQueue.empty();
 }
 
+void Nanoapp::configureNanoappInfoEvents(bool enable) {
+  bool success;
+  if (enable) {
+    success = registerForBroadcastEvent(CHRE_EVENT_NANOAPP_STARTED);
+    success &= registerForBroadcastEvent(CHRE_EVENT_NANOAPP_STOPPED);
+  } else {
+    success = unregisterForBroadcastEvent(CHRE_EVENT_NANOAPP_STARTED);
+    success &= unregisterForBroadcastEvent(CHRE_EVENT_NANOAPP_STOPPED);
+  }
+
+  if (!success) {
+    // An app has failed to register for an event and may be stuck waiting for
+    // an event that it will never receive. This is considered a fatal situation
+    // as the nanoapp is stuck and there is no way to recover other than
+    // unloading the nanoapp. This can happen in an OOM situation.
+    FATAL_ERROR("Failed to configure nanoapp info events to %d", enable);
+  }
+}
+
 Event *Nanoapp::processNextEvent() {
   Event *event = mEventQueue.pop();
 
@@ -74,6 +86,18 @@ Event *Nanoapp::processNextEvent() {
   }
 
   return event;
+}
+
+bool Nanoapp::logStateToBuffer(char *buffer, size_t *bufferPos,
+                               size_t bufferSize) const {
+  bool success = PlatformNanoapp::logStateToBuffer(buffer, bufferPos,
+                                                   bufferSize);
+  success &= debugDumpPrint(buffer, bufferPos, bufferSize,
+                            " Id=%" PRIu32 " AppId=0x%016" PRIx64
+                            " ver=0x%" PRIx32 " targetAPI=0x%" PRIx32 "\n",
+                            getInstanceId(), getAppId(),
+                            getAppVersion(), getTargetApiVersion());
+  return success;
 }
 
 }  // namespace chre

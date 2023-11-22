@@ -52,7 +52,7 @@ class ShardClientTest(mox.MoxTestBase,
                          known_job_ids=[], known_host_ids=[],
                          known_host_statuses=[], hqes=[], jobs=[],
                          side_effect=None, return_hosts=[], return_jobs=[],
-                         return_suite_keyvals=[]):
+                         return_suite_keyvals=[], return_incorrect_hosts=[]):
         call = self.afe.run(
             'shard_heartbeat', shard_hostname=shard_hostname,
             hqes=hqes, jobs=jobs,
@@ -67,6 +67,7 @@ class ShardClientTest(mox.MoxTestBase,
                 'hosts': return_hosts,
                 'jobs': return_jobs,
                 'suite_keyvals': return_suite_keyvals,
+                'incorrect_host_ids': return_incorrect_hosts,
             })
 
 
@@ -214,6 +215,46 @@ class ShardClientTest(mox.MoxTestBase,
 
 
         self.mox.VerifyAll()
+
+
+    def testRemoveInvalidHosts(self):
+        self.setup_mocks()
+        self.setup_global_config()
+
+        host_serialized = self._get_sample_serialized_host()
+        host_id = host_serialized[u'id']
+
+        # 1st heartbeat: return a host.
+        # 2nd heartbeat: "delete" that host. Also send a spurious extra ID
+        # that isn't present to ensure shard client doesn't crash. (Note: delete
+        # operation doesn't actually delete db entry. Djanjo model ;logic
+        # instead simply marks it as invalid.
+        # 3rd heartbeat: host is no longer present in shard's request.
+
+        self.expect_heartbeat(return_hosts=[host_serialized])
+        self.expect_heartbeat(known_host_ids=[host_id],
+                              known_host_statuses=[u'Ready'],
+                              return_incorrect_hosts=[host_id, 42])
+        self.expect_heartbeat()
+
+        self.mox.ReplayAll()
+        sut = shard_client.get_shard_client()
+
+        sut.do_heartbeat()
+        host = models.Host.smart_get(host_id)
+        self.assertFalse(host.invalid)
+
+        # Host should no longer "exist" after the invalidation.
+        # Why don't we simply count the number of hosts in db? Because the host
+        # actually remains int he db, but simply has it's invalid bit set to
+        # True.
+        sut.do_heartbeat()
+        with self.assertRaises(models.Host.DoesNotExist):
+            host = models.Host.smart_get(host_id)
+
+
+        # Subsequent heartbeat no longer passes the host id as a known host.
+        sut.do_heartbeat()
 
 
     def testFailAndRedownloadJobs(self):

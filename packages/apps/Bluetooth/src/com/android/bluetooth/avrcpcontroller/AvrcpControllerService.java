@@ -435,7 +435,7 @@ public class AvrcpControllerService extends ProfileService {
     public synchronized boolean getChildren(
             BluetoothDevice device, String parentMediaId, int start, int items) {
         if (DBG) {
-            Log.d(TAG, "getChildrent device = " + device + " parent " + parentMediaId);
+            Log.d(TAG, "getChildren device = " + device + " parent " + parentMediaId);
         }
 
         if (device == null) {

@@ -39,7 +39,7 @@
     <string name="deletion_helper_clear_dialog_remove" msgid="3386502418767917932">"Отстрани"</string>
     <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"Дали автоматски да се управува со меморијата?"</string>
     <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"<xliff:g id="USED">%1$s</xliff:g> сега се слободни. Дали да му се дозволи на Управникот со меморијата автоматски да ослободи простор со отстранување на бекапот на содржините од уредот?"</string>
-    <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"Не, благодарам"</string>
+    <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"Не, фала"</string>
     <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"Вклучи"</string>
     <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"Ретко користени апликации"</string>
     <!-- no translation found for deletion_helper_apps_group_summary (360315517252452356) -->
@@ -51,13 +51,16 @@
     <string name="automatic_storage_manager_notification_title" product="default" msgid="8480483265300964701">"На телефонот нема доволно простор"</string>
     <string name="automatic_storage_manager_notification_title" product="tablet" msgid="3150907918531844467">"Нема доволно простор на таблетот"</string>
     <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"Дозволете Управникот со меморијата да ослободи простор со автоматско отстранување на старите фотографии и видеа кога телефонот повторно ќе почне да се преполнува."</string>
-    <string name="automatic_storage_manager_cancel_button" msgid="1826365037494962803">"Не, благодарам"</string>
+    <string name="automatic_storage_manager_cancel_button" msgid="1826365037494962803">"Не, фала"</string>
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"Вклучи"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"Бекап на фотографии и видеа"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"Се пронаоѓаат ставки..."</string>
+    <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"Прикажи ги сите ставки"</string>
+    <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"Сокриј ги неодамнешните ставки"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="386144597646356521">"<xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> ќе бидат отстранети од вашиот уред"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"Управникот со меморија сега управува со вашата меморија"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"Ништо за отстранување"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"Прегледајте ги неодамнешните ставки"</string>
     <string name="empty_state_summary" msgid="8439893007424243790">"Нема стари датотеки за отстранување. За да ослободите простор, отстранете неодамнешни фотографии, видеа и апликации."</string>
+    <string name="app_requesting_space" msgid="857425181289960167">"<xliff:g id="APP">%1$s</xliff:g> има потреба од <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> слободен простор"</string>
 </resources>

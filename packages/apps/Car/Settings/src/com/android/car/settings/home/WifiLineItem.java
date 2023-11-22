@@ -19,13 +19,13 @@ package com.android.car.settings.home;
 import android.annotation.DrawableRes;
 import android.annotation.StringRes;
 import android.content.Context;
-import android.content.Intent;
 import android.net.wifi.WifiManager;
 
 import com.android.car.settings.R;
+import com.android.car.settings.common.BaseFragment;
 import com.android.car.settings.common.IconToggleLineItem;
 import com.android.car.settings.wifi.CarWifiManager;
-import com.android.car.settings.wifi.WifiSettingsActivity;
+import com.android.car.settings.wifi.WifiSettingsFragment;
 
 
 /**
@@ -34,11 +34,16 @@ import com.android.car.settings.wifi.WifiSettingsActivity;
 public class WifiLineItem extends IconToggleLineItem {
     private final Context mContext;
     private final CarWifiManager mCarWifiManager;
+    private BaseFragment.FragmentController mFragmentController;
 
-    public WifiLineItem(Context context, CarWifiManager carWifiManager) {
+    public WifiLineItem(
+            Context context,
+            CarWifiManager carWifiManager,
+            BaseFragment.FragmentController fragmentController) {
         super(context.getText(R.string.wifi_settings), context);
         mContext = context;
         mCarWifiManager = carWifiManager;
+        mFragmentController = fragmentController;
     }
 
     @Override
@@ -48,8 +53,7 @@ public class WifiLineItem extends IconToggleLineItem {
 
     @Override
     public void onClicked() {
-        Intent intent = new Intent(mContext, WifiSettingsActivity.class);
-        mContext.startActivity(intent);
+        mFragmentController.launchFragment(WifiSettingsFragment.getInstance());
     }
 
     @Override
@@ -60,6 +64,11 @@ public class WifiLineItem extends IconToggleLineItem {
     @Override
     public boolean isChecked() {
         return mCarWifiManager.isWifiEnabled();
+    }
+
+    @Override
+    public boolean isExpandable() {
+        return true;
     }
 
     @Override

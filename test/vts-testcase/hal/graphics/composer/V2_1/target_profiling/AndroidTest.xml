@@ -32,6 +32,7 @@
         <option name="binary-test-disable-framework" value="true"/>
         <option name="binary-test-stop-native-servers" value="true"/>
         <option name="enable-profiling" value="true"/>
+        <option name="exclude-filter" value="r(.*/vr.*)" />
         <option name="precondition-lshal" value="android.hardware.graphics.composer@2.1"/>
         <option name="test-timeout" value="5m"/>
     </test>

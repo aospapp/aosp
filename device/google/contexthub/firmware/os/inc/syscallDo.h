@@ -152,7 +152,7 @@ static inline bool eOsSensorTriggerOndemand(uint32_t clientId, uint32_t sensorHa
 
 static inline uint32_t eOsSensorGetCurRate(uint32_t sensorHandle)
 {
-    return syscallDo1P(SYSCALL_NO(SYSCALL_DOMAIN_OS, SYSCALL_OS_MAIN, SYSCALL_OS_MAIN_SENSOR, SYSCALL_OS_MAIN_SENSOR_GET_RATE), sensorHandle);
+    return syscallDo1P(SYSCALL_NO(SYSCALL_DOMAIN_OS, SYSCALL_OS_MAIN, SYSCALL_OS_MAIN_SENSOR, SYSCALL_OS_MAIN_SENSOR_GET_CUR_RATE), sensorHandle);
 }
 
 static inline uint64_t eOsSensorGetTime(void)
@@ -160,6 +160,11 @@ static inline uint64_t eOsSensorGetTime(void)
     uint64_t timeNanos;
     syscallDo1P(SYSCALL_NO(SYSCALL_DOMAIN_OS, SYSCALL_OS_MAIN, SYSCALL_OS_MAIN_SENSOR, SYSCALL_OS_MAIN_SENSOR_GET_TIME), &timeNanos);
     return timeNanos;
+}
+
+static inline uint32_t eOsSensorGetReqRate(uint32_t sensorHandle)
+{
+    return syscallDo1P(SYSCALL_NO(SYSCALL_DOMAIN_OS, SYSCALL_OS_MAIN, SYSCALL_OS_MAIN_SENSOR, SYSCALL_OS_MAIN_SENSOR_GET_REQ_RATE), sensorHandle);
 }
 
 static inline uint64_t eOsTimGetTime(void)

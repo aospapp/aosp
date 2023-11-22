@@ -208,8 +208,8 @@ bool FuzzerExtended_libc::VerifyResults(const FunctionSpecificationMessage&, con
     return true;
 }
 extern "C" {
-android::vts::FuzzerBase* vts_func_11_1002_1_() {
-    return (android::vts::FuzzerBase*) new android::vts::FuzzerExtended_libc();
+android::vts::DriverBase* vts_func_11_1002_V1_0_() {
+    return (android::vts::DriverBase*) new android::vts::FuzzerExtended_libc();
 }
 
 }

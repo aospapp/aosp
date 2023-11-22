@@ -17,6 +17,19 @@
 package com.android.cts.content;
 
 import android.app.Activity;
+import android.app.KeyguardManager;
+import android.os.Bundle;
+import android.view.WindowManager;
 
 public class StubActivity extends Activity {
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        setTurnScreenOn(true);
+        KeyguardManager km = getSystemService(KeyguardManager.class);
+        if (km != null) {
+            km.requestDismissKeyguard(this, null);
+        }
+    }
 }

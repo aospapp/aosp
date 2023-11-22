@@ -66,7 +66,7 @@ const tL2CAP_FCR_OPTS mca_l2c_fcr_opts_def = {
  * Returns          void
  *
  ******************************************************************************/
-static void mca_sec_check_complete_term(BD_ADDR bd_addr,
+static void mca_sec_check_complete_term(const RawAddress* bd_addr,
                                         UNUSED_ATTR tBT_TRANSPORT transport,
                                         void* p_ref_data, uint8_t res) {
   tMCA_TC_TBL* p_tbl = (tMCA_TC_TBL*)p_ref_data;
@@ -85,7 +85,7 @@ static void mca_sec_check_complete_term(BD_ADDR bd_addr,
     ertm_info.fcr_rx_buf_size = MCA_FCR_RX_BUF_SIZE;
     ertm_info.fcr_tx_buf_size = MCA_FCR_TX_BUF_SIZE;
     /* Send response to the L2CAP layer. */
-    L2CA_ErtmConnectRsp(bd_addr, p_tbl->id, p_tbl->lcid, L2CAP_CONN_OK,
+    L2CA_ErtmConnectRsp(*bd_addr, p_tbl->id, p_tbl->lcid, L2CAP_CONN_OK,
                         L2CAP_CONN_OK, &ertm_info);
 
     /* transition to configuration state */
@@ -95,7 +95,7 @@ static void mca_sec_check_complete_term(BD_ADDR bd_addr,
     mca_set_cfg_by_tbl(&cfg, p_tbl);
     L2CA_ConfigReq(p_tbl->lcid, &cfg);
   } else {
-    L2CA_ConnectRsp(bd_addr, p_tbl->id, p_tbl->lcid, L2CAP_CONN_SECURITY_BLOCK,
+    L2CA_ConnectRsp(*bd_addr, p_tbl->id, p_tbl->lcid, L2CAP_CONN_SECURITY_BLOCK,
                     L2CAP_CONN_OK);
     mca_tc_close_ind(p_tbl, L2CAP_CONN_SECURITY_BLOCK);
   }
@@ -111,7 +111,7 @@ static void mca_sec_check_complete_term(BD_ADDR bd_addr,
  * Returns          void
  *
  ******************************************************************************/
-static void mca_sec_check_complete_orig(UNUSED_ATTR BD_ADDR bd_addr,
+static void mca_sec_check_complete_orig(UNUSED_ATTR const RawAddress* bd_addr,
                                         UNUSED_ATTR tBT_TRANSPORT transport,
                                         void* p_ref_data, uint8_t res) {
   tMCA_TC_TBL* p_tbl = (tMCA_TC_TBL*)p_ref_data;
@@ -140,8 +140,8 @@ static void mca_sec_check_complete_orig(UNUSED_ATTR BD_ADDR bd_addr,
  * Returns          void
  *
  ******************************************************************************/
-void mca_l2c_cconn_ind_cback(BD_ADDR bd_addr, uint16_t lcid, uint16_t psm,
-                             uint8_t id) {
+void mca_l2c_cconn_ind_cback(const RawAddress& bd_addr, uint16_t lcid,
+                             uint16_t psm, uint8_t id) {
   tMCA_HANDLE handle = mca_handle_by_cpsm(psm);
   tMCA_CCB* p_ccb;
   tMCA_TC_TBL* p_tbl = NULL;
@@ -213,8 +213,8 @@ void mca_l2c_cconn_ind_cback(BD_ADDR bd_addr, uint16_t lcid, uint16_t psm,
  * Returns          void
  *
  ******************************************************************************/
-void mca_l2c_dconn_ind_cback(BD_ADDR bd_addr, uint16_t lcid, uint16_t psm,
-                             uint8_t id) {
+void mca_l2c_dconn_ind_cback(const RawAddress& bd_addr, uint16_t lcid,
+                             uint16_t psm, uint8_t id) {
   tMCA_HANDLE handle = mca_handle_by_dpsm(psm);
   tMCA_CCB* p_ccb;
   tMCA_DCB* p_dcb;
@@ -515,7 +515,7 @@ void mca_l2c_data_ind_cback(uint16_t lcid, BT_HDR* p_buf) {
  * Returns          void.
  *
  ******************************************************************************/
-uint16_t mca_l2c_open_req(BD_ADDR bd_addr, uint16_t psm,
+uint16_t mca_l2c_open_req(const RawAddress& bd_addr, uint16_t psm,
                           const tMCA_CHNL_CFG* p_chnl_cfg) {
   tL2CAP_ERTM_INFO ertm_info;
 

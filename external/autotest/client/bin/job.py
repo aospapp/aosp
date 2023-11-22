@@ -226,8 +226,7 @@ class base_client_job(base_job.base_job):
             # send the entry to stdout, if it's enabled
             logging.info(rendered_entry)
         self._logger = base_job.status_logger(
-            self, status_indenter(self), record_hook=client_job_record_hook,
-            tap_writer=self._tap)
+            self, status_indenter(self), record_hook=client_job_record_hook)
 
 
     def _post_record_init(self, control, options, drop_caches):
@@ -839,12 +838,7 @@ class base_client_job(base_job.base_job):
 
 
     def complete(self, status):
-        """Write pending TAP reports, clean up, and exit"""
-        # write out TAP reports
-        if self._tap.do_tap_report:
-            self._tap.write()
-            self._tap._write_tap_archive()
-
+        """Write pending reports, clean up, and exit"""
         # write out a job HTML report
         try:
             html_report.create_report(self.resultdir)

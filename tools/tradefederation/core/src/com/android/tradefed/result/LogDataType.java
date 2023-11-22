@@ -37,6 +37,7 @@ public enum LogDataType {
     LOGCAT("txt", "text/plain", false, true),
     KERNEL_LOG("txt", "text/plain", false, true),
     MONKEY_LOG("txt", "text/plain", false, true),
+    MUGSHOT_LOG("txt", "text/plain", false, true),
     PROCRANK("txt", "text/plain", false, true),
     MEM_INFO("txt", "text/plain", false, true),
     TOP("txt", "text/plain", false, true),

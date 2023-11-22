@@ -13,12 +13,24 @@ LOCAL_SRC_FILES := \
     egl.cpp \
     ClientAPIExts.cpp
 
-ifeq ($(TARGET_USES_HWC2), true)
-    LOCAL_CFLAGS += -DUSE_HWC2
-    LOCAL_STATIC_LIBRARIES += libsurfaceInterface
+ifdef IS_AT_LEAST_OPD1
+LOCAL_SHARED_LIBRARIES += libdl libnativewindow
+else
+LOCAL_SHARED_LIBRARIES += libdl
 endif
 
-LOCAL_SHARED_LIBRARIES += libdl
+ifdef IS_AT_LEAST_OPD1
+LOCAL_STATIC_LIBRARIES += libarect
+endif
+
+ifdef IS_AT_LEAST_OPM1
+LOCAL_HEADER_LIBRARIES += libui_headers
+endif
+
+ifdef IS_AT_LEAST_OPD1
+LOCAL_HEADER_LIBRARIES += libnativebase_headers
+endif
+
 # Used to access the Bionic private OpenGL TLS slot
 LOCAL_C_INCLUDES += bionic/libc/private
 

@@ -8,7 +8,7 @@
   This file is part of Valgrind, a dynamic binary instrumentation
   framework.
 
-  Copyright (C) 2000-2015 RT-RK
+  Copyright (C) 2000-2017 RT-RK
      mips-valgrind@rt-rk.com 
 
   This program is free software; you can redistribute it and/or
@@ -196,7 +196,7 @@ VG_(disp_cp_xindir):
         daddu $13, $13, $14
 
         ld $12, 0($13) /* t3 = VG_(tt_fast)[hash] :: ULong* */
-        daddi $13, $13, 8
+        daddiu $13, $13, 8
         ld $25, 0($13) /* little-endian, so comparing 1st 32bit word */
         nop
 

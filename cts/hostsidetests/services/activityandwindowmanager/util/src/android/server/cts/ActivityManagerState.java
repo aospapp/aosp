@@ -44,6 +44,7 @@ class ActivityManagerState {
     public static final String STATE_RESUMED = "RESUMED";
     public static final String STATE_PAUSED = "PAUSED";
     public static final String STATE_STOPPED = "STOPPED";
+    public static final String STATE_DESTROYED = "DESTROYED";
 
     public static final String RESIZE_MODE_RESIZEABLE = "RESIZE_MODE_RESIZEABLE";
 
@@ -278,6 +279,20 @@ class ActivityManagerState {
         return false;
     }
 
+    boolean containsStartedActivities() {
+        for (ActivityStack stack : mStacks) {
+            for (ActivityTask task : stack.mTasks) {
+                for (Activity activity : task.mActivities) {
+                    if (!activity.state.equals(STATE_STOPPED)
+                            && !activity.state.equals(STATE_DESTROYED)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     boolean hasActivityState(String activityName, String activityState) {
         String fullName = ActivityManagerTestBase.getActivityComponentName(activityName);
         for (ActivityStack stack : mStacks) {
@@ -385,10 +400,12 @@ class ActivityManagerState {
         private static final Pattern TASK_ID_PATTERN = Pattern.compile("Task id #(\\d+)");
         private static final Pattern RESUMED_ACTIVITY_PATTERN = Pattern.compile(
                 "mResumedActivity\\: ActivityRecord\\{(.+) u(\\d+) (\\S+) (\\S+)\\}");
+        private static final Pattern SLEEPING_PATTERN = Pattern.compile("isSleeping=(\\S+)");
 
         int mDisplayId;
         int mStackId;
         String mResumedActivity;
+        Boolean mSleeping; // A Boolean to trigger an NPE if it's not initialized
         ArrayList<ActivityTask> mTasks = new ArrayList();
 
         private ActivityStack() {
@@ -449,6 +466,13 @@ class ActivityManagerState {
                     log(line);
                     mResumedActivity = matcher.group(3);
                     log(mResumedActivity);
+                    continue;
+                }
+
+                matcher = SLEEPING_PATTERN.matcher(line);
+                if (matcher.matches()) {
+                    log(line);
+                    mSleeping = "true".equals(matcher.group(1));
                     continue;
                 }
             }

@@ -17,8 +17,8 @@
 #define LOG_TAG "valueOf"
 
 #include "valueOf.h"
-#include "JNIHelp.h"
-#include "JniConstants.h"
+#include <nativehelper/JNIHelp.h>
+#include <nativehelper/JniConstants.h>
 
 template <typename T>
 static jobject valueOf(JNIEnv* env, jclass c, const char* signature, const T& value) {

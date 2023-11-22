@@ -19,7 +19,7 @@
  */
 
 #include "jni.h"
-#include "JNIHelp.h"
+#include <nativehelper/JNIHelp.h>
 #include "nativehelper/jni_macros.h"
 
 #include <stdlib.h>

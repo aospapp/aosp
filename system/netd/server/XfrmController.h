@@ -23,6 +23,7 @@
 #include <utility> // for pair
 
 #include <linux/netlink.h>
+#include <linux/udp.h>
 #include <linux/xfrm.h>
 #include <sysutils/SocketClient.h>
 #include <utils/RWLock.h>
@@ -39,7 +40,7 @@ class TransportModeSecurityAssociation;
 class XfrmSocket {
 public:
     virtual void close() {
-        if (mSock > 0) {
+        if (mSock >= 0) {
             ::close(mSock);
         }
         mSock = -1;
@@ -68,10 +69,22 @@ enum struct XfrmMode : uint8_t {
     TUNNEL = XFRM_MODE_TUNNEL,
 };
 
+enum struct XfrmEncapType : uint16_t {
+    NONE = 0,
+    ESPINUDP_NON_IKE = UDP_ENCAP_ESPINUDP_NON_IKE,
+    ESPINUDP = UDP_ENCAP_ESPINUDP
+};
+
 struct XfrmAlgo {
     std::string name;
     std::vector<uint8_t> key;
     uint16_t truncLenBits;
+};
+
+struct XfrmEncap {
+    XfrmEncapType type;
+    uint16_t srcPort;
+    uint16_t dstPort;
 };
 
 struct XfrmSaId {
@@ -88,6 +101,7 @@ struct XfrmSaInfo : XfrmSaId {
     XfrmAlgo crypt;
     int netId;
     XfrmMode mode;
+    XfrmEncap encap;
 };
 
 class XfrmController {
@@ -102,7 +116,7 @@ public:
         const std::string& remoteAddress, int64_t underlyingNetworkHandle, int32_t spi,
         const std::string& authAlgo, const std::vector<uint8_t>& authKey, int32_t authTruncBits,
         const std::string& cryptAlgo, const std::vector<uint8_t>& cryptKey, int32_t cryptTruncBits,
-        int32_t encapType, int32_t encapLocalPort, int32_t encapRemotePort, int32_t* allocatedSpi);
+        int32_t encapType, int32_t encapLocalPort, int32_t encapRemotePort);
 
     int ipSecDeleteSecurityAssociation(int32_t transformId, int32_t direction,
                                        const std::string& localAddress,
@@ -164,19 +178,25 @@ private:
     struct nlattr_algo_crypt {
         nlattr hdr;
         xfrm_algo crypt;
-        uint8_t key[MAX_ALGO_LENGTH]; // 1024 bit key, TODO: move off stack
+        uint8_t key[MAX_ALGO_LENGTH];
     };
 
     struct nlattr_algo_auth {
         nlattr hdr;
         xfrm_algo_auth auth;
-        uint8_t key[MAX_ALGO_LENGTH]; // 1024 bit key, TODO: move off stack
+        uint8_t key[MAX_ALGO_LENGTH];
     };
 
     struct nlattr_user_tmpl {
         nlattr hdr;
         xfrm_user_tmpl tmpl;
     };
+
+    struct nlattr_encap_tmpl {
+        nlattr hdr;
+        xfrm_encap_tmpl tmpl;
+    };
+
 
     // helper function for filling in the XfrmSaInfo structure
     static int fillXfrmSaId(int32_t direction, const std::string& localAddress,
@@ -193,6 +213,7 @@ private:
     // Shared between Transport and Tunnel Mode
     static int fillNlAttrXfrmAlgoEnc(const XfrmAlgo& in_algo, nlattr_algo_crypt* algo);
     static int fillNlAttrXfrmAlgoAuth(const XfrmAlgo& in_algo, nlattr_algo_auth* algo);
+    static int fillNlAttrXfrmEncapTmpl(const XfrmSaInfo& record, nlattr_encap_tmpl* tmpl);
 
     // Functions for Creating a Transport Mode SA
     static int createTransportModeSecurityAssociation(const XfrmSaInfo& record,

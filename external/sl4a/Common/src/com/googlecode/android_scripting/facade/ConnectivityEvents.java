@@ -64,10 +64,14 @@ public class ConnectivityEvents {
     public static class NetworkCallbackEventBase implements JsonSerializable {
         private String mId;
         private String mNetworkCallbackEvent;
+        private long mCreateTimestamp;
+        private long mCurrentTimestamp;
 
-        public NetworkCallbackEventBase(String id, String event) {
+        public NetworkCallbackEventBase(String id, String event, long createTimestamp) {
             mId = id;
             mNetworkCallbackEvent = event;
+            mCreateTimestamp = createTimestamp;
+            mCurrentTimestamp = System.currentTimeMillis();
         }
 
         /**
@@ -80,6 +84,10 @@ public class ConnectivityEvents {
             networkCallback.put(
                     ConnectivityConstants.NetworkCallbackContainer.NETWORK_CALLBACK_EVENT,
                     mNetworkCallbackEvent);
+            networkCallback.put(ConnectivityConstants.NetworkCallbackContainer.CREATE_TIMESTAMP,
+                    mCreateTimestamp);
+            networkCallback.put(ConnectivityConstants.NetworkCallbackContainer.CURRENT_TIMESTAMP,
+                    mCurrentTimestamp);
 
             return networkCallback;
         }
@@ -91,8 +99,9 @@ public class ConnectivityEvents {
     public static class NetworkCallbackEventOnLosing extends NetworkCallbackEventBase {
         private int mMaxMsToLive;
 
-        public NetworkCallbackEventOnLosing(String id, String event, int maxMsToLive) {
-            super(id, event);
+        public NetworkCallbackEventOnLosing(String id, String event, long createTimestamp,
+                int maxMsToLive) {
+            super(id, event, createTimestamp);
             mMaxMsToLive = maxMsToLive;
         }
 
@@ -113,8 +122,9 @@ public class ConnectivityEvents {
     public static class NetworkCallbackEventOnCapabilitiesChanged extends NetworkCallbackEventBase {
         private int mRssi;
 
-        public NetworkCallbackEventOnCapabilitiesChanged(String id, String event, int rssi) {
-            super(id, event);
+        public NetworkCallbackEventOnCapabilitiesChanged(String id, String event,
+                long createTimestamp, int rssi) {
+            super(id, event, createTimestamp);
             mRssi = rssi;
         }
 
@@ -137,8 +147,8 @@ public class ConnectivityEvents {
         private String mInterfaceName;
 
         public NetworkCallbackEventOnLinkPropertiesChanged(String id, String event,
-                String interfaceName) {
-            super(id, event);
+                long createTimestamp, String interfaceName) {
+            super(id, event, createTimestamp);
             mInterfaceName = interfaceName;
         }
 

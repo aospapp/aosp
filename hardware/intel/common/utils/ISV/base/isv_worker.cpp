@@ -16,6 +16,8 @@
  */
 #include <cutils/properties.h>
 #include <system/graphics.h>
+#include <nativebase/nativebase.h>
+
 #include "isv_worker.h"
 #ifndef TARGET_VPP_USE_GEN
 #include <hal_public.h>

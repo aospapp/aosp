@@ -67,36 +67,6 @@ public class TestRunnerCaliperTest extends AbstractTestRunnerTest {
                 .completedNormally();
     }
 
-    /**
-     * Ensure that requesting profiling doesn't send an invalid option to Caliper.
-     *
-     * <p>Cannot check that profiling works because it will only work on Android and these tests
-     * do not run on android yet.
-     */
-    @TestRunnerProperties(
-            testClass = CaliperBenchmark.class,
-            profile = true,
-            runnerType = RunnerType.CALIPER)
-    @Test
-    public void testRunner_CaliperBenchmark_Profile() throws Exception {
-        TestRunner runner = testRunnerRule.createTestRunner("-i", "runtime");
-        runner.run();
-
-        expectedResults()
-                .ensureProfilingWasRequested()
-                .success(null, ""
-                        + "Experiment selection: \n"
-                        + "  Benchmark Methods:   [timeMethod]\n"
-                        + "  Instruments:   [runtime]\n"
-                        + "  User parameters:   {}\n"
-                        + "  Virtual machines:  [default]\n"
-                        + "  Selection type:    Full cartesian product\n"
-                        + "\n"
-                        + "This selection yields 1 experiments.\n"
-                        + "1\n")
-                .completedNormally();
-    }
-
     public static class CaliperBenchmark {
 
         @Benchmark

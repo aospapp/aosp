@@ -46,6 +46,7 @@ private:
     //based on the indication type
     int handleNanIndication();
     //Various Functions to get the appropriate indications
+    int getNanPublishReplied(NanPublishRepliedInd *event);
     int getNanPublishTerminated(NanPublishTerminatedInd *event);
     int getNanMatch(NanMatchInd *event);
     int getNanMatchExpired(NanMatchExpiredInd *event);
@@ -141,7 +142,8 @@ public:
     */
     void NanErrorTranslation(NanInternalStatusType firmwareErrorRecvd,
                              u32 valueRcvd,
-                             void *pRsp);
+                             void *pRsp,
+                             bool is_ndp_rsp);
 };
 #endif /* __WIFI_HAL_NAN_COMMAND_H__ */
 

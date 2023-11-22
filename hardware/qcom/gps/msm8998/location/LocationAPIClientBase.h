@@ -50,6 +50,7 @@ enum REQUEST_TYPE {
     REQUEST_NIRESPONSE,
     REQUEST_DELETEAIDINGDATA,
     REQUEST_CONTROL,
+    REQUEST_CONFIG,
     REQUEST_MAX,
 };
 
@@ -197,19 +198,31 @@ private:
         }
         uint32_t getId(uint32_t session) {
             pthread_mutex_lock(&mBiDictMutex);
-            uint32_t ret = mBackwardMap[session];
+            uint32_t ret = 0;
+            auto it = mBackwardMap.find(session);
+            if (it != mBackwardMap.end()) {
+                ret = it->second;
+            }
             pthread_mutex_unlock(&mBiDictMutex);
             return ret;
         }
         uint32_t getSession(uint32_t id) {
             pthread_mutex_lock(&mBiDictMutex);
-            uint32_t ret = mForwardMap[id];
+            uint32_t ret = 0;
+            auto it = mForwardMap.find(id);
+            if (it != mForwardMap.end()) {
+                ret = it->second;
+            }
             pthread_mutex_unlock(&mBiDictMutex);
             return ret;
         }
         uint32_t getType(uint32_t session) {
             pthread_mutex_lock(&mBiDictMutex);
-            uint32_t ret = mTypeMap[session];
+            uint32_t ret = 0;
+            auto it = mTypeMap.find(session);
+            if (it != mTypeMap.end()) {
+                ret = it->second;
+            }
             pthread_mutex_unlock(&mBiDictMutex);
             return ret;
         }
@@ -434,7 +447,6 @@ private:
     };
 
     LocationAPIRequest* getRequestBySession(uint32_t session);
-    LocationAPIRequest* getGeofencesRequest();
 
 private:
     pthread_mutex_t mMutex;
@@ -450,6 +462,8 @@ private:
     RequestQueue* mRequestQueues[REQUEST_MAX];
     std::map<uint32_t, SessionEntity> mSessionMap;
     int32_t mBatchSize;
+    bool mEnabled;
+    bool mTracking;
 
     GnssConfig mConfig;
 };

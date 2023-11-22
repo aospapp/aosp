@@ -17,7 +17,9 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"ਸੰਕਟਕਾਲ ਜਾਣਕਾਰੀ"</string>
-    <string name="edit_info" msgid="5973929805855224805">"ਐਮਰਜੈਂਸੀ ਜਾਣਕਾਰੀ ਦਾ ਸੰਪਾਦਨ ਕਰੋ"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"ਡਾਕਟਰੀ ਜਾਣਕਾਰੀ"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"ਜਾਣਕਾਰੀ ਦਾ ਸੰਪਾਦਨ ਕਰੋ"</string>
+    <string name="edit_info" msgid="5973929805855224805">"ਸੰਕਟਕਾਲੀਨ ਜਾਣਕਾਰੀ ਦਾ ਸੰਪਾਦਨ ਕਰੋ"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"ਜਾਣਕਾਰੀ"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"ਸੰਪਰਕ"</string>
     <string name="name" msgid="4286267457738861977">"ਨਾਮ"</string>
@@ -88,7 +90,7 @@
     <string name="emergency_contacts_title" msgid="5462202017417821030">"ਐਮਰਜੈਂਸੀ ਸੰਪਰਕ"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"ਸੰਪਰਕ ਸ਼ਾਮਲ ਕਰੋ"</string>
     <string name="fail_load_contact_picker" msgid="817205483833876726">"ਕਿਸੇ ਸੰਪਰਕ ਚੋਣਕਾਰ ਨੂੰ ਲੱਭਿਆ ਨਹੀਂ ਜਾ ਸਕਿਆ"</string>
-    <string name="fail_display_contact" msgid="4128854688897045879">"ਸੰਪਰਕ ਵਿਖਾਇਆ ਨਹੀਂ ਜਾ ਸਕਦਾ"</string>
+    <string name="fail_display_contact" msgid="4128854688897045879">"ਸੰਪਰਕ ਪ੍ਰਦਰਸ਼ਿਤ ਨਹੀਂ ਜਾ ਸਕਦਾ"</string>
     <string name="remove_contact" msgid="6934983445723096759">"ਕੀ <xliff:g id="CONTACT_NAME">%1$s</xliff:g> ਤੋਂ ਐਮਰਜੈਂਸੀ ਸੰਪਰਕਾਂ ਨੂੰ ਹਟਾਉਣਾ ਹੈ?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"ਸੰਪਰਕ ਹਟਾਓ"</string>
     <string name="fail_add_contact" msgid="6511490846952942291">"ਸੰਪਰਕ ਜਾਣਕਾਰੀ ਨੂੰ ਸਹੀ ਢੰਗ ਨਾਲ ਪੜ੍ਹਨ ਦੇ ਅਯੋਗ"</string>
@@ -96,12 +98,12 @@
     <string name="cancel" msgid="7401575239009060939">"ਰੱਦ ਕਰੋ"</string>
     <string name="ok" msgid="163967937451981024">"ਠੀਕ"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"ਸੰਕਟਕਾਲ ਜਾਣਕਾਰੀ"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"ਤੁਹਾਡੇ ਵੱਲੋਂ ਇੱਥੇ ਦਾਖਲ ਕੀਤੀ ਜਾਣਕਾਰੀ ਸੰਕਟਕਾਲ ਵਿੱਚ ਸਭ ਤੋਂ ਪਹਿਲਾਂ ਪਹੁੰਚਣ ਵਾਲੇ ਲੋਕਾਂ ਦੀ ਮਦਦ ਕਰ ਸਕਦੀ ਹੈ। ਇਸ ਨੂੰ ਸਿਰਫ਼ ਤੁਹਾਡੀ ਡੀਵਾਈਸ \'ਤੇ ਸਟੋਰ ਕੀਤਾ ਜਾਂਦਾ ਹੈ, ਅਤੇ ਕੋਈ ਵੀ ਤੁਹਾਡੇ ਫੋਨ ਨੂੰ ਅਨਲੌਕ ਕੀਤੇ ਬਿਨਾਂ ਇਸ ਨੂੰ ਸੰਕਟਕਾਲ ਡਾਇਲਰ ਤੋਂ ਪੜ੍ਹ ਸਕਦਾ ਹੈ।"</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"ਜਾਰੀ ਰੱਖੋ"</string>
     <string name="no_info_provided" msgid="716200382010821001">"ਫ਼ੋਨ ਦੇ ਮਾਲਕ ਬਾਰੇ ਕੋਈ ਜਾਣਕਾਰੀ ਨਹੀਂ"</string>
-    <string name="tap_pencil" msgid="2723698054265296934">"ਜੇਕਰ ਇਹ ਤੁਹਾਡਾ ਫ਼ੋਨ ਹੈ, ਤਾਂ ਉਹ ਜਾਣਕਾਰੀ ਸ਼ਾਮਲ ਕਰਨ ਲਈ ਪੈਂਸਿਲ ਚਿੰਨ੍ਹ \'ਤੇ ਟੈਪ ਕਰੋ ਜੋ ਕਿ ਐਮਰਜੈਂਸੀ ਦੀ ਸਥਿਤੀ ਵਿੱਚ ਇੱਥੇ ਵਿਖਾਈ ਦੇਵੇਗੀ"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"ਜੇਕਰ ਇਹ ਤੁਹਾਡਾ ਫ਼ੋਨ ਹੈ, ਤਾਂ ਉਹ ਜਾਣਕਾਰੀ ਸ਼ਾਮਲ ਕਰਨ ਲਈ ਪੈਂਸਿਲ ਪ੍ਰਤੀਕ \'ਤੇ ਟੈਪ ਕਰੋ ਜੋ ਕਿ ਸੰਕਟਕਾਲੀਨ ਸਥਿਤੀ ਵਿੱਚ ਇੱਥੇ ਦਿਖਾਈ ਦੇਵੇਗੀ"</string>
     <string name="clear_all" msgid="8899013032870561633">"ਸਭ ਕਲੀਅਰ ਕਰੋ"</string>
     <string name="clear" msgid="3648880442502887163">"ਕਲੀਅਰ ਕਰੋ"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"ਕੀ ਸਾਰੀ ਜਾਣਕਾਰੀ ਅਤੇ ਸੰਪਰਕਾਂ ਨੂੰ ਮਿਟਾਉਣਾ ਹੈ?"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"Adding medical information and emergency contacts can help first responders in an emergency.\n\nAnyone can read this information from your lock screen, and dial your contacts by tapping their names, without unlocking your phone."</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"ਸੰਕਟਕਾਲੀਨ ਜਾਣਕਾਰੀ ਸ਼ਾਮਲ ਕਰੋ"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"ਮਹੱਤਵਪੂਰਨ ਜਾਣਕਾਰੀ ਲੱਭਣ ਵਿੱਚ ਸਭ ਤੋਂ ਪਹਿਲਾਂ ਪਹੁੰਚਣ ਵਾਲੇ ਮਦਦਗਾਰਾਂ ਦੀ ਮਦਦ ਕਰੋ"</string>
 </resources>

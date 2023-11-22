@@ -29,10 +29,12 @@ class ConfigKeys(object):
     KEY_TESTBED_NAME = "name"
     KEY_TEST_PATHS = "test_paths"
     KEY_TEST_SUITE = "test_suite"
+    KEY_TEST_MAX_TIMEOUT = "test_max_timeout"
 
     # Keys in test suite
     KEY_INCLUDE_FILTER = "include_filter"
     KEY_EXCLUDE_FILTER = "exclude_filter"
+    KEY_EXCLUDE_OVER_INCLUDE = "exclude_over_include"
 
     # Keys for binary tests
     IKEY_BINARY_TEST_SOURCE = "binary_test_source"
@@ -43,6 +45,7 @@ class ConfigKeys(object):
     IKEY_BINARY_TEST_DISABLE_FRAMEWORK = "binary_test_disable_framework"
     IKEY_BINARY_TEST_STOP_NATIVE_SERVERS = "binary_test_stop_native_servers"
     IKEY_NATIVE_SERVER_PROCESS_NAME = "native_server_process_name"
+    IKEY_GTEST_BATCH_MODE = "gtest_batch_mode"
 
     # Internal keys, used internally, not exposed to user's config files.
     IKEY_USER_PARAM = "user_params"
@@ -57,6 +60,8 @@ class ConfigKeys(object):
 
     IKEY_BUILD = "build"
     IKEY_DATA_FILE_PATH = "data_file_path"
+
+    IKEY_BUG_REPORT_ON_FAILURE = "bug_report_on_failure"
 
     # sub fields of test_bed
     IKEY_ANDROID_DEVICE = "AndroidDevice"
@@ -77,6 +82,7 @@ class ConfigKeys(object):
     IKEY_BINARY_TEST_PROFILING_LIBRARY_PATH = "binary_test_profiling_library_path"
     IKEY_PROFILING_TRACING_PATH = "profiling_trace_path"
     IKEY_TRACE_FILE_TOOL_NAME = "trace_file_tool_name"
+    IKEY_SAVE_TRACE_FILE_REMOTE = "save_trace_file_remote"
 
     # Keys for systrace (for hal tests)
     IKEY_ENABLE_SYSTRACE = "enable_systrace"
@@ -91,12 +97,15 @@ class ConfigKeys(object):
     IKEY_MODULES = "modules"
     IKEY_SERVICE_JSON_PATH = "service_key_json_path"
     IKEY_DASHBOARD_POST_COMMAND = "dashboard_post_command"
+    IKEY_OUTPUT_COVERAGE_REPORT = "output_coverage_report"
+    IKEY_GLOBAL_COVERAGE = "global_coverage"
 
     # Keys for the HAL HIDL GTest type (see VtsMultiDeviceTest.java).
     IKEY_PRECONDITION_HWBINDER_SERVICE = "precondition_hwbinder_service"
     IKEY_PRECONDITION_FEATURE = "precondition_feature"
     IKEY_PRECONDITION_FILE_PATH_PREFIX = "precondition_file_path_prefix"
     IKEY_PRECONDITION_LSHAL = "precondition_lshal"
+    IKEY_PRECONDITION_VINTF = "precondition_vintf"
 
     # Keys for toggle passthrough mode
     IKEY_PASSTHROUGH_MODE = "passthrough_mode"

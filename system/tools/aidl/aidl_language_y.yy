@@ -105,6 +105,7 @@ qualified_name
  | qualified_name '.' identifier
   { $$ = $1;
     $$->AddTerm($3->GetText());
+    delete $3;
   };
 
 parcelable_decls

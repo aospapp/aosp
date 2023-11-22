@@ -583,4 +583,33 @@ public class SimpleDateFormatTest extends junit.framework.TestCase {
         assertNull(parsed);
         assertEquals("Wrong error index", 5, pos.getErrorIndex());
     }
+
+    // http://b/38396219
+    public void testDisplayNamesOnNonGregorianCalendar() {
+        assertEquals("Jan", formatDateNonGregorianCalendar("MMM")); // MONTH
+        assertEquals("Jan", formatDateNonGregorianCalendar("LLL")); // MONTH_STANDALONE
+        assertEquals("Thu", formatDateNonGregorianCalendar("EEE")); // DAY_OF_WEEK
+        assertEquals("Thu", formatDateNonGregorianCalendar("ccc")); // STANDALONE_DAY_OF_WEEK
+    }
+
+    /**
+     * Format a date using a "non-gregorian" calendar. This means that we use a calendar that is not
+     * exactly {@code java.util.GregorianCalendar} as checked by
+     * {@link SimpleDateFormat#isGregorianCalendar()}.
+     */
+    private static String formatDateNonGregorianCalendar(String fmt) {
+        DateFormat dateFormat = new SimpleDateFormat(fmt, Locale.US);
+        NonGregorianCalendar cal = new NonGregorianCalendar();
+        cal.clear();
+        cal.setTimeZone(UTC);
+        dateFormat.setCalendar(cal);
+        return dateFormat.format(new Date(0));
+    }
+
+    /**
+     * Calendar that pretends that it's not a GregorianCalendar, for {@link
+     * #testDisplayNamesOnNonGregorianCalendar()}.
+     */
+    private static class NonGregorianCalendar extends GregorianCalendar {
+    }
 }

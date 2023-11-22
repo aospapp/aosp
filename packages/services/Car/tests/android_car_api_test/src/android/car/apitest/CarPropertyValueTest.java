@@ -18,10 +18,12 @@ package android.car.apitest;
 
 import android.car.hardware.CarPropertyValue;
 import android.graphics.Point;
+import android.test.suitebuilder.annotation.MediumTest;
 
 /**
  * Unit tests for {@link CarPropertyValue}
  */
+@MediumTest
 public class CarPropertyValueTest extends CarPropertyConfigTest {
 
     public void testSimpleFloatValue() {

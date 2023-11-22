@@ -27,9 +27,9 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"Eftirfarandi forrit mun þurfa að fá aðgang að þessu sniði:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Eftirfarandi forrit mun stjórna tækinu:"</string>
     <string name="next" msgid="1004321437324424398">"Áfram"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"Setur upp vinnusniðið…"</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"Setur upp vinnusnið…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"Kerfisstjórinn þinn getur fylgst með og stjórnað stillingum, fyrirtækisaðgangi, forritum, heimildum og gögnum sem tengjast þessum prófíl, auk netnotkunar og staðsetningu tækis, símtalaferli og leit að tengiliðum.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Frekari upplýsingar fást hjá kerfisstjóranum, þar á meðal um persónuverndarstefnur fyrirtækisins þíns."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"Kerfisstjórinn þinn getur fylgst með og stjórnað stillingum, fyrirtækisaðgangi, forritum, heimildum og gögnum sem tengjast þessu tæki, auk netnotkunar og staðsetningu tækis, símtalaferli og leit að tengiliðum.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Frekari upplýsingar fást hjá kerfisstjóranum, þar á meðal um persónuverndarstefnur fyrirtækisins þíns."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"Kerfisstjórinn þinn getur fylgst með og stjórnað stillingum, fyrirtækisaðgangi, forritum, heimildum og gögnum sem tengjast þessu tæki, auk netnotkunar og staðsetningu tækis, símtalaferli og leit að tengiliðum.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Frekari upplýsingar fást hjá kerfisstjóranum, þar á meðal um persónuverndarstefnur fyrirtækisins þíns."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Til að nota þjófavarnareiginleikana þarftu að vera með skjálás með aðgangsorði á tækinu."</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Hafðu samband við kerfisstjórann til að fá frekari upplýsingar, þar á meðal um persónuverndarstefnu fyrirtækisins."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Frekari upplýsingar"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Vinnusnið"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"Aðalnotandi"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Eyða fyrirliggjandi sniði?"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"Þú ert þegar með vinnusnið sem haft er umsjón með eftirfarandi forriti:"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Þú ert þegar með vinnusnið. Eftirfarandi forrit hefur umsjón með því:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343"><a href="#read_this_link">"Lestu þetta"</a>" áður en þú heldur áfram."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Ef þú heldur áfram verður öllum forritum og gögnum á þessu sniði eytt."</string>
     <string name="delete_profile" msgid="2299218578684663459">"Eyða"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"Ýttu til að halda áfram að setja upp vinnusnið"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Ekki var hægt að setja upp vinnusniðið þitt. Hafðu samband við upplýsingatæknisvið eða reyndu aftur síðar."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Ekki er hægt að bæta við vinnusniði"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"Þessi notandi getur ekki notað vinnusnið. Leitaðu aðstoðar hjá kerfisstjóra."</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"Þessi notandi getur ekki notað vinnusnið. Hafðu samband við kerfisstjóra."</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"Ekki er hægt að setja upp vinnusnið í stýrðu tæki"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"Hugsanlega eru of margir notendur á þessu tæki. Fjarlægðu notanda og reyndu aftur."</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Ekki hægt að skipta út eða fjarlægja vinnusnið"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"Ekki er hægt að bæta vinnusniði við þetta tæki. Ef þú ert með spurningar skaltu hafa samband við kerfisstjóra."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Skipta um ræsiforrit tækis"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Ekki er hægt að nota þetta ræsiforrit á vinnusniðinu þínu."</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Hætta við"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"Í lagi"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Uppsetningu notanda ekki lokið"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Notandi vinnutækis"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"Setja upp vinnutæki"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"Setur upp vinnutæki…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Vinnur úr uppsetningargögnum…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Tengist Wi-Fi…"</string>
     <string name="progress_download" msgid="3522436271691064624">"Sækir stjórnforritið…"</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"Hætta við"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"Endurstilla tækið"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> og <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> og <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> og <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

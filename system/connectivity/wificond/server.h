@@ -31,7 +31,6 @@
 
 #include "wificond/ap_interface_impl.h"
 #include "wificond/client_interface_impl.h"
-#include "wificond/rtt/rtt_controller_impl.h"
 
 namespace android {
 namespace wificond {
@@ -57,15 +56,6 @@ class Server : public android::net::wifi::BnWificond {
   android::binder::Status UnregisterCallback(
       const android::sp<android::net::wifi::IInterfaceEventCallback>&
           callback) override;
-
-  android::binder::Status registerRttClient(
-      const ::android::sp<::android::net::wifi::IRttClient>& rtt_client,
-      ::android::sp<::android::net::wifi::IRttController>*
-          out_rtt_controller) override;
-
-  android::binder::Status unregisterRttClient(
-      const ::android::sp<::android::net::wifi::IRttClient>&
-          rttClient) override;
 
   android::binder::Status createApInterface(
       android::sp<android::net::wifi::IApInterface>*
@@ -119,8 +109,6 @@ class Server : public android::net::wifi::BnWificond {
   std::vector<std::unique_ptr<ClientInterfaceImpl>> client_interfaces_;
   std::vector<android::sp<android::net::wifi::IInterfaceEventCallback>>
       interface_event_callbacks_;
-
-  std::unique_ptr<RttControllerImpl> rtt_controller_;
 
   // Cached interface list from kernel.
   std::vector<InterfaceInfo> interfaces_;

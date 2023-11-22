@@ -62,7 +62,6 @@
 #define XID unsigned int
 #define INT16 unsigned int
 #include <cutils/log.h>
-#include <system/window.h>
 #undef  LOG_TAG
 #define LOG_TAG "pvr_drv_video"
 #endif

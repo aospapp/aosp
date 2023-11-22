@@ -4,7 +4,7 @@
 
 import logging, re, subprocess, threading
 import common
-from autotest_lib.client.bin import site_utils, test, utils
+from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 
 
@@ -155,12 +155,12 @@ class hardware_Badblocks(test.test):
 
         # Determine which device and partition to use.
         logging.info('Determine unused root partition to test on:')
-        dev = site_utils.get_free_root_partition()
+        dev = utils.get_free_root_partition()
         logging.info('Testing on ' + dev)
 
         # Get block device's sector size.
         logging.info('Determine block device sector size:')
-        sector_size = self._get_sector_size(site_utils.get_root_device())
+        sector_size = self._get_sector_size(utils.get_root_device())
         logging.info('Sector size (bytes): ' + sector_size)
 
         # Get partition size.

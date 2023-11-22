@@ -33,6 +33,7 @@ LOCAL_SRC_FILES := \
 LOCAL_STATIC_JAVA_LIBRARIES := \
 	commons-cli-1.2 \
 	guavalib \
+	jcommander-host \
 	jsr305lib
 
 

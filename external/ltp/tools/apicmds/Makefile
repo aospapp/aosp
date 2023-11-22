@@ -17,7 +17,7 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
-# Garrett Cooper, July 2009
+# Ngie Cooper, July 2009
 #
 
 top_srcdir		?= ../..
@@ -26,8 +26,8 @@ include $(top_srcdir)/include/mk/testcases.mk
 
 CPPFLAGS		+= -D_GNU_SOURCE
 
-MAKE_TARGETS		:= $(addprefix tst_,brk brkm exit flush kvercmp \
-			     kvercmp2 res resm ncpus ncpus_conf ncpus_max \
+MAKE_TARGETS		:= $(addprefix tst_,brk brkm exit flush \
+			     res resm ncpus ncpus_conf ncpus_max \
 			     get_unused_port fs_has_free)
 
 include $(top_srcdir)/include/mk/generic_leaf_target.mk

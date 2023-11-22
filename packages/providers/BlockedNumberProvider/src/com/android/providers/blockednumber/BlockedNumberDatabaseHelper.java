@@ -28,6 +28,8 @@ public class BlockedNumberDatabaseHelper {
 
     private static final String DATABASE_NAME = "blockednumbers.db";
 
+    private static final int IDLE_CONNECTION_TIMEOUT_MS = 30000;
+
     private static BlockedNumberDatabaseHelper sInstance;
 
     private final Context mContext;
@@ -42,6 +44,8 @@ public class BlockedNumberDatabaseHelper {
         public OpenHelper(Context context, String name, SQLiteDatabase.CursorFactory factory,
                           int version) {
             super(context, name, factory, version);
+            // Memory optimization - close idle connections after 30s of inactivity
+            setIdleConnectionTimeout(IDLE_CONNECTION_TIMEOUT_MS);
         }
 
         @Override

@@ -26,9 +26,9 @@
 package sun.security.util;
 
 import java.math.BigInteger;
-import java.util.Locale;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.regex.Matcher;
+import java.util.Locale;
 
 /**
  * A utility class for debuging.
@@ -37,15 +37,39 @@ import java.util.regex.Pattern;
  */
 public class Debug {
 
-    private static final String args = null;
+    private String prefix;
 
-    private final String prefix;
+    private static String args;
 
-    private Debug(String prefix) {
-        this.prefix = prefix;
+    // BEGIN Android-changed: Debug is stubbed and disabled on Android.
+    // Removing the static initializer removes the only pathway to set args, which
+    // in turn means that isOn() always returns false and so no code in this
+    // class does anything.
+    /*
+    static {
+        args = java.security.AccessController.doPrivileged
+                (new sun.security.action.GetPropertyAction
+                ("java.security.debug"));
+
+        String args2 = java.security.AccessController.doPrivileged
+                (new sun.security.action.GetPropertyAction
+                ("java.security.auth.debug"));
+
+        if (args == null) {
+            args = args2;
+        } else {
+            if (args2 != null)
+               args = args + "," + args2;
+        }
+
+        if (args != null) {
+            args = marshal(args);
+            if (args.equals("help")) {
+                Help();
+            }
+        }
     }
 
-    /*
         From public static void Help() : Serves as a documentation of the
         values that "args" accepts.
 
@@ -99,6 +123,7 @@ public class Debug {
         System.err.println("Note: Separate multiple options with a comma");
         System.exit(0);
     */
+    // END Android-changed: Debug is stubbed and disabled on Android.
 
     /**
      * Get a Debug object corresponding to whether or not the given
@@ -117,7 +142,8 @@ public class Debug {
     public static Debug getInstance(String option, String prefix)
     {
         if (isOn(option)) {
-            Debug d = new Debug(prefix);
+            Debug d = new Debug();
+            d.prefix = prefix;
             return d;
         } else {
             return null;
@@ -159,6 +185,16 @@ public class Debug {
         System.err.println(prefix + ":");
     }
 
+    // Android-removed: Nothing uses this code and it serves no purpose.
+    /**
+     * print a message to stderr that is prefixed with the prefix.
+     *
+
+    public static void println(String prefix, String message)
+    {
+        System.err.println(prefix + ": "+message);
+    }
+     */
 
     /**
      * return a hexadecimal printed representation of the specified

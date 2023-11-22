@@ -41,7 +41,8 @@ LOCAL_COPY_HEADERS:= \
         ../include/loc_stub_time.h
 
 LOCAL_MODULE := libloc_stub
-
+LOCAL_VENDOR_MODULE := true
+LOCAL_MODULE_OWNER := qti
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_PRELINK_MODULE := false

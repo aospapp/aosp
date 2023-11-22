@@ -17,16 +17,17 @@
 package com.android.tv.ui.sidepanel.parentalcontrols;
 
 import android.graphics.drawable.Drawable;
+import android.media.tv.TvContentRating;
 import android.os.Bundle;
 import android.util.ArrayMap;
 import android.util.SparseIntArray;
 import android.view.View;
 import android.widget.CompoundButton;
 import android.widget.ImageView;
-
 import com.android.tv.MainActivity;
 import com.android.tv.R;
 import com.android.tv.dialog.WebDialogFragment;
+import com.android.tv.experiments.Experiments;
 import com.android.tv.license.LicenseUtils;
 import com.android.tv.parental.ContentRatingSystem;
 import com.android.tv.parental.ContentRatingSystem.Rating;
@@ -38,7 +39,6 @@ import com.android.tv.ui.sidepanel.RadioButtonItem;
 import com.android.tv.ui.sidepanel.SideFragment;
 import com.android.tv.util.TvSettings;
 import com.android.tv.util.TvSettings.ContentRatingLevel;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -77,6 +77,7 @@ public class RatingsFragment extends SideFragment {
     private final List<RatingLevelItem> mRatingLevelItems = new ArrayList<>();
     // A map from the rating system ID string to RatingItem objects.
     private final Map<String, List<RatingItem>> mContentRatingSystemItemMap = new ArrayMap<>();
+    private CheckBoxItem mBlockUnratedItem;
     private ParentalControlSettings mParentalControlSettings;
 
     public static String getDescription(MainActivity tvActivity) {
@@ -101,6 +102,12 @@ public class RatingsFragment extends SideFragment {
     @Override
     protected List<Item> getItemList() {
         List<Item> items = new ArrayList<>();
+
+        if (mBlockUnratedItem != null
+                && Boolean.TRUE.equals(Experiments.ENABLE_UNRATED_CONTENT_SETTINGS.get())) {
+            items.add(mBlockUnratedItem);
+            items.add(new DividerItem());
+        }
 
         mRatingLevelItems.clear();
         for (int i = 0; i < sLevelResourceIdMap.size(); ++i) {
@@ -152,6 +159,28 @@ public class RatingsFragment extends SideFragment {
         super.onCreate(savedInstanceState);
         mParentalControlSettings = getMainActivity().getParentalControlSettings();
         mParentalControlSettings.loadRatings();
+        if (Boolean.TRUE.equals(Experiments.ENABLE_UNRATED_CONTENT_SETTINGS.get())) {
+            mBlockUnratedItem =
+                    new CheckBoxItem(
+                            getResources().getString(R.string.option_block_unrated_programs)) {
+
+                        @Override
+                        protected void onUpdate() {
+                            super.onUpdate();
+                            setChecked(
+                                    mParentalControlSettings.isRatingBlocked(
+                                            new TvContentRating[] {TvContentRating.UNRATED}));
+                        }
+
+                        @Override
+                        protected void onSelected() {
+                            super.onSelected();
+                            if (mParentalControlSettings.setUnratedBlocked(isChecked())) {
+                                updateRatingLevels();
+                            }
+                        }
+                    };
+        }
     }
 
     @Override
@@ -202,6 +231,13 @@ public class RatingsFragment extends SideFragment {
             super.onSelected();
             mParentalControlSettings.setContentRatingLevel(
                     getMainActivity().getContentRatingsManager(), mRatingLevel);
+            if (mBlockUnratedItem != null
+                    && Boolean.TRUE.equals(Experiments.ENABLE_UNRATED_CONTENT_SETTINGS.get())) {
+                // set checked if UNRATED is blocked, and set unchecked otherwise.
+                mBlockUnratedItem.setChecked(
+                        mParentalControlSettings.isRatingBlocked(
+                                new TvContentRating[] {TvContentRating.UNRATED}));
+            }
             notifyItemsChanged(mRatingLevelItems.size());
         }
     }
@@ -302,7 +338,7 @@ public class RatingsFragment extends SideFragment {
         @Override
         protected void onSelected() {
             getMainActivity().getOverlayManager().getSideFragmentManager()
-                    .show(new SubRatingsFragment(mContentRatingSystem, mRating));
+                    .show(SubRatingsFragment.create(mContentRatingSystem, mRating.getName()));
         }
 
         @Override

@@ -269,8 +269,9 @@ enum Compiler::ErrorCode Compiler::runPasses(Script &script,
 
   // These passes have to come after LTO, since we don't want to examine
   // functions that are never actually called.
-  if (llvm::Triple(getTargetMachine().getTargetTriple()).getArch() == llvm::Triple::x86_64)
-    transformPasses.add(createRSX86_64CallConvPass());  // Add pass to correct calling convention for X86-64.
+  if (llvm::Triple(getTargetMachine().getTargetTriple()).getArch() == llvm::Triple::x86_64 ||
+      llvm::Triple(getTargetMachine().getTargetTriple()).getArch() == llvm::Triple::mips64el)
+    transformPasses.add(createRSX86_64CallConvPass());  // Add pass to correct calling convention for X86-64 and mips64.
   transformPasses.add(createRSIsThreadablePass());      // Add pass to mark script as threadable.
 
   // RSEmbedInfoPass needs to come after we have scanned for non-threadable

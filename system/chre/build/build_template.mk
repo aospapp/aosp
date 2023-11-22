@@ -58,6 +58,12 @@ $$(1)_CXX_OBJS = $$(patsubst %.cc, $(OUT)/$$($$(1)_OBJS_DIR)/%.o, \
 $$(1)_C_OBJS = $$(patsubst %.c, $(OUT)/$$($$(1)_OBJS_DIR)/%.o, \
                            $$($$(1)_C_SRCS))
 
+# Automatic dependency resolution Makefiles.
+$$(1)_CXX_DEPS = $$(patsubst %.cc, $(OUT)/$$($$(1)_OBJS_DIR)/%.d, \
+                             $$($$(1)_CXX_SRCS))
+$$(1)_C_DEPS = $$(patsubst %.c, $(OUT)/$$($$(1)_OBJS_DIR)/%.d, \
+                           $$($$(1)_C_SRCS))
+
 # Add object file directories.
 $$$(1)_DIRS = $$(sort $$(dir $$($$(1)_CXX_OBJS) $$($$(1)_C_OBJS)))
 
@@ -97,15 +103,13 @@ endif
 
 # Compile ######################################################################
 
-# Add common and target-specific compiler flags.
-$$$(1)_CFLAGS = $(COMMON_CFLAGS) \
-    $(2)
-
 $$($$(1)_CXX_OBJS): $(OUT)/$$($$(1)_OBJS_DIR)/%.o: %.cc
-	$(3) $(COMMON_CXX_CFLAGS) $$($$$(1)_CFLAGS) -c $$< -o $$@
+	$(3) $(COMMON_CXX_CFLAGS) -DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c $$< \
+	    -o $$@
 
 $$($$(1)_C_OBJS): $(OUT)/$$($$(1)_OBJS_DIR)/%.o: %.c
-	$(3) $(COMMON_C_CFLAGS) $$($$$(1)_CFLAGS) -c $$< -o $$@
+	$(3) $(COMMON_C_CFLAGS) -DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c $$< \
+	    -o $$@
 
 # Archive ######################################################################
 
@@ -118,11 +122,12 @@ $$($$(1)_AR): $$(OUT)/$$$(1) $$($$$(1)_DIRS) $$($$(1)_CXX_OBJS) $$($$(1)_C_OBJS)
 
 # Link #########################################################################
 
-$$($$(1)_SO): $$(OUT)/$$$(1) $$($$$(1)_DIRS) $$($$(1)_CXX_OBJS) $$($$(1)_C_OBJS)
+$$($$(1)_SO): $$(OUT)/$$$(1) $$($$$(1)_DIRS) $$($$(1)_CXX_DEPS) \
+              $$($$(1)_C_DEPS) $$($$(1)_CXX_OBJS) $$($$(1)_C_OBJS)
 	$(5) $(4) -o $$@ $(11) $$(filter %.o, $$^) $(12)
 
-$$($$(1)_BIN): $$(OUT)/$$$(1) $$($$$(1)_DIRS) $$($$(1)_CXX_OBJS) \
-               $$($$(1)_C_OBJS)
+$$($$(1)_BIN): $$(OUT)/$$$(1) $$($$$(1)_DIRS) $$($$(1)_CXX_DEPS) \
+               $$($$(1)_C_DEPS) $$($$(1)_CXX_OBJS) $$($$(1)_C_OBJS)
 	$(3) -o $$@ $$(filter %.o, $$^) $(10)
 
 # Output Directories ###########################################################
@@ -133,13 +138,51 @@ $$($$$(1)_DIRS):
 $$(OUT)/$$$(1):
 	mkdir -p $$@
 
+# Automatic Dependency Resolution ##############################################
+
+$$($$(1)_CXX_DEPS): $(OUT)/$$($$(1)_OBJS_DIR)/%.d: %.cc
+	mkdir -p $$(dir $$@)
+	$(3) $(DEP_CFLAGS) $(COMMON_CXX_CFLAGS) \
+	    -DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c $$< -o $$@
+	$(DEP_POST_COMPILE)
+
+$$($$(1)_C_DEPS): $(OUT)/$$($$(1)_OBJS_DIR)/%.d: %.c
+	mkdir -p $$(dir $$@)
+	$(3) $(DEP_CFLAGS) $(COMMON_C_CFLAGS) \
+	    -DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c $$< -o $$@
+	$(DEP_POST_COMPILE)
+
+# Include generated dependency files if they are in the requested build target.
+# This avoids dependency generation from occuring for a debug target when a
+# non-debug target is requested.
+ifneq ($(filter $(1) all, $(MAKECMDGOALS)),)
+include $$(patsubst %.o, %.d, $$($$(1)_CXX_DEPS))
+include $$(patsubst %.o, %.d, $$($$(1)_C_DEPS))
+endif
+
 endef
 endif
 
 # Template Invocation ##########################################################
 
 $(eval $(call BUILD_TEMPLATE, $(TARGET_NAME), \
-                              $(TARGET_CFLAGS), \
+                              $(COMMON_CFLAGS) $(TARGET_CFLAGS), \
+                              $(TARGET_CC), \
+                              $(TARGET_SO_LDFLAGS), \
+                              $(TARGET_LD), \
+                              $(TARGET_ARFLAGS), \
+                              $(TARGET_AR), \
+                              $(TARGET_VARIANT_SRCS), \
+                              $(TARGET_BUILD_BIN), \
+                              $(TARGET_BIN_LDFLAGS), \
+                              $(TARGET_SO_EARLY_LIBS), \
+                              $(TARGET_SO_LATE_LIBS)))
+
+# Debug Template Invocation ####################################################
+
+$(eval $(call BUILD_TEMPLATE, $(TARGET_NAME)_debug, \
+                              $(COMMON_CFLAGS) $(COMMON_DEBUG_CFLAGS) \
+                                  $(TARGET_CFLAGS) $(TARGET_DEBUG_CFLAGS), \
                               $(TARGET_CC), \
                               $(TARGET_SO_LDFLAGS), \
                               $(TARGET_LD), \

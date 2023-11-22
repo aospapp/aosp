@@ -35,8 +35,7 @@
         </intro>
     </strings>
 
-    <template src="base"/>
-    <common src="logger"/>
+    <template src="base-build"/>
 
     <metadata>
         <status>PUBLISHED</status>

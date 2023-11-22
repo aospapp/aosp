@@ -243,6 +243,7 @@ public class EditFdnContactScreen extends Activity {
 
         mNumberField = (EditText) findViewById(R.id.fdn_number);
         if (mNumberField != null) {
+            mNumberField.setTextDirection(View.TEXT_DIRECTION_LTR);
             mNumberField.setKeyListener(DialerKeyListener.getInstance());
             mNumberField.setOnFocusChangeListener(mOnFocusChangeHandler);
             mNumberField.setOnClickListener(mClicked);

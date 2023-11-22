@@ -1,0 +1,26 @@
+cc_library_static {
+    name: "libpdfiumfxedit",
+    defaults: ["pdfium-defaults"],
+
+    cflags: [
+        "-DOPJ_STATIC",
+        "-DV8_DEPRECATION_WARNINGS",
+        "-D_CRT_SECURE_NO_WARNINGS",
+
+        // Mask some warnings. These are benign, but we probably want to fix them
+        // upstream at some point.
+        "-Wno-sign-compare",
+        "-Wno-unused-parameter",
+    ],
+
+    srcs: [
+        "fpdfsdk/fxedit/fxet_ap.cpp",
+        "fpdfsdk/fxedit/fxet_edit.cpp",
+        "fpdfsdk/fxedit/fxet_list.cpp",
+    ],
+
+    include_dirs: [
+        "external/freetype/include",
+        "external/freetype/include/freetype",
+    ],
+}

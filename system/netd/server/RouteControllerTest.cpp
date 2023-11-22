@@ -87,10 +87,12 @@ TEST_F(RouteControllerTest, TestRouteFlush) {
 TEST_F(RouteControllerTest, TestModifyIncomingPacketMark) {
     static constexpr int TEST_NETID = 30;
     EXPECT_EQ(0, modifyIncomingPacketMark(TEST_NETID, "netdtest0", PERMISSION_NONE, true));
-    expectIptablesRestoreCommands({ "-t mangle -A INPUT -i netdtest0 -j MARK --set-mark 0x3001e" });
+    expectIptablesRestoreCommands({
+        "-t mangle -A routectrl_mangle_INPUT -i netdtest0 -j MARK --set-mark 0x3001e" });
 
     EXPECT_EQ(0, modifyIncomingPacketMark(TEST_NETID, "netdtest0", PERMISSION_NONE, false));
-    expectIptablesRestoreCommands({ "-t mangle -D INPUT -i netdtest0 -j MARK --set-mark 0x3001e" });
+    expectIptablesRestoreCommands({
+          "-t mangle -D routectrl_mangle_INPUT -i netdtest0 -j MARK --set-mark 0x3001e" });
 }
 
 }  // namespace net

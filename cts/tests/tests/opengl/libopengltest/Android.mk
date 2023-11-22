@@ -39,6 +39,9 @@ LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 LOCAL_CXX_STL := libc++_static
 
 LOCAL_SHARED_LIBRARIES := libGLESv2 liblog
+
+LOCAL_CFLAGS := -Wno-unused-parameter
+
 include $(BUILD_SHARED_LIBRARY)
 
 

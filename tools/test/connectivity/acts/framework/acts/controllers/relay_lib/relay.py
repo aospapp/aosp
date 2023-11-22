@@ -76,7 +76,7 @@ class Relay(object):
     def __init__(self, relay_board, position):
         self.relay_board = relay_board
         self.position = position
-        self._original_state = relay_board.get_relay_status(self.position)
+        self._original_state = None
         self.relay_id = "%s/%s" % (self.relay_board.name, self.position)
 
     def set_no(self):
@@ -115,6 +115,10 @@ class Relay(object):
             ValueError if state is not 'NO' or 'NC'.
 
         """
+        if self._original_state is None:
+            self._original_state = self.relay_board.get_relay_status(
+                self.position)
+
         if state is not RelayState.NO and state is not RelayState.NC:
             raise ValueError(
                 'Invalid state. Received "%s". Expected any of %s.' %
@@ -158,8 +162,11 @@ class Relay(object):
         sure to make the necessary modifications in RelayRig.initialize_relay
         and RelayRigParser.parse_json_relays.
         """
+        if self._original_state is not None:
+            self.set(self._original_state)
 
-        self.set(self._original_state)
+    def is_dirty(self):
+        return self._original_state is not None
 
 
 class RelayDict(object):

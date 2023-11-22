@@ -15,29 +15,13 @@
  */
 package android.systemui.cts;
 
-import android.app.Activity;
-import android.graphics.Color;
-import android.os.Bundle;
 import android.view.View;
-import android.view.ViewGroup.LayoutParams;
-
 
 /**
  * An activity that exercises SYSTEM_UI_FLAG_LIGHT_STATUS_BAR and
  * SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR.
  */
-public class LightBarActivity extends Activity {
-
-    private View mContent;
-
-    public void onCreate(Bundle bundle){
-        super.onCreate(bundle);
-
-        mContent = new View(this);
-        mContent.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT,
-                LayoutParams.MATCH_PARENT));
-        setContentView(mContent);
-    }
+public class LightBarActivity extends LightBarBaseActivity {
 
     public void setLightStatusBar(boolean lightStatusBar) {
         setLightBar(lightStatusBar, View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
@@ -55,17 +39,5 @@ public class LightBarActivity extends Activity {
             vis &= ~systemUiFlag;
         }
         getWindow().getDecorView().setSystemUiVisibility(vis);
-    }
-
-    public int getTop() {
-        return mContent.getLocationOnScreen()[1];
-    }
-
-    public int getBottom() {
-        return mContent.getLocationOnScreen()[1] + mContent.getHeight();
-    }
-
-    public int getWidth() {
-        return mContent.getWidth();
     }
 }

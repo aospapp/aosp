@@ -16,14 +16,19 @@
 
 package org.conscrypt.ct;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.StringBufferInputStream;
 import java.security.PublicKey;
 import junit.framework.TestCase;
-import org.conscrypt.OpenSSLKey;
+import org.conscrypt.InternalUtil;
 
 public class CTLogStoreImplTest extends TestCase {
     private static final String[] LOG_KEYS = new String[] {
@@ -59,10 +64,10 @@ public class CTLogStoreImplTest extends TestCase {
             LOGS = new CTLogInfo[logCount];
             LOGS_SERIALIZED = new String[logCount];
             for (int i = 0; i < logCount; i++) {
-                PublicKey key = OpenSSLKey.fromPublicKeyPemInputStream(new StringBufferInputStream(
+                PublicKey key = InternalUtil.readPublicKeyPem(new StringBufferInputStream(
                     "-----BEGIN PUBLIC KEY-----\n" +
                     LOG_KEYS[i] + "\n" +
-                    "-----END PUBLIC KEY-----\n")).getPublicKey();
+                    "-----END PUBLIC KEY-----\n"));
                 String description = String.format("Test Log %d", i);
                 String url = String.format("log%d.example.com", i);
                 LOGS[i] = new CTLogInfo(key, description, url);
@@ -172,7 +177,9 @@ public class CTLogStoreImplTest extends TestCase {
     }
 
     private static void writeFile(File file, String contents) throws FileNotFoundException {
-        PrintWriter writer = new PrintWriter(file);
+        PrintWriter writer = new PrintWriter(
+                new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), UTF_8)),
+                false);
         try {
             writer.write(contents);
         } finally {

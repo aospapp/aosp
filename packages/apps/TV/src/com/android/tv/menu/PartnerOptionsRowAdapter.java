@@ -38,8 +38,7 @@ public class PartnerOptionsRowAdapter extends CustomizableOptionsRowAdapter {
     }
 
     @Override
-    protected boolean updateActions() {
+    protected void updateActions() {
         // TODO: Support adding description for custom actions.
-        return false;
     }
 }

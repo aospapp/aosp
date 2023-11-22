@@ -2,7 +2,7 @@
 # Build targets for a Cortex-M-based processor
 #
 
-# Hexagon Environment Checks ###################################################
+# Cortex-M Environment Checks ##################################################
 
 # If building for the Cortex-M target, ensure that the user has specified a path
 # to the Cortex-M toolchain that they wish to use.

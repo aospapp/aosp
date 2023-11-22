@@ -272,5 +272,10 @@ class BaseEvent(object):
             for target in match_targets:
                 latest_build = (_LATEST_LAUNCH_CONTROL_BUILD_FMT %
                                 (branch, target))
-                builds.append(devserver.translate(latest_build))
+                try:
+                    builds.append(devserver.translate(latest_build))
+                except Exception as e:
+                    logging.warning('Error happens in translating %s on %s: %s',
+                                    latest_build, devserver.hostname, str(e))
+
         return builds

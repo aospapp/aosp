@@ -16,14 +16,14 @@
 
 package com.android.cts.deviceandprofileowner;
 
+import static com.android.cts.deviceandprofileowner.vpn.VpnTestHelper.TEST_ADDRESS;
+import static com.android.cts.deviceandprofileowner.vpn.VpnTestHelper.VPN_PACKAGE;
+
 import android.content.pm.PackageManager;
 import android.system.ErrnoException;
 import android.system.OsConstants;
 
 import com.android.cts.deviceandprofileowner.vpn.VpnTestHelper;
-
-import static com.android.cts.deviceandprofileowner.vpn.VpnTestHelper.VPN_PACKAGE;
-import static com.android.cts.deviceandprofileowner.vpn.VpnTestHelper.TEST_ADDRESS;
 
 /**
  * Contains methods to test always-on VPN invoked by DeviceAndProfileOwnerTest
@@ -32,8 +32,13 @@ public class AlwaysOnVpnMultiStageTest extends BaseDeviceAdminTest {
 
     public void testAlwaysOnSet() throws Exception {
         // Setup always-on vpn
-        VpnTestHelper.setAndWaitForVpn(mContext, VPN_PACKAGE, /* usable */ true);
+        VpnTestHelper.waitForVpn(mContext, VPN_PACKAGE, /* usable */ true);
         assertTrue(VpnTestHelper.isNetworkVpn(mContext));
+        VpnTestHelper.checkPing(TEST_ADDRESS);
+    }
+
+    public void testAlwaysOnSetAfterReboot() throws Exception {
+        VpnTestHelper.waitForVpn(mContext, null, /* usable */ true);
         VpnTestHelper.checkPing(TEST_ADDRESS);
     }
 

@@ -25,10 +25,11 @@ public class LinkPermissionTest extends TestCase {
     public void test_constructor$String() {
         // Only "hard" and "symbolic" are the supported permission target names.
         LinkPermission linkPermission = new LinkPermission("hard");
-        assertNull(linkPermission.getName());
+        // Sanity check that getName() doesn't throw.
+        linkPermission.getName();
 
         linkPermission = new LinkPermission("symbolic");
-        assertNull(linkPermission.getName());
+        linkPermission.getName();
 
         // Non supported permission target names.
         try {

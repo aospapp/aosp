@@ -19,10 +19,19 @@ import com.android.ddmlib.Log;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.IConfigurationReceiver;
+import com.android.tradefed.config.Option;
+import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.ITestDevice;
 
 /** Placeholder empty implementation of a {@link ITargetPreparer}. */
+@OptionClass(alias = "stub-preparer")
 public class StubTargetPreparer implements ITargetPreparer, IConfigurationReceiver {
+
+    @Option(name = "test-boolean-option", description = "test option, keep default to true.")
+    private boolean mTestBooleanOption = true;
+
+    @Option(name = "test-boolean-option-false", description = "test option, keep default to true.")
+    private boolean mTestBooleanOptionFalse = false;
 
     private IConfiguration mConfig;
 
@@ -43,5 +52,13 @@ public class StubTargetPreparer implements ITargetPreparer, IConfigurationReceiv
     /** Returns the configuration received through {@link #setConfiguration(IConfiguration)}. */
     public IConfiguration getConfiguration() {
         return mConfig;
+    }
+
+    public boolean getTestBooleanOption() {
+        return mTestBooleanOption;
+    }
+
+    public boolean getTestBooleanOptionFalse() {
+        return mTestBooleanOptionFalse;
     }
 }

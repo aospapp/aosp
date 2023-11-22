@@ -193,7 +193,7 @@ static uint8_t *ReadOldKPartFromFileOrDie(const char *filename,
 	}
 	Debug("%s size is 0x%" PRIx64 "\n", filename, file_size);
 	if (file_size < opt_pad)
-		Fatal("%s is too small to be a valid kernel blob\n");
+		Fatal("%s is too small to be a valid kernel blob\n", filename);
 
 	Debug("Reading %s\n", filename);
 	fp = fopen(filename, "rb");

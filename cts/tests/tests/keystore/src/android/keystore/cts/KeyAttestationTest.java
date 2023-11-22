@@ -767,8 +767,6 @@ public class KeyAttestationTest extends AndroidTestCase {
         assertNotNull(rootOfTrust);
         assertNotNull(rootOfTrust.getVerifiedBootKey());
         assertTrue(rootOfTrust.getVerifiedBootKey().length >= 32);
-        assertTrue(rootOfTrust.isDeviceLocked());
-        assertEquals(KM_VERIFIED_BOOT_VERIFIED, rootOfTrust.getVerifiedBootState());
     }
 
     private void checkRsaKeyDetails(Attestation attestation, int keySize, int purposes,

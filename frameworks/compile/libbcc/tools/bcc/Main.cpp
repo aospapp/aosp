@@ -44,6 +44,10 @@
 #include <bcc/RSCompilerDriver.h>
 #include <bcc/Source.h>
 
+#ifdef __ANDROID__
+#include <vndksupport/linker.h>
+#endif
+
 using namespace bcc;
 
 #define STR2(a) #a
@@ -120,6 +124,13 @@ OptChecksum("build-checksum",
             llvm::cl::desc("Embed a checksum of this compiler invocation for"
                            " cache invalidation at a later time"),
             llvm::cl::value_desc("checksum"));
+
+#ifdef __ANDROID__
+llvm::cl::opt<std::string>
+OptVendorPlugin("plugin", llvm::cl::ZeroOrMore,
+    llvm::cl::value_desc("pluginfilename"),
+    llvm::cl::desc("Load the specified vendor plugin. Use this instead of the -load option"));
+#endif
 
 //===----------------------------------------------------------------------===//
 // Compiler Options
@@ -287,6 +298,21 @@ int main(int argc, char **argv) {
     ALOGE("Failed to compile bitcode, -bclib was not specified");
     return EXIT_FAILURE;
   }
+
+#ifdef __ANDROID__
+  if (!OptVendorPlugin.empty()) {
+    // bcc is a system process and the vendor plugin is a vendor lib. Since the
+    // vendor lib might have been compiled using the old versions of platform
+    // libraries, they must not be directly loaded into the default namespace
+    // but into the sphal namespace where old versions of platform libraries
+    // (aka VNDK libs) are provided.
+    void* handle = android_load_sphal_library(OptVendorPlugin.c_str(), RTLD_LAZY|RTLD_GLOBAL);
+    if (handle == nullptr) {
+      ALOGE("Failed to load vendor plugin %s", OptVendorPlugin.c_str());
+      return EXIT_FAILURE;
+    }
+  }
+#endif
 
   if (!ConfigCompiler(RSCD)) {
     ALOGE("Failed to configure compiler");

@@ -2,7 +2,7 @@
     <hal>
         <name>android.hidl.manager</name>
         <transport>hwbinder</transport>
-        <version>1.0</version>
+        <version>1.1</version>
         <interface>
             <name>IServiceManager</name>
             <instance>default</instance>
@@ -62,6 +62,15 @@
             <instance>default</instance>
         </interface>
     </hal>
+        <hal format="hidl">
+        <name>android.system.net.netd</name>
+        <transport>hwbinder</transport>
+        <version>1.0</version>
+        <interface>
+            <name>INetd</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
     <hal>
         <name>android.system.wifi.keystore</name>
         <transport>hwbinder</transport>
@@ -79,5 +88,19 @@
           <name>IComposer</name>
           <instance>vr</instance>
       </interface>
+    </hal>
+    <hal format="native">
+        <name>netutils-wrapper</name>
+        <!--
+            netutils-wrapper versions must be x.0.
+            netutils-wrapper next version has less functionalities than
+            previous versions, so unlike a HAL, netutils-wrapper are not
+            backwards compatible. Hence the major version must be bumped for
+            each update.
+            If a minor version were bumped instead (say, <version>1.1</version>),
+            it would be incorrectly considered compatible with version 1.0 in
+            device compatibility matrix.
+        -->
+        <version>1.0</version>
     </hal>
 </manifest>

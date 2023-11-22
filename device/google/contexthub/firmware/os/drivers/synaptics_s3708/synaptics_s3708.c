@@ -76,10 +76,11 @@
 
 #define ENABLE_DEBUG 0
 
+#define VERBOSE_PRINT(fmt, ...) osLog(LOG_VERBOSE, "[DoubleTouch] " fmt, ##__VA_ARGS__)
 #define INFO_PRINT(fmt, ...) osLog(LOG_INFO, "[DoubleTouch] " fmt, ##__VA_ARGS__)
 #define ERROR_PRINT(fmt, ...) osLog(LOG_ERROR, "[DoubleTouch] " fmt, ##__VA_ARGS__)
 #if ENABLE_DEBUG
-#define DEBUG_PRINT(fmt, ...) INFO_PRINT(fmt, ##__VA_ARGS__)
+#define DEBUG_PRINT(fmt, ...)  osLog(LOG_DEBUG, "[DoubleTouch] " fmt, ##__VA_ARGS__)
 #else
 #define DEBUG_PRINT(fmt, ...) ((void)0)
 #endif
@@ -303,7 +304,7 @@ static void setGesturePower(bool enable, bool skipI2c)
     bool ret;
     size_t i;
 
-    INFO_PRINT("gesture: %d", enable);
+    VERBOSE_PRINT("gesture: %d", enable);
 
     // Cancel any pending I2C transactions by changing the callback state
     for (i = 0; i < ARRAY_SIZE(mTask.transfers); i++) {
@@ -360,7 +361,7 @@ static bool callbackPower(bool on, void *cookie)
 {
     uint32_t enabledSeconds, proxEnabledSeconds, proxFarSeconds;
 
-    INFO_PRINT("power: %d", on);
+    VERBOSE_PRINT("power: %d", on);
 
     if (on) {
         mTask.stats.enabledTimestamp = sensorGetTime();
@@ -371,7 +372,7 @@ static bool callbackPower(bool on, void *cookie)
     enabledSeconds = U64_DIV_BY_U64_CONSTANT(mTask.stats.totalEnabledTime, 1000000000);
     proxEnabledSeconds = U64_DIV_BY_U64_CONSTANT(mTask.stats.totalProxEnabledTime, 1000000000);
     proxFarSeconds = U64_DIV_BY_U64_CONSTANT(mTask.stats.totalProxFarTime, 1000000000);
-    INFO_PRINT("STATS: enabled %02" PRIu32 ":%02" PRIu32 ":%02" PRIu32
+    VERBOSE_PRINT("STATS: enabled %02" PRIu32 ":%02" PRIu32 ":%02" PRIu32
                ", prox enabled %02" PRIu32 ":%02" PRIu32 ":%02" PRIu32
                ", prox far %02" PRIu32 ":%02" PRIu32 ":%02" PRIu32
                ", prox *->f %" PRIu32

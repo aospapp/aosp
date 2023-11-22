@@ -21,9 +21,6 @@ from autotest_lib.client.common_lib import control_data, error
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import time_utils
 from autotest_lib.client.common_lib.cros import dev_server
-# TODO(akeshet): Replace with monarch once we know how to instrument rpc server
-# with ts_mon.
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
 from autotest_lib.server import utils as server_utils
 from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
@@ -927,9 +924,7 @@ def retrieve_shard(shard_hostname):
 
     @returns: Shard object
     """
-    timer = autotest_stats.Timer('shard_heartbeat.retrieve_shard')
-    with timer:
-        return models.Shard.smart_get(shard_hostname)
+    return models.Shard.smart_get(shard_hostname)
 
 
 def find_records_for_shard(shard, known_job_ids, known_host_ids):
@@ -939,19 +934,16 @@ def find_records_for_shard(shard, known_job_ids, known_host_ids):
     @param known_job_ids: List of ids of jobs the shard already has.
     @param known_host_ids: List of ids of hosts the shard already has.
 
-    @returns: Tuple of three lists for hosts, jobs, and suite job keyvals:
-              (hosts, jobs, suite_job_keyvals).
+    @returns: Tuple of lists:
+              (hosts, jobs, suite_job_keyvals, invalid_host_ids)
     """
-    timer = autotest_stats.Timer('shard_heartbeat')
-    with timer.get_client('find_hosts'):
-        hosts = models.Host.assign_to_shard(shard, known_host_ids)
-    with timer.get_client('find_jobs'):
-        jobs = models.Job.assign_to_shard(shard, known_job_ids)
-    with timer.get_client('find_suite_job_keyvals'):
-        parent_job_ids = [job.parent_job_id for job in jobs]
-        suite_job_keyvals = models.JobKeyval.objects.filter(
-                job_id__in=parent_job_ids)
-    return hosts, jobs, suite_job_keyvals
+    hosts, invalid_host_ids = models.Host.assign_to_shard(
+            shard, known_host_ids)
+    jobs = models.Job.assign_to_shard(shard, known_job_ids)
+    parent_job_ids = [job.parent_job_id for job in jobs]
+    suite_job_keyvals = models.JobKeyval.objects.filter(
+            job_id__in=parent_job_ids)
+    return hosts, jobs, suite_job_keyvals, invalid_host_ids
 
 
 def _persist_records_with_type_sent_from_shard(
@@ -981,11 +973,17 @@ def _persist_records_with_type_sent_from_shard(
                 'Object with pk %s of type %s does not exist on master.' % (
                     pk, record_type))
 
-        current_record.sanity_check_update_from_shard(
-            shard, serialized_record, *args, **kwargs)
+        try:
+            current_record.sanity_check_update_from_shard(
+                shard, serialized_record, *args, **kwargs)
+        except error.IgnorableUnallowedRecordsSentToMaster:
+            # An illegal record change was attempted, but it was of a non-fatal
+            # variety. Silently skip this record.
+            pass
+        else:
+            current_record.update_from_serialized(serialized_record)
+            pks.append(pk)
 
-        current_record.update_from_serialized(serialized_record)
-        pks.append(pk)
     return pks
 
 
@@ -1008,14 +1006,11 @@ def persist_records_sent_from_shard(shard, jobs, hqes):
 
     @raises error.UnallowedRecordsSentToMaster if any of the sanity checks fail.
     """
-    timer = autotest_stats.Timer('shard_heartbeat')
-    with timer.get_client('persist_jobs'):
-        job_ids_sent = _persist_records_with_type_sent_from_shard(
-                shard, jobs, models.Job)
-
-    with timer.get_client('persist_hqes'):
-        _persist_records_with_type_sent_from_shard(
-                shard, hqes, models.HostQueueEntry, job_ids_sent=job_ids_sent)
+    job_ids_persisted = _persist_records_with_type_sent_from_shard(
+            shard, jobs, models.Job)
+    _persist_records_with_type_sent_from_shard(
+            shard, hqes, models.HostQueueEntry,
+            job_ids_sent=job_ids_persisted)
 
 
 def forward_single_host_rpc_to_shard(func):

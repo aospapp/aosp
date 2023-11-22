@@ -33,10 +33,6 @@ static char *compile_opts =
 #ifdef NO_FORK
 "no-MMU "
 #endif
-#ifndef HAVE_DBUS
-"no-"
-#endif
-"DBus "
 #ifndef LOCALEDIR
 "no-"
 #endif
@@ -46,12 +42,9 @@ static char *compile_opts =
 #endif
 "DHCP "
 #if defined(HAVE_DHCP) && !defined(HAVE_SCRIPT)
-"no-scripts "
+"no-scripts"
 #endif
-#ifndef HAVE_TFTP
-"no-"
-#endif
-"TFTP";
+"";
 
 
 
@@ -145,11 +138,6 @@ int main (int argc, char **argv)
     }
 #endif
 
-#ifndef HAVE_TFTP
-  if (daemon->options & OPT_TFTP)
-    die(_("TFTP server not available: set HAVE_TFTP in src/config.h"), NULL, EC_BADCONF);
-#endif
-
 #ifdef HAVE_SOLARIS_NETWORK
   if (daemon->max_logs != 0)
     die(_("asychronous logging is not available under Solaris"), NULL, EC_BADCONF);
@@ -194,20 +182,7 @@ int main (int argc, char **argv)
   
   if (daemon->port != 0)
     cache_init();
-    
-  if (daemon->options & OPT_DBUS)
-#ifdef HAVE_DBUS
-    {
-      char *err;
-      daemon->dbus = NULL;
-      daemon->watches = NULL;
-      if ((err = dbus_init()))
-	die(_("DBus error: %s"), err, EC_MISC);
-    }
-#else
-  die(_("DBus not available: set HAVE_DBUS in src/config.h"), NULL, EC_BADCONF);
-#endif
-  
+ 
   if (daemon->port != 0)
     pre_allocate_sfds();
 
@@ -466,16 +441,6 @@ int main (int argc, char **argv)
     my_syslog(LOG_INFO, _("started, version %s cache disabled"), VERSION);
   
   my_syslog(LOG_INFO, _("compile time options: %s"), compile_opts);
-  
-#ifdef HAVE_DBUS
-  if (daemon->options & OPT_DBUS)
-    {
-      if (daemon->dbus)
-	my_syslog(LOG_INFO, _("DBus support enabled: connected to system bus"));
-      else
-	my_syslog(LOG_INFO, _("DBus support enabled: bus connection pending"));
-    }
-#endif
 
   if (log_err != 0)
     my_syslog(LOG_WARNING, _("warning: failed to change owner of %s: %s"), 
@@ -521,49 +486,6 @@ int main (int argc, char **argv)
     }
 #endif
 
-#ifdef HAVE_TFTP
-  if (daemon->options & OPT_TFTP)
-    {
-#ifdef FD_SETSIZE
-      if (FD_SETSIZE < (unsigned)max_fd)
-	max_fd = FD_SETSIZE;
-#endif
-
-      my_syslog(MS_TFTP | LOG_INFO, "TFTP %s%s %s", 
-		daemon->tftp_prefix ? _("root is ") : _("enabled"),
-		daemon->tftp_prefix ? daemon->tftp_prefix: "",
-		daemon->options & OPT_TFTP_SECURE ? _("secure mode") : "");
-      
-      /* This is a guess, it assumes that for small limits, 
-	 disjoint files might be served, but for large limits, 
-	 a single file will be sent to may clients (the file only needs
-	 one fd). */
-
-      max_fd -= 30; /* use other than TFTP */
-      
-      if (max_fd < 0)
-	max_fd = 5;
-      else if (max_fd < 100)
-	max_fd = max_fd/2;
-      else
-	max_fd = max_fd - 20;
-      
-      /* if we have to use a limited range of ports, 
-	 that will limit the number of transfers */
-      if (daemon->start_tftp_port != 0 &&
-	  daemon->end_tftp_port - daemon->start_tftp_port + 1 < max_fd)
-	max_fd = daemon->end_tftp_port - daemon->start_tftp_port + 1;
-
-      if (daemon->tftp_max > max_fd)
-	{
-	  daemon->tftp_max = max_fd;
-	  my_syslog(MS_TFTP | LOG_WARNING, 
-		    _("restricting maximum simultaneous TFTP transfers to %d"), 
-		    daemon->tftp_max);
-	}
-    }
-#endif
-
   /* finished start-up - release original process */
   if (err_pipe[1] != -1)
     close(err_pipe[1]);
@@ -595,19 +517,6 @@ int main (int argc, char **argv)
       set_android_listeners(&rset, &maxfd);
 #endif
 
-      /* Whilst polling for the dbus, or doing a tftp transfer, wake every quarter second */
-      if (daemon->tftp_trans ||
-	  ((daemon->options & OPT_DBUS) && !daemon->dbus))
-	{
-	  t.tv_sec = 0;
-	  t.tv_usec = 250000;
-	  tp = &t;
-	}
-
-#ifdef HAVE_DBUS
-      set_dbus_listeners(&maxfd, &rset, &wset, &eset);
-#endif	
-  
 #ifdef HAVE_DHCP
       if (daemon->dhcp)
 	{
@@ -672,29 +581,12 @@ int main (int argc, char **argv)
       if (FD_ISSET(daemon->netlinkfd, &rset))
 	netlink_multicast();
 #endif
-      
-#ifdef HAVE_DBUS
-      /* if we didn't create a DBus connection, retry now. */ 
-     if ((daemon->options & OPT_DBUS) && !daemon->dbus)
-	{
-	  char *err;
-	  if ((err = dbus_init()))
-	    my_syslog(LOG_WARNING, _("DBus error: %s"), err);
-	  if (daemon->dbus)
-	    my_syslog(LOG_INFO, _("connected to system DBus"));
-	}
-      check_dbus_listeners(&rset, &wset, &eset);
-#endif
 
 #if defined(__ANDROID__) && !defined(__BRILLO__)
       check_android_listeners(&rset);
 #endif
       
       check_dns_listeners(&rset, now);
-
-#ifdef HAVE_TFTP
-      check_tftp_listeners(&rset, now);
-#endif      
 
 #ifdef HAVE_DHCP
       if (daemon->dhcp && FD_ISSET(daemon->dhcpfd, &rset))
@@ -1039,18 +931,7 @@ static int set_dns_listeners(time_t now, fd_set *set, int *maxfdp)
   struct serverfd *serverfdp;
   struct listener *listener;
   int wait = 0, i;
-  
-#ifdef HAVE_TFTP
-  int  tftp = 0;
-  struct tftp_transfer *transfer;
-  for (transfer = daemon->tftp_trans; transfer; transfer = transfer->next)
-    {
-      tftp++;
-      FD_SET(transfer->sockfd, set);
-      bump_maxfd(transfer->sockfd, maxfdp);
-    }
-#endif
-  
+
   /* will we be able to get memory? */
   if (daemon->port != 0)
     get_new_frec(now, &wait);
@@ -1088,15 +969,6 @@ static int set_dns_listeners(time_t now, fd_set *set, int *maxfdp)
 	      bump_maxfd(listener->tcpfd, maxfdp);
 	      break;
 	    }
-
-#ifdef HAVE_TFTP
-      if (tftp <= daemon->tftp_max && listener->tftpfd != -1)
-	{
-	  FD_SET(listener->tftpfd, set);
-	  bump_maxfd(listener->tftpfd, maxfdp);
-	}
-#endif
-
     }
   
   return wait;
@@ -1122,11 +994,6 @@ static void check_dns_listeners(fd_set *set, time_t now)
     {
       if (listener->fd != -1 && FD_ISSET(listener->fd, set))
 	receive_query(listener, now); 
-      
-#ifdef HAVE_TFTP     
-      if (listener->tftpfd != -1 && FD_ISSET(listener->tftpfd, set))
-	tftp_request(listener, now);
-#endif
 
       if (listener->tcpfd != -1 && FD_ISSET(listener->tcpfd, set))
 	{
@@ -1257,7 +1124,7 @@ int icmp_ping(struct in_addr addr)
   /* Try and get an ICMP echo from a machine. */
 
   /* Note that whilst in the three second wait, we check for 
-     (and service) events on the DNS and TFTP  sockets, (so doing that
+     (and service) events on the DNS sockets, (so doing that
      better not use any resources our caller has in use...)
      but we remain deaf to signals or further DHCP packets. */
 
@@ -1329,10 +1196,6 @@ int icmp_ping(struct in_addr addr)
 
       check_log_writer(&wset);
       check_dns_listeners(&rset, now);
-
-#ifdef HAVE_TFTP
-      check_tftp_listeners(&rset, now);
-#endif
 
       if (FD_ISSET(fd, &rset) &&
 	  recvfrom(fd, &packet, sizeof(packet), 0,

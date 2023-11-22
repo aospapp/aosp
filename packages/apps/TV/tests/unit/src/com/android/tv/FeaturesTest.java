@@ -16,19 +16,21 @@
 
 package com.android.tv;
 
+import static org.junit.Assert.assertFalse;
+
 import android.support.test.filters.SmallTest;
 
-import junit.framework.TestCase;
+import org.junit.Test;
 
 /**
  * Test for features.
  */
 @SmallTest
-public class FeaturesTest extends TestCase {
-
+public class FeaturesTest {
+    @Test
     public void testPropertyFeatureKeyLength() {
         // This forces the class to be loaded and verifies all PropertyFeature key lengths.
         // If any keys are too long the test will fail to load.
-        assertEquals(false, Features.TEST_FEATURE.isEnabled(null));
+        assertFalse(Features.TEST_FEATURE.isEnabled(null));
     }
 }

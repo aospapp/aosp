@@ -30,6 +30,7 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
     <uses-permission android:name="android.permission.MANAGE_USERS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
     <application android:name="CellBroadcastReceiverApp"
             android:label="@string/app_label"
@@ -82,7 +83,6 @@
         <activity android:name="CellBroadcastSettings"
                   android:theme="@style/CellBroadcastSettingsTheme"
                   android:label="@string/sms_cb_settings"
-                  android:launchMode="singleTask"
                   android:exported="true" />
 
         <activity android:name="CellBroadcastAlertDialog"
@@ -116,7 +116,7 @@
         <receiver android:name="CellBroadcastAreaInfoReceiver"
             android:permission="android.permission.READ_PHONE_STATE">
             <intent-filter>
-                 <action android:name="android.cellbroadcastreceiver.GET_LATEST_CB_AREA_INFO" />
+                 <action android:name="com.android.cellbroadcastreceiver.GET_LATEST_CB_AREA_INFO" />
             </intent-filter>
         </receiver>
 
@@ -124,6 +124,7 @@
             <intent-filter>
                  <action android:name="android.telephony.action.DEFAULT_SMS_SUBSCRIPTION_CHANGED" />
                  <action android:name="android.telephony.action.CARRIER_CONFIG_CHANGED" />
+                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
 

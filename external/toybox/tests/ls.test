@@ -22,9 +22,9 @@ testing "with wild char" "$IN && ls file*; $OUT" "file1.txt\nfile2.txt\n" "" ""
 testing "with wild char - long listing" "$IN && ls -1 file*; $OUT" "file1.txt\nfile2.txt\n" "" ""
 testing "with -p" "$IN && ls -p; $OUT" "dir1/\ndir2/\nfile1.txt\nfile2.txt\n" "" ""
 testing "with -a" "$IN && ls -a; $OUT" \
-        ".\n..\ndir1\ndir2\nfile1.txt\nfile2.txt\n.hfile1\n" "" ""
+        ".\n..\n.hfile1\ndir1\ndir2\nfile1.txt\nfile2.txt\n" "" ""
 testing "with -A" "$IN && ls -A; $OUT" \
-        "dir1\ndir2\nfile1.txt\nfile2.txt\n.hfile1\n" "" ""
+        ".hfile1\ndir1\ndir2\nfile1.txt\nfile2.txt\n" "" ""
 testing "with -d" "$IN && ls -d; $OUT" ".\n" "" ""
 testing "with wild char and -d *" "$IN && ls -d *; $OUT" "dir1\ndir2\nfile1.txt\nfile2.txt\n" "" ""
 testing "with -k" "$IN && ls -k; $OUT" "dir1\ndir2\nfile1.txt\nfile2.txt\n" "" ""
@@ -33,8 +33,9 @@ testing "with -F" "$IN && ls -F; $OUT" "dir1/\ndir2/\nfile1.txt\nfile2.txt\n" ""
 testing "with -dk *" "$IN && ls -dk *; $OUT" "dir1\ndir2\nfile1.txt\nfile2.txt\n" "" ""
 
 ln -s file1.txt lstest/slink
-testing "softlink - long listing" "$IN && ls -l slink | awk '{ print \$NF }' ; $OUT" \
-          "file1.txt\n" "" ""
+testing "-l symlink" \
+    "$IN && ls -l slink | grep -q -- ' slink -> file1.txt' && echo ok ; $OUT" \
+    "ok\n" "" ""
 rm -f lstest/slink
 
 ln -s /dev/null/nosuchfile lstest/nosuchfile

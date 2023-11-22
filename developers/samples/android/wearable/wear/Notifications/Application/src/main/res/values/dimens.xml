@@ -26,4 +26,6 @@
 
     <dimen name="image_picker_item_side">48dp</dimen>
 
+    <dimen name="shape_padding">4dp</dimen>
+    <dimen name="shape_stroke_width">4dp</dimen>
 </resources>

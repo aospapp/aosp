@@ -18,11 +18,12 @@ package com.android.tv.tuner.ts;
 
 import android.media.tv.TvContentRating;
 import android.media.tv.TvContract.Programs.Genres;
+import android.support.annotation.VisibleForTesting;
 import android.text.TextUtils;
+import android.util.ArraySet;
 import android.util.Log;
 import android.util.SparseArray;
 
-import com.android.tv.tuner.data.nano.Channel;
 import com.android.tv.tuner.data.PsiData.PatItem;
 import com.android.tv.tuner.data.PsiData.PmtItem;
 import com.android.tv.tuner.data.PsipData.Ac3AudioDescriptor;
@@ -34,24 +35,32 @@ import com.android.tv.tuner.data.PsipData.ExtendedChannelNameDescriptor;
 import com.android.tv.tuner.data.PsipData.GenreDescriptor;
 import com.android.tv.tuner.data.PsipData.Iso639LanguageDescriptor;
 import com.android.tv.tuner.data.PsipData.MgtItem;
+import com.android.tv.tuner.data.PsipData.ParentalRatingDescriptor;
 import com.android.tv.tuner.data.PsipData.PsipSection;
 import com.android.tv.tuner.data.PsipData.RatingRegion;
 import com.android.tv.tuner.data.PsipData.RegionalRating;
+import com.android.tv.tuner.data.PsipData.SdtItem;
+import com.android.tv.tuner.data.PsipData.ServiceDescriptor;
+import com.android.tv.tuner.data.PsipData.ShortEventDescriptor;
 import com.android.tv.tuner.data.PsipData.TsDescriptor;
 import com.android.tv.tuner.data.PsipData.VctItem;
+import com.android.tv.tuner.data.nano.Channel;
 import com.android.tv.tuner.data.nano.Track.AtscAudioTrack;
 import com.android.tv.tuner.data.nano.Track.AtscCaptionTrack;
 import com.android.tv.tuner.util.ByteArrayBuffer;
 
+import com.android.tv.tuner.util.ConvertUtils;
 import com.ibm.icu.text.UnicodeDecompressor;
 
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
+import java.util.Calendar;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Parses ATSC PSIP sections.
@@ -68,6 +77,13 @@ public class SectionParser {
     private static final byte TABLE_ID_EIT = (byte) 0xcb;
     private static final byte TABLE_ID_ETT = (byte) 0xcc;
 
+    // Table id for DVB
+    private static final byte TABLE_ID_SDT = (byte) 0x42;
+    private static final byte TABLE_ID_DVB_ACTUAL_P_F_EIT = (byte) 0x4e;
+    private static final byte TABLE_ID_DVB_OTHER_P_F_EIT = (byte) 0x4f;
+    private static final byte TABLE_ID_DVB_ACTUAL_SCHEDULE_EIT = (byte) 0x50;
+    private static final byte TABLE_ID_DVB_OTHER_SCHEDULE_EIT = (byte) 0x60;
+
     // For details of the structure for the tags of descriptors, see ATSC A/65 Table 6.25.
     public static final int DESCRIPTOR_TAG_ISO639LANGUAGE = 0x0a;
     public static final int DESCRIPTOR_TAG_CAPTION_SERVICE = 0x86;
@@ -75,6 +91,12 @@ public class SectionParser {
     public static final int DESCRIPTOR_TAG_AC3_AUDIO_STREAM = 0x81;
     public static final int DESCRIPTOR_TAG_EXTENDED_CHANNEL_NAME = 0xa0;
     public static final int DESCRIPTOR_TAG_GENRE = 0xab;
+
+    // For details of the structure for the tags of DVB descriptors, see DVB Document A038 Table 12.
+    public static final int DVB_DESCRIPTOR_TAG_SERVICE = 0x48;
+    public static final int DVB_DESCRIPTOR_TAG_SHORT_EVENT = 0X4d;
+    public static final int DVB_DESCRIPTOR_TAG_CONTENT = 0x54;
+    public static final int DVB_DESCRIPTOR_TAG_PARENTAL_RATING = 0x55;
 
     private static final byte COMPRESSION_TYPE_NO_COMPRESSION = (byte) 0x00;
     private static final byte MODE_SELECTED_UNICODE_RANGE_1 = (byte) 0x00;  // 0x0000 - 0x00ff
@@ -88,16 +110,56 @@ public class SectionParser {
 
     // The following values are defined in the live channels app.
     // See https://developer.android.com/reference/android/media/tv/TvContentRating.html.
+    private static final String RATING_DOMAIN = "com.android.tv";
     private static final String RATING_REGION_RATING_SYSTEM_US_TV = "US_TV";
+    private static final String RATING_REGION_RATING_SYSTEM_US_MV = "US_MV";
     private static final String RATING_REGION_RATING_SYSTEM_KR_TV = "KR_TV";
 
     private static final String[] RATING_REGION_TABLE_US_TV = {
         "US_TV_Y", "US_TV_Y7", "US_TV_G", "US_TV_PG", "US_TV_14", "US_TV_MA"
     };
 
+    private static final String[] RATING_REGION_TABLE_US_MV = {
+        "US_MV_G", "US_MV_PG", "US_MV_PG13", "US_MV_R", "US_MV_NC17"
+    };
+
     private static final String[] RATING_REGION_TABLE_KR_TV = {
         "KR_TV_ALL", "KR_TV_7", "KR_TV_12", "KR_TV_15", "KR_TV_19"
     };
+
+    private static final String[] RATING_REGION_TABLE_US_TV_SUBRATING = {
+        "US_TV_D", "US_TV_L", "US_TV_S", "US_TV_V", "US_TV_FV"
+    };
+
+    // According to ANSI-CEA-766-D
+    private static final int VALUE_US_TV_Y = 1;
+    private static final int VALUE_US_TV_Y7 = 2;
+    private static final int VALUE_US_TV_NONE = 1;
+    private static final int VALUE_US_TV_G = 2;
+    private static final int VALUE_US_TV_PG = 3;
+    private static final int VALUE_US_TV_14 = 4;
+    private static final int VALUE_US_TV_MA = 5;
+
+    private static final int DIMENSION_US_TV_RATING = 0;
+    private static final int DIMENSION_US_TV_D = 1;
+    private static final int DIMENSION_US_TV_L = 2;
+    private static final int DIMENSION_US_TV_S = 3;
+    private static final int DIMENSION_US_TV_V = 4;
+    private static final int DIMENSION_US_TV_Y = 5;
+    private static final int DIMENSION_US_TV_FV = 6;
+    private static final int DIMENSION_US_MV_RATING = 7;
+
+    private static final int VALUE_US_MV_G = 2;
+    private static final int VALUE_US_MV_PG = 3;
+    private static final int VALUE_US_MV_PG13 = 4;
+    private static final int VALUE_US_MV_R = 5;
+    private static final int VALUE_US_MV_NC17 = 6;
+    private static final int VALUE_US_MV_X = 7;
+
+    private static final String STRING_US_TV_Y = "US_TV_Y";
+    private static final String STRING_US_TV_Y7 = "US_TV_Y7";
+    private static final String STRING_US_TV_FV = "US_TV_FV";
+
 
     /*
      * The following CRC table is from the code generated by the following command.
@@ -330,6 +392,7 @@ public class SectionParser {
         void onVctParsed(List<VctItem> items, int sectionNumber, int lastSectionNumber);
         void onEitParsed(int sourceId, List<EitItem> items);
         void onEttParsed(int sourceId, List<EttItem> descriptions);
+        void onSdtParsed(List<SdtItem> items);
     }
 
     private final OutputListener mListener;
@@ -365,6 +428,10 @@ public class SectionParser {
             }
         }
         mParsedEttItems.clear();
+    }
+
+    public void resetVersionNumbers() {
+        mSectionVersionMap.clear();
     }
 
     private void parseSection(byte[] data) {
@@ -409,6 +476,13 @@ public class SectionParser {
                 break;
             case TABLE_ID_ETT:
                 result = parseETT(data);
+                break;
+            case TABLE_ID_SDT:
+                result = parseSDT(data);
+                break;
+            case TABLE_ID_DVB_ACTUAL_P_F_EIT:
+            case TABLE_ID_DVB_ACTUAL_SCHEDULE_EIT:
+                result = parseDVBEIT(data);
                 break;
             default:
                 break;
@@ -510,10 +584,8 @@ public class SectionParser {
             pos += 11 + descriptorsLength;
             results.add(new MgtItem(tableType, tableTypePid));
         }
-        if ((data[pos] & 0xf0) != 0xf0) {
-            Log.e(TAG, "Broken MGT.");
-            return false;
-        }
+        // Skip the remaining descriptor part which we don't use.
+
         if (mListener != null) {
             mListener.onMgtParsed(results);
         }
@@ -704,6 +776,127 @@ public class SectionParser {
         return true;
     }
 
+    private boolean parseSDT(byte[] data) {
+        // For details of the structure for SDT, see DVB Document A038 Table 5.
+        if (DEBUG) {
+            Log.d(TAG, "SDT id discovered");
+        }
+        if (data.length <= 11) {
+            Log.e(TAG, "Broken SDT.");
+            return false;
+        }
+        if ((data[1] & 0x80) >> 7 != 1) {
+            Log.e(TAG, "Broken SDT, section syntax indicator error.");
+            return false;
+        }
+        int sectionLength = ((data[1] & 0x0f) << 8) | (data[2] & 0xff);
+        int transportStreamId = ((data[3] & 0xff) << 8) | (data[4] & 0xff);
+        int originalNetworkId = ((data[8] & 0xff) << 8) | (data[9] & 0xff);
+        int pos = 11;
+        if (sectionLength + 3 > data.length) {
+            Log.e(TAG, "Broken SDT.");
+        }
+        List<SdtItem> sdtItems = new ArrayList<>();
+        while (pos + 9 < data.length) {
+            int serviceId = ((data[pos] & 0xff) << 8) | (data[pos + 1] & 0xff);
+            int descriptorsLength = ((data[pos + 3] & 0x0f) << 8) | (data[pos + 4] & 0xff);
+            pos += 5;
+            List<TsDescriptor> descriptors = parseDescriptors(data, pos, pos + descriptorsLength);
+            List<ServiceDescriptor> serviceDescriptors = generateServiceDescriptors(descriptors);
+            String serviceName = "";
+            String serviceProviderName = "";
+            int serviceType = 0;
+            for (ServiceDescriptor serviceDescriptor : serviceDescriptors) {
+                serviceName = serviceDescriptor.getServiceName();
+                serviceProviderName = serviceDescriptor.getServiceProviderName();
+                serviceType = serviceDescriptor.getServiceType();
+            }
+            if (serviceDescriptors.size() > 0) {
+                sdtItems.add(new SdtItem(serviceName, serviceProviderName, serviceType, serviceId,
+                        originalNetworkId));
+            }
+            pos += descriptorsLength;
+        }
+        if (mListener != null) {
+            mListener.onSdtParsed(sdtItems);
+        }
+        return true;
+    }
+
+    private boolean parseDVBEIT(byte[] data) {
+        // For details of the structure for DVB ETT, see DVB Document A038 Table 7.
+        if (DEBUG) {
+            Log.d(TAG, "DVB EIT is discovered.");
+        }
+        if (data.length < 18) {
+            Log.e(TAG, "Broken DVB EIT.");
+            return false;
+        }
+        int sectionLength = ((data[1] & 0x0f) << 8) | (data[2] & 0xff);
+        int sourceId = ((data[3] & 0xff) << 8) | (data[4] & 0xff);
+        int transportStreamId = ((data[8] & 0xff) << 8) | (data[9] & 0xff);
+        int originalNetworkId = ((data[10] & 0xff) << 8) | (data[11] & 0xff);
+
+        int pos = 14;
+        List<EitItem> results = new ArrayList<>();
+        while (pos + 12 < data.length) {
+            int eventId = ((data[pos] & 0xff) << 8) + (data[pos + 1] & 0xff);
+            float modifiedJulianDate = ((data[pos + 2] &  0xff) << 8) | (data[pos + 3] & 0xff);
+            int startYear = (int) ((modifiedJulianDate - 15078.2f) / 365.25f);
+            int mjdMonth = (int) ((modifiedJulianDate - 14956.1f
+                    - (int) (startYear * 365.25f)) / 30.6001f);
+            int startDay = (int) modifiedJulianDate - 14956 - (int) (startYear * 365.25f)
+                    - (int) (mjdMonth * 30.6001f);
+            int startMonth = mjdMonth - 1;
+            if (mjdMonth == 14 || mjdMonth == 15) {
+                startYear += 1;
+                startMonth -= 12;
+            }
+            int startHour = ((data[pos + 4] & 0xf0) >> 4) * 10 + (data[pos + 4] & 0x0f);
+            int startMinute = ((data[pos + 5] & 0xf0) >> 4) * 10 + (data[pos + 5] & 0x0f);
+            int startSecond = ((data[pos + 6] & 0xf0) >> 4) * 10 + (data[pos + 6] & 0x0f);
+            Calendar calendar = Calendar.getInstance();
+            startYear += 1900;
+            calendar.set(startYear, startMonth, startDay, startHour, startMinute, startSecond);
+            long startTime = ConvertUtils.convertUnixEpochToGPSTime(
+                    calendar.getTimeInMillis() / 1000);
+            int durationInSecond = (((data[pos + 7] & 0xf0) >> 4) * 10
+                    + (data[pos + 7] & 0x0f)) * 3600
+                    + (((data[pos + 8] & 0xf0) >> 4) * 10 + (data[pos + 8] & 0x0f)) * 60
+                    + (((data[pos + 9] & 0xf0) >> 4) * 10 + (data[pos + 9] & 0x0f));
+            int descriptorsLength = ((data[pos + 10] & 0x0f) << 8)
+                    | (data[pos + 10 + 1] & 0xff);
+            int descriptorsPos = pos + 10 + 2;
+            if (data.length < descriptorsPos + descriptorsLength) {
+                Log.e(TAG, "Broken EIT.");
+                return false;
+            }
+            List<TsDescriptor> descriptors = parseDescriptors(
+                    data, descriptorsPos, descriptorsPos + descriptorsLength);
+            if (DEBUG) {
+                Log.d(TAG, String.format("DVB EIT descriptors size: %d", descriptors.size()));
+            }
+            // TODO: Add logic to generating content rating for dvb. See DVB document 6.2.28 for
+            // details. Content rating here will be null
+            String contentRating = generateContentRating(descriptors);
+            // TODO: Add logic for generating genre for dvb. See DVB document 6.2.9 for details.
+            // Genre here will be null here.
+            String broadcastGenre = generateBroadcastGenre(descriptors);
+            String canonicalGenre = generateCanonicalGenre(descriptors);
+            String titleText = generateShortEventName(descriptors);
+            List<AtscAudioTrack> audioTracks = generateAudioTracks(descriptors);
+            List<AtscCaptionTrack> captionTracks = generateCaptionTracks(descriptors);
+            pos += 12 + descriptorsLength;
+            results.add(new EitItem(EitItem.INVALID_PROGRAM_ID, eventId, titleText,
+                    startTime, durationInSecond, contentRating, audioTracks, captionTracks,
+                    broadcastGenre, canonicalGenre, null));
+        }
+        if (mListener != null) {
+            mListener.onEitParsed(sourceId, results);
+        }
+        return true;
+    }
+
     private static List<AtscAudioTrack> generateAudioTracks(List<TsDescriptor> descriptors) {
         // The list of audio tracks sent is located at both AC3 Audio descriptor and ISO 639
         // Language descriptor.
@@ -716,6 +909,9 @@ public class SectionParser {
                 AtscAudioTrack audioTrack = new AtscAudioTrack();
                 if (audioDescriptor.getLanguage() != null) {
                     audioTrack.language = audioDescriptor.getLanguage();
+                }
+                if (audioTrack.language == null) {
+                    audioTrack.language = "";
                 }
                 audioTrack.audioType = AtscAudioTrack.AUDIOTYPE_UNDEFINED;
                 audioTrack.channelCount = audioDescriptor.getNumChannels();
@@ -787,44 +983,179 @@ public class SectionParser {
         return services;
     }
 
-    private static String generateContentRating(List<TsDescriptor> descriptors) {
-        List<String> contentRatings = new ArrayList<>();
-        for (TsDescriptor descriptor : descriptors) {
-            if (descriptor instanceof ContentAdvisoryDescriptor) {
-                ContentAdvisoryDescriptor contentAdvisoryDescriptor =
-                        (ContentAdvisoryDescriptor) descriptor;
-                for (RatingRegion ratingRegion : contentAdvisoryDescriptor.getRatingRegions()) {
-                    for (RegionalRating index : ratingRegion.getRegionalRatings()) {
-                        String ratingSystem = null;
-                        String rating = null;
-                        switch (ratingRegion.getName()) {
-                            case RATING_REGION_US_TV:
-                                ratingSystem = RATING_REGION_RATING_SYSTEM_US_TV;
-                                if (index.getDimension() == 0 && index.getRating() >= 0
-                                        && index.getRating() < RATING_REGION_TABLE_US_TV.length) {
-                                    rating = RATING_REGION_TABLE_US_TV[index.getRating()];
-                                }
-                                break;
-                            case RATING_REGION_KR_TV:
-                                ratingSystem = RATING_REGION_RATING_SYSTEM_KR_TV;
-                                if (index.getDimension() == 0 && index.getRating() >= 0
-                                        && index.getRating() < RATING_REGION_TABLE_KR_TV.length) {
-                                    rating = RATING_REGION_TABLE_KR_TV[index.getRating()];
-                                }
-                                break;
-                            default:
-                                break;
-                        }
-                        if (ratingSystem != null && rating != null) {
-                            contentRatings.add(TvContentRating
-                                    .createRating("com.android.tv", ratingSystem, rating)
-                                    .flattenToString());
-                        }
-                    }
-                }
+    @VisibleForTesting
+    static String generateContentRating(List<TsDescriptor> descriptors) {
+        Set<String> contentRatings = new ArraySet<>();
+        List<RatingRegion> usRatingRegions = getRatingRegions(descriptors, RATING_REGION_US_TV);
+        List<RatingRegion> krRatingRegions = getRatingRegions(descriptors, RATING_REGION_KR_TV);
+        for (RatingRegion region : usRatingRegions) {
+            String contentRating = getUsRating(region);
+            if (contentRating != null) {
+                contentRatings.add(contentRating);
+            }
+        }
+        for (RatingRegion region : krRatingRegions) {
+            String contentRating = getKrRating(region);
+            if (contentRating != null) {
+                contentRatings.add(contentRating);
             }
         }
         return TextUtils.join(",", contentRatings);
+    }
+
+    /**
+     * Gets a list of {@link RatingRegion} in the specific region.
+     *
+     * @param descriptors {@link TsDescriptor} list which may contains rating information
+     * @param region the specific region
+     * @return a list of {@link RatingRegion} in the specific region
+     */
+    private static List<RatingRegion> getRatingRegions(List<TsDescriptor> descriptors, int region) {
+        List<RatingRegion> ratingRegions = new ArrayList<>();
+        for (TsDescriptor descriptor : descriptors) {
+            if (!(descriptor instanceof ContentAdvisoryDescriptor)) {
+                continue;
+            }
+            ContentAdvisoryDescriptor contentAdvisoryDescriptor =
+                    (ContentAdvisoryDescriptor) descriptor;
+            for (RatingRegion ratingRegion : contentAdvisoryDescriptor.getRatingRegions()) {
+                if (ratingRegion.getName() == region) {
+                    ratingRegions.add(ratingRegion);
+                }
+            }
+        }
+        return ratingRegions;
+    }
+
+    /**
+     * Gets US content rating and subratings (if any).
+     *
+     * @param ratingRegion a {@link RatingRegion} instance which may contain rating information.
+     * @return A string representing the US content rating and subratings. The format of the string
+     *     is defined in {@link TvContentRating}. null, if no such a string exists.
+     */
+    private static String getUsRating(RatingRegion ratingRegion) {
+        if (ratingRegion.getName() != RATING_REGION_US_TV) {
+            return null;
+        }
+        List<RegionalRating> regionalRatings = ratingRegion.getRegionalRatings();
+        String rating = null;
+        int ratingIndex = VALUE_US_TV_NONE;
+        List<String> subratings = new ArrayList<>();
+        for (RegionalRating index : regionalRatings) {
+            // See Table 3 of ANSI-CEA-766-D
+            int dimension = index.getDimension();
+            int value = index.getRating();
+            switch (dimension) {
+                    // According to Table 6.27 of ATSC A65,
+                    // the dimensions shall be in increasing order.
+                    // Therefore, rating and ratingIndex are assigned before any corresponding
+                    // subrating.
+                case DIMENSION_US_TV_RATING:
+                    if (value >= VALUE_US_TV_G && value < RATING_REGION_TABLE_US_TV.length) {
+                        rating = RATING_REGION_TABLE_US_TV[value];
+                        ratingIndex = value;
+                    }
+                    break;
+                case DIMENSION_US_TV_D:
+                    if (value == 1
+                            && (ratingIndex == VALUE_US_TV_PG || ratingIndex == VALUE_US_TV_14)) {
+                        // US_TV_D is applicable to US_TV_PG and US_TV_14
+                        subratings.add(RATING_REGION_TABLE_US_TV_SUBRATING[dimension - 1]);
+                    }
+                    break;
+                case DIMENSION_US_TV_L:
+                case DIMENSION_US_TV_S:
+                case DIMENSION_US_TV_V:
+                    if (value == 1
+                            && ratingIndex >= VALUE_US_TV_PG
+                            && ratingIndex <= VALUE_US_TV_MA) {
+                        // US_TV_L, US_TV_S, and US_TV_V are applicable to
+                        // US_TV_PG, US_TV_14 and US_TV_MA
+                        subratings.add(RATING_REGION_TABLE_US_TV_SUBRATING[dimension - 1]);
+                    }
+                    break;
+                case DIMENSION_US_TV_Y:
+                    if (rating == null) {
+                        if (value == VALUE_US_TV_Y) {
+                            rating = STRING_US_TV_Y;
+                        } else if (value == VALUE_US_TV_Y7) {
+                            rating = STRING_US_TV_Y7;
+                        }
+                    }
+                    break;
+                case DIMENSION_US_TV_FV:
+                    if (STRING_US_TV_Y7.equals(rating) && value == 1) {
+                        // US_TV_FV is applicable to US_TV_Y7
+                        subratings.add(STRING_US_TV_FV);
+                    }
+                    break;
+                case DIMENSION_US_MV_RATING:
+                    if (value >= VALUE_US_MV_G && value <= VALUE_US_MV_X) {
+                        if (value == VALUE_US_MV_X) {
+                            // US_MV_X was replaced by US_MV_NC17 in 1990,
+                            // and it's not supported by TvContentRating
+                            value = VALUE_US_MV_NC17;
+                        }
+                        if (rating != null) {
+                            // According to Table 3 of ANSI-CEA-766-D,
+                            // DIMENSION_US_TV_RATING and DIMENSION_US_MV_RATING shall not be
+                            // present in the same descriptor.
+                            Log.w(
+                                    TAG,
+                                    "DIMENSION_US_TV_RATING and DIMENSION_US_MV_RATING are "
+                                            + "present in the same descriptor");
+                        } else {
+                            return TvContentRating.createRating(
+                                            RATING_DOMAIN,
+                                            RATING_REGION_RATING_SYSTEM_US_MV,
+                                            RATING_REGION_TABLE_US_MV[value - 2])
+                                    .flattenToString();
+                        }
+                    }
+                    break;
+
+                default:
+                    break;
+            }
+        }
+        if (rating == null) {
+            return null;
+        }
+
+        String[] subratingArray = subratings.toArray(new String[subratings.size()]);
+        return TvContentRating.createRating(
+                        RATING_DOMAIN, RATING_REGION_RATING_SYSTEM_US_TV, rating, subratingArray)
+                .flattenToString();
+    }
+
+    /**
+     * Gets KR(South Korea) content rating.
+     *
+     * @param ratingRegion a {@link RatingRegion} instance which may contain rating information.
+     * @return A string representing the KR content rating. The format of the string is defined in
+     *     {@link TvContentRating}. null, if no such a string exists.
+     */
+    private static String getKrRating(RatingRegion ratingRegion) {
+        if (ratingRegion.getName() != RATING_REGION_KR_TV) {
+            return null;
+        }
+        List<RegionalRating> regionalRatings = ratingRegion.getRegionalRatings();
+        String rating = null;
+        for (RegionalRating index : regionalRatings) {
+            if (index.getDimension() == 0
+                    && index.getRating() >= 0
+                    && index.getRating() < RATING_REGION_TABLE_KR_TV.length) {
+                rating = RATING_REGION_TABLE_KR_TV[index.getRating()];
+                break;
+            }
+        }
+        if (rating == null) {
+            return null;
+        }
+        return TvContentRating.createRating(
+                        RATING_DOMAIN, RATING_REGION_RATING_SYSTEM_KR_TV, rating)
+                .flattenToString();
     }
 
     private static String generateBroadcastGenre(List<TsDescriptor> descriptors) {
@@ -847,6 +1178,28 @@ public class SectionParser {
             }
         }
         return null;
+    }
+
+    private static List<ServiceDescriptor> generateServiceDescriptors(
+            List<TsDescriptor> descriptors) {
+        List<ServiceDescriptor> serviceDescriptors = new ArrayList<>();
+        for (TsDescriptor descriptor : descriptors) {
+            if (descriptor instanceof ServiceDescriptor) {
+                ServiceDescriptor serviceDescriptor = (ServiceDescriptor) descriptor;
+                serviceDescriptors.add(serviceDescriptor);
+            }
+        }
+        return serviceDescriptors;
+    }
+
+    private static String generateShortEventName(List<TsDescriptor> descriptors) {
+        for (TsDescriptor descriptor : descriptors) {
+            if (descriptor instanceof ShortEventDescriptor) {
+                ShortEventDescriptor shortEventDescriptor = (ShortEventDescriptor) descriptor;
+                return shortEventDescriptor.getEventName();
+            }
+        }
+        return "";
     }
 
     private static List<TsDescriptor> parseDescriptors(byte[] data, int offset, int limit) {
@@ -892,6 +1245,22 @@ public class SectionParser {
 
                 case DESCRIPTOR_TAG_ISO639LANGUAGE:
                     descriptor = parseIso639Language(data, pos, pos + length + 2);
+                    break;
+
+                case DVB_DESCRIPTOR_TAG_SERVICE:
+                    descriptor = parseDvbService(data, pos, pos + length + 2);
+                    break;
+
+                case DVB_DESCRIPTOR_TAG_SHORT_EVENT:
+                    descriptor = parseDvbShortEvent(data, pos, pos + length + 2);
+                    break;
+
+                case DVB_DESCRIPTOR_TAG_CONTENT:
+                    descriptor = parseDvbContent(data, pos, pos + length + 2);
+                    break;
+
+                case DVB_DESCRIPTOR_TAG_PARENTAL_RATING:
+                    descriptor = parseDvbParentalRating(data, pos, pos + length + 2);
                     break;
 
                 default:
@@ -948,6 +1317,7 @@ public class SectionParser {
             pos += 3;
             boolean ccType = (data[pos] & 0x80) != 0;
             if (!ccType) {
+                pos +=3;
                 continue;
             }
             int captionServiceNumber = data[pos] & 0x3f;
@@ -987,6 +1357,7 @@ public class SectionParser {
             int ratingRegion = data[pos] & 0xff;
             int dimensionCount = data[pos + 1] & 0xff;
             pos += 2;
+            int previousDimension = -1;
             for (int j = 0; j < dimensionCount; ++j) {
                 if (limit <= pos + 1) {
                     Log.e(TAG, "Broken ContentAdvisory");
@@ -994,6 +1365,13 @@ public class SectionParser {
                 }
                 int dimensionIndex = data[pos] & 0xff;
                 int ratingValue = data[pos + 1] & 0x0f;
+                if (dimensionIndex <= previousDimension) {
+                    // According to Table 6.27 of ATSC A65,
+                    // the indices shall be in increasing order.
+                    Log.e(TAG, "Broken ContentAdvisory");
+                    return null;
+                }
+                previousDimension = dimensionIndex;
                 pos += 2;
                 indices.add(new RegionalRating(dimensionIndex, ratingValue));
             }
@@ -1189,6 +1567,74 @@ public class SectionParser {
                 language, language2);
     }
 
+    private static TsDescriptor parseDvbService(byte[] data, int pos, int limit) {
+        // For details of DVB service descriptors, see DVB Document A038 Table 86.
+        if (limit < pos + 5) {
+            Log.e(TAG, "Broken service descriptor.");
+            return null;
+        }
+        pos += 2;
+        int serviceType = data[pos] & 0xff;
+        pos++;
+        int serviceProviderNameLength = data[pos] & 0xff;
+        pos++;
+        String serviceProviderName = extractTextFromDvb(data, pos, serviceProviderNameLength);
+        pos += serviceProviderNameLength;
+        int serviceNameLength = data[pos] & 0xff;
+        pos++;
+        String serviceName = extractTextFromDvb(data, pos, serviceNameLength);
+        return new ServiceDescriptor(serviceType, serviceProviderName, serviceName);
+    }
+
+    private static TsDescriptor parseDvbShortEvent(byte[] data, int pos, int limit) {
+        // For details of DVB service descriptors, see DVB Document A038 Table 91.
+        if (limit < pos + 7) {
+            Log.e(TAG, "Broken short event descriptor.");
+            return null;
+        }
+        pos += 2;
+        String language = new String(data, pos, 3);
+        int eventNameLength = data[pos + 3] & 0xff;
+        pos += 4;
+        if (pos + eventNameLength > limit) {
+            Log.e(TAG, "Broken short event descriptor.");
+            return null;
+        }
+        String eventName = new String(data, pos, eventNameLength);
+        pos += eventNameLength;
+        int textLength = data[pos] & 0xff;
+        if (pos + textLength > limit) {
+            Log.e(TAG, "Broken short event descriptor.");
+            return null;
+        }
+        pos++;
+        String text = new String(data, pos, textLength);
+        return new ShortEventDescriptor(language, eventName, text);
+    }
+
+    private static TsDescriptor parseDvbContent(byte[] data, int pos, int limit) {
+        // TODO: According to DVB Document A038 Table 27 to add a parser for content descriptor to
+        // get content genre.
+        return null;
+    }
+
+    private static TsDescriptor parseDvbParentalRating(byte[] data, int pos, int limit) {
+        // For details of DVB service descriptors, see DVB Document A038 Table 81.
+        HashMap<String, Integer> ratings = new HashMap<>();
+        pos += 2;
+        while (pos + 4 <= limit) {
+            String countryCode = new String(data, pos, 3);
+            int rating = data[pos + 3] & 0xff;
+            pos += 4;
+            if (rating > 15) {
+                // Rating > 15 means that the ratings is defined by broadcaster.
+                continue;
+            }
+            ratings.put(countryCode, rating + 3);
+        }
+        return new ParentalRatingDescriptor(ratings);
+    }
+
     private static int getShortNameSize(byte[] data, int offset) {
         for (int i = 0; i < MAX_SHORT_NAME_BYTES; i += 2) {
             if (data[offset + i] == 0 && data[offset + i + 1] == 0) {
@@ -1242,6 +1688,55 @@ public class SectionParser {
             }
         }
         return null;
+    }
+
+    private static String extractTextFromDvb(byte[] data, int pos, int length) {
+        // For details of DVB character set selection, see DVB Document A038 Annex A.
+        if (data.length < pos + length) {
+            return null;
+        }
+        try {
+            String charsetPrefix = "ISO-8859-";
+            switch (data[0]) {
+                case 0x01:
+                case 0x02:
+                case 0x03:
+                case 0x04:
+                case 0x05:
+                case 0x06:
+                case 0x07:
+                case 0x09:
+                case 0x0A:
+                case 0x0B:
+                    String charset = charsetPrefix + String.valueOf(data[0] & 0xff + 4);
+                    return new String(data, pos, length, charset);
+                case 0x10:
+                    if (length < 3) {
+                        Log.e(TAG, "Broken DVB text");
+                        return null;
+                    }
+                    int codeTable = data[pos + 2] & 0xff;
+                    if (data[pos + 1] == 0 && codeTable > 0 && codeTable < 15) {
+                        return new String(
+                                data, pos, length, charsetPrefix + String.valueOf(codeTable));
+                    } else {
+                        return new String(data, pos, length, "ISO-8859-1");
+                    }
+                case 0x11:
+                case 0x14:
+                case 0x15:
+                    return new String(data, pos, length, "UTF-16BE");
+                case 0x12:
+                    return new String(data, pos, length, "EUC-KR");
+                case 0x13:
+                    return new String(data, pos, length, "GB2312");
+                default:
+                    return new String(data, pos, length, "ISO-8859-1");
+            }
+        } catch (UnsupportedEncodingException e) {
+            Log.e(TAG, "Unsupported text format.", e);
+        }
+        return new String(data, pos, length);
     }
 
     private static boolean checkSanity(byte[] data) {

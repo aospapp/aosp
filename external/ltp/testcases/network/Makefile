@@ -17,7 +17,7 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
-# Garrett Cooper, July 2009
+# Ngie Cooper, July 2009
 #
 
 top_srcdir		?= ../..
@@ -34,6 +34,10 @@ INSTALL_TARGETS		:= $(addprefix $(DIR)/ascii.,sm med lg jmb)
 INSTALL_TARGETS		+= $(addprefix $(DIR)/bin.,sm med lg jmb)
 
 RM			+= -r
+
+ifeq ($(ANDROID),1)
+FILTER_OUT_DIRS		+= lib6 rpc sockets
+endif
 
 $(INSTALL_TARGETS): | generate
 

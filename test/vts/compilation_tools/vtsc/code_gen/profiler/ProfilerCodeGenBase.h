@@ -36,9 +36,9 @@ namespace vts {
  */
 class ProfilerCodeGenBase {
  public:
-  ProfilerCodeGenBase(const std::string& input_vts_file_path);
+  ProfilerCodeGenBase(){};
 
-  virtual ~ProfilerCodeGenBase();
+  virtual ~ProfilerCodeGenBase(){};
 
   // Generates both the header and source file for profiler.
   void GenerateAll(Formatter& header_out, Formatter& source_out,
@@ -99,9 +99,14 @@ class ProfilerCodeGenBase {
       const std::string& arg_value) = 0;
 
   // Generates the profiler code for mask type.
-    virtual void GenerateProfilerForMaskVariable(Formatter& out,
-        const VariableSpecificationMessage& val, const std::string& arg_name,
-        const std::string& arg_value) = 0;
+  virtual void GenerateProfilerForMaskVariable(
+      Formatter& out, const VariableSpecificationMessage& val,
+      const std::string& arg_name, const std::string& arg_value) = 0;
+
+  // Generates the profiler code for handle type.
+  virtual void GenerateProfilerForHandleVariable(
+      Formatter& out, const VariableSpecificationMessage& val,
+      const std::string& arg_name, const std::string& arg_value) = 0;
 
   // Generates the profiler code for hidl memory type.
   virtual void GenerateProfilerForHidlMemoryVariable(Formatter& out,
@@ -141,8 +146,8 @@ class ProfilerCodeGenBase {
       const ComponentSpecificationMessage&) {};
   // Generates sanity check for profiler. These codes will be generated at the
   // beginning of the main profiler function.
-  virtual void GenerateProfierSanityCheck(Formatter&,
-    const ComponentSpecificationMessage&) {};
+  virtual void GenerateProfilerSanityCheck(
+      Formatter&, const ComponentSpecificationMessage&){};
   // Generate local variable definition. These codes will be generated after
   // the sanity check code.
   virtual void GenerateLocalVariableDefinition(Formatter&,
@@ -170,9 +175,6 @@ class ProfilerCodeGenBase {
       const ComponentSpecificationMessage& message);
   virtual void GenerateCloseNameSpaces(Formatter& out,
       const ComponentSpecificationMessage& message);
-  std::string GetPackage(const ComponentSpecificationMessage& message);
-  std::string GetPackageVersion(const ComponentSpecificationMessage& message);
-  std::string GetComponentName(const ComponentSpecificationMessage& message);
 
   std::string input_vts_file_path_;
   DISALLOW_COPY_AND_ASSIGN (ProfilerCodeGenBase);

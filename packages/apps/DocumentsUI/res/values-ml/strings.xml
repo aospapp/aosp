@@ -41,6 +41,7 @@
     <string name="menu_compress" msgid="37539111904724188">"കംപ്രസ്സുചെയ്യുക"</string>
     <string name="menu_extract" msgid="8171946945982532262">"എക്സ്ട്രാക്റ്റുചെയ്യുക…"</string>
     <string name="menu_rename" msgid="1883113442688817554">"പേരുമാറ്റുക"</string>
+    <string name="menu_inspector" msgid="8217713416277319588">"വിവരങ്ങൾ സ്വന്തമാക്കൂ"</string>
     <string name="menu_view_in_owner" msgid="7228948660557554770">"<xliff:g id="SOURCE">%1$s</xliff:g> എന്നതിൽ കാണുക"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"പുതിയ വിന്‍‍ഡോ"</string>
     <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"മുറിക്കുക"</string>
@@ -59,8 +60,18 @@
     <string name="not_sorted" msgid="7813496644889115530">"അടുക്കിയിട്ടില്ല"</string>
     <string name="sort_dimension_name" msgid="6325591541414177579">"പേര്"</string>
     <string name="sort_dimension_summary" msgid="7724534446881397860">"ചുരുക്കം"</string>
-    <string name="sort_dimension_date" msgid="4231005651895254033">"പരിഷ്‌ക്കരിച്ചു"</string>
+    <string name="sort_dimension_file_type" msgid="5779709622922085381">"തരം"</string>
     <string name="sort_dimension_size" msgid="2190547351159472884">"വലുപ്പം"</string>
+    <string name="sort_dimension_date" msgid="4231005651895254033">"പരിഷ്‌ക്കരിച്ചു"</string>
+    <string name="directory_items" msgid="6645621978998614003">"ഇനങ്ങളുടെ എണ്ണം"</string>
+    <string name="handler_app_file_opens_with" msgid="2667097605117000751">"ഇത്തരത്തിലുള്ള ‌ഫയലുകൾ ‌തുറക്കുന്നു"</string>
+    <string name="handler_app_belongs_to" msgid="5956928604521893459">"ഈ ഫയൽ ഈ ഉപയോക്താവിന്റേതാണ്"</string>
+    <string name="handler_app_button_info_1" msgid="4271199640671067569">"ഈ ഫയൽ തരം ‌മറ്റ് അപ്പുകൾക്ക് തുറക്കാനാവും. മനസ്സിലായോ"</string>
+    <string name="handler_app_button_info_2" msgid="4299969771512815898">"ഡിഫോൾട്ടായി."</string>
+    <string name="handler_app_clear" msgid="206579047716445033">"മായ്‌ക്കുക"</string>
+    <string name="handler_app_show_in" msgid="7923573101129079048">"ദാതാവിൽ കാണിക്കുക"</string>
+    <string name="handler_app_not_selected" msgid="8178393676227130360">"തിരഞ്ഞെടുത്തില്ല"</string>
+    <string name="handler_app_unknown" msgid="56574249066388341">"അറിയില്ല"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"ആരോഹണം"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"അവരോഹണം"</string>
     <string name="drawer_open" msgid="8071673398187261741">"റൂട്ടുകൾ ദൃശ്യമാക്കുക"</string>
@@ -79,9 +90,11 @@
     <string name="toast_no_application" msgid="7555319548595113121">"ഫയൽ തുറക്കാൻ കഴിയില്ല"</string>
     <string name="toast_view_in_archives_unsupported" msgid="1923221390170964845">"ആർക്കൈവുകളിലെ ഫയലുകൾ തുറക്കാൻ കഴിയില്ല"</string>
     <string name="toast_failed_delete" msgid="3453846588205817591">"ചില പ്രമാണങ്ങൾ ഇല്ലാതാക്കാനായില്ല"</string>
+    <string name="file_inspector_load_error" msgid="1226344446677541109">"പ്രോപ്പർട്ടികൾ ലോഡുചെയ്യാനായില്ല"</string>
     <string name="share_via" msgid="8725082736005677161">"ഇതുവഴി പങ്കിടുക"</string>
     <string name="copy_notification_title" msgid="52256435625098456">"ഫയലുകൾ പകർത്തുന്നു"</string>
     <string name="compress_notification_title" msgid="6830195148113751021">"ഫയലുകൾ കംപ്രസ്സുചെയ്യുന്നു"</string>
+    <string name="extract_notification_title" msgid="5067393961754430469">"ഫയലുകൾ എക്‌സ്ട്രാക്‌റ്റുചെയ്യുക"</string>
     <string name="move_notification_title" msgid="3173424987049347605">"ഫയലുകൾ നീക്കുന്നു"</string>
     <string name="delete_notification_title" msgid="2512757431856830792">"ഫയലുകൾ ഇല്ലാതാക്കുന്നു"</string>
     <string name="copy_remaining" msgid="5390517377265177727">"<xliff:g id="DURATION">%s</xliff:g> ശേഷിക്കുന്നു"</string>
@@ -108,6 +121,7 @@
     <string name="undo" msgid="2902438994196400565">"പഴയപടിയാക്കുക"</string>
     <string name="copy_preparing" msgid="5326063807006898223">"പകർപ്പിനായി തയ്യാറെടുക്കുന്നു…"</string>
     <string name="compress_preparing" msgid="6650018601382062672">"കംപ്രസ്സിന് തയ്യാറെടുക്കുന്നു…"</string>
+    <string name="extract_preparing" msgid="58266275455027829">"എക്‌സ്ട്രാക്റ്റിന് തയ്യാറെടുക്കുന്നു…"</string>
     <string name="move_preparing" msgid="8742573245485449429">"നീക്കാനൊരുങ്ങുന്നു…"</string>
     <string name="delete_preparing" msgid="6513863752916028147">"ഇല്ലാതാക്കാൻ തയ്യാറെടുക്കുന്നു..."</string>
     <string name="delete_progress" msgid="2627631054702306423">"<xliff:g id="COUNT_0">%1$d</xliff:g> / <xliff:g id="TOTALCOUNT">%2$d</xliff:g>"</string>
@@ -198,4 +212,6 @@
     <string name="sign_in" msgid="6253762676723505592">"സൈൻ ഇൻ ചെയ്യുക"</string>
     <string name="new_archive_file_name" msgid="1604650338077249838">"ആർക്കൈവ്<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"<xliff:g id="NAME">%1$s</xliff:g> മാറ്റിയെഴുതണോ?"</string>
+    <string name="continue_in_background" msgid="1974214559047793331">"പശ്ചാത്തലത്തിൽ തുടരുക"</string>
+    <string name="inspector_debug_section" msgid="3447621501565766900">"ഡീബഗ് ‌വിവരങ്ങൾ (dev മാത്രം)"</string>
 </resources>

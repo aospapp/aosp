@@ -22,6 +22,7 @@
         <option name="push" value="DATA/lib64/android.hardware.audio.common@2.0-vts.profiler.so->/data/local/tmp/64/android.hardware.audio.common@2.0-vts.profiler.so"/>
         <option name="push" value="DATA/lib/android.hardware.audio.effect@2.0-vts.profiler.so->/data/local/tmp/32/android.hardware.audio.effect@2.0-vts.profiler.so"/>
         <option name="push" value="DATA/lib64/android.hardware.audio.effect@2.0-vts.profiler.so->/data/local/tmp/64/android.hardware.audio.effect@2.0-vts.profiler.so"/>
+        <option name="push" value="DATA/hardware/interfaces/audio/effect/2.0/xml/audio_effects_conf_V2_0.xsd->/data/local/tmp/audio_effects_conf_V2_0.xsd"/>
     </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.VtsPythonVirtualenvPreparer"/>
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">

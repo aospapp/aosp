@@ -78,7 +78,6 @@
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"හඬ තැපෑල (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"VM:"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"දැනුම්දීම්"</string>
-    <string name="networks" msgid="8873030692174541976">"ජාල ක්‍රියාකරුවන්"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"හදිසි විකාශන"</string>
     <string name="call_settings" msgid="6112441768261754562">"ඇමතුම් සැකසුම්"</string>
     <string name="additional_gsm_call_settings" msgid="1391795981938800617">"අතිරේක සැකසීම්"</string>
@@ -164,20 +163,18 @@
     <string name="label_available" msgid="1181658289009300430">"තිබෙන ජාල"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"සොයමින්..."</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"කිසිඳු ජාලයක් සොයාගත නොහැකි විය."</string>
-    <string name="search_networks" msgid="1601136049300882441">"ජාල සොයන්න"</string>
     <string name="network_query_error" msgid="6828516148953325006">"ජාල සඳහා සොයන අතරතුර දෝෂය."</string>
     <string name="register_on_network" msgid="9055203954040805084">"<xliff:g id="NETWORK">%s</xliff:g> මත ලියාපදිංචි වෙමින්…"</string>
     <string name="not_allowed" msgid="5613353860205691579">"ඔබගේ SIM කාඩ් පත මෙම ජාලයට සම්බන්ධතාවයකට අවසර නොදේ."</string>
     <string name="connect_later" msgid="2308119155752343975">"මෙම අවස්ථාවේදී මෙම ජාලයට සම්බන්ධ විය නොහැක. පසුව යළි උත්සාහ කරන්න."</string>
     <string name="registration_done" msgid="495135664535876612">"ජාලය මත ලියාපදිංචි වෙමින්."</string>
-    <string name="sum_carrier_select" msgid="3494252551249882718">"ජාල ක්‍රියාකරවන්නෙකු තෝරන්න"</string>
-    <string name="sum_search_networks" msgid="2921092249873272715">"සියලුම තිබෙන ජාල සොයන්න"</string>
-    <string name="select_automatically" msgid="5628402124471810174">"ස්වයංක්‍රීයව තෝරන්න"</string>
-    <string name="sum_select_automatically" msgid="5614890115123292400">"ස්වයංක්‍රීයව ප්‍රිය ජාල තෝරන්න"</string>
+    <string name="select_automatically" msgid="1046727200631770962">"ස්වයංක්‍රියව ජාලය තෝරන්න"</string>
+    <string name="network_select_title" msgid="7733107364757544558">"ජාලය"</string>
     <string name="register_automatically" msgid="6017849844573519637">"ස්වයංක්‍රීය ලියාපදිංචිය..."</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"ප්‍රියකරන ජාල වර්ගය"</string>
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"ජාල මෙහෙයුම් ආකාරය වෙනස් කරන්න"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"ප්‍රියකරන ජාල වර්ගය"</string>
+    <string name="forbidden_network" msgid="4384929668343563440">"(තහනම්)"</string>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"ප්‍රිය ජාල ආකාරය: WCDMA කැමතියි"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"ප්‍රිය ජාල ආකාරය: GSM පමණි"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"ප්‍රිය ජාල ආකාරය: WCDMA පමණි"</string>
@@ -210,18 +207,34 @@
     <item msgid="1524224863879435516">"GSM පමණි"</item>
     <item msgid="3817924849415716259">"GSM/WCDMA කැමතියි"</item>
   </string-array>
+    <string name="call_category" msgid="5863978196309462052">"අමතමින්"</string>
+    <string name="network_operator_category" msgid="4830701959205735636">"ජාලය"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"දියුණු කරන ලද 4G LTE මෝඩය"</string>
     <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"උසස් ඇමතුම්"</string>
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"හඬ සහ වෙනත් සන්නිවේදනයන් දියුණු කිරීමට LTE සේවාව භාවිතා කරන්න (නිර්දේශ කළ)"</string>
     <string name="data_enabled" msgid="5972538663568715366">"දත්ත සබලයි"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"දත්ත භාවිතයට ඉඩ දෙන්න"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"අවධානය යොමු කරන්න"</string>
-    <string name="roaming" msgid="8871412572928323707">"දත්ත රෝමින්"</string>
+    <string name="roaming" msgid="7894878421600247140">"රෝමිං"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"රෝමින් අතරතුර දත්ත සේවා වෙත සම්බන්ධ වන්න"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"රෝමින් අතරතුර දත්ත සේවා වෙත සම්බන්ධ වන්න"</string>
     <string name="roaming_reenable_message" msgid="8913735676127858115">"ඔබගේ නිවාස ජාලය ඔබ හැර ගිය විට දත්ත රෝමින් අක්‍රිය වන බැවින් දත්ත සම්බන්ධතාවය ඔබට නැති වෙයි"</string>
     <string name="roaming_warning" msgid="1603164667540144353">"ඔබ සැලකිය යුතු ගාස්තු ඇති විය හැකිය."</string>
-    <string name="roaming_alert_title" msgid="3654815360303826008">"දත්ත රෝමින් සඳහා අවසර දෙන්න ද"</string>
+    <string name="roaming_alert_title" msgid="3654815360303826008">"දත්ත රෝමින් සඳහා අවසර දෙන්න ද?"</string>
+    <string name="data_usage_title" msgid="8759619109516889802">"දත්ත භාවිතය"</string>
+    <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_2">%2$s</xliff:g> <xliff:g id="ID_1">%1$s</xliff:g>ක ජංගම දත්ත භාවිත කරන ලදී"</string>
+    <string name="advanced_options_title" msgid="8074895510265488035">"උසස්"</string>
+    <string name="carrier_settings_euicc" msgid="6714062862127226405">"වාහකය"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"වාහකය, esim, sim, euicc"</string>
+    <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> — <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
+    <string name="mobile_data_settings_title" msgid="4661165467914727157">"ජංගම දත්ත"</string>
+    <string name="mobile_data_settings_summary" msgid="5087255915840576895">"ජංගම ජාලය භාවිතයෙන් දත්ත වෙත ප්‍රවේශ වන්න"</string>
+    <string name="data_usage_disable_mobile" msgid="3577275288809667615">"ජංගම දත්ත ක්‍රියාවිරහිත කරන්නද?"</string>
+    <string name="sim_selection_required_pref" msgid="7049424902961844236">"තේරීම අවශ්‍යයි"</string>
+    <string name="sim_change_data_title" msgid="5332425991853799280">"දත්ත SIM වෙනස් කරන්නද?"</string>
+    <string name="sim_change_data_message" msgid="2163963581444907496">"ජංගම දත්ත සඳහා <xliff:g id="NEW_SIM">%1$s</xliff:g> <xliff:g id="OLD_SIM">%2$s</xliff:g> වෙනුවට භාවිත කරන්නද?"</string>
+    <string name="wifi_calling_settings_title" msgid="7741961465416430470">"Wi-Fi ඇමතීම"</string>
+    <string name="video_calling_settings_title" msgid="539714564273795574">"වාහක වීඩියෝ ඇමතීම"</string>
     <string name="gsm_umts_options" msgid="6538311689850981686">"GSM/UMTS විකල්ප"</string>
     <string name="cdma_options" msgid="4016822858172249884">"CDMA විකල්ප"</string>
     <string name="throttle_data_usage" msgid="3715677828160555808">"දත්ත භාවිතය"</string>
@@ -452,7 +465,7 @@
     <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"ජංගම ජාලය ලබා ගැනීමට නොහැකිය. ඇමතුමක් කිරීමට රැහැන් රහිත ජාලයකට සම්බන්ධ කරන්න."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"ඇමතුමක් ලබාගැනීමට, වලංගු අංකයක් ලබාගන්න."</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"ඇමතුම අසාර්ථක විය."</string>
-    <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"ඇමතුම මේ අවස්ථාවේදී එක් කළ නොහැකිය."</string>
+    <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"ඇමතුම මෙම වේලාවේදී එක් කිරීමට නොහැකිය. ඔබට පණිවිඩයක් යැවීමෙන් ළඟා වීමට උත්සාහ කිරීමට හැකිය."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"සේවාවට සහාය දක්වන්නේ නැත"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"ඇමතුම් මාරු කිරීම කළ නොහැක."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"ඇමතුම වෙන් කිරීම කළ නොහැක."</string>
@@ -572,6 +585,8 @@
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"සක්‍රිය ඇමතුම් ඉතා විශාල ගණනක් ඇත. කරුණාකර නව ඇමතුමක් ගැනීමට පෙර පවතින ඇමතුම් අවසන් හෝ ඒකාබද්ධ කරන්න."</string>
     <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"සම්බන්ධ වීමට නොහැකිය, කරුණාකර වලංගු SIM කාඩ්පතක් ඇතුළු කරන්න."</string>
     <string name="callFailed_wifi_lost" msgid="5968076625137297184">"Wi-Fi සම්බන්ධතාවය අහිමි විය. ඇමතුම අවසන් විය."</string>
+    <string name="dialFailed_low_battery" msgid="8760548177088774268">"අඩු බැටරිය නිසා ඔබගේ වීඩියෝ ඇමතුම සිදු කළ නොහැකිය."</string>
+    <string name="callFailed_low_battery" msgid="4913582435905872616">"අඩු බැටරිය හේතුවෙන් වීඩියෝ ඇමතුම අවසන් විය."</string>
     <string name="change_pin_title" msgid="7790232089699034029">"හඬ තැපැල් PIN අංකය වෙනස් කරන්න"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"දිගටම කර ගෙන යන්න"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"අවලංගු කරන්න"</string>
@@ -584,4 +599,18 @@
     <string name="change_pin_confirm_pins_dont_match" msgid="4795052654904027909">"PIN අංකය නොගැළපේ"</string>
     <string name="change_pin_succeeded" msgid="2022852286442211151">"හඬ තැපැල් PIN අංකය යාවත්කාලීන කෙරිණි"</string>
     <string name="change_pin_system_error" msgid="8308462387154257840">"PIN අංකය සැකසීමට නොහැකිය"</string>
+    <string name="mobile_data_status_roaming_turned_off_subtext" msgid="935636805765823307">"දත්ත රෝමිං ක්‍රියාවිරහිත කර ඇත"</string>
+    <string name="mobile_data_status_roaming_turned_on_subtext" msgid="1335176927083781041">"දත්ත රෝමිං ක්‍රියාත්මක කර ඇත"</string>
+    <string name="mobile_data_status_roaming_without_plan_subtext" msgid="3568412513831673037">"දැනට රෝමිං කරමින්, දත්ත සැලසුම අවශ්‍යයි"</string>
+    <string name="mobile_data_status_roaming_with_plan_subtext" msgid="8721998948811064377">"දැනට රෝමිං කරමින්, දත්ත සැලසුම සක්‍රියයි"</string>
+    <string name="mobile_data_status_no_plan_subtext" msgid="4887747337017565725">"ඉතිරි ජංගම දත්ත නැත"</string>
+    <string name="mobile_data_activate_prepaid" msgid="7447025165850512683">"ඉතිරි ජංගම දත්ත නැත"</string>
+    <string name="mobile_data_activate_prepaid_summary" msgid="5705389791791637666">"ජංගම දත්ත <xliff:g id="PROVIDER_NAME">%s</xliff:g> හරහා එක් කරන්න"</string>
+    <string name="mobile_data_activate_roaming_plan" msgid="5998161536947086264">"රෝමිං සැලසුමක් නැත"</string>
+    <string name="mobile_data_activate_roaming_plan_summary" msgid="511202908883425459">"රෝමිං සැලසුම <xliff:g id="PROVIDER_NAME">%s</xliff:g> හරහා එක් කරන්න"</string>
+    <string name="mobile_data_activate_footer" msgid="5979019929980140594">"ඔබට ඔබේ වාහක හරහා ජංගම දත්ත හෝ රෝමිං සැලසුමක් එක් කිරීමට හැකිය, <xliff:g id="PROVIDER_NAME">%s</xliff:g>."</string>
+    <string name="mobile_data_activate_diag_title" msgid="9044252207707864493">"දත්ත එක් කරන්නද?"</string>
+    <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"ඔබට <xliff:g id="PROVIDER_NAME">%s</xliff:g> හරහා දත්ත එක් කිරීමට අවශ්‍ය විය හැකිය."</string>
+    <string name="mobile_data_activate_button" msgid="3682400969184405446">"දත්ත එක් කරන්න"</string>
+    <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"අවලංගු කරන්න"</string>
 </resources>

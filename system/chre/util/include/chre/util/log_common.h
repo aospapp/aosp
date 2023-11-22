@@ -27,7 +27,7 @@
  * An inline stub function to direct log messages to when logging is disabled.
  * This avoids unused variable warnings and will result in no overhead.
  */
-inline void chreLogNull(const char *fmt, ...) {}
+inline void chreLogNull(const char *fmt, ...) { (void) fmt; }
 
 //! The logging level to specify that no logs are output.
 #define CHRE_LOG_LEVEL_MUTE 0

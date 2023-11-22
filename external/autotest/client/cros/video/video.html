@@ -12,6 +12,7 @@ var can_play = false;
 var script_ready = false;
 var finished_seeking = false;
 var error_status = false;
+var video_ended = false;
 
 (function() {
      var timeEle = document.getElementById('videoCurTime');
@@ -44,6 +45,14 @@ var error_status = false;
   }, false);
 })();
 
+(function() {
+     video.addEventListener('ended', function(event) {
+     video_ended = true;
+  }, false);
+})();
+
+
+
 function loadVideoSource(video_source_path) {
     video.src = video_source_path;
     return true;
@@ -72,6 +81,11 @@ function currentTime()  {
 function errorDetected() {
   return error_status;
 }
+
+function endOrError() {
+  return video_ended || error_status;
+}
+
 
 function setControls() {
     video.setAttribute("controls","true");

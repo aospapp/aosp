@@ -239,7 +239,7 @@ public class ContactsContract_TestDataBuilder {
                 return;
             if (expected != null && Arrays.equals(actual, expected))
                 return;
-            throw new ComparisonFailure(message, expected.toString(), actual.toString());
+            throw new ComparisonFailure(message, Arrays.toString(expected), Arrays.toString(actual));
         }
 
         private int getColumnIndex(String columnName) {

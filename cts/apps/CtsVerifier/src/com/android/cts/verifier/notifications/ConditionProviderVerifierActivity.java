@@ -88,9 +88,7 @@ public class ConditionProviderVerifierActivity extends InteractiveVerifierActivi
                 logFail("no settings activity");
                 status = FAIL;
             } else {
-                String cpPackages = Secure.getString(getContentResolver(),
-                        Settings.Secure.ENABLED_NOTIFICATION_POLICY_ACCESS_PACKAGES);
-                if (cpPackages != null && cpPackages.contains(CP_PACKAGE)) {
+                if (mNm.isNotificationPolicyAccessGranted()) {
                     status = PASS;
                 } else {
                     status = WAIT_FOR_USER;
@@ -505,9 +503,7 @@ public class ConditionProviderVerifierActivity extends InteractiveVerifierActivi
 
         @Override
         void test() {
-            String cpPackages = Secure.getString(getContentResolver(),
-                    Settings.Secure.ENABLED_NOTIFICATION_POLICY_ACCESS_PACKAGES);
-            if (cpPackages == null || !cpPackages.contains(CP_PACKAGE)) {
+            if (!mNm.isNotificationPolicyAccessGranted()) {
                 status = PASS;
             } else {
                 status = WAIT_FOR_USER;

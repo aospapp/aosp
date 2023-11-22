@@ -26,21 +26,27 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.Environment;
 import android.os.SystemClock;
 import android.platform.test.helpers.exceptions.AccountException;
+import android.platform.test.helpers.exceptions.UnknownUiException;
 import android.support.test.launcherhelper.ILauncherStrategy;
 import android.support.test.launcherhelper.LauncherStrategyFactory;
 import android.support.test.uiautomator.By;
+import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Configurator;
 import android.support.test.uiautomator.UiDevice;
+import android.support.test.uiautomator.Until;
 import android.util.Log;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 
 import java.io.File;
 import java.io.IOException;
+import static org.junit.Assert.assertNotNull;
 
 public abstract class AbstractStandardAppHelper implements IStandardAppHelper {
     private static final String LOG_TAG = AbstractStandardAppHelper.class.getSimpleName();
     private static final String SCREENSHOT_DIR = "apphelper-screenshots";
+    private static final String ERROR_NOT_FOUND =
+        "Element %s %s is not found in the application %s";
 
     private static File sScreenshotDirectory;
 
@@ -167,17 +173,93 @@ public abstract class AbstractStandardAppHelper implements IStandardAppHelper {
      * {@inheritDoc}
      */
     @Override
-    public boolean sendTextEvents (String text, long delay) {
-        Log.v(LOG_TAG, String.format("Sending text events for %s", text));
-        KeyEvent[] events = mKeyCharacterMap.getEvents(text.toCharArray());
-        for (KeyEvent event : events) {
-            if (KeyEvent.ACTION_DOWN == event.getAction()) {
-                if (!mDevice.pressKeyCode(event.getKeyCode(), event.getMetaState())) {
-                    return false;
-                }
-                SystemClock.sleep(delay);
-            }
+    public boolean sendTextEvents(String text, long delay) {
+      Log.v(LOG_TAG, String.format("Sending text events for %s", text));
+      KeyEvent[] events = mKeyCharacterMap.getEvents(text.toCharArray());
+      for (KeyEvent event : events) {
+        if (KeyEvent.ACTION_DOWN == event.getAction()) {
+          if (!mDevice.pressKeyCode(event.getKeyCode(), event.getMetaState())) {
+            return false;
+          }
+          SystemClock.sleep(delay);
         }
-        return true;
+      }
+      return true;
+    }
+
+    protected UiObject2 findElementById(String id) {
+      UiObject2 element = mDevice.findObject(By.res(getPackage(), id));
+      if (element != null) {
+        return element;
+      } else {
+        throw new UnknownUiException(String.format(ERROR_NOT_FOUND, "with id", id, getPackage()));
+      }
+    }
+
+    protected UiObject2 findElementByText(String text) {
+      UiObject2 element = mDevice.findObject(By.text(text));
+      if (element != null) {
+        return element;
+      } else {
+        throw new UnknownUiException(
+            String.format(ERROR_NOT_FOUND, "with text", text, getPackage()));
+      }
+    }
+
+    protected UiObject2 findElementByDescription(String description) {
+      UiObject2 element = mDevice.findObject(By.desc(description));
+      if (element != null) {
+        return element;
+      } else {
+        throw new UnknownUiException(
+            String.format(ERROR_NOT_FOUND, "with description", description, getPackage()));
+      }
+    }
+
+    protected void clickOn(UiObject2 element) {
+      if (element != null) {
+        element.click();
+      } else {
+        throw new UnknownUiException(String.format(ERROR_NOT_FOUND, "", "", getPackage()));
+      }
+    }
+
+    protected void waitAndClickById(String packageStr, String id, long timeout) {
+      clickOn(mDevice.wait(Until.findObject(By.res(packageStr, id)), timeout));
+    }
+
+    protected void waitAndClickByText(String text, long timeout) {
+      clickOn(mDevice.wait(Until.findObject(By.text(text)), timeout));
+    }
+
+    protected void waitAndClickByDescription(String description, long timeout) {
+      clickOn(mDevice.wait(Until.findObject(By.desc(description)), timeout));
+    }
+
+
+    protected void checkElementWithIdExists(String packageStr, String id, long timeout) {
+      if (!mDevice.wait(Until.hasObject(By.res(packageStr, id)), timeout)) {
+        throw new UnknownUiException(String.format(ERROR_NOT_FOUND, "with id", id, getPackage()));
+        }
+    }
+
+    protected void checkElementWithTextExists(String text, long timeout) {
+      if (!mDevice.wait(Until.hasObject(By.text(text)), timeout)) {
+        throw new UnknownUiException(
+            String.format(ERROR_NOT_FOUND, "with text", text, getPackage()));
+        }
+    }
+
+    protected void checkElementWithDescriptionExists(String description, long timeout) {
+      if (!mDevice.wait(Until.hasObject(By.desc(description)), timeout)) {
+        throw new UnknownUiException(
+            String.format(ERROR_NOT_FOUND, "with description", description, getPackage()));
+      }
+    }
+
+    protected void checkIfElementChecked(UiObject2 element) {
+      if (!element.isChecked()) {
+        throw new UnknownUiException("Element " + element + " is not checked");
+      }
     }
 }

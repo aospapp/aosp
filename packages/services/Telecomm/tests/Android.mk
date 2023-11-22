@@ -23,8 +23,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
         android-support-test \
         guava \
         mockito-target \
-        platform-test-annotations \
-        legacy-android-test
+        platform-test-annotations
 
 LOCAL_SRC_FILES := \
         $(call all-java-files-under, src) \
@@ -41,7 +40,8 @@ LOCAL_RESOURCE_DIR := \
     $(SUPPORT_LIBRARY_ROOT)/compat/res
 
 LOCAL_JAVA_LIBRARIES := \
-        android.test.runner \
+        android.test.mock \
+        legacy-android-test \
         telephony-common
 
 LOCAL_AAPT_FLAGS := \

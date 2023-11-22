@@ -62,12 +62,6 @@ EC_GROUP* ec_get_group(keymaster_ec_curve_t curve) {
     }
 }
 
-void convert_bn_to_blob(BIGNUM* bn, keymaster_blob_t* blob) {
-    blob->data_length = BN_num_bytes(bn);
-    blob->data = new uint8_t[blob->data_length];
-    BN_bn2bin(bn, const_cast<uint8_t*>(blob->data));
-}
-
 static int convert_to_evp(keymaster_algorithm_t algorithm) {
     switch (algorithm) {
     case KM_ALGORITHM_RSA:

@@ -142,15 +142,17 @@ public class MeteredStream extends FilterInputStream {
             return 0;
         }
 
-// Android-changed: Remove support for Android-removed class ChunkedInputSTream
-//        if (in instanceof ChunkedInputStream) {
-//            n = in.skip(n);
-//        }
-//        else {
+        // Android-removed: Removed support for Android-removed class ChunkedInputStream.
+        /*
+        if (in instanceof ChunkedInputStream) {
+            n = in.skip(n);
+        }
+        else {
+        */
             // just skip min(n, num_bytes_left)
             long min = (n > expected - count) ? expected - count: n;
             n = in.skip(min);
-//        }
+        // }
         justRead(n);
         return n;
     }

@@ -435,7 +435,7 @@ status_t IPCThreadState::getAndExecuteCommand()
         pthread_mutex_lock(&mProcess->mThreadCountLock);
         mProcess->mExecutingThreadsCount++;
         if (mProcess->mExecutingThreadsCount >= mProcess->mMaxThreads &&
-                mProcess->mStarvationStartTimeMs == 0) {
+            mProcess->mMaxThreads > 1 && mProcess->mStarvationStartTimeMs == 0) {
             mProcess->mStarvationStartTimeMs = uptimeMillis();
         }
         pthread_mutex_unlock(&mProcess->mThreadCountLock);
@@ -444,11 +444,11 @@ status_t IPCThreadState::getAndExecuteCommand()
 
         pthread_mutex_lock(&mProcess->mThreadCountLock);
         mProcess->mExecutingThreadsCount--;
-        if (mProcess->mExecutingThreadsCount < mProcess->mMaxThreads &&
-                mProcess->mStarvationStartTimeMs != 0) {
+        if (mProcess->mExecutingThreadsCount < mProcess->mMaxThreads && mProcess->mMaxThreads > 1 &&
+            mProcess->mStarvationStartTimeMs != 0) {
             int64_t starvationTimeMs = uptimeMillis() - mProcess->mStarvationStartTimeMs;
             if (starvationTimeMs > 100) {
-                ALOGE("binder thread pool (%zu threads) starved for %" PRId64 " ms",
+                ALOGW("All binder threads in pool (%zu threads) busy for %" PRId64 " ms",
                       mProcess->mMaxThreads, starvationTimeMs);
             }
             mProcess->mStarvationStartTimeMs = 0;

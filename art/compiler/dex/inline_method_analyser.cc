@@ -145,9 +145,8 @@ ArtMethod* GetTargetConstructor(ArtMethod* method, const Instruction* invoke_dir
   DCHECK_EQ(invoke_direct->VRegC_35c(),
             method->GetCodeItem()->registers_size_ - method->GetCodeItem()->ins_size_);
   uint32_t method_index = invoke_direct->VRegB_35c();
-  PointerSize pointer_size = Runtime::Current()->GetClassLinker()->GetImagePointerSize();
-  ArtMethod* target_method =
-      method->GetDexCache()->GetResolvedMethod(method_index, pointer_size);
+  ArtMethod* target_method = Runtime::Current()->GetClassLinker()->LookupResolvedMethod(
+      method_index, method->GetDexCache(), method->GetClassLoader());
   if (kIsDebugBuild && target_method != nullptr) {
     CHECK(!target_method->IsStatic());
     CHECK(target_method->IsConstructor());
@@ -433,8 +432,11 @@ bool InlineMethodAnalyser::AnalyseMethodCode(ArtMethod* method, InlineMethod* re
     // Native or abstract.
     return false;
   }
-  return AnalyseMethodCode(
-      code_item, method->ToMethodReference(), method->IsStatic(), method, result);
+  return AnalyseMethodCode(code_item,
+                           MethodReference(method->GetDexFile(), method->GetDexMethodIndex()),
+                           method->IsStatic(),
+                           method,
+                           result);
 }
 
 bool InlineMethodAnalyser::AnalyseMethodCode(const DexFile::CodeItem* code_item,

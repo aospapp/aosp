@@ -106,7 +106,8 @@ public abstract class USBAudioPeripheralActivity extends PassFailButtons.Activit
 
         // Any valid peripherals
         for(AudioDeviceInfo devInfo : devices) {
-            if (devInfo.getType() == AudioDeviceInfo.TYPE_USB_DEVICE) {
+            if (devInfo.getType() == AudioDeviceInfo.TYPE_USB_DEVICE ||
+                devInfo.getType() == AudioDeviceInfo.TYPE_USB_HEADSET) {
                 if (devInfo.isSink()) {
                     mOutputDevInfo = devInfo;
                 }

@@ -27,6 +27,14 @@ public abstract class BitmapVerifier {
 
     protected Bitmap mDifferenceBitmap;
 
+    public boolean verify(Bitmap bitmap) {
+        int width = bitmap.getWidth();
+        int height = bitmap.getHeight();
+        int[] pixels = new int[width * height];
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
+        return verify(pixels, 0, width, width, height);
+    }
+
     /**
      * This will test if the bitmap is good or not.
      */

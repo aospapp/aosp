@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without modification, are permitted
 * provided that the following conditions are met:
@@ -82,6 +82,9 @@ class DisplayBase : public DisplayInterface, DumpImpl {
   virtual DisplayError SetPanelBrightness(int level) {
     return kErrorNotSupported;
   }
+  virtual DisplayError CachePanelBrightness(int level) {
+    return kErrorNotSupported;
+  }
   virtual DisplayError OnMinHdcpEncryptionLevelChange(uint32_t min_enc_level) {
     return kErrorNotSupported;
   }
@@ -90,8 +93,11 @@ class DisplayBase : public DisplayInterface, DumpImpl {
                                             PPPendingParams *pending_action);
   virtual DisplayError GetColorModeCount(uint32_t *mode_count);
   virtual DisplayError GetColorModes(uint32_t *mode_count, std::vector<std::string> *color_modes);
+  virtual DisplayError GetColorModeAttr(const std::string &color_mode, AttrVal *attr);
   virtual DisplayError SetColorMode(const std::string &color_mode);
+  virtual DisplayError SetColorModeById(int32_t color_mode_id);
   virtual DisplayError SetColorTransform(const uint32_t length, const double *color_transform);
+  virtual DisplayError GetDefaultColorMode(std::string *color_mode);
   virtual DisplayError ApplyDefaultDisplayMode(void);
   virtual DisplayError SetCursorPosition(int x, int y);
   virtual DisplayError GetRefreshRateRange(uint32_t *min_refresh_rate, uint32_t *max_refresh_rate);
@@ -99,7 +105,7 @@ class DisplayBase : public DisplayInterface, DumpImpl {
     return kErrorNotSupported;
   }
   virtual DisplayError SetVSyncState(bool enable);
-  virtual void SetIdleTimeoutMs(uint32_t timeout_ms) {}
+  virtual void SetIdleTimeoutMs(uint32_t active_ms) {}
   virtual DisplayError SetMixerResolution(uint32_t width, uint32_t height);
   virtual DisplayError GetMixerResolution(uint32_t *width, uint32_t *height);
   virtual DisplayError SetFrameBufferConfig(const DisplayConfigVariableInfo &variable_info);
@@ -127,7 +133,12 @@ class DisplayBase : public DisplayInterface, DumpImpl {
   bool NeedsDownScale(const LayerRect &src_rect, const LayerRect &dst_rect, bool needs_rotation);
   DisplayError InitializeColorModes();
   DisplayError SetColorModeInternal(const std::string &color_mode);
+  DisplayError GetValueOfModeAttribute(const AttrVal &attr, const std::string &type,
+                                       std::string *value);
+  DisplayError GetHdrColorMode(std::string *color_mode, bool *found_hdr);
+  bool IsSupportColorModeAttribute(const std::string &color_mode);
 
+  static std::bitset<kDisplayMax> needs_validate_;
   recursive_mutex recursive_mutex_;
   DisplayType display_type_;
   DisplayEventHandler *event_handler_ = NULL;
@@ -141,7 +152,6 @@ class DisplayBase : public DisplayInterface, DumpImpl {
   Handle hw_device_ = 0;
   Handle display_comp_ctx_ = 0;
   HWLayers hw_layers_;
-  bool pending_commit_ = false;
   bool vsync_enable_ = false;
   uint32_t max_mixer_stages_ = 0;
   HWInfoInterface *hw_info_intf_ = NULL;
@@ -153,13 +163,14 @@ class DisplayBase : public DisplayInterface, DumpImpl {
   std::vector<SDEDisplayMode> color_modes_;
   typedef std::map<std::string, SDEDisplayMode *> ColorModeMap;
   ColorModeMap color_mode_map_ = {};
+  typedef std::map<std::string, AttrVal> ColorModeAttrMap;
+  ColorModeAttrMap color_mode_attr_map_ = {};
   HWDisplayAttributes display_attributes_ = {};
   HWMixerAttributes mixer_attributes_ = {};
   DisplayConfigVariableInfo fb_config_ = {};
   uint32_t req_mixer_width_ = 0;
   uint32_t req_mixer_height_ = 0;
   std::string current_color_mode_ = "hal_native";
-  std::string hdr_color_mode_ = "hal_hdr";
   bool hdr_playback_mode_ = false;
   int disable_hdr_lut_gen_ = 0;
 };

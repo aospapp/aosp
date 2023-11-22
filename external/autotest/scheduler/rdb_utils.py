@@ -169,9 +169,11 @@ class RequestAccountant(object):
         return self.requests_to_counts[host_request]
 
 
+    # TODO(akeshet): Possibly this code is dead, see crbug.com/738508 for
+    # context.
     def record_acquire_min_duts(cls, host_request, hosts_required,
                                 acquired_host_count):
-        """Send stats to graphite about host acquisition.
+        """Send stats about host acquisition.
 
         @param host_request: A request.
         @param hosts_required: Number of hosts required to satisfy request.

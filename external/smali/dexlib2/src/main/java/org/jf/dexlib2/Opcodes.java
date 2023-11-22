@@ -56,41 +56,32 @@ public class Opcodes {
 
     @Nonnull
     public static Opcodes forApi(int api) {
-        return new Opcodes(api, NO_VERSION, false);
-    }
-
-    @Nonnull
-    public static Opcodes forApi(int api, boolean experimental) {
-        return new Opcodes(api, NO_VERSION, experimental);
+        return new Opcodes(api, NO_VERSION);
     }
 
     @Nonnull
     public static Opcodes forArtVersion(int artVersion) {
-        return forArtVersion(artVersion, false);
+        return new Opcodes(NO_VERSION, artVersion);
     }
 
+    /**
+     * @return a default Opcodes instance for when the exact Opcodes to use doesn't matter or isn't known
+     */
     @Nonnull
-    public static Opcodes forArtVersion(int artVersion, boolean experimental) {
-        return new Opcodes(NO_VERSION, artVersion, experimental);
+    public static Opcodes getDefault() {
+        // The last pre-art api
+        return forApi(20);
     }
 
-    @Deprecated
-    public Opcodes(int api) {
-        this(api, false);
-    }
+    private Opcodes(int api, int artVersion) {
 
-    @Deprecated
-    public Opcodes(int api, boolean experimental) {
-        this(api, VersionMap.mapApiToArtVersion(api), experimental);
-    }
 
-    private Opcodes(int api, int artVersion, boolean experimental) {
         if (api >= 21) {
-            this.api = api;
+        this.api = api;
             this.artVersion = mapApiToArtVersion(api);
         } else if (artVersion >= 0 && artVersion < 39) {
             this.api = mapArtVersionToApi(artVersion);
-            this.artVersion = artVersion;
+        this.artVersion = artVersion;
         } else {
             this.api = api;
             this.artVersion = artVersion;
@@ -116,7 +107,7 @@ public class Opcodes {
             }
 
             Short opcodeValue = versionToValueMap.get(version);
-            if (opcodeValue != null && (!opcode.isExperimental() || experimental)) {
+            if (opcodeValue != null) {
                 if (!opcode.format.isPayloadFormat) {
                     opcodesByValue[opcodeValue] = opcode;
                 }

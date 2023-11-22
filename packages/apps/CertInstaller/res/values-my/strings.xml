@@ -67,7 +67,7 @@
     <string name="wifi_trust_config_text" msgid="5916047381475747783">"ယုံကြည်ခြင်း လက်မှတ်:\n%s\n"</string>
     <string name="install_done_title" msgid="4822989918460334497">"အထောက်အထားများ သွင်းယူပြီး၏"</string>
     <string name="install_done" msgid="1522718684172097080">"သိမ်းဆည်းထားသော ဝိုင်ဖိုင်ကွန်ယက်များသို့ <xliff:g id="NAME">%1$s</xliff:g> အထောက်အထားများ ထည့်ပြီး၏။"</string>
-    <string name="done_label" msgid="5597425930652904250">"လုပ်ပြီး"</string>
+    <string name="done_label" msgid="5597425930652904250">"ပြီးပါပြီ"</string>
     <string name="wifi_installer_detail" msgid="63879632832701669">"<xliff:g id="NAME">%1$s</xliff:g> မှတဆင့် ရနိုင်သော ကွန်ယက်များအား ချိတ်ဆက်ရန် ဝိုင်ဖိုင်အထောက်အထားများ သွင်းယူပါ"</string>
     <string name="wifi_installer_download_error" msgid="5429453090956277692">"ဒေါင်းလုပ်ရယူထားသော ဖိုင်များတွင် ပြဿနာရှိပြီး သွင်းယူမရနိုင်ပါ။ ဖိုင်အား မှန်ကန်သောနေရာမှ ဒေါင်းလုပ်ရယူထားကြောင်း သေချာပါစေ။"</string>
     <string name="wifi_installer_fail" msgid="894483173306576331">"Wi-Fi  အထောက်အထားများအား သွင်းယွင်းနိုင်ခြင်းမရှိပါ။ ဖိုင်အား ထပ်မံ၍ ဒေါင်းလုပ်ရယူပါ။"</string>

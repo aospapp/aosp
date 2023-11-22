@@ -17,7 +17,7 @@ class PDFiumFlavorUtils(default_flavor.DefaultFlavorUtils):
     pdfium_dir = self.m.vars.checkout_root.join('pdfium')
 
     # Runhook to generate the gn binary in buildtools.
-    with self.m.step.context({'cwd': pdfium_dir}):
+    with self.m.context(cwd=pdfium_dir):
       self.m.run(
           self.m.step,
           'runhook',
@@ -43,9 +43,9 @@ class PDFiumFlavorUtils(default_flavor.DefaultFlavorUtils):
         gn_args.append('pdf_use_skia=true')
 
 
-      env = self.m.step.get_from_context('env', {})
+      env = self.m.context.env
       env['CHROMIUM_BUILDTOOLS_PATH'] = str(pdfium_dir.join('buildtools'))
-      with self.m.step.context({'env': env}):
+      with self.m.context(env=env):
         self.m.run(
             self.m.step,
             'gn_gen',

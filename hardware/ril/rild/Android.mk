@@ -17,6 +17,7 @@ LOCAL_WHOLE_STATIC_LIBRARIES := \
 	librilutils_static
 
 LOCAL_CFLAGS := -DRIL_SHLIB
+LOCAL_CFLAGS += -Wall -Wextra -Werror
 
 ifeq ($(SIM_COUNT), 2)
     LOCAL_CFLAGS += -DANDROID_MULTI_SIM

@@ -21,6 +21,9 @@
 
 package accumulator;
 
+import android.os.Build;
+import android.os.Process;
+import java.lang.reflect.Field;
 import android.renderscript.*;
 import accumulator.reduce_general_accumulatorBitCode;
 

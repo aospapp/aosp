@@ -36,6 +36,7 @@ import java.util.Map;
  */
 public class OtaDeviceBuildInfo implements IDeviceBuildInfo {
 
+    private static final long serialVersionUID = BuildSerializedVersion.VERSION;
     protected IDeviceBuildInfo mOtaBuild;
     protected IDeviceBuildInfo mBaselineBuild;
     protected boolean mReportTargetBuild = false;

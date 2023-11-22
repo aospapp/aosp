@@ -48,7 +48,7 @@
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"Screensaver"</string>
     <string name="device_display" msgid="101455384386372747">"Display"</string>
-    <string name="device_sound" msgid="9214182566287657481">"Suono"</string>
+    <string name="device_sound" msgid="9214182566287657481">"Audio"</string>
     <string name="device_surround_sound" msgid="6272196310566546860">"Audio surround"</string>
     <string name="device_sound_effects" msgid="7793281745920228622">"Suoni di sistema"</string>
     <string name="device_apps" msgid="9180435229638772838">"App"</string>
@@ -73,7 +73,7 @@
     <string name="accessory_unpairing" msgid="7568241162181184667">"Disaccoppiamento dispositivo…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Connesso"</string>
     <string name="accessory_change_name" msgid="8958916008739792785">"Cambia nome"</string>
-    <string name="accessory_change_name_title" msgid="4630819456923061184">"Inserisci un nuovo nome per l\'accessorio"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"Inserisci un nuovo nome"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Ricerca accessori…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Prima di accoppiare i tuoi dispositivi Bluetooth, assicurati che siano in modalità di accoppiamento."</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"È stato trovato un dispositivo che verrà accoppiato automaticamente fra <xliff:g id="COUNTDOWN">%1$s</xliff:g> secondi."</string>
@@ -184,7 +184,7 @@
     <string name="title_wifi_could_not_connect_timeout" msgid="5158184646985406394">"Impossibile trovare <xliff:g id="SSID">%1$s</xliff:g>"</string>
     <string name="title_wifi_could_not_connect_authentication_failure" msgid="4836595650380723944">"Password Wi-Fi non valida"</string>
     <string name="title_wifi_could_not_connect_ap_reject" msgid="328274688839033015">"La rete Wi-Fi non ha accettato la connessione"</string>
-    <string name="title_wifi_advanced_options" msgid="5389467736846644832">"Configurare le impostazioni Proxy e IP di <xliff:g id="SSID">%1$s</xliff:g>?"</string>
+    <string name="title_wifi_advanced_options" msgid="5389467736846644832">"Configurare le impostazioni proxy e IP di <xliff:g id="SSID">%1$s</xliff:g>?"</string>
     <string name="title_wifi_proxy_settings" msgid="7728120764469991303">"Impostazioni proxy"</string>
     <string name="title_wifi_proxy_hostname" msgid="4655634673840885248">"Nome host proxy:"</string>
     <string name="title_wifi_proxy_port" msgid="9194893429116021337">"Porta proxy:"</string>
@@ -344,7 +344,7 @@
     <item msgid="2475903014233987786">"Utilizza l\'ora di trasmissione fornita in streaming"</item>
     <item msgid="150957081326946463">"Non attiva"</item>
   </string-array>
-    <string name="system_location" msgid="502463575930545806">"Luogo"</string>
+    <string name="system_location" msgid="502463575930545806">"Geolocalizzazione"</string>
     <string name="system_desc_location" msgid="4243551425631207495">"Consenti alle applicazioni che hanno chiesto la tua autorizzazione di utilizzare le informazioni sulla tua posizione"</string>
     <string name="system_network_location_confirm" msgid="8435144328428634060">"Consenso alla geolocalizzazione"</string>
     <string name="location_mode_title" msgid="6573195849329396150">"Modalità"</string>
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"Servizi"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Impostazioni servizio"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Testo alto contrasto"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Scorciatoia Accessibilità"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Abilita Scorciatoia Accessibilità"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Servizio scorciatoia"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Quando è attiva la scorciatoia, premi i pulsanti indietro e giù per avviare una funzione di accessibilità."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Sottotitoli"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Impostazioni per la sovrapposizione del testo dei sottotitoli sul video"</string>
     <string name="captions_display" msgid="735692527287125548">"Visualizzazione"</string>
@@ -478,11 +482,11 @@
     <string name="agree" msgid="1235622082275451350">"Accetta"</string>
     <string name="disagree" msgid="9170636026862400981">"Non accetto"</string>
     <string name="security_unknown_sources_title" msgid="769762478057744545">"Fonti sconosciute"</string>
-    <string name="security_unknown_sources_desc" msgid="7197053279914817124">"Consenti l\'installazione di applicazioni da fonti diverse da Play Store"</string>
+    <string name="security_unknown_sources_desc" msgid="7197053279914817124">"Consenti l\'installazione di app da fonti diverse da Play Store"</string>
     <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"Consenti fonti sconosciute"</string>
     <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"Il tuo dispositivo e i tuoi dati personali sono più vulnerabili agli attacchi da parte di applicazioni da fonti sconosciute. Accetti di essere l\'unico responsabile per eventuali danni al dispositivo o perdite di dati che potrebbero derivare dall\'utilizzo di queste applicazioni."</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"Verifica app"</string>
-    <string name="security_verify_apps_desc" msgid="1456317893117818733">"Non consentire o avvisa prima dell\'installazione di applicazioni che potrebbero causare danni"</string>
+    <string name="security_verify_apps_desc" msgid="1456317893117818733">"Non consentire o avvisa prima dell\'installazione di app che potrebbero essere dannose"</string>
     <string name="system_hdcp_checking_never" msgid="1758043078676276985">"Mai"</string>
     <string name="system_hdcp_checking_drm" msgid="8563220452241389905">"Per contenuti DRM"</string>
     <string name="system_hdcp_checking_always" msgid="7264575337360957746">"Sempre"</string>
@@ -565,7 +569,7 @@
     <string name="user_restrictions_controlled_by" msgid="2107349341393761750">"Controllata da <xliff:g id="APP">%1$s</xliff:g>"</string>
     <string name="app_not_supported_in_limited" msgid="6818309827329010677">"Questa app non è supportata nei profili con limitazioni"</string>
     <string name="app_sees_restricted_accounts" msgid="1967195038085624916">"Questa app può accedere ai tuoi account"</string>
-    <string name="restriction_location_enable_title" msgid="2575116135395354938">"Posizione"</string>
+    <string name="restriction_location_enable_title" msgid="2575116135395354938">"Geolocalizzazione"</string>
     <string name="restriction_location_enable_summary" msgid="4195349388342385870">"Consenti alle app di utilizzare informazioni sulla tua posizione"</string>
     <string name="restricted_profile_switch_to" msgid="1926433350907032138">"Accedi al profilo con limitazioni"</string>
     <string name="restricted_profile_switch_out" msgid="1893784095623209495">"Esci dal profilo con limitazioni"</string>
@@ -594,7 +598,7 @@
     <string name="pin_toast_wrong" msgid="4628358195224633248">"PIN errato. Riprova"</string>
     <string name="pin_toast_not_match" msgid="5886041789737632996">"Riprova, il PIN non corrisponde"</string>
     <string name="wifi_setup_input_password" msgid="1596168874369038536">"Inserisci la password di <xliff:g id="SSID">%1$s</xliff:g>"</string>
-    <string name="wifi_setup_connection_success" msgid="3846993789166071184">"Connesso correttamente"</string>
+    <string name="wifi_setup_connection_success" msgid="3846993789166071184">"Connessione effettuata"</string>
     <string name="wifi_setup_save_success" msgid="4785799603638549254">"Salvataggio riuscito"</string>
     <string name="device_apps_app_management_version" msgid="2267065043941006486">"Versione <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
     <string name="device_apps_app_management_open" msgid="8009823973422120839">"Apri"</string>
@@ -608,9 +612,9 @@
     <string name="device_apps_app_management_enable" msgid="3246823119203444608">"Attiva"</string>
     <string name="device_apps_app_management_enable_desc" msgid="7490219375247065314">"Vuoi attivare questa app?"</string>
     <string name="device_apps_app_management_storage_used" msgid="4611351576179140634">"Spazio di archiviazione utilizzato"</string>
-    <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"<xliff:g id="SIZE">%1$s</xliff:g> in uso nella <xliff:g id="VOLUME">%2$s</xliff:g>"</string>
+    <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"<xliff:g id="SIZE">%1$s</xliff:g> in uso in <xliff:g id="VOLUME">%2$s</xliff:g>"</string>
     <string name="device_apps_app_management_clear_data" msgid="4439114679323274127">"Cancella dati"</string>
-    <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"Tutti i dati dell\'applicazione verranno eliminati definitivamente,\ninclusi tutti i file, le impostazioni, gli account, i database e così via."</string>
+    <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"Tutti i dati dell\'app verranno eliminati definitivamente, inclusi tutti i file, le impostazioni, gli account, i database e così via.\n"</string>
     <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"Cancella predefinite"</string>
     <string name="device_apps_app_management_clear_default_set" msgid="4191720055364731307">"Imposta avvio app per alcune azioni"</string>
     <string name="device_apps_app_management_clear_default_none" msgid="196932966641339141">"Nessuna impostazione predefinita"</string>
@@ -628,13 +632,13 @@
     <string name="device_daydreams_sleep" msgid="7676938708373592766">"Quando avviare"</string>
     <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"Lo screensaver viene attivato dopo il periodo di inattività selezionato. Se non selezioni uno screensaver, il display si spegne."</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"Dopo <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> di inattività"</string>
-    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Configura sospensione dispositivo"</string>
+    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Attiva sospensione dispositivo"</string>
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"Lo schermo si spegne dopo questo periodo di inattività."</string>
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"Al momento nessun account contiene dati di backup"</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
     <string name="backup_erase_dialog_message" msgid="2608496013975068701">"Interrompere il backup delle password Wi-Fi, dei segnalibri, di altre impostazioni e dei dati delle applicazioni e cancellare tutte le copie sui server di Google?"</string>
     <string name="privacy_backup_data" msgid="1796662583830120812">"Backup dei miei dati"</string>
-    <string name="privacy_backup_account" msgid="9059939814827165020">"Backup account"</string>
+    <string name="privacy_backup_account" msgid="9059939814827165020">"Account di backup"</string>
     <string name="privacy_automatic_restore" msgid="1409885318093199628">"Ripristino automatico"</string>
     <string name="factory_reset_device" msgid="7422459553658815011">"Reimposta dispositivo"</string>
     <string name="factory_reset_description" msgid="5381170999141355891">"Questa operazione comporta l\'eliminazione di tutti i dati dalla memoria interna del dispositivo, tra cui: il tuo account Google, dati e impostazioni del sistema e delle app, nonché le app scaricate."</string>
@@ -649,13 +653,13 @@
     <item msgid="1389347662738182100">"TV della camera da letto"</item>
   </string-array>
     <string name="custom_room" msgid="8655516733933892458">"Inserisci nome personalizzato…"</string>
-    <string name="device_rename_title" msgid="2629557295786267185">"Modifica il nome di questo dispositivo <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
+    <string name="device_rename_title" msgid="2629557295786267185">"Cambia nome al dispositivo <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"Il nome attuale di questo dispositivo <xliff:g id="DEVICEMODEL">%1$s</xliff:g> è \"<xliff:g id="DEVICENAME">%2$s</xliff:g>\""</string>
     <string name="change_setting" msgid="2047402388786162246">"Cambia"</string>
     <string name="keep_settings" msgid="6798327196645732517">"Non cambiare"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"Autorizzazioni"</string>
     <string name="device_apps_permissions" msgid="2966387603529725982">"Autorizzazioni app"</string>
-    <string name="app_permissions_group_summary" msgid="7906834786705287901">"Sono consentite <xliff:g id="COUNT_0">%d</xliff:g> app su <xliff:g id="COUNT_1">%d</xliff:g>"</string>
+    <string name="app_permissions_group_summary" msgid="7906834786705287901">"App consentite: <xliff:g id="COUNT_0">%d</xliff:g> su <xliff:g id="COUNT_1">%d</xliff:g>"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"Richiesta autorizzazione Bluetooth"</string>
     <string name="security_patch" msgid="2131617390189164481">"Livello patch di sicurezza Android"</string>
     <string name="choose_application" msgid="5662960665577780353">"Scegli l\'applicazione"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Acquisizione della segnalazione di bug"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Tastiere virtuali disponibili"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Gestisci tastiere"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Autorizzata"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Non autorizzata"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Accesso ai dati sull\'utilizzo"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"L\'accesso ai dati sull\'utilizzo consente a un\'app di controllare quali altre app utilizzi e con quale frequenza, oltre a informazioni come operatore, impostazioni relative alla lingua e altri dettagli."</string>
 </resources>

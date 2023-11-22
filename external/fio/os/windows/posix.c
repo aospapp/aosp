@@ -40,12 +40,6 @@ HRESULT WINAPI StringCchPrintfA(
   const char *pszFormat,
   ...);
 
-int vsprintf_s(
-  char *buffer,
-  size_t numberOfElements,
-  const char *format,
-  va_list argptr);
-
 int win_to_posix_error(DWORD winerr)
 {
 	switch (winerr)
@@ -229,6 +223,32 @@ char *dlerror(void)
 	return dl_error;
 }
 
+/* Copied from http://blogs.msdn.com/b/joshpoley/archive/2007/12/19/date-time-formats-and-conversions.aspx */
+void Time_tToSystemTime(time_t dosTime, SYSTEMTIME *systemTime)
+{
+    FILETIME utcFT;
+    LONGLONG jan1970;
+
+    jan1970 = Int32x32To64(dosTime, 10000000) + 116444736000000000;
+    utcFT.dwLowDateTime = (DWORD)jan1970;
+    utcFT.dwHighDateTime = jan1970 >> 32;
+
+    FileTimeToSystemTime((FILETIME*)&utcFT, systemTime);
+}
+
+char* ctime_r(const time_t *t, char *buf)
+{
+    SYSTEMTIME systime;
+    const char * const dayOfWeek[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+    const char * const monthOfYear[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+
+    Time_tToSystemTime(*t, &systime);
+    /* We don't know how long `buf` is, but assume it's rounded up from the minimum of 25 to 32 */
+    StringCchPrintfA(buf, 31, "%s %s %d %02d:%02d:%02d %04d\n", dayOfWeek[systime.wDayOfWeek % 7], monthOfYear[(systime.wMonth - 1) % 12],
+										 systime.wDay, systime.wHour, systime.wMinute, systime.wSecond, systime.wYear);
+    return buf;
+}
+
 int gettimeofday(struct timeval *restrict tp, void *restrict tzp)
 {
 	FILETIME fileTime;
@@ -278,22 +298,51 @@ void *mmap(void *addr, size_t len, int prot, int flags,
 		int fildes, off_t off)
 {
 	DWORD vaProt = 0;
+	DWORD mapAccess = 0;
+	DWORD lenlow;
+	DWORD lenhigh;
+	HANDLE hMap;
 	void* allocAddr = NULL;
 
 	if (prot & PROT_NONE)
 		vaProt |= PAGE_NOACCESS;
 
-	if ((prot & PROT_READ) && !(prot & PROT_WRITE))
+	if ((prot & PROT_READ) && !(prot & PROT_WRITE)) {
 		vaProt |= PAGE_READONLY;
+		mapAccess = FILE_MAP_READ;
+	}
 
-	if (prot & PROT_WRITE)
+	if (prot & PROT_WRITE) {
 		vaProt |= PAGE_READWRITE;
+		mapAccess |= FILE_MAP_WRITE;
+	}
 
-	if ((flags & MAP_ANON) | (flags & MAP_ANONYMOUS))
+	lenlow = len & 0xFFFF;
+	lenhigh = len >> 16;
+	/* If the low DWORD is zero and the high DWORD is non-zero, `CreateFileMapping`
+	   will return ERROR_INVALID_PARAMETER. To avoid this, set both to zero. */
+	if (lenlow == 0) {
+		lenhigh = 0;
+	}
+
+	if (flags & MAP_ANON || flags & MAP_ANONYMOUS)
 	{
 		allocAddr = VirtualAlloc(addr, len, MEM_COMMIT, vaProt);
 		if (allocAddr == NULL)
 			errno = win_to_posix_error(GetLastError());
+	}
+	else
+	{
+		hMap = CreateFileMapping((HANDLE)_get_osfhandle(fildes), NULL, vaProt, lenhigh, lenlow, NULL);
+
+		if (hMap != NULL)
+		{
+			allocAddr = MapViewOfFile(hMap, mapAccess, off >> 16, off & 0xFFFF, len);
+		}
+
+		if (hMap == NULL || allocAddr == NULL)
+			errno = win_to_posix_error(GetLastError());
+
 	}
 
 	return allocAddr;
@@ -301,12 +350,24 @@ void *mmap(void *addr, size_t len, int prot, int flags,
 
 int munmap(void *addr, size_t len)
 {
-	if (!VirtualFree(addr, 0, MEM_RELEASE)) {
-		errno = win_to_posix_error(GetLastError());
-		return -1;
+	BOOL success;
+
+	/* We may have allocated the memory with either MapViewOfFile or
+		 VirtualAlloc. Therefore, try calling UnmapViewOfFile first, and if that
+		 fails, call VirtualFree. */
+	success = UnmapViewOfFile(addr);
+
+	if (!success)
+	{
+		success = VirtualFree(addr, 0, MEM_RELEASE);
 	}
 
-	return 0;
+	return !success;
+}
+
+int msync(void *addr, size_t len, int flags)
+{
+	return !FlushViewOfFile(addr, len);
 }
 
 int fork(void)
@@ -621,10 +682,19 @@ int setgid(gid_t gid)
 
 int nice(int incr)
 {
-	if (incr != 0) {
-		errno = EINVAL;
-		return -1;
-	}
+	DWORD prioclass = NORMAL_PRIORITY_CLASS;
+	
+	if (incr < -15)
+		prioclass = HIGH_PRIORITY_CLASS;
+	else if (incr < 0)
+		prioclass = ABOVE_NORMAL_PRIORITY_CLASS;
+	else if (incr > 15)
+		prioclass = IDLE_PRIORITY_CLASS;
+	else if (incr > 0)
+		prioclass = BELOW_NORMAL_PRIORITY_CLASS;
+	
+	if (!SetPriorityClass(GetCurrentProcess(), prioclass))
+		log_err("fio: SetPriorityClass failed\n");
 
 	return 0;
 }
@@ -667,15 +737,7 @@ int getrusage(int who, struct rusage *r_usage)
 
 int posix_madvise(void *addr, size_t len, int advice)
 {
-	log_err("%s is not implemented\n", __func__);
 	return ENOSYS;
-}
-
-/* Windows doesn't support advice for memory pages. Just ignore it. */
-int msync(void *addr, size_t len, int flags)
-{
-	errno = ENOSYS;
-	return -1;
 }
 
 int fdatasync(int fildes)
@@ -864,7 +926,7 @@ struct dirent *readdir(DIR *dirp)
 
 	if (dirp->find_handle == INVALID_HANDLE_VALUE) {
 		char search_pattern[MAX_PATH];
-		StringCchPrintfA(search_pattern, MAX_PATH, "%s\\*", dirp->dirname);
+		StringCchPrintfA(search_pattern, MAX_PATH-1, "%s\\*", dirp->dirname);
 		dirp->find_handle = FindFirstFileA(search_pattern, &find_data);
 		if (dirp->find_handle == INVALID_HANDLE_VALUE)
 			return NULL;

@@ -2,6 +2,7 @@
 // ========================================================
 cc_test {
     name: "net_test_bluetooth",
+    test_suites: ["device-tests"],
     defaults: ["fluoride_defaults"],
     include_dirs: ["system/bt"],
     srcs: [
@@ -46,5 +47,23 @@ cc_test {
     ],
     whole_static_libs: [
         "libbluetoothtbd_hal",
+    ],
+}
+
+// Bluetooth test suite for target
+// ========================================================
+cc_test {
+    name: "performance_test",
+    defaults: ["fluoride_defaults"],
+    include_dirs: ["system/bt"],
+    srcs: [
+        "core/thread_performance_test.cc",
+    ],
+    shared_libs: [
+        "liblog",
+    ],
+    static_libs: [
+        "libgmock",
+        "libosi",
     ],
 }

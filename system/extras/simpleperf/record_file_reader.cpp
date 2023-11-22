@@ -434,6 +434,23 @@ bool RecordFileReader::ReadFileFeature(size_t& read_pos,
   return true;
 }
 
+bool RecordFileReader::ReadMetaInfoFeature(std::unordered_map<std::string, std::string>* info_map) {
+  std::vector<char> buf;
+  if (!ReadFeatureSection(FEAT_META_INFO, &buf)) {
+    return false;
+  }
+  const char* p = buf.data();
+  const char* end = buf.data() + buf.size();
+  while (p < end) {
+    const char* key = p;
+    const char* value = key + strlen(key) + 1;
+    CHECK(value < end);
+    (*info_map)[p] = value;
+    p = value + strlen(value) + 1;
+  }
+  return true;
+}
+
 void RecordFileReader::LoadBuildIdAndFileFeatures(ThreadTree& thread_tree) {
   std::vector<BuildIdRecord> records = ReadBuildIdFeature();
   std::vector<std::pair<std::string, BuildId>> build_ids;

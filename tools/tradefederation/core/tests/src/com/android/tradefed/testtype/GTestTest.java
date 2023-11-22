@@ -15,39 +15,41 @@
  */
 package com.android.tradefed.testtype;
 
+import static org.junit.Assert.*;
+
 import com.android.ddmlib.FileListingService;
 import com.android.ddmlib.IShellOutputReceiver;
 import com.android.ddmlib.testrunner.ITestRunListener;
+import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.CollectingOutputReceiver;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.MockFileUtil;
 import com.android.tradefed.result.ITestInvocationListener;
 
-import junit.framework.TestCase;
-
 import org.easymock.EasyMock;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.io.File;
 import java.util.concurrent.TimeUnit;
 
 
-/**
- * Unit tests for {@link GTest}.
- */
-public class GTestTest extends TestCase {
+/** Unit tests for {@link GTest}. */
+@RunWith(JUnit4.class)
+public class GTestTest {
     private static final String GTEST_FLAG_FILTER = "--gtest_filter";
     private ITestInvocationListener mMockInvocationListener = null;
     private IShellOutputReceiver mMockReceiver = null;
     private ITestDevice mMockITestDevice = null;
     private GTest mGTest;
+    private OptionSetter mSetter;
 
-    /**
-     * Helper to initialize the various EasyMocks we'll need.
-     */
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    /** Helper to initialize the various EasyMocks we'll need. */
+    @Before
+    public void setUp() throws Exception {
         mMockInvocationListener = EasyMock.createMock(ITestInvocationListener.class);
         mMockReceiver = EasyMock.createMock(IShellOutputReceiver.class);
         mMockITestDevice = EasyMock.createMock(ITestDevice.class);
@@ -70,6 +72,7 @@ public class GTestTest extends TestCase {
             }
         };
         mGTest.setDevice(mMockITestDevice);
+        mSetter = new OptionSetter(mGTest);
     }
 
     /**
@@ -86,9 +89,8 @@ public class GTestTest extends TestCase {
       EasyMock.verify(mMockInvocationListener, mMockITestDevice, mMockReceiver);
     }
 
-    /**
-     * Test run when the test dir is not found on the device.
-     */
+    /** Test run when the test dir is not found on the device. */
+    @Test
     public void testRun_noTestDir() throws DeviceNotAvailableException {
         EasyMock.expect(mMockITestDevice.doesFileExist(GTest.DEFAULT_NATIVETEST_PATH))
                 .andReturn(false);
@@ -97,9 +99,8 @@ public class GTestTest extends TestCase {
         verifyMocks();
     }
 
-    /**
-     * Test run when no device is set should throw an exception.
-     */
+    /** Test run when no device is set should throw an exception. */
+    @Test
     public void testRun_noDevice() throws DeviceNotAvailableException {
         mGTest.setDevice(null);
         replayMocks();
@@ -112,9 +113,8 @@ public class GTestTest extends TestCase {
         verifyMocks();
     }
 
-    /**
-     * Test the run method for a couple tests
-     */
+    /** Test the run method for a couple tests */
+    @Test
     public void testRun() throws DeviceNotAvailableException {
         final String nativeTestPath = GTest.DEFAULT_NATIVETEST_PATH;
         final String test1 = "test1";
@@ -147,9 +147,8 @@ public class GTestTest extends TestCase {
         verifyMocks();
     }
 
-    /**
-     * Test the run method when module name is specified
-     */
+    /** Test the run method when module name is specified */
+    @Test
     public void testRun_moduleName() throws DeviceNotAvailableException {
         final String module = "test1";
         final String modulePath = String.format("%s%s%s",
@@ -173,9 +172,8 @@ public class GTestTest extends TestCase {
         verifyMocks();
     }
 
-    /**
-     * Test the run method for a test in a subdirectory
-     */
+    /** Test the run method for a test in a subdirectory */
+    @Test
     public void testRun_nested() throws DeviceNotAvailableException {
         final String nativeTestPath = GTest.DEFAULT_NATIVETEST_PATH;
         final String subFolderName = "subFolder";
@@ -236,9 +234,8 @@ public class GTestTest extends TestCase {
         verifyMocks();
     }
 
-    /**
-     * Test the include filtering of test methods.
-     */
+    /** Test the include filtering of test methods. */
+    @Test
     public void testIncludeFilter() throws DeviceNotAvailableException {
         String includeFilter1 = "abc";
         String includeFilter2 = "def";
@@ -247,9 +244,8 @@ public class GTestTest extends TestCase {
         doTestFilter(String.format("%s=%s:%s", GTEST_FLAG_FILTER, includeFilter1, includeFilter2));
     }
 
-    /**
-     * Test the exclude filtering of test methods.
-     */
+    /** Test the exclude filtering of test methods. */
+    @Test
     public void testExcludeFilter() throws DeviceNotAvailableException {
         String excludeFilter1 = "*don?tRunMe*";
         mGTest.addExcludeFilter(excludeFilter1);
@@ -258,9 +254,8 @@ public class GTestTest extends TestCase {
                 "%s=-%s", GTEST_FLAG_FILTER, excludeFilter1));
     }
 
-    /**
-     * Test simultaneous include and exclude filtering of test methods.
-     */
+    /** Test simultaneous include and exclude filtering of test methods. */
+    @Test
     public void testIncludeAndExcludeFilters() throws DeviceNotAvailableException {
         String includeFilter1 = "pleaseRunMe";
         String includeFilter2 = "andMe";
@@ -275,9 +270,8 @@ public class GTestTest extends TestCase {
               includeFilter1, includeFilter2, excludeFilter1, excludeFilter2));
     }
 
-    /**
-     * Test behavior for command lines too long to be run by ADB
-     */
+    /** Test behavior for command lines too long to be run by ADB */
+    @Test
     public void testCommandTooLong() throws DeviceNotAvailableException {
         String deviceScriptPath = "/data/local/tmp/gtest_script.sh";
         StringBuilder filterString = new StringBuilder(GTEST_FLAG_FILTER);
@@ -325,6 +319,7 @@ public class GTestTest extends TestCase {
     }
 
     /** Empty file exclusion regex filter should not skip any files */
+    @Test
     public void testFileExclusionRegexFilter_emptyfilters() throws Exception {
         // report /test_file as executable
         ITestDevice mockDevice = EasyMock.createMock(ITestDevice.class);
@@ -337,12 +332,14 @@ public class GTestTest extends TestCase {
     }
 
     /** File exclusion regex filter should skip invalid filepath. */
+    @Test
     public void testFileExclusionRegexFilter_invalidInputString() throws Exception {
         assertTrue(mGTest.shouldSkipFile(null));
         assertTrue(mGTest.shouldSkipFile(""));
     }
 
     /** File exclusion regex filter should skip matched filepaths. */
+    @Test
     public void testFileExclusionRegexFilter_skipMatched() throws Exception {
         // report all files as executable
         ITestDevice mockDevice = EasyMock.createMock(ITestDevice.class);
@@ -363,6 +360,7 @@ public class GTestTest extends TestCase {
     }
 
     /** File exclusion regex filter for multi filters. */
+    @Test
     public void testFileExclusionRegexFilter_skipMultiMatched() throws Exception {
         // report all files as executable
         ITestDevice mockDevice = EasyMock.createMock(ITestDevice.class);
@@ -384,11 +382,10 @@ public class GTestTest extends TestCase {
         assertTrue(mGTest.shouldSkipFile("/some/path/file/run_me.not2"));
     }
 
-    /**
-     * Test the run method for a couple tests
-     */
-    public void testRunXml() throws DeviceNotAvailableException {
-        mGTest.setEnableXmlOutput(true);
+    /** Test the run method for a couple tests */
+    @Test
+    public void testRunXml() throws Exception {
+        mSetter.setOptionValue("xml-output", "true");
 
         final String nativeTestPath = GTest.DEFAULT_NATIVETEST_PATH;
         final String test1 = "test1";
@@ -424,6 +421,7 @@ public class GTestTest extends TestCase {
         verifyMocks();
     }
 
+    @Test
     public void testGetFileName() {
         String expected = "bar";
         String s1 = "/foo/" + expected;
@@ -439,12 +437,11 @@ public class GTestTest extends TestCase {
         }
     }
 
-    /**
-     * Test the include filtering by file of test methods.
-     */
-    public void testFileFilter() throws DeviceNotAvailableException {
+    /** Test the include filtering by file of test methods. */
+    @Test
+    public void testFileFilter() throws Exception {
         String fileFilter = "presubmit";
-        mGTest.setLoadFilterFromFile(fileFilter);
+        mSetter.setOptionValue("test-filter-key", fileFilter);
         String expectedFilterFile = String.format("%s/test1%s",
                 GTest.DEFAULT_NATIVETEST_PATH, GTest.FILTER_EXTENSION);
         String fakeContent = "{\n" +
@@ -465,9 +462,10 @@ public class GTestTest extends TestCase {
      * Test the include filtering by providing a non existing filter. No filter will be applied in
      * this case.
      */
-    public void testFileFilter_notfound() throws DeviceNotAvailableException {
+    @Test
+    public void testFileFilter_notfound() throws Exception {
         String fileFilter = "garbage";
-        mGTest.setLoadFilterFromFile(fileFilter);
+        mSetter.setOptionValue("test-filter-key", fileFilter);
         String expectedFilterFile = String.format("%s/test1%s",
                 GTest.DEFAULT_NATIVETEST_PATH, GTest.FILTER_EXTENSION);
         String fakeContent = "{\n" +
@@ -485,8 +483,27 @@ public class GTestTest extends TestCase {
     }
 
     /**
-     * Test GTest command line string for sharded tests.
+     * Test {@link GTest#getGTestCmdLine(String, String) with default options.
      */
+    @Test
+    public void testGetGTestCmdLine_defaults() {
+        String cmd_line = mGTest.getGTestCmdLine("test_path", "flags");
+        assertEquals("test_path flags", cmd_line);
+    }
+
+    /**
+     * Test {@link GTest#getGTestCmdLine(String, String) with non-default user.
+     */
+    @Test
+    public void testGetGTestCmdLine_runAs() throws Exception {
+        mSetter.setOptionValue("run-test-as", "shell");
+
+        String cmd_line = mGTest.getGTestCmdLine("test_path", "flags");
+        assertEquals("su shell test_path flags", cmd_line);
+    }
+
+    /** Test GTest command line string for sharded tests. */
+    @Test
     public void testGetGTestCmdLine_testShard() {
         mGTest.setShardIndex(1);
         mGTest.setShardCount(3);
@@ -500,6 +517,7 @@ public class GTestTest extends TestCase {
      *
      * @throws Exception
      */
+    @Test
     public void testIsDeviceFileExecutable_executable_rwx() throws Exception {
         ITestDevice mockDevice = EasyMock.createMock(ITestDevice.class);
         EasyMock.expect(mockDevice.executeShellCommand("ls -l /system/bin/ping"))
@@ -516,6 +534,7 @@ public class GTestTest extends TestCase {
      *
      * @throws Exception
      */
+    @Test
     public void testIsDeviceFileExecutable_executable_lrwx() throws Exception {
         ITestDevice mockDevice = EasyMock.createMock(ITestDevice.class);
         EasyMock.expect(mockDevice.executeShellCommand("ls -l /system/bin/start"))
@@ -532,6 +551,7 @@ public class GTestTest extends TestCase {
      *
      * @throws Exception
      */
+    @Test
     public void testIsDeviceFileExecutable_notExecutable() throws Exception {
         ITestDevice mockDevice = EasyMock.createMock(ITestDevice.class);
         EasyMock.expect(mockDevice.executeShellCommand("ls -l /system/build.prop"))
@@ -547,6 +567,7 @@ public class GTestTest extends TestCase {
      *
      * @throws Exception
      */
+    @Test
     public void testIsDeviceFileExecutable_directory() throws Exception {
         ITestDevice mockDevice = EasyMock.createMock(ITestDevice.class);
         EasyMock.expect(mockDevice.executeShellCommand("ls -l /system"))

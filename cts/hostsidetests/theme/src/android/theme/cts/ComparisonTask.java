@@ -136,30 +136,6 @@ public class ComparisonTask implements Callable<Pair<String, File>> {
         return true;
     }
 
-    /**
-     * Returns the perceptual difference score (lower is better) for the
-     * provided ARGB pixels.
-     */
-    private static double computeLabDistance(int p1, int p2) {
-        // Blend with neutral gray to account for opacity.
-        p1 = ColorUtils.blendSrcOver(p1, GRAY);
-        p2 = ColorUtils.blendSrcOver(p2, GRAY);
-
-        // Convert to LAB.
-        double[] lab1 = new double[3];
-        double[] lab2 = new double[3];
-        ColorUtils.colorToLAB(p1, lab1);
-        ColorUtils.colorToLAB(p2, lab2);
-
-        // Compute the distance
-        double dist = 0;
-        for (int i = 0; i < 3; i++) {
-            double delta = lab1[i] - lab2[i];
-            dist += delta * delta;
-        }
-        return Math.sqrt(dist);
-    }
-
     private static void createDiff(BufferedImage expected, BufferedImage actual, File out)
             throws IOException {
         final int w1 = expected.getWidth();

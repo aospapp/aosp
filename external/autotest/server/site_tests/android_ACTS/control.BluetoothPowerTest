@@ -2,10 +2,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = 'jimtan'
+AUTHOR = 'ajanti'
 NAME = 'android_ACTS.BluetoothPowerTest'
 TIME = 'LONG'
 TEST_TYPE = 'Server'
+ATTRIBUTES = 'suite:android_bluetooth'
+DEPENDENCIES = 'bluetooth_power'
 
 DOC = """
 This test runs Bluetooth Power tests

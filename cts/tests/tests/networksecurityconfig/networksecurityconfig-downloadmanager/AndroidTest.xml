@@ -15,12 +15,13 @@
 -->
 <configuration description="Config for CTS CtsNetSecConfigDownloadManagerTestCases test cases">
     <option name="config-descriptor:metadata" key="component" value="security" />
+    <option name="not-shardable" value="true" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsNetSecConfigDownloadManagerTestCases.apk" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.security.net.config.cts.CtsNetSecConfigDownloadManagerTestCases" />
-        <option name="runtime-hint" value="11m" />
+        <option name="runtime-hint" value="15s" />
     </test>
 </configuration>

@@ -30,6 +30,10 @@
 
 int main(int argc, char *argv[], char *envp[])
 {
+	int ret = 1;
+
+	compiletime_assert(TD_NR <= TD_ENG_FLAG_SHIFT, "TD_ENG_FLAG_SHIFT");
+
 	if (initialize_fio(envp))
 		return 1;
 
@@ -37,8 +41,17 @@ int main(int argc, char *argv[], char *envp[])
 #error "No available clock source!"
 #endif
 
+	if (fio_server_create_sk_key())
+		goto done;
+
 	if (parse_options(argc, argv))
-		return 1;
+		goto done_key;
+
+	/*
+	 * line buffer stdout to avoid output lines from multiple
+	 * threads getting mixed
+	 */
+	setvbuf(stdout, NULL, _IOLBF, 0);
 
 	fio_time_init();
 
@@ -46,8 +59,14 @@ int main(int argc, char *argv[], char *envp[])
 		set_genesis_time();
 
 		if (fio_start_all_clients())
-			return 1;
-		return fio_handle_clients(&fio_client_ops);
+			goto done_key;
+		ret = fio_handle_clients(&fio_client_ops);
 	} else
-		return fio_backend();
+		ret = fio_backend(NULL);
+
+done_key:
+	fio_server_destroy_sk_key();
+done:
+	deinitialize_fio();
+	return ret;
 }

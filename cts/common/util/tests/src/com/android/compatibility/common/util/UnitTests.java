@@ -15,30 +15,28 @@
  */
 package com.android.compatibility.common.util;
 
-import junit.framework.Test;
-import junit.framework.TestSuite;
+import org.junit.runner.RunWith;
+import org.junit.runners.Suite;
+import org.junit.runners.Suite.SuiteClasses;
 
 /**
  * A test suite for all util unit tests.
  * <p/>
  * All tests listed here should be self-contained, and do not require any external dependencies.
  */
-public class UnitTests extends TestSuite {
-
-    public UnitTests() {
-        super();
-        addTestSuite(CaseResultTest.class);
-        addTestSuite(DynamicConfigTest.class);
-        addTestSuite(LightInvocationResultTest.class);
-        addTestSuite(MetricsXmlSerializerTest.class);
-        addTestSuite(MultipartFormTest.class);
-        addTestSuite(ReportLogTest.class);
-        addTestSuite(ResultHandlerTest.class);
-        addTestSuite(StatTest.class);
-        addTestSuite(TestResultTest.class);
-    }
-
-    public static Test suite() {
-        return new UnitTests();
-    }
+@RunWith(Suite.class)
+@SuiteClasses({
+    BusinessLogicTest.class,
+    CaseResultTest.class,
+    DynamicConfigTest.class,
+    LightInvocationResultTest.class,
+    MetricsXmlSerializerTest.class,
+    MultipartFormTest.class,
+    ReportLogTest.class,
+    ResultHandlerTest.class,
+    StatTest.class,
+    TestResultTest.class,
+})
+public class UnitTests {
+    // empty on purpose
 }

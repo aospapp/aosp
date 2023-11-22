@@ -69,7 +69,7 @@ LOCAL_STATIC_LIBRARIES := \
     libnanohub_os \
     libnanolibc_os \
 
-LOCAL_OBJCOPY_SECT_cortexm4 := .bl .blrodata .eedata
+LOCAL_OBJCOPY_SECT_cortexm4 := .bl .data .eedata
 
 include $(BUILD_NANOHUB_BL_EXECUTABLE)
 

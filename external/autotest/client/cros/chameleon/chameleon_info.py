@@ -27,7 +27,6 @@ _CHAMELEON_BOARD_INFO = {
         '94:eb:2c:00:01:30': ChameleonInfo('00:1F:84:01:03:2F'),
         '94:eb:2c:00:01:3a': ChameleonInfo('00:1F:84:01:03:42'),
         '94:eb:2c:00:01:3b': ChameleonInfo('00:1F:84:01:03:44'),
-        '94:eb:2c:00:01:3c': ChameleonInfo('00:1F:84:01:03:62'),
         '94:eb:2c:00:01:3d': ChameleonInfo('00:1F:84:01:03:59'),
         '94:eb:2c:00:01:3e': ChameleonInfo('00:1F:84:01:03:74'),
         '94:eb:2c:00:01:3f': ChameleonInfo('00:1F:84:01:03:8C'),
@@ -42,7 +41,6 @@ _CHAMELEON_BOARD_INFO = {
         '94:eb:2c:10:06:72': ChameleonInfo('00:1F:84:01:03:61'),
         '94:eb:2c:10:06:73': ChameleonInfo('00:1F:84:01:03:2C'),
         '94:eb:2c:10:06:76': ChameleonInfo('00:1F:84:01:03:83'),
-        '94:eb:2c:10:06:74': ChameleonInfo('00:1F:84:01:03:61'),
         '94:eb:2c:10:06:7a': ChameleonInfo('00:1F:84:01:03:1C'),
         '94:eb:2c:10:06:7b': ChameleonInfo('00:1F:84:01:03:A7'),
         '94:eb:2c:10:06:7c': ChameleonInfo('00:1F:84:01:03:4B'),
@@ -54,6 +52,29 @@ _CHAMELEON_BOARD_INFO = {
         '94:eb:2c:00:01:31': ChameleonInfo('00:1F:84:01:03:20'),
         '94:eb:2c:00:01:18': ChameleonInfo('00:1F:84:01:03:A1'),
         '94:eb:2c:10:06:84': ChameleonInfo('00:1F:84:01:03:32'),
+
+        # TODO (rjahagir@): Verify the addresses listed above as
+        # as many were reworked/relocated. Some are duplicates.
+        # Listed below are added as of 4/13/17.
+        '94:eb:2c:10:06:74': ChameleonInfo('00:1F:84:01:03:88'),
+        '94:eb:2c:10:06:a9': ChameleonInfo('00:1F:84:01:03:6C'),
+        '94:eb:2c:10:06:89': ChameleonInfo('00:1F:84:01:03:40'),
+        '94:eb:2c:10:06:a3': ChameleonInfo('00:1F:84:01:03:24'),
+        '94:eb:2c:10:06:99': ChameleonInfo('00:1F:84:01:03:93'),
+        '94:eb:2c:10:06:9a': ChameleonInfo('00:1F:84:01:03:B1'),
+        '94:eb:2c:00:01:1a': ChameleonInfo('00:1F:84:01:03:70'),
+        '94:eb:2c:10:06:90': ChameleonInfo('00:1F:84:01:03:6E'),
+        '94:eb:2c:00:01:00': ChameleonInfo('00:1F:84:01:03:54'),
+        '94:eb:2c:00:01:01': ChameleonInfo('00:1F:84:01:03:3E'),
+        '94:eb:2c:10:06:9e': ChameleonInfo('00:1F:84:01:03:97'),
+        '94:eb:2c:10:06:9f': ChameleonInfo('00:1F:84:01:03:49'),
+
+        # Listed below added as of 5/12/17.
+        '94:eb:2c:10:06:98': ChameleonInfo('00:1F:84:01:03:65'),
+        '94:eb:2c:00:01:19': ChameleonInfo('00:1F:84:01:03:91'),
+        '94:eb:2c:10:06:8a': ChameleonInfo('00:1F:84:01:03:AB'),
+        '94:eb:2c:00:01:1d': ChameleonInfo('00:1F:84:01:03:A6'),
+        '94:eb:2c:10:06:95': ChameleonInfo('00:1F:84:01:03:66')
 }
 
 class ChameleonInfoError(Exception):

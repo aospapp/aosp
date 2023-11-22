@@ -478,7 +478,7 @@ bool AttestKeyResponse::AllocateChain(size_t entry_count) {
     }
 
     certificate_chain.entry_count = entry_count;
-    certificate_chain.entries = new keymaster_blob_t[entry_count];
+    certificate_chain.entries = new (std::nothrow) keymaster_blob_t[entry_count];
     if (!certificate_chain.entries) {
         certificate_chain.entry_count = 0;
         return false;

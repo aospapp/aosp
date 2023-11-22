@@ -31,13 +31,13 @@ bool PointerType::isElidableType() const {
     return true;
 }
 
-void PointerType::addNamedTypesToSet(std::set<const FQName> &) const {
-    // do nothing
-}
-
 std::string PointerType::getCppType(StorageMode /* mode */,
                                    bool /* specifyNamespaces */) const {
     return "void*";
+}
+
+std::string PointerType::typeName() const {
+    return "local pointer";
 }
 
 std::string PointerType::getVtsType() const {
@@ -46,11 +46,12 @@ std::string PointerType::getVtsType() const {
 
 void PointerType::emitReaderWriter(
         Formatter& out,
-        const std::string& /* name */,
+        const std::string& name,
         const std::string& /* parcelObj */,
         bool /* parcelObjIsPointer */,
         bool /* isReader */,
         ErrorMode /* mode */) const {
+    out << "(void)" << name << ";\n";
     out << "LOG_ALWAYS_FATAL(\"Pointer is only supported in passthrough mode\");\n";
 }
 

@@ -738,13 +738,6 @@
 #define GATT_CONFORMANCE_TESTING FALSE
 #endif
 
-/* number of background connection device allowence, ideally to be the same as
- * WL size
-*/
-#ifndef GATT_MAX_BG_CONN_DEV
-#define GATT_MAX_BG_CONN_DEV 32
-#endif
-
 /******************************************************************************
  *
  * SMP
@@ -1204,11 +1197,6 @@
 
 #ifndef GAP_INCLUDED
 #define GAP_INCLUDED TRUE
-#endif
-
-/* This is set to enable use of GAP L2CAP connections. */
-#ifndef GAP_CONN_INCLUDED
-#define GAP_CONN_INCLUDED TRUE
 #endif
 
 /* The maximum number of simultaneous GAP L2CAP connections. */

@@ -54,7 +54,7 @@
     <string name="device_apps" msgid="9180435229638772838">"Programme"</string>
     <string name="device_storage_reset" msgid="1425978936501134425">"Berging en terugstelling"</string>
     <string name="device_backup_restore" msgid="5627523987587511884">"Rugsteun en teruglaai"</string>
-    <string name="device_reset" msgid="2827002349560023125">"Fabriekterugstelling"</string>
+    <string name="device_reset" msgid="2827002349560023125">"Fabriekterug- stelling"</string>
     <string name="device_calibration" msgid="8632962533376605191">"Kalibrering"</string>
     <string name="device_storage_clear_cache_title" msgid="3365635664766067643">"Moet gekaste data uitgevee word?"</string>
     <string name="device_storage_clear_cache_message" msgid="6495570470005696210">"Sal gekaste data vir alle programme uitvee."</string>
@@ -73,7 +73,7 @@
     <string name="accessory_unpairing" msgid="7568241162181184667">"Ontsaambind tans toestel…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Gekoppel"</string>
     <string name="accessory_change_name" msgid="8958916008739792785">"Verander naam"</string>
-    <string name="accessory_change_name_title" msgid="4630819456923061184">"Voer \'n nuwe naam vir hierdie bykomstigheid in"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"Voer nuwe naam vir dié bykomstigheid in"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Soek tans vir bykomstigheid…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Voordat jy jou Bluetooth-toestelle saambind, maak seker hulle is in saambindmodus"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"\'n Toestel is gevind en sal outomaties binne <xliff:g id="COUNTDOWN">%1$s</xliff:g> sekondes saambind"</string>
@@ -100,7 +100,7 @@
     <string name="system_accessibility" msgid="6215431399759498005">"Toeganklikheid"</string>
     <string name="system_developer_options" msgid="3237985523474863638">"Ontwikkelaaropsies"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Geen"</string>
-    <string name="system_diagnostic" msgid="7269638365915225701">"Gebruik en diagnostiese inligting"</string>
+    <string name="system_diagnostic" msgid="7269638365915225701">"Gebruik- en diagnostiese inligting"</string>
     <string name="tutorials" msgid="3731493987558093244">"Tutoriale"</string>
     <string name="about_system_update" msgid="7282772247661356586">"Stelselopdatering"</string>
     <string name="about_preference" msgid="4131396784531360434">"Meer oor"</string>
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"Dienste"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Diensinstellings"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Hoëkontras-teks"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Toeganklikheid-kortpad"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Aktiveer toeganklikheidskortpad"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Kortpaddiens"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Wanneer die kortpad aan is, kan jy beide die terug- en afknoppie vir 3 sekondes lank druk om \'n toeganklikheidskenmerk te begin."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Onderskrifte"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Instellings vir geslote onderskrifteks-oorlegging op video"</string>
     <string name="captions_display" msgid="735692527287125548">"Vertoon"</string>
@@ -478,7 +482,7 @@
     <string name="agree" msgid="1235622082275451350">"Stem in"</string>
     <string name="disagree" msgid="9170636026862400981">"Stem nie saam nie"</string>
     <string name="security_unknown_sources_title" msgid="769762478057744545">"Onbekende bronne"</string>
-    <string name="security_unknown_sources_desc" msgid="7197053279914817124">"Laat die installering van programme van ander bronne as die Play-winkel af toe"</string>
+    <string name="security_unknown_sources_desc" msgid="7197053279914817124">"Laat die installering van programme van ander bronne as die Play Winkel af toe"</string>
     <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"Laat onbekende bronne toe"</string>
     <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"Jou toestel en persoonlike data is meer kwesbaar vir aanvalle deur programme van onbekende bronne af. Jy stem in dat net jy verantwoordelik is vir enige skade aan jou toestel of verlies van data weens die gebruik van hierdie programme."</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"Verifieer programme"</string>
@@ -610,7 +614,7 @@
     <string name="device_apps_app_management_storage_used" msgid="4611351576179140634">"Berging gebruik"</string>
     <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"<xliff:g id="SIZE">%1$s</xliff:g> gebruik in <xliff:g id="VOLUME">%2$s</xliff:g>"</string>
     <string name="device_apps_app_management_clear_data" msgid="4439114679323274127">"Vee data uit"</string>
-    <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"Al hierdie program se data sal permanent uitgevee word.\nDit sluit alle lêers, instellings, rekeninge, databasisse ensovoorts in."</string>
+    <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"Al hierdie program se data sal permanent uitgevee word.\nDit sluit in alle lêers, instellings, rekeninge, databasisse ensovoorts."</string>
     <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"Maak verstekke skoon"</string>
     <string name="device_apps_app_management_clear_default_set" msgid="4191720055364731307">"Gereed om hierdie program vir \'n paar handelinge te begin"</string>
     <string name="device_apps_app_management_clear_default_none" msgid="196932966641339141">"Geen verstekke gestel nie"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Vang tans foutverslag vas"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Beskikbare virtuele sleutelborde"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Bestuur sleutelborde"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Toegelaat"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Nie toegelaat nie"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Gebruiktoegang"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Gebruiktoegang laat \'n program toe om na te spoor watter ander programme jy gebruik en hoe gereeld, asook jou diensverskaffer, taalinstellings en ander besonderhede."</string>
 </resources>

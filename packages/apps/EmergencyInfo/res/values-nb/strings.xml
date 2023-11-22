@@ -17,6 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Informasjon for nødstilfeller"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"Medisinsk informasjon"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"Rediger informasjon"</string>
     <string name="edit_info" msgid="5973929805855224805">"Endre informasjonen for nødstilfeller"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Informasjon"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Kontakter"</string>
@@ -96,12 +98,12 @@
     <string name="cancel" msgid="7401575239009060939">"Avbryt"</string>
     <string name="ok" msgid="163967937451981024">"OK"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"Informasjon for nødstilfeller"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"Informasjonen du skriver inn her, kan hjelpe dem som ankommer ulykkesstedet først ved eventuelle ulykker. Opplysningene er bare lagret på enheten din, og hvem som helst kan lese dem via alternativet for nødanrop, uten å låse opp enheten."</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"Fortsett"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Ingen informasjon om telefonens eier"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"Hvis dette er din telefon, kan du trykke på blyantikonet for å legge til informasjon som skal vises her i nødstilfeller"</string>
     <string name="clear_all" msgid="8899013032870561633">"Fjern alt"</string>
     <string name="clear" msgid="3648880442502887163">"Fjern"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Vil du fjerne alle opplysningene og kontaktene?"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"Hvis du legger til medisinsk informasjon og nødkontakter, kan dette brukes ved førstehjelp i nødstilfeller.\n\nHvem som helst kan lese denne informasjonen fra låseskjermen og ringe kontaktene dine ved å trykke på kontaktnavnene – uten å låse opp telefonen din."</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"Legg til opplysninger for nødstilfeller"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"Hjelp utrykningspersonell med å finne viktig informasjon"</string>
 </resources>

@@ -312,7 +312,7 @@ _fence_wait_internal(drm_intel_bufmgr_fake *bufmgr_fake, int seq)
 	 *
 	 * Assume that in userland we treat sequence numbers as ints, which
 	 * makes some of the comparisons convenient, since the sequence
-	 * numbers are all postive signed integers.
+	 * numbers are all positive signed integers.
 	 *
 	 * From this we get several cases we need to handle.  Here's a timeline.
 	 * 0x2   0x7                                    0x7ffffff8   0x7ffffffd
@@ -737,7 +737,7 @@ drm_intel_bufmgr_fake_wait_idle(drm_intel_bufmgr_fake *bufmgr_fake)
 /**
  * Wait for rendering to a buffer to complete.
  *
- * It is assumed that the bathcbuffer which performed the rendering included
+ * It is assumed that the batchbuffer which performed the rendering included
  * the necessary flushing.
  */
 static void
@@ -1200,7 +1200,7 @@ static int
 		assert(!(bo_fake->flags & (BM_NO_BACKING_STORE | BM_PINNED)));
 
 		/* Actually, should be able to just wait for a fence on the
-		 * mmory, hich we would be tracking when we free it.  Waiting
+		 * memory, which we would be tracking when we free it. Waiting
 		 * for idle is a sufficiently large hammer for now.
 		 */
 		drm_intel_bufmgr_fake_wait_idle(bufmgr_fake);

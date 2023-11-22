@@ -22,7 +22,10 @@
 #include <unordered_map>
 #include <vector>
 
+#include <android-base/test_utils.h>
+
 #include "build_id.h"
+#include "read_elf.h"
 
 struct Symbol {
   uint64_t addr;
@@ -96,9 +99,10 @@ class Dso {
   static void SetBuildIds(
       const std::vector<std::pair<std::string, BuildId>>& build_ids);
   static BuildId FindExpectedBuildIdForPath(const std::string& path);
+  static void SetVdsoFile(std::unique_ptr<TemporaryFile> vdso_file, bool is_64bit);
 
-  static std::unique_ptr<Dso> CreateDso(DsoType dso_type,
-                                        const std::string& dso_path);
+  static std::unique_ptr<Dso> CreateDso(DsoType dso_type, const std::string& dso_path,
+                                        bool force_64bit = false);
 
   ~Dso();
 
@@ -148,8 +152,10 @@ class Dso {
   static std::unordered_map<std::string, BuildId> build_id_map_;
   static size_t dso_count_;
   static uint32_t g_dump_id_;
+  static std::unique_ptr<TemporaryFile> vdso_64bit_;
+  static std::unique_ptr<TemporaryFile> vdso_32bit_;
 
-  Dso(DsoType type, const std::string& path);
+  Dso(DsoType type, const std::string& path, bool force_64bit);
   void Load();
   bool LoadKernel();
   bool LoadKernelModule();
@@ -157,6 +163,7 @@ class Dso {
   bool LoadEmbeddedElfFile();
   void FixupSymbolLength();
   BuildId GetExpectedBuildId();
+  bool CheckReadSymbolResult(ElfStatus result, const std::string& filename);
 
   const DsoType type_;
   // path of the shared library used by the profiled program

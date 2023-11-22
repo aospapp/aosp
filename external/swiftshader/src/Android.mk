@@ -8,8 +8,25 @@ COMMON_C_INCLUDES += \
 	$(LOCAL_PATH)/Renderer/ \
 	$(LOCAL_PATH)/Common/ \
 	$(LOCAL_PATH)/Shader/ \
-	$(LOCAL_PATH)/../third_party/LLVM/include \
 	$(LOCAL_PATH)/Main/
+
+ifdef use_subzero
+COMMON_C_INCLUDES += \
+	$(LOCAL_PATH)/../third_party/subzero/ \
+	$(LOCAL_PATH)/../third_party/llvm-subzero/include/ \
+	$(LOCAL_PATH)/../third_party/llvm-subzero/build/Android/include/ \
+	$(LOCAL_PATH)/../third_party/subzero/pnacl-llvm/include/
+else
+COMMON_C_INCLUDES += \
+	$(LOCAL_PATH)/../third_party/LLVM/include
+endif
+
+# libnativewindow is introduced from O
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo O),O)
+COMMON_SHARED_LIBRARIES := libnativewindow liblog
+COMMON_HEADER_LIBRARIES := libhardware_headers libnativebase_headers
+COMMON_STATIC_LIBRARIES := libarect
+endif
 
 # Marshmallow does not have stlport, but comes with libc++ by default
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -lt 23 && echo PreMarshmallow),PreMarshmallow)
@@ -35,10 +52,18 @@ COMMON_SRC_FILES += \
 	Main/FrameBufferAndroid.cpp \
 	Main/SwiftConfig.cpp
 
+ifdef use_subzero
 COMMON_SRC_FILES += \
-	Reactor/Nucleus.cpp \
+	Reactor/SubzeroReactor.cpp \
 	Reactor/Routine.cpp \
-	Reactor/RoutineManager.cpp
+	Reactor/Optimizer.cpp
+else
+COMMON_SRC_FILES += \
+	Reactor/LLVMReactor.cpp \
+	Reactor/Routine.cpp \
+	Reactor/LLVMRoutine.cpp \
+	Reactor/LLVMRoutineManager.cpp
+endif
 
 COMMON_SRC_FILES += \
 	Renderer/Blitter.cpp \
@@ -84,17 +109,17 @@ COMMON_CFLAGS := \
 	-Wno-unused-parameter \
 	-Wno-implicit-exception-spec-mismatch \
 	-Wno-overloaded-virtual \
+	-Wno-non-virtual-dtor \
+	-Wno-attributes \
+	-Wno-unknown-attributes \
+	-Wno-unknown-warning-option \
 	-fno-operator-names \
 	-msse2 \
 	-D__STDC_CONSTANT_MACROS \
 	-D__STDC_LIMIT_MACROS \
 	-DANDROID_PLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION) \
-	-std=c++11
-
-ifneq ($(filter gce gce% calypso, $(TARGET_DEVICE)),)
-COMMON_CFLAGS += \
-	-DTAG_JIT_CODE_MEMORY
-endif
+	-std=c++11 \
+	-DNO_SANITIZE_FUNCTION=
 
 ifneq (16,${PLATFORM_SDK_VERSION})
 COMMON_CFLAGS += -Xclang -fuse-init-array
@@ -102,22 +127,46 @@ else
 COMMON_CFLAGS += -D__STDC_INT64__
 endif
 
+# gralloc1 is introduced from N MR1
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 25 && echo NMR1),NMR1)
+COMMON_CFLAGS += -DHAVE_GRALLOC1
+COMMON_C_INCLUDES += \
+	system/core/libsync/include \
+	system/core/libsync
+endif
+
+# Common Subzero defines
+COMMON_CFLAGS += -DALLOW_DUMP=0 -DALLOW_TIMERS=0 -DALLOW_LLVM_CL=0 -DALLOW_LLVM_IR=0 -DALLOW_LLVM_IR_AS_INPUT=0 -DALLOW_MINIMAL_BUILD=0 -DALLOW_WASM=0 -DICE_THREAD_LOCAL_HACK=1
+
+# Subzero target
+LOCAL_CFLAGS_x86 += -DSZTARGET=X8632
+LOCAL_CFLAGS_x86_64 += -DSZTARGET=X8664
+LOCAL_CFLAGS_arm += -DSZTARGET=ARM32
+
 include $(CLEAR_VARS)
 LOCAL_CLANG := true
 LOCAL_MODULE := swiftshader_top_release
+LOCAL_VENDOR_MODULE := true
 LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := $(COMMON_SRC_FILES)
 LOCAL_CFLAGS := $(COMMON_CFLAGS) -fomit-frame-pointer -ffunction-sections -fdata-sections -DANGLE_DISABLE_TRACE
 LOCAL_C_INCLUDES := $(COMMON_C_INCLUDES)
+LOCAL_SHARED_LIBRARIES := $(COMMON_SHARED_LIBRARIES)
+LOCAL_HEADER_LIBRARIES := $(COMMON_HEADER_LIBRARIES)
+LOCAL_STATIC_LIBRARIES := $(COMMON_STATIC_LIBRARIES)
 include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_CLANG := true
 LOCAL_MODULE := swiftshader_top_debug
+LOCAL_VENDOR_MODULE := true
 LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := $(COMMON_SRC_FILES)
 LOCAL_CFLAGS := $(COMMON_CFLAGS) -UNDEBUG -g -O0 -DDEFAULT_THREAD_COUNT=1
 LOCAL_C_INCLUDES := $(COMMON_C_INCLUDES)
+LOCAL_SHARED_LIBRARIES := $(COMMON_SHARED_LIBRARIES)
+LOCAL_HEADER_LIBRARIES := $(COMMON_HEADER_LIBRARIES)
+LOCAL_STATIC_LIBRARIES := $(COMMON_STATIC_LIBRARIES)
 include $(BUILD_STATIC_LIBRARY)
 
 include $(call all-makefiles-under,$(LOCAL_PATH))

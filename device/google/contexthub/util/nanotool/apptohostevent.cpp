@@ -53,7 +53,13 @@ bool AppToHostEvent::CheckAppId(SensorType sensor_type) const {
     switch (sensor_type) {
       case SensorType::Accel:
       case SensorType::Gyro:
-        if (GetAppId() != kAppIdBoschBmi160Bmm150) {
+        if (GetAppId() != kAppIdBoschBmi160Bmm150 && GetAppId() != kAppIdSTMicroLsm6dsm) {
+            return false;
+        }
+        break;
+
+      case SensorType::Magnetometer:
+        if (GetAppId() != kAppIdSTMicroLsm6dsm && GetAppId() != kAppIdSTMicroMag40) {
             return false;
         }
         break;
@@ -66,7 +72,7 @@ bool AppToHostEvent::CheckAppId(SensorType sensor_type) const {
         break;
 
       case SensorType::Barometer:
-        if (GetAppId() != kAppIdBoschBmp280) {
+        if (GetAppId() != kAppIdBoschBmp280 && GetAppId() != kAppIdSTMicroLps22hb) {
             return false;
         }
         break;

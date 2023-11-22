@@ -17,11 +17,7 @@
 package com.android.tv.dialog;
 
 import android.app.Activity;
-import android.app.Dialog;
 import android.app.DialogFragment;
-import android.content.Context;
-import android.os.Bundle;
-import android.view.KeyEvent;
 
 import com.android.tv.MainActivity;
 import com.android.tv.TvApplication;
@@ -37,11 +33,6 @@ public abstract class SafeDismissDialogFragment extends DialogFragment
     private boolean mAttached = false;
     private boolean mDismissPending = false;
     private Tracker mTracker;
-
-    @Override
-    public Dialog onCreateDialog(Bundle savedInstanceState) {
-        return new TvDialog(getActivity(), getTheme());
-    }
 
     @Override
     public void onAttach(Activity activity) {
@@ -90,23 +81,6 @@ public abstract class SafeDismissDialogFragment extends DialogFragment
             mDismissPending = true;
         } else {
             super.dismiss();
-        }
-    }
-
-    protected class TvDialog extends Dialog {
-        public TvDialog(Context context, int theme) {
-            super(context, theme);
-        }
-
-        @Override
-        public boolean onKeyUp(int keyCode, KeyEvent event) {
-            // When a dialog is showing, key events are handled by the dialog instead of
-            // MainActivity. Therefore, unless a key is a global key, it should be handled here.
-            if (mAttached && keyCode == KeyEvent.KEYCODE_SEARCH && mActivity != null) {
-                mActivity.showSearchActivity();
-                return true;
-            }
-            return super.onKeyUp(keyCode, event);
         }
     }
 }

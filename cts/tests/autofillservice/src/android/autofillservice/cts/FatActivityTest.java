@@ -18,18 +18,18 @@ package android.autofillservice.cts;
 import static android.autofillservice.cts.CannedFillResponse.NO_RESPONSE;
 import static android.autofillservice.cts.FatActivity.ID_CAPTCHA;
 import static android.autofillservice.cts.FatActivity.ID_IMAGE;
-import static android.autofillservice.cts.FatActivity.ID_IMPORTANT_IMAGE;
-import static android.autofillservice.cts.FatActivity.ID_INPUT;
-import static android.autofillservice.cts.FatActivity.ID_INPUT_CONTAINER;
 import static android.autofillservice.cts.FatActivity.ID_IMPORTANT_CONTAINER_EXCLUDING_DESCENDANTS;
 import static android.autofillservice.cts.FatActivity.ID_IMPORTANT_CONTAINER_EXCLUDING_DESCENDANTS_CHILD;
 import static android.autofillservice.cts.FatActivity.ID_IMPORTANT_CONTAINER_EXCLUDING_DESCENDANTS_GRAND_CHILD;
-import static android.autofillservice.cts.FatActivity.ID_NOT_IMPORTANT_CONTAINER_MIXED_DESCENDANTS;
-import static android.autofillservice.cts.FatActivity.ID_NOT_IMPORTANT_CONTAINER_MIXED_DESCENDANTS_CHILD;
-import static android.autofillservice.cts.FatActivity.ID_NOT_IMPORTANT_CONTAINER_MIXED_DESCENDANTS_GRAND_CHILD;
+import static android.autofillservice.cts.FatActivity.ID_IMPORTANT_IMAGE;
+import static android.autofillservice.cts.FatActivity.ID_INPUT;
+import static android.autofillservice.cts.FatActivity.ID_INPUT_CONTAINER;
 import static android.autofillservice.cts.FatActivity.ID_NOT_IMPORTANT_CONTAINER_EXCLUDING_DESCENDANTS;
 import static android.autofillservice.cts.FatActivity.ID_NOT_IMPORTANT_CONTAINER_EXCLUDING_DESCENDANTS_CHILD;
 import static android.autofillservice.cts.FatActivity.ID_NOT_IMPORTANT_CONTAINER_EXCLUDING_DESCENDANTS_GRAND_CHILD;
+import static android.autofillservice.cts.FatActivity.ID_NOT_IMPORTANT_CONTAINER_MIXED_DESCENDANTS;
+import static android.autofillservice.cts.FatActivity.ID_NOT_IMPORTANT_CONTAINER_MIXED_DESCENDANTS_CHILD;
+import static android.autofillservice.cts.FatActivity.ID_NOT_IMPORTANT_CONTAINER_MIXED_DESCENDANTS_GRAND_CHILD;
 import static android.autofillservice.cts.Helper.assertNumberOfChildren;
 import static android.autofillservice.cts.Helper.findNodeByResourceId;
 import static android.autofillservice.cts.Helper.findNodeByText;
@@ -38,7 +38,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.app.assist.AssistStructure.ViewNode;
 import android.autofillservice.cts.InstrumentedAutoFillService.FillRequest;
-import android.support.test.rule.ActivityTestRule;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -50,8 +49,8 @@ import org.junit.Test;
 public class FatActivityTest extends AutoFillServiceTestCase {
 
     @Rule
-    public final ActivityTestRule<FatActivity> mActivityRule =
-        new ActivityTestRule<FatActivity>(FatActivity.class);
+    public final AutofillActivityTestRule<FatActivity> mActivityRule =
+        new AutofillActivityTestRule<FatActivity>(FatActivity.class);
 
     private FatActivity mFatActivity;
 

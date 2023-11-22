@@ -19,16 +19,15 @@ import os
 
 from acts.keys import Config
 from acts.utils import rand_ascii_str
-from acts.test_utils.bt.GattEnum import CharacteristicValueFormat
-from acts.test_utils.bt.GattEnum import GattCbStrings
-from acts.test_utils.bt.GattEnum import GattCharacteristic
-from acts.test_utils.bt.GattEnum import GattDescriptor
-from acts.test_utils.bt.GattEnum import GattCbErr
-from acts.test_utils.bt.GattEnum import GattTransport
-from acts.test_utils.bt.GattEnum import GattEvent
-from acts.test_utils.bt.GattEnum import GattServerResponses
-from acts.test_utils.bt.GattEnum import GattService
-from acts.test_utils.bt.bt_test_utils import TIMEOUT_SMALL
+from acts.test_utils.bt.bt_constants import gatt_cb_strings
+from acts.test_utils.bt.bt_constants import gatt_characteristic
+from acts.test_utils.bt.bt_constants import gatt_characteristic_value_format
+from acts.test_utils.bt.bt_constants import gatt_cb_err
+from acts.test_utils.bt.bt_constants import gatt_transport
+from acts.test_utils.bt.bt_constants import gatt_event
+from acts.test_utils.bt.bt_constants import gatt_server_responses
+from acts.test_utils.bt.bt_constants import gatt_service_types
+from acts.test_utils.bt.bt_constants import small_timeout
 
 from gatt_test_database import STRING_512BYTES
 from acts.utils import exe_cmd
@@ -85,8 +84,8 @@ class GattServerLib():
             for btgs in self.gatt_server_list:
                 self.dut.droid.gattServerClose(btgs)
         except Exception as err:
-            self.log.error(
-                "Failed to close Bluetooth GATT Servers: {}".format(err))
+            self.log.error("Failed to close Bluetooth GATT Servers: {}".format(
+                err))
         self.characteristic_list = []
         self.descriptor_list = []
         self.gatt_server_list = []
@@ -109,22 +108,22 @@ class GattServerLib():
         if len(args) == 2:
             user_input = args[0]
             mtu = int(args[1])
-        desc_read = GattEvent.DESC_READ_REQ.value['evt'].format(
+        desc_read = gatt_event['desc_read_req']['evt'].format(
             self.gatt_server_callback)
-        desc_write = GattEvent.DESC_WRITE_REQ.value['evt'].format(
+        desc_write = gatt_event['desc_write_req']['evt'].format(
             self.gatt_server_callback)
-        char_read = GattEvent.CHAR_READ_REQ.value['evt'].format(
+        char_read = gatt_event['char_read_req']['evt'].format(
             self.gatt_server_callback)
-        char_write = GattEvent.CHAR_WRITE_REQ.value['evt'].format(
+        char_write = gatt_event['char_write']['evt'].format(
             self.gatt_server_callback)
-        execute_write = GattEvent.EXEC_WRITE.value['evt'].format(
+        execute_write = gatt_event['exec_write']['evt'].format(
             self.gatt_server_callback)
         regex = "({}|{}|{}|{}|{})".format(desc_read, desc_write, char_read,
                                           char_write, execute_write)
-        events = self.dut.ed.pop_events(regex, 5, TIMEOUT_SMALL)
+        events = self.dut.ed.pop_events(regex, 5, small_timeout)
         status = 0
         if user_input:
-            status = GattServerResponses.get(user_input)
+            status = gatt_server_responses.get(user_input)
         for event in events:
             self.log.debug("Found event: {}.".format(event))
             request_id = event['data']['requestId']
@@ -133,8 +132,8 @@ class GattServerLib():
                         event['data']['execute'] == True):
                     for key in self.write_mapping:
                         value = self.write_mapping[key]
-                        self.log.info(
-                            "Writing key, value: {}, {}".format(key, value))
+                        self.log.info("Writing key, value: {}, {}".format(
+                            key, value))
                         self.dut.droid.gattServerSetByteArrayValueByInstanceId(
                             key, value)
                 else:
@@ -150,8 +149,8 @@ class GattServerLib():
                         event['data']['preparedWrite'] == True):
                     value = event['data']['value']
                     if instance_id in self.write_mapping.keys():
-                        self.write_mapping[
-                            instance_id] = self.write_mapping[instance_id] + value
+                        self.write_mapping[instance_id] = self.write_mapping[
+                            instance_id] + value
                         self.log.info(
                             "New Prepared Write Value for {}: {}".format(
                                 instance_id, self.write_mapping[instance_id]))
@@ -159,8 +158,8 @@ class GattServerLib():
                         self.log.info("write mapping key, value {}, {}".format(
                             instance_id, value))
                         self.write_mapping[instance_id] = value
-                        self.log.info(
-                            "current value {}, {}".format(instance_id, value))
+                        self.log.info("current value {}, {}".format(
+                            instance_id, value))
                     self.dut.droid.gattServerSendResponse(
                         self.gatt_server, 0, request_id, status, 0, value)
                     continue
@@ -184,8 +183,8 @@ class GattServerLib():
                 self.gatt_server, 0, request_id, status, offset, data)
 
     def _setup_service(self, serv):
-        service = self.dut.droid.gattServerCreateService(
-            serv['uuid'], serv['type'])
+        service = self.dut.droid.gattServerCreateService(serv['uuid'],
+                                                         serv['type'])
         if 'handles' in serv:
             self.dut.droid.gattServerServiceSetHandlesToReserve(
                 service, serv['handles'])
@@ -207,11 +206,11 @@ class GattServerLib():
         if 'value_type' in char:
             value_type = char['value_type']
             value = char['value']
-            if value_type == CharacteristicValueFormat.STRING.value:
+            if value_type == gatt_characteristic_value_format['string']:
                 self.log.info("Set String value result: {}".format(
                     self.dut.droid.gattServerCharacteristicSetStringValue(
                         characteristic, value)))
-            elif value_type == CharacteristicValueFormat.BYTE.value:
+            elif value_type == gatt_characteristic_value_format['byte']:
                 self.log.info("Set Byte Array value result: {}".format(
                     self.dut.droid.gattServerCharacteristicSetByteValue(
                         characteristic, value)))
@@ -225,8 +224,8 @@ class GattServerLib():
         descriptor = self.dut.droid.gattServerCreateBluetoothGattDescriptor(
             desc['uuid'], desc['permissions'])
         if 'value' in desc:
-            self.dut.droid.gattServerDescriptorSetByteValue(
-                descriptor, desc['value'])
+            self.dut.droid.gattServerDescriptorSetByteValue(descriptor,
+                                                            desc['value'])
         if 'instance_id' in desc:
             self.dut.droid.gattServerDescriptorSetInstanceId(
                 descriptor, desc['instance_id'])
@@ -255,21 +254,21 @@ class GattServerLib():
                     self.dut.droid.gattServerAddCharacteristicToService(
                         service, characteristic)
             self.dut.droid.gattServerAddService(self.gatt_server, service)
-            expected_event = GattCbStrings.SERV_ADDED.value.format(
+            expected_event = gatt_cb_strings['serv_added'].format(
                 self.gatt_server_callback)
             self.dut.ed.pop_event(expected_event, 10)
 
     def send_continuous_response(self, user_input):
         """Send the same response"""
-        desc_read = GattEvent.DESC_READ_REQ.value['evt'].format(
+        desc_read = gatt_event['desc_read_req']['evt'].format(
             self.gatt_server_callback)
-        desc_write = GattEvent.DESC_WRITE_REQ.value['evt'].format(
+        desc_write = gatt_event['desc_write_req']['evt'].format(
             self.gatt_server_callback)
-        char_read = GattEvent.CHAR_READ_REQ.value['evt'].format(
+        char_read = gatt_event['char_read_req']['evt'].format(
             self.gatt_server_callback)
-        char_write = GattEvent.CHAR_WRITE_REQ.value['evt'].format(
+        char_write = gatt_event['char_write']['evt'].format(
             self.gatt_server_callback)
-        execute_write = GattEvent.CHAR_EXEC_WRITE.value['evt'].format(
+        execute_write = gatt_event['char_exec_write']['evt'].format(
             self.gatt_server_callback)
         regex = "({}|{}|{}|{}|{})".format(desc_read, desc_write, char_read,
                                           char_write, execute_write)
@@ -284,7 +283,7 @@ class GattServerLib():
         i = 0
         num_packets = ceil((len(char_value) + 1) / (mtu - 1))
         while time.time() < end_time:
-            events = self.dut.ed.pop_events(regex, 10, TIMEOUT_SMALL)
+            events = self.dut.ed.pop_events(regex, 10, small_timeout)
             for event in events:
                 start_offset = i * (mtu - 1)
                 i += 1
@@ -302,15 +301,15 @@ class GattServerLib():
 
     def send_continuous_response_data(self, user_input):
         """Send the same response with data"""
-        desc_read = GattEvent.DESC_READ_REQ.value['evt'].format(
+        desc_read = gatt_event['desc_read_req']['evt'].format(
             self.gatt_server_callback)
-        desc_write = GattEvent.DESC_WRITE_REQ.value['evt'].format(
+        desc_write = gatt_event['desc_write_req']['evt'].format(
             self.gatt_server_callback)
-        char_read = GattEvent.CHAR_READ_REQ.value['evt'].format(
+        char_read = gatt_event['char_read_req']['evt'].format(
             self.gatt_server_callback)
-        char_write = GattEvent.CHAR_WRITE_REQ.value['evt'].format(
+        char_write = gatt_event['char_write']['evt'].format(
             self.gatt_server_callback)
-        execute_write = GattEvent.EXEC_WRITE.value['evt'].format(
+        execute_write = gatt_event['exec_write']['evt'].format(
             self.gatt_server_callback)
         regex = "({}|{}|{}|{}|{})".format(desc_read, desc_write, char_read,
                                           char_write, execute_write)
@@ -323,7 +322,7 @@ class GattServerLib():
         i = 0
         num_packets = ceil((len(char_value) + 1) / (mtu - 1))
         while time.time() < end_time:
-            events = self.dut.ed.pop_events(regex, 10, TIMEOUT_SMALL)
+            events = self.dut.ed.pop_events(regex, 10, small_timeout)
             for event in events:
                 self.log.info(event)
                 request_id = event['data']['requestId']
@@ -349,7 +348,8 @@ class GattServerLib():
                         value = event['data']['value']
                         if instance_id in self.write_mapping:
                             self.write_mapping[
-                                instance_id] = self.write_mapping[instance_id] + value
+                                instance_id] = self.write_mapping[
+                                    instance_id] + value
                         else:
                             self.write_mapping[instance_id] = value
                     else:

@@ -27,9 +27,9 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"Den følgende app skal have adgang til denne profil:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Den følgende app vil styre din enhed:"</string>
     <string name="next" msgid="1004321437324424398">"Næste"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"Konfigurerer din arbejdsprofil…"</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"Arbejdsprofilen konfigureres..."</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"Din administrator kan overvåge og administrere indstillinger, virksomhedsadgang, apps, tilladelser og data, der er knyttet til denne profil, herunder din netværksaktivitet samt enhedens placering, opkaldshistorik og historik for søgning efter kontaktpersoner. <xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Kontakt din administrator for at få flere oplysninger, herunder om din organisations privatlivspolitik."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"Din administrator kan overvåge og administrere indstillinger, virksomhedsadgang, apps, tilladelser og data, der er knyttet til denne enhed, herunder din netværksaktivitet samt enhedens placering, opkaldshistorik og historik for søgning efter kontaktpersoner. <xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Kontakt din administrator for at få flere oplysninger, herunder om din organisations privatlivspolitik."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"Din administrator kan overvåge og administrere indstillinger, virksomhedsadgang, apps, tilladelser og data, der er knyttet til denne enhed, bl.a. din netværksaktivitet samt enhedens placering, opkaldshistorik og historik for søgning efter kontaktpersoner.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Kontakt din administrator for at få flere oplysninger, f.eks. om din organisations privatlivspolitik."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Hvis du vil bruge funktionen, der beskytter mod tyveri, skal din enhed have en skærmlås med en tilhørende adgangskode."</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Kontakt din administrator for at få flere oplysninger, herunder om din organisations privatlivspolitik."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Få flere oplysninger"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Arbejdsprofil"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"Primær bruger"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Vil du slette den eksisterende profil?"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"Du har allerede en arbejdsprofil, som administreres via den følgende app:"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Du har allerede en arbejdsprofil. Den administreres via den følgende app:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Inden du fortsætter, bør du "<a href="#read_this_link">"læse dette"</a>"."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Hvis du fortsætter, slettes alle apps og data i denne profil."</string>
     <string name="delete_profile" msgid="2299218578684663459">"Slet"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"Tryk for at fortsætte konfigurationen af din arbejdsprofil"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Din arbejdsprofil kunne ikke oprettes. Kontakt din IT-afdeling, eller prøv igen senere."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Det er ikke muligt at tilføje en arbejdsprofil"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"Denne bruger kan ikke have en arbejdsprofil. Kontakt din administrator for at få hjælp."</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"Denne bruger kan ikke have arbejdsprofiler. Kontakt din administrator."</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"Work-profiler kan ikke konfigureres på en administreret enhed"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"Der er muligvis for mange brugere på denne enhed. Fjern en bruger, og prøv igen."</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Arbejdsprofilen kan ikke erstattes eller fjernes"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"Det er ikke muligt at tilføje en arbejdsprofil på denne enhed. Kontakt din administrator, hvis du har nogen spørgsmål."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Skift enhedsstarter"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Denne starter kan ikke bruges af din arbejdsprofil"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Annuller"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"OK"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Oprettelsen af brugeren er ikke fuldført"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Bruger af arbejdsenhed"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"Konfigurer arbejdsenhed"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"Arbejdsenheden konfigureres..."</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Behandler konfigurationsdata…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Opretter forbindelse til Wi-Fi…"</string>
     <string name="progress_download" msgid="3522436271691064624">"Downloader administrationsappen…"</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"Annuller"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"Nulstil enheden"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> og <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> og <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> og <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

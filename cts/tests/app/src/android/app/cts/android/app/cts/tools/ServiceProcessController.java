@@ -46,8 +46,10 @@ public final class ServiceProcessController {
     final ActivityManager mAm;
     final Parcel mData;
     final ServiceConnectionHandler[] mConnections;
+    final int mUid;
     final UidImportanceListener mUidForegroundListener;
     final UidImportanceListener mUidGoneListener;
+    final WatchUidRunner mUidWatcher;
 
     public ServiceProcessController(Context context, Instrumentation instrumentation,
             String myPackageName, Intent[] serviceIntents)
@@ -75,6 +77,7 @@ public final class ServiceProcessController {
 
         ApplicationInfo appInfo = mContext.getPackageManager().getApplicationInfo(
                 mServicePackage, 0);
+        mUid = appInfo.uid;
 
         mUidForegroundListener = new UidImportanceListener(appInfo.uid);
         mAm.addOnUidImportanceListener(mUidForegroundListener,
@@ -82,9 +85,48 @@ public final class ServiceProcessController {
         mUidGoneListener = new UidImportanceListener(appInfo.uid);
         mAm.addOnUidImportanceListener(mUidGoneListener,
                 ActivityManager.RunningAppProcessInfo.IMPORTANCE_EMPTY);
+
+        mUidWatcher = new WatchUidRunner(instrumentation, appInfo.uid);
     }
 
-    public void cleanup() {
+    public void denyBackgroundOp(long timeout) throws IOException {
+        String cmd = "appops set " + mServicePackage + " RUN_IN_BACKGROUND deny";
+        String result = SystemUtil.runShellCommand(mInstrumentation, cmd);
+
+        // This is a side-effect of the app op command.
+        mUidWatcher.expect(WatchUidRunner.CMD_IDLE, null, timeout);
+        mUidWatcher.expect(WatchUidRunner.CMD_PROCSTATE, "NONE", timeout);
+    }
+
+    public void allowBackgroundOp() throws IOException {
+        String cmd = "appops set " + mServicePackage + " RUN_IN_BACKGROUND allow";
+        String result = SystemUtil.runShellCommand(mInstrumentation, cmd);
+    }
+
+    public void makeUidIdle() throws IOException {
+        String cmd = "am make-uid-idle " + mServicePackage;
+        String result = SystemUtil.runShellCommand(mInstrumentation, cmd);
+    }
+
+    public void removeFromWhitelist() throws IOException {
+        String cmd = "cmd deviceidle whitelist -" + mServicePackage;
+        String result = SystemUtil.runShellCommand(mInstrumentation, cmd);
+    }
+
+    public void addToWhitelist() throws IOException {
+        String cmd = "cmd deviceidle whitelist +" + mServicePackage;
+        String result = SystemUtil.runShellCommand(mInstrumentation, cmd);
+    }
+
+    public void tempWhitelist(long duration) throws IOException {
+        String cmd = "cmd deviceidle tempwhitelist -d " + duration + " " + mServicePackage;
+        String result = SystemUtil.runShellCommand(mInstrumentation, cmd);
+    }
+
+    public void cleanup() throws IOException {
+        removeFromWhitelist();
+        allowBackgroundOp();
+        mUidWatcher.finish();
         mAm.removeOnUidImportanceListener(mUidGoneListener);
         mAm.removeOnUidImportanceListener(mUidForegroundListener);
         mData.recycle();
@@ -92,6 +134,10 @@ public final class ServiceProcessController {
 
     public ServiceConnectionHandler getConnection(int index) {
         return mConnections[index];
+    }
+
+    public int getUid() {
+        return mUid;
     }
 
     public UidImportanceListener getUidForegroundListener() {
@@ -102,15 +148,22 @@ public final class ServiceProcessController {
         return mUidGoneListener;
     }
 
+    public WatchUidRunner getUidWatcher() {
+        return mUidWatcher;
+    }
+
     public void ensureProcessGone(long timeout) {
         for (int i=0; i<mConnections.length; i++) {
             mConnections[i].bind(timeout);
+        }
+
+        for (int i=0; i<mConnections.length; i++) {
             IBinder serviceBinder = mConnections[i].getServiceIBinder();
+            mConnections[i].unbind(timeout);
             try {
                 serviceBinder.transact(IBinder.FIRST_CALL_TRANSACTION, mData, null, 0);
             } catch (RemoteException e) {
             }
-            mConnections[i].unbind(timeout);
         }
 
         // Wait for uid's process to go away.
@@ -121,5 +174,6 @@ public final class ServiceProcessController {
             throw new IllegalStateException("Unexpected importance after killing process: "
                     + importance);
         }
+        mUidWatcher.waitFor(WatchUidRunner.CMD_GONE, null, timeout);
     }
 }

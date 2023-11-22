@@ -683,7 +683,8 @@ SLresult android_audioRecorder_realize(CAudioRecorder* ar, SLboolean async) {
                 "channel count of %d)", df_pcm->channelMask, channelMask,
                 df_pcm->numChannels);
     }
-    SL_LOGV("SLES channel mask %#x converted to Android mask %#x", df_pcm->channelMask, channelMask);
+    SL_LOGV("SLES channel mask %#x converted to Android mask %#x", df_pcm->channelMask,
+            channelMask);
 
     // initialize platform-specific CAudioRecorder fields
     ar->mAudioRecord = new android::AudioRecord(

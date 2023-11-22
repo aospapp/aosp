@@ -15,8 +15,8 @@
 package build
 
 import (
+	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"text/template"
 )
@@ -60,6 +60,46 @@ const (
 	BuildAll           = BuildProductConfig | BuildSoong | BuildKati | BuildNinja
 )
 
+func checkCaseSensitivity(ctx Context, config Config) {
+	outDir := config.OutDir()
+	lowerCase := filepath.Join(outDir, "casecheck.txt")
+	upperCase := filepath.Join(outDir, "CaseCheck.txt")
+	lowerData := "a"
+	upperData := "B"
+
+	err := ioutil.WriteFile(lowerCase, []byte(lowerData), 0777)
+	if err != nil {
+		ctx.Fatalln("Failed to check case sensitivity:", err)
+	}
+
+	err = ioutil.WriteFile(upperCase, []byte(upperData), 0777)
+	if err != nil {
+		ctx.Fatalln("Failed to check case sensitivity:", err)
+	}
+
+	res, err := ioutil.ReadFile(lowerCase)
+	if err != nil {
+		ctx.Fatalln("Failed to check case sensitivity:", err)
+	}
+
+	if string(res) != lowerData {
+		ctx.Println("************************************************************")
+		ctx.Println("You are building on a case-insensitive filesystem.")
+		ctx.Println("Please move your source tree to a case-sensitive filesystem.")
+		ctx.Println("************************************************************")
+		ctx.Fatalln("Case-insensitive filesystems not supported")
+	}
+}
+
+func help(ctx Context, config Config, what int) {
+	cmd := Command(ctx, config, "make",
+		"make", "-f", "build/core/help.mk")
+	cmd.Sandbox = makeSandbox
+	cmd.Stdout = ctx.Stdout()
+	cmd.Stderr = ctx.Stderr()
+	cmd.RunOrFatal()
+}
+
 // Build the tree. The 'what' argument can be used to chose which components of
 // the build to run.
 func Build(ctx Context, config Config, what int) {
@@ -67,21 +107,39 @@ func Build(ctx Context, config Config, what int) {
 	ctx.Verboseln("Environment:", config.Environment().Environ())
 
 	if inList("help", config.Arguments()) {
-		cmd := exec.CommandContext(ctx.Context, "make", "-f", "build/core/help.mk")
-		cmd.Env = config.Environment().Environ()
-		cmd.Stdout = ctx.Stdout()
-		cmd.Stderr = ctx.Stderr()
-		if err := cmd.Run(); err != nil {
-			ctx.Fatalln("Failed to run make:", err)
-		}
+		help(ctx, config, what)
+		return
+	} else if inList("clean", config.Arguments()) || inList("clobber", config.Arguments()) {
+		clean(ctx, config, what)
 		return
 	}
 
+	// Start getting java version as early as possible
+	getJavaVersions(ctx, config)
+
+	// Make sure that no other Soong process is running with the same output directory
+	buildLock := BecomeSingletonOrFail(ctx, config)
+	defer buildLock.Unlock()
+
 	SetupOutDir(ctx, config)
+
+	checkCaseSensitivity(ctx, config)
+
+	ensureEmptyDirectoriesExist(ctx, config.TempDir())
 
 	if what&BuildProductConfig != 0 {
 		// Run make for product config
 		runMakeProductConfig(ctx, config)
+	}
+
+	if inList("installclean", config.Arguments()) {
+		installClean(ctx, config, what)
+		ctx.Println("Deleted images and staging directories.")
+		return
+	} else if inList("dataclean", config.Arguments()) {
+		dataClean(ctx, config, what)
+		ctx.Println("Deleted data files.")
+		return
 	}
 
 	if what&BuildSoong != 0 {
@@ -90,12 +148,17 @@ func Build(ctx Context, config Config, what int) {
 		runSoong(ctx, config)
 	}
 
+	// Check the java versions we read earlier
+	checkJavaVersion(ctx, config)
+
 	if what&BuildKati != 0 {
 		// Run ckati
 		runKati(ctx, config)
 	}
 
 	if what&BuildNinja != 0 {
+		installCleanIfNecessary(ctx, config)
+
 		// Write combined ninja file
 		createCombinedBuildNinjaFile(ctx, config)
 

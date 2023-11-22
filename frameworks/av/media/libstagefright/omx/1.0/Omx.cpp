@@ -19,20 +19,19 @@
 
 #include <android-base/logging.h>
 #include <gui/IGraphicBufferProducer.h>
-#include <OMX_Core.h>
-#include <OMX_AsString.h>
+#include <media/openmax/OMX_Core.h>
+#include <media/openmax/OMX_AsString.h>
 
-#include "../OMXUtils.h"
-#include "../OMXMaster.h"
-#include "../GraphicBufferSource.h"
+#include <media/stagefright/omx/OMXUtils.h>
+#include <media/stagefright/omx/OMXMaster.h>
+#include <media/stagefright/omx/GraphicBufferSource.h>
 
-#include "WOmxNode.h"
-#include "WOmxObserver.h"
-#include "WGraphicBufferProducer.h"
-#include "WGraphicBufferSource.h"
-#include "Conversion.h"
-
-#include "Omx.h"
+#include <media/stagefright/omx/1.0/WOmxNode.h>
+#include <media/stagefright/omx/1.0/WOmxObserver.h>
+#include <media/stagefright/omx/1.0/WGraphicBufferProducer.h>
+#include <media/stagefright/omx/1.0/WGraphicBufferSource.h>
+#include <media/stagefright/omx/1.0/Conversion.h>
+#include <media/stagefright/omx/1.0/Omx.h>
 
 namespace android {
 namespace hardware {
@@ -90,46 +89,57 @@ Return<void> Omx::allocateNode(
     using ::android::IOMXNode;
     using ::android::IOMXObserver;
 
-    Mutex::Autolock autoLock(mLock);
-    if (mLiveNodes.size() == kMaxNodeInstances) {
-        _hidl_cb(toStatus(NO_MEMORY), nullptr);
-        return Void();
-    }
-
-    sp<OMXNodeInstance> instance = new OMXNodeInstance(
-            this, new LWOmxObserver(observer), name.c_str());
-
-    OMX_COMPONENTTYPE *handle;
-    OMX_ERRORTYPE err = mMaster->makeComponentInstance(
-            name.c_str(), &OMXNodeInstance::kCallbacks,
-            instance.get(), &handle);
-
-    if (err != OMX_ErrorNone) {
-        LOG(ERROR) << "Failed to allocate omx component "
-                "'" << name.c_str() << "' "
-                " err=" << asString(err) <<
-                "(0x" << std::hex << unsigned(err) << ")";
-        _hidl_cb(toStatus(StatusFromOMXError(err)), nullptr);
-        return Void();
-    }
-    instance->setHandle(handle);
-    std::vector<AString> quirkVector;
-    if (mParser.getQuirks(name.c_str(), &quirkVector) == OK) {
-        uint32_t quirks = 0;
-        for (const AString quirk : quirkVector) {
-            if (quirk == "requires-allocate-on-input-ports") {
-                quirks |= kRequiresAllocateBufferOnInputPorts;
-            }
-            if (quirk == "requires-allocate-on-output-ports") {
-                quirks |= kRequiresAllocateBufferOnOutputPorts;
-            }
+    sp<OMXNodeInstance> instance;
+    {
+        Mutex::Autolock autoLock(mLock);
+        if (mLiveNodes.size() == kMaxNodeInstances) {
+            _hidl_cb(toStatus(NO_MEMORY), nullptr);
+            return Void();
         }
-        instance->setQuirks(quirks);
-    }
 
-    mLiveNodes.add(observer.get(), instance);
+        instance = new OMXNodeInstance(
+                this, new LWOmxObserver(observer), name.c_str());
+
+        OMX_COMPONENTTYPE *handle;
+        OMX_ERRORTYPE err = mMaster->makeComponentInstance(
+                name.c_str(), &OMXNodeInstance::kCallbacks,
+                instance.get(), &handle);
+
+        if (err != OMX_ErrorNone) {
+            LOG(ERROR) << "Failed to allocate omx component "
+                    "'" << name.c_str() << "' "
+                    " err=" << asString(err) <<
+                    "(0x" << std::hex << unsigned(err) << ")";
+            _hidl_cb(toStatus(StatusFromOMXError(err)), nullptr);
+            return Void();
+        }
+        instance->setHandle(handle);
+
+        // Find quirks from mParser
+        const auto& codec = mParser.getCodecMap().find(name.c_str());
+        if (codec == mParser.getCodecMap().cend()) {
+            LOG(WARNING) << "Failed to obtain quirks for omx component "
+                    "'" << name.c_str() << "' "
+                    "from XML files";
+        } else {
+            uint32_t quirks = 0;
+            for (const auto& quirk : codec->second.quirkSet) {
+                if (quirk == "requires-allocate-on-input-ports") {
+                    quirks |= OMXNodeInstance::
+                            kRequiresAllocateBufferOnInputPorts;
+                }
+                if (quirk == "requires-allocate-on-output-ports") {
+                    quirks |= OMXNodeInstance::
+                            kRequiresAllocateBufferOnOutputPorts;
+                }
+            }
+            instance->setQuirks(quirks);
+        }
+
+        mLiveNodes.add(observer.get(), instance);
+        mNode2Observer.add(instance.get(), observer.get());
+    }
     observer->linkToDeath(this, 0);
-    mNode2Observer.add(instance.get(), observer.get());
 
     _hidl_cb(toStatus(OK), new TWOmxNode(instance));
     return Void();

@@ -27,6 +27,23 @@ template<typename ElementType, size_t kCapacity>
 class FixedSizeVector : public NonCopyable {
  public:
   /**
+   * Destructs the objects
+   */
+  ~FixedSizeVector();
+
+  /**
+   * @return A reference to the last element in the vector
+   */
+  ElementType& back();
+  const ElementType& back() const;
+
+  /**
+   * @return A reference to the first element in the vector
+   */
+  ElementType& front();
+  const ElementType& front() const;
+
+  /**
    * Obtains a pointer to the underlying storage for the vector.
    *
    * @return A pointer to the storage used for elements in this vector.

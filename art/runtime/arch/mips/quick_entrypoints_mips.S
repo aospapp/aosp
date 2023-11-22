@@ -421,7 +421,7 @@
     SETUP_SAVE_EVERYTHING_FRAME_DECREMENTED_SP
 .endm
 
-.macro RESTORE_SAVE_EVERYTHING_FRAME
+.macro RESTORE_SAVE_EVERYTHING_FRAME restore_a0=1
     addiu  $sp, $sp, ARG_SLOT_SIZE                # remove argument slots on the stack
     .cfi_adjust_cfa_offset -ARG_SLOT_SIZE
 
@@ -490,8 +490,10 @@
     .cfi_restore 6
     lw     $a1, 160($sp)
     .cfi_restore 5
+    .if \restore_a0
     lw     $a0, 156($sp)
     .cfi_restore 4
+    .endif
     lw     $v1, 152($sp)
     .cfi_restore 3
     lw     $v0, 148($sp)
@@ -507,14 +509,24 @@
 .endm
 
     /*
-     * Macro that set calls through to artDeliverPendingExceptionFromCode, where the pending
-     * exception is Thread::Current()->exception_
+     * Macro that calls through to artDeliverPendingExceptionFromCode, where the pending
+     * exception is Thread::Current()->exception_ when the runtime method frame is ready.
+     * Requires $gp properly set up.
      */
-.macro DELIVER_PENDING_EXCEPTION
-    SETUP_SAVE_ALL_CALLEE_SAVES_FRAME    # save callee saves for throw
+.macro DELIVER_PENDING_EXCEPTION_FRAME_READY
     la      $t9, artDeliverPendingExceptionFromCode
     jalr    $zero, $t9                   # artDeliverPendingExceptionFromCode(Thread*)
     move    $a0, rSELF                   # pass Thread::Current
+.endm
+
+    /*
+     * Macro that calls through to artDeliverPendingExceptionFromCode, where the pending
+     * exception is Thread::Current()->exception_.
+     * Requires $gp properly set up.
+     */
+.macro DELIVER_PENDING_EXCEPTION
+    SETUP_SAVE_ALL_CALLEE_SAVES_FRAME    # save callee saves for throw
+    DELIVER_PENDING_EXCEPTION_FRAME_READY
 .endm
 
 .macro RETURN_IF_NO_EXCEPTION
@@ -1240,7 +1252,39 @@ END art_quick_handle_fill_data
     .extern artLockObjectFromCode
 ENTRY art_quick_lock_object
     beqz    $a0, art_quick_throw_null_pointer_exception
+    li      $t8, LOCK_WORD_THIN_LOCK_COUNT_ONE
+    li      $t3, LOCK_WORD_GC_STATE_MASK_SHIFTED_TOGGLED
+.Lretry_lock:
+    lw      $t0, THREAD_ID_OFFSET(rSELF)  # TODO: Can the thread ID really change during the loop?
+    ll      $t1, MIRROR_OBJECT_LOCK_WORD_OFFSET($a0)
+    and     $t2, $t1, $t3                 # zero the gc bits
+    bnez    $t2, .Lnot_unlocked           # already thin locked
+    # Unlocked case - $t1: original lock word that's zero except for the read barrier bits.
+    or      $t2, $t1, $t0                 # $t2 holds thread id with count of 0 with preserved read barrier bits
+    sc      $t2, MIRROR_OBJECT_LOCK_WORD_OFFSET($a0)
+    beqz    $t2, .Lretry_lock             # store failed, retry
     nop
+    jalr    $zero, $ra
+    sync                                  # full (LoadLoad|LoadStore) memory barrier
+.Lnot_unlocked:
+    # $t1: original lock word, $t0: thread_id with count of 0 and zero read barrier bits
+    srl     $t2, $t1, LOCK_WORD_STATE_SHIFT
+    bnez    $t2, .Lslow_lock              # if either of the top two bits are set, go slow path
+    xor     $t2, $t1, $t0                 # lock_word.ThreadId() ^ self->ThreadId()
+    andi    $t2, $t2, 0xFFFF              # zero top 16 bits
+    bnez    $t2, .Lslow_lock              # lock word and self thread id's match -> recursive lock
+                                          # otherwise contention, go to slow path
+    and     $t2, $t1, $t3                 # zero the gc bits
+    addu    $t2, $t2, $t8                 # increment count in lock word
+    srl     $t2, $t2, LOCK_WORD_STATE_SHIFT  # if the first gc state bit is set, we overflowed.
+    bnez    $t2, .Lslow_lock              # if we overflow the count go slow path
+    addu    $t2, $t1, $t8                 # increment count for real
+    sc      $t2, MIRROR_OBJECT_LOCK_WORD_OFFSET($a0)
+    beqz    $t2, .Lretry_lock             # store failed, retry
+    nop
+    jalr    $zero, $ra
+    nop
+.Lslow_lock:
     SETUP_SAVE_REFS_ONLY_FRAME            # save callee saves in case we block
     la      $t9, artLockObjectFromCode
     jalr    $t9                           # (Object* obj, Thread*)
@@ -1264,11 +1308,55 @@ END art_quick_lock_object_no_inline
     .extern artUnlockObjectFromCode
 ENTRY art_quick_unlock_object
     beqz    $a0, art_quick_throw_null_pointer_exception
+    li      $t8, LOCK_WORD_THIN_LOCK_COUNT_ONE
+    li      $t3, LOCK_WORD_GC_STATE_MASK_SHIFTED_TOGGLED
+.Lretry_unlock:
+#ifndef USE_READ_BARRIER
+    lw      $t1, MIRROR_OBJECT_LOCK_WORD_OFFSET($a0)
+#else
+    ll      $t1, MIRROR_OBJECT_LOCK_WORD_OFFSET($a0)  # Need to use atomic read-modify-write for read barrier
+#endif
+    srl     $t2, $t1, LOCK_WORD_STATE_SHIFT
+    bnez    $t2, .Lslow_unlock         # if either of the top two bits are set, go slow path
+    lw      $t0, THREAD_ID_OFFSET(rSELF)
+    and     $t2, $t1, $t3              # zero the gc bits
+    xor     $t2, $t2, $t0              # lock_word.ThreadId() ^ self->ThreadId()
+    andi    $t2, $t2, 0xFFFF           # zero top 16 bits
+    bnez    $t2, .Lslow_unlock         # do lock word and self thread id's match?
+    and     $t2, $t1, $t3              # zero the gc bits
+    bgeu    $t2, $t8, .Lrecursive_thin_unlock
+    # transition to unlocked
+    nor     $t2, $zero, $t3            # $t2 = LOCK_WORD_GC_STATE_MASK_SHIFTED
+    and     $t2, $t1, $t2              # $t2: zero except for the preserved gc bits
+    sync                               # full (LoadStore|StoreStore) memory barrier
+#ifndef USE_READ_BARRIER
+    jalr    $zero, $ra
+    sw      $t2, MIRROR_OBJECT_LOCK_WORD_OFFSET($a0)
+#else
+    sc      $t2, MIRROR_OBJECT_LOCK_WORD_OFFSET($a0)
+    beqz    $t2, .Lretry_unlock        # store failed, retry
     nop
-    SETUP_SAVE_REFS_ONLY_FRAME        # save callee saves in case exception allocation triggers GC
+    jalr    $zero, $ra
+    nop
+#endif
+.Lrecursive_thin_unlock:
+    # t1: original lock word
+    subu    $t2, $t1, $t8              # decrement count
+#ifndef USE_READ_BARRIER
+    jalr    $zero, $ra
+    sw      $t2, MIRROR_OBJECT_LOCK_WORD_OFFSET($a0)
+#else
+    sc      $t2, MIRROR_OBJECT_LOCK_WORD_OFFSET($a0)
+    beqz    $t2, .Lretry_unlock        # store failed, retry
+    nop
+    jalr    $zero, $ra
+    nop
+#endif
+.Lslow_unlock:
+    SETUP_SAVE_REFS_ONLY_FRAME         # save callee saves in case exception allocation triggers GC
     la      $t9, artUnlockObjectFromCode
-    jalr    $t9                       # (Object* obj, Thread*)
-    move    $a1, rSELF                # pass Thread::Current
+    jalr    $t9                        # (Object* obj, Thread*)
+    move    $a1, rSELF                 # pass Thread::Current
     RETURN_IF_ZERO
 END art_quick_unlock_object
 
@@ -1406,7 +1494,7 @@ ENTRY art_quick_aput_obj
     POISON_HEAP_REF $a2
     sw  $a2, MIRROR_OBJECT_ARRAY_DATA_OFFSET($t0)
     lw  $t0, THREAD_CARD_TABLE_OFFSET(rSELF)
-    srl $t1, $a0, 7
+    srl $t1, $a0, CARD_TABLE_CARD_SHIFT
     add $t1, $t1, $t0
     sb  $t0, ($t1)
     jalr $zero, $ra
@@ -1574,13 +1662,37 @@ END \name
 .endm
 
 // Generate the allocation entrypoints for each allocator.
-GENERATE_ALLOC_ENTRYPOINTS_FOR_EACH_ALLOCATOR
+GENERATE_ALLOC_ENTRYPOINTS_FOR_NON_TLAB_ALLOCATORS
+// Comment out allocators that have mips specific asm.
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_RESOLVED(_region_tlab, RegionTLAB)
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_INITIALIZED(_region_tlab, RegionTLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_WITH_ACCESS_CHECK(_region_tlab, RegionTLAB)
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED(_region_tlab, RegionTLAB)
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED8(_region_tlab, RegionTLAB)
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED16(_region_tlab, RegionTLAB)
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED32(_region_tlab, RegionTLAB)
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED64(_region_tlab, RegionTLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_BYTES(_region_tlab, RegionTLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_CHARS(_region_tlab, RegionTLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_STRING(_region_tlab, RegionTLAB)
+
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_RESOLVED(_tlab, TLAB)
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_INITIALIZED(_tlab, TLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_WITH_ACCESS_CHECK(_tlab, TLAB)
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED(_tlab, TLAB)
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED8(_tlab, TLAB)
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED16(_tlab, TLAB)
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED32(_tlab, TLAB)
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED64(_tlab, TLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_BYTES(_tlab, TLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_CHARS(_tlab, TLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_STRING(_tlab, TLAB)
 
 // A hand-written override for:
 //   GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_RESOLVED(_rosalloc, RosAlloc)
 //   GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_INITIALIZED(_rosalloc, RosAlloc)
-.macro ART_QUICK_ALLOC_OBJECT_ROSALLOC c_name, cxx_name
-ENTRY \c_name
+.macro ART_QUICK_ALLOC_OBJECT_ROSALLOC c_name, cxx_name, isInitialized
+ENTRY_NO_GP \c_name
     # Fast path rosalloc allocation
     # a0: type
     # s1: Thread::Current
@@ -1600,6 +1712,11 @@ ENTRY \c_name
     li    $t5, ROSALLOC_MAX_THREAD_LOCAL_BRACKET_SIZE          # Check if size is for a thread local
                                                                # allocation. Also does the
                                                                # initialized and finalizable checks.
+    # When isInitialized == 0, then the class is potentially not yet initialized.
+    # If the class is not yet initialized, the object size will be very large to force the branch
+    # below to be taken.
+    #
+    # See InitializeClassVisitors in class-inl.h for more details.
     bgtu  $t1, $t5, .Lslow_path_\c_name
 
     # Compute the rosalloc bracket index from the size. Since the size is already aligned we can
@@ -1640,12 +1757,19 @@ ENTRY \c_name
     addiu $t5, $t5, -1
     sw    $t5, (ROSALLOC_RUN_FREE_LIST_OFFSET + ROSALLOC_RUN_FREE_LIST_SIZE_OFFSET)($t2)
 
+.if \isInitialized == 0
+    # This barrier is only necessary when the allocation also requires a class initialization check.
+    #
+    # If the class is already observably initialized, then new-instance allocations are protected
+    # from publishing by the compiler which inserts its own StoreStore barrier.
     sync                                                          # Fence.
-
+.endif
     jalr  $zero, $ra
     nop
 
   .Lslow_path_\c_name:
+    addiu $t9, $t9, (.Lslow_path_\c_name - \c_name) + 4
+    .cpload $t9
     SETUP_SAVE_REFS_ONLY_FRAME
     la    $t9, \cxx_name
     jalr  $t9
@@ -1654,36 +1778,243 @@ ENTRY \c_name
 END \c_name
 .endm
 
-ART_QUICK_ALLOC_OBJECT_ROSALLOC art_quick_alloc_object_resolved_rosalloc, artAllocObjectFromCodeResolvedRosAlloc
-ART_QUICK_ALLOC_OBJECT_ROSALLOC art_quick_alloc_object_initialized_rosalloc, artAllocObjectFromCodeInitializedRosAlloc
+ART_QUICK_ALLOC_OBJECT_ROSALLOC art_quick_alloc_object_resolved_rosalloc, artAllocObjectFromCodeResolvedRosAlloc, /* isInitialized */ 0
+ART_QUICK_ALLOC_OBJECT_ROSALLOC art_quick_alloc_object_initialized_rosalloc, artAllocObjectFromCodeInitializedRosAlloc, /* isInitialized */ 1
 
-GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_RESOLVED(_tlab, TLAB)
-GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_RESOLVED(_region_tlab, RegionTLAB)
+// The common fast path code for art_quick_alloc_object_resolved/initialized_tlab
+// and art_quick_alloc_object_resolved/initialized_region_tlab.
+//
+// a0: type, s1(rSELF): Thread::Current.
+// Need to preserve a0 to the slow path.
+//
+// If isInitialized=1 then the compiler assumes the object's class has already been initialized.
+// If isInitialized=0 the compiler can only assume it's been at least resolved.
+.macro ALLOC_OBJECT_RESOLVED_TLAB_FAST_PATH slowPathLabel isInitialized
+    lw    $v0, THREAD_LOCAL_POS_OFFSET(rSELF)          # Load thread_local_pos.
+    lw    $a2, THREAD_LOCAL_END_OFFSET(rSELF)          # Load thread_local_end.
+    subu  $a3, $a2, $v0                                # Compute the remaining buffer size.
+    lw    $t0, MIRROR_CLASS_OBJECT_SIZE_ALLOC_FAST_PATH_OFFSET($a0)  # Load the object size.
+
+    # When isInitialized == 0, then the class is potentially not yet initialized.
+    # If the class is not yet initialized, the object size will be very large to force the branch
+    # below to be taken.
+    #
+    # See InitializeClassVisitors in class-inl.h for more details.
+    bgtu  $t0, $a3, \slowPathLabel                     # Check if it fits.
+    addu  $t1, $v0, $t0                                # Add object size to tlab pos (in branch
+                                                       # delay slot).
+    # "Point of no slow path". Won't go to the slow path from here on.
+    sw    $t1, THREAD_LOCAL_POS_OFFSET(rSELF)          # Store new thread_local_pos.
+    lw    $a2, THREAD_LOCAL_OBJECTS_OFFSET(rSELF)      # Increment thread_local_objects.
+    addiu $a2, $a2, 1
+    sw    $a2, THREAD_LOCAL_OBJECTS_OFFSET(rSELF)
+    POISON_HEAP_REF $a0
+    sw    $a0, MIRROR_OBJECT_CLASS_OFFSET($v0)         # Store the class pointer.
+
+.if \isInitialized == 0
+    # This barrier is only necessary when the allocation also requires a class initialization check.
+    #
+    # If the class is already observably initialized, then new-instance allocations are protected
+    # from publishing by the compiler which inserts its own StoreStore barrier.
+    sync                                               # Fence.
+.endif
+    jalr  $zero, $ra
+    nop
+.endm
+
+// The common code for art_quick_alloc_object_resolved/initialized_tlab
+// and art_quick_alloc_object_resolved/initialized_region_tlab.
+.macro GENERATE_ALLOC_OBJECT_TLAB name, entrypoint, isInitialized
+ENTRY_NO_GP \name
+    # Fast path tlab allocation.
+    # a0: type, s1(rSELF): Thread::Current.
+    ALLOC_OBJECT_RESOLVED_TLAB_FAST_PATH .Lslow_path_\name, \isInitialized
+.Lslow_path_\name:
+    addiu $t9, $t9, (.Lslow_path_\name - \name) + 4
+    .cpload $t9
+    SETUP_SAVE_REFS_ONLY_FRAME                         # Save callee saves in case of GC.
+    la    $t9, \entrypoint
+    jalr  $t9                                          # (mirror::Class*, Thread*)
+    move  $a1, rSELF                                   # Pass Thread::Current.
+    RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
+END \name
+.endm
+
+GENERATE_ALLOC_OBJECT_TLAB art_quick_alloc_object_resolved_region_tlab, artAllocObjectFromCodeResolvedRegionTLAB, /* isInitialized */ 0
+GENERATE_ALLOC_OBJECT_TLAB art_quick_alloc_object_initialized_region_tlab, artAllocObjectFromCodeInitializedRegionTLAB, /* isInitialized */ 1
+GENERATE_ALLOC_OBJECT_TLAB art_quick_alloc_object_resolved_tlab, artAllocObjectFromCodeResolvedTLAB, /* isInitialized */ 0
+GENERATE_ALLOC_OBJECT_TLAB art_quick_alloc_object_initialized_tlab, artAllocObjectFromCodeInitializedTLAB, /* isInitialized */ 1
+
+// The common fast path code for art_quick_alloc_array_resolved/initialized_tlab
+// and art_quick_alloc_array_resolved/initialized_region_tlab.
+//
+// a0: type, a1: component_count, a2: total_size, s1(rSELF): Thread::Current.
+// Need to preserve a0 and a1 to the slow path.
+.macro ALLOC_ARRAY_TLAB_FAST_PATH_RESOLVED_WITH_SIZE slowPathLabel
+    li    $a3, OBJECT_ALIGNMENT_MASK_TOGGLED           # Apply alignemnt mask
+    and   $a2, $a2, $a3                                # (addr + 7) & ~7.
+
+    lw    $v0, THREAD_LOCAL_POS_OFFSET(rSELF)          # Load thread_local_pos.
+    lw    $t1, THREAD_LOCAL_END_OFFSET(rSELF)          # Load thread_local_end.
+    subu  $t2, $t1, $v0                                # Compute the remaining buffer size.
+    bgtu  $a2, $t2, \slowPathLabel                     # Check if it fits.
+    addu  $a2, $v0, $a2                                # Add object size to tlab pos (in branch
+                                                       # delay slot).
+
+    # "Point of no slow path". Won't go to the slow path from here on.
+    sw    $a2, THREAD_LOCAL_POS_OFFSET(rSELF)          # Store new thread_local_pos.
+    lw    $a2, THREAD_LOCAL_OBJECTS_OFFSET(rSELF)      # Increment thread_local_objects.
+    addiu $a2, $a2, 1
+    sw    $a2, THREAD_LOCAL_OBJECTS_OFFSET(rSELF)
+    POISON_HEAP_REF $a0
+    sw    $a0, MIRROR_OBJECT_CLASS_OFFSET($v0)         # Store the class pointer.
+    jalr  $zero, $ra
+    sw    $a1, MIRROR_ARRAY_LENGTH_OFFSET($v0)         # Store the array length.
+.endm
+
+.macro GENERATE_ALLOC_ARRAY_TLAB name, entrypoint, size_setup
+ENTRY_NO_GP \name
+    # Fast path array allocation for region tlab allocation.
+    # a0: mirror::Class* type
+    # a1: int32_t component_count
+    # s1(rSELF): Thread::Current
+    \size_setup .Lslow_path_\name
+    ALLOC_ARRAY_TLAB_FAST_PATH_RESOLVED_WITH_SIZE .Lslow_path_\name
+.Lslow_path_\name:
+    # a0: mirror::Class* type
+    # a1: int32_t component_count
+    # a2: Thread* self
+    addiu $t9, $t9, (.Lslow_path_\name - \name) + 4
+    .cpload $t9
+    SETUP_SAVE_REFS_ONLY_FRAME                         # Save callee saves in case of GC.
+    la    $t9, \entrypoint
+    jalr  $t9
+    move  $a2, rSELF                                   # Pass Thread::Current.
+    RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
+END \name
+.endm
+
+.macro COMPUTE_ARRAY_SIZE_UNKNOWN slow_path
+    break                                              # We should never enter here.
+                                                       # Code below is for reference.
+                                                       # Possibly a large object, go slow.
+                                                       # Also does negative array size check.
+    li    $a2, ((MIN_LARGE_OBJECT_THRESHOLD - MIRROR_WIDE_ARRAY_DATA_OFFSET) / 8)
+    bgtu  $a1, $a2, \slow_path
+                                                       # Array classes are never finalizable
+                                                       # or uninitialized, no need to check.
+    lw    $a3, MIRROR_CLASS_COMPONENT_TYPE_OFFSET($a0) # Load component type.
+    UNPOISON_HEAP_REF $a3
+    lw    $a3, MIRROR_CLASS_OBJECT_PRIMITIVE_TYPE_OFFSET($a3)
+    srl   $a3, $a3, PRIMITIVE_TYPE_SIZE_SHIFT_SHIFT    # Component size shift is in high 16 bits.
+    sllv  $a2, $a1, $a3                                # Calculate data size.
+                                                       # Add array data offset and alignment.
+    addiu $a2, $a2, (MIRROR_INT_ARRAY_DATA_OFFSET + OBJECT_ALIGNMENT_MASK)
+#if MIRROR_WIDE_ARRAY_DATA_OFFSET != MIRROR_INT_ARRAY_DATA_OFFSET + 4
+#error Long array data offset must be 4 greater than int array data offset.
+#endif
+
+    addiu $a3, $a3, 1                                  # Add 4 to the length only if the component
+    andi  $a3, $a3, 4                                  # size shift is 3 (for 64 bit alignment).
+    addu  $a2, $a2, $a3
+.endm
+
+.macro COMPUTE_ARRAY_SIZE_8 slow_path
+    # Possibly a large object, go slow.
+    # Also does negative array size check.
+    li    $a2, (MIN_LARGE_OBJECT_THRESHOLD - MIRROR_INT_ARRAY_DATA_OFFSET)
+    bgtu  $a1, $a2, \slow_path
+    # Add array data offset and alignment (in branch delay slot).
+    addiu $a2, $a1, (MIRROR_INT_ARRAY_DATA_OFFSET + OBJECT_ALIGNMENT_MASK)
+.endm
+
+.macro COMPUTE_ARRAY_SIZE_16 slow_path
+    # Possibly a large object, go slow.
+    # Also does negative array size check.
+    li    $a2, ((MIN_LARGE_OBJECT_THRESHOLD - MIRROR_INT_ARRAY_DATA_OFFSET) / 2)
+    bgtu  $a1, $a2, \slow_path
+    sll   $a2, $a1, 1
+    # Add array data offset and alignment.
+    addiu $a2, $a2, (MIRROR_INT_ARRAY_DATA_OFFSET + OBJECT_ALIGNMENT_MASK)
+.endm
+
+.macro COMPUTE_ARRAY_SIZE_32 slow_path
+    # Possibly a large object, go slow.
+    # Also does negative array size check.
+    li    $a2, ((MIN_LARGE_OBJECT_THRESHOLD - MIRROR_INT_ARRAY_DATA_OFFSET) / 4)
+    bgtu  $a1, $a2, \slow_path
+    sll   $a2, $a1, 2
+    # Add array data offset and alignment.
+    addiu $a2, $a2, (MIRROR_INT_ARRAY_DATA_OFFSET + OBJECT_ALIGNMENT_MASK)
+.endm
+
+.macro COMPUTE_ARRAY_SIZE_64 slow_path
+    # Possibly a large object, go slow.
+    # Also does negative array size check.
+    li    $a2, ((MIN_LARGE_OBJECT_THRESHOLD - MIRROR_LONG_ARRAY_DATA_OFFSET) / 8)
+    bgtu  $a1, $a2, \slow_path
+    sll   $a2, $a1, 3
+    # Add array data offset and alignment.
+    addiu $a2, $a2, (MIRROR_WIDE_ARRAY_DATA_OFFSET + OBJECT_ALIGNMENT_MASK)
+.endm
+
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved_region_tlab, artAllocArrayFromCodeResolvedRegionTLAB, COMPUTE_ARRAY_SIZE_UNKNOWN
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved8_region_tlab, artAllocArrayFromCodeResolvedRegionTLAB, COMPUTE_ARRAY_SIZE_8
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved16_region_tlab, artAllocArrayFromCodeResolvedRegionTLAB, COMPUTE_ARRAY_SIZE_16
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved32_region_tlab, artAllocArrayFromCodeResolvedRegionTLAB, COMPUTE_ARRAY_SIZE_32
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved64_region_tlab, artAllocArrayFromCodeResolvedRegionTLAB, COMPUTE_ARRAY_SIZE_64
+
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved_tlab, artAllocArrayFromCodeResolvedTLAB, COMPUTE_ARRAY_SIZE_UNKNOWN
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved8_tlab, artAllocArrayFromCodeResolvedTLAB, COMPUTE_ARRAY_SIZE_8
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved16_tlab, artAllocArrayFromCodeResolvedTLAB, COMPUTE_ARRAY_SIZE_16
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved32_tlab, artAllocArrayFromCodeResolvedTLAB, COMPUTE_ARRAY_SIZE_32
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved64_tlab, artAllocArrayFromCodeResolvedTLAB, COMPUTE_ARRAY_SIZE_64
+
+// Macro for string and type resolution and initialization.
+// $a0 is both input and output.
+.macro ONE_ARG_SAVE_EVERYTHING_DOWNCALL name, entrypoint
+    .extern \entrypoint
+ENTRY_NO_GP \name
+    SETUP_SAVE_EVERYTHING_FRAME       # Save everything in case of GC.
+    move    $s2, $gp                  # Preserve $gp across the call for exception delivery.
+    la      $t9, \entrypoint
+    jalr    $t9                       # (uint32_t index, Thread*)
+    move    $a1, rSELF                # Pass Thread::Current (in delay slot).
+    beqz    $v0, 1f                   # Success?
+    move    $a0, $v0                  # Move result to $a0 (in delay slot).
+    RESTORE_SAVE_EVERYTHING_FRAME 0   # Restore everything except $a0.
+    jalr    $zero, $ra                # Return on success.
+    nop
+1:
+    move    $gp, $s2
+    DELIVER_PENDING_EXCEPTION_FRAME_READY
+END \name
+.endm
 
     /*
      * Entry from managed code to resolve a string, this stub will allocate a String and deliver an
      * exception on error. On success the String is returned. A0 holds the string index. The fast
      * path check for hit in strings cache has already been performed.
      */
-ONE_ARG_DOWNCALL art_quick_resolve_string, artResolveStringFromCode, RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
+ONE_ARG_SAVE_EVERYTHING_DOWNCALL art_quick_resolve_string, artResolveStringFromCode
 
     /*
      * Entry from managed code when uninitialized static storage, this stub will run the class
      * initializer and deliver the exception on error. On success the static storage base is
      * returned.
      */
-ONE_ARG_DOWNCALL art_quick_initialize_static_storage, artInitializeStaticStorageFromCode, RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
+ONE_ARG_SAVE_EVERYTHING_DOWNCALL art_quick_initialize_static_storage, artInitializeStaticStorageFromCode
 
     /*
      * Entry from managed code when dex cache misses for a type_idx.
      */
-ONE_ARG_DOWNCALL art_quick_initialize_type, artInitializeTypeFromCode, RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
+ONE_ARG_SAVE_EVERYTHING_DOWNCALL art_quick_initialize_type, artInitializeTypeFromCode
 
     /*
      * Entry from managed code when type_idx needs to be checked for access and dex cache may also
      * miss.
      */
-ONE_ARG_DOWNCALL art_quick_initialize_type_and_verify_access, artInitializeTypeAndVerifyAccessFromCode, RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
+ONE_ARG_SAVE_EVERYTHING_DOWNCALL art_quick_initialize_type_and_verify_access, artInitializeTypeAndVerifyAccessFromCode
 
     /*
      * Called by managed code when the value in rSUSPEND has been decremented to 0.
@@ -1735,6 +2066,10 @@ END art_quick_proxy_invoke_handler
      * Note that this stub writes to a0, t7 and t8.
      */
 ENTRY art_quick_imt_conflict_trampoline
+// FIXME: The DexCache method array has been changed to hash-based cache with eviction.
+// We need a relaxed atomic load of a 64-bit location to try and load the method
+// and call artQuickResolutionTrampoline() if the index does not match.
+#if 0
     lw      $t8, 0($sp)                                      # Load referrer.
     lw      $t8, ART_METHOD_DEX_CACHE_METHODS_OFFSET_32($t8) # Load dex cache methods array.
     sll     $t7, $t7, POINTER_SIZE_SHIFT                     # Calculate offset.
@@ -1764,6 +2099,9 @@ ENTRY art_quick_imt_conflict_trampoline
 .Lconflict_trampoline:
     # Call the runtime stub to populate the ImtConflictTable and jump to the resolved method.
     move    $a0, $t7                                         # Load interface method.
+#else
+    move   $a0, $zero
+#endif
     INVOKE_TRAMPOLINE_BODY artInvokeInterfaceTrampoline
 END art_quick_imt_conflict_trampoline
 
@@ -1854,7 +2192,8 @@ ENTRY art_quick_generic_jni_trampoline
     nop
 
 2:
-    lw $sp, THREAD_TOP_QUICK_FRAME_OFFSET(rSELF)
+    lw      $sp, THREAD_TOP_QUICK_FRAME_OFFSET(rSELF)
+    move    $gp, $s3               # restore $gp from $s3
     # This will create a new save-all frame, required by the runtime.
     DELIVER_PENDING_EXCEPTION
 END art_quick_generic_jni_trampoline
@@ -1893,10 +2232,11 @@ END art_invoke_obsolete_method_stub
 ENTRY art_quick_instrumentation_entry
     SETUP_SAVE_REFS_AND_ARGS_FRAME
     sw       $a0, 28($sp)   # save arg0 in free arg slot
-    move     $a3, $ra       # pass $ra
+    addiu    $a3, $sp, ARG_SLOT_SIZE      # Pass $sp.
     la       $t9, artInstrumentationMethodEntryFromCode
-    jalr     $t9            # (Method*, Object*, Thread*, LR)
+    jalr     $t9            # (Method*, Object*, Thread*, SP)
     move     $a2, rSELF     # pass Thread::Current
+    beqz     $v0, .Ldeliver_instrumentation_entry_exception
     move     $t9, $v0       # $t9 holds reference to code
     lw       $a0, 28($sp)   # restore arg0 from free arg slot
     RESTORE_SAVE_REFS_AND_ARGS_FRAME
@@ -1914,26 +2254,35 @@ art_quick_instrumentation_exit:
     SETUP_SAVE_REFS_ONLY_FRAME
     addiu    $sp, $sp, -16  # allocate temp storage on the stack
     .cfi_adjust_cfa_offset 16
-    sw       $v0, ARG_SLOT_SIZE+12($sp)
-    .cfi_rel_offset 2, ARG_SLOT_SIZE+12
-    sw       $v1, ARG_SLOT_SIZE+8($sp)
-    .cfi_rel_offset 3, ARG_SLOT_SIZE+8
+    sw       $v0, ARG_SLOT_SIZE+8($sp)
+    .cfi_rel_offset 2, ARG_SLOT_SIZE+8
+    sw       $v1, ARG_SLOT_SIZE+12($sp)
+    .cfi_rel_offset 3, ARG_SLOT_SIZE+12
     s.d      $f0, ARG_SLOT_SIZE($sp)
-    s.d      $f0, 16($sp)   # pass fpr result
-    move     $a2, $v0       # pass gpr result
-    move     $a3, $v1
-    addiu    $a1, $sp, ARG_SLOT_SIZE+16   # pass $sp (remove arg slots and temp storage)
+    addiu    $a3, $sp, ARG_SLOT_SIZE      # Pass fpr_res pointer.
+    addiu    $a2, $sp, ARG_SLOT_SIZE+8    # Pass gpr_res pointer.
+    addiu    $a1, $sp, ARG_SLOT_SIZE+16   # Pass $sp (remove arg slots and temp storage).
     la       $t9, artInstrumentationMethodExitFromCode
-    jalr     $t9            # (Thread*, SP, gpr_res, fpr_res)
-    move     $a0, rSELF     # pass Thread::Current
-    move     $t9, $v0       # set aside returned link register
-    move     $ra, $v1       # set link register for deoptimization
-    lw       $v0, ARG_SLOT_SIZE+12($sp)   # restore return values
-    lw       $v1, ARG_SLOT_SIZE+8($sp)
+    jalr     $t9                          # (Thread*, SP, gpr_res*, fpr_res*)
+    move     $a0, rSELF                   # Pass Thread::Current.
+    move     $t9, $v0                     # Set aside returned link register.
+    move     $ra, $v1                     # Set link register for deoptimization.
+    lw       $v0, ARG_SLOT_SIZE+8($sp)    # Restore return values.
+    lw       $v1, ARG_SLOT_SIZE+12($sp)
     l.d      $f0, ARG_SLOT_SIZE($sp)
-    jalr     $zero, $t9     # return
-    addiu    $sp, $sp, ARG_SLOT_SIZE+FRAME_SIZE_SAVE_REFS_ONLY+16  # restore stack
-    .cfi_adjust_cfa_offset -(ARG_SLOT_SIZE+FRAME_SIZE_SAVE_REFS_ONLY+16)
+    addiu    $sp, $sp, 16
+    .cfi_adjust_cfa_offset -16
+    RESTORE_SAVE_REFS_ONLY_FRAME
+    beqz     $t9, .Ldo_deliver_instrumentation_exception
+    nop                     # Deliver exception if we got nullptr as function.
+    jalr     $zero, $t9     # Otherwise, return.
+    nop
+.Ldeliver_instrumentation_entry_exception:
+    # Deliver exception for art_quick_instrumentation_entry placed after
+    # art_quick_instrumentation_exit so that the fallthrough works.
+    RESTORE_SAVE_REFS_AND_ARGS_FRAME
+.Ldo_deliver_instrumentation_exception:
+    DELIVER_PENDING_EXCEPTION
 END art_quick_instrumentation_exit
 
     /*
@@ -2211,8 +2560,32 @@ END art_quick_string_compareto
      */
 .macro READ_BARRIER_MARK_REG name, reg
 ENTRY \name
-    /* TODO: optimizations: mark bit, forwarding. */
-    addiu   $sp, $sp, -160      # includes 16 bytes of space for argument registers a0-a3
+    // Null check so that we can load the lock word.
+    bnez    \reg, .Lnot_null_\name
+    nop
+.Lret_rb_\name:
+    jalr    $zero, $ra
+    nop
+.Lnot_null_\name:
+    // Check lock word for mark bit, if marked return.
+    lw      $t9, MIRROR_OBJECT_LOCK_WORD_OFFSET(\reg)
+    .set push
+    .set noat
+    sll     $at, $t9, 31 - LOCK_WORD_MARK_BIT_SHIFT     # Move mark bit to sign bit.
+    bltz    $at, .Lret_rb_\name
+#if (LOCK_WORD_STATE_SHIFT != 30) || (LOCK_WORD_STATE_FORWARDING_ADDRESS != 3)
+    // The below code depends on the lock word state being in the highest bits
+    // and the "forwarding address" state having all bits set.
+#error "Unexpected lock word state shift or forwarding address state value."
+#endif
+    // Test that both the forwarding state bits are 1.
+    sll     $at, $t9, 1
+    and     $at, $at, $t9                               # Sign bit = 1 IFF both bits are 1.
+    bltz    $at, .Lret_forwarding_address\name
+    nop
+    .set pop
+
+    addiu   $sp, $sp, -160      # Includes 16 bytes of space for argument registers a0-a3.
     .cfi_adjust_cfa_offset 160
 
     sw      $ra, 156($sp)
@@ -2317,6 +2690,12 @@ ENTRY \name
     jalr    $zero, $ra
     addiu   $sp, $sp, 160
     .cfi_adjust_cfa_offset -160
+
+.Lret_forwarding_address\name:
+    jalr    $zero, $ra
+    // Shift left by the forwarding address shift. This clears out the state bits since they are
+    // in the top 2 bits of the lock word.
+    sll     \reg, $t9, LOCK_WORD_STATE_FORWARDING_ADDRESS_SHIFT
 END \name
 .endm
 

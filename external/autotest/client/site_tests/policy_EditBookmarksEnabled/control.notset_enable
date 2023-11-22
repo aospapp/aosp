@@ -4,7 +4,8 @@
 
 AUTHOR = 'scunningham'
 NAME = 'policy_EditBookmarksEnabled.notset_enable'
-ATTRIBUTES = 'suite:bvt-perbuild'
+# TODO: enable this test once crbug.com/739500 is fixed
+# ATTRIBUTES = 'suite:bvt-perbuild'
 TIME = 'SHORT'
 TEST_CATEGORY = 'General'
 TEST_CLASS = 'enterprise'

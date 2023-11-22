@@ -15,20 +15,15 @@
  */
 package com.android.tv.tests.jank;
 
-import android.content.res.Resources;
 import android.support.test.filters.MediumTest;
 import android.support.test.jank.GfxMonitor;
 import android.support.test.jank.JankTest;
-import android.support.test.jank.JankTestBase;
-import android.support.test.uiautomator.UiDevice;
-
-import com.android.tv.testing.uihelper.LiveChannelsUiDeviceHelper;
 
 /**
  * Jank tests for channel zapping.
  */
 @MediumTest
-public class ChannelZappingJankTest extends JankTestBase {
+public class ChannelZappingJankTest extends LiveChannelsTestCase {
     private static final String TAG = "ChannelZappingJankTest";
 
     private static final String STARTING_CHANNEL = "13";
@@ -45,16 +40,9 @@ public class ChannelZappingJankTest extends JankTestBase {
     private static final int EXPECTED_FRAMES = 100;
     private static final int WARM_UP_CHANNEL_ZAPPING_COUNT = 2;
 
-    private UiDevice mDevice;
-
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mDevice = UiDevice.getInstance(getInstrumentation());
-        Resources targetResources = getInstrumentation().getTargetContext().getResources();
-        LiveChannelsUiDeviceHelper liveChannelsHelper = new LiveChannelsUiDeviceHelper(mDevice,
-                targetResources, getInstrumentation().getContext());
-        liveChannelsHelper.assertAppStarted();
         Utils.pressKeysForChannelNumber(STARTING_CHANNEL, mDevice);
     }
 

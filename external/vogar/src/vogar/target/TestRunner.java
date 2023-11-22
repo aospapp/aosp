@@ -51,11 +51,6 @@ public final class TestRunner {
     private final int timeoutSeconds;
 
     private final RunnerFactory runnerFactory;
-    private final boolean profile;
-    private final int profileDepth;
-    private final int profileInterval;
-    private final File profileFile;
-    private final boolean profileThreadGroup;
     private final String[] args;
     private boolean useSocketMonitor;
 
@@ -65,13 +60,6 @@ public final class TestRunner {
 
         int monitorPort = Integer.parseInt(properties.getProperty(TestProperties.MONITOR_PORT));
         String skipPast = null;
-        boolean profile = Boolean.parseBoolean(properties.getProperty(TestProperties.PROFILE));
-        int profileDepth = Integer.parseInt(properties.getProperty(TestProperties.PROFILE_DEPTH));
-        int profileInterval
-                = Integer.parseInt(properties.getProperty(TestProperties.PROFILE_INTERVAL));
-        File profileFile = new File(properties.getProperty(TestProperties.PROFILE_FILE));
-        boolean profileThreadGroup
-                = Boolean.parseBoolean(properties.getProperty(TestProperties.PROFILE_THREAD_GROUP));
 
         for (Iterator<String> i = argsList.iterator(); i.hasNext(); ) {
             String arg = i.next();
@@ -104,11 +92,6 @@ public final class TestRunner {
 
         this.monitorPort = monitorPort;
         this.skipPastReference = new AtomicReference<>(skipPast);
-        this.profile = profile;
-        this.profileDepth = profileDepth;
-        this.profileInterval = profileInterval;
-        this.profileFile = profileFile;
-        this.profileThreadGroup = profileThreadGroup;
         this.args = argsList.toArray(new String[argsList.size()]);
     }
 
@@ -211,22 +194,11 @@ public final class TestRunner {
         }
 
 
-        Profiler profiler = null;
-        if (profile) {
-            try {
-                profiler = Profiler.getInstance();
-            } catch (Exception e) {
-                System.out.println("Profiling is disabled: " + e);
-            }
-        }
-        if (profiler != null) {
-            profiler.setup(profileThreadGroup, profileDepth, profileInterval);
-        }
         for (Class<?> klass : classes) {
             TargetRunner targetRunner;
             try {
                 targetRunner = runnerFactory.newRunner(monitor, qualification, klass,
-                        skipPastReference, testEnvironment, timeoutSeconds, profile, args);
+                        skipPastReference, testEnvironment, timeoutSeconds, args);
             } catch (RuntimeException e) {
                 monitor.outcomeStarted(klass.getName());
                 e.printStackTrace();
@@ -242,13 +214,10 @@ public final class TestRunner {
                 continue;
             }
 
-            boolean completedNormally = targetRunner.run(profiler);
+            boolean completedNormally = targetRunner.run();
             if (!completedNormally) {
                 return; // let the caller start another process
             }
-        }
-        if (profiler != null) {
-            profiler.shutdown(profileFile);
         }
 
         monitor.completedNormally(true);
@@ -274,10 +243,10 @@ public final class TestRunner {
         @Override @Nullable
         public TargetRunner newRunner(TargetMonitor monitor, String qualification,
                 Class<?> klass, AtomicReference<String> skipPastReference,
-                TestEnvironment testEnvironment, int timeoutSeconds, boolean profile, String[] args) {
+                TestEnvironment testEnvironment, int timeoutSeconds, String[] args) {
             for (RunnerFactory runnerFactory : runnerFactories) {
                 TargetRunner targetRunner = runnerFactory.newRunner(monitor, qualification, klass,
-                        skipPastReference, testEnvironment, timeoutSeconds, profile, args);
+                        skipPastReference, testEnvironment, timeoutSeconds, args);
                 if (targetRunner != null) {
                     return targetRunner;
                 }

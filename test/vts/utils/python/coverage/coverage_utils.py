@@ -21,6 +21,7 @@ import zipfile
 
 from google.protobuf.internal.containers import RepeatedCompositeFieldContainer
 
+from vts.proto import VtsReportMessage_pb2 as ReportMsg
 from vts.runners.host import keys
 from vts.utils.python.archive import archive_parser
 from vts.utils.python.build.api import artifact_fetcher
@@ -53,26 +54,46 @@ class CoverageFeature(feature_utils.Feature):
     Attributes:
         enabled: boolean, True if coverage is enabled, False otherwise
         web: (optional) WebFeature, object storing web feature util for test run
+        local_coverage_path: path to store the coverage files.
     """
 
     _TOGGLE_PARAM = keys.ConfigKeys.IKEY_ENABLE_COVERAGE
     _REQUIRED_PARAMS = [
-            keys.ConfigKeys.IKEY_ANDROID_DEVICE,
-            keys.ConfigKeys.IKEY_SERVICE_JSON_PATH,
-            keys.ConfigKeys.IKEY_ANDROID_DEVICE
-        ]
-    _OPTIONAL_PARAMS = [keys.ConfigKeys.IKEY_MODULES]
+        keys.ConfigKeys.IKEY_ANDROID_DEVICE,
+        keys.ConfigKeys.IKEY_SERVICE_JSON_PATH,
+        keys.ConfigKeys.IKEY_ANDROID_DEVICE
+    ]
+    _OPTIONAL_PARAMS = [
+        keys.ConfigKeys.IKEY_MODULES,
+        keys.ConfigKeys.IKEY_OUTPUT_COVERAGE_REPORT,
+        keys.ConfigKeys.IKEY_GLOBAL_COVERAGE
+    ]
 
-    def __init__(self, user_params, web=None):
+    def __init__(self, user_params, web=None, local_coverage_path=None):
         """Initializes the coverage feature.
 
         Args:
             user_params: A dictionary from parameter name (String) to parameter value.
             web: (optional) WebFeature, object storing web feature util for test run
+            local_coverage_path: (optional) path to store the .gcda files and coverage reports.
         """
-        self.ParseParameters(self._TOGGLE_PARAM, self._REQUIRED_PARAMS, self._OPTIONAL_PARAMS,
-                             user_params)
+        self.ParseParameters(self._TOGGLE_PARAM, self._REQUIRED_PARAMS,
+                             self._OPTIONAL_PARAMS, user_params)
         self.web = web
+        if local_coverage_path:
+            self.local_coverage_path = local_coverage_path
+        else:
+            timestamp_seconds = str(int(time.time() * 1000000))
+            self.local_coverage_path = os.path.join(LOCAL_COVERAGE_PATH,
+                                                    timestamp_seconds)
+            if os.path.exists(self.local_coverage_path):
+                logging.info("removing existing coverage path: %s",
+                             self.local_coverage_path)
+                shutil.rmtree(self.local_coverage_path)
+            os.makedirs(self.local_coverage_path)
+
+        self.global_coverage = getattr(
+                    self, keys.ConfigKeys.IKEY_GLOBAL_COVERAGE, True)
         logging.info("Coverage enabled: %s", self.enabled)
 
     def _ExtractSourceName(self, gcno_summary, file_name):
@@ -117,10 +138,13 @@ class CoverageFeature(feature_utils.Feature):
         """
         checksum_gcno_dict = dict()
         fnames = cov_zip.namelist()
-        instrumented_modules = [f for f in fnames if f.endswith(COVERAGE_SUFFIX)]
+        instrumented_modules = [
+            f for f in fnames if f.endswith(COVERAGE_SUFFIX)
+        ]
         for instrumented_module in instrumented_modules:
             # Read the gcnodir file
-            archive = archive_parser.Archive(cov_zip.open(instrumented_module).read())
+            archive = archive_parser.Archive(
+                cov_zip.open(instrumented_module).read())
             try:
                 archive.Parse()
             except ValueError:
@@ -132,7 +156,8 @@ class CoverageFeature(feature_utils.Feature):
                 file_name = os.path.basename(file_name_path)
                 gcno_stream = io.BytesIO(archive.files[gcno_file_path])
                 gcno_file_parser = gcno_parser.GCNOParser(gcno_stream)
-                checksum_gcno_dict[gcno_file_parser.checksum] = gcno_file_parser
+                checksum_gcno_dict[
+                    gcno_file_parser.checksum] = gcno_file_parser
         return checksum_gcno_dict
 
     def InitializeDeviceCoverage(self, dut):
@@ -148,7 +173,7 @@ class CoverageFeature(feature_utils.Feature):
         gcda_files = dut.adb.shell("find %s -name \"*.gcda\" -type f -delete" %
                                    TARGET_COVERAGE_PATH)
 
-    def GetGcdaDict(self, dut, local_coverage_path=None):
+    def GetGcdaDict(self, dut):
         """Retrieves GCDA files from device and creates a dictionary of files.
 
         Find all GCDA files on the target device, copy them to the host using
@@ -164,24 +189,36 @@ class CoverageFeature(feature_utils.Feature):
         """
         logging.info("Creating gcda dictionary")
         gcda_dict = {}
-        if not local_coverage_path:
-            timestamp = str(int(time.time() * 1000000))
-            local_coverage_path = os.path.join(LOCAL_COVERAGE_PATH, timestamp)
-        if os.path.exists(local_coverage_path):
-            shutil.rmtree(local_coverage_path)
-        os.makedirs(local_coverage_path)
-        logging.info("Storing gcda tmp files to: %s", local_coverage_path)
+        logging.info("Storing gcda tmp files to: %s", self.local_coverage_path)
         gcda_files = dut.adb.shell("find %s -name \"*.gcda\"" %
                                    TARGET_COVERAGE_PATH).split("\n")
         for gcda in gcda_files:
             if gcda:
                 basename = os.path.basename(gcda.strip())
-                file_name = os.path.join(local_coverage_path,
-                                         basename)
+                file_name = os.path.join(self.local_coverage_path, basename)
                 dut.adb.pull("%s %s" % (gcda, file_name))
                 gcda_content = open(file_name, "rb").read()
                 gcda_dict[basename] = gcda_content
         return gcda_dict
+
+    def _OutputCoverageReport(self, isGlobal):
+        logging.info("outputing coverage data")
+        timestamp_seconds = str(int(time.time() * 1000000))
+        coverage_report_file = os.path.join(
+            self.local_coverage_path,
+            "coverage_report_" + timestamp_seconds + ".txt")
+        logging.info("Storing coverage report to: %s", coverage_report_file)
+        coverage_report_msg = ReportMsg.TestReportMessage()
+        if isGlobal:
+            for c in self.web.report_msg.coverage:
+                coverage = coverage_report_msg.coverage.add()
+                coverage.CopyFrom(c)
+        else:
+            for c in self.web.current_test_report_msg.coverage:
+                coverage = coverage_report_msg.coverage.add()
+                coverage.CopyFrom(c)
+        with open(coverage_report_file, 'w+') as f:
+            f.write(str(coverage_report_msg))
 
     def _AutoProcess(self, gcda_dict, isGlobal):
         """Process coverage data and appends coverage reports to the report message.
@@ -207,6 +244,9 @@ class CoverageFeature(feature_utils.Feature):
         """
         revision_dict = getattr(self, _REVISION_DICT, None)
         checksum_gcno_dict = getattr(self, _CHECKSUM_GCNO_DICT, None)
+        output_coverage_report = getattr(
+            self, keys.ConfigKeys.IKEY_OUTPUT_COVERAGE_REPORT, False)
+
         for gcda_name in gcda_dict:
             gcda_stream = io.BytesIO(gcda_dict[gcda_name])
             gcda_file_parser = gcda_parser.GCDAParser(gcda_stream)
@@ -266,10 +306,15 @@ class CoverageFeature(feature_utils.Feature):
             if self.web and self.web.enabled:
                 coverage_vec = coverage_report.GenerateLineCoverageVector(
                     src_file_path, gcno_summary)
-                total_count, covered_count = coverage_report.GetCoverageStats(coverage_vec)
-                self.web.AddCoverageReport(
-                    coverage_vec, src_file_path, git_project_name, git_project_path,
-                    revision, covered_count, total_count, isGlobal)
+                total_count, covered_count = coverage_report.GetCoverageStats(
+                    coverage_vec)
+                self.web.AddCoverageReport(coverage_vec, src_file_path,
+                                           git_project_name, git_project_path,
+                                           revision, covered_count,
+                                           total_count, isGlobal)
+
+        if output_coverage_report:
+            self._OutputCoverageReport(isGlobal)
 
     def _ManualProcess(self, gcda_dict, isGlobal):
         """Process coverage data and appends coverage reports to the report message.
@@ -287,16 +332,20 @@ class CoverageFeature(feature_utils.Feature):
         """
         cov_zip = getattr(self, _COVERAGE_ZIP, None)
         revision_dict = getattr(self, _REVISION_DICT, None)
+        output_coverage_report = getattr(
+            self, keys.ConfigKeys.IKEY_OUTPUT_COVERAGE_REPORT, True)
         modules = getattr(self, keys.ConfigKeys.IKEY_MODULES, None)
         covered_modules = set(cov_zip.namelist())
         for module in modules:
             if MODULE_NAME not in module or GIT_PROJECT not in module:
-                logging.error("Coverage module must specify name and git project: %s",
-                              module)
+                logging.error(
+                    "Coverage module must specify name and git project: %s",
+                    module)
                 continue
             project = module[GIT_PROJECT]
             if PATH not in project or NAME not in project:
-                logging.error("Project name and path not specified: %s", project)
+                logging.error("Project name and path not specified: %s",
+                              project)
                 continue
 
             name = str(module[MODULE_NAME]) + COVERAGE_SUFFIX
@@ -307,8 +356,9 @@ class CoverageFeature(feature_utils.Feature):
                 logging.error("No coverage information for module %s", name)
                 continue
             if git_project not in revision_dict:
-                logging.error("Git project not present in device revision dict: %s",
-                              git_project)
+                logging.error(
+                    "Git project not present in device revision dict: %s",
+                    git_project)
                 continue
 
             revision = str(revision_dict[git_project])
@@ -337,10 +387,12 @@ class CoverageFeature(feature_utils.Feature):
                     logging.error("No gcda file found %s.", gcda_name)
                     continue
 
-                src_file_path = self._ExtractSourceName(gcno_summary, file_name)
+                src_file_path = self._ExtractSourceName(gcno_summary,
+                                                        file_name)
 
                 if not src_file_path:
-                    logging.error("No source file found for %s.", gcno_file_path)
+                    logging.error("No source file found for %s.",
+                                  gcno_file_path)
                     continue
 
                 # Process and merge gcno/gcda data
@@ -355,10 +407,15 @@ class CoverageFeature(feature_utils.Feature):
                 if self.web and self.web.enabled:
                     coverage_vec = coverage_report.GenerateLineCoverageVector(
                         src_file_path, gcno_summary)
-                    total_count, covered_count = coverage_report.GetCoverageStats(coverage_vec)
-                    self.web.AddCoverageReport(
-                        coverage_vec, src_file_path, git_project, git_project_path,
-                        revision, covered_count, total_count, isGlobal)
+                    total_count, covered_count = coverage_report.GetCoverageStats(
+                        coverage_vec)
+                    self.web.AddCoverageReport(coverage_vec, src_file_path,
+                                               git_project, git_project_path,
+                                               revision, covered_count,
+                                               total_count, isGlobal)
+
+        if output_coverage_report:
+            self._OutputCoverageReport(isGlobal)
 
     def LoadArtifacts(self):
         """Initializes the test for coverage instrumentation.
@@ -396,18 +453,21 @@ class CoverageFeature(feature_utils.Feature):
         build_id = str(device_build_id)
 
         # Get service json path
-        service_json_path = getattr(self, keys.ConfigKeys.IKEY_SERVICE_JSON_PATH)
+        service_json_path = getattr(self,
+                                    keys.ConfigKeys.IKEY_SERVICE_JSON_PATH)
 
         # Instantiate build client
         try:
-            build_client = artifact_fetcher.AndroidBuildClient(service_json_path)
+            build_client = artifact_fetcher.AndroidBuildClient(
+                service_json_path)
         except Exception as e:
             logging.exception('Failed to instantiate build client: %s', e)
             return
 
         # Fetch repo dictionary
         try:
-            revision_dict = build_client.GetRepoDictionary(_BRANCH, build_flavor, device_build_id)
+            revision_dict = build_client.GetRepoDictionary(
+                _BRANCH, build_flavor, device_build_id)
             setattr(self, _REVISION_DICT, revision_dict)
         except Exception as e:
             logging.exception('Failed to fetch repo dictionary: %s', e)
@@ -417,7 +477,8 @@ class CoverageFeature(feature_utils.Feature):
         # Fetch coverage zip
         try:
             cov_zip = io.BytesIO(
-                build_client.GetCoverage(_BRANCH, build_flavor, device_build_id, product))
+                build_client.GetCoverage(_BRANCH, build_flavor,
+                                         device_build_id, product))
             cov_zip = zipfile.ZipFile(cov_zip)
             setattr(self, _COVERAGE_ZIP, cov_zip)
         except Exception as e:

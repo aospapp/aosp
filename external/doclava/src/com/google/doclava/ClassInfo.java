@@ -135,6 +135,7 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
     mIsPrimitive = isPrimitive;
     mAnnotations = annotations;
     mShowAnnotations = AnnotationInstanceInfo.getShowAnnotationsIntersection(annotations);
+    mHideAnnotations = AnnotationInstanceInfo.getHideAnnotationsIntersection(annotations);
   }
 
   public void init(TypeInfo typeInfo, ArrayList<ClassInfo> interfaces,
@@ -167,6 +168,7 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
     mRealSuperclassType = superclassType;
     mAnnotations = annotations;
     mShowAnnotations = AnnotationInstanceInfo.getShowAnnotationsIntersection(annotations);
+    mHideAnnotations = AnnotationInstanceInfo.getHideAnnotationsIntersection(annotations);
 
     // after providing new methods and new superclass info,clear any cached
     // lists of self + superclass methods, ctors, etc.
@@ -1121,6 +1123,7 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
     if (isDeprecated()) {
       data.setValue(base + ".deprecatedsince", getDeprecatedSince());
     }
+    data.setValue(base + ".artifact", getArtifact());
 
     ArrayList<AnnotationInstanceInfo> showAnnos = getShowAnnotationsIncludeOuters();
     AnnotationInstanceInfo.makeLinkListHDF(
@@ -1191,6 +1194,7 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
     if (isDeprecated()) {
       data.setValue("class.deprecatedsince", getDeprecatedSince());
     }
+    data.setValue("class.artifact", getArtifact());
     setFederatedReferences(data, "class");
 
     // the containing package -- note that this can be passed to type_link,
@@ -1471,8 +1475,8 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
   }
 
   /**
-   * @return true if the containing package has @hide comment, or an ancestor
-   * class of this class is hidden, or this class has @hide comment.
+   * @return true if the containing package has @hide comment, a hide annotaion,
+   * or a containing class of this class is hidden.
    */
   public boolean isHiddenImpl() {
     ClassInfo cl = this;
@@ -1484,7 +1488,7 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
       if (pkg != null && pkg.hasHideComment()) {
         return true;
       }
-      if (cl.comment().isHidden()) {
+      if (cl.comment().isHidden() || cl.hasHideAnnotation()) {
         return true;
       }
       cl = cl.containingClass();
@@ -1508,9 +1512,6 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
   public boolean isRemovedImpl() {
     ClassInfo cl = this;
     while (cl != null) {
-      if (cl.hasShowAnnotation()) {
-        return false;
-      }
       PackageInfo pkg = cl.containingPackage();
       if (pkg != null && pkg.hasRemovedComment()) {
         return true;
@@ -1534,6 +1535,14 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
 
   public ArrayList<AnnotationInstanceInfo> showAnnotations() {
     return mShowAnnotations;
+  }
+
+  public boolean hasHideAnnotation() {
+    return mHideAnnotations != null && mHideAnnotations.size() > 0;
+  }
+
+  public ArrayList<AnnotationInstanceInfo> hideAnnotations() {
+    return mHideAnnotations;
   }
 
   public ArrayList<AnnotationInstanceInfo> getShowAnnotationsIncludeOuters() {
@@ -1823,6 +1832,7 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
   private ClassInfo mSuperclass;
   private ArrayList<AnnotationInstanceInfo> mAnnotations;
   private ArrayList<AnnotationInstanceInfo> mShowAnnotations;
+  private ArrayList<AnnotationInstanceInfo> mHideAnnotations;
   private boolean mSuperclassInit;
   private boolean mDeprecatedKnown;
 

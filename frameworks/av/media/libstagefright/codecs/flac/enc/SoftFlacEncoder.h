@@ -18,7 +18,7 @@
 
 #define SOFT_FLAC_ENC_H_
 
-#include "SimpleSoftOMXComponent.h"
+#include <media/stagefright/omx/SimpleSoftOMXComponent.h>
 
 #include "FLAC/stream_encoder.h"
 
@@ -48,13 +48,10 @@ protected:
     virtual void onQueueFilled(OMX_U32 portIndex);
 
 private:
-
-    enum {
-        kNumBuffers = 2,
-        kMaxNumSamplesPerFrame = 1152,
-        kMaxInputBufferSize = kMaxNumSamplesPerFrame * sizeof(int16_t) * 2,
-        kMaxOutputBufferSize = 65536,    //TODO check if this can be reduced
-    };
+    const unsigned int kNumBuffers = 2;
+    const unsigned int kMaxNumSamplesPerFrame = 1152;
+    const unsigned int kMaxInputBufferSize = kMaxNumSamplesPerFrame * sizeof(int16_t) * 2;
+    const unsigned int kMaxOutputBufferSize = 65536;    //TODO check if this can be reduced
 
     bool mSignalledError;
 

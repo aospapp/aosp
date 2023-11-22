@@ -17,6 +17,6 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="7454398782183407432">"TV Storage"</string>
-    <string name="permlab_readTvListings" msgid="5272001606068276291">"lisez toutes les chaînes de télévision"</string>
-    <string name="permdesc_readTvListings" msgid="1165157606059567535">"lisez toutes les chaînes de télévision accessibles sur votre appareil"</string>
+    <string name="permlab_readTvListings" msgid="5272001606068276291">"lire toutes les chaînes de télévision"</string>
+    <string name="permdesc_readTvListings" msgid="1165157606059567535">"Lire toutes les sources télé accessibles sur votre appareil"</string>
 </resources>

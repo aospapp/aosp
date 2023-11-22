@@ -1,8 +1,13 @@
 /* WARNING: This is auto-generated file. Do not modify, since changes will
  * be lost! Modify the generating script instead.
  *
- * Generated from Khronos GL API description (gl.xml) revision 32093.
+ * Generated from Khronos GL API description (gl.xml) revision 7ac9c857db1e3a6065485e4e2144151f48a4f1c4.
  */
+
+if (de::contains(extSet, "GL_KHR_blend_equation_advanced"))
+{
+	gl->blendBarrier	= (glBlendBarrierFunc)	loader->get("glBlendBarrierKHR");
+}
 
 if (de::contains(extSet, "GL_KHR_debug"))
 {
@@ -16,6 +21,13 @@ if (de::contains(extSet, "GL_KHR_debug"))
 	gl->objectPtrLabel			= (glObjectPtrLabelFunc)		loader->get("glObjectPtrLabel");
 	gl->popDebugGroup			= (glPopDebugGroupFunc)			loader->get("glPopDebugGroup");
 	gl->pushDebugGroup			= (glPushDebugGroupFunc)		loader->get("glPushDebugGroup");
+}
+
+if (de::contains(extSet, "GL_EXT_debug_marker"))
+{
+	gl->insertEventMarkerEXT	= (glInsertEventMarkerEXTFunc)	loader->get("glInsertEventMarkerEXT");
+	gl->popGroupMarkerEXT		= (glPopGroupMarkerEXTFunc)		loader->get("glPopGroupMarkerEXT");
+	gl->pushGroupMarkerEXT		= (glPushGroupMarkerEXTFunc)	loader->get("glPushGroupMarkerEXT");
 }
 
 if (de::contains(extSet, "GL_KHR_robustness"))

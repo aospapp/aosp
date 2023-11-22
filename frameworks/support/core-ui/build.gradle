@@ -1,20 +1,14 @@
-apply plugin: android.support.SupportLibraryPlugin
-archivesBaseName = 'support-core-ui'
+apply plugin: android.support.SupportAndroidLibraryPlugin
 
 dependencies {
-    compile project(':support-annotations')
-    compile project(':support-compat')
+    api project(':support-annotations')
+    api project(':support-compat')
 
-    androidTestCompile (libs.test_runner) {
-        exclude module: 'support-annotations'
-    }
-    androidTestCompile (libs.espresso_core) {
-        exclude module: 'support-annotations'
-    }
-    androidTestCompile libs.mockito_core
-    androidTestCompile libs.dexmaker
-    androidTestCompile libs.dexmaker_mockito
-    androidTestCompile project(':support-testutils')
+    androidTestImplementation libs.test_runner,      { exclude module: 'support-annotations' }
+    androidTestImplementation libs.espresso_core,    { exclude module: 'support-annotations' }
+    androidTestImplementation libs.mockito_core,     { exclude group: 'net.bytebuddy' } // DexMaker has it"s own MockMaker
+    androidTestImplementation libs.dexmaker_mockito, { exclude group: 'net.bytebuddy' } // DexMaker has it"s own MockMaker
+    androidTestImplementation project(':support-testutils')
 }
 
 android {
@@ -24,9 +18,6 @@ android {
 
     sourceSets {
         main.java.srcDirs = [
-                'ics',
-                'jellybean-mr2',
-                'api21',
                 'java'
         ]
     }
@@ -34,14 +25,11 @@ android {
     buildTypes.all {
         consumerProguardFiles 'proguard-rules.pro'
     }
-
-    testOptions {
-        unitTests.returnDefaultValues = true
-    }
 }
 
 supportLibrary {
     name 'Android Support Library core UI'
+    publish true
     inceptionYear '2011'
     description "The Support Library is a static library that you can add to your Android application in order to use APIs that are either not available for older platform versions or utility APIs that aren't a part of the framework APIs. Compatible on devices running API 14 or later."
 }

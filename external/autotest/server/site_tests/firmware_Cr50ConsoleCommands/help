@@ -1,0 +1,6 @@
+  brdprop        gpiocfg        i2cstpm       -powerbtn       taskinfo
+ -ccd            gpioget       -i2cxfer       -reboot         timerinfo
+ -chan          -gpioset        idle          -serialno      -usb
+  devices        help           lock           shmem          version
+  ecrst          history       -panicinfo      sysinfo        wp
+  gettime       -i2cscan        pinmux         sysrst         bid

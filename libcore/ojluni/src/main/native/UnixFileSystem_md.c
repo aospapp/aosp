@@ -42,7 +42,7 @@
 #include "java_io_FileSystem.h"
 #include "java_io_UnixFileSystem.h"
 
-#include "JNIHelp.h"
+#include <nativehelper/JNIHelp.h>
 
 #if defined(_ALLBSD_SOURCE)
 #define dirent64 dirent

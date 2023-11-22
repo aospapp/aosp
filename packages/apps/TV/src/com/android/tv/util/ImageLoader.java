@@ -292,7 +292,8 @@ public final class ImageLoader {
          * Checks if a reload would be needed if the results of other was available.
          */
         private boolean isReloadNeeded(LoadBitmapTask other) {
-            return mMaxHeight >= other.mMaxHeight * 2 || mMaxWidth >= other.mMaxWidth * 2;
+            return (other.mMaxHeight != Integer.MAX_VALUE && mMaxHeight >= other.mMaxHeight * 2)
+                    || (other.mMaxWidth != Integer.MAX_VALUE && mMaxWidth >= other.mMaxWidth * 2);
         }
 
         @Nullable

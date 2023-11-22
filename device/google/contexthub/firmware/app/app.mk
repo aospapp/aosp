@@ -158,7 +158,6 @@ CFLAGS += -D__FPU_PRESENT
 
 # Miscellaneous
 CFLAGS += -fno-strict-aliasing
-CFLAGS += -fshort-double
 CFLAGS += -fvisibility=hidden
 CFLAGS += -fno-unwind-tables
 CFLAGS += -fstack-reuse=all
@@ -171,10 +170,10 @@ LD := $(PREFIX)g++
 
 LDFLAGS := -T $(NANOHUB_DIR)/os/platform/$(PLATFORM)/lkr/app.lkr
 LDFLAGS += -nostartfiles
+LDFLAGS += -nostdlib
 LDFLAGS += -Wl,--gc-sections
 LDFLAGS += -Wl,-Map,$(OUT)/$(BIN).map
 LDFLAGS += -Wl,--cref
-STATIC_LIBS += -lgcc
 ifeq ($(BIN_MODE),static)
 LDFLAGS += -Bstatic
 LDFLAGS += -Wl,--emit-relocs

@@ -17,6 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Segélyhívási információk"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"Egészségügyi adatok"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"Adatok szerkesztése"</string>
     <string name="edit_info" msgid="5973929805855224805">"Segélyhívási információk szerkesztése"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Információ"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Névjegyek"</string>
@@ -96,12 +98,12 @@
     <string name="cancel" msgid="7401575239009060939">"Mégse"</string>
     <string name="ok" msgid="163967937451981024">"Rendben"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"Segélyhívási információk"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"Az Ön által itt megadott információk segíthetnek az elsőként a helyszínre érkezőknek vészhelyzet esetén. Az információkat kizárólag a telefon tárolja, és bárki elolvashatja őket a segélyhívó tárcsázóján a telefon feloldása nélkül."</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"Tovább"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Nincs információ a telefon tulajdonosáról"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"Ha ez az Ön telefonja, koppintson a ceruzára, és adja meg azokat az adatokat, amelyeket vészhelyzet esetén itt megjeleníthetünk."</string>
     <string name="clear_all" msgid="8899013032870561633">"Összes törlése"</string>
     <string name="clear" msgid="3648880442502887163">"Törlés"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Törli az összes információt és névjegyet?"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"Egészségügyi információk és vészhelyzetben hívható névjegyek hozzáadásával segítheti az elsősegélynyújtók munkáját vészhelyzet esetén.\n\nEzeket az információkat bárki elolvashatja a lezárási képernyőn, valamint a nevekre koppintva felhívhatja névjegyeit a telefon feloldása nélkül."</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"Segélyhívási információk megadása"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"Segítsen az elsősegélynyújtóknak a fontos adatok megtalálásában"</string>
 </resources>

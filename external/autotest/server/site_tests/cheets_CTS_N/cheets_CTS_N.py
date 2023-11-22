@@ -28,9 +28,9 @@ _CTS_TIMEOUT_SECONDS = 3600
 # Public download locations for android cts bundles.
 _DL_CTS = 'https://dl.google.com/dl/android/cts/'
 _CTS_URI = {
-    'arm': _DL_CTS + 'android-cts-7.1_r3-linux_x86-arm.zip',
-    'x86': _DL_CTS + 'android-cts-7.1_r3-linux_x86-x86.zip',
-    'media': _DL_CTS + 'android-cts-media-1.2.zip',
+    'arm': _DL_CTS + 'android-cts-7.1_r7-linux_x86-arm.zip',
+    'x86': _DL_CTS + 'android-cts-7.1_r7-linux_x86-x86.zip',
+    'media': _DL_CTS + 'android-cts-media-1.3.zip',
 }
 
 _SDK_TOOLS_DIR_N = 'gs://chromeos-arc-images/builds/git_nyc-mr1-arc-linux-static_sdk_tools/3544738'
@@ -195,7 +195,7 @@ class cheets_CTS_N(tradefed_test.TradefedTest):
         if not datetime_id:
             # Parse stdout to obtain datetime of the session. This is needed to
             # locate result xml files and logs.
-            datetime_id = self._parse_tradefed_datetime_N(output, self.summary)
+            datetime_id = self._parse_tradefed_datetime_v2(output, self.summary)
         # Collect tradefed logs for autotest.
         tradefed = os.path.join(self._android_cts, 'android-cts')
         self._collect_logs(tradefed, datetime_id, result_destination)
@@ -256,6 +256,13 @@ class cheets_CTS_N(tradefed_test.TradefedTest):
         return ((tests == passed + failed) or
                 (tests == passed + failed + notexecuted))
 
+    def _run_precondition_scripts(self, host, commands):
+        for command in commands:
+            logging.info('RUN: %s\n', command)
+            output = host.run(command, ignore_status=True)
+            logging.info('END: %s\n', output)
+
+
     def run_once(self,
                  target_module=None,
                  target_plan=None,
@@ -263,6 +270,9 @@ class cheets_CTS_N(tradefed_test.TradefedTest):
                  target_method=None,
                  needs_push_media=False,
                  max_retry=None,
+                 cts_tradefed_args=None,
+                 pre_condition_commands=[],
+                 warn_on_test_retry=True,
                  timeout=_CTS_TIMEOUT_SECONDS):
         """Runs the specified CTS once, but with several retries.
 
@@ -272,6 +282,7 @@ class cheets_CTS_N(tradefed_test.TradefedTest):
         3. Run all the test cases of class named |target_class|.
         4. Run a specific test method named |target_method| of class
            |target_class|.
+        5. Run an arbitrary tradefed command.
 
         @param target_module: the name of test module to run.
         @param target_plan: the name of the test plan to run.
@@ -280,20 +291,26 @@ class cheets_CTS_N(tradefed_test.TradefedTest):
         @param needs_push_media: need to push test media streams.
         @param max_retry: number of retry steps before reporting results.
         @param timeout: time after which tradefed can be interrupted.
+        @param pre_condition_command: a list of scripts to be run on the
+        dut before the test is run, the scripts must already be installed.
+        @param warn_on_test_retry: False if you want to skip warning message
+        about tradefed retries.
+        @param cts_tradefed_args: a list of args to pass to tradefed.
         """
+
         # On dev and beta channels timeouts are sharp, lenient on stable.
         self._timeout = timeout
         if self._get_release_channel == 'stable':
             self._timeout += 3600
         # Retries depend on channel.
-        self._max_retry = max_retry
-        if not self._max_retry:
-            self._max_retry = self._get_channel_retry()
+        self._max_retry = (
+            max_retry if max_retry is not None else self._get_channel_retry())
         logging.info('Maximum number of retry steps %d.', self._max_retry)
         session_id = 0
 
         self.result_history = {}
         steps = -1  # For historic reasons the first iteration is not counted.
+        pushed_media = False
         total_tests = 0
         total_passed = 0
         self.summary = ''
@@ -313,20 +330,28 @@ class cheets_CTS_N(tradefed_test.TradefedTest):
                 test_class=target_class,
                 test_method=target_method,
                 session_id=session_id)
+        elif cts_tradefed_args is not None:
+            test_name = 'run tradefed %s' % ' '.join(cts_tradefed_args)
+            test_command = cts_tradefed_args
+
         else:
             test_command = self._tradefed_run_command()
             test_name = 'all_CTS'
 
         # Unconditionally run CTS module until we see some tests executed.
         while total_tests == 0 and steps < self._max_retry:
-            with self._login_chrome():
+            steps += 1
+            with self._login_chrome(dont_override_profile=pushed_media):
                 self._ready_arc()
+                self._run_precondition_scripts(
+                    self._host,
+                    pre_condition_commands)
 
                 # Only push media for tests that need it. b/29371037
-                if needs_push_media:
+                if needs_push_media and not pushed_media:
                     self._push_media(_CTS_URI)
                     # copy_media.sh is not lazy, but we try to be.
-                    needs_push_media = False
+                    pushed_media = True
 
                 # Start each valid iteration with a clean repository. This
                 # allows us to track session_id blindly.
@@ -366,7 +391,6 @@ class cheets_CTS_N(tradefed_test.TradefedTest):
                 if total_tests == 0:
                     total_tests = tests
                 total_passed += passed
-                steps += 1
             # The DUT has rebooted at this point and is in a clean state.
         if total_tests == 0:
             raise error.TestFail('Error: Could not find any tests in module.')
@@ -374,53 +398,55 @@ class cheets_CTS_N(tradefed_test.TradefedTest):
         retry_inconsistency_error = None
         # If the results were not completed or were failing then continue or
         # retry them iteratively MAX_RETRY times.
-        while steps < self._max_retry and failed > 0:
-            # TODO(ihf): Use result_history to heuristically stop retries early.
-            if failed > waived:
-                with self._login_chrome():
-                    steps += 1
-                    self._ready_arc()
-                    logging.info('Retrying failures of %s with session_id %d:',
-                                 test_name, session_id)
-                    expected_tests = failed + notexecuted
-                    session_id, counts = self._tradefed_retry(test_name,
-                                                              session_id)
-                    tests, passed, failed, notexecuted, waived = counts
-                    self.result_history[steps] = counts
-                    # Consistency check, did we really run as many as we
-                    # thought initially?
-                    if expected_tests != tests:
-                        msg = ('Retry inconsistency - '
+        while steps < self._max_retry and failed > waived:
+            steps += 1
+            with self._login_chrome(dont_override_profile=pushed_media):
+                self._ready_arc()
+                self._run_precondition_scripts(
+                    self._host,
+                    pre_condition_commands)
+                logging.info('Retrying failures of %s with session_id %d:',
+                             test_name, session_id)
+                expected_tests = failed + notexecuted
+                session_id, counts = self._tradefed_retry(test_name,
+                                                          session_id)
+                tests, passed, failed, notexecuted, waived = counts
+                self.result_history[steps] = counts
+                # Consistency check, did we really run as many as we thought
+                # initially?
+                if expected_tests != tests:
+                    msg = ('Retry inconsistency - '
                            'initially saw %d failed+notexecuted, ran %d tests. '
                            'passed=%d, failed=%d, notexecuted=%d, waived=%d.' %
                            (expected_tests, tests, passed, failed, notexecuted,
                             waived))
-                        logging.warning(msg)
-                        if expected_tests > tests:
-                            # See b/36523200#comment8. Due to the existence of
-                            # the multiple tests having the same ID, more cases
-                            # may be run than previous fail count. As a
-                            # workaround, making it an error only when the tests
-                            # run were less than expected.
-                            # TODO(kinaba): Find a way to handle this dup.
-                            retry_inconsistency_error = msg
-                    if not self._consistent(tests, passed, failed, notexecuted):
-                        logging.warning('Tradefed inconsistency - retrying.')
-                        session_id, counts = self._tradefed_retry(test_name,
-                                                                  session_id)
-                        tests, passed, failed, notexecuted, waived = counts
-                        self.result_history[steps] = counts
-                    msg = 'retry(t=%d, p=%d, f=%d, ne=%d, w=%d)' % counts
-                    logging.info('RESULT: %s', msg)
-                    self.summary += ' ' + msg
-                    if not self._consistent(tests, passed, failed, notexecuted):
-                        logging.warning('Test count inconsistent. %s',
-                                        self.summary)
-                    total_passed += passed
-                # The DUT has rebooted at this point and is in a clean state.
+                    logging.warning(msg)
+                    if expected_tests > tests:
+                        # See b/36523200#comment8. Due to the existence of the
+                        # multiple tests having the same ID, more cases may be
+                        # run than previous fail count. As a workaround, making
+                        # it an error only when the tests run were less than
+                        # expected.
+                        # TODO(kinaba): Find a way to handle this dup.
+                        retry_inconsistency_error = msg
+                if not self._consistent(tests, passed, failed, notexecuted):
+                    logging.warning('Tradefed inconsistency - retrying.')
+                    session_id, counts = self._tradefed_retry(test_name,
+                                                              session_id)
+                    tests, passed, failed, notexecuted, waived = counts
+                    self.result_history[steps] = counts
+                msg = 'retry(t=%d, p=%d, f=%d, ne=%d, w=%d)' % counts
+                logging.info('RESULT: %s', msg)
+                self.summary += ' ' + msg
+                if not self._consistent(tests, passed, failed, notexecuted):
+                    logging.warning('Test count inconsistent. %s', self.summary)
+                total_passed += passed
+                if tests > expected_tests:
+                    total_tests += tests - expected_tests
+            # The DUT has rebooted at this point and is in a clean state.
 
         # Final classification of test results.
-        if total_passed == 0 or failed > waived:
+        if total_passed + waived == 0 or failed > waived:
             raise error.TestFail(
                 'Failed: after %d retries giving up. '
                 'passed=%d, failed=%d, notexecuted=%d, waived=%d. %s' %
@@ -432,7 +458,7 @@ class cheets_CTS_N(tradefed_test.TradefedTest):
         if retry_inconsistency_error:
             raise error.TestFail('Error: %s %s' % (retry_inconsistency_error,
                                                    self.summary))
-        if steps > 0:
+        if steps > 0 and warn_on_test_retry:
             # TODO(ihf): Make this error.TestPass('...') once available.
             raise error.TestWarn(
                 'Passed: after %d retries passing %d tests, waived=%d. %s' %

@@ -193,7 +193,6 @@ public class UsePermissionTest23 extends BasePermissionsTest {
                 permissions, new boolean[] {true});
 
         // We should now have been granted both of the permissions from this group.
-        // NOTE: This is undesired behavior which will be fixed for target API 24.
         assertEquals(PackageManager.PERMISSION_GRANTED, getInstrumentation().getContext()
                 .checkSelfPermission(Manifest.permission.SEND_SMS));
     }

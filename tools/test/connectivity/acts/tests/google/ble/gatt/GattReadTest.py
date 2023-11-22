@@ -20,11 +20,10 @@ This test script exercises different GATT read procedures.
 from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.GattConnectedBaseTest import GattConnectedBaseTest
-from acts.test_utils.bt.GattEnum import GattCharacteristic
-from acts.test_utils.bt.GattEnum import GattDescriptor
-from acts.test_utils.bt.GattEnum import MtuSize
-from acts.test_utils.bt.GattEnum import GattEvent
-from acts.test_utils.bt.GattEnum import GattCbStrings
+from acts.test_utils.bt.bt_constants import gatt_characteristic
+from acts.test_utils.bt.bt_constants import gatt_descriptor
+from acts.test_utils.bt.bt_constants import gatt_event
+from acts.test_utils.bt.bt_constants import gatt_cb_strings
 from math import ceil
 
 
@@ -58,7 +57,7 @@ class GattReadTest(GattConnectedBaseTest):
             self.bluetooth_gatt, self.discovered_services_index,
             self.test_service_index, self.READABLE_CHAR_UUID)
 
-        event = self._server_wait(GattEvent.CHAR_READ_REQ)
+        event = self._server_wait(gatt_event['char_read_req'])
 
         request_id = event['data']['requestId']
         self.assertEqual(0, event['data']['offset'], "offset should be 0")
@@ -71,7 +70,7 @@ class GattReadTest(GattConnectedBaseTest):
                                                  bt_device_id, request_id,
                                                  status, offset, char_value)
 
-        event = self._client_wait(GattEvent.CHAR_READ)
+        event = self._client_wait(gatt_event['char_read'])
         self.assertEqual(status, event["data"]["Status"],
                          "Write status should be 0")
         self.assertEqual(char_value, event["data"]["CharacteristicValue"],
@@ -127,7 +126,7 @@ class GattReadTest(GattConnectedBaseTest):
         for i in range(num_packets):
             startOffset = i * (self.mtu - 1)
 
-            event = self._server_wait(GattEvent.CHAR_READ_REQ)
+            event = self._server_wait(gatt_event['char_read_req'])
 
             request_id = event['data']['requestId']
             self.assertEqual(startOffset, event['data']['offset'],
@@ -140,7 +139,7 @@ class GattReadTest(GattConnectedBaseTest):
                 self.gatt_server, bt_device_id, request_id, status, offset,
                 char_value[startOffset:startOffset + self.mtu - 1])
 
-        event = self._client_wait(GattEvent.CHAR_READ)
+        event = self._client_wait(gatt_event['char_read'])
 
         self.assertEqual(status, event["data"]["Status"],
                          "Write status should be 0")
@@ -177,7 +176,7 @@ class GattReadTest(GattConnectedBaseTest):
         self.cen_ad.droid.gattClientReadUsingCharacteristicUuid(
             self.bluetooth_gatt, self.READABLE_CHAR_UUID, 0x0001, 0xFFFF)
 
-        event = self._server_wait(GattEvent.CHAR_READ_REQ)
+        event = self._server_wait(gatt_event['char_read_req'])
 
         request_id = event['data']['requestId']
         self.assertEqual(0, event['data']['offset'], "offset should be 0")
@@ -190,7 +189,7 @@ class GattReadTest(GattConnectedBaseTest):
                                                  bt_device_id, request_id,
                                                  status, offset, char_value)
 
-        event = self._client_wait(GattEvent.CHAR_READ)
+        event = self._client_wait(gatt_event['char_read'])
         self.assertEqual(status, event["data"]["Status"],
                          "Write status should be 0")
         self.assertEqual(char_value, event["data"]["CharacteristicValue"],

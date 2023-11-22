@@ -32,31 +32,30 @@ public class SnapshotInputStreamSource implements InputStreamSource {
     private File mBackingFile;
     private boolean mIsCancelled = false;
 
-    /**
-     * Constructor for a file-backed {@link InputStreamSource}
-     */
-    public SnapshotInputStreamSource(InputStream stream) {
+    /** Constructor for a file-backed {@link InputStreamSource} */
+    public SnapshotInputStreamSource(String name, InputStream stream) {
         if (stream == null) {
             throw new NullPointerException();
         }
 
         try {
-            mBackingFile = createBackingFile(stream);
+            mBackingFile = createBackingFile(name, stream);
         } catch (IOException e) {
             // Log an error and invalidate ourself
             CLog.e("Received IOException while trying to wrap a stream");
             CLog.e(e);
-            cancel();
+            close();
         }
     }
 
     /**
      * Create the backing file and fill it with the contents of {@code stream}.
-     * <p />
-     * Exposed for unit testing
+     *
+     * <p>Exposed for unit testing
      */
-    File createBackingFile(InputStream stream) throws IOException {
-        File backingFile = FileUtil.createTempFile(this.getClass().getSimpleName() + "_", ".txt");
+    File createBackingFile(String name, InputStream stream) throws IOException {
+        File backingFile =
+                FileUtil.createTempFile(name + "_" + this.getClass().getSimpleName() + "_", ".txt");
         FileUtil.writeToFile(stream, backingFile);
         return backingFile;
     }
@@ -77,11 +76,9 @@ public class SnapshotInputStreamSource implements InputStreamSource {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public synchronized void cancel() {
+    public synchronized void close() {
         mIsCancelled = true;
         FileUtil.deleteFile(mBackingFile);
         mBackingFile = null;

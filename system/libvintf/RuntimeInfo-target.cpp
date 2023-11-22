@@ -21,6 +21,7 @@
 #include "RuntimeInfo.h"
 
 #include "CompatibilityMatrix.h"
+#include "KernelConfigParser.h"
 #include "parse_string.h"
 
 #include <dirent.h>
@@ -42,27 +43,10 @@
 namespace android {
 namespace vintf {
 
-static void removeTrailingComments(std::string *s) {
-    size_t sharpPos = s->find('#');
-    if (sharpPos != std::string::npos) {
-        s->erase(sharpPos);
-    }
-}
-static void trim(std::string *s) {
-    auto l = s->begin();
-    for (; l != s->end() && std::isspace(*l); ++l);
-    s->erase(s->begin(), l);
-    auto r = s->rbegin();
-    for (; r != s->rend() && std::isspace(*r); ++r);
-    s->erase(r.base(), s->end());
-}
-
 struct RuntimeInfoFetcher {
     RuntimeInfoFetcher(RuntimeInfo *ki) : mRuntimeInfo(ki) { }
     status_t fetchAllInformation();
 private:
-    void streamConfig(const char *buf, size_t len);
-    void parseConfig(std::string *s);
     status_t fetchVersion();
     status_t fetchKernelConfigs();
     status_t fetchCpuInfo();
@@ -70,7 +54,7 @@ private:
     status_t fetchAvb();
     status_t parseKernelVersion();
     RuntimeInfo *mRuntimeInfo;
-    std::string mRemaining;
+    KernelConfigParser mConfigParser;
 };
 
 // decompress /proc/config.gz and read its contents.
@@ -84,7 +68,7 @@ status_t RuntimeInfoFetcher::fetchKernelConfigs() {
     char buf[BUFFER_SIZE];
     int len;
     while ((len = gzread(f, buf, sizeof buf)) > 0) {
-        streamConfig(buf, len);
+        mConfigParser.process(buf, len);
     }
     status_t err = OK;
     if (len < 0) {
@@ -93,47 +77,10 @@ status_t RuntimeInfoFetcher::fetchKernelConfigs() {
         LOG(ERROR) << "Could not read /proc/config.gz: " << errmsg;
         err = (errnum == Z_ERRNO ? -errno : errnum);
     }
-
-    // stream a "\n" to end the stream to finish the last line.
-    streamConfig("\n", 1 /* sizeof "\n" */);
-
+    mConfigParser.finish();
     gzclose(f);
+    mRuntimeInfo->mKernelConfigs = std::move(mConfigParser.configs());
     return err;
-}
-
-void RuntimeInfoFetcher::parseConfig(std::string *s) {
-    removeTrailingComments(s);
-    trim(s);
-    if (s->empty()) {
-        return;
-    }
-    size_t equalPos = s->find('=');
-    if (equalPos == std::string::npos) {
-        LOG(WARNING) << "Unrecognized line in /proc/config.gz: " << *s;
-        return;
-    }
-    std::string key = s->substr(0, equalPos);
-    std::string value = s->substr(equalPos + 1);
-    if (!mRuntimeInfo->mKernelConfigs.emplace(std::move(key), std::move(value)).second) {
-        LOG(WARNING) << "Duplicated key in /proc/config.gz: " << s->substr(0, equalPos);
-        return;
-    }
-}
-
-void RuntimeInfoFetcher::streamConfig(const char *buf, size_t len) {
-    const char *begin = buf;
-    const char *end = buf;
-    const char *stop = buf + len;
-    while (end < stop) {
-        if (*end == '\n') {
-            mRemaining.insert(mRemaining.size(), begin, end - begin);
-            parseConfig(&mRemaining);
-            mRemaining.clear();
-            begin = end + 1;
-        }
-        end++;
-    }
-    mRemaining.insert(mRemaining.size(), begin, end - begin);
 }
 
 status_t RuntimeInfoFetcher::fetchCpuInfo() {

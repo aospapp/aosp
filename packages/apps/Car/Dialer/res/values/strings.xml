@@ -102,4 +102,12 @@
     <!-- Using spaces here so that the positioning of the number is consistent. -->
     <string name="star_letters"> </string>
     <string name="pound_letters"> </string>
+
+    <string name="search_title">Search contacts</string>
+    <string name="search_hint">Search contacts</string>
+    <string name="type_home">Home</string>
+    <string name="type_work">Work</string>
+    <string name="type_mobile">Mobile</string>
+    <string name="type_other">Other</string>
+
 </resources>

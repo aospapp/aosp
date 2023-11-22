@@ -16,9 +16,8 @@
 
 package android.autofillservice.cts;
 
-import android.util.Log;
-
 import android.support.test.uiautomator.StaleObjectException;
+import android.util.Log;
 
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;

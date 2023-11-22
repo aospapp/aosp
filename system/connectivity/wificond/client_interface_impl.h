@@ -27,6 +27,7 @@
 #include "android/net/wifi/IClientInterface.h"
 #include "wificond/net/mlme_event_handler.h"
 #include "wificond/net/netlink_utils.h"
+#include "wificond/scanning/offload/offload_service_utils.h"
 #include "wificond/scanning/scanner_impl.h"
 
 namespace android {
@@ -67,7 +68,7 @@ class ClientInterfaceImpl {
       android::wifi_system::SupplicantManager* supplicant_manager,
       NetlinkUtils* netlink_utils,
       ScanUtils* scan_utils);
-  ~ClientInterfaceImpl();
+  virtual ~ClientInterfaceImpl();
 
   // Get a pointer to the binder representing this ClientInterfaceImpl.
   android::sp<android::net::wifi::IClientInterface> GetBinder() const;
@@ -82,7 +83,7 @@ class ClientInterfaceImpl {
   bool requestANQP(
       const ::std::vector<uint8_t>& bssid,
       const ::android::sp<::android::net::wifi::IANQPDoneCallback>& callback);
-  bool IsAssociated() const;
+  virtual bool IsAssociated() const;
   void Dump(std::stringstream* ss) const;
 
  private:
@@ -96,6 +97,7 @@ class ClientInterfaceImpl {
   android::wifi_system::SupplicantManager* const supplicant_manager_;
   NetlinkUtils* const netlink_utils_;
   ScanUtils* const scan_utils_;
+  const std::shared_ptr<OffloadServiceUtils> offload_service_utils_;
   const std::unique_ptr<MlmeEventHandlerImpl> mlme_event_handler_;
   const android::sp<ClientInterfaceBinder> binder_;
   android::sp<ScannerImpl> scanner_;

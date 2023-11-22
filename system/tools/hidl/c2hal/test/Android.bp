@@ -20,11 +20,11 @@ genrule {
         "hidl-gen",
     ],
     cmd: "$(location c2hal) -o $(genDir)/c2hal_test/1.0 " +
-         "-p android.hardware.c2hal_test@1.0 $(in) && " +
+         "    -p android.hardware.c2hal_test@1.0 $(in) && " +
          "$(location hidl-gen) -o $(genDir) -Lc++ " +
-         "-r android.hardware:$(genDir) " +
-         "-r android.hidl:system/libhidl/transport " +
-         "android.hardware.c2hal_test@1.0::ISimple",
+         "    -r android.hardware:$(genDir) " +
+         "    -r android.hidl:system/libhidl/transport " +
+         "    android.hardware.c2hal_test@1.0",
     srcs: [
         "simple.h",
     ],
@@ -34,6 +34,13 @@ genrule {
         "android/hardware/c2hal_test/1.0/BsSimple.h",
         "android/hardware/c2hal_test/1.0/IHwSimple.h",
         "android/hardware/c2hal_test/1.0/ISimple.h",
+        "android/hardware/c2hal_test/1.0/BnHwSimpleLocation.h",
+        "android/hardware/c2hal_test/1.0/BpHwSimpleLocation.h",
+        "android/hardware/c2hal_test/1.0/BsSimpleLocation.h",
+        "android/hardware/c2hal_test/1.0/IHwSimpleLocation.h",
+        "android/hardware/c2hal_test/1.0/ISimpleLocation.h",
+        "android/hardware/c2hal_test/1.0/types.h",
+        "android/hardware/c2hal_test/1.0/hwtypes.h",
     ],
 }
 
@@ -44,21 +51,23 @@ genrule {
         "hidl-gen",
     ],
     cmd: "$(location c2hal) -o $(genDir)/c2hal_test/1.0 " +
-         "-p android.hardware.c2hal_test@1.0 $(in) && " +
+         "    -p android.hardware.c2hal_test@1.0 $(in) && " +
          "$(location hidl-gen) -o $(genDir) -Lc++ " +
-         "-r android.hardware:$(genDir) " +
-         "-r android.hidl:system/libhidl/transport " +
-         "android.hardware.c2hal_test@1.0::ISimple",
+         "    -r android.hardware:$(genDir) " +
+         "    -r android.hidl:system/libhidl/transport " +
+         "    android.hardware.c2hal_test@1.0",
     srcs: [
         "simple.h",
     ],
     out: [
         "android/hardware/c2hal_test/1.0/SimpleAll.cpp",
+        "android/hardware/c2hal_test/1.0/types.cpp",
     ],
 }
 
-cc_library_shared {
+cc_test_library {
     name: "c2hal_test",
+    defaults: ["hidl-module-defaults"],
     generated_headers: ["c2hal_test_genc++_headers"],
     generated_sources: ["c2hal_test_genc++"],
     export_generated_headers: ["c2hal_test_genc++_headers"],
@@ -70,4 +79,5 @@ cc_library_shared {
         "libutils",
         "libcutils",
     ],
+    gtest: false,
 }

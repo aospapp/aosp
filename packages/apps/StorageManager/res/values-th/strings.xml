@@ -55,9 +55,12 @@
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"เปิด"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"สำรองข้อมูลรูปภาพและวิดีโอแล้ว"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"กำลังหารายการ…"</string>
+    <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"แสดงรายการทั้งหมด"</string>
+    <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"ซ่อนรายการล่าสุด"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="386144597646356521">"ระบบจะนำ <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> ออกจากอุปกรณ์"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"ตัวจัดการพื้นที่เก็บข้อมูลกำลังจัดการพื้นที่เก็บข้อมูลของคุณ"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"ไม่มีไฟล์ให้นำออก"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"ตรวจสอบรายการล่าสุด"</string>
-    <string name="empty_state_summary" msgid="8439893007424243790">"ไม่มีไฟล์เก่าให้นำออก หากต้องการเพิ่มพื้นที่ว่าง ให้นำรูปภาพ วิดีโอ และแอปล่าสุดออก"</string>
+    <string name="empty_state_summary" msgid="8439893007424243790">"ไม่มีไฟล์เก่าให้นำออก หากต้องการเพิ่มพื้นที่ ให้นำรูปภาพ วิดีโอ และแอปล่าสุดออก"</string>
+    <string name="app_requesting_space" msgid="857425181289960167">"<xliff:g id="APP">%1$s</xliff:g> ต้องใช้พื้นที่ <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g>"</string>
 </resources>

@@ -32,6 +32,8 @@ LOCAL_SHARED_LIBRARIES := liblog libcutils libdrm \
                           libwsbm libutils libhardware \
                           libva libva-tpi libva-android libsync
 
+LOCAL_HEADER_LIBRARIES := libsystem_headers
+
 LOCAL_SRC_FILES := \
     common/base/Drm.cpp \
     common/base/HwcLayer.cpp \

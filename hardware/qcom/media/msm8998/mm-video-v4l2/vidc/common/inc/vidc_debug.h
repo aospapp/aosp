@@ -83,6 +83,28 @@ extern int debug_level;
         }                                                                      \
     }                                                                          \
 
+/*
+ * Validate OMX_CONFIG_ANDROID_VENDOR_EXTENSIONTYPE type param
+ * *assumes* VALIDATE_OMX_PARAM_DATA checks have passed
+ * Checks for nParamCount cannot be generalized here. it is imperative that
+ *  the calling code handles it.
+ */
+#define VALIDATE_OMX_VENDOR_EXTENSION_PARAM_DATA(ext)                                             \
+    {                                                                                             \
+        if (ext->nParamSizeUsed < 1 || ext->nParamSizeUsed > OMX_MAX_ANDROID_VENDOR_PARAMCOUNT) { \
+            ALOGE("VendorExtension: sub-params(%u) not in expected range(%u - %u)",               \
+                    ext->nParamSizeUsed, 1, OMX_MAX_ANDROID_VENDOR_PARAMCOUNT);                   \
+            return OMX_ErrorBadParameter;                                                         \
+        }                                                                                         \
+        OMX_U32 expectedSize = (OMX_U32)sizeof(OMX_CONFIG_ANDROID_VENDOR_EXTENSIONTYPE) +         \
+                ((ext->nParamSizeUsed - 1) * (OMX_U32)sizeof(OMX_CONFIG_ANDROID_VENDOR_PARAMTYPE));\
+        if (ext->nSize < expectedSize) {                                                          \
+            ALOGE("VendorExtension: Insifficient size(%u) v/s expected(%u)",                      \
+                    ext->nSize, expectedSize);                                                    \
+            return OMX_ErrorBadParameter;                                                         \
+        }                                                                                         \
+    }                                                                                             \
+
 class auto_lock {
     public:
         auto_lock(pthread_mutex_t &lock)

@@ -24,16 +24,31 @@ public final class MimeTypes {
 
     private MimeTypes() {}
 
-    private static final String APK_TYPE = "application/vnd.android.package-archive";
+    public static final String APK_TYPE = "application/vnd.android.package-archive";
+
+    public static final String IMAGE_PREFIX = "image";
+    public static final String AUDIO_PREFIX = "audio";
+    public static final String VIDEO_PREFIX = "video";
+
     /**
      * MIME types that are visual in nature. For example, they should always be
      * shown as thumbnails in list mode.
      */
     public static final String[] VISUAL_MIMES = new String[] { "image/*", "video/*" };
 
+    public static @Nullable String[] splitMimeType(String mimeType) {
+        final String[] groups = mimeType.split("/");
+
+        if (groups.length != 2 || groups[0].isEmpty() || groups[1].isEmpty()) {
+            return null;
+        }
+
+        return groups;
+    }
+
     public static String findCommonMimeType(List<String> mimeTypes) {
-        String[] commonType = mimeTypes.get(0).split("/");
-        if (commonType.length != 2) {
+        String[] commonType = splitMimeType(mimeTypes.get(0));
+        if (commonType == null) {
             return "*/*";
         }
 

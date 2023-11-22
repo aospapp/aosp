@@ -580,6 +580,17 @@ public class BitmapRegionDecoderTest {
         Bitmap region = decoder.decodeRegion(new Rect(0, 0, TILE_SIZE, TILE_SIZE), opts);
     }
 
+    @Test(expected = IllegalArgumentException.class)
+    public void testHardwareBitmapIn() throws IOException {
+        Options opts = new BitmapFactory.Options();
+        Bitmap bitmap = Bitmap.createBitmap(TILE_SIZE, TILE_SIZE, Config.ARGB_8888)
+                .copy(Config.HARDWARE, false);
+        opts.inBitmap = bitmap;
+        InputStream is = obtainInputStream(RES_IDS[0]);
+        BitmapRegionDecoder decoder = BitmapRegionDecoder.newInstance(is, false);
+        decoder.decodeRegion(new Rect(0, 0, TILE_SIZE, TILE_SIZE), opts);
+    }
+
     private void compareRegionByRegion(BitmapRegionDecoder decoder,
             Options opts, int mseMargin, Bitmap wholeImage) {
         int width = decoder.getWidth();

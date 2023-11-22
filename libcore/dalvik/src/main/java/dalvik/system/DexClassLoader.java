@@ -16,8 +16,6 @@
 
 package dalvik.system;
 
-import java.io.File;
-
 /**
  * A class loader that loads classes from {@code .jar} and {@code .apk} files
  * containing a {@code classes.dex} entry. This can be used to execute code not
@@ -45,8 +43,7 @@ public class DexClassLoader extends BaseDexClassLoader {
      * @param dexPath the list of jar/apk files containing classes and
      *     resources, delimited by {@code File.pathSeparator}, which
      *     defaults to {@code ":"} on Android
-     * @param optimizedDirectory directory where optimized dex files
-     *     should be written; must not be {@code null}
+     * @param optimizedDirectory this parameter is deprecated and has no effect
      * @param librarySearchPath the list of directories containing native
      *     libraries, delimited by {@code File.pathSeparator}; may be
      *     {@code null}
@@ -54,6 +51,6 @@ public class DexClassLoader extends BaseDexClassLoader {
      */
     public DexClassLoader(String dexPath, String optimizedDirectory,
             String librarySearchPath, ClassLoader parent) {
-        super(dexPath, new File(optimizedDirectory), librarySearchPath, parent);
+        super(dexPath, null, librarySearchPath, parent);
     }
 }

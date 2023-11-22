@@ -40,12 +40,6 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Vector;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -55,6 +49,9 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
 import junit.framework.TestCase;
+
+import libcore.io.IoUtils;
+
 import tests.support.resource.Support_Resources;
 
 
@@ -168,8 +165,9 @@ public class JarFileTest extends TestCase {
         }
 
         try {
-            Support_Resources.copyFile(resources, null, jarName);
-            JarFile jarFile = new JarFile(new File(resources, jarName));
+            File file = Support_Resources.copyFile(resources, null, jarName);
+            JarFile jarFile = new JarFile(file);
+            jarFile.close();
         } catch (IOException e) {
             fail("Should not throw IOException");
         }
@@ -187,9 +185,10 @@ public class JarFileTest extends TestCase {
         }
 
         try {
-            Support_Resources.copyFile(resources, null, jarName);
-            String fileName = (new File(resources, jarName)).getCanonicalPath();
+            File file = Support_Resources.copyFile(resources, null, jarName);
+            String fileName = file.getCanonicalPath();
             JarFile jarFile = new JarFile(fileName);
+            jarFile.close();
         } catch (IOException e) {
             fail("Should not throw IOException");
         }
@@ -207,9 +206,10 @@ public class JarFileTest extends TestCase {
         }
 
         try {
-            Support_Resources.copyFile(resources, null, jarName);
-            String fileName = (new File(resources, jarName)).getCanonicalPath();
+            File file = Support_Resources.copyFile(resources, null, jarName);
+            String fileName = file.getCanonicalPath();
             JarFile jarFile = new JarFile(fileName, true);
+            jarFile.close();
         } catch (IOException e) {
             fail("Should not throw IOException");
         }
@@ -227,8 +227,9 @@ public class JarFileTest extends TestCase {
         }
 
         try {
-            Support_Resources.copyFile(resources, null, jarName);
-            JarFile jarFile = new JarFile(new File(resources, jarName), false);
+            File file = Support_Resources.copyFile(resources, null, jarName);
+            JarFile jarFile = new JarFile(file, false);
+            jarFile.close();
         } catch (IOException e) {
             fail("Should not throw IOException");
         }
@@ -247,16 +248,16 @@ public class JarFileTest extends TestCase {
         }
 
         try {
-            Support_Resources.copyFile(resources, null, jarName);
-            JarFile jarFile = new JarFile(new File(resources, jarName), false,
-                    ZipFile.OPEN_READ);
+            File file = Support_Resources.copyFile(resources, null, jarName);
+            JarFile jarFile = new JarFile(file, false, ZipFile.OPEN_READ);
+            jarFile.close();
         } catch (IOException e) {
             fail("Should not throw IOException");
         }
 
         try {
-            Support_Resources.copyFile(resources, null, jarName);
-            JarFile jarFile = new JarFile(new File(resources, jarName), false,
+            File file = Support_Resources.copyFile(resources, null, jarName);
+            JarFile jarFile = new JarFile(file, false,
                     ZipFile.OPEN_READ | ZipFile.OPEN_DELETE + 33);
             fail("Should throw IllegalArgumentException");
         } catch (IOException e) {
@@ -273,12 +274,14 @@ public class JarFileTest extends TestCase {
      * java.util.jar.JarFile#JarFile(java.lang.String)
      */
     public void testConstructor_file() throws IOException {
-        File f = new File(resources, jarName);
-        Support_Resources.copyFile(resources, null, jarName);
-        assertTrue(new JarFile(f).getEntry(entryName).getName().equals(
-                entryName));
-        assertTrue(new JarFile(f.getPath()).getEntry(entryName).getName()
-                .equals(entryName));
+        File f = Support_Resources.copyFile(resources, null, jarName);
+        try (JarFile jarFile = new JarFile(f)) {
+            assertTrue(jarFile.getEntry(entryName).getName().equals(entryName));
+        }
+
+        try (JarFile jarFile = new JarFile(f.getPath())) {
+            assertTrue(jarFile.getEntry(entryName).getName().equals(entryName));
+        }
     }
 
     /**
@@ -289,8 +292,8 @@ public class JarFileTest extends TestCase {
          * Note only (and all of) the following should be contained in the file
          * META-INF/ META-INF/MANIFEST.MF foo/ foo/bar/ foo/bar/A.class Blah.txt
          */
-        Support_Resources.copyFile(resources, null, jarName);
-        JarFile jarFile = new JarFile(new File(resources, jarName));
+        File file = Support_Resources.copyFile(resources, null, jarName);
+        JarFile jarFile = new JarFile(file);
         Enumeration<JarEntry> e = jarFile.entries();
         int i;
         for (i = 0; e.hasMoreElements(); i++) {
@@ -307,8 +310,8 @@ public class JarFileTest extends TestCase {
      */
     public void test_getEntryLjava_lang_String() throws IOException {
         try {
-            Support_Resources.copyFile(resources, null, jarName);
-            JarFile jarFile = new JarFile(new File(resources, jarName));
+            File file = Support_Resources.copyFile(resources, null, jarName);
+            JarFile jarFile = new JarFile(file);
             assertEquals("Error in returned entry", 311, jarFile.getEntry(
                     entryName).getSize());
             jarFile.close();
@@ -316,8 +319,8 @@ public class JarFileTest extends TestCase {
             fail("Exception during test: " + e.toString());
         }
 
-        Support_Resources.copyFile(resources, null, jarName);
-        JarFile jarFile = new JarFile(new File(resources, jarName));
+        File file = Support_Resources.copyFile(resources, null, jarName);
+        JarFile jarFile = new JarFile(file);
         Enumeration<JarEntry> enumeration = jarFile.entries();
         assertTrue(enumeration.hasMoreElements());
         while (enumeration.hasMoreElements()) {
@@ -344,8 +347,8 @@ public class JarFileTest extends TestCase {
      */
     public void test_getJarEntryLjava_lang_String() throws IOException {
         try {
-            Support_Resources.copyFile(resources, null, jarName);
-            JarFile jarFile = new JarFile(new File(resources, jarName));
+            File file = Support_Resources.copyFile(resources, null, jarName);
+            JarFile jarFile = new JarFile(file);
             assertEquals("Error in returned entry", 311, jarFile.getJarEntry(
                     entryName).getSize());
             jarFile.close();
@@ -353,8 +356,8 @@ public class JarFileTest extends TestCase {
             fail("Exception during test: " + e.toString());
         }
 
-        Support_Resources.copyFile(resources, null, jarName);
-        JarFile jarFile = new JarFile(new File(resources, jarName));
+        File file = Support_Resources.copyFile(resources, null, jarName);
+        JarFile jarFile = new JarFile(file);
         Enumeration<JarEntry> enumeration = jarFile.entries();
         assertTrue(enumeration.hasMoreElements());
         while (enumeration.hasMoreElements()) {
@@ -380,8 +383,8 @@ public class JarFileTest extends TestCase {
      * java.util.jar.JarFile#getJarEntry(java.lang.String)
      */
     public void testGetJarEntry() throws Exception {
-        Support_Resources.copyFile(resources, null, jarName);
-        JarFile jarFile = new JarFile(new File(resources, jarName));
+        File file = Support_Resources.copyFile(resources, null, jarName);
+        JarFile jarFile = new JarFile(file);
         assertEquals("Error in returned entry", 311, jarFile.getEntry(
                 entryName).getSize());
         jarFile.close();
@@ -429,7 +432,7 @@ public class JarFileTest extends TestCase {
         for (int i = 0; i < signedJars.size(); i++) {
             String jarName = signedJars.get(i);
             try {
-                File file = Support_Resources.getExternalLocalFile(jarDirUrl
+                file = Support_Resources.getExternalLocalFile(jarDirUrl
                         + "/" + jarName);
                 jarFile = new JarFile(file, true);
                 boolean foundCerts = false;
@@ -448,6 +451,7 @@ public class JarFileTest extends TestCase {
                 assertTrue(
                         "No certificates found during signed jar test for jar \""
                                 + jarName + "\"", foundCerts);
+                jarFile.close();
             } catch (IOException e) {
                 fail("Exception during signed jar test for jar \"" + jarName
                         + "\": " + e.toString());
@@ -462,16 +466,16 @@ public class JarFileTest extends TestCase {
         // Test for method java.util.jar.Manifest
         // java.util.jar.JarFile.getManifest()
         try {
-            Support_Resources.copyFile(resources, null, jarName);
-            JarFile jarFile = new JarFile(new File(resources, jarName));
+            File file = Support_Resources.copyFile(resources, null, jarName);
+            JarFile jarFile = new JarFile(file);
             assertNotNull("Error--Manifest not returned", jarFile.getManifest());
             jarFile.close();
         } catch (Exception e) {
             fail("Exception during 1st test: " + e.toString());
         }
         try {
-            Support_Resources.copyFile(resources, null, jarName2);
-            JarFile jarFile = new JarFile(new File(resources, jarName2));
+            File file = Support_Resources.copyFile(resources, null, jarName2);
+            JarFile jarFile = new JarFile(file);
             assertNull("Error--should have returned null", jarFile
                     .getManifest());
             jarFile.close();
@@ -481,8 +485,8 @@ public class JarFileTest extends TestCase {
 
         try {
             // jarName3 was created using the following test
-            Support_Resources.copyFile(resources, null, jarName3);
-            JarFile jarFile = new JarFile(new File(resources, jarName3));
+            File file = Support_Resources.copyFile(resources, null, jarName3);
+            JarFile jarFile = new JarFile(file);
             assertNotNull("Should find manifest without verifying", jarFile
                     .getManifest());
             jarFile.close();
@@ -522,8 +526,8 @@ public class JarFileTest extends TestCase {
             fail("IOException 3");
         }
         try {
-            Support_Resources.copyFile(resources, null, jarName2);
-            JarFile jF = new JarFile(new File(resources, jarName2));
+            File file = Support_Resources.copyFile(resources, null, jarName2);
+            JarFile jF = new JarFile(file);
             jF.close();
             jF.getManifest();
             fail("FAILED: expected IllegalStateException");
@@ -533,14 +537,16 @@ public class JarFileTest extends TestCase {
             fail("Exception during 4th test: " + e.toString());
         }
 
-        Support_Resources.copyFile(resources, null, "Broken_manifest.jar");
-        JarFile jf;
+        File file = Support_Resources.copyFile(resources, null, "Broken_manifest.jar");
+        JarFile jf = null;
         try {
-            jf = new JarFile(new File(resources, "Broken_manifest.jar"));
+            jf = new JarFile(file);
             jf.getManifest();
             fail("IOException expected.");
         } catch (IOException e) {
             // expected.
+        } finally {
+            IoUtils.closeQuietly(jf);
         }
     }
 
@@ -553,14 +559,12 @@ public class JarFileTest extends TestCase {
     public void test_getInputStreamLjava_util_jar_JarEntry_subtest0() throws Exception {
         File signedFile = null;
         try {
-            Support_Resources.copyFile(resources, null, jarName4);
-            signedFile = new File(resources, jarName4);
+            signedFile = Support_Resources.copyFile(resources, null, jarName4);
         } catch (Exception e) {
             fail("Failed to create local file 2: " + e);
         }
 
-        try {
-            JarFile jar = new JarFile(signedFile);
+        try (JarFile jar = new JarFile(signedFile)) {
             JarEntry entry = new JarEntry(entryName3);
             InputStream in = jar.getInputStream(entry);
             in.read();
@@ -568,8 +572,7 @@ public class JarFileTest extends TestCase {
             fail("Exception during test 3: " + e);
         }
 
-        try {
-            JarFile jar = new JarFile(signedFile);
+        try (JarFile jar = new JarFile(signedFile)) {
             JarEntry entry = new JarEntry(entryName3);
             InputStream in = jar.getInputStream(entry);
             // BEGIN Android-added
@@ -580,8 +583,7 @@ public class JarFileTest extends TestCase {
             fail("Exception during test 4: " + e);
         }
 
-        try {
-            JarFile jar = new JarFile(signedFile);
+        try (JarFile jar = new JarFile(signedFile)) {
             JarEntry entry = jar.getJarEntry(entryName3);
             entry.setSize(1076);
             InputStream in = jar.getInputStream(entry);
@@ -596,14 +598,12 @@ public class JarFileTest extends TestCase {
         }
 
         try {
-            Support_Resources.copyFile(resources, null, jarName5);
-            signedFile = new File(resources, jarName5);
+            signedFile = Support_Resources.copyFile(resources, null, jarName5);
         } catch (Exception e) {
             fail("Failed to create local file 5: " + e);
         }
 
-        try {
-            JarFile jar = new JarFile(signedFile);
+        try (JarFile jar = new JarFile(signedFile)) {
             JarEntry entry = new JarEntry(entryName3);
             InputStream in = jar.getInputStream(entry);
             fail("SecurityException should be thrown.");
@@ -650,46 +650,33 @@ public class JarFileTest extends TestCase {
      * Checks that a JAR is signed correctly with a signature length of sigLength.
      */
     private void checkSignedJar(String jarName, final int sigLength) throws Exception {
-        Support_Resources.copyFile(resources, null, jarName);
+        File file = Support_Resources.copyFile(resources, null, jarName);
+        assertFirstSignedEntryCertificateLength(file, sigLength);
+    }
 
-        final File file = new File(resources, jarName);
-
-        ExecutorService executor = Executors.newSingleThreadExecutor();
-        Future<Boolean> future = executor.submit(new Callable<Boolean>() {
-            @Override
-            public Boolean call() throws Exception {
-                JarFile jarFile = new JarFile(file, true);
-                try {
-                    Enumeration<JarEntry> e = jarFile.entries();
-                    while (e.hasMoreElements()) {
-                        JarEntry entry = e.nextElement();
-                        InputStream is = jarFile.getInputStream(entry);
-                        is.skip(100000);
-                        is.close();
-                        Certificate[] certs = entry.getCertificates();
-                        if (certs != null && certs.length > 0) {
-                            assertEquals(sigLength, certs.length);
-                            return true;
-                        }
-                    }
-                    return false;
-                } finally {
-                    jarFile.close();
+    /**
+     * Opens the specified File as a verified JarFile and iterates through the entries, checking the
+     * certificates length is as expected for the first entry found that return a non-null /
+     * non-empty array from {@link JarEntry#getCertificates()}. Fails if no entry can be found with
+     * certificates.
+     */
+    private static void assertFirstSignedEntryCertificateLength(File file, int expectedCertsLength)
+            throws IOException {
+        try (JarFile jarFile = new JarFile(file, true)) {
+            Enumeration<JarEntry> e = jarFile.entries();
+            while (e.hasMoreElements()) {
+                JarEntry entry = e.nextElement();
+                InputStream is = jarFile.getInputStream(entry);
+                is.skip(100000);
+                is.close();
+                Certificate[] certs = entry.getCertificates();
+                if (certs != null && certs.length > 0) {
+                    assertEquals(expectedCertsLength, certs.length);
+                    return;
                 }
             }
-        });
-        executor.shutdown();
-        final boolean foundCerts;
-        try {
-            foundCerts = future.get(10, TimeUnit.SECONDS);
-        } catch (TimeoutException e) {
-            fail("Could not finish building chain; possibly confused by loops");
-            return; // Not actually reached.
+            fail("No certificates found during signed jar test for jar \"" + file + "\"");
         }
-
-        assertTrue(
-                "No certificates found during signed jar test for jar \""
-                        + jarName + "\"", foundCerts);
     }
 
     private static class Results {
@@ -698,9 +685,7 @@ public class JarFileTest extends TestCase {
     }
 
     private Results getSignedJarCerts(String jarName) throws Exception {
-        Support_Resources.copyFile(resources, null, jarName);
-
-        File file = new File(resources, jarName);
+        File file = Support_Resources.copyFile(resources, null, jarName);
         Results results = new Results();
 
         JarFile jarFile = new JarFile(file, true, ZipFile.OPEN_READ);
@@ -765,26 +750,26 @@ public class JarFileTest extends TestCase {
      */
     public void test_Jar_created_before_java_5() throws IOException {
         String modifiedJarName = "Created_by_1_4.jar";
-        Support_Resources.copyFile(resources, null, modifiedJarName);
-        JarFile jarFile = new JarFile(new File(resources, modifiedJarName),
-                true);
-        Enumeration<JarEntry> entries = jarFile.entries();
-        while (entries.hasMoreElements()) {
-            ZipEntry zipEntry = entries.nextElement();
-            jarFile.getInputStream(zipEntry);
+        File file = Support_Resources.copyFile(resources, null, modifiedJarName);
+        try (JarFile jarFile = new JarFile(file, true)) {
+            Enumeration<JarEntry> entries = jarFile.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry zipEntry = entries.nextElement();
+                jarFile.getInputStream(zipEntry);
+            }
         }
     }
 
     /* The jar is intact, then everything is all right. */
     public void test_JarFile_Integrate_Jar() throws IOException {
         String modifiedJarName = "Integrate.jar";
-        Support_Resources.copyFile(resources, null, modifiedJarName);
-        JarFile jarFile = new JarFile(new File(resources, modifiedJarName),
-                true);
-        Enumeration<JarEntry> entries = jarFile.entries();
-        while (entries.hasMoreElements()) {
-            ZipEntry zipEntry = entries.nextElement();
-            jarFile.getInputStream(zipEntry).skip(Long.MAX_VALUE);
+        File file = Support_Resources.copyFile(resources, null, modifiedJarName);
+        try (JarFile jarFile = new JarFile(file, true)) {
+            Enumeration<JarEntry> entries = jarFile.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry zipEntry = entries.nextElement();
+                jarFile.getInputStream(zipEntry).skip(Long.MAX_VALUE);
+            }
         }
     }
 
@@ -792,23 +777,24 @@ public class JarFileTest extends TestCase {
      * The jar is intact, but the entry object is modified.
      */
     public void testJarVerificationModifiedEntry() throws IOException {
-        Support_Resources.copyFile(resources, null, integrateJar);
-        File f = new File(resources, integrateJar);
+        File f = Support_Resources.copyFile(resources, null, integrateJar);
 
-        JarFile jarFile = new JarFile(f);
-        ZipEntry zipEntry = jarFile.getJarEntry(integrateJarEntry);
-        zipEntry.setSize(zipEntry.getSize() + 1);
-        jarFile.getInputStream(zipEntry).skip(Long.MAX_VALUE);
+        try (JarFile jarFile = new JarFile(f)) {
+            ZipEntry zipEntry = jarFile.getJarEntry(integrateJarEntry);
+            zipEntry.setSize(zipEntry.getSize() + 1);
+            jarFile.getInputStream(zipEntry).skip(Long.MAX_VALUE);
+        }
 
-        jarFile = new JarFile(f);
-        zipEntry = jarFile.getJarEntry(integrateJarEntry);
-        zipEntry.setSize(zipEntry.getSize() - 1);
-        try {
-            //jarFile.getInputStream(zipEntry).skip(Long.MAX_VALUE);
-            jarFile.getInputStream(zipEntry).read(new byte[5000], 0, 5000);
-            fail("SecurityException expected");
-        } catch (SecurityException e) {
-            // desired
+        try (JarFile jarFile = new JarFile(f)) {
+            ZipEntry zipEntry = jarFile.getJarEntry(integrateJarEntry);
+            zipEntry.setSize(zipEntry.getSize() - 1);
+            try {
+                //jarFile.getInputStream(zipEntry).skip(Long.MAX_VALUE);
+                jarFile.getInputStream(zipEntry).read(new byte[5000], 0, 5000);
+                fail("SecurityException expected");
+            } catch (SecurityException e) {
+                // desired
+            }
         }
     }
 
@@ -818,18 +804,18 @@ public class JarFileTest extends TestCase {
      */
     public void test_JarFile_InsertEntry_in_Manifest_Jar() throws IOException {
         String modifiedJarName = "Inserted_Entry_Manifest.jar";
-        Support_Resources.copyFile(resources, null, modifiedJarName);
-        JarFile jarFile = new JarFile(new File(resources, modifiedJarName),
-                true);
-        Enumeration<JarEntry> entries = jarFile.entries();
-        int count = 0;
-        while (entries.hasMoreElements()) {
+        File file = Support_Resources.copyFile(resources, null, modifiedJarName);
+        try (JarFile jarFile = new JarFile(file, true)) {
+            Enumeration<JarEntry> entries = jarFile.entries();
+            int count = 0;
+            while (entries.hasMoreElements()) {
 
-            ZipEntry zipEntry = entries.nextElement();
-            jarFile.getInputStream(zipEntry);
-            count++;
+                ZipEntry zipEntry = entries.nextElement();
+                jarFile.getInputStream(zipEntry);
+                count++;
+            }
+            assertEquals(5, count);
         }
-        assertEquals(5, count);
     }
 
     /*
@@ -839,17 +825,17 @@ public class JarFileTest extends TestCase {
     public void test_Inserted_Entry_Manifest_with_DigestCode()
             throws IOException {
         String modifiedJarName = "Inserted_Entry_Manifest_with_DigestCode.jar";
-        Support_Resources.copyFile(resources, null, modifiedJarName);
-        JarFile jarFile = new JarFile(new File(resources, modifiedJarName),
-                true);
-        Enumeration<JarEntry> entries = jarFile.entries();
-        int count = 0;
-        while (entries.hasMoreElements()) {
-            ZipEntry zipEntry = entries.nextElement();
-            jarFile.getInputStream(zipEntry);
-            count++;
+        File file = Support_Resources.copyFile(resources, null, modifiedJarName);
+        try (JarFile jarFile = new JarFile(file, true)) {
+            Enumeration<JarEntry> entries = jarFile.entries();
+            int count = 0;
+            while (entries.hasMoreElements()) {
+                ZipEntry zipEntry = entries.nextElement();
+                jarFile.getInputStream(zipEntry);
+                count++;
+            }
+            assertEquals(5, count);
         }
-        assertEquals(5, count);
     }
 
     /*
@@ -859,25 +845,25 @@ public class JarFileTest extends TestCase {
      */
     public void test_JarFile_Modified_Class() throws IOException {
         String modifiedJarName = "Modified_Class.jar";
-        Support_Resources.copyFile(resources, null, modifiedJarName);
-        JarFile jarFile = new JarFile(new File(resources, modifiedJarName),
-                true);
-        Enumeration<JarEntry> entries = jarFile.entries();
-        while (entries.hasMoreElements()) {
-            ZipEntry zipEntry = entries.nextElement();
-            jarFile.getInputStream(zipEntry);
-        }
-        /* The content of Test.class has been tampered. */
-        ZipEntry zipEntry = jarFile.getEntry("Test.class");
-        InputStream in = jarFile.getInputStream(zipEntry);
-        byte[] buffer = new byte[1024];
-        try {
-            while (in.available() > 0) {
-                in.read(buffer);
+        File file = Support_Resources.copyFile(resources, null, modifiedJarName);
+        try (JarFile jarFile = new JarFile(file, true)) {
+            Enumeration<JarEntry> entries = jarFile.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry zipEntry = entries.nextElement();
+                jarFile.getInputStream(zipEntry);
             }
-            fail("SecurityException expected");
-        } catch (SecurityException e) {
-            // desired
+            /* The content of Test.class has been tampered. */
+            ZipEntry zipEntry = jarFile.getEntry("Test.class");
+            InputStream in = jarFile.getInputStream(zipEntry);
+            byte[] buffer = new byte[1024];
+            try {
+                while (in.available() > 0) {
+                    in.read(buffer);
+                }
+                fail("SecurityException expected");
+            } catch (SecurityException e) {
+                // desired
+            }
         }
     }
 
@@ -889,17 +875,17 @@ public class JarFileTest extends TestCase {
     public void test_JarFile_Modified_Manifest_MainAttributes()
             throws IOException {
         String modifiedJarName = "Modified_Manifest_MainAttributes.jar";
-        Support_Resources.copyFile(resources, null, modifiedJarName);
-        JarFile jarFile = new JarFile(new File(resources, modifiedJarName),
-                true);
-        Enumeration<JarEntry> entries = jarFile.entries();
-        while (entries.hasMoreElements()) {
-            ZipEntry zipEntry = entries.nextElement();
-            try {
-                jarFile.getInputStream(zipEntry);
-                fail("SecurityException expected");
-            } catch (SecurityException e) {
-                // desired
+        File file = Support_Resources.copyFile(resources, null, modifiedJarName);
+        try (JarFile jarFile = new JarFile(file, true)) {
+            Enumeration<JarEntry> entries = jarFile.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry zipEntry = entries.nextElement();
+                try {
+                    jarFile.getInputStream(zipEntry);
+                    fail("SecurityException expected");
+                } catch (SecurityException e) {
+                    // desired
+                }
             }
         }
     }
@@ -912,17 +898,17 @@ public class JarFileTest extends TestCase {
     public void test_JarFile_Modified_Manifest_EntryAttributes()
             throws IOException {
         String modifiedJarName = "Modified_Manifest_EntryAttributes.jar";
-        Support_Resources.copyFile(resources, null, modifiedJarName);
-        JarFile jarFile = new JarFile(new File(resources, modifiedJarName),
-                true);
-        Enumeration<JarEntry> entries = jarFile.entries();
-        while (entries.hasMoreElements()) {
-            ZipEntry zipEntry = entries.nextElement();
-            try {
-                jarFile.getInputStream(zipEntry);
-                fail("should throw Security Exception");
-            } catch (SecurityException e) {
-                // desired
+        File file = Support_Resources.copyFile(resources, null, modifiedJarName);
+        try (JarFile jarFile = new JarFile(file, true)) {
+            Enumeration<JarEntry> entries = jarFile.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry zipEntry = entries.nextElement();
+                try {
+                    jarFile.getInputStream(zipEntry);
+                    fail("should throw Security Exception");
+                } catch (SecurityException e) {
+                    // desired
+                }
             }
         }
     }
@@ -933,26 +919,25 @@ public class JarFileTest extends TestCase {
      */
     public void test_JarFile_Modified_SF_EntryAttributes() throws IOException {
         String modifiedJarName = "Modified_SF_EntryAttributes.jar";
-        Support_Resources.copyFile(resources, null, modifiedJarName);
-        JarFile jarFile = new JarFile(new File(resources, modifiedJarName),
-                true);
-        Enumeration<JarEntry> entries = jarFile.entries();
-        while (entries.hasMoreElements()) {
-            ZipEntry zipEntry = entries.nextElement();
-            try {
-                jarFile.getInputStream(zipEntry);
-                fail("should throw Security Exception");
-            } catch (SecurityException e) {
-                // desired
+        File file = Support_Resources.copyFile(resources, null, modifiedJarName);
+        try (JarFile jarFile = new JarFile(file, true)) {
+            Enumeration<JarEntry> entries = jarFile.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry zipEntry = entries.nextElement();
+                try {
+                    jarFile.getInputStream(zipEntry);
+                    fail("should throw Security Exception");
+                } catch (SecurityException e) {
+                    // desired
+                }
             }
         }
     }
 
     public void test_close() throws IOException {
         String modifiedJarName = "Modified_SF_EntryAttributes.jar";
-        Support_Resources.copyFile(resources, null, modifiedJarName);
-        JarFile jarFile = new JarFile(new File(resources, modifiedJarName),
-                true);
+        File file = Support_Resources.copyFile(resources, null, modifiedJarName);
+        JarFile jarFile = new JarFile(file, true);
         Enumeration<JarEntry> entries = jarFile.entries();
 
         jarFile.close();
@@ -968,19 +953,14 @@ public class JarFileTest extends TestCase {
     public void test_getInputStreamLjava_util_jar_JarEntry() throws IOException {
         File localFile = null;
         try {
-            Support_Resources.copyFile(resources, null, jarName);
-            localFile = new File(resources, jarName);
+            localFile = Support_Resources.copyFile(resources, null, jarName);
         } catch (Exception e) {
             fail("Failed to create local file: " + e);
         }
 
         byte[] b = new byte[1024];
-        try {
-            JarFile jf = new JarFile(localFile);
+        try (JarFile jf = new JarFile(localFile)) {
             java.io.InputStream is = jf.getInputStream(jf.getEntry(entryName));
-            // BEGIN Android-removed
-            // jf.close();
-            // END Android-removed
             assertTrue("Returned invalid stream", is.available() > 0);
             int r = is.read(b, 0, 1024);
             is.close();
@@ -990,47 +970,44 @@ public class JarFileTest extends TestCase {
             }
             String contents = sb.toString();
             assertTrue("Incorrect stream read", contents.indexOf("bar") > 0);
-            // BEGIN Android-added
-            jf.close();
-            // END Android-added
         } catch (Exception e) {
             fail("Exception during test: " + e.toString());
         }
 
-        try {
-            JarFile jf = new JarFile(localFile);
+        try (JarFile jf = new JarFile(localFile)) {
             InputStream in = jf.getInputStream(new JarEntry("invalid"));
             assertNull("Got stream for non-existent entry", in);
         } catch (Exception e) {
             fail("Exception during test 2: " + e);
         }
 
-        try {
-            Support_Resources.copyFile(resources, null, jarName);
-            File signedFile = new File(resources, jarName);
-            JarFile jf = new JarFile(signedFile);
-            JarEntry jre = new JarEntry("foo/bar/A.class");
-            jf.getInputStream(jre);
-            // InputStream returned in any way, exception can be thrown in case
-            // of reading from this stream only.
-            // fail("Should throw ZipException");
-        } catch (ZipException ee) {
-            // expected
+        {
+            File signedFile = Support_Resources.copyFile(resources, null, jarName);
+            try (JarFile jf = new JarFile(signedFile)) {
+                JarEntry jre = new JarEntry("foo/bar/A.class");
+                jf.getInputStream(jre);
+                // InputStream returned in any way, exception can be thrown in case
+                // of reading from this stream only.
+                // fail("Should throw ZipException");
+            } catch (ZipException ee) {
+                // expected
+            }
         }
 
-        try {
-            Support_Resources.copyFile(resources, null, jarName);
-            File signedFile = new File(resources, jarName);
-            JarFile jf = new JarFile(signedFile);
-            JarEntry jre = new JarEntry("foo/bar/A.class");
-            jf.close();
-            jf.getInputStream(jre);
-            // InputStream returned in any way, exception can be thrown in case
-            // of reading from this stream only.
-            // The same for IOException
-            fail("Should throw IllegalStateException");
-        } catch (IllegalStateException ee) {
-            // expected
+        {
+            File signedFile = Support_Resources.copyFile(resources, null, jarName);
+            try {
+                JarFile jf = new JarFile(signedFile);
+                JarEntry jre = new JarEntry("foo/bar/A.class");
+                jf.close();
+                jf.getInputStream(jre);
+                // InputStream returned in any way, exception can be thrown in case
+                // of reading from this stream only.
+                // The same for IOException
+                fail("Should throw IllegalStateException");
+            } catch (IllegalStateException ee) {
+                // expected
+            }
         }
     }
 
@@ -1039,22 +1016,22 @@ public class JarFileTest extends TestCase {
      */
     // Regression test for issue introduced by HARMONY-4569: signed archives containing files with size 0 could not get verified.
     public void testJarVerificationEmptyEntry() throws IOException {
-        Support_Resources.copyFile(resources, null, emptyEntryJar);
-        File f = new File(resources, emptyEntryJar);
+        File f = Support_Resources.copyFile(resources, null, emptyEntryJar);
 
-        JarFile jarFile = new JarFile(f);
+        try (JarFile jarFile = new JarFile(f)) {
 
-        ZipEntry zipEntry = jarFile.getJarEntry(emptyEntry1);
-        int res = jarFile.getInputStream(zipEntry).read(new byte[100], 0, 100);
-        assertEquals("Wrong length of empty jar entry", -1, res);
+            ZipEntry zipEntry = jarFile.getJarEntry(emptyEntry1);
+            int res = jarFile.getInputStream(zipEntry).read(new byte[100], 0, 100);
+            assertEquals("Wrong length of empty jar entry", -1, res);
 
-        zipEntry = jarFile.getJarEntry(emptyEntry2);
-        res = jarFile.getInputStream(zipEntry).read(new byte[100], 0, 100);
-        assertEquals("Wrong length of empty jar entry", -1, res);
+            zipEntry = jarFile.getJarEntry(emptyEntry2);
+            res = jarFile.getInputStream(zipEntry).read(new byte[100], 0, 100);
+            assertEquals("Wrong length of empty jar entry", -1, res);
 
-        zipEntry = jarFile.getJarEntry(emptyEntry3);
-        res = jarFile.getInputStream(zipEntry).read();
-        assertEquals("Wrong length of empty jar entry", -1, res);
+            zipEntry = jarFile.getJarEntry(emptyEntry3);
+            res = jarFile.getInputStream(zipEntry).read();
+            assertEquals("Wrong length of empty jar entry", -1, res);
+        }
     }
 
     public void testJarFile_BadSignatureProvider_Success() throws Exception {
@@ -1134,8 +1111,8 @@ public class JarFileTest extends TestCase {
          * Note only (and all of) the following should be contained in the file
          * META-INF/ META-INF/MANIFEST.MF Blah.txt  foo/ foo/bar/ foo/bar/A.class
          */
-        Support_Resources.copyFile(resources, null, jarName);
-        JarFile jarFile = new JarFile(new File(resources, jarName));
+        File file = Support_Resources.copyFile(resources, null, jarName);
+        JarFile jarFile = new JarFile(file);
 
         final List<String> names = new ArrayList<>();
         jarFile.stream().forEach((ZipEntry entry) -> names.add(entry.getName()));
@@ -1151,8 +1128,8 @@ public class JarFileTest extends TestCase {
      */
     public void test_metainf_verification() throws Exception {
         String jarFilename = "hyts_metainf.jar";
-        Support_Resources.copyFile(resources, null, jarFilename);
-        try (JarFile jarFile = new JarFile(new File(resources, jarFilename))) {
+        File file = Support_Resources.copyFile(resources, null, jarFilename);
+        try (JarFile jarFile = new JarFile(file)) {
 
             JarEntry jre = new JarEntry("META-INF/bad_checksum.txt");
             InputStream in = jarFile.getInputStream(jre);

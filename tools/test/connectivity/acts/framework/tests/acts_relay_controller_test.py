@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3.4
 #
 #   Copyright 2016 - The Android Open Source Project
 #
@@ -20,18 +20,26 @@ import tempfile
 import shutil
 import unittest
 
-from acts.controllers.relay_lib.generic_relay_device import GenericRelayDevice
-from acts.controllers.relay_lib.relay import Relay
-from acts.controllers.relay_lib.relay import RelayDict
-from acts.controllers.relay_lib.relay import RelayState
-from acts.controllers.relay_lib.relay import SynchronizeRelays
-from acts.controllers.relay_lib.relay_board import RelayBoard
-from acts.controllers.relay_lib.relay_device import RelayDevice
-from acts.controllers.relay_lib.relay_rig import RelayRig
-from acts.controllers.relay_lib.sain_smart_board import SainSmartBoard
+from acts.controllers.relay_lib import generic_relay_device
+from acts.controllers.relay_lib import relay
+from acts.controllers.relay_lib import relay_board
+from acts.controllers.relay_lib import relay_device
+from acts.controllers.relay_lib import relay_rig
+from acts.controllers.relay_lib import sain_smart_board
 
 import acts.controllers.relay_lib.errors as errors
 import acts.controllers.relay_lib.fugu_remote as fugu_remote
+
+# Shorthand versions of the long class names.
+GenericRelayDevice = generic_relay_device.GenericRelayDevice
+Relay = relay.Relay
+RelayDict = relay.RelayDict
+RelayState = relay.RelayState
+SynchronizeRelays = relay.SynchronizeRelays
+RelayBoard = relay_board.RelayBoard
+RelayDevice = relay_device.RelayDevice
+RelayRig = relay_rig.RelayRig
+SainSmartBoard = sain_smart_board.SainSmartBoard
 
 
 class MockBoard(RelayBoard):
@@ -161,6 +169,7 @@ class ActsRelayTest(unittest.TestCase):
 
     def test_clean_up_default_on(self):
         new_relay = Relay(self.board, 0)
+        new_relay._original_state = RelayState.NO
         self.board.set(new_relay.position, RelayState.NO)
         new_relay.clean_up()
 
@@ -169,11 +178,22 @@ class ActsRelayTest(unittest.TestCase):
 
     def test_clean_up_default_off(self):
         new_relay = Relay(self.board, 0)
+        new_relay._original_state = RelayState.NO
         self.board.set(new_relay.position, RelayState.NC)
         new_relay.clean_up()
 
         self.assertEqual(
             self.board.get_relay_status(new_relay.position), RelayState.NO)
+
+    def test_clean_up_original_state_none(self):
+        val = 'STAYS_THE_SAME'
+        new_relay = Relay(self.board, 0)
+        # _original_state is none by default
+        # The line below sets the dict to an impossible value.
+        self.board.set(new_relay.position, val)
+        new_relay.clean_up()
+        # If the impossible value is cleared, then the test should fail.
+        self.assertEqual(self.board.get_relay_status(new_relay.position), val)
 
 
 class ActsSainSmartBoardTest(unittest.TestCase):
@@ -196,10 +216,8 @@ class ActsSainSmartBoardTest(unittest.TestCase):
             file.write(self.RELAY_ON_PAGE_CONTENTS)
 
         self.config = ({
-            'name':
-            'SSBoard',
-            'base_url':
-            self.test_dir,
+            'name': 'SSBoard',
+            'base_url': self.test_dir,
             'relays': [{
                 'name': '0',
                 'relay_pos': 0
@@ -356,26 +374,25 @@ class ActsRelayRigTest(unittest.TestCase):
     def test_init_relay_rig_device_gets_relays(self):
         modded_config = copy.deepcopy(self.config)
         del modded_config['devices'][0]['relays']['Relay00']
-        relay_rig = RelayRigMock(modded_config)
-        self.assertEqual(len(relay_rig.relays), 4)
-        self.assertEqual(len(relay_rig.devices['device'].relays), 1)
+        rig = RelayRigMock(modded_config)
+        self.assertEqual(len(rig.relays), 4)
+        self.assertEqual(len(rig.devices['device'].relays), 1)
 
-        relay_rig = RelayRigMock(self.config)
-        self.assertEqual(len(relay_rig.devices['device'].relays), 2)
+        rig = RelayRigMock(self.config)
+        self.assertEqual(len(rig.devices['device'].relays), 2)
 
     def test_init_relay_rig_correct_device_type(self):
-        relay_rig = RelayRigMock(self.config)
-        self.assertEqual(len(relay_rig.devices), 1)
-        self.assertIsInstance(relay_rig.devices['device'], GenericRelayDevice)
+        rig = RelayRigMock(self.config)
+        self.assertEqual(len(rig.devices), 1)
+        self.assertIsInstance(rig.devices['device'], GenericRelayDevice)
 
     def test_init_relay_rig_missing_devices_creates_generic_device(self):
         modded_config = copy.deepcopy(self.config)
         del modded_config['devices']
-        relay_rig = RelayRigMock(modded_config)
-        self.assertEqual(len(relay_rig.devices), 1)
-        self.assertIsInstance(relay_rig.devices['device'], GenericRelayDevice)
-        self.assertDictEqual(relay_rig.devices['device'].relays,
-                             relay_rig.relays)
+        rig = RelayRigMock(modded_config)
+        self.assertEqual(len(rig.devices), 1)
+        self.assertIsInstance(rig.devices['device'], GenericRelayDevice)
+        self.assertDictEqual(rig.devices['device'].relays, rig.relays)
 
 
 class RelayRigMock(RelayRig):
@@ -435,8 +452,8 @@ class ActsGenericRelayDeviceTest(unittest.TestCase):
         modified_config = copy.deepcopy(self.device_config)
         del modified_config['relays']['r1']
 
-        generic_relay_device = GenericRelayDevice(modified_config, self.rig)
-        generic_relay_device.setup()
+        grd = GenericRelayDevice(modified_config, self.rig)
+        grd.setup()
 
         self.assertEqual(self.r0.get_status(), RelayState.NO)
         self.assertEqual(self.r1.get_status(), RelayState.NC)
@@ -445,8 +462,8 @@ class ActsGenericRelayDeviceTest(unittest.TestCase):
         self.board.set(self.r0.position, RelayState.NC)
         self.board.set(self.r1.position, RelayState.NC)
 
-        generic_relay_device = GenericRelayDevice(self.device_config, self.rig)
-        generic_relay_device.setup()
+        grd = GenericRelayDevice(self.device_config, self.rig)
+        grd.setup()
 
         self.assertEqual(self.r0.get_status(), RelayState.NO)
         self.assertEqual(self.r1.get_status(), RelayState.NO)
@@ -459,8 +476,8 @@ class ActsGenericRelayDeviceTest(unittest.TestCase):
 
     def change_state(self, begin_state, call, end_state, previous_state=None):
         self.board.set(self.r0.position, begin_state)
-        generic_relay_device = GenericRelayDevice(self.device_config, self.rig)
-        call(generic_relay_device)
+        grd = GenericRelayDevice(self.device_config, self.rig)
+        call(grd)
         self.assertEqual(self.r0.get_status(), end_state)
         if previous_state:
             self.assertEqual(
@@ -622,8 +639,8 @@ class TestRelayRigParser(unittest.TestCase):
                 'r1': 'MockBoard/1'
             }
         }
-        relay_device = rig.create_relay_device(config)
-        self.assertIsInstance(relay_device, GenericRelayDevice)
+        device = rig.create_relay_device(config)
+        self.assertIsInstance(device, GenericRelayDevice)
 
     def test_create_relay_device_config_with_type(self):
         rig = RelayRigMock()
@@ -637,18 +654,16 @@ class TestRelayRigParser(unittest.TestCase):
                 'r1': 'MockBoard/1'
             }
         }
-        relay_device = rig.create_relay_device(config)
-        self.assertIsInstance(relay_device, GenericRelayDevice)
+        device = rig.create_relay_device(config)
+        self.assertIsInstance(device, GenericRelayDevice)
 
     def test_create_relay_device_raise_on_type_not_found(self):
         rig = RelayRigMock()
         rig.relays['r0'] = self.r0
         rig.relays['r1'] = self.r1
         config = {
-            'type':
-            'SomeInvalidType',
-            'name':
-            '.',
+            'type': 'SomeInvalidType',
+            'name': '.',
             'relays': [{
                 'name': 'r0',
                 'pos': 'MockBoard/0'

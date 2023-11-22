@@ -2,6 +2,10 @@
 
 First of all, if you have not done [VTS setup](../setup/index.md), that is required here.
 
+## Download required Python packages to local host
+
+`$ . test/vts/script/pypi-packages-local.sh`
+
 ## Build Binaries
 
 `$ cd test/vts/script`

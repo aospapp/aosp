@@ -16,7 +16,6 @@
 
 package com.android.compatibility.common.tradefed.testtype;
 
-import com.android.compatibility.SuiteInfo;
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.compatibility.common.tradefed.result.InvocationFailureHandler;
 import com.android.compatibility.common.tradefed.result.SubPlanHelper;
@@ -55,6 +54,7 @@ import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.IShardableTest;
 import com.android.tradefed.testtype.IStrictShardableTest;
 import com.android.tradefed.testtype.ITestCollector;
+import com.android.tradefed.testtype.suite.TestSuiteInfo;
 import com.android.tradefed.util.AbiFormatter;
 import com.android.tradefed.util.AbiUtils;
 import com.android.tradefed.util.ArrayUtil;
@@ -145,13 +145,13 @@ public class CompatibilityTest implements IDeviceTest, IShardableTest, IBuildRec
 
     @Option(name = MODULE_ARG_OPTION,
             description = "the arguments to pass to a module. The expected format is"
-                    + "\"<module-name>:<arg-name>:[<arg-key>:]<arg-value>\"",
+                    + "\"<module-name>:<arg-name>:[<arg-key>:=]<arg-value>\"",
             importance = Importance.ALWAYS)
     private List<String> mModuleArgs = new ArrayList<>();
 
     @Option(name = TEST_ARG_OPTION,
             description = "the arguments to pass to a test. The expected format is"
-                    + "\"<test-class>:<arg-name>:[<arg-key>:]<arg-value>\"",
+                    + "\"<test-class>:<arg-name>:[<arg-key>:=]<arg-value>\"",
             importance = Importance.ALWAYS)
     private List<String> mTestArgs = new ArrayList<>();
 
@@ -366,37 +366,8 @@ public class CompatibilityTest implements IDeviceTest, IShardableTest, IBuildRec
                 }
             }
 
-            // FIXME: Each shard will do a full initialization which is not optimal. Need a way
-            // to be more specific on what to initialize.
-            LinkedList<IModuleDef> modules;
-            synchronized (mModuleRepo) {
-                if (!mModuleRepo.isInitialized()) {
-                    setupFilters();
-                    // Initialize the repository, {@link CompatibilityBuildHelper#getTestsDir} can
-                    // throw a {@link FileNotFoundException}
-                    mModuleRepo.initialize(mTotalShards, mShardIndex, mBuildHelper.getTestsDir(),
-                            getAbis(), mDeviceTokens, mTestArgs, mModuleArgs, mIncludeFilters,
-                            mExcludeFilters,
-                            mModuleMetadataIncludeFilter, mModuleMetadataExcludeFilter,
-                            mBuildHelper.getBuildInfo());
+            LinkedList<IModuleDef> modules = initializeModuleRepo();
 
-                    // Add the entire list of modules to the CompatibilityBuildHelper for reporting
-                    mBuildHelper.setModuleIds(mModuleRepo.getModuleIds());
-
-                    int count = UniqueModuleCountUtil.countUniqueModules(
-                            mModuleRepo.getTokenModules()) +
-                            UniqueModuleCountUtil.countUniqueModules(
-                                    mModuleRepo.getNonTokenModules());
-                    CLog.logAndDisplay(LogLevel.INFO, "========================================");
-                    CLog.logAndDisplay(LogLevel.INFO, "Starting a run with %s unique modules.",
-                            count);
-                    CLog.logAndDisplay(LogLevel.INFO, "========================================");
-                } else {
-                    CLog.d("ModuleRepo already initialized.");
-                }
-                // Get the tests to run in this shard
-                modules = mModuleRepo.getModules(getDevice().getSerialNumber(), mShardIndex);
-            }
             mExcludeFilters.clear();
             mIncludeFilters.clear();
             // Update BuildInfo in each shard to store the original command-line arguments from
@@ -542,6 +513,44 @@ public class CompatibilityTest implements IDeviceTest, IShardableTest, IBuildRec
     }
 
     /**
+     * Initialize module repo.
+     *
+     * @return A list of module definition
+     * @throws DeviceNotAvailableException
+     * @throws FileNotFoundException
+     */
+    protected LinkedList<IModuleDef> initializeModuleRepo()
+            throws DeviceNotAvailableException, FileNotFoundException {
+        // FIXME: Each shard will do a full initialization which is not optimal. Need a way
+        // to be more specific on what to initialize.
+        synchronized (mModuleRepo) {
+            if (!mModuleRepo.isInitialized()) {
+                setupFilters();
+                // Initialize the repository, {@link CompatibilityBuildHelper#getTestsDir} can
+                // throw a {@link FileNotFoundException}
+                mModuleRepo.initialize(mTotalShards, mShardIndex, mBuildHelper.getTestsDir(),
+                        getAbis(), mDeviceTokens, mTestArgs, mModuleArgs, mIncludeFilters,
+                        mExcludeFilters, mModuleMetadataIncludeFilter, mModuleMetadataExcludeFilter,
+                        mBuildHelper.getBuildInfo());
+
+                // Add the entire list of modules to the CompatibilityBuildHelper for reporting
+                mBuildHelper.setModuleIds(mModuleRepo.getModuleIds());
+
+                int count = UniqueModuleCountUtil.countUniqueModules(mModuleRepo.getTokenModules())
+                        + UniqueModuleCountUtil.countUniqueModules(
+                                  mModuleRepo.getNonTokenModules());
+                CLog.logAndDisplay(LogLevel.INFO, "========================================");
+                CLog.logAndDisplay(LogLevel.INFO, "Starting a run with %s unique modules.", count);
+                CLog.logAndDisplay(LogLevel.INFO, "========================================");
+            } else {
+                CLog.d("ModuleRepo already initialized.");
+            }
+            // Get the tests to run in this shard
+            return mModuleRepo.getModules(getDevice().getSerialNumber(), mShardIndex);
+        }
+    }
+
+    /**
      * Gets the set of ABIs supported by both Compatibility and the device under test
      *
      * @return The set of ABIs to run the tests on
@@ -596,7 +605,7 @@ public class CompatibilityTest implements IDeviceTest, IShardableTest, IBuildRec
      * Exposed for testing.
      */
     protected Set<String> getAbisForBuildTargetArch() {
-        return AbiUtils.getAbisForArch(SuiteInfo.TARGET_ARCH);
+        return AbiUtils.getAbisForArch(TestSuiteInfo.getInstance().getTargetArch());
     }
 
     /**
@@ -655,10 +664,10 @@ public class CompatibilityTest implements IDeviceTest, IShardableTest, IBuildRec
         if (!failures.isEmpty()) {
             CLog.w("There are failed system status checkers: %s capturing a bugreport",
                     failures.toString());
-            InputStreamSource bugSource = device.getBugreport();
-            logger.testLog(String.format("bugreport-checker-pre-module-%s", moduleName),
-                    LogDataType.BUGREPORT, bugSource);
-            bugSource.cancel();
+            try (InputStreamSource bugSource = device.getBugreport()) {
+                logger.testLog(String.format("bugreport-checker-pre-module-%s", moduleName),
+                        LogDataType.BUGREPORT, bugSource);
+            }
         }
     }
 
@@ -677,10 +686,10 @@ public class CompatibilityTest implements IDeviceTest, IShardableTest, IBuildRec
         if (!failures.isEmpty()) {
             CLog.w("There are failed system status checkers: %s capturing a bugreport",
                     failures.toString());
-            InputStreamSource bugSource = device.getBugreport();
-            logger.testLog(String.format("bugreport-checker-post-module-%s", moduleName),
-                    LogDataType.BUGREPORT, bugSource);
-            bugSource.cancel();
+            try (InputStreamSource bugSource = device.getBugreport()) {
+                logger.testLog(String.format("bugreport-checker-post-module-%s", moduleName),
+                        LogDataType.BUGREPORT, bugSource);
+            }
         }
     }
 
@@ -850,5 +859,88 @@ public class CompatibilityTest implements IDeviceTest, IShardableTest, IBuildRec
     @Override
     public void setInvocationContext(IInvocationContext invocationContext) {
         mInvocationContext = invocationContext;
+    }
+    /**
+     * @return the mIncludeFilters
+     */
+    protected Set<String> getIncludeFilters() {
+        return mIncludeFilters;
+    }
+
+    /**
+     * @return the mExcludeFilters
+     */
+    protected Set<String> getExcludeFilters() {
+        return mExcludeFilters;
+    }
+
+    /**
+     * @return the mModuleArgs
+     */
+    protected List<String> getModuleArgs() {
+        return mModuleArgs;
+    }
+
+    /**
+     * @return the mTestArgs
+     */
+    protected List<String> getTestArgs() {
+        return mTestArgs;
+    }
+
+    /**
+     * @return the mDeviceTokens
+     */
+    protected List<String> getDeviceTokens() {
+        return mDeviceTokens;
+    }
+
+    /**
+     * @return the mModuleMetadataIncludeFilter
+     */
+    protected MultiMap<String, String> getModuleMetadataIncludeFilter() {
+        return mModuleMetadataIncludeFilter;
+    }
+
+    /**
+     * @return the mModuleMetadataExcludeFilter
+     */
+    protected MultiMap<String, String> getModuleMetadataExcludeFilter() {
+        return mModuleMetadataExcludeFilter;
+    }
+
+    /**
+     * @return the mTotalShards
+     */
+    protected int getTotalShards() {
+        return mTotalShards;
+    }
+
+    /**
+     * @return the mShardIndex
+     */
+    protected Integer getShardIndex() {
+        return mShardIndex;
+    }
+
+    /**
+     * @return the mBuildHelper
+     */
+    protected CompatibilityBuildHelper getBuildHelper() {
+        return mBuildHelper;
+    }
+
+    /**
+     * @return the mInvocationContext
+     */
+    protected IInvocationContext getInvocationContext() {
+        return mInvocationContext;
+    }
+
+    /**
+     * @return the mModuleRepo
+     */
+    protected IModuleRepo getModuleRepo() {
+        return mModuleRepo;
     }
 }

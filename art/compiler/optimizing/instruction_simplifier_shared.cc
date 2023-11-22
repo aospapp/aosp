@@ -16,6 +16,8 @@
 
 #include "instruction_simplifier_shared.h"
 
+#include "mirror/array-inl.h"
+
 namespace art {
 
 namespace {
@@ -247,6 +249,7 @@ bool TryExtractArrayAccessAddress(HInstruction* access,
       access->GetType() == Primitive::kPrimNot) {
     // For object arrays, the read barrier instrumentation requires
     // the original array pointer.
+    // TODO: This can be relaxed for Baker CC.
     return false;
   }
 
@@ -271,8 +274,8 @@ bool TryExtractArrayAccessAddress(HInstruction* access,
   // `HArm64Load` and `HArm64Store`,`HArmLoad` and `HArmStore`). We defer these changes
   // because these new instructions would not bring any advantages yet.
   // Also see the comments in
-  // `InstructionCodeGeneratorARM::VisitArrayGet()`
-  // `InstructionCodeGeneratorARM::VisitArraySet()`
+  // `InstructionCodeGeneratorARMVIXL::VisitArrayGet()`
+  // `InstructionCodeGeneratorARMVIXL::VisitArraySet()`
   // `InstructionCodeGeneratorARM64::VisitArrayGet()`
   // `InstructionCodeGeneratorARM64::VisitArraySet()`.
   return true;
@@ -343,6 +346,61 @@ bool TryCombineVecMultiplyAccumulate(HVecMul* mul, InstructionSet isa) {
   }
 
   return false;
+}
+
+bool TryExtractVecArrayAccessAddress(HVecMemoryOperation* access, HInstruction* index) {
+  if (index->IsConstant()) {
+    // If index is constant the whole address calculation often can be done by LDR/STR themselves.
+    // TODO: Treat the case with not-embedable constant.
+    return false;
+  }
+
+  HGraph* graph = access->GetBlock()->GetGraph();
+  ArenaAllocator* arena = graph->GetArena();
+  Primitive::Type packed_type = access->GetPackedType();
+  uint32_t data_offset = mirror::Array::DataOffset(
+      Primitive::ComponentSize(packed_type)).Uint32Value();
+  size_t component_shift = Primitive::ComponentSizeShift(packed_type);
+
+  bool is_extracting_beneficial = false;
+  // It is beneficial to extract index intermediate address only if there are at least 2 users.
+  for (const HUseListNode<HInstruction*>& use : index->GetUses()) {
+    HInstruction* user = use.GetUser();
+    if (user->IsVecMemoryOperation() && user != access) {
+      HVecMemoryOperation* another_access = user->AsVecMemoryOperation();
+      Primitive::Type another_packed_type = another_access->GetPackedType();
+      uint32_t another_data_offset = mirror::Array::DataOffset(
+          Primitive::ComponentSize(another_packed_type)).Uint32Value();
+      size_t another_component_shift = Primitive::ComponentSizeShift(another_packed_type);
+      if (another_data_offset == data_offset && another_component_shift == component_shift) {
+        is_extracting_beneficial = true;
+        break;
+      }
+    } else if (user->IsIntermediateAddressIndex()) {
+      HIntermediateAddressIndex* another_access = user->AsIntermediateAddressIndex();
+      uint32_t another_data_offset = another_access->GetOffset()->AsIntConstant()->GetValue();
+      size_t another_component_shift = another_access->GetShift()->AsIntConstant()->GetValue();
+      if (another_data_offset == data_offset && another_component_shift == component_shift) {
+        is_extracting_beneficial = true;
+        break;
+      }
+    }
+  }
+
+  if (!is_extracting_beneficial) {
+    return false;
+  }
+
+  // Proceed to extract the index + data_offset address computation.
+  HIntConstant* offset = graph->GetIntConstant(data_offset);
+  HIntConstant* shift = graph->GetIntConstant(component_shift);
+  HIntermediateAddressIndex* address =
+      new (arena) HIntermediateAddressIndex(index, offset, shift, kNoDexPc);
+
+  access->GetBlock()->InsertInstructionBefore(address, access);
+  access->ReplaceInput(address, 1);
+
+  return true;
 }
 
 }  // namespace art

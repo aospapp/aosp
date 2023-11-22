@@ -185,20 +185,29 @@ uint8_t teq1_fill_info_block(struct Teq1State *state, struct Teq1Frame *frame) {
   switch (bs_get(PCB.type, frame->header.PCB)) {
   case kPcbTypeInfo0:
   case kPcbTypeInfo1: {
-    uint32_t len = state->app_data.tx_len;
+    uint32_t len = state->app_data.tx_total;
+    uint32_t copied = 0;
     if (len > inf_len) {
       len = inf_len;
     }
-    ese_memcpy(frame->INF, state->app_data.tx_buf, len);
+    copied = ese_sg_to_buf(state->app_data.tx, state->app_data.tx_count,
+                           state->app_data.tx_offset, len, frame->INF);
+    if (copied != len) {
+      ALOGE("Failed to copy %x bytes of app data for transmission",
+            frame->header.LEN);
+      /* TODO(wad): This return code is largely ignored. Is the precondition
+       * checking elsewhere enough? */
+      return 255;
+    }
     frame->header.LEN = (len & 0xff);
     ALOGV("Copying %x bytes of app data for transmission", frame->header.LEN);
     /* Incrementing here means the caller MUST handle retransmit with prepared
      * data. */
-    state->app_data.tx_len -= len;
-    state->app_data.tx_buf += len;
+    state->app_data.tx_offset += copied;
+    state->app_data.tx_total -= copied;
     /* Perform chained transmission if needed. */
     bs_assign(&frame->header.PCB, PCB.I.more_data, 0);
-    if (state->app_data.tx_len > 0) {
+    if (state->app_data.tx_total > 0) {
       frame->header.PCB |= bs_mask(PCB.I.more_data, 1);
     }
     return len;
@@ -211,21 +220,22 @@ uint8_t teq1_fill_info_block(struct Teq1State *state, struct Teq1Frame *frame) {
   return 255; /* Invalid block type. */
 }
 
-void teq1_get_app_data(struct Teq1State *state, struct Teq1Frame *frame) {
+void teq1_get_app_data(struct Teq1State *state, const struct Teq1Frame *frame) {
   switch (bs_get(PCB.type, frame->header.PCB)) {
   case kPcbTypeInfo0:
   case kPcbTypeInfo1: {
-    uint8_t len = frame->header.LEN;
+    uint32_t len = frame->header.LEN;
     /* TODO(wad): Some data will be left on the table. Should this error out? */
-    if (len > state->app_data.rx_len) {
-      len = state->app_data.rx_len;
+    if (len > state->app_data.rx_total) {
+      len = state->app_data.rx_total;
     }
-    ese_memcpy(state->app_data.rx_buf, frame->INF, len);
+    ese_sg_from_buf(state->app_data.rx, state->app_data.rx_count,
+                    state->app_data.rx_offset, len, frame->INF);
     /* The original caller must retain the starting pointer to determine
      * actual available data.
      */
-    state->app_data.rx_len -= len;
-    state->app_data.rx_buf += len;
+    state->app_data.rx_total -= len;
+    state->app_data.rx_offset += len;
     return;
   }
   case kPcbTypeReceiveReady:
@@ -270,11 +280,13 @@ uint8_t teq1_frame_error_check(struct Teq1State *state,
   case kPcbTypeSupervisory:
     if (rx_frame->header.PCB != S(RESYNC, RESPONSE) &&
         rx_frame->header.LEN != 1) {
+      ALOGE("Invalid supervisory RX frame.");
       return R(0, 1, 0);
     }
     break;
   case kPcbTypeReceiveReady:
     if (rx_frame->header.LEN != 0) {
+      ALOGE("Invalid ReceiveReady RX frame.");
       return R(0, 1, 0);
     }
     break;
@@ -286,6 +298,7 @@ uint8_t teq1_frame_error_check(struct Teq1State *state,
       ALOGW("Got seq %d expected %d",
             bs_get(PCB.I.send_seq, rx_frame->header.PCB),
             state->card_state->seq.card);
+      ALOGE("Invalid Info RX frame.");
       return R(0, 1, 0);
     }
     /* Update the card's last I-block seq. */
@@ -321,9 +334,11 @@ enum RuleResult teq1_rules(struct Teq1State *state, struct Teq1Frame *tx_frame,
       /* Rule 7.4.2 */
       if (state->errors >= 3) {
         /* Rule 7.4.1: state should start with error count = 2 */
-        next_tx->header.PCB = S(RESYNC, REQUEST);
-        /* Resync result in a fresh session, so we should just continue here. */
-        return kRuleResultContinue;
+        if (tx_frame->header.PCB != S(RESYNC, REQUEST)) {
+          next_tx->header.PCB = S(RESYNC, REQUEST);
+          return kRuleResultContinue;
+        }
+        return kRuleResultRetransmit;
       }
     }
 
@@ -542,23 +557,28 @@ enum RuleResult teq1_rules(struct Teq1State *state, struct Teq1Frame *tx_frame,
  *   teq1_transcieve_init() and teq1_transceive_process_one()
  *   if testing becomes onerous given the loop below.
  */
-
-API uint32_t teq1_transceive(struct EseInterface *ese,
-                             const struct Teq1ProtocolOptions *opts,
-                             const uint8_t *const tx_buf, uint32_t tx_len,
-                             uint8_t *rx_buf, uint32_t rx_len) {
+ESE_API uint32_t teq1_transceive(struct EseInterface *ese,
+                                 const struct Teq1ProtocolOptions *opts,
+                                 const struct EseSgBuffer *tx_bufs,
+                                 uint8_t tx_segs, struct EseSgBuffer *rx_bufs,
+                                 uint8_t rx_segs) {
   struct Teq1Frame tx_frame[2];
   struct Teq1Frame rx_frame;
   struct Teq1Frame *tx = &tx_frame[0];
   int active = 0;
   bool was_reset = false;
+  bool needs_hw_reset = false;
+  int session_resets = 0;
   bool done = false;
   enum RuleResult result = kRuleResultComplete;
+  uint32_t rx_total = ese_sg_length(rx_bufs, rx_segs);
   struct Teq1CardState *card_state = (struct Teq1CardState *)(&ese->pad[0]);
-  struct Teq1State init_state =
-      TEQ1_INIT_STATE(tx_buf, tx_len, rx_buf, rx_len, card_state);
-  struct Teq1State state =
-      TEQ1_INIT_STATE(tx_buf, tx_len, rx_buf, rx_len, card_state);
+  struct Teq1State init_state = TEQ1_INIT_STATE(
+      tx_bufs, tx_segs, ese_sg_length(tx_bufs, tx_segs), rx_bufs, rx_segs,
+      ese_sg_length(rx_bufs, rx_segs), card_state);
+  struct Teq1State state = TEQ1_INIT_STATE(
+      tx_bufs, tx_segs, ese_sg_length(tx_bufs, tx_segs), rx_bufs, rx_segs,
+      ese_sg_length(rx_bufs, rx_segs), card_state);
 
   _static_assert(TEQ1HEADER_SIZE == sizeof(struct Teq1Header),
                  "Ensure compiler alignment/padding matches wire protocol.");
@@ -606,17 +626,21 @@ API uint32_t teq1_transceive(struct EseInterface *ese,
       if (state.retransmits++ < 3) {
         continue;
       }
+      ALOGE("More than three retransmits have occurred");
       if (tx->header.PCB == S(RESYNC, REQUEST)) {
+        /* More than three RESYNC retranmits have occurred. */
         ese_set_error(ese, kTeq1ErrorHardFail);
         return 0;
       }
       /* Fall through */
+      ALOGE("Triggering resynchronization.");
       tx_frame[!active].header.PCB = S(RESYNC, REQUEST);
     case kRuleResultContinue:
       active = !active;
       tx = &tx_frame[active];
+      /* Reset this to 0 to use the counter for RESYNC transmits. */
       state.retransmits = 0;
-      state.errors = 0;
+      /* Errors are not reset until the session is reset. */
       continue;
     case kRuleResultHardFail:
       ese_set_error(ese, kTeq1ErrorHardFail);
@@ -633,14 +657,25 @@ API uint32_t teq1_transceive(struct EseInterface *ese,
       tx = &tx_frame[!active];
       continue;
     case kRuleResultResetDevice:
-      if (was_reset || !ese->ops->hw_reset || ese->ops->hw_reset(ese) == -1) {
-        ese_set_error(ese, kTeq1ErrorDeviceReset);
-        return 0; /* Don't keep resetting -- hard fail. */
-      }
-      was_reset = true;
+      needs_hw_reset = true;
     /* Fall through to session reset. */
     case kRuleResultResetSession:
-      /* Roll back state and reset. */
+      /* Reset to initial state and possibly do hw reset */
+      if (session_resets++ > 4) {
+        /* If there have been more than 4 resyncs without a
+         * physical reset, we should pull the plug.
+         */
+        needs_hw_reset = true;
+      }
+      if (needs_hw_reset) {
+        needs_hw_reset = false;
+        if (was_reset || !ese->ops->hw_reset || ese->ops->hw_reset(ese) == -1) {
+          ese_set_error(ese, kTeq1ErrorDeviceReset);
+          return 0; /* Don't keep resetting -- hard fail. */
+        }
+        was_reset = true;
+        session_resets = 0;
+      }
       state = init_state;
       TEQ1_INIT_CARD_STATE(state.card_state);
       /* Reset the active frame. */
@@ -651,11 +686,11 @@ API uint32_t teq1_transceive(struct EseInterface *ese,
       continue;
     }
   }
-  /* Return the number of bytes used in rx_buf. */
-  return rx_len - state.app_data.rx_len;
+  /* Return the number of bytes used in the RX buffers. */
+  return rx_total - state.app_data.rx_total;
 }
 
-API uint8_t teq1_compute_LRC(const struct Teq1Frame *frame) {
+ESE_API uint8_t teq1_compute_LRC(const struct Teq1Frame *frame) {
   uint8_t lrc = 0;
   const uint8_t *buffer = frame->val;
   const uint8_t *end = buffer + frame->header.LEN + sizeof(frame->header);

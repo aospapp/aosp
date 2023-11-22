@@ -30,6 +30,6 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_JAVA_RESOURCE_DIRS := resources
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 include $(BUILD_HOST_JAVA_LIBRARY)

@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+ifneq ($(TARGET_BUILD_PDK), true)
+
 LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
@@ -55,6 +57,8 @@ ifeq (,$(TARGET_BUILD_APPS))
   LOCAL_STATIC_JAVA_LIBRARIES += android-support-v4 \
                                  jsr305
 
+  include packages/apps/Car/libs/car-stream-ui-lib/car-stream-ui-lib.mk
+  include packages/apps/Car/libs/car-apps-common/car-apps-common.mk
   include packages/services/Car/car-support-lib/car-support.mk
   include frameworks/base/packages/SettingsLib/common.mk
 
@@ -66,3 +70,4 @@ ifeq (,$(ONE_SHOT_MAKEFILE))
 include $(call all-makefiles-under,$(LOCAL_PATH))
 endif
 
+endif

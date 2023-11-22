@@ -23,11 +23,12 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
-import android.support.car.ui.PagedListView;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
+
+import com.android.car.view.PagedListView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -93,7 +94,7 @@ public class ResolverAdapter extends RecyclerView.Adapter<ResolverListRow>
             for (ResolveInfo info : mResolveInfos) {
                 String packageName = LensPickerUtils.getPackageName(info);
                 Intent launchIntent = LensPickerUtils.getLaunchIntent(packageName, info,
-                        packageManager, sharedPref);
+                        packageManager);
 
                 try {
                     ApplicationInfo aInfo = packageManager.getApplicationInfo(packageName, 0);

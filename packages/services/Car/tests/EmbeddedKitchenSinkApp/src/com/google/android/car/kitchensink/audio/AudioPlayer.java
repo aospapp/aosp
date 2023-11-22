@@ -61,7 +61,8 @@ public class AudioPlayer {
                 }
             } else if (focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
                 if (isPlaying()) {
-                    mPlayer.setVolume(0.5f, 0.5f);
+                    // Duck to 20% volume (which matches system ducking as of this date)
+                    mPlayer.setVolume(0.2f, 0.2f);
                 }
             } else if (focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT && mRepeat) {
                 if (isPlaying()) {

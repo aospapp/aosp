@@ -21,6 +21,7 @@ import android.accessibilityservice.AccessibilityService.MagnificationController
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.Instrumentation;
 import android.content.Context;
+import android.content.res.Resources;
 import android.graphics.Region;
 import android.provider.Settings;
 import android.test.InstrumentationTestCase;
@@ -86,7 +87,7 @@ public class AccessibilityMagnificationTest extends InstrumentationTestCase {
         final WindowManager wm = (WindowManager) mInstrumentation.getContext().getSystemService(
                 Context.WINDOW_SERVICE);
         final DisplayMetrics metrics = new DisplayMetrics();
-        wm.getDefaultDisplay().getMetrics(metrics);
+        wm.getDefaultDisplay().getRealMetrics(metrics);
         final float scale = 2.0f;
         final float x = metrics.widthPixels / 4.0f;
         final float y = metrics.heightPixels / 4.0f;

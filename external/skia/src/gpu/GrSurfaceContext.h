@@ -15,6 +15,7 @@
 class GrAuditTrail;
 class GrContext;
 class GrDrawingManager;
+class GrOpList;
 class GrRenderTargetContext;
 class GrRenderTargetProxy;
 class GrSingleOwner;
@@ -52,14 +53,12 @@ public:
      *       The end result is only valid src pixels and dst pixels will be touched but the copied
      *       regions will not be shifted.
      */
-    bool copy(GrSurfaceProxy* src, const SkIRect& srcRect, const SkIPoint& dstPoint) {
-        return this->onCopy(src, srcRect, dstPoint);
-    }
+    bool copy(GrSurfaceProxy* src, const SkIRect& srcRect, const SkIPoint& dstPoint);
 
     bool copy(GrSurfaceProxy* src) {
-        return this->onCopy(src,
-                            SkIRect::MakeWH(src->width(), src->height()),
-                            SkIPoint::Make(0, 0));
+        return this->copy(src,
+                          SkIRect::MakeWH(src->width(), src->height()),
+                          SkIPoint::Make(0, 0));
     }
 
     /**
@@ -74,9 +73,7 @@ public:
      *              unsupported pixel config.
      */
     bool readPixels(const SkImageInfo& dstInfo, void* dstBuffer, size_t dstRowBytes,
-                    int x, int y, uint32_t flags = 0) {
-        return this->onReadPixels(dstInfo, dstBuffer, dstRowBytes, x, y, flags);
-    }
+                    int x, int y, uint32_t flags = 0);
 
     /**
      * Writes a rectangle of pixels [srcInfo, srcBuffer, srcRowbytes] into the
@@ -91,9 +88,7 @@ public:
      *              unsupported pixel config.
      */
     bool writePixels(const SkImageInfo& srcInfo, const void* srcBuffer, size_t srcRowBytes,
-                     int x, int y, uint32_t flags = 0) {
-        return this->onWritePixels(srcInfo, srcBuffer, srcRowBytes, x, y, flags);
-    }
+                     int x, int y, uint32_t flags = 0);
 
     // TODO: this is virtual b.c. this object doesn't have a pointer to the wrapped GrSurfaceProxy?
     virtual GrSurfaceProxy* asSurfaceProxy() = 0;
@@ -123,25 +118,20 @@ protected:
     GrDrawingManager* drawingManager() { return fDrawingManager; }
     const GrDrawingManager* drawingManager() const { return fDrawingManager; }
 
+    virtual GrOpList* getOpList() = 0;
+    SkDEBUGCODE(virtual void validate() const = 0;)
+
     SkDEBUGCODE(GrSingleOwner* singleOwner() { return fSingleOwner; })
 
     GrContext*            fContext;
     sk_sp<SkColorSpace>   fColorSpace;
     GrAuditTrail*         fAuditTrail;
 
+private:
+    GrDrawingManager*     fDrawingManager;
+
     // In debug builds we guard against improper thread handling
     SkDEBUGCODE(mutable GrSingleOwner* fSingleOwner;)
-
-private:
-    virtual bool onCopy(GrSurfaceProxy* src,
-                        const SkIRect& srcRect,
-                        const SkIPoint& dstPoint) = 0;
-    virtual bool onReadPixels(const SkImageInfo& dstInfo, void* dstBuffer,
-                              size_t dstRowBytes, int x, int y, uint32_t flags) = 0;
-    virtual bool onWritePixels(const SkImageInfo& srcInfo, const void* srcBuffer,
-                               size_t srcRowBytes, int x, int y, uint32_t flags) = 0;
-
-    GrDrawingManager*     fDrawingManager;
 
     typedef SkRefCnt INHERITED;
 };

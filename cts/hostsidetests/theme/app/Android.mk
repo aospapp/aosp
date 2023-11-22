@@ -36,7 +36,7 @@ LOCAL_AAPT_INCLUDE_ALL_RESOURCES := true
 LOCAL_PACKAGE_NAME := CtsThemeDeviceApp
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 LOCAL_SDK_VERSION := 23
 

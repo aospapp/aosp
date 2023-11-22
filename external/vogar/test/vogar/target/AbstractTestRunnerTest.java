@@ -125,20 +125,6 @@ public abstract class AbstractTestRunnerTest {
             return this;
         }
 
-        public ExpectedResults ensureProfilingWasRequested() {
-            return addFilter(new Function<String, String>() {
-                @Override
-                public String apply(String input) {
-                    // Make sure that profiling is requested (even though it's not supported).
-                    assertTrue("Profiling was not requested",
-                            input.startsWith("Profiling is disabled: "));
-
-                    input = input.replaceAll("^Profiling is disabled:[^\n]+\\n", "");
-                    return input;
-                }
-            });
-        }
-
         public ExpectedResults forTestClass(Class<?> testClass) {
             this.testClassName = testClass.getName();
             return this;

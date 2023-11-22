@@ -17,7 +17,7 @@
 Bluetooth adapter libraries
 """
 
-from acts.test_utils.bt.BtEnum import BluetoothScanModeType
+from acts.test_utils.bt.bt_constants import bt_scan_mode_types
 from acts.test_utils.bt.bt_test_utils import set_bt_scan_mode
 
 import pprint
@@ -32,7 +32,7 @@ class BtaLib():
 
     def set_scan_mode(self, scan_mode):
         """Set the Scan mode of the Bluetooth Adapter"""
-        for mode in BluetoothScanModeType:
+        for mode in bt_scan_mode_types:
             if scan_mode == mode.name:
                 set_bt_scan_mode(self.dut, mode.value)
                 return
@@ -100,3 +100,11 @@ class BtaLib():
     def fetch_uuids_with_sdp(self):
         """BTA fetch UUIDS with SDP"""
         self.log.info(self.dut.droid.bluetoothFetchUuidsWithSdp(self.mac_addr))
+
+    def connect_profiles(self):
+        """Connect available profiles"""
+        self.dut.droid.bluetoothConnectBonded(self.mac_addr)
+
+    def tts_speak(self):
+        """Open audio channel by speaking characters"""
+        self.dut.droid.ttsSpeak(self.mac_addr)

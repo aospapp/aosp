@@ -26,6 +26,7 @@ import android.support.v17.leanback.widget.GuidedAction;
 import com.android.tv.common.ui.setup.SetupGuidedStepFragment;
 import com.android.tv.common.ui.setup.SetupMultiPaneFragment;
 import com.android.tv.tuner.R;
+import com.android.tv.tuner.TunerHal;
 import com.android.tv.tuner.TunerPreferences;
 import com.android.tv.tuner.util.TunerInputInfoUtils;
 
@@ -76,11 +77,19 @@ public class ScanResultFragment extends SetupMultiPaneFragment {
                         mChannelCountOnPreference, mChannelCountOnPreference);
                 breadcrumb = null;
             } else {
+                Bundle args = getArguments();
+                int tunerType =
+                        (args == null ? 0 : args.getInt(TunerSetupActivity.KEY_TUNER_TYPE, 0));
                 title = getString(R.string.ut_result_not_found_title);
-                if (TunerInputInfoUtils.isBuiltInTuner(getActivity())) {
-                    description = getString(R.string.bt_result_not_found_description);
-                } else {
-                    description = getString(R.string.ut_result_not_found_description);
+                switch (tunerType) {
+                    case TunerHal.TUNER_TYPE_USB:
+                        description = getString(R.string.ut_result_not_found_description);
+                        break;
+                    case TunerHal.TUNER_TYPE_NETWORK:
+                        description = getString(R.string.nt_result_not_found_description);
+                        break;
+                    default:
+                        description = getString(R.string.bt_result_not_found_description);
                 }
                 breadcrumb = getString(R.string.ut_setup_breadcrumb);
             }

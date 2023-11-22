@@ -23,20 +23,16 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 
 LOCAL_MODULE := car-apps-common
+
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_PRIVILEGED_MODULE := true
 
 LOCAL_PROGUARD_ENABLED := disabled
 
-# Include android-support-v4, if not already included
-ifeq (,$(findstring android-support-v4,$(LOCAL_STATIC_JAVA_LIBRARIES)))
-LOCAL_STATIC_JAVA_LIBRARIES += android-support-v4
-endif
+LOCAL_STATIC_JAVA_LIBRARIES := android-support-v4 \
+        android-support-annotations
 
-# Include android-support-annotations, if not already included
-ifeq (,$(findstring android-support-annotations,$(LOCAL_STATIC_JAVA_LIBRARIES)))
-LOCAL_STATIC_JAVA_LIBRARIES += android-support-annotations
-endif
+include packages/apps/Car/libs/car-stream-ui-lib/car-stream-ui-lib.mk
 
 include $(BUILD_STATIC_JAVA_LIBRARY)

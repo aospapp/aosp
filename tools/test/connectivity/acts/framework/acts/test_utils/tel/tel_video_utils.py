@@ -511,6 +511,7 @@ def video_call_setup_teardown(log,
         verify_caller_func, verify_callee_func, wait_time_in_call,
         incall_ui_display)
 
+
 # TODO: b/26337151 Might be able to re-factor call_setup_teardown and add.
 # Minimal changes.
 def video_call_setup_teardown_for_subscription(
@@ -593,14 +594,6 @@ def video_call_setup_teardown_for_subscription(
         if verify_caller_func and not verify_caller_func(log, ad_caller):
             raise _CallSequenceException("Caller not in correct state!")
 
-        time.sleep(5)
-        ad_caller.adb.shell("input keyevent 22",timeout=3)
-        ad_callee.adb.shell("input keyevent 22",timeout=3)
-        ad_caller.adb.shell("input keyevent 22",timeout=3)
-        ad_callee.adb.shell("input keyevent 22",timeout=3)
-        ad_caller.adb.shell("input keyevent 66",timeout=3)
-        ad_callee.adb.shell("input keyevent 66",timeout=3)
-
         # TODO: b/26291165 Replace with reducing the volume as we want
         # to test route switching
         ad_caller.droid.telecomCallSetAudioRoute(AUDIO_ROUTE_EARPIECE)
@@ -652,6 +645,7 @@ def video_call_setup_teardown_for_subscription(
                 except Exception as e:
                     log.error(str(e))
 
+
 def video_call_setup(log,
                      ad_caller,
                      ad_callee,
@@ -680,8 +674,8 @@ def video_call_setup(log,
     return video_call_setup_for_subscription(
         log, ad_caller, ad_callee,
         get_outgoing_voice_sub_id(ad_caller),
-        get_incoming_voice_sub_id(ad_callee),
-        video_state, incall_ui_display)
+        get_incoming_voice_sub_id(ad_callee), video_state, incall_ui_display)
+
 
 def video_call_setup_for_subscription(
         log,
@@ -740,15 +734,6 @@ def video_call_setup_for_subscription(
         # ensure that all internal states are updated in telecom
         time.sleep(WAIT_TIME_ACCEPT_VIDEO_CALL_TO_CHECK_STATE)
 
-        # Below step is needed for allow camera pop-up
-        time.sleep(5)
-        ad_caller.adb.shell("input keyevent 22",timeout=3)
-        ad_callee.adb.shell("input keyevent 22",timeout=3)
-        ad_caller.adb.shell("input keyevent 22",timeout=3)
-        ad_callee.adb.shell("input keyevent 22",timeout=3)
-        ad_caller.adb.shell("input keyevent 66",timeout=3)
-        ad_callee.adb.shell("input keyevent 66",timeout=3)
-
         # TODO: b/26291165 Replace with reducing the volume as we want
         # to test route switching
         ad_caller.droid.telecomCallSetAudioRoute(AUDIO_ROUTE_EARPIECE)
@@ -759,6 +744,7 @@ def video_call_setup_for_subscription(
     except _CallSequenceException as e:
         log.error(e)
         return False
+
 
 def video_call_modify_video(log,
                             ad_requester,

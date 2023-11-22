@@ -16,7 +16,9 @@
 
 package com.android.tradefed.targetprep;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.build.IDeviceBuildInfo;
@@ -26,7 +28,6 @@ import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.util.FileUtil;
 
 import org.easymock.EasyMock;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -41,18 +42,29 @@ public class TestAppInstallSetupTest {
 
     private static final String SERIAL = "SERIAL";
     private static final String PACKAGE_NAME = "PACKAGE_NAME";
+    private static final String APK_NAME = "fakeApk.apk";
     private File fakeApk;
+    private File mFakeBuildApk;
     private TestAppInstallSetup mPrep;
     private IDeviceBuildInfo mMockBuildInfo;
     private ITestDevice mMockTestDevice;
-    private File testDir;
-    private OptionSetter setter;
+    private File mTestDir;
+    private File mBuildTestDir;
+    private OptionSetter mSetter;
 
     @Before
     public void setUp() throws Exception {
-        testDir = FileUtil.createTempDir("TestAppSetupTest");
+        mTestDir = FileUtil.createTempDir("TestAppSetupTest");
+        mBuildTestDir = FileUtil.createTempDir("TestAppBuildTestDir");
         // fake hierarchy of directory and files
-        fakeApk = FileUtil.createTempFile("fakeApk", ".apk", testDir);
+        fakeApk = FileUtil.createTempFile("fakeApk", ".apk", mTestDir);
+        FileUtil.copyFile(fakeApk, new File(mTestDir, APK_NAME));
+        fakeApk = new File(mTestDir, APK_NAME);
+
+        mFakeBuildApk = FileUtil.createTempFile("fakeApk", ".apk", mBuildTestDir);
+        new File(mBuildTestDir, "DATA/app").mkdirs();
+        FileUtil.copyFile(mFakeBuildApk, new File(mBuildTestDir, "DATA/app/" + APK_NAME));
+        mFakeBuildApk = new File(mBuildTestDir, "/DATA/app/" + APK_NAME);
 
         mPrep =
                 new TestAppInstallSetup() {
@@ -69,10 +81,10 @@ public class TestAppInstallSetupTest {
                         return fakeApk;
                     }
                 };
-        mPrep.addTestFileName("fakeApk.apk");
+        mPrep.addTestFileName(APK_NAME);
 
-        setter = new OptionSetter(mPrep);
-        setter.setOptionValue("cleanup-apks", "true");
+        mSetter = new OptionSetter(mPrep);
+        mSetter.setOptionValue("cleanup-apks", "true");
         mMockBuildInfo = EasyMock.createMock(IDeviceBuildInfo.class);
         mMockTestDevice = EasyMock.createMock(ITestDevice.class);
         EasyMock.expect(mMockTestDevice.getSerialNumber()).andStubReturn(SERIAL);
@@ -81,7 +93,8 @@ public class TestAppInstallSetupTest {
 
     @After
     public void tearDown() throws Exception {
-        FileUtil.recursiveDelete(testDir);
+        FileUtil.recursiveDelete(mTestDir);
+        FileUtil.recursiveDelete(mBuildTestDir);
     }
 
     @Test
@@ -133,7 +146,10 @@ public class TestAppInstallSetupTest {
         EasyMock.verify(mMockBuildInfo, mMockTestDevice);
     }
 
-    /** Test {@link TestAppInstallSetup#setUp()} with a missing apk. TargetSetupError expected. */
+    /**
+     * Test {@link TestAppInstallSetup#setUp(ITestDevice, IBuildInfo)} with a missing apk.
+     * TargetSetupError expected.
+     */
     @Test
     public void testMissingApk() throws Exception {
         fakeApk = null; // Apk doesn't exist
@@ -147,7 +163,8 @@ public class TestAppInstallSetupTest {
     }
 
     /**
-     * Test {@link TestAppInstallSetup#setUp()} with an unreadable apk. TargetSetupError expected.
+     * Test {@link TestAppInstallSetup#setUp(ITestDevice, IBuildInfo)} with an unreadable apk.
+     * TargetSetupError expected.
      */
     @Test
     public void testUnreadableApk() throws Exception {
@@ -162,27 +179,92 @@ public class TestAppInstallSetupTest {
     }
 
     /**
-     * Test {@link TestAppInstallSetup#setUp()} with a missing apk and ThrowIfNoFile=False. Silent
-     * skip expected.
+     * Test {@link TestAppInstallSetup#setUp(ITestDevice, IBuildInfo)} with a missing apk and
+     * ThrowIfNoFile=False. Silent skip expected.
      */
     @Test
     public void testMissingApk_silent() throws Exception {
         fakeApk = null; // Apk doesn't exist
-        setter.setOptionValue("throw-if-not-found", "false");
+        mSetter.setOptionValue("throw-if-not-found", "false");
 
         mPrep.setUp(mMockTestDevice, mMockBuildInfo);
     }
 
     /**
-     * Test {@link TestAppInstallsetup#setUp()} with an unreadable apk and ThrowIfNoFile=False.
-     * Silent skip expected.
+     * Test {@link TestAppInstallSetup#setUp(ITestDevice, IBuildInfo)} with an unreadable apk and
+     * ThrowIfNoFile=False. Silent skip expected.
      */
     @Test
     public void testUnreadableApk_silent() throws Exception {
         fakeApk = new File("/not/a/real/path"); // Apk cannot be read
-        setter.setOptionValue("throw-if-not-found", "false");
+        mSetter.setOptionValue("throw-if-not-found", "false");
 
         mPrep.setUp(mMockTestDevice, mMockBuildInfo);
     }
 
+    /**
+     * Tests that when in OVERRIDE mode we install first from alt-dirs, then from BuildInfo if not
+     * found.
+     */
+    @Test
+    public void testFindApk_override() throws Exception {
+        mPrep =
+                new TestAppInstallSetup() {
+                    @Override
+                    protected String parsePackageName(
+                            File testAppFile, DeviceDescriptor deviceDescriptor) {
+                        return PACKAGE_NAME;
+                    }
+                };
+        mPrep.addTestFileName("fakeApk.apk");
+        OptionSetter setter = new OptionSetter(mPrep);
+        setter.setOptionValue("alt-dir-behavior", "OVERRIDE");
+        setter.setOptionValue("alt-dir", mTestDir.getAbsolutePath());
+        setter.setOptionValue("install-arg", "-d");
+
+        EasyMock.expect(mMockTestDevice.getDeviceDescriptor()).andStubReturn(null);
+        EasyMock.expect(mMockBuildInfo.getTestsDir()).andStubReturn(mBuildTestDir);
+
+        EasyMock.expect(
+                        mMockTestDevice.installPackage(
+                                EasyMock.eq(fakeApk), EasyMock.anyBoolean(), EasyMock.eq("-d")))
+                .andReturn(null);
+
+        EasyMock.replay(mMockTestDevice, mMockBuildInfo);
+        mPrep.setUp(mMockTestDevice, mMockBuildInfo);
+        EasyMock.verify(mMockTestDevice, mMockBuildInfo);
+    }
+
+    /**
+     * Test when OVERRIDE is set but there is not alt-dir, in this case we still use the BuildInfo.
+     */
+    @Test
+    public void testFindApk_override_onlyInBuild() throws Exception {
+        mPrep =
+                new TestAppInstallSetup() {
+                    @Override
+                    protected String parsePackageName(
+                            File testAppFile, DeviceDescriptor deviceDescriptor) {
+                        return PACKAGE_NAME;
+                    }
+                };
+        mPrep.addTestFileName("fakeApk.apk");
+        OptionSetter setter = new OptionSetter(mPrep);
+        setter.setOptionValue("alt-dir-behavior", "OVERRIDE");
+        setter.setOptionValue("install-arg", "-d");
+
+        EasyMock.expect(mMockTestDevice.getDeviceDescriptor()).andStubReturn(null);
+        EasyMock.expect(mMockBuildInfo.getTestsDir()).andStubReturn(mBuildTestDir);
+
+        EasyMock.expect(
+                        mMockTestDevice.installPackage(
+                                EasyMock.eq(mFakeBuildApk),
+                                EasyMock.anyBoolean(),
+                                EasyMock.eq("-d")))
+                .andReturn(null);
+
+        EasyMock.replay(mMockTestDevice, mMockBuildInfo);
+        mPrep.setUp(mMockTestDevice, mMockBuildInfo);
+        EasyMock.verify(mMockTestDevice, mMockBuildInfo);
+    }
 }

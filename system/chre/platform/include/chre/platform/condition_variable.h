@@ -20,6 +20,7 @@
 #include "chre/platform/mutex.h"
 #include "chre/target_platform/condition_variable_base.h"
 #include "chre/util/non_copyable.h"
+#include "chre/util/time.h"
 
 namespace chre {
 
@@ -57,6 +58,17 @@ class ConditionVariable : public ConditionVariableBase,
    * @param The currently locked mutex.
    */
   void wait(Mutex& mutex);
+
+   /**
+   * Same behavior as the wait function, but with a timeout to unblock the
+   * calling thread if not notified within the timeout period.
+   *
+   * @param mutex The currently locked mutex.
+   * @param timeout The timeout duration in nanoseconds.
+   *
+   * @return False if timed out, true if notified.
+   */
+  bool wait_for(Mutex& mutex, Nanoseconds timeout);
 };
 
 }  // namespace chre

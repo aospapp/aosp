@@ -17,8 +17,8 @@ package com.android.emergency.preferences;
 
 import android.content.Context;
 import android.content.res.TypedArray;
-import android.preference.ListPreference;
 import android.support.annotation.Nullable;
+import android.support.v7.preference.ListPreference;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.TextUtils;

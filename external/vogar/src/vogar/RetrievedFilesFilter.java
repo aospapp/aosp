@@ -23,22 +23,13 @@ import java.io.FileFilter;
  * Selects files to be kept from a test run.
  */
 public final class RetrievedFilesFilter implements FileFilter {
-    private final boolean profile;
-    private final File profileFile;
-
-    public RetrievedFilesFilter(boolean profile, File profileFile) {
-        this.profile = profile;
-        this.profileFile = profileFile;
-    }
-
     @Override public boolean accept(File file) {
         if (file.getName().equals("prefs.xml")) {
             return false;
         }
         if (file.getName().endsWith(".xml")
                 || file.getName().equals("caliper-results")
-                || file.getName().endsWith(".json")
-                || (profile && file.getName().equals(profileFile.getName()))) {
+                || file.getName().endsWith(".json")) {
             return true;
         }
         return false;

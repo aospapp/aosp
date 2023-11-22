@@ -25,6 +25,7 @@ import java.io.File;
  */
 public class SdkFolderBuildInfo extends BuildInfo implements ISdkBuildInfo, IFolderBuildInfo {
 
+    private static final long serialVersionUID = BuildSerializedVersion.VERSION;
     private ISdkBuildInfo mSdkBuild;
     private IFolderBuildInfo mFolderBuild;
 

@@ -51,7 +51,7 @@ public class LensPickerConstants {
     /**
      * A hard-coded string that can be specified as the value of the string extra
      * {@link #EXTRA_FACET_SYSTEM_COMMAND}. This command will cause the
-     * notification shade to drop.
+     * notification shade to drop if collapsed and vice versa.
      */
-    public static final String SYSTEM_COMMAND_SHOW_NOTIFICATIONS = "show_notifications";
+    public static final String SYSTEM_COMMAND_TOGGLE_NOTIFICATIONS = "toggle_notifications";
 }

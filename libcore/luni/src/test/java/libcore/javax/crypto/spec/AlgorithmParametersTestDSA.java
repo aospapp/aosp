@@ -16,7 +16,13 @@
 package libcore.javax.crypto.spec;
 
 import java.math.BigInteger;
+import java.security.AlgorithmParameters;
+import java.security.NoSuchAlgorithmException;
+import java.security.Provider;
+import java.security.Security;
 import java.security.spec.DSAParameterSpec;
+import java.util.Base64;
+
 import tests.security.AlgorithmParameterSignatureHelper;
 import tests.security.AlgorithmParametersTest;
 
@@ -89,11 +95,52 @@ public class AlgorithmParametersTestDSA extends AlgorithmParametersTest {
             (byte) 0x82, (byte) 0xC9, (byte) 0x75,
     };
 
+    // The ASN.1 module for DSA is defined in RFC 3279 section 3. See README.ASN1 for how
+    // to understand and reproduce this data.
+
+    // asn1=SEQUENCE:dsa
+    // [dsa]
+    // p=INT:0xE6415877765A4A53F1D6C87D671F2FFADEB7AACDD75DD0E9B1DAFE42BECC42522E01D216B15BC442F9550FE2D501D27E22F6C1FE5C6ACF821B5C46668BAFDF44E20EA358F7A324E384A616E0CA725507A0997BF8B15A84365AC86AFEA6B41B3A0A006B72DC0CD1092511686B75DE2C1AC23ACBA017CA2DEEA25A9D1F331B076D
+    // q=INT:0x9B39D0020FE99616C525F794A92CD0255B6EE08F
+    // g=INT:0x5E9C955F7E91474D68A41C443BEC0A7E5954F7EF42FB6395082F4AD3BC799DBAD88A8384AE5B2680B3FB9CA3CFF40AD5B665651A4FC0863BE6FB4E9E490A8C772D930BCA810709C471FDC8C7D1A3D0BB7D92748B3B2A451F5D8590E3FB0E16BA8ADE100FE00F37A7C1DCBC00B8240FF65FB1A89ADB9F365445BDC0E82782C975
+    private static final String ENCODED_DATA = "MIIBHgKBgQDmQVh3dlpKU/HWyH1nHy/63reqzddd0Omx2v5"
+            + "CvsxCUi4B0haxW8RC+VUP4tUB0n4i9sH+XGrPghtcRmaLr99E4g6jWPejJOOEphbgynJVB6CZe/ixWoQ"
+            + "2Wshq/qa0GzoKAGty3AzRCSURaGt13iwawjrLoBfKLe6iWp0fMxsHbQIVAJs50AIP6ZYWxSX3lKks0CV"
+            + "bbuCPAoGAXpyVX36RR01opBxEO+wKfllU9+9C+2OVCC9K07x5nbrYioOErlsmgLP7nKPP9ArVtmVlGk/"
+            + "Ahjvm+06eSQqMdy2TC8qBBwnEcf3Ix9Gj0Lt9knSLOypFH12FkOP7Dha6it4QD+APN6fB3LwAuCQP9l+"
+            + "xqJrbnzZURb3A6CeCyXU=";
 
     public AlgorithmParametersTestDSA() {
         super("DSA", new AlgorithmParameterSignatureHelper<DSAParameterSpec>(
                 "DSA", DSAParameterSpec.class), new DSAParameterSpec(
                 new BigInteger(1, P), new BigInteger(1, Q), new BigInteger(1, G)));
+    }
+
+    public void testEncoding() throws Exception {
+        for (Provider p : Security.getProviders()) {
+            AlgorithmParameters params;
+            try {
+                params = AlgorithmParameters.getInstance("DSA", p);
+            } catch (NoSuchAlgorithmException e) {
+                // This provider doesn't support DSA, ignore
+                continue;
+            }
+
+            DSAParameterSpec spec = new DSAParameterSpec(
+                    new BigInteger(1, P), new BigInteger(1, Q), new BigInteger(1, G));
+
+            params.init(spec);
+            assertEquals("Provider: " + p.getName(),
+                    ENCODED_DATA, Base64.getEncoder().encodeToString(params.getEncoded()));
+
+            params = AlgorithmParameters.getInstance("DSA", p);
+            params.init(Base64.getDecoder().decode(ENCODED_DATA));
+            DSAParameterSpec derivedSpec = params.getParameterSpec(DSAParameterSpec.class);
+
+            assertEquals("Provider: " + p.getName(), new BigInteger(1, P), derivedSpec.getP());
+            assertEquals("Provider: " + p.getName(), new BigInteger(1, Q), derivedSpec.getQ());
+            assertEquals("Provider: " + p.getName(), new BigInteger(1, G), derivedSpec.getG());
+        }
     }
 
 }

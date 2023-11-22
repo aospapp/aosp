@@ -16,9 +16,12 @@
 
 #include "libufdt.h"
 
+#include "ufdt_node_pool.h"
 #include "ufdt_prop_dict.h"
 
-struct ufdt *ufdt_construct(void *fdtp) {
+struct ufdt *ufdt_construct(void *fdtp, struct ufdt_node_pool *pool) {
+  (void)(pool); /* unused parameter */
+
   /* Inital size is 2, will be exponentially increased when it needed later.
      (2 -> 4 -> 8 -> ...) */
   const int DEFAULT_MEM_SIZE_FDTPS = 2;
@@ -47,10 +50,10 @@ error:
   return NULL;
 }
 
-void ufdt_destruct(struct ufdt *tree) {
+void ufdt_destruct(struct ufdt *tree, struct ufdt_node_pool *pool) {
   if (tree == NULL) return;
 
-  ufdt_node_destruct(tree->root);
+  ufdt_node_destruct(tree->root, pool);
 
   dto_free(tree->fdtps);
   dto_free(tree->phandle_table.data);
@@ -105,7 +108,8 @@ int ufdt_get_string_off(const struct ufdt *tree, const char *s) {
   return 0;
 }
 
-static struct ufdt_node *ufdt_new_node(void *fdtp, int node_offset) {
+static struct ufdt_node *ufdt_new_node(void *fdtp, int node_offset,
+                                       struct ufdt_node_pool *pool) {
   if (fdtp == NULL) {
     dto_error("Failed to get new_node because tree is NULL\n");
     return NULL;
@@ -113,13 +117,13 @@ static struct ufdt_node *ufdt_new_node(void *fdtp, int node_offset) {
 
   fdt32_t *fdt_tag_ptr =
       (fdt32_t *)fdt_offset_ptr(fdtp, node_offset, sizeof(fdt32_t));
-  struct ufdt_node *res = ufdt_node_construct(fdtp, fdt_tag_ptr);
+  struct ufdt_node *res = ufdt_node_construct(fdtp, fdt_tag_ptr, pool);
   return res;
 }
 
 static struct ufdt_node *fdt_to_ufdt_tree(void *fdtp, int cur_fdt_tag_offset,
-                                          int *next_fdt_tag_offset,
-                                          int cur_tag) {
+                                          int *next_fdt_tag_offset, int cur_tag,
+                                          struct ufdt_node_pool *pool) {
   if (fdtp == NULL) {
     return NULL;
   }
@@ -137,17 +141,17 @@ static struct ufdt_node *fdt_to_ufdt_tree(void *fdtp, int cur_fdt_tag_offset,
       break;
 
     case FDT_PROP:
-      res = ufdt_new_node(fdtp, cur_fdt_tag_offset);
+      res = ufdt_new_node(fdtp, cur_fdt_tag_offset, pool);
       break;
 
     case FDT_BEGIN_NODE:
-      res = ufdt_new_node(fdtp, cur_fdt_tag_offset);
+      res = ufdt_new_node(fdtp, cur_fdt_tag_offset, pool);
 
       do {
         cur_fdt_tag_offset = *next_fdt_tag_offset;
         tag = fdt_next_tag(fdtp, cur_fdt_tag_offset, next_fdt_tag_offset);
         child_node = fdt_to_ufdt_tree(fdtp, cur_fdt_tag_offset,
-                                      next_fdt_tag_offset, tag);
+                                      next_fdt_tag_offset, tag, pool);
         ufdt_node_add_child(res, child_node);
       } while (tag != FDT_END_NODE);
       break;
@@ -232,59 +236,9 @@ struct ufdt_node *ufdt_get_node_by_phandle(struct ufdt *tree,
   return res;
 }
 
-int merge_children(struct ufdt_node *node_a, struct ufdt_node *node_b) {
-  int err = 0;
-  struct ufdt_node *it;
-  for (it = ((struct fdt_node_ufdt_node *)node_b)->child; it;) {
-    struct ufdt_node *cur_node = it;
-    it = it->sibling;
-    cur_node->sibling = NULL;
-    struct ufdt_node *target_node = NULL;
-    if (tag_of(cur_node) == FDT_BEGIN_NODE) {
-      target_node = ufdt_node_get_subnode_by_name(node_a, name_of(cur_node));
-    } else {
-      target_node = ufdt_node_get_property_by_name(node_a, name_of(cur_node));
-    }
-    if (target_node == NULL) {
-      err = ufdt_node_add_child(node_a, cur_node);
-    } else {
-      err = merge_ufdt_into(target_node, cur_node);
-      dto_free(cur_node);
-    }
-    if (err < 0) return -1;
-  }
-  /*
-   * The ufdt_node* in node_b will be copied to node_a.
-   * To prevent the ufdt_node from being freed twice
-   * (main_tree and overlay_tree) at the end of function
-   * ufdt_apply_overlay(), set this node in node_b
-   * (overlay_tree) to NULL.
-   */
-  ((struct fdt_node_ufdt_node *)node_b)->child = NULL;
-
-  return 0;
-}
-
-int merge_ufdt_into(struct ufdt_node *node_a, struct ufdt_node *node_b) {
-  if (tag_of(node_a) == FDT_PROP) {
-    node_a->fdt_tag_ptr = node_b->fdt_tag_ptr;
-    return 0;
-  }
-
-  int err = 0;
-  err = merge_children(node_a, node_b);
-  if (err < 0) return -1;
-
-  return 0;
-}
-
-void ufdt_map(struct ufdt *tree, struct ufdt_node_closure closure) {
-  ufdt_node_map(tree->root, closure);
-}
-
 static int count_phandle_node(struct ufdt_node *node) {
   if (node == NULL) return 0;
-  if (tag_of(node) != FDT_BEGIN_NODE) return 0;
+  if (ufdt_node_tag(node) != FDT_BEGIN_NODE) return 0;
   int res = 0;
   if (ufdt_node_get_phandle(node) > 0) res++;
   struct ufdt_node **it;
@@ -293,9 +247,9 @@ static int count_phandle_node(struct ufdt_node *node) {
 }
 
 static void set_phandle_table_entry(struct ufdt_node *node,
-                                    struct phandle_table_entry *data,
+                                    struct ufdt_phandle_table_entry *data,
                                     int *cur) {
-  if (node == NULL || tag_of(node) != FDT_BEGIN_NODE) return;
+  if (node == NULL || ufdt_node_tag(node) != FDT_BEGIN_NODE) return;
   int ph = ufdt_node_get_phandle(node);
   if (ph > 0) {
     data[*cur].phandle = ph;
@@ -308,8 +262,8 @@ static void set_phandle_table_entry(struct ufdt_node *node,
 }
 
 int phandle_table_entry_cmp(const void *pa, const void *pb) {
-  uint32_t ph_a = ((const struct phandle_table_entry *)pa)->phandle;
-  uint32_t ph_b = ((const struct phandle_table_entry *)pb)->phandle;
+  uint32_t ph_a = ((const struct ufdt_phandle_table_entry *)pa)->phandle;
+  uint32_t ph_b = ((const struct ufdt_phandle_table_entry *)pb)->phandle;
   if (ph_a < ph_b)
     return -1;
   else if (ph_a == ph_b)
@@ -318,29 +272,31 @@ int phandle_table_entry_cmp(const void *pa, const void *pb) {
     return 1;
 }
 
-struct static_phandle_table build_phandle_table(struct ufdt *tree) {
-  struct static_phandle_table res;
+struct ufdt_static_phandle_table build_phandle_table(struct ufdt *tree) {
+  struct ufdt_static_phandle_table res;
   res.len = count_phandle_node(tree->root);
-  res.data = dto_malloc(sizeof(struct phandle_table_entry) * res.len);
+  res.data = dto_malloc(sizeof(struct ufdt_phandle_table_entry) * res.len);
   int cur = 0;
   set_phandle_table_entry(tree->root, res.data, &cur);
-  dto_qsort(res.data, res.len, sizeof(struct phandle_table_entry),
+  dto_qsort(res.data, res.len, sizeof(struct ufdt_phandle_table_entry),
             phandle_table_entry_cmp);
   return res;
 }
 
-struct ufdt *fdt_to_ufdt(void *fdtp, size_t fdt_size) {
+struct ufdt *ufdt_from_fdt(void *fdtp, size_t fdt_size,
+                           struct ufdt_node_pool *pool) {
   (void)(fdt_size); /* unused parameter */
 
   int start_offset = fdt_path_offset(fdtp, "/");
   if (start_offset < 0) {
-    return ufdt_construct(NULL);
+    return ufdt_construct(NULL, pool);
   }
 
-  struct ufdt *res_tree = ufdt_construct(fdtp);
+  struct ufdt *res_tree = ufdt_construct(fdtp, pool);
   int end_offset;
   int start_tag = fdt_next_tag(fdtp, start_offset, &end_offset);
-  res_tree->root = fdt_to_ufdt_tree(fdtp, start_offset, &end_offset, start_tag);
+  res_tree->root =
+      fdt_to_ufdt_tree(fdtp, start_offset, &end_offset, start_tag, pool);
 
   res_tree->phandle_table = build_phandle_table(res_tree);
 
@@ -367,7 +323,7 @@ static int _ufdt_get_property_nameoff(const struct ufdt *tree, const char *name,
 
 static int _ufdt_output_property_to_fdt(
     const struct ufdt *tree, void *fdtp,
-    const struct fdt_prop_ufdt_node *prop_node, struct ufdt_prop_dict *dict) {
+    const struct ufdt_node_fdt_prop *prop_node, struct ufdt_prop_dict *dict) {
   int nameoff = _ufdt_get_property_nameoff(tree, prop_node->name, dict);
   if (nameoff == 0) return -1;
 
@@ -400,14 +356,14 @@ static int _ufdt_output_property_to_fdt(
 static int _ufdt_output_node_to_fdt(const struct ufdt *tree, void *fdtp,
                                     const struct ufdt_node *node,
                                     struct ufdt_prop_dict *dict) {
-  uint32_t tag = tag_of(node);
+  uint32_t tag = ufdt_node_tag(node);
 
   if (tag == FDT_PROP) {
     return _ufdt_output_property_to_fdt(
-        tree, fdtp, (const struct fdt_prop_ufdt_node *)node, dict);
+        tree, fdtp, (const struct ufdt_node_fdt_prop *)node, dict);
   }
 
-  int err = fdt_begin_node(fdtp, name_of(node));
+  int err = fdt_begin_node(fdtp, ufdt_node_name(node));
   if (err < 0) return -1;
 
   struct ufdt_node **it;

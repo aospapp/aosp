@@ -19,7 +19,6 @@ package android.server.cts;
 import static android.server.cts.ActivityAndWindowManagersState.DEFAULT_DISPLAY_ID;
 import static android.server.cts.ActivityManagerState.STATE_STOPPED;
 
-import android.server.cts.ActivityManagerState.Activity;
 import android.server.cts.ActivityManagerState.ActivityStack;
 import android.server.cts.ActivityManagerState.ActivityTask;
 
@@ -83,7 +82,7 @@ public class ActivityManagerPinnedStackTests extends ActivityManagerTestBase {
     private static final String TEST_ACTIVITY_ACTION_FINISH =
             "android.server.cts.TestActivity.finish_self";
 
-    private static final int APP_OPS_OP_ENTER_PICTURE_IN_PICTURE_ON_HIDE = 67;
+    private static final String APP_OPS_OP_ENTER_PICTURE_IN_PICTURE = "PICTURE_IN_PICTURE";
     private static final int APP_OPS_MODE_ALLOWED = 0;
     private static final int APP_OPS_MODE_IGNORED = 1;
     private static final int APP_OPS_MODE_ERRORED = 2;
@@ -684,7 +683,7 @@ public class ActivityManagerPinnedStackTests extends ActivityManagerTestBase {
 
         // Disable enter-pip and try to enter pip
         setAppOpsOpToMode(ActivityManagerTestBase.componentName,
-                APP_OPS_OP_ENTER_PICTURE_IN_PICTURE_ON_HIDE, APP_OPS_MODE_IGNORED);
+                APP_OPS_OP_ENTER_PICTURE_IN_PICTURE, APP_OPS_MODE_IGNORED);
 
         // Launch the PIP activity on pause
         launchActivity(PIP_ACTIVITY, EXTRA_ENTER_PIP, "true");
@@ -696,7 +695,7 @@ public class ActivityManagerPinnedStackTests extends ActivityManagerTestBase {
 
         // Re-enable enter-pip-on-hide
         setAppOpsOpToMode(ActivityManagerTestBase.componentName,
-                APP_OPS_OP_ENTER_PICTURE_IN_PICTURE_ON_HIDE, APP_OPS_MODE_ALLOWED);
+                APP_OPS_OP_ENTER_PICTURE_IN_PICTURE, APP_OPS_MODE_ALLOWED);
     }
 
     public void testEnterPipFromTaskWithMultipleActivities() throws Exception {
@@ -768,13 +767,47 @@ public class ActivityManagerPinnedStackTests extends ActivityManagerTestBase {
         executeShellCommand("am broadcast -a " + PIP_ACTIVITY_ACTION_ENTER_PIP);
         mAmWmState.waitForValidState(mDevice, PIP_ACTIVITY, PINNED_STACK_ID);
         assertPinnedStackExists();
+        waitForValidPictureInPictureCallbacks(PIP_ACTIVITY, logSeparator);
         assertValidPictureInPictureCallbackOrder(PIP_ACTIVITY, logSeparator);
 
         // Trigger it to go back to fullscreen and ensure that only triggered one configuration
         // change as well
         logSeparator = clearLogcat();
         launchActivity(PIP_ACTIVITY);
+        waitForValidPictureInPictureCallbacks(PIP_ACTIVITY, logSeparator);
         assertValidPictureInPictureCallbackOrder(PIP_ACTIVITY, logSeparator);
+    }
+
+    public void testEnterPipInterruptedCallbacks() throws Exception {
+        if (!supportsPip()) return;
+
+        // Slow down the transition animations for this test
+        setWindowTransitionAnimationDurationScale(20);
+
+        // Launch a PiP activity
+        launchActivity(PIP_ACTIVITY, EXTRA_ENTER_PIP, "true");
+        // Wait until the PiP activity has moved into the pinned stack (happens before the
+        // transition has started)
+        mAmWmState.waitForValidState(mDevice, PIP_ACTIVITY, PINNED_STACK_ID);
+        assertPinnedStackExists();
+
+        // Relaunch the PiP activity back into fullscreen
+        String logSeparator = clearLogcat();
+        launchActivity(PIP_ACTIVITY);
+        // Wait until the PiP activity is reparented into the fullscreen stack (happens after the
+        // transition has finished)
+        mAmWmState.waitForValidState(mDevice, PIP_ACTIVITY, FULLSCREEN_WORKSPACE_STACK_ID);
+
+        // Ensure that we get the callbacks indicating that PiP/MW mode was cancelled, but no
+        // configuration change (since none was sent)
+        final ActivityLifecycleCounts lifecycleCounts = new ActivityLifecycleCounts(
+                PIP_ACTIVITY, logSeparator);
+        assertTrue(lifecycleCounts.mConfigurationChangedCount == 0);
+        assertTrue(lifecycleCounts.mPictureInPictureModeChangedCount == 1);
+        assertTrue(lifecycleCounts.mMultiWindowModeChangedCount == 1);
+
+        // Reset the animation scale
+        setWindowTransitionAnimationDurationScale(1);
     }
 
     public void testStopBeforeMultiWindowCallbacksOnDismiss() throws Exception {
@@ -1015,6 +1048,8 @@ public class ActivityManagerPinnedStackTests extends ActivityManagerTestBase {
 
     /** Test that reported display size corresponds to fullscreen after exiting PiP. */
     public void testDisplayMetricsPinUnpin() throws Exception {
+        if (!supportsPip()) return;
+
         String logSeparator = clearLogcat();
         launchActivity(TEST_ACTIVITY);
         final int defaultDisplayStackId = mAmWmState.getAmState().getFocusedStackId();
@@ -1185,6 +1220,24 @@ public class ActivityManagerPinnedStackTests extends ActivityManagerTestBase {
     }
 
     /**
+     * Waits until the expected picture-in-picture callbacks have been made.
+     */
+    private void waitForValidPictureInPictureCallbacks(String activityName, String logSeparator)
+            throws Exception {
+        mAmWmState.waitFor(mDevice, (amState, wmState) -> {
+            try {
+                final ActivityLifecycleCounts lifecycleCounts = new ActivityLifecycleCounts(
+                        activityName, logSeparator);
+                return lifecycleCounts.mConfigurationChangedCount == 1 &&
+                        lifecycleCounts.mPictureInPictureModeChangedCount == 1 &&
+                        lifecycleCounts.mMultiWindowModeChangedCount == 1;
+            } catch (Exception e) {
+                return false;
+            }
+        }, "Waiting for picture-in-picture activity callbacks...");
+    }
+
+    /**
      * @return the window state for the given {@param activity}'s window.
      */
     private WindowManagerState.WindowState getWindowState(String activity) throws Exception {
@@ -1226,8 +1279,8 @@ public class ActivityManagerPinnedStackTests extends ActivityManagerTestBase {
     /**
      * Sets an app-ops op for a given package to a given mode.
      */
-    private void setAppOpsOpToMode(String packageName, int op, int mode) throws Exception {
-        executeShellCommand(String.format("appops set %s %d %d", packageName, op, mode));
+    private void setAppOpsOpToMode(String packageName, String op, int mode) throws Exception {
+        executeShellCommand(String.format("appops set %s %s %d", packageName, op, mode));
     }
 
     /**

@@ -2,7 +2,6 @@ cc_library_shared {
     name: "android.hardware.tests.baz@1.0-impl",
     defaults: ["hidl_defaults"],
     relative_install_path: "hw",
-    proprietary: true,
     srcs: [
         "Baz.cpp",
     ],
@@ -12,6 +11,5 @@ cc_library_shared {
         "libhidltransport",
         "libutils",
         "android.hardware.tests.baz@1.0",
-        "android.hidl.base@1.0",
     ],
 }

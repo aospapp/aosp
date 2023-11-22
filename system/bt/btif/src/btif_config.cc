@@ -31,7 +31,6 @@
 #include <mutex>
 
 #include "bt_types.h"
-#include "btcore/include/bdaddr.h"
 #include "btcore/include/module.h"
 #include "btif_api.h"
 #include "btif_common.h"
@@ -89,14 +88,11 @@ static char btif_config_time_created[TIME_STRING_LENGTH];
 // TODO(zachoverflow): Move these two functions out, because they are too
 // specific for this file
 // {grumpy-cat/no, monty-python/you-make-me-sad}
-bool btif_get_device_type(const BD_ADDR bd_addr, int* p_device_type) {
+bool btif_get_device_type(const RawAddress& bda, int* p_device_type) {
   if (p_device_type == NULL) return false;
 
-  bt_bdaddr_t bda;
-  bdcpy(bda.address, bd_addr);
-
-  bdstr_t bd_addr_str;
-  bdaddr_to_string(&bda, bd_addr_str, sizeof(bd_addr_str));
+  std::string addrstr = bda.ToString();
+  const char* bd_addr_str = addrstr.c_str();
 
   if (!btif_config_get_int(bd_addr_str, "DevType", p_device_type)) return false;
 
@@ -105,14 +101,11 @@ bool btif_get_device_type(const BD_ADDR bd_addr, int* p_device_type) {
   return true;
 }
 
-bool btif_get_address_type(const BD_ADDR bd_addr, int* p_addr_type) {
+bool btif_get_address_type(const RawAddress& bda, int* p_addr_type) {
   if (p_addr_type == NULL) return false;
 
-  bt_bdaddr_t bda;
-  bdcpy(bda.address, bd_addr);
-
-  bdstr_t bd_addr_str;
-  bdaddr_to_string(&bda, bd_addr_str, sizeof(bd_addr_str));
+  std::string addrstr = bda.ToString();
+  const char* bd_addr_str = addrstr.c_str();
 
   if (!btif_config_get_int(bd_addr_str, "AddrType", p_addr_type)) return false;
 
@@ -231,8 +224,10 @@ static future_t* clean_up(void) {
   btif_config_flush();
 
   alarm_free(config_timer);
-  config_free(config);
   config_timer = NULL;
+
+  std::unique_lock<std::mutex> lock(config_lock);
+  config_free(config);
   config = NULL;
   return future_new_immediate(FUTURE_SUCCESS);
 }
@@ -475,7 +470,7 @@ static void btif_config_remove_unpaired(config_t* conf) {
   const config_section_node_t* snode = config_section_begin(conf);
   while (snode != config_section_end(conf)) {
     const char* section = config_section_name(snode);
-    if (string_is_bdaddr(section)) {
+    if (RawAddress::IsValidAddress(section)) {
       if (!config_has_key(conf, section, "LinkKey") &&
           !config_has_key(conf, section, "LE_KEY_PENC") &&
           !config_has_key(conf, section, "LE_KEY_PID") &&
@@ -533,7 +528,7 @@ static void btif_config_remove_restricted(config_t* config) {
   const config_section_node_t* snode = config_section_begin(config);
   while (snode != config_section_end(config)) {
     const char* section = config_section_name(snode);
-    if (string_is_bdaddr(section) &&
+    if (RawAddress::IsValidAddress(section) &&
         config_has_key(config, section, "Restricted")) {
       BTIF_TRACE_DEBUG("%s: Removing restricted device %s", __func__, section);
       config_remove_section(config, section);

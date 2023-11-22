@@ -7,6 +7,7 @@ import os
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import chrome_binary_test
+from autotest_lib.client.cros.video import helper_logger
 
 class video_VideoDecodeAccelerator(chrome_binary_test.ChromeBinaryTest):
     """
@@ -17,15 +18,15 @@ class video_VideoDecodeAccelerator(chrome_binary_test.ChromeBinaryTest):
     version = 1
     binary = 'video_decode_accelerator_unittest'
 
-
+    @helper_logger.video_log_wrapper
     @chrome_binary_test.nuke_chrome
-    def run_once(self, videos, use_cr_source_dir=True):
+    def run_once(self, videos, use_cr_source_dir=True, gtest_filter=None):
         """
         Runs video_decode_accelerator_unittest on the videos.
 
         @param videos: The test videos for video_decode_accelerator_unittest.
         @param use_cr_source_dir:  Videos are under chrome source directory.
-        @param gtest_filter: gtest_filter parameter for the unittest.
+        @param gtest_filter: test case filter.
 
         @raises: error.TestFail for video_decode_accelerator_unittest failures.
         """
@@ -38,11 +39,20 @@ class video_VideoDecodeAccelerator(chrome_binary_test.ChromeBinaryTest):
 
         last_test_failure = None
         for video in videos:
-            cmd_line = ('--test_video_data="%s%s"' % (path, video))
+            cmd_line_list = ['--test_video_data="%s%s"' % (path, video)]
 
-            if utils.is_freon():
-                cmd_line += ' --ozone-platform=gbm'
+            # While thumbnail test fails, write thumbnail image to results
+            # directory so that it will be accessible to host and packed
+            # along with test logs.
+            cmd_line_list.append(
+                '--thumbnail_output_dir="%s"' % self.resultsdir)
+            cmd_line_list.append(helper_logger.chrome_vmodule_flag())
+            cmd_line_list.append('--ozone-platform=gbm')
 
+            if gtest_filter:
+                cmd_line_list.append('--gtest_filter="%s"' % gtest_filter)
+
+            cmd_line = ' '.join(cmd_line_list)
             try:
                 self.run_chrome_test_binary(self.binary, cmd_line)
             except error.TestFail as test_failure:

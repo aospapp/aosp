@@ -34,6 +34,7 @@ std::ostream &operator<<(std::ostream &os, Arch ar);
 std::ostream &operator<<(std::ostream &os, KernelConfigType il);
 std::ostream &operator<<(std::ostream &os, Tristate tr);
 std::ostream &operator<<(std::ostream &os, SchemaType ksv);
+std::ostream& operator<<(std::ostream& os, XmlSchemaFormat f);
 std::ostream &operator<<(std::ostream &os, const ManifestHal &hal);
 std::ostream &operator<<(std::ostream &os, const Version &ver);
 std::ostream &operator<<(std::ostream &os, const VersionRange &vr);
@@ -58,6 +59,7 @@ bool parse(const std::string &s, KernelConfigType *il);
 bool parse(const std::string &s, KernelConfigKey *key);
 bool parse(const std::string &s, Tristate *tr);
 bool parse(const std::string &s, SchemaType *ver);
+bool parse(const std::string& s, XmlSchemaFormat* ver);
 bool parse(const std::string &s, KernelSepolicyVersion *ksv);
 bool parse(const std::string &s, Version *ver);
 bool parse(const std::string &s, VersionRange *vr);
@@ -76,6 +78,10 @@ bool parseRange(const std::string &s, KernelConfigRangeValue *range);
 // Parse the KernelConfigValue in s, assuming type kctv->type, and store it in
 // kctv->value.
 bool parseKernelConfigValue(const std::string &s, KernelConfigTypedValue *kctv);
+
+// Parse the KernelConfigTypedValue in s (type is guessed) and store it in kctv.
+// Do not expect quotes in strings.
+bool parseKernelConfigTypedValue(const std::string& s, KernelConfigTypedValue* kctv);
 
 // A string that describes the whole object, with versions of all
 // its components. For debugging and testing purposes only. This is not

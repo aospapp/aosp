@@ -15,6 +15,7 @@
 -->
 <configuration description="Config for CTS Color Mode test cases">
     <option name="config-descriptor:metadata" key="component" value="graphics" />
+    <option name="not-shardable" value="true" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsColorModeTestCases.apk" />

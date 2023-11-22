@@ -6,21 +6,22 @@ import logging
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import service_stopper
+from autotest_lib.client.cros.graphics import graphics_utils
 
-
-class graphics_LibDRM(test.test):
+class graphics_LibDRM(graphics_utils.GraphicsTest):
     version = 1
     _services = None
 
     def initialize(self):
+        super(graphics_LibDRM, self).initialize()
         self._services = service_stopper.ServiceStopper(['ui'])
 
     def cleanup(self):
+        super(graphics_LibDRM, self).cleanup()
         if self._services:
             self._services.restore_services()
 
     def run_once(self):
-        num_errors = 0
         keyvals = {}
 
         # These are tests to run for all platforms.
@@ -53,24 +54,24 @@ class graphics_LibDRM(test.test):
         self._services.stop_services()
 
         for test in tests:
+            self.add_failures(test)
             # Make sure the test exists on this system.  Not all tests may be
             # present on a given system.
             if utils.system('which %s' % test):
                 logging.error('Could not find test %s.', test)
                 keyvals[test] = 'NOT FOUND'
-                num_errors += 1
                 continue
 
             # Run the test and check for success based on return value.
             return_value = utils.system(test)
             if return_value:
                 logging.error('%s returned %d', test, return_value)
-                num_errors += 1
                 keyvals[test] = 'FAILED'
             else:
                 keyvals[test] = 'PASSED'
+                self.remove_failures(test)
 
         self.write_perf_keyval(keyvals)
-
-        if num_errors > 0:
-            raise error.TestFail('Failed: %d libdrm tests failed.' % num_errors)
+        if self.get_failures():
+            raise error.TestFail('Failed: %d libdrm tests failed.'
+                                 % len(self.get_failures()))

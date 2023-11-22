@@ -77,7 +77,7 @@
     <string name="da_uninstall_test">Device Admin Uninstall Test</string>
     <string name="da_uninstall_test_info">This test checks that an active device administrator
         can be easily uninstalled from the application details screen in a way similar to other
-        apps.
+        apps. This test requires CtsEmptyDeviceAdmin.apk to be installed on the device.
     </string>
     <string name="da_tapjacking_test">Device Admin Tapjacking Test</string>
     <string name="da_tapjacking_test_info">This test checks that an activity cannot tapjack the
@@ -124,10 +124,10 @@
     <string name="da_lock_success">It appears the screen was locked successfully!</string>
     <string name="da_lock_error">It does not look like the screen was locked...</string>
 
-    <string name="da_install_admin_instructions">Please install the \'Test Device Admin\' app on the device.
-        If needed, grant \'Cts Verifier\' permission to install unknown apps, and return when install succeeds.
+    <string name="da_install_admin_instructions">
+        Please install the \'Test Device Admin\' app (packaged as CtsEmptyDeviceAdmin.apk) on the device.
     </string>
-    <string name="da_install_admin_button_text">Install admin</string>
+    <string name="da_admin_installed_status_text">\'Test Device Admin\' installed on the device.</string>
     <string name="da_enable_admin_instructions">Add \'Test Device Admin\' as an active administrator on the device.
         Tap the button below to review the device admin details and activate the administrator.
     </string>
@@ -557,6 +557,7 @@
     <string name="location_gnss_measure_no_location_test">GNSS Measurement Before Location Test</string>
     <string name="location_gnss_reg_test">GNSS Measurement Registration Test</string>
     <string name="location_gnss_value_test">GNSS Measurement Values Test</string>
+    <string name="location_pseudorange_value_test">GNSS Pseudorange Test</string>
     <string name="location_gnss_ttff_test">GNSS TTFF Test</string>
     <string name="location_gnss_nav_msg_test">GNSS Navigation Message Test</string>
     <string name="location_gnss_status_test">GNSS Status Test</string>
@@ -937,7 +938,8 @@
     <string name="snsr_offbody_state_change">Offbody state changed to %1$d. Timestamp=%2$d.</string>
     <string name="snsr_start_offbody_sensor_test_instr">Put watch on your wrist and then click Next button.</string>
     <string name="snsr_start_onbody_sensor_test_instr">Remove the watch from your wrist and then click Next button.</string>
-    <string name="snsr_offbody_detect_test_instr">Click Next button, then immediate remove the watch from your wrist.</string>
+    <string name="snsr_offbody_detect_test_instr">Click Next button, then immediate remove the watch from your wrist after the countdown reaches 0.</string>
+    <string name="snsr_offbody_detect_test_countdown">Countdown: %1$d.</string>
     <string name="snsr_onbody_detect_test_instr">Click Next button, then immediately attach the watch on your wrist.</string>
     <string name="snsr_ap_wake_offbody_detect_test_instr">Click Next button, then palm the screen. Wait a few seconds after screen blackens, then remove watch from wrist.</string>
 
@@ -955,6 +957,25 @@
     <string name="sample_framework_test">Sample Framework Test</string>
     <string name="sample_test">Sample Test</string>
     <string name="sample_test_info">This test verifies that bluetooth sharing is working properly.\nThe test assumes the Device Under Test has bluetooth enabled and is already paired with a second device, also with bluetooth enabled.\nStart this test by clicking share, choose bluetooth from the options, and then select a device to share with.\nNote: This is a sample test, used to demonstrate how to write CTS Verifier tests, so just click pass.</string>
+
+    <!-- Strings for UsbDebuggingDialogTapjackingTest -->
+    <string name="usb_tapjacking_button_text">Escalate</string>
+    <string name="usb_tapjacking_test">Usb Debugging Dialog Tapjacking Test</string>
+    <string name="usb_tapjacking_test_info">This test verifies that tapjacking on the usb dialog is not possible by disallowing users from accepting usb debugging pemissions when dialog is obscured.</string>
+    <string name="usb_tapjacking_test_instructions">
+        1. Connect device via usb to computer.\n
+        2. Unroot device: adb unroot\n
+        3. Connect over tcpip: adb tcpip 5555\n
+        4. Click "Escalate".  Settings may appear if the CTS Verifier app doesn\'t have display over apps permission.  Enable this permission and then click back to navigate back to the app.\n
+        5. Wait for a USB debugging dialog to appear and for the text \"This message covers the USB debugging RSA prompt\" to appear.  There is around a 5 second delay.\n
+        ** If no dialog appears, close the CTS Verifier app and try again. \n
+        6. Try clicking OK. \n
+        Test pass if you cannot click OK when the text quoted above is on top of the USB debugging dialog.  Toast should appear saying there is an overlay so Settings cannot verify your response. \n
+        Note: Fake message overlay may remain on screen until you leave the test. This is working as intended. \n
+    </string>
+    <string name="usb_tapjacking_overlay_message">This message covers the USB debugging RSA prompt</string>
+    <string name="usb_tapjacking_error_toast">Please restart the application and try again.</string>
+    <string name="usb_tapjacking_error_toast2">Please enable display over apps permission for this application before proceeding.</string>
 
     <!-- Strings for Camera Orientation -->
     <string name="camera_orientation">Camera Orientation</string>
@@ -1141,7 +1162,8 @@
     <string name="mtp_host_grant_permission_message">Grant permission.\nReply a dialog asking device permission.</string>
     <string name="mtp_host_test_read_event_message">Test MtpDevice#readEvent.\nTake a picture at the connected device.</string>
     <string name="mtp_host_test_send_object_message">Test MtpDevice#sendObject.</string>
-    <string name="mtp_host_test_notification_message">Test MTP notification.\nCheck if there is an notification on this device saying the other MTP device is connected to this device. Also check if it opens the UI to browse files in the connected device by tapping the notification.</string>
+    <string name="mtp_host_test_file_browse_message">Test MTP file browsing.\nCheck if the UI to browse files in the connected devices was shown automatically. If not, tap a notification on this device saying the other MTP device is connected. If different application launched, go to the applicaiton settings by clicking the App Settings button, open the detailes settings page of the app, clear the default action settings, and retry. </string>
+    <string name="mtp_app_settings">App Settings</string>
 
     <!-- Strings for the Camera ITS test activity -->
     <string name="camera_its_test">Camera ITS Test</string>
@@ -1694,7 +1716,7 @@ You should be prompted to select credentials; choose the ones you just installed
         2. If \'Cts Verifier\' is not allowed to install apps, a warning dialog will appear
         blocking the install. In this case go to step 3, else skip to step 4.\n
         3. Allow \'Cts Verifier\' to install apps. Return to package installer.\n
-        4. Accept the package and verify that it installs.
+        4. Accept the installation and verify that it succeeds (no error message is displayed).
     </string>
 
     <string name="provisioning_byod_nonmarket_deny">Disable non-market apps</string>
@@ -1757,6 +1779,66 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="provisioning_byod_lockscreen_bound_key">Lockscreen-bound key test</string>
     <string name="provisioning_byod_fingerprint_bound_key">Fingerprint-bound key test</string>
     <string name="provisioning_byod_vpn">VPN test</string>
+    <string name="provisioning_byod_always_on_vpn">Always-on VPN Settings</string>
+    <string name="provisioning_byod_always_on_vpn_info">
+        In this test, you\'ll verify that the Settings UI for always-on VPN is correct for different
+        VPN apps.
+    </string>
+    <string name="provisioning_byod_always_on_vpn_instruction">
+        In this test, you\'ll verify the Settings UI for always-on VPN for different VPN apps.
+        You should have received three VPN app apks with this CTS Verifier package.
+        They\'re named in the form of \"CtsVpnFirewallApp*.apk\".\n
+
+        1. Before the test, make sure CtsVpnFirewallApp isn\'t installed on your device. You can
+           uninstall either by UI, or by\n
+           \"adb uninstall com.android.cts.vpnfirewall\"\n
+
+        2. Install the first test app, by running\n
+           \"adb install /path/to/CtsVpnFirewallAppApi23.apk\"\n
+
+        3. Tap \"Prepare VPN\" button below and consent to the VPN connection.\n
+
+        4. Finish all three test cases listed below.\n
+
+        5. Repeat step 1 to remove CtsVpnFirewallApp.
+    </string>
+    <string name="provisioning_byod_always_on_vpn_prepare_button">Prepare VPN</string>
+    <string name="provisioning_byod_always_on_vpn_vpn_not_found_note">
+        Can\'t find VPN app. Did you install it correctly?
+    </string>
+    <string name="provisioning_byod_always_on_vpn_api23">VPN app targeting SDK 23</string>
+    <string name="provisioning_byod_always_on_vpn_api23_instruction">
+        1. Re-install CtsVpnFirewallAppApi23.apk (skip this if you already have the correct version
+           installed):\n
+           \"adb install -r /path/to/CtsVpnFirewallAppApi23.apk\"\n
+        2. Tap \"Go\" button below to go to the VPN settings page.\n
+        3. Open configuration details page for CtsVpnFirewallApp.\n
+        4. Confirm the \"Always-on VPN\" and \"Block connections without VPN\" switches are both off
+           and disabled.\n
+    </string>
+    <string name="provisioning_byod_always_on_vpn_api24">VPN app targeting SDK 24</string>
+    <string name="provisioning_byod_always_on_vpn_api24_instruction">
+        1. Re-install CtsVpnFirewallAppApi24.apk (skip this if you already have the correct version
+           installed):\n
+           \"adb install -r /path/to/CtsVpnFirewallAppApi24.apk\"\n
+        2. Tap \"Go\" button below to go to the VPN settings page.\n
+        3. Open configuration details page for CtsVpnFirewallApp.\n
+        4. Confirm\n
+           4.1. \"Always-on VPN\" switch is enabled and in off position\n
+           4.2. \"Block connections without VPN\" switch is disabled and in off position\n
+           4.3. \"Block connections without VPN\" becomes enabled once the \"Always-on VPN\" switch
+                is turned on\n
+    </string>
+    <string name="provisioning_byod_always_on_vpn_not_always_on">VPN app with opt-out</string>
+    <string name="provisioning_byod_always_on_vpn_not_always_on_instruction">
+        1. Re-install CtsVpnFirewallAppNotAlwaysOn.apk (skip this if you already have the correct
+           version installed):\n
+           \"adb install -r /path/to/CtsVpnFirewallAppNotAlwaysOn.apk\"\n
+        2. Tap \"Go\" button below to go to the VPN settings page.\n
+        3. Open configuration details page for CtsVpnFirewallApp.\n
+        4. Confirm the \"Always-on VPN\" and \"Block connections without VPN\" switches are both off
+           and disabled.\n
+    </string>
     <string name="provisioning_byod_select_work_challenge">Select work lock test</string>
     <string name="provisioning_byod_select_work_challenge_description">
         This test verifies that a work lock can be chosen.\n
@@ -1914,7 +1996,7 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="pca_info">This tests whether or not OpenGL projection works.\n
         You should see two "tumbling cubes." Tapping the screen should cause the cubes to explode.</string>
     <string name="pca_test">Projection Cube Test</string>
-    <string name="pwa_info">This tests whether or displaying widets and keyfocus navigation works.\n
+    <string name="pwa_info">This tests whether or displaying widgets and keyfocus navigation works.\n
         You should see four buttons on the bottom of the screen.\n
         Pressing the "up" and "down" buttons should highlight different buttons.\n
         Furthermore, the highlight should disappear when any button is touched, and the touched button should behave as usual.\n</string>
@@ -1953,7 +2035,9 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="device_admin_keyguard_disable_camera_instruction">
         Please press the Go button to lock the screen. Then try to open the camera
         from the lower right corner of the screen. Expected result is you cannot
-        open the camera from lock screen and it will ask for password instead.
+        open the camera from lock screen and it will ask for password instead.\n
+        Also, it shouldn\'t be possible to open the camera on the lockscreen by
+        any other device specific gesture (such as double press on power button).
     </string>
     <string name="device_admin_disable_notifications">Disable notifications</string>
     <string name="device_admin_disable_notifications_instruction">
@@ -2132,6 +2216,7 @@ You should be prompted to select credentials; choose the ones you just installed
         Verify that the notification is badged (see sample badge below). Then mark this test accordingly.
     </string>
     <string name="provisioning_byod_notification_title">This is a notification</string>
+    <string name="provisioning_byod_notification_public_title">Contents hidden by policy</string>
 
     <string name="provisioning_byod_disallow_apps_control">Disallow apps control</string>
     <string name="provisioning_byod_disallow_apps_control_info">
@@ -2421,6 +2506,9 @@ You should be prompted to select credentials; choose the ones you just installed
         5. Verify that the background color of the resulting dialog is as set by you.\n
         6. Verify that the header text has organization name as set by you.\n
     </string>
+
+    <string name="provisioning_byod_no_secure_lockscreen">No work lockscreen password set. Please run \"Select work lock test\" and rerun this test</string>
+
     <string name="provisioning_byod_parent_profile_password">Personal password test</string>
     <string name="provisioning_byod_parent_profile_password_description">
         This test verifies that the password on the personal side can be chosen from within a managed profile.\n
@@ -2433,7 +2521,7 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="negative_device_owner">No Device Owner Tests</string>
     <string name="device_owner_negative_category">No Device Owner Tests</string>
     <string name="device_owner_provisioning_negative">Device owner provisioning</string>
-    <string name="device_owner_provisioning_negative_info">The device owner provisioning test verifies that setting up a corporate owned device can only be done on a factory reset device.\n\nPlease click the "Start provisioning" button, and when you see a warning dialog telling the device is already set up, select "pass". Otherwise, select "fail".</string>
+    <string name="device_owner_provisioning_negative_info">The device owner provisioning test verifies that setting up a corporate owned device can only be done on a factory reset device.\n\nPlease click the "Start provisioning" button, and when you see a warning dialog telling the device can\'t be set up, select "pass". Otherwise, select "fail".</string>
     <string name="start_device_owner_provisioning_button">Start provisioning</string>
     <string name="enterprise_privacy_quick_settings_negative">Quick settings disclosure</string>
     <string name="enterprise_privacy_quick_settings_negative_info">
@@ -2550,7 +2638,7 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="device_owner_reenable_statusbar_button">Reenable status bar</string>
     <string name="device_owner_disable_keyguard_test">Disable keyguard</string>
     <string name="device_owner_disable_keyguard_test_info">
-            Note that any device passwords that you might have set will be deleted during this test.\n
+            Before running this test, please make sure you have not set any device lockscreen password.\n
             Please press the below button to disable the keyguard. Press the power button on your device to
             switch off the screen. Then press the power button to switch the screen back on and verify that
             no keyguard was shown.\n
@@ -2560,6 +2648,7 @@ You should be prompted to select credentials; choose the ones you just installed
     </string>
     <string name="device_owner_disable_keyguard_button">Disable keyguard</string>
     <string name="device_owner_reenable_keyguard_button">Reenable keyguard</string>
+    <string name="device_owner_lockscreen_secure">Please remove lockscreen password</string>
     <string name="device_profile_owner_permission_lockdown_test">Permissions lockdown</string>
     <string name="device_profile_owner_permission_lockdown_test_instructions">
             Select each of the three grant states for the permission shown below in turn.\n
@@ -2859,7 +2948,7 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="disallow_outgoing_beam">Disallow outgoing beam</string>
     <string name="disallow_outgoing_beam_action">Switching on android beam</string>
     <string name="disallow_remove_user">Disallow remove user</string>
-    <string name="disallow_remove_user_action">Removing other users</string>
+    <string name="disallow_remove_user_action">Removing other users (please create a user and attempt to remove it to verify)</string>
     <string name="disallow_remove_managed_profile">Disallow remove managed profile</string>
     <string name="disallow_remove_managed_profile_action">Removing the work profile. It shouldn\'t be possible neither from the Accounts screen nor the Device Administrators screen (after selecting the Device Administrator that corresponds to the badged version of \"CTS Verifier\")</string>
     <string name="disallow_share_location">Disallow share location</string>
@@ -2922,7 +3011,7 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="enterprise_privacy_page">Managed device info page</string>
     <string name="enterprise_privacy_page_info">
         Please press the Go button to open Settings. Verify that:\n
-        1) There is an entry for managed device information.\n
+        1) One of the Settings screens contains an entry for managed device information.\n
         2) Tapping that entry opens a screen.\n
         3) In this screen, at a minimum, you are told your organization can:\n
         * Change settings on this device.\n
@@ -3043,17 +3132,21 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="enterprise_privacy_default_apps">Default apps</string>
     <string name="enterprise_privacy_default_apps_info">
         Please do the following:\n
-        1) Press the Reset button.\n
-        2) Press the Open Settings button.\n
-        3) In the screen that opens, verify that you are not told that your administrator set any default apps.\n
-        4) Use the Back button to return to this page.\n
-        5) Press the Set Default Apps button.\n
+        1) When a default browser is set, you must clear it by step (2), (3) and (4).\n
+        2) Confirm default browser by "Settings &gt; Apps &amp; notifications &gt; Default apps &gt; Browser app".\n
+        3) Tap default browser app in the "Settings &gt; Apps &amp; notifications &gt; App info".\n
+        4) Tap "Open by default" and Tap "CLEAR DEFAULTS"\n
+        5) Press the Reset button.\n
         6) Press the Open Settings button.\n
-        7) In the screen that opens, verify that you are now told that your administrator has set 7 default apps.\n
-        8) Tap on that information. Verify that a list of default apps shows, with 7 elements in it.\n
-        9) Verify that each element shows the CTS Verifier is the default app.\n
-        10) Use the Back button to return to this page.\n
-        11) Press the Reset button.
+        7) In the screen that opens, verify that you are not told that your administrator set any default apps.\n
+        8) Use the Back button to return to this page.\n
+        9) Press the Set Default Apps button.\n
+        10) Press the Open Settings button.\n
+        11) In the screen that opens, verify that you are now told that your administrator has set 7 default apps.\n
+        12) Tap on that information. Verify that a list of default apps shows, with 7 elements in it.\n
+        13) Verify that each element shows the CTS Verifier is the default app.\n
+        14) Use the Back button to return to this page.\n
+        15) Press the Reset button.
     </string>
     <string name="enterprise_privacy_set_default_apps">Set Default Apps</string>
     <string name="enterprise_privacy_default_ime">Default keyboard</string>
@@ -3570,30 +3663,31 @@ You should be prompted to select credentials; choose the ones you just installed
 
     <!-- Audio Frequency Microphone Test -->
     <string name="audio_frequency_mic_test">Audio Frequency Microphone Test</string>
-    <string name="audio_frequency_mic_info">
+    <string name="frequency_mic_info">
         This test requires an external USB reference microphone and external speakers.
-        Please use the headphone connector to connect external speakers. Position the device 40 cms
-        from the speakers and proceed with the instructions on the screen.
-        The system will measure frequency response of the built in microphone.
+        The test signals can be played from the device under test (DUT) or from a secondary device (e.g. when your DUT can’t support a USB microphone and external speakers simultaneously, or DUT does not have headphone output).
+Follow the instructions on the screen to measure the frequency response for the built in microphone.
        </string>
-    <string name="audio_frequency_mic_instructions">
-          Please connect external speakers using the headphone connector. Please unplug any USB audio device (if any)
+
+    <string name="frequency_mic_play">Play</string>
+    <string name="frequency_mic_stop">Stop</string>
+    <string name="frequency_mic_noise_instructions">TEST NOISE: Position speakers 40 cms from device under test.
+    Press [PLAY] to play broadband white noise. Press [TEST]
     </string>
-    <string name="audio_frequency_mic_speakers_ready_btn">External speakers ready</string>
-    <string name="audio_frequency_mic_speakers_ready_status">...</string>
-    <string name="audio_frequency_mic_instructions2">
-          Please position the speakers 40 cms from the device under test and press TEST 1
-    </string>
-    <string name="audio_frequency_mic_test1_btn">Test 1</string>
-    <string name="audio_frequency_mic_usb_status">Waiting for USB microphone...</string>
-    <string name="audio_frequency_mic_connect_mic">Please Connect USB microphone, position it next to
-    the built in microphone in the device and press USB reference microphone</string>
-    <string name="audio_frequency_mic_mic_ready_btn">USB Reference microphone ready</string>
-    <string name="audio_frequency_mic_mic_ready_text">USB Audio device detected\n\nPlease set up Device Under test
-    in quiet room, and Microphone 20 cms perpendicular to center of screen, then press TEST</string>
-    <string name="audio_frequency_mic_mic_not_ready_text">"No USB Audio device detected. Please reconnect."</string>
-    <string name="audio_frequency_mic_test2_btn">Test 2</string>
-    <string name="audio_frequency_mic_results_text">Results...</string>
+    <string name="frequency_mic_test_noise_btn">Test</string>
+    <string name="frequency_mic_test_noise_result">Results...</string>
+
+    <string name="frequency_mic_test_usb_background_instructions">TEST USB BACKGROUND: Connect USB microphone and position it right next to microphone under test.
+    No source of noise should be active during this test. Press [TEST]</string>
+    <string name="frequency_mic_test_usb_background_btn">Test</string>
+    <string name="frequency_mic_test_usb_background_result">Results...</string>
+
+    <string name="frequency_mic_test_usb_noise_instructions">TEST USB NOISE: Connect USB microphone and position it right next to microphone under test.
+    Position speakers 40 cms from device under test. Press [PLAY] to play broadband white noise. Press [TEST]</string>
+    <string name="frequency_mic_test_usb_noise_btn">Test</string>
+    <string name="frequency_mic_test_usb_noise_result">Results...</string>
+
+    <string name="frequency_mic_test_global_result">Global Results...</string>
 
      <!-- Audio Frequency Unprocessed Test -->
     <string name="audio_frequency_unprocessed_test">Audio Frequency Unprocessed Test</string>
@@ -3768,8 +3862,8 @@ You should be prompted to select credentials; choose the ones you just installed
     </string-array>
 
     <!-- Strings for setting and restoring default dialer for voicemail tests -->
-    <string name="voicemail_restore_default_dialer_description">(Optional) restore the default dialer setting</string>
-    <string name="voicemail_restore_default_dialer_no_default_description">(Optional) restore the default dialer by going to settings-> apps -> cogwheel -> Phone app</string>
+    <string name="voicemail_restore_default_dialer_description">Restore the default dialer setting</string>
+    <string name="voicemail_restore_default_dialer_no_default_description">Restore the default dialer by going to settings-> apps -> cogwheel -> Phone app</string>
     <string name="voicemail_restore_default_dialer_button">Restore the default dialer"</string>
     <string name="voicemail_default_dialer_already_set">Default dialer already set</string>
     <string name="voicemail_default_dialer_already_restored">Default dialer already restored</string>

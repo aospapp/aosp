@@ -1822,6 +1822,9 @@ class Sized_relobj_incr : public Sized_relobj<size, big_endian>
 		    Sized_incremental_binary<size, big_endian>* ibase,
 		    unsigned int input_file_index);
 
+  virtual void
+  clear_views();
+
  private:
   // For convenience.
   typedef Sized_relobj_incr<size, big_endian> This;

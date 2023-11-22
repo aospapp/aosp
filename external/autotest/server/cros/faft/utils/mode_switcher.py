@@ -75,8 +75,10 @@ class _CtrlDBypasser(_BaseFwBypasser):
         self.servo.switch_usbkey('host')
         time.sleep(self.faft_config.usb_plug)
         self.servo.switch_usbkey('dut')
+        logging.info('Enabled dut_sees_usb')
         if not self.client_host.ping_wait_up(
                 timeout=self.faft_config.delay_reboot_to_ping):
+            logging.info('ping timed out, try REC_ON')
             psc = self.servo.get_power_state_controller()
             psc.power_on(psc.REC_ON)
 
@@ -163,6 +165,181 @@ class _JetstreamBypasser(_BaseFwBypasser):
         raise NotImplementedError
 
 
+class _TabletDetachableBypasser(_BaseFwBypasser):
+    """Controls bypass logic of tablet/ detachable chromebook devices."""
+
+    def set_button(self, button, duration, info):
+        """Helper method that sets the button hold time for UI selections"""
+        self.servo.set_nocheck(button, duration)
+        time.sleep(self.faft_config.confirm_screen)
+        logging.info(info)
+
+
+    def bypass_dev_boot_usb(self):
+        """Bypass the dev mode firmware logic to boot USB.
+
+        On tablets/ detachables, recovery entered by pressing pwr, vol up
+        & vol down buttons for 10s.
+           Menu options seen in DEVELOPER WARNING screen:
+                 Developer Options
+                 Show Debug Info
+                 Enable Root Verification
+                 Power Off*
+                 Language
+           Menu options seen in DEV screen:
+                 Boot legacy BIOS
+                 Boot USB image
+                 Boot developer image*
+                 Cancel
+                 Power off
+                 Language
+        Vol up button selects previous item, vol down button selects
+        next item and pwr button selects current activated item.
+        """
+        self.trigger_dev_screen()
+        time.sleep(self.faft_config.firmware_screen)
+        self.set_button('volume_up_hold', 100, ('Selecting power as'
+                        ' enter key to select Boot USB Image'))
+        self.servo.power_short_press()
+
+
+    def bypass_rec_mode(self):
+        """Bypass the rec mode firmware logic to boot USB."""
+        self.servo.switch_usbkey('host')
+        time.sleep(self.faft_config.usb_plug)
+        self.servo.switch_usbkey('dut')
+        logging.info('Enabled dut_sees_usb')
+        if not self.client_host.ping_wait_up(
+                timeout=self.faft_config.delay_reboot_to_ping):
+            logging.info('ping timed out, try REC_ON')
+            psc = self.servo.get_power_state_controller()
+            psc.power_on(psc.REC_ON)
+
+
+    def bypass_dev_mode(self):
+        """Bypass the dev mode firmware logic to boot internal image
+
+        On tablets/ detachables, recovery entered by pressing pwr, vol up
+        & vol down buttons for 10s.
+           Menu options seen in DEVELOPER WARNING screen:
+                 Developer Options
+                 Show Debug Info
+                 Enable Root Verification
+                 Power Off*
+                 Language
+           Menu options seen in DEV screen:
+                 Boot legacy BIOS
+                 Boot USB image
+                 Boot developer image*
+                 Cancel
+                 Power off
+                 Language
+        Vol up button selects previous item, vol down button selects
+        next item and pwr button selects current activated item.
+        """
+        self.trigger_dev_screen()
+        time.sleep(self.faft_config.firmware_screen)
+        logging.info('Selecting power as enter key to select '
+                     'Boot Developer Image')
+        self.servo.power_short_press()
+
+
+    def trigger_dev_screen(self):
+        """Helper method that transitions from DEVELOPER WARNING to DEV screen
+
+           Menu options seen in DEVELOPER WARNING screen:
+                 Developer Options
+                 Show Debug Info
+                 Enable Root Verification
+                 Power Off*
+                 Language
+           Menu options seen in DEV screen:
+                 Boot legacy BIOS
+                 Boot USB image
+                 Boot developer image*
+                 Cancel
+                 Power off
+                 Language
+        Vol up button selects previous item, vol down button selects
+        next item and pwr button selects current activated item.
+        """
+        time.sleep(self.faft_config.firmware_screen)
+        time.sleep(self.faft_config.firmware_screen)
+        self.servo.set_nocheck('volume_up_hold', 100)
+        time.sleep(self.faft_config.confirm_screen)
+        self.servo.set_nocheck('volume_up_hold', 100)
+        time.sleep(self.faft_config.confirm_screen)
+        self.set_button('volume_up_hold', 100, ('Selecting power '
+                        'as enter key to select Developer Options'))
+        self.servo.power_short_press()
+
+
+    def trigger_rec_to_dev(self):
+        """Trigger to the dev mode from the rec screen using vol up button.
+
+        On tablets/ detachables, recovery entered by pressing pwr, vol up
+        & vol down buttons for 10s.
+           Menu options seen in RECOVERY screen:
+                 Enable Developer Mode
+                 Show Debug Info
+                 Power off*
+                 Language
+           Menu options seen in TO_DEV screen:
+                 Confirm enabling developer mode
+                 Cancel
+                 Power off*
+                 Language
+        Vol up button selects previous item, vol down button selects
+        next item and pwr button selects current activated item.
+        """
+        time.sleep(self.faft_config.firmware_screen)
+        self.servo.set_nocheck('volume_up_hold', 100)
+        time.sleep(self.faft_config.confirm_screen)
+        self.set_button('volume_up_hold', 100, ('Selecting power as '
+                        'enter key to select Enable Developer Mode'))
+        self.servo.power_short_press()
+        logging.info('Transitioning from REC to TO_DEV screen.')
+        time.sleep(self.faft_config.confirm_screen)
+        self.servo.set_nocheck('volume_up_hold', 100)
+        time.sleep(self.faft_config.confirm_screen)
+        self.set_button('volume_up_hold', 100, ('Selecting power as '
+                        'enter key to select Confirm enabling '
+                        'developer mode'))
+        self.servo.power_short_press()
+        time.sleep(self.faft_config.firmware_screen)
+
+
+    def trigger_dev_to_normal(self):
+        """Trigger to the normal mode from the dev screen.
+
+           Menu options seen in DEVELOPER WARNING screen:
+                 Developer Options
+                 Show Debug Info
+                 Enable Root Verification
+                 Power Off*
+                 Language
+           Menu options seen in TO_NORM screen:
+                 Confirm Enabling Verified Boot
+                 Cancel
+                 Power off*
+                 Language
+        Vol up button selects previous item, vol down button selects
+        next item and pwr button selects current activated item.
+        """
+        time.sleep(self.faft_config.firmware_screen)
+        self.set_button('volume_up_hold', 100, ('Selecting '
+                        'Enable Root Verification using pwr '
+                        'button to enter TO_NORM screen'))
+        self.servo.power_short_press()
+        time.sleep(self.faft_config.firmware_screen)
+        self.servo.set_nocheck('volume_up_hold', 100)
+        time.sleep(self.faft_config.confirm_screen)
+        self.set_button('volume_up_hold', 100, ('Selecting Confirm '
+                        'Enabling Verified Boot using pwr '
+                        'button in TO_NORM screen'))
+        self.servo.power_short_press()
+
+
 def _create_fw_bypasser(faft_framework):
     """Creates a proper firmware bypasser.
 
@@ -179,6 +356,9 @@ def _create_fw_bypasser(faft_framework):
         # FIXME Create an RyuBypasser
         logging.info('Create a CtrlDBypasser')
         return _CtrlDBypasser(faft_framework)
+    elif bypasser_type == 'tablet_detachable_bypasser':
+        logging.info('Create a TabletDetachableBypasser')
+        return _TabletDetachableBypasser(faft_framework)
     else:
         raise NotImplementedError('Not supported fw_bypasser_type: %s',
                                   bypasser_type)
@@ -515,6 +695,48 @@ class _JetstreamSwitcher(_BaseModeSwitcher):
         self._disable_rec_mode_and_reboot(usb_state='host')
 
 
+class _TabletDetachableSwitcher(_BaseModeSwitcher):
+    """Class that switches fw mode in tablets/detachables with fw menu UI."""
+
+    def _enable_dev_mode_and_reboot(self):
+        """Switch to developer mode and reboot.
+
+        On tablets/ detachables, recovery entered by pressing pwr, vol up
+        & vol down buttons for 10s.
+           Menu options seen in RECOVERY screen:
+                 Enable Developer Mode
+                 Show Debug Info
+                 Power off*
+                 Language
+        """
+        logging.info('Enabling tablets/detachable recovery mode')
+        self._enable_rec_mode_and_reboot(usb_state='host')
+        self.wait_for_client_offline()
+        self.bypasser.trigger_rec_to_dev()
+
+
+    def _enable_normal_mode_and_reboot(self):
+        """Switch to normal mode and reboot.
+
+           Menu options seen in DEVELOPER WARNING screen:
+                 Developer Options
+                 Show Debug Info
+                 Enable Root Verification
+                 Power Off*
+                 Language
+           Menu options seen in TO_NORM screen:
+                 Confirm Enabling Verified Boot
+                 Cancel
+                 Power off*
+                 Language
+        Vol up button selects previous item, vol down button selects
+        next item and pwr button selects current activated item.
+        """
+        self._disable_rec_mode_and_reboot()
+        self.wait_for_client_offline()
+        self.bypasser.trigger_dev_to_normal()
+
+
 class _RyuSwitcher(_BaseModeSwitcher):
     """Class that switches firmware mode via physical button."""
 
@@ -664,6 +886,9 @@ def create_mode_switcher(faft_framework):
     elif switcher_type == 'ryu_switcher':
         logging.info('Create a RyuSwitcher')
         return _RyuSwitcher(faft_framework)
+    elif switcher_type == 'tablet_detachable_switcher':
+        logging.info('Create a TabletDetachableSwitcher')
+        return _TabletDetachableSwitcher(faft_framework)
     else:
         raise NotImplementedError('Not supported mode_switcher_type: %s',
                                   switcher_type)

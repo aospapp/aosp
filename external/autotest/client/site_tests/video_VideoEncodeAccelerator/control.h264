@@ -35,5 +35,6 @@ streams = [
 # TODO: Enable the test after PSNR(with block) verification is merged:
 #    ('tulip2/tulip2-240x136-ed58afc99d08e5d21013c1a5056e43bf.yuv', 240, 136, 100000)]
 
+args_dict = utils.args_to_dict(args)
 job.run_test('video_VideoEncodeAccelerator', in_cloud=True, streams=streams,
-        profile=1)
+        profile=1, tag='h264', **args_dict)

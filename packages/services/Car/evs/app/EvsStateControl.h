@@ -17,13 +17,16 @@
 #ifndef CAR_EVS_APP_EVSSTATECONTROL_H
 #define CAR_EVS_APP_EVSSTATECONTROL_H
 
+#include "StreamHandler.h"
+#include "ConfigManager.h"
+#include "RenderBase.h"
+
 #include <android/hardware/automotive/vehicle/2.0/IVehicle.h>
 #include <android/hardware/automotive/evs/1.0/IEvsEnumerator.h>
 #include <android/hardware/automotive/evs/1.0/IEvsDisplay.h>
 #include <android/hardware/automotive/evs/1.0/IEvsCamera.h>
 
-#include "StreamHandler.h"
-#include "ConfigManager.h"
+#include <thread>
 
 
 using namespace ::android::hardware::automotive::evs::V1_0;
@@ -35,6 +38,11 @@ using ::android::hardware::hidl_handle;
 using ::android::sp;
 
 
+/*
+ * This class runs the main update loop for the EVS application.  It will sleep when it has
+ * nothing to do.  It provides a thread safe way for other threads to wake it and pass commands
+ * to it.
+ */
 class EvsStateControl {
 public:
     EvsStateControl(android::sp <IVehicle>       pVnet,
@@ -43,31 +51,57 @@ public:
                     const ConfigManager&         config);
 
     enum State {
-        REVERSE = 0,
+        OFF = 0,
+        REVERSE,
         LEFT,
         RIGHT,
-        OFF,
+        PARKING,
         NUM_STATES  // Must come last
     };
 
-    bool configureForVehicleState();
+    enum class Op {
+        EXIT,
+        CHECK_VEHICLE_STATE,
+        TOUCH_EVENT,
+    };
+
+    struct Command {
+        Op          operation;
+        uint32_t    arg1;
+        uint32_t    arg2;
+    };
+
+    // This spawns a new thread that is expected to run continuously
+    bool startUpdateLoop();
+
+    // Safe to be called from other threads
+    void postCommand(const Command& cmd);
 
 private:
+    void updateLoop();
     StatusCode invokeGet(VehiclePropValue *pRequestedPropValue);
-    bool configureEvsPipeline(State desiredState);
+    bool selectStateForCurrentConditions();
+    bool configureEvsPipeline(State desiredState);  // Only call from one thread!
 
     sp<IVehicle>                mVehicle;
     sp<IEvsEnumerator>          mEvs;
     sp<IEvsDisplay>             mDisplay;
+    const ConfigManager&        mConfig;
 
     VehiclePropValue            mGearValue;
     VehiclePropValue            mTurnSignalValue;
 
-    ConfigManager::CameraInfo   mCameraInfo[State::NUM_STATES];
-    State                       mCurrentState;
-    sp<IEvsCamera>              mCurrentCamera;
+    State                       mCurrentState = OFF;
 
-    sp<StreamHandler>           mCurrentStreamHandler;
+    std::vector<ConfigManager::CameraInfo>  mCameraList[NUM_STATES];
+    std::unique_ptr<RenderBase> mCurrentRenderer;
+
+    std::thread                 mRenderThread;  // The thread that runs the main rendering loop
+
+    // Other threads may want to spur us into action, so we provide a thread safe way to do that
+    std::mutex                  mLock;
+    std::condition_variable     mWakeSignal;
+    std::queue<Command>         mCommandQueue;
 };
 
 

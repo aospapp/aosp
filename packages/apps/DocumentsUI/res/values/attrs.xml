@@ -17,8 +17,8 @@
     <declare-styleable name="HighlightedItemView">
         <attr name="state_highlighted" format="boolean"/>
     </declare-styleable>
-    <declare-styleable name="DroppableItemView">
-        <attr name="state_droppable" format="boolean"/>
-        <attr name="state_drop_hovered" format="boolean"/>
+    <declare-styleable name="DropBadgeView">
+        <attr name="state_reject_drop" format="boolean"/>
+        <attr name="state_copy" format="boolean"/>
     </declare-styleable>
 </resources>

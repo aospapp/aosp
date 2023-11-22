@@ -16,8 +16,8 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.jobscheduler.cts">
-
+    package="android.jobscheduler.cts"
+    android:sharedUserId="android.jobscheduler.cts.shared.uid">
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
@@ -48,4 +48,3 @@
             android:value="com.android.cts.runner.CtsTestRunListener" />
     </instrumentation>
 </manifest>
-

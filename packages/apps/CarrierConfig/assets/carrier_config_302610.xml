@@ -13,5 +13,8 @@
         <string-array name="read_only_apn_types_string_array" num="1">
             <item value="*" />
         </string-array>
+        <string-array name="non_roaming_operator_string_array" num="1">
+            <item value="302" />
+        </string-array>
     </carrier_config>
 </carrier_config_list>

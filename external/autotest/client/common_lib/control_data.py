@@ -7,9 +7,12 @@ with warnings.catch_warnings():
     # so in every log file.
     warnings.simplefilter("ignore", DeprecationWarning)
     import compiler
-import logging, textwrap
+import logging
+import textwrap
+import re
 
 from autotest_lib.client.common_lib import enum
+from autotest_lib.client.common_lib import global_config
 
 REQUIRED_VARS = set(['author', 'doc', 'name', 'time', 'test_type'])
 OBSOLETE_VARS = set(['experimental'])
@@ -18,6 +21,12 @@ CONTROL_TYPE = enum.Enum('Server', 'Client', start_value=1)
 CONTROL_TYPE_NAMES =  enum.Enum(*CONTROL_TYPE.names, string_values=True)
 
 _SUITE_ATTRIBUTE_PREFIX = 'suite:'
+
+CONFIG = global_config.global_config
+
+# Default maximum test result size in kB.
+DEFAULT_MAX_RESULT_SIZE_KB = CONFIG.get_config_value(
+        'AUTOSERV', 'default_max_result_size_KB', type=int)
 
 class ControlVariableException(Exception):
     pass
@@ -92,6 +101,7 @@ class ControlData(object):
         # AUTOSERV/enable_ssp_container
         self.require_ssp = None
         self.attributes = set()
+        self.max_result_size_KB = DEFAULT_MAX_RESULT_SIZE_KB
 
         _validate_control_file_fields(self.path, vars, raise_warnings)
 
@@ -275,6 +285,9 @@ class ControlData(object):
         if type(val) == dict:
             setattr(self, 'builds', val)
 
+    def set_max_result_size_kb(self, val):
+        self._set_int('max_result_size_KB', val)
+
     def set_attributes(self, val):
         # Add subsystem:default if subsystem is not specified.
         self._set_set('attributes', val)
@@ -371,16 +384,37 @@ def parse_control(path, raise_warnings=False):
     return finish_parse(mod, path, raise_warnings)
 
 
+def _try_extract_assignment(node, variables):
+    """Try to extract assignment from the given node.
+
+    @param node: An Assign object.
+    @param variables: Dictionary to store the parsed assignments.
+    """
+    try:
+        key, val = _extract_assignment(node)
+        variables[key] = val
+    except (AssertionError, ValueError):
+        pass
+
+
 def finish_parse(mod, path, raise_warnings):
     assert(mod.__class__ == compiler.ast.Module)
     assert(mod.node.__class__ == compiler.ast.Stmt)
     assert(mod.node.nodes.__class__ == list)
 
-    vars = {}
+    variables = {}
     for n in mod.node.nodes:
-        try:
-            key, val = _extract_assignment(n)
-            vars[key] = val
-        except (AssertionError, ValueError):
-            pass
-    return ControlData(vars, path, raise_warnings)
+        if (n.__class__ == compiler.ast.Function and
+            re.match('step\d+', n.name)):
+            vars_in_step = {}
+            for sub_node in n.code.nodes:
+                _try_extract_assignment(sub_node, vars_in_step)
+            if vars_in_step:
+                # Empty the vars collection so assignments from multiple steps
+                # won't be mixed.
+                variables.clear()
+                variables.update(vars_in_step)
+        else:
+            _try_extract_assignment(n, variables)
+
+    return ControlData(variables, path, raise_warnings)

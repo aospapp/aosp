@@ -419,8 +419,9 @@ public final class InternalLocaleBuilder {
         }
 
         if (variant.length() > 0) {
-            // normalize separators to "_"
+            // BEGIN Android-added: normalize separators to "_"
             variant = variant.replaceAll(LanguageTag.SEP, BaseLocale.SEP);
+            // END Android-added: normalize separators to "_"
             int errIdx = checkVariants(variant, BaseLocale.SEP);
             if (errIdx != -1) {
                 throw new LocaleSyntaxException("Ill-formed variant: " + variant, errIdx);

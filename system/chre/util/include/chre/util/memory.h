@@ -50,6 +50,13 @@ template<typename ElementType>
 void uninitializedMoveOrCopy(ElementType *source, size_t count,
                              ElementType *dest);
 
+/**
+ * Allocates memory for an object of size T and constructs the object in the
+ * newly allocated object by forwarding the provided parameters.
+ */
+template<typename T, typename... Args>
+T *memoryAlloc(Args&&... args);
+
 }  // namespace chre
 
 #include "chre/util/memory_impl.h"

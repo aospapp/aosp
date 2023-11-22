@@ -435,6 +435,10 @@ class Sized_relobj_dwo : public Sized_relobj<size, big_endian>
   do_relocate(const Symbol_table*, const Layout*, Output_file*)
   { gold_unreachable(); }
 
+  void
+  clear_views()
+  { gold_unreachable(); }
+
  private:
   // General access to the ELF file.
   elfcpp::Elf_file<size, big_endian, Object> elf_file_;

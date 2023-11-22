@@ -59,6 +59,10 @@ class BoardEnumerator(object):
 
         # Filter out all board labels tailing with -number, which is used for
         # testbed only.
-        label_names = set([re.match(r'(.*?)(?:-\d+)?$', l.name).group(1)
-                           for l in labels])
+        label_names = set()
+        for l in labels:
+            matcher = re.match(r'(.*?)(?:-\d+)?$', l.name)
+            if matcher is not None:
+                label_names.add(matcher.group(1))
+
         return map(lambda l: l.split(':', 1)[1], label_names)

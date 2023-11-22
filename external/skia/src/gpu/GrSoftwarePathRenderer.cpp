@@ -9,9 +9,9 @@
 #include "GrAuditTrail.h"
 #include "GrClip.h"
 #include "GrGpuResourcePriv.h"
-#include "GrPipelineBuilder.h"
 #include "GrResourceProvider.h"
 #include "GrSWMaskHelper.h"
+#include "ops/GrDrawOp.h"
 #include "ops/GrRectOpFactory.h"
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -76,12 +76,10 @@ void GrSoftwarePathRenderer::DrawNonAARect(GrRenderTargetContext* renderTargetCo
                                            const SkMatrix& viewMatrix,
                                            const SkRect& rect,
                                            const SkMatrix& localMatrix) {
-    std::unique_ptr<GrMeshDrawOp> op(GrRectOpFactory::MakeNonAAFill(paint.getColor(), viewMatrix,
-                                                                    rect, nullptr, &localMatrix));
-
-    GrPipelineBuilder pipelineBuilder(std::move(paint), GrAAType::kNone);
-    pipelineBuilder.setUserStencil(&userStencilSettings);
-    renderTargetContext->addMeshDrawOp(pipelineBuilder, clip, std::move(op));
+    renderTargetContext->addDrawOp(clip,
+                                   GrRectOpFactory::MakeNonAAFillWithLocalMatrix(
+                                           std::move(paint), viewMatrix, localMatrix, rect,
+                                           GrAAType::kNone, &userStencilSettings));
 }
 
 void GrSoftwarePathRenderer::DrawAroundInvPath(GrRenderTargetContext* renderTargetContext,
@@ -136,7 +134,9 @@ bool GrSoftwarePathRenderer::onDrawPath(const DrawPathArgs& args) {
     bool inverseFilled = false;
     SkTLazy<GrShape> tmpShape;
     SkASSERT(!args.fShape->style().applies());
-    inverseFilled = args.fShape->inverseFilled();
+    // If the path is hairline, ignore inverse fill.
+    inverseFilled = args.fShape->inverseFilled() &&
+                    !IsStrokeHairlineOrEquivalent(args.fShape->style(), *args.fViewMatrix, nullptr);
 
     SkIRect unclippedDevShapeBounds, clippedDevShapeBounds, devClipBounds;
     // To prevent overloading the cache with entries during animations we limit the cache of masks

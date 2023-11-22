@@ -1140,12 +1140,7 @@ public class X509CertificateTest extends TestCase {
         /* PEM-encoded PKCS7 bag of certificates */
         Collection<? extends X509Certificate> certs = getCertificates(f, CERTS_PKCS7_PEM);
         assertNotNull(certs);
-        if ("BC".equals(f.getProvider().getName())) {
-            // Bouncycastle is broken
-            assertEquals(0, certs.size());
-        } else {
-            assertEquals(2, certs.size());
-        }
+        assertEquals(2, certs.size());
     }
 
     private void generateCertificates_PKCS7_DER(CertificateFactory f) throws Exception {
@@ -1234,12 +1229,7 @@ public class X509CertificateTest extends TestCase {
         Collection<? extends X509Certificate> certs = (Collection<? extends X509Certificate>)
                 f.generateCertificates(bais);
 
-        // Bouncycastle is broken
-        if ("BC".equals(f.getProvider().getName())) {
-            assertEquals(0, bais.available());
-        } else {
-            assertEquals(4096, bais.available());
-        }
+        assertEquals(4096, bais.available());
     }
 
     private void generateCertificates_PKCS7_DER_TrailingData(CertificateFactory f) throws Exception {

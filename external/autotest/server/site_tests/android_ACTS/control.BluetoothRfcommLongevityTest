@@ -21,6 +21,8 @@ def run(machine):
     job.run_test('android_ACTS',
                  testbed=hosts.create_testbed(machine),
                  config_file='android1758-bluetooth.config',
+                 test_tracker_project_id=11404,
+                 testtracker_owner='android-comms-tvc@google.com',
                  acts_timeout=172800,
                  test_file='bt_rfcomm_longevity')
 

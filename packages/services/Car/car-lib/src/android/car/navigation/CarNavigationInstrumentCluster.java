@@ -17,9 +17,9 @@ package android.car.navigation;
 
 import android.annotation.IntDef;
 import android.annotation.SystemApi;
+import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
-
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
@@ -46,13 +46,15 @@ public class CarNavigationInstrumentCluster implements Parcelable {
     private int mMinIntervalMillis;
 
     @ClusterType
-    private int mType;
+    private final int mType;
 
-    private int mImageWidth;
+    private final int mImageWidth;
 
-    private int mImageHeight;
+    private final int mImageHeight;
 
-    private int mImageColorDepthBits;
+    private final int mImageColorDepthBits;
+
+    private final Bundle mExtra;
 
     public static final Parcelable.Creator<CarNavigationInstrumentCluster> CREATOR
             = new Parcelable.Creator<CarNavigationInstrumentCluster>() {
@@ -102,6 +104,12 @@ public class CarNavigationInstrumentCluster implements Parcelable {
     }
 
     /**
+     * Contains extra information about instrument cluster.
+     * @hide
+     */
+    public Bundle getExtra() { return mExtra; }
+
+    /**
      * If instrument cluster is image, number of bits of colour depth it supports (8, 16, or 32).
      */
     public int getImageColorDepthBits() {
@@ -130,11 +138,12 @@ public class CarNavigationInstrumentCluster implements Parcelable {
             int imageWidth,
             int imageHeight,
             int imageColorDepthBits) {
-        this.mMinIntervalMillis = minIntervalMillis;
-        this.mType = type;
-        this.mImageWidth = imageWidth;
-        this.mImageHeight = imageHeight;
-        this.mImageColorDepthBits = imageColorDepthBits;
+        mMinIntervalMillis = minIntervalMillis;
+        mType = type;
+        mImageWidth = imageWidth;
+        mImageHeight = imageHeight;
+        mImageColorDepthBits = imageColorDepthBits;
+        mExtra = new Bundle();
     }
 
     @Override
@@ -149,6 +158,7 @@ public class CarNavigationInstrumentCluster implements Parcelable {
         dest.writeInt(mImageWidth);
         dest.writeInt(mImageHeight);
         dest.writeInt(mImageColorDepthBits);
+        dest.writeBundle(mExtra);
     }
 
     private CarNavigationInstrumentCluster(Parcel in) {
@@ -157,6 +167,7 @@ public class CarNavigationInstrumentCluster implements Parcelable {
         mImageWidth = in.readInt();
         mImageHeight = in.readInt();
         mImageColorDepthBits = in.readInt();
+        mExtra = in.readBundle(getClass().getClassLoader());
     }
 
     /** Converts to string for debug purpose */
@@ -167,6 +178,7 @@ public class CarNavigationInstrumentCluster implements Parcelable {
                 "type: " + mType + ", " +
                 "imageWidth: " + mImageWidth + ", " +
                 "imageHeight: " + mImageHeight + ", " +
-                "imageColourDepthBits: " + mImageColorDepthBits + " }";
+                "imageColourDepthBits: " + mImageColorDepthBits +
+                "extra: " + mExtra + " }";
     }
 }

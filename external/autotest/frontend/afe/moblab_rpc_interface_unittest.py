@@ -10,12 +10,7 @@ import __builtin__
 # The boto module is only available/used in Moblab for validation of cloud
 # storage access. The module is not available in the test lab environment,
 # and the import error is handled.
-try:
-    import boto
-except ImportError:
-    boto = None
 import ConfigParser
-import logging
 import mox
 import StringIO
 import unittest
@@ -31,6 +26,7 @@ from autotest_lib.frontend.afe import moblab_rpc_interface
 from autotest_lib.frontend.afe import rpc_utils
 from autotest_lib.server import utils
 from autotest_lib.server.hosts import moblab_host
+from autotest_lib.client.common_lib import utils as common_lib_utils
 
 
 class MoblabRpcInterfaceTest(mox.MoxTestBase,
@@ -160,20 +156,6 @@ class MoblabRpcInterfaceTest(mox.MoxTestBase,
         moblab_rpc_interface.reset_config_settings()
 
 
-    def testSetBotoKey(self):
-        """Ensure that the botokey path supplied is copied correctly."""
-        self.setIsMoblab(True)
-        boto_key = '/tmp/boto'
-        moblab_rpc_interface.os.path = self.mox.CreateMockAnything()
-        moblab_rpc_interface.os.path.exists(boto_key).AndReturn(
-                True)
-        moblab_rpc_interface.shutil = self.mox.CreateMockAnything()
-        moblab_rpc_interface.shutil.copyfile(
-                boto_key, moblab_rpc_interface.MOBLAB_BOTO_LOCATION)
-        self.mox.ReplayAll()
-        moblab_rpc_interface.set_boto_key(boto_key)
-
-
     def testSetLaunchControlKey(self):
         """Ensure that the Launch Control key path supplied is copied correctly.
         """
@@ -278,16 +260,11 @@ class MoblabRpcInterfaceTest(mox.MoxTestBase,
             'gs_secret_access_key': 'secret',
             'image_storage_server': 'gs://bucket1',
             'results_storage_server': 'gs://bucket2'}
-        self.mox.StubOutWithMock(moblab_rpc_interface, '_is_valid_boto_key')
-        self.mox.StubOutWithMock(moblab_rpc_interface, '_is_valid_bucket')
-        moblab_rpc_interface._is_valid_boto_key(
-                'key', 'secret').AndReturn((True, None))
-        moblab_rpc_interface._is_valid_bucket(
-                'key', 'secret', 'bucket1').AndReturn((True, None))
-        moblab_rpc_interface._is_valid_bucket(
-                'key', 'secret', 'bucket2').AndReturn((True, None))
-        rpc_utils.prepare_for_serialization(
-                {'status_ok': True })
+        self.mox.StubOutWithMock(moblab_rpc_interface,
+            '_run_bucket_performance_test')
+        moblab_rpc_interface._run_bucket_performance_test(
+            'key', 'secret', 'gs://bucket1').AndReturn((True, None))
+        rpc_utils.prepare_for_serialization({'status_ok': True })
         self.mox.ReplayAll()
         moblab_rpc_interface.validate_cloud_storage_info(cloud_storage_info)
         self.mox.VerifyAll()
@@ -309,75 +286,6 @@ class MoblabRpcInterfaceTest(mox.MoxTestBase,
                     'gs://bucket_name-123/a/b/c'))
         self.assertIsNone(moblab_rpc_interface._get_bucket_name_from_url(
             'bucket_name-123/a/b/c'))
-
-
-    def testIsValidBotoKeyValid(self):
-        """Tests the boto key validation flow."""
-        if boto is None:
-            logging.info('skip test since boto module not installed')
-            return
-        conn = self.mox.CreateMockAnything()
-        self.mox.StubOutWithMock(boto, 'connect_gs')
-        boto.connect_gs('key', 'secret').AndReturn(conn)
-        conn.get_all_buckets().AndReturn(['a', 'b'])
-        conn.close()
-        self.mox.ReplayAll()
-        valid, details = moblab_rpc_interface._is_valid_boto_key('key', 'secret')
-        self.assertTrue(valid)
-        self.mox.VerifyAll()
-
-
-    def testIsValidBotoKeyInvalid(self):
-        """Tests the boto key validation with invalid key."""
-        if boto is None:
-            logging.info('skip test since boto module not installed')
-            return
-        conn = self.mox.CreateMockAnything()
-        self.mox.StubOutWithMock(boto, 'connect_gs')
-        boto.connect_gs('key', 'secret').AndReturn(conn)
-        conn.get_all_buckets().AndRaise(
-                boto.exception.GSResponseError('bad', 'reason'))
-        conn.close()
-        self.mox.ReplayAll()
-        valid, details = moblab_rpc_interface._is_valid_boto_key('key', 'secret')
-        self.assertFalse(valid)
-        self.assertEquals('The boto access key is not valid', details)
-        self.mox.VerifyAll()
-
-
-    def testIsValidBucketValid(self):
-        """Tests the bucket vaildation flow."""
-        if boto is None:
-            logging.info('skip test since boto module not installed')
-            return
-        conn = self.mox.CreateMockAnything()
-        self.mox.StubOutWithMock(boto, 'connect_gs')
-        boto.connect_gs('key', 'secret').AndReturn(conn)
-        conn.lookup('bucket').AndReturn('bucket')
-        conn.close()
-        self.mox.ReplayAll()
-        valid, details = moblab_rpc_interface._is_valid_bucket(
-                'key', 'secret', 'bucket')
-        self.assertTrue(valid)
-        self.mox.VerifyAll()
-
-
-    def testIsValidBucketInvalid(self):
-        """Tests the bucket validation flow with invalid key."""
-        if boto is None:
-            logging.info('skip test since boto module not installed')
-            return
-        conn = self.mox.CreateMockAnything()
-        self.mox.StubOutWithMock(boto, 'connect_gs')
-        boto.connect_gs('key', 'secret').AndReturn(conn)
-        conn.lookup('bucket').AndReturn(None)
-        conn.close()
-        self.mox.ReplayAll()
-        valid, details = moblab_rpc_interface._is_valid_bucket(
-                'key', 'secret', 'bucket')
-        self.assertFalse(valid)
-        self.assertEquals("Bucket bucket does not exist.", details)
-        self.mox.VerifyAll()
 
 
     def testGetShadowConfigFromPartialUpdate(self):
@@ -460,6 +368,127 @@ class MoblabRpcInterfaceTest(mox.MoxTestBase,
         # opt6 is updated.
         self.assertEquals('value6', shadow_config.get('section2', 'opt6'))
         self.mox.VerifyAll()
+
+    def testGetBuildsForInDirectory(self):
+        config_mock = self.mox.CreateMockAnything()
+        moblab_rpc_interface._CONFIG = config_mock
+        config_mock.get_config_value(
+            'CROS', 'image_storage_server').AndReturn('gs://bucket1/')
+        self.mox.StubOutWithMock(common_lib_utils, 'run')
+        output = self.mox.CreateMockAnything()
+        self.mox.StubOutWithMock(StringIO, 'StringIO', use_mock_anything=True)
+        StringIO.StringIO().AndReturn(output)
+        output.getvalue().AndReturn(
+        """gs://bucket1/dummy/R53-8480.0.0/\ngs://bucket1/dummy/R53-8530.72.0/\n
+        gs://bucket1/dummy/R54-8712.0.0/\ngs://bucket1/dummy/R54-8717.0.0/\n
+        gs://bucket1/dummy/R55-8759.0.0/\n
+        gs://bucket1/dummy/R55-8760.0.0-b5849/\n
+        gs://bucket1/dummy/R56-8995.0.0/\ngs://bucket1/dummy/R56-9001.0.0/\n
+        gs://bucket1/dummy/R57-9202.66.0/\ngs://bucket1/dummy/R58-9331.0.0/\n
+        gs://bucket1/dummy/R58-9334.15.0/\ngs://bucket1/dummy/R58-9334.17.0/\n
+        gs://bucket1/dummy/R58-9334.18.0/\ngs://bucket1/dummy/R58-9334.19.0/\n
+        gs://bucket1/dummy/R58-9334.22.0/\ngs://bucket1/dummy/R58-9334.28.0/\n
+        gs://bucket1/dummy/R58-9334.3.0/\ngs://bucket1/dummy/R58-9334.30.0/\n
+        gs://bucket1/dummy/R58-9334.36.0/\ngs://bucket1/dummy/R58-9334.55.0/\n
+        gs://bucket1/dummy/R58-9334.6.0/\ngs://bucket1/dummy/R58-9334.7.0/\n
+        gs://bucket1/dummy/R58-9334.9.0/\ngs://bucket1/dummy/R59-9346.0.0/\n
+        gs://bucket1/dummy/R59-9372.0.0/\ngs://bucket1/dummy/R59-9387.0.0/\n
+        gs://bucket1/dummy/R59-9436.0.0/\ngs://bucket1/dummy/R59-9452.0.0/\n
+        gs://bucket1/dummy/R59-9453.0.0/\ngs://bucket1/dummy/R59-9455.0.0/\n
+        gs://bucket1/dummy/R59-9460.0.0/\ngs://bucket1/dummy/R59-9460.11.0/\n
+        gs://bucket1/dummy/R59-9460.16.0/\ngs://bucket1/dummy/R59-9460.25.0/\n
+        gs://bucket1/dummy/R59-9460.8.0/\ngs://bucket1/dummy/R59-9460.9.0/\n
+        gs://bucket1/dummy/R60-9472.0.0/\ngs://bucket1/dummy/R60-9491.0.0/\n
+        gs://bucket1/dummy/R60-9492.0.0/\ngs://bucket1/dummy/R60-9497.0.0/\n
+        gs://bucket1/dummy/R60-9500.0.0/""")
+
+        output.close()
+
+        self.mox.StubOutWithMock(moblab_rpc_interface.GsUtil, 'get_gsutil_cmd')
+        moblab_rpc_interface.GsUtil.get_gsutil_cmd().AndReturn(
+            '/path/to/gsutil')
+
+        common_lib_utils.run('/path/to/gsutil',
+                             args=('ls', 'gs://bucket1/dummy'),
+                             stdout_tee=mox.IgnoreArg()).AndReturn(output)
+        self.mox.ReplayAll()
+        expected_results = ['dummy/R60-9500.0.0', 'dummy/R60-9497.0.0',
+            'dummy/R60-9492.0.0', 'dummy/R60-9491.0.0', 'dummy/R60-9472.0.0',
+            'dummy/R59-9460.25.0', 'dummy/R59-9460.16.0', 'dummy/R59-9460.11.0',
+            'dummy/R59-9460.9.0', 'dummy/R59-9460.8.0', 'dummy/R58-9334.55.0',
+            'dummy/R58-9334.36.0', 'dummy/R58-9334.30.0', 'dummy/R58-9334.28.0',
+            'dummy/R58-9334.22.0']
+        actual_results = moblab_rpc_interface._get_builds_for_in_directory(
+            "dummy",3, 5)
+        self.assertEquals(expected_results, actual_results)
+        self.mox.VerifyAll()
+
+    def testRunBucketPerformanceTestFail(self):
+        self.mox.StubOutWithMock(moblab_rpc_interface.GsUtil, 'get_gsutil_cmd')
+        moblab_rpc_interface.GsUtil.get_gsutil_cmd().AndReturn(
+            '/path/to/gsutil')
+        self.mox.StubOutWithMock(common_lib_utils, 'run')
+        common_lib_utils.run('/path/to/gsutil',
+                  args=(
+                  '-o', 'Credentials:gs_access_key_id=key',
+                  '-o', 'Credentials:gs_secret_access_key=secret',
+                  'perfdiag', '-s', '1K',
+                  '-o', 'testoutput',
+                  '-n', '10',
+                  'gs://bucket1')).AndRaise(
+            error.CmdError("fakecommand", common_lib_utils.CmdResult(),
+                           "xxxxxx<Error>yyyyyyyyyy</Error>"))
+
+        self.mox.ReplayAll()
+        self.assertRaisesRegexp(
+            moblab_rpc_interface.BucketPerformanceTestException,
+            '<Error>yyyyyyyyyy',
+            moblab_rpc_interface._run_bucket_performance_test,
+            'key', 'secret', 'gs://bucket1', '1K', '10', 'testoutput')
+        self.mox.VerifyAll()
+
+    def testEnableNotificationUsingCredentialsInBucketFail(self):
+        config_mock = self.mox.CreateMockAnything()
+        moblab_rpc_interface._CONFIG = config_mock
+        config_mock.get_config_value(
+            'CROS', 'image_storage_server').AndReturn('gs://bucket1/')
+
+        self.mox.StubOutWithMock(moblab_rpc_interface.GsUtil, 'get_gsutil_cmd')
+        moblab_rpc_interface.GsUtil.get_gsutil_cmd().AndReturn(
+            '/path/to/gsutil')
+
+        self.mox.StubOutWithMock(common_lib_utils, 'run')
+        common_lib_utils.run('/path/to/gsutil',
+            args=('cp', 'gs://bucket1/pubsub-key-do-not-delete.json',
+            '/tmp')).AndRaise(
+                error.CmdError("fakecommand", common_lib_utils.CmdResult(), ""))
+        self.mox.ReplayAll()
+        moblab_rpc_interface._enable_notification_using_credentials_in_bucket()
+
+    def testEnableNotificationUsingCredentialsInBucketSuccess(self):
+        config_mock = self.mox.CreateMockAnything()
+        moblab_rpc_interface._CONFIG = config_mock
+        config_mock.get_config_value(
+            'CROS', 'image_storage_server').AndReturn('gs://bucket1/')
+
+        self.mox.StubOutWithMock(moblab_rpc_interface.GsUtil, 'get_gsutil_cmd')
+        moblab_rpc_interface.GsUtil.get_gsutil_cmd().AndReturn(
+            '/path/to/gsutil')
+
+        self.mox.StubOutWithMock(common_lib_utils, 'run')
+        common_lib_utils.run('/path/to/gsutil',
+            args=('cp', 'gs://bucket1/pubsub-key-do-not-delete.json',
+            '/tmp'))
+        moblab_rpc_interface.shutil = self.mox.CreateMockAnything()
+        moblab_rpc_interface.shutil.copyfile(
+                '/tmp/pubsub-key-do-not-delete.json',
+                moblab_host.MOBLAB_SERVICE_ACCOUNT_LOCATION)
+        self.mox.StubOutWithMock(moblab_rpc_interface, '_update_partial_config')
+        moblab_rpc_interface._update_partial_config(
+            {'CROS': [(moblab_rpc_interface._CLOUD_NOTIFICATION_ENABLED, True)]}
+        )
+        self.mox.ReplayAll()
+        moblab_rpc_interface._enable_notification_using_credentials_in_bucket()
 
 
 if __name__ == '__main__':

@@ -23,8 +23,8 @@ import android.os.Bundle;
 import android.os.PersistableBundle;
 import android.telecom.Conference;
 import android.telecom.ConferenceParticipant;
-import android.telecom.Connection.VideoProvider;
 import android.telecom.Connection;
+import android.telecom.Connection.VideoProvider;
 import android.telecom.DisconnectCause;
 import android.telecom.Log;
 import android.telecom.PhoneAccountHandle;
@@ -269,9 +269,12 @@ public class ImsConference extends Conference {
         // Specify the connection time of the conference to be the connection time of the original
         // connection.
         long connectTime = conferenceHost.getOriginalConnection().getConnectTime();
-        setConnectTimeMillis(connectTime);
+        long connectElapsedTime = conferenceHost.getOriginalConnection().getConnectTimeReal();
+        setConnectionTime(connectTime);
+        setConnectionElapsedTime(connectElapsedTime);
         // Set the connectTime in the connection as well.
         conferenceHost.setConnectTimeMillis(connectTime);
+        conferenceHost.setConnectElapsedTimeMillis(connectElapsedTime);
 
         mTelephonyConnectionService = telephonyConnectionService;
         setConferenceHost(conferenceHost);

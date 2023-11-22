@@ -39,7 +39,7 @@ class platform_RotationFps(test.test):
         with measurer.start_dock_mode_measurement() as chameleon_port:
             chameleon_port_name = chameleon_port.get_connector_type()
             logging.info('Detected %s chameleon port.', chameleon_port_name)
-            index = display_facade.get_first_external_display_index()
+            display_id = display_facade.get_first_external_display_id()
 
             # Ask Chameleon to capture the video during rotation
             chameleon_port.start_capturing_video()
@@ -47,11 +47,11 @@ class platform_RotationFps(test.test):
             # Adding delays before and after rotation such that we can easily
             # know the rotation fps, not other animation like opening a tab.
             display_facade.set_display_rotation(
-                    index, 90, self.DELAY_BEFORE_ROTATION,
+                    display_id, 90, self.DELAY_BEFORE_ROTATION,
                     self.DELAY_AFTER_ROTATION)
             chameleon_port.stop_capturing_video()
             # Restore back to 0 degree.
-            display_facade.set_display_rotation(index, 0)
+            display_facade.set_display_rotation(display_id, 0)
 
             # Retrieve the FPS info
             fps_list = chameleon_port.get_captured_fps_list()

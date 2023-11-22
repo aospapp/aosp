@@ -27,6 +27,8 @@
 
 #include "art_field-inl.h"
 #include "art_method-inl.h"
+#include "base/callee_save_type.h"
+#include "base/enums.h"
 #include "base/logging.h"
 #include "base/unix_file/fd_file.h"
 #include "class_linker-inl.h"
@@ -42,12 +44,14 @@
 #include "gc/accounting/space_bitmap-inl.h"
 #include "gc/collector/concurrent_copying.h"
 #include "gc/heap.h"
+#include "gc/heap-visit-objects-inl.h"
 #include "gc/space/large_object_space.h"
 #include "gc/space/space-inl.h"
+#include "gc/verification.h"
 #include "globals.h"
+#include "handle_scope-inl.h"
 #include "image.h"
 #include "imt_conflict_table.h"
-#include "intern_table.h"
 #include "jni_internal.h"
 #include "linear_alloc.h"
 #include "lock_word.h"
@@ -68,7 +72,6 @@
 #include "oat_file_manager.h"
 #include "runtime.h"
 #include "scoped_thread_state_change-inl.h"
-#include "handle_scope-inl.h"
 #include "utils/dex_cache_arrays_layout-inl.h"
 
 using ::art::mirror::Class;
@@ -115,19 +118,17 @@ bool ImageWriter::IsInBootOatFile(const void* ptr) const {
   return false;
 }
 
-static void ClearDexFileCookieCallback(Object* obj, void* arg ATTRIBUTE_UNUSED)
-    REQUIRES_SHARED(Locks::mutator_lock_) {
-  DCHECK(obj != nullptr);
-  Class* klass = obj->GetClass();
-  if (klass == WellKnownClasses::ToClass(WellKnownClasses::dalvik_system_DexFile)) {
-    ArtField* field = jni::DecodeArtField(WellKnownClasses::dalvik_system_DexFile_cookie);
-    // Null out the cookie to enable determinism. b/34090128
-    field->SetObject</*kTransactionActive*/false>(obj, nullptr);
-  }
-}
-
 static void ClearDexFileCookies() REQUIRES_SHARED(Locks::mutator_lock_) {
-  Runtime::Current()->GetHeap()->VisitObjects(ClearDexFileCookieCallback, nullptr);
+  auto visitor = [](Object* obj) REQUIRES_SHARED(Locks::mutator_lock_) {
+    DCHECK(obj != nullptr);
+    Class* klass = obj->GetClass();
+    if (klass == WellKnownClasses::ToClass(WellKnownClasses::dalvik_system_DexFile)) {
+      ArtField* field = jni::DecodeArtField(WellKnownClasses::dalvik_system_DexFile_cookie);
+      // Null out the cookie to enable determinism. b/34090128
+      field->SetObject</*kTransactionActive*/false>(obj, nullptr);
+    }
+  };
+  Runtime::Current()->GetHeap()->VisitObjects(visitor);
 }
 
 bool ImageWriter::PrepareImageAddressSpace() {
@@ -396,12 +397,18 @@ void ImageWriter::SetImageBinSlot(mirror::Object* object, BinSlot bin_slot) {
   // Before we stomp over the lock word, save the hash code for later.
   LockWord lw(object->GetLockWord(false));
   switch (lw.GetState()) {
-    case LockWord::kFatLocked: {
-      LOG(FATAL) << "Fat locked object " << object << " found during object copy";
-      break;
-    }
+    case LockWord::kFatLocked:
+      FALLTHROUGH_INTENDED;
     case LockWord::kThinLocked: {
-      LOG(FATAL) << "Thin locked object " << object << " found during object copy";
+      std::ostringstream oss;
+      bool thin = (lw.GetState() == LockWord::kThinLocked);
+      oss << (thin ? "Thin" : "Fat")
+          << " locked object " << object << "(" << object->PrettyTypeOf()
+          << ") found during object copy";
+      if (thin) {
+        oss << ". Lock owner:" << lw.ThinLockOwner();
+      }
+      LOG(FATAL) << oss.str();
       break;
     }
     case LockWord::kUnlocked:
@@ -469,6 +476,11 @@ void ImageWriter::PrepareDexCacheArraySlots() {
     if (dex_cache->GetResolvedMethodTypes() != nullptr) {
       AddDexCacheArrayRelocation(dex_cache->GetResolvedMethodTypes(),
                                  start + layout.MethodTypesOffset(),
+                                 dex_cache);
+    }
+    if (dex_cache->GetResolvedCallSites() != nullptr) {
+      AddDexCacheArrayRelocation(dex_cache->GetResolvedCallSites(),
+                                 start + layout.CallSitesOffset(),
                                  dex_cache);
     }
   }
@@ -567,7 +579,12 @@ void ImageWriter::AssignImageBinSlot(mirror::Object* object, size_t oat_index) {
         }
       }
 
-      if (klass->GetStatus() == Class::kStatusInitialized) {
+      // Move known dirty objects into their own sections. This includes:
+      //   - classes with dirty static fields.
+      if (dirty_image_objects_ != nullptr &&
+          dirty_image_objects_->find(klass->PrettyDescriptor()) != dirty_image_objects_->end()) {
+        bin = kBinKnownDirty;
+      } else if (klass->GetStatus() == Class::kStatusInitialized) {
         bin = kBinClassInitialized;
 
         // If the class's static fields are all final, put it into a separate bin
@@ -724,16 +741,82 @@ bool ImageWriter::IsBootClassLoaderNonImageClass(mirror::Class* klass) {
   return IsBootClassLoaderClass(klass) && !IsInBootImage(klass);
 }
 
+// This visitor follows the references of an instance, recursively then prune this class
+// if a type of any field is pruned.
+class ImageWriter::PruneObjectReferenceVisitor {
+ public:
+  PruneObjectReferenceVisitor(ImageWriter* image_writer,
+                        bool* early_exit,
+                        std::unordered_set<mirror::Object*>* visited,
+                        bool* result)
+      : image_writer_(image_writer), early_exit_(early_exit), visited_(visited), result_(result) {}
+
+  ALWAYS_INLINE void VisitRootIfNonNull(
+      mirror::CompressedReference<mirror::Object>* root ATTRIBUTE_UNUSED) const
+      REQUIRES_SHARED(Locks::mutator_lock_) { }
+
+  ALWAYS_INLINE void VisitRoot(
+      mirror::CompressedReference<mirror::Object>* root ATTRIBUTE_UNUSED) const
+      REQUIRES_SHARED(Locks::mutator_lock_) { }
+
+  ALWAYS_INLINE void operator() (ObjPtr<mirror::Object> obj,
+                                 MemberOffset offset,
+                                 bool is_static ATTRIBUTE_UNUSED) const
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    mirror::Object* ref =
+        obj->GetFieldObject<mirror::Object, kVerifyNone, kWithoutReadBarrier>(offset);
+    if (ref == nullptr || visited_->find(ref) != visited_->end()) {
+      return;
+    }
+
+    ObjPtr<mirror::Class> klass = ref->IsClass() ? ref->AsClass() : ref->GetClass();
+    if (klass == mirror::Method::StaticClass() || klass == mirror::Constructor::StaticClass()) {
+      // Prune all classes using reflection because the content they held will not be fixup.
+      *result_ = true;
+    }
+
+    // Record the object visited in case of circular reference.
+    visited_->emplace(ref);
+    if (ref->IsClass()) {
+      *result_ = *result_ ||
+          image_writer_->PruneAppImageClassInternal(ref->AsClass(), early_exit_, visited_);
+    } else {
+      *result_ = *result_ ||
+          image_writer_->PruneAppImageClassInternal(klass, early_exit_, visited_);
+      ref->VisitReferences(*this, *this);
+    }
+    // Clean up before exit for next call of this function.
+    visited_->erase(ref);
+  }
+
+  ALWAYS_INLINE void operator() (ObjPtr<mirror::Class> klass ATTRIBUTE_UNUSED,
+                                 ObjPtr<mirror::Reference> ref) const
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    operator()(ref, mirror::Reference::ReferentOffset(), /* is_static */ false);
+  }
+
+  ALWAYS_INLINE bool GetResult() const {
+    return result_;
+  }
+
+ private:
+  ImageWriter* image_writer_;
+  bool* early_exit_;
+  std::unordered_set<mirror::Object*>* visited_;
+  bool* const result_;
+};
+
+
 bool ImageWriter::PruneAppImageClass(ObjPtr<mirror::Class> klass) {
   bool early_exit = false;
-  std::unordered_set<mirror::Class*> visited;
+  std::unordered_set<mirror::Object*> visited;
   return PruneAppImageClassInternal(klass, &early_exit, &visited);
 }
 
 bool ImageWriter::PruneAppImageClassInternal(
     ObjPtr<mirror::Class> klass,
     bool* early_exit,
-    std::unordered_set<mirror::Class*>* visited) {
+    std::unordered_set<mirror::Object*>* visited) {
   DCHECK(early_exit != nullptr);
   DCHECK(visited != nullptr);
   DCHECK(compile_app_image_);
@@ -794,9 +877,18 @@ bool ImageWriter::PruneAppImageClassInternal(
                                                         &my_early_exit,
                                                         visited);
         } else {
-          result = result || PruneAppImageClassInternal(ref->GetClass(),
+          mirror::Class* type = ref->GetClass();
+          result = result || PruneAppImageClassInternal(type,
                                                         &my_early_exit,
                                                         visited);
+          if (!result) {
+            // For non-class case, also go through all the types mentioned by it's fields'
+            // references recursively to decide whether to keep this class.
+            bool tmp = false;
+            PruneObjectReferenceVisitor visitor(this, &my_early_exit, visited, &tmp);
+            ref->VisitReferences(visitor, visitor);
+            result = result || tmp;
+          }
         }
       }
       field_offset = MemberOffset(field_offset.Uint32Value() +
@@ -807,7 +899,7 @@ bool ImageWriter::PruneAppImageClassInternal(
                                                 &my_early_exit,
                                                 visited);
   // Remove the class if the dex file is not in the set of dex files. This happens for classes that
-  // are from uses library if there is no profile. b/30688277
+  // are from uses-library if there is no profile. b/30688277
   mirror::DexCache* dex_cache = klass->GetDexCache();
   if (dex_cache != nullptr) {
     result = result ||
@@ -936,34 +1028,58 @@ void ImageWriter::PruneAndPreloadDexCache(ObjPtr<mirror::DexCache> dex_cache,
 
   Runtime* runtime = Runtime::Current();
   ClassLinker* class_linker = runtime->GetClassLinker();
-  ArtMethod* resolution_method = runtime->GetResolutionMethod();
   const DexFile& dex_file = *dex_cache->GetDexFile();
   // Prune methods.
-  ArtMethod** resolved_methods = dex_cache->GetResolvedMethods();
-  for (size_t i = 0, num = dex_cache->NumResolvedMethods(); i != num; ++i) {
-    ArtMethod* method =
-        mirror::DexCache::GetElementPtrSize(resolved_methods, i, target_ptr_size_);
-    DCHECK(method != nullptr) << "Expected resolution method instead of null method";
-    mirror::Class* declaring_class = method->GetDeclaringClass();
-    // Copied methods may be held live by a class which was not an image class but have a
-    // declaring class which is an image class. Set it to the resolution method to be safe and
-    // prevent dangling pointers.
-    if (method->IsCopied() || !KeepClass(declaring_class)) {
-      mirror::DexCache::SetElementPtrSize(resolved_methods,
-                                          i,
-                                          resolution_method,
-                                          target_ptr_size_);
-    } else if (kIsDebugBuild) {
-      // Check that the class is still in the classes table.
-      ReaderMutexLock mu(Thread::Current(), *Locks::classlinker_classes_lock_);
-      CHECK(class_linker->ClassInClassTable(declaring_class)) << "Class "
-          << Class::PrettyClass(declaring_class) << " not in class linker table";
+  mirror::MethodDexCacheType* resolved_methods = dex_cache->GetResolvedMethods();
+  dex::TypeIndex last_class_idx;  // Initialized to invalid index.
+  ObjPtr<mirror::Class> last_class = nullptr;
+  for (size_t i = 0, num = dex_cache->GetDexFile()->NumMethodIds(); i != num; ++i) {
+    uint32_t slot_idx = dex_cache->MethodSlotIndex(i);
+    auto pair =
+        mirror::DexCache::GetNativePairPtrSize(resolved_methods, slot_idx, target_ptr_size_);
+    uint32_t stored_index = pair.index;
+    ArtMethod* method = pair.object;
+    if (method != nullptr && i > stored_index) {
+      continue;  // Already checked.
+    }
+    // Check if the referenced class is in the image. Note that we want to check the referenced
+    // class rather than the declaring class to preserve the semantics, i.e. using a MethodId
+    // results in resolving the referenced class and that can for example throw OOME.
+    const DexFile::MethodId& method_id = dex_file.GetMethodId(i);
+    if (method_id.class_idx_ != last_class_idx) {
+      last_class_idx = method_id.class_idx_;
+      last_class = class_linker->LookupResolvedType(
+          dex_file, last_class_idx, dex_cache, class_loader);
+      if (last_class != nullptr && !KeepClass(last_class)) {
+        last_class = nullptr;
+      }
+    }
+    if (method == nullptr || i < stored_index) {
+      if (last_class != nullptr) {
+        const char* name = dex_file.StringDataByIdx(method_id.name_idx_);
+        Signature signature = dex_file.GetMethodSignature(method_id);
+        if (last_class->IsInterface()) {
+          method = last_class->FindInterfaceMethod(name, signature, target_ptr_size_);
+        } else {
+          method = last_class->FindClassMethod(name, signature, target_ptr_size_);
+        }
+        if (method != nullptr) {
+          // If the referenced class is in the image, the defining class must also be there.
+          DCHECK(KeepClass(method->GetDeclaringClass()));
+          dex_cache->SetResolvedMethod(i, method, target_ptr_size_);
+        }
+      }
+    } else {
+      DCHECK_EQ(i, stored_index);
+      if (last_class == nullptr) {
+        dex_cache->ClearResolvedMethod(stored_index, target_ptr_size_);
+      }
     }
   }
   // Prune fields and make the contents of the field array deterministic.
   mirror::FieldDexCacheType* resolved_fields = dex_cache->GetResolvedFields();
-  dex::TypeIndex last_class_idx;  // Initialized to invalid index.
-  ObjPtr<mirror::Class> last_class = nullptr;
+  last_class_idx = dex::TypeIndex();  // Initialized to invalid index.
+  last_class = nullptr;
   for (size_t i = 0, end = dex_file.NumFieldIds(); i < end; ++i) {
     uint32_t slot_idx = dex_cache->FieldSlotIndex(i);
     auto pair = mirror::DexCache::GetNativePairPtrSize(resolved_fields, slot_idx, target_ptr_size_);
@@ -1042,9 +1158,22 @@ void ImageWriter::PruneNonImageClasses() {
   Thread* self = Thread::Current();
   ScopedAssertNoThreadSuspension sa(__FUNCTION__);
 
-  // Clear class table strong roots so that dex caches can get pruned. We require pruning the class
-  // path dex caches.
-  class_linker->ClearClassTableStrongRoots();
+  // Prune uses-library dex caches. Only prune the uses-library dex caches since we want to make
+  // sure the other ones don't get unloaded before the OatWriter runs.
+  class_linker->VisitClassTables(
+      [&](ClassTable* table) REQUIRES_SHARED(Locks::mutator_lock_) {
+    table->RemoveStrongRoots(
+        [&](GcRoot<mirror::Object> root) REQUIRES_SHARED(Locks::mutator_lock_) {
+      ObjPtr<mirror::Object> obj = root.Read();
+      if (obj->IsDexCache()) {
+        // Return true if the dex file is not one of the ones in the map.
+        return dex_file_oat_index_map_.find(obj->AsDexCache()->GetDexFile()) ==
+            dex_file_oat_index_map_.end();
+      }
+      // Return false to avoid removing.
+      return false;
+    });
+  });
 
   // Remove the undesired classes from the class roots.
   ObjPtr<mirror::ClassLoader> class_loader;
@@ -1081,21 +1210,19 @@ void ImageWriter::PruneNonImageClasses() {
 
 void ImageWriter::CheckNonImageClassesRemoved() {
   if (compiler_driver_.GetImageClasses() != nullptr) {
+    auto visitor = [&](Object* obj) REQUIRES_SHARED(Locks::mutator_lock_) {
+      if (obj->IsClass() && !IsInBootImage(obj)) {
+        Class* klass = obj->AsClass();
+        if (!KeepClass(klass)) {
+          DumpImageClasses();
+          std::string temp;
+          CHECK(KeepClass(klass))
+              << Runtime::Current()->GetHeap()->GetVerification()->FirstPathFromRootSet(klass);
+        }
+      }
+    };
     gc::Heap* heap = Runtime::Current()->GetHeap();
-    heap->VisitObjects(CheckNonImageClassesRemovedCallback, this);
-  }
-}
-
-void ImageWriter::CheckNonImageClassesRemovedCallback(Object* obj, void* arg) {
-  ImageWriter* image_writer = reinterpret_cast<ImageWriter*>(arg);
-  if (obj->IsClass() && !image_writer->IsInBootImage(obj)) {
-    Class* klass = obj->AsClass();
-    if (!image_writer->KeepClass(klass)) {
-      image_writer->DumpImageClasses();
-      std::string temp;
-      CHECK(image_writer->KeepClass(klass)) << klass->GetDescriptor(&temp)
-                                            << " " << klass->PrettyDescriptor();
-    }
+    heap->VisitObjects(visitor);
   }
 }
 
@@ -1437,26 +1564,6 @@ void ImageWriter::AssignMethodOffset(ArtMethod* method,
   offset += ArtMethod::Size(target_ptr_size_);
 }
 
-void ImageWriter::EnsureBinSlotAssignedCallback(mirror::Object* obj, void* arg) {
-  ImageWriter* writer = reinterpret_cast<ImageWriter*>(arg);
-  DCHECK(writer != nullptr);
-  if (!Runtime::Current()->GetHeap()->ObjectIsInBootImageSpace(obj)) {
-    CHECK(writer->IsImageBinSlotAssigned(obj)) << mirror::Object::PrettyTypeOf(obj) << " " << obj;
-  }
-}
-
-void ImageWriter::DeflateMonitorCallback(mirror::Object* obj, void* arg ATTRIBUTE_UNUSED) {
-  Monitor::Deflate(Thread::Current(), obj);
-}
-
-void ImageWriter::UnbinObjectsIntoOffsetCallback(mirror::Object* obj, void* arg) {
-  ImageWriter* writer = reinterpret_cast<ImageWriter*>(arg);
-  DCHECK(writer != nullptr);
-  if (!writer->IsInBootImage(obj)) {
-    writer->UnbinObjectsIntoOffset(obj);
-  }
-}
-
 void ImageWriter::UnbinObjectsIntoOffset(mirror::Object* obj) {
   DCHECK(!IsInBootImage(obj));
   CHECK(obj != nullptr);
@@ -1572,13 +1679,13 @@ void ImageWriter::CalculateNewObjectOffsets() {
   image_methods_[ImageHeader::kImtConflictMethod] = runtime->GetImtConflictMethod();
   image_methods_[ImageHeader::kImtUnimplementedMethod] = runtime->GetImtUnimplementedMethod();
   image_methods_[ImageHeader::kSaveAllCalleeSavesMethod] =
-      runtime->GetCalleeSaveMethod(Runtime::kSaveAllCalleeSaves);
+      runtime->GetCalleeSaveMethod(CalleeSaveType::kSaveAllCalleeSaves);
   image_methods_[ImageHeader::kSaveRefsOnlyMethod] =
-      runtime->GetCalleeSaveMethod(Runtime::kSaveRefsOnly);
+      runtime->GetCalleeSaveMethod(CalleeSaveType::kSaveRefsOnly);
   image_methods_[ImageHeader::kSaveRefsAndArgsMethod] =
-      runtime->GetCalleeSaveMethod(Runtime::kSaveRefsAndArgs);
+      runtime->GetCalleeSaveMethod(CalleeSaveType::kSaveRefsAndArgs);
   image_methods_[ImageHeader::kSaveEverythingMethod] =
-      runtime->GetCalleeSaveMethod(Runtime::kSaveEverything);
+      runtime->GetCalleeSaveMethod(CalleeSaveType::kSaveEverything);
   // Visit image methods first to have the main runtime methods in the first image.
   for (auto* m : image_methods_) {
     CHECK(m != nullptr);
@@ -1591,7 +1698,12 @@ void ImageWriter::CalculateNewObjectOffsets() {
 
   // Deflate monitors before we visit roots since deflating acquires the monitor lock. Acquiring
   // this lock while holding other locks may cause lock order violations.
-  heap->VisitObjects(DeflateMonitorCallback, this);
+  {
+    auto deflate_monitor = [](mirror::Object* obj) REQUIRES_SHARED(Locks::mutator_lock_) {
+      Monitor::Deflate(Thread::Current(), obj);
+    };
+    heap->VisitObjects(deflate_monitor);
+  }
 
   // Work list of <object, oat_index> for objects. Everything on the stack must already be
   // assigned a bin slot.
@@ -1653,7 +1765,15 @@ void ImageWriter::CalculateNewObjectOffsets() {
   }
 
   // Verify that all objects have assigned image bin slots.
-  heap->VisitObjects(EnsureBinSlotAssignedCallback, this);
+  {
+    auto ensure_bin_slots_assigned = [&](mirror::Object* obj)
+        REQUIRES_SHARED(Locks::mutator_lock_) {
+      if (!Runtime::Current()->GetHeap()->ObjectIsInBootImageSpace(obj)) {
+        CHECK(IsImageBinSlotAssigned(obj)) << mirror::Object::PrettyTypeOf(obj) << " " << obj;
+      }
+    };
+    heap->VisitObjects(ensure_bin_slots_assigned);
+  }
 
   // Calculate size of the dex cache arrays slot and prepare offsets.
   PrepareDexCacheArraySlots();
@@ -1717,7 +1837,15 @@ void ImageWriter::CalculateNewObjectOffsets() {
   }
 
   // Transform each object's bin slot into an offset which will be used to do the final copy.
-  heap->VisitObjects(UnbinObjectsIntoOffsetCallback, this);
+  {
+    auto unbin_objects_into_offset = [&](mirror::Object* obj)
+        REQUIRES_SHARED(Locks::mutator_lock_) {
+      if (!IsInBootImage(obj)) {
+        UnbinObjectsIntoOffset(obj);
+      }
+    };
+    heap->VisitObjects(unbin_objects_into_offset);
+  }
 
   size_t i = 0;
   for (ImageInfo& image_info : image_infos_) {
@@ -2024,8 +2152,11 @@ void ImageWriter::CopyAndFixupNativeData(size_t oat_index) {
 }
 
 void ImageWriter::CopyAndFixupObjects() {
-  gc::Heap* heap = Runtime::Current()->GetHeap();
-  heap->VisitObjects(CopyAndFixupObjectsCallback, this);
+  auto visitor = [&](Object* obj) REQUIRES_SHARED(Locks::mutator_lock_) {
+    DCHECK(obj != nullptr);
+    CopyAndFixupObject(obj);
+  };
+  Runtime::Current()->GetHeap()->VisitObjects(visitor);
   // Fix up the object previously had hash codes.
   for (const auto& hash_pair : saved_hashcode_map_) {
     Object* obj = hash_pair.first;
@@ -2033,12 +2164,6 @@ void ImageWriter::CopyAndFixupObjects() {
     obj->SetLockWord<kVerifyNone>(LockWord::FromHashCode(hash_pair.second, 0U), false);
   }
   saved_hashcode_map_.clear();
-}
-
-void ImageWriter::CopyAndFixupObjectsCallback(Object* obj, void* arg) {
-  DCHECK(obj != nullptr);
-  DCHECK(arg != nullptr);
-  reinterpret_cast<ImageWriter*>(arg)->CopyAndFixupObject(obj);
 }
 
 void ImageWriter::FixupPointerArray(mirror::Object* dst,
@@ -2311,17 +2436,19 @@ void ImageWriter::FixupDexCache(mirror::DexCache* orig_dex_cache,
     orig_dex_cache->FixupResolvedTypes(NativeCopyLocation(orig_types, orig_dex_cache),
                                        fixup_visitor);
   }
-  ArtMethod** orig_methods = orig_dex_cache->GetResolvedMethods();
+  mirror::MethodDexCacheType* orig_methods = orig_dex_cache->GetResolvedMethods();
   if (orig_methods != nullptr) {
     copy_dex_cache->SetFieldPtrWithSize<false>(mirror::DexCache::ResolvedMethodsOffset(),
                                                NativeLocationInImage(orig_methods),
                                                PointerSize::k64);
-    ArtMethod** copy_methods = NativeCopyLocation(orig_methods, orig_dex_cache);
+    mirror::MethodDexCacheType* copy_methods = NativeCopyLocation(orig_methods, orig_dex_cache);
     for (size_t i = 0, num = orig_dex_cache->NumResolvedMethods(); i != num; ++i) {
-      ArtMethod* orig = mirror::DexCache::GetElementPtrSize(orig_methods, i, target_ptr_size_);
+      mirror::MethodDexCachePair orig_pair =
+          mirror::DexCache::GetNativePairPtrSize(orig_methods, i, target_ptr_size_);
       // NativeLocationInImage also handles runtime methods since these have relocation info.
-      ArtMethod* copy = NativeLocationInImage(orig);
-      mirror::DexCache::SetElementPtrSize(copy_methods, i, copy, target_ptr_size_);
+      mirror::MethodDexCachePair copy_pair(NativeLocationInImage(orig_pair.object),
+                                           orig_pair.index);
+      mirror::DexCache::SetNativePairPtrSize(copy_methods, i, copy_pair, target_ptr_size_);
     }
   }
   mirror::FieldDexCacheType* orig_fields = orig_dex_cache->GetResolvedFields();
@@ -2462,7 +2589,8 @@ void ImageWriter::CopyAndFixupMethod(ArtMethod* orig,
 
   CopyReference(copy->GetDeclaringClassAddressWithoutBarrier(), orig->GetDeclaringClassUnchecked());
 
-  ArtMethod** orig_resolved_methods = orig->GetDexCacheResolvedMethods(target_ptr_size_);
+  mirror::MethodDexCacheType* orig_resolved_methods =
+      orig->GetDexCacheResolvedMethods(target_ptr_size_);
   copy->SetDexCacheResolvedMethods(NativeLocationInImage(orig_resolved_methods), target_ptr_size_);
 
   // OatWriter replaces the code_ with an offset value. Here we re-adjust to a pointer relative to
@@ -2482,8 +2610,8 @@ void ImageWriter::CopyAndFixupMethod(ArtMethod* orig,
           GetOatAddress(kOatAddressQuickResolutionTrampoline), target_ptr_size_);
     } else {
       bool found_one = false;
-      for (size_t i = 0; i < static_cast<size_t>(Runtime::kLastCalleeSaveType); ++i) {
-        auto idx = static_cast<Runtime::CalleeSaveType>(i);
+      for (size_t i = 0; i < static_cast<size_t>(CalleeSaveType::kLastCalleeSaveType); ++i) {
+        auto idx = static_cast<CalleeSaveType>(i);
         if (runtime->HasCalleeSaveMethod(idx) && runtime->GetCalleeSaveMethod(idx) == orig) {
           found_one = true;
           break;
@@ -2651,7 +2779,8 @@ ImageWriter::ImageWriter(
     bool compile_app_image,
     ImageHeader::StorageMode image_storage_mode,
     const std::vector<const char*>& oat_filenames,
-    const std::unordered_map<const DexFile*, size_t>& dex_file_oat_index_map)
+    const std::unordered_map<const DexFile*, size_t>& dex_file_oat_index_map,
+    const std::unordered_set<std::string>* dirty_image_objects)
     : compiler_driver_(compiler_driver),
       global_image_begin_(reinterpret_cast<uint8_t*>(image_begin)),
       image_objects_offset_begin_(0),
@@ -2663,7 +2792,8 @@ ImageWriter::ImageWriter(
       clean_methods_(0u),
       image_storage_mode_(image_storage_mode),
       oat_filenames_(oat_filenames),
-      dex_file_oat_index_map_(dex_file_oat_index_map) {
+      dex_file_oat_index_map_(dex_file_oat_index_map),
+      dirty_image_objects_(dirty_image_objects) {
   CHECK_NE(image_begin, 0U);
   std::fill_n(image_methods_, arraysize(image_methods_), nullptr);
   CHECK_EQ(compile_app_image, !Runtime::Current()->GetHeap()->GetBootImageSpaces().empty())

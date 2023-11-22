@@ -1,28 +1,20 @@
-apply plugin: android.support.SupportLibraryPlugin
-archivesBaseName = 'design'
+apply plugin: android.support.SupportAndroidLibraryPlugin
 
 dependencies {
-    compile project(':support-v4')
-    compile project(':support-appcompat-v7')
-    compile project(':support-recyclerview-v7')
-    compile project(':support-transition')
+    api project(':support-v4')
+    api project(':appcompat-v7')
+    api project(':recyclerview-v7')
+    api project(':transition')
 
-    androidTestCompile (libs.test_runner) {
-        exclude module: 'support-annotations'
-    }
-    androidTestCompile (libs.espresso_core) {
-        exclude module: 'support-annotations'
-    }
-    androidTestCompile (libs.espresso_contrib) {
-        exclude group: 'com.android.support'
-    }
-    androidTestCompile libs.mockito_core
-    androidTestCompile libs.dexmaker
-    androidTestCompile libs.dexmaker_mockito
-    androidTestCompile project(':support-testutils')
+    androidTestImplementation libs.test_runner,      { exclude module: 'support-annotations' }
+    androidTestImplementation libs.espresso_core,    { exclude module: 'support-annotations' }
+    androidTestImplementation libs.espresso_contrib, { exclude group: 'com.android.support' }
+    androidTestImplementation libs.mockito_core,     { exclude group: 'net.bytebuddy' } // DexMaker has it"s own MockMaker
+    androidTestImplementation libs.dexmaker_mockito, { exclude group: 'net.bytebuddy' } // DexMaker has it"s own MockMaker
+    androidTestImplementation project(':support-testutils')
 
-    testCompile libs.junit
-    testCompile ("$libs.test_runner") {
+    testImplementation libs.junit
+    testImplementation (libs.test_runner) {
         exclude module: 'support-annotations'
     }
 }
@@ -68,6 +60,7 @@ android {
 
 supportLibrary {
     name 'Android Design Support Library'
+    publish true
     inceptionYear '2015'
     description "The Support Library is a static library that you can add to your Android application in order to use APIs that are either not available for older platform versions or utility APIs that aren\'t a part of the framework APIs. Compatible on devices running API 14 or later."
 }

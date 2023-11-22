@@ -24,8 +24,8 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    android.hardware.automotive.vehicle-V2.0-java-static \
-    android.hardware.automotive.vehicle-V2.1-java-static \
+    android.hidl.base-V1.0-java \
+    android.hardware.automotive.vehicle-V2.0-java \
     junit \
     legacy-android-test
 

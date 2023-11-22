@@ -152,14 +152,38 @@ rs_g_runtime := 1
 LOCAL_CFLAGS += $(clcore_cflags)
 LOCAL_CFLAGS += -g -O0
 LOCAL_SRC_FILES := $(clcore_base_files) $(clcore_g_files)
+LOCAL_SRC_FILES_32 := $(clcore_base_files_32)
+LOCAL_SRC_FILES_64 := $(clcore_base_files_64)
 
 ifeq ($(TARGET_ARCH),$(filter $(TARGET_ARCH),arm64))
 LOCAL_CFLAGS_64 += -DARCH_ARM64_HAVE_NEON
 endif
 
 include $(LOCAL_PATH)/build_bc_lib.mk
-rs_g_runtime :=
 
+# Build a debug version of the library with debug info
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libclcore_debug_g.bc
+rs_debug_runtime := 1
+rs_g_runtime := 1
+LOCAL_CFLAGS += $(clcore_cflags)
+LOCAL_CFLAGS += -g -O0
+LOCAL_SRC_FILES := $(clcore_base_files)
+LOCAL_SRC_FILES += rs_abi_debuginfo.c
+LOCAL_SRC_FILES_32 := $(clcore_base_files_32)
+LOCAL_SRC_FILES_64 := $(clcore_base_files_64)
+
+ifeq ($(TARGET_ARCH),$(filter $(TARGET_ARCH),arm64))
+LOCAL_SRC_FILES_64 += arch/asimd.ll arch/clamp.c
+LOCAL_CFLAGS_64 += -DARCH_ARM64_HAVE_NEON
+else
+LOCAL_SRC_FILES_64 += arch/generic.c
+endif
+
+include $(LOCAL_PATH)/build_bc_lib.mk
+rs_debug_runtime :=
+rs_g_runtime :=
 
 ### Build new versions (librsrt_<ARCH>.bc) as host shared libraries.
 ### These will be used with bcc_compat and the support library.

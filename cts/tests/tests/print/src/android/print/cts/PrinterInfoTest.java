@@ -36,6 +36,7 @@ import android.support.test.runner.AndroidJUnit4;
 import android.support.test.uiautomator.UiObject;
 import android.support.test.uiautomator.UiSelector;
 import android.text.TextUtils;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -343,5 +344,13 @@ public class PrinterInfoTest extends BasePrintTest {
         UiObject destinationSpinner = getUiDevice().findObject(new UiSelector().resourceId(
                 "com.android.printspooler:id/destination_spinner"));
         destinationSpinner.click();
+
+        // Wait until spinner is opened
+        getUiDevice().waitForIdle();
+
+        // Exit print spooler
+        getUiDevice().pressBack();
+        getUiDevice().pressBack();
+        getUiDevice().pressBack();
     }
 }

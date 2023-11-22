@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "EvsManager"
-
 #include <unistd.h>
 
 #include <hidl/HidlTransportSupport.h>
@@ -40,14 +38,43 @@ using namespace android::automotive::evs::V1_0::implementation;
 using namespace android;
 
 
-int main() {
+int main(int argc, char** argv) {
+    ALOGI("EVS manager starting\n");
+
+    // Set up default behavior, then check for command line options
+    bool printHelp = false;
+    const char* evsHardwareServiceName = kHardwareEnumeratorName;
+    for (int i=1; i< argc; i++) {
+        if (strcmp(argv[i], "--mock") == 0) {
+            evsHardwareServiceName = kMockEnumeratorName;
+        } else if (strcmp(argv[i], "--target") == 0) {
+            i++;
+            if (i >= argc) {
+                ALOGE("--target <service> was not provided with a service name\n");
+            } else {
+                evsHardwareServiceName = argv[i];
+            }
+        } else if (strcmp(argv[i], "--help") == 0) {
+            printHelp = true;
+        } else {
+            printf("Ignoring unrecognized command line arg '%s'\n", argv[i]);
+            printHelp = true;
+        }
+    }
+    if (printHelp) {
+        printf("Options include:\n");
+        printf("  --mock                   Connect to the mock driver at EvsEnumeratorHw-Mock\n");
+        printf("  --target <service_name>  Connect to the named IEvsEnumerator service");
+    }
+
+
     // Prepare the RPC serving thread pool.  We're configuring it with no additional
     // threads beyond the main thread which will "join" the pool below.
     configureRpcThreadpool(1, true /* callerWillJoin */);
 
-    ALOGI("EVS managed service connecting to hardware at %s", kHardwareEnumeratorName);
+    ALOGI("EVS managed service connecting to hardware service at %s", evsHardwareServiceName);
     android::sp<Enumerator> service = new Enumerator();
-    if (!service->init(kHardwareEnumeratorName)) {
+    if (!service->init(evsHardwareServiceName)) {
         ALOGE("Failed to initialize");
         return 1;
     }

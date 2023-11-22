@@ -109,8 +109,7 @@ abstract class EventLocationEventTestCase extends JDWPEventTestCase {
         for (long idx = startIndex; idx <= endIndex; ++idx) {
             Location location = new Location(JDWPConstants.TypeTag.CLASS,
                     typeId, methodId, idx);
-            EventBuilder builder = new EventBuilder(eventKind,
-                            JDWPConstants.SuspendPolicy.ALL);
+            EventBuilder builder = Event.builder(eventKind, JDWPConstants.SuspendPolicy.ALL);
             createEventBuilder(builder);
             setEvent(builder, location);
 

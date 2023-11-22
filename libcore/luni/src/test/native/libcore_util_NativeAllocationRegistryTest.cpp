@@ -18,8 +18,8 @@
 #include <string>
 
 #include <jni.h>
-#include "JNIHelp.h"
-#include "ScopedUtfChars.h"
+#include <nativehelper/JNIHelp.h>
+#include <nativehelper/ScopedUtfChars.h>
 
 uint64_t gNumNativeBytesAllocated = 0;
 

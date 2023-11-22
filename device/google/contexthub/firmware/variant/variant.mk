@@ -18,7 +18,7 @@ PLATFORM?=stm32
 CPU?=cortexm4
 CHIP?=stm32f411
 
-# SRC_PATH points to "firmware"; TOP_PATH is the abs path to top of andrlid tree
+# SRC_PATH points to "firmware"; TOP_PATH is the abs path to top of android tree
 TOP_RELPATH := ../../../..
 TOP_ABSPATH := $(realpath $(SRC_PATH)/$(TOP_RELPATH))
 VARIANT_ABSPATH := $(TOP_ABSPATH)/$(VARIANT_PATH)

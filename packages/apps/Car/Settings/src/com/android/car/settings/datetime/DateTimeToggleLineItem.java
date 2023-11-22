@@ -56,4 +56,9 @@ class DateTimeToggleLineItem extends ToggleLineItem {
     public CharSequence getDesc() {
         return mDesc;
     }
+
+    @Override
+    public boolean isExpandable() {
+        return false;
+    }
 }

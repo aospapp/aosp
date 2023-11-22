@@ -8,6 +8,7 @@ from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros import httpd
+from autotest_lib.client.cros.video import helper_logger
 
 
 class video_YouTubeMseEme(test.test):
@@ -277,8 +278,10 @@ class video_YouTubeMseEme(test.test):
                 msg='test_can_play_widevine failed.')
 
 
+    @helper_logger.video_log_wrapper
     def run_once(self, subtest_name):
-        with chrome.Chrome() as cr:
+        with chrome.Chrome(
+                extra_browser_args=helper_logger.chrome_vmodule_flag()) as cr:
             self.init(cr, self.PLAYER_PAGE)
 
             try:

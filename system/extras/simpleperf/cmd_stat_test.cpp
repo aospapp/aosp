@@ -55,18 +55,27 @@ TEST(stat_cmd, event_modifier) {
       StatCmd()->Run({"-e", "cpu-cycles:u,cpu-cycles:k", "sleep", "1"}));
 }
 
+void RunWorkloadFunction() {
+  while (true) {
+    for (volatile int i = 0; i < 10000; ++i);
+    usleep(1);
+  }
+}
+
 void CreateProcesses(size_t count,
                      std::vector<std::unique_ptr<Workload>>* workloads) {
   workloads->clear();
   // Create workloads run longer than profiling time.
-  auto function = []() {
-    while (true) {
-      for (volatile int i = 0; i < 10000; ++i);
-      usleep(1);
-    }
-  };
   for (size_t i = 0; i < count; ++i) {
-    auto workload = Workload::CreateWorkload(function);
+    std::unique_ptr<Workload> workload;
+    if (GetDefaultAppPackageName().empty()) {
+      workload = Workload::CreateWorkload(RunWorkloadFunction);
+    } else {
+      workload = Workload::CreateWorkload({"run-as", GetDefaultAppPackageName(), "./workload"});
+      workload->SetKillFunction([](pid_t pid) {
+        Workload::RunCmd({"run-as", GetDefaultAppPackageName(), "kill", std::to_string(pid)});
+      });
+    }
     ASSERT_TRUE(workload != nullptr);
     ASSERT_TRUE(workload->Start());
     workloads->push_back(std::move(workload));
@@ -117,7 +126,7 @@ TEST(stat_cmd, auto_generated_summary) {
 
 TEST(stat_cmd, duration_option) {
   ASSERT_TRUE(
-      StatCmd()->Run({"--duration", "1.2", "-p", std::to_string(getpid())}));
+      StatCmd()->Run({"--duration", "1.2", "-p", std::to_string(getpid()), "--in-app"}));
   ASSERT_TRUE(StatCmd()->Run({"--duration", "1", "sleep", "2"}));
 }
 
@@ -164,5 +173,5 @@ TEST(stat_cmd, stop_when_no_more_targets) {
   });
   thread.detach();
   while (tid == 0);
-  ASSERT_TRUE(StatCmd()->Run({"-t", std::to_string(tid)}));
+  ASSERT_TRUE(StatCmd()->Run({"-t", std::to_string(tid), "--in-app"}));
 }

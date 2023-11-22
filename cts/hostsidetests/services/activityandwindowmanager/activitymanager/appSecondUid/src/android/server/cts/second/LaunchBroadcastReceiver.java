@@ -43,7 +43,7 @@ public class LaunchBroadcastReceiver extends BroadcastReceiver {
         }
 
         ActivityOptions options = ActivityOptions.makeBasic();
-        int displayId = extras.getInt("target_display", -1);
+        int displayId = extras.getInt("display_id", -1);
         if (displayId != -1) {
             options.setLaunchDisplayId(displayId);
             newIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
@@ -54,7 +54,7 @@ public class LaunchBroadcastReceiver extends BroadcastReceiver {
         try {
             context.startActivity(newIntent, options.toBundle());
         } catch (SecurityException e) {
-            Log.i(TAG, "SecurityException launching activity");
+            Log.e(TAG, "SecurityException launching activity");
         }
     }
 }

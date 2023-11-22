@@ -78,7 +78,6 @@
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"వాయిస్ మెయిల్ (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"VM:"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"నోటిఫికేషన్‌లు"</string>
-    <string name="networks" msgid="8873030692174541976">"నెట్‌వర్క్ ఆపరేటర్‌లు"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"అత్యవసర ప్రసారాలు"</string>
     <string name="call_settings" msgid="6112441768261754562">"కాల్ సెట్టింగ్‌లు"</string>
     <string name="additional_gsm_call_settings" msgid="1391795981938800617">"అదనపు సెట్టింగ్‌లు"</string>
@@ -164,20 +163,18 @@
     <string name="label_available" msgid="1181658289009300430">"అందుబాటులో ఉన్న నెట్‌వర్క్‌లు"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"శోధిస్తోంది..."</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"నెట్‌వర్క్‌లు కనుగొనబడలేదు."</string>
-    <string name="search_networks" msgid="1601136049300882441">"నెట్‌వర్క్‌లను శోధించు"</string>
     <string name="network_query_error" msgid="6828516148953325006">"నెట్‌వర్క్‌ల కోసం శోధిస్తున్నప్పుడు లోపం."</string>
     <string name="register_on_network" msgid="9055203954040805084">"<xliff:g id="NETWORK">%s</xliff:g>లో నమోదు అవుతోంది…"</string>
     <string name="not_allowed" msgid="5613353860205691579">"మీ SIM కార్డు ఈ నెట్‌వర్క్‌కు కనెక్షన్‌ను అనుమతించదు."</string>
     <string name="connect_later" msgid="2308119155752343975">"ప్రస్తుతం ఈ నెట్‌వర్క్‌కు కనెక్ట్ చేయడం సాధ్యపడదు. తర్వాత మళ్లీ ప్రయత్నించండి."</string>
     <string name="registration_done" msgid="495135664535876612">"నెట్‌వర్క్‌లో నమోదు అయింది."</string>
-    <string name="sum_carrier_select" msgid="3494252551249882718">"నెట్‌వర్క్ ఆపరేటర్‌ను ఎంచుకోండి"</string>
-    <string name="sum_search_networks" msgid="2921092249873272715">"అందుబాటులో ఉన్న అన్ని నెట్‌వర్క్‌ల కోసం శోధించండి"</string>
-    <string name="select_automatically" msgid="5628402124471810174">"స్వయంచాలకంగా ఎంచుకోండి"</string>
-    <string name="sum_select_automatically" msgid="5614890115123292400">"స్వయంచాలకంగా ప్రాధాన్య నెట్‌వర్క్‌ను ఎంచుకోండి"</string>
+    <string name="select_automatically" msgid="1046727200631770962">"నెట్‌వర్క్‌ను స్వయంచాలకంగా ఎంచుకోండి"</string>
+    <string name="network_select_title" msgid="7733107364757544558">"నెట్‌వర్క్"</string>
     <string name="register_automatically" msgid="6017849844573519637">"స్వయంచాలక నమోదు…"</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"ప్రాధాన్య నెట్‌వర్క్ రకం"</string>
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"నెట్‌వర్క్ ఆపరేటింగ్ మోడ్‌ను మార్చండి"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"ప్రాధాన్య నెట్‌వర్క్ రకం"</string>
+    <string name="forbidden_network" msgid="4384929668343563440">"(నిషేధించబడింది)"</string>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"ప్రాధాన్య నెట్‌వర్క్ మోడ్: WCDMAకు ప్రాధాన్యత"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"ప్రాధాన్య నెట్‌వర్క్ మోడ్: GSM మాత్రమే"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"ప్రాధాన్య నెట్‌వర్క్ మోడ్: WCDMA మాత్రమే"</string>
@@ -210,18 +207,34 @@
     <item msgid="1524224863879435516">"GSM మాత్రమే"</item>
     <item msgid="3817924849415716259">"GSM/WCDMAకు ప్రాధాన్యత"</item>
   </string-array>
+    <string name="call_category" msgid="5863978196309462052">"కాలింగ్"</string>
+    <string name="network_operator_category" msgid="4830701959205735636">"నెట్‌వర్క్"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"మెరుగుపరిచిన 4G LTE మోడ్"</string>
     <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"అధునాతన కాలింగ్"</string>
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"వాయిస్, ఇతర కమ్యూనికే. మెరుగుపరచడానికి LTE సేవలను ఉపయోగించు (సిఫార్సు చేయబడింది)"</string>
     <string name="data_enabled" msgid="5972538663568715366">"డేటా ప్రారంభించబడింది"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"డేటా వినియోగాన్ని అనుమతించు"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"హెచ్చరిక"</string>
-    <string name="roaming" msgid="8871412572928323707">"డేటా రోమింగ్"</string>
+    <string name="roaming" msgid="7894878421600247140">"రోమింగ్"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"రోమింగ్‌లో ఉన్నప్పుడు డేటా సేవలకు కనెక్ట్ చేయి"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"రోమింగ్‌లో ఉన్నప్పుడు డేటా సేవలకు కనెక్ట్ చేయి"</string>
     <string name="roaming_reenable_message" msgid="8913735676127858115">"మీరు డేటా రోమింగ్ ఆపివేసి, మీ హోమ్ నెట్‌వర్క్ నుండి నిష్క్రమించినందున మీరు డేటా కనెక్టివిటీని కోల్పోయారు."</string>
     <string name="roaming_warning" msgid="1603164667540144353">"మీకు గణనీయ ఛార్జీలు విధించబడవచ్చు."</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"డేటా రోమింగ్‌ను అనుమతించాలా?"</string>
+    <string name="data_usage_title" msgid="8759619109516889802">"డేటా వినియోగం"</string>
+    <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_2">%2$s</xliff:g> మధ్య కాలంలో <xliff:g id="ID_1">%1$s</xliff:g> మొబైల్ డేటా ఉపయోగించబడింది"</string>
+    <string name="advanced_options_title" msgid="8074895510265488035">"అధునాతనం"</string>
+    <string name="carrier_settings_euicc" msgid="6714062862127226405">"క్యారియర్"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"క్యారియర్, esim, sim, euicc"</string>
+    <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> — <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
+    <string name="mobile_data_settings_title" msgid="4661165467914727157">"మొబైల్ డేటా"</string>
+    <string name="mobile_data_settings_summary" msgid="5087255915840576895">"మొబైల్ నెట్‌వర్క్‌ను ఉపయోగించి డేటాను యాక్సెస్ చేయండి"</string>
+    <string name="data_usage_disable_mobile" msgid="3577275288809667615">"మొబైల్ డేటాని ఆఫ్ చేయాలా?"</string>
+    <string name="sim_selection_required_pref" msgid="7049424902961844236">"ఎంపిక అవసరం"</string>
+    <string name="sim_change_data_title" msgid="5332425991853799280">"డేటా SIMని మార్చాలా?"</string>
+    <string name="sim_change_data_message" msgid="2163963581444907496">"మొబైల్ డేటా కోసం <xliff:g id="OLD_SIM">%2$s</xliff:g>కి బదులుగా <xliff:g id="NEW_SIM">%1$s</xliff:g>ని ఉపయోగించాలా?"</string>
+    <string name="wifi_calling_settings_title" msgid="7741961465416430470">"Wi-Fi కాలింగ్"</string>
+    <string name="video_calling_settings_title" msgid="539714564273795574">"క్యారియర్ వీడియో కాలింగ్"</string>
     <string name="gsm_umts_options" msgid="6538311689850981686">"GSM/UMTS ఎంపికలు"</string>
     <string name="cdma_options" msgid="4016822858172249884">"CDMA ఎంపికలు"</string>
     <string name="throttle_data_usage" msgid="3715677828160555808">"డేటా వినియోగం"</string>
@@ -452,7 +465,7 @@
     <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"మొబైల్ నెట్‌వర్క్ అందుబాటులో లేదు. కాల్ చేయడానికి వైర్‌లెస్ నెట్‌వర్క్‌కు కనెక్ట్ చేయండి."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"కాల్ చేయడానికి, చెల్లుబాటు అయ్యే నంబర్‌ను నమోదు చేయండి."</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"కాల్ విఫలమైంది."</string>
-    <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"ఈ సమయంలో కాల్‌ను జోడించడం సాధ్యపడదు."</string>
+    <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"ఈ సమయంలో కాల్ జోడించబడదు. మీరు సందేశాన్ని పంపడం ద్వారా సంప్రదించవచ్చు."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"సేవకు మద్దతు లేదు"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"కాల్‌లను మార్చలేరు."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"కాల్‌ను వేరు చేయలేరు."</string>
@@ -572,6 +585,8 @@
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"చాలా ఎక్కువ కాల్‌లు సక్రియంగా ఉన్నాయి. దయచేసి మరొక కొత్త కాల్ చేసే ముందు ఇప్పటికే ఉన్న కాల్‌లను ముగించండి లేదా విలీనం చేయండి."</string>
     <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"కనెక్ట్ చేయడం సాధ్యపడలేదు, దయచేసి చెల్లుబాటు అయ్యే SIM కార్డ్‌ను చొప్పించండి."</string>
     <string name="callFailed_wifi_lost" msgid="5968076625137297184">"Wi-Fi కనెక్షన్ పోయింది. కాల్ ముగిసింది."</string>
+    <string name="dialFailed_low_battery" msgid="8760548177088774268">"తక్కువ బ్యాటరీ కారణంగా మీ వీడియో కాల్ చేయడం సాధ్యపడదు."</string>
+    <string name="callFailed_low_battery" msgid="4913582435905872616">"తక్కువ బ్యాటరీ కారణంగా వీడియో కాల్ ముగిసింది."</string>
     <string name="change_pin_title" msgid="7790232089699034029">"వాయిస్ మెయిల్ PINని మార్చండి"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"కొనసాగించు"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"రద్దు చేయి"</string>
@@ -584,4 +599,18 @@
     <string name="change_pin_confirm_pins_dont_match" msgid="4795052654904027909">"PINలు సరిపోలలేదు"</string>
     <string name="change_pin_succeeded" msgid="2022852286442211151">"వాయిస్ మెయిల్ PIN నవీకరించబడింది"</string>
     <string name="change_pin_system_error" msgid="8308462387154257840">"PINని సెట్ చేయడం సాధ్యపడలేదు"</string>
+    <string name="mobile_data_status_roaming_turned_off_subtext" msgid="935636805765823307">"డేటా రోమింగ్ ఆఫ్ చేయబడింది"</string>
+    <string name="mobile_data_status_roaming_turned_on_subtext" msgid="1335176927083781041">"డేటా రోమింగ్ ఆన్ చేయబడింది"</string>
+    <string name="mobile_data_status_roaming_without_plan_subtext" msgid="3568412513831673037">"ప్రస్తుతం రోమింగ్‌లో ఉంది, డేటా ప్లాన్ అవసరం"</string>
+    <string name="mobile_data_status_roaming_with_plan_subtext" msgid="8721998948811064377">"ప్రస్తుతం రోమింగ్‌లో ఉంది, డేటా ప్లాన్ సక్రియంగా ఉంది"</string>
+    <string name="mobile_data_status_no_plan_subtext" msgid="4887747337017565725">"మొబైల్ డేటా ఏదీ మిగిలి లేదు"</string>
+    <string name="mobile_data_activate_prepaid" msgid="7447025165850512683">"మొబైల్ డేటా ఏదీ మిగిలి లేదు"</string>
+    <string name="mobile_data_activate_prepaid_summary" msgid="5705389791791637666">"<xliff:g id="PROVIDER_NAME">%s</xliff:g> ద్వారా మొబైల్ డేటాను జోడించండి"</string>
+    <string name="mobile_data_activate_roaming_plan" msgid="5998161536947086264">"రోమింగ్ ప్లాన్ ఏదీ లేదు"</string>
+    <string name="mobile_data_activate_roaming_plan_summary" msgid="511202908883425459">"<xliff:g id="PROVIDER_NAME">%s</xliff:g> ద్వారా రోమింగ్ ప్లాన్‌ను జోడించండి"</string>
+    <string name="mobile_data_activate_footer" msgid="5979019929980140594">"మీరు మీ క్యారియర్ <xliff:g id="PROVIDER_NAME">%s</xliff:g> ద్వారా మొబైల్ డేటా లేదా రోమింగ్ ప్లాన్‌ను జోడించవచ్చు."</string>
+    <string name="mobile_data_activate_diag_title" msgid="9044252207707864493">"డేటాను జోడించాలా?"</string>
+    <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"మీరు <xliff:g id="PROVIDER_NAME">%s</xliff:g> ద్వారా డేటాను జోడించాల్సి ఉండవచ్చు"</string>
+    <string name="mobile_data_activate_button" msgid="3682400969184405446">"డేటాను జోడించు"</string>
+    <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"రద్దు చేయి"</string>
 </resources>

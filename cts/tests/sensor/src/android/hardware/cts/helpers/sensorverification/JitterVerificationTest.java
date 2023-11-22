@@ -62,7 +62,7 @@ public class JitterVerificationTest extends TestCase {
         verification = getVerification(1, timestamps);
         try {
             verification.verify(environment, stats);
-            fail("Expected an AssertionError");
+            throw new Error("Expected an AssertionError");
         } catch (AssertionError e) {
             // Expected;
         }

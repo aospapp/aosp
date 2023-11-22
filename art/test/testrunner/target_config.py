@@ -42,6 +42,12 @@ target_config = {
     # ART run-test configurations
     # (calls testrunner which builds and then runs the test targets)
 
+    'art-ndebug' : {
+        'run-test' : ['--ndebug'],
+        'env' : {
+            'ART_USE_READ_BARRIER' : 'true'
+        }
+    },
     'art-interpreter' : {
         'run-test' : ['--interpreter'],
         'env' : {
@@ -315,6 +321,28 @@ target_config = {
             'ART_USE_READ_BARRIER' : 'false'
         }
     },
+
+   # ASAN (host) configurations.
+
+   # These configurations need detect_leaks=0 to work in non-setup environments like build bots,
+   # as our build tools leak. b/37751350
+
+   'art-gtest-asan': {
+        'make' : 'test-art-host-gtest',
+        'env': {
+            'SANITIZE_HOST' : 'address',
+            'ASAN_OPTIONS' : 'detect_leaks=0'
+        }
+   },
+   'art-asan': {
+        'run-test' : ['--interpreter',
+                      '--optimizing',
+                      '--jit'],
+        'env': {
+            'SANITIZE_HOST' : 'address',
+            'ASAN_OPTIONS' : 'detect_leaks=0'
+        }
+   },
 
    # ART Golem build targets used by go/lem (continuous ART benchmarking),
    # (art-opt-cc is used by default since it mimics the default preopt config),

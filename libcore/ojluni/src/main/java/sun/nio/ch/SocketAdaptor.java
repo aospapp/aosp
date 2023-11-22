@@ -453,9 +453,7 @@ public class SocketAdaptor
         return !sc.isOutputOpen();
     }
 
-    /*
-     * Android-added: for testing and internal use.
-     */
+    // Android-added: for testing and internal use.
     @Override
     public FileDescriptor getFileDescriptor$() {
         return sc.getFD();

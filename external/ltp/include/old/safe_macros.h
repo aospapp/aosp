@@ -26,8 +26,11 @@
 #define SAFE_CHDIR(cleanup_fn, path)	\
 	safe_chdir(__FILE__, __LINE__, (cleanup_fn), (path))
 
-#define SAFE_CLOSE(cleanup_fn, fildes)	\
-	safe_close(__FILE__, __LINE__, (cleanup_fn), (fildes))
+#define SAFE_CLOSE(cleanup_fn, fd) ({ \
+		int ret = safe_close(__FILE__, __LINE__, (cleanup_fn), (fd)); \
+		fd = -1; \
+		ret; \
+	})
 
 #define SAFE_CREAT(cleanup_fn, pathname, mode)	\
 	safe_creat(__FILE__, __LINE__, cleanup_fn, (pathname), (mode))
@@ -67,10 +70,6 @@
 	safe_read(__FILE__, __LINE__, cleanup_fn, (len_strict), (fildes), \
 	    (buf), (nbyte))
 
-#define SAFE_PREAD(cleanup_fn, len_strict, fildes, buf, nbyte, offset)   \
-	safe_pread(__FILE__, __LINE__, cleanup_fn, (len_strict), (fildes), \
-	    (buf), (nbyte), (offset))
-
 #define SAFE_SETEGID(cleanup_fn, egid)	\
 	safe_setegid(__FILE__, __LINE__, cleanup_fn, (egid))
 
@@ -108,10 +107,6 @@
 #define SAFE_WRITE(cleanup_fn, len_strict, fildes, buf, nbyte)	\
 	safe_write(__FILE__, __LINE__, cleanup_fn, (len_strict), (fildes), \
 	    (buf), (nbyte))
-
-#define SAFE_PWRITE(cleanup_fn, len_strict, fildes, buf, nbyte, offset) \
-	safe_pwrite(__FILE__, __LINE__, cleanup_fn, (len_strict), (fildes), \
-	    (buf), (nbyte), (offset))
 
 #define SAFE_STRTOL(cleanup_fn, str, min, max) \
 	safe_strtol(__FILE__, __LINE__, cleanup_fn, (str), (min), (max))
@@ -334,12 +329,12 @@ static inline int safe_setrlimit(const char *file, const int lineno,
 	safe_readdir(__FILE__, __LINE__, (cleanup_fn), (dirp))
 
 
-#define SAFE_IOCTL(cleanup_fn, fd, request, ...)             \
-	({int ret = ioctl(fd, request, __VA_ARGS__);         \
-	  ret < 0 ?                                          \
-	   tst_brkm(TBROK | TERRNO, cleanup_fn,              \
-	            "ioctl(%i,%s,...) failed", fd, #request) \
-	 : ret;})
+#define SAFE_IOCTL(cleanup_fn, fd, request, ...)                   \
+	({int ret = ioctl(fd, request, __VA_ARGS__);               \
+	  if (ret < 0)                                             \
+		tst_brkm(TBROK | TERRNO, cleanup_fn,               \
+		         "ioctl(%i,%s,...) failed", fd, #request); \
+	  ret;})
 
 #endif /* __SAFE_MACROS_H__ */
 #endif /* __TEST_H__ */

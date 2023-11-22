@@ -88,6 +88,15 @@ public class CarSensorEvent {
     public static final int INDEX_COMPASS_ROLL    = 2;
 
 
+    /**
+     * Index for {@link CarSensorManager#SENSOR_TYPE_WHEEL_TICK_DISTANCE} in longValues.
+     */
+    public static final int INDEX_WHEEL_DISTANCE_RESET_COUNT = 0;
+    public static final int INDEX_WHEEL_DISTANCE_FRONT_LEFT = 1;
+    public static final int INDEX_WHEEL_DISTANCE_FRONT_RIGHT = 2;
+    public static final int INDEX_WHEEL_DISTANCE_REAR_RIGHT = 3;
+    public static final int INDEX_WHEEL_DISTANCE_REAR_LEFT = 4;
+
     private static final long MILLI_IN_NANOS = 1000000L;
 
     /** Sensor type for this event, such as {@link CarSensorManager#SENSOR_TYPE_COMPASS}. */
@@ -104,9 +113,12 @@ public class CarSensorEvent {
     public final float[] floatValues;
     /** Array holding int type of sensor data. */
     public final int[] intValues;
+    /** array holding long int type of sensor data */
+    public final long[] longValues;
 
     private static final float[] EMPTY_FLOAT_ARRAY = {};
     private static final int[] EMPTY_INT_ARRAY = {};
+    private static final long[] EMPTY_LONG_ARRAY = {};
 
     /**
      * Constructs a {@link CarSensorEvent} from integer values. Handled by
@@ -115,11 +127,13 @@ public class CarSensorEvent {
      * @hide
      */
     @RestrictTo(GROUP_ID)
-    public CarSensorEvent(int sensorType, long timestamp, int floatValueSize, int intValueSize) {
+    public CarSensorEvent(int sensorType, long timestamp, int floatValueSize, int intValueSize,
+                          int longValueSize) {
         this.sensorType = sensorType;
         this.timestamp = timestamp;
         floatValues = new float[floatValueSize];
         intValues = new int[intValueSize];
+        longValues = new long[longValueSize];
     }
 
     /**
@@ -128,14 +142,17 @@ public class CarSensorEvent {
      * @param timestamp time since system start in nanoseconds
      * @param floatValues {@code null} will be converted to an empty array
      * @param intValues {@code null} will be converted to an empty array
+     * @param longValues {@code null} will be converted to an empty array
      * @hide
      */
     @RestrictTo(GROUP_ID)
-    public CarSensorEvent(int sensorType, long timestamp, float[] floatValues, int[] intValues) {
+    public CarSensorEvent(int sensorType, long timestamp, float[] floatValues, int[] intValues,
+                          long[] longValues) {
         this.sensorType = sensorType;
         this.timestamp = timestamp;
         this.floatValues = (floatValues == null) ? EMPTY_FLOAT_ARRAY : floatValues;
         this.intValues = (intValues == null) ? EMPTY_INT_ARRAY : intValues;
+        this.longValues = (longValues == null) ? EMPTY_LONG_ARRAY : longValues;
     }
 
     /**
@@ -145,10 +162,12 @@ public class CarSensorEvent {
      * @param floatValues {@code null} will be converted to an empty array
      * @param byteValues bytes will be converted into the intValues array. {@code null} will be
      * converted to an empty array.
+     * @param longValues {@code null} will be converted to an empty array
      * @hide
      */
     @RestrictTo(GROUP_ID)
-    public CarSensorEvent(int sensorType, long timestamp, float[] floatValues, byte[] byteValues) {
+    public CarSensorEvent(int sensorType, long timestamp, float[] floatValues, byte[] byteValues,
+                          long[] longValues) {
         this.sensorType = sensorType;
         this.timestamp = timestamp;
         this.floatValues = (floatValues == null) ? EMPTY_FLOAT_ARRAY : floatValues;
@@ -160,6 +179,7 @@ public class CarSensorEvent {
                 this.intValues[i] = byteValues[i];
             }
         }
+        this.longValues = (longValues == null) ? EMPTY_LONG_ARRAY : longValues;
     }
 
     private void checkType(int type) {
@@ -920,6 +940,104 @@ public class CarSensorEvent {
     }
 
     /** @hide */
+    public static class CarWheelTickDistanceData {
+        public final long timestamp;
+        public final long sensorResetCount;
+        public final long frontLeftWheelDistanceMm;
+        public final long frontRightWheelDistanceMm;
+        public final long rearRightWheelDistanceMm;
+        public final long rearLeftWheelDistanceMm;
+
+        /** @hide */
+        @RestrictTo(GROUP_ID)
+        public CarWheelTickDistanceData(long timestamp, long sensorResetCount,
+                                    long frontLeftWheelDistanceMm, long frontRightWheelDistanceMm,
+                                    long rearRightWheelDistanceMm, long rearLeftWheelDistanceMm) {
+            this.timestamp = timestamp;
+            this.sensorResetCount = sensorResetCount;
+            this.frontLeftWheelDistanceMm = frontLeftWheelDistanceMm;
+            this.frontRightWheelDistanceMm = frontRightWheelDistanceMm;
+            this.rearRightWheelDistanceMm = rearRightWheelDistanceMm;
+            this.rearLeftWheelDistanceMm = rearLeftWheelDistanceMm;
+        }
+    }
+
+    /**
+     * Convenience method for obtaining a {@link CarWheelTickDistanceData} object from a
+     * CarSensorEvent object with type {@link CarSensorManager#SENSOR_TYPE_WHEEL_TICK_DISTANCE}.
+     *
+     * @return CarWheelTickDistanceData object corresponding to data contained in the CarSensorEvent
+     * @hide
+     */
+    public CarWheelTickDistanceData getCarWheelTickDistanceData() {
+        checkType(CarSensorManager.SENSOR_TYPE_WHEEL_TICK_DISTANCE);
+        long sensorResetCount = longValues[INDEX_WHEEL_DISTANCE_RESET_COUNT];
+        long frontLeftWheelDistanceMm = longValues[INDEX_WHEEL_DISTANCE_FRONT_LEFT];
+        long frontRightWheelDistanceMm = longValues[INDEX_WHEEL_DISTANCE_FRONT_RIGHT];
+        long rearRightWheelDistanceMm = longValues[INDEX_WHEEL_DISTANCE_REAR_RIGHT];
+        long rearLeftWheelDistanceMm = longValues[INDEX_WHEEL_DISTANCE_REAR_LEFT];
+        return new CarWheelTickDistanceData(timestamp, sensorResetCount, frontLeftWheelDistanceMm,
+            frontRightWheelDistanceMm, rearRightWheelDistanceMm, rearLeftWheelDistanceMm);
+    }
+
+    /** @hide */
+    public static class CarAbsActiveData {
+        public final long timestamp;
+        public final boolean absIsActive;
+
+        /** @hide */
+        @RestrictTo(GROUP_ID)
+        public CarAbsActiveData(long timestamp, boolean absIsActive) {
+            this.timestamp = timestamp;
+            this.absIsActive = absIsActive;
+        };
+    }
+
+    /**
+     * Convenience method for obtaining a {@link CarAbsActiveData} object from a CarSensorEvent
+     * object with type {@link CarSensorManager#SENSOR_TYPE_ABS_ACTIVE}.
+     *
+     * @param data an optional output parameter which, if non-null, will be used by this method
+     *     instead of a newly created object.
+     * @return a CarAbsActiveData object corresponding to data contained in the CarSensorEvent.
+     * @hide
+     */
+    public CarAbsActiveData getCarAbsActiveData() {
+        checkType(CarSensorManager.SENSOR_TYPE_ABS_ACTIVE);
+        boolean absIsActive = intValues[0] == 1;
+        return new CarAbsActiveData(timestamp, absIsActive);
+    }
+
+    /** @hide */
+    public static class CarTractionControlActiveData {
+        public final long timestamp;
+        public final boolean tractionControlIsActive;
+
+        /** @hide */
+        @RestrictTo(GROUP_ID)
+        public CarTractionControlActiveData(long timestamp, boolean tractionControlIsActive) {
+            this.timestamp = timestamp;
+            this.tractionControlIsActive = tractionControlIsActive;
+        };
+    }
+
+    /**
+     * Convenience method for obtaining a {@link CarTractionControlActiveData} object from a
+     * CarSensorEvent object with type {@link CarSensorManager#SENSOR_TYPE_TRACTION_CONTROL_ACTIVE}.
+     *
+     * @param data an optional output parameter which, if non-null, will be used by this method
+     *     instead of a newly created object.
+     * @return a CarTractionControlActiveData object corresponding to data contained in the
+     *     CarSensorEvent.
+     * @hide
+     */
+    public CarTractionControlActiveData getCarTractionControlActiveData() {
+        checkType(CarSensorManager.SENSOR_TYPE_TRACTION_CONTROL_ACTIVE);
+        boolean tractionControlIsActive = intValues[0] == 1;
+        return new CarTractionControlActiveData(timestamp, tractionControlIsActive);
+    }
+
+    /** @hide */
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
@@ -934,6 +1052,12 @@ public class CarSensorEvent {
         if (intValues != null && intValues.length > 0) {
             sb.append(" int values:");
             for (int v: intValues) {
+                sb.append(" " + v);
+            }
+        }
+        if (longValues != null && longValues.length > 0) {
+            sb.append(" long values:");
+            for (long v: longValues) {
                 sb.append(" " + v);
             }
         }

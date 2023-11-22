@@ -5,6 +5,7 @@
 import collections
 import copy
 import logging
+import operator
 import re
 import time
 
@@ -20,6 +21,10 @@ CHAN_FLAG_RADAR_DETECT = 'radar detection'
 DEV_MODE_AP = 'AP'
 DEV_MODE_IBSS = 'IBSS'
 DEV_MODE_MONITOR = 'monitor'
+DEV_MODE_MESH_POINT = 'mesh point'
+DEV_MODE_STATION = 'managed'
+SUPPORTED_DEV_MODES = (DEV_MODE_AP, DEV_MODE_IBSS, DEV_MODE_MONITOR,
+                       DEV_MODE_MESH_POINT, DEV_MODE_STATION)
 
 HT20 = 'HT20'
 HT40_ABOVE = 'HT40+'
@@ -70,7 +75,79 @@ IW_TIME_COMMAND_OUTPUT_START = 'real'
 IW_LINK_KEY_BEACON_INTERVAL = 'beacon int'
 IW_LINK_KEY_DTIM_PERIOD = 'dtim period'
 IW_LINK_KEY_FREQUENCY = 'freq'
+IW_LINK_KEY_SIGNAL = 'signal'
+IW_LINK_KEY_RX_BITRATE = 'rx bitrate'
+IW_LINK_KEY_TX_BITRATE = 'tx bitrate'
 IW_LOCAL_EVENT_LOG_FILE = './debug/iw_event_%d.log'
+
+
+def _get_all_link_keys(link_information):
+    """Parses link or station dump output for link key value pairs.
+
+    Link or station dump information is in the format below:
+
+    Connected to 74:e5:43:10:4f:c0 (on wlan0)
+          SSID: PMKSACaching_4m9p5_ch1
+          freq: 5220
+          RX: 5370 bytes (37 packets)
+          TX: 3604 bytes (15 packets)
+          signal: -59 dBm
+          tx bitrate: 13.0 MBit/s MCS 1
+
+          bss flags:      short-slot-time
+          dtim period:    5
+          beacon int:     100
+
+    @param link_information: string containing the raw link or station dump
+        information as reported by iw. Note that this parsing assumes a single
+        entry, in the case of multiple entries (e.g. listing stations from an
+        AP, or listing mesh peers), the entries must be split on a per
+        peer/client basis before this parsing operation.
+    @return a dictionary containing all the link key/value pairs.
+
+    """
+    link_key_value_pairs = {}
+    keyval_regex = re.compile(r'^\s+(.*):\s+(.*)$')
+    for link_key in link_information.splitlines()[1:]:
+        match = re.search(keyval_regex, link_key)
+        if match:
+            # Station dumps can contain blank lines.
+            link_key_value_pairs[match.group(1)] = match.group(2)
+    return link_key_value_pairs
+
+
+def _extract_bssid(link_information, interface_name, station_dump=False):
+    """Get the BSSID that |interface_name| is associated with.
+
+    See doc for _get_all_link_keys() for expected format of the station or link
+    information entry.
+
+    @param link_information: string containing the raw link or station dump
+        information as reported by iw. Note that this parsing assumes a single
+        entry, in the case of multiple entries (e.g. listing stations from an AP
+        or listing mesh peers), the entries must be split on a per peer/client
+        basis before this parsing operation.
+    @param interface_name: string name of interface (e.g. 'wlan0').
+    @param station_dump: boolean indicator of whether the link information is
+        from a 'station dump' query. If False, it is assumed the string is from
+        a 'link' query.
+    @return string bssid of the current association, or None if no matching
+        association information is found.
+
+    """
+    # We're looking for a line like this when parsing the output of a 'link'
+    # query:
+    #   Connected to 04:f0:21:03:7d:bb (on wlan0)
+    # We're looking for a line like this when parsing the output of a
+    # 'station dump' query:
+    #   Station 04:f0:21:03:7d:bb (on mesh-5000mhz)
+    identifier = 'Station' if station_dump else 'Connected to'
+    search_re = r'%s ([0-9a-fA-F:]{17}) \(on %s\)' % (identifier,
+                                                      interface_name)
+    match = re.match(search_re, link_information)
+    if match is None:
+        return None
+    return match.group(1)
 
 
 class IwRunner(object):
@@ -214,14 +291,7 @@ class IwRunner(object):
             # See comment in get_link_value.
             return None
 
-        # We're looking for a line like:
-        #   Connected to 04:f0:21:03:7d:bb (on wlan0)
-        match = re.search(
-                'Connected to ([0-9a-fA-F:]{17}) \\(on %s\\)' % interface_name,
-                result.stdout)
-        if match is None:
-            return None
-        return match.group(1)
+        return _extract_bssid(result.stdout, interface_name)
 
 
     def get_interface(self, interface_name):
@@ -243,23 +313,12 @@ class IwRunner(object):
     def get_link_value(self, interface, iw_link_key):
         """Get the value of a link property for |interface|.
 
-        This command parses fields of iw link:
-
-        #> iw dev wlan0 link
-        Connected to 74:e5:43:10:4f:c0 (on wlan0)
-              SSID: PMKSACaching_4m9p5_ch1
-              freq: 5220
-              RX: 5370 bytes (37 packets)
-              TX: 3604 bytes (15 packets)
-              signal: -59 dBm
-              tx bitrate: 13.0 MBit/s MCS 1
-
-              bss flags:      short-slot-time
-              dtim period:    5
-              beacon int:     100
+        Checks the link using iw, and parses the result to return a link key.
 
         @param iw_link_key: string one of IW_LINK_KEY_* defined above.
         @param interface: string desired value of iw link property.
+        @return string containing the corresponding link property value, None
+            if there was a parsing error or the iw command failed.
 
         """
         result = self._run('%s dev %s link' % (self._command_iw, interface),
@@ -271,17 +330,97 @@ class IwRunner(object):
             # to retrieve information specific to the BSS.  This does not happen
             # in mwifiex drivers.
             return None
-
-        find_re = re.compile('\s*%s:\s*(.*\S)\s*$' % iw_link_key)
-        find_results = filter(bool,
-                              map(find_re.match, result.stdout.splitlines()))
-        if not find_results:
-            return None
-
-        actual_value = find_results[0].group(1)
-        logging.info('Found iw link key %s with value %s.',
-                     iw_link_key, actual_value)
+        actual_value = _get_all_link_keys(result.stdout).get(iw_link_key)
+        if actual_value is not None:
+            logging.info('Found iw link key %s with value %s.',
+                         iw_link_key, actual_value)
         return actual_value
+
+
+    def get_station_dump(self, interface):
+        """Gets information about connected peers.
+
+        Returns information about the currently connected peers. When the host
+        is in station mode, it returns a single entry, with information about
+        the link to the AP it is currently connected to. If the host is in mesh
+        or AP mode, it can return multiple entries, one for each connected
+        station, or mesh peer.
+
+        @param interface: string name of interface to get peer information
+            from.
+        @return a list of dictionaries with link information about each
+            connected peer (ordered by peer mac address).
+
+        """
+        result = self._run('%s dev %s station dump' %
+                           (self._command_iw, interface))
+        parts = re.split(r'^Station ', result.stdout, flags=re.MULTILINE)[1:]
+        peer_list_raw = ['Station ' + x for x in parts]
+        parsed_peer_info = []
+        for peer in peer_list_raw:
+            peer_link_keys = _get_all_link_keys(peer)
+            rssi_str = peer_link_keys[IW_LINK_KEY_SIGNAL]
+            tx_bitrate = peer_link_keys.get(IW_LINK_KEY_TX_BITRATE)
+            # Station may not have rx_bitrate in station dump
+            rx_bitrate = peer_link_keys.get(IW_LINK_KEY_RX_BITRATE)
+            rssi_int = int(rssi_str.split()[0])
+            mac = _extract_bssid(link_information=peer,
+                                 interface_name=interface,
+                                 station_dump=True)
+            parsed_peer_info.append({'rssi_int': rssi_int,
+                                     'rssi_str': rssi_str,
+                                     'tx_bitrate': tx_bitrate,
+                                     'rx_bitrate': rx_bitrate,
+                                     'mac': mac})
+        return sorted(parsed_peer_info, key=operator.itemgetter('mac'))
+
+
+    def get_operating_mode(self, interface):
+        """Gets the operating mode for |interface|.
+
+        @param interface: string name of interface to get peer information
+            about.
+
+        @return string one of DEV_MODE_* defined above, or None if no mode is
+            found, or if an unsupported mode is found.
+
+        """
+        ret = self._run('%s dev %s info' % (self._command_iw, interface))
+        mode_regex = r'^\s*type (.*)$'
+        match = re.search(mode_regex, ret.stdout, re.MULTILINE)
+        if match:
+            operating_mode = match.group(1)
+            if operating_mode in SUPPORTED_DEV_MODES:
+                return operating_mode
+            logging.warning(
+                'Unsupported operating mode %s found for interface: %s. '
+                'Supported modes: %s', operating_mode, interface,
+                SUPPORTED_DEV_MODES)
+        return None
+
+
+    def get_radio_config(self, interface):
+        """Gets the channel information of a specfic interface using iw.
+
+        @param interface: string name of interface to get radio information
+            from.
+
+        @return dictionary containing the channel information.
+
+        """
+        channel_config = {}
+        ret = self._run('%s dev %s info' % (self._command_iw, interface))
+        channel_config_regex = (r'^\s*channel ([0-9]+) \(([0-9]+) MHz\), '
+                                 'width: ([2,4,8]0) MHz, center1: ([0-9]+) MHz')
+        match = re.search(channel_config_regex, ret.stdout, re.MULTILINE)
+
+        if match:
+            channel_config['number'] = int(match.group(1))
+            channel_config['freq'] = int(match.group(2))
+            channel_config['width'] = int(match.group(3))
+            channel_config['center1_freq'] = int(match.group(4))
+
+        return channel_config
 
 
     def ibss_join(self, interface, ssid, frequency):

@@ -178,8 +178,6 @@
     <!-- Voicemail notifications title. The user clicks on this preference navigate to the system settings screen for that channel
     .[CHAR LIMIT=30] -->
     <string name="voicemail_notifications_preference_title">Notifications</string>
-    <!-- Mobile network settings screen, setting option name -->
-    <string name="networks">Network operators</string>
     <!-- Cell Broadcast settings title.  [CHAR LIMIT=50] -->
     <string name="cell_broadcast_settings">Emergency broadcasts</string>
     <!-- Call settings screen title -->
@@ -371,8 +369,6 @@
     <string name="load_networks_progress">Searching\u2026</string>
     <!-- Available networks screen, text when no networks are found -->
     <string name="empty_networks_list">No networks found.</string>
-    <!-- Available networks screen, setting option name -->
-    <string name="search_networks">Search networks</string>
     <!-- Available networks screen, toast when an error is encountered when searching for networks -->
     <string name="network_query_error">Error while searching for networks.</string>
     <!-- Available networks screen, toast when registering on a specific network -->
@@ -383,18 +379,15 @@
     <string name="connect_later">Can\'t connect to this network right now. Try again later.</string>
     <!-- Available networks screen, toast when registered on a specific network -->
     <string name="registration_done">Registered on network.</string>
-    <!-- Mobile network settings screen setting option summary text -->
-    <string name="sum_carrier_select">Choose a network operator</string>
-    <!-- Available networks screen, setting summary text -->
-    <string name="sum_search_networks">Search for all available networks</string>
-    <!-- Available networks screen, setting option name -->
-    <string name="select_automatically">Choose automatically</string>
-    <!-- Available networks screen, setting summary text -->
-    <string name="sum_select_automatically">Automatically choose preferred network</string>
+    <!-- Available networks screen, name of switch button for whether to select network automatically -->
+    <string name="select_automatically">Automatically select network</string>
+    <!-- Available networks screen, name of button when user wants to select network manually  -->
+    <string name="network_select_title">Network</string>
     <string name="register_automatically">Automatic registration\u2026</string>
     <string name="preferred_network_mode_title">Preferred network type</string>
     <string name="preferred_network_mode_summary">Change the network operating mode</string>
     <string name="preferred_network_mode_dialogtitle">Preferred network type</string>
+    <string name="forbidden_network">(forbidden)</string>
     <!-- Mobile network settings, summary for preferred network mode WCDMA preferred[CHAR LIMIT=100] -->
     <string name="preferred_network_mode_wcdma_perf_summary">Preferred network mode: WCDMA preferred</string>
     <!-- Mobile network settings, summary for preferred network mode GSM [CHAR LIMIT=100] -->
@@ -460,6 +453,12 @@
         <item>"1"</item>
         <item>"0"</item>
     </string-array>
+
+    <!-- Mobile network settings screen, name for call settings category -->
+    <string name="call_category">Calling</string>
+    <!-- Mobile network settings screen, name for network operator category -->
+    <string name="network_operator_category">Network</string>
+
     <!-- Mobile network 4G title [CHAR LIMIT=30] -->
     <string name="enhanced_4g_lte_mode_title">Enhanced 4G LTE Mode</string>
     <!-- Carrier variant of Enhaced 4G LTE Mode title.  [CHAR LIMIT=50] -->
@@ -474,7 +473,7 @@
     <!-- Mobile network settings screen, title for alert dialog -->
     <string name="dialog_alert_title">Attention</string>
     <!-- Mobile network settings screen, setting check box name -->
-    <string name="roaming">Data roaming</string>
+    <string name="roaming">Roaming</string>
     <!-- Mobile network settings screen, setting summary text when check box is selected -->
     <string name="roaming_enable">Connect to data services when roaming</string>
     <!-- Mobile network settings screen, setting summary text when check box is clear -->
@@ -487,6 +486,35 @@
     <string name="roaming_warning">You may incur significant charges.</string>
     <!-- Mobile network settings screen, dialog message title when user selects the Data roaming check box -->
     <string name="roaming_alert_title">Allow data roaming?</string>
+    <!-- Mobile network settings screen, data usage setting check box name -->
+    <string name="data_usage_title">Data usage</string>
+    <!-- Summary about how much data has been used in a date range [CHAR LIMIT=100] -->
+    <string name="data_usage_template"><xliff:g name="amount" example="200 MB">%1$s</xliff:g> mobile data used <xliff:g name="date_range" example="Jan 1 -- Feb 2">%2$s</xliff:g></string>
+    <!-- Mobile network settings screen, Advanced button to show more items when clicked [CHAR LIMIT=50] -->
+    <string name="advanced_options_title">Advanced</string>
+    <!-- Mobile network settings screen, name of the option to manage carrier profiles on devices which support embedded carrier profiles -->
+    <string name="carrier_settings_euicc">Carrier</string>
+    <!-- Keywords used to search the carrier menu for managing carrier profiles on devices which support embedded carrier profiles. eSIM/eUICC is embedded SIM card used to store this data.  -->
+    <string name="keywords_carrier_settings_euicc">carrier, esim, sim, euicc</string>
+    <!-- Mobile network settings screen, summary of the option to manage carrier profiles on devices which support embedded carrier profiles -->
+    <string name="carrier_settings_euicc_summary"><xliff:g id="carrier_name">%1$s</xliff:g> &#8212; <xliff:g id="phone_number">%2$s</xliff:g></string>
+    <!-- Mobile network settings screen, title of Mobile Data switch preference -->
+    <string name="mobile_data_settings_title">Mobile data</string>
+    <!-- Mobile network settings screen, title of Mobile data switch preference -->
+    <string name="mobile_data_settings_summary">Access data using mobile network</string>
+    <!-- Message to show when user trying to turn off mobile data, in single sim mode [CHAR LIMIT=100]-->
+    <string name="data_usage_disable_mobile">Turn off mobile data?</string>
+    <!-- When a SIM preference hasn't been selected yet, this string is displayed as the pref summary until the user chooses a SIM subscription from the preference list [CHAR LIMIT=50] -->
+    <string name="sim_selection_required_pref">Selection required</string>
+    <!-- Title asking user if they wish to change the default sim for cellular data.  [CHAR LIMIT=30] -->
+    <string name="sim_change_data_title">Change data SIM?</string>
+    <!-- Message confirming the user wishes to change the default data SIM from one to another.  [CHAR LIMIT=NONE] -->
+    <string name="sim_change_data_message">Use <xliff:g id="new_sim">%1$s</xliff:g> instead of <xliff:g id="old_sim">%2$s</xliff:g> for mobile data?</string>
+    <!-- Mobile network settings screen, title of Wi-Fi calling setting -->
+    <string name="wifi_calling_settings_title">Wi-Fi calling</string>
+    <!-- Mobile network settings screen, title of Video calling setting -->
+    <string name="video_calling_settings_title">Carrier video calling</string>
+
 
     <!-- USSD aggregation dialog box: separator strings between messages (new-lines will be added before and after) -->
     <string name="ussd_dialog_sep" translatable="false">----------</string>
@@ -1010,7 +1038,7 @@
     <!-- In-call screen: call failure message displayed in an error dialog -->
     <string name="incall_error_call_failed">Call failed.</string>
     <!-- In-call screen: call failure message displayed in an error dialog -->
-    <string name="incall_error_cannot_add_call">Call cannot be added at this time.</string>
+    <string name="incall_error_cannot_add_call">Call cannot be added at this time.  You can try to reach out by sending a message.</string>
     <!-- In-call screen: message displayed in an error dialog -->
     <string name="incall_error_supp_service_unknown">Service not supported</string>
     <!-- In-call screen: message displayed in an error dialog -->
@@ -1356,6 +1384,14 @@
         Wi-Fi connection lost.  Call ended.
     </string>
 
+    <!-- Call failure reason displayed when the user's outgoing call cannot be placed due to a low
+         battery. -->
+    <string name="dialFailed_low_battery">Your video call cannot be placed due to low battery.</string>
+
+    <!-- Call failure reason displayed when the user's call is ended due to a low battery. This
+         message is shown when an in-progress call is ended due to the battery being low. -->
+    <string name="callFailed_low_battery">Video call ended due to low battery.</string>
+
     <!-- The title for the change voicemail PIN activity -->
     <string name="change_pin_title">Change Voicemail PIN</string>
     <!-- The label for the continue button in change voicemail PIN activity -->
@@ -1380,4 +1416,34 @@
     <string name="change_pin_succeeded">Voicemail PIN updated</string>
     <!-- The error message to show if the server reported an error while attempting to change the voicemail PIN -->
     <string name="change_pin_system_error">Unable to set PIN</string>
+
+    <!-- The subtext for mobile data setting. shown if roaming settings turned off -->
+    <string name="mobile_data_status_roaming_turned_off_subtext">Data roaming is turned off</string>
+    <!-- The subtext for mobile data setting. shown if roaming settings turned on -->
+    <string name="mobile_data_status_roaming_turned_on_subtext">Data roaming is turned on</string>
+    <!-- The subtext for mobile data setting. shown if currently roaming, have roaming settings turned on but don't have a roaming data plan-->
+    <string name="mobile_data_status_roaming_without_plan_subtext">Currently roaming, need data plan</string>
+    <!-- The subtext for mobile data setting. shown if currently roaming, have roaming settings turned and have an active roaming data plan-->
+    <string name="mobile_data_status_roaming_with_plan_subtext">Currently roaming, data plan is active</string>
+    <!-- The subtext for mobile data setting. shown if not in roaming and prepaid sim has run out of balance -->
+    <string name="mobile_data_status_no_plan_subtext">No mobile data left</string>
+
+    <!-- The setting option name for activate prepaid mobile data plan -->
+    <string name="mobile_data_activate_prepaid">No mobile data left</string>
+    <!-- The setting option summary for activate prepaid mobile data plan -->
+    <string name="mobile_data_activate_prepaid_summary">Add mobile data through <xliff:g id="provider_name">%s</xliff:g></string>
+    <!-- The setting option name for for adding roaming data plan -->
+    <string name="mobile_data_activate_roaming_plan">No roaming plan</string>
+    <!-- The setting option summary for adding roaming data plan -->
+    <string name="mobile_data_activate_roaming_plan_summary">Add roaming plan through <xliff:g id="provider_name">%s</xliff:g></string>
+    <!-- The setting option footer for adding data either prepaid or roaming -->
+    <string name="mobile_data_activate_footer">You can add mobile data or a roaming plan through your carrier, <xliff:g id="provider_name">%s</xliff:g>.</string>
+    <!-- activate data plan dialogue title for either prepaid or roaming -->
+    <string name="mobile_data_activate_diag_title">Add data?</string>
+    <!-- activate data plan dialogue message for either prepaid or roaming -->
+    <string name="mobile_data_activate_diag_message">You may need to add data through <xliff:g id="provider_name">%s</xliff:g></string>
+    <!-- activate data plan dialogue button for adding data, which will take users out of the setting page -->
+    <string name="mobile_data_activate_button">ADD DATA</string>
+    <!-- activate data plan dialogue button for cancel further actions-->
+    <string name="mobile_data_activate_cancel_button">CANCEL</string>
 </resources>

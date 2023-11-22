@@ -27,7 +27,7 @@
 #include <android/bitmap.h>
 
 #include "jni.h"
-#include "JNIHelp.h"
+#include <nativehelper/JNIHelp.h>
 
 using namespace android;
 

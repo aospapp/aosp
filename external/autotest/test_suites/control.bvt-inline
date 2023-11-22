@@ -55,10 +55,9 @@ _BUG_TEMPLATE = {
     'status': None,
     'summary': None,
     'title': None,
-    'cc': ['chromeos-lab-errors@google.com']
 }
 
-args_dict['max_runtime_mins'] = 60
+args_dict['max_runtime_mins'] = 30
 args_dict['name'] = 'bvt-inline'
 args_dict['job'] = job
 args_dict['add_experimental'] = True

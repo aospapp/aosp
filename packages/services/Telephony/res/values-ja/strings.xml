@@ -78,7 +78,6 @@
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"ボイスメール（<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>）"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"VM:"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"通知"</string>
-    <string name="networks" msgid="8873030692174541976">"通信事業者"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"緊急速報メール"</string>
     <string name="call_settings" msgid="6112441768261754562">"通話設定"</string>
     <string name="additional_gsm_call_settings" msgid="1391795981938800617">"その他の設定"</string>
@@ -164,20 +163,18 @@
     <string name="label_available" msgid="1181658289009300430">"利用可能なネットワーク"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"検索中..."</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"ネットワークが見つかりません。"</string>
-    <string name="search_networks" msgid="1601136049300882441">"ネットワークを検索"</string>
     <string name="network_query_error" msgid="6828516148953325006">"ネットワークの検索中にエラーが発生しました。"</string>
     <string name="register_on_network" msgid="9055203954040805084">"<xliff:g id="NETWORK">%s</xliff:g>に登録中..."</string>
     <string name="not_allowed" msgid="5613353860205691579">"お使いのSIMカードではこのネットワークに接続できません。"</string>
     <string name="connect_later" msgid="2308119155752343975">"現在このネットワークに接続できません。しばらくしてからもう一度お試しください。"</string>
     <string name="registration_done" msgid="495135664535876612">"ネットワークに登録されました。"</string>
-    <string name="sum_carrier_select" msgid="3494252551249882718">"通信事業者を選択する"</string>
-    <string name="sum_search_networks" msgid="2921092249873272715">"利用可能なすべてのネットワークを検索する"</string>
-    <string name="select_automatically" msgid="5628402124471810174">"自動的に選択"</string>
-    <string name="sum_select_automatically" msgid="5614890115123292400">"最適なネットワークを自動的に選択する"</string>
+    <string name="select_automatically" msgid="1046727200631770962">"ネットワークを自動的に選択"</string>
+    <string name="network_select_title" msgid="7733107364757544558">"ネットワーク"</string>
     <string name="register_automatically" msgid="6017849844573519637">"自動登録..."</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"優先ネットワークタイプ"</string>
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"ネットワーク動作モードの変更"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"優先ネットワークタイプ"</string>
+    <string name="forbidden_network" msgid="4384929668343563440">"（禁止）"</string>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"優先ネットワークモード: WCDMA優先"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"優先ネットワークモード: GSMのみ"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"優先ネットワークモード: WCDMAのみ"</string>
@@ -210,18 +207,34 @@
     <item msgid="1524224863879435516">"GSMのみ"</item>
     <item msgid="3817924849415716259">"GSM/WCDMAを優先"</item>
   </string-array>
+    <string name="call_category" msgid="5863978196309462052">"通話"</string>
+    <string name="network_operator_category" msgid="4830701959205735636">"ネットワーク"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"4G LTE拡張モード"</string>
     <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"高度な通話機能"</string>
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"LTEサービスを使用して音声などの通信を改善する（推奨）"</string>
     <string name="data_enabled" msgid="5972538663568715366">"データ通信を有効にする"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"データ使用を許可"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"注意"</string>
-    <string name="roaming" msgid="8871412572928323707">"データローミング"</string>
+    <string name="roaming" msgid="7894878421600247140">"ローミング"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"ローミング時にデータサービスに接続する"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"ローミング時にデータサービスに接続する"</string>
     <string name="roaming_reenable_message" msgid="8913735676127858115">"データローミングをOFFにしてホームネットワークを離れたため、データ接続が切断されました。"</string>
     <string name="roaming_warning" msgid="1603164667540144353">"高額な通信料が発生することがあります。"</string>
-    <string name="roaming_alert_title" msgid="3654815360303826008">"データローミングを許可しますか？"</string>
+    <string name="roaming_alert_title" msgid="3654815360303826008">"データ ローミングを許可しますか？"</string>
+    <string name="data_usage_title" msgid="8759619109516889802">"データ使用量"</string>
+    <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_2">%2$s</xliff:g> のモバイルデータ使用量: <xliff:g id="ID_1">%1$s</xliff:g>"</string>
+    <string name="advanced_options_title" msgid="8074895510265488035">"詳細設定"</string>
+    <string name="carrier_settings_euicc" msgid="6714062862127226405">"携帯通信会社"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"携帯通信会社、esim、sim、euicc"</string>
+    <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> — <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
+    <string name="mobile_data_settings_title" msgid="4661165467914727157">"モバイルデータ"</string>
+    <string name="mobile_data_settings_summary" msgid="5087255915840576895">"モバイル ネットワーク経由でデータにアクセス"</string>
+    <string name="data_usage_disable_mobile" msgid="3577275288809667615">"モバイルデータを OFF にしますか？"</string>
+    <string name="sim_selection_required_pref" msgid="7049424902961844236">"選択してください"</string>
+    <string name="sim_change_data_title" msgid="5332425991853799280">"データ SIM を変更しますか？"</string>
+    <string name="sim_change_data_message" msgid="2163963581444907496">"モバイルデータに <xliff:g id="OLD_SIM">%2$s</xliff:g> ではなく <xliff:g id="NEW_SIM">%1$s</xliff:g> を使用しますか？"</string>
+    <string name="wifi_calling_settings_title" msgid="7741961465416430470">"Wi-Fi 通話"</string>
+    <string name="video_calling_settings_title" msgid="539714564273795574">"携帯通信会社のビデオ通話"</string>
     <string name="gsm_umts_options" msgid="6538311689850981686">"GSM/UMTSオプション"</string>
     <string name="cdma_options" msgid="4016822858172249884">"CDMAオプション"</string>
     <string name="throttle_data_usage" msgid="3715677828160555808">"データ使用量"</string>
@@ -452,7 +465,7 @@
     <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"モバイル ネットワークを利用できません。電話をかけるにはワイヤレス ネットワークに接続してください。"</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"発信するには、有効な番号を入力してください。"</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"発信できませんでした。"</string>
-    <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"現在、通話を追加できません。"</string>
+    <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"現在、通話を追加できません。連絡するには、メッセージを送信してみてください。"</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"サービスはサポートされていません"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"通話を切り替えられません。"</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"通話を分割できません。"</string>
@@ -572,6 +585,8 @@
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"通話中の電話の数が多すぎます。新しく通話を発信するには、まず既存の通話を終了するか、統合してグループ通話にしてください。"</string>
     <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"接続できません。有効な SIM カードを挿入してください。"</string>
     <string name="callFailed_wifi_lost" msgid="5968076625137297184">"Wi-Fi 接続が失われたため、通話が終了しました。"</string>
+    <string name="dialFailed_low_battery" msgid="8760548177088774268">"電池残量が低下しているため、ビデオハングアウトを行えません。"</string>
+    <string name="callFailed_low_battery" msgid="4913582435905872616">"電池残量が低下したため、ビデオハングアウトが終了しました。"</string>
     <string name="change_pin_title" msgid="7790232089699034029">"ボイスメール PIN の変更"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"続行"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"キャンセル"</string>
@@ -584,4 +599,18 @@
     <string name="change_pin_confirm_pins_dont_match" msgid="4795052654904027909">"PIN が一致しません"</string>
     <string name="change_pin_succeeded" msgid="2022852286442211151">"ボイスメール PIN を更新しました"</string>
     <string name="change_pin_system_error" msgid="8308462387154257840">"PIN を設定できません"</string>
+    <string name="mobile_data_status_roaming_turned_off_subtext" msgid="935636805765823307">"データ ローミングが OFF になっています"</string>
+    <string name="mobile_data_status_roaming_turned_on_subtext" msgid="1335176927083781041">"データ ローミングが ON になっています"</string>
+    <string name="mobile_data_status_roaming_without_plan_subtext" msgid="3568412513831673037">"現在ローミング中で、データプランが必要です"</string>
+    <string name="mobile_data_status_roaming_with_plan_subtext" msgid="8721998948811064377">"現在ローミング中で、データプランが有効になっています"</string>
+    <string name="mobile_data_status_no_plan_subtext" msgid="4887747337017565725">"モバイルデータ残量がありません"</string>
+    <string name="mobile_data_activate_prepaid" msgid="7447025165850512683">"モバイルデータ残量なし"</string>
+    <string name="mobile_data_activate_prepaid_summary" msgid="5705389791791637666">"<xliff:g id="PROVIDER_NAME">%s</xliff:g> を通じてモバイルデータを追加する"</string>
+    <string name="mobile_data_activate_roaming_plan" msgid="5998161536947086264">"ローミング プランなし"</string>
+    <string name="mobile_data_activate_roaming_plan_summary" msgid="511202908883425459">"<xliff:g id="PROVIDER_NAME">%s</xliff:g> を通じてローミング プランを追加する"</string>
+    <string name="mobile_data_activate_footer" msgid="5979019929980140594">"ご利用の携帯通信会社（<xliff:g id="PROVIDER_NAME">%s</xliff:g>）を通じてモバイルデータまたはローミング プランを追加できます。"</string>
+    <string name="mobile_data_activate_diag_title" msgid="9044252207707864493">"データを追加しますか？"</string>
+    <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"場合によっては、<xliff:g id="PROVIDER_NAME">%s</xliff:g> を通じてデータを追加する必要があります"</string>
+    <string name="mobile_data_activate_button" msgid="3682400969184405446">"データを追加"</string>
+    <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"キャンセル"</string>
 </resources>

@@ -288,4 +288,20 @@ public class GTestResultParserTest extends GTestParserTestBase {
         resultParser.flush();
         EasyMock.verify(mockRunListener);
     }
+
+    /** Tests the parser for a simple test run output with a link error. */
+    public void testParseSimpleFile_LinkError() throws Exception {
+        String[] contents = readInFile(GTEST_OUTPUT_FILE_9);
+        ITestRunListener mockRunListener = EasyMock.createMock(ITestRunListener.class);
+        mockRunListener.testRunStarted(TEST_MODULE_NAME, 0);
+        mockRunListener.testRunFailed(
+                "CANNOT LINK EXECUTABLE \"/data/installd_cache_test\": "
+                        + "library \"liblogwrap.so\" not found");
+        mockRunListener.testRunEnded(EasyMock.anyLong(), EasyMock.anyObject());
+        EasyMock.replay(mockRunListener);
+        GTestResultParser resultParser = new GTestResultParser(TEST_MODULE_NAME, mockRunListener);
+        resultParser.processNewLines(contents);
+        resultParser.flush();
+        EasyMock.verify(mockRunListener);
+    }
 }

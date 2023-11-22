@@ -53,13 +53,16 @@ genrule {
     ],
 }
 
-cc_library_shared {
+cc_library {
     name: "android.hardware.graphics.composer@2.1",
     defaults: ["hidl-module-defaults"],
     generated_sources: ["android.hardware.graphics.composer@2.1_genc++"],
     generated_headers: ["android.hardware.graphics.composer@2.1_genc++_headers"],
     export_generated_headers: ["android.hardware.graphics.composer@2.1_genc++_headers"],
     vendor_available: true,
+    vndk: {
+        enabled: true,
+    },
     shared_libs: [
         "libhidlbase",
         "libhidltransport",
@@ -68,7 +71,6 @@ cc_library_shared {
         "libutils",
         "libcutils",
         "android.hardware.graphics.common@1.0",
-        "android.hidl.base@1.0",
     ],
     export_shared_lib_headers: [
         "libhidlbase",
@@ -76,6 +78,5 @@ cc_library_shared {
         "libhwbinder",
         "libutils",
         "android.hardware.graphics.common@1.0",
-        "android.hidl.base@1.0",
     ],
 }

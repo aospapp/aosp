@@ -37,8 +37,10 @@ class audio_InternalCardNodes(audio_test.AudioTest):
                 ['POST_DSP_LOOPBACK',
                  'POST_MIX_LOOPBACK'])
 
+        # 'Headphone' or 'LINEOUT' will be added to expected list after jack
+        # is plugged.
         expected_plugged_nodes_with_audio_jack = (
-                ['HEADPHONE'],
+                [],
                 ['MIC', 'POST_DSP_LOOPBACK',
                  'POST_MIX_LOOPBACK'])
 
@@ -61,7 +63,7 @@ class audio_InternalCardNodes(audio_test.AudioTest):
             expected_plugged_nodes_without_audio_jack[1].append('KEYBOARD_MIC')
             expected_plugged_nodes_with_audio_jack[1].append('KEYBOARD_MIC')
 
-        if board_name == 'samus':
+        if board_name in ['samus', 'kevin']:
             expected_plugged_nodes_without_audio_jack[1].append('HOTWORD')
             expected_plugged_nodes_with_audio_jack[1].append('HOTWORD')
 
@@ -74,6 +76,11 @@ class audio_InternalCardNodes(audio_test.AudioTest):
 
             audio_test_utils.dump_cros_audio_logs(
                     host, audio_facade, self.resultsdir)
+
+            # Checks whether line-out or headphone is detected.
+            hp_jack_node_type = audio_test_utils.check_hp_or_lineout_plugged(
+                    audio_facade)
+            expected_plugged_nodes_with_audio_jack[0].append(hp_jack_node_type)
 
             audio_test_utils.check_plugged_nodes(
                     audio_facade, expected_plugged_nodes_with_audio_jack)

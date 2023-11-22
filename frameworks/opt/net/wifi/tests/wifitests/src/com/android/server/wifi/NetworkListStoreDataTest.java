@@ -16,9 +16,13 @@
 
 package com.android.server.wifi;
 
+import static android.os.Process.SYSTEM_UID;
+
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
+import android.content.Context;
+import android.content.pm.PackageManager;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiEnterpriseConfig;
 import android.test.suitebuilder.annotation.SmallTest;
@@ -29,6 +33,8 @@ import com.android.server.wifi.util.XmlUtilTest;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlSerializer;
@@ -49,6 +55,7 @@ public class NetworkListStoreDataTest {
     private static final String TEST_SSID = "WifiConfigStoreDataSSID_";
     private static final String TEST_CONNECT_CHOICE = "XmlUtilConnectChoice";
     private static final long TEST_CONNECT_CHOICE_TIMESTAMP = 0x4566;
+    private static final String TEST_CREATOR_NAME = "CreatorName";
     private static final String SINGLE_OPEN_NETWORK_DATA_XML_STRING_FORMAT =
             "<Network>\n"
                     + "<WifiConfiguration>\n"
@@ -75,10 +82,11 @@ public class NetworkListStoreDataTest {
                     + "<boolean name=\"NoInternetAccessExpected\" value=\"false\" />\n"
                     + "<int name=\"UserApproved\" value=\"0\" />\n"
                     + "<boolean name=\"MeteredHint\" value=\"false\" />\n"
+                    + "<int name=\"MeteredOverride\" value=\"0\" />\n"
                     + "<boolean name=\"UseExternalScores\" value=\"false\" />\n"
                     + "<int name=\"NumAssociation\" value=\"0\" />\n"
                     + "<int name=\"CreatorUid\" value=\"%d\" />\n"
-                    + "<null name=\"CreatorName\" />\n"
+                    + "<string name=\"CreatorName\">%s</string>\n"
                     + "<null name=\"CreationTime\" />\n"
                     + "<int name=\"LastUpdateUid\" value=\"-1\" />\n"
                     + "<null name=\"LastUpdateName\" />\n"
@@ -125,10 +133,11 @@ public class NetworkListStoreDataTest {
                     + "<boolean name=\"NoInternetAccessExpected\" value=\"false\" />\n"
                     + "<int name=\"UserApproved\" value=\"0\" />\n"
                     + "<boolean name=\"MeteredHint\" value=\"false\" />\n"
+                    + "<int name=\"MeteredOverride\" value=\"0\" />\n"
                     + "<boolean name=\"UseExternalScores\" value=\"false\" />\n"
                     + "<int name=\"NumAssociation\" value=\"0\" />\n"
                     + "<int name=\"CreatorUid\" value=\"%d\" />\n"
-                    + "<null name=\"CreatorName\" />\n"
+                    + "<string name=\"CreatorName\">%s</string>\n"
                     + "<null name=\"CreationTime\" />\n"
                     + "<int name=\"LastUpdateUid\" value=\"-1\" />\n"
                     + "<null name=\"LastUpdateName\" />\n"
@@ -168,10 +177,15 @@ public class NetworkListStoreDataTest {
                     + "</Network>\n";
 
     private NetworkListStoreData mNetworkListStoreData;
+    @Mock private Context mContext;
+    @Mock private PackageManager mPackageManager;
 
     @Before
     public void setUp() throws Exception {
-        mNetworkListStoreData = new NetworkListStoreData();
+        MockitoAnnotations.initMocks(this);
+        when(mContext.getPackageManager()).thenReturn(mPackageManager);
+        when(mPackageManager.getNameForUid(anyInt())).thenReturn(TEST_CREATOR_NAME);
+        mNetworkListStoreData = new NetworkListStoreData(mContext);
     }
 
     /**
@@ -219,11 +233,13 @@ public class NetworkListStoreDataTest {
      */
     private List<WifiConfiguration> getTestNetworksConfig(boolean shared) {
         WifiConfiguration openNetwork = WifiConfigurationTestUtil.createOpenNetwork();
+        openNetwork.creatorName = TEST_CREATOR_NAME;
         openNetwork.shared = shared;
         openNetwork.setIpConfiguration(
                 WifiConfigurationTestUtil.createDHCPIpConfigurationWithNoProxy());
         WifiConfiguration eapNetwork = WifiConfigurationTestUtil.createEapNetwork();
         eapNetwork.shared = shared;
+        eapNetwork.creatorName = TEST_CREATOR_NAME;
         eapNetwork.setIpConfiguration(
                 WifiConfigurationTestUtil.createDHCPIpConfigurationWithNoProxy());
         List<WifiConfiguration> networkList = new ArrayList<>();
@@ -245,11 +261,11 @@ public class NetworkListStoreDataTest {
         String openNetworkXml = String.format(SINGLE_OPEN_NETWORK_DATA_XML_STRING_FORMAT,
                 openNetwork.configKey().replaceAll("\"", "&quot;"),
                 openNetwork.SSID.replaceAll("\"", "&quot;"),
-                openNetwork.shared, openNetwork.creatorUid);
+                openNetwork.shared, openNetwork.creatorUid, openNetwork.creatorName);
         String eapNetworkXml = String.format(SINGLE_EAP_NETWORK_DATA_XML_STRING_FORMAT,
                 eapNetwork.configKey().replaceAll("\"", "&quot;"),
                 eapNetwork.SSID.replaceAll("\"", "&quot;"),
-                eapNetwork.shared, eapNetwork.creatorUid);
+                eapNetwork.shared, eapNetwork.creatorUid, openNetwork.creatorName);
         return (openNetworkXml + eapNetworkXml).getBytes(StandardCharsets.UTF_8);
     }
 
@@ -418,7 +434,8 @@ public class NetworkListStoreDataTest {
         byte[] xmlData = String.format(SINGLE_OPEN_NETWORK_DATA_XML_STRING_FORMAT,
                 "InvalidConfigKey",
                 openNetwork.SSID.replaceAll("\"", "&quot;"),
-                openNetwork.shared, openNetwork.creatorUid).getBytes(StandardCharsets.UTF_8);
+                openNetwork.shared, openNetwork.creatorUid, openNetwork.creatorName)
+            .getBytes(StandardCharsets.UTF_8);
         deserializeData(xmlData, true);
     }
 
@@ -445,5 +462,97 @@ public class NetworkListStoreDataTest {
         for (WifiConfiguration network : retrievedNetworkList) {
             assertNotEquals(eapNetwork.SSID, network.SSID);
         }
+    }
+
+    /**
+     * Verify that a saved network config with invalid creatorUid resets it to
+     * {@link android.os.Process#SYSTEM_UID}.
+     */
+    public void parseNetworkWithInvalidCreatorUidResetsToSystem() throws Exception {
+        WifiConfiguration openNetwork = WifiConfigurationTestUtil.createOpenNetwork();
+        openNetwork.creatorUid = -1;
+        // Return null for invalid uid.
+        when(mPackageManager.getNameForUid(eq(openNetwork.creatorUid))).thenReturn(null);
+
+        byte[] xmlData = String.format(SINGLE_OPEN_NETWORK_DATA_XML_STRING_FORMAT,
+                openNetwork.configKey().replaceAll("\"", "&quot;"),
+                openNetwork.SSID.replaceAll("\"", "&quot;"),
+                openNetwork.shared, openNetwork.creatorUid, openNetwork.creatorName)
+            .getBytes(StandardCharsets.UTF_8);
+        List<WifiConfiguration> deserializedNetworks = deserializeData(xmlData, true);
+        assertEquals(1, deserializedNetworks.size());
+        assertEquals(openNetwork.configKey(), deserializedNetworks.get(0).configKey());
+        assertEquals(SYSTEM_UID, deserializedNetworks.get(0).creatorUid);
+        assertEquals(TEST_CREATOR_NAME, deserializedNetworks.get(0).creatorName);
+    }
+
+    /**
+     * Verify that a saved network config with invalid creatorName resets it to the package name
+     * provided {@link PackageManager} for the creatorUid.
+     */
+    public void parseNetworkWithInvalidCreatorNameResetsToPackageNameForCreatorUid()
+            throws Exception {
+        String badCreatorName = "bad";
+        String correctCreatorName = "correct";
+        WifiConfiguration openNetwork = WifiConfigurationTestUtil.createOpenNetwork();
+        openNetwork.creatorUid = 1324422;
+        openNetwork.creatorName = badCreatorName;
+        when(mPackageManager.getNameForUid(eq(openNetwork.creatorUid)))
+            .thenReturn(correctCreatorName);
+
+        byte[] xmlData = String.format(SINGLE_OPEN_NETWORK_DATA_XML_STRING_FORMAT,
+                openNetwork.configKey().replaceAll("\"", "&quot;"),
+                openNetwork.SSID.replaceAll("\"", "&quot;"),
+                openNetwork.shared, openNetwork.creatorUid, openNetwork.creatorName)
+            .getBytes(StandardCharsets.UTF_8);
+        List<WifiConfiguration> deserializedNetworks = deserializeData(xmlData, true);
+        assertEquals(1, deserializedNetworks.size());
+        assertEquals(openNetwork.configKey(), deserializedNetworks.get(0).configKey());
+        assertEquals(openNetwork.creatorUid, deserializedNetworks.get(0).creatorUid);
+        assertEquals(correctCreatorName, deserializedNetworks.get(0).creatorName);
+    }
+
+    /**
+     * Verify that a saved network config with invalid creatorName resets it to the package name
+     * provided {@link PackageManager} for the creatorUid.
+     */
+    public void parseNetworkWithNullCreatorNameResetsToPackageNameForCreatorUid()
+            throws Exception {
+        String correctCreatorName = "correct";
+        WifiConfiguration openNetwork = WifiConfigurationTestUtil.createOpenNetwork();
+        openNetwork.creatorUid = 1324422;
+        openNetwork.creatorName = null;
+        when(mPackageManager.getNameForUid(eq(openNetwork.creatorUid)))
+            .thenReturn(correctCreatorName);
+
+        byte[] xmlData = String.format(SINGLE_OPEN_NETWORK_DATA_XML_STRING_FORMAT,
+                openNetwork.configKey().replaceAll("\"", "&quot;"),
+                openNetwork.SSID.replaceAll("\"", "&quot;"),
+                openNetwork.shared, openNetwork.creatorUid, openNetwork.creatorName)
+            .getBytes(StandardCharsets.UTF_8);
+        List<WifiConfiguration> deserializedNetworks = deserializeData(xmlData, true);
+        assertEquals(1, deserializedNetworks.size());
+        assertEquals(openNetwork.configKey(), deserializedNetworks.get(0).configKey());
+        assertEquals(openNetwork.creatorUid, deserializedNetworks.get(0).creatorUid);
+        assertEquals(correctCreatorName, deserializedNetworks.get(0).creatorName);
+    }
+
+    /**
+     * Verify that a saved network config with valid creatorUid is preserved.
+     */
+    public void parseNetworkWithValidCreatorUid() throws Exception {
+        WifiConfiguration openNetwork = WifiConfigurationTestUtil.createOpenNetwork();
+        openNetwork.creatorUid = 1324422;
+
+        byte[] xmlData = String.format(SINGLE_OPEN_NETWORK_DATA_XML_STRING_FORMAT,
+                openNetwork.configKey().replaceAll("\"", "&quot;"),
+                openNetwork.SSID.replaceAll("\"", "&quot;"),
+                openNetwork.shared, openNetwork.creatorUid, openNetwork.creatorName)
+            .getBytes(StandardCharsets.UTF_8);
+        List<WifiConfiguration> deserializedNetworks = deserializeData(xmlData, true);
+        assertEquals(1, deserializedNetworks.size());
+        assertEquals(openNetwork.configKey(), deserializedNetworks.get(0).configKey());
+        assertEquals(openNetwork.creatorUid, deserializedNetworks.get(0).creatorUid);
+        assertEquals(TEST_CREATOR_NAME, deserializedNetworks.get(0).creatorName);
     }
 }

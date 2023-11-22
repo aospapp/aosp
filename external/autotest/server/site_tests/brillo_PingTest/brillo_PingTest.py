@@ -7,7 +7,7 @@ import logging
 import common
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
-from autotest_lib.client.common_lib import site_utils
+from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.cros import retry
 from autotest_lib.server import afe_utils
 from autotest_lib.server import test
@@ -40,7 +40,7 @@ class brillo_PingTest(test.test):
         @raise TestFail: The test failed.
         """
         if afe_utils.host_in_lab(host):
-            ssid = site_utils.get_wireless_ssid(host.hostname)
+            ssid = utils.get_wireless_ssid(host.hostname)
             passphrase = global_config.global_config.get_config_value(
                     'CLIENT', 'wireless_password', default=None)
         host.run('am startservice -n com.google.wifisetup/.WifiSetupService '

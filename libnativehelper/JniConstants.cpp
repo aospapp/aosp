@@ -64,6 +64,7 @@ jclass JniConstants::structPollfdClass;
 jclass JniConstants::structStatClass;
 jclass JniConstants::structStatVfsClass;
 jclass JniConstants::structTimevalClass;
+jclass JniConstants::structTimespecClass;
 jclass JniConstants::structUcredClass;
 jclass JniConstants::structUtsnameClass;
 jclass JniConstants::unixSocketAddressClass;
@@ -129,6 +130,7 @@ void JniConstants::init(JNIEnv* env) {
     structStatClass = findClass(env, "android/system/StructStat");
     structStatVfsClass = findClass(env, "android/system/StructStatVfs");
     structTimevalClass = findClass(env, "android/system/StructTimeval");
+    structTimespecClass = findClass(env, "android/system/StructTimespec");
     structUcredClass = findClass(env, "android/system/StructUcred");
     structUtsnameClass = findClass(env, "android/system/StructUtsname");
     unixSocketAddressClass = findClass(env, "android/system/UnixSocketAddress");

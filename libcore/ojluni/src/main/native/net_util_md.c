@@ -64,7 +64,11 @@
 #include "jvm.h"
 #include "net_util.h"
 
+// Android-removed: unused
+#if 0
 #include "java_net_SocketOptions.h"
+#endif
+
 
 /* needed from libsocket on Solaris 8 */
 
@@ -83,6 +87,8 @@ getnameinfo_f getnameinfo_ptr = NULL;
 #define UDP_EXCLBIND            0x0101
 #endif
 
+// Android-removed: unused
+#if 0
 void setDefaultScopeID(JNIEnv *env, struct sockaddr *him)
 {
 #ifdef MACOSX
@@ -124,6 +130,7 @@ int getDefaultScopeID(JNIEnv *env) {
                                                  ni_defaultIndexID);
     return defaultIndex;
 }
+#endif
 
 #ifdef __solaris__
 static int init_tcp_max_buf, init_udp_max_buf;
@@ -817,6 +824,8 @@ NET_InetAddressToSockaddr(JNIEnv *env, jobject iaObj, int port, struct sockaddr 
     return 0;
 }
 
+// Android-removed: unused
+#if 0
 void
 NET_SetTrafficClass(struct sockaddr *him, int trafficClass) {
 #ifdef AF_INET6
@@ -826,6 +835,7 @@ NET_SetTrafficClass(struct sockaddr *him, int trafficClass) {
     }
 #endif /* AF_INET6 */
 }
+#endif
 
 JNIEXPORT jint JNICALL
 NET_GetPortFromSockaddr(struct sockaddr *him) {
@@ -876,6 +886,8 @@ jboolean NET_addrtransAvailable() {
     return (jboolean)(getaddrinfo_ptr != NULL);
 }
 
+// Android-removed: unused
+#if 0
 int NET_IsZeroAddr(jbyte* caddr) {
     int i;
     for (i = 0; i < 16; i++) {
@@ -885,7 +897,10 @@ int NET_IsZeroAddr(jbyte* caddr) {
     }
     return 1;
 }
+#endif
 
+// Android-removed: unused
+#if 0
 /*
  * Map the Java level socket option to the platform specific
  * level and option name.
@@ -952,6 +967,7 @@ NET_MapSocketOption(jint cmd, int *level, int *optname) {
     /* not found */
     return -1;
 }
+#endif
 
 /*
  * Wrapper for getsockopt system routine - does any necessary
@@ -1321,6 +1337,8 @@ NET_Bind(int fd, struct sockaddr *him, int len)
     return rv;
 }
 
+// Android-removed: unused
+#if 0
 /**
  * Wrapper for select/poll with timeout on a single file descriptor.
  *
@@ -1399,6 +1417,7 @@ NET_Wait(JNIEnv *env, jint fd, jint flags, jint timeout)
 
     return timeout;
 }
+#endif
 
 #if 0
 // Stripped out unused code.

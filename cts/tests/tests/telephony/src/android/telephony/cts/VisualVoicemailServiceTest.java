@@ -561,9 +561,10 @@ public class VisualVoicemailServiceTest extends InstrumentationTestCase {
 
     private void setupSmsReceiver(String text) {
         mSmsReceiver = new SmsBroadcastReceiver(text);
-        IntentFilter filter = new IntentFilter(Intents.SMS_RECEIVED_ACTION);
-        filter.addAction(Intents.DATA_SMS_RECEIVED_ACTION);
-        mContext.registerReceiver(mSmsReceiver, filter);
+        mContext.registerReceiver(mSmsReceiver, new IntentFilter(Intents.SMS_RECEIVED_ACTION));
+        IntentFilter dataFilter = new IntentFilter(Intents.DATA_SMS_RECEIVED_ACTION);
+        dataFilter.addDataScheme("sms");
+        mContext.registerReceiver(mSmsReceiver, dataFilter);
     }
 
     private static class SmsBroadcastReceiver extends BroadcastReceiver {

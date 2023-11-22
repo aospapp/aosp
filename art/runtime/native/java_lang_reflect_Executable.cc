@@ -17,6 +17,7 @@
 #include "java_lang_reflect_Executable.h"
 
 #include "android-base/stringprintf.h"
+#include "nativehelper/jni_macros.h"
 
 #include "art_method-inl.h"
 #include "dex_file_annotations.h"
@@ -26,6 +27,7 @@
 #include "mirror/method.h"
 #include "mirror/object-inl.h"
 #include "mirror/object_array-inl.h"
+#include "native_util.h"
 #include "reflection.h"
 #include "scoped_fast_native_object_access-inl.h"
 #include "well_known_classes.h"

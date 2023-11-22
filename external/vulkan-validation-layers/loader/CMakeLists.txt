@@ -27,8 +27,8 @@ set(NORMAL_LOADER_SRCS
     debug_report.h
     table_ops.h
     gpa_helper.h
-    cJSON.c
-    cJSON.h
+    ../libs/cjson/includes/cJSON.h
+    ../libs/cjson/cJSON.c
     murmurhash.c
     murmurhash.h
 )

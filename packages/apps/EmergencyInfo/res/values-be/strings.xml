@@ -17,6 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Даныя для экстранных сітуацый"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"Медыцынскія даныя"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"Рэдагаваць даныя"</string>
     <string name="edit_info" msgid="5973929805855224805">"Рэдагаванне звестак для экстранных сітуацый"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Звесткі"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Кантакты"</string>
@@ -96,12 +98,12 @@
     <string name="cancel" msgid="7401575239009060939">"Скасаваць"</string>
     <string name="ok" msgid="163967937451981024">"ОК"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"Даныя для экстранных сітуацый"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"Інфармацыя, якую вы ўведзяце тут, можа быць карыснай для асоб, якія будуць аказваць першую дапамогу ў выпадку надзвычайнай сітуацыі. Яна захоўваецца толькі на вашай прыладзе, і любы чалавек можа прачытаць яе ў набіральніку нумара для экстранных сітуацый, не разблакіроўваючы тэлефон."</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"Працягнуць"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Няма інфармацыі аб уладальніку тэлефона"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"Калі гэта ваш тэлефон, дакраніцеся да значка алоўка, каб дадаць інфармацыю, якая будзе адлюстроўвацца тут у выпадку ўзнікнення надзвычайнай сітуацыі"</string>
     <string name="clear_all" msgid="8899013032870561633">"Ачысціць усё"</string>
     <string name="clear" msgid="3648880442502887163">"Ачысціць"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Ачысціць усю інфармацыю і кантакты?"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"Медыцынская інфармацыя і кантакты для экстранных сітуацый, якія вы ўведзяце, могуць быць карыснымі для асоб, якія будуць аказваць першую дапамогу ў выпадку надзвычайнай сітуацыі.\n\nЛюбы чалавек можа прачытаць яе на экране блакіроўкі, не разблакіроўваючы тэлефон."</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"Увядзіце даныя на надзвычайны выпадак"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"Дапамажыце тым, хто будзе аказваць першую дапамогу, знайсці важную інфармацыю"</string>
 </resources>

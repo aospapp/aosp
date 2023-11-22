@@ -42,16 +42,13 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Random;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
- import sun.net.ftp.FtpLoginException;
+import sun.net.ftp.FtpLoginException;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -61,10 +58,10 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 public class FtpURLConnectionTest extends TestCase {
 
     private static final String FILE_PATH = "test/file/for/FtpURLConnectionTest.txt";
-    private static final String USER = "user";
-    private static final String PASSWORD = "password";
     private static final String SERVER_HOSTNAME = "localhost";
-    private static final String USER_HOME_DIR = "/home/user";
+    private static final String VALID_USER = "user";
+    private static final String VALID_PASSWORD = "password";
+    private static final String VALID_USER_HOME_DIR = "/home/user";
 
     private FakeFtpServer fakeFtpServer;
     private UnixFakeFileSystem fileSystem;
@@ -74,10 +71,11 @@ public class FtpURLConnectionTest extends TestCase {
         super.setUp();
         fakeFtpServer = new FakeFtpServer();
         fakeFtpServer.setServerControlPort(0 /* allocate port number automatically */);
-        fakeFtpServer.addUserAccount(new UserAccount(USER, PASSWORD, USER_HOME_DIR));
+        fakeFtpServer.addUserAccount(new UserAccount(VALID_USER, VALID_PASSWORD,
+                VALID_USER_HOME_DIR));
         fileSystem = new UnixFakeFileSystem();
         fakeFtpServer.setFileSystem(fileSystem);
-        fileSystem.add(new DirectoryEntry(USER_HOME_DIR));
+        fileSystem.add(new DirectoryEntry(VALID_USER_HOME_DIR));
         fakeFtpServer.start();
     }
 
@@ -89,9 +87,37 @@ public class FtpURLConnectionTest extends TestCase {
 
     public void testInputUrl() throws Exception {
         byte[] fileContents = "abcdef 1234567890".getBytes(UTF_8);
-        URL fileUrl = addFileEntry(FILE_PATH, fileContents);
+        addFileEntry(FILE_PATH, fileContents);
+        URL fileUrl = getFileUrlWithCredentials(VALID_USER, VALID_PASSWORD, FILE_PATH);
         URLConnection connection = fileUrl.openConnection();
         assertContents(fileContents, connection.getInputStream());
+    }
+
+    public void testInputUrl_invalidUserOrPassword() throws Exception {
+        checkInputUrl_invalidUserOrPassword("wrong_user", VALID_PASSWORD);
+        checkInputUrl_invalidUserOrPassword(VALID_USER, "wrong password");
+    }
+
+    public void testInputUrl_missingPassword() throws Exception {
+        URL noPasswordUrl = getFileUrlWithCredentials(VALID_USER, null, FILE_PATH);
+        URLConnection noPasswordConnection = noPasswordUrl.openConnection();
+        try {
+            noPasswordConnection.getInputStream();
+            fail();
+        } catch (IOException expected) {
+        }
+    }
+
+    private void checkInputUrl_invalidUserOrPassword(String user, String password)
+            throws IOException {
+        URL fileUrl = getFileUrlWithCredentials(user, password, FILE_PATH);
+        URLConnection connection = fileUrl.openConnection();
+        try {
+            connection.getInputStream();
+            fail();
+        } catch (sun.net.ftp.FtpLoginException expected) {
+            assertEquals("Invalid username/password", expected.getMessage());
+        }
     }
 
     public void testOutputUrl() throws Exception {
@@ -99,7 +125,7 @@ public class FtpURLConnectionTest extends TestCase {
         addFileEntry("test/output-url/existing file.txt", fileContents);
         byte[] newFileContents = "contents of brand new file".getBytes(UTF_8);
         String filePath = "test/output-url/file that is newly created.txt";
-        URL fileUrl = new URL(getFileUrlString(filePath));
+        URL fileUrl = getFileUrlWithCredentials(VALID_USER, VALID_PASSWORD, filePath);
         URLConnection connection = fileUrl.openConnection();
         connection.setDoInput(false);
         connection.setDoOutput(true);
@@ -223,8 +249,36 @@ public class FtpURLConnectionTest extends TestCase {
         }
     }
 
+    // http://b/35784677
+    public void testCRLFInUserinfo() throws Exception {
+        int serverPort = fakeFtpServer.getServerControlPort();
+        List<String> encodedUserInfos = Arrays.asList(
+                // '\r\n' in the username with password
+                "user%0D%0Acommand:password",
+                // '\r\n' in the password
+                "user:password%0D%0Acommand",
+                // just '\n' in the password
+                "user:password%0Acommand",
+                // just '\n' in the username
+                "user%0Acommand:password"
+        );
+        for (String encodedUserInfo : encodedUserInfos) {
+            String urlString = String.format(Locale.US, "ftp://%s@%s:%s/%s",
+                    encodedUserInfo, SERVER_HOSTNAME, serverPort, FILE_PATH);
+            try {
+                new URL(urlString).openConnection().connect();
+                fail("Connection shouldn't have succeeded: " + urlString);
+            } catch (FtpLoginException expected) {
+                // The original message "Illegal carriage return" gets lost
+                // where FtpURLConnection.connect() translates the
+                // original FtpProtocolException into FtpLoginException.
+                assertEquals("Invalid username/password", expected.getMessage());
+            }
+        }
+    }
+
     private InputStream openFileSystemContents(String fileName) throws IOException {
-        String fullFileName = USER_HOME_DIR + "/" + fileName;
+        String fullFileName = VALID_USER_HOME_DIR + "/" + fileName;
         FileEntry entry = (FileEntry) fileSystem.getEntry(fullFileName);
         assertNotNull("File must exist with name " + fullFileName, entry);
         return entry.createInputStream();
@@ -249,67 +303,26 @@ public class FtpURLConnectionTest extends TestCase {
         }
     }
 
-    // http://b/35784677
-    public void testCRLFInUserinfo() throws Exception {
-        List<String> encodedUserInfos = Arrays.asList(
-                // '\r\n' in the username with password
-                "user%0D%0Acommand:password",
-                // '\r\n' in the password
-                "user:password%0D%0Acommand",
-                // just '\n' in the password
-                "user:password%0Acommand",
-                // just '\n' in the username
-                "user%0Acommand:password"
-        );
-        for (String encodedUserInfo : encodedUserInfos) {
-            ExecutorService executor = Executors.newSingleThreadExecutor();
-            ServerSocket mockFtpServerSocket = new ServerSocket(0);
-            Future<Void> future = executor.submit(new Callable<Void>() {
-                @Override public Void call() throws Exception {
-                    Socket clientSocket = mockFtpServerSocket.accept();
-                    clientSocket.getOutputStream().write("220 o/".getBytes());
-                    clientSocket.close();
-                    return null;
-                }
-              });
-            executor.shutdown();
-
-            String urlString = String.format(Locale.US, "ftp://%s@%s:%s/%s",
-                    encodedUserInfo, SERVER_HOSTNAME, mockFtpServerSocket.getLocalPort(), FILE_PATH);
-            try {
-                new URL(urlString).openConnection().connect();
-                fail("Connection shouldn't have succeeded: " + urlString);
-            } catch (FtpLoginException expected) {
-                // The original message "Illegal carriage return" gets lost
-                // where FtpURLConnection.connect() translates the
-                // original FtpProtocolException into FtpLoginException.
-                assertEquals("Invalid username/password", expected.getMessage());
-            }
-
-            // Cleanup
-            future.get();
-            mockFtpServerSocket.close();
-        }
-    }
-
-    private String getFileUrlString(String filePath) {
+    private URL getFileUrlWithCredentials(String user, String password, String filePath) {
+        Objects.requireNonNull(user);
+        Objects.requireNonNull(filePath);
         int serverPort = fakeFtpServer.getServerControlPort();
-        String urlString = String.format(Locale.US, "ftp://%s:%s@%s:%s/%s",
-                USER, PASSWORD, SERVER_HOSTNAME, serverPort, filePath);
-        return urlString;
-    }
-
-    private URL addFileEntry(String filePath, byte[] fileContents) {
-        FileEntry fileEntry = new FileEntry(USER_HOME_DIR + "/" + filePath);
-        fileEntry.setContents(fileContents);
-        fileSystem.add(fileEntry);
-        String urlString = getFileUrlString(filePath);
+        String credentials = user + (password == null ? "" : (":" + password));
+        String urlString = String.format(Locale.US, "ftp://%s@%s:%s/%s",
+                credentials, SERVER_HOSTNAME, serverPort, filePath);
         try {
             return new URL(urlString);
         } catch (MalformedURLException e) {
             fail("Malformed URL: " + urlString);
             throw new AssertionError("Can never happen");
         }
+    }
+
+    private URL addFileEntry(String filePath, byte[] fileContents) {
+        FileEntry fileEntry = new FileEntry(VALID_USER_HOME_DIR + "/" + filePath);
+        fileEntry.setContents(fileContents);
+        fileSystem.add(fileEntry);
+        return getFileUrlWithCredentials(VALID_USER, VALID_PASSWORD, filePath);
     }
 
     /**

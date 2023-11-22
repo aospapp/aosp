@@ -42,7 +42,11 @@ import android.util.Range;
 import com.android.tv.TvApplication;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.dvr.DvrStorageStatusManager.OnStorageMountChangedListener;
-import com.android.tv.dvr.ScheduledRecording.RecordingState;
+import com.android.tv.dvr.data.IdGenerator;
+import com.android.tv.dvr.data.RecordedProgram;
+import com.android.tv.dvr.data.ScheduledRecording;
+import com.android.tv.dvr.data.ScheduledRecording.RecordingState;
+import com.android.tv.dvr.data.SeriesRecording;
 import com.android.tv.dvr.provider.AsyncDvrDbTask.AsyncAddScheduleTask;
 import com.android.tv.dvr.provider.AsyncDvrDbTask.AsyncAddSeriesRecordingTask;
 import com.android.tv.dvr.provider.AsyncDvrDbTask.AsyncDeleteScheduleTask;
@@ -51,12 +55,14 @@ import com.android.tv.dvr.provider.AsyncDvrDbTask.AsyncDvrQueryScheduleTask;
 import com.android.tv.dvr.provider.AsyncDvrDbTask.AsyncDvrQuerySeriesRecordingTask;
 import com.android.tv.dvr.provider.AsyncDvrDbTask.AsyncUpdateScheduleTask;
 import com.android.tv.dvr.provider.AsyncDvrDbTask.AsyncUpdateSeriesRecordingTask;
+import com.android.tv.dvr.provider.DvrDbSync;
+import com.android.tv.dvr.recorder.SeriesRecordingScheduler;
 import com.android.tv.util.AsyncDbTask;
 import com.android.tv.util.AsyncDbTask.AsyncRecordedProgramQueryTask;
 import com.android.tv.util.Clock;
 import com.android.tv.util.Filter;
 import com.android.tv.util.TvInputManagerHelper;
-import com.android.tv.util.TvProviderUriMatcher;
+import com.android.tv.util.TvUriMatcher;
 import com.android.tv.util.Utils;
 
 import java.util.ArrayList;
@@ -267,11 +273,14 @@ public class DvrDataManagerImpl extends BaseDvrDataManager {
                     removeScheduledRecording(ScheduledRecording.toArray(toDelete));
                 }
                 IdGenerator.SCHEDULED_RECORDING.setMaxId(maxId);
+                if (mRecordedProgramLoadFinished) {
+                    validateSeriesRecordings();
+                }
                 mDvrLoadFinished = true;
                 notifyDvrScheduleLoadFinished();
-                mDbSync = new DvrDbSync(mContext, DvrDataManagerImpl.this);
-                mDbSync.start();
                 if (isInitialized()) {
+                    mDbSync = new DvrDbSync(mContext, DvrDataManagerImpl.this);
+                    mDbSync.start();
                     SeriesRecordingScheduler.getInstance(mContext).start();
                 }
             }
@@ -306,8 +315,11 @@ public class DvrDataManagerImpl extends BaseDvrDataManager {
         if (uri == null) {
             uri = RecordedPrograms.CONTENT_URI;
         }
-        int match = TvProviderUriMatcher.match(uri);
-        if (match == TvProviderUriMatcher.MATCH_RECORDED_PROGRAM) {
+        if (recordedPrograms == null) {
+            recordedPrograms = Collections.emptyList();
+        }
+        int match = TvUriMatcher.match(uri);
+        if (match == TvUriMatcher.MATCH_RECORDED_PROGRAM) {
             if (!mRecordedProgramLoadFinished) {
                 for (RecordedProgram recorded : recordedPrograms) {
                     if (isInputAvailable(recorded.getInputId())) {
@@ -318,7 +330,11 @@ public class DvrDataManagerImpl extends BaseDvrDataManager {
                 }
                 mRecordedProgramLoadFinished = true;
                 notifyRecordedProgramLoadFinished();
-            } else if (recordedPrograms == null || recordedPrograms.isEmpty()) {
+                if (isInitialized()) {
+                    mDbSync = new DvrDbSync(mContext, DvrDataManagerImpl.this);
+                    mDbSync.start();
+                }
+            } else if (recordedPrograms.isEmpty()) {
                 List<RecordedProgram> oldRecordedPrograms =
                         new ArrayList<>(mRecordedPrograms.values());
                 mRecordedPrograms.clear();
@@ -355,19 +371,24 @@ public class DvrDataManagerImpl extends BaseDvrDataManager {
                 }
             }
             if (isInitialized()) {
+                validateSeriesRecordings();
                 SeriesRecordingScheduler.getInstance(mContext).start();
             }
-        } else if (match == TvProviderUriMatcher.MATCH_RECORDED_PROGRAM_ID) {
+        } else if (match == TvUriMatcher.MATCH_RECORDED_PROGRAM_ID) {
             if (!mRecordedProgramLoadFinished) {
                 return;
             }
             long id = ContentUris.parseId(uri);
             if (DEBUG) Log.d(TAG, "changed recorded program #" + id + " to " + recordedPrograms);
-            if (recordedPrograms == null || recordedPrograms.isEmpty()) {
+            if (recordedPrograms.isEmpty()) {
                 mRecordedProgramsForRemovedInput.remove(id);
                 RecordedProgram old = mRecordedPrograms.remove(id);
                 if (old != null) {
                     notifyRecordedProgramsRemoved(old);
+                    SeriesRecording r = mSeriesId2SeriesRecordings.get(old.getSeriesId());
+                    if (r != null && isEmptySeriesRecording(r)) {
+                        removeSeriesRecording(r);
+                    }
                 }
             } else {
                 RecordedProgram recordedProgram = recordedPrograms.get(0);
@@ -592,10 +613,16 @@ public class DvrDataManagerImpl extends BaseDvrDataManager {
     public void removeScheduledRecording(boolean forceRemove, ScheduledRecording... schedules) {
         List<ScheduledRecording> schedulesToDelete = new ArrayList<>();
         List<ScheduledRecording> schedulesNotToDelete = new ArrayList<>();
+        Set<Long> seriesRecordingIdsToCheck = new HashSet<>();
         for (ScheduledRecording r : schedules) {
             mScheduledRecordings.remove(r.getId());
-            getDeletedScheduleMap().remove(r.getId());
+            getDeletedScheduleMap().remove(r.getProgramId());
             mProgramId2ScheduledRecordings.remove(r.getProgramId());
+            if (r.getSeriesRecordingId() != SeriesRecording.ID_NOT_SET
+                    && (r.getState() == ScheduledRecording.STATE_RECORDING_NOT_STARTED
+                    || r.getState() == ScheduledRecording.STATE_RECORDING_IN_PROGRESS)) {
+                seriesRecordingIdsToCheck.add(r.getSeriesRecordingId());
+            }
             boolean isScheduleForRemovedInput =
                     mScheduledRecordingsForRemovedInput.remove(r.getProgramId()) != null;
             // If it belongs to the series recording and it's not started yet, just mark delete
@@ -614,7 +641,18 @@ public class DvrDataManagerImpl extends BaseDvrDataManager {
             }
         }
         if (mDvrLoadFinished) {
+            if (mRecordedProgramLoadFinished) {
+                checkAndRemoveEmptySeriesRecording(seriesRecordingIdsToCheck);
+            }
             notifyScheduledRecordingRemoved(schedules);
+        }
+        Iterator<ScheduledRecording> iterator = schedulesNotToDelete.iterator();
+        while (iterator.hasNext()) {
+            ScheduledRecording r = iterator.next();
+            if (!mSeriesRecordings.containsKey(r.getSeriesRecordingId())) {
+                iterator.remove();
+                schedulesToDelete.add(r);
+            }
         }
         if (!schedulesToDelete.isEmpty()) {
             new AsyncDeleteScheduleTask(mContext).executeOnDbThread(
@@ -669,6 +707,7 @@ public class DvrDataManagerImpl extends BaseDvrDataManager {
 
     private void updateScheduledRecording(boolean updateDb, final ScheduledRecording... schedules) {
         List<ScheduledRecording> toUpdate = new ArrayList<>();
+        Set<Long> seriesRecordingIdsToCheck = new HashSet<>();
         for (ScheduledRecording r : schedules) {
             if (!SoftPreconditions.checkState(mScheduledRecordings.containsKey(r.getId()), TAG,
                     "Recording not found for: " + r)) {
@@ -691,6 +730,13 @@ public class DvrDataManagerImpl extends BaseDvrDataManager {
             if (programId != ScheduledRecording.ID_NOT_SET) {
                 mProgramId2ScheduledRecordings.put(programId, r);
             }
+            if (r.getState() == ScheduledRecording.STATE_RECORDING_FAILED
+                    && r.getSeriesRecordingId() != SeriesRecording.ID_NOT_SET) {
+                // If the scheduled recording is failed, it may cause the automatically generated
+                // series recording for this schedule becomes invalid (with no future schedules and
+                // past recordings.) We should check and remove these series recordings.
+                seriesRecordingIdsToCheck.add(r.getSeriesRecordingId());
+            }
         }
         if (toUpdate.isEmpty()) {
             return;
@@ -702,12 +748,17 @@ public class DvrDataManagerImpl extends BaseDvrDataManager {
         if (updateDb) {
             new AsyncUpdateScheduleTask(mContext).executeOnDbThread(scheduleArray);
         }
+        checkAndRemoveEmptySeriesRecording(seriesRecordingIdsToCheck);
         removeDeletedSchedules(schedules);
     }
 
     @Override
     public void updateSeriesRecording(final SeriesRecording... seriesRecordings) {
         for (SeriesRecording r : seriesRecordings) {
+            if (!SoftPreconditions.checkArgument(mSeriesRecordings.containsKey(r.getId()), TAG,
+                    "Non Existing Series ID: " + r)) {
+                continue;
+            }
             SeriesRecording old1 = mSeriesRecordings.put(r.getId(), r);
             SeriesRecording old2 = mSeriesId2SeriesRecordings.put(r.getSeriesId(), r);
             SoftPreconditions.checkArgument(old1.equals(old2), TAG, "Series ID cannot be"
@@ -769,20 +820,27 @@ public class DvrDataManagerImpl extends BaseDvrDataManager {
                                 return r.getInputId().equals(inputId);
                             }
                         });
-        List<SeriesRecording> movedSeriesRecordings =
-                moveElements(mSeriesRecordingsForRemovedInput, mSeriesRecordings,
-                        new Filter<SeriesRecording>() {
-                            @Override
-                            public boolean filter(SeriesRecording r) {
-                                return r.getInputId().equals(inputId);
-                            }
-                        });
         List<RecordedProgram> movedRecordedPrograms =
                 moveElements(mRecordedProgramsForRemovedInput, mRecordedPrograms,
                         new Filter<RecordedProgram>() {
                             @Override
                             public boolean filter(RecordedProgram r) {
                                 return r.getInputId().equals(inputId);
+                            }
+                        });
+        List<SeriesRecording> removedSeriesRecordings = new ArrayList<>();
+        List<SeriesRecording> movedSeriesRecordings =
+                moveElements(mSeriesRecordingsForRemovedInput, mSeriesRecordings,
+                        new Filter<SeriesRecording>() {
+                            @Override
+                            public boolean filter(SeriesRecording r) {
+                                if (r.getInputId().equals(inputId)) {
+                                    if (!isEmptySeriesRecording(r)) {
+                                        return true;
+                                    }
+                                    removedSeriesRecordings.add(r);
+                                }
+                                return false;
                             }
                         });
         if (!movedSchedules.isEmpty()) {
@@ -795,6 +853,11 @@ public class DvrDataManagerImpl extends BaseDvrDataManager {
                 mSeriesId2SeriesRecordings.put(seriesRecording.getSeriesId(), seriesRecording);
             }
         }
+        for (SeriesRecording r : removedSeriesRecordings) {
+            mSeriesRecordingsForRemovedInput.remove(r.getId());
+        }
+        new AsyncDeleteSeriesRecordingTask(mContext).executeOnDbThread(
+                SeriesRecording.toArray(removedSeriesRecordings));
         // Notify after all the data are moved.
         if (!movedSchedules.isEmpty()) {
             notifyScheduledRecordingAdded(ScheduledRecording.toArray(movedSchedules));
@@ -811,20 +874,20 @@ public class DvrDataManagerImpl extends BaseDvrDataManager {
         if (DEBUG) Log.d(TAG, "hideInput " + inputId);
         List<ScheduledRecording> movedSchedules =
                 moveElements(mScheduledRecordings, mScheduledRecordingsForRemovedInput,
-                    new Filter<ScheduledRecording>() {
-                        @Override
-                        public boolean filter(ScheduledRecording r) {
-                            return r.getInputId().equals(inputId);
-                        }
-                    });
+                        new Filter<ScheduledRecording>() {
+                            @Override
+                            public boolean filter(ScheduledRecording r) {
+                                return r.getInputId().equals(inputId);
+                            }
+                        });
         List<SeriesRecording> movedSeriesRecordings =
                 moveElements(mSeriesRecordings, mSeriesRecordingsForRemovedInput,
-                    new Filter<SeriesRecording>() {
-                        @Override
-                        public boolean filter(SeriesRecording r) {
-                            return r.getInputId().equals(inputId);
-                        }
-                    });
+                        new Filter<SeriesRecording>() {
+                            @Override
+                            public boolean filter(SeriesRecording r) {
+                                return r.getInputId().equals(inputId);
+                            }
+                        });
         List<RecordedProgram> movedRecordedPrograms =
                 moveElements(mRecordedPrograms, mRecordedProgramsForRemovedInput,
                         new Filter<RecordedProgram>() {
@@ -853,6 +916,15 @@ public class DvrDataManagerImpl extends BaseDvrDataManager {
         if (!movedRecordedPrograms.isEmpty()) {
             notifyRecordedProgramsRemoved(RecordedProgram.toArray(movedRecordedPrograms));
         }
+    }
+
+    private void checkAndRemoveEmptySeriesRecording(Set<Long> seriesRecordingIds) {
+        int i = 0;
+        long[] rIds = new long[seriesRecordingIds.size()];
+        for (long rId : seriesRecordingIds) {
+            rIds[i++] = rId;
+        }
+        checkAndRemoveEmptySeriesRecording(rIds);
     }
 
     @Override
@@ -899,6 +971,25 @@ public class DvrDataManagerImpl extends BaseDvrDataManager {
                 return null;
             }
         }.executeOnDbThread();
+    }
+
+    private void validateSeriesRecordings() {
+        Iterator<SeriesRecording> iter = mSeriesRecordings.values().iterator();
+        List<SeriesRecording> removedSeriesRecordings = new ArrayList<>();
+        while (iter.hasNext()) {
+            SeriesRecording r = iter.next();
+            if (isEmptySeriesRecording(r)) {
+                iter.remove();
+                removedSeriesRecordings.add(r);
+            }
+        }
+        if (!removedSeriesRecordings.isEmpty()) {
+            SeriesRecording[] removed = SeriesRecording.toArray(removedSeriesRecordings);
+            new AsyncDeleteSeriesRecordingTask(mContext).executeOnDbThread(removed);
+            if (mDvrLoadFinished) {
+                notifySeriesRecordingRemoved(removed);
+            }
+        }
     }
 
     private final class RecordedProgramsQueryTask extends AsyncRecordedProgramQueryTask {

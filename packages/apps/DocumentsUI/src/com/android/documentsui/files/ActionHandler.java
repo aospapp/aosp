@@ -34,7 +34,7 @@ import com.android.documentsui.ActionModeAddons;
 import com.android.documentsui.ActivityConfig;
 import com.android.documentsui.DocumentsAccess;
 import com.android.documentsui.DocumentsApplication;
-import com.android.documentsui.DragAndDropHelper;
+import com.android.documentsui.DragAndDropManager;
 import com.android.documentsui.Injector;
 import com.android.documentsui.Metrics;
 import com.android.documentsui.Model;
@@ -42,6 +42,7 @@ import com.android.documentsui.R;
 import com.android.documentsui.TimeoutTask;
 import com.android.documentsui.base.ConfirmationCallback;
 import com.android.documentsui.base.ConfirmationCallback.Result;
+import com.android.documentsui.base.DebugFlags;
 import com.android.documentsui.base.DocumentFilters;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.DocumentStack;
@@ -57,6 +58,7 @@ import com.android.documentsui.clipping.UrisSupplier;
 import com.android.documentsui.dirlist.AnimationView;
 import com.android.documentsui.dirlist.DocumentDetails;
 import com.android.documentsui.files.ActionHandler.Addons;
+import com.android.documentsui.inspector.InspectorActivity;
 import com.android.documentsui.queries.SearchViewManager;
 import com.android.documentsui.roots.ProvidersAccess;
 import com.android.documentsui.selection.Selection;
@@ -85,6 +87,7 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
     private final DialogController mDialogs;
     private final DocumentClipper mClipper;
     private final ClipStore mClipStore;
+    private final DragAndDropManager mDragAndDropManager;
     private final Model mModel;
 
     ActionHandler(
@@ -97,6 +100,7 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
             ActionModeAddons actionModeAddons,
             DocumentClipper clipper,
             ClipStore clipStore,
+            DragAndDropManager dragAndDropManager,
             Injector injector) {
 
         super(activity, state, providers, docs, searchMgr, executors, injector);
@@ -107,6 +111,7 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
         mDialogs = injector.dialogs;
         mClipper = clipper;
         mClipStore = clipStore;
+        mDragAndDropManager = dragAndDropManager;
         mModel = injector.getModel();
     }
 
@@ -121,21 +126,9 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
         // references to ensure they are non null.
         final ClipData clipData = event.getClipData();
         final Object localState = event.getLocalState();
-        getRootDocument(
-                root,
-                TimeoutTask.DEFAULT_TIMEOUT,
-                (DocumentInfo rootDoc) -> dropOnCallback(clipData, localState, rootDoc, root));
-        return true;
-    }
 
-    private void dropOnCallback(
-            ClipData clipData, Object localState, DocumentInfo rootDoc, RootInfo root) {
-        if (!DragAndDropHelper.canCopyTo(localState, rootDoc)) {
-            return;
-        }
-
-        mClipper.copyFromClipData(
-                root, rootDoc, clipData, mDialogs::showFileOperationStatus);
+        return mDragAndDropManager.drop(
+                clipData, localState, root, this, mDialogs::showFileOperationStatus);
     }
 
     @Override
@@ -244,6 +237,12 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
         if (selection.isEmpty()) {
             return;
         }
+
+        if (mModel.hasDocuments(selection, DocumentFilters.NOT_MOVABLE)) {
+            mDialogs.showOperationUnsupported();
+            return;
+        }
+
         mSelectionMgr.clearSelection();
 
         mClipper.clipDocumentsForCut(mModel::getItemUri, selection, mState.stack.peek());
@@ -332,7 +331,8 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
                     .withSrcParent(srcParent == null ? null : srcParent.derivedUri)
                     .build();
 
-            FileOperations.start(mActivity, operation, mDialogs::showFileOperationStatus);
+            FileOperations.start(mActivity, operation, mDialogs::showFileOperationStatus,
+                    FileOperations.createJobId());
         };
 
         mDialogs.confirmDelete(docs, result);
@@ -398,6 +398,7 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
         // previously stored state.
         if (mState.stack.isInitialized()) {
             if (DEBUG) Log.d(TAG, "Stack already resolved for uri: " + intent.getData());
+            restoreRootAndDirectory();
             return;
         }
 
@@ -453,9 +454,7 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
 
     private boolean launchToRoot(Intent intent) {
         String action = intent.getAction();
-        // TODO: Remove the "BROWSE" action once our min runtime in O.
-        if (Intent.ACTION_VIEW.equals(action)
-                || "android.provider.action.BROWSE".equals(action)) {
+        if (Intent.ACTION_VIEW.equals(action)) {
             Uri uri = intent.getData();
             if (DocumentsContract.isRootUri(mActivity, uri)) {
                 if (DEBUG) Log.d(TAG, "Launching with root URI.");
@@ -673,6 +672,18 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
         intent.setFlags(flags);
 
         return intent;
+    }
+
+    @Override
+    public void showInspector(DocumentInfo doc) {
+        Metrics.logUserAction(mActivity, Metrics.USER_ACTION_INSPECTOR);
+        Intent intent = new Intent(mActivity, InspectorActivity.class);
+        intent.putExtra(
+                Shared.EXTRA_SHOW_DEBUG,
+                mFeatures.isDebugSupportEnabled()
+                        || DebugFlags.getDocumentDetailsEnabled());
+        intent.setData(doc.derivedUri);
+        mActivity.startActivity(intent);
     }
 
     public interface Addons extends CommonAddons {

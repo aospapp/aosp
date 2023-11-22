@@ -18,7 +18,6 @@ import (
 	"android/soong/android"
 	"android/soong/cc"
 
-	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
 )
 
@@ -102,15 +101,15 @@ func init() {
 	android.RegisterModuleType("force_build_llvm_components_defaults", forceBuildLlvmComponentsDefaultsFactory)
 }
 
-func llvmDefaultsFactory() (blueprint.Module, []interface{}) {
-	module, props := cc.DefaultsFactory()
+func llvmDefaultsFactory() android.Module {
+	module := cc.DefaultsFactory()
 	android.AddLoadHook(module, llvmDefaults)
 
-	return module, props
+	return module
 }
 
-func forceBuildLlvmComponentsDefaultsFactory() (blueprint.Module, []interface{}) {
-	module, props := cc.DefaultsFactory()
+func forceBuildLlvmComponentsDefaultsFactory() android.Module {
+	module := cc.DefaultsFactory()
 	android.AddLoadHook(module, forceBuildLlvmComponents)
-	return module, props
+	return module
 }

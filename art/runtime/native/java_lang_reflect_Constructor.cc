@@ -16,6 +16,8 @@
 
 #include "java_lang_reflect_Constructor.h"
 
+#include "nativehelper/jni_macros.h"
+
 #include "art_method-inl.h"
 #include "base/enums.h"
 #include "class_linker.h"
@@ -25,6 +27,7 @@
 #include "mirror/class-inl.h"
 #include "mirror/method.h"
 #include "mirror/object-inl.h"
+#include "native_util.h"
 #include "reflection.h"
 #include "scoped_fast_native_object_access-inl.h"
 #include "well_known_classes.h"

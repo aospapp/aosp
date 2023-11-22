@@ -9,7 +9,7 @@ lunch <your lunch option>
 
 # First time you run toolchain-setup.sh it will download and install
 # the external toolchain from linaro launchpad.
-# Next time it will simply define environment wariables for it.
+# Next time it will simply define environment variables for it.
 
 
 1. NON-ANDROID BUILD (unsupported)

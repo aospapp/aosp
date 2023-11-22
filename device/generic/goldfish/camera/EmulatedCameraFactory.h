@@ -121,13 +121,13 @@ public:
     /* Gets fake camera orientation. */
     int getFakeCameraOrientation() {
         /* TODO: Have a boot property that controls that. */
-        return 90;
+        return 0;
     }
 
     /* Gets qemu camera orientation. */
     int getQemuCameraOrientation() {
         /* TODO: Have a boot property that controls that. */
-        return 90;
+        return 0;
     }
 
     /* Gets number of emulated cameras.

@@ -28,6 +28,7 @@ import android.view.ViewGroup;
 
 import com.android.documentsui.Model;
 import com.android.documentsui.base.EventListener;
+import com.android.documentsui.base.Lookup;
 import com.android.documentsui.base.State;
 import com.android.documentsui.Model.Update;
 
@@ -45,6 +46,7 @@ final class ModelBackedDocumentsAdapter extends DocumentsAdapter {
     // isn't an ideal pattern (more transitive dependency stuff) but good enough for now.
     private final Environment mEnv;
     private final IconHelper mIconHelper;  // a transitive dependency of the holders.
+    private final Lookup<String, String> mFileTypeLookup;
 
     /**
      * An ordered list of model IDs. This is the data structure that determines what shows up in
@@ -53,9 +55,11 @@ final class ModelBackedDocumentsAdapter extends DocumentsAdapter {
     private List<String> mModelIds = new ArrayList<>();
     private EventListener<Model.Update> mModelUpdateListener;
 
-    public ModelBackedDocumentsAdapter(Environment env, IconHelper iconHelper) {
+    public ModelBackedDocumentsAdapter(
+            Environment env, IconHelper iconHelper, Lookup<String, String> fileTypeLookup) {
         mEnv = env;
         mIconHelper = iconHelper;
+        mFileTypeLookup = fileTypeLookup;
 
         mModelUpdateListener = new EventListener<Model.Update>() {
             @Override
@@ -92,7 +96,8 @@ final class ModelBackedDocumentsAdapter extends DocumentsAdapter {
                 }
                 break;
             case MODE_LIST:
-                holder = new ListDocumentHolder(mEnv.getContext(), parent, mIconHelper);
+                holder = new ListDocumentHolder(
+                        mEnv.getContext(), parent, mIconHelper, mFileTypeLookup);
                 break;
             default:
                 throw new IllegalStateException("Unsupported layout mode.");
@@ -153,6 +158,11 @@ final class ModelBackedDocumentsAdapter extends DocumentsAdapter {
     @Override
     public String getModelId(int adapterPosition) {
         return mModelIds.get(adapterPosition);
+    }
+
+    @Override
+    public int getAdapterPosition(String modelId) {
+        return mModelIds.indexOf(modelId);
     }
 
     @Override

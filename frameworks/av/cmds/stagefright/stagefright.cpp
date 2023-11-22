@@ -162,7 +162,7 @@ static void dumpSource(const sp<IMediaSource> &source, const String8 &filename) 
                        1,
                        mbuf->range_length(),
                        out),
-                (ssize_t)mbuf->range_length());
+                mbuf->range_length());
 
         mbuf->release();
         mbuf = NULL;
@@ -870,7 +870,9 @@ int main(int argc, char **argv) {
 
             sp<IMemory> mem =
                     retriever->getFrameAtTime(-1,
-                                    MediaSource::ReadOptions::SEEK_PREVIOUS_SYNC);
+                            MediaSource::ReadOptions::SEEK_PREVIOUS_SYNC,
+                            HAL_PIXEL_FORMAT_RGB_565,
+                            false /*metaOnly*/);
 
             if (mem != NULL) {
                 failed = false;

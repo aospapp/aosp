@@ -20,6 +20,8 @@ import android.app.UiAutomation;
 import android.content.Context;
 import android.content.Intent;
 import android.os.ParcelFileDescriptor;
+import android.platform.test.annotations.HermeticTest;
+import android.platform.test.annotations.Presubmit;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
@@ -57,6 +59,8 @@ public class AppLinkTests extends InstrumentationTestCase {
     }
 
     // Ensures that default app link setting set to 'undefined' for 3P apps
+    @Presubmit
+    @HermeticTest
     public void testDefaultAppLinkSettting() throws InterruptedException {
         String out = getAppLink(TEST_PKG_NAME);
         assertTrue("Default app link not set to 'undefined' mode", "undefined".equals(out));
@@ -92,6 +96,8 @@ public class AppLinkTests extends InstrumentationTestCase {
     }
 
     // Ensure verified app always open even candidate but unverified app set to 'always'
+    @Presubmit
+    @HermeticTest
     public void testVerifiedAppOpenWhenNotVerifiedSetToAlways() throws InterruptedException {
         setAppLink(TEST_PKG_NAME, "always");
         setAppLink(YOUTUBE_PKG_NAME, "always");
@@ -101,6 +107,8 @@ public class AppLinkTests extends InstrumentationTestCase {
     }
 
     // Ensure verified app always open even one candidate but unverified app set to 'ask'
+    @Presubmit
+    @HermeticTest
     public void testVerifiedAppOpenWhenUnverifiedSetToAsk() throws InterruptedException {
         setAppLink(TEST_PKG_NAME, "ask");
         setAppLink(YOUTUBE_PKG_NAME, "always");
@@ -124,6 +132,8 @@ public class AppLinkTests extends InstrumentationTestCase {
 
     // Ensure unverified app always open when unverified app set to always but verified app set to
     // never
+    @Presubmit
+    @HermeticTest
     public void testTestAppSetToAlwaysVerifiedSetToNever() throws InterruptedException {
         setAppLink(TEST_PKG_NAME, "always");
         setAppLink(YOUTUBE_PKG_NAME, "never");
@@ -171,6 +181,8 @@ public class AppLinkTests extends InstrumentationTestCase {
     }
 
     // Ensure system apps that claim to open always for set to always
+    @Presubmit
+    @HermeticTest
     public void testSysappAppLinkSettings() {
         // List of system app that are set to 'Always' for certain urls
         List<String> alwaysOpenApps = new ArrayList<String>();

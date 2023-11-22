@@ -10,7 +10,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "client"
-ATTRIBUTES = "suite:platform_input, suite:bvt-perbuild"
+ATTRIBUTES = "suite:bvt-perbuild"
 
 DOC = """
 Increase, decrease, and mute the volume using keyboard shortcuts.

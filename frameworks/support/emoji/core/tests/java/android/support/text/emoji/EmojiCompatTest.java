@@ -345,6 +345,22 @@ public class EmojiCompatTest {
 
     @Test
     @SdkSuppress(minSdkVersion = 19)
+    public void testProcess_addsEmojiThatFollowsDigit() {
+        TestString string = new TestString(EMOJI_SINGLE_CODEPOINT).prepend('N', '5');
+        CharSequence charSequence = EmojiCompat.get().process(string.toString());
+        assertThat(charSequence, hasEmojiAt(EMOJI_SINGLE_CODEPOINT, string.emojiStartIndex() + 2,
+                string.emojiEndIndex()));
+        assertThat(charSequence, hasEmojiCount(1));
+
+        string = new TestString(EMOJI_WITH_ZWJ).prepend('N', '5');
+        charSequence = EmojiCompat.get().process(string.toString());
+        assertThat(charSequence, hasEmojiAt(EMOJI_WITH_ZWJ, string.emojiStartIndex() + 2,
+                string.emojiEndIndex()));
+        assertThat(charSequence, hasEmojiCount(1));
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 19)
     public void testProcess_withAppend() {
         final Editable editable = new SpannableStringBuilder(new TestString('a').withPrefix()
                 .withSuffix().toString());
@@ -643,6 +659,21 @@ public class EmojiCompatTest {
     }
 
     @Test
+    @SdkSuppress(maxSdkVersion = 18)
+    public void testGetAssetSignature() {
+        final String signature = EmojiCompat.get().getAssetSignature();
+        assertTrue(signature.isEmpty());
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 19)
+    public void testGetAssetSignature_api19() {
+        final String signature = EmojiCompat.get().getAssetSignature();
+        assertNotNull(signature);
+        assertFalse(signature.isEmpty());
+    }
+
+    @Test
     @SdkSuppress(minSdkVersion = 19)
     public void testUpdateEditorInfoAttrs_setsKeysIfInitialized() {
         final EditorInfo editorInfo = new EditorInfo();
@@ -680,8 +711,8 @@ public class EmojiCompatTest {
         verifyNoMoreInteractions(inputConnection);
 
         // try backwards delete 1 character
-        assertFalse(
-                EmojiCompat.handleDeleteSurroundingText(inputConnection, editable, 1, 0, false));
+        assertFalse(EmojiCompat.handleDeleteSurroundingText(inputConnection, editable,
+                1 /*beforeLength*/, 0 /*afterLength*/, false /*inCodePoints*/));
     }
 
     @Test

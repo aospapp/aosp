@@ -113,7 +113,7 @@ class RequestMultiplexer : public NonCopyable {
   /**
    * @return Returns the current maximal request.
    */
-  RequestType getCurrentMaximalRequest() const;
+  const RequestType& getCurrentMaximalRequest() const;
 
  private:
   //! The list of requests to track.

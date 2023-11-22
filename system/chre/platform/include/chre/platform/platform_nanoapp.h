@@ -18,6 +18,7 @@
 #define CHRE_PLATFORM_PLATFORM_NANOAPP_H_
 
 #include <cstdint>
+#include <cstddef>
 
 #include "chre/util/non_copyable.h"
 #include "chre/target_platform/platform_nanoapp_base.h"
@@ -30,11 +31,6 @@ namespace chre {
  */
 class PlatformNanoapp : public PlatformNanoappBase, public NonCopyable {
  public:
-  /**
-   * Unloads the nanoapp from memory.
-   */
-  ~PlatformNanoapp();
-
   /**
    * Calls the start function of the nanoapp. For dynamically loaded nanoapps,
    * this must also result in calling through to any of the nanoapp's static
@@ -58,12 +54,11 @@ class PlatformNanoapp : public PlatformNanoappBase, public NonCopyable {
   /**
    * Calls the nanoapp's end callback. For dynamically loaded nanoapps, this
    * must also result in calling through to any of the nanoapp's static global
-   * destructors, atexit functions, etc., after nanoappEnd returns.
+   * destructors, atexit functions, etc., after nanoappEnd returns. This is only
+   * valid to call after start() has returned true.
    *
    * This function must leave the nanoapp in a state where it can be started
    * again via start().
-   *
-   * After this function returns, the only
    *
    * @see nanoappEnd
    */
@@ -99,6 +94,31 @@ class PlatformNanoapp : public PlatformNanoappBase, public NonCopyable {
    * beneath the HAL.
    */
   bool isSystemNanoapp() const;
+
+  /**
+   * Prints state in a string buffer. Must only be called from the context of
+   * the main CHRE thread.
+   *
+   * @param buffer Pointer to the start of the buffer.
+   * @param bufferPos Pointer to buffer position to start the print (in-out).
+   * @param size Size of the buffer in bytes.
+   *
+   * @return true if entire log printed, false if overflow or error.
+   */
+  bool logStateToBuffer(char *buffer, size_t *bufferPos,
+                        size_t bufferSize) const;
+
+ protected:
+  /**
+   * PlatformNanoapp's constructor is protected, as it must only exist within
+   * the context of the derived class chre::Nanoapp.
+   */
+  PlatformNanoapp() = default;
+
+  /**
+   * Unloads the nanoapp from memory.
+   */
+  ~PlatformNanoapp();
 };
 
 }  // namespace chre

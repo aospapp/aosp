@@ -5,17 +5,18 @@
 TIME="SHORT"
 AUTHOR = "The Chromium OS Authors"
 DOC = """
-Ensures there is no files owned by chronos on the rootfs.
+Ensures there are no files owned by chronos/chronos-access on the rootfs.
 """
 NAME = "security_RootfsOwners"
-PURPOSE = "Ensures there is no files owned by chronos on the rootfs."
-CRITERIA = """
-Fail if there are any files owned by the chronos on the rootfs.
+PURPOSE = """
+Ensures there are no files owned by chronos/chronos-access on the rootfs.
 """
-ATTRIBUTES = "suite:security"
+CRITERIA = """
+Fail if there are any files owned by chronos/chronos-access on the rootfs.
+"""
+ATTRIBUTES = "suite:bvt-perbuild"
 TEST_CLASS = "security"
 TEST_CATEGORY = "Functional"
 TEST_TYPE = "client"
 
 job.run_test("security_RootfsOwners")
-

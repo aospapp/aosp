@@ -18,6 +18,7 @@ package com.android.wallpaper.livepicker;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.WallpaperColors;
 import android.app.WallpaperInfo;
 import android.app.WallpaperManager;
 import android.content.ActivityNotFoundException;
@@ -26,9 +27,11 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Resources.NotFoundException;
 import android.graphics.Rect;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -69,9 +72,9 @@ public class LiveWallpaperPreview extends Activity {
     private WallpaperManager mWallpaperManager;
     private WallpaperConnection mWallpaperConnection;
 
-    private String mSettings;
     private String mPackageName;
     private Intent mWallpaperIntent;
+    private Intent mSettingsIntent;
 
     private TextView mAttributionTitle;
     private TextView mAttributionSubtitle1;
@@ -113,14 +116,31 @@ public class LiveWallpaperPreview extends Activity {
         mSpacer = findViewById(R.id.spacer);
         mLoading = findViewById(R.id.loading);
 
-        mSettings = info.getSettingsActivity();
         mPackageName = info.getPackageName();
         mWallpaperIntent = new Intent(WallpaperService.SERVICE_INTERFACE)
                 .setClassName(info.getPackageName(), info.getServiceName());
 
-        setActionBar((Toolbar) findViewById(R.id.toolbar));
+        final String settingsActivity = info.getSettingsActivity();
+        if (settingsActivity != null) {
+            mSettingsIntent = new Intent();
+            mSettingsIntent.setComponent(new ComponentName(mPackageName, settingsActivity));
+            mSettingsIntent.putExtra(WallpaperSettingsActivity.EXTRA_PREVIEW_MODE, true);
+            final PackageManager pm = getPackageManager();
+            final ActivityInfo activityInfo = mSettingsIntent.resolveActivityInfo(pm, 0);
+            if (activityInfo == null) {
+                Log.e(LOG_TAG, "Couldn't find settings activity: " + settingsActivity);
+                mSettingsIntent = null;
+            }
+        }
+
+        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        setActionBar(toolbar);
         getActionBar().setDisplayHomeAsUpEnabled(true);
         getActionBar().setDisplayShowTitleEnabled(false);
+
+        Drawable backArrow = getResources().getDrawable(R.drawable.ic_arrow_back_white_24dp);
+        backArrow.setAutoMirrored(true);
+        toolbar.setNavigationIcon(backArrow);
 
         mWallpaperManager = WallpaperManager.getInstance(this);
         mWallpaperConnection = new WallpaperConnection(mWallpaperIntent);
@@ -246,7 +266,7 @@ public class LiveWallpaperPreview extends Activity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_preview, menu);
-        menu.findItem(R.id.configure).setVisible(mSettings != null);
+        menu.findItem(R.id.configure).setVisible(mSettingsIntent != null);
         menu.findItem(R.id.set_wallpaper).getActionView().setOnClickListener(
                 this::setLiveWallpaper);
         return super.onCreateOptionsMenu(menu);
@@ -301,10 +321,7 @@ public class LiveWallpaperPreview extends Activity {
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
         if (id == R.id.configure) {
-            Intent intent = new Intent();
-            intent.setComponent(new ComponentName(mPackageName, mSettings));
-            intent.putExtra(WallpaperSettingsActivity.EXTRA_PREVIEW_MODE, true);
-            startActivity(intent);
+            startActivity(mSettingsIntent);
             return true;
         } else if (id == R.id.set_wallpaper) {
             setLiveWallpaper(getWindow().getDecorView());
@@ -432,7 +449,12 @@ public class LiveWallpaperPreview extends Activity {
                     }
                     mEngine = null;
                 }
-                unbindService(this);
+                try {
+                    unbindService(this);
+                } catch (IllegalArgumentException e) {
+                    Log.w(LOG_TAG, "Can't unbind wallpaper service. "
+                            + "It might have crashed, just ignoring.", e);
+                }
                 mService = null;
             }
         }
@@ -478,9 +500,14 @@ public class LiveWallpaperPreview extends Activity {
                 }
             }
         }
-        
+
         public ParcelFileDescriptor setWallpaper(String name) {
             return null;
+        }
+
+        @Override
+        public void onWallpaperColorsChanged(WallpaperColors colors) throws RemoteException {
+
         }
 
         @Override

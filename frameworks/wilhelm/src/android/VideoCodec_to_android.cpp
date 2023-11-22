@@ -16,6 +16,7 @@
 
 #include "sles_allinclusive.h"
 
+#include <media/openmax/OMX_Types.h>
 #include <media/stagefright/MediaCodecList.h>
 #include <media/stagefright/MediaDefs.h>
 #include <media/stagefright/SimpleDecodingSource.h>

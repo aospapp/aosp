@@ -93,3 +93,8 @@ uint32_t initializeProtocolLogLevel() {
 
   return ScrProtocolTraceFlag;
 }
+
+void initializeGlobalAppDtaMode() {
+  appl_dta_mode_flag = 0x01;
+  ALOGD("%s: DTA Enabled", __func__);
+}

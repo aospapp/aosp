@@ -16,11 +16,9 @@
 package com.android.tradefed.command.remote;
 
 import com.android.tradefed.command.ICommandScheduler.IScheduledInvocationListener;
-import com.android.tradefed.config.Configuration;
 import com.android.tradefed.device.FreeDeviceState;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.IInvocationContext;
-import com.android.tradefed.invoker.InvocationContext;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -43,21 +41,6 @@ class ExecCommandTracker implements IScheduledInvocationListener {
         PrintStream bytePrintStream = new PrintStream(outputStream);
         cause.printStackTrace(bytePrintStream);
         mErrorDetails = outputStream.toString();
-    }
-
-    /**
-     * {@inheritDoc}
-     * @deprecated use {@link #invocationComplete(IInvocationContext, Map)} instead.
-     */
-    @Deprecated
-    @Override
-    public void invocationComplete(ITestDevice device, FreeDeviceState deviceState) {
-        IInvocationContext stubMeta = new InvocationContext();
-        stubMeta.addAllocatedDevice(Configuration.DEVICE_NAME, device);
-        // Stub metadata for compatibility
-        Map<ITestDevice, FreeDeviceState> state = new HashMap<>();
-        state.put(device, deviceState);
-        invocationComplete(stubMeta, state);
     }
 
     @Override

@@ -38,10 +38,13 @@ struct CallChainNode {
 template <typename EntryT>
 struct CallChainRoot {
   typedef CallChainNode<EntryT> NodeT;
+  // If duplicated = true, this call tree is part of another call tree.
+  // And we don't need to show it in brief callgraph report mode.
+  bool duplicated;
   uint64_t children_period;
   std::vector<std::unique_ptr<NodeT>> children;
 
-  CallChainRoot() : children_period(0) {}
+  CallChainRoot() : duplicated(false), children_period(0) {}
 
   void AddCallChain(
       const std::vector<EntryT*>& callchain, uint64_t period,

@@ -15,7 +15,6 @@ TIME='fast'
 TEST_CATEGORY = 'Performance'
 TEST_CLASS = "Performance"
 TEST_TYPE = 'client'
-JOB_RETRIES = 2
 BUG_TEMPLATE = {
     'components': ['OS>Kernel>Graphics'],
 }

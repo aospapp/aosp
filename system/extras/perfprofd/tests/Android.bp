@@ -24,6 +24,7 @@ cc_library_static {
 //
 cc_test {
     name: "perfprofd_test",
+    test_suites: ["device-tests"],
     clang: true,
 
     stl: "libc++",
@@ -39,4 +40,8 @@ cc_test {
     ],
     srcs: ["perfprofd_test.cc"],
     cppflags: perfprofd_test_cppflags,
+    data: [
+        "canned.perf.data",
+        "callchain.canned.perf.data",
+    ],
 }

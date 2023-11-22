@@ -33,6 +33,30 @@ struct LoadNanoappRequestT;
 struct LoadNanoappResponse;
 struct LoadNanoappResponseT;
 
+struct UnloadNanoappRequest;
+struct UnloadNanoappRequestT;
+
+struct UnloadNanoappResponse;
+struct UnloadNanoappResponseT;
+
+struct LogMessage;
+struct LogMessageT;
+
+struct TimeSyncMessage;
+struct TimeSyncMessageT;
+
+struct DebugDumpRequest;
+struct DebugDumpRequestT;
+
+struct DebugDumpData;
+struct DebugDumpDataT;
+
+struct DebugDumpResponse;
+struct DebugDumpResponseT;
+
+struct TimeSyncRequest;
+struct TimeSyncRequestT;
+
 struct HostAddress;
 
 struct MessageContainer;
@@ -49,8 +73,16 @@ enum class ChreMessage : uint8_t {
   NanoappListResponse = 5,
   LoadNanoappRequest = 6,
   LoadNanoappResponse = 7,
+  UnloadNanoappRequest = 8,
+  UnloadNanoappResponse = 9,
+  LogMessage = 10,
+  TimeSyncMessage = 11,
+  DebugDumpRequest = 12,
+  DebugDumpData = 13,
+  DebugDumpResponse = 14,
+  TimeSyncRequest = 15,
   MIN = NONE,
-  MAX = LoadNanoappResponse
+  MAX = TimeSyncRequest
 };
 
 inline const char **EnumNamesChreMessage() {
@@ -63,6 +95,14 @@ inline const char **EnumNamesChreMessage() {
     "NanoappListResponse",
     "LoadNanoappRequest",
     "LoadNanoappResponse",
+    "UnloadNanoappRequest",
+    "UnloadNanoappResponse",
+    "LogMessage",
+    "TimeSyncMessage",
+    "DebugDumpRequest",
+    "DebugDumpData",
+    "DebugDumpResponse",
+    "TimeSyncRequest",
     nullptr
   };
   return names;
@@ -103,6 +143,38 @@ template<> struct ChreMessageTraits<LoadNanoappRequest> {
 
 template<> struct ChreMessageTraits<LoadNanoappResponse> {
   static const ChreMessage enum_value = ChreMessage::LoadNanoappResponse;
+};
+
+template<> struct ChreMessageTraits<UnloadNanoappRequest> {
+  static const ChreMessage enum_value = ChreMessage::UnloadNanoappRequest;
+};
+
+template<> struct ChreMessageTraits<UnloadNanoappResponse> {
+  static const ChreMessage enum_value = ChreMessage::UnloadNanoappResponse;
+};
+
+template<> struct ChreMessageTraits<LogMessage> {
+  static const ChreMessage enum_value = ChreMessage::LogMessage;
+};
+
+template<> struct ChreMessageTraits<TimeSyncMessage> {
+  static const ChreMessage enum_value = ChreMessage::TimeSyncMessage;
+};
+
+template<> struct ChreMessageTraits<DebugDumpRequest> {
+  static const ChreMessage enum_value = ChreMessage::DebugDumpRequest;
+};
+
+template<> struct ChreMessageTraits<DebugDumpData> {
+  static const ChreMessage enum_value = ChreMessage::DebugDumpData;
+};
+
+template<> struct ChreMessageTraits<DebugDumpResponse> {
+  static const ChreMessage enum_value = ChreMessage::DebugDumpResponse;
+};
+
+template<> struct ChreMessageTraits<TimeSyncRequest> {
+  static const ChreMessage enum_value = ChreMessage::TimeSyncRequest;
 };
 
 struct ChreMessageUnion {
@@ -157,6 +229,38 @@ struct ChreMessageUnion {
   LoadNanoappResponseT *AsLoadNanoappResponse() {
     return type == ChreMessage::LoadNanoappResponse ?
       reinterpret_cast<LoadNanoappResponseT *>(table) : nullptr;
+  }
+  UnloadNanoappRequestT *AsUnloadNanoappRequest() {
+    return type == ChreMessage::UnloadNanoappRequest ?
+      reinterpret_cast<UnloadNanoappRequestT *>(table) : nullptr;
+  }
+  UnloadNanoappResponseT *AsUnloadNanoappResponse() {
+    return type == ChreMessage::UnloadNanoappResponse ?
+      reinterpret_cast<UnloadNanoappResponseT *>(table) : nullptr;
+  }
+  LogMessageT *AsLogMessage() {
+    return type == ChreMessage::LogMessage ?
+      reinterpret_cast<LogMessageT *>(table) : nullptr;
+  }
+  TimeSyncMessageT *AsTimeSyncMessage() {
+    return type == ChreMessage::TimeSyncMessage ?
+      reinterpret_cast<TimeSyncMessageT *>(table) : nullptr;
+  }
+  DebugDumpRequestT *AsDebugDumpRequest() {
+    return type == ChreMessage::DebugDumpRequest ?
+      reinterpret_cast<DebugDumpRequestT *>(table) : nullptr;
+  }
+  DebugDumpDataT *AsDebugDumpData() {
+    return type == ChreMessage::DebugDumpData ?
+      reinterpret_cast<DebugDumpDataT *>(table) : nullptr;
+  }
+  DebugDumpResponseT *AsDebugDumpResponse() {
+    return type == ChreMessage::DebugDumpResponse ?
+      reinterpret_cast<DebugDumpResponseT *>(table) : nullptr;
+  }
+  TimeSyncRequestT *AsTimeSyncRequest() {
+    return type == ChreMessage::TimeSyncRequest ?
+      reinterpret_cast<TimeSyncRequestT *>(table) : nullptr;
   }
 };
 
@@ -1029,6 +1133,531 @@ inline flatbuffers::Offset<LoadNanoappResponse> CreateLoadNanoappResponse(
 
 flatbuffers::Offset<LoadNanoappResponse> CreateLoadNanoappResponse(flatbuffers::FlatBufferBuilder &_fbb, const LoadNanoappResponseT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
+struct UnloadNanoappRequestT : public flatbuffers::NativeTable {
+  typedef UnloadNanoappRequest TableType;
+  uint32_t transaction_id;
+  uint64_t app_id;
+  bool allow_system_nanoapp_unload;
+  UnloadNanoappRequestT()
+      : transaction_id(0),
+        app_id(0),
+        allow_system_nanoapp_unload(false) {
+  }
+};
+
+struct UnloadNanoappRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef UnloadNanoappRequestT NativeTableType;
+  enum {
+    VT_TRANSACTION_ID = 4,
+    VT_APP_ID = 6,
+    VT_ALLOW_SYSTEM_NANOAPP_UNLOAD = 8
+  };
+  uint32_t transaction_id() const {
+    return GetField<uint32_t>(VT_TRANSACTION_ID, 0);
+  }
+  bool mutate_transaction_id(uint32_t _transaction_id) {
+    return SetField(VT_TRANSACTION_ID, _transaction_id);
+  }
+  uint64_t app_id() const {
+    return GetField<uint64_t>(VT_APP_ID, 0);
+  }
+  bool mutate_app_id(uint64_t _app_id) {
+    return SetField(VT_APP_ID, _app_id);
+  }
+  /// Set to true to allow this request to unload nanoapps identified as "system
+  /// nanoapps", i.e. ones with is_system set to true in NanoappListResponse.
+  bool allow_system_nanoapp_unload() const {
+    return GetField<uint8_t>(VT_ALLOW_SYSTEM_NANOAPP_UNLOAD, 0) != 0;
+  }
+  bool mutate_allow_system_nanoapp_unload(bool _allow_system_nanoapp_unload) {
+    return SetField(VT_ALLOW_SYSTEM_NANOAPP_UNLOAD, static_cast<uint8_t>(_allow_system_nanoapp_unload));
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_TRANSACTION_ID) &&
+           VerifyField<uint64_t>(verifier, VT_APP_ID) &&
+           VerifyField<uint8_t>(verifier, VT_ALLOW_SYSTEM_NANOAPP_UNLOAD) &&
+           verifier.EndTable();
+  }
+  UnloadNanoappRequestT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(UnloadNanoappRequestT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<UnloadNanoappRequest> Pack(flatbuffers::FlatBufferBuilder &_fbb, const UnloadNanoappRequestT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct UnloadNanoappRequestBuilder {
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_transaction_id(uint32_t transaction_id) {
+    fbb_.AddElement<uint32_t>(UnloadNanoappRequest::VT_TRANSACTION_ID, transaction_id, 0);
+  }
+  void add_app_id(uint64_t app_id) {
+    fbb_.AddElement<uint64_t>(UnloadNanoappRequest::VT_APP_ID, app_id, 0);
+  }
+  void add_allow_system_nanoapp_unload(bool allow_system_nanoapp_unload) {
+    fbb_.AddElement<uint8_t>(UnloadNanoappRequest::VT_ALLOW_SYSTEM_NANOAPP_UNLOAD, static_cast<uint8_t>(allow_system_nanoapp_unload), 0);
+  }
+  UnloadNanoappRequestBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  UnloadNanoappRequestBuilder &operator=(const UnloadNanoappRequestBuilder &);
+  flatbuffers::Offset<UnloadNanoappRequest> Finish() {
+    const auto end = fbb_.EndTable(start_, 3);
+    auto o = flatbuffers::Offset<UnloadNanoappRequest>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<UnloadNanoappRequest> CreateUnloadNanoappRequest(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t transaction_id = 0,
+    uint64_t app_id = 0,
+    bool allow_system_nanoapp_unload = false) {
+  UnloadNanoappRequestBuilder builder_(_fbb);
+  builder_.add_app_id(app_id);
+  builder_.add_transaction_id(transaction_id);
+  builder_.add_allow_system_nanoapp_unload(allow_system_nanoapp_unload);
+  return builder_.Finish();
+}
+
+flatbuffers::Offset<UnloadNanoappRequest> CreateUnloadNanoappRequest(flatbuffers::FlatBufferBuilder &_fbb, const UnloadNanoappRequestT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct UnloadNanoappResponseT : public flatbuffers::NativeTable {
+  typedef UnloadNanoappResponse TableType;
+  uint32_t transaction_id;
+  bool success;
+  UnloadNanoappResponseT()
+      : transaction_id(0),
+        success(false) {
+  }
+};
+
+struct UnloadNanoappResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef UnloadNanoappResponseT NativeTableType;
+  enum {
+    VT_TRANSACTION_ID = 4,
+    VT_SUCCESS = 6
+  };
+  uint32_t transaction_id() const {
+    return GetField<uint32_t>(VT_TRANSACTION_ID, 0);
+  }
+  bool mutate_transaction_id(uint32_t _transaction_id) {
+    return SetField(VT_TRANSACTION_ID, _transaction_id);
+  }
+  bool success() const {
+    return GetField<uint8_t>(VT_SUCCESS, 0) != 0;
+  }
+  bool mutate_success(bool _success) {
+    return SetField(VT_SUCCESS, static_cast<uint8_t>(_success));
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_TRANSACTION_ID) &&
+           VerifyField<uint8_t>(verifier, VT_SUCCESS) &&
+           verifier.EndTable();
+  }
+  UnloadNanoappResponseT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(UnloadNanoappResponseT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<UnloadNanoappResponse> Pack(flatbuffers::FlatBufferBuilder &_fbb, const UnloadNanoappResponseT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct UnloadNanoappResponseBuilder {
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_transaction_id(uint32_t transaction_id) {
+    fbb_.AddElement<uint32_t>(UnloadNanoappResponse::VT_TRANSACTION_ID, transaction_id, 0);
+  }
+  void add_success(bool success) {
+    fbb_.AddElement<uint8_t>(UnloadNanoappResponse::VT_SUCCESS, static_cast<uint8_t>(success), 0);
+  }
+  UnloadNanoappResponseBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  UnloadNanoappResponseBuilder &operator=(const UnloadNanoappResponseBuilder &);
+  flatbuffers::Offset<UnloadNanoappResponse> Finish() {
+    const auto end = fbb_.EndTable(start_, 2);
+    auto o = flatbuffers::Offset<UnloadNanoappResponse>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<UnloadNanoappResponse> CreateUnloadNanoappResponse(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t transaction_id = 0,
+    bool success = false) {
+  UnloadNanoappResponseBuilder builder_(_fbb);
+  builder_.add_transaction_id(transaction_id);
+  builder_.add_success(success);
+  return builder_.Finish();
+}
+
+flatbuffers::Offset<UnloadNanoappResponse> CreateUnloadNanoappResponse(flatbuffers::FlatBufferBuilder &_fbb, const UnloadNanoappResponseT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct LogMessageT : public flatbuffers::NativeTable {
+  typedef LogMessage TableType;
+  std::vector<int8_t> buffer;
+  LogMessageT() {
+  }
+};
+
+/// Represents log messages from CHRE.
+struct LogMessage FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef LogMessageT NativeTableType;
+  enum {
+    VT_BUFFER = 4
+  };
+  /// A buffer containing formatted log data. A flat array is used here to avoid
+  /// overhead in serializing and deserializing. The format is as follows:
+  ///
+  /// uint8_t                 - log level (1 = error, 2 = warning,
+  ///                                      3 = info, 4 = debug)
+  /// uint64_t, little-endian - timestamp in nanoseconds
+  /// char[]                  - message to log
+  /// char, \0                - null-terminator
+  ///
+  /// This pattern repeats until the end of the buffer for multiple log
+  /// messages. The last byte will always be a null-terminator. There are no
+  /// padding bytes between these fields. Treat this like a packed struct and be
+  /// cautious with unaligned access when reading/writing this buffer.
+  const flatbuffers::Vector<int8_t> *buffer() const {
+    return GetPointer<const flatbuffers::Vector<int8_t> *>(VT_BUFFER);
+  }
+  flatbuffers::Vector<int8_t> *mutable_buffer() {
+    return GetPointer<flatbuffers::Vector<int8_t> *>(VT_BUFFER);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<flatbuffers::uoffset_t>(verifier, VT_BUFFER) &&
+           verifier.Verify(buffer()) &&
+           verifier.EndTable();
+  }
+  LogMessageT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(LogMessageT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<LogMessage> Pack(flatbuffers::FlatBufferBuilder &_fbb, const LogMessageT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct LogMessageBuilder {
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_buffer(flatbuffers::Offset<flatbuffers::Vector<int8_t>> buffer) {
+    fbb_.AddOffset(LogMessage::VT_BUFFER, buffer);
+  }
+  LogMessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  LogMessageBuilder &operator=(const LogMessageBuilder &);
+  flatbuffers::Offset<LogMessage> Finish() {
+    const auto end = fbb_.EndTable(start_, 1);
+    auto o = flatbuffers::Offset<LogMessage>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<LogMessage> CreateLogMessage(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::Vector<int8_t>> buffer = 0) {
+  LogMessageBuilder builder_(_fbb);
+  builder_.add_buffer(buffer);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<LogMessage> CreateLogMessageDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<int8_t> *buffer = nullptr) {
+  return chre::fbs::CreateLogMessage(
+      _fbb,
+      buffer ? _fbb.CreateVector<int8_t>(*buffer) : 0);
+}
+
+flatbuffers::Offset<LogMessage> CreateLogMessage(flatbuffers::FlatBufferBuilder &_fbb, const LogMessageT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct TimeSyncMessageT : public flatbuffers::NativeTable {
+  typedef TimeSyncMessage TableType;
+  int64_t offset;
+  TimeSyncMessageT()
+      : offset(0) {
+  }
+};
+
+/// Represents a message sent to CHRE to indicate AP timestamp for time sync
+struct TimeSyncMessage FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef TimeSyncMessageT NativeTableType;
+  enum {
+    VT_OFFSET = 4
+  };
+  /// Offset between AP and CHRE timestamp
+  int64_t offset() const {
+    return GetField<int64_t>(VT_OFFSET, 0);
+  }
+  bool mutate_offset(int64_t _offset) {
+    return SetField(VT_OFFSET, _offset);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int64_t>(verifier, VT_OFFSET) &&
+           verifier.EndTable();
+  }
+  TimeSyncMessageT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(TimeSyncMessageT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<TimeSyncMessage> Pack(flatbuffers::FlatBufferBuilder &_fbb, const TimeSyncMessageT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct TimeSyncMessageBuilder {
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_offset(int64_t offset) {
+    fbb_.AddElement<int64_t>(TimeSyncMessage::VT_OFFSET, offset, 0);
+  }
+  TimeSyncMessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  TimeSyncMessageBuilder &operator=(const TimeSyncMessageBuilder &);
+  flatbuffers::Offset<TimeSyncMessage> Finish() {
+    const auto end = fbb_.EndTable(start_, 1);
+    auto o = flatbuffers::Offset<TimeSyncMessage>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<TimeSyncMessage> CreateTimeSyncMessage(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    int64_t offset = 0) {
+  TimeSyncMessageBuilder builder_(_fbb);
+  builder_.add_offset(offset);
+  return builder_.Finish();
+}
+
+flatbuffers::Offset<TimeSyncMessage> CreateTimeSyncMessage(flatbuffers::FlatBufferBuilder &_fbb, const TimeSyncMessageT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct DebugDumpRequestT : public flatbuffers::NativeTable {
+  typedef DebugDumpRequest TableType;
+  DebugDumpRequestT() {
+  }
+};
+
+/// A request to gather and return debugging information. Only one debug dump
+/// session can be active at a time. Upon accepting a request, zero or more
+/// DebugDumpData messages are generated, followed by a DebugDumpResponse
+/// indicating the completion of the operation.
+struct DebugDumpRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef DebugDumpRequestT NativeTableType;
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+  DebugDumpRequestT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(DebugDumpRequestT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<DebugDumpRequest> Pack(flatbuffers::FlatBufferBuilder &_fbb, const DebugDumpRequestT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct DebugDumpRequestBuilder {
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  DebugDumpRequestBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  DebugDumpRequestBuilder &operator=(const DebugDumpRequestBuilder &);
+  flatbuffers::Offset<DebugDumpRequest> Finish() {
+    const auto end = fbb_.EndTable(start_, 0);
+    auto o = flatbuffers::Offset<DebugDumpRequest>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<DebugDumpRequest> CreateDebugDumpRequest(
+    flatbuffers::FlatBufferBuilder &_fbb) {
+  DebugDumpRequestBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+flatbuffers::Offset<DebugDumpRequest> CreateDebugDumpRequest(flatbuffers::FlatBufferBuilder &_fbb, const DebugDumpRequestT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct DebugDumpDataT : public flatbuffers::NativeTable {
+  typedef DebugDumpData TableType;
+  std::vector<int8_t> debug_str;
+  DebugDumpDataT() {
+  }
+};
+
+struct DebugDumpData FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef DebugDumpDataT NativeTableType;
+  enum {
+    VT_DEBUG_STR = 4
+  };
+  /// Null-terminated ASCII string containing debugging information
+  const flatbuffers::Vector<int8_t> *debug_str() const {
+    return GetPointer<const flatbuffers::Vector<int8_t> *>(VT_DEBUG_STR);
+  }
+  flatbuffers::Vector<int8_t> *mutable_debug_str() {
+    return GetPointer<flatbuffers::Vector<int8_t> *>(VT_DEBUG_STR);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<flatbuffers::uoffset_t>(verifier, VT_DEBUG_STR) &&
+           verifier.Verify(debug_str()) &&
+           verifier.EndTable();
+  }
+  DebugDumpDataT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(DebugDumpDataT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<DebugDumpData> Pack(flatbuffers::FlatBufferBuilder &_fbb, const DebugDumpDataT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct DebugDumpDataBuilder {
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_debug_str(flatbuffers::Offset<flatbuffers::Vector<int8_t>> debug_str) {
+    fbb_.AddOffset(DebugDumpData::VT_DEBUG_STR, debug_str);
+  }
+  DebugDumpDataBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  DebugDumpDataBuilder &operator=(const DebugDumpDataBuilder &);
+  flatbuffers::Offset<DebugDumpData> Finish() {
+    const auto end = fbb_.EndTable(start_, 1);
+    auto o = flatbuffers::Offset<DebugDumpData>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<DebugDumpData> CreateDebugDumpData(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::Vector<int8_t>> debug_str = 0) {
+  DebugDumpDataBuilder builder_(_fbb);
+  builder_.add_debug_str(debug_str);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<DebugDumpData> CreateDebugDumpDataDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<int8_t> *debug_str = nullptr) {
+  return chre::fbs::CreateDebugDumpData(
+      _fbb,
+      debug_str ? _fbb.CreateVector<int8_t>(*debug_str) : 0);
+}
+
+flatbuffers::Offset<DebugDumpData> CreateDebugDumpData(flatbuffers::FlatBufferBuilder &_fbb, const DebugDumpDataT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct DebugDumpResponseT : public flatbuffers::NativeTable {
+  typedef DebugDumpResponse TableType;
+  bool success;
+  uint32_t data_count;
+  DebugDumpResponseT()
+      : success(false),
+        data_count(0) {
+  }
+};
+
+struct DebugDumpResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef DebugDumpResponseT NativeTableType;
+  enum {
+    VT_SUCCESS = 4,
+    VT_DATA_COUNT = 6
+  };
+  /// true if the request was accepted and a dump was performed, false if it was
+  /// rejected or failed to complete for some reason
+  bool success() const {
+    return GetField<uint8_t>(VT_SUCCESS, 0) != 0;
+  }
+  bool mutate_success(bool _success) {
+    return SetField(VT_SUCCESS, static_cast<uint8_t>(_success));
+  }
+  /// The number of DebugDumpData messages sent in this session
+  uint32_t data_count() const {
+    return GetField<uint32_t>(VT_DATA_COUNT, 0);
+  }
+  bool mutate_data_count(uint32_t _data_count) {
+    return SetField(VT_DATA_COUNT, _data_count);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_SUCCESS) &&
+           VerifyField<uint32_t>(verifier, VT_DATA_COUNT) &&
+           verifier.EndTable();
+  }
+  DebugDumpResponseT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(DebugDumpResponseT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<DebugDumpResponse> Pack(flatbuffers::FlatBufferBuilder &_fbb, const DebugDumpResponseT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct DebugDumpResponseBuilder {
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_success(bool success) {
+    fbb_.AddElement<uint8_t>(DebugDumpResponse::VT_SUCCESS, static_cast<uint8_t>(success), 0);
+  }
+  void add_data_count(uint32_t data_count) {
+    fbb_.AddElement<uint32_t>(DebugDumpResponse::VT_DATA_COUNT, data_count, 0);
+  }
+  DebugDumpResponseBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  DebugDumpResponseBuilder &operator=(const DebugDumpResponseBuilder &);
+  flatbuffers::Offset<DebugDumpResponse> Finish() {
+    const auto end = fbb_.EndTable(start_, 2);
+    auto o = flatbuffers::Offset<DebugDumpResponse>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<DebugDumpResponse> CreateDebugDumpResponse(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    bool success = false,
+    uint32_t data_count = 0) {
+  DebugDumpResponseBuilder builder_(_fbb);
+  builder_.add_data_count(data_count);
+  builder_.add_success(success);
+  return builder_.Finish();
+}
+
+flatbuffers::Offset<DebugDumpResponse> CreateDebugDumpResponse(flatbuffers::FlatBufferBuilder &_fbb, const DebugDumpResponseT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct TimeSyncRequestT : public flatbuffers::NativeTable {
+  typedef TimeSyncRequest TableType;
+  TimeSyncRequestT() {
+  }
+};
+
+/// A request from CHRE for host to initiate a time sync message
+struct TimeSyncRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef TimeSyncRequestT NativeTableType;
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+  TimeSyncRequestT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(TimeSyncRequestT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<TimeSyncRequest> Pack(flatbuffers::FlatBufferBuilder &_fbb, const TimeSyncRequestT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct TimeSyncRequestBuilder {
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  TimeSyncRequestBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  TimeSyncRequestBuilder &operator=(const TimeSyncRequestBuilder &);
+  flatbuffers::Offset<TimeSyncRequest> Finish() {
+    const auto end = fbb_.EndTable(start_, 0);
+    auto o = flatbuffers::Offset<TimeSyncRequest>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<TimeSyncRequest> CreateTimeSyncRequest(
+    flatbuffers::FlatBufferBuilder &_fbb) {
+  TimeSyncRequestBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+flatbuffers::Offset<TimeSyncRequest> CreateTimeSyncRequest(flatbuffers::FlatBufferBuilder &_fbb, const TimeSyncRequestT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
 struct MessageContainerT : public flatbuffers::NativeTable {
   typedef MessageContainer TableType;
   ChreMessageUnion message;
@@ -1038,8 +1667,8 @@ struct MessageContainerT : public flatbuffers::NativeTable {
 };
 
 /// The top-level container that encapsulates all possible messages. Note that
-/// per FlatBuffers requirements, we can't use a union as the top-level structure
-/// (root type), so we must wrap it in a table.
+/// per FlatBuffers requirements, we can't use a union as the top-level
+/// structure (root type), so we must wrap it in a table.
 struct MessageContainer FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef MessageContainerT NativeTableType;
   enum {
@@ -1384,6 +2013,212 @@ inline flatbuffers::Offset<LoadNanoappResponse> CreateLoadNanoappResponse(flatbu
       _success);
 }
 
+inline UnloadNanoappRequestT *UnloadNanoappRequest::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = new UnloadNanoappRequestT();
+  UnPackTo(_o, _resolver);
+  return _o;
+}
+
+inline void UnloadNanoappRequest::UnPackTo(UnloadNanoappRequestT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = transaction_id(); _o->transaction_id = _e; };
+  { auto _e = app_id(); _o->app_id = _e; };
+  { auto _e = allow_system_nanoapp_unload(); _o->allow_system_nanoapp_unload = _e; };
+}
+
+inline flatbuffers::Offset<UnloadNanoappRequest> UnloadNanoappRequest::Pack(flatbuffers::FlatBufferBuilder &_fbb, const UnloadNanoappRequestT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateUnloadNanoappRequest(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<UnloadNanoappRequest> CreateUnloadNanoappRequest(flatbuffers::FlatBufferBuilder &_fbb, const UnloadNanoappRequestT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  auto _transaction_id = _o->transaction_id;
+  auto _app_id = _o->app_id;
+  auto _allow_system_nanoapp_unload = _o->allow_system_nanoapp_unload;
+  return chre::fbs::CreateUnloadNanoappRequest(
+      _fbb,
+      _transaction_id,
+      _app_id,
+      _allow_system_nanoapp_unload);
+}
+
+inline UnloadNanoappResponseT *UnloadNanoappResponse::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = new UnloadNanoappResponseT();
+  UnPackTo(_o, _resolver);
+  return _o;
+}
+
+inline void UnloadNanoappResponse::UnPackTo(UnloadNanoappResponseT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = transaction_id(); _o->transaction_id = _e; };
+  { auto _e = success(); _o->success = _e; };
+}
+
+inline flatbuffers::Offset<UnloadNanoappResponse> UnloadNanoappResponse::Pack(flatbuffers::FlatBufferBuilder &_fbb, const UnloadNanoappResponseT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateUnloadNanoappResponse(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<UnloadNanoappResponse> CreateUnloadNanoappResponse(flatbuffers::FlatBufferBuilder &_fbb, const UnloadNanoappResponseT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  auto _transaction_id = _o->transaction_id;
+  auto _success = _o->success;
+  return chre::fbs::CreateUnloadNanoappResponse(
+      _fbb,
+      _transaction_id,
+      _success);
+}
+
+inline LogMessageT *LogMessage::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = new LogMessageT();
+  UnPackTo(_o, _resolver);
+  return _o;
+}
+
+inline void LogMessage::UnPackTo(LogMessageT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = buffer(); if (_e) for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->buffer.push_back(_e->Get(_i)); } };
+}
+
+inline flatbuffers::Offset<LogMessage> LogMessage::Pack(flatbuffers::FlatBufferBuilder &_fbb, const LogMessageT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateLogMessage(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<LogMessage> CreateLogMessage(flatbuffers::FlatBufferBuilder &_fbb, const LogMessageT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  auto _buffer = _o->buffer.size() ? _fbb.CreateVector(_o->buffer) : 0;
+  return chre::fbs::CreateLogMessage(
+      _fbb,
+      _buffer);
+}
+
+inline TimeSyncMessageT *TimeSyncMessage::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = new TimeSyncMessageT();
+  UnPackTo(_o, _resolver);
+  return _o;
+}
+
+inline void TimeSyncMessage::UnPackTo(TimeSyncMessageT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = offset(); _o->offset = _e; };
+}
+
+inline flatbuffers::Offset<TimeSyncMessage> TimeSyncMessage::Pack(flatbuffers::FlatBufferBuilder &_fbb, const TimeSyncMessageT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateTimeSyncMessage(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<TimeSyncMessage> CreateTimeSyncMessage(flatbuffers::FlatBufferBuilder &_fbb, const TimeSyncMessageT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  auto _offset = _o->offset;
+  return chre::fbs::CreateTimeSyncMessage(
+      _fbb,
+      _offset);
+}
+
+inline DebugDumpRequestT *DebugDumpRequest::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = new DebugDumpRequestT();
+  UnPackTo(_o, _resolver);
+  return _o;
+}
+
+inline void DebugDumpRequest::UnPackTo(DebugDumpRequestT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+}
+
+inline flatbuffers::Offset<DebugDumpRequest> DebugDumpRequest::Pack(flatbuffers::FlatBufferBuilder &_fbb, const DebugDumpRequestT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateDebugDumpRequest(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<DebugDumpRequest> CreateDebugDumpRequest(flatbuffers::FlatBufferBuilder &_fbb, const DebugDumpRequestT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  return chre::fbs::CreateDebugDumpRequest(
+      _fbb);
+}
+
+inline DebugDumpDataT *DebugDumpData::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = new DebugDumpDataT();
+  UnPackTo(_o, _resolver);
+  return _o;
+}
+
+inline void DebugDumpData::UnPackTo(DebugDumpDataT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = debug_str(); if (_e) for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->debug_str.push_back(_e->Get(_i)); } };
+}
+
+inline flatbuffers::Offset<DebugDumpData> DebugDumpData::Pack(flatbuffers::FlatBufferBuilder &_fbb, const DebugDumpDataT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateDebugDumpData(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<DebugDumpData> CreateDebugDumpData(flatbuffers::FlatBufferBuilder &_fbb, const DebugDumpDataT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  auto _debug_str = _o->debug_str.size() ? _fbb.CreateVector(_o->debug_str) : 0;
+  return chre::fbs::CreateDebugDumpData(
+      _fbb,
+      _debug_str);
+}
+
+inline DebugDumpResponseT *DebugDumpResponse::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = new DebugDumpResponseT();
+  UnPackTo(_o, _resolver);
+  return _o;
+}
+
+inline void DebugDumpResponse::UnPackTo(DebugDumpResponseT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = success(); _o->success = _e; };
+  { auto _e = data_count(); _o->data_count = _e; };
+}
+
+inline flatbuffers::Offset<DebugDumpResponse> DebugDumpResponse::Pack(flatbuffers::FlatBufferBuilder &_fbb, const DebugDumpResponseT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateDebugDumpResponse(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<DebugDumpResponse> CreateDebugDumpResponse(flatbuffers::FlatBufferBuilder &_fbb, const DebugDumpResponseT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  auto _success = _o->success;
+  auto _data_count = _o->data_count;
+  return chre::fbs::CreateDebugDumpResponse(
+      _fbb,
+      _success,
+      _data_count);
+}
+
+inline TimeSyncRequestT *TimeSyncRequest::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = new TimeSyncRequestT();
+  UnPackTo(_o, _resolver);
+  return _o;
+}
+
+inline void TimeSyncRequest::UnPackTo(TimeSyncRequestT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+}
+
+inline flatbuffers::Offset<TimeSyncRequest> TimeSyncRequest::Pack(flatbuffers::FlatBufferBuilder &_fbb, const TimeSyncRequestT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateTimeSyncRequest(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<TimeSyncRequest> CreateTimeSyncRequest(flatbuffers::FlatBufferBuilder &_fbb, const TimeSyncRequestT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  return chre::fbs::CreateTimeSyncRequest(
+      _fbb);
+}
+
 inline MessageContainerT *MessageContainer::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
   auto _o = new MessageContainerT();
   UnPackTo(_o, _resolver);
@@ -1448,6 +2283,38 @@ inline bool VerifyChreMessage(flatbuffers::Verifier &verifier, const void *obj, 
       auto ptr = reinterpret_cast<const LoadNanoappResponse *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case ChreMessage::UnloadNanoappRequest: {
+      auto ptr = reinterpret_cast<const UnloadNanoappRequest *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ChreMessage::UnloadNanoappResponse: {
+      auto ptr = reinterpret_cast<const UnloadNanoappResponse *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ChreMessage::LogMessage: {
+      auto ptr = reinterpret_cast<const LogMessage *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ChreMessage::TimeSyncMessage: {
+      auto ptr = reinterpret_cast<const TimeSyncMessage *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ChreMessage::DebugDumpRequest: {
+      auto ptr = reinterpret_cast<const DebugDumpRequest *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ChreMessage::DebugDumpData: {
+      auto ptr = reinterpret_cast<const DebugDumpData *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ChreMessage::DebugDumpResponse: {
+      auto ptr = reinterpret_cast<const DebugDumpResponse *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ChreMessage::TimeSyncRequest: {
+      auto ptr = reinterpret_cast<const TimeSyncRequest *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     default: return false;
   }
 }
@@ -1493,6 +2360,38 @@ inline flatbuffers::NativeTable *ChreMessageUnion::UnPack(const void *obj, ChreM
       auto ptr = reinterpret_cast<const LoadNanoappResponse *>(obj);
       return ptr->UnPack(resolver);
     }
+    case ChreMessage::UnloadNanoappRequest: {
+      auto ptr = reinterpret_cast<const UnloadNanoappRequest *>(obj);
+      return ptr->UnPack(resolver);
+    }
+    case ChreMessage::UnloadNanoappResponse: {
+      auto ptr = reinterpret_cast<const UnloadNanoappResponse *>(obj);
+      return ptr->UnPack(resolver);
+    }
+    case ChreMessage::LogMessage: {
+      auto ptr = reinterpret_cast<const LogMessage *>(obj);
+      return ptr->UnPack(resolver);
+    }
+    case ChreMessage::TimeSyncMessage: {
+      auto ptr = reinterpret_cast<const TimeSyncMessage *>(obj);
+      return ptr->UnPack(resolver);
+    }
+    case ChreMessage::DebugDumpRequest: {
+      auto ptr = reinterpret_cast<const DebugDumpRequest *>(obj);
+      return ptr->UnPack(resolver);
+    }
+    case ChreMessage::DebugDumpData: {
+      auto ptr = reinterpret_cast<const DebugDumpData *>(obj);
+      return ptr->UnPack(resolver);
+    }
+    case ChreMessage::DebugDumpResponse: {
+      auto ptr = reinterpret_cast<const DebugDumpResponse *>(obj);
+      return ptr->UnPack(resolver);
+    }
+    case ChreMessage::TimeSyncRequest: {
+      auto ptr = reinterpret_cast<const TimeSyncRequest *>(obj);
+      return ptr->UnPack(resolver);
+    }
     default: return nullptr;
   }
 }
@@ -1526,6 +2425,38 @@ inline flatbuffers::Offset<void> ChreMessageUnion::Pack(flatbuffers::FlatBufferB
     case ChreMessage::LoadNanoappResponse: {
       auto ptr = reinterpret_cast<const LoadNanoappResponseT *>(table);
       return CreateLoadNanoappResponse(_fbb, ptr, _rehasher).Union();
+    }
+    case ChreMessage::UnloadNanoappRequest: {
+      auto ptr = reinterpret_cast<const UnloadNanoappRequestT *>(table);
+      return CreateUnloadNanoappRequest(_fbb, ptr, _rehasher).Union();
+    }
+    case ChreMessage::UnloadNanoappResponse: {
+      auto ptr = reinterpret_cast<const UnloadNanoappResponseT *>(table);
+      return CreateUnloadNanoappResponse(_fbb, ptr, _rehasher).Union();
+    }
+    case ChreMessage::LogMessage: {
+      auto ptr = reinterpret_cast<const LogMessageT *>(table);
+      return CreateLogMessage(_fbb, ptr, _rehasher).Union();
+    }
+    case ChreMessage::TimeSyncMessage: {
+      auto ptr = reinterpret_cast<const TimeSyncMessageT *>(table);
+      return CreateTimeSyncMessage(_fbb, ptr, _rehasher).Union();
+    }
+    case ChreMessage::DebugDumpRequest: {
+      auto ptr = reinterpret_cast<const DebugDumpRequestT *>(table);
+      return CreateDebugDumpRequest(_fbb, ptr, _rehasher).Union();
+    }
+    case ChreMessage::DebugDumpData: {
+      auto ptr = reinterpret_cast<const DebugDumpDataT *>(table);
+      return CreateDebugDumpData(_fbb, ptr, _rehasher).Union();
+    }
+    case ChreMessage::DebugDumpResponse: {
+      auto ptr = reinterpret_cast<const DebugDumpResponseT *>(table);
+      return CreateDebugDumpResponse(_fbb, ptr, _rehasher).Union();
+    }
+    case ChreMessage::TimeSyncRequest: {
+      auto ptr = reinterpret_cast<const TimeSyncRequestT *>(table);
+      return CreateTimeSyncRequest(_fbb, ptr, _rehasher).Union();
     }
     default: return 0;
   }
@@ -1565,6 +2496,46 @@ inline void ChreMessageUnion::Reset() {
     }
     case ChreMessage::LoadNanoappResponse: {
       auto ptr = reinterpret_cast<LoadNanoappResponseT *>(table);
+      delete ptr;
+      break;
+    }
+    case ChreMessage::UnloadNanoappRequest: {
+      auto ptr = reinterpret_cast<UnloadNanoappRequestT *>(table);
+      delete ptr;
+      break;
+    }
+    case ChreMessage::UnloadNanoappResponse: {
+      auto ptr = reinterpret_cast<UnloadNanoappResponseT *>(table);
+      delete ptr;
+      break;
+    }
+    case ChreMessage::LogMessage: {
+      auto ptr = reinterpret_cast<LogMessageT *>(table);
+      delete ptr;
+      break;
+    }
+    case ChreMessage::TimeSyncMessage: {
+      auto ptr = reinterpret_cast<TimeSyncMessageT *>(table);
+      delete ptr;
+      break;
+    }
+    case ChreMessage::DebugDumpRequest: {
+      auto ptr = reinterpret_cast<DebugDumpRequestT *>(table);
+      delete ptr;
+      break;
+    }
+    case ChreMessage::DebugDumpData: {
+      auto ptr = reinterpret_cast<DebugDumpDataT *>(table);
+      delete ptr;
+      break;
+    }
+    case ChreMessage::DebugDumpResponse: {
+      auto ptr = reinterpret_cast<DebugDumpResponseT *>(table);
+      delete ptr;
+      break;
+    }
+    case ChreMessage::TimeSyncRequest: {
+      auto ptr = reinterpret_cast<TimeSyncRequestT *>(table);
       delete ptr;
       break;
     }

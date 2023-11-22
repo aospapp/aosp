@@ -25,6 +25,7 @@
 #include "base/arena_containers.h"
 #include "base/enums.h"
 #include "base/macros.h"
+#include "base/stl_util_identity.h"
 #include "constants_mips64.h"
 #include "globals.h"
 #include "managed_register_mips64.h"
@@ -278,14 +279,16 @@ enum LoadOperandType {
   kLoadUnsignedHalfword,
   kLoadWord,
   kLoadUnsignedWord,
-  kLoadDoubleword
+  kLoadDoubleword,
+  kLoadQuadword
 };
 
 enum StoreOperandType {
   kStoreByte,
   kStoreHalfword,
   kStoreWord,
-  kStoreDoubleword
+  kStoreDoubleword,
+  kStoreQuadword
 };
 
 // Used to test the values returned by ClassS/ClassD.
@@ -682,6 +685,42 @@ class Mips64Assembler FINAL : public Assembler, public JNIMacroAssembler<Pointer
   void Mod_uH(VectorRegister wd, VectorRegister ws, VectorRegister wt);
   void Mod_uW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
   void Mod_uD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Add_aB(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Add_aH(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Add_aW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Add_aD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Ave_sB(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Ave_sH(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Ave_sW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Ave_sD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Ave_uB(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Ave_uH(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Ave_uW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Ave_uD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Aver_sB(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Aver_sH(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Aver_sW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Aver_sD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Aver_uB(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Aver_uH(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Aver_uW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Aver_uD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Max_sB(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Max_sH(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Max_sW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Max_sD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Max_uB(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Max_uH(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Max_uW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Max_uD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Min_sB(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Min_sH(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Min_sW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Min_sD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Min_uB(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Min_uH(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Min_uW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void Min_uD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
 
   void FaddW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
   void FaddD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
@@ -691,6 +730,10 @@ class Mips64Assembler FINAL : public Assembler, public JNIMacroAssembler<Pointer
   void FmulD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
   void FdivW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
   void FdivD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void FmaxW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void FmaxD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void FminW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void FminD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
 
   void Ffint_sW(VectorRegister wd, VectorRegister ws);
   void Ffint_sD(VectorRegister wd, VectorRegister ws);
@@ -746,6 +789,14 @@ class Mips64Assembler FINAL : public Assembler, public JNIMacroAssembler<Pointer
   void StH(VectorRegister wd, GpuRegister rs, int offset);
   void StW(VectorRegister wd, GpuRegister rs, int offset);
   void StD(VectorRegister wd, GpuRegister rs, int offset);
+
+  void IlvrB(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void IlvrH(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void IlvrW(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+  void IlvrD(VectorRegister wd, VectorRegister ws, VectorRegister wt);
+
+  // Helper for replicating floating point value in all destination elements.
+  void ReplicateFPToVectorRegister(VectorRegister dst, FpuRegister src, bool is_double);
 
   // Higher level composite instructions.
   int InstrCountForLoadReplicatedConst32(int64_t);
@@ -876,6 +927,10 @@ class Mips64Assembler FINAL : public Assembler, public JNIMacroAssembler<Pointer
 
   void EmitLoad(ManagedRegister m_dst, GpuRegister src_register, int32_t src_offset, size_t size);
   void AdjustBaseAndOffset(GpuRegister& base, int32_t& offset, bool is_doubleword);
+  // If element_size_shift is negative at entry, its value will be calculated based on the offset.
+  void AdjustBaseOffsetAndElementSizeShift(GpuRegister& base,
+                                           int32_t& offset,
+                                           int& element_size_shift);
 
  private:
   // This will be used as an argument for loads/stores
@@ -999,6 +1054,8 @@ class Mips64Assembler FINAL : public Assembler, public JNIMacroAssembler<Pointer
           null_checker();
         }
         break;
+      default:
+        LOG(FATAL) << "UNREACHABLE";
     }
     if (type != kLoadDoubleword) {
       null_checker();
@@ -1011,7 +1068,12 @@ class Mips64Assembler FINAL : public Assembler, public JNIMacroAssembler<Pointer
                          GpuRegister base,
                          int32_t offset,
                          ImplicitNullChecker null_checker = NoImplicitNullChecker()) {
-    AdjustBaseAndOffset(base, offset, /* is_doubleword */ (type == kLoadDoubleword));
+    int element_size_shift = -1;
+    if (type != kLoadQuadword) {
+      AdjustBaseAndOffset(base, offset, /* is_doubleword */ (type == kLoadDoubleword));
+    } else {
+      AdjustBaseOffsetAndElementSizeShift(base, offset, element_size_shift);
+    }
 
     switch (type) {
       case kLoadWord:
@@ -1030,6 +1092,17 @@ class Mips64Assembler FINAL : public Assembler, public JNIMacroAssembler<Pointer
           Ldc1(reg, base, offset);
           null_checker();
         }
+        break;
+      case kLoadQuadword:
+        switch (element_size_shift) {
+          case TIMES_1: LdB(static_cast<VectorRegister>(reg), base, offset); break;
+          case TIMES_2: LdH(static_cast<VectorRegister>(reg), base, offset); break;
+          case TIMES_4: LdW(static_cast<VectorRegister>(reg), base, offset); break;
+          case TIMES_8: LdD(static_cast<VectorRegister>(reg), base, offset); break;
+          default:
+            LOG(FATAL) << "UNREACHABLE";
+        }
+        null_checker();
         break;
       default:
         LOG(FATAL) << "UNREACHABLE";
@@ -1084,7 +1157,12 @@ class Mips64Assembler FINAL : public Assembler, public JNIMacroAssembler<Pointer
                         GpuRegister base,
                         int32_t offset,
                         ImplicitNullChecker null_checker = NoImplicitNullChecker()) {
-    AdjustBaseAndOffset(base, offset, /* is_doubleword */ (type == kStoreDoubleword));
+    int element_size_shift = -1;
+    if (type != kStoreQuadword) {
+      AdjustBaseAndOffset(base, offset, /* is_doubleword */ (type == kStoreDoubleword));
+    } else {
+      AdjustBaseOffsetAndElementSizeShift(base, offset, element_size_shift);
+    }
 
     switch (type) {
       case kStoreWord:
@@ -1103,6 +1181,17 @@ class Mips64Assembler FINAL : public Assembler, public JNIMacroAssembler<Pointer
           Sdc1(reg, base, offset);
           null_checker();
         }
+        break;
+      case kStoreQuadword:
+        switch (element_size_shift) {
+          case TIMES_1: StB(static_cast<VectorRegister>(reg), base, offset); break;
+          case TIMES_2: StH(static_cast<VectorRegister>(reg), base, offset); break;
+          case TIMES_4: StW(static_cast<VectorRegister>(reg), base, offset); break;
+          case TIMES_8: StD(static_cast<VectorRegister>(reg), base, offset); break;
+          default:
+            LOG(FATAL) << "UNREACHABLE";
+        }
+        null_checker();
         break;
       default:
         LOG(FATAL) << "UNREACHABLE";

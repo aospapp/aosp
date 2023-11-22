@@ -23,7 +23,8 @@ TEST(kernel_config, CONFIG_PSTORE) {
 }
 
 TEST(kernel_config, CONFIG_PSTORE_CONSOLE) {
-  EXPECT_EQ(0, access("/sys/fs/pstore/console-ramoops", F_OK));
+  EXPECT_TRUE(!access("/sys/fs/pstore/console-ramoops-0", F_OK) ^
+              !access("/sys/fs/pstore/console-ramoops", F_OK));
 }
 
 TEST(kernel_config, CONFIG_PSTORE_PMSG) {

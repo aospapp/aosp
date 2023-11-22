@@ -169,7 +169,6 @@ class Test_base_test_execute(TestTestCase):
         """
         # Stubbed out for the write_keyval call.
         self.test.outputdir = '/tmp'
-        self.test.job._tap = None
 
         num_to_fail = 2
         self.test.job.test_retry = 5
@@ -396,6 +395,91 @@ class Test_base_test_execute(TestTestCase):
                            "type": "list_of_scalar_values",
                            "values": [0, -0.34, 1],
                            "improvement_direction": "up"}}}
+        self.assertDictEqual(expected_result, json.loads(f.read()))
+
+    def test_output_list_then_replace_list_perf_value(self):
+        self.test.resultsdir = tempfile.mkdtemp()
+        self.test.output_perf_value("Test", [1, 2, 3], units="ms",
+                                    higher_is_better=False)
+        self.test.output_perf_value("Test", [4, 5, 6], units="ms",
+                                    higher_is_better=False,
+                                    replace_existing_values=True)
+        f = open(self.test.resultsdir + "/results-chart.json")
+        expected_result = {"Test": {"summary": {"units": "ms",
+                           "type": "list_of_scalar_values",
+                           "values": [4, 5, 6],
+                           "improvement_direction": "down"}}}
+        self.assertDictEqual(expected_result, json.loads(f.read()))
+
+    def test_output_single_then_replace_list_perf_value(self):
+        self.test.resultsdir = tempfile.mkdtemp()
+        self.test.output_perf_value("Test", 3, units="ms",
+                                    higher_is_better=False)
+        self.test.output_perf_value("Test", [4, 5, 6], units="ms",
+                                    higher_is_better=False,
+                                    replace_existing_values=True)
+        f = open(self.test.resultsdir + "/results-chart.json")
+        expected_result = {"Test": {"summary": {"units": "ms",
+                           "type": "list_of_scalar_values",
+                           "values": [4, 5, 6],
+                           "improvement_direction": "down"}}}
+        self.assertDictEqual(expected_result, json.loads(f.read()))
+
+    def test_output_list_then_replace_single_perf_value(self):
+        self.test.resultsdir = tempfile.mkdtemp()
+        self.test.output_perf_value("Test", [1,2,3], units="ms",
+                                    higher_is_better=False)
+        self.test.output_perf_value("Test", 4, units="ms",
+                                    higher_is_better=False,
+                                    replace_existing_values=True)
+        f = open(self.test.resultsdir + "/results-chart.json")
+        expected_result = {"Test": {"summary": {"units": "ms",
+                           "type": "scalar",
+                           "value": 4,
+                           "improvement_direction": "down"}}}
+        self.assertDictEqual(expected_result, json.loads(f.read()))
+
+    def test_output_single_then_replace_single_perf_value(self):
+        self.test.resultsdir = tempfile.mkdtemp()
+        self.test.output_perf_value("Test", 1, units="ms",
+                                    higher_is_better=False)
+        self.test.output_perf_value("Test", 2, units="ms",
+                                    higher_is_better=False,
+                                    replace_existing_values=True)
+        f = open(self.test.resultsdir + "/results-chart.json")
+        expected_result = {"Test": {"summary": {"units": "ms",
+                           "type": "scalar",
+                           "value": 2,
+                           "improvement_direction": "down"}}}
+        self.assertDictEqual(expected_result, json.loads(f.read()))
+
+    def test_output_perf_then_replace_certain_perf_value(self):
+        self.test.resultsdir = tempfile.mkdtemp()
+        self.test.output_perf_value("Test1", 1, units="ms",
+                                    higher_is_better=False)
+        self.test.output_perf_value("Test2", 2, units="ms",
+                                    higher_is_better=False)
+        self.test.output_perf_value("Test3", 3, units="ms",
+                                    higher_is_better=False)
+        self.test.output_perf_value("Test2", -1, units="ms",
+                                    higher_is_better=False,
+                                    replace_existing_values=True)
+        f = open(self.test.resultsdir + "/results-chart.json")
+        expected_result = {"Test1": {"summary":
+                                       {"units": "ms",
+                                        "type": "scalar",
+                                        "value": 1,
+                                        "improvement_direction": "down"}},
+                           "Test2": {"summary":
+                                       {"units": "ms",
+                                        "type": "scalar",
+                                        "value": -1,
+                                        "improvement_direction": "down"}},
+                           "Test3": {"summary":
+                                       {"units": "ms",
+                                        "type": "scalar",
+                                        "value": 3,
+                                        "improvement_direction": "down"}}}
         self.assertDictEqual(expected_result, json.loads(f.read()))
 
     def test_chart_supplied(self):

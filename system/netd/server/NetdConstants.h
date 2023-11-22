@@ -32,26 +32,23 @@
 const int PROTECT_MARK = 0x1;
 const int MAX_SYSTEM_UID = AID_APP - 1;
 
-extern const char * const IPTABLES_PATH;
-extern const char * const IP6TABLES_PATH;
-extern const char * const IP_PATH;
-extern const char * const TC_PATH;
+extern const size_t SHA256_SIZE;
+
 extern const char * const OEM_SCRIPT_PATH;
 extern const char * const ADD;
 extern const char * const DEL;
 
 enum IptablesTarget { V4, V6, V4V6 };
 
-int execIptables(IptablesTarget target, ...);
-int execIptablesSilently(IptablesTarget target, ...);
 int execIptablesRestore(IptablesTarget target, const std::string& commands);
 int execIptablesRestoreWithOutput(IptablesTarget target, const std::string& commands,
                                   std::string *output);
 int execIptablesRestoreCommand(IptablesTarget target, const std::string& table,
                                const std::string& command, std::string *output);
-bool isIfaceName(const char *name);
+bool isIfaceName(const std::string& name);
 int parsePrefix(const char *prefix, uint8_t *family, void *address, int size, uint8_t *prefixlen);
 void blockSigpipe();
+void setCloseOnExec(const char *sock);
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
 

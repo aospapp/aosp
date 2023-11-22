@@ -21,7 +21,6 @@ import time
 from vts.runners.host import asserts
 from vts.runners.host import base_test
 from vts.runners.host import test_runner
-from vts.utils.python.controllers import android_device
 
 
 class SampleCameraV2Test(base_test.BaseTestClass):
@@ -32,12 +31,13 @@ class SampleCameraV2Test(base_test.BaseTestClass):
     MAX_RETRIES = 5
 
     def setUpClass(self):
-        self.dut = self.registerController(android_device)[0]
-        self.dut.hal.InitConventionalHal(target_type="camera",
-                                         target_version=2.1,
-                                         target_basepaths=["/system/lib/hw"],
-                                         bits=32,
-                                         target_package="hal.conventional.camera")
+        self.dut = self.android_devices[0]
+        self.dut.hal.InitConventionalHal(
+            target_type="camera",
+            target_version=2.1,
+            target_basepaths=["/system/lib/hw"],
+            bits=32,
+            target_package="hal.conventional.camera")
 
     def setUp(self):
         self.call_count_camera_device_status_change = 0
@@ -45,7 +45,8 @@ class SampleCameraV2Test(base_test.BaseTestClass):
 
     def testCameraNormal(self):
         """A simple testcase which just emulates a normal usage pattern."""
-        version = self.dut.hal.camera.common.GetAttributeValue("module_api_version")
+        version = self.dut.hal.camera.common.GetAttributeValue(
+            "module_api_version")
         logging.info("version: %s", hex(version))
         if version != self.VERSION_2_1 and version != self.VERSION_2_4:
             asserts.skip("HAL version %s is neither v2.1 nor v2.4" % version)
@@ -63,22 +64,28 @@ class SampleCameraV2Test(base_test.BaseTestClass):
         def camera_device_status_change(callbacks, camera_id, new_status):
             self.call_count_camera_device_status_change += 1
             logging.info("camera_device_status_change")
-            logging.info("camera_device_status_change: camera_id = %s", camera_id)
-            logging.info("camera_device_status_change: new_status = %s", new_status)
-            logging.info("camera_device_status_change: callbacks = %s", callbacks)
+            logging.info("camera_device_status_change: camera_id = %s",
+                         camera_id)
+            logging.info("camera_device_status_change: new_status = %s",
+                         new_status)
+            logging.info("camera_device_status_change: callbacks = %s",
+                         callbacks)
 
         def torch_mode_status_change(callbacks, camera_id, new_status):
-            self.profiling.StopHostProfiling("callback_latency_torch_mode_status_change")
+            self.profiling.StopHostProfiling(
+                "callback_latency_torch_mode_status_change")
             self.call_count_torch_mode_status_change += 1
             logging.info("torch_mode_status_change")
             logging.info("torch_mode_status_change: camera_id = %s", camera_id)
-            logging.info("torch_mode_status_change: new_status = %s", new_status)
+            logging.info("torch_mode_status_change: new_status = %s",
+                         new_status)
             logging.info("torch_mode_status_change: callbacks = %s", callbacks)
 
         my_callback = self.dut.hal.camera.camera_module_callbacks_t(
             camera_device_status_change, torch_mode_status_change)
         self.dut.hal.camera.set_callbacks(my_callback)
-        self.profiling.StartHostProfiling("callback_latency_torch_mode_status_change")
+        self.profiling.StartHostProfiling(
+            "callback_latency_torch_mode_status_change")
         self.dut.hal.camera.common.methods.open()  # note args are skipped
         retries = 0
         while (self.call_count_torch_mode_status_change < 1 and

@@ -42,6 +42,7 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.BODY_SENSORS" />
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
+    <uses-permission android:name="android.permission.SET_WALLPAPER" />
 
     <application android:label="Android TestCase"
                 android:icon="@drawable/size_48x48"
@@ -55,15 +56,6 @@
         <activity android:name="android.app.stubs.ScreenOnActivity" />
 
         <activity android:name="android.app.stubs.ActionBarActivity" />
-
-        <activity android:name="android.app.stubs.DialogStubActivity"
-            android:label="DialogStubActivity"
-            android:configChanges="keyboardHidden|orientation|screenSize">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
-            </intent-filter>
-        </activity>
 
         <activity android:name="android.app.stubs.MockActivity" android:label="MockActivity">
             <meta-data android:name="android.app.alias"
@@ -338,6 +330,16 @@
                   android:label="MaxAspectRatioActivity"
                   android:resizeableActivity="false"
                   android:maxAspectRatio="1.0">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.app.stubs.MetaDataMaxAspectRatioActivity"
+                  android:label="MetaDataMaxAspectRatioActivity"
+                  android:resizeableActivity="false">
+            <meta-data android:name="android.max_aspect" android:value="1.0" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />

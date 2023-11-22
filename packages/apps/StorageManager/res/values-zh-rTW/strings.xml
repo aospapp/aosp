@@ -55,9 +55,12 @@
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"開啟"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"已備份的相片和影片"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"正在尋找項目…"</string>
+    <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"顯示所有項目"</string>
+    <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"隱藏最近的項目"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="386144597646356521">"系統將從你的裝置中移除 <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> 的資料"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"你的儲存空間目前是由儲存空間管理員管理"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"沒有可移除的項目"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"查看最近的項目"</string>
     <string name="empty_state_summary" msgid="8439893007424243790">"沒有任何可以移除的舊檔案。如需增加空間，請移除最近的相片、影片和應用程式。"</string>
+    <string name="app_requesting_space" msgid="857425181289960167">"「<xliff:g id="APP">%1$s</xliff:g>」需要 <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> 的空間"</string>
 </resources>

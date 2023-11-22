@@ -123,11 +123,6 @@ public abstract class MenuRow {
     public void onRecentChannelsChanged() { }
 
     /**
-     * This method is called when stream information is changed.
-     */
-    public void onStreamInfoChanged() { }
-
-    /**
      * Returns whether to hide the title when the row is selected.
      */
     public boolean hideTitleWhenSelected() {

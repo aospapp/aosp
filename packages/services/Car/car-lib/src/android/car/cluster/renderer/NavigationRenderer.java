@@ -19,6 +19,7 @@ import android.annotation.SystemApi;
 import android.annotation.UiThread;
 import android.car.navigation.CarNavigationInstrumentCluster;
 import android.graphics.Bitmap;
+import android.os.Bundle;
 
 /**
  * Contains methods specified for Navigation App renderer in instrument cluster.
@@ -40,4 +41,7 @@ public abstract class NavigationRenderer {
             int turnNumber, Bitmap image, int turnSide);
     abstract public void onNextTurnDistanceChanged(int distanceMeters, int timeSeconds,
             int displayDistanceMillis, int displayDistanceUnit);
+
+    /** @hide */
+    public void onEvent(int eventType, Bundle bundle) {}
 }

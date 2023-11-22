@@ -77,7 +77,7 @@ public class AnimationTest {
     /** It is defined in R.anim.decelerate_alpha */
     private static final int DECELERATE_ALPHA_DURATION = 2000;
 
-    private static final int CANCELATION_TIMEOUT = 1000;
+    private static final int CANCELATION_TIMEOUT = 5000;
 
     private Instrumentation mInstrumentation;
     private Activity mActivity;

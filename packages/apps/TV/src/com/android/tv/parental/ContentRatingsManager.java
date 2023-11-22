@@ -20,7 +20,10 @@ import android.content.Context;
 import android.media.tv.TvContentRating;
 import android.media.tv.TvContentRatingSystemInfo;
 import android.media.tv.TvInputManager;
+import android.support.annotation.Nullable;
+import android.text.TextUtils;
 
+import com.android.tv.R;
 import com.android.tv.parental.ContentRatingSystem.Rating;
 import com.android.tv.parental.ContentRatingSystem.SubRating;
 
@@ -53,6 +56,19 @@ public class ContentRatingsManager {
     }
 
     /**
+     * Returns the content rating system with the give ID.
+     */
+    @Nullable
+    public ContentRatingSystem getContentRatingSystem(String contentRatingSystemId) {
+        for (ContentRatingSystem ratingSystem : mContentRatingSystems) {
+            if (TextUtils.equals(ratingSystem.getId(), contentRatingSystemId)) {
+                return ratingSystem;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Returns a new list of all content rating systems defined.
      */
     public List<ContentRatingSystem> getContentRatingSystems() {
@@ -64,6 +80,9 @@ public class ContentRatingsManager {
      * displayed to the user. For example, "TV-PG (L, S)".
      */
     public String getDisplayNameForRating(TvContentRating canonicalRating) {
+        if (TvContentRating.UNRATED.equals(canonicalRating)) {
+            return mContext.getResources().getString(R.string.unrated_rating_name);
+        }
         Rating rating = getRating(canonicalRating);
         if (rating == null) {
             return null;

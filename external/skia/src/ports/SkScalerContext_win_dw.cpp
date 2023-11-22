@@ -46,7 +46,7 @@ static bool isLCD(const SkScalerContext::Rec& rec) {
     return SkMask::kLCD16_Format == rec.fMaskFormat;
 }
 
-static bool is_hinted_without_gasp(DWriteFontTypeface* typeface) {
+static bool is_hinted(DWriteFontTypeface* typeface) {
     SkAutoExclusive l(DWriteFactoryMutex);
     AutoTDWriteTable<SkOTTableMaximumProfile> maxp(typeface->fDWriteFontFace.get());
     if (!maxp.fExists) {
@@ -58,22 +58,17 @@ static bool is_hinted_without_gasp(DWriteFontTypeface* typeface) {
     if (maxp->version.version != SkOTTableMaximumProfile::Version::TT::VERSION) {
         return false;
     }
-
-    if (0 == maxp->version.tt.maxSizeOfInstructions) {
-        // No hints.
-        return false;
-    }
-
-    AutoTDWriteTable<SkOTTableGridAndScanProcedure> gasp(typeface->fDWriteFontFace.get());
-    return !gasp.fExists;
+    return (0 != maxp->version.tt.maxSizeOfInstructions);
 }
 
 /** A GaspRange is inclusive, [min, max]. */
 struct GaspRange {
     using Behavior = SkOTTableGridAndScanProcedure::GaspRange::behavior;
-    GaspRange(int min, int max, Behavior flags) : fMin(min), fMax(max), fFlags(flags) { }
+    GaspRange(int min, int max, int version, Behavior flags)
+        : fMin(min), fMax(max), fVersion(version), fFlags(flags) { }
     int fMin;
     int fMax;
+    int fVersion;
     Behavior fFlags;
 };
 
@@ -107,6 +102,7 @@ bool get_gasp_range(DWriteFontTypeface* typeface, int size, GaspRange* range) {
         if (minPPEM < size && size <= maxPPEM) {
             range->fMin = minPPEM + 1;
             range->fMax = maxPPEM;
+            range->fVersion = SkEndian_SwapBE16(gasp->version);
             range->fFlags = rangeTable->flags;
             return true;
         }
@@ -119,14 +115,6 @@ bool get_gasp_range(DWriteFontTypeface* typeface, int size, GaspRange* range) {
  */
 static bool is_gridfit_only(GaspRange::Behavior flags) {
     return flags.raw.value == GaspRange::Behavior::Raw::GridfitMask;
-}
-
-/** If the rendering mode for the specified 'size' sets SymmetricSmoothing, return true. */
-static bool gasp_allows_cleartype_symmetric(GaspRange::Behavior flags) {
-#ifdef SK_IGNORE_DIRECTWRITE_GASP_FIX
-    return true;
-#endif
-    return flags.field.SymmetricSmoothing;
 }
 
 static bool has_bitmap_strike(DWriteFontTypeface* typeface, GaspRange range) {
@@ -243,9 +231,7 @@ SkScalerContext_DW::SkScalerContext_DW(sk_sp<DWriteFontTypeface> typefaceRef,
     // horizontal glyphs and the subpixel flag should not affect glyph shapes.
 
     SkVector scale;
-    SkMatrix GsA;
-    fRec.computeMatrices(SkScalerContextRec::kVertical_PreMatrixScale,
-                         &scale, &fSkXform, &GsA, &fG_inv);
+    fRec.computeMatrices(SkScalerContextRec::kVertical_PreMatrixScale, &scale, &fSkXform);
 
     fXform.m11 = SkScalarToFloat(fSkXform.getScaleX());
     fXform.m12 = SkScalarToFloat(fSkXform.getSkewY());
@@ -253,13 +239,6 @@ SkScalerContext_DW::SkScalerContext_DW(sk_sp<DWriteFontTypeface> typefaceRef,
     fXform.m22 = SkScalarToFloat(fSkXform.getScaleY());
     fXform.dx = 0;
     fXform.dy = 0;
-
-    fGsA.m11 = SkScalarToFloat(GsA.get(SkMatrix::kMScaleX));
-    fGsA.m12 = SkScalarToFloat(GsA.get(SkMatrix::kMSkewY)); // This should be ~0.
-    fGsA.m21 = SkScalarToFloat(GsA.get(SkMatrix::kMSkewX));
-    fGsA.m22 = SkScalarToFloat(GsA.get(SkMatrix::kMScaleY));
-    fGsA.dx = 0;
-    fGsA.dy = 0;
 
     // realTextSize is the actual device size we want (as opposed to the size the user requested).
     // gdiTextSize is the size we request when GDI compatible.
@@ -278,16 +257,18 @@ SkScalerContext_DW::SkScalerContext_DW(sk_sp<DWriteFontTypeface> typefaceRef,
         // When embedded bitmaps are requested, treat the entire range like
         // a bitmap strike if the range is gridfit only and contains a bitmap.
         int bitmapPPEM = SkScalarTruncToInt(gdiTextSize);
-        GaspRange range(bitmapPPEM, bitmapPPEM, GaspRange::Behavior());
+        GaspRange range(bitmapPPEM, bitmapPPEM, 0, GaspRange::Behavior());
         if (get_gasp_range(typeface, bitmapPPEM, &range)) {
             if (!is_gridfit_only(range.fFlags)) {
-                range = GaspRange(bitmapPPEM, bitmapPPEM, GaspRange::Behavior());
+                range = GaspRange(bitmapPPEM, bitmapPPEM, 0, GaspRange::Behavior());
             }
         }
         treatLikeBitmap = has_bitmap_strike(typeface, range);
 
         axisAlignedBitmap = is_axis_aligned(fRec);
     }
+
+    GaspRange range(0, 0xFFFF, 0, GaspRange::Behavior());
 
     // If the user requested aliased, do so with aliased compatible metrics.
     if (SkMask::kBW_Format == fRec.fMaskFormat) {
@@ -315,25 +296,38 @@ SkScalerContext_DW::SkScalerContext_DW(sk_sp<DWriteFontTypeface> typefaceRef,
         fTextSizeMeasure = gdiTextSize;
         fMeasuringMode = DWRITE_MEASURING_MODE_GDI_CLASSIC;
 
-    // Fonts that have hints but no gasp table get non-symmetric rendering.
-    // Usually such fonts have low quality hints which were never tested
-    // with anything but GDI ClearType classic. Such fonts often rely on
-    // drop out control in the y direction in order to be legible.
-    } else if (is_hinted_without_gasp(typeface)) {
-        fTextSizeRender = gdiTextSize;
-        fRenderingMode = DWRITE_RENDERING_MODE_NATURAL;
+    // If the font has a gasp table version 1, use it to determine symmetric rendering.
+    } else if (get_gasp_range(typeface, SkScalarRoundToInt(gdiTextSize), &range) &&
+               range.fVersion >= 1)
+    {
+        fTextSizeRender = realTextSize;
+        fRenderingMode = range.fFlags.field.SymmetricSmoothing
+                       ? DWRITE_RENDERING_MODE_NATURAL_SYMMETRIC
+                       : DWRITE_RENDERING_MODE_NATURAL;
         fTextureType = DWRITE_TEXTURE_CLEARTYPE_3x1;
         fTextSizeMeasure = realTextSize;
         fMeasuringMode = DWRITE_MEASURING_MODE_NATURAL;
 
-    // The normal case is to use natural symmetric rendering (if permitted) and linear metrics.
-    } else {
+    // If the requested size is above 20px or there are no bytecode hints, use symmetric rendering.
+    } else if (realTextSize > SkIntToScalar(20) || !is_hinted(typeface)) {
         fTextSizeRender = realTextSize;
-        GaspRange range(0, 0xFFFF, GaspRange::Behavior());
-        get_gasp_range(typeface, SkScalarTruncToInt(fTextSizeRender), &range);
-        fRenderingMode = gasp_allows_cleartype_symmetric(range.fFlags)
-                       ? DWRITE_RENDERING_MODE_NATURAL_SYMMETRIC
-                       : DWRITE_RENDERING_MODE_NATURAL;
+        fRenderingMode = DWRITE_RENDERING_MODE_NATURAL_SYMMETRIC;
+        fTextureType = DWRITE_TEXTURE_CLEARTYPE_3x1;
+        fTextSizeMeasure = realTextSize;
+        fMeasuringMode = DWRITE_MEASURING_MODE_NATURAL;
+
+    // Fonts with hints, no gasp or gasp version 0, and below 20px get non-symmetric rendering.
+    // Often such fonts have hints which were only tested with GDI ClearType classic.
+    // Some of these fonts rely on drop out control in the y direction in order to be legible.
+    // Tenor Sans
+    //    https://fonts.google.com/specimen/Tenor+Sans
+    // Gill Sans W04
+    //    https://cdn.leagueoflegends.com/lolkit/1.1.9/resources/fonts/gill-sans-w04-book.woff
+    //    https://na.leagueoflegends.com/en/news/game-updates/patch/patch-410-notes
+    // See https://crbug.com/385897
+    } else {
+        fTextSizeRender = gdiTextSize;
+        fRenderingMode = DWRITE_RENDERING_MODE_NATURAL;
         fTextureType = DWRITE_TEXTURE_CLEARTYPE_3x1;
         fTextSizeMeasure = realTextSize;
         fMeasuringMode = DWRITE_MEASURING_MODE_NATURAL;
@@ -341,7 +335,6 @@ SkScalerContext_DW::SkScalerContext_DW(sk_sp<DWriteFontTypeface> typefaceRef,
 
     // DirectWrite2 allows for grayscale hinting.
     fAntiAliasMode = DWRITE_TEXT_ANTIALIAS_MODE_CLEARTYPE;
-#ifndef SK_IGNORE_DW_GRAY_FIX
     if (typeface->fFactory2 && typeface->fDWriteFontFace2 &&
         SkMask::kA8_Format == fRec.fMaskFormat &&
         !(fRec.fFlags & SkScalerContext::kGenA8FromLCD_Flag))
@@ -350,7 +343,6 @@ SkScalerContext_DW::SkScalerContext_DW(sk_sp<DWriteFontTypeface> typefaceRef,
         fTextureType = DWRITE_TEXTURE_ALIASED_1x1;
         fAntiAliasMode = DWRITE_TEXT_ANTIALIAS_MODE_GRAYSCALE;
     }
-#endif
 
     // DirectWrite2 allows hinting to be disabled.
     fGridFitMode = DWRITE_GRID_FIT_MODE_ENABLED;
@@ -404,7 +396,9 @@ void SkScalerContext_DW::generateAdvance(SkGlyph* glyph) {
         HRVM(this->getDWriteTypeface()->fDWriteFontFace->GetGdiCompatibleGlyphMetrics(
                  fTextSizeMeasure,
                  1.0f, // pixelsPerDip
-                 &fGsA,
+                 // This parameter does not act like the lpmat2 parameter to GetGlyphOutlineW.
+                 // If it did then GsA here and G_inv below to mapVectors.
+                 nullptr,
                  DWRITE_MEASURING_MODE_GDI_NATURAL == fMeasuringMode,
                  &glyphId, 1,
                  &gm),
@@ -422,20 +416,18 @@ void SkScalerContext_DW::generateAdvance(SkGlyph* glyph) {
     }
     SkScalar advanceX = fTextSizeMeasure * gm.advanceWidth / dwfm.designUnitsPerEm;
 
-    SkVector vecs[1] = { { advanceX, 0 } };
+    SkVector advance = { advanceX, 0 };
     if (DWRITE_MEASURING_MODE_GDI_CLASSIC == fMeasuringMode ||
         DWRITE_MEASURING_MODE_GDI_NATURAL == fMeasuringMode)
     {
         // DirectWrite produced 'compatible' metrics, but while close,
         // the end result is not always an integer as it would be with GDI.
-        vecs[0].fX = SkScalarRoundToScalar(advanceX);
-        fG_inv.mapVectors(vecs, SK_ARRAY_COUNT(vecs));
-    } else {
-        fSkXform.mapVectors(vecs, SK_ARRAY_COUNT(vecs));
+        advance.fX = SkScalarRoundToScalar(advance.fX);
     }
+    fSkXform.mapVectors(&advance, 1);
 
-    glyph->fAdvanceX = SkScalarToFloat(vecs[0].fX);
-    glyph->fAdvanceY = SkScalarToFloat(vecs[0].fY);
+    glyph->fAdvanceX = SkScalarToFloat(advance.fX);
+    glyph->fAdvanceY = SkScalarToFloat(advance.fY);
 }
 
 HRESULT SkScalerContext_DW::getBoundingBox(SkGlyph* glyph,

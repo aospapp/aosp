@@ -97,6 +97,9 @@ NO_RETURN static void Usage(const char *fmt, ...) {
   UsageError("  --android-data=<directory>: optional, the directory which should be used as");
   UsageError("       android-data. By default ANDROID_DATA env variable is used.");
   UsageError("");
+  UsageError("  --downgrade: optional, if the purpose of dexopt is to downgrade the dex file");
+  UsageError("       By default, dexopt considers upgrade case.");
+  UsageError("");
   UsageError("Return code:");
   UsageError("  To make it easier to integrate with the internal tools this command will make");
   UsageError("    available its result (dexoptNeeded) as the exit/return code. i.e. it will not");
@@ -121,13 +124,15 @@ NO_RETURN static void Usage(const char *fmt, ...) {
 
 class DexoptAnalyzer FINAL {
  public:
-  DexoptAnalyzer() : assume_profile_changed_(false) {}
+  DexoptAnalyzer() :
+      assume_profile_changed_(false),
+      downgrade_(false) {}
 
   void ParseArgs(int argc, char **argv) {
     original_argc = argc;
     original_argv = argv;
 
-    InitLogging(argv, Runtime::Aborter);
+    InitLogging(argv, Runtime::Abort);
     // Skip over the command name.
     argv++;
     argc--;
@@ -160,9 +165,9 @@ class DexoptAnalyzer FINAL {
         // compute dalvik-cache folder). This is mostly used in tests.
         std::string new_android_data = option.substr(strlen("--android-data=")).ToString();
         setenv("ANDROID_DATA", new_android_data.c_str(), 1);
-      } else {
-        Usage("Unknown argument '%s'", option.data());
-      }
+      } else if (option.starts_with("--downgrade")) {
+        downgrade_ = true;
+      } else { Usage("Unknown argument '%s'", option.data()); }
     }
 
     if (image_.empty()) {
@@ -216,14 +221,18 @@ class DexoptAnalyzer FINAL {
     if (!CreateRuntime()) {
       return kErrorCannotCreateRuntime;
     }
+    std::unique_ptr<Runtime> runtime(Runtime::Current());
+
     OatFileAssistant oat_file_assistant(dex_file_.c_str(), isa_, /*load_executable*/ false);
     // Always treat elements of the bootclasspath as up-to-date.
     // TODO(calin): this check should be in OatFileAssistant.
     if (oat_file_assistant.IsInBootClassPath()) {
       return kNoDexOptNeeded;
     }
+
+    // TODO(calin): Pass the class loader context as an argument to dexoptanalyzer. b/62269291.
     int dexoptNeeded = oat_file_assistant.GetDexOptNeeded(
-        compiler_filter_, assume_profile_changed_);
+        compiler_filter_, assume_profile_changed_, downgrade_);
 
     // Convert OatFileAssitant codes to dexoptanalyzer codes.
     switch (dexoptNeeded) {
@@ -247,6 +256,7 @@ class DexoptAnalyzer FINAL {
   InstructionSet isa_;
   CompilerFilter::Filter compiler_filter_;
   bool assume_profile_changed_;
+  bool downgrade_;
   std::string image_;
 };
 

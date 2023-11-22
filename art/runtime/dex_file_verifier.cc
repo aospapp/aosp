@@ -363,7 +363,7 @@ bool DexFileVerifier::CheckHeader() {
   // Check file size from the header.
   uint32_t expected_size = header_->file_size_;
   if (size_ != expected_size) {
-    ErrorStringPrintf("Bad file size (%zd, expected %ud)", size_, expected_size);
+    ErrorStringPrintf("Bad file size (%zd, expected %u)", size_, expected_size);
     return false;
   }
 
@@ -2483,7 +2483,9 @@ bool DexFileVerifier::CheckInterMethodHandleItem() {
     }
     case DexFile::MethodHandleType::kInvokeStatic:
     case DexFile::MethodHandleType::kInvokeInstance:
-    case DexFile::MethodHandleType::kInvokeConstructor: {
+    case DexFile::MethodHandleType::kInvokeConstructor:
+    case DexFile::MethodHandleType::kInvokeDirect:
+    case DexFile::MethodHandleType::kInvokeInterface: {
       LOAD_METHOD(method, index, "method_handle_item method_idx", return false);
       break;
     }

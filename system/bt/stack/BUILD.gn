@@ -78,10 +78,8 @@ static_library("stack") {
     "btu/btu_hcif.cc",
     "btu/btu_init.cc",
     "btu/btu_task.cc",
-    "gap/gap_api.cc",
     "gap/gap_ble.cc",
     "gap/gap_conn.cc",
-    "gap/gap_utils.cc",
     "gatt/att_protocol.cc",
     "gatt/gatt_api.cc",
     "gatt/gatt_attr.cc",
@@ -180,6 +178,7 @@ static_library("stack") {
   ]
 
   deps = [
+    "//types",
     "//third_party/libchrome:base",
     "//third_party/libldac:libldacBT_enc",
     "//third_party/libldac:libldacBT_abr",
@@ -227,6 +226,7 @@ executable("stack_unittests") {
     "//device",
     "//embdrv/sbc",
     "//hci",
+    "//types",
     "//main:bluetooth.default",
     "//third_party/googletest:gmock_main",
     "//third_party/libchrome:base",
@@ -249,7 +249,7 @@ executable("net_test_stack_multi_adv") {
     "//stack/btm",
   ]
 
-libs = [
+  libs = [
     "-ldl",
     "-lpthread",
     "-lresolv",
@@ -259,6 +259,7 @@ libs = [
   ]
 
   deps = [
+    "//types",
     "//third_party/googletest:gmock_main",
     "//third_party/libchrome:base",
   ]

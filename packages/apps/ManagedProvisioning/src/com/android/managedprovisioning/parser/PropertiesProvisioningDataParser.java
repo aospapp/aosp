@@ -115,6 +115,7 @@ public class PropertiesProvisioningDataParser implements ProvisioningDataParser 
                 ProvisioningParams.Builder builder = ProvisioningParams.Builder.builder()
                         .setProvisioningId(mSharedPreferences.incrementAndGetProvisioningId())
                         .setStartedByTrustedSource(true)
+                        .setIsNfc(true)
                         .setProvisioningAction(mUtils.mapIntentToDpmAction(nfcIntent))
                         .setDeviceAdminPackageName(props.getProperty(
                                 EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME));

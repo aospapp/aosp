@@ -65,8 +65,7 @@ parser.add_option('--client_test_setup', dest='client_test_setup',
                        'the server. Use all to prebuild all of them.')
 
 parser.add_option('--tap', dest='tap_report', action='store_true',
-                  default=None, help='Output TAP (Test anything '
-                  'protocol) reports')
+                  default=None, help='Deprecated, do not use.')
 
 def usage():
     parser.print_help()

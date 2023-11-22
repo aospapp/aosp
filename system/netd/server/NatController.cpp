@@ -16,27 +16,32 @@
 
 #define LOG_NDEBUG 0
 
-#include <stdlib.h>
+#include <string>
+#include <vector>
+
 #include <errno.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <string.h>
+#include <arpa/inet.h>
+#include <linux/in.h>
+#include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
-#include <fcntl.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <string.h>
-#include <cutils/properties.h>
 
 #define LOG_TAG "NatController"
+#include <android-base/strings.h>
 #include <android-base/stringprintf.h>
 #include <cutils/log.h>
+#include <cutils/properties.h>
 #include <logwrap/logwrap.h>
 
-#include "NetdConstants.h"
 #include "NatController.h"
 #include "NetdConstants.h"
 #include "RouteController.h"
 
+using android::base::Join;
 using android::base::StringPrintf;
 
 const char* NatController::LOCAL_FORWARD = "natctrl_FORWARD";
@@ -59,29 +64,6 @@ struct CommandsAndArgs {
     const char *cmd[32];
     bool checkRes;
 };
-
-int NatController::runCmd(int argc, const char **argv) {
-    int res;
-
-    res = execFunction(argc, (char **)argv, NULL, false, false);
-
-#if !LOG_NDEBUG
-    std::string full_cmd = argv[0];
-    argc--; argv++;
-    /*
-     * HACK: Sometimes runCmd() is called with a ridcously large value (32)
-     * and it works because the argv[] contains a NULL after the last
-     * true argv. So here we use the NULL argv[] to terminate when the argc
-     * is horribly wrong, and argc for the normal cases.
-     */
-    for (; argc && argv[0]; argc--, argv++) {
-        full_cmd += " ";
-        full_cmd += argv[0];
-    }
-    ALOGV("runCmd(%s) res=%d", full_cmd.c_str(), res);
-#endif
-    return res;
-}
 
 int NatController::setupIptablesHooks() {
     int res;
@@ -169,27 +151,24 @@ int NatController::enableNat(const char* intIface, const char* extIface) {
 
     // add this if we are the first added nat
     if (natCount == 0) {
-        const char *v4Cmd[] = {
-                IPTABLES_PATH,
-                "-w",
-                "-t",
-                "nat",
-                "-A",
-                LOCAL_NAT_POSTROUTING,
-                "-o",
-                extIface,
-                "-j",
-                "MASQUERADE"
+        std::vector<std::string> v4Cmds = {
+            "*nat",
+            StringPrintf("-A %s -o %s -j MASQUERADE", LOCAL_NAT_POSTROUTING, extIface),
+            "COMMIT\n"
         };
 
         /*
          * IPv6 tethering doesn't need the state-based conntrack rules, so
          * it unconditionally jumps to the tether counters chain all the time.
          */
-        const char *v6Cmd[] = {IP6TABLES_PATH, "-w", "-A", LOCAL_FORWARD,
-                               "-g", LOCAL_TETHER_COUNTERS_CHAIN};
+        std::vector<std::string> v6Cmds = {
+            "*filter",
+            StringPrintf("-A %s -g %s", LOCAL_FORWARD, LOCAL_TETHER_COUNTERS_CHAIN),
+            "COMMIT\n"
+        };
 
-        if (runCmd(ARRAY_SIZE(v4Cmd), v4Cmd) || runCmd(ARRAY_SIZE(v6Cmd), v6Cmd)) {
+        if (iptablesRestoreFunction(V4, Join(v4Cmds, '\n')) ||
+            iptablesRestoreFunction(V6, Join(v6Cmds, '\n'))) {
             ALOGE("Error setting postroute rule: iface=%s", extIface);
             // unwind what's been done, but don't care about success - what more could we do?
             setDefaults();
@@ -206,204 +185,85 @@ int NatController::enableNat(const char* intIface, const char* extIface) {
         return -1;
     }
 
-    /* Always make sure the drop rule is at the end */
-    const char *cmd1[] = {
-            IPTABLES_PATH,
-            "-w",
-            "-D",
-            LOCAL_FORWARD,
-            "-j",
-            "DROP"
-    };
-    runCmd(ARRAY_SIZE(cmd1), cmd1);
-    const char *cmd2[] = {
-            IPTABLES_PATH,
-            "-w",
-            "-A",
-            LOCAL_FORWARD,
-            "-j",
-            "DROP"
-    };
-    runCmd(ARRAY_SIZE(cmd2), cmd2);
-
     natCount++;
     return 0;
 }
 
-bool NatController::checkTetherCountingRuleExist(const char *pair_name) {
-    std::list<std::string>::iterator it;
-
-    for (it = ifacePairList.begin(); it != ifacePairList.end(); it++) {
-        if (*it == pair_name) {
-            /* We already have this counter */
-            return true;
-        }
-    }
-    return false;
+bool NatController::checkTetherCountingRuleExist(const std::string& pair_name) {
+    return std::find(ifacePairList.begin(), ifacePairList.end(), pair_name) != ifacePairList.end();
 }
 
-int NatController::setTetherCountingRules(bool add, const char *intIface, const char *extIface) {
-
-    /* We only ever add tethering quota rules so that they stick. */
-    if (!add) {
-        return 0;
-    }
-    char *pair_name;
-    asprintf(&pair_name, "%s_%s", intIface, extIface);
-
-    if (checkTetherCountingRuleExist(pair_name)) {
-        free(pair_name);
-        return 0;
-    }
-    const char *cmd2b[] = {
-        IPTABLES_PATH,
-        "-w", "-A", LOCAL_TETHER_COUNTERS_CHAIN, "-i", intIface, "-o", extIface, "-j", "RETURN"
-    };
-
-    const char *cmd2c[] = {
-        IP6TABLES_PATH,
-        "-w", "-A", LOCAL_TETHER_COUNTERS_CHAIN, "-i", intIface, "-o", extIface, "-j", "RETURN"
-    };
-
-    if (runCmd(ARRAY_SIZE(cmd2b), cmd2b) || runCmd(ARRAY_SIZE(cmd2c), cmd2c)) {
-        free(pair_name);
-        return -1;
-    }
-    ifacePairList.push_front(pair_name);
-    free(pair_name);
-
-    asprintf(&pair_name, "%s_%s", extIface, intIface);
-    if (checkTetherCountingRuleExist(pair_name)) {
-        free(pair_name);
-        return 0;
-    }
-
-    const char *cmd3b[] = {
-        IPTABLES_PATH,
-        "-w", "-A", LOCAL_TETHER_COUNTERS_CHAIN, "-i", extIface, "-o", intIface, "-j", "RETURN"
-    };
-
-    const char *cmd3c[] = {
-        IP6TABLES_PATH,
-        "-w", "-A", LOCAL_TETHER_COUNTERS_CHAIN, "-i", extIface, "-o", intIface, "-j", "RETURN"
-    };
-
-    if (runCmd(ARRAY_SIZE(cmd3b), cmd3b) || runCmd(ARRAY_SIZE(cmd3c), cmd3c)) {
-        // unwind what's been done, but don't care about success - what more could we do?
-        free(pair_name);
-        return -1;
-    }
-    ifacePairList.push_front(pair_name);
-    free(pair_name);
-    return 0;
+/* static */
+std::string NatController::makeTetherCountingRule(const char *if1, const char *if2) {
+    return StringPrintf("-A %s -i %s -o %s -j RETURN", LOCAL_TETHER_COUNTERS_CHAIN, if1, if2);
 }
 
 int NatController::setForwardRules(bool add, const char *intIface, const char *extIface) {
-    const char *cmd1[] = {
-            IPTABLES_PATH,
-            "-w",
-            add ? "-A" : "-D",
-            LOCAL_FORWARD,
-            "-i",
-            extIface,
-            "-o",
-            intIface,
-            "-m",
-            "state",
-            "--state",
-            "ESTABLISHED,RELATED",
-            "-g",
-            LOCAL_TETHER_COUNTERS_CHAIN
-    };
-    int rc = 0;
+    const char *op = add ? "-A" : "-D";
 
-    if (runCmd(ARRAY_SIZE(cmd1), cmd1) && add) {
+    std::string rpfilterCmd = StringPrintf(
+        "*raw\n"
+        "%s %s -i %s -m rpfilter --invert ! -s fe80::/64 -j DROP\n"
+        "COMMIT\n", op, LOCAL_RAW_PREROUTING, intIface);
+    if (iptablesRestoreFunction(V6, rpfilterCmd) == -1 && add) {
         return -1;
     }
 
-    const char *cmd2[] = {
-            IPTABLES_PATH,
-            "-w",
-            add ? "-A" : "-D",
-            LOCAL_FORWARD,
-            "-i",
-            intIface,
-            "-o",
-            extIface,
-            "-m",
-            "state",
-            "--state",
-            "INVALID",
-            "-j",
-            "DROP"
+    std::vector<std::string> v4 = {
+        "*filter",
+        StringPrintf("%s %s -i %s -o %s -m state --state ESTABLISHED,RELATED -g %s",
+                     op, LOCAL_FORWARD, extIface, intIface, LOCAL_TETHER_COUNTERS_CHAIN),
+        StringPrintf("%s %s -i %s -o %s -m state --state INVALID -j DROP",
+                     op, LOCAL_FORWARD, intIface, extIface),
+        StringPrintf("%s %s -i %s -o %s -g %s",
+                     op, LOCAL_FORWARD, intIface, extIface, LOCAL_TETHER_COUNTERS_CHAIN),
     };
 
-    const char *cmd3[] = {
-            IPTABLES_PATH,
-            "-w",
-            add ? "-A" : "-D",
-            LOCAL_FORWARD,
-            "-i",
-            intIface,
-            "-o",
-            extIface,
-            "-g",
-            LOCAL_TETHER_COUNTERS_CHAIN
+    std::vector<std::string> v6 = {
+        "*filter",
     };
 
-    const char *cmd4[] = {
-            IP6TABLES_PATH,
-            "-w",
-            "-t",
-            "raw",
-            add ? "-A" : "-D",
-            LOCAL_RAW_PREROUTING,
-            "-i",
-            intIface,
-            "-m",
-            "rpfilter",
-            "--invert",
-            "!",
-            "-s",
-            "fe80::/64",
-            "-j",
-            "DROP"
-    };
-
-    if (runCmd(ARRAY_SIZE(cmd2), cmd2) && add) {
-        // bail on error, but only if adding
-        rc = -1;
-        goto err_invalid_drop;
+    /* We only ever add tethering quota rules so that they stick. */
+    std::string pair1 = StringPrintf("%s_%s", intIface, extIface);
+    if (add && !checkTetherCountingRuleExist(pair1)) {
+        v4.push_back(makeTetherCountingRule(intIface, extIface));
+        v6.push_back(makeTetherCountingRule(intIface, extIface));
+    }
+    std::string pair2 = StringPrintf("%s_%s", extIface, intIface);
+    if (add && !checkTetherCountingRuleExist(pair2)) {
+        v4.push_back(makeTetherCountingRule(extIface, intIface));
+        v6.push_back(makeTetherCountingRule(extIface, intIface));
     }
 
-    if (runCmd(ARRAY_SIZE(cmd3), cmd3) && add) {
+    // Always make sure the drop rule is at the end.
+    // TODO: instead of doing this, consider just rebuilding LOCAL_FORWARD completely from scratch
+    // every time, starting with ":natctrl_FORWARD -\n". This method would likely be a bit simpler.
+    if (add) {
+        v4.push_back(StringPrintf("-D %s -j DROP", LOCAL_FORWARD));
+        v4.push_back(StringPrintf("-A %s -j DROP", LOCAL_FORWARD));
+    }
+
+    v4.push_back("COMMIT\n");
+    v6.push_back("COMMIT\n");
+
+    // We only add IPv6 rules here, never remove them.
+    if (iptablesRestoreFunction(V4, Join(v4, '\n')) == -1 ||
+        (add && iptablesRestoreFunction(V6, Join(v6, '\n')) == -1)) {
         // unwind what's been done, but don't care about success - what more could we do?
-        rc = -1;
-        goto err_return;
+        if (add) {
+            setForwardRules(false, intIface, extIface);
+        }
+        return -1;
     }
 
-    if (runCmd(ARRAY_SIZE(cmd4), cmd4) && add) {
-        rc = -1;
-        goto err_rpfilter;
+    if (add && !checkTetherCountingRuleExist(pair1)) {
+        ifacePairList.push_front(pair1);
     }
-
-    if (setTetherCountingRules(add, intIface, extIface) && add) {
-        rc = -1;
-        goto err_return;
+    if (add && !checkTetherCountingRuleExist(pair2)) {
+        ifacePairList.push_front(pair2);
     }
 
     return 0;
-
-err_rpfilter:
-    cmd3[2] = "-D";
-    runCmd(ARRAY_SIZE(cmd3), cmd3);
-err_return:
-    cmd2[2] = "-D";
-    runCmd(ARRAY_SIZE(cmd2), cmd2);
-err_invalid_drop:
-    cmd1[2] = "-D";
-    runCmd(ARRAY_SIZE(cmd1), cmd1);
-    return rc;
 }
 
 int NatController::disableNat(const char* intIface, const char* extIface) {

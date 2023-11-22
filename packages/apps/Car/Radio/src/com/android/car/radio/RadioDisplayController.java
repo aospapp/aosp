@@ -55,21 +55,20 @@ public class RadioDisplayController {
     public void initialize(View container) {
         // Note that the band and channel number can exist without the stub
         // single_channel_view_stub. Refer to setSingleChannelDisplay() for more information.
-        mChannelBand = (TextView) container.findViewById(R.id.radio_station_band);
-        mChannelNumber = (TextView) container.findViewById(R.id.radio_station_channel);
+        mChannelBand = container.findViewById(R.id.radio_station_band);
+        mChannelNumber = container.findViewById(R.id.radio_station_channel);
 
-        mCurrentSongTitle = (TextView) container.findViewById(R.id.radio_station_song);
-        mCurrentSongArtistOrStation =
-                (TextView) container.findViewById(R.id.radio_station_artist_or_station);
+        mCurrentSongTitle = container.findViewById(R.id.radio_station_song);
+        mCurrentSongArtistOrStation = container.findViewById(R.id.radio_station_artist_or_station);
 
-        mBackwardSeekButton = (ImageView) container.findViewById(R.id.radio_back_button);
-        mForwardSeekButton = (ImageView) container.findViewById(R.id.radio_forward_button);
+        mBackwardSeekButton = container.findViewById(R.id.radio_back_button);
+        mForwardSeekButton = container.findViewById(R.id.radio_forward_button);
 
-        mPlayButton = (PlayPauseButton) container.findViewById(R.id.radio_play_button);
-        mPresetPlayButton = (PlayPauseButton) container.findViewById(R.id.preset_radio_play_button);
+        mPlayButton = container.findViewById(R.id.radio_play_button);
+        mPresetPlayButton = container.findViewById(R.id.preset_radio_play_button);
 
-        mPresetsListButton = (ImageView) container.findViewById(R.id.radio_presets_list);
-        mAddPresetsButton = (ImageView) container.findViewById(R.id.radio_add_presets_button);
+        mPresetsListButton = container.findViewById(R.id.radio_presets_list);
+        mAddPresetsButton = container.findViewById(R.id.radio_add_presets_button);
     }
 
     /**
@@ -77,15 +76,15 @@ public class RadioDisplayController {
      * station.
      */
     public void setSingleChannelDisplay(View container) {
-        ViewStub stub = (ViewStub) container.findViewById(R.id.single_channel_view_stub);
+        ViewStub stub = container.findViewById(R.id.single_channel_view_stub);
 
         if (stub != null) {
             container = stub.inflate();
         }
 
         // Update references to the band and channel number.
-        mChannelBand = (TextView) container.findViewById(R.id.radio_station_band);
-        mChannelNumber = (TextView) container.findViewById(R.id.radio_station_channel);
+        mChannelBand = container.findViewById(R.id.radio_station_band);
+        mChannelNumber = container.findViewById(R.id.radio_station_channel);
     }
 
     /**
@@ -93,7 +92,7 @@ public class RadioDisplayController {
      * well as pre-scanned stations for the current band.
      */
     public void setChannelListDisplay(View container, PrescannedRadioStationAdapter adapter) {
-        ViewStub stub = (ViewStub) container.findViewById(R.id.channel_list_view_stub);
+        ViewStub stub = container.findViewById(R.id.channel_list_view_stub);
 
         if (stub == null) {
             return;
@@ -118,13 +117,6 @@ public class RadioDisplayController {
         if (mChannelList != null) {
             mChannelList.shiftToPosition(position);
         }
-    }
-
-    /**
-     * Returns the View that is responsible for rendering the play/pause state.
-     */
-    public View getPlayButton() {
-        return mPlayButton;
     }
 
     /**

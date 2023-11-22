@@ -46,6 +46,7 @@ enum AndroidKeymasterCommand {
     GET_KEY_CHARACTERISTICS = 15,
     ATTEST_KEY = 16,
     UPGRADE_KEY = 17,
+    CONFIGURE = 18,
 };
 
 /**
@@ -329,7 +330,7 @@ struct BeginOperationRequest : public KeymasterMessage {
         SetKeyMaterial(blob.key_material, blob.key_material_size);
     }
 
-    size_t SerializedSize() const;
+    size_t SerializedSize() const override;
     uint8_t* Serialize(uint8_t* buf, const uint8_t* end) const override;
     bool Deserialize(const uint8_t** buf_ptr, const uint8_t* end) override;
 
@@ -652,6 +653,31 @@ struct UpgradeKeyResponse : public KeymasterResponse {
     bool NonErrorDeserialize(const uint8_t** buf_ptr, const uint8_t* end) override;
 
     keymaster_key_blob_t upgraded_key;
+};
+
+struct ConfigureRequest : public KeymasterMessage {
+    explicit ConfigureRequest(int32_t ver = MAX_MESSAGE_VERSION) : KeymasterMessage(ver) {}
+
+    size_t SerializedSize() const override { return sizeof(os_version) + sizeof(os_patchlevel); }
+    uint8_t* Serialize(uint8_t* buf, const uint8_t* end) const override {
+        buf = append_uint32_to_buf(buf, end, os_version);
+        return append_uint32_to_buf(buf, end, os_patchlevel);
+    }
+    bool Deserialize(const uint8_t** buf_ptr, const uint8_t* end) override {
+        return copy_uint32_from_buf(buf_ptr, end, &os_version) &&
+               copy_uint32_from_buf(buf_ptr, end, &os_patchlevel);
+    }
+
+    uint32_t os_version;
+    uint32_t os_patchlevel;
+};
+
+struct ConfigureResponse : public KeymasterResponse {
+    explicit ConfigureResponse(int32_t ver = MAX_MESSAGE_VERSION) : KeymasterResponse(ver) {}
+
+    size_t NonErrorSerializedSize() const override { return 0; }
+    uint8_t* NonErrorSerialize(uint8_t* buf, const uint8_t*) const override { return buf; }
+    bool NonErrorDeserialize(const uint8_t**, const uint8_t*) override { return true; }
 };
 
 }  // namespace keymaster

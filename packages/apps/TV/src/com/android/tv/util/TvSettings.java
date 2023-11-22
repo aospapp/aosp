@@ -17,6 +17,8 @@
 package com.android.tv.util;
 
 import android.content.Context;
+import android.content.SharedPreferences;
+import android.media.tv.TvTrackInfo;
 import android.preference.PreferenceManager;
 import android.support.annotation.IntDef;
 
@@ -26,52 +28,26 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-
 /**
  * A class about the constants for TV settings.
  * Objects that are returned from the various {@code get} methods must be treated as immutable.
  */
 public final class TvSettings {
-    private TvSettings() {}
-
     public static final String PREF_DISPLAY_MODE = "display_mode";  // int value
-    public static final String PREF_PIP_LAYOUT = "pip_layout"; // int value
-    public static final String PREF_PIP_SIZE = "pip_size";  // int value
     public static final String PREF_PIN = "pin"; // 4-digit string value. Otherwise, it's not set.
-
-    // PIP sounds
-    @Retention(RetentionPolicy.SOURCE)
-    @IntDef({
-            PIP_SOUND_MAIN, PIP_SOUND_PIP_WINDOW })
-    public @interface PipSound {}
-    public static final int PIP_SOUND_MAIN = 0;
-    public static final int PIP_SOUND_PIP_WINDOW = PIP_SOUND_MAIN + 1;
-
-    // PIP layouts
-    @Retention(RetentionPolicy.SOURCE)
-    @IntDef({
-            PIP_LAYOUT_BOTTOM_RIGHT, PIP_LAYOUT_TOP_RIGHT, PIP_LAYOUT_TOP_LEFT,
-            PIP_LAYOUT_BOTTOM_LEFT, PIP_LAYOUT_SIDE_BY_SIDE })
-    public @interface PipLayout {}
-    public static final int PIP_LAYOUT_BOTTOM_RIGHT = 0;
-    public static final int PIP_LAYOUT_TOP_RIGHT = PIP_LAYOUT_BOTTOM_RIGHT + 1;
-    public static final int PIP_LAYOUT_TOP_LEFT = PIP_LAYOUT_TOP_RIGHT + 1;
-    public static final int PIP_LAYOUT_BOTTOM_LEFT = PIP_LAYOUT_TOP_LEFT + 1;
-    public static final int PIP_LAYOUT_SIDE_BY_SIDE = PIP_LAYOUT_BOTTOM_LEFT + 1;
-    public static final int PIP_LAYOUT_LAST = PIP_LAYOUT_SIDE_BY_SIDE;
-
-    // PIP sizes
-    @Retention(RetentionPolicy.SOURCE)
-    @IntDef({ PIP_SIZE_SMALL, PIP_SIZE_BIG })
-    public @interface PipSize {}
-    public static final int PIP_SIZE_SMALL = 0;
-    public static final int PIP_SIZE_BIG = PIP_SIZE_SMALL + 1;
-    public static final int PIP_SIZE_LAST = PIP_SIZE_BIG;
 
     // Multi-track audio settings
     private static final String PREF_MULTI_AUDIO_ID = "pref.multi_audio_id";
     private static final String PREF_MULTI_AUDIO_LANGUAGE = "pref.multi_audio_language";
     private static final String PREF_MULTI_AUDIO_CHANNEL_COUNT = "pref.multi_audio_channel_count";
+
+    // DVR Multi-audio and subtitle settings
+    private static final String PREF_DVR_MULTI_AUDIO_ID = "pref.dvr_multi_audio_id";
+    private static final String PREF_DVR_MULTI_AUDIO_LANGUAGE = "pref.dvr_multi_audio_language";
+    private static final String PREF_DVR_MULTI_AUDIO_CHANNEL_COUNT =
+            "pref.dvr_multi_audio_channel_count";
+    private static final String PREF_DVR_SUBTITLE_ID = "pref.dvr_subtitle_id";
+    private static final String PREF_DVR_SUBTITLE_LANGUAGE = "pref.dvr_subtitle_language";
 
     // Parental Control settings
     private static final String PREF_CONTENT_RATING_SYSTEMS = "pref.content_rating_systems";
@@ -89,58 +65,7 @@ public final class TvSettings {
     public static final int CONTENT_RATING_LEVEL_LOW = 3;
     public static final int CONTENT_RATING_LEVEL_CUSTOM = 4;
 
-    // PIP settings
-    /**
-     * Returns the layout of the PIP window stored in the shared preferences.
-     *
-     * @return the saved layout of the PIP window. This value is one of
-     *         {@link #PIP_LAYOUT_TOP_LEFT}, {@link #PIP_LAYOUT_TOP_RIGHT},
-     *         {@link #PIP_LAYOUT_BOTTOM_LEFT}, {@link #PIP_LAYOUT_BOTTOM_RIGHT} and
-     *         {@link #PIP_LAYOUT_SIDE_BY_SIDE}. If the preference value does not exist,
-     *         {@link #PIP_LAYOUT_BOTTOM_RIGHT} is returned.
-     */
-    @SuppressWarnings("ResourceType")
-    @PipLayout
-    public static int getPipLayout(Context context) {
-        return PreferenceManager.getDefaultSharedPreferences(context).getInt(
-                PREF_PIP_LAYOUT, PIP_LAYOUT_BOTTOM_RIGHT);
-    }
-
-    /**
-     * Stores the layout of PIP window to the shared preferences.
-     *
-     * @param pipLayout This value should be one of {@link #PIP_LAYOUT_TOP_LEFT},
-     *            {@link #PIP_LAYOUT_TOP_RIGHT}, {@link #PIP_LAYOUT_BOTTOM_LEFT},
-     *            {@link #PIP_LAYOUT_BOTTOM_RIGHT} and {@link #PIP_LAYOUT_SIDE_BY_SIDE}.
-     */
-    public static void setPipLayout(Context context, @PipLayout int pipLayout) {
-        PreferenceManager.getDefaultSharedPreferences(context).edit().putInt(
-                PREF_PIP_LAYOUT, pipLayout).apply();
-    }
-
-    /**
-     * Returns the size of the PIP view stored in the shared preferences.
-     *
-     * @return the saved size of the PIP view. This value is one of
-     *         {@link #PIP_SIZE_SMALL} and {@link #PIP_SIZE_BIG}. If the preference value does not
-     *         exist, {@link #PIP_SIZE_SMALL} is returned.
-     */
-    @SuppressWarnings("ResourceType")
-    @PipSize
-    public static int getPipSize(Context context) {
-        return PreferenceManager.getDefaultSharedPreferences(context).getInt(
-                PREF_PIP_SIZE, PIP_SIZE_SMALL);
-    }
-
-    /**
-     * Stores the size of PIP view to the shared preferences.
-     *
-     * @param pipSize This value should be one of {@link #PIP_SIZE_SMALL} and {@link #PIP_SIZE_BIG}.
-     */
-    public static void setPipSize(Context context, @PipSize int pipSize) {
-        PreferenceManager.getDefaultSharedPreferences(context).edit().putInt(
-                PREF_PIP_SIZE, pipSize).apply();
-    }
+    private TvSettings() {}
 
     // Multi-track audio settings
     public static String getMultiAudioId(Context context) {
@@ -173,26 +98,61 @@ public final class TvSettings {
                 PREF_MULTI_AUDIO_CHANNEL_COUNT, channelCount).apply();
     }
 
-    // Parental Control settings
-    public static void addContentRatingSystems(Context context, Set<String> ids) {
-        Set<String> contentRatingSystemSet = getContentRatingSystemSet(context);
-        if (contentRatingSystemSet.addAll(ids)) {
-            PreferenceManager.getDefaultSharedPreferences(context).edit()
-                    .putStringSet(PREF_CONTENT_RATING_SYSTEMS, contentRatingSystemSet).apply();
+    public static void setDvrPlaybackTrackSettings(Context context, int trackType,
+            TvTrackInfo info) {
+        if (trackType == TvTrackInfo.TYPE_AUDIO) {
+            if (info == null) {
+                PreferenceManager.getDefaultSharedPreferences(context).edit()
+                        .remove(PREF_DVR_MULTI_AUDIO_ID).apply();
+            } else {
+                PreferenceManager.getDefaultSharedPreferences(context).edit()
+                        .putString(PREF_DVR_MULTI_AUDIO_LANGUAGE, info.getLanguage())
+                        .putInt(PREF_DVR_MULTI_AUDIO_CHANNEL_COUNT, info.getAudioChannelCount())
+                        .putString(PREF_DVR_MULTI_AUDIO_ID, info.getId()).apply();
+            }
+        } else if (trackType == TvTrackInfo.TYPE_SUBTITLE) {
+            if (info == null) {
+                PreferenceManager.getDefaultSharedPreferences(context).edit()
+                        .remove(PREF_DVR_SUBTITLE_ID).apply();
+            } else {
+                PreferenceManager.getDefaultSharedPreferences(context).edit()
+                        .putString(PREF_DVR_SUBTITLE_LANGUAGE, info.getLanguage())
+                        .putString(PREF_DVR_SUBTITLE_ID, info.getId()).apply();
+            }
         }
     }
 
+    public static TvTrackInfo getDvrPlaybackTrackSettings(Context context,
+            int trackType) {
+        String language;
+        String trackId;
+        int channelCount;
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+        if (trackType == TvTrackInfo.TYPE_AUDIO) {
+            trackId = pref.getString(PREF_DVR_MULTI_AUDIO_ID, null);
+            if (trackId == null) {
+                return null;
+            }
+            language = pref.getString(PREF_DVR_MULTI_AUDIO_LANGUAGE, null);
+            channelCount = pref.getInt(PREF_DVR_MULTI_AUDIO_CHANNEL_COUNT, 0);
+            return new TvTrackInfo.Builder(trackType, trackId)
+                    .setLanguage(language).setAudioChannelCount(channelCount).build();
+        } else if (trackType == TvTrackInfo.TYPE_SUBTITLE) {
+            trackId = pref.getString(PREF_DVR_SUBTITLE_ID, null);
+            if (trackId == null) {
+                return null;
+            }
+            language = pref.getString(PREF_DVR_SUBTITLE_LANGUAGE, null);
+            return new TvTrackInfo.Builder(trackType, trackId).setLanguage(language).build();
+        } else {
+            return null;
+        }
+    }
+
+    // Parental Control settings
     public static void addContentRatingSystem(Context context, String id) {
         Set<String> contentRatingSystemSet = getContentRatingSystemSet(context);
         if (contentRatingSystemSet.add(id)) {
-            PreferenceManager.getDefaultSharedPreferences(context).edit()
-                    .putStringSet(PREF_CONTENT_RATING_SYSTEMS, contentRatingSystemSet).apply();
-        }
-    }
-
-    public static void removeContentRatingSystems(Context context, Set<String> ids) {
-        Set<String> contentRatingSystemSet = getContentRatingSystemSet(context);
-        if (contentRatingSystemSet.removeAll(ids)) {
             PreferenceManager.getDefaultSharedPreferences(context).edit()
                     .putStringSet(PREF_CONTENT_RATING_SYSTEMS, contentRatingSystemSet).apply();
         }

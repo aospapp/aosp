@@ -47,8 +47,20 @@ class PlatformNanoappBase {
                       const void *appBinary, size_t appBinaryLen);
 
   /**
-   * Associate this PlatformNanoapp with a nanoapp that is statically built into
-   * the CHRE binary with the given app info structure.
+   * Associate this Nanoapp with a nanoapp included in a .so that is pre-loaded
+   * onto the filesystem. Actually loading the .so into memory is done when
+   * start() is called.
+   *
+   * @param appId The nanoapp's ID
+   * @param filename The name of the .so file in /vendor/lib/dsp that holds this
+   *        nanoapp. This string is not deep-copied, so the memory must remain
+   *        valid for the lifetime of this Nanoapp instance.
+   */
+  void loadFromFile(uint64_t appId, const char *filename);
+
+  /**
+   * Associate this Nanoapp instance with a nanoapp that is statically built
+   * into the CHRE binary with the given app info structure.
    */
   void loadStatic(const struct chreNslNanoappInfo *appInfo);
 
@@ -58,6 +70,11 @@ class PlatformNanoappBase {
    */
   bool isLoaded() const;
 
+  /**
+   * @return true if the app runs in micro-image.
+   */
+  bool isUimgApp() const;
+
  protected:
   //! The app ID we received in the metadata alongside the nanoapp binary. This
   //! is also included in (and checked against) mAppInfo.
@@ -66,11 +83,16 @@ class PlatformNanoappBase {
   //! The application-defined version number we received in the metadata
   //! alongside the nanoapp binary. This is also included in (and checked
   //! against) mAppInfo.
-  uint32_t mExpectedAppVersion;
+  uint32_t mExpectedAppVersion = 0;
 
-  //! Buffer containing the complete DSO binary
+  //! Buffer containing the complete DSO binary - only populated if
+  //! loadFromBuffer() was used to load this nanoapp
   void *mAppBinary = nullptr;
   size_t mAppBinaryLen = 0;
+
+  //! If this is a pre-loaded, but non-static nanoapp (i.e. loaded from
+  //! loadFromFile), this will be set to the filename string to pass to dlopen()
+  const char *mFilename = nullptr;
 
   //! The dynamic shared object (DSO) handle returned by dlopen[buf]()
   void *mDsoHandle = nullptr;
@@ -83,6 +105,15 @@ class PlatformNanoappBase {
   //! applicable.
   bool mIsStatic = false;
 
+  //! True if the nanoapp runs in micro-image.
+  bool mIsUimgApp = false;
+
+  /**
+   * Calls through to openNanoappFromBuffer or openNanoappFromFile, depending on
+   * how this nanoapp was loaded.
+   */
+  bool openNanoapp();
+
   /**
    * Calls dlopenbuf on the app binary, and fetches and validates the app info
    * pointer. This will result in execution of any on-load handlers (e.g. static
@@ -91,7 +122,17 @@ class PlatformNanoappBase {
    * @return true if the app was opened successfully and the app info structure
    *         passed validation
    */
-  bool openNanoapp();
+  bool openNanoappFromBuffer();
+
+  /**
+   * Calls dlopen on the app filename, and fetches and validates the app info
+   * pointer. This will result in execution of any on-load handlers (e.g.
+   * static global constructors) in the nanoapp.
+   *
+   * @return true if the app was opened successfully and the app info
+   *         structure passed validation
+   */
+  bool openNanoappFromFile();
 
   /**
    * Releases the DSO handle if it was active, by calling dlclose(). This will

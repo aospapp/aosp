@@ -103,7 +103,6 @@ import android.widget.LinearLayout;
 import com.android.compatibility.common.util.CtsMouseUtil;
 import com.android.compatibility.common.util.CtsTouchUtils;
 import com.android.compatibility.common.util.PollingCheck;
-import com.android.internal.view.menu.ContextMenuBuilder;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -1074,21 +1073,22 @@ public class ViewTest {
     }
 
     @Test
-    public void testCreateContextMenu() {
-        View.OnCreateContextMenuListener listener = mock(View.OnCreateContextMenuListener.class);
-        MockView view = new MockView(mActivity);
-        ContextMenu contextMenu = new ContextMenuBuilder(mActivity);
-        view.setParent(mMockParent);
-        view.setOnCreateContextMenuListener(listener);
-        assertFalse(view.hasCalledOnCreateContextMenu());
-        assertFalse(mMockParent.hasCreateContextMenu());
-        verifyZeroInteractions(listener);
+    public void testCreateContextMenu() throws Throwable {
+        mActivityRule.runOnUiThread(() -> {
+            View.OnCreateContextMenuListener listener =
+                    mock(View.OnCreateContextMenuListener.class);
+            MockView view = new MockView(mActivity);
+            mActivity.setContentView(view);
+            mActivity.registerForContextMenu(view);
+            view.setOnCreateContextMenuListener(listener);
+            assertFalse(view.hasCalledOnCreateContextMenu());
+            verifyZeroInteractions(listener);
 
-        view.createContextMenu(contextMenu);
-        assertTrue(view.hasCalledOnCreateContextMenu());
-        assertTrue(mMockParent.hasCreateContextMenu());
-        verify(listener, times(1)).onCreateContextMenu(
-                eq(contextMenu), eq(view), any());
+            view.showContextMenu();
+            assertTrue(view.hasCalledOnCreateContextMenu());
+            verify(listener, times(1)).onCreateContextMenu(
+                    any(), eq(view), any());
+        });
     }
 
     @Test(expected=NullPointerException.class)
@@ -1226,32 +1226,36 @@ public class ViewTest {
     }
 
     @Test
-    public void testKeyboardNavigationClusterSearch() {
-        mMockParent.setIsRootNamespace(true);
-        View v1 = new MockView(mActivity);
-        v1.setFocusableInTouchMode(true);
-        View v2 = new MockView(mActivity);
-        v2.setFocusableInTouchMode(true);
-        mMockParent.addView(v1);
-        mMockParent.addView(v2);
+    public void testKeyboardNavigationClusterSearch() throws Throwable {
+        mActivityRule.runOnUiThread(() -> {
+            ViewGroup decorView = (ViewGroup) mActivity.getWindow().getDecorView();
+            decorView.removeAllViews();
+            View v1 = new MockView(mActivity);
+            v1.setFocusableInTouchMode(true);
+            View v2 = new MockView(mActivity);
+            v2.setFocusableInTouchMode(true);
+            decorView.addView(v1);
+            decorView.addView(v2);
 
-        // Searching for clusters.
-        v1.setKeyboardNavigationCluster(true);
-        v2.setKeyboardNavigationCluster(true);
-        assertEquals(v2, mMockParent.keyboardNavigationClusterSearch(v1, View.FOCUS_FORWARD));
-        assertEquals(v1, mMockParent.keyboardNavigationClusterSearch(null, View.FOCUS_FORWARD));
-        assertEquals(v2, mMockParent.keyboardNavigationClusterSearch(null, View.FOCUS_BACKWARD));
-        assertEquals(v2, v1.keyboardNavigationClusterSearch(null, View.FOCUS_FORWARD));
-        assertEquals(mMockParent, v1.keyboardNavigationClusterSearch(null, View.FOCUS_BACKWARD));
-        assertEquals(mMockParent, v2.keyboardNavigationClusterSearch(null, View.FOCUS_FORWARD));
-        assertEquals(v1, v2.keyboardNavigationClusterSearch(null, View.FOCUS_BACKWARD));
+            // Searching for clusters.
+            v1.setKeyboardNavigationCluster(true);
+            v2.setKeyboardNavigationCluster(true);
+            assertEquals(v2, decorView.keyboardNavigationClusterSearch(v1, View.FOCUS_FORWARD));
+            assertEquals(v1, decorView.keyboardNavigationClusterSearch(null, View.FOCUS_FORWARD));
+            assertEquals(v2, decorView.keyboardNavigationClusterSearch(null, View.FOCUS_BACKWARD));
+            assertEquals(v2, v1.keyboardNavigationClusterSearch(null, View.FOCUS_FORWARD));
+            assertEquals(decorView, v1.keyboardNavigationClusterSearch(null, View.FOCUS_BACKWARD));
+            assertEquals(decorView, v2.keyboardNavigationClusterSearch(null, View.FOCUS_FORWARD));
+            assertEquals(v1, v2.keyboardNavigationClusterSearch(null, View.FOCUS_BACKWARD));
 
-        // Clusters in 3-level hierarchy.
-        ViewGroup root = new MockViewParent(mActivity);
-        root.setIsRootNamespace(true);
-        mMockParent.setIsRootNamespace(false);
-        root.addView(mMockParent);
-        assertEquals(root, v2.keyboardNavigationClusterSearch(null, View.FOCUS_FORWARD));
+            // Clusters in 3-level hierarchy.
+            decorView.removeAllViews();
+            LinearLayout middle = new LinearLayout(mActivity);
+            middle.addView(v1);
+            middle.addView(v2);
+            decorView.addView(middle);
+            assertEquals(decorView, v2.keyboardNavigationClusterSearch(null, View.FOCUS_FORWARD));
+        });
     }
 
     @Test
@@ -3658,6 +3662,67 @@ public class ViewTest {
                 View.SCROLL_INDICATOR_START | View.SCROLL_INDICATOR_RIGHT,
                 view.getScrollIndicators());
 
+    }
+
+    @Test
+    public void testScrollbarSize() {
+        final int configScrollbarSize = ViewConfiguration.get(mActivity).getScaledScrollBarSize();
+        final int customScrollbarSize = configScrollbarSize * 2;
+
+        // No explicit scrollbarSize or custom drawables, ViewConfiguration applies.
+        final MockView view = (MockView) mActivity.findViewById(R.id.scroll_view);
+        assertEquals(configScrollbarSize, view.getScrollBarSize());
+        assertEquals(configScrollbarSize, view.getVerticalScrollbarWidth());
+        assertEquals(configScrollbarSize, view.getHorizontalScrollbarHeight());
+
+        // No custom drawables, explicit scrollbarSize takes precedence.
+        final MockView view2 = (MockView) mActivity.findViewById(R.id.scroll_view_2);
+        view2.setScrollBarSize(customScrollbarSize);
+        assertEquals(customScrollbarSize, view2.getScrollBarSize());
+        assertEquals(customScrollbarSize, view2.getVerticalScrollbarWidth());
+        assertEquals(customScrollbarSize, view2.getHorizontalScrollbarHeight());
+
+        // Custom drawables with no intrinsic size, ViewConfiguration applies.
+        final MockView view3 = (MockView) mActivity.findViewById(R.id.scroll_view_3);
+        assertEquals(configScrollbarSize, view3.getVerticalScrollbarWidth());
+        assertEquals(configScrollbarSize, view3.getHorizontalScrollbarHeight());
+        // Explicit scrollbarSize takes precedence.
+        view3.setScrollBarSize(customScrollbarSize);
+        assertEquals(view3.getScrollBarSize(), view3.getVerticalScrollbarWidth());
+        assertEquals(view3.getScrollBarSize(), view3.getHorizontalScrollbarHeight());
+
+        // Custom thumb drawables with intrinsic sizes define the scrollbars' dimensions.
+        final MockView view4 = (MockView) mActivity.findViewById(R.id.scroll_view_4);
+        final Resources res = mActivity.getResources();
+        final int thumbWidth = res.getDimensionPixelSize(R.dimen.scrollbar_thumb_width);
+        final int thumbHeight = res.getDimensionPixelSize(R.dimen.scrollbar_thumb_height);
+        assertEquals(thumbWidth, view4.getVerticalScrollbarWidth());
+        assertEquals(thumbHeight, view4.getHorizontalScrollbarHeight());
+        // Explicit scrollbarSize has no effect.
+        view4.setScrollBarSize(customScrollbarSize);
+        assertEquals(thumbWidth, view4.getVerticalScrollbarWidth());
+        assertEquals(thumbHeight, view4.getHorizontalScrollbarHeight());
+
+        // Custom thumb and track drawables with intrinsic sizes. Track size take precedence.
+        final MockView view5 = (MockView) mActivity.findViewById(R.id.scroll_view_5);
+        final int trackWidth = res.getDimensionPixelSize(R.dimen.scrollbar_track_width);
+        final int trackHeight = res.getDimensionPixelSize(R.dimen.scrollbar_track_height);
+        assertEquals(trackWidth, view5.getVerticalScrollbarWidth());
+        assertEquals(trackHeight, view5.getHorizontalScrollbarHeight());
+        // Explicit scrollbarSize has no effect.
+        view5.setScrollBarSize(customScrollbarSize);
+        assertEquals(trackWidth, view5.getVerticalScrollbarWidth());
+        assertEquals(trackHeight, view5.getHorizontalScrollbarHeight());
+
+        // Custom thumb and track, track with no intrinsic size, ViewConfiguration applies
+        // regardless of the thumb drawable dimensions.
+        final MockView view6 = (MockView) mActivity.findViewById(R.id.scroll_view_6);
+        assertEquals(configScrollbarSize, view6.getVerticalScrollbarWidth());
+        assertEquals(configScrollbarSize, view6.getHorizontalScrollbarHeight());
+        // Explicit scrollbarSize takes precedence.
+        view6.setScrollBarSize(customScrollbarSize);
+        assertEquals(customScrollbarSize, view6.getVerticalScrollbarWidth());
+        assertEquals(customScrollbarSize, view6.getHorizontalScrollbarHeight());
     }
 
     @Test

@@ -22,8 +22,8 @@
 #include <errno.h>
 
 #include <jni.h>
-#include "JNIHelp.h"
-#include "ScopedUtfChars.h"
+#include <nativehelper/JNIHelp.h>
+#include <nativehelper/ScopedUtfChars.h>
 
 extern "C" void Java_libcore_java_io_FileTest_nativeTestFilesWithSurrogatePairs(
     JNIEnv* env, jobject /* clazz */, jstring baseDir) {

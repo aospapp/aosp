@@ -18,6 +18,10 @@
 
 namespace chre {
 
+void HostLink::flushMessagesSentByNanoapp(uint64_t appId) {
+  // TODO: implement
+}
+
 bool HostLink::sendMessage(const MessageToHost *message) {
   // TODO: implement
   return false;

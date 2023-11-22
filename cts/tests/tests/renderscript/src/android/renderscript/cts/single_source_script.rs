@@ -27,9 +27,9 @@ int RS_KERNEL goo(int a, int b) {
 }
 
 void RS_KERNEL bar(int x, int y) {
-  int a = rsGetElementAt_int(gAllocOut, x, y);
-  a++;
-  rsSetElementAt_int(gAllocOut, a, x, y);
+    int a = rsGetElementAt_int(gAllocOut, x, y);
+    a++;
+    rsSetElementAt_int(gAllocOut, a, x, y);
 }
 
 void testSingleInput(rs_allocation in, rs_allocation out) {
@@ -58,3 +58,19 @@ void testAllocationlessLaunch(rs_allocation inAndOut, int dimX, int dimY) {
     opts.yEnd = dimY;
     rsForEachWithOptions(bar, &opts);
 }
+
+void testConsistency(rs_allocation in, rs_allocation out) {
+    rsForEach(foo, in, out);
+    const uint32_t dimX = rsAllocationGetDimX(in);
+    const uint32_t dimY = rsAllocationGetDimY(in);
+    for (int i = 0; i < dimX; i++) {
+        for (int j = 0; j < dimY; j++) {
+            if (rsGetElementAt_int(out, i, j) != 2 * rsGetElementAt_int(in, i, j)) {
+                rsSendToClientBlocking(RS_MSG_TEST_FAILED);
+                return;
+            }
+        }
+    }
+    rsSendToClientBlocking(RS_MSG_TEST_PASSED);
+}
+

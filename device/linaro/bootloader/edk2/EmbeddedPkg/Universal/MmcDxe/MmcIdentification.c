@@ -427,12 +427,6 @@ InitializeSdMmcDevice (
     if (EFI_ERROR (Status)) {
       DEBUG ((EFI_D_ERROR, "%a(MMC_CMD6): Error and Status = %r\n", Status));
        return Status;
-    } else {
-      Status = MmcHost->ReadBlockData (MmcHost, 0, 64, Buffer);
-      if (EFI_ERROR (Status)) {
-        DEBUG ((EFI_D_ERROR, "%a(MMC_CMD6): ReadBlockData Error and Status = %r\n", Status));
-        return Status;
-      }
     }
   }
   if (Scr.SD_BUS_WIDTHS & SD_BUS_WIDTH_4BIT) {

@@ -1,5 +1,8 @@
 package org.bouncycastle.jcajce.provider.asymmetric;
 
+import java.util.HashMap;
+import java.util.Map;
+
 // BEGIN android-removed
 // import org.bouncycastle.asn1.bsi.BSIObjectIdentifiers;
 // import org.bouncycastle.asn1.eac.EACObjectIdentifiers;
@@ -19,6 +22,14 @@ public class EC
 {
     private static final String PREFIX = "org.bouncycastle.jcajce.provider.asymmetric" + ".ec.";
 
+    private static final Map<String, String> generalEcAttributes = new HashMap<String, String>();
+
+    static
+    {
+        generalEcAttributes.put("SupportedKeyClasses", "java.security.interfaces.ECPublicKey|java.security.interfaces.ECPrivateKey");
+        generalEcAttributes.put("SupportedKeyFormats", "PKCS#8|X.509");
+    }
+
     public static class Mappings
         extends AsymmetricAlgorithmProvider
     {
@@ -30,9 +41,12 @@ public class EC
         {
             provider.addAlgorithm("AlgorithmParameters.EC", PREFIX + "AlgorithmParametersSpi");
 
+            provider.addAttributes("KeyAgreement.ECDH", generalEcAttributes);
             provider.addAlgorithm("KeyAgreement.ECDH", PREFIX + "KeyAgreementSpi$DH");
             // BEGIN android-removed
+            // provider.addAttributes("KeyAgreement.ECDHC", generalEcAttributes);
             // provider.addAlgorithm("KeyAgreement.ECDHC", PREFIX + "KeyAgreementSpi$DHC");
+            // provider.addAttributes("KeyAgreement.ECCDH", generalEcAttributes);
             // provider.addAlgorithm("KeyAgreement.ECCDH", PREFIX + "KeyAgreementSpi$DHC");
             //
             // provider.addAlgorithm("KeyAgreement." + X9ObjectIdentifiers.dhSinglePass_stdDH_sha1kdf_scheme, PREFIX + "KeyAgreementSpi$DHwithSHA1KDFAndSharedInfo");

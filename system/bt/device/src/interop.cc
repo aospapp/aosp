@@ -38,21 +38,20 @@ static const char* interop_feature_string_(const interop_feature_t feature);
 static void interop_free_entry_(void* data);
 static void interop_lazy_init_(void);
 static bool interop_match_fixed_(const interop_feature_t feature,
-                                 const bt_bdaddr_t* addr);
+                                 const RawAddress* addr);
 static bool interop_match_dynamic_(const interop_feature_t feature,
-                                   const bt_bdaddr_t* addr);
+                                   const RawAddress* addr);
 
 // Interface functions
 
 bool interop_match_addr(const interop_feature_t feature,
-                        const bt_bdaddr_t* addr) {
+                        const RawAddress* addr) {
   CHECK(addr);
 
   if (interop_match_fixed_(feature, addr) ||
       interop_match_dynamic_(feature, addr)) {
-    char bdstr[20] = {0};
     LOG_WARN(LOG_TAG, "%s() Device %s is a match for interop workaround %s.",
-             __func__, bdaddr_to_string(addr, bdstr, sizeof(bdstr)),
+             __func__, addr->ToString().c_str(),
              interop_feature_string_(feature));
     return true;
   }
@@ -77,11 +76,11 @@ bool interop_match_name(const interop_feature_t feature, const char* name) {
   return false;
 }
 
-void interop_database_add(const uint16_t feature, const bt_bdaddr_t* addr,
+void interop_database_add(const uint16_t feature, const RawAddress* addr,
                           size_t length) {
   CHECK(addr);
   CHECK(length > 0);
-  CHECK(length < sizeof(bt_bdaddr_t));
+  CHECK(length < RawAddress::kLength);
 
   interop_addr_entry_t* entry = static_cast<interop_addr_entry_t*>(
       osi_calloc(sizeof(interop_addr_entry_t)));
@@ -127,6 +126,8 @@ static const char* interop_feature_string_(const interop_feature_t feature) {
     CASE_RETURN_STR(INTEROP_HID_PREF_CONN_SUP_TIMEOUT_3S)
     CASE_RETURN_STR(INTEROP_GATTC_NO_SERVICE_CHANGED_IND)
     CASE_RETURN_STR(INTEROP_DISABLE_AVDTP_RECONFIGURE)
+    CASE_RETURN_STR(INTEROP_DYNAMIC_ROLE_SWITCH)
+    CASE_RETURN_STR(INTEROP_DISABLE_ROLE_SWITCH)
   }
 
   return "UNKNOWN";
@@ -144,7 +145,7 @@ static void interop_lazy_init_(void) {
 }
 
 static bool interop_match_dynamic_(const interop_feature_t feature,
-                                   const bt_bdaddr_t* addr) {
+                                   const RawAddress* addr) {
   if (interop_list == NULL || list_length(interop_list) == 0) return false;
 
   const list_node_t* node = list_begin(interop_list);
@@ -163,7 +164,7 @@ static bool interop_match_dynamic_(const interop_feature_t feature,
 }
 
 static bool interop_match_fixed_(const interop_feature_t feature,
-                                 const bt_bdaddr_t* addr) {
+                                 const RawAddress* addr) {
   CHECK(addr);
 
   const size_t db_size =

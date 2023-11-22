@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2015-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -198,15 +199,14 @@ main(void)
 	};
 	const long *cbvs2 = tail_memdup(proto_cbvs2, sizeof(proto_cbvs2));
 
-	unsigned long *ctx = tail_alloc(sizeof(unsigned long));
+	TAIL_ALLOC_OBJECT_CONST_PTR(unsigned long, ctx);
 	*ctx = 0;
 
 	const unsigned int nr = ARRAY_SIZE(proto_cb);
 	const unsigned long lnr = (unsigned long) (0xdeadbeef00000000ULL | nr);
 
 	const struct io_event *ev = tail_alloc(nr * sizeof(struct io_event));
-	const struct timespec proto_ts = { .tv_nsec = 123456789 };
-	const struct timespec *ts = tail_memdup(&proto_ts, sizeof(proto_ts));
+	TAIL_ALLOC_OBJECT_CONST_PTR(struct timespec, ts);
 
 	(void) close(0);
 	if (open("/dev/zero", O_RDONLY))
@@ -240,9 +240,9 @@ main(void)
 		perror_msg_and_skip("io_submit");
 	printf("io_submit(%#lx, %u, ["
 	       "{data=%#" PRI__x64 ", pread, reqprio=11, fildes=0, "
-	               "buf=%p, nbytes=%u, offset=%" PRI__d64 "}, "
+		"buf=%p, nbytes=%u, offset=%" PRI__d64 "}, "
 	       "{data=%#" PRI__x64 ", pread, reqprio=22, fildes=0, "
-	               "buf=%p, nbytes=%u, offset=%" PRI__d64 "}"
+		"buf=%p, nbytes=%u, offset=%" PRI__d64 "}"
 	       "]) = %s\n",
 	       *ctx, nr,
 	       cb[0].aio_data, data0, sizeof_data0, cb[0].aio_offset,
@@ -263,6 +263,24 @@ main(void)
 	       bogus_ctx, (long) 0xca7faceddeadf00dLL,
 	       (long) 0xba5e1e505ca571e0LL, ts + 1, sprintrc(rc));
 
+	ts->tv_sec = 0xdeadbeefU;
+	ts->tv_nsec = 0xfacefeedU;
+	rc = syscall(__NR_io_getevents, bogus_ctx, 0, 0, 0, ts);
+	printf("io_getevents(%#lx, 0, 0, NULL"
+	       ", {tv_sec=%lld, tv_nsec=%llu}) = %s\n",
+	       bogus_ctx, (long long) ts->tv_sec,
+	       zero_extend_signed_to_ull(ts->tv_nsec), sprintrc(rc));
+
+	ts->tv_sec = (time_t) 0xcafef00ddeadbeefLL;
+	ts->tv_nsec = (long) 0xbadc0dedfacefeedLL;
+	rc = syscall(__NR_io_getevents, bogus_ctx, 0, 0, 0, ts);
+	printf("io_getevents(%#lx, 0, 0, NULL"
+	       ", {tv_sec=%lld, tv_nsec=%llu}) = %s\n",
+	       bogus_ctx, (long long) ts->tv_sec,
+	       zero_extend_signed_to_ull(ts->tv_nsec), sprintrc(rc));
+
+	ts->tv_sec = 0;
+	ts->tv_nsec = 123456789;
 	rc = syscall(__NR_io_getevents, *ctx, nr, nr + 1, ev, ts);
 	printf("io_getevents(%#lx, %ld, %ld, ["
 	       "{data=%#" PRI__x64 ", obj=%p, res=%u, res2=0}, "
@@ -299,18 +317,18 @@ main(void)
 	printf("io_submit(%#lx, %ld, ["
 	       "{data=%#" PRI__x64 ", key=%u, %hu /* SUB_??? */, fildes=%d}, "
 	       "{key=%u, pwrite, reqprio=%hd, fildes=%d, str=NULL"
-	               ", nbytes=%" PRI__u64 ", offset=%" PRI__d64
+		", nbytes=%" PRI__u64 ", offset=%" PRI__d64
 # ifdef IOCB_FLAG_RESFD
-	               ", resfd=%d, flags=%#x"
+		", resfd=%d, flags=%#x"
 # endif
-	               "}, "
+		"}, "
 	       "{key=%u, pwrite, reqprio=%hd, fildes=%d, buf=%#" PRI__x64
-	               ", nbytes=%" PRI__u64 ", offset=%" PRI__d64 "}, "
+		", nbytes=%" PRI__u64 ", offset=%" PRI__d64 "}, "
 	       "{key=%u, pwrite, reqprio=%hd, fildes=%d"
-	               ", str=\"\\0\\1\\2\\3%.28s\"..."
-	               ", nbytes=%" PRI__u64 ", offset=%" PRI__d64 "}, "
+		", str=\"\\0\\1\\2\\3%.28s\"..."
+		", nbytes=%" PRI__u64 ", offset=%" PRI__d64 "}, "
 	       "{key=%u, pwritev, reqprio=%hd, fildes=%d, buf=%#" PRI__x64
-	               ", nbytes=%" PRI__u64 ", offset=%" PRI__d64 "}"
+		", nbytes=%" PRI__u64 ", offset=%" PRI__d64 "}"
 	       ", {NULL}, {%#lx}, %p]) = %s\n",
 	       *ctx, 1057L,
 	       cbv2[0].aio_data, cbv2[0].aio_key,
@@ -333,11 +351,11 @@ main(void)
 		perror_msg_and_skip("io_submit");
 	printf("io_submit(%#lx, %u, ["
 	       "{data=%#" PRI__x64 ", preadv, reqprio=%hd, fildes=0, "
-	               "iovec=[{iov_base=%p, iov_len=%u}"
-	               ", {iov_base=%p, iov_len=%u}], offset=%" PRI__d64 "}, "
+		"iovec=[{iov_base=%p, iov_len=%u}"
+		", {iov_base=%p, iov_len=%u}], offset=%" PRI__d64 "}, "
 	       "{data=%#" PRI__x64 ", preadv, reqprio=%hd, fildes=0, "
-	               "iovec=[{iov_base=%p, iov_len=%u}"
-	               ", {iov_base=%p, iov_len=%u}], offset=%" PRI__d64 "}"
+		"iovec=[{iov_base=%p, iov_len=%u}"
+		", {iov_base=%p, iov_len=%u}], offset=%" PRI__d64 "}"
 	       "]) = %s\n",
 	       *ctx, nr,
 	       cbv[0].aio_data, cbv[0].aio_reqprio,

@@ -23,6 +23,7 @@
 #include "isv_profile.h"
 #include <OMX_IndexExt.h>
 #include <hal_public.h>
+#include <nativebase/nativebase.h>
 
 #include "OMX_adaptor.h"
 

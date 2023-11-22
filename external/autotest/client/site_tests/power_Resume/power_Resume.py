@@ -19,9 +19,17 @@ class power_Resume(test.test):
     version = 1
     preserve_srcdir = True
 
-    def initialize(self):
+    def initialize(self, suspend_state=''):
+        """
+        Entry point.
+
+        @param suspend_state: Force to suspend to a specific
+                state ("mem" or "freeze"). If the string is empty, suspend
+                state is left to the default pref on the system.
+        """
         self._suspender = power_suspend.Suspender(self.resultsdir,
-                throw=True, device_times=True)
+                throw=True, device_times=True,
+                suspend_state=suspend_state)
 
 
     def run_once(self, max_devs_returned=10, seconds=0,

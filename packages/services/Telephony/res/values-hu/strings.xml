@@ -78,7 +78,6 @@
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"Hangposta (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"HP:"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"Értesítések"</string>
-    <string name="networks" msgid="8873030692174541976">"Mobilszolgáltatók"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"Sürgősségi adások"</string>
     <string name="call_settings" msgid="6112441768261754562">"Hívásbeállítások"</string>
     <string name="additional_gsm_call_settings" msgid="1391795981938800617">"További beállítások"</string>
@@ -164,20 +163,18 @@
     <string name="label_available" msgid="1181658289009300430">"Elérhető hálózatok"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"Keresés…"</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"Nem található hálózat."</string>
-    <string name="search_networks" msgid="1601136049300882441">"Hálózatkeresés"</string>
     <string name="network_query_error" msgid="6828516148953325006">"Hiba történt a hálózatok keresése közben."</string>
     <string name="register_on_network" msgid="9055203954040805084">"Regisztrálás a(z) <xliff:g id="NETWORK">%s</xliff:g> hálózaton..."</string>
     <string name="not_allowed" msgid="5613353860205691579">"SIM kártyája nem teszi lehetővé a kapcsolódást ehhez a hálózathoz."</string>
     <string name="connect_later" msgid="2308119155752343975">"Most nem lehet csatlakozni a hálózathoz. Próbálja meg később."</string>
     <string name="registration_done" msgid="495135664535876612">"Regisztrálva a hálózaton."</string>
-    <string name="sum_carrier_select" msgid="3494252551249882718">"Válassza ki a hálózat üzemeltetőjét"</string>
-    <string name="sum_search_networks" msgid="2921092249873272715">"Az összes elérhető hálózat megkeresése"</string>
-    <string name="select_automatically" msgid="5628402124471810174">"Automatikus választás"</string>
-    <string name="sum_select_automatically" msgid="5614890115123292400">"Preferált hálózat automatikus kiválasztása"</string>
+    <string name="select_automatically" msgid="1046727200631770962">"Hálózat automatikus kiválasztása"</string>
+    <string name="network_select_title" msgid="7733107364757544558">"Hálózat"</string>
     <string name="register_automatically" msgid="6017849844573519637">"Automatikus regisztráció..."</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"Preferált hálózattípus"</string>
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"A hálózati üzemmód megváltoztatása"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"Preferált hálózattípus"</string>
+    <string name="forbidden_network" msgid="4384929668343563440">"(tiltott)"</string>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"Preferált hálózati mód: preferált WCDMA"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"Preferált hálózati mód: csak GSM"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"Preferált hálózati mód: csak WCDMA"</string>
@@ -210,18 +207,34 @@
     <item msgid="1524224863879435516">"Csak GSM"</item>
     <item msgid="3817924849415716259">"GSM/WCDMA a preferált"</item>
   </string-array>
+    <string name="call_category" msgid="5863978196309462052">"Hívás"</string>
+    <string name="network_operator_category" msgid="4830701959205735636">"Hálózat"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"Javított 4G LTE mód"</string>
     <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"Továbbfejlesztett telefonhívás"</string>
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"LTE-szolgáltatások használata hang- és egyéb kommunikáció javításához (ajánlott)"</string>
     <string name="data_enabled" msgid="5972538663568715366">"Adatok engedélyezése"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"Adatforgalom engedélyezése"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"Figyelem"</string>
-    <string name="roaming" msgid="8871412572928323707">"Adatbarangolás"</string>
+    <string name="roaming" msgid="7894878421600247140">"Barangolás"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"Csatlakozás adatszolgáltatásokhoz barangolás során"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"Csatlakozás adatszolgáltatásokhoz barangolás során"</string>
     <string name="roaming_reenable_message" msgid="8913735676127858115">"Megszakadt az adatkapcsolat, mert elhagyta az otthoni hálózatot, és az adatbarangolás nincs bekapcsolva."</string>
     <string name="roaming_warning" msgid="1603164667540144353">"Lehet, hogy jelentős összeget számítanak fel érte."</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"Engedélyezi az adatbarangolást?"</string>
+    <string name="data_usage_title" msgid="8759619109516889802">"Adathasználat"</string>
+    <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_1">%1$s</xliff:g> mobiladat felhasználva a következő dátumok között: <xliff:g id="ID_2">%2$s</xliff:g>"</string>
+    <string name="advanced_options_title" msgid="8074895510265488035">"Speciális"</string>
+    <string name="carrier_settings_euicc" msgid="6714062862127226405">"Szolgáltató"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"szolgáltató, esim, sim, euicc"</string>
+    <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> – <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
+    <string name="mobile_data_settings_title" msgid="4661165467914727157">"Mobiladatok"</string>
+    <string name="mobile_data_settings_summary" msgid="5087255915840576895">"Adathozzáférés a mobilhálózaton keresztül"</string>
+    <string name="data_usage_disable_mobile" msgid="3577275288809667615">"Kikapcsolja a mobiladatokat?"</string>
+    <string name="sim_selection_required_pref" msgid="7049424902961844236">"Kijelölés szükséges"</string>
+    <string name="sim_change_data_title" msgid="5332425991853799280">"Módosítja az adat SIM-kártyát?"</string>
+    <string name="sim_change_data_message" msgid="2163963581444907496">"A(z) <xliff:g id="NEW_SIM">%1$s</xliff:g> SIM-kártyát szeretné használni a(z) <xliff:g id="OLD_SIM">%2$s</xliff:g> helyett mobiladat-kapcsolat esetén?"</string>
+    <string name="wifi_calling_settings_title" msgid="7741961465416430470">"Wi-Fi-hívás"</string>
+    <string name="video_calling_settings_title" msgid="539714564273795574">"Szolgáltatói videohívás"</string>
     <string name="gsm_umts_options" msgid="6538311689850981686">"GSM/UMTS beállítások"</string>
     <string name="cdma_options" msgid="4016822858172249884">"CDMA-beállítások"</string>
     <string name="throttle_data_usage" msgid="3715677828160555808">"Adathasználat"</string>
@@ -452,7 +465,7 @@
     <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"A mobilhálózat nem érhető el. Hívás indításához csatlakozzon egy vezeték nélküli hálózathoz."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"Hívásindításhoz adjon meg egy érvényes számot."</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"Sikertelen hívás."</string>
-    <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"Jelenleg nem lehet hívást indítani."</string>
+    <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"Jelenleg nem indítható hívás. Üzenet küldésével érheti el a másik felet."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"A szolgáltatás nem támogatott"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"A hívások közötti váltás sikertelen."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"A híváselkülönítés sikertelen."</string>
@@ -466,7 +479,7 @@
     <string name="emergency_enable_radio_dialog_title" msgid="4627849966634578257">"Segélyhívás"</string>
     <string name="emergency_enable_radio_dialog_message" msgid="207613549344420291">"Rádió bekapcsolása..."</string>
     <string name="emergency_enable_radio_dialog_retry" msgid="5960061579996526883">"Nincs szolgáltatás. Újrapróbálkozás folyamatban…"</string>
-    <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"Vészhívás során nem engedélyezheti a Repülős üzemmódot."</string>
+    <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"Segélyhívás során nem engedélyezheti a Repülős üzemmódot."</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"A hívás sikertelen. A(z) <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> szám nem segélyhívószám."</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"A hívás sikertelen. Tárcsázzon segélyhívószámot."</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"A tárcsázáshoz használja a billentyűzetet"</string>
@@ -572,6 +585,8 @@
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"Túl sok aktív hívás van. Új hívás indítása előtt fejezzen be vagy vonjon össze meglévő hívásokat."</string>
     <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"Sikertelen csatlakozás. Helyezzen be egy működő SIM-kártyát."</string>
     <string name="callFailed_wifi_lost" msgid="5968076625137297184">"A Wi-Fi-kapcsolat megszakadt. A hívás befejeződött."</string>
+    <string name="dialFailed_low_battery" msgid="8760548177088774268">"Az alacsony töltöttség miatt nem indítható videohívás."</string>
+    <string name="callFailed_low_battery" msgid="4913582435905872616">"A videohívás az alacsony töltöttség miatt befejeződött."</string>
     <string name="change_pin_title" msgid="7790232089699034029">"A hangposta PIN-kódjának módosítása"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"Folytatás"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"Mégse"</string>
@@ -584,4 +599,18 @@
     <string name="change_pin_confirm_pins_dont_match" msgid="4795052654904027909">"A PIN-kódok nem egyeznek"</string>
     <string name="change_pin_succeeded" msgid="2022852286442211151">"A hangpostához használt PIN-kód frissítve"</string>
     <string name="change_pin_system_error" msgid="8308462387154257840">"Nem sikerült beállítani a PIN-kódot"</string>
+    <string name="mobile_data_status_roaming_turned_off_subtext" msgid="935636805765823307">"Az adatbarangolás ki van kapcsolva"</string>
+    <string name="mobile_data_status_roaming_turned_on_subtext" msgid="1335176927083781041">"Az adatbarangolás be van kapcsolva"</string>
+    <string name="mobile_data_status_roaming_without_plan_subtext" msgid="3568412513831673037">"Jelenleg barangol, adatcsomagra van szüksége"</string>
+    <string name="mobile_data_status_roaming_with_plan_subtext" msgid="8721998948811064377">"Jelenleg barangol, és az adatcsomag aktív"</string>
+    <string name="mobile_data_status_no_plan_subtext" msgid="4887747337017565725">"Nincs több mobiladat"</string>
+    <string name="mobile_data_activate_prepaid" msgid="7447025165850512683">"Nincs több mobiladat"</string>
+    <string name="mobile_data_activate_prepaid_summary" msgid="5705389791791637666">"Mobiladatcsomag vásárlása a következőtől: <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
+    <string name="mobile_data_activate_roaming_plan" msgid="5998161536947086264">"Nincs barangoló előfizetés"</string>
+    <string name="mobile_data_activate_roaming_plan_summary" msgid="511202908883425459">"Vásároljon barangoló előfizetést a következőtől: <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
+    <string name="mobile_data_activate_footer" msgid="5979019929980140594">"A szolgáltatójától (<xliff:g id="PROVIDER_NAME">%s</xliff:g>) vásárolhat mobiladat-forgalmat vagy barangoló előfizetést."</string>
+    <string name="mobile_data_activate_diag_title" msgid="9044252207707864493">"Hozzáadja az adatcsomagot?"</string>
+    <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"Lehet, hogy adatcsomagot kell vásárolnia a következőtől: <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
+    <string name="mobile_data_activate_button" msgid="3682400969184405446">"ADATCSOMAG HOZZÁADÁSA"</string>
+    <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"MÉGSE"</string>
 </resources>

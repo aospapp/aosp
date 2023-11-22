@@ -17,12 +17,20 @@
 package android.media.session.cts;
 
 import static android.media.cts.MediaSessionTestHelperConstants.MEDIA_SESSION_TEST_HELPER_PKG;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import android.content.Context;
 import android.content.ComponentName;
-import android.test.AndroidTestCase;
-import android.media.session.MediaSessionManager;
+import android.content.Context;
 import android.media.session.MediaController;
+import android.media.session.MediaSessionManager;
+import android.service.notification.NotificationListenerService;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+
+import org.junit.Before;
+import org.junit.Test;
 
 import java.util.List;
 
@@ -31,22 +39,25 @@ import java.util.List;
  * <p>Don't run tests here directly. They aren't stand-alone tests and each test will be run
  * indirectly by the host-side test CtsMediaHostTestCases after the proper device setup.
  */
-public class MediaSessionManagerTest extends AndroidTestCase {
+@SmallTest
+public class MediaSessionManagerTest extends NotificationListenerService {
+    private ComponentName mComponentName;
     private MediaSessionManager mMediaSessionManager;
 
-    @Override
+    @Before
     public void setUp() throws Exception {
-        super.setUp();
-        mMediaSessionManager = (MediaSessionManager) getContext().getSystemService(
+        Context context = InstrumentationRegistry.getTargetContext();
+        mMediaSessionManager = (MediaSessionManager) context.getSystemService(
                 Context.MEDIA_SESSION_SERVICE);
+        mComponentName = new ComponentName(context, MediaSessionManagerTest.class);
     }
 
     /**
      * Tests if the MediaSessionTestHelper doesn't have an active media session.
      */
+    @Test
     public void testGetActiveSessions_noMediaSessionFromMediaSessionTestHelper() throws Exception {
-        List<MediaController> controllers = mMediaSessionManager.getActiveSessions(
-                createFakeNotificationListener());
+        List<MediaController> controllers = mMediaSessionManager.getActiveSessions(mComponentName);
         for (MediaController controller : controllers) {
             if (controller.getPackageName().equals(MEDIA_SESSION_TEST_HELPER_PKG)) {
                 fail("Media session for the media session app shouldn't be available");
@@ -58,9 +69,9 @@ public class MediaSessionManagerTest extends AndroidTestCase {
     /**
      * Tests if the MediaSessionTestHelper has an active media session.
      */
+    @Test
     public void testGetActiveSessions_hasMediaSessionFromMediaSessionTestHelper() throws Exception {
-        List<MediaController> controllers = mMediaSessionManager.getActiveSessions(
-                createFakeNotificationListener());
+        List<MediaController> controllers = mMediaSessionManager.getActiveSessions(mComponentName);
         for (MediaController controller : controllers) {
             if (controller.getPackageName().equals(MEDIA_SESSION_TEST_HELPER_PKG)) {
                 // Test success
@@ -73,18 +84,9 @@ public class MediaSessionManagerTest extends AndroidTestCase {
     /**
      * Tests if there's no media session.
      */
+    @Test
     public void testGetActiveSessions_noMediaSession() throws Exception {
-        List<MediaController> controllers = mMediaSessionManager.getActiveSessions(
-                createFakeNotificationListener());
+        List<MediaController> controllers = mMediaSessionManager.getActiveSessions(mComponentName);
         assertTrue(controllers.isEmpty());
     }
-
-    /**
-     * Returns the ComponentName of the notification listener for this test.
-     * <p>Notification listener will be enabled by the host-side test.
-     */
-    private ComponentName createFakeNotificationListener() {
-        return new ComponentName(getContext(), MediaSessionManagerTest.class);
-    }
 }
-

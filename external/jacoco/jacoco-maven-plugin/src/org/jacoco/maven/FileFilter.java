@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -45,6 +45,20 @@ public class FileFilter {
 	}
 
 	/**
+	 * Returns a list of file names.
+	 * 
+	 * @param directory
+	 *            the directory to scan
+	 * @return a list of files
+	 * @throws IOException
+	 *             if file system access fails
+	 */
+	public List<String> getFileNames(final File directory) throws IOException {
+		return FileUtils.getFileNames(directory, getIncludes(), getExcludes(),
+				false);
+	}
+
+	/**
 	 * Returns a list of files.
 	 * 
 	 * @param directory
@@ -53,10 +67,8 @@ public class FileFilter {
 	 * @throws IOException
 	 *             if file system access fails
 	 */
-	@SuppressWarnings("unchecked")
-	public List<String> getFileNames(final File directory) throws IOException {
-		return FileUtils.getFileNames(directory, getIncludes(), getExcludes(),
-				false);
+	public List<File> getFiles(final File directory) throws IOException {
+		return FileUtils.getFiles(directory, getIncludes(), getExcludes());
 	}
 
 	/**

@@ -130,21 +130,23 @@ public final class DeviceRuntime implements Mode {
     private void addCreateDexJarAndPushTasks(
             Set<Task> tasks, String name, File jar, Action action) {
         File localDex = run.localDexFile(name);
+        File localTempDir = run.localDir(name);
         File deviceDex = run.targetDexFile(name);
-        Task createDexJarTask = newCreateDexJarTask(run.classpath, jar, name, action, localDex);
+        Task createDexJarTask = newCreateDexJarTask(run.classpath, jar, name, action, localDex,
+                localTempDir);
         tasks.add(createDexJarTask);
         tasks.add(run.target.pushTask(localDex, deviceDex).afterSuccess(createDexJarTask));
     }
 
     private Task newCreateDexJarTask(Classpath classpath, File classpathElement, String name,
-            Action action, File localDex) {
+            Action action, File localDex, File localTempDir) {
         Task dex;
         if (run.useJack) {
             dex = new JackDexTask(run, classpath, run.benchmark, name, classpathElement,
                     action, localDex);
         } else {
             dex = new DexTask(run.androidSdk, classpath, run.benchmark, name, classpathElement,
-                    action, localDex, run.multidex);
+                    action, localDex, localTempDir, run.multidex);
         }
         return dex;
     }

@@ -44,6 +44,10 @@
     <string name="car_permission_label_speed">Car speed</string>
     <!-- Permission text: can access your car's speed [CHAR LIMIT=NONE] -->
     <string name="car_permission_desc_speed">Access your car\'s speed.</string>
+    <!-- Permission text: can access your car's dynamics state [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_vehicle_dynamics_state">Vehicle dynamics state</string>
+    <!-- Permission text: can access your car's dynamic state [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_vehicle_dynamics_state">Access your car\'s dynamics state</string>
     <!-- Permission text: apps can access car-manufacturer specific data [CHAR LIMIT=NONE] -->
     <string name="car_permission_label_vendor_extension">Car vendor channel</string>
     <!-- Permission text: apps can access car-manufacturer specific data [CHAR LIMIT=NONE] -->
@@ -77,6 +81,11 @@
          cluster [CHAR LIMIT=NONE] -->
     <string name="car_permission_desc_car_navigation_manager">Report navigation data to instrument
         cluster</string>
+    <string name="car_permission_car_display_in_cluster">Direct rendering to instrument cluster</string>
+    <string name="car_permission_desc_car_display_in_cluster">Allow an application to declare
+      activities to be displayed in the instrument cluster</string>
+    <string name="car_permission_car_cluster_control">Instrument cluster control</string>
+    <string name="car_permission_desc_car_cluster_control">Launch apps in the instrument cluster</string>
     <string name="car_permission_label_bind_instrument_cluster_rendering">Instrument Cluster Rendering</string>
     <string name="car_permission_desc_bind_instrument_cluster_rendering">Receive instrument cluster data</string>
 
@@ -107,13 +116,4 @@
     <!-- Permission text: apps can clear diagnostic data from the car [CHAR LIMIT=NONE] -->
     <string name="car_permission_desc_diag_clear">Clear diagnostic data from the car</string>
 
-    <!-- Permission text: apps can publish VMS data [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_vms_publisher">VMS publisher</string>
-    <!-- Permission text: apps can send VMS messages to the car [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_vms_publisher">Publish vms messages</string>
-
-    <!-- Permission text: apps can subscribe to VMS data [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_vms_subscriber">VMS subscriber</string>
-    <!-- Permission text: apps can receive VMS messages from the car [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_vms_subscriber">Subscribe to vms messages</string>
 </resources>

@@ -1025,7 +1025,6 @@ public final class RuleBasedCollator extends Collator {
      *         String is null, a null CollationKey is returned.
      * @see CollationKey
      * @see #compare(String, String)
-     * @see #getRawCollationKey
      */
     @Override
     public CollationKey getCollationKey(String source) {

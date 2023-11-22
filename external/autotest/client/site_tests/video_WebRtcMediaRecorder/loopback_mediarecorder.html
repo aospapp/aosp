@@ -79,7 +79,7 @@ function createAndStartMediaRecorder(stream, mimeType, slice) {
       recorder.start(slice);
       console.log('Recorder started with time slice', slice);
     } else {
-      recorder.start();
+      recorder.start(1);
     }
     resolve(recorder);
   });
@@ -106,7 +106,7 @@ function testStartAndRecorderState() {
           startEventReceived = true;
           assertEquals('recording', recorder.state);
         };
-        recorder.start();
+        recorder.start(1);
       })
       .then(function() {
         return waitFor('Make sure the start event was received',
@@ -421,7 +421,7 @@ function testIllegalStartInRecordingStateThrowsDOMError() {
         return createAndStartMediaRecorder(stream, DEFAULT_RECORDER_MIME_TYPE);
       })
       .then(function(recorder) {
-        assertThrows(function() {recorder.start()}, 'Calling start() in' +
+        assertThrows(function() {recorder.start(1)}, 'Calling start() in' +
             ' recording state should cause a DOM error');
       });
 }
@@ -435,7 +435,7 @@ function testIllegalStartInPausedStateThrowsDOMError() {
       })
       .then(function(recorder) {
         recorder.pause();
-        assertThrows(function() {recorder.start()}, 'Calling start() in' +
+        assertThrows(function() {recorder.start(1)}, 'Calling start(1) in' +
             ' paused state should cause a DOM error');
       });
 }
@@ -455,7 +455,7 @@ function testTwoChannelAudio() {
         recorder.ondataavailable = function(event) {
           audioSize += event.data.size;
         };
-        recorder.start();
+        recorder.start(1);
         oscillator.start();
         context.startRendering();
       })
@@ -502,7 +502,7 @@ function testAddingTrackToMediaStreamFiresErrorEvent() {
         recorder.onerror = function(event) {
           errorEventReceived = true;
         };
-        recorder.start();
+        recorder.start(1);
         // Add a new track, copy of an existing one for simplicity.
         theStream.addTrack(theStream.getTracks()[1].clone());
       })
@@ -534,7 +534,7 @@ function testRemovingTrackFromMediaStreamFiresErrorEvent() {
         recorder.onerror = function(event) {
           errorEventReceived = true;
         };
-        recorder.start();
+        recorder.start(1);
         theStream.removeTrack(theStream.getTracks()[1]);
       })
       .then(function() {

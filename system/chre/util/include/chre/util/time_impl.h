@@ -1,13 +1,23 @@
+/*
+ * Copyright (C) 2017 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#ifndef CHRE_UTIL_TIME_IMPL_H_
+#define CHRE_UTIL_TIME_IMPL_H_
+
 #include "chre/util/time.h"
-
-//! The number of nanoseconds in one second.
-constexpr uint64_t kOneSecondInNanoseconds(1000000000);
-
-//! The number of nanoseconds in one millisecond.
-constexpr uint64_t kOneMillisecondInNanoseconds(1000000);
-
-//! The number of nanoseconds in one millisecond.
-constexpr uint64_t kOneMicrosecondInNanoseconds(1000);
 
 namespace chre {
 
@@ -21,6 +31,9 @@ constexpr uint64_t Seconds::toRawNanoseconds() const {
   return mSeconds > (UINT64_MAX / kOneSecondInNanoseconds) ? UINT64_MAX
       : mSeconds * kOneSecondInNanoseconds;
 }
+
+constexpr Milliseconds::Milliseconds()
+    : mMilliseconds(0) {}
 
 constexpr Milliseconds::Milliseconds(uint64_t milliseconds)
     : mMilliseconds(milliseconds) {}
@@ -39,6 +52,10 @@ constexpr uint64_t Milliseconds::toRawNanoseconds() const {
 
 constexpr uint64_t Milliseconds::getMilliseconds() const {
   return mMilliseconds;
+}
+
+constexpr bool Milliseconds::operator==(const Milliseconds& millis) const {
+  return (mMilliseconds == millis.mMilliseconds);
 }
 
 constexpr Microseconds::Microseconds(uint64_t microseconds)
@@ -87,8 +104,7 @@ constexpr bool Nanoseconds::operator!=(const Nanoseconds& nanos) const {
   return !(mNanoseconds == nanos.mNanoseconds);
 }
 
-constexpr Nanoseconds operator+(const Seconds& secs,
-                                const Nanoseconds& nanos) {
+constexpr Nanoseconds operator+(const Seconds& secs, const Nanoseconds& nanos) {
   return Nanoseconds(secs.toRawNanoseconds() + nanos.toRawNanoseconds());
 }
 
@@ -118,3 +134,5 @@ constexpr bool operator>(const Nanoseconds& nanos_a,
 }
 
 }  // namespace chre
+
+#endif  // CHRE_UTIL_TIME_IMPL_H_

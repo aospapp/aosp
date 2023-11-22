@@ -27,9 +27,9 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"Aşağıdaki uygulamanın bu profile erişmesi gerekecek:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Şu uygulama, cihazınızı yönetecek:"</string>
     <string name="next" msgid="1004321437324424398">"İleri"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"İş profiliniz oluşturuluyor…"</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"İş profili oluşturuluyor…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"Yöneticiniz ağ etkinliğinizin yanı sıra cihazınızın konumu, çağrı geçmişi ve kişi arama geçmişi dahil olmak üzere bu profille ilişkili ayarları, kurumsal erişimi, uygulamaları, izinleri ve verileri izleyip yönetebilir.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Kuruluşunuzun gizlilik politikaları da dahil olmak üzere daha fazla bilgi için yöneticinize başvurun."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"Yöneticiniz ağ etkinliğinizin yanı sıra cihazınızın konumu, çağrı geçmişi ve kişi arama geçmişi dahil olmak üzere bu cihazla ilişkili ayarları, kurumsal erişimi, uygulamaları, izinleri ve verileri izleyip yönetebilir.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Kuruluşunuzun gizlilik politikaları da dahil olmak üzere daha fazla bilgi için yöneticinize başvurun."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"Yöneticiniz ağ etkinliğinizin yanı sıra cihazınızın konumu, çağrı geçmişi ve kişi arama geçmişi dahil olmak üzere bu cihazla ilişkili ayarları, kurumsal erişimi, uygulamaları, izinleri ve verileri izleyip yönetebilir.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Kuruluşunuzun gizlilik politikaları da dahil olmak üzere daha fazla bilgi için yöneticinize başvurun."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Hırsızlığa karşı koruma özelliklerini kullanmak için cihazınızda şifre korumalı bir ekran kilidinizin olması gerekir."</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Kuruluşunuzun gizlilik politikaları da dahil olmak üzere, daha fazla bilgi için yöneticinize başvurun."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Daha fazla bilgi edinin"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"İş profili"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"Birincil kullanıcı"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Mevcut profil silinsin mi?"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"Şu uygulama kullanılarak yönetilen bir iş profiliniz zaten var:"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Bir iş profili zaten var. Mevcut profil şu uygulama ile yönetiliyor:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Devam etmeden önce "<a href="#read_this_link">"bunu okuyun"</a>"."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Devam ederseniz bu profildeki tüm uygulamalar ve veriler silinecek."</string>
     <string name="delete_profile" msgid="2299218578684663459">"Sil"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"İş profilinizi kurmaya devam etmek için dokunun"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"İş profiliniz ayarlanamadı. BT bölümünüze başvurun veya daha sonra tekrar deneyin."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"İş profili eklenemiyor"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"Bu kullanıcının bir iş profili olamaz. Yardım için yöneticinize başvurun."</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"Bu kullanıcının iş profilleri olamaz. Yöneticinize başvurun."</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"İş profilleri yönetilen bir cihazda oluşturulamaz"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"Bu cihazda çok fazla kullanıcı olabilir. Bir kullanıcıyı kaldırıp daha sonra tekrar deneyin."</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"İş profili değiştirilemez veya kaldırılamaz"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"Bu cihaza iş profili eklenemez. Sorularınız varsa yöneticinizle iletişim kurun."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Cihaz başlatıcıyı değiştirin"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Başlatıcı uygulama iş profiliniz tarafından kullanılamaz"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"İptal"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"Tamam"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Kullanıcı Kurulumu Tamamlanmadı"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"İş cihazının kullanıcısı"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"İş cihazı kurun"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"İş cihazı kurulumu yapılıyor…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Kurulum verileri işleniyor…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Kablosuz ağa bağlanılıyor…"</string>
     <string name="progress_download" msgid="3522436271691064624">"Yönetici uygulaması indiriliyor…"</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"İptal"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"Cihazı sıfırla"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> ve <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> ve <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> ve <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

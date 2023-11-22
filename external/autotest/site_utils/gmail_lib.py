@@ -25,6 +25,7 @@ import os
 from email.mime.text import MIMEText
 
 import common
+from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.server import site_utils
 
@@ -44,7 +45,7 @@ from chromite.lib import retry_util
 try:
     from chromite.lib import metrics
 except ImportError:
-    metrics = site_utils.metrics_mock
+    metrics = utils.metrics_mock
 
 
 DEFAULT_CREDS_FILE = global_config.global_config.get_config_value(

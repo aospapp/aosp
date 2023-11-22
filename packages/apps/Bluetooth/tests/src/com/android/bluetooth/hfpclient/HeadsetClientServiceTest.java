@@ -42,7 +42,7 @@ public class HeadsetClientServiceTest extends AndroidTestCase {
         assertTrue(mService != null);
 
         // At this point Adapter Service should have started
-        AdapterService inst = AdapterService.getAdapterService();
+        AdapterService inst = mock(AdapterService.class);
         assertTrue(inst != null);
 
         // Try getting the Bluetooth adapter

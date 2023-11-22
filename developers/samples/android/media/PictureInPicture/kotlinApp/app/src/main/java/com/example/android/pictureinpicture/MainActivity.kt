@@ -17,7 +17,7 @@
 package com.example.android.pictureinpicture
 
 import android.app.PendingIntent
-import android.app.PictureInPictureArgs
+import android.app.PictureInPictureParams
 import android.app.RemoteAction
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -29,7 +29,9 @@ import android.net.Uri
 import android.os.Bundle
 import android.support.annotation.DrawableRes
 import android.support.v7.app.AppCompatActivity
+import android.util.Rational
 import android.view.View
+import android.widget.Button
 import android.widget.ScrollView
 import com.example.android.pictureinpicture.widget.MovieView
 import java.util.*
@@ -66,7 +68,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** The arguments to be used for Picture-in-Picture mode.  */
-    private val mPictureInPictureArgs = PictureInPictureArgs()
+    private val mPictureInPictureParamsBuilder = PictureInPictureParams.Builder()
 
     /** This shows the video.  */
     private lateinit var mMovieView: MovieView
@@ -154,12 +156,12 @@ class MainActivity : AppCompatActivity() {
                         Intent(Intent.ACTION_VIEW, Uri.parse(getString(R.string.info_uri))),
                         0)))
 
-        mPictureInPictureArgs.setActions(actions)
+        mPictureInPictureParamsBuilder.setActions(actions)
 
         // This is how you can update action items (or aspect ratio) for Picture-in-Picture mode.
         // Note this call can happen even when the app is not in PiP mode. In that case, the
         // arguments will be used for at the next call of #enterPictureInPictureMode.
-        setPictureInPictureArgs(mPictureInPictureArgs)
+        setPictureInPictureParams(mPictureInPictureParamsBuilder.build())
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -167,12 +169,16 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         // View references
-        mMovieView = findViewById(R.id.movie) as MovieView
-        mScrollView = findViewById(R.id.scroll) as ScrollView
+        mMovieView = findViewById<MovieView>(R.id.movie)
+        mScrollView = findViewById<ScrollView>(R.id.scroll)
+
+        val switchExampleButton = findViewById<Button>(R.id.switch_example)
+        switchExampleButton.text = getString(R.string.switch_media_session)
+        switchExampleButton.setOnClickListener(SwitchActivityOnClick())
 
         // Set up the video; it automatically starts.
         mMovieView.setMovieListener(mMovieListener)
-        findViewById(R.id.pip).setOnClickListener { minimize() }
+        findViewById<Button>(R.id.pip).setOnClickListener { minimize() }
     }
 
     override fun onStop() {
@@ -202,8 +208,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean,
-                                               newConfig: Configuration) {
+    override fun onPictureInPictureModeChanged(
+            isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         if (isInPictureInPictureMode) {
             // Starts receiving events from action items in PiP mode.
@@ -225,8 +231,8 @@ class MainActivity : AppCompatActivity() {
         // Hide the controls in picture-in-picture mode.
         mMovieView.hideControls()
         // Calculate the aspect ratio of the PiP screen.
-        mPictureInPictureArgs.setAspectRatio(mMovieView.width.toFloat() / mMovieView.height)
-        enterPictureInPictureMode(mPictureInPictureArgs)
+        mPictureInPictureParamsBuilder.setAspectRatio(Rational(mMovieView.width, mMovieView.height))
+        enterPictureInPictureMode(mPictureInPictureParamsBuilder.build())
     }
 
     /**
@@ -252,4 +258,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Launches [MediaSessionPlaybackActivity] and closes this activity.
+     */
+    private inner class SwitchActivityOnClick : View.OnClickListener {
+        override fun onClick(view: View) {
+            startActivity(Intent(view.context, MediaSessionPlaybackActivity::class.java))
+            finish()
+        }
+    }
 }

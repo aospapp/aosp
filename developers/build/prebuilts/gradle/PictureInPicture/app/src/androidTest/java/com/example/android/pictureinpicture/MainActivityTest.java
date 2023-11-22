@@ -68,7 +68,7 @@ public class MainActivityTest {
             public void run() {
                 // We are now in Picture-in-Picture mode
                 assertTrue(rule.getActivity().isInPictureInPictureMode());
-                final MovieView view = (MovieView) rule.getActivity().findViewById(R.id.movie);
+                final MovieView view = rule.getActivity().findViewById(R.id.movie);
                 assertNotNull(view);
                 // The video should still be playing
                 assertTrue(view.isPlaying());

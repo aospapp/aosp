@@ -193,8 +193,9 @@ void nfc_enabled(tNFC_STATUS nfc_status, NFC_HDR* p_init_rsp_msg) {
   tNFC_CONN_CB* p_cb = &nfc_cb.conn_cb[NFC_RF_CONN_ID];
   uint8_t* p;
   uint8_t num_interfaces = 0, xx;
+  uint8_t num_interface_extensions = 0, zz;
+  uint8_t interface_type;
   int yy = 0;
-
   memset(&evt_data, 0, sizeof(tNFC_RESPONSE));
 
   if (nfc_status == NCI_STATUS_OK) {
@@ -204,24 +205,26 @@ void nfc_enabled(tNFC_STATUS nfc_status, NFC_HDR* p_init_rsp_msg) {
         NCI_MSG_HDR_SIZE + 1;
     /* we currently only support NCI of the same version.
     * We may need to change this, when we support multiple version of NFCC */
-    evt_data.enable.nci_version = NCI_VERSION;
-    STREAM_TO_UINT32(evt_data.enable.nci_features, p);
-    STREAM_TO_UINT8(num_interfaces, p);
 
-    evt_data.enable.nci_interfaces = 0;
-    for (xx = 0; xx < num_interfaces; xx++) {
-      if ((*p) <= NCI_INTERFACE_MAX)
-        evt_data.enable.nci_interfaces |= (1 << (*p));
-      else if (((*p) >= NCI_INTERFACE_FIRST_VS) &&
-               (yy < NFC_NFCC_MAX_NUM_VS_INTERFACE)) {
-        /* save the VS RF interface in control block, if there's still room */
-        nfc_cb.vs_interface[yy++] = *p;
+    evt_data.enable.nci_version = nfc_cb.nci_version;
+    STREAM_TO_UINT32(evt_data.enable.nci_features, p);
+    if (nfc_cb.nci_version == NCI_VERSION_1_0) {
+      STREAM_TO_UINT8(num_interfaces, p);
+      evt_data.enable.nci_interfaces = 0;
+      for (xx = 0; xx < num_interfaces; xx++) {
+        if ((*p) <= NCI_INTERFACE_MAX)
+          evt_data.enable.nci_interfaces |= (1 << (*p));
+        else if (((*p) >= NCI_INTERFACE_FIRST_VS) &&
+                 (yy < NFC_NFCC_MAX_NUM_VS_INTERFACE)) {
+          /* save the VS RF interface in control block, if there's still room */
+          nfc_cb.vs_interface[yy++] = *p;
+        }
+        p++;
       }
-      p++;
+      nfc_cb.nci_interfaces = evt_data.enable.nci_interfaces;
+      memcpy(evt_data.enable.vs_interface, nfc_cb.vs_interface,
+             NFC_NFCC_MAX_NUM_VS_INTERFACE);
     }
-    nfc_cb.nci_interfaces = evt_data.enable.nci_interfaces;
-    memcpy(evt_data.enable.vs_interface, nfc_cb.vs_interface,
-           NFC_NFCC_MAX_NUM_VS_INTERFACE);
     evt_data.enable.max_conn = *p++;
     STREAM_TO_UINT16(evt_data.enable.max_ce_table, p);
 #if (NFC_RW_ONLY == FALSE)
@@ -231,10 +234,47 @@ void nfc_enabled(tNFC_STATUS nfc_status, NFC_HDR* p_init_rsp_msg) {
 #endif
     nfc_cb.nci_ctrl_size = *p++; /* Max Control Packet Payload Length */
     p_cb->init_credits = p_cb->num_buff = 0;
-    STREAM_TO_UINT16(evt_data.enable.max_param_size, p);
     nfc_set_conn_id(p_cb, NFC_RF_CONN_ID);
-    evt_data.enable.manufacture_id = *p++;
-    STREAM_TO_ARRAY(evt_data.enable.nfcc_info, p, NFC_NFCC_INFO_LEN);
+    if (nfc_cb.nci_version == NCI_VERSION_2_0) {
+      evt_data.enable.hci_packet_size = *p++;
+      evt_data.enable.hci_conn_credits = *p++;
+      STREAM_TO_UINT16(evt_data.enable.max_nfc_v_size, p);
+      STREAM_TO_UINT8(num_interfaces, p);
+#if (NFC_RW_ONLY == FALSE)
+      nfc_cb.hci_packet_size = evt_data.enable.hci_packet_size;
+      nfc_cb.hci_conn_credits = evt_data.enable.hci_conn_credits;
+      nfc_cb.nci_max_v_size = evt_data.enable.max_nfc_v_size;
+#endif
+      evt_data.enable.nci_interfaces = 0;
+
+      for (xx = 0; xx < num_interfaces; xx++) {
+        if ((*p) <= NCI_INTERFACE_MAX)
+          evt_data.enable.nci_interfaces |= (1 << (*p));
+        else if (((*p) >= NCI_INTERFACE_FIRST_VS) &&
+                 (yy < NFC_NFCC_MAX_NUM_VS_INTERFACE)) {
+          /* save the VS RF interface in control block, if there's still room */
+          nfc_cb.vs_interface[yy++] = *p;
+        }
+        interface_type = *p++;
+        num_interface_extensions = *p++;
+        for (zz = 0; zz < num_interface_extensions; zz++) {
+          if (((*p) < NCI_INTERFACE_EXTENSION_MAX) &&
+              (interface_type <= NCI_INTERFACE_MAX)) {
+            nfc_cb.nci_intf_extensions |= (1 << (*p));
+            nfc_cb.nci_intf_extension_map[*p] = (1 << interface_type);
+          }
+          p++;
+        }
+      }
+
+      nfc_cb.nci_interfaces = evt_data.enable.nci_interfaces;
+      memcpy(evt_data.enable.vs_interface, nfc_cb.vs_interface,
+             NFC_NFCC_MAX_NUM_VS_INTERFACE);
+    } else {
+      STREAM_TO_UINT16(evt_data.enable.max_param_size, p);
+      evt_data.enable.manufacture_id = *p++;
+      STREAM_TO_ARRAY(evt_data.enable.nfcc_info, p, NFC_NFCC_INFO_LEN);
+    }
     NFC_DiscoveryMap(nfc_cb.num_disc_maps,
                      (tNCI_DISCOVER_MAPS*)nfc_cb.p_disc_maps, NULL);
   }
@@ -683,7 +723,7 @@ void NFC_Init(tHAL_NFC_ENTRY* p_hal_entry_tbl) {
   nfc_cb.trace_level = NFC_INITIAL_TRACE_LEVEL;
   nfc_cb.nci_ctrl_size = NCI_CTRL_INIT_SIZE;
   nfc_cb.reassembly = true;
-
+  nfc_cb.nci_version = NCI_VERSION_UNKNOWN;
   rw_init();
   ce_init();
   llcp_init();
@@ -1104,7 +1144,22 @@ tNFC_STATUS NFC_Deactivate(tNFC_DEACT_TYPE deactivate_type) {
   status = nci_snd_deactivate_cmd(deactivate_type);
   return status;
 }
-
+/*******************************************************************************
+**
+** Function         NFC_SetPowerSubState
+**
+** Description      This function is called to send the power sub state (screen
+**                  state) to NFCC. The response from NFCC is reported by
+**                  tNFC_RESPONSE_CBACK as NFC_SET_POWER_STATE_REVT.
+**
+** Parameters       scree_state
+**
+** Returns          tNFC_STATUS
+**
+*******************************************************************************/
+tNFC_STATUS NFC_SetPowerSubState(uint8_t screen_state) {
+  return nci_snd_core_set_power_sub_state(screen_state);
+}
 /*******************************************************************************
 **
 ** Function         NFC_UpdateRFCommParams
@@ -1239,6 +1294,36 @@ uint8_t NFC_SetTraceLevel(uint8_t new_level) {
   if (new_level != 0xFF) nfc_cb.trace_level = new_level;
 
   return (nfc_cb.trace_level);
+}
+
+/*******************************************************************************
+**
+** Function         NFC_GetNCIVersion
+**
+** Description      Called by higher layer to get the current nci
+**                  version of nfc.
+**
+** Returns          NCI version NCI2.0 / NCI1.0
+**
+*******************************************************************************/
+uint8_t NFC_GetNCIVersion() { return nfc_cb.nci_version; }
+
+/*******************************************************************************
+**
+** Function         NFC_ISODEPNakPresCheck
+**
+** Description      This function is called to send the ISO DEP nak presenc
+**                  check cmd to check that the remote end point in RF field.
+**
+**                  The response from NFCC is reported by call back.The ntf
+**                  indicates success if card is present in field or failed
+**                  if card is lost.
+**
+** Returns          tNFC_STATUS
+**
+*******************************************************************************/
+tNFC_STATUS NFC_ISODEPNakPresCheck() {
+  return nci_snd_iso_dep_nak_presence_check_cmd();
 }
 
 #if (BT_TRACE_VERBOSE == TRUE)

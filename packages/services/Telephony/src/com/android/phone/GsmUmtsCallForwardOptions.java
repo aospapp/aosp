@@ -10,6 +10,7 @@ import android.database.Cursor;
 import android.os.Bundle;
 import android.preference.Preference;
 import android.preference.PreferenceScreen;
+import android.telephony.CarrierConfigManager;
 import android.util.Log;
 import android.view.MenuItem;
 
@@ -18,7 +19,6 @@ import java.util.ArrayList;
 
 public class GsmUmtsCallForwardOptions extends TimeConsumingPreferenceActivity {
     private static final String LOG_TAG = "GsmUmtsCallForwardOptions";
-    private final boolean DBG = (PhoneGlobals.DBG_LEVEL >= 2);
 
     private static final String NUM_PROJECTION[] = {
         android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER
@@ -46,6 +46,7 @@ public class GsmUmtsCallForwardOptions extends TimeConsumingPreferenceActivity {
     private Bundle mIcicle;
     private Phone mPhone;
     private SubscriptionInfoHelper mSubscriptionInfoHelper;
+    private boolean mReplaceInvalidCFNumbers;
 
     @Override
     protected void onCreate(Bundle icicle) {
@@ -57,6 +58,13 @@ public class GsmUmtsCallForwardOptions extends TimeConsumingPreferenceActivity {
         mSubscriptionInfoHelper.setActionBarTitle(
                 getActionBar(), getResources(), R.string.call_forwarding_settings_with_label);
         mPhone = mSubscriptionInfoHelper.getPhone();
+
+        CarrierConfigManager carrierConfig = (CarrierConfigManager)
+                getSystemService(CARRIER_CONFIG_SERVICE);
+        if (carrierConfig != null) {
+            mReplaceInvalidCFNumbers = carrierConfig.getConfig().getBoolean(
+                    CarrierConfigManager.KEY_CALL_FORWARDING_MAP_NON_NUMBER_TO_VOICEMAIL_BOOL);
+        }
 
         PreferenceScreen prefSet = getPreferenceScreen();
         mButtonCFU = (CallForwardEditPreference) prefSet.findPreference(BUTTON_CFU_KEY);
@@ -94,8 +102,8 @@ public class GsmUmtsCallForwardOptions extends TimeConsumingPreferenceActivity {
 
         if (mFirstResume) {
             if (mIcicle == null) {
-                if (DBG) Log.d(LOG_TAG, "start to init ");
-                mPreferences.get(mInitIndex).init(this, false, mPhone);
+                Log.d(LOG_TAG, "start to init ");
+                mPreferences.get(mInitIndex).init(this, false, mPhone, mReplaceInvalidCFNumbers);
             } else {
                 mInitIndex = mPreferences.size();
 
@@ -106,7 +114,7 @@ public class GsmUmtsCallForwardOptions extends TimeConsumingPreferenceActivity {
                     cf.number = bundle.getString(KEY_NUMBER);
                     cf.status = bundle.getInt(KEY_STATUS);
                     pref.handleCallForwardResult(cf);
-                    pref.init(this, true, mPhone);
+                    pref.init(this, true, mPhone, mReplaceInvalidCFNumbers);
                 }
             }
             mFirstResume = false;
@@ -133,7 +141,7 @@ public class GsmUmtsCallForwardOptions extends TimeConsumingPreferenceActivity {
     public void onFinished(Preference preference, boolean reading) {
         if (mInitIndex < mPreferences.size()-1 && !isFinishing()) {
             mInitIndex++;
-            mPreferences.get(mInitIndex).init(this, false, mPhone);
+            mPreferences.get(mInitIndex).init(this, false, mPhone, mReplaceInvalidCFNumbers);
         }
 
         super.onFinished(preference, reading);
@@ -141,9 +149,9 @@ public class GsmUmtsCallForwardOptions extends TimeConsumingPreferenceActivity {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (DBG) Log.d(LOG_TAG, "onActivityResult: done");
+        Log.d(LOG_TAG, "onActivityResult: done");
         if (resultCode != RESULT_OK) {
-            if (DBG) Log.d(LOG_TAG, "onActivityResult: contact picker result not OK.");
+            Log.d(LOG_TAG, "onActivityResult: contact picker result not OK.");
             return;
         }
         Cursor cursor = null;
@@ -151,7 +159,7 @@ public class GsmUmtsCallForwardOptions extends TimeConsumingPreferenceActivity {
             cursor = getContentResolver().query(data.getData(),
                 NUM_PROJECTION, null, null, null);
             if ((cursor == null) || (!cursor.moveToFirst())) {
-                if (DBG) Log.d(LOG_TAG, "onActivityResult: bad contact data, no results found.");
+                Log.d(LOG_TAG, "onActivityResult: bad contact data, no results found.");
                 return;
             }
 

@@ -18,18 +18,6 @@ import common
 from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 
-# Values specified in this bug template will override default values when
-# filing bugs on tests that are a part of this suite. If left unspecified
-# the bug filer will fallback to it's defaults.
-_BUG_TEMPLATE = {
-    'labels': ['cellular', 'cellular_endtoend'],
-    'owner': 'harpreet@chromium.org',
-    'status': None,
-    'summary': None,
-    'title': None,
-    'cc': ['kkanchi@chromium.org']
-}
-
 args_dict['name'] = NAME
 args_dict['add_experimental'] = True
 args_dict['max_runtime_mins'] = 60

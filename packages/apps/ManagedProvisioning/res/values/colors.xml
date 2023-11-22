@@ -32,7 +32,8 @@
     <color name="black_text_secondary">#757575</color>
     <color name="black_toolbar">#2D2D2D</color>
     <color name="blue">#4285F4</color>
-    <color name="gray_button_background">#EEE</color>
+    <color name="gray">#EEE</color>
+    <color name="gray_button_focused">#c0c0c0</color>
     <color name="gray_button_text">#8A000000</color>
     <color name="gray_divider">#DCDCDC</color>
     <color name="gray_status_bar">#BDBDBD</color>

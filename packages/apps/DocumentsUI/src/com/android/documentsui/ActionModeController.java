@@ -150,7 +150,7 @@ public class ActionModeController
     @Override
     public boolean onCreateActionMode(ActionMode mode, Menu menu) {
         int size = mSelectionMgr.getSelection().size();
-        mode.getMenuInflater().inflate(R.menu.mode_directory, menu);
+        mode.getMenuInflater().inflate(R.menu.action_mode_menu, menu);
         mode.setTitle(TextUtils.formatSelectedCount(size));
 
         if (size > 0) {

@@ -4,6 +4,7 @@
 
 import abc
 import copy
+import json
 import logging
 
 import common
@@ -36,6 +37,13 @@ class HostInfo(object):
     _OS_PREFIX = 'os'
     _POOL_PREFIX = 'pool'
 
+    _VERSION_LABELS = (
+            provision.CROS_VERSION_PREFIX,
+            provision.CROS_TH_VERSION_PREFIX,
+            provision.ANDROID_BUILD_VERSION_PREFIX,
+            provision.TESTBED_BUILD_VERSION_PREFIX,
+    )
+
     def __init__(self, labels=None, attributes=None):
         """
         @param labels: (optional list) labels to set on the HostInfo.
@@ -55,9 +63,7 @@ class HostInfo(object):
         @returns The first build label for this host (if there are multiple).
                 None if no build label is found.
         """
-        for label_prefix in [provision.CROS_VERSION_PREFIX,
-                            provision.ANDROID_BUILD_VERSION_PREFIX,
-                            provision.TESTBED_BUILD_VERSION_PREFIX]:
+        for label_prefix in self._VERSION_LABELS:
             build_labels = self._get_stripped_labels_with_prefix(label_prefix)
             if build_labels:
                 return build_labels[0]
@@ -103,6 +109,33 @@ class HostInfo(object):
         return values[0] if values else ''
 
 
+    def clear_version_labels(self):
+        """Clear all version labels for the host."""
+        self.labels = [
+                label for label in self.labels if
+                not any(label.startswith(prefix + ':')
+                        for prefix in self._VERSION_LABELS)]
+
+
+    def set_version_label(self, version_prefix, version):
+        """Sets the version label for the host.
+
+        If a label with version_prefix exists, this updates the value for that
+        label, else appends a new label to the end of the label list.
+
+        @param version_prefix: The prefix to use (without the infix ':').
+        @param version: The version label value to set.
+        """
+        full_prefix = _to_label_prefix(version_prefix)
+        new_version_label = full_prefix + version
+        for index, label in enumerate(self.labels):
+            if label.startswith(full_prefix):
+                self.labels[index] = new_version_label
+                return
+        else:
+            self.labels.append(new_version_label)
+
+
     def _get_stripped_labels_with_prefix(self, prefix):
         """Search for labels with the prefix and remove the prefix.
 
@@ -120,8 +153,20 @@ class HostInfo(object):
 
 
     def __str__(self):
-        return ('HostInfo [Labels: %s, Attributes: %s'
-                % (self.labels, self.attributes))
+        return ('%s[Labels: %s, Attributes: %s]'
+                % (type(self).__name__, self.labels, self.attributes))
+
+
+    def __eq__(self, other):
+        if isinstance(other, type(self)):
+            return (self.labels == other.labels
+                    and self.attributes == other.attributes)
+        else:
+            return NotImplemented
+
+
+    def __ne__(self, other):
+        return not (self == other)
 
 
 class StoreError(Exception):
@@ -252,6 +297,9 @@ class InMemoryHostInfoStore(CachingHostInfoStore):
         self.info = info if info is not None else HostInfo()
 
 
+    def __str__(self):
+        return '%s[%s]' % (type(self).__name__, self.info)
+
     def _refresh_impl(self):
         """Return a copy of the private HostInfo."""
         return copy.deepcopy(self.info)
@@ -275,3 +323,64 @@ def get_store_from_machine(machine):
         return machine['host_info_store']
     else:
         return InMemoryHostInfoStore()
+
+
+class DeserializationError(Exception):
+    """Raised when deserialization fails due to malformed input."""
+
+
+# Default serialzation version. This should be uprevved whenever a change to
+# HostInfo is backwards incompatible, i.e. we can no longer correctly
+# deserialize a previously serialized HostInfo. An example of such change is if
+# a field in the HostInfo object is dropped.
+_CURRENT_SERIALIZATION_VERSION = 1
+
+
+def json_serialize(info, file_obj, version=_CURRENT_SERIALIZATION_VERSION):
+    """Serialize the given HostInfo.
+
+    @param info: A HostInfo object to serialize.
+    @param file_obj: A file like object to serialize info into.
+    @param version: Use a specific serialization version. Should mostly use the
+            default.
+    """
+    info_json = {
+            'serializer_version': version,
+            'labels': info.labels,
+            'attributes': info.attributes,
+    }
+    return json.dump(info_json, file_obj, sort_keys=True, indent=4,
+                     separators=(',', ': '))
+
+
+def json_deserialize(file_obj):
+    """Deserialize a HostInfo from the given file.
+
+    @param file_obj: a file like object containing a json_serialized()ed
+            HostInfo.
+    @returns: The deserialized HostInfo object.
+    """
+    try:
+        deserialized_json = json.load(file_obj)
+    except ValueError as e:
+        raise DeserializationError(e)
+
+    serializer_version = deserialized_json.get('serializer_version')
+    if serializer_version != 1:
+        raise DeserializationError('Unsupported serialization version %s' %
+                                   serializer_version)
+
+    try:
+        return HostInfo(deserialized_json['labels'],
+                        deserialized_json['attributes'])
+    except KeyError as e:
+        raise DeserializationError('Malformed serialized host_info: %r' % e)
+
+
+def _to_label_prefix(prefix):
+    """Ensure that prefix has the expected format for label prefixes.
+
+    @param prefix: The (str) prefix to sanitize.
+    @returns: The sanitized (str) prefix.
+    """
+    return prefix if prefix.endswith(':') else prefix + ':'

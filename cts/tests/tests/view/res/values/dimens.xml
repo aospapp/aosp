@@ -41,4 +41,8 @@ limitations under the License.
     <dimen name="hover_target_margin">4dp</dimen>
     <dimen name="hover_target_size">8dp</dimen>
     <dimen name="hover_target_size_double">16dp</dimen>
+    <dimen name="scrollbar_thumb_width">11dp</dimen>
+    <dimen name="scrollbar_thumb_height">12dp</dimen>
+    <dimen name="scrollbar_track_width">13dp</dimen>
+    <dimen name="scrollbar_track_height">14dp</dimen>
 </resources>

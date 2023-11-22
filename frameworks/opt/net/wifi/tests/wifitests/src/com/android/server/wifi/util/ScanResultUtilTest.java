@@ -85,32 +85,6 @@ public class ScanResultUtilTest {
     }
 
     @Test
-    public void testScanResultMatchingWithNetwork() {
-        final String ssid = "Another SSid";
-        WifiConfiguration config = new WifiConfiguration();
-        config.SSID = ScanResultUtil.createQuotedSSID(ssid);
-        ScanResult scanResult = new ScanResult(ssid, "ab:cd:01:ef:45:89", 1245, 0, "",
-                -78, 2450, 1025, 22, 33, 20, 0, 0, true);
-
-        config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
-        scanResult.capabilities = "";
-        assertTrue(ScanResultUtil.doesScanResultMatchWithNetwork(scanResult, config));
-
-        config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
-        config.wepKeys[0] = "45592364648547";
-        scanResult.capabilities = "WEP";
-        assertTrue(ScanResultUtil.doesScanResultMatchWithNetwork(scanResult, config));
-
-        config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
-        scanResult.capabilities = "PSK";
-        assertTrue(ScanResultUtil.doesScanResultMatchWithNetwork(scanResult, config));
-
-        config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_EAP);
-        scanResult.capabilities = "EAP";
-        assertTrue(ScanResultUtil.doesScanResultMatchWithNetwork(scanResult, config));
-    }
-
-    @Test
     public void testNetworkCreationFromScanResult() {
         final String ssid = "Another SSid";
         ScanResult scanResult = new ScanResult(ssid, "ab:cd:01:ef:45:89", 1245, 0, "",

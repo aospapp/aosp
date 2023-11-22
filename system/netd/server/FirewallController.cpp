@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <set>
+
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,16 +24,17 @@
 #define LOG_TAG "FirewallController"
 #define LOG_NDEBUG 0
 
+#include <android-base/strings.h>
 #include <android-base/stringprintf.h>
 #include <cutils/log.h>
 
 #include "NetdConstants.h"
 #include "FirewallController.h"
 
+using android::base::Join;
 using android::base::StringAppendF;
+using android::base::StringPrintf;
 
-auto FirewallController::execIptables = ::execIptables;
-auto FirewallController::execIptablesSilently = ::execIptablesSilently;
 auto FirewallController::execIptablesRestore = ::execIptablesRestore;
 
 const char* FirewallController::TABLE = "filter";
@@ -59,6 +62,7 @@ const char* FirewallController::ICMPV6_TYPES[] = {
 FirewallController::FirewallController(void) {
     // If no rules are set, it's in BLACKLIST mode
     mFirewallType = BLACKLIST;
+    mIfaceRules = {};
 }
 
 int FirewallController::setupIptablesHooks(void) {
@@ -77,9 +81,13 @@ int FirewallController::enableFirewall(FirewallType ftype) {
 
         if (ftype == WHITELIST) {
             // create default rule to drop all traffic
-            res |= execIptables(V4V6, "-A", LOCAL_INPUT, "-j", "DROP", NULL);
-            res |= execIptables(V4V6, "-A", LOCAL_OUTPUT, "-j", "REJECT", NULL);
-            res |= execIptables(V4V6, "-A", LOCAL_FORWARD, "-j", "REJECT", NULL);
+            std::string command =
+                "*filter\n"
+                "-A fw_INPUT -j DROP\n"
+                "-A fw_OUTPUT -j REJECT\n"
+                "-A fw_FORWARD -j REJECT\n"
+                "COMMIT\n";
+            res = execIptablesRestore(V4V6, command.c_str());
         }
 
         // Set this after calling disableFirewall(), since it defaults to WHITELIST there
@@ -89,16 +97,18 @@ int FirewallController::enableFirewall(FirewallType ftype) {
 }
 
 int FirewallController::disableFirewall(void) {
-    int res = 0;
-
     mFirewallType = WHITELIST;
+    mIfaceRules.clear();
 
     // flush any existing rules
-    res |= execIptables(V4V6, "-F", LOCAL_INPUT, NULL);
-    res |= execIptables(V4V6, "-F", LOCAL_OUTPUT, NULL);
-    res |= execIptables(V4V6, "-F", LOCAL_FORWARD, NULL);
+    std::string command =
+        "*filter\n"
+        ":fw_INPUT -\n"
+        ":fw_OUTPUT -\n"
+        ":fw_FORWARD -\n"
+        "COMMIT\n";
 
-    return res;
+    return execIptablesRestore(V4V6, command.c_str());
 }
 
 int FirewallController::enableChildChains(ChildChain chain, bool enable) {
@@ -143,74 +153,27 @@ int FirewallController::setInterfaceRule(const char* iface, FirewallRule rule) {
         return -1;
     }
 
+    // Only delete rules if we actually added them, because otherwise our iptables-restore
+    // processes will terminate with "no such rule" errors and cause latency penalties while we
+    // spin up new ones.
     const char* op;
-    if (rule == ALLOW) {
+    if (rule == ALLOW && mIfaceRules.find(iface) == mIfaceRules.end()) {
         op = "-I";
-    } else {
+        mIfaceRules.insert(iface);
+    } else if (rule == DENY && mIfaceRules.find(iface) != mIfaceRules.end()) {
         op = "-D";
-    }
-
-    int res = 0;
-    res |= execIptables(V4V6, op, LOCAL_INPUT, "-i", iface, "-j", "RETURN", NULL);
-    res |= execIptables(V4V6, op, LOCAL_OUTPUT, "-o", iface, "-j", "RETURN", NULL);
-    return res;
-}
-
-int FirewallController::setEgressSourceRule(const char* addr, FirewallRule rule) {
-    if (mFirewallType == BLACKLIST) {
-        // Unsupported in BLACKLIST mode
-        return -1;
-    }
-
-    IptablesTarget target = V4;
-    if (strchr(addr, ':')) {
-        target = V6;
-    }
-
-    const char* op;
-    if (rule == ALLOW) {
-        op = "-I";
+        mIfaceRules.erase(iface);
     } else {
-        op = "-D";
+        return 0;
     }
 
-    int res = 0;
-    res |= execIptables(target, op, LOCAL_INPUT, "-d", addr, "-j", "RETURN", NULL);
-    res |= execIptables(target, op, LOCAL_OUTPUT, "-s", addr, "-j", "RETURN", NULL);
-    return res;
-}
-
-int FirewallController::setEgressDestRule(const char* addr, int protocol, int port,
-        FirewallRule rule) {
-    if (mFirewallType == BLACKLIST) {
-        // Unsupported in BLACKLIST mode
-        return -1;
-    }
-
-    IptablesTarget target = V4;
-    if (strchr(addr, ':')) {
-        target = V6;
-    }
-
-    char protocolStr[16];
-    sprintf(protocolStr, "%d", protocol);
-
-    char portStr[16];
-    sprintf(portStr, "%d", port);
-
-    const char* op;
-    if (rule == ALLOW) {
-        op = "-I";
-    } else {
-        op = "-D";
-    }
-
-    int res = 0;
-    res |= execIptables(target, op, LOCAL_INPUT, "-s", addr, "-p", protocolStr,
-            "--sport", portStr, "-j", "RETURN", NULL);
-    res |= execIptables(target, op, LOCAL_OUTPUT, "-d", addr, "-p", protocolStr,
-            "--dport", portStr, "-j", "RETURN", NULL);
-    return res;
+    std::string command = Join(std::vector<std::string> {
+        "*filter",
+        StringPrintf("%s fw_INPUT -i %s -j RETURN", op, iface),
+        StringPrintf("%s fw_OUTPUT -o %s -j RETURN", op, iface),
+        "COMMIT\n"
+    }, "\n");
+    return execIptablesRestore(V4V6, command);
 }
 
 FirewallType FirewallController::getFirewallType(ChildChain chain) {
@@ -276,6 +239,19 @@ int FirewallController::createChain(const char* chain, FirewallType type) {
     return replaceUidChain(chain, type == WHITELIST, NO_UIDS);
 }
 
+/* static */
+std::string FirewallController::makeCriticalCommands(IptablesTarget target, const char* chainName) {
+    // Allow ICMPv6 packets necessary to make IPv6 connectivity work. http://b/23158230 .
+    std::string commands;
+    if (target == V6) {
+        for (size_t i = 0; i < ARRAY_SIZE(ICMPV6_TYPES); i++) {
+            StringAppendF(&commands, "-A %s -p icmpv6 --icmpv6-type %s -j RETURN\n",
+                   chainName, ICMPV6_TYPES[i]);
+        }
+    }
+    return commands;
+}
+
 std::string FirewallController::makeUidRules(IptablesTarget target, const char *name,
         bool isWhitelist, const std::vector<int32_t>& uids) {
     std::string commands;
@@ -301,13 +277,7 @@ std::string FirewallController::makeUidRules(IptablesTarget target, const char *
     StringAppendF(&commands, "-A %s -p tcp --tcp-flags RST RST -j RETURN\n", name);
 
     if (isWhitelist) {
-        // Allow ICMPv6 packets necessary to make IPv6 connectivity work. http://b/23158230 .
-        if (target == V6) {
-            for (size_t i = 0; i < ARRAY_SIZE(ICMPV6_TYPES); i++) {
-                StringAppendF(&commands, "-A %s -p icmpv6 --icmpv6-type %s -j RETURN\n",
-                       name, ICMPV6_TYPES[i]);
-            }
-        }
+        commands.append(makeCriticalCommands(target, name));
     }
 
     // Blacklist chains have UIDs at the end, and new UIDs are added with '-A'.

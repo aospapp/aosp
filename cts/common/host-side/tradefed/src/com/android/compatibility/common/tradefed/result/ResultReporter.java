@@ -64,6 +64,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -83,10 +84,20 @@ public class ResultReporter implements ILogSaverListener, ITestInvocationListene
     private static final String CTS_PREFIX = "cts:";
     private static final String BUILD_INFO = CTS_PREFIX + "build_";
 
+    public static final String BUILD_BRAND = "build_brand";
+    public static final String BUILD_DEVICE = "build_device";
+    public static final String BUILD_FINGERPRINT = "build_fingerprint";
+    public static final String BUILD_ID = "build_id";
+    public static final String BUILD_MANUFACTURER = "build_manufacturer";
+    public static final String BUILD_MODEL = "build_model";
+    public static final String BUILD_PRODUCT = "build_product";
+    public static final String BUILD_VERSION_RELEASE = "build_version_release";
+
     private static final List<String> NOT_RETRY_FILES = Arrays.asList(
             ChecksumReporter.NAME,
             ChecksumReporter.PREV_NAME,
-            ResultHandler.FAILURE_REPORT_NAME);
+            ResultHandler.FAILURE_REPORT_NAME,
+            "diffs");
 
     @Option(name = CompatibilityTest.RETRY_OPTION,
             shortName = 'r',
@@ -125,7 +136,7 @@ public class ResultReporter implements ILogSaverListener, ITestInvocationListene
     private int invocationEndedCount = 0;
     private CountDownLatch mFinalized = null;
 
-    private IInvocationResult mResult = new InvocationResult();
+    protected IInvocationResult mResult = new InvocationResult();
     private IModuleResult mCurrentModuleResult;
     private ICaseResult mCurrentCaseResult;
     private ITestResult mCurrentResult;
@@ -139,10 +150,11 @@ public class ResultReporter implements ILogSaverListener, ITestInvocationListene
     private int mCurrentTestNum;
     private int mTotalTestsInModule;
 
-
     // Whether modules can be marked done for this invocation. Initialized in invocationStarted()
     // Visible for unit testing
     protected boolean mCanMarkDone;
+    // Whether the current test run has failed. If true, we will not mark the current module done
+    protected boolean mTestRunFailed;
     // Whether the current module has previously been marked done
     private boolean mModuleWasDone;
 
@@ -152,6 +164,9 @@ public class ResultReporter implements ILogSaverListener, ITestInvocationListene
     private final ResultReporter mMasterResultReporter;
 
     private LogFileSaver mTestLogSaver;
+
+    // Elapsed time from invocation started to ended.
+    private long mElapsedTime;
 
     /**
      * Default constructor.
@@ -279,6 +294,7 @@ public class ResultReporter implements ILogSaverListener, ITestInvocationListene
             // Handle non-JarHostTest case
             mCurrentModuleResult = mResult.getOrCreateModule(id);
             mModuleWasDone = mCurrentModuleResult.isDone();
+            mTestRunFailed = false;
             if (!mModuleWasDone) {
                 // we only want to update testRun variables if the IModuleResult is not yet done
                 // otherwise leave testRun variables alone so isDone evaluates to true.
@@ -377,9 +393,11 @@ public class ResultReporter implements ILogSaverListener, ITestInvocationListene
     public void testRunEnded(long elapsedTime, Map<String, String> metrics) {
         mCurrentModuleResult.inProgress(false);
         mCurrentModuleResult.addRuntime(elapsedTime);
-        if (!mModuleWasDone && mCanMarkDone) {
-            // Only mark module done if status of the invocation allows it (mCanMarkDone) and
-            // if module has not already been marked done.
+        if (!mModuleWasDone && mCanMarkDone && !mTestRunFailed) {
+            // Only mark module done if:
+            // - status of the invocation allows it (mCanMarkDone), and
+            // - module has not already been marked done, and
+            // - no test run failure has been detected
             mCurrentModuleResult.setDone(mCurrentTestNum >= mTotalTestsInModule);
         }
         if (isShardResultReporter()) {
@@ -408,7 +426,7 @@ public class ResultReporter implements ILogSaverListener, ITestInvocationListene
      */
     @Override
     public void testRunFailed(String errorMessage) {
-        // ignore
+        mTestRunFailed = true;
     }
 
     /**
@@ -452,27 +470,25 @@ public class ResultReporter implements ILogSaverListener, ITestInvocationListene
             if (++invocationEndedCount < mMasterBuildInfos.size()) {
                 return;
             }
-            finalizeResults(elapsedTime);
+            mElapsedTime = elapsedTime;
+            finalizeResults();
             mFinalized.countDown();
         }
     }
 
-    private void finalizeResults(long elapsedTime) {
+    private void finalizeResults() {
         // Add all device serials into the result to be serialized
         for (String deviceSerial : mMasterDeviceSerials) {
             mResult.addDeviceSerial(deviceSerial);
         }
 
+        addDeviceBuildInfoToResult();
+
         Set<String> allExpectedModules = new HashSet<>();
-        // Add all build info to the result to be serialized
         for (IBuildInfo buildInfo : mMasterBuildInfos) {
             for (Map.Entry<String, String> entry : buildInfo.getBuildAttributes().entrySet()) {
                 String key = entry.getKey();
                 String value = entry.getValue();
-                if (key.startsWith(BUILD_INFO)) {
-                    mResult.addInvocationInfo(key.substring(CTS_PREFIX.length()), value);
-                }
-
                 if (key.equals(CompatibilityBuildHelper.MODULE_IDS) && value.length() > 0) {
                     Collections.addAll(allExpectedModules, value.split(","));
                 }
@@ -488,17 +504,13 @@ public class ResultReporter implements ILogSaverListener, ITestInvocationListene
         String moduleProgress = String.format("%d of %d",
                 mResult.getModuleCompleteCount(), mResult.getModules().size());
 
-        long startTime = mResult.getStartTime();
+
         try {
             // Zip the full test results directory.
-            copyDynamicConfigFiles(mBuildHelper.getDynamicConfigFiles(), mResultDir);
+            copyDynamicConfigFiles();
             copyFormattingFiles(mResultDir, mBuildHelper.getSuiteName());
 
-            File resultFile = ResultHandler.writeResults(mBuildHelper.getSuiteName(),
-                    mBuildHelper.getSuiteVersion(), mBuildHelper.getSuitePlan(),
-                    mBuildHelper.getSuiteBuild(), mResult, mResultDir, startTime,
-                    elapsedTime + startTime, mReferenceUrl, getLogUrl(),
-                    mBuildHelper.getCommandLineArgs());
+            File resultFile = generateResultXmlFile();
             if (mRetrySessionId != null) {
                 copyRetryFiles(ResultHandler.getResultDirectory(
                         mBuildHelper.getResultsDir(), mRetrySessionId), mResultDir);
@@ -524,7 +536,7 @@ public class ResultReporter implements ILogSaverListener, ITestInvocationListene
         }
         // print the run results last.
         info("Invocation finished in %s. PASSED: %d, FAILED: %d, MODULES: %s",
-                TimeUtil.formatElapsedTime(elapsedTime),
+                TimeUtil.formatElapsedTime(mElapsedTime),
                 mResult.countResults(TestStatus.PASS),
                 mResult.countResults(TestStatus.FAIL),
                 moduleProgress);
@@ -553,9 +565,13 @@ public class ResultReporter implements ILogSaverListener, ITestInvocationListene
         try {
             File logFile = null;
             if (mCompressLogs) {
-                logFile = mTestLogSaver.saveAndGZipLogData(name, type, stream.createInputStream());
+                try (InputStream inputStream = stream.createInputStream()) {
+                    logFile = mTestLogSaver.saveAndGZipLogData(name, type, inputStream);
+                }
             } else {
-                logFile = mTestLogSaver.saveLogData(name, type, stream.createInputStream());
+                try (InputStream inputStream = stream.createInputStream()) {
+                    logFile = mTestLogSaver.saveLogData(name, type, inputStream);
+                }
             }
             debug("Saved logs for %s in %s", name, logFile.getAbsolutePath());
         } catch (IOException e) {
@@ -646,6 +662,83 @@ public class ResultReporter implements ILogSaverListener, ITestInvocationListene
     }
 
     /**
+     * Create results file compatible with CTSv2 (xml) report format.
+     */
+    protected File generateResultXmlFile()
+            throws IOException, XmlPullParserException {
+        return ResultHandler.writeResults(mBuildHelper.getSuiteName(),
+                mBuildHelper.getSuiteVersion(), mBuildHelper.getSuitePlan(),
+                mBuildHelper.getSuiteBuild(), mResult, mResultDir, mResult.getStartTime(),
+                mElapsedTime + mResult.getStartTime(), mReferenceUrl, getLogUrl(),
+                mBuildHelper.getCommandLineArgs());
+    }
+
+    /**
+     * Add build info collected from the device attributes to the results.
+     */
+    protected void addDeviceBuildInfoToResult() {
+        // Add all build info to the result to be serialized
+        Map<String, String> buildProperties = mapBuildInfo();
+        addBuildInfoToResult(buildProperties, mResult);
+    }
+
+    /**
+     * Override specific build properties so the report will be associated with the
+     * build fingerprint being certified.
+     */
+    protected void addDeviceBuildInfoToResult(String buildFingerprintOverride,
+            String manufactureOverride, String modelOverride) {
+
+        Map<String, String> buildProperties = mapBuildInfo();
+
+        // Extract and override values from build fingerprint.
+        // Build fingerprint format: brand/product/device:version/build_id/tags
+        String fingerprintPrefix = buildFingerprintOverride.split(":")[0];
+        String fingerprintTail = buildFingerprintOverride.split(":")[1];
+        String buildIdOverride = fingerprintTail.split("/")[1];
+        buildProperties.put(BUILD_ID, buildIdOverride);
+        String brandOverride = fingerprintPrefix.split("/")[0];
+        buildProperties.put(BUILD_BRAND, brandOverride);
+        String deviceOverride = fingerprintPrefix.split("/")[2];
+        buildProperties.put(BUILD_DEVICE, deviceOverride);
+        String productOverride = fingerprintPrefix.split("/")[1];
+        buildProperties.put(BUILD_PRODUCT, productOverride);
+        String versionOverride = fingerprintTail.split("/")[0];
+        buildProperties.put(BUILD_VERSION_RELEASE, versionOverride);
+        buildProperties.put(BUILD_FINGERPRINT, buildFingerprintOverride);
+        buildProperties.put(BUILD_MANUFACTURER, manufactureOverride);
+        buildProperties.put(BUILD_MODEL, modelOverride);
+
+        // Add modified values to results.
+        addBuildInfoToResult(buildProperties, mResult);
+        mResult.setBuildFingerprint(buildFingerprintOverride);
+    }
+    /** Aggregate build info from member device info. */
+    protected Map<String, String> mapBuildInfo() {
+        Map<String, String> buildProperties = new HashMap<>();
+        for (IBuildInfo buildInfo : mMasterBuildInfos) {
+            for (Map.Entry<String, String> entry : buildInfo.getBuildAttributes().entrySet()) {
+                String key = entry.getKey();
+                String value = entry.getValue();
+                if (key.startsWith(BUILD_INFO)) {
+                    buildProperties.put(key.substring(CTS_PREFIX.length()), value);
+                }
+            }
+        }
+        return buildProperties;
+    }
+
+    /**
+     * Add build info to results.
+     * @param buildProperties Build info to add.
+     */
+    protected static void addBuildInfoToResult(Map<String, String> buildProperties,
+            IInvocationResult invocationResult) {
+        buildProperties.entrySet().stream().forEach(entry ->
+                invocationResult.addInvocationInfo(entry.getKey(), entry.getValue()));
+    }
+
+    /**
      * Return true if this instance is a shard ResultReporter and should propagate
      * certain events to the master.
      */
@@ -719,22 +812,33 @@ public class ResultReporter implements ILogSaverListener, ITestInvocationListene
 
     /**
      * move the dynamic config files to the results directory
-     *
-     * @param configFiles
-     * @param resultsDir
      */
-    static void copyDynamicConfigFiles(Map<String, File> configFiles, File resultsDir) {
-        if (configFiles.size() == 0) return;
+    private void copyDynamicConfigFiles() {
+        File configDir = new File(mResultDir, "config");
+        if (!configDir.mkdir()) {
+            warn("Failed to make dynamic config directory \"%s\" in the result",
+                    configDir.getAbsolutePath());
+        }
 
-        File folder = new File(resultsDir, "config");
-        folder.mkdir();
-        for (String moduleName : configFiles.keySet()) {
-            File resultFile = new File(folder, moduleName+".dynamic");
-            try {
-                FileUtil.copyFile(configFiles.get(moduleName), resultFile);
-                FileUtil.deleteFile(configFiles.get(moduleName));
-            } catch (IOException e) {
-                warn("Failed to copy config file for %s to file", moduleName);
+        Set<String> uniqueModules = new HashSet<>();
+        for (IBuildInfo buildInfo : mMasterBuildInfos) {
+            CompatibilityBuildHelper helper = new CompatibilityBuildHelper(buildInfo);
+            Map<String, File> dcFiles = helper.getDynamicConfigFiles();
+            for (String moduleName : dcFiles.keySet()) {
+                File srcFile = dcFiles.get(moduleName);
+                if (!uniqueModules.contains(moduleName)) {
+                    // have not seen config for this module yet, copy into result
+                    File destFile = new File(configDir, moduleName + ".dynamic");
+                    try {
+                        FileUtil.copyFile(srcFile, destFile);
+                        uniqueModules.add(moduleName); // Add to uniqueModules if copy succeeds
+                    } catch (IOException e) {
+                        warn("Failure when copying config file \"%s\" to \"%s\" for module %s",
+                                srcFile.getAbsolutePath(), destFile.getAbsolutePath(), moduleName);
+                        CLog.e(e);
+                    }
+                }
+                FileUtil.deleteFile(srcFile);
             }
         }
     }

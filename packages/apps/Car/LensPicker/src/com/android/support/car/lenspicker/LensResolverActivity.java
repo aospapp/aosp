@@ -15,33 +15,31 @@
  */
 package com.android.support.car.lenspicker;
 
+import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
+
 import android.app.Activity;
 import android.content.ComponentName;
-import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
-import android.graphics.Canvas;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.PatternMatcher;
 import android.provider.MediaStore;
 import android.support.annotation.StringRes;
-import android.support.car.ui.PagedListView;
-import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.View;
 import android.view.Window;
 import android.widget.CheckBox;
 import android.widget.TextView;
+
 import com.android.car.stream.ui.ColumnCalculator;
+import com.android.car.view.PagedListView;
 
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-
-import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 
 /**
  * An activity that is displayed when the system attempts to start an Intent for which there is
@@ -122,7 +120,6 @@ public class LensResolverActivity extends Activity implements
         mAlwaysCheckbox = (CheckBox) findViewById(R.id.always_checkbox);
 
         PagedListView pagedListView = (PagedListView) findViewById(R.id.list_view);
-        pagedListView.setDefaultItemDecoration(new ItemDecoration(this /* context */));
         pagedListView.setLightMode();
 
         ResolverAdapter adapter = new ResolverAdapter(this /* context */, infos);
@@ -295,19 +292,6 @@ public class LensResolverActivity extends Activity implements
                 finish();
             }
         }
-    }
-
-    /**
-     * Default {@link PagedListView.Decoration} for the {@link PagedListView}
-     * that removes the dividing lines between items.
-     */
-    private static class ItemDecoration extends PagedListView.Decoration {
-        public ItemDecoration(Context context) {
-            super(context);
-        }
-
-        @Override
-        public void onDrawOver(Canvas c, RecyclerView parent, RecyclerView.State state) {}
     }
 
     /**

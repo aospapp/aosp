@@ -18,6 +18,7 @@
 #define ANDROID_VINTF_VINTF_OBJECT_H_
 
 #include "CompatibilityMatrix.h"
+#include "DisabledChecks.h"
 #include "HalManifest.h"
 #include "RuntimeInfo.h"
 
@@ -84,14 +85,16 @@ public:
      *
      * @param packageInfo a list of XMLs of HalManifest /
      * CompatibilityMatrix objects.
+     * @param error error message
+     * @param disabledChecks flags to disable certain checks. See DisabledChecks.
      *
      * @return = 0 if success (compatible)
      *         > 0 if incompatible
      *         < 0 if any error (mount partition fails, illformed XML, etc.)
      */
-    static int32_t CheckCompatibility(
-            const std::vector<std::string> &packageInfo,
-            std::string *error = nullptr);
+    static int32_t CheckCompatibility(const std::vector<std::string>& packageInfo,
+                                      std::string* error = nullptr,
+                                      DisabledChecks disabledChecks = ENABLE_ALL_CHECKS);
 };
 
 enum : int32_t {
@@ -102,9 +105,9 @@ enum : int32_t {
 // exposed for testing and VintfObjectRecovery.
 namespace details {
 class PartitionMounter;
-int32_t checkCompatibility(const std::vector<std::string> &xmls, bool mount,
-        const PartitionMounter& partitionMounter,
-        std::string *error);
+int32_t checkCompatibility(const std::vector<std::string>& xmls, bool mount,
+                           const PartitionMounter& partitionMounter, std::string* error,
+                           DisabledChecks disabledChecks = ENABLE_ALL_CHECKS);
 } // namespace details
 
 } // namespace vintf

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 
-import org.jacoco.agent.rt.internal.output.TcpConnection;
 import org.jacoco.core.data.ExecutionDataStore;
 import org.jacoco.core.data.ExecutionDataWriter;
 import org.jacoco.core.data.SessionInfo;
@@ -67,8 +66,8 @@ public class TcpConnectionTest extends ExecutorTestBase {
 		final OutputStream remoteOut = mockConnection.getSocketB()
 				.getOutputStream();
 		new ExecutionDataWriter(remoteOut);
-		final TcpConnection con = new TcpConnection(
-				mockConnection.getSocketA(), data);
+		final TcpConnection con = new TcpConnection(mockConnection.getSocketA(),
+				data);
 		con.init();
 		remoteOut.write(123);
 		con.run();
@@ -83,8 +82,8 @@ public class TcpConnectionTest extends ExecutorTestBase {
 				.getOutputStream();
 		new ExecutionDataWriter(remoteOut);
 
-		final TcpConnection con = new TcpConnection(
-				mockConnection.getSocketA(), data);
+		final TcpConnection con = new TcpConnection(mockConnection.getSocketA(),
+				data);
 		con.init();
 
 		final Future<Void> f = executor.submit(new Callable<Void>() {
@@ -96,26 +95,7 @@ public class TcpConnectionTest extends ExecutorTestBase {
 
 		assertBlocks(f);
 
-		mockConnection.getSocketB().close();
-		f.get();
-	}
-
-	/**
-	 * Remote endpoint is closed before even a valid header was send.
-	 */
-	public void testRemoteCloseWithoutHeader() throws Throwable {
-		final TcpConnection con = new TcpConnection(
-				mockConnection.getSocketA(), data);
-
-		final Future<Void> f = executor.submit(new Callable<Void>() {
-			public Void call() throws Exception {
-				con.init();
-				return null;
-			}
-		});
-
-		assertBlocks(f);
-
+		mockConnection.getSocketA().waitUntilInputBufferIsEmpty();
 		mockConnection.getSocketB().close();
 		f.get();
 	}
@@ -131,8 +111,8 @@ public class TcpConnectionTest extends ExecutorTestBase {
 				.getOutputStream();
 		new ExecutionDataWriter(remoteOut);
 
-		final TcpConnection con = new TcpConnection(
-				mockConnection.getSocketA(), data);
+		final TcpConnection con = new TcpConnection(mockConnection.getSocketA(),
+				data);
 		con.init();
 
 		final Future<Void> f = executor.submit(new Callable<Void>() {
@@ -150,14 +130,15 @@ public class TcpConnectionTest extends ExecutorTestBase {
 
 	@Test
 	public void testRemoteDump() throws Exception {
-		data.getExecutionData(Long.valueOf(0x12345678), "Foo", 42);
+		data.getExecutionData(Long.valueOf(0x12345678), "Foo", 42)
+				.getProbes()[0] = true;
 		data.setSessionId("stubid");
 
 		final RemoteControlWriter remoteWriter = new RemoteControlWriter(
 				mockConnection.getSocketB().getOutputStream());
 
-		final TcpConnection con = new TcpConnection(
-				mockConnection.getSocketA(), data);
+		final TcpConnection con = new TcpConnection(mockConnection.getSocketA(),
+				data);
 		con.init();
 
 		final Future<Void> f = executor.submit(new Callable<Void>() {
@@ -178,13 +159,14 @@ public class TcpConnectionTest extends ExecutorTestBase {
 
 	@Test
 	public void testLocalDump() throws Exception {
-		data.getExecutionData(Long.valueOf(0x12345678), "Foo", 42);
+		data.getExecutionData(Long.valueOf(0x12345678), "Foo", 42)
+				.getProbes()[0] = true;
 		data.setSessionId("stubid");
 
 		new RemoteControlWriter(mockConnection.getSocketB().getOutputStream());
 
-		final TcpConnection con = new TcpConnection(
-				mockConnection.getSocketA(), data);
+		final TcpConnection con = new TcpConnection(mockConnection.getSocketA(),
+				data);
 		con.init();
 
 		final Future<Void> f = executor.submit(new Callable<Void>() {
@@ -205,13 +187,13 @@ public class TcpConnectionTest extends ExecutorTestBase {
 
 	@Test
 	public void testLocalDumpWithoutInit() throws Exception {
-		final TcpConnection con = new TcpConnection(
-				mockConnection.getSocketA(), data);
+		final TcpConnection con = new TcpConnection(mockConnection.getSocketA(),
+				data);
 		// Must not write any data as we're not initialized:
 		con.writeExecutionData(false);
 
-		assertEquals(0, mockConnection.getSocketB().getInputStream()
-				.available());
+		assertEquals(0,
+				mockConnection.getSocketB().getInputStream().available());
 	}
 
 	private void readAndAssertData() throws IOException {
@@ -234,13 +216,14 @@ public class TcpConnectionTest extends ExecutorTestBase {
 
 	@Test
 	public void testRemoteReset() throws Exception {
-		data.getExecutionData(Long.valueOf(123), "Foo", 1).getProbes()[0] = true;
+		data.getExecutionData(Long.valueOf(123), "Foo", 1)
+				.getProbes()[0] = true;
 
 		final RemoteControlWriter remoteWriter = new RemoteControlWriter(
 				mockConnection.getSocketB().getOutputStream());
 
-		final TcpConnection con = new TcpConnection(
-				mockConnection.getSocketA(), data);
+		final TcpConnection con = new TcpConnection(mockConnection.getSocketA(),
+				data);
 		con.init();
 
 		final Future<Void> f = executor.submit(new Callable<Void>() {

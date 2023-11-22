@@ -60,21 +60,6 @@ public class ImsUtil {
     }
 
     /**
-     * @return {@code true} if WFC is provisioned on the device.
-     */
-    public static boolean isWfcProvisioned(Context context) {
-        CarrierConfigManager cfgManager = (CarrierConfigManager) context
-                .getSystemService(Context.CARRIER_CONFIG_SERVICE);
-            if (cfgManager != null
-                    && cfgManager.getConfig().getBoolean(
-                            CarrierConfigManager.KEY_CARRIER_VOLTE_OVERRIDE_WFC_PROVISIONING_BOOL)
-                    && !ImsManager.isVolteProvisionedOnDevice(context)) {
-                return false;
-            }
-            return ImsManager.isWfcProvisionedOnDevice(context);
-    }
-
-    /**
      * @return {@code true} if the device is configured to use "Wi-Fi only" mode. If WFC is not
      * enabled, this will return {@code false}.
      */
@@ -101,7 +86,7 @@ public class ImsUtil {
             return false;
         }
 
-        if (!isWfcProvisioned(context)) {
+        if (!ImsManager.isWfcProvisionedOnDevice(context)) {
             return false;
         }
 

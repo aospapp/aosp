@@ -22,15 +22,16 @@
 #include "interpreter_common.h"
 #include "interpreter_mterp_impl.h"
 #include "interpreter_switch_impl.h"
-#include "jvalue-inl.h"
-#include "mirror/string-inl.h"
-#include "scoped_thread_state_change-inl.h"
-#include "ScopedLocalRef.h"
-#include "stack.h"
-#include "unstarted_runtime.h"
-#include "mterp/mterp.h"
 #include "jit/jit.h"
 #include "jit/jit_code_cache.h"
+#include "jvalue-inl.h"
+#include "mirror/string-inl.h"
+#include "mterp/mterp.h"
+#include "nativehelper/ScopedLocalRef.h"
+#include "scoped_thread_state_change-inl.h"
+#include "stack.h"
+#include "thread-inl.h"
+#include "unstarted_runtime.h"
 
 namespace art {
 namespace interpreter {
@@ -253,6 +254,13 @@ static inline JValue Execute(
     if (UNLIKELY(instrumentation->HasMethodEntryListeners())) {
       instrumentation->MethodEnterEvent(self, shadow_frame.GetThisObject(code_item->ins_size_),
                                         method, 0);
+      if (UNLIKELY(self->IsExceptionPending())) {
+        instrumentation->MethodUnwindEvent(self,
+                                           shadow_frame.GetThisObject(code_item->ins_size_),
+                                           method,
+                                           0);
+        return JValue();
+      }
     }
 
     if (!stay_in_interpreter) {
@@ -264,7 +272,11 @@ static inline JValue Execute(
 
           // Pop the shadow frame before calling into compiled code.
           self->PopShadowFrame();
-          ArtInterpreterToCompiledCodeBridge(self, nullptr, code_item, &shadow_frame, &result);
+          // Calculate the offset of the first input reg. The input registers are in the high regs.
+          // It's ok to access the code item here since JIT code will have been touched by the
+          // interpreter and compiler already.
+          uint16_t arg_offset = code_item->registers_size_ - code_item->ins_size_;
+          ArtInterpreterToCompiledCodeBridge(self, nullptr, &shadow_frame, arg_offset, &result);
           // Push the shadow frame back as the caller will expect it.
           self->PushShadowFrame(&shadow_frame);
 

@@ -44,6 +44,7 @@
 #include "oat_file-inl.h"
 #include "runtime_callbacks.h"
 #include "scoped_thread_state_change-inl.h"
+#include "vdex_file.h"
 #include "well_known_classes.h"
 
 namespace art {
@@ -55,9 +56,25 @@ extern "C" void art_quick_invoke_stub(ArtMethod*, uint32_t*, uint32_t, Thread*, 
 extern "C" void art_quick_invoke_static_stub(ArtMethod*, uint32_t*, uint32_t, Thread*, JValue*,
                                              const char*);
 
+DEFINE_RUNTIME_DEBUG_FLAG(ArtMethod, kCheckDeclaringClassState);
+
 // Enforce that we he have the right index for runtime methods.
 static_assert(ArtMethod::kRuntimeMethodDexMethodIndex == DexFile::kDexNoIndex,
               "Wrong runtime-method dex method index");
+
+ArtMethod* ArtMethod::GetCanonicalMethod(PointerSize pointer_size) {
+  if (LIKELY(!IsDefault())) {
+    return this;
+  } else {
+    mirror::Class* declaring_class = GetDeclaringClass();
+    DCHECK(declaring_class->IsInterface());
+    ArtMethod* ret = declaring_class->FindInterfaceMethod(declaring_class->GetDexCache(),
+                                                          GetDexMethodIndex(),
+                                                          pointer_size);
+    DCHECK(ret != nullptr);
+    return ret;
+  }
+}
 
 ArtMethod* ArtMethod::GetNonObsoleteMethod() {
   DCHECK_EQ(kRuntimePointerSize, Runtime::Current()->GetClassLinker()->GetImagePointerSize());
@@ -199,11 +216,8 @@ ArtMethod* ArtMethod::FindOverriddenMethod(PointerSize pointer_size) {
   } else {
     // Method didn't override superclass method so search interfaces
     if (IsProxyMethod()) {
-      result = mirror::DexCache::GetElementPtrSize(GetDexCacheResolvedMethods(pointer_size),
-                                                   GetDexMethodIndex(),
-                                                   pointer_size);
-      CHECK_EQ(result,
-               Runtime::Current()->GetClassLinker()->FindMethodForProxy(GetDeclaringClass(), this));
+      result = GetInterfaceMethodIfProxy(pointer_size);
+      DCHECK(result != nullptr);
     } else {
       mirror::IfTable* iftable = GetDeclaringClass()->GetIfTable();
       for (size_t i = 0; i < iftable->Count() && result == nullptr; i++) {
@@ -435,13 +449,7 @@ static uint32_t GetOatMethodIndexFromMethodIndex(const DexFile& dex_file,
   const uint8_t* class_data = dex_file.GetClassData(class_def);
   CHECK(class_data != nullptr);
   ClassDataItemIterator it(dex_file, class_data);
-  // Skip fields
-  while (it.HasNextStaticField()) {
-    it.Next();
-  }
-  while (it.HasNextInstanceField()) {
-    it.Next();
-  }
+  it.SkipAllFields();
   // Process methods
   size_t class_def_method_index = 0;
   while (it.HasNextDirectMethod()) {
@@ -575,25 +583,20 @@ bool ArtMethod::EqualParameters(Handle<mirror::ObjectArray<mirror::Class>> param
 }
 
 const uint8_t* ArtMethod::GetQuickenedInfo(PointerSize pointer_size) {
-  bool found = false;
-  OatFile::OatMethod oat_method = FindOatMethodFor(this, pointer_size, &found);
-  if (!found || (oat_method.GetQuickCode() != nullptr)) {
-    return nullptr;
-  }
   if (kIsVdexEnabled) {
-    const OatQuickMethodHeader* header = oat_method.GetOatQuickMethodHeader();
-    // OatMethod without a header: no quickening table.
-    if (header == nullptr) {
+    const DexFile& dex_file = GetDeclaringClass()->GetDexFile();
+    const OatFile::OatDexFile* oat_dex_file = dex_file.GetOatDexFile();
+    if (oat_dex_file == nullptr || (oat_dex_file->GetOatFile() == nullptr)) {
       return nullptr;
     }
-    // The table is in the .vdex file.
-    const OatFile::OatDexFile* oat_dex_file = GetDexCache()->GetDexFile()->GetOatDexFile();
-    const OatFile* oat_file = oat_dex_file->GetOatFile();
-    if (oat_file == nullptr) {
-      return nullptr;
-    }
-    return oat_file->DexBegin() + header->GetVmapTableOffset();
+    return oat_dex_file->GetOatFile()->GetVdexFile()->GetQuickenedInfoOf(
+        dex_file, GetCodeItemOffset());
   } else {
+    bool found = false;
+    OatFile::OatMethod oat_method = FindOatMethodFor(this, pointer_size, &found);
+    if (!found || (oat_method.GetQuickCode() != nullptr)) {
+      return nullptr;
+    }
     return oat_method.GetVmapTable();
   }
 }
@@ -666,7 +669,9 @@ const OatQuickMethodHeader* ArtMethod::GetOatQuickMethodHeader(uintptr_t pc) {
     }
     if (existing_entry_point == GetQuickInstrumentationEntryPoint()) {
       // We are running the generic jni stub, but the method is being instrumented.
-      DCHECK_EQ(pc, 0u) << "Should be a downcall";
+      // NB We would normally expect the pc to be zero but we can have non-zero pc's if
+      // instrumentation is installed or removed during the call which is using the generic jni
+      // trampoline.
       DCHECK(IsNative());
       return nullptr;
     }

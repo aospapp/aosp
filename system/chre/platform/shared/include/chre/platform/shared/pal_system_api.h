@@ -18,6 +18,20 @@
 
 namespace chre {
 
+/**
+ * Memory allocation coming from the PAL. The semantics are the same as malloc.
+ * This function needs to be implemented by the platform, and is not provided by
+ * the shared code.
+ */
+void *palSystemApiMemoryAlloc(size_t size);
+
+/**
+ * Memory free coming from the PAL. The semantics are the same as free.
+ * This function needs to be implemented by the platform, and is not provided by
+ * the shared code.
+ */
+void palSystemApiMemoryFree(void *pointer);
+
 //! Provides a global instance of the PAL system API for all PAL subsystems to
 //! leverage.
 extern const chrePalSystemApi gChrePalSystemApi;

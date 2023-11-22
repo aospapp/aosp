@@ -30,12 +30,17 @@ LOCAL_C_INCLUDES := $(wificond_includes)
 LOCAL_SRC_FILES := \
     main.cpp
 LOCAL_SHARED_LIBRARIES := \
+    android.hardware.wifi.offload@1.0 \
     libbinder \
     libbase \
     libcutils \
+    libhidlbase \
+    libhwbinder \
+    libhidltransport \
     libminijail \
     libutils \
-    libwifi-system
+    libwifi-system \
+    libwifi-system-iface
 LOCAL_STATIC_LIBRARIES := \
     libwificond
 include $(BUILD_EXECUTABLE)
@@ -54,21 +59,30 @@ LOCAL_SRC_FILES := \
     client_interface_impl.cpp \
     logging_utils.cpp \
     looper_backed_event_loop.cpp \
-    rtt/rtt_controller_binder.cpp \
-    rtt/rtt_controller_impl.cpp \
     scanning/channel_settings.cpp \
     scanning/hidden_network.cpp \
+    scanning/offload_scan_callback_interface_impl.cpp \
     scanning/pno_network.cpp \
     scanning/pno_settings.cpp \
     scanning/scan_result.cpp \
+    scanning/offload/scan_stats.cpp \
     scanning/single_scan_settings.cpp \
     scanning/scan_utils.cpp \
     scanning/scanner_impl.cpp \
+    scanning/offload/offload_scan_manager.cpp \
+    scanning/offload/offload_callback.cpp \
+    scanning/offload/offload_service_utils.cpp \
+    scanning/offload/offload_scan_utils.cpp \
     server.cpp
 LOCAL_SHARED_LIBRARIES := \
+    android.hardware.wifi.offload@1.0 \
     libbase \
     libutils \
-    libwifi-system
+    libhidlbase \
+    libhwbinder \
+    libhidltransport \
+    libwifi-system \
+    libwifi-system-iface
 LOCAL_WHOLE_STATIC_LIBRARIES := \
     libwificond_ipc \
     libwificond_nl
@@ -106,8 +120,6 @@ LOCAL_SRC_FILES := \
     aidl/android/net/wifi/IClientInterface.aidl \
     aidl/android/net/wifi/IInterfaceEventCallback.aidl \
     aidl/android/net/wifi/IPnoScanEvent.aidl \
-    aidl/android/net/wifi/IRttClient.aidl \
-    aidl/android/net/wifi/IRttController.aidl \
     aidl/android/net/wifi/IScanEvent.aidl \
     aidl/android/net/wifi/IWificond.aidl \
     aidl/android/net/wifi/IWifiScannerImpl.aidl \
@@ -144,6 +156,7 @@ include $(BUILD_STATIC_LIBRARY)
 ###
 include $(CLEAR_VARS)
 LOCAL_MODULE := wificond_unit_test
+LOCAL_COMPATIBILITY_SUITE := device-tests
 LOCAL_CPPFLAGS := $(wificond_cpp_flags)
 LOCAL_C_INCLUDES := $(wificond_includes)
 LOCAL_SRC_FILES := \
@@ -151,29 +164,50 @@ LOCAL_SRC_FILES := \
     tests/client_interface_impl_unittest.cpp \
     tests/looper_backed_event_loop_unittest.cpp \
     tests/main.cpp \
+    tests/mock_client_interface_impl.cpp \
     tests/mock_netlink_manager.cpp \
     tests/mock_netlink_utils.cpp \
+    tests/mock_offload.cpp \
+    tests/mock_offload_callback_handlers.cpp \
+    tests/mock_offload_scan_callback_interface.cpp \
+    tests/mock_offload_scan_callback_interface_impl.cpp \
+    tests/mock_offload_scan_manager.cpp \
+    tests/mock_offload_service_utils.cpp \
     tests/mock_scan_utils.cpp \
     tests/netlink_manager_unittest.cpp \
     tests/netlink_utils_unittest.cpp \
     tests/nl80211_attribute_unittest.cpp \
     tests/nl80211_packet_unittest.cpp \
+    tests/offload_callback_test.cpp \
+    tests/offload_hal_test_constants.cpp \
+    tests/offload_scan_manager_test.cpp \
+    tests/offload_scan_utils_test.cpp \
+    tests/offload_test_utils.cpp \
+    tests/scanner_unittest.cpp \
     tests/scan_result_unittest.cpp \
     tests/scan_settings_unittest.cpp \
+    tests/scan_stats_unittest.cpp \
     tests/scan_utils_unittest.cpp \
     tests/server_unittest.cpp
 LOCAL_STATIC_LIBRARIES := \
     libgmock \
     libgtest \
     libwifi-system-test \
+    libwifi-system-iface-test \
     libwificond \
     libwificond_nl
 LOCAL_SHARED_LIBRARIES := \
+    android.hardware.wifi.offload@1.0 \
     libbase \
     libbinder \
+    libcutils \
+    libhidltransport \
+    libhidlbase \
+    libhwbinder \
     liblog \
     libutils \
-    libwifi-system
+    libwifi-system \
+    libwifi-system-iface
 include $(BUILD_NATIVE_TEST)
 
 ###
@@ -196,7 +230,8 @@ LOCAL_SHARED_LIBRARIES := \
     libbinder \
     libcutils \
     libutils \
-    libwifi-system
+    libwifi-system \
+    libwifi-system-iface
 LOCAL_STATIC_LIBRARIES := \
     libgmock \
     libwificond_ipc \

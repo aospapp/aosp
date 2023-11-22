@@ -19,30 +19,36 @@
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.DeviceFileCollector">
         <option name="src-file" value="/sys/fs/selinux/policy" />
         <option name="dest-file" value="vintf-files/sepolicy"/>
+        <option name="property" key="ro.treble.enabled" value="true"/>
     </target_preparer>
 
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.DeviceFileCollector">
         <option name="src-file" value="/system/manifest.xml" />
         <option name="dest-file" value="vintf-files/framework_manifest.xml"/>
+        <option name="property" key="ro.treble.enabled" value="true"/>
     </target_preparer>
 
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.DeviceFileCollector">
         <option name="src-file" value="/system/compatibility_matrix.xml" />
         <option name="dest-file" value="vintf-files/framework_compatibility_matrix.xml"/>
+        <option name="property" key="ro.treble.enabled" value="true"/>
     </target_preparer>
 
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.DeviceFileCollector">
         <option name="src-file" value="/vendor/manifest.xml" />
         <option name="dest-file" value="vintf-files/device_manifest.xml"/>
+        <option name="property" key="ro.treble.enabled" value="true"/>
     </target_preparer>
 
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.DeviceFileCollector">
         <option name="src-file" value="/vendor/compatibility_matrix.xml" />
         <option name="dest-file" value="vintf-files/device_compatibility_matrix.xml"/>
+        <option name="property" key="ro.treble.enabled" value="true"/>
     </target_preparer>
 
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.DeviceFileCollector">
         <option name="src-file" value="/proc/config.gz" />
         <option name="dest-file" value="vintf-files/proc_config.gz"/>
+        <option name="property" key="ro.treble.enabled" value="true"/>
     </target_preparer>
 </configuration>

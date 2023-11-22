@@ -47,6 +47,27 @@ class BoardLabel(base_label.StringPrefixLabel):
         return [release_info['CHROMEOS_RELEASE_BOARD']]
 
 
+class ModelLabel(base_label.StringPrefixLabel):
+    """Determine the correct model label for the device."""
+
+    _NAME = ds_constants.MODEL_LABEL
+
+    def generate_labels(self, host):
+        # Return the existing label if set to defend against any bad image
+        # pushes to the host.  See comment in BoardLabel for more details.
+        for label in host._afe_host.labels:
+            if label.startswith(self._NAME + ':'):
+                return [label.split(':')[-1]]
+
+        cmd = "mosys platform model"
+        result = host.run(command=cmd, ignore_status=True)
+        if result.exit_status == 0:
+            return result.stddout
+        else:
+            logging.info("%s exited with status %d", cmd, result.exit_status)
+            return ""
+
+
 class LightSensorLabel(base_label.BaseLabel):
     """Label indicating if a light sensor is detected."""
 
@@ -334,8 +355,10 @@ class ServoLabel(base_label.BaseLabel):
 
         @returns True if a servo host is detected, False otherwise.
         """
+        servo_host_hostname = None
         servo_args, _ = servo_host._get_standard_servo_args(host)
-        servo_host_hostname = servo_args.get(servo_host.SERVO_HOST_ATTR)
+        if servo_args:
+            servo_host_hostname = servo_args.get(servo_host.SERVO_HOST_ATTR)
         return (servo_host_hostname is not None
                 and servo_host.servo_host_is_up(servo_host_hostname))
 

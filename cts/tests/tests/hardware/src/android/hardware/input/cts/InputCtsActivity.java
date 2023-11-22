@@ -17,14 +17,27 @@
 package android.hardware.input.cts;
 
 import android.app.Activity;
+import android.content.Context;
+import android.hardware.input.InputManager;
+import android.hardware.input.InputManager.InputDeviceListener;
+import android.os.Bundle;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 
-import java.util.ArrayList;
-import java.util.List;
+public class InputCtsActivity extends Activity implements InputDeviceListener {
+    private static final String TAG = "InputCtsActivity";
 
-public class InputCtsActivity extends Activity {
     private InputCallback mInputCallback;
+
+    private InputManager mInputManager;
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        mInputManager = getApplicationContext().getSystemService(InputManager.class);
+        mInputManager.registerInputDeviceListener(this, null);
+    }
 
     @Override
     public boolean dispatchGenericMotionEvent(MotionEvent ev) {
@@ -60,5 +73,21 @@ public class InputCtsActivity extends Activity {
 
     public void setInputCallback(InputCallback callback) {
         mInputCallback = callback;
+    }
+
+    @Override
+    public void onInputDeviceAdded(int deviceId) {
+        mInputCallback.onInputDeviceAdded(deviceId);
+    }
+
+    @Override
+    public void onInputDeviceRemoved(int deviceId) {
+        mInputCallback.onInputDeviceRemoved(deviceId);
+    }
+
+    @Override
+    public void onInputDeviceChanged(int deviceId) {
+        mInputManager.getInputDevice(deviceId); // if this isn't called, won't get new notifications
+        mInputCallback.onInputDeviceChanged(deviceId);
     }
 }

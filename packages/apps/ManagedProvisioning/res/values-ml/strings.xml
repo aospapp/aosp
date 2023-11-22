@@ -27,9 +27,9 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"ഇനിപ്പറയുന്ന അപ്ലിക്കേഷന് ഈ പ്രൊഫൈൽ ആക്‌സസ്സുചെയ്യേണ്ടിവരും:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"ഇനിപ്പറയുന്ന അപ്ലിക്കേഷൻ നിങ്ങളുടെ ഉപകരണത്തെ നിയന്ത്രിക്കും:"</string>
     <string name="next" msgid="1004321437324424398">"അടുത്തത്"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"നിങ്ങളുടെ ഔദ്യോഗിക പ്രൊഫൈൽ സജ്ജമാക്കുന്നു…"</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"ഔദ്യോഗിക പ്രൊഫൈൽ സജ്ജമാക്കുന്നു…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"നിങ്ങളുടെ നെറ്റ്‌വർക്ക് ആക്റ്റിവിറ്റി ഉൾപ്പെടെ, ക്രമീകരണം, കോർപ്പറേറ്റ് ആക്സസ്സ്, ആപ്‌സ്, അനുമതികൾ, ഈ പ്രൊഫൈലുമായി ബന്ധപ്പെടുത്തിയിട്ടുള്ള ഡാറ്റ എന്നിവയും നിങ്ങളുടെ ഉപകരണത്തിന്റെ ലൊക്കേഷനും കോൾ ചരിത്രവും കോൺടാക്റ്റ് തിരയൽ ചരിത്രവും നിരീക്ഷിക്കുന്നതിനും മാനേജുചെയ്യുന്നതിനും നിങ്ങളുടെ അഡ്‌മിന് കഴിയും.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>നിങ്ങളുടെ സ്ഥാപനത്തിന്റെ സ്വകാര്യതാ നയങ്ങൾ ഉൾപ്പെടെയുള്ള കൂടുതൽ വിവരങ്ങൾ അറിയുന്നതിന് നിങ്ങളുടെ അഡ്മിനെ ബന്ധപ്പെടുക."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"നിങ്ങളുടെ നെറ്റ്‌വർക്ക് ആക്റ്റിവിറ്റി ഉൾപ്പെടെ, ക്രമീകരണം, കോർപ്പറേറ്റ് ആക്സസ്സ്, ആപ്‌സ്, അനുമതികൾ, ഈ ഉപകരണവുമായി ബന്ധപ്പെടുത്തിയിട്ടുള്ള ഡാറ്റ എന്നിവയും നിങ്ങളുടെ ഉപകരണത്തിന്റെ ലൊക്കേഷനും കോൾ ചരിത്രവും കോൺടാക്റ്റ് തിരയൽ ചരിത്രവും നിരീക്ഷിക്കുന്നതിനും മാനേജുചെയ്യുന്നതിനും നിങ്ങളുടെ അഡ്‌മിന് കഴിയും.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>നിങ്ങളുടെ സ്ഥാപനത്തിന്റെ സ്വകാര്യതാ നയങ്ങൾ ഉൾപ്പെടെയുള്ള കൂടുതൽ വിവരങ്ങൾ അറിയുന്നതിന് നിങ്ങളുടെ അഡ്മിനെ ബന്ധപ്പെടുക."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"നിങ്ങളുടെ നെറ്റ്‌വർക്ക് ആക്റ്റിവിറ്റി ഉൾപ്പെടെ, ക്രമീകരണം, കോർപ്പറേറ്റ് ആക്സസ്സ്, ആപ്പുകൾ, അനുമതികൾ, ഈ ഉപകരണവുമായി ബന്ധപ്പെടുത്തിയിട്ടുള്ള ഡാറ്റ എന്നിവയും നിങ്ങളുടെ ഉപകരണത്തിന്റെ ലൊക്കേഷനും കോൾ ചരിത്രവും കോൺടാക്റ്റ് തിരയൽ ചരിത്രവും നിരീക്ഷിക്കുന്നതിനും മാനേജുചെയ്യുന്നതിനും നിങ്ങളുടെ അഡ്‌മിന് കഴിയും.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>നിങ്ങളുടെ സ്ഥാപനത്തിന്റെ സ്വകാര്യതാ നയങ്ങൾ ഉൾപ്പെടെയുള്ള കൂടുതൽ വിവരങ്ങൾ അറിയുന്നതിന് നിങ്ങളുടെ അഡ്മിനെ ബന്ധപ്പെടുക."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"മോഷണ പരിരക്ഷാ ഫീച്ചറുകൾ ഉപയോഗിക്കാൻ, നിങ്ങളുടെ ഉപകരണത്തിൽ പാസ്‌വേഡ് കൊണ്ട് പരിരക്ഷിച്ചിട്ടുള്ള ഒരു സ്ക്രീൻ ലോക്ക് ഉണ്ടായിരിക്കണം."</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"നിങ്ങളുടെ സ്ഥാപനത്തിന്റെ സ്വകാര്യതാ നയങ്ങൾ ഉൾപ്പെടെയുള്ള കൂടുതൽ വിവരങ്ങൾക്ക് അഡ്‌മിനിസ്‌ട്രേറ്ററെ ബന്ധപ്പെടുക."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"കൂടുതലറിയുക"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"ഔദ്യോഗിക പ്രൊഫൈൽ"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"പ്രാഥമിക ഉപയോക്താവ്"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"നിലവിലെ പ്രൊഫൈൽ ഇല്ലാതാക്കണോ?"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"ഇനിപ്പറയുന്ന ആപ്പ് ഉപയോഗിച്ചുകൊണ്ട് മാനേജുചെയ്യപ്പെടുന്ന ഒരു ഔദ്യോഗിക പ്രൊഫൈൽ നിങ്ങൾക്ക് ഇതിനകം തന്നെയുണ്ട്:"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"നിങ്ങൾക്ക് ഇതിനകം തന്നെ ഒരു ഔദ്യോഗിക പ്രൊഫൈലുണ്ട്. ഇനിപ്പറയുന്ന ആപ്പ് ഉപയോഗിച്ചുകൊണ്ടാണത് മാനേജുചെയ്യുന്നത്:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"തുടരുന്നതിന് മുമ്പ്, "<a href="#read_this_link">"ഇത് വായിക്കുക"</a>"."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"നിങ്ങൾ തുടരുകയാണെങ്കിൽ, ഈ പ്രൊഫൈലിലെ എല്ലാ ആപ്‌സും ഡാറ്റയും ഇല്ലാതാക്കും."</string>
     <string name="delete_profile" msgid="2299218578684663459">"ഇല്ലാതാക്കുക"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"നിങ്ങളുടെ ഔദ്യോഗിക പ്രൊഫൈൽ സജ്ജീകരിക്കുന്നത് തുടരാൻ ടാപ്പുചെയ്യുക"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"നിങ്ങളുടെ ഔദ്യോഗിക പ്രൊഫൈൽ സജ്ജീകരിക്കാനായില്ല. നിങ്ങളുടെ ഐടി വിഭാഗവുമായി ബന്ധപ്പെടുക അല്ലെങ്കിൽ പിന്നീട് വീണ്ടും ശ്രമിക്കുക."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"ഔദ്യോഗിക പ്രൊഫൈൽ ചേർക്കാൻ കഴിയില്ല"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"ഈ ഉപയോക്താവിന് ഔദ്യോഗിക പ്രൊഫൈൽ ഉണ്ടാകാൻ പാടില്ല. നിങ്ങളുടെ അഡ്‌മിനെ ബന്ധപ്പെടുക."</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"ഈ ഉപയോക്താവിന് ഔദ്യോഗിക പ്രൊഫൈലുകൾ ഉണ്ടാകാൻ പാടില്ല. നിങ്ങളുടെ അഡ്‌മിനെ ബന്ധപ്പെടുക."</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"ഒരു നിയന്ത്രിത ഉപകരണത്തിൽ ഔദ്യോഗിക പ്രൊഫൈലുകൾ സജ്ജമാക്കാനാവില്ല"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"ഈ ഉപകരണത്തിൽ ഒരുപാട് ഉപയോക്താക്കൾ ഉണ്ടായിരുന്നേക്കാം. ഒരു ഉപയോക്താവിനെ നീക്കംചെയ്യുക, തുടർന്ന് വീണ്ടും ശ്രമിച്ചുനോക്കുക."</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"ഔദ്യോഗിക പ്രൊഫൈൽ മാറ്റിസ്ഥാപിക്കാനോ നീക്കംചെയ്യാനോ കഴിയില്ല"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"ഈ ഉപകരണത്തിൽ ഔദ്യോഗിക പ്രൊഫൈൽ ചേർക്കാനാവില്ല. നിങ്ങൾക്ക് ചോദ്യങ്ങൾ ഉണ്ടെങ്കിൽ, അഡ്‌മിനുമായി ബന്ധപ്പെടുക."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"ഉപകരണ ലോഞ്ചർ മാറ്റുക"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"നിങ്ങളുടെ പ്രൊഫലിന് ഈ ലോഞ്ചർ ആപ്പ് ഉപയോഗിക്കാൻ കഴിയില്ല"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"റദ്ദാക്കുക"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"ശരി"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"ഉപയോക്തൃ സജ്ജമാക്കൽ അപൂർണ്ണമാണ്"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"ഔദ്യോഗിക ഉപകരണത്തിന്റെ ഉപയോക്താവ്"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"ഔദ്യോഗിക ഉപകരണം സജ്ജീകരിക്കുക"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"ഔദ്യോഗിക ഉപകരണം സജ്ജമാക്കുന്നു…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"സജ്ജീകരണ ഡാറ്റ പ്രോസസ്സുചെയ്യുന്നു…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Wi-Fi-യിലേക്ക് ബന്ധിപ്പിക്കുന്നു…"</string>
     <string name="progress_download" msgid="3522436271691064624">"അഡ്‌മിൻ ആപ്പ് ഡൗൺലോഡുചെയ്യുന്നു…"</string>
@@ -134,7 +132,7 @@
     <string name="comp_profile_benefits_description" msgid="379837075456998273">"ഔദ്യോഗിക പ്രൊഫൈൽ ഉപയോഗിക്കുന്നതിലൂടെ, ഒരിടത്ത് നിങ്ങൾക്ക് ഔദ്യോഗിക ആപ്പുകൾ സൂക്ഷിക്കാവുന്നതാണ്"</string>
     <string name="setup_profile_encryption" msgid="5241291404536277038">"നിങ്ങളുടെ പ്രൊഫൈൽ സജ്ജമാക്കുക. എൻക്രിപ്ഷൻ"</string>
     <string name="setup_profile_progress" msgid="7742718527853325656">"നിങ്ങളുടെ പ്രൊഫൈൽ സജ്ജമാക്കുക. പുരോഗതി കാണിക്കുന്നു"</string>
-    <string name="setup_device" msgid="6725265673245816366">"നിങ്ങളുടെ ഉപകരണം സജ്ജീകരിക്കുക"</string>
+    <string name="setup_device" msgid="6725265673245816366">"നിങ്ങളുടെ ഉപകരണം സജ്ജമാക്കുക"</string>
     <string name="setup_device_encryption" msgid="7852944465414197103">"നിങ്ങളുടെ ഉപകരണം സജ്ജമാക്കുക. എൻക്രിപ്ഷൻ"</string>
     <string name="setup_device_progress" msgid="7035335208571175393">"നിങ്ങളുടെ ഉപകരണം സജ്ജമാക്കുക. പുരോഗതി കാണിക്കുന്നു"</string>
     <string name="learn_more_label" msgid="2723716758654655009">"\'കൂടുതലറിയുക\' ബട്ടൺ"</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"റദ്ദാക്കുക"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"ഉപകരണം പുനഃസജ്ജീകരിക്കുക"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="SECOND_ITEM">%2$s</xliff:g> എന്നിവ"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g>, <xliff:g id="LAST_ITEM_0">%2$s</xliff:g> എന്നിവ"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g>, <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

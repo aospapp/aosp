@@ -81,15 +81,6 @@ public class NotificationMgr {
     private static final String MWI_SHOULD_CHECK_VVM_CONFIGURATION_KEY_PREFIX =
             "mwi_should_check_vvm_configuration_state_";
 
-    /**
-     * Boolean value representing whether the {@link
-     * TelephonyManager#ACTION_SHOW_VOICEMAIL_NOTIFICATION} is new or a refresh of an existing
-     * notification.
-     *
-     * TODO(b/62202833): make public
-     */
-    private static final String EXTRA_IS_REFRESH = "is_refresh";
-
     // notification types
     static final int MMI_NOTIFICATION = 1;
     static final int NETWORK_SELECTION_NOTIFICATION = 2;
@@ -422,7 +413,7 @@ public class NotificationMgr {
             intent.setAction(TelephonyManager.ACTION_SHOW_VOICEMAIL_NOTIFICATION);
             intent.putExtra(TelephonyManager.EXTRA_PHONE_ACCOUNT_HANDLE,
                     PhoneUtils.makePstnPhoneAccountHandle(phone));
-            intent.putExtra(EXTRA_IS_REFRESH, isRefresh);
+            intent.putExtra(TelephonyManager.EXTRA_IS_REFRESH, isRefresh);
             if (count != null) {
                 intent.putExtra(TelephonyManager.EXTRA_NOTIFICATION_COUNT, count);
             }
@@ -473,7 +464,7 @@ public class NotificationMgr {
      * @param visible true if there are messages waiting
      */
     /* package */ void updateCfi(int subId, boolean visible) {
-        if (DBG) log("updateCfi(): " + visible);
+        logi("updateCfi: subId= " + subId + ", visible=" + (visible ? "Y" : "N"));
         if (visible) {
             // If Unconditional Call Forwarding (forward all calls) for VOICE
             // is enabled, just show a notification.  We'll default to expanded
@@ -513,23 +504,13 @@ public class NotificationMgr {
             intent.setClassName("com.android.phone", "com.android.phone.CallFeaturesSetting");
             SubscriptionInfoHelper.addExtrasToIntent(
                     intent, mSubscriptionManager.getActiveSubscriptionInfo(subId));
-            PendingIntent contentIntent =
-                    PendingIntent.getActivity(mContext, subId /* requestCode */, intent, 0);
-
-            List<UserInfo> users = mUserManager.getUsers(true);
-            for (int i = 0; i < users.size(); i++) {
-                final UserInfo user = users.get(i);
-                if (user.isManagedProfile()) {
-                    continue;
-                }
-                UserHandle userHandle = user.getUserHandle();
-                builder.setContentIntent(user.isAdmin() ? contentIntent : null);
-                mNotificationManager.notifyAsUser(
-                        Integer.toString(subId) /* tag */,
-                        CALL_FORWARD_NOTIFICATION,
-                        builder.build(),
-                        userHandle);
-            }
+            builder.setContentIntent(PendingIntent.getActivity(mContext, subId /* requestCode */,
+                    intent, 0));
+            mNotificationManager.notifyAsUser(
+                    Integer.toString(subId) /* tag */,
+                    CALL_FORWARD_NOTIFICATION,
+                    builder.build(),
+                    UserHandle.ALL);
         } else {
             mNotificationManager.cancelAsUser(
                     Integer.toString(subId) /* tag */,
@@ -543,7 +524,7 @@ public class NotificationMgr {
      * appears when you lose data connectivity because you're roaming and
      * you have the "data roaming" feature turned off.
      */
-    /* package */ void showDataDisconnectedRoaming() {
+    void showDataDisconnectedRoaming() {
         if (DBG) log("showDataDisconnectedRoaming()...");
 
         // "Mobile network settings" screen / dialog
@@ -557,21 +538,12 @@ public class NotificationMgr {
                 .setContentTitle(mContext.getText(R.string.roaming))
                 .setColor(mContext.getResources().getColor(R.color.dialer_theme_color))
                 .setContentText(contentText)
-                .setChannel(NotificationChannelController.CHANNEL_ID_MOBILE_DATA_ALERT);
-
-        List<UserInfo> users = mUserManager.getUsers(true);
-        for (int i = 0; i < users.size(); i++) {
-            final UserInfo user = users.get(i);
-            if (user.isManagedProfile()) {
-                continue;
-            }
-            UserHandle userHandle = user.getUserHandle();
-            builder.setContentIntent(user.isAdmin() ? contentIntent : null);
-            final Notification notif =
-                    new Notification.BigTextStyle(builder).bigText(contentText).build();
-            mNotificationManager.notifyAsUser(
-                    null /* tag */, DATA_DISCONNECTED_ROAMING_NOTIFICATION, notif, userHandle);
-        }
+                .setChannel(NotificationChannelController.CHANNEL_ID_MOBILE_DATA_STATUS)
+                .setContentIntent(contentIntent);
+        final Notification notif =
+                new Notification.BigTextStyle(builder).bigText(contentText).build();
+        mNotificationManager.notifyAsUser(
+                null /* tag */, DATA_DISCONNECTED_ROAMING_NOTIFICATION, notif, UserHandle.ALL);
     }
 
     /**
@@ -603,27 +575,17 @@ public class NotificationMgr {
         Intent intent = new Intent(Intent.ACTION_MAIN);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
                 Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
-        // Use NetworkSetting to handle the selection intent
+        // Use MobileNetworkSettings to handle the selection intent
         intent.setComponent(new ComponentName(
-                mContext.getString(R.string.network_operator_settings_package),
-                mContext.getString(R.string.network_operator_settings_class)));
+                mContext.getString(R.string.mobile_network_settings_package),
+                mContext.getString(R.string.mobile_network_settings_class)));
         intent.putExtra(GsmUmtsOptions.EXTRA_SUB_ID, subId);
-        PendingIntent contentIntent = PendingIntent.getActivity(mContext, 0, intent, 0);
-
-        List<UserInfo> users = mUserManager.getUsers(true);
-        for (int i = 0; i < users.size(); i++) {
-            final UserInfo user = users.get(i);
-            if (user.isManagedProfile()) {
-                continue;
-            }
-            UserHandle userHandle = user.getUserHandle();
-            builder.setContentIntent(user.isAdmin() ? contentIntent : null);
-            mNotificationManager.notifyAsUser(
-                    null /* tag */,
-                    SELECTED_OPERATOR_FAIL_NOTIFICATION,
-                    builder.build(),
-                    userHandle);
-        }
+        builder.setContentIntent(PendingIntent.getActivity(mContext, 0, intent, 0));
+        mNotificationManager.notifyAsUser(
+                null /* tag */,
+                SELECTED_OPERATOR_FAIL_NOTIFICATION,
+                builder.build(),
+                UserHandle.ALL);
     }
 
     /**
@@ -690,5 +652,9 @@ public class NotificationMgr {
 
     private void log(String msg) {
         Log.d(LOG_TAG, msg);
+    }
+
+    private void logi(String msg) {
+        Log.i(LOG_TAG, msg);
     }
 }

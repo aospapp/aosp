@@ -262,6 +262,30 @@ TEST_F(LibHidlTest, VecEqTest) {
     EXPECT_TRUE(hv1 != hv3);
 }
 
+TEST_F(LibHidlTest, VecRangeCtorTest) {
+    struct ConvertibleType {
+        int val;
+
+        explicit ConvertibleType(int val) : val(val) {}
+        explicit operator int() const { return val; }
+        bool operator==(const int& other) const { return val == other; }
+    };
+
+    std::vector<ConvertibleType> input{
+        ConvertibleType(1), ConvertibleType(2), ConvertibleType(3),
+    };
+
+    android::hardware::hidl_vec<int> hv(input.begin(), input.end());
+
+    EXPECT_EQ(input.size(), hv.size());
+    int sum = 0;
+    for (unsigned i = 0; i < input.size(); i++) {
+        EXPECT_EQ(input[i], hv[i]);
+        sum += hv[i];
+    }
+    EXPECT_EQ(sum, 1 + 2 + 3);
+}
+
 TEST_F(LibHidlTest, ArrayTest) {
     using android::hardware::hidl_array;
     int32_t array[] = {5, 6, 7};
@@ -361,6 +385,29 @@ TEST_F(LibHidlTest, ReturnMoveTest) {
     ret.isOk();
     ret = {Status::fromStatusT(DEAD_OBJECT)};
     ret.isOk();
+}
+
+TEST_F(LibHidlTest, ReturnTest) {
+    using ::android::DEAD_OBJECT;
+    using ::android::hardware::Return;
+    using ::android::hardware::Status;
+    using ::android::hardware::hidl_string;
+
+    EXPECT_FALSE(Return<void>(Status::fromStatusT(DEAD_OBJECT)).isOk());
+    EXPECT_TRUE(Return<void>(Status::ok()).isOk());
+
+    hidl_string one = "1";
+    hidl_string two = "2";
+    Return<hidl_string> ret = Return<hidl_string>(Status::fromStatusT(DEAD_OBJECT));
+
+    EXPECT_EQ(one, Return<hidl_string>(one).withDefault(two));
+    EXPECT_EQ(two, ret.withDefault(two));
+
+    hidl_string&& moved = ret.withDefault(std::move(two));
+    EXPECT_EQ("2", moved);
+
+    const hidl_string three = "3";
+    EXPECT_EQ(three, ret.withDefault(three));
 }
 
 std::string toString(const ::android::hardware::Status &s) {

@@ -16,12 +16,18 @@
   -->
 
 <com.android.tv.ui.BlockScreenView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:gravity="center"
     android:visibility="gone"
     android:background="@android:color/black">
+
+    <ImageView
+        android:id="@+id/background_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitCenter"
+        android:visibility="gone" />
+
     <!-- This layout is used for the animation -->
     <LinearLayout
         android:id="@+id/block_screen_container"
@@ -43,6 +49,7 @@
                 android:contentDescription="@null" />
             <ImageView
                 android:id="@+id/block_screen_shrunken_icon"
+                android:src="@drawable/ic_message_lock_preview"
                 android:layout_width="@dimen/shrunken_tvview_block_icon_width"
                 android:layout_height="@dimen/shrunken_tvview_block_icon_height"
                 android:layout_gravity="center"

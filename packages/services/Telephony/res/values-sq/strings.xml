@@ -78,7 +78,6 @@
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"Posta zanore (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"VM:"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"Njoftimet"</string>
-    <string name="networks" msgid="8873030692174541976">"Operatorët e rrjetit"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"Transmetimet e urgjencës"</string>
     <string name="call_settings" msgid="6112441768261754562">"Cilësimet e telefonatës"</string>
     <string name="additional_gsm_call_settings" msgid="1391795981938800617">"Cilësimet shtesë"</string>
@@ -164,20 +163,18 @@
     <string name="label_available" msgid="1181658289009300430">"Rrjete të arritshme"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"Po kërkon..."</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"Nuk u gjetën rrjete."</string>
-    <string name="search_networks" msgid="1601136049300882441">"Kërko rrjetet"</string>
     <string name="network_query_error" msgid="6828516148953325006">"Gabim gjatë kërkimit për rrjete."</string>
     <string name="register_on_network" msgid="9055203954040805084">"Po regjistron në <xliff:g id="NETWORK">%s</xliff:g>…"</string>
     <string name="not_allowed" msgid="5613353860205691579">"Karta SIM nuk lejon lidhje me këtë rrjet."</string>
     <string name="connect_later" msgid="2308119155752343975">"Nuk mund të lidhet me këtë rrjet tani. Provo sërish më vonë."</string>
     <string name="registration_done" msgid="495135664535876612">"Regjistruar në rrjet."</string>
-    <string name="sum_carrier_select" msgid="3494252551249882718">"Zgjidh një operator rrjeti"</string>
-    <string name="sum_search_networks" msgid="2921092249873272715">"Kërko të gjitha rrjetet e arritshme"</string>
-    <string name="select_automatically" msgid="5628402124471810174">"Zgjidh automatikisht"</string>
-    <string name="sum_select_automatically" msgid="5614890115123292400">"Zgjidh automatikisht rrjetin e preferuar"</string>
+    <string name="select_automatically" msgid="1046727200631770962">"Zgjidh automatikisht rrjetin"</string>
+    <string name="network_select_title" msgid="7733107364757544558">"Rrjeti"</string>
     <string name="register_automatically" msgid="6017849844573519637">"Regjistrim automatik…"</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"Lloji i preferuar i rrjetit"</string>
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"Ndrysho modalitetin e operimit të rrjetit"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"Lloji i preferuar i rrjetit"</string>
+    <string name="forbidden_network" msgid="4384929668343563440">"(ndalohet)"</string>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"Modaliteti i preferuar i rrjetit: preferohet WCDMA"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"Modaliteti i preferuar i rrjetit: vetëm GSM"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"Modaliteti i preferuar i rrjetit: vetëm WCDMA"</string>
@@ -210,18 +207,34 @@
     <item msgid="1524224863879435516">"Vetëm GSM"</item>
     <item msgid="3817924849415716259">"GSM/WCDMA i preferuar"</item>
   </string-array>
+    <string name="call_category" msgid="5863978196309462052">"Po telefonon"</string>
+    <string name="network_operator_category" msgid="4830701959205735636">"Rrjeti"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"Modaliteti i përparuar 4G LTE"</string>
     <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"Telefonatë e avancuar"</string>
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"Përdor shërbimet LTE për të përmirësuar komunikimet zanore dhe të tjera (rekomandohet)"</string>
     <string name="data_enabled" msgid="5972538663568715366">"Të dhënat janë të aktivizuara"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"Lejo përdorimin e të dhënave"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"Kujdes!"</string>
-    <string name="roaming" msgid="8871412572928323707">"Të dhënat e roaming-ut"</string>
+    <string name="roaming" msgid="7894878421600247140">"Roaming"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"Lidhu me shërbimet e të dhënave kur je në roaming"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"Lidhu me shërbimin e të dhënave kur je në roaming"</string>
     <string name="roaming_reenable_message" msgid="8913735676127858115">"E humbët lidhjen e të dhënave sepse sapo latë rrjetin e vendit tuaj dhe tani jeni me të dhëna roaming-u, të cilat ende nuk janë aktivizuar."</string>
     <string name="roaming_warning" msgid="1603164667540144353">"Mund të shkaktohen tarifa të larta."</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"Të lejohet përdorimi i të dhënave kur je në roaming?"</string>
+    <string name="data_usage_title" msgid="8759619109516889802">"Përdorimi i të dhënave"</string>
+    <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_1">%1$s</xliff:g> të dhëna celulare të përdorura mes datave <xliff:g id="ID_2">%2$s</xliff:g>"</string>
+    <string name="advanced_options_title" msgid="8074895510265488035">"Të përparuara"</string>
+    <string name="carrier_settings_euicc" msgid="6714062862127226405">"Operatori celular"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"operatori celular, esim, sim, euicc"</string>
+    <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> - <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
+    <string name="mobile_data_settings_title" msgid="4661165467914727157">"Të dhënat celulare"</string>
+    <string name="mobile_data_settings_summary" msgid="5087255915840576895">"Qasu te të dhënat duke përdorur rrjetin celular"</string>
+    <string name="data_usage_disable_mobile" msgid="3577275288809667615">"Të çaktivizohen të dhënat celulare?"</string>
+    <string name="sim_selection_required_pref" msgid="7049424902961844236">"Kërkohet përzgjedhja"</string>
+    <string name="sim_change_data_title" msgid="5332425991853799280">"Të ndryshohet SIM për të dhënat?"</string>
+    <string name="sim_change_data_message" msgid="2163963581444907496">"Të përdoret <xliff:g id="NEW_SIM">%1$s</xliff:g> në vend të <xliff:g id="OLD_SIM">%2$s</xliff:g> për të dhënat celulare?"</string>
+    <string name="wifi_calling_settings_title" msgid="7741961465416430470">"Telefonata me Wi-Fi"</string>
+    <string name="video_calling_settings_title" msgid="539714564273795574">"Telefonata me video e operatorit celular"</string>
     <string name="gsm_umts_options" msgid="6538311689850981686">"Opsionet GSM/UMTS"</string>
     <string name="cdma_options" msgid="4016822858172249884">"Opsionet CDMA"</string>
     <string name="throttle_data_usage" msgid="3715677828160555808">"Përdorimi i të dhënave"</string>
@@ -452,7 +465,7 @@
     <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"Rrjeti celular nuk ofrohet. Lidhu me një rrjet pa tel për të bërë një telefonatë."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"Për të kryer një telefonatë, fut një numër të vlefshëm."</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"Thirrja dështoi."</string>
-    <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"Telefonata nuk mund të shtohet këtë herë."</string>
+    <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"Telefonata nuk mund të shtohet në këtë moment. Mund të provosh të kontaktosh duke dërguar një mesazh."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"Shërbimi nuk mbështetet"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"Nuk mund të ndryshojë telefonatat."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"Nuk mund të ndajë telefonatën."</string>
@@ -572,6 +585,8 @@
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"Ka shumë thirrje aktive. Përfundo ose të bashko thirrjet ekzistuese para kryerjes së një thirrjeje të re."</string>
     <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"Nuk mund të lidhet. Fut një kartë SIM të vlefshme."</string>
     <string name="callFailed_wifi_lost" msgid="5968076625137297184">"Lidhja Wi-Fi ka humbur. Telefonata u mbyll."</string>
+    <string name="dialFailed_low_battery" msgid="8760548177088774268">"Telefonata me video nuk mund të kryhet për shkak të nivelit të ulët të baterisë."</string>
+    <string name="callFailed_low_battery" msgid="4913582435905872616">"Telefonata me video u mbyll për shkak të nivelit të ulët të baterisë."</string>
     <string name="change_pin_title" msgid="7790232089699034029">"Ndrysho kodin PIN të postës zanore"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"Vazhdo"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"Anulo"</string>
@@ -584,4 +599,18 @@
     <string name="change_pin_confirm_pins_dont_match" msgid="4795052654904027909">"Kodet PIN nuk përputhen"</string>
     <string name="change_pin_succeeded" msgid="2022852286442211151">"Kodi PIN i postës zanore u përditësua"</string>
     <string name="change_pin_system_error" msgid="8308462387154257840">"Kodi PIN nuk u caktua"</string>
+    <string name="mobile_data_status_roaming_turned_off_subtext" msgid="935636805765823307">"Roaming për të dhënat është çaktivizuar"</string>
+    <string name="mobile_data_status_roaming_turned_on_subtext" msgid="1335176927083781041">"Roaming për të dhënat është aktivizuar"</string>
+    <string name="mobile_data_status_roaming_without_plan_subtext" msgid="3568412513831673037">"Aktualisht në roaming, nevojitet plani i të dhënave"</string>
+    <string name="mobile_data_status_roaming_with_plan_subtext" msgid="8721998948811064377">"Aktualisht në roaming, plani i të dhënave është aktiv"</string>
+    <string name="mobile_data_status_no_plan_subtext" msgid="4887747337017565725">"Nuk ka të dhëna celulare të mbetura"</string>
+    <string name="mobile_data_activate_prepaid" msgid="7447025165850512683">"Nuk ka të dhëna celulare të mbetura"</string>
+    <string name="mobile_data_activate_prepaid_summary" msgid="5705389791791637666">"Shto të dhëna celulare nëpërmjet <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
+    <string name="mobile_data_activate_roaming_plan" msgid="5998161536947086264">"Nuk ka plan të roaming-ut"</string>
+    <string name="mobile_data_activate_roaming_plan_summary" msgid="511202908883425459">"Shto një plan të roaming-ut nëpërmjet <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
+    <string name="mobile_data_activate_footer" msgid="5979019929980140594">"Mund të shtosh të dhëna celulare ose një plan të roaming-ut nëpërmjet operatorit tënd celular, <xliff:g id="PROVIDER_NAME">%s</xliff:g>."</string>
+    <string name="mobile_data_activate_diag_title" msgid="9044252207707864493">"Të shtohen të dhëna?"</string>
+    <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"Mund të duhet të shtosh të dhëna nëpërmjet <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
+    <string name="mobile_data_activate_button" msgid="3682400969184405446">"SHTO TË DHËNA"</string>
+    <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"ANULO"</string>
 </resources>

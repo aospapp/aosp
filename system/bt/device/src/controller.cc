@@ -48,7 +48,7 @@ static const hci_t* hci;
 static const hci_packet_factory_t* packet_factory;
 static const hci_packet_parser_t* packet_parser;
 
-static bt_bdaddr_t address;
+static RawAddress address;
 static bt_version_t bt_version;
 
 static uint8_t supported_commands[HCI_SUPPORTED_COMMANDS_ARRAY_SIZE];
@@ -274,7 +274,7 @@ EXPORT_SYMBOL extern const module_t controller_module = {
 
 static bool get_is_ready(void) { return readable; }
 
-static const bt_bdaddr_t* get_address(void) {
+static const RawAddress* get_address(void) {
   CHECK(readable);
   return &address;
 }
@@ -376,6 +376,13 @@ static bool supports_ble_privacy(void) {
   CHECK(readable);
   CHECK(ble_supported);
   return HCI_LE_ENHANCED_PRIVACY_SUPPORTED(features_ble.as_array);
+}
+
+static bool supports_ble_set_privacy_mode() {
+  CHECK(readable);
+  CHECK(ble_supported);
+  return HCI_LE_ENHANCED_PRIVACY_SUPPORTED(features_ble.as_array) &&
+         HCI_LE_SET_PRIVACY_MODE_SUPPORTED(supported_commands);
 }
 
 static bool supports_ble_packet_extension(void) {
@@ -521,6 +528,7 @@ static const controller_t interface = {
     supports_ble_packet_extension,
     supports_ble_connection_parameters_request,
     supports_ble_privacy,
+    supports_ble_set_privacy_mode,
     supports_ble_2m_phy,
     supports_ble_coded_phy,
     supports_ble_extended_advertising,

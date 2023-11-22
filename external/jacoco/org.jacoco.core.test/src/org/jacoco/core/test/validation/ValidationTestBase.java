@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -12,25 +12,24 @@
 package org.jacoco.core.test.validation;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
-import java.util.Collection;
+import java.io.IOException;
+import java.lang.reflect.Method;
+import java.util.Arrays;
 
 import org.jacoco.core.analysis.Analyzer;
 import org.jacoco.core.analysis.CoverageBuilder;
-import org.jacoco.core.analysis.IClassCoverage;
 import org.jacoco.core.analysis.ICounter;
 import org.jacoco.core.analysis.ILine;
 import org.jacoco.core.analysis.ISourceFileCoverage;
+import org.jacoco.core.data.ExecutionData;
 import org.jacoco.core.data.ExecutionDataStore;
-import org.jacoco.core.data.SessionInfoStore;
-import org.jacoco.core.instr.Instrumenter;
 import org.jacoco.core.internal.analysis.CounterImpl;
-import org.jacoco.core.runtime.IRuntime;
-import org.jacoco.core.runtime.RuntimeData;
-import org.jacoco.core.runtime.SystemPropertiesRuntime;
+import org.jacoco.core.test.InstrumentingLoader;
 import org.jacoco.core.test.TargetLoader;
+import org.jacoco.core.test.validation.targets.Stubs;
 import org.junit.Before;
-import org.objectweb.asm.ClassReader;
 
 /**
  * Base class for validation tests. It executes the given class under code
@@ -38,65 +37,81 @@ import org.objectweb.asm.ClassReader;
  */
 public abstract class ValidationTestBase {
 
+	protected static final boolean isJDKCompiler = Compiler.DETECT.isJDK();
+
 	private static final String[] STATUS_NAME = new String[4];
 
 	{
-		STATUS_NAME[ICounter.EMPTY] = "NO_CODE";
+		STATUS_NAME[ICounter.EMPTY] = "EMPTY";
 		STATUS_NAME[ICounter.NOT_COVERED] = "NOT_COVERED";
 		STATUS_NAME[ICounter.FULLY_COVERED] = "FULLY_COVERED";
 		STATUS_NAME[ICounter.PARTLY_COVERED] = "PARTLY_COVERED";
 	}
 
-	protected final Class<?> target;
+	private final String srcFolder;
 
-	protected IClassCoverage classCoverage;
+	private final Class<?> target;
 
-	protected ISourceFileCoverage sourceCoverage;
+	private ISourceFileCoverage sourceCoverage;
 
-	protected Source source;
+	private Source source;
 
-	protected TargetLoader loader;
+	private InstrumentingLoader loader;
+
+	protected ValidationTestBase(final String srcFolder, final Class<?> target) {
+		this.srcFolder = srcFolder;
+		this.target = target;
+	}
 
 	protected ValidationTestBase(final Class<?> target) {
-		this.target = target;
+		this("src", target);
 	}
 
 	@Before
 	public void setup() throws Exception {
-		loader = new TargetLoader();
-		final ClassReader reader = new ClassReader(
-				TargetLoader.getClassData(target));
-		final ExecutionDataStore store = execute(reader);
-		analyze(reader, store);
-		source = Source.getSourceFor(target);
+		final ExecutionDataStore store = execute();
+		analyze(store);
+		source = Source.getSourceFor(srcFolder, target);
 	}
 
-	private ExecutionDataStore execute(final ClassReader reader)
-			throws Exception {
-		RuntimeData data = new RuntimeData();
-		IRuntime runtime = new SystemPropertiesRuntime();
-		runtime.startup(data);
-		final byte[] bytes = new Instrumenter(runtime).instrument(reader);
-		run(loader.add(target, bytes));
-		final ExecutionDataStore store = new ExecutionDataStore();
-		data.collect(store, new SessionInfoStore(), false);
-		runtime.shutdown();
-		return store;
+	private ExecutionDataStore execute() throws Exception {
+		loader = new InstrumentingLoader(target);
+		run(loader.loadClass(target.getName()));
+		return loader.collect();
 	}
 
-	protected abstract void run(final Class<?> targetClass) throws Exception;
+	protected void run(final Class<?> targetClass) throws Exception {
+		targetClass.getMethod("main", String[].class).invoke(null,
+				(Object) new String[0]);
+	}
 
-	private void analyze(final ClassReader reader,
-			final ExecutionDataStore store) {
+	private void analyze(final ExecutionDataStore store) throws IOException {
 		final CoverageBuilder builder = new CoverageBuilder();
 		final Analyzer analyzer = new Analyzer(store, builder);
-		analyzer.analyzeClass(reader);
-		final Collection<IClassCoverage> classes = builder.getClasses();
-		assertEquals(1, classes.size(), 0.0);
-		classCoverage = classes.iterator().next();
-		final Collection<ISourceFileCoverage> files = builder.getSourceFiles();
-		assertEquals(1, files.size(), 0.0);
-		sourceCoverage = files.iterator().next();
+		for (ExecutionData data : store.getContents()) {
+			analyze(analyzer, data);
+		}
+
+		String srcName = target.getName().replace('.', '/') + ".java";
+		for (ISourceFileCoverage file : builder.getSourceFiles()) {
+			if (srcName.equals(file.getPackageName() + "/" + file.getName())) {
+				sourceCoverage = file;
+				return;
+			}
+		}
+		fail("No source node found for " + srcName);
+	}
+
+	private void analyze(final Analyzer analyzer, final ExecutionData data)
+			throws IOException {
+		final byte[] bytes = TargetLoader.getClassDataAsBytes(
+				target.getClassLoader(), data.getName());
+		analyzer.analyzeClass(bytes, data.getName());
+	}
+
+	protected void assertMethodCount(final int expectedTotal) {
+		assertEquals(expectedTotal,
+				sourceCoverage.getMethodCounter().getTotalCount());
 	}
 
 	protected void assertLine(final String tag, final int status) {
@@ -108,8 +123,9 @@ public abstract class ValidationTestBase {
 		assertEquals(msg, STATUS_NAME[status], STATUS_NAME[insnStatus]);
 	}
 
-	protected void assertLine(final String tag, final int missedBranches,
-			final int coveredBranches) {
+	protected void assertLine(final String tag, final int status,
+			final int missedBranches, final int coveredBranches) {
+		assertLine(tag, status);
 		final int nr = source.getLineNumber(tag);
 		final ILine line = sourceCoverage.getLine(nr);
 		final String msg = String.format("Branches in line %s: %s",
@@ -119,10 +135,10 @@ public abstract class ValidationTestBase {
 				line.getBranchCounter());
 	}
 
-	protected void assertLine(final String tag, final int status,
-			final int missedBranches, final int coveredBranches) {
-		assertLine(tag, status);
-		assertLine(tag, missedBranches, coveredBranches);
+	protected void assertLogEvents(String... events) throws Exception {
+		final Method getter = Class.forName(Stubs.class.getName(), false,
+				loader).getMethod("getLogEvents");
+		assertEquals("Log events", Arrays.asList(events), getter.invoke(null));
 	}
 
 }

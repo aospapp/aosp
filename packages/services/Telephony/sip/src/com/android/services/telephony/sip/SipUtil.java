@@ -24,6 +24,7 @@ import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.net.sip.SipManager;
 import android.net.sip.SipProfile;
+import android.os.Bundle;
 import android.provider.Settings;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
@@ -59,7 +60,7 @@ public class SipUtil {
 
     static PendingIntent createIncomingCallPendingIntent(
             Context context, String sipProfileName) {
-        Intent intent = new Intent(context, SipBroadcastReceiver.class);
+        Intent intent = new Intent(context, SipIncomingCallReceiver.class);
         intent.setAction(SipManager.ACTION_SIP_INCOMING_CALL);
         intent.putExtra(EXTRA_PHONE_ACCOUNT, SipUtil.createAccountHandle(context, sipProfileName));
         return PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
@@ -123,6 +124,10 @@ public class SipUtil {
             supportedUriSchemes.add(PhoneAccount.SCHEME_TEL);
         }
 
+        Bundle phoneAccountExtras = new Bundle();
+        phoneAccountExtras.putBoolean(PhoneAccount.EXTRA_ALWAYS_USE_VOIP_AUDIO_MODE,
+                true);
+
         PhoneAccount.Builder builder = PhoneAccount.builder(accountHandle, profile.getDisplayName())
                 .setCapabilities(PhoneAccount.CAPABILITY_CALL_PROVIDER
                         | PhoneAccount.CAPABILITY_MULTI_USER)
@@ -130,6 +135,7 @@ public class SipUtil {
                 .setShortDescription(sipAddress)
                 .setIcon(Icon.createWithResource(
                         context.getResources(), R.drawable.ic_dialer_sip_black_24dp))
+                .setExtras(phoneAccountExtras)
                 .setSupportedUriSchemes(supportedUriSchemes);
 
         return builder.build();

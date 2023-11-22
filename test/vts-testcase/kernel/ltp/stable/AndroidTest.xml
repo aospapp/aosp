@@ -22,8 +22,7 @@
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
         <option name="test-module-name" value="VtsKernelLtp" />
         <option name="test-timeout" value="3h" />
-        <option name="runtime-hint" value="1h" />
+        <option name="runtime-hint" value="20m" />
         <option name="test-case-path" value="vts/testcases/kernel/ltp/KernelLtpTest" />
-        <option name="test-config-path" value="vts/testcases/kernel/ltp/stable/KernelLtpTest.config" />
     </test>
 </configuration>

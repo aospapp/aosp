@@ -109,6 +109,33 @@ bool HostProtocolHost::decodeMessageFromChre(
         break;
       }
 
+      case fbs::ChreMessage::UnloadNanoappResponse: {
+        const auto *resp = static_cast<const fbs::UnloadNanoappResponse *>(
+            container->message());
+        fbs::UnloadNanoappResponseT response;
+        resp->UnPackTo(&response);
+        handlers.handleUnloadNanoappResponse(response);
+        break;
+      }
+
+      case fbs::ChreMessage::DebugDumpData: {
+        const auto *msg = static_cast<const fbs::DebugDumpData *>(
+            container->message());
+        fbs::DebugDumpDataT dumpData;
+        msg->UnPackTo(&dumpData);
+        handlers.handleDebugDumpData(dumpData);
+        break;
+      }
+
+      case fbs::ChreMessage::DebugDumpResponse: {
+        const auto *resp = static_cast<const fbs::DebugDumpResponse *>(
+            container->message());
+        fbs::DebugDumpResponseT response;
+        resp->UnPackTo(&response);
+        handlers.handleDebugDumpResponse(response);
+        break;
+      }
+
       default:
         LOGW("Got invalid/unexpected message type %" PRIu8,
              static_cast<uint8_t>(container->message_type()));
@@ -139,17 +166,39 @@ void HostProtocolHost::encodeNanoappListRequest(FlatBufferBuilder& builder) {
   finalize(builder, fbs::ChreMessage::NanoappListRequest, request.Union());
 }
 
-bool HostProtocolHost::extractHostClientId(const void *message,
-                                           size_t messageLen,
-                                           uint16_t *hostClientId) {
-  bool success = verifyMessage(message, messageLen);
+void HostProtocolHost::encodeUnloadNanoappRequest(
+    FlatBufferBuilder& builder, uint32_t transactionId, uint64_t appId,
+    bool allowSystemNanoappUnload) {
+  auto request = fbs::CreateUnloadNanoappRequest(
+      builder, transactionId, appId, allowSystemNanoappUnload);
+  finalize(builder, fbs::ChreMessage::UnloadNanoappRequest, request.Union());
+}
 
-  if (success && hostClientId != nullptr) {
-    const fbs::MessageContainer *container = fbs::GetMessageContainer(message);
-    // host_addr guaranteed to be non-null via verifyMessage (it's a required
-    // field)
-    *hostClientId = container->host_addr()->client_id();
-    success = true;
+void HostProtocolHost::encodeTimeSyncMessage(FlatBufferBuilder& builder,
+                                             int64_t offset) {
+  auto request = fbs::CreateTimeSyncMessage(builder, offset);
+  finalize(builder, fbs::ChreMessage::TimeSyncMessage, request.Union());
+}
+
+void HostProtocolHost::encodeDebugDumpRequest(FlatBufferBuilder& builder) {
+  auto request = fbs::CreateDebugDumpRequest(builder);
+  finalize(builder, fbs::ChreMessage::DebugDumpRequest, request.Union());
+}
+
+bool HostProtocolHost::extractHostClientIdAndType(
+    const void *message, size_t messageLen, uint16_t *hostClientId,
+    ::chre::fbs::ChreMessage *messageType) {
+  bool success = false;
+  if (hostClientId != nullptr && messageType != nullptr) {
+    success = verifyMessage(message, messageLen);
+
+    if (success) {
+      const fbs::MessageContainer *container = fbs::GetMessageContainer(message);
+      // host_addr guaranteed to be non-null via verifyMessage (it's a required
+      // field)
+      *hostClientId = container->host_addr()->client_id();
+      *messageType = container->message_type();
+    }
   }
 
   return success;

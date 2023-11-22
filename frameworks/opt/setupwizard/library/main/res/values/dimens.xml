@@ -25,7 +25,7 @@
     <!-- Calculated by (suw_glif_margin_sides - suw_glif_button_padding) -->
     <dimen name="suw_glif_button_margin_start">8dp</dimen>
     <dimen name="suw_glif_button_padding">16dp</dimen>
-    <dimen name="suw_glif_footer_bottom_padding">4dp</dimen>
+    <dimen name="suw_glif_footer_padding_vertical">8dp</dimen>
     <dimen name="suw_glif_footer_min_height">80dp</dimen>
     <dimen name="suw_glif_margin_sides">24dp</dimen>
     <dimen name="suw_glif_margin_top">48dp</dimen>
@@ -48,6 +48,12 @@
 
     <dimen name="suw_description_glif_margin_top">3dp</dimen>
     <dimen name="suw_description_glif_margin_bottom_lists">24dp</dimen>
+
+    <dimen name="suw_content_illustration_max_height">312dp</dimen>
+    <dimen name="suw_content_illustration_max_width">312dp</dimen>
+    <dimen name="suw_content_illustration_min_height">172dp</dimen>
+    <dimen name="suw_content_illustration_min_width">172dp</dimen>
+    <dimen name="suw_content_illustration_padding_vertical">24dp</dimen>
 
     <!-- Margin on the start to offset for margin in the drawable -->
     <dimen name="suw_radio_button_margin_start">-6dp</dimen>
@@ -116,7 +122,7 @@
     <dimen name="suw_items_preferred_height">56dp</dimen>
 
     <!-- Navigation bar -->
-    <!-- TODO: Move this dimen to eclair-mr1, or see if it should be in platform style as well -->
+    <!-- TODO: Move this dimen to gingerbread, or see if it should be in platform style as well -->
     <dimen name="suw_navbar_button_drawable_padding" tools:ignore="UnusedResources">6dp</dimen>
     <dimen name="suw_navbar_button_padding_sides">10dp</dimen>
     <dimen name="suw_navbar_height">56dp</dimen>

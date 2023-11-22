@@ -1,3 +1,4 @@
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -584,6 +585,25 @@ TEST(Variant, CopyMoveConstructAssign) {
     EXPECT_EQ(0u, InstrumentType<int>::move_assignment_count());
     EXPECT_EQ(1u, InstrumentType<int>::copy_assignment_count());
   }
+
+  {
+    InstrumentType<int>::clear();
+
+    // Construct from temporary, temporary ctor/dtor.
+    Variant<int, InstrumentType<int>> v(InstrumentType<int>(25));
+
+    // Assign EmptyVariant.
+    v = EmptyVariant{};
+
+    EXPECT_EQ(2u, InstrumentType<int>::constructor_count());
+    EXPECT_EQ(2u, InstrumentType<int>::destructor_count());
+    EXPECT_EQ(0u, InstrumentType<int>::move_assignment_count());
+    EXPECT_EQ(0u, InstrumentType<int>::copy_assignment_count());
+  }
+  EXPECT_EQ(2u, InstrumentType<int>::constructor_count());
+  EXPECT_EQ(2u, InstrumentType<int>::destructor_count());
+  EXPECT_EQ(0u, InstrumentType<int>::move_assignment_count());
+  EXPECT_EQ(0u, InstrumentType<int>::copy_assignment_count());
 }
 
 TEST(Variant, MoveConstructor) {
@@ -758,7 +778,7 @@ TEST(Variant, Swap) {
     Variant<std::string> b;
 
     std::swap(a, b);
-    EXPECT_TRUE(!a.empty());
+    EXPECT_TRUE(a.empty());
     EXPECT_TRUE(!b.empty());
     ASSERT_TRUE(b.is<std::string>());
     EXPECT_EQ("1", std::get<std::string>(b));
@@ -770,7 +790,7 @@ TEST(Variant, Swap) {
 
     std::swap(a, b);
     EXPECT_TRUE(!a.empty());
-    EXPECT_TRUE(!b.empty());
+    EXPECT_TRUE(b.empty());
     ASSERT_TRUE(a.is<std::string>());
     EXPECT_EQ("1", std::get<std::string>(a));
   }
@@ -1076,6 +1096,29 @@ TEST(Variant, HasType) {
 
   EXPECT_TRUE((detail::HasType<int&, int, float, bool>::value));
   EXPECT_FALSE((detail::HasType<char&, int, float, bool>::value));
+}
+
+TEST(Variant, IsConstructible) {
+  using ArrayType = const float[3];
+  struct ImplicitBool {
+    operator bool() const { return true; }
+  };
+  struct ExplicitBool {
+    explicit operator bool() const { return true; }
+  };
+  struct NonBool {};
+  struct TwoArgs {
+    TwoArgs(int, bool) {}
+  };
+
+  EXPECT_FALSE((detail::IsConstructible<bool, ArrayType>::value));
+  EXPECT_TRUE((detail::IsConstructible<bool, int>::value));
+  EXPECT_TRUE((detail::IsConstructible<bool, ImplicitBool>::value));
+  EXPECT_TRUE((detail::IsConstructible<bool, ExplicitBool>::value));
+  EXPECT_FALSE((detail::IsConstructible<bool, NonBool>::value));
+  EXPECT_TRUE((detail::IsConstructible<TwoArgs, int, bool>::value));
+  EXPECT_FALSE((detail::IsConstructible<TwoArgs, int, std::string>::value));
+  EXPECT_FALSE((detail::IsConstructible<TwoArgs, int>::value));
 }
 
 TEST(Variant, Set) {

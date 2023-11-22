@@ -297,4 +297,18 @@ public class ResultForwarder implements ITestInvocationListener {
             }
         }
     }
+
+    @Override
+    public void testModuleStarted(IInvocationContext moduleContext) {
+        for (ITestInvocationListener listener : mListeners) {
+            listener.testModuleStarted(moduleContext);
+        }
+    }
+
+    @Override
+    public void testModuleEnded() {
+        for (ITestInvocationListener listener : mListeners) {
+            listener.testModuleEnded();
+        }
+    }
 }

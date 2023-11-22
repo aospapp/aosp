@@ -16,7 +16,6 @@
 
 package com.android.cts.verifier.notifications;
 
-import android.app.Activity;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
@@ -59,6 +58,8 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
     protected static final int PASS = 3;
     protected static final int FAIL = 4;
     protected static final int WAIT_FOR_USER = 5;
+    protected static final int RETEST_AFTER_LONG_DELAY = 6;
+    protected static final int READY_AFTER_LONG_DELAY = 7;
 
     protected static final int NOTIFICATION_ID = 1001;
 
@@ -95,6 +96,7 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
     protected abstract class InteractiveTestCase {
         int status;
         private View view;
+        protected long delayTime = 3000;
 
         abstract View inflate(ViewGroup parent);
         View getView(ViewGroup parent) {
@@ -127,7 +129,7 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
                     ((message == null) ? "" : ": " + message));
         }
 
-        protected void logFail(String message, Exception e) {
+        protected void logFail(String message, Throwable e) {
             Log.e(TAG, "failed " + this.getClass().getSimpleName() +
                     ((message == null) ? "" : ": " + message), e);
         }
@@ -261,22 +263,35 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
             case SETUP:
                 Log.i(TAG, "running setup for: " + mCurrentTest.getClass().getSimpleName());
                 mCurrentTest.setUp();
+                if (mCurrentTest.status == READY_AFTER_LONG_DELAY) {
+                    delay(mCurrentTest.delayTime);
+                } else {
+                    delay();
+                }
                 break;
 
             case WAIT_FOR_USER:
                 Log.i(TAG, "waiting for user: " + mCurrentTest.getClass().getSimpleName());
                 break;
 
+            case READY_AFTER_LONG_DELAY:
+            case RETEST_AFTER_LONG_DELAY:
             case READY:
             case RETEST:
                 Log.i(TAG, "running test for: " + mCurrentTest.getClass().getSimpleName());
                 mCurrentTest.test();
+                if (mCurrentTest.status == RETEST_AFTER_LONG_DELAY) {
+                    delay(mCurrentTest.delayTime);
+                } else {
+                    delay();
+                }
                 break;
 
             case FAIL:
                 Log.i(TAG, "FAIL: " + mCurrentTest.getClass().getSimpleName());
                 mCurrentTest.tearDown();
                 mCurrentTest = null;
+                delay();
                 break;
 
             case PASS:
@@ -285,6 +300,7 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
                 if (mTestOrder.hasNext()) {
                     mCurrentTest = mTestOrder.next();
                     Log.i(TAG, "next test is: " + mCurrentTest.getClass().getSimpleName());
+                    next();
                 } else {
                     Log.i(TAG, "no more tests");
                     mCurrentTest = null;
@@ -466,27 +482,14 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
 
         @Override
         void test() {
-            MockListener.probeListenerStatus(mContext,
-                    new MockListener.StatusCatcher() {
-                        @Override
-                        public void accept(int result) {
-                            if (result == Activity.RESULT_OK) {
-                                status = PASS;
-                                next();
-                            } else {
-                                logFail();
-                                status = RETEST;
-                                delay();
-                            }
-                        }
-                    });
-            delay();  // in case the catcher never returns
-        }
-
-        @Override
-        void tearDown() {
-            MockListener.resetListenerData(mContext);
-            delay();
+            if (MockListener.getInstance() != null) {
+                status = PASS;
+                next();
+            } else {
+                logFail();
+                status = RETEST;
+                delay();
+            }
         }
     }
 }

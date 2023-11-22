@@ -56,6 +56,11 @@ class FixedSizeBlockingQueue : public NonCopyable {
    */
   bool empty();
 
+  /**
+   * Determines the current size of the BlockingQueue.
+   */
+  size_t size();
+
  private:
   //! The mutex used to ensure thread-safety.
   Mutex mMutex;

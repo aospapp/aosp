@@ -156,10 +156,10 @@ public class AnrReportGenerator {
                 command);
         if (cr.getStatus() == CommandStatus.SUCCESS) {
             // Test log the generated HTML report
-            InputStreamSource source = new FileInputStreamSource(htmlReport);
-            logger.testLog("monkey-anr-report", LogDataType.HTML, source);
+            try (InputStreamSource source = new FileInputStreamSource(htmlReport)) {
+                logger.testLog("monkey-anr-report", LogDataType.HTML, source);
+            }
             // Clean up and declare success!
-            source.cancel();
             FileUtil.deleteFile(htmlReport);
             return true;
         } else {

@@ -37,6 +37,7 @@ import android.bluetooth.le.IPeriodicAdvertisingCallback;
 import android.bluetooth.le.IScannerCallback;
 import android.bluetooth.le.PeriodicAdvertisingParameters;
 import android.bluetooth.le.ResultStorageDescriptor;
+import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanRecord;
 import android.bluetooth.le.ScanResult;
@@ -59,6 +60,7 @@ import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.util.NumberUtils;
 import com.android.internal.annotations.VisibleForTesting;
 
+import java.security.Security;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -367,7 +369,8 @@ public class GattService extends ProfileService {
             service.unregisterClient(clientIf);
         }
 
-        public void registerScanner(IScannerCallback callback, WorkSource workSource) {
+        public void registerScanner(IScannerCallback callback, WorkSource workSource)
+                throws RemoteException {
             GattService service = getService();
             if (service == null) return;
             service.registerScanner(callback, workSource);
@@ -417,11 +420,11 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void clientConnect(
-                int clientIf, String address, boolean isDirect, int transport, int phy) {
+        public void clientConnect(int clientIf, String address, boolean isDirect, int transport,
+                boolean opportunistic, int phy) {
             GattService service = getService();
             if (service == null) return;
-            service.clientConnect(clientIf, address, isDirect, transport, phy);
+            service.clientConnect(clientIf, address, isDirect, transport, opportunistic, phy);
         }
 
         @Override
@@ -781,7 +784,7 @@ public class GattService extends ProfileService {
             }
 
             try {
-                app.appScanStats.addResult();
+                app.appScanStats.addResult(client.scannerId);
                 if (app.callback != null) {
                     app.callback.onScanResult(result);
                 } else {
@@ -844,7 +847,7 @@ public class GattService extends ProfileService {
                 if (cbApp.callback != null) {
                     cbApp.linkToDeath(new ScannerDeathRecipient(scannerId));
                 } else {
-                    continuePiStartScan(scannerId, cbApp.info);
+                    continuePiStartScan(scannerId, cbApp);
                 }
             } else {
                 mScannerMap.remove(scannerId);
@@ -934,11 +937,17 @@ public class GattService extends ProfileService {
         app.callback.onPhyUpdate(address, txPhy, rxPhy, status);
     }
 
-    void onClientPhyRead(int connId, int txPhy, int rxPhy, int status) throws RemoteException {
-        if (DBG) Log.d(TAG, "onClientPhyRead() - connId=" + connId + ", status=" + status);
+    void onClientPhyRead(int clientIf, String address, int txPhy, int rxPhy, int status)
+            throws RemoteException {
+        if (DBG)
+            Log.d(TAG, "onClientPhyRead() - address=" + address + ", status=" + status
+                            + ", clientIf=" + clientIf);
 
-        String address = mClientMap.addressByConnId(connId);
-        if (address == null) return;
+        Integer connId = mClientMap.connIdByAddress(clientIf, address);
+        if (connId == null) {
+            Log.d(TAG, "onClientPhyRead() - no connection to " + address);
+            return;
+        }
 
         ClientMap.App app = mClientMap.getByConnId(connId);
         if (app == null) return;
@@ -971,11 +980,15 @@ public class GattService extends ProfileService {
         app.callback.onPhyUpdate(address, txPhy, rxPhy, status);
     }
 
-    void onServerPhyRead(int connId, int txPhy, int rxPhy, int status) throws RemoteException {
-        if (DBG) Log.d(TAG, "onServerPhyRead() - connId=" + connId + ", status=" + status);
+    void onServerPhyRead(int serverIf, String address, int txPhy, int rxPhy, int status)
+            throws RemoteException {
+        if (DBG) Log.d(TAG, "onServerPhyRead() - address=" + address + ", status=" + status);
 
-        String address = mServerMap.addressByConnId(connId);
-        if (address == null) return;
+        Integer connId = mServerMap.connIdByAddress(serverIf, address);
+        if (connId == null) {
+            Log.d(TAG, "onServerPhyRead() - no connection to " + address);
+            return;
+        }
 
         ServerMap.App app = mServerMap.getByConnId(connId);
         if (app == null) return;
@@ -1548,7 +1561,7 @@ public class GattService extends ProfileService {
         return deviceList;
     }
 
-    void registerScanner(IScannerCallback callback, WorkSource workSource) {
+    void registerScanner(IScannerCallback callback, WorkSource workSource) throws RemoteException {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
 
         UUID uuid = UUID.randomUUID();
@@ -1559,6 +1572,14 @@ public class GattService extends ProfileService {
         }
 
         mScannerMap.add(uuid, workSource, callback, null, this);
+        AppScanStats app = mScannerMap.getAppScanStatsByUid(Binder.getCallingUid());
+        if (app != null && app.isScanningTooFrequently()
+                && checkCallingOrSelfPermission(BLUETOOTH_PRIVILEGED) != PERMISSION_GRANTED) {
+            Log.e(TAG, "App '" + app.appName + "' is scanning too frequently");
+            callback.onScannerRegistered(ScanCallback.SCAN_FAILED_SCANNING_TOO_FREQUENTLY, -1);
+            return;
+        }
+
         mScanManager.registerScanner(uuid);
     }
 
@@ -1584,19 +1605,11 @@ public class GattService extends ProfileService {
                 this);
         scanClient.legacyForegroundApp = Utils.isLegacyForegroundApp(this, callingPackage);
 
-        AppScanStats app = null;
-        app = mScannerMap.getAppScanStatsById(scannerId);
-
+        AppScanStats app = mScannerMap.getAppScanStatsById(scannerId);
         if (app != null) {
-            if (app.isScanningTooFrequently() &&
-                checkCallingOrSelfPermission(BLUETOOTH_PRIVILEGED) != PERMISSION_GRANTED) {
-                Log.e(TAG, "App '" + app.appName + "' is scanning too frequently");
-                return;
-            }
             scanClient.stats = app;
-
             boolean isFilteredScan = (filters != null) && !filters.isEmpty();
-            app.recordScanStart(settings, isFilteredScan);
+            app.recordScanStart(settings, isFilteredScan, scannerId);
         }
 
         mScanManager.startScan(scanClient);
@@ -1617,34 +1630,36 @@ public class GattService extends ProfileService {
         piInfo.settings = settings;
         piInfo.filters = filters;
         piInfo.callingPackage = callingPackage;
-        mScannerMap.add(uuid, null, null, piInfo, this);
+        ScannerMap.App app = mScannerMap.add(uuid, null, null, piInfo, this);
+        try {
+            app.hasLocationPermisson =
+                    Utils.checkCallerHasLocationPermission(this, mAppOps, callingPackage);
+        } catch (SecurityException se) {
+            // No need to throw here. Just mark as not granted.
+            app.hasLocationPermisson = false;
+        }
+        try {
+            app.hasPeersMacAddressPermission = Utils.checkCallerHasPeersMacAddressPermission(this);
+        } catch (SecurityException se) {
+            // No need to throw here. Just mark as not granted.
+            app.hasPeersMacAddressPermission = false;
+        }
         mScanManager.registerScanner(uuid);
     }
 
-    void continuePiStartScan(int scannerId, PendingIntentInfo piInfo) {
+    void continuePiStartScan(int scannerId, ScannerMap.App app) {
+        final PendingIntentInfo piInfo = app.info;
         final ScanClient scanClient =
                 new ScanClient(scannerId, piInfo.settings, piInfo.filters, null);
-        scanClient.hasLocationPermission =
-                true; // Utils.checkCallerHasLocationPermission(this, mAppOps,
-        // piInfo.callingPackage);
-        scanClient.hasPeersMacAddressPermission =
-                true; // Utils.checkCallerHasPeersMacAddressPermission(
-        // this);
+        scanClient.hasLocationPermission = app.hasLocationPermisson;
+        scanClient.hasPeersMacAddressPermission = app.hasPeersMacAddressPermission;
         scanClient.legacyForegroundApp = Utils.isLegacyForegroundApp(this, piInfo.callingPackage);
 
-        AppScanStats app = null;
-        app = mScannerMap.getAppScanStatsById(scannerId);
-
-        if (app != null) {
-            if (app.isScanningTooFrequently()
-                    && checkCallingOrSelfPermission(BLUETOOTH_PRIVILEGED) != PERMISSION_GRANTED) {
-                Log.e(TAG, "App '" + app.appName + "' is scanning too frequently");
-                return;
-            }
-            scanClient.stats = app;
-
+        AppScanStats scanStats = mScannerMap.getAppScanStatsById(scannerId);
+        if (scanStats != null) {
+            scanClient.stats = scanStats;
             boolean isFilteredScan = (piInfo.filters != null) && !piInfo.filters.isEmpty();
-            app.recordScanStart(piInfo.settings, isFilteredScan);
+            scanStats.recordScanStart(piInfo.settings, isFilteredScan, scannerId);
         }
 
         mScanManager.startScan(scanClient);
@@ -1663,7 +1678,7 @@ public class GattService extends ProfileService {
 
         AppScanStats app = null;
         app = mScannerMap.getAppScanStatsById(client.scannerId);
-        if (app != null) app.recordScanStop();
+        if (app != null) app.recordScanStop(client.scannerId);
 
         mScanManager.stopScan(client);
     }
@@ -1792,14 +1807,15 @@ public class GattService extends ProfileService {
         gattClientUnregisterAppNative(clientIf);
     }
 
-    void clientConnect(int clientIf, String address, boolean isDirect, int transport, int phy) {
+    void clientConnect(int clientIf, String address, boolean isDirect, int transport,
+            boolean opportunistic, int phy) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
 
         if (DBG) {
-            Log.d(TAG, "clientConnect() - address=" + address + ", isDirect=" + isDirect + ", phy= "
-                            + phy);
+            Log.d(TAG, "clientConnect() - address=" + address + ", isDirect=" + isDirect +
+                    ", opportunistic=" + opportunistic + ", phy=" + phy);
         }
-        gattClientConnectNative(clientIf, address, isDirect, transport, phy);
+        gattClientConnectNative(clientIf, address, isDirect, transport, opportunistic, phy);
     }
 
     void clientDisconnect(int clientIf, String address) {
@@ -1821,7 +1837,7 @@ public class GattService extends ProfileService {
         }
 
         if (DBG) Log.d(TAG, "clientSetPreferredPhy() - address=" + address + ", connId=" + connId);
-        gattClientSetPreferredPhyNative(clientIf, connId, txPhy, rxPhy, phyOptions);
+        gattClientSetPreferredPhyNative(clientIf, address, txPhy, rxPhy, phyOptions);
     }
 
     void clientReadPhy(int clientIf, String address) {
@@ -1834,7 +1850,7 @@ public class GattService extends ProfileService {
         }
 
         if (DBG) Log.d(TAG, "clientReadPhy() - address=" + address + ", connId=" + connId);
-        gattClientReadPhyNative(clientIf, connId);
+        gattClientReadPhyNative(clientIf, address);
     }
 
     int numHwTrackFiltersAvailable() {
@@ -2372,7 +2388,7 @@ public class GattService extends ProfileService {
         }
 
         if (DBG) Log.d(TAG, "serverSetPreferredPhy() - address=" + address + ", connId=" + connId);
-        gattServerSetPreferredPhyNative(serverIf, connId, txPhy, rxPhy, phyOptions);
+        gattServerSetPreferredPhyNative(serverIf, address, txPhy, rxPhy, phyOptions);
     }
 
     void serverReadPhy(int serverIf, String address) {
@@ -2385,7 +2401,7 @@ public class GattService extends ProfileService {
         }
 
         if (DBG) Log.d(TAG, "serverReadPhy() - address=" + address + ", connId=" + connId);
-        gattServerReadPhyNative(serverIf, connId);
+        gattServerReadPhyNative(serverIf, address);
     }
 
     void addService(int serverIf, BluetoothGattService service) {
@@ -2686,16 +2702,16 @@ public class GattService extends ProfileService {
 
     private native void gattClientUnregisterAppNative(int clientIf);
 
-    private native void gattClientConnectNative(
-            int clientIf, String address, boolean isDirect, int transport, int initiating_phys);
+    private native void gattClientConnectNative(int clientIf, String address, boolean isDirect,
+            int transport, boolean opportunistic, int initiating_phys);
 
     private native void gattClientDisconnectNative(int clientIf, String address,
             int conn_id);
 
     private native void gattClientSetPreferredPhyNative(
-            int clientIf, int conn_id, int tx_phy, int rx_phy, int phy_options);
+            int clientIf, String address, int tx_phy, int rx_phy, int phy_options);
 
-    private native void gattClientReadPhyNative(int clientIf, int conn_id);
+    private native void gattClientReadPhyNative(int clientIf, String address);
 
     private native void gattClientRefreshNative(int clientIf, String address);
 
@@ -2745,9 +2761,9 @@ public class GattService extends ProfileService {
                                               int conn_id);
 
     private native void gattServerSetPreferredPhyNative(
-            int clientIf, int conn_id, int tx_phy, int rx_phy, int phy_options);
+            int clientIf, String address, int tx_phy, int rx_phy, int phy_options);
 
-    private native void gattServerReadPhyNative(int clientIf, int conn_id);
+    private native void gattServerReadPhyNative(int clientIf, String address);
 
     private native void gattServerAddServiceNative(int server_if, List<GattDbElement> service);
 

@@ -956,9 +956,10 @@ class ActsBaseClassTest(unittest.TestCase):
                 return "test_%s_%s" % (setting, arg)
 
             def logic(self, setting, arg, special_arg=None):
-                asserts.assert_true(setting in itrs, (
-                    "%s is not in acceptable settings range %s") %
-                                    (setting, itrs))
+                asserts.assert_true(
+                    setting in itrs,
+                    ("%s is not in acceptable settings range %s") % (setting,
+                                                                     itrs))
                 asserts.assert_true(arg == static_arg,
                                     "Expected %s, got %s" % (static_arg, arg))
                 asserts.assert_true(arg == static_arg, "Expected %s, got %s" %

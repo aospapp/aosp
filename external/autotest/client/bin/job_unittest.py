@@ -93,7 +93,6 @@ class test_init_minimal_options(abstract_test_init, job_test_case):
             log = False
             args = ''
             output_dir = ''
-            tap_report = None
         self.god.stub_function_to_return(job.utils, 'drop_caches', None)
 
         self.job._job_state = base_job_unittest.stub_job_state
@@ -239,7 +238,6 @@ class test_base_job(unittest.TestCase):
         options.user = 'my_user'
         options.args = ''
         options.output_dir = ''
-        options.tap_report = None
         self.job.__init__(self.control, options)
 
         # check
@@ -280,7 +278,6 @@ class test_base_job(unittest.TestCase):
         options.user = 'my_user'
         options.args = ''
         options.output_dir = ''
-        options.tap_report = None
         error = Exception('fail')
 
         self.god.stub_function(self.job, '_post_record_init')

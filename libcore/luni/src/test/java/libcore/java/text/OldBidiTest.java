@@ -205,4 +205,35 @@ public class OldBidiTest extends TestCase {
         assertFalse("Latin bidi is mixed: " + latin, latin.isMixed());
         assertTrue("latin bidi is not left to right: " + latin, latin.isLeftToRight());
     }
+
+    // Regression test for http://b/34320622 - when specifying "embeddings" of 0 with RTL characters
+    // and a default of LTR we should not get an exception.
+    public void testEmbeddings() throws Exception {
+        char[] text = new char[2];
+        text[0] = '\u202d'; // LEFT-TO-RIGHT OVERRIDE
+        text[1] = '\u05d0'; // HEBREW LETTER ALEF
+
+        byte[] embeddings = new byte[2];
+        embeddings[0] = 0;
+        embeddings[1] = 0;
+        int flags = Bidi.DIRECTION_DEFAULT_LEFT_TO_RIGHT;
+
+        // This threw an exception on N.
+        Bidi bidi = new Bidi(text, 0, embeddings, 0, 2, flags);
+
+        // Assert properties of the resulting Bidi and embeddings array. The results are somewhat
+        // arbitrary and it's hard to know the user's expectations for the characters chosen, but
+        // a failure will identify unintended behavior changes.
+        assertEquals(text.length, bidi.getLength());
+        assertEquals(1, bidi.getBaseLevel());
+        assertEquals(1, bidi.getRunCount());
+        assertEquals(1, bidi.getLevelAt(0));
+        assertEquals(1, bidi.getLevelAt(1));
+        assertEquals(1, bidi.getRunLevel(0));
+        assertEquals(0, bidi.getRunStart(0));
+        assertEquals(2, bidi.getRunLimit(0));
+
+        assertEquals(0, embeddings[0]);
+        assertEquals(0, embeddings[1]);
+    }
 }

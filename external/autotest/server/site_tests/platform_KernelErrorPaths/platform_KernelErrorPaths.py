@@ -277,7 +277,7 @@ class platform_KernelErrorPaths(test.test):
 
         # kcrash data is given by a dictionary with key lkdtm string to write
         # to /sys/kernel/debug/provoke-crash/DIRECT on the target. The dict
-        # value is a tupple conraining 1) the string to write to /proc/breakme.
+        # value is a tuple containing 1) the string to write to /proc/breakme.
         # if lkdtm is not available, 2) the timeout, and 3)whether we run
         # the tests on all CPUs or not. Some tests take less to run than other
         # (null pointer and panic) so it would be best if we would run them on
@@ -285,7 +285,6 @@ class platform_KernelErrorPaths(test.test):
         # The final component is the crash report string to look for in the
         # crash dump after target restarts.
         kcrash_types = {
-            'LOOP' : ('softlockup', 25, False, 'BUG: soft lockup'),
             'BUG' : ('bug', 10, False, 'kernel BUG at'),
             'HUNG_TASK' : ('hungtask', 300, False, 'hung_task: blocked tasks'),
             'SOFTLOCKUP' : (None, 25, False, 'BUG: soft lockup'),

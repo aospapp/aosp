@@ -68,6 +68,18 @@ local_javac_flags=-encoding UTF-8
 #local_javac_flags+=-Xlint:all -Xlint:-serial,-deprecation,-unchecked
 local_javac_flags+=-Xmaxwarns 9999999
 
+# For user / userdebug builds, strip the local variable table and the local variable
+# type table. This has no bearing on stack traces, but will leave less information
+# available via JDWP.
+#
+# TODO: Should this be conditioned on a PRODUCT_ flag or should we just turn this
+# on for all builds. Also, name of the flag TBD.
+ifneq (,$(PRODUCT_MINIMIZE_JAVA_DEBUG_INFO))
+ifneq (,$(filter userdebug user,$(TARGET_BUILD_VARIANT)))
+local_javac_flags+= -g:source,lines
+local_jack_flags+= -D jack.dex.debug.vars=false -D jack.dex.debug.vars.synthetic=false
+endif
+endif
 
 #
 # ICU4J related rules.
@@ -87,6 +99,7 @@ LOCAL_SRC_FILES := $(openjdk_java_files) $(non_openjdk_java_files) $(android_icu
 LOCAL_JAVA_RESOURCE_DIRS := $(core_resource_dirs) $(android_icu4j_resource_dirs)
 LOCAL_NO_STANDARD_LIBRARIES := true
 LOCAL_JAVACFLAGS := $(local_javac_flags)
+LOCAL_JACK_FLAGS := $(local_jack_flags)
 LOCAL_DX_FLAGS := --core-library
 LOCAL_MODULE_TAGS := optional
 LOCAL_JAVA_LANGUAGE_VERSION := 1.8
@@ -101,10 +114,8 @@ LOCAL_SRC_FILES := $(openjdk_java_files)
 LOCAL_JAVA_RESOURCE_DIRS := $(core_resource_dirs)
 LOCAL_NO_STANDARD_LIBRARIES := true
 LOCAL_JAVACFLAGS := $(local_javac_flags)
-# TODO(oth): Remove --min-sdk-version=26 when the O SDK version is determined.
-# For now it represents the minimum sdk version required for invoke-polymorphic.
-# This is only needed when ANDROID_COMPILE_WITH_JACK=false (b/36118520).
-LOCAL_DX_FLAGS := --core-library --min-sdk-version=26
+LOCAL_JACK_FLAGS := $(local_jack_flags)
+LOCAL_DX_FLAGS := --core-library
 LOCAL_MODULE_TAGS := optional
 LOCAL_JAVA_LANGUAGE_VERSION := 1.8
 LOCAL_MODULE := core-oj
@@ -120,6 +131,7 @@ LOCAL_SRC_FILES := $(non_openjdk_java_files) $(android_icu4j_src_files)
 LOCAL_JAVA_RESOURCE_DIRS := $(android_icu4j_resource_dirs)
 LOCAL_NO_STANDARD_LIBRARIES := true
 LOCAL_JAVACFLAGS := $(local_javac_flags)
+LOCAL_JACK_FLAGS := $(local_jack_flags)
 LOCAL_DX_FLAGS := --core-library
 LOCAL_MODULE_TAGS := optional
 LOCAL_JAVA_LANGUAGE_VERSION := 1.8
@@ -141,6 +153,7 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(openjdk_lambda_stub_files) $(openjdk_lambda_duplicate_stub_files)
 LOCAL_NO_STANDARD_LIBRARIES := true
 LOCAL_JAVACFLAGS := $(local_javac_flags)
+LOCAL_JACK_FLAGS := $(local_jack_flags)
 LOCAL_DX_FLAGS := --core-library
 LOCAL_MODULE_TAGS := optional
 LOCAL_JAVA_LANGUAGE_VERSION := 1.8
@@ -160,6 +173,7 @@ LOCAL_SRC_FILES := $(openjdk_java_files)
 LOCAL_JAVA_RESOURCE_DIRS := $(core_resource_dirs)
 LOCAL_NO_STANDARD_LIBRARIES := true
 LOCAL_JAVACFLAGS := $(local_javac_flags)
+LOCAL_JACK_FLAGS := $(local_jack_flags)
 LOCAL_DX_FLAGS := --core-library
 LOCAL_MODULE_TAGS := optional
 LOCAL_DEX_PREOPT := false
@@ -194,6 +208,7 @@ LOCAL_SRC_FILES := $(non_openjdk_java_files) $(android_icu4j_src_files)
 LOCAL_JAVA_RESOURCE_DIRS := $(android_icu4j_resource_dirs)
 LOCAL_NO_STANDARD_LIBRARIES := true
 LOCAL_JAVACFLAGS := $(local_javac_flags)
+LOCAL_JACK_FLAGS := $(local_jack_flags)
 LOCAL_DX_FLAGS := --core-library
 LOCAL_MODULE_TAGS := optional
 LOCAL_DEX_PREOPT := false
@@ -243,6 +258,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
 	sqlite-jdbc \
 	tzdata-testing
 LOCAL_JAVACFLAGS := $(local_javac_flags)
+LOCAL_JACK_FLAGS := $(local_jack_flags)
 LOCAL_ERROR_PRONE_FLAGS := -Xep:TryFailThrowable:ERROR -Xep:ComparisonOutOfRange:ERROR
 LOCAL_JAVA_LANGUAGE_VERSION := 1.8
 LOCAL_MODULE := core-tests
@@ -258,6 +274,7 @@ LOCAL_NO_STANDARD_LIBRARIES := true
 LOCAL_JAVA_LIBRARIES := core-oj core-libart junit bouncycastle
 LOCAL_STATIC_JAVA_LIBRARIES := bouncycastle-bcpkix bouncycastle-ocsp
 LOCAL_JAVACFLAGS := $(local_javac_flags)
+LOCAL_JACK_FLAGS := $(local_jack_flags)
 LOCAL_MODULE := core-tests-support
 include $(BUILD_STATIC_JAVA_LIBRARY)
 endif
@@ -270,6 +287,7 @@ LOCAL_JAVA_RESOURCE_DIRS := $(test_resource_dirs)
 LOCAL_NO_STANDARD_LIBRARIES := true
 LOCAL_JAVA_LIBRARIES := core-oj core-libart junit
 LOCAL_JAVACFLAGS := $(local_javac_flags)
+LOCAL_JACK_FLAGS := $(local_jack_flags)
 LOCAL_MODULE := jsr166-tests
 LOCAL_JAVA_LANGUAGE_VERSION := 1.8
 include $(BUILD_STATIC_JAVA_LIBRARY)
@@ -283,6 +301,7 @@ ifeq ($(LIBCORE_SKIP_TESTS),)
     LOCAL_JAVA_LIBRARIES := core-oj core-libart okhttp bouncycastle
     LOCAL_STATIC_JAVA_LIBRARIES := testng
     LOCAL_JAVACFLAGS := $(local_javac_flags)
+    LOCAL_JACK_FLAGS := $(local_jack_flags)
     LOCAL_DX_FLAGS := --core-library
     LOCAL_MODULE_TAGS := optional
     LOCAL_JAVA_LANGUAGE_VERSION := 1.8
@@ -307,6 +326,7 @@ ifeq ($(LIBCORE_SKIP_TESTS),)
         okhttp \
         testng
     LOCAL_JAVACFLAGS := $(local_javac_flags)
+    LOCAL_JACK_FLAGS := $(local_jack_flags)
     LOCAL_DX_FLAGS := --core-library
     LOCAL_MODULE_TAGS := optional
     LOCAL_JAVA_LANGUAGE_VERSION := 1.8

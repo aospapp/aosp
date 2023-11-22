@@ -12,8 +12,4 @@ subdirs = [
     "memory/V1_0",
     "msgq/V1_0",
     "pointer/V1_0",
-    "versioning/V1_0",
-    "versioning/V2_2",
-    "versioning/V2_3",
-    "versioning/V2_4",
 ]

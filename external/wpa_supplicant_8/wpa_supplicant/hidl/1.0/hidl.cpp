@@ -530,13 +530,18 @@ void wpas_hidl_notify_p2p_invitation_received(
 void wpas_hidl_notify_p2p_invitation_result(
     struct wpa_supplicant *wpa_s, int status, const u8 *bssid)
 {
-	if (!wpa_s || !bssid)
+	if (!wpa_s)
 		return;
-
-	wpa_printf(
-	    MSG_DEBUG,
-	    "Notifying P2P invitation result to hidl control: " MACSTR,
-	    MAC2STR(bssid));
+	if (bssid) {
+		wpa_printf(
+			MSG_DEBUG,
+			"Notifying P2P invitation result to hidl control: " MACSTR,
+			MAC2STR(bssid));
+	} else {
+		wpa_printf(
+			MSG_DEBUG,
+			"Notifying P2P invitation result to hidl control: NULL bssid");
+	}
 
 	HidlManager *hidl_manager = HidlManager::getInstance();
 	if (!hidl_manager)

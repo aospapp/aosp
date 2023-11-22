@@ -27,12 +27,12 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import android.app.Instrumentation;
+import android.app.NotificationManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.NetworkInfo.DetailedState;
@@ -42,6 +42,7 @@ import android.os.BatteryManager;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.SystemClock;
+import android.provider.Settings;
 import android.service.notification.NotificationListenerService;
 import android.test.InstrumentationTestCase;
 import android.text.TextUtils;
@@ -114,9 +115,9 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
     private int mMyUid;
     private String mMeteredWifi;
     private MyServiceClient mServiceClient;
-    private boolean mHasWatch;
     private String mDeviceIdleConstantsSetting;
     private boolean mSupported;
+    private boolean mIsLocationOn;
 
     @Override
     protected void setUp() throws Exception {
@@ -130,25 +131,48 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
         mMyUid = getUid(mContext.getPackageName());
         mServiceClient = new MyServiceClient(mContext);
         mServiceClient.bind();
-        mHasWatch = mContext.getPackageManager().hasSystemFeature(
-                PackageManager.FEATURE_WATCH);
-        if (mHasWatch) {
-            mDeviceIdleConstantsSetting = "device_idle_constants_watch";
-        } else {
-            mDeviceIdleConstantsSetting = "device_idle_constants";
+        mDeviceIdleConstantsSetting = "device_idle_constants";
+        mIsLocationOn = isLocationOn();
+        if (!mIsLocationOn) {
+            enableLocation();
         }
         mSupported = setUpActiveNetworkMeteringState();
 
         Log.i(TAG, "Apps status on " + getName() + ":\n"
                 + "\ttest app: uid=" + mMyUid + ", state=" + getProcessStateByUid(mMyUid) + "\n"
                 + "\tapp2: uid=" + mUid + ", state=" + getProcessStateByUid(mUid));
+        executeShellCommand("settings get global app_idle_constants");
    }
 
     @Override
     protected void tearDown() throws Exception {
+        if (!mIsLocationOn) {
+            disableLocation();
+        }
         mServiceClient.unbind();
 
         super.tearDown();
+    }
+
+    private void enableLocation() throws Exception {
+        Settings.Secure.putInt(mContext.getContentResolver(), Settings.Secure.LOCATION_MODE,
+                Settings.Secure.LOCATION_MODE_SENSORS_ONLY);
+        assertEquals(Settings.Secure.LOCATION_MODE_SENSORS_ONLY,
+                Settings.Secure.getInt(mContext.getContentResolver(),
+                        Settings.Secure.LOCATION_MODE));
+    }
+
+    private void disableLocation() throws Exception {
+        Settings.Secure.putInt(mContext.getContentResolver(), Settings.Secure.LOCATION_MODE,
+                Settings.Secure.LOCATION_MODE_OFF);
+        assertEquals(Settings.Secure.LOCATION_MODE_OFF,
+                Settings.Secure.getInt(mContext.getContentResolver(),
+                        Settings.Secure.LOCATION_MODE));
+    }
+
+    private boolean isLocationOn() throws Exception {
+        return Settings.Secure.getInt(mContext.getContentResolver(),
+                Settings.Secure.LOCATION_MODE) != Settings.Secure.LOCATION_MODE_OFF;
     }
 
     protected int getUid(String packageName) throws Exception {
@@ -360,12 +384,45 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
             Log.w(TAG, "Network status didn't match for expectAvailable=" + expectAvailable
                     + " on attempt #" + i + ": " + error + "\n"
                     + "Sleeping " + timeoutMs + "ms before trying again");
-            SystemClock.sleep(timeoutMs);
+            // No sleep after the last turn
+            if (i < maxTries) {
+                SystemClock.sleep(timeoutMs);
+            }
             // Exponential back-off.
             timeoutMs = Math.min(timeoutMs*2, NETWORK_TIMEOUT_MS);
         }
+        dumpOnFailure();
         fail("Invalid state for expectAvailable=" + expectAvailable + " after " + maxTries
                 + " attempts.\nLast error: " + error);
+    }
+
+    private void dumpOnFailure() throws Exception {
+        dumpAllNetworkRules();
+        Log.d(TAG, "Usagestats dump: " + getUsageStatsDump());
+        executeShellCommand("settings get global app_idle_constants");
+    }
+
+    private void dumpAllNetworkRules() throws Exception {
+        final String networkManagementDump = runShellCommand(mInstrumentation,
+                "dumpsys network_management").trim();
+        final String networkPolicyDump = runShellCommand(mInstrumentation,
+                "dumpsys netpolicy").trim();
+        TextUtils.SimpleStringSplitter splitter = new TextUtils.SimpleStringSplitter('\n');
+        splitter.setString(networkManagementDump);
+        String next;
+        Log.d(TAG, ">>> Begin network_management dump");
+        while (splitter.hasNext()) {
+            next = splitter.next();
+            Log.d(TAG, next);
+        }
+        Log.d(TAG, "<<< End network_management dump");
+        splitter.setString(networkPolicyDump);
+        Log.d(TAG, ">>> Begin netpolicy dump");
+        while (splitter.hasNext()) {
+            next = splitter.next();
+            Log.d(TAG, next);
+        }
+        Log.d(TAG, "<<< End netpolicy dump");
     }
 
     /**
@@ -565,11 +622,15 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
         NetworkInfo info = null;
         for (int i = 1; i <= maxTries; i++) {
             info = mCm.getActiveNetworkInfo();
-            if (info != null) {
+            if (info == null) {
+                Log.v(TAG, "No active network info on attempt #" + i
+                        + "; sleeping 1s before polling again");
+            } else if (mCm.isActiveNetworkMetered() != expected) {
+                Log.v(TAG, "Wrong metered status for active network " + info + "; expected="
+                        + expected + "; sleeping 1s before polling again");
+            } else {
                 break;
             }
-            Log.v(TAG, "No active network info on attempt #" + i
-                    + "; sleeping 1s before polling again");
             Thread.sleep(SECOND_IN_MS);
         }
         assertNotNull("No active network after " + maxTries + " attempts", info);
@@ -808,16 +869,8 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
 
     protected void setAppIdle(boolean enabled) throws Exception {
         Log.i(TAG, "Setting app idle to " + enabled);
-        final String beforeStats = getUsageStatsDump();
         executeSilentShellCommand("am set-inactive " + TEST_APP2_PKG + " " + enabled );
-        try {
-            assertAppIdle(enabled); // Sanity check
-        } catch (Throwable e) {
-            final String afterStats = getUsageStatsDump();
-            Log.d(TAG, "UsageStats before:\n" + beforeStats);
-            Log.d(TAG, "UsageStats after:\n" + afterStats);
-            throw e;
-        }
+        assertAppIdle(enabled); // Sanity check
     }
 
     private String getUsageStatsDump() throws Exception {
@@ -832,7 +885,7 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
                     && !str.contains(TEST_PKG) && !str.contains(TEST_APP2_PKG)) {
                 continue;
             }
-            if (str.contains("config=")) {
+            if (str.trim().startsWith("config=") || str.trim().startsWith("time=")) {
                 continue;
             }
             sb.append(str).append('\n');
@@ -841,7 +894,13 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
     }
 
     protected void assertAppIdle(boolean enabled) throws Exception {
-        assertDelayedShellCommand("am get-inactive " + TEST_APP2_PKG, 15, 2, "Idle=" + enabled);
+        try {
+            assertDelayedShellCommand("am get-inactive " + TEST_APP2_PKG, 15, 2, "Idle=" + enabled);
+        } catch (Throwable e) {
+            Log.d(TAG, "UsageStats dump:\n" + getUsageStatsDump());
+            executeShellCommand("settings get global app_idle_constants");
+            throw e;
+        }
     }
 
     /**
@@ -875,19 +934,12 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
      * notification actions right after the notification is sent.
      */
     protected void registerNotificationListenerService() throws Exception {
-        final StringBuilder listeners = new StringBuilder(getNotificationListenerServices());
-        if (listeners.length() > 0) {
-            listeners.append(":");
-        }
-        listeners.append(MyNotificationListenerService.getId());
-        executeShellCommand("settings put secure enabled_notification_listeners " + listeners);
-        final String newListeners = getNotificationListenerServices();
-        assertEquals("Failed to set 'enabled_notification_listeners'",
-                listeners.toString(), newListeners);
-    }
-
-    private String getNotificationListenerServices() throws Exception {
-        return executeShellCommand("settings get secure enabled_notification_listeners");
+        executeShellCommand("cmd notification allow_listener "
+                + MyNotificationListenerService.getId());
+        final NotificationManager nm = mContext.getSystemService(NotificationManager.class);
+        final ComponentName listenerComponent = MyNotificationListenerService.getComponentName();
+        assertTrue(listenerComponent + " has not been granted access",
+                nm.isNotificationListenerAccessGranted(listenerComponent));
     }
 
     protected void setPendingIntentWhitelistDuration(int durationMs) throws Exception {
@@ -923,10 +975,12 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
                         // App didn't come to foreground when the activity is started, so try again.
                         assertForegroundNetworkAccess();
                     } else {
+                        dumpOnFailure();
                         fail("Network is not available for app2 (" + mUid + "): " + errors[0]);
                     }
                 }
             } else {
+                dumpOnFailure();
                 fail("Timed out waiting for network availability status from app2 (" + mUid + ")");
             }
         } else {

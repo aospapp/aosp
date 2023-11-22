@@ -15,7 +15,7 @@ target triple = "armv7-none-linux-gnueabi"
 ; CHECK: OpDecorate [[RuntimeArrS:%[a-zA-Z_0-9]*]] ArrayStride {{[0-9]*}}
 ; CHECK: OpDecorate [[MetadataSSBO:%[a-zA-Z_0-9]*]] BufferBlock
 ; CHECK: OpDecorate [[Metadata:%[a-zA-Z_0-9]*]] DescriptorSet 0
-; CHECK: OpDecorate [[Metadata]] Binding 0
+; CHECK: OpDecorate [[Metadata]] Binding 1
 
 %struct.rs_allocation = type { i32* }
 

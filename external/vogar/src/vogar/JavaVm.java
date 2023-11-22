@@ -44,16 +44,6 @@ final class JavaVm implements Mode {
         List<String> vmCommand = new ArrayList<String>();
         Iterables.addAll(vmCommand, run.invokeWith());
         vmCommand.add(run.javaPath(run.vmCommand));
-        if (run.profile) {
-            vmCommand.add("-agentlib:hprof="
-                          + "cpu=samples,"
-                          + "format=" + (run.profileBinary ? 'b' : 'a') + ","
-                          + "file=" + run.profileFile + ","
-                          + "depth=" + run.profileDepth + ","
-                          + "interval=" + run.profileInterval + ","
-                          + "thread=y,"
-                          + "verbose=n");
-        }
         return new VmCommandBuilder(run.log)
                 .userDir(workingDirectory)
                 .vmCommand(vmCommand);

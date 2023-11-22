@@ -30,7 +30,7 @@ import com.android.tradefed.util.RunUtil;
  */
 public class MonitoringUtils {
 
-    private static final long CONNECTIVITY_CHECK_TIME_MS = 60 * 1000;
+    private static final long CONNECTIVITY_CHECK_TIME_MS = 20 * 1000;
     private static final long CONNECTIVITY_CHECK_INTERVAL_MS = 5 * 1000;
 
     public static boolean checkDeviceConnectivity(ITestDevice device)

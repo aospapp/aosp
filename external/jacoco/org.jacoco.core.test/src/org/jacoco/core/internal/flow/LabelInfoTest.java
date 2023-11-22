@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -20,6 +20,8 @@ import static org.junit.Assert.assertTrue;
 import org.junit.Before;
 import org.junit.Test;
 import org.objectweb.asm.Label;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.tree.InsnNode;
 
 /**
  * Unit tests for {@link LabelInfoTest}.
@@ -159,7 +161,8 @@ public class LabelInfoTest {
 
 	@Test
 	public void testSetInstruction() {
-		final Instruction instruction = new Instruction(123);
+		final Instruction instruction = new Instruction(
+				new InsnNode(Opcodes.NOP), 123);
 		LabelInfo.setInstruction(label, instruction);
 		assertSame(instruction, LabelInfo.getInstruction(label));
 	}

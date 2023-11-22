@@ -28,5 +28,6 @@
         <option name="binary-test-stop-native-servers" value="true"/>
         <option name="precondition-lshal" value="android.hardware.nfc@1.0"/>
         <option name="test-timeout" value="15m"/>
+        <option name="runtime-hint" value="5m"/>
     </test>
 </configuration>

@@ -27,20 +27,21 @@
     <string name="menu_create_dir" msgid="2413624798689091042">"תיקיה חדשה"</string>
     <string name="menu_grid" msgid="1453636521731880680">"תצוגת רשת"</string>
     <string name="menu_list" msgid="6714267452146410402">"תצוגת רשימה"</string>
-    <string name="menu_search" msgid="1876699106790719849">"חפש"</string>
+    <string name="menu_search" msgid="1876699106790719849">"חיפוש"</string>
     <string name="menu_settings" msgid="6520844520117939047">"הגדרות אחסון"</string>
     <string name="menu_open" msgid="9092138100049759315">"פתח"</string>
     <string name="menu_open_with" msgid="5507647065467520229">"פתיחה באמצעות"</string>
     <string name="menu_open_in_new_window" msgid="6686563636123311276">"פתיחה בחלון חדש"</string>
-    <string name="menu_save" msgid="5195367497138965168">"שמור"</string>
+    <string name="menu_save" msgid="5195367497138965168">"שמירה"</string>
     <string name="menu_share" msgid="4307140947108068356">"שתף"</string>
-    <string name="menu_delete" msgid="1022254131543256626">"מחק"</string>
+    <string name="menu_delete" msgid="1022254131543256626">"מחיקה"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"בחר הכל"</string>
     <string name="menu_copy" msgid="7404820171352314754">"העתק אל…"</string>
     <string name="menu_move" msgid="2310760789561129882">"העבר אל…"</string>
     <string name="menu_compress" msgid="37539111904724188">"דחוס"</string>
     <string name="menu_extract" msgid="8171946945982532262">"חלץ לתיקייה…"</string>
     <string name="menu_rename" msgid="1883113442688817554">"שנה שם"</string>
+    <string name="menu_inspector" msgid="8217713416277319588">"מידע על המסמך"</string>
     <string name="menu_view_in_owner" msgid="7228948660557554770">"הצג ב-<xliff:g id="SOURCE">%1$s</xliff:g>"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"חלון חדש"</string>
     <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"גזור"</string>
@@ -59,8 +60,18 @@
     <string name="not_sorted" msgid="7813496644889115530">"לא ממוין"</string>
     <string name="sort_dimension_name" msgid="6325591541414177579">"שם"</string>
     <string name="sort_dimension_summary" msgid="7724534446881397860">"סיכום"</string>
-    <string name="sort_dimension_date" msgid="4231005651895254033">"שינוי אחרון"</string>
+    <string name="sort_dimension_file_type" msgid="5779709622922085381">"סוג"</string>
     <string name="sort_dimension_size" msgid="2190547351159472884">"גודל"</string>
+    <string name="sort_dimension_date" msgid="4231005651895254033">"שינוי אחרון"</string>
+    <string name="directory_items" msgid="6645621978998614003">"מספר הפריטים"</string>
+    <string name="handler_app_file_opens_with" msgid="2667097605117000751">"אפשר לפתוח קבצים מהסוג הזה באמצעות"</string>
+    <string name="handler_app_belongs_to" msgid="5956928604521893459">"הקובץ הזה שייך ל-"</string>
+    <string name="handler_app_button_info_1" msgid="4271199640671067569">"אפליקציות אחרות יכולות לפתוח קבצים מהסוג הזה. בטל את ההגדרה של"</string>
+    <string name="handler_app_button_info_2" msgid="4299969771512815898">"כברירת המחדל."</string>
+    <string name="handler_app_clear" msgid="206579047716445033">"ביטול"</string>
+    <string name="handler_app_show_in" msgid="7923573101129079048">"הצג בספק"</string>
+    <string name="handler_app_not_selected" msgid="8178393676227130360">"לא נבחרה"</string>
+    <string name="handler_app_unknown" msgid="56574249066388341">"לא ידועה"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"סדר עולה"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"סדר יורד"</string>
     <string name="drawer_open" msgid="8071673398187261741">"הצג שורשים"</string>
@@ -79,9 +90,11 @@
     <string name="toast_no_application" msgid="7555319548595113121">"לא ניתן לפתוח את הקובץ"</string>
     <string name="toast_view_in_archives_unsupported" msgid="1923221390170964845">"לא ניתן לפתוח קבצים בארכיונים"</string>
     <string name="toast_failed_delete" msgid="3453846588205817591">"לא ניתן למחוק חלק מהמסמכים"</string>
+    <string name="file_inspector_load_error" msgid="1226344446677541109">"לא ניתן היה לטעון מאפיינים"</string>
     <string name="share_via" msgid="8725082736005677161">"שתף באמצעות"</string>
     <string name="copy_notification_title" msgid="52256435625098456">"מעתיק קבצים"</string>
     <string name="compress_notification_title" msgid="6830195148113751021">"דוחס קבצים"</string>
+    <string name="extract_notification_title" msgid="5067393961754430469">"שליפת קבצים"</string>
     <string name="move_notification_title" msgid="3173424987049347605">"מעביר קבצים"</string>
     <string name="delete_notification_title" msgid="2512757431856830792">"מחיקת קבצים"</string>
     <string name="copy_remaining" msgid="5390517377265177727">"<xliff:g id="DURATION">%s</xliff:g> נותרו"</string>
@@ -118,6 +131,7 @@
     <string name="undo" msgid="2902438994196400565">"ביטול"</string>
     <string name="copy_preparing" msgid="5326063807006898223">"מתכונן להעתקה..."</string>
     <string name="compress_preparing" msgid="6650018601382062672">"מתכונן לדחיסה..."</string>
+    <string name="extract_preparing" msgid="58266275455027829">"מתכונן לשליפה…"</string>
     <string name="move_preparing" msgid="8742573245485449429">"מתכונן להעברה…"</string>
     <string name="delete_preparing" msgid="6513863752916028147">"מתכונן למחיקה…"</string>
     <string name="delete_progress" msgid="2627631054702306423">"<xliff:g id="COUNT_0">%1$d</xliff:g> / <xliff:g id="TOTALCOUNT">%2$d</xliff:g>"</string>
@@ -240,4 +254,6 @@
     <string name="sign_in" msgid="6253762676723505592">"כניסה"</string>
     <string name="new_archive_file_name" msgid="1604650338077249838">"archive<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"להחליף את <xliff:g id="NAME">%1$s</xliff:g>?"</string>
+    <string name="continue_in_background" msgid="1974214559047793331">"המשך ברקע"</string>
+    <string name="inspector_debug_section" msgid="3447621501565766900">"מידע על ניפוי באגים (פיתוח בלבד)"</string>
 </resources>

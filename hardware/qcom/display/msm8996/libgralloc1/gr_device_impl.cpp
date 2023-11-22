@@ -103,11 +103,12 @@ int GrallocImpl::CloseDevice(hw_device_t *device __unused) {
 void GrallocImpl::GetCapabilities(struct gralloc1_device *device, uint32_t *out_count,
                                   int32_t  /*gralloc1_capability_t*/ *out_capabilities) {
   if (device != nullptr) {
-    if (out_capabilities != nullptr && *out_count >= 2) {
+    if (out_capabilities != nullptr && *out_count >= 3) {
       out_capabilities[0] = GRALLOC1_CAPABILITY_TEST_ALLOCATE;
       out_capabilities[1] = GRALLOC1_CAPABILITY_LAYERED_BUFFERS;
+      out_capabilities[2] = GRALLOC1_CAPABILITY_RELEASE_IMPLY_DELETE;
     }
-    *out_count = 2;
+    *out_count = 3;
   }
   return;
 }
@@ -173,25 +174,13 @@ gralloc1_function_pointer_t GrallocImpl::GetFunction(gralloc1_device_t *device, 
 }
 
 gralloc1_error_t GrallocImpl::Dump(gralloc1_device_t *device, uint32_t *out_size,
-                                   char *out_buffer) {
+                                   char *out_buffer __unused) {
   if (!device) {
     ALOGE("Gralloc Error : device=%p", (void *)device);
     return GRALLOC1_ERROR_BAD_DESCRIPTOR;
   }
-  const size_t max_dump_size = 8192;
-  if (out_buffer == nullptr) {
-    *out_size = max_dump_size;
-  } else {
-    std::ostringstream os;
-    os << "-------------------------------" << std::endl;
-    os << "QTI gralloc dump:" << std::endl;
-    os << "-------------------------------" << std::endl;
-    GrallocImpl const *dev = GRALLOC_IMPL(device);
-    dev->buf_mgr_->Dump(&os);
-    os << "-------------------------------" << std::endl;
-    auto copied = os.str().copy(out_buffer, std::min(os.str().size(), max_dump_size), 0);
-    *out_size = UINT(copied);
-  }
+  // nothing to dump
+  *out_size = 0;
 
   return GRALLOC1_ERROR_NONE;
 }

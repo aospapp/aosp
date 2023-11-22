@@ -14,5 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 <resources>
-    <string name="car_drawer_unused">Unused string.</string>
+    <!-- NOTE: Although these strings won't really be used for accessibility
+         in an auto context, integration tests will use them to open/close
+         drawer. See:
+         google_testing/integration/libraries/app-helpers/first-party/auto/
+         -->
+    <string name="car_drawer_open">Open drawer</string>
+    <string name="car_drawer_close">Close drawer</string>
 </resources>

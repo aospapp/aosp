@@ -8,7 +8,7 @@ import time
 import common
 from autotest_lib.scheduler import drone_utility, email_manager
 from autotest_lib.client.bin import local_host
-from autotest_lib.client.common_lib import error, global_config, utils
+from autotest_lib.client.common_lib import error, global_config
 
 CONFIG = global_config.global_config
 AUTOTEST_INSTALL_DIR = CONFIG.get_config_value('SCHEDULER',
@@ -20,7 +20,7 @@ class DroneUnreachable(Exception):
     pass
 
 
-class _BaseAbstractDrone(object):
+class SiteDrone(object):
     """
     Attributes:
     * allowed_users: set of usernames allowed to use this drone.  if None,
@@ -45,6 +45,7 @@ class _BaseAbstractDrone(object):
         # If drone supports server-side packaging. The property support_ssp will
         # init self._support_ssp later.
         self._support_ssp = None
+        self._processes_to_kill = []
 
 
     def shutdown(self):
@@ -129,6 +130,15 @@ class _BaseAbstractDrone(object):
 
 
     def execute_queued_calls(self):
+        """Execute queued calls.
+
+        If there are any processes queued to kill, kill them then process the
+        remaining queued up calls.
+        """
+        if self._processes_to_kill:
+            self.queue_call('kill_processes', self._processes_to_kill)
+        self.clear_processes_to_kill()
+
         if not self._calls:
             return
         results = self._execute_calls(self._calls)
@@ -175,9 +185,17 @@ class _BaseAbstractDrone(object):
         return self._support_ssp
 
 
-SiteDrone = utils.import_site_class(
-   __file__, 'autotest_lib.scheduler.site_drones',
-   '_SiteAbstractDrone', _BaseAbstractDrone)
+    def queue_kill_process(self, process):
+        """Queue a process to kill/abort.
+
+        @param process: Process to kill/abort.
+        """
+        self._processes_to_kill.append(process)
+
+
+    def clear_processes_to_kill(self):
+        """Reset the list of processes to kill for this tick."""
+        self._processes_to_kill = []
 
 
 class _AbstractDrone(SiteDrone):

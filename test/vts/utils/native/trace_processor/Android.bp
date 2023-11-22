@@ -24,6 +24,7 @@ cc_library_host_shared {
         "libcutils",
         "libprotobuf-cpp-full",
         "libvts_multidevice_proto",
+        "libvts_profiling_utils",
     ],
     cflags: [
         "-Wall",

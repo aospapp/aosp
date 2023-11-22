@@ -17,6 +17,7 @@
 package com.android.server.wifi;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -36,6 +37,7 @@ import org.mockito.MockitoAnnotations;
 
 import java.io.File;
 import java.lang.reflect.Method;
+import java.util.Random;
 
 /**
  * Unit tests for {@link com.android.server.wifi.WifiApConfigStore}.
@@ -50,12 +52,15 @@ public class WifiApConfigStoreTest {
     private static final String TEST_DEFAULT_AP_SSID = "TestAP";
     private static final String TEST_CONFIGURED_AP_SSID = "ConfiguredAP";
     private static final String TEST_DEFAULT_HOTSPOT_SSID = "TestShare";
+    private static final String TEST_DEFAULT_HOTSPOT_PSK = "TestPassword";
     private static final int RAND_SSID_INT_MIN = 1000;
     private static final int RAND_SSID_INT_MAX = 9999;
+    private static final String TEST_CHAR_SET_AS_STRING = "abcdefghijklmnopqrstuvwxyz0123456789";
 
     @Mock Context mContext;
     @Mock BackupManagerProxy mBackupManagerProxy;
     File mApConfigFile;
+    Random mRandom;
 
     @Before
     public void setUp() throws Exception {
@@ -73,6 +78,8 @@ public class WifiApConfigStoreTest {
         resources.setString(R.string.wifi_localhotspot_configure_ssid_default,
                             TEST_DEFAULT_HOTSPOT_SSID);
         when(mContext.getResources()).thenReturn(resources);
+
+        mRandom = new Random();
     }
 
     @After
@@ -195,6 +202,17 @@ public class WifiApConfigStoreTest {
     }
 
     /**
+     * Verify a proper WifiConfiguration is generate by getDefaultApConfiguration().
+     */
+    @Test
+    public void getDefaultApConfigurationIsValid() {
+        WifiApConfigStore store = new WifiApConfigStore(
+                mContext, mBackupManagerProxy, mApConfigFile.getPath());
+        WifiConfiguration config = store.getApConfiguration();
+        assertTrue(WifiApConfigStore.validateApWifiConfiguration(config));
+    }
+
+    /**
      * Verify a proper local only hotspot config is generated when called properly with the valid
      * context.
      */
@@ -204,5 +222,149 @@ public class WifiApConfigStoreTest {
         verifyDefaultApConfig(config, TEST_DEFAULT_HOTSPOT_SSID);
         // The LOHS config should also have a specific network id set - check that as well.
         assertEquals(WifiConfiguration.LOCAL_ONLY_NETWORK_ID, config.networkId);
+
+        // verify that the config passes the validateApWifiConfiguration check
+        assertTrue(WifiApConfigStore.validateApWifiConfiguration(config));
+    }
+
+    /**
+     * Helper method to generate random SSIDs.
+     *
+     * Note: this method has limited use as a random SSID generator.  The characters used in this
+     * method do no not cover all valid inputs.
+     * @param length number of characters to generate for the name
+     * @return String generated string of random characters
+     */
+    private String generateRandomString(int length) {
+
+        StringBuilder stringBuilder = new StringBuilder(length);
+        int index = -1;
+        while (stringBuilder.length() < length) {
+            index = mRandom.nextInt(TEST_CHAR_SET_AS_STRING.length());
+            stringBuilder.append(TEST_CHAR_SET_AS_STRING.charAt(index));
+        }
+        return stringBuilder.toString();
+    }
+
+    /**
+     * Verify the SSID checks in validateApWifiConfiguration.
+     *
+     * Cases to check and verify they trigger failed verification:
+     * null WifiConfiguration.SSID
+     * empty WifiConfiguration.SSID
+     * invalid WifiConfiguaration.SSID length
+     *
+     * Additionally check a valid SSID with a random (within valid ranges) length.
+     */
+    @Test
+    public void testSsidVerificationInValidateApWifiConfigurationCheck() {
+        WifiConfiguration config = new WifiConfiguration();
+        config.SSID = null;
+        assertFalse(WifiApConfigStore.validateApWifiConfiguration(config));
+        config.SSID = "";
+        assertFalse(WifiApConfigStore.validateApWifiConfiguration(config));
+        // check a string that is too large
+        config.SSID = generateRandomString(WifiApConfigStore.SSID_MAX_LEN + 1);
+        assertFalse(WifiApConfigStore.validateApWifiConfiguration(config));
+
+        // now check a valid SSID with a random length
+        int validLength = WifiApConfigStore.SSID_MAX_LEN - WifiApConfigStore.SSID_MIN_LEN;
+        config.SSID = generateRandomString(
+                mRandom.nextInt(validLength) + WifiApConfigStore.SSID_MIN_LEN);
+        assertTrue(WifiApConfigStore.validateApWifiConfiguration(config));
+    }
+
+    /**
+     * Verify the Open network checks in validateApWifiConfiguration.
+     *
+     * If the configured network is open, it should not have a password set.
+     *
+     * Additionally verify a valid open network passes verification.
+     */
+    @Test
+    public void testOpenNetworkConfigInValidateApWifiConfigurationCheck() {
+        WifiConfiguration config = new WifiConfiguration();
+        config.SSID = TEST_DEFAULT_HOTSPOT_SSID;
+
+        config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
+        config.preSharedKey = TEST_DEFAULT_HOTSPOT_PSK;
+        assertFalse(WifiApConfigStore.validateApWifiConfiguration(config));
+
+        // open networks should not have a password set
+        config.preSharedKey = null;
+        assertTrue(WifiApConfigStore.validateApWifiConfiguration(config));
+        config.preSharedKey = "";
+        assertTrue(WifiApConfigStore.validateApWifiConfiguration(config));
+    }
+
+    /**
+     * Verify the WPA2_PSK network checks in validateApWifiConfiguration.
+     *
+     * If the configured network is configured with a preSharedKey, verify that the passwork is set
+     * and it meets length requirements.
+     */
+    @Test
+    public void testWpa2PskNetworkConfigInValidateApWifiConfigurationCheck() {
+        WifiConfiguration config = new WifiConfiguration();
+        config.SSID = TEST_DEFAULT_HOTSPOT_SSID;
+
+        config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA2_PSK);
+        config.preSharedKey = null;
+        assertFalse(WifiApConfigStore.validateApWifiConfiguration(config));
+        config.preSharedKey = "";
+        assertFalse(WifiApConfigStore.validateApWifiConfiguration(config));
+
+        // test too short
+        config.preSharedKey =
+                generateRandomString(WifiApConfigStore.PSK_MIN_LEN - 1);
+        assertFalse(WifiApConfigStore.validateApWifiConfiguration(config));
+
+        // test too long
+        config.preSharedKey =
+                generateRandomString(WifiApConfigStore.PSK_MAX_LEN + 1);
+        assertFalse(WifiApConfigStore.validateApWifiConfiguration(config));
+
+        // explicitly test min length
+        config.preSharedKey =
+            generateRandomString(WifiApConfigStore.PSK_MIN_LEN);
+        assertTrue(WifiApConfigStore.validateApWifiConfiguration(config));
+
+        // explicitly test max length
+        config.preSharedKey =
+                generateRandomString(WifiApConfigStore.PSK_MAX_LEN);
+        assertTrue(WifiApConfigStore.validateApWifiConfiguration(config));
+
+        // test random (valid length)
+        int maxLen = WifiApConfigStore.PSK_MAX_LEN;
+        int minLen = WifiApConfigStore.PSK_MIN_LEN;
+        config.preSharedKey =
+                generateRandomString(mRandom.nextInt(maxLen - minLen) + minLen);
+        assertTrue(WifiApConfigStore.validateApWifiConfiguration(config));
+    }
+
+    /**
+     * Verify an invalid AuthType setting (that would trigger an IllegalStateException)
+     * returns false when triggered in the validateApWifiConfiguration.
+     */
+    @Test
+    public void testInvalidAuthTypeInValidateApWifiConfigurationCheck() {
+        WifiConfiguration config = new WifiConfiguration();
+        config.SSID = TEST_DEFAULT_HOTSPOT_SSID;
+
+        config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA2_PSK);
+        config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
+        assertFalse(WifiApConfigStore.validateApWifiConfiguration(config));
+    }
+
+    /**
+     * Verify an unsupported authType returns false for validateApWifiConfigurationCheck.
+     */
+    @Test
+    public void testUnsupportedAuthTypeInValidateApWifiConfigurationCheck() {
+        WifiConfiguration config = new WifiConfiguration();
+        config.SSID = TEST_DEFAULT_HOTSPOT_SSID;
+
+        config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
+        assertFalse(WifiApConfigStore.validateApWifiConfiguration(config));
     }
 }

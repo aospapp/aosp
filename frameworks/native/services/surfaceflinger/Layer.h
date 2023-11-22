@@ -166,6 +166,8 @@ public:
 
     virtual ~Layer();
 
+    void setPrimaryDisplayOnly() { mPrimaryDisplayOnly = true; }
+
     // the this layer's size and format
     status_t setBuffers(uint32_t w, uint32_t h, PixelFormat format, uint32_t flags);
 
@@ -231,6 +233,7 @@ public:
     bool setFlags(uint8_t flags, uint8_t mask);
     bool setLayerStack(uint32_t layerStack);
     bool setDataSpace(android_dataspace dataSpace);
+    android_dataspace getDataSpace() const;
     uint32_t getLayerStack() const;
     void deferTransactionUntil(const sp<IBinder>& barrierHandle, uint64_t frameNumber);
     void deferTransactionUntil(const sp<Layer>& barrierLayer, uint64_t frameNumber);
@@ -247,6 +250,10 @@ public:
 
     uint32_t getTransactionFlags(uint32_t flags);
     uint32_t setTransactionFlags(uint32_t flags);
+
+    bool belongsToDisplay(uint32_t layerStack, bool isPrimaryDisplay) const {
+        return getLayerStack() == layerStack && (!mPrimaryDisplayOnly || isPrimaryDisplay);
+    }
 
     void computeGeometry(const sp<const DisplayDevice>& hw, Mesh& mesh,
             bool useIdentityTransform) const;
@@ -313,8 +320,6 @@ public:
     void setGeometry(const sp<const DisplayDevice>& displayDevice, uint32_t z);
     void forceClientComposition(int32_t hwcId);
     void setPerFrameData(const sp<const DisplayDevice>& displayDevice);
-
-    android_dataspace getDataSpace() const;
 
     // callIntoHwc exists so we can update our local state and call
     // acceptDisplayChanges without unnecessarily updating the device's state
@@ -409,12 +414,19 @@ public:
      * to figure out if the content or size of a surface has changed.
      */
     Region latchBuffer(bool& recomputeVisibleRegions, nsecs_t latchTime);
+    bool isBufferLatched() const { return mRefreshPending; }
 
     bool isPotentialCursor() const { return mPotentialCursor;}
 
     /*
-     * called with the state lock when the surface is removed from the
-     * current list
+     * called with the state lock from a binder thread when the layer is
+     * removed from the current list to the pending removal list
+     */
+    void onRemovedFromCurrentState();
+
+    /*
+     * called with the state lock from the main thread when the layer is
+     * removed from the pending removal list
      */
     void onRemoved();
 
@@ -438,35 +450,19 @@ public:
 #ifdef USE_HWC2
     // -----------------------------------------------------------------------
 
+    bool createHwcLayer(HWComposer* hwc, int32_t hwcId);
+    void destroyHwcLayer(int32_t hwcId);
+    void destroyAllHwcLayers();
+
     bool hasHwcLayer(int32_t hwcId) {
-        if (mHwcLayers.count(hwcId) == 0) {
-            return false;
-        }
-        if (mHwcLayers[hwcId].layer->isAbandoned()) {
-            ALOGI("Erasing abandoned layer %s on %d", mName.string(), hwcId);
-            mHwcLayers.erase(hwcId);
-            return false;
-        }
-        return true;
+        return mHwcLayers.count(hwcId) > 0;
     }
 
-    std::shared_ptr<HWC2::Layer> getHwcLayer(int32_t hwcId) {
+    HWC2::Layer* getHwcLayer(int32_t hwcId) {
         if (mHwcLayers.count(hwcId) == 0) {
             return nullptr;
         }
         return mHwcLayers[hwcId].layer;
-    }
-
-    void setHwcLayer(int32_t hwcId, std::shared_ptr<HWC2::Layer>&& layer) {
-        if (layer) {
-            mHwcLayers[hwcId].layer = layer;
-        } else {
-            mHwcLayers.erase(hwcId);
-        }
-    }
-
-    void clearHwcLayers() {
-        mHwcLayers.clear();
     }
 
 #endif
@@ -698,7 +694,10 @@ private:
     uint32_t mTextureName;      // from GLES
     bool mPremultipliedAlpha;
     String8 mName;
+    String8 mTransactionName; // A cached version of "TX - " + mName for systraces
     PixelFormat mFormat;
+
+    bool mPrimaryDisplayOnly = false;
 
     // these are protected by an external lock
     State mCurrentState;
@@ -751,12 +750,14 @@ private:
     // HWC items, accessed from the main thread
     struct HWCInfo {
         HWCInfo()
-          : layer(),
+          : hwc(nullptr),
+            layer(nullptr),
             forceClientComposition(false),
             compositionType(HWC2::Composition::Invalid),
             clearClientTarget(false) {}
 
-        std::shared_ptr<HWC2::Layer> layer;
+        HWComposer* hwc;
+        HWC2::Layer* layer;
         bool forceClientComposition;
         HWC2::Composition compositionType;
         bool clearClientTarget;

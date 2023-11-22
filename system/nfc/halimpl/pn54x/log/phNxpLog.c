@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <stdio.h>
 #include <string.h>
 #if !defined(NXPLOG__H_INCLUDED)
 #include "phNxpConfig.h"

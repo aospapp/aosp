@@ -18,6 +18,7 @@ package com.android.loganalysis.parser;
 
 import com.android.loganalysis.item.DumpsysBatteryStatsItem;
 import com.android.loganalysis.item.DumpsysItem;
+import com.android.loganalysis.item.DumpsysPackageStatsItem;
 import com.android.loganalysis.item.DumpsysProcStatsItem;
 import com.android.loganalysis.item.DumpsysWifiStatsItem;
 
@@ -29,11 +30,13 @@ import java.util.List;
 public class DumpsysParser extends AbstractSectionParser {
 
     private static final String BATTERY_STATS_SECTION_REGEX = "^DUMP OF SERVICE batterystats:$";
+    private static final String PACKAGE_SECTION_REGEX = "^DUMP OF SERVICE package:";
     private static final String PROC_STATS_SECTION_REGEX = "^DUMP OF SERVICE procstats:";
     private static final String WIFI_SECTION_REGEX = "^DUMP OF SERVICE wifi:";
     private static final String NOOP_SECTION_REGEX = "DUMP OF SERVICE .*";
 
     private DumpsysBatteryStatsParser mBatteryStatsParser = new DumpsysBatteryStatsParser();
+    private DumpsysPackageStatsParser mPackageStatsParser = new DumpsysPackageStatsParser();
     private DumpsysProcStatsParser mProcStatsParser = new DumpsysProcStatsParser();
     private DumpsysWifiStatsParser mWifiStatsParser = new DumpsysWifiStatsParser();
 
@@ -63,6 +66,7 @@ public class DumpsysParser extends AbstractSectionParser {
      */
     protected void setup() {
         addSectionParser(mBatteryStatsParser, BATTERY_STATS_SECTION_REGEX);
+        addSectionParser(mPackageStatsParser, PACKAGE_SECTION_REGEX);
         addSectionParser(mProcStatsParser, PROC_STATS_SECTION_REGEX);
         addSectionParser(mWifiStatsParser, WIFI_SECTION_REGEX);
         addSectionParser(new NoopParser(), NOOP_SECTION_REGEX);
@@ -80,6 +84,7 @@ public class DumpsysParser extends AbstractSectionParser {
         }
         if (mDumpsys != null) {
             mDumpsys.setBatteryInfo((DumpsysBatteryStatsItem) getSection(mBatteryStatsParser));
+            mDumpsys.setPackageStats((DumpsysPackageStatsItem) getSection(mPackageStatsParser));
             mDumpsys.setProcStats((DumpsysProcStatsItem) getSection(mProcStatsParser));
             mDumpsys.setWifiStats((DumpsysWifiStatsItem) getSection(mWifiStatsParser));
         }

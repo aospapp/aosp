@@ -164,7 +164,7 @@ class BlockingInputAllocation implements UncheckedCloseable {
     private static class OnBufferAvailableListener implements Allocation.OnBufferAvailableListener {
         private int mPendingBuffers = 0;
         private final Object mBufferSyncObject = new Object();
-        private static final int TIMEOUT_MS = 5000;
+        private static final int TIMEOUT_MS = 20000;
 
         public boolean isBufferPending() {
             synchronized (mBufferSyncObject) {

@@ -23,8 +23,10 @@ TKO_STATUS_MAP = {
     'FAIL': 'fail',
     'GOOD': 'pass',
     'PASS': 'pass',
+    'ABORT': 'aborted',
     'Failed': 'fail',
     'Completed': 'pass',
+    'Aborted': 'aborted',
 }
 
 
@@ -109,6 +111,7 @@ def make_job_entry(tko, job, parent=None, suite_job=False, job_entries=None):
                        job.name.split('/')[-1], status, start_time,
                        finish_time=finish_time, parent=parent)
 
+    entry['job_id'] = int(job.id)
     if dut:
         entry['dut'] = dut
     if job.shard:

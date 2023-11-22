@@ -17,10 +17,14 @@
 #ifndef ART_RUNTIME_GC_SPACE_BUMP_POINTER_SPACE_H_
 #define ART_RUNTIME_GC_SPACE_BUMP_POINTER_SPACE_H_
 
-#include "object_callbacks.h"
 #include "space.h"
 
 namespace art {
+
+namespace mirror {
+class Object;
+}
+
 namespace gc {
 
 namespace collector {
@@ -142,8 +146,10 @@ class BumpPointerSpace FINAL : public ContinuousMemMapAllocSpace {
   }
 
   // Go through all of the blocks and visit the continuous objects.
-  void Walk(ObjectCallback* callback, void* arg)
-      REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!block_lock_);
+  template <typename Visitor>
+  ALWAYS_INLINE void Walk(Visitor&& visitor)
+      REQUIRES_SHARED(Locks::mutator_lock_)
+      REQUIRES(!block_lock_);
 
   accounting::ContinuousSpaceBitmap::SweepCallback* GetSweepCallback() OVERRIDE;
 

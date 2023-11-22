@@ -145,7 +145,7 @@
     <string name="accessory_connected">Connected</string>
     <!-- Title of preference item for renaming the bluetooth accessory [CHAR LIMIT=50] -->
     <string name="accessory_change_name">Change name</string>
-    <!-- Title of dialog for renaming the bluetooth accessory [CHAR LIMIT=100] -->
+    <!-- Title of dialog for renaming the bluetooth accessory [CHAR LIMIT=50] -->
     <string name="accessory_change_name_title">Enter a new name for this accessory</string>
 
     <!-- Remote and Accessories -->
@@ -798,7 +798,14 @@
     <string name="accessibility_service_settings">Service settings</string>
     <!-- Title for the accessibility preference to high contrast text. [CHAR LIMIT=35] -->
     <string name="accessibility_toggle_high_text_contrast_preference_title">High contrast text</string>
-
+    <!-- Title for accessibility shortcut preference and screen [CHAR LIMIT=50] -->
+    <string name="accessibility_shortcut">Accessibility shortcut</string>
+    <!-- Title for accessibility shortcut toggle [CHAR LIMIT=50] -->
+    <string name="accessibility_shortcut_enable">Enable accessibility shortcut</string>
+    <!-- Title for accessibility shortcut service choice preference [CHAR LIMIT=50}-->
+    <string name="accessibility_shortcut_service">Shortcut service</string>
+    <!-- Description for the accessibility shortcut [CHAR LIMIT=NONE] -->
+    <string name="accessibility_shortcut_description">When the shortcut is on, you can press both the back and down buttons for 3 seconds to start an accessibility feature.</string>
     <!-- Title and description for accessibility captions setting [CHAR LIMIT=50] -->
     <string name="accessibility_captions">Captions</string>
     <!-- Title and description for accessibility captions description [CHAR LIMIT=NONE] -->
@@ -880,7 +887,7 @@
     <string name="system_accessibility_status">Enable</string>
     <!-- Title for accessibility service configuration [CHAR LIMIT=50] -->
     <string name="system_accessibility_config">Configuration</string>
-    <!-- Title for confirmation screen when turning ON accessibility service[CHAR LIMIT=50] -->
+    <!-- Title for confirmation screen when turning ON accessibility service[CHAR LIMIT=20] -->
     <string name="system_accessibility_service_on_confirm_title">Use <xliff:g id="service" example="TalkBack">%1$s</xliff:g>?</string>
     <!-- Description for confirmation screen when turning ON accessibility service[[CHAR LIMIT=NONE] -->
     <string name="system_accessibility_service_on_confirm_desc"><xliff:g id="service" example="TalkBack">%1$s</xliff:g> can collect all of the text you type, except passwords. This includes personal data such as credit card numbers.</string>
@@ -1364,7 +1371,7 @@
     <string name="device_daydreams_sleep_description">Screen saver begins after this period of inactivity. If no screen saver is selected, the display turns off.</string>
     <!-- Screen saver summary for displaying the time before the device goes to sleep -->
     <string name="device_daydreams_sleep_summary">After <xliff:g id="sleep_description" example="3 minutes">%1$s</xliff:g> of inactivity</string>
-    <!-- Screen saver choice for configuring the time before the device's screen goes off after dreaming [CHAR LIMIT=40] -->
+    <!-- Screen saver choice for configuring the time before the device's screen goes off after dreaming [CHAR LIMIT=30] -->
     <string name="device_daydreams_screen_off">Put device to sleep</string>
     <!-- Screen saver description for configuring the time before the device's screen goes off after dreaming [CHAR LIMIT=NONE] -->
     <string name="device_daydreams_screen_off_description">Screen turns off after this period of inactivity.</string>
@@ -1451,4 +1458,15 @@
     <string name="available_virtual_keyboard_category">Available virtual keyboards</string>
     <!-- Title for the preference entry for managing keyboards [CHAR LIMIT=50] -->
     <string name="manage_keyboards">Manage keyboards</string>
+
+    <!-- Preference summary text for an app when it is allowed for a permission. [CHAR LIMIT=45] -->
+    <string name="app_permission_summary_allowed">Allowed</string>
+    <!-- Preference summary text for an app when it is disallowed for a permission. [CHAR LIMIT=45] -->
+    <string name="app_permission_summary_not_allowed">Not allowed</string>
+
+    <!-- Title of usage access screen [CHAR LIMIT=30] -->
+    <string name="usage_access">Usage access</string>
+    <!-- Description of the usage access setting [CHAR LIMIT=NONE] -->
+    <string name="usage_access_description">Usage access allows an app to track what other apps you\u2019re using and how often, as well as your carrier, language settings, and other details.</string>
+
 </resources>

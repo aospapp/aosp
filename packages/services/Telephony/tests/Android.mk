@@ -36,4 +36,6 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
         truth-prebuilt \
         legacy-android-test
 
+LOCAL_COMPATIBILITY_SUITE := device-tests
+
 include $(BUILD_PACKAGE)

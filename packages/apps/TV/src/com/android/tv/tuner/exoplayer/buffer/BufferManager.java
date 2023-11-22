@@ -25,13 +25,14 @@ import android.util.Log;
 import android.util.Pair;
 
 import com.google.android.exoplayer.SampleHolder;
+import com.android.tv.common.SoftPreconditions;
 import com.android.tv.tuner.exoplayer.SampleExtractor;
 import com.android.tv.util.Utils;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.ConcurrentModificationException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
@@ -59,7 +60,8 @@ public class BufferManager {
 
     private final SampleChunk.SampleChunkCreator mSampleChunkCreator;
     // Maps from track name to a map which maps from starting position to {@link SampleChunk}.
-    private final Map<String, SortedMap<Long, SampleChunk>> mChunkMap = new ArrayMap<>();
+    private final Map<String, SortedMap<Long, Pair<SampleChunk, Integer>>> mChunkMap =
+            new ArrayMap<>();
     private final Map<String, Long> mStartPositionMap = new ArrayMap<>();
     private final Map<String, ChunkEvictedListener> mEvictListeners = new ArrayMap<>();
     private final StorageManager mStorageManager;
@@ -77,13 +79,11 @@ public class BufferManager {
         }
     };
 
-    private volatile boolean mClosed = false;
     private int mMinSampleSizeForSpeedCheck = MINIMUM_SAMPLE_SIZE_FOR_SPEED_CHECK;
     private long mTotalWriteSize;
     private long mTotalWriteTimeNs;
     private float mWriteBandwidth = 0.0f;
     private volatile int mSpeedCheckCount;
-    private boolean mDisabled = false;
 
     public interface ChunkEvictedListener {
         void onChunkEvicted(String id, long createdTimeMs);
@@ -174,6 +174,66 @@ public class BufferManager {
     }
 
     /**
+     * A Track format which will be loaded and saved from the permanent storage for recordings.
+     */
+    public static class TrackFormat {
+
+        /**
+         * The track id for the specified track. The track id will be used as a track identifier
+         * for recordings.
+         */
+        public final String trackId;
+
+        /**
+         * The {@link MediaFormat} for the specified track.
+         */
+        public final MediaFormat format;
+
+        /**
+         * Creates TrackFormat.
+         * @param trackId
+         * @param format
+         */
+        public TrackFormat(String trackId, MediaFormat format) {
+            this.trackId = trackId;
+            this.format = format;
+        }
+    }
+
+    /**
+     * A Holder for a sample position which will be loaded from the index file for recordings.
+     */
+    public static class PositionHolder {
+
+        /**
+         * The current sample position in microseconds.
+         * The position is identical to the PTS(presentation time stamp) of the sample.
+         */
+        public final long positionUs;
+
+        /**
+         * Base sample position for the current {@link SampleChunk}.
+         */
+        public final long basePositionUs;
+
+        /**
+         * The file offset for the current sample in the current {@link SampleChunk}.
+         */
+        public final int offset;
+
+        /**
+         * Creates a holder for a specific position in the recording.
+         * @param positionUs
+         * @param offset
+         */
+        public PositionHolder(long positionUs, long basePositionUs, int offset) {
+            this.positionUs = positionUs;
+            this.basePositionUs = basePositionUs;
+            this.offset = offset;
+        }
+    }
+
+    /**
      * Storage configuration and policy manager for {@link BufferManager}
      */
     public interface StorageManager {
@@ -184,11 +244,6 @@ public class BufferManager {
          * @return a directory to save buffer(chunks) and meta files
          */
         File getBufferDir();
-
-        /**
-         * Cleans up storage.
-         */
-        void clearStorage();
 
         /**
          * Informs whether the storage is used for persistent use. (eg. dvr recording/play)
@@ -220,29 +275,27 @@ public class BufferManager {
          * Reads track name & {@link MediaFormat} from storage.
          *
          * @param isAudio {@code true} if it is for audio track
-         * @return {@link Pair} of track name & {@link MediaFormat}
-         * @throws IOException
+         * @return {@link List} of TrackFormat
          */
-        Pair<String, MediaFormat> readTrackInfoFile(boolean isAudio) throws IOException;
+        List<TrackFormat> readTrackInfoFiles(boolean isAudio);
 
         /**
-         * Reads sample indexes for each written sample from storage.
+         * Reads key sample positions for each written sample from storage.
          *
          * @param trackId track name
          * @return indexes of the specified track
          * @throws IOException
          */
-        ArrayList<Long> readIndexFile(String trackId) throws IOException;
+        ArrayList<PositionHolder> readIndexFile(String trackId) throws IOException;
 
         /**
          * Writes track information to storage.
          *
-         * @param trackId track name
-         * @param format {@link android.media.MediaFormat} of the track
+         * @param formatList {@list List} of TrackFormat
          * @param isAudio {@code true} if it is for audio track
          * @throws IOException
          */
-        void writeTrackInfoFile(String trackId, MediaFormat format, boolean isAudio)
+        void writeTrackInfoFiles(List<TrackFormat> formatList, boolean isAudio)
                 throws IOException;
 
         /**
@@ -252,7 +305,7 @@ public class BufferManager {
          * @param index {@link SampleChunk} container
          * @throws IOException
          */
-        void writeIndexFile(String trackName, SortedMap<Long, SampleChunk> index)
+        void writeIndexFile(String trackName, SortedMap<Long, Pair<SampleChunk, Integer>> index)
                 throws IOException;
     }
 
@@ -307,7 +360,6 @@ public class BufferManager {
             SampleChunk.SampleChunkCreator sampleChunkCreator) {
         mStorageManager = storageManager;
         mSampleChunkCreator = sampleChunkCreator;
-        clearBuffer(true);
     }
 
     public void registerChunkEvictedListener(String id, ChunkEvictedListener listener) {
@@ -318,44 +370,44 @@ public class BufferManager {
         mEvictListeners.remove(id);
     }
 
-    private void clearBuffer(boolean deleteFiles) {
-        mChunkMap.clear();
-        if (deleteFiles) {
-            mStorageManager.clearStorage();
-        }
-        mBufferSize = 0;
-    }
-
     private static String getFileName(String id, long positionUs) {
         return String.format(Locale.ENGLISH, "%s_%016x.chunk", id, positionUs);
     }
 
     /**
-     * Creates a new {@link SampleChunk} for caching samples.
+     * Creates a new {@link SampleChunk} for caching samples if it is needed.
      *
      * @param id the name of the track
-     * @param positionUs starting position of the {@link SampleChunk} in micro seconds.
+     * @param positionUs current position to write a sample in micro seconds.
      * @param samplePool {@link SamplePool} for the fast creation of samples.
+     * @param currentChunk the current {@link SampleChunk} to write, {@code null} when to create
+     *                     a new {@link SampleChunk}.
+     * @param currentOffset the current offset to write.
      * @return returns the created {@link SampleChunk}.
      * @throws IOException
      */
-    public SampleChunk createNewWriteFile(String id, long positionUs,
-            SamplePool samplePool) throws IOException {
+    public SampleChunk createNewWriteFileIfNeeded(String id, long positionUs, SamplePool samplePool,
+            SampleChunk currentChunk, int currentOffset) throws IOException {
         if (!maybeEvictChunk()) {
             throw new IOException("Not enough storage space");
         }
-        SortedMap<Long, SampleChunk> map = mChunkMap.get(id);
+        SortedMap<Long, Pair<SampleChunk, Integer>> map = mChunkMap.get(id);
         if (map == null) {
             map = new TreeMap<>();
             mChunkMap.put(id, map);
             mStartPositionMap.put(id, positionUs);
             mPendingDelete.init(id);
         }
-        File file = new File(mStorageManager.getBufferDir(), getFileName(id, positionUs));
-        SampleChunk sampleChunk = mSampleChunkCreator.createSampleChunk(samplePool, file,
-                positionUs, mChunkCallback);
-        map.put(positionUs, sampleChunk);
-        return sampleChunk;
+        if (currentChunk == null) {
+            File file = new File(mStorageManager.getBufferDir(), getFileName(id, positionUs));
+            SampleChunk sampleChunk = mSampleChunkCreator
+                    .createSampleChunk(samplePool, file, positionUs, mChunkCallback);
+            map.put(positionUs, new Pair(sampleChunk, 0));
+            return sampleChunk;
+        } else {
+            map.put(positionUs, new Pair(currentChunk, currentOffset));
+            return null;
+        }
     }
 
     /**
@@ -366,10 +418,10 @@ public class BufferManager {
      * @throws IOException
      */
     public void loadTrackFromStorage(String trackId, SamplePool samplePool) throws IOException {
-        ArrayList<Long> keyPositions = mStorageManager.readIndexFile(trackId);
-        long startPositionUs = keyPositions.size() > 0 ? keyPositions.get(0) : 0;
+        ArrayList<PositionHolder> keyPositions = mStorageManager.readIndexFile(trackId);
+        long startPositionUs = keyPositions.size() > 0 ? keyPositions.get(0).positionUs : 0;
 
-        SortedMap<Long, SampleChunk> map = mChunkMap.get(trackId);
+        SortedMap<Long, Pair<SampleChunk, Integer>> map = mChunkMap.get(trackId);
         if (map == null) {
             map = new TreeMap<>();
             mChunkMap.put(trackId, map);
@@ -377,11 +429,15 @@ public class BufferManager {
             mPendingDelete.init(trackId);
         }
         SampleChunk chunk = null;
-        for (long positionUs: keyPositions) {
-            chunk = mSampleChunkCreator.loadSampleChunkFromFile(samplePool,
-                    mStorageManager.getBufferDir(), getFileName(trackId, positionUs), positionUs,
-                    mChunkCallback, chunk);
-            map.put(positionUs, chunk);
+        long basePositionUs = -1;
+        for (PositionHolder position: keyPositions) {
+            if (position.basePositionUs != basePositionUs) {
+                chunk = mSampleChunkCreator.loadSampleChunkFromFile(samplePool,
+                        mStorageManager.getBufferDir(), getFileName(trackId, position.positionUs),
+                        position.positionUs, mChunkCallback, chunk);
+                basePositionUs = position.basePositionUs;
+            }
+            map.put(position.positionUs, new Pair(chunk, position.offset));
         }
     }
 
@@ -392,19 +448,19 @@ public class BufferManager {
      * @param positionUs the position.
      * @return returns the found {@link SampleChunk}.
      */
-    public SampleChunk getReadFile(String id, long positionUs) {
-        SortedMap<Long, SampleChunk> map = mChunkMap.get(id);
+    public Pair<SampleChunk, Integer> getReadFile(String id, long positionUs) {
+        SortedMap<Long, Pair<SampleChunk, Integer>> map = mChunkMap.get(id);
         if (map == null) {
             return null;
         }
-        SampleChunk sampleChunk;
-        SortedMap<Long, SampleChunk> headMap = map.headMap(positionUs + 1);
+        Pair<SampleChunk, Integer> ret;
+        SortedMap<Long, Pair<SampleChunk, Integer>> headMap = map.headMap(positionUs + 1);
         if (!headMap.isEmpty()) {
-            sampleChunk = headMap.get(headMap.lastKey());
+            ret = headMap.get(headMap.lastKey());
         } else {
-            sampleChunk = map.get(map.firstKey());
+            ret = map.get(map.firstKey());
         }
-        return sampleChunk;
+        return ret;
     }
 
     /**
@@ -439,15 +495,16 @@ public class BufferManager {
                 // Since chunks are persistent, we cannot evict chunks.
                 return false;
             }
-            SortedMap<Long, SampleChunk> earliestChunkMap = null;
+            SortedMap<Long, Pair<SampleChunk, Integer>> earliestChunkMap = null;
             SampleChunk earliestChunk = null;
             String earliestChunkId = null;
-            for (Map.Entry<String, SortedMap<Long, SampleChunk>> entry : mChunkMap.entrySet()) {
-                SortedMap<Long, SampleChunk> map = entry.getValue();
+            for (Map.Entry<String, SortedMap<Long, Pair<SampleChunk, Integer>>> entry :
+                    mChunkMap.entrySet()) {
+                SortedMap<Long, Pair<SampleChunk, Integer>> map = entry.getValue();
                 if (map.isEmpty()) {
                     continue;
                 }
-                SampleChunk chunk = map.get(map.firstKey());
+                SampleChunk chunk = map.get(map.firstKey()).first;
                 if (earliestChunk == null
                         || chunk.getCreatedTimeMs() < earliestChunk.getCreatedTimeMs()) {
                     earliestChunkMap = map;
@@ -473,8 +530,9 @@ public class BufferManager {
             }
             pendingDelete = mPendingDelete.getSize();
         }
-        for (Map.Entry<String, SortedMap<Long, SampleChunk>> entry : mChunkMap.entrySet()) {
-            SortedMap<Long, SampleChunk> map = entry.getValue();
+        for (Map.Entry<String, SortedMap<Long, Pair<SampleChunk, Integer>>> entry :
+                mChunkMap.entrySet()) {
+            SortedMap<Long, Pair<SampleChunk, Integer>> map = entry.getValue();
             if (map.isEmpty()) {
                 continue;
             }
@@ -489,70 +547,74 @@ public class BufferManager {
      * @return returns all track information which is found by {@link BufferManager.StorageManager}.
      * @throws IOException
      */
-    public ArrayList<Pair<String, MediaFormat>> readTrackInfoFiles() throws IOException {
-        ArrayList<Pair<String, MediaFormat>> trackInfos = new ArrayList<>();
-        try {
-            trackInfos.add(mStorageManager.readTrackInfoFile(false));
-        } catch (FileNotFoundException e) {
-            // There can be a single track only recording. (eg. audio-only, video-only)
-            // So the exception should not stop the read.
+    public List<TrackFormat> readTrackInfoFiles() throws IOException {
+        List<TrackFormat> trackFormatList = new ArrayList<>();
+        trackFormatList.addAll(mStorageManager.readTrackInfoFiles(false));
+        trackFormatList.addAll(mStorageManager.readTrackInfoFiles(true));
+        if (trackFormatList.isEmpty()) {
+            throw new IOException("No track information to load");
         }
-        try {
-            trackInfos.add(mStorageManager.readTrackInfoFile(true));
-        } catch (FileNotFoundException e) {
-            // See above catch block.
-        }
-        return trackInfos;
+        return trackFormatList;
     }
 
     /**
      * Writes track information and index information for all tracks.
      *
-     * @param audio audio information.
-     * @param video video information.
+     * @param audios list of audio track information
+     * @param videos list of audio track information
      * @throws IOException
      */
-    public void writeMetaFiles(Pair<String, MediaFormat> audio, Pair<String, MediaFormat> video)
+    public void writeMetaFiles(List<TrackFormat> audios, List<TrackFormat> videos)
             throws IOException {
-        if (audio != null) {
-            mStorageManager.writeTrackInfoFile(audio.first, audio.second, true);
-            SortedMap<Long, SampleChunk> map = mChunkMap.get(audio.first);
-            if (map == null) {
-                throw new IOException("Audio track index missing");
-            }
-            mStorageManager.writeIndexFile(audio.first, map);
+        if (audios.isEmpty() && videos.isEmpty()) {
+            throw new IOException("No track information to save");
         }
-        if (video != null) {
-            mStorageManager.writeTrackInfoFile(video.first, video.second, false);
-            SortedMap<Long, SampleChunk> map = mChunkMap.get(video.first);
-            if (map == null) {
-                throw new IOException("Video track index missing");
+        if (!audios.isEmpty()) {
+            mStorageManager.writeTrackInfoFiles(audios, true);
+            for (TrackFormat trackFormat : audios) {
+                SortedMap<Long, Pair<SampleChunk, Integer>> map =
+                        mChunkMap.get(trackFormat.trackId);
+                if (map == null) {
+                    throw new IOException("Audio track index missing");
+                }
+                mStorageManager.writeIndexFile(trackFormat.trackId, map);
             }
-            mStorageManager.writeIndexFile(video.first, map);
         }
-    }
-
-    /**
-     * Marks it is closed and it is not used anymore.
-     */
-    public void close() {
-        // Clean-up may happen after this is called.
-        mClosed = true;
+        if (!videos.isEmpty()) {
+            mStorageManager.writeTrackInfoFiles(videos, false);
+            for (TrackFormat trackFormat : videos) {
+                SortedMap<Long, Pair<SampleChunk, Integer>> map =
+                        mChunkMap.get(trackFormat.trackId);
+                if (map == null) {
+                    throw new IOException("Video track index missing");
+                }
+                mStorageManager.writeIndexFile(trackFormat.trackId, map);
+            }
+        }
     }
 
     /**
      * Releases all the resources.
      */
     public void release() {
-        mPendingDelete.release();
-        for (Map.Entry<String, SortedMap<Long, SampleChunk>> entry : mChunkMap.entrySet()) {
-            for (SampleChunk chunk : entry.getValue().values()) {
-                SampleChunk.IoState.release(chunk, !mStorageManager.isPersistent());
+        try {
+            mPendingDelete.release();
+            for (Map.Entry<String, SortedMap<Long, Pair<SampleChunk, Integer>>> entry :
+                    mChunkMap.entrySet()) {
+                SampleChunk toRelease = null;
+                for (Pair<SampleChunk, Integer> positions : entry.getValue().values()) {
+                    if (toRelease != positions.first) {
+                        toRelease = positions.first;
+                        SampleChunk.IoState.release(toRelease, !mStorageManager.isPersistent());
+                    }
+                }
             }
-        }
-        mChunkMap.clear();
-        if (mClosed) {
-            clearBuffer(!mStorageManager.isPersistent());
+            mChunkMap.clear();
+        } catch (ConcurrentModificationException | NullPointerException e) {
+            // TODO: remove this after it it confirmed that race condition issues are resolved.
+            // b/32492258, b/32373376
+            SoftPreconditions.checkState(false, "Exception on BufferManager#release: ",
+                    e.toString());
         }
     }
 
@@ -608,20 +670,6 @@ public class BufferManager {
             return -1;
         }
         return ((float) mTotalWriteSize * 1000 / mTotalWriteTimeNs);
-    }
-
-    /**
-     * Marks {@link BufferManager} object disabled to prevent it from the future use.
-     */
-    public void disable() {
-        mDisabled = true;
-    }
-
-    /**
-     * Returns if {@link BufferManager} object is disabled.
-     */
-    public boolean isDisabled() {
-        return mDisabled;
     }
 
     /**

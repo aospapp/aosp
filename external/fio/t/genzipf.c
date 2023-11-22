@@ -3,10 +3,10 @@
  * what an access pattern would look like.
  *
  * For instance, the following would generate a zipf distribution
- * with theta 1.2, using 100,000 values and split the reporting into
- * 20 buckets:
+ * with theta 1.2, using 262144 (1 GiB / 4096) values and split the
+ * reporting into 20 buckets:
  *
- *	t/genzipf zipf 1.2 100000 20
+ *	./t/fio-genzipf -t zipf -i 1.2 -g 1 -b 4096 -o 20
  *
  * Only the distribution type (zipf or pareto) and spread input need
  * to be given, if not given defaults are used.
@@ -19,11 +19,11 @@
 #include <unistd.h>
 
 #include "../lib/zipf.h"
+#include "../lib/gauss.h"
 #include "../flist.h"
 #include "../hash.h"
 
-#define DEF_NR		1000000
-#define DEF_NR_OUTPUT	23
+#define DEF_NR_OUTPUT	20
 
 struct node {
 	struct flist_head list;
@@ -39,23 +39,34 @@ enum {
 	TYPE_NONE = 0,
 	TYPE_ZIPF,
 	TYPE_PARETO,
+	TYPE_NORMAL,
 };
-static const char *dist_types[] = { "None", "Zipf", "Pareto" };
+static const char *dist_types[] = { "None", "Zipf", "Pareto", "Normal" };
+
+enum {
+	OUTPUT_NORMAL,
+	OUTPUT_CSV,
+};
 
 static int dist_type = TYPE_ZIPF;
-static unsigned long gb_size = 500;
+static unsigned long gib_size = 500;
 static unsigned long block_size = 4096;
 static unsigned long output_nranges = DEF_NR_OUTPUT;
 static double percentage;
 static double dist_val;
-static int output_csv = 0;
+static int output_type = OUTPUT_NORMAL;
 
 #define DEF_ZIPF_VAL	1.2
 #define DEF_PARETO_VAL	0.3
 
+static unsigned int hashv(unsigned long long val)
+{
+	return jhash(&val, sizeof(val), 0) & (hash_size - 1);
+}
+
 static struct node *hash_lookup(unsigned long long val)
 {
-	struct flist_head *l = &hash[hash_long(val, hash_bits)];
+	struct flist_head *l = &hash[hashv(val)];
 	struct flist_head *entry;
 	struct node *n;
 
@@ -68,14 +79,13 @@ static struct node *hash_lookup(unsigned long long val)
 	return NULL;
 }
 
-static struct node *hash_insert(struct node *n, unsigned long long val)
+static void hash_insert(struct node *n, unsigned long long val)
 {
-	struct flist_head *l = &hash[hash_long(val, hash_bits)];
+	struct flist_head *l = &hash[hashv(val)];
 
 	n->val = val;
 	n->hits = 1;
 	flist_add_tail(&n->list, l);
-	return n;
 }
 
 static void usage(void)
@@ -83,11 +93,12 @@ static void usage(void)
 	printf("genzipf: test zipf/pareto values for fio input\n");
 	printf("\t-h\tThis help screen\n");
 	printf("\t-p\tGenerate size of data set that are hit by this percentage\n");
-	printf("\t-t\tDistribution type (zipf or pareto)\n");
-	printf("\t-i\tDistribution algorithm input (zipf theta or pareto power)\n");
+	printf("\t-t\tDistribution type (zipf, pareto, or normal)\n");
+	printf("\t-i\tDistribution algorithm input (zipf theta, pareto power,\n"
+		"\t\tor normal %% deviation)\n");
 	printf("\t-b\tBlock size of a given range (in bytes)\n");
 	printf("\t-g\tSize of data set (in gigabytes)\n");
-	printf("\t-o\tNumber of output columns\n");
+	printf("\t-o\tNumber of output rows\n");
 	printf("\t-c\tOutput ranges in CSV format\n");
 }
 
@@ -112,13 +123,15 @@ static int parse_options(int argc, char *argv[])
 				dist_type = TYPE_ZIPF;
 			else if (!strncmp(optarg, "pareto", 6))
 				dist_type = TYPE_PARETO;
+			else if (!strncmp(optarg, "normal", 6))
+				dist_type = TYPE_NORMAL;
 			else {
 				printf("wrong dist type: %s\n", optarg);
 				return 1;
 			}
 			break;
 		case 'g':
-			gb_size = strtoul(optarg, NULL, 10);
+			gib_size = strtoul(optarg, NULL, 10);
 			break;
 		case 'i':
 			dist_val = atof(optarg);
@@ -128,7 +141,7 @@ static int parse_options(int argc, char *argv[])
 			output_nranges = strtoul(optarg, NULL, 10);
 			break;
 		case 'c':
-			output_csv = 1;
+			output_type = OUTPUT_CSV;
 			break;
 		default:
 			printf("bad option %c\n", c);
@@ -168,29 +181,128 @@ static int node_cmp(const void *p1, const void *p2)
 	return n2->hits - n1->hits;
 }
 
+static void output_csv(struct node *nodes, unsigned long nnodes)
+{
+	unsigned long i;
+
+	printf("rank, count\n");
+	for (i = 0; i < nnodes; i++)
+		printf("%lu, %lu\n", i, nodes[i].hits);
+}
+
+static void output_normal(struct node *nodes, unsigned long nnodes,
+			  unsigned long nranges)
+{
+	unsigned long i, j, cur_vals, interval_step, next_interval, total_vals;
+	unsigned long blocks = percentage * nnodes / 100;
+	double hit_percent_sum = 0;
+	unsigned long long hit_sum = 0;
+	double perc, perc_i;
+	struct output_sum *output_sums;
+
+	interval_step = (nnodes - 1) / output_nranges + 1;
+	next_interval = interval_step;
+	output_sums = malloc(output_nranges * sizeof(struct output_sum));
+
+	for (i = 0; i < output_nranges; i++) {
+		output_sums[i].output = 0.0;
+		output_sums[i].nranges = 0;
+	}
+
+	j = total_vals = cur_vals = 0;
+
+	for (i = 0; i < nnodes; i++) {
+		struct output_sum *os = &output_sums[j];
+		struct node *node = &nodes[i];
+		cur_vals += node->hits;
+		total_vals += node->hits;
+		os->nranges += node->hits;
+		if (i == (next_interval) -1 || i == nnodes - 1) {
+			os->output = (double) cur_vals / (double) nranges;
+			os->output *= 100.0;
+			cur_vals = 0;
+			next_interval += interval_step;
+			j++;
+		}
+
+		if (percentage) {
+			if (total_vals >= blocks) {
+				double cs = (double) i * block_size / (1024.0 * 1024.0);
+				char p = 'M';
+
+				if (cs > 1024.0) {
+					cs /= 1024.0;
+					p = 'G';
+				}
+				if (cs > 1024.0) {
+					cs /= 1024.0;
+					p = 'T';
+				}
+
+				printf("%.2f%% of hits satisfied in %.3f%cB of cache\n", percentage, cs, p);
+				percentage = 0.0;
+			}
+		}
+	}
+
+	perc_i = 100.0 / (double)output_nranges;
+	perc = 0.0;
+
+	printf("\n   Rows           Hits %%         Sum %%           # Hits          Size\n");
+	printf("-----------------------------------------------------------------------\n");
+	for (i = 0; i < output_nranges; i++) {
+		struct output_sum *os = &output_sums[i];
+		double gb = (double)os->nranges * block_size / 1024.0;
+		char p = 'K';
+
+		if (gb > 1024.0) {
+			p = 'M';
+			gb /= 1024.0;
+		}
+		if (gb > 1024.0) {
+			p = 'G';
+			gb /= 1024.0;
+		}
+
+		perc += perc_i;
+		hit_percent_sum += os->output;
+		hit_sum += os->nranges;
+		printf("%s %6.2f%%\t%6.2f%%\t\t%6.2f%%\t\t%8u\t%6.2f%c\n",
+			i ? "|->" : "Top", perc, os->output, hit_percent_sum,
+			os->nranges, gb, p);
+	}
+
+	printf("-----------------------------------------------------------------------\n");
+	printf("Total\t\t\t\t\t\t%8llu\n", hit_sum);
+	free(output_sums);
+}
+
 int main(int argc, char *argv[])
 {
 	unsigned long offset;
-	unsigned long i, j, k, nr_vals, cur_vals, interval, total_vals, nnodes;
 	unsigned long long nranges;
-	struct output_sum *output_sums;
+	unsigned long nnodes;
 	struct node *nodes;
-	double perc, perc_i;
 	struct zipf_state zs;
+	struct gauss_state gs;
+	int i, j;
 
 	if (parse_options(argc, argv))
 		return 1;
 
-	if( !output_csv )
-		printf("Generating %s distribution with %f input and %lu GB size and %lu block_size.\n", dist_types[dist_type], dist_val, gb_size, block_size);
+	if (output_type != OUTPUT_CSV)
+		printf("Generating %s distribution with %f input and %lu GiB size and %lu block_size.\n",
+		       dist_types[dist_type], dist_val, gib_size, block_size);
 
-	nranges = gb_size * 1024 * 1024 * 1024ULL;
+	nranges = gib_size * 1024 * 1024 * 1024ULL;
 	nranges /= block_size;
 
 	if (dist_type == TYPE_ZIPF)
 		zipf_init(&zs, nranges, dist_val, 1);
-	else
+	else if (dist_type == TYPE_PARETO)
 		pareto_init(&zs, nranges, dist_val, 1);
+	else
+		gauss_init(&gs, nranges, dist_val, 1);
 
 	hash_bits = 0;
 	hash_size = nranges;
@@ -199,19 +311,21 @@ int main(int argc, char *argv[])
 
 	hash_size = 1 << hash_bits;
 
-	hash = malloc(hash_size * sizeof(struct flist_head));
+	hash = calloc(hash_size, sizeof(struct flist_head));
 	for (i = 0; i < hash_size; i++)
 		INIT_FLIST_HEAD(&hash[i]);
 
 	nodes = malloc(nranges * sizeof(struct node));
 
-	for (nr_vals = i = j = 0; i < nranges; i++) {
+	for (i = j = 0; i < nranges; i++) {
 		struct node *n;
 
 		if (dist_type == TYPE_ZIPF)
 			offset = zipf_next(&zs);
-		else
+		else if (dist_type == TYPE_PARETO)
 			offset = pareto_next(&zs);
+		else
+			offset = gauss_next(&gs);
 
 		n = hash_lookup(offset);
 		if (n)
@@ -220,101 +334,15 @@ int main(int argc, char *argv[])
 			hash_insert(&nodes[j], offset);
 			j++;
 		}
-
-		nr_vals++;
 	}
 
 	qsort(nodes, j, sizeof(struct node), node_cmp);
 	nnodes = j;
-	nr_vals = nnodes;
 
-	if (output_csv) {
-		printf("rank, count\n");
-		for (k = 0; k < nnodes; k++)
-			printf("%lu, %lu\n", k, nodes[k].hits);
-	} else {
-		interval = (nr_vals + output_nranges - 1) / output_nranges;
-
-		output_sums = malloc(output_nranges * sizeof(struct output_sum));
-		for (i = 0; i < output_nranges; i++) {
-			output_sums[i].output = 0.0;
-			output_sums[i].nranges = 1;
-		}
-
-		total_vals = i = j = cur_vals = 0;
-
-		for (k = 0; k < nnodes; k++) {
-			struct output_sum *os = &output_sums[j];
-			struct node *node = &nodes[k];
-
-			if (i >= interval) {
-				os->output =
-				    (double)(cur_vals + 1) / (double)nranges;
-				os->output *= 100.0;
-				j++;
-				cur_vals = node->hits;
-				interval +=
-				    (nr_vals + output_nranges -
-				     1) / output_nranges;
-			} else {
-				cur_vals += node->hits;
-				os->nranges += node->hits;
-			}
-
-			i++;
-			total_vals += node->hits;
-
-			if (percentage) {
-				unsigned long blocks =
-				    percentage * nranges / 100;
-
-				if (total_vals >= blocks) {
-					double cs =
-					    i * block_size / (1024 * 1024);
-					char p = 'M';
-
-					if (cs > 1024.0) {
-						cs /= 1024.0;
-						p = 'G';
-					}
-					if (cs > 1024.0) {
-						cs /= 1024.0;
-						p = 'T';
-					}
-
-					printf("%.2f%% of hits satisfied in %.3f%cB of cache\n", percentage, cs, p);
-					percentage = 0.0;
-				}
-			}
-		}
-
-		perc_i = 100.0 / (double)output_nranges;
-		perc = 0.0;
-
-		printf("\n   Rows           Hits           No Hits         Size\n");
-		printf("--------------------------------------------------------\n");
-		for (i = 0; i < j; i++) {
-			struct output_sum *os = &output_sums[i];
-			double gb = (double)os->nranges * block_size / 1024.0;
-			char p = 'K';
-
-			if (gb > 1024.0) {
-				p = 'M';
-				gb /= 1024.0;
-			}
-			if (gb > 1024.0) {
-				p = 'G';
-				gb /= 1024.0;
-			}
-
-			perc += perc_i;
-			printf("%s %6.2f%%\t%6.2f%%\t\t%8u\t%6.2f%c\n",
-			       i ? "|->" : "Top", perc, os->output, os->nranges,
-			       gb, p);
-		}
-
-		free(output_sums);
-	}
+	if (output_type == OUTPUT_CSV)
+		output_csv(nodes, nnodes);
+	else
+		output_normal(nodes, nnodes, nranges);
 
 	free(hash);
 	free(nodes);

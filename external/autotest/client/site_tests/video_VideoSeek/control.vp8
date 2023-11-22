@@ -24,4 +24,4 @@ This test verifies VP8 non-resolution-changing video can seek on machines with V
 """
 
 video = 'http://commondatastorage.googleapis.com/chromiumos-test-assets-public/video_VideoSeek/video.webm'
-job.run_test('video_VideoSeek', video=video)
+job.run_test('video_VideoSeek', codec='vp8', is_switchres=False, video=video)

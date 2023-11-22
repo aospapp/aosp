@@ -25,6 +25,10 @@
 
 namespace chre {
 
+//! Maximum of non-default interval and latency values in nanoseconds to ensure
+//! no overflow in CHRE operations.
+constexpr uint64_t kMaxIntervalLatencyNs = (UINT64_MAX - 1) / 2;
+
 // TODO: Move SensorType and related functions to a new file called
 // sensor_type.h and include it here. This will allow using this logic in util
 // code withput pulling in the entire SensorRequest class which is only intended
@@ -187,9 +191,15 @@ enum class SensorMode {
 
 /**
  * @return true if the sensor mode is considered to be active and would cause a
- * sensor to be powered on in order to get sensor data.
+ *         sensor to be powered on in order to get sensor data.
  */
 constexpr bool sensorModeIsActive(SensorMode sensorMode);
+
+/**
+ * @return true if the sensor mode is considered to be passive and would not
+ *         cause a sensor to be powered on in order to get sensor data.
+ */
+constexpr bool sensorModeIsPassive(SensorMode sensorMode);
 
 /**
  * @return true if the sensor mode is considered to be contunuous.
@@ -240,7 +250,8 @@ class SensorRequest {
   SensorRequest();
 
   /**
-   * Constructs a sensor request given a mode, interval and latency.
+   * Constructs a sensor request given a mode, interval and latency. Non-default
+   * interval or latency higher than kMaxIntervalLatencyNs will be capped.
    *
    * @param mode The mode of the sensor request.
    * @param interval The interval between samples.
@@ -251,7 +262,8 @@ class SensorRequest {
 
   /**
    * Constructs a sensor request given an owning nanoapp, mode, interval and
-   * latency.
+   * latency. Non-default interval or latency higher than kMaxIntervalLatencyNs
+   * will be capped.
    *
    * @param nanoapp The nanoapp that made this request.
    * @param mode The mode of the sensor request.
@@ -283,27 +295,38 @@ class SensorRequest {
   /**
    * @return Returns the interval of samples for this request.
    */
-  Nanoseconds getInterval() const;
+  Nanoseconds getInterval() const {
+    return mInterval;
+  }
 
   /**
    * @return Returns the maximum amount of time samples can be batched prior to
    * dispatching to the client.
    */
-  Nanoseconds getLatency() const;
+  Nanoseconds getLatency() const {
+    return mLatency;
+  }
 
   /**
    * @return The mode of this request.
    */
-  SensorMode getMode() const;
+  SensorMode getMode() const {
+    return mMode;
+  }
 
   /**
    * @return The nanoapp that owns this sensor request.
    */
-  Nanoapp *getNanoapp() const;
+  Nanoapp *getNanoapp() const {
+    return mNanoapp;
+  }
 
  private:
   //! The nanoapp that made this request. This will be nullptr when returned by
   //! the generateIntersectionOf method.
+  // TODO: need to (1) change this to instanceId to avoid potentially
+  // referencing a Nanoapp after it is unloaded, and (2) add a method to remove
+  // all open sensor requests associated with a nanoapp after it is unloaded
   Nanoapp *mNanoapp = nullptr;
 
   //! The interval between samples for this request.

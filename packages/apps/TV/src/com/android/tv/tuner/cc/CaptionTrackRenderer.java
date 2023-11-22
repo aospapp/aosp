@@ -245,6 +245,10 @@ public class CaptionTrackRenderer implements Handler.Callback {
         }
     }
 
+    public void clear() {
+        mHandler.sendEmptyMessage(MSG_CAPTION_CLEAR);
+    }
+
     public void reset() {
         mCurrentWindowLayout = null;
         mIsDelayed = false;

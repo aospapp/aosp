@@ -14,11 +14,11 @@ class MysqlStatsTest(unittest.TestCase):
 
     def testQueryAndEmit(self):
         """Test for QueryAndEmit."""
-        cursor = mock.Mock()
-        cursor.fetchone.return_value = ('Column-name', 0)
+        connection = mock.Mock()
+        connection.cursor.fetchone.return_value = ('Column-name', 0)
 
         # This shouldn't raise an exception.
-        mysql_stats.QueryAndEmit(collections.defaultdict(lambda: 0), cursor)
+        mysql_stats.QueryAndEmit(collections.defaultdict(lambda: 0), connection)
 
 
 if __name__ == '__main__':

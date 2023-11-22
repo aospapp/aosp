@@ -147,8 +147,9 @@ ElfReader::ElfReader()
 }
 
 bool ElfReader::Read(const char* name, int fd, off64_t file_offset, off64_t file_size) {
-  CHECK(!did_read_);
-  CHECK(!did_load_);
+  if (did_read_) {
+    return true;
+  }
   name_ = name;
   fd_ = fd;
   file_offset_ = file_offset;
@@ -167,7 +168,9 @@ bool ElfReader::Read(const char* name, int fd, off64_t file_offset, off64_t file
 
 bool ElfReader::Load(const android_dlextinfo* extinfo) {
   CHECK(did_read_);
-  CHECK(!did_load_);
+  if (did_load_) {
+    return true;
+  }
   if (ReserveAddressSpace(extinfo) &&
       LoadSegments() &&
       FindPhdr()) {
@@ -197,6 +200,15 @@ bool ElfReader::ReadElfHeader() {
     return false;
   }
   return true;
+}
+
+static const char* EM_to_string(int em) {
+  if (em == EM_386) return "EM_386";
+  if (em == EM_AARCH64) return "EM_AARCH64";
+  if (em == EM_ARM) return "EM_ARM";
+  if (em == EM_MIPS) return "EM_MIPS";
+  if (em == EM_X86_64) return "EM_X86_64";
+  return "EM_???";
 }
 
 bool ElfReader::VerifyElfHeader() {
@@ -244,7 +256,8 @@ bool ElfReader::VerifyElfHeader() {
   }
 
   if (header_.e_machine != GetTargetElfMachine()) {
-    DL_ERR("\"%s\" has unexpected e_machine: %d", name_.c_str(), header_.e_machine);
+    DL_ERR("\"%s\" has unexpected e_machine: %d (%s)", name_.c_str(), header_.e_machine,
+           EM_to_string(header_.e_machine));
     return false;
   }
 

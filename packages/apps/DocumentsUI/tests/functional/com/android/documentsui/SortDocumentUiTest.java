@@ -33,7 +33,12 @@ public class SortDocumentUiTest extends ActivityTest<FilesActivity> {
     private static final String FILE_2 = "doc_2";
     private static final String FILE_3 = "image_3";
 
+    private static final String MIME_1 = "text/plain"; // Plain text
+    private static final String MIME_2 = "text/html"; // HTML document
+    private static final String MIME_3 = "image/jpeg"; // JPG image
+
     private static final String[] FILES = { FILE_1, FILE_3, FILE_2 };
+    private static final String[] MIMES = { MIME_1, MIME_3, MIME_2 };
     private static final String[] DIRS = { DIR_1, DIR_2 };
 
     private static final String[] DIRS_IN_NAME_ASC = { DIR_2, DIR_1 };
@@ -46,6 +51,9 @@ public class SortDocumentUiTest extends ActivityTest<FilesActivity> {
 
     private static final String[] DIRS_IN_MODIFIED_DESC = reverse(DIRS);
     private static final String[] FILES_IN_MODIFIED_DESC = reverse(FILES);
+
+    private static final String[] FILES_IN_TYPE_ASC = { FILE_2, FILE_3, FILE_1 };
+    private static final String[] FILES_IN_TYPE_DESC = reverse(FILES_IN_TYPE_ASC);
 
     public SortDocumentUiTest() {
         super(FilesActivity.class);
@@ -67,9 +75,9 @@ public class SortDocumentUiTest extends ActivityTest<FilesActivity> {
      * @param sleep time to sleep in ms
      */
     private void initFiles(long sleep) throws Exception {
-        for (String file : FILES) {
-            Uri uri = mDocsHelper.createDocument(rootDir0, "text/plain", file);
-            mDocsHelper.writeDocument(uri, file.getBytes());
+        for (int i = 0; i < FILES.length; ++i) {
+            Uri uri = mDocsHelper.createDocument(rootDir0, MIMES[i], FILES[i]);
+            mDocsHelper.writeDocument(uri, FILES[i].getBytes());
 
             Thread.sleep(sleep);
         }
@@ -136,6 +144,26 @@ public class SortDocumentUiTest extends ActivityTest<FilesActivity> {
         bots.directory.assertOrder(DIRS_IN_MODIFIED_DESC, FILES_IN_MODIFIED_DESC);
     }
 
+    public void testSortByType_Ascending_listMode() throws Exception {
+        initFiles();
+
+        bots.main.switchToListMode();
+
+        bots.sortHeader.sortBy(
+                SortModel.SORT_DIMENSION_ID_FILE_TYPE, SortDimension.SORT_DIRECTION_ASCENDING);
+        bots.directory.assertOrder(DIRS_IN_NAME_ASC, FILES_IN_TYPE_ASC);
+    }
+
+    public void testSortByType_Descending_listMode() throws Exception {
+        initFiles();
+
+        bots.main.switchToListMode();
+
+        bots.sortHeader.sortBy(
+                SortModel.SORT_DIMENSION_ID_FILE_TYPE, SortDimension.SORT_DIRECTION_DESCENDING);
+        bots.directory.assertOrder(DIRS_IN_NAME_ASC, FILES_IN_TYPE_DESC);
+    }
+
     public void testSortByName_Descending_gridMode() throws Exception {
         initFiles();
 
@@ -184,6 +212,26 @@ public class SortDocumentUiTest extends ActivityTest<FilesActivity> {
         bots.sortHeader.sortBy(
                 SortModel.SORT_DIMENSION_ID_DATE, SortDimension.SORT_DIRECTION_DESCENDING);
         bots.directory.assertOrder(DIRS_IN_MODIFIED_DESC, FILES_IN_MODIFIED_DESC);
+    }
+
+    public void testSortByType_Ascending_gridMode() throws Exception {
+        initFiles();
+
+        bots.main.switchToGridMode();
+
+        bots.sortHeader.sortBy(
+                SortModel.SORT_DIMENSION_ID_FILE_TYPE, SortDimension.SORT_DIRECTION_ASCENDING);
+        bots.directory.assertOrder(DIRS_IN_NAME_ASC, FILES_IN_TYPE_ASC);
+    }
+
+    public void testSortByType_Descending_gridMode() throws Exception {
+        initFiles();
+
+        bots.main.switchToGridMode();
+
+        bots.sortHeader.sortBy(
+                SortModel.SORT_DIMENSION_ID_FILE_TYPE, SortDimension.SORT_DIRECTION_DESCENDING);
+        bots.directory.assertOrder(DIRS_IN_NAME_ASC, FILES_IN_TYPE_DESC);
     }
 
     private static String[] reverse(String[] array) {

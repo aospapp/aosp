@@ -15,6 +15,8 @@
  */
 package com.android.tradefed.device;
 
+import static org.junit.Assert.*;
+
 import com.android.ddmlib.IDevice;
 import com.android.ddmlib.Log;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
@@ -24,13 +26,18 @@ import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.CollectingTestListener;
 import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.InputStreamSource;
-import com.android.tradefed.testtype.DeviceTestCase;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.FileUtil;
+import com.android.tradefed.util.KeyguardControllerState;
 import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.util.StreamUtil;
 
 import org.easymock.EasyMock;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.awt.image.BufferedImage;
 import java.io.BufferedInputStream;
@@ -43,10 +50,11 @@ import javax.imageio.ImageIO;
 
 /**
  * Functional tests for {@link TestDevice}.
- * <p/>
- * Requires a physical device to be connected.
+ *
+ * <p>Requires a physical device to be connected.
  */
-public class TestDeviceFuncTest extends DeviceTestCase {
+@RunWith(DeviceJUnit4ClassRunner.class)
+public class TestDeviceFuncTest implements IDeviceTest {
 
     private static final String LOG_TAG = "TestDeviceFuncTest";
     private TestDevice mTestDevice;
@@ -55,17 +63,24 @@ public class TestDeviceFuncTest extends DeviceTestCase {
     private static final int MIN_BUGREPORT_BYTES = 1024 * 1024;
 
     @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mTestDevice = (TestDevice)getDevice();
+    public void setDevice(ITestDevice device) {
+        mTestDevice = (TestDevice) device;
+    }
+
+    @Override
+    public ITestDevice getDevice() {
+        return mTestDevice;
+    }
+
+    @Before
+    public void setUp() throws Exception {
         mMonitor = mTestDevice.getDeviceStateMonitor();
         // Ensure at set-up that the device is available.
         mTestDevice.waitForDeviceAvailable();
     }
 
-    /**
-     * Simple testcase to ensure that the grabbing a bugreport from a real TestDevice works.
-     */
+    /** Simple testcase to ensure that the grabbing a bugreport from a real TestDevice works. */
+    @Test
     public void testBugreport() throws Exception {
         InputStreamSource bugreport = mTestDevice.getBugreport();
         try {
@@ -80,9 +95,8 @@ public class TestDeviceFuncTest extends DeviceTestCase {
         }
     }
 
-    /**
-     * Simple testcase to ensure that the grabbing a bugreportz from a real TestDevice works.
-     */
+    /** Simple testcase to ensure that the grabbing a bugreportz from a real TestDevice works. */
+    @Test
     public void testBugreportz() throws Exception {
         if (mTestDevice.getApiLevel() < 24) {
             CLog.i("testBugreportz() not supported by this device, skipping.");
@@ -107,11 +121,11 @@ public class TestDeviceFuncTest extends DeviceTestCase {
     }
 
     /**
-     * Simple normal case test for
-     * {@link TestDevice#executeShellCommand(String)}.
-     * <p/>
-     * Do a 'shell ls' command, and verify /data and /system are listed in result.
+     * Simple normal case test for {@link TestDevice#executeShellCommand(String)}.
+     *
+     * <p>Do a 'shell ls' command, and verify /data and /system are listed in result.
      */
+    @Test
     public void testExecuteShellCommand() throws DeviceNotAvailableException {
         Log.i(LOG_TAG, "testExecuteShellCommand");
         assertSimpleShellCommand();
@@ -126,9 +140,8 @@ public class TestDeviceFuncTest extends DeviceTestCase {
         assertTrue(output.contains("system"));
     }
 
-    /**
-     * Test install and uninstall of package
-     */
+    /** Test install and uninstall of package */
+    @Test
     public void testInstallUninstall() throws IOException, DeviceNotAvailableException {
         Log.i(LOG_TAG, "testInstallUninstall");
         // use the wifi util apk
@@ -159,9 +172,8 @@ public class TestDeviceFuncTest extends DeviceTestCase {
         }
     }
 
-    /**
-     * Test install and uninstall of package with spaces in file name
-     */
+    /** Test install and uninstall of package with spaces in file name */
+    @Test
     public void testInstallUninstall_space() throws IOException, DeviceNotAvailableException {
         Log.i(LOG_TAG, "testInstallUninstall_space");
 
@@ -177,9 +189,8 @@ public class TestDeviceFuncTest extends DeviceTestCase {
         }
     }
 
-    /**
-     * Push and then pull a file from device, and verify contents are as expected.
-     */
+    /** Push and then pull a file from device, and verify contents are as expected. */
+    @Test
     public void testPushPull_normal() throws IOException, DeviceNotAvailableException {
         Log.i(LOG_TAG, "testPushPull");
         File tmpFile = null;
@@ -214,9 +225,10 @@ public class TestDeviceFuncTest extends DeviceTestCase {
 
     /**
      * Push and then pull a file from device, and verify contents are as expected.
-     * <p />
-     * This variant of the test uses "${EXTERNAL_STORAGE}" in the pathname.
+     *
+     * <p>This variant of the test uses "${EXTERNAL_STORAGE}" in the pathname.
      */
+    @Test
     public void testPushPull_extStorageVariable() throws IOException, DeviceNotAvailableException {
         Log.i(LOG_TAG, "testPushPull");
         File tmpFile = null;
@@ -246,12 +258,8 @@ public class TestDeviceFuncTest extends DeviceTestCase {
             assertTrue(compareFiles(tmpFile, tmpDestFile2));
         } finally {
             FileUtil.deleteFile(tmpFile);
-            if (tmpDestFile != null) {
-                tmpDestFile.delete();
-            }
-            if (tmpDestFile2 != null) {
-                tmpDestFile2.delete();
-            }
+            FileUtil.deleteFile(tmpDestFile);
+            FileUtil.deleteFile(tmpDestFile2);
             if (deviceFilePath != null) {
                 mTestDevice.executeShellCommand(String.format("rm %s", deviceFilePath));
             }
@@ -260,9 +268,10 @@ public class TestDeviceFuncTest extends DeviceTestCase {
 
     /**
      * Test pulling a file from device that does not exist.
-     * <p/>
-     * Expect {@link TestDevice#pullFile(String)} to return <code>false</code>
+     *
+     * <p>Expect {@link TestDevice#pullFile(String)} to return <code>false</code>
      */
+    @Test
     public void testPull_noexist() throws DeviceNotAvailableException {
         Log.i(LOG_TAG, "testPull_noexist");
 
@@ -277,9 +286,10 @@ public class TestDeviceFuncTest extends DeviceTestCase {
 
     /**
      * Test pulling a file from device into a local file that cannot be written to.
-     * <p/>
-     * Expect {@link TestDevice#pullFile(String, File)} to return <code>false</code>
+     *
+     * <p>Expect {@link TestDevice#pullFile(String, File)} to return <code>false</code>
      */
+    @Test
     public void testPull_nopermissions() throws IOException, DeviceNotAvailableException {
         CLog.i("testPull_nopermissions");
 
@@ -306,9 +316,10 @@ public class TestDeviceFuncTest extends DeviceTestCase {
 
     /**
      * Test pushing a file onto device that does not exist.
-     * <p/>
-     * Expect {@link TestDevice#pushFile(File, String)} to return <code>false</code>
+     *
+     * <p>Expect {@link TestDevice#pushFile(File, String)} to return <code>false</code>
      */
+    @Test
     public void testPush_noexist() throws DeviceNotAvailableException {
         Log.i(LOG_TAG, "testPush_noexist");
 
@@ -355,19 +366,16 @@ public class TestDeviceFuncTest extends DeviceTestCase {
             }
             return true;
         } finally {
-            if (stream1 != null) {
-                stream1.close();
-            }
-            if (stream2 != null) {
-                stream2.close();
-            }
+            StreamUtil.close(stream1);
+            StreamUtil.close(stream2);
         }
     }
 
     /**
-     * Make sure that we can correctly index directories that have a symlink in the middle.  This
+     * Make sure that we can correctly index directories that have a symlink in the middle. This
      * verifies a ddmlib bugfix which added/fixed this functionality.
      */
+    @Test
     public void testListSymlinkDir() throws Exception {
         final String extStore = "/data/local";
 
@@ -394,26 +402,24 @@ public class TestDeviceFuncTest extends DeviceTestCase {
         }
     }
 
-    /**
-     * Test syncing a single file using {@link TestDevice#syncFiles(File, String)}.
-     */
+    /** Test syncing a single file using {@link TestDevice#syncFiles(File, String)}. */
+    @Test
     public void testSyncFiles_normal() throws Exception {
         doTestSyncFiles(mTestDevice.getMountPoint(IDevice.MNT_EXTERNAL_STORAGE));
     }
 
     /**
      * Test syncing a single file using {@link TestDevice#syncFiles(File, String)}.
-     * <p />
-     * This variant of the test uses "${EXTERNAL_STORAGE}" in the pathname.
+     *
+     * <p>This variant of the test uses "${EXTERNAL_STORAGE}" in the pathname.
      */
+    @Test
     public void testSyncFiles_extStorageVariable() throws Exception {
         doTestSyncFiles("${EXTERNAL_STORAGE}");
     }
 
-    /**
-     * Test syncing a single file using {@link TestDevice#syncFiles(File, String)}.
-     */
-    public void doTestSyncFiles(String externalStorePath) throws Exception {
+    /** Test syncing a single file using {@link TestDevice#syncFiles(File, String)}. */
+    private void doTestSyncFiles(String externalStorePath) throws Exception {
         String expectedDeviceFilePath = null;
 
         // create temp dir with one temp file
@@ -464,9 +470,8 @@ public class TestDeviceFuncTest extends DeviceTestCase {
         }
     }
 
-    /**
-     * Test pushing a directory
-     */
+    /** Test pushing a directory */
+    @Test
     public void testPushDir() throws IOException, DeviceNotAvailableException {
         String expectedDeviceFilePath = null;
         String externalStorePath = null;
@@ -494,10 +499,11 @@ public class TestDeviceFuncTest extends DeviceTestCase {
 
     /**
      * Test {@link TestDevice#executeFastbootCommand(String...)} when device is in adb mode.
-     * <p/>
-     * Expect fastboot recovery to be invoked, which will boot device back to fastboot mode and
+     *
+     * <p>Expect fastboot recovery to be invoked, which will boot device back to fastboot mode and
      * command will succeed.
      */
+    @Test
     public void testExecuteFastbootCommand_deviceInAdb() throws DeviceNotAvailableException {
         Log.i(LOG_TAG, "testExecuteFastbootCommand_deviceInAdb");
         if (!mTestDevice.isFastbootEnabled()) {
@@ -521,9 +527,10 @@ public class TestDeviceFuncTest extends DeviceTestCase {
 
     /**
      * Test {@link TestDevice#executeFastbootCommand(String...)} when an invalid command is passed.
-     * <p/>
-     * Expect the result indicate failure, and recovery not to be invoked.
+     *
+     * <p>Expect the result indicate failure, and recovery not to be invoked.
      */
+    @Test
     public void testExecuteFastbootCommand_badCommand() throws DeviceNotAvailableException {
         Log.i(LOG_TAG, "testExecuteFastbootCommand_badCommand");
         if (!mTestDevice.isFastbootEnabled()) {
@@ -548,9 +555,8 @@ public class TestDeviceFuncTest extends DeviceTestCase {
         }
     }
 
-    /**
-     * Verify device can be rebooted into bootloader and back to adb.
-     */
+    /** Verify device can be rebooted into bootloader and back to adb. */
+    @Test
     public void testRebootIntoBootloader() throws DeviceNotAvailableException {
         Log.i(LOG_TAG, "testRebootIntoBootloader");
         if (!mTestDevice.isFastbootEnabled()) {
@@ -566,9 +572,8 @@ public class TestDeviceFuncTest extends DeviceTestCase {
         }
     }
 
-    /**
-     * Verify device can be rebooted into adb.
-     */
+    /** Verify device can be rebooted into adb. */
+    @Test
     public void testReboot() throws DeviceNotAvailableException {
         Log.i(LOG_TAG, "testReboot");
         mTestDevice.reboot();
@@ -577,9 +582,8 @@ public class TestDeviceFuncTest extends DeviceTestCase {
         assertTrue(mTestDevice.executeShellCommand("id").contains("root"));
     }
 
-    /**
-     * Verify device can be rebooted into adb recovery.
-     */
+    /** Verify device can be rebooted into adb recovery. */
+    @Test
     public void testRebootIntoRecovery() throws Exception {
         Log.i(LOG_TAG, "testRebootIntoRecovery");
         if (!mTestDevice.isFastbootEnabled()) {
@@ -599,12 +603,13 @@ public class TestDeviceFuncTest extends DeviceTestCase {
     /**
      * Verify that {@link TestDevice#clearErrorDialogs()} can successfully clear an error dialog
      * from screen.
-     * <p/>
-     * This is done by running a test app which will crash, then running another app that
-     * does UI based tests.
-     * <p/>
-     * Assumes DevTools and TradeFedUiApp are currently installed.
+     *
+     * <p>This is done by running a test app which will crash, then running another app that does UI
+     * based tests.
+     *
+     * <p>Assumes DevTools and TradeFedUiApp are currently installed.
      */
+    @Test
     public void testClearErrorDialogs_crash() throws DeviceNotAvailableException {
         Log.i(LOG_TAG, "testClearErrorDialogs_crash");
         // Ensure device is in a known state, we doing extra care here otherwise it may be flaky
@@ -633,22 +638,28 @@ public class TestDeviceFuncTest extends DeviceTestCase {
 
     /**
      * Verify the steps taken to disable keyguard after reboot are successfully
-     * <p/>
-     * This is done by rebooting then run a app that does UI based tests.
-     * <p/>
-     * Assumes DevTools and TradeFedUiApp are currently installed.
+     *
+     * <p>This is done by rebooting then run a app that does UI based tests.
+     *
+     * <p>Assumes DevTools and TradeFedUiApp are currently installed.
      */
+    @Test
     public void testDisableKeyguard() throws DeviceNotAvailableException {
         Log.i(LOG_TAG, "testDisableKeyguard");
         getDevice().reboot();
         mTestDevice.waitForDeviceAvailable();
-        RunUtil.getDefault().sleep(500);
-        assertTrue(runUITests());
+        RunUtil.getDefault().sleep(3000);
+        KeyguardControllerState keyguard = mTestDevice.getKeyguardState();
+        if (keyguard == null) {
+            // If the getKeyguardState is not supported.
+            assertTrue(runUITests());
+        } else {
+            assertFalse(keyguard.isKeyguardShowing());
+        }
     }
 
-    /**
-     * Test that TradeFed can successfully recover from the adb host daemon process being killed
-     */
+    /** Test that TradeFed can successfully recover from the adb host daemon process being killed */
+    @Test
     public void testExecuteShellCommand_adbKilled() {
         // FIXME: adb typically does not recover, and this causes rest of tests to fail
         //Log.i(LOG_TAG, "testExecuteShellCommand_adbKilled");
@@ -659,9 +670,11 @@ public class TestDeviceFuncTest extends DeviceTestCase {
 
     /**
      * Basic test for {@link TestDevice#getScreenshot()}.
-     * <p/>
-     * Grab a screenshot, save it to a file, and perform a cursory size check to ensure its valid.
+     *
+     * <p>Grab a screenshot, save it to a file, and perform a cursory size check to ensure its
+     * valid.
      */
+    @Test
     public void testGetScreenshot() throws DeviceNotAvailableException, IOException {
         CLog.i(LOG_TAG, "testGetScreenshot");
         InputStreamSource source = getDevice().getScreenshot();
@@ -678,16 +691,17 @@ public class TestDeviceFuncTest extends DeviceTestCase {
             assertTrue(image.getHeight() > 200);
         } finally {
             FileUtil.deleteFile(tmpPngFile);
-            source.cancel();
+            source.close();
         }
     }
 
     /**
      * Basic test for {@link TestDevice#getLogcat(int)}.
-     * <p/>
-     * Dumps a bunch of messages to logcat, calls getLogcat(), and verifies size of capture file is
-     * equal to provided data.
+     *
+     * <p>Dumps a bunch of messages to logcat, calls getLogcat(), and verifies size of capture file
+     * is equal to provided data.
      */
+    @Test
     public void testGetLogcat_size() throws DeviceNotAvailableException, IOException {
         CLog.i(LOG_TAG, "testGetLogcat_size");
         for (int i = 0; i < 100; i++) {
@@ -710,19 +724,20 @@ public class TestDeviceFuncTest extends DeviceTestCase {
                     s.contains("testGetLogcat_size log dump 99"));
         } finally {
             FileUtil.deleteFile(tmpTxtFile);
-            source.cancel();
+            source.close();
         }
     }
 
     /**
      * Basic test for encryption if encryption is supported.
-     * <p>
-     * Calls {@link TestDevice#encryptDevice(boolean)}, {@link TestDevice#unlockDevice()}, and
+     *
+     * <p>Calls {@link TestDevice#encryptDevice(boolean)}, {@link TestDevice#unlockDevice()}, and
      * {@link TestDevice#unencryptDevice()}, as well as reboots the device while the device is
      * encrypted.
-     * </p>
+     *
      * @throws DeviceNotAvailableException
      */
+    @Test
     public void testEncryption() throws DeviceNotAvailableException {
         CLog.i("testEncryption");
 
@@ -744,18 +759,16 @@ public class TestDeviceFuncTest extends DeviceTestCase {
         assertFalse(getDevice().isDeviceEncrypted());
     }
 
-    /**
-     * Test that {@link TestDevice#getProperty(String)} works after a reboot.
-     */
+    /** Test that {@link TestDevice#getProperty(String)} works after a reboot. */
+    @Test
     public void testGetProperty() throws Exception {
         assertNotNull(getDevice().getProperty("ro.hardware"));
         getDevice().rebootUntilOnline();
         assertNotNull(getDevice().getProperty("ro.hardware"));
     }
 
-    /**
-     * Test that {@link TestDevice#getProperty(String)} works for volatile properties.
-     */
+    /** Test that {@link TestDevice#getProperty(String)} works for volatile properties. */
+    @Test
     public void testGetProperty_volatile() throws Exception {
         getDevice().executeShellCommand("setprop prop.test 0");
         assertEquals("0", getDevice().getProperty("prop.test"));
@@ -763,9 +776,8 @@ public class TestDeviceFuncTest extends DeviceTestCase {
         assertEquals("1", getDevice().getProperty("prop.test"));
     }
 
-    /**
-     * Test that the recovery mechanism works in {@link TestDevice#getFileEntry(String)}
-     */
+    /** Test that the recovery mechanism works in {@link TestDevice#getFileEntry(String)} */
+    @Test
     public void testGetFileEntry_recovery() throws Exception {
         if (!mTestDevice.isFastbootEnabled()) {
             Log.i(LOG_TAG, "Fastboot not enabled skipping testGetFileEntry_recovery");
@@ -792,9 +804,8 @@ public class TestDeviceFuncTest extends DeviceTestCase {
         return TestAppConstants.UI_TOTAL_TESTS == uilistener.getNumTestsInState(TestStatus.PASSED);
     }
 
-    /**
-     * Test for {@link NativeDevice#setSetting(int, String, String, String)}
-     */
+    /** Test for {@link NativeDevice#setSetting(int, String, String, String)} */
+    @Test
     public void testPutSettings() throws Exception {
         String initValue = mTestDevice.getSetting(0, "system", "screen_brightness");
         CLog.i("initial value was: %s", initValue);

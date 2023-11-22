@@ -57,13 +57,22 @@ public class ServiceWorkerClientTest extends ActivityInstrumentationTestCase2<We
             + "    <script>\n"
             + "      navigator.serviceWorker.register('sw.js').then(function(reg) {\n"
             + "         " + JS_INTERFACE_NAME + ".registrationSuccess();\n"
-            + "      }).catch(function(err) { \n"
+            + "      }).catch(function(err) {\n"
             + "         console.error(err);\n"
             + "      });\n"
             + "    </script>\n"
             + "  </body>\n"
             + "</html>\n";
     private static final String SW_RAW_HTML = "fetch('fetch.html');";
+    private static final String SW_UNREGISTER_RAW_JS =
+            "navigator.serviceWorker.getRegistration().then(function(r) {"
+            + "  r.unregister().then(function(success) {"
+            + "    if (success) " + JS_INTERFACE_NAME + ".unregisterSuccess();"
+            + "    else console.error('unregister() was not successful');"
+            + "  });"
+            + "}).catch(function(err) {"
+            + "   console.error(err);"
+            + "});";
 
     private JavascriptStatusReceiver mJavascriptStatusReceiver;
     private WebViewOnUiThread mOnUiThread;
@@ -171,16 +180,33 @@ public class ServiceWorkerClientTest extends ActivityInstrumentationTestCase2<We
         assertEquals(2, requests.size());
         assertEquals(SW_URL, requests.get(0).getUrl().toString());
         assertEquals(FETCH_URL, requests.get(1).getUrl().toString());
+
+        // Clean-up, make sure to unregister the Service Worker.
+        mOnUiThread.evaluateJavascript(SW_UNREGISTER_RAW_JS, null);
+        Callable<Boolean> unregisterSuccess = new Callable<Boolean>() {
+            @Override
+            public Boolean call() {
+                return mJavascriptStatusReceiver.mUnregisterSuccess;
+            }
+        };
+        PollingCheck.check("JS could not unregister Service Worker", POLLING_TIMEOUT,
+                unregisterSuccess);
     }
 
     // Object added to the page via AddJavascriptInterface() that is used by the test Javascript to
     // notify back to Java if the Service Worker registration was successful.
     public final static class JavascriptStatusReceiver {
         public volatile boolean mRegistrationSuccess = false;
+        public volatile boolean mUnregisterSuccess = false;
 
         @JavascriptInterface
         public void registrationSuccess() {
             mRegistrationSuccess = true;
+        }
+
+        @JavascriptInterface
+        public void unregisterSuccess() {
+            mUnregisterSuccess = true;
         }
     }
 }

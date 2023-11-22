@@ -35,6 +35,7 @@ import android.support.test.annotation.UiThreadTest;
 import android.support.test.filters.SmallTest;
 import android.support.test.rule.ActivityTestRule;
 import android.support.test.runner.AndroidJUnit4;
+import android.view.KeyEvent;
 import android.view.View;
 import android.widget.ListView;
 import android.widget.TabHost;
@@ -395,6 +396,49 @@ public class TabHostTest {
         assertEquals(TAG_TAB2, tabHost.getCurrentTabTag());
     }
 
+    @Test
+    public void testKeyboardNavigation() throws Throwable {
+        mActivityRule.runOnUiThread(() -> {
+            mActivity.setContentView(R.layout.tabhost_focus);
+            TabHost tabHost = mActivity.findViewById(android.R.id.tabhost);
+            tabHost.setup();
+            TabSpec spec = tabHost.newTabSpec("Tab 1");
+            spec.setContent(R.id.tab1);
+            spec.setIndicator("Tab 1");
+            tabHost.addTab(spec);
+            spec = tabHost.newTabSpec("Tab 2");
+            spec.setContent(R.id.tab2);
+            spec.setIndicator("Tab 2");
+            tabHost.addTab(spec);
+            View topBut = mActivity.findViewById(R.id.before_button);
+            topBut.requestFocus();
+            assertTrue(topBut.isFocused());
+        });
+        mInstrumentation.waitForIdleSync();
+        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_TAB);
+        View tabs = mActivity.findViewById(android.R.id.tabs);
+        assertTrue(tabs.hasFocus());
+        View firstTab = tabs.findFocus();
+        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_TAB);
+        assertTrue(tabs.hasFocus());
+        int[] shiftKey = new int[]{KeyEvent.KEYCODE_SHIFT_LEFT};
+        sendKeyComboSync(KeyEvent.KEYCODE_TAB, shiftKey);
+        assertTrue(tabs.hasFocus());
+        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_TAB);
+        assertTrue(tabs.hasFocus());
+
+        // non-navigation sends focus to content
+        mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_E);
+        assertTrue(mActivity.findViewById(R.id.tab1_button).isFocused());
+        sendKeyComboSync(KeyEvent.KEYCODE_TAB, shiftKey);
+        assertTrue(tabs.hasFocus());
+
+        mActivityRule.runOnUiThread(() -> firstTab.requestFocus());
+        mInstrumentation.waitForIdleSync();
+        sendKeyComboSync(KeyEvent.KEYCODE_TAB, shiftKey);
+        assertTrue(mActivity.findViewById(R.id.before_button).isFocused());
+    }
+
     private class MyTabContentFactoryText implements TabHost.TabContentFactory {
         public View createTabContent(String tag) {
             final TextView tv = new TextView(mActivity);
@@ -407,6 +451,50 @@ public class TabHostTest {
         public View createTabContent(String tag) {
             final ListView lv = new ListView(mActivity);
             return lv;
+        }
+    }
+
+    private static int metaFromKey(int keyCode) {
+        switch(keyCode) {
+            case KeyEvent.KEYCODE_ALT_LEFT: return KeyEvent.META_ALT_LEFT_ON;
+            case KeyEvent.KEYCODE_ALT_RIGHT: return KeyEvent.META_ALT_RIGHT_ON;
+            case KeyEvent.KEYCODE_SHIFT_LEFT: return KeyEvent.META_SHIFT_LEFT_ON;
+            case KeyEvent.KEYCODE_SHIFT_RIGHT: return KeyEvent.META_SHIFT_RIGHT_ON;
+            case KeyEvent.KEYCODE_CTRL_LEFT: return KeyEvent.META_CTRL_LEFT_ON;
+            case KeyEvent.KEYCODE_CTRL_RIGHT: return KeyEvent.META_CTRL_RIGHT_ON;
+            case KeyEvent.KEYCODE_META_LEFT: return KeyEvent.META_META_LEFT_ON;
+            case KeyEvent.KEYCODE_META_RIGHT: return KeyEvent.META_META_RIGHT_ON;
+        }
+        return 0;
+    }
+
+    /**
+     * High-level method for sending a chorded key-combo (modifiers + key). This will send all the
+     * down and up key events as a user would press them (ie. all the modifiers get their own
+     * down and up events).
+     *
+     * @param keyCode The keycode to send while all meta keys are pressed.
+     * @param metaKeys An array of meta key *keycodes* (not modifiers).
+     */
+    private void sendKeyComboSync(int keyCode, int[] metaKeys) {
+        int metaState = 0;
+        if (metaKeys != null) {
+            for (int mk = 0; mk < metaKeys.length; ++mk) {
+                metaState |= metaFromKey(metaKeys[mk]);
+                mInstrumentation.sendKeySync(new KeyEvent(0, 0, KeyEvent.ACTION_DOWN, metaKeys[mk],
+                        0, KeyEvent.normalizeMetaState(metaState)));
+            }
+        }
+        mInstrumentation.sendKeySync(new KeyEvent(0, 0, KeyEvent.ACTION_DOWN, keyCode, 0,
+                KeyEvent.normalizeMetaState(metaState)));
+        mInstrumentation.sendKeySync(new KeyEvent(0, 0, KeyEvent.ACTION_UP, keyCode, 0,
+                KeyEvent.normalizeMetaState(metaState)));
+        if (metaKeys != null) {
+            for (int mk = 0; mk < metaKeys.length; ++mk) {
+                metaState &= ~metaFromKey(metaKeys[mk]);
+                mInstrumentation.sendKeySync(new KeyEvent(0, 0, KeyEvent.ACTION_UP, metaKeys[mk], 0,
+                        KeyEvent.normalizeMetaState(metaState)));
+            }
         }
     }
 }

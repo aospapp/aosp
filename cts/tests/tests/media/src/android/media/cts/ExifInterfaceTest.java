@@ -21,6 +21,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.ExifInterface;
 import android.os.Environment;
+import android.os.FileUtils;
 import android.test.AndroidTestCase;
 import android.util.Log;
 import android.system.ErrnoException;
@@ -70,7 +71,7 @@ public class ExifInterfaceTest extends AndroidTestCase {
             ExifInterface.TAG_MAKE,
             ExifInterface.TAG_MODEL,
             ExifInterface.TAG_F_NUMBER,
-            ExifInterface.TAG_DATETIME,
+            ExifInterface.TAG_DATETIME_ORIGINAL,
             ExifInterface.TAG_EXPOSURE_TIME,
             ExifInterface.TAG_FLASH,
             ExifInterface.TAG_FOCAL_LENGTH,
@@ -107,7 +108,7 @@ public class ExifInterfaceTest extends AndroidTestCase {
         public final String make;
         public final String model;
         public final float aperture;
-        public final String datetime;
+        public final String dateTimeOriginal;
         public final float exposureTime;
         public final float flash;
         public final String focalLength;
@@ -153,7 +154,7 @@ public class ExifInterfaceTest extends AndroidTestCase {
             make = getString(typedArray, index++);
             model = getString(typedArray, index++);
             aperture = typedArray.getFloat(index++, 0f);
-            datetime = getString(typedArray, index++);
+            dateTimeOriginal = getString(typedArray, index++);
             exposureTime = typedArray.getFloat(index++, 0f);
             flash = typedArray.getFloat(index++, 0f);
             focalLength = getString(typedArray, index++);
@@ -273,7 +274,8 @@ public class ExifInterfaceTest extends AndroidTestCase {
         assertStringTag(exifInterface, ExifInterface.TAG_MAKE, expectedValue.make);
         assertStringTag(exifInterface, ExifInterface.TAG_MODEL, expectedValue.model);
         assertFloatTag(exifInterface, ExifInterface.TAG_F_NUMBER, expectedValue.aperture);
-        assertStringTag(exifInterface, ExifInterface.TAG_DATETIME, expectedValue.datetime);
+        assertStringTag(exifInterface, ExifInterface.TAG_DATETIME_ORIGINAL,
+                expectedValue.dateTimeOriginal);
         assertFloatTag(exifInterface, ExifInterface.TAG_EXPOSURE_TIME, expectedValue.exposureTime);
         assertFloatTag(exifInterface, ExifInterface.TAG_FLASH, expectedValue.flash);
         assertStringTag(exifInterface, ExifInterface.TAG_FOCAL_LENGTH, expectedValue.focalLength);
@@ -477,5 +479,35 @@ public class ExifInterfaceTest extends AndroidTestCase {
 
     public void testReadExifDataFromSamsungNX3000Srw() throws Throwable {
         testExifInterfaceForRaw(SAMSUNG_NX3000_SRW, R.array.samsung_nx3000_srw);
+    }
+
+    public void testSetDateTime() throws IOException {
+        final String dateTimeValue = "2017:02:02 22:22:22";
+        final String dateTimeOriginalValue = "2017:01:01 11:11:11";
+
+        File srcFile = new File(Environment.getExternalStorageDirectory(),
+                EXTERNAL_BASE_DIRECTORY + EXIF_BYTE_ORDER_II_JPEG);
+        File imageFile = new File(Environment.getExternalStorageDirectory(),
+                EXTERNAL_BASE_DIRECTORY + EXIF_BYTE_ORDER_II_JPEG + "_copied");
+
+        FileUtils.copyFileOrThrow(srcFile, imageFile);
+        ExifInterface exif = new ExifInterface(imageFile.getAbsolutePath());
+        exif.setAttribute(ExifInterface.TAG_DATETIME, dateTimeValue);
+        exif.setAttribute(ExifInterface.TAG_DATETIME_ORIGINAL, dateTimeOriginalValue);
+        exif.saveAttributes();
+
+        // Check that the DATETIME value is not overwritten by DATETIME_ORIGINAL's value.
+        exif = new ExifInterface(imageFile.getAbsolutePath());
+        assertEquals(dateTimeValue, exif.getAttribute(ExifInterface.TAG_DATETIME));
+        assertEquals(dateTimeOriginalValue, exif.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL));
+
+        // Now remove the DATETIME value.
+        exif.setAttribute(ExifInterface.TAG_DATETIME, null);
+        exif.saveAttributes();
+
+        // When the DATETIME has no value, then it should be set to DATETIME_ORIGINAL's value.
+        exif = new ExifInterface(imageFile.getAbsolutePath());
+        assertEquals(dateTimeOriginalValue, exif.getAttribute(ExifInterface.TAG_DATETIME));
+        imageFile.delete();
     }
 }

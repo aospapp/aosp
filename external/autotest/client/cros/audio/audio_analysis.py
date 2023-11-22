@@ -64,6 +64,7 @@ def spectral_analysis(signal, rate, min_peak_ratio=DEFAULT_MIN_PEAK_RATIO,
               where the tuples are sorted by coefficients.
               The last peak_coefficient will be no less than
               peak_coefficient * min_peak_ratio.
+              If RMS is less than MEANINGFUL_RMS_THRESHOLD, returns [(0, 0)].
 
     """
     # Checks the signal is meaningful.
@@ -72,9 +73,13 @@ def spectral_analysis(signal, rate, min_peak_ratio=DEFAULT_MIN_PEAK_RATIO,
 
     signal_rms = numpy.linalg.norm(signal) / numpy.sqrt(len(signal))
     logging.debug('signal RMS = %s', signal_rms)
+
+    # If RMS is too small, set dominant frequency and coefficient to 0.
     if signal_rms < MEANINGFUL_RMS_THRESHOLD:
-        raise RMSTooSmallError(
-                'RMS %s is too small to be meaningful' % signal_rms)
+        logging.warning(
+                'RMS %s is too small to be meaningful. Set frequency to 0.',
+                signal_rms)
+        return [(0, 0)]
 
     logging.debug('Doing spectral analysis ...')
 

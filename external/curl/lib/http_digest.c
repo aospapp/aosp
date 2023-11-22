@@ -25,7 +25,7 @@
 #if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_CRYPTO_AUTH)
 
 #include "urldata.h"
-#include "rawstr.h"
+#include "strcase.h"
 #include "vauth/vauth.h"
 #include "http_digest.h"
 /* The last 3 #include files should be in this order */
@@ -95,8 +95,8 @@ CURLcode Curl_output_digest(struct connectdata *conn,
   if(proxy) {
     digest = &data->state.proxydigest;
     allocuserpwd = &conn->allocptr.proxyuserpwd;
-    userp = conn->proxyuser;
-    passwdp = conn->proxypasswd;
+    userp = conn->http_proxy.user;
+    passwdp = conn->http_proxy.passwd;
     authp = &data->state.authproxy;
   }
   else {

@@ -17,8 +17,8 @@
 #ifndef SCOPED_ICU_LOCALE_H_included
 #define SCOPED_ICU_LOCALE_H_included
 
-#include "JNIHelp.h"
-#include "ScopedUtfChars.h"
+#include <nativehelper/JNIHelp.h>
+#include <nativehelper/ScopedUtfChars.h>
 #include "unicode/locid.h"
 
 class ScopedIcuLocale {

@@ -74,13 +74,16 @@ genrule {
     ],
 }
 
-cc_library_shared {
+cc_library {
     name: "android.hardware.media.omx@1.0",
     defaults: ["hidl-module-defaults"],
     generated_sources: ["android.hardware.media.omx@1.0_genc++"],
     generated_headers: ["android.hardware.media.omx@1.0_genc++_headers"],
     export_generated_headers: ["android.hardware.media.omx@1.0_genc++_headers"],
     vendor_available: true,
+    vndk: {
+        enabled: true,
+    },
     shared_libs: [
         "libhidlbase",
         "libhidltransport",
@@ -91,7 +94,6 @@ cc_library_shared {
         "android.hardware.graphics.bufferqueue@1.0",
         "android.hardware.graphics.common@1.0",
         "android.hardware.media@1.0",
-        "android.hidl.base@1.0",
     ],
     export_shared_lib_headers: [
         "libhidlbase",
@@ -101,6 +103,5 @@ cc_library_shared {
         "android.hardware.graphics.bufferqueue@1.0",
         "android.hardware.graphics.common@1.0",
         "android.hardware.media@1.0",
-        "android.hidl.base@1.0",
     ],
 }

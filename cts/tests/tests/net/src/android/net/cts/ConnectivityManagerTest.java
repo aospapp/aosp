@@ -37,6 +37,7 @@ import android.net.NetworkInfo.DetailedState;
 import android.net.NetworkInfo.State;
 import android.net.NetworkRequest;
 import android.net.wifi.WifiManager;
+import android.os.Looper;
 import android.os.SystemProperties;
 import android.system.Os;
 import android.system.OsConstants;
@@ -110,6 +111,7 @@ public class ConnectivityManagerTest extends AndroidTestCase {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
+        Looper.prepare();
         mContext = getContext();
         mCm = (ConnectivityManager) mContext.getSystemService(Context.CONNECTIVITY_SERVICE);
         mWifiManager = (WifiManager) mContext.getSystemService(Context.WIFI_SERVICE);
@@ -279,11 +281,10 @@ public class ConnectivityManagerTest extends AndroidTestCase {
     }
 
     private boolean isSupported(int networkType) {
-        // Change-Id I02eb5f22737720095f646f8db5c87fd66da129d6 added VPN support
-        // to all devices directly in software, independent of any external
-        // configuration.
         return mNetworks.containsKey(networkType) ||
-               (networkType == ConnectivityManager.TYPE_VPN);
+               (networkType == ConnectivityManager.TYPE_VPN) ||
+               (networkType == ConnectivityManager.TYPE_ETHERNET &&
+                       mContext.getSystemService(Context.ETHERNET_SERVICE) != null);
     }
 
     public void testIsNetworkSupported() {

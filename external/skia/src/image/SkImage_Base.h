@@ -13,8 +13,9 @@
 #include "SkSurface.h"
 
 #if SK_SUPPORT_GPU
-    #include "GrTexture.h"
     #include "GrTextureProxy.h"
+
+    class GrTexture;
 #endif
 
 #include <new>
@@ -28,7 +29,6 @@ enum {
 
 class SkImage_Base : public SkImage {
 public:
-    SkImage_Base(int width, int height, uint32_t uniqueID);
     virtual ~SkImage_Base();
 
     // User: returns image info for this SkImage.
@@ -41,14 +41,10 @@ public:
 
     virtual const SkBitmap* onPeekBitmap() const { return nullptr; }
 
-    virtual bool onReadYUV8Planes(const SkISize sizes[3], void* const planes[3],
-                                  const size_t rowBytes[3], SkYUVColorSpace colorSpace) const;
-
     virtual bool onReadPixels(const SkImageInfo& dstInfo, void* dstPixels, size_t dstRowBytes,
                               int srcX, int srcY, CachingHint) const = 0;
 
-    // MDB TODO: this entry point needs to go away
-    virtual GrTexture* peekTexture() const { return nullptr; }
+    virtual GrContext* context() const { return nullptr; }
 #if SK_SUPPORT_GPU
     virtual GrTextureProxy* peekProxy() const { return nullptr; }
     virtual sk_sp<GrTextureProxy> asTextureProxyRef() const { return nullptr; }
@@ -73,12 +69,15 @@ public:
 
     virtual sk_sp<SkImage> onMakeSubset(const SkIRect&) const = 0;
 
-    // If a ctx is specified, then only gpu-specific formats are requested.
-    virtual SkData* onRefEncoded(GrContext*) const { return nullptr; }
+    virtual SkData* onRefEncoded() const { return nullptr; }
 
     virtual bool onAsLegacyBitmap(SkBitmap*, LegacyBitmapMode) const;
 
+    // True for picture-backed and codec-backed
     virtual bool onIsLazyGenerated() const { return false; }
+
+    // True only for generators that operate directly on gpu (e.g. picture-generators)
+    virtual bool onCanLazyGenerateOnGPU() const { return false; }
 
     // Call when this image is part of the key to a resourcecache entry. This allows the cache
     // to know automatically those entries can be purged when this SkImage deleted.
@@ -86,17 +85,15 @@ public:
         fAddedToCache.store(true);
     }
 
-    // Transforms image into the input color space.
-    sk_sp<SkImage> makeColorSpace(sk_sp<SkColorSpace> target) const;
+    virtual bool onIsValid(GrContext*) const = 0;
 
     virtual bool onPinAsTexture(GrContext*) const { return false; }
     virtual void onUnpinAsTexture(GrContext*) const {}
 
+    virtual sk_sp<SkImage> onMakeColorSpace(sk_sp<SkColorSpace>, SkColorType,
+                                            SkTransferFunctionBehavior) const = 0;
 protected:
-    virtual sk_sp<SkImage> onMakeColorSpace(sk_sp<SkColorSpace>) const {
-        // TODO: Make this pure virtual.
-        return sk_ref_sp(const_cast<SkImage_Base*>(this));
-    }
+    SkImage_Base(int width, int height, uint32_t uniqueID);
 
 private:
     // Set true by caches when they cache content that's derived from the current pixels.

@@ -33,10 +33,11 @@
 #include <string.h>
 #include <sys/mman.h>
 
+#include <async_safe/log.h>
+
 #include "private/bionic_futex.h"
 #include "private/bionic_sdk_version.h"
 #include "private/bionic_tls.h"
-#include "private/libc_logging.h"
 
 static pthread_internal_t* g_thread_list = nullptr;
 static pthread_rwlock_t g_thread_list_lock = PTHREAD_RWLOCK_INITIALIZER;
@@ -103,9 +104,13 @@ pthread_internal_t* __pthread_internal_find(pthread_t thread_id) {
   // Check if we're looking for ourselves before acquiring the lock.
   if (thread == __get_thread()) return thread;
 
-  ScopedReadLock locker(&g_thread_list_lock);
-  for (pthread_internal_t* t = g_thread_list; t != nullptr; t = t->next) {
-    if (t == thread) return thread;
+  {
+    // Make sure to release the lock before the abort below. Otherwise,
+    // some apps might deadlock in their own crash handlers (see b/6565627).
+    ScopedReadLock locker(&g_thread_list_lock);
+    for (pthread_internal_t* t = g_thread_list; t != nullptr; t = t->next) {
+      if (t == thread) return thread;
+    }
   }
 
   // Historically we'd return null, but
@@ -116,9 +121,9 @@ pthread_internal_t* __pthread_internal_find(pthread_t thread_id) {
       // addresses might sometimes contain threads or things that look enough like
       // threads for us to do some real damage by continuing.
       // TODO: try getting rid of this when Treble lets us keep vendor blobs on an old API level.
-      __libc_format_log(ANDROID_LOG_WARN, "libc", "invalid pthread_t (0) passed to libc");
+      async_safe_format_log(ANDROID_LOG_WARN, "libc", "invalid pthread_t (0) passed to libc");
     } else {
-      __libc_fatal("invalid pthread_t %p passed to libc", thread);
+      async_safe_fatal("invalid pthread_t %p passed to libc", thread);
     }
   }
   return nullptr;

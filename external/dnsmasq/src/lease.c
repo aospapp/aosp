@@ -530,13 +530,6 @@ int do_script_run(time_t now)
 {
   struct dhcp_lease *lease;
 
-#ifdef HAVE_DBUS
-  /* If we're going to be sending DBus signals, but the connection is not yet up,
-     delay everything until it is. */
-  if ((daemon->options & OPT_DBUS) && !daemon->dbus)
-    return 0;
-#endif
-
   if (old_leases)
     {
       lease = old_leases;
@@ -556,9 +549,6 @@ int do_script_run(time_t now)
 	  kill_name(lease);
 #ifdef HAVE_SCRIPT
 	  queue_script(ACTION_DEL, lease, lease->old_hostname, now);
-#endif
-#ifdef HAVE_DBUS
-	  emit_dbus_signal(ACTION_DEL, lease, lease->old_hostname);
 #endif
 	  old_leases = lease->next;
 	  
@@ -592,10 +582,6 @@ int do_script_run(time_t now)
 #ifdef HAVE_SCRIPT
 	queue_script(lease->new ? ACTION_ADD : ACTION_OLD, lease, 
 		     lease->fqdn ? lease->fqdn : lease->hostname, now);
-#endif
-#ifdef HAVE_DBUS
-	emit_dbus_signal(lease->new ? ACTION_ADD : ACTION_OLD, lease,
-			 lease->fqdn ? lease->fqdn : lease->hostname);
 #endif
 	lease->new = lease->changed = lease->aux_changed = 0;
 	

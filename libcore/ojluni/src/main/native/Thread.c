@@ -36,7 +36,7 @@
 #define OBJ "Ljava/lang/Object;"
 #define STE "Ljava/lang/StackTraceElement;"
 #define STR "Ljava/lang/String;"
-#include "JNIHelp.h"
+#include <nativehelper/JNIHelp.h>
 
 #define ARRAY_LENGTH(a) (sizeof(a)/sizeof(a[0]))
 

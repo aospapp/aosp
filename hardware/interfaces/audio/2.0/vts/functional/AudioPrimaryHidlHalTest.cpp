@@ -21,9 +21,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <limits>
-#include <list>
 #include <string>
-#include <type_traits>
 #include <vector>
 
 #include <VtsHalHidlTargetTestBase.h>
@@ -37,6 +35,8 @@
 #include <android/hardware/audio/common/2.0/types.h>
 
 #include "utility/AssertOk.h"
+#include "utility/Documentation.h"
+#include "utility/EnvironmentTearDown.h"
 #include "utility/PrettyPrintAudioTypes.h"
 #include "utility/ReturnIn.h"
 
@@ -59,8 +59,7 @@ using ::android::hardware::audio::V2_0::IDevicesFactory;
 using ::android::hardware::audio::V2_0::IStream;
 using ::android::hardware::audio::V2_0::IStreamIn;
 using ::android::hardware::audio::V2_0::TimeSpec;
-using ReadParameters =
-    ::android::hardware::audio::V2_0::IStreamIn::ReadParameters;
+using ReadParameters = ::android::hardware::audio::V2_0::IStreamIn::ReadParameters;
 using ReadStatus = ::android::hardware::audio::V2_0::IStreamIn::ReadStatus;
 using ::android::hardware::audio::V2_0::IStreamOut;
 using ::android::hardware::audio::V2_0::IStreamOutCallback;
@@ -81,61 +80,8 @@ using ::android::hardware::audio::common::V2_0::AudioOutputFlag;
 using ::android::hardware::audio::common::V2_0::AudioSource;
 using ::android::hardware::audio::common::V2_0::ThreadInfo;
 
-using utility::returnIn;
+using namespace ::android::hardware::audio::common::test::utility;
 
-const char* getTestName() {
-    return ::testing::UnitTest::GetInstance()->current_test_info()->name();
-}
-
-namespace doc {
-/** Document the current test case.
- * Eg: calling `doc::test("Dump the state of the hal")` in the "debugDump" test
- * will output:
- *   <testcase name="debugDump" status="run" time="6"
- *             classname="AudioPrimaryHidlTest"
-               description="Dump the state of the hal." />
- * see
- https://github.com/google/googletest/blob/master/googletest/docs/AdvancedGuide.md#logging-additional-information
- */
-void test(const std::string& testCaseDocumentation) {
-    ::testing::Test::RecordProperty("description", testCaseDocumentation);
-}
-
-/** Document why a test was not fully run. Usually due to an optional feature
- * not implemented. */
-void partialTest(const std::string& reason) {
-    LOG(INFO) << "Test " << getTestName() << " partially run: " << reason;
-    ::testing::Test::RecordProperty("partialyRunTest", reason);
-}
-
-/** Add a note to the test. */
-void note(const std::string& note) {
-    LOG(INFO) << "Test " << getTestName() << " noted: " << note;
-    ::testing::Test::RecordProperty("note", note);
-}
-}
-
-// Register callback for static object destruction
-// Avoid destroying static objects after main return.
-// Post main return destruction leads to incorrect gtest timing measurements as
-// well as harder
-// debuging if anything goes wrong during destruction.
-class Environment : public ::testing::Environment {
-   public:
-    using TearDownFunc = std::function<void()>;
-    void registerTearDown(TearDownFunc&& tearDown) {
-        tearDowns.push_back(std::move(tearDown));
-    }
-
-   private:
-    void TearDown() override {
-        // Call the tear downs in reverse order of insertion
-        for (auto& tearDown : tearDowns) {
-            tearDown();
-        }
-    }
-    std::list<TearDownFunc> tearDowns;
-};
 // Instance to register global tearDown
 static Environment* environment;
 
@@ -557,8 +503,7 @@ static void testDebugDump(DebugDump debugDump) {
 
 TEST_F(AudioPrimaryHidlTest, DebugDump) {
     doc::test("Check that the hal can dump its state without error");
-    testDebugDump(
-        [this](const auto& handle) { return device->debugDump(handle); });
+    testDebugDump([](const auto& handle) { return device->debugDump(handle); });
 }
 
 TEST_F(AudioPrimaryHidlTest, DebugDumpInvalidArguments) {
@@ -744,15 +689,11 @@ TEST_IO_STREAM(
     "Check that the stream frame count == the one it was opened with",
     ASSERT_EQ(audioConfig.frameCount, extract(stream->getFrameCount())))
 
-TEST_IO_STREAM(
-    GetSampleRate,
-    "Check that the stream sample rate == the one it was opened with",
-    stream->getSampleRate())
+TEST_IO_STREAM(GetSampleRate, "Check that the stream sample rate == the one it was opened with",
+               ASSERT_EQ(audioConfig.sampleRateHz, extract(stream->getSampleRate())))
 
-TEST_IO_STREAM(
-    GetChannelMask,
-    "Check that the stream channel mask == the one it was opened with",
-    stream->getChannelMask())
+TEST_IO_STREAM(GetChannelMask, "Check that the stream channel mask == the one it was opened with",
+               ASSERT_EQ(audioConfig.channelMask, extract(stream->getChannelMask())))
 
 TEST_IO_STREAM(GetFormat,
                "Check that the stream format == the one it was opened with",
@@ -854,17 +795,23 @@ TEST_IO_STREAM(
     areAudioPatchesSupported() ? doc::partialTest("Audio patches are supported")
                                : testSetDevice(stream.get(), address))
 
-static void testGetAudioProperties(IStream* stream) {
+static void testGetAudioProperties(IStream* stream, AudioConfig expectedConfig) {
     uint32_t sampleRateHz;
     AudioChannelMask mask;
     AudioFormat format;
+
     stream->getAudioProperties(returnIn(sampleRateHz, mask, format));
+
+    // FIXME: the qcom hal it does not currently negotiate the sampleRate &
+    // channel mask
+    EXPECT_EQ(expectedConfig.sampleRateHz, sampleRateHz);
+    EXPECT_EQ(expectedConfig.channelMask, mask);
+    EXPECT_EQ(expectedConfig.format, format);
 }
 
-TEST_IO_STREAM(
-    GetAudioProperties,
-    "Check that the stream audio properties == the ones it was opened with",
-    testGetAudioProperties(stream.get()))
+TEST_IO_STREAM(GetAudioProperties,
+               "Check that the stream audio properties == the ones it was opened with",
+               testGetAudioProperties(stream.get(), audioConfig))
 
 static void testConnectedState(IStream* stream) {
     DeviceAddress address = {};
@@ -1341,8 +1288,7 @@ TEST_P(OutputStreamTest, GetPresentationPositionStop) {
 
 TEST_F(AudioPrimaryHidlTest, setVoiceVolume) {
     doc::test("Make sure setVoiceVolume only succeed if volume is in [0,1]");
-    testUnitaryGain(
-        [this](float volume) { return device->setVoiceVolume(volume); });
+    testUnitaryGain([](float volume) { return device->setVoiceVolume(volume); });
 }
 
 TEST_F(AudioPrimaryHidlTest, setMode) {
@@ -1402,6 +1348,5 @@ int main(int argc, char** argv) {
     ::testing::AddGlobalTestEnvironment(environment);
     ::testing::InitGoogleTest(&argc, argv);
     int status = RUN_ALL_TESTS();
-    LOG(INFO) << "Test result = " << status;
     return status;
 }

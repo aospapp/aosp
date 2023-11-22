@@ -20,6 +20,7 @@
 #define BLE_ADVERTISER_HCI_INTERFACE_H
 
 #include <base/bind.h>
+#include <vector>
 #include "stack/include/bt_types.h"
 
 /* This class is an abstraction of HCI commands used for managing
@@ -50,16 +51,14 @@ class BleAdvertiserHciInterface {
       AdvertisingEventObserver* observer) = 0;
   virtual void ReadInstanceCount(
       base::Callback<void(uint8_t /* inst_cnt*/)> cb) = 0;
-  virtual void SetParameters(uint8_t handle, uint16_t properties,
-                             uint32_t adv_int_min, uint32_t adv_int_max,
-                             uint8_t channel_map, uint8_t own_address_type,
-                             BD_ADDR own_address, uint8_t peer_address_type,
-                             BD_ADDR peer_address, uint8_t filter_policy,
-                             int8_t tx_power, uint8_t primary_phy,
-                             uint8_t secondary_max_skip, uint8_t secondary_phy,
-                             uint8_t advertising_sid,
-                             uint8_t scan_request_notify_enable,
-                             parameters_cb command_complete) = 0;
+  virtual void SetParameters(
+      uint8_t handle, uint16_t properties, uint32_t adv_int_min,
+      uint32_t adv_int_max, uint8_t channel_map, uint8_t own_address_type,
+      const RawAddress& own_address, uint8_t peer_address_type,
+      const RawAddress& peer_address, uint8_t filter_policy, int8_t tx_power,
+      uint8_t primary_phy, uint8_t secondary_max_skip, uint8_t secondary_phy,
+      uint8_t advertising_sid, uint8_t scan_request_notify_enable,
+      parameters_cb command_complete) = 0;
   virtual void SetAdvertisingData(uint8_t handle, uint8_t operation,
                                   uint8_t fragment_preference,
                                   uint8_t data_length, uint8_t* data,
@@ -69,11 +68,28 @@ class BleAdvertiserHciInterface {
                                    uint8_t scan_response_data_length,
                                    uint8_t* scan_response_data,
                                    status_cb command_complete) = 0;
-  virtual void SetRandomAddress(uint8_t handle, BD_ADDR random_address,
+  virtual void SetRandomAddress(uint8_t handle,
+                                const RawAddress& random_address,
                                 status_cb command_complete) = 0;
-  virtual void Enable(uint8_t enable, uint8_t handle, uint16_t duration,
-                      uint8_t max_extended_advertising_events,
+
+  struct SetEnableData {
+    uint8_t handle;
+    uint16_t duration;
+    uint8_t max_extended_advertising_events;
+  };
+  virtual void Enable(uint8_t enable, std::vector<SetEnableData> sets,
                       status_cb command_complete) = 0;
+
+  void Enable(uint8_t enable, uint8_t handle, uint16_t duration,
+              uint8_t max_extended_advertising_events,
+              status_cb command_complete) {
+    std::vector<SetEnableData> enableData;
+    enableData.emplace_back(SetEnableData{
+        .handle = handle,
+        .duration = duration,
+        .max_extended_advertising_events = max_extended_advertising_events});
+    Enable(enable, enableData, command_complete);
+  };
   virtual void SetPeriodicAdvertisingParameters(uint8_t handle,
                                                 uint16_t periodic_adv_int_min,
                                                 uint16_t periodic_adv_int_max,

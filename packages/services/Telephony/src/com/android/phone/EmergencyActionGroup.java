@@ -240,6 +240,9 @@ public class EmergencyActionGroup extends FrameLayout implements View.OnClickLis
     }
 
     private void revealTheButton(View v) {
+        CharSequence buttonText = ((Button) v).getText();
+        mSelectedLabel.setText(buttonText);
+        mSelectedLabel.setAutoSizeTextTypeWithDefaults(TextView.AUTO_SIZE_TEXT_TYPE_UNIFORM);
         mSelectedContainer.setVisibility(VISIBLE);
         int centerX = v.getLeft() + v.getWidth() / 2;
         int centerY = v.getTop() + v.getHeight() / 2;
@@ -255,7 +258,6 @@ public class EmergencyActionGroup extends FrameLayout implements View.OnClickLis
         animateHintText(mSelectedLabel, v, reveal);
         animateHintText(mLaunchHint, v, reveal);
 
-        mSelectedLabel.setText(((Button) v).getText());
         mSelectedContainer.setTag(R.id.tag_intent, v.getTag(R.id.tag_intent));
         mLastRevealed = v;
         postDelayed(mHideRunnable, HIDE_DELAY);

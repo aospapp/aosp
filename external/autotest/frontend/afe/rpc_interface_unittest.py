@@ -73,6 +73,10 @@ class RpcInterfaceTest(unittest.TestCase,
                           set(expected_hostnames))
 
 
+    def test_ping_db(self):
+        self.assertEquals(rpc_interface.ping_db(), [True])
+
+
     def test_get_hosts(self):
         hosts = rpc_interface.get_hosts()
         self._check_hostnames(hosts, [host.hostname for host in self.hosts])
@@ -322,6 +326,89 @@ class RpcInterfaceTest(unittest.TestCase,
         self.assertEquals(entry2['status'], 'Queued')
         self.assertEquals(entry2['started_on'], '2009-01-03 00:00:00')
 
+
+    def _create_hqes_and_start_time_index_entries(self):
+        shard = models.Shard.objects.create(hostname='shard')
+        job = self._create_job(shard=shard, control_file='foo')
+        HqeStatus = models.HostQueueEntry.Status
+
+        models.HostQueueEntry(
+            id=1, job=job, started_on='2017-01-01',
+            status=HqeStatus.QUEUED).save()
+        models.HostQueueEntry(
+            id=2, job=job, started_on='2017-01-02',
+            status=HqeStatus.QUEUED).save()
+        models.HostQueueEntry(
+            id=3, job=job, started_on='2017-01-03',
+            status=HqeStatus.QUEUED).save()
+
+        models.HostQueueEntryStartTimes(
+            insert_time='2017-01-03', highest_hqe_id=3).save()
+        models.HostQueueEntryStartTimes(
+            insert_time='2017-01-02', highest_hqe_id=2).save()
+        models.HostQueueEntryStartTimes(
+            insert_time='2017-01-01', highest_hqe_id=1).save()
+
+    def test_get_host_queue_entries_by_insert_time(self):
+        """Check the insert_time_after and insert_time_before constraints."""
+        self._create_hqes_and_start_time_index_entries()
+        hqes = rpc_interface.get_host_queue_entries_by_insert_time(
+            insert_time_after='2017-01-01')
+        self.assertEquals(len(hqes), 3)
+
+        hqes = rpc_interface.get_host_queue_entries_by_insert_time(
+            insert_time_after='2017-01-02')
+        self.assertEquals(len(hqes), 2)
+
+        hqes = rpc_interface.get_host_queue_entries_by_insert_time(
+            insert_time_after='2017-01-03')
+        self.assertEquals(len(hqes), 1)
+
+        hqes = rpc_interface.get_host_queue_entries_by_insert_time(
+            insert_time_before='2017-01-01')
+        self.assertEquals(len(hqes), 1)
+
+        hqes = rpc_interface.get_host_queue_entries_by_insert_time(
+            insert_time_before='2017-01-02')
+        self.assertEquals(len(hqes), 2)
+
+        hqes = rpc_interface.get_host_queue_entries_by_insert_time(
+            insert_time_before='2017-01-03')
+        self.assertEquals(len(hqes), 3)
+
+
+    def test_get_host_queue_entries_by_insert_time_with_missing_index_row(self):
+        """Shows that the constraints are approximate.
+
+        The query may return rows which are actually outside of the bounds
+        given, if the index table does not have an entry for the specific time.
+        """
+        self._create_hqes_and_start_time_index_entries()
+        hqes = rpc_interface.get_host_queue_entries_by_insert_time(
+            insert_time_before='2016-12-01')
+        self.assertEquals(len(hqes), 1)
+
+    def test_get_hqe_by_insert_time_with_before_and_after(self):
+        self._create_hqes_and_start_time_index_entries()
+        hqes = rpc_interface.get_host_queue_entries_by_insert_time(
+            insert_time_before='2017-01-02',
+            insert_time_after='2017-01-02')
+        self.assertEquals(len(hqes), 1)
+
+    def test_get_hqe_by_insert_time_and_id_constraint(self):
+        self._create_hqes_and_start_time_index_entries()
+        # The time constraint is looser than the id constraint, so the time
+        # constraint should take precedence.
+        hqes = rpc_interface.get_host_queue_entries_by_insert_time(
+            insert_time_before='2017-01-02',
+            id__lte=1)
+        self.assertEquals(len(hqes), 1)
+
+        # Now make the time constraint tighter than the id constraint.
+        hqes = rpc_interface.get_host_queue_entries_by_insert_time(
+            insert_time_before='2017-01-01',
+            id__lte=42)
+        self.assertEquals(len(hqes), 1)
 
     def test_view_invalid_host(self):
         # RPCs used by View Host page should work for invalid hosts
@@ -946,9 +1033,11 @@ class ExtraRpcInterfaceTest(mox.MoxTestBase,
 
 
     def _assert_shard_heartbeat_response(self, shard_hostname, retval, jobs=[],
-                                         hosts=[], hqes=[]):
+                                         hosts=[], hqes=[],
+                                         incorrect_host_ids=[]):
 
         retval_hosts, retval_jobs = retval['hosts'], retval['jobs']
+        retval_incorrect_hosts = retval['incorrect_host_ids']
 
         expected_jobs = [
             (job.id, job.name, shard_hostname) for job in jobs]
@@ -968,6 +1057,8 @@ class ExtraRpcInterfaceTest(mox.MoxTestBase,
         expected_hqes = [(hqe.id) for hqe in hqes]
         returned_hqes = [(hqe['id']) for hqe in retval_hqes]
         self.assertEqual(returned_hqes, expected_hqes)
+
+        self.assertEqual(retval_incorrect_hosts, incorrect_host_ids)
 
 
     def _send_records_to_master_helper(
@@ -1027,18 +1118,44 @@ class ExtraRpcInterfaceTest(mox.MoxTestBase,
 
 
     def testSendingRecordsToMasterJobAssignedToDifferentShard(self):
-        """Ensure records that belong to a different shard are rejected."""
-        jobs, hqes = self._get_records_for_sending_to_master()
-        models.Shard.objects.create(hostname='other_shard')
-        self._send_records_to_master_helper(
-            jobs=jobs, hqes=hqes, shard_hostname='other_shard')
+        """Ensure records belonging to different shard are silently rejected."""
+        shard1 = models.Shard.objects.create(hostname='shard1')
+        shard2 = models.Shard.objects.create(hostname='shard2')
+        job1 = self._create_job(shard=shard1, control_file='foo1')
+        job2 = self._create_job(shard=shard2, control_file='foo2')
+        job1_id = job1.id
+        job2_id = job2.id
+        hqe1 = models.HostQueueEntry.objects.create(job=job1)
+        hqe2 = models.HostQueueEntry.objects.create(job=job2)
+        hqe1_id = hqe1.id
+        hqe2_id = hqe2.id
+        job1_record = job1.serialize(include_dependencies=False)
+        job2_record = job2.serialize(include_dependencies=False)
+        hqe1_record = hqe1.serialize(include_dependencies=False)
+        hqe2_record = hqe2.serialize(include_dependencies=False)
 
+        # Prepare a bogus job record update from the wrong shard. The update
+        # should not throw an exception. Non-bogus jobs in the same update
+        # should happily update.
+        job1_record.update({'control_file': 'bar1'})
+        job2_record.update({'control_file': 'bar2'})
+        hqe1_record.update({'status': 'Aborted'})
+        hqe2_record.update({'status': 'Aborted'})
+        self._do_heartbeat_and_assert_response(
+            shard_hostname='shard2', upload_jobs=[job1_record, job2_record],
+            upload_hqes=[hqe1_record, hqe2_record])
 
-    def testSendingRecordsToMasterJobHqeWithoutJob(self):
-        """Ensure update for hqe without update for it's job gets rejected."""
-        _, hqes = self._get_records_for_sending_to_master()
-        self._send_records_to_master_helper(
-            jobs=[], hqes=hqes)
+        # Job and HQE record for wrong job should not be modified, because the
+        # rpc came from the wrong shard. Job and HQE record for valid job are
+        # modified.
+        self.assertEqual(models.Job.objects.get(id=job1_id).control_file,
+                         'foo1')
+        self.assertEqual(models.Job.objects.get(id=job2_id).control_file,
+                         'bar2')
+        self.assertEqual(models.HostQueueEntry.objects.get(id=hqe1_id).status,
+                         '')
+        self.assertEqual(models.HostQueueEntry.objects.get(id=hqe2_id).status,
+                         'Aborted')
 
 
     def testSendingRecordsToMasterNotExistingJob(self):
@@ -1053,12 +1170,14 @@ class ExtraRpcInterfaceTest(mox.MoxTestBase,
     def _createShardAndHostWithLabel(self, shard_hostname='shard1',
                                      host_hostname='host1',
                                      label_name='board:lumpy'):
+        """Create a label, host, shard, and assign host to shard."""
         label = models.Label.objects.create(name=label_name)
 
         shard = models.Shard.objects.create(hostname=shard_hostname)
         shard.labels.add(label)
 
-        host = models.Host.objects.create(hostname=host_hostname, leased=False)
+        host = models.Host.objects.create(hostname=host_hostname, leased=False,
+                                          shard=shard)
         host.labels.add(label)
 
         return shard, host, label
@@ -1084,6 +1203,66 @@ class ExtraRpcInterfaceTest(mox.MoxTestBase,
 
         # Hostless jobs should be executed by the global scheduler.
         self._do_heartbeat_and_assert_response(hosts=[host1])
+
+
+    def testShardHeartbeatIncorrectHosts(self):
+        """Ensure that hosts that don't belong to shard are determined."""
+        shard1, host1, lumpy_label = self._createShardAndHostWithLabel()
+
+        host2 = models.Host.objects.create(hostname='host2', leased=False)
+
+        # host2 should not belong to shard1. Ensure that if shard1 thinks host2
+        # is a known host, then it is returned as invalid.
+        self._do_heartbeat_and_assert_response(known_hosts=[host1, host2],
+                                               incorrect_host_ids=[host2.id])
+
+
+    def testShardHeartbeatLabelRemovalRace(self):
+        """Ensure correctness if label removed during heartbeat."""
+        shard1, host1, lumpy_label = self._createShardAndHostWithLabel()
+
+        host2 = models.Host.objects.create(hostname='host2', leased=False)
+        host2.labels.add(lumpy_label)
+        self.assertEqual(host2.shard, None)
+
+        # In the middle of the assign_to_shard call, remove lumpy_label from
+        # shard1.
+        self.mox.StubOutWithMock(models.Host, '_assign_to_shard_nothing_helper')
+        def remove_label():
+            rpc_interface.remove_board_from_shard(
+                    shard1.hostname, lumpy_label.name)
+        models.Host._assign_to_shard_nothing_helper().WithSideEffects(
+            remove_label)
+        self.mox.ReplayAll()
+
+        self._do_heartbeat_and_assert_response(
+            known_hosts=[host1], hosts=[], incorrect_host_ids=[host1.id])
+        host2 = models.Host.smart_get(host2.id)
+        self.assertEqual(host2.shard, None)
+
+
+    def testShardLabelRemovalInvalid(self):
+        """Ensure you cannot remove the wrong label from shard."""
+        shard1, host1, lumpy_label = self._createShardAndHostWithLabel()
+        stumpy_label = models.Label.objects.create(
+                name='board:stumpy', platform=True)
+        with self.assertRaises(error.RPCException):
+            rpc_interface.remove_board_from_shard(
+                    shard1.hostname, stumpy_label.name)
+
+
+    def testShardHeartbeatLabelRemoval(self):
+        """Ensure label removal from shard works."""
+        shard1, host1, lumpy_label = self._createShardAndHostWithLabel()
+
+        self.assertEqual(host1.shard, shard1)
+        self.assertItemsEqual(shard1.labels.all(), [lumpy_label])
+        rpc_interface.remove_board_from_shard(
+                shard1.hostname, lumpy_label.name)
+        host1 = models.Host.smart_get(host1.id)
+        shard1 = models.Shard.smart_get(shard1.id)
+        self.assertEqual(host1.shard, None)
+        self.assertItemsEqual(shard1.labels.all(), [])
 
 
     def testShardRetrieveJobs(self):

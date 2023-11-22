@@ -25,8 +25,8 @@ def get_exclude_string(client_dir):
     For profilers we need to exclude everything except the __init__.py
     file so that the profilers can be imported.
     '''
-    exclude_string = ('--exclude=deps/* --exclude=tests/* '
-                      '--exclude=site_tests/* --exclude=**.pyc')
+    exclude_string = ('--exclude="deps/*" --exclude="tests/*" '
+                      '--exclude="site_tests/*" --exclude="**.pyc"')
 
     # Get the profilers directory
     prof_dir = os.path.join(client_dir, 'profilers')
@@ -35,7 +35,7 @@ def get_exclude_string(client_dir):
     # subdirectories
     for f in os.listdir(prof_dir):
         if os.path.isdir(os.path.join(prof_dir, f)):
-            exclude_string += ' --exclude=profilers/%s' % f
+            exclude_string += ' --exclude="profilers/%s"' % f
 
     # The '.' here is needed to zip the files in the current
     # directory. We use '-C' for tar to change to the required
@@ -87,6 +87,30 @@ def parse_args():
     options, args = parser.parse_args()
     return options, args
 
+def get_build_dir(name, dest_dir, pkg_type):
+    """Method to generate the build directory where the tarball and checksum
+    is stored. The following package types are handled: test, dep, profiler.
+    Package type 'client' is not handled.
+    """
+    if pkg_type == 'client':
+        # NOTE: The "tar_only" action for pkg_type "client" has no use
+        # case yet. No known invocations of packager.py with
+        # --action=tar_only send in clients in the command line. Please
+        # confirm the behaviour is expected before this type is enabled for
+        # "tar_only" actions.
+        print ('Tar action not supported for pkg_type= %s, name = %s' %
+                pkg_type, name)
+        return None
+    # For all packages, the work-dir should have 'client' appended to it.
+    base_build_dir = os.path.join(dest_dir, 'client')
+    if pkg_type == 'test':
+        build_dir = os.path.join(get_test_dir(name, base_build_dir), name)
+    else:
+        # For profiler and dep, we append 's', and then append the name.
+        # TODO(pmalani): Make this less fiddly?
+        build_dir = os.path.join(base_build_dir, pkg_type + 's', name)
+    return build_dir
+
 def process_packages(pkgmgr, pkg_type, pkg_names, src_dir,
                      action, dest_dir=None):
     """Method to upload or remove package depending on the flag passed to it.
@@ -98,7 +122,7 @@ def process_packages(pkgmgr, pkg_type, pkg_names, src_dir,
     exclude_string = ' .'
     names = [p.strip() for p in pkg_names.split(',')]
     for name in names:
-        print "Processing %s ... " % name
+        print "process_packages: Processing %s ... " % name
         if pkg_type == 'client':
             pkg_dir = src_dir
             exclude_string = get_exclude_string(pkg_dir)
@@ -113,11 +137,12 @@ def process_packages(pkgmgr, pkg_type, pkg_names, src_dir,
         pkg_name = pkgmgr.get_tarball_name(name, pkg_type)
 
         if action == ACTION_TAR_ONLY:
-            # If the package is a test, then the work-dir should have 'client'
-            # appended to it.
-            base_test_dir = os.path.join(dest_dir, 'client')
-            build_dir = os.path.join(get_test_dir(name, base_test_dir), name)
-
+            # We don't want any pre-existing tarballs and checksums to
+            # be repackaged, so we should purge these.
+            exclude_string_tar = ((
+                ' --exclude="**%s" --exclude="**%s.checksum" ' %
+                (pkg_name, pkg_name)) + exclude_string)
+            build_dir = get_build_dir(name, dest_dir, pkg_type)
             try:
                 packages.check_diskspace(build_dir)
             except error.RepoDiskFullError as e:
@@ -125,7 +150,7 @@ def process_packages(pkgmgr, pkg_type, pkg_names, src_dir,
                        "enough space available: %s" % (build_dir, e))
                 raise error.RepoDiskFullError(msg)
             tarball_path = pkgmgr.tar_package(pkg_name, pkg_dir,
-                                              build_dir, exclude_string)
+                                              build_dir, exclude_string_tar)
 
             # Create the md5 hash too.
             md5sum = pkgmgr.compute_checksum(tarball_path)
@@ -144,11 +169,13 @@ def process_packages(pkgmgr, pkg_type, pkg_names, src_dir,
                            "enough space available: %s" % (temp_dir, e))
                     raise error.RepoDiskFullError(msg)
 
-                # Check if tarball already exists. If it does, don't duplicate
-                # the effort.
+                # Check if tarball already exists. If it does, and the checksum
+                # is the same as what is in the checksum dictionary, then don't
+                # create a tarball again.
                 tarball_path = os.path.join(pkg_dir, pkg_name);
-                if os.path.exists(tarball_path):
-                   print("Tarball %s already exists" % tarball_path);
+                if os.path.exists(tarball_path) and pkgmgr.compare_checksum(tarball_path):
+                    print("process_packages: Tarball %s already exists" %
+                          tarball_path)
                 else:
                     tarball_path = pkgmgr.tar_package(pkg_name, pkg_dir,
                                                       temp_dir, exclude_string)
@@ -167,7 +194,7 @@ def tar_packages(pkgmgr, pkg_type, pkg_names, src_dir, temp_dir):
     exclude_string = ' .'
     names = [p.strip() for p in pkg_names.split(',')]
     for name in names:
-        print "Processing %s ... " % name
+        print "tar_packages: Processing %s ... " % name
         if pkg_type == 'client':
             pkg_dir = src_dir
             exclude_string = get_exclude_string(pkg_dir)
@@ -181,14 +208,19 @@ def tar_packages(pkgmgr, pkg_type, pkg_names, src_dir, temp_dir):
 
         pkg_name = pkgmgr.get_tarball_name(name, pkg_type)
 
+        # We don't want any pre-existing tarballs and checksums to
+        # be repackaged, so we should purge these.
+        exclude_string_tar = ((
+            ' --exclude="**%s" --exclude="**%s.checksum" ' %
+            (pkg_name, pkg_name)) + exclude_string)
         # Check if tarball already exists. If it does, don't duplicate
         # the effort.
         tarball_path = os.path.join(pkg_dir, pkg_name);
         if os.path.exists(tarball_path):
-            print("Tarball %s already exists" % tarball_path);
+          print("tar_packages: Tarball %s already exists" % tarball_path);
         else:
             tarball_path = pkgmgr.tar_package(pkg_name, pkg_dir,
-                                              temp_dir, exclude_string)
+                                              temp_dir, exclude_string_tar)
         tarballs.append(tarball_path)
     return tarballs
 
@@ -333,7 +365,7 @@ def main():
 
     if options.dep:
         process_packages(pkgmgr, 'dep', options.dep, dep_dir,
-                         action=cur_action)
+                         action=cur_action, dest_dir=options.output_dir)
 
     if options.test:
         process_packages(pkgmgr, 'test', options.test, client_dir,
@@ -341,7 +373,7 @@ def main():
 
     if options.prof:
         process_packages(pkgmgr, 'profiler', options.prof, prof_dir,
-                         action=cur_action)
+                         action=cur_action, dest_dir=options.output_dir)
 
     if options.file:
         if cur_action == ACTION_REMOVE:

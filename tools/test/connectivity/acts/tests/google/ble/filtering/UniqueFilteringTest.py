@@ -26,13 +26,13 @@ import time
 from queue import Empty
 from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
-from acts.test_utils.bt.BleEnum import AdvertiseSettingsAdvertiseMode
-from acts.test_utils.bt.BleEnum import ScanSettingsScanMode
+from acts.test_utils.bt.bt_constants import ble_advertise_settings_modes
+from acts.test_utils.bt.bt_constants import ble_scan_settings_modes
 from acts.test_utils.bt.bt_test_utils import generate_ble_advertise_objects
 from acts.test_utils.bt.bt_test_utils import generate_ble_scan_objects
-from acts.test_utils.bt.bt_test_utils import adv_succ
+from acts.test_utils.bt.bt_constants import adv_succ
 from acts.test_utils.bt.bt_test_utils import batch_scan_result
-from acts.test_utils.bt.bt_test_utils import scan_result
+from acts.test_utils.bt.bt_constants import scan_result
 
 
 class UniqueFilteringTest(BluetoothBaseTest):
@@ -110,7 +110,7 @@ class UniqueFilteringTest(BluetoothBaseTest):
         """
         test_result = True
         self.adv_ad.droid.bleSetAdvertiseSettingsAdvertiseMode(
-            AdvertiseSettingsAdvertiseMode.ADVERTISE_MODE_LOW_LATENCY.value)
+            ble_advertise_settings_modes['low_latency'])
         filter_list, scan_settings, scan_callback = generate_ble_scan_objects(
             self.scn_ad.droid)
         expected_event_name = scan_result.format(scan_callback)
@@ -326,7 +326,7 @@ class UniqueFilteringTest(BluetoothBaseTest):
         self.scn_ad.droid.bleSetScanFilterServiceUuid(service_uuid,
                                                       service_mask)
         self.adv_ad.droid.bleSetAdvertiseSettingsAdvertiseMode(
-            AdvertiseSettingsAdvertiseMode.ADVERTISE_MODE_LOW_LATENCY.value)
+            ble_advertise_settings_modes['low_latency'])
         filter_list, scan_settings, scan_callback = generate_ble_scan_objects(
             self.scn_ad.droid)
         self.scn_ad.droid.bleBuildScanFilter(filter_list)
@@ -383,12 +383,12 @@ class UniqueFilteringTest(BluetoothBaseTest):
         """
         test_result = True
         self.adv_ad.droid.bleSetAdvertiseSettingsAdvertiseMode(
-            AdvertiseSettingsAdvertiseMode.ADVERTISE_MODE_LOW_LATENCY.value)
+            ble_advertise_settings_modes['low_latency'])
         self.adv_ad.droid.bleAddAdvertiseDataManufacturerId(117, [1, 2, 3])
         advertise_callback, advertise_data, advertise_settings = (
             generate_ble_advertise_objects(self.adv_ad.droid))
         self.adv_ad.droid.bleSetAdvertiseSettingsAdvertiseMode(
-            AdvertiseSettingsAdvertiseMode.ADVERTISE_MODE_LOW_LATENCY.value)
+            ble_advertise_settings_modes['low_latency'])
         self.adv_ad.droid.bleAddAdvertiseDataManufacturerId(
             117, [1, 2, 3, 4, 5, 6, 7, 8])
         advertise_callback1, advertise_data1, advertise_settings1 = (
@@ -399,8 +399,8 @@ class UniqueFilteringTest(BluetoothBaseTest):
             advertise_callback1, advertise_data1, advertise_settings1)
 
         filter_list = self.scn_ad.droid.bleGenFilterList()
-        self.scn_ad.droid.bleSetScanSettingsScanMode(
-            ScanSettingsScanMode.SCAN_MODE_LOW_LATENCY.value)
+        self.scn_ad.droid.bleSetScanSettingsScanMode(ble_scan_settings_modes[
+            'low_latency'])
         scan_settings = self.scn_ad.droid.bleBuildScanSetting()
         scan_callback = self.scn_ad.droid.bleGenScanCallback()
         self.scn_ad.droid.bleSetScanFilterManufacturerData(117, [1, 2, 3],
@@ -439,13 +439,13 @@ class UniqueFilteringTest(BluetoothBaseTest):
         Priority: 1
         """
         test_result = True
-        self.scn_ad.droid.bleSetScanSettingsScanMode(
-            ScanSettingsScanMode.SCAN_MODE_LOW_LATENCY.value)
+        self.scn_ad.droid.bleSetScanSettingsScanMode(ble_scan_settings_modes[
+            'low_latency'])
         filter_list, scan_settings, scan_callback = generate_ble_scan_objects(
             self.scn_ad.droid)
         expected_event_name = scan_result.format(scan_callback)
         self.adv_ad.droid.bleSetAdvertiseSettingsAdvertiseMode(
-            AdvertiseSettingsAdvertiseMode.ADVERTISE_MODE_LOW_LATENCY.value)
+            ble_advertise_settings_modes['low_latency'])
         advertise_callback, advertise_data, advertise_settings = (
             generate_ble_advertise_objects(self.adv_ad.droid))
         self.adv_ad.droid.bleStartBleAdvertising(
@@ -458,8 +458,8 @@ class UniqueFilteringTest(BluetoothBaseTest):
         self.log.info("Filter advertisement with address {}".format(
             mac_address))
         self.scn_ad.droid.bleStopBleScan(scan_callback)
-        self.scn_ad.droid.bleSetScanSettingsScanMode(
-            ScanSettingsScanMode.SCAN_MODE_LOW_LATENCY.value)
+        self.scn_ad.droid.bleSetScanSettingsScanMode(ble_scan_settings_modes[
+            'low_latency'])
         self.scn_ad.droid.bleSetScanFilterDeviceAddress(mac_address)
         filter_list2, scan_settings2, scan_callback2 = (
             generate_ble_scan_objects(self.scn_ad.droid))
@@ -509,7 +509,7 @@ class UniqueFilteringTest(BluetoothBaseTest):
         self.adv_ad.droid.bleAddAdvertiseDataManufacturerId(manufacturer_id,
                                                             [0x01])
         self.adv_ad.droid.bleSetAdvertiseSettingsAdvertiseMode(
-            AdvertiseSettingsAdvertiseMode.ADVERTISE_MODE_LOW_LATENCY.value)
+            ble_advertise_settings_modes['low_latency'])
         advertise_callback, advertise_data, advertise_settings = (
             generate_ble_advertise_objects(self.adv_ad.droid))
         self.adv_ad.droid.bleStartBleAdvertising(
@@ -521,8 +521,8 @@ class UniqueFilteringTest(BluetoothBaseTest):
             self.log.info("Failed to start advertisement.")
             return False
 
-        self.scn_ad.droid.bleSetScanSettingsScanMode(
-            ScanSettingsScanMode.SCAN_MODE_LOW_LATENCY.value)
+        self.scn_ad.droid.bleSetScanSettingsScanMode(ble_scan_settings_modes[
+            'low_latency'])
         self.scn_ad.droid.bleSetScanFilterManufacturerData(manufacturer_id,
                                                            [0x01])
         filter_list = self.scn_ad.droid.bleGenFilterList()
@@ -587,8 +587,7 @@ class UniqueFilteringTest(BluetoothBaseTest):
             self.adv_ad.droid.bleAddAdvertiseDataManufacturerId(
                 manufacturer_id, [0x01])
             self.adv_ad.droid.bleSetAdvertiseSettingsAdvertiseMode(
-                AdvertiseSettingsAdvertiseMode.ADVERTISE_MODE_LOW_LATENCY.
-                value)
+                ble_advertise_settings_modes['low_latency'])
             advertise_callback, advertise_data, advertise_settings = (
                 generate_ble_advertise_objects(self.adv_ad.droid))
             self.adv_ad.droid.bleStartBleAdvertising(
@@ -601,7 +600,7 @@ class UniqueFilteringTest(BluetoothBaseTest):
                 return False
 
             self.scn_ad.droid.bleSetScanSettingsScanMode(
-                ScanSettingsScanMode.SCAN_MODE_LOW_LATENCY.value)
+                ble_scan_settings_modes['low_latency'])
             self.scn_ad.droid.bleSetScanFilterManufacturerData(manufacturer_id,
                                                                [0x01])
             filter_list = self.scn_ad.droid.bleGenFilterList()

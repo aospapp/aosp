@@ -16,7 +16,7 @@ LOCAL_SHARED_LIBRARIES := \
 LOCAL_C_INCLUDES:= \
         frameworks/av/media/libstagefright \
         frameworks/av/media/libstagefright/include \
-        $(TOP)/frameworks/native/include/media/openmax \
+        frameworks/native/include/media/openmax \
         external/jpeg \
 
 LOCAL_CFLAGS += -Wno-multichar -Werror -Wall
@@ -40,8 +40,8 @@ LOCAL_SHARED_LIBRARIES := \
 
 LOCAL_C_INCLUDES:= \
         frameworks/av/media/libstagefright \
-        $(TOP)/frameworks/native/include/media/openmax \
-        $(TOP)/frameworks/native/include/media/hardware
+        frameworks/native/include/media/openmax \
+        frameworks/native/include/media/hardware
 
 LOCAL_CFLAGS += -Wno-multichar -Werror -Wall
 
@@ -64,8 +64,8 @@ LOCAL_SHARED_LIBRARIES := \
 
 LOCAL_C_INCLUDES:= \
         frameworks/av/media/libstagefright \
-        $(TOP)/frameworks/native/include/media/openmax \
-        $(TOP)/frameworks/native/include/media/hardware
+        frameworks/native/include/media/openmax \
+        frameworks/native/include/media/hardware
 
 LOCAL_CFLAGS += -Wno-multichar -Werror -Wall
 
@@ -89,7 +89,7 @@ LOCAL_SHARED_LIBRARIES := \
 
 LOCAL_C_INCLUDES:= \
         frameworks/av/media/libstagefright \
-        $(TOP)/frameworks/native/include/media/openmax
+        frameworks/native/include/media/openmax
 
 LOCAL_CFLAGS += -Wno-multichar -Werror -Wall
 
@@ -112,7 +112,7 @@ LOCAL_SHARED_LIBRARIES := \
 
 LOCAL_C_INCLUDES:= \
         frameworks/av/media/libstagefright \
-        $(TOP)/frameworks/native/include/media/openmax
+        frameworks/native/include/media/openmax
 
 LOCAL_CFLAGS += -Wno-multichar -Werror -Wall
 
@@ -136,7 +136,7 @@ LOCAL_SHARED_LIBRARIES := \
 
 LOCAL_C_INCLUDES:= \
         frameworks/av/media/libstagefright \
-        $(TOP)/frameworks/native/include/media/openmax
+        frameworks/native/include/media/openmax
 
 LOCAL_CFLAGS += -Wno-multichar -Werror -Wall
 
@@ -168,10 +168,10 @@ LOCAL_SHARED_LIBRARIES := \
         libRScpp \
 
 LOCAL_C_INCLUDES:= \
-        $(TOP)/frameworks/av/media/libstagefright \
-        $(TOP)/frameworks/native/include/media/openmax \
-        $(TOP)/frameworks/rs/cpp \
-        $(TOP)/frameworks/rs \
+        frameworks/av/media/libstagefright \
+        frameworks/native/include/media/openmax \
+        frameworks/rs/cpp \
+        frameworks/rs \
 
 intermediates := $(call intermediates-dir-for,STATIC_LIBRARIES,libRS,TARGET,)
 LOCAL_C_INCLUDES += $(intermediates)
@@ -184,6 +184,9 @@ LOCAL_CFLAGS += -Wno-multichar -Werror -Wall
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_MODULE:= mediafilter
+
+LOCAL_SANITIZE := cfi
+LOCAL_SANITIZE_DIAG := cfi
 
 include $(BUILD_EXECUTABLE)
 
@@ -200,7 +203,7 @@ LOCAL_SHARED_LIBRARIES := \
 
 LOCAL_C_INCLUDES:= \
         frameworks/av/media/libstagefright \
-        $(TOP)/frameworks/native/include/media/openmax
+        frameworks/native/include/media/openmax
 
 LOCAL_CFLAGS += -Wno-multichar -Werror -Wall
 

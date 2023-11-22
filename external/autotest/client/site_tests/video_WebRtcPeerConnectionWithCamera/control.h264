@@ -26,4 +26,4 @@ reported to the performance dashboard.
 """
 
 job.run_test("video_WebRtcPeerConnectionWithCamera",
-             video_codec="H264")
+             video_codec="H264", tag='h264')

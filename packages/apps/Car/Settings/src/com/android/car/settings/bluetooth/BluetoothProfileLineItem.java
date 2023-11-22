@@ -19,24 +19,23 @@ package com.android.car.settings.bluetooth;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
-import android.support.v7.widget.RecyclerView;
 
-import com.android.car.settings.common.ToggleLineItem;
+import com.android.car.settings.common.CheckBoxLineItem;
 
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
 import com.android.settingslib.bluetooth.LocalBluetoothProfile;
-import com.android.settingslib.bluetooth.MapProfile;
 import com.android.settingslib.bluetooth.PanProfile;
-import com.android.settingslib.bluetooth.PbapServerProfile;
 
 /**
  * Represents a line item for a Bluetooth mProfile.
  */
-public class BluetoothProfileLineItem extends ToggleLineItem {
+public class BluetoothProfileLineItem extends CheckBoxLineItem {
+    private static final String TAG = "BTProfileLineItem";
     private final LocalBluetoothProfile mProfile;
     private final CachedBluetoothDevice mCachedDevice;
-    private ToggleLineItemViewHolder mViewHolder;
+    private CheckboxLineItemViewHolder mViewHolder;
     private DataChangedListener mDataChangedListener;
+    private final Context mContext;
 
     public interface DataChangedListener {
         void onDataChanged();
@@ -45,6 +44,7 @@ public class BluetoothProfileLineItem extends ToggleLineItem {
     public BluetoothProfileLineItem(Context context, LocalBluetoothProfile profile,
             CachedBluetoothDevice cachedBluetoothDevice, DataChangedListener listener) {
         super(context.getText(profile.getNameResource(cachedBluetoothDevice.getDevice())));
+        mContext = context;
         mCachedDevice = cachedBluetoothDevice;
         mProfile = profile;
         mDataChangedListener = listener;
@@ -52,13 +52,7 @@ public class BluetoothProfileLineItem extends ToggleLineItem {
 
     @Override
     public void onClick(boolean isChecked) {
-        if (mProfile instanceof PbapServerProfile) {
-            mCachedDevice.setPhonebookPermissionChoice(isChecked
-                    ? CachedBluetoothDevice.ACCESS_REJECTED : CachedBluetoothDevice.ACCESS_ALLOWED);
-        } else if (mProfile instanceof MapProfile) {
-            mCachedDevice.setMessagePermissionChoice(isChecked
-                    ? CachedBluetoothDevice.ACCESS_REJECTED : CachedBluetoothDevice.ACCESS_ALLOWED);
-        } else if (isChecked) {
+        if (isChecked) {
             mCachedDevice.disconnect(mProfile);
             mProfile.setPreferred(mCachedDevice.getDevice(), false);
         } else if (mProfile.isPreferred(mCachedDevice.getDevice())) {
@@ -75,31 +69,26 @@ public class BluetoothProfileLineItem extends ToggleLineItem {
     }
 
     @Override
-    public void bindViewHolder(ToggleLineItemViewHolder holder) {
+    public boolean isExpandable() {
+        return false;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return true;
+    }
+
+    @Override
+    public void bindViewHolder(CheckboxLineItemViewHolder holder) {
         super.bindViewHolder(holder);
         mViewHolder = holder;
     }
 
     @Override
-    public CharSequence getDesc() {
-        return null;
-    }
-
-    @Override
     public boolean isChecked() {
         BluetoothDevice device = mCachedDevice.getDevice();
-
-        if (mProfile instanceof MapProfile) {
-            return mCachedDevice.getMessagePermissionChoice()
-                    == CachedBluetoothDevice.ACCESS_ALLOWED;
-
-        } else if (mProfile instanceof PbapServerProfile) {
-            return mCachedDevice.getPhonebookPermissionChoice()
-                    == CachedBluetoothDevice.ACCESS_ALLOWED;
-
-        } else if (mProfile instanceof PanProfile) {
+        if (mProfile instanceof PanProfile) {
             return mProfile.getConnectionStatus(device) == BluetoothProfile.STATE_CONNECTED;
-
         } else {
             return mProfile.isPreferred(device);
         }

@@ -20,7 +20,7 @@
     <string name="sip_accounts" msgid="85559497282185405">"SIP অ্যাকাউন্টগুলি"</string>
     <string name="sip_accounts_title" msgid="2082527045326874519">"অ্যাকাউন্টগুলি"</string>
     <string name="sip_receive_calls" msgid="426678617137462173">"আগত কলগুলি গ্রহণ করুন"</string>
-    <string name="sip_receive_calls_summary" msgid="946161517528227523">"আরো বেশি ব্যাটারি লাইফ ব্যবহার করে"</string>
+    <string name="sip_receive_calls_summary" msgid="946161517528227523">"আরও বেশি ব্যাটারি লাইফ ব্যবহার করে"</string>
     <string name="sip_call_options_title" msgid="8421210494703869806">"SIP কলিং ব্যবহার করুন"</string>
     <string name="sip_call_options_wifi_only_title" msgid="5112579243580893890">"SIP কলিং ব্যবহার করুন (শুধুমাত্র ওয়াই-ফাই)"</string>
     <string name="sip_call_options_entry_1" msgid="7217659161237099900">"যখন ডেটা নেটওয়ার্ক উপলব্ধ তখন সব কলের জন্য"</string>
@@ -31,7 +31,7 @@
     <string name="sip_account_list" msgid="5610858485304821480">"SIP অ্যাকাউন্টগুলি"</string>
     <string name="saving_account" msgid="5336529880235177448">"অ্যাকাউন্টটি সংরক্ষণ করা হচ্ছে ..."</string>
     <string name="removing_account" msgid="5537351356808985756">"অ্যাকাউন্টটি সরানো হচ্ছে…"</string>
-    <string name="sip_menu_save" msgid="7882219814563869225">"সংরক্ষণ করুন"</string>
+    <string name="sip_menu_save" msgid="7882219814563869225">"সেভ করুন"</string>
     <string name="sip_menu_discard" msgid="2350421645423888438">"খারিজ করুন"</string>
     <string name="alert_dialog_close" msgid="1326011828713435134">"প্রোফাইলটি বন্ধ করুন"</string>
     <string name="alert_dialog_ok" msgid="4752048404605388940">"ঠিক আছে"</string>
@@ -45,13 +45,13 @@
     <string name="registration_status_not_running" msgid="514205414303796800">"অ্যাকাউন্টের নিবন্ধন অসফল হয়েছে৷"</string>
     <string name="registration_status_done" msgid="3264961069247314253">"কলগুলি গ্রহণ করা হচ্ছে৷"</string>
     <string name="registration_status_failed_try_later" msgid="2199970021756384317">"অ্যাকাউন্টের নিবন্ধন অসফল হয়েছে: (<xliff:g id="REGISTRATION_ERROR_MESSAGE">%s</xliff:g>); পরে আবার চেষ্টা করা হবে"</string>
-    <string name="registration_status_invalid_credentials" msgid="8406872554323334182">"অ্যাকাউন্টের নিবন্ধন অসফল হয়েছে: ভুল ব্যবহারকারী নাম বা পাসওয়ার্ড৷"</string>
+    <string name="registration_status_invalid_credentials" msgid="8406872554323334182">"অ্যাকাউন্টের নিবন্ধন অসফল হয়েছে: ভুল ইউজারনেম বা পাসওয়ার্ড৷"</string>
     <string name="registration_status_server_unreachable" msgid="7710275557045148634">"অ্যাকাউন্টের নিবন্ধন অসফল হয়েছে: সার্ভারের নাম পরীক্ষা করুন৷"</string>
     <string name="third_party_account_summary" msgid="9041060473615403041">"এই অ্যাকাউন্টটি বর্তমানে <xliff:g id="ACCOUNT_OWNER">%s</xliff:g> অ্যাপ্লিকেশানের দ্বারা ব্যবহৃত হচ্ছে৷"</string>
     <string name="sip_edit_title" msgid="1967247832635750410">"SIP অ্যাকাউন্টের বিবরণ"</string>
     <string name="sip_edit_new_title" msgid="266414118302574305">"SIP অ্যাকাউন্টের বিবরণ"</string>
     <string name="domain_address_title" msgid="1968479941328225423">"সার্ভার"</string>
-    <string name="username_title" msgid="6770064611005663470">"ব্যবহারকারীর নাম"</string>
+    <string name="username_title" msgid="6770064611005663470">"ইউজারনেম"</string>
     <string name="password_title" msgid="5289013731515564295">"পাসওয়ার্ড"</string>
     <string name="display_name_title" msgid="579241787583079773">"প্রদর্শন নাম"</string>
     <string name="proxy_address_title" msgid="6890163365640631841">"বহির্গামী প্রক্সি ঠিকানা"</string>
@@ -59,8 +59,8 @@
     <string name="transport_title" msgid="889155457465372527">"পরিবহনের ধরন"</string>
     <string name="send_keepalive_title" msgid="599627072150501159">"সক্রিয়-রাখুন অনুরোধ পাঠান"</string>
     <string name="advanced_settings" msgid="6622996380747040711">"ঐচ্ছিক সেটিংস"</string>
-    <string name="auth_username_title" msgid="8262491689004708265">"প্রমাণীকরণের ব্যবহারকারীর নাম"</string>
-    <string name="auth_username_summary" msgid="941160241371436473">"প্রমাণীকরণের জন্য ব্যবহৃত ব্যবহারকারী নাম"</string>
+    <string name="auth_username_title" msgid="8262491689004708265">"প্রমাণীকরণের ইউজারনেম"</string>
+    <string name="auth_username_summary" msgid="941160241371436473">"প্রমাণীকরণের জন্য ব্যবহৃত ইউজারনেম"</string>
     <string name="default_preference_summary_username" msgid="8404717434312826082">"&lt;সেট করা নেই&gt;"</string>
     <string name="default_preference_summary_password" msgid="4464464672997027904">"&lt;সেট করা নেই&gt;"</string>
     <string name="default_preference_summary_domain_address" msgid="4871971710197441673">"&lt;সেট করা নেই&gt;"</string>

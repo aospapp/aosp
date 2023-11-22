@@ -16,11 +16,14 @@
 
 #include "java_lang_ref_Reference.h"
 
+#include "nativehelper/jni_macros.h"
+
 #include "gc/heap.h"
 #include "gc/reference_processor.h"
 #include "jni_internal.h"
 #include "mirror/object-inl.h"
 #include "mirror/reference-inl.h"
+#include "native_util.h"
 #include "scoped_fast_native_object_access-inl.h"
 
 namespace art {

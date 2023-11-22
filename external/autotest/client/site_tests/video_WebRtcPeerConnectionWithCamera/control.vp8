@@ -31,4 +31,4 @@ must be monitored there.
 """
 
 job.run_test("video_WebRtcPeerConnectionWithCamera",
-             video_codec="VP8")
+             video_codec="VP8", tag='vp8')

@@ -20,12 +20,15 @@ import com.android.tv.analytics.Analytics;
 import com.android.tv.analytics.Tracker;
 import com.android.tv.config.RemoteConfig;
 import com.android.tv.data.ChannelDataManager;
+import com.android.tv.data.PreviewDataManager;
 import com.android.tv.data.ProgramDataManager;
 import com.android.tv.dvr.DvrDataManager;
 import com.android.tv.dvr.DvrManager;
 import com.android.tv.dvr.DvrScheduleManager;
 import com.android.tv.dvr.DvrStorageStatusManager;
 import com.android.tv.dvr.DvrWatchedPositionManager;
+import com.android.tv.dvr.recorder.RecordingScheduler;
+import com.android.tv.perf.PerformanceMonitor;
 import com.android.tv.util.AccountHelper;
 import com.android.tv.util.TvInputManagerHelper;
 
@@ -38,6 +41,22 @@ public interface ApplicationSingletons {
 
     ChannelDataManager getChannelDataManager();
 
+    /**
+     * Checks if the {@link ChannelDataManager} instance has been created and all the channels has
+     * been loaded.
+     */
+    boolean isChannelDataManagerLoadFinished();
+
+    ProgramDataManager getProgramDataManager();
+
+    /**
+     * Checks if the {@link ProgramDataManager} instance has been created and the current programs
+     * for all the channels has been loaded.
+     */
+    boolean isProgramDataManagerCurrentProgramsLoadFinished();
+
+    PreviewDataManager getPreviewDataManager();
+
     DvrDataManager getDvrDataManager();
 
     DvrStorageStatusManager getDvrStorageStatusManager();
@@ -46,11 +65,11 @@ public interface ApplicationSingletons {
 
     DvrManager getDvrManager();
 
+    RecordingScheduler getRecordingScheduler();
+
     DvrWatchedPositionManager getDvrWatchedPositionManager();
 
     InputSessionManager getInputSessionManager();
-
-    ProgramDataManager getProgramDataManager();
 
     Tracker getTracker();
 
@@ -61,4 +80,8 @@ public interface ApplicationSingletons {
     AccountHelper getAccountHelper();
 
     RemoteConfig getRemoteConfig();
+
+    boolean isRunningInMainProcess();
+
+    PerformanceMonitor getPerformanceMonitor();
 }

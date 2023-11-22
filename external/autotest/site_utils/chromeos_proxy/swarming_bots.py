@@ -328,7 +328,7 @@ class BotManager(object):
             self.launch()
 
 
-def _parse_range(id_range):
+def parse_range(id_range):
     """Convert an id range to a set of bot ids.
 
     @param id_range: A range of integer, e.g "1-200".
@@ -370,7 +370,7 @@ def _parse_args(args):
             help='The URL of the swarming instance to talk to, '
                  'Default to the one specified in global config')
     parser.add_argument(
-            '-f', '--log_file', dest='log_file', required=False,
+            '-f', '--log_file', dest='log_file',
             help='Path to the log file.')
     parser.add_argument(
             '-v', '--verbose', dest='verbose', action='store_true',
@@ -379,7 +379,7 @@ def _parse_args(args):
     return parser.parse_args(args)
 
 
-def _setup_logging(verbose, log_file):
+def setup_logging(verbose, log_file):
     """Setup logging.
 
     @param verbose: bool, if True, log at DEBUG level, otherwise INFO level.
@@ -405,7 +405,7 @@ def main(args):
     @args: A list of system arguments.
     """
     args = _parse_args(args)
-    _setup_logging(args.verbose, args.log_file)
+    setup_logging(args.verbose, args.log_file)
 
     if not args.swarming_proxy:
         logging.error(
@@ -419,7 +419,7 @@ def main(args):
         swarming_proxy = args.swarming_proxy
 
     logging.info('Connecting to %s', swarming_proxy)
-    m = BotManager(_parse_range(args.id_range),
+    m = BotManager(parse_range(args.id_range),
                    args.working_dir, args.swarming_proxy)
 
     if args.action == 'launch':

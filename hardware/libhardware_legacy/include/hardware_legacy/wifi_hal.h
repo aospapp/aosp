@@ -36,6 +36,11 @@ typedef enum {
     WIFI_CHAN_WIDTH_INVALID = -1
 } wifi_channel_width;
 
+/* Pre selected Power scenarios to be applied from BDF file */
+typedef enum {
+    WIFI_POWER_SCENARIO_VOICE_CALL    = 0,
+} wifi_power_scenario;
+
 typedef int wifi_radio;
 typedef int wifi_channel;
 
@@ -119,6 +124,7 @@ void wifi_get_error_info(wifi_error err, const char **msg); // return a pointer 
 #define WIFI_FEATURE_CONTROL_ROAMING    0x800000    // Enable/Disable firmware roaming
 #define WIFI_FEATURE_IE_WHITELIST       0x1000000   // Support Probe IE white listing
 #define WIFI_FEATURE_SCAN_RAND          0x2000000   // Support MAC & Probe Sequence Number randomization
+#define WIFI_FEATURE_SET_TX_POWER_LIMIT 0x4000000   // Support Tx Power Limit setting
 // Add more features here
 
 
@@ -160,6 +166,8 @@ wifi_error wifi_set_iface_event_handler(wifi_request_id id, wifi_interface_handl
 wifi_error wifi_reset_iface_event_handler(wifi_request_id id, wifi_interface_handle iface);
 
 wifi_error wifi_set_nodfs_flag(wifi_interface_handle handle, u32 nodfs);
+wifi_error wifi_select_tx_power_scenario(wifi_interface_handle handle, wifi_power_scenario scenario);
+wifi_error wifi_reset_tx_power_scenario(wifi_interface_handle handle);
 
 typedef struct rx_data_cnt_details_t {
     int rx_unicast_cnt;     /*Total rx unicast packet which woke up host */
@@ -207,8 +215,6 @@ typedef struct wlan_driver_wake_reason_cnt_t {
     RX_WAKE_PKT_TYPE_CLASSFICATION rx_wake_pkt_classification_info;
     RX_MULTICAST_WAKE_DATA_CNT rx_multicast_wake_pkt_info;
 } WLAN_DRIVER_WAKE_REASON_CNT;
-
-
 
 /* include various feature headers */
 
@@ -379,6 +385,9 @@ typedef struct {
     wifi_error (*wifi_nan_data_end)(transaction_id id,
                                     wifi_interface_handle iface,
                                     NanDataPathEndRequest *msg);
+    wifi_error (*wifi_select_tx_power_scenario)(wifi_interface_handle iface,
+                                                wifi_power_scenario scenario);
+    wifi_error (*wifi_reset_tx_power_scenario)(wifi_interface_handle iface);
 
     /**
      * Returns the chipset's hardware filtering capabilities:

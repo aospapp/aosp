@@ -165,7 +165,8 @@ uint32_t drm_wv_mod_v9_load_keys(uint32_t session_id,
                                  uint32_t num_keys,
                                  const struct drm_wv_mod_key_object *key_array,
                                  const uint8_t *pst,
-                                 uint32_t pst_length);
+                                 uint32_t pst_length,
+                                 const uint8_t *srm_restriction_data);
 
 uint32_t drm_wv_mod_v9_generate_rsa_signature(uint32_t session_id,
                                               const uint8_t *message,
@@ -213,7 +214,6 @@ uint32_t drm_wv_mod_load_usage_table(const uint8_t *const usage_table_data,
  *   Flag indicating if the table has changed since the last
  *   update_usage_table or load_usage_table call.
  *
- * TODO: Return documentation
  */
 uint32_t drm_wv_mod_update_usage_table(uint8_t *const usage_table_data,
                                        uint32_t data_size,
@@ -221,8 +221,8 @@ uint32_t drm_wv_mod_update_usage_table(uint8_t *const usage_table_data,
 
 // NOTE: drm_wv_mod_update_usage_table shall be called after calling this
 // function
-// TODO: Documentation
-uint32_t drm_wv_mod_deactivate_usage_entry(const uint8_t *const pst,
+uint32_t drm_wv_mod_deactivate_usage_entry(uint32_t session_id,
+                                           const uint8_t *const pst,
                                            uint32_t pst_length);
 
 /**
@@ -243,7 +243,6 @@ uint32_t drm_wv_mod_deactivate_usage_entry(const uint8_t *const pst,
  *   sizeof(struct OEMCrypto_PST_Report) in length. If extra space is provided,
  *   this field will reflect the actual size of the returned report.
  *
- * TODO: Return documentation
  */
 uint32_t drm_wv_mod_report_usage(uint32_t session_id,
                                  const uint8_t *const pst,
@@ -271,7 +270,6 @@ uint32_t drm_wv_mod_report_usage(uint32_t session_id,
  * @param[in] signature_length
  *   Length of signature buffer in bytes
  *
- * TODO: Return Documentation
  */
 uint32_t drm_wv_mod_delete_usage_entry(uint32_t session_id,
                                        const uint8_t *const pst,
@@ -283,7 +281,6 @@ uint32_t drm_wv_mod_delete_usage_entry(uint32_t session_id,
 
 // This will only clear Chaabi TEE memory. Caller is responsible for deleting
 // usage table file from file system.
-// TODO: Documentation
 uint32_t drm_wv_mod_delete_usage_table(void);
 
 
@@ -349,5 +346,81 @@ uint32_t drm_wv_mod_glue_block(uint32_t       session_id,
                                const uint8_t  *cleartext,
                                uint32_t       cleartext_length,
                                const uint8_t  *iv);
+
+/*! Version 13 specific APIs */
+
+/*!
+ * Create a new Usage Table Header with no entries.
+ */
+uint32_t drm_wv_mod_create_usage_table_header(uint8_t *header_buffer,
+                                              uint32_t *header_buffer_length,
+                                              uint64_t system_time);
+
+/*!
+ * Loads the usage table header into TEE.
+ */
+uint32_t drm_wv_mod_load_usage_table_header(const uint8_t *buffer,
+                                            uint32_t buffer_length,
+                                            uint64_t system_time);
+
+/*!
+ * Create a new usage entry.
+ */
+uint32_t drm_wv_mod_create_new_usage_entry(uint32_t session_id,
+                                           uint32_t *usage_entry_number);
+
+/*!
+ * Load a usage table saved by update usage entry.
+ */
+uint32_t drm_wv_mod_load_usage_entry(uint32_t session_id,
+                                     uint32_t index,
+                                     const uint8_t *buffer,
+                                     uint32_t buffer_length);
+
+/*!
+ * Updates session usage entry.
+ */
+uint32_t drm_wv_mod_update_usage_entry(uint32_t session_id,
+                                       uint8_t *header_buffer,
+                                       uint32_t *header_buffer_length,
+                                       uint8_t *entry_buffer,
+                                       uint32_t *entry_buffer_length);
+
+/*!
+ * Move usage entry with current session from one location in header to another.
+ */
+uint32_t drm_wv_mod_move_entry(uint32_t session_id,
+                               uint32_t new_index);
+
+/*!
+ * Shrinks the usage table and the header.
+ */
+uint32_t drm_wv_mod_shrink_usage_table_header(uint32_t new_entry_count,
+                                              uint8_t *header_buffer,
+                                              uint32_t *header_buffer_length);
+
+/*!
+ * Copies an entry from old v12(or earlier) usage table to new table.
+ */
+uint32_t drm_wv_mod_copy_old_usage_entry(uint32_t session_id,
+                                         const uint8_t *pst,
+                                         uint32_t pst_length);
+
+/*!
+ * Delete the old usage table.
+ */
+uint32_t drm_wv_mod_delete_old_usage_table(void);
+
+/*!
+ * Create old usage entry.
+ */
+uint32_t drm_wv_mod_create_old_usage_entry(uint64_t time_since_license_received,
+                                           uint64_t time_since_first_decrypt,
+                                           uint64_t time_since_last_decrypt,
+                                           enum drm_wv_mod_usage_entry_status status,
+                                           uint8_t *server_mac_key,
+                                           uint8_t *client_mac_key,
+                                           const uint8_t *pst,
+                                           uint32_t pst_length);
 
 #endif /* __WV_MOD_DRM_API_H_ */

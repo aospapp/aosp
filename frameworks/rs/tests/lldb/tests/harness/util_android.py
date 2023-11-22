@@ -546,7 +546,7 @@ class UtilAndroid(object):
         Args:
             port: The integer that is the port on which lldb should listen.
         '''
-        cmd = "export LLDB_DEBUGSERVER_PATH='{0}';{0} p --listen {1}"\
+        cmd = "export LLDB_DEBUGSERVER_PATH='{0}';{0} p --listen *:{1}"\
             .format(self._path_lldbserver, port)
         self.shell(cmd, True)
         time.sleep(5)

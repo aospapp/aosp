@@ -17,6 +17,7 @@ import org.bouncycastle.crypto.params.DSAParameterGenerationParameters;
 import org.bouncycastle.crypto.params.DSAParameters;
 import org.bouncycastle.crypto.params.DSAPrivateKeyParameters;
 import org.bouncycastle.crypto.params.DSAPublicKeyParameters;
+import org.bouncycastle.jcajce.provider.asymmetric.util.PrimeCertaintyCalculator;
 import org.bouncycastle.util.Integers;
 import org.bouncycastle.util.Properties;
 
@@ -28,8 +29,12 @@ public class KeyPairGeneratorSpi
 
     DSAKeyGenerationParameters param;
     DSAKeyPairGenerator engine = new DSAKeyPairGenerator();
+    // Android-changed: Change default strength to 1024
+    // In 1.57, the default strength was changed to 2048.  We keep it at 1024 for app
+    // compatibility, particularly because the default digest (SHA-1) doesn't have
+    // a sufficiently long digest to work with 2048-bit keys.
     int strength = 1024;
-    int certainty = 20;
+
     SecureRandom random = new SecureRandom();
     boolean initialised = false;
 
@@ -93,6 +98,8 @@ public class KeyPairGeneratorSpi
                     {
                         DSAParametersGenerator pGen;
                         DSAParameterGenerationParameters dsaParams;
+
+                        int certainty = PrimeCertaintyCalculator.getDefaultCertainty(strength);
 
                         // Typical combination of keysize and size of q.
                         //     keysize = 1024, q's size = 160

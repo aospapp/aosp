@@ -28,7 +28,6 @@
         android:id="@+id/check_box"
         android:layout_width="@dimen/option_item_compound_button_width"
         android:layout_height="wrap_content"
-        android:layout_weight="0"
         android:layout_gravity="center"
         android:background="@null"
         android:clickable="false" />

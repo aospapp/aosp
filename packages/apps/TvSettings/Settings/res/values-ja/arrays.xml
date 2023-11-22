@@ -17,19 +17,19 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
   <string-array name="sleep_timeout_entries">
-    <item msgid="1213527366819650274">"5分"</item>
-    <item msgid="6561800022721381078">"15分"</item>
-    <item msgid="7718735533503035428">"30分"</item>
-    <item msgid="8784595382489738498">"1時間"</item>
-    <item msgid="1529312035777735084">"2時間"</item>
+    <item msgid="1213527366819650274">"5 分"</item>
+    <item msgid="6561800022721381078">"15 分"</item>
+    <item msgid="7718735533503035428">"30 分"</item>
+    <item msgid="8784595382489738498">"1 時間"</item>
+    <item msgid="1529312035777735084">"2 時間"</item>
   </string-array>
   <string-array name="screen_off_timeout_entries">
-    <item msgid="8244337465472020927">"30分"</item>
-    <item msgid="1001586019759702505">"1時間"</item>
-    <item msgid="5216959047515554188">"3時間"</item>
-    <item msgid="4152882798140628647">"6時間"</item>
-    <item msgid="412984226950404956">"12時間"</item>
-    <item msgid="2178434662173258997">"OFFにしない"</item>
+    <item msgid="8244337465472020927">"30 分"</item>
+    <item msgid="1001586019759702505">"1 時間"</item>
+    <item msgid="5216959047515554188">"3 時間"</item>
+    <item msgid="4152882798140628647">"6 時間"</item>
+    <item msgid="412984226950404956">"12 時間"</item>
+    <item msgid="2178434662173258997">"スリープにしない"</item>
   </string-array>
   <string-array name="captioning_typeface_selector_titles">
     <item msgid="4410581208185456276">"デフォルト"</item>
@@ -64,7 +64,7 @@
   </string-array>
   <string-array name="surround_sound_entries">
     <item msgid="5639265918353416799">"自動"</item>
-    <item msgid="5990497479384785807">"常に使用する"</item>
-    <item msgid="6178602073308944697">"使用しない"</item>
+    <item msgid="5990497479384785807">"常時 ON"</item>
+    <item msgid="6178602073308944697">"常時 OFF"</item>
   </string-array>
 </resources>

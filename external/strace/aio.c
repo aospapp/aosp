@@ -3,6 +3,7 @@
  * Copyright (c) 1993 Branko Lankester <branko@hacktic.nl>
  * Copyright (c) 1993, 1994, 1995, 1996 Rick Sladkey <jrs@world.std.com>
  * Copyright (c) 1996-1999 Wichert Akkerman <wichert@cistron.nl>
+ * Copyright (c) 1999-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -73,7 +74,8 @@ tprint_lio_opcode(unsigned cmd)
 		tprints(cmds[cmd].name);
 		return cmds[cmd].sub;
 	}
-	tprintf("%u /* SUB_??? */", cmd);
+	tprintf("%u", cmd);
+	tprints_comment("SUB_???");
 	return SUB_NONE;
 }
 
@@ -165,9 +167,9 @@ print_iocbp(struct tcb *tcp, void *elem_buf, size_t elem_size, void *data)
 	struct iocb cb;
 
 	if (elem_size < sizeof(kernel_ulong_t)) {
-		addr = * (unsigned int *) elem_buf;
+		addr = *(unsigned int *) elem_buf;
 	} else {
-		addr = * (kernel_ulong_t *) elem_buf;
+		addr = *(kernel_ulong_t *) elem_buf;
 	}
 
 	tprints("{");

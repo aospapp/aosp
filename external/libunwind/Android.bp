@@ -38,24 +38,47 @@ cc_defaults {
         "-DNDEBUG",
     ],
 
+    // libunwind expects to find include/libunwind_i.h before
+    // include/tdep-<arch>/libunwind_i.h, but soong prepends arch-specific
+    // include directories.  To keep the include directories in the right
+    // order, pass "include" as an architecture specific include for every
+    // architecture.
     arch: {
         arm: {
-            local_include_dirs: ["include/tdep-arm"],
+            local_include_dirs: [
+                "include",
+                "include/tdep-arm",
+            ],
         },
         arm64: {
-            local_include_dirs: ["include/tdep-aarch64"],
+            local_include_dirs: [
+                "include",
+                "include/tdep-aarch64",
+            ],
         },
         mips: {
-            local_include_dirs: ["include/tdep-mips"],
+            local_include_dirs: [
+                "include",
+                "include/tdep-mips",
+            ],
         },
         mips64: {
-            local_include_dirs: ["include/tdep-mips"],
+            local_include_dirs: [
+                "include",
+                "include/tdep-mips",
+            ],
         },
         x86: {
-            local_include_dirs: ["include/tdep-x86"],
+            local_include_dirs: [
+                "include",
+                "include/tdep-x86",
+            ],
         },
         x86_64: {
-            local_include_dirs: ["include/tdep-x86_64"],
+            local_include_dirs: [
+                "include",
+                "include/tdep-x86_64",
+            ],
         },
     },
 
@@ -91,7 +114,6 @@ cc_defaults {
 
     local_include_dirs: [
         "src",
-        "include",
     ],
 }
 
@@ -102,6 +124,10 @@ cc_defaults {
 cc_library {
     name: "libunwind",
     defaults: ["libunwind_defaults"],
+    vndk: {
+        enabled: true,
+        support_system_process: true,
+    },
     sdk_version: "21",
     stl: "none",
 
@@ -172,7 +198,7 @@ cc_library {
         "src/ptrace/_UPT_get_proc_name.c",
         "src/ptrace/_UPT_reg_offset.c",
         "src/ptrace/_UPT_resume.c",
-     ],
+    ],
 
     arch: {
         arm: {

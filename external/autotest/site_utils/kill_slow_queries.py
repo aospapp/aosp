@@ -9,10 +9,19 @@ import logging
 import MySQLdb
 import optparse
 import sys
+import time
 
 import common
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.site_utils import gmail_lib
+from autotest_lib.client.common_lib import utils
+
+try:
+    from chromite.lib import metrics
+    from chromite.lib import ts_mon_config
+except ImportError:
+    metrics = utils.metrics_mock
+    ts_mon_config = utils.metrics_mock
 
 AT_DIR='/usr/local/autotest'
 DEFAULT_USER = global_config.global_config.get_config_value(
@@ -89,7 +98,8 @@ def kill_slow_queries(user, password, timeout):
     @param password: Password to login to the Autotest DB.
     @param timeout: Timeout limit to kill the slow queries.
 
-    @returns: string representation of all the killed slow queries.
+    @returns: a tuple, first element is the string representation of all the
+              killed slow queries, second element is the total number of them.
     """
     db = MySQLdb.connect('localhost', user, password)
     cursor = db.cursor()
@@ -99,6 +109,7 @@ def kill_slow_queries(user, password, timeout):
     # Filter out the slow queries and kill them.
     slow_queries = [p for p in processlist if p[4]=='Query' and p[5]>=timeout]
     queries_str = ''
+    num_killed_queries = 0
     if slow_queries:
         queries_str = format_the_output(slow_queries)
         queries_ids = [q[0] for q in slow_queries]
@@ -107,9 +118,10 @@ def kill_slow_queries(user, password, timeout):
             logging.info('Killing %s...', query_id)
             cursor.execute('KILL %d' % query_id)
             logging.info('Done!')
+            num_killed_queries += 1
     else:
         logging.info('No slow queries over %ds!', timeout)
-    return queries_str
+    return (queries_str, num_killed_queries)
 
 
 def main():
@@ -117,27 +129,34 @@ def main():
     logging.basicConfig(format='%(asctime)s %(message)s',
                         datefmt='%m/%d/%Y %H:%M:%S', level=logging.DEBUG)
 
-    parser, options, args = parse_options()
-    if not verify_options_and_args(options, args):
-        parser.print_help()
-        return 1
-    try:
-        result_log_strs = kill_slow_queries(options.user, options.password,
-                                            options.timeout)
-        if result_log_strs:
+    with ts_mon_config.SetupTsMonGlobalState(service_name='kill_slow_queries',
+                                             indirect=True):
+        count = 0
+        parser, options, args = parse_options()
+        if not verify_options_and_args(options, args):
+            parser.print_help()
+            return 1
+        try:
+            while True:
+                result_log_strs, count = kill_slow_queries(
+                    options.user, options.password, options.timeout)
+                if result_log_strs:
+                    gmail_lib.send_email(
+                        options.mail,
+                        'Successfully killed slow autotest db queries',
+                        'Below are killed queries:\n%s' % result_log_strs)
+                    m = 'chromeos/autotest/afe_db/killed_slow_queries'
+                    metrics.Counter(m).increment_by(count)
+                time.sleep(options.timeout)
+        except Exception as e:
+            logging.error('Failed to kill slow db queries.\n%s', e)
             gmail_lib.send_email(
                 options.mail,
-                'Successfully killed slow autotest db queries',
-                'Below are killed queries:\n%s' % result_log_strs)
-    except Exception as e:
-        logging.error('Failed to kill slow db queries.\n%s', e)
-        gmail_lib.send_email(
-            options.mail,
-            'Failed to kill slow autotest db queries.',
-            ('Error occurred during killing slow db queries:\n%s\n'
-             'Detailed logs can be found in /var/log/slow_queries.log on db '
-             'backup server.\nTo avoid db crash, please check ASAP.') % e)
-        raise
+                'Failed to kill slow autotest db queries.',
+                ('Error occurred during killing slow db queries:\n%s\n'
+                 'Detailed logs can be found in /var/log/slow_queries.log on db'
+                 ' backup server.\nTo avoid db crash, please check ASAP.') % e)
+            raise
 
 
 if __name__ == '__main__':

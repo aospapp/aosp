@@ -59,6 +59,8 @@ public class CarLatinIME extends InputMethodService {
     private static final String LAYOUT_XML = "input_keyboard_layout";
     private static final String SYMBOL_LAYOUT_XML = "input_keyboard_layout_symbol";
 
+    private static final int KEYCODE_ENTER = '\n';
+    private static final int IME_ACTION_CUSTOM_LABEL = EditorInfo.IME_MASK_ACTION + 1;
     private static final int MSG_ENABLE_KEYBOARD = 0;
     private static final int KEYCODE_CYCLE_CHAR = -7;
     private static final int KEYCODE_MAIN_KEYBOARD = -8;
@@ -306,6 +308,35 @@ public class CarLatinIME extends InputMethodService {
                                 inputConnection.commitText(String.valueOf(altChar), 1);
                             }
                             break;
+                        case KEYCODE_ENTER:
+                            final int imeOptionsActionId = getImeOptionsActionIdFromEditorInfo(mEditorInfo);
+                            if (IME_ACTION_CUSTOM_LABEL == imeOptionsActionId) {
+                                // Either we have an actionLabel and we should performEditorAction with
+                                // actionId regardless of its value.
+                                inputConnection.performEditorAction(mEditorInfo.actionId);
+                            } else if (EditorInfo.IME_ACTION_NONE != imeOptionsActionId) {
+                                // We didn't have an actionLabel, but we had another action to execute.
+                                // EditorInfo.IME_ACTION_NONE explicitly means no action. In contrast,
+                                // EditorInfo.IME_ACTION_UNSPECIFIED is the default value for an action, so it
+                                // means there should be an action and the app didn't bother to set a specific
+                                // code for it - presumably it only handles one. It does not have to be treated
+                                // in any specific way: anything that is not IME_ACTION_NONE should be sent to
+                                // performEditorAction.
+                                inputConnection.performEditorAction(imeOptionsActionId);
+                            } else {
+                                // No action label, and the action from imeOptions is NONE: this is a regular
+                                // enter key that should input a carriage return.
+                                String txt = Character.toString((char) primaryCode);
+                                if (mKeyboardView.isShifted()) {
+                                    txt = txt.toUpperCase(mLocale);
+                                }
+                                if (Log.isLoggable(TAG, Log.DEBUG)) {
+                                    Log.d(TAG, "commitText " + txt);
+                                }
+                                inputConnection.commitText(txt, 1);
+                                updateCapitalization();
+                            }
+                            break;
                         default:
                             String commitText = Character.toString((char) primaryCode);
                             // Chars always come through as lowercase, so we have to explicitly
@@ -406,6 +437,17 @@ public class CarLatinIME extends InputMethodService {
             return String.valueOf(current).toLowerCase(mLocale).charAt(0);
         } else {
             return String.valueOf(current).toUpperCase(mLocale).charAt(0);
+        }
+    }
+
+    private int getImeOptionsActionIdFromEditorInfo(final EditorInfo editorInfo) {
+        if ((editorInfo.imeOptions & EditorInfo.IME_FLAG_NO_ENTER_ACTION) != 0) {
+            return EditorInfo.IME_ACTION_NONE;
+        } else if (editorInfo.actionLabel != null) {
+            return IME_ACTION_CUSTOM_LABEL;
+        } else {
+            // Note: this is different from editorInfo.actionId, hence "ImeOptionsActionId"
+            return editorInfo.imeOptions & EditorInfo.IME_MASK_ACTION;
         }
     }
 }

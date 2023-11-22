@@ -19,6 +19,7 @@ package com.android.uibench.janktests;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Bundle;
 import android.os.SystemClock;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.Direction;
@@ -38,6 +39,7 @@ public class UiBenchJankTestsHelper {
     public static final int TIMEOUT = 250;
     public static final int SHORT_TIMEOUT = 2000;
     public static final int EXPECTED_FRAMES = 100;
+    public static final int KEY_DELAY = 1000;
 
     /**
      * Only to be used for initial-fling tests, or similar cases
@@ -71,12 +73,15 @@ public class UiBenchJankTestsHelper {
     /**
      * Launch activity using intent
      */
-    public void launchActivity(String activityName, String verifyText) {
+    public void launchActivity(String activityName, Bundle extras, String verifyText) {
         ComponentName cn = new ComponentName(PACKAGE_NAME,
                 String.format("%s.%s", PACKAGE_NAME, activityName));
         Intent intent = new Intent(Intent.ACTION_MAIN);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        if (extras != null) {
+            intent.putExtras(extras);
+        }
         intent.setComponent(cn);
         // Launch the activity
         mContext.startActivity(intent);
@@ -84,6 +89,10 @@ public class UiBenchJankTestsHelper {
                 By.text(verifyText)), LONG_TIMEOUT);
         Assert.assertNotNull(String.format("Issue in opening %s", activityName),
                 expectedTextCmp);
+    }
+
+    public void launchActivity(String activityName, String verifyText) {
+        launchActivity(activityName, null, verifyText);
     }
 
     public void launchActivityAndAssert(String activityName, String verifyText) {
@@ -125,5 +134,10 @@ public class UiBenchJankTestsHelper {
     public void slowSingleFlingDown(UiObject2 content) {
         SystemClock.sleep(SHORT_TIMEOUT);
         content.fling(Direction.DOWN, (int)(SLOW_FLING_SPEED * mDisplayMetrics.density));
+    }
+
+    public void pressKeyCode(int keyCode) {
+        SystemClock.sleep(KEY_DELAY);
+        mDevice.pressKeyCode(keyCode);
     }
 }

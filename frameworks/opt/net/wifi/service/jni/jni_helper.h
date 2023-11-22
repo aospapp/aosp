@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <jni.h>
+
 namespace android {
 
 /* JNI Helpers for wifi_hal to WifiNative bridge implementation */

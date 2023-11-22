@@ -18,8 +18,8 @@
 #include "Main/FrameBuffer.hpp"
 #include "Common/Debug.hpp"
 
-#include <hardware/gralloc.h>
-#include <system/window.h>
+struct ANativeWindow;
+struct ANativeWindowBuffer;
 
 namespace sw
 {
@@ -28,7 +28,7 @@ namespace sw
 	public:
 		FrameBufferAndroid(ANativeWindow* window, int width, int height);
 
-		~FrameBufferAndroid();
+		~FrameBufferAndroid() override;
 
 		void flip(void *source, Format sourceFormat, size_t sourceStride) override {blit(source, 0, 0, sourceFormat, sourceStride);};
 		void blit(void *source, const Rect *sourceRect, const Rect *destRect, Format sourceFormat, size_t sourceStride) override;
@@ -41,7 +41,6 @@ namespace sw
 	private:
 		ANativeWindow* nativeWindow;
 		ANativeWindowBuffer* buffer;
-		gralloc_module_t const* gralloc;
 	};
 }
 

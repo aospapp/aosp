@@ -21,9 +21,32 @@
 
 #include "art_field-inl.h"
 #include "mirror/class-inl.h"
+#include "mirror/object-refvisitor-inl.h"
 
 namespace art {
 namespace gc {
+
+std::string Verification::DumpRAMAroundAddress(uintptr_t addr, uintptr_t bytes) const {
+  const uintptr_t dump_start = addr - bytes;
+  const uintptr_t dump_end = addr + bytes;
+  std::ostringstream oss;
+  if (dump_start < dump_end &&
+      IsAddressInHeapSpace(reinterpret_cast<const void*>(dump_start)) &&
+      IsAddressInHeapSpace(reinterpret_cast<const void*>(dump_end - 1))) {
+    oss << " adjacent_ram=";
+    for (uintptr_t p = dump_start; p < dump_end; ++p) {
+      if (p == addr) {
+        // Marker of where the address is.
+        oss << "|";
+      }
+      uint8_t* ptr = reinterpret_cast<uint8_t*>(p);
+      oss << std::hex << std::setfill('0') << std::setw(2) << static_cast<uintptr_t>(*ptr);
+    }
+  } else {
+    oss << " <invalid address>";
+  }
+  return oss.str();
+}
 
 std::string Verification::DumpObjectInfo(const void* addr, const char* tag) const {
   std::ostringstream oss;
@@ -50,23 +73,7 @@ std::string Verification::DumpObjectInfo(const void* addr, const char* tag) cons
           card_table->GetCard(reinterpret_cast<const mirror::Object*>(addr)));
     }
     // Dump adjacent RAM.
-    const uintptr_t uint_addr = reinterpret_cast<uintptr_t>(addr);
-    static constexpr size_t kBytesBeforeAfter = 2 * kObjectAlignment;
-    const uintptr_t dump_start = uint_addr - kBytesBeforeAfter;
-    const uintptr_t dump_end = uint_addr + kBytesBeforeAfter;
-    if (dump_start < dump_end &&
-        IsValidHeapObjectAddress(reinterpret_cast<const void*>(dump_start)) &&
-        IsValidHeapObjectAddress(reinterpret_cast<const void*>(dump_end - kObjectAlignment))) {
-      oss << " adjacent_ram=";
-      for (uintptr_t p = dump_start; p < dump_end; ++p) {
-        if (p == uint_addr) {
-          // Marker of where the object is.
-          oss << "|";
-        }
-        uint8_t* ptr = reinterpret_cast<uint8_t*>(p);
-        oss << std::hex << std::setfill('0') << std::setw(2) << static_cast<uintptr_t>(*ptr);
-      }
-    }
+    oss << DumpRAMAroundAddress(reinterpret_cast<uintptr_t>(addr), 4 * kObjectAlignment);
   } else {
     oss << " <invalid address>";
   }
@@ -90,12 +97,15 @@ void Verification::LogHeapCorruption(ObjPtr<mirror::Object> holder,
   if (holder != nullptr) {
     mirror::Class* holder_klass = holder->GetClass<kVerifyNone, kWithoutReadBarrier>();
     if (IsValidClass(holder_klass)) {
-      oss << "field_offset=" << offset.Uint32Value();
+      oss << " field_offset=" << offset.Uint32Value();
       ArtField* field = holder->FindFieldByOffset(offset);
       if (field != nullptr) {
         oss << " name=" << field->GetName();
       }
     }
+    mirror::HeapReference<mirror::Object>* addr = holder->GetFieldObjectReferenceAddr(offset);
+    oss << " reference addr"
+        << DumpRAMAroundAddress(reinterpret_cast<uintptr_t>(addr), 4 * kObjectAlignment);
   }
 
   if (fatal) {
@@ -105,10 +115,7 @@ void Verification::LogHeapCorruption(ObjPtr<mirror::Object> holder,
   }
 }
 
-bool Verification::IsValidHeapObjectAddress(const void* addr, space::Space** out_space) const {
-  if (!IsAligned<kObjectAlignment>(addr)) {
-    return false;
-  }
+bool Verification::IsAddressInHeapSpace(const void* addr, space::Space** out_space) const {
   space::Space* const space = heap_->FindSpaceFromAddress(addr);
   if (space != nullptr) {
     if (out_space != nullptr) {
@@ -117,6 +124,10 @@ bool Verification::IsValidHeapObjectAddress(const void* addr, space::Space** out
     return true;
   }
   return false;
+}
+
+bool Verification::IsValidHeapObjectAddress(const void* addr, space::Space** out_space) const {
+  return IsAligned<kObjectAlignment>(addr) && IsAddressInHeapSpace(addr, out_space);
 }
 
 bool Verification::IsValidClass(const void* addr) const {
@@ -136,6 +147,93 @@ bool Verification::IsValidClass(const void* addr) const {
     return false;
   }
   return k1 == k2;
+}
+
+using ObjectSet = std::set<mirror::Object*>;
+using WorkQueue = std::deque<std::pair<mirror::Object*, std::string>>;
+
+// Use for visiting the GcRoots held live by ArtFields, ArtMethods, and ClassLoaders.
+class Verification::BFSFindReachable {
+ public:
+  explicit BFSFindReachable(ObjectSet* visited) : visited_(visited) {}
+
+  void operator()(mirror::Object* obj, MemberOffset offset, bool is_static ATTRIBUTE_UNUSED) const
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    ArtField* field = obj->FindFieldByOffset(offset);
+    Visit(obj->GetFieldObject<mirror::Object>(offset),
+          field != nullptr ? field->GetName() : "");
+  }
+
+  void VisitRootIfNonNull(mirror::CompressedReference<mirror::Object>* root) const
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    if (!root->IsNull()) {
+      VisitRoot(root);
+    }
+  }
+
+  void VisitRoot(mirror::CompressedReference<mirror::Object>* root) const
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    Visit(root->AsMirrorPtr(), "!nativeRoot");
+  }
+
+  void Visit(mirror::Object* ref, const std::string& field_name) const
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    if (ref != nullptr && visited_->insert(ref).second) {
+      new_visited_.emplace_back(ref, field_name);
+    }
+  }
+
+  const WorkQueue& NewlyVisited() const {
+    return new_visited_;
+  }
+
+ private:
+  ObjectSet* visited_;
+  mutable WorkQueue new_visited_;
+};
+
+class Verification::CollectRootVisitor : public SingleRootVisitor {
+ public:
+  CollectRootVisitor(ObjectSet* visited, WorkQueue* work) : visited_(visited), work_(work) {}
+
+  void VisitRoot(mirror::Object* obj, const RootInfo& info)
+      OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
+    if (obj != nullptr && visited_->insert(obj).second) {
+      std::ostringstream oss;
+      oss << info.ToString() << " = " << obj << "(" << obj->PrettyTypeOf() << ")";
+      work_->emplace_back(obj, oss.str());
+    }
+  }
+
+ private:
+  ObjectSet* const visited_;
+  WorkQueue* const work_;
+};
+
+std::string Verification::FirstPathFromRootSet(ObjPtr<mirror::Object> target) const {
+  Runtime* const runtime =  Runtime::Current();
+  std::set<mirror::Object*> visited;
+  std::deque<std::pair<mirror::Object*, std::string>> work;
+  {
+    CollectRootVisitor root_visitor(&visited, &work);
+    runtime->VisitRoots(&root_visitor, kVisitRootFlagAllRoots);
+  }
+  while (!work.empty()) {
+    auto pair = work.front();
+    work.pop_front();
+    if (pair.first == target) {
+      return pair.second;
+    }
+    BFSFindReachable visitor(&visited);
+    pair.first->VisitReferences(visitor, VoidFunctor());
+    for (auto&& pair2 : visitor.NewlyVisited()) {
+      std::ostringstream oss;
+      mirror::Object* obj = pair2.first;
+      oss << pair.second << " -> " << obj << "(" << obj->PrettyTypeOf() << ")." << pair2.second;
+      work.emplace_back(obj, oss.str());
+    }
+  }
+  return "<no path found>";
 }
 
 }  // namespace gc

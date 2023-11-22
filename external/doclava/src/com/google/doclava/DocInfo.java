@@ -104,6 +104,26 @@ public abstract class DocInfo {
     return mSince;
   }
 
+  /**
+   * Sets the artifact in which the class resides.
+   * <p>
+   * This property should be specified as a full Maven dependency spec. For example, a Support
+   * Library core utility class may use "com.android.support:support-core-utils:26.0.1".
+   *
+   * @param artifact the artifact in which the class resides
+   * @return
+   */
+  public void setArtifact(String artifact) {
+    mArtifact = artifact;
+  }
+
+  /**
+   * Returns the artifact in which the class resides.
+   */
+  public String getArtifact() {
+    return mArtifact;
+  }
+
   public void setDeprecatedSince(String since) {
     mDeprecatedSince = since;
   }
@@ -137,6 +157,7 @@ public abstract class DocInfo {
   Comment mComment;
   SourcePositionInfo mPosition;
   private String mSince;
+  private String mArtifact;
   private String mDeprecatedSince;
   private Set<FederatedSite> mFederatedReferences = new LinkedHashSet<FederatedSite>();
 }

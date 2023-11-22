@@ -59,7 +59,7 @@ public class UseSharedLibraryTest {
     public void testSharedLibrariesProperlyReported() throws Exception {
         SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(), "appops set "
                 + InstrumentationRegistry.getInstrumentation().getContext().getPackageName()
-                + " " + AppOpsManager.OP_REQUEST_INSTALL_PACKAGES + " " + "allow");
+                + " REQUEST_INSTALL_PACKAGES allow");
 
         try {
             List<SharedLibraryInfo> sharedLibs = InstrumentationRegistry.getContext()
@@ -172,7 +172,7 @@ public class UseSharedLibraryTest {
         } finally {
             SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(), "appops set "
                     + InstrumentationRegistry.getInstrumentation().getContext().getPackageName()
-                    + " " + AppOpsManager.OP_REQUEST_INSTALL_PACKAGES + " " + "default");
+                    + " REQUEST_INSTALL_PACKAGES default");
         }
     }
 

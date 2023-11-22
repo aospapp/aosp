@@ -19,6 +19,7 @@ import com.android.ddmlib.Log.LogLevel;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.Option.Importance;
 import com.android.tradefed.config.OptionClass;
+import com.android.tradefed.config.OptionCopier;
 import com.android.tradefed.result.ByteArrayInputStreamSource;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.SnapshotInputStreamSource;
@@ -99,9 +100,7 @@ public class FileLogger implements ILeveledLogOutput {
     @Override
     public ILeveledLogOutput clone()  {
         FileLogger logger = new FileLogger();
-        logger.setLogLevelDisplay(mLogLevelDisplay);
-        logger.setLogLevel(mLogLevel);
-        logger.addLogTagsDisplay(mLogTagsDisplay);
+        OptionCopier.copyOptionsNoThrow(this, logger);
         return logger;
     }
 
@@ -188,6 +187,11 @@ public class FileLogger implements ILeveledLogOutput {
         return mLogLevelDisplay;
     }
 
+    /** Returns the max log size of the log in MBytes. */
+    public long getMaxLogSizeMbytes() {
+        return mMaxLogSizeMbytes;
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -197,7 +201,7 @@ public class FileLogger implements ILeveledLogOutput {
             try {
                 // create a InputStream from log file
                 mLogStream.flush();
-                return new SnapshotInputStreamSource(mLogStream.getData());
+                return new SnapshotInputStreamSource("FileLogger", mLogStream.getData());
             } catch (IOException e) {
                 System.err.println("Failed to get log");
                 e.printStackTrace();

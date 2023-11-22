@@ -259,16 +259,3 @@ cc_library_shared {
     defaults: ["libicuuc_defaults"],
     static_libs: ["libicuuc_stubdata"],
 }
-
-//
-// Build as a static library against the NDK
-//
-cc_library_static {
-    name: "libicuuc_static",
-    sdk_version: "9",
-    stl: "stlport_static",
-    defaults: ["libicuuc_defaults"],
-    static_libs: ["libicuuc_stubdata_ndk"],
-
-    cflags: ["-Os"], // Using -Os over -O3 actually cuts down the final executable size by a few dozen kilobytes
-}

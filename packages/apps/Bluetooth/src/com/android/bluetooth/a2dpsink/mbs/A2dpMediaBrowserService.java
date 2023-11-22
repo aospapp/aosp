@@ -356,11 +356,12 @@ public class A2dpMediaBrowserService extends MediaBrowserService {
                 }
             } else if (AvrcpControllerService.ACTION_TRACK_EVENT.equals(action)) {
                 PlaybackState pbb =
-                    intent.getParcelableExtra(AvrcpControllerService.EXTRA_PLAYBACK);
+                        intent.getParcelableExtra(AvrcpControllerService.EXTRA_PLAYBACK);
                 MediaMetadata mmd =
-                    intent.getParcelableExtra(AvrcpControllerService.EXTRA_METADATA);
-                mAvrcpCommandQueue.obtainMessage(
-                    MSG_TRACK, new Pair<PlaybackState, MediaMetadata>(pbb, mmd)).sendToTarget();
+                        intent.getParcelableExtra(AvrcpControllerService.EXTRA_METADATA);
+                mAvrcpCommandQueue
+                        .obtainMessage(MSG_TRACK, new Pair<PlaybackState, MediaMetadata>(pbb, mmd))
+                        .sendToTarget();
             } else if (AvrcpControllerService.ACTION_FOLDER_LIST.equals(action)) {
                 mAvrcpCommandQueue.obtainMessage(MSG_FOLDER_LIST, intent).sendToTarget();
             }
@@ -432,6 +433,8 @@ public class A2dpMediaBrowserService extends MediaBrowserService {
         // Set device to null.
         mA2dpDevice = null;
         mBrowseConnected = false;
+        // update playerList.
+        notifyChildrenChanged("__ROOT__");
     }
 
     private void msgTrack(PlaybackState pb, MediaMetadata mmd) {
@@ -506,6 +509,8 @@ public class A2dpMediaBrowserService extends MediaBrowserService {
             return;
         }
         mBrowseConnected = true;
+        // update playerList
+        notifyChildrenChanged("__ROOT__");
     }
 
     private void msgFolderList(Intent intent) {

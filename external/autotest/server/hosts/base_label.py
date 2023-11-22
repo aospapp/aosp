@@ -220,9 +220,9 @@ class LabelRetriever(object):
             logging.info('checking label %s', label.__class__.__name__)
             try:
                 labels.extend(label.get(host))
-            except Exception as e:
-                logging.exception('error getting label %s: %s',
-                                  label.__class__.__name__, e)
+            except Exception:
+                logging.exception('error getting label %s.',
+                                  label.__class__.__name__)
         return labels
 
 

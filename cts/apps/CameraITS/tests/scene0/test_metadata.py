@@ -60,8 +60,8 @@ def main():
     check('md.has_key("android.sensor.rollingShutterSkew")')
     check('md["android.sensor.rollingShutterSkew"] is not None')
     if manual_sensor:
-        check('md["android.sensor.frameDuration"] > '
-              'md["android.sensor.rollingShutterSkew"] > 0')
+        check('md["android.sensor.rollingShutterSkew"] > 0')
+        check('md["android.sensor.frameDuration"] > 0')
 
     # Test: timestampSource must be a valid value.
     check('props.has_key("android.sensor.info.timestampSource")')

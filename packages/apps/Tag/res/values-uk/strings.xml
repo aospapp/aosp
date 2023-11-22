@@ -28,4 +28,5 @@
     <string name="import_vcard" msgid="5104299047930666528">"Імпорт ^1"</string>
     <string name="mime_display_name" msgid="5926357152623764485">"Дані з тегу NFC"</string>
     <string name="vcard_title" msgid="7122634780732426007">"Контактна інформація для ^1"</string>
+    <string name="call_phone_permission_denied" msgid="8515177111984654599">"Щоб телефонувати, додатку потрібен доступ до додатка Телефон. Ви можете керувати дозволами тегів у налаштуваннях"</string>
 </resources>

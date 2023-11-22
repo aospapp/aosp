@@ -23,6 +23,7 @@
 
 #include <android/hardware/tests/msgq/1.0/IBenchmarkMsgQ.h>
 #include <fmq/MessageQueue.h>
+#include <hidl/ServiceManagement.h>
 
 // libutils:
 using android::OK;
@@ -39,6 +40,7 @@ using std::endl;
 using android::hardware::kSynchronizedReadWrite;
 using android::hardware::MQDescriptorSync;
 using android::hardware::MessageQueue;
+using android::hardware::details::waitForHwService;
 
 /*
  * All the benchmark cases will be performed on an FMQ of size kQueueSize.
@@ -69,6 +71,9 @@ protected:
     }
 
     virtual void SetUp() {
+        // waitForHwService is required because IBenchmarkMsgQ is not in manifest.xml.
+        // "Real" HALs shouldn't be doing this.
+        waitForHwService(IBenchmarkMsgQ::descriptor, "default");
         service = IBenchmarkMsgQ::getService();
         ASSERT_NE(service, nullptr);
         ASSERT_TRUE(service->isRemote());

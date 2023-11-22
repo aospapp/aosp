@@ -15,7 +15,8 @@
 package build
 
 import (
-	"os/exec"
+	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -26,7 +27,7 @@ func runNinja(ctx Context, config Config) {
 	ctx.BeginTrace("ninja")
 	defer ctx.EndTrace()
 
-	executable := "prebuilts/build-tools/" + config.HostPrebuiltTag() + "/bin/ninja"
+	executable := config.PrebuiltBuildTool("ninja")
 	args := []string{
 		"-d", "keepdepfile",
 	}
@@ -51,35 +52,88 @@ func runNinja(ctx Context, config Config) {
 	}
 	args = append(args, "-w", "dupbuild=err")
 
-	env := config.Environment().Copy()
-	env.AppendFromKati(config.KatiEnvFile())
+	cmd := Command(ctx, config, "ninja", executable, args...)
+	cmd.Environment.AppendFromKati(config.KatiEnvFile())
 
 	// Allow both NINJA_ARGS and NINJA_EXTRA_ARGS, since both have been
 	// used in the past to specify extra ninja arguments.
-	if extra, ok := env.Get("NINJA_ARGS"); ok {
-		args = append(args, strings.Fields(extra)...)
+	if extra, ok := cmd.Environment.Get("NINJA_ARGS"); ok {
+		cmd.Args = append(cmd.Args, strings.Fields(extra)...)
 	}
-	if extra, ok := env.Get("NINJA_EXTRA_ARGS"); ok {
-		args = append(args, strings.Fields(extra)...)
-	}
-
-	if _, ok := env.Get("NINJA_STATUS"); !ok {
-		env.Set("NINJA_STATUS", "[%p %f/%t] ")
+	if extra, ok := cmd.Environment.Get("NINJA_EXTRA_ARGS"); ok {
+		cmd.Args = append(cmd.Args, strings.Fields(extra)...)
 	}
 
-	cmd := exec.CommandContext(ctx.Context, executable, args...)
-	cmd.Env = env.Environ()
+	if _, ok := cmd.Environment.Get("NINJA_STATUS"); !ok {
+		cmd.Environment.Set("NINJA_STATUS", "[%p %f/%t] ")
+	}
+
 	cmd.Stdin = ctx.Stdin()
 	cmd.Stdout = ctx.Stdout()
 	cmd.Stderr = ctx.Stderr()
-	ctx.Verboseln(cmd.Path, cmd.Args)
-	startTime := time.Now()
-	defer ctx.ImportNinjaLog(filepath.Join(config.OutDir(), ".ninja_log"), startTime)
-	if err := cmd.Run(); err != nil {
-		if e, ok := err.(*exec.ExitError); ok {
-			ctx.Fatalln("ninja failed with:", e.ProcessState.String())
-		} else {
-			ctx.Fatalln("Failed to run ninja:", err)
+	logPath := filepath.Join(config.OutDir(), ".ninja_log")
+	ninjaHeartbeatDuration := time.Minute * 5
+	if overrideText, ok := cmd.Environment.Get("NINJA_HEARTBEAT_INTERVAL"); ok {
+		// For example, "1m"
+		overrideDuration, err := time.ParseDuration(overrideText)
+		if err == nil && overrideDuration.Seconds() > 0 {
+			ninjaHeartbeatDuration = overrideDuration
 		}
 	}
+	// Poll the ninja log for updates; if it isn't updated enough, then we want to show some diagnostics
+	done := make(chan struct{})
+	defer close(done)
+	ticker := time.NewTicker(ninjaHeartbeatDuration)
+	defer ticker.Stop()
+	checker := &statusChecker{}
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				checker.check(ctx, config, logPath)
+			case <-done:
+				return
+			}
+		}
+	}()
+
+	startTime := time.Now()
+	defer ctx.ImportNinjaLog(logPath, startTime)
+
+	cmd.RunOrFatal()
+}
+
+type statusChecker struct {
+	prevTime time.Time
+}
+
+func (c *statusChecker) check(ctx Context, config Config, pathToCheck string) {
+	info, err := os.Stat(pathToCheck)
+	var newTime time.Time
+	if err == nil {
+		newTime = info.ModTime()
+	}
+	if newTime == c.prevTime {
+		// ninja may be stuck
+		dumpStucknessDiagnostics(ctx, config, pathToCheck, newTime)
+	}
+	c.prevTime = newTime
+}
+
+// dumpStucknessDiagnostics gets called when it is suspected that Ninja is stuck and we want to output some diagnostics
+func dumpStucknessDiagnostics(ctx Context, config Config, statusPath string, lastUpdated time.Time) {
+
+	ctx.Verbosef("ninja may be stuck; last update to %v was %v. dumping process tree...", statusPath, lastUpdated)
+
+	// The "pstree" command doesn't exist on Mac, but "pstree" on Linux gives more convenient output than "ps"
+	// So, we try pstree first, and ps second
+	pstreeCommandText := fmt.Sprintf("pstree -pal %v", os.Getpid())
+	psCommandText := "ps -ef"
+	commandText := pstreeCommandText + " || " + psCommandText
+
+	cmd := Command(ctx, config, "dump process tree", "bash", "-c", commandText)
+	output := cmd.CombinedOutputOrFatal()
+	ctx.Verbose(string(output))
+
+	ctx.Verbosef("done\n")
 }

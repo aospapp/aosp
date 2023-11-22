@@ -23,7 +23,6 @@
 
     <!-- change minSdk if needed-->
     <minSdk>21</minSdk>
-    <compileSdkVersion>"android-O"</compileSdkVersion>
 
     <!-- Include additional dependencies here.-->
     <!-- dependency>com.google.android.gms:play-services:5.0.+</dependency -->

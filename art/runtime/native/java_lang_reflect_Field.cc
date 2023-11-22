@@ -17,6 +17,7 @@
 #include "java_lang_reflect_Field.h"
 
 #include "android-base/stringprintf.h"
+#include "nativehelper/jni_macros.h"
 
 #include "art_field-inl.h"
 #include "class_linker.h"
@@ -27,6 +28,7 @@
 #include "jni_internal.h"
 #include "mirror/class-inl.h"
 #include "mirror/field.h"
+#include "native_util.h"
 #include "reflection-inl.h"
 #include "scoped_fast_native_object_access-inl.h"
 #include "utils.h"

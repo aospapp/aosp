@@ -68,14 +68,14 @@ public class CarProjectionManagerTest extends CarApiTestBase {
     }
 
     public void testSetUnsetListeners() throws Exception {
-        mManager.regsiterProjectionListener(
+        mManager.registerProjectionListener(
                 mListener, CarProjectionManager.PROJECTION_VOICE_SEARCH);
-        mManager.unregsiterProjectionListener();
+        mManager.unregisterProjectionListener();
     }
 
     public void testRegisterListenersHandleBadInput() throws Exception {
         try {
-            mManager.regsiterProjectionListener(null, CarProjectionManager.PROJECTION_VOICE_SEARCH);
+            mManager.registerProjectionListener(null, CarProjectionManager.PROJECTION_VOICE_SEARCH);
             fail();
         } catch (IllegalArgumentException e) {
             // expected.

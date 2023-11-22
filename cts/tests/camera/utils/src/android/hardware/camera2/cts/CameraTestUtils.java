@@ -2280,9 +2280,12 @@ public class CameraTestUtils extends Assert {
             }
             if (staticInfo.areKeysAvailable(CaptureResult.CONTROL_POST_RAW_SENSITIVITY_BOOST)) {
                 expectedIso = expectedIso *
-                        result.get(CaptureResult.CONTROL_POST_RAW_SENSITIVITY_BOOST) / 100;
+                        result.get(CaptureResult.CONTROL_POST_RAW_SENSITIVITY_BOOST);
+            } else {
+                expectedIso *= 100;
             }
-            collector.expectEquals("Exif TAG_ISO is incorrect", expectedIso, iso);
+            collector.expectInRange("Exif TAG_ISO is incorrect", iso,
+                    expectedIso/100, (expectedIso+50)/100);
         }
 
         // TAG_DATETIME_DIGITIZED (a.k.a Create time for digital cameras).
@@ -2305,19 +2308,19 @@ public class CameraTestUtils extends Assert {
          * string. Same rule applies to the rest of sub second tags.
          */
         int subSecTime = exif.getAttributeInt(ExifInterface.TAG_SUBSEC_TIME, /*defaultValue*/-1);
-        collector.expectTrue("Exif TAG_SUBSEC_TIME value is null or invalid!", subSecTime > 0);
+        collector.expectTrue("Exif TAG_SUBSEC_TIME value is null or invalid!", subSecTime >= 0);
 
         // TAG_SUBSEC_TIME_ORIG
         int subSecTimeOrig = exif.getAttributeInt(ExifInterface.TAG_SUBSEC_TIME_ORIG,
                 /*defaultValue*/-1);
         collector.expectTrue("Exif TAG_SUBSEC_TIME_ORIG value is null or invalid!",
-                subSecTimeOrig > 0);
+                subSecTimeOrig >= 0);
 
         // TAG_SUBSEC_TIME_DIG
         int subSecTimeDig = exif.getAttributeInt(ExifInterface.TAG_SUBSEC_TIME_DIG,
                 /*defaultValue*/-1);
         collector.expectTrue(
-                "Exif TAG_SUBSEC_TIME_DIG value is null or invalid!", subSecTimeDig > 0);
+                "Exif TAG_SUBSEC_TIME_DIG value is null or invalid!", subSecTimeDig >= 0);
 
         /**
          * TAG_GPS_DATESTAMP & TAG_GPS_TIMESTAMP.

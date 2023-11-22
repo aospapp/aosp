@@ -51,8 +51,9 @@ class Allocator {
   ~Allocator();
   bool Init();
   int MapBuffer(void **base, unsigned int size, unsigned int offset, int fd);
+  int ImportBuffer(int fd);
   int FreeBuffer(void *base, unsigned int size, unsigned int offset, int fd, int handle);
-  int CleanBuffer(void *base, unsigned int size, unsigned int offset, int fd, int op);
+  int CleanBuffer(void *base, unsigned int size, unsigned int offset, int handle, int op);
   int AllocateMem(AllocData *data, gralloc1_producer_usage_t prod_usage,
                   gralloc1_consumer_usage_t cons_usage);
   // @return : index of the descriptor with maximum buffer size req
@@ -70,7 +71,7 @@ class Allocator {
                                 unsigned int *aligned_h);
   int GetYUVPlaneInfo(const private_handle_t *hnd, struct android_ycbcr *ycbcr);
   int GetRgbDataAddress(private_handle_t *hnd, void **rgb_data);
-  bool UseUncached(gralloc1_producer_usage_t usage);
+  bool UseUncached(gralloc1_producer_usage_t prod_usage, gralloc1_consumer_usage_t cons_usage);
   bool IsUBwcFormat(int format);
   bool IsUBwcSupported(int format);
   bool IsUBwcEnabled(int format, gralloc1_producer_usage_t prod_usage,

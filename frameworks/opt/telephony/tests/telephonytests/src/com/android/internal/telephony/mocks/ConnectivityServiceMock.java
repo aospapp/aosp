@@ -529,11 +529,11 @@ public class ConnectivityServiceMock extends IConnectivityManager.Stub
         throw new RuntimeException("not implemented");
     }
 
-    public int tether(String iface) {
+    public int tether(String iface, String callerPkg) {
         throw new RuntimeException("not implemented");
     }
 
-    public int untether(String iface) {
+    public int untether(String iface, String callerPkg) {
         throw new RuntimeException("not implemented");
     }
 
@@ -553,7 +553,7 @@ public class ConnectivityServiceMock extends IConnectivityManager.Stub
         throw new RuntimeException("not implemented");
     }
 
-    public int setUsbTethering(boolean enable) {
+    public int setUsbTethering(boolean enable, String callerPkg) {
         throw new RuntimeException("not implemented");
     }
 
@@ -574,17 +574,18 @@ public class ConnectivityServiceMock extends IConnectivityManager.Stub
     }
 
     @Override
-    public boolean isTetheringSupported() {
+    public boolean isTetheringSupported(String callerPkg) {
         throw new RuntimeException("not implemented");
     }
 
     @Override
-    public void startTethering(int type, ResultReceiver receiver, boolean showProvisioningUi) {
+    public void startTethering(int type, ResultReceiver receiver, boolean showProvisioningUi,
+            String callerPkg) {
         throw new RuntimeException("not implemented");
     }
 
     @Override
-    public void stopTethering(int type) {
+    public void stopTethering(int type, String callerPkg) {
         throw new RuntimeException("not implemented");
     }
 
@@ -646,6 +647,11 @@ public class ConnectivityServiceMock extends IConnectivityManager.Stub
 
     @Override
     public boolean updateLockdownVpn() {
+        throw new RuntimeException("not implemented");
+    }
+
+    @Override
+    public boolean isAlwaysOnVpnPackageSupported(int userId, String packageName) {
         throw new RuntimeException("not implemented");
     }
 

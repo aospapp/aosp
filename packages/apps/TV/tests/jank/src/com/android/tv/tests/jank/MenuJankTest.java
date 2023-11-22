@@ -15,21 +15,17 @@
  */
 package com.android.tv.tests.jank;
 
-import android.content.res.Resources;
 import android.support.test.filters.MediumTest;
 import android.support.test.jank.GfxMonitor;
 import android.support.test.jank.JankTest;
-import android.support.test.jank.JankTestBase;
-import android.support.test.uiautomator.UiDevice;
 
-import com.android.tv.testing.uihelper.LiveChannelsUiDeviceHelper;
 import com.android.tv.testing.uihelper.MenuHelper;
 
 /**
  * Jank tests for the program guide.
  */
 @MediumTest
-public class MenuJankTest extends JankTestBase {
+public class MenuJankTest extends LiveChannelsTestCase {
     private static final String STARTING_CHANNEL = "1";
 
     /**
@@ -42,22 +38,12 @@ public class MenuJankTest extends JankTestBase {
      * @see <a href="http://go/janktesthelper-best-practices">Jank Test Helper Best Practices</a>
      */
     private static final int EXPECTED_FRAMES = 200;
-
-    protected UiDevice mDevice;
-
-    protected Resources mTargetResources;
     protected MenuHelper mMenuHelper;
-    protected LiveChannelsUiDeviceHelper mLiveChannelsHelper;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mDevice = UiDevice.getInstance(getInstrumentation());
-        mTargetResources = getInstrumentation().getTargetContext().getResources();
         mMenuHelper = new MenuHelper(mDevice, mTargetResources);
-        mLiveChannelsHelper = new LiveChannelsUiDeviceHelper(mDevice, mTargetResources,
-                getInstrumentation().getContext());
-        mLiveChannelsHelper.assertAppStarted();
         Utils.pressKeysForChannelNumber(STARTING_CHANNEL, mDevice);
     }
 

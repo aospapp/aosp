@@ -24,4 +24,4 @@ This test verifies H264 non-resolution-changing video can seek on machines with 
 """
 
 video = 'http://commondatastorage.googleapis.com/chromiumos-test-assets-public/video_VideoSeek/video.mp4'
-job.run_test('video_VideoSeek', video=video)
+job.run_test('video_VideoSeek', codec='h264', is_switchres=False, video=video)

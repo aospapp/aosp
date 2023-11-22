@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2016 Google Inc. All Rights Reserved.
+# Copyright 2016 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-pushd ${ANDROID_BUILD_TOP}/test/vts
-protoc -I=proto --java_out=web/dashboard/src/main/java proto/VtsReportMessage.proto
+pushd ${ANDROID_BUILD_TOP}/test
+protoc --proto_path=vts --java_out=vti/dashboard/src/main/java vts/proto/VtsReportMessage.proto
 popd
-

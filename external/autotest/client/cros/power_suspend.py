@@ -5,7 +5,7 @@
 import collections, logging, os, re, shutil, time
 
 from autotest_lib.client.bin import utils
-from autotest_lib.client.common_lib import base_utils, error
+from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import cros_logging, sys_power
 from autotest_lib.client.cros import power_utils
 from autotest_lib.client.cros import power_status
@@ -239,11 +239,12 @@ class Suspender(object):
         for retry in xrange(retries + 1):
             early_wakeup = False
             if os.path.exists(self.HWCLOCK_FILE):
-                match = re.search(r'(.+\w)\s+(-?[0-9.]+) seconds',
+                # TODO(crbug.com/733773): Still fragile see bug.
+                match = re.search(r'(.+)(\.\d+)[+-]\d+:?\d+$',
                                   utils.read_file(self.HWCLOCK_FILE), re.DOTALL)
                 if match:
                     timeval = time.strptime(match.group(1),
-                            "%a %b %d %H:%M:%S %Y")
+                                            "%Y-%m-%d %H:%M:%S")
                     seconds = time.mktime(timeval)
                     seconds += float(match.group(2))
                     logging.debug('RTC resume timestamp read: %f', seconds)

@@ -27,11 +27,14 @@ LOCAL_MODULE_TAGS := tests
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    compatibility-device-util ctstestrunner
+    compatibility-device-util ctstestrunner apache-commons-math
 
 LOCAL_SDK_VERSION := test_current
 
-LOCAL_SRC_FILES := $(call all-java-files-under, src/android/location/cts)
+LOCAL_SRC_FILES := $(call all-java-files-under, src/android/location/cts) \
+   $(call all-proto-files-under, protos)
+
+LOCAL_PROTOC_OPTIMIZE_TYPE := nano
 
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
@@ -45,13 +48,19 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
-LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util ctstestrunner
+LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util ctstestrunner  apache-commons-math
 
-LOCAL_SRC_FILES := $(call all-java-files-under, src)
+LOCAL_PROTOC_OPTIMIZE_TYPE := nano
+
+LOCAL_SRC_FILES := $(call all-java-files-under, src) \
+   $(call all-proto-files-under, protos)
 
 LOCAL_PACKAGE_NAME := CtsLocationTestCases
+
+LOCAL_JACK_FLAGS := --multi-dex native
+LOCAL_DX_FLAGS := --multi-dex
 
 LOCAL_SDK_VERSION := test_current
 

@@ -7,6 +7,12 @@
 /* DARWIN_VERS value for Mac OS X 10.10 */
 /* #undef DARWIN_10_10 */
 
+/* DARWIN_VERS value for Mac OS X 10.11 */
+/* #undef DARWIN_10_11 */
+
+/* DARWIN_VERS value for macOS 10.12 */
+/* #undef DARWIN_10_12 */
+
 /* DARWIN_VERS value for Mac OS X 10.5 */
 /* #undef DARWIN_10_5 */
 
@@ -48,11 +54,11 @@
 #define GLIBC_MANDATORY_STRLEN_REDIRECT 1
 #endif
 
-/* Define to 1 if gcc/as can do Altivec. */
-/* #undef HAS_ALTIVEC */
-
 /* Define to 1 if you have the <asm/unistd.h> header file. */
 #define HAVE_ASM_UNISTD_H 1
+
+/* Define to 1 if as supports fxsave64/fxrstor64. */
+#define HAVE_AS_AMD64_FXSAVE64 1
 
 /* Define to 1 if as supports floating point phased out category. */
 /* #undef HAVE_AS_PPC_FPPO */
@@ -88,6 +94,12 @@
 #define HAVE_DLINFO_RTLD_DI_TLS_MODID 1
 #endif
 
+/* Define to 1 if the system has the type `Elf32_Chdr'. */
+//#define HAVE_ELF32_CHDR 1
+
+/* Define to 1 if the system has the type `Elf64_Chdr'. */
+//#define HAVE_ELF64_CHDR 1
+
 /* Define to 1 if you have the <endian.h> header file. */
 #define HAVE_ENDIAN_H 1
 
@@ -118,6 +130,9 @@
 /* Define to 1 if you have the `rt' library (-lrt). */
 #define HAVE_LIBRT 1
 
+/* Define to 1 if you have the `scf' library (-lscf). */
+/* #undef HAVE_LIBSCF */
+
 /* Define to 1 if you have the `mallinfo' function. */
 #define HAVE_MALLINFO 1
 
@@ -146,19 +161,13 @@
 #define HAVE_PPOLL 1
 
 /* Define to 1 if you have the `process_vm_readv' function. */
-#ifndef __ANDROID__
 #define HAVE_PROCESS_VM_READV 1
-#endif
 
 /* Define to 1 if you have the `process_vm_writev' function. */
-#ifndef __ANDROID__
 #define HAVE_PROCESS_VM_WRITEV 1
-#endif
 
 /* Define to 1 if you have the `pthread_barrier_init' function. */
-#ifndef __ANDROID__
 #define HAVE_PTHREAD_BARRIER_INIT 1
-#endif
 
 /* Define to 1 if you have the `pthread_condattr_setclock' function. */
 #define HAVE_PTHREAD_CONDATTR_SETCLOCK 1
@@ -205,9 +214,7 @@
 #define HAVE_PTHREAD_SETNAME_NP 1
 
 /* Define to 1 if you have the `pthread_spin_lock' function. */
-#ifndef __ANDROID__
 #define HAVE_PTHREAD_SPIN_LOCK 1
-#endif
 
 /* Define to 1 if you have the `pthread_yield' function. */
 #define HAVE_PTHREAD_YIELD 1
@@ -263,7 +270,7 @@
 #define HAVE_SYSCALL 1
 
 /* Define to 1 if you have the <sys/endian.h> header file. */
-/* #undef HAVE_SYS_ENDIAN_H 1 */
+/* #undef HAVE_SYS_ENDIAN_H */
 
 /* Define to 1 if you have the <sys/epoll.h> header file. */
 #define HAVE_SYS_EPOLL_H 1
@@ -274,11 +281,17 @@
 /* Define to 1 if you have the <sys/klog.h> header file. */
 #define HAVE_SYS_KLOG_H 1
 
+/* Define to 1 if you have the <sys/lgrp_user_impl.h> header file. */
+/* #undef HAVE_SYS_LGRP_USER_IMPL_H */
+
 /* Define to 1 if you have the <sys/param.h> header file. */
 #define HAVE_SYS_PARAM_H 1
 
 /* Define to 1 if you have the <sys/poll.h> header file. */
 #define HAVE_SYS_POLL_H 1
+
+/* Define to 1 if you have the <sys/prctl.h> header file. */
+#define HAVE_SYS_PRCTL_H 1
 
 /* Define to 1 if you have the <sys/signalfd.h> header file. */
 #define HAVE_SYS_SIGNALFD_H 1
@@ -291,6 +304,9 @@
 
 /* Define to 1 if you have the <sys/syscall.h> header file. */
 #define HAVE_SYS_SYSCALL_H 1
+
+/* Define to 1 if you have the <sys/sysnvl.h> header file. */
+/* #undef HAVE_SYS_SYSNVL_H */
 
 /* Define to 1 if you have the <sys/time.h> header file. */
 #define HAVE_SYS_TIME_H 1
@@ -313,14 +329,8 @@
 /* Define to 1 if you have the `utimensat' function. */
 #define HAVE_UTIMENSAT 1
 
-/* Define to 1 if you're using Linux 2.4.x */
-/* #undef KERNEL_2_4 */
-
-/* Define to 1 if you're using Linux 2.6.x or Linux 3.x */
-#define KERNEL_2_6 1
-
-/* configured default page size 4k */
-#define MIPS_PAGE_SHIFT 12
+/* Define to 1 if you're using Musl libc */
+/* #undef MUSL_LIBC */
 
 /* Name of package */
 #define PACKAGE "valgrind"
@@ -332,7 +342,7 @@
 #define PACKAGE_NAME "Valgrind"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "Valgrind 3.11.0.SVN.aosp"
+#define PACKAGE_STRING "Valgrind 3.13.0"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "valgrind"
@@ -341,7 +351,112 @@
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "3.11.0.SVN.aosp"
+#define PACKAGE_VERSION "3.13.0"
+
+/* Define to 1 if you have the `A_GETSTAT' and `A_SETSTAT' constants. */
+/* #undef SOLARIS_AUDITON_STAT */
+
+/* Define to 1 if you have the new `execve' syscall which accepts flags. */
+/* #undef SOLARIS_EXECVE_SYSCALL_TAKES_FLAGS */
+
+/* Define to 1 if fpregset_t defines struct _fpchip_state */
+/* #undef SOLARIS_FPCHIP_STATE_TAKES_UNDERSCORE */
+
+/* Define to 1 if you have the new `frealpathat' syscall. */
+/* #undef SOLARIS_FREALPATHAT_SYSCALL */
+
+/* Define to 1 if you have the new `gethrt' fasttrap. */
+/* #undef SOLARIS_GETHRT_FASTTRAP */
+
+/* Define to 1 if you have the new `getrandom' syscall. */
+/* #undef SOLARIS_GETRANDOM_SYSCALL */
+
+/* Define to 1 if you have the new `get_zone_offset' fasttrap. */
+/* #undef SOLARIS_GETZONEOFFSET_FASTTRAP */
+
+/* Default platform for Valgrind launcher. */
+/* #undef SOLARIS_LAUNCHER_DEFAULT_PLATFORM */
+
+/* Define to 1 if you have the new `lwp_name' syscall. */
+/* #undef SOLARIS_LWP_NAME_SYSCALL */
+
+/* Define to 1 if you have the new `lwp_sigqueue' syscall. */
+/* #undef SOLARIS_LWP_SIGQUEUE_SYSCALL */
+
+/* Define to 1 if you have the new `lwp_sigqueue' syscall which accepts pid.
+   */
+/* #undef SOLARIS_LWP_SIGQUEUE_SYSCALL_TAKES_PID */
+
+/* Define to 1 if you have the `MODNVL_CTRLMAP' through `MODDEVINFO_CACHE_TS'
+   constants. */
+/* #undef SOLARIS_MODCTL_MODNVL */
+
+/* Define to 1 if you have the new `accept' syscall. */
+/* #undef SOLARIS_NEW_ACCEPT_SYSCALL */
+
+/* Define to 1 if you have the new `pipe' syscall. */
+/* #undef SOLARIS_NEW_PIPE_SYSCALL */
+
+/* Define to 1 if nscd attaches to /system/volatile/name_service_door. */
+/* #undef SOLARIS_NSCD_DOOR_SYSTEM_VOLATILE */
+
+/* Define to 1 if you have the old Solaris syscalls. */
+/* #undef SOLARIS_OLD_SYSCALLS */
+
+/* Define to 1 if you have /proc/self/cmdline. */
+/* #undef SOLARIS_PROC_CMDLINE */
+
+/* Define to 1 if you have the `prxregset_t' type. */
+/* #undef SOLARIS_PRXREGSET_T */
+
+/* Define to 1 if you have the `PSET_GET_NAME' constants. */
+/* #undef SOLARIS_PSET_GET_NAME */
+
+/* Define to 1 if PT_SUNWDTRACE program header provides just an initial thread
+   pointer for libc. */
+/* #undef SOLARIS_PT_SUNDWTRACE_THRP */
+
+/* Version number of the repository door cache protocol. */
+/* #undef SOLARIS_REPCACHE_PROTOCOL_VERSION */
+
+/* Define to 1 if you have the new `sysstat' segment reservation. */
+/* #undef SOLARIS_RESERVE_SYSSTAT_ADDR */
+
+/* Define to 1 if you have the new `sysstat_zone' segment reservation. */
+/* #undef SOLARIS_RESERVE_SYSSTAT_ZONE_ADDR */
+
+/* Define to 1 if you have the schedctl page executable. */
+/* #undef SOLARIS_SCHEDCTL_PAGE_EXEC */
+
+/* Define to 1 if you have the `IPC_XSTAT64', `SHMADV', `SHM_ADV_GET',
+   `SHM_ADV_SET' and `SHMGET_OSM' constants. */
+/* #undef SOLARIS_SHM_NEW */
+
+/* Define to 1 if you have the `spawn' syscall. */
+/* #undef SOLARIS_SPAWN_SYSCALL */
+
+/* Define to 1 if you have the `system_stats' syscall. */
+/* #undef SOLARIS_SYSTEM_STATS_SYSCALL */
+
+/* Define to 1 if you have the `TNDB_GET_TNIP' constant. */
+/* #undef SOLARIS_TNDB_GET_TNIP */
+
+/* Define to 1 if you have the `TSOL_GETCLEARANCE' and `TSOL_SETCLEARANCE'
+   constants. */
+/* #undef SOLARIS_TSOL_CLEARANCE */
+
+/* Define to 1 if you have the `utimensat' syscall. */
+/* #undef SOLARIS_UTIMENSAT_SYSCALL */
+
+/* Define to 1 if you have the `utimesys' syscall. */
+/* #undef SOLARIS_UTIMESYS_SYSCALL */
+
+/* Define to 1 if you have the new `uuidsys' syscall. */
+/* #undef SOLARIS_UUIDSYS_SYSCALL */
+
+/* Define to 1 if you have the `ZONE_LIST_DEFUNCT' and `ZONE_GETATTR_DEFUNC'
+   constants. */
+/* #undef SOLARIS_ZONE_DEFUNCT */
 
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1
@@ -350,7 +465,7 @@
 #define TIME_WITH_SYS_TIME 1
 
 /* Version number of package */
-#define VERSION "3.11.0.SVN.aosp"
+#define VERSION "3.13.0"
 
 /* Temporary files directory */
 #ifdef __ANDROID__
@@ -358,15 +473,6 @@
 #else
 #define VG_TMPDIR "/tmp"
 #endif
-
-/* TODO (dimtiry): remove this workaround when it becomes unnecessary
- *
- * Gcc produces an error when trying to compile a .c file containing
- * asm(..) instruction outside of a function. Note that this happens only
- * if -std=c99 flag is specified. Replacing asm with __asm__ fixes this
- * problem.
- */
-#define asm __asm__
 
 /* Define to `int' if <sys/types.h> doesn't define. */
 /* #undef gid_t */

@@ -40,5 +40,7 @@
     <!-- GLIF colors -->
     <color name="suw_color_accent_glif_dark">#ff4285f4</color>
     <color name="suw_color_accent_glif_light">#ff4285f4</color>
+    <color name="suw_glif_background_color_dark">#ff000000</color>
+    <color name="suw_glif_background_color_light">#ffffffff</color>
 
 </resources>

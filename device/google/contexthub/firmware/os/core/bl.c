@@ -83,9 +83,9 @@ static const struct blFlashTable   // For erase code, we need to know which page
     { (uint8_t *)(__eedata_start + 0x04000), 0x04000, BL_FLASH_EEDATA },
     { (uint8_t *)(__code_start),             0x04000, BL_FLASH_KERNEL },
     { (uint8_t *)(__code_start + 0x04000),   0x10000, BL_FLASH_KERNEL },
+    { (uint8_t *)(__code_start + 0x14000),   0x20000, BL_FLASH_KERNEL },
     { (uint8_t *)(__shared_start),           0x20000, BL_FLASH_SHARED },
     { (uint8_t *)(__shared_start + 0x20000), 0x20000, BL_FLASH_SHARED },
-    { (uint8_t *)(__shared_start + 0x40000), 0x20000, BL_FLASH_SHARED },
 };
 #else
 BL_FLASH_TABLE;
@@ -110,7 +110,7 @@ void blLog(const char *str, ...)
     va_list vl;
 
     va_start(vl, str);
-    cvprintf(blLogPutcharF, NULL, str, vl);
+    cvprintf(blLogPutcharF, 0, NULL, str, vl);
     va_end(vl);
 }
 

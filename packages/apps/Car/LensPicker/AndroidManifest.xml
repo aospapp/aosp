@@ -44,7 +44,7 @@
             android:noHistory="true" />
 
         <activity android:name=".LensPickerTrampolineActivity"
-            android:theme="@android:style/Theme.NoDisplay"
+            android:theme="@style/Theme.FloatingLensPicker"
             android:label="LensPickerTrampolineActivity"
             android:resizeableActivity="true"
             android:excludeFromRecents="true"
@@ -56,12 +56,5 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-
-        <receiver android:name="PackageChangeReceiver">
-            <intent-filter>
-                <action android:name="android.intent.action.PACKAGE_ADDED" />
-                <data android:scheme="package"/>
-            </intent-filter>
-        </receiver>
     </application>
 </manifest>

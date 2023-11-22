@@ -10,7 +10,7 @@ from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.common_lib.cros import enrollment
-from autotest_lib.client.common_lib.cros import cfm_util
+from autotest_lib.client.common_lib.cros import kiosk_utils
 
 TIMEOUT = 20
 
@@ -24,7 +24,7 @@ class enterprise_KioskEnrollment(test.test):
     EXT_PAGE = 'viewer.html'
 
     def _CheckKioskExtensionContexts(self, browser):
-        ext_contexts = cfm_util.wait_for_kiosk_ext(
+        ext_contexts = kiosk_utils.wait_for_kiosk_ext(
                 browser, self.EXT_ID)
         ext_urls = set([context.EvaluateJavaScript('location.href;')
                        for context in ext_contexts])

@@ -39,21 +39,28 @@ public class InstancesDebuggee extends SyncDebuggee {
 
 	@Override
 	public void run() {
-		//Objects reachable for garbage collection purpose
-		
+		// Objects reachable for garbage collection purpose.
 		ArrayList<MockClass> reachableObjs = new ArrayList<MockClass>();
-        
-		for(int i = 0; i < reachableObjNum; i++) {
-			reachableObjs.add(new MockClass(true));
-		}
-       
-		//Objects unreachable
-		for(int i = 0; i < unreachableObjNum; i++) {
-			new MockClass(false);
-		}
+		allocateReachableObjects(reachableObjs);
+
+		// Objects unreachable.
+		allocateUnreachableObjects();
+
 		synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
         logWriter.println("--> Debuggee: InstancesDebuggee...");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
+	}
+
+	private static void allocateReachableObjects(ArrayList<MockClass> reachableObjs) {
+	    for (int i = 0; i < reachableObjNum; i++) {
+            reachableObjs.add(new MockClass(true));
+        }
+	}
+
+	private static void allocateUnreachableObjects() {
+        for (int i = 0; i < unreachableObjNum; i++) {
+            new MockClass(false);
+        }
 	}
 
 	public static void main(String[] args) {

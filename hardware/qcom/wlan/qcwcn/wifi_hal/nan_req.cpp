@@ -104,8 +104,8 @@ int NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *pReq)
           sizeof(pReq->config_cluster_attribute_val)) : 0 \
         ) + \
         (
-          pReq->config_scan_params ? (SIZEOF_TLV_HDR + \
-          NAN_MAX_SOCIAL_CHANNELS * sizeof(u32)) : 0 \
+          pReq->config_scan_params ? NAN_MAX_SOCIAL_CHANNELS *
+          (SIZEOF_TLV_HDR + sizeof(u32)) : 0 \
         ) + \
         (
           pReq->config_random_factor_force ? (SIZEOF_TLV_HDR + \
@@ -136,9 +136,13 @@ int NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *pReq)
            sizeof(u32)) : 0 \
         ) + \
         (
-           pReq->discovery_indication_cfg ? (SIZEOF_TLV_HDR + \
-           sizeof(u32)) : 0 \
-        );
+           /* Always include cfg discovery indication TLV */
+           SIZEOF_TLV_HDR + sizeof(u32) \
+        ) + \
+        (
+          pReq->config_subscribe_sid_beacon ? (SIZEOF_TLV_HDR + \
+          sizeof(pReq->subscribe_sid_beacon_val)) : 0 \
+        ) ;
     pNanEnableReqMsg pFwReq = (pNanEnableReqMsg)malloc(message_len);
     if (pFwReq == NULL) {
         cleanup();
@@ -287,18 +291,17 @@ int NanCommand::putNanEnable(transaction_id id, const NanEnableRequest *pReq)
                       sizeof(u32),
                       (const u8*)&pReq->disc_mac_addr_rand_interval_sec, tlvs);
     }
-    if (pReq->discovery_indication_cfg) {
-        NanConfigDiscoveryIndications discovery_indications;
-        discovery_indications.disableDiscoveryMacAddressEvent =
-                               (pReq->discovery_indication_cfg & BIT_0) ? 1 : 0;
-        discovery_indications.disableDiscoveryStartedClusterEvent =
-                               (pReq->discovery_indication_cfg & BIT_1) ? 1 : 0;
-        discovery_indications.disableDiscoveryJoinedClusterEvent =
-                               (pReq->discovery_indication_cfg & BIT_2) ? 1 : 0;
 
-        tlvs = addTlv(NAN_TLV_TYPE_CONFIG_DISCOVERY_INDICATIONS,
-                      sizeof(u32),
-                      (const u8*)&discovery_indications, tlvs);
+    u32 config_discovery_indications;
+    config_discovery_indications = (u32)pReq->discovery_indication_cfg;
+    tlvs = addTlv(NAN_TLV_TYPE_CONFIG_DISCOVERY_INDICATIONS,
+                  sizeof(u32),
+                  (const u8*)&config_discovery_indications, tlvs);
+
+    if (pReq->config_subscribe_sid_beacon) {
+        tlvs = addTlv(NAN_TLV_TYPE_SUBSCRIBE_SID_BEACON,
+                      sizeof(pReq->subscribe_sid_beacon_val),
+                      (const u8*)&pReq->subscribe_sid_beacon_val, tlvs);
     }
 
     mVendorData = (char*)pFwReq;
@@ -349,7 +352,7 @@ int NanCommand::putNanDisable(transaction_id id)
 int NanCommand::putNanConfig(transaction_id id, const NanConfigRequest *pReq)
 {
     ALOGV("NAN_CONFIG");
-    size_t message_len = NAN_MAX_CONFIGURATION_REQ_SIZE;
+    size_t message_len = 0;
     int idx = 0;
 
     if (pReq == NULL ||
@@ -386,8 +389,8 @@ int NanCommand::putNanConfig(transaction_id id, const NanConfigRequest *pReq)
            sizeof(pReq->config_cluster_attribute_val)) : 0 \
         ) + \
         (
-           pReq->config_scan_params ? (SIZEOF_TLV_HDR + \
-           NAN_MAX_SOCIAL_CHANNELS * sizeof(u32)) : 0 \
+           pReq->config_scan_params ? NAN_MAX_SOCIAL_CHANNELS *
+           (SIZEOF_TLV_HDR + sizeof(u32)) : 0 \
         ) + \
         (
            pReq->config_random_factor_force ? (SIZEOF_TLV_HDR + \
@@ -414,8 +417,12 @@ int NanCommand::putNanConfig(transaction_id id, const NanConfigRequest *pReq)
            sizeof(u32)) : 0 \
         ) + \
         (
-           pReq->discovery_indication_cfg ? (SIZEOF_TLV_HDR + \
-           sizeof(u32)) : 0 \
+          pReq->config_subscribe_sid_beacon ? (SIZEOF_TLV_HDR + \
+          sizeof(pReq->subscribe_sid_beacon_val)) : 0 \
+        ) + \
+        (
+           /* Always include cfg discovery indication TLV */
+           SIZEOF_TLV_HDR + sizeof(u32) \
         );
 
     if (pReq->num_config_discovery_attr) {
@@ -453,7 +460,6 @@ int NanCommand::putNanConfig(transaction_id id, const NanConfigRequest *pReq)
         tlvs = addTlv(NAN_TLV_TYPE_MASTER_PREFERENCE, sizeof(pReq->master_pref),
                       (const u8*)&pReq->master_pref, tlvs);
     }
-
     if (pReq->config_rssi_window_size) {
         tlvs = addTlv(NAN_TLV_TYPE_RSSI_AVERAGING_WINDOW_SIZE, sizeof(pReq->rssi_window_size_val),
                       (const u8*)&pReq->rssi_window_size_val, tlvs);
@@ -461,6 +467,15 @@ int NanCommand::putNanConfig(transaction_id id, const NanConfigRequest *pReq)
     if (pReq->config_rssi_proximity) {
         tlvs = addTlv(NAN_TLV_TYPE_24G_RSSI_CLOSE_PROXIMITY, sizeof(pReq->rssi_proximity),
                       (const u8*)&pReq->rssi_proximity, tlvs);
+    }
+    if (pReq->config_5g_rssi_close_proximity) {
+        tlvs = addTlv(NAN_TLV_TYPE_5G_RSSI_CLOSE_PROXIMITY,
+                      sizeof(pReq->rssi_close_proximity_5g_val),
+                      (const u8*)&pReq->rssi_close_proximity_5g_val, tlvs);
+    }
+    if (pReq->config_cluster_attribute_val) {
+        tlvs = addTlv(NAN_TLV_TYPE_CLUSTER_ATTRIBUTE_IN_SDF, sizeof(pReq->config_cluster_attribute_val),
+                      (const u8*)&pReq->config_cluster_attribute_val, tlvs);
     }
     if (pReq->config_scan_params) {
         u32 socialChannelParamVal[NAN_MAX_SOCIAL_CHANNELS];
@@ -508,7 +523,6 @@ int NanCommand::putNanConfig(transaction_id id, const NanConfigRequest *pReq)
                       calcNanFurtherAvailabilityMapSize(&pReq->fam_val),
                       (const u8*)(tlvs + SIZEOF_TLV_HDR), tlvs);
     }
-
     if (pReq->config_dw.config_2dot4g_dw_band) {
         tlvs = addTlv(NAN_TLV_TYPE_2G_COMMITTED_DW,
                       sizeof(pReq->config_dw.dw_2dot4g_interval_val),
@@ -524,20 +538,18 @@ int NanCommand::putNanConfig(transaction_id id, const NanConfigRequest *pReq)
                       sizeof(u32),
                       (const u8*)&pReq->disc_mac_addr_rand_interval_sec, tlvs);
     }
-
-    if (pReq->discovery_indication_cfg) {
-        NanConfigDiscoveryIndications discovery_indications;
-        discovery_indications.disableDiscoveryMacAddressEvent =
-                               (pReq->discovery_indication_cfg & BIT_0) ? 1 : 0;
-        discovery_indications.disableDiscoveryStartedClusterEvent =
-                               (pReq->discovery_indication_cfg & BIT_1) ? 1 : 0;
-        discovery_indications.disableDiscoveryJoinedClusterEvent =
-                               (pReq->discovery_indication_cfg & BIT_2) ? 1 : 0;
-
-        tlvs = addTlv(NAN_TLV_TYPE_CONFIG_DISCOVERY_INDICATIONS,
-                      sizeof(u32),
-                      (const u8*)&discovery_indications, tlvs);
+    if (pReq->config_subscribe_sid_beacon) {
+        tlvs = addTlv(NAN_TLV_TYPE_SUBSCRIBE_SID_BEACON,
+                      sizeof(pReq->subscribe_sid_beacon_val),
+                      (const u8*)&pReq->subscribe_sid_beacon_val, tlvs);
     }
+
+    u32 config_discovery_indications;
+    config_discovery_indications = (u32)(pReq->discovery_indication_cfg);
+    /* Always include the discovery cfg TLV as there is no cfg flag */
+    tlvs = addTlv(NAN_TLV_TYPE_CONFIG_DISCOVERY_INDICATIONS,
+                  sizeof(u32),
+                  (const u8*)&config_discovery_indications, tlvs);
 
     mVendorData = (char*)pFwReq;
     mDataLen = message_len;
@@ -610,7 +622,8 @@ int NanCommand::putNanPublish(transaction_id id, const NanPublishRequest *pReq)
 
     pFwReq->publishServiceReqParams.ttl = pReq->ttl;
     pFwReq->publishServiceReqParams.period = pReq->period;
-    pFwReq->publishServiceReqParams.reserved = 0;
+    pFwReq->publishServiceReqParams.replyIndFlag =
+                                   (pReq->recv_indication_cfg & BIT_3) ? 0 : 1;
     pFwReq->publishServiceReqParams.publishType = pReq->publish_type;
     pFwReq->publishServiceReqParams.txType = pReq->tx_type;
 
@@ -1338,6 +1351,12 @@ int NanCommand::requestEvent()
     cb = nl_cb_alloc(NL_CB_DEFAULT);
     if (!cb) {
         ALOGE("%s: Callback allocation failed",__func__);
+        res = -1;
+        goto out;
+    }
+
+    if (!mInfo->cmd_sock) {
+        ALOGE("%s: Command socket is null",__func__);
         res = -1;
         goto out;
     }

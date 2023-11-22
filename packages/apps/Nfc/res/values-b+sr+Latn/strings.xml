@@ -42,4 +42,5 @@
     <string name="prompt_connect_to_network" msgid="8511683573657516114">"Želite li da se povežete sa mrežom <xliff:g id="NETWORK_SSID">%1$s</xliff:g>?"</string>
     <string name="beam_requires_nfc_enabled" msgid="2800366967218600534">"Android prebacivanje zahteva NFC da biste mogli da ga omogućite. Želite li da ga omogućite?"</string>
     <string name="android_beam" msgid="1666446406999492763">"Android prebacivanje"</string>
+    <string name="beam_requires_external_storage_permission" msgid="8798337545702206901">"Aplikacija nema dozvolu za spoljnu memoriju. To je potrebno za prebacivanje ove datoteke"</string>
 </resources>

@@ -386,8 +386,10 @@ TEST_F(UnstartedRuntimeTest, StringInit) {
   Thread* self = Thread::Current();
   ScopedObjectAccess soa(self);
   mirror::Class* klass = mirror::String::GetJavaLangString();
-  ArtMethod* method = klass->FindDeclaredDirectMethod("<init>", "(Ljava/lang/String;)V",
-                                                      kRuntimePointerSize);
+  ArtMethod* method =
+      klass->FindConstructor("(Ljava/lang/String;)V",
+                             Runtime::Current()->GetClassLinker()->GetImagePointerSize());
+  ASSERT_TRUE(method != nullptr);
 
   // create instruction data for invoke-direct {v0, v1} of method with fake index
   uint16_t inst_data[3] = { 0x2070, 0x0000, 0x0010 };
@@ -965,12 +967,14 @@ TEST_F(UnstartedRuntimeTest, ThreadLocalGet) {
     ASSERT_TRUE(floating_decimal != nullptr);
     ASSERT_TRUE(class_linker->EnsureInitialized(self, floating_decimal, true, true));
 
-    ArtMethod* caller_method = floating_decimal->FindDeclaredDirectMethod(
+    ArtMethod* caller_method = floating_decimal->FindClassMethod(
         "getBinaryToASCIIBuffer",
         "()Lsun/misc/FloatingDecimal$BinaryToASCIIBuffer;",
         class_linker->GetImagePointerSize());
     // floating_decimal->DumpClass(LOG_STREAM(ERROR), mirror::Class::kDumpClassFullDetail);
     ASSERT_TRUE(caller_method != nullptr);
+    ASSERT_TRUE(caller_method->IsDirect());
+    ASSERT_TRUE(caller_method->GetDeclaringClass() == floating_decimal.Get());
     ShadowFrame* caller_frame = ShadowFrame::CreateDeoptimizedFrame(10, nullptr, caller_method, 0);
     shadow_frame->SetLink(caller_frame);
 
@@ -1019,10 +1023,12 @@ TEST_F(UnstartedRuntimeTest, FloatConversion) {
   ASSERT_TRUE(double_class != nullptr);
   ASSERT_TRUE(class_linker->EnsureInitialized(self, double_class, true, true));
 
-  ArtMethod* method = double_class->FindDeclaredDirectMethod("toString",
-                                                             "(D)Ljava/lang/String;",
-                                                             class_linker->GetImagePointerSize());
+  ArtMethod* method = double_class->FindClassMethod("toString",
+                                                    "(D)Ljava/lang/String;",
+                                                    class_linker->GetImagePointerSize());
   ASSERT_TRUE(method != nullptr);
+  ASSERT_TRUE(method->IsDirect());
+  ASSERT_TRUE(method->GetDeclaringClass() == double_class.Get());
 
   // create instruction data for invoke-direct {v0, v1} of method with fake index
   uint16_t inst_data[3] = { 0x2070, 0x0000, 0x0010 };
@@ -1178,8 +1184,8 @@ class UnstartedClassForNameTest : public UnstartedRuntimeTest {
       boot_cp.Assign(boot_cp_class->AllocObject(self)->AsClassLoader());
       CHECK(boot_cp != nullptr);
 
-      ArtMethod* boot_cp_init = boot_cp_class->FindDeclaredDirectMethod(
-          "<init>", "()V", class_linker->GetImagePointerSize());
+      ArtMethod* boot_cp_init = boot_cp_class->FindConstructor(
+          "()V", class_linker->GetImagePointerSize());
       CHECK(boot_cp_init != nullptr);
 
       JValue result;
@@ -1332,13 +1338,19 @@ TEST_F(UnstartedRuntimeTest, ConstructorNewInstance0) {
   Handle<mirror::String> input = hs.NewHandle(mirror::String::AllocFromModifiedUtf8(self, "abd"));
 
   // Find the constructor.
-  ArtMethod* throw_cons = throw_class->FindDeclaredDirectMethod(
-      "<init>", "(Ljava/lang/String;)V", class_linker->GetImagePointerSize());
+  ArtMethod* throw_cons = throw_class->FindConstructor(
+      "(Ljava/lang/String;)V", class_linker->GetImagePointerSize());
   ASSERT_TRUE(throw_cons != nullptr);
-
-  Handle<mirror::Constructor> cons = hs.NewHandle(
-      mirror::Constructor::CreateFromArtMethod<kRuntimePointerSize, false>(self, throw_cons));
-  ASSERT_TRUE(cons != nullptr);
+  Handle<mirror::Constructor> cons;
+  if (class_linker->GetImagePointerSize() == PointerSize::k64) {
+     cons = hs.NewHandle(
+        mirror::Constructor::CreateFromArtMethod<PointerSize::k64, false>(self, throw_cons));
+    ASSERT_TRUE(cons != nullptr);
+  } else {
+    cons = hs.NewHandle(
+        mirror::Constructor::CreateFromArtMethod<PointerSize::k32, false>(self, throw_cons));
+    ASSERT_TRUE(cons != nullptr);
+  }
 
   Handle<mirror::ObjectArray<mirror::Object>> args = hs.NewHandle(
       mirror::ObjectArray<mirror::Object>::Alloc(

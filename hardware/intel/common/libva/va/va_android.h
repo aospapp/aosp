@@ -48,9 +48,9 @@ VADisplay vaGetDisplay (
 
 #ifdef __cplusplus
 #ifdef ANDROID
-#include <system/window.h>
 #include <utils/StrongPointer.h>
 using namespace android;
+struct ANativeWindow;
 
 /*
  * Output rendering

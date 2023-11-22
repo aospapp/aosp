@@ -20,12 +20,11 @@
 #include "RSAllocationUtils.h"
 #include "bcinfo/MetadataExtractor.h"
 
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
 
-#include <limits>
 #include <stdint.h>
-#include <vector>
 
 // Declare a friend relationship in a class with a test. Used rather that
 // FRIEND_TEST to avoid globally importing gtest/gtest.h into the main
@@ -73,19 +72,20 @@ public:
 
   // Adds the mapping from the name of an exported variable to the index of its
   // field in the global buffer
-  void addExportVarIndex(const char *varName, uint32_t index) {
-    const uint32_t slot = getSlotForExportVar(varName);
-    if (slot == std::numeric_limits<uint32_t>::max()) {
-      assert(0 && "Invalid name for an exported variable");
-      return;
-    }
-    addExportVarIndex(slot, index);
-  }
+  void addExportVarIndex(const char *varName, uint32_t index);
 
   // Given the slot number of an exported variable, returns the index of its
   // field in the global buffer
   uint32_t getExportVarIndex(uint32_t slot) const {
     return mExportVarIndices[slot];
+  }
+
+  void setGlobalSize(uint64_t size) {
+    mGlobalSize = size;
+  }
+
+  uint64_t getGlobalSize() const {
+    return mGlobalSize;
   }
 
   // Returns the total number of foreach kernels
@@ -117,10 +117,12 @@ private:
   std::unique_ptr<bcinfo::MetadataExtractor> mMetadata;
   // A map from exported variable names to their slot numbers
   llvm::StringMap<uint32_t> mVarNameToSlot;
+  // The size of memory needed to store all global variables (static variables)
+  uint64_t mGlobalSize;
   // A map from exported foreach kernel names to their slot numbers
   llvm::StringMap<uint32_t> mForEachNameToSlot;
   // These are the indices for each exported variable in the global buffer
-  std::vector<uint32_t> mExportVarIndices;
+  llvm::SmallVector<uint32_t, 8> mExportVarIndices;
   // For Global Allocations; carries global variable -> metadata offset
   // mapping from an LLVM pass to a SPIRIT pass
   llvm::SmallVector<RSAllocationInfo, 8> mGlobalAllocs;

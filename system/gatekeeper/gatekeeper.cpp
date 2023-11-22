@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <UniquePtr.h>
+#include <gatekeeper/UniquePtr.h>
 #include <gatekeeper/gatekeeper.h>
 
 #include <endian.h>

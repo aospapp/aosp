@@ -19,8 +19,19 @@
 #ifndef __LAPI_FCNTL_H__
 #define __LAPI_FCNTL_H__
 
+#include <fcntl.h>
+#include <sys/socket.h>
+
 #ifndef O_CLOEXEC
 # define O_CLOEXEC 02000000
+#endif
+
+#ifndef SOCK_CLOEXEC
+# define SOCK_CLOEXEC O_CLOEXEC
+#endif
+
+#ifndef SOCK_NONBLOCK
+# define SOCK_NONBLOCK O_NONBLOCK
 #endif
 
 #ifndef O_TMPFILE
@@ -37,6 +48,31 @@
 
 #ifndef F_GETPIPE_SZ
 # define F_GETPIPE_SZ 1032
+#endif
+
+/*
+ * Set/Get seals
+ */
+#ifndef F_ADD_SEALS
+# define F_ADD_SEALS     (1033)
+#endif
+
+#ifndef F_GET_SEALS
+# define F_GET_SEALS     (1034)
+#endif
+
+#ifndef F_SEAL_SEAL
+# define F_SEAL_SEAL     0x0001  /* prevent further seals from being set */
+#endif
+
+#ifndef F_SEAL_SHRINK
+# define F_SEAL_SHRINK   0x0002  /* prevent file from shrinking */
+#endif
+#ifndef F_SEAL_GROW
+# define F_SEAL_GROW     0x0004  /* prevent file from growing */
+#endif
+#ifndef F_SEAL_WRITE
+# define F_SEAL_WRITE    0x0008  /* prevent writes */
 #endif
 
 #ifndef F_OWNER_PGRP

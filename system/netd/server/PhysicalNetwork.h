@@ -50,6 +50,7 @@ private:
     int addInterface(const std::string& interface) override WARN_UNUSED_RESULT;
     int removeInterface(const std::string& interface) override WARN_UNUSED_RESULT;
     int destroySocketsLackingPermission(Permission permission);
+    void invalidateRouteCache(const std::string& interface);
 
     Delegate* const mDelegate;
     Permission mPermission;

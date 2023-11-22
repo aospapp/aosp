@@ -17,6 +17,7 @@
 #ifndef OPENSL_ES_ANDROID_H_
 #define OPENSL_ES_ANDROID_H_
 
+#include "OpenSLES.h"
 #include "OpenSLES_AndroidConfiguration.h"
 #include "OpenSLES_AndroidMetadata.h"
 #include <jni.h>
@@ -373,7 +374,9 @@ typedef struct SLDataLocator_AndroidFD_ {
 /** Addendum to Data locator macros  */
 #define SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE ((SLuint32) 0x800007BD)
 
-/** BufferQueue-based data locator definition where locatorType must be SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE*/
+/** BufferQueue-based data locator definition where locatorType must
+ *  be SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE
+ */
 typedef struct SLDataLocator_AndroidSimpleBufferQueue {
 	SLuint32	locatorType;
 	SLuint32	numBuffers;

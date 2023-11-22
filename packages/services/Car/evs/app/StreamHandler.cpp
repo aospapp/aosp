@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2017 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,40 +14,50 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "EvsTest"
-
 #include "StreamHandler.h"
 
 #include <stdio.h>
 #include <string.h>
 
-#include <android/log.h>
+#include <log/log.h>
 #include <cutils/native_handle.h>
-#include <ui/GraphicBuffer.h>
-
-#include <algorithm>    // std::min
 
 
-// For the moment, we're assuming that the underlying EVS driver we're working with
-// is providing 4 byte RGBx data.  This is fine for loopback testing, although
-// real hardware is expected to provide YUV data -- most likly formatted as YV12
-static const unsigned kBytesPerPixel = 4;   // assuming 4 byte RGBx pixels
-
-
-StreamHandler::StreamHandler(android::sp<IEvsCamera> pCamera, android::sp<IEvsDisplay> pDisplay) :
-    mCamera(pCamera),
-    mDisplay(pDisplay) {
+StreamHandler::StreamHandler(android::sp <IEvsCamera> pCamera) :
+    mCamera(pCamera)
+{
+    // We rely on the camera having at least two buffers available since we'll hold one and
+    // expect the camera to be able to capture a new image in the background.
+    pCamera->setMaxFramesInFlight(2);
 }
 
 
-void StreamHandler::startStream() {
-    // Mark ourselves as running
-    mLock.lock();
-    mRunning = true;
-    mLock.unlock();
+void StreamHandler::shutdown()
+{
+    // Make sure we're not still streaming
+    blockingStopStream();
 
-    // Tell the camera to start streaming
-    mCamera->startVideoStream(this);
+    // At this point, the receiver thread is no longer running, so we can safely drop
+    // our remote object references so they can be freed
+    mCamera = nullptr;
+}
+
+
+bool StreamHandler::startStream() {
+    std::unique_lock<std::mutex> lock(mLock);
+
+    if (!mRunning) {
+        // Tell the camera to start streaming
+        Return <EvsResult> result = mCamera->startVideoStream(this);
+        if (result != EvsResult::OK) {
+            return false;
+        }
+
+        // Mark ourselves as running
+        mRunning = true;
+    }
+
+    return true;
 }
 
 
@@ -64,7 +74,9 @@ void StreamHandler::blockingStopStream() {
 
     // Wait until the stream has actually stopped
     std::unique_lock<std::mutex> lock(mLock);
-    mSignal.wait(lock, [this](){ return !mRunning; });
+    if (mRunning) {
+        mSignal.wait(lock, [this]() { return !mRunning; });
+    }
 }
 
 
@@ -74,146 +86,80 @@ bool StreamHandler::isRunning() {
 }
 
 
-unsigned StreamHandler::getFramesReceived() {
+bool StreamHandler::newFrameAvailable() {
     std::unique_lock<std::mutex> lock(mLock);
-    return mFramesReceived;
-};
-
-
-unsigned StreamHandler::getFramesCompleted() {
-    std::unique_lock<std::mutex> lock(mLock);
-    return mFramesCompleted;
-};
-
-
-Return<void> StreamHandler::deliverFrame(const BufferDesc& bufferArg) {
-    ALOGD("Received a frame from the camera (%p)", bufferArg.memHandle.getNativeHandle());
-
-    // Local flag we use to keep track of when the stream is stopping
-    bool timeToStop = false;
-
-    if (bufferArg.memHandle.getNativeHandle() == nullptr) {
-        // Signal that the last frame has been received and that the stream should stop
-        timeToStop = true;
-        ALOGI("End of stream signaled");
-    } else {
-        // Get the output buffer we'll use to display the imagery
-        BufferDesc tgtBuffer = {};
-        mDisplay->getTargetBuffer([&tgtBuffer]
-                                  (const BufferDesc& buff) {
-                                      tgtBuffer = buff;
-                                      ALOGD("Got output buffer (%p) with id %d cloned as (%p)",
-                                            buff.memHandle.getNativeHandle(),
-                                            tgtBuffer.bufferId,
-                                            tgtBuffer.memHandle.getNativeHandle());
-                                  }
-        );
-
-        if (tgtBuffer.memHandle == nullptr) {
-            printf("Didn't get target buffer - frame lost\n");
-            ALOGE("Didn't get requested output buffer -- skipping this frame.");
-        } else {
-            // Copy the contents of the of buffer.memHandle into tgtBuffer
-            copyBufferContents(tgtBuffer, bufferArg);
-
-            // TODO:  Add a bit of overlay graphics?
-            // TODO:  Use OpenGL to render from texture?
-            // NOTE:  If we mess with the frame contents, we'll need to update the frame inspection
-            //        logic in the default (test) display driver.
-
-            // Send the target buffer back for display
-            ALOGD("Calling returnTargetBufferForDisplay (%p)",
-                  tgtBuffer.memHandle.getNativeHandle());
-            Return<EvsResult> result = mDisplay->returnTargetBufferForDisplay(tgtBuffer);
-            if (!result.isOk()) {
-                printf("HIDL error on display buffer (%s)- frame lost\n",
-                       result.description().c_str());
-                ALOGE("Error making the remote function call.  HIDL said %s",
-                      result.description().c_str());
-            } else if (result != EvsResult::OK) {
-                printf("Display reported error - frame lost\n");
-                ALOGE("We encountered error %d when returning a buffer to the display!",
-                      (EvsResult)result);
-            } else {
-                // Everything looks good!  Keep track so tests or watch dogs can monitor progress
-                mLock.lock();
-                mFramesCompleted++;
-                mLock.unlock();
-                printf("frame OK\n");
-            }
-        }
-
-        // Send the camera buffer back now that we're done with it
-        ALOGD("Calling doneWithFrame");
-        // TODO:  Why is it that we get a HIDL crash if we pass back the cloned buffer?
-        mCamera->doneWithFrame(bufferArg);
-
-        ALOGD("Frame handling complete");
-    }
-
-
-    // Update our received frame count and notify anybody who cares that things have changed
-    mLock.lock();
-    if (timeToStop) {
-        mRunning = false;
-    } else {
-        mFramesReceived++;
-    }
-    mLock.unlock();
-    mSignal.notify_all();
-
-
-    return Void();
+    return (mReadyBuffer >= 0);
 }
 
 
-bool StreamHandler::copyBufferContents(const BufferDesc& tgtBuffer,
-                                       const BufferDesc& srcBuffer) {
-    bool success = true;
+const BufferDesc& StreamHandler::getNewFrame() {
+    std::unique_lock<std::mutex> lock(mLock);
 
-    // Make sure we don't run off the end of either buffer
-    const unsigned width     = std::min(tgtBuffer.width,
-                                        srcBuffer.width);
-    const unsigned height    = std::min(tgtBuffer.height,
-                                        srcBuffer.height);
-
-    sp<android::GraphicBuffer> tgt = new android::GraphicBuffer(
-            tgtBuffer.memHandle, android::GraphicBuffer::CLONE_HANDLE,
-            tgtBuffer.width, tgtBuffer.height, tgtBuffer.format, 1,
-            tgtBuffer.usage, tgtBuffer.stride);
-    sp<android::GraphicBuffer> src = new android::GraphicBuffer(
-            srcBuffer.memHandle, android::GraphicBuffer::CLONE_HANDLE,
-            srcBuffer.width, srcBuffer.height, srcBuffer.format, 1,
-            srcBuffer.usage, srcBuffer.stride);
-
-    // Lock our source buffer for reading
-    unsigned char* srcPixels = nullptr;
-    src->lock(GRALLOC_USAGE_SW_READ_OFTEN, (void **) &srcPixels);
-
-    // Lock our target buffer for writing
-    unsigned char* tgtPixels = nullptr;
-    tgt->lock(GRALLOC_USAGE_SW_WRITE_OFTEN, (void **) &tgtPixels);
-
-    if (srcPixels && tgtPixels) {
-        for (unsigned row = 0; row < height; row++) {
-            // Copy the entire row of pixel data
-            memcpy(tgtPixels, srcPixels, width * kBytesPerPixel);
-
-            // Advance to the next row (keeping in mind that stride here is in units of pixels)
-            tgtPixels += tgtBuffer.stride * kBytesPerPixel;
-            srcPixels += srcBuffer.stride * kBytesPerPixel;
-        }
+    if (mHeldBuffer >= 0) {
+        ALOGE("Ignored call for new frame while still holding the old one.");
     } else {
-        ALOGE("Failed to copy buffer contents");
-        success = false;
+        if (mReadyBuffer < 0) {
+            ALOGE("Returning invalid buffer because we don't have any.  Call newFrameAvailable first?");
+            mReadyBuffer = 0;   // This is a lie!
+        }
+
+        // Move the ready buffer into the held position, and clear the ready position
+        mHeldBuffer = mReadyBuffer;
+        mReadyBuffer = -1;
     }
 
-    if (srcPixels) {
-        src->unlock();
-    }
-    if (tgtPixels) {
-        tgt->unlock();
+    return mBuffers[mHeldBuffer];
+}
+
+
+void StreamHandler::doneWithFrame(const BufferDesc& buffer) {
+    std::unique_lock<std::mutex> lock(mLock);
+
+    // We better be getting back the buffer we original delivered!
+    if ((mHeldBuffer < 0) || (buffer.bufferId != mBuffers[mHeldBuffer].bufferId)) {
+        ALOGE("StreamHandler::doneWithFrame got an unexpected buffer!");
     }
 
-    return success;
+    // Send the buffer back to the underlying camera
+    mCamera->doneWithFrame(mBuffers[mHeldBuffer]);
+
+    // Clear the held position
+    mHeldBuffer = -1;
+}
+
+
+Return<void> StreamHandler::deliverFrame(const BufferDesc& buffer) {
+    ALOGD("Received a frame from the camera (%p)", buffer.memHandle.getNativeHandle());
+
+    // Take the lock to protect our frame slots and running state variable
+    {
+        std::unique_lock <std::mutex> lock(mLock);
+
+        if (buffer.memHandle.getNativeHandle() == nullptr) {
+            // Signal that the last frame has been received and the stream is stopped
+            mRunning = false;
+        } else {
+            // Do we already have a "ready" frame?
+            if (mReadyBuffer >= 0) {
+                // Send the previously saved buffer back to the camera unused
+                mCamera->doneWithFrame(mBuffers[mReadyBuffer]);
+
+                // We'll reuse the same ready buffer index
+            } else if (mHeldBuffer >= 0) {
+                // The client is holding a buffer, so use the other slot for "on deck"
+                mReadyBuffer = 1 - mHeldBuffer;
+            } else {
+                // This is our first buffer, so just pick a slot
+                mReadyBuffer = 0;
+            }
+
+            // Save this frame until our client is interested in it
+            mBuffers[mReadyBuffer] = buffer;
+        }
+    }
+
+    // Notify anybody who cares that things have changed
+    mSignal.notify_all();
+
+    return Void();
 }

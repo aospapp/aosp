@@ -29,7 +29,7 @@ public class EventBuilder {
     private final byte suspendPolicy;
     private final List<EventMod> modifiers = new ArrayList<EventMod>();
 
-    public EventBuilder(byte eventKind, byte suspendPolicy) {
+    EventBuilder(byte eventKind, byte suspendPolicy) {
         this.eventKind = eventKind;
         this.suspendPolicy = suspendPolicy;
     }
@@ -41,7 +41,7 @@ public class EventBuilder {
      * @return a reference to this object
      */
     public EventBuilder setCount(int count) {
-        EventMod mod = createModifier(EventMod.ModKind.Count);
+        EventMod mod = new EventMod(EventMod.ModKind.Count);
         mod.count = count;
         modifiers.add(mod);
         return this;
@@ -54,8 +54,21 @@ public class EventBuilder {
      * @return a reference to this object
      */
     public EventBuilder setThreadOnly(long thread) {
-        EventMod mod = createModifier(EventMod.ModKind.ThreadOnly);
+        EventMod mod = new EventMod(EventMod.ModKind.ThreadOnly);
         mod.thread = thread;
+        modifiers.add(mod);
+        return this;
+    }
+
+    /**
+     * Sets the ClassOnly modifier.
+     *
+     * @param classId the required class ID
+     * @return a reference to this object
+     */
+    public EventBuilder setClassOnly(long classId) {
+        EventMod mod = new EventMod(EventMod.ModKind.ClassOnly);
+        mod.clazz = classId;
         modifiers.add(mod);
         return this;
     }
@@ -67,7 +80,20 @@ public class EventBuilder {
      * @return a reference to this object
      */
     public EventBuilder setClassMatch(String pattern) {
-        EventMod mod = createModifier(EventMod.ModKind.ClassMatch);
+        EventMod mod = new EventMod(EventMod.ModKind.ClassMatch);
+        mod.classPattern = pattern;
+        modifiers.add(mod);
+        return this;
+    }
+
+    /**
+     * Sets the ClassExclude modifier.
+     *
+     * @param pattern the required class pattern
+     * @return a reference to this object
+     */
+    public EventBuilder setClassExclude(String pattern) {
+        EventMod mod = new EventMod(EventMod.ModKind.ClassExclude);
         mod.classPattern = pattern;
         modifiers.add(mod);
         return this;
@@ -80,7 +106,7 @@ public class EventBuilder {
      * @return a reference to this object
      */
     public EventBuilder setLocationOnly(Location location) {
-        EventMod mod = createModifier(EventMod.ModKind.LocationOnly);
+        EventMod mod = new EventMod(EventMod.ModKind.LocationOnly);
         mod.loc = location;
         modifiers.add(mod);
         return this;
@@ -96,7 +122,7 @@ public class EventBuilder {
      */
     public EventBuilder setExceptionOnly(long exceptionClassID, boolean caught,
             boolean uncaught) {
-        EventMod mod = createModifier(EventMod.ModKind.ExceptionOnly);
+        EventMod mod = new EventMod(EventMod.ModKind.ExceptionOnly);
         mod.caught = caught;
         mod.uncaught = uncaught;
         mod.exceptionOrNull = exceptionClassID;
@@ -112,9 +138,26 @@ public class EventBuilder {
      * @return a reference to this object
      */
     public EventBuilder setFieldOnly(long typeID, long fieldID) {
-        EventMod mod = createModifier(EventMod.ModKind.FieldOnly);
+        EventMod mod = new EventMod(EventMod.ModKind.FieldOnly);
         mod.declaring = typeID;
         mod.fieldID = fieldID;
+        modifiers.add(mod);
+        return this;
+    }
+
+    /**
+     * Sets the Step modifier.
+     *
+     * @param threadID the thread where to step
+     * @param stepSize the size of the step
+     * @param stepDepth the depth of the step
+     * @return a reference to this object
+     */
+    public EventBuilder setStep(long threadID, int stepSize, int stepDepth) {
+        EventMod mod = new EventMod(EventMod.ModKind.Step);
+        mod.thread = threadID;
+        mod.size = stepSize;
+        mod.depth = stepDepth;
         modifiers.add(mod);
         return this;
     }
@@ -126,8 +169,21 @@ public class EventBuilder {
      * @return a reference to this object
      */
     public EventBuilder setInstanceOnly(long instance) {
-        EventMod mod = createModifier(EventMod.ModKind.InstanceOnly);
+        EventMod mod = new EventMod(EventMod.ModKind.InstanceOnly);
         mod.instance = instance;
+        modifiers.add(mod);
+        return this;
+    }
+
+    /**
+     * Sets the SourceNameMatch modifier.
+     *
+     * @param sourceNamePattern the source name pattern to match
+     * @return a reference to this object
+     */
+    public EventBuilder setSourceNameMatch(String sourceNamePattern) {
+        EventMod mod = new EventMod(EventMod.ModKind.SourceNameMatch);
+        mod.sourceNamePattern = sourceNamePattern;
         modifiers.add(mod);
         return this;
     }
@@ -138,14 +194,6 @@ public class EventBuilder {
      * @return an {@link Event}
      */
     public Event build() {
-        EventMod[] mods = new EventMod[modifiers.size()];
-        mods = modifiers.toArray(mods);
-        return new Event(eventKind, suspendPolicy, mods);
-    }
-
-    private static EventMod createModifier(byte modifierKind) {
-        EventMod mod = new EventMod();
-        mod.modKind = modifierKind;
-        return mod;
+        return new Event(eventKind, suspendPolicy, modifiers);
     }
 }

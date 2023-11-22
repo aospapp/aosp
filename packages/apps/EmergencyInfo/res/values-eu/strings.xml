@@ -17,6 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Larrialdietarako informazioa"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"Osasun-informazioa"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"Editatu informazioa"</string>
     <string name="edit_info" msgid="5973929805855224805">"Editatu larrialdietarako informazioa"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Informazioa"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Kontaktuak"</string>
@@ -75,7 +77,7 @@
     <string name="medications" msgid="644428945685557183">"Sendagaiak"</string>
     <string name="unknown_medications" msgid="2764171064510423734">"Ezezaguna"</string>
     <string name="medications_hint" msgid="3221620025945593723">"Adibidez, aspirina"</string>
-    <string name="medical_conditions" msgid="3555690011498283592">"Ohar medikoak"</string>
+    <string name="medical_conditions" msgid="3555690011498283592">"Osasun-oharrak"</string>
     <string name="unknown_medical_conditions" msgid="8051364895172053770">"Ezezaguna"</string>
     <string name="medical_conditions_hint" msgid="6959152183029062882">"Adibidez, asma"</string>
     <string name="organ_donor" msgid="5953509460007124827">"Organo-emailea"</string>
@@ -96,12 +98,12 @@
     <string name="cancel" msgid="7401575239009060939">"Utzi"</string>
     <string name="ok" msgid="163967937451981024">"Ados"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"Larrialdietarako informazioa"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"Hemen idatzitako informazioa larrialdiei erantzuten dieten lehenengo pertsonentzat da baliagarria. Gailuan soilik gordetzen da eta larrialdi-markagailutik irakur daiteke telefonoa desblokeatu gabe."</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"Jarraitu"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Ez dago telefonoaren jabeari buruzko informaziorik"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"Zurea bada telefonoa, sakatu arkatzaren ikonoa eta gehitu informazioa, larrialdi-kasuetan hemen bistara dadin"</string>
     <string name="clear_all" msgid="8899013032870561633">"Garbitu guztiak"</string>
     <string name="clear" msgid="3648880442502887163">"Garbitu"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Informazioa eta kontaktu guztiak garbitu nahi dituzu?"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"Zure osasunari buruzko informazioa eta larrialdietarako kontaktuak gehituta, lagundu egingo diezu larrialdi-zerbitzuei.\n\nEdonork irakurri ahal izango du informazio hori pantaila blokeatuan (eta kontaktuei deitu haien izenak sakatuta), telefonoa desblokeatu beharrik gabe."</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"Gehitu larrialdietarako informazioa"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"Lagundu larrialdi-zerbitzuei informazio garrantzitsua aurkitzen"</string>
 </resources>

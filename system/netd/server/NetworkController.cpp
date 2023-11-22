@@ -321,14 +321,14 @@ bool NetworkController::isVirtualNetwork(unsigned netId) const {
     return network && network->getType() == Network::VIRTUAL;
 }
 
-int NetworkController::createPhysicalNetwork(unsigned netId, Permission permission) {
+int NetworkController::createPhysicalNetworkLocked(unsigned netId, Permission permission) {
     if (!((MIN_NET_ID <= netId && netId <= MAX_NET_ID) ||
           (MIN_OEM_ID <= netId && netId <= MAX_OEM_ID))) {
         ALOGE("invalid netId %u", netId);
         return -EINVAL;
     }
 
-    if (isValidNetwork(netId)) {
+    if (isValidNetworkLocked(netId)) {
         ALOGE("duplicate netId %u", netId);
         return -EEXIST;
     }
@@ -340,9 +340,39 @@ int NetworkController::createPhysicalNetwork(unsigned netId, Permission permissi
         return ret;
     }
 
-    android::RWLock::AutoWLock lock(mRWLock);
     mNetworks[netId] = physicalNetwork;
     return 0;
+}
+
+int NetworkController::createPhysicalNetwork(unsigned netId, Permission permission) {
+    android::RWLock::AutoWLock lock(mRWLock);
+    return createPhysicalNetworkLocked(netId, permission);
+}
+
+int NetworkController::createPhysicalOemNetwork(Permission permission, unsigned *pNetId) {
+    if (pNetId == NULL) {
+        return -EINVAL;
+    }
+
+    android::RWLock::AutoWLock lock(mRWLock);
+    for (*pNetId = MIN_OEM_ID; *pNetId <= MAX_OEM_ID; (*pNetId)++) {
+        if (!isValidNetworkLocked(*pNetId)) {
+            break;
+        }
+    }
+
+    if (*pNetId > MAX_OEM_ID) {
+        ALOGE("No free network ID");
+        *pNetId = 0;
+        return -ENONET;
+    }
+
+    int ret = createPhysicalNetworkLocked(*pNetId, permission);
+    if (ret) {
+        *pNetId = 0;
+    }
+
+    return ret;
 }
 
 int NetworkController::createVirtualNetwork(unsigned netId, bool hasDns, bool secure) {
@@ -564,9 +594,13 @@ void NetworkController::dump(DumpWriter& dw) {
     dw.decIndent();
 }
 
+bool NetworkController::isValidNetworkLocked(unsigned netId) const {
+    return getNetworkLocked(netId);
+}
+
 bool NetworkController::isValidNetwork(unsigned netId) const {
     android::RWLock::AutoRLock lock(mRWLock);
-    return getNetworkLocked(netId);
+    return isValidNetworkLocked(netId);
 }
 
 Network* NetworkController::getNetworkLocked(unsigned netId) const {

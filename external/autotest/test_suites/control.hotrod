@@ -23,12 +23,13 @@ from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 # filing bugs on tests that are a part of this suite. If left unspecified
 # the bug filer will fallback to it's defaults.
 _BUG_TEMPLATE = {
+    'components': ['UI>Shell>Kiosk'],
     'labels': ['Proj-Hotrod', 'Hotrod-Auto-Bug'],
-    'owner': '',
+    'owner': 'harpreet@chromium.org',
     'status': None,
     'summary': None,
     'title': None,
-    'cc': ['hotrod-autotest-alerts@google.com']
+    'cc': ['chromeos-meetings@google.com']
 }
 
 args_dict['name'] = NAME

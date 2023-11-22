@@ -17,11 +17,13 @@ package com.android.emergency.preferences;
 
 import android.content.Context;
 import android.os.UserManager;
+import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.widget.ArrayAdapter;
 
 import com.android.emergency.ReloadablePreferenceInterface;
+import com.android.internal.annotations.VisibleForTesting;
 
 /**
  * {@link AutoCompleteEditTextPreference} that prepopulates the edit text view with the name of the
@@ -29,16 +31,50 @@ import com.android.emergency.ReloadablePreferenceInterface;
  */
 public class NameAutoCompletePreference extends AutoCompleteEditTextPreference implements
         ReloadablePreferenceInterface {
+    private static final String[] EMPTY_STRING_ARRAY = new String[] {};
+
+    private final SuggestionProvider mSuggestionProvider;
+
     public NameAutoCompletePreference(Context context, AttributeSet attrs) {
+        this(context, attrs, new SuggestionProvider() {
+            private final UserManager mUserManager =
+                    (UserManager) context.getSystemService(Context.USER_SERVICE);
+
+            @Override
+            public boolean hasNameToSuggest() {
+                return mUserManager.isUserNameSet();
+            }
+
+            @Override
+            public String getNameSuggestion() {
+                if (!hasNameToSuggest()) {
+                    return null;
+                }
+                return mUserManager.getUserName();
+            }
+        });
+    }
+
+    @VisibleForTesting
+    public NameAutoCompletePreference(Context context, AttributeSet attrs,
+            SuggestionProvider suggestionProvider) {
         super(context, attrs);
+        mSuggestionProvider = suggestionProvider;
         getAutoCompleteTextView().setAdapter(createAdapter());
+    }
+
+    @VisibleForTesting
+    public String[] createAutocompleteSuggestions() {
+        if (!mSuggestionProvider.hasNameToSuggest()) {
+            return EMPTY_STRING_ARRAY;
+        }
+        return new String[] {mSuggestionProvider.getNameSuggestion()};
     }
 
     private ArrayAdapter createAdapter() {
         UserManager userManager =
                 (UserManager) getContext().getSystemService(Context.USER_SERVICE);
-        String[] autocompleteSuggestions = userManager.isUserNameSet()
-            ? new String[] {userManager.getUserName()} : new String[] {};
+        String[] autocompleteSuggestions = createAutocompleteSuggestions();
         return new ArrayAdapter<String>(getContext(),
                 android.R.layout.simple_dropdown_item_1line, autocompleteSuggestions);
     }
@@ -58,5 +94,20 @@ public class NameAutoCompletePreference extends AutoCompleteEditTextPreference i
     public CharSequence getSummary() {
         String text = getText();
         return TextUtils.isEmpty(text) ? super.getSummary() : text;
+    }
+
+    /**
+     * Interface for suggesting a name.
+     */
+    public interface SuggestionProvider {
+        /** @return whether this class has a name to suggest. */
+        boolean hasNameToSuggest();
+
+        /**
+         * Gets a suggested name.
+         * @return a suggest name, or {@code null} if there is no name to suggest.
+         */
+        @Nullable
+        String getNameSuggestion();
     }
 }

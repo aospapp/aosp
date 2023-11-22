@@ -1712,10 +1712,13 @@ int PCLmGenerator::Encapsulate(void *pInBuffer, int inBufferSize, int thisHeight
                 destColorSpace);
     }
 
-#ifdef SUPPORT_WHITE_STRIPS
-    bool whiteStrip = isWhiteStrip(pInBuffer, thisHeight * currSourceWidth * srcNumComponents);
-#else
     bool whiteStrip = false;
+#ifdef SUPPORT_WHITE_STRIPS
+    if (!firstStrip) {
+        // PCLm does not print a blank page if all the strips are marked as "/Name /WhiteStrip"
+        // so only apply /WhiteStrip to strips after the first
+        whiteStrip = isWhiteStrip(pInBuffer, thisHeight * currSourceWidth * srcNumComponents);
+    }
 #endif
 
     if (currCompressionDisposition == compressDCT) {
@@ -1743,8 +1746,8 @@ int PCLmGenerator::Encapsulate(void *pInBuffer, int inBufferSize, int thisHeight
             }
 
             free(tmpStrip);
-            firstStrip = false;
         }
+        firstStrip = false;
 
         // We are always going to compress the full strip height, even though the image may be less;
         // this allows the compressed images to be symmetric
@@ -1796,8 +1799,8 @@ int PCLmGenerator::Encapsulate(void *pInBuffer, int inBufferSize, int thisHeight
                         numPartialScanlinesToInject, destColorSpace, true);
             }
             free(tmpStrip);
-            firstStrip = false;
         }
+        firstStrip = false;
 
         if (newStripPtr) {
             result = compress(scratchBuffer, &destSize, (const Bytef *) newStripPtr,
@@ -1836,8 +1839,8 @@ int PCLmGenerator::Encapsulate(void *pInBuffer, int inBufferSize, int thisHeight
             }
 
             free(tmpStrip);
-            firstStrip = false;
         }
+        firstStrip = false;
 
         if (newStripPtr) {
             compSize = RLEEncodeImage(newStripPtr, scratchBuffer,

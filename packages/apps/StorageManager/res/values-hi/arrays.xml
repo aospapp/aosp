@@ -19,6 +19,6 @@
   <string-array name="automatic_storage_management_days">
     <item msgid="4262697175462957945">"30 दिन से अधिक पुराने"</item>
     <item msgid="2920779420892632946">"60 दिन से अधिक पुराने"</item>
-    <item msgid="1402081670011072896">"90 दिन से अधिक पुराने"</item>
+    <item msgid="1402081670011072896">"90 दिन से ज़्यादा पुराने"</item>
   </string-array>
 </resources>

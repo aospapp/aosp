@@ -70,18 +70,18 @@
     <string name="cancelled" msgid="2207323593183640994">"గణన రద్దు చేసారు."</string>
     <string name="timeout" msgid="5461892570729418573">"విలువ అనంతం లేదా నిర్వచించబడనిది కావచ్చు."</string>
     <string name="ok_remove_timeout" msgid="8344529153919268011">"దీర్ఘకాల సమయ ముగింపులను ఉపయోగించు"</string>
-    <string name="dismiss" msgid="7872443888515066216">"తీసివేయి"</string>
+    <string name="dismiss" msgid="7872443888515066216">"విస్మరించు"</string>
     <string name="exact" msgid="2597237880041789948">"(సరిగ్గా)"</string>
     <string name="approximate" msgid="7117143366610670836">"(చివరి అంకెలో ±1)"</string>
     <string name="menu_leading" msgid="2338520833272667740">"ఆధిక్య అంకెల్లో జవాబివ్వు"</string>
     <string name="menu_fraction" msgid="1247477377840252234">"ఫ్రాక్షన్‌లో జవాబివ్వు"</string>
     <string name="menu_licenses" msgid="1890541368064108592">"ఓపెన్ సోర్స్ లైసెన్స్‌లు"</string>
     <string name="menu_history" msgid="9006222701220105452">"చరిత్ర"</string>
-    <string name="menu_clear_history" msgid="2336526604226069572">"తీసివేయి"</string>
+    <string name="menu_clear_history" msgid="2336526604226069572">"క్లియర్ చేయి"</string>
     <string name="title_history" msgid="7820912156315181539">"చరిత్ర"</string>
     <string name="desc_navigate_up" msgid="6208699569165589623">"పైకి నావిగేట్ చేయి"</string>
     <string name="dialog_timeout" msgid="9069768442342329065">"సమయాభావం జరిగింది"</string>
-    <string name="dialog_clear" msgid="7137395395908350702">"చరిత్ర మరియు మెమరీని తీసివేయాలా?"</string>
+    <string name="dialog_clear" msgid="7137395395908350702">"చరిత్ర మరియు మెమరీని క్లియర్ చేయాలా?"</string>
     <string name="title_current_expression" msgid="2442754548537900591">"ప్రస్తుత వ్యక్తీకరణ"</string>
     <string name="no_history" msgid="4331262030447527188">"చరిత్ర లేదు"</string>
 </resources>

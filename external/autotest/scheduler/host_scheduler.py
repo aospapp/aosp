@@ -62,6 +62,15 @@ import time
 import common
 from autotest_lib.frontend import setup_django_environment
 
+# This import needs to come earlier to avoid using autotest's version of
+# httplib2, which is out of date.
+try:
+    from chromite.lib import metrics
+    from chromite.lib import ts_mon_config
+except ImportError:
+    metrics = utils.metrics_mock
+    ts_mon_config = utils.metrics_mock
+
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import utils
 from autotest_lib.scheduler import email_manager
@@ -73,13 +82,6 @@ from autotest_lib.scheduler import scheduler_models
 from autotest_lib.site_utils import job_overhead
 from autotest_lib.site_utils import metadata_reporter
 from autotest_lib.site_utils import server_manager_utils
-
-try:
-    from chromite.lib import metrics
-    from chromite.lib import ts_mon_config
-except ImportError:
-    metrics = utils.metrics_mock
-    ts_mon_config = utils.metrics_mock
 
 
 _db_manager = None
@@ -273,15 +275,13 @@ class BaseHostScheduler(object):
 
         @param host_jobs: A list of queue entries that either require hosts,
             or require host assignment validation through the rdb.
-        @return: A list of tuples of the form (host, queue_entry) for each
+        @return: A generator of tuples of the form (host, queue_entry) for each
             valid host-queue_entry assignment.
         """
-        jobs_with_hosts = []
         hosts = self.acquire_hosts(host_jobs)
         for host, job in zip(hosts, host_jobs):
             if host:
-                jobs_with_hosts.append(self.host_assignment(host, job))
-        return jobs_with_hosts
+                yield self.host_assignment(host, job)
 
 
     def tick(self):
@@ -329,20 +329,20 @@ class HostScheduler(BaseHostScheduler):
                 only_hostless=False)
         unverified_host_jobs = [job for job in queue_entries
                                 if not job.is_hostless()]
-        if not unverified_host_jobs:
-            return
-        for acquisition in self.find_hosts_for_jobs(unverified_host_jobs):
-            self.schedule_host_job(acquisition.host, acquisition.job)
-            self._record_host_assignment(acquisition.host, acquisition.job)
-            new_jobs_with_hosts += 1
-        metrics.Counter('%s/new_jobs_with_hosts' % _METRICS_PREFIX
-                        ).increment_by(new_jobs_with_hosts)
+        if unverified_host_jobs:
+            for acquisition in self.find_hosts_for_jobs(unverified_host_jobs):
+                self.schedule_host_job(acquisition.host, acquisition.job)
+                self._record_host_assignment(acquisition.host, acquisition.job)
+                new_jobs_with_hosts += 1
+            metrics.Counter('%s/new_jobs_with_hosts' % _METRICS_PREFIX
+                            ).increment_by(new_jobs_with_hosts)
 
-        num_jobs_without_hosts = len(unverified_host_jobs) - new_jobs_with_hosts
+        num_jobs_without_hosts = (len(unverified_host_jobs) -
+                                  new_jobs_with_hosts)
         metrics.Gauge('%s/current_jobs_without_hosts' % _METRICS_PREFIX
                       ).set(num_jobs_without_hosts)
-        metrics.Counter('%s/tick' % _METRICS_PREFIX).increment()
 
+        metrics.Counter('%s/tick' % _METRICS_PREFIX).increment()
 
     @metrics.SecondsTimerDecorator('%s/lease_hosts_duration' % _METRICS_PREFIX)
     def _lease_hosts_of_frontend_tasks(self):
@@ -485,7 +485,7 @@ def main():
 
         host_scheduler = HostScheduler()
         minimum_tick_sec = global_config.global_config.get_config_value(
-                'SCHEDULER', 'minimum_tick_sec', type=float)
+                'SCHEDULER', 'host_scheduler_minimum_tick_sec', type=float)
         while not _shutdown:
             start = time.time()
             host_scheduler.tick()
@@ -494,13 +494,12 @@ def main():
                 time.sleep(minimum_tick_sec - curr_tick_sec)
             else:
                 time.sleep(0.0001)
-    except server_manager_utils.ServerActionError as e:
+    except server_manager_utils.ServerActionError:
         # This error is expected when the server is not in primary status
         # for host-scheduler role. Thus do not send email for it.
         raise
     except Exception:
-        email_manager.manager.log_stacktrace(
-                'Uncaught exception; terminating host_scheduler.')
+        metrics.Counter('%s/uncaught_exception' % _METRICS_PREFIX).increment()
         raise
     finally:
         email_manager.manager.send_queued_emails()

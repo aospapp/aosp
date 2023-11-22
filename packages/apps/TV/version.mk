@@ -48,13 +48,13 @@
 
 base_version_major := 1
 # Change this for each branch
-base_version_minor := 11
+base_version_minor := 15
 
 # code_version_major will overflow at 22
 code_version_major := $(shell echo $$(($(base_version_major)+3)))
 
 # x86 and arm sometimes don't match.
-code_version_build := 011
+code_version_build := 007
 #####################################################
 #####################################################
 # Collect automatic version code parameters
@@ -96,7 +96,7 @@ version_code_package := $(code_version_major)$(base_version_minor)$(code_version
 ifdef TARGET_BUILD_APPS
 ifneq "" "$(filter eng.%,$(BUILD_NUMBER))"
     git_hash := $(shell git --git-dir $(LOCAL_PATH)/.git log -n 1 --pretty=format:%h)
-    date_string := $(shell date +%m%d%y_%H%M%S)
+    date_string := $(shell date +%Y-%m-%d)
     version_name_package := $(base_version_major).$(base_version_minor).$(code_version_build) (eng.$(USER).$(git_hash).$(date_string)-$(base_version_arch)$(base_version_density))
 else
     version_name_package := $(base_version_major).$(base_version_minor).$(code_version_build) ($(BUILD_NUMBER)-$(base_version_arch)$(base_version_density))

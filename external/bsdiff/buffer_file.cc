@@ -4,7 +4,7 @@
 
 #include "buffer_file.h"
 
-#include "bspatch.h"
+#include "bsdiff/bspatch.h"
 
 namespace bsdiff {
 

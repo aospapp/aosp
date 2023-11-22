@@ -16,8 +16,6 @@
 
 package android.autofillservice.cts;
 
-import static com.google.common.truth.Truth.assertWithMessage;
-
 import android.app.Activity;
 import android.app.assist.AssistStructure;
 import android.content.Intent;

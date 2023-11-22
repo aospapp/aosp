@@ -52,7 +52,7 @@ public class AslrTest extends InstrumentationTestCase {
         String result = null;
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(new ParcelFileDescriptor.AutoCloseInputStream(pfd)))) {
-            Pattern p = Pattern.compile("^([a-f0-9]+)\\-.+\\[" + mappingName + "\\]$");
+            Pattern p = Pattern.compile("^([a-f0-9]+).*" + mappingName + ".*");
             String line;
 
             while ((line = reader.readLine()) != null) {
@@ -100,7 +100,8 @@ public class AslrTest extends InstrumentationTestCase {
     }
 
     public void testRandomization() throws Exception {
-        testMappingEntropy("stack");
+        testMappingEntropy("\\[stack\\]");
+        testMappingEntropy("/system/bin/");
     }
 
     public void testOneExecutableIsPie() throws IOException {

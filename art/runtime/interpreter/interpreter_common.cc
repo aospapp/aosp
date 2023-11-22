@@ -32,6 +32,7 @@
 #include "reflection.h"
 #include "reflection-inl.h"
 #include "stack.h"
+#include "thread-inl.h"
 #include "well_known_classes.h"
 
 namespace art {
@@ -65,7 +66,11 @@ bool DoFieldGet(Thread* self, ShadowFrame& shadow_frame, const Instruction* inst
   }
 
   JValue result;
-  DoFieldGetCommon<field_type>(self, shadow_frame, obj, f, &result);
+  if (UNLIKELY(!DoFieldGetCommon<field_type>(self, shadow_frame, obj, f, &result))) {
+    // Instrumentation threw an error!
+    CHECK(self->IsExceptionPending());
+    return false;
+  }
   uint32_t vregA = is_static ? inst->VRegA_21c(inst_data) : inst->VRegA_22c(inst_data);
   switch (field_type) {
     case Primitive::kPrimBoolean:
@@ -148,14 +153,18 @@ bool DoIGetQuick(ShadowFrame& shadow_frame, const Instruction* inst, uint16_t in
                                                         field_offset.Uint32Value());
     DCHECK(f != nullptr);
     DCHECK(!f->IsStatic());
-    StackHandleScope<1> hs(Thread::Current());
+    Thread* self = Thread::Current();
+    StackHandleScope<1> hs(self);
     // Save obj in case the instrumentation event has thread suspension.
     HandleWrapperObjPtr<mirror::Object> h = hs.NewHandleWrapper(&obj);
-    instrumentation->FieldReadEvent(Thread::Current(),
+    instrumentation->FieldReadEvent(self,
                                     obj.Ptr(),
                                     shadow_frame.GetMethod(),
                                     shadow_frame.GetDexPC(),
                                     f);
+    if (UNLIKELY(self->IsExceptionPending())) {
+      return false;
+    }
   }
   // Note: iget-x-quick instructions are only for non-volatile fields.
   const uint32_t vregA = inst->VRegA_22c(inst_data);
@@ -321,15 +330,22 @@ bool DoIPutQuick(const ShadowFrame& shadow_frame, const Instruction* inst, uint1
     DCHECK(f != nullptr);
     DCHECK(!f->IsStatic());
     JValue field_value = GetFieldValue<field_type>(shadow_frame, vregA);
-    StackHandleScope<1> hs(Thread::Current());
+    Thread* self = Thread::Current();
+    StackHandleScope<2> hs(self);
     // Save obj in case the instrumentation event has thread suspension.
     HandleWrapperObjPtr<mirror::Object> h = hs.NewHandleWrapper(&obj);
-    instrumentation->FieldWriteEvent(Thread::Current(),
+    mirror::Object* fake_root = nullptr;
+    HandleWrapper<mirror::Object> ret(hs.NewHandleWrapper<mirror::Object>(
+        field_type == Primitive::kPrimNot ? field_value.GetGCRoot() : &fake_root));
+    instrumentation->FieldWriteEvent(self,
                                      obj.Ptr(),
                                      shadow_frame.GetMethod(),
                                      shadow_frame.GetDexPC(),
                                      f,
                                      field_value);
+    if (UNLIKELY(self->IsExceptionPending())) {
+      return false;
+    }
   }
   // Note: iput-x-quick instructions are only for non-volatile fields.
   switch (field_type) {
@@ -458,8 +474,8 @@ ALWAYS_INLINE void CopyRegisters(ShadowFrame& caller_frame,
 
 void ArtInterpreterToCompiledCodeBridge(Thread* self,
                                         ArtMethod* caller,
-                                        const DexFile::CodeItem* code_item,
                                         ShadowFrame* shadow_frame,
+                                        uint16_t arg_offset,
                                         JValue* result)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   ArtMethod* method = shadow_frame->GetMethod();
@@ -482,9 +498,17 @@ void ArtInterpreterToCompiledCodeBridge(Thread* self,
       method = shadow_frame->GetMethod();
     }
   }
-  uint16_t arg_offset = (code_item == nullptr)
-                            ? 0
-                            : code_item->registers_size_ - code_item->ins_size_;
+  // Basic checks for the arg_offset. If there's no code item, the arg_offset must be 0. Otherwise,
+  // check that the arg_offset isn't greater than the number of registers. A stronger check is
+  // difficult since the frame may contain space for all the registers in the method, or only enough
+  // space for the arguments.
+  if (kIsDebugBuild) {
+    if (method->GetCodeItem() == nullptr) {
+      DCHECK_EQ(0u, arg_offset) << method->PrettyMethod();
+    } else {
+      DCHECK_LE(arg_offset, shadow_frame->NumberOfVRegs());
+    }
+  }
   jit::Jit* jit = Runtime::Current()->GetJit();
   if (jit != nullptr && caller != nullptr) {
     jit->NotifyInterpreterToCompiledCodeTransition(self, caller);
@@ -569,10 +593,8 @@ bool DoInvokePolymorphic(Thread* self,
   }
 
   ArtMethod* invoke_method =
-      class_linker->ResolveMethod<ClassLinker::kForceICCECheck>(self,
-                                                                invoke_method_idx,
-                                                                shadow_frame.GetMethod(),
-                                                                kVirtual);
+      class_linker->ResolveMethod<ClassLinker::ResolveMode::kCheckICCEAndIAE>(
+          self, invoke_method_idx, shadow_frame.GetMethod(), kVirtual);
 
   // There is a common dispatch method for method handles that takes
   // arguments either from a range or an array of arguments depending
@@ -616,7 +638,7 @@ static ObjPtr<mirror::CallSite> InvokeBootstrapMethod(Thread* self,
   const DexFile* dex_file = referrer->GetDexFile();
   const DexFile::CallSiteIdItem& csi = dex_file->GetCallSiteId(call_site_idx);
 
-  StackHandleScope<9> hs(self);
+  StackHandleScope<10> hs(self);
   Handle<mirror::ClassLoader> class_loader(hs.NewHandle(referrer->GetClassLoader()));
   Handle<mirror::DexCache> dex_cache(hs.NewHandle(referrer->GetDexCache()));
 
@@ -812,9 +834,13 @@ static ObjPtr<mirror::CallSite> InvokeBootstrapMethod(Thread* self,
     return nullptr;
   }
 
-  // Check the target method type matches the method type requested.
-  if (UNLIKELY(!target->GetMethodType()->IsExactMatch(method_type.Get()))) {
-    ThrowWrongMethodTypeException(target->GetMethodType(), method_type.Get());
+  // Check the target method type matches the method type requested modulo the receiver
+  // needs to be compatible rather than exact.
+  Handle<mirror::MethodType> target_method_type = hs.NewHandle(target->GetMethodType());
+  if (UNLIKELY(!target_method_type->IsExactMatch(method_type.Get()) &&
+               !IsParameterTypeConvertible(target_method_type->GetPTypes()->GetWithoutChecks(0),
+                                           method_type->GetPTypes()->GetWithoutChecks(0)))) {
+    ThrowWrongMethodTypeException(target_method_type.Get(), method_type.Get());
     return nullptr;
   }
 
@@ -918,12 +944,30 @@ static inline bool DoCallCommon(ArtMethod* called_method,
 
   // Compute method information.
   const DexFile::CodeItem* code_item = called_method->GetCodeItem();
-
   // Number of registers for the callee's call frame.
   uint16_t num_regs;
+  // Test whether to use the interpreter or compiler entrypoint, and save that result to pass to
+  // PerformCall. A deoptimization could occur at any time, and we shouldn't change which
+  // entrypoint to use once we start building the shadow frame.
+
+  // For unstarted runtimes, always use the interpreter entrypoint. This fixes the case where we are
+  // doing cross compilation. Note that GetEntryPointFromQuickCompiledCode doesn't use the image
+  // pointer size here and this may case an overflow if it is called from the compiler. b/62402160
+  const bool use_interpreter_entrypoint = !Runtime::Current()->IsStarted() ||
+      ClassLinker::ShouldUseInterpreterEntrypoint(
+          called_method,
+          called_method->GetEntryPointFromQuickCompiledCode());
   if (LIKELY(code_item != nullptr)) {
-    num_regs = code_item->registers_size_;
-    DCHECK_EQ(string_init ? number_of_inputs - 1 : number_of_inputs, code_item->ins_size_);
+    // When transitioning to compiled code, space only needs to be reserved for the input registers.
+    // The rest of the frame gets discarded. This also prevents accessing the called method's code
+    // item, saving memory by keeping code items of compiled code untouched.
+    if (!use_interpreter_entrypoint) {
+      DCHECK(!Runtime::Current()->IsAotCompiler()) << "Compiler should use interpreter entrypoint";
+      num_regs = number_of_inputs;
+    } else {
+      num_regs = code_item->registers_size_;
+      DCHECK_EQ(string_init ? number_of_inputs - 1 : number_of_inputs, code_item->ins_size_);
+    }
   } else {
     DCHECK(called_method->IsNative() || called_method->IsProxyMethod());
     num_regs = number_of_inputs;
@@ -1077,7 +1121,13 @@ static inline bool DoCallCommon(ArtMethod* called_method,
     self->EndAssertNoThreadSuspension(old_cause);
   }
 
-  PerformCall(self, code_item, shadow_frame.GetMethod(), first_dest_reg, new_shadow_frame, result);
+  PerformCall(self,
+              code_item,
+              shadow_frame.GetMethod(),
+              first_dest_reg,
+              new_shadow_frame,
+              result,
+              use_interpreter_entrypoint);
 
   if (string_init && !self->IsExceptionPending()) {
     SetStringInitValueToAllAliases(&shadow_frame, string_init_vreg_this, *result);

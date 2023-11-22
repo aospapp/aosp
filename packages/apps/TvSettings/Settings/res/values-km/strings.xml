@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"សេវាកម្ម"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"ការ​កំណត់​សេវាកម្ម"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"អត្ថបទមានកម្រិតភាពដិតខ្ពស់"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"ផ្លូវកាត់​ភាព​ងាយ​ស្រួល"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"បើកផ្លូវកាត់​ភាព​ងាយស្រួល"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"សេវាកម្មផ្លូវកាត់"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"នៅពេលដែលផ្លូវកាត់នេះបើក អ្នកអាច​ចុចទាំងប៊ូតុង​ថយក្រោយ និងប៊ូតុងចុះក្រោមឱ្យបាន 3 វិនាទី ដើម្បី​ចាប់ផ្តើម​មុខងារភាពងាយប្រើ។"</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"ចំណងជើង"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"ការ​កំណត់​សម្រាប់​អត្ថបទ​ដែល​មាន​ចំណងជើង​បិទ​​គ្រប់​ពី​លើ​វីដេអូ"</string>
     <string name="captions_display" msgid="735692527287125548">"បង្ហាញ"</string>
@@ -653,7 +657,7 @@
     <string name="device_rename_description" msgid="2461752788563877107">"បច្ចុប្បន្ននេះ <xliff:g id="DEVICEMODEL">%1$s</xliff:g> នេះមានឈ្មោះថា \"<xliff:g id="DEVICENAME">%2$s</xliff:g>\""</string>
     <string name="change_setting" msgid="2047402388786162246">"ផ្លាស់ប្ដូរ"</string>
     <string name="keep_settings" msgid="6798327196645732517">"កុំ​ផ្លាស់ប្ដូរ"</string>
-    <string name="apps_permissions" msgid="1283592091618660965">"សិទ្ធិ"</string>
+    <string name="apps_permissions" msgid="1283592091618660965">"ការអនុញ្ញាត"</string>
     <string name="device_apps_permissions" msgid="2966387603529725982">"សិទ្ធិ​កម្មវិធី"</string>
     <string name="app_permissions_group_summary" msgid="7906834786705287901">"បានអនុញ្ញាតកម្មវិធី <xliff:g id="COUNT_0">%d</xliff:g> នៃ <xliff:g id="COUNT_1">%d</xliff:g>"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"សំណើ​សិទ្ធិ​ប៊្លូធូស"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"កំពុងថត​របាយការណ៍​អំពី​បញ្ហា"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"ក្ដារ​ចុច​និម្មិត​ដែលអាចប្រើបាន"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"គ្រប់គ្រងក្តារចុច"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"អនុញ្ញាត"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"មិន​បាន​អនុញ្ញាត"</string>
+    <string name="usage_access" msgid="1914242907684452328">"ការចូលទៅកាន់ការប្រើប្រាស់"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"ការចូលទៅកាន់ការប្រើប្រាស់អនុញ្ញាតឲ្យកម្មវិធីតាមដានថាតើអ្នកកំពុងប្រើកម្មវិធីដទៃទៀតណាខ្លះ និងប្រើញឹកញាប់កម្រិតណា ហើយវាក៏តាមដានក្រុមហ៊ុនបម្រើសេវាទូរសព្ទ ការកំណត់ភាសា និងព័ត៌មានលម្អិតផ្សេងទៀតរបស់អ្នកផងដែរ។"</string>
 </resources>

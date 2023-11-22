@@ -9,6 +9,7 @@ from autotest_lib.client.bin import test
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
+from autotest_lib.client.cros.video import helper_logger
 
 EXTRA_BROWSER_ARGS = ['--use-fake-ui-for-media-stream',
                       '--use-fake-device-for-media-stream',
@@ -31,7 +32,8 @@ class video_WebRtcMediaRecorder(test.test):
 
         @param test_name: Name of test to run.
         """
-        with chrome.Chrome(extra_browser_args=EXTRA_BROWSER_ARGS,
+        with chrome.Chrome(extra_browser_args=EXTRA_BROWSER_ARGS +\
+                           [helper_logger.chrome_vmodule_flag()],
                            init_network_controller=True) as cr:
             cr.browser.platform.SetHTTPServerDirectories(self.bindir)
             self.tab = cr.browser.tabs[0]
@@ -76,6 +78,7 @@ class video_WebRtcMediaRecorder(test.test):
             return True
 
 
+    @helper_logger.video_log_wrapper
     def run_once(self):
         """Runs the video_WebRtcMediaRecorder test."""
         self.launch_recorder_test('testStartAndRecorderState')
@@ -100,4 +103,3 @@ class video_WebRtcMediaRecorder(test.test):
         self.launch_recorder_test('testAddingTrackToMediaStreamFiresErrorEvent')
         self.launch_recorder_test(
                 'testRemovingTrackFromMediaStreamFiresErrorEvent')
-

@@ -37,6 +37,11 @@ public class PhoneNumberUtilsAdapterImpl implements PhoneNumberUtilsAdapter {
     }
 
     @Override
+    public boolean isSamePhoneNumber(String number1, String number2) {
+        return PhoneNumberUtils.compare(number1, number2);
+    }
+
+    @Override
     public String getNumberFromIntent(Intent intent, Context context) {
         return PhoneNumberUtils.getNumberFromIntent(intent, context);
     }

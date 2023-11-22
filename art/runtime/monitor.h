@@ -30,13 +30,13 @@
 #include "base/mutex.h"
 #include "gc_root.h"
 #include "lock_word.h"
-#include "object_callbacks.h"
 #include "read_barrier_option.h"
 #include "thread_state.h"
 
 namespace art {
 
 class ArtMethod;
+class IsMarkedVisitor;
 class LockWord;
 template<class T> class Handle;
 class StackVisitor;
@@ -55,7 +55,7 @@ class Monitor {
 
   ~Monitor();
 
-  static void Init(uint32_t lock_profiling_threshold);
+  static void Init(uint32_t lock_profiling_threshold, uint32_t stack_dump_lock_profiling_threshold);
 
   // Return the thread id of the lock owner or 0 when there is no owner.
   static uint32_t GetLockOwnerThreadId(mirror::Object* obj)
@@ -181,8 +181,11 @@ class Monitor {
       REQUIRES_SHARED(Locks::mutator_lock_)
       NO_THREAD_SAFETY_ANALYSIS;  // For m->Install(self)
 
-  void LogContentionEvent(Thread* self, uint32_t wait_ms, uint32_t sample_percent,
-                          const char* owner_filename, int32_t owner_line_number)
+  void LogContentionEvent(Thread* self,
+                          uint32_t wait_ms,
+                          uint32_t sample_percent,
+                          ArtMethod* owner_method,
+                          uint32_t owner_dex_pc)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   static void FailedUnlock(mirror::Object* obj,
@@ -225,7 +228,6 @@ class Monitor {
                                           ArtMethod* owners_method,
                                           uint32_t owners_dex_pc,
                                           size_t num_waiters)
-      REQUIRES(!Locks::thread_list_lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Wait on a monitor until timeout, interrupt, or notification.  Used for Object.wait() and
@@ -271,6 +273,7 @@ class Monitor {
   ALWAYS_INLINE static void AtraceMonitorUnlock();
 
   static uint32_t lock_profiling_threshold_;
+  static uint32_t stack_dump_lock_profiling_threshold_;
 
   Mutex monitor_lock_ DEFAULT_MUTEX_ACQUIRED_AFTER;
 

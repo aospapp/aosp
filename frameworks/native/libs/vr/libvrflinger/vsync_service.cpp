@@ -110,6 +110,7 @@ void VSyncService::UpdateClients() {
 }
 
 pdx::Status<void> VSyncService::HandleMessage(pdx::Message& message) {
+  ATRACE_NAME("VSyncService::HandleMessage");
   switch (message.GetOp()) {
     case VSyncProtocol::Wait::Opcode:
       AddWaiter(message);
@@ -200,12 +201,12 @@ pdx::Status<int64_t> VSyncWaiter::OnWait(pdx::Message& /*message*/) {
 }
 
 void VSyncChannel::Ack() {
-  ALOGD_IF(TRACE, "VSyncChannel::Ack: pid=%d cid=%d\n", pid_, cid_);
+  ALOGD_IF(TRACE > 1, "VSyncChannel::Ack: pid=%d cid=%d\n", pid_, cid_);
   service_.ModifyChannelEvents(cid_, POLLPRI, 0);
 }
 
 void VSyncChannel::Signal() {
-  ALOGD_IF(TRACE, "VSyncChannel::Signal: pid=%d cid=%d\n", pid_, cid_);
+  ALOGD_IF(TRACE > 1, "VSyncChannel::Signal: pid=%d cid=%d\n", pid_, cid_);
   service_.ModifyChannelEvents(cid_, 0, POLLPRI);
 }
 

@@ -27,9 +27,9 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"La seguente app dovrà accedere a questo profilo:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"La seguente app gestirà il tuo dispositivo:"</string>
     <string name="next" msgid="1004321437324424398">"Avanti"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"Impostazione di un profilo di lavoro…"</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"Configurazione profilo di lavoro…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"L\'amministratore può monitorare e gestire impostazioni, accesso aziendale, app, autorizzazioni e dati associati a questo profilo, incluse l\'attività di rete, la posizione del dispositivo, la cronologia chiamate e la cronologia delle ricerche di contatti.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Contatta il tuo amministratore per ulteriori informazioni e per conoscere le norme sulla privacy della tua organizzazione."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"L\'amministratore può monitorare e gestire impostazioni, accesso aziendale, app, autorizzazioni e dati associati a questo dispositivo, incluse l\'attività di rete, la posizione del dispositivo, la cronologia chiamate e la cronologia delle ricerche di contatti.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Contatta il tuo amministratore per ulteriori informazioni e per conoscere le norme sulla privacy della tua organizzazione."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"L\'amministratore può monitorare e gestire impostazioni, accesso aziendale, app, autorizzazioni e dati associati a questo dispositivo, incluse l\'attività di rete, la posizione del dispositivo, la cronologia chiamate e la cronologia delle ricerche di contatti.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Contatta il tuo amministratore per ulteriori informazioni e per conoscere le norme sulla privacy della tua organizzazione."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Per poter utilizzare le funzioni antifurto, è necessario impostare sul dispositivo un blocco schermo protetto tramite password."</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Per ulteriori informazioni, contatta il tuo amministratore e consulta le norme sulla privacy della tua organizzazione."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Ulteriori informazioni"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Profilo di lavoro"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"Utente principale"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Eliminare il profilo esistente?"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"Hai già un profilo di lavoro gestito con la seguente app:"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Hai già un profilo di lavoro. È gestito con la seguente app:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Prima di procedere, "<a href="#read_this_link">"leggi qui"</a>"."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Se continui, tutti i dati e le app di questo profilo verranno eliminati."</string>
     <string name="delete_profile" msgid="2299218578684663459">"Elimina"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"Tocca per continuare a configurare il profilo di lavoro"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Impossibile impostare il tuo profilo di lavoro. Contatta il tuo reparto IT oppure riprova in un secondo momento."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Impossibile aggiungere il profilo di lavoro"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"Questo utente non può avere un profilo di lavoro. Per assistenza, contatta l\'amministratore."</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"Questo utente non può avere profili di lavoro. Contatta l\'amministratore."</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"I profili di lavoro non possono essere configurati su un dispositivo gestito"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"È possibile che sul dispositivo siano configurati troppi utenti. Rimuovi un utente e riprova."</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Impossibile sostituire o rimuovere il profilo di lavoro"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"Impossibile aggiungere un profilo di lavoro a questo dispositivo. In caso di domande contatta il tuo amministratore."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Cambia Avvio applicazioni del dispositivo"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Questa app Avvio applicazioni non supporta il tuo profilo di lavoro"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Annulla"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"OK"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Configurazione utenti incompleta"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Utente del dispositivo di lavoro"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"Configura il dispositivo di lavoro"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"Configurazione dispositivo di lavoro…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Elaborazione dati di impostazione…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Connessione a rete Wi-Fi…"</string>
     <string name="progress_download" msgid="3522436271691064624">"Download dell\'app dell\'amministratore…"</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"Annulla"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"Ripristina dispositivo"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> e <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> e <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> e <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

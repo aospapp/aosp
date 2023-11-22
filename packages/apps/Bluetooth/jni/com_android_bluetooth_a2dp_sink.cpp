@@ -34,44 +34,44 @@ static const btav_sink_interface_t* sBluetoothA2dpInterface = NULL;
 static jobject mCallbacksObj = NULL;
 
 static void bta2dp_connection_state_callback(btav_connection_state_t state,
-                                             bt_bdaddr_t* bd_addr) {
+                                             RawAddress* bd_addr) {
   ALOGI("%s", __func__);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> addr(
-      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(bt_bdaddr_t)));
+      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(RawAddress)));
   if (!addr.get()) {
     ALOGE("Fail to new jbyteArray bd addr for connection state");
     return;
   }
 
-  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(bt_bdaddr_t),
+  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
                                    (jbyte*)bd_addr);
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onConnectionStateChanged,
                                (jint)state, addr.get());
 }
 
 static void bta2dp_audio_state_callback(btav_audio_state_t state,
-                                        bt_bdaddr_t* bd_addr) {
+                                        RawAddress* bd_addr) {
   ALOGI("%s", __func__);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> addr(
-      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(bt_bdaddr_t)));
+      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(RawAddress)));
   if (!addr.get()) {
     ALOGE("Fail to new jbyteArray bd addr for connection state");
     return;
   }
 
-  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(bt_bdaddr_t),
+  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
                                    (jbyte*)bd_addr);
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onAudioStateChanged,
                                (jint)state, addr.get());
 }
 
-static void bta2dp_audio_config_callback(bt_bdaddr_t* bd_addr,
+static void bta2dp_audio_config_callback(RawAddress* bd_addr,
                                          uint32_t sample_rate,
                                          uint8_t channel_count) {
   ALOGI("%s", __func__);
@@ -79,13 +79,13 @@ static void bta2dp_audio_config_callback(bt_bdaddr_t* bd_addr,
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> addr(
-      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(bt_bdaddr_t)));
+      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(RawAddress)));
   if (!addr.get()) {
     ALOGE("Fail to new jbyteArray bd addr for connection state");
     return;
   }
 
-  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(bt_bdaddr_t),
+  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
                                    (jbyte*)bd_addr);
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onAudioConfigChanged,
                                addr.get(), (jint)sample_rate,
@@ -177,7 +177,7 @@ static jboolean connectA2dpNative(JNIEnv* env, jobject object,
     return JNI_FALSE;
   }
 
-  bt_status_t status = sBluetoothA2dpInterface->connect((bt_bdaddr_t*)addr);
+  bt_status_t status = sBluetoothA2dpInterface->connect((RawAddress*)addr);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed HF connection, status: %d", status);
   }
@@ -195,7 +195,7 @@ static jboolean disconnectA2dpNative(JNIEnv* env, jobject object,
     return JNI_FALSE;
   }
 
-  bt_status_t status = sBluetoothA2dpInterface->disconnect((bt_bdaddr_t*)addr);
+  bt_status_t status = sBluetoothA2dpInterface->disconnect((RawAddress*)addr);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed HF disconnection, status: %d", status);
   }

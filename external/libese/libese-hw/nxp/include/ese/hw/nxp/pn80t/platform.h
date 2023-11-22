@@ -42,6 +42,8 @@ struct Pn80tPlatform {
   pn80t_platform_toggle_t *const toggle_ven;  /* NFC_VEN */
   /* Optional: enables eSE power control via |toggle_reset|. 1 = on, 0 = off */
   pn80t_platform_toggle_t *const toggle_power_req;  /* SVDD_PWR_REQ */
+  /* Optional: toggles the in bootloader gpio */
+  pn80t_platform_toggle_t *const toggle_bootloader;  /* CLEAR_N */
   /* Required: provides a usleep() equivalent. */
   pn80t_platform_wait_t *const wait;
 };

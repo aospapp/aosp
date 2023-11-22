@@ -100,7 +100,6 @@ system/lib/arm/libpowermanager.so:intel
 system/lib/arm/libprocessgroup.so:intel
 system/lib/arm/libprotobuf-cpp-lite.so:intel
 system/lib/arm/libradio_metadata.so:intel
-system/lib/arm/libradio.so:intel
 system/lib/arm/libRScpp.so:intel
 system/lib/arm/libRSCpuRef.so:intel
 system/lib/arm/libRSDriver.so:intel
@@ -130,7 +129,7 @@ system/lib/arm/libusbhost.so:intel
 system/lib/arm/libutils.so:intel
 system/lib/arm/libvorbisidec.so:intel
 system/lib/arm/libvulkan.so:intel
-system/lib/libwebrtc_audio_preprocessing.so:intel
+system/vendor/lib/libwebrtc_audio_preprocessing.so:intel
 system/lib/arm/libwebviewchromium_plat_support.so:intel
 system/lib/arm/libwilhelm.so:intel
 system/lib/arm/libz.so:intel

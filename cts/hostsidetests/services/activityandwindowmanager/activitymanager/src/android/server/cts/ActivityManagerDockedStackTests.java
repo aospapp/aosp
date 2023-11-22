@@ -21,6 +21,8 @@ import com.android.tradefed.log.LogUtil.CLog;
 
 import java.awt.Rectangle;
 
+import static android.server.cts.WindowManagerState.TRANSIT_WALLPAPER_OPEN;
+
 /**
  * Build: mmma -j32 cts/hostsidetests/services
  * Run: cts/hostsidetests/services/activityandwindowmanager/util/run-test CtsServicesHostTestCases android.server.cts.ActivityManagerDockedStackTests
@@ -407,6 +409,37 @@ public class ActivityManagerDockedStackTests extends ActivityManagerTestBase {
         mAmWmState.computeState(mDevice, waitForActivitiesVisible);
         setDeviceRotation(0);
         mAmWmState.computeState(mDevice, waitForActivitiesVisible);
+    }
+
+    public void testMinimizeAndUnminimizeThenGoingHome() throws Exception {
+        if (!supportsSplitScreenMultiWindow()) {
+            CLog.logAndDisplay(LogLevel.INFO, "Skipping test: no split multi-window support");
+            return;
+        }
+
+        // Rotate the screen to check that minimize, unminimize, dismiss the docked stack and then
+        // going home has the correct app transition
+        for (int i = 0; i < 4; i++) {
+            setDeviceRotation(i);
+            launchActivityInDockStackAndMinimize(DOCKED_ACTIVITY_NAME);
+            assertDockMinimized();
+
+            // Unminimize the docked stack
+            pressAppSwitchButton();
+            waitForDockNotMinimized();
+            assertDockNotMinimized();
+
+            // Dismiss the dock stack
+            launchActivityInStack(TEST_ACTIVITY_NAME, FULLSCREEN_WORKSPACE_STACK_ID);
+            moveActivityToStack(DOCKED_ACTIVITY_NAME, FULLSCREEN_WORKSPACE_STACK_ID);
+            mAmWmState.computeState(mDevice, new String[]{DOCKED_ACTIVITY_NAME});
+
+            // Go home and check the app transition
+            assertNotSame(TRANSIT_WALLPAPER_OPEN, mAmWmState.getWmState().getLastTransition());
+            pressHomeButton();
+            mAmWmState.computeState(mDevice, null);
+            assertEquals(TRANSIT_WALLPAPER_OPEN, mAmWmState.getWmState().getLastTransition());
+        }
     }
 
     public void testFinishDockActivityWhileMinimized() throws Exception {

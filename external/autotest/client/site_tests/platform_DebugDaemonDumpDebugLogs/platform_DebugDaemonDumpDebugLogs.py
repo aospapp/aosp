@@ -19,7 +19,7 @@ class platform_DebugDaemonDumpDebugLogs(test.test):
         tmp_file = os.path.join(self.tmp_dir, filename)
         try:
             fh = os.open(tmp_file, os.O_TRUNC | os.O_CREAT | os.O_WRONLY)
-            self.iface.DumpDebugLogs(compressed, fh)
+            self.iface.DumpDebugLogs(compressed, fh, signature="bh")
         except:
             raise
         finally:

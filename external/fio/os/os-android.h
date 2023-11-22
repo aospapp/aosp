@@ -12,20 +12,25 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <sched.h>
+#include <linux/unistd.h>
 #include <linux/major.h>
 #include <asm/byteorder.h>
-#include <byteswap.h>
 
+#include "./os-linux-syscall.h"
 #include "binject.h"
 #include "../file.h"
+
+#ifndef __has_builtin         // Optional of course.
+  #define __has_builtin(x) 0  // Compatibility with non-clang compilers.
+#endif
 
 #define FIO_HAVE_DISK_UTIL
 #define FIO_HAVE_IOSCHED_SWITCH
 #define FIO_HAVE_IOPRIO
+#define FIO_HAVE_IOPRIO_CLASS
 #define FIO_HAVE_ODIRECT
 #define FIO_HAVE_HUGETLB
 #define FIO_HAVE_BLKTRACE
-#define FIO_HAVE_PSHARED_MUTEX
 #define FIO_HAVE_CL_SIZE
 #define FIO_HAVE_FS_STAT
 #define FIO_HAVE_TRIM
@@ -52,21 +57,28 @@
 #define MAP_HUGETLB 0x40000 /* arch specific */
 #endif
 
-
+#ifndef CONFIG_NO_SHM
 /*
  * The Android NDK doesn't currently export <sys/shm.h>, so define the
  * necessary stuff here.
  */
 
-#include <linux/shm.h>
-#define SHM_HUGETLB    04000
+#if __ANDROID_API__ >= 26
+#define shmat bionic_shmat
+#define shmctl bionic_shmctl
+#define shmdt bionic_shmdt
+#define shmget bionic_shmget
+#endif
+#include <sys/shm.h>
+#undef shmat
+#undef shmctl
+#undef shmdt
+#undef shmget
 
-#define shmid_ds shmid64_ds
-#undef __key
+#define SHM_HUGETLB    04000
 
 #include <stdio.h>
 #include <linux/ashmem.h>
-#include <sys/mman.h>
 
 #define ASHMEM_DEVICE	"/dev/ashmem"
 
@@ -86,14 +98,14 @@ static inline int shmctl (int __shmid, int __cmd, struct shmid_ds *__buf)
 static inline int shmget (key_t __key, size_t __size, int __shmflg)
 {
 	int fd,ret;
-	char key[11];
-	
+	char keybuf[11];
+
 	fd = open(ASHMEM_DEVICE, O_RDWR);
 	if (fd < 0)
 		return fd;
 
-	sprintf(key,"%d",__key);
-	ret = ioctl(fd, ASHMEM_SET_NAME, key);
+	sprintf(keybuf,"%d",__key);
+	ret = ioctl(fd, ASHMEM_SET_NAME, keybuf);
 	if (ret < 0)
 		goto error;
 
@@ -102,7 +114,7 @@ static inline int shmget (key_t __key, size_t __size, int __shmflg)
 		goto error;
 
 	return fd;
-	
+
 error:
 	close(fd);
 	return ret;
@@ -124,6 +136,7 @@ static inline int shmdt (const void *__shmaddr)
 	size = *ptr;    //find mmap size which we stored at the beginning of the buffer
 	return munmap((void *)ptr, size + sizeof(size_t));
 }
+#endif
 
 #define SPLICE_DEF_SIZE	(64*1024)
 
@@ -142,6 +155,12 @@ enum {
 
 #define IOPRIO_BITS		16
 #define IOPRIO_CLASS_SHIFT	13
+
+#define IOPRIO_MIN_PRIO		0	/* highest priority */
+#define IOPRIO_MAX_PRIO		7	/* lowest priority */
+
+#define IOPRIO_MIN_PRIO_CLASS	0
+#define IOPRIO_MAX_PRIO_CLASS	3
 
 static inline int ioprio_set(int which, int who, int ioprio_class, int ioprio)
 {
@@ -215,9 +234,19 @@ static inline long os_random_long(os_random_state_t *rs)
 #define FIO_O_NOATIME	0
 #endif
 
+/* Check for GCC or Clang byte swap intrinsics */
+#if (__has_builtin(__builtin_bswap16) && __has_builtin(__builtin_bswap32) \
+     && __has_builtin(__builtin_bswap64)) || (__GNUC__ > 4 \
+     || (__GNUC__ == 4 && __GNUC_MINOR__ >= 8)) /* fio_swapN */
+#define fio_swap16(x)	__builtin_bswap16(x)
+#define fio_swap32(x)	__builtin_bswap32(x)
+#define fio_swap64(x)	__builtin_bswap64(x)
+#else
+#include <byteswap.h>
 #define fio_swap16(x)	bswap_16(x)
 #define fio_swap32(x)	bswap_32(x)
 #define fio_swap64(x)	bswap_64(x)
+#endif /* fio_swapN */
 
 #define CACHE_LINE_FILE	\
 	"/sys/devices/system/cpu/cpu0/cache/index0/coherency_line_size"
@@ -241,7 +270,7 @@ static inline int arch_cache_line_size(void)
 		return atoi(size);
 }
 
-static inline unsigned long long get_fs_size(const char *path)
+static inline unsigned long long get_fs_free_size(const char *path)
 {
 	unsigned long long ret;
 	struct statfs s;

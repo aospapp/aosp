@@ -58,8 +58,7 @@
 
 #include "arpa_telnet.h"
 #include "select.h"
-#include "strequal.h"
-#include "rawstr.h"
+#include "strcase.h"
 #include "warnless.h"
 
 /* The last 3 #include files should be in this order */
@@ -846,7 +845,7 @@ static CURLcode check_telnet_options(struct connectdata *conn)
               option_keyword, option_arg) == 2) {
 
       /* Terminal type */
-      if(Curl_raw_equal(option_keyword, "TTYPE")) {
+      if(strcasecompare(option_keyword, "TTYPE")) {
         strncpy(tn->subopt_ttype, option_arg, 31);
         tn->subopt_ttype[31] = 0; /* String termination */
         tn->us_preferred[CURL_TELOPT_TTYPE] = CURL_YES;
@@ -854,7 +853,7 @@ static CURLcode check_telnet_options(struct connectdata *conn)
       }
 
       /* Display variable */
-      if(Curl_raw_equal(option_keyword, "XDISPLOC")) {
+      if(strcasecompare(option_keyword, "XDISPLOC")) {
         strncpy(tn->subopt_xdisploc, option_arg, 127);
         tn->subopt_xdisploc[127] = 0; /* String termination */
         tn->us_preferred[CURL_TELOPT_XDISPLOC] = CURL_YES;
@@ -862,7 +861,7 @@ static CURLcode check_telnet_options(struct connectdata *conn)
       }
 
       /* Environment variable */
-      if(Curl_raw_equal(option_keyword, "NEW_ENV")) {
+      if(strcasecompare(option_keyword, "NEW_ENV")) {
         beg = curl_slist_append(tn->telnet_vars, option_arg);
         if(!beg) {
           result = CURLE_OUT_OF_MEMORY;
@@ -874,7 +873,7 @@ static CURLcode check_telnet_options(struct connectdata *conn)
       }
 
           /* Window Size */
-      if(Curl_raw_equal(option_keyword, "WS")) {
+      if(strcasecompare(option_keyword, "WS")) {
         if(sscanf(option_arg, "%hu%*[xX]%hu",
                   &tn->subopt_wsx, &tn->subopt_wsy) == 2)
           tn->us_preferred[CURL_TELOPT_NAWS] = CURL_YES;
@@ -887,7 +886,7 @@ static CURLcode check_telnet_options(struct connectdata *conn)
       }
 
       /* To take care or not of the 8th bit in data exchange */
-      if(Curl_raw_equal(option_keyword, "BINARY")) {
+      if(strcasecompare(option_keyword, "BINARY")) {
         binary_option=atoi(option_arg);
         if(binary_option!=1) {
           tn->us_preferred[CURL_TELOPT_BINARY] = CURL_NO;
@@ -1005,7 +1004,7 @@ static void sendsuboption(struct connectdata *conn, int option)
   ssize_t bytes_written;
   int err;
   unsigned short x, y;
-  unsigned char*uc1, *uc2;
+  unsigned char *uc1, *uc2;
 
   struct Curl_easy *data = conn->data;
   struct TELNET *tn = (struct TELNET *)data->req.protop;
@@ -1021,8 +1020,8 @@ static void sendsuboption(struct connectdata *conn, int option)
     /* Window size must be sent according to the 'network order' */
     x=htons(tn->subopt_wsx);
     y=htons(tn->subopt_wsy);
-    uc1 = (unsigned char*)&x;
-    uc2 = (unsigned char*)&y;
+    uc1 = (unsigned char *)&x;
+    uc2 = (unsigned char *)&y;
     CURL_SB_ACCUM(tn, uc1[0]);
     CURL_SB_ACCUM(tn, uc1[1]);
     CURL_SB_ACCUM(tn, uc2[0]);

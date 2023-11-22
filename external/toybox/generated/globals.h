@@ -39,6 +39,16 @@ struct skeleton_data {
   int more_globals;
 };
 
+// toys/lsb/dmesg.c
+
+struct dmesg_data {
+  long level;
+  long size;
+
+  int use_color;
+  time_t tea;
+};
+
 // toys/lsb/hostname.c
 
 struct hostname_data {
@@ -200,6 +210,12 @@ struct base64_data {
 
 struct blockdev_data {
   long bsz;
+};
+
+// toys/other/chrt.c
+
+struct chrt_data {
+  long pid;
 };
 
 // toys/other/dos2unix.c
@@ -440,12 +456,6 @@ struct brctl_data {
     int sockfd;
 };
 
-// toys/pending/chrt.c
-
-struct chrt_data {
-  long pid;
-};
-
 // toys/pending/compress.c
 
 struct compress_data {
@@ -489,8 +499,7 @@ struct crontab_data {
 // toys/pending/dd.c
 
 struct dd_data {
-  int show_xfer;
-  int show_records;
+  int show_xfer, show_records;
   unsigned long long bytes, c_count, in_full, in_part, out_full, out_part;
   struct timeval start;
   struct {
@@ -547,15 +556,6 @@ struct diff_data {
 
   int dir_num, size, is_binary, status, change, len[2];
   int *offset[2];
-};
-
-// toys/pending/dmesg.c
-
-struct dmesg_data {
-  long level;
-  long size;
-
-  int color;
 };
 
 // toys/pending/dumpleases.c
@@ -629,6 +629,12 @@ struct getty_data {
 
 struct groupadd_data {
   long gid;
+};
+
+// toys/pending/gzip.c
+
+struct gzip_data {
+  int level;
 };
 
 // toys/pending/host.c
@@ -1039,7 +1045,6 @@ struct date_data {
   char *setfmt;
   char *showdate;
 
-  char *tz;
   unsigned nano;
 };
 
@@ -1101,13 +1106,17 @@ struct grep_data {
   long a;
   long b;
   long c;
+  struct arg_list *M;
+  struct arg_list *S;
 
   char indelim, outdelim;
+  int found;
 };
 
 // toys/posix/head.c
 
 struct head_data {
+  long bytes;
   long lines;
   int file_no;
 };
@@ -1128,6 +1137,7 @@ struct kill_data {
 // toys/posix/ls.c
 
 struct ls_data {
+  long ll;
   char *color;
 
   struct dirtree *files, *singledir;
@@ -1316,6 +1326,7 @@ struct split_data {
 
 struct strings_data {
   long num;
+  char *t;
 };
 
 // toys/posix/tail.c
@@ -1386,6 +1397,7 @@ extern union global_union {
 	struct log_data log;
 	struct hello_data hello;
 	struct skeleton_data skeleton;
+	struct dmesg_data dmesg;
 	struct hostname_data hostname;
 	struct killall_data killall;
 	struct md5sum_data md5sum;
@@ -1406,6 +1418,7 @@ extern union global_union {
 	struct acpi_data acpi;
 	struct base64_data base64;
 	struct blockdev_data blockdev;
+	struct chrt_data chrt;
 	struct dos2unix_data dos2unix;
 	struct fallocate_data fallocate;
 	struct free_data free;
@@ -1433,7 +1446,6 @@ extern union global_union {
 	struct arping_data arping;
 	struct bootchartd_data bootchartd;
 	struct brctl_data brctl;
-	struct chrt_data chrt;
 	struct compress_data compress;
 	struct crond_data crond;
 	struct crontab_data crontab;
@@ -1442,7 +1454,6 @@ extern union global_union {
 	struct dhcp6_data dhcp6;
 	struct dhcpd_data dhcpd;
 	struct diff_data diff;
-	struct dmesg_data dmesg;
 	struct dumpleases_data dumpleases;
 	struct expr_data expr;
 	struct fdisk_data fdisk;
@@ -1451,6 +1462,7 @@ extern union global_union {
 	struct getfattr_data getfattr;
 	struct getty_data getty;
 	struct groupadd_data groupadd;
+	struct gzip_data gzip;
 	struct host_data host;
 	struct iconv_data iconv;
 	struct ip_data ip;

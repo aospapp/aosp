@@ -1,7 +1,7 @@
 /**
  * @copyright
  *
- *   Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *   Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  *   Redistribution and use in source and binary forms, with or without
  *   modification, are permitted provided that the following conditions are met:
@@ -42,7 +42,7 @@
 #include <queue>
 #include <pthread.h>
 
-#include <cutils/log.h>
+#include <log/log.h>
 
 extern unsigned int g_omx_swvdec_logmask;
                       ///< global OMX SwVdec logmask variable extern declaration
@@ -115,7 +115,7 @@ private:
     pthread_mutex_t                   m_mutex; ///< mutex
 };
 
-#define DIAG_FILE_PATH "/data/misc/media" ///< file path
+#define DIAG_FILE_PATH "/data/vendor/media" ///< file path
 
 /// OMX SwVdec diagnostics class
 class omx_swvdec_diag

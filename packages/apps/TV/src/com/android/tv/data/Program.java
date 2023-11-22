@@ -16,21 +16,23 @@
 
 package com.android.tv.data;
 
+import android.annotation.SuppressLint;
+import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.media.tv.TvContentRating;
 import android.media.tv.TvContract;
+import android.media.tv.TvContract.Programs;
+import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.UiThread;
 import android.support.annotation.VisibleForTesting;
-import android.support.v4.os.BuildCompat;
 import android.text.TextUtils;
 import android.util.Log;
 
-import com.android.tv.R;
 import com.android.tv.common.BuildConfig;
 import com.android.tv.common.CollectionUtils;
 import com.android.tv.common.TvContentRatingCache;
@@ -88,9 +90,11 @@ public final class Program extends BaseProgram implements Comparable<Program>, P
     public static final String[] PROJECTION = createProjection();
 
     private static String[] createProjection() {
-        return CollectionUtils
-                .concatAll(PROJECTION_BASE, BuildCompat.isAtLeastN() ? PROJECTION_ADDED_IN_NYC
-                : PROJECTION_DEPRECATED_IN_NYC);
+        return CollectionUtils.concatAll(
+                PROJECTION_BASE,
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+                        ? PROJECTION_ADDED_IN_NYC
+                        : PROJECTION_DEPRECATED_IN_NYC);
     }
 
     /**
@@ -135,7 +139,7 @@ public final class Program extends BaseProgram implements Comparable<Program>, P
             InternalDataUtils.deserializeInternalProviderData(cursor.getBlob(index), builder);
         }
         index++;
-        if (BuildCompat.isAtLeastN()) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             builder.setSeasonNumber(cursor.getString(index++));
             builder.setSeasonTitle(cursor.getString(index++));
             builder.setEpisodeNumber(cursor.getString(index++));
@@ -213,11 +217,6 @@ public final class Program extends BaseProgram implements Comparable<Program>, P
     private TvContentRating[] mContentRatings;
     private boolean mRecordingProhibited;
 
-    /**
-     * TODO(DVR): Need to fill the following data.
-     */
-    private boolean mRecordingScheduled;
-
     private Program() {
         // Do nothing.
     }
@@ -268,43 +267,9 @@ public final class Program extends BaseProgram implements Comparable<Program>, P
     /**
      * Returns the episode title.
      */
+    @Override
     public String getEpisodeTitle() {
         return mEpisodeTitle;
-    }
-
-    /**
-     * Returns season number, episode number and episode title for display.
-     */
-    @Override
-    public String getEpisodeDisplayTitle(Context context) {
-        if (!TextUtils.isEmpty(mEpisodeNumber)) {
-            String episodeTitle = mEpisodeTitle == null ? "" : mEpisodeTitle;
-            if (TextUtils.equals(mSeasonNumber, "0")) {
-                // Do not show "S0: ".
-                return String.format(context.getResources().getString(
-                        R.string.display_episode_title_format_no_season_number),
-                        mEpisodeNumber, episodeTitle);
-            } else {
-                return String.format(context.getResources().getString(
-                        R.string.display_episode_title_format),
-                        mSeasonNumber, mEpisodeNumber, episodeTitle);
-            }
-        }
-        return mEpisodeTitle;
-    }
-
-    @Override
-    public String getTitleWithEpisodeNumber(Context context) {
-        if (TextUtils.isEmpty(mTitle)) {
-            return mTitle;
-        }
-        if (TextUtils.isEmpty(mSeasonNumber) || mSeasonNumber.equals("0")) {
-            return TextUtils.isEmpty(mEpisodeNumber) ? mTitle : context.getString(
-                    R.string.program_title_with_episode_number_no_season, mTitle, mEpisodeNumber);
-        } else {
-            return context.getString(R.string.program_title_with_episode_number, mTitle,
-                    mSeasonNumber, mEpisodeNumber);
-        }
     }
 
     @Override
@@ -361,6 +326,8 @@ public final class Program extends BaseProgram implements Comparable<Program>, P
         return mCriticScores;
     }
 
+    @Nullable
+    @Override
     public TvContentRating[] getContentRatings() {
         return mContentRatings;
     }
@@ -495,6 +462,63 @@ public final class Program extends BaseProgram implements Comparable<Program>, P
         return builder.append("}").toString();
     }
 
+    /**
+     * Translates a {@link Program} to {@link ContentValues} that are ready to be written into
+     * Database.
+     */
+    @SuppressLint("InlinedApi")
+    @SuppressWarnings("deprecation")
+    public static ContentValues toContentValues(Program program) {
+        ContentValues values = new ContentValues();
+        values.put(TvContract.Programs.COLUMN_CHANNEL_ID, program.getChannelId());
+        putValue(values, TvContract.Programs.COLUMN_TITLE, program.getTitle());
+        putValue(values, TvContract.Programs.COLUMN_EPISODE_TITLE, program.getEpisodeTitle());
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            putValue(values, TvContract.Programs.COLUMN_SEASON_DISPLAY_NUMBER,
+                    program.getSeasonNumber());
+            putValue(values, TvContract.Programs.COLUMN_EPISODE_DISPLAY_NUMBER,
+                    program.getEpisodeNumber());
+        } else {
+            putValue(values, TvContract.Programs.COLUMN_SEASON_NUMBER, program.getSeasonNumber());
+            putValue(values, TvContract.Programs.COLUMN_EPISODE_NUMBER, program.getEpisodeNumber());
+        }
+        putValue(values, TvContract.Programs.COLUMN_SHORT_DESCRIPTION, program.getDescription());
+        putValue(values, TvContract.Programs.COLUMN_LONG_DESCRIPTION, program.getLongDescription());
+        putValue(values, TvContract.Programs.COLUMN_POSTER_ART_URI, program.getPosterArtUri());
+        putValue(values, TvContract.Programs.COLUMN_THUMBNAIL_URI, program.getThumbnailUri());
+        String[] canonicalGenres = program.getCanonicalGenres();
+        if (canonicalGenres != null && canonicalGenres.length > 0) {
+            putValue(values, TvContract.Programs.COLUMN_CANONICAL_GENRE,
+                    TvContract.Programs.Genres.encode(canonicalGenres));
+        } else {
+            putValue(values, TvContract.Programs.COLUMN_CANONICAL_GENRE, "");
+        }
+        putValue(values, Programs.COLUMN_CONTENT_RATING,
+                TvContentRatingCache.contentRatingsToString(program.getContentRatings()));
+        values.put(TvContract.Programs.COLUMN_START_TIME_UTC_MILLIS,
+                program.getStartTimeUtcMillis());
+        values.put(TvContract.Programs.COLUMN_END_TIME_UTC_MILLIS, program.getEndTimeUtcMillis());
+        putValue(values, TvContract.Programs.COLUMN_INTERNAL_PROVIDER_DATA,
+                InternalDataUtils.serializeInternalProviderData(program));
+        return values;
+    }
+
+    private static void putValue(ContentValues contentValues, String key, String value) {
+        if (TextUtils.isEmpty(value)) {
+            contentValues.putNull(key);
+        } else {
+            contentValues.put(key, value);
+        }
+    }
+
+    private static void putValue(ContentValues contentValues, String key, byte[] value) {
+        if (value == null || value.length == 0) {
+            contentValues.putNull(key);
+        } else {
+            contentValues.put(key, value);
+        }
+    }
+
     public void copyFrom(Program other) {
         if (this == other) {
             return;
@@ -521,13 +545,6 @@ public final class Program extends BaseProgram implements Comparable<Program>, P
         mCanonicalGenreIds = other.mCanonicalGenreIds;
         mContentRatings = other.mContentRatings;
         mRecordingProhibited = other.mRecordingProhibited;
-    }
-
-    /**
-     * Checks whether the program is episodic or not.
-     */
-    public boolean isEpisodic() {
-        return mSeriesId != null;
     }
 
     /**
@@ -799,8 +816,12 @@ public final class Program extends BaseProgram implements Comparable<Program>, P
          */
         public Program build() {
             // Generate the series ID for the episodic program of other TV input.
-            if (TextUtils.isEmpty(mProgram.mSeriesId)
+            if (TextUtils.isEmpty(mProgram.mTitle)) {
+                // If title is null, series cannot be generated for this program.
+                setSeriesId(null);
+            } else if (TextUtils.isEmpty(mProgram.mSeriesId)
                     && !TextUtils.isEmpty(mProgram.mEpisodeNumber)) {
+                // If series ID is not set, generate it for the episodic program of other TV input.
                 setSeriesId(BaseProgram.generateSeriesId(mProgram.mPackageName, mProgram.mTitle));
             }
             Program program = new Program();
@@ -820,17 +841,20 @@ public final class Program extends BaseProgram implements Comparable<Program>, P
     }
 
     /**
-     * Loads the program poster art and returns it via {@code callback}.<p>
+     * Loads the program poster art and returns it via {@code callback}.
      * <p>
      * Note that it may directly call {@code callback} if the program poster art already is loaded.
+     *
+     * @return {@code true} if the load is complete and the callback is executed.
      */
     @UiThread
-    public void loadPosterArt(Context context, int posterArtWidth, int posterArtHeight,
+    public boolean loadPosterArt(Context context, int posterArtWidth, int posterArtHeight,
             ImageLoader.ImageLoaderCallback callback) {
         if (mPosterArtUri == null) {
-            return;
+            return false;
         }
-        ImageLoader.loadBitmap(context, mPosterArtUri, posterArtWidth, posterArtHeight, callback);
+        return ImageLoader.loadBitmap(
+                context, mPosterArtUri, posterArtWidth, posterArtHeight, callback);
     }
 
     public static boolean isDuplicate(Program p1, Program p2) {

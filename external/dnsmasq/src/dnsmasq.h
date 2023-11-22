@@ -348,7 +348,7 @@ struct irec {
 };
 
 struct listener {
-  int fd, tcpfd, tftpfd, family;
+  int fd, tcpfd, family;
   struct irec *iface; /* only valid for non-wildcard */
   struct listener *next;
 };
@@ -575,26 +575,6 @@ struct ping_result {
   struct ping_result *next;
 };
 
-struct tftp_file {
-  int refcount, fd;
-  off_t size;
-  dev_t dev;
-  ino_t inode;
-  char filename[];
-};
-
-struct tftp_transfer {
-  int sockfd;
-  time_t timeout;
-  int backoff;
-  unsigned int block, blocksize, expansion;
-  off_t offset;
-  struct sockaddr_in peer;
-  char opt_blocksize, opt_transize, netascii, carrylf;
-  struct tftp_file *file;
-  struct tftp_transfer *next;
-};
-
 extern struct daemon {
   /* datastuctures representing the command-line and 
      config file arguments. All set (including defaults)
@@ -637,13 +617,11 @@ extern struct daemon {
   int enable_pxe;
   struct dhcp_netid_list *dhcp_ignore, *dhcp_ignore_names, *force_broadcast, *bootp_dynamic;
   char *dhcp_hosts_file, *dhcp_opts_file;
-  int dhcp_max, tftp_max;
+  int dhcp_max;
   int dhcp_server_port, dhcp_client_port;
-  int start_tftp_port, end_tftp_port; 
   unsigned int min_leasetime;
   struct doctor *doctors;
   unsigned short edns_pktsz;
-  char *tftp_prefix; 
   uint32_t listen_mark;
 
   /* globally used stuff for DNS */
@@ -676,16 +654,6 @@ extern struct daemon {
   struct ping_result *ping_results;
   FILE *lease_stream;
   struct dhcp_bridge *bridges;
-
-  /* DBus stuff */
-  /* void * here to avoid depending on dbus headers outside dbus.c */
-  void *dbus;
-#ifdef HAVE_DBUS
-  struct watch *watches;
-#endif
-
-  /* TFTP stuff */
-  struct tftp_transfer *tftp_trans;
 
 } *daemon;
 
@@ -875,14 +843,6 @@ void send_via_bpf(struct dhcp_packet *mess, size_t len,
 /* bpf.c or netlink.c */
 int iface_enumerate(void *parm, int (*ipv4_callback)(), int (*ipv6_callback)());
 
-/* dbus.c */
-#ifdef HAVE_DBUS
-char *dbus_init(void);
-void check_dbus_listeners(fd_set *rset, fd_set *wset, fd_set *eset);
-void set_dbus_listeners(int *maxfdp, fd_set *rset, fd_set *wset, fd_set *eset);
-void emit_dbus_signal(int action, struct dhcp_lease *lease, char *hostname);
-#endif
-
 /* helper.c */
 #if defined(HAVE_DHCP) && !defined(NO_FORK)
 int create_helper(int event_fd, int err_fd, uid_t uid, gid_t gid, long max_fd);
@@ -890,10 +850,4 @@ void helper_write(void);
 void queue_script(int action, struct dhcp_lease *lease, 
 		  char *hostname, time_t now);
 int helper_buf_empty(void);
-#endif
-
-/* tftp.c */
-#ifdef HAVE_TFTP
-void tftp_request(struct listener *listen, time_t now);
-void check_tftp_listeners(fd_set *rset, time_t now);
 #endif

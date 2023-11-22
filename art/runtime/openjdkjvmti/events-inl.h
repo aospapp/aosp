@@ -20,6 +20,9 @@
 #include <array>
 
 #include "events.h"
+#include "jni_internal.h"
+#include "nativehelper/ScopedLocalRef.h"
+#include "ti_breakpoint.h"
 
 #include "art_jvmti.h"
 
@@ -135,6 +138,8 @@ inline void EventHandler::DispatchClassFileLoadHookEvent(art::Thread* thread,
       continue;
     }
     if (ShouldDispatch<kEvent>(env, thread)) {
+      ScopedLocalRef<jthrowable> thr(jnienv, jnienv->ExceptionOccurred());
+      jnienv->ExceptionClear();
       jint new_len = 0;
       unsigned char* new_data = nullptr;
       auto callback = impl::GetCallback<kEvent>(env);
@@ -148,6 +153,9 @@ inline void EventHandler::DispatchClassFileLoadHookEvent(art::Thread* thread,
                current_class_data,
                &new_len,
                &new_data);
+      if (thr.get() != nullptr && !jnienv->ExceptionCheck()) {
+        jnienv->Throw(thr.get());
+      }
       if (new_data != nullptr && new_data != current_class_data) {
         // Destroy the data the last transformer made. We skip this if the previous state was the
         // initial one since we don't know here which jvmtiEnv allocated it.
@@ -180,6 +188,25 @@ inline void EventHandler::DispatchEvent(art::Thread* thread, Args... args) const
   }
 }
 
+// Events with JNIEnvs need to stash pending exceptions since they can cause new ones to be thrown.
+// In accordance with the JVMTI specification we allow exceptions originating from events to
+// overwrite the current exception, including exceptions originating from earlier events.
+// TODO It would be nice to add the overwritten exceptions to the suppressed exceptions list of the
+// newest exception.
+template <ArtJvmtiEvent kEvent, typename ...Args>
+inline void EventHandler::DispatchEvent(art::Thread* thread, JNIEnv* jnienv, Args... args) const {
+  for (ArtJvmTiEnv* env : envs) {
+    if (env != nullptr) {
+      ScopedLocalRef<jthrowable> thr(jnienv, jnienv->ExceptionOccurred());
+      jnienv->ExceptionClear();
+      DispatchEvent<kEvent, JNIEnv*, Args...>(env, thread, jnienv, args...);
+      if (thr.get() != nullptr && !jnienv->ExceptionCheck()) {
+        jnienv->Throw(thr.get());
+      }
+    }
+  }
+}
+
 template <ArtJvmtiEvent kEvent, typename ...Args>
 inline void EventHandler::DispatchEvent(ArtJvmTiEnv* env, art::Thread* thread, Args... args) const {
   using FnType = void(jvmtiEnv*, Args...);
@@ -187,6 +214,97 @@ inline void EventHandler::DispatchEvent(ArtJvmTiEnv* env, art::Thread* thread, A
     FnType* callback = impl::GetCallback<kEvent>(env);
     if (callback != nullptr) {
       (*callback)(env, args...);
+    }
+  }
+}
+
+// Need to give custom specializations for Breakpoint since it needs to filter out which particular
+// methods/dex_pcs agents get notified on.
+template <>
+inline void EventHandler::DispatchEvent<ArtJvmtiEvent::kBreakpoint>(art::Thread* thread,
+                                                                    JNIEnv* jnienv,
+                                                                    jthread jni_thread,
+                                                                    jmethodID jmethod,
+                                                                    jlocation location) const {
+  art::ArtMethod* method = art::jni::DecodeArtMethod(jmethod);
+  for (ArtJvmTiEnv* env : envs) {
+    // Search for a breakpoint on this particular method and location.
+    if (env != nullptr &&
+        ShouldDispatch<ArtJvmtiEvent::kBreakpoint>(env, thread) &&
+        env->breakpoints.find({method, location}) != env->breakpoints.end()) {
+      // We temporarily clear any pending exceptions so the event can call back into java code.
+      ScopedLocalRef<jthrowable> thr(jnienv, jnienv->ExceptionOccurred());
+      jnienv->ExceptionClear();
+      auto callback = impl::GetCallback<ArtJvmtiEvent::kBreakpoint>(env);
+      (*callback)(env, jnienv, jni_thread, jmethod, location);
+      if (thr.get() != nullptr && !jnienv->ExceptionCheck()) {
+        jnienv->Throw(thr.get());
+      }
+    }
+  }
+}
+
+// Need to give custom specializations for FieldAccess and FieldModification since they need to
+// filter out which particular fields agents want to get notified on.
+// TODO The spec allows us to do shortcuts like only allow one agent to ever set these watches. This
+// could make the system more performant.
+template <>
+inline void EventHandler::DispatchEvent<ArtJvmtiEvent::kFieldModification>(art::Thread* thread,
+                                                                           JNIEnv* jnienv,
+                                                                           jthread jni_thread,
+                                                                           jmethodID method,
+                                                                           jlocation location,
+                                                                           jclass field_klass,
+                                                                           jobject object,
+                                                                           jfieldID field,
+                                                                           char type_char,
+                                                                           jvalue val) const {
+  for (ArtJvmTiEnv* env : envs) {
+    if (env != nullptr &&
+        ShouldDispatch<ArtJvmtiEvent::kFieldModification>(env, thread) &&
+        env->modify_watched_fields.find(
+            art::jni::DecodeArtField(field)) != env->modify_watched_fields.end()) {
+      ScopedLocalRef<jthrowable> thr(jnienv, jnienv->ExceptionOccurred());
+      jnienv->ExceptionClear();
+      auto callback = impl::GetCallback<ArtJvmtiEvent::kFieldModification>(env);
+      (*callback)(env,
+                  jnienv,
+                  jni_thread,
+                  method,
+                  location,
+                  field_klass,
+                  object,
+                  field,
+                  type_char,
+                  val);
+      if (thr.get() != nullptr && !jnienv->ExceptionCheck()) {
+        jnienv->Throw(thr.get());
+      }
+    }
+  }
+}
+
+template <>
+inline void EventHandler::DispatchEvent<ArtJvmtiEvent::kFieldAccess>(art::Thread* thread,
+                                                                     JNIEnv* jnienv,
+                                                                     jthread jni_thread,
+                                                                     jmethodID method,
+                                                                     jlocation location,
+                                                                     jclass field_klass,
+                                                                     jobject object,
+                                                                     jfieldID field) const {
+  for (ArtJvmTiEnv* env : envs) {
+    if (env != nullptr &&
+        ShouldDispatch<ArtJvmtiEvent::kFieldAccess>(env, thread) &&
+        env->access_watched_fields.find(
+            art::jni::DecodeArtField(field)) != env->access_watched_fields.end()) {
+      ScopedLocalRef<jthrowable> thr(jnienv, jnienv->ExceptionOccurred());
+      jnienv->ExceptionClear();
+      auto callback = impl::GetCallback<ArtJvmtiEvent::kFieldAccess>(env);
+      (*callback)(env, jnienv, jni_thread, method, location, field_klass, object, field);
+      if (thr.get() != nullptr && !jnienv->ExceptionCheck()) {
+        jnienv->Throw(thr.get());
+      }
     }
   }
 }

@@ -80,6 +80,7 @@ class NfcAdaptation {
   static NfcAdaptation& GetInstance();
   tHAL_NFC_ENTRY* GetHalEntryFuncs();
   void DownloadFirmware();
+  void Dump(int fd);
 
  private:
   NfcAdaptation();

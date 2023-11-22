@@ -24,7 +24,6 @@
 #include "base/arena_allocator.h"
 #include "base/macros.h"
 #include "base/scoped_arena_containers.h"
-#include "base/stl_util.h"
 #include "base/value_object.h"
 #include "dex_file.h"
 #include "dex_file_types.h"
@@ -37,11 +36,16 @@
 
 namespace art {
 
+class ClassLinker;
 class CompilerCallbacks;
 class Instruction;
 struct ReferenceMap2Visitor;
 class Thread;
 class VariableIndentationOutputStream;
+
+namespace mirror {
+class DexCache;
+}  // namespace mirror
 
 namespace verifier {
 
@@ -355,6 +359,7 @@ class MethodVerifier {
    *
    * Walks through instructions in a method calling VerifyInstruction on each.
    */
+  template <bool kAllowRuntimeOnlyInstructions>
   bool VerifyInstructions();
 
   /*
@@ -390,6 +395,7 @@ class MethodVerifier {
    * - (earlier) for each exception handler, the handler must start at a valid
    *   instruction
    */
+  template <bool kAllowRuntimeOnlyInstructions>
   bool VerifyInstruction(const Instruction* inst, uint32_t code_offset);
 
   /* Ensure that the register index is valid for this code item. */

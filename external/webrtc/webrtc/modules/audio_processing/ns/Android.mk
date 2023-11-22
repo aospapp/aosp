@@ -16,6 +16,7 @@ include $(LOCAL_PATH)/../../../../android-webrtc.mk
 
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 LOCAL_MODULE := libwebrtc_ns
+LOCAL_VENDOR_MODULE := true
 LOCAL_MODULE_TAGS := optional
 LOCAL_GENERATED_SOURCES :=
 LOCAL_SRC_FILES := \
@@ -66,6 +67,7 @@ include $(CLEAR_VARS)
 LOCAL_ARM_MODE := arm
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 LOCAL_MODULE := libwebrtc_ns_neon
+LOCAL_VENDOR_MODULE := true
 LOCAL_MODULE_TAGS := optional
 
 ifeq ($(TARGET_ARCH), arm64)

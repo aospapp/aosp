@@ -72,6 +72,13 @@ public final class Snackbars {
         makeSnackbar(activity, R.string.rename_error, Snackbar.LENGTH_SHORT).show();
     }
 
+    public static final void showInspectorError(Activity activity) {
+
+        //Document Inspector uses a different view from other files app activities.
+        final View view = activity.findViewById(R.id.fragment_container);
+        Snackbar.make(view, R.string.file_inspector_load_error, Snackbar.LENGTH_INDEFINITE).show();
+    }
+
     public static final void showCustomTextWithImage(Activity activity, String text, int imageRes) {
         Snackbar snackbar = makeSnackbar(activity, text, Snackbar.LENGTH_SHORT);
         View snackbarLayout = snackbar.getView();

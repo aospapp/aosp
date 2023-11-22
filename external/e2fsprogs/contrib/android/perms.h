@@ -15,7 +15,8 @@ static inline errcode_t android_configure_fs(ext2_filsys fs,
 					     char *src_dir,
 					     char *target_out,
 					     char *mountpoint,
-					     char *file_contexts,
+					     void *seopts,
+					     unsigned int nopt,
 					     char *fs_config_file,
 					     time_t fixed_time)
 {
@@ -24,7 +25,7 @@ static inline errcode_t android_configure_fs(ext2_filsys fs,
 # else
 #  include <selinux/selinux.h>
 #  include <selinux/label.h>
-#  if !defined(HOST)
+#  if defined(__ANDROID__)
 #   include <selinux/android.h>
 #  endif
 #  include <private/android_filesystem_config.h>
@@ -33,7 +34,8 @@ static inline errcode_t android_configure_fs(ext2_filsys fs,
 errcode_t android_configure_fs(ext2_filsys fs, char *src_dir,
 			       char *target_out,
 			       char *mountpoint,
-			       char *file_contexts,
+			       struct selinux_opt *seopts,
+			       unsigned int nopt,
 			       char *fs_config_file, time_t fixed_time);
 
 # endif

@@ -78,7 +78,8 @@ public class VideoMultimeterRunner extends VideoMultimeterTest
 
             String calibrationValue = (mCalibrationMap.containsKey(deviceSerial) ?
                     mCalibrationMap.get(deviceSerial) : null);
-            if (moveArm(deviceSerial) && setupTestEnv(calibrationValue)) {
+            if (mDebugWithoutHardware
+                    || (moveArm(deviceSerial) && setupTestEnv(calibrationValue))) {
                 runMultimeterTest(listener, metrics);
             } else {
                 listener.testFailed(testId, "Failed to set up environment");

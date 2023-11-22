@@ -16,14 +16,15 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libchips
-LOCAL_STATIC_JAVA_LIBRARIES += android-support-v4
+LOCAL_STATIC_ANDROID_LIBRARIES := \
+     android-support-compat \
+     android-support-annotations
 LOCAL_SDK_VERSION := current
 LOCAL_SRC_FILES := \
      $(call all-java-files-under, src) \
      $(call all-logtags-files-under, src)
-LOCAL_AAPT_FLAGS := --auto-add-overlay
-LOCAL_AAPT_FLAGS += --extra-packages android.support.compat
-LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res $(LOCAL_PATH)/../../../$(SUPPORT_LIBRARY_ROOT)/compat/res
+LOCAL_USE_AAPT2 := true
+LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
 ##################################################

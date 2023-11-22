@@ -3,8 +3,10 @@
 # found in the LICENSE file.
 
 import errno
+import logging
 import os
 import shutil
+import subprocess
 import urllib2
 
 from autotest_lib.client.common_lib import global_config
@@ -165,4 +167,31 @@ def download_file(remote_path, local_path):
         raise
 
     with open(local_path, 'wb') as local_file:
-        local_file.write(remote_file.read())
+        while True:
+            block = remote_file.read(128 * 1024)
+            if not block:
+                break
+            local_file.write(block)
+
+
+def get_directory_size_kibibytes(directory):
+    """Calculate the total size of a directory with all its contents.
+
+    @param directory: Path to the directory
+
+    @return Size of the directory in kibibytes.
+    """
+    cmd = ['du', '-sk', directory]
+    process = subprocess.Popen(cmd,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE)
+    stdout_data, stderr_data = process.communicate()
+
+    if process.returncode != 0:
+        # This function is used for statistics only, if it fails,
+        # nothing else should crash.
+        logging.warning('Getting size of %s failed. Stderr:', directory)
+        logging.warning(stderr_data)
+        return 0
+
+    return int(stdout_data.split('\t', 1)[0])

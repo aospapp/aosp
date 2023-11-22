@@ -76,6 +76,14 @@ public class ApplicationManagerFacade extends RpcReceiver {
     mAndroidFacade.startActivity(intent);
   }
 
+  @Rpc(description = "Start activity with the given class name with result")
+  public Intent launchForResult(@RpcParameter(name = "className") String className) {
+    Intent intent = new Intent(Intent.ACTION_MAIN);
+    String packageName = className.substring(0, className.lastIndexOf("."));
+    intent.setClassName(packageName, className);
+    return mAndroidFacade.startActivityForResult(intent);
+  }
+
   @Rpc(description = "Launch the specified app.")
   public void appLaunch(@RpcParameter(name = "name") String name) {
       Intent LaunchIntent = mPackageManager.getLaunchIntentForPackage(name);
@@ -96,7 +104,8 @@ public class ApplicationManagerFacade extends RpcReceiver {
       return false;
   }
 
-  @Rpc(description = "Returns a list of packages running activities or services.", returns = "List of packages running activities.")
+  @Rpc(description = "Returns a list of packages running activities or services.",
+          returns = "List of packages running activities.")
   public List<String> getRunningPackages() {
     Set<String> runningPackages = new HashSet<String>();
     List<ActivityManager.RunningAppProcessInfo> appProcesses =
@@ -112,10 +121,18 @@ public class ApplicationManagerFacade extends RpcReceiver {
     return new ArrayList<String>(runningPackages);
   }
 
-  @Rpc(description = "Force stops a package.")
+  /**
+   * Force stops a package. Equivalent to calling `am force-stop "package.name"` as root.
+   * <p>
+   * If you have access to adb, it is preferred to use the above command instead.
+   *
+   * @param packageName the name of the package to force stop
+   */
+  @Rpc(description = "Force stops a package. Equivalent to `adb shell am force-stop "
+          + "\"package.name\"`. If possible, use that command instead.")
   public void forceStopPackage(
       @RpcParameter(name = "packageName", description = "name of package") String packageName) {
-    mActivityManager.restartPackage(packageName);
+    mActivityManager.forceStopPackage(packageName);
   }
 
   @Override

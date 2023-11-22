@@ -8,32 +8,28 @@
 #ifndef GrConfigConversionEffect_DEFINED
 #define GrConfigConversionEffect_DEFINED
 
-#include "GrSingleTextureEffect.h"
-
-class GrInvariantOutput;
+#include "GrFragmentProcessor.h"
 
 /**
  * This class is used to perform config conversions. Clients may want to read/write data that is
  * unpremultiplied.
  */
-class GrConfigConversionEffect : public GrSingleTextureEffect {
+class GrConfigConversionEffect : public GrFragmentProcessor {
 public:
     /**
      * The PM->UPM or UPM->PM conversions to apply.
      */
     enum PMConversion {
-        kMulByAlpha_RoundUp_PMConversion = 0,
-        kMulByAlpha_RoundDown_PMConversion,
-        kDivByAlpha_RoundUp_PMConversion,
-        kDivByAlpha_RoundDown_PMConversion,
-
+        kToPremul_PMConversion = 0,
+        kToUnpremul_PMConversion,
         kPMConversionCnt
     };
 
-    static sk_sp<GrFragmentProcessor> Make(GrTexture*, PMConversion, const SkMatrix&);
-
-    static sk_sp<GrFragmentProcessor> Make(GrResourceProvider*, sk_sp<GrTextureProxy>,
-                                           PMConversion, const SkMatrix&);
+    /**
+     *  Returns a fragment processor that calls the passed in fragment processor, and then performs
+     *  the requested premul or unpremul conversion.
+     */
+    static sk_sp<GrFragmentProcessor> Make(sk_sp<GrFragmentProcessor>, PMConversion);
 
     const char* name() const override { return "Config Conversion"; }
 
@@ -44,14 +40,10 @@ public:
     // if pixels are read back to a UPM buffer, written back to PM to the GPU, and read back again
     // both reads will produce the same result. This test is quite expensive and should not be run
     // multiple times for a given context.
-    static void TestForPreservingPMConversions(GrContext* context,
-                                               PMConversion* PMToUPMRule,
-                                               PMConversion* UPMToPMRule);
-private:
-    GrConfigConversionEffect(GrTexture*, PMConversion, const SkMatrix& matrix);
+    static bool TestForPreservingPMConversions(GrContext* context);
 
-    GrConfigConversionEffect(GrResourceProvider*, sk_sp<GrTextureProxy>,
-                             PMConversion, const SkMatrix& matrix);
+private:
+    GrConfigConversionEffect(PMConversion);
 
     GrGLSLFragmentProcessor* onCreateGLSLInstance() const override;
 
@@ -61,9 +53,9 @@ private:
 
     PMConversion    fPMConversion;
 
-    GR_DECLARE_FRAGMENT_PROCESSOR_TEST;
+    GR_DECLARE_FRAGMENT_PROCESSOR_TEST
 
-    typedef GrSingleTextureEffect INHERITED;
+    typedef GrFragmentProcessor INHERITED;
 };
 
 #endif

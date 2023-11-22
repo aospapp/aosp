@@ -6,7 +6,8 @@ AUTHOR = 'bmahadev, lorenzo'
 NAME = 'network_WiFi_IPv6RA'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
-DEPENDENCIES = 'wificell'
+DEPENDENCIES = 'androidwificell'
+ATTRIBUTES = ('suite:android_wifi_connect')
 
 DOC = """
 This test verifies Android Packet Filtering feature for ipv6 by generating and

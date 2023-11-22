@@ -15,7 +15,7 @@
  */
 
 #include "_OverrideLog.h"
-#include <android/log.h>
+#include <log/log.h>
 
 #include "NfcJniUtil.h"
 #include "JavaClassConstants.h"

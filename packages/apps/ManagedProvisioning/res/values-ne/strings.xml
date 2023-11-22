@@ -27,9 +27,9 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"निम्न अनुप्रयोग यो प्रोफाइल पहुँच गर्न आवश्यक हुने छ:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"निम्न अनुप्रयोगले तपाईँको यन्त्र व्यवस्थापन गर्नेछ:"</string>
     <string name="next" msgid="1004321437324424398">"अर्को"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"तपाईँको कार्य प्रोफाइल मिलाउँदै..."</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"कार्य प्रोफाइल सेट अप गर्दै…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"तपाईंका प्रशासकले तपाईंको नेटवर्कको गतिविधिका साथै तपाईंको यन्त्रको स्थान, कलको इतिहास र सम्पर्कको खोजी सम्बन्धी इतिहास लगायत सेटिङहरू, संस्थागत पहुँच, अनुप्रयोगहरू, अनुमतिहरू र यस प्रोफाइलसँग सम्बन्धित डेटाको अनुगमन तथा व्यवस्थापन गर्न सक्नुहुन्छ।<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>तपाईंको संगठनका गोपनीयता नीतिहरू लगायत थप जानकारीका लागि आफ्ना प्रशासकलाई सम्पर्क गर्नुहोस्।"</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"तपाईंका प्रशासकले तपाईंको नेटवर्कको गतिविधिका साथै तपाईंको यन्त्रको स्थान, कलको इतिहास र सम्पर्कको खोजी सम्बन्धी इतिहास लगायत सेटिङहरू, संस्थागत पहुँच, अनुप्रयोगहरू, अनुमतिहरू र यस यन्त्रसँग सम्बन्धित डेटाको अनुगमन तथा व्यवस्थापन गर्न सक्नुहुन्छ।<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>तपाईंको संगठनका गोपनीयता नीतिहरू लगायत थप जानकारीका लागि आफ्ना प्रशासकलाई सम्पर्क गर्नुहोस्।"</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"तपाईंका प्रशासकसँग नेटवर्कको गतिविधिका साथै तपाईंको यन्त्रको स्थान, कलको इतिहास र सम्पर्कको खोजी सम्बन्धी इतिहास लगायत सेटिङहरू, संस्थागत पहुँच, अनुप्रयोगहरू, अनुमतिहरू र यस यन्त्रसँग सम्बन्धित डेटाको अनुगमन तथा व्यवस्थापन गर्न सक्नुहुन्छ।<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>तपाईंको संगठनका गोपनीयता नीतिहरू लगायत थप जानकारीका लागि आफ्ना प्रशासकलाई सम्पर्क गर्नुहोस्।"</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"चोरीबाट सुरक्षा गर्ने सुविधाहरू प्रयोग गर्नका लागि तपाईँले आफ्नो यन्त्रको लागि पासवर्डद्वारा सुरक्षित स्क्रिन लक अनिवार्य रूपमा राख्नुपर्छ।"</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"आफ्नो संगठनका गोपनीयता नीतिहरू लगायत थप जानकारीको लागि आफ्नो प्रशासकसँग सम्पर्क गर्नुहोस्।"</string>
     <string name="learn_more_link" msgid="3012495805919550043">"थप जान्नुहोस्"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"कार्य प्रोफाइल"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"प्राथमिक प्रयोगकर्ता"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"विद्यमान प्रोफाइललाई मेट्ने हो?"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"तपाईंसँग पहिलैदेखि निम्न अनुप्रयोगको प्रयोगमार्फत व्यवस्थापन भइरहेको कार्य प्रोफाइल छ:"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"तपाईंसँग पहिलैदेखि कार्य प्रोफाइल छ। निम्न अनुप्रयोगको प्रयोगमार्फत व्यवस्थापन भइरहेको छ:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"अघि बढ्नु पूर्व "<a href="#read_this_link">"यो पढ्नुहोस्"</a>"।"</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"तपाईँले जारी राख्नुभयो भने यस प्रोफाइलमा भएका सबै अनुप्रयोग र डेटालाई मेटाइनेछ।"</string>
     <string name="delete_profile" msgid="2299218578684663459">"मेटाउनुहोस्"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"तपाईंको कार्य प्रोफाइल स्थापना जारी राख्न  ट्याप गर्नुहोस्"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"तपाईँको कार्य प्रोफाइल स्थापित गर्न सकिएन। तपाईँको आईटी विभाग सम्पर्क गर्नुहोस् वा पछि फेरि प्रयास गर्नुहोस्।"</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"कार्य प्रोफाइल थप्न सकिँदैन"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"यस प्रयोगकर्ताको कुनै कार्य प्रोफाइल हुनसक्दैन। मद्दतका लागि, आफ्ना प्रशासकलाई सम्पर्क गर्नुहोस्।"</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"यस प्रयोगकर्ताका कार्य प्रोफाइलहरू हुनसक्दैनन्। आफ्ना प्रशासकलाई सम्पर्क गर्नुहोस्।"</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"कार्य प्रोफाइल व्यवस्थित यन्त्रमा सेटअप हुन सक्दैन"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"यस यन्त्रमा अत्यन्त धेरै प्रयोगकर्ताहरू हुनसक्छन्। कुनै प्रयोगकर्तालाई हटाएर फेरि प्रयास गर्नुहोस्।"</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"कार्य प्रोफाइललाई प्रतिस्थापन गर्न वा हटाउन सकिँदैन"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"यस यन्त्रमा कुनै कार्य प्रोफाइल थप्न सकिँदैन। तपाईंका कुनै प्रश्न भएमा, आफ्नो प्रशासकलाई सम्पर्क गर्नुहोस्।"</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"यन्त्रको लन्चर बदल्नुहोस्"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"तपाईंको कार्य प्रोफाइलले यो लन्चर अनुप्रयोग प्रयोग गर्न सक्दैन"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"रद्द गर्नुहोस्"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"ठीक छ"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"प्रयोगकर्ता सेटअप सम्पन्न भएन"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"कार्य उपकरणको प्रयोगकर्ता"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"कार्य प्रोफाइलको यन्त्रलाई सेट अप गर्नुहोस्"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"कार्य यन्त्र सेट अप गर्दै…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"सेटअप डेटा प्रशोधन गर्दै..."</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Wi-Fi मा जडान गर्दै..."</string>
     <string name="progress_download" msgid="3522436271691064624">"प्रशासकीय अनुप्रयोग डाउनलोड गर्दै..."</string>
@@ -134,7 +132,7 @@
     <string name="comp_profile_benefits_description" msgid="379837075456998273">"कुनै कार्य प्रोफाइलको प्रयोग गरेर तपाईं आफ्ना कार्य सम्बन्धी अनुप्रयोगहरूलाई एकै ठाउँमा राख्न सक्नुहुन्छ"</string>
     <string name="setup_profile_encryption" msgid="5241291404536277038">"तपाईँको प्रोफाइल सेटअप गर्नुहोस्। इन्क्रिप्सन"</string>
     <string name="setup_profile_progress" msgid="7742718527853325656">"तपाईँको प्रोफाइल सेटअप गर्नुहोस्। कार्य प्रगति देखाउँदै"</string>
-    <string name="setup_device" msgid="6725265673245816366">"तपाईँको उपकरण स्थापना गर्नुहोस्"</string>
+    <string name="setup_device" msgid="6725265673245816366">"आफ्नो यन्त्रलाई सेट अप गर्नुहोस्"</string>
     <string name="setup_device_encryption" msgid="7852944465414197103">"तपाईँको यन्त्र सेटअप गर्नुहोस्। इन्क्रिप्सन"</string>
     <string name="setup_device_progress" msgid="7035335208571175393">"तपाईँको यन्त्र सेटअप गर्नुहोस्। कार्य प्रगति देखाउँदै"</string>
     <string name="learn_more_label" msgid="2723716758654655009">"थप जान्नुहोस् बटन"</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"रद्द गर्नुहोस्"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"यन्त्रलाई रिसेट गर्नुहोस्"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> र <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> र <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> र <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

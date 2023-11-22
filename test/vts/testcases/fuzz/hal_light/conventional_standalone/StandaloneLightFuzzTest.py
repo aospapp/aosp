@@ -22,7 +22,7 @@ import time
 
 from vts.runners.host import base_test
 from vts.runners.host import test_runner
-from vts.utils.python.controllers import android_device
+
 from vts.utils.python.fuzzer import GenePool
 
 
@@ -32,17 +32,19 @@ class StandaloneLightFuzzTest(base_test.BaseTestClass):
     def setUpClass(self):
         required_params = ["gene_pool_size", "iteartion_count"]
         self.getUserParams(required_params)
-        self.dut = self.registerController(android_device)[0]
-        self.dut.hal.InitConventionalHal(target_type="light",
-                                         target_basepaths=["/system/lib64/hw"],
-                                         target_version=1.0,
-                                         bits=64,
-                                         target_package="hal.conventional.light")
+        self.dut = self.android_devices[0]
+        self.dut.hal.InitConventionalHal(
+            target_type="light",
+            target_basepaths=["/system/lib64/hw"],
+            target_version=1.0,
+            bits=64,
+            target_package="hal.conventional.light")
         self.dut.hal.light.OpenConventionalHal("backlight")
-        module_name = random.choice(
-            [self.dut.hal.light.LIGHT_ID_BACKLIGHT,
-             self.dut.hal.light.LIGHT_ID_NOTIFICATIONS,
-             self.dut.hal.light.LIGHT_ID_ATTENTION])
+        module_name = random.choice([
+            self.dut.hal.light.LIGHT_ID_BACKLIGHT,
+            self.dut.hal.light.LIGHT_ID_NOTIFICATIONS,
+            self.dut.hal.light.LIGHT_ID_ATTENTION
+        ])
 
         if self.coverage.enabled:
             self.coverage.LoadArtifacts()
@@ -101,7 +103,8 @@ class StandaloneLightFuzzTest(base_test.BaseTestClass):
                 result = self.dut.hal.light.set_light(None, gene)
                 if len(result.processed_coverage_data) > 0:
                     gene_coverage = []
-                    logging.info("coverage: %s", result.processed_coverage_data)
+                    logging.info("coverage: %s",
+                                 result.processed_coverage_data)
                     for processed_coverage_data in result.processed_coverage_data:
                         gene_coverage.append(processed_coverage_data)
                     coverages.append(gene_coverage)
@@ -111,12 +114,14 @@ class StandaloneLightFuzzTest(base_test.BaseTestClass):
                                      coverage_msg.file_path)
                         logging.info("coverage gcda len %d bytes",
                                      len(coverage_msg.gcda))
-                        last_coverage_data[coverage_msg.file_path] = coverage_msg.gcda
+                        last_coverage_data[
+                            coverage_msg.file_path] = coverage_msg.gcda
                 index += 1
             evolution = GenePool.Evolution()
-            genes = evolution.Evolve(genes,
-                                     self.dut.hal.light.light_state_t_fuzz,
-                                     coverages=coverages)
+            genes = evolution.Evolve(
+                genes,
+                self.dut.hal.light.light_state_t_fuzz,
+                coverages=coverages)
 
         if self.coverage.enabled:
             self.coverage.SetCoverageData(last_coverage_data)

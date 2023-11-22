@@ -44,6 +44,7 @@ import android.provider.BlockedNumberContract;
 import android.telephony.ServiceState;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
+import android.telephony.euicc.EuiccManager;
 import android.test.mock.MockContentProvider;
 import android.test.mock.MockContentResolver;
 import android.util.Log;
@@ -85,6 +86,8 @@ import java.util.concurrent.TimeUnit;
 
 public abstract class TelephonyTest {
     protected static String TAG;
+
+    private static final int MAX_INIT_WAIT_MS = 30000; // 30 seconds
 
     @Mock
     protected GsmCdmaPhone mPhone;
@@ -180,9 +183,12 @@ public abstract class TelephonyTest {
     protected AppSmsManager mAppSmsManager;
     @Mock
     protected DeviceStateMonitor mDeviceStateMonitor;
+    @Mock
+    protected IntentBroadcaster mIntentBroadcaster;
 
     protected TelephonyManager mTelephonyManager;
     protected SubscriptionManager mSubscriptionManager;
+    protected EuiccManager mEuiccManager;
     protected PackageManager mPackageManager;
     protected SimulatedCommands mSimulatedCommands;
     protected ContextFixture mContextFixture;
@@ -226,11 +232,14 @@ public abstract class TelephonyTest {
     }
 
     protected void waitUntilReady() {
-        while (true) {
-            synchronized (mLock) {
-                if (mReady) {
-                    break;
-                }
+        synchronized (mLock) {
+            try {
+                mLock.wait(MAX_INIT_WAIT_MS);
+            } catch (InterruptedException ie) {
+            }
+
+            if (!mReady) {
+                fail("Telephony tests failed to initialize");
             }
         }
     }
@@ -238,6 +247,7 @@ public abstract class TelephonyTest {
     protected void setReady(boolean ready) {
         synchronized (mLock) {
             mReady = ready;
+            mLock.notifyAll();
         }
     }
 
@@ -303,6 +313,7 @@ public abstract class TelephonyTest {
         replaceInstance(Singleton.class, "mInstance", mIActivityManagerSingleton,
                 mIActivityManager);
         replaceInstance(ServiceManager.class, "sCache", null, mServiceManagerMockedServices);
+        replaceInstance(IntentBroadcaster.class, "sIntentBroadcaster", null, mIntentBroadcaster);
 
         mSimulatedCommands = new SimulatedCommands();
         mContextFixture = new ContextFixture();
@@ -315,6 +326,7 @@ public abstract class TelephonyTest {
         mTelephonyManager = (TelephonyManager) mContext.getSystemService(Context.TELEPHONY_SERVICE);
         mSubscriptionManager = (SubscriptionManager) mContext.getSystemService(
                 Context.TELEPHONY_SUBSCRIPTION_SERVICE);
+        mEuiccManager = (EuiccManager) mContext.getSystemService(Context.EUICC_SERVICE);
         mPackageManager = mContext.getPackageManager();
 
         replaceInstance(TelephonyManager.class, "sInstance", null,
@@ -486,7 +498,6 @@ public abstract class TelephonyTest {
         doReturn(mPackageInfo).when(mPackageManager).getPackageInfoAsUser(
                 eq(TAG), anyInt(), anyInt());
     }
-
 
     protected final void waitForHandlerAction(Handler h, long timeoutMillis) {
         final CountDownLatch lock = new CountDownLatch(1);

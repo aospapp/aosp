@@ -38,27 +38,30 @@ public class DmesgParserTest extends TestCase {
 
     private static final String BOOT_ANIMATION = "bootanim";
     private static final String NETD = "netd";
-    private static final String[] LINES = new String[] {
-            "[    3.786943] ueventd: Coldboot took 0.701291 seconds",
-            "[   22.962730] init: starting service 'bootanim'...",
-            "[   23.252321] init: starting service 'netd'...",
-            "[   29.331069] ipa-wan ipa_wwan_ioctl:1428 dev(rmnet_data0) register to IPA",
-            "[   32.182592] ueventd: fixup /sys/devices/virtual/input/poll_delay 0 1004 660",
-            "[   35.642666] SELinux: initialized (dev fuse, type fuse), uses genfs_contexts",
-            "[   39.855818] init: Service 'bootanim' (pid 588) exited with status 0",
-            "[   41.665818] init: init first stage started!",
-            "[   44.942872] init: processing action (early-init) from (/init.rc:13)",
-            "[   47.233446] init: processing action (set_mmap_rnd_bits) from (<Builtin Action>:0)",
-            "[   47.240083] init: processing action (set_kptr_restrict) from (<Builtin Action>:0)",
-            "[   47.245778] init: processing action (keychord_init) from (<Builtin Action>:0)",
-            "[   52.361049] init: processing action (persist.sys.usb.config=* boot) from (<Builtin Action>:0)",
-            "[   52.361108] init: processing action (enable_property_trigger) from (<Builtin Action>:0)",
-            "[   52.361313] init: processing action (security.perf_harden=1) from (/init.rc:677)",
-            "[   52.361495] init: processing action (ro.debuggable=1) from (/init.rc:700)",
-            "[   59.331069] ipa-wan ipa_wwan_ioctl:1428 dev(rmnet_data0) register to IPA",
-            "[   62.182592] ueventd: fixup /sys/devices/virtual/input/poll_delay 0 1004 660",
-            "[   65.642666] SELinux: initialized (dev fuse, type fuse), uses genfs_contexts",
-            "[   69.855818] init: Service 'bootanim' (pid 588) exited with status 0"};
+    private static final String[] LINES =
+            new String[] {
+                "[    3.786943] ueventd: Coldboot took 0.701291 seconds",
+                "[   22.962730] init: starting service 'bootanim'...",
+                "[   23.252321] init: starting service 'netd'...",
+                "[   29.331069] ipa-wan ipa_wwan_ioctl:1428 dev(rmnet_data0) register to IPA",
+                "[   32.182592] ueventd: fixup /sys/devices/virtual/input/poll_delay 0 1004 660",
+                "[   35.642666] SELinux: initialized (dev fuse, type fuse), uses genfs_contexts",
+                "[   39.855818] init: Service 'bootanim' (pid 588) exited with status 0",
+                "[   41.665818] init: init first stage started!",
+                "[   44.942872] init: processing action (early-init) from (/init.rc:13)",
+                "[   47.233446] init: processing action (set_mmap_rnd_bits) from (<Builtin Action>:0)",
+                "[   47.240083] init: processing action (set_kptr_restrict) from (<Builtin Action>:0)",
+                "[   47.245778] init: processing action (keychord_init) from (<Builtin Action>:0)",
+                "[   52.361049] init: processing action (persist.sys.usb.config=* boot) from (<Builtin Action>:0)",
+                "[   52.361108] init: processing action (enable_property_trigger) from (<Builtin Action>:0)",
+                "[   52.361313] init: processing action (security.perf_harden=1) from (/init.rc:677)",
+                "[   52.361495] init: processing action (ro.debuggable=1) from (/init.rc:700)",
+                "[   58.298293] init: processing action (sys.boot_completed=1)",
+                "[   59.331069] ipa-wan ipa_wwan_ioctl:1428 dev(rmnet_data0) register to IPA",
+                "[   62.182592] ueventd: fixup /sys/devices/virtual/input/poll_delay 0 1004 660",
+                "[   65.642666] SELinux: initialized (dev fuse, type fuse), uses genfs_contexts",
+                "[   69.855818] init: Service 'bootanim' (pid 588) exited with status 0"
+            };
 
     private static final Map<String, DmesgServiceInfoItem> EXPECTED_SERVICE_INFO_ITEMS =
             getExpectedServiceInfoItems();
@@ -93,9 +96,9 @@ public class DmesgParserTest extends TestCase {
 
         assertEquals("Service info items list size should be 2", 2,
                 dmesgParser.getServiceInfoItems().size());
-        assertEquals("Stage info items list size should be 2", 2,
+        assertEquals("Stage info items list size should be 2",2,
                 dmesgParser.getStageInfoItems().size());
-        assertEquals("Action info items list size should be 8", 8,
+        assertEquals("Action info items list size should be 9",9,
                 dmesgParser.getActionInfoItems().size());
 
         assertEquals(EXPECTED_SERVICE_INFO_ITEMS, actualDmesgItem.getServiceInfoItems());
@@ -115,7 +118,7 @@ public class DmesgParserTest extends TestCase {
                     dmesgParser.getServiceInfoItems().size());
             assertEquals("Stage info items list size should be 2", 2,
                     dmesgParser.getStageInfoItems().size());
-            assertEquals("Action info items list size should be 8", 8,
+            assertEquals("Action info items list size should be 9",9,
                     dmesgParser.getActionInfoItems().size());
         }
     }
@@ -198,35 +201,35 @@ public class DmesgParserTest extends TestCase {
         assertEquals(EXPECTED_STAGE_INFO_ITEMS, stageInfoItems);
     }
 
-    /**
-     * Test processing action start time logs
-     */
+    /** Test processing action start time logs */
     public void testCompleteActionInfo() {
         DmesgParser dmesgParser = new DmesgParser();
         for (String line : LINES) {
             dmesgParser.parseActionInfo(line);
         }
         List<DmesgActionInfoItem> actualActionInfoItems = dmesgParser.getActionInfoItems();
-        assertEquals(8, actualActionInfoItems.size());
+        assertEquals(9, actualActionInfoItems.size());
         assertEquals(EXPECTED_ACTION_INFO_ITEMS, actualActionInfoItems);
     }
 
     private static List<DmesgActionInfoItem> getExpectedActionInfoItems() {
         return Arrays.asList(
                 new DmesgActionInfoItem("early-init", (long) (Double.parseDouble("44942.872"))),
-                new DmesgActionInfoItem("set_mmap_rnd_bits",
-                        (long) (Double.parseDouble("47233.446"))),
-                new DmesgActionInfoItem("set_kptr_restrict",
-                        (long) (Double.parseDouble("47240.083"))),
+                new DmesgActionInfoItem(
+                        "set_mmap_rnd_bits", (long) (Double.parseDouble("47233.446"))),
+                new DmesgActionInfoItem(
+                        "set_kptr_restrict", (long) (Double.parseDouble("47240.083"))),
                 new DmesgActionInfoItem("keychord_init", (long) (Double.parseDouble("47245.778"))),
-                new DmesgActionInfoItem("persist.sys.usb.config=* boot",
-                        (long) (Double.parseDouble("52361.049"))),
-                new DmesgActionInfoItem("enable_property_trigger",
-                        (long) (Double.parseDouble("52361.108"))),
-                new DmesgActionInfoItem("security.perf_harden=1",
-                        (long) (Double.parseDouble("52361.313"))),
-                new DmesgActionInfoItem("ro.debuggable=1",
-                        (long) (Double.parseDouble("52361.495"))));
+                new DmesgActionInfoItem(
+                        "persist.sys.usb.config=* boot", (long) (Double.parseDouble("52361.049"))),
+                new DmesgActionInfoItem(
+                        "enable_property_trigger", (long) (Double.parseDouble("52361.108"))),
+                new DmesgActionInfoItem(
+                        "security.perf_harden=1", (long) (Double.parseDouble("52361.313"))),
+                new DmesgActionInfoItem(
+                        "ro.debuggable=1", (long) (Double.parseDouble("52361.495"))),
+                new DmesgActionInfoItem(
+                        "sys.boot_completed=1", (long) (Double.parseDouble("58298.293"))));
     }
 
     private static List<DmesgStageInfoItem> getExpectedStageInfoItems() {

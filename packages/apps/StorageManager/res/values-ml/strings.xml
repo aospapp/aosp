@@ -44,10 +44,10 @@
     <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"അപൂർവ്വമായി ഉപയോഗിക്കുന്ന ആപ്‌സ്"</string>
     <!-- no translation found for deletion_helper_apps_group_summary (360315517252452356) -->
     <skip />
-    <string name="deletion_helper_automatic_title" msgid="4610119358490679299">"സ്വയമേവ"</string>
+    <string name="deletion_helper_automatic_title" msgid="4610119358490679299">"സ്വമേധയാ"</string>
     <string name="deletion_helper_manual_title" msgid="3905192395039688529">"മാനുവൽ"</string>
     <string name="deletion_helper_preference_title" msgid="803484286872745892">"ഇപ്പോൾ ഇടം സൃഷ്ടിക്കുക"</string>
-    <string name="automatic_storage_manager_service_label" msgid="648592272375278978">"സ്വയമേവയുള്ള സ്റ്റോറേജ് മാനേജ്മെന്റ് സേവനം"</string>
+    <string name="automatic_storage_manager_service_label" msgid="648592272375278978">"സ്വയം നിയന്ത്രിത മെമ്മറി മാനേജ്മെൻ്റ് സേവനം"</string>
     <string name="automatic_storage_manager_notification_title" product="default" msgid="8480483265300964701">"നിങ്ങളുടെ ഫോണിൽ ഇടം കുറവാണ്"</string>
     <string name="automatic_storage_manager_notification_title" product="tablet" msgid="3150907918531844467">"നിങ്ങളുടെ ടാബ്‌ലെറ്റിൽ ഇടം കുറവാണ്"</string>
     <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"നിങ്ങളുടെ ഫോൺ വീണ്ടും നിറയാൻ തുടങ്ങുമ്പോൾ, പഴയ ഫോട്ടോകളും വീഡിയോകളും സ്വയമേവ നീക്കംചെയ്തുകൊണ്ട് ഇടം സൃഷ്ടിക്കാൻ സ്റ്റോറേജ് മാനേജറെ അനുവദിക്കണോ?"</string>
@@ -55,9 +55,12 @@
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"ഓണാക്കുക"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"ബാക്കപ്പുചെയ്ത ഫോട്ടോകളും വീഡിയോകളും"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"ഇനങ്ങൾ കണ്ടെത്തുന്നു…"</string>
+    <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"എല്ലാ ഇനങ്ങളും കാണിക്കുക"</string>
+    <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"സമീപകാല ഇനങ്ങൾ മറയ്‌ക്കുക"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="386144597646356521">"നിങ്ങളുടെ ഉപകരണത്തിൽ നിന്ന് <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> നീക്കംചെയ്യപ്പെടും"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"നിങ്ങളുടെ സ്റ്റോറേജ് ഇപ്പോൾ മാനേജുചെയ്യുന്നത് സ്റ്റോറേജ് ​​മാനേജരാണ്"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"നീക്കംചെയ്യാൻ ഒന്നുമില്ല"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"സമീപകാലത്തെ ഇനങ്ങൾ അവലോകനം ചെയ്യുക"</string>
     <string name="empty_state_summary" msgid="8439893007424243790">"നീക്കംചെയ്യുന്നതിന് പഴയ ഫയലുകളൊന്നുമില്ല. ഇടമുണ്ടാക്കുന്നതിന് സമീപകാലത്തെ ഫോട്ടോകൾ, വീഡിയോകൾ, ആപ്പുകൾ എന്നിവ നീക്കംചെയ്യുക."</string>
+    <string name="app_requesting_space" msgid="857425181289960167">"<xliff:g id="APP">%1$s</xliff:g>-ന് <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> ഇടം ആവശ്യമാണ്"</string>
 </resources>

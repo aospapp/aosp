@@ -108,7 +108,9 @@ TEST(AttestTest, Simple) {
     UniquePtr<uint8_t[]> asn1;
     size_t asn1_len;
     AuthorizationSet attest_params(
-        AuthorizationSetBuilder().Authorization(TAG_ATTESTATION_CHALLENGE, "hello", 5));
+        AuthorizationSetBuilder()
+            .Authorization(TAG_ATTESTATION_CHALLENGE, "hello", 5)
+            .Authorization(TAG_ATTESTATION_APPLICATION_ID, "hello again", 11));
     EXPECT_EQ(KM_ERROR_OK, build_attestation_record(attest_params, sw_set, hw_set, TestContext(),
                                                     &asn1, &asn1_len));
     EXPECT_GT(asn1_len, 0U);

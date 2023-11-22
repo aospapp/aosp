@@ -12,7 +12,6 @@ import select
 import subprocess
 import threading
 
-from subprocess import PIPE
 from autotest_lib.client.common_lib.utils import TEE_TO_LOGS
 
 _popen_lock = threading.Lock()
@@ -28,6 +27,7 @@ class _LoggerProxy(object):
         self._logger = logger
 
     def fileno(self):
+        """Returns the fileno of the logger pipe."""
         return self._logger._pipe[1]
 
     def __del__(self):
@@ -42,6 +42,7 @@ class _PipeLogger(object):
         self._prefix = prefix
 
     def close(self):
+        """Closes the logger."""
         if self._pipe[1] != _PIPE_CLOSED:
             os.close(self._pipe[1])
             self._pipe[1] = _PIPE_CLOSED
@@ -53,7 +54,7 @@ class _LoggingService(object):
         # Python's list is thread safe
         self._loggers = []
 
-        # Change tuple  to list so that we can change the value when
+        # Change tuple to list so that we can change the value when
         # closing the pipe.
         self._pipe = list(os.pipe())
         self._thread = threading.Thread(target=self._service_run)
@@ -91,6 +92,11 @@ class _LoggingService(object):
 
 
     def create_logger(self, level=logging.DEBUG, prefix=''):
+        """Creates a new logger.
+
+        @param level: the desired logging level
+        @param prefix: the prefix to add to each log entry
+        """
         logger = _PipeLogger(level=level, prefix=prefix)
         self._loggers.append(logger)
         os.write(self._pipe[1], '\0')
@@ -98,6 +104,7 @@ class _LoggingService(object):
 
 
     def shutdown(self):
+        """Shuts down the logger."""
         if self._pipe[1] != _PIPE_CLOSED:
             os.close(self._pipe[1])
             self._pipe[1] = _PIPE_CLOSED
@@ -105,6 +112,11 @@ class _LoggingService(object):
 
 
 def create_logger(level=logging.DEBUG, prefix=''):
+    """Creates a new logger.
+
+    @param level: the desired logging level
+    @param prefix: the prefix to add to each log entry
+    """
     global _logging_service
     if _logging_service is None:
         _logging_service = _LoggingService()
@@ -113,10 +125,10 @@ def create_logger(level=logging.DEBUG, prefix=''):
 
 
 def kill_or_log_returncode(*popens):
-    '''Kills all the processes of the given Popens or logs the return code.
+    """Kills all the processes of the given Popens or logs the return code.
 
-    @param poopens: The Popens to be killed.
-    '''
+    @param popens: The Popens to be killed.
+    """
     for p in popens:
         if p.poll() is None:
             try:
@@ -129,12 +141,12 @@ def kill_or_log_returncode(*popens):
 
 
 def wait_and_check_returncode(*popens):
-    '''Wait for all the Popens and check the return code is 0.
+    """Wait for all the Popens and check the return code is 0.
 
     If the return code is not 0, it raises an RuntimeError.
 
     @param popens: The Popens to be checked.
-    '''
+    """
     error_message = None
     for p in popens:
         if p.wait() != 0:
@@ -146,15 +158,16 @@ def wait_and_check_returncode(*popens):
 
 
 def execute(args, stdin=None, stdout=TEE_TO_LOGS, stderr=TEE_TO_LOGS):
-    '''Executes a child command and wait for it.
+    """Executes a child command and wait for it.
 
     Returns the output from standard output if 'stdout' is subprocess.PIPE.
     Raises RuntimeException if the return code of the child command is not 0.
 
     @param args: the command to be executed
     @param stdin: the executed program's standard input
-    @param stdout: the executed program's stdandrd output
-    '''
+    @param stdout: the executed program's standard output
+    @param stderr: the executed program's standard error
+    """
     ps = popen(args, stdin=stdin, stdout=stdout, stderr=stderr)
     out = ps.communicate()[0] if stdout == subprocess.PIPE else None
     wait_and_check_returncode(ps)
@@ -162,9 +175,15 @@ def execute(args, stdin=None, stdout=TEE_TO_LOGS, stderr=TEE_TO_LOGS):
 
 
 def popen(args, stdin=None, stdout=TEE_TO_LOGS, stderr=TEE_TO_LOGS, env=None):
-    '''Returns a Popen object just as subprocess.Popen does but with the
+    """Returns a Popen object just as subprocess.Popen does but with the
     executed command stored in Popen.command.
-    '''
+
+    @param args: the command to be executed
+    @param stdin: the executed program's standard input
+    @param stdout: the executed program's standard output
+    @param stderr: the executed program's standard error
+    @param env: the executed program's environment
+    """
     command_id = _command_serial_number.next()
     prefix = '[%04d] ' % command_id
 
@@ -179,7 +198,7 @@ def popen(args, stdin=None, stdout=TEE_TO_LOGS, stderr=TEE_TO_LOGS, env=None):
     # The lock is required for http://crbug.com/323843.
     with _popen_lock:
         ps = subprocess.Popen(args, stdin=stdin, stdout=stdout, stderr=stderr,
-            env=env)
+                              env=env)
     logging.info('%spid is %d', prefix, ps.pid)
     ps.command_id = command_id
     ps.command = command

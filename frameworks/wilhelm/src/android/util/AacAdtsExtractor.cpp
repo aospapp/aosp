@@ -18,7 +18,7 @@
 #include <utils/Log.h>
 
 #include "android/include/AacAdtsExtractor.h"
-#include "include/avc_utils.h"
+#include <avc_utils.h>
 
 
 namespace android {
@@ -137,7 +137,8 @@ AacAdtsExtractor::AacAdtsExtractor(const sp<DataSource> &source)
                 // Usually frameSize == 0 due to EOS is benign (and getFrameSize() doesn't SL_LOGE),
                 // but in this case we were told the total size of the data source and so an EOS
                 // should not happen.
-                SL_LOGE("AacAdtsExtractor() failed querying framesize at offset=%lld", (long long) offset);
+                SL_LOGE("AacAdtsExtractor() failed querying framesize at offset=%lld",
+                        (long long) offset);
                 return;
             }
 

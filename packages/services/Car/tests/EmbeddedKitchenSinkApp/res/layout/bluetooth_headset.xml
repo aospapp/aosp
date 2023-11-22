@@ -57,4 +57,9 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/bluetooth_quiet_mode_enable"/>
+    <Button
+        android:id="@+id/bluetooth_hold_call"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/bluetooth_hold_call"/>
 </LinearLayout>

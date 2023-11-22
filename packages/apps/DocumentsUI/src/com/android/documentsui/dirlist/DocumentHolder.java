@@ -47,15 +47,10 @@ public abstract class DocumentHolder
     static final float DISABLED_ALPHA = 0.3f;
 
     protected final Context mContext;
-    protected final @ColorInt int mDefaultBgColor;
-    protected final @ColorInt int mSelectedBgColor;
-    protected final @ColorInt int mDroppableBgColor;
-    protected final @ColorInt int mNotDroppableBgColor;
 
     protected @Nullable String mModelId;
 
     private final View mSelectionHotspot;
-    private final @Nullable FrameLayout mDebugContainer;
     private @Nullable DocumentDebugInfo mDebugInfo;
 
     // See #addKeyEventListener for details on the need for this field.
@@ -72,14 +67,7 @@ public abstract class DocumentHolder
 
         mContext = context;
 
-        mDefaultBgColor = context.getColor(R.color.item_doc_background);
-        mSelectedBgColor = context.getColor(R.color.item_doc_background_selected);
-        mDroppableBgColor = context.getColor(R.color.item_doc_droppable_background);
-        mNotDroppableBgColor = context.getColor(R.color.item_doc_not_droppable_background);
-
         mSelectionHotspot = itemView.findViewById(R.id.icon_check);
-
-        mDebugContainer = (FrameLayout) itemView.findViewById(R.id.debug_info);
     }
 
     /**
@@ -112,35 +100,8 @@ public abstract class DocumentHolder
      *            {@link ModelBackedDocumentsAdapter#onBindViewHolder(DocumentHolder, int, java.util.List)}
      */
     public void setSelected(boolean selected, boolean animate) {
-        // Note: the animate param doesn't apply for this base implementation, because the
-        // DirectoryItemAnimator takes care of it. It's required by subclasses, which perform their
-        // own animation.
         itemView.setActivated(selected);
-        itemView.setBackgroundColor(selected ? mSelectedBgColor : mDefaultBgColor);
-    }
-
-    /**
-     * Highlights the associated item view to indicate it's droppable.
-     * @param highlighted
-     */
-    public void setDroppableHighlight(boolean droppable) {
-        // If item is already selected, its highlight should not be changed.
-        if (itemView.isActivated()) {
-            return;
-        }
-
-        itemView.setBackgroundColor(droppable ? mDroppableBgColor : mNotDroppableBgColor);
-    }
-
-    /**
-     * Reset the associated item view's droppable background highlight.
-     */
-    public void resetDropHighlight() {
-        if (itemView.isActivated()) {
-            return;
-        }
-
-        itemView.setBackgroundColor(mDefaultBgColor);
+        itemView.setSelected(selected);
     }
 
     public void setEnabled(boolean enabled) {
@@ -183,22 +144,9 @@ public abstract class DocumentHolder
         return false;
     }
 
-    protected void includeDebugInfo(DocumentInfo doc) {
-        if (mDebugContainer == null) {
-            return;
-        }
-        if (DebugFlags.getDocumentDetailsEnabled()) {
-            assert(Build.IS_DEBUGGABLE);
-            if (mDebugInfo == null) {
-                assert(mDebugContainer.getChildAt(0) == null);
-                mDebugInfo = inflateLayout(mContext, mDebugContainer, R.layout.document_debug_info);
-                mDebugContainer.addView(mDebugInfo);
-            }
-            mDebugInfo.update(doc);
-            mDebugContainer.setVisibility(View.VISIBLE);
-        } else {
-            mDebugContainer.setVisibility(View.GONE);
-        }
+    @Override
+    public boolean isOverDocIcon(InputEvent event) {
+        return false;
     }
 
     static void setEnabledRecursive(View itemView, boolean enabled) {

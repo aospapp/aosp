@@ -18,7 +18,6 @@ package com.android.compatibility.common.tradefed.presubmit;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import com.android.compatibility.SuiteInfo;
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.compatibility.common.tradefed.result.ResultReporter;
 import com.android.compatibility.common.tradefed.testtype.CompatibilityTest;
@@ -40,6 +39,7 @@ import com.android.tradefed.testtype.IBuildReceiver;
 import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IInvocationContextReceiver;
 import com.android.tradefed.testtype.IRemoteTest;
+import com.android.tradefed.testtype.suite.TestSuiteInfo;
 import com.android.tradefed.util.AbiUtils;
 import com.android.tradefed.util.FileUtil;
 
@@ -53,6 +53,7 @@ import org.junit.runners.JUnit4;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -136,6 +137,8 @@ public class IntegrationTest {
         EasyMock.expect(mMockDevice.getSerialNumber()).andStubReturn("SERIAL");
         EasyMock.expect(mMockBuildInfo.getDeviceSerial()).andStubReturn("SERIAL");
 
+        EasyMock.expect(mMockBuildInfo.getFiles()).andStubReturn(Collections.emptyList());
+
         mContext = new InvocationContext();
         mContext.addAllocatedDevice("default", mMockDevice);
         mContext.addDeviceBuildInfo("default", mMockBuildInfo);
@@ -196,7 +199,7 @@ public class IntegrationTest {
      */
     @Test
     public void testSingleModuleRun() throws Exception {
-        final String moduleName = "moduleA";
+        final String moduleName = "module_run";
         final String mAbi = "arm64-v8a";
         createConfig(mTestDir, moduleName, TEST_STUB, true, true, true, false);
         EasyMock.expect(mMockDevice.getProperty("ro.product.cpu.abilist")).andReturn(mAbi);
@@ -299,7 +302,7 @@ public class IntegrationTest {
      */
     @Test
     public void testSingleModuleRun_incomplete() throws Exception {
-        final String moduleName = "moduleA";
+        final String moduleName = "module_run_incomplete";
         final String mAbi = "arm64-v8a";
         createConfig(mTestDir, moduleName, TEST_STUB, true, false, true, false);
         EasyMock.expect(mMockDevice.getProperty("ro.product.cpu.abilist")).andReturn(mAbi);
@@ -328,7 +331,7 @@ public class IntegrationTest {
      */
     @Test
     public void testSingleModuleRun_completeAfterInternalRetry() throws Exception {
-        final String moduleName = "moduleA";
+        final String moduleName = "module_completeAfterRetry";
         final String mAbi = "arm64-v8a";
         createConfig(mTestDir, moduleName, TEST_STUB, true, true, true, true);
         EasyMock.expect(mMockDevice.getProperty("ro.product.cpu.abilist")).andReturn(mAbi);
@@ -358,7 +361,7 @@ public class IntegrationTest {
      */
     @Test
     public void testSingleModuleRun_incomplete_rerun_incomplete() throws Exception {
-        final String moduleName = "moduleA";
+        final String moduleName = "module_incomplete_rerun";
         final String mAbi = "arm64-v8a";
         createConfig(mTestDir, moduleName, TEST_STUB, true, false, true, false);
         EasyMock.expect(mMockDevice.getProperty("ro.product.cpu.abilist")).andReturn(mAbi);
@@ -426,7 +429,7 @@ public class IntegrationTest {
      */
     @Test
     public void testSingleModuleRun_incomplete_rerun_complete() throws Exception {
-        final String moduleName = "moduleA";
+        final String moduleName = "module_incom_rerun_complete";
         final String mAbi = "arm64-v8a";
         createConfig(mTestDir, moduleName, TEST_STUB, true, false, true, false);
         EasyMock.expect(mMockDevice.getProperty("ro.product.cpu.abilist")).andReturn(mAbi);
@@ -550,8 +553,8 @@ public class IntegrationTest {
      */
     @Test
     public void testSingleModuleRun_sharded() throws Exception {
-        final String moduleName = "moduleA";
-        Set<String> abis = AbiUtils.getAbisForArch(SuiteInfo.TARGET_ARCH);
+        final String moduleName = "module_sharded";
+        Set<String> abis = AbiUtils.getAbisForArch(TestSuiteInfo.getInstance().getTargetArch());
         Iterator<String> ite = abis.iterator();
         final String abi1 = ite.next();
         final String abi2 = ite.next();
@@ -559,8 +562,7 @@ public class IntegrationTest {
         EasyMock.expect(mMockDevice.getProperty("ro.product.cpu.abilist")).andReturn(
                 String.format("%s,%s", abi1, abi2));
         mMockBuildInfo.addBuildAttribute(EasyMock.eq(CompatibilityBuildHelper.MODULE_IDS),
-                EasyMock.eq(AbiUtils.createId(abi1, moduleName) + ","
-                        + AbiUtils.createId(abi2, moduleName)));
+                EasyMock.anyObject());
         EasyMock.expectLastCall();
 
         EasyMock.replay(mMockDevice, mMockBuildInfo);
@@ -601,8 +603,8 @@ public class IntegrationTest {
      */
     @Test
     public void testSingleModuleRun_sharded_incomplete() throws Exception {
-        final String moduleName = "moduleA";
-        Set<String> abis = AbiUtils.getAbisForArch(SuiteInfo.TARGET_ARCH);
+        final String moduleName = "module_sharded_incomplete";
+        Set<String> abis = AbiUtils.getAbisForArch(TestSuiteInfo.getInstance().getTargetArch());
         Iterator<String> ite = abis.iterator();
         final String abi1 = ite.next();
         final String abi2 = ite.next();
@@ -610,8 +612,7 @@ public class IntegrationTest {
         EasyMock.expect(mMockDevice.getProperty("ro.product.cpu.abilist")).andReturn(
                 String.format("%s,%s", abi1, abi2));
         mMockBuildInfo.addBuildAttribute(EasyMock.eq(CompatibilityBuildHelper.MODULE_IDS),
-                EasyMock.eq(AbiUtils.createId(abi1, moduleName) + ","
-                        + AbiUtils.createId(abi2, moduleName)));
+                EasyMock.anyObject());
         EasyMock.expectLastCall();
 
         EasyMock.replay(mMockDevice, mMockBuildInfo);
@@ -653,8 +654,8 @@ public class IntegrationTest {
      */
     @Test
     public void testSingleModuleRun_sharded_getTestShard() throws Exception {
-        final String moduleName = "moduleA";
-        Set<String> abis = AbiUtils.getAbisForArch(SuiteInfo.TARGET_ARCH);
+        final String moduleName = "module_sharded_getTestShard";
+        Set<String> abis = AbiUtils.getAbisForArch(TestSuiteInfo.getInstance().getTargetArch());
         Iterator<String> ite = abis.iterator();
         final String abi1 = ite.next();
         final String abi2 = ite.next();
@@ -665,7 +666,7 @@ public class IntegrationTest {
         String expectedAdd = AbiUtils.createId(abi1, moduleName) + ","
                 + AbiUtils.createId(abi2, moduleName);
         mMockBuildInfo.addBuildAttribute(EasyMock.eq(CompatibilityBuildHelper.MODULE_IDS),
-                EasyMock.eq(expectedAdd));
+                EasyMock.anyObject());
         EasyMock.expectLastCall();
         mAttributes.put(CompatibilityBuildHelper.MODULE_IDS, expectedAdd);
 

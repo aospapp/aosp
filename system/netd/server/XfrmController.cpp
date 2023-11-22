@@ -25,6 +25,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
 #include <arpa/inet.h>
@@ -107,10 +109,14 @@ uint8_t kPadBytesArray[] = {0, 0, 0};
 void* kPadBytes = static_cast<void*>(kPadBytesArray);
 
 #if VDBG
-#define LOG_HEX(__desc16__, __buf__, __len__) \
-    do{ logHex(__desc16__, __buf__, __len__); }while(0)
-#define LOG_IOV(__iov__, __iov_len__) \
-    do{ logIov(__iov__, __iov_len__); }while(0)
+#define LOG_HEX(__desc16__, __buf__, __len__)                                                      \
+    do {                                                                                           \
+        logHex(__desc16__, __buf__, __len__);                                                      \
+    } while (0)
+#define LOG_IOV(__iov__, __iov_len__)                                                              \
+    do {                                                                                           \
+        logIov(__iov__, __iov_len__);                                                              \
+    } while (0)
 
 void logHex(const char* desc16, const char* buf, size_t len) {
     char* printBuf = new char[len * 2 + 1 + 26]; // len->ascii, +newline, +prefix strlen
@@ -314,7 +320,6 @@ int XfrmController::ipSecAllocateSpi(int32_t transformId, int32_t direction,
                                      const std::string& localAddress,
                                      const std::string& remoteAddress, int32_t inSpi,
                                      int32_t* outSpi) {
-
     ALOGD("XfrmController:%s, line=%d", __FUNCTION__, __LINE__);
     ALOGD("transformId=%d", transformId);
     ALOGD("direction=%d", direction);
@@ -351,10 +356,10 @@ int XfrmController::ipSecAllocateSpi(int32_t transformId, int32_t direction,
 
 int XfrmController::ipSecAddSecurityAssociation(
     int32_t transformId, int32_t mode, int32_t direction, const std::string& localAddress,
-    const std::string& remoteAddress, int64_t /* underlyingNetworkHandle */, int32_t spi,
+    const std::string& remoteAddress, int64_t underlyingNetworkHandle, int32_t spi,
     const std::string& authAlgo, const std::vector<uint8_t>& authKey, int32_t authTruncBits,
     const std::string& cryptAlgo, const std::vector<uint8_t>& cryptKey, int32_t cryptTruncBits,
-    int32_t encapType, int32_t encapLocalPort, int32_t encapRemotePort, int32_t* allocatedSpi) {
+    int32_t encapType, int32_t encapLocalPort, int32_t encapRemotePort) {
     android::RWLock::AutoWLock lock(mLock);
 
     ALOGD("XfrmController::%s, line=%d", __FUNCTION__, __LINE__);
@@ -363,6 +368,7 @@ int XfrmController::ipSecAddSecurityAssociation(
     ALOGD("direction=%d", direction);
     ALOGD("localAddress=%s", localAddress.c_str());
     ALOGD("remoteAddress=%s", remoteAddress.c_str());
+    ALOGD("underlyingNetworkHandle=%" PRIx64, underlyingNetworkHandle);
     ALOGD("spi=%0.8x", spi);
     ALOGD("authAlgo=%s", authAlgo.c_str());
     ALOGD("authTruncBits=%d", authTruncBits);
@@ -406,20 +412,44 @@ int XfrmController::ipSecAddSecurityAssociation(
                    // failed to open
     }
 
+    switch (static_cast<XfrmEncapType>(encapType)) {
+        case XfrmEncapType::ESPINUDP:
+        case XfrmEncapType::ESPINUDP_NON_IKE:
+            if (saInfo.addrFamily != AF_INET) {
+                return -EAFNOSUPPORT;
+            }
+            switch (saInfo.direction) {
+                case XfrmDirection::IN:
+                    saInfo.encap.srcPort = encapRemotePort;
+                    saInfo.encap.dstPort = encapLocalPort;
+                    break;
+                case XfrmDirection::OUT:
+                    saInfo.encap.srcPort = encapLocalPort;
+                    saInfo.encap.dstPort = encapRemotePort;
+                    break;
+                default:
+                    return -EINVAL;
+            }
+        // fall through
+        case XfrmEncapType::NONE:
+            saInfo.encap.type = static_cast<XfrmEncapType>(encapType);
+            break;
+        default:
+            return -EINVAL;
+    }
+
     ret = createTransportModeSecurityAssociation(saInfo, sock);
     if (ret < 0) {
         ALOGD("Failed creating a Security Association, line=%d", __LINE__);
         return ret; // something went wrong creating the SA
     }
 
-    *allocatedSpi = spi;
     return 0;
 }
 
 int XfrmController::ipSecDeleteSecurityAssociation(int32_t transformId, int32_t direction,
                                                    const std::string& localAddress,
                                                    const std::string& remoteAddress, int32_t spi) {
-
     ALOGD("XfrmController:%s, line=%d", __FUNCTION__, __LINE__);
     ALOGD("transformId=%d", transformId);
     ALOGD("direction=%d", direction);
@@ -526,8 +556,8 @@ int XfrmController::ipSecApplyTransportModeTransform(const android::base::unique
 
     if (saInfo.addrFamily != saddr.ss_family) {
         ALOGE("Transform address family(%d) differs from socket address "
-                "family(%d)!",
-                saInfo.addrFamily, saddr.ss_family);
+              "family(%d)!",
+              saInfo.addrFamily, saddr.ss_family);
         return -EINVAL;
     }
 
@@ -581,8 +611,20 @@ int XfrmController::createTransportModeSecurityAssociation(const XfrmSaInfo& rec
     xfrm_usersa_info usersa{};
     nlattr_algo_crypt crypt{};
     nlattr_algo_auth auth{};
+    nlattr_encap_tmpl encap{};
 
-    enum { NLMSG_HDR, USERSA, USERSA_PAD, CRYPT, CRYPT_PAD, AUTH, AUTH_PAD, iovLen };
+    enum {
+        NLMSG_HDR,
+        USERSA,
+        USERSA_PAD,
+        CRYPT,
+        CRYPT_PAD,
+        AUTH,
+        AUTH_PAD,
+        ENCAP,
+        ENCAP_PAD,
+        iovLen
+    };
 
     iovec iov[] = {
         {NULL, 0},      // reserved for the eventual addition of a NLMSG_HDR
@@ -591,6 +633,8 @@ int XfrmController::createTransportModeSecurityAssociation(const XfrmSaInfo& rec
         {&crypt, 0},    // adjust size if crypt algo is present
         {kPadBytes, 0}, // up to NLATTR_ALIGNTO pad bytes
         {&auth, 0},     // adjust size if auth algo is present
+        {kPadBytes, 0}, // up to NLATTR_ALIGNTO pad bytes
+        {&encap, 0},    // adjust size if auth algo is present
         {kPadBytes, 0}, // up to NLATTR_ALIGNTO pad bytes
     };
 
@@ -604,6 +648,8 @@ int XfrmController::createTransportModeSecurityAssociation(const XfrmSaInfo& rec
     len = iov[AUTH].iov_len = fillNlAttrXfrmAlgoAuth(record.auth, &auth);
     iov[AUTH_PAD].iov_len = NLA_ALIGN(len) - len;
 
+    len = iov[ENCAP].iov_len = fillNlAttrXfrmEncapTmpl(record, &encap);
+    iov[ENCAP_PAD].iov_len = NLA_ALIGN(len) - len;
     return sock.sendMessage(XFRM_MSG_UPDSA, NETLINK_REQUEST_FLAGS, 0, iov, iovLen);
 }
 
@@ -629,6 +675,19 @@ int XfrmController::fillNlAttrXfrmAlgoAuth(const XfrmAlgo& inAlgo, nlattr_algo_a
     len += inAlgo.key.size();
 
     fillXfrmNlaHdr(&algo->hdr, XFRMA_ALG_AUTH_TRUNC, len);
+    return len;
+}
+
+int XfrmController::fillNlAttrXfrmEncapTmpl(const XfrmSaInfo& record, nlattr_encap_tmpl* tmpl) {
+    if (record.encap.type == XfrmEncapType::NONE) {
+        return 0;
+    }
+
+    int len = NLA_HDRLEN + sizeof(xfrm_encap_tmpl);
+    tmpl->tmpl.encap_type = static_cast<uint16_t>(record.encap.type);
+    tmpl->tmpl.encap_sport = htons(record.encap.srcPort);
+    tmpl->tmpl.encap_dport = htons(record.encap.dstPort);
+    fillXfrmNlaHdr(&tmpl->hdr, XFRMA_ENCAP, len);
     return len;
 }
 
@@ -712,7 +771,7 @@ int XfrmController::allocateSpi(const XfrmSaInfo& record, uint32_t minSpi, uint3
 
         if (ret == 0) {
             *outSpi = spi;
-            ALOGD("Allocated an SPI: %d", *outSpi);
+            ALOGD("Allocated an SPI: %x", *outSpi);
         } else {
             *outSpi = INVALID_SPI;
             ALOGE("SPI Allocation Failed with error %d", ret);
@@ -730,7 +789,8 @@ int XfrmController::fillTransportModeUserSpInfo(const XfrmSaInfo& record,
     fillTransportModeSelector(record, &usersp->sel);
     fillXfrmLifetimeDefaults(&usersp->lft);
     fillXfrmCurLifetimeDefaults(&usersp->curlft);
-    /* if (index) index & 0x3 == dir -- must be true xfrm_user.c:verify_newpolicy_info() */
+    /* if (index) index & 0x3 == dir -- must be true
+     * xfrm_user.c:verify_newpolicy_info() */
     usersp->index = 0;
     usersp->dir = static_cast<uint8_t>(record.direction);
     usersp->action = XFRM_POLICY_ALLOW;

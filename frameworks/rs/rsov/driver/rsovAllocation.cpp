@@ -267,7 +267,6 @@ void RSoVBuffer::InitBuffer(size_t bufferSize) {
                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                                       &allocateInfo.memoryTypeIndex);
-  ALOGV("TypeBits = 0x%08X", mem_reqs.memoryTypeBits);
   rsAssert(pass);
 
   // TODO: Make this aligned

@@ -27,6 +27,8 @@ import com.android.tradefed.log.LogUtil.CLog;
 import java.nio.file.Paths;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.util.Map;
+import java.util.HashMap;
 
 /**
  * An {@link PreconditionPreparer} that collects one device file.
@@ -38,11 +40,21 @@ public class DeviceFileCollector extends PreconditionPreparer {
             description = "Whether device info collection should be skipped")
     private boolean mSkipDeviceInfo = false;
 
-    @Option(name= "src-file", description = "The file path to copy to the results dir")
+    @Option(name = "src-file", description = "The file path to copy to the results dir")
     private String mSrcFile;
 
     @Option(name = "dest-file", description = "The destination file path under the result")
     private String mDestFile;
+
+    /**
+     * If device.getProperty(key) is not value for all properties listed, the collection will be
+     * skipped. If this map is empty, mSrcFile will always be collected.
+     *
+     * This can be specified by the following option:
+     * {@code <option name="property" key="foo" value="bar"/>}
+     */
+    @Option(name = "property", description = "run this test on device with this property value")
+    private Map<String, String> mPropertyMap = new HashMap<>();
 
     private File mResultFile;
 
@@ -52,6 +64,9 @@ public class DeviceFileCollector extends PreconditionPreparer {
     @Override
     public void run(ITestDevice device, IBuildInfo buildInfo) {
         if (mSkipDeviceInfo)
+            return;
+
+        if (!matchProperties(device))
             return;
 
         createResultDir(buildInfo);
@@ -88,5 +103,24 @@ public class DeviceFileCollector extends PreconditionPreparer {
         } catch (FileNotFoundException fnfe) {
             fnfe.printStackTrace();
         }
+    }
+
+    private boolean matchProperties(ITestDevice device) {
+        for (Map.Entry<String, String> propEntry : mPropertyMap.entrySet()) {
+            try {
+                String actualValue = device.getProperty(propEntry.getKey());
+                if (!propEntry.getValue().equals(actualValue)) {
+                    CLog.i("Skipping '%s' because property doesn't match. "
+                           + "(key=%s, expected=%s, actual=%s)",
+                           mSrcFile, propEntry.getKey(), propEntry.getValue(), actualValue);
+                    return false;
+                }
+            } catch (DeviceNotAvailableException e) {
+                CLog.e("Caught exception during property check.");
+                CLog.e(e);
+                return false;
+            }
+        }
+        return true;
     }
 }

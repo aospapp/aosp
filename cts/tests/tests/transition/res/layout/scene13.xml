@@ -25,15 +25,21 @@
         android:layout_width="10dp"
         android:layout_height="10dp"
         android:background="#F00"
-        android:layout_alignParentRight="true"
-        android:layout_alignParentTop="true"
+        android:layout_centerInParent="true"
         android:transitionName="redSquare"
         android:id="@+id/redSquare"/>
     <View
         android:layout_width="10dp"
         android:layout_height="10dp"
+        android:background="#000"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentTop="true"
+        android:id="@+id/blackSquare"/>
+    <View
+        android:layout_width="10dp"
+        android:layout_height="10dp"
         android:background="#0F0"
-        android:layout_toRightOf="@id/redSquare"
+        android:layout_toRightOf="@id/blackSquare"
         android:id="@+id/greenSquare"/>
     <View
         android:layout_width="10dp"

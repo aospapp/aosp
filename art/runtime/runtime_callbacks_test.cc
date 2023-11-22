@@ -34,10 +34,10 @@
 #include "mem_map.h"
 #include "mirror/class-inl.h"
 #include "mirror/class_loader.h"
+#include "nativehelper/ScopedLocalRef.h"
 #include "obj_ptr.h"
 #include "runtime.h"
 #include "scoped_thread_state_change-inl.h"
-#include "ScopedLocalRef.h"
 #include "thread-inl.h"
 #include "thread_list.h"
 #include "well_known_classes.h"
@@ -335,6 +335,9 @@ class RuntimeSigQuitCallbackRuntimeCallbacksTest : public RuntimeCallbacksTest {
 };
 
 TEST_F(RuntimeSigQuitCallbackRuntimeCallbacksTest, SigQuit) {
+  // SigQuit induces a dump. ASAN isn't happy with libunwind reading memory.
+  TEST_DISABLED_FOR_MEMORY_TOOL_ASAN();
+
   // The runtime needs to be started for the signal handler.
   Thread* self = Thread::Current();
 

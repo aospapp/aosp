@@ -1,0 +1,18 @@
+cc_test {
+    name: "VtsHalNetNetdV1_0TargetTest",
+    srcs: [
+        "VtsHalNetNetdV1_0TargetTest.cpp",
+    ],
+    shared_libs: [
+        "liblog",
+        "libhidlbase",
+        "libhidltransport",
+        "libutils",
+        "android.system.net.netd@1.0",
+    ],
+    static_libs: ["VtsHalHidlTargetTestBase"],
+    cflags: [
+        "-O0",
+        "-g",
+    ],
+}

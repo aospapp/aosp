@@ -39,7 +39,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner compatibility-device-util
 LOCAL_SDK_VERSION := test_current
 
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 include $(BUILD_CTS_PACKAGE)
 
@@ -64,7 +64,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner compatibility-device-util
 LOCAL_SDK_VERSION := test_current
 
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 LOCAL_AAPT_FLAGS += --rename-manifest-package com.android.cts.comp2 \
                     --rename-instrumentation-target-package com.android.cts.comp2
 

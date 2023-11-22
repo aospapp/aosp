@@ -24,6 +24,6 @@ LOCAL_SRC_FILES := com_android_cts_splitapp_Native.cpp
 LOCAL_LDLIBS += -llog
 
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 include $(BUILD_SHARED_LIBRARY)

@@ -26,6 +26,7 @@
 #include "client/IsochronousClockModel.h"
 #include "client/AudioEndpoint.h"
 #include "core/AudioStream.h"
+#include "utility/AudioClock.h"
 #include "utility/LinearRamp.h"
 
 using android::sp;
@@ -40,12 +41,7 @@ public:
     AudioStreamInternal(AAudioServiceInterface  &serviceInterface, bool inService);
     virtual ~AudioStreamInternal();
 
-    // =========== Begin ABSTRACT methods ===========================
     aaudio_result_t requestStart() override;
-
-    aaudio_result_t requestPause() override;
-
-    aaudio_result_t requestFlush() override;
 
     aaudio_result_t requestStop() override;
 
@@ -53,8 +49,7 @@ public:
                                        int64_t *framePosition,
                                        int64_t *timeNanoseconds) override;
 
-    virtual aaudio_result_t updateStateWhileWaiting() override;
-    // =========== End ABSTRACT methods ===========================
+    virtual aaudio_result_t updateStateMachine() override;
 
     aaudio_result_t open(const AudioStreamBuilder &builder) override;
 
@@ -89,6 +84,15 @@ public:
     // Calculate timeout based on framesPerBurst
     int64_t calculateReasonableTimeout();
 
+    aaudio_result_t startClient(const android::AudioClient& client,
+                                audio_port_handle_t *clientHandle);
+
+    aaudio_result_t stopClient(audio_port_handle_t clientHandle);
+
+    aaudio_handle_t getServiceHandle() const {
+        return mServiceStreamHandle;
+    }
+
 protected:
 
     aaudio_result_t processData(void *buffer,
@@ -107,19 +111,25 @@ protected:
                             int64_t currentTimeNanos,
                             int64_t *wakeTimePtr) = 0;
 
+    aaudio_result_t drainTimestampsFromService();
+
     aaudio_result_t processCommands();
 
-    aaudio_result_t requestPauseInternal();
     aaudio_result_t requestStopInternal();
 
     aaudio_result_t stopCallback();
 
+    virtual void advanceClientToMatchServerPosition() = 0;
 
-    void onFlushFromServer();
+    virtual void onFlushFromServer() {}
 
     aaudio_result_t onEventFromServer(AAudioServiceMessage *message);
 
-    aaudio_result_t onTimestampFromServer(AAudioServiceMessage *message);
+    aaudio_result_t onTimestampService(AAudioServiceMessage *message);
+
+    aaudio_result_t onTimestampHardware(AAudioServiceMessage *message);
+
+    void logTimestamp(AAudioServiceMessage &message);
 
     // Calculate timeout for an operation involving framesPerOperation.
     int64_t calculateReasonableTimeout(int32_t framesPerOperation);
@@ -134,13 +144,22 @@ protected:
     int32_t                  mFramesPerBurst;     // frames per HAL transfer
     int32_t                  mXRunCount = 0;      // how many underrun events?
 
-    LinearRamp               mVolumeRamp;
-
     // Offset from underlying frame position.
     int64_t                  mFramesOffsetFromService = 0; // offset for timestamps
 
     uint8_t                 *mCallbackBuffer = nullptr;
     int32_t                  mCallbackFrames = 0;
+
+    // The service uses this for SHARED mode.
+    bool                     mInService = false;  // Is this running in the client or the service?
+
+    AAudioServiceInterface  &mServiceInterface;   // abstract interface to the service
+
+    SimpleDoubleBuffer<Timestamp>  mAtomicTimestamp;
+
+    AtomicRequestor          mNeedCatchUp;   // Ask read() or write() to sync on first timestamp.
+
+    float                    mStreamVolume = 1.0f;
 
 private:
     /*
@@ -155,12 +174,15 @@ private:
     // Adjust timing model based on timestamp from service.
     void processTimestamp(uint64_t position, int64_t time);
 
+    // Thread on other side of FIFO will have wakeup jitter.
+    // By delaying slightly we can avoid waking up before other side is ready.
+    const int32_t            mWakeupDelayNanos; // delay past typical wakeup jitter
+    const int32_t            mMinimumSleepNanos; // minimum sleep while polling
+
     AudioEndpointParcelable  mEndPointParcelable; // description of the buffers filled by service
     EndpointDescriptor       mEndpointDescriptor; // buffer description with resolved addresses
-    AAudioServiceInterface  &mServiceInterface;   // abstract interface to the service
 
-    // The service uses this for SHARED mode.
-    bool                     mInService = false;  // Is this running in the client or the service?
+    int64_t                  mServiceLatencyNanos = 0;
 };
 
 } /* namespace aaudio */

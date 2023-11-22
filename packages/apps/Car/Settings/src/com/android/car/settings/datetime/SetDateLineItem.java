@@ -17,13 +17,12 @@
 package com.android.car.settings.datetime;
 
 import android.content.Context;
-import android.content.Intent;
 import android.provider.Settings;
 import android.text.format.DateFormat;
 
 import com.android.car.settings.R;
+import com.android.car.settings.common.BaseFragment;
 import com.android.car.settings.common.TextLineItem;
-import com.android.settingslib.datetime.ZoneGetter;
 
 import java.util.Calendar;
 
@@ -31,12 +30,13 @@ import java.util.Calendar;
  * A LineItem that displays and sets system date.
  */
 class SetDateLineItem extends TextLineItem {
+    private final Context mContext;
+    private final BaseFragment.FragmentController mFragmentController;
 
-    private Context mContext;
-
-    public SetDateLineItem(Context context) {
+    public SetDateLineItem(Context context, BaseFragment.FragmentController fragmentController) {
         super(context.getString(R.string.date_time_set_date));
         mContext = context;
+        mFragmentController = fragmentController;
     }
 
     @Override
@@ -51,8 +51,12 @@ class SetDateLineItem extends TextLineItem {
     }
 
     @Override
+    public boolean isExpandable() {
+        return isEnabled();
+    }
+
+    @Override
     public void onClick() {
-        Intent intent = new Intent(mContext /* context */, DatePickerActivity.class);
-        mContext.startActivity(intent);
+        mFragmentController.launchFragment(DatePickerFragment.getInstance());
     }
 }

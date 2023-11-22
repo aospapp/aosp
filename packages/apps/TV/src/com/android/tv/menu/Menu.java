@@ -26,24 +26,28 @@ import android.os.Message;
 import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
 import android.support.annotation.VisibleForTesting;
+import android.support.v17.leanback.widget.HorizontalGridView;
 import android.util.Log;
 
 import com.android.tv.ChannelTuner;
 import com.android.tv.R;
 import com.android.tv.TvApplication;
-import com.android.tv.analytics.DurationTimer;
+import com.android.tv.TvOptionsManager;
 import com.android.tv.analytics.Tracker;
 import com.android.tv.common.TvCommonUtils;
 import com.android.tv.common.WeakHandler;
 import com.android.tv.menu.MenuRowFactory.PartnerRow;
-import com.android.tv.menu.MenuRowFactory.PipOptionsRow;
 import com.android.tv.menu.MenuRowFactory.TvOptionsRow;
 import com.android.tv.ui.TunableTvView;
+import com.android.tv.util.DurationTimer;
+import com.android.tv.util.ViewCache;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A class which controls the menu.
@@ -81,10 +85,21 @@ public class Menu {
         sRowIdListForReason.add(PlayControlsRow.ID); // REASON_PLAY_CONTROLS_JUMP_TO_NEXT
     }
 
+    private static final Map<Integer, Integer> PRELOAD_VIEW_IDS = new HashMap<>();
+    static {
+        PRELOAD_VIEW_IDS.put(R.layout.menu_card_guide, 1);
+        PRELOAD_VIEW_IDS.put(R.layout.menu_card_setup, 1);
+        PRELOAD_VIEW_IDS.put(R.layout.menu_card_dvr, 1);
+        PRELOAD_VIEW_IDS.put(R.layout.menu_card_app_link, 1);
+        PRELOAD_VIEW_IDS.put(R.layout.menu_card_channel, ChannelsRow.MAX_COUNT_FOR_RECENT_CHANNELS);
+        PRELOAD_VIEW_IDS.put(R.layout.menu_card_action, 7);
+    }
+
     private static final String SCREEN_NAME = "Menu";
 
     private static final int MSG_HIDE_MENU = 1000;
 
+    private final Context mContext;
     private final IMenuView mMenuView;
     private final Tracker mTracker;
     private final DurationTimer mVisibleTimer = new DurationTimer();
@@ -103,15 +118,16 @@ public class Menu {
     @VisibleForTesting
     Menu(Context context, IMenuView menuView, MenuRowFactory menuRowFactory,
             OnMenuVisibilityChangeListener onMenuVisibilityChangeListener) {
-        this(context, null, menuView, menuRowFactory, onMenuVisibilityChangeListener);
+        this(context, null, null, menuView, menuRowFactory, onMenuVisibilityChangeListener);
     }
 
-    public Menu(Context context, TunableTvView tvView, IMenuView menuView,
-            MenuRowFactory menuRowFactory,
+    public Menu(Context context, TunableTvView tvView, TvOptionsManager optionsManager,
+            IMenuView menuView, MenuRowFactory menuRowFactory,
             OnMenuVisibilityChangeListener onMenuVisibilityChangeListener) {
+        mContext = context;
         mMenuView = menuView;
         mTracker = TvApplication.getSingletons(context).getTracker();
-        mMenuUpdater = new MenuUpdater(context, tvView, this);
+        mMenuUpdater = new MenuUpdater(this, tvView, optionsManager);
         Resources res = context.getResources();
         mShowDurationMillis = res.getInteger(R.integer.menu_show_duration);
         mOnMenuVisibilityChangeListener = onMenuVisibilityChangeListener;
@@ -130,7 +146,6 @@ public class Menu {
         addMenuRow(menuRowFactory.createMenuRow(this, ChannelsRow.class));
         addMenuRow(menuRowFactory.createMenuRow(this, PartnerRow.class));
         addMenuRow(menuRowFactory.createMenuRow(this, TvOptionsRow.class));
-        addMenuRow(menuRowFactory.createMenuRow(this, PipOptionsRow.class));
         mMenuView.setMenuRows(mMenuRows);
     }
 
@@ -157,6 +172,16 @@ public class Menu {
             row.release();
         }
         mHandler.removeCallbacksAndMessages(null);
+    }
+
+    /**
+     * Preloads the item view used for the menu.
+     */
+    public void preloadItemViews() {
+        HorizontalGridView fakeParent = new HorizontalGridView(mContext);
+        for (int id : PRELOAD_VIEW_IDS.keySet()) {
+            ViewCache.getInstance().putView(mContext, id, fakeParent, PRELOAD_VIEW_IDS.get(id));
+        }
     }
 
     /**
@@ -293,9 +318,7 @@ public class Menu {
      */
     public void onStreamInfoChanged() {
         if (DEBUG) Log.d(TAG, "update options row in main menu");
-        for (MenuRow row : mMenuRows) {
-            row.onStreamInfoChanged();
-        }
+        mMenuUpdater.onStreamInfoChanged();
     }
 
     @VisibleForTesting

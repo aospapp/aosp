@@ -182,7 +182,11 @@ public class DisplayTest extends InstrumentationTestCase {
         assertFalse(cap.getDesiredMaxLuminance() < -1.0f);
         assertFalse(cap.getDesiredMinLuminance() < -1.0f);
         assertFalse(cap.getDesiredMaxAverageLuminance() < -1.0f);
-        assertFalse(display.isHdr());
+        if (hdrTypes.length > 0) {
+            assertTrue(display.isHdr());
+        } else {
+            assertFalse(display.isHdr());
+        }
     }
 
     /**

@@ -23,10 +23,11 @@ import android.util.SparseBooleanArray;
 import com.android.tv.tuner.data.PsiData.PatItem;
 import com.android.tv.tuner.data.PsiData.PmtItem;
 import com.android.tv.tuner.data.PsipData.EitItem;
+import com.android.tv.tuner.data.PsipData.SdtItem;
 import com.android.tv.tuner.data.PsipData.VctItem;
+import com.android.tv.tuner.data.TunerChannel;
 import com.android.tv.tuner.data.nano.Track.AtscAudioTrack;
 import com.android.tv.tuner.data.nano.Track.AtscCaptionTrack;
-import com.android.tv.tuner.data.TunerChannel;
 import com.android.tv.tuner.source.FileTsStreamer;
 import com.android.tv.tuner.ts.TsParser;
 import com.android.tv.tuner.tvinput.EventDetector.EventListener;
@@ -49,15 +50,18 @@ public class FileSourceEventDetector {
 
     private TsParser mTsParser;
     private final Set<Integer> mVctProgramNumberSet = new HashSet<>();
+    private final Set<Integer> mSdtProgramNumberSet = new HashSet<>();
     private final SparseArray<TunerChannel> mChannelMap = new SparseArray<>();
     private final SparseBooleanArray mVctCaptionTracksFound = new SparseBooleanArray();
     private final SparseBooleanArray mEitCaptionTracksFound = new SparseBooleanArray();
     private final EventListener mEventListener;
+    private final boolean mEnableDvbSignal;
     private FileTsStreamer.StreamProvider mStreamProvider;
     private int mProgramNumber = ALL_PROGRAM_NUMBERS;
 
-    public FileSourceEventDetector(EventDetector.EventListener listener) {
+    public FileSourceEventDetector(EventDetector.EventListener listener, boolean enableDvbSignal) {
         mEventListener = listener;
+        mEnableDvbSignal = enableDvbSignal;
     }
 
     /**
@@ -74,9 +78,10 @@ public class FileSourceEventDetector {
     }
 
     private void reset() {
-        mTsParser = new TsParser(mTsOutputListener); // TODO: Use TsParser.reset()
+        mTsParser = new TsParser(mTsOutputListener, mEnableDvbSignal); // TODO: Use TsParser.reset()
         mStreamProvider.clearPidFilter();
         mVctProgramNumberSet.clear();
+        mSdtProgramNumberSet.clear();
         mVctCaptionTracksFound.clear();
         mEitCaptionTracksFound.clear();
         mChannelMap.clear();
@@ -201,6 +206,40 @@ public class FileSourceEventDetector {
             boolean found = mVctProgramNumberSet.contains(channelProgramNumber);
             if (!found) {
                 mVctProgramNumberSet.add(channelProgramNumber);
+            }
+            if (mEventListener != null) {
+                mEventListener.onChannelDetected(tunerChannel, !found);
+            }
+        }
+
+        @Override
+        public void onSdtItemParsed(SdtItem channel, List<PmtItem> pmtItems) {
+            if (DEBUG) {
+                Log.d(TAG, "onSdtItemParsed SDT " + channel);
+                Log.d(TAG, "                PMT " + pmtItems);
+            }
+
+            // Merges the audio and caption tracks located in PMT items into the tracks of the given
+            // tuner channel.
+            TunerChannel tunerChannel = TunerChannel.forDvbFile(channel, pmtItems);
+            List<AtscAudioTrack> audioTracks = new ArrayList<>();
+            List<AtscCaptionTrack> captionTracks = new ArrayList<>();
+            for (PmtItem pmtItem : pmtItems) {
+                if (pmtItem.getAudioTracks() != null) {
+                    audioTracks.addAll(pmtItem.getAudioTracks());
+                }
+                if (pmtItem.getCaptionTracks() != null) {
+                    captionTracks.addAll(pmtItem.getCaptionTracks());
+                }
+            }
+            int channelProgramNumber = channel.getServiceId();
+            tunerChannel.setFilepath(mStreamProvider.getFilepath());
+            tunerChannel.setAudioTracks(audioTracks);
+            tunerChannel.setCaptionTracks(captionTracks);
+            mChannelMap.put(tunerChannel.getProgramNumber(), tunerChannel);
+            boolean found = mSdtProgramNumberSet.contains(channelProgramNumber);
+            if (!found) {
+                mSdtProgramNumberSet.add(channelProgramNumber);
             }
             if (mEventListener != null) {
                 mEventListener.onChannelDetected(tunerChannel, !found);

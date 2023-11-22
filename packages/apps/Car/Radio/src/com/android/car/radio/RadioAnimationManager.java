@@ -31,6 +31,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.view.WindowManager;
+
 import com.android.car.stream.ui.ColumnCalculator;
 
 /**
@@ -98,7 +99,7 @@ public class RadioAnimationManager {
         mPresetFabSize = res.getDimensionPixelSize(R.dimen.car_presets_play_button_size);
         mPresetContainerHeight = res.getDimensionPixelSize(R.dimen.car_preset_container_height);
 
-        mRadioCard = (CardView) container.findViewById(R.id.current_radio_station_card);
+        mRadioCard = container.findViewById(R.id.current_radio_station_card);
         mRadioCardContainer = container.findViewById(R.id.preset_current_card_container);
         mFab = container.findViewById(R.id.radio_play_button);
         mPresetFab = container.findViewById(R.id.preset_radio_play_button);

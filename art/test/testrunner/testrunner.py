@@ -147,7 +147,8 @@ def gather_test_info():
   VARIANT_TYPE_DICT['relocate'] = {'relocate-npatchoat', 'relocate', 'no-relocate'}
   VARIANT_TYPE_DICT['jni'] = {'jni', 'forcecopy', 'checkjni'}
   VARIANT_TYPE_DICT['address_sizes'] = {'64', '32'}
-  VARIANT_TYPE_DICT['jvmti'] = {'no-jvmti', 'jvmti-stress'}
+  VARIANT_TYPE_DICT['jvmti'] = {'no-jvmti', 'jvmti-stress', 'redefine-stress', 'trace-stress',
+                                'field-stress', 'step-stress'}
   VARIANT_TYPE_DICT['compiler'] = {'interp-ac', 'interpreter', 'jit', 'optimizing',
                               'regalloc_gc', 'speed-profile'}
 
@@ -437,7 +438,15 @@ def run_tests(tests):
         options_test += ' --debuggable'
 
       if jvmti == 'jvmti-stress':
-        options_test += ' --jvmti-stress'
+        options_test += ' --jvmti-trace-stress --jvmti-redefine-stress --jvmti-field-stress'
+      elif jvmti == 'field-stress':
+        options_test += ' --jvmti-field-stress'
+      elif jvmti == 'trace-stress':
+        options_test += ' --jvmti-trace-stress'
+      elif jvmti == 'redefine-stress':
+        options_test += ' --jvmti-redefine-stress'
+      elif jvmti == 'step-stress':
+        options_test += ' --jvmti-step-stress'
 
       if address_size == '64':
         options_test += ' --64'
@@ -449,6 +458,12 @@ def run_tests(tests):
         if env.HOST_2ND_ARCH_PREFIX_DEX2OAT_HOST_INSTRUCTION_SET_FEATURES:
           options_test += ' --instruction-set-features ' + \
                           env.HOST_2ND_ARCH_PREFIX_DEX2OAT_HOST_INSTRUCTION_SET_FEATURES
+
+      # Use the default run-test behavior unless ANDROID_COMPILE_WITH_JACK is explicitly set.
+      if env.ANDROID_COMPILE_WITH_JACK == True:
+        options_test += ' --build-with-jack'
+      elif env.ANDROID_COMPILE_WITH_JACK == False:
+        options_test += ' --build-with-javac-dx'
 
       # TODO(http://36039166): This is a temporary solution to
       # fix build breakages.
@@ -491,7 +506,11 @@ def run_test(command, test, test_variant, test_name):
       test_skipped = True
     else:
       test_skipped = False
-      proc = subprocess.Popen(command.split(), stderr=subprocess.STDOUT, stdout=subprocess.PIPE, universal_newlines=True)
+      if gdb:
+        proc = subprocess.Popen(command.split(), stderr=subprocess.STDOUT, universal_newlines=True)
+      else:
+        proc = subprocess.Popen(command.split(), stderr=subprocess.STDOUT, stdout = subprocess.PIPE,
+                                universal_newlines=True)
       script_output = proc.communicate(timeout=timeout)[0]
       test_passed = not proc.wait()
 
@@ -740,6 +759,9 @@ def print_analysis():
     print_text(COLOR_ERROR + 'FAILED: ' + COLOR_NORMAL + '\n')
     for test_info in failed_tests:
       print_text(('%s\n%s\n' % (test_info[0], test_info[1])))
+    print_text(COLOR_ERROR + '----------' + COLOR_NORMAL + '\n')
+    for failed_test in sorted([test_info[0] for test_info in failed_tests]):
+      print_text(('%s\n' % (failed_test)))
 
 
 def parse_test_name(test_name):
@@ -818,7 +840,15 @@ def get_default_threads(target):
     adb_command = 'adb shell cat /sys/devices/system/cpu/present'
     cpu_info_proc = subprocess.Popen(adb_command.split(), stdout=subprocess.PIPE)
     cpu_info = cpu_info_proc.stdout.read()
-    return int(cpu_info.split('-')[1])
+    if type(cpu_info) is bytes:
+      cpu_info = cpu_info.decode('utf-8')
+    cpu_info_regex = '\d*-(\d*)'
+    match = re.match(cpu_info_regex, cpu_info)
+    if match:
+      return int(match.group(1))
+    else:
+      raise ValueError('Unable to predict the concurrency for the target. '
+                       'Is device connected?')
   else:
     return multiprocessing.cpu_count()
 
@@ -933,6 +963,14 @@ def parse_option():
     IMAGE_TYPES.add('multipicimage')
   if options['jvmti_stress']:
     JVMTI_TYPES.add('jvmti-stress')
+  if options['redefine_stress']:
+    JVMTI_TYPES.add('redefine-stress')
+  if options['field_stress']:
+    JVMTI_TYPES.add('field-stress')
+  if options['step_stress']:
+    JVMTI_TYPES.add('step-stress')
+  if options['trace_stress']:
+    JVMTI_TYPES.add('trace-stress')
   if options['no_jvmti']:
     JVMTI_TYPES.add('no-jvmti')
   if options['verbose']:

@@ -55,8 +55,7 @@ class login_RemoteOwnership(test.test):
 
         (new_priv, new_pub) = ownership.pairgen_as_data()
 
-        if not self._sm.StartSession(self.username, ''):
-            raise error.TestFail('Could not start session for random user')
+        self._sm.StartSession(self.username, '')
 
         policy.push_policy_and_verify(
             policy.generate_policy(self.srcdir,

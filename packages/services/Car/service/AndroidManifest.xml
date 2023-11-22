@@ -61,6 +61,12 @@
         android:label="@string/car_permission_label_speed"
         android:description="@string/car_permission_desc_speed" />
     <permission
+        android:name="android.car.permission.VEHICLE_DYNAMICS_STATE"
+        android:permissionGroup="android.permission-group.CAR_INFORMATION"
+        android:protectionLevel="dangerous"
+        android:label="@string/car_permission_label_vehicle_dynamics_state"
+        android:description="@string/car_permission_desc_vehicle_dynamics_state" />
+    <permission
         android:name="android.car.permission.CAR_VENDOR_EXTENSION"
         android:protectionLevel="system|signature"
         android:label="@string/car_permission_label_vendor_extension"
@@ -86,26 +92,15 @@
         android:label="@string/car_permission_car_navigation_manager"
         android:description="@string/car_permission_desc_car_navigation_manager" />
     <permission
-      android:name="android.car.permission.DIAGNOSTIC_READ"
+      android:name="android.car.permission.DIAGNOSTIC_READ_ALL"
       android:protectionLevel="system|signature"
       android:label="@string/car_permission_label_diag_read"
       android:description="@string/car_permission_desc_diag_read" />
     <permission
       android:name="android.car.permission.DIAGNOSTIC_CLEAR"
-      android:protectionLevel="dangerous"
+      android:protectionLevel="system|signature"
       android:label="@string/car_permission_label_diag_clear"
       android:description="@string/car_permission_desc_diag_clear" />
-    <permission
-        android:name="android.car.permission.VMS_PUBLISHER"
-        android:protectionLevel="system|signature"
-        android:label="@string/car_permission_label_vms_publisher"
-        android:description="@string/car_permission_desc_vms_publisher" />
-    <permission
-        android:name="android.car.permission.VMS_SUBSCRIBER"
-        android:protectionLevel="system|signature"
-        android:label="@string/car_permission_label_vms_subscriber"
-        android:description="@string/car_permission_desc_vms_subscriber" />
-
     <!--  may replace this with system permission if proper one is defined. -->
     <permission
         android:name="android.car.permission.CONTROL_APP_BLOCKING"
@@ -137,8 +132,20 @@
             android:label="@string/car_permission_label_bind_input_service"
             android:description="@string/car_permission_desc_bind_input_service"/>
 
+    <permission
+            android:name="android.car.permission.CAR_DISPLAY_IN_CLUSTER"
+            android:protectionLevel="system|signature"
+            android:label="@string/car_permission_car_display_in_cluster"
+            android:description="@string/car_permission_desc_car_display_in_cluster" />
+
+    <permission android:name="android.car.permission.CAR_INSTRUMENT_CLUSTER_CONTROL"
+                android:protectionLevel="system|signature"
+                android:label="@string/car_permission_car_cluster_control"
+                android:description="@string/car_permission_desc_car_cluster_control" />
+
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.DEVICE_POWER" />
+    <uses-permission android:name="android.permission.GRANT_RUNTIME_PERMISSIONS" />
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL" />
     <uses-permission android:name="android.permission.MANAGE_ACTIVITY_STACKS" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_ROUTING" />
@@ -167,12 +174,6 @@
             </intent-filter>
         </service>
         <service android:name=".PerUserCarService" android:exported="false" />
-        <receiver android:name=".BootReceiver">
-            <intent-filter android:priority="1000">
-                <action android:name="android.intent.action.PRE_BOOT_COMPLETED"/>
-                <action android:name="android.intent.action.BOOT_COMPLETED"/>
-            </intent-filter>
-        </receiver>
         <activity android:name="com.android.car.pm.ActivityBlockingActivity"
                   android:excludeFromRecents="true"
                   android:exported="false">

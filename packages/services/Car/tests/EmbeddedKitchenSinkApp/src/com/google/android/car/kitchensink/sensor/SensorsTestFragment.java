@@ -24,6 +24,7 @@ import android.location.Location;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.car.CarNotConnectedException;
+import android.support.car.hardware.CarSensorConfig;
 import android.support.car.hardware.CarSensorEvent;
 import android.support.car.hardware.CarSensorManager;
 import android.support.v4.app.Fragment;
@@ -58,7 +59,8 @@ public class SensorsTestFragment extends Fragment {
         Manifest.permission.ACCESS_COARSE_LOCATION,
         Car.PERMISSION_MILEAGE,
         Car.PERMISSION_FUEL,
-        Car.PERMISSION_SPEED
+        Car.PERMISSION_SPEED,
+        Car.PERMISSION_VEHICLE_DYNAMICS_STATE
     };
 
     private final CarSensorManager.OnSensorChangedListener mOnSensorChangedListener =
@@ -219,7 +221,7 @@ public class SensorsTestFragment extends Fragment {
                                 getTimestamp(event), level, range, lowFuelWarning));
                         break;
                     case CarSensorManager.SENSOR_TYPE_PARKING_BRAKE:
-                        summary.add(getContext().getString(R.string.sensor_parking_break,
+                        summary.add(getContext().getString(R.string.sensor_parking_brake,
                                 getTimestamp(event),
                                 event == null ? mNaString :
                                 event.getParkingBrakeData().isEngaged));
@@ -270,6 +272,45 @@ public class SensorsTestFragment extends Fragment {
                         break;
                     case CarSensorManager.SENSOR_TYPE_GYROSCOPE:
                         summary.add(getGyroscopeString(event));
+                        break;
+                    case CarSensorManager.SENSOR_TYPE_WHEEL_TICK_DISTANCE:
+                        if(event != null) {
+                            CarSensorEvent.CarWheelTickDistanceData d =
+                                event.getCarWheelTickDistanceData();
+                            summary.add(getContext().getString(R.string.sensor_wheel_ticks,
+                                getTimestamp(event), d.sensorResetCount, d.frontLeftWheelDistanceMm,
+                                d.frontRightWheelDistanceMm, d.rearLeftWheelDistanceMm,
+                                d.rearRightWheelDistanceMm));
+                        } else {
+                            summary.add(getContext().getString(R.string.sensor_wheel_ticks,
+                                getTimestamp(event), mNaString, mNaString, mNaString, mNaString,
+                                mNaString));
+                        }
+                        // Get the config data
+                        try {
+                            CarSensorConfig c = mSensorManager.getSensorConfig(
+                                CarSensorManager.SENSOR_TYPE_WHEEL_TICK_DISTANCE);
+                            summary.add(getContext().getString(R.string.sensor_wheel_ticks_cfg,
+                                c.getInt(CarSensorConfig.WHEEL_TICK_DISTANCE_SUPPORTED_WHEELS),
+                                c.getInt(CarSensorConfig.WHEEL_TICK_DISTANCE_FRONT_LEFT_UM_PER_TICK),
+                                c.getInt(CarSensorConfig.WHEEL_TICK_DISTANCE_FRONT_RIGHT_UM_PER_TICK),
+                                c.getInt(CarSensorConfig.WHEEL_TICK_DISTANCE_REAR_LEFT_UM_PER_TICK),
+                                c.getInt(CarSensorConfig.WHEEL_TICK_DISTANCE_REAR_RIGHT_UM_PER_TICK)));
+                        } catch (CarNotConnectedException e) {
+                            Log.e(TAG, "Car not connected or not supported", e);
+                        }
+                        break;
+                    case CarSensorManager.SENSOR_TYPE_ABS_ACTIVE:
+                        summary.add(getContext().getString(R.string.sensor_abs_is_active,
+                            getTimestamp(event), event == null ? mNaString :
+                            event.getCarAbsActiveData().absIsActive));
+                        break;
+
+                    case CarSensorManager.SENSOR_TYPE_TRACTION_CONTROL_ACTIVE:
+                        summary.add(
+                            getContext().getString(R.string.sensor_traction_control_is_active,
+                            getTimestamp(event), event == null ? mNaString :
+                            event.getCarTractionControlActiveData().tractionControlIsActive));
                         break;
                     default:
                         // Should never happen.

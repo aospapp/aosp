@@ -41,6 +41,7 @@
 
 #include <llvm/ADT/StringRef.h>
 
+#include <android-base/file.h>
 #include <android-base/macros.h>
 #include <android-base/parseint.h>
 
@@ -82,7 +83,7 @@ static CompilationRequirements collectRequirements(const Arch& arch, const std::
   std::vector<std::string> headers = collectHeaders(header_dir);
   std::vector<std::string> dependencies = { header_dir };
   if (!dependency_dir.empty()) {
-    auto collect_children = [&dependencies, &dependency_dir](const std::string& dir_path) {
+    auto collect_children = [&dependencies](const std::string& dir_path) {
       DIR* dir = opendir(dir_path.c_str());
       if (!dir) {
         err(1, "failed to open dependency directory '%s'", dir_path.c_str());
@@ -197,9 +198,8 @@ static std::unique_ptr<HeaderDatabase> compileHeaders(const std::set<Compilation
     }
   } else {
     // Spawn threads.
-    size_t cpu_count = getCpuCount();
     for (size_t i = 0; i < thread_count; ++i) {
-      threads.emplace_back([&jobs, &job_index, &result, &header_dir, vfs, cpu_count, i]() {
+      threads.emplace_back([&jobs, &job_index, &result, vfs]() {
         while (true) {
           size_t idx = job_index++;
           if (idx >= jobs.size()) {
@@ -435,7 +435,7 @@ static void usage(bool help = false) {
     fprintf(stderr, "\n");
     fprintf(stderr, "Preprocessing:\n");
     fprintf(stderr, "  -o PATH\tpreprocess header files and emit them at PATH\n");
-    fprintf(stderr, "  -f\tpreprocess header files even if validation fails\n");
+    fprintf(stderr, "  -f\t\tpreprocess header files even if validation fails\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Miscellaneous:\n");
     fprintf(stderr, "  -d\t\tdump function availability\n");
@@ -444,6 +444,12 @@ static void usage(bool help = false) {
     fprintf(stderr, "  -h\t\tdisplay this message\n");
     exit(0);
   }
+}
+
+// versioner uses a prebuilt version of clang, which is not up-to-date wrt/
+// container annotations. So disable container overflow checking. b/37775238
+extern "C" const char* __asan_default_options() {
+  return "detect_container_overflow=0";
 }
 
 int main(int argc, char** argv) {
@@ -571,8 +577,9 @@ int main(int argc, char** argv) {
       platform_dir = versioner_dir + "/platforms";
     }
   } else {
-    // Intentional leak.
-    header_dir = realpath(argv[optind], nullptr);
+    if (!android::base::Realpath(argv[optind], &header_dir)) {
+      err(1, "failed to get realpath for path '%s'", argv[optind]);
+    }
 
     if (argc - optind == 2) {
       dependency_dir = argv[optind + 1];

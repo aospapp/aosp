@@ -38,9 +38,7 @@
 
 #if (L2CAP_UCD_INCLUDED == TRUE)
 
-extern fixed_queue_t* btu_bta_alarm_queue;
-
-static bool l2c_ucd_connect(BD_ADDR rem_bda);
+static bool l2c_ucd_connect(const RawAddress& rem_bda);
 
 /*******************************************************************************
  *
@@ -51,7 +49,7 @@ static bool l2c_ucd_connect(BD_ADDR rem_bda);
  * Returns          void
  *
  ******************************************************************************/
-static void l2c_ucd_discover_cback(BD_ADDR rem_bda, uint8_t info_type,
+static void l2c_ucd_discover_cback(const RawAddress& rem_bda, uint8_t info_type,
                                    uint32_t data) {
   tL2C_RCB* p_rcb = &l2cb.rcb_pool[0];
   uint16_t xx;
@@ -86,7 +84,7 @@ static void l2c_ucd_discover_cback(BD_ADDR rem_bda, uint8_t info_type,
  * Returns          void
  *
  ******************************************************************************/
-static void l2c_ucd_data_ind_cback(BD_ADDR rem_bda, BT_HDR* p_buf) {
+static void l2c_ucd_data_ind_cback(const RawAddress& rem_bda, BT_HDR* p_buf) {
   uint8_t* p;
   uint16_t psm;
   tL2C_RCB* p_rcb;
@@ -118,7 +116,7 @@ static void l2c_ucd_data_ind_cback(BD_ADDR rem_bda, BT_HDR* p_buf) {
  * Returns          void
  *
  ******************************************************************************/
-static void l2c_ucd_congestion_status_cback(BD_ADDR rem_bda,
+static void l2c_ucd_congestion_status_cback(const RawAddress& rem_bda,
                                             bool is_congested) {
   tL2C_RCB* p_rcb = &l2cb.rcb_pool[0];
   uint16_t xx;
@@ -309,7 +307,8 @@ bool L2CA_UcdDeregister(uint16_t psm) {
  *  Return value:   true if successs
  *
  ******************************************************************************/
-bool L2CA_UcdDiscover(uint16_t psm, BD_ADDR rem_bda, uint8_t info_type) {
+bool L2CA_UcdDiscover(uint16_t psm, const RawAddress& rem_bda,
+                      uint8_t info_type) {
   tL2C_LCB* p_lcb;
   tL2C_CCB* p_ccb;
   tL2C_RCB* p_rcb;
@@ -373,8 +372,8 @@ bool L2CA_UcdDiscover(uint16_t psm, BD_ADDR rem_bda, uint8_t info_type) {
  *                  L2CAP_DW_FAILED,  if error
  *
  ******************************************************************************/
-uint16_t L2CA_UcdDataWrite(uint16_t psm, BD_ADDR rem_bda, BT_HDR* p_buf,
-                           uint16_t flags) {
+uint16_t L2CA_UcdDataWrite(uint16_t psm, const RawAddress& rem_bda,
+                           BT_HDR* p_buf, uint16_t flags) {
   tL2C_LCB* p_lcb;
   tL2C_CCB* p_ccb;
   tL2C_RCB* p_rcb;
@@ -469,7 +468,7 @@ uint16_t L2CA_UcdDataWrite(uint16_t psm, BD_ADDR rem_bda, BT_HDR* p_buf,
  *  Return value:   true if successs
  *
  ******************************************************************************/
-bool L2CA_UcdSetIdleTimeout(BD_ADDR rem_bda, uint16_t timeout) {
+bool L2CA_UcdSetIdleTimeout(const RawAddress& rem_bda, uint16_t timeout) {
   tL2C_LCB* p_lcb;
   tL2C_CCB* p_ccb;
 
@@ -501,7 +500,8 @@ bool L2CA_UcdSetIdleTimeout(BD_ADDR rem_bda, uint16_t timeout) {
  * Returns          true if a valid channel, else false
  *
  ******************************************************************************/
-bool L2CA_UCDSetTxPriority(BD_ADDR rem_bda, tL2CAP_CHNL_PRIORITY priority) {
+bool L2CA_UCDSetTxPriority(const RawAddress& rem_bda,
+                           tL2CAP_CHNL_PRIORITY priority) {
   tL2C_LCB* p_lcb;
   tL2C_CCB* p_ccb;
 
@@ -541,7 +541,7 @@ bool L2CA_UCDSetTxPriority(BD_ADDR rem_bda, tL2CAP_CHNL_PRIORITY priority) {
  *  Return value:   true if successs
  *
  ******************************************************************************/
-static bool l2c_ucd_connect(BD_ADDR rem_bda) {
+static bool l2c_ucd_connect(const RawAddress& rem_bda) {
   tL2C_LCB* p_lcb;
   tL2C_CCB* p_ccb;
   tL2C_RCB* p_rcb;
@@ -963,14 +963,13 @@ bool l2c_ucd_process_event(tL2C_CCB* p_ccb, uint16_t event, void* p_data) {
           if (!fixed_queue_is_empty(p_ccb->p_lcb->ucd_out_sec_pending_q)) {
             /* start a timer to send next UCD packet in OPEN state */
             /* it will prevent stack overflow */
-            alarm_set_on_queue(p_ccb->l2c_ccb_timer, 0, l2c_ccb_timer_timeout,
-                               p_ccb, btu_general_alarm_queue);
+            alarm_set_on_mloop(p_ccb->l2c_ccb_timer, 0, l2c_ccb_timer_timeout,
+                               p_ccb);
           } else {
             /* start a timer for idle timeout of UCD */
             period_ms_t timeout_ms = p_ccb->fixed_chnl_idle_tout * 1000;
-            alarm_set_on_queue(p_ccb->l2c_ccb_timer, timeout_ms,
-                               l2c_ccb_timer_timeout, p_ccb,
-                               btu_general_alarm_queue);
+            alarm_set_on_mloop(p_ccb->l2c_ccb_timer, timeout_ms,
+                               l2c_ccb_timer_timeout, p_ccb);
           }
           break;
 
@@ -980,9 +979,8 @@ bool l2c_ucd_process_event(tL2C_CCB* p_ccb, uint16_t event, void* p_data) {
 
           /* start a timer for idle timeout of UCD */
           period_ms_t timeout_ms = p_ccb->fixed_chnl_idle_tout * 1000;
-          alarm_set_on_queue(p_ccb->l2c_ccb_timer, timeout_ms,
-                             l2c_ccb_timer_timeout, p_ccb,
-                             btu_general_alarm_queue);
+          alarm_set_on_mloop(p_ccb->l2c_ccb_timer, timeout_ms,
+                             l2c_ccb_timer_timeout, p_ccb);
           break;
 
         case L2CEVT_L2CA_DATA_WRITE: /* Upper layer data to send */
@@ -1013,14 +1011,13 @@ bool l2c_ucd_process_event(tL2C_CCB* p_ccb, uint16_t event, void* p_data) {
           if (!fixed_queue_is_empty(p_ccb->p_lcb->ucd_in_sec_pending_q)) {
             /* start a timer to check next UCD packet in OPEN state */
             /* it will prevent stack overflow */
-            alarm_set_on_queue(p_ccb->l2c_ccb_timer, 0, l2c_ccb_timer_timeout,
-                               p_ccb, btu_general_alarm_queue);
+            alarm_set_on_mloop(p_ccb->l2c_ccb_timer, 0, l2c_ccb_timer_timeout,
+                               p_ccb);
           } else {
             /* start a timer for idle timeout of UCD */
             period_ms_t timeout_ms = p_ccb->fixed_chnl_idle_tout * 1000;
-            alarm_set_on_queue(p_ccb->l2c_ccb_timer, timeout_ms,
-                               l2c_ccb_timer_timeout, p_ccb,
-                               btu_general_alarm_queue);
+            alarm_set_on_mloop(p_ccb->l2c_ccb_timer, timeout_ms,
+                               l2c_ccb_timer_timeout, p_ccb);
           }
           break;
 
@@ -1034,9 +1031,8 @@ bool l2c_ucd_process_event(tL2C_CCB* p_ccb, uint16_t event, void* p_data) {
 
           /* start a timer for idle timeout of UCD */
           period_ms_t timeout_ms = p_ccb->fixed_chnl_idle_tout * 1000;
-          alarm_set_on_queue(p_ccb->l2c_ccb_timer, timeout_ms,
-                             l2c_ccb_timer_timeout, p_ccb,
-                             btu_general_alarm_queue);
+          alarm_set_on_mloop(p_ccb->l2c_ccb_timer, timeout_ms,
+                             l2c_ccb_timer_timeout, p_ccb);
           break;
 
         case L2CEVT_L2CA_DATA_WRITE: /* Upper layer data to send */

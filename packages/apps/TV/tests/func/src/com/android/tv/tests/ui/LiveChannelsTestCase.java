@@ -73,6 +73,8 @@ public abstract class LiveChannelsTestCase extends InstrumentationTestCase {
                 .hasObject(Constants.PROGRAM_GUIDE)) {
             mDevice.pressBack();
         }
+        // To destroy the activity to make sure next test case's activity launch check works well.
+        mDevice.pressBack();
         super.tearDown();
     }
 

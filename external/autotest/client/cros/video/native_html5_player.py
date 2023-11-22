@@ -5,6 +5,9 @@
 
 from autotest_lib.client.cros.video import video_player
 
+import py_utils
+import logging
+
 
 class NativeHtml5Player(video_player.VideoPlayer):
     """
@@ -65,7 +68,7 @@ class NativeHtml5Player(video_player.VideoPlayer):
         Checks whether video paused.
 
         """
-        cmd = "%s.paused" % self.video_id
+        cmd = '%s.paused' % self.video_id
         return self.tab.EvaluateJavaScript(cmd)
 
 
@@ -74,7 +77,7 @@ class NativeHtml5Player(video_player.VideoPlayer):
         Checks whether video paused.
 
         """
-        cmd = "%s.ended" % self.video_id
+        cmd = '%s.ended' % self.video_id
         return self.tab.EvaluateJavaScript(cmd)
 
 
@@ -93,7 +96,7 @@ class NativeHtml5Player(video_player.VideoPlayer):
         @param t: timedelta, time value to seek to.
 
         """
-        cmd = "%s.currentTime=%.3f" % (self.video_id, t.total_seconds())
+        cmd = '%s.currentTime=%.3f' % (self.video_id, t.total_seconds())
         self.tab.ExecuteJavaScript(cmd)
 
 
@@ -137,7 +140,7 @@ class NativeHtml5Player(video_player.VideoPlayer):
         @returns: An integer indicates the number of dropped frame.
 
         """
-        cmd = "%s.webkitDroppedFrameCount" % self.video_id
+        cmd = '%s.webkitDroppedFrameCount' % self.video_id
         return self.tab.EvaluateJavaScript(cmd)
 
 
@@ -148,7 +151,7 @@ class NativeHtml5Player(video_player.VideoPlayer):
         @returns: An number indicates the duration of the video.
 
         """
-        cmd = "%s.duration" % self.video_id
+        cmd = '%s.duration' % self.video_id
         return self.tab.EvaluateJavaScript(cmd)
 
 
@@ -157,5 +160,40 @@ class NativeHtml5Player(video_player.VideoPlayer):
         Waits until the video playback is ended.
 
         """
-        cmd = "%s.ended" % self.video_id
+        cmd = '%s.ended' % self.video_id
         self.tab.WaitForJavaScriptCondition(cmd, timeout=(self.duration() * 2))
+
+
+    def wait_ended_or_error(self):
+        """
+        Waits until the video ends or an error happens.
+
+        """
+        try:
+            # unit of timeout is second.
+            self.tab.WaitForJavaScriptCondition('endOrError()',
+                                                timeout=(self.duration() + 10))
+        except py_utils.TimeoutException:
+            logging.error('Timeout in waiting endOrError()')
+            raise
+
+
+    def check_error(self):
+        """
+        Check whether an error happens.
+
+        """
+        return self.tab.EvaluateJavaScript('errorDetected()')
+
+
+    def get_error_info(self):
+        """
+        Get error code and message
+        @returns string,string: error code and message
+
+        """
+        error_code = self.tab.EvaluateJavaScript(
+                          '%s.error.code' % self.video_id)
+        error_message = self.tab.EvaluateJavaScript(
+                          '%s.error.message' % self.video_id)
+        return error_code, error_message

@@ -55,6 +55,8 @@ public:
     static const int NFLOG_QUOTA_GROUP;
     /* Group used by StrictController rules */
     static const int NETFILTER_STRICT_GROUP;
+    /* Group used by WakeupController rules */
+    static const int NFLOG_WAKEUP_GROUP;
 
 private:
     NetlinkManager();

@@ -89,6 +89,7 @@ public class ItsTestActivity extends DialogTestListActivity {
             add("scene3");
             add("scene4");
             add("scene5");
+            add("sensor_fusion");
         } };
 
     // TODO: cache the following in saved bundle

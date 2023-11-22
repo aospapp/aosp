@@ -33,6 +33,7 @@ class V8_EXPORT_PRIVATE EscapeAnalysisReducer final
   bool compilation_failed() const { return compilation_failed_; }
 
  private:
+  Reduction ReduceNode(Node* node);
   Reduction ReduceLoad(Node* node);
   Reduction ReduceStore(Node* node);
   Reduction ReduceAllocate(Node* node);
@@ -48,7 +49,6 @@ class V8_EXPORT_PRIVATE EscapeAnalysisReducer final
   JSGraph* jsgraph() const { return jsgraph_; }
   EscapeAnalysis* escape_analysis() const { return escape_analysis_; }
   Zone* zone() const { return zone_; }
-  Isolate* isolate() const;
 
   JSGraph* const jsgraph_;
   EscapeAnalysis* escape_analysis_;

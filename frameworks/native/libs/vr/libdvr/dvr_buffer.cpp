@@ -1,6 +1,7 @@
 #include "include/dvr/dvr_buffer.h"
 
 #include <android/hardware_buffer.h>
+#include <dvr/dvr_shared_buffers.h>
 #include <private/dvr/buffer_hub_client.h>
 #include <ui/GraphicBuffer.h>
 
@@ -43,7 +44,13 @@ void dvrWriteBufferCreateEmpty(DvrWriteBuffer** write_buffer) {
 }
 
 void dvrWriteBufferDestroy(DvrWriteBuffer* write_buffer) {
-  delete write_buffer;
+  if (write_buffer != nullptr) {
+    ALOGW_IF(
+        write_buffer->slot != -1,
+        "dvrWriteBufferDestroy: Destroying a buffer associated with a valid "
+        "buffer queue slot. This may indicate possible leaks.");
+    delete write_buffer;
+  }
 }
 
 int dvrWriteBufferIsValid(DvrWriteBuffer* write_buffer) {
@@ -106,7 +113,15 @@ void dvrReadBufferCreateEmpty(DvrReadBuffer** read_buffer) {
     *read_buffer = new DvrReadBuffer;
 }
 
-void dvrReadBufferDestroy(DvrReadBuffer* read_buffer) { delete read_buffer; }
+void dvrReadBufferDestroy(DvrReadBuffer* read_buffer) {
+  if (read_buffer != nullptr) {
+    ALOGW_IF(
+        read_buffer->slot != -1,
+        "dvrReadBufferDestroy: Destroying a buffer associated with a valid "
+        "buffer queue slot. This may indicate possible leaks.");
+    delete read_buffer;
+  }
+}
 
 int dvrReadBufferIsValid(DvrReadBuffer* read_buffer) {
   return read_buffer && read_buffer->read_buffer;
@@ -174,6 +189,11 @@ int dvrBufferGetAHardwareBuffer(DvrBuffer* buffer,
 
   return ConvertToAHardwareBuffer(buffer->buffer->buffer().get(),
                                   hardware_buffer);
+}
+
+// Retrieve the shared buffer layout version defined in dvr_shared_buffers.h.
+int dvrBufferGlobalLayoutVersionGet() {
+  return android::dvr::kSharedBufferLayoutVersion;
 }
 
 const struct native_handle* dvrWriteBufferGetNativeHandle(

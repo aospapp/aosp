@@ -18,7 +18,6 @@
 #define LOG_TAG "EmulatedCamera2_JpegCompressor"
 
 #include <utils/Log.h>
-#include <ui/GraphicBufferMapper.h>
 
 #include "JpegCompressor.h"
 #include "../EmulatedFakeCamera2.h"
@@ -38,6 +37,16 @@ JpegCompressor::~JpegCompressor() {
     Mutex::Autolock lock(mMutex);
 }
 
+status_t JpegCompressor::reserve() {
+    Mutex::Autolock busyLock(mBusyMutex);
+    if (mIsBusy) {
+        ALOGE("%s: Already processing a buffer!", __FUNCTION__);
+        return INVALID_OPERATION;
+    }
+    mIsBusy = true;
+    return OK;
+}
+
 status_t JpegCompressor::start(Buffers *buffers, JpegListener *listener) {
     if (listener == NULL) {
         ALOGE("%s: NULL listener not allowed!", __FUNCTION__);
@@ -47,12 +56,10 @@ status_t JpegCompressor::start(Buffers *buffers, JpegListener *listener) {
     {
         Mutex::Autolock busyLock(mBusyMutex);
 
-        if (mIsBusy) {
-            ALOGE("%s: Already processing a buffer!", __FUNCTION__);
+        if (!mIsBusy) {
+            ALOGE("Called start without reserve() first!");
             return INVALID_OPERATION;
         }
-
-        mIsBusy = true;
         mSynchronous = false;
         mBuffers = buffers;
         mListener = listener;
@@ -117,7 +124,6 @@ bool JpegCompressor::threadLoop() {
 status_t JpegCompressor::compress() {
     // Find source and target buffers. Assumes only one buffer matches
     // each condition!
-
     bool foundJpeg = false, mFoundAux = false;
     for (size_t i = 0; i < mBuffers->size(); i++) {
         const StreamBuffer &b = (*mBuffers)[i];
@@ -215,11 +221,11 @@ bool JpegCompressor::isStreamInUse(uint32_t id) {
 
 bool JpegCompressor::waitForDone(nsecs_t timeout) {
     Mutex::Autolock lock(mBusyMutex);
-    status_t res = OK;
-    if (mIsBusy) {
-        res = mDone.waitRelative(mBusyMutex, timeout);
+    while (mIsBusy) {
+        status_t res = mDone.waitRelative(mBusyMutex, timeout);
+        if (res != OK) return false;
     }
-    return (res == OK);
+    return true;
 }
 
 bool JpegCompressor::checkError(const char *msg) {

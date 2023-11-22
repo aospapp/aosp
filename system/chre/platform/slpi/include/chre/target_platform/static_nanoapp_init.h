@@ -17,10 +17,10 @@
 #ifndef CHRE_PLATFORM_SLPI_STATIC_NANOAPP_INIT_H_
 #define CHRE_PLATFORM_SLPI_STATIC_NANOAPP_INIT_H_
 
-#include "chre/core/nanoapp.h"
+#include "chre/core/static_nanoapps.h"
 #include "chre/platform/fatal_error.h"
 #include "chre/platform/shared/nanoapp_support_lib_dso.h"
-#include "chre/util/unique_ptr.h"
+#include "chre/platform/slpi/uimg_util.h"
 
 /**
  * Initializes a static nanoapp that is based on the SLPI implementation of
@@ -33,11 +33,9 @@
  */
 #define CHRE_STATIC_NANOAPP_INIT(appName, appId_, appVersion_) \
 namespace chre {                                               \
-UniquePtr<Nanoapp> *gNanoapp##appName;                         \
                                                                \
-__attribute__((constructor))                                   \
-static void initializeStaticNanoapp##appName() {               \
-  static UniquePtr<Nanoapp> nanoapp = MakeUnique<Nanoapp>();   \
+UniquePtr<Nanoapp> initializeStaticNanoapp##appName() {        \
+  UniquePtr<Nanoapp> nanoapp = MakeUnique<Nanoapp>();   \
   static struct chreNslNanoappInfo appInfo;                    \
   appInfo.magic = CHRE_NSL_NANOAPP_INFO_MAGIC;                 \
   appInfo.structMinorVersion =                                 \
@@ -46,6 +44,7 @@ static void initializeStaticNanoapp##appName() {               \
   appInfo.vendor = "Google"; /* TODO: make this configurable */\
   appInfo.name = #appName;                                     \
   appInfo.isSystemNanoapp = true;                              \
+  appInfo.isTcmNanoapp = isSlpiUimgSupported();                \
   appInfo.appId = appId_;                                      \
   appInfo.appVersion = appVersion_;                            \
   appInfo.entryPoints.start = nanoappStart;                    \
@@ -55,9 +54,11 @@ static void initializeStaticNanoapp##appName() {               \
     FATAL_ERROR("Failed to allocate nanoapp " #appName);       \
   } else {                                                     \
     nanoapp->loadStatic(&appInfo);                             \
-    gNanoapp##appName = &nanoapp;                              \
   }                                                            \
+                                                               \
+  return nanoapp;                                              \
 }                                                              \
+                                                               \
 }  // namespace chre
 
 #endif  // CHRE_PLATFORM_SLPI_STATIC_NANOAPP_INIT_H_

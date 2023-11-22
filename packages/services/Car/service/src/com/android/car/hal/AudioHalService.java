@@ -101,9 +101,12 @@ public class AudioHalService extends HalServiceBase {
 
     public static final int STREAM_NUM_DEFAULT = 0;
 
-    public static final int FOCUS_STATE_ARRAY_INDEX_STATE = 0;
-    public static final int FOCUS_STATE_ARRAY_INDEX_STREAMS = 1;
-    public static final int FOCUS_STATE_ARRAY_INDEX_EXTERNAL_FOCUS = 2;
+    public static final int FOCUS_STATE_ARRAY_INDEX_STATE =
+            VehicleAudioFocusIndex.FOCUS;
+    public static final int FOCUS_STATE_ARRAY_INDEX_STREAMS =
+            VehicleAudioFocusIndex.STREAMS;
+    public static final int FOCUS_STATE_ARRAY_INDEX_EXTERNAL_FOCUS =
+            VehicleAudioFocusIndex.EXTERNAL_FOCUS_STATE;
 
     public static final int AUDIO_CONTEXT_MUSIC_FLAG =
             VehicleAudioContextFlag.MUSIC_FLAG;
@@ -131,6 +134,8 @@ public class AudioHalService extends HalServiceBase {
             VehicleAudioContextFlag.SYSTEM_SOUND_FLAG;
     public static final int AUDIO_CONTEXT_EXT_SOURCE_FLAG =
             VehicleAudioContextFlag.EXT_SOURCE_FLAG;
+    public static final int AUDIO_CONTEXT_RINGTONE_FLAG =
+            VehicleAudioContextFlag.RINGTONE_FLAG;
 
     public interface AudioHalFocusListener {
         /**
@@ -261,6 +266,8 @@ public class AudioHalService extends HalServiceBase {
                 return VehicleAudioContextFlag.RADIO_FLAG;
             case CarAudioManager.CAR_AUDIO_USAGE_VOICE_CALL:
                 return VehicleAudioContextFlag.CALL_FLAG;
+            case CarAudioManager.CAR_AUDIO_USAGE_RINGTONE:
+                return VehicleAudioContextFlag.RINGTONE_FLAG;
             case CarAudioManager.CAR_AUDIO_USAGE_MUSIC:
                 return VehicleAudioContextFlag.MUSIC_FLAG;
             case CarAudioManager.CAR_AUDIO_USAGE_NAVIGATION_GUIDANCE:
@@ -281,15 +288,15 @@ public class AudioHalService extends HalServiceBase {
                 if (extType != null) {
                     switch (extType) {
                     case CarAudioManager.CAR_EXTERNAL_SOURCE_TYPE_CD_DVD:
-                        return AudioHalService.AUDIO_CONTEXT_CD_ROM_FLAG;
+                        return VehicleAudioContextFlag.CD_ROM_FLAG;
                     case CarAudioManager.CAR_EXTERNAL_SOURCE_TYPE_AUX_IN0:
                     case CarAudioManager.CAR_EXTERNAL_SOURCE_TYPE_AUX_IN1:
-                        return AudioHalService.AUDIO_CONTEXT_AUX_AUDIO_FLAG;
+                        return VehicleAudioContextFlag.AUX_AUDIO_FLAG;
                     default:
                         if (extType.startsWith("RADIO_")) {
                             return VehicleAudioContextFlag.RADIO_FLAG;
                         } else {
-                            return AudioHalService.AUDIO_CONTEXT_EXT_SOURCE_FLAG;
+                            return VehicleAudioContextFlag.EXT_SOURCE_FLAG;
                         }
                     }
                 } else { // no external source specified. fall back to radio
@@ -323,6 +330,8 @@ public class AudioHalService extends HalServiceBase {
                 return CarAudioManager.CAR_AUDIO_USAGE_EXTERNAL_AUDIO_SOURCE;
             case VehicleAudioContextFlag.CALL_FLAG:
                 return CarAudioManager.CAR_AUDIO_USAGE_VOICE_CALL;
+            case VehicleAudioContextFlag.RINGTONE_FLAG:
+                return CarAudioManager.CAR_AUDIO_USAGE_RINGTONE;
             case VehicleAudioContextFlag.CD_ROM_FLAG:
                 return CarAudioManager.CAR_AUDIO_USAGE_EXTERNAL_AUDIO_SOURCE;
             case VehicleAudioContextFlag.NOTIFICATION_FLAG:
@@ -476,7 +485,7 @@ public class AudioHalService extends HalServiceBase {
             VehiclePropValue propValue = mVehicleHal.get(VehicleProperty.AUDIO_FOCUS);
             return toIntArray(propValue.value.int32Values);
         } catch (PropertyTimeoutException e) {
-            Log.e(CarLog.TAG_AUDIO, "VehicleProperty.AUDIO_HW_VARIANT not ready", e);
+            Log.e(CarLog.TAG_AUDIO, "VehicleProperty.AUDIO_FOCUS not ready", e);
             return new int[] { VEHICLE_AUDIO_FOCUS_STATE_LOSS, 0x0, 0};
         }
     }
@@ -708,9 +717,9 @@ public class AudioHalService extends HalServiceBase {
                 } break;
                 case AUDIO_VOLUME: {
                     ArrayList<Integer> vec = v.value.int32Values;
-                    int volume = vec.get(VehicleAudioVolumeIndex.INDEX_VOLUME);
-                    int streamNum = vec.get(VehicleAudioVolumeIndex.INDEX_STREAM);
-                    int volumeState = vec.get(VehicleAudioVolumeIndex.INDEX_STATE);
+                    int streamNum = vec.get(VehicleAudioVolumeIndex.STREAM);
+                    int volume = vec.get(VehicleAudioVolumeIndex.VOLUME);
+                    int volumeState = vec.get(VehicleAudioVolumeIndex.STATE);
                     if (volumeListener != null) {
                         volumeListener.onVolumeChange(streamNum, volume, volumeState);
                     }

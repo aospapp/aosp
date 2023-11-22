@@ -175,7 +175,7 @@ public class AudioTestFragment extends Fragment {
                     //ignore for now
                 }
 
-                mMusicPlayer = new AudioPlayer(mContext, R.raw.john_harrison_with_the_wichita_state_university_chamber_players_05_summer_mvt_2_adagio,
+                mMusicPlayer = new AudioPlayer(mContext, R.raw.well_worth_the_wait,
                         mMusicAudioAttrib);
                 mMusicPlayerShort = new AudioPlayer(mContext, R.raw.ring_classic_01,
                         mMusicAudioAttrib);
@@ -219,7 +219,9 @@ public class AudioTestFragment extends Fragment {
         mMediaPlay.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
-                mMusicPlayer.start(false, true, AudioManager.AUDIOFOCUS_GAIN);
+                boolean requestFocus = true;
+                boolean repeat = true;
+                mMusicPlayer.start(requestFocus, repeat, AudioManager.AUDIOFOCUS_GAIN);
             }
         });
         mMediaPlayOnce = (Button) view.findViewById(R.id.button_media_play_once);

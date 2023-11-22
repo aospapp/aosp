@@ -22,5 +22,6 @@
 LOCAL_DEX_PREOPT := false
 LOCAL_PROGUARD_ENABLED := disabled
 
+-include cts/error_prone_rules_tests.mk
 include $(BUILD_PACKAGE)
 

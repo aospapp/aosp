@@ -25,6 +25,7 @@ import android.app.DialogFragment;
 import android.app.Fragment;
 import android.app.FragmentTransaction;
 import android.content.ActivityNotFoundException;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -75,8 +76,7 @@ public class PackageInstallerActivity extends OverlayTouchActivity implements On
 
     private static final int REQUEST_TRUST_EXTERNAL_SOURCE = 1;
 
-    private static final String SCHEME_FILE = "file";
-    private static final String SCHEME_PACKAGE = "package";
+    static final String SCHEME_PACKAGE = "package";
 
     static final String EXTRA_CALLING_PACKAGE = "EXTRA_CALLING_PACKAGE";
     static final String EXTRA_ORIGINAL_SOURCE_INFO = "EXTRA_ORIGINAL_SOURCE_INFO";
@@ -125,6 +125,7 @@ public class PackageInstallerActivity extends OverlayTouchActivity implements On
     private static final int DLG_ANONYMOUS_SOURCE = DLG_BASE + 6;
     private static final int DLG_NOT_SUPPORTED_ON_WEAR = DLG_BASE + 7;
     private static final int DLG_EXTERNAL_SOURCE_BLOCKED = DLG_BASE + 8;
+    private static final int DLG_INSTALL_APPS_RESTRICTED_FOR_USER = DLG_BASE + 9;
 
     // If unknown sources are temporary allowed
     private boolean mAllowUnknownSources;
@@ -272,6 +273,9 @@ public class PackageInstallerActivity extends OverlayTouchActivity implements On
                         mPm.getApplicationLabel(mPkgInfo.applicationInfo));
             case DLG_NOT_SUPPORTED_ON_WEAR:
                 return NotSupportedOnWearDialog.newInstance();
+            case DLG_INSTALL_APPS_RESTRICTED_FOR_USER:
+                return SimpleErrorDialog.newInstance(
+                        R.string.install_apps_user_restriction_dlg_text);
             case DLG_UNKNOWN_SOURCES_RESTRICTED_FOR_USER:
                 return SimpleErrorDialog.newInstance(
                         R.string.unknown_apps_user_restriction_dlg_text);
@@ -285,9 +289,6 @@ public class PackageInstallerActivity extends OverlayTouchActivity implements On
 
     @Override
     public void onActivityResult(int request, int result, Intent data) {
-        // currently just a hook for partners to implement "allow once" feature
-        // TODO: Use this to resume install request when user has explicitly trusted the source
-        // by changing the settings
         if (request == REQUEST_TRUST_EXTERNAL_SOURCE && result == RESULT_OK) {
             mAllowUnknownSources = true;
 
@@ -332,13 +333,6 @@ public class PackageInstallerActivity extends OverlayTouchActivity implements On
             }
         }
         return true;
-    }
-
-    /**
-     * @return whether the device admin restricts installation from unknown sources
-     */
-    private boolean isUnknownSourcesDisallowed() {
-        return mUserManager.hasUserRestriction(UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES);
     }
 
     private void initiateInstall() {
@@ -490,24 +484,32 @@ public class PackageInstallerActivity extends OverlayTouchActivity implements On
      * show the appropriate dialog.
      */
     private void checkIfAllowedAndInitiateInstall() {
-        if (mAllowUnknownSources || !isInstallRequestFromUnknownSource(getIntent())) {
-            initiateInstall();
+        // Check for install apps user restriction first.
+        final int installAppsRestrictionSource = mUserManager.getUserRestrictionSource(
+                UserManager.DISALLOW_INSTALL_APPS, Process.myUserHandle());
+        if ((installAppsRestrictionSource & UserManager.RESTRICTION_SOURCE_SYSTEM) != 0) {
+            showDialogInner(DLG_INSTALL_APPS_RESTRICTED_FOR_USER);
+            return;
+        } else if (installAppsRestrictionSource != UserManager.RESTRICTION_NOT_SET) {
+            startActivity(new Intent(Settings.ACTION_SHOW_ADMIN_SUPPORT_DETAILS));
+            finish();
             return;
         }
-        // If the admin prohibits it, just show error and exit.
-        if (isUnknownSourcesDisallowed()) {
-            if ((mUserManager.getUserRestrictionSource(UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES,
-                    Process.myUserHandle()) & UserManager.RESTRICTION_SOURCE_SYSTEM) != 0) {
-                // Someone set user restriction via UserManager#setUserRestriction. We don't want to
-                // break apps that might already be doing this
+
+        if (mAllowUnknownSources || !isInstallRequestFromUnknownSource(getIntent())) {
+            initiateInstall();
+        } else {
+            // Check for unknown sources restriction
+            final int unknownSourcesRestrictionSource = mUserManager.getUserRestrictionSource(
+                    UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES, Process.myUserHandle());
+            if ((unknownSourcesRestrictionSource & UserManager.RESTRICTION_SOURCE_SYSTEM) != 0) {
                 showDialogInner(DLG_UNKNOWN_SOURCES_RESTRICTED_FOR_USER);
-                return;
-            } else {
+            } else if (unknownSourcesRestrictionSource != UserManager.RESTRICTION_NOT_SET) {
                 startActivity(new Intent(Settings.ACTION_SHOW_ADMIN_SUPPORT_DETAILS));
                 finish();
+            } else {
+                handleUnknownSources();
             }
-        } else {
-            handleUnknownSources();
         }
     }
 
@@ -517,7 +519,10 @@ public class PackageInstallerActivity extends OverlayTouchActivity implements On
             showDialogInner(DLG_ANONYMOUS_SOURCE);
             return;
         }
-        int appOpMode = mAppOpsManager.checkOpNoThrow(AppOpsManager.OP_REQUEST_INSTALL_PACKAGES,
+        // Shouldn't use static constant directly, see b/65534401.
+        final int appOpCode =
+                AppOpsManager.permissionToOpCode(Manifest.permission.REQUEST_INSTALL_PACKAGES);
+        final int appOpMode = mAppOpsManager.checkOpNoThrow(appOpCode,
                 mOriginatingUid, mOriginatingPackage);
         switch (appOpMode) {
             case AppOpsManager.MODE_DEFAULT:
@@ -531,7 +536,7 @@ public class PackageInstallerActivity extends OverlayTouchActivity implements On
                 } catch (RemoteException exc) {
                     Log.e(TAG, "Unable to talk to package manager");
                 }
-                mAppOpsManager.setMode(AppOpsManager.OP_REQUEST_INSTALL_PACKAGES, mOriginatingUid,
+                mAppOpsManager.setMode(appOpCode, mOriginatingUid,
                         mOriginatingPackage, AppOpsManager.MODE_ERRORED);
                 // fall through
             case AppOpsManager.MODE_ERRORED:
@@ -579,7 +584,7 @@ public class PackageInstallerActivity extends OverlayTouchActivity implements On
                         mPm.getApplicationIcon(mPkgInfo.applicationInfo));
             } break;
 
-            case SCHEME_FILE: {
+            case ContentResolver.SCHEME_FILE: {
                 File sourceFile = new File(packageUri.getPath());
                 PackageParser.Package parsed = PackageUtil.getPackageInfo(this, sourceFile);
 
@@ -597,10 +602,7 @@ public class PackageInstallerActivity extends OverlayTouchActivity implements On
             } break;
 
             default: {
-                Log.w(TAG, "Unsupported scheme " + scheme);
-                setPmResult(PackageManager.INSTALL_FAILED_INVALID_URI);
-                finish();
-                return false;
+                throw new IllegalArgumentException("Unexpected URI scheme " + packageUri);
             }
         }
 
@@ -713,6 +715,11 @@ public class PackageInstallerActivity extends OverlayTouchActivity implements On
                                     .initiateInstall()))
                     .setNegativeButton(R.string.cancel, ((dialog, which) -> getActivity().finish()))
                     .create();
+        }
+
+        @Override
+        public void onCancel(DialogInterface dialog) {
+            getActivity().finish();
         }
     }
 

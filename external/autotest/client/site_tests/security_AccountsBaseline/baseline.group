@@ -54,6 +54,7 @@ nfqueue:!:232:
 tlsdate-dbus:!:233:
 tlsdate:!:234:
 debugd-logs:!:235:
+firewall:!:236:
 debugfs-access:!:605:
 shill-crypto:!:237:
 avahi:!:238:
@@ -80,7 +81,8 @@ dnsmasq:!:268:dnsmasq
 lpadmin:!:269:cups,lpadmin
 cups:!:277:
 biod:!:282:
-arc-camera:!:603:
+devicejail:!:283:
+arc-camera:!:603:chronos
 ntfs-3g:!:300:
 avfs:!:301:
 fuse-exfat:!:302:
@@ -97,4 +99,8 @@ imageloaderd:!:220:
 arc-networkd:!:284:
 authpolicyd-exec:!:607:
 touch_keyboard:!:285:touch_keyboard
+rtanalytics:!:289:rtanalytics
 midis:!:608:chronos
+atrus:!:286:atrus
+cfm-firmware-updaters:!:288:cfm-firmware-updaters
+touch_firmware_calibration:!:290:touch_firmware_calibration

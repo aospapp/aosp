@@ -27,9 +27,9 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"Наступнай праграме спатрэбіцца доступ да гэтага профілю:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Наступная праграма будзе кіраваць вашай прыладай:"</string>
     <string name="next" msgid="1004321437324424398">"Далей"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"Наладжванне працоўнага профілю..."</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"Ідзе наладжванне працоўнага профілю…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"У вашага адміністратара ёсць магчымасць маніторынгу і адміністравання налад, карпаратыўнага доступу, праграм, дазволаў і даных, звязаных з гэтым профілем, у тым ліку інфармацыі пра вашу сеткавую актыўнасць, а таксама месцазнаходжанне прылады, гісторыю выклікаў і гісторыю пошуку кантактаў.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Звярніцеся да свайго адміністратара для атрымання дадатковай інфармацыі, у тым ліку палітыкі прыватнасці вашай арганізацыі."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"У вашага адміністратара ёсць магчымасць маніторынгу і адміністравання налад, карпаратыўнага доступу, праграм, дазволаў і даных, звязаных з гэтай прыладай, у тым ліку інфармацыі пра вашу сеткавую актыўнасць, а таксама месцазнаходжанне прылады, гісторыю выклікаў і гісторыю пошуку кантактаў.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Звярніцеся да свайго адміністратара для атрымання дадатковай інфармацыі, у тым ліку палітыкі прыватнасці вашай арганізацыі."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"У вашага адміністратара ёсць магчымасць маніторынгу і адміністравання налад, карпаратыўнага доступу, праграм, дазволаў і даных, звязаных з гэтай прыладай, у тым ліку інфармацыі пра вашу сеткавую актыўнасць, а таксама месцазнаходжанне прылады, гісторыю выклікаў і гісторыю пошуку кантактаў.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Звярніцеся да свайго адміністратара для атрымання дадатковай інфармацыі, у тым ліку палітыкі прыватнасці вашай арганізацыі."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Для выкарыстання функцыі абароны ад крадзяжу вы павінны мець абароненую паролем блакіроўку экрана вашай прылады."</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Звярніцеся да адміністратара для атрымання дадатковай інфармацыі, у тым ліку пра палітыкі прыватнасці вашай арганізацыі."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Даведацца больш"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Працоўны профіль"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"Асноўны карыстальнік"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Выдаліць існы профіль?"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"У вас ужо ёсць працоўны профіль, які знаходзіцца пад кіраваннем з выкарыстаннем наступнай праграмы:"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"У вас ужо ёсць працоўны профіль. Ён знаходзіцца пад кіраваннем з выкарыстаннем наступнай праграмы:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Перш чым працягнуць, "<a href="#read_this_link">"прачытайце гэта"</a>"."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Калі вы працягнеце, усе праграмы і даныя ў гэтым профілі будуць выдалены."</string>
     <string name="delete_profile" msgid="2299218578684663459">"Выдаліць"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"Краніце, каб працягнуць наладжванне рабочага профілю"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Не атрымалася наладзіць ваш працоўны профіль. Звярніцеся ў аддзел ІТ або паўтарыце спробу пазней."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Немагчыма дадаць працоўны профіль"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"Гэты карыстальнік не можа мець працоўны профіль. Звярніцеся да адміністратара па дапамогу."</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"Гэты карыстальнік не можа мець працоўныя профілі. Звярніцеся да адміністратара."</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"Працоўныя профілі нельга наладзіць на кіраванай прыладзе"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"На гэтай прыладзе можа быць занадта шмат карыстальнікаў. Выдаліце карыстальніка і паўтарыце спробу."</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Немагчыма замяніць ці выдаліць працоўны профіль"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"На гэту прыладу немагчыма дадаць працоўны профіль. Калі ў вас ёсць пытанні, звярніцеся да адміністратара."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Змяніце праграму запуску на прыладзе"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Гэту праграму запуску немагчыма выкарыстоўваць у вашым працоўным профілі"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Скасаваць"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"ОК"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Наладжванне карыстальніка не завершана"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Карыстальнік працоўнай прылады"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"Наладжванне працоўнай прылады"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"Ідзе наладжванне працоўнай прылады…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Апрацоўка даных наладжвання..."</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Падлучэнне да Wi-Fi..."</string>
     <string name="progress_download" msgid="3522436271691064624">"Спампоўка праграмы для адміністравання..."</string>
@@ -134,8 +132,7 @@
     <string name="comp_profile_benefits_description" msgid="379837075456998273">"Выкарыстоўваючы працоўны профіль працы, вы можаце захоўваць свае працоўныя праграмы ў адным месцы"</string>
     <string name="setup_profile_encryption" msgid="5241291404536277038">"Наладжванне профілю. Шыфраванне"</string>
     <string name="setup_profile_progress" msgid="7742718527853325656">"Наладжванне профілю. Паказ ходу выканання"</string>
-    <!-- no translation found for setup_device (6725265673245816366) -->
-    <skip />
+    <string name="setup_device" msgid="6725265673245816366">"Наладжванне прылады"</string>
     <string name="setup_device_encryption" msgid="7852944465414197103">"Наладжванне прылады. Шыфраванне"</string>
     <string name="setup_device_progress" msgid="7035335208571175393">"Наладжванне прылады. Паказ ходу выканання"</string>
     <string name="learn_more_label" msgid="2723716758654655009">"Кнопка «Даведацца больш»"</string>
@@ -154,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"Скасаваць"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"Скід налад прылады"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> і <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> і <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> і <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

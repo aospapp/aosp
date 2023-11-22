@@ -16,8 +16,6 @@ package cc
 
 import (
 	"android/soong/android"
-
-	"github.com/google/blueprint"
 )
 
 func init() {
@@ -65,8 +63,13 @@ func (p *prebuiltLibraryLinker) link(ctx ModuleContext,
 	return nil
 }
 
-func prebuiltSharedLibraryFactory() (blueprint.Module, []interface{}) {
-	module, library := NewLibrary(android.HostAndDeviceSupported)
+func prebuiltSharedLibraryFactory() android.Module {
+	module, _ := NewPrebuiltSharedLibrary(android.HostAndDeviceSupported)
+	return module.Init()
+}
+
+func NewPrebuiltSharedLibrary(hod android.HostOrDeviceSupported) (*Module, *libraryDecorator) {
+	module, library := NewLibrary(hod)
 	library.BuildOnlyShared()
 	module.compiler = nil
 
@@ -75,11 +78,16 @@ func prebuiltSharedLibraryFactory() (blueprint.Module, []interface{}) {
 	}
 	module.linker = prebuilt
 
+	return module, library
+}
+
+func prebuiltStaticLibraryFactory() android.Module {
+	module, _ := NewPrebuiltStaticLibrary(android.HostAndDeviceSupported)
 	return module.Init()
 }
 
-func prebuiltStaticLibraryFactory() (blueprint.Module, []interface{}) {
-	module, library := NewLibrary(android.HostAndDeviceSupported)
+func NewPrebuiltStaticLibrary(hod android.HostOrDeviceSupported) (*Module, *libraryDecorator) {
+	module, library := NewLibrary(hod)
 	library.BuildOnlyStatic()
 	module.compiler = nil
 
@@ -88,7 +96,7 @@ func prebuiltStaticLibraryFactory() (blueprint.Module, []interface{}) {
 	}
 	module.linker = prebuilt
 
-	return module.Init()
+	return module, library
 }
 
 type prebuiltBinaryLinker struct {
@@ -114,8 +122,13 @@ func (p *prebuiltBinaryLinker) link(ctx ModuleContext,
 	return nil
 }
 
-func prebuiltBinaryFactory() (blueprint.Module, []interface{}) {
-	module, binary := NewBinary(android.HostAndDeviceSupported)
+func prebuiltBinaryFactory() android.Module {
+	module, _ := NewPrebuiltBinary(android.HostAndDeviceSupported)
+	return module.Init()
+}
+
+func NewPrebuiltBinary(hod android.HostOrDeviceSupported) (*Module, *binaryDecorator) {
+	module, binary := NewBinary(hod)
 	module.compiler = nil
 
 	prebuilt := &prebuiltBinaryLinker{
@@ -123,5 +136,5 @@ func prebuiltBinaryFactory() (blueprint.Module, []interface{}) {
 	}
 	module.linker = prebuilt
 
-	return module.Init()
+	return module, binary
 }

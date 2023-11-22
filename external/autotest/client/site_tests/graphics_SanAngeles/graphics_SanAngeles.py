@@ -12,13 +12,12 @@ from autotest_lib.client.cros import service_stopper
 from autotest_lib.client.cros.graphics import graphics_utils
 
 
-class graphics_SanAngeles(test.test):
+class graphics_SanAngeles(graphics_utils.GraphicsTest):
     """
     Benchmark OpenGL object rendering.
     """
     version = 2
     preserve_srcdir = True
-    GSC = None
 
     def setup(self):
         os.chdir(self.srcdir)
@@ -26,7 +25,7 @@ class graphics_SanAngeles(test.test):
         utils.make('all')
 
     def initialize(self):
-        self.GSC = graphics_utils.GraphicsStateChecker()
+        super(graphics_SanAngeles, self).initialize()
         # If UI is running, we must stop it and restore later.
         self._services = service_stopper.ServiceStopper(['ui'])
         self._services.stop_services()
@@ -34,17 +33,9 @@ class graphics_SanAngeles(test.test):
     def cleanup(self):
         if self._services:
             self._services.restore_services()
-        if self.GSC:
-            keyvals = self.GSC.get_memory_keyvals()
-            for key, val in keyvals.iteritems():
-                self.output_perf_value(
-                    description=key,
-                    value=val,
-                    units='bytes',
-                    higher_is_better=False)
-            self.GSC.finalize()
-            self.write_perf_keyval(keyvals)
+        super(graphics_SanAngeles, self).cleanup()
 
+    @graphics_utils.GraphicsTest.failure_report_decorator('graphics_SanAngeles')
     def run_once(self):
         cmd_gl = os.path.join(self.srcdir, 'SanOGL')
         cmd_gles = os.path.join(self.srcdir, 'SanOGLES')
@@ -62,7 +53,6 @@ class graphics_SanAngeles(test.test):
                 (cmd_gl, cmd_gles, cmd_gles_s))
 
         cmd += ' ' + utils.graphics_platform()
-        cmd = graphics_utils.xcommand(cmd)
         result = utils.run(cmd,
                            stderr_is_expected=False,
                            stdout_tee=utils.TEE_TO_LOGS,

@@ -20,11 +20,14 @@
         <option name="test-file-name" value="CtsDeviceServicesTestApp.apk" />
         <option name="test-file-name" value="CtsDeviceServicesTestSecondApp.apk" />
         <option name="test-file-name" value="CtsDeviceServicesTestThirdApp.apk" />
+        <option name="test-file-name" value="CtsDeviceDebuggableApp.apk" />
         <option name="test-file-name" value="CtsDeviceDisplaySizeApp.apk" />
+        <option name="test-file-name" value="CtsDisplayServiceApp.apk" />
         <option name="test-file-name" value="CtsDeviceTranslucentTestApp.apk" />
+        <option name="test-file-name" value="CtsDeviceTranslucentTestApp26.apk" />
     </target_preparer>
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
         <option name="jar" value="CtsServicesHostTestCases.jar" />
-        <option name="runtime-hint" value="4m7s" />
+        <option name="runtime-hint" value="4m44s" />
     </test>
 </configuration>

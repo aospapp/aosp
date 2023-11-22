@@ -57,7 +57,6 @@ def main():
             "android.control.aeMode": 0,
             "android.control.awbMode": 0,
             "android.control.afMode": 0,
-            "android.sensor.frameDuration": 0,
             "android.sensor.sensitivity": manual_sensitivity,
             "android.sensor.exposureTime": manual_exp_time,
             "android.colorCorrection.mode": 0,

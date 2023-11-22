@@ -4,7 +4,14 @@
     android:versionCode="1"
     android:versionName="1.0">
 
-    <uses-sdk android:minSdkVersion="17" android:targetSdkVersion="23" />
+    <uses-feature
+        android:name="android.software.leanback"
+        android:required="true"/>
+
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="false"/>
+
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
@@ -108,25 +115,9 @@
             android:launchMode="singleTask"
             android:exported="true" />
 
-        <activity android:name="PlaybackOverlayActivity"
-            android:configChanges=
-                "screenSize|smallestScreenSize|screenLayout|orientation"
-            android:resizeableActivity="true"
-            android:supportsPictureInPicture="true"
-            android:launchMode="singleTask"
-            android:exported="true" />
-
-        <activity android:name="PlaybackOverlaySupportActivity"
-            android:configChanges=
-                "screenSize|smallestScreenSize|screenLayout|orientation"
-            android:resizeableActivity="true"
-            android:supportsPictureInPicture="true"
-            android:launchMode="singleTask"
-            android:exported="true" />
-
         <activity android:name="VerticalGridActivity"
-            android:theme="@style/Theme.Example.Leanback.VerticalGrid"
-            android:exported="true" />
+                  android:theme="@style/Theme.Example.Leanback.VerticalGrid"
+                  android:exported="true" />
 
         <activity android:name="VerticalGridSupportActivity"
             android:theme="@style/Theme.Example.Leanback.VerticalGrid"
@@ -190,5 +181,14 @@
 
         <activity android:name=".VideoSupportActivity"
             android:exported="true" />
+
+        <activity android:name=".VideoActivityWithDetailedCard"
+                  android:exported="true" />
+        <activity
+            android:name=".MusicExampleActivity"
+            android:exported="true"/>
+
+        <service android:exported="false" android:name=".MediaSessionService"/>
+
     </application>
 </manifest>

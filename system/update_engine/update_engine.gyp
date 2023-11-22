@@ -23,13 +23,7 @@
       # The -DUSE_* flags are passed from platform2.py. We use sane defaults
       # here when these USE flags are not defined. You can set the default value
       # for the USE flag in the ebuild.
-      'USE_binder%': '0',
-      'USE_dbus%': '1',
       'USE_hwid_override%': '0',
-      'USE_libcros%': '1',
-      'USE_mtd%': '0',
-      'USE_power_management%': '0',
-      'USE_buffet%': '0',
     },
     'cflags': [
       '-g',
@@ -57,7 +51,6 @@
       'USE_MTD=<(USE_mtd)',
       'USE_OMAHA=1',
       'USE_SHILL=1',
-      'USE_WEAVE=<(USE_buffet)',
     ],
     'include_dirs': [
       # We need this include dir because we include all the local code as
@@ -119,6 +112,17 @@
           ],
           'includes': ['../../../platform2/common-mk/generate-dbus-proxies.gypi'],
         },
+        {
+          'action_name': 'update_engine-dbus-network_proxy-client',
+          'variables': {
+            'mock_output_file': 'include/network_proxy/dbus-proxy-mocks.h',
+            'proxy_output_file': 'include/network_proxy/dbus-proxies.h'
+          },
+          'sources': [
+            'dbus_bindings/org.chromium.NetworkProxyService.dbus-xml',
+          ],
+          'includes': ['../../../platform2/common-mk/generate-dbus-proxies.gypi'],
+        },
       ],
     },
     # The payload application component and common dependencies.
@@ -133,7 +137,6 @@
       'variables': {
         'exported_deps': [
           'libcrypto',
-          'libimgpatch',
           'xz-embedded',
         ],
         'deps': ['<@(exported_deps)'],
@@ -152,6 +155,7 @@
           ],
         },
         'libraries': [
+          '-lbspatch',
           '-lbz2',
           '-lrt',
         ],
@@ -257,7 +261,6 @@
         'dbus_service.cc',
         'hardware_chromeos.cc',
         'image_properties_chromeos.cc',
-        'libcros_proxy.cc',
         'libcurl_http_fetcher.cc',
         'metrics.cc',
         'metrics_utils.cc',
@@ -287,19 +290,8 @@
         'update_manager/state_factory.cc',
         'update_manager/update_manager.cc',
         'update_status_utils.cc',
-        'weave_service_factory.cc',
       ],
       'conditions': [
-        ['USE_buffet == 1', {
-          'sources': [
-            'weave_service.cc',
-          ],
-          'variables': {
-            'exported_deps': [
-              'libweave-<(libbase_ver)',
-            ],
-          },
-        }],
         ['USE_libcros == 1', {
           'dependencies': [
             'update_engine-other-dbus-proxies',

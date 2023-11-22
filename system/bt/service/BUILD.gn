@@ -26,7 +26,6 @@ source_set("service") {
     "common/bluetooth/scan_result.cc",
     "common/bluetooth/scan_settings.cc",
     "common/bluetooth/service.cc",
-    "common/bluetooth/util/address_helper.cc",
     "common/bluetooth/util/atomic_string.cc",
     "common/bluetooth/uuid.cc",
     "daemon.cc",
@@ -35,6 +34,8 @@ source_set("service") {
     "gatt_server_old.cc",
     "hal/bluetooth_gatt_interface.cc",
     "hal/bluetooth_interface.cc",
+    "ipc/dbus/bluetooth_adapter.cc",
+    "ipc/dbus/ipc_handler_dbus.cc",
     "hal/fake_bluetooth_gatt_interface.cc",
     "hal/fake_bluetooth_interface.cc",
     "ipc/ipc_handler.cc",
@@ -56,7 +57,8 @@ source_set("service") {
   ]
 
   deps = [
-    "//third_party/libchrome:base"
+    "//types",
+    "//third_party/libchrome:base",
   ]
 }
 

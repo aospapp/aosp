@@ -191,7 +191,7 @@ public class TimestampClockSourceVerificationTest extends TestCase {
             for (int i = 0; i < indices.length; i++) {
                 assertEquals(indices[i], actualIndices[i]);
             }
-        } catch (Throwable t) {
+        } catch (Exception t) {
         }
     }
 

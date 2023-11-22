@@ -138,6 +138,8 @@ int cil_gen_aliasactual(struct cil_db *db, struct cil_tree_node *parse_current, 
 void cil_destroy_aliasactual(struct cil_aliasactual *aliasactual);
 int cil_gen_typeattributeset(struct cil_db *db, struct cil_tree_node *parse_current, struct cil_tree_node *ast_node);
 void cil_destroy_typeattributeset(struct cil_typeattributeset *attrtypes);
+int cil_gen_expandtypeattribute(struct cil_db *db, struct cil_tree_node *parse_current, struct cil_tree_node *ast_node);
+void cil_destroy_expandtypeattribute(struct cil_expandtypeattribute *expandattr);
 int cil_gen_typebounds(struct cil_db *db, struct cil_tree_node *parse_current, struct cil_tree_node *ast_node);
 int cil_gen_typepermissive(struct cil_db *db, struct cil_tree_node *parse_current, struct cil_tree_node *ast_node);
 void cil_destroy_typepermissive(struct cil_typepermissive *typeperm);
@@ -221,8 +223,8 @@ void cil_destroy_src_info(struct cil_src_info *info);
 int cil_fill_cats(struct cil_tree_node *curr, struct cil_cats **cats);
 void cil_destroy_cats(struct cil_cats *cats);
 int cil_fill_context(struct cil_tree_node *user_node, struct cil_context *context);
-int cil_fill_integer(struct cil_tree_node *int_node, uint32_t *integer);
-int cil_fill_integer64(struct cil_tree_node *int_node, uint64_t *integer);
+int cil_fill_integer(struct cil_tree_node *int_node, uint32_t *integer, int base);
+int cil_fill_integer64(struct cil_tree_node *int_node, uint64_t *integer, int base);
 int cil_fill_ipaddr(struct cil_tree_node *addr_node, struct cil_ipaddr *addr);
 int cil_fill_level(struct cil_tree_node *sens, struct cil_level *level);
 

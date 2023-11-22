@@ -20,7 +20,7 @@
 
 #include "jni.h"
 #include "jvm.h"
-#include "JNIHelp.h"
+#include <nativehelper/JNIHelp.h>
 #include "nativehelper/jni_macros.h"
 #include "unicode/uchar.h"
 #include "unicode/uscript.h"

@@ -65,7 +65,7 @@ typedef struct {
 } sco_socket_t;
 
 static sco_socket_t* sco_socket_establish_locked(bool is_listening,
-                                                 const bt_bdaddr_t* bd_addr,
+                                                 const RawAddress* bd_addr,
                                                  int* sock_fd);
 static sco_socket_t* sco_socket_new(void);
 static void sco_socket_free_locked(sco_socket_t* socket);
@@ -116,7 +116,7 @@ bt_status_t btsock_sco_listen(int* sock_fd, UNUSED_ATTR int flags) {
   return BT_STATUS_SUCCESS;
 }
 
-bt_status_t btsock_sco_connect(const bt_bdaddr_t* bd_addr, int* sock_fd,
+bt_status_t btsock_sco_connect(const RawAddress* bd_addr, int* sock_fd,
                                UNUSED_ATTR int flags) {
   CHECK(bd_addr != NULL);
   CHECK(sock_fd != NULL);
@@ -130,7 +130,7 @@ bt_status_t btsock_sco_connect(const bt_bdaddr_t* bd_addr, int* sock_fd,
 
 // Must be called with |lock| held.
 static sco_socket_t* sco_socket_establish_locked(bool is_listening,
-                                                 const bt_bdaddr_t* bd_addr,
+                                                 const RawAddress* bd_addr,
                                                  int* sock_fd) {
   int pair[2] = {INVALID_FD, INVALID_FD};
   sco_socket_t* sco_socket = NULL;
@@ -150,7 +150,7 @@ static sco_socket_t* sco_socket_establish_locked(bool is_listening,
   }
 
   params = esco_parameters_for_codec(ESCO_CODEC_CVSD);
-  status = BTM_CreateSco((uint8_t*)bd_addr, !is_listening, params.packet_types,
+  status = BTM_CreateSco(bd_addr, !is_listening, params.packet_types,
                          &sco_socket->sco_handle, connect_completed_cb,
                          disconnect_completed_cb);
   if (status != BTM_CMD_STARTED) {
@@ -252,7 +252,7 @@ static void connection_request_cb(tBTM_ESCO_EVT event,
 
   sock_connect_signal_t connect_signal;
   connect_signal.size = sizeof(connect_signal);
-  memcpy(&connect_signal.bd_addr, conn_data->bd_addr, sizeof(bt_bdaddr_t));
+  connect_signal.bd_addr = conn_data->bd_addr;
   connect_signal.channel = 0;
   connect_signal.status = 0;
 

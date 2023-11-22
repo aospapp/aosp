@@ -1,6 +1,7 @@
 package com.android.tv.testing.uihelper;
 
 import static com.android.tv.testing.uihelper.UiDeviceAsserts.waitForCondition;
+import static junit.framework.TestCase.assertTrue;
 
 import android.content.Context;
 import android.content.Intent;
@@ -10,6 +11,8 @@ import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.Until;
 import android.util.Log;
+
+import com.android.tv.testing.Utils;
 
 import junit.framework.Assert;
 
@@ -29,6 +32,7 @@ public class LiveChannelsUiDeviceHelper extends BaseUiDeviceHelper {
     }
 
     public void assertAppStarted() {
+        assertTrue("TvActivity should be enabled.", Utils.isTvActivityEnabled(mContext));
         Intent intent = mContext.getPackageManager()
                 .getLaunchIntentForPackage(Constants.TV_APP_PACKAGE);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);    // Clear out any previous instances
@@ -46,6 +50,13 @@ public class LiveChannelsUiDeviceHelper extends BaseUiDeviceHelper {
         if (mUiDevice.hasObject(welcome)) {
             Log.i(TAG, "Welcome screen shown. Clearing dialog by pressing back");
             mUiDevice.pressBack();
+        }
+    }
+
+    public void assertAppStopped() {
+        while(mUiDevice.hasObject(By.pkg(Constants.TV_APP_PACKAGE).depth(0))) {
+            mUiDevice.pressBack();
+            mUiDevice.waitForIdle();
         }
     }
 }

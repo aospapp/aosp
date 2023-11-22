@@ -92,6 +92,11 @@
             android:layout_height="wrap_content"
             android:text="Incoming Call"
             android:id="@+id/placeIncomingCallButton" />
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Handover From"
+            android:id="@+id/handoverFrom" />
     </LinearLayout>
 
     <ListView

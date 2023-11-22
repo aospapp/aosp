@@ -35,7 +35,7 @@ class NetworkChroot(object):
     BIND_ROOT_WRITABLE_DIRECTORIES = frozenset(('dev/pts',))
     # Directories we'll bind mount when we want to bridge DBus namespaces.
     # Includes directories containing the system bus socket and machine ID.
-    DBUS_BRIDGE_DIRECTORIES = ('var/run/dbus/', 'var/lib/dbus/')
+    DBUS_BRIDGE_DIRECTORIES = ('run/dbus/', 'var/lib/dbus/')
 
     ROOT_DIRECTORIES = ('etc',  'tmp', 'var', 'var/log', 'var/run')
     STARTUP = 'etc/chroot_startup.sh'

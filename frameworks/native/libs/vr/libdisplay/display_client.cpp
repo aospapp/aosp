@@ -104,9 +104,16 @@ Status<void> Surface::SetAttributes(const SurfaceAttributes& attributes) {
   return {};
 }
 
-Status<std::unique_ptr<ProducerQueue>> Surface::CreateQueue() {
+Status<std::unique_ptr<ProducerQueue>> Surface::CreateQueue(
+    uint32_t width, uint32_t height, uint32_t format, size_t metadata_size) {
   ALOGD_IF(TRACE, "Surface::CreateQueue: Creating empty queue.");
-  auto status = InvokeRemoteMethod<DisplayProtocol::CreateQueue>(0);
+  auto status = InvokeRemoteMethod<DisplayProtocol::CreateQueue>(
+      ProducerQueueConfigBuilder()
+          .SetDefaultWidth(width)
+          .SetDefaultHeight(height)
+          .SetDefaultFormat(format)
+          .SetMetadataSize(metadata_size)
+          .Build());
   if (!status) {
     ALOGE("Surface::CreateQueue: Failed to create queue: %s",
           status.GetErrorMessage().c_str());
@@ -124,32 +131,24 @@ Status<std::unique_ptr<ProducerQueue>> Surface::CreateQueue() {
 
 Status<std::unique_ptr<ProducerQueue>> Surface::CreateQueue(
     uint32_t width, uint32_t height, uint32_t layer_count, uint32_t format,
-    uint64_t usage, size_t capacity) {
+    uint64_t usage, size_t capacity, size_t metadata_size) {
   ALOGD_IF(TRACE,
            "Surface::CreateQueue: width=%u height=%u layer_count=%u format=%u "
            "usage=%" PRIx64 " capacity=%zu",
            width, height, layer_count, format, usage, capacity);
-  auto status = CreateQueue();
+  auto status = CreateQueue(width, height, format, metadata_size);
   if (!status)
     return status.error_status();
 
   auto producer_queue = status.take();
 
   ALOGD_IF(TRACE, "Surface::CreateQueue: Allocating %zu buffers...", capacity);
-  for (size_t i = 0; i < capacity; i++) {
-    size_t slot;
-    const int ret = producer_queue->AllocateBuffer(width, height, layer_count,
-                                                   format, usage, &slot);
-    if (ret < 0) {
-      ALOGE(
-          "Surface::CreateQueue: Failed to allocate buffer on queue_id=%d: %s",
-          producer_queue->id(), strerror(-ret));
-      return ErrorStatus(ENOMEM);
-    }
-    ALOGD_IF(
-        TRACE,
-        "Surface::CreateQueue: Allocated buffer at slot=%zu of capacity=%zu",
-        slot, capacity);
+  auto allocate_status = producer_queue->AllocateBuffers(
+      width, height, layer_count, format, usage, capacity);
+  if (!allocate_status) {
+    ALOGE("Surface::CreateQueue: Failed to allocate buffer on queue_id=%d: %s",
+          producer_queue->id(), allocate_status.GetErrorMessage().c_str());
+    return allocate_status.error_status();
   }
 
   return {std::move(producer_queue)};
@@ -167,6 +166,19 @@ Status<Metrics> DisplayClient::GetDisplayMetrics() {
   return InvokeRemoteMethod<DisplayProtocol::GetMetrics>();
 }
 
+Status<std::string> DisplayClient::GetConfigurationData(
+    ConfigFileType config_type) {
+  auto status =
+      InvokeRemoteMethod<DisplayProtocol::GetConfigurationData>(config_type);
+  if (!status && status.error() != ENOENT) {
+    ALOGE(
+        "DisplayClient::GetConfigurationData: Unable to get"
+        "configuration data. Error: %s",
+        status.GetErrorMessage().c_str());
+  }
+  return status;
+}
+
 Status<std::unique_ptr<Surface>> DisplayClient::CreateSurface(
     const SurfaceAttributes& attributes) {
   int error;
@@ -176,14 +188,15 @@ Status<std::unique_ptr<Surface>> DisplayClient::CreateSurface(
     return ErrorStatus(error);
 }
 
-Status<std::unique_ptr<IonBuffer>> DisplayClient::GetNamedBuffer(
-    const std::string& name) {
-  auto status = InvokeRemoteMethod<DisplayProtocol::GetNamedBuffer>(name);
+pdx::Status<std::unique_ptr<IonBuffer>> DisplayClient::SetupGlobalBuffer(
+    DvrGlobalBufferKey key, size_t size, uint64_t usage) {
+  auto status =
+      InvokeRemoteMethod<DisplayProtocol::SetupGlobalBuffer>(key, size, usage);
   if (!status) {
     ALOGE(
-        "DisplayClient::GetNamedBuffer: Failed to get named buffer: name=%s; "
-        "error=%s",
-        name.c_str(), status.GetErrorMessage().c_str());
+        "DisplayClient::SetupGlobalBuffer: Failed to create the global buffer "
+        "%s",
+        status.GetErrorMessage().c_str());
     return status.error_status();
   }
 
@@ -192,9 +205,44 @@ Status<std::unique_ptr<IonBuffer>> DisplayClient::GetNamedBuffer(
   const int ret = native_buffer_handle.Import(ion_buffer.get());
   if (ret < 0) {
     ALOGE(
-        "DisplayClient::GetNamedBuffer: Failed to import named buffer: "
-        "name=%s; error=%s",
-        name.c_str(), strerror(-ret));
+        "DisplayClient::GetGlobalBuffer: Failed to import global buffer: "
+        "key=%d; error=%s",
+        key, strerror(-ret));
+    return ErrorStatus(-ret);
+  }
+
+  return {std::move(ion_buffer)};
+}
+
+pdx::Status<void> DisplayClient::DeleteGlobalBuffer(DvrGlobalBufferKey key) {
+  auto status = InvokeRemoteMethod<DisplayProtocol::DeleteGlobalBuffer>(key);
+  if (!status) {
+    ALOGE("DisplayClient::DeleteGlobalBuffer Failed: %s",
+          status.GetErrorMessage().c_str());
+  }
+
+  return status;
+}
+
+Status<std::unique_ptr<IonBuffer>> DisplayClient::GetGlobalBuffer(
+    DvrGlobalBufferKey key) {
+  auto status = InvokeRemoteMethod<DisplayProtocol::GetGlobalBuffer>(key);
+  if (!status) {
+    ALOGE(
+        "DisplayClient::GetGlobalBuffer: Failed to get named buffer: key=%d; "
+        "error=%s",
+        key, status.GetErrorMessage().c_str());
+    return status.error_status();
+  }
+
+  auto ion_buffer = std::make_unique<IonBuffer>();
+  auto native_buffer_handle = status.take();
+  const int ret = native_buffer_handle.Import(ion_buffer.get());
+  if (ret < 0) {
+    ALOGE(
+        "DisplayClient::GetGlobalBuffer: Failed to import global buffer: "
+        "key=%d; error=%s",
+        key, strerror(-ret));
     return ErrorStatus(-ret);
   }
 

@@ -18,12 +18,17 @@ package com.android.compatibility.common.tradefed.presubmit;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.compatibility.common.tradefed.targetprep.ApkInstaller;
+import com.android.compatibility.common.tradefed.testtype.JarHostTest;
+import com.android.tradefed.build.FolderBuildInfo;
 import com.android.tradefed.config.ConfigurationDescriptor;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.ConfigurationFactory;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.targetprep.ITargetPreparer;
+import com.android.tradefed.testtype.HostTest;
+import com.android.tradefed.testtype.IRemoteTest;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -61,6 +66,7 @@ public class CtsConfigLoadingTest {
             "metrics",
             "misc",
             "networking",
+            "neuralnetworks",
             "renderscript",
             "security",
             "systems",
@@ -75,6 +81,7 @@ public class CtsConfigLoadingTest {
     /**
      * Test that configuration shipped in Tradefed can be parsed.
      * -> Exclude deprecated ApkInstaller.
+     * -> Check if host-side tests are non empty.
      */
     @Test
     public void testConfigurationLoad() throws Exception {
@@ -94,10 +101,15 @@ public class CtsConfigLoadingTest {
             }
         });
         assertTrue(listConfig.length > 0);
+        // Create a FolderBuildInfo to similate the CompatibilityBuildProvider
+        FolderBuildInfo stubFolder = new FolderBuildInfo("-1", "-1");
+        stubFolder.setRootDir(new File(ctsRoot));
+        stubFolder.addBuildAttribute(CompatibilityBuildHelper.SUITE_NAME, "CTS");
         // We expect to be able to load every single config in testcases/
         for (File config : listConfig) {
             IConfiguration c = ConfigurationFactory.getInstance()
                     .createConfigurationFromArgs(new String[] {config.getAbsolutePath()});
+            // Ensure the deprecated ApkInstaller is not used anymore.
             for (ITargetPreparer prep : c.getTargetPreparers()) {
                 if (prep.getClass().isAssignableFrom(ApkInstaller.class)) {
                     throw new ConfigurationException(
@@ -105,6 +117,19 @@ public class CtsConfigLoadingTest {
                                     + "SuiteApkInstaller instead of com.android.compatibility."
                                     + "common.tradefed.targetprep.ApkInstaller, options will be "
                                     + "the same.", config));
+                }
+            }
+            // We can ensure that Host side tests are not empty.
+            for (IRemoteTest test : c.getTests()) {
+                if (test instanceof HostTest) {
+                    HostTest hostTest = (HostTest) test;
+                    // We inject a made up folder so that it can find the tests.
+                    hostTest.setBuild(stubFolder);
+                    int testCount = hostTest.countTestCases();
+                    if (testCount == 0) {
+                        throw new ConfigurationException(
+                                String.format("%s: %s reports 0 test cases.", config, test));
+                    }
                 }
             }
             ConfigurationDescriptor cd = c.getConfigurationDescription();
@@ -123,6 +148,17 @@ public class CtsConfigLoadingTest {
             Assert.assertTrue(String.format("Module config contains unknown \"component\" metadata "
                     + "field \"%s\", supported ones are: %s\nconfig: %s",
                     cmp, KNOWN_COMPONENTS, config), KNOWN_COMPONENTS.contains(cmp));
+            // Check not-shardable: JarHostTest cannot create empty shards so it should never need
+            // to be not-shardable.
+            if (cd.isNotShardable()) {
+                for (IRemoteTest test : c.getTests()) {
+                    if (test.getClass().isAssignableFrom(JarHostTest.class)) {
+                        throw new ConfigurationException(
+                                String.format("config: %s. JarHostTest does not need the "
+                                    + "not-shardable option.", config.getName()));
+                    }
+                }
+            }
         }
     }
 }

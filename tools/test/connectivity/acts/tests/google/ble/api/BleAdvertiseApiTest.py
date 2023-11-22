@@ -25,9 +25,9 @@ from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.bt_test_utils import adv_fail
 from acts.test_utils.bt.bt_test_utils import generate_ble_advertise_objects
-from acts.test_utils.bt.BleEnum import AdvertiseSettingsAdvertiseMode
-from acts.test_utils.bt.BleEnum import AdvertiseSettingsAdvertiseTxPower
-from acts.test_utils.bt.BleEnum import JavaInteger
+from acts.test_utils.bt.bt_constants import ble_advertise_settings_modes
+from acts.test_utils.bt.bt_constants import ble_advertise_settings_tx_powers
+from acts.test_utils.bt.bt_constants import java_integer
 
 
 class BleAdvertiseVerificationError(Exception):
@@ -71,8 +71,8 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         is_connectable = droid.bleGetAdvertiseSettingsIsConnectable(
             adv_settings)
 
-        exp_adv_mode = AdvertiseSettingsAdvertiseMode.ADVERTISE_MODE_LOW_POWER.value
-        exp_tx_power_level = AdvertiseSettingsAdvertiseTxPower.ADVERTISE_TX_POWER_MEDIUM.value
+        exp_adv_mode = ble_advertise_settings_modes['low_power']
+        exp_tx_power_level = ble_advertise_settings_tx_powers['medium']
         exp_is_connectable = True
         if adv_mode != exp_adv_mode:
             test_result = False
@@ -176,7 +176,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         """
         self.log.debug("Step 1: Setup environment.")
         droid = self.ad_dut.droid
-        exp_adv_mode = AdvertiseSettingsAdvertiseMode.ADVERTISE_MODE_BALANCED.value
+        exp_adv_mode = ble_advertise_settings_modes['balanced']
         self.log.debug(
             "Step 2: Set the filtering settings object's value to {}".format(
                 exp_adv_mode))
@@ -208,7 +208,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         """
         self.log.debug("Step 1: Setup environment.")
         droid = self.ad_dut.droid
-        exp_adv_mode = AdvertiseSettingsAdvertiseMode.ADVERTISE_MODE_LOW_POWER.value
+        exp_adv_mode = ble_advertise_settings_modes['low_power']
         self.log.debug(
             "Step 2: Set the filtering settings object's value to {}".format(
                 exp_adv_mode))
@@ -240,7 +240,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         """
         self.log.debug("Step 1: Setup environment.")
         droid = self.ad_dut.droid
-        exp_adv_mode = AdvertiseSettingsAdvertiseMode.ADVERTISE_MODE_LOW_LATENCY.value
+        exp_adv_mode = ble_advertise_settings_modes['low_latency']
         self.log.debug(
             "Step 2: Set the filtering settings object's value to {}".format(
                 exp_adv_mode))
@@ -300,8 +300,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         """
         self.log.debug("Step 1: Setup environment.")
         droid = self.ad_dut.droid
-        exp_adv_tx_power = (
-            AdvertiseSettingsAdvertiseTxPower.ADVERTISE_TX_POWER_HIGH.value)
+        exp_adv_tx_power = ble_advertise_settings_tx_powers['high']
         self.log.debug(
             "Step 2: Set the filtering settings object's value to {}".format(
                 exp_adv_tx_power))
@@ -334,8 +333,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         self.log.debug("Step 1: Setup environment.")
         test_result = True
         droid = self.ad_dut.droid
-        exp_adv_tx_power = (
-            AdvertiseSettingsAdvertiseTxPower.ADVERTISE_TX_POWER_MEDIUM.value)
+        exp_adv_tx_power = ble_advertise_settings_tx_powers['medium']
         self.log.debug(
             "Step 2: Set the filtering settings object's value to {}".format(
                 exp_adv_tx_power))
@@ -367,8 +365,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         """
         self.log.debug("Step 1: Setup environment.")
         droid = self.ad_dut.droid
-        exp_adv_tx_power = (
-            AdvertiseSettingsAdvertiseTxPower.ADVERTISE_TX_POWER_LOW.value)
+        exp_adv_tx_power = (ble_advertise_settings_tx_powers['low'])
         self.log.debug("Step 2: Set the filtering settings object's value to ".
                        format(exp_adv_tx_power))
         return self.verify_adv_settings_tx_power_level(droid, exp_adv_tx_power)
@@ -399,8 +396,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         """
         self.log.debug("Step 1: Setup environment.")
         droid = self.ad_dut.droid
-        exp_adv_tx_power = (AdvertiseSettingsAdvertiseTxPower.
-                            ADVERTISE_TX_POWER_ULTRA_LOW.value)
+        exp_adv_tx_power = ble_advertise_settings_tx_powers['ultra_low']
         self.log.debug("Step 2: Set the filtering settings object's value to ".
                        format(exp_adv_tx_power))
         return self.verify_adv_settings_tx_power_level(droid, exp_adv_tx_power)
@@ -856,7 +852,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         """
         self.log.debug("Step 1: Setup environment.")
         droid = self.ad_dut.droid
-        exp_manu_id = JavaInteger.MAX.value
+        exp_manu_id = java_integer['max']
         exp_manu_specific_data = [1, 2, 3]
         self.log.debug(
             "Step 2: Set the filtering data object's service data manu id: {}"

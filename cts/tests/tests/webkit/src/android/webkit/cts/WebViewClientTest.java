@@ -16,13 +16,16 @@
 
 package android.webkit.cts;
 
+import android.app.ActivityManager;
 import android.graphics.Bitmap;
+import android.os.Build;
 import android.os.Message;
 import android.test.ActivityInstrumentationTestCase2;
 import android.view.KeyEvent;
 import android.view.ViewGroup;
 import android.webkit.HttpAuthHandler;
 import android.webkit.RenderProcessGoneDetail;
+import android.webkit.SafeBrowsingResponse;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
@@ -51,6 +54,9 @@ public class WebViewClientTest extends ActivityInstrumentationTestCase2<WebViewC
 
     private WebViewOnUiThread mOnUiThread;
     private CtsTestServer mWebServer;
+
+    private static final String TEST_SAFE_BROWSING_URL =
+            "chrome://safe-browsing/match?type=malware";
 
     public WebViewClientTest() {
         super("android.webkit.cts", WebViewCtsActivity.class);
@@ -580,6 +586,12 @@ public class WebViewClientTest extends ActivityInstrumentationTestCase2<WebViewC
         if (!NullWebViewUtils.isWebViewAvailable()) {
             return;
         }
+        if (Build.SUPPORTED_64_BIT_ABIS.length == 0 &&
+            getActivity().getSystemService(ActivityManager.class).isLowRamDevice()) {
+            // Renderer process crashes can only be handled when multiprocess is enabled,
+            // which is not the case for 32-bit lowram devices.
+            return;
+        }
         final MockWebViewClient webViewClient = new MockWebViewClient();
         mOnUiThread.setWebViewClient(webViewClient);
         mOnUiThread.loadUrl("chrome://kill");
@@ -590,6 +602,53 @@ public class WebViewClientTest extends ActivityInstrumentationTestCase2<WebViewC
             }
         }.run();
         assertFalse(webViewClient.didRenderProcessCrash());
+    }
+
+    public void testOnSafeBrowsingHit() throws Throwable {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
+        final SafeBrowsingBackToSafetyClient backToSafetyWebViewClient =
+                new SafeBrowsingBackToSafetyClient();
+        mOnUiThread.setWebViewClient(backToSafetyWebViewClient);
+        mOnUiThread.getSettings().setSafeBrowsingEnabled(true);
+
+        mWebServer = new CtsTestServer(getActivity());
+        String url = mWebServer.getAssetUrl(TestHtmlConstants.HELLO_WORLD_URL);
+        mOnUiThread.loadUrlAndWaitForCompletion(url);
+        final String ORIGINAL_URL = mOnUiThread.getUrl();
+
+        if (mOnUiThread.getSettings().getSafeBrowsingEnabled()) {
+            assertEquals(0, backToSafetyWebViewClient.hasOnReceivedErrorCode());
+            mOnUiThread.loadUrlAndWaitForCompletion(TEST_SAFE_BROWSING_URL);
+
+            assertEquals(TEST_SAFE_BROWSING_URL,
+                    backToSafetyWebViewClient.getOnSafeBrowsingHitRequest().getUrl().toString());
+            assertTrue(backToSafetyWebViewClient.getOnSafeBrowsingHitRequest().isForMainFrame());
+
+            // Back to safety should produce a network error
+            assertEquals(WebViewClient.ERROR_UNSAFE_RESOURCE,
+                    backToSafetyWebViewClient.hasOnReceivedErrorCode());
+
+            // Check that we actually navigated backward
+            assertEquals(ORIGINAL_URL, mOnUiThread.getUrl());
+        }
+
+        final SafeBrowsingProceedClient proceedWebViewClient = new SafeBrowsingProceedClient();
+        mOnUiThread.setWebViewClient(proceedWebViewClient);
+
+        mOnUiThread.getSettings().setSafeBrowsingEnabled(true);
+        if (mOnUiThread.getSettings().getSafeBrowsingEnabled()) {
+            assertEquals(0, proceedWebViewClient.hasOnReceivedErrorCode());
+            mOnUiThread.loadUrlAndWaitForCompletion(TEST_SAFE_BROWSING_URL);
+
+            assertEquals(TEST_SAFE_BROWSING_URL,
+                    proceedWebViewClient.getOnSafeBrowsingHitRequest().getUrl().toString());
+            assertTrue(proceedWebViewClient.getOnSafeBrowsingHitRequest().isForMainFrame());
+
+            // Check that we actually proceeded
+            assertEquals(TEST_SAFE_BROWSING_URL, mOnUiThread.getUrl());
+        }
     }
 
     private void requireLoadedPage() throws Throwable {
@@ -809,6 +868,50 @@ public class WebViewClientTest extends ActivityInstrumentationTestCase2<WebViewC
             mOnRenderProcessGoneCalled = true;
             mRenderProcessCrashed = detail.didCrash();
             return true;
+        }
+    }
+
+    private class SafeBrowsingBackToSafetyClient extends MockWebViewClient {
+        private WebResourceRequest mOnSafeBrowsingHitRequest;
+        private int mOnSafeBrowsingHitThreatType;
+
+        public WebResourceRequest getOnSafeBrowsingHitRequest() {
+            return mOnSafeBrowsingHitRequest;
+        }
+
+        public int getOnSafeBrowsingHitThreatType() {
+            return mOnSafeBrowsingHitThreatType;
+        }
+
+        @Override
+        public void onSafeBrowsingHit(WebView view, WebResourceRequest request,
+                int threatType, SafeBrowsingResponse response) {
+            // Immediately go back to safety to return the network error code
+            mOnSafeBrowsingHitRequest = request;
+            mOnSafeBrowsingHitThreatType = threatType;
+            response.backToSafety(/* report */ true);
+        }
+    }
+
+    private class SafeBrowsingProceedClient extends MockWebViewClient {
+        private WebResourceRequest mOnSafeBrowsingHitRequest;
+        private int mOnSafeBrowsingHitThreatType;
+
+        public WebResourceRequest getOnSafeBrowsingHitRequest() {
+            return mOnSafeBrowsingHitRequest;
+        }
+
+        public int getOnSafeBrowsingHitThreatType() {
+            return mOnSafeBrowsingHitThreatType;
+        }
+
+        @Override
+        public void onSafeBrowsingHit(WebView view, WebResourceRequest request,
+                int threatType, SafeBrowsingResponse response) {
+            // Proceed through Safe Browsing warnings
+            mOnSafeBrowsingHitRequest = request;
+            mOnSafeBrowsingHitThreatType = threatType;
+            response.proceed(/* report */ true);
         }
     }
 }

@@ -15,8 +15,9 @@
     limitations under the License.
 -->
 
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.android.setupwizardlib.view.ButtonBarLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/suw_footer_button_bar"
-    style="@style/SuwGlifButtonBar"
+    style="@style/SuwGlifButtonBar.Stackable"
     android:layout_width="match_parent"
     android:layout_height="wrap_content" />

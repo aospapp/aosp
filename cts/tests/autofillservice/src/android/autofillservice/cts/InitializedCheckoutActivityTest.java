@@ -28,7 +28,6 @@ import static android.autofillservice.cts.Helper.assertToggleValue;
 import static android.autofillservice.cts.Helper.findNodeByResourceId;
 
 import android.autofillservice.cts.InstrumentedAutoFillService.FillRequest;
-import android.support.test.rule.ActivityTestRule;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -40,8 +39,8 @@ import org.junit.Test;
 public class InitializedCheckoutActivityTest extends AutoFillServiceTestCase {
 
     @Rule
-    public final ActivityTestRule<InitializedCheckoutActivity> mActivityRule =
-        new ActivityTestRule<InitializedCheckoutActivity>(InitializedCheckoutActivity.class);
+    public final AutofillActivityTestRule<InitializedCheckoutActivity> mActivityRule =
+        new AutofillActivityTestRule<InitializedCheckoutActivity>(InitializedCheckoutActivity.class);
 
     private InitializedCheckoutActivity mCheckoutActivity;
 

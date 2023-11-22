@@ -53,7 +53,7 @@ GENERATE_ALLOC_ENTRYPOINTS _region_tlab_instrumented, RegionTLABInstrumented
 .endm
 
 // Generate the allocation entrypoints for each allocator. This is used as an alternative to
-// GNERATE_ALL_ALLOC_ENTRYPOINTS for selectively implementing allocation fast paths in
+// GENERATE_ALL_ALLOC_ENTRYPOINTS for selectively implementing allocation fast paths in
 // hand-written assembly.
 #define GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_RESOLVED(c_suffix, cxx_suffix) \
   ONE_ARG_DOWNCALL art_quick_alloc_object_resolved ## c_suffix, artAllocObjectFromCodeResolved ## cxx_suffix, RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
@@ -77,11 +77,6 @@ GENERATE_ALLOC_ENTRYPOINTS _region_tlab_instrumented, RegionTLABInstrumented
   TWO_ARG_DOWNCALL art_quick_alloc_array_resolved32 ## c_suffix, artAllocArrayFromCodeResolved ## cxx_suffix, RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
 #define GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED64(c_suffix, cxx_suffix) \
   TWO_ARG_DOWNCALL art_quick_alloc_array_resolved64 ## c_suffix, artAllocArrayFromCodeResolved ## cxx_suffix, RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
-
-.macro GENERATE_ALLOC_ENTRYPOINTS_FOR_EACH_ALLOCATOR
-GENERATE_ALLOC_ENTRYPOINTS_FOR_NON_REGION_TLAB_ALLOCATORS
-GENERATE_ALLOC_ENTRYPOINTS_FOR_REGION_TLAB_ALLOCATOR
-.endm
 
 .macro GENERATE_ALLOC_ENTRYPOINTS_FOR_REGION_TLAB_ALLOCATOR
 // This is to be separately defined for each architecture to allow a hand-written assembly fast path.

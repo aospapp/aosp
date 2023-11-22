@@ -51,3 +51,16 @@ def TargetDirName(path):
         string, the directory name.
     """
     return posixpath.dirname(path)
+
+
+def TargetNormPath(path):
+    """Removes redundant separators and resolves relative path.
+
+    Args:
+        path: string, the path on target device.
+
+    Returns:
+        string, the normalized path.
+    """
+    return posixpath.normpath(path)
+

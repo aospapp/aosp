@@ -43,8 +43,8 @@ cc_defaults {
 
 // This should be removed when clang can compile everything.
 libcrypto_sources_no_clang = [
-    "linux-arm/crypto/aes/aes-armv4.S",
-    "linux-arm/crypto/aes/bsaes-armv7.S",
+    "linux-arm/crypto/fipsmodule/aes-armv4.S",
+    "linux-arm/crypto/fipsmodule/bsaes-armv7.S",
 ]
 
 cc_defaults {
@@ -83,6 +83,9 @@ cc_defaults {
 cc_library {
     name: "libcrypto",
     vendor_available: true,
+    vndk: {
+        enabled: true,
+    },
     defaults: ["libcrypto_sources", "libcrypto_defaults", "boringssl_defaults", "boringssl_flags"],
     unique_host_soname: true,
 }
@@ -116,6 +119,7 @@ cc_library_static {
 cc_library_static {
     name: "libcrypto_static",
     defaults: ["libcrypto_sources", "libcrypto_defaults", "boringssl_defaults", "boringssl_flags"],
+    cflags: ["-DOPENSSL_NO_CXX"],
 
     target: {
         host: {
@@ -143,26 +147,15 @@ cc_library_static {
 // Static and Shared library
 cc_library {
     name: "libssl",
+    vendor_available: true,
+    vndk: {
+        enabled: true,
+    },
     host_supported: true,
     defaults: ["libssl_sources", "boringssl_defaults", "boringssl_flags"],
     unique_host_soname: true,
 
     shared_libs: ["libcrypto"],
-}
-
-// Host static library
-cc_library_host_static {
-    name: "libssl_static-host",
-    defaults: ["libssl_sources", "boringssl_defaults", "boringssl_flags"],
-
-    // TODO: b/26160319. ASAN breaks use of this library in JVM.
-    // Re-enable sanitization when the issue with making clients of this library
-    // preload ASAN runtime is resolved. Without that, clients are getting runtime
-    // errors due to unresolved ASAN symbols, such as
-    // __asan_option_detect_stack_use_after_return.
-    sanitize: {
-        never: true,
-    },
 }
 
 // Tool
@@ -200,20 +193,8 @@ cc_library_static {
 
 // Tests
 cc_test {
-    name: "boringssl_tests",
-    host_supported: true,
-    test_per_src: true,
-    defaults: ["boringssl_tests_sources", "boringssl_flags"],
-    whole_static_libs: ["boringssl_test_support"],
-
-    shared_libs: [
-        "libcrypto",
-        "libssl",
-    ],
-}
-
-cc_test {
   name: "boringssl_crypto_test",
+  test_suites: ["device-tests"],
   host_supported: true,
   defaults: ["boringssl_crypto_test_sources", "boringssl_flags"],
   whole_static_libs: ["boringssl_test_support"],
@@ -224,6 +205,7 @@ cc_test {
 
 cc_test {
   name: "boringssl_ssl_test",
+  test_suites: ["device-tests"],
   host_supported: true,
   defaults: ["boringssl_ssl_test_sources", "boringssl_flags"],
   whole_static_libs: ["boringssl_test_support"],

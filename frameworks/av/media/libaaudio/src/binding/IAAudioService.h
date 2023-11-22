@@ -24,28 +24,34 @@
 
 #include <aaudio/AAudio.h>
 
+#include "binding/AAudioCommon.h"
 #include "binding/AAudioServiceDefinitions.h"
-#include "binding/AudioEndpointParcelable.h"
-#include "binding/AAudioStreamRequest.h"
 #include "binding/AAudioStreamConfiguration.h"
-#include "utility/HandleTracker.h"
+#include "binding/AAudioStreamRequest.h"
+#include "binding/AudioEndpointParcelable.h"
+#include "binding/IAAudioClient.h"
 
 namespace android {
 
 #define AAUDIO_SERVICE_NAME  "media.aaudio"
 
-// Interface (our AIDL) - Shared by server and client
+// Interface (our AIDL) - service methods called by client
 class IAAudioService : public IInterface {
 public:
 
     DECLARE_META_INTERFACE(AAudioService);
+
+    // Register an object to receive audio input/output change and track notifications.
+    // For a given calling pid, AAudio service disregards any registrations after the first.
+    // Thus the IAAudioClient must be a singleton per process.
+    virtual void registerClient(const sp<IAAudioClient>& client) = 0;
 
     /**
      * @param request info needed to create the stream
      * @param configuration contains information about the created stream
      * @return handle to the stream or a negative error
      */
-    virtual aaudio_handle_t openStream(const aaudio::AAudioStreamRequest &request,
+    virtual aaudio::aaudio_handle_t openStream(const aaudio::AAudioStreamRequest &request,
                                      aaudio::AAudioStreamConfiguration &configurationOutput) = 0;
 
     virtual aaudio_result_t closeStream(aaudio::aaudio_handle_t streamHandle) = 0;
@@ -82,15 +88,12 @@ public:
 
     /**
      * Manage the specified thread as a low latency audio thread.
-     * TODO Consider passing this information as part of the startStream() call.
      */
-    virtual aaudio_result_t registerAudioThread(aaudio_handle_t streamHandle,
-                                              pid_t clientProcessId,
+    virtual aaudio_result_t registerAudioThread(aaudio::aaudio_handle_t streamHandle,
                                               pid_t clientThreadId,
                                               int64_t periodNanoseconds) = 0;
 
-    virtual aaudio_result_t unregisterAudioThread(aaudio_handle_t streamHandle,
-                                                pid_t clientProcessId,
+    virtual aaudio_result_t unregisterAudioThread(aaudio::aaudio_handle_t streamHandle,
                                                 pid_t clientThreadId) = 0;
 };
 

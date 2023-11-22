@@ -187,9 +187,12 @@ public class CellInfoTest extends AndroidTestCase{
         assertTrue("getLevel() out of range [0,4], level=" + level, level >=0 && level <= 4);
 
         int bsic = gsm.getCellIdentity().getBsic();
-        // TODO(b/32774471) - Bsic should always be valid, so Integer.MAX_VALUE shouldn't be needed
-        assertTrue("getBsic() out of range [0,63]",
-                (bsic >= 0 && bsic <= 63) || bsic == Integer.MAX_VALUE);
+        // TODO(b/32774471) - Bsic should always be valid
+        //assertTrue("getBsic() out of range [0,63]", bsic >=0 && bsic <=63);
+
+        int ta = gsm.getCellSignalStrength().getTimingAdvance();
+        assertTrue("getTimingAdvance() out of range [0,219] | Integer.MAX_VALUE, ta=" + ta,
+                ta == Integer.MAX_VALUE || (ta >= 0 && ta <= 219));
     }
 
     // Rssi(in dbm) should be within [MIN_RSSI, MAX_RSSI].

@@ -311,6 +311,8 @@ public class Errors {
   public static final Error BROADCAST_BEHAVIOR = new Error(126, LINT);
   public static final Error SDK_CONSTANT = new Error(127, LINT);
   public static final Error TODO = new Error(128, LINT);
+  public static final Error NO_ARTIFACT_DATA = new Error(129, HIDDEN);
+  public static final Error BROKEN_ARTIFACT_FILE = new Error(130, ERROR);
 
   public static boolean setErrorLevel(int code, int level) {
     for (Error e : sErrors) {

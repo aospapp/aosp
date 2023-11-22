@@ -15,16 +15,21 @@
  */
 package android.fragment.cts;
 
+import static org.junit.Assert.assertTrue;
+
 import android.app.Activity;
 import android.os.Bundle;
+import android.support.test.rule.ActivityTestRule;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
-public class RecreatedActivity extends Activity {
+public class RecreatedActivity extends FragmentTestActivity {
     // These must be cleared after each test using clearState()
     public static RecreatedActivity sActivity;
     public static CountDownLatch sResumed;
     public static CountDownLatch sDestroyed;
+    private boolean mIsResumed;
 
     public static void clearState() {
         sActivity = null;
@@ -41,9 +46,16 @@ public class RecreatedActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        mIsResumed = true;
         if (sResumed != null) {
             sResumed.countDown();
         }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        mIsResumed = false;
     }
 
     @Override
@@ -52,4 +64,24 @@ public class RecreatedActivity extends Activity {
         if (sDestroyed != null) {
             sDestroyed.countDown();
         }
-    }}
+    }
+
+    public void waitForResume(ActivityTestRule<? extends Activity> rule) throws Throwable {
+        if (mIsResumed) {
+            return;
+        }
+        if (sResumed != null) {
+            assertTrue(sResumed.await(1, TimeUnit.SECONDS));
+        } else {
+            rule.runOnUiThread(() -> {
+                if (!mIsResumed) {
+                    sResumed = new CountDownLatch(1);
+                }
+            });
+            if (sResumed != null) {
+                assertTrue(sResumed.await(1, TimeUnit.SECONDS));
+                sResumed = null;
+            }
+        }
+    }
+}

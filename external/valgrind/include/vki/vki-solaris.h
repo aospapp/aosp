@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2011-2015 Petr Pavlu
+   Copyright (C) 2011-2017 Petr Pavlu
       setup@dagobah.cz
 
    This program is free software; you can redistribute it and/or
@@ -28,7 +28,7 @@
    The GNU General Public License is contained in the file COPYING.
 */
 
-/* Copyright 2013-2015, Ivo Raisr <ivosh@ivosh.net> */
+/* Copyright 2013-2017, Ivo Raisr <ivosh@ivosh.net> */
 
 /* Copyright 2013, OmniTI Computer Consulting, Inc. All rights reserved. */
 
@@ -133,7 +133,10 @@ typedef uint32_t vki_u32;
 #define VKI_A_GETPINFO_ADDR A_GETPINFO_ADDR
 #define VKI_A_GETPOLICY A_GETPOLICY
 #define VKI_A_GETQCTRL A_GETQCTRL
+#if defined(SOLARIS_AUDITON_STAT)
 #define VKI_A_GETSTAT A_GETSTAT
+#define VKI_A_SETSTAT A_SETSTAT
+#endif /* SOLARIS_AUDITON_STAT */
 #define VKI_A_SETAMASK A_SETAMASK
 #define VKI_A_SETCLASS A_SETCLASS
 #define VKI_A_SETCOND A_SETCOND
@@ -143,7 +146,6 @@ typedef uint32_t vki_u32;
 #define VKI_A_SETPOLICY A_SETPOLICY
 #define VKI_A_SETQCTRL A_SETQCTRL
 #define VKI_A_SETSMASK A_SETSMASK
-#define VKI_A_SETSTAT A_SETSTAT
 #define VKI_A_SETUMASK A_SETUMASK
 #define VKI_BSM_AUDIT BSM_AUDIT
 #define VKI_BSM_AUDITCTL BSM_AUDITCTL
@@ -158,11 +160,13 @@ typedef uint32_t vki_u32;
 #define vki_au_id_t au_id_t
 #define vki_au_mask_t au_mask_t
 #define vki_au_qctrl au_qctrl
-#define vki_au_stat_t au_stat_t
 #define vki_auditinfo_t auditinfo_t
 #define vki_auditinfo_addr_t auditinfo_addr_t
 #define vki_auditpinfo auditpinfo
 #define vki_auditpinfo_addr auditpinfo_addr
+#if defined(SOLARIS_AUDITON_STAT)
+#define vki_au_stat_t au_stat_t
+#endif /* SOLARIS_AUDITON_STAT */
 
 
 #include <sys/psw.h>
@@ -253,6 +257,7 @@ typedef struct {
 #define VKI_AT_PAGESZ AT_PAGESZ
 #define VKI_AT_BASE AT_BASE
 #define VKI_AT_FLAGS AT_FLAGS
+#define VKI_AT_ENTRY AT_ENTRY
 #define VKI_AT_SUN_PLATFORM AT_SUN_PLATFORM
 #define VKI_AT_SUN_HWCAP AT_SUN_HWCAP
 #define VKI_AT_SUN_EXECNAME AT_SUN_EXECNAME
@@ -338,6 +343,12 @@ typedef struct vki_kcf_door_arg_s {
 #define vki_crypto_provider_id_t crypto_provider_id_t
 #define vki_crypto_provider_entry_t crypto_provider_entry_t
 #define vki_crypto_get_provider_list_t crypto_get_provider_list_t
+
+
+#include <sys/dditypes.h>
+#include <sys/devinfo_impl.h>
+#define VKI_DINFOUSRLD DINFOUSRLD
+#define VKI_DINFOIDENT DINFOIDENT
 
 
 #include <sys/dirent.h>
@@ -472,6 +483,10 @@ typedef struct vki_kcf_door_arg_s {
 #endif /* SOLARIS_EXECVE_SYSCALL_TAKES_FLAGS */
 
 
+#include <sys/fasttrap.h>
+#define VKI_PT_SUNWDTRACE_SIZE PT_SUNWDTRACE_SIZE
+
+
 #include <sys/fcntl.h>
 #define VKI_O_RDONLY O_RDONLY
 #define VKI_O_WRONLY O_WRONLY
@@ -485,13 +500,14 @@ typedef struct vki_kcf_door_arg_s {
 #define VKI_O_LARGEFILE O_LARGEFILE
 
 #define VKI_F_DUPFD F_DUPFD
+#define VKI_F_DUPFD_CLOEXEC F_DUPFD_CLOEXEC
 #define VKI_F_GETFD F_GETFD
 #define VKI_F_SETFD F_SETFD
 #define VKI_F_GETFL F_GETFL
 #define VKI_F_GETXFL F_GETXFL
 #define VKI_F_SETFL F_SETFL
 
-/* SVR3 rfs compability const, declared only if _KERNEL or _KMEMUSER is
+/* SVR3 rfs compatibility const, declared only if _KERNEL or _KMEMUSER is
    defined. */
 #if 0
 #define VKI_F_O_GETLK F_O_GETLK
@@ -559,6 +575,13 @@ typedef struct vki_kcf_door_arg_s {
 #define vki_namefd namefd
 
 
+#include <sys/fstyp.h>
+#define VKI_FSTYPSZ FSTYPSZ
+#define VKI_GETFSIND GETFSIND
+#define VKI_GETFSTYP GETFSTYP
+#define VKI_GETNFSTYP GETNFSTYP
+
+
 #include <sys/ioccom.h>
 #define _VKI_IOC_DIR(x) ((x) & (IOC_VOID | IOC_OUT | IOC_IN))
 #define _VKI_IOC_SIZE(x) (((x) >> 16) & IOCPARM_MASK)
@@ -579,6 +602,26 @@ typedef struct vki_kcf_door_arg_s {
 #endif /* SOLARIS_SHM_NEW */
 
 #define vki_semid64_ds semid_ds64
+
+
+#include <sys/lgrp_user.h>
+#if defined(HAVE_SYS_LGRP_USER_IMPL_H)
+/* Include implementation specific header file on newer Solaris. */
+#include <sys/lgrp_user_impl.h>
+#endif /* HAVE_SYS_LGRP_USER_IMPL_H */
+#define VKI_LGRP_SYS_MEMINFO LGRP_SYS_MEMINFO
+#define VKI_LGRP_SYS_GENERATION LGRP_SYS_GENERATION
+#define VKI_LGRP_SYS_VERSION LGRP_SYS_VERSION
+#define VKI_LGRP_SYS_SNAPSHOT LGRP_SYS_SNAPSHOT
+#define VKI_LGRP_SYS_AFFINITY_GET LGRP_SYS_AFFINITY_GET
+#define VKI_LGRP_SYS_AFFINITY_SET LGRP_SYS_AFFINITY_SET
+#define VKI_LGRP_SYS_LATENCY LGRP_SYS_LATENCY
+#define VKI_LGRP_SYS_HOME LGRP_SYS_HOME
+#define VKI_LGRP_SYS_AFF_INHERIT_GET LGRP_SYS_AFF_INHERIT_GET
+#define VKI_LGRP_SYS_AFF_INHERIT_SET LGRP_SYS_AFF_INHERIT_SET
+#define VKI_LGRP_SYS_DEVICE_LGRPS LGRP_SYS_DEVICE_LGRPS
+#define VKI_LGRP_SYS_MAXSOCKETS_GET LGRP_SYS_MAXSOCKETS_GET
+#define vki_lgrp_view_t lgrp_view_t
 
 
 #include <sys/loadavg.h>
@@ -620,14 +663,36 @@ typedef struct vki_kcf_door_arg_s {
 #define VKI_MC_UNLOCKAS MC_UNLOCKAS
 #define VKI_MC_HAT_ADVISE MC_HAT_ADVISE
 
+#define vki_meminfo_t meminfo_t
+
 
 #include <sys/mntio.h>
+#define VKI_MNTIOC_GETEXTMNTENT MNTIOC_GETEXTMNTENT
 #define VKI_MNTIOC_GETMNTANY MNTIOC_GETMNTANY
 
 
 #include <sys/mnttab.h>
+#define vki_extmnttab extmnttab
 #define vki_mntentbuf mntentbuf
 #define vki_mnttab mnttab
+
+
+#include <sys/modctl.h>
+#define VKI_MODLOAD MODLOAD
+#define VKI_MODUNLOAD MODUNLOAD
+#define VKI_MODINFO MODINFO
+
+#if defined(SOLARIS_MODCTL_MODNVL)
+#define VKI_MODNVL_DEVLINKSYNC MODNVL_DEVLINKSYNC
+#define VKI_MODDEVINFO_CACHE_TS MODDEVINFO_CACHE_TS
+#if !defined(HAVE_SYS_SYSNVL_H)
+#define VKI_MODCTL_NVL_OP_GET MODCTL_NVL_OP_GET
+#define VKI_MODCTL_NVL_OP_UPDATE MODCTL_NVL_OP_UPDATE
+#endif /* !HAVE_SYS_SYSNVL_H */
+#endif /* SOLARIS_MODCTL_MODNVL */
+
+#define vki_modid_t int
+#define vki_modinfo modinfo
 
 
 #include <sys/mount.h>
@@ -771,6 +836,7 @@ typedef struct vki_kcf_door_arg_s {
 #define VKI_P_PID P_PID
 #define VKI_P_PGID P_PGID
 #define VKI_P_ALL P_ALL
+#define VKI_POP_AND POP_AND
 #define vki_procset_t procset_t
 
 
@@ -1165,6 +1231,8 @@ typedef struct sigaction vki_sigaction_fromK_t;
 
 #include <sys/stropts.h>
 #define VKI_I_CANPUT I_CANPUT
+#define VKI_I_FIND I_FIND
+#define VKI_I_FLUSH I_FLUSH
 #define VKI_I_PEEK I_PEEK
 #define VKI_I_PUSH I_PUSH
 #define VKI_I_STR I_STR
@@ -1207,6 +1275,13 @@ typedef struct sigaction vki_sigaction_fromK_t;
 
 #include <sys/sysi86.h>
 #define VKI_SI86FPSTART SI86FPSTART
+
+
+#if defined(HAVE_SYS_SYSNVL_H)
+#include <sys/sysnvl.h>
+#define VKI_SYSNVL_OP_GET SYSNVL_OP_GET
+#define VKI_SYSNVL_OP_UPDATE SYSNVL_OP_UPDATE
+#endif /* HAVE_SYS_SYSNVL_H */
 
 
 #include <sys/systeminfo.h>
@@ -1437,7 +1512,11 @@ struct sysv_ucontext {
 #error "Unknown platform"
 #endif
 
+#if defined(SOLARIS_FPCHIP_STATE_TAKES_UNDERSCORE)
+#define vki_fpchip_state _fpchip_state
+#else
 #define vki_fpchip_state fpchip_state
+#endif /* SOLARIS_FPCHIP_STATE_TAKES_UNDERSCORE */
 
 #define VKI_GETCONTEXT GETCONTEXT
 #define VKI_SETCONTEXT SETCONTEXT

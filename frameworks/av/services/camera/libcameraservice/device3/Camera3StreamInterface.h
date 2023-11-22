@@ -71,6 +71,12 @@ class Camera3StreamInterface : public virtual RefBase {
     virtual uint32_t getHeight() const = 0;
     virtual int      getFormat() const = 0;
     virtual android_dataspace getDataSpace() const = 0;
+    virtual void setFormatOverride(bool formatOverriden) = 0;
+    virtual bool isFormatOverridden() const = 0;
+    virtual int getOriginalFormat() const = 0;
+    virtual void setDataSpaceOverride(bool dataSpaceOverriden) = 0;
+    virtual bool isDataSpaceOverridden() const = 0;
+    virtual android_dataspace getOriginalDataSpace() const = 0;
 
     /**
      * Get a HAL3 handle for the stream, without starting stream configuration.
@@ -232,8 +238,10 @@ class Camera3StreamInterface : public virtual RefBase {
      * For bidirectional streams, this method applies to the input-side
      * buffers.
      *
+     * Normally this call will block until the handed out buffer count is less than the stream
+     * max buffer count; if respectHalLimit is set to false, this is ignored.
      */
-    virtual status_t getInputBuffer(camera3_stream_buffer *buffer) = 0;
+    virtual status_t getInputBuffer(camera3_stream_buffer *buffer, bool respectHalLimit = true) = 0;
 
     /**
      * Return a buffer to the stream after use by the HAL.
@@ -296,7 +304,7 @@ class Camera3StreamInterface : public virtual RefBase {
      * Client is responsible to keep the listener object alive throughout the lifecycle of this
      * Camera3Stream.
      */
-    virtual void setBufferFreedListener(Camera3StreamBufferFreedListener* listener) = 0;
+    virtual void setBufferFreedListener(wp<Camera3StreamBufferFreedListener> listener) = 0;
 };
 
 } // namespace camera3

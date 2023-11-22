@@ -38,6 +38,9 @@
     long getSize();
     void close();
 }
+-keepclasseswithmembers class com.google.android.exoplayer2.ext.ffmpeg {
+   native <methods>;
+}
 
 # Keep method which is used for reflection.
 -keep @com.android.tv.common.annotation.UsedByReflection class *  {*;}
@@ -53,3 +56,4 @@
 
 # Grpc used by epg via reflection
 -keep class io.grpc.internal.DnsNameResolverProvider
+

@@ -32,7 +32,7 @@ public class RendererProtectedTexturesTest extends RendererBasicTest {
             + "}                         \n";
 
     private String fragmentShaderCode = "precision mediump float;  \n"
-            + "sampler2D protectedTexture;\n"
+            + "uniform sampler2D protectedTexture;\n"
             + "void main(){              \n"
             + " gl_FragColor = texture2D(protectedTexture, vec2(0.76953125, 0.22265625)); \n"
             + "}  \n";
@@ -72,4 +72,3 @@ public class RendererProtectedTexturesTest extends RendererBasicTest {
         GLES20.glUniform1i(loc, 2);
     }
 }
-

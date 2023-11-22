@@ -17,9 +17,11 @@
 package com.android.car.settings.common;
 
 import android.support.v7.widget.RecyclerView;
+import android.annotation.DrawableRes;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
@@ -31,6 +33,8 @@ import com.android.car.settings.R;
 public abstract class SeekbarLineItem
         extends TypedPagedListAdapter.LineItem<SeekbarLineItem.ViewHolder> {
     private final CharSequence mTitle;
+    @DrawableRes
+    private final Integer mIconResId;
 
     private SeekBar.OnSeekBarChangeListener mOnSeekBarChangeListener =
             new SeekBar.OnSeekBarChangeListener() {
@@ -52,7 +56,12 @@ public abstract class SeekbarLineItem
     };
 
     public SeekbarLineItem(CharSequence title) {
+        this(title, null);
+    }
+
+    public SeekbarLineItem(CharSequence title, Integer iconResId) {
         mTitle = title;
+        mIconResId = iconResId;
     }
 
     @Override
@@ -64,18 +73,24 @@ public abstract class SeekbarLineItem
     public void bindViewHolder(ViewHolder viewHolder) {
         viewHolder.titleView.setText(mTitle);
         viewHolder.seekBar.setMax(getMaxSeekbarValue());
-        viewHolder.seekBar.setProgress(getInitialSeekbarValue());
+        viewHolder.seekBar.setProgress(getSeekbarValue());
         viewHolder.seekBar.setOnSeekBarChangeListener(mOnSeekBarChangeListener);
+        if (mIconResId != null) {
+            viewHolder.iconView.setVisibility(View.VISIBLE);
+            viewHolder.iconView.setImageResource(mIconResId);
+        }
     }
 
     static class ViewHolder extends RecyclerView.ViewHolder {
         final TextView titleView;
         final SeekBar seekBar;
+        final ImageView iconView;
 
         public ViewHolder(View view) {
             super(view);
-            titleView = (TextView) view.findViewById(R.id.title);
-            seekBar = (SeekBar) view.findViewById(R.id.seekbar);
+            titleView = view.findViewById(R.id.title);
+            seekBar = view.findViewById(R.id.seekbar);
+            iconView = view.findViewById(R.id.icon);
         }
     }
 
@@ -91,9 +106,19 @@ public abstract class SeekbarLineItem
         return null;
     }
 
-    public abstract int getInitialSeekbarValue();
+    public abstract int getSeekbarValue();
 
     public abstract int getMaxSeekbarValue();
 
     public abstract void onSeekbarChanged(int progress);
+
+    @Override
+    public boolean isClickable() {
+        return true;
+    }
+
+    @Override
+    public boolean isExpandable() {
+        return false;
+    }
 }

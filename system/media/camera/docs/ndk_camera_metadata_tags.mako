@@ -36,13 +36,20 @@
 
 #ifndef _NDK_CAMERA_METADATA_TAGS_H
 #define _NDK_CAMERA_METADATA_TAGS_H
+
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
+#if __ANDROID_API__ >= 24
 <%!
+  from metadata_helpers import csym
   def annotated_type(entry):
     type = entry.type
     if entry.container == 'array':
        type += '[' + '*'.join(entry.container_sizes) + ']'
     if entry.enum:
-       type += ' (enum)'
+       type += ' (acamera_metadata_enum_%s_t)'%(csym(entry.name).lower())
 
     return type
 %>\
@@ -85,9 +92,13 @@ typedef enum acamera_metadata_tag {
           % else:
             % if entry.description or entry.details:
     /**
+              % if entry.description:
 ${entry.description | ndkdoc(metadata)}\
+              % endif
      *
-     * <p>This tag may appear in:</p>
+     * <p>Type: ${annotated_type(entry)}</p>
+     *
+     * <p>This tag may appear in:
      * <ul>
               % if metadata.is_entry_this_kind(entry, 'static'):
      *   <li>ACameraMetadata from ACameraManager_getCameraCharacteristics</li>
@@ -98,9 +109,11 @@ ${entry.description | ndkdoc(metadata)}\
               % if metadata.is_entry_this_kind(entry, 'controls'):
      *   <li>ACaptureRequest</li>
               % endif
-     * </ul>
+     * </ul></p>
      *
+              % if entry.details:
 ${entry.details | ndkdoc(metadata)}\
+              % endif
      */
             % endif
     ${ndk(entry.name) + " = " | csym,ljust(60)}// ${annotated_type(entry)}
@@ -179,7 +192,10 @@ ${val.notes | ndkdoc(metadata)}\
   % endfor
 
 % endfor
+#endif /* __ANDROID_API__ >= 24 */
 
-#endif //_NDK_CAMERA_METADATA_TAGS_H
+__END_DECLS
+
+#endif /* _NDK_CAMERA_METADATA_TAGS_H */
 
 /** @} */

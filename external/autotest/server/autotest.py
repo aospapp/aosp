@@ -1,15 +1,26 @@
 # Copyright 2007 Google Inc. Released under the GPL v2
 #pylint: disable-msg=C0111
 
-import re, os, sys, traceback, time, glob, tempfile
+import glob
 import logging
+import os
+import re
+import sys
+import tempfile
+import time
+import traceback
 
 import common
-from autotest_lib.server import installable_object, prebuild, utils
-from autotest_lib.client.common_lib import base_job, error, autotemp
+from autotest_lib.client.bin.result_tools import runner as result_tools_runner
+from autotest_lib.client.common_lib import autotemp
+from autotest_lib.client.common_lib import base_job
+from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import packages
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import utils as client_utils
+from autotest_lib.server import installable_object
+from autotest_lib.server import prebuild
+from autotest_lib.server import utils
 
 try:
     from chromite.lib import metrics
@@ -20,11 +31,12 @@ except ImportError:
 AUTOTEST_SVN = 'svn://test.kernel.org/autotest/trunk/client'
 AUTOTEST_HTTP = 'http://test.kernel.org/svn/autotest/trunk/client'
 
+CONFIG = global_config.global_config
+AUTOSERV_PREBUILD = CONFIG.get_config_value(
+        'AUTOSERV', 'enable_server_prebuild', type=bool, default=False)
 
-get_value = global_config.global_config.get_config_value
-autoserv_prebuild = get_value('AUTOSERV', 'enable_server_prebuild',
-                              type=bool, default=False)
-
+ENABLE_RESULT_THROTTLING = CONFIG.get_config_value(
+        'AUTOSERV', 'enable_result_throttling', type=bool, default=False)
 
 class AutodirNotFoundError(Exception):
     """No Autotest installation could be found."""
@@ -294,7 +306,7 @@ class BaseAutotest(installable_object.InstallableObject):
         # if that fails try to install using svn
         if utils.run('which svn').exit_status:
             raise error.AutoservError('svn not found on target machine: %s' %
-                                      host.name)
+                                      host.hostname)
         try:
             host.run('svn checkout %s %s' % (AUTOTEST_SVN, autodir))
         except error.AutoservRunError, e:
@@ -341,8 +353,8 @@ class BaseAutotest(installable_object.InstallableObject):
 
 
     def run(self, control_file, results_dir='.', host=None, timeout=None,
-            tag=None, parallel_flag=False, background=False,
-            client_disconnect_timeout=None, use_packaging=True):
+            tag=None, parallel_flag=False, client_disconnect_timeout=None,
+            use_packaging=True):
         """
         Run an autotest job on the remote machine.
 
@@ -355,9 +367,6 @@ class BaseAutotest(installable_object.InstallableObject):
         @param tag: Tag name for the client side instance of autotest.
         @param parallel_flag: Flag set when multiple jobs are run at the
                 same time.
-        @param background: Indicates that the client should be launched as
-                a background job; the code calling run will be responsible
-                for monitoring the client and collecting the results.
         @param client_disconnect_timeout: Seconds to wait for the remote host
                 to come back after a reboot. Defaults to the host setting for
                 DEFAULT_REBOOT_TIMEOUT.
@@ -376,7 +385,7 @@ class BaseAutotest(installable_object.InstallableObject):
         if tag:
             results_dir = os.path.join(results_dir, tag)
 
-        atrun = _Run(host, results_dir, tag, parallel_flag, background)
+        atrun = _Run(host, results_dir, tag, parallel_flag)
         self._do_run(control_file, results_dir, host, atrun, timeout,
                      client_disconnect_timeout, use_packaging=use_packaging)
 
@@ -436,14 +445,13 @@ class BaseAutotest(installable_object.InstallableObject):
                 logging.error(e)
 
         # on full-size installs, turn on any profilers the server is using
-        if not atrun.background:
-            running_profilers = host.job.profilers.add_log.iteritems()
-            for profiler, (args, dargs) in running_profilers:
-                call_args = [repr(profiler)]
-                call_args += [repr(arg) for arg in args]
-                call_args += ["%s=%r" % item for item in dargs.iteritems()]
-                prologue_lines.append("job.profilers.add(%s)\n"
-                                      % ", ".join(call_args))
+        running_profilers = host.job.profilers.add_log.iteritems()
+        for profiler, (args, dargs) in running_profilers:
+            call_args = [repr(profiler)]
+            call_args += [repr(arg) for arg in args]
+            call_args += ["%s=%r" % item for item in dargs.iteritems()]
+            prologue_lines.append("job.profilers.add(%s)\n"
+                                    % ", ".join(call_args))
         cfile = "".join(prologue_lines)
 
         cfile += open(tmppath).read()
@@ -482,7 +490,7 @@ class BaseAutotest(installable_object.InstallableObject):
 
 
     def run_timed_test(self, test_name, results_dir='.', host=None,
-                       timeout=None, parallel_flag=False, background=False,
+                       timeout=None, parallel_flag=False,
                        client_disconnect_timeout=None, *args, **dargs):
         """
         Assemble a tiny little control file to just run one test,
@@ -496,7 +504,7 @@ class BaseAutotest(installable_object.InstallableObject):
         cmd = ", ".join([repr(test_name)] + map(repr, args) + opts)
         control = "job.run_test(%s)\n" % cmd
         self.run(control, results_dir, host, timeout=timeout,
-                 parallel_flag=parallel_flag, background=background,
+                 parallel_flag=parallel_flag,
                  client_disconnect_timeout=client_disconnect_timeout)
 
         if dargs.get('check_client_result', False):
@@ -504,10 +512,10 @@ class BaseAutotest(installable_object.InstallableObject):
 
 
     def run_test(self, test_name, results_dir='.', host=None,
-                 parallel_flag=False, background=False,
+                 parallel_flag=False,
                  client_disconnect_timeout=None, *args, **dargs):
         self.run_timed_test(test_name, results_dir, host, timeout=None,
-                            parallel_flag=parallel_flag, background=background,
+                            parallel_flag=parallel_flag,
                             client_disconnect_timeout=client_disconnect_timeout,
                             *args, **dargs)
 
@@ -520,13 +528,12 @@ class _BaseRun(object):
     It is not intended to be used directly, rather control files
     should be run using the run method in Autotest.
     """
-    def __init__(self, host, results_dir, tag, parallel_flag, background):
+    def __init__(self, host, results_dir, tag, parallel_flag):
         self.host = host
         self.results_dir = results_dir
         self.env = host.env
         self.tag = tag
         self.parallel_flag = parallel_flag
-        self.background = background
         self.autodir = Autotest.get_installed_autodir(self.host)
         control = os.path.join(self.autodir, 'control')
         if tag:
@@ -551,10 +558,8 @@ class _BaseRun(object):
             self.host.run('umount %s' % download, ignore_status=True)
 
 
-    def get_base_cmd_args(self, section):
+    def get_base_cmd_args(self):
         args = ['--verbose']
-        if section > 0:
-            args.append('-c')
         if self.tag:
             args.append('-t %s' % self.tag)
         if self.host.job.use_external_logging():
@@ -567,17 +572,10 @@ class _BaseRun(object):
         return args
 
 
-    def get_background_cmd(self, section):
-        cmd = ['nohup', os.path.join(self.autodir, 'bin/autotest_client')]
-        cmd += self.get_base_cmd_args(section)
-        cmd += ['>/dev/null', '2>/dev/null', '&']
-        return ' '.join(cmd)
-
-
-    def get_daemon_cmd(self, section, monitor_dir):
+    def get_daemon_cmd(self, monitor_dir):
         cmd = ['nohup', os.path.join(self.autodir, 'bin/autotestd'),
                monitor_dir, '-H autoserv']
-        cmd += self.get_base_cmd_args(section)
+        cmd += self.get_base_cmd_args()
         cmd += ['>/dev/null', '2>/dev/null', '&']
         return ' '.join(cmd)
 
@@ -726,24 +724,6 @@ class _BaseRun(object):
             self.host.job.record('END ABORT', None, None, str(e))
 
 
-    def _execute_in_background(self, section, timeout):
-        full_cmd = self.get_background_cmd(section)
-        devnull = open(os.devnull, "w")
-
-        self.copy_client_config_file(self.get_client_log())
-
-        self.host.job.push_execution_context(self.results_dir)
-        try:
-            result = self.host.run(full_cmd, ignore_status=True,
-                                   timeout=timeout,
-                                   stdout_tee=devnull,
-                                   stderr_tee=devnull)
-        finally:
-            self.host.job.pop_execution_context()
-
-        return result
-
-
     @staticmethod
     def _strip_stderr_prologue(stderr):
         """Strips the 'standard' prologue that get pre-pended to every
@@ -757,10 +737,10 @@ class _BaseRun(object):
         return "\n".join(stderr_lines)
 
 
-    def _execute_daemon(self, section, timeout, stderr_redirector,
+    def _execute_daemon(self, timeout, stderr_redirector,
                         client_disconnect_timeout):
         monitor_dir = self.host.get_tmp_dir()
-        daemon_cmd = self.get_daemon_cmd(section, monitor_dir)
+        daemon_cmd = self.get_daemon_cmd(monitor_dir)
 
         # grab the location for the server-side client log file
         client_log_prefix = self.get_client_log()
@@ -812,26 +792,23 @@ class _BaseRun(object):
             self.host.job.pop_execution_context()
 
 
-    def execute_section(self, section, timeout, stderr_redirector,
-                        client_disconnect_timeout):
-        logging.info("Executing %s/bin/autotest %s/control phase %d",
-                     self.autodir, self.autodir, section)
+    def _really_execute_control(self, timeout, stderr_redirector,
+                                client_disconnect_timeout):
+        logging.info("Executing %s/bin/autotest %s/controt",
+                     self.autodir, self.autodir)
 
-        if self.background:
-            result = self._execute_in_background(section, timeout)
-        else:
-            result = self._execute_daemon(section, timeout, stderr_redirector,
-                                          client_disconnect_timeout)
+        result = self._execute_daemon(timeout, stderr_redirector,
+                                        client_disconnect_timeout)
 
         last_line = stderr_redirector.last_line
 
         # check if we failed hard enough to warrant an exception
         if result.exit_status == 1:
             err = error.AutotestRunError("client job was aborted")
-        elif not self.background and not result.stderr:
+        elif not result.stderr:
             err = error.AutotestRunError(
-                "execute_section %s failed to return anything\n"
-                "stdout:%s\n" % (section, result.stdout))
+                "_really_execute_control failed to return anything\n"
+                "stdout:%s\n" % result.stdout)
         else:
             err = None
 
@@ -845,117 +822,84 @@ class _BaseRun(object):
             return stderr_redirector.last_line
 
 
-    def _wait_for_reboot(self, old_boot_id):
-        logging.info("Client is rebooting")
-        logging.info("Waiting for client to halt")
-        if not self.host.wait_down(self.host.WAIT_DOWN_REBOOT_TIMEOUT,
-                                   old_boot_id=old_boot_id):
-            err = "%s failed to shutdown after %d"
-            err %= (self.host.hostname, self.host.WAIT_DOWN_REBOOT_TIMEOUT)
-            raise error.AutotestRunError(err)
-        logging.info("Client down, waiting for restart")
-        if not self.host.wait_up(self.host.DEFAULT_REBOOT_TIMEOUT):
-            # since reboot failed
-            # hardreset the machine once if possible
-            # before failing this control file
-            warning = "%s did not come back up, hard resetting"
-            warning %= self.host.hostname
-            logging.warning(warning)
-            try:
-                self.host.hardreset(wait=False)
-            except (AttributeError, error.AutoservUnsupportedError):
-                warning = "Hard reset unsupported on %s"
-                warning %= self.host.hostname
-                logging.warning(warning)
-            raise error.AutotestRunError("%s failed to boot after %ds" %
-                                         (self.host.hostname,
-                                          self.host.DEFAULT_REBOOT_TIMEOUT))
-        self.host.reboot_followup()
-
-
     def execute_control(self, timeout=None, client_disconnect_timeout=None):
-        if not self.background:
-            collector = log_collector(self.host, self.tag, self.results_dir)
-            hostname = self.host.hostname
-            remote_results = collector.client_results_dir
-            local_results = collector.server_results_dir
-            self.host.job.add_client_log(hostname, remote_results,
-                                         local_results)
-            job_record_context = self.host.job.get_record_context()
-
-        section = 0
-        start_time = time.time()
-
+        collector = log_collector(self.host, self.tag, self.results_dir)
+        hostname = self.host.hostname
+        remote_results = collector.client_results_dir
+        local_results = collector.server_results_dir
+        self.host.job.add_client_log(hostname, remote_results,
+                                        local_results)
+        job_record_context = self.host.job.get_record_context()
         logger = client_logger(self.host, self.tag, self.results_dir)
+
         try:
-            while not timeout or time.time() < start_time + timeout:
-                if timeout:
-                    section_timeout = start_time + timeout - time.time()
-                else:
-                    section_timeout = None
-                boot_id = self.host.get_boot_id()
-                last = self.execute_section(section, section_timeout,
-                                            logger, client_disconnect_timeout)
-                if self.background:
-                    return
-                section += 1
-                if self.is_client_job_finished(last):
-                    logging.info("Client complete")
-                    return
-                elif self.is_client_job_rebooting(last):
-                    try:
-                        self._wait_for_reboot(boot_id)
-                    except error.AutotestRunError, e:
-                        self.host.job.record("ABORT", None, "reboot", str(e))
-                        self.host.job.record("END ABORT", None, None, str(e))
-                        raise
-                    continue
+            boot_id = self.host.get_boot_id()
+            last = self._really_execute_control(timeout, logger,
+                                                client_disconnect_timeout)
+            if self.is_client_job_finished(last):
+                logging.info("Client complete")
+                return
+            elif self.is_client_job_rebooting(last):
+                # TODO(crbug.com/684311) This feature is never used. Validate
+                # and drop this case.
+                m = 'chromeos/autotest/errors/client_test_triggered_reboot'
+                metrics.Counter(m).increment()
+                self.host.job.record("ABORT", None, "reboot",
+                                     'client triggered reboot is unsupported')
+                self.host.job.record("END ABORT", None, None,
+                                     'client triggered reboot is unsupported')
+                return
 
-                # If a test fails without probable cause we try to bucket it's
-                # failure into one of 2 categories. If we can determine the
-                # current state of the device and it is suspicious, we close the
-                # status lines indicating a failure. If we either cannot
-                # determine the state of the device, or it appears totally
-                # healthy, we give up and abort.
-                try:
-                    self._diagnose_dut(boot_id)
-                except AutotestDeviceError as e:
-                    # The status lines of the test are pretty much tailed to
-                    # our log, with indentation, from the client job on the DUT.
-                    # So if the DUT goes down unexpectedly we'll end up with a
-                    # malformed status log unless we manually unwind the status
-                    # stack. Ideally we would want to write a nice wrapper like
-                    # server_job methods run_reboot, run_group but they expect
-                    # reboots and we don't.
-                    self.host.job.record('FAIL', None, None, str(e))
-                    self.host.job.record('END FAIL', None, None)
-                    self.host.job.record('END GOOD', None, None)
-                    self.host.job.failed_with_device_error = True
-                    return
-                except AutotestAbort as e:
-                    self.host.job.record('ABORT', None, None, str(e))
-                    self.host.job.record('END ABORT', None, None)
+            # If a test fails without probable cause we try to bucket it's
+            # failure into one of 2 categories. If we can determine the
+            # current state of the device and it is suspicious, we close the
+            # status lines indicating a failure. If we either cannot
+            # determine the state of the device, or it appears totally
+            # healthy, we give up and abort.
+            try:
+                self._diagnose_dut(boot_id)
+            except AutotestDeviceError as e:
+                # The status lines of the test are pretty much tailed to
+                # our log, with indentation, from the client job on the DUT.
+                # So if the DUT goes down unexpectedly we'll end up with a
+                # malformed status log unless we manually unwind the status
+                # stack. Ideally we would want to write a nice wrapper like
+                # server_job methods run_reboot, run_group but they expect
+                # reboots and we don't.
+                self.host.job.record('FAIL', None, None, str(e))
+                self.host.job.record('END FAIL', None, None)
+                self.host.job.record('END GOOD', None, None)
+                self.host.job.failed_with_device_error = True
+                return
+            except AutotestAbort as e:
+                self.host.job.record('ABORT', None, None, str(e))
+                self.host.job.record('END ABORT', None, None)
 
-                    # give the client machine a chance to recover from a crash
-                    self.host.wait_up(
-                        self.host.HOURS_TO_WAIT_FOR_RECOVERY * 3600)
-                    msg = ("Aborting - unexpected final status message from "
-                           "client on %s: %s\n") % (self.host.hostname, last)
-                    raise error.AutotestRunError(msg)
+                # give the client machine a chance to recover from a crash
+                self.host.wait_up(
+                    self.host.HOURS_TO_WAIT_FOR_RECOVERY * 3600)
+                logging.debug('Unexpected final status message from '
+                                'client %s: %s', self.host.hostname, last)
+                # The line 'last' may have sensitive phrases, like
+                # 'END GOOD', which breaks the tko parser. So the error
+                # message will exclude it, since it will be recorded to
+                # status.log.
+                msg = ("Aborting - unexpected final status message from "
+                        "client on %s\n") % self.host.hostname
+                raise error.AutotestRunError(msg)
         finally:
             logging.debug('Autotest job finishes running. Below is the '
                           'post-processing operations.')
             logger.close()
-            if not self.background:
-                collector.collect_client_job_results()
-                collector.remove_redundant_client_logs()
-                state_file = os.path.basename(self.remote_control_file
-                                              + '.state')
-                state_path = os.path.join(self.results_dir, state_file)
-                self.host.job.postprocess_client_state(state_path)
-                self.host.job.remove_client_log(hostname, remote_results,
-                                                local_results)
-                job_record_context.restore()
+            collector.collect_client_job_results()
+            collector.remove_redundant_client_logs()
+            state_file = os.path.basename(self.remote_control_file
+                                            + '.state')
+            state_path = os.path.join(self.results_dir, state_file)
+            self.host.job.postprocess_client_state(state_path)
+            self.host.job.remove_client_log(hostname, remote_results,
+                                            local_results)
+            job_record_context.restore()
 
             logging.debug('Autotest job finishes.')
 
@@ -979,7 +923,6 @@ class log_collector(object):
         client job into the results dir. By default does nothing as no
         client job is running, but when running a client job you can override
         this with something that will actually do something. """
-
         # make an effort to wait for the machine to come up
         try:
             self.host.wait_up(timeout=30)
@@ -990,6 +933,11 @@ class log_collector(object):
 
         # Copy all dirs in default to results_dir
         try:
+            # Build test result directory summary
+            result_tools_runner.run_on_client(
+                    self.host, self.client_results_dir,
+                    ENABLE_RESULT_THROTTLING)
+
             with metrics.SecondsTimer(
                     'chromeos/autotest/job/log_collection_duration',
                     fields={'dut_host_name': self.host.hostname}):
@@ -1153,12 +1101,12 @@ class BaseClientLogger(object):
                 src_dir = os.path.join(self.job.clientdir, test_dir, name)
                 if os.path.exists(src_dir):
                     src_dirs += [src_dir]
-                    if autoserv_prebuild:
+                    if AUTOSERV_PREBUILD:
                         prebuild.setup(self.job.clientdir, src_dir)
                     break
         elif pkg_type == 'profiler':
             src_dirs += [os.path.join(self.job.clientdir, 'profilers', name)]
-            if autoserv_prebuild:
+            if AUTOSERV_PREBUILD:
                 prebuild.setup(self.job.clientdir, src_dir)
         elif pkg_type == 'dep':
             src_dirs += [os.path.join(self.job.clientdir, 'deps', name)]

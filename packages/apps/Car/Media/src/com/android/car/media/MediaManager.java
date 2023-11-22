@@ -72,7 +72,7 @@ public class MediaManager {
      * KEY_PACKAGE defined in ProjectionIntentStarter in GSA.
      */
     public static final String KEY_MEDIA_PACKAGE_FROM_GSA =
-            "android.intent.action.original_package";
+            "android.car.intent.extra.MEDIA_PACKAGE";
 
     private static final String GOOGLE_PLAY_MUSIC_PACKAGE = "com.google.android.music";
     // Extras along with the Knowledge Graph that are not meant to be seen by external apps.

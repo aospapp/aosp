@@ -359,6 +359,33 @@ public class RelativeLayoutTest {
         assertTrue(button.getHeight() > 0);
     }
 
+    @Test
+    public void testBidiWidth() throws Throwable {
+        mActivityRule.runOnUiThread(() -> {
+            mActivity.setContentView(R.layout.relative_layout_bidi);
+            mActivity.findViewById(R.id.relative_sublayout_bidi)
+                     .setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        });
+        mInstrumentation.waitForIdleSync();
+
+        final View ltrLayout = mActivity.findViewById(R.id.relative_sublayout_bidi);
+        assertNotNull(ltrLayout);
+        final int ltrWidth = ltrLayout.getWidth();
+
+        mActivityRule.runOnUiThread(() -> {
+            mActivity.setContentView(R.layout.relative_layout_bidi);
+            mActivity.findViewById(R.id.relative_sublayout_bidi)
+                     .setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        });
+        mInstrumentation.waitForIdleSync();
+
+        final View rtlLayout = mActivity.findViewById(R.id.relative_sublayout_bidi);
+        assertNotNull(rtlLayout);
+        final int rtlWidth = rtlLayout.getWidth();
+
+        assertEquals(ltrWidth, rtlWidth);
+    }
+
     private class MyRelativeLayout extends RelativeLayout {
         public MyRelativeLayout(Context context) {
             super(context);

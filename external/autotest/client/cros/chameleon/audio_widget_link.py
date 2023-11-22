@@ -427,13 +427,14 @@ class HDMIWidgetLink(WidgetLink):
         HDMI audio, while display can be detected. Do several plug/unplug and
         wait as a workaround. Note that HDMI port will be in unplugged state
         in the end if extra plug/unplug is needed.
+        We have seen this on Intel device(cyan, celes) too.
 
         @param handler: A ChameleonHDMIInputWidgetHandler.
 
         """
         board = self._cros_host.get_board().split(':')[1]
         if board in ['peach_pit', 'peach_pi', 'daisy', 'daisy_spring',
-                     'daisy_skate']:
+                     'daisy_skate', 'cyan', 'celes']:
             logging.info('Need extra plug/unplug on board %s', board)
             for _ in xrange(3):
                 handler.plug()

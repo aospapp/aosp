@@ -6,7 +6,7 @@
 #include "toys.h"
 
 #ifndef TOYBOX_VERSION
-#define TOYBOX_VERSION "0.7.3"
+#define TOYBOX_VERSION "0.7.4"
 #endif
 
 // Populate toy_list[].
@@ -49,7 +49,7 @@ struct toy_list *toy_find(char *name)
     if (middle<bottom || middle>top) return NULL;
     result = strcmp(name,toy_list[middle].name);
     if (!result) return toy_list+middle;
-    if (result<0) top=--middle;
+    if (result<0) top = --middle;
     else bottom = ++middle;
   }
 }

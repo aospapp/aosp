@@ -22,7 +22,7 @@
     <string name="application_name" msgid="4119979710394894209">"Live Wallpaper Picker"</string>
     <string name="live_wallpaper_picker_title" msgid="4811278937634144675">"एनीमेशन वाला वॉलपेपर चुनें"</string>
     <string name="live_wallpaper_picker_label" msgid="3218000114890071946">"लाइव वॉलपेपर"</string>
-    <string name="live_wallpaper_preview_title" msgid="1130080613611954763">"एनीमेशन वाला वॉलपेपर पूर्वावलोकन"</string>
+    <string name="live_wallpaper_preview_title" msgid="1130080613611954763">"एनीमेशन वाले वॉलपेपर की झलक"</string>
     <string name="configure_wallpaper" msgid="7396598925806288258">"सेटिंग…"</string>
     <string name="wallpaper_instructions" msgid="4215640646180727542">"वॉलपेपर सेट करें"</string>
     <string name="live_wallpaper_empty" msgid="4278728108785853407">"कोई एनीमेशन वाला वॉलपेपर नहीं."</string>
@@ -31,6 +31,6 @@
     <string name="live_wallpaper_loading" msgid="2488371303130330734">"एनीमेशन वाला वॉलपेपर लोड हो रहा है…"</string>
     <string name="which_wallpaper_option_home_screen" msgid="6592329803583957023">"होम स्क्रीन"</string>
     <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="6170359719231147447">"होम स्क्रीन और लॉक स्क्रीन"</string>
-    <string name="collapse_attribution_panel" msgid="4998500891743118630">"वॉलपेपर जानकारी फलक संक्षिप्त करें"</string>
-    <string name="expand_attribution_panel" msgid="3151357815478885438">"वॉलपेपर जानकारी फलक विस्तृत करें"</string>
+    <string name="collapse_attribution_panel" msgid="4998500891743118630">"वॉलपेपर सूचना पैनल को छोटा करें"</string>
+    <string name="expand_attribution_panel" msgid="3151357815478885438">"वॉलपेपर सूचना पैनल को बड़ा करें"</string>
 </resources>

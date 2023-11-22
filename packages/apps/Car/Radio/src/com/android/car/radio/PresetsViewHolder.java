@@ -71,10 +71,8 @@ public class PresetsViewHolder extends RecyclerView.ViewHolder implements View.O
         mColorMapper = RadioChannelColorMapper.getInstance(mContext);
         mPresetClickListener = listener;
 
-        mPresetItemChannel =
-                (TextView) presetsView.findViewById(R.id.preset_station_channel);
-        mPresetItemMetadata =
-                (TextView) presetsView.findViewById(R.id.preset_item_metadata);
+        mPresetItemChannel = presetsView.findViewById(R.id.preset_station_channel);
+        mPresetItemMetadata = presetsView.findViewById(R.id.preset_item_metadata);
         mEqualizer = presetsView.findViewById(R.id.preset_equalizer);
 
         mPresetItemChannelBg = (GradientDrawable) mPresetItemChannel.getBackground();

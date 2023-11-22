@@ -16,8 +16,9 @@
 
 package com.android.cellbroadcastreceiver;
 
+import static com.android.cellbroadcastreceiver.CellBroadcastReceiver.VDBG;
+
 import android.app.IntentService;
-import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
@@ -25,16 +26,15 @@ import android.preference.PreferenceManager;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SmsManager;
 import android.telephony.SubscriptionManager;
-import android.telephony.TelephonyManager;
 import android.util.Log;
 
-import com.android.cellbroadcastreceiver.CellBroadcastOtherChannelsManager.CellBroadcastChannelRange;
+import com.android.cellbroadcastreceiver.CellBroadcastAlertService.AlertType;
+import com.android.cellbroadcastreceiver.CellBroadcastChannelManager.CellBroadcastChannelRange;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.cdma.sms.SmsEnvelope;
 import com.android.internal.telephony.gsm.SmsCbConstants;
 
 import java.util.ArrayList;
-
-import static com.android.cellbroadcastreceiver.CellBroadcastReceiver.VDBG;
 
 /**
  * This service manages enabling and disabling ranges of message identifiers
@@ -51,10 +51,6 @@ public class CellBroadcastConfigService extends IntentService {
     private static final String TAG = "CellBroadcastConfigService";
 
     static final String ACTION_ENABLE_CHANNELS = "ACTION_ENABLE_CHANNELS";
-
-    private static final String COUNTRY_TAIWAN = "tw";
-    private static final String COUNTRY_ISRAEL = "ir";
-    private static final String COUNTRY_BRAZIL = "br";
 
     public CellBroadcastConfigService() {
         super(TAG);          // use class name for worker thread name
@@ -92,14 +88,14 @@ public class CellBroadcastConfigService extends IntentService {
                                 if (id == subId) {
                                     // Enable cell broadcast messages on this sub.
                                     log("Enable CellBroadcast on sub " + id);
-                                    setCellBroadcastOnSub(manager, id, true);
+                                    setCellBroadcastOnSub(manager, true);
                                 }
                                 else {
                                     // Disable all cell broadcast message on this sub.
                                     // This is only for multi-sim scenario. For single SIM device
                                     // we should not reach here.
                                     log("Disable CellBroadcast on sub " + id);
-                                    setCellBroadcastOnSub(manager, id, false);
+                                    setCellBroadcastOnSub(manager, false);
                                 }
                             }
                         }
@@ -108,8 +104,7 @@ public class CellBroadcastConfigService extends IntentService {
                         // For no sim scenario.
                         SmsManager manager = SmsManager.getDefault();
                         if (manager != null) {
-                            setCellBroadcastOnSub(manager,
-                                    SubscriptionManager.INVALID_SUBSCRIPTION_ID, true);
+                            setCellBroadcastOnSub(manager, true);
                         }
                     }
                 }
@@ -123,14 +118,13 @@ public class CellBroadcastConfigService extends IntentService {
      * Enable/disable cell broadcast messages id on one subscription
      * This includes all ETWS and CMAS alerts.
      * @param manager SMS manager
-     * @param subId Subscription id
      * @param enableForSub True if want to enable messages on this sub (e.g default SMS). False
      *                     will disable all messages
      */
-    private void setCellBroadcastOnSub(SmsManager manager, int subId, boolean enableForSub) {
+    @VisibleForTesting
+    public void setCellBroadcastOnSub(SmsManager manager, boolean enableForSub) {
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        Resources res = getResources();
 
         // boolean for each user preference checkbox, true for checked, false for unchecked
         // Note: If enableEmergencyAlerts is false, it disables ALL emergency broadcasts
@@ -167,21 +161,10 @@ public class CellBroadcastConfigService extends IntentService {
                 enableEmergencyAlerts &&
                 prefs.getBoolean(CellBroadcastSettings.KEY_ENABLE_CMAS_TEST_ALERTS, false);
 
-        TelephonyManager tm = (TelephonyManager) getSystemService(
-                Context.TELEPHONY_SERVICE);
-
-        boolean enableChannel50Support = res.getBoolean(R.bool.show_brazil_settings) ||
-                COUNTRY_BRAZIL.equals(tm.getSimCountryIso(subId));
-
-        boolean enableChannel50Alerts = enableChannel50Support &&
-                prefs.getBoolean(CellBroadcastSettings.KEY_ENABLE_CHANNEL_50_ALERTS, true);
-
-        // Current Israel requires enable certain CMAS messages ids.
-        boolean supportIsraelPwsAlerts = (COUNTRY_ISRAEL.equals(tm.getSimCountryIso(subId))
-                || COUNTRY_ISRAEL.equals(tm.getNetworkCountryIso(subId)));
-
-        boolean supportTaiwanPwsAlerts = (COUNTRY_TAIWAN.equals(tm.getSimCountryIso(subId))
-                || COUNTRY_TAIWAN.equals(tm.getNetworkCountryIso(subId)));
+        boolean enableAreaUpdateInfoAlerts = Resources.getSystem().getBoolean(
+                com.android.internal.R.bool.config_showAreaUpdateInfoSettings)
+                && prefs.getBoolean(CellBroadcastSettings.KEY_ENABLE_AREA_UPDATE_INFO_ALERTS,
+                false);
 
         if (VDBG) {
             log("enableEmergencyAlerts = " + enableEmergencyAlerts);
@@ -193,9 +176,7 @@ public class CellBroadcastConfigService extends IntentService {
             log("forceDisableEtwsCmasTest = " + forceDisableEtwsCmasTest);
             log("enableEtwsTestAlerts = " + enableEtwsTestAlerts);
             log("enableCmasTestAlerts = " + enableCmasTestAlerts);
-            log("enableChannel50Alerts = " + enableChannel50Alerts);
-            log("supportIsraelPwsAlerts = " + supportIsraelPwsAlerts);
-            log("supportTaiwanPwsAlerts = " + supportTaiwanPwsAlerts);
+            log("enableAreaUpdateInfoAlerts = " + enableAreaUpdateInfoAlerts);
         }
 
         /** Enable CDMA CMAS series messages. */
@@ -230,7 +211,7 @@ public class CellBroadcastConfigService extends IntentService {
                 SmsEnvelope.SERVICE_CATEGORY_CMAS_TEST_MESSAGE,
                 SmsEnvelope.SERVICE_CATEGORY_CMAS_TEST_MESSAGE);
 
-        /** Enable GSM ETWS series messages. */
+        // Enable GSM ETWS series messages.
 
         // Enable/Disable GSM ETWS messages (4352~4354).
         setCellBroadcastRange(manager, enableEtwsAlerts,
@@ -250,7 +231,7 @@ public class CellBroadcastConfigService extends IntentService {
                 SmsCbConstants.MESSAGE_ID_ETWS_TEST_MESSAGE,
                 SmsCbConstants.MESSAGE_ID_ETWS_TEST_MESSAGE);
 
-        /** Enable GSM CMAS series messages. */
+        // Enable GSM CMAS series messages.
 
         // Enable/Disable GSM CMAS presidential message (4370).
         setCellBroadcastRange(manager, enablePresidential,
@@ -283,7 +264,7 @@ public class CellBroadcastConfigService extends IntentService {
                 SmsCbConstants.MESSAGE_ID_CMAS_ALERT_OPERATOR_DEFINED_USE);
 
 
-        /** Enable GSM CMAS series messages for additional languages. */
+        // Enable GSM CMAS series messages for additional languages.
 
         // Enable/Disable GSM CMAS presidential messages for additional languages (4383).
         setCellBroadcastRange(manager, enablePresidential,
@@ -315,43 +296,20 @@ public class CellBroadcastConfigService extends IntentService {
                 SmsCbConstants.MESSAGE_ID_CMAS_ALERT_REQUIRED_MONTHLY_TEST_LANGUAGE,
                 SmsCbConstants.MESSAGE_ID_CMAS_ALERT_OPERATOR_DEFINED_USE_LANGUAGE);
 
-        // Enable/Disable channel 50 messages for Brazil (50).
-        setCellBroadcastRange(manager, enableChannel50Alerts,
-                SmsManager.CELL_BROADCAST_RAN_TYPE_GSM,
-                SmsCbConstants.MESSAGE_ID_GSMA_ALLOCATED_CHANNEL_50,
-                SmsCbConstants.MESSAGE_ID_GSMA_ALLOCATED_CHANNEL_50);
-
         // Enable/Disable additional channels based on carrier specific requirement.
-        ArrayList<CellBroadcastChannelRange> ranges = CellBroadcastOtherChannelsManager.
-                getInstance().getCellBroadcastChannelRanges(getApplicationContext(), subId);
+        ArrayList<CellBroadcastChannelRange> ranges = CellBroadcastChannelManager
+                .getInstance().getCellBroadcastChannelRanges(this);
 
         if (ranges != null) {
             for (CellBroadcastChannelRange range: ranges) {
+                if (range.mAlertType == AlertType.AREA && !enableAreaUpdateInfoAlerts) {
+                    // Skip area update info channels if it's not enabled.
+                    continue;
+                }
                 setCellBroadcastRange(manager, enableEmergencyAlerts,
                         SmsManager.CELL_BROADCAST_RAN_TYPE_GSM,
                         range.mStartId, range.mEndId);
             }
-        }
-
-        // Enable/Disable additional channels based on country specific requirement.
-        if (supportIsraelPwsAlerts) {
-            // Enable/Disable Israel PWS channels (919~928).
-            setCellBroadcastRange(manager, enableEmergencyAlerts,
-                    SmsManager.CELL_BROADCAST_RAN_TYPE_GSM,
-                    SmsCbConstants.MESSAGE_ID_GSMA_ALLOCATED_CHANNEL_919,
-                    SmsCbConstants.MESSAGE_ID_GSMA_ALLOCATED_CHANNEL_928);
-        } else if (supportTaiwanPwsAlerts) {
-            // Enable/Disable Taiwan PWS Chinese channel (911).
-            setCellBroadcastRange(manager, enableEmergencyAlerts,
-                    SmsManager.CELL_BROADCAST_RAN_TYPE_GSM,
-                    SmsCbConstants.MESSAGE_ID_GSMA_ALLOCATED_CHANNEL_911,
-                    SmsCbConstants.MESSAGE_ID_GSMA_ALLOCATED_CHANNEL_911);
-
-            // Enable/Disable Taiwan PWS English channel (919).
-            setCellBroadcastRange(manager, enableEmergencyAlerts,
-                    SmsManager.CELL_BROADCAST_RAN_TYPE_GSM,
-                    SmsCbConstants.MESSAGE_ID_GSMA_ALLOCATED_CHANNEL_919,
-                    SmsCbConstants.MESSAGE_ID_GSMA_ALLOCATED_CHANNEL_919);
         }
     }
     /**

@@ -77,7 +77,7 @@ public class FullscreenDialogFragment extends SafeDismissDialogFragment {
         return mTrackerLabel;
     }
 
-    private class FullscreenDialog extends TvDialog {
+    private class FullscreenDialog extends Dialog {
         public FullscreenDialog(Context context, int theme) {
             super(context, theme);
         }

@@ -22,6 +22,7 @@ import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Bundle;
 import android.os.RemoteException;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
@@ -31,6 +32,7 @@ import android.support.test.uiautomator.UiObjectNotFoundException;
 import android.test.ActivityInstrumentationTestCase2;
 import android.view.MotionEvent;
 
+import com.android.documentsui.base.Features;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.bots.Bots;
 import com.android.documentsui.bots.UiBot;
@@ -61,6 +63,7 @@ public abstract class ActivityTest<T extends Activity> extends ActivityInstrumen
     public Context context;
     public UiAutomation automation;
 
+    public Features features;
     public RootInfo rootDir0;
     public RootInfo rootDir1;
     protected ContentResolver mResolver;
@@ -104,6 +107,7 @@ public abstract class ActivityTest<T extends Activity> extends ActivityInstrumen
         // NOTE: Must be the "target" context, else security checks in content provider will fail.
         context = getInstrumentation().getTargetContext();
         automation = getInstrumentation().getUiAutomation();
+        features = new Features.RuntimeFeatures(context.getResources(), null);
 
         bots = new Bots(device, automation, context, TIMEOUT);
 
@@ -124,6 +128,9 @@ public abstract class ActivityTest<T extends Activity> extends ActivityInstrumen
         // so if a drawer is on top of a file we want to select, it will actually click the drawer.
         // Thus to start a clean state, we always try to close first.
         bots.roots.closeDrawer();
+
+        // Configure the provider back to default.
+        mDocsHelper.configure(null, Bundle.EMPTY);
     }
 
     @Override
@@ -133,7 +140,7 @@ public abstract class ActivityTest<T extends Activity> extends ActivityInstrumen
         super.tearDown();
     }
 
-    private void launchActivity() {
+    protected void launchActivity() {
         final Intent intent = context.getPackageManager().getLaunchIntentForPackage(
                 UiBot.TARGET_PKG);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);

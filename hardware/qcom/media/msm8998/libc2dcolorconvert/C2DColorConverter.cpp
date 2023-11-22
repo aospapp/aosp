@@ -1,4 +1,4 @@
-/* Copyright (c) 2012 - 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012 - 2017, The Linux Foundation. All rights reserved.
  *
  * redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -65,8 +65,8 @@ protected:
 private:
     bool isYUVSurface(ColorConvertFormat format);
     void *getDummySurfaceDef(ColorConvertFormat format, size_t width, size_t height, bool isSource);
-    C2D_STATUS updateYUVSurfaceDef(int fd, void *base, void * data, bool isSource);
-    C2D_STATUS updateRGBSurfaceDef(int fd, void * data, bool isSource);
+    C2D_STATUS updateYUVSurfaceDef(uint8_t *addr, void *base, void * data, bool isSource);
+    C2D_STATUS updateRGBSurfaceDef(uint8_t *addr, void * data, bool isSource);
     uint32_t getC2DFormat(ColorConvertFormat format);
     size_t calcStride(ColorConvertFormat format, size_t width);
     size_t calcYSize(ColorConvertFormat format, size_t width, size_t height);
@@ -222,6 +222,8 @@ C2DColorConverter::~C2DColorConverter()
 int C2DColorConverter::convertC2D(int srcFd, void *srcBase, void * srcData, int dstFd, void *dstBase, void * dstData)
 {
     C2D_STATUS ret;
+    uint8_t *srcMappedGpuAddr = nullptr;
+    uint8_t *dstMappedGpuAddr = nullptr;
 
     if (mError) {
         ALOGE("C2D library initialization failed\n");
@@ -233,25 +235,38 @@ int C2DColorConverter::convertC2D(int srcFd, void *srcBase, void * srcData, int 
         return -1;
     }
 
+    srcMappedGpuAddr = (uint8_t *)getMappedGPUAddr(srcFd, srcData, mSrcSize);
+    if (!srcMappedGpuAddr)
+        return -1;
+
     if (isYUVSurface(mSrcFormat)) {
-        ret = updateYUVSurfaceDef(srcFd, srcBase, srcData, true);
+        ret = updateYUVSurfaceDef(srcMappedGpuAddr, srcBase, srcData, true);
     } else {
-        ret = updateRGBSurfaceDef(srcFd, srcData, true);
+        ret = updateRGBSurfaceDef(srcMappedGpuAddr, srcData, true);
     }
 
     if (ret != C2D_STATUS_OK) {
         ALOGE("Update src surface def failed\n");
+        unmapGPUAddr((unsigned long)srcMappedGpuAddr);
         return -ret;
     }
 
+    dstMappedGpuAddr = (uint8_t *)getMappedGPUAddr(dstFd, dstData, mDstSize);
+    if (!dstMappedGpuAddr) {
+        unmapGPUAddr((unsigned long)srcMappedGpuAddr);
+        return -1;
+    }
+
     if (isYUVSurface(mDstFormat)) {
-        ret = updateYUVSurfaceDef(dstFd, dstBase, dstData, false);
+        ret = updateYUVSurfaceDef(dstMappedGpuAddr, dstBase, dstData, false);
     } else {
-        ret = updateRGBSurfaceDef(dstFd, dstData, false);
+        ret = updateRGBSurfaceDef(dstMappedGpuAddr, dstData, false);
     }
 
     if (ret != C2D_STATUS_OK) {
         ALOGE("Update dst surface def failed\n");
+        unmapGPUAddr((unsigned long)srcMappedGpuAddr);
+        unmapGPUAddr((unsigned long)dstMappedGpuAddr);
         return -ret;
     }
 
@@ -260,18 +275,10 @@ int C2DColorConverter::convertC2D(int srcFd, void *srcBase, void * srcData, int 
     mC2DFinish(mDstSurface);
 
     bool unmappedSrcSuccess;
-    if (isYUVSurface(mSrcFormat)) {
-        unmappedSrcSuccess = unmapGPUAddr((unsigned long)((C2D_YUV_SURFACE_DEF *)mSrcSurfaceDef)->phys0);
-    } else {
-        unmappedSrcSuccess = unmapGPUAddr((unsigned long)((C2D_RGB_SURFACE_DEF *)mSrcSurfaceDef)->phys);
-    }
+    unmappedSrcSuccess = unmapGPUAddr((unsigned long)srcMappedGpuAddr);
 
     bool unmappedDstSuccess;
-    if (isYUVSurface(mDstFormat)) {
-        unmappedDstSuccess = unmapGPUAddr((unsigned long)((C2D_YUV_SURFACE_DEF *)mDstSurfaceDef)->phys0);
-    } else {
-        unmappedDstSuccess = unmapGPUAddr((unsigned long)((C2D_RGB_SURFACE_DEF *)mDstSurfaceDef)->phys);
-    }
+    unmappedDstSuccess = unmapGPUAddr((unsigned long)dstMappedGpuAddr);
 
     if (ret != C2D_STATUS_OK) {
         ALOGE("C2D Draw failed\n");
@@ -348,12 +355,12 @@ void* C2DColorConverter::getDummySurfaceDef(ColorConvertFormat format, size_t wi
     }
 }
 
-C2D_STATUS C2DColorConverter::updateYUVSurfaceDef(int fd, void *base, void *data, bool isSource)
+C2D_STATUS C2DColorConverter::updateYUVSurfaceDef(uint8_t *gpuAddr, void *base, void *data, bool isSource)
 {
     if (isSource) {
         C2D_YUV_SURFACE_DEF * srcSurfaceDef = (C2D_YUV_SURFACE_DEF *)mSrcSurfaceDef;
         srcSurfaceDef->plane0 = data;
-        srcSurfaceDef->phys0  = (uint8_t *)getMappedGPUAddr(fd, data, mSrcSize) + ((uint8_t *)data - (uint8_t *)base);
+        srcSurfaceDef->phys0  = gpuAddr + ((uint8_t *)data - (uint8_t *)base);
         srcSurfaceDef->plane1 = (uint8_t *)data + mSrcYSize;
         srcSurfaceDef->phys1  = (uint8_t *)srcSurfaceDef->phys0 + mSrcYSize;
         if (srcSurfaceDef->format & C2D_COLOR_FORMAT_420_I420 ||
@@ -367,7 +374,7 @@ C2D_STATUS C2DColorConverter::updateYUVSurfaceDef(int fd, void *base, void *data
     } else {
         C2D_YUV_SURFACE_DEF * dstSurfaceDef = (C2D_YUV_SURFACE_DEF *)mDstSurfaceDef;
         dstSurfaceDef->plane0 = data;
-        dstSurfaceDef->phys0  = (uint8_t *)getMappedGPUAddr(fd, data, mDstSize) + ((uint8_t *)data - (uint8_t *)base);
+        dstSurfaceDef->phys0  = gpuAddr + ((uint8_t *)data - (uint8_t *)base);
         dstSurfaceDef->plane1 = (uint8_t *)data + mDstYSize;
         dstSurfaceDef->phys1  = (uint8_t *)dstSurfaceDef->phys0 + mDstYSize;
         if (dstSurfaceDef->format & C2D_COLOR_FORMAT_420_I420 ||
@@ -382,12 +389,12 @@ C2D_STATUS C2DColorConverter::updateYUVSurfaceDef(int fd, void *base, void *data
     }
 }
 
-C2D_STATUS C2DColorConverter::updateRGBSurfaceDef(int fd, void * data, bool isSource)
+C2D_STATUS C2DColorConverter::updateRGBSurfaceDef(uint8_t *gpuAddr, void * data, bool isSource)
 {
     if (isSource) {
         C2D_RGB_SURFACE_DEF * srcSurfaceDef = (C2D_RGB_SURFACE_DEF *)mSrcSurfaceDef;
         srcSurfaceDef->buffer = data;
-        srcSurfaceDef->phys = getMappedGPUAddr(fd, data, mSrcSize);
+        srcSurfaceDef->phys = gpuAddr;
         return  mC2DUpdateSurface(mSrcSurface, C2D_SOURCE,
                         (C2D_SURFACE_TYPE)(C2D_SURFACE_RGB_HOST | C2D_SURFACE_WITH_PHYS),
                         &(*srcSurfaceDef));
@@ -395,7 +402,7 @@ C2D_STATUS C2DColorConverter::updateRGBSurfaceDef(int fd, void * data, bool isSo
         C2D_RGB_SURFACE_DEF * dstSurfaceDef = (C2D_RGB_SURFACE_DEF *)mDstSurfaceDef;
         dstSurfaceDef->buffer = data;
         ALOGV("dstSurfaceDef->buffer = %p\n", data);
-        dstSurfaceDef->phys = getMappedGPUAddr(fd, data, mDstSize);
+        dstSurfaceDef->phys = gpuAddr;
         return mC2DUpdateSurface(mDstSurface, C2D_TARGET,
                         (C2D_SURFACE_TYPE)(C2D_SURFACE_RGB_HOST | C2D_SURFACE_WITH_PHYS),
                         &(*dstSurfaceDef));

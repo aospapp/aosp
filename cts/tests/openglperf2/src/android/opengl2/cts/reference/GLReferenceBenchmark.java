@@ -29,7 +29,7 @@ public class GLReferenceBenchmark extends ActivityInstrumentationTestCase2<GLRef
     private static final int NUM_FRAMES_PER_SCENE = 500;
     private static final int NUM_SCENES = 2;
     private static final int NUM_FRAMES = NUM_FRAMES_PER_SCENE * NUM_SCENES;
-    private static final int TIMEOUT = 1000000;
+    private static final int TIMEOUT = 2000000;
     private static final String REPORT_LOG_NAME = "CtsOpenGlPerf2TestCases";
 
     public GLReferenceBenchmark() {

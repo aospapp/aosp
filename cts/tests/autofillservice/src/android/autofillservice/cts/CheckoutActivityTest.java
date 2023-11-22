@@ -31,6 +31,7 @@ import static android.autofillservice.cts.Helper.assertTextIsSanitized;
 import static android.autofillservice.cts.Helper.assertToggleIsSanitized;
 import static android.autofillservice.cts.Helper.assertToggleValue;
 import static android.autofillservice.cts.Helper.findNodeByResourceId;
+import static android.autofillservice.cts.Helper.getContext;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_CREDIT_CARD;
 import static android.view.View.AUTOFILL_TYPE_LIST;
 
@@ -41,8 +42,12 @@ import android.app.assist.AssistStructure.ViewNode;
 import android.autofillservice.cts.CannedFillResponse.CannedDataset;
 import android.autofillservice.cts.InstrumentedAutoFillService.FillRequest;
 import android.autofillservice.cts.InstrumentedAutoFillService.SaveRequest;
-import android.support.test.rule.ActivityTestRule;
+import android.service.autofill.CharSequenceTransformation;
+import android.service.autofill.CustomDescription;
+import android.support.test.uiautomator.By;
+import android.support.test.uiautomator.UiObject2;
 import android.widget.ArrayAdapter;
+import android.widget.RemoteViews;
 import android.widget.Spinner;
 
 import org.junit.After;
@@ -51,6 +56,7 @@ import org.junit.Rule;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.regex.Pattern;
 
 /**
  * Test case for an activity containing non-TextField views.
@@ -58,8 +64,8 @@ import java.util.Arrays;
 public class CheckoutActivityTest extends AutoFillServiceTestCase {
 
     @Rule
-    public final ActivityTestRule<CheckoutActivity> mActivityRule =
-        new ActivityTestRule<CheckoutActivity>(CheckoutActivity.class);
+    public final AutofillActivityTestRule<CheckoutActivity> mActivityRule =
+        new AutofillActivityTestRule<CheckoutActivity>(CheckoutActivity.class);
 
     private CheckoutActivity mActivity;
 
@@ -101,7 +107,7 @@ public class CheckoutActivityTest extends AutoFillServiceTestCase {
         final CharSequence[] options = ccExpirationNode.getAutofillOptions();
         assertWithMessage("ccExpirationNode.getAutoFillOptions()").that(options).isNotNull();
         assertWithMessage("Wrong auto-fill options for spinner").that(options).asList()
-                .containsExactly(
+                .containsExactly((Object [])
                         getContext().getResources().getStringArray(R.array.cc_expiration_values))
                 .inOrder();
 
@@ -241,5 +247,115 @@ public class CheckoutActivityTest extends AutoFillServiceTestCase {
         assertToggleValue(findNodeByResourceId(saveRequest.structure, ID_HOME_ADDRESS), false);
         assertToggleValue(findNodeByResourceId(saveRequest.structure, ID_WORK_ADDRESS), true);
         assertToggleValue(findNodeByResourceId(saveRequest.structure, ID_SAVE_CC), false);
+    }
+
+    /**
+     * Tests that a spinner can be used on custom save descriptions.
+     */
+    @Test
+    public void testCustomizedSaveUi() throws Exception {
+        // Set service.
+        enableService();
+
+        // Set expectations.
+        final String packageName = getContext().getPackageName();
+
+        final RemoteViews presentation = new RemoteViews(packageName,
+                R.layout.two_horizontal_text_fields);
+        final CharSequenceTransformation trans1 = new CharSequenceTransformation
+                .Builder(mActivity.getCcNumber().getAutofillId(), Pattern.compile("(.*)"), "$1")
+                .build();
+        final CharSequenceTransformation trans2 = new CharSequenceTransformation
+                .Builder(mActivity.getCcExpiration().getAutofillId(), Pattern.compile("(.*)"), "$1")
+                .build();
+        final CustomDescription customDescription = new CustomDescription.Builder(presentation)
+                .addChild(R.id.first, trans1)
+                .addChild(R.id.second, trans2)
+                .build();
+
+        sReplier.addResponse(new CannedFillResponse.Builder()
+                .setRequiredSavableIds(SAVE_DATA_TYPE_CREDIT_CARD, ID_CC_NUMBER, ID_CC_EXPIRATION)
+                .setCustomDescription(customDescription)
+                .build());
+
+        // Dynamically change view contents
+        mActivity.onCcExpiration((v) -> v.setSelection(INDEX_CC_EXPIRATION_TOMORROW, true));
+
+        // Trigger auto-fill.
+        mActivity.onCcNumber((v) -> v.requestFocus());
+        sReplier.getNextFillRequest();
+
+        // Trigger save.
+        mActivity.onCcNumber((v) -> v.setText("4815162342"));
+        mActivity.onCcExpiration((v) -> v.setSelection(INDEX_CC_EXPIRATION_TODAY));
+        mActivity.tapBuy();
+
+        // First make sure the UI is shown...
+        final UiObject2 saveUi = sUiBot.assertSaveShowing(SAVE_DATA_TYPE_CREDIT_CARD);
+
+        // Then make sure it does have the custom views on it...
+        final UiObject2 staticText = saveUi.findObject(By.res(packageName, "static_text"));
+        assertThat(staticText).isNotNull();
+        assertThat(staticText.getText()).isEqualTo("YO:");
+
+        final UiObject2 number = saveUi.findObject(By.res(packageName, "first"));
+        assertThat(number).isNotNull();
+        assertThat(number.getText()).isEqualTo("4815162342");
+
+        final UiObject2 expiration = saveUi.findObject(By.res(packageName, "second"));
+        assertThat(expiration).isNotNull();
+        assertThat(expiration.getText()).isEqualTo("today");
+    }
+
+    /**
+     * Tests that a custom save description is ignored when the selected spinner element is not
+     * available in the autofill options.
+     */
+    @Test
+    public void testCustomizedSaveUiWhenListResolutionFails() throws Exception {
+        // Set service.
+        enableService();
+
+        // Change spinner to return just one item so the transformation throws an exception when
+        // fetching it.
+        mActivity.getCcExpirationAdapter().setAutofillOptions("D'OH!");
+
+        // Set expectations.
+        final String packageName = getContext().getPackageName();
+        final RemoteViews presentation = new RemoteViews(packageName,
+                R.layout.two_horizontal_text_fields);
+        final CharSequenceTransformation trans1 = new CharSequenceTransformation
+                .Builder(mActivity.getCcNumber().getAutofillId(), Pattern.compile("(.*)"), "$1")
+                .build();
+        final CharSequenceTransformation trans2 = new CharSequenceTransformation
+                .Builder(mActivity.getCcExpiration().getAutofillId(), Pattern.compile("(.*)"), "$1")
+                .build();
+        final CustomDescription customDescription = new CustomDescription.Builder(presentation)
+                .addChild(R.id.first, trans1)
+                .addChild(R.id.second, trans2)
+                .build();
+
+        sReplier.addResponse(new CannedFillResponse.Builder()
+                .setRequiredSavableIds(SAVE_DATA_TYPE_CREDIT_CARD, ID_CC_NUMBER, ID_CC_EXPIRATION)
+                .setCustomDescription(customDescription)
+                .build());
+
+        // Dynamically change view contents
+        mActivity.onCcExpiration((v) -> v.setSelection(INDEX_CC_EXPIRATION_TOMORROW, true));
+
+        // Trigger auto-fill.
+        mActivity.onCcNumber((v) -> v.requestFocus());
+        sReplier.getNextFillRequest();
+
+        // Trigger save.
+        mActivity.onCcNumber((v) -> v.setText("4815162342"));
+        mActivity.onCcExpiration((v) -> v.setSelection(INDEX_CC_EXPIRATION_TODAY));
+        mActivity.tapBuy();
+
+        // First make sure the UI is shown...
+        final UiObject2 saveUi = sUiBot.assertSaveShowing(SAVE_DATA_TYPE_CREDIT_CARD);
+
+        // Then make sure it does not have the custom views on it...
+        assertThat(saveUi.findObject(By.res(packageName, "static_text"))).isNull();
     }
 }

@@ -31,6 +31,7 @@ import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.util.AttributeSet;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.Pair;
 import android.util.SparseArray;
@@ -38,6 +39,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewStructure;
 import android.view.ViewStructure.HtmlInfo;
+import android.view.WindowManager;
 import android.view.autofill.AutofillManager;
 import android.view.autofill.AutofillValue;
 
@@ -81,10 +83,13 @@ class VirtualContainerView extends View {
         mUnfocusedColor = Color.BLACK;
         mFocusedColor = Color.RED;
         mTextPaint.setStyle(Style.FILL);
-        mTopMargin = 100;
-        mLeftMargin = 100;
-        mTextHeight = 90;
-        mVerticalGap = 10;
+        DisplayMetrics metrics = new DisplayMetrics();
+        WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+        wm.getDefaultDisplay().getMetrics(metrics);
+        mTopMargin = metrics.heightPixels * 5 / 100;
+        mLeftMargin = metrics.widthPixels * 5 / 100;
+        mTextHeight = metrics.widthPixels * 5 / 100; // adjust text size with display width
+        mVerticalGap = metrics.heightPixels / 100;
 
         mLineLength = mTextHeight + mVerticalGap;
         mTextPaint.setTextSize(mTextHeight);
@@ -125,6 +130,9 @@ class VirtualContainerView extends View {
         for (int i = 0; i < mLines.size(); i++) {
             x = mLeftMargin;
             final Line line = mLines.get(i);
+            if (!line.visible) {
+                continue;
+            }
             Log.v(TAG, "Drawing '" + line + "' at " + x + "x" + y);
             mTextPaint.setColor(line.focused ? mFocusedColor : mUnfocusedColor);
             final String readOnlyText = line.label.text + ":  [";
@@ -260,6 +268,7 @@ class VirtualContainerView extends View {
         final Rect bounds = new Rect();
 
         private boolean focused;
+        private boolean visible = true;
 
         private Line(String labelId, String label, String textId, String text) {
             this.label = new Item(this, ++nextId, labelId, label, false, false);
@@ -278,6 +287,16 @@ class VirtualContainerView extends View {
             }
         }
 
+        void changeVisibility(boolean visible) {
+            if (this.visible == visible) {
+                return;
+            }
+            this.visible = visible;
+            mAfm.notifyViewVisibilityChanged(VirtualContainerView.this, text.id, visible);
+            Log.d(TAG, "visibility changed view: " + text.id + "; visible:" + visible);
+            invalidate();
+        }
+
         Rect getAbsCoordinates() {
             // Must offset the boundaries so they're relative to the CustomView.
             final int offset[] = new int[2];
@@ -290,13 +309,25 @@ class VirtualContainerView extends View {
             return absBounds;
         }
 
+        void setText(String value) {
+            text.text = value;
+            final AutofillManager autofillManager =
+                    getContext().getSystemService(AutofillManager.class);
+            if (autofillManager != null) {
+                autofillManager.notifyValueChanged(VirtualContainerView.this, text.id,
+                        AutofillValue.forText(text.text));
+            }
+            invalidate();
+        }
+
         void setTextChangedListener(TextWatcher listener) {
             text.listener = listener;
         }
 
         @Override
         public String toString() {
-            return "Label: " + label + " Text: " + text + " Focused: " + focused;
+            return "Label: " + label + " Text: " + text + " Focused: " + focused
+                    + " Visible: " + visible;
         }
 
         final class OneTimeLineWatcher implements TextWatcher {

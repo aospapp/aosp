@@ -19,10 +19,12 @@
 #include <inttypes.h>
 
 #include <string.h>
+#include <unistd.h>
 
 #include <chrono>
 
 #include <cutils/sockets.h>
+#include <sys/socket.h>
 #include <utils/RefBase.h>
 #include <utils/StrongPointer.h>
 
@@ -177,11 +179,17 @@ bool SocketClient::receiveThreadRunning() const {
 }
 
 bool SocketClient::reconnect() {
-  auto delay = std::chrono::duration<int32_t, std::milli>(500);
+  constexpr auto kMinDelay = std::chrono::duration<int32_t, std::milli>(250);
   constexpr auto kMaxDelay = std::chrono::minutes(5);
-  int retryLimit = 40;  // ~2.5 hours total
+  // Try reconnecting at initial delay this many times before backing off
+  constexpr unsigned int kExponentialBackoffDelay =
+    std::chrono::seconds(10) / kMinDelay;
+  // Give up after this many tries (~2.5 hours)
+  constexpr unsigned int kRetryLimit = kExponentialBackoffDelay + 40;
+  auto delay = kMinDelay;
+  unsigned int retryCount = 0;
 
-  while (--retryLimit > 0) {
+  while (retryCount++ < kRetryLimit) {
     {
       std::unique_lock<std::mutex> lock(mShutdownMutex);
       mShutdownCond.wait_for(lock, delay,
@@ -191,9 +199,15 @@ bool SocketClient::reconnect() {
       }
     }
 
-    if (!tryConnect()) {
-      LOGW("Failed to (re)connect, next try in %" PRId32 " ms", delay.count());
-      delay *= 2;
+    bool suppressErrorLogs = (delay == kMinDelay);
+    if (!tryConnect(suppressErrorLogs)) {
+      if (!suppressErrorLogs) {
+        LOGW("Failed to (re)connect, next try in %" PRId32 " ms",
+             delay.count());
+      }
+      if (retryCount > kExponentialBackoffDelay) {
+        delay *= 2;
+      }
       if (delay > kMaxDelay) {
         delay = kMaxDelay;
       }
@@ -207,17 +221,39 @@ bool SocketClient::reconnect() {
   return false;
 }
 
-bool SocketClient::tryConnect() {
+bool SocketClient::tryConnect(bool suppressErrorLogs) {
+  bool success = false;
+
   errno = 0;
-  mSockFd = socket_local_client(mSocketName,
-                                ANDROID_SOCKET_NAMESPACE_RESERVED,
-                                SOCK_SEQPACKET);
-  if (mSockFd == INVALID_SOCKET) {
-    LOGE("Couldn't create/connect client socket to '%s': %s",
-         mSocketName, strerror(errno));
+  int sockFd = socket(AF_LOCAL, SOCK_SEQPACKET, 0);
+  if (sockFd >= 0) {
+    // Set the send buffer size to 2MB to allow plenty of room for nanoapp
+    // loading
+    int sndbuf = 2 * 1024 * 1024;
+    int ret = setsockopt(
+        sockFd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf));
+    if (ret == 0) {
+      mSockFd = socket_local_client_connect(
+          sockFd, mSocketName, ANDROID_SOCKET_NAMESPACE_RESERVED,
+          SOCK_SEQPACKET);
+      if (mSockFd != INVALID_SOCKET) {
+        success = true;
+      } else if (!suppressErrorLogs) {
+        LOGE("Couldn't connect client socket to '%s': %s",
+             mSocketName, strerror(errno));
+      }
+    } else if (!suppressErrorLogs) {
+      LOGE("Failed to set SO_SNDBUF to %d: %s", sndbuf, strerror(errno));
+    }
+
+    if (!success) {
+      close(sockFd);
+    }
+  } else if (!suppressErrorLogs) {
+    LOGE("Couldn't create local socket: %s", strerror(errno));
   }
 
-  return (mSockFd != INVALID_SOCKET);
+  return success;
 }
 
 }  // namespace chre

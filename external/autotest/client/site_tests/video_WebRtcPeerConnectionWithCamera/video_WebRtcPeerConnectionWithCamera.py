@@ -9,6 +9,7 @@ from autotest_lib.client.bin import test
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
+from autotest_lib.client.cros.video import helper_logger
 
 EXTRA_BROWSER_ARGS = ['--use-fake-ui-for-media-stream']
 
@@ -51,12 +52,14 @@ class video_WebRtcPeerConnectionWithCamera(test.test):
             _test_done, timeout=timeout_secs, sleep_interval=1,
             desc='loopback.html reports itself as finished')
 
+    @helper_logger.video_log_wrapper
     def run_once(self, video_codec):
         """Runs the video_WebRtcPeerConnectionWithCamera test.
 
         @param video_codec: video codec to use.
         """
-        with chrome.Chrome(extra_browser_args=EXTRA_BROWSER_ARGS,
+        with chrome.Chrome(extra_browser_args=EXTRA_BROWSER_ARGS +\
+                           [helper_logger.chrome_vmodule_flag()],
                            init_network_controller=True) as cr:
             self.start_loopback(cr, video_codec)
             self.wait_test_completed(TIMEOUT)

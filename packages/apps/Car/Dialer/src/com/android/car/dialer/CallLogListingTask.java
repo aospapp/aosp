@@ -23,11 +23,11 @@ import android.graphics.Bitmap;
 import android.os.AsyncTask;
 import android.provider.CallLog;
 import android.support.annotation.NonNull;
-import android.support.car.ui.CircleBitmapDrawable;
 import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
 
+import com.android.car.apps.common.CircleBitmapDrawable;
 import com.android.car.apps.common.LetterTileDrawable;
 import com.android.car.dialer.telecom.PhoneLoader;
 import com.android.car.dialer.telecom.TelecomUtils;

@@ -7,7 +7,7 @@
 import subprocess
 
 import common
-from autotest_lib.client.common_lib import site_utils
+from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.feedback import client
 from autotest_lib.client.common_lib.feedback import tester_feedback_client
 from autotest_lib.server.brillo import audio_utils
@@ -51,7 +51,7 @@ class PlaybackMixin(object):
         choices = []
         cmds = []
         for tool, cmd in _KNOWN_WAV_PLAYBACK_METHODS:
-            if site_utils.which(tool):
+            if utils.which(tool):
                 choices.append(tool)
                 cmds.append(cmd)
         choices.append('Manual playback')

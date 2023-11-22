@@ -7,6 +7,7 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.SystemClock;
 import android.provider.Settings;
+import android.support.annotation.CallSuper;
 import android.test.InstrumentationTestCase;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityManager;
@@ -36,6 +37,7 @@ public class InstrumentedAccessibilityService extends AccessibilityService {
 
 
     @Override
+    @CallSuper
     protected void onServiceConnected() {
         synchronized (sInstances) {
             sInstances.put(getClass(), new WeakReference<>(this));

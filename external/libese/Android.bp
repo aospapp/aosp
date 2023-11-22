@@ -15,11 +15,15 @@
 //
 
 subdirs = [
-    "libese-sysdeps",
-    "libese",
-    "libese-teq1",
-    "libese-hw",
-    "examples",
-    "tools",
+    "apps",
     "esed",
+    "third_party",
+    "examples",
+    "libapdu",
+    "libese",
+    "libese-cpp",
+    "libese-hw",
+    "libese-sysdeps",
+    "libese-teq1",
+    "tools",
 ]

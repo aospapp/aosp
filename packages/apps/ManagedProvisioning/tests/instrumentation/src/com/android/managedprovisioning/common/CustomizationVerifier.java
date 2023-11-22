@@ -70,9 +70,9 @@ public class CustomizationVerifier {
     }
 
     public void assertNextButtonColorCorrect(int targetColor) {
-        Drawable buttonBackground = mActivity.findViewById(R.id.next_button).getBackground();
-        assertThat(buttonBackground, instanceOf(ColorDrawable.class));
-        assertThat(((ColorDrawable) buttonBackground).getColor(), equalTo(targetColor));
+        ColorStateList actual = mActivity.findViewById(R.id.next_button).getBackgroundTintList();
+        ColorStateList expected = ColorStateList.valueOf(targetColor);
+        assertThat(actual, equalTo(expected));
     }
 
     public void assertProgressBarColorCorrect(int targetColor) {

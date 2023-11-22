@@ -111,6 +111,11 @@ class RSContext {
   int getForEachSlotNumber(const clang::StringRef& funcName);
   unsigned mNextSlot;
 
+  // For diagnostic purposes, we record the order in which we parse
+  // foreach kernels -- which is not necessarily the same order in
+  // which they appear in mExportForEach.
+  unsigned mNextForEachOrdinal;
+
   ExportVarList mExportVars;
   ExportFuncList mExportFuncs;
   std::map<llvm::StringRef, unsigned> mExportForEachMap;
@@ -198,6 +203,7 @@ class RSContext {
   }
 
   bool addForEach(const clang::FunctionDecl* FD);
+
   bool processExports();
   inline void newExportable(RSExportable *E) {
     if (E != nullptr)
@@ -221,6 +227,9 @@ class RSContext {
   inline bool hasExportVar() const {
     return !mExportVars.empty();
   }
+  size_t export_vars_size() const {
+    return mExportVars.size();
+  }
 
   typedef ExportFuncList::const_iterator const_export_func_iterator;
   const_export_func_iterator export_funcs_begin() const {
@@ -230,6 +239,9 @@ class RSContext {
     return mExportFuncs.end();
   }
   inline bool hasExportFunc() const { return !mExportFuncs.empty(); }
+  size_t export_funcs_size() const {
+    return mExportFuncs.size();
+  }
 
   typedef ExportForEachVector::const_iterator const_export_foreach_iterator;
   const_export_foreach_iterator export_foreach_begin() const {
@@ -241,12 +253,19 @@ class RSContext {
   inline bool hasExportForEach() const { return !mExportForEach.empty(); }
   int getForEachSlotNumber(const clang::FunctionDecl* FD);
 
+  // count up from zero
+  unsigned getNextForEachOrdinal() { return mNextForEachOrdinal++; }
+  unsigned getNumAssignedForEachOrdinals() const { return mNextForEachOrdinal; }
+
   typedef ExportReduceList::const_iterator const_export_reduce_iterator;
   const_export_reduce_iterator export_reduce_begin() const {
     return mExportReduce.begin();
   }
   const_export_reduce_iterator export_reduce_end() const {
     return mExportReduce.end();
+  }
+  size_t export_reduce_size() const {
+    return mExportReduce.size();
   }
   inline bool hasExportReduce() const { return !mExportReduce.empty(); }
   void addExportReduce(RSExportReduce *Reduce) {
@@ -315,7 +334,7 @@ class RSContext {
   // Report an error or a warning to the user.
   template <unsigned N>
   clang::DiagnosticBuilder Report(clang::DiagnosticsEngine::Level Level,
-                                             const char (&Message)[N]) {
+                                             const char (&Message)[N]) const {
   clang::DiagnosticsEngine *DiagEngine = getDiagnostics();
   return DiagEngine->Report(DiagEngine->getCustomDiagID(Level, Message));
   }
@@ -323,7 +342,7 @@ class RSContext {
   template <unsigned N>
   clang::DiagnosticBuilder Report(clang::DiagnosticsEngine::Level Level,
                                              const clang::SourceLocation Loc,
-                                             const char (&Message)[N]) {
+                                             const char (&Message)[N]) const {
   clang::DiagnosticsEngine *DiagEngine = getDiagnostics();
   const clang::SourceManager *SM = getSourceManager();
   return DiagEngine->Report(clang::FullSourceLoc(Loc, *SM),
@@ -333,24 +352,24 @@ class RSContext {
   // Utility functions to report errors and warnings to make the calling code
   // easier to read.
   template <unsigned N>
-  clang::DiagnosticBuilder ReportError(const char (&Message)[N]) {
+  clang::DiagnosticBuilder ReportError(const char (&Message)[N]) const {
     return Report<N>(clang::DiagnosticsEngine::Error, Message);
   }
 
   template <unsigned N>
   clang::DiagnosticBuilder ReportError(const clang::SourceLocation Loc,
-                                       const char (&Message)[N]) {
+                                       const char (&Message)[N]) const {
     return Report<N>(clang::DiagnosticsEngine::Error, Loc, Message);
   }
 
   template <unsigned N>
-  clang::DiagnosticBuilder ReportWarning(const char (&Message)[N]) {
+  clang::DiagnosticBuilder ReportWarning(const char (&Message)[N]) const {
     return Report<N>(clang::DiagnosticsEngine::Warning, Message);
   }
 
   template <unsigned N>
   clang::DiagnosticBuilder ReportWarning(const clang::SourceLocation Loc,
-                                         const char (&Message)[N]) {
+                                         const char (&Message)[N]) const {
     return Report<N>(clang::DiagnosticsEngine::Warning, Loc, Message);
   }
 

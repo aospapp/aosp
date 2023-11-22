@@ -78,7 +78,6 @@
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"صوتی میل (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"VM:"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"اطلاعات"</string>
-    <string name="networks" msgid="8873030692174541976">"نیٹ ورک آپریٹرز"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"ہنگامی براڈکاسٹس"</string>
     <string name="call_settings" msgid="6112441768261754562">"کال کی ترتیبات"</string>
     <string name="additional_gsm_call_settings" msgid="1391795981938800617">"اضافی ترتیبات"</string>
@@ -164,20 +163,18 @@
     <string name="label_available" msgid="1181658289009300430">"دستیاب نیٹ ورکس"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"تلاش کر رہا ہے…"</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"کوئی نیٹ ورکس نہیں ملے۔"</string>
-    <string name="search_networks" msgid="1601136049300882441">"نیٹ ورکس تلاش کریں"</string>
     <string name="network_query_error" msgid="6828516148953325006">"نیٹ ورکس کی تلاش کے دوران خرابی۔"</string>
     <string name="register_on_network" msgid="9055203954040805084">"<xliff:g id="NETWORK">%s</xliff:g> پر رجسٹر کر رہا ہے…"</string>
     <string name="not_allowed" msgid="5613353860205691579">"‏آپ کا SIM کارڈ اس نیٹ ورک سے کنکشن کی اجازت نہیں دیتا ہے۔"</string>
     <string name="connect_later" msgid="2308119155752343975">"ابھی اس نیٹ ورک سے مربوط نہیں ہوسکتا۔ بعد میں دوبارہ کوشش کریں۔"</string>
     <string name="registration_done" msgid="495135664535876612">"نیٹ ورک پر رجسٹرڈ ہوگیا۔"</string>
-    <string name="sum_carrier_select" msgid="3494252551249882718">"ایک نیٹ ورک آپریٹر منتخب کریں"</string>
-    <string name="sum_search_networks" msgid="2921092249873272715">"سبھی دستیاب نیٹ ورکس تلاش کریں"</string>
-    <string name="select_automatically" msgid="5628402124471810174">"خود کار طور پر منتخب کریں"</string>
-    <string name="sum_select_automatically" msgid="5614890115123292400">"ترجیحی نیٹ خود کار طور پر منتخب کریں"</string>
+    <string name="select_automatically" msgid="1046727200631770962">"نیٹ ورک خودکار طور پر منتخب کریں"</string>
+    <string name="network_select_title" msgid="7733107364757544558">"نیٹ ورک"</string>
     <string name="register_automatically" msgid="6017849844573519637">"خود کار رجسٹریشن…"</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"ترجیحی نیٹ ورک کی قسم"</string>
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"نیٹ ورک آپریٹنگ طرز تبدیل کریں"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"ترجیحی نیٹ ورک کی قسم"</string>
+    <string name="forbidden_network" msgid="4384929668343563440">"(ممنوع)"</string>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"‏ترجیحی نیٹ ورک طرز: WCDMA ترجیحی"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"‏ترجیحی نیٹ ورک طرز: صرف GSM"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"‏ترجیحی نیٹ ورک طرز: صرف WCDMA"</string>
@@ -210,18 +207,34 @@
     <item msgid="1524224863879435516">"‏صرف GSM"</item>
     <item msgid="3817924849415716259">"‏GSM/WCDMA ترجیحی"</item>
   </string-array>
+    <string name="call_category" msgid="5863978196309462052">"کال کی جا رہی ہے"</string>
+    <string name="network_operator_category" msgid="4830701959205735636">"نیٹ ورک"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"‏Enhanced 4G LTE وضع"</string>
     <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"اعلی درجے کی کالنگ"</string>
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"‏صوتی اور دیگر مواصلات کو بہتر بنانے کیلئے LTE سروسز استعمال کریں (تجویز کردہ)"</string>
     <string name="data_enabled" msgid="5972538663568715366">"ڈیٹا فعال ہوگیا"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"ڈیٹا کے استعمال کی اجازت دیں"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"توجہ دیں"</string>
-    <string name="roaming" msgid="8871412572928323707">"ڈیٹا رومنگ"</string>
+    <string name="roaming" msgid="7894878421600247140">"رومنگ"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"رومنگ کے وقت ڈیٹا سروسز سے مربوط ہوں"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"رومنگ کے وقت ڈیٹا سروسز سے مربوط ہوں"</string>
     <string name="roaming_reenable_message" msgid="8913735676127858115">"آپ ڈیٹا کی حالت رسائی سے محروم ہوگئے کیونکہ آپ نے ڈیٹا رومنگ آف ہونے کے ساتھ اپنا ہوم نیٹ ورک چھوڑ دیا۔"</string>
     <string name="roaming_warning" msgid="1603164667540144353">"آپ پر خاطر خواہ چارجز لگ سکتے ہیں۔"</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"ڈیٹا رومنگ کی اجازت دیں؟"</string>
+    <string name="data_usage_title" msgid="8759619109516889802">"ڈیٹا کا استعمال"</string>
+    <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_1">%1$s</xliff:g> موبائل ڈیٹا <xliff:g id="ID_2">%2$s</xliff:g> میں استعمال ہوا"</string>
+    <string name="advanced_options_title" msgid="8074895510265488035">"جدید ترین"</string>
+    <string name="carrier_settings_euicc" msgid="6714062862127226405">"کیریئر"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"‏کیریئر، esim, sim, euicc"</string>
+    <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> — <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
+    <string name="mobile_data_settings_title" msgid="4661165467914727157">"موبائل ڈیٹا"</string>
+    <string name="mobile_data_settings_summary" msgid="5087255915840576895">"موبائل نیٹ ورک استعمال کرکے ڈیٹا تک رسائی حاصل کریں"</string>
+    <string name="data_usage_disable_mobile" msgid="3577275288809667615">"موبائل ڈیٹا آف کریں؟"</string>
+    <string name="sim_selection_required_pref" msgid="7049424902961844236">"انتخاب درکار ہے"</string>
+    <string name="sim_change_data_title" msgid="5332425991853799280">"‏ڈیٹا SIM تبدیل کریں؟"</string>
+    <string name="sim_change_data_message" msgid="2163963581444907496">"موبائل ڈیٹا کے لیے <xliff:g id="OLD_SIM">%2$s</xliff:g> کی بجائے <xliff:g id="NEW_SIM">%1$s</xliff:g> استعمال کریں؟"</string>
+    <string name="wifi_calling_settings_title" msgid="7741961465416430470">"‏Wi-Fi کالنگ"</string>
+    <string name="video_calling_settings_title" msgid="539714564273795574">"کیرئیر ویڈیو کالنگ"</string>
     <string name="gsm_umts_options" msgid="6538311689850981686">"‏GSM/UMTS کے اختیارات"</string>
     <string name="cdma_options" msgid="4016822858172249884">"‏CDMA کے اختیارات"</string>
     <string name="throttle_data_usage" msgid="3715677828160555808">"ڈیٹا کا استعمال"</string>
@@ -452,7 +465,7 @@
     <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"موبائل نیٹ ورک دستیاب نہیں ہے۔ کال کرنے کیلئے کسی وائرلیس نیٹ ورک سے منسلک ہوں۔"</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"کال کرنے کیلئے، ایک درست نمبر درج کریں۔"</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"کال ناکام ہوگئی۔"</string>
-    <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"اس وقت کال شامل نہیں ہو سکتی۔"</string>
+    <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"اس وقت کال شامل نہیں کی جا سکتی۔ آپ ایک پیغام بھیج کر رابطہ کرنے کی کوشش کر سکتے ہیں۔"</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"سروس تعاون یافتہ نہیں ہے"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"کالز سوئچ نہیں کر سکتے۔"</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"کال کو الگ نہیں کر سکتے۔"</string>
@@ -572,6 +585,8 @@
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"بہت زیادہ فعال کالیں ہیں۔ براہ کرم نئی کال کرنے سے پہلے موجودہ کالوں کو ضم کریں یا ختم کریں۔"</string>
     <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"‏منسلک کرنے سے قاصر، براہ کرم ایک درست SIM کارڈ داخل کریں۔"</string>
     <string name="callFailed_wifi_lost" msgid="5968076625137297184">"‏Wi-Fi کنکشن کھو گیا۔ کال ختم ہو گئی۔"</string>
+    <string name="dialFailed_low_battery" msgid="8760548177088774268">"کم بیٹری کی وجہ سے آپ کی ویڈیو کال نہیں کی جا سکتی۔"</string>
+    <string name="callFailed_low_battery" msgid="4913582435905872616">"کم بیٹری کی وجہ سے ویڈیو کال ختم ہو گئی۔"</string>
     <string name="change_pin_title" msgid="7790232089699034029">"‏صوتی میل PIN تبدیل کریں"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"جاری رکھیں"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"منسوخ کریں"</string>
@@ -584,4 +599,18 @@
     <string name="change_pin_confirm_pins_dont_match" msgid="4795052654904027909">"‏PINs مماثل نہیں ہیں"</string>
     <string name="change_pin_succeeded" msgid="2022852286442211151">"‏صوتی میل PIN اپ ڈیٹ ہو گئی"</string>
     <string name="change_pin_system_error" msgid="8308462387154257840">"‏PIN سیٹ کرنے سے قاصر"</string>
+    <string name="mobile_data_status_roaming_turned_off_subtext" msgid="935636805765823307">"ڈیٹا رومنگ آف ہے"</string>
+    <string name="mobile_data_status_roaming_turned_on_subtext" msgid="1335176927083781041">"ڈیٹا رومنگ آن ہے"</string>
+    <string name="mobile_data_status_roaming_without_plan_subtext" msgid="3568412513831673037">"فی الحال رومنگ ہو رہی ہے، ڈیٹا منصوبہ درکار ہے"</string>
+    <string name="mobile_data_status_roaming_with_plan_subtext" msgid="8721998948811064377">"فی الحال رومنگ ہو رہی ہے، ڈیٹا منصوبہ فعال ہے"</string>
+    <string name="mobile_data_status_no_plan_subtext" msgid="4887747337017565725">"کوئی موبائل ڈیٹا نہیں بچا"</string>
+    <string name="mobile_data_activate_prepaid" msgid="7447025165850512683">"کوئی موبائل ڈیٹا نہیں بچا"</string>
+    <string name="mobile_data_activate_prepaid_summary" msgid="5705389791791637666">"موبائل ڈیٹا <xliff:g id="PROVIDER_NAME">%s</xliff:g> کے ذریعے شامل کریں"</string>
+    <string name="mobile_data_activate_roaming_plan" msgid="5998161536947086264">"کوئی رومنگ منصوبہ نہیں"</string>
+    <string name="mobile_data_activate_roaming_plan_summary" msgid="511202908883425459">"<xliff:g id="PROVIDER_NAME">%s</xliff:g> کے ذریعے رومنگ منصوبہ شامل کریں"</string>
+    <string name="mobile_data_activate_footer" msgid="5979019929980140594">"آپ اپنے <xliff:g id="PROVIDER_NAME">%s</xliff:g> کیرئیر کے ذریعے موبا‏ئل ڈیٹا یا رومنگ منصوبہ شامل کر سکتے ہیں۔"</string>
+    <string name="mobile_data_activate_diag_title" msgid="9044252207707864493">"ڈیٹا شامل کریں؟"</string>
+    <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"آپ کو شاید <xliff:g id="PROVIDER_NAME">%s</xliff:g> کے ذریعے ڈیٹا شامل کرنا پڑے"</string>
+    <string name="mobile_data_activate_button" msgid="3682400969184405446">"ڈیٹا شامل کریں"</string>
+    <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"منسوخ کریں"</string>
 </resources>

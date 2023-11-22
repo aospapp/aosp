@@ -22,7 +22,6 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := DeviceHealthTests
 LOCAL_CERTIFICATE := platform
-LOCAL_JAVA_LIBRARIES := android.test.runner
 LOCAL_STATIC_JAVA_LIBRARIES := android-support-test platform-test-annotations
 
 LOCAL_COMPATIBILITY_SUITE := device-tests

@@ -37,5 +37,6 @@ FUZZER_TEST_CRASH_REPORT = FUZZER_TEST_DIR + "/crash_report"
 FUZZER_DEFAULT_PARAMS = {
     "max_len": 100,
     "max_total_time": 60,
-    "exact_artifact_path": FUZZER_TEST_CRASH_REPORT
+    "exact_artifact_path": FUZZER_TEST_CRASH_REPORT,
+    "timeout": 120,
 }

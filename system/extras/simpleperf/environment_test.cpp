@@ -16,6 +16,9 @@
 
 #include <gtest/gtest.h>
 
+#include <android-base/file.h>
+
+#include "dso.h"
 #include "environment.h"
 
 TEST(environment, GetCpusFromString) {
@@ -23,4 +26,19 @@ TEST(environment, GetCpusFromString) {
   ASSERT_EQ(GetCpusFromString("0-2"), std::vector<int>({0, 1, 2}));
   ASSERT_EQ(GetCpusFromString("0,2-3"), std::vector<int>({0, 2, 3}));
   ASSERT_EQ(GetCpusFromString("1,0-3,3,4"), std::vector<int>({0, 1, 2, 3, 4}));
+}
+
+TEST(environment, PrepareVdsoFile) {
+  std::string content;
+  ASSERT_TRUE(android::base::ReadFileToString("/proc/self/maps", &content));
+  if (content.find("[vdso]") == std::string::npos) {
+    // Vdso isn't used, no need to test.
+    return;
+  }
+  PrepareVdsoFile();
+  std::unique_ptr<Dso> dso = Dso::CreateDso(DSO_ELF_FILE, "[vdso]",
+                                            sizeof(size_t) == sizeof(uint64_t));
+  ASSERT_TRUE(dso != nullptr);
+  const std::vector<Symbol>& symbols = dso->GetSymbols();
+  ASSERT_FALSE(symbols.empty());
 }

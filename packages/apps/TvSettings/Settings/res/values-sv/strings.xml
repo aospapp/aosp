@@ -58,7 +58,7 @@
     <string name="device_calibration" msgid="8632962533376605191">"Kalibrering"</string>
     <string name="device_storage_clear_cache_title" msgid="3365635664766067643">"Vill du ta bort cachelagrad data?"</string>
     <string name="device_storage_clear_cache_message" msgid="6495570470005696210">"Cachelagrad data tas bort i alla appar."</string>
-    <string name="apps_downloaded" msgid="4222190849854323480">"Hämtade appar"</string>
+    <string name="apps_downloaded" msgid="4222190849854323480">"Nedladdade appar"</string>
     <string name="apps_system" msgid="2499191125802829425">"Systemappar"</string>
     <string name="apps_running" msgid="6430310491739956228">"Aktiva appar"</string>
     <string name="accessories_add" msgid="1347802656349218830">"Lägg till tillbehör"</string>
@@ -107,7 +107,7 @@
     <string name="device_name" msgid="2670488158531273028">"Enhetens namn"</string>
     <string name="restart_button_label" msgid="8153112858638352970">"Starta om"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"Juridisk information"</string>
-    <string name="about_legal_license" msgid="7867205982113209033">"Licenser, öppen källkod"</string>
+    <string name="about_legal_license" msgid="7867205982113209033">"Licenser för öppen källkod"</string>
     <string name="about_terms_of_service" msgid="7743088207977334874">"Juridisk information från Google"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"Licensuppgifter saknas"</string>
     <string name="about_model" msgid="6625269442206323995">"Modell"</string>
@@ -245,7 +245,7 @@
     <string name="storage_size" msgid="8958530823208352781">"Totalt utrymme: <xliff:g id="TOTAL_SPACE">%1$s</xliff:g>"</string>
     <string name="storage_calculating_size" msgid="2644732407412520565">"Beräknar …"</string>
     <string name="storage_apps_usage" msgid="4366049071039081219">"Appar"</string>
-    <string name="storage_downloads_usage" msgid="6172975879962599380">"Hämtningar"</string>
+    <string name="storage_downloads_usage" msgid="6172975879962599380">"Nedladdningar"</string>
     <string name="storage_dcim_usage" msgid="2977564696540645452">"Foton och videor"</string>
     <string name="storage_music_usage" msgid="3509327591741514083">"Ljud"</string>
     <string name="storage_media_misc_usage" msgid="6066868724030127457">"Övrigt"</string>
@@ -334,7 +334,7 @@
     <string name="desc_set_time_zone" msgid="2948629174438460709">"<xliff:g id="OFFSET">%1$s</xliff:g>, <xliff:g id="NAME">%2$s</xliff:g>"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"Använd 24-timmarsformat"</string>
     <string name="desc_set_time_format" msgid="3131006238681763219">"<xliff:g id="STATE">%1$s</xliff:g> (<xliff:g id="SAMPLE">%2$s</xliff:g>)"</string>
-    <string name="system_auto_date_time" msgid="3629668599205033272">"Automatiskt datum och tid"</string>
+    <string name="system_auto_date_time" msgid="3629668599205033272">"Automatisk inställning av datum och tid"</string>
   <string-array name="auto_date_time_entries">
     <item msgid="4590792581242018007">"Använd nätverkets tid"</item>
     <item msgid="3807025813081244357">"Av"</item>
@@ -352,7 +352,7 @@
     <string name="location_no_recent_apps" msgid="4218851908476344030">"Inga appar har begärt uppgifter om plats nyligen"</string>
     <string name="location_high_battery_use" msgid="576143332793626088">"Hög batterianvändning"</string>
     <string name="location_low_battery_use" msgid="5756040390248358148">"Låg batterianvändning"</string>
-    <string name="location_mode_wifi_description" msgid="2778774510654527264">"Uppskatta plats utifrån Wi-Fi"</string>
+    <string name="location_mode_wifi_description" msgid="2778774510654527264">"Använd Wi-Fi för att uppskatta plats"</string>
     <string name="location_status" msgid="3456414279428237558">"Platsstatus"</string>
     <string name="location_services" msgid="5441085185119797200">"Platstjänster"</string>
     <string name="on" msgid="6683600681314500652">"På"</string>
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"Tjänster"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Tjänstinställningar"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Text med hög kontrast"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Aktivera tillgänglighet snabbt"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Använd Aktivera tillgänglighet snabbt"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Tjänst för kortkommando"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"När kortkommandot är aktiverat kan du starta en tillgänglighetsfunktion genom att hålla tillbaka- och nedåtknapparna nedtryckta samtidigt i tre sekunder."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Textning"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Inställningar för textning i video"</string>
     <string name="captions_display" msgid="735692527287125548">"Skärm"</string>
@@ -408,7 +412,7 @@
     <string name="system_accessibility_status" msgid="6150600992901856367">"Aktivera"</string>
     <string name="system_accessibility_config" msgid="3216531917536720277">"Konfiguration"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="8200707259067035823">"Vill du använda <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
-    <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"<xliff:g id="SERVICE">%1$s</xliff:g> kan samla in all text som du skriver, förutom lösenord. Det gäller till exempel personliga uppgifter som kreditkortsnummer."</string>
+    <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"<xliff:g id="SERVICE">%1$s</xliff:g> kan samla in all text som du skriver, förutom lösenord. Detta gäller till exempel personliga uppgifter som kreditkortsnummer."</string>
     <string name="system_accessibility_service_off_confirm_title" msgid="963297812889694832">"Vill du avbryta <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
     <string name="system_accessibility_service_off_confirm_desc" msgid="6714782635926048678">"Om du väljer OK avbryts <xliff:g id="SERVICE">%1$s</xliff:g>."</string>
     <string name="system_accessibility_tts_output" msgid="8905477795536714590">"Text-till-tal"</string>
@@ -494,13 +498,13 @@
     <string name="no_application" msgid="1746564297589309465">"Ingen"</string>
     <string name="enable_opengl_traces_none" msgid="6074804146602749420">"Inga"</string>
   <string-array name="animation_scale_entries">
-    <item msgid="7477134110460336436">"Animering avstängd"</item>
-    <item msgid="8327257151534006014">"Animering i skala 0,5x"</item>
-    <item msgid="2105786719544636780">"Animering i skala 1x"</item>
-    <item msgid="5290554136790336403">"Animering i skala 1,5x"</item>
-    <item msgid="1232929590838082483">"Animering i skala 2x"</item>
-    <item msgid="1889239009419613796">"Animering i skala 5x"</item>
-    <item msgid="7268894934484547297">"Animering i skala 10x"</item>
+    <item msgid="7477134110460336436">"Animation avstängd"</item>
+    <item msgid="8327257151534006014">"Animation i skala 0,5x"</item>
+    <item msgid="2105786719544636780">"Animation i skala 1x"</item>
+    <item msgid="5290554136790336403">"Animation i skala 1,5x"</item>
+    <item msgid="1232929590838082483">"Animation i skala 2x"</item>
+    <item msgid="1889239009419613796">"Animation i skala 5x"</item>
+    <item msgid="7268894934484547297">"Animation i skala 10x"</item>
   </string-array>
     <string name="track_frame_time_off" msgid="5050360262132715904">"Av"</string>
     <string name="track_frame_time_bars" msgid="4470692840177888414">"På skärmen som fält"</string>
@@ -625,7 +629,7 @@
     <string name="device_daydreams_none" msgid="2767107052779579259">"Stäng av skärmen"</string>
     <string name="device_daydreams_select" msgid="2112338101206187695">"Skärmsläckare"</string>
     <string name="device_daydreams_test" msgid="9038920213402659591">"Starta nu"</string>
-    <string name="device_daydreams_sleep" msgid="7676938708373592766">"Aktivera viloläge efter"</string>
+    <string name="device_daydreams_sleep" msgid="7676938708373592766">"När den ska starta"</string>
     <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"Skärmsläckaren startas när du har varit inaktiv så här länge. Om du inte har valt någon skärmsläckare stängs skärmen av."</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"Efter att ha varit inaktiv i <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>"</string>
     <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Aktivera viloläge på enheten"</string>
@@ -654,16 +658,20 @@
     <string name="change_setting" msgid="2047402388786162246">"Ändra"</string>
     <string name="keep_settings" msgid="6798327196645732517">"Ändra inte"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"Behörigheter"</string>
-    <string name="device_apps_permissions" msgid="2966387603529725982">"Appens behörigheter"</string>
+    <string name="device_apps_permissions" msgid="2966387603529725982">"Appbehörigheter"</string>
     <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_0">%d</xliff:g> av <xliff:g id="COUNT_1">%d</xliff:g> appar tillåts"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"Begäran om Bluetooth-behörighet"</string>
     <string name="security_patch" msgid="2131617390189164481">"Nivå av säkerhetskorrigering för Android"</string>
     <string name="choose_application" msgid="5662960665577780353">"Välj app"</string>
-    <string name="experimental_preference" msgid="1137673985823581797">"(experimentellt)"</string>
+    <string name="experimental_preference" msgid="1137673985823581797">"(Experimentell)"</string>
     <string name="reboot_safemode_action" msgid="8129550438717110406">"Starta om i felsäkert läge"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"Vill du starta om enheten i felsäkert läge?"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"Det här alternativet inaktiverar alla appar från tredje part som du har installerat. Apparna återställs när du startar om enheten igen."</string>
     <string name="capturing_bugreport" msgid="3291125403411239592">"Felrapport skapas"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Tillgängliga virtuella tangentbord"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Hantera tangentbord"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Tillåts"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Tillåts inte"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Åtkomst till användningsdata"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Med åtkomst till användningsdata kan en app spåra vilka andra appar du använder och hur ofta samt vilken operatör du har, språkinställningar och andra uppgifter."</string>
 </resources>

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -15,7 +15,6 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import org.jacoco.core.JaCoCo;
 import org.jacoco.core.internal.instr.InstrSupport;
 import org.jacoco.core.test.TargetLoader;
 import org.junit.After;
@@ -66,7 +65,7 @@ public abstract class RuntimeTestBase {
 	public void testNoLocalVariablesInDataAccessor()
 			throws InstantiationException, IllegalAccessException {
 		runtime.generateDataAccessor(1001, "Target", 5, new MethodVisitor(
-				JaCoCo.ASM_API_VERSION) {
+				InstrSupport.ASM_API_VERSION) {
 			@Override
 			public void visitVarInsn(int opcode, int var) {
 				fail("No usage of local variables allowed.");

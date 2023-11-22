@@ -78,7 +78,6 @@ public class SampleChunk {
     /**
      * A class for SampleChunk creation.
      */
-    @VisibleForTesting
     public static class SampleChunkCreator {
 
         /**
@@ -151,18 +150,23 @@ public class SampleChunk {
             mCurrentOffset = 0;
         }
 
+        private void reset(SampleChunk chunk, long offset) {
+            mChunk = chunk;
+            mCurrentOffset = offset;
+        }
+
         /**
          * Prepares for read I/O operation from a new SampleChunk.
          *
          * @param chunk the new SampleChunk to read from
          * @throws IOException
          */
-        void openRead(SampleChunk chunk) throws IOException {
+        void openRead(SampleChunk chunk, long offset) throws IOException {
             if (mChunk != null) {
                 mChunk.closeRead();
             }
             chunk.openRead();
-            reset(chunk);
+            reset(chunk, offset);
         }
 
         /**
@@ -238,6 +242,20 @@ public class SampleChunk {
             if (mChunk != null) {
                 mChunk.closeWrite(null);
             }
+        }
+
+        /**
+         * Returns the current SampleChunk for subsequent I/O operation.
+         */
+        SampleChunk getChunk() {
+            return mChunk;
+        }
+
+        /**
+         * Returns the current offset of the current SampleChunk for subsequent I/O operation.
+         */
+        long getOffset() {
+            return mCurrentOffset;
         }
 
         /**

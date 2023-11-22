@@ -30,7 +30,7 @@
     <string name="bt_enable_line2" msgid="4341936569415937994">"এখন ব্লুটুথ চালু করবেন?"</string>
     <string name="bt_enable_cancel" msgid="1988832367505151727">"বাতিল করুন"</string>
     <string name="bt_enable_ok" msgid="3432462749994538265">"চালু করুন"</string>
-    <string name="incoming_file_confirm_title" msgid="8139874248612182627">"ফাইল স্থানান্তর"</string>
+    <string name="incoming_file_confirm_title" msgid="8139874248612182627">"ফাইল ট্রান্সফার"</string>
     <string name="incoming_file_confirm_content" msgid="2752605552743148036">"আগত ফাইল স্বীকার করবেন?"</string>
     <string name="incoming_file_confirm_cancel" msgid="2973321832477704805">"অস্বীকার করুন"</string>
     <string name="incoming_file_confirm_ok" msgid="281462442932231475">"স্বীকার করুন"</string>
@@ -45,7 +45,7 @@
     <string name="notification_sent" msgid="9218710861333027778">"ব্লুটুথ share: <xliff:g id="FILE">%1$s</xliff:g> পাঠানো হয়েছে"</string>
     <string name="notification_sent_complete" msgid="302943281067557969">"১০০% সম্পূর্ণ"</string>
     <string name="notification_sent_fail" msgid="6696082233774569445">"ব্লুটুথ share: <xliff:g id="FILE">%1$s</xliff:g> ফাইল পাঠানো হয়নি"</string>
-    <string name="download_title" msgid="3353228219772092586">"ফাইল স্থানান্তর"</string>
+    <string name="download_title" msgid="3353228219772092586">"ফাইল ট্রান্সফার"</string>
     <string name="download_line1" msgid="4926604799202134144">"প্রেরক: \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
     <string name="download_line2" msgid="5876973543019417712">"ফাইল: <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="download_line3" msgid="4384821622908676061">"ফাইল আকার: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
@@ -73,7 +73,7 @@
     <string name="upload_fail_cancel" msgid="9118496285835687125">"বন্ধ করুন"</string>
     <string name="bt_error_btn_ok" msgid="5965151173011534240">"ঠিক আছে"</string>
     <string name="unknown_file" msgid="6092727753965095366">"অজানা ফাইল"</string>
-    <string name="unknown_file_desc" msgid="480434281415453287">"এই ধরণের ফাইল পরিচালনা করার জন্য কোনো অ্যাপ্লিকেশান নেই। \n"</string>
+    <string name="unknown_file_desc" msgid="480434281415453287">"এই ধরণের ফাইল পরিচালনা করার জন্য কোনো অ্যাপ্লিকেশন নেই। \n"</string>
     <string name="not_exist_file" msgid="3489434189599716133">"কোনো ফাইল নেই"</string>
     <string name="not_exist_file_desc" msgid="4059531573790529229">"ফাইলটির অস্তিত্ব নেই। \n"</string>
     <string name="enabling_progress_title" msgid="436157952334723406">"দয়া করে অপেক্ষা করুন..."</string>
@@ -88,14 +88,14 @@
     <string name="bt_sm_2_1" product="default" msgid="1989018443456803630">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" এর থেকে ফাইল সংরক্ষণ করার জন্য SD কার্ডে পর্যাপ্ত জায়গা নেই।"</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"জায়গা প্রয়োজন: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"অনেকগুলি অনুরোধ প্রক্রিয়া করা হচ্ছে৷ পরে আবার চেষ্টা করুন৷"</string>
-    <string name="status_pending" msgid="2503691772030877944">"ফাইল স্থানান্তর করা এখনো শুরু হয়নি।"</string>
-    <string name="status_running" msgid="6562808920311008696">"ফাইল স্থানান্তর করা চলছে।"</string>
-    <string name="status_success" msgid="239573225847565868">"ফাইল স্থানান্তর করা সফলভাবে সম্পন্ন হয়েছে।"</string>
-    <string name="status_not_accept" msgid="1695082417193780738">"সামগ্রী সমর্থিত নয়।"</string>
-    <string name="status_forbidden" msgid="613956401054050725">"স্থানান্তর করা টার্গেট ডিভাইস দ্বারা নিষিদ্ধ করা হয়েছে।"</string>
-    <string name="status_canceled" msgid="6664490318773098285">"ব্যবহারকারী দ্বারা স্থানান্তর করা বাতিল করা হয়েছে।"</string>
-    <string name="status_file_error" msgid="3671917770630165299">"সঞ্চয়স্থান সমস্যা।"</string>
-    <string name="status_no_sd_card" product="nosdcard" msgid="1112125377088421469">"কোনো USB সঞ্চয়স্থান নেই।"</string>
+    <string name="status_pending" msgid="2503691772030877944">"ফাইল ট্রান্সফার করা এখনও শুরু হয়নি।"</string>
+    <string name="status_running" msgid="6562808920311008696">"ফাইল ট্রান্সফার করা চলছে।"</string>
+    <string name="status_success" msgid="239573225847565868">"ফাইল ট্রান্সফার সফলভাবে সম্পন্ন হয়েছে।"</string>
+    <string name="status_not_accept" msgid="1695082417193780738">"কন্টেন্ট সমর্থিত নয়।"</string>
+    <string name="status_forbidden" msgid="613956401054050725">"টার্গেট ডিভাইস দ্বারা ট্রান্সফার নিষিদ্ধ করা হয়েছে।"</string>
+    <string name="status_canceled" msgid="6664490318773098285">"ব্যবহারকারী দ্বারা ট্রান্সফার বাতিল করা হয়েছে।"</string>
+    <string name="status_file_error" msgid="3671917770630165299">"স্টোরেজ সমস্যা।"</string>
+    <string name="status_no_sd_card" product="nosdcard" msgid="1112125377088421469">"কোনও USB স্টোরেজ নেই।"</string>
     <string name="status_no_sd_card" product="default" msgid="5760944071743325592">"কোনো SD কার্ড নেই। স্থানান্তর করা ফাইলগুলি সংরক্ষণ করতে SD কার্ড ঢোকান।"</string>
     <string name="status_connection_error" msgid="947681831523219891">"সংযোগ অসফল।"</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"অনুরোধ সঠিকভাবে পরিচালনা করা যাবে না।"</string>
@@ -122,12 +122,12 @@
     <string name="transfer_menu_open" msgid="3368984869083107200">"খুলুন"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"তালিকা থেকে সাফ করুন"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"সাফ করুন"</string>
-    <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"সংরক্ষণ করুন"</string>
+    <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"সেভ করুন"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"বাতিল করুন"</string>
-    <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"আপনি ব্লুটুথ এর মাধ্যমে যে অ্যাকাউন্টগুলি শেয়ার করতে চান সেগুলি নির্বাচন করুন। সংযোগের সময়ে আপনাকে এখনো অ্যাকাউন্টের যে কোনো অ্যাক্সেস গ্রহণ করতে হবে।"</string>
+    <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"আপনি ব্লুটুথ এর মাধ্যমে যে অ্যাকাউন্টগুলি শেয়ার করতে চান সেগুলি বেছে নিন। সংযোগের সময়ে আপনাকে এখনো অ্যাকাউন্টের যে কোনো অ্যাক্সেস গ্রহণ করতে হবে।"</string>
     <string name="bluetooth_map_settings_count" msgid="4557473074937024833">"যে স্লটগুলি বাকি আছে:"</string>
     <string name="bluetooth_map_settings_app_icon" msgid="7105805610929114707">"অ্যাপ্লিকেশান আইকন"</string>
-    <string name="bluetooth_map_settings_title" msgid="7420332483392851321">"ব্লুটুথ মারফত বার্তা শেয়ার করার সেটিংস"</string>
+    <string name="bluetooth_map_settings_title" msgid="7420332483392851321">"ব্লুটুথ মারফত মেসেজ শেয়ার করার সেটিংস"</string>
     <string name="bluetooth_map_settings_no_account_slots_left" msgid="1796029082612965251">"অ্যাকাউন্ট নির্বাচন করা যাচ্ছে না। ০টি স্লট বাকি আছে"</string>
     <string name="bluetooth_connected" msgid="6718623220072656906">"ব্লুটুথ অডিও সংযুক্ত হয়েছে"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"ব্লুটুথ অডিওর সংযোগ বিচ্ছিন্ন হয়েছে"</string>

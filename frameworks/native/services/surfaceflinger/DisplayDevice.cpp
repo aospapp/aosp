@@ -121,7 +121,7 @@ DisplayDevice::DisplayDevice(
     ANativeWindow* const window = mNativeWindow.get();
 
 #ifdef USE_HWC2
-    mActiveColorMode = static_cast<android_color_mode_t>(-1);
+    mActiveColorMode = HAL_COLOR_MODE_NATIVE;
     mDisplayHasWideColor = supportWideColor;
 #else
     (void) supportWideColor;
@@ -134,9 +134,11 @@ DisplayDevice::DisplayDevice(
     EGLDisplay display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
     if (config == EGL_NO_CONFIG) {
 #ifdef USE_HWC2
-        config = RenderEngine::chooseEglConfig(display, PIXEL_FORMAT_RGBA_8888);
+        config = RenderEngine::chooseEglConfig(display, PIXEL_FORMAT_RGBA_8888,
+                                               /*logConfig*/ false);
 #else
-        config = RenderEngine::chooseEglConfig(display, format);
+        config = RenderEngine::chooseEglConfig(display, format,
+                                               /*logConfig*/ false);
 #endif
     }
     eglSurface = eglCreateWindowSurface(display, config, window, NULL);
@@ -442,6 +444,11 @@ void DisplayDevice::setActiveColorMode(android_color_mode_t mode) {
 android_color_mode_t DisplayDevice::getActiveColorMode() const {
     return mActiveColorMode;
 }
+
+void DisplayDevice::setCompositionDataSpace(android_dataspace dataspace) {
+    ANativeWindow* const window = mNativeWindow.get();
+    native_window_set_buffers_data_space(window, dataspace);
+}
 #endif
 
 // ----------------------------------------------------------------------------
@@ -610,23 +617,25 @@ uint32_t DisplayDevice::getPrimaryDisplayOrientationTransform() {
 
 void DisplayDevice::dump(String8& result) const {
     const Transform& tr(mGlobalTransform);
-    result.appendFormat(
-        "+ DisplayDevice: %s\n"
-        "   type=%x, hwcId=%d, layerStack=%u, (%4dx%4d), ANativeWindow=%p, orient=%2d (type=%08x), "
-        "flips=%u, isSecure=%d, powerMode=%d, activeConfig=%d, numLayers=%zu\n"
-        "   v:[%d,%d,%d,%d], f:[%d,%d,%d,%d], s:[%d,%d,%d,%d],"
-        "transform:[[%0.3f,%0.3f,%0.3f][%0.3f,%0.3f,%0.3f][%0.3f,%0.3f,%0.3f]]\n",
-        mDisplayName.string(), mType, mHwcDisplayId,
-        mLayerStack, mDisplayWidth, mDisplayHeight, mNativeWindow.get(),
-        mOrientation, tr.getType(), getPageFlipCount(),
-        mIsSecure, mPowerMode, mActiveConfig,
-        mVisibleLayersSortedByZ.size(),
-        mViewport.left, mViewport.top, mViewport.right, mViewport.bottom,
-        mFrame.left, mFrame.top, mFrame.right, mFrame.bottom,
-        mScissor.left, mScissor.top, mScissor.right, mScissor.bottom,
-        tr[0][0], tr[1][0], tr[2][0],
-        tr[0][1], tr[1][1], tr[2][1],
-        tr[0][2], tr[1][2], tr[2][2]);
+    EGLint redSize, greenSize, blueSize, alphaSize;
+    eglGetConfigAttrib(mDisplay, mConfig, EGL_RED_SIZE, &redSize);
+    eglGetConfigAttrib(mDisplay, mConfig, EGL_GREEN_SIZE, &greenSize);
+    eglGetConfigAttrib(mDisplay, mConfig, EGL_BLUE_SIZE, &blueSize);
+    eglGetConfigAttrib(mDisplay, mConfig, EGL_ALPHA_SIZE, &alphaSize);
+    result.appendFormat("+ DisplayDevice: %s\n", mDisplayName.string());
+    result.appendFormat("   type=%x, hwcId=%d, layerStack=%u, (%4dx%4d), ANativeWindow=%p "
+                        "(%d:%d:%d:%d), orient=%2d (type=%08x), "
+                        "flips=%u, isSecure=%d, powerMode=%d, activeConfig=%d, numLayers=%zu\n",
+                        mType, mHwcDisplayId, mLayerStack, mDisplayWidth, mDisplayHeight,
+                        mNativeWindow.get(), redSize, greenSize, blueSize, alphaSize, mOrientation,
+                        tr.getType(), getPageFlipCount(), mIsSecure, mPowerMode, mActiveConfig,
+                        mVisibleLayersSortedByZ.size());
+    result.appendFormat("   v:[%d,%d,%d,%d], f:[%d,%d,%d,%d], s:[%d,%d,%d,%d],"
+                        "transform:[[%0.3f,%0.3f,%0.3f][%0.3f,%0.3f,%0.3f][%0.3f,%0.3f,%0.3f]]\n",
+                        mViewport.left, mViewport.top, mViewport.right, mViewport.bottom,
+                        mFrame.left, mFrame.top, mFrame.right, mFrame.bottom, mScissor.left,
+                        mScissor.top, mScissor.right, mScissor.bottom, tr[0][0], tr[1][0], tr[2][0],
+                        tr[0][1], tr[1][1], tr[2][1], tr[0][2], tr[1][2], tr[2][2]);
 
     String8 surfaceDump;
     mDisplaySurface->dumpAsString(surfaceDump);

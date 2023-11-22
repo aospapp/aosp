@@ -8,7 +8,7 @@
 #include <memory>
 #include <vector>
 
-#include "file_interface.h"
+#include "bsdiff/file_interface.h"
 
 namespace bsdiff {
 

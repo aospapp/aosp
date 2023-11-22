@@ -23,7 +23,10 @@ class ProcVmallocInfoTest(KernelProcFileTestBase.KernelProcFileTestBase):
 
     start = 'lines'
 
-    t_STRING = r'[^ ^\t^\n^-^=]+'
+    def t_CALLER(self, t):
+        '[^ ^\t^\n^-^=^+^/]+\+0x[a-f0-9]+/0x[a-f0-9]+'
+        t.value = t.value.split('+')
+        return t
 
     t_PAGES = literal_token('pages')
     t_IOREMAP = literal_token('ioremap')
@@ -33,12 +36,12 @@ class ProcVmallocInfoTest(KernelProcFileTestBase.KernelProcFileTestBase):
     t_USER = literal_token('user')
     t_VPAGES = literal_token('vpages')
 
+    t_ignore = ' '
+
     def t_PHYS(self, t):
         r'phys=[a-f0-9]+'
         t.value = [t.value[:4], int(t.value[5:], 16)]
         return t
-
-    t_ignore = ' '
 
     p_lines = repeat_rule('line')
 
@@ -50,15 +53,10 @@ class ProcVmallocInfoTest(KernelProcFileTestBase.KernelProcFileTestBase):
         'addr_range : HEX_LITERAL DASH HEX_LITERAL'
         p[0] = [p[1], p[3]]
 
-    def p_caller(self, p):
-        '''caller : STRING
-                  | empty'''
-        p[0] = p[1:]
-
     def p_module(self, p):
         '''module : MODULE
                   | empty'''
-        p[0] = p[1:]
+        p[0] = p[1]
 
     def p_pages(self, p):
         '''pages : PAGES EQUALS NUMBER
@@ -73,27 +71,33 @@ class ProcVmallocInfoTest(KernelProcFileTestBase.KernelProcFileTestBase):
     def p_ioremap(self, p):
         '''ioremap : IOREMAP
                    | empty'''
-        p[0] = p[1:]
+        p[0] = p[1]
 
     def p_vmalloc(self, p):
         '''vmalloc : VMALLOC
                    | empty'''
-        p[0] = p[1:]
+        p[0] = p[1]
 
     def p_vmap(self, p):
         '''vmap : VMAP
                 | empty'''
-        p[0] = p[1:]
+        p[0] = p[1]
 
     def p_user(self, p):
         '''user : USER
                 | empty'''
-        p[0] = p[1:]
+        p[0] = p[1]
 
     def p_vpages(self, p):
         '''vpages : VPAGES
                   | empty'''
-        p[0] = p[1:]
+        p[0] = p[1]
+
+    def p_caller(self, p):
+        '''caller : CALLER
+                  | HEX_LITERAL
+                  | empty'''
+        p[0] = p[1]
 
     def get_path(self):
         return "/proc/vmallocinfo"

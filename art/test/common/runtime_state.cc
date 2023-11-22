@@ -25,11 +25,11 @@
 #include "jit/jit_code_cache.h"
 #include "jit/profiling_info.h"
 #include "mirror/class-inl.h"
+#include "nativehelper/ScopedUtfChars.h"
 #include "oat_quick_method_header.h"
 #include "runtime.h"
 #include "scoped_thread_state_change-inl.h"
-#include "ScopedUtfChars.h"
-#include "thread-inl.h"
+#include "thread-current-inl.h"
 
 namespace art {
 
@@ -252,6 +252,19 @@ extern "C" JNIEXPORT int JNICALL Java_Main_getHotnessCounter(JNIEnv* env,
 
 extern "C" JNIEXPORT int JNICALL Java_Main_numberOfDeoptimizations(JNIEnv*, jclass) {
   return Runtime::Current()->GetNumberOfDeoptimizations();
+}
+
+extern "C" JNIEXPORT void JNICALL Java_Main_fetchProfiles(JNIEnv*, jclass) {
+  jit::Jit* jit = GetJitIfEnabled();
+  if (jit == nullptr) {
+    return;
+  }
+  jit::JitCodeCache* code_cache = jit->GetCodeCache();
+  std::vector<ProfileMethodInfo> unused_vector;
+  std::set<std::string> unused_locations;
+  unused_locations.insert("fake_location");
+  ScopedObjectAccess soa(Thread::Current());
+  code_cache->GetProfiledMethods(unused_locations, unused_vector);
 }
 
 }  // namespace art

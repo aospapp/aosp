@@ -22,6 +22,12 @@ cc_library_shared {
         "alsa_format.c",
     ],
     export_include_dirs: ["include"],
+    header_libs: [
+        "libaudio_system_headers",
+    ],
+    export_header_lib_headers: [
+        "libaudio_system_headers",
+    ],
     shared_libs: [
         "liblog",
         "libcutils",

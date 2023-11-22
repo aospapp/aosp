@@ -16,28 +16,23 @@
 package android.aadb.cts;
 
 import com.android.ddmlib.IDevice;
-import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
 import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.device.IFileEntry;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.device.TestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
-import com.android.tradefed.result.CollectingTestListener;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.testtype.DeviceTestCase;
-import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.util.StreamUtil;
 
 import java.awt.image.BufferedImage;
-
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.InputStream;
 import java.io.IOException;
-import java.util.TimeZone;
+import java.io.InputStream;
 
 import javax.imageio.ImageIO;
 
@@ -62,11 +57,18 @@ public class TestDeviceFuncTest extends DeviceTestCase {
      * Simple testcase to ensure that the grabbing a bugreport from a real TestDevice works.
      */
     public void testBugreport() throws Exception {
-        String data = StreamUtil.getStringFromStream(
-                mTestDevice.getBugreport().createInputStream());
-        assertTrue(String.format("Expected at least %d characters; only saw %d", mMinBugreportBytes,
-                data.length()), data.length() >= mMinBugreportBytes);
-        // TODO: check the captured report more extensively, perhaps using loganalysis
+        InputStreamSource bugreport = mTestDevice.getBugreport();
+        InputStream bugreportData = null;
+        try {
+            bugreportData = bugreport.createInputStream();
+            String data = StreamUtil.getStringFromStream(bugreportData);
+            assertTrue(String.format("Expected at least %d characters; only saw %d",
+                    mMinBugreportBytes, data.length()), data.length() >= mMinBugreportBytes);
+            // TODO: check the captured report more extensively, perhaps using loganalysis
+        } finally {
+            StreamUtil.cancel(bugreport);
+            StreamUtil.close(bugreportData);
+        }
     }
 
     /**
@@ -75,7 +77,7 @@ public class TestDeviceFuncTest extends DeviceTestCase {
      * <p/>
      * Do a 'shell ls' command, and verify /data and /system are listed in result.
      */
-    public void testExecuteShellCommand() throws IOException, DeviceNotAvailableException {
+    public void testExecuteShellCommand() throws DeviceNotAvailableException {
         CLog.i("testExecuteShellCommand");
         assertSimpleShellCommand();
     }
@@ -116,9 +118,8 @@ public class TestDeviceFuncTest extends DeviceTestCase {
             assertTrue(mTestDevice.pullFile(deviceFilePath, tmpDestFile));
             assertTrue(compareFiles(tmpFile, tmpDestFile));
         } finally {
-            if (tmpDestFile != null) {
-                tmpDestFile.delete();
-            }
+            FileUtil.deleteFile(tmpDestFile);
+            FileUtil.deleteFile(tmpFile);
             if (deviceFilePath != null) {
                 mTestDevice.executeShellCommand(String.format("rm %s", deviceFilePath));
             }
@@ -158,12 +159,9 @@ public class TestDeviceFuncTest extends DeviceTestCase {
             assertNotNull(tmpDestFile2);
             assertTrue(compareFiles(tmpFile, tmpDestFile2));
         } finally {
-            if (tmpDestFile != null) {
-                tmpDestFile.delete();
-            }
-            if (tmpDestFile2 != null) {
-                tmpDestFile2.delete();
-            }
+            FileUtil.deleteFile(tmpDestFile);
+            FileUtil.deleteFile(tmpDestFile2);
+            FileUtil.deleteFile(tmpFile);
             if (deviceFilePath != null) {
                 mTestDevice.executeShellCommand(String.format("rm %s", deviceFilePath));
             }
@@ -175,7 +173,7 @@ public class TestDeviceFuncTest extends DeviceTestCase {
      * <p/>
      * Expect {@link TestDevice#pullFile(String)} to return <code>false</code>
      */
-    public void testPull_noexist() throws IOException, DeviceNotAvailableException {
+    public void testPull_noexist() throws DeviceNotAvailableException {
         CLog.i("testPull_noexist");
 
         // make sure the root path is valid
@@ -195,9 +193,7 @@ public class TestDeviceFuncTest extends DeviceTestCase {
             FileUtil.writeToFile(fileContents, tmpFile);
             return tmpFile;
         } catch (IOException e) {
-            if (tmpFile != null) {
-                tmpFile.delete();
-            }
+            FileUtil.deleteFile(tmpFile);
             throw e;
         }
     }
@@ -355,7 +351,7 @@ public class TestDeviceFuncTest extends DeviceTestCase {
     }
 
     /**
-     * Basic test for {@link TestDevice#getLogcat(long)}.
+     * Basic test for {@link TestDevice#getLogcat(int)}.
      * <p/>
      * Dumps a bunch of messages to logcat, calls getLogcat(), and verifies size of capture file is
      * equal to provided data.

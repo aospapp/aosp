@@ -32,6 +32,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#ifdef HAVE_SYS_SELECT_H
+#include <sys/select.h>
+#endif
 
 #include <drm_fourcc.h>
 #include "xf86drm.h"
@@ -209,9 +212,9 @@ int main(int argc, char *argv[])
 		printf("Planes: %u\n", device->num_planes);
 
 		for (i = 0; i < device->num_planes; i++) {
-			struct kms_plane *plane = device->planes[i];
 			const char *type = NULL;
 
+			plane = device->planes[i];
 			switch (plane->type) {
 			case DRM_PLANE_TYPE_OVERLAY:
 				type = "overlay";

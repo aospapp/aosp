@@ -7,8 +7,8 @@
 
 using android::pdx::ErrorStatus;
 using android::pdx::Message;
-using android::pdx::Status;
 using android::pdx::RemoteChannelHandle;
+using android::pdx::Status;
 using android::pdx::rpc::DispatchRemoteMethod;
 
 namespace android {
@@ -16,11 +16,11 @@ namespace dvr {
 
 ProducerQueueChannel::ProducerQueueChannel(BufferHubService* service,
                                            int channel_id,
-                                           size_t meta_size_bytes,
+                                           const ProducerQueueConfig& config,
                                            const UsagePolicy& usage_policy,
                                            int* error)
     : BufferHubChannel(service, channel_id, channel_id, kProducerQueueType),
-      meta_size_bytes_(meta_size_bytes),
+      config_(config),
       usage_policy_(usage_policy),
       capacity_(0) {
   *error = 0;
@@ -35,8 +35,8 @@ ProducerQueueChannel::~ProducerQueueChannel() {
 
 /* static */
 Status<std::shared_ptr<ProducerQueueChannel>> ProducerQueueChannel::Create(
-    BufferHubService* service, int channel_id, size_t meta_size_bytes,
-    const UsagePolicy& usage_policy) {
+    BufferHubService* service, int channel_id,
+    const ProducerQueueConfig& config, const UsagePolicy& usage_policy) {
   // Configuration between |usage_deny_set_mask| and |usage_deny_clear_mask|
   // should be mutually exclusive.
   if ((usage_policy.usage_deny_set_mask & usage_policy.usage_deny_clear_mask)) {
@@ -50,7 +50,7 @@ Status<std::shared_ptr<ProducerQueueChannel>> ProducerQueueChannel::Create(
 
   int error = 0;
   std::shared_ptr<ProducerQueueChannel> producer(new ProducerQueueChannel(
-      service, channel_id, meta_size_bytes, usage_policy, &error));
+      service, channel_id, config, usage_policy, &error));
   if (error < 0)
     return ErrorStatus(-error);
   else
@@ -76,9 +76,9 @@ bool ProducerQueueChannel::HandleMessage(Message& message) {
           message);
       return true;
 
-    case BufferHubRPC::ProducerQueueDetachBuffer::Opcode:
-      DispatchRemoteMethod<BufferHubRPC::ProducerQueueDetachBuffer>(
-          *this, &ProducerQueueChannel::OnProducerQueueDetachBuffer, message);
+    case BufferHubRPC::ProducerQueueRemoveBuffer::Opcode:
+      DispatchRemoteMethod<BufferHubRPC::ProducerQueueRemoveBuffer>(
+          *this, &ProducerQueueChannel::OnProducerQueueRemoveBuffer, message);
       return true;
 
     default:
@@ -96,10 +96,12 @@ BufferHubChannel::BufferInfo ProducerQueueChannel::GetBufferInfo() const {
 }
 
 Status<RemoteChannelHandle> ProducerQueueChannel::OnCreateConsumerQueue(
-    Message& message) {
+    Message& message, bool silent) {
   ATRACE_NAME("ProducerQueueChannel::OnCreateConsumerQueue");
-  ALOGD_IF(TRACE, "ProducerQueueChannel::OnCreateConsumerQueue: channel_id=%d",
-           channel_id());
+  ALOGD_IF(
+      TRACE,
+      "ProducerQueueChannel::OnCreateConsumerQueue: channel_id=%d slient=%d",
+      channel_id(), silent);
 
   int channel_id;
   auto status = message.PushChannel(0, nullptr, &channel_id);
@@ -112,7 +114,7 @@ Status<RemoteChannelHandle> ProducerQueueChannel::OnCreateConsumerQueue(
   }
 
   auto consumer_queue_channel = std::make_shared<ConsumerQueueChannel>(
-      service(), buffer_id(), channel_id, shared_from_this());
+      service(), buffer_id(), channel_id, shared_from_this(), silent);
 
   // Register the existing buffers with the new consumer queue.
   for (size_t slot = 0; slot < BufferHubRPC::kMaxQueueCapacity; slot++) {
@@ -134,7 +136,7 @@ Status<RemoteChannelHandle> ProducerQueueChannel::OnCreateConsumerQueue(
 }
 
 Status<QueueInfo> ProducerQueueChannel::OnGetQueueInfo(Message&) {
-  return {{meta_size_bytes_, buffer_id()}};
+  return {{config_, buffer_id()}};
 }
 
 Status<std::vector<std::pair<RemoteChannelHandle, size_t>>>
@@ -222,7 +224,7 @@ ProducerQueueChannel::AllocateBuffer(Message& message, uint32_t width,
 
   auto producer_channel_status =
       ProducerChannel::Create(service(), buffer_id, width, height, layer_count,
-                              format, usage, meta_size_bytes_);
+                              format, usage, config_.user_metadata_size);
   if (!producer_channel_status) {
     ALOGE(
         "ProducerQueueChannel::AllocateBuffer: Failed to create producer "
@@ -276,11 +278,11 @@ ProducerQueueChannel::AllocateBuffer(Message& message, uint32_t width,
   return {{std::move(buffer_handle), slot}};
 }
 
-Status<void> ProducerQueueChannel::OnProducerQueueDetachBuffer(
+Status<void> ProducerQueueChannel::OnProducerQueueRemoveBuffer(
     Message& /*message*/, size_t slot) {
   if (buffers_[slot].expired()) {
     ALOGE(
-        "ProducerQueueChannel::OnProducerQueueDetachBuffer: trying to detach "
+        "ProducerQueueChannel::OnProducerQueueRemoveBuffer: trying to remove "
         "an invalid buffer producer at slot %zu",
         slot);
     return ErrorStatus(EINVAL);
@@ -288,7 +290,7 @@ Status<void> ProducerQueueChannel::OnProducerQueueDetachBuffer(
 
   if (capacity_ == 0) {
     ALOGE(
-        "ProducerQueueChannel::OnProducerQueueDetachBuffer: trying to detach a "
+        "ProducerQueueChannel::OnProducerQueueRemoveBuffer: trying to remove a "
         "buffer producer while the queue's capacity is already zero.");
     return ErrorStatus(EINVAL);
   }

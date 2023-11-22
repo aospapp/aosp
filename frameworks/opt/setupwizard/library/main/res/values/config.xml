@@ -23,4 +23,8 @@
     <!-- Whether to use tablet layout -->
     <bool name="suwUseTabletLayout">false</bool>
 
+    <!-- ID used with setTag(int, Object) to store the original weight of a view inside
+         ButtonBarLayout -->
+    <item name="suw_original_weight" type="id" />
+
 </resources>

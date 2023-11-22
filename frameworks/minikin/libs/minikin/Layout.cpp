@@ -326,26 +326,12 @@ static hb_script_t codePointToScript(hb_codepoint_t codepoint) {
 }
 
 static hb_codepoint_t decodeUtf16(const uint16_t* chars, size_t len, ssize_t* iter) {
-    const uint16_t v = chars[(*iter)++];
-    // test whether v in (0xd800..0xdfff), lead or trail surrogate
-    if ((v & 0xf800) == 0xd800) {
-        // test whether v in (0xd800..0xdbff), lead surrogate
-        if (size_t(*iter) < len && (v & 0xfc00) == 0xd800) {
-            const uint16_t v2 = chars[(*iter)++];
-            // test whether v2 in (0xdc00..0xdfff), trail surrogate
-            if ((v2 & 0xfc00) == 0xdc00) {
-                // (0xd800 0xdc00) in utf-16 maps to 0x10000 in ucs-32
-                const hb_codepoint_t delta = (0xd800 << 10) + 0xdc00 - 0x10000;
-                return (((hb_codepoint_t)v) << 10) + v2 - delta;
-            }
-            (*iter) -= 1;
-            return 0xFFFDu;
-        } else {
-            return 0xFFFDu;
-        }
-    } else {
-        return v;
+    UChar32 result;
+    U16_NEXT(chars, *iter, (ssize_t) len, result);
+    if (U_IS_SURROGATE(result)) { // isolated surrogate
+        result = 0xFFFDu; // U+FFFD REPLACEMENT CHARACTER
     }
+    return (hb_codepoint_t) result;
 }
 
 static hb_script_t getScriptRun(const uint16_t* chars, size_t len, ssize_t* iter) {
@@ -536,7 +522,7 @@ BidiText::BidiText(const uint16_t* buf, size_t start, size_t count, size_t bufSi
     } else if (bidiFlags == kBidi_Default_RTL) {
         bidiReq = UBIDI_DEFAULT_RTL;
     }
-    ubidi_setPara(mBidi, buf, mBufSize, bidiReq, NULL, &status);
+    ubidi_setPara(mBidi, reinterpret_cast<const UChar*>(buf), mBufSize, bidiReq, NULL, &status);
     if (!U_SUCCESS(status)) {
         ALOGE("error calling ubidi_setPara, status = %d", status);
         return;
@@ -546,8 +532,13 @@ BidiText::BidiText(const uint16_t* buf, size_t start, size_t count, size_t bufSi
     if (!U_SUCCESS(status) || rc < 0) {
         ALOGW("error counting bidi runs, status = %d", status);
     }
-    if (!U_SUCCESS(status) || rc <= 1) {
+    if (!U_SUCCESS(status) || rc <= 0) {
         mIsRtl = (paraDir == kBidi_RTL);
+        return;
+    }
+    if (rc == 1) {
+        const UBiDiDirection runDir = ubidi_getVisualRun(mBidi, 0, nullptr, nullptr);
+        mIsRtl = (runDir == UBIDI_RTL);
         return;
     }
     mRunCount = rc;

@@ -32,14 +32,23 @@
 #define HARD_FAULT_DROPBOX_MAGIC_HAVE_DROP  0x00002000
 #define HARD_FAULT_DROPBOX_MAGIC_DATA_MASK  0x00001FFF
 
+union TidTrig {
+    struct {
+        uint32_t tid : 16;
+        uint32_t trig : 2;
+        uint32_t RFU : 14;
+    };
+    uint32_t rw;
+};
+
+// These registers only support word accesses (r/w)
+// Make sure to only use uint32_t's
 struct RamPersistedDataAndDropbox {
     uint32_t magic; // and part of dropbox
     uint32_t r[16];
     uint32_t sr_hfsr_cfsr_lo;
     uint32_t bits;
-    uint16_t tid;
-    uint16_t trig:2;
-    uint16_t RFU:14;
+    union TidTrig tid_trig; // only access via tid_trig.rw
 };
 
 /* //if your device persists ram, you can use this instead:
@@ -106,9 +115,10 @@ static void cpuUnpackSrBits(uint32_t srcLo, uint32_t srcHi, uint32_t *srP, uint3
 
 static void cpuDbxDump(struct RamPersistedDataAndDropbox *dbx)
 {
-    uint32_t i, hfsr, cfsr, sr, code;
+    uint32_t i, hfsr, cfsr, sr;
+    union TidTrig tid_trig;
     const char *trigName;
-    static const char *trigNames[] = { "UNKNOWN", "HARD FAULT", "WDT" };
+    static const char *trigNames[] = { "UNKNOWN", "HARD FAULT", "WDT", "MPU" };
 
     if (dbx) {
         for (i = 0; i < 8; i++)
@@ -120,12 +130,13 @@ static void cpuDbxDump(struct RamPersistedDataAndDropbox *dbx)
         osLog(LOG_ERROR, "  xPSR = 0x%08lX  HFSR = 0x%08lX\n", sr, hfsr);
         osLog(LOG_ERROR, "  CFSR = 0x%08lX  BITS = 0x%08lX\n", cfsr, dbx->bits);
         // reboot source (if known), reported as TRIG
-        // so far we have 2 reboot sources reported here:
+        // so far we have 3 reboot sources reported here:
         // 1 - HARD FAULT
         // 2 - WDT
-        code = dbx->trig;
-        trigName = trigNames[code < ARRAY_SIZE(trigNames) ? code : 0];
-        osLog(LOG_ERROR, "  TID  = 0x%04" PRIX16 "  TRIG = 0x%04" PRIX16 " [%s]\n", dbx->tid, dbx->trig, trigName);
+        // 3 - MPU
+        tid_trig.rw = dbx->tid_trig.rw;
+        trigName = trigNames[tid_trig.trig < ARRAY_SIZE(trigNames) ? tid_trig.trig : 0];
+        osLog(LOG_ERROR, "  TID  = 0x%04" PRIX16 "  TRIG = 0x%04" PRIX16 " [%s]\n\n", tid_trig.tid, tid_trig.trig, trigName);
     }
 }
 
@@ -259,6 +270,7 @@ static void __attribute__((used)) logHardFault(uintptr_t *excRegs, uintptr_t* ot
 {
     struct RamPersistedDataAndDropbox *dbx = getInitedPersistedData();
     uint32_t i, hi;
+    union TidTrig tid_trig;
 
     wdtPing();
 
@@ -273,8 +285,9 @@ static void __attribute__((used)) logHardFault(uintptr_t *excRegs, uintptr_t* ot
 
     cpuPackSrBits(&dbx->sr_hfsr_cfsr_lo, &hi, excRegs[7], SCB->HFSR, SCB->CFSR);
     dbx->magic |= HARD_FAULT_DROPBOX_MAGIC_HAVE_DROP | (hi & HARD_FAULT_DROPBOX_MAGIC_DATA_MASK);
-    dbx->tid = osGetCurrentTid();
-    dbx->trig = code;
+    tid_trig.tid = osGetCurrentTid();
+    tid_trig.trig = code;
+    dbx->tid_trig.rw = tid_trig.rw;
 
     if (!tinyStack) {
         osLog(LOG_ERROR, "*HARD FAULT*\n");

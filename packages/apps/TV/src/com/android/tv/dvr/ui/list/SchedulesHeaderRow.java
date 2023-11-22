@@ -16,12 +16,15 @@
 
 package com.android.tv.dvr.ui.list;
 
-import com.android.tv.dvr.SeriesRecording;
+import com.android.tv.data.Program;
+import com.android.tv.dvr.data.SeriesRecording;
+
+import java.util.List;
 
 /**
  * A base class for the rows for schedules' header.
  */
-public abstract class SchedulesHeaderRow {
+abstract class SchedulesHeaderRow {
     private String mTitle;
     private String mDescription;
     private int mItemCount;
@@ -98,11 +101,20 @@ public abstract class SchedulesHeaderRow {
      */
     public static class SeriesRecordingHeaderRow extends SchedulesHeaderRow {
         private SeriesRecording mSeriesRecording;
+        private List<Program> mPrograms;
 
         public SeriesRecordingHeaderRow(String title, String description, int itemCount,
-                SeriesRecording series) {
+                SeriesRecording series, List<Program> programs) {
             super(title, description, itemCount);
             mSeriesRecording = series;
+            mPrograms = programs;
+        }
+
+        /**
+         * Returns the list of programs which belong to the series.
+         */
+        public List<Program> getPrograms() {
+            return mPrograms;
         }
 
         /**

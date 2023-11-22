@@ -15,8 +15,6 @@
  limitations under the License.
 -->
 
-
-
 <sample>
     <name>SpeedTracker</name>
     <group>Wearable</group>
@@ -24,13 +22,18 @@
 
     <minSdk>18</minSdk>
     <targetSdkVersion>25</targetSdkVersion>
-    <targetSdkVersionWear>25</targetSdkVersionWear>
+
+    <minSdkVersionWear>23</minSdkVersionWear>
+    <compileSdkVersionWear>26</compileSdkVersionWear>
+    <targetSdkVersionWear>26</targetSdkVersionWear>
+    <multiDexEnabled>true</multiDexEnabled>
 
     <wearable>
         <has_handheld_app>true</has_handheld_app>
     </wearable>
 
     <dependency>com.android.support:design:25.3.1</dependency>
+    <dependency_wearable>com.android.support:wear:26.0.0</dependency_wearable>
 
     <dependency>com.google.android.gms:play-services-maps</dependency>
     <dependency>com.google.android.gms:play-services-location</dependency>

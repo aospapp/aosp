@@ -440,4 +440,20 @@ public class MediaCodecListTest extends AndroidTestCase {
             assertNotNull("Profile " + profile + " must be supported.", codecName);
         }
     }
+
+    public void testAudioCodecChannels() {
+        for (MediaCodecInfo info : mAllInfos) {
+            String[] types = info.getSupportedTypes();
+            for (int j = 0; j < types.length; ++j) {
+                CodecCapabilities cap = info.getCapabilitiesForType(types[j]);
+                AudioCapabilities audioCap = cap.getAudioCapabilities();
+                if (audioCap == null) {
+                    continue;
+                }
+                int n = audioCap.getMaxInputChannelCount();
+                Log.d(TAG, info.getName() + ": " + n);
+                assertTrue(info.getName() + " max input channel not positive: " + n, n > 0);
+            }
+        }
+    }
 }

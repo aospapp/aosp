@@ -109,7 +109,7 @@ int32_t BpVtsFuzzer::Status(int32_t type) {
   return res;
 }
 
-const char* BpVtsFuzzer::Call(const string& call_payload) {
+string BpVtsFuzzer::Call(const string& call_payload) {
   Parcel data, reply;
   data.writeInterfaceToken(IVtsFuzzer::getInterfaceDescriptor());
   data.writeCString(call_payload.c_str());
@@ -129,7 +129,7 @@ const char* BpVtsFuzzer::Call(const string& call_payload) {
   }
 
   printf("len(reply) = %zu\n", strlen(res));
-  return res;
+  return {res};
 }
 
 const char* BpVtsFuzzer::GetFunctions() {

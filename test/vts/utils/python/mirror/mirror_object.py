@@ -30,6 +30,7 @@ _function_pointer_id_dict = {}
 INTERFACE = "interface"
 API = "api"
 
+
 class MirrorObjectError(Exception):
     """Raised when there is a general error in manipulating a mirror object."""
     pass
@@ -46,16 +47,24 @@ class MirrorObject(object):
         _if_spec_msg: the interface specification message of a host object to
                       mirror.
         _callback_server: the instance of a callback server.
+        _interface_id: integer, used when this mirror object is for a
+                              nested HIDL HAL interface.
         _parent_path: the name of a sub struct this object mirrors.
         _last_raw_code_coverage_data: NativeCodeCoverageRawDataMessage,
                                       last seen raw code coverage data.
         __caller_uid: string, the caller's UID if not None.
     """
 
-    def __init__(self, client, msg, callback_server, parent_path=None):
+    def __init__(self,
+                 client,
+                 msg,
+                 callback_server,
+                 hal_driver_id=None,
+                 parent_path=None):
         self._client = client
         self._if_spec_msg = msg
         self._callback_server = callback_server
+        self._hal_driver_id = hal_driver_id
         self._parent_path = parent_path
         self._last_raw_code_coverage_data = None
         self.__caller_uid = None
@@ -82,20 +91,22 @@ class MirrorObject(object):
         Args:
             module_name: string, the name of a module to load.
         """
-        func_msg = CompSpecMsg.FunctionSpecificationMessage()
-        func_msg.name = "#Open"
-        logging.debug("remote call %s", func_msg.name)
+        call_msg = CompSpecMsg.FunctionCallMessage()
+        if self._hal_driver_id is not None:
+            call_msg.hal_driver_id = self._hal_driver_id
+        call_msg.component_class = CompSpecMsg.HAL_CONVENTIONAL
+        call_msg.api.name = "#Open"
         if module_name:
-            arg = func_msg.arg.add()
+            arg = call_msg.api.arg.add()
             arg.type = CompSpecMsg.TYPE_STRING
             arg.string_value.message = module_name
 
-            func_msg.return_type.type == CompSpecMsg.TYPE_SCALAR
-            func_msg.return_type.scalar_type = "int32_t"
-        logging.debug("final msg %s", func_msg)
+            call_msg.api.return_type.type == CompSpecMsg.TYPE_SCALAR
+            call_msg.api.return_type.scalar_type = "int32_t"
+        logging.debug("final msg %s", call_msg)
 
-        result = self._client.CallApi(text_format.MessageToString(func_msg),
-                                      self.__caller_uid)
+        result = self._client.CallApi(
+            text_format.MessageToString(call_msg), self.__caller_uid)
         logging.debug(result)
         return result
 
@@ -116,13 +127,15 @@ class MirrorObject(object):
         Returns:
             FunctionSpecificationMessage which contains the value.
         """
+
         def RemoteCallToGetAttribute(*args, **kwargs):
             """Makes a remote call and retrieves an attribute."""
             func_msg = self.GetAttribute(attribute_name)
             if not func_msg:
                 raise MirrorObjectError("attribute %s unknown", func_msg)
 
-            logging.debug("remote call %s.%s", self._parent_path, attribute_name)
+            logging.debug("remote call %s.%s", self._parent_path,
+                          attribute_name)
             logging.info("remote call %s%s", attribute_name, args)
             if self._parent_path:
                 func_msg.parent_path = self._parent_path
@@ -131,8 +144,8 @@ class MirrorObject(object):
                               CompSpecMsg.ComponentSpecificationMessage):
                     logging.info("component_class %s",
                                  self._if_spec_msg.component_class)
-                    if (self._if_spec_msg.component_class
-                        == CompSpecMsg.HAL_CONVENTIONAL_SUBMODULE):
+                    if (self._if_spec_msg.component_class ==
+                            CompSpecMsg.HAL_CONVENTIONAL_SUBMODULE):
                         submodule_name = self._if_spec_msg.original_data_structure_name
                         if submodule_name.endswith("*"):
                             submodule_name = submodule_name[:-1]
@@ -165,11 +178,8 @@ class MirrorObject(object):
 
         msg = self._if_spec_msg
         specification = self._client.ReadSpecification(
-            interface_name,
-            msg.component_class,
-            msg.component_type,
-            msg.component_type_version,
-            msg.package)
+            interface_name, msg.component_class, msg.component_type,
+            msg.component_type_version, msg.package)
         logging.info("specification: %s", specification)
         interface = getattr(specification, INTERFACE, None)
         apis = getattr(interface, API, [])
@@ -178,12 +188,14 @@ class MirrorObject(object):
             if api.name in kwargs:
                 function_pointer = kwargs[api.name]
             else:
+
                 def dummy(*args):
                     """Dummy implementation for any callback function."""
                     logging.info("Entering dummy implementation"
                                  " for callback function: %s", api.name)
                     for arg_index in range(len(args)):
                         logging.info("arg%s: %s", arg_index, args[arg_index])
+
                 function_pointer = dummy
             func_pt_msg = var_msg.function_pointer.add()
             func_pt_msg.function_name = api.name
@@ -191,9 +203,12 @@ class MirrorObject(object):
 
         return var_msg
 
-    def GetHidlTypeInterface(self, interface_name,
-                             target_class=None, target_type=None,
-                             version=None, package=None):
+    def GetHidlTypeInterface(self,
+                             interface_name,
+                             target_class=None,
+                             target_type=None,
+                             version=None,
+                             package=None):
         """Gets HIDL type interface's host-side mirror.
 
         Args:
@@ -205,7 +220,7 @@ class MirrorObject(object):
             version: integer, optional used to override the loaded HAL's
                      component_type_version.
             package: integer, optional used to override the loaded HAL's
-                              package.
+                     package.
 
         Returns:
             a host-side mirror of a HIDL interface
@@ -221,6 +236,51 @@ class MirrorObject(object):
 
         logging.info("result %s", result)
         return mirror_object_for_types.MirrorObjectForTypes(result)
+
+    def GetHidlNestedInterface(self,
+                               interface_name,
+                               hal_driver_id,
+                               target_class=None,
+                               target_type=None,
+                               version=None,
+                               package=None):
+        """Gets HIDL type interface's host-side mirror.
+
+        Args:
+            interface_name: string, the name of a target interface to read.
+            interface_id: integer, the ID of a target interface to
+                          control.
+            target_class: integer, optional used to override the loaded HAL's
+                          component_class.
+            target_type: integer, optional used to override the loaded HAL's
+                         component_type.
+            version: integer, optional used to override the loaded HAL's
+                     component_type_version.
+            package: integer, optional used to override the loaded HAL's
+                              package.
+
+        Returns:
+            a host-side mirror of a HIDL interface
+        """
+        msg = self._if_spec_msg
+        found_api_spec = self._client.ReadSpecification(
+            interface_name,
+            msg.component_class if target_class is None else target_class,
+            msg.component_type if target_type is None else target_type,
+            msg.component_type_version if version is None else version,
+            msg.package if package is None else package,
+            recursive=True)
+
+        found_api_spec = str(found_api_spec)
+        logging.debug("found_api_spec %s", found_api_spec)
+
+        if_spec_msg = CompSpecMsg.ComponentSpecificationMessage()
+        text_format.Merge(found_api_spec, if_spec_msg)
+
+        # Instantiate a MirrorObject and return it.
+        hal_mirror = MirrorObject(
+            self._client, if_spec_msg, None, hal_driver_id=hal_driver_id)
+        return hal_mirror
 
     def CleanUp(self):
         self._client.Disconnect()
@@ -239,14 +299,16 @@ class MirrorObject(object):
         # handle reserved methods first.
         if api_name == "notifySyspropsChanged":
             func_msg = CompSpecMsg.FunctionSpecificationMessage()
-            func_msg.name =  api_name
+            func_msg.name = api_name
             return func_msg
-        if isinstance(self._if_spec_msg, CompSpecMsg.ComponentSpecificationMessage):
+        if isinstance(self._if_spec_msg,
+                      CompSpecMsg.ComponentSpecificationMessage):
             if len(self._if_spec_msg.interface.api) > 0:
                 for api in self._if_spec_msg.interface.api:
                     if api.name == api_name:
                         return copy.copy(api)
-        elif isinstance(self._if_spec_msg, CompSpecMsg.StructSpecificationMessage):
+        elif isinstance(self._if_spec_msg,
+                        CompSpecMsg.StructSpecificationMessage):
             if len(self._if_spec_msg.api) > 0:
                 for api in self._if_spec_msg.api:
                     logging.info("api %s", api)
@@ -267,8 +329,8 @@ class MirrorObject(object):
     def GetAttribute(self, attribute_name):
         """Returns the Message.
         """
-        logging.debug("GetAttribute %s for %s",
-                      attribute_name, self._if_spec_msg)
+        logging.debug("GetAttribute %s for %s", attribute_name,
+                      self._if_spec_msg)
         if self._if_spec_msg.attribute:
             for attribute in self._if_spec_msg.attribute:
                 if attribute.name == attribute_name:
@@ -283,7 +345,7 @@ class MirrorObject(object):
                     logging.info("GetAttribute request: %s", func_msg)
                     return copy.copy(func_msg)
         if (self._if_spec_msg.interface and
-            self._if_spec_msg.interface.attribute):
+                self._if_spec_msg.interface.attribute):
             for attribute in self._if_spec_msg.interface.attribute:
                 if attribute.name == attribute_name:
                     func_msg = CompSpecMsg.FunctionSpecificationMessage()
@@ -307,13 +369,15 @@ class MirrorObject(object):
         Returns:
             StructSpecificationMessage if found, None otherwise
         """
-        if isinstance(self._if_spec_msg, CompSpecMsg.ComponentSpecificationMessage):
+        if isinstance(self._if_spec_msg,
+                      CompSpecMsg.ComponentSpecificationMessage):
             if (self._if_spec_msg.interface and
-                self._if_spec_msg.interface.sub_struct):
+                    self._if_spec_msg.interface.sub_struct):
                 for sub_struct in self._if_spec_msg.interface.sub_struct:
                     if sub_struct.name == sub_struct_name:
                         return copy.copy(sub_struct)
-        elif isinstance(self._if_spec_msg, CompSpecMsg.StructSpecificationMessage):
+        elif isinstance(self._if_spec_msg,
+                        CompSpecMsg.StructSpecificationMessage):
             if len(self._if_spec_msg.sub_struct) > 0:
                 for sub_struct in self._if_spec_msg.sub_struct:
                     if sub_struct.name == sub_struct_name:
@@ -335,7 +399,7 @@ class MirrorObject(object):
                     if not attribute.is_const and attribute.name == type_name:
                         return copy.copy(attribute)
             if (self._if_spec_msg.interface and
-                self._if_spec_msg.interface.attribute):
+                    self._if_spec_msg.interface.attribute):
                 for attribute in self._if_spec_msg.interface.attribute:
                     if not attribute.is_const and attribute.name == type_name:
                         return copy.copy(attribute)
@@ -360,7 +424,7 @@ class MirrorObject(object):
                     if attribute.is_const and attribute.name == type_name:
                         return copy.copy(attribute)
                     elif attribute.type == CompSpecMsg.TYPE_ENUM:
-                      for enumerator in attribute.enum_value.enumerator:
+                        for enumerator in attribute.enum_value.enumerator:
                             if enumerator == type_name:
                                 return copy.copy(attribute)
             if self._if_spec_msg.interface and self._if_spec_msg.interface.attribute:
@@ -403,15 +467,15 @@ class MirrorObject(object):
             if ((arg_msg.type == CompSpecMsg.TYPE_SCALAR and
                  (arg_msg.scalar_type == "char_pointer" or
                   arg_msg.scalar_type == "uchar_pointer")) or
-                arg_msg.type == CompSpecMsg.TYPE_STRING):
+                    arg_msg.type == CompSpecMsg.TYPE_STRING):
                 arg_msg.string_value.message = value_msg
                 arg_msg.string_value.length = len(value_msg)
             else:
-                raise MirrorObjectError(
-                    "unsupported type %s for str" % arg_msg)
+                raise MirrorObjectError("unsupported type %s for str" %
+                                        arg_msg)
         elif isinstance(value_msg, list):
             if (arg_msg.type == CompSpecMsg.TYPE_VECTOR or
-                arg_msg.type == CompSpecMsg.TYPE_ARRAY):
+                    arg_msg.type == CompSpecMsg.TYPE_ARRAY):
                 first = True
                 for list_element in value_msg:
                     if first:
@@ -424,8 +488,8 @@ class MirrorObject(object):
                 raise MirrorObjectError(
                     "unsupported arg_msg type %s for list" % arg_msg.type)
         else:
-            raise MirrorObjectError(
-                "unsupported value type %s" % type(value_msg))
+            raise MirrorObjectError("unsupported value type %s" %
+                                    type(value_msg))
 
     # TODO: Guard against calls to this function after self.CleanUp is called.
     def __getattr__(self, api_name, *args, **kwargs):
@@ -436,8 +500,9 @@ class MirrorObject(object):
             *args: a list of arguments
             **kwargs: a dict for the arg name and value pairs
         """
+
         def RemoteCall(*args, **kwargs):
-            """Dynamically calls a remote API."""
+            """Dynamically calls a remote API and returns the result value."""
             func_msg = self.GetApi(api_name)
             if not func_msg:
                 raise MirrorObjectError("api %s unknown", func_msg)
@@ -456,30 +521,49 @@ class MirrorObject(object):
                 # TODO: use kwargs
                 for arg in func_msg.arg:
                     # TODO: handle other
-                    if (arg.type == CompSpecMsg.TYPE_SCALAR
-                        and arg.scalar_type == "pointer"):
+                    if (arg.type == CompSpecMsg.TYPE_SCALAR and
+                            arg.scalar_type == "pointer"):
                         arg.scalar_value.pointer = 0
                 logging.debug(func_msg)
 
             if self._parent_path:
                 func_msg.parent_path = self._parent_path
 
-            if isinstance(self._if_spec_msg, CompSpecMsg.ComponentSpecificationMessage):
+            call_msg = CompSpecMsg.FunctionCallMessage()
+            if isinstance(self._if_spec_msg,
+                          CompSpecMsg.ComponentSpecificationMessage):
                 if self._if_spec_msg.component_class:
                     logging.info("component_class %s",
                                  self._if_spec_msg.component_class)
+                    call_msg.component_class = self._if_spec_msg.component_class
                     if self._if_spec_msg.component_class == CompSpecMsg.HAL_CONVENTIONAL_SUBMODULE:
                         submodule_name = self._if_spec_msg.original_data_structure_name
                         if submodule_name.endswith("*"):
                             submodule_name = submodule_name[:-1]
                         func_msg.submodule_name = submodule_name
-            result = self._client.CallApi(text_format.MessageToString(func_msg),
-                                          self.__caller_uid)
+            if self._hal_driver_id is not None:
+                call_msg.hal_driver_id = self._hal_driver_id
+            call_msg.api.CopyFrom(func_msg)
+            result = self._client.CallApi(
+                text_format.MessageToString(call_msg), self.__caller_uid)
             logging.debug(result)
             if (isinstance(result, tuple) and len(result) == 2 and
-                isinstance(result[1], dict) and "coverage" in result[1]):
+                    isinstance(result[1], dict) and "coverage" in result[1]):
                 self._last_raw_code_coverage_data = result[1]["coverage"]
-                return result[0]
+                result = result[0]
+
+            if (result and isinstance(
+                    result, CompSpecMsg.VariableSpecificationMessage) and
+                    result.type == CompSpecMsg.TYPE_HIDL_INTERFACE):
+                if result.hidl_interface_id <= -1:
+                    return None
+                hal_driver_id = result.hidl_interface_id
+                nested_interface_name = result.predefined_type.split("::")[-1]
+                logging.debug("Nested interface name: %s",
+                              nested_interface_name)
+                nested_interface = self.GetHidlNestedInterface(
+                    nested_interface_name, hal_driver_id)
+                return nested_interface
             return result
 
         def MessageGenerator(*args, **kwargs):
@@ -491,12 +575,12 @@ class MirrorObject(object):
             logging.debug("MESSAGE %s", api_name)
             if arg_msg.type == CompSpecMsg.TYPE_STRUCT:
                 for struct_value in arg_msg.struct_value:
-                    logging.debug("for %s %s",
-                                  struct_value.name, struct_value.scalar_type)
+                    logging.debug("matching struct %s %s", struct_value.name,
+                                  struct_value.scalar_type)
                     for given_name, given_value in kwargs.iteritems():
-                        logging.debug("check %s %s", struct_value.name, given_name)
                         if given_name == struct_value.name:
-                            logging.debug("match type=%s", struct_value.scalar_type)
+                            logging.debug("matched type=%s",
+                                          struct_value.scalar_type)
                             if struct_value.type == CompSpecMsg.TYPE_SCALAR:
                                 if struct_value.scalar_type == "uint32_t":
                                     struct_value.scalar_value.uint32_t = given_value
@@ -504,32 +588,40 @@ class MirrorObject(object):
                                     struct_value.scalar_value.int32_t = given_value
                                 else:
                                     raise MirrorObjectError(
-                                        "support %s" % struct_value.scalar_type)
-                            continue
-            elif arg_msg.type == CompSpecMsg.TYPE_FUNCTION_POINTER:
-                for fp_value in arg_msg.function_pointer:
-                    logging.debug("for %s", fp_value.function_name)
-                    for given_name, given_value in kwargs.iteritems():
-                          logging.debug("check %s %s", fp_value.function_name, given_name)
-                          if given_name == fp_value.function_name:
-                              fp_value.id = self.GetFunctionPointerID(given_value)
-                              break
+                                        "support %s" %
+                                        struct_value.scalar_type)
+                            break
 
-            if arg_msg.type == CompSpecMsg.TYPE_STRUCT:
-                for struct_value, given_value in zip(arg_msg.struct_value, args):
-                    logging.debug("arg match type=%s", struct_value.scalar_type)
+                for struct_value, given_value in zip(arg_msg.struct_value,
+                                                     args):
                     if struct_value.type == CompSpecMsg.TYPE_SCALAR:
+                        logging.debug("matched arg type=%s",
+                                      struct_value.scalar_type)
                         if struct_value.scalar_type == "uint32_t":
                             struct_value.scalar_value.uint32_t = given_value
                         elif struct_value.scalar_type == "int32_t":
                             struct_value.scalar_value.int32_t = given_value
                         else:
                             raise MirrorObjectError("support %s" % p_type)
+
             elif arg_msg.type == CompSpecMsg.TYPE_FUNCTION_POINTER:
-                for fp_value, given_value in zip(arg_msg.function_pointer, args):
+                for fp_value in arg_msg.function_pointer:
+                    logging.debug("matching function %s",
+                                  fp_value.function_name)
+                    for given_name, given_value in kwargs.iteritems():
+                        if given_name == fp_value.function_name:
+                            logging.debug("matched function %s %s",
+                                          fp_value.function_name, given_name)
+                            fp_value.id = self.GetFunctionPointerID(
+                                given_value)
+                            break
+
+                for fp_value, given_value in zip(arg_msg.function_pointer,
+                                                 args):
                     logging.debug("for %s", fp_value.function_name)
                     fp_value.id = self.GetFunctionPointerID(given_value)
                     logging.debug("fp %s", fp_value)
+
             logging.debug("generated %s", arg_msg)
             return arg_msg
 
@@ -544,7 +636,8 @@ class MirrorObject(object):
                 for struct_value in arg_msg.struct_value:
                     if count == index:
                         if struct_value.scalar_type == "uint32_t":
-                            struct_value.scalar_value.uint32_t ^= FuzzerUtils.mask_uint32_t()
+                            struct_value.scalar_value.uint32_t ^= FuzzerUtils.mask_uint32_t(
+                            )
                         elif struct_value.scalar_type == "int32_t":
                             mask = FuzzerUtils.mask_int32_t()
                             if mask == (1 << 31):
@@ -553,14 +646,14 @@ class MirrorObject(object):
                             else:
                                 struct_value.scalar_value.int32_t ^= mask
                         else:
-                            raise MirrorObjectError(
-                                "support %s" % struct_value.scalar_type)
+                            raise MirrorObjectError("support %s" %
+                                                    struct_value.scalar_type)
                         break
                     count += 1
                 logging.debug("fuzzed %s", arg_msg)
             else:
-                raise MirrorObjectError(
-                    "unsupported fuzz message type %s." % arg_msg.type)
+                raise MirrorObjectError("unsupported fuzz message type %s." %
+                                        arg_msg.type)
             return arg_msg
 
         def ConstGenerator():
@@ -570,11 +663,11 @@ class MirrorObject(object):
                 raise MirrorObjectError("const %s unknown" % arg_msg)
             logging.debug("check %s", api_name)
             if arg_msg.type == CompSpecMsg.TYPE_SCALAR:
-                ret_v = getattr(arg_msg.scalar_value, arg_msg.scalar_type, None)
+                ret_v = getattr(arg_msg.scalar_value, arg_msg.scalar_type,
+                                None)
                 if ret_v is None:
-                    raise MirrorObjectError(
-                        "No value found for type %s in %s." %
-                        (arg_msg.scalar_type, api_name))
+                    raise MirrorObjectError("No value found for type %s in %s."
+                                            % (arg_msg.scalar_type, api_name))
                 return ret_v
             elif arg_msg.type == CompSpecMsg.TYPE_STRING:
                 return arg_msg.string_value.message
@@ -583,8 +676,8 @@ class MirrorObject(object):
                         arg_msg.enum_value.enumerator,
                         arg_msg.enum_value.scalar_value):
                     if enumerator == api_name:
-                      return getattr(scalar_value,
-                                     arg_msg.enum_value.scalar_type)
+                        return getattr(scalar_value,
+                                       arg_msg.enum_value.scalar_type)
             raise MirrorObjectError("const %s not found" % api_name)
 
         # handle APIs.
@@ -600,9 +693,11 @@ class MirrorObject(object):
                 parent_name = "%s.%s" % (self._parent_path, api_name)
             else:
                 parent_name = api_name
-            return MirrorObject(self._client, struct_msg,
-                                self._callback_server,
-                                parent_path=parent_name)
+            return MirrorObject(
+                self._client,
+                struct_msg,
+                self._callback_server,
+                parent_path=parent_name)
 
         # handle attributes.
         fuzz = False

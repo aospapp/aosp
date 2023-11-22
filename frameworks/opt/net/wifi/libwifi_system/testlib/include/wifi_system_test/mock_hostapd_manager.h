@@ -17,6 +17,7 @@
 #ifndef ANDROID_WIFI_SYSTEM_TEST_MOCK_HOSTAPD_MANAGER_H
 #define ANDROID_WIFI_SYSTEM_TEST_MOCK_HOSTAPD_MANAGER_H
 
+#include <gmock/gmock.h>
 #include <wifi_system/hostapd_manager.h>
 
 namespace android {

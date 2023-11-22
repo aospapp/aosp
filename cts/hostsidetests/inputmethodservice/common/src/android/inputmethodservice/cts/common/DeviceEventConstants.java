@@ -50,6 +50,12 @@ public final class DeviceEventConstants {
     public static final String EXTRA_EVENT_SENDER = "event_sender";
 
     /**
+     * Intent extra key for Event parameters like
+     * {@link DeviceEventTypeParam#ON_START_INPUT_RESTARTING}
+     */
+    public static final String EXTRA_EVENT_PARAMS = "event_params";
+
+    /**
      * Intent extra key for what type a device event is. Values are {@link DeviceEventType#name()}.
      *
      * @see android.content.Intent#putExtra(String,String)
@@ -65,6 +71,29 @@ public final class DeviceEventConstants {
      * @see android.content.Intent#getLongExtra(String,long)
      */
     public static final String EXTRA_EVENT_TIME = "event_time";
+
+    /**
+     * Parameter for {@link DeviceEventType}.
+     */
+    public enum DeviceEventTypeParam {
+
+        /**
+         *  Param for {@link DeviceEventType#ON_START_INPUT}. Represents if IME is restarting.
+         */
+        ON_START_INPUT_RESTARTING(DeviceEventType.ON_START_INPUT, "onStartInput.restarting");
+
+        private final DeviceEventType mType;
+        private final String mName;
+
+        DeviceEventTypeParam(DeviceEventType type, String name) {
+            mType = type;
+            mName = name;
+        }
+
+        public String getName() {
+            return mName;
+        }
+    }
 
     /**
      * Types of device event, a value of {@link #EXTRA_EVENT_TYPE}.
@@ -106,5 +135,15 @@ public final class DeviceEventConstants {
         /** Test start and end event types. */
         TEST_START,
         TEST_END,
+
+        /**
+         * {@link android.view.inputmethod.InputMethod#showSoftInput}
+         */
+        SHOW_SOFT_INPUT,
+
+        /**
+         * {@link android.view.inputmethod.InputMethod#hideSoftInput}
+         */
+        HIDE_SOFT_INPUT,
     }
 }

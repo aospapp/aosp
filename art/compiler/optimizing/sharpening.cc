@@ -16,6 +16,7 @@
 
 #include "sharpening.h"
 
+#include "art_method-inl.h"
 #include "base/casts.h"
 #include "base/enums.h"
 #include "class_linker.h"
@@ -41,7 +42,9 @@ void HSharpening::Run() {
     for (HInstructionIterator it(block->GetInstructions()); !it.Done(); it.Advance()) {
       HInstruction* instruction = it.Current();
       if (instruction->IsInvokeStaticOrDirect()) {
-        SharpenInvokeStaticOrDirect(instruction->AsInvokeStaticOrDirect(), codegen_);
+        SharpenInvokeStaticOrDirect(instruction->AsInvokeStaticOrDirect(),
+                                    codegen_,
+                                    compiler_driver_);
       } else if (instruction->IsLoadString()) {
         ProcessLoadString(instruction->AsLoadString());
       }
@@ -56,7 +59,7 @@ static bool IsInBootImage(ArtMethod* method) {
   const std::vector<gc::space::ImageSpace*>& image_spaces =
       Runtime::Current()->GetHeap()->GetBootImageSpaces();
   for (gc::space::ImageSpace* image_space : image_spaces) {
-    const auto& method_section = image_space->GetImageHeader().GetMethodsSection();
+    const ImageSection& method_section = image_space->GetImageHeader().GetMethodsSection();
     if (method_section.Contains(reinterpret_cast<uint8_t*>(method) - image_space->Begin())) {
       return true;
     }
@@ -68,9 +71,21 @@ static bool AOTCanEmbedMethod(ArtMethod* method, const CompilerOptions& options)
   return IsInBootImage(method) && !options.GetCompilePic();
 }
 
+static bool BootImageAOTCanEmbedMethod(ArtMethod* method, CompilerDriver* compiler_driver) {
+  DCHECK(compiler_driver->GetCompilerOptions().IsBootImage());
+  if (!compiler_driver->GetSupportBootImageFixup()) {
+    return false;
+  }
+  ScopedObjectAccess soa(Thread::Current());
+  ObjPtr<mirror::Class> klass = method->GetDeclaringClass();
+  DCHECK(klass != nullptr);
+  const DexFile& dex_file = klass->GetDexFile();
+  return compiler_driver->IsImageClass(dex_file.StringByTypeIdx(klass->GetDexTypeIndex()));
+}
 
 void HSharpening::SharpenInvokeStaticOrDirect(HInvokeStaticOrDirect* invoke,
-                                              CodeGenerator* codegen) {
+                                              CodeGenerator* codegen,
+                                              CompilerDriver* compiler_driver) {
   if (invoke->IsStringInit()) {
     // Not using the dex cache arrays. But we could still try to use a better dispatch...
     // TODO: Use direct_method and direct_code for the appropriate StringFactory method.
@@ -108,16 +123,13 @@ void HSharpening::SharpenInvokeStaticOrDirect(HInvokeStaticOrDirect* invoke,
     method_load_kind = HInvokeStaticOrDirect::MethodLoadKind::kDirectAddress;
     method_load_data = reinterpret_cast<uintptr_t>(callee);
     code_ptr_location = HInvokeStaticOrDirect::CodePtrLocation::kCallArtMethod;
+  } else if (codegen->GetCompilerOptions().IsBootImage() &&
+             BootImageAOTCanEmbedMethod(callee, compiler_driver)) {
+    method_load_kind = HInvokeStaticOrDirect::MethodLoadKind::kBootImageLinkTimePcRelative;
+    code_ptr_location = HInvokeStaticOrDirect::CodePtrLocation::kCallArtMethod;
   } else {
-    // Use PC-relative access to the dex cache arrays.
-    method_load_kind = HInvokeStaticOrDirect::MethodLoadKind::kDexCachePcRelative;
-    // Note: we use the invoke's graph instead of the codegen graph, which are
-    // different when inlining (the codegen graph is the most outer graph). The
-    // invoke's dex method index is relative to the dex file where the invoke's graph
-    // was built from.
-    DexCacheArraysLayout layout(GetInstructionSetPointerSize(codegen->GetInstructionSet()),
-                                &invoke->GetBlock()->GetGraph()->GetDexFile());
-    method_load_data = layout.MethodOffset(invoke->GetDexMethodIndex());
+    // Use PC-relative access to the .bss methods arrays.
+    method_load_kind = HInvokeStaticOrDirect::MethodLoadKind::kBssEntry;
     code_ptr_location = HInvokeStaticOrDirect::CodePtrLocation::kCallArtMethod;
   }
 
@@ -140,7 +152,7 @@ HLoadClass::LoadKind HSharpening::ComputeLoadClassKind(HLoadClass* load_class,
                                                        CompilerDriver* compiler_driver,
                                                        const DexCompilationUnit& dex_compilation_unit) {
   Handle<mirror::Class> klass = load_class->GetClass();
-  DCHECK(load_class->GetLoadKind() == HLoadClass::LoadKind::kDexCacheViaMethod ||
+  DCHECK(load_class->GetLoadKind() == HLoadClass::LoadKind::kRuntimeCall ||
          load_class->GetLoadKind() == HLoadClass::LoadKind::kReferrersClass)
       << load_class->GetLoadKind();
   DCHECK(!load_class->IsInBootImage()) << "HLoadClass should not be optimized before sharpening.";
@@ -166,13 +178,11 @@ HLoadClass::LoadKind HSharpening::ComputeLoadClassKind(HLoadClass* load_class,
       DCHECK(!runtime->UseJitCompilation());
       if (!compiler_driver->GetSupportBootImageFixup()) {
         // compiler_driver_test. Do not sharpen.
-        desired_load_kind = HLoadClass::LoadKind::kDexCacheViaMethod;
-      } else if ((klass != nullptr) && compiler_driver->IsImageClass(
-          dex_file.StringDataByIdx(dex_file.GetTypeId(type_index).descriptor_idx_))) {
+        desired_load_kind = HLoadClass::LoadKind::kRuntimeCall;
+      } else if ((klass != nullptr) &&
+                 compiler_driver->IsImageClass(dex_file.StringByTypeIdx(type_index))) {
         is_in_boot_image = true;
-        desired_load_kind = codegen->GetCompilerOptions().GetCompilePic()
-            ? HLoadClass::LoadKind::kBootImageLinkTimePcRelative
-            : HLoadClass::LoadKind::kBootImageLinkTimeAddress;
+        desired_load_kind = HLoadClass::LoadKind::kBootImageLinkTimePcRelative;
       } else {
         // Not a boot image class.
         DCHECK(ContainsElement(compiler_driver->GetDexFilesForOatFile(), &dex_file));
@@ -182,8 +192,7 @@ HLoadClass::LoadKind HSharpening::ComputeLoadClassKind(HLoadClass* load_class,
       is_in_boot_image = (klass != nullptr) &&
           runtime->GetHeap()->ObjectIsInBootImageSpace(klass.Get());
       if (runtime->UseJitCompilation()) {
-        // TODO: Make sure we don't set the "compile PIC" flag for JIT as that's bogus.
-        // DCHECK(!codegen_->GetCompilerOptions().GetCompilePic());
+        DCHECK(!codegen->GetCompilerOptions().GetCompilePic());
         if (is_in_boot_image) {
           // TODO: Use direct pointers for all non-moving spaces, not just boot image. Bug: 29530787
           desired_load_kind = HLoadClass::LoadKind::kBootImageAddress;
@@ -194,7 +203,7 @@ HLoadClass::LoadKind HSharpening::ComputeLoadClassKind(HLoadClass* load_class,
           // this `HLoadClass` hasn't been executed in the interpreter.
           // Fallback to the dex cache.
           // TODO(ngeoffray): Generate HDeoptimize instead.
-          desired_load_kind = HLoadClass::LoadKind::kDexCacheViaMethod;
+          desired_load_kind = HLoadClass::LoadKind::kRuntimeCall;
         }
       } else if (is_in_boot_image && !codegen->GetCompilerOptions().GetCompilePic()) {
         // AOT app compilation. Check if the class is in the boot image.
@@ -213,7 +222,7 @@ HLoadClass::LoadKind HSharpening::ComputeLoadClassKind(HLoadClass* load_class,
   }
 
   if (!IsSameDexFile(load_class->GetDexFile(), *dex_compilation_unit.GetDexFile())) {
-    if ((load_kind == HLoadClass::LoadKind::kDexCacheViaMethod) ||
+    if ((load_kind == HLoadClass::LoadKind::kRuntimeCall) ||
         (load_kind == HLoadClass::LoadKind::kBssEntry)) {
       // We actually cannot reference this class, we're forced to bail.
       // We cannot reference this class with Bss, as the entrypoint will lookup the class
@@ -225,7 +234,7 @@ HLoadClass::LoadKind HSharpening::ComputeLoadClassKind(HLoadClass* load_class,
 }
 
 void HSharpening::ProcessLoadString(HLoadString* load_string) {
-  DCHECK_EQ(load_string->GetLoadKind(), HLoadString::LoadKind::kDexCacheViaMethod);
+  DCHECK_EQ(load_string->GetLoadKind(), HLoadString::LoadKind::kRuntimeCall);
 
   const DexFile& dex_file = load_string->GetDexFile();
   dex::StringIndex string_index = load_string->GetStringIndex();
@@ -249,16 +258,13 @@ void HSharpening::ProcessLoadString(HLoadString* load_string) {
       CHECK(string != nullptr);
       if (compiler_driver_->GetSupportBootImageFixup()) {
         DCHECK(ContainsElement(compiler_driver_->GetDexFilesForOatFile(), &dex_file));
-        desired_load_kind = codegen_->GetCompilerOptions().GetCompilePic()
-            ? HLoadString::LoadKind::kBootImageLinkTimePcRelative
-            : HLoadString::LoadKind::kBootImageLinkTimeAddress;
+        desired_load_kind = HLoadString::LoadKind::kBootImageLinkTimePcRelative;
       } else {
         // compiler_driver_test. Do not sharpen.
-        desired_load_kind = HLoadString::LoadKind::kDexCacheViaMethod;
+        desired_load_kind = HLoadString::LoadKind::kRuntimeCall;
       }
     } else if (runtime->UseJitCompilation()) {
-      // TODO: Make sure we don't set the "compile PIC" flag for JIT as that's bogus.
-      // DCHECK(!codegen_->GetCompilerOptions().GetCompilePic());
+      DCHECK(!codegen_->GetCompilerOptions().GetCompilePic());
       string = class_linker->LookupString(dex_file, string_index, dex_cache.Get());
       if (string != nullptr) {
         if (runtime->GetHeap()->ObjectIsInBootImageSpace(string)) {
@@ -267,7 +273,7 @@ void HSharpening::ProcessLoadString(HLoadString* load_string) {
           desired_load_kind = HLoadString::LoadKind::kJitTableAddress;
         }
       } else {
-        desired_load_kind = HLoadString::LoadKind::kDexCacheViaMethod;
+        desired_load_kind = HLoadString::LoadKind::kRuntimeCall;
       }
     } else {
       // AOT app compilation. Try to lookup the string without allocating if not found.

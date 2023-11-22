@@ -18,26 +18,26 @@ package com.android.car.dialer;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.CursorLoader;
-import android.content.Loader;
-import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.database.ContentObserver;
 import android.database.Cursor;
 import android.graphics.Canvas;
+import android.graphics.Paint;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.annotation.Nullable;
-import android.support.car.ui.PagedListView;
 import android.support.v4.app.Fragment;
-import android.support.v4.view.ViewCompat;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
+
 import com.android.car.dialer.telecom.PhoneLoader;
 import com.android.car.dialer.telecom.UiCallManager;
+import com.android.car.view.PagedListView;
 
 /**
  * Contains a list of contacts. The call types can be any of the CALL_TYPE_* fields from
@@ -46,9 +46,10 @@ import com.android.car.dialer.telecom.UiCallManager;
 public class StrequentsFragment extends Fragment {
     private static final String TAG = "Em.StrequentsFrag";
 
-    public static final String KEY_MAX_CLICKS = "max_clicks";
-    public static final int DEFAULT_MAX_CLICKS = 6;
+    private static final String KEY_MAX_CLICKS = "max_clicks";
+    private static final int DEFAULT_MAX_CLICKS = 6;
 
+    private UiCallManager mUiCallManager;
     private StrequentsAdapter mAdapter;
     private CursorLoader mSpeedialCursorLoader;
     private CursorLoader mCallLogCursorLoader;
@@ -57,6 +58,12 @@ public class StrequentsFragment extends Fragment {
     private Cursor mStrequentCursor;
     private Cursor mCallLogCursor;
     private boolean mHasLoadedData;
+
+    public static StrequentsFragment newInstance(UiCallManager callManager) {
+        StrequentsFragment fragment = new StrequentsFragment();
+        fragment.mUiCallManager = callManager;
+        return fragment;
+    }
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -79,7 +86,6 @@ public class StrequentsFragment extends Fragment {
         mListView = (PagedListView) view.findViewById(R.id.list_view);
         mListView.getLayoutManager().setOffsetRows(true);
 
-        Bundle args = getArguments();
         mSpeedialCursorLoader = PhoneLoader.registerCallObserver(PhoneLoader.CALL_TYPE_SPEED_DIAL,
             mContext, (loader, cursor) -> {
                 if (Log.isLoggable(TAG, Log.DEBUG)) {
@@ -89,7 +95,7 @@ public class StrequentsFragment extends Fragment {
                 onLoadStrequentCursor(cursor);
 
                 if (mContext != null) {
-                    mListView.setDefaultItemDecoration(new Decoration(mContext));
+                    mListView.addItemDecoration(new Decoration(mContext));
                 }
             });
 
@@ -109,9 +115,10 @@ public class StrequentsFragment extends Fragment {
                 false, new CallLogContentObserver(new Handler()));
 
         // Maximum number of forward acting clicks the user can perform
-
-        int maxClicks = args.getInt(KEY_MAX_CLICKS,
-                DEFAULT_MAX_CLICKS /* G.maxForwardClicks.get() */);
+        Bundle args = getArguments();
+        int maxClicks = args == null
+                ? DEFAULT_MAX_CLICKS
+                : args.getInt(KEY_MAX_CLICKS, DEFAULT_MAX_CLICKS /* G.maxForwardClicks.get() */);
         // We want to show one fewer page than max clicks to allow clicking on an item,
         // but, the first page is "free" since it doesn't take any clicks to show
         final int maxPages = maxClicks < 0 ? -1 : maxClicks;
@@ -119,22 +126,17 @@ public class StrequentsFragment extends Fragment {
             Log.v(TAG, "Max clicks: " + maxClicks + ", Max pages: " + maxPages);
         }
 
-        mListView.removeDefaultItemDecoration();
         mListView.setLightMode();
-        mAdapter = new StrequentsAdapter(mContext);
+        mAdapter = new StrequentsAdapter(mContext, mUiCallManager);
         mAdapter.setStrequentsListener(viewHolder -> {
             if (Log.isLoggable(TAG, Log.DEBUG)) {
                 Log.d(TAG, "onContactedClicked");
             }
 
-            UiCallManager.getInstance(mContext).safePlaceCall(
-                    (String) viewHolder.itemView.getTag(), false);
+            mUiCallManager.safePlaceCall((String) viewHolder.itemView.getTag(), false);
         });
         mListView.setMaxPages(maxPages);
         mListView.setAdapter(mAdapter);
-        if (getResources().getConfiguration().navigation == Configuration.NAVIGATION_WHEEL) {
-            mAdapter.setFocusChangeListener(mFocusListener);
-        }
 
         if (Log.isLoggable(TAG, Log.DEBUG)) {
             Log.d(TAG, "setItemAnimator");
@@ -208,18 +210,6 @@ public class StrequentsFragment extends Fragment {
         }
     }
 
-    private final View.OnFocusChangeListener mFocusListener = new View.OnFocusChangeListener() {
-        @Override
-        public void onFocusChange(View v, boolean hasFocus) {
-            // You can only invalidate decorations when RecyclerView is not in the process
-            // of laying out or scrolling.
-            if (!mListView.getRecyclerView().isInLayout() &&
-                    !mListView.getLayoutManager().isSmoothScrolling()) {
-                mListView.getRecyclerView().invalidateItemDecorations();
-            }
-        }
-    };
-
     /**
      * A {@link ContentResolver} that is responsible for reloading the user's starred and frequent
      * contacts.
@@ -266,16 +256,20 @@ public class StrequentsFragment extends Fragment {
     }
 
     /**
-     * Decoration for the speed dial cards. This is basically copied from the one in
-     * {@link PagedListView} except it won't show a divider between the dialpad item and the first
-     * speed dial item and the divider is offset but a couple of pixels to offset the fact that
-     * the cards overlap.
+     * Decoration for the speed dial cards. This ItemDecoration will not show a divider between
+     * the dialpad item and the first speed dial item and the divider is offset but a couple of
+     * pixels to offset the fact that the cards overlap.
      */
-    private static class Decoration extends PagedListView.Decoration {
+    private static class Decoration extends RecyclerView.ItemDecoration {
+        private final Paint mPaint;
         private final int mPaintAlpha;
+        private final int mDividerHeight;
 
         public Decoration(Context context) {
-            super(context);
+            Resources res = context.getResources();
+            mPaint = new Paint();
+            mPaint.setColor(res.getColor(R.color.car_list_divider));
+            mDividerHeight = res.getDimensionPixelSize(R.dimen.car_divider_height);
             mPaintAlpha = mPaint.getAlpha();
         }
 
@@ -300,7 +294,7 @@ public class StrequentsFragment extends Fragment {
                 }
 
                 // The left edge of the divider should align with the left edge of text_container.
-                final LinearLayout container = (LinearLayout) child.findViewById(R.id.container);
+                LinearLayout container = child.findViewById(R.id.container);
                 View textContainer = child.findViewById(R.id.text_container);
                 View card = child.findViewById(R.id.call_log_card);
 
@@ -309,7 +303,7 @@ public class StrequentsFragment extends Fragment {
 
                 RecyclerView.LayoutParams lp = (RecyclerView.LayoutParams) child.getLayoutParams();
                 int bottom = child.getBottom() + lp.bottomMargin
-                        + Math.round(ViewCompat.getTranslationY(child));
+                        + Math.round(child.getTranslationY());
                 int top = bottom - mDividerHeight;
 
                 if (top >= c.getHeight() || top < 0) {

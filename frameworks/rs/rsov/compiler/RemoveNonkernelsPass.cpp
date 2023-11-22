@@ -16,6 +16,7 @@
 
 #include "RemoveNonkernelsPass.h"
 
+#include "llvm/ADT/Triple.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
@@ -32,6 +33,30 @@ namespace rs2spirv {
 
 namespace {
 
+void HandleTargetTriple(llvm::Module &M) {
+  Triple TT(M.getTargetTriple());
+  auto Arch = TT.getArch();
+
+  StringRef NewTriple;
+  switch (Arch) {
+  default:
+    llvm_unreachable("Unrecognized architecture");
+    break;
+  case Triple::arm:
+    NewTriple = "spir-unknown-unknown";
+    break;
+  case Triple::aarch64:
+    NewTriple = "spir64-unknown-unknown";
+    break;
+  case Triple::spir:
+  case Triple::spir64:
+    DEBUG(dbgs() << "!!! Already a spir triple !!!\n");
+  }
+
+  DEBUG(dbgs() << "New triple:\t" << NewTriple << "\n");
+  M.setTargetTriple(NewTriple);
+}
+
 class RemoveNonkernelsPass : public ModulePass {
 public:
   static char ID;
@@ -42,6 +67,8 @@ public:
   bool runOnModule(Module &M) override {
     DEBUG(dbgs() << "RemoveNonkernelsPass\n");
     DEBUG(M.dump());
+
+    HandleTargetTriple(M);
 
     rs2spirv::Context &Ctxt = rs2spirv::Context::getInstance();
 

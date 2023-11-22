@@ -17,17 +17,19 @@ import StringIO
 Keys: The sample format as in aplay command.
 Values: A dict containing:
     message: Human-readable sample format.
-    struct_format: Format used in struct.unpack.
+    dtype_str: Data type used in numpy dtype.  Check
+               https://docs.scipy.org/doc/numpy/reference/arrays.dtypes.html
+               for supported data type.
     size_bytes: Number of bytes for one sample.
 """
 SAMPLE_FORMATS = dict(
         S32_LE=dict(
                 message='Signed 32-bit integer, little-endian',
-                struct_format='<i',
+                dtype_str='<i',
                 size_bytes=4),
         S16_LE=dict(
                 message='Signed 16-bit integer, little-endian',
-                struct_format='<h',
+                dtype_str='<i',
                 size_bytes=2))
 
 
@@ -86,7 +88,7 @@ class AudioRawData(object):
 
         # The data type used in numpy fromstring function. For example,
         # <i4 for 32-bit signed int.
-        np_dtype = '%s%d' % (sample_format_dict['struct_format'],
+        np_dtype = '%s%d' % (sample_format_dict['dtype_str'],
                              sample_format_dict['size_bytes'])
 
         # Reads data from a string into 1-D array.

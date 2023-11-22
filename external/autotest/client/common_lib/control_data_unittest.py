@@ -29,6 +29,33 @@ ATTRIBUTES = "suite:smoke, suite:bvt"
 SUITE = "suite-listed-only-in-suite-line"
 """
 
+# Control data being wrapped into step* functions.
+WRAPPED_CONTROL = """
+def step_init():
+    step0()
+
+def step0():
+    AUTHOR = 'Author'
+    DEPENDENCIES = "console, power"
+    DOC = \"\"\"\
+    doc stuff\"\"\"
+    # EXPERIMENTAL should implicitly be False
+    NAME = 'nA' "mE"
+    RUN_VERIFY = False
+    SYNC_COUNT = 2
+    TIME='short'
+    TEST_CLASS=u'Kernel'
+    TEST_CATEGORY='Stress'
+    TEST_TYPE='client'
+    RETRIES = 5
+    REQUIRE_SSP = False
+    ATTRIBUTES = "suite:smoke, suite:bvt"
+    SUITE = "suite-listed-only-in-suite-line"
+    MAX_RESULT_SIZE_KB = 20000
+
+step_init()
+"""
+
 
 class ControlDataTestCase(unittest.TestCase):
     def setUp(self):
@@ -81,6 +108,40 @@ class ParseControlTest(unittest.TestCase):
                           set(["suite:smoke","suite:bvt","subsystem:default"]))
         self.assertEquals(cd.suite,
                           "bvt,smoke,suite-listed-only-in-suite-line")
+
+
+class ParseWrappedControlTest(unittest.TestCase):
+    """Test control data can be retrieved from wrapped step functions."""
+    def setUp(self):
+        self.control_tmp = autotemp.tempfile(unique_id='wrapped_control_unit',
+                                             text=True)
+        os.write(self.control_tmp.fd, WRAPPED_CONTROL)
+
+
+    def tearDown(self):
+        self.control_tmp.clean()
+
+
+    def test_parse_control(self):
+        cd = control_data.parse_control(self.control_tmp.name, True)
+        self.assertEquals(cd.author, "Author")
+        self.assertEquals(cd.dependencies, set(['console', 'power']))
+        self.assertEquals(cd.doc, "doc stuff")
+        self.assertEquals(cd.experimental, False)
+        self.assertEquals(cd.name, "nAmE")
+        self.assertEquals(cd.run_verify, False)
+        self.assertEquals(cd.sync_count, 2)
+        self.assertEquals(cd.time, "short")
+        self.assertEquals(cd.test_class, "kernel")
+        self.assertEquals(cd.test_category, "stress")
+        self.assertEquals(cd.test_type, "client")
+        self.assertEquals(cd.retries, 5)
+        self.assertEquals(cd.require_ssp, False)
+        self.assertEquals(cd.attributes,
+                          set(["suite:smoke","suite:bvt","subsystem:default"]))
+        self.assertEquals(cd.suite,
+                          "bvt,smoke,suite-listed-only-in-suite-line")
+        self.assertEquals(cd.max_result_size_KB, 20000)
 
 
 class ParseControlFileBugTemplate(unittest.TestCase):

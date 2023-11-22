@@ -429,6 +429,7 @@ public class WificondPnoScannerTest {
         expectHwDisconnectedPnoScanStart(order, pnoSettings);
 
         // Setup scan results
+        when(mWifiNative.getPnoScanResults()).thenReturn(scanResults.getScanDetailArrayList());
         when(mWifiNative.getScanResults()).thenReturn(scanResults.getScanDetailArrayList());
 
         // Notify scan has finished
@@ -451,6 +452,7 @@ public class WificondPnoScannerTest {
 
         order.verify(mWifiNative).scan(eq(expectedScanFreqs), any(Set.class));
 
+        when(mWifiNative.getPnoScanResults()).thenReturn(scanResults.getScanDetailArrayList());
         when(mWifiNative.getScanResults()).thenReturn(scanResults.getScanDetailArrayList());
 
         // Notify scan has finished
@@ -478,6 +480,7 @@ public class WificondPnoScannerTest {
 
         // Setup scan results
         when(mWifiNative.getScanResults()).thenReturn(scanResults.getScanDetailArrayList());
+        when(mWifiNative.getPnoScanResults()).thenReturn(scanResults.getScanDetailArrayList());
 
         // Notify scan has finished
         mWifiMonitor.sendMessage(mWifiNative.getInterfaceName(), WifiMonitor.SCAN_RESULTS_EVENT);

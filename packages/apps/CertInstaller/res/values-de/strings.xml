@@ -66,7 +66,7 @@
     <string name="wifi_sim_config_text" msgid="1666019954520831840">"SIM: %s\n"</string>
     <string name="wifi_trust_config_text" msgid="5916047381475747783">"Vertrauenswürdiges Zertifikat:\n%s\n"</string>
     <string name="install_done_title" msgid="4822989918460334497">"Anmeldedaten installiert"</string>
-    <string name="install_done" msgid="1522718684172097080">"Die Anmeldedaten für <xliff:g id="NAME">%1$s</xliff:g> wurden zu den gespeicherten WLANs hinzugefügt."</string>
+    <string name="install_done" msgid="1522718684172097080">"Die Anmeldedaten für <xliff:g id="NAME">%1$s</xliff:g> wurden zu den gespeicherten WLAN-Netzwerken hinzugefügt."</string>
     <string name="done_label" msgid="5597425930652904250">"Fertig"</string>
     <string name="wifi_installer_detail" msgid="63879632832701669">"Installiere WLAN-Anmeldedaten, um eine Verbindung mit Netzwerken herzustellen, die über <xliff:g id="NAME">%1$s</xliff:g> verfügbar sind."</string>
     <string name="wifi_installer_download_error" msgid="5429453090956277692">"Die heruntergeladene Datei enthält Fehler und kann nicht installiert werden. Vergewissere dich, dass du die Datei von der korrekten Quelle heruntergeladen hast."</string>

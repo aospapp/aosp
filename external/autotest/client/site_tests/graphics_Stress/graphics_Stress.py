@@ -24,24 +24,9 @@ WEBGL_SPIRITBOX_URL = \
 VIMEO_COUCHMODE_URL = 'http://vimeo.com/couchmode/'
 
 
-class graphics_Stress(test.test):
+class graphics_Stress(graphics_utils.GraphicsTest):
     """Graphics stress test."""
     version = 1
-
-
-    def initialize(self):
-        self.GSC = graphics_utils.GraphicsStateChecker()
-
-
-    def cleanup(self):
-        if self.GSC:
-            keyvals = self.GSC.get_memory_keyvals()
-            for key, val in keyvals.iteritems():
-                self.output_perf_value(description=key, value=val,
-                                       units='bytes', higher_is_better=False)
-            self.GSC.finalize()
-            self.write_perf_keyval(keyvals)
-
 
     def setup(self):
         self.job.setup_dep(['graphics'])
@@ -230,5 +215,8 @@ class graphics_Stress(test.test):
                 os.path.join(self.autodir, 'deps', 'graphics',
                              'graphics_test_extension'))
 
+        self._test_failure_description = 'Failures_%s' % subtest
+        self.add_failures(subtest)
         self.subtests[subtest](self)
+        self.remove_failures(subtest)
 

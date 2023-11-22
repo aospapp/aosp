@@ -78,13 +78,7 @@ public class InputMethodServiceLifecycleTest extends CompatibilityHostTestBase {
 
     @Test
     public void testUninstallCurrentIme() throws Exception {
-        final TestInfo testCreateIme1 = new TestInfo(DeviceTestConstants.PACKAGE,
-                DeviceTestConstants.TEST_CLASS, DeviceTestConstants.TEST_CREATE_IME1);
-        sendTestStartEvent(testCreateIme1);
-        installPackage(Ime1Constants.APK, "-r");
-        shell(ShellCommandUtils.enableIme(Ime1Constants.IME_ID));
-        shell(ShellCommandUtils.setCurrentIme(Ime1Constants.IME_ID));
-        assertTrue(runDeviceTestMethod(testCreateIme1));
+        installAndSetIme1();
 
         final TestInfo testIme1IsNotCurrentIme = new TestInfo(DeviceTestConstants.PACKAGE,
                 DeviceTestConstants.TEST_CLASS, DeviceTestConstants.TEST_IME1_IS_NOT_CURRENT_IME);
@@ -96,13 +90,7 @@ public class InputMethodServiceLifecycleTest extends CompatibilityHostTestBase {
 
     @Test
     public void testDisableCurrentIme() throws Exception {
-        final TestInfo testCreateIme1 = new TestInfo(DeviceTestConstants.PACKAGE,
-                DeviceTestConstants.TEST_CLASS, DeviceTestConstants.TEST_CREATE_IME1);
-        sendTestStartEvent(testCreateIme1);
-        installPackage(Ime1Constants.APK, "-r");
-        shell(ShellCommandUtils.enableIme(Ime1Constants.IME_ID));
-        shell(ShellCommandUtils.setCurrentIme(Ime1Constants.IME_ID));
-        assertTrue(runDeviceTestMethod(testCreateIme1));
+        installAndSetIme1();
 
         final TestInfo testIme1IsNotCurrentIme = new TestInfo(DeviceTestConstants.PACKAGE,
                 DeviceTestConstants.TEST_CLASS, DeviceTestConstants.TEST_IME1_IS_NOT_CURRENT_IME);
@@ -110,6 +98,49 @@ public class InputMethodServiceLifecycleTest extends CompatibilityHostTestBase {
         shell(ShellCommandUtils.disableIme(Ime1Constants.IME_ID));
         assertTrue(runDeviceTestMethod(testIme1IsNotCurrentIme));
         assertEquals(shell(ShellCommandUtils.getCurrentIme()), mDefaultImeId);
+    }
+
+    @Test
+    public void testSearchView_giveFocusShowIme() throws Exception {
+        installAndSetIme1();
+
+        final TestInfo testGiveFocusShowIme1 = new TestInfo(DeviceTestConstants.PACKAGE,
+                DeviceTestConstants.TEST_CLASS,
+                DeviceTestConstants.TEST_SEARCH_VIEW_GIVE_FOCUS_SHOW_IME1);
+        sendTestStartEvent(testGiveFocusShowIme1);
+        assertTrue(runDeviceTestMethod(testGiveFocusShowIme1));
+    }
+
+    @Test
+    public void testSearchView_setQueryHideIme() throws Exception {
+        installAndSetIme1();
+
+        final TestInfo testSetQueryHideIme1 = new TestInfo(DeviceTestConstants.PACKAGE,
+                DeviceTestConstants.TEST_CLASS,
+                DeviceTestConstants.TEST_SEARCH_VIEW_SET_QUERY_HIDE_IME1);
+        sendTestStartEvent(testSetQueryHideIme1);
+        assertTrue(runDeviceTestMethod(testSetQueryHideIme1));
+    }
+
+    @Test
+    public void testOnStartInputCalledOnce() throws Exception {
+        installAndSetIme1();
+
+        final TestInfo testSetQueryHideIme1 = new TestInfo(DeviceTestConstants.PACKAGE,
+                DeviceTestConstants.TEST_CLASS,
+                DeviceTestConstants.TEST_ON_START_INPUT_CALLED_ONCE_IME1);
+        sendTestStartEvent(testSetQueryHideIme1);
+        assertTrue(runDeviceTestMethod(testSetQueryHideIme1));
+    }
+
+    private void installAndSetIme1() throws Exception {
+        final TestInfo testCreateIme1 = new TestInfo(DeviceTestConstants.PACKAGE,
+            DeviceTestConstants.TEST_CLASS, DeviceTestConstants.TEST_CREATE_IME1);
+        sendTestStartEvent(testCreateIme1);
+        installPackage(Ime1Constants.APK, "-r");
+        shell(ShellCommandUtils.enableIme(Ime1Constants.IME_ID));
+        shell(ShellCommandUtils.setCurrentIme(Ime1Constants.IME_ID));
+        assertTrue(runDeviceTestMethod(testCreateIme1));
     }
 
     private void sendTestStartEvent(final TestInfo deviceTest) throws Exception {

@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-<com.android.car.media.util.widgets.MusicPanelLayout
+<android.support.v7.widget.CardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/music_panel"
@@ -51,12 +51,10 @@ limitations under the License.
         <Space
             android:layout_width="@dimen/controls_spacing_inner"
             android:layout_height="match_parent"/>
-        <!-- The id is on the FrameLayout because it is used as the click handler to take
-             advantage of the larger touch target size -->
         <FrameLayout
             android:id="@+id/play_pause_container"
-            android:layout_width="@dimen/controls_tap_target_width"
-            android:layout_height="@dimen/controls_tap_target_height">
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content">
             <com.android.car.media.util.widgets.PlayPauseStopImageView
                 android:id="@+id/play_pause"
                 android:layout_width="@dimen/stream_fab_size"
@@ -165,4 +163,4 @@ limitations under the License.
         android:paddingEnd="0dp"
         android:progressDrawable="@drawable/seekbar_background"
         android:thumb="@null" />
-</com.android.car.media.util.widgets.MusicPanelLayout>
+</android.support.v7.widget.CardView>

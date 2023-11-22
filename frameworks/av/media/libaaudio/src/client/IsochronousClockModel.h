@@ -36,12 +36,16 @@ public:
     void start(int64_t nanoTime);
     void stop(int64_t nanoTime);
 
+    bool isStarting();
+
     void processTimestamp(int64_t framePosition, int64_t nanoTime);
 
     /**
      * @param sampleRate rate of the stream in frames per second
      */
     void setSampleRate(int32_t sampleRate);
+
+    void setPositionAndTime(int64_t framePosition, int64_t nanoTime);
 
     int32_t getSampleRate() const {
         return mSampleRate;
@@ -85,6 +89,8 @@ public:
      * @return frames that stream will advance in that time
      */
     int64_t convertDeltaTimeToPosition(int64_t nanosDelta) const;
+
+    void dump() const;
 
 private:
     enum clock_model_state_t {

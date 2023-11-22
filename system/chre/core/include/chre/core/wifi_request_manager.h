@@ -20,6 +20,7 @@
 #include "chre/core/nanoapp.h"
 #include "chre/platform/platform_wifi.h"
 #include "chre/util/non_copyable.h"
+#include "chre/util/time.h"
 
 namespace chre {
 
@@ -38,6 +39,12 @@ class WifiRequestManager : public NonCopyable {
     * requests.
     */
   WifiRequestManager();
+
+  /**
+   * Initializes the underlying platform-specific WiFi module. Must be called
+   * prior to invoking any other methods in this class.
+   */
+  void init();
 
   /**
    * @return the WiFi capabilities exposed by this platform.
@@ -109,6 +116,19 @@ class WifiRequestManager : public NonCopyable {
    *        released through the PlatformWifi instance.
    */
   void handleScanEvent(chreWifiScanEvent *event);
+
+  /**
+   * Prints state in a string buffer. Must only be called from the context of
+   * the main CHRE thread.
+   *
+   * @param buffer Pointer to the start of the buffer.
+   * @param bufferPos Pointer to buffer position to start the print (in-out).
+   * @param size Size of the buffer in bytes.
+   *
+   * @return true if entire log printed, false if overflow or error.
+   */
+  bool logStateToBuffer(char *buffer, size_t *bufferPos,
+                        size_t bufferSize) const;
 
  private:
   /**
@@ -319,17 +339,13 @@ class WifiRequestManager : public NonCopyable {
   void handleScanEventSync(chreWifiScanEvent *event);
 
   /**
-   * TODO: this.
+   * Handles the releasing of a WiFi scan event and unsubscribes a nanoapp who
+   * has made an active request for a wifi scan from WiFi scan events in the
+   * future (if it has not subscribed to passive events).
+   *
+   * @param scanEvent The scan event to release.
    */
   void handleFreeWifiScanEvent(chreWifiScanEvent *scanEvent);
-
-  /**
-   * Releases the memory associated with an asynchronous wifi event.
-   *
-   * @param eventType The type of event being freed.
-   * @param eventData A pointer to the data to release.
-   */
-  static void freeWifiAsyncResultCallback(uint16_t eventType, void *eventData);
 
   /**
    * Releases a wifi scan event after nanoapps have consumed it.
@@ -338,6 +354,9 @@ class WifiRequestManager : public NonCopyable {
    * @param eventData a pointer to the scan event to release.
    */
   static void freeWifiScanEventCallback(uint16_t eventType, void *eventData);
+
+  //! System time when last scan request was made.
+  Nanoseconds mLastScanRequestTime;
 };
 
 }  // namespace chre

@@ -1,0 +1,30 @@
+cc_library_shared {
+    name: "libnetdutils",
+    srcs: [
+        "Fd.cpp",
+        "Netfilter.cpp",
+        "Netlink.cpp",
+        "Slice.cpp",
+        "Socket.cpp",
+        "Status.cpp",
+        "Syscalls.cpp",
+        "UniqueFd.cpp",
+        "UniqueFile.cpp",
+    ],
+    shared_libs: [
+        "libbase",
+    ],
+    export_include_dirs: ["include"],
+}
+
+cc_test {
+    name: "netdutils_test",
+    srcs: [
+        "SliceTest.cpp",
+        "StatusTest.cpp",
+        "FdTest.cpp",
+        "SyscallsTest.cpp",
+    ],
+    static_libs: ["libgmock"],
+    shared_libs: ["libnetdutils"],
+}

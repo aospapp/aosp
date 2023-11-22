@@ -31,8 +31,8 @@ import com.android.tv.common.SoftPreconditions;
 import com.android.tv.data.Program;
 import com.android.tv.dvr.DvrDataManager;
 import com.android.tv.dvr.DvrManager;
-import com.android.tv.dvr.ScheduledRecording;
-import com.android.tv.dvr.SeriesRecording;
+import com.android.tv.dvr.data.ScheduledRecording;
+import com.android.tv.dvr.data.SeriesRecording;
 import com.android.tv.dvr.ui.list.SchedulesHeaderRow.SeriesRecordingHeaderRow;
 import com.android.tv.util.Utils;
 
@@ -46,7 +46,7 @@ import java.util.Map;
  * An adapter for series schedule row.
  */
 @TargetApi(Build.VERSION_CODES.N)
-public class SeriesScheduleRowAdapter extends ScheduleRowAdapter {
+class SeriesScheduleRowAdapter extends ScheduleRowAdapter {
     private static final String TAG = "SeriesRowAdapter";
     private static final boolean DEBUG = false;
 
@@ -96,7 +96,7 @@ public class SeriesScheduleRowAdapter extends ScheduleRowAdapter {
         Collections.sort(sortedPrograms);
         List<EpisodicProgramRow> rows = new ArrayList<>();
         mHeaderRow = new SeriesRecordingHeaderRow(mSeriesRecording.getTitle(),
-                null, sortedPrograms.size(), mSeriesRecording);
+                null, sortedPrograms.size(), mSeriesRecording, programs);
         for (Program program : sortedPrograms) {
             ScheduledRecording schedule =
                     mDataManager.getScheduledRecordingForProgramId(program.getId());
@@ -145,7 +145,7 @@ public class SeriesScheduleRowAdapter extends ScheduleRowAdapter {
         if (index != -1) {
             EpisodicProgramRow row = (EpisodicProgramRow) get(index);
             if (!row.isStartRecordingRequested()) {
-                row.setSchedule(schedule);
+                setScheduleToRow(row, schedule);
                 notifyArrayItemRangeChanged(index, 1);
             }
         }
@@ -195,12 +195,10 @@ public class SeriesScheduleRowAdapter extends ScheduleRowAdapter {
                     if (!isStartOrStopRequested()) {
                         executePendingUpdate();
                     }
-                    row.setSchedule(schedule);
+                    setScheduleToRow(row, schedule);
                 }
-            } else if (willBeKept(schedule)) {
-                row.setSchedule(schedule);
             } else {
-                row.setSchedule(null);
+                setScheduleToRow(row, schedule);
             }
             notifyArrayItemRangeChanged(index, 1);
         }
@@ -210,6 +208,14 @@ public class SeriesScheduleRowAdapter extends ScheduleRowAdapter {
         if (seriesRecording.getId() == mSeriesRecording.getId()) {
             mHeaderRow.setSeriesRecording(seriesRecording);
             notifyArrayItemRangeChanged(0, 1);
+        }
+    }
+
+    private void setScheduleToRow(ScheduleRow row, ScheduledRecording schedule) {
+        if (schedule != null && willBeKept(schedule)) {
+            row.setSchedule(schedule);
+        } else {
+            row.setSchedule(null);
         }
     }
 

@@ -25,12 +25,10 @@ class network_WiFi_RateControl(wifi_cell_test_base.WiFiCellTestBase):
 
     version = 1
 
-    # We only care about the encoding/MCS index of the frames, not the
-    # contents.  Large snaplens fill up /tmp/ and make shuffling the bits
-    # around take longer.  However, we might be interested in the contents of
-    # the frames in the association process, and packets I've seen with HT IEs
-    # seem to come in around 300 bytes.
-    TEST_SNAPLEN = 400
+    # In case of aggregated frames, we need to capture whole packet to be able
+    # to parse the A-MSDU subframe and extract the IP/UDP content.
+    # Per spec the max AMSDU size for 11n is 7935bytes, let use it here.
+    TEST_SNAPLEN = 7935
 
 
     def parse_additional_arguments(self, commandline_args, additional_params):

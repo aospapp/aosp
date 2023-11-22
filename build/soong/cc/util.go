@@ -66,6 +66,16 @@ func filterList(list []string, filter []string) (remainder []string, filtered []
 	return
 }
 
+func removeListFromList(list []string, filter_out []string) (result []string) {
+	result = make([]string, 0, len(list))
+	for _, l := range list {
+		if !inList(l, filter_out) {
+			result = append(result, l)
+		}
+	}
+	return
+}
+
 func removeFromList(s string, list []string) (bool, []string) {
 	i := indexList(s, list)
 	if i != -1 {
@@ -87,25 +97,27 @@ func moduleToLibName(module string) (string, error) {
 
 func flagsToBuilderFlags(in Flags) builderFlags {
 	return builderFlags{
-		globalFlags: strings.Join(in.GlobalFlags, " "),
-		arFlags:     strings.Join(in.ArFlags, " "),
-		asFlags:     strings.Join(in.AsFlags, " "),
-		cFlags:      strings.Join(in.CFlags, " "),
-		conlyFlags:  strings.Join(in.ConlyFlags, " "),
-		cppFlags:    strings.Join(in.CppFlags, " "),
-		yaccFlags:   strings.Join(in.YaccFlags, " "),
-		protoFlags:  strings.Join(in.protoFlags, " "),
-		aidlFlags:   strings.Join(in.aidlFlags, " "),
-		ldFlags:     strings.Join(in.LdFlags, " "),
-		libFlags:    strings.Join(in.libFlags, " "),
-		tidyFlags:   strings.Join(in.TidyFlags, " "),
-		sAbiFlags:   strings.Join(in.SAbiFlags, " "),
-		yasmFlags:   strings.Join(in.YasmFlags, " "),
-		toolchain:   in.Toolchain,
-		clang:       in.Clang,
-		coverage:    in.Coverage,
-		tidy:        in.Tidy,
-		sAbiDump:    in.SAbiDump,
+		globalFlags:   strings.Join(in.GlobalFlags, " "),
+		arFlags:       strings.Join(in.ArFlags, " "),
+		asFlags:       strings.Join(in.AsFlags, " "),
+		cFlags:        strings.Join(in.CFlags, " "),
+		toolingCFlags: strings.Join(in.ToolingCFlags, " "),
+		conlyFlags:    strings.Join(in.ConlyFlags, " "),
+		cppFlags:      strings.Join(in.CppFlags, " "),
+		yaccFlags:     strings.Join(in.YaccFlags, " "),
+		protoFlags:    strings.Join(in.protoFlags, " "),
+		aidlFlags:     strings.Join(in.aidlFlags, " "),
+		rsFlags:       strings.Join(in.rsFlags, " "),
+		ldFlags:       strings.Join(in.LdFlags, " "),
+		libFlags:      strings.Join(in.libFlags, " "),
+		tidyFlags:     strings.Join(in.TidyFlags, " "),
+		sAbiFlags:     strings.Join(in.SAbiFlags, " "),
+		yasmFlags:     strings.Join(in.YasmFlags, " "),
+		toolchain:     in.Toolchain,
+		clang:         in.Clang,
+		coverage:      in.Coverage,
+		tidy:          in.Tidy,
+		sAbiDump:      in.SAbiDump,
 
 		systemIncludeFlags: strings.Join(in.SystemIncludeFlags, " "),
 
@@ -116,6 +128,13 @@ func flagsToBuilderFlags(in Flags) builderFlags {
 func addPrefix(list []string, prefix string) []string {
 	for i := range list {
 		list[i] = prefix + list[i]
+	}
+	return list
+}
+
+func addSuffix(list []string, suffix string) []string {
+	for i := range list {
+		list[i] = list[i] + suffix
 	}
 	return list
 }

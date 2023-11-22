@@ -34,18 +34,15 @@ public class USBAudioPeripheralButtonsActivity extends USBAudioPeripheralActivit
     private boolean mHasBtnA;
     private boolean mHasBtnB;
     private boolean mHasBtnC;
-    private boolean mHasBtnD;
 
     // Widgets
     private TextView mBtnALabelTxt;
     private TextView mBtnBLabelTxt;
     private TextView mBtnCLabelTxt;
-    private TextView mBtnDLabelTxt;
 
     private TextView mBtnAStatusTxt;
     private TextView mBtnBStatusTxt;
     private TextView mBtnCStatusTxt;
-    private TextView mBtnDStatusTxt;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,12 +54,10 @@ public class USBAudioPeripheralButtonsActivity extends USBAudioPeripheralActivit
         mBtnALabelTxt = (TextView)findViewById(R.id.uap_buttonsBtnALabelTx);
         mBtnBLabelTxt = (TextView)findViewById(R.id.uap_buttonsBtnBLabelTx);
         mBtnCLabelTxt = (TextView)findViewById(R.id.uap_buttonsBtnCLabelTx);
-        mBtnDLabelTxt = (TextView)findViewById(R.id.uap_buttonsBtnDLabelTx);
 
         mBtnAStatusTxt = (TextView)findViewById(R.id.uap_buttonsBtnAStatusTx);
         mBtnBStatusTxt = (TextView)findViewById(R.id.uap_buttonsBtnBStatusTx);
         mBtnCStatusTxt = (TextView)findViewById(R.id.uap_buttonsBtnCStatusTx);
-        mBtnDStatusTxt = (TextView)findViewById(R.id.uap_buttonsBtnDStatusTx);
 
         setPassFailButtonClickListeners();
         setInfoResources(R.string.usbaudio_buttons_test, R.string.usbaudio_buttons_info, -1);
@@ -93,13 +88,6 @@ public class USBAudioPeripheralButtonsActivity extends USBAudioPeripheralActivit
                     mBtnCLabelTxt.setTextColor(Color.WHITE);
                     mBtnCStatusTxt.setTextColor(Color.WHITE);
                 }
-                if (!mButtonAttributes.mHasBtnD) {
-                    mBtnDLabelTxt.setTextColor(Color.GRAY);
-                    mBtnDStatusTxt.setTextColor(Color.GRAY);
-                } else {
-                    mBtnDLabelTxt.setTextColor(Color.WHITE);
-                    mBtnDStatusTxt.setTextColor(Color.WHITE);
-                }
             } else {
                 mBtnALabelTxt.setTextColor(Color.GRAY);
                 mBtnAStatusTxt.setTextColor(Color.GRAY);
@@ -107,8 +95,6 @@ public class USBAudioPeripheralButtonsActivity extends USBAudioPeripheralActivit
                 mBtnBStatusTxt.setTextColor(Color.GRAY);
                 mBtnCLabelTxt.setTextColor(Color.GRAY);
                 mBtnCStatusTxt.setTextColor(Color.GRAY);
-                mBtnDLabelTxt.setTextColor(Color.GRAY);
-                mBtnDStatusTxt.setTextColor(Color.GRAY);
             }
         }
 
@@ -118,8 +104,6 @@ public class USBAudioPeripheralButtonsActivity extends USBAudioPeripheralActivit
             mHasBtnB ? R.string.uapButtonsRecognized : R.string.uapButtonsNotRecognized));
         mBtnCStatusTxt.setText(getString(
             mHasBtnC ? R.string.uapButtonsRecognized : R.string.uapButtonsNotRecognized));
-        mBtnDStatusTxt.setText(getString(
-            mHasBtnD ? R.string.uapButtonsRecognized : R.string.uapButtonsNotRecognized));
     }
 
     private void calculateMatch() {
@@ -133,9 +117,6 @@ public class USBAudioPeripheralButtonsActivity extends USBAudioPeripheralActivit
                 match = false;
             }
             if (match && mButtonAttributes.mHasBtnC != mHasBtnC) {
-                match = false;
-            }
-            if (match && mButtonAttributes.mHasBtnD != mHasBtnD) {
                 match = false;
             }
             Log.i(TAG, "match:" + match);
@@ -163,11 +144,6 @@ public class USBAudioPeripheralButtonsActivity extends USBAudioPeripheralActivit
         case KeyEvent.KEYCODE_VOLUME_DOWN:
             mHasBtnC = true;
             break;
-
-        // Function D control event
-        case KeyEvent.KEYCODE_VOICE_ASSIST:
-            mHasBtnD = true;
-            break;
         }
 
         showButtonsState();
@@ -180,7 +156,7 @@ public class USBAudioPeripheralButtonsActivity extends USBAudioPeripheralActivit
     // USBAudioPeripheralActivity
     //
     public void updateConnectStatus() {
-        mHasBtnA = mHasBtnB = mHasBtnC = mHasBtnD = false;
+        mHasBtnA = mHasBtnB = mHasBtnC = false;
         showButtonsState();
         calculateMatch();
     }

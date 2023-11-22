@@ -227,20 +227,23 @@ class DedupingScheduler(object):
             max_runtime_mins = JOB_MAX_RUNTIME_MINS_DEFAULT + delay_minutes
             timeout_mins = JOB_MAX_RUNTIME_MINS_DEFAULT + delay_minutes
 
-            logging.info('Scheduling %s on %s against %s (pool: %s)',
+            logging.info('Scheduling %s on %s against %s (pool: %s)...',
                          suite, builds, board, pool)
-            if self._afe.run('create_suite_job', name=suite, board=board,
-                             builds=builds, check_hosts=False, num=num,
-                             pool=pool, priority=priority, timeout=timeout,
-                             max_runtime_mins=max_runtime_mins,
-                             timeout_mins=timeout_mins,
-                             file_bugs=file_bugs,
-                             wait_for_results=file_bugs,
-                             test_source_build=test_source_build,
-                             job_retry=job_retry,
-                             delay_minutes=delay_minutes,
-                             run_prod_code=run_prod_code,
-                             min_rpc_timeout=_MIN_RPC_TIMEOUT) is not None:
+            job_id = self._afe.run('create_suite_job', name=suite, board=board,
+                                   builds=builds, check_hosts=False, num=num,
+                                   pool=pool, priority=priority,
+                                   timeout=timeout,
+                                   max_runtime_mins=max_runtime_mins,
+                                   timeout_mins=timeout_mins,
+                                   file_bugs=file_bugs,
+                                   wait_for_results=file_bugs,
+                                   test_source_build=test_source_build,
+                                   job_retry=job_retry,
+                                   delay_minutes=delay_minutes,
+                                   run_prod_code=run_prod_code,
+                                   min_rpc_timeout=_MIN_RPC_TIMEOUT)
+            if job_id is not None:
+                logging.info('... created as suite job id %s', job_id)
                 # Report data to metrics.
                 fields = {'suite': suite,
                           'board': board,

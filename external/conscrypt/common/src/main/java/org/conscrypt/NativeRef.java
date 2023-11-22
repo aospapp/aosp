@@ -19,19 +19,16 @@ package org.conscrypt;
 /**
  * Used to hold onto native OpenSSL references and run finalization on those
  * objects. Individual types must subclass this and implement finalizer.
- *
- * @hide
  */
-@Internal
-public abstract class NativeRef {
+abstract class NativeRef {
     final long context;
 
-    public NativeRef(long ctx) {
-        if (ctx == 0) {
-            throw new NullPointerException("ctx == 0");
+    NativeRef(long context) {
+        if (context == 0) {
+            throw new NullPointerException("context == 0");
         }
 
-        this.context = ctx;
+        this.context = context;
     }
 
     @Override
@@ -48,108 +45,104 @@ public abstract class NativeRef {
         return (int) context;
     }
 
-    public static class EC_GROUP extends NativeRef {
-        public EC_GROUP(long ctx) {
-            super(ctx);
-        }
-
-        @Override
-        protected void finalize() throws Throwable {
-            try {
-                NativeCrypto.EC_GROUP_clear_free(context);
-            } finally {
-                super.finalize();
+    @Override
+    protected void finalize() throws Throwable {
+        try {
+            if (context != 0) {
+                doFree(context);
             }
+        } finally {
+            super.finalize();
         }
     }
 
-    public static class EC_POINT extends NativeRef {
-        public EC_POINT(long ctx) {
+    abstract void doFree(long context);
+
+    static final class EC_GROUP extends NativeRef {
+        EC_GROUP(long ctx) {
             super(ctx);
         }
 
         @Override
-        protected void finalize() throws Throwable {
-            try {
-                NativeCrypto.EC_POINT_clear_free(context);
-            } finally {
-                super.finalize();
-            }
+        void doFree(long context) {
+            NativeCrypto.EC_GROUP_clear_free(context);
         }
     }
 
-    public static class EVP_CIPHER_CTX extends NativeRef {
-        public EVP_CIPHER_CTX(long ctx) {
-            super(ctx);
+    static final class EC_POINT extends NativeRef {
+        EC_POINT(long nativePointer) {
+            super(nativePointer);
         }
 
         @Override
-        protected void finalize() throws Throwable {
-            try {
-                NativeCrypto.EVP_CIPHER_CTX_free(context);
-            } finally {
-                super.finalize();
-            }
+        void doFree(long context) {
+            NativeCrypto.EC_POINT_clear_free(context);
         }
     }
 
-    public static class EVP_MD_CTX extends NativeRef {
-        public EVP_MD_CTX(long ctx) {
-            super(ctx);
+    static final class EVP_CIPHER_CTX extends NativeRef {
+        EVP_CIPHER_CTX(long nativePointer) {
+            super(nativePointer);
         }
 
         @Override
-        protected void finalize() throws Throwable {
-            try {
-                NativeCrypto.EVP_MD_CTX_destroy(context);
-            } finally {
-                super.finalize();
-            }
+        void doFree(long context) {
+            NativeCrypto.EVP_CIPHER_CTX_free(context);
         }
     }
 
-    public static class EVP_PKEY extends NativeRef {
-        public EVP_PKEY(long ctx) {
-            super(ctx);
+    static final class EVP_MD_CTX extends NativeRef {
+        EVP_MD_CTX(long nativePointer) {
+            super(nativePointer);
         }
 
         @Override
-        protected void finalize() throws Throwable {
-            try {
-                NativeCrypto.EVP_PKEY_free(context);
-            } finally {
-                super.finalize();
-            }
+        void doFree(long context) {
+            NativeCrypto.EVP_MD_CTX_destroy(context);
         }
     }
 
-    public static class EVP_PKEY_CTX extends NativeRef {
-        public EVP_PKEY_CTX(long ctx) {
-            super(ctx);
+    static final class EVP_PKEY extends NativeRef {
+        EVP_PKEY(long nativePointer) {
+            super(nativePointer);
         }
 
         @Override
-        protected void finalize() throws Throwable {
-            try {
-                NativeCrypto.EVP_PKEY_CTX_free(context);
-            } finally {
-                super.finalize();
-            }
+        void doFree(long context) {
+            NativeCrypto.EVP_PKEY_free(context);
         }
     }
 
-    public static class HMAC_CTX extends NativeRef {
-        public HMAC_CTX(long ctx) {
-            super(ctx);
+    static final class EVP_PKEY_CTX extends NativeRef {
+        EVP_PKEY_CTX(long nativePointer) {
+            super(nativePointer);
         }
 
         @Override
-        protected void finalize() throws Throwable {
-            try {
-                NativeCrypto.HMAC_CTX_free(context);
-            } finally {
-                super.finalize();
-            }
+        void doFree(long context) {
+            NativeCrypto.EVP_PKEY_CTX_free(context);
+        }
+    }
+
+    static final class HMAC_CTX extends NativeRef {
+        HMAC_CTX(long nativePointer) {
+            super(nativePointer);
+        }
+
+        @Override
+        void doFree(long context) {
+            NativeCrypto.HMAC_CTX_free(context);
+        }
+    }
+
+    static final class SSL_SESSION extends NativeRef {
+        SSL_SESSION(long nativePointer) {
+            super(nativePointer);
+        }
+
+        @Override
+        void doFree(long context) {
+            NativeCrypto.SSL_SESSION_free(context);
         }
     }
 }

@@ -26,6 +26,7 @@ import android.os.ServiceManager;
 import android.test.AndroidTestCase;
 
 import java.io.FileDescriptor;
+import java.util.concurrent.Semaphore;
 
 /**
  * Check past exploits of DeviceIdleController.
@@ -38,7 +39,7 @@ public class DeviceIdleControllerTest extends AndroidTestCase {
      */
     public void testAddWhiteList() {
         final IBinder service = ServiceManager.getService("deviceidle");
-        final Object mSync = new Object();
+        final Semaphore mSemaphore = new Semaphore(0);
         mResult = 0;
         try {
             service.shellCommand(FileDescriptor.in, FileDescriptor.out, FileDescriptor.err,
@@ -48,17 +49,13 @@ public class DeviceIdleControllerTest extends AndroidTestCase {
                         @Override
                         protected void onReceiveResult(int resultCode, Bundle resultData) {
                             mResult = resultCode;
-                            synchronized (mSync) {
-                                mSync.notifyAll();
-                            }
+                            mSemaphore.release();
                         }
                     });
         } catch (RemoteException e) {
         }
         try {
-            synchronized (mSync) {
-                mSync.wait();
-            }
+            mSemaphore.acquire();
         } catch (InterruptedException e) {
         }
         assertEquals(-1, mResult);

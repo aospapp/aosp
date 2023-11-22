@@ -29,7 +29,7 @@ typedef struct ifc_print_job_st {
      * Initializes print job handle with given connection params.
      */
     status_t (*init)(const struct ifc_print_job_st *this_p, const char *printer_address, int port,
-            const char *printer_uri);
+            const char *printer_uri, bool use_secure_uri);
 
     /*
      * Validates job and connection params, updating parameters as necessary.

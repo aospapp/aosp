@@ -91,6 +91,8 @@ public class ActivityKeyboardShortcutsTest
     private boolean keyboardShortcutsSupported() {
       // Keyboard shortcuts API is not supported on watches.
       // TODO(b/62257073): Provide a more granular feature to check here.
-      return !mActivity.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH);
+      // 2017-10-17: Updated to also exclude EMBEDDED
+      return !mActivity.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH) &&
+             !mActivity.getPackageManager().hasSystemFeature(PackageManager.FEATURE_EMBEDDED);
     }
 }

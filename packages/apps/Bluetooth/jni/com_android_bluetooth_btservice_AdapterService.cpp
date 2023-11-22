@@ -148,7 +148,7 @@ static void adapter_properties_callback(bt_status_t status, int num_properties,
 }
 
 static void remote_device_properties_callback(bt_status_t status,
-                                              bt_bdaddr_t* bd_addr,
+                                              RawAddress* bd_addr,
                                               int num_properties,
                                               bt_property_t* properties) {
   CallbackEnv sCallbackEnv(__func__);
@@ -191,13 +191,13 @@ static void remote_device_properties_callback(bt_status_t status,
   }
 
   ScopedLocalRef<jbyteArray> addr(
-      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(bt_bdaddr_t)));
+      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(RawAddress)));
   if (!addr.get()) {
     ALOGE("Error while allocation byte array in %s", __func__);
     return;
   }
 
-  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(bt_bdaddr_t),
+  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
                                    (jbyte*)bd_addr);
 
   jintArray typesPtr = types.get();
@@ -239,15 +239,14 @@ static void device_found_callback(int num_properties,
         (const char*)properties[addr_index].val);
 
   remote_device_properties_callback(BT_STATUS_SUCCESS,
-                                    (bt_bdaddr_t*)properties[addr_index].val,
+                                    (RawAddress*)properties[addr_index].val,
                                     num_properties, properties);
 
   sCallbackEnv->CallVoidMethod(sJniCallbacksObj, method_deviceFoundCallback,
                                addr.get());
 }
 
-static void bond_state_changed_callback(bt_status_t status,
-                                        bt_bdaddr_t* bd_addr,
+static void bond_state_changed_callback(bt_status_t status, RawAddress* bd_addr,
                                         bt_bond_state_t state) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
@@ -258,19 +257,19 @@ static void bond_state_changed_callback(bt_status_t status,
   }
 
   ScopedLocalRef<jbyteArray> addr(
-      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(bt_bdaddr_t)));
+      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(RawAddress)));
   if (!addr.get()) {
     ALOGE("Address allocation failed in %s", __func__);
     return;
   }
-  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(bt_bdaddr_t),
+  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
                                    (jbyte*)bd_addr);
 
   sCallbackEnv->CallVoidMethod(sJniCallbacksObj, method_bondStateChangeCallback,
                                (jint)status, addr.get(), (jint)state);
 }
 
-static void acl_state_changed_callback(bt_status_t status, bt_bdaddr_t* bd_addr,
+static void acl_state_changed_callback(bt_status_t status, RawAddress* bd_addr,
                                        bt_acl_state_t state) {
   if (!bd_addr) {
     ALOGE("Address is null in %s", __func__);
@@ -281,12 +280,12 @@ static void acl_state_changed_callback(bt_status_t status, bt_bdaddr_t* bd_addr,
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> addr(
-      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(bt_bdaddr_t)));
+      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(RawAddress)));
   if (!addr.get()) {
     ALOGE("Address allocation failed in %s", __func__);
     return;
   }
-  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(bt_bdaddr_t),
+  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
                                    (jbyte*)bd_addr);
 
   sCallbackEnv->CallVoidMethod(sJniCallbacksObj, method_aclStateChangeCallback,
@@ -303,7 +302,7 @@ static void discovery_state_changed_callback(bt_discovery_state_t state) {
       sJniCallbacksObj, method_discoveryStateChangeCallback, (jint)state);
 }
 
-static void pin_request_callback(bt_bdaddr_t* bd_addr, bt_bdname_t* bdname,
+static void pin_request_callback(RawAddress* bd_addr, bt_bdname_t* bdname,
                                  uint32_t cod, bool min_16_digits) {
   if (!bd_addr) {
     ALOGE("Address is null in %s", __func__);
@@ -314,13 +313,13 @@ static void pin_request_callback(bt_bdaddr_t* bd_addr, bt_bdname_t* bdname,
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> addr(
-      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(bt_bdaddr_t)));
+      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(RawAddress)));
   if (!addr.get()) {
     ALOGE("Error while allocating in: %s", __func__);
     return;
   }
 
-  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(bt_bdaddr_t),
+  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
                                    (jbyte*)bd_addr);
 
   ScopedLocalRef<jbyteArray> devname(
@@ -337,7 +336,7 @@ static void pin_request_callback(bt_bdaddr_t* bd_addr, bt_bdname_t* bdname,
                                addr.get(), devname.get(), cod, min_16_digits);
 }
 
-static void ssp_request_callback(bt_bdaddr_t* bd_addr, bt_bdname_t* bdname,
+static void ssp_request_callback(RawAddress* bd_addr, bt_bdname_t* bdname,
                                  uint32_t cod, bt_ssp_variant_t pairing_variant,
                                  uint32_t pass_key) {
   if (!bd_addr) {
@@ -348,13 +347,13 @@ static void ssp_request_callback(bt_bdaddr_t* bd_addr, bt_bdname_t* bdname,
   if (!sCallbackEnv.valid()) return;
 
   ScopedLocalRef<jbyteArray> addr(
-      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(bt_bdaddr_t)));
+      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(RawAddress)));
   if (!addr.get()) {
     ALOGE("Error while allocating in: %s", __func__);
     return;
   }
 
-  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(bt_bdaddr_t),
+  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
                                    (jbyte*)bd_addr);
 
   ScopedLocalRef<jbyteArray> devname(
@@ -751,7 +750,7 @@ static jboolean createBondNative(JNIEnv* env, jobject obj, jbyteArray address,
     return JNI_FALSE;
   }
 
-  int ret = sBluetoothInterface->create_bond((bt_bdaddr_t*)addr, transport);
+  int ret = sBluetoothInterface->create_bond((RawAddress*)addr, transport);
   env->ReleaseByteArrayElements(address, addr, 0);
   return (ret == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
 }
@@ -848,7 +847,7 @@ static jboolean createBondOutOfBandNative(JNIEnv* env, jobject obj,
     memcpy(oob_data.le_sc_r, leScRBytes, len);
   }
 
-  status = sBluetoothInterface->create_bond_out_of_band((bt_bdaddr_t*)addr,
+  status = sBluetoothInterface->create_bond_out_of_band((RawAddress*)addr,
                                                         transport, &oob_data);
 
 done:
@@ -877,7 +876,7 @@ static jboolean removeBondNative(JNIEnv* env, jobject obj, jbyteArray address) {
     return JNI_FALSE;
   }
 
-  int ret = sBluetoothInterface->remove_bond((bt_bdaddr_t*)addr);
+  int ret = sBluetoothInterface->remove_bond((RawAddress*)addr);
   env->ReleaseByteArrayElements(address, addr, 0);
 
   return (ret == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
@@ -894,7 +893,7 @@ static jboolean cancelBondNative(JNIEnv* env, jobject obj, jbyteArray address) {
     return JNI_FALSE;
   }
 
-  int ret = sBluetoothInterface->cancel_bond((bt_bdaddr_t*)addr);
+  int ret = sBluetoothInterface->cancel_bond((RawAddress*)addr);
   env->ReleaseByteArrayElements(address, addr, 0);
   return (ret == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
 }
@@ -910,7 +909,7 @@ static int getConnectionStateNative(JNIEnv* env, jobject obj,
     return JNI_FALSE;
   }
 
-  int ret = sBluetoothInterface->get_connection_state((bt_bdaddr_t*)addr);
+  int ret = sBluetoothInterface->get_connection_state((RawAddress*)addr);
   env->ReleaseByteArrayElements(address, addr, 0);
 
   return ret;
@@ -938,7 +937,7 @@ static jboolean pinReplyNative(JNIEnv* env, jobject obj, jbyteArray address,
     }
   }
 
-  int ret = sBluetoothInterface->pin_reply((bt_bdaddr_t*)addr, accept, len,
+  int ret = sBluetoothInterface->pin_reply((RawAddress*)addr, accept, len,
                                            (bt_pin_code_t*)pinPtr);
   env->ReleaseByteArrayElements(address, addr, 0);
   env->ReleaseByteArrayElements(pinArray, pinPtr, 0);
@@ -959,7 +958,7 @@ static jboolean sspReplyNative(JNIEnv* env, jobject obj, jbyteArray address,
   }
 
   int ret = sBluetoothInterface->ssp_reply(
-      (bt_bdaddr_t*)addr, (bt_ssp_variant_t)type, accept, passkey);
+      (RawAddress*)addr, (bt_ssp_variant_t)type, accept, passkey);
   env->ReleaseByteArrayElements(address, addr, 0);
 
   return (ret == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
@@ -1014,7 +1013,7 @@ static jboolean getDevicePropertyNative(JNIEnv* env, jobject obj,
   }
 
   int ret = sBluetoothInterface->get_remote_device_property(
-      (bt_bdaddr_t*)addr, (bt_property_type_t)type);
+      (RawAddress*)addr, (bt_property_type_t)type);
   env->ReleaseByteArrayElements(address, addr, 0);
   return (ret == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
 }
@@ -1044,8 +1043,8 @@ static jboolean setDevicePropertyNative(JNIEnv* env, jobject obj,
   prop.len = env->GetArrayLength(value);
   prop.val = val;
 
-  int ret = sBluetoothInterface->set_remote_device_property((bt_bdaddr_t*)addr,
-                                                            &prop);
+  int ret =
+      sBluetoothInterface->set_remote_device_property((RawAddress*)addr, &prop);
   env->ReleaseByteArrayElements(value, val, 0);
   env->ReleaseByteArrayElements(address, addr, 0);
 
@@ -1064,7 +1063,7 @@ static jboolean getRemoteServicesNative(JNIEnv* env, jobject obj,
     return JNI_FALSE;
   }
 
-  int ret = sBluetoothInterface->get_remote_services((bt_bdaddr_t*)addr);
+  int ret = sBluetoothInterface->get_remote_services((RawAddress*)addr);
   env->ReleaseByteArrayElements(address, addr, 0);
   return (ret == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
 }
@@ -1092,7 +1091,7 @@ static int connectSocketNative(JNIEnv* env, jobject object, jbyteArray address,
 
   int socket_fd = -1;
   bt_status_t status = sBluetoothSocketInterface->connect(
-      (bt_bdaddr_t*)addr, (btsock_type_t)type, (const uint8_t*)uuid, channel,
+      (RawAddress*)addr, (btsock_type_t)type, (const uint8_t*)uuid, channel,
       &socket_fd, flag, callingUid);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Socket connection failed: %d", status);
@@ -1205,8 +1204,7 @@ static void interopDatabaseAddNative(JNIEnv* env, jobject obj, int feature,
     return;
   }
 
-  sBluetoothInterface->interop_database_add(feature, (bt_bdaddr_t*)addr,
-                                            length);
+  sBluetoothInterface->interop_database_add(feature, (RawAddress*)addr, length);
   env->ReleaseByteArrayElements(address, addr, 0);
 }
 

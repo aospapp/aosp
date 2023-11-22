@@ -41,14 +41,18 @@ limitations under the License.
             android:layout_height="match_parent" />
     </FrameLayout>
 
-    <android.support.car.ui.PagedListView
+    <com.android.car.view.PagedListView
         android:id="@+id/presets_list"
         android:background="@android:color/transparent"
         android:layout_marginTop="@dimen/car_preset_container_height"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="gone"
-        app:offsetRows="true"/>
+        app:offsetRows="true"
+        app:showDivider="true"
+        app:dividerStartMargin="@dimen/stream_card_keyline_3"
+        app:alignDividerEndTo="@id/preset_card"
+        app:alignDividerStartTo="@id/preset_card" />
 
     <android.support.v7.widget.CardView
         android:id="@+id/current_radio_station_card"

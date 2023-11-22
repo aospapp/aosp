@@ -112,7 +112,7 @@ class SonicHost(abstract_ssh.AbstractSSHHost):
         """Get a unique ID associated with the current boot.
 
         @param timeout The number of seconds to wait before timing out, as
-            taken by base_utils.run.
+            taken by utils.run.
 
         @return A string unique to this boot or None if not available.
         """

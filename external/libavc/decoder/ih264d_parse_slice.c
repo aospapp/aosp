@@ -441,11 +441,23 @@ WORD32 ih264d_start_of_pic(dec_struct_t *ps_dec,
         ps_dec->au1_pic_buf_ref_flag[cur_pic_buf_id] = 0;
 
         {
-            /*make first entry of list0 point to cur pic,so that if first Islice is in error, ref pic struct will have valid entries*/
+            /*make first entry of list0 and list1 point to cur pic,
+             *so that if first slice is in error, ref pic struct will have valid entries*/
             ps_dec->ps_ref_pic_buf_lx[0] = ps_dec->ps_dpb_mgr->ps_init_dpb[0];
+            ps_dec->ps_ref_pic_buf_lx[1] = ps_dec->ps_dpb_mgr->ps_init_dpb[1];
             *(ps_dec->ps_dpb_mgr->ps_init_dpb[0][0]) = *ps_cur_pic;
             /* Initialize for field reference as well */
             *(ps_dec->ps_dpb_mgr->ps_init_dpb[0][MAX_REF_BUFS]) = *ps_cur_pic;
+
+            *(ps_dec->ps_dpb_mgr->ps_mod_dpb[0][0]) = *ps_cur_pic;
+            /* Initialize for field reference as well */
+            *(ps_dec->ps_dpb_mgr->ps_mod_dpb[0][MAX_REF_BUFS]) = *ps_cur_pic;
+            *(ps_dec->ps_dpb_mgr->ps_init_dpb[1][0]) = *ps_cur_pic;
+            /* Initialize for field reference as well */
+            *(ps_dec->ps_dpb_mgr->ps_init_dpb[1][MAX_REF_BUFS]) = *ps_cur_pic;
+            *(ps_dec->ps_dpb_mgr->ps_mod_dpb[1][0]) = *ps_cur_pic;
+            /* Initialize for field reference as well */
+            *(ps_dec->ps_dpb_mgr->ps_mod_dpb[1][MAX_REF_BUFS]) = *ps_cur_pic;
         }
 
         if(!ps_dec->ps_cur_pic)
@@ -1370,9 +1382,8 @@ WORD32 ih264d_parse_decode_slice(UWORD8 u1_is_idr_slice,
         if(ps_dec->u1_dangling_field == 1)
         {
             ps_dec->u1_second_field = 1 - ps_dec->u1_second_field;
-            ps_cur_slice->u1_bottom_field_flag = u1_bottom_field_flag;
-            ps_dec->u2_prv_frame_num = u2_frame_num;
             ps_dec->u1_first_slice_in_stream = 0;
+            ps_dec->u1_top_bottom_decoded = TOP_FIELD_ONLY | BOT_FIELD_ONLY;
             return ERROR_DANGLING_FIELD_IN_PIC;
         }
 
@@ -1790,10 +1801,8 @@ WORD32 ih264d_parse_decode_slice(UWORD8 u1_is_idr_slice,
             num_entries = 1;
         }
         num_entries = ((2 * num_entries) + 1);
-        if(BASE_PROFILE_IDC != ps_dec->ps_cur_sps->u1_profile_idc)
-        {
-            num_entries *= 2;
-        }
+        num_entries *= 2;
+
 
         size = num_entries * sizeof(void *);
         size += PAD_MAP_IDX_POC * sizeof(void *);

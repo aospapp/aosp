@@ -2,6 +2,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+# WARNING(crbug.com/743265): This test is currently broken because the ability
+# to run client tests in the background from a server-side test has been
+# deleted.
+
 from autotest_lib.server import utils
 
 AUTHOR = "abrestic, tbroch"

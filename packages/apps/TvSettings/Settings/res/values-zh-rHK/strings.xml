@@ -43,8 +43,8 @@
     <string name="connectivity_network" msgid="8321537111272398501">"網絡"</string>
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"以太網"</string>
-    <string name="wifi_setting_always_scan" msgid="8883713018717323351">"掃描永遠可用"</string>
-    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"允許 Google 的位置資訊服務和其他應用程式掃瞄網絡 (即使 Wi-Fi 已關閉)"</string>
+    <string name="wifi_setting_always_scan" msgid="8883713018717323351">"可隨時掃描"</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"允許 Google 的位置資訊服務和其他應用程式掃描網絡 (即使 Wi-Fi 已關閉)"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"螢幕保護程式"</string>
     <string name="device_display" msgid="101455384386372747">"顯示"</string>
@@ -178,7 +178,7 @@
     <string name="wifi_security_type_wep" msgid="3836879161029325671">"WEP"</string>
     <string name="wifi_security_type_wpa" msgid="4948411057925876780">"WPA/WPA2 PSK"</string>
     <string name="wifi_security_type_eap" msgid="1106303698253987745">"802.1x EAP"</string>
-    <string name="title_wifi_no_networks_available" msgid="7127675763248224969">"正在掃瞄…"</string>
+    <string name="title_wifi_no_networks_available" msgid="7127675763248224969">"正在掃描…"</string>
     <string name="title_wifi_could_not_save" msgid="708638317882707069">"無法儲存 <xliff:g id="SSID">%1$s</xliff:g> 的設定"</string>
     <string name="title_wifi_could_not_connect" msgid="9080004548419447580">"無法連線至 <xliff:g id="SSID">%1$s</xliff:g>"</string>
     <string name="title_wifi_could_not_connect_timeout" msgid="5158184646985406394">"找不到 <xliff:g id="SSID">%1$s</xliff:g>"</string>
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"服務"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"服務設定"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"高對比文字"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"無障礙功能快速鍵"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"啟用無障礙功能快速鍵"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"快速鍵服務"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"啟用快速鍵後，同時按下返回和向下按鈕 3 秒即可啟動無障礙功能。"</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"字幕"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"影片隱藏式字幕文字重疊設定"</string>
     <string name="captions_display" msgid="735692527287125548">"顯示"</string>
@@ -599,7 +603,7 @@
     <string name="device_apps_app_management_version" msgid="2267065043941006486">"版本 <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
     <string name="device_apps_app_management_open" msgid="8009823973422120839">"開啟"</string>
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"強制停止"</string>
-    <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"如果您強制停止應用程式，應用程式或會不能正常操作。"</string>
+    <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"如果您強制停止應用程式，應用程式或許不能正常操作。"</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"解除安裝"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"解除安裝更新"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"即將解除安裝這個 Android 系統應用程式的所有更新。"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"正在擷取錯誤報告"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"可用的虛擬鍵盤"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"管理鍵盤"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"允許"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"不允許"</string>
+    <string name="usage_access" msgid="1914242907684452328">"使用記錄存取權"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"使用記錄存取權允許應用程式追蹤您正在使用的其他應用程式、使用頻率、流動服務供應商、語言設定和其他詳情。"</string>
 </resources>

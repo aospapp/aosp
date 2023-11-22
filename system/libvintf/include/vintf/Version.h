@@ -55,6 +55,13 @@ struct Version {
     inline bool operator>=(const Version &other) const {
         return !((*this) < other);
     }
+    // Version(2, 1).minorAtLeast(Version(1, 0)) == false
+    // Version(2, 1).minorAtLeast(Version(2, 0)) == true
+    // Version(2, 1).minorAtLeast(Version(2, 1)) == true
+    // Version(2, 1).minorAtLeast(Version(2, 2)) == false
+    inline bool minorAtLeast(const Version& other) const {
+        return majorVer == other.majorVer && minorVer >= other.minorVer;
+    }
 };
 
 struct KernelVersion {

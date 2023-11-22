@@ -217,7 +217,7 @@ static void a2dp_sbc_encoder_update(uint16_t peer_mtu,
   tA2DP_FEEDING_PARAMS* p_feeding_params = &a2dp_sbc_encoder_cb.feeding_params;
   p_feeding_params->sample_rate = A2DP_GetTrackSampleRateSbc(p_codec_info);
   p_feeding_params->bits_per_sample =
-      A2DP_GetTrackBitsPerSampleSbc(p_codec_info);
+      a2dp_codec_config->getAudioBitsPerSample();
   p_feeding_params->channel_count = A2DP_GetTrackChannelCountSbc(p_codec_info);
   LOG_DEBUG(LOG_TAG, "%s: sample_rate=%u bits_per_sample=%u channel_count=%u",
             __func__, p_feeding_params->sample_rate,
@@ -753,14 +753,21 @@ static uint8_t calculate_max_frames_per_packet(void) {
 
   LOG_VERBOSE(LOG_TAG, "%s: original AVDTP MTU size: %d", __func__,
               a2dp_sbc_encoder_cb.TxAaMtuSize);
+  if (a2dp_sbc_encoder_cb.is_peer_edr &&
+      !a2dp_sbc_encoder_cb.peer_supports_3mbps) {
+    // This condition would be satisfied only if the remote device is
+    // EDR and supports only 2 Mbps, but the effective AVDTP MTU size
+    // exceeds the 2DH5 packet size.
+    LOG_VERBOSE(LOG_TAG,
+                "%s: The remote device is EDR but does not support 3 Mbps",
+                __func__);
 
-  // Restrict the MTU - even though some Sink devices are advertising large
-  // MTU, they are not able to handle the packets and are stuttering.
-  if (effective_mtu_size > MAX_2MBPS_AVDTP_MTU) {
-    LOG_WARN(LOG_TAG, "%s: Restricting AVDTP MTU size to %d", __func__,
-             MAX_2MBPS_AVDTP_MTU);
-    effective_mtu_size = MAX_2MBPS_AVDTP_MTU;
-    a2dp_sbc_encoder_cb.TxAaMtuSize = effective_mtu_size;
+    if (effective_mtu_size > MAX_2MBPS_AVDTP_MTU) {
+      LOG_WARN(LOG_TAG, "%s: Restricting AVDTP MTU size to %d", __func__,
+               MAX_2MBPS_AVDTP_MTU);
+      effective_mtu_size = MAX_2MBPS_AVDTP_MTU;
+      a2dp_sbc_encoder_cb.TxAaMtuSize = effective_mtu_size;
+    }
   }
 
   if (!p_encoder_params->s16NumOfSubBands) {

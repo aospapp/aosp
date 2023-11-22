@@ -335,12 +335,15 @@ keymaster_error_t Keymaster2Test::AbortOperation() {
 }
 
 keymaster_error_t Keymaster2Test::AttestKey(const string& attest_challenge,
+                                            const string& attest_app_id,
                                             keymaster_cert_chain_t* cert_chain) {
     AuthorizationSet attest_params;
     attest_params.push_back(UserAuthParams());
     attest_params.push_back(ClientParams());
     attest_params.push_back(TAG_ATTESTATION_CHALLENGE, attest_challenge.data(),
                             attest_challenge.length());
+    attest_params.push_back(TAG_ATTESTATION_APPLICATION_ID, attest_app_id.data(),
+                            attest_app_id.length());
     return device()->attest_key(device(), &blob_, &attest_params, cert_chain);
 }
 

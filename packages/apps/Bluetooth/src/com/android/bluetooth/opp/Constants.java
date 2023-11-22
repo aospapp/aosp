@@ -193,24 +193,6 @@ public class Constants {
     public static final int MEDIA_SCANNED_SCANNED_FAILED = 2;
 
     /**
-     * The MIME type(s) of we could share to other device.
-     */
-    /*
-     * TODO: define correct type list
-     */
-    public static final String[] ACCEPTABLE_SHARE_OUTBOUND_TYPES = new String[] {
-        "image/*", "text/x-vcard",
-    };
-
-    /**
-     * The MIME type(s) of we could not share to other device. TODO: define
-     * correct type list
-     */
-    public static final String[] UNACCEPTABLE_SHARE_OUTBOUND_TYPES = new String[] {
-        "virus/*",
-    };
-
-    /**
      * The MIME type(s) of we could accept from other device.
      * This is in essence a "white list" of acceptable types.
      * Today, restricted to images, audio, video and certain text types.
@@ -220,6 +202,8 @@ public class Constants {
         "video/*",
         "audio/*",
         "text/x-vcard",
+        "text/x-vcalendar",
+        "text/calendar",
         "text/plain",
         "text/html",
         "text/xml",
@@ -238,9 +222,7 @@ public class Constants {
      * The MIME type(s) of we could not accept from other device. TODO: define
      * correct type list
      */
-    public static final String[] UNACCEPTABLE_SHARE_INBOUND_TYPES = new String[] {
-        "text/x-vcalendar",
-    };
+    public static final String[] UNACCEPTABLE_SHARE_INBOUND_TYPES = new String[] {};
 
     /** Where we store Bluetooth received files on the external storage */
     public static final String DEFAULT_STORE_SUBDIR = "/bluetooth";

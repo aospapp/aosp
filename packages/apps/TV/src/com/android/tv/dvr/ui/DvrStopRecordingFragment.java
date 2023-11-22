@@ -25,15 +25,12 @@ import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
 import android.support.v17.leanback.widget.GuidanceStylist.Guidance;
 import android.support.v17.leanback.widget.GuidedAction;
-import android.text.TextUtils;
 
 import com.android.tv.R;
 import com.android.tv.TvApplication;
-import com.android.tv.data.Channel;
-import com.android.tv.data.ChannelDataManager;
 import com.android.tv.dvr.DvrDataManager;
 import com.android.tv.dvr.DvrDataManager.ScheduledRecordingListener;
-import com.android.tv.dvr.ScheduledRecording;
+import com.android.tv.dvr.data.ScheduledRecording;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -131,15 +128,8 @@ public class DvrStopRecordingFragment extends DvrGuidedStepFragment {
         String title = getString(R.string.dvr_stop_recording_dialog_title);
         String description;
         if (mStopReason == REASON_ON_CONFLICT) {
-            String programTitle = mSchedule.getProgramTitle();
-            if (TextUtils.isEmpty(programTitle)) {
-                ChannelDataManager channelDataManager =
-                        TvApplication.getSingletons(getActivity()).getChannelDataManager();
-                Channel channel = channelDataManager.getChannel(mSchedule.getChannelId());
-                programTitle = channel.getDisplayName();
-            }
             description = getString(R.string.dvr_stop_recording_dialog_description_on_conflict,
-                    mSchedule.getProgramTitle());
+                    mSchedule.getProgramDisplayTitle(getContext()));
         } else {
             description = getString(R.string.dvr_stop_recording_dialog_description);
         }
@@ -157,5 +147,20 @@ public class DvrStopRecordingFragment extends DvrGuidedStepFragment {
         actions.add(new GuidedAction.Builder(context)
                 .clickAction(GuidedAction.ACTION_ID_CANCEL)
                 .build());
+    }
+
+    @Override
+    public String getTrackerPrefix() {
+        return "DvrStopRecordingFragment";
+    }
+
+    @Override
+    public String getTrackerLabelForGuidedAction(GuidedAction action) {
+        long actionId = action.getId();
+        if (actionId == ACTION_STOP) {
+            return "stop";
+        } else {
+            return super.getTrackerLabelForGuidedAction(action);
+        }
     }
 }

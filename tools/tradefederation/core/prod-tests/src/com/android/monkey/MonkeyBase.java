@@ -445,11 +445,8 @@ public class MonkeyBase implements IDeviceTest, IRemoteTest, IRetriableTest {
     protected void takeScreenshot(ITestInvocationListener listener, String screenshotName)
             throws DeviceNotAvailableException {
         if (mScreenshot) {
-            InputStreamSource screenshot = mTestDevice.getScreenshot("JPEG");
-            try {
+            try (InputStreamSource screenshot = mTestDevice.getScreenshot("JPEG")) {
                 listener.testLog(screenshotName, LogDataType.JPEG, screenshot);
-            } finally {
-                screenshot.cancel();
             }
         }
     }
@@ -505,9 +502,7 @@ public class MonkeyBase implements IDeviceTest, IRemoteTest, IRetriableTest {
      */
     protected MonkeyLogItem createMonkeyLog(ITestInvocationListener listener, String monkeyLogName,
             String log) {
-
-        InputStreamSource source = new ByteArrayInputStreamSource(log.getBytes());
-        try {
+        try (InputStreamSource source = new ByteArrayInputStreamSource(log.getBytes())) {
             if (mAnrGen != null) {
                 mAnrGen.setMonkeyLogInfo(source);
             }
@@ -518,8 +513,6 @@ public class MonkeyBase implements IDeviceTest, IRemoteTest, IRetriableTest {
             CLog.e("Could not process monkey log.");
             CLog.e(e);
             return null;
-        } finally {
-            source.cancel();
         }
     }
 

@@ -43,6 +43,22 @@ public class PhoneAccountOperationsTest extends InstrumentationTestCase {
     public static final int TEST_LENGTH = 10;
     public static final String TEST_ENCODING = "enUS";
 
+    private TestUtils.InvokeCounter mPhoneAccountRegisteredLatch;
+    private TestUtils.InvokeCounter mPhoneAccountUnRegisteredLatch;
+
+    MockPhoneAccountChangedReceiver.IntentListener mPhoneAccountIntentListener =
+            new MockPhoneAccountChangedReceiver.IntentListener() {
+                @Override
+                public void onPhoneAccountRegistered(PhoneAccountHandle handle) {
+                    mPhoneAccountRegisteredLatch.invoke(handle);
+                }
+
+                @Override
+                public void onPhoneAccountUnregistered(PhoneAccountHandle handle) {
+                    mPhoneAccountUnRegisteredLatch.invoke(handle);
+                }
+            };
+
     private static Bundle createTestBundle() {
         Bundle testBundle = new Bundle();
         testBundle.putInt(PhoneAccount.EXTRA_CALL_SUBJECT_MAX_LENGTH, TEST_LENGTH);
@@ -96,6 +112,8 @@ public class PhoneAccountOperationsTest extends InstrumentationTestCase {
             return;
         }
         mTelecomManager = (TelecomManager) mContext.getSystemService(Context.TELECOM_SERVICE);
+        mPhoneAccountRegisteredLatch = new TestUtils.InvokeCounter("registerPhoneAcct");
+        mPhoneAccountUnRegisteredLatch = new TestUtils.InvokeCounter("unRegisterPhoneAcct");
     }
 
     @Override
@@ -224,5 +242,39 @@ public class PhoneAccountOperationsTest extends InstrumentationTestCase {
                 retrievedPhoneAccount.supportsUriScheme(PhoneAccount.SCHEME_TEL));
         assertTrue("Phone account should support voicemail URI scheme.",
                 retrievedPhoneAccount.supportsUriScheme(PhoneAccount.SCHEME_VOICEMAIL));
+    }
+
+    /**
+     * Verifies that the {@link TelecomManager#ACTION_PHONE_ACCOUNT_REGISTERED} intent is sent to
+     * the default dialer when a phone account is registered and,
+     * {@link TelecomManager#ACTION_PHONE_ACCOUNT_UNREGISTERED} is sent when a phone account is
+     * unregistered.
+     * @throws Exception
+     */
+    public void testRegisterUnregisterPhoneAccountIntent() throws Exception {
+        if (!shouldTestTelecom(mContext)) {
+            return;
+        }
+
+        MockPhoneAccountChangedReceiver.setIntentListener(mPhoneAccountIntentListener);
+        String previousDefaultDialer = TestUtils.getDefaultDialer(getInstrumentation());
+        try {
+            TestUtils.setDefaultDialer(getInstrumentation(), TestUtils.PACKAGE);
+
+            mTelecomManager.registerPhoneAccount(TEST_NO_SIM_PHONE_ACCOUNT);
+
+            mPhoneAccountRegisteredLatch.waitForCount(1);
+            PhoneAccountHandle handle =
+                    (PhoneAccountHandle) mPhoneAccountRegisteredLatch.getArgs(0)[0];
+            assertEquals(TEST_PHONE_ACCOUNT_HANDLE, handle);
+
+            mTelecomManager.unregisterPhoneAccount(TEST_PHONE_ACCOUNT_HANDLE);
+            mPhoneAccountUnRegisteredLatch.waitForCount(1);
+            PhoneAccountHandle handle2 =
+                    (PhoneAccountHandle) mPhoneAccountUnRegisteredLatch.getArgs(0)[0];
+            assertEquals(TEST_PHONE_ACCOUNT_HANDLE, handle2);
+        } finally {
+            TestUtils.setDefaultDialer(getInstrumentation(), previousDefaultDialer);
+        }
     }
 }

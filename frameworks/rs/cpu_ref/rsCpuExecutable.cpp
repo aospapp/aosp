@@ -9,11 +9,11 @@
 
 #ifdef RS_COMPATIBILITY_LIB
 #include <stdio.h>
-#include <unistd.h>
 #else
 #include "bcc/Config.h"
 #endif
 
+#include <unistd.h>
 #include <dlfcn.h>
 #include <sys/stat.h>
 
@@ -94,6 +94,22 @@ static std::string findSharedObjectName(const char *cacheDir,
     return scriptSOName;
 }
 
+#ifndef RS_COMPATIBILITY_LIB
+static bool isRunningInVndkNamespace() {
+    static bool result = []() {
+        Dl_info info;
+        if (dladdr(reinterpret_cast<const void*>(&isRunningInVndkNamespace), &info) != 0) {
+            std::string filename = std::string(info.dli_fname);
+            return filename.find("/vndk-sp") != std::string::npos;
+        } else {
+            ALOGW("Can't determine whether this lib is running in vndk namespace or not. Assuming it is in vndk namespace.");
+        }
+        return true;
+    }();
+    return result;
+}
+#endif
+
 }  // anonymous namespace
 
 const char* SharedLibraryUtils::LD_EXE_PATH = "/system/bin/ld.mc";
@@ -121,16 +137,24 @@ bool SharedLibraryUtils::createSharedLibrary(const char *driverName,
     linkDriverName.erase(linkDriverName.length() - 3);
     linkDriverName.replace(0, 3, "-l");
 
-    const char *compiler_rt = SYSLIBPATH"/libcompiler_rt.so";
+    const char *compiler_rt = isRunningInVndkNamespace() ?
+        SYSLIBPATH_VNDK "/libcompiler_rt.so" : SYSLIBPATH "/libcompiler_rt.so";
     const char *mTriple = "-mtriple=" DEFAULT_TARGET_TRIPLE_STRING;
     const char *libPath = "--library-path=" SYSLIBPATH;
+    // vndk path is only added when RS framework is running in vndk namespace.
+    // If we unconditionally add the vndk path to the library path, then RS
+    // driver in the vndk-sp directory will always be used even for CPU fallback
+    // case, where RS framework is loaded from the default namespace.
+    const char *vndkLibPath = isRunningInVndkNamespace() ?
+        "--library-path=" SYSLIBPATH_VNDK : "";
     const char *vendorLibPath = "--library-path=" SYSLIBPATH_VENDOR;
 
+    // The search path order should be vendor -> vndk -> system
     std::vector<const char *> args = {
         LD_EXE_PATH,
         "-shared",
         "-nostdlib",
-        compiler_rt, mTriple, vendorLibPath, libPath,
+        compiler_rt, mTriple, vendorLibPath, vndkLibPath, libPath,
         linkDriverName.c_str(), "-lm", "-lc",
         objFileName.c_str(),
         "-o", sharedLibName.c_str(),

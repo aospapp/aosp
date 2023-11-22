@@ -17,6 +17,7 @@
 package com.android.tv.guide;
 
 import android.content.Context;
+import android.support.annotation.MainThread;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -32,7 +33,7 @@ import java.util.List;
 /**
  * Adapts the genre items obtained from {@link GenreItems} to the program guide side panel.
  */
-public class GenreListAdapter extends RecyclerView.Adapter<GenreListAdapter.GenreRowHolder> {
+class GenreListAdapter extends RecyclerView.Adapter<GenreListAdapter.GenreRowHolder> {
     private static final String TAG = "GenreListAdapter";
     private static final boolean DEBUG = false;
 
@@ -41,7 +42,7 @@ public class GenreListAdapter extends RecyclerView.Adapter<GenreListAdapter.Genr
     private final ProgramGuide mProgramGuide;
     private String[] mGenreLabels;
 
-    public GenreListAdapter(Context context, ProgramManager programManager, ProgramGuide guide) {
+    GenreListAdapter(Context context, ProgramManager programManager, ProgramGuide guide) {
         mContext = context;
         mProgramManager = programManager;
         mProgramManager.addListener(new ProgramManager.ListenerAdapter() {
@@ -79,16 +80,28 @@ public class GenreListAdapter extends RecyclerView.Adapter<GenreListAdapter.Genr
     @Override
     public GenreRowHolder onCreateViewHolder(ViewGroup parent, int viewType) {
         View itemView = LayoutInflater.from(parent.getContext()).inflate(viewType, parent, false);
+        itemView.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
+            @Override
+            public void onViewAttachedToWindow(View view) {
+                // Animation is not meaningful now, skip it.
+                view.getStateListAnimator().jumpToCurrentState();
+            }
+
+            @Override
+            public void onViewDetachedFromWindow(View view) {
+                // Do nothing
+            }
+        });
         return new GenreRowHolder(itemView, mProgramGuide);
     }
 
-    public static class GenreRowHolder extends RecyclerView.ViewHolder implements
+    static class GenreRowHolder extends RecyclerView.ViewHolder implements
             View.OnFocusChangeListener {
         private final ProgramGuide mProgramGuide;
         private int mGenreId;
 
-        // Should be called from main thread.
-        public GenreRowHolder(View itemView, ProgramGuide programGuide) {
+        @MainThread
+        GenreRowHolder(View itemView, ProgramGuide programGuide) {
             super(itemView);
             mProgramGuide = programGuide;
         }

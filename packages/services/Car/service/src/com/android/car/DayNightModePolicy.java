@@ -86,7 +86,7 @@ public class DayNightModePolicy extends CarSensorService.LogicalSensor {
 
     private static CarSensorEvent createEvent(boolean isNight, long timestamp) {
         CarSensorEvent event = new CarSensorEvent(CarSensorManager.SENSOR_TYPE_NIGHT,
-                timestamp, 0, 1);
+                timestamp, 0, 1, 0);
         event.intValues[0] = isNight ? 1 : 0;
         return event;
     }

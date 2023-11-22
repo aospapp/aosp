@@ -30,7 +30,9 @@ class MetadataExtractor;
 
 namespace rs2spirv {
 
-bool WriteSPIRV(llvm::Module *M, std::unique_ptr<bcinfo::MetadataExtractor> ME,
+class Context;
+
+bool WriteSPIRV(rs2spirv::Context &Ctxt, llvm::Module *M,
                 llvm::raw_ostream &OS, std::string &ErrMsg);
 
 } // namespace rs2spirv

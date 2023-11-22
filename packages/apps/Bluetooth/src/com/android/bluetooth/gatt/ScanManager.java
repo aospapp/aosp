@@ -26,6 +26,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.hardware.display.DisplayManager;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
@@ -34,6 +35,7 @@ import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.SystemClock;
 import android.util.Log;
+import android.view.Display;
 
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.AdapterService;
@@ -69,7 +71,8 @@ public class ScanManager {
     private static final int MSG_STOP_BLE_SCAN = 1;
     private static final int MSG_FLUSH_BATCH_RESULTS = 2;
     private static final int MSG_SCAN_TIMEOUT = 3;
-
+    private static final int MSG_SUSPEND_SCANS = 4;
+    private static final int MSG_RESUME_SCANS = 5;
     private static final String ACTION_REFRESH_BATCHED_SCAN =
             "com.android.bluetooth.gatt.REFRESH_BATCHED_SCAN";
 
@@ -89,27 +92,41 @@ public class ScanManager {
 
     private Set<ScanClient> mRegularScanClients;
     private Set<ScanClient> mBatchClients;
+    private Set<ScanClient> mSuspendedScanClients;
 
     private CountDownLatch mLatch;
+
+    private DisplayManager mDm;
 
     ScanManager(GattService service) {
         mRegularScanClients = Collections.newSetFromMap(new ConcurrentHashMap<ScanClient, Boolean>());
         mBatchClients = Collections.newSetFromMap(new ConcurrentHashMap<ScanClient, Boolean>());
+        mSuspendedScanClients =
+                Collections.newSetFromMap(new ConcurrentHashMap<ScanClient, Boolean>());
         mService = service;
         mScanNative = new ScanNative();
         curUsedTrackableAdvertisements = 0;
+        mDm = (DisplayManager) mService.getSystemService(Context.DISPLAY_SERVICE);
     }
 
     void start() {
         HandlerThread thread = new HandlerThread("BluetoothScanManager");
         thread.start();
         mHandler = new ClientHandler(thread.getLooper());
+        if (mDm != null) {
+            mDm.registerDisplayListener(mDisplayListener, null);
+        }
     }
 
     void cleanup() {
         mRegularScanClients.clear();
         mBatchClients.clear();
+        mSuspendedScanClients.clear();
         mScanNative.cleanup();
+
+        if (mDm != null) {
+            mDm.unregisterDisplayListener(mDisplayListener);
+        }
 
         if (mHandler != null) {
             // Shut down the thread
@@ -215,6 +232,12 @@ public class ScanManager {
                 case MSG_SCAN_TIMEOUT:
                     mScanNative.regularScanTimeout(client);
                     break;
+                case MSG_SUSPEND_SCANS:
+                    handleSuspendScans();
+                    break;
+                case MSG_RESUME_SCANS:
+                    handleResumeScans();
+                    break;
                 default:
                     // Shouldn't happen.
                     Log.e(TAG, "received an unkown message : " + msg.what);
@@ -223,6 +246,7 @@ public class ScanManager {
 
         void handleStartScan(ScanClient client) {
             Utils.enforceAdminPermission(mService);
+            boolean isFiltered = (client.filters != null) && !client.filters.isEmpty();
             if (DBG) Log.d(TAG, "handling starting scan");
 
             if (!isScanSupported(client)) {
@@ -234,6 +258,15 @@ public class ScanManager {
                 Log.e(TAG, "Scan already started");
                 return;
             }
+
+            if (!mScanNative.isOpportunisticScanClient(client) && !isScreenOn() && !isFiltered) {
+                Log.e(TAG,
+                        "Cannot start unfiltered scan in screen-off. This scan will be resumed later: "
+                                + client.scannerId);
+                mSuspendedScanClients.add(client);
+                return;
+            }
+
             // Begin scan operations.
             if (isBatchClient(client)) {
                 mBatchClients.add(client);
@@ -257,6 +290,10 @@ public class ScanManager {
         void handleStopScan(ScanClient client) {
             Utils.enforceAdminPermission(mService);
             if (client == null) return;
+
+            if (mSuspendedScanClients.contains(client)) {
+                mSuspendedScanClients.remove(client);
+            }
 
             if (mRegularScanClients.contains(client)) {
                 mScanNative.stopRegularScan(client);
@@ -304,6 +341,30 @@ public class ScanManager {
             }
             return settings.getCallbackType() == ScanSettings.CALLBACK_TYPE_ALL_MATCHES &&
                     settings.getReportDelayMillis() == 0;
+        }
+
+        void handleSuspendScans() {
+            for (ScanClient client : mRegularScanClients) {
+                if (!mScanNative.isOpportunisticScanClient(client)
+                        && (client.filters == null || client.filters.isEmpty())) {
+                    /*Suspend unfiltered scans*/
+                    if (client.stats != null) {
+                        client.stats.recordScanSuspend(client.scannerId);
+                    }
+                    handleStopScan(client);
+                    mSuspendedScanClients.add(client);
+                }
+            }
+        }
+
+        void handleResumeScans() {
+            for (ScanClient client : mSuspendedScanClients) {
+                if (client.stats != null) {
+                    client.stats.recordScanResume(client.scannerId);
+                }
+                handleStartScan(client);
+            }
+            mSuspendedScanClients.clear();
         }
     }
 
@@ -686,7 +747,7 @@ public class ScanManager {
                         "Moving scan client to opportunistic (scannerId " + client.scannerId + ")");
                 setOpportunisticScanClient(client);
                 removeScanFilters(client.scannerId);
-                client.stats.setScanTimeout();
+                client.stats.setScanTimeout(client.scannerId);
             }
 
             // The scan should continue for background scans
@@ -1163,4 +1224,38 @@ public class ScanManager {
 
         private native void gattClientReadScanReportsNative(int client_if, int scan_type);
     }
+
+    private boolean isScreenOn() {
+        Display[] displays = mDm.getDisplays();
+
+        if (displays == null) {
+            return false;
+        }
+
+        for (Display display : displays) {
+            if (display.getState() == Display.STATE_ON) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private final DisplayManager.DisplayListener mDisplayListener =
+            new DisplayManager.DisplayListener() {
+                @Override
+                public void onDisplayAdded(int displayId) {}
+
+                @Override
+                public void onDisplayRemoved(int displayId) {}
+
+                @Override
+                public void onDisplayChanged(int displayId) {
+                    if (isScreenOn()) {
+                        sendMessage(MSG_RESUME_SCANS, null);
+                    } else {
+                        sendMessage(MSG_SUSPEND_SCANS, null);
+                    }
+                }
+            };
 }

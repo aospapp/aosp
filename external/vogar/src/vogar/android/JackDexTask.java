@@ -92,7 +92,7 @@ public final class JackDexTask extends Task {
 
         Jack jack = Jack.getJackCommand(run.log).outputDexZip(localDex.getPath());
         jack.sourceVersion(run.language.getJackSourceVersion());
-        jack.minApiLevel(String.valueOf(run.language.getJackMinApilevel()));
+        jack.minApiLevel(String.valueOf(run.language.getJackMinApiLevel()));
         jack.multiDex(multidex ? "native" : "none");
         jack.extra(run.jackArgs);
         if (run.debugging) {

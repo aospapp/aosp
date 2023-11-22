@@ -44,13 +44,15 @@ LOCAL_C_INCLUDES:= \
         frameworks/native/include/media/hardware
 
 LOCAL_SHARED_LIBRARIES :=       \
-        libbinder               \
         libutils                \
         libcutils               \
         libdl                   \
-        libui                   \
+
+LOCAL_HEADER_LIBRARIES := \
+        media_plugin_headers
 
 LOCAL_MODULE := libstagefrighthw
 
-include $(BUILD_SHARED_LIBRARY)
+LOCAL_VENDOR_MODULE := true
 
+include $(BUILD_SHARED_LIBRARY)

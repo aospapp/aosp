@@ -25,12 +25,13 @@ module_src_files := efivarfs/efivarfs.sh
 include $(build_kselftest_prebuilt)
 
 # Firmware test
-module_prebuilt := firmware/fw_filesystem
-module_src_files := firmware/fw_filesystem.sh
+
+module_prebuilt := firmware/fw_fallback
+module_src_files := firmware/fw_fallback.sh
 include $(build_kselftest_prebuilt)
 
-module_prebuilt := firmware/fw_userhelper
-module_src_files := firmware/fw_userhelper.sh
+module_prebuilt := firmware/fw_filesystem
+module_src_files := firmware/fw_filesystem.sh
 include $(build_kselftest_prebuilt)
 
 # Ftrace test

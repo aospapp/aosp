@@ -19,6 +19,7 @@ Automated tests for the testing Connectivity of Avrcp/A2dp profile.
 
 import time
 
+from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt import bt_test_utils
 from acts.test_utils.car import car_bt_utils
@@ -77,7 +78,7 @@ class BtCarMediaConnectionTest(BluetoothBaseTest):
                 return True
         return False
 
-    #@BluetoothTest(UUID=1934c0d5-3fa3-43e5-a91f-2c8a4424f5cd)
+    @test_tracker_info(uuid='1934c0d5-3fa3-43e5-a91f-2c8a4424f5cd')
     @BluetoothBaseTest.bt_test_wrap
     def test_a2dp_connect_disconnect_from_src(self):
         """
@@ -101,8 +102,9 @@ class BtCarMediaConnectionTest(BluetoothBaseTest):
         if (car_media_utils.is_a2dp_connected(self.log, self.SNK, self.SRC)):
             self.log.info("Already Connected")
         else:
-            if (not bt_test_utils.connect_pri_to_sec(self.SRC, self.SNK, set(
-                [BtEnum.BluetoothProfile.A2DP.value]))):
+            if (not bt_test_utils.connect_pri_to_sec(
+                    self.SRC, self.SNK,
+                    set([BtEnum.BluetoothProfile.A2DP.value]))):
                 return False
 
         result = bt_test_utils.disconnect_pri_from_sec(
@@ -122,7 +124,7 @@ class BtCarMediaConnectionTest(BluetoothBaseTest):
 
         return True
 
-    #@BluetoothTest(UUID=70d30007-540a-4e86-bd75-ab218774350e)
+    @test_tracker_info(uuid='70d30007-540a-4e86-bd75-ab218774350e')
     @BluetoothBaseTest.bt_test_wrap
     def test_a2dp_connect_disconnect_from_snk(self):
         """
@@ -147,8 +149,9 @@ class BtCarMediaConnectionTest(BluetoothBaseTest):
         if car_media_utils.is_a2dp_connected(self.log, self.SNK, self.SRC):
             self.log.info("Already Connected")
         else:
-            if (not bt_test_utils.connect_pri_to_sec(self.SNK, self.SRC, set(
-                [BtEnum.BluetoothProfile.A2DP_SINK.value]))):
+            if (not bt_test_utils.connect_pri_to_sec(
+                    self.SNK, self.SRC,
+                    set([BtEnum.BluetoothProfile.A2DP_SINK.value]))):
                 return False
         # Disconnect
         result = bt_test_utils.disconnect_pri_from_sec(

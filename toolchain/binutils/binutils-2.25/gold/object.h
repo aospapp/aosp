@@ -1183,6 +1183,10 @@ class Relobj : public Object
   relocate(const Symbol_table* symtab, const Layout* layout, Output_file* of)
   { return this->do_relocate(symtab, layout, of); }
 
+  void
+  relocate_stub_tables(const Symbol_table* symtab, const Layout* layout)
+  { return this->do_relocate_stub_tables(symtab, layout); }
+
   // Return whether an input section is being included in the link.
   bool
   is_section_included(unsigned int shndx) const
@@ -1269,6 +1273,9 @@ class Relobj : public Object
   is_big_endian() const
   { return this->do_is_big_endian(); }
 
+  virtual void
+  clear_views() = 0;
+
  protected:
   // The output section to be used for each input section, indexed by
   // the input section number.  The output section is NULL if the
@@ -1348,6 +1355,9 @@ class Relobj : public Object
   // symbols--implemented by child class.
   virtual void
   do_relocate(const Symbol_table* symtab, const Layout*, Output_file* of) = 0;
+
+  virtual void
+  do_relocate_stub_tables(const Symbol_table*, const Layout*) = 0;
 
   // Set the offset of a section--implemented by child class.
   virtual void
@@ -1945,6 +1955,9 @@ class Sized_relobj : public Relobj
   section_offsets()
   { return this->section_offsets_; }
 
+  virtual void
+  do_relocate_stub_tables(const Symbol_table*, const Layout*);
+
   // Get the address of an output section.
   uint64_t
   do_output_section_address(unsigned int shndx);
@@ -2211,6 +2224,10 @@ class Sized_relobj_file : public Sized_relobj<size, big_endian>
   bool is_deferred_layout() const
   { return this->is_deferred_layout_; }
 
+  // Discard output_views_ created in create_views().
+  virtual void
+  clear_views();
+
  protected:
   typedef typename Sized_relobj<size, big_endian>::Output_sections
       Output_sections;
@@ -2416,7 +2433,7 @@ class Sized_relobj_file : public Sized_relobj<size, big_endian>
   elfcpp::Elf_file<size, big_endian, Object>*
   elf_file()
   { return &this->elf_file_; }
-  
+
   // Allow a child class to access the local values.
   Local_values*
   local_values()
@@ -2457,6 +2474,22 @@ class Sized_relobj_file : public Sized_relobj<size, big_endian>
   void
   set_output_local_symbol_count(unsigned int value)
   { this->output_local_symbol_count_ = value; }
+
+  Views*
+  create_views()
+  {
+    gold_assert(this->output_views_ == NULL);
+    this->output_views_ = new Views();
+    return this->output_views_;
+  }
+
+  // Allow child access to output_views_.
+  Views*
+  get_views() const
+  {
+    gold_assert(this->output_views_);
+    return this->output_views_;
+  }
 
  private:
   // For convenience.
@@ -2724,6 +2757,8 @@ class Sized_relobj_file : public Sized_relobj<size, big_endian>
   std::vector<Deferred_layout> deferred_layout_;
   // The list of relocation sections whose layout was deferred.
   std::vector<Deferred_layout> deferred_layout_relocs_;
+  // Pointer to the list of output views; valid only during do_relocate().
+  Views* output_views_;
 };
 
 // A class to manage the list of all objects.

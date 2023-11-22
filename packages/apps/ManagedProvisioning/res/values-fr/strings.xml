@@ -27,9 +27,9 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"L\'application suivante devra pouvoir accéder à ce profil :"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"L\'application suivante gérera votre appareil :"</string>
     <string name="next" msgid="1004321437324424398">"Suivant"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"Configuration de votre profil professionnel en cours…"</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"Configuration du profil professionnel…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"Votre administrateur peut contrôler et gérer les paramètres, l\'accès aux contenus de l\'entreprise, les applications, les autorisations et les données associées à ce profil, y compris votre activité réseau et les données de localisation, l\'historique des appels et l\'historique des recherches de contacts de votre appareil.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Pour plus d\'informations, y compris les règles de confidentialité de votre entreprise, contactez votre administrateur."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"Votre administrateur peut contrôler et gérer les paramètres, l\'accès aux contenus de l\'entreprise, les applications, les autorisations et les données associées à cet appareil, y compris votre activité réseau et les données de localisation, l\'historique des appels et l\'historique des recherches de contacts de votre appareil.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Pour plus d\'informations, y compris les règles de confidentialité de votre entreprise, contactez votre administrateur."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"Votre administrateur peut contrôler et gérer les paramètres, l\'accès aux contenus de l\'entreprise, les applications, les autorisations et les données associées à cet appareil, y compris votre activité réseau et les données de localisation, l\'historique des appels et l\'historique des recherches de contacts de votre appareil.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Pour obtenir plus d\'informations, y compris sur les règles de confidentialité de votre entreprise, contactez votre administrateur."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Pour utiliser les fonctionnalités de protection contre le vol sur votre appareil, vous devez activer le verrouillage de l\'écran protégé par mot de passe sur celui-ci."</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Contactez votre administrateur pour obtenir plus d\'informations, y compris les règles de confidentialité de votre organisation."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"En savoir plus"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Profil professionnel"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"Utilisateur principal"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Supprimer le profil existant ?"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"Vous possédez déjà un profil professionnel, qui est géré par l\'application suivante :"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Vous possédez déjà un profil professionnel, qui est géré par l\'application suivante :"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Avant de continuer, "<a href="#read_this_link">"lisez ces informations"</a>"."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Si vous continuez, toutes les applications et les données associées à ce profil seront supprimées."</string>
     <string name="delete_profile" msgid="2299218578684663459">"Supprimer"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"Appuyez pour continuer la configuration de votre profil professionnel."</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Impossible de configurer votre profil professionnel. Contactez votre service informatique, ou réessayez plus tard."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Impossible d\'ajouter un profil professionnel"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"Cet utilisateur ne peut pas se servir d\'un profil professionnel. Contactez votre administrateur pour obtenir de l\'aide."</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"Cet utilisateur ne peut pas se servir d\'un profil professionnel. Contactez votre administrateur."</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"Impossible de configurer des profils professionnels sur un appareil géré."</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"Trop de personnes utilisent peut-être déjà cet appareil. Supprimez un compte utilisateur, puis réessayez."</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Impossible de remplacer ni de supprimer le profil professionnel"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"Il n\'est pas possible d\'ajouter un profil professionnel à cet appareil. Si vous avez des questions, contactez votre administrateur."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Changer le lanceur d\'applications de l\'appareil"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Impossible d\'utiliser ce lanceur d\'applications avec votre profil professionnel"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Annuler"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"OK"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Configuration de l\'utilisateur incomplète"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Utilisateur de l\'appareil professionnel"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"Configurer un appareil professionnel"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"Configuration de l\'appareil professionnel…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Traitement des données de configuration…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Connexion au réseau Wi-Fi en cours…"</string>
     <string name="progress_download" msgid="3522436271691064624">"Téléchargement application d\'administration…"</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"Annuler"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"Réinitialiser l\'appareil"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> et <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> et <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> et <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

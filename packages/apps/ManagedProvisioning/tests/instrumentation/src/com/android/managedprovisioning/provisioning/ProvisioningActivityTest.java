@@ -17,47 +17,60 @@
 package com.android.managedprovisioning.provisioning;
 
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE;
+import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
+import static android.app.admin.DevicePolicyManager.ACTION_STATE_USER_SETUP_COMPLETE;
 import static android.support.test.espresso.Espresso.onView;
 import static android.support.test.espresso.Espresso.pressBack;
 import static android.support.test.espresso.action.ViewActions.click;
 import static android.support.test.espresso.assertion.ViewAssertions.matches;
+import static android.support.test.espresso.intent.Intents.intended;
+import static android.support.test.espresso.intent.matcher.IntentMatchers.hasAction;
+import static android.support.test.espresso.intent.matcher.IntentMatchers.hasComponent;
 import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static android.support.test.espresso.matcher.ViewMatchers.withId;
 import static android.support.test.espresso.matcher.ViewMatchers.withText;
-
 import static com.android.managedprovisioning.common.LogoUtils.saveOrganisationLogo;
 import static com.android.managedprovisioning.model.CustomizationParams.DEFAULT_COLOR_ID_DO;
 import static com.android.managedprovisioning.model.CustomizationParams.DEFAULT_COLOR_ID_MP;
-
+import static java.util.Arrays.asList;
+import static org.hamcrest.core.AllOf.allOf;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
+import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
-import static java.util.Arrays.asList;
-
+import android.Manifest.permission;
 import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.support.test.InstrumentationRegistry;
+import android.support.test.espresso.intent.Intents;
+import android.support.test.espresso.intent.rule.IntentsTestRule;
 import android.support.test.filters.SmallTest;
-import android.support.test.rule.ActivityTestRule;
-
+import android.support.test.runner.lifecycle.Stage;
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.TestInstrumentationRunner;
 import com.android.managedprovisioning.common.CustomizationVerifier;
+import com.android.managedprovisioning.common.LogoUtils;
 import com.android.managedprovisioning.common.UriBitmap;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.ProvisioningParams;
-
+import com.android.managedprovisioning.testcommon.ActivityLifecycleWaiter;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -66,8 +79,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-
-import java.io.IOException;
+import org.mockito.hamcrest.MockitoHamcrest;
 
 /**
  * Unit tests for {@link ProvisioningActivity}.
@@ -75,7 +87,10 @@ import java.io.IOException;
 @SmallTest
 public class ProvisioningActivityTest {
     private static final String ADMIN_PACKAGE = "com.test.admin";
+    private static final String TEST_PACKAGE = "com.android.managedprovisioning.tests";
     private static final ComponentName ADMIN = new ComponentName(ADMIN_PACKAGE, ".Receiver");
+    private static final ComponentName TEST_ACTIVITY = new ComponentName(TEST_PACKAGE,
+            EmptyActivity.class.getCanonicalName());
     public static final ProvisioningParams PROFILE_OWNER_PARAMS = new ProvisioningParams.Builder()
             .setProvisioningAction(ACTION_PROVISION_MANAGED_PROFILE)
             .setDeviceAdminComponentName(ADMIN)
@@ -84,17 +99,47 @@ public class ProvisioningActivityTest {
             .setProvisioningAction(ACTION_PROVISION_MANAGED_DEVICE)
             .setDeviceAdminComponentName(ADMIN)
             .build();
+    private static final ProvisioningParams NFC_PARAMS = new ProvisioningParams.Builder()
+            .setProvisioningAction(ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE)
+            .setDeviceAdminComponentName(ADMIN)
+            .setStartedByTrustedSource(true)
+            .setIsNfc(true)
+            .build();
     private static final Intent PROFILE_OWNER_INTENT = new Intent()
             .putExtra(ProvisioningParams.EXTRA_PROVISIONING_PARAMS, PROFILE_OWNER_PARAMS);
     private static final Intent DEVICE_OWNER_INTENT = new Intent()
             .putExtra(ProvisioningParams.EXTRA_PROVISIONING_PARAMS, DEVICE_OWNER_PARAMS);
+    private static final Intent NFC_INTENT = new Intent()
+            .putExtra(ProvisioningParams.EXTRA_PROVISIONING_PARAMS, NFC_PARAMS);
+
+    private static class CustomIntentsTestRule extends IntentsTestRule<ProvisioningActivity> {
+        private boolean mIsActivityRunning = false;
+        private CustomIntentsTestRule() {
+            super(ProvisioningActivity.class, true /* Initial touch mode  */,
+                    false /* Lazily launch activity */);
+        }
+
+        @Override
+        protected synchronized void afterActivityLaunched() {
+            mIsActivityRunning = true;
+            super.afterActivityLaunched();
+        }
+
+        @Override
+        public synchronized void afterActivityFinished() {
+            // Temp fix for b/37663530
+            if (mIsActivityRunning) {
+                super.afterActivityFinished();
+                mIsActivityRunning = false;
+            }
+        }
+    }
 
     @Rule
-    public ActivityTestRule<ProvisioningActivity> mActivityRule = new ActivityTestRule<>(
-            ProvisioningActivity.class, true /* Initial touch mode  */,
-            false /* Lazily launch activity */);
+    public CustomIntentsTestRule mActivityRule = new CustomIntentsTestRule();
 
     @Mock private ProvisioningManager mProvisioningManager;
+    @Mock private PackageManager mPackageManager;
     @Mock private Utils mUtils;
     private static int mRotationLocked;
 
@@ -124,7 +169,14 @@ public class ProvisioningActivityTest {
 
         TestInstrumentationRunner.registerReplacedActivity(ProvisioningActivity.class,
                 (classLoader, className, intent) ->
-                        new ProvisioningActivity(mProvisioningManager, mUtils));
+                        new ProvisioningActivity(mProvisioningManager, mUtils) {
+                            @Override
+                            public PackageManager getPackageManager() {
+                                return mPackageManager;
+                            }
+                        });
+        // LogoUtils cached icon globally. Clean-up the cache
+        LogoUtils.cleanUp(InstrumentationRegistry.getTargetContext());
     }
 
     @After
@@ -146,7 +198,7 @@ public class ProvisioningActivityTest {
     }
 
     @Test
-    public void testColors() {
+    public void testColors() throws Throwable {
         Context context = InstrumentationRegistry.getTargetContext();
 
         // default color Managed Profile (MP)
@@ -169,7 +221,7 @@ public class ProvisioningActivityTest {
         }
     }
 
-    private void assertColorsCorrect(Intent intent, int color) {
+    private void assertColorsCorrect(Intent intent, int color) throws Throwable {
         launchActivityAndWait(intent);
         Activity activity = mActivityRule.getActivity();
 
@@ -178,22 +230,34 @@ public class ProvisioningActivityTest {
         customizationVerifier.assertDefaultLogoCorrect(color);
         customizationVerifier.assertProgressBarColorCorrect(color);
 
-        activity.finish();
+        finishAndWait();
+    }
+
+    private void finishAndWait() throws Throwable {
+        Activity activity = mActivityRule.getActivity();
+        ActivityLifecycleWaiter waiter = new ActivityLifecycleWaiter(activity, Stage.DESTROYED);
+        mActivityRule.runOnUiThread(() -> activity.finish());
+        waiter.waitForStage();
+        mActivityRule.afterActivityFinished();
     }
 
     @Test
-    public void testCustomLogo() throws IOException {
+    public void testCustomLogo_profileOwner() throws Throwable {
         assertCustomLogoCorrect(PROFILE_OWNER_INTENT);
-        assertCustomLogoCorrect(DEVICE_OWNER_INTENT);
     }
 
-    private void assertCustomLogoCorrect(Intent intent) throws IOException {
+    @Test
+    public void testCustomLogo_deviceOwner() throws Throwable {
+        assertCustomLogoCorrect(PROFILE_OWNER_INTENT);
+    }
+
+    private void assertCustomLogoCorrect(Intent intent) throws Throwable {
         UriBitmap targetLogo = UriBitmap.createSimpleInstance();
         saveOrganisationLogo(InstrumentationRegistry.getTargetContext(), targetLogo.getUri());
         launchActivityAndWait(intent);
         ProvisioningActivity activity = mActivityRule.getActivity();
         new CustomizationVerifier(activity).assertCustomLogoCorrect(targetLogo.getBitmap());
-        activity.finish();
+        finishAndWait();
     }
 
     @Test
@@ -397,6 +461,34 @@ public class ProvisioningActivityTest {
         // WHEN preFinalization is completed
         mActivityRule.runOnUiThread(() -> mActivityRule.getActivity().preFinalizationCompleted());
 
+        // THEN the activity should finish
+        assertTrue(mActivityRule.getActivity().isFinishing());
+    }
+
+    @Test
+    public void testSuccess_Nfc() throws Throwable {
+        // GIVEN queryIntentActivities return test_activity
+        ActivityInfo activityInfo = new ActivityInfo();
+        activityInfo.packageName = TEST_ACTIVITY.getPackageName();
+        activityInfo.name = TEST_ACTIVITY.getClassName();
+        activityInfo.permission = permission.BIND_DEVICE_ADMIN;
+        ResolveInfo resolveInfo = new ResolveInfo();
+        resolveInfo.activityInfo = activityInfo;
+        List<ResolveInfo> resolveInfoList = new ArrayList();
+        resolveInfoList.add(resolveInfo);
+        when(mPackageManager.queryIntentActivities(
+                MockitoHamcrest.argThat(hasAction(ACTION_STATE_USER_SETUP_COMPLETE)),
+                eq(0))).thenReturn(resolveInfoList);
+        when(mPackageManager.checkPermission(eq(permission.DISPATCH_PROVISIONING_MESSAGE),
+                eq(activityInfo.packageName))).thenReturn(PackageManager.PERMISSION_GRANTED);
+
+        // GIVEN the activity was launched with a nfc intent
+        launchActivityAndWait(NFC_INTENT);
+
+        // WHEN preFinalization is completed
+        mActivityRule.runOnUiThread(() -> mActivityRule.getActivity().preFinalizationCompleted());
+        // THEN verify starting TEST_ACTIVITY
+        intended(allOf(hasComponent(TEST_ACTIVITY), hasAction(ACTION_STATE_USER_SETUP_COMPLETE)));
         // THEN the activity should finish
         assertTrue(mActivityRule.getActivity().isFinishing());
     }

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -24,12 +24,6 @@ public class ControlStructuresTest extends ValidationTestBase {
 		super(Target01.class);
 	}
 
-	@Override
-	protected void run(final Class<?> targetClass) throws Exception {
-		final Object instance = targetClass.newInstance();
-		((Runnable) instance).run();
-	}
-
 	@Test
 	public void testCoverageResult() {
 
@@ -47,8 +41,7 @@ public class ControlStructuresTest extends ValidationTestBase {
 		assertLine("missedelse", ICounter.NOT_COVERED);
 
 		// 4. Missed while block
-		// ECJ and javac produce different status here
-		assertLine("whilefalse", 1, 1);
+		assertLine("whilefalse", ICounter.FULLY_COVERED, 1, 1);
 		assertLine("missedwhile", ICounter.NOT_COVERED);
 
 		// 5. Always true while block
@@ -60,6 +53,7 @@ public class ControlStructuresTest extends ValidationTestBase {
 
 		// 7. Executed do while block
 		assertLine("executeddowhile", ICounter.FULLY_COVERED);
+		assertLine("executeddowhilefalse", ICounter.FULLY_COVERED, 1, 1);
 
 		// 8. Missed for block
 		assertLine("missedforincrementer", ICounter.PARTLY_COVERED, 1, 1);
@@ -127,12 +121,16 @@ public class ControlStructuresTest extends ValidationTestBase {
 		assertLine("executedcontinue", ICounter.FULLY_COVERED);
 		assertLine("missedaftercontinue", ICounter.NOT_COVERED);
 
-		// 20. Return statement
-		assertLine("return", ICounter.FULLY_COVERED);
-		assertLine("afterreturn", ICounter.NOT_COVERED);
+		// 20. Conditional return statement
+		assertLine("conditionalreturn", ICounter.FULLY_COVERED);
+		assertLine("afterconditionalreturn", ICounter.NOT_COVERED);
 
 		// 21. Implicit return
 		assertLine("implicitreturn", ICounter.FULLY_COVERED);
+
+		// 22. Explicit return
+		assertLine("explicitreturn", ICounter.FULLY_COVERED);
+		assertLine("afterexplicitreturn", ICounter.EMPTY);
 
 	}
 

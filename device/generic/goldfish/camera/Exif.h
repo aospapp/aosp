@@ -21,9 +21,13 @@
 struct _ExifData;
 typedef struct _ExifData ExifData;
 
+// CameraParameters is now declared in a HAL name space,
+// ::android::hardware::camera::common::V1_0::helper. So remember to include
+// its declaration in <CameraParameters.h> before this header.
+
 namespace android {
 
-class CameraParameters;
+//class CameraParameters;
 
 /* Create an EXIF data structure based on camera parameters. This includes
  * things like GPS information that has been set by the camera client.

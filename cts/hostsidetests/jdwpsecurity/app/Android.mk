@@ -19,5 +19,5 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := CtsJdwpApp
 LOCAL_SRC_FILES := $(call all-subdir-java-files)
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 include $(BUILD_JAVA_LIBRARY)

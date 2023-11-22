@@ -21,7 +21,7 @@ LOCAL_MODULE := launcher-helper-lib
 LOCAL_JAVA_LIBRARIES := ub-uiautomator \
     android-support-test \
     activity-helper
-LOCAL_STATIC_JAVA_LIBRARIES := dpad-util
+LOCAL_STATIC_JAVA_LIBRARIES := dpad-util commands-helper
 LOCAL_SDK_VERSION := 21
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 

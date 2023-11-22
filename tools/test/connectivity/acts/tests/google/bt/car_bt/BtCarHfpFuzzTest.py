@@ -20,6 +20,7 @@ conditions by executing actions quickly.
 
 import time
 
+from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.BluetoothCarHfpBaseTest import BluetoothCarHfpBaseTest
 from acts.test_utils.bt import BtEnum
@@ -52,17 +53,19 @@ class BtCarHfpFuzzTest(BluetoothCarHfpBaseTest):
         # Delay set contains the delay between dial and hangup for a call.
         # We keep very small delays to significantly large ones to stress test
         # various kind of timing issues.
-        self.delay_set = [0.1,
-                          0.2,
-                          0.3,
-                          0.4,
-                          0.5,  # Very short delays
-                          1.0,
-                          2.0,
-                          3.0,
-                          4.0,
-                          5.0,  # Med delays
-                          10.0]  # Large delays
+        self.delay_set = [
+            0.1,
+            0.2,
+            0.3,
+            0.4,
+            0.5,  # Very short delays
+            1.0,
+            2.0,
+            3.0,
+            4.0,
+            5.0,  # Med delays
+            10.0
+        ]  # Large delays
 
     def dial_a_hangup_b_quick(self, a, b, delay=0, ph=""):
         """
@@ -120,7 +123,7 @@ class BtCarHfpFuzzTest(BluetoothCarHfpBaseTest):
 
         return True
 
-    #@BluetoothTest(UUID=32022c74-fdf3-44c4-9e82-e518bdcce667)
+    @test_tracker_info(uuid='32022c74-fdf3-44c4-9e82-e518bdcce667')
     @BluetoothBaseTest.bt_test_wrap
     def test_fuzz_outgoing_hf(self):
         """
@@ -161,7 +164,7 @@ class BtCarHfpFuzzTest(BluetoothCarHfpBaseTest):
         # above).
         return self.stabilize_and_check_sanity()
 
-    #@BluetoothTest(UUID=bc6d52b2-4acc-461e-ad55-fad5a5ecb091)
+    @test_tracker_info(uuid='bc6d52b2-4acc-461e-ad55-fad5a5ecb091')
     @BluetoothBaseTest.bt_test_wrap
     def test_fuzz_outgoing_ag(self):
         """
@@ -202,7 +205,7 @@ class BtCarHfpFuzzTest(BluetoothCarHfpBaseTest):
         # above).
         return self.stabilize_and_check_sanity()
 
-    #@BluetoothTest(UUID=d834384a-38d5-4260-bfd5-98f8207c04f5)
+    @test_tracker_info(uuid='d834384a-38d5-4260-bfd5-98f8207c04f5')
     @BluetoothBaseTest.bt_test_wrap
     def test_fuzz_dial_hf_hangup_ag(self):
         """
@@ -243,7 +246,7 @@ class BtCarHfpFuzzTest(BluetoothCarHfpBaseTest):
         # above).
         return self.stabilize_and_check_sanity()
 
-    #@BluetoothTest(UUID=6de1a8ab-3cb0-4594-a9bb-d882a3414836)
+    @test_tracker_info(uuid='6de1a8ab-3cb0-4594-a9bb-d882a3414836')
     @BluetoothBaseTest.bt_test_wrap
     def test_fuzz_dial_ag_hangup_hf(self):
         """

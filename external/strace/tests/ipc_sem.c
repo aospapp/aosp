@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2015 Andreas Schwab <schwab@suse.de>
  * Copyright (c) 2015-2016 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2015-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,10 +37,10 @@
 #include "xlat/resource_flags.h"
 
 union semun {
-	int              val;    /* Value for SETVAL */
-	struct semid_ds *buf;    /* Buffer for IPC_STAT, IPC_SET */
-	unsigned short  *array;  /* Array for GETALL, SETALL */
-	struct seminfo  *__buf;  /* Buffer for IPC_INFO
+	int		 val;    /* Value for SETVAL */
+	struct semid_ds	*buf;    /* Buffer for IPC_STAT, IPC_SET */
+	unsigned short	*array;  /* Array for GETALL, SETALL */
+	struct seminfo	*__buf;  /* Buffer for IPC_INFO
 				    (Linux-specific) */
 };
 

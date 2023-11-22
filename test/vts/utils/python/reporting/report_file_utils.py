@@ -19,9 +19,11 @@ import logging
 import os
 import shutil
 
+
 def NotNoneStr(item):
     '''Convert a veriable to string only if it is not None'''
     return str(item) if item is not None else None
+
 
 class ReportFileUtil(object):
     '''Utility class for report file saving.
@@ -151,7 +153,10 @@ class ReportFileUtil(object):
         except IOError as e:
             logging.exception(e)
 
-    def SaveReportsFromDirectory(self, source_dir=None, file_name_prefix=None):
+    def SaveReportsFromDirectory(self,
+                                 source_dir=None,
+                                 file_name_prefix=None,
+                                 file_path_filters=None):
         '''Save report files from source directory to destination.
 
         Args:
@@ -159,6 +164,8 @@ class ReportFileUtil(object):
                         if None, class attribute source_dir will be used.
                         Default is None.
             file_name_prefix: string, prefix added to destination file name
+            file_path_filter: function, a functions that return True (pass) or
+                              False (reject) given original file path.
 
         Returns:
             A list of string, containing destination URLs of saved report files.
@@ -182,6 +189,9 @@ class ReportFileUtil(object):
                         src_path,
                         root_dir=source_dir,
                         file_name_prefix=file_name_prefix)
+
+                    if file_path_filters and not file_path_filters(src_path):
+                        continue
 
                     #TODO(yuexima): handle duplicated destination file names
                     self._PushReportFile(src_path, dest_path)

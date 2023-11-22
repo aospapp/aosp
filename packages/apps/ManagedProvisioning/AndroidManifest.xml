@@ -50,6 +50,7 @@
 
     <uses-permission android:name="android.permission.PERFORM_CDMA_PROVISIONING" />
     <uses-permission android:name="android.permission.ACCESS_PDB_STATE" />
+    <uses-permission android:name="android.permission.PEERS_MAC_ADDRESS" />
 
     <application
         android:label="@string/app_label"
@@ -68,14 +69,15 @@
              android:excludeFromRecents="true"
              android:immersive="true"
              android:launchMode="singleTop"
-             android:theme="@style/SetupWorkSpaceTheme">
+             android:theme="@style/SuwThemeGlif.Light">
         </activity>
+
         <activity
             android:name=".preprovisioning.PreProvisioningActivity"
             android:excludeFromRecents="true"
             android:immersive="true"
             android:launchMode="singleTop"
-            android:theme="@style/Provisioning2Theme">
+            android:theme="@style/SuwThemeGlif.Light">
             <intent-filter android:priority="10">
                 <action android:name="android.app.action.PROVISION_MANAGED_PROFILE" />
                 <action android:name="android.app.action.PROVISION_MANAGED_USER" />
@@ -137,16 +139,14 @@
         <activity
             android:name=".preprovisioning.EncryptDeviceActivity"
             android:immersive="true"
-            android:launchMode="singleTop"
-            android:theme="@style/SetupWorkSpaceTheme">
+            android:launchMode="singleTop">
         </activity>
 
         <activity
             android:name=".preprovisioning.WebActivity"
             android:immersive="true"
             android:launchMode="singleTop"
-            android:process=":webview"
-            android:theme="@style/SetupWorkSpaceTheme">
+            android:process=":webview">
         </activity>
 
         <activity

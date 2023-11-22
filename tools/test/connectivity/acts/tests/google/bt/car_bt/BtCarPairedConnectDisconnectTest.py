@@ -27,6 +27,7 @@ SL4A. The script does the following:
 
 import time
 
+from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.base_test import BaseTestClass
 from acts.test_utils.bt import bt_test_utils
@@ -56,7 +57,7 @@ class BtCarPairedConnectDisconnectTest(BluetoothBaseTest):
             len(devices), 1,
             "pair_pri_to_sec succeeded but no bonded devices.")
 
-    #@BluetoothTest(UUID=b0babf3b-8049-4b64-9125-408efb1bbcd2)
+    @test_tracker_info(uuid='b0babf3b-8049-4b64-9125-408efb1bbcd2')
     @BluetoothBaseTest.bt_test_wrap
     def test_pairing(self):
         """
@@ -82,13 +83,14 @@ class BtCarPairedConnectDisconnectTest(BluetoothBaseTest):
             self.car.droid.bluetoothGetLocalAddress(),
             BtEnum.BluetoothPriorityLevel.PRIORITY_OFF.value)
         addr = self.ph.droid.bluetoothGetLocalAddress()
-        if not bt_test_utils.connect_pri_to_sec(self.car, self.ph, set(
-            [BtEnum.BluetoothProfile.A2DP_SINK.value])):
+        if not bt_test_utils.connect_pri_to_sec(
+                self.car, self.ph,
+                set([BtEnum.BluetoothProfile.A2DP_SINK.value])):
             if not bt_test_utils.is_a2dp_snk_device_connected(self.car, addr):
                 return False
         return True
 
-    #@BluetoothTest(UUID=a44f13e2-c012-4292-8dd5-9f32a023e297)
+    @test_tracker_info(uuid='a44f13e2-c012-4292-8dd5-9f32a023e297')
     @BluetoothBaseTest.bt_test_wrap
     def test_connect_disconnect_paired(self):
         """
@@ -114,9 +116,12 @@ class BtCarPairedConnectDisconnectTest(BluetoothBaseTest):
         for i in range(NUM_TEST_RUNS):
             self.log.info("Running test [" + str(i) + "/" + str(NUM_TEST_RUNS)
                           + "]")
-            success = bt_test_utils.connect_pri_to_sec(self.car, self.ph, set(
-                [BtEnum.BluetoothProfile.HEADSET_CLIENT.value,
-                 BtEnum.BluetoothProfile.A2DP_SINK.value]))
+            success = bt_test_utils.connect_pri_to_sec(
+                self.car, self.ph,
+                set([
+                    BtEnum.BluetoothProfile.HEADSET_CLIENT.value,
+                    BtEnum.BluetoothProfile.A2DP_SINK.value
+                ]))
 
             # Check if we got connected.
             if not success:
@@ -133,9 +138,10 @@ class BtCarPairedConnectDisconnectTest(BluetoothBaseTest):
 
             # Disconnect the devices.
             success = bt_test_utils.disconnect_pri_from_sec(
-                self.car, self.ph,
-                [BtEnum.BluetoothProfile.HEADSET_CLIENT.value,
-                 BtEnum.BluetoothProfile.A2DP_SINK.value])
+                self.car, self.ph, [
+                    BtEnum.BluetoothProfile.HEADSET_CLIENT.value,
+                    BtEnum.BluetoothProfile.A2DP_SINK.value
+                ])
 
             if success is False:
                 self.car.log.info("Disconnect failed.")
@@ -153,4 +159,3 @@ class BtCarPairedConnectDisconnectTest(BluetoothBaseTest):
         if failure > 0:
             return False
         return True
-

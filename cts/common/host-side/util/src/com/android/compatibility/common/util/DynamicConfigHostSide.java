@@ -17,6 +17,7 @@
 package com.android.compatibility.common.util;
 
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.build.VersionedFile;
 
 import org.xmlpull.v1.XmlPullParserException;
 
@@ -26,8 +27,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Load dynamic config for device side test cases
+ * Utility to get value from a dynamic config file.
+ * @deprecated use DynamicConfigFileReader instead.
  */
+@Deprecated
 public class DynamicConfigHostSide {
 
     public static final String CONFIG_PATH_PREFIX = "DYNAMIC_CONFIG_FILE:";
@@ -58,11 +61,14 @@ public class DynamicConfigHostSide {
      * @param info the invocation {@link IBuildInfo}
      * @param moduleName the name of the module of the file.
      * @return a {@link File} created from the downloaded file.
+     * @deprecated use CompatibilityBuildHelper#getDynamicConfigFiles
      */
+    @Deprecated
     public static File getDynamicConfigFile(IBuildInfo info, String moduleName) {
-        String path = info.getBuildAttributes().get(CONFIG_PATH_PREFIX + moduleName);
-        if (path!= null && !path.isEmpty()) {
-            return new File(path);
+        for (VersionedFile vFile : info.getFiles()) {
+            if (vFile.getVersion().equals(CONFIG_PATH_PREFIX + moduleName)) {
+                return vFile.getFile();
+            }
         }
         return null;
     }

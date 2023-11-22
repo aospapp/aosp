@@ -26,20 +26,22 @@
 
 #define LOG_TAG "bt_vendor"
 
-#include <utils/Log.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <signal.h>
-#include <time.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <dirent.h>
-#include <ctype.h>
-#include <cutils/properties.h>
-#include <stdlib.h>
 #include "bt_hci_bdroid.h"
 #include "bt_vendor_qcom.h"
+#include <ctype.h>
+#include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <time.h>
+#include <unistd.h>
+
+#include <cutils/properties.h>
+#include <utils/Log.h>
 #define MAX_CNT_RETRY 100
 
 int hw_config(int nState)
@@ -132,18 +134,12 @@ void hw_epilog_cback(void *p_mem)
 
     ALOGI("%s Opcode:0x%04X Status: %d", __FUNCTION__, opcode, status);
 
-    pthread_mutex_lock(&q_lock);
-    if (!q) {
-        ALOGE("hw_epilog_cback called with NULL context");
-        goto out;
-    }
     /* Must free the RX event buffer */
-    q->cb->dealloc(p_evt_buf);
+    q.cb->dealloc(p_evt_buf);
 
     /* Once epilog process is done, must call callback to notify caller */
-    q->cb->epilog_cb(BT_VND_OP_RESULT_SUCCESS);
-out:
-    pthread_mutex_unlock(&q_lock);
+    q.cb->epilog_cb(BT_VND_OP_RESULT_SUCCESS);
+
 }
 
 /*******************************************************************************
@@ -151,7 +147,7 @@ out:
 ** Function         hw_epilog_process
 **
 ** Description      Sample implementation of epilog process. This process is
-**                  called with q_lock held and q->cb is assumed to be valid.
+**                  called with q_lock held and q.cb is assumed to be valid.
 **
 ** Returns          None
 **
@@ -165,7 +161,7 @@ void __hw_epilog_process(void)
 
     /* Sending a HCI_RESET */
     /* Must allocate command buffer via HC's alloc API */
-    p_buf = (HC_BT_HDR *) q->cb->alloc(BT_HC_HDR_SIZE + HCI_CMD_PREAMBLE_SIZE);
+    p_buf = (HC_BT_HDR *) q.cb->alloc(BT_HC_HDR_SIZE + HCI_CMD_PREAMBLE_SIZE);
     if (p_buf)
     {
         p_buf->event = MSG_STACK_TO_HC_HCI_CMD;
@@ -178,12 +174,12 @@ void __hw_epilog_process(void)
         *p = 0; /* parameter length */
 
         /* Send command via HC's xmit_cb API */
-        q->cb->xmit_cb(HCI_RESET, p_buf, hw_epilog_cback);
+        q.cb->xmit_cb(HCI_RESET, p_buf, hw_epilog_cback);
     }
     else
     {
         ALOGE("vendor lib epilog process aborted [no buffer]");
-        q->cb->epilog_cb(BT_VND_OP_RESULT_FAIL);
+        q.cb->epilog_cb(BT_VND_OP_RESULT_FAIL);
     }
 }
 #endif // (HW_NEED_END_WITH_HCI_RESET == TRUE)

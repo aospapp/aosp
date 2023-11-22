@@ -20,13 +20,11 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
 
-LOCAL_SRC_FILES := $(call all-java-files-under, src)
-
 LOCAL_JNI_SHARED_LIBRARIES := libstaticsharednativelibprovider
 
 LOCAL_PACKAGE_NAME := CtsStaticSharedNativeLibProvider
 
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 LOCAL_PROGUARD_ENABLED := disabled
 

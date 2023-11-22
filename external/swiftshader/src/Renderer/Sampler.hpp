@@ -17,6 +17,7 @@
 
 #include "Main/Config.hpp"
 #include "Renderer/Surface.hpp"
+#include "Common/Types.hpp"
 
 namespace sw
 {
@@ -24,25 +25,9 @@ namespace sw
 	{
 		const void *buffer[6];
 
-		union
-		{
-			struct
-			{
-				int64_t uInt;
-				int64_t vInt;
-				int64_t wInt;
-				int64_t uFrac;
-				int64_t vFrac;
-				int64_t wFrac;
-			};
-
-			struct
-			{
-				float4 fWidth;
-				float4 fHeight;
-				float4 fDepth;
-			};
-		};
+		float4 fWidth;
+		float4 fHeight;
+		float4 fDepth;
 
 		short uHalf[4];
 		short vHalf[4];
@@ -51,7 +36,8 @@ namespace sw
 		short height[4];
 		short depth[4];
 		short onePitchP[4];
-		int sliceP[2];
+		int4 pitchP;
+		int4 sliceP;
 	};
 
 	struct Texture
@@ -67,6 +53,10 @@ namespace sw
 		word4 borderColor4[4];
 		float4 borderColorF[4];
 		float maxAnisotropy;
+		int baseLevel;
+		int maxLevel;
+		float minLod;
+		float maxLod;
 	};
 
 	enum SamplerType
@@ -75,7 +65,7 @@ namespace sw
 		SAMPLER_VERTEX
 	};
 
-	enum TextureType : unsigned int
+	enum TextureType ENUM_UNDERLYING_TYPE_UNSIGNED_INT
 	{
 		TEXTURE_NULL,
 		TEXTURE_2D,
@@ -86,7 +76,7 @@ namespace sw
 		TEXTURE_LAST = TEXTURE_2D_ARRAY
 	};
 
-	enum FilterType : unsigned int
+	enum FilterType ENUM_UNDERLYING_TYPE_UNSIGNED_INT
 	{
 		FILTER_POINT,
 		FILTER_GATHER,
@@ -98,7 +88,7 @@ namespace sw
 		FILTER_LAST = FILTER_ANISOTROPIC
 	};
 
-	enum MipmapType : unsigned int
+	enum MipmapType ENUM_UNDERLYING_TYPE_UNSIGNED_INT
 	{
 		MIPMAP_NONE,
 		MIPMAP_POINT,
@@ -107,7 +97,7 @@ namespace sw
 		MIPMAP_LAST = MIPMAP_LINEAR
 	};
 
-	enum AddressingMode : unsigned int
+	enum AddressingMode ENUM_UNDERLYING_TYPE_UNSIGNED_INT
 	{
 		ADDRESSING_WRAP,
 		ADDRESSING_CLAMP,
@@ -115,11 +105,12 @@ namespace sw
 		ADDRESSING_MIRRORONCE,
 		ADDRESSING_BORDER,
 		ADDRESSING_LAYER,
+		ADDRESSING_TEXELFETCH,
 
-		ADDRESSING_LAST = ADDRESSING_LAYER
+		ADDRESSING_LAST = ADDRESSING_TEXELFETCH
 	};
 
-	enum SwizzleType : unsigned int
+	enum SwizzleType ENUM_UNDERLYING_TYPE_UNSIGNED_INT
 	{
 		SWIZZLE_RED,
 		SWIZZLE_GREEN,
@@ -145,12 +136,12 @@ namespace sw
 			AddressingMode addressingModeV : BITS(ADDRESSING_LAST);
 			AddressingMode addressingModeW : BITS(ADDRESSING_LAST);
 			MipmapType mipmapFilter        : BITS(FILTER_LAST);
-			bool hasNPOTTexture	           : 1;
 			bool sRGB                      : 1;
 			SwizzleType swizzleR           : BITS(SWIZZLE_LAST);
 			SwizzleType swizzleG           : BITS(SWIZZLE_LAST);
 			SwizzleType swizzleB           : BITS(SWIZZLE_LAST);
 			SwizzleType swizzleA           : BITS(SWIZZLE_LAST);
+			bool highPrecisionFiltering    : 1;
 
 			#if PERF_PROFILE
 			bool compressedFormat          : 1;
@@ -174,10 +165,15 @@ namespace sw
 		void setReadSRGB(bool sRGB);
 		void setBorderColor(const Color<float> &borderColor);
 		void setMaxAnisotropy(float maxAnisotropy);
+		void setHighPrecisionFiltering(bool highPrecisionFiltering);
 		void setSwizzleR(SwizzleType swizzleR);
 		void setSwizzleG(SwizzleType swizzleG);
 		void setSwizzleB(SwizzleType swizzleB);
 		void setSwizzleA(SwizzleType swizzleA);
+		void setBaseLevel(int baseLevel);
+		void setMaxLevel(int maxLevel);
+		void setMinLod(float minLod);
+		void setMaxLod(float maxLod);
 
 		static void setFilterQuality(FilterType maximumFilterQuality);
 		static void setMipmapQuality(MipmapType maximumFilterQuality);
@@ -192,7 +188,6 @@ namespace sw
 
 	private:
 		MipmapType mipmapFilter() const;
-		bool hasNPOTTexture() const;
 		TextureType getTextureType() const;
 		FilterType getTextureFilter() const;
 		AddressingMode getAddressingModeU() const;
@@ -210,6 +205,7 @@ namespace sw
 		MipmapType mipmapFilterState;
 		bool sRGB;
 		bool gather;
+		bool highPrecisionFiltering;
 
 		SwizzleType swizzleR;
 		SwizzleType swizzleG;

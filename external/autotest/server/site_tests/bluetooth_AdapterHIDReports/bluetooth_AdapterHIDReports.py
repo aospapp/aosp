@@ -8,12 +8,12 @@ import logging
 import time
 
 from autotest_lib.client.common_lib import error
-from autotest_lib.server.cros.bluetooth import bluetooth_adpater_tests
+from autotest_lib.server.cros.bluetooth import bluetooth_adapter_tests
 from autotest_lib.server.cros.multimedia import remote_facade_factory
 
 
 class bluetooth_AdapterHIDReports(
-        bluetooth_adpater_tests.BluetoothAdapterTests):
+        bluetooth_adapter_tests.BluetoothAdapterTests):
     """Server side bluetooth tests about sending bluetooth HID reports.
 
     This test tries to send HID reports to a DUT and verifies if the DUT

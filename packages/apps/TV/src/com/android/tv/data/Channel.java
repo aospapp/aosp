@@ -52,6 +52,16 @@ public final class Channel {
     public static final int LOAD_IMAGE_TYPE_APP_LINK_POSTER_ART = 3;
 
     /**
+     * Compares the channel numbers of channels which belong to the same input.
+     */
+    public static final Comparator<Channel> CHANNEL_NUMBER_COMPARATOR = new Comparator<Channel>() {
+        @Override
+        public int compare(Channel lhs, Channel rhs) {
+            return ChannelNumber.compare(lhs.getDisplayNumber(), rhs.getDisplayNumber());
+        }
+    };
+
+    /**
      * When a TIS doesn't provide any information about app link, and it doesn't have a leanback
      * launch intent, there will be no app link card for the TIS.
      */
@@ -81,13 +91,20 @@ public final class Channel {
             TvContract.Channels.COLUMN_DESCRIPTION,
             TvContract.Channels.COLUMN_VIDEO_FORMAT,
             TvContract.Channels.COLUMN_BROWSABLE,
+            TvContract.Channels.COLUMN_SEARCHABLE,
             TvContract.Channels.COLUMN_LOCKED,
             TvContract.Channels.COLUMN_APP_LINK_TEXT,
             TvContract.Channels.COLUMN_APP_LINK_COLOR,
             TvContract.Channels.COLUMN_APP_LINK_ICON_URI,
             TvContract.Channels.COLUMN_APP_LINK_POSTER_ART_URI,
             TvContract.Channels.COLUMN_APP_LINK_INTENT_URI,
+            TvContract.Channels.COLUMN_INTERNAL_PROVIDER_FLAG2, // Only used in bundled input
     };
+
+    /**
+     * Channel number delimiter between major and minor parts.
+     */
+    public static final char CHANNEL_NUMBER_DELIMITER = '-';
 
     /**
      * Creates {@code Channel} object from cursor.
@@ -103,28 +120,41 @@ public final class Channel {
         channel.mPackageName = Utils.intern(cursor.getString(index++));
         channel.mInputId = Utils.intern(cursor.getString(index++));
         channel.mType = Utils.intern(cursor.getString(index++));
-        channel.mDisplayNumber = cursor.getString(index++);
+        channel.mDisplayNumber = normalizeDisplayNumber(cursor.getString(index++));
         channel.mDisplayName = cursor.getString(index++);
         channel.mDescription = cursor.getString(index++);
         channel.mVideoFormat = Utils.intern(cursor.getString(index++));
         channel.mBrowsable = cursor.getInt(index++) == 1;
+        channel.mSearchable = cursor.getInt(index++) == 1;
         channel.mLocked = cursor.getInt(index++) == 1;
         channel.mAppLinkText = cursor.getString(index++);
         channel.mAppLinkColor = cursor.getInt(index++);
         channel.mAppLinkIconUri = cursor.getString(index++);
         channel.mAppLinkPosterArtUri = cursor.getString(index++);
         channel.mAppLinkIntentUri = cursor.getString(index++);
+        if (Utils.isBundledInput(channel.mInputId)) {
+            channel.mRecordingProhibited = cursor.getInt(index++) != 0;
+        }
         return channel;
     }
 
     /**
-     * Creates a {@link Channel} object from the DVR database.
+     * Replaces the channel number separator with dash('-').
      */
-    public static Channel fromDvrCursor(Cursor c) {
-        Channel channel = new Channel();
-        int index = -1;
-        channel.mDvrId = c.getLong(++index);
-        return channel;
+    public static String normalizeDisplayNumber(String string) {
+        if (!TextUtils.isEmpty(string)) {
+            int length = string.length();
+            for (int i = 0; i < length; i++) {
+                char c = string.charAt(i);
+                if (c == '.' || Character.isWhitespace(c)
+                        || Character.getType(c) == Character.DASH_PUNCTUATION) {
+                    StringBuilder sb = new StringBuilder(string);
+                    sb.setCharAt(i, CHANNEL_NUMBER_DELIMITER);
+                    return sb.toString();
+                }
+            }
+        }
+        return string;
     }
 
     /** ID of this channel. Matches to BaseColumns._ID. */
@@ -138,6 +168,7 @@ public final class Channel {
     private String mDescription;
     private String mVideoFormat;
     private boolean mBrowsable;
+    private boolean mSearchable;
     private boolean mLocked;
     private boolean mIsPassthrough;
     private String mAppLinkText;
@@ -147,8 +178,10 @@ public final class Channel {
     private String mAppLinkIntentUri;
     private Intent mAppLinkIntent;
     private int mAppLinkType;
+    private String mLogoUri;
+    private boolean mRecordingProhibited;
 
-    private long mDvrId;
+    private boolean mChannelLogoExist;
 
     private Channel() {
         // Do nothing.
@@ -187,7 +220,6 @@ public final class Channel {
         return mDisplayName;
     }
 
-    @VisibleForTesting
     public String getDescription() {
         return mDescription;
     }
@@ -230,10 +262,14 @@ public final class Channel {
     }
 
     /**
-     * Returns an ID in DVR database.
+     * Returns channel logo uri which is got from cloud, it's used only for ChannelLogoFetcher.
      */
-    public long getDvrId() {
-        return mDvrId;
+    public String getLogoUri() {
+        return mLogoUri;
+    }
+
+    public boolean isRecordingProhibited() {
+        return mRecordingProhibited;
     }
 
     /**
@@ -266,6 +302,11 @@ public final class Channel {
         return mBrowsable;
     }
 
+    /** Checks whether this channel is searchable or not. */
+    public boolean isSearchable() {
+        return mSearchable;
+    }
+
     public boolean isLocked() {
         return mLocked;
     }
@@ -276,6 +317,13 @@ public final class Channel {
 
     public void setLocked(boolean locked) {
         mLocked = locked;
+    }
+
+    /**
+     * Sets channel logo uri which is got from cloud.
+     */
+    public void setLogoUri(String logoUri) {
+        mLogoUri = logoUri;
     }
 
     /**
@@ -298,7 +346,8 @@ public final class Channel {
                 && mAppLinkColor == other.mAppLinkColor
                 && Objects.equals(mAppLinkIconUri, other.mAppLinkIconUri)
                 && Objects.equals(mAppLinkPosterArtUri, other.mAppLinkPosterArtUri)
-                && Objects.equals(mAppLinkIntentUri, other.mAppLinkIntentUri);
+                && Objects.equals(mAppLinkIntentUri, other.mAppLinkIntentUri)
+                && Objects.equals(mRecordingProhibited, other.mRecordingProhibited);
     }
 
     @Override
@@ -314,8 +363,10 @@ public final class Channel {
                 + ", videoFormat=" + mVideoFormat
                 + ", isPassthrough=" + mIsPassthrough
                 + ", browsable=" + mBrowsable
+                + ", searchable=" + mSearchable
                 + ", locked=" + mLocked
-                + ", appLinkText=" + mAppLinkText + "}";
+                + ", appLinkText=" + mAppLinkText
+                + ", recordingProhibited=" + mRecordingProhibited + "}";
     }
 
     void copyFrom(Channel other) {
@@ -332,6 +383,7 @@ public final class Channel {
         mVideoFormat = other.mVideoFormat;
         mIsPassthrough = other.mIsPassthrough;
         mBrowsable = other.mBrowsable;
+        mSearchable = other.mSearchable;
         mLocked = other.mLocked;
         mAppLinkText = other.mAppLinkText;
         mAppLinkColor = other.mAppLinkColor;
@@ -340,6 +392,8 @@ public final class Channel {
         mAppLinkIntentUri = other.mAppLinkIntentUri;
         mAppLinkIntent = other.mAppLinkIntent;
         mAppLinkType = other.mAppLinkType;
+        mRecordingProhibited = other.mRecordingProhibited;
+        mChannelLogoExist = other.mChannelLogoExist;
     }
 
     /**
@@ -389,8 +443,7 @@ public final class Channel {
             mChannel.mDisplayName = "name";
             mChannel.mDescription = "description";
             mChannel.mBrowsable = true;
-            mChannel.mLocked = false;
-            mChannel.mIsPassthrough = false;
+            mChannel.mSearchable = true;
         }
 
         public Builder(Channel other) {
@@ -422,7 +475,7 @@ public final class Channel {
 
         @VisibleForTesting
         public Builder setDisplayNumber(String displayNumber) {
-            mChannel.mDisplayNumber = displayNumber;
+            mChannel.mDisplayNumber = normalizeDisplayNumber(displayNumber);
             return this;
         }
 
@@ -445,6 +498,11 @@ public final class Channel {
 
         public Builder setBrowsable(boolean browsable) {
             mChannel.mBrowsable = browsable;
+            return this;
+        }
+
+        public Builder setSearchable(boolean searchable) {
+            mChannel.mSearchable = searchable;
             return this;
         }
 
@@ -485,6 +543,11 @@ public final class Channel {
             return this;
         }
 
+        public Builder setRecordingProhibited(boolean recordingProhibited) {
+            mChannel.mRecordingProhibited = recordingProhibited;
+            return this;
+        }
+
         public Channel build() {
             Channel channel = new Channel();
             channel.copyFrom(mChannel);
@@ -521,6 +584,21 @@ public final class Channel {
             ImageLoader.ImageLoaderCallback callback) {
         String uriString = getImageUriString(type);
         ImageLoader.loadBitmap(context, uriString, maxWidth, maxHeight, callback);
+    }
+
+    /**
+     * Sets if the channel logo exists. This method should be only called from
+     * {@link ChannelDataManager}.
+     */
+    void setChannelLogoExist(boolean exist) {
+        mChannelLogoExist = exist;
+    }
+
+    /**
+     * Returns if channel logo exists.
+     */
+    public boolean channelLogoExists() {
+        return mChannelLogoExist;
     }
 
     /**

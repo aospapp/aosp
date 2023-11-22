@@ -1,0 +1,27 @@
+cc_library_static {
+    name: "libpdfiumfpdftext",
+    defaults: ["pdfium-defaults"],
+
+    cflags: [
+        "-DOPJ_STATIC",
+        "-DV8_DEPRECATION_WARNINGS",
+        "-D_CRT_SECURE_NO_WARNINGS",
+
+        // Mask some warnings. These are benign, but we probably want to fix them
+        // upstream at some point.
+        "-Wno-sign-compare",
+        "-Wno-unused-parameter",
+    ],
+
+    srcs: [
+        "core/fpdftext/cpdf_linkextract.cpp",
+        "core/fpdftext/cpdf_textpage.cpp",
+        "core/fpdftext/cpdf_textpagefind.cpp",
+        "core/fpdftext/unicodenormalizationdata.cpp",
+    ],
+
+    include_dirs: [
+        "external/freetype/include",
+        "external/freetype/include/freetype",
+    ],
+}

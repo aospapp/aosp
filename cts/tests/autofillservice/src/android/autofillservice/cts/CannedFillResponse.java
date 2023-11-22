@@ -15,17 +15,20 @@
  */
 package android.autofillservice.cts;
 
+import static android.autofillservice.cts.Helper.getAutofillIds;
+
 import static com.google.common.truth.Truth.assertWithMessage;
 
-import static android.autofillservice.cts.Helper.getAutofillIds;
 import android.app.assist.AssistStructure;
 import android.app.assist.AssistStructure.ViewNode;
 import android.content.IntentSender;
 import android.os.Bundle;
+import android.service.autofill.CustomDescription;
 import android.service.autofill.Dataset;
 import android.service.autofill.FillCallback;
 import android.service.autofill.FillResponse;
 import android.service.autofill.SaveInfo;
+import android.service.autofill.Validator;
 import android.view.autofill.AutofillId;
 import android.view.autofill.AutofillValue;
 import android.widget.RemoteViews;
@@ -58,9 +61,11 @@ final class CannedFillResponse {
     private final List<CannedDataset> mDatasets;
     private final String mFailureMessage;
     private final int mSaveType;
+    private final Validator mValidator;
     private final String[] mRequiredSavableIds;
     private final String[] mOptionalSavableIds;
     private final String mSaveDescription;
+    private final CustomDescription mCustomDescription;
     private final Bundle mExtras;
     private final RemoteViews mPresentation;
     private final IntentSender mAuthentication;
@@ -74,9 +79,11 @@ final class CannedFillResponse {
         mResponseType = builder.mResponseType;
         mDatasets = builder.mDatasets;
         mFailureMessage = builder.mFailureMessage;
+        mValidator = builder.mValidator;
         mRequiredSavableIds = builder.mRequiredSavableIds;
         mOptionalSavableIds = builder.mOptionalSavableIds;
         mSaveDescription = builder.mSaveDescription;
+        mCustomDescription = builder.mCustomDescription;
         mSaveType = builder.mSaveType;
         mExtras = builder.mExtras;
         mPresentation = builder.mPresentation;
@@ -124,11 +131,17 @@ final class CannedFillResponse {
             }
         }
         if (mRequiredSavableIds != null) {
-            final SaveInfo.Builder saveInfo = new SaveInfo.Builder(mSaveType,
-                    getAutofillIds(nodeResolver, mRequiredSavableIds));
+            final SaveInfo.Builder saveInfo =
+                    mRequiredSavableIds == null || mRequiredSavableIds.length == 0
+                        ? new SaveInfo.Builder(mSaveType)
+                            : new SaveInfo.Builder(mSaveType,
+                                    getAutofillIds(nodeResolver, mRequiredSavableIds));
 
             saveInfo.setFlags(mFlags);
 
+            if (mValidator != null) {
+                saveInfo.setValidator(mValidator);
+            }
             if (mOptionalSavableIds != null) {
                 saveInfo.setOptionalIds(getAutofillIds(nodeResolver, mOptionalSavableIds));
             }
@@ -136,6 +149,10 @@ final class CannedFillResponse {
                 saveInfo.setDescription(mSaveDescription);
             }
             saveInfo.setNegativeAction(mNegativeActionStyle, mNegativeActionListener);
+
+            if (mCustomDescription != null) {
+                saveInfo.setCustomDescription(mCustomDescription);
+            }
             builder.setSaveInfo(saveInfo.build());
         }
         if (mIgnoredIds != null) {
@@ -159,6 +176,7 @@ final class CannedFillResponse {
                 + ", flags=" + mFlags
                 + ", failureMessage=" + mFailureMessage
                 + ", saveDescription=" + mSaveDescription
+                + ", mCustomDescription=" + mCustomDescription
                 + ", hasPresentation=" + (mPresentation != null)
                 + ", hasAuthentication=" + (mAuthentication != null)
                 + ", authenticationIds=" + Arrays.toString(mAuthenticationIds)
@@ -176,9 +194,11 @@ final class CannedFillResponse {
         private final List<CannedDataset> mDatasets = new ArrayList<>();
         private final ResponseType mResponseType;
         private String mFailureMessage;
+        private Validator mValidator;
         private String[] mRequiredSavableIds;
         private String[] mOptionalSavableIds;
         private String mSaveDescription;
+        public CustomDescription mCustomDescription;
         public int mSaveType = -1;
         private Bundle mExtras;
         private RemoteViews mPresentation;
@@ -200,6 +220,14 @@ final class CannedFillResponse {
         public Builder addDataset(CannedDataset dataset) {
             assertWithMessage("already set failure").that(mFailureMessage).isNull();
             mDatasets.add(dataset);
+            return this;
+        }
+
+        /**
+         * Sets the validator for this request
+         */
+        public Builder setValidator(Validator validator) {
+            mValidator = validator;
             return this;
         }
 
@@ -230,6 +258,14 @@ final class CannedFillResponse {
          */
         public Builder setSaveDescription(String description) {
             mSaveDescription = description;
+            return this;
+        }
+
+        /**
+         * Sets the description passed to the {@link SaveInfo}.
+         */
+        public Builder setCustomDescription(CustomDescription description) {
+            mCustomDescription = description;
             return this;
         }
 
@@ -330,18 +366,18 @@ final class CannedFillResponse {
 
             if (mFieldValues != null) {
                 for (Map.Entry<String, AutofillValue> entry : mFieldValues.entrySet()) {
-                    final String resourceId = entry.getKey();
-                    final ViewNode node = nodeResolver.apply(resourceId);
+                    final String id = entry.getKey();
+                    final ViewNode node = nodeResolver.apply(id);
                     if (node == null) {
-                        throw new AssertionError("No node with resource id " + resourceId);
+                        throw new AssertionError("No node with resource id " + id);
                     }
-                    final AutofillId id = node.getAutofillId();
+                    final AutofillId autofillid = node.getAutofillId();
                     final AutofillValue value = entry.getValue();
-                    final RemoteViews presentation = mFieldPresentations.get(resourceId);
+                    final RemoteViews presentation = mFieldPresentations.get(id);
                     if (presentation != null) {
-                        builder.setValue(id, value, presentation);
+                        builder.setValue(autofillid, value, presentation);
                     } else {
-                        builder.setValue(id, value);
+                        builder.setValue(autofillid, value);
                     }
                 }
             }
@@ -354,7 +390,7 @@ final class CannedFillResponse {
             return "CannedDataset " + mId + " : [hasPresentation=" + (mPresentation != null)
                     + ", fieldPresentations=" + (mFieldPresentations)
                     + ", hasAuthentication=" + (mAuthentication != null)
-                    + ", fieldValuess=" + mFieldValues + "]";
+                    + ", fieldValues=" + mFieldValues + "]";
         }
 
         static class Builder {
@@ -373,47 +409,71 @@ final class CannedFillResponse {
             }
 
             /**
-             * Sets the canned value of a text field based on its {@code resourceId}.
+             * Sets the canned value of a text field based on its {@code id}.
+             *
+             * <p>The meaning of the id is defined by the object using the canned dataset.
+             * For example, {@link InstrumentedAutoFillService.Replier} resolves the id based on
+             * {@link IdMode}.
              */
-            public Builder setField(String resourceId, String text) {
-                return setField(resourceId, AutofillValue.forText(text));
+            public Builder setField(String id, String text) {
+                return setField(id, AutofillValue.forText(text));
             }
 
             /**
-             * Sets the canned value of a list field based on its {@code resourceId}.
+             * Sets the canned value of a list field based on its its {@code id}.
+             *
+             * <p>The meaning of the id is defined by the object using the canned dataset.
+             * For example, {@link InstrumentedAutoFillService.Replier} resolves the id based on
+             * {@link IdMode}.
              */
-            public Builder setField(String resourceId, int index) {
-                return setField(resourceId, AutofillValue.forList(index));
+            public Builder setField(String id, int index) {
+                return setField(id, AutofillValue.forList(index));
             }
 
             /**
-             * Sets the canned value of a toggle field based on its {@code resourceId}.
+             * Sets the canned value of a toggle field based on its {@code id}.
+             *
+             * <p>The meaning of the id is defined by the object using the canned dataset.
+             * For example, {@link InstrumentedAutoFillService.Replier} resolves the id based on
+             * {@link IdMode}.
              */
-            public Builder setField(String resourceId, boolean toggled) {
-                return setField(resourceId, AutofillValue.forToggle(toggled));
+            public Builder setField(String id, boolean toggled) {
+                return setField(id, AutofillValue.forToggle(toggled));
             }
 
             /**
-             * Sets the canned value of a date field based on its {@code resourceId}.
+             * Sets the canned value of a date field based on its {@code id}.
+             *
+             * <p>The meaning of the id is defined by the object using the canned dataset.
+             * For example, {@link InstrumentedAutoFillService.Replier} resolves the id based on
+             * {@link IdMode}.
              */
-            public Builder setField(String resourceId, long date) {
-                return setField(resourceId, AutofillValue.forDate(date));
+            public Builder setField(String id, long date) {
+                return setField(id, AutofillValue.forDate(date));
             }
 
             /**
-             * Sets the canned value of a date field based on its {@code resourceId}.
+             * Sets the canned value of a date field based on its {@code id}.
+             *
+             * <p>The meaning of the id is defined by the object using the canned dataset.
+             * For example, {@link InstrumentedAutoFillService.Replier} resolves the id based on
+             * {@link IdMode}.
              */
-            public Builder setField(String resourceId, AutofillValue value) {
-                mFieldValues.put(resourceId, value);
+            public Builder setField(String id, AutofillValue value) {
+                mFieldValues.put(id, value);
                 return this;
             }
 
             /**
-             * Sets the canned value of a field based on its {@code resourceId}.
+             * Sets the canned value of a field based on its {@code id}.
+             *
+             * <p>The meaning of the id is defined by the object using the canned dataset.
+             * For example, {@link InstrumentedAutoFillService.Replier} resolves the id based on
+             * {@link IdMode}.
              */
-            public Builder setField(String resourceId, String text, RemoteViews presentation) {
-                setField(resourceId, text);
-                mFieldPresentations.put(resourceId, presentation);
+            public Builder setField(String id, String text, RemoteViews presentation) {
+                setField(id, text);
+                mFieldPresentations.put(id, presentation);
                 return this;
             }
 

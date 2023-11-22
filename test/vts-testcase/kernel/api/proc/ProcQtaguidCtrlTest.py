@@ -16,7 +16,7 @@
 
 from vts.testcases.kernel.api.proc import KernelProcFileTestBase
 from vts.testcases.kernel.api.proc.KernelProcFileTestBase import repeat_rule, literal_token
-from vts.utils.python.file import file_utils
+from vts.utils.python.file import target_file_utils
 
 
 class ProcQtaguidCtrlTest(KernelProcFileTestBase.KernelProcFileTestBase):
@@ -32,7 +32,7 @@ class ProcQtaguidCtrlTest(KernelProcFileTestBase.KernelProcFileTestBase):
             raise SyntaxError
         for line in lines[:-2]:
             parsed = self.parse_line(
-                "sock={:d} tag=0x{:x} (uid={:d}) pid={:d} f_count={:d}", line)
+                "sock={:x} tag=0x{:x} (uid={:d}) pid={:d} f_count={:d}", line)
             if any(map(lambda x: x < 0, parsed)):
                 raise SyntaxError("Negative numbers not allowed!")
             result.append(parsed)
@@ -40,7 +40,10 @@ class ProcQtaguidCtrlTest(KernelProcFileTestBase.KernelProcFileTestBase):
             "events: sockets_tagged={:d} sockets_untagged={:d} counter_set_changes={:d} "
             "delete_cmds={:d} iface_events={:d} match_calls={:d} match_calls_prepost={:d} "
             "match_found_sk={:d} match_found_sk_in_ct={:d} match_found_no_sk_in_ct={:d} "
-            "match_no_sk={:d} match_no_sk_file={:d}", lines[-2])
+            "match_no_sk={:d} match_no_sk_{:w}={:d}", lines[-2])
+        if parsed[-2] not in {"file", "gid"}:
+            raise SyntaxError("match_no_sk_{file|gid} incorrect")
+        del parsed[-2]
         if any(map(lambda x: x < 0, parsed)):
             raise SyntaxError("Negative numbers not allowed!")
         result.append(parsed)
@@ -52,4 +55,4 @@ class ProcQtaguidCtrlTest(KernelProcFileTestBase.KernelProcFileTestBase):
     def get_permission_checker(self):
         """Get r/w file permission checker.
         """
-        return file_utils.IsReadWrite
+        return target_file_utils.IsReadWrite

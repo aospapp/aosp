@@ -18,10 +18,14 @@ package com.android.server.telecom.tests;
 
 import android.content.Context;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
+import android.telecom.CallAudioState;
 import android.telecom.Connection;
 import android.telecom.DisconnectCause;
 import android.telecom.InCallService;
 import android.telecom.Log;
+import android.telecom.Logging.EventManager;
 import android.telecom.ParcelableCallAnalytics;
 import android.telecom.TelecomAnalytics;
 import android.telecom.TelecomManager;
@@ -34,6 +38,7 @@ import android.util.Base64;
 
 import com.android.internal.util.IndentingPrintWriter;
 import com.android.server.telecom.Analytics;
+import com.android.server.telecom.CallAudioRouteStateMachine;
 import com.android.server.telecom.LogUtils;
 import com.android.server.telecom.nano.TelecomLogClass;
 
@@ -41,6 +46,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -306,6 +312,38 @@ public class AnalyticsTests extends TelecomSystemTest {
         assertTrue(capturedEvents.contains(ParcelableCallAnalytics.AnalyticsEvent.SET_ACTIVE));
         assertTrue(capturedEvents.contains(
                 ParcelableCallAnalytics.AnalyticsEvent.FILTERING_INITIATED));
+    }
+
+    @MediumTest
+    public void testAnalyticsAudioRoutes() throws Exception {
+        Analytics.reset();
+        IdPair testCall = startAndMakeActiveIncomingCall(
+                "650-555-1212",
+                mPhoneAccountA0.getAccountHandle(),
+                mConnectionServiceFixtureA);
+        List<Integer> audioRoutes = new LinkedList<>();
+
+        waitForHandlerAction(
+                mTelecomSystem.getCallsManager().getCallAudioManager()
+                        .getCallAudioRouteStateMachine().getHandler(),
+                TEST_TIMEOUT);
+        audioRoutes.add(mInCallServiceFixtureX.mCallAudioState.getRoute());
+        mInCallServiceFixtureX.getInCallAdapter().setAudioRoute(CallAudioState.ROUTE_SPEAKER);
+        waitForHandlerAction(
+                mTelecomSystem.getCallsManager().getCallAudioManager()
+                        .getCallAudioRouteStateMachine().getHandler(),
+                TEST_TIMEOUT);
+        audioRoutes.add(CallAudioState.ROUTE_SPEAKER);
+
+        Map<String, Analytics.CallInfoImpl> analyticsMap = Analytics.cloneData();
+        assertTrue(analyticsMap.containsKey(testCall.mCallId));
+
+        Analytics.CallInfoImpl callAnalytics = analyticsMap.get(testCall.mCallId);
+        List<EventManager.Event> events = callAnalytics.callEvents.getEvents();
+        for (int route : audioRoutes) {
+            String logEvent = CallAudioRouteStateMachine.AUDIO_ROUTE_TO_LOG_EVENT.get(route);
+            assertTrue(events.stream().anyMatch(event -> event.eventId.equals(logEvent)));
+        }
     }
 
     @MediumTest

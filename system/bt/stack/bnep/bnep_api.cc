@@ -26,8 +26,6 @@
 #include <string.h>
 #include "bnep_int.h"
 
-extern fixed_queue_t* btu_general_alarm_queue;
-
 /*******************************************************************************
  *
  * Function         BNEP_Init
@@ -125,14 +123,12 @@ void BNEP_Deregister(void) {
  *                  BNEP_NO_RESOURCES           if no resources
  *
  ******************************************************************************/
-tBNEP_RESULT BNEP_Connect(BD_ADDR p_rem_bda, tBT_UUID* src_uuid,
+tBNEP_RESULT BNEP_Connect(const RawAddress& p_rem_bda, tBT_UUID* src_uuid,
                           tBT_UUID* dst_uuid, uint16_t* p_handle) {
   uint16_t cid;
   tBNEP_CONN* p_bcb = bnepu_find_bcb_by_bd_addr(p_rem_bda);
 
-  BNEP_TRACE_API("BNEP_Connect()  BDA: %02x-%02x-%02x-%02x-%02x-%02x",
-                 p_rem_bda[0], p_rem_bda[1], p_rem_bda[2], p_rem_bda[3],
-                 p_rem_bda[4], p_rem_bda[5]);
+  VLOG(0) << __func__ << " BDA:" << p_rem_bda;
 
   if (!bnep_cb.profile_registered) return BNEP_WRONG_STATE;
 
@@ -193,8 +189,8 @@ tBNEP_RESULT BNEP_Connect(BD_ADDR p_rem_bda, tBT_UUID* src_uuid,
     }
 
     /* Start timer waiting for connect */
-    alarm_set_on_queue(p_bcb->conn_timer, BNEP_CONN_TIMEOUT_MS,
-                       bnep_conn_timer_timeout, p_bcb, btu_general_alarm_queue);
+    alarm_set_on_mloop(p_bcb->conn_timer, BNEP_CONN_TIMEOUT_MS,
+                       bnep_conn_timer_timeout, p_bcb);
   }
 
   *p_handle = p_bcb->handle;
@@ -335,9 +331,9 @@ tBNEP_RESULT BNEP_Disconnect(uint16_t handle) {
  *                  BNEP_SUCCESS            - If written successfully
  *
  ******************************************************************************/
-tBNEP_RESULT BNEP_WriteBuf(uint16_t handle, uint8_t* p_dest_addr, BT_HDR* p_buf,
-                           uint16_t protocol, uint8_t* p_src_addr,
-                           bool fw_ext_present) {
+tBNEP_RESULT BNEP_WriteBuf(uint16_t handle, const RawAddress& p_dest_addr,
+                           BT_HDR* p_buf, uint16_t protocol,
+                           const RawAddress* p_src_addr, bool fw_ext_present) {
   tBNEP_CONN* p_bcb;
   uint8_t* p_data;
 
@@ -404,7 +400,7 @@ tBNEP_RESULT BNEP_WriteBuf(uint16_t handle, uint8_t* p_dest_addr, BT_HDR* p_buf,
   }
 
   /* Build the BNEP header */
-  bnepu_build_bnep_hdr(p_bcb, p_buf, protocol, p_src_addr, p_dest_addr,
+  bnepu_build_bnep_hdr(p_bcb, p_buf, protocol, p_src_addr, &p_dest_addr,
                        fw_ext_present);
 
   /* Send the data or queue it up */
@@ -437,9 +433,9 @@ tBNEP_RESULT BNEP_WriteBuf(uint16_t handle, uint8_t* p_dest_addr, BT_HDR* p_buf,
  *                  BNEP_SUCCESS            - If written successfully
  *
  ******************************************************************************/
-tBNEP_RESULT BNEP_Write(uint16_t handle, uint8_t* p_dest_addr, uint8_t* p_data,
-                        uint16_t len, uint16_t protocol, uint8_t* p_src_addr,
-                        bool fw_ext_present) {
+tBNEP_RESULT BNEP_Write(uint16_t handle, const RawAddress& p_dest_addr,
+                        uint8_t* p_data, uint16_t len, uint16_t protocol,
+                        const RawAddress* p_src_addr, bool fw_ext_present) {
   tBNEP_CONN* p_bcb;
   uint8_t* p;
 
@@ -506,7 +502,7 @@ tBNEP_RESULT BNEP_Write(uint16_t handle, uint8_t* p_dest_addr, uint8_t* p_data,
   memcpy(p, p_data, len);
 
   /* Build the BNEP header */
-  bnepu_build_bnep_hdr(p_bcb, p_buf, protocol, p_src_addr, p_dest_addr,
+  bnepu_build_bnep_hdr(p_bcb, p_buf, protocol, p_src_addr, &p_dest_addr,
                        fw_ext_present);
 
   /* Send the data or queue it up */
@@ -613,8 +609,9 @@ tBNEP_RESULT BNEP_SetMulticastFilters(uint16_t handle, uint16_t num_filters,
 
   /* Fill the multicast filter values in connnection block */
   for (xx = 0; xx < num_filters; xx++) {
-    memcpy(p_bcb->sent_mcast_filter_start[xx], p_start_array, BD_ADDR_LEN);
-    memcpy(p_bcb->sent_mcast_filter_end[xx], p_end_array, BD_ADDR_LEN);
+    memcpy(p_bcb->sent_mcast_filter_start[xx].address, p_start_array,
+           BD_ADDR_LEN);
+    memcpy(p_bcb->sent_mcast_filter_end[xx].address, p_end_array, BD_ADDR_LEN);
 
     p_start_array += BD_ADDR_LEN;
     p_end_array += BD_ADDR_LEN;
@@ -682,7 +679,7 @@ tBNEP_RESULT BNEP_GetStatus(uint16_t handle, tBNEP_STATUS* p_status) {
   p_status->rcvd_num_filters = p_bcb->rcvd_num_filters;
   p_status->rcvd_mcast_filters = p_bcb->rcvd_mcast_filters;
 
-  memcpy(p_status->rem_bda, p_bcb->rem_bda, BD_ADDR_LEN);
+  p_status->rem_bda = p_bcb->rem_bda;
   memcpy(&(p_status->src_uuid), &(p_bcb->src_uuid), sizeof(tBT_UUID));
   memcpy(&(p_status->dst_uuid), &(p_bcb->dst_uuid), sizeof(tBT_UUID));
 

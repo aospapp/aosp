@@ -2,10 +2,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import contextlib
 import glob
 import json
 import logging
 import os
+import pwd
 import re
 import shutil
 import tempfile
@@ -23,8 +25,8 @@ CONFIG_JSON_TEMPLATE = '''
     "process": {
         "terminal": true,
         "user": {
-            "uid": 10000,
-            "gid": 10000
+            "uid": 0,
+            "gid": 0
         },
         "args": [
             %s
@@ -40,15 +42,20 @@ CONFIG_JSON_TEMPLATE = '''
     {
         "destination": "/proc",
         "type": "proc",
-        "source": "proc"
+        "source": "proc",
+        "options": [
+            "nodev",
+            "noexec",
+            "nosuid"
+        ]
     },
     {
         "destination": "/dev",
-        "type": "tmpfs",
-        "source": "tmpfs",
+        "type": "bind",
+        "source": "/dev",
         "options": [
-            "nosuid",
-            "noexec"
+            "bind",
+            "recursive"
         ]
     }
     ],
@@ -77,66 +84,89 @@ CONFIG_JSON_TEMPLATE = '''
             "type": "mount"
         }
         ],
+        "resources": {
+            "devices": [
+                {
+                    "allow": false,
+                    "access": "rwm"
+                },
+                {
+                    "allow": true,
+                    "type": "c",
+                    "major": 1,
+                    "minor": 5,
+                    "access": "r"
+                }
+            ]
+        },
         "uidMappings": [
         {
-            "hostID": 10000,
+            "hostID": 1000,
             "containerID": 0,
-            "size": 10
+            "size": 1
         }
         ],
         "gidMappings": [
         {
-            "hostID": 10000,
+            "hostID": 1000,
             "containerID": 0,
-            "size": 10
+            "size": 1
         }
         ]
     }
 }
 '''
 
+@contextlib.contextmanager
+def bind_mounted_root(rootfs_path):
+    utils.run(['mount', '--bind', '/', rootfs_path])
+    yield
+    utils.run(['umount', '-f', rootfs_path])
+
+
 class security_RunOci(test.test):
     version = 1
 
     preserve_srcdir = True
 
-    def get_test_option(self, handle):
-        """
-        Gets the test configuration from the json file given in handle.
-        """
-        data = json.load(handle)
-        return data['run_oci_args'], data['program_argv'], data['expected_result']
-
-
-    def run_test_in_dir(self, run_oci_args, argv, expected, oci_path):
+    def run_test_in_dir(self, test_config, oci_path):
         """
         Executes the test in the given directory that points to an OCI image.
         """
-        ret = 0
-        cmd_output = utils.system_output(
-                '/usr/bin/run_oci %s %s' % (run_oci_args, oci_path),
-                retain_output=True)
-        if cmd_output != expected:
-            ret = 1
-        return ret
+        result = utils.run(
+                ['/usr/bin/run_oci'] + ['-U'] + test_config['run_oci_args'].split() +
+                [oci_path] + test_config.get('program_extra_argv', '').split(),
+                ignore_status=True, stderr_is_expected=True, verbose=True,
+                stdout_tee=utils.TEE_TO_LOGS, stderr_tee=utils.TEE_TO_LOGS)
+        expected = test_config['expected_result'].strip()
+        if result.stdout.strip() != expected:
+            logging.error('stdout mismatch %s != %s',
+                          result.stdout.strip(), expected)
+            return False
+        expected_err = test_config.get('expected_stderr', '').strip()
+        if result.stderr.strip() != expected_err:
+            logging.error('stderr mismatch %s != %s',
+                          result.stderr.strip(), expected_err)
+            return False
+        return True
 
 
-    def run_test(self, run_oci_args, argv, expected):
+    def run_test(self, test_config):
         """
         Runs one test from the src directory.  Return 0 if the test passes,
         return 1 on failure.
         """
+        chronos_uid = pwd.getpwnam('chronos').pw_uid
         td = autotemp.tempdir()
-        os.chown(td.name, 10000, 10000)
+        os.chown(td.name, chronos_uid, chronos_uid)
         with open(os.path.join(td.name, 'config.json'), 'w') as config_file:
-            config_file.write(CONFIG_JSON_TEMPLATE % argv)
+            config_file.write(CONFIG_JSON_TEMPLATE % test_config['program_argv'])
         rootfs_path = os.path.join(td.name, 'rootfs')
         os.mkdir(rootfs_path)
-        os.chown(rootfs_path, 10000, 10000)
-        utils.run(['mount', "--bind", "/", rootfs_path])
-        ret = self.run_test_in_dir(run_oci_args, argv, expected, td.name)
-        utils.run(['umount', '-f', rootfs_path])
-        return ret
+        os.chown(rootfs_path, chronos_uid, chronos_uid)
+        with bind_mounted_root(rootfs_path):
+            return self.run_test_in_dir(test_config, td.name)
+        return False
 
 
     def run_once(self):
@@ -151,8 +181,7 @@ class security_RunOci(test.test):
         for p in glob.glob('%s/test-*.json' % self.srcdir):
             name = os.path.basename(p)
             logging.info('Running: %s', name)
-            run_oci_args, argv, expected = self.get_test_option(file(p))
-            if self.run_test(run_oci_args, argv, expected):
+            if not self.run_test(json.load(file(p))):
                 failed.append(name)
             ran += 1
         if ran == 0:

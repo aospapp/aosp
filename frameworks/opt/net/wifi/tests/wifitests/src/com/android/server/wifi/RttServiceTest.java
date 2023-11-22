@@ -41,6 +41,7 @@ import android.os.test.TestLooper;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.internal.util.test.BidirectionalAsyncChannel;
+import com.android.server.wifi.util.WifiPermissionsUtil;
 
 import org.junit.After;
 import org.junit.Before;
@@ -69,6 +70,8 @@ public class RttServiceTest {
     WifiInjector mWifiInjector;
     @Mock
     IWificond mWificond;
+    @Mock
+    WifiPermissionsUtil mWifiPermissionsUtil;
 
     RttService.RttServiceImpl mRttServiceImpl;
     ArgumentCaptor<BroadcastReceiver> mBroadcastReceiverCaptor = ArgumentCaptor
@@ -80,6 +83,9 @@ public class RttServiceTest {
         mLooper = new TestLooper();
         when(mWifiInjector.makeWificond()).thenReturn(mWificond);
         when(mWifiInjector.getWifiNative()).thenReturn(mWifiNative);
+        when(mWifiInjector.getWifiPermissionsUtil()).thenReturn(mWifiPermissionsUtil);
+        when(mWifiPermissionsUtil.checkCallersLocationPermission(any(), anyInt()))
+                .thenReturn(true);
         mRttServiceImpl = new RttService.RttServiceImpl(mContext, mLooper.getLooper(),
                 mWifiInjector);
         mRttServiceImpl.startService();
@@ -100,7 +106,7 @@ public class RttServiceTest {
     // Create and connect a bi-directional async channel.
     private BidirectionalAsyncChannel connectChannel(Handler handler) {
         BidirectionalAsyncChannel channel = new BidirectionalAsyncChannel();
-        channel.connect(mLooper.getLooper(), mRttServiceImpl.getMessenger(),
+        channel.connect(mLooper.getLooper(), mRttServiceImpl.getMessenger(null, new int[1]),
                 handler);
         mLooper.dispatchAll();
         channel.assertConnected();
@@ -268,6 +274,22 @@ public class RttServiceTest {
         // Wifi is disabled as startWifi() is not invoked.
         sendEnableResponderFailed(channel, handler, CLIENT_KEY1, RttManager.REASON_NOT_AVAILABLE);
         verifyNoMoreInteractions(mWifiNative);
+    }
+
+    /**
+     * Test RTT fails without proper location permission
+     */
+    @Test
+    public void testEnableResponderFailureNoPermission() throws Exception {
+        when(mWifiPermissionsUtil.checkCallersLocationPermission(any(), anyInt()))
+                .thenReturn(false);
+        startWifi();
+        Handler handler = mock(Handler.class);
+        BidirectionalAsyncChannel channel = connectChannel(handler);
+        Message message = sendEnableResponder(channel, handler, CLIENT_KEY1, null);
+        // RTT operations failed without proper permission.
+        assertEquals("expected permission denied, but got " + message.what,
+                RttManager.REASON_PERMISSION_DENIED, message.arg1);
     }
 
     /**

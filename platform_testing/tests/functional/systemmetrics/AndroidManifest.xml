@@ -19,6 +19,7 @@
 
     <application>
         <uses-library android:name="android.test.runner" />
+        <activity android:name=".ReportedDrawnActivity"/>
     </application>
 
     <uses-sdk

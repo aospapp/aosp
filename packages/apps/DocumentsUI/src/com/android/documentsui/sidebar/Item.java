@@ -54,9 +54,13 @@ abstract class Item {
 
     abstract void bindView(View convertView);
 
-    abstract boolean isDropTarget();
+    abstract boolean isRoot();
 
     abstract void open();
+
+    boolean isDropTarget() {
+        return isRoot();
+    }
 
     boolean dropOn(DragEvent event) {
         return false;

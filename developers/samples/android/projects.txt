@@ -129,3 +129,4 @@ input/autofill/AutofillFramework
 views/EmojiCompat
 ui/fonts/DownloadableFonts
 wearable/wear/WearComplicationProvidersTestSuite
+wearable/wear/WearMessagingApp

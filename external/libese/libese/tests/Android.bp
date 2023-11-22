@@ -16,9 +16,13 @@
 
 cc_test {
     name: "ese_unittests",
-    vendor: true,
+    proprietary: true,
+    srcs: [
+        "ese_unittests.cpp",
+        "bitspec_unittests.cpp",
+        "sg_unittests.cpp",
+    ],
     host_supported: true,
-    srcs: ["ese_unittests.cpp", "bitspec_unittests.cpp"],
     shared_libs: [
         "libese",
         "libese-hw-fake",

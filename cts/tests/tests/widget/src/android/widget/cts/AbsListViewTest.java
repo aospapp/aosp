@@ -854,6 +854,22 @@ public class AbsListViewTest {
                 expectedCheckedItems, mListView.getCheckedItemPositions());
     }
 
+    @Test
+    @UiThreadTest
+    public void testCheckItemCount() throws Throwable {
+        final ArrayList<String> items = new ArrayList<>(Arrays.asList(COUNTRY_LIST));
+        final ArrayAdapter<String> adapter = new PositionArrayAdapter<>(mContext,
+                android.R.layout.simple_list_item_1, items);
+        mListView.setAdapter(adapter);
+        mListView.setChoiceMode(AbsListView.CHOICE_MODE_MULTIPLE);
+        mListView.setItemChecked(0, true);
+        mListView.setItemChecked(1, true);
+        assertEquals(2, mListView.getCheckedItemCount());
+
+        mListView.setAdapter(adapter);
+        assertEquals(0, mListView.getCheckedItemCount());
+    }
+
     @MediumTest
     @Test
     public void testCheckedItemsUnderNoneChoiceMode() throws Throwable {

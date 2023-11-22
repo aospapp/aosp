@@ -16,26 +16,45 @@
 
 package com.android.tradefed.targetprep;
 
+import static org.junit.Assert.*;
+
 import com.android.tradefed.build.AppBuildInfo;
 import com.android.tradefed.config.OptionSetter;
+import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.WifiHelper;
-import com.android.tradefed.testtype.DeviceTestCase;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.util.FileUtil;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.File;
 
 /**
  * A functional test for {@link AppSetup}.
- * <p/>
- * Relies on WifiUtil.apk in tradefed.jar.
- * <p/>
- * 'aapt' must be in PATH.
+ *
+ * <p>Relies on WifiUtil.apk in tradefed.jar.
+ *
+ * <p>'aapt' must be in PATH.
  */
-public class AppSetupFuncTest extends DeviceTestCase {
+@RunWith(DeviceJUnit4ClassRunner.class)
+public class AppSetupFuncTest implements IDeviceTest {
 
-    /**
-     * Test end to end normal case for {@link AppSetup}.
-     */
+    private ITestDevice mDevice;
+
+    @Override
+    public void setDevice(ITestDevice device) {
+        mDevice = device;
+    }
+
+    @Override
+    public ITestDevice getDevice() {
+        return mDevice;
+    }
+
+    /** Test end to end normal case for {@link AppSetup}. */
+    @Test
     public void testSetupTeardown() throws Exception {
         // use wifiutil as a test apk since it already exists
         getDevice().uninstallPackage(WifiHelper.INSTRUMENTATION_PKG);

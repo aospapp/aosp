@@ -1,4 +1,3 @@
-
 /*
  * Copyright (C) 2016 The Android Open Source Project
  *
@@ -18,10 +17,12 @@
 #include <algos/time_sync.h>
 #include <atomic.h>
 #include <cpu/cpuMath.h>
+#include <errno.h>
 #include <gpio.h>
 #include <heap.h>
 #include <halIntf.h>
 #include <hostIntf.h>
+#include <i2c.h>
 #include <isr.h>
 #include <nanohub_math.h>
 #include <nanohubPacket.h>
@@ -60,11 +61,12 @@
 
 #ifdef GYRO_CAL_ENABLED
 #include <calibration/gyroscope/gyro_cal.h>
+#include <common/math/macros.h>
 #endif  // GYRO_CAL_ENABLED
 
-#ifdef GYRO_CAL_DBG_ENABLED
+#if defined(GYRO_CAL_DBG_ENABLED) || defined(OVERTEMPCAL_DBG_ENABLED)
 #include <calibration/util/cal_log.h>
-#endif  // GYRO_CAL_DBG_ENABLED
+#endif  // GYRO_CAL_DBG_ENABLED || OVERTEMPCAL_DBG_ENABLED
 
 #ifdef OVERTEMPCAL_ENABLED
 #include <calibration/over_temp/over_temp_cal.h>
@@ -73,6 +75,10 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
+
+#define VERBOSE_PRINT(fmt, ...) do { \
+        osLog(LOG_VERBOSE, "%s " fmt, "[BMI160]", ##__VA_ARGS__); \
+    } while (0);
 
 #define INFO_PRINT(fmt, ...) do { \
         osLog(LOG_INFO, "%s " fmt, "[BMI160]", ##__VA_ARGS__); \
@@ -84,13 +90,13 @@
 
 #define DEBUG_PRINT(fmt, ...) do { \
         if (DBG_ENABLE) {  \
-            INFO_PRINT(fmt,  ##__VA_ARGS__); \
+            osLog(LOG_DEBUG, "%s " fmt, "[BMI160]", ##__VA_ARGS__); \
         } \
     } while (0);
 
 #define DEBUG_PRINT_IF(cond, fmt, ...) do { \
         if ((cond) && DBG_ENABLE) {  \
-            INFO_PRINT(fmt,  ##__VA_ARGS__); \
+            osLog(LOG_DEBUG, "%s " fmt, "[BMI160]", ##__VA_ARGS__); \
         } \
     } while (0);
 
@@ -102,7 +108,7 @@
 #define DBG_WM_CALC               0
 #define TIMESTAMP_DBG             0
 
-#define BMI160_APP_VERSION 14
+#define BMI160_APP_VERSION 17
 
 // fixme: to list required definitions for a slave mag
 #ifdef USE_BMM150
@@ -113,6 +119,17 @@
 
 #define BMI160_APP_ID APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 2)
 
+#ifdef BMI160_I2C_BUS_ID
+#define BMI160_USE_I2C
+
+#ifndef BMI160_I2C_SPEED
+#define BMI160_I2C_SPEED          400000
+#endif
+#ifndef BMI160_I2C_ADDR
+#define BMI160_I2C_ADDR           0x68
+#endif
+#endif
+
 #define BMI160_SPI_WRITE          0x00
 #define BMI160_SPI_READ           0x80
 
@@ -120,9 +137,18 @@
 #define BMI160_SPI_SPEED_HZ       8000000
 #define BMI160_SPI_MODE           3
 
-#define BMI160_INT_IRQ            EXTI9_5_IRQn
+#ifndef BMI160_INT1_IRQ
+#define BMI160_INT1_IRQ           EXTI9_5_IRQn
+#endif
+#ifndef BMI160_INT1_PIN
 #define BMI160_INT1_PIN           GPIO_PB(6)
+#endif
+#ifndef BMI160_INT2_IRQ
+#define BMI160_INT2_IRQ           EXTI9_5_IRQn
+#endif
+#ifndef BMI160_INT2_PIN
 #define BMI160_INT2_PIN           GPIO_PB(7)
+#endif
 
 #define BMI160_ID                 0xd1
 
@@ -233,7 +259,20 @@
 
 #define MAX_NUM_COMMS_EVENT_SAMPLES 15
 
-#define kScale_acc    0.00239501953f  // ACC_range * 9.81f / 32768.0f;
+// Default accel range is 8g
+#ifndef BMI160_ACC_RANGE_G
+#define BMI160_ACC_RANGE_G 8
+#endif
+
+#if BMI160_ACC_RANGE_G == 16
+#define ACC_RANGE_SETTING 0x0c
+#elif BMI160_ACC_RANGE_G == 8
+#define ACC_RANGE_SETTING 0x08
+#else
+#error "Invalid BMI160_ACC_RANGE_G setting: valid values are 8, 16"
+#endif
+
+#define kScale_acc    (9.81f * BMI160_ACC_RANGE_G / 32768.0f)
 #define kScale_gyr    0.00053263221f  // GYR_range * M_PI / (180.0f * 32768.0f);
 #define kScale_temp   0.001953125f    // temperature in deg C
 #define kTempInvalid  -1000.0f
@@ -252,7 +291,8 @@
 #define MAG_MAX_RATE    11
 #define ACC_MAX_OSR     3
 #define GYR_MAX_OSR     4
-#define OSR_THRESHOLD   8
+#define ODR_100HZ       8
+#define ODR_200HZ       9
 
 #define MOTION_ODR         7
 
@@ -422,6 +462,7 @@ struct OtcGyroUpdateBuffer {
     struct AppToSensorHalDataBuffer head;
     struct GyroOtcData data;
     volatile uint8_t lock; // lock for static object
+    bool sendToHostRequest;
 } __attribute__((packed));
 
 struct BMI160Task {
@@ -455,6 +496,8 @@ struct BMI160Task {
     struct SpiDevice *spiDev;
     struct Gpio *Int1;
     struct Gpio *Int2;
+    IRQn_Type Irq1;
+    IRQn_Type Irq2;
     struct ChainedIsr Isr1;
     struct ChainedIsr Isr2;
 #ifdef ACCEL_CAL_ENABLED
@@ -521,6 +564,11 @@ struct BMI160Task {
     struct SlabAllocator *mDataSlab;
     uint16_t mWbufCnt;
     uint8_t mRegCnt;
+#ifdef BMI160_USE_I2C
+    uint8_t cReg;
+    SpiCbkF sCallback;
+#endif
+
     uint8_t mRetryLeft;
     bool spiInUse;
 };
@@ -798,6 +846,10 @@ static void spiQueueRead(uint8_t addr, size_t size, uint8_t **buf, uint32_t dela
     T(mRegCnt)++;
 }
 
+#ifdef BMI160_USE_I2C
+static void i2cBatchTxRx(void *evtData, int err);
+#endif
+
 static void spiBatchTxRx(struct SpiMode *mode,
         SpiCbkF callback, void *cookie, const char * src)
 {
@@ -812,16 +864,22 @@ static void spiBatchTxRx(struct SpiMode *mode,
     }
 
     T(spiInUse) = true;
+    T(mWbufCnt) = 0;
 
+#ifdef BMI160_USE_I2C
+    T(cReg) = 0;
+    T(sCallback) = callback;
+    i2cBatchTxRx(cookie, 0);
+#else
     // Reset variables before issuing SPI transaction.
     // SPI may finish before spiMasterRxTx finish
     uint8_t regCount = T(mRegCnt);
     T(mRegCnt) = 0;
-    T(mWbufCnt) = 0;
 
     if (spiMasterRxTx(T(spiDev), T(cs), T(packets), regCount, mode, callback, cookie) < 0) {
         ERROR_PRINT("spiMasterRxTx failed!\n");
     }
+#endif
 }
 
 
@@ -949,18 +1007,18 @@ static bool stepCntFirmwareUpload(void *cookie)
     return true;
 }
 
-static bool enableInterrupt(struct Gpio *pin, struct ChainedIsr *isr)
+static bool enableInterrupt(struct Gpio *pin, IRQn_Type irq, struct ChainedIsr *isr)
 {
     gpioConfigInput(pin, GPIO_SPEED_LOW, GPIO_PULL_NONE);
     syscfgSetExtiPort(pin);
     extiEnableIntGpio(pin, EXTI_TRIGGER_RISING);
-    extiChainIsr(BMI160_INT_IRQ, isr);
+    extiChainIsr(irq, isr);
     return true;
 }
 
-static bool disableInterrupt(struct Gpio *pin, struct ChainedIsr *isr)
+static bool disableInterrupt(struct Gpio *pin, IRQn_Type irq, struct ChainedIsr *isr)
 {
-    extiUnchainIsr(BMI160_INT_IRQ, isr);
+    extiUnchainIsr(irq, isr);
     extiDisableIntGpio(pin);
     return true;
 }
@@ -1260,7 +1318,7 @@ static bool accPower(bool on, void *cookie)
 {
     TDECL();
 
-    INFO_PRINT("accPower: on=%d, state=%" PRI_STATE "\n", on, getStateName(GET_STATE()));
+    VERBOSE_PRINT("accPower: on=%d, state=%" PRI_STATE "\n", on, getStateName(GET_STATE()));
     if (trySwitchState(on ? SENSOR_POWERING_UP : SENSOR_POWERING_DOWN)) {
         if (on) {
             // set ACC power mode to NORMAL
@@ -1283,7 +1341,7 @@ static bool accPower(bool on, void *cookie)
 static bool gyrPower(bool on, void *cookie)
 {
     TDECL();
-    INFO_PRINT("gyrPower: on=%d, state=%" PRI_STATE "\n", on, getStateName(GET_STATE()));
+    VERBOSE_PRINT("gyrPower: on=%d, state=%" PRI_STATE "\n", on, getStateName(GET_STATE()));
 
     if (trySwitchState(on ? SENSOR_POWERING_UP : SENSOR_POWERING_DOWN)) {
         if (on) {
@@ -1316,7 +1374,7 @@ static bool gyrPower(bool on, void *cookie)
 static bool magPower(bool on, void *cookie)
 {
     TDECL();
-    INFO_PRINT("magPower: on=%d, state=%" PRI_STATE "\n", on, getStateName(GET_STATE()));
+    VERBOSE_PRINT("magPower: on=%d, state=%" PRI_STATE "\n", on, getStateName(GET_STATE()));
     if (trySwitchState(on ? SENSOR_POWERING_UP : SENSOR_POWERING_DOWN)) {
         if (on) {
             // set MAG power mode to NORMAL
@@ -1517,9 +1575,15 @@ static uint8_t computeOdr(uint32_t rate)
 }
 
 static void configMotion(uint8_t odr) {
+#if BMI160_ACC_RANGE_G == 16
+    // motion threshold is element * 31.25mg (for 16g range)
+    static const uint8_t motion_thresholds[ACC_MAX_RATE+1] =
+        {3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 1, 1, 1};
+#elif BMI160_ACC_RANGE_G == 8
     // motion threshold is element * 15.63mg (for 8g range)
     static const uint8_t motion_thresholds[ACC_MAX_RATE+1] =
         {5, 5, 5, 5, 5, 5, 5, 5, 4, 3, 2, 2, 2};
+#endif
 
     // set any_motion duration to 1 point
     // set no_motion duration to (3+1)*1.28sec=5.12sec
@@ -1536,6 +1600,7 @@ static bool accSetRate(uint32_t rate, uint64_t latency, void *cookie)
 {
     TDECL();
     int odr, osr = 0;
+    int osr_mode = 2; // normal
 
     // change this to DEBUG_PRINT as there will be frequent (un)subscribings
     // to accel with different rate/latency requirements.
@@ -1560,7 +1625,13 @@ static bool accSetRate(uint32_t rate, uint64_t latency, void *cookie)
 
         // for high odrs, oversample to reduce hw latency and downsample
         // to get desired odr
-        if (odr > OSR_THRESHOLD) {
+        if (odr > ODR_100HZ) {
+            // 200Hz osr4, >= 400Hz osr2
+            if (odr == ODR_200HZ) {
+                osr_mode = 0; // OSR4
+            } else {
+                osr_mode = 1; // OSR2
+            }
             osr = (ACC_MAX_OSR + odr) > ACC_MAX_RATE ? (ACC_MAX_RATE - odr) : ACC_MAX_OSR;
             odr += osr;
         }
@@ -1575,7 +1646,7 @@ static bool accSetRate(uint32_t rate, uint64_t latency, void *cookie)
 
         // set ACC bandwidth parameter to 2 (bits[4:6])
         // set the rate (bits[0:3])
-        SPI_WRITE(BMI160_REG_ACC_CONF, 0x20 | odr);
+        SPI_WRITE(BMI160_REG_ACC_CONF, (osr_mode << 4) | odr);
 
         // configure down sampling ratio, 0x88 is to specify we are using
         // filtered samples
@@ -1598,7 +1669,8 @@ static bool gyrSetRate(uint32_t rate, uint64_t latency, void *cookie)
 {
     TDECL();
     int odr, osr = 0;
-    INFO_PRINT("gyrSetRate: rate=%ld, latency=%lld, state=%" PRI_STATE "\n",
+    int osr_mode = 2; // normal
+    VERBOSE_PRINT("gyrSetRate: rate=%ld, latency=%lld, state=%" PRI_STATE "\n",
                rate, latency, getStateName(GET_STATE()));
 
     if (trySwitchState(SENSOR_CONFIG_CHANGING)) {
@@ -1619,7 +1691,13 @@ static bool gyrSetRate(uint32_t rate, uint64_t latency, void *cookie)
 
         // for high odrs, oversample to reduce hw latency and downsample
         // to get desired odr
-        if (odr > OSR_THRESHOLD) {
+        if (odr > ODR_100HZ) {
+            // 200Hz osr4, >= 400Hz osr2
+            if (odr == ODR_200HZ) {
+                osr_mode = 0; // OSR4
+            } else {
+                osr_mode = 1; // OSR2
+            }
             osr = (GYR_MAX_OSR + odr) > GYR_MAX_RATE ? (GYR_MAX_RATE - odr) : GYR_MAX_OSR;
             odr += osr;
         }
@@ -1631,7 +1709,7 @@ static bool gyrSetRate(uint32_t rate, uint64_t latency, void *cookie)
 
         // set GYR bandwidth parameter to 2 (bits[4:6])
         // set the rate (bits[0:3])
-        SPI_WRITE(BMI160_REG_GYR_CONF, 0x20 | odr);
+        SPI_WRITE(BMI160_REG_GYR_CONF, (osr_mode << 4) | odr);
 
         // configure down sampling ratio, 0x88 is to specify we are using
         // filtered samples
@@ -1659,7 +1737,7 @@ static bool magSetRate(uint32_t rate, uint64_t latency, void *cookie)
     if (rate == SENSOR_RATE_ONCHANGE)
         rate = SENSOR_HZ(100);
 
-    INFO_PRINT("magSetRate: rate=%ld, latency=%lld, state=%" PRI_STATE "\n",
+    VERBOSE_PRINT("magSetRate: rate=%ld, latency=%lld, state=%" PRI_STATE "\n",
                rate, latency, getStateName(GET_STATE()));
 
     if (trySwitchState(SENSOR_CONFIG_CHANGING)) {
@@ -2130,22 +2208,19 @@ static void parseRawData(struct BMI160Sensor *mSensor, uint8_t *buf, float kScal
       }
 
 #ifdef OVERTEMPCAL_ENABLED
-      // OTC-Gyro Cal -- A timer is used to limit the frequency of the offset
-      // update checks.
-      static uint64_t imu_new_otc_offset_timer = 0;  // nanoseconds
-      bool new_otc_offset_update = false;
-      if ((rtc_time - imu_new_otc_offset_timer) >= 500000000) {
-        imu_new_otc_offset_timer = rtc_time;
+      // OTC-Gyro Cal --  Gets the latest OTC-Gyro temperature compensated
+      // offset estimate.
+      bool new_otc_offset_update =
+          overTempCalNewOffsetAvailable(&mTask.over_temp_gyro_cal);
+      overTempCalGetOffset(&mTask.over_temp_gyro_cal,
+                           &gyro_offset_temperature_celsius, gyro_offset);
 
-        // OTC-Gyro Cal --  Gets the latest OTC-Gyro temperature compensated
-        // offset estimate.
-        new_otc_offset_update =
-            overTempCalGetOffset(&mTask.over_temp_gyro_cal, rtc_time,
-                                 &gyro_offset_temperature_celsius, gyro_offset);
-      }
+      // OTC-Gyro Cal --  Checks for a model update.
+      bool new_otc_model_update =
+          overTempCalNewModelUpdateAvailable(&mTask.over_temp_gyro_cal);
 
       if (new_otc_offset_update) {
-#else  // OVERTEMPCAL_ENABLED
+#else   // OVERTEMPCAL_ENABLED
       if (new_gyrocal_offset_update) {
 #endif  // OVERTEMPCAL_ENABLED
         if (mSensor->data_evt->samples[0].firstSample.numSamples > 0) {
@@ -2185,10 +2260,9 @@ static void parseRawData(struct BMI160Sensor *mSensor, uint8_t *buf, float kScal
         }
       }
 #ifdef OVERTEMPCAL_ENABLED
-      if (overTempCalNewModelUpdateAvailable(&mTask.over_temp_gyro_cal)
-          || new_otc_offset_update) {
+      if (new_otc_model_update || new_otc_offset_update) {
         // Notify HAL to store new gyro OTC-Gyro data.
-        sendOtcGyroUpdate();
+        T(otcGyroUpdateBuffer).sendToHostRequest = true;
       }
 #endif  // OVERTEMPCAL_ENABLED
     }
@@ -2664,8 +2738,8 @@ static void accCalibrationHandling(void)
         break;
     case CALIBRATION_FOC:
 
-        // set accel range to +-8g
-        SPI_WRITE(BMI160_REG_ACC_RANGE, 0x08);
+        // set accel range
+        SPI_WRITE(BMI160_REG_ACC_RANGE, ACC_RANGE_SETTING);
 
         // enable accel fast offset compensation,
         // x: 0g, y: 0g, z: 1g
@@ -2828,8 +2902,8 @@ static void accTestHandling(void)
         // set accel conf
         SPI_WRITE(BMI160_REG_ACC_CONF, 0x2c);
 
-        // set accel range to +-8g
-        SPI_WRITE(BMI160_REG_ACC_RANGE, 0x08);
+        // set accel range
+        SPI_WRITE(BMI160_REG_ACC_RANGE, ACC_RANGE_SETTING);
 
         // read stale accel data
         SPI_READ(BMI160_REG_DATA_14, 6, &mTask.dataBuffer);
@@ -3143,8 +3217,9 @@ static bool magCfgData(void *data, void *cookie)
                 (int)(d->inclination * 180 / M_PI + 0.5f));
 
         // Passing local field information to mag calibration routine
+#ifdef DIVERSITY_CHECK_ENABLED
         diversityCheckerLocalFieldUpdate(&mTask.moc.diversity_checker, d->strength);
-
+#endif
         // TODO: pass local field information to rotation vector sensor.
     } else {
         ERROR_PRINT("magCfgData: unknown type 0x%04x, size %d", p->type, p->size);
@@ -3265,6 +3340,13 @@ static void processPendingEvt(void)
         mTask.pending_calibration_save = !saveCalibration();
         return;
     }
+
+#ifdef OVERTEMPCAL_ENABLED
+    // tasks that do not initiate SPI transaction
+    if (T(otcGyroUpdateBuffer).sendToHostRequest) {
+        sendOtcGyroUpdate();
+    }
+#endif
 }
 
 static void sensorInit(void)
@@ -3320,8 +3402,8 @@ static void sensorInit(void)
         mTask.sensors[GYR].offset_enable = false;
         SPI_WRITE(BMI160_REG_OFFSET_6, offset6Mode(), 450);
 
-        // initial range for accel (+-8g) and gyro (+-1000 degree).
-        SPI_WRITE(BMI160_REG_ACC_RANGE, 0x08, 450);
+        // initial range for accel and gyro (+-1000 degree).
+        SPI_WRITE(BMI160_REG_ACC_RANGE, ACC_RANGE_SETTING, 450);
         SPI_WRITE(BMI160_REG_GYR_RANGE, 0x01, 450);
 
         // Reset step counter
@@ -3434,6 +3516,7 @@ static void handleSpiDoneEvt(const void* evtData)
                 ERROR_PRINT("Couldn't get a timer to verify ID\n");
             break;
         } else {
+            INFO_PRINT("detected\n");
             SET_STATE(SENSOR_INITIALIZING);
             mTask.init_state = RESET_BMI160;
             sensorInit();
@@ -3572,6 +3655,69 @@ static void handleSpiDoneEvt(const void* evtData)
     }
 }
 
+#ifdef BMI160_USE_I2C
+static void i2cCallback(void *cookie, size_t tx, size_t rx, int err);
+
+/* delayed callback */
+static void i2cDelayCallback(uint32_t timerId, void *data)
+{
+    i2cCallback(data, 0, 0, 0);
+}
+
+static void i2cCallback(void *cookie, size_t tx, size_t rx, int err)
+{
+    TDECL();
+    uint8_t reg = T(cReg) - 1;
+    uint32_t delay;
+
+    if (err != 0) {
+        ERROR_PRINT("i2c error (tx: %d, rx: %d, err: %d)\n", tx, rx, err);
+    } else { /* delay callback if it is the case */
+        delay = T(packets[reg]).delay;
+        T(packets[reg]).delay = 0;
+        if (delay > 0) {
+            if (timTimerSet(delay, 0, 50, i2cDelayCallback, cookie, true))
+                return;
+            ERROR_PRINT("Cannot do delayed i2cCallback\n");
+            err = -ENOMEM;
+        }
+    }
+    i2cBatchTxRx(cookie, err);
+}
+
+static void i2cBatchTxRx(void *evtData, int err)
+{
+    TDECL();
+    uint8_t *txBuf;
+    uint8_t *rxBuf;
+    uint16_t size;
+    uint8_t reg;
+
+    reg = T(cReg)++;
+    if (err || (reg >= T(mRegCnt))) // No more packets
+        goto i2c_batch_end;
+
+    // Setup i2c op for next packet
+    txBuf = (uint8_t *)T(packets[reg]).txBuf;
+    size = T(packets[reg]).size;
+    if (txBuf[0] & BMI160_SPI_READ) { // Read op
+        rxBuf = (uint8_t *)T(packets[reg]).rxBuf + 1;
+        size--;
+        err = i2cMasterTxRx(BMI160_I2C_BUS_ID, BMI160_I2C_ADDR, txBuf, 1, rxBuf, size, i2cCallback, evtData);
+    } else { // Write op
+        err = i2cMasterTx(BMI160_I2C_BUS_ID, BMI160_I2C_ADDR, txBuf, size, i2cCallback, evtData);
+    }
+    if (!err)
+        return;
+    ERROR_PRINT("%s: [0x%x] (err: %d)\n", __func__, txBuf[0], err);
+
+i2c_batch_end:
+    T(mRegCnt) = 0;
+    if (T(sCallback))
+        T(sCallback)((void *)evtData, err);
+}
+#endif
+
 static void handleEvent(uint32_t evtType, const void* evtData)
 {
     TDECL();
@@ -3648,8 +3794,10 @@ static bool startTask(uint32_t task_id)
     T(tid) = task_id;
 
     T(Int1) = gpioRequest(BMI160_INT1_PIN);
+    T(Irq1) = BMI160_INT1_IRQ;
     T(Isr1).func = bmi160Isr1;
     T(Int2) = gpioRequest(BMI160_INT2_PIN);
+    T(Irq2) = BMI160_INT2_IRQ;
     T(Isr2).func = bmi160Isr2;
     T(pending_int[0]) = false;
     T(pending_int[1]) = false;
@@ -3670,7 +3818,11 @@ static bool startTask(uint32_t task_id)
 
     T(watermark) = 0;
 
+#ifdef BMI160_USE_I2C
+    i2cMasterRequest(BMI160_I2C_BUS_ID, BMI160_I2C_SPEED);
+#else
     spiMasterRequest(BMI160_SPI_BUS_ID, &T(spiDev));
+#endif
 
     for (i = FIRST_CONT_SENSOR; i < NUM_OF_SENSOR; i++) {
         initSensorStruct(&T(sensors[i]), i);
@@ -3698,55 +3850,64 @@ static bool startTask(uint32_t task_id)
 #ifdef GYRO_CAL_ENABLED
     // Gyro Cal -- Initialization.
     gyroCalInit(&mTask.gyro_cal,
-                5e9,      // min stillness period = 5 seconds
-                6e9,      // max stillness period = 6 seconds
-                0, 0, 0,  // initial bias offset calibration
-                0,        // time stamp of initial bias calibration
-                1.5e9,    // analysis window length = 1.5 seconds
-                7.5e-5f,  // gyroscope variance threshold [rad/sec]^2
-                1e-5f,    // gyroscope confidence delta [rad/sec]^2
-                8e-3f,    // accelerometer variance threshold [m/sec^2]^2
-                1.6e-3f,  // accelerometer confidence delta [m/sec^2]^2
-                5.0f,     // magnetometer variance threshold [uT]^2
-                0.25,     // magnetometer confidence delta [uT]^2
-                0.95f,    // stillness threshold [0,1]
-                40.0e-3f * M_PI / 180.0f,  // stillness mean variation limit [rad/sec]
-                1.5f,     // maximum temperature deviation during stillness [C]
-                true);    // gyro calibration enable
+                SEC_TO_NANOS(5.0f),   // Min stillness period = 5.0 seconds
+                SEC_TO_NANOS(5.9f),   // Max stillness period = 6.0 seconds (NOTE 1)
+                0, 0, 0,              // Initial bias offset calibration
+                0,                    // Time stamp of initial bias calibration
+                SEC_TO_NANOS(1.5f),   // Analysis window length = 1.5 seconds
+                7.5e-5f,              // Gyroscope variance threshold [rad/sec]^2
+                1.5e-5f,              // Gyroscope confidence delta [rad/sec]^2
+                4.5e-3f,              // Accelerometer variance threshold [m/sec^2]^2
+                9.0e-4f,              // Accelerometer confidence delta [m/sec^2]^2
+                5.0f,                 // Magnetometer variance threshold [uT]^2
+                1.0f,                 // Magnetometer confidence delta [uT]^2
+                0.95f,                // Stillness threshold [0,1]
+                40.0f * MDEG_TO_RAD,  // Stillness mean variation limit [rad/sec]
+                1.5f,                 // Max temperature delta during stillness [C]
+                true);                // Gyro calibration enable
+    // NOTE 1: This parameter is set to 5.9 seconds to achieve a max stillness
+    // period of 6.0 seconds and avoid buffer boundary conditions that could push
+    // the max stillness to the next multiple of the analysis window length
+    // (i.e., 7.5 seconds).
 
 #ifdef OVERTEMPCAL_ENABLED
     // Initialize over-temp calibration.
-    overTempCalInit(
-        &mTask.over_temp_gyro_cal,
-        5,                          // Min num of points to enable model update.
-        5000000000,                 // Min model update interval [nsec].
-        0.75f,                      // Temperature span of bin method [C].
-        50.0e-3f * M_PI / 180.0f,   // Model fit tolerance [rad/sec].
-        172800000000000,            // Model data point age limit [nsec].
-        50.0e-3f * M_PI / 180.0f,   // Limit for temp. sensitivity [rad/sec/C].
-        3.0f * M_PI / 180.0f,       // Limit for model intercept parameter [rad/sec].
-        true);                      // Over-temp compensation enable.
+    overTempCalInit(&mTask.over_temp_gyro_cal,
+                    5,                     // Min num of points to enable model update
+                    SEC_TO_NANOS(0.5f),    // Min temperature update interval [nsec]
+                    0.75f,                 // Temperature span of bin method [C]
+                    40.0f * MDEG_TO_RAD,   // Jump tolerance [rad/sec]
+                    50.0f * MDEG_TO_RAD,   // Outlier rejection tolerance [rad/sec]
+                    DAYS_TO_NANOS(2),      // Model data point age limit [nsec]
+                    80.0f * MDEG_TO_RAD,   // Limit for temp. sensitivity [rad/sec/C]
+                    3.0e3f * MDEG_TO_RAD,  // Limit for model intercept parameter [rad/sec]
+                    0.1f * MDEG_TO_RAD,    // Significant offset change [rad/sec]
+                    true);                 // Over-temp compensation enable
 #endif  // OVERTEMPCAL_ENABLED
 #endif  // GYRO_CAL_ENABLED
 
 #ifdef MAG_SLAVE_PRESENT
 #ifdef DIVERSITY_CHECK_ENABLED
- initMagCal(&mTask.moc, 0.0f, 0.0f, 0.0f,  // bias x, y, z
-            1.0f, 0.0f, 0.0f,              // c00, c01, c02
-            0.0f, 1.0f, 0.0f,              // c10, c11, c12
-            0.0f, 0.0f, 1.0f,              // c20, c21, c22
-            8,                             // min_num_diverse_vectors
-            1,                             // max_num_max_distance
-            6.0f,                          // var_threshold
-            10.0f,                         // max_min_threshold
-            48.f,                          // local_field
-            0.5f,                          // threshold_tuning_param
-            2.552);                        // max_distance_tuning_param
+    initMagCal(&mTask.moc,
+               0.0f, 0.0f, 0.0f,   // bias x, y, z
+               1.0f, 0.0f, 0.0f,   // c00, c01, c02
+               0.0f, 1.0f, 0.0f,   // c10, c11, c12
+               0.0f, 0.0f, 1.0f,   // c20, c21, c22
+               3000000,            // min_batch_window_in_micros
+               8,                  // min_num_diverse_vectors
+               1,                  // max_num_max_distance
+               6.0f,               // var_threshold
+               10.0f,              // max_min_threshold
+               48.f,               // local_field
+               0.5f,               // threshold_tuning_param
+               2.552f);            // max_distance_tuning_param
 #else
-    initMagCal(&mTask.moc, 0.0f, 0.0f, 0.0f,  // bias x, y, z
-               1.0f, 0.0f, 0.0f,              // c00, c01, c02
-               0.0f, 1.0f, 0.0f,              // c10, c11, c12
-               0.0f, 0.0f, 1.0f);             // c20, c21, c22
+    initMagCal(&mTask.moc,
+               0.0f, 0.0f, 0.0f,   // bias x, y, z
+               1.0f, 0.0f, 0.0f,   // c00, c01, c02
+               0.0f, 1.0f, 0.0f,   // c10, c11, c12
+               0.0f, 0.0f, 1.0f,   // c20, c21, c22
+               3000000);           // min_batch_window_in_micros
 #endif
 #endif
 
@@ -3759,11 +3920,14 @@ static bool startTask(uint32_t task_id)
     // XXX: this consumes too much memeory, need to optimize
     T(mDataSlab) = slabAllocatorNew(slabSize, 4, 20);
     if (!T(mDataSlab)) {
-        INFO_PRINT("slabAllocatorNew() failed\n");
+        ERROR_PRINT("slabAllocatorNew() failed\n");
         return false;
     }
     T(mWbufCnt) = 0;
     T(mRegCnt) = 0;
+#ifdef BMI160_USE_I2C
+    T(cReg) = 0;
+#endif
     T(spiInUse) = false;
 
     T(interrupt_enable_0) = 0x00;
@@ -3775,8 +3939,8 @@ static bool startTask(uint32_t task_id)
     T(frame_sensortime) = ULONG_LONG_MAX;
 
     // it's ok to leave interrupt open all the time.
-    enableInterrupt(T(Int1), &T(Isr1));
-    enableInterrupt(T(Int2), &T(Isr2));
+    enableInterrupt(T(Int1), T(Irq1), &T(Isr1));
+    enableInterrupt(T(Int2), T(Irq2), &T(Isr2));
 
     return true;
 }
@@ -3791,11 +3955,13 @@ static void endTask(void)
     accelCalDestroy(&mTask.acc);
 #endif
     slabAllocatorDestroy(T(mDataSlab));
+#ifndef BMI160_USE_I2C
     spiMasterRelease(mTask.spiDev);
+#endif
 
     // disable and release interrupt.
-    disableInterrupt(mTask.Int1, &mTask.Isr1);
-    disableInterrupt(mTask.Int2, &mTask.Isr2);
+    disableInterrupt(mTask.Int1, mTask.Irq1, &mTask.Isr1);
+    disableInterrupt(mTask.Int2, mTask.Irq2, &mTask.Isr2);
     gpioRelease(mTask.Int1);
     gpioRelease(mTask.Int2);
 }
@@ -4031,10 +4197,10 @@ static size_t calcFifoSize(const int* iPeriod, const int* iLatency, const int* f
     for (i = 0; i < n; i++) {
         if (iPeriod[i] > 0) {
             anyActive = true;
-            size_t t =  minLatency / iPeriod[i];
+            size_t t = minLatency / iPeriod[i];
             head = t > head ? t : head;
             s += t * factor[i];
-            DEBUG_PRINT_IF(DBG_WM_CALC, "cfifo: %d, s+= %d*%d, head = %d", i, t, factor[i], head);
+            DEBUG_PRINT_IF(DBG_WM_CALC, "cfifo %d: s += %d * %d, head = %d", i, t, factor[i], head);
         }
     }
 
@@ -4044,7 +4210,7 @@ static size_t calcFifoSize(const int* iPeriod, const int* iLatency, const int* f
 /**
  * Calculate the watermark setting from sensor registration information
  *
- * It is assumed  that all sensor period share a common denominator (true for BMI160) and the
+ * It is assumed that all sensor periods share a common denominator (true for BMI160) and the
  * latency of sensor will be lower bounded by its sampling period.
  *
  * @return watermark register setting
@@ -4056,12 +4222,12 @@ static uint8_t calcWatermark2_(TASK) {
     int i;
 
     for (i = FIRST_CONT_SENSOR; i < NUM_CONT_SENSOR; ++i) {
-        if (T(sensors[i]).configed) {
+        if (T(sensors[i]).configed && T(sensors[i]).latency != SENSOR_LATENCY_NODATA) {
             period[i - ACC] = SENSOR_HZ((float)WATERMARK_MAX_SENSOR_RATE) / T(sensors[i]).rate;
             latency[i - ACC] = U64_DIV_BY_U64_CONSTANT(
                     T(sensors[i]).latency + WATERMARK_TIME_UNIT_NS/2, WATERMARK_TIME_UNIT_NS);
-            DEBUG_PRINT_IF(DBG_WM_CALC, "cwm2: f %dHz, l %dus => T %d unit, L %d unit",
-                    (int) T(sensors[i]).rate/1024,
+            DEBUG_PRINT_IF(DBG_WM_CALC, "cwm2 %d: f %dHz, l %dus => T %d unit, L %d unit",
+                    i, (int) T(sensors[i]).rate/1024,
                     (int) U64_DIV_BY_U64_CONSTANT(T(sensors[i]).latency, 1000),
                     period[i-ACC], latency[i-ACC]);
         }
@@ -4086,7 +4252,7 @@ static uint32_t cvprintf_ellipsis(printf_write_c writeF, void* writeD, const cha
     uint32_t ret;
 
     va_start(vl, fmtStr);
-    ret = cvprintf(writeF, writeD, fmtStr, vl);
+    ret = cvprintf(writeF, 0, writeD, fmtStr, vl);
     va_end(vl);
 
     return ret;
@@ -4152,6 +4318,7 @@ static bool sendOtcGyroUpdate_(TASK) {
         if (osEnqueueEvtOrFree(EVT_APP_TO_SENSOR_HAL_DATA, // bit-or EVENT_TYPE_BIT_DISCARDABLE
                                                           // to make event discardable
                                p, unlockOtcGyroUpdateBuffer)) {
+            T(otcGyroUpdateBuffer).sendToHostRequest = false;
             ++step;
         }
     }

@@ -44,7 +44,7 @@ class LogUploadingFeature(feature_utils.Feature):
     ]
 
     def __init__(self, user_params, web=None):
-        """Initializes the systrace feature.
+        """Initializes the log uploading feature.
 
         Args:
             user_params: A dictionary from parameter name (String) to parameter value.
@@ -80,8 +80,14 @@ class LogUploadingFeature(feature_utils.Feature):
             self, keys.ConfigKeys.KEY_TESTBED_NAME, ''),
                                        self.web.report_msg.start_timestamp)
 
+        def path_filter(path):
+            '''filter to exclude proto files in log uploading'''
+            return not path.endswith('_proto.msg')
+
         urls = self._report_file_util.SaveReportsFromDirectory(
-            source_dir=logging.log_path, file_name_prefix=file_name_prefix)
+            source_dir=logging.log_path,
+            file_name_prefix=file_name_prefix,
+            file_path_filters=path_filter)
 
         if urls is None:
             logging.error('Error happened when saving logs.')

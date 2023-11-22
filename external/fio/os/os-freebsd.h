@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <sys/param.h>
 #include <sys/cpuset.h>
+#include <sys/statvfs.h>
 
 #include "../file.h"
 
@@ -17,8 +18,11 @@
 #define FIO_USE_GENERIC_RAND
 #define FIO_USE_GENERIC_INIT_RANDOM_STATE
 #define FIO_HAVE_CHARDEV_SIZE
+#define FIO_HAVE_FS_STAT
+#define FIO_HAVE_TRIM
 #define FIO_HAVE_GETTID
 #define FIO_HAVE_CPU_AFFINITY
+#define FIO_HAVE_SHM_ATTACH_REMOVED
 
 #define OS_MAP_ANON		MAP_ANON
 
@@ -78,7 +82,7 @@ static inline int chardev_size(struct fio_file *f, unsigned long long *bytes)
 
 static inline int blockdev_invalidate_cache(struct fio_file *f)
 {
-	return EINVAL;
+	return ENOTSUP;
 }
 
 static inline unsigned long long os_phys_mem(void)
@@ -99,8 +103,46 @@ static inline int gettid(void)
 	return (int) lwpid;
 }
 
+static inline unsigned long long get_fs_free_size(const char *path)
+{
+	unsigned long long ret;
+	struct statvfs s;
+
+	if (statvfs(path, &s) < 0)
+		return -1ULL;
+
+	ret = s.f_frsize;
+	ret *= (unsigned long long) s.f_bfree;
+	return ret;
+}
+
+static inline int os_trim(int fd, unsigned long long start,
+			  unsigned long long len)
+{
+	off_t range[2];
+
+	range[0] = start;
+	range[1] = len;
+
+	if (!ioctl(fd, DIOCGDELETE, range))
+		return 0;
+
+	return errno;
+}
+
 #ifdef MADV_FREE
 #define FIO_MADV_FREE	MADV_FREE
 #endif
+
+static inline int shm_attach_to_open_removed(void)
+{
+	int x;
+	size_t len = sizeof(x);
+
+	if (sysctlbyname("kern.ipc.shm_allow_removed", &x, &len, NULL, 0) < 0)
+		return 0;
+
+	return x > 0 ? 1 : 0;
+}
 
 #endif

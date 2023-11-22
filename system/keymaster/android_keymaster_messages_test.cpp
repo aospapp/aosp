@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <UniquePtr.h>
+#include <keymaster/UniquePtr.h>
 
 #include <gtest/gtest.h>
 
@@ -508,6 +508,25 @@ TEST(RoundTrip, GetVersionResponse) {
     EXPECT_EQ(9U, msg.major_ver);
     EXPECT_EQ(98U, msg.minor_ver);
     EXPECT_EQ(38U, msg.subminor_ver);
+}
+
+TEST(RoundTrip, ConfigureRequest) {
+    for (int ver = 0; ver <= MAX_MESSAGE_VERSION; ++ver) {
+        ConfigureRequest req(ver);
+        req.os_version = 1;
+        req.os_patchlevel = 1;
+
+        UniquePtr<ConfigureRequest> deserialized(round_trip(ver, req, 8));
+        EXPECT_EQ(deserialized->os_version, req.os_version);
+        EXPECT_EQ(deserialized->os_patchlevel, req.os_patchlevel);
+    }
+}
+
+TEST(RoundTrip, ConfigureResponse) {
+    for (int ver = 0; ver <= MAX_MESSAGE_VERSION; ++ver) {
+        ConfigureResponse rsp(ver);
+        UniquePtr<ConfigureResponse> deserialized(round_trip(ver, rsp, 4));
+    }
 }
 
 TEST(RoundTrip, AddEntropyRequest) {

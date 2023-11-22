@@ -8,19 +8,14 @@
 #define _GNU_SOURCE
 
 #include <asm/unistd.h>
-#include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <grp.h>
-#include <inttypes.h>
-#include <limits.h>
 #include <linux/capability.h>
-#include <net/if.h>
 #include <pwd.h>
 #include <sched.h>
 #include <signal.h>
-#include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -30,7 +25,7 @@
 #include <sys/mount.h>
 #include <sys/param.h>
 #include <sys/prctl.h>
-#include <sys/socket.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/user.h>
@@ -44,35 +39,10 @@
 #include "signal_handler.h"
 #include "syscall_filter.h"
 #include "syscall_wrapper.h"
+#include "system.h"
 #include "util.h"
 
-#ifdef HAVE_SECUREBITS_H
-# include <linux/securebits.h>
-#else
-# define SECURE_ALL_BITS	0x55
-# define SECURE_ALL_LOCKS	(SECURE_ALL_BITS << 1)
-#endif
-/* For kernels < 4.3. */
-#define OLD_SECURE_ALL_BITS	0x15
-#define OLD_SECURE_ALL_LOCKS	(OLD_SECURE_ALL_BITS << 1)
-
-/*
- * Assert the value of SECURE_ALL_BITS at compile-time.
- * Brillo devices are currently compiled against 4.4 kernel headers. Kernel 4.3
- * added a new securebit.
- * When a new securebit is added, the new SECURE_ALL_BITS mask will return EPERM
- * when used on older kernels. The compile-time assert will catch this situation
- * at compile time.
- */
-#ifdef __BRILLO__
-_Static_assert(SECURE_ALL_BITS == 0x55, "SECURE_ALL_BITS == 0x55.");
-#endif
-
 /* Until these are reliably available in linux/prctl.h. */
-#ifndef PR_SET_SECCOMP
-# define PR_SET_SECCOMP 22
-#endif
-
 #ifndef PR_ALT_SYSCALL
 # define PR_ALT_SYSCALL 0x43724f53
 #endif
@@ -83,7 +53,7 @@ _Static_assert(SECURE_ALL_BITS == 0x55, "SECURE_ALL_BITS == 0x55.");
 #endif
 
 #ifndef SECCOMP_MODE_FILTER
-# define SECCOMP_MODE_FILTER 2 /* uses user-supplied filter. */
+#define SECCOMP_MODE_FILTER 2 /* Uses user-supplied filter. */
 #endif
 
 #ifndef SECCOMP_SET_MODE_STRICT
@@ -105,8 +75,16 @@ _Static_assert(SECURE_ALL_BITS == 0x55, "SECURE_ALL_BITS == 0x55.");
 
 #define MAX_CGROUPS 10 /* 10 different controllers supported by Linux. */
 
+#define MAX_RLIMITS 32 /* Currently there are 15 supported by Linux. */
+
 /* Keyctl commands. */
 #define KEYCTL_JOIN_SESSION_KEYRING 1
+
+struct minijail_rlimit {
+	int type;
+	uint32_t cur;
+	uint32_t max;
+};
 
 struct mountpoint {
 	char *src;
@@ -131,11 +109,13 @@ struct minijail {
 		int keep_suppl_gids : 1;
 		int use_caps : 1;
 		int capbset_drop : 1;
+		int set_ambient_caps : 1;
 		int vfs : 1;
 		int enter_vfs : 1;
 		int skip_remount_private : 1;
 		int pids : 1;
 		int ipc : 1;
+		int uts : 1;
 		int net : 1;
 		int enter_net : 1;
 		int ns_cgroups : 1;
@@ -157,6 +137,7 @@ struct minijail {
 		int reset_signal_mask : 1;
 		int close_open_fds : 1;
 		int new_session_keyring : 1;
+		int forward_signals : 1;
 	} flags;
 	uid_t uid;
 	gid_t gid;
@@ -173,6 +154,7 @@ struct minijail {
 	char *pid_file_path;
 	char *uidmap;
 	char *gidmap;
+	char *hostname;
 	size_t filter_len;
 	struct sock_fprog *filter_prog;
 	char *alt_syscall_table;
@@ -182,6 +164,9 @@ struct minijail {
 	size_t tmpfs_size;
 	char *cgroups[MAX_CGROUPS];
 	size_t cgroup_count;
+	struct minijail_rlimit rlimits[MAX_RLIMITS];
+	size_t rlimit_count;
+	uint64_t securebits_skip_mask;
 };
 
 /*
@@ -199,6 +184,7 @@ void minijail_preenter(struct minijail *j)
 	j->flags.do_init = 0;
 	j->flags.pid_file = 0;
 	j->flags.cgroups = 0;
+	j->flags.forward_signals = 0;
 }
 
 /*
@@ -419,6 +405,11 @@ void API minijail_capbset_drop(struct minijail *j, uint64_t capmask)
 	j->flags.capbset_drop = 1;
 }
 
+void API minijail_set_ambient_caps(struct minijail *j)
+{
+	j->flags.set_ambient_caps = 1;
+}
+
 void API minijail_reset_signal_mask(struct minijail *j)
 {
 	j->flags.reset_signal_mask = 1;
@@ -444,6 +435,12 @@ void API minijail_new_session_keyring(struct minijail *j)
 	j->flags.new_session_keyring = 1;
 }
 
+void API minijail_skip_setting_securebits(struct minijail *j,
+					  uint64_t securebits_skip_mask)
+{
+	j->securebits_skip_mask = securebits_skip_mask;
+}
+
 void API minijail_skip_remount_private(struct minijail *j)
 {
 	j->flags.skip_remount_private = 1;
@@ -460,6 +457,22 @@ void API minijail_namespace_pids(struct minijail *j)
 void API minijail_namespace_ipc(struct minijail *j)
 {
 	j->flags.ipc = 1;
+}
+
+void API minijail_namespace_uts(struct minijail *j)
+{
+	j->flags.uts = 1;
+}
+
+int API minijail_namespace_set_hostname(struct minijail *j, const char *name)
+{
+	if (j->hostname)
+		return -EINVAL;
+	minijail_namespace_uts(j);
+	j->hostname = strdup(name);
+	if (!j->hostname)
+		return -ENOMEM;
+	return 0;
 }
 
 void API minijail_namespace_net(struct minijail *j)
@@ -641,6 +654,32 @@ int API minijail_add_to_cgroup(struct minijail *j, const char *path)
 		return -ENOMEM;
 	j->cgroup_count++;
 	j->flags.cgroups = 1;
+	return 0;
+}
+
+int API minijail_rlimit(struct minijail *j, int type, uint32_t cur,
+			uint32_t max)
+{
+	size_t i;
+
+	if (j->rlimit_count >= MAX_RLIMITS)
+		return -ENOMEM;
+	/* It's an error if the caller sets the same rlimit multiple times. */
+	for (i = 0; i < j->rlimit_count; i++) {
+		if (j->rlimits[i].type == type)
+			return -EEXIST;
+	}
+
+	j->rlimits[j->rlimit_count].type = type;
+	j->rlimits[j->rlimit_count].cur = cur;
+	j->rlimits[j->rlimit_count].max = max;
+	j->rlimit_count++;
+	return 0;
+}
+
+int API minijail_forward_signals(struct minijail *j)
+{
+	j->flags.forward_signals = 1;
 	return 0;
 }
 
@@ -886,6 +925,8 @@ void minijail_marshal_helper(struct marshal_state *state,
 	}
 	if (j->chrootdir)
 		marshal_append(state, j->chrootdir, strlen(j->chrootdir) + 1);
+	if (j->hostname)
+		marshal_append(state, j->hostname, strlen(j->hostname) + 1);
 	if (j->alt_syscall_table) {
 		marshal_append(state, j->alt_syscall_table,
 			       strlen(j->alt_syscall_table) + 1);
@@ -971,6 +1012,15 @@ int minijail_unmarshal(struct minijail *j, char *serialized, size_t length)
 		j->chrootdir = strdup(chrootdir);
 		if (!j->chrootdir)
 			goto bad_chrootdir;
+	}
+
+	if (j->hostname) {	/* stale pointer */
+		char *hostname = consumestr(&serialized, &length);
+		if (!hostname)
+			goto bad_hostname;
+		j->hostname = strdup(hostname);
+		if (!j->hostname)
+			goto bad_hostname;
 	}
 
 	if (j->alt_syscall_table) {	/* stale pointer */
@@ -1079,6 +1129,9 @@ bad_syscall_table:
 	if (j->chrootdir)
 		free(j->chrootdir);
 bad_chrootdir:
+	if (j->hostname)
+		free(j->hostname);
+bad_hostname:
 	if (j->suppl_gid_list)
 		free(j->suppl_gid_list);
 bad_gid_list:
@@ -1088,43 +1141,11 @@ clear_pointers:
 	j->user = NULL;
 	j->suppl_gid_list = NULL;
 	j->chrootdir = NULL;
+	j->hostname = NULL;
 	j->alt_syscall_table = NULL;
 	j->cgroup_count = 0;
 out:
 	return ret;
-}
-
-/*
- * setup_mount_destination: Ensures the mount target exists.
- * Creates it if needed and possible.
- */
-static int setup_mount_destination(const char *source, const char *dest,
-				   uid_t uid, uid_t gid)
-{
-	int rc;
-	struct stat st_buf;
-
-	rc = stat(dest, &st_buf);
-	if (rc == 0) /* destination exists */
-		return 0;
-
-	/*
-	 * Try to create the destination.
-	 * Either make a directory or touch a file depending on the source type.
-	 * If the source doesn't exist, assume it is a filesystem type such as
-	 * "tmpfs" and create a directory to mount it on.
-	 */
-	rc = stat(source, &st_buf);
-	if (rc || S_ISDIR(st_buf.st_mode) || S_ISBLK(st_buf.st_mode)) {
-		if (mkdir(dest, 0700))
-			return -errno;
-	} else {
-		int fd = open(dest, O_RDWR | O_CREAT, 0700);
-		if (fd < 0)
-			return -errno;
-		close(fd);
-	}
-	return chown(dest, uid, gid);
 }
 
 /*
@@ -1324,6 +1345,19 @@ static void add_to_cgroups_or_die(const struct minijail *j)
 	}
 }
 
+static void set_rlimits_or_die(const struct minijail *j)
+{
+	size_t i;
+
+	for (i = 0; i < j->rlimit_count; ++i) {
+		struct rlimit limit;
+		limit.rlim_cur = j->rlimits[i].cur;
+		limit.rlim_max = j->rlimits[i].max;
+		if (prlimit(j->initpid, j->rlimits[i].type, &limit, NULL))
+			kill_child_and_die(j, "failed to set rlimit");
+	}
+}
+
 static void write_ugid_maps_or_die(const struct minijail *j)
 {
 	if (j->uidmap && write_proc_file(j->initpid, j->uidmap, "uid_map") != 0)
@@ -1403,37 +1437,6 @@ static void drop_ugid(const struct minijail *j)
 		pdie("setresuid(%d, %d, %d) failed", j->uid, j->uid, j->uid);
 }
 
-/*
- * We specifically do not use cap_valid() as that only tells us the last
- * valid cap we were *compiled* against (i.e. what the version of kernel
- * headers says). If we run on a different kernel version, then it's not
- * uncommon for that to be less (if an older kernel) or more (if a newer
- * kernel).
- * Normally, we suck up the answer via /proc. On Android, not all processes are
- * guaranteed to be able to access '/proc/sys/kernel/cap_last_cap' so we
- * programmatically find the value by calling prctl(PR_CAPBSET_READ).
- */
-static unsigned int get_last_valid_cap()
-{
-	unsigned int last_valid_cap = 0;
-	if (is_android()) {
-		for (; prctl(PR_CAPBSET_READ, last_valid_cap, 0, 0, 0) >= 0;
-		     ++last_valid_cap);
-
-		/* |last_valid_cap| will be the first failing value. */
-		if (last_valid_cap > 0) {
-			last_valid_cap--;
-		}
-	} else {
-		const char cap_file[] = "/proc/sys/kernel/cap_last_cap";
-		FILE *fp = fopen(cap_file, "re");
-		if (fscanf(fp, "%u", &last_valid_cap) != 1)
-			pdie("fscanf(%s)", cap_file);
-		fclose(fp);
-	}
-	return last_valid_cap;
-}
-
 static void drop_capbset(uint64_t keep_mask, unsigned int last_valid_cap)
 {
 	const uint64_t one = 1;
@@ -1453,17 +1456,15 @@ static void drop_caps(const struct minijail *j, unsigned int last_valid_cap)
 
 	cap_t caps = cap_get_proc();
 	cap_value_t flag[1];
+	const size_t ncaps = sizeof(j->caps) * 8;
 	const uint64_t one = 1;
 	unsigned int i;
 	if (!caps)
 		die("can't get process caps");
-	if (cap_clear_flag(caps, CAP_INHERITABLE))
-		die("can't clear inheritable caps");
-	if (cap_clear_flag(caps, CAP_EFFECTIVE))
-		die("can't clear effective caps");
-	if (cap_clear_flag(caps, CAP_PERMITTED))
-		die("can't clear permitted caps");
-	for (i = 0; i < sizeof(j->caps) * 8 && i <= last_valid_cap; ++i) {
+	if (cap_clear(caps))
+		die("can't clear caps");
+
+	for (i = 0; i < ncaps && i <= last_valid_cap; ++i) {
 		/* Keep CAP_SETPCAP for dropping bounding set bits. */
 		if (i != CAP_SETPCAP && !(j->caps & (one << i)))
 			continue;
@@ -1499,6 +1500,32 @@ static void drop_caps(const struct minijail *j, unsigned int last_valid_cap)
 
 	if (cap_set_proc(caps))
 		die("can't apply final cleaned capset");
+
+	/*
+	 * If ambient capabilities are supported, clear all capabilities first,
+	 * then raise the requested ones.
+	 */
+	if (j->flags.set_ambient_caps) {
+		if (!cap_ambient_supported()) {
+			pdie("ambient capabilities not supported");
+		}
+		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0) !=
+		    0) {
+			pdie("can't clear ambient capabilities");
+		}
+
+		for (i = 0; i < ncaps && i <= last_valid_cap; ++i) {
+			if (!(j->caps & (one << i)))
+				continue;
+
+			if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, i, 0,
+				  0) != 0) {
+				pdie("prctl(PR_CAP_AMBIENT, "
+				     "PR_CAP_AMBIENT_RAISE, %u) failed",
+				     i);
+			}
+		}
+	}
 
 	cap_free(caps);
 }
@@ -1569,33 +1596,40 @@ static void set_seccomp_filter(const struct minijail *j)
 	}
 }
 
-static void config_net_loopback(void)
+static pid_t forward_pid = -1;
+
+static void forward_signal(__attribute__((unused)) int nr,
+			   __attribute__((unused)) siginfo_t *siginfo,
+			   __attribute__((unused)) void *void_context)
 {
-	static const char ifname[] = "lo";
-	int sock;
-	struct ifreq ifr;
+	if (forward_pid != -1) {
+		kill(forward_pid, nr);
+	}
+}
 
-	/* Make sure people don't try to add really long names. */
-	_Static_assert(sizeof(ifname) <= IFNAMSIZ, "interface name too long");
+static void install_signal_handlers(void)
+{
+	struct sigaction act;
 
-	sock = socket(AF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0);
-	if (sock < 0)
-		pdie("socket(AF_LOCAL) failed");
+	memset(&act, 0, sizeof(act));
+	act.sa_sigaction = &forward_signal;
+	act.sa_flags = SA_SIGINFO | SA_RESTART;
 
-	/*
-	 * Do the equiv of `ip link set up lo`.  The kernel will assign
-	 * IPv4 (127.0.0.1) & IPv6 (::1) addresses automatically!
-	 */
-	strcpy(ifr.ifr_name, ifname);
-	if (ioctl(sock, SIOCGIFFLAGS, &ifr) < 0)
-		pdie("ioctl(SIOCGIFFLAGS) failed");
+	/* Handle all signals, except SIGCHLD. */
+	for (int nr = 1; nr < NSIG; nr++) {
+		/*
+		 * We don't care if we get EINVAL: that just means that we
+		 * can't handle this signal, so let's skip it and continue.
+		 */
+		sigaction(nr, &act, NULL);
+	}
+	/* Reset SIGCHLD's handler. */
+	signal(SIGCHLD, SIG_DFL);
 
-	/* The kernel preserves ifr.ifr_name for use. */
-	ifr.ifr_flags |= IFF_UP | IFF_RUNNING;
-	if (ioctl(sock, SIOCSIFFLAGS, &ifr) < 0)
-		pdie("ioctl(SIOCSIFFLAGS) failed");
-
-	close(sock);
+	/* Handle real-time signals. */
+	for (int nr = SIGRTMIN; nr <= SIGRTMAX; nr++) {
+		sigaction(nr, &act, NULL);
+	}
 }
 
 void API minijail_enter(const struct minijail *j)
@@ -1642,6 +1676,14 @@ void API minijail_enter(const struct minijail *j)
 
 	if (j->flags.ipc && unshare(CLONE_NEWIPC)) {
 		pdie("unshare(CLONE_NEWIPC) failed");
+	}
+
+	if (j->flags.uts) {
+		if (unshare(CLONE_NEWUTS))
+			pdie("unshare(CLONE_NEWUTS) failed");
+
+		if (j->hostname && sethostname(j->hostname, strlen(j->hostname)))
+			pdie("sethostname(%s) failed", j->hostname);
 	}
 
 	if (j->flags.enter_net) {
@@ -1691,25 +1733,9 @@ void API minijail_enter(const struct minijail *j)
 		if (prctl(PR_SET_KEEPCAPS, 1))
 			pdie("prctl(PR_SET_KEEPCAPS) failed");
 
-		/*
-		 * Kernels 4.3+ define a new securebit
-		 * (SECURE_NO_CAP_AMBIENT_RAISE), so using the SECURE_ALL_BITS
-		 * and SECURE_ALL_LOCKS masks from newer kernel headers will
-		 * return EPERM on older kernels. Detect this, and retry with
-		 * the right mask for older (2.6.26-4.2) kernels.
-		 */
-		int securebits_ret = prctl(PR_SET_SECUREBITS,
-					   SECURE_ALL_BITS | SECURE_ALL_LOCKS);
-		if (securebits_ret < 0) {
-			if (errno == EPERM) {
-				/* Possibly running on kernel < 4.3. */
-				securebits_ret = prctl(
-				    PR_SET_SECUREBITS,
-				    OLD_SECURE_ALL_BITS | OLD_SECURE_ALL_LOCKS);
-			}
+		if (lock_securebits(j->securebits_skip_mask) < 0) {
+			pdie("locking securebits failed");
 		}
-		if (securebits_ret < 0)
-			pdie("prctl(PR_SET_SECUREBITS) failed");
 	}
 
 	if (j->flags.no_new_privs) {
@@ -1840,7 +1866,7 @@ int API minijail_to_fd(struct minijail *j, int fd)
 int setup_preload(void)
 {
 #if defined(__ANDROID__)
-	/* Don't use LDPRELOAD on Brillo. */
+	/* Don't use LDPRELOAD on Android. */
 	return 0;
 #else
 	char *oldenv = getenv(kLdPreloadEnvVar) ? : "";
@@ -1859,7 +1885,7 @@ int setup_preload(void)
 #endif
 }
 
-int setup_pipe(int fds[2])
+static int setup_pipe(int fds[2])
 {
 	int r = pipe(fds);
 	char fd_buf[11];
@@ -1872,26 +1898,7 @@ int setup_pipe(int fds[2])
 	return 0;
 }
 
-int setup_pipe_end(int fds[2], size_t index)
-{
-	if (index > 1)
-		return -1;
-
-	close(fds[1 - index]);
-	return fds[index];
-}
-
-int setup_and_dupe_pipe_end(int fds[2], size_t index, int fd)
-{
-	if (index > 1)
-		return -1;
-
-	close(fds[1 - index]);
-	/* dup2(2) the corresponding end of the pipe into |fd|. */
-	return dup2(fds[index], fd);
-}
-
-int close_open_fds(int *inheritable_fds, size_t size)
+static int close_open_fds(int *inheritable_fds, size_t size)
 {
 	const char *kFdPath = "/proc/self/fd";
 
@@ -2011,9 +2018,11 @@ int minijail_run_internal(struct minijail *j, const char *filename,
 	}
 
 	if (!use_preload) {
-		if (j->flags.use_caps && j->caps != 0)
-			die("non-empty capabilities are not supported without "
-			    "LD_PRELOAD");
+		if (j->flags.use_caps && j->caps != 0 &&
+		    !j->flags.set_ambient_caps) {
+			die("non-empty, non-ambient capabilities are not "
+			    "supported without LD_PRELOAD");
+		}
 	}
 
 	/*
@@ -2151,11 +2160,19 @@ int minijail_run_internal(struct minijail *j, const char *filename,
 
 		j->initpid = child_pid;
 
+		if (j->flags.forward_signals) {
+			forward_pid = child_pid;
+			install_signal_handlers();
+		}
+
 		if (j->flags.pid_file)
 			write_pid_file_or_die(j);
 
 		if (j->flags.cgroups)
 			add_to_cgroups_or_die(j);
+
+		if (j->rlimit_count)
+			set_rlimits_or_die(j);
 
 		if (j->flags.userns)
 			write_ugid_maps_or_die(j);
@@ -2425,6 +2442,8 @@ void API minijail_destroy(struct minijail *j)
 		free(j->uidmap);
 	if (j->gidmap)
 		free(j->gidmap);
+	if (j->hostname)
+		free(j->hostname);
 	if (j->alt_syscall_table)
 		free(j->alt_syscall_table);
 	for (i = 0; i < j->cgroup_count; ++i)

@@ -28,4 +28,7 @@
     <!-- Width of the navigation bar when it is placed vertically on the screen -->
     <dimen name="navigation_bar_width">42dp</dimen>
 
+    <!-- This overlay makes sure that notification icons are large enough to be used as Recommendation images -->
+    <dimen name="notification_right_icon_size">320dp</dimen>
+
 </resources>

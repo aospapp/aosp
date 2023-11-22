@@ -11,8 +11,8 @@
 #include "GrClip.h"
 #include "GrContext.h"
 #include "GrRenderTargetContext.h"
-#include "GrResourceProvider.h"
 #include "SkCanvas.h"
+#include "SkGr.h"
 #include "SkSurface.h"
 #include "gl/GrGLGpu.h"
 
@@ -45,16 +45,19 @@ static bool check_value(U8CPU value, U8CPU expected, U8CPU error) {
     }
 }
 
-void read_and_check_pixels(skiatest::Reporter* reporter, GrTexture* texture, U8CPU expected,
+void read_and_check_pixels(skiatest::Reporter* reporter, GrSurfaceContext* context,
+                           U8CPU expected, const SkImageInfo& dstInfo,
                            U8CPU error, const char* subtestName) {
-    int w = texture->width();
-    int h = texture->height();
+    int w = dstInfo.width();
+    int h = dstInfo.height();
     SkAutoTMalloc<uint32_t> readData(w * h);
     memset(readData.get(), 0, sizeof(uint32_t) * w * h);
-    if (!texture->readPixels(0, 0, w, h, texture->config(), readData.get())) {
+
+    if (!context->readPixels(dstInfo, readData.get(), 0, 0, 0)) {
         ERRORF(reporter, "Could not read pixels for %s.", subtestName);
         return;
     }
+
     for (int j = 0; j < h; ++j) {
         for (int i = 0; i < w; ++i) {
             uint32_t read = readData[j * w + i];
@@ -112,6 +115,12 @@ DEF_GPUTEST_FOR_GL_RENDERING_CONTEXTS(SRGBMipMaps, reporter, ctxInfo) {
     const U8CPU expectedLinear = srgb60 / 2;
     const U8CPU error = 10;
 
+    const SkImageInfo iiSRGBA = SkImageInfo::Make(rtS, rtS, kRGBA_8888_SkColorType,
+                                                  kPremul_SkAlphaType,
+                                                  SkColorSpace::MakeSRGB());
+    const SkImageInfo iiRGBA = SkImageInfo::Make(rtS, rtS, kRGBA_8888_SkColorType,
+                                                 kPremul_SkAlphaType);
+
     // Create our test texture
     GrSurfaceDesc desc;
     desc.fFlags = kNone_GrSurfaceFlags;
@@ -126,9 +135,9 @@ DEF_GPUTEST_FOR_GL_RENDERING_CONTEXTS(SRGBMipMaps, reporter, ctxInfo) {
 
     // Create two render target contexts (L32 and S32)
     sk_sp<SkColorSpace> srgbColorSpace = SkColorSpace::MakeSRGB();
-    sk_sp<GrRenderTargetContext> l32RenderTargetContext = context->makeRenderTargetContext(
+    sk_sp<GrRenderTargetContext> l32RenderTargetContext = context->makeDeferredRenderTargetContext(
         SkBackingFit::kExact, rtS, rtS, kRGBA_8888_GrPixelConfig, nullptr);
-    sk_sp<GrRenderTargetContext> s32RenderTargetContext = context->makeRenderTargetContext(
+    sk_sp<GrRenderTargetContext> s32RenderTargetContext = context->makeDeferredRenderTargetContext(
         SkBackingFit::kExact, rtS, rtS, kSRGBA_8888_GrPixelConfig, std::move(srgbColorSpace));
 
     SkRect rect = SkRect::MakeWH(SkIntToScalar(rtS), SkIntToScalar(rtS));
@@ -136,13 +145,13 @@ DEF_GPUTEST_FOR_GL_RENDERING_CONTEXTS(SRGBMipMaps, reporter, ctxInfo) {
     GrPaint paint;
     paint.setPorterDuffXPFactory(SkBlendMode::kSrc);
     GrSamplerParams mipMapParams(SkShader::kRepeat_TileMode, GrSamplerParams::kMipMap_FilterMode);
-    paint.addColorTextureProcessor(context->resourceProvider(), std::move(proxy),
+    paint.addColorTextureProcessor(std::move(proxy),
                                    nullptr, SkMatrix::MakeScale(rtS), mipMapParams);
 
     // 1) Draw texture to S32 surface (should generate/use sRGB mips)
     paint.setGammaCorrect(true);
     s32RenderTargetContext->drawRect(noClip, GrPaint(paint), GrAA::kNo, SkMatrix::I(), rect);
-    read_and_check_pixels(reporter, s32RenderTargetContext->asTexture().get(), expectedSRGB, error,
+    read_and_check_pixels(reporter, s32RenderTargetContext.get(), expectedSRGB, iiSRGBA, error,
                           "first render of sRGB");
 
     // 2) Draw texture to L32 surface (should generate/use linear mips)
@@ -161,14 +170,14 @@ DEF_GPUTEST_FOR_GL_RENDERING_CONTEXTS(SRGBMipMaps, reporter, ctxInfo) {
     GrGLGpu* glGpu = static_cast<GrGLGpu*>(context->getGpu());
     if (glGpu->glCaps().srgbDecodeDisableSupport() &&
         glGpu->glCaps().srgbDecodeDisableAffectsMipmaps()) {
-        read_and_check_pixels(reporter, l32RenderTargetContext->asTexture().get(), expectedLinear,
+        read_and_check_pixels(reporter, l32RenderTargetContext.get(), expectedLinear, iiRGBA,
                               error, "re-render as linear");
     }
 
     // 3) Go back to sRGB
     paint.setGammaCorrect(true);
     s32RenderTargetContext->drawRect(noClip, std::move(paint), GrAA::kNo, SkMatrix::I(), rect);
-    read_and_check_pixels(reporter, s32RenderTargetContext->asTexture().get(), expectedSRGB, error,
+    read_and_check_pixels(reporter, s32RenderTargetContext.get(), expectedSRGB, iiSRGBA, error,
                           "re-render as sRGB");
 }
 #endif

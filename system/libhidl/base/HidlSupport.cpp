@@ -70,7 +70,7 @@ hidl_handle &hidl_handle::operator=(const hidl_handle &other) {
     if (other.mHandle != nullptr) {
         mHandle = native_handle_clone(other.mHandle);
         if (mHandle == nullptr) {
-            LOG(FATAL) << "Failed to clone native_handle in hidl_handle.";
+            PLOG(FATAL) << "Failed to clone native_handle in hidl_handle";
         }
         mOwnsHandle = true;
     } else {
@@ -218,7 +218,7 @@ void hidl_string::copyFrom(const char *data, size_t size) {
     // assume my resources are freed.
 
     if (size > UINT32_MAX) {
-        LOG(FATAL) << "string size can't exceed 2^32 bytes.";
+        LOG(FATAL) << "string size can't exceed 2^32 bytes: " << size;
     }
     char *buf = (char *)malloc(size + 1);
     memcpy(buf, data, size);
@@ -252,7 +252,7 @@ void hidl_string::clear() {
 
 void hidl_string::setToExternal(const char *data, size_t size) {
     if (size > UINT32_MAX) {
-        LOG(FATAL) << "string size can't exceed 2^32 bytes.";
+        LOG(FATAL) << "string size can't exceed 2^32 bytes: " << size;
     }
     clear();
 

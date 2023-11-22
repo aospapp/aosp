@@ -20,5 +20,6 @@
 LOCAL_DEX_PREOPT := false
 LOCAL_STATIC_JAVA_LIBRARIES += platform-test-annotations
 
+-include cts/error_prone_rules_tests.mk
 include $(BUILD_JAVA_LIBRARY)
 

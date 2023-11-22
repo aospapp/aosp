@@ -167,6 +167,7 @@ keymaster_error_t TranslateRsaError(int reason) {
     case RSA_R_DATA_TOO_SMALL_FOR_KEY_SIZE:
         return KM_ERROR_INVALID_INPUT_LENGTH;
     case RSA_R_DATA_TOO_LARGE_FOR_MODULUS:
+    case RSA_R_DATA_TOO_LARGE:
         return KM_ERROR_INVALID_ARGUMENT;
     default:
         return KM_ERROR_UNKNOWN_ERROR;

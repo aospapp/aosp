@@ -26,6 +26,6 @@ LOCAL_STATIC_JAVA_LIBRARIES := android-support-test
 LOCAL_PACKAGE_NAME := CtsFramestatsTestApp
 
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)

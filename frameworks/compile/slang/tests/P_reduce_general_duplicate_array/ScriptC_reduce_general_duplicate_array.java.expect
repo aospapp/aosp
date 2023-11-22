@@ -21,6 +21,9 @@
 
 package array;
 
+import android.os.Build;
+import android.os.Process;
+import java.lang.reflect.Field;
 import android.renderscript.*;
 import array.reduce_general_duplicate_arrayBitCode;
 

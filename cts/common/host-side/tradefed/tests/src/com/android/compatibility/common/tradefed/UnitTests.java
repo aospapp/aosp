@@ -16,8 +16,10 @@
 package com.android.compatibility.common.tradefed;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelperTest;
+import com.android.compatibility.common.tradefed.build.CompatibilityBuildProviderTest;
 import com.android.compatibility.common.tradefed.command.CompatibilityConsoleTest;
 import com.android.compatibility.common.tradefed.config.ConfigurationFactoryTest;
+import com.android.compatibility.common.tradefed.presubmit.ApkPackageNameCheck;
 import com.android.compatibility.common.tradefed.presubmit.CtsConfigLoadingTest;
 import com.android.compatibility.common.tradefed.presubmit.IntegrationTest;
 import com.android.compatibility.common.tradefed.presubmit.PresubmitSetupValidation;
@@ -25,6 +27,7 @@ import com.android.compatibility.common.tradefed.presubmit.ValidateTestsAbi;
 import com.android.compatibility.common.tradefed.result.ChecksumReporterTest;
 import com.android.compatibility.common.tradefed.result.ConsoleReporterTest;
 import com.android.compatibility.common.tradefed.result.MetadataReporterTest;
+import com.android.compatibility.common.tradefed.result.ResultReporterBuildInfoTest;
 import com.android.compatibility.common.tradefed.result.ResultReporterTest;
 import com.android.compatibility.common.tradefed.result.SubPlanHelperTest;
 import com.android.compatibility.common.tradefed.targetprep.PropertyCheckTest;
@@ -37,7 +40,9 @@ import com.android.compatibility.common.tradefed.testtype.ModuleRepoTest;
 import com.android.compatibility.common.tradefed.testtype.SubPlanTest;
 import com.android.compatibility.common.tradefed.testtype.retry.RetryFactoryTestTest;
 import com.android.compatibility.common.tradefed.testtype.suite.CompatibilityTestSuiteTest;
+import com.android.compatibility.common.tradefed.testtype.suite.ModuleRepoSuiteTest;
 import com.android.compatibility.common.tradefed.util.CollectorUtilTest;
+import com.android.compatibility.common.tradefed.util.DynamicConfigFileReaderTest;
 import com.android.compatibility.common.tradefed.util.OptionHelperTest;
 import com.android.compatibility.common.tradefed.util.RetryFilterHelperTest;
 import com.android.compatibility.common.tradefed.util.UniqueModuleCountUtilTest;
@@ -55,6 +60,7 @@ import org.junit.runners.Suite.SuiteClasses;
 @SuiteClasses({
     // build
     CompatibilityBuildHelperTest.class,
+    CompatibilityBuildProviderTest.class,
 
     // command
     CompatibilityConsoleTest.class,
@@ -63,6 +69,7 @@ import org.junit.runners.Suite.SuiteClasses;
     ConfigurationFactoryTest.class,
 
     // presubmit
+    ApkPackageNameCheck.class,
     CtsConfigLoadingTest.class,
     IntegrationTest.class,
     PresubmitSetupValidation.class,
@@ -72,6 +79,7 @@ import org.junit.runners.Suite.SuiteClasses;
     ChecksumReporterTest.class,
     ConsoleReporterTest.class,
     MetadataReporterTest.class,
+    ResultReporterBuildInfoTest.class,
     ResultReporterTest.class,
     SubPlanHelperTest.class,
 
@@ -92,9 +100,11 @@ import org.junit.runners.Suite.SuiteClasses;
 
     // testype.suite
     CompatibilityTestSuiteTest.class,
+    ModuleRepoSuiteTest.class,
 
     // util
     CollectorUtilTest.class,
+    DynamicConfigFileReaderTest.class,
     OptionHelperTest.class,
     RetryFilterHelperTest.class,
     UniqueModuleCountUtilTest.class,

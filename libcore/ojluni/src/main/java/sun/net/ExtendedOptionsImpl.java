@@ -43,6 +43,17 @@ import java.util.Collections;
  */
 public class ExtendedOptionsImpl {
 
+    // Android-removed: System.loadLibrary("net") is not available on Android.
+    /*
+    static {
+        AccessController.doPrivileged((PrivilegedAction<Void>)() -> {
+            System.loadLibrary("net");
+            return null;
+        });
+        init();
+    }
+    */
+
     private ExtendedOptionsImpl() {}
 
     public static void checkSetOptionPermission(SocketOption<?> option) {
@@ -70,6 +81,9 @@ public class ExtendedOptionsImpl {
             throw new IllegalArgumentException(s);
         }
     }
+
+    // Android-removed: Native initialization logic that doesn't exist on Android.
+    // private static native void init();
 
     /*
      * Extension native implementations

@@ -16,23 +16,31 @@
 
 package com.android.documentsui;
 
+import static junit.framework.Assert.assertEquals;
+import static junit.framework.Assert.fail;
+
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.database.MergeCursor;
 import android.provider.DocumentsContract.Document;
 import android.support.test.filters.SmallTest;
-import android.test.AndroidTestCase;
+import android.support.test.runner.AndroidJUnit4;
 
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.roots.RootCursorWrapper;
 import com.android.documentsui.testing.TestEventListener;
 import com.android.documentsui.testing.TestFeatures;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.util.BitSet;
 import java.util.Random;
 
+@RunWith(AndroidJUnit4.class)
 @SmallTest
-public class ModelTest extends AndroidTestCase {
+public class ModelTest {
 
     private static final int ITEM_COUNT = 10;
     private static final String AUTHORITY = "test_authority";
@@ -64,7 +72,7 @@ public class ModelTest extends AndroidTestCase {
     private Model model;
     private TestFeatures features;
 
-    @Override
+    @Before
     public void setUp() {
         features = new TestFeatures();
 
@@ -94,11 +102,13 @@ public class ModelTest extends AndroidTestCase {
     }
 
     // Tests that the item count is correct.
+    @Test
     public void testItemCount() {
         assertEquals(ITEM_COUNT, model.getItemCount());
     }
 
     // Tests multiple authorities with clashing document IDs.
+    @Test
     public void testModelIdIsUnique() {
         MatrixCursor cIn1 = new MatrixCursor(COLUMNS);
         MatrixCursor cIn2 = new MatrixCursor(COLUMNS);
@@ -151,6 +161,7 @@ public class ModelTest extends AndroidTestCase {
     }
 
     // Tests the base case for Model.getItem.
+    @Test
     public void testGetItem() {
         String[] ids = model.getModelIds();
         assertEquals(ITEM_COUNT, ids.length);
@@ -158,5 +169,15 @@ public class ModelTest extends AndroidTestCase {
             Cursor c = model.getItem(ids[i]);
             assertEquals(i, c.getPosition());
         }
+    }
+
+    @Test
+    public void testResetAfterGettingException() {
+        DirectoryResult result = new DirectoryResult();
+        result.exception = new Exception();
+
+        model.update(result);
+
+        assertEquals(0, model.getItemCount());
     }
 }

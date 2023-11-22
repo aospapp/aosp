@@ -1059,9 +1059,14 @@ namespace sw
 		case PARAMETER_LOOP:			return "aL";
 	//	case PARAMETER_TEMPFLOAT16:		return "";
 		case PARAMETER_MISCTYPE:
-			if(index == 0)				return "vPos";
-			else if(index == 1)			return "vFace";
-			else						ASSERT(false);
+			switch(index)
+			{
+			case VPosIndex:				return "vPos";
+			case VFaceIndex:			return "vFace";
+			case InstanceIDIndex:		return "iID";
+			case VertexIDIndex:			return "vID";
+			default: ASSERT(false);
+			}
 		case PARAMETER_LABEL:			return "l";
 		case PARAMETER_PREDICATE:		return "p0";
 		case PARAMETER_FLOAT4LITERAL:	return "";
@@ -1090,14 +1095,14 @@ namespace sw
 		return opcode == OPCODE_BREAK || opcode == OPCODE_BREAKC || opcode == OPCODE_BREAKP;
 	}
 
-	bool Shader::Instruction::isLoopOrSwitch() const
+	bool Shader::Instruction::isLoop() const
 	{
-		return opcode == OPCODE_LOOP || opcode == OPCODE_REP || opcode == OPCODE_WHILE || opcode == OPCODE_SWITCH;
+		return opcode == OPCODE_LOOP || opcode == OPCODE_REP || opcode == OPCODE_WHILE;
 	}
 
-	bool Shader::Instruction::isEndLoopOrSwitch() const
+	bool Shader::Instruction::isEndLoop() const
 	{
-		return opcode == OPCODE_ENDLOOP || opcode == OPCODE_ENDREP || opcode == OPCODE_ENDWHILE || opcode == OPCODE_ENDSWITCH;;
+		return opcode == OPCODE_ENDLOOP || opcode == OPCODE_ENDREP || opcode == OPCODE_ENDWHILE;
 	}
 
 	bool Shader::Instruction::isPredicated() const
@@ -1173,7 +1178,7 @@ namespace sw
 			ASSERT(false);
 		}
 
-		static const char size[] =
+		static const signed char size[] =
 		{
 			0,   // NOP = 0
 			2,   // MOV
@@ -1457,7 +1462,7 @@ namespace sw
 		usedSamplers |= 1 << i;
 	}
 
-	const Shader::Instruction *Shader::getInstruction(unsigned int i) const
+	const Shader::Instruction *Shader::getInstruction(size_t i) const
 	{
 		ASSERT(i < instruction.size());
 
@@ -1657,6 +1662,7 @@ namespace sw
 		int breakDepth = 0;
 		int continueDepth = 0;
 		bool leaveReturn = false;
+		unsigned int functionBegin = 0;
 
 		for(unsigned int i = 0; i < instruction.size(); i++)
 		{
@@ -1688,11 +1694,11 @@ namespace sw
 
 			if(breakDepth > 0)
 			{
-				if(instruction[i]->isLoopOrSwitch())   // Nested loop or switch, don't make the end of it disable the break execution mask
+				if(instruction[i]->isLoop() || instruction[i]->opcode == OPCODE_SWITCH)   // Nested loop or switch, don't make the end of it disable the break execution mask
 				{
 					breakDepth++;
 				}
-				else if(instruction[i]->isEndLoopOrSwitch())
+				else if(instruction[i]->isEndLoop() || instruction[i]->opcode == OPCODE_ENDSWITCH)
 				{
 					breakDepth--;
 				}
@@ -1713,11 +1719,11 @@ namespace sw
 
 			if(continueDepth > 0)
 			{
-				if(instruction[i]->isLoopOrSwitch())   // Nested loop or switch, don't make the end of it disable the break execution mask
+				if(instruction[i]->isLoop() || instruction[i]->opcode == OPCODE_SWITCH)   // Nested loop or switch, don't make the end of it disable the break execution mask
 				{
 					continueDepth++;
 				}
-				else if(instruction[i]->isEndLoopOrSwitch())
+				else if(instruction[i]->isEndLoop() || instruction[i]->opcode == OPCODE_ENDSWITCH)
 				{
 					continueDepth--;
 				}
@@ -1734,10 +1740,28 @@ namespace sw
 			if(instruction[i]->opcode == OPCODE_LEAVE)
 			{
 				leaveReturn = true;
+
+				// Mark loop body instructions prior to the return statement
+				for(unsigned int l = functionBegin; l < i; l++)
+				{
+					if(instruction[l]->isLoop())
+					{
+						for(unsigned int r = l + 1; r < i; r++)
+						{
+							instruction[r]->analysisLeave = true;
+						}
+
+						break;
+					}
+				}
 			}
 			else if(instruction[i]->opcode == OPCODE_RET)   // End of the function
 			{
 				leaveReturn = false;
+			}
+			else if(instruction[i]->opcode == OPCODE_LABEL)
+			{
+				functionBegin = i;
 			}
 
 			if(leaveReturn)

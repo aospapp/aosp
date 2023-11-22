@@ -18,11 +18,11 @@ package com.android.server.telecom.settings;
 
 import android.content.Context;
 import android.telephony.PhoneNumberUtils;
+import android.text.BidiFormatter;
 import android.text.Spannable;
 import android.text.SpannableString;
+import android.text.TextDirectionHeuristics;
 import android.widget.Toast;
-import com.android.server.telecom.R;
-
 import java.util.Locale;
 
 public final class BlockedNumbersUtil {
@@ -40,18 +40,28 @@ public final class BlockedNumbersUtil {
     }
 
     /**
+     * Attempts to format the number, or returns the original number if it is not formattable. Also
+     * wraps the returned number as LTR.
+     */
+    public static String formatNumber(String number){
+      String formattedNumber = PhoneNumberUtils.formatNumber(number, getLocaleDefaultToUS());
+      return BidiFormatter.getInstance().unicodeWrap(
+              formattedNumber == null ? number : formattedNumber,
+              TextDirectionHeuristics.LTR);
+    }
+
+    /**
      * Formats the number in the string and shows a toast for {@link Toast#LENGTH_SHORT}.
      *
      * <p>Adds the number in a TsSpan so that it reads as a phone number when talk back is on.
      */
     public static void showToastWithFormattedNumber(Context context, int stringId, String number) {
-        String formattedNumber = PhoneNumberUtils.formatNumber(number, getLocaleDefaultToUS());
-        String finalFormattedNumber = formattedNumber == null ? number : formattedNumber;
-        String message = context.getString(stringId, finalFormattedNumber);
-        int startingPosition = message.indexOf(finalFormattedNumber);
+        String formattedNumber = formatNumber(number);
+        String message = context.getString(stringId, formattedNumber);
+        int startingPosition = message.indexOf(formattedNumber);
         Spannable messageSpannable = new SpannableString(message);
         PhoneNumberUtils.addTtsSpan(messageSpannable, startingPosition,
-                startingPosition + finalFormattedNumber.length());
+                startingPosition + formattedNumber.length());
         Toast.makeText(
                 context,
                 messageSpannable,

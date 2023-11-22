@@ -37,38 +37,6 @@ namespace sw
 		Short4 w;
 	};
 
-	class Vector4i
-	{
-	public:
-		Vector4i();
-		Vector4i(int x, int y, int z, int w);
-		Vector4i(const Vector4i &rhs);
-
-		Int4 &operator[](int i);
-		Vector4i &operator=(const Vector4i &rhs);
-
-		Int4 x;
-		Int4 y;
-		Int4 z;
-		Int4 w;
-	};
-
-	class Vector4u
-	{
-	public:
-		Vector4u();
-		Vector4u(unsigned int x, unsigned int y, unsigned int z, unsigned int w);
-		Vector4u(const Vector4u &rhs);
-
-		UInt4 &operator[](int i);
-		Vector4u &operator=(const Vector4u &rhs);
-
-		UInt4 x;
-		UInt4 y;
-		UInt4 z;
-		UInt4 w;
-	};
-
 	class Vector4f
 	{
 	public:
@@ -119,7 +87,6 @@ namespace sw
 	void transpose4x2(Float4 &row0, Float4 &row1, Float4 &row2, Float4 &row3);
 	void transpose4x1(Float4 &row0, Float4 &row1, Float4 &row2, Float4 &row3);
 	void transpose2x4(Float4 &row0, Float4 &row1, Float4 &row2, Float4 &row3);
-	void transpose2x4h(Float4 &row0, Float4 &row1, Float4 &row2, Float4 &row3);
 	void transpose4xN(Float4 &row0, Float4 &row1, Float4 &row2, Float4 &row3, int N);
 
 	class Register
@@ -375,10 +342,10 @@ namespace sw
 		void insert(Vector4f &dst, const Vector4f &src, const Float4 &element, const Float4 &index);
 		void all(Float4 &dst, const Vector4f &src);
 		void any(Float4 &dst, const Vector4f &src);
-		void not(Vector4f &dst, const Vector4f &src);
-		void or(Vector4f &dst, const Vector4f &src0, const Vector4f &src1);
-		void xor(Vector4f &dst, const Vector4f &src0, const Vector4f &src1);
-		void and(Vector4f &dst, const Vector4f &src0, const Vector4f &src1);
+		void bitwise_not(Vector4f &dst, const Vector4f &src);
+		void bitwise_or(Vector4f &dst, const Vector4f &src0, const Vector4f &src1);
+		void bitwise_xor(Vector4f &dst, const Vector4f &src0, const Vector4f &src1);
+		void bitwise_and(Vector4f &dst, const Vector4f &src0, const Vector4f &src1);
 		void equal(Vector4f &dst, const Vector4f &src0, const Vector4f &src1);
 		void notEqual(Vector4f &dst, const Vector4f &src0, const Vector4f &src1);
 

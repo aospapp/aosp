@@ -47,7 +47,7 @@
 #include <stdio.h>		/* needed by testhead.h         */
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/fcntl.h>
+#include <fcntl.h>
 #include <errno.h>
 #include <grp.h>
 #include <pwd.h>
@@ -126,8 +126,11 @@ int main(int ac, char **av)
 		}
 		group1_gid = group->gr_gid;
 		if ((group = getgrnam("bin")) == NULL) {
-			tst_brkm(TBROK | TERRNO, cleanup,
-				 "getgrnam(\"bin\") failed");
+			if ((group = getgrnam("shell")) == NULL) {
+				tst_brkm(TBROK | TERRNO, cleanup,
+					 "getgrnam(\"bin\") and "
+					 "getgrnam(\"shell\") failed");
+			}
 		}
 		group2_gid = group->gr_gid;
 

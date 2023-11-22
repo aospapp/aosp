@@ -23,17 +23,15 @@
     android:focusable="true"
     android:clickable="true">
 
-    <FrameLayout
+    <ImageView
         android:layout_width="@dimen/card_image_layout_width"
         android:layout_height="@dimen/card_image_layout_height"
-        android:background="@color/channel_card_guide">
-        <ImageView
-            android:layout_width="82dp"
-            android:layout_height="48dp"
-            android:layout_marginTop="16dp"
-            android:src="@drawable/ic_channel_guide"
-            android:layout_gravity="center_horizontal" />
-    </FrameLayout>
+        android:background="@color/channel_card_guide"
+        android:paddingBottom="16dp"
+        android:paddingEnd="30dp"
+        android:paddingStart="30dp"
+        android:paddingTop="16dp"
+        android:src="@drawable/ic_channel_guide" />
 
     <TextView
         android:layout_width="match_parent"

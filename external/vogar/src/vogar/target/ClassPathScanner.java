@@ -21,7 +21,9 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Comparator;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
@@ -47,10 +49,27 @@ final class ClassPathScanner {
     private final String[] classPath;
     private final ClassFinder classFinder;
 
+    private static Map<String, DexFile> createDexFiles(String[] classPath) {
+        Map<String, DexFile> result = new HashMap<String, DexFile>();
+        for (String entry : classPath) {
+            File classPathEntry = new File(entry);
+            if (!classPathEntry.exists() || classPathEntry.isDirectory()) {
+                continue;
+            }
+
+            try {
+                result.put(classPathEntry.getName(), new DexFile(classPathEntry));
+            } catch (IOException ignore) {
+                // okay, presumably the dex file didn't contain any classes
+            }
+        }
+        return result;
+    }
+
     ClassPathScanner() {
         classPath = getClassPath();
         if ("Dalvik".equals(System.getProperty("java.vm.name"))) {
-            classFinder = new ApkClassFinder();
+            classFinder = new ApkClassFinder(createDexFiles(classPath));
         } else {
             // When running vogar tests under an IDE the classes are not held in a .jar file.
             // This system properties can be set to make it possible to run the vogar tests from an
@@ -209,41 +228,38 @@ final class ClassPathScanner {
      * to load on non-Android VMs.
      */
     private static class ApkClassFinder implements ClassFinder {
+        private final Map<String, DexFile> dexFiles;
+
+        ApkClassFinder(Map<String, DexFile> dexFiles) {
+            this.dexFiles = dexFiles;
+        }
+
         public void find(File classPathEntry, String pathPrefix, String packageName,
                 Set<String> classNames, Set<String> subpackageNames) {
             if (classPathEntry.isDirectory()) {
                 return;
             }
 
-            DexFile dexFile = null;
-            try {
-                dexFile = new DexFile(classPathEntry);
-                Enumeration<String> apkClassNames = dexFile.entries();
-                while (apkClassNames.hasMoreElements()) {
-                    String className = apkClassNames.nextElement();
-                    if (!className.startsWith(packageName)) {
-                        continue;
-                    }
-
-                    String subPackageName = packageName;
-                    int lastPackageSeparator = className.lastIndexOf('.');
-                    if (lastPackageSeparator > 0) {
-                        subPackageName = className.substring(0, lastPackageSeparator);
-                    }
-                    if (subPackageName.length() > packageName.length()) {
-                        subpackageNames.add(subPackageName);
-                    } else if (isToplevelClass(className)) {
-                        classNames.add(className);
-                    }
+            DexFile dexFile = dexFiles.get(classPathEntry.getName());
+            if (dexFile == null) {
+                return;
+            }
+            Enumeration<String> apkClassNames = dexFile.entries();
+            while (apkClassNames.hasMoreElements()) {
+                String className = apkClassNames.nextElement();
+                if (!className.startsWith(packageName)) {
+                    continue;
                 }
-            } catch (IOException ignore) {
-                // okay, presumably the dex file didn't contain any classes
-            } finally {
-                if (dexFile != null) {
-                    try {
-                        dexFile.close();
-                    } catch (IOException ignore) {
-                    }
+
+                String subPackageName = packageName;
+                int lastPackageSeparator = className.lastIndexOf('.');
+                if (lastPackageSeparator > 0) {
+                    subPackageName = className.substring(0, lastPackageSeparator);
+                }
+                if (subPackageName.length() > packageName.length()) {
+                    subpackageNames.add(subPackageName);
+                } else if (isToplevelClass(className)) {
+                    classNames.add(className);
                 }
             }
         }

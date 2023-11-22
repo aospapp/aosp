@@ -64,12 +64,12 @@ public class GlobalConfiguration implements IGlobalConfiguration {
     public static final String KEY_STORE_TYPE_NAME = "key_store";
     public static final String SHARDING_STRATEGY_TYPE_NAME = "sharding_strategy";
 
+    public static final String GLOBAL_CONFIG_VARIABLE = "TF_GLOBAL_CONFIG";
+    private static final String GLOBAL_CONFIG_FILENAME = "tf_global_config.xml";
+
     private static Map<String, ObjTypeInfo> sObjTypeMap = null;
     private static IGlobalConfiguration sInstance = null;
     private static final Object sInstanceLock = new Object();
-
-    private static final String GLOBAL_CONFIG_VARIABLE = "TF_GLOBAL_CONFIG";
-    private static final String GLOBAL_CONFIG_FILENAME = "tf_global_config.xml";
 
     // Empty embedded configuration available by default
     private static final String DEFAULT_EMPTY_CONFIG_NAME = "empty";
@@ -655,7 +655,8 @@ public class GlobalConfiguration implements IGlobalConfiguration {
             whitelistConfigs = CONFIGS_FOR_SUBPROCESS_WHITE_LIST;
         }
         for (String config : whitelistConfigs) {
-            ConfigurationUtil.dumpClassToXml(serializer, config, getConfigurationObject(config));
+            ConfigurationUtil.dumpClassToXml(
+                    serializer, config, getConfigurationObject(config), new ArrayList<>());
         }
         serializer.endTag(null, ConfigurationUtil.CONFIGURATION_NAME);
         serializer.endDocument();

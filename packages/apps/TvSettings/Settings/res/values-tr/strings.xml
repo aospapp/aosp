@@ -184,7 +184,7 @@
     <string name="title_wifi_could_not_connect_timeout" msgid="5158184646985406394">"<xliff:g id="SSID">%1$s</xliff:g> bulunamadı"</string>
     <string name="title_wifi_could_not_connect_authentication_failure" msgid="4836595650380723944">"Kablosuz ağ şifresi geçerli değil"</string>
     <string name="title_wifi_could_not_connect_ap_reject" msgid="328274688839033015">"Kablosuz ağ, bağlantıyı kabul etmedi"</string>
-    <string name="title_wifi_advanced_options" msgid="5389467736846644832">"<xliff:g id="SSID">%1$s</xliff:g> Proxy ve IP Ayarları Yapılandırılsın mı?"</string>
+    <string name="title_wifi_advanced_options" msgid="5389467736846644832">"<xliff:g id="SSID">%1$s</xliff:g> Proxy ve IP Ayarları yapılandırılsın mı?"</string>
     <string name="title_wifi_proxy_settings" msgid="7728120764469991303">"Proxy ayarları"</string>
     <string name="title_wifi_proxy_hostname" msgid="4655634673840885248">"Proxy ana bilgisayar adı:"</string>
     <string name="title_wifi_proxy_port" msgid="9194893429116021337">"Proxy bağlantı noktası:"</string>
@@ -224,7 +224,7 @@
     <string name="wifi_dns1_description" msgid="2463500547232077393">"Geçerli bir IP adresi girin veya boş bırakın.\nÖrnek: <xliff:g id="ID_1">8.8.8.8</xliff:g>"</string>
     <string name="wifi_dns2_description" msgid="8005473174044015359">"Geçerli bir IP adresi girin veya boş bırakın.\nÖrnek: <xliff:g id="ID_1">8.8.4.4</xliff:g>"</string>
     <string name="wifi_gateway_description" msgid="4773751224452216231">"Geçerli bir IP adresi girin veya boş bırakın.\nÖrnek: <xliff:g id="ID_1">192.168.1.1</xliff:g>"</string>
-    <string name="wifi_network_prefix_length_description" msgid="4849589333293194414">"Geçerli bir ağ önek uzunluğu girin.\nÖrnek: <xliff:g id="ID_1">24</xliff:g>"</string>
+    <string name="wifi_network_prefix_length_description" msgid="4849589333293194414">"Geçerli bir ağ öneki uzunluğu girin.\nÖrnek: <xliff:g id="ID_1">24</xliff:g>"</string>
     <string name="proxy_error_invalid_host" msgid="3660415920668138953">"Ana bilgisayar adı geçerli değil"</string>
     <string name="proxy_error_invalid_exclusion_list" msgid="4921547051724987804">"Bu hariç tutma listesi geçerli değil. Hariç tutulan alan adlarının virgülle ayrılmış listesini girin."</string>
     <string name="proxy_error_empty_port" msgid="6835658067776408062">"Bağlantı noktası alanı boş olamaz"</string>
@@ -305,7 +305,7 @@
     <string name="storage_wizard_forget_action" msgid="2532812620271112355">"Unut"</string>
     <string name="storage_new_title" msgid="3098495209500607438">"USB sürücüsü bağlandı"</string>
     <string name="storage_new_action_browse" msgid="9041125660441839453">"Göz at"</string>
-    <string name="storage_new_action_adopt" msgid="880224317112988974">"Depolama cihazı olarak kur"</string>
+    <string name="storage_new_action_adopt" msgid="880224317112988974">"Cihaz depolama alanı olarak kur"</string>
     <string name="storage_new_action_format_public" msgid="5604328981214071670">"Kaldırılabilir depolama olarak kur"</string>
     <string name="storage_new_action_eject" msgid="4069294152676217949">"Çıkar"</string>
     <string name="storage_missing_title" msgid="2803464623922381858">"<xliff:g id="NAME">%1$s</xliff:g> kaldırıldı"</string>
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"Hizmetler"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Hizmet ayarları"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Yüksek kontrastlı metin"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Erişilebilirlik kısayolu"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Erişilebilirlik kısayolunu etkinleştir"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Kısayol hizmeti"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Kısayol açıkken erişilebilirlik özelliğini başlatabilmek için geri ve aşağı düğmelerine 3 saniye süreyle basabilirsiniz."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Altyazılar"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Video üzerinde altyazı metni yer paylaşımı için ayarlar"</string>
     <string name="captions_display" msgid="735692527287125548">"Görüntüleme"</string>
@@ -637,7 +641,7 @@
     <string name="privacy_backup_account" msgid="9059939814827165020">"Yedeklenecek hesap"</string>
     <string name="privacy_automatic_restore" msgid="1409885318093199628">"Otomatik geri yükle"</string>
     <string name="factory_reset_device" msgid="7422459553658815011">"Cihazı sıfırla"</string>
-    <string name="factory_reset_description" msgid="5381170999141355891">"Bu işlem, cihazınızın dahili depolamasındaki verilerin tümünü silecektir. Silinecek verilere şunlar dahildir: Google Hesabınız, sistem ve uygulama verilerinizle bunların ayarları ve indirilen uygulamalarınız"</string>
+    <string name="factory_reset_description" msgid="5381170999141355891">"Bu işlem, cihazınızın dahili depolamasındaki verilerin tümünü silecektir. Silinecek verilere şunlar dahildir: Google Hesabınız, sistem ve uygulama verilerinizle bunların ayarları ve indirilen uygulamalarınız."</string>
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Kişisel bilgilerinizin tümünü ve indirilen uygulamaların hepsini silmek istiyor musunuz? Bu işlem geri döndürülemez!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Her şeyi sil"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"<xliff:g id="DEVICEMODEL">%1$s</xliff:g> cihazınız için bir ad seçin"</string>
@@ -665,5 +669,9 @@
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"Bu işlem, yüklediğiniz tüm üçüncü taraf uygulamaları devre dışı bırakır. Daha sonra tekrar açtığınızda bu uygulamalar geri yüklenir."</string>
     <string name="capturing_bugreport" msgid="3291125403411239592">"Hata raporu alınıyor"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Kullanılabilir sanal klavyeler"</string>
-    <string name="manage_keyboards" msgid="1905379263117016795">"Klavyeleri yönetin"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"Klavyeleri yönet"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"İzin veriliyor"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"İzin verilmiyor"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Kullanım erişimi"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Kullanım erişimi; bir uygulamanın, başka hangi uygulamaları ne sıklıkta kullandığınızı, ayrıca operatörünüzü, dil ayarlarınızı ve diğer ayrıntıları takip etmesine izin verir."</string>
 </resources>

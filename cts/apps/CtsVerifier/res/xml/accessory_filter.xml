@@ -14,5 +14,6 @@
      limitations under the License.
 -->
 <resources>
-    <usb-accessory />
+    <usb-accessory manufacturer="Android CTS" model="Android CTS test companion device"
+        version="2" />
 </resources>

@@ -18,7 +18,7 @@
 #define GATEKEEPER_H_
 
 #include <stdint.h>
-#include <UniquePtr.h>
+#include <gatekeeper/UniquePtr.h>
 #include <hardware/hw_auth_token.h>
 
 #include "gatekeeper_messages.h"

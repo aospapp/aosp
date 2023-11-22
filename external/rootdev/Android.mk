@@ -18,6 +18,7 @@ rootdev_CFLAGS := \
   -D_BSD_SOURCE \
   -D_FILE_OFFSET_BITS=64 \
   -D_LARGEFILE_SOURCE \
+  -include sys/sysmacros.h \
   -Wall -Werror -Wno-sign-compare \
 
 # Build the shared library.

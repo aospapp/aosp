@@ -73,6 +73,7 @@ import java.lang.SecurityException;
 import java.lang.String;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -1089,6 +1090,52 @@ public class PhoneAccountRegistrar {
         }
     }
 
+    private void sortPhoneAccounts() {
+        if (mState.accounts.size() > 1) {
+            // Sort the phone accounts using sort order:
+            // 1) SIM accounts first, followed by non-sim accounts
+            // 2) Sort order, with those specifying no sort order last.
+            // 3) Label
+
+            // Comparator to sort SIM subscriptions before non-sim subscriptions.
+            Comparator<PhoneAccount> bySimCapability = (p1, p2) -> {
+                if (p1.hasCapabilities(PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION)
+                        && !p2.hasCapabilities(PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION)) {
+                    return -1;
+                } else if (!p1.hasCapabilities(PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION)
+                        && p2.hasCapabilities(PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION)) {
+                    return 1;
+                } else {
+                    return 0;
+                }
+            };
+
+            // Create a string comparator which will sort strings, placing nulls last.
+            Comparator<String> nullSafeStringComparator = Comparator.nullsLast(
+                    String::compareTo);
+
+            // Comparator which places PhoneAccounts with a specified sort order first, followed by
+            // those with no sort order.
+            Comparator<PhoneAccount> bySortOrder = (p1, p2) -> {
+                String sort1 = p1.getExtras() == null ? null :
+                        p1.getExtras().getString(PhoneAccount.EXTRA_SORT_ORDER, null);
+                String sort2 = p2.getExtras() == null ? null :
+                        p2.getExtras().getString(PhoneAccount.EXTRA_SORT_ORDER, null);
+                return nullSafeStringComparator.compare(sort1, sort2);
+            };
+
+            // Comparator which sorts PhoneAccounts by label.
+            Comparator<PhoneAccount> byLabel = (p1, p2) -> {
+                String s1 = p1.getLabel() == null ? null : p1.getLabel().toString();
+                String s2 = p2.getLabel() == null ? null : p2.getLabel().toString();
+                return nullSafeStringComparator.compare(s1, s2);
+            };
+
+            // Sort the phone accounts.
+            mState.accounts.sort(bySimCapability.thenComparing(bySortOrder.thenComparing(byLabel)));
+        }
+    }
+
     ////////////////////////////////////////////////////////////////////////////////////////////////
     //
     // State management
@@ -1115,6 +1162,7 @@ public class PhoneAccountRegistrar {
 
     private void write() {
         try {
+            sortPhoneAccounts();
             ByteArrayOutputStream os = new ByteArrayOutputStream();
             XmlSerializer serializer = new FastXmlSerializer();
             serializer.setOutput(os, "utf-8");
@@ -1870,4 +1918,8 @@ public class PhoneAccountRegistrar {
             return null;
         }
     };
+
+    private String nullToEmpty(String str) {
+        return str == null ? "" : str;
+    }
 }

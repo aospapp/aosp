@@ -35,6 +35,12 @@ llvm_defaults {
         "-std=c++11",
     ],
 
+    clang_cflags: [
+        // Temporarily suppress the warnings http://b/37867503
+        "-Wno-error=unused-lambda-capture",
+        "-Wno-error=user-defined-warnings",
+    ],
+
     header_libs: ["llvm-headers-no-generated-headers"],
 
     target: {
@@ -91,6 +97,7 @@ llvm_defaults {
 
 cc_library_headers {
     name: "llvm-headers-no-generated-headers",
+    vendor_available: true,
     host_supported: true,
     export_include_dirs: ["include"],
     target: {
@@ -111,6 +118,7 @@ cc_library_headers {
 
 cc_library_headers {
     name: "llvm-headers",
+    vendor_available: true,
     host_supported: true,
     header_libs: ["llvm-headers-no-generated-headers"],
     export_header_lib_headers: ["llvm-headers-no-generated-headers"],
@@ -232,6 +240,10 @@ cc_library_shared {
         "libLLVMProfileData",
         "libLLVMProfileDataCoverage",
         "libLLVMLibDriver",
+        "libLLVMExecutionEngine",
+        "libLLVMRuntimeDyld",
+        "libLLVMMCJIT",
+        "libLLVMOrcJIT",
     ],
 
     export_include_dirs: ["include"],
@@ -239,12 +251,7 @@ cc_library_shared {
     target: {
         host: {
             // Host build pulls in all ARM, Mips, X86 components.
-           whole_static_libs: [
-                "libLLVMExecutionEngine",
-                "libLLVMRuntimeDyld",
-                "libLLVMMCJIT",
-                "libLLVMOrcJIT",
-            ] + llvm_arm_static_libraries +
+           whole_static_libs: llvm_arm_static_libraries +
                 llvm_aarch64_static_libraries +
                 llvm_mips_static_libraries +
                 llvm_x86_static_libraries,

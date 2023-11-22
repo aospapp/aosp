@@ -18,8 +18,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="android.libcore.cts.oj">
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- important: instrument another package which actually contains the CTS core test runner -->
-    <instrumentation android:name="com.android.cts.core.runner.CoreTestRunner"
+    <!-- important: instrument another package which actually contains AJUR -->
+    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.libcore.runner"
                      android:label="CTS Libcore OJ test cases" />
 

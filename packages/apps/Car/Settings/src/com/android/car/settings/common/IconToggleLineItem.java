@@ -33,7 +33,7 @@ import com.android.car.settings.R;
  */
 public abstract class IconToggleLineItem
         extends TypedPagedListAdapter.LineItem<IconToggleLineItem.ViewHolder> {
-    private final Context mContext;
+    protected final Context mContext;
     private final CharSequence mTitle;
     protected IconUpdateListener mIconUpdateListener;
 
@@ -77,7 +77,6 @@ public abstract class IconToggleLineItem
             title = (TextView) itemView.findViewById(R.id.title);
             summary = (TextView) itemView.findViewById(R.id.desc);
             toggle = (Switch) itemView.findViewById(R.id.toggle_switch);
-            toggle.setVisibility(View.VISIBLE);
         }
 
         @Override
@@ -88,7 +87,7 @@ public abstract class IconToggleLineItem
 
     public static RecyclerView.ViewHolder createViewHolder(ViewGroup parent) {
         View v = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.tile_item, parent, false);
+                .inflate(R.layout.icon_toggle_line_item, parent, false);
         return new ViewHolder(v);
     }
 
@@ -106,4 +105,9 @@ public abstract class IconToggleLineItem
     public abstract boolean isChecked();
 
     public abstract @DrawableRes int getIcon();
+
+    @Override
+    public boolean isClickable() {
+        return true;
+    }
 }

@@ -16,7 +16,7 @@
 // such as the client area of a window, including any back buffers.
 // Implements EGLSurface and related functionality. [EGL 1.4] section 2.2 page 3.
 
-#include "Surface.h"
+#include "Surface.hpp"
 
 #include "main.h"
 #include "Display.h"
@@ -36,9 +36,19 @@
 
 #include <algorithm>
 
+namespace gl
+{
+Surface::Surface()
+{
+}
+
+Surface::~Surface()
+{
+}
+}
+
 namespace egl
 {
-
 Surface::Surface(const Display *display, const Config *config) : display(display), config(config)
 {
 	backBuffer = nullptr;
@@ -68,11 +78,11 @@ bool Surface::initialize()
 
 	if(libGLES_CM)
 	{
-		backBuffer = libGLES_CM->createBackBuffer(width, height, config);
+		backBuffer = libGLES_CM->createBackBuffer(width, height, config->mRenderTargetFormat, config->mSamples);
 	}
 	else if(libGLESv2)
 	{
-		backBuffer = libGLESv2->createBackBuffer(width, height, config);
+		backBuffer = libGLESv2->createBackBuffer(width, height, config->mRenderTargetFormat, config->mSamples);
 	}
 
 	if(!backBuffer)
@@ -86,11 +96,11 @@ bool Surface::initialize()
 	{
 		if(libGLES_CM)
 		{
-			depthStencil = libGLES_CM->createDepthStencil(width, height, config->mDepthStencilFormat, config->mSamples, false);
+			depthStencil = libGLES_CM->createDepthStencil(width, height, config->mDepthStencilFormat, config->mSamples);
 		}
 		else if(libGLESv2)
 		{
-			depthStencil = libGLESv2->createDepthStencil(width, height, config->mDepthStencilFormat, config->mSamples, false);
+			depthStencil = libGLESv2->createDepthStencil(width, height, config->mDepthStencilFormat, config->mSamples);
 		}
 
 		if(!depthStencil)

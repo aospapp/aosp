@@ -18,6 +18,7 @@
 #include <sys/socket.h>	/* for sa_family_t */
 #include <linux/netlink.h>
 #include <libnfnetlink/linux_nfnetlink.h>
+#include <stdbool.h>
 
 #ifndef NETLINK_NETFILTER
 #define NETLINK_NETFILTER 12
@@ -66,11 +67,17 @@ extern unsigned int nfnl_portid(const struct nfnl_handle *h);
 
 /* get a new library handle */
 extern struct nfnl_handle *nfnl_open(void);
+extern struct nfnl_handle *nfnl_open2(int fd, bool bind);
 extern int nfnl_close(struct nfnl_handle *);
+extern int nfnl_close2(struct nfnl_handle *);
 
 extern struct nfnl_subsys_handle *nfnl_subsys_open(struct nfnl_handle *, 
 						   u_int8_t, u_int8_t, 
 						   unsigned int);
+extern struct nfnl_subsys_handle *nfnl_subsys_open2(struct nfnl_handle *,
+						   u_int8_t, u_int8_t,
+						   unsigned int,
+						   bool bind);
 extern void nfnl_subsys_close(struct nfnl_subsys_handle *);
 
 /* set and unset sequence tracking */

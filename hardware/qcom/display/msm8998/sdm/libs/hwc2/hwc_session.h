@@ -76,6 +76,9 @@ class HWCSession : hwc2_device_t, public qClient::BnQClient {
       auto hwc_layer = hwc_session->hwc_display_[display]->GetHWCLayer(layer);
       if (hwc_layer != nullptr) {
         status = (hwc_layer->*member)(std::forward<Args>(args)...);
+        if (hwc_session->hwc_display_[display]->geometry_changes_) {
+          hwc_session->hwc_display_[display]->validated_ = false;
+        }
       }
     }
     return INT32(status);
@@ -170,6 +173,8 @@ class HWCSession : hwc2_device_t, public qClient::BnQClient {
 
   android::status_t SetColorModeOverride(const android::Parcel *input_parcel);
 
+  android::status_t SetColorModeById(const android::Parcel *input_parcel);
+
   static Locker locker_;
   CoreInterface *core_intf_ = NULL;
   HWCDisplay *hwc_display_[HWC_NUM_DISPLAY_TYPES] = {NULL};
@@ -177,7 +182,7 @@ class HWCSession : hwc2_device_t, public qClient::BnQClient {
   pthread_t uevent_thread_;
   bool uevent_thread_exit_ = false;
   const char *uevent_thread_name_ = "HWC_UeventThread";
-  HWCBufferAllocator buffer_allocator_;
+  HWCBufferAllocator *buffer_allocator_;
   HWCBufferSyncHandler buffer_sync_handler_;
   HWCColorManager *color_mgr_ = NULL;
   bool reset_panel_ = false;

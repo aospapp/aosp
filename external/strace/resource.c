@@ -3,6 +3,7 @@
  * Copyright (c) 1993 Branko Lankester <branko@hacktic.nl>
  * Copyright (c) 1993, 1994, 1995, 1996 Rick Sladkey <jrs@world.std.com>
  * Copyright (c) 1996-1999 Wichert Akkerman <wichert@cistron.nl>
+ * Copyright (c) 1999-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -119,8 +120,7 @@ SYS_FUNC(getrlimit)
 	if (entering(tcp)) {
 		printxval(resources, tcp->u_arg[0], "RLIMIT_???");
 		tprints(", ");
-	}
-	else {
+	} else {
 		decode_rlimit(tcp, tcp->u_arg[1]);
 	}
 	return 0;
@@ -156,8 +156,7 @@ SYS_FUNC(getrusage)
 	if (entering(tcp)) {
 		printxval(usagewho, tcp->u_arg[0], "RUSAGE_???");
 		tprints(", ");
-	}
-	else
+	} else
 		printrusage(tcp, tcp->u_arg[1]);
 	return 0;
 }
@@ -168,8 +167,7 @@ SYS_FUNC(osf_getrusage)
 	if (entering(tcp)) {
 		printxval(usagewho, tcp->u_arg[0], "RUSAGE_???");
 		tprints(", ");
-	}
-	else
+	} else
 		printrusage32(tcp, tcp->u_arg[1]);
 	return 0;
 }

@@ -20,7 +20,9 @@ import static org.junit.Assert.assertTrue;
 
 import com.android.tradefed.build.LocalFolderBuildProvider;
 import com.android.tradefed.config.Configuration;
+import com.android.tradefed.config.DeviceConfigurationHolder;
 import com.android.tradefed.config.IConfiguration;
+import com.android.tradefed.config.IDeviceConfiguration;
 import com.android.tradefed.result.CollectingTestListener;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.TextResultReporter;
@@ -47,6 +49,21 @@ public class ValidateSuiteConfigHelperTest {
         // LocalFolderBuildProvider extends the default StubBuildProvider but is still correctly
         // rejected.
         config.setBuildProvider(new LocalFolderBuildProvider());
+        assertFalse(ValidateSuiteConfigHelper.validateConfig(config));
+    }
+
+    /**
+     * Test that a config using the device holder config (multi device) is correctly rejected since
+     * it is not using the default build_provider.
+     */
+    @Test
+    public void testNotRunningAsSuite_MultiDevice_buildProvider() throws Exception {
+        IConfiguration config = new Configuration("test", "test description");
+        // LocalFolderBuildProvider extends the default StubBuildProvider but is still correctly
+        // rejected.
+        IDeviceConfiguration deviceConfig = new DeviceConfigurationHolder("default");
+        deviceConfig.addSpecificConfig(new LocalFolderBuildProvider());
+        config.setDeviceConfig(deviceConfig);
         assertFalse(ValidateSuiteConfigHelper.validateConfig(config));
     }
 

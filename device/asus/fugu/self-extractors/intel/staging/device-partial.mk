@@ -110,7 +110,6 @@ PRODUCT_COPY_FILES := \
     vendor/intel/fugu/proprietary/libprocessgroup.so:system/lib/arm/libprocessgroup.so:intel \
     vendor/intel/fugu/proprietary/libprotobuf-cpp-lite.so:system/lib/arm/libprotobuf-cpp-lite.so:intel \
     vendor/intel/fugu/proprietary/libradio_metadata.so:system/lib/arm/libradio_metadata.so:intel \
-    vendor/intel/fugu/proprietary/libradio.so:system/lib/arm/libradio.so:intel \
     vendor/intel/fugu/proprietary/libRScpp.so:system/lib/arm/libRScpp.so:intel \
     vendor/intel/fugu/proprietary/libRSCpuRef.so:system/lib/arm/libRSCpuRef.so:intel \
     vendor/intel/fugu/proprietary/libRSDriver.so:system/lib/arm/libRSDriver.so:intel \
@@ -140,7 +139,7 @@ PRODUCT_COPY_FILES := \
     vendor/intel/fugu/proprietary/libutils.so:system/lib/arm/libutils.so:intel \
     vendor/intel/fugu/proprietary/libvorbisidec.so:system/lib/arm/libvorbisidec.so:intel \
     vendor/intel/fugu/proprietary/libvulkan.so:system/lib/arm/libvulkan.so:intel \
-    vendor/intel/fugu/proprietary/libwebrtc_audio_preprocessing.so:system/lib/libwebrtc_audio_preprocessing.so:intel \
+    vendor/intel/fugu/proprietary/libwebrtc_audio_preprocessing.so:system/vendor/lib/libwebrtc_audio_preprocessing.so:intel \
     vendor/intel/fugu/proprietary/libwebviewchromium_plat_support.so:system/lib/arm/libwebviewchromium_plat_support.so:intel \
     vendor/intel/fugu/proprietary/libwilhelm.so:system/lib/arm/libwilhelm.so:intel \
     vendor/intel/fugu/proprietary/libz.so:system/lib/arm/libz.so:intel \

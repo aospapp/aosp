@@ -60,12 +60,18 @@ BUILD_COMPARE_STRING_FUNCTION(CompareDsoFrom,
                               branch_from.map->dso->Path().c_str());
 BUILD_COMPARE_STRING_FUNCTION(CompareSymbolFrom,
                               branch_from.symbol->DemangledName());
+BUILD_COMPARE_VALUE_FUNCTION(CompareCallGraphDuplicated, callchain.duplicated);
 
 template <typename EntryT>
 int CompareTotalPeriod(const EntryT* sample1, const EntryT* sample2) {
   uint64_t period1 = sample1->period + sample1->accumulated_period;
   uint64_t period2 = sample2->period + sample2->accumulated_period;
   return Compare(period2, period1);
+}
+
+template <typename EntryT>
+int ComparePeriod(const EntryT* sample1, const EntryT* sample2) {
+  return Compare(sample2->period, sample1->period);
 }
 
 // SampleComparator is a class using a collection of compare functions to

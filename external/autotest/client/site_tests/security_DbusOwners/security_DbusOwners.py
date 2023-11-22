@@ -11,6 +11,8 @@ from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
 
 class security_DbusOwners(test.test):
+    """Enforces a whitelist of known, allowed Dbus interfaces owned by chronos.
+    """
     version = 1
     _DBUS_CONFIG_DIR = '/etc/dbus-1/system.d/'
 
@@ -24,7 +26,7 @@ class security_DbusOwners(test.test):
         return baseline_set
 
 
-    def fetch_owners(self):
+    def fetch_chronos_owned_interfaces(self):
         """
         For every DBus interface XML, look for <policy user="chronos"> sections
         containing <allow own="InterfaceName">. Return the list of interfaces
@@ -33,7 +35,7 @@ class security_DbusOwners(test.test):
         chronos_owned = []
         for root, dirs, files in os.walk(self._DBUS_CONFIG_DIR):
             for filename in files:
-                # Skip cruft like dotfiles
+                # Skip cruft like dotfiles.
                 if not re.search('^[^.].*\.conf$', filename):
                     logging.debug('Skipping %s', filename)
                     continue
@@ -56,9 +58,9 @@ class security_DbusOwners(test.test):
     def run_once(self):
         """
         Enumerate all the DBus interfaces owned by chronos.
-        Fail if it's not included in the expected set.
+        Fail if they're not included in the expected set.
         """
-        observed_set = self.fetch_owners()
+        observed_set = self.fetch_chronos_owned_interfaces()
         baseline_set = self.load_baseline()
 
         # We log but don't fail if we find missing interfaces.

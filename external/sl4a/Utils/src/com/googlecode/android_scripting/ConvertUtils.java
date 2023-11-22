@@ -16,6 +16,10 @@
 
 package com.googlecode.android_scripting;
 
+import android.annotation.NonNull;
+
+import com.google.common.base.Strings;
+
 public class ConvertUtils {
     /**
      * Converts a String of comma separated bytes to a byte array
@@ -61,4 +65,42 @@ public class ConvertUtils {
         return ret;
     }
 
+    /**
+     * An interface for
+     * @param <T1> The type of the caller.
+     * @param <T2> The returned type of the call.
+     */
+    public interface IFunction<T1, T2> {
+        T2 call(T1 t1);
+    }
+
+    /**
+     * Calls a given function on an object, and returns a NonNull String of the return value.
+     * @param obj The object to get the string data from.
+     * @param function The function or method to call.
+     * @param <T1> The type of the object.
+     * @param <T2> The type of the function return type.
+     * @return A string guaranteed not to be null.
+     */
+    public static <T1, T2> String toNonNullString(T1 obj, @NonNull IFunction<T1, T2> function) {
+        if (obj == null) {
+            return "";
+        } else {
+            return toNonNullString(function.call(obj));
+        }
+    }
+
+    /**
+     * Returns toString() or an empty string if {@code obj} or result is null.
+     * @param obj The object to call toString() on.
+     * @param <T> The type of the object.
+     * @return A string guaranteed not to be null.
+     */
+    public static <T> String toNonNullString(T obj) {
+        if (obj == null) {
+            return "";
+        } else {
+            return Strings.nullToEmpty(obj.toString());
+        }
+    }
 }

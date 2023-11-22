@@ -34,6 +34,8 @@
 static const char *pattrs[] = {
         "ipp-versions-supported",
         "printer-make-and-model",
+        "printer-info",
+        "printer-dns-sd-name",
         "printer-name",
         "printer-location",
         "printer-uuid",

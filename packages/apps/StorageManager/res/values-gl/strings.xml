@@ -55,9 +55,12 @@
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"Activar"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"Copias de seguranza de fotos e vídeos"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"Buscando elementos…"</string>
+    <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"Mostrar todos os elementos"</string>
+    <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"Ocultar elementos recentes"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="386144597646356521">"Liberarase un espazo de <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> no teu dispositivo"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"Agora o xestor de almacenamento administra o teu espazo"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"Non hai nada para eliminar"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"Revisar elementos recentes"</string>
     <string name="empty_state_summary" msgid="8439893007424243790">"Non hai ningún ficheiro antigo para eliminar. Para liberar espazo, elimina fotos, vídeos e aplicacións recentes."</string>
+    <string name="app_requesting_space" msgid="857425181289960167">"A aplicación <xliff:g id="APP">%1$s</xliff:g> precisa <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> de espazo"</string>
 </resources>

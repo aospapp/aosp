@@ -35,6 +35,7 @@ import java.util.Map;
  * with a {@link ITestDevice}.
  */
 public class BuildInfo implements IBuildInfo {
+    private static final long serialVersionUID = BuildSerializedVersion.VERSION;
     private static final String BUILD_ALIAS_KEY = "build_alias";
 
     private String mBuildId = UNKNOWN_BUILD_ID;

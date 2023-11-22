@@ -37,7 +37,6 @@
         android:id="@+id/fail_button"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_columnWeight="1"
         android:drawableTop="@drawable/fs_error"
         android:visibility="gone" />
 

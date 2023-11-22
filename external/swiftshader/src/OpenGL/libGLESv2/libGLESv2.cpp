@@ -35,7 +35,7 @@
 
 #include <limits>
 
-#ifdef ANDROID
+#ifdef __ANDROID__
 #include <cutils/log.h>
 #endif
 
@@ -955,7 +955,7 @@ void CompressedTexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yo
 
 			if(validationError == GL_NONE)
 			{
-				texture->subImageCompressed(level, xoffset, yoffset, width, height, sizedInternalFormat, imageSize, data);
+				texture->subImageCompressed(level, xoffset, yoffset, width, height, sizedInternalFormat, imageSize, context->getPixels(data));
 			}
 			else
 			{
@@ -970,7 +970,7 @@ void CompressedTexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yo
 
 			if(validationError == GL_NONE)
 			{
-				texture->subImageCompressed(target, level, xoffset, yoffset, width, height, sizedInternalFormat, imageSize, data);
+				texture->subImageCompressed(target, level, xoffset, yoffset, width, height, sizedInternalFormat, imageSize, context->getPixels(data));
 			}
 			else
 			{
@@ -2062,6 +2062,8 @@ void FramebufferTexture2D(GLenum target, GLenum attachment, GLenum textarget, GL
 
 	if(context)
 	{
+		GLint clientVersion = context->getClientVersion();
+
 		if(texture == 0)
 		{
 			textarget = GL_NONE;
@@ -2098,12 +2100,7 @@ void FramebufferTexture2D(GLenum target, GLenum attachment, GLenum textarget, GL
 				return error(GL_INVALID_ENUM);
 			}
 
-			if(tex->isCompressed(textarget, level))
-			{
-				return error(GL_INVALID_OPERATION);
-			}
-
-			if((level != 0) && (context->getClientVersion() < 3))
+			if((level != 0) && (clientVersion < 3))
 			{
 				return error(GL_INVALID_VALUE);
 			}
@@ -2111,6 +2108,11 @@ void FramebufferTexture2D(GLenum target, GLenum attachment, GLenum textarget, GL
 			if((level < 0) || (level >= es2::IMPLEMENTATION_MAX_TEXTURE_LEVELS))
 			{
 				return error(GL_INVALID_VALUE);
+			}
+
+			if(tex->isCompressed(textarget, level))
+			{
+				return error(GL_INVALID_OPERATION);
 			}
 		}
 
@@ -2174,6 +2176,14 @@ void FramebufferTexture2D(GLenum target, GLenum attachment, GLenum textarget, GL
 			break;
 		case GL_DEPTH_ATTACHMENT:   framebuffer->setDepthbuffer(textarget, texture, level);   break;
 		case GL_STENCIL_ATTACHMENT: framebuffer->setStencilbuffer(textarget, texture, level); break;
+		case GL_DEPTH_STENCIL_ATTACHMENT:
+			if(clientVersion >= 3)
+			{
+				framebuffer->setDepthbuffer(textarget, texture, level);
+				framebuffer->setStencilbuffer(textarget, texture, level);
+				break;
+			}
+			else return error(GL_INVALID_ENUM);
 		default:
 			return error(GL_INVALID_ENUM);
 		}
@@ -2987,16 +2997,13 @@ void GetFramebufferAttachmentParameteriv(GLenum target, GLenum attachment, GLenu
 				else return error(GL_INVALID_ENUM);
 				break;
 			case GL_FRAMEBUFFER_ATTACHMENT_COMPONENT_TYPE:
-				if(clientVersion >= 3)
+		//	case GL_FRAMEBUFFER_ATTACHMENT_COMPONENT_TYPE_EXT:   // GL_EXT_color_buffer_half_float
+				if(attachment == GL_DEPTH_STENCIL_ATTACHMENT)
 				{
-					if(attachment == GL_DEPTH_STENCIL_ATTACHMENT)
-					{
-						return error(GL_INVALID_OPERATION);
-					}
-
-					*params = sw2es::GetComponentType(renderbuffer->getInternalFormat(), attachment);
+					return error(GL_INVALID_OPERATION);
 				}
-				else return error(GL_INVALID_ENUM);
+
+				*params = sw2es::GetComponentType(renderbuffer->getInternalFormat(), attachment);
 				break;
 			case GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING:
 				if(clientVersion >= 3)
@@ -3876,14 +3883,21 @@ void GetnUniformfvEXT(GLuint program, GLint location, GLsizei bufSize, GLfloat* 
 
 	if(context)
 	{
-		if(program == 0)
-		{
-			return error(GL_INVALID_VALUE);
-		}
-
 		es2::Program *programObject = context->getProgram(program);
 
-		if(!programObject || !programObject->isLinked())
+		if(!programObject)
+		{
+			if(context->getShader(program))
+			{
+				return error(GL_INVALID_OPERATION);
+			}
+			else
+			{
+				return error(GL_INVALID_VALUE);
+			}
+		}
+
+		if(!programObject->isLinked())
 		{
 			return error(GL_INVALID_OPERATION);
 		}
@@ -3903,14 +3917,21 @@ void GetUniformfv(GLuint program, GLint location, GLfloat* params)
 
 	if(context)
 	{
-		if(program == 0)
-		{
-			return error(GL_INVALID_VALUE);
-		}
-
 		es2::Program *programObject = context->getProgram(program);
 
-		if(!programObject || !programObject->isLinked())
+		if(!programObject)
+		{
+			if(context->getShader(program))
+			{
+				return error(GL_INVALID_OPERATION);
+			}
+			else
+			{
+				return error(GL_INVALID_VALUE);
+			}
+		}
+
+		if(!programObject->isLinked())
 		{
 			return error(GL_INVALID_OPERATION);
 		}
@@ -3936,19 +3957,21 @@ void GetnUniformivEXT(GLuint program, GLint location, GLsizei bufSize, GLint* pa
 
 	if(context)
 	{
-		if(program == 0)
-		{
-			return error(GL_INVALID_VALUE);
-		}
-
 		es2::Program *programObject = context->getProgram(program);
 
-		if(!programObject || !programObject->isLinked())
+		if(!programObject)
 		{
-			return error(GL_INVALID_OPERATION);
+			if(context->getShader(program))
+			{
+				return error(GL_INVALID_OPERATION);
+			}
+			else
+			{
+				return error(GL_INVALID_VALUE);
+			}
 		}
 
-		if(!programObject)
+		if(!programObject->isLinked())
 		{
 			return error(GL_INVALID_OPERATION);
 		}
@@ -3968,19 +3991,21 @@ void GetUniformiv(GLuint program, GLint location, GLint* params)
 
 	if(context)
 	{
-		if(program == 0)
-		{
-			return error(GL_INVALID_VALUE);
-		}
-
 		es2::Program *programObject = context->getProgram(program);
 
-		if(!programObject || !programObject->isLinked())
+		if(!programObject)
 		{
-			return error(GL_INVALID_OPERATION);
+			if(context->getShader(program))
+			{
+				return error(GL_INVALID_OPERATION);
+			}
+			else
+			{
+				return error(GL_INVALID_VALUE);
+			}
 		}
 
-		if(!programObject)
+		if(!programObject->isLinked())
 		{
 			return error(GL_INVALID_OPERATION);
 		}
@@ -4221,6 +4246,9 @@ void Hint(GLenum target, GLenum mode)
 		break;
 	case GL_FRAGMENT_SHADER_DERIVATIVE_HINT_OES:
 		if(context) context->setFragmentShaderDerivativeHint(mode);
+		break;
+	case GL_TEXTURE_FILTERING_HINT_CHROMIUM:
+		if(context) context->setTextureFilteringHint(mode);
 		break;
 	default:
 		return error(GL_INVALID_ENUM);
@@ -4647,7 +4675,7 @@ void ReleaseShaderCompiler(void)
 	es2::Shader::releaseCompiler();
 }
 
-void RenderbufferStorageMultisampleANGLE(GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height)
+void RenderbufferStorageMultisample(GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height)
 {
 	TRACE("(GLenum target = 0x%X, GLsizei samples = %d, GLenum internalformat = 0x%X, GLsizei width = %d, GLsizei height = %d)",
 	      target, samples, internalformat, width, height);
@@ -4683,84 +4711,35 @@ void RenderbufferStorageMultisampleANGLE(GLenum target, GLsizei samples, GLenum 
 		}
 
 		GLint clientVersion = context->getClientVersion();
-		switch(internalformat)
+
+		if(IsColorRenderable(internalformat, clientVersion, false))
 		{
-		case GL_DEPTH_COMPONENT32F:
-			if(clientVersion < 3)
-			{
-				return error(GL_INVALID_ENUM);
-			}
-			// fall through
-		case GL_DEPTH_COMPONENT16:
-		case GL_DEPTH_COMPONENT24:
-		case GL_DEPTH_COMPONENT32_OES:
-			context->setRenderbufferStorage(new es2::Depthbuffer(width, height, internalformat, samples));
-			break;
-		case GL_R8:
-		case GL_R8UI:
-		case GL_R8I:
-		case GL_R16UI:
-		case GL_R16I:
-		case GL_R32UI:
-		case GL_R32I:
-		case GL_RG8:
-		case GL_RG8UI:
-		case GL_RG8I:
-		case GL_RG16UI:
-		case GL_RG16I:
-		case GL_RG32UI:
-		case GL_RG32I:
-		case GL_SRGB8_ALPHA8:
-		case GL_RGB10_A2:
-		case GL_RGBA8UI:
-		case GL_RGBA8I:
-		case GL_RGB10_A2UI:
-		case GL_RGBA16UI:
-		case GL_RGBA16I:
-		case GL_RGBA32I:
-		case GL_RGBA32UI:
-		case GL_R11F_G11F_B10F:
-		case GL_R32F:
-		case GL_RG32F:
-		case GL_RGB32F:
-		case GL_RGBA32F:
-			if(clientVersion < 3)
-			{
-				return error(GL_INVALID_ENUM);
-			}
-			// fall through
-		case GL_RGBA4:
-		case GL_RGB5_A1:
-		case GL_RGB565:
-		case GL_RGB8_OES:
-		case GL_RGBA8_OES:
-		case GL_R16F:
-		case GL_RG16F:
-		case GL_RGB16F:
-		case GL_RGBA16F:
 			context->setRenderbufferStorage(new es2::Colorbuffer(width, height, internalformat, samples));
-			break;
-		case GL_STENCIL_INDEX8:
-			context->setRenderbufferStorage(new es2::Stencilbuffer(width, height, samples));
-			break;
-		case GL_DEPTH32F_STENCIL8:
-			if(clientVersion < 3)
-			{
-				return error(GL_INVALID_ENUM);
-			}
-			// fall through
-		case GL_DEPTH24_STENCIL8_OES:
-			context->setRenderbufferStorage(new es2::DepthStencilbuffer(width, height, internalformat, samples));
-			break;
-		default:
-			return error(GL_INVALID_ENUM);
 		}
+		else if(IsDepthRenderable(internalformat, clientVersion) && IsStencilRenderable(internalformat, clientVersion))
+		{
+			context->setRenderbufferStorage(new es2::DepthStencilbuffer(width, height, internalformat, samples));
+		}
+		else if(IsDepthRenderable(internalformat, clientVersion))
+		{
+			context->setRenderbufferStorage(new es2::Depthbuffer(width, height, internalformat, samples));
+		}
+		else if(IsStencilRenderable(internalformat, clientVersion))
+		{
+			context->setRenderbufferStorage(new es2::Stencilbuffer(width, height, samples));
+		}
+		else error(GL_INVALID_ENUM);
 	}
+}
+
+void RenderbufferStorageMultisampleANGLE(GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height)
+{
+	RenderbufferStorageMultisample(target, samples, internalformat, width, height);
 }
 
 void RenderbufferStorage(GLenum target, GLenum internalformat, GLsizei width, GLsizei height)
 {
-	glRenderbufferStorageMultisampleANGLE(target, 0, internalformat, width, height);
+	RenderbufferStorageMultisample(target, 0, internalformat, width, height);
 }
 
 void SampleCoverage(GLclampf value, GLboolean invert)
@@ -5046,11 +5025,11 @@ GLboolean TestFenceNV(GLuint fence)
 }
 
 void TexImage2D(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height,
-                GLint border, GLenum format, GLenum type, const GLvoid* pixels)
+                GLint border, GLenum format, GLenum type, const GLvoid* data)
 {
 	TRACE("(GLenum target = 0x%X, GLint level = %d, GLint internalformat = %d, GLsizei width = %d, GLsizei height = %d, "
-	      "GLint border = %d, GLenum format = 0x%X, GLenum type = 0x%X, const GLvoid* pixels =  %p)",
-	      target, level, internalformat, width, height, border, format, type, pixels);
+	      "GLint border = %d, GLenum format = 0x%X, GLenum type = 0x%X, const GLvoid* data =  %p)",
+	      target, level, internalformat, width, height, border, format, type, data);
 
 	if(!validImageSize(level, width, height))
 	{
@@ -5127,7 +5106,7 @@ void TexImage2D(GLenum target, GLint level, GLint internalformat, GLsizei width,
 				return error(GL_INVALID_OPERATION);
 			}
 
-			texture->setImage(level, width, height, sizedInternalFormat, type, context->getUnpackInfo(), pixels);
+			texture->setImage(context, level, width, height, sizedInternalFormat, type, context->getUnpackInfo(), context->getPixels(data));
 		}
 		else
 		{
@@ -5138,7 +5117,7 @@ void TexImage2D(GLenum target, GLint level, GLint internalformat, GLsizei width,
 				return error(GL_INVALID_OPERATION);
 			}
 
-			texture->setImage(target, level, width, height, sizedInternalFormat, type, context->getUnpackInfo(), pixels);
+			texture->setImage(context, target, level, width, height, sizedInternalFormat, type, context->getUnpackInfo(), context->getPixels(data));
 		}
 	}
 }
@@ -5442,12 +5421,12 @@ void TexParameteriv(GLenum target, GLenum pname, const GLint* params)
 }
 
 void TexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height,
-                   GLenum format, GLenum type, const GLvoid* pixels)
+                   GLenum format, GLenum type, const GLvoid* data)
 {
 	TRACE("(GLenum target = 0x%X, GLint level = %d, GLint xoffset = %d, GLint yoffset = %d, "
 	      "GLsizei width = %d, GLsizei height = %d, GLenum format = 0x%X, GLenum type = 0x%X, "
-	      "const GLvoid* pixels = %p)",
-	      target, level, xoffset, yoffset, width, height, format, type, pixels);
+	      "const GLvoid* data = %p)",
+	      target, level, xoffset, yoffset, width, height, format, type, data);
 
 	if(!es2::IsTextureTarget(target))
 	{
@@ -5474,7 +5453,7 @@ void TexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLs
 		return;
 	}
 
-	if(width == 0 || height == 0 || !pixels)
+	if(width == 0 || height == 0)
 	{
 		return;
 	}
@@ -5493,7 +5472,7 @@ void TexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLs
 
 			if(validationError == GL_NONE)
 			{
-				texture->subImage(level, xoffset, yoffset, width, height, sizedInternalFormat, type, context->getUnpackInfo(), pixels);
+				texture->subImage(context, level, xoffset, yoffset, width, height, sizedInternalFormat, type, context->getUnpackInfo(), context->getPixels(data));
 			}
 			else
 			{
@@ -5508,7 +5487,7 @@ void TexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLs
 
 			if(validationError == GL_NONE)
 			{
-				texture->subImage(target, level, xoffset, yoffset, width, height, sizedInternalFormat, type, context->getUnpackInfo(), pixels);
+				texture->subImage(context, target, level, xoffset, yoffset, width, height, sizedInternalFormat, type, context->getUnpackInfo(), context->getPixels(data));
 			}
 			else
 			{
@@ -5994,7 +5973,7 @@ void ValidateProgram(GLuint program)
 			}
 		}
 
-		programObject->validate();
+		programObject->validate(context->getDevice());
 	}
 }
 
@@ -6167,6 +6146,7 @@ void VertexAttribPointer(GLuint index, GLint size, GLenum type, GLboolean normal
 	case GL_UNSIGNED_SHORT:
 	case GL_FIXED:
 	case GL_FLOAT:
+	case GL_HALF_FLOAT_OES:   // GL_OES_vertex_half_float
 		break;
 	case GL_INT_2_10_10_10_REV:
 	case GL_UNSIGNED_INT_2_10_10_10_REV:
@@ -6221,7 +6201,7 @@ void Viewport(GLint x, GLint y, GLsizei width, GLsizei height)
 	}
 }
 
-void BlitFramebufferNV(GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter)
+static void BlitFramebuffer(GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter, bool allowPartialDepthStencilBlit)
 {
 	TRACE("(GLint srcX0 = %d, GLint srcY0 = %d, GLint srcX1 = %d, GLint srcY1 = %d, "
 	      "GLint dstX0 = %d, GLint dstY0 = %d, GLint dstX1 = %d, GLint dstY1 = %d, "
@@ -6251,8 +6231,13 @@ void BlitFramebufferNV(GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint
 			return error(GL_INVALID_OPERATION);
 		}
 
-		context->blitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask);
+		context->blitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, false, allowPartialDepthStencilBlit);
 	}
+}
+
+void BlitFramebufferNV(GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter)
+{
+	BlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter, true);
 }
 
 void BlitFramebufferANGLE(GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1,
@@ -6264,16 +6249,16 @@ void BlitFramebufferANGLE(GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GL
 		return error(GL_INVALID_OPERATION);
 	}
 
-	glBlitFramebufferNV(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
+	BlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter, false);
 }
 
 void TexImage3DOES(GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth,
-                   GLint border, GLenum format, GLenum type, const GLvoid* pixels)
+                   GLint border, GLenum format, GLenum type, const GLvoid* data)
 {
 	TRACE("(GLenum target = 0x%X, GLint level = %d, GLenum internalformat = 0x%X, "
 	      "GLsizei width = %d, GLsizei height = %d, GLsizei depth = %d, GLint border = %d, "
-	      "GLenum format = 0x%X, GLenum type = 0x%x, const GLvoid* pixels = %p)",
-	      target, level, internalformat, width, height, depth, border, format, type, pixels);
+	      "GLenum format = 0x%X, GLenum type = 0x%x, const GLvoid* data = %p)",
+	      target, level, internalformat, width, height, depth, border, format, type, data);
 
 	switch(target)
 	{
@@ -6323,16 +6308,16 @@ void TexImage3DOES(GLenum target, GLint level, GLenum internalformat, GLsizei wi
 			return error(GL_INVALID_OPERATION);
 		}
 
-		texture->setImage(level, width, height, depth, GetSizedInternalFormat(internalformat, type), type, context->getUnpackInfo(), pixels);
+		texture->setImage(context, level, width, height, depth, GetSizedInternalFormat(internalformat, type), type, context->getUnpackInfo(), context->getPixels(data));
 	}
 }
 
-void TexSubImage3DOES(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const void *pixels)
+void TexSubImage3DOES(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const void *data)
 {
 	TRACE("(GLenum target = 0x%X, GLint level = %d, GLint xoffset = %d, GLint yoffset = %d, "
 	      "GLint zoffset = %d, GLsizei width = %d, GLsizei height = %d, GLsizei depth = %d, "
-	      "GLenum format = 0x%X, GLenum type = 0x%x, const GLvoid* pixels = %p)",
-	      target, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels);
+	      "GLenum format = 0x%X, GLenum type = 0x%x, const GLvoid* data = %p)",
+	      target, level, xoffset, yoffset, zoffset, width, height, depth, format, type, data);
 
 	switch(target)
 	{
@@ -6368,7 +6353,7 @@ void TexSubImage3DOES(GLenum target, GLint level, GLint xoffset, GLint yoffset, 
 		GLenum validationError = ValidateSubImageParams(false, width, height, depth, xoffset, yoffset, zoffset, target, level, sizedInternalFormat, texture);
 		if(validationError == GL_NONE)
 		{
-			texture->subImage(level, xoffset, yoffset, zoffset, width, height, depth, sizedInternalFormat, type, context->getUnpackInfo(), pixels);
+			texture->subImage(context, level, xoffset, yoffset, zoffset, width, height, depth, sizedInternalFormat, type, context->getUnpackInfo(), context->getPixels(data));
 		}
 		else
 		{
@@ -6537,7 +6522,7 @@ void CompressedTexSubImage3DOES(GLenum target, GLint level, GLint xoffset, GLint
 			return error(GL_INVALID_OPERATION);
 		}
 
-		texture->subImageCompressed(level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data);
+		texture->subImageCompressed(level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, context->getPixels(data));
 	}
 }
 
@@ -6682,16 +6667,11 @@ void EGLImageTargetTexture2DOES(GLenum target, GLeglImageOES image)
 		return error(GL_INVALID_ENUM);
 	}
 
-	if(!image)
-	{
-		return error(GL_INVALID_OPERATION);
-	}
-
 	es2::Context *context = es2::getContext();
 
 	if(context)
 	{
-		es2::Texture2D *texture = 0;
+		es2::Texture2D *texture = nullptr;
 
 		switch(target)
 		{
@@ -6705,9 +6685,14 @@ void EGLImageTargetTexture2DOES(GLenum target, GLeglImageOES image)
 			return error(GL_INVALID_OPERATION);
 		}
 
-		egl::Image *glImage = static_cast<egl::Image*>(image);
+		egl::Image *eglImage = context->getSharedImage(image);
 
-		texture->setImage(glImage);
+		if(!eglImage)
+		{
+			return error(GL_INVALID_OPERATION);
+		}
+
+		texture->setSharedImage(eglImage);
 	}
 }
 
@@ -6871,7 +6856,7 @@ void DrawBuffersEXT(GLsizei n, const GLenum *bufs)
 
 }
 
-extern "C" __eglMustCastToProperFunctionPointerType es2GetProcAddress(const char *procname)
+extern "C" NO_SANITIZE_FUNCTION __eglMustCastToProperFunctionPointerType es2GetProcAddress(const char *procname)
 {
 	struct Extension
 	{

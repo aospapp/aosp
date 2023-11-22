@@ -17,8 +17,16 @@
 <resources>
     <!-- Whether to enable ETWS settings (Japan) -->
     <bool name="show_etws_settings">false</bool>
+    <!-- Whether to always sound CBS alerts at full volume -->
+    <bool name="use_full_volume">false</bool>
     <!-- Whether to enable CMAS settings (United States) -->
     <bool name="show_cmas_settings">true</bool>
-    <!-- Whether to enable channel 50 settings (Brazil) -->
-    <bool name="show_brazil_settings">false</bool>
+    <!-- Whether to append date-time to the alert title -->
+    <bool name="show_date_time_title">false</bool>
+    <!-- Additional cell broadcast channels to enable -->
+    <string-array name="additional_cbs_channels_strings" translatable="false"></string-array>
+    <!-- Emergecny alert tone duration in milliseconds. -1 indicates playing the tone with the tone's duration -->
+    <integer name="alert_duration">-1</integer>
+    <!-- Whether to compare message body when performing message duplicate dection -->
+    <bool name="duplicate_compare_body">false</bool>
 </resources>

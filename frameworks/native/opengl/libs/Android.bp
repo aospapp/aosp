@@ -64,6 +64,16 @@ cc_defaults {
         "liblog",
         "libdl",
     ],
+    static_libs: [
+        "libarect",
+    ],
+    header_libs: [
+        "gl_headers",
+        "libsystem_headers",
+        "libhardware_headers",
+        "libnativebase_headers",
+    ],
+    export_header_lib_headers: ["gl_headers"],
 
     // we need to access the private Bionic header <bionic_tls.h>
     include_dirs: ["bionic/libc/private"],
@@ -81,10 +91,15 @@ cc_defaults {
     shared_libs: [
         // ***** DO NOT ADD NEW DEPENDENCIES HERE *****
         // In particular, DO NOT add libutils nor anything "above" libui
-        "libui",
+        "libgraphicsenv",
         "libnativewindow",
         "libbacktrace",
     ],
+    target: {
+        vendor: {
+            exclude_shared_libs: ["libgraphicsenv"],
+        },
+    },
 }
 
 cc_library_static {
@@ -111,7 +126,14 @@ cc_library_shared {
         "EGL/Loader.cpp",
         "EGL/BlobCache.cpp",
     ],
-    shared_libs: ["libvndksupport"],
+    shared_libs: [
+        "libvndksupport",
+        "android.hardware.configstore@1.0",
+        "android.hardware.configstore-utils",
+        "libhidlbase",
+        "libhidltransport",
+        "libutils",
+    ],
     static_libs: ["libEGL_getProcAddress"],
     ldflags: ["-Wl,--exclude-libs=ALL"],
     export_include_dirs: ["EGL/include"],

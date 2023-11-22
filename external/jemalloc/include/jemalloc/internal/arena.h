@@ -1442,7 +1442,7 @@ arena_dalloc(tsdn_t *tsdn, void *ptr, tcache_t *tcache, bool slow_path)
 #if defined(__ANDROID__)
 		/* Verify the ptr is actually in the chunk. */
 		if (unlikely(pageind < map_bias || pageind >= chunk_npages)) {
-		    __libc_fatal("Invalid address %p passed to free: invalid page index", ptr);
+		    async_safe_fatal("Invalid address %p passed to free: invalid page index", ptr);
 		}
 #endif
 		mapbits = arena_mapbits_get(chunk, pageind);
@@ -1450,7 +1450,7 @@ arena_dalloc(tsdn_t *tsdn, void *ptr, tcache_t *tcache, bool slow_path)
 #if defined(__ANDROID__)
 		/* Verify the ptr has been allocated. */
 		if (unlikely((mapbits & CHUNK_MAP_ALLOCATED) == 0)) {
-		    __libc_fatal("Invalid address %p passed to free: value not allocated", ptr);
+		    async_safe_fatal("Invalid address %p passed to free: value not allocated", ptr);
 		}
 #endif
 		if (likely((mapbits & CHUNK_MAP_LARGE) == 0)) {

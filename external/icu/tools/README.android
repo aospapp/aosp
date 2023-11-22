@@ -3,20 +3,12 @@ This directory contains tools for ICU updates.
 Data update tools
 =================
 
-update-tzdata.py
-  - downloads tzdata updates and regenerates the ICU and
-    libcore/bionic timezone data files.
-    There are sometimes code and metadata changes associated
-    with tzdata updates that should be applied at the same time.
-    e.g. see http://bugs.icu-project.org/trac/search?q=2015d
-
-    ICU and CTS tests for bionic / libcore should be run before
-    and after.
-
 updateicudata.py
   - regerates the ICU data files.
     ICU and CTS tests for libcore should be run before and
     after.
+
+See $ANDROID_BUILD_TOP/system/timezone for tools related to time zone updates.
 
 Source code updates
 ===================

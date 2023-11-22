@@ -15,6 +15,127 @@
 HOGP
 =================================================================
 
+TC_RH_HGDS_BV_01_I
+  bta_start_pairing_helper
+  bta_bond
+  bta_get_pairing_pin
+  [PTS Interaction] Enter PIN from phone to PTS
+  bta_disconnect
+  [PTS Interaction] Verify values
+
+TC_RH_HGDS_BV_02_C
+  bta_start_pairing_helper
+  bta_bond
+  bta_get_pairing_pin
+  [PTS Interaction] Enter PIN from phone to PTS
+  bta_disconnect
+  [PTS Interaction] Verify values
+
+TC_RH_HGDS_BV_03_C
+  bta_start_pairing_helper
+  bta_bond
+  bta_get_pairing_pin
+  [PTS Interaction] Enter PIN from phone to PTS
+  bta_disconnect
+  [PTS Interaction] Verify values
+
+TC_RH_HGCD_BV_01_I
+  bta_start_pairing_helper
+  bta_bond
+  bta_get_pairing_pin
+  [PTS Interaction] Enter PIN from phone to PTS
+  bta_disconnect
+  [PTS Interaction] Verify values
+  [PTS Interaction] Verify values
+
+TC_RH_HGCD_BV_02_I
+  bta_start_pairing_helper
+  bta_bond
+  bta_get_pairing_pin
+  [PTS Interaction] Enter PIN from phone to PTS
+  bta_disconnect
+  [PTS Interaction] Verify values
+  [PTS Interaction] Verify values
+
+TC_RH_HGCD_BV_03_I
+  bta_start_pairing_helper
+  bta_bond
+  bta_get_pairing_pin
+  [PTS Interaction] Enter PIN from phone to PTS
+  bta_disconnect
+  [PTS Interaction] Verify values
+  [PTS Interaction] Verify values
+  [PTS Interaction] Verify values
+  [PTS Interaction] Verify values
+  [PTS Interaction] Verify values
+  [PTS Interaction] Verify values
+
+TC_RH_HGCD_BV_04_I
+  bta_start_pairing_helper
+  bta_bond
+  bta_get_pairing_pin
+  [PTS Interaction] Enter PIN from phone to PTS
+  bta_disconnect
+  [PTS Interaction] Verify values
+  [PTS Interaction] Verify values
+
+TC_RH_HGCD_BV_05_I
+  bta_start_pairing_helper
+  bta_bond
+  bta_get_pairing_pin
+  [PTS Interaction] Enter PIN from phone to PTS
+  bta_disconnect
+  [PTS Interaction] Verify values
+  [PTS Interaction] Verify values
+  [PTS Interaction] Verify values
+  [PTS Interaction] Verify values
+  [PTS Interaction] Verify values
+  [PTS Interaction] Verify values
+
+TC_RH_HGCD_BV_06_I
+  bta_start_pairing_helper
+  bta_bond
+  bta_get_pairing_pin
+  [PTS Interaction] Enter PIN from phone to PTS
+  bta_disconnect
+  [PTS Interaction] Verify values
+  [PTS Interaction] Verify values
+
+TC_RH_HGCD_BV_07_I
+  bta_start_pairing_helper
+  bta_bond
+  bta_get_pairing_pin
+  [PTS Interaction] Enter PIN from phone to PTS
+  bta_disconnect
+  [PTS Interaction] Verify values
+  [PTS Interaction] Verify values
+
+TC_RH_HGCD_BV_14_I
+  bta_start_pairing_helper
+  bta_bond
+  bta_get_pairing_pin
+  [PTS Interaction] Enter PIN from phone to PTS
+  bta_disconnect
+  [PTS Interaction] Verify values
+  [PTS Interaction] Verify values
+
+TC_RH_HGCD_BV_15_I
+  bta_start_pairing_helper
+  bta_bond
+  bta_get_pairing_pin
+  [PTS Interaction] Enter PIN from phone to PTS
+  bta_disconnect
+  [PTS Interaction] Verify values
+  [PTS Interaction] Verify values
+
+TC_RH_HGCD_BV_16_I
+  bta_start_pairing_helper
+  bta_bond
+  bta_get_pairing_pin
+  [PTS Interaction] Enter PIN from phone to PTS
+  bta_disconnect
+  [PTS Interaction] Verify values
+
 TC_RH_HGRF_BV_01_I
   bta_start_pairing_helper
   bta_bond

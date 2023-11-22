@@ -24,21 +24,25 @@ libmm-vidc-inc      := $(LOCAL_PATH)/inc
 libmm-vidc-inc      += $(QCOM_MEDIA_ROOT)/mm-core/inc
 libmm-vidc-inc      += $(TARGET_OUT_HEADERS)/qcom/display
 libmm-vidc-inc      += $(QCOM_MEDIA_ROOT)/libc2dcolorconvert
-libmm-vidc-inc      += $(TOP)/frameworks/av/include/media/stagefright
 ifeq ($(TARGET_COMPILE_WITH_MSM_KERNEL),true)
 libmm-vidc-inc      += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
 endif
 
 LOCAL_MODULE                    := libOmxVidcCommon
 LOCAL_MODULE_TAGS               := optional
+LOCAL_PROPRIETARY_MODULE        := true
 LOCAL_CFLAGS                    := $(libmm-vidc-def)
 LOCAL_C_INCLUDES                := $(libmm-vidc-inc)
 
 LOCAL_PRELINK_MODULE      := false
-LOCAL_SHARED_LIBRARIES    := liblog libutils libcutils libdl
+LOCAL_SHARED_LIBRARIES    := liblog libcutils libdl
+LOCAL_HEADER_LIBRARIES    := \
+    libutils_headers \
+    libhardware_headers \
 
 LOCAL_SRC_FILES   := src/extra_data_handler.cpp
 LOCAL_SRC_FILES   += src/vidc_color_converter.cpp
+LOCAL_SRC_FILES   += src/vidc_vendor_extensions.cpp
 
 ifeq ($(TARGET_COMPILE_WITH_MSM_KERNEL),true)
 LOCAL_ADDITIONAL_DEPENDENCIES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr

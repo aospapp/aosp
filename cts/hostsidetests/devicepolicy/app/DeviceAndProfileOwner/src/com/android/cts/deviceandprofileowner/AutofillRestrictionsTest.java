@@ -17,6 +17,7 @@
 package com.android.cts.deviceandprofileowner;
 
 import static android.provider.Settings.Secure.AUTOFILL_SERVICE;
+import static android.provider.Settings.Secure.USER_SETUP_COMPLETE;
 
 import android.content.Intent;
 import static android.os.UserManager.DISALLOW_AUTOFILL;
@@ -27,9 +28,6 @@ public class AutofillRestrictionsTest extends BaseDeviceAdminTest {
             "com.android.cts.devicepolicy.autofillapp/.SimpleAutofillService";
     private static final String AUTOFILL_PACKAGE_NAME = "com.android.cts.devicepolicy.autofillapp";
     private static final String AUTOFILL_ACTIVITY_NAME = AUTOFILL_PACKAGE_NAME + ".SimpleActivity";
-
-    // TODO: should static import Settings.Secure instead, but that's not a @TestApi
-    private static String USER_SETUP_COMPLETE = "user_setup_complete";
 
     // Currently, autofill_service is a cloned service, so it's only set in the default user.
     // That might change, so we're using a guard to decide how to set it

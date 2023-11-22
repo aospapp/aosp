@@ -1678,6 +1678,7 @@ ifeq ($(WPA_SUPPLICANT_USE_HIDL), y)
 ########################
 include $(CLEAR_VARS)
 LOCAL_MODULE := libwpa_hidl
+LOCAL_VENDOR_MODULE := true
 LOCAL_CPPFLAGS := $(L_CPPFLAGS)
 LOCAL_CFLAGS := $(L_CFLAGS)
 LOCAL_C_INCLUDES := $(INCLUDES)
@@ -1696,7 +1697,8 @@ LOCAL_SHARED_LIBRARIES := \
     libhidlbase \
     libhidltransport \
     libhwbinder \
-    libutils
+    libutils \
+    liblog
 LOCAL_EXPORT_C_INCLUDE_DIRS := \
     $(LOCAL_PATH)/hidl/$(HIDL_INTERFACE_VERSION)
 include $(BUILD_STATIC_LIBRARY)

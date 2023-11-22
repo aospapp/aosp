@@ -20,16 +20,24 @@ import com.android.ddmlib.Log.LogLevel;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.log.ITestLogger;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.result.ITestLoggerReceiver;
+import com.android.tradefed.result.InputStreamSource;
+import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.ITargetCleaner;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.TargetSetupError;
+import com.android.tradefed.util.StreamUtil;
 
 /**
  * Creates secondary and tertiary users for use during a test suite.
  */
-public class AppSecurityPreparer implements ITargetPreparer, ITargetCleaner {
+public class AppSecurityPreparer implements ITargetPreparer, ITargetCleaner, ITestLoggerReceiver {
+
+    private ITestLogger mLogger;
+
     @Override
     public void setUp(ITestDevice device, IBuildInfo buildInfo)
             throws TargetSetupError, BuildError, DeviceNotAvailableException {
@@ -38,13 +46,23 @@ public class AppSecurityPreparer implements ITargetPreparer, ITargetCleaner {
         removeSecondaryUsers(device);
 
         final int maxUsers = device.getMaxNumberOfUsersSupported();
-        if (maxUsers > 1) {
-            CLog.logAndDisplay(LogLevel.INFO,
-                    "Created secondary user " + device.createUser("CTS_" + System.nanoTime()));
-        }
-        if (maxUsers > 2) {
-            CLog.logAndDisplay(LogLevel.INFO,
-                    "Created secondary user " + device.createUser("CTS_" + System.nanoTime()));
+        try {
+            if (maxUsers > 1) {
+                CLog.logAndDisplay(LogLevel.INFO,
+                        "Created secondary user " + device.createUser("CTS_" + System.nanoTime()));
+            }
+            if (maxUsers > 2) {
+                CLog.logAndDisplay(LogLevel.INFO,
+                        "Created secondary user " + device.createUser("CTS_" + System.nanoTime()));
+            }
+        } catch (IllegalStateException e) {
+            InputStreamSource logcat = device.getLogcatDump();
+            try {
+                mLogger.testLog("AppSecurityPrep_failed_create_user", LogDataType.LOGCAT, logcat);
+            } finally {
+                StreamUtil.cancel(logcat);
+            }
+            throw new TargetSetupError("Failed to create user.", e, device.getDeviceDescriptor());
         }
     }
 
@@ -60,5 +78,10 @@ public class AppSecurityPreparer implements ITargetPreparer, ITargetCleaner {
             device.removeUser(userIds[i]);
             CLog.logAndDisplay(LogLevel.INFO, "Destroyed secondary user " + userIds[i]);
         }
+    }
+
+    @Override
+    public void setTestLogger(ITestLogger testLogger) {
+        mLogger = testLogger;
     }
 }

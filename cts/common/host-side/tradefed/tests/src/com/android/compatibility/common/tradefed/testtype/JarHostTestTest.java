@@ -136,7 +136,8 @@ public class JarHostTestTest extends TestCase {
                 + "JarHostTestTest$Junit4TestClass");
         setter.setOptionValue("class", "com.android.compatibility.common.tradefed.testtype."
                 + "JarHostTestTest$Junit4TestClass2");
-        List<IRemoteTest> res = (List<IRemoteTest>)mTest.split();
+        // sharCount is ignored; will split by number of classes
+        List<IRemoteTest> res = (List<IRemoteTest>)mTest.split(1);
         assertEquals(2, res.size());
         assertTrue(res.get(0) instanceof JarHostTest);
         assertTrue(res.get(1) instanceof JarHostTest);
@@ -150,7 +151,8 @@ public class JarHostTestTest extends TestCase {
         mTest = new JarHostTestable(mTestDir);
         OptionSetter setter = new OptionSetter(mTest);
         setter.setOptionValue("jar", testJar.getName());
-        List<IRemoteTest> res = (List<IRemoteTest>)mTest.split();
+        // sharCount is ignored; will split by number of classes
+        List<IRemoteTest> res = (List<IRemoteTest>)mTest.split(1);
         assertEquals(2, res.size());
         assertTrue(res.get(0) instanceof JarHostTest);
         assertEquals("[android.ui.cts.TaskSwitchingTest]",

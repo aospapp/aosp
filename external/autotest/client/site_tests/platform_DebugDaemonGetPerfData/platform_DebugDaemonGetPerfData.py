@@ -73,8 +73,8 @@ class platform_DebugDaemonGetPerfData(test.test):
         for _ in range(num_reps):
             perf_command = ['perf', 'record', '-a', '-e', 'cycles',
                             '-c', '1000003']
-            status, perf_data, perf_stat = (
-                self.dbus_iface.GetPerfOutput(duration, perf_command))
+            status, perf_data, perf_stat = self.dbus_iface.GetPerfOutput(
+                duration, perf_command, signature="uas")
             if status != 0:
                 raise error.TestFail('GetPerfOutput() returned status %d',
                                      status)
@@ -128,7 +128,8 @@ class platform_DebugDaemonGetPerfData(test.test):
         """
 
         bus = dbus.SystemBus()
-        proxy = bus.get_object(self._dbus_debugd_name, self._dbus_debugd_object)
+        proxy = bus.get_object(
+            self._dbus_debugd_name, self._dbus_debugd_object, introspect=False)
         self.dbus_iface = dbus.Interface(proxy,
                                          dbus_interface=self._dbus_debugd_name)
 

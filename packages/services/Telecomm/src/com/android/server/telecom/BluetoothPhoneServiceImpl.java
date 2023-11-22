@@ -79,6 +79,7 @@ public class BluetoothPhoneServiceImpl {
 
     private int mNumActiveCalls = 0;
     private int mNumHeldCalls = 0;
+    private int mNumChildrenOfActiveCall = 0;
     private int mBluetoothCallState = CALL_STATE_IDLE;
     private String mRingingAddress = null;
     private int mRingingAddressType = 0;
@@ -710,6 +711,8 @@ public class BluetoothPhoneServiceImpl {
 
         int numActiveCalls = activeCall == null ? 0 : 1;
         int numHeldCalls = mCallsManager.getNumHeldCalls();
+        int numChildrenOfActiveCall = activeCall == null ? 0 : activeCall.getChildCalls().size();
+
         // Intermediate state for GSM calls which are in the process of being swapped.
         // TODO: Should we be hardcoding this value to 2 or should we check if all top level calls
         //       are held?
@@ -744,10 +747,11 @@ public class BluetoothPhoneServiceImpl {
                 (force ||
                         (!callsPendingSwitch &&
                                 (numActiveCalls != mNumActiveCalls ||
-                                numHeldCalls != mNumHeldCalls ||
-                                bluetoothCallState != mBluetoothCallState ||
-                                !TextUtils.equals(ringingAddress, mRingingAddress) ||
-                                ringingAddressType != mRingingAddressType ||
+                                        numChildrenOfActiveCall != mNumChildrenOfActiveCall ||
+                                        numHeldCalls != mNumHeldCalls ||
+                                        bluetoothCallState != mBluetoothCallState ||
+                                        !TextUtils.equals(ringingAddress, mRingingAddress) ||
+                                        ringingAddressType != mRingingAddressType ||
                                 (heldCall != mOldHeldCall && !ignoreHeldCallChange))))) {
 
             // If the call is transitioning into the alerting state, send DIALING first.
@@ -758,6 +762,7 @@ public class BluetoothPhoneServiceImpl {
 
             mOldHeldCall = heldCall;
             mNumActiveCalls = numActiveCalls;
+            mNumChildrenOfActiveCall = numChildrenOfActiveCall;
             mNumHeldCalls = numHeldCalls;
             mBluetoothCallState = bluetoothCallState;
             mRingingAddress = ringingAddress;

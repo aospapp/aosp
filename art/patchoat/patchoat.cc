@@ -30,6 +30,7 @@
 #include "art_field-inl.h"
 #include "art_method-inl.h"
 #include "base/dumpable.h"
+#include "base/memory_tool.h"
 #include "base/scoped_flock.h"
 #include "base/stringpiece.h"
 #include "base/unix_file/fd_file.h"
@@ -39,6 +40,7 @@
 #include "elf_file_impl.h"
 #include "gc/space/image_space.h"
 #include "image-inl.h"
+#include "intern_table.h"
 #include "mirror/dex_cache.h"
 #include "mirror/executable.h"
 #include "mirror/object-inl.h"
@@ -142,6 +144,8 @@ bool PatchOat::Patch(const std::string& image_location,
     LOG(ERROR) << "Unable to initialize runtime";
     return false;
   }
+  std::unique_ptr<Runtime> runtime(Runtime::Current());
+
   // Runtime::Create acquired the mutator_lock_ that is normally given away when we Runtime::Start,
   // give it away now and then switch to a more manageable ScopedObjectAccess.
   Thread::Current()->TransitionFromRunnableToSuspended(kNative);
@@ -286,6 +290,13 @@ bool PatchOat::Patch(const std::string& image_location,
       return false;
     }
   }
+
+  if (!kIsDebugBuild && !(RUNNING_ON_MEMORY_TOOL && kMemoryToolDetectsLeaks)) {
+    // We want to just exit on non-debug builds, not bringing the runtime down
+    // in an orderly fashion. So release the following fields.
+    runtime.release();
+  }
+
   return true;
 }
 
@@ -293,8 +304,10 @@ bool PatchOat::WriteImage(File* out) {
   TimingLogger::ScopedTiming t("Writing image File", timings_);
   std::string error_msg;
 
-  ScopedFlock img_flock;
-  img_flock.Init(out, &error_msg);
+  // No error checking here, this is best effort. The locking may or may not
+  // succeed and we don't really care either way.
+  ScopedFlock img_flock = LockedFile::DupOf(out->Fd(), out->GetPath(),
+                                            true /* read_only_mode */, &error_msg);
 
   CHECK(image_ != nullptr);
   CHECK(out != nullptr);
@@ -522,17 +535,18 @@ void PatchOat::PatchDexFileArrays(mirror::ObjectArray<mirror::Object>* img_roots
       orig_dex_cache->FixupResolvedTypes(RelocatedCopyOf(orig_types),
                                          RelocatedPointerVisitor(this));
     }
-    ArtMethod** orig_methods = orig_dex_cache->GetResolvedMethods();
-    ArtMethod** relocated_methods = RelocatedAddressOfPointer(orig_methods);
+    mirror::MethodDexCacheType* orig_methods = orig_dex_cache->GetResolvedMethods();
+    mirror::MethodDexCacheType* relocated_methods = RelocatedAddressOfPointer(orig_methods);
     copy_dex_cache->SetField64<false>(
         mirror::DexCache::ResolvedMethodsOffset(),
         static_cast<int64_t>(reinterpret_cast<uintptr_t>(relocated_methods)));
     if (orig_methods != nullptr) {
-      ArtMethod** copy_methods = RelocatedCopyOf(orig_methods);
+      mirror::MethodDexCacheType* copy_methods = RelocatedCopyOf(orig_methods);
       for (size_t j = 0, num = orig_dex_cache->NumResolvedMethods(); j != num; ++j) {
-        ArtMethod* orig = mirror::DexCache::GetElementPtrSize(orig_methods, j, pointer_size);
-        ArtMethod* copy = RelocatedAddressOfPointer(orig);
-        mirror::DexCache::SetElementPtrSize(copy_methods, j, copy, pointer_size);
+        mirror::MethodDexCachePair orig =
+            mirror::DexCache::GetNativePairPtrSize(orig_methods, j, pointer_size);
+        mirror::MethodDexCachePair copy(RelocatedAddressOfPointer(orig.object), orig.index);
+        mirror::DexCache::SetNativePairPtrSize(copy_methods, j, copy, pointer_size);
       }
     }
     mirror::FieldDexCacheType* orig_fields = orig_dex_cache->GetResolvedFields();
@@ -601,7 +615,10 @@ bool PatchOat::PatchImage(bool primary_image) {
     TimingLogger::ScopedTiming t("Walk Bitmap", timings_);
     // Walk the bitmap.
     WriterMutexLock mu(Thread::Current(), *Locks::heap_bitmap_lock_);
-    bitmap_->Walk(PatchOat::BitmapCallback, this);
+    auto visitor = [&](mirror::Object* obj) REQUIRES_SHARED(Locks::mutator_lock_) {
+      VisitObject(obj);
+    };
+    bitmap_->Walk(visitor);
   }
   return true;
 }
@@ -625,7 +642,7 @@ void PatchOat::PatchVisitor::operator() (ObjPtr<mirror::Class> cls ATTRIBUTE_UNU
   copy_->SetFieldObjectWithoutWriteBarrier<false, true, kVerifyNone>(off, moved_object);
 }
 
-// Called by BitmapCallback
+// Called by PatchImage.
 void PatchOat::VisitObject(mirror::Object* object) {
   mirror::Object* copy = RelocatedCopyOf(object);
   CHECK(copy != nullptr);
@@ -770,7 +787,7 @@ static int patchoat_image(TimingLogger& timings,
 }
 
 static int patchoat(int argc, char **argv) {
-  InitLogging(argv, Runtime::Aborter);
+  InitLogging(argv, Runtime::Abort);
   MemMap::Init();
   const bool debug = kIsDebugBuild;
   orig_argc = argc;

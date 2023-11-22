@@ -40,7 +40,7 @@
     <string name="printer_description" msgid="8580767673213837142">"%1$s – %2$s"</string>
     <string name="title_activity_add_printer" msgid="3971541707589830268">"मैन्युअल रूप से जोड़ा गया प्रिंटर"</string>
     <string name="add_manual_printer" msgid="3990455596246121671">"मैन्युअल प्रिंटर जोड़ें"</string>
-    <string name="hostname_or_ip" msgid="3460546103553992915">"होस्टनाम या IP पता"</string>
+    <string name="hostname_or_ip" msgid="3460546103553992915">"होस्ट का नाम या आईपी पता"</string>
     <string name="ip_hint" msgid="7939777481941979799">"192.168.0.4"</string>
     <string name="add" msgid="1950342261671100906">"जोड़ें"</string>
     <string name="no_printer_found" msgid="4777867380924351173">"इस पते पर कोई प्रिंटर नहीं मिला"</string>

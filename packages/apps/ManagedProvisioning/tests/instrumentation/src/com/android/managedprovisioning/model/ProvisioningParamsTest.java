@@ -20,17 +20,11 @@ import static com.android.managedprovisioning.TestUtils.createTestAdminExtras;
 import android.accounts.Account;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
-import android.os.Bundle;
 import android.os.Parcel;
-import android.os.PersistableBundle;
 import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
 import android.test.suitebuilder.annotation.SmallTest;
-
-import com.android.managedprovisioning.model.WifiInfo;
-import com.android.managedprovisioning.model.PackageDownloadInfo;
 import java.io.File;
-import java.lang.Exception;
 import java.util.Locale;
 
 /** Tests for {@link ProvisioningParams} */
@@ -47,6 +41,7 @@ public class ProvisioningParamsTest extends AndroidTestCase {
     private static final String TEST_TIME_ZONE = "GMT";
     private static final Integer TEST_MAIN_COLOR = 65280;
     private static final boolean TEST_STARTED_BY_TRUSTED_SOURCE = true;
+    private static final boolean TEST_IS_NFC = true;
     private static final boolean TEST_LEAVE_ALL_SYSTEM_APP_ENABLED = true;
     private static final boolean TEST_SKIP_ENCRYPTION = true;
     private static final boolean TEST_SKIP_USER_SETUP = true;
@@ -223,6 +218,7 @@ public class ProvisioningParamsTest extends AndroidTestCase {
                 .setTimeZone(TEST_TIME_ZONE)
                 .setMainColor(TEST_MAIN_COLOR)
                 .setStartedByTrustedSource(TEST_STARTED_BY_TRUSTED_SOURCE)
+                .setIsNfc(TEST_IS_NFC)
                 .setLeaveAllSystemAppsEnabled(TEST_LEAVE_ALL_SYSTEM_APP_ENABLED)
                 .setSkipEncryption(TEST_SKIP_ENCRYPTION)
                 .setSkipUserSetup(TEST_SKIP_USER_SETUP)

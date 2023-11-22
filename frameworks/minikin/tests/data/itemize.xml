@@ -21,6 +21,12 @@
         <font weight="700" style="italic">BoldItalic.ttf</font>
     </family>
 
+    <family lang="und-Arab">
+        <font weight="400" style="normal">Arabic.ttf</font>
+    </family>
+    <family lang="und-Cher">
+        <font weight="400" style="normal">Cherokee.ttf</font>
+    </family>
     <family lang="zh-Hans">
         <font weight="400" style="normal">ZhHans.ttf</font>
     </family>

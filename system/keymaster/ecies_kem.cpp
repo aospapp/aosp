@@ -50,7 +50,7 @@ EciesKem::EciesKem(const AuthorizationSet& kem_description, keymaster_error_t* e
     }
     switch (kdf) {
     case KM_KDF_RFC5869_SHA256:
-        kdf_.reset(new Rfc5869Sha256Kdf());
+        kdf_.reset(new(std::nothrow) Rfc5869Sha256Kdf());
         break;
     default:
         LOG_E("Kdf %d is unsupported", kdf);
@@ -136,7 +136,7 @@ bool EciesKem::Decrypt(EC_KEY* private_key, const uint8_t* encrypted_key, size_t
                        Buffer* output_key) {
 
     keymaster_error_t error;
-    key_exchange_.reset(new NistCurveKeyExchange(private_key, &error));
+    key_exchange_.reset(new(std::nothrow) NistCurveKeyExchange(private_key, &error));
     if (!key_exchange_.get() || error != KM_ERROR_OK) {
         return false;
     }

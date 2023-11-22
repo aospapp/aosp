@@ -30,7 +30,6 @@ import android.content.Intent;
 import android.content.Loader;
 import android.database.Cursor;
 import android.os.Bundle;
-import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.Telephony;
 import android.telephony.CellBroadcastMessage;
@@ -57,6 +56,8 @@ public class CellBroadcastListActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        setTitle(getString(R.string.cb_list_activity_title));
 
         // Dismiss the notification that brought us here (if any).
         ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE))

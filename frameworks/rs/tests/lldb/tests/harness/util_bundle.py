@@ -195,7 +195,8 @@ class UtilBundle(object):
         output = self._android.adb(cmd, False, True,
                                    util_constants.PUSH_TIMEOUT)
         if ('Success' not in output) or ("can't find" in output):
-            raise TestSuiteException('unable to install app ' + app)
+            raise TestSuiteException('unable to install app {}: {}'.format(
+                app, output))
 
     def _push_all_java(self):
         '''Push all apk files to the device.

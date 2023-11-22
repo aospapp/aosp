@@ -25,13 +25,11 @@ import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.util.FileUtil;
-import com.android.tradefed.util.SystemUtil;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 
 /**
  * A {@link ITargetPreparer} that attempts to push any number of files from any host path to any
@@ -45,8 +43,6 @@ public class PushFilePreparer implements ITargetCleaner {
     private static final String MEDIA_SCAN_INTENT =
             "am broadcast -a android.intent.action.MEDIA_MOUNTED -d file://%s "
                     + "--receiver-include-background";
-    private static final String HOST_TESTCASES = "host/testcases";
-    private static final String TARGET_TESTCASES = "target/testcases";
 
     @Option(name="push", description=
             "A push-spec, formatted as '/path/to/srcfile.txt->/path/to/destfile.txt' or " +
@@ -92,18 +88,6 @@ public class PushFilePreparer implements ITargetCleaner {
     }
 
     /**
-     * Get a list of {@link File} of the test cases directories
-     *
-     * <p>The wrapper function is for unit test to mock the system calls.
-     *
-     * @return a list of {@link File} of directories of the test cases folder of build output, based
-     *     on the value of environment variables.
-     */
-    List<File> getTestCasesDirs() {
-        return SystemUtil.getTestCasesDirs();
-    }
-
-    /**
      * Resolve relative file path via {@link IBuildInfo} and test cases directories.
      *
      * @param buildInfo the build artifact information
@@ -118,26 +102,10 @@ public class PushFilePreparer implements ITargetCleaner {
                 return src;
             }
         }
-        List<File> testCasesDirs = getTestCasesDirs();
 
-        // Search for source file in tests directory if buildInfo is IDeviceBuildInfo.
         if (buildInfo instanceof IDeviceBuildInfo) {
-            IDeviceBuildInfo deviceBuildInfo = (IDeviceBuildInfo) buildInfo;
-            File testsDir = deviceBuildInfo.getTestsDir();
-            // Add all possible paths to the testcases directory list.
-            if (testsDir != null) {
-                testCasesDirs.addAll(
-                        Arrays.asList(
-                                testsDir,
-                                FileUtil.getFileForPath(testsDir, HOST_TESTCASES),
-                                FileUtil.getFileForPath(testsDir, TARGET_TESTCASES)));
-            }
-        }
-        for (File dir : testCasesDirs) {
-            src = FileUtil.getFileForPath(dir, fileName);
-            if (src != null && src.exists()) {
-                return src;
-            }
+            File testsDir = ((IDeviceBuildInfo) buildInfo).getTestsDir();
+            return FileUtil.findFile(testsDir, fileName);
         }
         return null;
     }

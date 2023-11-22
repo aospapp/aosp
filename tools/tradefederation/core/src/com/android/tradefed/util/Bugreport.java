@@ -59,9 +59,9 @@ public class Bugreport implements Closeable {
      */
     public void log(String dataName, ITestLogger logger) {
         LogDataType type = isZipped() ? LogDataType.BUGREPORTZ : LogDataType.BUGREPORT;
-        InputStreamSource source = new FileInputStreamSource(mBugreport);
-        logger.testLog(dataName, type, source);
-        source.cancel();
+        try (InputStreamSource source = new FileInputStreamSource(mBugreport)) {
+            logger.testLog(dataName, type, source);
+        }
     }
 
     /**

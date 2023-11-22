@@ -21,7 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <new>
+#include <keymaster/new>
 
 #include <keymaster/android_keymaster_utils.h>
 #include <keymaster/logger.h>

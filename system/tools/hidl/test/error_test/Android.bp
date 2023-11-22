@@ -1,0 +1,51 @@
+genrule {
+    name: "hidl_error_test_gen",
+    tools: [
+        "hidl-gen",
+    ],
+    cmd: "!($(location hidl-gen) -L check " +
+         "    -r test.error:system/tools/hidl/test/error_test/interface_semicolon" +
+         "    test.error.error@1.0  >/dev/null 2>&1)" +
+         "&&" +
+         "!($(location hidl-gen) -L check " +
+         "    -r test.error:system/tools/hidl/test/error_test/method_ends_in_semicolon" +
+         "    test.error.error@1.0  >/dev/null 2>&1)" +
+         "&&" +
+         "!($(location hidl-gen) -L check " +
+         "    -r test.error:system/tools/hidl/test/error_test/no_data_outside_interface" +
+         "    test.error.error@1.0  >/dev/null 2>&1)" +
+         "&&" +
+         "!($(location hidl-gen) -L check " +
+         "    -r test.error:system/tools/hidl/test/error_test/no_interface_in_types" +
+         "    test.error.error@1.0  >/dev/null 2>&1)" +
+         "&&" +
+         "!($(location hidl-gen) -L check " +
+         "    -r test.error:system/tools/hidl/test/error_test/no_two_interfaces" +
+         "    test.error.error@1.0  >/dev/null 2>&1)" +
+         "&&" +
+         "!($(location hidl-gen) -L check " +
+         "    -r test.error:system/tools/hidl/test/error_test/same_name_interface" +
+         "    test.error.error@1.0  >/dev/null 2>&1)" +
+         "&&" +
+         "!($(location hidl-gen) -L check " +
+         "    -r test.error:system/tools/hidl/test/error_test/same_package_name" +
+         "    test.error.error@1.0  >/dev/null 2>&1)" +
+         "&&" +
+         "echo 'int main(){return 0;}' > $(genDir)/TODO_b_37575883.cpp",
+    out: ["TODO_b_37575883.cpp"],
+    srcs: [
+        "interface_semicolon/error/1.0/IFoo.hal",
+        "method_ends_in_semicolon/error/1.0/IFoo.hal",
+        "no_data_outside_interface/error/1.0/IFoo.hal",
+        "no_interface_in_types/error/1.0/IFoo.hal",
+        "no_interface_in_types/error/1.0/types.hal",
+        "no_two_interfaces/error/1.0/IFoo.hal",
+        "same_name_interface/error/1.0/IFoo.hal",
+        "same_package_name/error/1.0/IFoo.hal",
+    ],
+}
+
+cc_test_host {
+    name: "hidl_error_test",
+    generated_sources: ["hidl_error_test_gen"],
+}

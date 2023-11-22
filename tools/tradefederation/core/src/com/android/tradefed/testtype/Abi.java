@@ -44,4 +44,8 @@ public class Abi implements IAbi {
         return mBitness;
     }
 
+    @Override
+    public String toString() {
+        return "{" + mName + ", bitness=" + mBitness + "}";
+    }
 }

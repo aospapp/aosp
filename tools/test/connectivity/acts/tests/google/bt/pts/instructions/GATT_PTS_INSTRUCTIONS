@@ -254,9 +254,6 @@ TC_CL_GAR_BI_17_C
   [PTS Interaction]
   gattc_disconnect
 
-TC_CL_GAR_BV_05_C
-  n_a - Need to be able to read multiple char instance ids in the same request
-
 TC_CL_GAR_BV_06_C
   gattc_connect_over_le
   gattc_mod_read_desc_by_instance_id [handle]

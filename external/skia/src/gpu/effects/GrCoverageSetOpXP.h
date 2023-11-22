@@ -30,18 +30,19 @@ public:
 private:
     constexpr GrCoverageSetOpXPFactory(SkRegion::Op regionOp, bool invertCoverage);
 
-    GrXferProcessor* onCreateXferProcessor(const GrCaps&,
-                                           const FragmentProcessorAnalysis&,
-                                           bool hasMixedSamples,
-                                           const DstTexture*) const override;
+    sk_sp<const GrXferProcessor> makeXferProcessor(const GrProcessorAnalysisColor&,
+                                                   GrProcessorAnalysisCoverage,
+                                                   bool hasMixedSamples,
+                                                   const GrCaps&) const override;
 
-    bool willReadDstInShader(const GrCaps&, const FragmentProcessorAnalysis&) const override {
-        return false;
+    AnalysisProperties analysisProperties(const GrProcessorAnalysisColor&,
+                                          const GrProcessorAnalysisCoverage&,
+                                          const GrCaps&) const override {
+        return AnalysisProperties::kIgnoresInputColor;
     }
 
-    bool compatibleWithCoverageAsAlpha(bool colorIsOpaque) const override { return false; }
 
-    GR_DECLARE_XP_FACTORY_TEST;
+    GR_DECLARE_XP_FACTORY_TEST
 
     SkRegion::Op fRegionOp;
     bool         fInvertCoverage;

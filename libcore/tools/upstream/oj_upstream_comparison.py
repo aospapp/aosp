@@ -85,43 +85,34 @@ def upstream_path(upstream_root, upstream, rel_path):
             return result
     return None
 
-
-# For files with N and M lines, respectively, this runs in time
-# O(N+M) if the files are identical or O(N*M) if not. This could
-# be improved to O(D*(N+M)) for files with at most D lines
-# difference by only considering array elements within D cells
-# from the diagonal.
-def edit_distance_lines(file_a, file_b):
+# For lists of length N and M, respectively, this runs in time O(N*M).
+# This could be improved to O(D*(N+M)) for lists with distance <= D by
+# only considering array elements within D cells of the diagonal.
+def edit_distance(a, b):
     """
-    Computes the line-based edit distance between two text files, i.e.
-    the smallest number of line deletions, additions or replacements
-    that would transform the content of one file into that of the other.
+    Computes the line-based edit distance between two lists, i.e.
+    the smallest number of list items to delete, insert or replace
+    that would transform the content of one list into the other.
     """
-    if filecmp.cmp(file_a, file_b, shallow=False):
-        return 0 # files identical
-    with open(file_a) as f:
-        lines_a = f.readlines()
-    with open(file_b) as f:
-        lines_b = f.readlines()
-    prev_cost = range(0, len(lines_b) + 1)
-    for end_a in range(1, len(lines_a) + 1):
+    prev_cost = range(0, len(b) + 1)
+    for end_a in range(1, len(a) + 1):
         # For each valid index i, prev_cost[i] is the edit distance between
-        # lines_a[:end_a-1] and lines_b[:i].
+        # a[:end_a-1] and b[:i].
         # We now calculate cur_cost[end_b] as the edit distance between
-        # line_a[:end_a] and lines_b[:end_b]
+        # a[:end_a] and b[:end_b]
         cur_cost = [end_a]
-        for end_b in range(1, len(lines_b) + 1):
+        for end_b in range(1, len(b) + 1):
             c = min(
-                cur_cost[-1] + 1, # append line from b
-                prev_cost[end_b] + 1, # append line from a
-                # match or replace line
-                prev_cost[end_b - 1] + (0 if lines_a[end_a - 1] == lines_b[end_b - 1] else 1)
+                cur_cost[-1] + 1, # append item from b
+                prev_cost[end_b] + 1, # append item from a
+                # match or replace item
+                prev_cost[end_b - 1] + (0 if a[end_a - 1] == b[end_b - 1] else 1)
                 )
             cur_cost.append(c)
         prev_cost = cur_cost
     return prev_cost[-1]
 
-def compare_to_upstreams_and_save(out_file, build_top, upstream_root, upstreams, rel_paths, best_only=False):
+def compare_to_upstreams_and_save(out_file, build_top, upstream_root, upstreams, rel_paths):
     """
     Prints tab-separated values comparing ojluni files vs. each
     upstream, for each of the rel_paths, suitable for human
@@ -144,13 +135,21 @@ def compare_to_upstreams_and_save(out_file, build_top, upstream_root, upstreams,
             if upstream_file is None:
                 upstream_comparison = "missing"
             else:
-                edit_distance = edit_distance_lines(upstream_file, ojluni_file)
-                if edit_distance == 0:
+                if filecmp.cmp(upstream_file, ojluni_file, shallow=False):
+                    distance = 0
                     upstream_comparison = "identical"
                 else:
-                    upstream_comparison = "different (%d lines)" % (edit_distance)
-                if edit_distance < best_distance:
-                    best_distance = edit_distance
+                    with open(upstream_file) as f:
+                        lines_a = f.readlines()
+                    with open(ojluni_file) as f:
+                        lines_b = f.readlines()
+                    distance = edit_distance(lines_a, lines_b)
+                    # 0% for identical files
+                    # 100% for totally different files or where one file is empty
+                    percent_different = 100.0 * distance / max(len(lines_a), len(lines_b))
+                    upstream_comparison = "%.1f%% different (%d lines)" % (percent_different, distance)
+                if distance < best_distance:
+                    best_distance = distance
                     guessed_upstream = upstream
             upstream_comparisons.append(upstream_comparison)
         writer.writerow([rel_path, guessed_upstream ] + upstream_comparisons)

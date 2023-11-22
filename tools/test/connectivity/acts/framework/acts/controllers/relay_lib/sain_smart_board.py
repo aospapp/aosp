@@ -59,7 +59,7 @@ class SainSmartBoard(RelayBoard):
         self.base_url = validate_key('base_url', config, str, 'config')
         if not self.base_url.endswith('/'):
             self.base_url += '/'
-        RelayBoard.__init__(self, config)
+        super(SainSmartBoard, self).__init__(config)
 
     def get_relay_position_list(self):
         return self.VALID_RELAY_POSITIONS

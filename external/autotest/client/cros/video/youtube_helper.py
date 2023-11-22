@@ -150,30 +150,26 @@ class YouTubeHelper(object):
                     'Player failed to return available video qualities.')
         video_qualities.reverse()
 
-        # Removing 'auto' resolution since it tends to interfere with explicit
-        # bandwidth selection later.
-        video_qualities.remove('auto')
+        running_quality = self.get_playback_quality()
+        index = video_qualities.index(running_quality)
+        supporting_qualities = video_qualities[index :]
+        logging.info("new video quality %s ", supporting_qualities)
 
         width, height = graphics_utils.get_internal_resolution()
         logging.info('checking resolution: %d width  %d height', width, height)
-        for quality in video_qualities:
+        for quality in supporting_qualities:
             logging.info('Playing video in %s quality.', quality)
             self.set_playback_quality(quality)
             self.wait_for_player_state(PLAYER_PLAYING_STATE)
             self.wait_for_expected_resolution(quality)
             current_quality = self.get_playback_quality()
-            if (quality not in ['auto', 'tiny', 'small'] and
-                    quality != current_quality):
-                if current_quality in ['hd720', 'hd1080'] and width == 2560:
-                      logging.info('HD devices starts playing YouTube video in '
-                                   'HD so skipping 480p test.')
-                      continue
-                raise error.TestError(
-                        'Expected video quality: %s. Current video quality: %s'
-                        % (quality, current_quality))
+
+            if current_quality != quality :
+              raise error.TestError(
+                      'Expected video quality: %s. Current video quality: %s'
+                             % (quality, current_quality))
+
             time.sleep(1)
-        # setting the video resolution to 480p for rest of the tests.
-        self.set_playback_quality('large')
 
 
     def verify_player_states(self):

@@ -239,6 +239,7 @@ static const struct Pn80tPlatform kPn80tLinuxSpidevPlatform = {
     .toggle_reset = &platform_toggle_reset,
     .toggle_ven = &platform_toggle_ven,
     .toggle_power_req = &platform_toggle_power_req,
+    .toggle_bootloader = NULL,
     .wait = &platform_wait,
 };
 

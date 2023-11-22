@@ -21,8 +21,6 @@ import android.view.View;
 
 import com.android.tv.R;
 import com.android.tv.TvApplication;
-import com.android.tv.TvOptionsManager;
-import com.android.tv.TvOptionsManager.OptionChangedListener;
 import com.android.tv.analytics.Tracker;
 
 import java.util.List;
@@ -66,12 +64,9 @@ public abstract class OptionsRowAdapter extends ItemListRowView.ItemListAdapter<
     public void update() {
         if (mActionList == null) {
             mActionList = createActions();
-            updateActions();
             setItemList(mActionList);
         } else {
-            if (updateActions()) {
-                setItemList(mActionList);
-            }
+            updateActions();
         }
     }
 
@@ -81,7 +76,7 @@ public abstract class OptionsRowAdapter extends ItemListRowView.ItemListAdapter<
     }
 
     protected abstract List<MenuAction> createActions();
-    protected abstract boolean updateActions();
+    protected abstract void updateActions();
     protected abstract void executeAction(int type);
 
     /**
@@ -91,37 +86,6 @@ public abstract class OptionsRowAdapter extends ItemListRowView.ItemListAdapter<
      */
     protected MenuAction getAction(int position) {
         return mActionList.get(position);
-    }
-
-    /**
-     * Sets the action at the given position.
-     * Note that action at the position may differ from returned by {@link #createActions}.
-     * See {@link CustomizableOptionsRowAdapter}
-     */
-    protected void setAction(int position, MenuAction action) {
-        mActionList.set(position, action);
-    }
-
-    /**
-     * Adds an action to the given position.
-     * Note that action at the position may differ from returned by {@link #createActions}.
-     * See {@link CustomizableOptionsRowAdapter}
-     */
-    protected void addAction(int position, MenuAction action) {
-        mActionList.add(position, action);
-    }
-
-    /**
-     * Removes an action at the given position.
-     * Note that action at the position may differ from returned by {@link #createActions}.
-     * See {@link CustomizableOptionsRowAdapter}
-     */
-    protected void removeAction(int position) {
-        mActionList.remove(position);
-    }
-
-    protected int getActionSize() {
-        return mActionList.size();
     }
 
     @Override
@@ -138,15 +102,5 @@ public abstract class OptionsRowAdapter extends ItemListRowView.ItemListAdapter<
         // not be used(recycled) by other type of MenuAction. So the selection state of the view can
         // be preserved.
         return mActionList.get(position).getType();
-    }
-
-    protected void setOptionChangedListener(final MenuAction action) {
-        TvOptionsManager om = getMainActivity().getTvOptionsManager();
-        om.setOptionChangedListener(action.getType(), new OptionChangedListener() {
-            @Override
-            public void onOptionChanged(String newOption) {
-                setItemList(mActionList);
-            }
-        });
     }
 }

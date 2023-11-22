@@ -58,11 +58,7 @@ class audio_MediaBasicVerification(audio_test.AudioTest):
             audio_test_utils.dump_cros_audio_logs(
                     host, audio_facade, self.resultsdir, 'after_binding')
 
-            output_nodes, _ = audio_facade.get_selected_node_types()
-            if output_nodes != ['HEADPHONE']:
-                raise error.TestFail(
-                        '%s rather than headphone is selected on Cros '
-                        'device' % output_nodes)
+            audio_test_utils.check_audio_nodes(audio_facade, (['HEADPHONE'], None))
 
             # Starts playing, waits for some time, and then starts recording.
             # This is to avoid artifact caused by codec initialization.

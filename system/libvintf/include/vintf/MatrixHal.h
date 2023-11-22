@@ -38,6 +38,8 @@ struct MatrixHal {
     std::vector<VersionRange> versionRanges;
     bool optional = false;
     std::map<std::string, HalInterface> interfaces;
+
+    inline const std::string& getName() const { return name; }
 };
 
 } // namespace vintf

@@ -10,7 +10,9 @@ import mox, unittest
 
 # driver must be imported first due to circular imports in base_event and task
 import driver  # pylint: disable-msg=W0611
+import error
 import deduping_scheduler, forgiving_config_parser, task, build_event
+from autotest_lib.client.common_lib import priorities
 
 
 class TaskTestBase(mox.MoxTestBase):
@@ -37,8 +39,8 @@ class TaskTestBase(mox.MoxTestBase):
     _POOL = 'fake_pool'
     _SUITE = 'suite'
     _TASK_NAME = 'fake_task_name'
-    _PRIORITY = build_event.BuildEvent.PRIORITY
-    _TIMEOUT = build_event.BuildEvent.TIMEOUT
+    _PRIORITY = build_event.NewBuild.PRIORITY
+    _TIMEOUT = build_event.NewBuild.TIMEOUT
     _FILE_BUGS=False
 
 
@@ -79,6 +81,63 @@ class TaskCreateTest(TaskTestBase):
                                               self._PRIORITY, self._TIMEOUT))
         self.assertTrue(new_task._FitsSpec(self._BRANCH))
         self.assertFalse(new_task._FitsSpec('12'))
+
+
+    def testCreateFromConfigCheckBoards(self):
+        """Ensure a CrOS Task can be built from a correct config boards."""
+        board_whitelist = 'board2,board3'
+        board_lists = {self._BOARD: board_whitelist}
+        keyword, new_task = task.Task.CreateFromConfigSection(
+                self.config, self._TASK_NAME, board_lists=board_lists)
+        self.assertEquals(keyword, self._EVENT_KEY)
+        self.assertEquals(new_task.boards,
+                          set([x.strip() for x in board_whitelist.split(',')]))
+
+
+    def testCreateFromConfigCheckDefaultPriority(self):
+        """Ensure a CrOS Task can be load prioty/timeout from event's config."""
+        keyword, new_task = task.Task.CreateFromConfigSection(
+                self.config, self._TASK_NAME)
+        self.assertEquals(keyword, self._EVENT_KEY)
+        self.assertEquals(new_task.priority, self._PRIORITY)
+        self.assertEquals(new_task.timeout, self._TIMEOUT)
+
+
+    def testCreateFromConfigCheckExplicitPriority(self):
+        """Ensure a CrOS Task can be load prioty/timeout defined by user."""
+        PRIORITY = priorities.Priority.DEFAULT
+        TIMEOUT = 1000
+        self.config.set(self._TASK_NAME, 'priority', 'Default')
+        self.config.set(self._TASK_NAME, 'timeout', str(TIMEOUT))
+        keyword, new_task = task.Task.CreateFromConfigSection(
+                self.config, self._TASK_NAME)
+        self.assertEquals(keyword, self._EVENT_KEY)
+        self.assertEqual(PRIORITY, new_task.priority)
+        self.assertEqual(TIMEOUT, new_task.timeout)
+
+
+    def testCreateFromConfigCheckExplicitPriorityWithNumber(self):
+        """Ensure a CrOS Task can be load prioty/timeout defined by user."""
+        PRIORITY = 100
+        TIMEOUT = 1000
+        self.config.set(self._TASK_NAME, 'priority', "100")
+        self.config.set(self._TASK_NAME, 'timeout', str(TIMEOUT))
+        keyword, new_task = task.Task.CreateFromConfigSection(
+                self.config, self._TASK_NAME)
+        self.assertEquals(keyword, self._EVENT_KEY)
+        self.assertEqual(PRIORITY, new_task.priority)
+        self.assertEqual(TIMEOUT, new_task.timeout)
+
+
+    def testCreateFromConfigCheckNonExistBoards(self):
+        """Ensure a CrOS Task can be built if board_list is not specified."""
+        board_whitelist = 'board2,board3'
+        board_lists = {'test-%s' % self._BOARD: board_whitelist}
+        keyword, new_task = task.Task.CreateFromConfigSection(
+                self.config, self._TASK_NAME, board_lists=board_lists)
+        self.assertEquals(keyword, self._EVENT_KEY)
+        self.assertEquals(new_task.boards,
+                          set([x.strip() for x in self._BOARD.split(',')]))
 
 
     def testCreateFromConfigEqualBranch(self):
@@ -167,7 +226,7 @@ class TaskCreateTest(TaskTestBase):
     def testCreateFromNoSuiteConfig(self):
         """Ensure we require a suite in Task config."""
         self.config.remove_option(self._TASK_NAME, 'suite')
-        self.assertRaises(task.MalformedConfigEntry,
+        self.assertRaises(error.MalformedConfigEntry,
                           task.Task.CreateFromConfigSection,
                           self.config,
                           self._TASK_NAME)
@@ -176,7 +235,7 @@ class TaskCreateTest(TaskTestBase):
     def testCreateFromNoKeywordConfig(self):
         """Ensure we require a run_on event in Task config."""
         self.config.remove_option(self._TASK_NAME, 'run_on')
-        self.assertRaises(task.MalformedConfigEntry,
+        self.assertRaises(error.MalformedConfigEntry,
                           task.Task.CreateFromConfigSection,
                           self.config,
                           self._TASK_NAME)
@@ -184,7 +243,7 @@ class TaskCreateTest(TaskTestBase):
 
     def testCreateFromNonexistentConfig(self):
         """Ensure we fail gracefully if we pass in a bad section name."""
-        self.assertRaises(task.MalformedConfigEntry,
+        self.assertRaises(error.MalformedConfigEntry,
                           task.Task.CreateFromConfigSection,
                           self.config,
                           'not_a_thing')
@@ -194,7 +253,7 @@ class TaskCreateTest(TaskTestBase):
         """Ensure testbed_dut_count specified in boards is only applicable for
         testing Launch Control builds."""
         self.config.set(self._TASK_NAME, 'boards', 'shamu-2')
-        self.assertRaises(task.MalformedConfigEntry,
+        self.assertRaises(error.MalformedConfigEntry,
                           task.Task.CreateFromConfigSection,
                           self.config,
                           self._TASK_NAME)

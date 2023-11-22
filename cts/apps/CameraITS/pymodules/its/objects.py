@@ -99,7 +99,6 @@ def manual_capture_request(
         "android.control.awbMode": 0,
         "android.control.afMode": 0,
         "android.control.effectMode": 0,
-        "android.sensor.frameDuration": 0,
         "android.sensor.sensitivity": sensitivity,
         "android.sensor.exposureTime": exp_time,
         "android.colorCorrection.mode": 0,

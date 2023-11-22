@@ -18,9 +18,9 @@ package com.android.car.radio;
 
 import android.animation.ValueAnimator;
 import android.content.Context;
-import android.support.car.ui.PagedListView;
 import android.support.v7.widget.RecyclerView;
 import android.view.View;
+import com.android.car.view.PagedListView;
 
 /**
  * Listener on the preset list that will add elevation on the container holding the current
@@ -47,7 +47,8 @@ public class PresetListScrollListener extends RecyclerView.OnScrollListener {
         mRemoveElevationAnimator = ValueAnimator.ofFloat(mContainerElevation, 0.f);
         mRemoveElevationAnimator
                 .setDuration(ANIMATION_DURATION_MS)
-                .addUpdateListener(mElevationUpdateListener);
+                .addUpdateListener(animation -> mCurrentRadioCardContainer.setElevation(
+                        (float) animation.getAnimatedValue()));
     }
 
     @Override
@@ -66,15 +67,4 @@ public class PresetListScrollListener extends RecyclerView.OnScrollListener {
             mCurrentRadioCard.setTranslationZ(mContainerElevation);
         }
     }
-
-    /**
-     * {@link android.animation.ValueAnimator.AnimatorUpdateListener} that updates the elevation
-     * of the {@link #mCurrentRadioCardContainer}.
-     */
-    private final ValueAnimator.AnimatorUpdateListener mElevationUpdateListener =
-            new ValueAnimator.AnimatorUpdateListener() {
-                public void onAnimationUpdate(ValueAnimator animation) {
-                    mCurrentRadioCardContainer.setElevation((float) animation.getAnimatedValue());
-                }
-            };
 }

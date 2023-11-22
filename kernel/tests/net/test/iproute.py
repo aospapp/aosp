@@ -19,12 +19,9 @@
 # pylint: disable=g-bad-todo
 
 import errno
-import os
 import socket
 import struct
-import sys
 
-import csocket
 import cstruct
 import netlink
 
@@ -66,7 +63,9 @@ RTN_UNREACHABLE = 7
 
 # Routing protocol values (rtm_protocol).
 RTPROT_UNSPEC = 0
+RTPROT_BOOT = 3
 RTPROT_STATIC = 4
+RTPROT_RA = 9
 
 # Route scope values (rtm_scope).
 RT_SCOPE_UNIVERSE = 0
@@ -450,13 +449,13 @@ class IPRoute(netlink.NetlinkSocket):
     self._Address(6, RTM_GETADDR, address, 0, 0, RT_SCOPE_UNIVERSE, ifindex)
     return self._GetMsg(IfAddrMsg)
 
-  def _Route(self, version, command, table, dest, prefixlen, nexthop, dev,
-             mark, uid):
+  def _Route(self, version, proto, command, table, dest, prefixlen, nexthop,
+             dev, mark, uid):
     """Adds, deletes, or queries a route."""
     family = self._AddressFamily(version)
     scope = RT_SCOPE_UNIVERSE if nexthop else RT_SCOPE_LINK
     rtmsg = RTMsg((family, prefixlen, 0, 0, RT_TABLE_UNSPEC,
-                   RTPROT_STATIC, scope, RTN_UNICAST, 0)).Pack()
+                   proto, scope, RTN_UNICAST, 0)).Pack()
     if command == RTM_NEWROUTE and not table:
       # Don't allow setting routes in table 0, since its behaviour is confusing
       # and differs between IPv4 and IPv6.
@@ -476,17 +475,18 @@ class IPRoute(netlink.NetlinkSocket):
     self._SendNlRequest(command, rtmsg)
 
   def AddRoute(self, version, table, dest, prefixlen, nexthop, dev):
-    self._Route(version, RTM_NEWROUTE, table, dest, prefixlen, nexthop, dev,
-                None, None)
+    self._Route(version, RTPROT_STATIC, RTM_NEWROUTE, table, dest, prefixlen,
+                nexthop, dev, None, None)
 
   def DelRoute(self, version, table, dest, prefixlen, nexthop, dev):
-    self._Route(version, RTM_DELROUTE, table, dest, prefixlen, nexthop, dev,
-                None, None)
+    self._Route(version, RTPROT_STATIC, RTM_DELROUTE, table, dest, prefixlen,
+                nexthop, dev, None, None)
 
   def GetRoutes(self, dest, oif, mark, uid):
     version = 6 if ":" in dest else 4
     prefixlen = {4: 32, 6: 128}[version]
-    self._Route(version, RTM_GETROUTE, 0, dest, prefixlen, None, oif, mark, uid)
+    self._Route(version, RTPROT_STATIC, RTM_GETROUTE, 0, dest, prefixlen, None,
+                oif, mark, uid)
     data = self._Recv()
     # The response will either be an error or a list of routes.
     if NLMsgHdr(data).type == netlink.NLMSG_ERROR:

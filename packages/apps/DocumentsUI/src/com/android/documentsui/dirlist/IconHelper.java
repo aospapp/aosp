@@ -20,16 +20,11 @@ import static com.android.documentsui.base.Shared.VERBOSE;
 import static com.android.documentsui.base.State.MODE_GRID;
 import static com.android.documentsui.base.State.MODE_LIST;
 
-import android.content.ContentProviderClient;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Point;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
-import android.os.AsyncTask;
-import android.os.CancellationSignal;
-import android.os.OperationCanceledException;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
 import android.support.annotation.Nullable;
@@ -40,16 +35,17 @@ import android.widget.ImageView;
 import com.android.documentsui.DocumentsApplication;
 import com.android.documentsui.IconUtils;
 import com.android.documentsui.ProviderExecutor;
-import com.android.documentsui.ProviderExecutor.Preemptable;
 import com.android.documentsui.R;
 import com.android.documentsui.ThumbnailCache;
 import com.android.documentsui.ThumbnailCache.Result;
+import com.android.documentsui.ThumbnailLoader;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.MimeTypes;
 import com.android.documentsui.base.State;
 import com.android.documentsui.base.State.ViewMode;
 
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 /**
  * A class to assist with loading and managing the Images (i.e. thumbnails and icons) associated
@@ -57,16 +53,6 @@ import java.util.function.BiConsumer;
  */
 public class IconHelper {
     private static final String TAG = "IconHelper";
-
-    // Two animations applied to image views. The first is used to switch mime icon and thumbnail.
-    // The second is used when we need to update thumbnail.
-    private static final BiConsumer<View, View> ANIM_FADE_IN = (mime, thumb) -> {
-        float alpha = mime.getAlpha();
-        mime.animate().alpha(0f).start();
-        thumb.setAlpha(0f);
-        thumb.animate().alpha(alpha).start();
-    };
-    private static final BiConsumer<View, View> ANIM_NO_OP = (mime, thumb) -> {};
 
     private final Context mContext;
     private final ThumbnailCache mThumbnailCache;
@@ -129,86 +115,10 @@ public class IconHelper {
      * @param icon
      */
     public void stopLoading(ImageView icon) {
-        final LoaderTask oldTask = (LoaderTask) icon.getTag();
+        final ThumbnailLoader oldTask = (ThumbnailLoader) icon.getTag();
         if (oldTask != null) {
             oldTask.preempt();
             icon.setTag(null);
-        }
-    }
-
-    /** Internal task for loading thumbnails asynchronously. */
-    private static class LoaderTask
-            extends AsyncTask<Uri, Void, Bitmap>
-            implements Preemptable {
-        private final Uri mUri;
-        private final ImageView mIconMime;
-        private final ImageView mIconThumb;
-        private final Point mThumbSize;
-        private final long mLastModified;
-
-        // A callback to apply animation to image views after the thumbnail is loaded.
-        private final BiConsumer<View, View> mImageAnimator;
-
-        private final CancellationSignal mSignal;
-
-        public LoaderTask(Uri uri, ImageView iconMime, ImageView iconThumb,
-                Point thumbSize, long lastModified, BiConsumer<View, View> animator) {
-            mUri = uri;
-            mIconMime = iconMime;
-            mIconThumb = iconThumb;
-            mThumbSize = thumbSize;
-            mImageAnimator = animator;
-            mLastModified = lastModified;
-            mSignal = new CancellationSignal();
-            if (VERBOSE) Log.v(TAG, "Starting icon loader task for " + mUri);
-        }
-
-        @Override
-        public void preempt() {
-            if (VERBOSE) Log.v(TAG, "Icon loader task for " + mUri + " was cancelled.");
-            cancel(false);
-            mSignal.cancel();
-        }
-
-        @Override
-        protected Bitmap doInBackground(Uri... params) {
-            if (isCancelled()) {
-                return null;
-            }
-
-            final Context context = mIconThumb.getContext();
-            final ContentResolver resolver = context.getContentResolver();
-
-            ContentProviderClient client = null;
-            Bitmap result = null;
-            try {
-                client = DocumentsApplication.acquireUnstableProviderOrThrow(
-                        resolver, mUri.getAuthority());
-                result = DocumentsContract.getDocumentThumbnail(client, mUri, mThumbSize, mSignal);
-                if (result != null) {
-                    final ThumbnailCache cache = DocumentsApplication.getThumbnailCache(context);
-                    cache.putThumbnail(mUri, mThumbSize, result, mLastModified);
-                }
-            } catch (Exception e) {
-                if (!(e instanceof OperationCanceledException)) {
-                    Log.w(TAG, "Failed to load thumbnail for " + mUri + ": " + e);
-                }
-            } finally {
-                ContentProviderClient.releaseQuietly(client);
-            }
-            return result;
-        }
-
-        @Override
-        protected void onPostExecute(Bitmap result) {
-            if (VERBOSE) Log.v(TAG, "Loader task for " + mUri + " completed");
-
-            if (mIconThumb.getTag() == this && result != null) {
-                mIconThumb.setTag(null);
-                mIconThumb.setImageBitmap(result);
-
-                mImageAnimator.accept(mIconMime, mIconThumb);
-            }
         }
     }
 
@@ -287,11 +197,21 @@ public class IconHelper {
                             uri.toString(), result.getStatus(), stale));
             if (!result.isExactHit() || stale) {
                 final BiConsumer<View, View> animator =
-                        (cachedThumbnail == null ? ANIM_FADE_IN : ANIM_NO_OP);
-                final LoaderTask task = new LoaderTask(uri, iconMime, iconThumb, mCurrentSize,
-                        docLastModified, animator);
+                        (cachedThumbnail == null ? ThumbnailLoader.ANIM_FADE_IN :
+                                ThumbnailLoader.ANIM_NO_OP);
 
-                iconThumb.setTag(task);
+                Consumer<Bitmap> callback = new Consumer<Bitmap>() {
+                    @Override
+                    public void accept(Bitmap bitmap) {
+                        if (result != null) {
+                            iconThumb.setImageBitmap(bitmap);
+                            animator.accept(iconMime, iconThumb);
+                        }
+                    }
+                };
+
+                final ThumbnailLoader task = new ThumbnailLoader(uri, iconThumb,
+                    mCurrentSize, docLastModified, callback, true);
 
                 ProviderExecutor.forAuthority(docAuthority).execute(task);
             }

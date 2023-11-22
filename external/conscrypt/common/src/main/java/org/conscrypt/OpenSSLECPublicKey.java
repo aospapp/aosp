@@ -29,11 +29,8 @@ import java.util.Arrays;
 
 /**
  * An implementation of a {@link java.security.PublicKey} for EC keys based on BoringSSL.
- *
- * @hide
  */
-@Internal
-public final class OpenSSLECPublicKey implements ECPublicKey, OpenSSLKeyHolder {
+final class OpenSSLECPublicKey implements ECPublicKey, OpenSSLKeyHolder {
     private static final long serialVersionUID = 3215842926808298020L;
 
     private static final String ALGORITHM = "EC";
@@ -42,18 +39,18 @@ public final class OpenSSLECPublicKey implements ECPublicKey, OpenSSLKeyHolder {
 
     protected transient OpenSSLECGroupContext group;
 
-    public OpenSSLECPublicKey(OpenSSLECGroupContext group, OpenSSLKey key) {
+    OpenSSLECPublicKey(OpenSSLECGroupContext group, OpenSSLKey key) {
         this.group = group;
         this.key = key;
     }
 
-    public OpenSSLECPublicKey(OpenSSLKey key) {
+    OpenSSLECPublicKey(OpenSSLKey key) {
         this.group = new OpenSSLECGroupContext(new NativeRef.EC_GROUP(
                 NativeCrypto.EC_KEY_get1_group(key.getNativeRef())));
         this.key = key;
     }
 
-    public OpenSSLECPublicKey(ECPublicKeySpec ecKeySpec) throws InvalidKeySpecException {
+    OpenSSLECPublicKey(ECPublicKeySpec ecKeySpec) throws InvalidKeySpecException {
         try {
             group = OpenSSLECGroupContext.getInstance(ecKeySpec.getParams());
             OpenSSLECPointContext pubKey = OpenSSLECPointContext.getInstance(group,
@@ -65,7 +62,7 @@ public final class OpenSSLECPublicKey implements ECPublicKey, OpenSSLKeyHolder {
         }
     }
 
-    public static OpenSSLKey getInstance(ECPublicKey ecPublicKey) throws InvalidKeyException {
+    static OpenSSLKey getInstance(ECPublicKey ecPublicKey) throws InvalidKeyException {
         try {
             OpenSSLECGroupContext group = OpenSSLECGroupContext
                     .getInstance(ecPublicKey.getParams());
@@ -90,7 +87,7 @@ public final class OpenSSLECPublicKey implements ECPublicKey, OpenSSLKeyHolder {
 
     @Override
     public byte[] getEncoded() {
-        return NativeCrypto.i2d_PUBKEY(key.getNativeRef());
+        return NativeCrypto.EVP_marshal_public_key(key.getNativeRef());
     }
 
     @Override
@@ -146,7 +143,7 @@ public final class OpenSSLECPublicKey implements ECPublicKey, OpenSSLKeyHolder {
 
     @Override
     public int hashCode() {
-        return Arrays.hashCode(NativeCrypto.i2d_PUBKEY(key.getNativeRef()));
+        return Arrays.hashCode(NativeCrypto.EVP_marshal_public_key(key.getNativeRef()));
     }
 
     @Override
@@ -159,7 +156,7 @@ public final class OpenSSLECPublicKey implements ECPublicKey, OpenSSLKeyHolder {
 
         byte[] encoded = (byte[]) stream.readObject();
 
-        key = new OpenSSLKey(NativeCrypto.d2i_PUBKEY(encoded));
+        key = new OpenSSLKey(NativeCrypto.EVP_parse_public_key(encoded));
         group = new OpenSSLECGroupContext(new NativeRef.EC_GROUP(
                 NativeCrypto.EC_KEY_get1_group(key.getNativeRef())));
     }

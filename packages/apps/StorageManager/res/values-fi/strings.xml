@@ -55,9 +55,12 @@
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"Ota käyttöön"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"Varmuuskopioidut kuvat ja videot"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"Haetaan kohteita…"</string>
+    <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"Näytä kaikki kohteet"</string>
+    <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"Piilota viimeaikaiset kohteet"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="386144597646356521">"Laitteelta poistetaan <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g>"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"Tallennustilan hallinta hallitsee nyt tallennustilaasi."</string>
     <string name="empty_state_title" msgid="4033285438176545309">"Ei poistettavaa"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"Näytä viimeaikaiset kohteet"</string>
     <string name="empty_state_summary" msgid="8439893007424243790">"Vanhoja tiedostoja ei löytynyt poistettavaksi. Voit vapauttaa tilaa poistamalla uudempia kuvia, videoita ja sovelluksia."</string>
+    <string name="app_requesting_space" msgid="857425181289960167">"<xliff:g id="APP">%1$s</xliff:g> tarvitsee <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> tilaa."</string>
 </resources>

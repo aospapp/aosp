@@ -114,5 +114,10 @@
 
     <style name="Theme.TV.Dvr.Browse.Details" parent="Theme.Leanback.Details">
         <item name="detailsDescriptionTitleStyle">@style/TV.Dvr.Browse.DetailsDescriptionTitleStyle</item>
+        <item name="android:windowSharedElementEnterTransition">@transition/dvr_details_shared_element_enter_transition</item>
+        <item name="android:windowSharedElementReturnTransition">@transition/dvr_details_shared_element_return_transition</item>
+        <!-- Disallows transition overlapping to prevent jankiness caused by ripple effects of
+             clicking DVR cards overlapping with fragment transition. -->
+        <item name="android:windowAllowEnterTransitionOverlap">false</item>
     </style>
 </resources>

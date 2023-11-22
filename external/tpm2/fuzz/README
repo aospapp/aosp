@@ -32,6 +32,12 @@ To reproduce a crash under gdb:
 
     $ docker run -ti --rm -v $(pwd):/src/tpm2 -v /tmp/fuzzers:/out \
                  ossfuzz/tpm2
+    or
+
+    $ docker run -ti --rm -v $(pwd):/src/tpm2 -v /tmp/fuzzers:/out \
+                -e FUZZING_ENGINE=libfuzzer \
+                -e SANITIZER=<address/memory/undefined> \
+                ossfuzz/tpm2
 
   Get a shell in the container
 

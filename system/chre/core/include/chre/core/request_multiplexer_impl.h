@@ -77,7 +77,8 @@ const DynamicVector<RequestType>&
 }
 
 template<typename RequestType>
-RequestType RequestMultiplexer<RequestType>::getCurrentMaximalRequest() const {
+const RequestType& RequestMultiplexer<RequestType>::getCurrentMaximalRequest()
+    const {
   return mCurrentMaximalRequest;
 }
 

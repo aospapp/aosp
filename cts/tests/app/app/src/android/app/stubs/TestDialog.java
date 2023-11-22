@@ -50,8 +50,10 @@ public class TestDialog extends Dialog {
     public boolean isOnKeyDownCalled;
     public boolean isOnKeyUpCalled;
     public boolean isOnKeyMultipleCalled;
-    public boolean isOnSaveInstanceStateCalled;
-    public static boolean isOnRestoreInstanceStateCalled;
+    public final OrientationTestUtils.Observer onSaveInstanceStateObserver =
+            new OrientationTestUtils.Observer();
+    public final static OrientationTestUtils.Observer onRestoreInstanceStateObserver =
+            new OrientationTestUtils.Observer();
     public boolean isOnWindowAttributesChangedCalled;
     public boolean isOnCreatePanelMenuCalled;
     public boolean isOnCreatePanelViewCalled;
@@ -167,16 +169,15 @@ public class TestDialog extends Dialog {
 
     @Override
     public Bundle onSaveInstanceState() {
-        isOnSaveInstanceStateCalled = true;
         saveInstanceState = super.onSaveInstanceState();
+        onSaveInstanceStateObserver.onObserved();
         return saveInstanceState;
     }
 
     @Override
     public void onRestoreInstanceState(Bundle savedInstanceState) {
-        isOnRestoreInstanceStateCalled = true;
         this.savedInstanceState = savedInstanceState;
-
+        onRestoreInstanceStateObserver.onObserved();
         super.onRestoreInstanceState(savedInstanceState);
     }
 

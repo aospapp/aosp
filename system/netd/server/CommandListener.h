@@ -42,6 +42,8 @@ public:
     CommandListener();
     virtual ~CommandListener() {}
 
+    static constexpr const char* SOCKET_NAME = "netd";
+
 private:
     void registerLockingCmd(FrameworkCommand *cmd, android::RWLock& lock);
     void registerLockingCmd(FrameworkCommand *cmd) {

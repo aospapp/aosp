@@ -35,29 +35,39 @@ setup()
 cleanup()
 {
 	# Stop the background TCP traffic
-	pkill -13 -x tcp_fastopen
-	tst_rhost_run -c "pkill -13 -x tcp_fastopen"
-	tst_restore_ipaddr
+	pkill -13 -x netstress
+	tst_rhost_run -c "pkill -13 -x netstress"
 }
 
 make_background_tcp_traffic()
 {
 	port=$(tst_get_unused_port ipv${ipver} stream)
-	tcp_fastopen -R 3 -g $port > /dev/null 2>&1 &
-	tst_rhost_run -b -c "tcp_fastopen -l -H $(tst_ipaddr) -g $port"
+	netstress -R 3 -g $port > /dev/null 2>&1 &
+	tst_rhost_run -b -c "netstress -l -H $(tst_ipaddr) -g $port"
 }
 
 check_connectivity()
 {
-	local cnt=$1
+	local cnt="$1"
+	local restore="$2"
+
 	[ $CHECK_INTERVAL -eq 0 ] && return
 	[ $(($cnt % $CHECK_INTERVAL)) -ne 0 ] && return
 
 	tst_resm TINFO "check connectivity through $(tst_iface) on step $cnt"
-	check_icmpv${ipver}_connectivity $(tst_iface) $(tst_ipaddr rhost)
+
+	[ -n "$restore" ] && restore_ipaddr
+
+	tst_ping
 	if [ $? -ne 0 ]; then
 		tst_resm TFAIL "$(tst_iface) is broken"
 		return 1
 	fi
 	return 0
+}
+
+restore_ipaddr()
+{
+	tst_restore_ipaddr || return $?
+	tst_wait_ipv6_dad
 }

@@ -361,7 +361,7 @@ class video_PlaybackQuality(test.test):
                     raise error.TestFail('No external display detected on DUT')
 
             display_facade.move_to_display(
-                display_facade.get_first_external_display_index())
+                display_facade.get_first_external_display_id())
 
             for description, capture_dimension in test_regions:
                 self._get_playback_quality('%s_%s' % (connector_type,

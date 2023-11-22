@@ -17,6 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Яаралтай тусламжийн мэдээлэл"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"Эрүүл мэндийн мэдээлэл"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"Мэдээллийг өөрчлөх"</string>
     <string name="edit_info" msgid="5973929805855224805">"Яаралтай тусламжийн мэдээллийг өөрчлөх"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Мэдээлэл"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Харилцагчийн хаяг"</string>
@@ -96,12 +98,12 @@
     <string name="cancel" msgid="7401575239009060939">"Цуцлах"</string>
     <string name="ok" msgid="163967937451981024">"ЗА"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"Яаралтай тусламжийн мэдээлэл"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"Таны энд оруулсан мэдээллийг онцгой тохиолдолд танд анхлан туслахад ашиглана. Уг мэдээлэл нь зөвхөн таны төхөөрөмжид хадгалагдаж, үүнийг хэн нэгэн таны утасны түгжээг тайлалгүйгээр онцгой үед залгах хэсгээс харж болно."</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"Үргэлжлүүлэх"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Утасны эзний талаар мэдээлэл алга"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"Хэрэв энэ таны утас бол балны дүрс тэмдгийг дарж, онцгой байдлын үед харагдах мэдээлэл оруулна уу."</string>
     <string name="clear_all" msgid="8899013032870561633">"Бүгдийг арилгах"</string>
     <string name="clear" msgid="3648880442502887163">"Устгах"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Бүх мэдээлэл, харилцагчдыг устгах уу?"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"Эрүүл мэндийн мэдээлэл болон яаралтай үед холбоо барих харилцагчийн мэдээлэл оруулснаар яаралтай тусламжийн үед анхлан туслагчдад хэрэг болно.\n\nЭнэ мэдээллийг хүн бүхэн таны түгжигдсэн дэлгэцээс унших боломжтой бөгөөд утасны түгжээг тайлахгүйгээр харилцагчийн нэрийг товшин залгах боломжтой."</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"Яаралтай тусламжийн мэдээлэл нэмэх"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"Анхлан туслагчдад чухал мэдээллийг олоход туслах"</string>
 </resources>

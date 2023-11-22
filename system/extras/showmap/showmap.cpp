@@ -20,6 +20,7 @@ struct mapinfo {
     unsigned private_clean;
     unsigned private_dirty;
     unsigned swap;
+    unsigned swap_pss;
     int is_bss;
     int count;
     char name[1];
@@ -111,6 +112,8 @@ static int parse_field(mapinfo* mi, const char* line) {
                 mi->private_dirty = size;
             } else if (!strcmp(field, "Swap:")) {
                 mi->swap = size;
+            } else if (!strcmp(field, "SwapPss:")) {
+                mi->swap_pss = size;
             }
         }
         return 0;
@@ -145,6 +148,7 @@ static void enqueue_map(mapinfo **head, mapinfo *map, int sort_by_address, int c
             current->private_clean += map->private_clean;
             current->private_dirty += map->private_dirty;
             current->swap += map->swap;
+            current->swap_pss += map->swap_pss;
             current->is_bss &= map->is_bss;
             current->count++;
             free(map);
@@ -220,7 +224,7 @@ static void print_header()
     const char *addr2 = addresses ? "    addr     addr " : "";
 
     printf("%s virtual                     shared   shared  private  private\n", addr1);
-    printf("%s    size      RSS      PSS    clean    dirty    clean    dirty     swap ", addr2);
+    printf("%s    size      RSS      PSS    clean    dirty    clean    dirty     swap  swapPSS", addr2);
     if (!verbose && !addresses) {
         printf("   # ");
     }
@@ -232,7 +236,7 @@ static void print_divider()
     if (addresses) {
         printf("-------- -------- ");
     }
-    printf("-------- -------- -------- -------- -------- -------- -------- -------- ");
+    printf("-------- -------- -------- -------- -------- -------- -------- -------- -------- ");
     if (!verbose && !addresses) {
         printf("---- ");
     }
@@ -248,11 +252,11 @@ static void print_mi(mapinfo *mi, bool total)
             printf("%08x %08x ", mi->start, mi->end);
         }
     }
-    printf("%8d %8d %8d %8d %8d %8d %8d %8d ", mi->size,
+    printf("%8d %8d %8d %8d %8d %8d %8d %8d %8d ", mi->size,
            mi->rss,
            mi->pss,
            mi->shared_clean, mi->shared_dirty,
-           mi->private_clean, mi->private_dirty, mi->swap);
+           mi->private_clean, mi->private_dirty, mi->swap, mi->swap_pss);
     if (!verbose && !addresses) {
         printf("%4d ", mi->count);
     }
@@ -279,6 +283,7 @@ static int show_map(int pid)
         total.private_clean += mi->private_clean;
         total.private_dirty += mi->private_dirty;
         total.swap += mi->swap;
+        total.swap_pss += mi->swap_pss;
         total.rss += mi->rss;
         total.pss += mi->pss;
         total.size += mi->size;

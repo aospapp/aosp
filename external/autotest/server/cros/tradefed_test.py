@@ -34,7 +34,7 @@ import tempfile
 import urlparse
 
 from autotest_lib.client.bin import utils as client_utils
-from autotest_lib.client.common_lib import base_utils
+from autotest_lib.client.common_lib import utils as common_utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import dev_server
 from autotest_lib.server import autotest
@@ -75,17 +75,19 @@ _TRADEFED_CACHE_MAX_SIZE = (10 * 1024 * 1024 * 1024)
 class _ChromeLogin(object):
     """Context manager to handle Chrome login state."""
 
-    def __init__(self, host):
+    def __init__(self, host, cts_helper_kwargs):
         self._host = host
+        self._cts_helper_kwargs = cts_helper_kwargs
 
     def __enter__(self):
         """Logs in to the Chrome."""
         logging.info('Ensure Android is running...')
         # If we can't login to Chrome and launch Android we want this job to
         # die roughly after 5 minutes instead of hanging for the duration.
-        autotest.Autotest(self._host).run_timed_test('cheets_CTSHelper',
+        autotest.Autotest(self._host).run_timed_test('cheets_StartAndroid',
                                                      timeout=300,
-                                                     check_client_result=True)
+                                                     check_client_result=True,
+                                                     **self._cts_helper_kwargs)
 
     def __exit__(self, exc_type, exc_value, traceback):
         """On exit, to wipe out all the login state, reboot the machine.
@@ -165,18 +167,18 @@ def adb_keepalive(target, extra_paths):
     # module. We want to run the original .py file, so we need to change the
     # extension back.
     script_filename = module.__file__.replace('.pyc', '.py')
-    job = base_utils.BgJob([script_filename, target],
+    job = common_utils.BgJob([script_filename, target],
                            nickname='adb_keepalive', stderr_level=logging.DEBUG,
-                           stdout_tee=base_utils.TEE_TO_LOGS,
-                           stderr_tee=base_utils.TEE_TO_LOGS,
+                           stdout_tee=common_utils.TEE_TO_LOGS,
+                           stderr_tee=common_utils.TEE_TO_LOGS,
                            extra_paths=extra_paths)
 
     try:
         yield
     finally:
         # The adb_keepalive.py script runs forever until SIGTERM is sent.
-        base_utils.nuke_subprocess(job.sp)
-        base_utils.join_bg_jobs([job])
+        common_utils.nuke_subprocess(job.sp)
+        common_utils.join_bg_jobs([job])
 
 
 @contextlib.contextmanager
@@ -190,6 +192,118 @@ def pushd(d):
         yield
     finally:
         os.chdir(current)
+
+
+def parse_tradefed_v2_result(result, waivers=None):
+    """Check the result from the tradefed-v2 output.
+
+    @param result: The result stdout string from the tradefed command.
+    @param waivers: a set() of tests which are permitted to fail.
+    @return 5-tuple (tests, passed, failed, notexecuted, waived)
+    """
+    # Regular expressions for start/end messages of each test-run chunk.
+    abi_re = r'armeabi-v7a|x86'
+    # TODO(kinaba): use the current running module name.
+    module_re = r'\S+'
+    start_re = re.compile(r'(?:Start|Continu)ing (%s) %s with'
+                          r' (\d+(?:,\d+)?) test' % (abi_re, module_re))
+    end_re = re.compile(r'(%s) %s (?:complet|fail)ed in .*\.'
+                        r' (\d+) passed, (\d+) failed, (\d+) not executed'
+                        % (abi_re, module_re))
+
+    # Records the result per each ABI.
+    total_test = dict()
+    total_pass = dict()
+    total_fail = dict()
+    last_notexec = dict()
+
+    # ABI and the test count for the current chunk.
+    abi = None
+    ntest = None
+    prev_npass = prev_nfail = prev_nnotexec = None
+
+    for line in result.splitlines():
+        # Beginning of a chunk of tests.
+        match = start_re.search(line)
+        if match:
+           if abi:
+               raise error.TestFail('Error: Unexpected test start: ' + line)
+           abi = match.group(1)
+           ntest = int(match.group(2).replace(',',''))
+           prev_npass = prev_nfail = prev_nnotexec = None
+        else:
+           # End of the current chunk.
+           match = end_re.search(line)
+           if not match:
+               continue
+
+           npass, nfail, nnotexec = map(int, match.group(2,3,4))
+           if abi != match.group(1):
+               # When the last case crashed during teardown, tradefed emits two
+               # end-messages with possibly increased fail count. Ignore it.
+               if (prev_npass == npass and (prev_nfail == nfail or
+                   prev_nfail == nfail - 1) and prev_nnotexec == nnotexec):
+                   continue
+               raise error.TestFail('Error: Unexpected test end: ' + line)
+           prev_npass, prev_nfail, prev_nnotexec = npass, nfail, nnotexec
+
+           # When the test crashes too ofen, tradefed seems to finish the
+           # iteration by running "0 tests, 0 passed, ...". Do not count
+           # that in.
+           if ntest > 0:
+               total_test[abi] = (total_test.get(abi, 0) + ntest -
+                   last_notexec.get(abi, 0))
+               total_pass[abi] = total_pass.get(abi, 0) + npass
+               total_fail[abi] = total_fail.get(abi, 0) + nfail
+               last_notexec[abi] = nnotexec
+           abi = None
+
+    if abi:
+        raise error.TestFail('Error: No end message for the last chunk.')
+
+    # TODO(rohitbm): make failure parsing more robust by extracting the list
+    # of failing tests instead of searching in the result blob. As well as
+    # only parse for waivers for the running ABI.
+    waived = 0
+    if waivers:
+        abis = total_test.keys()
+        for testname in waivers:
+            # TODO(dhaddock): Find a more robust way to apply waivers.
+            fail_count = (result.count(testname + ' FAIL') +
+                          result.count(testname + ' fail'))
+            if fail_count:
+                if fail_count > len(abis):
+                    # This should be an error.TestFail, but unfortunately
+                    # tradefed has a bug that emits "fail" twice when a
+                    # test failed during teardown. It will anyway causes
+                    # a test count inconsistency and visible on the dashboard.
+                    logging.error('Found %d failures for %s '
+                                  'but there are only %d abis: %s',
+                                  fail_count, testname, len(abis), abis)
+                waived += fail_count
+                logging.info('Waived failure for %s %d time(s)',
+                             testname, fail_count)
+    counts = tuple(sum(count_per_abi.values()) for count_per_abi in
+        (total_test, total_pass, total_fail, last_notexec)) + (waived,)
+    msg = ('tests=%d, passed=%d, failed=%d, not_executed=%d, waived=%d' %
+           counts)
+    logging.info(msg)
+    if counts[2] - waived < 0:
+        raise error.TestFail('Error: Internal waiver bookkeeping has '
+                             'become inconsistent (%s)' % msg)
+    return counts
+
+
+def select_32bit_java():
+    """Switches to 32 bit java if installed (like in lab lxc images) to save
+    about 30-40% server/shard memory during the run."""
+    if utils.is_in_container() and not client_utils.is_moblab():
+        java = '/usr/lib/jvm/java-8-openjdk-i386'
+        if os.path.exists(java):
+            logging.info('Found 32 bit java, switching to use it.')
+            os.environ['JAVA_HOME'] = java
+            os.environ['PATH'] = (os.path.join(java, 'bin') + os.pathsep +
+                                  os.environ['PATH'])
 
 
 class TradefedTest(test.test):
@@ -208,6 +322,14 @@ class TradefedTest(test.test):
             cache_root = _TRADEFED_CACHE_CONTAINER
         else:
             cache_root = _TRADEFED_CACHE_LOCAL
+
+        # TODO(ihf): reevaluate this again when we run out of memory. We could
+        # for example use 32 bit java on the first run but not during retries.
+        # b/62895114. If select_32bit_java gets deleted for good also remove it
+        # from the base image.
+        # Try to save server memory (crbug.com/717413).
+        # select_32bit_java()
+
         # Quick sanity check and spew of java version installed on the server.
         utils.run('java', args=('-version',), ignore_status=False, verbose=True,
                   stdout_tee=utils.TEE_TO_LOGS, stderr_tee=utils.TEE_TO_LOGS)
@@ -239,12 +361,12 @@ class TradefedTest(test.test):
         logging.info('Cleaning up %s.', self._tradefed_install)
         shutil.rmtree(self._tradefed_install)
 
-    def _login_chrome(self):
+    def _login_chrome(self, **cts_helper_kwargs):
         """Returns Chrome log-in context manager.
 
-        Please see also cheets_CTSHelper for details about how this works.
+        Please see also cheets_StartAndroid for details about how this works.
         """
-        return _ChromeLogin(self._host)
+        return _ChromeLogin(self._host, cts_helper_kwargs)
 
     def _get_adb_target(self):
         return '{}:{}'.format(self._host.hostname, self._host.port)
@@ -677,7 +799,7 @@ class TradefedTest(test.test):
                      datetime_id)
         return datetime_id
 
-    def _parse_tradefed_datetime_N(self, result, summary=None):
+    def _parse_tradefed_datetime_v2(self, result, summary=None):
         """Get the tradefed provided result ID consisting of a datetime stamp.
 
         Unfortunately we are unable to tell tradefed where to store the results.
@@ -735,6 +857,7 @@ class TradefedTest(test.test):
         # TODO(rohitbm): make failure parsing more robust by extracting the list
         # of failing tests instead of searching in the result blob. As well as
         # only parse for waivers for the running ABI.
+        waived = 0
         if waivers:
             for testname in waivers:
                 # TODO(dhaddock): Find a more robust way to apply waivers.
@@ -745,115 +868,27 @@ class TradefedTest(test.test):
                                              'failures found in the output to '
                                              'be valid for applying waivers. '
                                              'Please check output.')
-                    failed -= fail_count
-                    # To maintain total count consistency.
-                    passed += fail_count
+                    waived += fail_count
                     logging.info('Waived failure for %s %d time(s)',
                                  testname, fail_count)
-        logging.info('tests=%d, passed=%d, failed=%d, not_executed=%d',
-                tests, passed, failed, not_executed)
-        if failed < 0:
+        logging.info(
+            'tests=%d, passed=%d, failed=%d, not_executed=%d, waived=%d',
+            tests, passed, failed, not_executed, waived)
+        if failed < waived:
             raise error.TestFail('Error: Internal waiver book keeping has '
                                  'become inconsistent.')
-        return (tests, passed, failed, not_executed)
+        return (tests, passed, failed, not_executed, waived)
 
-    # TODO(kinaba): Add unit test.
-    def _parse_result_v2(self, result, accumulative_count=False, waivers=None):
+    def _parse_result_v2(self, result, waivers=None):
         """Check the result from the tradefed-v2 output.
 
         This extracts the test pass/fail/executed list from the output of
         tradefed. It is up to the caller to handle inconsistencies.
 
         @param result: The result object from utils.run.
-        @param accumulative_count: set True if using an old version of tradefed
-                                   that prints test count in accumulative way.
         @param waivers: a set() of tests which are permitted to fail.
         """
-        # Regular expressions for start/end messages of each test-run chunk.
-        abi_re = r'armeabi-v7a|x86'
-        # TODO(kinaba): use the current running module name.
-        module_re = r'\S+'
-        start_re = re.compile(r'(?:Start|Continu)ing (%s) %s with'
-                              r' (\d+(?:,\d+)?) test' % (abi_re, module_re))
-        end_re = re.compile(r'(%s) %s (?:complet|fail)ed in .*\.'
-                            r' (\d+) passed, (\d+) failed, (\d+) not executed'
-                            % (abi_re, module_re))
-
-        # Records the result per each ABI.
-        total_test = dict()
-        total_pass = dict()
-        total_fail = dict()
-        last_notexec = dict()
-
-        # ABI and the test count for the current chunk.
-        abi = None
-        ntest = None
-
-        for line in result.stdout.splitlines():
-            # Beginning of a chunk of tests.
-            match = start_re.search(line)
-            if match:
-               if abi:
-                   raise error.TestFail('Error: Unexpected test start: ' + line)
-               abi = match.group(1)
-               ntest = int(match.group(2).replace(',',''))
-            else:
-               # End of the current chunk.
-               match = end_re.search(line)
-               if not match:
-                   continue
-
-               if abi != match.group(1):
-                   raise error.TestFail('Error: Unexpected test end: ' + line)
-               npass, nfail, nnotexec = map(int, match.group(2,3,4))
-
-               # When the test crashes too ofen, tradefed seems to finish the
-               # iteration by running "0 tests, 0 passed, ...". Do not count
-               # that in.
-               if ntest > 0:
-                   if accumulative_count:
-                       total_test[abi] = ntest
-                       total_pass[abi] = npass
-                       total_fail[abi] = nfail
-                   else:
-                       total_test[abi] = (total_test.get(abi, 0) + ntest -
-                           last_notexec.get(abi, 0))
-                       total_pass[abi] = total_pass.get(abi, 0) + npass
-                       total_fail[abi] = total_fail.get(abi, 0) + nfail
-                   last_notexec[abi] = nnotexec
-               abi = None
-
-        if abi:
-            raise error.TestFail('Error: No end message for the last chunk.')
-
-        # TODO(rohitbm): make failure parsing more robust by extracting the list
-        # of failing tests instead of searching in the result blob. As well as
-        # only parse for waivers for the running ABI.
-        waived = 0
-        if waivers:
-            abis = total_test.keys()
-            for testname in waivers:
-                # TODO(dhaddock): Find a more robust way to apply waivers.
-                fail_count = (result.stdout.count(testname + ' FAIL') +
-                              result.stdout.count(testname + ' fail'))
-                if fail_count:
-                    if fail_count > len(abis):
-                        raise error.TestFail('Error: Found %d failures for %s '
-                                             'but there are only %d abis: %s' %
-                                             (fail_count, testname, len(abis),
-                                             abis))
-                    waived += fail_count
-                    logging.info('Waived failure for %s %d time(s)',
-                                 testname, fail_count)
-        counts = tuple(sum(count_per_abi.values()) for count_per_abi in
-            (total_test, total_pass, total_fail, last_notexec)) + (waived,)
-        msg = ('tests=%d, passed=%d, failed=%d, not_executed=%d, waived=%d' %
-               counts)
-        logging.info(msg)
-        if counts[2] - waived < 0:
-            raise error.TestFail('Error: Internal waiver bookkeeping has '
-                                 'become inconsistent (%s)' % msg)
-        return counts
+        return parse_tradefed_v2_result(result.stdout, waivers)
 
     def _collect_logs(self, repository, datetime, destination):
         """Collects the tradefed logs.

@@ -147,6 +147,8 @@ public class BluetoothRouteManager extends StateMachine {
     // arg2: Runnable
     public static final int RUN_RUNNABLE = 9001;
 
+    private static final int MAX_CONNECTION_RETRIES = 2;
+
     // States
     private final class AudioOffState extends State {
         @Override
@@ -213,7 +215,7 @@ public class BluetoothRouteManager extends StateMachine {
                         break;
                     case RETRY_HFP_CONNECTION:
                         Log.i(LOG_TAG, "Retrying HFP connection to %s", (String) args.arg2);
-                        String retryAddress = connectHfpAudio((String) args.arg2, false);
+                        String retryAddress = connectHfpAudio((String) args.arg2, args.argi1);
 
                         if (retryAddress != null) {
                             mListener.onBluetoothStateChange(BLUETOOTH_DEVICE_CONNECTED,
@@ -339,7 +341,7 @@ public class BluetoothRouteManager extends StateMachine {
                         if (Objects.equals(address, mDeviceAddress)) {
                             Log.d(LOG_TAG, "Retry message came through while connecting.");
                         } else {
-                            String retryAddress = connectHfpAudio(address, false);
+                            String retryAddress = connectHfpAudio(address, args.argi1);
                             if (retryAddress != null) {
                                 transitionTo(getConnectingStateForAddress(retryAddress,
                                         "AudioConnecting/RETRY_HFP_CONNECTION"));
@@ -473,7 +475,7 @@ public class BluetoothRouteManager extends StateMachine {
                         if (Objects.equals(address, mDeviceAddress)) {
                             Log.d(LOG_TAG, "Retry message came through while connected.");
                         } else {
-                            String retryAddress = connectHfpAudio(address, false);
+                            String retryAddress = connectHfpAudio(address, args.argi1);
                             if (retryAddress != null) {
                                 mListener.onBluetoothStateChange(BLUETOOTH_AUDIO_CONNECTED,
                                         BLUETOOTH_AUDIO_PENDING);
@@ -648,15 +650,15 @@ public class BluetoothRouteManager extends StateMachine {
     }
 
     private String connectHfpAudio(String address) {
-        return connectHfpAudio(address, true, null);
+        return connectHfpAudio(address, 0, null);
     }
 
-    private String connectHfpAudio(String address, boolean shouldRetry) {
-        return connectHfpAudio(address, shouldRetry, null);
+    private String connectHfpAudio(String address, int retryCount) {
+        return connectHfpAudio(address, retryCount, null);
     }
 
     private String connectHfpAudio(String address, String excludeAddress) {
-        return connectHfpAudio(address, true, excludeAddress);
+        return connectHfpAudio(address, 0, excludeAddress);
     }
 
     /**
@@ -664,13 +666,12 @@ public class BluetoothRouteManager extends StateMachine {
      * Note: This method is not synchronized on the Telecom lock, so don't try and call back into
      * Telecom from within it.
      * @param address The address that should be tried first. May be null.
-     * @param shouldRetry true if there should be a retry-with-backoff if connection is
-     *                    immediately unsuccessful, false otherwise.
+     * @param retryCount The number of times this connection attempt has been retried.
      * @param excludeAddress Don't connect to this address.
      * @return The address of the device that's actually being connected to, or null if no
      * connection was successful.
      */
-    private String connectHfpAudio(String address, boolean shouldRetry, String excludeAddress) {
+    private String connectHfpAudio(String address, int retryCount, String excludeAddress) {
         BluetoothHeadsetProxy bluetoothHeadset = mDeviceManager.getHeadsetService();
         if (bluetoothHeadset == null) {
             Log.i(this, "connectHfpAudio: no headset service available.");
@@ -688,11 +689,14 @@ public class BluetoothRouteManager extends StateMachine {
                     address, actualAddress);
         }
         if (actualAddress != null && !connectAudio(actualAddress)) {
-            Log.w(LOG_TAG, "Could not connect to %s. Will %s", shouldRetry ? "retry" : "not retry");
+            boolean shouldRetry = retryCount < MAX_CONNECTION_RETRIES;
+            Log.w(LOG_TAG, "Could not connect to %s. Will %s", actualAddress,
+                    shouldRetry ? "retry" : "not retry");
             if (shouldRetry) {
                 SomeArgs args = SomeArgs.obtain();
                 args.arg1 = Log.createSubsession();
                 args.arg2 = actualAddress;
+                args.argi1 = retryCount + 1;
                 sendMessageDelayed(RETRY_HFP_CONNECTION, args,
                         mTimeoutsAdapter.getRetryBluetoothConnectAudioBackoffMillis(
                                 mContext.getContentResolver()));

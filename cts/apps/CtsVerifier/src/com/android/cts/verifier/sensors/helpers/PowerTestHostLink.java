@@ -413,6 +413,9 @@ public class PowerTestHostLink {
         List<Sensor> allSensors = mSensorManager.getSensorList(Sensor.TYPE_ALL);
         String response = RESPONSE_OK;
         for (Sensor sensor : allSensors) {
+            if (sensor.getType() >= Sensor.TYPE_DEVICE_PRIVATE_BASE) {
+                continue;
+            }
             response = switchSensor(sensor.getType(), on);
             if (response == null) {
                 response = RESPONSE_ERR;

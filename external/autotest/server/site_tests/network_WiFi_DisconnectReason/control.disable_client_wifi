@@ -6,8 +6,8 @@ AUTHOR = 'silberst, pstew, quiche'
 NAME = 'network_WiFi_DisconnectReason.disable_client_wifi'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
-ATTRIBUTES = ('suite:wifi_correctness_cros_core, suite:wifi_matfunc, '
-              'suite:wifi_matfunc_bcm4371')
+ATTRIBUTES = ('suite:wifi_correctness_cros_core, suite:wifi_matfunc,'
+              'suite:wifi_matfunc_noservo, suite:wifi_matfunc_bcm4371')
 DEPENDENCIES = 'wificell'
 
 DOC = """

@@ -29,6 +29,7 @@ public:
                                 audio_channel_mask_t channelMask,
                                 size_t frameCount,
                                 void *buffer,
+                                size_t bufferSize,
                                 audio_session_t sessionId,
                                 uid_t uid,
                                 audio_input_flags_t flags,
@@ -50,7 +51,7 @@ public:
                                                 return tmp; }
 
     static  void        appendDumpHeader(String8& result);
-            void        dump(char* buffer, size_t size, bool active);
+            void        appendDump(String8& result, bool active);
 
             void        handleSyncStartEvent(const sp<SyncEvent>& event);
             void        clearSyncStartEvent();
@@ -65,8 +66,7 @@ public:
 private:
     friend class AudioFlinger;  // for mState
 
-                        RecordTrack(const RecordTrack&);
-                        RecordTrack& operator = (const RecordTrack&);
+    DISALLOW_COPY_AND_ASSIGN(RecordTrack);
 
     // AudioBufferProvider interface
     virtual status_t getNextBuffer(AudioBufferProvider::Buffer* buffer);
@@ -103,6 +103,7 @@ public:
                 audio_format_t format,
                 size_t frameCount,
                 void *buffer,
+                size_t bufferSize,
                 audio_input_flags_t flags);
     virtual             ~PatchRecord();
 

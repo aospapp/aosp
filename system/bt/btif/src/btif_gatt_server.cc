@@ -131,7 +131,7 @@ static void btapp_gatts_handle_cback(uint16_t event, char* p_param) {
       bt_uuid_t app_uuid;
       bta_to_btif_uuid(&app_uuid, &p_data->reg_oper.uuid);
       HAL_CBACK(bt_gatt_callbacks, server->register_server_cb,
-                p_data->reg_oper.status, p_data->reg_oper.server_if, &app_uuid);
+                p_data->reg_oper.status, p_data->reg_oper.server_if, app_uuid);
       break;
     }
 
@@ -139,23 +139,17 @@ static void btapp_gatts_handle_cback(uint16_t event, char* p_param) {
       break;
 
     case BTA_GATTS_CONNECT_EVT: {
-      bt_bdaddr_t bda;
-      bdcpy(bda.address, p_data->conn.remote_bda);
-
       btif_gatt_check_encrypted_link(p_data->conn.remote_bda,
                                      p_data->conn.transport);
 
       HAL_CBACK(bt_gatt_callbacks, server->connection_cb, p_data->conn.conn_id,
-                p_data->conn.server_if, true, &bda);
+                p_data->conn.server_if, true, p_data->conn.remote_bda);
       break;
     }
 
     case BTA_GATTS_DISCONNECT_EVT: {
-      bt_bdaddr_t bda;
-      bdcpy(bda.address, p_data->conn.remote_bda);
-
       HAL_CBACK(bt_gatt_callbacks, server->connection_cb, p_data->conn.conn_id,
-                p_data->conn.server_if, false, &bda);
+                p_data->conn.server_if, false, p_data->conn.remote_bda);
       break;
     }
 
@@ -172,11 +166,9 @@ static void btapp_gatts_handle_cback(uint16_t event, char* p_param) {
       break;
 
     case BTA_GATTS_READ_CHARACTERISTIC_EVT: {
-      bt_bdaddr_t bda;
-      bdcpy(bda.address, p_data->req_data.remote_bda);
-
       HAL_CBACK(bt_gatt_callbacks, server->request_read_characteristic_cb,
-                p_data->req_data.conn_id, p_data->req_data.trans_id, &bda,
+                p_data->req_data.conn_id, p_data->req_data.trans_id,
+                p_data->req_data.remote_bda,
                 p_data->req_data.p_data->read_req.handle,
                 p_data->req_data.p_data->read_req.offset,
                 p_data->req_data.p_data->read_req.is_long);
@@ -184,11 +176,9 @@ static void btapp_gatts_handle_cback(uint16_t event, char* p_param) {
     }
 
     case BTA_GATTS_READ_DESCRIPTOR_EVT: {
-      bt_bdaddr_t bda;
-      bdcpy(bda.address, p_data->req_data.remote_bda);
-
       HAL_CBACK(bt_gatt_callbacks, server->request_read_descriptor_cb,
-                p_data->req_data.conn_id, p_data->req_data.trans_id, &bda,
+                p_data->req_data.conn_id, p_data->req_data.trans_id,
+                p_data->req_data.remote_bda,
                 p_data->req_data.p_data->read_req.handle,
                 p_data->req_data.p_data->read_req.offset,
                 p_data->req_data.p_data->read_req.is_long);
@@ -196,33 +186,29 @@ static void btapp_gatts_handle_cback(uint16_t event, char* p_param) {
     }
 
     case BTA_GATTS_WRITE_CHARACTERISTIC_EVT: {
-      bt_bdaddr_t bda;
-      bdcpy(bda.address, p_data->req_data.remote_bda);
       const auto& req = p_data->req_data.p_data->write_req;
       vector<uint8_t> value(req.value, req.value + req.len);
       HAL_CBACK(bt_gatt_callbacks, server->request_write_characteristic_cb,
-                p_data->req_data.conn_id, p_data->req_data.trans_id, &bda,
-                req.handle, req.offset, req.need_rsp, req.is_prep, value);
+                p_data->req_data.conn_id, p_data->req_data.trans_id,
+                p_data->req_data.remote_bda, req.handle, req.offset,
+                req.need_rsp, req.is_prep, value);
       break;
     }
 
     case BTA_GATTS_WRITE_DESCRIPTOR_EVT: {
-      bt_bdaddr_t bda;
-      bdcpy(bda.address, p_data->req_data.remote_bda);
       const auto& req = p_data->req_data.p_data->write_req;
       vector<uint8_t> value(req.value, req.value + req.len);
       HAL_CBACK(bt_gatt_callbacks, server->request_write_descriptor_cb,
-                p_data->req_data.conn_id, p_data->req_data.trans_id, &bda,
-                req.handle, req.offset, req.need_rsp, req.is_prep, value);
+                p_data->req_data.conn_id, p_data->req_data.trans_id,
+                p_data->req_data.remote_bda, req.handle, req.offset,
+                req.need_rsp, req.is_prep, value);
       break;
     }
 
     case BTA_GATTS_EXEC_WRITE_EVT: {
-      bt_bdaddr_t bda;
-      bdcpy(bda.address, p_data->req_data.remote_bda);
-
       HAL_CBACK(bt_gatt_callbacks, server->request_exec_write_cb,
-                p_data->req_data.conn_id, p_data->req_data.trans_id, &bda,
+                p_data->req_data.conn_id, p_data->req_data.trans_id,
+                p_data->req_data.remote_bda,
                 p_data->req_data.p_data->exec_write);
       break;
     }
@@ -280,10 +266,10 @@ static void btapp_gatts_cback(tBTA_GATTS_EVT event, tBTA_GATTS* p_data) {
 /*******************************************************************************
  *  Server API Functions
  ******************************************************************************/
-static bt_status_t btif_gatts_register_app(bt_uuid_t* bt_uuid) {
+static bt_status_t btif_gatts_register_app(const bt_uuid_t& bt_uuid) {
   CHECK_BTGATT_INIT();
   tBT_UUID* uuid = new tBT_UUID;
-  btif_to_bta_uuid(uuid, bt_uuid);
+  btif_to_bta_uuid(uuid, &bt_uuid);
 
   return do_in_jni_thread(
       Bind(&BTA_GATTS_AppRegister, base::Owned(uuid), &btapp_gatts_cback));
@@ -294,8 +280,8 @@ static bt_status_t btif_gatts_unregister_app(int server_if) {
   return do_in_jni_thread(Bind(&BTA_GATTS_AppDeregister, server_if));
 }
 
-static void btif_gatts_open_impl(int server_if, BD_ADDR address, bool is_direct,
-                                 int transport_param) {
+static void btif_gatts_open_impl(int server_if, const RawAddress& address,
+                                 bool is_direct, int transport_param) {
   // Ensure device is in inquiry database
   int addr_type = 0;
   int device_type = 0;
@@ -329,10 +315,6 @@ static void btif_gatts_open_impl(int server_if, BD_ADDR address, bool is_direct,
         else
           transport = BTA_GATT_TRANSPORT_BR_EDR;
         break;
-
-      default:
-        BTIF_TRACE_ERROR("%s: Invalid device type %d", __func__, device_type);
-        return;
     }
   }
 
@@ -340,17 +322,15 @@ static void btif_gatts_open_impl(int server_if, BD_ADDR address, bool is_direct,
   BTA_GATTS_Open(server_if, address, is_direct, transport);
 }
 
-static bt_status_t btif_gatts_open(int server_if, const bt_bdaddr_t* bd_addr,
+static bt_status_t btif_gatts_open(int server_if, const RawAddress& bd_addr,
                                    bool is_direct, int transport) {
   CHECK_BTGATT_INIT();
-  uint8_t* address = new BD_ADDR;
-  bdcpy(address, bd_addr->address);
-
-  return do_in_jni_thread(Bind(&btif_gatts_open_impl, server_if,
-                               base::Owned(address), is_direct, transport));
+  return do_in_jni_thread(
+      Bind(&btif_gatts_open_impl, server_if, bd_addr, is_direct, transport));
 }
 
-static void btif_gatts_close_impl(int server_if, BD_ADDR address, int conn_id) {
+static void btif_gatts_close_impl(int server_if, const RawAddress& address,
+                                  int conn_id) {
   // Close active connection
   if (conn_id != 0)
     BTA_GATTS_Close(conn_id);
@@ -361,14 +341,11 @@ static void btif_gatts_close_impl(int server_if, BD_ADDR address, int conn_id) {
   BTA_GATTS_CancelOpen(server_if, address, false);
 }
 
-static bt_status_t btif_gatts_close(int server_if, const bt_bdaddr_t* bd_addr,
+static bt_status_t btif_gatts_close(int server_if, const RawAddress& bd_addr,
                                     int conn_id) {
   CHECK_BTGATT_INIT();
-  uint8_t* address = new BD_ADDR;
-  bdcpy(address, bd_addr->address);
-
   return do_in_jni_thread(
-      Bind(&btif_gatts_close_impl, server_if, base::Owned(address), conn_id));
+      Bind(&btif_gatts_close_impl, server_if, bd_addr, conn_id));
 }
 
 static void add_service_impl(int server_if,
@@ -438,26 +415,26 @@ static void btif_gatts_send_response_impl(int conn_id, int trans_id, int status,
 
 static bt_status_t btif_gatts_send_response(int conn_id, int trans_id,
                                             int status,
-                                            btgatt_response_t* response) {
+                                            const btgatt_response_t& response) {
   CHECK_BTGATT_INIT();
   return do_in_jni_thread(Bind(&btif_gatts_send_response_impl, conn_id,
-                               trans_id, status, *response));
+                               trans_id, status, response));
 }
 
-static bt_status_t btif_gattc_set_preferred_phy(int conn_id, uint8_t tx_phy,
-                                                uint8_t rx_phy,
+static bt_status_t btif_gatts_set_preferred_phy(const RawAddress& bd_addr,
+                                                uint8_t tx_phy, uint8_t rx_phy,
                                                 uint16_t phy_options) {
   CHECK_BTGATT_INIT();
-  do_in_bta_thread(FROM_HERE, Bind(&GATTC_SetPreferredPHY, conn_id, tx_phy,
-                                   rx_phy, phy_options));
+  do_in_bta_thread(FROM_HERE,
+                   Bind(&BTM_BleSetPhy, bd_addr, tx_phy, rx_phy, phy_options));
   return BT_STATUS_SUCCESS;
 }
 
-static bt_status_t btif_gattc_read_phy(
-    int conn_id,
+static bt_status_t btif_gatts_read_phy(
+    const RawAddress& bd_addr,
     base::Callback<void(uint8_t tx_phy, uint8_t rx_phy, uint8_t status)> cb) {
   CHECK_BTGATT_INIT();
-  do_in_bta_thread(FROM_HERE, Bind(&GATTC_ReadPHY, conn_id,
+  do_in_bta_thread(FROM_HERE, Bind(&BTM_BleReadPhy, bd_addr,
                                    jni_thread_wrapper(FROM_HERE, cb)));
   return BT_STATUS_SUCCESS;
 }
@@ -467,5 +444,5 @@ const btgatt_server_interface_t btgattServerInterface = {
     btif_gatts_open,           btif_gatts_close,
     btif_gatts_add_service,    btif_gatts_stop_service,
     btif_gatts_delete_service, btif_gatts_send_indication,
-    btif_gatts_send_response,  btif_gattc_set_preferred_phy,
-    btif_gattc_read_phy};
+    btif_gatts_send_response,  btif_gatts_set_preferred_phy,
+    btif_gatts_read_phy};

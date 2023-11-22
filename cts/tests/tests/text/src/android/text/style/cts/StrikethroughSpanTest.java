@@ -16,12 +16,16 @@
 
 package android.text.style.cts;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import android.os.Parcel;
 import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.StaticLayout;
 import android.text.TextPaint;
 import android.text.style.StrikethroughSpan;
 
@@ -87,5 +91,26 @@ public class StrikethroughSpanTest {
         } finally {
             p.recycle();
         }
+    }
+
+    // Measures the width of some potentially-spanned text, assuming it's not too wide.
+    private float textWidth(CharSequence text) {
+        final TextPaint tp = new TextPaint();
+        tp.setTextSize(100.0f); // Large enough so that the difference in kerning is visible.
+        final int largeWidth = 10000; // Enough width so the whole text fits in one line.
+        final StaticLayout layout = StaticLayout.Builder.obtain(
+                text, 0, text.length(), tp, largeWidth).build();
+        return layout.getLineWidth(0);
+    }
+
+    @Test
+    public void testDoesntAffectWidth() {
+        // Roboto kerns between "P" and "."
+        final SpannableString text = new SpannableString("P.");
+        final float origLineWidth = textWidth(text);
+        // Strike through just the "P".
+        text.setSpan(new StrikethroughSpan(), 0, 1, Spanned.SPAN_INCLUSIVE_INCLUSIVE);
+        final float strokethroughLineWidth = textWidth(text);
+        assertEquals(origLineWidth, strokethroughLineWidth, 0.0f);
     }
 }

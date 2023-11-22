@@ -46,3 +46,6 @@
 
 $(call add-clean-step, rm -f $(PRODUCT_OUT)/system/bin/hw/android.hidl.memory@1.0-service)
 $(call add-clean-step, rm -f $(PRODUCT_OUT)/system/etc/init/android.hidl.memory@1.0-service.rc)
+
+# memory@1.0-impl is moved to /system/lib/vndk-sp
+$(call add-clean-step, rm -f $(PRODUCT_OUT)/system/lib/hw/android.hidl.memory@1.0-impl.so)

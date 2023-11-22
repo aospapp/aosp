@@ -9,11 +9,11 @@
 // ---------------------- Testing Prologue Output -------------------------- //
 // ========================================================================= //
 
-ADD_CASES(TC_ConsoleOut, {{"^Benchmark %s Time %s CPU %s Iterations$", MR_Next},
-                          {"^[-]+$", MR_Next}});
-ADD_CASES(TC_CSVOut,
-          {{"name,iterations,real_time,cpu_time,time_unit,bytes_per_second,"
-            "items_per_second,label,error_occurred,error_message"}});
+ADD_CASES(TC_ConsoleOut,
+          {{"^[-]+$", MR_Next},
+           {"^Benchmark %s Time %s CPU %s Iterations$", MR_Next},
+           {"^[-]+$", MR_Next}});
+ADD_CASES(TC_CSVOut, {{"%csv_header"}});
 
 // ========================================================================= //
 // ------------------------ Testing Basic Output --------------------------- //

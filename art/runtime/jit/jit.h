@@ -17,14 +17,12 @@
 #ifndef ART_RUNTIME_JIT_JIT_H_
 #define ART_RUNTIME_JIT_JIT_H_
 
-#include "base/arena_allocator.h"
 #include "base/histogram-inl.h"
 #include "base/macros.h"
 #include "base/mutex.h"
 #include "base/timing_logger.h"
 #include "jit/profile_saver_options.h"
 #include "obj_ptr.h"
-#include "object_callbacks.h"
 #include "profile_compilation_info.h"
 #include "thread_pool.h"
 
@@ -50,8 +48,6 @@ static constexpr int16_t kJitHotnessDisabled = -2;
 
 class Jit {
  public:
-  static constexpr bool kStressMode = kIsDebugBuild;
-  static constexpr size_t kDefaultCompileThreshold = kStressMode ? 2 : 10000;
   static constexpr size_t kDefaultPriorityThreadWeightRatio = 1000;
   static constexpr size_t kDefaultInvokeTransitionWeightRatio = 500;
   // How frequently should the interpreter check to see if OSR compilation is ready.

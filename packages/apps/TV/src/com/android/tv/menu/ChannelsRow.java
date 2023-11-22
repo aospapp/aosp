@@ -26,8 +26,14 @@ import com.android.tv.recommendation.Recommender;
 public class ChannelsRow extends ItemListRow {
     public static final String ID = ChannelsRow.class.getName();
 
-    private static final int MIN_COUNT_FOR_RECENT_CHANNELS = 5;
-    private static final int MAX_COUNT_FOR_RECENT_CHANNELS = 10;
+    /**
+     * Minimum count for recent channels.
+     */
+    public static final int MIN_COUNT_FOR_RECENT_CHANNELS = 5;
+    /**
+     * Maximum count for recent channels.
+     */
+    public static final int MAX_COUNT_FOR_RECENT_CHANNELS = 10;
 
     private Recommender mTvRecommendation;
     private ChannelsRowAdapter mChannelsAdapter;

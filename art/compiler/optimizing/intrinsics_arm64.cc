@@ -28,7 +28,7 @@
 #include "mirror/reference.h"
 #include "mirror/string-inl.h"
 #include "scoped_thread_state_change-inl.h"
-#include "thread-inl.h"
+#include "thread-current-inl.h"
 #include "utils/arm64/assembler_arm64.h"
 
 using namespace vixl::aarch64;  // NOLINT(build/namespaces)
@@ -124,12 +124,12 @@ class IntrinsicSlowPathARM64 : public SlowPathCodeARM64 {
       // are no pools emitted.
       vixl::EmissionCheckScope guard(codegen->GetVIXLAssembler(), kInvokeCodeMarginSizeInBytes);
       if (invoke_->IsInvokeStaticOrDirect()) {
-        codegen->GenerateStaticOrDirectCall(invoke_->AsInvokeStaticOrDirect(),
-                                            LocationFrom(kArtMethodRegister));
+        codegen->GenerateStaticOrDirectCall(
+            invoke_->AsInvokeStaticOrDirect(), LocationFrom(kArtMethodRegister), this);
       } else {
-        codegen->GenerateVirtualCall(invoke_->AsInvokeVirtual(), LocationFrom(kArtMethodRegister));
+        codegen->GenerateVirtualCall(
+            invoke_->AsInvokeVirtual(), LocationFrom(kArtMethodRegister), this);
       }
-      codegen->RecordPcInfo(invoke_, invoke_->GetDexPc(), this);
     }
 
     // Copy the result back to the expected output.
@@ -205,7 +205,7 @@ class ReadBarrierSystemArrayCopySlowPathARM64 : public SlowPathCodeARM64 {
     // TODO: Load the entrypoint once before the loop, instead of
     // loading it at every iteration.
     int32_t entry_point_offset =
-        CodeGenerator::GetReadBarrierMarkEntryPointsOffset<kArm64PointerSize>(tmp_.reg());
+        Thread::ReadBarrierMarkEntryPointsOffset<kArm64PointerSize>(tmp_.reg());
     // This runtime call does not require a stack map.
     codegen->InvokeRuntimeWithoutRecordingPcInfo(entry_point_offset, instruction_, this);
     codegen->GetAssembler()->MaybePoisonHeapReference(tmp_reg);
@@ -1154,17 +1154,14 @@ static void GenCas(HInvoke* invoke, Primitive::Type type, CodeGeneratorARM64* co
       Register temp = WRegisterFrom(locations->GetTemp(0));
       // Need to make sure the reference stored in the field is a to-space
       // one before attempting the CAS or the CAS could fail incorrectly.
-      codegen->GenerateReferenceLoadWithBakerReadBarrier(
+      codegen->UpdateReferenceFieldWithBakerReadBarrier(
           invoke,
           out_loc,  // Unused, used only as a "temporary" within the read barrier.
           base,
-          /* offset */ 0u,
-          /* index */ offset_loc,
-          /* scale_factor */ 0u,
+          /* field_offset */ offset_loc,
           temp,
           /* needs_null_check */ false,
-          /* use_load_acquire */ false,
-          /* always_update_field */ true);
+          /* use_load_acquire */ false);
     }
   }
 
@@ -2741,7 +2738,7 @@ void IntrinsicCodeGeneratorARM64::VisitSystemArrayCopy(HInvoke* invoke) {
         // TODO: Also convert this intrinsic to the IsGcMarking strategy?
 
         // SystemArrayCopy implementation for Baker read barriers (see
-        // also CodeGeneratorARM::GenerateReferenceLoadWithBakerReadBarrier):
+        // also CodeGeneratorARM64::GenerateReferenceLoadWithBakerReadBarrier):
         //
         //   uint32_t rb_state = Lockword(src->monitor_).ReadBarrierState();
         //   lfence;  // Load fence or artificial data dependency to prevent load-load reordering
@@ -2900,69 +2897,6 @@ void IntrinsicCodeGeneratorARM64::VisitDoubleIsInfinite(HInvoke* invoke) {
   GenIsInfinite(invoke->GetLocations(), /* is64bit */ true, GetVIXLAssembler());
 }
 
-void IntrinsicLocationsBuilderARM64::VisitReferenceGetReferent(HInvoke* invoke) {
-  if (kEmitCompilerReadBarrier) {
-    // Do not intrinsify this call with the read barrier configuration.
-    return;
-  }
-  LocationSummary* locations = new (arena_) LocationSummary(invoke,
-                                                            LocationSummary::kCallOnSlowPath,
-                                                            kIntrinsified);
-  locations->SetInAt(0, Location::RequiresRegister());
-  locations->SetOut(Location::SameAsFirstInput());
-  locations->AddTemp(Location::RequiresRegister());
-}
-
-void IntrinsicCodeGeneratorARM64::VisitReferenceGetReferent(HInvoke* invoke) {
-  DCHECK(!kEmitCompilerReadBarrier);
-  MacroAssembler* masm = GetVIXLAssembler();
-  LocationSummary* locations = invoke->GetLocations();
-
-  Register obj = InputRegisterAt(invoke, 0);
-  Register out = OutputRegister(invoke);
-
-  SlowPathCodeARM64* slow_path = new (GetAllocator()) IntrinsicSlowPathARM64(invoke);
-  codegen_->AddSlowPath(slow_path);
-
-  // Load ArtMethod first.
-  HInvokeStaticOrDirect* invoke_direct = invoke->AsInvokeStaticOrDirect();
-  DCHECK(invoke_direct != nullptr);
-  Register temp0 = XRegisterFrom(codegen_->GenerateCalleeMethodStaticOrDirectCall(
-                                 invoke_direct, locations->GetTemp(0)));
-
-  // Now get declaring class.
-  __ Ldr(temp0.W(), MemOperand(temp0, ArtMethod::DeclaringClassOffset().Int32Value()));
-
-  uint32_t slow_path_flag_offset = codegen_->GetReferenceSlowFlagOffset();
-  uint32_t disable_flag_offset = codegen_->GetReferenceDisableFlagOffset();
-  DCHECK_NE(slow_path_flag_offset, 0u);
-  DCHECK_NE(disable_flag_offset, 0u);
-  DCHECK_NE(slow_path_flag_offset, disable_flag_offset);
-
-  // Check static flags that prevent using intrinsic.
-  if (slow_path_flag_offset == disable_flag_offset + 1) {
-    // Load two adjacent flags in one 64-bit load.
-    __ Ldr(temp0, MemOperand(temp0, disable_flag_offset));
-  } else {
-    UseScratchRegisterScope temps(masm);
-    Register temp1 = temps.AcquireW();
-    __ Ldr(temp1.W(), MemOperand(temp0, disable_flag_offset));
-    __ Ldr(temp0.W(), MemOperand(temp0, slow_path_flag_offset));
-    __ Orr(temp0, temp1, temp0);
-  }
-  __ Cbnz(temp0, slow_path->GetEntryLabel());
-
-  {
-    // Ensure that between load and MaybeRecordImplicitNullCheck there are no pools emitted.
-    vixl::EmissionCheckScope guard(codegen_->GetVIXLAssembler(), kMaxMacroInstructionSizeInBytes);
-    // Fast path.
-    __ Ldr(out, HeapOperand(obj, mirror::Reference::ReferentOffset().Int32Value()));
-    codegen_->MaybeRecordImplicitNullCheck(invoke);
-  }
-  codegen_->GetAssembler()->MaybeUnpoisonHeapReference(out);
-  __ Bind(slow_path->GetExitLabel());
-}
-
 void IntrinsicLocationsBuilderARM64::VisitIntegerValueOf(HInvoke* invoke) {
   InvokeRuntimeCallingConvention calling_convention;
   IntrinsicVisitor::ComputeIntegerValueOfLocations(
@@ -3036,6 +2970,29 @@ void IntrinsicCodeGeneratorARM64::VisitIntegerValueOf(HInvoke* invoke) {
   }
 }
 
+void IntrinsicLocationsBuilderARM64::VisitThreadInterrupted(HInvoke* invoke) {
+  LocationSummary* locations = new (arena_) LocationSummary(invoke,
+                                                            LocationSummary::kNoCall,
+                                                            kIntrinsified);
+  locations->SetOut(Location::RequiresRegister());
+}
+
+void IntrinsicCodeGeneratorARM64::VisitThreadInterrupted(HInvoke* invoke) {
+  MacroAssembler* masm = GetVIXLAssembler();
+  Register out = RegisterFrom(invoke->GetLocations()->Out(), Primitive::kPrimInt);
+  UseScratchRegisterScope temps(masm);
+  Register temp = temps.AcquireX();
+
+  __ Add(temp, tr, Thread::InterruptedOffset<kArm64PointerSize>().Int32Value());
+  __ Ldar(out.W(), MemOperand(temp));
+
+  vixl::aarch64::Label done;
+  __ Cbz(out.W(), &done);
+  __ Stlr(wzr, MemOperand(temp));
+  __ Bind(&done);
+}
+
+UNIMPLEMENTED_INTRINSIC(ARM64, ReferenceGetReferent)
 UNIMPLEMENTED_INTRINSIC(ARM64, IntegerHighestOneBit)
 UNIMPLEMENTED_INTRINSIC(ARM64, LongHighestOneBit)
 UNIMPLEMENTED_INTRINSIC(ARM64, IntegerLowestOneBit)

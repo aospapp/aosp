@@ -44,7 +44,10 @@ import java.util.Map;
 public class RebootStressTest implements IRemoteTest, IDeviceTest, IShardableTest {
 
     private static final String[] LAST_KMSG_PATHS = {
-        "/proc/last_kmsg", "/sys/fs/pstore/console-ramoops"};
+        "/sys/fs/pstore/console-ramoops-0",
+        "/sys/fs/pstore/console-ramoops",
+        "/proc/last_kmsg",
+    };
     // max number of ms to allowed for the post-boot waitForDeviceAvailable check
     private static final long DEVICE_AVAIL_TIME = 3 * 1000;
 

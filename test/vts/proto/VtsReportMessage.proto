@@ -17,6 +17,7 @@ syntax = "proto2";
 package android.vts;
 option java_package = "com.android.vts.proto";
 option java_outer_classname = "VtsReportMessage";
+option java_multiple_files = false;
 
 
 // To specify test case execution result.
@@ -219,22 +220,37 @@ message CoverageReportMessage {
 // To specify log report. This can be used either for per-test-module
 // log message or per-test-case log message.
 message LogMessage {
-  // URLs of the produced log files. May contains multiple files such as stdout,
-  // stderr, etc.
+  // URL of a produced log file (e.g., stdout, stderr).
   optional bytes url = 1;
 
-  // Name of log.
+  // Name of a log file.
   optional bytes name = 2;
 
-  // content of log. Caution: do not put too much log in protobuf message,
-  // as bigtable recommends < 10 mb for each record cell
+  // Content of log. Caution: do not put too much log in protobuf message,
+  // as BigTable for example recommends < 10 MB for each record cell.
+  optional bytes content = 3;
+}
+
+// To specify a resource object (reachable via a URL or contained in the
+// message). This can be used to store a log file or an XML (or HTML) report
+// file kept in a Google Cloud Storage (GCS) bucket or partner's network file
+// system, or hosted by a HTTP server.
+message UrlResourceMessage {
+  // URL of a resource file.
+  optional bytes url = 1;
+
+  // Name of a resource file representing its type and does not have to be
+  // the same as the exact file name.
+  optional bytes name = 2;
+
+  // Raw content of a resource file. Used if the file is small.
   optional bytes content = 3;
 }
 
 // To specify a test execution report.
 message TestReportMessage {
   // The test suite name..
-  optional bytes test_suite = 1;
+  optional bytes test_suite = 1 [deprecated=true];
 
   // The test name.
   optional bytes test = 2;
@@ -275,10 +291,29 @@ message TestReportMessage {
   repeated LogMessage log = 1001;
 }
 
+// To specify a test execution report.
+message TestPlanReportMessage {
+  // Keys used to find all TestReportMessage messages of test modules in
+  // this plan.
+  repeated string test_module_name = 11;
+  repeated int64 test_module_start_timestamp = 12;
+
+  // The test plan name.
+  optional string test_plan_name = 21;
+
+  // Report resource flies.
+  repeated UrlResourceMessage partner_report = 31;
+
+  // Detailed information about the execution environment (e.g., branch,
+  // build ID, and device) can be found in the associated TestReportMessage(s)
+  // which share the same test_plan_execution_id.
+}
+
 // Proto wrapper for posting data to the VTS Dashboard
 message DashboardPostMessage {
   // oauth2.0 access token
   optional string access_token = 1;
 
   repeated TestReportMessage test_report = 2;
+  repeated TestPlanReportMessage test_plan_report = 3;
 }

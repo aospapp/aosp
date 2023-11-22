@@ -2,9 +2,9 @@
 
 ; Decorations
 ; CHECK: OpDecorate %[[BUF_0S:.*]] BufferBlock
-; CHECK: OpDecorate %[[BUF_VAR0:.*]] Binding 2
+; CHECK: OpDecorate %[[BUF_VAR0:.*]] Binding 3
 ; CHECK: OpDecorate %[[BUF_1S:.*]] BufferBlock
-; CHECK: OpDecorate %[[BUF_VAR1:.*]] Binding 3
+; CHECK: OpDecorate %[[BUF_VAR1:.*]] Binding 4
 
 ; CHECK:%[[BUF_PTR_TY0:.*]] = OpTypePointer Uniform %[[BUF_0S]]
 ; CHECK:%[[BUF_VAR0]] = OpVariable %[[BUF_PTR_TY0]] Uniform

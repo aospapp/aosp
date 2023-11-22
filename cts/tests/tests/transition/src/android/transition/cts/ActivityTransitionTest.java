@@ -28,7 +28,11 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import android.app.ActivityOptions;
+import android.app.SharedElementCallback;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.support.test.filters.MediumTest;
 import android.support.test.runner.AndroidJUnit4;
@@ -48,6 +52,7 @@ import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -298,6 +303,7 @@ public class ActivityTransitionTest extends BaseTransitionTest {
 
     @Test
     public void testAnimationQuery() throws Throwable {
+        enterScene(R.layout.scene1);
         assertFalse(mActivity.isActivityTransitionRunning());
         mActivityRule.runOnUiThread(() -> {
             mActivity.getWindow().setExitTransition(new Fade());
@@ -414,6 +420,53 @@ public class ActivityTransitionTest extends BaseTransitionTest {
         mActivityRule.runOnUiThread(() -> parent.removeAllViews());
 
         verify(targetActivity.returnListener, times(1)).onTransitionEnd(any());
+        TargetActivity.sLastCreated = null;
+    }
+
+    // Ensure that the shared element view copy is the correct image of the shared element view
+    // source
+    @Test
+    public void sharedElementCopied() throws Throwable {
+        enterScene(R.layout.scene1);
+
+        mActivityRule.runOnUiThread(() -> {
+            View sharedElement = mActivity.findViewById(R.id.redSquare);
+            Bundle options = ActivityOptions.makeSceneTransitionAnimation(mActivity,
+                    sharedElement, "red").toBundle();
+            Intent intent = new Intent(mActivity, TargetActivity.class);
+            intent.putExtra(TargetActivity.EXTRA_LAYOUT_ID, R.layout.scene2);
+            mActivity.startActivity(intent, options);
+        });
+
+        TargetActivity targetActivity = waitForTargetActivity();
+        verify(targetActivity.enterListener, within(3000)).onTransitionEnd(any());
+        verify(mExitListener, times(1)).onTransitionEnd(any());
+
+        final CountDownLatch startCalled = new CountDownLatch(1);
+        final SharedElementCallback sharedElementCallback = new SharedElementCallback() {
+            @Override
+            public void onSharedElementStart(List<String> sharedElementNames,
+                    List<View> sharedElements,
+                    List<View> sharedElementSnapshots) {
+                int index = sharedElementNames.indexOf("red");
+                View sharedElement = sharedElementSnapshots.get(index);
+                Drawable backgroundDrawable = sharedElement.getBackground();
+                BitmapDrawable bitmapDrawable = (BitmapDrawable) backgroundDrawable;
+                Bitmap bitmap = bitmapDrawable.getBitmap();
+                Bitmap copy = bitmap.copy(Bitmap.Config.ARGB_8888, false);
+                assertEquals(0xFFFF0000, copy.getPixel(1, 1));
+                startCalled.countDown();
+                super.onSharedElementStart(sharedElementNames, sharedElements,
+                        sharedElementSnapshots);
+            }
+        };
+
+        mActivity.setExitSharedElementCallback(sharedElementCallback);
+        mActivityRule.runOnUiThread(() -> targetActivity.finishAfterTransition());
+
+        // Should only take a short time, but there's no need to rush it on failure.
+        assertTrue(startCalled.await(5, TimeUnit.SECONDS));
+
         TargetActivity.sLastCreated = null;
     }
 

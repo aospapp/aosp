@@ -36,7 +36,7 @@ _DL_CTS = 'https://dl.google.com/dl/android/cts/'
 _CTS_URI = {
     'arm' : _DL_CTS + 'android-cts-6.0_r16-linux_x86-arm.zip',
     'x86' : _DL_CTS + 'android-cts-6.0_r16-linux_x86-x86.zip',
-    'media' : _DL_CTS + 'android-cts-media-1.2.zip'
+    'media' : _DL_CTS + 'android-cts-media-1.3.zip'
 }
 
 
@@ -231,13 +231,13 @@ class cheets_CTS(tradefed_test.TradefedTest):
                 ['list', 'plans'],
                 ['list', 'results'],
                 self._tradefed_run_command(plan=derivedplan)]
-        tests, passed, failed, notexecuted = self._run_cts_tradefed(commands)
+        counts = self._run_cts_tradefed(commands)
         # TODO(ihf): Consider if diffing/parsing output of "list results" for
         # new session_id might be more reliable. For now just assume simple
         # increment. This works if only one tradefed instance is active and
         # only a single run command is executing at any moment.
         session_id += 1
-        return session_id, tests, passed, failed, notexecuted
+        return (session_id, counts)
 
     def _get_release_channel(self):
         """Returns the DUT channel of the image ('dev', 'beta', 'stable')."""
@@ -290,12 +290,12 @@ class cheets_CTS(tradefed_test.TradefedTest):
         if self._get_release_channel == 'stable':
             self._timeout += 3600
         # Retries depend on channel.
-        self._max_retry = max_retry
-        if not self._max_retry:
-            self._max_retry = self._get_channel_retry()
+        self._max_retry = (
+            max_retry if max_retry is not None else self._get_channel_retry())
         session_id = 0
 
         steps = -1  # For historic reasons the first iteration is not counted.
+        pushed_media = False
         total_tests = 0
         self.summary = ''
         if target_package is not None:
@@ -316,14 +316,15 @@ class cheets_CTS(tradefed_test.TradefedTest):
 
         # Unconditionally run CTS package until we see some tests executed.
         while steps < self._max_retry and total_tests == 0:
-            with self._login_chrome():
+            steps += 1
+            with self._login_chrome(dont_override_profile=pushed_media):
                 self._ready_arc()
 
                 # Only push media for tests that need it. b/29371037
-                if needs_push_media:
+                if needs_push_media and not pushed_media:
                     self._push_media(_CTS_URI)
                     # copy_media.sh is not lazy, but we try to be.
-                    needs_push_media = False
+                    pushed_media = True
 
                 # Start each valid iteration with a clean repository. This
                 # allows us to track session_id blindly.
@@ -335,12 +336,11 @@ class cheets_CTS(tradefed_test.TradefedTest):
                 # The list command is not required. It allows the reader to
                 # inspect the tradefed state when examining the autotest logs.
                 commands = [['list', 'results'], test_command]
-                tests, passed, failed, notexecuted = self._run_cts_tradefed(
-                        commands)
+                counts = self._run_cts_tradefed(commands)
+                tests, passed, failed, notexecuted, waived = counts
                 logging.info('RESULT: tests=%d, passed=%d, failed=%d, '
-                        'notexecuted=%d', tests, passed, failed, notexecuted)
-                self.summary += ('run(t=%d, p=%d, f=%d, ne=%d)' %
-                        (tests, passed, failed, notexecuted))
+                        'notexecuted=%d, waived=%d', *counts)
+                self.summary += 'run(t=%d, p=%d, f=%d, ne=%d, w=%d)' % counts
                 if tests == 0 and target_package in self.notest_packages:
                     logging.info('Package has no tests as expected.')
                     return
@@ -361,18 +361,17 @@ class cheets_CTS(tradefed_test.TradefedTest):
                 # works on local failures.
                 total_tests = tests
                 total_passed = passed
-                steps += 1
             # The DUT has rebooted at this point and is in a clean state.
         if total_tests == 0:
             raise error.TestFail('Error: Could not find any tests in package.')
 
         # If the results were not completed or were failing then continue or
         # retry them iteratively MAX_RETRY times.
-        while steps < self._max_retry and (notexecuted > 0 or failed > 0):
+        while steps < self._max_retry and (notexecuted > 0 or failed > waived):
             # First retry until there is no test is left that was not executed.
             while notexecuted > 0 and steps < self._max_retry:
-                with self._login_chrome():
-                    steps += 1
+                steps += 1
+                with self._login_chrome(dont_override_profile=pushed_media):
                     self._ready_arc()
                     logging.info('Continuing session %d:', session_id)
                     # 'Continue' reports as passed all passing results in the
@@ -384,8 +383,8 @@ class cheets_CTS(tradefed_test.TradefedTest):
                     previously_notexecuted = notexecuted
                     # TODO(ihf): For increased robustness pass in datetime_id of
                     # session we are continuing.
-                    tests, passed, failed, notexecuted = self._tradefed_continue(
-                            session_id)
+                    counts = self._tradefed_continue(session_id)
+                    tests, passed, failed, notexecuted, waived = counts
                     # Unfortunately tradefed sometimes encounters an error
                     # running the tests for instance timing out on downloading
                     # the media files. Check for this condition and give it one
@@ -393,17 +392,18 @@ class cheets_CTS(tradefed_test.TradefedTest):
                     if not (tests == previously_notexecuted and
                             tests == passed + failed + notexecuted):
                         logging.warning('Tradefed inconsistency - retrying.')
-                        tests, passed, failed, notexecuted = self._tradefed_continue(
-                                session_id)
+                        counts = self._tradefed_continue(session_id)
+                        tests, passed, failed, notexecuted, waived = counts
                     newly_passed = passed - previously_passed
                     newly_failed = failed - previously_failed
                     total_passed += newly_passed
                     logging.info('RESULT: total_tests=%d, total_passed=%d, step'
-                            '(tests=%d, passed=%d, failed=%d, notexecuted=%d)',
-                            total_tests, total_passed, tests, newly_passed,
-                            newly_failed, notexecuted)
-                    self.summary += ' cont(t=%d, p=%d, f=%d, ne=%d)' % (tests,
-                            newly_passed, newly_failed, notexecuted)
+                            '(tests=%d, passed=%d, failed=%d, notexecuted=%d,'
+                            ' waived=%d)', total_tests, total_passed, tests,
+                            newly_passed, newly_failed, notexecuted, waived)
+                    self.summary += ' cont(t=%d, p=%d, f=%d, ne=%d, w=%d)' % (
+                            tests, newly_passed, newly_failed, notexecuted,
+                            waived)
                     # An internal self-check. We really should never hit this.
                     if not (tests == previously_notexecuted and
                             tests == newly_passed + newly_failed + notexecuted):
@@ -422,15 +422,16 @@ class cheets_CTS(tradefed_test.TradefedTest):
 
             # Managed to reduce notexecuted to zero. Now create a new test plan
             # to rerun only the failures we did encounter.
-            if failed > 0:
-                with self._login_chrome():
+            if failed > waived:
+                with self._login_chrome(dont_override_profile=pushed_media):
                     steps += 1
                     self._ready_arc()
                     logging.info('Retrying failures of %s with session_id %d:',
                             test_name, session_id)
                     previously_failed = failed
-                    session_id, tests, passed, failed, notexecuted = self._tradefed_retry(
+                    session_id, counts = self._tradefed_retry(
                             test_name, session_id)
+                    tests, passed, failed, notexecuted, waived = counts
                     # Unfortunately tradefed sometimes encounters an error
                     # running the tests for instance timing out on downloading
                     # the media files. Check for this condition and give it one
@@ -438,15 +439,15 @@ class cheets_CTS(tradefed_test.TradefedTest):
                     if not (tests == previously_failed and
                             tests == passed + failed + notexecuted):
                         logging.warning('Tradefed inconsistency - retrying.')
-                        session_id, tests, passed, failed, notexecuted = self._tradefed_retry(
+                        session_id, counts = self._tradefed_retry(
                                 test_name, session_id)
+                        tests, passed, failed, notexecuted, waived = counts
                     total_passed += passed
                     logging.info('RESULT: total_tests=%d, total_passed=%d, step'
-                            '(tests=%d, passed=%d, failed=%d, notexecuted=%d)',
-                            total_tests, total_passed, tests, passed, failed,
-                            notexecuted)
-                    self.summary += ' retry(t=%d, p=%d, f=%d, ne=%d)' % (tests,
-                            passed, failed, notexecuted)
+                            '(tests=%d, passed=%d, failed=%d, notexecuted=%d,'
+                            ' waived=%d)', total_tests, total_passed, *counts)
+                    self.summary += (
+                            ' retry(t=%d, p=%d, f=%d, ne=%d, w=%d)' % counts)
                     # An internal self-check. We really should never hit this.
                     if not (previously_failed == tests and
                             tests == passed + failed + notexecuted):
@@ -455,12 +456,14 @@ class cheets_CTS(tradefed_test.TradefedTest):
                 # The DUT has rebooted at this point and is in a clean state.
 
         # Final classification of test results.
-        if total_passed == 0 or notexecuted > 0 or failed > 0:
+        if total_passed + waived == 0 or notexecuted > 0 or failed > waived:
             raise error.TestFail(
                 'Failed: after %d retries giving up. '
-                'total_passed=%d, failed=%d, notexecuted=%d. %s' %
-                (steps, total_passed, failed, notexecuted, self.summary))
+                'total_passed=%d, failed=%d, notexecuted=%d, waived=%d. %s' %
+                (steps, total_passed, failed, notexecuted, waived,
+                 self.summary))
         if steps > 0:
             # TODO(ihf): Make this error.TestPass('...') once available.
-            raise error.TestWarn('Passed: after %d retries passing %d tests. %s'
-                                 % (steps, total_passed, self.summary))
+            raise error.TestWarn(
+                'Passed: after %d retries passing %d tests, waived=%d. %s' %
+                (steps, total_passed, waived, self.summary))

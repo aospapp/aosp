@@ -49,7 +49,7 @@ LOCAL_STATIC_JAVA_LIBRARIES += compatibility-device-info compatibility-device-ut
 
 # Generator of APK manifests.
 MANIFEST_GENERATOR_JAR := $(HOST_OUT_JAVA_LIBRARIES)/compatibility-manifest-generator.jar
-MANIFEST_GENERATOR := java -jar $(MANIFEST_GENERATOR_JAR)
+MANIFEST_GENERATOR := $(JAVA) -jar $(MANIFEST_GENERATOR_JAR)
 
 # Generate the manifest
 manifest_xml := $(call intermediates-dir-for,APPS,$(LOCAL_PACKAGE_NAME))/AndroidManifest.xml

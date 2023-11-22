@@ -44,16 +44,16 @@ static jmethodID method_onControlStateChanged;
 static const btpan_interface_t* sPanIf = NULL;
 static jobject mCallbacksObj = NULL;
 
-static jbyteArray marshall_bda(const bt_bdaddr_t* bd_addr) {
+static jbyteArray marshall_bda(const RawAddress* bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return NULL;
 
-  jbyteArray addr = sCallbackEnv->NewByteArray(sizeof(bt_bdaddr_t));
+  jbyteArray addr = sCallbackEnv->NewByteArray(sizeof(RawAddress));
   if (!addr) {
     ALOGE("Fail to new jbyteArray bd addr");
     return NULL;
   }
-  sCallbackEnv->SetByteArrayRegion(addr, 0, sizeof(bt_bdaddr_t),
+  sCallbackEnv->SetByteArrayRegion(addr, 0, sizeof(RawAddress),
                                    (jbyte*)bd_addr);
   return addr;
 }
@@ -76,8 +76,8 @@ static void control_state_callback(btpan_control_state_t state, int local_role,
 
 static void connection_state_callback(btpan_connection_state_t state,
                                       bt_status_t error,
-                                      const bt_bdaddr_t* bd_addr,
-                                      int local_role, int remote_role) {
+                                      const RawAddress* bd_addr, int local_role,
+                                      int remote_role) {
   debug("state:%d, local_role:%d, remote_role:%d", state, local_role,
         remote_role);
   if (mCallbacksObj == NULL) {
@@ -200,7 +200,7 @@ static jboolean connectPanNative(JNIEnv* env, jobject object,
   }
 
   jboolean ret = JNI_TRUE;
-  bt_status_t status = sPanIf->connect((bt_bdaddr_t*)addr, src_role, dest_role);
+  bt_status_t status = sPanIf->connect((RawAddress*)addr, src_role, dest_role);
   if (status != BT_STATUS_SUCCESS) {
     error("Failed PAN channel connection, status: %d", status);
     ret = JNI_FALSE;
@@ -221,7 +221,7 @@ static jboolean disconnectPanNative(JNIEnv* env, jobject object,
   }
 
   jboolean ret = JNI_TRUE;
-  bt_status_t status = sPanIf->disconnect((bt_bdaddr_t*)addr);
+  bt_status_t status = sPanIf->disconnect((RawAddress*)addr);
   if (status != BT_STATUS_SUCCESS) {
     error("Failed disconnect pan channel, status: %d", status);
     ret = JNI_FALSE;

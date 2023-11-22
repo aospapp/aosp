@@ -26,6 +26,7 @@
 #include "Shader/PixelShader.hpp"
 #include "Shader/VertexShader.hpp"
 
+#include <algorithm>
 #include <string>
 #include <stdlib.h>
 
@@ -42,8 +43,6 @@ namespace es2
 
 	Uniform::BlockInfo::BlockInfo(const glsl::Uniform& uniform, int blockIndex)
 	{
-		static unsigned int registerSizeStd140 = 4; // std140 packing requires dword alignment
-
 		if(blockIndex >= 0)
 		{
 			index = blockIndex;
@@ -152,8 +151,6 @@ namespace es2
 
 	Program::Program(ResourceManager *manager, GLuint handle) : serial(issueSerial()), resourceManager(manager), handle(handle)
 	{
-		device = getDevice();
-
 		fragmentShader = 0;
 		vertexShader = 0;
 		pixelBinary = 0;
@@ -270,7 +267,7 @@ namespace es2
 		}
 	}
 
-	GLuint Program::getAttributeLocation(const char *name)
+	GLint Program::getAttributeLocation(const char *name)
 	{
 		if(name)
 		{
@@ -296,7 +293,7 @@ namespace es2
 	// Returns the index of the texture image unit (0-19) corresponding to a sampler index (0-15 for the pixel shader and 0-3 for the vertex shader)
 	GLint Program::getSamplerMapping(sw::SamplerType type, unsigned int samplerIndex)
 	{
-		GLuint logicalTextureUnit = -1;
+		GLint logicalTextureUnit = -1;
 
 		switch(type)
 		{
@@ -348,7 +345,7 @@ namespace es2
 
 	GLint Program::getUniformLocation(const std::string &name) const
 	{
-		size_t subscript = GL_INVALID_INDEX;
+		unsigned int subscript = GL_INVALID_INDEX;
 		std::string baseName = es2::ParseUniformName(name, &subscript);
 
 		size_t numUniforms = uniformIndex.size();
@@ -370,7 +367,7 @@ namespace es2
 
 	GLuint Program::getUniformIndex(const std::string &name) const
 	{
-		size_t subscript = GL_INVALID_INDEX;
+		unsigned int subscript = GL_INVALID_INDEX;
 		std::string baseName = es2::ParseUniformName(name, &subscript);
 
 		// The app is not allowed to specify array indices other than 0 for arrays of basic types
@@ -431,7 +428,7 @@ namespace es2
 
 	GLuint Program::getUniformBlockIndex(const std::string &name) const
 	{
-		size_t subscript = GL_INVALID_INDEX;
+		unsigned int subscript = GL_INVALID_INDEX;
 		std::string baseName = es2::ParseUniformName(name, &subscript);
 
 		size_t numUniformBlocks = getActiveUniformBlockCount();
@@ -497,7 +494,7 @@ namespace es2
 		if(targetUniform->type == floatType[index])
 		{
 			memcpy(targetUniform->data + uniformIndex[location].element * sizeof(GLfloat)* numElements,
-				   v, numElements * sizeof(GLfloat)* count);
+				   v, numElements * sizeof(GLfloat) * count);
 		}
 		else if(targetUniform->type == boolType[index])
 		{
@@ -1065,9 +1062,9 @@ namespace es2
 	}
 
 	// Applies all the uniforms set for this program object to the device
-	void Program::applyUniforms()
+	void Program::applyUniforms(Device *device)
 	{
-		GLint numUniforms = uniformIndex.size();
+		GLint numUniforms = static_cast<GLint>(uniformIndex.size());
 		for(GLint location = 0; location < numUniforms; location++)
 		{
 			if(uniformIndex[location].element != 0)
@@ -1087,23 +1084,23 @@ namespace es2
 
 				switch(targetUniform->type)
 				{
-				case GL_BOOL:       applyUniform1bv(location, size, b);       break;
-				case GL_BOOL_VEC2:  applyUniform2bv(location, size, b);       break;
-				case GL_BOOL_VEC3:  applyUniform3bv(location, size, b);       break;
-				case GL_BOOL_VEC4:  applyUniform4bv(location, size, b);       break;
-				case GL_FLOAT:      applyUniform1fv(location, size, f);       break;
-				case GL_FLOAT_VEC2: applyUniform2fv(location, size, f);       break;
-				case GL_FLOAT_VEC3: applyUniform3fv(location, size, f);       break;
-				case GL_FLOAT_VEC4: applyUniform4fv(location, size, f);       break;
-				case GL_FLOAT_MAT2:   applyUniformMatrix2fv(location, size, f);   break;
-				case GL_FLOAT_MAT2x3: applyUniformMatrix2x3fv(location, size, f); break;
-				case GL_FLOAT_MAT2x4: applyUniformMatrix2x4fv(location, size, f); break;
-				case GL_FLOAT_MAT3x2: applyUniformMatrix3x2fv(location, size, f); break;
-				case GL_FLOAT_MAT3:   applyUniformMatrix3fv(location, size, f);   break;
-				case GL_FLOAT_MAT3x4: applyUniformMatrix3x4fv(location, size, f); break;
-				case GL_FLOAT_MAT4x2: applyUniformMatrix4x2fv(location, size, f); break;
-				case GL_FLOAT_MAT4x3: applyUniformMatrix4x3fv(location, size, f); break;
-				case GL_FLOAT_MAT4:   applyUniformMatrix4fv(location, size, f);   break;
+				case GL_BOOL:       applyUniform1bv(device, location, size, b);       break;
+				case GL_BOOL_VEC2:  applyUniform2bv(device, location, size, b);       break;
+				case GL_BOOL_VEC3:  applyUniform3bv(device, location, size, b);       break;
+				case GL_BOOL_VEC4:  applyUniform4bv(device, location, size, b);       break;
+				case GL_FLOAT:      applyUniform1fv(device, location, size, f);       break;
+				case GL_FLOAT_VEC2: applyUniform2fv(device, location, size, f);       break;
+				case GL_FLOAT_VEC3: applyUniform3fv(device, location, size, f);       break;
+				case GL_FLOAT_VEC4: applyUniform4fv(device, location, size, f);       break;
+				case GL_FLOAT_MAT2:   applyUniformMatrix2fv(device, location, size, f);   break;
+				case GL_FLOAT_MAT2x3: applyUniformMatrix2x3fv(device, location, size, f); break;
+				case GL_FLOAT_MAT2x4: applyUniformMatrix2x4fv(device, location, size, f); break;
+				case GL_FLOAT_MAT3x2: applyUniformMatrix3x2fv(device, location, size, f); break;
+				case GL_FLOAT_MAT3:   applyUniformMatrix3fv(device, location, size, f);   break;
+				case GL_FLOAT_MAT3x4: applyUniformMatrix3x4fv(device, location, size, f); break;
+				case GL_FLOAT_MAT4x2: applyUniformMatrix4x2fv(device, location, size, f); break;
+				case GL_FLOAT_MAT4x3: applyUniformMatrix4x3fv(device, location, size, f); break;
+				case GL_FLOAT_MAT4:   applyUniformMatrix4fv(device, location, size, f);   break;
 				case GL_SAMPLER_2D:
 				case GL_SAMPLER_CUBE:
 				case GL_SAMPLER_EXTERNAL_OES:
@@ -1120,14 +1117,14 @@ namespace es2
 				case GL_UNSIGNED_INT_SAMPLER_3D:
 				case GL_INT_SAMPLER_2D_ARRAY:
 				case GL_UNSIGNED_INT_SAMPLER_2D_ARRAY:
-				case GL_INT:        applyUniform1iv(location, size, i);       break;
-				case GL_INT_VEC2:   applyUniform2iv(location, size, i);       break;
-				case GL_INT_VEC3:   applyUniform3iv(location, size, i);       break;
-				case GL_INT_VEC4:   applyUniform4iv(location, size, i);       break;
-				case GL_UNSIGNED_INT:      applyUniform1uiv(location, size, ui); break;
-				case GL_UNSIGNED_INT_VEC2: applyUniform2uiv(location, size, ui); break;
-				case GL_UNSIGNED_INT_VEC3: applyUniform3uiv(location, size, ui); break;
-				case GL_UNSIGNED_INT_VEC4: applyUniform4uiv(location, size, ui); break;
+				case GL_INT:        applyUniform1iv(device, location, size, i);       break;
+				case GL_INT_VEC2:   applyUniform2iv(device, location, size, i);       break;
+				case GL_INT_VEC3:   applyUniform3iv(device, location, size, i);       break;
+				case GL_INT_VEC4:   applyUniform4iv(device, location, size, i);       break;
+				case GL_UNSIGNED_INT:      applyUniform1uiv(device, location, size, ui); break;
+				case GL_UNSIGNED_INT_VEC2: applyUniform2uiv(device, location, size, ui); break;
+				case GL_UNSIGNED_INT_VEC3: applyUniform3uiv(device, location, size, ui); break;
+				case GL_UNSIGNED_INT_VEC4: applyUniform4uiv(device, location, size, ui); break;
 				default:
 					UNREACHABLE(targetUniform->type);
 				}
@@ -1137,7 +1134,7 @@ namespace es2
 		}
 	}
 
-	void Program::applyUniformBuffers(BufferBinding* uniformBuffers)
+	void Program::applyUniformBuffers(Device *device, BufferBinding* uniformBuffers)
 	{
 		GLint vertexUniformBuffers[MAX_UNIFORM_BUFFER_BINDINGS];
 		GLint fragmentUniformBuffers[MAX_UNIFORM_BUFFER_BINDINGS];
@@ -1180,13 +1177,17 @@ namespace es2
 		for(unsigned int bufferBindingIndex = 0; bufferBindingIndex < MAX_UNIFORM_BUFFER_BINDINGS; bufferBindingIndex++)
 		{
 			int index = vertexUniformBuffers[bufferBindingIndex];
-			device->VertexProcessor::setUniformBuffer(bufferBindingIndex, (index != -1) ? uniformBuffers[index].get()->getResource() : nullptr, (index != -1) ? uniformBuffers[index].getOffset() : 0);
+			Buffer* vsBuffer = (index != -1) ? (Buffer*)uniformBuffers[index].get() : nullptr;
+			device->VertexProcessor::setUniformBuffer(bufferBindingIndex,
+				vsBuffer ? vsBuffer->getResource() : nullptr, (index != -1) ? uniformBuffers[index].getOffset() : 0);
 			index = fragmentUniformBuffers[bufferBindingIndex];
-			device->PixelProcessor::setUniformBuffer(bufferBindingIndex, (index != -1) ? uniformBuffers[index].get()->getResource() : nullptr, (index != -1) ? uniformBuffers[index].getOffset() : 0);
+			Buffer* psBuffer = (index != -1) ? (Buffer*)uniformBuffers[index].get() : nullptr;
+			device->PixelProcessor::setUniformBuffer(bufferBindingIndex,
+				psBuffer ? psBuffer->getResource() : nullptr, (index != -1) ? uniformBuffers[index].getOffset() : 0);
 		}
 	}
 
-	void Program::applyTransformFeedback(TransformFeedback* transformFeedback)
+	void Program::applyTransformFeedback(Device *device, TransformFeedback* transformFeedback)
 	{
 		// Make sure the flags will fit in a 64 bit unsigned int variable
 		ASSERT(sw::max<int>(MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS, sw::MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS) <= 64);
@@ -1204,7 +1205,7 @@ namespace es2
 			return;
 		}
 
-		unsigned int maxVaryings = transformFeedbackLinkedVaryings.size();
+		unsigned int maxVaryings = static_cast<unsigned int>(transformFeedbackLinkedVaryings.size());
 		switch(transformFeedbackBufferMode)
 		{
 		case GL_SEPARATE_ATTRIBS:
@@ -1236,10 +1237,10 @@ namespace es2
 			// written by a vertex shader are written, interleaved, into the buffer object
 			// bound to the first transform feedback binding point (index = 0).
 			sw::Resource* resource = transformFeedbackBuffers[0].get()->getResource();
-			int componentStride = totalLinkedVaryingsComponents;
+			int componentStride = static_cast<int>(totalLinkedVaryingsComponents);
 			int baseOffset = transformFeedbackBuffers[0].getOffset() + (transformFeedback->vertexOffset() * componentStride * sizeof(float));
 			maxVaryings = sw::min(maxVaryings, (unsigned int)sw::MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS);
-			size_t totalComponents = 0;
+			int totalComponents = 0;
 			for(unsigned int index = 0; index < maxVaryings; ++index)
 			{
 				int size = transformFeedbackLinkedVaryings[index].size;
@@ -1305,6 +1306,8 @@ namespace es2
 
 		for(glsl::VaryingList::iterator output = vsVaryings.begin(); output != vsVaryings.end(); ++output)
 		{
+			bool matched = false;
+
 			for(glsl::VaryingList::iterator input = psVaryings.begin(); input != psVaryings.end(); ++input)
 			{
 				if(output->name == input->name)
@@ -1332,24 +1335,50 @@ namespace es2
 
 						for(int i = 0; i < registers; i++)
 						{
-							if(components >= 1) vertexBinary->output[out + i][0] = sw::Shader::Semantic(sw::Shader::USAGE_COLOR, in + i);
-							if(components >= 2) vertexBinary->output[out + i][1] = sw::Shader::Semantic(sw::Shader::USAGE_COLOR, in + i);
-							if(components >= 3) vertexBinary->output[out + i][2] = sw::Shader::Semantic(sw::Shader::USAGE_COLOR, in + i);
-							if(components >= 4) vertexBinary->output[out + i][3] = sw::Shader::Semantic(sw::Shader::USAGE_COLOR, in + i);
+							vertexBinary->setOutput(out + i, components, sw::Shader::Semantic(sw::Shader::USAGE_COLOR, in + i, pixelBinary->getInput(in + i, 0).flat));
 						}
 					}
 					else   // Vertex varying is declared but not written to
 					{
 						for(int i = 0; i < registers; i++)
 						{
-							if(components >= 1) pixelBinary->semantic[in + i][0] = sw::Shader::Semantic();
-							if(components >= 2) pixelBinary->semantic[in + i][1] = sw::Shader::Semantic();
-							if(components >= 3) pixelBinary->semantic[in + i][2] = sw::Shader::Semantic();
-							if(components >= 4) pixelBinary->semantic[in + i][3] = sw::Shader::Semantic();
+							pixelBinary->setInput(in + i, components, sw::Shader::Semantic());
 						}
 					}
 
+					matched = true;
 					break;
+				}
+			}
+
+			if(!matched)
+			{
+				// For openGL ES 3.0, we need to still add the vertex shader outputs for unmatched varyings, for transform feedback.
+				for(const std::string &indexedTfVaryingName : transformFeedbackVaryings)
+				{
+					std::string tfVaryingName = es2::ParseUniformName(indexedTfVaryingName, nullptr);
+
+					if(tfVaryingName == output->name)
+					{
+						int out = output->reg;
+						int components = VariableRegisterSize(output->type);
+						int registers = VariableRegisterCount(output->type) * output->size();
+
+						if(out >= 0)
+						{
+							if(out + registers > MAX_VARYING_VECTORS)
+							{
+								appendToInfoLog("Too many varyings");
+								return false;
+							}
+
+							for(int i = 0; i < registers; i++)
+							{
+								vertexBinary->setOutput(out + i, components, sw::Shader::Semantic(sw::Shader::USAGE_COLOR));
+							}
+						}
+						break;
+					}
 				}
 			}
 		}
@@ -1366,7 +1395,7 @@ namespace es2
 
 		for(const std::string &indexedTfVaryingName : transformFeedbackVaryings)
 		{
-			size_t subscript = GL_INVALID_INDEX;
+			unsigned int subscript = GL_INVALID_INDEX;
 			std::string tfVaryingName = es2::ParseUniformName(indexedTfVaryingName, &subscript);
 			bool hasSubscript = (subscript != GL_INVALID_INDEX);
 
@@ -1394,11 +1423,11 @@ namespace es2
 						return false;
 					}
 
-					size_t size = hasSubscript ? 1 : varying.size();
+					int size = hasSubscript ? 1 : varying.size();
 
-					size_t rowCount = VariableRowCount(varying.type);
-					size_t colCount = VariableColumnCount(varying.type);
-					size_t componentCount = rowCount * colCount * size;
+					int rowCount = VariableRowCount(varying.type);
+					int colCount = VariableColumnCount(varying.type);
+					int componentCount = rowCount * colCount * size;
 					if(transformFeedbackBufferMode == GL_SEPARATE_ATTRIBS &&
 					   componentCount > sw::MAX_TRANSFORM_FEEDBACK_SEPARATE_COMPONENTS)
 					{
@@ -1752,7 +1781,7 @@ namespace es2
 		if(location == -1)   // Not previously defined
 		{
 			uniforms.push_back(uniform);
-			size_t index = uniforms.size() - 1;
+			unsigned int index = static_cast<unsigned int>(uniforms.size() - 1);
 
 			for(int i = 0; i < uniform->size(); i++)
 			{
@@ -1899,7 +1928,7 @@ namespace es2
 		return true;
 	}
 
-	bool Program::applyUniform(GLint location, float* data)
+	bool Program::applyUniform(Device *device, GLint location, float* data)
 	{
 		Uniform *targetUniform = uniforms[uniformIndex[location].index];
 
@@ -1916,7 +1945,7 @@ namespace es2
 		return true;
 	}
 
-	bool Program::applyUniform1bv(GLint location, GLsizei count, const GLboolean *v)
+	bool Program::applyUniform1bv(Device *device, GLint location, GLsizei count, const GLboolean *v)
 	{
 		int vector[MAX_UNIFORM_VECTORS][4];
 
@@ -1930,10 +1959,10 @@ namespace es2
 			v += 1;
 		}
 
-		return applyUniform(location, (float*)vector);
+		return applyUniform(device, location, (float*)vector);
 	}
 
-	bool Program::applyUniform2bv(GLint location, GLsizei count, const GLboolean *v)
+	bool Program::applyUniform2bv(Device *device, GLint location, GLsizei count, const GLboolean *v)
 	{
 		int vector[MAX_UNIFORM_VECTORS][4];
 
@@ -1947,10 +1976,10 @@ namespace es2
 			v += 2;
 		}
 
-		return applyUniform(location, (float*)vector);
+		return applyUniform(device, location, (float*)vector);
 	}
 
-	bool Program::applyUniform3bv(GLint location, GLsizei count, const GLboolean *v)
+	bool Program::applyUniform3bv(Device *device, GLint location, GLsizei count, const GLboolean *v)
 	{
 		int vector[MAX_UNIFORM_VECTORS][4];
 
@@ -1964,10 +1993,10 @@ namespace es2
 			v += 3;
 		}
 
-		return applyUniform(location, (float*)vector);
+		return applyUniform(device, location, (float*)vector);
 	}
 
-	bool Program::applyUniform4bv(GLint location, GLsizei count, const GLboolean *v)
+	bool Program::applyUniform4bv(Device *device, GLint location, GLsizei count, const GLboolean *v)
 	{
 		int vector[MAX_UNIFORM_VECTORS][4];
 
@@ -1981,10 +2010,10 @@ namespace es2
 			v += 4;
 		}
 
-		return applyUniform(location, (float*)vector);
+		return applyUniform(device, location, (float*)vector);
 	}
 
-	bool Program::applyUniform1fv(GLint location, GLsizei count, const GLfloat *v)
+	bool Program::applyUniform1fv(Device *device, GLint location, GLsizei count, const GLfloat *v)
 	{
 		float vector[MAX_UNIFORM_VECTORS][4];
 
@@ -1998,10 +2027,10 @@ namespace es2
 			v += 1;
 		}
 
-		return applyUniform(location, (float*)vector);
+		return applyUniform(device, location, (float*)vector);
 	}
 
-	bool Program::applyUniform2fv(GLint location, GLsizei count, const GLfloat *v)
+	bool Program::applyUniform2fv(Device *device, GLint location, GLsizei count, const GLfloat *v)
 	{
 		float vector[MAX_UNIFORM_VECTORS][4];
 
@@ -2015,10 +2044,10 @@ namespace es2
 			v += 2;
 		}
 
-		return applyUniform(location, (float*)vector);
+		return applyUniform(device, location, (float*)vector);
 	}
 
-	bool Program::applyUniform3fv(GLint location, GLsizei count, const GLfloat *v)
+	bool Program::applyUniform3fv(Device *device, GLint location, GLsizei count, const GLfloat *v)
 	{
 		float vector[MAX_UNIFORM_VECTORS][4];
 
@@ -2032,15 +2061,15 @@ namespace es2
 			v += 3;
 		}
 
-		return applyUniform(location, (float*)vector);
+		return applyUniform(device, location, (float*)vector);
 	}
 
-	bool Program::applyUniform4fv(GLint location, GLsizei count, const GLfloat *v)
+	bool Program::applyUniform4fv(Device *device, GLint location, GLsizei count, const GLfloat *v)
 	{
-		return applyUniform(location, (float*)v);
+		return applyUniform(device, location, (float*)v);
 	}
 
-	bool Program::applyUniformMatrix2fv(GLint location, GLsizei count, const GLfloat *value)
+	bool Program::applyUniformMatrix2fv(Device *device, GLint location, GLsizei count, const GLfloat *value)
 	{
 		float matrix[(MAX_UNIFORM_VECTORS + 1) / 2][2][4];
 
@@ -2052,10 +2081,10 @@ namespace es2
 			value += 4;
 		}
 
-		return applyUniform(location, (float*)matrix);
+		return applyUniform(device, location, (float*)matrix);
 	}
 
-	bool Program::applyUniformMatrix2x3fv(GLint location, GLsizei count, const GLfloat *value)
+	bool Program::applyUniformMatrix2x3fv(Device *device, GLint location, GLsizei count, const GLfloat *value)
 	{
 		float matrix[(MAX_UNIFORM_VECTORS + 1) / 2][2][4];
 
@@ -2067,10 +2096,10 @@ namespace es2
 			value += 6;
 		}
 
-		return applyUniform(location, (float*)matrix);
+		return applyUniform(device, location, (float*)matrix);
 	}
 
-	bool Program::applyUniformMatrix2x4fv(GLint location, GLsizei count, const GLfloat *value)
+	bool Program::applyUniformMatrix2x4fv(Device *device, GLint location, GLsizei count, const GLfloat *value)
 	{
 		float matrix[(MAX_UNIFORM_VECTORS + 1) / 2][2][4];
 
@@ -2082,10 +2111,10 @@ namespace es2
 			value += 8;
 		}
 
-		return applyUniform(location, (float*)matrix);
+		return applyUniform(device, location, (float*)matrix);
 	}
 
-	bool Program::applyUniformMatrix3fv(GLint location, GLsizei count, const GLfloat *value)
+	bool Program::applyUniformMatrix3fv(Device *device, GLint location, GLsizei count, const GLfloat *value)
 	{
 		float matrix[(MAX_UNIFORM_VECTORS + 2) / 3][3][4];
 
@@ -2098,10 +2127,10 @@ namespace es2
 			value += 9;
 		}
 
-		return applyUniform(location, (float*)matrix);
+		return applyUniform(device, location, (float*)matrix);
 	}
 
-	bool Program::applyUniformMatrix3x2fv(GLint location, GLsizei count, const GLfloat *value)
+	bool Program::applyUniformMatrix3x2fv(Device *device, GLint location, GLsizei count, const GLfloat *value)
 	{
 		float matrix[(MAX_UNIFORM_VECTORS + 2) / 3][3][4];
 
@@ -2114,10 +2143,10 @@ namespace es2
 			value += 6;
 		}
 
-		return applyUniform(location, (float*)matrix);
+		return applyUniform(device, location, (float*)matrix);
 	}
 
-	bool Program::applyUniformMatrix3x4fv(GLint location, GLsizei count, const GLfloat *value)
+	bool Program::applyUniformMatrix3x4fv(Device *device, GLint location, GLsizei count, const GLfloat *value)
 	{
 		float matrix[(MAX_UNIFORM_VECTORS + 2) / 3][3][4];
 
@@ -2130,15 +2159,15 @@ namespace es2
 			value += 12;
 		}
 
-		return applyUniform(location, (float*)matrix);
+		return applyUniform(device, location, (float*)matrix);
 	}
 
-	bool Program::applyUniformMatrix4fv(GLint location, GLsizei count, const GLfloat *value)
+	bool Program::applyUniformMatrix4fv(Device *device, GLint location, GLsizei count, const GLfloat *value)
 	{
-		return applyUniform(location, (float*)value);
+		return applyUniform(device, location, (float*)value);
 	}
 
-	bool Program::applyUniformMatrix4x2fv(GLint location, GLsizei count, const GLfloat *value)
+	bool Program::applyUniformMatrix4x2fv(Device *device, GLint location, GLsizei count, const GLfloat *value)
 	{
 		float matrix[(MAX_UNIFORM_VECTORS + 3) / 4][4][4];
 
@@ -2152,10 +2181,10 @@ namespace es2
 			value += 8;
 		}
 
-		return applyUniform(location, (float*)matrix);
+		return applyUniform(device, location, (float*)matrix);
 	}
 
-	bool Program::applyUniformMatrix4x3fv(GLint location, GLsizei count, const GLfloat *value)
+	bool Program::applyUniformMatrix4x3fv(Device *device, GLint location, GLsizei count, const GLfloat *value)
 	{
 		float matrix[(MAX_UNIFORM_VECTORS + 3) / 4][4][4];
 
@@ -2169,10 +2198,10 @@ namespace es2
 			value += 12;
 		}
 
-		return applyUniform(location, (float*)matrix);
+		return applyUniform(device, location, (float*)matrix);
 	}
 
-	bool Program::applyUniform1iv(GLint location, GLsizei count, const GLint *v)
+	bool Program::applyUniform1iv(Device *device, GLint location, GLsizei count, const GLint *v)
 	{
 		GLint vector[MAX_UNIFORM_VECTORS][4];
 
@@ -2217,13 +2246,13 @@ namespace es2
 		}
 		else
 		{
-			return applyUniform(location, (float*)vector);
+			return applyUniform(device, location, (float*)vector);
 		}
 
 		return true;
 	}
 
-	bool Program::applyUniform2iv(GLint location, GLsizei count, const GLint *v)
+	bool Program::applyUniform2iv(Device *device, GLint location, GLsizei count, const GLint *v)
 	{
 		GLint vector[MAX_UNIFORM_VECTORS][4];
 
@@ -2237,10 +2266,10 @@ namespace es2
 			v += 2;
 		}
 
-		return applyUniform(location, (float*)vector);
+		return applyUniform(device, location, (float*)vector);
 	}
 
-	bool Program::applyUniform3iv(GLint location, GLsizei count, const GLint *v)
+	bool Program::applyUniform3iv(Device *device, GLint location, GLsizei count, const GLint *v)
 	{
 		GLint vector[MAX_UNIFORM_VECTORS][4];
 
@@ -2254,10 +2283,10 @@ namespace es2
 			v += 3;
 		}
 
-		return applyUniform(location, (float*)vector);
+		return applyUniform(device, location, (float*)vector);
 	}
 
-	bool Program::applyUniform4iv(GLint location, GLsizei count, const GLint *v)
+	bool Program::applyUniform4iv(Device *device, GLint location, GLsizei count, const GLint *v)
 	{
 		GLint vector[MAX_UNIFORM_VECTORS][4];
 
@@ -2271,10 +2300,10 @@ namespace es2
 			v += 4;
 		}
 
-		return applyUniform(location, (float*)vector);
+		return applyUniform(device, location, (float*)vector);
 	}
 
-	bool Program::applyUniform1uiv(GLint location, GLsizei count, const GLuint *v)
+	bool Program::applyUniform1uiv(Device *device, GLint location, GLsizei count, const GLuint *v)
 	{
 		GLuint vector[MAX_UNIFORM_VECTORS][4];
 
@@ -2319,13 +2348,13 @@ namespace es2
 		}
 		else
 		{
-			return applyUniform(location, (float*)vector);
+			return applyUniform(device, location, (float*)vector);
 		}
 
 		return true;
 	}
 
-	bool Program::applyUniform2uiv(GLint location, GLsizei count, const GLuint *v)
+	bool Program::applyUniform2uiv(Device *device, GLint location, GLsizei count, const GLuint *v)
 	{
 		GLuint vector[MAX_UNIFORM_VECTORS][4];
 
@@ -2339,10 +2368,10 @@ namespace es2
 			v += 2;
 		}
 
-		return applyUniform(location, (float*)vector);
+		return applyUniform(device, location, (float*)vector);
 	}
 
-	bool Program::applyUniform3uiv(GLint location, GLsizei count, const GLuint *v)
+	bool Program::applyUniform3uiv(Device *device, GLint location, GLsizei count, const GLuint *v)
 	{
 		GLuint vector[MAX_UNIFORM_VECTORS][4];
 
@@ -2356,10 +2385,10 @@ namespace es2
 			v += 3;
 		}
 
-		return applyUniform(location, (float*)vector);
+		return applyUniform(device, location, (float*)vector);
 	}
 
-	bool Program::applyUniform4uiv(GLint location, GLsizei count, const GLuint *v)
+	bool Program::applyUniform4uiv(Device *device, GLint location, GLsizei count, const GLuint *v)
 	{
 		GLuint vector[MAX_UNIFORM_VECTORS][4];
 
@@ -2373,7 +2402,7 @@ namespace es2
 			v += 4;
 		}
 
-		return applyUniform(location, (float*)vector);
+		return applyUniform(device, location, (float*)vector);
 	}
 
 	void Program::appendToInfoLog(const char *format, ...)
@@ -2593,7 +2622,7 @@ namespace es2
 
 			if(length)
 			{
-				*length = strlen(name);
+				*length = static_cast<GLsizei>(strlen(name));
 			}
 		}
 
@@ -2648,7 +2677,7 @@ namespace es2
 
 			if(length)
 			{
-				*length = strlen(name);
+				*length = static_cast<GLsizei>(strlen(name));
 			}
 		}
 
@@ -2725,7 +2754,7 @@ namespace es2
 
 			if(length)
 			{
-				*length = strlen(name);
+				*length = static_cast<GLsizei>(strlen(name));
 			}
 		}
 	}
@@ -2737,7 +2766,7 @@ namespace es2
 
 	GLint Program::getActiveUniformBlockMaxLength() const
 	{
-		size_t maxLength = 0;
+		GLint maxLength = 0;
 
 		if(isLinked())
 		{
@@ -2747,10 +2776,10 @@ namespace es2
 				const UniformBlock &uniformBlock = *uniformBlocks[uniformBlockIndex];
 				if(!uniformBlock.name.empty())
 				{
-					size_t length = uniformBlock.name.length() + 1;
+					GLint length = static_cast<GLint>(uniformBlock.name.length() + 1);
 
 					// Counting in "[0]".
-					const int arrayLength = (uniformBlock.isArrayElement() ? 3 : 0);
+					const GLint arrayLength = (uniformBlock.isArrayElement() ? 3 : 0);
 
 					maxLength = std::max(length + arrayLength, maxLength);
 				}
@@ -2844,7 +2873,7 @@ namespace es2
 		return orphaned;
 	}
 
-	void Program::validate()
+	void Program::validate(Device* device)
 	{
 		resetInfoLog();
 
@@ -2855,7 +2884,7 @@ namespace es2
 		}
 		else
 		{
-			applyUniforms();
+			applyUniforms(device);
 			if(!validateSamplers(true))
 			{
 				validated = false;

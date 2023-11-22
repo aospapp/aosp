@@ -15,7 +15,7 @@ class platform_DebugDaemonPing(test.test):
         proxy = bus.get_object('org.chromium.debugd', '/org/chromium/debugd')
         self.iface = dbus.Interface(proxy,
                                     dbus_interface='org.chromium.debugd')
-        handle = self.iface.PingStart(1, "127.0.0.1", {})
+        handle = self.iface.PingStart(1, "127.0.0.1", {}, signature="hsa{sv}")
         self.iface.PingStop(handle)
         got_exception = False
         try:

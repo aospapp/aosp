@@ -91,6 +91,7 @@ extern "C" {
  * were started prior to the current nanoapp - use chreGetNanoappInfo() to
  * determine if another nanoapp is already running.
  *
+ * @see chreConfigureNanoappInfoEvents
  * @since v1.1
  */
 #define CHRE_EVENT_NANOAPP_STARTED  UINT16_C(0x0003)
@@ -102,6 +103,7 @@ extern "C" {
  * receive events sent via chreSendEvent().  Any events sent prior to receiving
  * this event are not guaranteed to have been delivered.
  *
+ * @see chreConfigureNanoappInfoEvents
  * @since v1.1
  */
 #define CHRE_EVENT_NANOAPP_STOPPED  UINT16_C(0x0004)
@@ -142,6 +144,18 @@ extern "C" {
  */
 #define CHRE_EVENT_WWAN_FIRST_EVENT  UINT16_C(0x0320)
 #define CHRE_EVENT_WWAN_LAST_EVENT   UINT16_C(0x032F)
+
+/**
+ * First in the extended range of values dedicated for internal CHRE
+ * implementation usage.
+ *
+ * This range is semantically the same as the internal event range defined
+ * below, but has been extended to allow for more implementation-specific events
+ * to be used.
+ *
+ * @since v1.1
+ */
+#define CHRE_EVENT_INTERNAL_EXTENDED_FIRST_EVENT  UINT16_C(0x7000)
 
 /**
  * First in a range of values dedicated for internal CHRE implementation usage.
@@ -188,11 +202,26 @@ struct chreMessageFromHostData {
     /**
      * Message type supplied by the host.
      *
-     * NOTE: In CHRE API v1.0, support for forwarding this field from the host
+     * @note In CHRE API v1.0, support for forwarding this field from the host
      * was not strictly required, and some implementations did not support it.
      * However, its support is mandatory as of v1.1.
      */
-    uint32_t messageType;
+    union {
+        /**
+         * The preferred name to use when referencing this field.
+         *
+         * @since v1.1
+         */
+        uint32_t messageType;
+
+        /**
+         * @deprecated This is the name for the messageType field used in v1.0.
+         * Left to allow code to compile against both v1.0 and v1.1 of the API
+         * definition without needing to use #ifdefs. This will be removed in a
+         * future API update - use messageType instead.
+         */
+        uint32_t reservedMessageType;
+    };
 
     /**
      * The size, in bytes of the following 'message'.
@@ -432,6 +461,25 @@ bool chreGetNanoappInfoByAppId(uint64_t appId, struct chreNanoappInfo *info);
 bool chreGetNanoappInfoByInstanceId(uint32_t instanceId,
                                     struct chreNanoappInfo *info);
 
+/**
+ * Configures whether this nanoapp will be notified when other nanoapps in the
+ * system start and stop, via CHRE_EVENT_NANOAPP_STARTED and
+ * CHRE_EVENT_NANOAPP_STOPPED.  These events are disabled by default, and if a
+ * nanoapp is not interested in interacting with other nanoapps, then it does
+ * not need to register for them.  However, if inter-nanoapp communication is
+ * desired, nanoapps are recommended to call this function from nanoappStart().
+ *
+ * If running on a CHRE platform that only supports v1.0 of the CHRE API, this
+ * function has no effect.
+ *
+ * @param enable true to enable these events, false to disable
+ *
+ * @see CHRE_EVENT_NANOAPP_STARTED
+ * @see CHRE_EVENT_NANOAPP_STOPPED
+ *
+ * @since v1.1
+ */
+void chreConfigureNanoappInfoEvents(bool enable);
 
 #ifdef __cplusplus
 }

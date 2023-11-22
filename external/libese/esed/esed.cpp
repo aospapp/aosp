@@ -19,14 +19,15 @@
 #include <thread>
 
 #include <android-base/logging.h>
+#include <android-base/properties.h>
 #include <hidl/HidlTransportSupport.h>
 #include <utils/StrongPointer.h>
 
-#include "libese.h"
-
 // Select the implementation
-#include "pn81a/pn81a.h"
-using EseInterfaceImpl = android::esed::pn81a::EseInterface;
+#include <esecpp/NxpPn80tNqNci.h>
+using EseInterfaceImpl = android::NxpPn80tNqNci;
+
+#include "Weaver.h"
 
 using android::OK;
 using android::sp;
@@ -36,13 +37,18 @@ using android::hardware::joinRpcThreadpool;
 
 using namespace std::chrono_literals;
 
+// HALs
+using android::esed::Weaver;
+
 int main(int /* argc */, char** /* argv */) {
+    LOG(INFO) << "Waiting for property...";
+    android::base::WaitForProperty("init.svc.ese_load", "stopped");
     LOG(INFO) << "Starting esed...";
 
     // Open connection to the eSE
+    EseInterfaceImpl ese;
     uint32_t failCount = 0;
     while (true) {
-        EseInterfaceImpl ese;
         ese.init();
         if (ese.open() < 0) {
             std::string errMsg = "Failed to open connection to eSE";
@@ -61,13 +67,22 @@ int main(int /* argc */, char** /* argv */) {
         LOG(INFO) << "Opened connection to the eSE";
         break;
     }
+    // Close it until use.
+    ese.close();
+
 
     // This will be a single threaded daemon. This is important as libese is not
     // thread safe so we use binder to synchronize requests for us.
     constexpr bool thisThreadWillJoinPool = true;
     configureRpcThreadpool(1, thisThreadWillJoinPool);
 
-    // -- Instantiate other applet HALs here --
+    // Create Weaver HAL instance
+    sp<Weaver> weaver = new Weaver{ese};
+    const status_t status = weaver->registerAsService();
+    if (status != OK) {
+        LOG(ERROR) << "Failed to register Weaver as a service (status: " << status << ")";
+    }
+
 
     joinRpcThreadpool();
     return -1; // Should never reach here

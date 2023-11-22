@@ -35,7 +35,7 @@
 #include <utime.h>
 #include "jni_util.h"
 
-#include "JNIHelp.h"
+#include <nativehelper/JNIHelp.h>
 
 #define NATIVE_METHOD(className, functionName, signature) \
 { #functionName, signature, (void*)(Java_java_util_prefs_ ## className ## _ ## functionName) }

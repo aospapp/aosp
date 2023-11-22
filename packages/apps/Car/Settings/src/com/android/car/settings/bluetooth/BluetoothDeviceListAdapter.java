@@ -20,14 +20,13 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
-import android.content.Intent;
 import android.content.res.Resources;
 import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.TextUtils;
 import android.util.Log;
 import android.util.Pair;
-import android.support.car.ui.PagedListView;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -39,6 +38,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.android.car.settings.R;
+import com.android.car.settings.common.BaseFragment;
+import com.android.car.view.PagedListView;
 import com.android.settingslib.bluetooth.BluetoothCallback;
 import com.android.settingslib.bluetooth.BluetoothDeviceFilter;
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
@@ -75,6 +76,7 @@ public class BluetoothDeviceListAdapter
     private final LocalBluetoothManager mLocalManager;
     private final CachedBluetoothDeviceManager mDeviceManager;
     private final Context mContext;
+    private final BaseFragment.FragmentController mFragmentController;
 
     /* Talk-back descriptions for various BT icons */
     public final String mComputerDescription;
@@ -85,7 +87,7 @@ public class BluetoothDeviceListAdapter
     public final String mHeadphoneDescription;
     public final String mBluetoothDescription;
 
-    private SortTask mSortTask = new SortTask();
+    private SortTask mSortTask;
 
     private ArrayList<CachedBluetoothDevice> mBondedDevicesSorted = new ArrayList<>();
     private ArrayList<CachedBluetoothDevice> mAvailableDevicesSorted = new ArrayList<>();
@@ -109,9 +111,12 @@ public class BluetoothDeviceListAdapter
     }
 
     public BluetoothDeviceListAdapter(
-            Context context, LocalBluetoothManager localBluetoothManager) {
+            Context context,
+            LocalBluetoothManager localBluetoothManager,
+            BaseFragment.FragmentController fragmentController) {
         mContext = context;
         mLocalManager = localBluetoothManager;
+        mFragmentController = fragmentController;
         mLocalAdapter = mLocalManager.getBluetoothAdapter();
         mDeviceManager = mLocalManager.getCachedDeviceManager();
 
@@ -133,6 +138,8 @@ public class BluetoothDeviceListAdapter
             addBondDevices();
             addCachedDevices();
         }
+        // create task here to avoid re-executing existing tasks.
+        mSortTask = new SortTask();
         mSortTask.execute();
     }
 
@@ -152,15 +159,19 @@ public class BluetoothDeviceListAdapter
         LayoutInflater layoutInflater = LayoutInflater.from(parent.getContext());
         switch (viewType) {
             case BONDED_DEVICE_HEADER_TYPE:
-                v = layoutInflater.inflate(R.layout.in_list_header, parent, false);
-                ((TextView) v).setText(R.string.bluetooth_preference_paired_devices);
+                v = layoutInflater.inflate(R.layout.single_text_line_item, parent, false);
+                v.setEnabled(false);
+                ((TextView) v.findViewById(R.id.title)).setText(
+                        R.string.bluetooth_preference_paired_devices);
                 break;
             case AVAILABLE_DEVICE_HEADER_TYPE:
-                v = layoutInflater.inflate(R.layout.in_list_header, parent, false);
-                ((TextView) v).setText(R.string.bluetooth_preference_found_devices);
+                v = layoutInflater.inflate(R.layout.single_text_line_item, parent, false);
+                v.setEnabled(false);
+                ((TextView) v.findViewById(R.id.title)).setText(
+                        R.string.bluetooth_preference_found_devices);
                 break;
             default:
-                v = layoutInflater.inflate(R.layout.list_item, parent, false);
+                v = layoutInflater.inflate(R.layout.icon_widget_line_item, parent, false);
         }
         return new ViewHolder(v);
     }
@@ -189,9 +200,9 @@ public class BluetoothDeviceListAdapter
         holder.mTitle.setText(bluetoothDevice.getName());
         Pair<Integer, String> pair = getBtClassDrawableWithDescription(bluetoothDevice);
         holder.mIcon.setImageResource(pair.first);
-        int summaryResourceId = bluetoothDevice.getConnectionSummary();
-        if (summaryResourceId != 0) {
-            holder.mDesc.setText(summaryResourceId);
+        String summaryText = bluetoothDevice.getConnectionSummary();
+        if (summaryText != null) {
+            holder.mDesc.setText(summaryText);
             holder.mDesc.setVisibility(View.VISIBLE);
         } else {
             holder.mDesc.setVisibility(View.GONE);
@@ -199,10 +210,8 @@ public class BluetoothDeviceListAdapter
         if (BluetoothDeviceFilter.BONDED_DEVICE_FILTER.matches(bluetoothDevice.getDevice())) {
             holder.mActionButton.setVisibility(View.VISIBLE);
             holder.mActionButton.setOnClickListener(v -> {
-                    Intent intent = new Intent(mContext, BluetoothDetailActivity.class);
-                    intent.putExtra(
-                            BluetoothDetailActivity.BT_DEVICE_KEY, bluetoothDevice.getDevice());
-                    mContext.startActivity(intent);
+                mFragmentController.launchFragment(
+                        BluetoothDetailFragment.getInstance(bluetoothDevice.getDevice()));
                 });
         } else {
             holder.mActionButton.setVisibility(View.GONE);
@@ -250,7 +259,7 @@ public class BluetoothDeviceListAdapter
 
     @Override
     public void onDeviceDeleted(CachedBluetoothDevice cachedDevice) {
-        onDeviceDeleted(cachedDevice, true /* refresh */);
+        onDeviceDeleted(cachedDevice, true /* reset */);
     }
 
     @Override
@@ -272,6 +281,16 @@ public class BluetoothDeviceListAdapter
         }
     }
 
+    public void reset() {
+        mBondedDevices.clear();
+        mBondedDevicesSorted.clear();
+        mAvailableDevices.clear();
+        mAvailableDevicesSorted.clear();
+        mLocalAdapter.startScanning(true);
+        addBondDevices();
+        addCachedDevices();
+    }
+
     @Override
     public void onScanningStateChanged(boolean started) {
         // don't care
@@ -279,7 +298,7 @@ public class BluetoothDeviceListAdapter
 
     @Override
     public void onDeviceBondStateChanged(CachedBluetoothDevice cachedDevice, int bondState) {
-        onDeviceDeleted(cachedDevice, false /* refresh */);
+        onDeviceDeleted(cachedDevice, false /* reset */);
         onDeviceAdded(cachedDevice);
     }
 
@@ -331,7 +350,7 @@ public class BluetoothDeviceListAdapter
             }
         }
         if (BluetoothDeviceFilter.UNBONDED_DEVICE_FILTER.matches(cachedDevice.getDevice())) {
-            // refresh is done at SortTask.
+            // reset is done at SortTask.
             mAvailableDevices.add(cachedDevice);
         }
         return needSort;
@@ -444,7 +463,12 @@ public class BluetoothDeviceListAdapter
                 if (!device.startPairing()) {
                     showError(device.getName(),
                             R.string.bluetooth_pairing_error_message);
+                    return;
                 }
+                // allow MAP and PBAP since this is client side, permission should be handled on
+                // server side. i.e. the phone side.
+                device.setPhonebookPermissionChoice(CachedBluetoothDevice.ACCESS_ALLOWED);
+                device.setMessagePermissionChoice(CachedBluetoothDevice.ACCESS_ALLOWED);
             }
         }
     }

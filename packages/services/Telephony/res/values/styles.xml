@@ -179,7 +179,13 @@
         <item name="android:textColor">?android:attr/textColorPrimaryInverseDisableOnly</item>
     </style>
 
-    <style name="NetworkOperatorsSettingsTheme" parent="@android:style/Theme.DeviceDefault.Settings" />
+    <style name="NetworkOperatorsSettingsTheme" parent="@android:style/Theme.DeviceDefault.Settings">
+        <item name="android:switchPreferenceStyle">@style/SettingsSwitchPreference</item>
+        <item name="android:preferenceCategoryStyle">@style/SettingsPreferenceCategory</item>
+        <item name="android:preferenceStyle">@style/SettingsPreference</item>
+        <item name="android:dialogPreferenceStyle">@style/SettingsDialogPreference</item>
+        <item name="android:preferenceScreenStyle">@style/SettingsPreferenceScreen</item>
+    </style>
 
     <style name="Empty" parent="@android:style/Theme.Material.Light">
         <item name="android:windowIsTranslucent">true</item>
@@ -247,10 +253,24 @@
 
     <style name="EmergencyDialerTheme" parent="@*android:style/Theme.DeviceDefault.Settings.Dark.NoActionBar">
         <item name="android:colorPrimaryDark">?android:attr/colorPrimary</item>
-        <item name="android:windowBackground">?android:attr/colorPrimary</item>
+        <item name="android:colorBackgroundCacheHint">@null</item>
+        <item name="android:windowShowWallpaper">true</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:homeAsUpIndicator">@drawable/ic_back_arrow</item>
+        <item name="emergencyButtonBackgroundColor">#3cffffff</item>
+        <item name="dialpadTheme">@style/Dialpad_DarkTransparent</item>
+    </style>
+
+    <style name="EmergencyDialerThemeDark" parent="@style/EmergencyDialerTheme">
+        <item name="android:textColor">?android:attr/textColorPrimaryInverse</item>
+        <item name="emergencyButtonBackgroundColor">#19414549</item>
+        <item name="dialpadTheme">@style/Dialpad_LightTransparent</item>
+    </style>
+
+    <style name="EmergencyDialerAlertDialogTheme"
+           parent="@android:style/Theme.Material.Dialog">
+        <item name="android:textColor">?android:attr/textColorPrimary</item>
     </style>
 
     <style name="SimImportTheme" parent="@android:style/Theme.Material.Light">

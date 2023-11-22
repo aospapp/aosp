@@ -76,6 +76,10 @@ cc_library_shared {
     name: "libc++",
     host_supported: true,
     vendor_available: true,
+    vndk: {
+        enabled: true,
+        support_system_process: true,
+    },
     clang: true,
     whole_static_libs: ["libc++_static"],
     stl: "none",

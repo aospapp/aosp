@@ -1102,7 +1102,7 @@ static jint nativeNfcTag_doGetNdefType (JNIEnv*, jobject, jint libnfcType, jint 
     }
     else
     {
-        /* NFA_PROTOCOL_ISO15693, NFA_PROTOCOL_INVALID and others */
+        /* NFA_PROTOCOL_T5T, NFA_PROTOCOL_INVALID and others */
         ndefType = NDEF_UNKNOWN_TYPE;
     }
     ALOGV("%s: exit; ndef type=%d", __func__, ndefType);
@@ -1455,7 +1455,7 @@ static jboolean nativeNfcTag_doIsNdefFormatable (JNIEnv* e,
 {
     jboolean isFormattable = JNI_FALSE;
     tNFC_PROTOCOL protocol = NfcTag::getInstance().getProtocol();
-    if (NFA_PROTOCOL_T1T == protocol || NFA_PROTOCOL_ISO15693 == protocol
+    if (NFA_PROTOCOL_T1T == protocol || NFA_PROTOCOL_T5T == protocol
         || NFA_PROTOCOL_MIFARE == protocol)
     {
         isFormattable = JNI_TRUE;
@@ -1844,6 +1844,36 @@ void nativeNfcTag_deregisterNdefTypeHandler ()
     sNdefTypeHandlerHandle = NFA_HANDLE_INVALID;
 }
 
+/*******************************************************************************
+**
+** Function:        nativeNfcTag_acquireRfInterfaceMutexLock
+**
+** Description:     acquire sRfInterfaceMutex
+**
+** Returns:         None
+**
+*******************************************************************************/
+void nativeNfcTag_acquireRfInterfaceMutexLock()
+{
+    ALOGD("%s: try to acquire lock", __func__);
+    sRfInterfaceMutex.lock();
+    ALOGD("%s: sRfInterfaceMutex lock", __func__);
+}
+
+/*******************************************************************************
+**
+** Function:       nativeNfcTag_releaseRfInterfaceMutexLock
+**
+** Description:    release the sRfInterfaceMutex
+**
+** Returns:        None
+**
+*******************************************************************************/
+void nativeNfcTag_releaseRfInterfaceMutexLock()
+{
+    sRfInterfaceMutex.unlock();
+    ALOGD("%s: sRfInterfaceMutex unlock", __func__);
+}
 
 /*****************************************************************************
 **

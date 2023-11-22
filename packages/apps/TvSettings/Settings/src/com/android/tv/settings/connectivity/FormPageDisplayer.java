@@ -44,10 +44,11 @@ public class FormPageDisplayer
     public static final int DISPLAY_TYPE_TEXT_INPUT = 1;
     public static final int DISPLAY_TYPE_LIST_CHOICE = 2;
     public static final int DISPLAY_TYPE_LOADING = 3;
-    // Minimum 8 characters
+    // Minimum 5 characters for WEP, 8 characters for PSK
     public static final int DISPLAY_TYPE_PSK_INPUT = 4;
 
-    private static final int PSK_MIN_LENGTH = 8;
+    private static final int WEP_MIN_LENGTH = 5;
+    public static final int PSK_MIN_LENGTH = 8;
 
     public interface FormPageInfo {
         /**
@@ -253,7 +254,7 @@ public class FormPageDisplayer
         mPasswordInputWizardFragmentListener = new PasswordInputWizardFragment.Listener() {
             @Override
             public boolean onPasswordInputComplete(String text, boolean obfuscate) {
-                if (!TextUtils.isEmpty(text) && text.length() >= PSK_MIN_LENGTH) {
+                if (!TextUtils.isEmpty(text) && text.length() >= WEP_MIN_LENGTH) {
                     Bundle result = new Bundle();
                     result.putString(FormPage.DATA_KEY_SUMMARY_STRING, text);
                     if (obfuscate) {

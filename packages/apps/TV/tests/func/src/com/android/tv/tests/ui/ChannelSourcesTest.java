@@ -23,6 +23,7 @@ import android.support.test.uiautomator.Until;
 
 import com.android.tv.R;
 import com.android.tv.testing.uihelper.ByResource;
+import com.android.tv.testing.uihelper.UiDeviceUtils;
 
 /**
  * Tests for channel sources.
@@ -60,8 +61,7 @@ public class ChannelSourcesTest extends LiveChannelsTestCase {
         assertWaitForCondition(mDevice, Until.hasObject(mBySettingsSidePanel));
 
         mSidePanelHelper.assertNavigateToItem(R.string.settings_channel_source_item_setup);
-        mDevice.pressDPadCenter();
-        mDevice.pressDPadCenter();
+        UiDeviceUtils.pressDPadCenter(getInstrumentation(), 2);
 
         assertWaitForCondition(mDevice,
                 Until.hasObject(ByResource.text(mTargetResources, R.string.setup_sources_text)));

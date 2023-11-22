@@ -25,6 +25,7 @@ import static android.autofillservice.cts.GridActivity.ID_L4C1;
 import static android.autofillservice.cts.GridActivity.ID_L4C2;
 import static android.autofillservice.cts.Helper.assertTextIsSanitized;
 import static android.autofillservice.cts.Helper.assertValue;
+import static android.autofillservice.cts.Helper.getContext;
 import static android.autofillservice.cts.Helper.getMaxPartitions;
 import static android.autofillservice.cts.Helper.setMaxPartitions;
 import static android.service.autofill.FillRequest.FLAG_MANUAL_REQUEST;
@@ -45,7 +46,6 @@ import android.autofillservice.cts.InstrumentedAutoFillService.SaveRequest;
 import android.content.IntentSender;
 import android.os.Bundle;
 import android.service.autofill.FillResponse;
-import android.support.test.rule.ActivityTestRule;
 import android.widget.RemoteViews;
 
 import org.junit.Before;
@@ -58,8 +58,8 @@ import org.junit.Test;
 public class PartitionedActivityTest extends AutoFillServiceTestCase {
 
     @Rule
-    public final ActivityTestRule<GridActivity> mActivityRule =
-        new ActivityTestRule<GridActivity>(GridActivity.class);
+    public final AutofillActivityTestRule<GridActivity> mActivityRule =
+        new AutofillActivityTestRule<GridActivity>(GridActivity.class);
 
     private GridActivity mActivity;
 

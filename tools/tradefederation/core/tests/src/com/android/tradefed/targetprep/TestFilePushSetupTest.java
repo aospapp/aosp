@@ -201,4 +201,39 @@ public class TestFilePushSetupTest extends TestCase {
         assertEquals(mAltDirFile2.getAbsolutePath(), apk.getAbsolutePath());
     }
 
+    /**
+     * Test that an exception is thrown if the file doesn't exist in extracted test dir
+     */
+    public void testThrowIfNotFound() throws Exception {
+        TestFilePushSetup setup = new TestFilePushSetup();
+        setup.setThrowIfNoFile(true);
+        // Assuming that the "file-not-in-test-zip" file doesn't exist in the test zips folder.
+        setup.addTestFileName("file-not-in-test-zip");
+        DeviceBuildInfo stubBuild = new DeviceBuildInfo("0", "stub");
+        stubBuild.setTestsDir(mFakeTestsZipFolder.getBasePath(), "0");
+        try {
+            setup.setUp(mMockDevice, stubBuild);
+            fail("Should have thrown an exception");
+        } catch (TargetSetupError expected) {
+            assertEquals(
+                    "Could not find test file file-not-in-test-zip "
+                            + "directory in extracted tests.zip null",
+                    expected.getMessage());
+        }
+    }
+
+    /**
+     * Test that no exception is thrown if the file doesn't exist in extracted test dir
+     * given that the option "throw-if-not-found" is set to false.
+     */
+    public void testThrowIfNotFound_false() throws Exception {
+        TestFilePushSetup setup = new TestFilePushSetup();
+        setup.setThrowIfNoFile(false);
+        // Assuming that the "file-not-in-test-zip" file doesn't exist in the test zips folder.
+        setup.addTestFileName("file-not-in-test-zip");
+        DeviceBuildInfo stubBuild = new DeviceBuildInfo("0", "stub");
+        stubBuild.setTestsDir(mFakeTestsZipFolder.getBasePath(), "0");
+        // test that it does not throw
+        setup.setUp(mMockDevice, stubBuild);
+    }
 }

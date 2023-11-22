@@ -17,6 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Informacioni i urgjencës"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"Informacionet mjekësore"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"Redakto informacionet"</string>
     <string name="edit_info" msgid="5973929805855224805">"Redakto informacionin e urgjencës"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Informacione"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Kontaktet"</string>
@@ -96,12 +98,12 @@
     <string name="cancel" msgid="7401575239009060939">"Anulo"</string>
     <string name="ok" msgid="163967937451981024">"Në rregull"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"Informacioni i urgjencës"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"Informacionet që fut këtu mund t\'i ndihmojnë personat e parë që përgjigjen në rast urgjence. Ato ruhen vetëm në pajisjen tënde dhe çdo person mund t\'i lexojë nga formuesi i numrit i urgjencës pa e shkyçur telefonin."</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"Vazhdo"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Nuk ka informacione mbi zotëruesin e telefonit"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"Nëse ky është telefoni yt, trokit tek ikona e lapsit për të shtuar informacione që do të shfaqen këtu në rast urgjence"</string>
     <string name="clear_all" msgid="8899013032870561633">"Pastroji të gjitha"</string>
     <string name="clear" msgid="3648880442502887163">"Pastro"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Të pastrohen të gjitha informacionet dhe kontaktet?"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"Shtimi i informacioneve mjekësore dhe kontakteve të urgjencës mund t\'i ndihmojë personat e parë që përgjigjen në rast urgjence.\n\nÇdo person mund t\'i lexojë këto informacione nga ekrani yt i kyçjes dhe t\'i telefonojë kontaktet e tua duke trokitur tek emrat, pa e shkyçur telefonin."</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"Shto informacionet e urgjencës"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"Ndihmo personat e parë që përgjigjen që të gjejnë informacione të rëndësishme"</string>
 </resources>

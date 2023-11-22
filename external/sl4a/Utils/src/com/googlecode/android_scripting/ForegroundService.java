@@ -42,6 +42,16 @@ public abstract class ForegroundService extends Service {
   protected abstract Notification createNotification();
 
   /**
+   * @return The NotificationManager for this Context.
+   */
+  protected NotificationManager getNotificationManager() {
+    if (mNotificationManager == null) {
+      mNotificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+    }
+    return mNotificationManager;
+  }
+
+  /**
    * This is a wrapper around the new startForeground method, using the older APIs if it is not
    * available.
    */
@@ -61,7 +71,7 @@ public abstract class ForegroundService extends Service {
     // Fall back on the old API.
     setForeground(true);
     if (notification != null) {
-      mNotificationManager.notify(mNotificationId, notification);
+      getNotificationManager().notify(mNotificationId, notification);
     }
   }
 
@@ -83,13 +93,12 @@ public abstract class ForegroundService extends Service {
 
     // Fall back on the old API. Note to cancel BEFORE changing the
     // foreground state, since we could be killed at that point.
-    mNotificationManager.cancel(mNotificationId);
+    getNotificationManager().cancel(mNotificationId);
     setForeground(false);
   }
 
   @Override
   public void onCreate() {
-    mNotificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
     try {
       mStartForeground = getClass().getMethod("startForeground", mStartForegroundSignature);
       mStopForeground = getClass().getMethod("stopForeground", mStopForegroundSignature);

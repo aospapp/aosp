@@ -108,8 +108,7 @@ public class ApkInstrumentationPreparer extends PreconditionPreparer implements 
         ITestInvocationListener listener = new TargetPreparerListener();
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(buildInfo);
 
-        File testsDir = buildHelper.getTestsDir();
-        File apkFile = new File(testsDir, mApkFileName);
+        File apkFile = buildHelper.getTestFile(mApkFileName);
         if (!apkFile.exists()) {
             throw new FileNotFoundException(String.format("%s not found", mApkFileName));
         }

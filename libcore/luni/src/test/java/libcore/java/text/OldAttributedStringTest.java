@@ -358,17 +358,17 @@ public class OldAttributedStringTest extends junit.framework.TestCase {
      */
     public void test_addAttributesLjava_util_MapII() {
         AttributedString as = new AttributedString("test");
-        Map<AttributedCharacterIterator.Attribute, String> whm = new WeakHashMap<AttributedCharacterIterator.Attribute, String>();
+        Map<AttributedCharacterIterator.Attribute, String> hm = new HashMap<AttributedCharacterIterator.Attribute, String>();
 
         // case 1: Try to add attributes to AttributesString.
         try {
-            whm.put(new TestAttributedCharacterIteratorAttribute("test1"),
+            hm.put(new TestAttributedCharacterIteratorAttribute("test1"),
                     "value1");
-            whm.put(new TestAttributedCharacterIteratorAttribute("test2"),
+            hm.put(new TestAttributedCharacterIteratorAttribute("test2"),
                     "value2");
-            whm.put(new TestAttributedCharacterIteratorAttribute("test3"),
+            hm.put(new TestAttributedCharacterIteratorAttribute("test3"),
                     "value3");
-            as.addAttributes(whm, 0, 3);
+            as.addAttributes(hm, 0, 3);
         } catch (Exception e) {
             fail("Unexpected exception " + e.toString());
         }
@@ -384,7 +384,7 @@ public class OldAttributedStringTest extends junit.framework.TestCase {
         // case 3: Try to add attributes to AttributesString using incorrect
         // index.
         try {
-            as.addAttributes(whm, 0, 0);
+            as.addAttributes(hm, 0, 0);
             fail("Expected IllegalArgumentException was not thrown");
         } catch (IllegalArgumentException e) {
             // expected

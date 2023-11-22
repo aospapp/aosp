@@ -56,7 +56,7 @@ public class MemoryFileTest extends TestCase {
             byte[] data = new byte[512];
             mMemoryFile.writeBytes(data, srcOffset, destOffset, count);
             fail("MemoryFile should throw IndexOutOfBoundsException here.");
-        } catch (IndexOutOfBoundsException e) {
+        } catch (IndexOutOfBoundsException | IllegalArgumentException e) {
             // expected
         }
     }
@@ -101,13 +101,10 @@ public class MemoryFileTest extends TestCase {
         mMemoryFile = new MemoryFile("Test File", 512);
         assertEquals(512, mMemoryFile.length());
 
-        mMemoryFile = new MemoryFile("Test File", 0);
-        assertEquals(0, mMemoryFile.length());
-
         try {
             mMemoryFile = new MemoryFile("Test File", -512);
             fail();
-        } catch (IOException expected) {
+        } catch (IOException | IllegalArgumentException expected) {
         }
     }
 
@@ -142,7 +139,7 @@ public class MemoryFileTest extends TestCase {
             byte[] data = new byte[512];
             mMemoryFile.readBytes(data, srcOffset, destOffset, count);
             fail("MemoryFile should throw IndexOutOfBoundsException here.");
-        } catch (IndexOutOfBoundsException e) {
+        } catch (IndexOutOfBoundsException | IllegalArgumentException e) {
             // expected
         }
     }

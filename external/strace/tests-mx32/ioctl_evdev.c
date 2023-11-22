@@ -2,6 +2,7 @@
  * This file is part of ioctl_evdev strace test.
  *
  * Copyright (c) 2016 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2016-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -66,9 +67,11 @@ print_ffe_common(const struct ff_effect *const ffe, const char *const type_str)
 # endif /* VERBOSE */
 }
 
-# define TEST_NULL_ARG(cmd) \
-	ioctl(-1, cmd, 0); \
-	printf("ioctl(-1, %s, NULL) = -1 EBADF (%m)\n", #cmd)
+# define TEST_NULL_ARG(cmd)						\
+	do {								\
+		ioctl(-1, cmd, 0);					\
+		printf("ioctl(-1, %s, NULL) = -1 EBADF (%m)\n", #cmd);	\
+	} while (0)
 
 int
 main(void)
@@ -148,7 +151,7 @@ main(void)
 	void *const page = tail_alloc(size);
 	fill_memory(page, size);
 
-	int *const val_int = tail_alloc(sizeof(*val_int));
+	TAIL_ALLOC_OBJECT_CONST_PTR(int, val_int);
 	*val_int = magic;
 
 # ifdef EVIOCSCLOCKID
@@ -172,7 +175,7 @@ main(void)
 	       pair_int[0], "KEY_ESC");
 
 # ifdef EVIOCSKEYCODE_V2
-	struct input_keymap_entry *const ike = tail_alloc(sizeof(*ike));
+	TAIL_ALLOC_OBJECT_CONST_PTR(struct input_keymap_entry, ike);
 	fill_memory(ike, sizeof(*ike));
 	ike->keycode = 2;
 
@@ -196,7 +199,7 @@ main(void)
 	printf("}) = -1 EBADF (%m)\n");
 # endif
 
-	struct ff_effect *const ffe = tail_alloc(sizeof(*ffe));
+	TAIL_ALLOC_OBJECT_CONST_PTR(struct ff_effect, ffe);
 	fill_memory(ffe, sizeof(*ffe));
 
 	ffe->type = FF_CONSTANT;

@@ -232,16 +232,6 @@
    bug: 23827982
 },
 {
-   description: "VP9 encoder is not a standard requirement of android as of O.",
-   names: [
-     "android.media.cts.VideoEncoderDecoderTest#testVp9Goog0Perf0320x0180",
-     "android.media.cts.VideoEncoderDecoderTest#testVp9Goog0Perf0640x0360",
-     "android.media.cts.VideoEncoderDecoderTest#testVp9Goog0Perf1280x0720",
-     "android.media.cts.VideoEncoderDecoderTest#testVp9Goog0Perf1920x1080"
-   ],
-   bug: 33090965
-},
-{
   description: "protected broadcast not working",
   names: [
    "android.permission2.cts.ProtectedBroadcastsTest#testSendProtectedBroadcasts"

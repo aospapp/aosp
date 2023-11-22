@@ -20,13 +20,10 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.DialogFragment;
-import android.content.ContentResolver;
-import android.content.ContentValues;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.media.tv.TvContract;
 import android.media.tv.TvInputInfo;
-import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 
@@ -58,37 +55,25 @@ public class TestTvInputSetupActivity extends Activity {
 
     private void registerChannels(int channelCount) {
         TestTvInputSetupActivity context = this;
-        registerChannels(context, mInputId, false, channelCount);
+        registerChannels(context, mInputId, channelCount);
     }
 
-    public static void registerChannels(Context context, String inputId, boolean updateBrowsable,
-            int channelCount) {
+    public static void registerChannels(Context context, String inputId, int channelCount) {
         Log.i(TAG, "Registering " + channelCount + " channels");
         List<ChannelInfo> channels = new ArrayList<>();
         for (int i = 1; i <= channelCount; i++) {
             channels.add(ChannelInfo.create(context, i));
         }
         ChannelUtils.updateChannels(context, inputId, channels);
-        if (updateBrowsable) {
-            updateChannelsBrowsable(context.getContentResolver(), inputId);
-        }
 
         // Reload channels so we have the ids.
         Map<Long, ChannelInfo> channelIdToInfoMap =
                 ChannelUtils.queryChannelInfoMapForTvInput(context, inputId);
         for (Long channelId : channelIdToInfoMap.keySet()) {
-            // TODO: http://b/21705569 Create better program info for tests
             ProgramInfo programInfo = ProgramInfo.create();
             ProgramUtils.populatePrograms(context, TvContract.buildChannelUri(channelId),
                     programInfo);
         }
-    }
-
-    private static void updateChannelsBrowsable(ContentResolver contentResolver, String inputId) {
-        Uri uri = TvContract.buildChannelsUriForInput(inputId);
-        ContentValues values = new ContentValues();
-        values.put(TvContract.Channels.COLUMN_BROWSABLE, 1);
-        contentResolver.update(uri, values, null, null);
     }
 
     public static class MyAlertDialogFragment extends DialogFragment {

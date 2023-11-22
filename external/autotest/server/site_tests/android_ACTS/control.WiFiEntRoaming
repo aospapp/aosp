@@ -17,6 +17,8 @@ def run(machine):
     job.run_test('android_ACTS',
                  testbed=hosts.create_testbed(machine),
                  config_file='wifi_ent_roaming.config',
+                 testtracker_owner='android-comms-tvc@google.com',
+                 testtracker_project_id=733,
                  test_file='wifi_ent_roaming',
                  acts_timeout=18000)
 

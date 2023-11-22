@@ -11,7 +11,7 @@ Introduction
 This sample shows how to style an ActionBar using the [support library][1] on devices running
 Android v2.1+ using a custom theme.
 
-This Activity extends from ActionBarActivity, which provides all of the function
+This Activity extends from AppCompatActivity, which provides all of the function
 necessary to display a compatible Action Bar on devices running Android v2.1+.
 A custom application theme and styles are defined in XML.
 
@@ -23,8 +23,8 @@ Assets have been generated using the ['Android Action Bar Style Generator'][2].
 Pre-requisites
 --------------
 
-- Android SDK 25
-- Android Build Tools v25.0.3
+- Android SDK 26
+- Android Build Tools v26.0.1
 - Android Support Repository
 
 Screenshots

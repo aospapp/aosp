@@ -86,13 +86,8 @@ done
 echo -e "\n**************************************************\n"
 
 for host in ${hosts}; do
-  git_pull="ssh -t ${host} -- 'sudo git --work-tree=/root/chromeos-admin --git-dir=/root/chromeos-admin/.git pull'"
-  run_puppet="ssh ${host} -- 'sudo /root/chromeos-admin/puppet/run_puppet'"
+  run_puppet="ssh ${host} -- 'sudo /root/chromeos-admin/puppet/sync_and_run_puppet -f'"
   echo -e "\n********** Processing ${host} ****************\n"
-  echo "[Running] ${git_pull}"
-  if [ "${DRYRUN}" != "TRUE" ]; then
-    eval ${git_pull}
-  fi
   echo "[Running] ${run_puppet}"
   if [ "${DRYRUN}" != "TRUE" ]; then
     eval ${run_puppet}

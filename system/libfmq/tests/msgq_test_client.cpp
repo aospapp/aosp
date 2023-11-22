@@ -19,9 +19,10 @@
 #error "GTest did not detect pthread library."
 #endif
 
-#include <fmq/MessageQueue.h>
 #include <android/hardware/tests/msgq/1.0/ITestMsgQ.h>
 #include <fmq/EventFlag.h>
+#include <fmq/MessageQueue.h>
+#include <hidl/ServiceManagement.h>
 
 // libutils:
 using android::OK;
@@ -37,23 +38,30 @@ using android::hardware::kUnsynchronizedWrite;
 using android::hardware::MessageQueue;
 using android::hardware::MQDescriptorSync;
 using android::hardware::MQDescriptorUnsync;
+using android::hardware::details::waitForHwService;
 
 typedef MessageQueue<uint16_t, kSynchronizedReadWrite> MessageQueueSync;
 typedef MessageQueue<uint16_t, kUnsynchronizedWrite> MessageQueueUnsync;
 
+static sp<ITestMsgQ> waitGetTestService() {
+    // waitForHwService is required because ITestMsgQ is not in manifest.xml.
+    // "Real" HALs shouldn't be doing this.
+    waitForHwService(ITestMsgQ::descriptor, "default");
+    return ITestMsgQ::getService();
+}
+
 class UnsynchronizedWriteClientMultiProcess : public ::testing::Test {
-protected:
-    void getQueue(MessageQueueUnsync** fmq, sp<ITestMsgQ>& service, bool setupQueue) {
-        service = ITestMsgQ::getService();
-        ASSERT_NE(service, nullptr);
-        ASSERT_TRUE(service->isRemote());
-        service->getFmqUnsyncWrite(setupQueue,
-                                   [fmq](bool ret, const MQDescriptorUnsync<uint16_t>& in) {
-                                       ASSERT_TRUE(ret);
-                                       *fmq = new (std::nothrow) MessageQueueUnsync(in);
-                                   });
-        ASSERT_NE(*fmq, nullptr);
-        ASSERT_TRUE((*fmq)->isValid());
+   protected:
+    void getQueue(MessageQueueUnsync** fmq, sp<ITestMsgQ>* service, bool setupQueue) {
+        *service = waitGetTestService();
+        *fmq = nullptr;
+        if (*service == nullptr) return;
+        if (!(*service)->isRemote()) return;
+        (*service)->getFmqUnsyncWrite(setupQueue,
+                                      [fmq](bool ret, const MQDescriptorUnsync<uint16_t>& in) {
+                                          ASSERT_TRUE(ret);
+                                          *fmq = new (std::nothrow) MessageQueueUnsync(in);
+                                      });
     }
 };
 
@@ -64,7 +72,7 @@ protected:
     }
 
     virtual void SetUp() {
-        mService = ITestMsgQ::getService();
+        mService = waitGetTestService();
         ASSERT_NE(mService, nullptr);
         ASSERT_TRUE(mService->isRemote());
         mService->configureFmqSyncReadWrite([this](
@@ -89,7 +97,7 @@ protected:
     }
 
     virtual void SetUp() {
-        mService = ITestMsgQ::getService();
+        mService = waitGetTestService();
         ASSERT_NE(mService, nullptr);
         ASSERT_TRUE(mService->isRemote());
         mService->getFmqUnsyncWrite(true /* configureFmq */,
@@ -138,7 +146,11 @@ TEST_F(UnsynchronizedWriteClientMultiProcess, MultipleReadersAfterOverflow) {
     if ((pid = fork()) == 0) {
         sp<ITestMsgQ> testService;
         MessageQueueUnsync*  queue = nullptr;
-        getQueue(&queue, testService, true /* setupQueue */);
+        getQueue(&queue, &testService, true /* setupQueue */);
+        ASSERT_NE(testService, nullptr);
+        ASSERT_TRUE(testService->isRemote());
+        ASSERT_NE(queue, nullptr);
+        ASSERT_TRUE(queue->isValid());
 
         size_t numMessagesMax = queue->getQuantumCount();
 
@@ -183,7 +195,11 @@ TEST_F(UnsynchronizedWriteClientMultiProcess, MultipleReadersAfterOverflow) {
         sp<ITestMsgQ> testService;
         MessageQueueUnsync* queue = nullptr;
 
-        getQueue(&queue, testService, false /* setupQueue */);
+        getQueue(&queue, &testService, false /* setupQueue */);
+        ASSERT_NE(testService, nullptr);
+        ASSERT_TRUE(testService->isRemote());
+        ASSERT_NE(queue, nullptr);
+        ASSERT_TRUE(queue->isValid());
 
         // This read should fail due to the write overflow.
         std::vector<uint16_t> readData(dataLen);

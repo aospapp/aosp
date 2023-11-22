@@ -30,6 +30,10 @@ GTEST_DEX_DIRECTORIES := \
   ErroneousA \
   ErroneousB \
   ErroneousInit \
+  ForClassLoaderA \
+  ForClassLoaderB \
+  ForClassLoaderC \
+  ForClassLoaderD \
   ExceptionHandle \
   GetMethodSignature \
   ImageLayoutA \
@@ -40,6 +44,7 @@ GTEST_DEX_DIRECTORIES := \
   Interfaces \
   Lookup \
   Main \
+  ManyMethods \
   MethodTypes \
   MultiDex \
   MultiDexModifiedSecondary \
@@ -83,27 +88,30 @@ ART_TEST_HOST_GTEST_VerifierDepsMulti_DEX := $(dir $(ART_TEST_HOST_GTEST_Main_DE
 ART_TEST_TARGET_GTEST_VerifierDepsMulti_DEX := $(dir $(ART_TEST_TARGET_GTEST_Main_DEX))$(subst Main,VerifierDepsMulti,$(basename $(notdir $(ART_TEST_TARGET_GTEST_Main_DEX))))$(suffix $(ART_TEST_TARGET_GTEST_Main_DEX))
 
 $(ART_TEST_HOST_GTEST_VerifierDeps_DEX): $(ART_TEST_GTEST_VerifierDeps_SRC) $(HOST_OUT_EXECUTABLES)/smali
-	 $(HOST_OUT_EXECUTABLES)/smali --output=$@ $(filter %.smali,$^)
+	 $(HOST_OUT_EXECUTABLES)/smali assemble --output $@ $(filter %.smali,$^)
 
 $(ART_TEST_TARGET_GTEST_VerifierDeps_DEX): $(ART_TEST_GTEST_VerifierDeps_SRC) $(HOST_OUT_EXECUTABLES)/smali
-	 $(HOST_OUT_EXECUTABLES)/smali --output=$@ $(filter %.smali,$^)
+	 $(HOST_OUT_EXECUTABLES)/smali assemble --output $@ $(filter %.smali,$^)
 
 $(ART_TEST_HOST_GTEST_VerifierDepsMulti_DEX): $(ART_TEST_GTEST_VerifierDepsMulti_SRC) $(HOST_OUT_EXECUTABLES)/smali
-	 $(HOST_OUT_EXECUTABLES)/smali --output=$@ $(filter %.smali,$^)
+	 $(HOST_OUT_EXECUTABLES)/smali assemble --output $@ $(filter %.smali,$^)
 
 $(ART_TEST_TARGET_GTEST_VerifierDepsMulti_DEX): $(ART_TEST_GTEST_VerifierDepsMulti_SRC) $(HOST_OUT_EXECUTABLES)/smali
-	 $(HOST_OUT_EXECUTABLES)/smali --output=$@ $(filter %.smali,$^)
+	 $(HOST_OUT_EXECUTABLES)/smali assemble --output $@ $(filter %.smali,$^)
 
 # Dex file dependencies for each gtest.
 ART_GTEST_dex2oat_environment_tests_DEX_DEPS := Main MainStripped MultiDex MultiDexModifiedSecondary Nested
 
-ART_GTEST_atomic_method_ref_map_test_DEX_DEPS := Interfaces
-ART_GTEST_class_linker_test_DEX_DEPS := AllFields ErroneousA ErroneousB ErroneousInit Interfaces MethodTypes MultiDex MyClass Nested Statics StaticsFromCode
+ART_GTEST_atomic_dex_ref_map_test_DEX_DEPS := Interfaces
+ART_GTEST_class_linker_test_DEX_DEPS := AllFields ErroneousA ErroneousB ErroneousInit ForClassLoaderA ForClassLoaderB ForClassLoaderC ForClassLoaderD Interfaces MethodTypes MultiDex MyClass Nested Statics StaticsFromCode
+ART_GTEST_class_loader_context_test_DEX_DEPS := Main MultiDex MyClass ForClassLoaderA ForClassLoaderB ForClassLoaderC ForClassLoaderD
 ART_GTEST_class_table_test_DEX_DEPS := XandY
 ART_GTEST_compiler_driver_test_DEX_DEPS := AbstractMethod StaticLeafMethods ProfileTestMultiDex
 ART_GTEST_dex_cache_test_DEX_DEPS := Main Packages MethodTypes
 ART_GTEST_dex_file_test_DEX_DEPS := GetMethodSignature Main Nested MultiDex
+ART_GTEST_dexlayout_test_DEX_DEPS := ManyMethods
 ART_GTEST_dex2oat_test_DEX_DEPS := $(ART_GTEST_dex2oat_environment_tests_DEX_DEPS) Statics VerifierDeps
+ART_GTEST_dex2oat_image_test_DEX_DEPS := $(ART_GTEST_dex2oat_environment_tests_DEX_DEPS) Statics VerifierDeps
 ART_GTEST_exception_test_DEX_DEPS := ExceptionHandle
 ART_GTEST_image_test_DEX_DEPS := ImageLayoutA ImageLayoutB DefaultMethods
 ART_GTEST_imtable_test_DEX_DEPS := IMTA IMTB
@@ -119,7 +127,7 @@ ART_GTEST_object_test_DEX_DEPS := ProtoCompare ProtoCompare2 StaticsFromCode Xan
 ART_GTEST_proxy_test_DEX_DEPS := Interfaces
 ART_GTEST_reflection_test_DEX_DEPS := Main NonStaticLeafMethods StaticLeafMethods
 ART_GTEST_profile_assistant_test_DEX_DEPS := ProfileTestMultiDex
-ART_GTEST_profile_compilation_info_test_DEX_DEPS := ProfileTestMultiDex
+ART_GTEST_profile_compilation_info_test_DEX_DEPS := ManyMethods ProfileTestMultiDex
 ART_GTEST_runtime_callbacks_test_DEX_DEPS := XandY
 ART_GTEST_stub_test_DEX_DEPS := AllFields
 ART_GTEST_transaction_test_DEX_DEPS := Transaction
@@ -168,8 +176,19 @@ ART_GTEST_dex2oat_test_HOST_DEPS := \
 ART_GTEST_dex2oat_test_TARGET_DEPS := \
   $(ART_GTEST_dex2oat_environment_tests_TARGET_DEPS)
 
+ART_GTEST_dex2oat_image_test_HOST_DEPS := \
+  $(ART_GTEST_dex2oat_environment_tests_HOST_DEPS)
+ART_GTEST_dex2oat_image_test_TARGET_DEPS := \
+  $(ART_GTEST_dex2oat_environment_tests_TARGET_DEPS)
+
 # TODO: document why this is needed.
 ART_GTEST_proxy_test_HOST_DEPS := $(HOST_CORE_IMAGE_DEFAULT_64) $(HOST_CORE_IMAGE_DEFAULT_32)
+
+# The dexdiag test requires the dexdiag utility.
+ART_GTEST_dexdiag_test_HOST_DEPS := \
+  $(HOST_OUT_EXECUTABLES)/dexdiag
+ART_GTEST_dexdiag_test_TARGET_DEPS := \
+  dexdiag
 
 # The dexdump test requires an image and the dexdump utility.
 # TODO: rename into dexdump when migration completes
@@ -227,6 +246,8 @@ ART_GTEST_oatdump_test_TARGET_DEPS := \
   $(TARGET_CORE_IMAGE_DEFAULT_64) \
   $(TARGET_CORE_IMAGE_DEFAULT_32) \
   oatdump
+ART_GTEST_oatdump_image_test_HOST_DEPS := $(ART_GTEST_oatdump_test_HOST_DEPS)
+ART_GTEST_oatdump_image_test_TARGET_DEPS := $(ART_GTEST_oatdump_test_TARGET_DEPS)
 
 # Profile assistant tests requires profman utility.
 ART_GTEST_profile_assistant_test_HOST_DEPS := \
@@ -242,6 +263,7 @@ ART_TEST_MODULES := \
     art_compiler_tests \
     art_compiler_host_tests \
     art_dex2oat_tests \
+    art_dexdiag_tests \
     art_dexdump_tests \
     art_dexlayout_tests \
     art_dexlist_tests \
@@ -405,10 +427,13 @@ define define-art-gtest-rule-host
 
   ART_TEST_HOST_GTEST_DEPENDENCIES += $$(gtest_deps)
 
+# Note: envsetup currently exports ASAN_OPTIONS=detect_leaks=0 to suppress leak detection, as some
+#       build tools (e.g., ninja) intentionally leak. We want leak checks when we run our tests, so
+#       override ASAN_OPTIONS. b/37751350
 .PHONY: $$(gtest_rule)
 $$(gtest_rule): $$(gtest_exe) $$(gtest_deps)
-	$(hide) ($$(call ART_TEST_SKIP,$$@) && $$< && $$(call ART_TEST_PASSED,$$@)) \
-	  || $$(call ART_TEST_FAILED,$$@)
+	$(hide) ($$(call ART_TEST_SKIP,$$@) && ASAN_OPTIONS=detect_leaks=1 $$< && \
+		$$(call ART_TEST_PASSED,$$@)) || $$(call ART_TEST_FAILED,$$@)
 
   ART_TEST_HOST_GTEST$$($(3)ART_PHONY_TEST_HOST_SUFFIX)_RULES += $$(gtest_rule)
   ART_TEST_HOST_GTEST_RULES += $$(gtest_rule)
@@ -650,6 +675,9 @@ ART_GTEST_image_space_test_TARGET_DEPS :=
 ART_GTEST_dex2oat_test_DEX_DEPS :=
 ART_GTEST_dex2oat_test_HOST_DEPS :=
 ART_GTEST_dex2oat_test_TARGET_DEPS :=
+ART_GTEST_dex2oat_image_test_DEX_DEPS :=
+ART_GTEST_dex2oat_image_test_HOST_DEPS :=
+ART_GTEST_dex2oat_image_test_TARGET_DEPS :=
 ART_GTEST_object_test_DEX_DEPS :=
 ART_GTEST_proxy_test_DEX_DEPS :=
 ART_GTEST_reflection_test_DEX_DEPS :=

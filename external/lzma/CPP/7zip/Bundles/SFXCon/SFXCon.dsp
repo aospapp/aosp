@@ -117,22 +117,6 @@ SOURCE=..\..\Archive\Common\CoderMixer2.h
 # End Source File
 # Begin Source File
 
-SOURCE=..\..\Archive\Common\CoderMixer2MT.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=..\..\Archive\Common\CoderMixer2MT.h
-# End Source File
-# Begin Source File
-
-SOURCE=..\..\Archive\Common\CrossThreadProgress.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=..\..\Archive\Common\CrossThreadProgress.h
-# End Source File
-# Begin Source File
-
 SOURCE=..\..\Archive\Common\ItemNameUtils.cpp
 # End Source File
 # Begin Source File
@@ -197,6 +181,14 @@ SOURCE=..\..\UI\Console\OpenCallbackConsole.h
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\UI\Console\PercentPrinter.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\UI\Console\PercentPrinter.h
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\UI\Console\UserInputUtils.cpp
 # End Source File
 # Begin Source File
@@ -218,14 +210,6 @@ SOURCE=..\..\Archive\7z\7zDecode.h
 # Begin Source File
 
 SOURCE=..\..\Archive\7z\7zExtract.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=..\..\Archive\7z\7zFolderOutStream.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=..\..\Archive\7z\7zFolderOutStream.h
 # End Source File
 # Begin Source File
 
@@ -281,7 +265,15 @@ SOURCE=..\..\Compress\BcjRegister.cpp
 # End Source File
 # Begin Source File
 
-SOURCE=..\..\Compress\BranchCoder.cpp
+SOURCE=..\..\Compress\BranchMisc.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\Compress\BranchMisc.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\Compress\BranchRegister.cpp
 # End Source File
 # Begin Source File
 
@@ -290,6 +282,10 @@ SOURCE=..\..\Compress\CopyCoder.cpp
 # Begin Source File
 
 SOURCE=..\..\Compress\CopyRegister.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\Compress\DeltaFilter.cpp
 # End Source File
 # Begin Source File
 
@@ -605,6 +601,14 @@ SOURCE=..\..\Common\PropId.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\Common\RegisterArc.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\Common\RegisterCodec.h
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\Common\StreamBinder.cpp
 # End Source File
 # Begin Source File
@@ -758,6 +762,20 @@ SOURCE=..\..\..\..\C\Alloc.h
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\..\C\Bcj2.c
+# SUBTRACT CPP /YX /Yc /Yu
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\..\C\Bcj2.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\..\C\Bra.c
+# SUBTRACT CPP /YX /Yc /Yu
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\..\C\Bra.h
 # End Source File
 # Begin Source File
@@ -767,8 +785,31 @@ SOURCE=..\..\..\..\C\Bra86.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\..\C\BraIA64.c
+# SUBTRACT CPP /YX /Yc /Yu
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\..\C\CpuArch.c
 # SUBTRACT CPP /YX /Yc /Yu
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\..\C\Delta.c
+# SUBTRACT CPP /YX /Yc /Yu
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\..\C\Delta.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\..\C\DllSecur.c
+# SUBTRACT CPP /YX /Yc /Yu
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\..\C\DllSecur.h
 # End Source File
 # Begin Source File
 

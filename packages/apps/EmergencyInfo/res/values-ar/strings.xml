@@ -17,6 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"معلومات الطوارئ"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"المعلومات الطبية"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"تعديل المعلومات"</string>
     <string name="edit_info" msgid="5973929805855224805">"تعديل معلومات الطوارئ"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"المعلومات"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"جهات الاتصال"</string>
@@ -94,14 +96,14 @@
     <string name="fail_add_contact" msgid="6511490846952942291">"يتعذر قراءة معلومات الاتصال على نحو سليم"</string>
     <string name="remove" msgid="1243949503772376064">"إزالة"</string>
     <string name="cancel" msgid="7401575239009060939">"إلغاء"</string>
-    <string name="ok" msgid="163967937451981024">"موافق"</string>
+    <string name="ok" msgid="163967937451981024">"حسنًا"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"معلومات الطوارئ"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"يمكن أن تساعد المعلومات التي تدخلها هنا أول المستجيبين في حالات الطوارئ. ويتم تخزين هذه المعلومات على جهازك فقط، ويمكن لأي شخص أن يقرأها من برنامج الاتصال بالطوارئ بدون إلغاء قفل هاتفك."</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"متابعة"</string>
     <string name="no_info_provided" msgid="716200382010821001">"لا تتوفر معلومات حول مالك الهاتف"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"إذا كان هذا هاتفك، فانقر على رمز القلم لإضافة معلومات يتم عرضها هنا في حالة الطوارئ."</string>
     <string name="clear_all" msgid="8899013032870561633">"مسح الكل"</string>
     <string name="clear" msgid="3648880442502887163">"مسح"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"هل تريد مسح جميع المعلومات وجهات الاتصال؟"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"يمكن لإضافة المعلومات الطبية وجهات الاتصال أن تساعد فرق الاستجابة الفورية في حالات الطوارئ.\n\nويمكن لأي شخص قراءة هذه المعلومات من شاشة التأمين ومكالمة جهات الاتصال التابعة لك بالنقر على أسمائها من دون الحاجة إلى فتح قفل هاتفك."</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"إضافة معلومات الطوارئ"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"مساعدة أول المستجيبين في العثور على المعلومات المهمة"</string>
 </resources>

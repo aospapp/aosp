@@ -60,6 +60,8 @@ bool Dso::read_kernel_symbols_from_proc_;
 std::unordered_map<std::string, BuildId> Dso::build_id_map_;
 size_t Dso::dso_count_;
 uint32_t Dso::g_dump_id_;
+std::unique_ptr<TemporaryFile> Dso::vdso_64bit_;
+std::unique_ptr<TemporaryFile> Dso::vdso_32bit_;
 
 void Dso::SetDemangle(bool demangle) { demangle_ = demangle; }
 
@@ -119,6 +121,14 @@ void Dso::SetBuildIds(
   build_id_map_ = std::move(map);
 }
 
+void Dso::SetVdsoFile(std::unique_ptr<TemporaryFile> vdso_file, bool is_64bit) {
+  if (is_64bit) {
+    vdso_64bit_ = std::move(vdso_file);
+  } else {
+    vdso_32bit_ = std::move(vdso_file);
+  }
+}
+
 BuildId Dso::FindExpectedBuildIdForPath(const std::string& path) {
   auto it = build_id_map_.find(path);
   if (it != build_id_map_.end()) {
@@ -131,12 +141,12 @@ BuildId Dso::GetExpectedBuildId() {
   return FindExpectedBuildIdForPath(path_);
 }
 
-std::unique_ptr<Dso> Dso::CreateDso(DsoType dso_type,
-                                    const std::string& dso_path) {
-  return std::unique_ptr<Dso>(new Dso(dso_type, dso_path));
+std::unique_ptr<Dso> Dso::CreateDso(DsoType dso_type, const std::string& dso_path,
+                                    bool force_64bit) {
+  return std::unique_ptr<Dso>(new Dso(dso_type, dso_path, force_64bit));
 }
 
-Dso::Dso(DsoType type, const std::string& path)
+Dso::Dso(DsoType type, const std::string& path, bool force_64bit)
     : type_(type),
       path_(path),
       debug_file_path_(path),
@@ -157,6 +167,12 @@ Dso::Dso(DsoType type, const std::string& path)
         std::get<0>(tuple) ? std::get<1>(tuple) : path_in_symfs;
     if (IsRegularFile(file_path)) {
       debug_file_path_ = path_in_symfs;
+    }
+  } else if (path == "[vdso]") {
+    if (force_64bit && vdso_64bit_ != nullptr) {
+      debug_file_path_ = vdso_64bit_->path;
+    } else if (!force_64bit && vdso_32bit_ != nullptr) {
+      debug_file_path_ = vdso_32bit_->path;
     }
   }
   size_t pos = path.find_last_of("/\\");
@@ -179,6 +195,8 @@ Dso::~Dso() {
     read_kernel_symbols_from_proc_ = false;
     build_id_map_.clear();
     g_dump_id_ = 0;
+    vdso_64bit_ = nullptr;
+    vdso_32bit_ = nullptr;
   }
 }
 
@@ -326,11 +344,15 @@ static void VmlinuxSymbolCallback(const ElfFileSymbol& elf_symbol,
   }
 }
 
-bool CheckReadSymbolResult(ElfStatus result, const std::string& filename) {
+bool Dso::CheckReadSymbolResult(ElfStatus result, const std::string& filename) {
   if (result == ElfStatus::NO_ERROR) {
     LOG(VERBOSE) << "Read symbols from " << filename << " successfully";
     return true;
   } else if (result == ElfStatus::NO_SYMBOL_TABLE) {
+    if (path_ == "[vdso]") {
+      // Vdso only contains dynamic symbol table, and we can't change that.
+      return true;
+    }
     // Lacking symbol table isn't considered as an error but worth reporting.
     LOG(WARNING) << filename << " doesn't contain symbol table";
     return true;

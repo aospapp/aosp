@@ -43,6 +43,7 @@ LOCAL_SRC_FILES := \
 	operation.cpp \
 	permissions.cpp \
 	user_state.cpp \
+	grant_store.cpp \
 	../../../frameworks/base/core/java/android/security/keymaster/IKeyAttestationApplicationIdProvider.aidl
 LOCAL_SHARED_LIBRARIES := \
 	libbinder \
@@ -57,12 +58,14 @@ LOCAL_SHARED_LIBRARIES := \
 	libselinux \
 	libsoftkeymasterdevice \
 	libkeymaster_messages \
-	libkeymaster1 \
+	libkeymaster_portable \
+	libkeymaster_staging \
 	libhwbinder \
 	libhidlbase \
 	libhidltransport \
 	android.hardware.keymaster@3.0 \
 	android.system.wifi.keystore@1.0
+LOCAL_HEADER_LIBRARIES := libbase_headers
 LOCAL_MODULE := keystore
 LOCAL_MODULE_TAGS := optional
 LOCAL_INIT_RC := keystore.rc

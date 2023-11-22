@@ -27,10 +27,18 @@ import android.view.WindowManager;
  * An {@link Activity} that exposes the underlying {@link Display} details.
  */
 public class DisplayTestActivity extends Activity {
+    public final OrientationTestUtils.Observer configurationChangeObserver =
+            new OrientationTestUtils.Observer();
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        configurationChangeObserver.onObserved();
     }
 
     public Display getDisplay() {

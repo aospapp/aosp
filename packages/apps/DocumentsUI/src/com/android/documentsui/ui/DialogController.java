@@ -26,20 +26,31 @@ import android.widget.TextView;
 import com.android.documentsui.R;
 import com.android.documentsui.base.ConfirmationCallback;
 import com.android.documentsui.base.DocumentInfo;
+import com.android.documentsui.base.Features;
 import com.android.documentsui.picker.OverwriteConfirmFragment;
-import com.android.documentsui.services.FileOperationService;
+import com.android.documentsui.services.FileOperation;
 import com.android.documentsui.services.FileOperationService.OpType;
-import com.android.documentsui.services.FileOperations;
+import com.android.documentsui.services.FileOperationService;
 import com.android.documentsui.services.FileOperations.Callback.Status;
+import com.android.documentsui.services.FileOperations;
 
 import java.util.List;
+import javax.annotation.Nullable;
 
 public interface DialogController {
 
     // Dialogs used in FilesActivity
     void confirmDelete(List<DocumentInfo> docs, ConfirmationCallback callback);
     void showFileOperationStatus(int status, int opType, int docCount);
+
+    /**
+     * There can be only one progress dialog active at the time. Each call to this
+     * method will discard any previously created progress dialogs.
+     */
+    void showProgressDialog(String jobId, FileOperation operation);
+
     void showNoApplicationFound();
+    void showOperationUnsupported();
     void showViewInArchivesUnsupported();
     void showDocumentsClipped(int size);
 
@@ -51,8 +62,11 @@ public interface DialogController {
 
         private final Activity mActivity;
         private final MessageBuilder mMessages;
+        private final Features mFeatures;
+        private OperationProgressDialog mCurrentProgressDialog = null;
 
-        public RuntimeDialogController(Activity activity, MessageBuilder messages) {
+        public RuntimeDialogController(Features features, Activity activity, MessageBuilder messages) {
+            mFeatures = features;
             mActivity = activity;
             mMessages = messages;
         }
@@ -94,10 +108,10 @@ public interface DialogController {
         }
 
         @Override
-        public void showFileOperationStatus(
-                @Status int status, @OpType int opType, int docCount) {
+        public void showFileOperationStatus(@Status int status, @OpType int opType,
+                int docCount) {
             if (status == FileOperations.Callback.STATUS_REJECTED) {
-                Snackbars.showOperationRejected(mActivity);
+                showOperationUnsupported();
                 return;
             }
             if (status == FileOperations.Callback.STATUS_FAILED) {
@@ -107,6 +121,12 @@ public interface DialogController {
 
             if (docCount == 0) {
                 // Nothing has been pasted, so there is no need to show a snackbar.
+                return;
+            }
+
+            if (shouldShowProgressDialogForOperation(opType)) {
+                // The operation has a progress dialog created, so do not show a snackbar
+                // for operation start, as it would duplicate the UI.
                 return;
             }
 
@@ -131,10 +151,40 @@ public interface DialogController {
             }
         }
 
+        private boolean shouldShowProgressDialogForOperation(@OpType int opType) {
+            // TODO: Hook up progress dialog to the delete operation.
+            if (opType == FileOperationService.OPERATION_DELETE) {
+                return false;
+            }
+
+            return mFeatures.isJobProgressDialogEnabled();
+        }
+
+        @Override
+        public void showProgressDialog(String jobId, FileOperation operation) {
+            assert(operation.getOpType() != FileOperationService.OPERATION_UNKNOWN);
+
+            if (!shouldShowProgressDialogForOperation(operation.getOpType())) {
+                return;
+            }
+
+            if (mCurrentProgressDialog != null) {
+                mCurrentProgressDialog.dismiss();
+            }
+
+            mCurrentProgressDialog = OperationProgressDialog.create(mActivity, jobId, operation);
+            mCurrentProgressDialog.show();
+        }
+
         @Override
         public void showNoApplicationFound() {
             Snackbars.makeSnackbar(
                     mActivity, R.string.toast_no_application, Snackbar.LENGTH_SHORT).show();
+        }
+
+        @Override
+        public void showOperationUnsupported() {
+            Snackbars.showOperationRejected(mActivity);
         }
 
         @Override
@@ -154,7 +204,7 @@ public interface DialogController {
         }
     }
 
-    static DialogController create(Activity activity, MessageBuilder messages) {
-        return new RuntimeDialogController(activity, messages);
+    static DialogController create(Features features, Activity activity, MessageBuilder messages) {
+        return new RuntimeDialogController(features, activity, messages);
     }
 }

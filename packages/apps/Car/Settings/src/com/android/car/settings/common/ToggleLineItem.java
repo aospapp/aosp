@@ -26,7 +26,7 @@ import android.widget.TextView;
 import com.android.car.settings.R;
 
 /**
- * Contains logic for a line item represents title text, description text and a toggle widget.
+ * Contains logic for a line item represents title text, description text and a checkbox widget.
  */
 public abstract class ToggleLineItem
         extends TypedPagedListAdapter.LineItem<ToggleLineItem.ToggleLineItemViewHolder> {
@@ -59,8 +59,8 @@ public abstract class ToggleLineItem
     }
 
     public static class ToggleLineItemViewHolder extends RecyclerView.ViewHolder {
-        final TextView titleView;
-        final TextView descView;
+        public final TextView titleView;
+        public final TextView descView;
         public final Switch toggle;
 
         public ToggleLineItemViewHolder(View view) {
@@ -84,4 +84,9 @@ public abstract class ToggleLineItem
     public abstract void onClick(boolean isChecked);
 
     public abstract boolean isChecked();
+
+    @Override
+    public boolean isClickable() {
+        return true;
+    }
 }

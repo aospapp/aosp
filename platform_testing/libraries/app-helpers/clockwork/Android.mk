@@ -18,6 +18,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 LOCAL_MODULE := clockwork-app-helper-base
 LOCAL_STATIC_JAVA_LIBRARIES := app-helpers-common
+LOCAL_JAVA_LIBRARIES := ub-uiautomator
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 include $(BUILD_STATIC_JAVA_LIBRARY)

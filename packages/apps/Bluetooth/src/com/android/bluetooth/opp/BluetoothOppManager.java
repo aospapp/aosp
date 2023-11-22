@@ -472,4 +472,17 @@ public class BluetoothOppManager {
         }
     }
 
+    void cleanUpSendingFileInfo() {
+        synchronized (BluetoothOppManager.this) {
+            if (V) Log.v(TAG, "cleanUpSendingFileInfo: mMultipleFlag = " + mMultipleFlag);
+            if (!mMultipleFlag && (mUriOfSendingFile != null)) {
+                Uri uri = Uri.parse(mUriOfSendingFile);
+                BluetoothOppUtility.closeSendFileInfo(uri);
+            } else if (mUrisOfSendingFiles != null) {
+                for (Uri uri : mUrisOfSendingFiles) {
+                    BluetoothOppUtility.closeSendFileInfo(uri);
+                }
+            }
+        }
+    }
 }

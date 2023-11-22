@@ -8,7 +8,7 @@ import re
 import traceback
 from autotest_lib.client.common_lib import error
 from autotest_lib.server import test
-from autotest_lib.client.bin import site_utils
+from autotest_lib.client.bin import utils
 
 class platform_CorruptRootfs(test.test):
     """Tests how the system recovers when the root file system is corrupted
@@ -65,10 +65,10 @@ class platform_CorruptRootfs(test.test):
             dev = rootdev[:-2]
         else:
             dev = rootdev[:-1]
-        kernelA = site_utils.get_kernel_partition(rootdev)
+        kernelA = utils.get_kernel_partition(rootdev)
         rootfsA = rootdev
-        kernelB = site_utils.get_free_kernel_partition(rootdev)
-        rootfsB = site_utils.get_free_root_partition(rootdev)
+        kernelB = utils.get_free_kernel_partition(rootdev)
+        rootfsB = utils.get_free_root_partition(rootdev)
         return dev, kernelA, rootfsA, kernelB, rootfsB
 
 

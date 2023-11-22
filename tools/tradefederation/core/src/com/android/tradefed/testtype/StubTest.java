@@ -27,6 +27,7 @@ import com.android.tradefed.result.ITestInvocationListener;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 /**
@@ -91,7 +92,7 @@ public class StubTest implements IShardableTest {
             TestIdentifier testId = new TestIdentifier("StubTest", "StubMethod");
             listener.testStarted(testId);
             listener.testEnded(testId, Collections.emptyMap());
-            listener.testRunEnded(500, Collections.emptyMap());
+            listener.testRunEnded(500, new LinkedHashMap<>());
         }
     }
 

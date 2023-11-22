@@ -34,17 +34,25 @@
 
 #include <memory>
 #include <type_traits>
+#include <unordered_map>
+#include <unordered_set>
 
 #include <jni.h>
 
-#include "base/array_slice.h"
 #include "base/casts.h"
 #include "base/logging.h"
 #include "base/macros.h"
+#include "base/strlcpy.h"
 #include "events.h"
 #include "java_vm_ext.h"
 #include "jni_env_ext.h"
 #include "jvmti.h"
+#include "ti_breakpoint.h"
+
+namespace art {
+class ArtField;
+class ArtMethod;
+}  // namespace art
 
 namespace openjdkjvmti {
 
@@ -61,6 +69,18 @@ struct ArtJvmTiEnv : public jvmtiEnv {
 
   // Tagging is specific to the jvmtiEnv.
   std::unique_ptr<ObjectTagTable> object_tag_table;
+
+  // Set of watched fields is unique to each jvmtiEnv.
+  // TODO It might be good to follow the RI and only let one jvmtiEnv ever have the watch caps so
+  // we can record this on the field directly. We could do this either using free access-flag bits
+  // or by putting a list in the ClassExt of a field's DeclaringClass.
+  // TODO Maybe just have an extension to let one put a watch on every field, that would probably be
+  // good enough maybe since you probably want either a few or all/almost all of them.
+  std::unordered_set<art::ArtField*> access_watched_fields;
+  std::unordered_set<art::ArtField*> modify_watched_fields;
+
+  // Set of breakpoints is unique to each jvmtiEnv.
+  std::unordered_set<Breakpoint> breakpoints;
 
   ArtJvmTiEnv(art::JavaVMExt* runtime, EventHandler* event_handler);
 
@@ -187,16 +207,16 @@ static inline JvmtiUniquePtr<char[]> CopyString(jvmtiEnv* env, const char* src, 
   size_t len = strlen(src) + 1;
   JvmtiUniquePtr<char[]> ret = AllocJvmtiUniquePtr<char[]>(env, len, error);
   if (ret != nullptr) {
-    strcpy(ret.get(), src);
+    strlcpy(ret.get(), src, len);
   }
   return ret;
 }
 
 const jvmtiCapabilities kPotentialCapabilities = {
     .can_tag_objects                                 = 1,
-    .can_generate_field_modification_events          = 0,
-    .can_generate_field_access_events                = 0,
-    .can_get_bytecodes                               = 0,
+    .can_generate_field_modification_events          = 1,
+    .can_generate_field_access_events                = 1,
+    .can_get_bytecodes                               = 1,
     .can_get_synthetic_attribute                     = 1,
     .can_get_owned_monitor_info                      = 0,
     .can_get_current_contended_monitor               = 0,
@@ -204,21 +224,21 @@ const jvmtiCapabilities kPotentialCapabilities = {
     .can_pop_frame                                   = 0,
     .can_redefine_classes                            = 1,
     .can_signal_thread                               = 0,
-    .can_get_source_file_name                        = 0,
+    .can_get_source_file_name                        = 1,
     .can_get_line_numbers                            = 1,
-    .can_get_source_debug_extension                  = 0,
+    .can_get_source_debug_extension                  = 1,
     .can_access_local_variables                      = 0,
     .can_maintain_original_method_order              = 0,
-    .can_generate_single_step_events                 = 0,
+    .can_generate_single_step_events                 = 1,
     .can_generate_exception_events                   = 0,
     .can_generate_frame_pop_events                   = 0,
-    .can_generate_breakpoint_events                  = 0,
+    .can_generate_breakpoint_events                  = 1,
     .can_suspend                                     = 0,
     .can_redefine_any_class                          = 0,
     .can_get_current_thread_cpu_time                 = 0,
     .can_get_thread_cpu_time                         = 0,
-    .can_generate_method_entry_events                = 0,
-    .can_generate_method_exit_events                 = 0,
+    .can_generate_method_entry_events                = 1,
+    .can_generate_method_exit_events                 = 1,
     .can_generate_all_class_hook_events              = 0,
     .can_generate_compiled_method_load_events        = 0,
     .can_generate_monitor_events                     = 0,

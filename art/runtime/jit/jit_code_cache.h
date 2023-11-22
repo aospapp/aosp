@@ -29,7 +29,6 @@
 #include "jni.h"
 #include "method_reference.h"
 #include "oat_file.h"
-#include "object_callbacks.h"
 #include "profile_compilation_info.h"
 #include "safe_map.h"
 #include "thread_pool.h"
@@ -39,6 +38,8 @@ namespace art {
 class ArtMethod;
 class LinearAlloc;
 class InlineCache;
+class IsMarkedVisitor;
+class OatQuickMethodHeader;
 class ProfilingInfo;
 
 namespace jit {
@@ -169,6 +170,13 @@ class JitCodeCache {
   OatQuickMethodHeader* LookupOsrMethodHeader(ArtMethod* method)
       REQUIRES(!lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
+
+  // Removes method from the cache for testing purposes. The caller
+  // must ensure that all threads are suspended and the method should
+  // not be in any thread's stack.
+  bool RemoveMethod(ArtMethod* method, bool release_memory)
+      REQUIRES(!lock_)
+      REQUIRES(Locks::mutator_lock_);
 
   // Remove all methods in our cache that were allocated by 'alloc'.
   void RemoveMethodsIn(Thread* self, const LinearAlloc& alloc)

@@ -235,10 +235,11 @@
 #endif
 
 /* _FILE_OFFSET_BITS 64 support. */
-#if !defined(__LP64__) && defined(_FILE_OFFSET_BITS)
-#if _FILE_OFFSET_BITS == 64
+#if !defined(__LP64__) && defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS == 64
 #define __USE_FILE_OFFSET64 1
-#endif
+#define __RENAME_IF_FILE_OFFSET64(func) __RENAME(func)
+#else
+#define __RENAME_IF_FILE_OFFSET64(func)
 #endif
 
 #define  __BIONIC__   1
@@ -256,8 +257,7 @@
  * added to commonly used libc functions. If a buffer overrun is
  * detected, the program is safely aborted.
  *
- * See
- * http://gcc.gnu.org/onlinedocs/gcc/Object-Size-Checking.html for details.
+ * https://android-developers.googleblog.com/2017/04/fortify-in-android.html
  */
 
 #define __BIONIC_FORTIFY_UNKNOWN_SIZE ((size_t) -1)
@@ -297,17 +297,30 @@
 /* __BIONIC_FORTIFY_NONSTATIC_INLINE is pointless in GCC's FORTIFY */
 #    define __BIONIC_FORTIFY_INLINE extern __inline__ __always_inline __attribute__((gnu_inline)) __attribute__((__artificial__))
 #  endif
-#  define __pass_object_size __pass_object_size_n(__bos_level)
-#  define __pass_object_size0 __pass_object_size_n(0)
+#else
+/* Further increase sharing for some inline functions */
+#  define __pass_object_size_n(n)
 #endif
+#define __pass_object_size __pass_object_size_n(__bos_level)
+#define __pass_object_size0 __pass_object_size_n(0)
 
-/* Used to support clangisms with FORTIFY. This isn't in the FORTIFY section
- * because these change how symbols are emitted. The linker must be kept happy.
+/*
+ * Used to support clangisms with FORTIFY. Because these change how symbols are
+ * emitted, we need to ensure that bionic itself is built fortified. But lots
+ * of external code (especially stuff using configure) likes to declare
+ * functions directly, and they can't know that the overloadable attribute
+ * exists. This leads to errors like:
+ *
+ * dcigettext.c:151:7: error: redeclaration of 'getcwd' must have the 'overloadable' attribute
+ * char *getcwd ();
+ *       ^
+ *
+ * To avoid this and keep such software building, don't use overloadable if
+ * we're not using fortify.
  */
-#ifdef __clang__
+#if defined(__clang__) && defined(__BIONIC_FORTIFY)
 #  define __overloadable __attribute__((overloadable))
-// Don't use __RENAME directly because on gcc, this could result in a number of
-// unnecessary renames.
+/* We don't use __RENAME directly because on gcc this could result in unnecessary renames. */
 #  define __RENAME_CLANG(x) __RENAME(x)
 #else
 #  define __overloadable

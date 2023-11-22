@@ -26,11 +26,13 @@ import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.provider.DocumentsContract.Document;
+import android.support.annotation.VisibleForTesting;
 import android.util.Log;
 import android.util.SparseArray;
 import android.view.View;
 
 import com.android.documentsui.R;
+import com.android.documentsui.base.Lookup;
 import com.android.documentsui.sorting.SortDimension.SortDirection;
 
 import java.lang.annotation.Retention;
@@ -48,8 +50,9 @@ public class SortModel implements Parcelable {
             SORT_DIMENSION_ID_UNKNOWN,
             SORT_DIMENSION_ID_TITLE,
             SORT_DIMENSION_ID_SUMMARY,
-            SORT_DIMENSION_ID_DATE,
-            SORT_DIMENSION_ID_SIZE
+            SORT_DIMENSION_ID_SIZE,
+            SORT_DIMENSION_ID_FILE_TYPE,
+            SORT_DIMENSION_ID_DATE
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface SortDimensionId {}
@@ -57,6 +60,7 @@ public class SortModel implements Parcelable {
     public static final int SORT_DIMENSION_ID_TITLE = android.R.id.title;
     public static final int SORT_DIMENSION_ID_SUMMARY = android.R.id.summary;
     public static final int SORT_DIMENSION_ID_SIZE = R.id.size;
+    public static final int SORT_DIMENSION_ID_FILE_TYPE = R.id.file_type;
     public static final int SORT_DIMENSION_ID_DATE = R.id.date;
 
     @IntDef(flag = true, value = {
@@ -96,7 +100,8 @@ public class SortModel implements Parcelable {
     private boolean mIsUserSpecified = false;
     private @Nullable SortDimension mSortedDimension;
 
-    public SortModel(Collection<SortDimension> columns) {
+    @VisibleForTesting
+    SortModel(Collection<SortDimension> columns) {
         mDimensions = new SparseArray<>(columns.size());
 
         for (SortDimension column : columns) {
@@ -221,9 +226,9 @@ public class SortModel implements Parcelable {
         notifyListeners(UPDATE_TYPE_VISIBILITY);
     }
 
-    public Cursor sortCursor(Cursor cursor) {
+    public Cursor sortCursor(Cursor cursor, Lookup<String, String> fileTypesMap) {
         if (mSortedDimension != null) {
-            return new SortingCursorWrapper(cursor, mSortedDimension);
+            return new SortingCursorWrapper(cursor, mSortedDimension, fileTypesMap);
         } else {
             return cursor;
         }
@@ -251,6 +256,11 @@ public class SortModel implements Parcelable {
                         ContentResolver.QUERY_ARG_SORT_COLUMNS,
                         new String[]{ Document.COLUMN_SIZE });
                 break;
+            case SortModel.SORT_DIMENSION_ID_FILE_TYPE:
+                // Unfortunately sorting by mime type is pretty much guaranteed different from
+                // sorting by user-friendly type, so there is no point to guide the provider to sort
+                // in a particular order.
+                return;
             default:
                 throw new IllegalStateException(
                         "Unexpected sort dimension id: " + id);
@@ -297,6 +307,11 @@ public class SortModel implements Parcelable {
             case SortModel.SORT_DIMENSION_ID_SIZE:
                 columnName = Document.COLUMN_SIZE;
                 break;
+            case SortModel.SORT_DIMENSION_ID_FILE_TYPE:
+                // Unfortunately sorting by mime type is pretty much guaranteed different from
+                // sorting by user-friendly type, so there is no point to guide the provider to sort
+                // in a particular order.
+                return null;
             default:
                 throw new IllegalStateException(
                         "Unexpected sort dimension id: " + id);
@@ -467,6 +482,16 @@ public class SortModel implements Parcelable {
                 .withVisibility(View.VISIBLE)
                 .build()
         );
+
+        // Type column
+        dimensions.add(builder
+            .withId(SORT_DIMENSION_ID_FILE_TYPE)
+            .withLabelId(R.string.sort_dimension_file_type)
+            .withDataType(SortDimension.DATA_TYPE_STRING)
+            .withSortCapability(SortDimension.SORT_CAPABILITY_BOTH_DIRECTION)
+            .withDefaultSortDirection(SortDimension.SORT_DIRECTION_ASCENDING)
+            .withVisibility(View.VISIBLE)
+            .build());
 
         // Date column
         dimensions.add(builder

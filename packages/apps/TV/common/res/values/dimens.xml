@@ -16,10 +16,6 @@
   -->
 
 <resources>
-    <!-- Setup screen -->
-    <dimen name="setup_fragment_enter_from">300dp</dimen>
-    <dimen name="setup_fragment_enter_to">-300dp</dimen>
-
     <!-- Guided step fragment -->
     <dimen name="setup_guidedstep_guidance_section_width_2pane">600dp</dimen>
     <dimen name="setup_guidedstep_guidance_section_width_3pane">476dp</dimen>
@@ -27,10 +23,7 @@
     <dimen name="setup_guidedactions_selector_margin_start">24dp</dimen>
     <dimen name="setup_guidedactions_selector_margin_end">24dp</dimen>
     <dimen name="setup_guidedactions_selector_margin_top">220dp</dimen>
-    <dimen name="setup_guidedactions_item_container_padding_start">40dp</dimen>
-    <dimen name="setup_guidedactions_item_container_padding_end">40dp</dimen>
     <dimen name="setup_guidedactions_vertical_padding">12dp</dimen>
-    <dimen name="setup_guidedactions_vertical_spacing">5dp</dimen>
     <item name="setup_guidedactions_width_weight" format="float" type="string">1</item>
     <dimen name="setup_guidedactions_item_delimiter_padding">10dp</dimen>
 

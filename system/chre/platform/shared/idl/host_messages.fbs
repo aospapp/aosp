@@ -99,6 +99,68 @@ table LoadNanoappResponse {
   // TODO: detailed error code?
 }
 
+table UnloadNanoappRequest {
+  transaction_id:uint;
+
+  app_id:ulong;
+
+  /// Set to true to allow this request to unload nanoapps identified as "system
+  /// nanoapps", i.e. ones with is_system set to true in NanoappListResponse.
+  allow_system_nanoapp_unload:bool;
+}
+
+table UnloadNanoappResponse {
+  transaction_id:uint;
+  success:bool;
+}
+
+/// Represents log messages from CHRE.
+table LogMessage {
+  /// A buffer containing formatted log data. A flat array is used here to avoid
+  /// overhead in serializing and deserializing. The format is as follows:
+  ///
+  /// uint8_t                 - log level (1 = error, 2 = warning,
+  ///                                      3 = info, 4 = debug)
+  /// uint64_t, little-endian - timestamp in nanoseconds
+  /// char[]                  - message to log
+  /// char, \0                - null-terminator
+  ///
+  /// This pattern repeats until the end of the buffer for multiple log
+  /// messages. The last byte will always be a null-terminator. There are no
+  /// padding bytes between these fields. Treat this like a packed struct and be
+  /// cautious with unaligned access when reading/writing this buffer.
+  buffer:[byte];
+}
+
+/// Represents a message sent to CHRE to indicate AP timestamp for time sync
+table TimeSyncMessage {
+  /// Offset between AP and CHRE timestamp
+  offset:long;
+}
+
+/// A request to gather and return debugging information. Only one debug dump
+/// session can be active at a time. Upon accepting a request, zero or more
+/// DebugDumpData messages are generated, followed by a DebugDumpResponse
+/// indicating the completion of the operation.
+table DebugDumpRequest {}
+
+table DebugDumpData {
+  /// Null-terminated ASCII string containing debugging information
+  debug_str:[byte];
+}
+
+table DebugDumpResponse {
+  /// true if the request was accepted and a dump was performed, false if it was
+  /// rejected or failed to complete for some reason
+  success:bool;
+
+  /// The number of DebugDumpData messages sent in this session
+  data_count:uint;
+}
+
+/// A request from CHRE for host to initiate a time sync message
+table TimeSyncRequest {}
+
 /// A union that joins together all possible messages. Note that in FlatBuffers,
 /// unions have an implicit type
 union ChreMessage {
@@ -113,7 +175,18 @@ union ChreMessage {
   LoadNanoappRequest,
   LoadNanoappResponse,
 
-  // TODO: extend with system-specific messages, e.g. load app command, etc.
+  UnloadNanoappRequest,
+  UnloadNanoappResponse,
+
+  LogMessage,
+
+  TimeSyncMessage,
+
+  DebugDumpRequest,
+  DebugDumpData,
+  DebugDumpResponse,
+
+  TimeSyncRequest,
 }
 
 struct HostAddress {
@@ -121,8 +194,8 @@ struct HostAddress {
 }
 
 /// The top-level container that encapsulates all possible messages. Note that
-/// per FlatBuffers requirements, we can't use a union as the top-level structure
-/// (root type), so we must wrap it in a table.
+/// per FlatBuffers requirements, we can't use a union as the top-level
+/// structure (root type), so we must wrap it in a table.
 table MessageContainer {
   message:ChreMessage (required);
 

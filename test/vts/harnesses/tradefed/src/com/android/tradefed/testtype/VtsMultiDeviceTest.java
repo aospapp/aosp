@@ -34,18 +34,24 @@ import com.android.tradefed.util.StreamUtil;
 import com.android.tradefed.util.JsonUtil;
 import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.RunUtil;
+import com.android.tradefed.util.VtsDashboardUtil;
+import com.android.tradefed.util.VtsVendorConfigFileUtil;
 import com.android.tradefed.testtype.IAbi;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONException;
 
+import java.io.FileReader;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintWriter;
 import java.nio.file.Paths;
 import java.util.TreeSet;
 import java.util.Set;
@@ -73,7 +79,10 @@ IRuntimeHintProvider, ITestCollector, IBuildReceiver, IAbiReceiver {
     static final String WINDOWS = "Windows";
     static final String PYTHONPATH = "PYTHONPATH";
     static final String SERIAL = "serial";
+    static final String TESTMODULE = "TestModule";
+    static final String TEST_PLAN_REPORT_FILE = "TEST_PLAN_REPORT_FILE";
     static final String TEST_SUITE = "test_suite";
+    static final String TEST_MAX_TIMEOUT = "test_max_timeout";
     static final String VIRTUAL_ENV_PATH = "VIRTUALENVPATH";
     static final String ABI_NAME = "abi_name";
     static final String ABI_BITNESS = "abi_bitness";
@@ -85,6 +94,7 @@ IRuntimeHintProvider, ITestCollector, IBuildReceiver, IAbiReceiver {
     static final String CONFIG_FILE_EXTENSION = ".config";
     static final String INCLUDE_FILTER = "include_filter";
     static final String EXCLUDE_FILTER = "exclude_filter";
+    static final String EXCLUDE_OVER_INCLUDE = "exclude_over_include";
     static final String BINARY_TEST_SOURCE = "binary_test_source";
     static final String BINARY_TEST_WORKING_DIRECTORY = "binary_test_working_directory";
     static final String BINARY_TEST_ENVP = "binary_test_envp";
@@ -98,17 +108,25 @@ IRuntimeHintProvider, ITestCollector, IBuildReceiver, IAbiReceiver {
     static final String BINARY_TEST_TYPE_HAL_HIDL_GTEST = "hal_hidl_gtest";
     static final String BINARY_TEST_TYPE_HAL_HIDL_REPLAY_TEST = "hal_hidl_replay_test";
     static final String BINARY_TEST_TYPE_HOST_BINARY_TEST = "host_binary_test";
-    static final String ENABLE_PROFILING = "enable_profiling";
+    static final String BUG_REPORT_ON_FAILURE = "bug_report_on_failure";
     static final String ENABLE_COVERAGE = "enable_coverage";
+    static final String ENABLE_PROFILING = "enable_profiling";
+    static final String GTEST_BATCH_MODE = "gtest_batch_mode";
+    static final String SAVE_TRACE_FIEL_REMOTE = "save_trace_file_remote";
+    static final String OUTPUT_COVERAGE_REPORT = "output_coverage_report";
+    static final String GLOBAL_COVERAGE = "global_coverage";
+    static final String LTP_NUMBER_OF_THREADS = "ltp_number_of_threads";
     static final String NATIVE_SERVER_PROCESS_NAME = "native_server_process_name";
     static final String PASSTHROUGH_MODE = "passthrough_mode";
     static final String PRECONDITION_HWBINDER_SERVICE = "precondition_hwbinder_service";
     static final String PRECONDITION_FEATURE = "precondition_feature";
     static final String PRECONDITION_FILE_PATH_PREFIX = "precondition_file_path_prefix";
     static final String PRECONDITION_LSHAL = "precondition_lshal";
+    static final String PRECONDITION_VINTF = "precondition_vintf";
     static final String ENABLE_SYSTRACE = "enable_systrace";
     static final String HAL_HIDL_REPLAY_TEST_TRACE_PATHS = "hal_hidl_replay_test_trace_paths";
     static final String HAL_HIDL_PACKAGE_NAME = "hal_hidl_package_name";
+    static final String REPORT_MESSAGE_FILE_NAME = "report_proto.msg";
     static final String SYSTRACE_PROCESS_NAME = "systrace_process_name";
     static final String TEMPLATE_BINARY_TEST_PATH = "vts/testcases/template/binary_test/binary_test";
     static final String TEMPLATE_GTEST_BINARY_TEST_PATH = "vts/testcases/template/gtest_binary_test/gtest_binary_test";
@@ -116,6 +134,7 @@ IRuntimeHintProvider, ITestCollector, IBuildReceiver, IAbiReceiver {
     static final String TEMPLATE_HAL_HIDL_GTEST_PATH = "vts/testcases/template/hal_hidl_gtest/hal_hidl_gtest";
     static final String TEMPLATE_HAL_HIDL_REPLAY_TEST_PATH = "vts/testcases/template/hal_hidl_replay_test/hal_hidl_replay_test";
     static final String TEMPLATE_HOST_BINARY_TEST_PATH = "vts/testcases/template/host_binary_test/host_binary_test";
+    static final long TEST_ABORT_TIMEOUT_MSECS = 1000 * 15;
     static final String TEST_RUN_SUMMARY_FILE_NAME = "test_run_summary.json";
     static final float DEFAULT_TARGET_VERSION = -1;
     static final String DEFAULT_TESTCASE_CONFIG_PATH = "vts/tools/vts-tradefed/res/default/DefaultTestCase.config";
@@ -123,8 +142,11 @@ IRuntimeHintProvider, ITestCollector, IBuildReceiver, IAbiReceiver {
     private ITestDevice mDevice = null;
     private IAbi mAbi = null;
 
-    @Option(name = "test-timeout", description = "maximum amount of time"
-            + "(im milliseconds) tests are allowed to run",
+    @Option(name = "test-timeout",
+            description = "The amount of time (in milliseconds) for a test invocation. "
+                    + "If the test cannot finish before timeout, it should interrupt itself and "
+                    + "clean up in " + TEST_ABORT_TIMEOUT_MSECS + "ms. Hence the actual timeout "
+                    + "is the specified value + " + TEST_ABORT_TIMEOUT_MSECS + "ms.",
             isTimeVal = true)
     private long mTestTimeout = 1000 * 60 * 60 * 3;
 
@@ -156,6 +178,18 @@ IRuntimeHintProvider, ITestCollector, IBuildReceiver, IAbiReceiver {
         description = "The name of a `lshal`-listable feature needed to run the test.")
     private String mPreconditionLshal = null;
 
+    @Option(name = "precondition-vintf",
+            description = "The full name of a HAL specified in vendor/manifest.xml and "
+                    + "needed to run the test (e.g., android.hardware.graphics.mapper@2.0). "
+                    + "this can override precondition-lshal option.")
+    private String mPreconditionVintf = null;
+
+    @Option(name = "precondition-vintf-override",
+            description = "If precondition-lshal is present and precondition-vintf is not, "
+                    + "set precondition-vintf to the value of precondition-lshal. "
+                    + "The test runner will find the HAL in manifest.xml instead of lshal.")
+    private boolean mPreconditionVintfOverride = false;
+
     @Option(name = "use-stdout-logs",
             description = "Flag that determines whether to use std:out to parse output.")
     private boolean mUseStdoutLogs = false;
@@ -168,12 +202,20 @@ IRuntimeHintProvider, ITestCollector, IBuildReceiver, IAbiReceiver {
             description = "The negative filter of the test names to run.")
     private Set<String> mExcludeFilters = new TreeSet<>();
 
+    @Option(name = "exclude-over-include",
+            description = "The negative filter of the test names to run.")
+    private boolean mExcludeOverInclude = false;
+
     @Option(name = "runtime-hint", description = "The hint about the test's runtime.",
             isTimeVal = true)
     private long mRuntimeHint = 60000;  // 1 minute
 
     @Option(name = "enable-profiling", description = "Enable profiling for the tests.")
     private boolean mEnableProfiling = false;
+
+    @Option(name = "save-trace-file-remote",
+            description = "Whether to save the trace file in remote storage.")
+    private boolean mSaveTraceFileRemote = false;
 
     @Option(name = "enable-systrace", description = "Enable systrace for the tests.")
     private boolean mEnableSystrace = false;
@@ -184,6 +226,14 @@ IRuntimeHintProvider, ITestCollector, IBuildReceiver, IAbiReceiver {
                           "build is coverage instrumented.")
     private boolean mEnableCoverage = true;
 
+    @Option(name = "global-coverage", description = "True to measure coverage for entire test, "
+                    + "measure coverage for each test case otherwise. Currently, only global "
+                    + "coverage is supported for binary tests")
+    private boolean mGlobalCoverage = true;
+
+    @Option(name = "output-coverage-report", description = "Whether to store raw coverage report.")
+    private boolean mOutputCoverageReport = false;
+
     // Another design option is to parse a string or use enum for host preference on BINDER,
     // PASSTHROUGH and DEFAULT(which is BINDER). Also in the future, we might want to deal with
     // the case of target preference on PASSTHROUGH (if host does not specify to use BINDER mode).
@@ -191,6 +241,11 @@ IRuntimeHintProvider, ITestCollector, IBuildReceiver, IAbiReceiver {
         + "Value true means use passthrough mode if available; false for binderized mode if "
         + "available. Default is false")
     private boolean mPassthroughMode = false;
+
+    @Option(name = "ltp-number-of-threads",
+            description = "Number of threads to run the LTP test cases. "
+                    + "0 means using number of avaiable CPU threads.")
+    private int mLtpNumberOfThreads = -1;
 
     @Option(name = "skip-on-32bit-abi",
         description = "Whether to skip tests on 32bit ABI.")
@@ -283,6 +338,12 @@ IRuntimeHintProvider, ITestCollector, IBuildReceiver, IAbiReceiver {
             description = "Set to stop all properly configured native servers during the testing.")
     private boolean mBinaryTestStopNativeServers = false;
 
+    @Option(name = "bug-report-on-failure",
+            description = "To catch bugreport zip file at the end of failed test cases. "
+                    + "If set to true, a report will be caught through adh shell command at the end of each failed "
+                    + "test cases.")
+    private boolean mBugReportOnFailure = false;
+
     @Option(name = "native-server-process-name",
             description = "Name of a native server process. The runner checks to make sure "
                     + "each specified native server process is not running after the framework stop.")
@@ -308,6 +369,9 @@ IRuntimeHintProvider, ITestCollector, IBuildReceiver, IAbiReceiver {
                     + "not be actually carried out.")
     private boolean mCollectTestsOnly = false;
 
+    @Option(name = "gtest-batch-mode", description = "Run Gtest binaries in batch mode.")
+    private boolean mGtestBatchMode = false;
+
     // This variable is set in order to include the directory that contains the
     // python test cases. This is set before calling the method.
     // {@link #doRunTest(IRunUtil, String, String)}.
@@ -321,6 +385,8 @@ IRuntimeHintProvider, ITestCollector, IBuildReceiver, IAbiReceiver {
     private String mRunName = "VtsHostDrivenTest";
     // the path of a dir which contains the test data files.
     private String mTestCaseDataDir = "./";
+
+    private VtsVendorConfigFileUtil configReader = null;
 
     /**
      * @return the mRunUtil
@@ -449,6 +515,10 @@ IRuntimeHintProvider, ITestCollector, IBuildReceiver, IAbiReceiver {
                 }
                 CLog.i("Using default test case template at %s.", template);
                 setTestCasePath(template);
+                if (mEnableCoverage && !mGlobalCoverage) {
+                    CLog.e("Only global coverage is supported for test type %s.", mBinaryTestType);
+                    throw new RuntimeException("Failed to produce VTS runner test config");
+                }
             } else if (mBinaryTestType.equals(BINARY_TEST_TYPE_HAL_HIDL_REPLAY_TEST)) {
                 setTestCasePath(TEMPLATE_HAL_HIDL_REPLAY_TEST_PATH);
             } else if (mBinaryTestType.equals(BINARY_TEST_TYPE_LLVMFUZZER)) {
@@ -514,20 +584,11 @@ IRuntimeHintProvider, ITestCollector, IBuildReceiver, IAbiReceiver {
      */
     private void updateVtsRunnerTestConfig(JSONObject jsonObject)
             throws IOException, JSONException, RuntimeException {
-        CLog.i("Load vendor test config %s", "/config/google-tradefed-vts-config.config");
-        InputStream config = getClass().getResourceAsStream("/config/google-tradefed-vts-config.config");
-        if (config != null) {
-            try {
-                String content = StreamUtil.getStringFromStream(config);
-                CLog.i("Loaded vendor test config %s", content);
-                if (content != null) {
-                    JSONObject vendorConfigJson = new JSONObject(content);
-                    JsonUtil.deepMergeJsonObjects(jsonObject, vendorConfigJson);
-                }
-            } catch(IOException e) {
-                throw new RuntimeException("Failed to read vendor config json file");
-            } catch(JSONException e) {
-                throw new RuntimeException("Failed to build updated vendor config json data");
+        configReader = new VtsVendorConfigFileUtil();
+        if (configReader.LoadVendorConfig(mBuildInfo)) {
+            JSONObject vendorConfigJson = configReader.GetVendorConfigJson();
+            if (vendorConfigJson != null) {
+                JsonUtil.deepMergeJsonObjects(jsonObject, vendorConfigJson);
             }
         }
 
@@ -535,13 +596,14 @@ IRuntimeHintProvider, ITestCollector, IBuildReceiver, IAbiReceiver {
         String content = null;
 
         if (mTestConfigPath != null) {
-            content = FileUtil.readStringFromFile(new File(Paths.get(mTestCaseDataDir, mTestConfigPath).toString()));
+            content = FileUtil.readStringFromFile(
+                    new File(Paths.get(mTestCaseDataDir, mTestConfigPath).toString()));
+            CLog.i("Loaded original test config %s", content);
+            if (content != null) {
+                JsonUtil.deepMergeJsonObjects(jsonObject, new JSONObject(content));
+            }
         }
 
-        CLog.i("Loaded original test config %s", content);
-        if (content != null) {
-            JsonUtil.deepMergeJsonObjects(jsonObject, new JSONObject(content));
-        }
         populateDefaultJsonFields(jsonObject, mTestCaseDataDir);
         CLog.i("Built a Json object using the loaded original test config");
 
@@ -565,7 +627,7 @@ IRuntimeHintProvider, ITestCollector, IBuildReceiver, IAbiReceiver {
 
         JSONArray testBedArray = (JSONArray) jsonObject.get("test_bed");
         if (testBedArray.length() == 0) {
-            JSONObject device = new JSONObject();
+            JSONObject testBedItemObject = new JSONObject();
             String testName;
             if (mTestModuleName != null) {
                 testName = mTestModuleName;
@@ -582,12 +644,12 @@ IRuntimeHintProvider, ITestCollector, IBuildReceiver, IAbiReceiver {
                 }
             }
             CLog.logAndDisplay(LogLevel.INFO, "Setting test name as %s", testName);
-            device.put(NAME, testName);
-            device.put(ANDROIDDEVICE, deviceArray);
-            testBedArray.put(device);
+            testBedItemObject.put(NAME, testName);
+            testBedItemObject.put(ANDROIDDEVICE, deviceArray);
+            testBedArray.put(testBedItemObject);
         } else if (testBedArray.length() == 1) {
-            JSONObject device = (JSONObject) testBedArray.get(0);
-            device.put(ANDROIDDEVICE, deviceArray);
+            JSONObject testBedItemObject = (JSONObject) testBedArray.get(0);
+            testBedItemObject.put(ANDROIDDEVICE, deviceArray);
         } else {
             CLog.e("Multi-device not yet supported: %d devices requested",
                     testBedArray.length());
@@ -608,8 +670,17 @@ IRuntimeHintProvider, ITestCollector, IBuildReceiver, IAbiReceiver {
         CLog.i("Added include filter to test suite: %s", mIncludeFilters);
         suite.put(EXCLUDE_FILTER, new JSONArray(mExcludeFilters));
         CLog.i("Added exclude filter to test suite: %s", mExcludeFilters);
+
+        if (mExcludeOverInclude) {
+            jsonObject.put(EXCLUDE_OVER_INCLUDE, mExcludeOverInclude);
+            CLog.i("Added %s to the Json object", EXCLUDE_OVER_INCLUDE);
+        }
+
         jsonObject.put(TEST_SUITE, suite);
         CLog.i("Added %s to the Json object", TEST_SUITE);
+
+        jsonObject.put(TEST_MAX_TIMEOUT, mTestTimeout);
+        CLog.i("Added %s to the Json object: %d", TEST_MAX_TIMEOUT, mTestTimeout);
 
         if (mAbi != null) {
             jsonObject.put(ABI_NAME, mAbi.getName());
@@ -617,10 +688,12 @@ IRuntimeHintProvider, ITestCollector, IBuildReceiver, IAbiReceiver {
             jsonObject.put(ABI_BITNESS, mAbi.getBitness());
             CLog.i("Added %s to the Json object", ABI_BITNESS);
         }
+
         if (mSkipOn32BitAbi) {
             jsonObject.put(SKIP_ON_32BIT_ABI, mSkipOn32BitAbi);
             CLog.i("Added %s to the Json object", SKIP_ON_32BIT_ABI);
         }
+
         if (mSkipOn64BitAbi) {
             jsonObject.put(SKIP_ON_64BIT_ABI, mSkipOn64BitAbi);
             CLog.i("Added %s to the Json object", SKIP_ON_64BIT_ABI);
@@ -628,6 +701,7 @@ IRuntimeHintProvider, ITestCollector, IBuildReceiver, IAbiReceiver {
             jsonObject.put(RUN_32BIT_ON_64BIT_ABI, mRun32bBitOn64BitAbi);
             CLog.i("Added %s to the Json object", RUN_32BIT_ON_64BIT_ABI);
         }
+
         if (mSkipIfThermalThrottling) {
             jsonObject.put(SKIP_IF_THERMAL_THROTTLING, mSkipIfThermalThrottling);
             CLog.i("Added %s to the Json object", SKIP_IF_THERMAL_THROTTLING);
@@ -637,40 +711,62 @@ IRuntimeHintProvider, ITestCollector, IBuildReceiver, IAbiReceiver {
             jsonObject.put(BINARY_TEST_SOURCE, new JSONArray(mBinaryTestSource));
             CLog.i("Added %s to the Json object", BINARY_TEST_SOURCE);
         }
+
         if (!mBinaryTestWorkingDirectory.isEmpty()) {
             jsonObject.put(BINARY_TEST_WORKING_DIRECTORY,
                     new JSONArray(mBinaryTestWorkingDirectory));
             CLog.i("Added %s to the Json object", BINARY_TEST_WORKING_DIRECTORY);
         }
+
         if (!mBinaryTestEnvp.isEmpty()) {
             jsonObject.put(BINARY_TEST_ENVP, new JSONArray(mBinaryTestEnvp));
             CLog.i("Added %s to the Json object", BINARY_TEST_ENVP);
         }
+
         if (!mBinaryTestArgs.isEmpty()) {
             jsonObject.put(BINARY_TEST_ARGS, new JSONArray(mBinaryTestArgs));
             CLog.i("Added %s to the Json object", BINARY_TEST_ARGS);
         }
+
         if (!mBinaryTestLdLibraryPath.isEmpty()) {
             jsonObject.put(BINARY_TEST_LD_LIBRARY_PATH,
                     new JSONArray(mBinaryTestLdLibraryPath));
             CLog.i("Added %s to the Json object", BINARY_TEST_LD_LIBRARY_PATH);
         }
 
+        if (mBugReportOnFailure) {
+            jsonObject.put(BUG_REPORT_ON_FAILURE, mBugReportOnFailure);
+            CLog.i("Added %s to the Json object", BUG_REPORT_ON_FAILURE);
+        }
+
         if (mEnableProfiling) {
             jsonObject.put(ENABLE_PROFILING, mEnableProfiling);
             CLog.i("Added %s to the Json object", ENABLE_PROFILING);
         }
+
+        if (mSaveTraceFileRemote) {
+            jsonObject.put(SAVE_TRACE_FIEL_REMOTE, mSaveTraceFileRemote);
+            CLog.i("Added %s to the Json object", SAVE_TRACE_FIEL_REMOTE);
+        }
+
         if (mEnableSystrace) {
             jsonObject.put(ENABLE_SYSTRACE, mEnableSystrace);
             CLog.i("Added %s to the Json object", ENABLE_SYSTRACE);
         }
+
         if (mEnableCoverage) {
+            jsonObject.put(GLOBAL_COVERAGE, mGlobalCoverage);
             if (coverageBuild) {
                 jsonObject.put(ENABLE_COVERAGE, mEnableCoverage);
                 CLog.i("Added %s to the Json object", ENABLE_COVERAGE);
             } else {
                 CLog.i("Device build has coverage disabled");
             }
+        }
+
+        if (mOutputCoverageReport) {
+            jsonObject.put(OUTPUT_COVERAGE_REPORT, mOutputCoverageReport);
+            CLog.i("Added %s to the Json object", OUTPUT_COVERAGE_REPORT);
         }
 
         if (mPreconditionHwBinderServiceName != null) {
@@ -691,6 +787,21 @@ IRuntimeHintProvider, ITestCollector, IBuildReceiver, IAbiReceiver {
         if (mPreconditionLshal != null) {
             jsonObject.put(PRECONDITION_LSHAL, mPreconditionLshal);
             CLog.i("Added %s to the Json object", PRECONDITION_LSHAL);
+        }
+
+        if (mPreconditionVintf != null) {
+            jsonObject.put(PRECONDITION_VINTF, mPreconditionVintf);
+            CLog.i("Added %s to the Json object", PRECONDITION_VINTF);
+        }
+
+        if (mPreconditionVintfOverride && mPreconditionLshal != null) {
+            if (mPreconditionVintf == null) {
+                jsonObject.put(PRECONDITION_VINTF, mPreconditionLshal);
+                CLog.i("Added %s to the Json object, overriding %s", PRECONDITION_VINTF,
+                        PRECONDITION_LSHAL);
+            } else {
+                CLog.w("Ignored precondition-vintf-override as precondition-vintf is present");
+            }
         }
 
         if (!mBinaryTestProfilingLibraryPath.isEmpty()) {
@@ -734,6 +845,16 @@ IRuntimeHintProvider, ITestCollector, IBuildReceiver, IAbiReceiver {
             jsonObject.put(PASSTHROUGH_MODE, mPassthroughMode);
             CLog.i("Added %s to the Json object", PASSTHROUGH_MODE);
         }
+
+        if (mGtestBatchMode) {
+            jsonObject.put(GTEST_BATCH_MODE, mGtestBatchMode);
+            CLog.i("Added %s to the Json object", GTEST_BATCH_MODE);
+        }
+
+        if (mLtpNumberOfThreads >= 0) {
+            jsonObject.put(LTP_NUMBER_OF_THREADS, mLtpNumberOfThreads);
+            CLog.i("Added %s to the Json object", LTP_NUMBER_OF_THREADS);
+        }
     }
 
     /**
@@ -748,6 +869,25 @@ IRuntimeHintProvider, ITestCollector, IBuildReceiver, IAbiReceiver {
                     "log -p i -t \"VTS\" \"[Test Module] %s %s\"", mTestModuleName, status));
         } catch (DeviceNotAvailableException e) {
             CLog.w("Device unavailable while trying to write a message to logcat.");
+            return false;
+        }
+        return true;
+    }
+
+    private boolean AddTestModuleKeys(String test_module_name, long test_module_timestamp) {
+        if (test_module_name.length() == 0 || test_module_timestamp == -1) {
+            CLog.e(String.format("Test module keys (%s,%d) are invalid.", test_module_name,
+                    test_module_timestamp));
+            return false;
+        }
+        File reportFile = mBuildInfo.getFile(TEST_PLAN_REPORT_FILE);
+
+        try (FileWriter fw = new FileWriter(reportFile.getAbsoluteFile(), true);
+                BufferedWriter bw = new BufferedWriter(fw); PrintWriter out = new PrintWriter(bw)) {
+            out.println(String.format("%s %s", test_module_name, test_module_timestamp));
+        } catch (IOException e) {
+            CLog.e(String.format(
+                    "Can't write to the test plan result file, %s", TEST_PLAN_REPORT_FILE));
             return false;
         }
         return true;
@@ -805,7 +945,8 @@ IRuntimeHintProvider, ITestCollector, IBuildReceiver, IAbiReceiver {
         cmd = ArrayUtil.buildArray(baseOpts, testModule);
 
         printToDeviceLogcatAboutTestModuleStatus("BEGIN");
-        CommandResult commandResult = mRunUtil.runTimedCmd(mTestTimeout, cmd);
+        CommandResult commandResult =
+                mRunUtil.runTimedCmd(mTestTimeout + TEST_ABORT_TIMEOUT_MSECS, cmd);
 
         if (commandResult != null) {
             CommandStatus commandStatus = commandResult.getStatus();
@@ -836,7 +977,7 @@ IRuntimeHintProvider, ITestCollector, IBuildReceiver, IAbiReceiver {
             }
             parser.processNewLines(commandResult.getStdout().split("\n"));
         } else {
-            // parse from test_run_summary.json instead of std:out
+            // parse from test_run_summary.json instead of stdout
             String jsonData = null;
             JSONObject object = null;
             File testRunSummary = getFileTestRunSummary(vtsRunnerLogDir);
@@ -858,8 +999,43 @@ IRuntimeHintProvider, ITestCollector, IBuildReceiver, IAbiReceiver {
                 throw new RuntimeException("Json object is null.");
             }
             parser.processJsonFile(object);
+
+            try {
+                JSONObject planObject = object.getJSONObject(TESTMODULE);
+                String test_module_name = planObject.getString("Name");
+                long test_module_timestamp = planObject.getLong("Timestamp");
+                AddTestModuleKeys(test_module_name, test_module_timestamp);
+            } catch (JSONException e) {
+                CLog.d("Key '%s' not found in result json summary", TESTMODULE);
+            }
         }
         printVtsLogs(vtsRunnerLogDir);
+
+        File reportMsg;
+        int waitCount = 0;
+        // Wait python process to finish for 3 minutes at most
+        while ((reportMsg = FileUtil.findFile(vtsRunnerLogDir, REPORT_MESSAGE_FILE_NAME)) == null
+                && waitCount < 180) {
+            try {
+                Thread.sleep(1000);
+            } catch (Exception e) {
+                System.out.println(e);
+            }
+            waitCount++;
+        }
+
+        CLog.i("Report message path: %s", reportMsg);
+
+        if (reportMsg == null) {
+            CLog.e("Cannot find report message proto file.");
+        } else if (reportMsg.length() > 0) {
+            CLog.i("Uploading report message. File size: %s", reportMsg.length());
+            VtsDashboardUtil dashboardUtil = new VtsDashboardUtil(configReader);
+            dashboardUtil.Upload(reportMsg.getAbsolutePath());
+        } else {
+            CLog.i("Result uploading is not enabled.");
+        }
+
         FileUtil.recursiveDelete(vtsRunnerLogDir);
         CLog.i("Deleted the runner log dir, %s.", vtsRunnerLogDir);
         if (jsonFilePath != null) {

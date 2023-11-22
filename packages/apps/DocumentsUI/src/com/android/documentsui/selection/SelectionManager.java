@@ -19,6 +19,7 @@ package com.android.documentsui.selection;
 import static com.android.documentsui.base.Shared.DEBUG;
 
 import android.annotation.IntDef;
+import android.support.annotation.VisibleForTesting;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 
@@ -186,6 +187,7 @@ public final class SelectionManager {
         return dest;
     }
 
+    @VisibleForTesting
     public void replaceSelection(Iterable<String> ids) {
         clearSelection();
         setItemsSelected(ids, true);
@@ -395,6 +397,13 @@ public final class SelectionManager {
         if (canSetState(id, false)) {
             mSelection.remove(id);
             notifyItemStateChanged(id, false);
+
+            // if there's nothing in the selection and there is an active ranger it results
+            // in unexpected behavior when the user tries to start range selection: the item
+            // which the ranger 'thinks' is the already selected anchor becomes unselectable
+            if (mSelection.isEmpty() && isRangeSelectionActive()) {
+                endRangeSelection();
+            }
             if (DEBUG) Log.d(TAG, "Selection after deselect: " + mSelection);
             return true;
         } else {

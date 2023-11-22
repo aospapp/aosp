@@ -19,6 +19,7 @@
 #include "art_method-inl.h"
 #include "jit/jit.h"
 #include "jit/jit_code_cache.h"
+#include "linear_alloc.h"
 #include "runtime.h"
 #include "scoped_thread_state_change-inl.h"
 #include "stack.h"
@@ -31,34 +32,24 @@ namespace art {
 void ClassHierarchyAnalysis::AddDependency(ArtMethod* method,
                                            ArtMethod* dependent_method,
                                            OatQuickMethodHeader* dependent_header) {
-  auto it = cha_dependency_map_.find(method);
-  if (it == cha_dependency_map_.end()) {
-    cha_dependency_map_[method] =
-        new std::vector<std::pair<art::ArtMethod*, art::OatQuickMethodHeader*>>();
-    it = cha_dependency_map_.find(method);
-  } else {
-    DCHECK(it->second != nullptr);
-  }
-  it->second->push_back(std::make_pair(dependent_method, dependent_header));
+  const auto it = cha_dependency_map_.insert(
+      decltype(cha_dependency_map_)::value_type(method, ListOfDependentPairs())).first;
+  it->second.push_back({dependent_method, dependent_header});
 }
 
-std::vector<std::pair<ArtMethod*, OatQuickMethodHeader*>>*
-    ClassHierarchyAnalysis::GetDependents(ArtMethod* method) {
+static const ClassHierarchyAnalysis::ListOfDependentPairs s_empty_vector;
+
+const ClassHierarchyAnalysis::ListOfDependentPairs& ClassHierarchyAnalysis::GetDependents(
+    ArtMethod* method) {
   auto it = cha_dependency_map_.find(method);
   if (it != cha_dependency_map_.end()) {
-    DCHECK(it->second != nullptr);
     return it->second;
   }
-  return nullptr;
+  return s_empty_vector;
 }
 
-void ClassHierarchyAnalysis::RemoveDependencyFor(ArtMethod* method) {
-  auto it = cha_dependency_map_.find(method);
-  if (it != cha_dependency_map_.end()) {
-    auto dependents = it->second;
-    cha_dependency_map_.erase(it);
-    delete dependents;
-  }
+void ClassHierarchyAnalysis::RemoveAllDependenciesFor(ArtMethod* method) {
+  cha_dependency_map_.erase(method);
 }
 
 void ClassHierarchyAnalysis::RemoveDependentsWithMethodHeaders(
@@ -66,20 +57,19 @@ void ClassHierarchyAnalysis::RemoveDependentsWithMethodHeaders(
   // Iterate through all entries in the dependency map and remove any entry that
   // contains one of those in method_headers.
   for (auto map_it = cha_dependency_map_.begin(); map_it != cha_dependency_map_.end(); ) {
-    auto dependents = map_it->second;
-    for (auto vec_it = dependents->begin(); vec_it != dependents->end(); ) {
-      OatQuickMethodHeader* method_header = vec_it->second;
-      auto it = std::find(method_headers.begin(), method_headers.end(), method_header);
-      if (it != method_headers.end()) {
-        vec_it = dependents->erase(vec_it);
-      } else {
-        vec_it++;
-      }
-    }
+    ListOfDependentPairs& dependents = map_it->second;
+    dependents.erase(
+        std::remove_if(
+            dependents.begin(),
+            dependents.end(),
+            [&method_headers](MethodAndMethodHeaderPair& dependent) {
+              return method_headers.find(dependent.second) != method_headers.end();
+            }),
+        dependents.end());
+
     // Remove the map entry if there are no more dependents.
-    if (dependents->empty()) {
+    if (dependents.empty()) {
       map_it = cha_dependency_map_.erase(map_it);
-      delete dependents;
     } else {
       map_it++;
     }
@@ -554,11 +544,7 @@ void ClassHierarchyAnalysis::InvalidateSingleImplementationMethods(
         }
 
         // Invalidate all dependents.
-        auto dependents = GetDependents(invalidated);
-        if (dependents == nullptr) {
-          continue;
-        }
-        for (const auto& dependent : *dependents) {
+        for (const auto& dependent : GetDependents(invalidated)) {
           ArtMethod* method = dependent.first;;
           OatQuickMethodHeader* method_header = dependent.second;
           VLOG(class_linker) << "CHA invalidated compiled code for " << method->PrettyMethod();
@@ -567,7 +553,7 @@ void ClassHierarchyAnalysis::InvalidateSingleImplementationMethods(
               method, method_header);
           dependent_method_headers.insert(method_header);
         }
-        RemoveDependencyFor(invalidated);
+        RemoveAllDependenciesFor(invalidated);
       }
     }
 
@@ -579,6 +565,19 @@ void ClassHierarchyAnalysis::InvalidateSingleImplementationMethods(
     size_t threads_running_checkpoint = runtime->GetThreadList()->RunCheckpoint(&checkpoint);
     if (threads_running_checkpoint != 0) {
       checkpoint.WaitForThreadsToRunThroughCheckpoint(threads_running_checkpoint);
+    }
+  }
+}
+
+void ClassHierarchyAnalysis::RemoveDependenciesForLinearAlloc(const LinearAlloc* linear_alloc) {
+  MutexLock mu(Thread::Current(), *Locks::cha_lock_);
+  for (auto it = cha_dependency_map_.begin(); it != cha_dependency_map_.end(); ) {
+    // Use unsafe to avoid locking since the allocator is going to be deleted.
+    if (linear_alloc->ContainsUnsafe(it->first)) {
+      // About to delete the ArtMethod, erase the entry from the map.
+      it = cha_dependency_map_.erase(it);
+    } else {
+      ++it;
     }
   }
 }

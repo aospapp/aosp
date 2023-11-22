@@ -17,6 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"საგანგებო ინფორმაცია"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"სამედიცინო ინფორმაცია"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"ინფორმაციის რედაქტირება"</string>
     <string name="edit_info" msgid="5973929805855224805">"საგანგებო ინფორმაციის რედაქტირება"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"ინფორმაცია"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"კონტაქტები"</string>
@@ -68,7 +70,7 @@
     <string name="b_negative" msgid="4110646487598488955">"მესამე ჯგუფის რეზუსუარყოფითი"</string>
     <string name="ab_positive" msgid="1931300033534642005">"მეოთხე ჯგუფის რეზუსდადებითი"</string>
     <string name="ab_negative" msgid="2064555613093591729">"მეოთხე ჯგუფის რეზუსუარყოფითი"</string>
-    <string name="h_h" msgid="2183333409760379720">"ბომბეის ფენომენი"</string>
+    <string name="h_h" msgid="2183333409760379720">"H H ბომბეის ტიპი"</string>
     <string name="allergies" msgid="2789200777539258165">"ალერგია"</string>
     <string name="unknown_allergies" msgid="4383115953418061237">"უცნობია"</string>
     <string name="allergies_hint" msgid="5488918780522184147">"მაგალითად, მიწის თხილი"</string>
@@ -96,12 +98,12 @@
     <string name="cancel" msgid="7401575239009060939">"გაუქმება"</string>
     <string name="ok" msgid="163967937451981024">"კარგი"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"საგანგებო ინფორმაცია"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"თქვენ მიერ აქ შეყვანილი ინფორმაცია საგანგებო ვითარებაში სწრაფი რეაგირების სამსახურებს შეუწყობს ხელს. ის მხოლოდ თქვენს მოწყობილობაზე შეინახება და ნებისმიერი პირი შეძლებს მის წაკითხვას საგანგებო დარეკვის აპიდან, თქვენი ტელეფონის განბლოკვის გარეშე."</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"გაგრძელება"</string>
     <string name="no_info_provided" msgid="716200382010821001">"ტელეფონის მფლობელის შესახებ ინფორმაცია არ არის"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"თუ ეს თქვენი ტელეფონია, შეეხეთ ფანქრის ხატულას და დაამატეთ ინფორმაცია, რომელიც აქ საგანგებო ვითარების შემთხვევაში გამოჩნდება"</string>
     <string name="clear_all" msgid="8899013032870561633">"ყველაფრის გასუფთავება"</string>
     <string name="clear" msgid="3648880442502887163">"გასუფთავება"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"გსურთ ინფორმაციისა და კონტაქტების მთლიანად გასუფთავება?"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"სამედიცინო ინფორმაციისა და გადაუდებელი შემთხვევისას საკონტაქტო პირების დამატება საგანგებო ვითარებაში სწრაფი რეაგირების სამსახურებს შეუწყობს ხელს.\n\nამ ინფორმაციის წაკითხვას ნებისმიერი პირი შეძლებს თქვენი ჩაკეტილი ეკრანიდან, ტელეფონის განბლოკვის საჭიროების გარეშე."</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"დაამატეთ საგანგებო ვითარებაში გამოსაყენებელი ინფორმაცია"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"დაეხმარეთ საგანგებო ვითარებაში სწრაფი რეაგირების სამსახურებს მნიშვნელოვანი ინფორმაციის პოვნაში"</string>
 </resources>

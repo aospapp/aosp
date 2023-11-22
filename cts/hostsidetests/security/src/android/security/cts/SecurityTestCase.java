@@ -20,6 +20,9 @@ import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.NativeDevice;
 import com.android.tradefed.testtype.DeviceTestCase;
+import com.android.tradefed.log.LogUtil.CLog;
+
+import java.util.regex.Pattern;
 
 public class SecurityTestCase extends DeviceTestCase {
 
@@ -32,17 +35,34 @@ public class SecurityTestCase extends DeviceTestCase {
     public void setUp() throws Exception {
         super.setUp();
 
+        String uptime = getDevice().executeShellCommand("cat /proc/uptime");
         kernelStartTime = System.currentTimeMillis()/1000 -
-            Integer.parseInt(getDevice().executeShellCommand("cut -f1 -d. /proc/uptime").trim());
+            Integer.parseInt(uptime.substring(0, uptime.indexOf('.')));
         //TODO:(badash@): Watch for other things to track.
         //     Specifically time when app framework starts
     }
 
     /**
-     * Use {@link NativeDevice#enableAdbRoot()} internally.
+     * Allows a CTS test to pass if called after a planned reboot.
      */
-    public void enableAdbRoot(ITestDevice mDevice) throws DeviceNotAvailableException {
-        mDevice.enableAdbRoot();
+    public void updateKernelStartTime() throws Exception {
+        kernelStartTime = System.currentTimeMillis()/1000 -
+            Integer.parseInt(getDevice().executeShellCommand("cut -f1 -d. /proc/uptime").trim());
+    }
+
+    /**
+     * Use {@link NativeDevice#enableAdbRoot()} internally.
+     *
+     * The test methods calling this function should run even if enableAdbRoot fails, which is why 
+     * the return value is ignored. However, we may want to act on that data point in the future.
+     */
+    public boolean enableAdbRoot(ITestDevice mDevice) throws DeviceNotAvailableException {
+        if(mDevice.enableAdbRoot()) {
+            return true;
+        } else {
+            CLog.w("\"enable-root\" set to false! Root is required to check if device is vulnerable.");
+            return false;
+        }
     }
 
     /**
@@ -63,21 +83,20 @@ public class SecurityTestCase extends DeviceTestCase {
     @Override
     public void tearDown() throws Exception {
         getDevice().waitForDeviceOnline(60 * 1000);
+        String uptime = getDevice().executeShellCommand("cat /proc/uptime");
         assertTrue("Phone has had a hard reset",
             (System.currentTimeMillis()/1000 -
-                Integer.parseInt(getDevice().executeShellCommand("cut -f1 -d. /proc/uptime").trim())
+                Integer.parseInt(uptime.substring(0, uptime.indexOf('.')))
                     - kernelStartTime < 2));
         //TODO(badash@): add ability to catch runtime restart
         getDevice().disableAdbRoot();
     }
 
-    /**
-     * Runs an info disclosure
-     **/
-    public void infoDisclosure(
-        String pocName, ITestDevice device, int timeout, String pattern ) throws Exception {
+    public void assertMatches(String pattern, String input) throws Exception {
+        assertTrue("Pattern not found", Pattern.matches(pattern, input));
+    }
 
-        assertTrue("Pattern found. Info Disclosed.",
-                    AdbUtils.detectInformationDisclosure(pocName, device, timeout, pattern));
-     }
+    public void assertNotMatches(String pattern, String input) throws Exception {
+        assertFalse("Pattern found", Pattern.matches(pattern, input));
+    }
 }

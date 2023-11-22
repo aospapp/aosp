@@ -16,29 +16,38 @@ struct nfct_handle *nfct_open_nfnl(struct nfnl_handle *nfnlh,
 				   uint8_t subsys_id,
 				   unsigned int subscriptions)
 {
+
+	return nfct_open_nfnl2(nfnlh, subsys_id, subscriptions, true);
+}
+
+struct nfct_handle *nfct_open_nfnl2(struct nfnl_handle *nfnlh,
+				   uint8_t subsys_id,
+				   unsigned int subscriptions, bool bind)
+{
 	struct nfct_handle *cth;
 
 	cth = malloc(sizeof(struct nfct_handle));
 	if (!cth)
 		return NULL;
-	
 	memset(cth, 0, sizeof(*cth));
 	cth->nfnlh = nfnlh;
 
 	if (subsys_id == 0 || subsys_id == NFNL_SUBSYS_CTNETLINK) {
-		cth->nfnlssh_ct = nfnl_subsys_open(cth->nfnlh, 
-						   NFNL_SUBSYS_CTNETLINK, 
+		cth->nfnlssh_ct = nfnl_subsys_open2(cth->nfnlh,
+						   NFNL_SUBSYS_CTNETLINK,
 						   IPCTNL_MSG_MAX,
-						   subscriptions);
+						   subscriptions,
+						   bind);
 		if (!cth->nfnlssh_ct)
 			goto out_free;
 	}
 
 	if (subsys_id == 0 || subsys_id == NFNL_SUBSYS_CTNETLINK_EXP) {
-		cth->nfnlssh_exp = nfnl_subsys_open(cth->nfnlh,
+		cth->nfnlssh_exp = nfnl_subsys_open2(cth->nfnlh,
 						    NFNL_SUBSYS_CTNETLINK_EXP,
 						    IPCTNL_MSG_EXP_MAX,
-						    subscriptions);
+						    subscriptions,
+						    bind);
 		if (!cth->nfnlssh_exp)
 			goto out_free;
 	}
@@ -57,7 +66,6 @@ out_free:
 	free(cth);
 	return NULL;
 }
-
 /**
  * \defgroup LibrarySetup Library setup
  * @{
@@ -92,7 +100,39 @@ struct nfct_handle *nfct_open(uint8_t subsys_id, unsigned subscriptions)
 	nfcth = nfct_open_nfnl(nfnlh, subsys_id, subscriptions);
 	if (!nfcth)
 		nfnl_close(nfnlh);
+	return nfcth;
+}
 
+/**
+ * nfct_open2 - open a ctnetlink handler by given fd
+ * \param subsys_id can be NFNL_SUBSYS_CTNETLINK or NFNL_SUBSYS_CTNETLINK_EXP
+ * \param subscriptions ctnetlink groups to subscribe to events
+ * \param fd use bound file descriptor to get nfnl_handle
+ *
+ * This function returns a handler to send commands to and receive replies from
+ * kernel-space. You can pass the following subsystem IDs:
+ *
+ * - NFNL_SUBSYS_CTNETLINK: if you are only interested in conntrack operations
+ * (excluding expectations).
+ * - NFNL_SUBSYS_CTNETLINK_EXP: if you are only interested in expectation
+ * operations (exclude conntracks).
+ * - NFNL_SUBSYS_NONE: if you are interested in both conntrack and expectation
+ * operations.
+ *
+ * On error, NULL is returned and errno is explicitly set.
+ */
+struct nfct_handle *nfct_open2(uint8_t subsys_id, unsigned subscriptions, int fd)
+{
+	struct nfnl_handle *nfnlh = nfnl_open2(fd, false);
+	struct nfct_handle *nfcth;
+
+	if (!nfnlh)
+		return NULL;
+
+	nfcth = nfct_open_nfnl2(nfnlh, subsys_id, subscriptions, false);
+	if (!nfcth) {
+		nfnl_close2(nfnlh);
+	}
 	return nfcth;
 }
 
@@ -103,6 +143,18 @@ struct nfct_handle *nfct_open(uint8_t subsys_id, unsigned subscriptions)
  * This function returns -1 on error and errno is explicitly set.
  */
 int nfct_close(struct nfct_handle *cth)
+{
+	return nfct_close2(cth, false);
+}
+
+/**
+ * nfct_close2 - close a ctnetlink handler
+ * \param cth handler obtained via nfct_open()
+ * \param keep_fd to indicate not close the file descriptor
+ *
+ * This function returns -1 on error and errno is explicitly set.
+ */
+int nfct_close2(struct nfct_handle *cth, bool keep_fd)
 {
 	int err;
 
@@ -131,6 +183,9 @@ int nfct_close(struct nfct_handle *cth)
 	cth->nfnl_cb_exp.data = NULL;
 	cth->nfnl_cb_exp.attr_count = 0;
 
+	if (keep_fd)
+		err = nfnl_close2(cth->nfnlh);
+	else
 	err = nfnl_close(cth->nfnlh);
 	free(cth);
 

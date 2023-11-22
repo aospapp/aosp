@@ -29,16 +29,21 @@ import android.content.DialogInterface.OnClickListener;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.provider.CallLog.Calls;
+import android.support.annotation.NonNull;
 import com.android.dialer.app.R;
+import com.android.dialer.common.Assert;
 import com.android.dialer.phonenumbercache.CachedNumberLookupService;
 import com.android.dialer.phonenumbercache.PhoneNumberCache;
 
 /** Dialog that clears the call log after confirming with the user */
 public class ClearCallLogDialog extends DialogFragment {
 
+  private Listener listener;
+
   /** Preferred way to show this dialog */
-  public static void show(FragmentManager fragmentManager) {
+  public static void show(FragmentManager fragmentManager, @NonNull Listener listener) {
     ClearCallLogDialog dialog = new ClearCallLogDialog();
+    dialog.listener = Assert.isNotNull(listener);
     dialog.show(fragmentManager, "deleteCallLog");
   }
 
@@ -54,7 +59,7 @@ public class ClearCallLogDialog extends DialogFragment {
                 ProgressDialog.show(
                     getActivity(), getString(R.string.clearCallLogProgress_title), "", true, false);
             progressDialog.setOwnerActivity(getActivity());
-            CallLogNotificationsService.markNewMissedCallsAsOld(getContext(), null);
+            CallLogNotificationsService.cancelAllMissedCalls(getContext());
             final AsyncTask<Void, Void, Void> task =
                 new AsyncTask<Void, Void, Void>() {
                   @Override
@@ -76,6 +81,7 @@ public class ClearCallLogDialog extends DialogFragment {
                       return;
                     }
 
+                    listener.callHistoryDeleted();
                     if (progressDialog != null && progressDialog.isShowing()) {
                       progressDialog.dismiss();
                     }
@@ -95,5 +101,9 @@ public class ClearCallLogDialog extends DialogFragment {
         .setPositiveButton(android.R.string.ok, okListener)
         .setCancelable(true)
         .create();
+  }
+
+  interface Listener {
+    void callHistoryDeleted();
   }
 }

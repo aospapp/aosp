@@ -6,6 +6,7 @@ import dbus
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.cros import cups
 from autotest_lib.client.cros import debugd_util
 
 _GENERIC_PPD = 'GenericPostScript.ppd.gz'
@@ -128,6 +129,9 @@ class platform_DebugDaemonCupsAddPrinters(test.test):
         @raises TestError: If an unrecognized situation was used.
 
         """
+        # Exits test if platform does not have CUPS
+        cups.has_cups_or_die()
+
         if situation == 'valid_config':
             self.test_valid_config()
         elif situation == 'lpadmin':

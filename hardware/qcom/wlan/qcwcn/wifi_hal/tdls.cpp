@@ -415,7 +415,7 @@ wifi_error wifi_enable_tdls(wifi_interface_handle iface,
     }
 
 cleanup:
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /* wifi_disable_tdls - disables TDLS-auto mode for a specific route
@@ -469,7 +469,7 @@ wifi_error wifi_disable_tdls(wifi_interface_handle iface, mac_addr addr)
 
 cleanup:
     delete pTdlsCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /* wifi_get_tdls_status - allows getting the status of TDLS for a specific
@@ -518,7 +518,7 @@ wifi_error wifi_get_tdls_status(wifi_interface_handle iface, mac_addr addr,
     pTdlsCommand->getStatusRspParams(status);
 
 cleanup:
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }
 
 /* return the current HW + Firmware combination's TDLS capabilities */
@@ -563,5 +563,5 @@ cleanup:
     if (ret < 0)
         memset(capabilities, 0, sizeof(wifi_tdls_capabilities));
     delete pTdlsCommand;
-    return (wifi_error)ret;
+    return mapErrorKernelToWifiHAL(ret);
 }

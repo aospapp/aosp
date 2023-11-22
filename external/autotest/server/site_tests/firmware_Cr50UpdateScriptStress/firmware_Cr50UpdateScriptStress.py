@@ -8,9 +8,10 @@ import time
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import cr50_utils
 from autotest_lib.server import autotest, test
+from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
 
 
-class firmware_Cr50UpdateScriptStress(test.test):
+class firmware_Cr50UpdateScriptStress(FirmwareTest):
     """
     Stress the Cr50 Update Script.
 
@@ -24,7 +25,19 @@ class firmware_Cr50UpdateScriptStress(test.test):
     """
     version = 1
 
-    def run_once(self, host):
+    def cleanup(self):
+        """Reenable CCD before cleanup"""
+        if hasattr(self, "cr50"):
+            self.cr50.ccd_enable()
+
+        super(firmware_Cr50UpdateScriptStress, self).cleanup()
+
+
+    def run_once(self, host, cmdline_args):
+        # Disable CCD so it doesn't interfere with the Cr50 AP usb connection.
+        if hasattr(self, "cr50"):
+            self.cr50.ccd_disable()
+
         # Find the last cr50 update message already in /var/log/messages
         last_message = cr50_utils.CheckForFailures(host, '')
 

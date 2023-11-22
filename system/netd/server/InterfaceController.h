@@ -17,13 +17,24 @@
 #ifndef _INTERFACE_CONTROLLER_H
 #define _INTERFACE_CONTROLLER_H
 
+#include <functional>
 #include <string>
+
+#include <netdutils/Status.h>
+
+// TODO: move InterfaceController into android::net namespace.
+namespace android {
+namespace net {
+class StablePrivacyTest;
+}  // namespace net
+}  // namespace android
 
 class InterfaceController {
 public:
     static void initializeAll();
 
     static int setEnableIPv6(const char *interface, const int on);
+    static android::netdutils::Status setIPv6AddrGenMode(const std::string& interface, int mode);
     static int setAcceptIPv6Ra(const char *interface, const int on);
     static int setAcceptIPv6Dad(const char *interface, const int on);
     static int setIPv6DadTransmits(const char *interface, const char *value);
@@ -43,13 +54,25 @@ public:
             const char *value);
 
 private:
-    static void setAcceptRA(const char* value);
-    static void setAcceptRARouteTable(int tableOrOffset);
-    static void setBaseReachableTimeMs(unsigned int millis);
-    static void setIPv6OptimisticMode(const char *value);
+  friend class android::net::StablePrivacyTest;
 
-    InterfaceController() = delete;
-    ~InterfaceController() = delete;
+  using GetPropertyFn =
+      std::function<std::string(const std::string& key, const std::string& dflt)>;
+  using SetPropertyFn =
+      std::function<android::netdutils::Status(const std::string& key, const std::string& val)>;
+
+  // Helper function exported from this compilation unit for testing.
+  static android::netdutils::Status enableStablePrivacyAddresses(const std::string& iface,
+                                                                 GetPropertyFn getProperty,
+                                                                 SetPropertyFn setProperty);
+
+  static void setAcceptRA(const char* value);
+  static void setAcceptRARouteTable(int tableOrOffset);
+  static void setBaseReachableTimeMs(unsigned int millis);
+  static void setIPv6OptimisticMode(const char* value);
+
+  InterfaceController() = delete;
+  ~InterfaceController() = delete;
 };
 
 #endif

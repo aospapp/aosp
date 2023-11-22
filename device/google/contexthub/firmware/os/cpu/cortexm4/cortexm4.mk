@@ -73,9 +73,9 @@ BADWORDS += "__fixunssfdi=When casting a float to a uint64_t, use floatToUint64"
 BADWORDS += "__fixsfdi=When casting a float to a int64_t, use floatToInt64"
 BADWORDS += "__aeabi_uldivmod=Do not ever divide uint64_t by anything, see cpuMath.h"
 BADWORDS += "__aeabi_ldivmod=Do not ever divide int64_t by anything, see cpuMath.h"
-BADWORDS += "sinf=include nanhub_math.h before using sinf()"
-BADWORDS += "cosf=include nanhub_math.h before using cosf()"
-BADWORDS += "asinf=include nanhub_math.h before using asinf()"
+BADWORDS += "sinf=include nanohub_math.h before using sinf()"
+BADWORDS += "cosf=include nanohub_math.h before using cosf()"
+BADWORDS += "asinf=include nanohub_math.h before using asinf()"
 
 #all softfloat double funcs are forbidden
 BADWORDS += __muldf3 __divdf3 __subdf3 __adddf3 __truncdfsf2

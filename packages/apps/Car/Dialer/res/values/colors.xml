@@ -17,7 +17,7 @@
     <!-- rail -->
     <color name="phone_theme">@color/phone_theme_light</color>
     <color name="phone_theme_light">@color/car_light_blue_800</color>
-    <color name="phone_theme_dark">#ff012c4e</color>
+    <color name="phone_status_bar_theme">@color/car_light_blue_900</color>
     <color name="phone_call">@color/car_green_700</color>
     <color name="phone_end_call">@color/car_red_500a</color>
     <color name="phone_secondary_call_scrim">#990288d1</color>
@@ -28,4 +28,13 @@
 
     <!-- A scrim that covers the background of activities and darkens them for night mode. -->
     <color name="telecom_display_scrim">@android:color/transparent</color>
+
+    <!-- The color of the icons in the search field. -->
+    <color name="search_container_controls_tint">@color/car_grey_800</color>
+
+    <!-- The color of the icons in the contact details page. -->
+    <color name="contact_details_icon_tint">@color/search_container_controls_tint</color>
+
+    <!-- The color of the hint text in the search field. -->
+    <color name="search_container_text_hint">@color/car_grey_400</color>
 </resources>

@@ -82,7 +82,7 @@ public class ChoreographerTest {
 
             // We expect the remaining callbacks to have been invoked once.
             verify(addedCallback1, timeout(NOMINAL_VSYNC_PERIOD * 10).times(1)).run();
-            verify(addedCallback2, times(1)).run();
+            verify(addedCallback2, timeout(NOMINAL_VSYNC_PERIOD * 10).times(1)).run();
             verifyZeroInteractions(removedCallback);
 
             // If we post a callback again, then it should be invoked again.

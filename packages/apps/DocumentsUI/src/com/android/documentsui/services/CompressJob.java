@@ -24,6 +24,7 @@ import android.app.Notification.Builder;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.net.Uri;
+import android.os.Messenger;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 import android.provider.DocumentsContract;
@@ -55,9 +56,9 @@ final class CompressJob extends CopyJob {
      *
      * @see @link {@link Job} constructor for most param descriptions.
      */
-    CompressJob(Context service, Listener listener,
-            String id, DocumentStack destination, UrisSupplier srcs, Features features) {
-        super(service, listener, id, OPERATION_MOVE, destination, srcs, features);
+    CompressJob(Context service, Listener listener, String id, DocumentStack destination,
+            UrisSupplier srcs, Messenger messenger, Features features) {
+        super(service, listener, id, OPERATION_MOVE, destination, srcs, messenger, features);
     }
 
     @Override

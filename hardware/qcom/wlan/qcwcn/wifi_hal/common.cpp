@@ -20,9 +20,11 @@
 #include <netlink-private/object-api.h>
 #include <netlink-private/types.h>
 #include <dlfcn.h>
+#include <pthread.h>
 
 #include "wifi_hal.h"
 #include "common.h"
+#include <errno.h>
 
 interface_info *getIfaceInfo(wifi_interface_handle handle)
 {
@@ -447,3 +449,26 @@ cleanup:
     return LowiWifiHalApi;
 }
 
+wifi_error mapErrorKernelToWifiHAL(int error)
+{
+    if (error >= 0)
+        return WIFI_ERROR_NONE;
+
+    switch (error) {
+        case -EOPNOTSUPP:
+            return WIFI_ERROR_NOT_SUPPORTED;
+        case -EAGAIN:
+            return WIFI_ERROR_NOT_AVAILABLE;
+        case -EINVAL:
+            return WIFI_ERROR_INVALID_ARGS;
+        case -ETIMEDOUT:
+            return WIFI_ERROR_TIMED_OUT;
+        case -ENOMEM:
+            return WIFI_ERROR_OUT_OF_MEMORY;
+        case -EBUSY:
+            return WIFI_ERROR_BUSY;
+        default:
+            return WIFI_ERROR_UNKNOWN;
+    }
+    return WIFI_ERROR_UNKNOWN;
+}

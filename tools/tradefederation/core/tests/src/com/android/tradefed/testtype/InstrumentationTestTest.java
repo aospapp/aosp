@@ -135,6 +135,7 @@ public class InstrumentationTestTest extends TestCase {
         mInstrumentationTest.setTestTimeout(TEST_TIMEOUT);
         mInstrumentationTest.setShellTimeout(SHELL_TIMEOUT);
         mMockRemoteRunner.setMaxTimeToOutputResponse(SHELL_TIMEOUT, TimeUnit.MILLISECONDS);
+        mMockRemoteRunner.setMaxTimeout(0L, TimeUnit.MILLISECONDS);
         mMockRemoteRunner.addInstrumentationArg(InstrumentationTest.TEST_TIMEOUT_INST_ARGS_KEY,
                 Long.toString(SHELL_TIMEOUT));
     }
@@ -288,6 +289,7 @@ public class InstrumentationTestTest extends TestCase {
         setCollectTestsExpectations(collectTestResponse);
         // expect normal mode to be turned back on
         mMockRemoteRunner.setMaxTimeToOutputResponse(TEST_TIMEOUT, TimeUnit.MILLISECONDS);
+        mMockRemoteRunner.setMaxTimeout(0L, TimeUnit.MILLISECONDS);
         mMockRemoteRunner.setTestCollection(false);
 
         // note: expect run to not be reported
@@ -364,6 +366,7 @@ public class InstrumentationTestTest extends TestCase {
         };
         setRerunExpectations(firstRunResponse, false);
         mMockRemoteRunner.setMaxTimeToOutputResponse(SHELL_TIMEOUT, TimeUnit.MILLISECONDS);
+        mMockRemoteRunner.setMaxTimeout(0L, TimeUnit.MILLISECONDS);
         mMockRemoteRunner.addInstrumentationArg(InstrumentationTest.TEST_TIMEOUT_INST_ARGS_KEY,
                 Long.toString(SHELL_TIMEOUT));
         EasyMock.replay(mMockRemoteRunner, mMockTestDevice, mMockListener);
@@ -421,6 +424,7 @@ public class InstrumentationTestTest extends TestCase {
 
         // now expect second run with test collection mode off
         mMockRemoteRunner.setMaxTimeToOutputResponse(TEST_TIMEOUT, TimeUnit.MILLISECONDS);
+        mMockRemoteRunner.setMaxTimeout(0L, TimeUnit.MILLISECONDS);
         mMockRemoteRunner.setTestCollection(false);
         setRunTestExpectations(firstRunAnswer);
 
@@ -584,6 +588,7 @@ public class InstrumentationTestTest extends TestCase {
         mMockRemoteRunner.setDebug(false);
         // expect normal mode to be turned back on
         mMockRemoteRunner.setMaxTimeToOutputResponse(TEST_TIMEOUT, TimeUnit.MILLISECONDS);
+        mMockRemoteRunner.setMaxTimeout(0L, TimeUnit.MILLISECONDS);
         mMockRemoteRunner.setTestCollection(false);
         // We collect successfully 5 tests
         CollectTestAnswer collectTestAnswer =

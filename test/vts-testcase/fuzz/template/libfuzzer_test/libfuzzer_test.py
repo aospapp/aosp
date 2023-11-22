@@ -57,14 +57,14 @@ class LibFuzzerTest(base_test.BaseTestClass):
 
     def tearDownClass(self):
         """Deletes all copied data."""
-        self._dut.adb.shell('rm -rf %s' % self.data_file_path)
+        self._dut.adb.shell('rm -rf %s' % config.FUZZER_TEST_DIR)
         self._dut.start()
 
     def PushFiles(self, src):
         """adb pushes test case file to target."""
         push_src = os.path.join(self.data_file_path, src)
         push_dst = config.FUZZER_TEST_DIR
-        self._dut.adb.push('%s %s' % (push_src, push_dst))
+        self._dut.adb.push('%s %s' % (push_src, push_dst), no_except=True)
         logging.info('Adb pushed: %s \nto: %s', push_src, push_dst)
         return push_dst
 
@@ -93,21 +93,9 @@ class LibFuzzerTest(base_test.BaseTestClass):
         """
         self.PushFiles(test_case.bin_host_path)
         self.CreateCorpusDir(test_case)
-        fuzz_cmd = test_case.GetRunCommand()
-        logging.info('Executing: %s', fuzz_cmd)
-        try:
-            stdout = self._dut.adb.shell('"%s"' % fuzz_cmd)
-            result = {
-                const.STDOUT: stdout,
-                const.STDERR: '',
-                const.EXIT_CODE: 0
-            }
-        except adb.AdbError as e:
-            result = {
-                const.STDOUT: e.stdout,
-                const.STDERR: e.stderr,
-                const.EXIT_CODE: e.ret_code
-            }
+        fuzz_cmd = '"%s"' % test_case.GetRunCommand()
+        result = self._dut.adb.shell(fuzz_cmd, no_except=True)
+
         # TODO: upload the corpus and, possibly, crash log.
         self.AssertTestResult(test_case, result)
 

@@ -9,7 +9,7 @@ NAME = 'bluetooth_AdapterHIDReports.mouse'
 PURPOSE = ('Test bluetooth adapter receiving reports from '
            'bluetooth HID devices.')
 CRITERIA = 'Adapter should receive HID events correctly.'
-ATTRIBUTES = 'suite:bluetooth'
+ATTRIBUTES = 'suite:bluetooth, suite:bluetooth_sanity'
 TIME = 'SHORT'
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'bluetooth'

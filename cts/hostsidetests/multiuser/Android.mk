@@ -27,7 +27,7 @@ LOCAL_JAVA_LIBRARIES := tools-common-prebuilt cts-tradefed tradefed
 LOCAL_CTS_TEST_PACKAGE := android.host.multiuser
 
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 include $(BUILD_CTS_HOST_JAVA_LIBRARY)
 

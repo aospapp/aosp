@@ -36,7 +36,7 @@ public class SimpleTextLineItem extends TextLineItem {
     }
 
     @Override
-    public boolean isEnabled() {
+    public boolean isExpandable() {
         return false;
     }
 

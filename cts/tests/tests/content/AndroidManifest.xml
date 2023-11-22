@@ -28,6 +28,7 @@
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
     <uses-permission android:name="android.permission.BROADCAST_STICKY" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.content.cts.permission.TEST_GRANTED" />
 
     <!-- Used for PackageManager test, don't delete this INTERNET permission -->

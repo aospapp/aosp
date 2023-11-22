@@ -47,3 +47,10 @@ multidexInstaller:
       method void attachBaseContext(class android.content.Context)
       ;
     }
+
+instrumentationTestCase:
+  @@com.android.jack.annotations.ForceInMainDex
+  class *
+    extends {
+      class android.test.InstrumentationTestCase
+    }

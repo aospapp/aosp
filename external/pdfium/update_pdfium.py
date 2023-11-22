@@ -14,26 +14,26 @@ CHROMIUM_DEPS_FILE = "DEPS"
 
 PDFIUM_GIT_REPO = "https://pdfium.googlesource.com/pdfium.git"
 
-MAKE_FILES = ["third_party/pdfiumopenjpeg.mk",
-              "third_party/pdfiumlcms.mk",
-              "third_party/pdfiumjpeg.mk",
-              "third_party/pdfiumagg23.mk",
-              "third_party/pdfiumzlib.mk",
-              "third_party/pdfiumbigint.mk",
-              "third_party/Android.mk",
-              "pdfiumfpdftext.mk",
-              "pdfiumfpdfdoc.mk",
-              "pdfiumfdrm.mk",
-              "pdfiumfxcodec.mk",
-              "pdfiumfpdfapi.mk",
-              "pdfiumfxcrt.mk",
-              "pdfiumfxge.mk",
-              "Android.mk",
-              "pdfiumjavascript.mk",
-              "pdfiumformfiller.mk",
-              "pdfiumfxedit.mk",
-              "pdfiumpdfwindow.mk",
-              "pdfium.mk"]
+MAKE_FILES = ["Android.bp",
+              "third_party/pdfiumopenjpeg.bp",
+              "third_party/pdfiumlcms.bp",
+              "third_party/pdfiumjpeg.bp",
+              "third_party/pdfiumagg23.bp",
+              "third_party/pdfiumzlib.bp",
+              "third_party/pdfiumbigint.bp",
+              "third_party/Android.bp",
+              "pdfiumfpdftext.bp",
+              "pdfiumfpdfdoc.bp",
+              "pdfiumfdrm.bp",
+              "pdfiumfxcodec.bp",
+              "pdfiumfpdfapi.bp",
+              "pdfiumfxcrt.bp",
+              "pdfiumfxge.bp",
+              "pdfiumjavascript.bp",
+              "pdfiumformfiller.bp",
+              "pdfiumfxedit.bp",
+              "pdfiumpdfwindow.bp",
+              "pdfium.bp"]
 
 OWNERS_FILES = ["OWNERS", "docs/OWNERS", "third_party/base/numerics/OWNERS"]
 

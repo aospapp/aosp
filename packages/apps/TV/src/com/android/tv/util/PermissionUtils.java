@@ -47,4 +47,9 @@ public class PermissionUtils {
         return context.checkSelfPermission(PERMISSION_READ_TV_LISTINGS)
                 == PackageManager.PERMISSION_GRANTED;
     }
+
+    public static boolean hasInternet(Context context) {
+        return context.checkSelfPermission("android.permission.INTERNET")
+                == PackageManager.PERMISSION_GRANTED;
+    }
 }

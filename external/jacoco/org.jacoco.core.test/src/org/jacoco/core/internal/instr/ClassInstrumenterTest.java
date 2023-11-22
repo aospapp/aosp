@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,7 +13,6 @@ package org.jacoco.core.internal.instr;
 
 import static org.junit.Assert.assertNull;
 
-import org.jacoco.core.JaCoCo;
 import org.junit.Before;
 import org.junit.Test;
 import org.objectweb.asm.ClassVisitor;
@@ -29,7 +28,7 @@ public class ClassInstrumenterTest implements IProbeArrayStrategy {
 	@Before
 	public void setup() {
 		instrumenter = new ClassInstrumenter(this, new ClassVisitor(
-				JaCoCo.ASM_API_VERSION) {
+				InstrSupport.ASM_API_VERSION) {
 		});
 	}
 
@@ -50,7 +49,7 @@ public class ClassInstrumenterTest implements IProbeArrayStrategy {
 	@Test
 	public void testNoMethodVisitor() {
 		instrumenter = new ClassInstrumenter(this, new ClassVisitor(
-				JaCoCo.ASM_API_VERSION) {
+				InstrSupport.ASM_API_VERSION) {
 			@Override
 			public MethodVisitor visitMethod(int access, String name,
 					String desc, String signature, String[] exceptions) {
@@ -62,7 +61,7 @@ public class ClassInstrumenterTest implements IProbeArrayStrategy {
 
 	// === IProbeArrayStrategy ===
 
-	public int storeInstance(MethodVisitor mv, int variable) {
+	public int storeInstance(MethodVisitor mv, boolean clinit, int variable) {
 		return 0;
 	}
 

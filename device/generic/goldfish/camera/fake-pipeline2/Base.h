@@ -22,7 +22,6 @@
 #ifndef HW_EMULATOR_CAMERA2_BASE_H
 #define HW_EMULATOR_CAMERA2_BASE_H
 
-#include <system/window.h>
 #include <hardware/camera2.h>
 #include <utils/Vector.h>
 

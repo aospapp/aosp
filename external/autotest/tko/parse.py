@@ -16,7 +16,6 @@ import common
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import mail, pidfile
 from autotest_lib.client.common_lib import utils
-from autotest_lib.client.common_lib.cros.graphite import autotest_es
 from autotest_lib.frontend import setup_django_environment
 from autotest_lib.frontend.tko import models as tko_models
 from autotest_lib.server import site_utils
@@ -26,6 +25,12 @@ from autotest_lib.site_utils.sponge_lib import sponge_utils
 from autotest_lib.tko import db as tko_db, utils as tko_utils
 from autotest_lib.tko import models, parser_lib
 from autotest_lib.tko.perf_upload import perf_uploader
+
+try:
+    from chromite.lib import metrics
+except ImportError:
+    metrics = utils.metrics_mock
+
 
 _ParseOptions = collections.namedtuple(
     'ParseOptions', ['reparse', 'mail_on_failure', 'dry_run', 'suite_report',
@@ -325,11 +330,18 @@ def parse_one(db, jobname, path, parse_options):
             job.board = label_info.get('board', None)
             job.suite = label_info.get('suite', None)
 
+    # Record test result size to job_keyvals
+    result_size_info = site_utils.collect_result_sizes(
+            path, log=tko_utils.dprint)
+    job.keyval_dict.update(result_size_info.__dict__)
+
     # Upload job details to Sponge.
     if not dry_run:
         sponge_url = sponge_utils.upload_results(job, log=tko_utils.dprint)
         if sponge_url:
             job.keyval_dict['sponge_url'] = sponge_url
+
+    # TODO(dshi): Update sizes with sponge_invocation.xml and throttle it.
 
     # check for failures
     message_lines = [""]
@@ -359,6 +371,21 @@ def parse_one(db, jobname, path, parse_options):
                 jobname, job,
                 parent_job_id=job_keyval.get(constants.PARENT_JOB_ID, None))
 
+            # Verify the job data is written to the database.
+            if job.tests:
+                tests_in_db = db.find_tests(job_data['job_idx'])
+                tests_in_db_count = len(tests_in_db) if tests_in_db else 0
+                if tests_in_db_count != len(job.tests):
+                    tko_utils.dprint(
+                            'Failed to find enough tests for job_idx: %d. The '
+                            'job should have %d tests, only found %d tests.' %
+                            (job_data['job_idx'], len(job.tests),
+                             tests_in_db_count))
+                    metrics.Counter(
+                            'chromeos/autotest/result/db_save_failure',
+                            description='The number of times parse failed to '
+                            'save job to TKO database.').increment()
+
             # Upload perf values to the perf dashboard, if applicable.
             for test in job.tests:
                 perf_uploader.upload_test(job, test, jobname)
@@ -377,12 +404,8 @@ def parse_one(db, jobname, path, parse_options):
                         afe_job_id=orig_afe_job_id).job_idx
                 _invalidate_original_tests(orig_job_idx, job.index)
     except Exception as e:
-        metadata = {'path': path, 'error': str(e),
-                    'details': traceback.format_exc()}
         tko_utils.dprint("Hit exception while uploading to tko db:\n%s" %
                          traceback.format_exc())
-        autotest_es.post(use_http=True, type_str='parse_failure',
-                         metadata=metadata)
         raise e
 
     # Serializing job into a binary file
@@ -430,7 +453,7 @@ def parse_one(db, jobname, path, parse_options):
                 and os.path.exists(export_to_gcloud_path)):
                 upload_cmd = [export_to_gcloud_path, datastore_creds,
                               timing_log, '--parent_key',
-                              repr(tuple(datastore_parent_key))]
+                              datastore_parent_key]
                 tko_utils.dprint('Start exporting timeline report to gcloud')
                 subprocess.check_output(upload_cmd)
                 tko_utils.dprint('Successfully export timeline report to '
@@ -624,13 +647,6 @@ def main():
 
     except Exception as e:
         pid_file_manager.close_file(1)
-
-        metadata = {'results_dir': results_dir,
-                    'error': str(e),
-                    'details': traceback.format_exc()}
-        autotest_es.post(use_http=True, type_str='parse_failure_final',
-                         metadata=metadata)
-
         raise
     else:
         pid_file_manager.close_file(0)

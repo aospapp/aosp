@@ -77,6 +77,9 @@ class provision_FirmwareUpdate(test.test):
             logging.error(e)
             raise error.TestFail(str(e))
 
+        # DUT reboots after the above firmware_install(). Wait it to boot.
+        host.test_wait_for_boot()
+
         # Only care about the version number.
         firmware_ver = value.rsplit('-', 1)[1]
         if not rw_only:

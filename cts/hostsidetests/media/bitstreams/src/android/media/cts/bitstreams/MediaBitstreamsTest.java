@@ -16,6 +16,7 @@
 package android.media.cts.bitstreams;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
+import com.android.compatibility.common.tradefed.targetprep.MediaPreparer;
 import com.android.compatibility.common.util.MetricsReportLog;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
@@ -32,6 +33,7 @@ import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.util.FileUtil;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -39,6 +41,7 @@ import java.io.PrintStream;
 import java.nio.file.Files;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
@@ -46,12 +49,12 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.junit.Ignore;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized.Parameters;
-import org.junit.runners.Parameterized.UseParametersRunnerFactory;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlPullParserFactory;
@@ -60,16 +63,14 @@ import org.xmlpull.v1.XmlPullParserFactory;
  * Test that verifies video bitstreams decode pixel perfectly
  */
 @OptionClass(alias="media-bitstreams-test")
-@RunWith(DeviceJUnit4Parameterized.class)
-@UseParametersRunnerFactory(DeviceJUnit4ClassRunnerWithParameters.RunnerFactory.class)
-public class MediaBitstreamsTest implements IDeviceTest, IBuildReceiver, IAbiReceiver {
+public abstract class MediaBitstreamsTest implements IDeviceTest, IBuildReceiver, IAbiReceiver {
 
-    @Option(name = MediaBitstreams.OPT_HOST_BITSTEAMS_PATH,
+    @Option(name = MediaBitstreams.OPT_HOST_BITSTREAMS_PATH,
             description = "Absolute path of Ittiam bitstreams (host)",
             mandatory = true)
-    private File mHostBitstreamsPath = new File(MediaBitstreams.DEFAULT_HOST_BITSTREAMS_PATH);
+    private File mHostBitstreamsPath = getDefaultBitstreamsDir();
 
-    @Option(name = MediaBitstreams.OPT_DEVICE_BITSTEAMS_PATH,
+    @Option(name = MediaBitstreams.OPT_DEVICE_BITSTREAMS_PATH,
             description = "Absolute path of Ittiam bitstreams (device)")
     private String mDeviceBitstreamsPath = MediaBitstreams.DEFAULT_DEVICE_BITSTEAMS_PATH;
 
@@ -94,6 +95,34 @@ public class MediaBitstreamsTest implements IDeviceTest, IBuildReceiver, IAbiRec
             description = "Only test bitstreams in this sub-directory")
     private String mPrefix = "";
 
+    private String mPath = "";
+
+    private static ConcurrentMap<String, List<ConformanceEntry>> mResults = new ConcurrentHashMap<>();
+
+    /**
+     * Which subset of bitstreams to test
+     */
+    enum BitstreamPackage {
+        STANDARD,
+        FULL,
+    }
+
+    private BitstreamPackage mPackage = BitstreamPackage.FULL;
+    private BitstreamPackage mPackageToRun = BitstreamPackage.STANDARD;
+
+    static class ConformanceEntry {
+        final String mPath, mCodecName, mStatus;
+        ConformanceEntry(String path, String codecName, String status) {
+            mPath = path;
+            mCodecName = codecName;
+            mStatus = status;
+        }
+        @Override
+        public String toString() {
+            return String.format("%s,%s,%s", mPath, mCodecName, mStatus);
+        }
+    }
+
     /**
      * A helper to access resources in the build.
      */
@@ -102,23 +131,65 @@ public class MediaBitstreamsTest implements IDeviceTest, IBuildReceiver, IAbiRec
     private IAbi mAbi;
     private ITestDevice mDevice;
 
-    @Parameters(name = "{0}")
-    public static Iterable<? extends Object> bitstreams() {
+    static File getDefaultBitstreamsDir() {
+        File mediaDir = MediaPreparer.getDefaultMediaDir();
+        File[] subDirs = mediaDir.listFiles(new FileFilter() {
+            @Override
+            public boolean accept(File child) {
+                return child.isDirectory();
+            }
+        });
+        if (subDirs != null && subDirs.length == 1) {
+            File parent = new File(mediaDir, subDirs[0].getName());
+            return new File(parent, MediaBitstreams.DEFAULT_HOST_BITSTREAMS_PATH);
+        } else {
+            return new File(MediaBitstreams.DEFAULT_HOST_BITSTREAMS_PATH);
+        }
+    }
+
+    static Collection<Object[]> bitstreams(String prefix, BitstreamPackage packageToRun) {
         final String dynConfXml = new File("/", MediaBitstreams.DYNAMIC_CONFIG_XML).toString();
         try (InputStream is = MediaBitstreamsTest.class.getResourceAsStream(dynConfXml)) {
-            List<String> entries = new ArrayList<>();
+            List<Object[]> entries = new ArrayList<>();
             XmlPullParser parser = XmlPullParserFactory.newInstance().newPullParser();
             parser.setInput(is, null);
             parser.nextTag();
             parser.require(XmlPullParser.START_TAG, null, MediaBitstreams.DYNAMIC_CONFIG);
             while (parser.next() != XmlPullParser.END_DOCUMENT) {
-                if (parser.getEventType() != XmlPullParser.START_TAG) {
+                if (parser.getEventType() != XmlPullParser.START_TAG
+                        || !MediaBitstreams.DYNAMIC_CONFIG_ENTRY.equals(parser.getName())) {
                     continue;
                 }
-                String name = parser.getName();
-                if (name.equals(MediaBitstreams.DYNAMIC_CONFIG_ENTRY)) {
-                    final String key = MediaBitstreams.DYNAMIC_CONFIG_KEY;
-                    entries.add(parser.getAttributeValue(null, key));
+                final String key = MediaBitstreams.DYNAMIC_CONFIG_KEY;
+                String bitstream = parser.getAttributeValue(null, key);
+                if (!bitstream.startsWith(prefix)) {
+                    continue;
+                }
+                while (parser.next() != XmlPullParser.END_DOCUMENT) {
+                    if (parser.getEventType() != XmlPullParser.START_TAG) {
+                        continue;
+                    }
+                    if (MediaBitstreams.DYNAMIC_CONFIG_VALUE.equals(parser.getName())) {
+                        parser.next();
+                        break;
+                    }
+                }
+                String format = parser.getText();
+                String[] kvPairs = format.split(",");
+                BitstreamPackage curPackage = BitstreamPackage.FULL;
+                for (String kvPair : kvPairs) {
+                    String[] kv = kvPair.split("=");
+                    if (MediaBitstreams.DYNAMIC_CONFIG_PACKAGE.equals(kv[0])) {
+                        String packageName = kv[1];
+                        try {
+                            curPackage = BitstreamPackage.valueOf(packageName.toUpperCase());
+                        } catch (Exception e) {
+                            CLog.w(e);
+                        }
+                    }
+                }
+                if (curPackage.compareTo(packageToRun) <= 0) {
+                    entries.add(new Object[] {prefix, bitstream, curPackage, packageToRun});
                 }
             }
             return entries;
@@ -128,8 +199,12 @@ public class MediaBitstreamsTest implements IDeviceTest, IBuildReceiver, IAbiRec
         }
     }
 
-    public MediaBitstreamsTest(String prefix) {
+    public MediaBitstreamsTest(String prefix, String path, BitstreamPackage pkg, BitstreamPackage packageToRun
+            ) {
         mPrefix = prefix;
+        mPath = path;
+        mPackage = pkg;
+        mPackageToRun = packageToRun;
     }
 
     @Override
@@ -168,10 +243,38 @@ public class MediaBitstreamsTest implements IDeviceTest, IBuildReceiver, IAbiRec
         return Thread.currentThread().getStackTrace()[2].getMethodName();
     }
 
+    private MetricsReportLog createReport(String methodName) {
+        String className = MediaBitstreamsTest.class.getCanonicalName();
+        MetricsReportLog report = new MetricsReportLog(
+                mBuildHelper.getBuildInfo(), mAbi.getName(),
+                String.format("%s#%s", className, methodName),
+                MediaBitstreams.K_MODULE + "." + this.getClass().getSimpleName(),
+                "media_bitstreams_conformance", true);
+        return report;
+    }
+
+    /**
+     * @param method test method name in the form class#method
+     * @param p path to bitstream
+     * @param d decoder name
+     * @param s test status: unsupported, true, false, crash, or timeout.
+     */
+    private void addConformanceEntry(String method, String p, String d, String s) {
+        MetricsReportLog report = createReport(method);
+        report.addValue(MediaBitstreams.KEY_PATH, p, ResultType.NEUTRAL, ResultUnit.NONE);
+        report.addValue(MediaBitstreams.KEY_CODEC_NAME, d, ResultType.NEUTRAL, ResultUnit.NONE);
+        report.addValue(MediaBitstreams.KEY_STATUS, s, ResultType.NEUTRAL, ResultUnit.NONE);
+        report.submit();
+
+        ConformanceEntry ce = new ConformanceEntry(p, d, s);
+        mResults.putIfAbsent(p, new ArrayList<>());
+        mResults.get(p).add(ce);
+    }
+
     Map<String, String> getArgs() {
         Map<String, String> args = new HashMap<>();
         args.put(MediaBitstreams.OPT_DEBUG_TARGET_DEVICE, Boolean.toString(mDebugTargetDevice));
-        args.put(MediaBitstreams.OPT_DEVICE_BITSTEAMS_PATH, mDeviceBitstreamsPath);
+        args.put(MediaBitstreams.OPT_DEVICE_BITSTREAMS_PATH, mDeviceBitstreamsPath);
         return args;
     }
 
@@ -192,8 +295,7 @@ public class MediaBitstreamsTest implements IDeviceTest, IBuildReceiver, IAbiRec
         @Override
         void process(ITestDevice device, String reportPath)
                 throws DeviceNotAvailableException, IOException {
-            File testDir = mBuildHelper.getTestsDir();
-            File dynamicConfigFile = new File(testDir, MediaBitstreams.K_MODULE + ".dynamic");
+            File dynamicConfigFile = mBuildHelper.getTestFile(MediaBitstreams.K_MODULE + ".dynamic");
             device.pullFile(reportPath, dynamicConfigFile);
             CLog.i("Pulled bitstreams formats to %s", dynamicConfigFile.getPath());
         }
@@ -275,14 +377,9 @@ public class MediaBitstreamsTest implements IDeviceTest, IBuildReceiver, IAbiRec
 
                 String path = lines[i++];
                 mProcessedBitstreams.add(path);
-                String className = MediaBitstreamsTest.class.getCanonicalName();
-                MetricsReportLog report = new MetricsReportLog(
-                        mBuildHelper.getBuildInfo(), mAbi.getName(),
-                        String.format("%s#%s", className, mMethodName),
-                        getClass().getSimpleName(), path);
+                String errMsg;
 
                 boolean failedEarly;
-                String errMsg;
                 if (i < lines.length) {
                     failedEarly = Boolean.parseBoolean(lines[i++]);
                     errMsg = failedEarly ? lines[i++] : "";
@@ -292,27 +389,26 @@ public class MediaBitstreamsTest implements IDeviceTest, IBuildReceiver, IAbiRec
                     mLastCrash = MediaBitstreams.generateCrashSignature(path, "");
                     mProcessedBitstreams.removeLast();
                 }
+
                 if (failedEarly) {
-                    String keyErrMsg = MediaBitstreams.KEY_ERR_MSG;
-                    report.addValue(keyErrMsg, errMsg, ResultType.NEUTRAL, ResultUnit.NONE);
-                    report.submit();
+                    addConformanceEntry(mMethodName, path, null, errMsg);
                     continue;
                 }
 
                 int n = Integer.parseInt(lines[i++]);
                 for (int j = 0; j < n && i < lines.length; j++) {
-                    String name = lines[i++];
+                    String decoderName = lines[i++];
                     String result;
                     if (i < lines.length) {
                         result = lines[i++];
                     } else {
                         result = MediaBitstreams.K_NATIVE_CRASH;
-                        mLastCrash = MediaBitstreams.generateCrashSignature(path, name);
+                        mLastCrash = MediaBitstreams.generateCrashSignature(path, decoderName);
                         mProcessedBitstreams.removeLast();
                     }
-                    report.addValue(name, result, ResultType.NEUTRAL, ResultUnit.NONE);
+                    addConformanceEntry(mMethodName, path, decoderName, result);
                 }
-                report.submit();
+
 
             }
         }
@@ -332,7 +428,8 @@ public class MediaBitstreamsTest implements IDeviceTest, IBuildReceiver, IAbiRec
                 device.pushString(getBitstreamsListString(), mBitstreamsListTxt);
                 return true;
             } catch (RuntimeException e) {
-                CLog.e("Error parsing report; saving report to %s", device.pullFile(reportPath));
+                File hostFile = reportPath == null ? null : device.pullFile(reportPath);
+                CLog.e("Error parsing report; saving report to %s", hostFile);
                 CLog.e(e);
                 return false;
             }
@@ -346,14 +443,28 @@ public class MediaBitstreamsTest implements IDeviceTest, IBuildReceiver, IAbiRec
         ReportProcessor processor = new ProcessBitstreamsFormats();
         processor.processDeviceReport(
                 getDevice(),
-                mBuildHelper.getTestsDir(),
-                getCurrentMethod(), MediaBitstreams.KEY_BITSTREAMS_FORMATS_XML);
+                getCurrentMethod(),
+                MediaBitstreams.KEY_BITSTREAMS_FORMATS_XML);
     }
 
     @Test
-    public void testBitstreamsConformance()
-            throws DeviceNotAvailableException, IOException {
-        testBitstreamsConformance(mPrefix);
+    public void testBitstreamsConformance() {
+        File bitstreamFile = new File(mHostBitstreamsPath, mPath);
+        if (!bitstreamFile.exists()) {
+            // todo(b/65165250): throw Exception once MediaPreparer can auto-download
+            CLog.w(bitstreamFile + " not found; skipping");
+            return;
+        }
+
+        if (!mResults.containsKey(mPath)) {
+            try {
+                testBitstreamsConformance(mPrefix);
+            } catch (DeviceNotAvailableException | IOException e) {
+                String curMethod = getCurrentMethod();
+                addConformanceEntry(curMethod, mPath, MediaBitstreams.K_UNAVAILABLE, e.toString());
+            }
+        }
+        // todo(robertshih): lookup conformance entry; pass/fail based on lookup result
     }
 
     private void testBitstreamsConformance(String prefix)
@@ -364,9 +475,9 @@ public class MediaBitstreamsTest implements IDeviceTest, IBuildReceiver, IAbiRec
         preparer = new SupportedBitstreamsProcessor(prefix, mDebugTargetDevice);
         preparer.processDeviceReport(
                 device,
-                mBuildHelper.getTestsDir(),
                 MediaBitstreams.K_TEST_GET_SUPPORTED_BITSTREAMS,
                 MediaBitstreams.KEY_SUPPORTED_BITSTREAMS_TXT);
+        Collection<Object[]> bitstreams = bitstreams(mPrefix, mPackageToRun);
         Set<String> supportedBitstreams = preparer.getSupportedBitstreams();
         CLog.i("%d supported bitstreams under %s", supportedBitstreams.size(), prefix);
 
@@ -374,35 +485,49 @@ public class MediaBitstreamsTest implements IDeviceTest, IBuildReceiver, IAbiRec
         long size = 0;
         long limit = device.getExternalStoreFreeSpace() * mUtilizationRate * 1024 / 100;
 
-        String currentMethod = getCurrentMethod();
-        Set<String> bitstreams = new LinkedHashSet<>();
-        Iterator<String> iter = supportedBitstreams.iterator();
+        String curMethod = getCurrentMethod();
+        Set<String> toPush = new LinkedHashSet<>();
+        Iterator<Object[]> iter = bitstreams.iterator();
 
-        for (int i = 0; i < supportedBitstreams.size(); i++) {
+        for (int i = 0; i < bitstreams.size(); i++) {
 
             if (n >= mNumBatches) {
                 break;
             }
 
-            String bitstreamPath = iter.next();
-            File bitstreamFile = new File(mHostBitstreamsPath, bitstreamPath);
-            String md5Path = MediaBitstreams.getMd5Path(bitstreamPath);
-            File md5File = new File(mHostBitstreamsPath, md5Path);
-
-            if (md5File.exists() && bitstreamFile.exists()) {
-                size += md5File.length();
-                size += bitstreamFile.length();
-                bitstreams.add(bitstreamPath);
+            String p = (String) iter.next()[1];
+            Map<String, Boolean> decoderCapabilities;
+            decoderCapabilities = preparer.getDecoderCapabilitiesForPath(p);
+            if (decoderCapabilities.isEmpty()) {
+                addConformanceEntry(
+                        curMethod, p,
+                        MediaBitstreams.K_UNAVAILABLE,
+                        MediaBitstreams.K_UNSUPPORTED);
+            }
+            for (Entry<String, Boolean> entry : decoderCapabilities.entrySet()) {
+                Boolean supported = entry.getValue();
+                if (supported) {
+                    File bitstreamFile = new File(mHostBitstreamsPath, p);
+                    String md5Path = MediaBitstreams.getMd5Path(p);
+                    File md5File = new File(mHostBitstreamsPath, md5Path);
+                    if (md5File.exists() && bitstreamFile.exists() && toPush.add(p)) {
+                        size += md5File.length();
+                        size += bitstreamFile.length();
+                    }
+                } else {
+                    String d = entry.getKey();
+                    addConformanceEntry(curMethod, p, d, MediaBitstreams.K_UNSUPPORTED);
+                }
             }
 
-            if (size > limit || i + 1 == supportedBitstreams.size()) {
+            if (size > limit || i + 1 == bitstreams.size()) {
                 ReportProcessor processor;
-                processor = new ProcessBitstreamsValidation(bitstreams, currentMethod);
+                processor = new ProcessBitstreamsValidation(toPush, curMethod);
                 processor.processDeviceReport(
                         device,
-                        mBuildHelper.getTestsDir(),
-                        currentMethod, MediaBitstreams.KEY_BITSTREAMS_VALIDATION_TXT);
-                bitstreams.clear();
+                        curMethod,
+                        MediaBitstreams.KEY_BITSTREAMS_VALIDATION_TXT);
+                toPush.clear();
                 size = 0;
                 n++;
             }

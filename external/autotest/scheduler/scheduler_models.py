@@ -28,7 +28,6 @@ import weakref
 from autotest_lib.client.common_lib import global_config, host_protections
 from autotest_lib.client.common_lib import time_utils
 from autotest_lib.client.common_lib import utils
-from autotest_lib.client.common_lib.cros.graphite import autotest_es
 from autotest_lib.frontend.afe import models, model_attributes
 from autotest_lib.scheduler import drone_manager, email_manager
 from autotest_lib.scheduler import rdb_lib
@@ -348,11 +347,11 @@ class DBObject(object):
 
 
     @classmethod
-    def fetch(cls, where='', params=(), joins='', order_by=''):
+    def fetch_rows(cls, where='', params=(), joins='', order_by=''):
         """
-        Construct instances of our class based on the given database query.
+        Fetch the rows based on the given database query.
 
-        @yields One class instance for each row fetched.
+        @yields the rows fetched by the given query.
         """
         order_by = cls._prefix_with(order_by, 'ORDER BY ')
         where = cls._prefix_with(where, 'WHERE ')
@@ -362,6 +361,17 @@ class DBObject(object):
                                              'where' : where,
                                              'order_by' : order_by})
         rows = _db.execute(query, params)
+        return rows
+
+    @classmethod
+    def fetch(cls, where='', params=(), joins='', order_by=''):
+        """
+        Construct instances of our class based on the given database query.
+
+        @yields One class instance for each row fetched.
+        """
+        rows = cls.fetch_rows(where=where, params=params, joins=joins,
+                              order_by=order_by)
         return [cls(id=row[0], row=row) for row in rows]
 
 
@@ -470,10 +480,17 @@ class HostQueueEntry(DBObject):
     _COMPLETION_COUNT_METRIC = metrics.Counter(
         'chromeos/autotest/scheduler/hqe_completion_count')
 
-    def __init__(self, id=None, row=None, **kwargs):
+    def __init__(self, id=None, row=None, job_row=None, **kwargs):
+        """
+        @param id: ID field from afe_host_queue_entries table.
+                   Either id or row should be specified for initialization.
+        @param row: The DB row for a particular HostQueueEntry.
+                    Either id or row should be specified for initialization.
+        @param job_row: The DB row for the job of this HostQueueEntry.
+        """
         assert id or row
         super(HostQueueEntry, self).__init__(id=id, row=row, **kwargs)
-        self.job = Job(self.job_id)
+        self.job = Job(self.job_id, row=job_row)
 
         if self.host_id:
             self.host = rdb_lib.get_hosts([self.host_id])[0]
@@ -496,6 +513,29 @@ class HostQueueEntry(DBObject):
         clone = cls(row=new_row, new_record=True)
         clone.id = None
         return clone
+
+
+    @classmethod
+    def fetch(cls, where='', params=(), joins='', order_by=''):
+        """
+        Construct instances of our class based on the given database query.
+
+        @yields One class instance for each row fetched.
+        """
+        # Override the original fetch method to pre-fetch the jobs from the DB
+        # in order to prevent each HQE making separate DB queries.
+        rows = cls.fetch_rows(where=where, params=params, joins=joins,
+                              order_by=order_by)
+        if len(rows) <= 1:
+            return [cls(id=row[0], row=row) for row in rows]
+
+        job_params = ', '.join([str(row[1]) for row in rows])
+        job_rows = Job.fetch_rows(where='id IN (%s)' % (job_params))
+        # Create a Job_id to Job_row match dictionary to match the HQE
+        # to its corresponding job.
+        job_dict = {job_row[0]: job_row for job_row in job_rows}
+        return [cls(id=row[0], row=row, job_row=job_dict.get(row[1]))
+                for row in rows]
 
 
     def _view_job_url(self):
@@ -590,27 +630,6 @@ class HostQueueEntry(DBObject):
                  flags_str))
 
 
-    def record_state(self, type_str, state, value):
-        """Record metadata in elasticsearch.
-
-        If ES configured to use http, then we will time that http request.
-        Otherwise, it uses UDP, so we will not need to time it.
-
-        @param type_str: sets the _type field in elasticsearch db.
-        @param state: string representing what state we are recording,
-                      e.g. 'status'
-        @param value: value of the state, e.g. 'verifying'
-        """
-        metadata = {
-            'time_changed': time.time(),
-             state: value,
-            'job_id': self.job_id,
-        }
-        if self.host:
-            metadata['hostname'] = self.host.hostname
-        autotest_es.post(type_str=type_str, metadata=metadata)
-
-
     def set_status(self, status):
         logging.info("%s -> %s", self, status)
 
@@ -643,7 +662,6 @@ class HostQueueEntry(DBObject):
         if should_email_status:
             self._email_on_status(status)
         logging.debug('HQE Set Status Complete')
-        self.record_state('hqe_status', 'status', status)
 
 
     def _on_complete(self, status):
@@ -827,13 +845,12 @@ class HostQueueEntry(DBObject):
         assert self.aborted and not self.complete
 
         Status = models.HostQueueEntry.Status
-        if self.status in (Status.GATHERING, Status.PARSING, Status.ARCHIVING):
+        if self.status in {Status.GATHERING, Status.PARSING}:
             # do nothing; post-job tasks will finish and then mark this entry
             # with status "Aborted" and take care of the host
             return
 
-        if self.status in (Status.STARTING, Status.PENDING, Status.RUNNING,
-                           Status.WAITING):
+        if self.status in {Status.STARTING, Status.PENDING, Status.RUNNING}:
             # If hqe is in any of these status, it should not have any
             # unfinished agent before it can be aborted.
             agents = dispatcher.get_agents_for_entry(self)
@@ -940,53 +957,6 @@ class Job(DBObject):
 
     def tag(self):
         return "%s-%s" % (self.id, self.owner)
-
-
-    def is_image_update_job(self):
-        """
-        Discover if the current job requires an OS update.
-
-        @return: True/False if OS should be updated before job is run.
-        """
-        # All image update jobs have the parameterized_job_id set.
-        if not self.parameterized_job_id:
-            return False
-
-        # Retrieve the ID of the ParameterizedJob this job is an instance of.
-        rows = _db.execute("""
-                SELECT test_id
-                FROM afe_parameterized_jobs
-                WHERE id = %s
-                """, (self.parameterized_job_id,))
-        if not rows:
-            return False
-        test_id = rows[0][0]
-
-        # Retrieve the ID of the known autoupdate_ParameterizedJob.
-        rows = _db.execute("""
-                SELECT id
-                FROM afe_autotests
-                WHERE name = 'autoupdate_ParameterizedJob'
-                """)
-        if not rows:
-            return False
-        update_id = rows[0][0]
-
-        # If the IDs are the same we've found an image update job.
-        if test_id == update_id:
-            # Finally, get the path to the OS image to install.
-            rows = _db.execute("""
-                    SELECT parameter_value
-                    FROM afe_parameterized_job_parameters
-                    WHERE parameterized_job_id = %s
-                    """, (self.parameterized_job_id,))
-            if rows:
-                # Save the path in update_image_path to use later as a command
-                # line parameter to autoserv.
-                self.update_image_path = rows[0][0]
-                return True
-
-        return False
 
 
     def get_execution_details(self):

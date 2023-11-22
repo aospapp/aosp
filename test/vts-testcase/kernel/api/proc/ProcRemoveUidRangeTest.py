@@ -16,7 +16,7 @@
 
 from vts.runners.host import const
 from vts.testcases.kernel.api.proc import KernelProcFileTestBase
-from vts.utils.python.file import file_utils
+from vts.utils.python.file import target_file_utils
 
 
 class ProcRemoveUidRangeTest(KernelProcFileTestBase.KernelProcFileTestBase):
@@ -34,7 +34,7 @@ class ProcRemoveUidRangeTest(KernelProcFileTestBase.KernelProcFileTestBase):
     def get_permission_checker(self):
         """Get write-only file permission checker.
         """
-        return file_utils.IsWriteOnly
+        return target_file_utils.IsWriteOnly
 
     def get_path(self):
         return '/proc/uid_cputime/remove_uid_range'

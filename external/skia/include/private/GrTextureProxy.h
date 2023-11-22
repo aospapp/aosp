@@ -8,8 +8,8 @@
 #ifndef GrTextureProxy_DEFINED
 #define GrTextureProxy_DEFINED
 
+#include "GrSamplerParams.h"
 #include "GrSurfaceProxy.h"
-#include "GrTexture.h"
 
 class GrCaps;
 class GrResourceProvider;
@@ -22,9 +22,21 @@ public:
     const GrTextureProxy* asTextureProxy() const override { return this; }
 
     // Actually instantiate the backing texture, if necessary
-    GrTexture* instantiate(GrResourceProvider*);
+    bool instantiate(GrResourceProvider*) override;
 
     void setMipColorMode(SkDestinationSurfaceColorMode colorMode);
+
+    GrSamplerParams::FilterMode highestFilterMode() const;
+
+    GrSLType imageStorageType() const {
+        if (GrPixelConfigIsSint(this->config())) {
+            return kIImageStorage2D_GrSLType;
+        } else {
+            return kImageStorage2D_GrSLType;
+        }
+    }
+
+    bool isMipMapped() const { return fIsMipMapped; }
 
 protected:
     friend class GrSurfaceProxy; // for ctors
@@ -35,8 +47,15 @@ protected:
     // Wrapped version
     GrTextureProxy(sk_sp<GrSurface>);
 
+    SkDestinationSurfaceColorMode mipColorMode() const { return fMipColorMode;  }
+
+    sk_sp<GrSurface> createSurface(GrResourceProvider*) const override;
+
 private:
-    size_t onGpuMemorySize() const override;
+    bool fIsMipMapped;
+    SkDestinationSurfaceColorMode fMipColorMode;
+
+    size_t onUninstantiatedGpuMemorySize() const override;
 
     // For wrapped proxies the GrTexture pointer is stored in GrIORefProxy.
     // For deferred proxies that pointer will be filled in when we need to instantiate

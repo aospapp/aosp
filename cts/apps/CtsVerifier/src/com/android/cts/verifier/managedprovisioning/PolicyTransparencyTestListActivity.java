@@ -71,7 +71,7 @@ public class PolicyTransparencyTestListActivity extends PassFailButtons.TestList
             Settings.ACTION_SETTINGS,
             Settings.ACTION_SECURITY_SETTINGS,
             Settings.ACTION_DISPLAY_SETTINGS,
-            DevicePolicyManager.ACTION_SET_NEW_PASSWORD,
+            Settings.ACTION_SETTINGS,
             Settings.ACTION_ACCESSIBILITY_SETTINGS,
             Settings.ACTION_INPUT_METHOD_SETTINGS
         };
@@ -190,6 +190,8 @@ public class PolicyTransparencyTestListActivity extends PassFailButtons.TestList
                 return pm.hasSystemFeature(PackageManager.FEATURE_INPUT_METHODS);
             case PolicyTransparencyTestActivity.TEST_CHECK_PERMITTED_ACCESSIBILITY_SERVICE:
                 return pm.hasSystemFeature(PackageManager.FEATURE_AUDIO_OUTPUT);
+            case PolicyTransparencyTestActivity.TEST_CHECK_LOCK_SCREEN_INFO:
+                return !pm.hasSystemFeature(PackageManager.FEATURE_WATCH);
             default:
                 return true;
         }

@@ -59,7 +59,8 @@ public class EventMod {
         public static final byte SourceNameMatch = 12;
     }
 
-    public byte modKind;
+    public final byte modKind;
+
     public int  count;
     public int  exprID;
 
@@ -98,8 +99,8 @@ public class EventMod {
     /**
      * Creates new instance with empty data.
      */
-    public EventMod() {
-        modKind = 0;
+    EventMod(byte modKind) {
+        this.modKind = modKind;
         count = -1;
         exprID = -1;
         // threadID

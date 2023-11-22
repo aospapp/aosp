@@ -50,7 +50,7 @@ class LoggingConfig(object):
                    '%(lineno)4.4d| %(message)s')
     FILE_FORMAT_WITH_THREADNAME = (
             '%(asctime)s.%(msecs)03d %(levelname)-5.5s|%(module)18.18s:'
-            '%(lineno)4.4d| %(threadName)10.10s| %(message)s')
+            '%(lineno)4.4d| %(threadName)16.16s| %(message)s')
     DATE_FORMAT = '%m/%d %H:%M:%S'
 
     file_formatter = logging.Formatter(fmt=FILE_FORMAT, datefmt=DATE_FORMAT)

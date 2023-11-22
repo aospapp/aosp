@@ -14,6 +14,10 @@ TEST_CATEGORY = "Performance"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
 DEPENDENCIES = '4k_video'
+BUG_TEMPLATE = {
+    "labels": ["OS-Chrome", "VideoTestFailure"],
+    "cc": ["chromeos-video-test-failures@google.com"],
+}
 
 DOC = """
 This test measures the CPU usage and dropped frame count of VP9 4K video

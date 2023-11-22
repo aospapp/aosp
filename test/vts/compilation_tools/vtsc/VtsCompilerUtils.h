@@ -66,6 +66,24 @@ string PathJoin(const char* dir_path, const char* file_name);
 // Returns a string which remove given base_path from file_path if included.
 string RemoveBaseDir(const string& file_path, const string& base_path);
 
+// Get the package name from the message if set. e.g. android.hardware.foo
+string GetPackageName(const ComponentSpecificationMessage& message);
+
+// Get the path of package from the message. e.g. android/hardware/for
+string GetPackagePath(const ComponentSpecificationMessage& message);
+
+// Get the namespace token of package from the message.
+// e.g. android::hardware::foo
+string GetPackageNamespaceToken(const ComponentSpecificationMessage& message);
+
+// Get component version string from the message. e.g. 1.0
+// If for_macro = true, return the version string with format like V1_0.
+std::string GetVersion(const ComponentSpecificationMessage& message,
+                       bool for_macro = false);
+
+// Get the base name of component from the message. e.g. typs, Foo.
+std::string GetComponentBaseName(const ComponentSpecificationMessage& message);
+
 // Get the component name from message,e.g. IFoo, IFooCallback, types etc.
 string GetComponentName(const ComponentSpecificationMessage& message);
 

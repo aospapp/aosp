@@ -19,6 +19,7 @@ import android.app.Notification;
 import android.app.PendingIntent;
 import android.app.PendingIntent.CanceledException;
 import android.app.RemoteInput;
+import android.content.ComponentName;
 import android.os.Bundle;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
@@ -71,6 +72,11 @@ public class MyNotificationListenerService extends NotificationListenerService {
 
     static String getId() {
         return String.format("%s/%s", MyNotificationListenerService.class.getPackage().getName(),
+                MyNotificationListenerService.class.getName());
+    }
+
+    static ComponentName getComponentName() {
+        return new ComponentName(MyNotificationListenerService.class.getPackage().getName(),
                 MyNotificationListenerService.class.getName());
     }
 

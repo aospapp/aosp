@@ -18,7 +18,6 @@ package com.android.tv.util;
 
 import java.util.concurrent.TimeUnit;
 
-// TODO: move related functions in TimeShiftManger here.
 /**
  * A class that includes convenience methods for time shift plays.
  */
@@ -40,7 +39,7 @@ public class TimeShiftUtils {
      * Returns real speeds used in time shift play. This method is only for fast-forwarding and
      * rewinding. The normal play speed is not addressed here.
      *
-     * @param speedLevel the valid value is ranged from 0 to {@link MAX_SPPED_LEVEL}.
+     * @param speedLevel the valid value is ranged from 0 to {@link #MAX_SPEED_LEVEL}.
      * @param programDurationMillis the length of program under playing.
      * @throws IndexOutOfBoundsException if speed level is out of its range.
      */
@@ -60,4 +59,3 @@ public class TimeShiftUtils {
                 : SHORT_PROGRAM_SPEED_FACTORS[MAX_SPEED_LEVEL];
     }
 }
-

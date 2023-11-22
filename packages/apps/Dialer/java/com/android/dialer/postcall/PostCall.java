@@ -26,24 +26,24 @@ import android.support.design.widget.Snackbar;
 import android.telephony.TelephonyManager;
 import android.view.View;
 import android.view.View.OnClickListener;
-import com.android.dialer.buildtype.BuildType;
 import com.android.dialer.common.Assert;
-import com.android.dialer.common.ConfigProvider;
-import com.android.dialer.common.ConfigProviderBindings;
 import com.android.dialer.common.LogUtil;
+import com.android.dialer.configprovider.ConfigProvider;
+import com.android.dialer.configprovider.ConfigProviderBindings;
 import com.android.dialer.enrichedcall.EnrichedCallCapabilities;
 import com.android.dialer.enrichedcall.EnrichedCallComponent;
 import com.android.dialer.enrichedcall.EnrichedCallManager;
 import com.android.dialer.logging.DialerImpression;
 import com.android.dialer.logging.Logger;
+import com.android.dialer.performancereport.PerformanceReport;
 import com.android.dialer.util.DialerUtils;
 import com.android.dialer.util.IntentUtil;
 
 /** Helper class to handle all post call actions. */
 public class PostCall {
 
-  private static final String KEY_POST_CALL_CALL_CONNECT_TIME = "post_call_call_connect_time";
   private static final String KEY_POST_CALL_CALL_DISCONNECT_TIME = "post_call_call_disconnect_time";
+  private static final String KEY_POST_CALL_CALL_CONNECT_TIME = "post_call_call_connect_time";
   private static final String KEY_POST_CALL_CALL_NUMBER = "post_call_call_number";
   private static final String KEY_POST_CALL_MESSAGE_SENT = "post_call_message_sent";
 
@@ -55,6 +55,8 @@ public class PostCall {
         promptUserToViewSentMessage(activity, rootView);
       } else if (shouldPromptUserToSendMessage(activity)) {
         promptUserToSendMessage(activity, rootView);
+      } else {
+        clear(activity);
       }
     }
   }
@@ -83,12 +85,12 @@ public class PostCall {
             ? activity.getString(R.string.post_call_add_message)
             : activity.getString(R.string.post_call_send_message);
 
+    String number = Assert.isNotNull(getPhoneNumber(activity));
     OnClickListener onClickListener =
         v -> {
           Logger.get(activity)
               .logImpression(DialerImpression.Type.POST_CALL_PROMPT_USER_TO_SEND_MESSAGE_CLICKED);
-          activity.startActivity(
-              PostCallActivity.newIntent(activity, getPhoneNumber(activity), isRcsPostCall));
+          activity.startActivity(PostCallActivity.newIntent(activity, number, isRcsPostCall));
         };
 
     int durationMs =
@@ -112,12 +114,13 @@ public class PostCall {
         "returned from sending a post call message, message sent.");
     String message = activity.getString(R.string.post_call_message_sent);
     String addMessage = activity.getString(R.string.view);
+    String number = Assert.isNotNull(getPhoneNumber(activity));
     OnClickListener onClickListener =
         v -> {
           Logger.get(activity)
               .logImpression(
                   DialerImpression.Type.POST_CALL_PROMPT_USER_TO_VIEW_SENT_MESSAGE_CLICKED);
-          Intent intent = IntentUtil.getSendSmsIntent(getPhoneNumber(activity));
+          Intent intent = IntentUtil.getSendSmsIntent(number);
           DialerUtils.startActivityWithErrorToast(activity, intent);
         };
 
@@ -158,6 +161,19 @@ public class PostCall {
         .putString(KEY_POST_CALL_CALL_NUMBER, number)
         .putBoolean(KEY_POST_CALL_MESSAGE_SENT, true)
         .apply();
+  }
+
+  /**
+   * Restart performance recording if there is a recent call (disconnect time to now is under
+   * threshold)
+   */
+  public static void restartPerformanceRecordingIfARecentCallExist(Context context) {
+    long disconnectTimeMillis =
+        DialerUtils.getDefaultSharedPreferenceForDeviceProtectedStorageContext(context)
+            .getLong(PostCall.KEY_POST_CALL_CALL_DISCONNECT_TIME, -1);
+    if (disconnectTimeMillis != -1 && PerformanceReport.isRecording()) {
+      PerformanceReport.startRecording();
+    }
   }
 
   private static void clear(Context context) {
@@ -203,19 +219,7 @@ public class PostCall {
   }
 
   private static boolean isEnabled(Context context) {
-    @BuildType.Type int type = BuildType.get();
-    switch (type) {
-      case BuildType.BUGFOOD:
-      case BuildType.DOGFOOD:
-      case BuildType.FISHFOOD:
-      case BuildType.TEST:
-        return ConfigProviderBindings.get(context).getBoolean("enable_post_call", true);
-      case BuildType.RELEASE:
-        return ConfigProviderBindings.get(context).getBoolean("enable_post_call_prod", true);
-      default:
-        Assert.fail();
-        return false;
-    }
+    return ConfigProviderBindings.get(context).getBoolean("enable_post_call_prod", true);
   }
 
   private static boolean isSimReady(Context context) {

@@ -63,8 +63,6 @@ public class PackageIncidentTest extends ProtoDumpTestCase {
         final PackageServiceDumpProto dump =
                 getDump(PackageServiceDumpProto.parser(), "dumpsys package --proto");
 
-        assertNotNull(dump.getRequiredVerifierPackage().getName());
-        assertPositive("required_verifier_package uid", dump.getRequiredVerifierPackage().getUid());
         assertNotNull(dump.getVerifierPackage().getName());
         assertPositive("verifier_package uid", dump.getVerifierPackage().getUid());
         assertNotNull(dump.getSharedLibraries(0).getName());

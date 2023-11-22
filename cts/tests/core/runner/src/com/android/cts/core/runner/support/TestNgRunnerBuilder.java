@@ -24,9 +24,9 @@ import org.junit.runners.model.RunnerBuilder;
 import org.testng.annotations.Test;
 
 /**
- * A {@link RunnerBuilder} that can TestNG tests.
+ * A {@link RunnerBuilder} that can handle TestNG tests.
  */
-class TestNgRunnerBuilder extends RunnerBuilder {
+public class TestNgRunnerBuilder extends RunnerBuilder {
   // Returns a TestNG runner for this class, only if it is a class
   // annotated with testng's @Test or has any methods with @Test in it.
   @Override

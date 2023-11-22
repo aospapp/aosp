@@ -31,25 +31,7 @@ class WiFiCellTestBase(test.test):
 
     """
 
-    def _install_pyshark(self):
-        """Installs pyshark and its dependencies for packet capture analysis.
-
-        Uses SSP to install the required pyshark python module and its
-        dependencies including the tshark binary.
-        """
-        logging.info('Installing Pyshark')
-        try:
-            lxc.install_packages(['tshark', 'python-dev', 'libxml2-dev',
-                                  'libxslt-dev', 'zlib1g-dev'],
-                                 ['pyshark'])
-        except error.ContainerError as e:
-            logging.info('Not installing pyshark: %s', e)
-        except error.CmdError as e:
-            raise error.TestError('Error installing pyshark: %s', e)
-
-
     def initialize(self, host):
-        self._install_pyshark()
         if utils.host_could_be_in_afe(host.hostname):
             # There are some DUTs that have different types of wifi modules.
             # In order to generate separate performance graphs, a variant

@@ -18,6 +18,8 @@ package com.android.compatibility.common.util;
 
 import android.os.Build;
 
+import java.lang.reflect.Field;
+
 /**
  * Device-side compatibility utility class for reading device API level.
  */
@@ -27,16 +29,32 @@ public class ApiLevelUtil {
         return Build.VERSION.SDK_INT < version;
     }
 
+    public static boolean isBefore(String version) {
+        return Build.VERSION.SDK_INT < resolveVersionString(version);
+    }
+
     public static boolean isAfter(int version) {
         return Build.VERSION.SDK_INT > version;
+    }
+
+    public static boolean isAfter(String version) {
+        return Build.VERSION.SDK_INT > resolveVersionString(version);
     }
 
     public static boolean isAtLeast(int version) {
         return Build.VERSION.SDK_INT >= version;
     }
 
+    public static boolean isAtLeast(String version) {
+        return Build.VERSION.SDK_INT > resolveVersionString(version);
+    }
+
     public static boolean isAtMost(int version) {
         return Build.VERSION.SDK_INT <= version;
+    }
+
+    public static boolean isAtMost(String version) {
+        return Build.VERSION.SDK_INT <= resolveVersionString(version);
     }
 
     public static int getApiLevel() {
@@ -53,5 +71,20 @@ public class ApiLevelUtil {
 
     public static String getCodename() {
         return Build.VERSION.CODENAME;
+    }
+
+    protected static int resolveVersionString(String versionString) {
+        try {
+            return Integer.parseInt(versionString); // e.g. "24" for M
+        } catch (NumberFormatException e1) {
+            try {
+                Field versionField = Build.VERSION_CODES.class.getField(
+                        versionString.toUpperCase());
+                return versionField.getInt(null); // no instance for VERSION_CODES, use null
+            } catch (IllegalAccessException | NoSuchFieldException e2) {
+                throw new RuntimeException(
+                        String.format("Failed to parse version string %s", versionString), e2);
+            }
+        }
     }
 }

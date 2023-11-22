@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 # Copyright (C) 2009, Cisco Systems Inc.
-#  Garrett Cooper, August 2009
+#  Ngie Cooper, August 2009
 # Copyright (C) 2012-2014 Linux Test Project
 #
 # This program is free software; you can redistribute it and/or modify
@@ -48,7 +48,7 @@ start_daemon()
 {
 	if [ $HAVE_SYSTEMCTL -eq 1 ]; then
 		systemctl start $1.service > /dev/null 2>&1
-	elif command -v service &> /dev/null; then
+	elif command -v service >/dev/null 2>&1; then
 		service $1 start > /dev/null 2>&1
 	else
 		/etc/init.d/$1 start > /dev/null 2>&1
@@ -59,7 +59,7 @@ stop_daemon()
 {
 	if [ $HAVE_SYSTEMCTL -eq 1 ]; then
 		systemctl stop $1.service > /dev/null 2>&1
-	elif command -v service &> /dev/null; then
+	elif command -v service >/dev/null 2>&1; then
 		service $1 stop > /dev/null 2>&1
 	else
 		/etc/init.d/$1 stop > /dev/null 2>&1
@@ -69,8 +69,8 @@ stop_daemon()
 status_daemon()
 {
 	if [ $HAVE_SYSTEMCTL -eq 1 ]; then
-		systemctl status $1.service > /dev/null 2>&1
-	elif command -v service &> /dev/null; then
+		systemctl is-active $1.service > /dev/null 2>&1
+	elif command -v service >/dev/null 2>&1; then
 		service $1 status > /dev/null 2>&1
 	else
 		/etc/init.d/$1 status > /dev/null 2>&1
@@ -81,7 +81,7 @@ restart_daemon()
 {
 	if [ $HAVE_SYSTEMCTL -eq 1 ]; then
 		systemctl restart $1.service > /dev/null 2>&1
-	elif command -v service &> /dev/null; then
+	elif command -v service >/dev/null 2>&1; then
 		service $1 restart > /dev/null 2>&1
 	else
 		/etc/init.d/$1 restart > /dev/null 2>&1

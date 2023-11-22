@@ -21,17 +21,17 @@ import android.database.Cursor;
 import android.graphics.PorterDuff;
 import android.provider.CallLog;
 import android.support.annotation.Nullable;
-import android.support.car.ui.PagedListView;
 import android.support.v7.widget.RecyclerView;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+
 import com.android.car.dialer.telecom.PhoneLoader;
 import com.android.car.dialer.telecom.TelecomUtils;
 import com.android.car.dialer.telecom.UiCallManager;
+import com.android.car.view.PagedListView;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -40,12 +40,11 @@ import java.util.List;
 
 /**
  * Adapter class for populating Contact data as loaded from the DB to an AA GroupingRecyclerView.
- *
- * <p>It handles two types of contacts:
- *
+ * It handles two types of contacts:
+ * <p>
  * <ul>
- *     <li>Strequent contacts (starred and/or frequent)</li>
- *     <li>Last call contact</li>
+ *     <li>Strequent contacts (starred and/or frequent)
+ *     <li>Last call contact
  * </ul>
  */
 public class StrequentsAdapter extends RecyclerView.Adapter<CallLogViewHolder>
@@ -56,6 +55,7 @@ public class StrequentsAdapter extends RecyclerView.Adapter<CallLogViewHolder>
     private static final int VIEW_TYPE_STREQUENT = 2;
 
     private final Context mContext;
+    private final UiCallManager mUiCallManager;
     private List<ContactEntry> mData;
 
     private LastCallData mLastCallData;
@@ -73,8 +73,9 @@ public class StrequentsAdapter extends RecyclerView.Adapter<CallLogViewHolder>
     private int mMaxItems = -1;
     private boolean mIsEmpty;
 
-    public StrequentsAdapter(Context context) {
+    public StrequentsAdapter(Context context, UiCallManager callManager) {
         mContext = context;
+        mUiCallManager = callManager;
         mContentResolver = context.getContentResolver();
     }
 
@@ -82,13 +83,7 @@ public class StrequentsAdapter extends RecyclerView.Adapter<CallLogViewHolder>
         mStrequentsListener = listener;
     }
 
-    public void setFocusChangeListener(@Nullable View.OnFocusChangeListener listener) {
-        mFocusChangeListener = listener;
-    }
-
     public void setLastCallCursor(@Nullable Cursor cursor) {
-        Log.e("StrequentsAdapter", "cursor: " + cursor);
-        Log.e("StrequentsAdapter", "count: " + (cursor == null ? 0 : cursor.getCount()));
         mLastCallData = convertLastCallCursor(cursor);
         notifyDataSetChanged();
     }
@@ -302,7 +297,7 @@ public class StrequentsAdapter extends RecyclerView.Adapter<CallLogViewHolder>
         // If we set this to 0, getRelativeTime will return null and no relative time
         // will be displayed.
         long millis = column == -1 ? 0 : cursor.getLong(column);
-        StringBuffer secondaryText = new StringBuffer();
+        StringBuilder secondaryText = new StringBuilder();
         CharSequence relativeDate = getRelativeTime(millis);
         if (!isVoicemail) {
             CharSequence type = TelecomUtils.getTypeFromNumber(mContext, number);
@@ -315,7 +310,7 @@ public class StrequentsAdapter extends RecyclerView.Adapter<CallLogViewHolder>
             secondaryText.append(relativeDate);
         }
 
-        int[] callTypes = getCarTelecomManager().getCallTypes(cursor, 1);
+        int[] callTypes = mUiCallManager.getCallTypes(cursor, 1);
 
         return new LastCallData(number, nameSb.toString(), secondaryText.toString(), callTypes);
     }
@@ -392,10 +387,6 @@ public class StrequentsAdapter extends RecyclerView.Adapter<CallLogViewHolder>
 
         return DateUtils.getRelativeTimeSpanString(millis, System.currentTimeMillis(),
                 DateUtils.MINUTE_IN_MILLIS, DateUtils.FORMAT_ABBREV_RELATIVE);
-    }
-
-    private UiCallManager getCarTelecomManager() {
-        return UiCallManager.getInstance(mContext);
     }
 
     /**

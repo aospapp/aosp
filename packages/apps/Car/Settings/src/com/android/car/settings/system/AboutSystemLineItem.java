@@ -17,10 +17,11 @@
 package com.android.car.settings.system;
 
 import android.content.Context;
-import android.content.Intent;
 import android.os.Build;
+import android.widget.ImageView;
 
 import com.android.car.settings.R;
+import com.android.car.settings.common.BaseFragment;
 import com.android.car.settings.common.IconTextLineItem;
 
 
@@ -28,12 +29,13 @@ import com.android.car.settings.common.IconTextLineItem;
  * A LineItem that displays info about system.
  */
 class AboutSystemLineItem extends IconTextLineItem {
-
     private final Context mContext;
+    private final BaseFragment.FragmentController mFragmentController;
 
-    public AboutSystemLineItem(Context context) {
-        super(context.getString(R.string.about_settings), R.drawable.ic_settings_about);
+    public AboutSystemLineItem(Context context, BaseFragment.FragmentController fragmentController) {
+        super(context.getString(R.string.about_settings));
         mContext = context;
+        mFragmentController = fragmentController;
     }
 
     @Override
@@ -42,13 +44,17 @@ class AboutSystemLineItem extends IconTextLineItem {
     }
 
     @Override
-    public boolean isEnabled() {
+    public boolean isExpandable() {
         return true;
     }
 
     @Override
     public void onClick() {
-        Intent intent = new Intent(mContext, AboutSettingsActivity.class);
-        mContext.startActivity(intent);
+        mFragmentController.launchFragment(AboutSettingsFragment.getInstance());
+    }
+
+    @Override
+    public void setIcon(ImageView iconView) {
+        iconView.setImageResource(R.drawable.ic_settings_about);
     }
 }

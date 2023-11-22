@@ -15,16 +15,17 @@
  */
 package com.android.tradefed.result;
 
+import java.io.Closeable;
 import java.io.InputStream;
 
 /**
  * This interface basically wraps an {@link InputStream} to make it clonable.
- * <p />
- * It should be expected that a resource will be leaked unless {@link #cancel()} is called, and that
- * once {@link #cancel()} is called on an instance, that that instance and any {@link InputStream}s
- * it has created will be invalid.
+ *
+ * <p>It should be expected that a resource will be leaked unless {@link #cancel()} is called, and
+ * that once {@link #cancel()} is called on an instance, that that instance and any {@link
+ * InputStream}s it has created will be invalid.
  */
-public interface InputStreamSource {
+public interface InputStreamSource extends Closeable {
 
     /**
      * Return a new clone of the {@link InputStream}, so that the caller can read the stream from
@@ -39,10 +40,22 @@ public interface InputStreamSource {
     public InputStream createInputStream();
 
     /**
-     * Do any required cleanup on the source of the InputStream.  Calling this method essentially
+     * Do any required cleanup on the source of the InputStream. Calling this method essentially
+     * invalidates this {@code InputStreamSource}.
+     *
+     * @deprecated use {@link #close()} instead.
+     */
+    @Deprecated
+    public default void cancel() {
+        close();
+    }
+
+    /**
+     * Do any required cleanup on the source of the InputStream. Calling this method essentially
      * invalidates this {@code InputStreamSource}.
      */
-    public void cancel();
+    @Override
+    public void close();
 
     /**
      * Return the size in bytes of the source data.

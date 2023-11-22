@@ -27,4 +27,4 @@ test_cases = [
     ['crowd/crowd2160-4271c26c5a9215b310e834b42165ad96.vp8', 3840, 2160, 500, 533, 11, 50],
 ]
 
-job.run_test('video_VDAPerf', test_cases=test_cases)
+job.run_test('video_VDAPerf', test_cases=test_cases, tag='vp8')

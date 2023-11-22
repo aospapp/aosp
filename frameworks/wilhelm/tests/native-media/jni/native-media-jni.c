@@ -366,7 +366,8 @@ jboolean Java_com_example_nativemedia_NativeMedia_createStreamingMediaPlayer(JNI
     // configure image video sink
     XADataLocator_NativeDisplay loc_nd = {
             XA_DATALOCATOR_NATIVEDISPLAY,        // locatorType
-            // the video sink must be an ANativeWindow created from a Surface or SurfaceTextureClient
+            // the video sink must be an ANativeWindow
+            // created from a Surface or SurfaceTextureClient
             (void*)theNativeWindow,              // hWindow
             // must be NULL
             NULL                                 // hDisplay

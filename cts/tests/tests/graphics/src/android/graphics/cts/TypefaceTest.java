@@ -252,6 +252,56 @@ public class TypefaceTest {
     }
 
     @Test
+    public void testInvalidCmapFont_tooLargeCodePoints() {
+        // Following three font doen't have any coverage between U+0000..U+10FFFF. Just make sure
+        // they don't crash us.
+        final String[] INVALID_CMAP_FONTS = {
+            "out_of_unicode_start_cmap12.ttf",
+            "out_of_unicode_end_cmap12.ttf",
+            "too_large_start_cmap12.ttf",
+            "too_large_end_cmap12.ttf",
+        };
+        for (final String file : INVALID_CMAP_FONTS) {
+            final Typeface typeface = Typeface.createFromAsset(mContext.getAssets(), file);
+            assertNotNull(typeface);
+        }
+    }
+
+    @Test
+    public void testInvalidCmapFont_unsortedEntries() {
+        // Following two font files have glyph for U+0400 and U+0100 but the fonts must not be used
+        // due to invalid cmap data. For more details, see each ttx source file.
+        final String[] INVALID_CMAP_FONTS = { "unsorted_cmap4.ttf", "unsorted_cmap12.ttf" };
+        for (final String file : INVALID_CMAP_FONTS) {
+            final Typeface typeface = Typeface.createFromAsset(mContext.getAssets(), file);
+            assertNotNull(typeface);
+            final Paint p = new Paint();
+            final String testString = "\u0100\u0400";
+            final float widthDefaultTypeface = p.measureText(testString);
+            p.setTypeface(typeface);
+            final float widthCustomTypeface = p.measureText(testString);
+            assertEquals(widthDefaultTypeface, widthCustomTypeface, 0.0f);
+        }
+
+        // Following two font files have glyph for U+0400 U+FE00 and U+0100 U+FE00 but the fonts
+        // must not be used due to invalid cmap data. For more details, see each ttx source file.
+        final String[] INVALID_CMAP_VS_FONTS = {
+            "unsorted_cmap14_default_uvs.ttf",
+            "unsorted_cmap14_non_default_uvs.ttf"
+        };
+        for (final String file : INVALID_CMAP_VS_FONTS) {
+            final Typeface typeface = Typeface.createFromAsset(mContext.getAssets(), file);
+            assertNotNull(typeface);
+            final Paint p = new Paint();
+            final String testString = "\u0100\uFE00\u0400\uFE00";
+            final float widthDefaultTypeface = p.measureText(testString);
+            p.setTypeface(typeface);
+            final float widthCustomTypeface = p.measureText(testString);
+            assertEquals(widthDefaultTypeface, widthCustomTypeface, 0.0f);
+        }
+    }
+
+    @Test
     public void testCreateFromAsset_cachesTypeface() {
         Typeface typeface1 = Typeface.createFromAsset(mContext.getAssets(), "bombfont2.ttf");
         assertNotNull(typeface1);

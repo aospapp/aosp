@@ -27,7 +27,7 @@ public class AllTests extends TestSuite {
     public AllTests() {
         super();
 
-        addTestSuite(JDiffClassDescriptionTest.class);
+        addTestSuite(ApiComplianceCheckerTest.class);
     }
 
     public static Test suite() {

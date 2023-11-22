@@ -140,6 +140,13 @@ void GCTracer::ResetForTesting() {
   start_counter_ = 0;
 }
 
+void GCTracer::NotifyYoungGenerationHandling(
+    YoungGenerationHandling young_generation_handling) {
+  DCHECK(current_.type == Event::SCAVENGER || start_counter_ > 1);
+  heap_->isolate()->counters()->young_generation_handling()->AddSample(
+      static_cast<int>(young_generation_handling));
+}
+
 void GCTracer::Start(GarbageCollector collector,
                      GarbageCollectionReason gc_reason,
                      const char* collector_reason) {
@@ -174,8 +181,7 @@ void GCTracer::Start(GarbageCollector collector,
   current_.start_object_size = heap_->SizeOfObjects();
   current_.start_memory_size = heap_->memory_allocator()->Size();
   current_.start_holes_size = CountTotalHolesSize(heap_);
-  current_.new_space_object_size =
-      heap_->new_space()->top() - heap_->new_space()->bottom();
+  current_.new_space_object_size = heap_->new_space()->Size();
 
   current_.incremental_marking_bytes = 0;
   current_.incremental_marking_duration = 0;
@@ -446,6 +452,7 @@ void GCTracer::PrintNVP() const {
           "gc=%s "
           "reduce_memory=%d "
           "scavenge=%.2f "
+          "evacuate=%.2f "
           "old_new=%.2f "
           "weak=%.2f "
           "roots=%.2f "
@@ -482,6 +489,7 @@ void GCTracer::PrintNVP() const {
           "context_disposal_rate=%.1f\n",
           duration, spent_in_mutator, current_.TypeName(true),
           current_.reduce_memory, current_.scopes[Scope::SCAVENGER_SCAVENGE],
+          current_.scopes[Scope::SCAVENGER_EVACUATE],
           current_.scopes[Scope::SCAVENGER_OLD_TO_NEW_POINTERS],
           current_.scopes[Scope::SCAVENGER_WEAK],
           current_.scopes[Scope::SCAVENGER_ROOTS],
@@ -510,9 +518,14 @@ void GCTracer::PrintNVP() const {
           "pause=%.1f "
           "mutator=%.1f "
           "gc=%s "
-          "reduce_memory=%d\n",
-          duration, spent_in_mutator, current_.TypeName(true),
-          current_.reduce_memory);
+          "reduce_memory=%d "
+          "mark=%.2f "
+          "mark.roots=%.2f "
+          "mark.old_to_new=%.2f\n",
+          duration, spent_in_mutator, "mmc", current_.reduce_memory,
+          current_.scopes[Scope::MINOR_MC_MARK],
+          current_.scopes[Scope::MINOR_MC_MARK_ROOTS],
+          current_.scopes[Scope::MINOR_MC_MARK_OLD_TO_NEW_POINTERS]);
       break;
     case Event::MARK_COMPACTOR:
     case Event::INCREMENTAL_MARK_COMPACTOR:
@@ -537,6 +550,9 @@ void GCTracer::PrintNVP() const {
           "evacuate.candidates=%.1f "
           "evacuate.clean_up=%.1f "
           "evacuate.copy=%.1f "
+          "evacuate.prologue=%.1f "
+          "evacuate.epilogue=%.1f "
+          "evacuate.rebalance=%.1f "
           "evacuate.update_pointers=%.1f "
           "evacuate.update_pointers.to_evacuated=%.1f "
           "evacuate.update_pointers.to_new=%.1f "
@@ -620,6 +636,9 @@ void GCTracer::PrintNVP() const {
           current_.scopes[Scope::MC_EVACUATE_CANDIDATES],
           current_.scopes[Scope::MC_EVACUATE_CLEAN_UP],
           current_.scopes[Scope::MC_EVACUATE_COPY],
+          current_.scopes[Scope::MC_EVACUATE_PROLOGUE],
+          current_.scopes[Scope::MC_EVACUATE_EPILOGUE],
+          current_.scopes[Scope::MC_EVACUATE_REBALANCE],
           current_.scopes[Scope::MC_EVACUATE_UPDATE_POINTERS],
           current_.scopes[Scope::MC_EVACUATE_UPDATE_POINTERS_TO_EVACUATED],
           current_.scopes[Scope::MC_EVACUATE_UPDATE_POINTERS_TO_NEW],

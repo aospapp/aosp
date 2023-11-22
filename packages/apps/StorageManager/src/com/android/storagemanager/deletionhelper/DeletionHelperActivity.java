@@ -20,11 +20,14 @@ import android.app.Activity;
 import android.app.Fragment;
 import android.app.FragmentManager;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.TextPaint;
 import android.text.style.ClickableSpan;
-import android.util.DisplayMetrics;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -32,16 +35,19 @@ import android.widget.TextView.BufferType;
 import com.android.settingslib.widget.LinkTextView;
 import com.android.storagemanager.ButtonBarProvider;
 import com.android.storagemanager.R;
+import com.android.storagemanager.utils.Utils;
 
 /**
  * The DeletionHelperActivity is an activity for deleting apps, photos, and downloaded files which
  * have not been recently used.
  */
 public class DeletionHelperActivity extends Activity implements ButtonBarProvider {
+    private static final int ENABLED = 1;
 
     private ViewGroup mButtonBar;
     private Button mNextButton, mSkipButton;
     private DeletionHelperSettings mFragment;
+    private boolean mIsShowingInterstitial;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,6 +72,8 @@ public class DeletionHelperActivity extends Activity implements ButtonBarProvide
         mButtonBar = (ViewGroup) findViewById(R.id.button_bar);
         mNextButton = (Button) findViewById(R.id.next_button);
         mSkipButton = (Button) findViewById(R.id.skip_button);
+
+        getActionBar().setDisplayHomeAsUpEnabled(true);
     }
 
     @Override
@@ -78,9 +86,6 @@ public class DeletionHelperActivity extends Activity implements ButtonBarProvide
     void setIsEmptyState(boolean isEmptyState) {
         final View emptyContent = findViewById(R.id.empty_state);
         final View mainContent = findViewById(R.id.main_content);
-        // Check if we need to animate now since we will modify visibility before the animation
-        // starts
-        final boolean shouldAnimate = isEmptyState && emptyContent.getVisibility() != View.VISIBLE;
 
         // Update UI
         mainContent.setVisibility(isEmptyState ? View.GONE : View.VISIBLE);
@@ -88,27 +93,25 @@ public class DeletionHelperActivity extends Activity implements ButtonBarProvide
         findViewById(R.id.button_bar).setVisibility(isEmptyState ? View.GONE : View.VISIBLE);
         setTitle(isEmptyState ? R.string.empty_state_title : R.string.deletion_helper_title);
 
-        // Animate UI changes
-        if (!shouldAnimate) {
-            return;
-        }
-        animateToEmptyState();
+        // We are giving the user the option to show all in the interstitial, so let's hide the
+        // overflow for this. (Also, the overflow's functions are busted while the empty view is
+        // showing, so this also works around this bug.)
+        mIsShowingInterstitial = isEmptyState && emptyContent.getVisibility() != View.VISIBLE;
+        invalidateOptionsMenu();
     }
 
-    private void animateToEmptyState() {
-        View content = findViewById(R.id.empty_state);
+    public boolean isLoadingVisible() {
+        View loading_container = findViewById(R.id.loading_container);
+        if (loading_container != null) {
+            return loading_container.getVisibility() == View.VISIBLE;
+        }
+        return false;
+    }
 
-        // Animate the empty state in
-        DisplayMetrics displayMetrics = new DisplayMetrics();
-        getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
-        final float oldX = content.getTranslationX();
-        content.setTranslationX(oldX + displayMetrics.widthPixels);
-        content.animate()
-                .translationX(oldX)
-                .withEndAction(
-                        () -> {
-                            content.setTranslationX(oldX);
-                        });
+    public void setLoading(View listView, boolean loading, boolean animate) {
+        View loading_container = findViewById(R.id.loading_container);
+        Utils.handleLoadingContainer(loading_container, listView, !loading, animate);
+        getButtonBar().setVisibility(loading ? View.GONE : View.VISIBLE);
     }
 
     @Override
@@ -124,6 +127,48 @@ public class DeletionHelperActivity extends Activity implements ButtonBarProvide
     @Override
     public Button getSkipButton() {
         return mSkipButton;
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        final int isNonthresholdAvailable =
+                Settings.Global.getInt(
+                        getContentResolver(),
+                        Settings.Global.ENABLE_DELETION_HELPER_NO_THRESHOLD_TOGGLE,
+                        ENABLED);
+        if (isNonthresholdAvailable < ENABLED || mIsShowingInterstitial) {
+            return false;
+        }
+
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.deletion_helper_settings_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        FragmentManager manager = getFragmentManager();
+        int thresholdType;
+        switch (item.getItemId()) {
+            case R.id.no_threshold:
+                thresholdType = AppStateUsageStatsBridge.NO_THRESHOLD;
+                break;
+            case R.id.default_threshold:
+                thresholdType = AppStateUsageStatsBridge.NORMAL_THRESHOLD;
+                break;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+
+        mFragment = DeletionHelperSettings.newInstance(thresholdType);
+        manager.beginTransaction().replace(R.id.main_content, mFragment).commit();
+        return true;
+    }
+
+    @Override
+    public boolean onNavigateUp() {
+        finish();
+        return true;
     }
 
     private static class NoThresholdSpan extends ClickableSpan {

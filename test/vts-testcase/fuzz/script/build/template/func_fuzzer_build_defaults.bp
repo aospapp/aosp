@@ -5,6 +5,6 @@ subdirs = [
 cc_defaults {
     name: "func_fuzzer_defaults",
     static_libs: [
-        "libLLVMFuzzer"
+        "libFuzzer"
     ],
 }

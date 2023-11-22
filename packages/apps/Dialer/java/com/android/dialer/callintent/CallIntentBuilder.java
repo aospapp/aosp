@@ -22,11 +22,13 @@ import android.os.Bundle;
 import android.os.SystemClock;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.annotation.VisibleForTesting;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
 import android.text.TextUtils;
 import com.android.dialer.common.Assert;
+import com.android.dialer.performancereport.PerformanceReport;
 import com.android.dialer.util.CallUtil;
 
 /** Creates an intent to start a new outgoing call. */
@@ -37,11 +39,38 @@ public class CallIntentBuilder {
   private boolean isVideoCall;
   private String callSubject;
 
+  private static int lightbringerButtonAppearInExpandedCallLogItemCount = 0;
+  private static int lightbringerButtonAppearInCollapsedCallLogItemCount = 0;
+  private static int lightbringerButtonAppearInSearchCount = 0;
+
   public CallIntentBuilder(@NonNull Uri uri, @NonNull CallSpecificAppData callSpecificAppData) {
     this.uri = Assert.isNotNull(uri);
-    this.callSpecificAppData = Assert.isNotNull(callSpecificAppData);
+    Assert.isNotNull(callSpecificAppData);
     Assert.checkArgument(
         callSpecificAppData.getCallInitiationType() != CallInitiationType.Type.UNKNOWN_INITIATION);
+
+    CallSpecificAppData.Builder builder =
+        CallSpecificAppData.newBuilder(callSpecificAppData)
+            .setLightbringerButtonAppearInExpandedCallLogItemCount(
+                lightbringerButtonAppearInExpandedCallLogItemCount)
+            .setLightbringerButtonAppearInCollapsedCallLogItemCount(
+                lightbringerButtonAppearInCollapsedCallLogItemCount)
+            .setLightbringerButtonAppearInSearchCount(lightbringerButtonAppearInSearchCount);
+    lightbringerButtonAppearInExpandedCallLogItemCount = 0;
+    lightbringerButtonAppearInCollapsedCallLogItemCount = 0;
+    lightbringerButtonAppearInSearchCount = 0;
+
+    if (PerformanceReport.isRecording()) {
+      builder
+          .setTimeSinceAppLaunch(PerformanceReport.getTimeSinceAppLaunch())
+          .setTimeSinceFirstClick(PerformanceReport.getTimeSinceFirstClick())
+          .addAllUiActionsSinceAppLaunch(PerformanceReport.getActions())
+          .addAllUiActionTimestampsSinceAppLaunch(PerformanceReport.getActionTimestamps())
+          .build();
+      PerformanceReport.stopRecording();
+    }
+
+    this.callSpecificAppData = builder.build();
   }
 
   public CallIntentBuilder(@NonNull Uri uri, CallInitiationType.Type callInitiationType) {
@@ -103,5 +132,39 @@ public class CallIntentBuilder {
     CallSpecificAppData callSpecificAppData =
         CallSpecificAppData.newBuilder().setCallInitiationType(callInitiationType).build();
     return callSpecificAppData;
+  }
+
+  public static void increaseLightbringerCallButtonAppearInExpandedCallLogItemCount() {
+    CallIntentBuilder.lightbringerButtonAppearInExpandedCallLogItemCount++;
+  }
+
+  public static void increaseLightbringerCallButtonAppearInCollapsedCallLogItemCount() {
+    CallIntentBuilder.lightbringerButtonAppearInCollapsedCallLogItemCount++;
+  }
+
+  public static void increaseLightbringerCallButtonAppearInSearchCount() {
+    CallIntentBuilder.lightbringerButtonAppearInSearchCount++;
+  }
+
+  @VisibleForTesting
+  public static int getLightbringerButtonAppearInExpandedCallLogItemCount() {
+    return lightbringerButtonAppearInExpandedCallLogItemCount;
+  }
+
+  @VisibleForTesting
+  public static int getLightbringerButtonAppearInCollapsedCallLogItemCount() {
+    return lightbringerButtonAppearInCollapsedCallLogItemCount;
+  }
+
+  @VisibleForTesting
+  public static int getLightbringerButtonAppearInSearchCount() {
+    return lightbringerButtonAppearInSearchCount;
+  }
+
+  @VisibleForTesting(otherwise = VisibleForTesting.NONE)
+  public static void clearLightbringerCounts() {
+    lightbringerButtonAppearInCollapsedCallLogItemCount = 0;
+    lightbringerButtonAppearInExpandedCallLogItemCount = 0;
+    lightbringerButtonAppearInSearchCount = 0;
   }
 }

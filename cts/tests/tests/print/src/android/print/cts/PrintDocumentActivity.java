@@ -17,30 +17,37 @@
 package android.print.cts;
 
 import android.app.Activity;
+import android.app.KeyguardManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.WindowManager;
 
 public class PrintDocumentActivity extends Activity {
     private static final String LOG_TAG = "PrintDocumentActivity";
+    int mTestId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        Log.d(LOG_TAG, "onCreate() " + this);
+        mTestId = getIntent().getIntExtra(BasePrintTest.TEST_ID, -1);
+        Log.d(LOG_TAG, "onCreate() " + this + " for " + mTestId);
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-                | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
-                | WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD);
+                | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
 
-        BasePrintTest.onActivityCreateCalled(this);
+        KeyguardManager km = getSystemService(KeyguardManager.class);
+        if (km != null) {
+            km.requestDismissKeyguard(this, null);
+        }
+
+        BasePrintTest.onActivityCreateCalled(mTestId, this);
     }
 
     @Override
     protected void onDestroy() {
         Log.d(LOG_TAG, "onDestroy() " + this);
-        BasePrintTest.onActivityDestroyCalled();
+        BasePrintTest.onActivityDestroyCalled(mTestId);
         super.onDestroy();
     }
 }

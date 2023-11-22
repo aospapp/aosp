@@ -18,6 +18,7 @@ package android.telephony.ims;
 
 import static android.Manifest.permission.MODIFY_PHONE_STATE;
 import static android.Manifest.permission.READ_PHONE_STATE;
+import static android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE;
 
 import static com.android.internal.telephony.ims.ImsResolver.SERVICE_INTERFACE;
 
@@ -38,6 +39,7 @@ import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.RemoteException;
 import android.support.test.filters.FlakyTest;
 import android.support.test.runner.AndroidJUnit4;
@@ -159,6 +161,8 @@ public class ImsServiceTest {
     @Ignore
     @Test
     public void testMethodWithNoPermissions() throws RemoteException {
+        when(mMockContext.checkCallingOrSelfPermission(READ_PRIVILEGED_PHONE_STATE)).thenReturn(
+                PackageManager.PERMISSION_DENIED);
         doThrow(new SecurityException()).when(mMockContext).enforceCallingOrSelfPermission(
                 eq(READ_PHONE_STATE), nullable(String.class));
         mTestImsServiceBinder.createImsFeature(TEST_SLOT_0, ImsFeature.MMTEL, mTestCallback);

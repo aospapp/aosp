@@ -2,7 +2,8 @@ The tools in this directory are a scheme for autogenerating crypto doc support.
 
 The central file is data/crypto_support.json, which is a JSON file that contains
 the supported API levels for each crypto algorithm that has ever been supported
-by Android.  The categories are identified as described in the JCA.
+by Android.  The categories are identified as described in the JCA, along with
+a couple extra classes.
 
 Each algorithm has up to three properties:
 
@@ -24,9 +25,8 @@ algorithms, update the data file, then generate HTML based on the data file.
 
 Getting the set of supported algorithms is done using
 src/java/libcore/java/security/ListProviders.java.  It's important that this is
-run using vogar (in mode=device, the default) rather than in an app container,
-as this documentation only includes the libcore-supported crypto support, but
-the Android frameworks (in particular, Android KeyStore) can add additional
+run using vogar in mode=activity rather than the default of mode=device, as
+the Android frameworks (in particular, Android Keystore) can add additional
 support.
 
 The data from ListProviders is fed into update_crypto_support.py, which rewrites
@@ -38,4 +38,5 @@ run_update_crypto_support.sh.
 
 Finally, format_supported_algorithm_table.py reads the data file and outputs
 a collection of HTML tables suitable for copying-and-pasting into the docs
-to stdout.
+to stdout.  Add --javadoc to produce output appropriate for inclusion in
+Javadoc.

@@ -8,8 +8,6 @@ access01 access01
 access02 access02
 access03 access03
 access04 access04
-access05 access05
-access06 access06
 
 acct01 acct01
 
@@ -273,6 +271,10 @@ fcntl34_64 fcntl34_64
 fdatasync01 fdatasync01
 fdatasync02 fdatasync02
 
+flistxattr01 flistxattr01
+flistxattr02 flistxattr02
+flistxattr03 flistxattr03
+
 flock01 flock01
 flock02 flock02
 flock03 flock03
@@ -326,7 +328,7 @@ ftruncate02_64 ftruncate02_64
 ftruncate03 ftruncate03
 ftruncate03_64 ftruncate03_64
 ftruncate04 ftruncate04
-ftruncate04_64 ftruncate04
+ftruncate04_64 ftruncate04_64
 
 #futimesat test cases
 futimesat01 futimesat01
@@ -442,6 +444,7 @@ getuid03_16 getuid03_16
 getxattr01 getxattr01
 getxattr02 getxattr02
 getxattr03 getxattr03
+getxattr04 getxattr04
 
 #Needs tty device.
 #ioctl01 ioctl01 -D /dev/tty0
@@ -450,6 +453,9 @@ getxattr03 getxattr03
 # Introducing ioctl tests for all /dev/tty* devices
 ioctl01_02   test_ioctl
 ioctl03      ioctl03
+ioctl04      ioctl04
+ioctl05      ioctl05
+ioctl06      ioctl06
 
 inotify_init1_01 inotify_init1_01
 inotify_init1_02 inotify_init1_02
@@ -481,9 +487,12 @@ io_setup01 io_setup01
 io_submit01 io_submit01
 
 keyctl01 keyctl01
+keyctl02 keyctl02
+keyctl03 keyctl03
 
 kcmp01 kcmp01
 kcmp02 kcmp02
+kcmp03 kcmp03
 
 kill01 kill01
 kill02 kill02
@@ -505,6 +514,9 @@ lchown03  lchown03
 lchown02_16 lchown02_16
 lchown03_16 lchown03_16
 
+lgetxattr01 lgetxattr01
+lgetxattr02 lgetxattr02
+
 link01 symlink01 -T link01
 link02 link02
 link03 link03
@@ -519,6 +531,10 @@ linkat01 linkat01
 linkat02 linkat02
 
 listen01 listen01
+
+listxattr01 listxattr01
+listxattr02 listxattr02
+listxattr03 listxattr03
 
 llistxattr01 llistxattr01
 llistxattr02 llistxattr02
@@ -538,6 +554,7 @@ lseek07 lseek07
 lseek08 lseek08
 lseek09 lseek09
 lseek10 lseek10
+lseek11 lseek11
 
 lstat01A symlink01 -T lstat01
 lstat01A_64 symlink01 -T lstat01_64
@@ -635,6 +652,7 @@ move_pages08 move_pages.sh 08
 move_pages09 move_pages.sh 09
 move_pages10 move_pages.sh 10
 move_pages11 cd $LTPROOT/testcases/bin && chown root move_pages11 && chmod 04755 move_pages11 && move_pages.sh 11
+move_pages12 move_pages12
 
 mprotect01 mprotect01
 mprotect02 mprotect02
@@ -671,7 +689,6 @@ msgctl13 msgctl13
 msgget01 msgget01
 msgget02 msgget02
 msgget03 msgget03
-msgget04 msgget04
 
 msgrcv01 msgrcv01
 msgrcv02 msgrcv02
@@ -684,8 +701,6 @@ msgrcv08 msgrcv08
 
 msgsnd01 msgsnd01
 msgsnd02 msgsnd02
-msgsnd03 msgsnd03
-msgsnd04 msgsnd04
 msgsnd05 msgsnd05
 msgsnd06 msgsnd06
 
@@ -715,7 +730,6 @@ nice01 nice01
 nice02 nice02
 nice03 nice03
 nice04 nice04
-nice05 nice05
 
 open01 open01
 open01A symlink01 -T open01
@@ -745,6 +759,9 @@ madvise01 madvise01
 madvise02 madvise02
 madvise05 madvise05
 madvise06 madvise06
+madvise07 madvise07
+madvise08 madvise08
+madvise09 madvise09
 
 newuname01 newuname01
 
@@ -801,11 +818,14 @@ process_vm_writev01 process_vm01 -w
 process_vm_writev02 process_vm_writev02
 
 prot_hsymlinks prot_hsymlinks
+dirtyc0w dirtyc0w
 
 pselect01 pselect01
 pselect01_64 pselect01_64
 pselect02 pselect02
 pselect02_64 pselect02_64
+pselect03 pselect03
+pselect03_64 pselect03_64
 
 ptrace01 ptrace01
 ptrace02 ptrace02
@@ -830,6 +850,7 @@ pwritev02_64 pwritev02_64
 
 quotactl01 quotactl01
 quotactl02 quotactl02
+quotactl03 quotactl03
 
 read01 read01
 read02 read02
@@ -866,6 +887,7 @@ recvfrom01 recvfrom01
 
 recvmsg01 recvmsg01
 recvmsg02 recvmsg02
+recvmsg03 recvmsg03
 
 remap_file_pages01 remap_file_pages01
 remap_file_pages02 remap_file_pages02
@@ -942,6 +964,7 @@ sched_getscheduler02 sched_getscheduler02
 
 sched_setscheduler01 sched_setscheduler01
 sched_setscheduler02 sched_setscheduler02
+sched_setscheduler03 sched_setscheduler03
 
 sched_yield01 sched_yield01
 
@@ -1001,6 +1024,7 @@ sendmsg01 sendmsg01
 sendmsg02 sendmsg02
 
 sendto01 sendto01
+sendto02 sendto02
 
 setdomainname01	setdomainname01
 setdomainname02	setdomainname02
@@ -1063,9 +1087,6 @@ setpgrp02 setpgrp02
 
 setpriority01 setpriority01
 setpriority02 setpriority02
-setpriority03 setpriority03
-setpriority04 setpriority04
-setpriority05 setpriority05
 
 setregid01 setregid01
 setregid01_16 setregid01_16
@@ -1189,7 +1210,6 @@ sigsuspend01 sigsuspend01
 
 socket01 socket01
 socket02 socket02
-socket03 socket03
 
 socketcall01 socketcall01
 socketcall02 socketcall02
@@ -1202,7 +1222,7 @@ socketpair02 socketpair02
 sockioctl01 sockioctl01
 
 splice01 splice01
-splice02 seq 1 10000000 | splice02 splice02-temp
+splice02 seq 1 20000 | splice02 splice02-temp
 splice03 splice03
 
 tee01 tee01
@@ -1330,8 +1350,6 @@ truncate03_64 truncate03_64
 ulimit01 ulimit01
 
 umask01 umask01
-umask02 umask02
-umask03 umask03
 
 uname01 uname01
 uname02 uname02
@@ -1419,10 +1437,9 @@ write05 write05
 
 writev01 writev01
 writev02 writev02
-writev03 writev03
-writev04 writev04
 writev05 writev05
 writev06 writev06
+writev07 writev07
 
 perf_event_open01 perf_event_open01
 perf_event_open02 perf_event_open02
@@ -1438,3 +1455,6 @@ futex_wake03 futex_wake03
 futex_wake04 futex_wake04
 futex_wait_bitset01 futex_wait_bitset01
 futex_wait_bitset02 futex_wait_bitset02
+
+memfd_create01 memfd_create01
+memfd_create02 memfd_create02

@@ -35,7 +35,7 @@ static uint32_t bloom_fnv(const void *buf, uint32_t len, uint32_t seed)
 
 #define BLOOM_SEED	0x8989
 
-struct bloom_hash hashes[] = {
+static struct bloom_hash hashes[] = {
 	{
 		.seed = BLOOM_SEED,
 		.fn = jhash,
@@ -60,19 +60,17 @@ struct bloom_hash hashes[] = {
 
 #define N_HASHES	5
 
-#define MIN_ENTRIES	1073741824UL
-
 struct bloom *bloom_new(uint64_t entries)
 {
 	struct bloom *b;
 	size_t no_uints;
 
+	crc32c_arm64_probe();
 	crc32c_intel_probe();
 
 	b = malloc(sizeof(*b));
 	b->nentries = entries;
 	no_uints = (entries + BITS_PER_INDEX - 1) / BITS_PER_INDEX;
-	no_uints = max((unsigned long) no_uints, MIN_ENTRIES);
 	b->map = calloc(no_uints, sizeof(uint32_t));
 	if (!b->map) {
 		free(b);
@@ -88,14 +86,14 @@ void bloom_free(struct bloom *b)
 	free(b);
 }
 
-static int __bloom_check(struct bloom *b, uint32_t *data, unsigned int nwords,
-			 int set)
+static bool __bloom_check(struct bloom *b, const void *data, unsigned int len,
+			  bool set)
 {
 	uint32_t hash[N_HASHES];
 	int i, was_set;
 
 	for (i = 0; i < N_HASHES; i++) {
-		hash[i] = hashes[i].fn(data, nwords, hashes[i].seed);
+		hash[i] = hashes[i].fn(data, len, hashes[i].seed);
 		hash[i] = hash[i] % b->nentries;
 	}
 
@@ -106,14 +104,22 @@ static int __bloom_check(struct bloom *b, uint32_t *data, unsigned int nwords,
 
 		if (b->map[index] & (1U << bit))
 			was_set++;
-		if (set)
+		else if (set)
 			b->map[index] |= 1U << bit;
+		else
+			break;
 	}
 
 	return was_set == N_HASHES;
 }
 
-int bloom_set(struct bloom *b, uint32_t *data, unsigned int nwords)
+bool bloom_set(struct bloom *b, uint32_t *data, unsigned int nwords)
 {
-	return __bloom_check(b, data, nwords, 1);
+	return __bloom_check(b, data, nwords * sizeof(uint32_t), true);
+}
+
+bool bloom_string(struct bloom *b, const char *data, unsigned int len,
+		  bool set)
+{
+	return __bloom_check(b, data, len, set);
 }

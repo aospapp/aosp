@@ -19,7 +19,9 @@ package com.android.car.radio;
 import android.content.Intent;
 import android.hardware.radio.RadioManager;
 import android.os.Bundle;
+import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentManager;
 import android.util.Log;
 
 import com.android.car.app.CarDrawerActivity;
@@ -39,7 +41,8 @@ public class CarRadioActivity extends CarDrawerActivity implements
         MainRadioFragment.RadioPresetListClickListener,
         ManualTunerFragment.ManualTunerCompletionListener {
     private static final String TAG = "Em.RadioActivity";
-    private static final String MANUAL_TUNER_BACKSTACK = "ManualTunerBackstack";
+    private static final String MANUAL_TUNER_BACKSTACK = "MANUAL_TUNER_BACKSTACK";
+    private static final String CONTENT_FRAGMENT_TAG = "CONTENT_FRAGMENT_TAG";
 
     private static final int[] SUPPORTED_RADIO_BANDS = new int[] {
         RadioManager.BAND_AM, RadioManager.BAND_FM };
@@ -56,21 +59,26 @@ public class CarRadioActivity extends CarDrawerActivity implements
     private static final String EXTRA_RADIO_APP_FOREGROUND
             = "android.intent.action.RADIO_APP_STATE";
 
-    private RadioController mRadioController;
-    private MainRadioFragment mMainFragment;
-    private boolean mTunerOpened;
+    /**
+     * Whether or not it is safe to make transactions on the
+     * {@link android.support.v4.app.FragmentManager}. This variable prevents a possible exception
+     * when calling commit() on the FragmentManager.
+     *
+     * <p>The default value is {@code true} because it is only after
+     * {@link #onSaveInstanceState(Bundle)} has been called that fragment commits are not allowed.
+     */
+    private boolean mAllowFragmentCommits = true;
 
-    private FragmentWithFade mCurrentFragment;
+    private RadioController mRadioController;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         mRadioController = new RadioController(this);
-        mMainFragment = MainRadioFragment.newInstance(mRadioController);
-        mMainFragment.setPresetListClickListener(this);
-        setContentFragment(mMainFragment);
-        mCurrentFragment = mMainFragment;
+        setContentFragment(
+                MainRadioFragment.newInstance(mRadioController, this /* clickListener */));
+
     }
 
     @Override
@@ -80,56 +88,50 @@ public class CarRadioActivity extends CarDrawerActivity implements
 
     @Override
     public void onPresetListClicked() {
-        mMainFragment.setPresetListClickListener(null);
-
-        RadioPresetsFragment fragment =
-                RadioPresetsFragment.newInstance(mRadioController);
-        fragment.setPresetListExitListener(this);
-
-        setContentFragment(fragment);
-        mCurrentFragment = fragment;
+        setContentFragment(
+                RadioPresetsFragment.newInstance(mRadioController, this /* existListener */));
     }
 
     @Override
     public void OnPresetListExit() {
-        mMainFragment.setPresetListClickListener(this);
-        setContentFragment(mMainFragment);
-        mCurrentFragment = mMainFragment;
+        setContentFragment(
+                MainRadioFragment.newInstance(mRadioController, this /* clickListener */));
     }
 
-    public void startManualTuner() {
-        if (mTunerOpened) {
+    private void startManualTuner() {
+        if (!mAllowFragmentCommits || getSupportFragmentManager().getBackStackEntryCount() > 0) {
             return;
         }
 
-        mCurrentFragment.fadeOutContent();
+        Fragment currentFragment = getCurrentFragment();
+        if (currentFragment instanceof FragmentWithFade) {
+            ((FragmentWithFade) currentFragment).fadeOutContent();
+        }
 
-        ManualTunerFragment fragment =
+        ManualTunerFragment tunerFragment =
                 ManualTunerFragment.newInstance(mRadioController.getCurrentRadioBand());
-        fragment.setManualTunerCompletionListener(this);
+        tunerFragment.setManualTunerCompletionListener(this);
 
         getSupportFragmentManager().beginTransaction()
                 .setCustomAnimations(R.anim.slide_up, R.anim.slide_down,
                         R.anim.slide_up, R.anim.slide_down)
-                .add(getContentContainerId(), fragment)
+                .add(getContentContainerId(), tunerFragment)
                 .addToBackStack(MANUAL_TUNER_BACKSTACK)
-                .commitAllowingStateLoss();
-
-        mTunerOpened = true;
+                .commit();
     }
 
     @Override
     public void onStationSelected(RadioStation station) {
-        // A station can only be selected if the manual tuner fragment has been shown; so, remove
-        // that here.
-        getSupportFragmentManager().popBackStack();
-        mCurrentFragment.fadeInContent();
+        maybeDismissManualTuner();
+
+        Fragment fragment = getCurrentFragment();
+        if (fragment instanceof FragmentWithFade) {
+            ((FragmentWithFade) fragment).fadeInContent();
+        }
 
         if (station != null) {
             mRadioController.tuneToRadioChannel(station);
         }
-
-        mTunerOpened = false;
     }
 
     @Override
@@ -139,6 +141,10 @@ public class CarRadioActivity extends CarDrawerActivity implements
         if (Log.isLoggable(TAG, Log.DEBUG)) {
             Log.d(TAG, "onStart");
         }
+
+        // Fragment commits are not allowed once the Activity's state has been saved. Once
+        // onStart() has been called, the FragmentManager should now allow commits.
+        mAllowFragmentCommits = true;
 
         mRadioController.start();
 
@@ -171,20 +177,56 @@ public class CarRadioActivity extends CarDrawerActivity implements
         mRadioController.shutdown();
     }
 
-    private void setContentFragment(Fragment fragment) {
-        getSupportFragmentManager().beginTransaction()
-                .replace(getContentContainerId(), fragment)
-                .commit();
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        // A transaction can only be committed with this method prior to its containing activity
+        // saving its state.
+        mAllowFragmentCommits = false;
+        super.onSaveInstanceState(outState);
     }
 
+    /**
+     * Checks if the manual tuner is currently being displayed. If it is, then dismiss it.
+     */
+    private void maybeDismissManualTuner() {
+        FragmentManager fragmentManager = getSupportFragmentManager();
+        if (fragmentManager.getBackStackEntryCount() > 0) {
+            // A station can only be selected if the manual tuner fragment has been shown; so, remove
+            // that here.
+            getSupportFragmentManager().popBackStack();
+        }
+    }
+
+    private void setContentFragment(Fragment fragment) {
+        if (!mAllowFragmentCommits) {
+            return;
+        }
+
+        getSupportFragmentManager().beginTransaction()
+                .replace(getContentContainerId(), fragment, CONTENT_FRAGMENT_TAG)
+                .commitNow();
+    }
+
+    /**
+     * Returns the fragment that is currently being displayed as the content view. Note that this
+     * is not necessarily the fragment that is visible. The manual tuner fragment can be displayed
+     * on top of this content fragment.
+     */
+    @Nullable
+    private Fragment getCurrentFragment() {
+        return getSupportFragmentManager().findFragmentByTag(CONTENT_FRAGMENT_TAG);
+    }
+
+    /**
+     * An adapter that is responsible for populating the Radio drawer with the available bands to
+     * select, as well as the option for opening the manual tuner.
+     */
     private class RadioDrawerAdapter extends CarDrawerAdapter {
         private final List<String> mDrawerOptions =
                 new ArrayList<>(SUPPORTED_RADIO_BANDS.length + 1);
 
         RadioDrawerAdapter() {
-            super(CarRadioActivity.this,
-                    false /* showDisabledListOnEmpty */,
-                    true /* useSmallLayout */ );
+            super(CarRadioActivity.this, false /* showDisabledListOnEmpty */);
             setTitle(getString(R.string.app_name));
             // The ordering of options is hardcoded. The click handler below depends on it.
             for (int band : SUPPORTED_RADIO_BANDS) {

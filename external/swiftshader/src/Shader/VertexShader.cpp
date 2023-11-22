@@ -27,10 +27,13 @@ namespace sw
 		positionRegister = Pos;
 		pointSizeRegister = Unused;
 		instanceIdDeclared = false;
+		vertexIdDeclared = false;
+		textureSampling = false;
 
 		for(int i = 0; i < MAX_VERTEX_INPUTS; i++)
 		{
-			input[i] = Semantic(-1, -1);
+			input[i] = Semantic();
+			attribType[i] = ATTRIBTYPE_FLOAT;
 		}
 
 		if(vs)   // Make a copy
@@ -42,9 +45,11 @@ namespace sw
 
 			memcpy(output, vs->output, sizeof(output));
 			memcpy(input, vs->input, sizeof(input));
+			memcpy(attribType, vs->attribType, sizeof(attribType));
 			positionRegister = vs->positionRegister;
 			pointSizeRegister = vs->pointSizeRegister;
 			instanceIdDeclared = vs->instanceIdDeclared;
+			vertexIdDeclared = vs->vertexIdDeclared;
 			usedSamplers = vs->usedSamplers;
 
 			optimize();
@@ -59,10 +64,13 @@ namespace sw
 		positionRegister = Pos;
 		pointSizeRegister = Unused;
 		instanceIdDeclared = false;
+		vertexIdDeclared = false;
+		textureSampling = false;
 
 		for(int i = 0; i < MAX_VERTEX_INPUTS; i++)
 		{
-			input[i] = Semantic(-1, -1);
+			input[i] = Semantic();
+			attribType[i] = ATTRIBTYPE_FLOAT;
 		}
 
 		optimize();
@@ -147,6 +155,47 @@ namespace sw
 	bool VertexShader::containsTextureSampling() const
 	{
 		return textureSampling;
+	}
+
+	void VertexShader::setInput(int inputIdx, const sw::Shader::Semantic& semantic, AttribType aType)
+	{
+		input[inputIdx] = semantic;
+		attribType[inputIdx] = aType;
+	}
+
+	void VertexShader::setOutput(int outputIdx, int nbComponents, const sw::Shader::Semantic& semantic)
+	{
+		for(int i = 0; i < nbComponents; ++i)
+		{
+			output[outputIdx][i] = semantic;
+		}
+	}
+
+	void VertexShader::setPositionRegister(int posReg)
+	{
+		setOutput(posReg, 4, sw::Shader::Semantic(sw::Shader::USAGE_POSITION, 0));
+		positionRegister = posReg;
+	}
+	
+	void VertexShader::setPointSizeRegister(int ptSizeReg)
+	{
+		setOutput(ptSizeReg, 4, sw::Shader::Semantic(sw::Shader::USAGE_PSIZE, 0));
+		pointSizeRegister = ptSizeReg;
+	}
+
+	const sw::Shader::Semantic& VertexShader::getInput(int inputIdx) const
+	{
+		return input[inputIdx];
+	}
+
+	VertexShader::AttribType VertexShader::getAttribType(int inputIdx) const
+	{
+		return attribType[inputIdx];
+	}
+
+	const sw::Shader::Semantic& VertexShader::getOutput(int outputIdx, int component) const
+	{
+		return output[outputIdx][component];
 	}
 
 	void VertexShader::analyze()

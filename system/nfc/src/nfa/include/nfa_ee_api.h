@@ -385,7 +385,8 @@ extern tNFA_STATUS NFA_EeSetDefaultProtoRouting(
 *******************************************************************************/
 extern tNFA_STATUS NFA_EeAddAidRouting(tNFA_HANDLE ee_handle, uint8_t aid_len,
                                        uint8_t* p_aid,
-                                       tNFA_EE_PWR_STATE power_state);
+                                       tNFA_EE_PWR_STATE power_state,
+                                       uint8_t aidInfo);
 
 /*******************************************************************************
 **

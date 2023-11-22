@@ -14,33 +14,43 @@
  * limitations under the License.
  */
 
-#include "chre_api/chre/version.h"
 #include "chre/platform/platform_nanoapp.h"
+
+#include <cinttypes>
+#include <dlfcn.h>
+
+#include "chre_api/chre/version.h"
+#include "chre/platform/assert.h"
+#include "chre/platform/log.h"
+#include "chre/platform/shared/nanoapp_dso_util.h"
 
 namespace chre {
 
-PlatformNanoapp::~PlatformNanoapp() {}
+PlatformNanoapp::~PlatformNanoapp() {
+  closeNanoapp();
+}
 
 bool PlatformNanoapp::start() {
-  return mStart();
+  return openNanoapp() && mAppInfo->entryPoints.start();
 }
 
 void PlatformNanoapp::handleEvent(uint32_t senderInstanceId,
                                   uint16_t eventType,
                                   const void *eventData) {
-  mHandleEvent(senderInstanceId, eventType, eventData);
+  mAppInfo->entryPoints.handleEvent(senderInstanceId, eventType, eventData);
 }
 
 void PlatformNanoapp::end() {
-  mEnd();
+  mAppInfo->entryPoints.end();
+  closeNanoapp();
 }
 
 uint64_t PlatformNanoapp::getAppId() const {
-  return mAppId;
+  return (mAppInfo == nullptr ? 0 : mAppInfo->appId);
 }
 
 uint32_t PlatformNanoapp::getAppVersion() const {
-  return mAppVersion;
+  return mAppInfo->appVersion;
 }
 
 uint32_t PlatformNanoapp::getTargetApiVersion() const {
@@ -49,6 +59,81 @@ uint32_t PlatformNanoapp::getTargetApiVersion() const {
 
 bool PlatformNanoapp::isSystemNanoapp() const {
   return true;
+}
+
+bool PlatformNanoapp::logStateToBuffer(char *buffer, size_t *bufferPos,
+                                       size_t bufferSize) const {
+  return true;
+}
+
+void PlatformNanoappBase::loadFromFile(const std::string& filename) {
+  CHRE_ASSERT(!isLoaded());
+  mFilename = filename;
+}
+
+void PlatformNanoappBase::loadStatic(const struct chreNslNanoappInfo *appInfo) {
+  CHRE_ASSERT(!isLoaded());
+  mIsStatic = true;
+  mAppInfo = appInfo;
+}
+
+bool PlatformNanoappBase::isLoaded() const {
+  return (mIsStatic || mDsoHandle != nullptr);
+}
+
+bool PlatformNanoappBase::openNanoapp() {
+  bool success = false;
+
+  if (mIsStatic) {
+    success = true;
+  } else if (!mFilename.empty()) {
+    success = openNanoappFromFile();
+  } else {
+    CHRE_ASSERT(false);
+  }
+
+  return success;
+}
+
+bool PlatformNanoappBase::openNanoappFromFile() {
+  CHRE_ASSERT(!mFilename.empty());
+  CHRE_ASSERT_LOG(mDsoHandle == nullptr, "Re-opening nanoapp");
+  bool success = false;
+
+  mDsoHandle = dlopen(mFilename.c_str(), RTLD_NOW | RTLD_GLOBAL);
+  if (mDsoHandle == nullptr) {
+    LOGE("Failed to load nanoapp from file %s: %s",
+         mFilename.c_str(), dlerror());
+  } else {
+    mAppInfo = static_cast<const struct chreNslNanoappInfo *>(
+        dlsym(mDsoHandle, CHRE_NSL_DSO_NANOAPP_INFO_SYMBOL_NAME));
+    if (mAppInfo == nullptr) {
+      LOGE("Failed to find app info symbol in %s: %s",
+           mFilename.c_str(), dlerror());
+    } else {
+      success = validateAppInfo(0 /* skip ID validation */, 0, mAppInfo,
+                                true /* ignoreAppVersion */);
+      if (!success) {
+        mAppInfo = nullptr;
+      } else {
+        LOGI("Successfully loaded nanoapp %s (0x%016" PRIx64 ") version 0x%"
+             PRIx32 " uimg %d system %d from file %s", mAppInfo->name,
+             mAppInfo->appId, mAppInfo->appVersion, mAppInfo->isTcmNanoapp,
+             mAppInfo->isSystemNanoapp, mFilename.c_str());
+      }
+    }
+  }
+
+  return success;
+}
+
+void PlatformNanoappBase::closeNanoapp() {
+  if (mDsoHandle != nullptr) {
+    if (dlclose(mDsoHandle) != 0) {
+      LOGE("dlclose failed: %s", dlerror());
+    }
+    mDsoHandle = nullptr;
+  }
 }
 
 }  // namespace chre

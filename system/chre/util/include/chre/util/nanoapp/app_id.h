@@ -72,7 +72,12 @@ constexpr uint64_t kSensorWorldAppId  = makeExampleNanoappId(4);
 constexpr uint64_t kGnssWorldAppId    = makeExampleNanoappId(5);
 constexpr uint64_t kWifiWorldAppId    = makeExampleNanoappId(6);
 constexpr uint64_t kWwanWorldAppId    = makeExampleNanoappId(7);
-constexpr uint64_t kImuCalAppId       = makeExampleNanoappId(8);
+// 8 = reserved (previously used by ImuCal)
+constexpr uint64_t kSpammerAppId      = makeExampleNanoappId(9);
+constexpr uint64_t kUnloadTesterAppId = makeExampleNanoappId(10);
+constexpr uint64_t kAshWorldAppId     = makeExampleNanoappId(11);
+
+constexpr uint64_t kImuCalAppId       = makeGoogleNanoappId(0x16);
 
 }  // namespace chre
 

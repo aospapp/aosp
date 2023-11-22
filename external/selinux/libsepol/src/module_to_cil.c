@@ -34,6 +34,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -246,19 +247,13 @@ static void attr_list_destroy(struct list **attr_list)
 
 static int list_init(struct list **list)
 {
-	int rc = -1;
 	struct list *l = calloc(1, sizeof(*l));
 	if (l == NULL) {
-		goto exit;
+		return -1;
 	}
 
 	*list = l;
-
 	return 0;
-
-exit:
-	list_destroy(&l);
-	return rc;
 }
 
 static int list_prepend(struct list *list, void *data)
@@ -796,8 +791,8 @@ static int cil_print_attr_strs(int indent, struct policydb *pdb, int is_type, vo
 	// CIL doesn't support anonymous positive/negative/complemented sets.  So
 	// instead we create a CIL type/roleattributeset that matches the set. If
 	// the set has a negative set, then convert it to is (P & !N), where P is
-	// the list of members in the positive set , and N is the list of members
-	// in the negative set. Additonally, if the set is complemented, then wrap
+	// the list of members in the positive set and N is the list of members
+	// in the negative set. Additionally, if the set is complemented, then wrap
 	// the whole thing with a negation.
 
 	struct ebitmap_node *node;
@@ -967,7 +962,6 @@ static int set_to_names(struct policydb *pdb, int is_type, void *set, struct lis
 	*names = malloc(sizeof(char *));
 	if (!*names) {
 		log_err("Out of memory");
-		free(attr_name);
 		rc = -1;
 		goto exit;
 	}
@@ -1159,6 +1153,7 @@ static int name_list_to_string(char **names, int num_names, char **string)
 
 	return 0;
 exit:
+	free(str);
 	return rc;
 }
 
@@ -1366,11 +1361,12 @@ exit:
 	free(new_val);
 	free(val1);
 	free(val2);
-	while ((val1 = stack_pop(stack)) != NULL) {
-		free(val1);
+	if (stack != NULL) {
+		while ((val1 = stack_pop(stack)) != NULL) {
+			free(val1);
+		}
+		stack_destroy(&stack);
 	}
-	stack_destroy(&stack);
-
 	return rc;
 }
 
@@ -1702,7 +1698,7 @@ static int constraint_expr_to_string(struct policydb *pdb, struct constraint_exp
 	const char *fmt_str;
 	const char *attr1;
 	const char *attr2;
-	char *names;
+	char *names = NULL;
 	char **name_list = NULL;
 	int num_names = 0;
 	struct type_set *ts;
@@ -1803,6 +1799,7 @@ static int constraint_expr_to_string(struct policydb *pdb, struct constraint_exp
 
 				names_destroy(&name_list, &num_names);
 				free(names);
+				names = NULL;
 			}
 
 			num_params = 0;
@@ -1892,6 +1889,7 @@ static int constraint_expr_to_string(struct policydb *pdb, struct constraint_exp
 
 exit:
 	names_destroy(&name_list, &num_names);
+	free(names);
 
 	free(new_val);
 	free(val1);
@@ -2105,13 +2103,13 @@ static int role_to_cil(int indent, struct policydb *pdb, struct avrule_block *UN
 			// the policy type, it would result in duplicate declarations,
 			// which isn't allowed in CIL. Patches have been made to refpolicy
 			// to remove these duplicate role declarations, but we need to be
-			// backwards compatable and support older policies. Since we know
+			// backwards compatible and support older policies. Since we know
 			// these roles are always declared in base, only print them when we
 			// see them in the base module. If the declarations appear in a
 			// non-base module, ignore their declarations.
 			//
 			// Note that this is a hack, and if a policy author does not define
-			// one of these roles in base, the declaration will not appeaer in
+			// one of these roles in base, the declaration will not appear in
 			// the resulting policy, likely resulting in a compilation error in
 			// CIL.
 			//
@@ -2246,6 +2244,17 @@ static int type_to_cil(int indent, struct policydb *pdb, struct avrule_block *UN
 			cil_println(indent, "(typeattribute %s)", key);
 		}
 
+		if (type->flags & TYPE_FLAGS_EXPAND_ATTR) {
+			cil_indent(indent);
+			cil_printf("(expandtypeattribute (%s) ", key);
+			if (type->flags & TYPE_FLAGS_EXPAND_ATTR_TRUE) {
+				cil_printf("true");
+			} else if (type->flags & TYPE_FLAGS_EXPAND_ATTR_FALSE) {
+				cil_printf("false");
+			}
+			cil_printf(")\n");
+		}
+
 		if (ebitmap_cardinality(&type->types) > 0) {
 			cil_indent(indent);
 			cil_printf("(typeattributeset %s (", key);
@@ -2291,7 +2300,7 @@ static int user_to_cil(int indent, struct policydb *pdb, struct avrule_block *bl
 
 	if (block->flags & AVRULE_OPTIONAL) {
 		// sensitivites in user statements in optionals do not have the
-		// standard -1 offest
+		// standard -1 offset
 		sens_offset = 0;
 	}
 
@@ -2816,9 +2825,9 @@ static int ocontext_xen_ioport_to_cil(struct policydb *pdb, struct ocontext *iop
 		high = ioport->u.ioport.high_ioport;
 
 		if (low == high) {
-			cil_printf("(ioportcon %i ", low);
+			cil_printf("(ioportcon 0x%x ", low);
 		} else {
-			cil_printf("(ioportcon (%i %i) ", low, high);
+			cil_printf("(ioportcon (0x%x 0x%x) ", low, high);
 		}
 
 		context_to_cil(pdb, &ioport->context[0]);
@@ -2840,9 +2849,9 @@ static int ocontext_xen_iomem_to_cil(struct policydb *pdb, struct ocontext *iome
 		high = iomem->u.iomem.high_iomem;
 
 		if (low == high) {
-			cil_printf("(iomemcon %#lX ", (unsigned long)low);
+			cil_printf("(iomemcon 0x%"PRIx64" ", low);
 		} else {
-			cil_printf("(iomemcon (%#lX %#lX) ", (unsigned long)low, (unsigned long)high);
+			cil_printf("(iomemcon (0x%"PRIx64" 0x%"PRIx64") ", low, high);
 		}
 
 		context_to_cil(pdb, &iomem->context[0]);
@@ -2858,7 +2867,7 @@ static int ocontext_xen_pcidevice_to_cil(struct policydb *pdb, struct ocontext *
 	struct ocontext *pcid;
 
 	for (pcid = pcids; pcid != NULL; pcid = pcid->next) {
-		cil_printf("(pcidevicecon %#lx ", (unsigned long)pcid->u.device);
+		cil_printf("(pcidevicecon 0x%lx ", (unsigned long)pcid->u.device);
 		context_to_cil(pdb, &pcid->context[0]);
 		cil_printf(")\n");
 	}

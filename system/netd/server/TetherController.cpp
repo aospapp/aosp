@@ -45,6 +45,7 @@ const char BP_TOOLS_MODE[] = "bp-tools";
 const char IPV4_FORWARDING_PROC_FILE[] = "/proc/sys/net/ipv4/ip_forward";
 const char IPV6_FORWARDING_PROC_FILE[] = "/proc/sys/net/ipv6/conf/all/forwarding";
 const char SEPARATOR[] = "|";
+constexpr const char kTcpBeLiberal[] = "/proc/sys/net/netfilter/nf_conntrack_tcp_be_liberal";
 
 bool writeToFile(const char* filename, const char* value) {
     int fd = open(filename, O_WRONLY | O_CLOEXEC);
@@ -61,6 +62,11 @@ bool writeToFile(const char* filename, const char* value) {
     }
     close(fd);
     return true;
+}
+
+// TODO: Consider altering TCP and UDP timeouts as well.
+void configureForTethering(bool enabled) {
+    writeToFile(kTcpBeLiberal, enabled ? "1" : "0");
 }
 
 bool configureForIPv6Router(const char *interface) {
@@ -211,6 +217,7 @@ int TetherController::startTethering(int num_addrs, char **dhcp_ranges) {
         close(pipefd[0]);
         mDaemonPid = pid;
         mDaemonFd = pipefd[1];
+        configureForTethering(true);
         applyDnsInterfaces();
         ALOGD("Tethering services running");
     }
@@ -219,6 +226,7 @@ int TetherController::startTethering(int num_addrs, char **dhcp_ranges) {
 }
 
 int TetherController::stopTethering() {
+    configureForTethering(false);
 
     if (mDaemonPid == 0) {
         ALOGE("Tethering already stopped");

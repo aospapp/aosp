@@ -2,6 +2,8 @@
 target datalayout = "e-p:32:32-i64:64-v128:64:128-n32-S64"
 target triple = "armv7-none-linux-gnueabi"
 
+; CHECK: OpString ".rsov.ExportedVars:0;24;8;28;"
+
 ; CHECK-DAG: OpDecorate [[GPUBlockVar:%[a-zA-Z_0-9]+]] Binding 0
 ; CHECK-DAG: OpDecorate [[STRUCT:%struct__.*]] BufferBlock
 ; CHECK-DAG: OpMemberDecorate [[STRUCT]] 0 Offset 0

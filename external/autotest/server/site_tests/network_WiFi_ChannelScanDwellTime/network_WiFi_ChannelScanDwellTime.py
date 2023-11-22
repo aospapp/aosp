@@ -152,7 +152,7 @@ class network_WiFi_ChannelScanDwellTime(wifi_cell_test_base.WiFiCellTestBase):
         # Filter scan result based on ssid prefix to remove any cached
         # BSSs from previous run.
         result_list = [bss.ssid for bss in bss_list if
-                       bss.ssid.startswith(ssid_prefix)]
+                       bss.ssid and bss.ssid.startswith(ssid_prefix)]
         if result_list is None:
             raise error.TestFail('Failed to find any BSS for this test')
 
@@ -160,6 +160,7 @@ class network_WiFi_ChannelScanDwellTime(wifi_cell_test_base.WiFiCellTestBase):
             pcap_path, tcpdump_analyzer.WLAN_BEACON_ACCEPTOR, bad_fcs='include')
         # Filter beacon frames based on ssid prefix.
         result_beacon_frames = [beacon_frame for beacon_frame in beacon_frames if
+                                beacon_frame.ssid and
                                 beacon_frame.ssid.startswith(ssid_prefix)]
         if result_beacon_frames is None:
             raise error.TestFail('Failed to find any beacons for this test')

@@ -338,14 +338,21 @@ void GraphChecker::VisitInstruction(HInstruction* instruction) {
 
   // Ensure the inputs of `instruction` are defined in a block of the graph.
   for (HInstruction* input : instruction->GetInputs()) {
-    const HInstructionList& list = input->IsPhi()
-        ? input->GetBlock()->GetPhis()
-        : input->GetBlock()->GetInstructions();
-    if (!list.Contains(input)) {
-      AddError(StringPrintf("Input %d of instruction %d is not defined "
-                            "in a basic block of the control-flow graph.",
+    if (input->GetBlock() == nullptr) {
+      AddError(StringPrintf("Input %d of instruction %d is not in any "
+                            "basic block of the control-flow graph.",
                             input->GetId(),
                             instruction->GetId()));
+    } else {
+      const HInstructionList& list = input->IsPhi()
+          ? input->GetBlock()->GetPhis()
+          : input->GetBlock()->GetInstructions();
+      if (!list.Contains(input)) {
+        AddError(StringPrintf("Input %d of instruction %d is not defined "
+                              "in a basic block of the control-flow graph.",
+                              input->GetId(),
+                              instruction->GetId()));
+      }
     }
   }
 
@@ -497,8 +504,7 @@ void GraphChecker::VisitInvokeStaticOrDirect(HInvokeStaticOrDirect* invoke) {
                             "has a null pointer as last input.",
                             invoke->DebugName(),
                             invoke->GetId()));
-    }
-    if (!last_input->IsClinitCheck() && !last_input->IsLoadClass()) {
+    } else if (!last_input->IsClinitCheck() && !last_input->IsLoadClass()) {
       AddError(StringPrintf("Static invoke %s:%d marked as having an explicit clinit check "
                             "has a last instruction (%s:%d) which is neither a clinit check "
                             "nor a load class instruction.",

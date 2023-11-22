@@ -25,6 +25,10 @@
 
 #include <utils/Errors.h>
 
+#include "DisabledChecks.h"
+#include "MatrixKernel.h"
+#include "Version.h"
+
 namespace android {
 namespace vintf {
 
@@ -67,17 +71,23 @@ struct RuntimeInfo {
     //   RuntimeInfo object is created (the first time VintfObject::GetRuntimeInfo is called),
     //   not when RuntimeInfo::checkCompatibility is called.
     // - avb-vbmetaversion matches related sysprops
-    bool checkCompatibility(const CompatibilityMatrix &mat,
-            std::string *error = nullptr) const;
+    bool checkCompatibility(const CompatibilityMatrix& mat, std::string* error = nullptr,
+                            DisabledChecks disabledChecks = ENABLE_ALL_CHECKS) const;
 
-private:
-
+   private:
     friend struct RuntimeInfoFetcher;
     friend class VintfObject;
     friend struct LibVintfTest;
     friend std::string dump(const RuntimeInfo &ki);
 
     status_t fetchAllInformation();
+
+    // mKernelVersion = x'.y'.z', minLts = x.y.z,
+    // match if x == x' , y == y' , and z <= z'.
+    bool matchKernelVersion(const KernelVersion& minLts) const;
+    // return true if all kernel configs in matrixConfigs matches.
+    bool matchKernelConfigs(const std::vector<KernelConfig>& matrixConfigs,
+                            std::string* error = nullptr) const;
 
     // /proc/config.gz
     // Key: CONFIG_xxx; Value: the value after = sign.
@@ -94,8 +104,7 @@ private:
     Version mBootVbmetaAvbVersion;
     Version mBootAvbVersion;
 
-    size_t mKernelSepolicyVersion;
-
+    size_t mKernelSepolicyVersion = 0u;
 };
 
 } // namespace vintf

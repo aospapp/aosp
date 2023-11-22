@@ -18,9 +18,21 @@
 -->
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- General and CMAS emergency alert settings. -->
-    <PreferenceCategory android:title="@string/emergency_alert_settings_title"
-                        android:key="category_alert_settings">
+    <SwitchPreference android:defaultValue="true"
+                      android:key="enable_emergency_alerts"
+                      android:summary="@string/enable_emergency_alerts_summary"
+                      android:title="@string/enable_emergency_alerts_title" />
+
+    <!-- Settings to enable / disable emergency alerts -->
+    <PreferenceCategory android:title="@string/emergency_alerts_title"
+                        android:key="category_emergency_alerts">
+
+        <!-- Enable CMAS AMBER alerts -->
+        <SwitchPreference android:defaultValue="true"
+                          android:key="enable_cmas_amber_alerts"
+                          android:summary="@string/enable_cmas_amber_alerts_summary"
+                          android:title="@string/enable_cmas_amber_alerts_title" />
+
 
         <!-- Enable CMAS Extreme Threat alerts -->
         <SwitchPreference android:defaultValue="true"
@@ -34,16 +46,26 @@
                             android:summary="@string/enable_cmas_severe_threat_alerts_summary"
                             android:title="@string/enable_cmas_severe_threat_alerts_title" />
 
-        <!-- Enable CMAS AMBER alerts -->
+        <!-- Default value is true for Brazil and India. This preference is ignored and hidden
+        unless the boolean "config_showAreaUpdateInfoSettings" is set to true in the global resource. -->
         <SwitchPreference android:defaultValue="true"
-                            android:key="enable_cmas_amber_alerts"
-                            android:summary="@string/enable_cmas_amber_alerts_summary"
-                            android:title="@string/enable_cmas_amber_alerts_title" />
+                          android:key="enable_area_update_info_alerts"
+                          android:summary="@string/enable_area_update_info_alerts_summary"
+                          android:title="@string/enable_area_update_info_alerts_title" />
+
+        <Preference android:key="emergency_alert_history"
+                    android:title="@string/emergency_alert_history_title" />
+
+    </PreferenceCategory>
+
+
+    <!-- Settings of how alerts are shown to user. -->
+    <PreferenceCategory android:title="@string/alert_preferences_title"
+                        android:key="category_alert_preferences">
 
         <SwitchPreference android:defaultValue="true"
-                            android:key="enable_emergency_alerts"
-                            android:summary="@string/enable_emergency_alerts_summary"
-                            android:title="@string/enable_emergency_alerts_title" />
+                          android:key="enable_alert_vibrate"
+                          android:title="@string/enable_alert_vibrate_title" />
 
         <ListPreference android:key="alert_reminder_interval"
                         android:title="@string/alert_reminder_interval_title"
@@ -52,44 +74,16 @@
                         android:defaultValue="@string/alert_reminder_interval_default_value"
                         android:dialogTitle="@string/alert_reminder_interval_title" />
 
-        <SwitchPreference android:defaultValue="true"
-                            android:key="enable_alert_vibrate"
-                            android:summary="@string/enable_alert_vibrate_summary"
-                            android:title="@string/enable_alert_vibrate_title" />
-
-        <SwitchPreference android:defaultValue="true"
-                            android:key="enable_alert_speech"
-                            android:summary="@string/enable_alert_speech_summary"
-                            android:title="@string/enable_alert_speech_title" />
-
-    </PreferenceCategory>
-
-    <!-- Emergency alert settings for ETWS. -->
-    <PreferenceCategory android:title="@string/category_etws_settings_title"
-                        android:key="category_etws_settings">
-
-        <SwitchPreference android:defaultValue="false"
-                            android:key="enable_etws_test_alerts"
-                            android:summary="@string/enable_etws_test_alerts_summary"
-                            android:title="@string/enable_etws_test_alerts_title" />
-
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="@string/category_brazil_settings_title"
-                        android:key="category_brazil_settings">
-
-    <!-- Default value is true for Brazil. This preference is ignored and hidden
-         unless the boolean "show_brazil_settings" is set to true in config.xml. -->
-    <SwitchPreference android:defaultValue="true"
-                        android:key="enable_channel_50_alerts"
-                        android:summary="@string/enable_channel_50_alerts_summary"
-                        android:title="@string/enable_channel_50_alerts_title" />
-
     </PreferenceCategory>
 
     <!-- Only visible when Developer options toggle is enabled in Settings. -->
     <PreferenceCategory android:title="@string/category_dev_settings_title"
                         android:key="category_dev_settings">
+
+        <SwitchPreference android:defaultValue="false"
+                          android:key="enable_etws_test_alerts"
+                          android:summary="@string/enable_etws_test_alerts_summary"
+                          android:title="@string/enable_etws_test_alerts_title" />
 
         <SwitchPreference android:defaultValue="false"
                             android:key="enable_cmas_test_alerts"
@@ -100,6 +94,16 @@
                             android:key="show_cmas_opt_out_dialog"
                             android:summary="@string/show_cmas_opt_out_summary"
                             android:title="@string/show_cmas_opt_out_title" />
+
+        <SwitchPreference android:defaultValue="true"
+                          android:key="enable_alert_speech"
+                          android:summary="@string/enable_alert_speech_summary"
+                          android:title="@string/enable_alert_speech_title" />
+
+        <SwitchPreference android:defaultValue="@bool/use_full_volume"
+                          android:key="use_full_volume"
+                          android:summary="@string/use_full_volume_summary"
+                          android:title="@string/use_full_volume_title" />
 
     </PreferenceCategory>
 

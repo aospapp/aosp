@@ -29,6 +29,7 @@
 #include <android-base/parsedouble.h>
 #include <android-base/parseint.h>
 #include <android-base/strings.h>
+#include <android-base/test_utils.h>
 
 #include "command.h"
 #include "dwarf_unwind.h"
@@ -75,7 +76,13 @@ class RecordCommand : public Command {
 "Usage: simpleperf record [options] [command [command-args]]\n"
 "       Gather sampling information of running [command]. And -a/-p/-t option\n"
 "       can be used to change target of sampling information.\n"
+"       The default options are: -e cpu-cycles -f 4000 -o perf.data.\n"
 "-a     System-wide collection.\n"
+#if defined(__ANDROID__)
+"--app package_name    Profile the process of an Android application.\n"
+"                      On non-rooted devices, the app must be debuggable,\n"
+"                      because we use run-as to switch to the app's context.\n"
+#endif
 "-b     Enable take branch stack sampling. Same as '-j any'\n"
 "-c count     Set event sample period. It means recording one sample when\n"
 "             [count] events happen. Can't be used with -f/-F option.\n"
@@ -87,9 +94,6 @@ class RecordCommand : public Command {
 "--cpu cpu_item1,cpu_item2,...\n"
 "             Collect samples only on the selected cpus. cpu_item can be cpu\n"
 "             number like 1, or cpu range like 0-3.\n"
-"--dump-symbols  Dump symbols in perf.data. By default perf.data doesn't contain\n"
-"                symbol information for samples. This option is used when there\n"
-"                is no symbol information in report environment.\n"
 "--duration time_in_sec  Monitor for time_in_sec seconds instead of running\n"
 "                        [command]. Here time_in_sec may be any positive\n"
 "                        floating point number.\n"
@@ -126,6 +130,9 @@ class RecordCommand : public Command {
 "                possible value <= 1024 will be used.\n"
 "--no-dump-kernel-symbols  Don't dump kernel symbols in perf.data. By default\n"
 "                          kernel symbols will be dumped when needed.\n"
+"--no-dump-symbols       Don't dump symbols in perf.data. By default symbols are\n"
+"                        dumped in perf.data, to support reporting in another\n"
+"                        environment.\n"
 "--no-inherit  Don't record created child threads/processes.\n"
 "--no-unwind   If `--call-graph dwarf` option is used, then the user's stack\n"
 "              will be unwound by default. Use this option to disable the\n"
@@ -137,10 +144,17 @@ class RecordCommand : public Command {
 "               will be unwound while recording by default. But it may lose\n"
 "               records as stacking unwinding can be time consuming. Use this\n"
 "               option to unwind the user's stack after recording.\n"
+"--start_profiling_fd fd_no    After starting profiling, write \"STARTED\" to\n"
+"                              <fd_no>, then close <fd_no>.\n"
 "--symfs <dir>    Look for files with symbols relative to this directory.\n"
 "                 This option is used to provide files with symbol table and\n"
-"                 debug information, which are used by --dump-symbols and -g.\n"
+"                 debug information, which are used for unwinding and dumping symbols.\n"
 "-t tid1,tid2,... Record events on existing threads. Mutually exclusive with -a.\n"
+#if 0
+// Below options are only used internally and shouldn't be visible to the public.
+"--in-app         We are already running in the app's context.\n"
+"--tracepoint-events file_name   Read tracepoint events from [file_name] instead of tracefs.\n"
+#endif
             // clang-format on
             ),
         use_sample_freq_(false),
@@ -157,15 +171,18 @@ class RecordCommand : public Command {
         child_inherit_(true),
         duration_in_sec_(0),
         can_dump_kernel_symbols_(true),
-        dump_symbols_(false),
+        dump_symbols_(true),
         event_selection_set_(false),
         mmap_page_range_(std::make_pair(1, DESIRED_PAGES_IN_MAPPED_BUFFER)),
         record_filename_("perf.data"),
         start_sampling_time_in_ns_(0),
         sample_record_count_(0),
-        lost_record_count_(0) {
+        lost_record_count_(0),
+        start_profiling_fd_(-1),
+        in_app_context_(false) {
     // Stop profiling if parent exits.
     prctl(PR_SET_PDEATHSIG, SIGHUP, 0, 0, 0);
+    app_package_name_ = GetDefaultAppPackageName();
   }
 
   bool Run(const std::vector<std::string>& args);
@@ -219,13 +236,13 @@ class RecordCommand : public Command {
 
   uint64_t sample_record_count_;
   uint64_t lost_record_count_;
+  int start_profiling_fd_;
+  std::string app_package_name_;
+  bool in_app_context_;
 };
 
 bool RecordCommand::Run(const std::vector<std::string>& args) {
   if (!CheckPerfEventLimit()) {
-    return false;
-  }
-  if (!InitPerfClock()) {
     return false;
   }
 
@@ -233,6 +250,15 @@ bool RecordCommand::Run(const std::vector<std::string>& args) {
   std::vector<std::string> workload_args;
   if (!ParseOptions(args, &workload_args)) {
     return false;
+  }
+  if (!app_package_name_.empty() && !in_app_context_) {
+    // Some users want to profile non debuggable apps on rooted devices. If we use run-as,
+    // it will be impossible when using --app. So don't switch to app's context when we are
+    // root.
+    if (!IsRoot()) {
+      return RunInAppContext(app_package_name_, "record", args, workload_args.size(),
+                             record_filename_, !event_selection_set_.GetTracepointEvents().empty());
+    }
   }
   if (event_selection_set_.empty()) {
     if (!event_selection_set_.AddEventType(default_measured_event_type)) {
@@ -242,9 +268,15 @@ bool RecordCommand::Run(const std::vector<std::string>& args) {
   if (!SetEventSelectionFlags()) {
     return false;
   }
-  ScopedCurrentArch scoped_arch(GetMachineArch());
 
-  // 2. Create workload.
+  // 2. Do some environment preparation.
+  ScopedCurrentArch scoped_arch(GetMachineArch());
+  if (!InitPerfClock()) {
+    return false;
+  }
+  PrepareVdsoFile();
+
+  // 3. Create workload.
   std::unique_ptr<Workload> workload;
   if (!workload_args.empty()) {
     workload = Workload::CreateWorkload(workload_args);
@@ -266,6 +298,11 @@ bool RecordCommand::Run(const std::vector<std::string>& args) {
           return false;
         }
       }
+    } else if (!app_package_name_.empty()) {
+      // If app process is not created, wait for it. This allows simpleperf starts before
+      // app process. In this way, we can have a better support of app start-up time profiling.
+      int pid = WaitForAppProcess(app_package_name_);
+      event_selection_set_.AddMonitoredProcesses({pid});
     } else {
       LOG(ERROR)
           << "No threads to monitor. Try `simpleperf help record` for help";
@@ -275,7 +312,7 @@ bool RecordCommand::Run(const std::vector<std::string>& args) {
     need_to_check_targets = true;
   }
 
-  // 3. Open perf_event_files, create mapped buffers for perf_event_files.
+  // 4. Open perf_event_files, create mapped buffers for perf_event_files.
   if (!event_selection_set_.OpenEventFiles(cpus_)) {
     return false;
   }
@@ -284,12 +321,12 @@ bool RecordCommand::Run(const std::vector<std::string>& args) {
     return false;
   }
 
-  // 4. Create perf.data.
+  // 5. Create perf.data.
   if (!CreateAndInitRecordFile()) {
     return false;
   }
 
-  // 5. Add read/signal/periodic Events.
+  // 6. Add read/signal/periodic Events.
   auto callback =
       std::bind(&RecordCommand::ProcessRecord, this, std::placeholders::_1);
   if (!event_selection_set_.PrepareToReadMmapEventData(callback)) {
@@ -313,13 +350,19 @@ bool RecordCommand::Run(const std::vector<std::string>& args) {
     }
   }
 
-  // 6. Write records in mapped buffers of perf_event_files to output file while
+  // 7. Write records in mapped buffers of perf_event_files to output file while
   //    workload is running.
   start_sampling_time_in_ns_ = GetPerfClock();
   LOG(VERBOSE) << "start_sampling_time is " << start_sampling_time_in_ns_
                << " ns";
   if (workload != nullptr && !workload->IsStarted() && !workload->Start()) {
     return false;
+  }
+  if (start_profiling_fd_ != -1) {
+    if (!android::base::WriteStringToFd("STARTED", start_profiling_fd_)) {
+      PLOG(ERROR) << "failed to write to start_profiling_fd_";
+    }
+    close(start_profiling_fd_);
   }
   if (!loop->RunLoop()) {
     return false;
@@ -328,7 +371,7 @@ bool RecordCommand::Run(const std::vector<std::string>& args) {
     return false;
   }
 
-  // 7. Dump additional features, and close record file.
+  // 8. Dump additional features, and close record file.
   if (!DumpAdditionalFeatures(args)) {
     return false;
   }
@@ -336,14 +379,14 @@ bool RecordCommand::Run(const std::vector<std::string>& args) {
     return false;
   }
 
-  // 8. Unwind dwarf callchain.
+  // 9. Unwind dwarf callchain.
   if (post_unwind_) {
     if (!PostUnwind(args)) {
       return false;
     }
   }
 
-  // 9. Show brief record result.
+  // 10. Show brief record result.
   LOG(INFO) << "Samples recorded: " << sample_record_count_
             << ". Samples lost: " << lost_record_count_ << ".";
   if (sample_record_count_ + lost_record_count_ != 0) {
@@ -366,6 +409,11 @@ bool RecordCommand::ParseOptions(const std::vector<std::string>& args,
   for (i = 0; i < args.size() && !args[i].empty() && args[i][0] == '-'; ++i) {
     if (args[i] == "-a") {
       system_wide_collection_ = true;
+    } else if (args[i] == "--app") {
+      if (!NextArgumentOrError(args, &i)) {
+        return false;
+      }
+      app_package_name_ = args[i];
     } else if (args[i] == "-b") {
       branch_sampling_ = branch_sampling_type_map["any"];
     } else if (args[i] == "-c") {
@@ -421,8 +469,6 @@ bool RecordCommand::ParseOptions(const std::vector<std::string>& args,
         return false;
       }
       cpus_ = GetCpusFromString(args[i]);
-    } else if (args[i] == "--dump-symbols") {
-      dump_symbols_ = true;
     } else if (args[i] == "--duration") {
       if (!NextArgumentOrError(args, &i)) {
         return false;
@@ -465,6 +511,8 @@ bool RecordCommand::ParseOptions(const std::vector<std::string>& args,
       if (!event_selection_set_.AddEventGroup(event_types)) {
         return false;
       }
+    } else if (args[i] == "--in-app") {
+      in_app_context_ = true;
     } else if (args[i] == "-j") {
       if (!NextArgumentOrError(args, &i)) {
         return false;
@@ -492,6 +540,8 @@ bool RecordCommand::ParseOptions(const std::vector<std::string>& args,
       mmap_page_range_.first = mmap_page_range_.second = pages;
     } else if (args[i] == "--no-dump-kernel-symbols") {
       can_dump_kernel_symbols_ = false;
+    } else if (args[i] == "--no-dump-symbols") {
+      dump_symbols_ = false;
     } else if (args[i] == "--no-inherit") {
       child_inherit_ = false;
     } else if (args[i] == "--no-unwind") {
@@ -512,6 +562,14 @@ bool RecordCommand::ParseOptions(const std::vector<std::string>& args,
       event_selection_set_.AddMonitoredProcesses(pids);
     } else if (args[i] == "--post-unwind") {
       post_unwind_ = true;
+    } else if (args[i] == "--start_profiling_fd") {
+      if (!NextArgumentOrError(args, &i)) {
+        return false;
+      }
+      if (!android::base::ParseInt(args[i].c_str(), &start_profiling_fd_, 0)) {
+        LOG(ERROR) << "Invalid start_profiling_fd: " << args[i];
+        return false;
+      }
     } else if (args[i] == "--symfs") {
       if (!NextArgumentOrError(args, &i)) {
         return false;
@@ -528,6 +586,13 @@ bool RecordCommand::ParseOptions(const std::vector<std::string>& args,
         return false;
       }
       event_selection_set_.AddMonitoredThreads(tids);
+    } else if (args[i] == "--tracepoint-events") {
+      if (!NextArgumentOrError(args, &i)) {
+        return false;
+      }
+      if (!SetTracepointEventsFilePath(args[i])) {
+        return false;
+      }
     } else {
       ReportUnknownOption(args, i);
       return false;
@@ -556,6 +621,13 @@ bool RecordCommand::ParseOptions(const std::vector<std::string>& args,
     if (!unwind_dwarf_callchain_) {
       LOG(ERROR) << "--post-unwind can't be used with `--no-unwind` option.";
       return false;
+    }
+  }
+
+  if (fp_callchain_sampling_) {
+    if (GetBuildArch() == ARCH_ARM) {
+      LOG(WARNING) << "`--callgraph fp` option doesn't work well on arm architecture, "
+                   << "consider using `-g` option or profiling on aarch64 architecture.";
     }
   }
 
@@ -663,8 +735,8 @@ bool RecordCommand::DumpKernelSymbol() {
 bool RecordCommand::DumpTracingData() {
   std::vector<const EventType*> tracepoint_event_types =
       event_selection_set_.GetTracepointEvents();
-  if (tracepoint_event_types.empty()) {
-    return true;  // No need to dump tracing data.
+  if (tracepoint_event_types.empty() || !CanRecordRawData()) {
+    return true;  // No need to dump tracing data, or can't do it.
   }
   std::vector<char> tracing_data;
   if (!GetTracingData(tracepoint_event_types, &tracing_data)) {
@@ -905,7 +977,9 @@ bool RecordCommand::DumpAdditionalFeatures(
     const std::vector<std::string>& args) {
   // Read data section of perf.data to collect hit file information.
   thread_tree_.ClearThreadAndMap();
-  Dso::ReadKernelSymbolsFromProc();
+  if (CheckKernelSymbolAddresses()) {
+    Dso::ReadKernelSymbolsFromProc();
+  }
   auto callback = [&](const Record* r) {
     thread_tree_.Update(*r);
     if (r->type() == PERF_RECORD_SAMPLE) {
@@ -916,7 +990,7 @@ bool RecordCommand::DumpAdditionalFeatures(
     return false;
   }
 
-  size_t feature_count = 4;
+  size_t feature_count = 5;
   if (branch_sampling_) {
     feature_count++;
   }
@@ -959,6 +1033,13 @@ bool RecordCommand::DumpAdditionalFeatures(
       !record_file_writer_->WriteBranchStackFeature()) {
     return false;
   }
+
+  std::unordered_map<std::string, std::string> info_map;
+  info_map["simpleperf_version"] = GetSimpleperfVersion();
+  if (!record_file_writer_->WriteMetaInfoFeature(info_map)) {
+    return false;
+  }
+
   if (!record_file_writer_->EndWriteFeatures()) {
     return false;
   }

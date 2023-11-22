@@ -26,6 +26,7 @@
 
 #include <mutex>
 #include <regex>
+#include <set>
 
 #include <hidl/HidlBinderSupport.h>
 #include <hidl/ServiceManagement.h>
@@ -35,32 +36,30 @@
 #include <android-base/properties.h>
 #include <hwbinder/IPCThreadState.h>
 #include <hwbinder/Parcel.h>
+#include <vndksupport/linker.h>
 
-#include <android/hidl/manager/1.0/IServiceManager.h>
-#include <android/hidl/manager/1.0/BpHwServiceManager.h>
-#include <android/hidl/manager/1.0/BnHwServiceManager.h>
+#include <android/hidl/manager/1.1/IServiceManager.h>
+#include <android/hidl/manager/1.1/BpHwServiceManager.h>
+#include <android/hidl/manager/1.1/BnHwServiceManager.h>
 
 #define RE_COMPONENT    "[a-zA-Z_][a-zA-Z_0-9]*"
 #define RE_PATH         RE_COMPONENT "(?:[.]" RE_COMPONENT ")*"
 static const std::regex gLibraryFileNamePattern("(" RE_PATH "@[0-9]+[.][0-9]+)-impl(.*?).so");
 
-extern "C" {
-    android_namespace_t* android_get_exported_namespace(const char*);
-}
-
 using android::base::WaitForProperty;
 
-using android::hidl::manager::V1_0::IServiceManager;
+using IServiceManager1_0 = android::hidl::manager::V1_0::IServiceManager;
+using IServiceManager1_1 = android::hidl::manager::V1_1::IServiceManager;
 using android::hidl::manager::V1_0::IServiceNotification;
-using android::hidl::manager::V1_0::BpHwServiceManager;
-using android::hidl::manager::V1_0::BnHwServiceManager;
+using android::hidl::manager::V1_1::BpHwServiceManager;
+using android::hidl::manager::V1_1::BnHwServiceManager;
 
 namespace android {
 namespace hardware {
 
 namespace details {
 extern Mutex gDefaultServiceManagerLock;
-extern sp<android::hidl::manager::V1_0::IServiceManager> gDefaultServiceManager;
+extern sp<android::hidl::manager::V1_1::IServiceManager> gDefaultServiceManager;
 }  // namespace details
 
 static const char* kHwServicemanagerReadyProperty = "hwservicemanager.ready";
@@ -134,7 +133,10 @@ void onRegistration(const std::string &packageName,
 
 }  // details
 
-sp<IServiceManager> defaultServiceManager() {
+sp<IServiceManager1_0> defaultServiceManager() {
+    return defaultServiceManager1_1();
+}
+sp<IServiceManager1_1> defaultServiceManager1_1() {
     {
         AutoMutex _l(details::gDefaultServiceManagerLock);
         if (details::gDefaultServiceManager != NULL) {
@@ -151,7 +153,7 @@ sp<IServiceManager> defaultServiceManager() {
 
         while (details::gDefaultServiceManager == NULL) {
             details::gDefaultServiceManager =
-                    fromBinder<IServiceManager, BpHwServiceManager, BnHwServiceManager>(
+                    fromBinder<IServiceManager1_1, BpHwServiceManager, BnHwServiceManager>(
                         ProcessState::self()->getContextObject(NULL));
             if (details::gDefaultServiceManager == NULL) {
                 LOG(ERROR) << "Waited for hwservicemanager, but got nullptr.";
@@ -184,17 +186,18 @@ std::vector<std::string> search(const std::string &path,
     return results;
 }
 
-bool matchPackageName(const std::string &lib, std::string *matchedName) {
+bool matchPackageName(const std::string& lib, std::string* matchedName, std::string* implName) {
     std::smatch match;
     if (std::regex_match(lib, match, gLibraryFileNamePattern)) {
         *matchedName = match.str(1) + "::I*";
+        *implName = match.str(2);
         return true;
     }
     return false;
 }
 
 static void registerReference(const hidl_string &interfaceName, const hidl_string &instanceName) {
-    sp<IServiceManager> binderizedManager = defaultServiceManager();
+    sp<IServiceManager1_0> binderizedManager = defaultServiceManager();
     if (binderizedManager == nullptr) {
         LOG(WARNING) << "Could not registerReference for "
                      << interfaceName << "/" << instanceName
@@ -212,63 +215,91 @@ static void registerReference(const hidl_string &interfaceName, const hidl_strin
                  << interfaceName << "/" << instanceName;
 }
 
-struct PassthroughServiceManager : IServiceManager {
-    Return<sp<IBase>> get(const hidl_string& fqName,
-                          const hidl_string& name) override {
-        std::string stdFqName(fqName.c_str());
+using InstanceDebugInfo = hidl::manager::V1_0::IServiceManager::InstanceDebugInfo;
+static inline void fetchPidsForPassthroughLibraries(
+    std::map<std::string, InstanceDebugInfo>* infos) {
+    static const std::string proc = "/proc/";
 
+    std::map<std::string, std::set<pid_t>> pids;
+    std::unique_ptr<DIR, decltype(&closedir)> dir(opendir(proc.c_str()), closedir);
+    if (!dir) return;
+    dirent* dp;
+    while ((dp = readdir(dir.get())) != nullptr) {
+        pid_t pid = strtoll(dp->d_name, NULL, 0);
+        if (pid == 0) continue;
+        std::string mapsPath = proc + dp->d_name + "/maps";
+        std::ifstream ifs{mapsPath};
+        if (!ifs.is_open()) continue;
+
+        for (std::string line; std::getline(ifs, line);) {
+            // The last token of line should look like
+            // vendor/lib64/hw/android.hardware.foo@1.0-impl-extra.so
+            // Use some simple filters to ignore bad lines before extracting libFileName
+            // and checking the key in info to make parsing faster.
+            if (line.back() != 'o') continue;
+            if (line.rfind('@') == std::string::npos) continue;
+
+            auto spacePos = line.rfind(' ');
+            if (spacePos == std::string::npos) continue;
+            auto libFileName = line.substr(spacePos + 1);
+            auto it = infos->find(libFileName);
+            if (it == infos->end()) continue;
+            pids[libFileName].insert(pid);
+        }
+    }
+    for (auto& pair : *infos) {
+        pair.second.clientPids =
+            std::vector<pid_t>{pids[pair.first].begin(), pids[pair.first].end()};
+    }
+}
+
+struct PassthroughServiceManager : IServiceManager1_1 {
+    static void openLibs(const std::string& fqName,
+            std::function<bool /* continue */(void* /* handle */,
+                const std::string& /* lib */, const std::string& /* sym */)> eachLib) {
         //fqName looks like android.hardware.foo@1.0::IFoo
-        size_t idx = stdFqName.find("::");
+        size_t idx = fqName.find("::");
 
         if (idx == std::string::npos ||
-                idx + strlen("::") + 1 >= stdFqName.size()) {
+                idx + strlen("::") + 1 >= fqName.size()) {
             LOG(ERROR) << "Invalid interface name passthrough lookup: " << fqName;
-            return nullptr;
+            return;
         }
 
-        std::string packageAndVersion = stdFqName.substr(0, idx);
-        std::string ifaceName = stdFqName.substr(idx + strlen("::"));
+        std::string packageAndVersion = fqName.substr(0, idx);
+        std::string ifaceName = fqName.substr(idx + strlen("::"));
 
         const std::string prefix = packageAndVersion + "-impl";
         const std::string sym = "HIDL_FETCH_" + ifaceName;
 
-        const android_namespace_t* sphal_namespace = android_get_exported_namespace("sphal");
         const int dlMode = RTLD_LAZY;
         void *handle = nullptr;
 
-        // TODO: lookup in VINTF instead
-        // TODO(b/34135607): Remove HAL_LIBRARY_PATH_SYSTEM
-
         dlerror(); // clear
 
-        for (const std::string &path : {
-            HAL_LIBRARY_PATH_ODM, HAL_LIBRARY_PATH_VENDOR, HAL_LIBRARY_PATH_SYSTEM
-        }) {
+        std::vector<std::string> paths = {HAL_LIBRARY_PATH_ODM, HAL_LIBRARY_PATH_VENDOR,
+                                          HAL_LIBRARY_PATH_VNDK_SP, HAL_LIBRARY_PATH_SYSTEM};
+#ifdef LIBHIDL_TARGET_DEBUGGABLE
+        const char* env = std::getenv("TREBLE_TESTING_OVERRIDE");
+        const bool trebleTestingOverride = env && !strcmp(env, "true");
+        if (trebleTestingOverride) {
+            const char* vtsRootPath = std::getenv("VTS_ROOT_PATH");
+            if (vtsRootPath && strlen(vtsRootPath) > 0) {
+                const std::string halLibraryPathVtsOverride =
+                    std::string(vtsRootPath) + HAL_LIBRARY_PATH_SYSTEM;
+                paths.push_back(halLibraryPathVtsOverride);
+            }
+        }
+#endif
+        for (const std::string& path : paths) {
             std::vector<std::string> libs = search(path, prefix, ".so");
 
             for (const std::string &lib : libs) {
                 const std::string fullPath = path + lib;
 
-                // If sphal namespace is available, try to load from the
-                // namespace first. If it fails, fall back to the original
-                // dlopen, which loads from the current namespace.
-                if (sphal_namespace != nullptr && path != HAL_LIBRARY_PATH_SYSTEM) {
-                    const android_dlextinfo dlextinfo = {
-                        .flags = ANDROID_DLEXT_USE_NAMESPACE,
-                        // const_cast is dirty but required because
-                        // library_namespace field is non-const.
-                        .library_namespace = const_cast<android_namespace_t*>(sphal_namespace),
-                    };
-                    handle = android_dlopen_ext(fullPath.c_str(), dlMode, &dlextinfo);
-                    if (handle == nullptr) {
-                        const char* error = dlerror();
-                        LOG(WARNING) << "Failed to dlopen " << lib << " from sphal namespace:"
-                                     << (error == nullptr ? "unknown error" : error);
-                    } else {
-                        LOG(DEBUG) << lib << " loaded from sphal namespace.";
-                    }
-                }
-                if (handle == nullptr) {
+                if (path != HAL_LIBRARY_PATH_SYSTEM) {
+                    handle = android_load_sphal_library(fullPath.c_str(), dlMode);
+                } else {
                     handle = dlopen(fullPath.c_str(), dlMode);
                 }
 
@@ -279,31 +310,41 @@ struct PassthroughServiceManager : IServiceManager {
                     continue;
                 }
 
-                IBase* (*generator)(const char* name);
-                *(void **)(&generator) = dlsym(handle, sym.c_str());
-                if(!generator) {
-                    const char* error = dlerror();
-                    LOG(ERROR) << "Passthrough lookup opened " << lib
-                               << " but could not find symbol " << sym << ": "
-                               << (error == nullptr ? "unknown error" : error);
-                    dlclose(handle);
-                    continue;
+                if (!eachLib(handle, lib, sym)) {
+                    return;
                 }
-
-                IBase *interface = (*generator)(name.c_str());
-
-                if (interface == nullptr) {
-                    dlclose(handle);
-                    continue; // this module doesn't provide this instance name
-                }
-
-                registerReference(fqName, name);
-
-                return interface;
             }
         }
+    }
 
-        return nullptr;
+    Return<sp<IBase>> get(const hidl_string& fqName,
+                          const hidl_string& name) override {
+        sp<IBase> ret = nullptr;
+
+        openLibs(fqName, [&](void* handle, const std::string &lib, const std::string &sym) {
+            IBase* (*generator)(const char* name);
+            *(void **)(&generator) = dlsym(handle, sym.c_str());
+            if(!generator) {
+                const char* error = dlerror();
+                LOG(ERROR) << "Passthrough lookup opened " << lib
+                           << " but could not find symbol " << sym << ": "
+                           << (error == nullptr ? "unknown error" : error);
+                dlclose(handle);
+                return true;
+            }
+
+            ret = (*generator)(name.c_str());
+
+            if (ret == nullptr) {
+                dlclose(handle);
+                return true; // this module doesn't provide this instance name
+            }
+
+            registerReference(fqName, name);
+            return false;
+        });
+
+        return ret;
     }
 
     Return<bool> add(const hidl_string& /* name */,
@@ -339,31 +380,39 @@ struct PassthroughServiceManager : IServiceManager {
 
     Return<void> debugDump(debugDump_cb _hidl_cb) override {
         using Arch = ::android::hidl::base::V1_0::DebugInfo::Architecture;
-        static std::vector<std::pair<Arch, std::vector<const char *>>> sAllPaths{
-            {Arch::IS_64BIT, {HAL_LIBRARY_PATH_ODM_64BIT,
-                                      HAL_LIBRARY_PATH_VENDOR_64BIT,
-                                      HAL_LIBRARY_PATH_SYSTEM_64BIT}},
-            {Arch::IS_32BIT, {HAL_LIBRARY_PATH_ODM_32BIT,
-                                      HAL_LIBRARY_PATH_VENDOR_32BIT,
-                                      HAL_LIBRARY_PATH_SYSTEM_32BIT}}
-        };
-        std::vector<InstanceDebugInfo> vec;
+        using std::literals::string_literals::operator""s;
+        static std::vector<std::pair<Arch, std::vector<const char*>>> sAllPaths{
+            {Arch::IS_64BIT,
+             {HAL_LIBRARY_PATH_ODM_64BIT, HAL_LIBRARY_PATH_VENDOR_64BIT,
+              HAL_LIBRARY_PATH_VNDK_SP_64BIT, HAL_LIBRARY_PATH_SYSTEM_64BIT}},
+            {Arch::IS_32BIT,
+             {HAL_LIBRARY_PATH_ODM_32BIT, HAL_LIBRARY_PATH_VENDOR_32BIT,
+              HAL_LIBRARY_PATH_VNDK_SP_32BIT, HAL_LIBRARY_PATH_SYSTEM_32BIT}}};
+        std::map<std::string, InstanceDebugInfo> map;
         for (const auto &pair : sAllPaths) {
             Arch arch = pair.first;
             for (const auto &path : pair.second) {
                 std::vector<std::string> libs = search(path, "", ".so");
                 for (const std::string &lib : libs) {
                     std::string matchedName;
-                    if (matchPackageName(lib, &matchedName)) {
-                        vec.push_back({
-                            .interfaceName = matchedName,
-                            .instanceName = "*",
-                            .clientPids = {},
-                            .arch = arch
-                        });
+                    std::string implName;
+                    if (matchPackageName(lib, &matchedName, &implName)) {
+                        std::string instanceName{"* ("s + path + ")"s};
+                        if (!implName.empty()) instanceName += " ("s + implName + ")"s;
+                        map.emplace(path + lib, InstanceDebugInfo{.interfaceName = matchedName,
+                                                                  .instanceName = instanceName,
+                                                                  .clientPids = {},
+                                                                  .arch = arch});
                     }
                 }
             }
+        }
+        fetchPidsForPassthroughLibraries(&map);
+        hidl_vec<InstanceDebugInfo> vec;
+        vec.resize(map.size());
+        size_t idx = 0;
+        for (auto&& pair : map) {
+            vec[idx++] = std::move(pair.second);
         }
         _hidl_cb(vec);
         return Void();
@@ -376,14 +425,33 @@ struct PassthroughServiceManager : IServiceManager {
         return Void();
     }
 
+    Return<bool> unregisterForNotifications(const hidl_string& /* fqName */,
+                                            const hidl_string& /* name */,
+                                            const sp<IServiceNotification>& /* callback */) override {
+        // This makes no sense.
+        LOG(FATAL) << "Cannot unregister for notifications with passthrough service manager.";
+        return false;
+    }
+
 };
 
-sp<IServiceManager> getPassthroughServiceManager() {
+sp<IServiceManager1_0> getPassthroughServiceManager() {
+    return getPassthroughServiceManager1_1();
+}
+sp<IServiceManager1_1> getPassthroughServiceManager1_1() {
     static sp<PassthroughServiceManager> manager(new PassthroughServiceManager());
     return manager;
 }
 
 namespace details {
+
+void preloadPassthroughService(const std::string &descriptor) {
+    PassthroughServiceManager::openLibs(descriptor,
+        [&](void* /* handle */, const std::string& /* lib */, const std::string& /* sym */) {
+            // do nothing
+            return true; // open all libs
+        });
+}
 
 struct Waiter : IServiceNotification {
     Return<void> onRegistration(const hidl_string& /* fqName */,
@@ -427,7 +495,7 @@ private:
 
 void waitForHwService(
         const std::string &interface, const std::string &instanceName) {
-    const sp<IServiceManager> manager = defaultServiceManager();
+    const sp<IServiceManager1_1> manager = defaultServiceManager1_1();
 
     if (manager == nullptr) {
         LOG(ERROR) << "Could not get default service manager.";
@@ -451,6 +519,11 @@ void waitForHwService(
     }
 
     waiter->wait(interface, instanceName);
+
+    if (!manager->unregisterForNotifications(interface, instanceName, waiter).withDefault(false)) {
+        LOG(ERROR) << "Could not unregister service notification for "
+            << interface << "/" << instanceName << ".";
+    }
 }
 
 }; // namespace details

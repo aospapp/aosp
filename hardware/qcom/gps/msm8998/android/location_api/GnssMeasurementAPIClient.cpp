@@ -109,8 +109,8 @@ GnssMeasurementAPIClient::gnssMeasurementSetCallback(const sp<IGnssMeasurementCa
     }
     if (mLocationCapabilitiesMask & LOCATION_CAPABILITIES_GNSS_MSB_BIT)
         mLocationOptions.mode = GNSS_SUPL_MODE_MSB;
-    else if (mLocationCapabilitiesMask & LOCATION_CAPABILITIES_GNSS_MSA_BIT)
-        mLocationOptions.mode = GNSS_SUPL_MODE_MSA;
+    else
+        mLocationOptions.mode = GNSS_SUPL_MODE_STANDALONE;
     LOC_LOGD("%s]: start tracking session", __FUNCTION__);
     locAPIStartTracking(mLocationOptions);
 
@@ -123,6 +123,7 @@ void GnssMeasurementAPIClient::gnssMeasurementClose() {
     pthread_mutex_lock(&mLock);
     mGnssMeasurementCbIface = nullptr;
     pthread_mutex_unlock(&mLock);
+    locAPIStopTracking();
 }
 
 // callbacks
@@ -146,7 +147,11 @@ void GnssMeasurementAPIClient::onGnssMeasurementsCb(
         if (mGnssMeasurementCbIface != nullptr) {
             IGnssMeasurementCallback::GnssData gnssData;
             convertGnssData(gnssMeasurementsNotification, gnssData);
-            mGnssMeasurementCbIface->GnssMeasurementCb(gnssData);
+            auto r = mGnssMeasurementCbIface->GnssMeasurementCb(gnssData);
+            if (!r.isOk()) {
+                LOC_LOGE("%s] Error from GnssMeasurementCb description=%s",
+                    __func__, r.description().c_str());
+            }
         }
         pthread_mutex_unlock(&mLock);
     }
@@ -166,6 +171,8 @@ static void convertGnssMeasurement(GnssMeasurementsData& in,
         out.flags |= IGnssMeasurementCallback::GnssMeasurementFlags::HAS_CARRIER_PHASE;
     if (in.flags & GNSS_MEASUREMENTS_DATA_CARRIER_PHASE_UNCERTAINTY_BIT)
         out.flags |= IGnssMeasurementCallback::GnssMeasurementFlags::HAS_CARRIER_PHASE_UNCERTAINTY;
+    if (in.flags & GNSS_MEASUREMENTS_DATA_AUTOMATIC_GAIN_CONTROL_BIT)
+        out.flags |= IGnssMeasurementCallback::GnssMeasurementFlags::HAS_AUTOMATIC_GAIN_CONTROL;
     out.svid = in.svId;
     convertGnssConstellationType(in.svType, out.constellation);
     out.timeOffsetNs = in.timeOffsetNs;
@@ -226,6 +233,7 @@ static void convertGnssMeasurement(GnssMeasurementsData& in,
     out.multipathIndicator =
         static_cast<IGnssMeasurementCallback::GnssMultipathIndicator>(indicator);
     out.snrDb = in.signalToNoiseRatioDb;
+    out.agcLevelDb = in.agcLevelDb;
 }
 
 static void convertGnssClock(GnssMeasurementsClock& in, IGnssMeasurementCallback::GnssClock& out)

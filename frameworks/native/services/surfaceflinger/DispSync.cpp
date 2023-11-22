@@ -30,7 +30,7 @@
 #include <utils/Trace.h>
 #include <utils/Vector.h>
 
-#include <ui/Fence.h>
+#include <ui/FenceTime.h>
 
 #include "DispSync.h"
 #include "SurfaceFlinger.h"
@@ -377,18 +377,22 @@ private:
 DispSync::DispSync(const char* name) :
         mName(name),
         mRefreshSkipCount(0),
-        mThread(new DispSyncThread(name)),
-        mIgnorePresentFences(!SurfaceFlinger::hasSyncFramework){
+        mThread(new DispSyncThread(name)) {
+}
 
-    mPresentTimeOffset = SurfaceFlinger::dispSyncPresentTimeOffset;
+DispSync::~DispSync() {}
+
+void DispSync::init(bool hasSyncFramework, int64_t dispSyncPresentTimeOffset) {
+    mIgnorePresentFences = !hasSyncFramework;
+    mPresentTimeOffset = dispSyncPresentTimeOffset;
     mThread->run("DispSync", PRIORITY_URGENT_DISPLAY + PRIORITY_MORE_FAVORABLE);
+
     // set DispSync to SCHED_FIFO to minimize jitter
     struct sched_param param = {0};
     param.sched_priority = 2;
     if (sched_setscheduler(mThread->getTid(), SCHED_FIFO, &param) != 0) {
         ALOGE("Couldn't set SCHED_FIFO for DispSyncThread");
     }
-
 
     reset();
     beginResync();
@@ -405,8 +409,6 @@ DispSync::DispSync(const char* name) :
     }
 }
 
-DispSync::~DispSync() {}
-
 void DispSync::reset() {
     Mutex::Autolock lock(mMutex);
 
@@ -419,24 +421,12 @@ void DispSync::reset() {
     resetErrorLocked();
 }
 
-bool DispSync::addPresentFence(const sp<Fence>& fence) {
+bool DispSync::addPresentFence(const std::shared_ptr<FenceTime>& fenceTime) {
     Mutex::Autolock lock(mMutex);
 
-    mPresentFences[mPresentSampleOffset] = fence;
-    mPresentTimes[mPresentSampleOffset] = 0;
+    mPresentFences[mPresentSampleOffset] = fenceTime;
     mPresentSampleOffset = (mPresentSampleOffset + 1) % NUM_PRESENT_SAMPLES;
     mNumResyncSamplesSincePresent = 0;
-
-    for (size_t i = 0; i < NUM_PRESENT_SAMPLES; i++) {
-        const sp<Fence>& f(mPresentFences[i]);
-        if (f != NULL) {
-            nsecs_t t = f->getSignalTime();
-            if (t < INT64_MAX) {
-                mPresentFences[i].clear();
-                mPresentTimes[i] = t + mPresentTimeOffset;
-            }
-        }
-    }
 
     updateErrorLocked();
 
@@ -602,21 +592,39 @@ void DispSync::updateErrorLocked() {
     nsecs_t sqErrSum = 0;
 
     for (size_t i = 0; i < NUM_PRESENT_SAMPLES; i++) {
-        nsecs_t sample = mPresentTimes[i] - mReferenceTime;
-        if (sample > mPhase) {
-            nsecs_t sampleErr = (sample - mPhase) % period;
-            if (sampleErr > period / 2) {
-                sampleErr -= period;
-            }
-            sqErrSum += sampleErr * sampleErr;
-            numErrSamples++;
+        // Only check for the cached value of signal time to avoid unecessary
+        // syscalls. It is the responsibility of the DispSync owner to
+        // call getSignalTime() periodically so the cache is updated when the
+        // fence signals.
+        nsecs_t time = mPresentFences[i]->getCachedSignalTime();
+        if (time == Fence::SIGNAL_TIME_PENDING ||
+                time == Fence::SIGNAL_TIME_INVALID) {
+            continue;
         }
+
+        nsecs_t sample = time - mReferenceTime;
+        if (sample <= mPhase) {
+            continue;
+        }
+
+        nsecs_t sampleErr = (sample - mPhase) % period;
+        if (sampleErr > period / 2) {
+            sampleErr -= period;
+        }
+        sqErrSum += sampleErr * sampleErr;
+        numErrSamples++;
     }
 
     if (numErrSamples > 0) {
         mError = sqErrSum / numErrSamples;
+        mZeroErrSamplesCount = 0;
     } else {
         mError = 0;
+        // Use mod ACCEPTABLE_ZERO_ERR_SAMPLES_COUNT to avoid log spam.
+        mZeroErrSamplesCount++;
+        ALOGE_IF(
+                (mZeroErrSamplesCount % ACCEPTABLE_ZERO_ERR_SAMPLES_COUNT) == 0,
+                "No present times for model error.");
     }
 
     if (kTraceDetailedInfo) {
@@ -627,9 +635,9 @@ void DispSync::updateErrorLocked() {
 void DispSync::resetErrorLocked() {
     mPresentSampleOffset = 0;
     mError = 0;
+    mZeroErrSamplesCount = 0;
     for (size_t i = 0; i < NUM_PRESENT_SAMPLES; i++) {
-        mPresentFences[i].clear();
-        mPresentTimes[i] = 0;
+        mPresentFences[i] = FenceTime::NO_FENCE;
     }
 }
 
@@ -668,19 +676,19 @@ void DispSync::dump(String8& result) const {
         previous = sampleTime;
     }
 
-    result.appendFormat("mPresentFences / mPresentTimes [%d]:\n",
+    result.appendFormat("mPresentFences [%d]:\n",
             NUM_PRESENT_SAMPLES);
     nsecs_t now = systemTime(SYSTEM_TIME_MONOTONIC);
-    previous = 0;
+    previous = Fence::SIGNAL_TIME_INVALID;
     for (size_t i = 0; i < NUM_PRESENT_SAMPLES; i++) {
         size_t idx = (i + mPresentSampleOffset) % NUM_PRESENT_SAMPLES;
-        bool signaled = mPresentFences[idx] == NULL;
-        nsecs_t presentTime = mPresentTimes[idx];
-        if (!signaled) {
+        nsecs_t presentTime = mPresentFences[idx]->getSignalTime();
+        if (presentTime == Fence::SIGNAL_TIME_PENDING) {
             result.appendFormat("  [unsignaled fence]\n");
-        } else if (presentTime == 0) {
-            result.appendFormat("  0\n");
-        } else if (previous == 0) {
+        } else if(presentTime == Fence::SIGNAL_TIME_INVALID) {
+            result.appendFormat("  [invalid fence]\n");
+        } else if (previous == Fence::SIGNAL_TIME_PENDING ||
+                previous == Fence::SIGNAL_TIME_INVALID) {
             result.appendFormat("  %" PRId64 "  (%.3f ms ago)\n", presentTime,
                     (now - presentTime) / 1000000.0);
         } else {

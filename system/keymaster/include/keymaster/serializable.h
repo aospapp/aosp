@@ -21,10 +21,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <cstddef>
-#include <new>
+#include <stddef.h>
+#include <keymaster/new>
+// #include <new>
 
-#include <UniquePtr.h>
+#include <keymaster/UniquePtr.h>
 
 namespace keymaster {
 

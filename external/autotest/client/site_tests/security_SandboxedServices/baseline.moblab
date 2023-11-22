@@ -1,0 +1,5 @@
+exe,euser,egroup,pidns,caps,nonewprivs,filter
+adb,root,root,No,No,No,No
+
+# Installed as part of apache, used to keep the apache logs to just the most recent X MB.
+rotatelogs,root,root,No,No,No,No

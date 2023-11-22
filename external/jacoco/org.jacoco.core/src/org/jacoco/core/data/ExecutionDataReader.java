@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,7 +13,6 @@ package org.jacoco.core.data;
 
 import static java.lang.String.format;
 
-import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -74,21 +73,24 @@ public class ExecutionDataReader {
 	 *         stream has been reached.
 	 * @throws IOException
 	 *             might be thrown by the underlying input stream
+	 * @throws IncompatibleExecDataVersionException
+	 *             incompatible data version from different JaCoCo release
 	 */
-	public boolean read() throws IOException {
-		try {
-			byte type;
-			do {
-				type = in.readByte();
-				if (firstBlock && type != ExecutionDataWriter.BLOCK_HEADER) {
-					throw new IOException("Invalid execution data file.");
-				}
-				firstBlock = false;
-			} while (readBlock(type));
-			return true;
-		} catch (final EOFException e) {
-			return false;
-		}
+	public boolean read() throws IOException,
+			IncompatibleExecDataVersionException {
+		byte type;
+		do {
+			int i = in.read();
+			if (i == -1) {
+				return false; // EOF
+			}
+			type = (byte) i;
+			if (firstBlock && type != ExecutionDataWriter.BLOCK_HEADER) {
+				throw new IOException("Invalid execution data file.");
+			}
+			firstBlock = false;
+		} while (readBlock(type));
+		return true;
 	}
 
 	/**
@@ -124,8 +126,7 @@ public class ExecutionDataReader {
 		}
 		final char version = in.readChar();
 		if (version != ExecutionDataWriter.FORMAT_VERSION) {
-			throw new IOException(format("Incompatible version %x.",
-					Integer.valueOf(version)));
+			throw new IncompatibleExecDataVersionException(version);
 		}
 	}
 

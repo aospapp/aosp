@@ -106,7 +106,7 @@ public class Obd2CommandTest {
         String[] commandToSend = new String[] {String.format("02%02X 01\r", pid)};
 
         String[] responseToGet =
-                new String[] {String.format("02 %02X 01 %s", pid, responseBytes), OBD2_PROMPT};
+                new String[] {String.format("42 %02X 01 %s", pid, responseBytes), OBD2_PROMPT};
 
         MockObd2UnderlyingTransport transport =
                 new MockObd2UnderlyingTransport(
@@ -134,7 +134,7 @@ public class Obd2CommandTest {
         String[] commandToSend = new String[] {String.format("02%02X 01\r", pid)};
 
         String[] responseToGet =
-                new String[] {String.format("02 %02X 01 %s", pid, responseBytes), OBD2_PROMPT};
+                new String[] {String.format("42 %02X 01 %s", pid, responseBytes), OBD2_PROMPT};
 
         MockObd2UnderlyingTransport transport =
                 new MockObd2UnderlyingTransport(
@@ -213,7 +213,7 @@ public class Obd2CommandTest {
 
     @Test
     public void testRpm() {
-        checkCommand(0x0C, "12 0F", 4611);
+        checkCommand(0x0C, "12 0F", 1155);
     }
 
     @Test

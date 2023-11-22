@@ -24,6 +24,7 @@ import android.database.Cursor;
 import android.os.Bundle;
 import android.provider.DocumentsContract.Document;
 
+import com.android.documentsui.base.Lookup;
 import com.android.documentsui.base.Shared;
 import com.android.documentsui.sorting.SortModel.SortDimensionId;
 
@@ -36,25 +37,26 @@ class SortingCursorWrapper extends AbstractCursor {
 
     private final int[] mPosition;
 
-    public SortingCursorWrapper(Cursor cursor, SortDimension dimension) {
+    public SortingCursorWrapper(
+            Cursor cursor, SortDimension dimension, Lookup<String, String> fileTypeLookup) {
         mCursor = cursor;
 
         final int count = cursor.getCount();
         mPosition = new int[count];
         boolean[] isDirs = new boolean[count];
-        String[] displayNames = null;
+        String[] stringValues = null;
         long[] longValues = null;
-        String[] ids = null;
+        String[] ids = new String[count];
 
         final @SortDimensionId int id = dimension.getId();
         switch (id) {
             case SortModel.SORT_DIMENSION_ID_TITLE:
-                displayNames = new String[count];
+            case SortModel.SORT_DIMENSION_ID_FILE_TYPE:
+                stringValues = new String[count];
                 break;
             case SortModel.SORT_DIMENSION_ID_DATE:
             case SortModel.SORT_DIMENSION_ID_SIZE:
                 longValues = new long[count];
-                ids = new String[count];
                 break;
         }
 
@@ -65,20 +67,22 @@ class SortingCursorWrapper extends AbstractCursor {
 
             final String mimeType = getCursorString(mCursor, Document.COLUMN_MIME_TYPE);
             isDirs[i] = Document.MIME_TYPE_DIR.equals(mimeType);
+            ids[i] = getCursorString(mCursor, Document.COLUMN_DOCUMENT_ID);
 
             switch(id) {
                 case SortModel.SORT_DIMENSION_ID_TITLE:
                     final String displayName = getCursorString(
                             mCursor, Document.COLUMN_DISPLAY_NAME);
-                    displayNames[i] = displayName;
+                    stringValues[i] = displayName;
+                    break;
+                case SortModel.SORT_DIMENSION_ID_FILE_TYPE:
+                    stringValues[i] = fileTypeLookup.lookup(mimeType);
                     break;
                 case SortModel.SORT_DIMENSION_ID_DATE:
                     longValues[i] = getLastModified(mCursor);
-                    ids[i] = getCursorString(mCursor, Document.COLUMN_DOCUMENT_ID);
                     break;
                 case SortModel.SORT_DIMENSION_ID_SIZE:
                     longValues[i] = getCursorLong(mCursor, Document.COLUMN_SIZE);
-                    ids[i] = getCursorString(mCursor, Document.COLUMN_DOCUMENT_ID);
                     break;
             }
 
@@ -86,7 +90,8 @@ class SortingCursorWrapper extends AbstractCursor {
 
         switch (id) {
             case SortModel.SORT_DIMENSION_ID_TITLE:
-                binarySort(displayNames, isDirs, mPosition, dimension.getSortDirection());
+            case SortModel.SORT_DIMENSION_ID_FILE_TYPE:
+                binarySort(stringValues, isDirs, mPosition, ids, dimension.getSortDirection());
                 break;
             case SortModel.SORT_DIMENSION_ID_DATE:
             case SortModel.SORT_DIMENSION_ID_SIZE:
@@ -180,12 +185,14 @@ class SortingCursorWrapper extends AbstractCursor {
             String[] sortKey,
             boolean[] isDirs,
             int[] positions,
+            String[] ids,
             @SortDimension.SortDirection int direction) {
         final int count = positions.length;
         for (int start = 1; start < count; start++) {
             final int pivotPosition = positions[start];
             final String pivotValue = sortKey[start];
             final boolean pivotIsDir = isDirs[start];
+            final String pivotId = ids[start];
 
             int left = 0;
             int right = start;
@@ -214,6 +221,11 @@ class SortingCursorWrapper extends AbstractCursor {
                             throw new IllegalArgumentException(
                                     "Unknown sorting direction: " + direction);
                     }
+                }
+
+                // Use document ID as a tie breaker to achieve stable sort result.
+                if (compare == 0) {
+                    compare = pivotId.compareTo(ids[mid]);
                 }
 
                 if (compare < 0) {

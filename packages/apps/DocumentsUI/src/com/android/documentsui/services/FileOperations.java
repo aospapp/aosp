@@ -34,6 +34,8 @@ import com.android.documentsui.services.FileOperationService.OpType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
+import javax.annotation.Nullable;
+
 /**
  * Helper functions for starting various file operations.
  */
@@ -51,20 +53,22 @@ public final class FileOperations {
 
     /**
      * Tries to start the activity. Returns the job id.
+     * @param jobId Optional job id. If null, then it will be auto-generated.
      */
-    public static String start(Context context, FileOperation operation, Callback callback) {
+    public static String start(Context context, FileOperation operation, Callback callback,
+            @Nullable String jobId) {
 
         if (DEBUG) Log.d(TAG, "Handling generic 'start' call.");
 
-        String jobId = createJobId();
-        Intent intent = createBaseIntent(context, jobId, operation);
+        String newJobId = jobId != null ? jobId : createJobId();
+        Intent intent = createBaseIntent(context, newJobId, operation);
 
         callback.onOperationResult(Callback.STATUS_ACCEPTED, operation.getOpType(),
                 operation.getSrc().getItemCount());
 
         context.startService(intent);
 
-        return jobId;
+        return newJobId;
     }
 
     @VisibleForTesting
@@ -130,7 +134,7 @@ public final class FileOperations {
         /**
          * Performs operation when the file operation starts or fails to start.
          *
-         * @param status {@link Status} of this operation
+         * @param status {@link Status} of this operation.
          * @param opType file operation type {@link OpType}.
          * @param docCount number of documents operated.
          */

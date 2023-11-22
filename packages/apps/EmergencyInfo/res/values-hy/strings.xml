@@ -16,7 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="1090682794607161063">"Անձնական բուժտվյալներ"</string>
+    <string name="app_label" msgid="1090682794607161063">"Անհետաձգելի բուժօգնության տվյալներ"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"Բժշկական տվյալներ"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"Խմբագրել տվյալները"</string>
     <string name="edit_info" msgid="5973929805855224805">"Փոփոխել անհետաձգելի բուժօգնության տվյալները"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Տեղեկություններ"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Կոնտակտներ"</string>
@@ -96,12 +98,12 @@
     <string name="cancel" msgid="7401575239009060939">"Չեղարկել"</string>
     <string name="ok" msgid="163967937451981024">"Հաստատել"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"Անձնական բուժտվյալներ"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"Արտակարգ իրավիճակներում ձեր բժշկական տվյալներն ու կոնտակտները կարող են օգտակար լինել առաջին օգնություն ցուցաբերողներին և փրկարարներին: Տվյալները պահվում են միայն ձեր սարքում, և բոլորը կարող են կարդալ դրանք արտակարգ իրավիճակների համարհավաքիչից՝ առանց հեռախոսն ապակողպելու:"</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"Շարունակել"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Հեռախոսի սեփականատիրոջ մասին տեղեկություններ չկան"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"Եթե սա ձեր հեռախոսն է, ապա հպեք մատիտի պատկերակին և ավելացրեք տեղեկություններ, որոնք կցուցադրվեն այստեղ արտակարգ իրավիճակի դեպքում"</string>
     <string name="clear_all" msgid="8899013032870561633">"Մաքրել բոլորը"</string>
     <string name="clear" msgid="3648880442502887163">"Մաքրել"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Մաքրե՞լ բոլոր տեղեկությունները և կոնտակտները:"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"Արտակարգ իրավիճակներում ձեր բժշկական տվյալներն ու կոնտակտները կարող են օգտակար լինել առաջին օգնություն ցուցաբերողներին և փրկարարներին:\n\nԱյս տեղեկությունները կցուցադրվեն ձեր սարքի կողպված էկրանին։ Ձեր կոնտակտներին զանգելու համար անհրաժեշտ կլինի պարզապես հպել նրանց անուններին:"</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"Ավելացրեք արտակարգ իրավիճակների տվյալներ"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"Առաջին օգնություն ցուցաբերող մարդկանց օգնեք գտնել անհրաժեշտ տեղեկությունները"</string>
 </resources>

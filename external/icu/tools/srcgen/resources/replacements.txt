@@ -390,3 +390,333 @@
      *     ICU ticket #11632</a> for details.
      */
 --
+
+# Removal of reference to method that is not exposed in Android API
+--method:android.icu.text.DecimalFormatSymbols#getZeroDigit()
+/**
+     * Returns the character used for zero. Different for Arabic, etc.
+     * @return the character
+     * @stable ICU 2.0
+     */
+--
+
+# Removal of reference to method that is not exposed in Android API
+--method:android.icu.text.DecimalFormatSymbols#getDigits()
+/**
+     * Returns the array of characters used as digits, in order from 0 through 9
+     * @return The array
+     * @stable ICU 4.6
+     */
+--
+
+# Removal of reference to method that is not exposed in Android API
+--method:android.icu.text.DecimalFormatSymbols#setZeroDigit(char)
+/**
+     * Sets the character used for zero.
+     * <p>
+     * <b>Note:</b> When the specified zeroDigit is a Unicode decimal digit character
+     * (category:Nd) and the number value is 0, then this method propagate digit 1 to
+     * digit 9 by incrementing code point one by one.
+     *
+     * @param zeroDigit the zero character.
+     * @stable ICU 2.0
+     */
+--
+
+# Removal of reference to method that is not exposed in Android API
+--method:android.icu.text.DecimalFormatSymbols#getGroupingSeparator()
+/**
+     * Returns the character used for grouping separator. Different for French, etc.
+     * @return the thousands character
+     * @stable ICU 2.0
+     */
+--
+
+# Removal of reference to method that is not exposed in Android API
+--method:android.icu.text.DecimalFormatSymbols#getDecimalSeparator()
+/**
+     * Returns the character used for decimal sign. Different for French, etc.
+     * @return the decimal character
+     * @stable ICU 2.0
+     */
+--
+
+# Removal of reference to method that is not exposed in Android API
+--method:android.icu.text.DecimalFormatSymbols#getPerMill()
+/**
+     * Returns the character used for mille percent sign. Different for Arabic, etc.
+     * @return the mille percent character
+     * @stable ICU 2.0
+     */
+--
+
+# Removal of reference to method that is not exposed in Android API
+--method:android.icu.text.DecimalFormatSymbols#getPercent()
+/**
+     * Returns the character used for percent sign. Different for Arabic, etc.
+     * @return the percent character
+     * @stable ICU 2.0
+     */
+--
+
+# Removal of reference to method that is not exposed in Android API
+--method:android.icu.text.DecimalFormatSymbols#getMinusSign()
+/**
+     * Returns the character used to represent minus sign. If no explicit
+     * negative format is specified, one is formed by prefixing
+     * minusSign to the positive format.
+     * @return the minus sign character
+     * @stable ICU 2.0
+     */
+--
+
+# Removal of reference to method that is not exposed in Android API
+--method:android.icu.text.DecimalFormatSymbols#getPlusSign()
+/**
+     * {@icu} Returns the localized plus sign.
+     * @return the plus sign, used in localized patterns and formatted
+     * strings
+     * @see #setPlusSign
+     * @see #setMinusSign
+     * @see #getMinusSign
+     * @stable ICU 2.0
+     */
+--
+
+# Removal of reference to method that is not exposed in Android API
+--method:android.icu.text.DecimalFormatSymbols#getMonetaryDecimalSeparator()
+/**
+     * Returns the monetary decimal separator.
+     * @return the monetary decimal separator character
+     * @stable ICU 2.0
+     */
+--
+
+# Removal of reference to method that is not exposed in Android API
+--method:android.icu.text.DecimalFormatSymbols#getMonetaryGroupingSeparator()
+/**
+     * {@icu} Returns the monetary grouping separator.
+     * @return the monetary grouping separator character
+     * @stable ICU 3.6
+     */
+--
+
+# Removal of reference to method that is not exposed in Android API
+--method:android.icu.text.DecimalFormatSymbols#setGroupingSeparator(char)
+/**
+     * Sets the character used for grouping separator. Different for French, etc.
+     * @param groupingSeparator the thousands character
+     * @stable ICU 2.0
+     */
+--
+
+# Removal of reference to method that is not exposed in Android API
+--method:android.icu.text.Normalizer#compare(char[],char[],int)
+/**
+     * Compare two strings for canonical equivalence.
+     * Further options include case-insensitive comparison and
+     * code point order (as opposed to code unit order).
+     * Convenience method.
+     *
+     * @param s1 First source string.
+     * @param s2 Second source string.
+     *
+     * @param options A bit set of options:
+     *   - FOLD_CASE_DEFAULT or 0 is used for default options:
+     *     Case-sensitive comparison in code unit order, and the input strings
+     *     are quick-checked for FCD.
+     *
+     *   - INPUT_IS_FCD
+     *     Set if the caller knows that both s1 and s2 fulfill the FCD
+     *     conditions. If not set, the function will quickCheck for FCD
+     *     and normalize if necessary.
+     *
+     *   - COMPARE_CODE_POINT_ORDER
+     *     Set to choose code point order instead of code unit order
+     *
+     *   - COMPARE_IGNORE_CASE
+     *     Set to compare strings case-insensitively using case folding,
+     *     instead of case-sensitively.
+     *     If set, then the following case folding options are used.
+     *
+     * @return &lt;0 or 0 or &gt;0 as usual for string comparisons
+     *
+     * @stable ICU 2.8
+     */
+--
+
+# Removal of reference to method that is not exposed in Android API
+--method:android.icu.text.Normalizer#compare(char[],int,int,char[],int,int,int)
+/**
+     * Compare two strings for canonical equivalence.
+     * Further options include case-insensitive comparison and
+     * code point order (as opposed to code unit order).
+     *
+     * Canonical equivalence between two strings is defined as their normalized
+     * forms (NFD or NFC) being identical.
+     * This function compares strings incrementally instead of normalizing
+     * (and optionally case-folding) both strings entirely,
+     * improving performance significantly.
+     *
+     * Bulk normalization is only necessary if the strings do not fulfill the
+     * FCD conditions. Only in this case, and only if the strings are relatively
+     * long, is memory allocated temporarily.
+     * For FCD strings and short non-FCD strings there is no memory allocation.
+     *
+     * Semantically, this is equivalent to
+     *   strcmp[CodePointOrder](foldCase(NFD(s1)), foldCase(NFD(s2)))
+     * where code point order and foldCase are all optional.
+     *
+     * @param s1        First source character array.
+     * @param s1Start   start index of source
+     * @param s1Limit   limit of the source
+     *
+     * @param s2        Second source character array.
+     * @param s2Start   start index of the source
+     * @param s2Limit   limit of the source
+     *
+     * @param options A bit set of options:
+     *   - FOLD_CASE_DEFAULT or 0 is used for default options:
+     *     Case-sensitive comparison in code unit order, and the input strings
+     *     are quick-checked for FCD.
+     *
+     *   - INPUT_IS_FCD
+     *     Set if the caller knows that both s1 and s2 fulfill the FCD
+     *     conditions.If not set, the function will quickCheck for FCD
+     *     and normalize if necessary.
+     *
+     *   - COMPARE_CODE_POINT_ORDER
+     *     Set to choose code point order instead of code unit order
+     *
+     *   - COMPARE_IGNORE_CASE
+     *     Set to compare strings case-insensitively using case folding,
+     *     instead of case-sensitively.
+     *     If set, then the following case folding options are used.
+     *
+     *
+     * @return &lt;0 or 0 or &gt;0 as usual for string comparisons
+     *
+     * @stable ICU 2.8
+     */
+--
+
+# Removal of reference to method that is not exposed in Android API
+--method:android.icu.text.Normalizer#compare(String,String,int)
+/**
+     * Compare two strings for canonical equivalence.
+     * Further options include case-insensitive comparison and
+     * code point order (as opposed to code unit order).
+     *
+     * Canonical equivalence between two strings is defined as their normalized
+     * forms (NFD or NFC) being identical.
+     * This function compares strings incrementally instead of normalizing
+     * (and optionally case-folding) both strings entirely,
+     * improving performance significantly.
+     *
+     * Bulk normalization is only necessary if the strings do not fulfill the
+     * FCD conditions. Only in this case, and only if the strings are relatively
+     * long, is memory allocated temporarily.
+     * For FCD strings and short non-FCD strings there is no memory allocation.
+     *
+     * Semantically, this is equivalent to
+     *   strcmp[CodePointOrder](foldCase(NFD(s1)), foldCase(NFD(s2)))
+     * where code point order and foldCase are all optional.
+     *
+     * @param s1 First source string.
+     * @param s2 Second source string.
+     *
+     * @param options A bit set of options:
+     *   - FOLD_CASE_DEFAULT or 0 is used for default options:
+     *     Case-sensitive comparison in code unit order, and the input strings
+     *     are quick-checked for FCD.
+     *
+     *   - INPUT_IS_FCD
+     *     Set if the caller knows that both s1 and s2 fulfill the FCD
+     *     conditions. If not set, the function will quickCheck for FCD
+     *     and normalize if necessary.
+     *
+     *   - COMPARE_CODE_POINT_ORDER
+     *     Set to choose code point order instead of code unit order
+     *
+     *   - COMPARE_IGNORE_CASE
+     *     Set to compare strings case-insensitively using case folding,
+     *     instead of case-sensitively.
+     *     If set, then the following case folding options are used.
+     *
+     * @return &lt;0 or 0 or &gt;0 as usual for string comparisons
+     *
+     * @stable ICU 2.8
+     */
+--
+
+# Removal of reference to method that is not exposed in Android API
+--method:android.icu.text.Collator#getCollationKey(String)
+/**
+     * <p>
+     * Transforms the String into a CollationKey suitable for efficient
+     * repeated comparison.  The resulting key depends on the collator's
+     * rules, strength and decomposition mode.
+     *
+     * <p>Note that collation keys are often less efficient than simply doing comparison.
+     * For more details, see the ICU User Guide.
+     *
+     * <p>See the CollationKey class documentation for more information.
+     * @param source the string to be transformed into a CollationKey.
+     * @return the CollationKey for the given String based on this Collator's
+     *         collation rules. If the source String is null, a null
+     *         CollationKey is returned.
+     * @see CollationKey
+     * @see #compare(String, String)
+     * @stable ICU 2.8
+     */
+--
+
+# Removal of reference to method that is not exposed in Android API
+--method:android.icu.text.RuleBasedCollator#getCollationKey(String)
+/**
+     * <p>
+     * Get a Collation key for the argument String source from this RuleBasedCollator.
+     * <p>
+     * General recommendation: <br>
+     * If comparison are to be done to the same String multiple times, it would be more efficient to generate
+     * CollationKeys for the Strings and use CollationKey.compareTo(CollationKey) for the comparisons. If the each
+     * Strings are compared to only once, using the method RuleBasedCollator.compare(String, String) will have a better
+     * performance.
+     * <p>
+     * See the class documentation for an explanation about CollationKeys.
+     *
+     * @param source
+     *            the text String to be transformed into a collation key.
+     * @return the CollationKey for the given String based on this RuleBasedCollator's collation rules. If the source
+     *         String is null, a null CollationKey is returned.
+     * @see CollationKey
+     * @see #compare(String, String)
+     * @stable ICU 2.8
+     */
+--
+
+# Removal of reference to method that is not exposed in Android API
+--method:android.icu.util.Calendar#isWeekend(Date)
+/**
+     * {@icu} Returns true if the given date and time is in the weekend in this calendar
+     * system.  Equivalent to calling setTime() followed by isWeekend().  Note: This
+     * method changes the time this calendar is set to.
+     * @param date the date and time
+     * @return true if the given date and time is part of the
+     * weekend
+     * @see #isWeekend()
+     * @stable ICU 2.0
+     */
+--
+
+# Removal of reference to method that is not exposed in Android API
+--method:android.icu.util.Calendar#isWeekend()
+/**
+     * {@icu} Returns true if this Calendar's current date and time is in the weekend in
+     * this calendar system.
+     * @return true if the given date and time is part of the
+     * weekend
+     * @see #isWeekend(Date)
+     * @stable ICU 2.0
+     */
+--

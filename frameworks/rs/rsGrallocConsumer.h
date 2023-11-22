@@ -17,8 +17,8 @@
 #ifndef ANDROID_RS_GRALLOC_CONSUMER_H
 #define ANDROID_RS_GRALLOC_CONSUMER_H
 
-#include "NdkImage.h"
-#include "NdkImageReader.h"
+#include <media/NdkImage.h>
+#include <media/NdkImageReader.h>
 
 // ---------------------------------------------------------------------------
 namespace android {

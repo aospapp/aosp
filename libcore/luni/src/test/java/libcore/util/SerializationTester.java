@@ -54,11 +54,11 @@ public class SerializationTester<T> {
         try {
             if (golden == null || golden.length() == 0) {
                 fail("No golden value supplied! Consider using this: "
-                        + hexEncode(serialize(value)));
+                        + HexEncoding.encodeToString(serialize(value)));
             }
 
             @SuppressWarnings("unchecked") // deserialize should return the proper type
-            T deserialized = (T) deserialize(hexDecode(golden));
+            T deserialized = (T) deserialize(HexEncoding.decode(golden));
             assertTrue("User-constructed value doesn't equal deserialized golden value",
                     equals(value, deserialized));
 
@@ -92,22 +92,6 @@ public class SerializationTester<T> {
         return result;
     }
 
-    private static String hexEncode(byte[] bytes) {
-        StringBuilder result = new StringBuilder(bytes.length * 2);
-        for (byte b : bytes) {
-            result.append(String.format("%02x", b));
-        }
-        return result.toString();
-    }
-
-    private static byte[] hexDecode(String s) {
-        byte[] result = new byte[s.length() / 2];
-        for (int i = 0; i < result.length; i++) {
-            result[i] = (byte) Integer.parseInt(s.substring(i*2, i*2 + 2), 16);
-        }
-        return result;
-    }
-
     /**
      * Returns a serialized-and-deserialized copy of {@code object}.
      */
@@ -116,10 +100,10 @@ public class SerializationTester<T> {
     }
 
     public static String serializeHex(Object object) throws IOException {
-        return hexEncode(serialize(object));
+        return HexEncoding.encodeToString(serialize(object));
     }
 
     public static Object deserializeHex(String hex) throws IOException, ClassNotFoundException {
-        return deserialize(hexDecode(hex));
+        return deserialize(HexEncoding.decode(hex));
     }
 }

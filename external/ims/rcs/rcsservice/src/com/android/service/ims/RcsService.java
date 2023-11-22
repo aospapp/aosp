@@ -61,6 +61,8 @@ import com.android.ims.internal.IRcsPresence;
 import com.android.ims.RcsPresence.PublishState;
 
 import com.android.ims.internal.Logger;
+import com.android.internal.telephony.IccCardConstants;
+import com.android.internal.telephony.TelephonyIntents;
 import com.android.service.ims.RcsStackAdaptor;
 
 import com.android.service.ims.presence.PresencePublication;
@@ -115,8 +117,6 @@ public class RcsService extends Service{
                 Settings.Global.getUriFor(Settings.Global.VT_IMS_ENABLED),
                 false, mVtSettingObserver);
 
-        registerImsConnectionStateListener();
-
         mReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -127,6 +127,11 @@ public class RcsService extends Service{
                 } else if(ImsManager.ACTION_IMS_SERVICE_DOWN.equalsIgnoreCase(
                         intent.getAction())){
                     handleImsServiceDown();
+                } else if(TelephonyIntents.ACTION_SIM_STATE_CHANGED.equalsIgnoreCase(
+                        intent.getAction())) {
+                    String stateExtra = intent.getStringExtra(
+                            IccCardConstants.INTENT_KEY_ICC_STATE);
+                    handleSimStateChanged(stateExtra);
                 }
             }
         };
@@ -134,6 +139,7 @@ public class RcsService extends Service{
         IntentFilter statusFilter = new IntentFilter();
         statusFilter.addAction(ImsManager.ACTION_IMS_SERVICE_UP);
         statusFilter.addAction(ImsManager.ACTION_IMS_SERVICE_DOWN);
+        statusFilter.addAction(TelephonyIntents.ACTION_SIM_STATE_CHANGED);
         registerReceiver(mReceiver, statusFilter);
     }
 
@@ -148,6 +154,14 @@ public class RcsService extends Service{
     public void handleImsServiceDown() {
         if(mPublication != null) {
             mPublication.handleImsServiceDown();
+        }
+    }
+
+    public void handleSimStateChanged(String state) {
+
+        if(IccCardConstants.INTENT_VALUE_ICC_LOADED.equalsIgnoreCase(state)) {
+            // ImsManager depends on a loaded SIM to get the default Voice Registration.
+            registerImsConnectionStateListener();
         }
     }
 
@@ -358,8 +372,7 @@ public class RcsService extends Service{
             ImsManager imsManager = ImsManager.getInstance(this,
                     SubscriptionManager.getDefaultVoicePhoneId());
             if (imsManager != null) {
-                imsManager.addRegistrationListener(ImsServiceClass.MMTEL,
-                        mImsConnectionStateListener);
+                imsManager.addRegistrationListener(mImsConnectionStateListener);
             }
         } catch (ImsException e) {
             logger.error("addRegistrationListener exception=", e);

@@ -31,7 +31,7 @@
 #define __QCAMERA3HARDWAREINTERFACE_H__
 
 // System dependencies
-#include <camera/CameraMetadata.h>
+#include <CameraMetadata.h>
 #include <pthread.h>
 #include <utils/KeyedVector.h>
 #include <utils/List.h>
@@ -50,6 +50,7 @@ extern "C" {
 #include "mm_jpeg_interface.h"
 }
 
+using ::android::hardware::camera::common::V1_0::helper::CameraMetadata;
 using namespace android;
 
 namespace qcamera {
@@ -190,16 +191,9 @@ public:
     int translateToHalMetadata(const camera3_capture_request_t *request,
             metadata_buffer_t *parm, uint32_t snapshotStreamId);
     camera_metadata_t* translateCbUrgentMetadataToResultMetadata (
-                             metadata_buffer_t *metadata, bool lastUrgentMetadataInBatch);
-    camera_metadata_t* translateFromHalMetadata(metadata_buffer_t *metadata,
-                            nsecs_t timestamp, int32_t request_id,
-                            const CameraMetadata& jpegMetadata, uint8_t pipeline_depth,
-                            uint8_t capture_intent, uint8_t hybrid_ae_enable,
-                            /* DevCamDebug metadata translateFromHalMetadata augment .h */
-                            uint8_t DevCamDebug_meta_enable,
-                            /* DevCamDebug metadata end */
-                            bool pprocDone, uint8_t fwk_cacMode,
-                            bool lastMetadataInBatch);
+            metadata_buffer_t *metadata, bool lastUrgentMetadataInBatch,
+            uint32_t frame_number);
+
     camera_metadata_t* saveRequestSettings(const CameraMetadata& jpegMetadata,
                             camera3_capture_request_t *request);
     int initParameters();
@@ -433,6 +427,11 @@ private:
         /* DevCamDebug metadata PendingRequestInfo */
         uint8_t DevCamDebug_meta_enable;
         /* DevCamDebug metadata end */
+
+        bool focusStateSent = false;
+        bool focusStateValid = false;
+        uint8_t focusState = ANDROID_CONTROL_AF_STATE_INACTIVE;
+        bool partialResultDropped; // Whether partial metadata is dropped.
     } PendingRequestInfo;
     typedef struct {
         uint32_t frame_number;
@@ -551,6 +550,11 @@ private:
     int (*LINK_get_surface_pixel_alignment)();
     uint32_t mSurfaceStridePadding;
 
+    camera_metadata_t* translateFromHalMetadata(metadata_buffer_t *metadata,
+                            const PendingRequestInfo& pendingRequest,
+                            bool pprocDone,
+                            bool lastMetadataInBatch);
+
     State mState;
     //Dual camera related params
     bool mIsDeviceLinked;
@@ -561,6 +565,7 @@ private:
     cam_sync_related_sensors_event_info_t m_relCamSyncInfo;
     bool m60HzZone;
 
+    cam_trigger_t mAfTrigger;
 };
 
 }; // namespace qcamera

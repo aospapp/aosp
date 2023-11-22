@@ -33,13 +33,13 @@ int fio_pin_memory(struct thread_data *td)
 	dprint(FD_MEM, "pinning %llu bytes\n", td->o.lockmem);
 
 	/*
-	 * Don't allow mlock of more than real_mem-128MB
+	 * Don't allow mlock of more than real_mem-128MiB
 	 */
 	phys_mem = os_phys_mem();
 	if (phys_mem) {
 		if ((td->o.lockmem + 128 * 1024 * 1024) > phys_mem) {
 			td->o.lockmem = phys_mem - 128 * 1024 * 1024;
-			log_info("fio: limiting mlocked memory to %lluMB\n",
+			log_info("fio: limiting mlocked memory to %lluMiB\n",
 							td->o.lockmem >> 20);
 		}
 	}
@@ -89,7 +89,7 @@ static int alloc_mem_shm(struct thread_data *td, unsigned int total_mem)
 					" support huge pages.\n");
 			} else if (errno == ENOMEM) {
 				log_err("fio: no huge pages available, do you"
-					" need to alocate some? See HOWTO.\n");
+					" need to allocate some? See HOWTO.\n");
 			}
 		}
 
@@ -146,12 +146,14 @@ static int alloc_mem_mmap(struct thread_data *td, size_t total_mem)
 			return 1;
 		}
 		if (td->o.mem_type != MEM_MMAPHUGE &&
+		    td->o.mem_type != MEM_MMAPSHARED &&
 		    ftruncate(td->mmapfd, total_mem) < 0) {
 			td_verror(td, errno, "truncate mmap file");
 			td->orig_buffer = NULL;
 			return 1;
 		}
-		if (td->o.mem_type == MEM_MMAPHUGE)
+		if (td->o.mem_type == MEM_MMAPHUGE ||
+		    td->o.mem_type == MEM_MMAPSHARED)
 			flags |= MAP_SHARED;
 		else
 			flags |= MAP_PRIVATE;
@@ -205,6 +207,78 @@ static void free_mem_malloc(struct thread_data *td)
 	free(td->orig_buffer);
 }
 
+static int alloc_mem_cudamalloc(struct thread_data *td, size_t total_mem)
+{
+#ifdef CONFIG_CUDA
+	CUresult ret;
+	char name[128];
+
+	ret = cuInit(0);
+	if (ret != CUDA_SUCCESS) {
+		log_err("fio: failed initialize cuda driver api\n");
+		return 1;
+	}
+
+	ret = cuDeviceGetCount(&td->gpu_dev_cnt);
+	if (ret != CUDA_SUCCESS) {
+		log_err("fio: failed get device count\n");
+		return 1;
+	}
+	dprint(FD_MEM, "found %d GPU devices\n", td->gpu_dev_cnt);
+
+	if (td->gpu_dev_cnt == 0) {
+		log_err("fio: no GPU device found. "
+			"Can not perform GPUDirect RDMA.\n");
+		return 1;
+	}
+
+	td->gpu_dev_id = td->o.gpu_dev_id;
+	ret = cuDeviceGet(&td->cu_dev, td->gpu_dev_id);
+	if (ret != CUDA_SUCCESS) {
+		log_err("fio: failed get GPU device\n");
+		return 1;
+	}
+
+	ret = cuDeviceGetName(name, sizeof(name), td->gpu_dev_id);
+	if (ret != CUDA_SUCCESS) {
+		log_err("fio: failed get device name\n");
+		return 1;
+	}
+	dprint(FD_MEM, "dev_id = [%d], device name = [%s]\n", \
+	       td->gpu_dev_id, name);
+
+	ret = cuCtxCreate(&td->cu_ctx, CU_CTX_MAP_HOST, td->cu_dev);
+	if (ret != CUDA_SUCCESS) {
+		log_err("fio: failed to create cuda context: %d\n", ret);
+		return 1;
+	}
+
+	ret = cuMemAlloc(&td->dev_mem_ptr, total_mem);
+	if (ret != CUDA_SUCCESS) {
+		log_err("fio: cuMemAlloc %zu bytes failed\n", total_mem);
+		return 1;
+	}
+	td->orig_buffer = (void *) td->dev_mem_ptr;
+
+	dprint(FD_MEM, "cudaMalloc %llu %p\n",				\
+	       (unsigned long long) total_mem, td->orig_buffer);
+	return 0;
+#else
+	return -EINVAL;
+#endif
+}
+
+static void free_mem_cudamalloc(struct thread_data *td)
+{
+#ifdef CONFIG_CUDA
+	if (td->dev_mem_ptr != NULL)
+		cuMemFree(td->dev_mem_ptr);
+
+	if (cuCtxDestroy(td->cu_ctx) != CUDA_SUCCESS)
+		log_err("fio: failed to destroy cuda context\n");
+#endif
+}
+
 /*
  * Set up the buffer area we need for io.
  */
@@ -213,13 +287,13 @@ int allocate_io_mem(struct thread_data *td)
 	size_t total_mem;
 	int ret = 0;
 
-	if (td->io_ops->flags & FIO_NOIO)
+	if (td_ioengine_flagged(td, FIO_NOIO))
 		return 0;
 
 	total_mem = td->orig_buffer_size;
 
 	if (td->o.odirect || td->o.mem_align || td->o.oatomic ||
-	    (td->io_ops->flags & FIO_MEMALIGN)) {
+	    td_ioengine_flagged(td, FIO_MEMALIGN)) {
 		total_mem += page_mask;
 		if (td->o.mem_align && td->o.mem_align > page_size)
 			total_mem += td->o.mem_align - page_size;
@@ -227,12 +301,25 @@ int allocate_io_mem(struct thread_data *td)
 
 	dprint(FD_MEM, "Alloc %llu for buffers\n", (unsigned long long) total_mem);
 
-	if (td->o.mem_type == MEM_MALLOC)
+	/*
+	 * If the IO engine has hooks to allocate/free memory, use those. But
+	 * error out if the user explicitly asked for something else.
+	 */
+	if (td->io_ops->iomem_alloc) {
+		if (fio_option_is_set(&td->o, mem_type)) {
+			log_err("fio: option 'mem/iomem' conflicts with specified IO engine\n");
+			ret = 1;
+		} else
+			ret = td->io_ops->iomem_alloc(td, total_mem);
+	} else if (td->o.mem_type == MEM_MALLOC)
 		ret = alloc_mem_malloc(td, total_mem);
 	else if (td->o.mem_type == MEM_SHM || td->o.mem_type == MEM_SHMHUGE)
 		ret = alloc_mem_shm(td, total_mem);
-	else if (td->o.mem_type == MEM_MMAP || td->o.mem_type == MEM_MMAPHUGE)
+	else if (td->o.mem_type == MEM_MMAP || td->o.mem_type == MEM_MMAPHUGE ||
+		 td->o.mem_type == MEM_MMAPSHARED)
 		ret = alloc_mem_mmap(td, total_mem);
+	else if (td->o.mem_type == MEM_CUDA_MALLOC)
+		ret = alloc_mem_cudamalloc(td, total_mem);
 	else {
 		log_err("fio: bad mem type: %d\n", td->o.mem_type);
 		ret = 1;
@@ -252,12 +339,18 @@ void free_io_mem(struct thread_data *td)
 	if (td->o.odirect || td->o.oatomic)
 		total_mem += page_mask;
 
-	if (td->o.mem_type == MEM_MALLOC)
+	if (td->io_ops->iomem_alloc) {
+		if (td->io_ops->iomem_free)
+			td->io_ops->iomem_free(td);
+	} else if (td->o.mem_type == MEM_MALLOC)
 		free_mem_malloc(td);
 	else if (td->o.mem_type == MEM_SHM || td->o.mem_type == MEM_SHMHUGE)
 		free_mem_shm(td);
-	else if (td->o.mem_type == MEM_MMAP || td->o.mem_type == MEM_MMAPHUGE)
+	else if (td->o.mem_type == MEM_MMAP || td->o.mem_type == MEM_MMAPHUGE ||
+		 td->o.mem_type == MEM_MMAPSHARED)
 		free_mem_mmap(td, total_mem);
+	else if (td->o.mem_type == MEM_CUDA_MALLOC)
+		free_mem_cudamalloc(td);
 	else
 		log_err("Bad memory type %u\n", td->o.mem_type);
 

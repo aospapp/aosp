@@ -17,30 +17,56 @@
 package android.security.cts;
 
 import android.graphics.BitmapFactory;
+import android.os.ParcelFileDescriptor;
 import android.platform.test.annotations.SecurityTest;
 import android.test.AndroidTestCase;
 
+import java.io.File;
+import java.io.FileDescriptor;
+import java.io.FileOutputStream;
 import java.io.InputStream;
+
+import java.lang.Exception;
 
 import android.security.cts.R;
 
 @SecurityTest
 public class BitmapFactorySecurityTests extends AndroidTestCase {
-    private InputStream getResource(int resId) {
-        InputStream resource = mContext.getResources().openRawResource(R.raw.bug_38116746);
-        assertNotNull(resource);
-        return resource;
+    private FileDescriptor getResource(int resId) {
+        try {
+            InputStream is = mContext.getResources().openRawResource(resId);
+            assertNotNull(is);
+            File file = File.createTempFile("BitmapFactorySecurityFile" + resId, "img");
+            file.deleteOnExit();
+            FileOutputStream output = new FileOutputStream(file);
+            byte[] buffer = new byte[1024];
+            int readLength;
+            while ((readLength = is.read(buffer)) != -1) {
+                output.write(buffer, 0, readLength);
+            }
+            is.close();
+            output.close();
+            ParcelFileDescriptor pfd = ParcelFileDescriptor.open(file,
+                    ParcelFileDescriptor.MODE_READ_ONLY);
+            return pfd.getFileDescriptor();
+        } catch (Exception e) {
+            fail("Could not get resource " + resId + "! " + e);
+            return null;
+        }
     }
 
     /**
-     * Verifies that decoding a corrupt ICO does not run out of memory.
+     * Verifies that decoding a corrupt ICO does crash.
      */
     public void test_android_bug_38116746() {
-        InputStream exploitImage = getResource(R.raw.bug_38116746);
+        FileDescriptor exploitImage = getResource(R.raw.bug_38116746);
         try {
-            BitmapFactory.decodeStream(exploitImage);
+            BitmapFactory.decodeFileDescriptor(exploitImage);
         } catch (OutOfMemoryError e) {
             fail("OOM attempting to decode ICO");
         }
+
+        // This previously crashed in fread. No need to check the output.
+        BitmapFactory.decodeFileDescriptor(getResource(R.raw.b38116746_new));
     }
 }

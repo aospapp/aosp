@@ -376,7 +376,7 @@ public class EmmcPerformanceTest implements IDeviceTest, IRemoteTest {
             if (mTestDevice.enableAdbRoot()) {
                 String output = mTestDevice.executeShellCommand("vdc dump | grep cache");
                 CLog.d("Output from shell command 'vdc dump | grep cache': %s", output);
-                String[] segments = output.split(" ");
+                String[] segments = output.split("\\s+");
                 if (segments.length >= 3) {
                     mCache = segments[2];
                 } else {
@@ -394,10 +394,10 @@ public class EmmcPerformanceTest implements IDeviceTest, IRemoteTest {
             // Filesystem            1K-blocks Used Available Use% Mounted on
             // /dev/block/mmcblk0p34     60400   56     60344   1% /cache
             String output = mTestDevice.executeShellCommand("df cache");
-            CLog.d(String.format("Output from shell command 'df cache': %s", output));
+            CLog.d(String.format("Output from shell command 'df cache':\n%s", output));
             String[] lines = output.split("\r?\n");
             if (lines.length >= 2) {
-                String[] segments = lines[1].split(" ");
+                String[] segments = lines[1].split("\\s+");
                 if (segments.length >= 2) {
                     if (lines[0].toLowerCase().contains("1k-blocks")) {
                         mCachePartitionSize = Integer.parseInt(segments[1]) / 1024;

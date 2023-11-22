@@ -147,7 +147,7 @@ class LocalPrintJob implements MdnsDiscovery.Listener {
         return mPrintJob;
     }
 
-    private void handleCapabilities(LocalPrinterCapabilities capabilities) {
+    private void handleCapabilities(DiscoveredPrinter printer, LocalPrinterCapabilities capabilities) {
         if (DEBUG) Log.d(TAG, "Capabilities for " + mPath + " are " + capabilities);
         if (mState != STATE_DISCOVERY) return;
 

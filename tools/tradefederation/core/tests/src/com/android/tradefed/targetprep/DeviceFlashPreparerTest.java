@@ -16,6 +16,11 @@
 
 package com.android.tradefed.targetprep;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import com.android.tradefed.build.DeviceBuildInfo;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.build.IDeviceBuildInfo;
@@ -31,18 +36,20 @@ import com.android.tradefed.targetprep.IDeviceFlasher.UserDataFlashOption;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.RunUtil;
 
-import junit.framework.TestCase;
-
 import org.easymock.EasyMock;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.io.File;
 import java.util.Arrays;
 import java.util.concurrent.Semaphore;
 
-/**
- * Unit tests for {@link DeviceFlashPreparer}.
- */
-public class DeviceFlashPreparerTest extends TestCase {
+/** Unit tests for {@link DeviceFlashPreparer}. */
+@RunWith(JUnit4.class)
+public class DeviceFlashPreparerTest {
 
     private IDeviceFlasher mMockFlasher;
     private DeviceFlashPreparer mDeviceFlashPreparer;
@@ -51,12 +58,8 @@ public class DeviceFlashPreparerTest extends TestCase {
     private IHostOptions mMockHostOptions;
     private File mTmpDir;
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
         mMockFlasher = EasyMock.createMock(IDeviceFlasher.class);
         mMockDevice = EasyMock.createMock(ITestDevice.class);
         EasyMock.expect(mMockDevice.getSerialNumber()).andReturn("foo").anyTimes();
@@ -89,18 +92,13 @@ public class DeviceFlashPreparerTest extends TestCase {
         mTmpDir = FileUtil.createTempDir("tmp");
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         FileUtil.recursiveDelete(mTmpDir);
-        super.tearDown();
     }
 
-    /**
-     * Simple normal case test for {@link DeviceSetup#setUp(ITestDevice, IBuildInfo)}.
-     */
+    /** Simple normal case test for {@link DeviceFlashPreparer#setUp(ITestDevice, IBuildInfo)}. */
+    @Test
     public void testSetup() throws Exception {
         doSetupExpectations();
         EasyMock.replay(mMockFlasher, mMockDevice);
@@ -132,9 +130,10 @@ public class DeviceFlashPreparerTest extends TestCase {
     }
 
     /**
-     * Test {@link DeviceSetup#setUp(ITestDevice, IBuildInfo)} when a non IDeviceBuildInfo type
-     * is provided
+     * Test {@link DeviceFlashPreparer#setUp(ITestDevice, IBuildInfo)} when a non IDeviceBuildInfo
+     * type is provided.
      */
+    @Test
     public void testSetUp_nonDevice() throws Exception {
         try {
             mDeviceFlashPreparer.setUp(mMockDevice, EasyMock.createMock(IBuildInfo.class));
@@ -144,9 +143,8 @@ public class DeviceFlashPreparerTest extends TestCase {
         }
     }
 
-    /**
-     * Test {@link DeviceSetup#setUp(ITestDevice, IBuildInfo)} when build does not boot
-     */
+    /** Test {@link DeviceFlashPreparer#setUp(ITestDevice, IBuildInfo)} when build does not boot. */
+    @Test
     public void testSetup_buildError() throws Exception {
         mMockDevice.setRecoveryMode(RecoveryMode.ONLINE);
         mMockFlasher.overrideDeviceOptions(mMockDevice);
@@ -180,9 +178,8 @@ public class DeviceFlashPreparerTest extends TestCase {
         EasyMock.verify(mMockFlasher, mMockDevice);
     }
 
-    /**
-     * Ensure that the flasher instance limiting machinery is working as expected.
-     */
+    /** Ensure that the flasher instance limiting machinery is working as expected. */
+    @Test
     public void testFlashLimit() throws Exception {
         final DeviceFlashPreparer dfp = mDeviceFlashPreparer;
         try {
@@ -193,6 +190,8 @@ public class DeviceFlashPreparerTest extends TestCase {
                     dfp.returnFlashingPermit();
                 }
             };
+            EasyMock.expect(mMockHostOptions.getConcurrentFlasherLimit()).andReturn(1).anyTimes();
+            EasyMock.replay(mMockHostOptions);
             dfp.setConcurrentFlashSettings(1, new Semaphore(1), true);
             // take the permit; the next attempt to take the permit should block
             dfp.takeFlashingPermit();
@@ -216,9 +215,8 @@ public class DeviceFlashPreparerTest extends TestCase {
         }
     }
 
-    /**
-     * Ensure that the flasher limiting respects {@link IHostOptions}.
-     */
+    /** Ensure that the flasher limiting respects {@link IHostOptions}. */
+    @Test
     public void testFlashLimit_withHostOptions() throws Exception {
         final DeviceFlashPreparer dfp = mDeviceFlashPreparer;
         try {
@@ -254,9 +252,8 @@ public class DeviceFlashPreparerTest extends TestCase {
         }
     }
 
-    /**
-     * Ensure that the flasher instance limiting machinery is working as expected.
-     */
+    /** Ensure that the flasher instance limiting machinery is working as expected. */
+    @Test
     public void testUnlimitedFlashLimit() throws Exception {
         final DeviceFlashPreparer dfp = mDeviceFlashPreparer;
         try {

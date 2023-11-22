@@ -34,6 +34,9 @@ To build libmtp you should only need development files for libusb.
 (Often named libusb-devel or similar.) For working with CVS versions
 you may need autoconf, automake, libtool, gettext(-devel).
 
+To enable the optional MTPZ support using libgcrypt you need the
+libgcrypt library installed as well.
+
 
 Shared Library Support
 ----------------------
@@ -56,6 +59,20 @@ you run your program, for example:
   % export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
   % my_program
 
+To check whether you need to do something this:
+
+  % ldd /usr/lib/rhytmbox/plugins/mtpdevice/libmtpdevice.so | grep mtp
+  % ldd /usr/bin/gnomad2 | grep mtp
+
+If the program is linking to a packaged version of libmtp
+it will likely say something like this:
+
+  libmtp.so.N => /usr/lib/libmtp.so.N (0xb4e4b000)
+
+In this case you may have your freshly compiled library in
+/usr/local/lib or something like that, and you need to do the
+LD_LIBRARY_PATH trick. Verify by using "ldd" again.
+
 This way of enabling the library to link is a workaround hack.
 Note that the LD_LIBRARY_PATH is actually supposed to be used for
 testing, not production systems or distributions. It is commonly
@@ -70,16 +87,26 @@ the same system. When you compile your programs they will typically
 bind to the latest version of the shared library. A link to the
 latest version is always provided as $PREFIX/lib/libmtp.so.
 
-libusb Support
+libusb support
 --------------
 
-This package depends on libusb.  Get libusb from sourceforge at:
+This package depends on libusb. Get libusb from sourceforge at:
 
    http://www.sourceforge.net/projects/libusb/
 
-On Linux, please use the very latest version you can get, between
-0.1.8 and 0.1.12 a lot of things happened which pertains to
-the udev hotplugging support, see below.
+libusb 1.0 and later is preferred for libmtp, but currently also
+older 0.1.x versions of libusb are supported.
+
+
+libgcrypt support
+-----------------
+
+The MTPZ extension to libmtp requires libgcrypt to be installed.
+
+   http://www.gnu.org/software/libgcrypt/
+
+MTPZ support will not be built unless the configure script finds
+libgcrypt.
 
 
 BASIC BUILD PROCEDURE
@@ -97,17 +124,10 @@ makes libmtp sample programs avoid collision with other programs like
 sox' "play" program. If the default prefix for some reason fail,
 try to tag on "--program-prefix=mtp-" to the "configure" command.
 
-On Linux you should then typically type (see below for details):
-
-   % ./hotplug.sh
-
-you can achieve the same with
-
-   % ./configure --enable-hotplugging
-
-you can turn off some speed enhancements (for testing) with:
-
-   % ./configure --no-turbo
+The "libexedir" in the configure file is hardcoded to /lib/udev to
+make the mtp-probe (which is built for Linux only) install into
+that directory. This is the only location that makes sens for this
+executable.
 
 if you want to install the documentation type:
 
@@ -156,20 +176,37 @@ example SANE backends use.
 
 The libmtp.rules file that comes with libmtp can be used as a starter.
 
-First you need a crazy rule that creates a device node in the
-/dev/bus/usb hierarchy whenever any USB device is connected. The
-script has this at the top, you can comment it in if your
-distribution does not already create these device nodes.
+This will set the environment variables ID_MEDIA_PLAYER and
+ID_MTP_DEVICE to "1" and the former one will be recognized by the
+scripts distributed by recent versions of udev to be a
+console-writable device that should be accessible for all
+users.
 
-Then libusb may need to be patched to recognize this hierarchy. 
+Ancient udev, HAL, libusb
+-------------------------
+
+The old script for udev used to set the device access to "666"
+which is rather nasty (not that big security issue, unless you
+think someone will break into your jukebox) some systems used
+to let PAM do this by placing a configuration file in
+/etc/security/ somewhere. Then it was replaced with simple
+udev rules.
+
+At one point HAL was used to take devices detected by udev and
+signal to userspace that they were available and provide some
+information about them. This was unnecessary middleware, it has
+been killed and most userspace applications now get their
+information directly from udev instead.
+
+In old libusb first you need a crazy rule that creates a device
+node in the /dev/bus/usb hierarchy whenever any USB device is
+connected. The script has this at the top, you can comment it
+in if your distribution does not already create these device
+nodes.
+
+Then libusb may need to be patched to recognize this hierarchy.
 The 0.1.12 version is the first which is properly fixed.
 
-The script sets the device access to "666" which is rather nasty
-(not that big security issue, unless you think someone will break
-into your jukebox) some systems prefer to let PAM do this by placing
-a configuration file in /etc/security/ somewhere. See the Fedora Extras
-SRPM source package in case you're interested in how it is handled
-there.
 
 
 If you cannot run hotplugging
@@ -177,13 +214,17 @@ If you cannot run hotplugging
 
 If you have a distro without hotplugging enabled try this as root:
 
+  % chmod -R a+w /dev/bus/usb
+
+Or if it's *really* ancient you could try:
+
   % chmod -R a+w /proc/bus/usb
 
 You have to do this again every time you unplug/replug your USB cable
 or restart the jukebox, every time you quit libnjb and restart it,
 etc etc etc an alternative is to run libmtp as root which works just fine.
 The problem is to somehow assure that you (ie the current user) always
-has write access on  /proc/bus/usb/*
+has write access to these files.
 
 You can find the Linux hotplug project at:
 http://linux-hotplug.sourceforge.net/
@@ -204,3 +245,76 @@ function in your program, see the Autoconf texinfo documentation.
 
 See further:
 http://wiki.buici.com/wiki/Autoconf_and_RPL_MALLOC
+
+Compilation for Solaris/SunOS
+-----------------------------
+
+libmtp builds on Solaris/SunOS with either gcc or SunStudio 12. It does
+require GNU Make (aka gmake) to be installed. Building libmtp on Solaris
+10 and Solaris 11 differ slightly, so alternate instructions are provided
+for each Solaris version.
+
+For Solaris 10
+--------------
+
+To build using GCC:
+
+  % CFLAGS="I/usr/sfw/lib -L/usr/sfw/lib -R/usr/sfw/lib" MAKE=gmake \
+    INSTALL=/usr/ucb/install ./configure
+  % gmake
+  % gmake install
+
+Custom CLFAGS are required for libusb.so as it lives in /usr/sfw/lib,
+and this path is not in the default search path for ld. If these
+CFLAGS are not set, several components of ./configure will fail leading
+to a failed build.
+
+To build using SunStudio 12:
+
+  % CFLAGS="I/usr/sfw/lib -L/usr/sfw/lib -R/usr/sfw/lib" MAKE=gmake \
+    INSTALL=/usr/ucb/install CC=cc ./configure
+  % gmake
+  % gmake install
+
+
+General Notes:
+All MTP devices on Solaris 10u2+ are driven by the usb_mid driver, which
+will automatically export ugen device interfaces with the correct device
+permissions. No special configuration is required. See the usb_mid(7D)
+and ugen(7D) manpages and /usr/sfw/share/doc/libusb/libusb.txt for
+more information.
+
+For Solaris 11
+--------------
+
+Building libmtp on Solaris 11 is very similar to those instructions for
+Solaris 10, however libusb now lives in /usr/lib, and openusb is also
+available as an alternative USB library. Oracle does not provide a
+libusb v1.0 API compatible version of libusb, instead providing the older
+v0.1 API interface version of libusb. As mentioned, Oracle also provides
+the OpenUSB USB library as an alternate to libusb v1.0, however OpenUSB is
+not source or binary compatible with libusb.
+
+Before building/installing libmtp there are some components missing from
+the base Solaris 11 installation, and are required to be installed prior
+to building/installing libmtp. The 'libusbugen' package must be installed
+before libusb itself is usable on Solaris 11, alternatively the 'openusb'
+package may be used.
+
+To build using GCC:
+  % ./configure
+  % gmake
+  % sudo gmake install
+
+To build using SunStudio 12:
+  % CC=cc ./configure
+  % gmake
+  % sudo gmake install
+
+
+General Notes:
+All MTP devices on Solaris 11+ are driven by the usb_mid driver, which
+will automatically export ugen device interfaces with the correct device
+permissions. No special configuration is required. See the usb_mid(7D)
+and ugen(7D) manpages and /usr/share/doc/libusb/libusb.txt for more
+information.

@@ -49,15 +49,25 @@ static uint32_t readU32(const uint8_t* data, size_t offset) {
         ((uint32_t)data[offset + 2]) << 8 | ((uint32_t)data[offset + 3]);
 }
 
-static void addRange(vector<uint32_t> &coverage, uint32_t start, uint32_t end) {
+// The start must be larger than or equal to coverage.back() if coverage is not empty.
+// Returns true if the range is appended. Otherwise returns false as an error.
+static bool addRange(vector<uint32_t> &coverage, uint32_t start, uint32_t end) {
 #ifdef VERBOSE_DEBUG
     ALOGD("adding range %d-%d\n", start, end);
 #endif
     if (coverage.empty() || coverage.back() < start) {
         coverage.push_back(start);
         coverage.push_back(end);
-    } else {
+        return true;
+    } else if (coverage.back() == start) {
         coverage.back() = end;
+        return true;
+    } else {
+        // Reject unordered range input since SparseBitSet assumes that the given range vector is
+        // sorted. OpenType specification says cmap entries are sorted in order of code point
+        // values, thus for OpenType compliant font files, we don't reach here.
+        android_errorWriteLog(0x534e4554, "32178311");
+        return false;
     }
 }
 
@@ -109,7 +119,7 @@ static std::vector<uint32_t> mergeRanges(
             // No ranges left in rRanges. Just put all remaining ranges in lRanges.
             do {
                 Range r = getRange(lRanges, li);
-                addRange(out, r.start, r.end);
+                addRange(out, r.start, r.end);  // Input is sorted. Never returns false.
                 li += 2;
             } while (li < lsize);
             break;
@@ -117,17 +127,17 @@ static std::vector<uint32_t> mergeRanges(
             // No ranges left in lRanges. Just put all remaining ranges in rRanges.
             do {
                 Range r = getRange(rRanges, ri);
-                addRange(out, r.start, r.end);
+                addRange(out, r.start, r.end);  // Input is sorted. Never returns false.
                 ri += 2;
             } while (ri < rsize);
             break;
         } else if (!Range::intersects(left, right)) {
             // No intersection. Add smaller range.
             if (left.start < right.start) {
-                addRange(out, left.start, left.end);
+                addRange(out, left.start, left.end);  // Input is sorted. Never returns false.
                 li += 2;
             } else {
-                addRange(out, right.start, right.end);
+                addRange(out, right.start, right.end);  // Input is sorted. Never returns false.
                 ri += 2;
             }
         } else {
@@ -147,7 +157,7 @@ static std::vector<uint32_t> mergeRanges(
                     right = getRange(rRanges, ri);
                 }
             }
-            addRange(out, merged.start, merged.end);
+            addRange(out, merged.start, merged.end);  // Input is sorted. Never returns false.
         }
     }
 
@@ -179,11 +189,15 @@ static bool getCoverageFormat4(vector<uint32_t>& coverage, const uint8_t* data, 
         if (rangeOffset == 0) {
             uint32_t delta = readU16(data, kHeaderSize + 2 * (2 * segCount + i));
             if (((end + delta) & 0xffff) > end - start) {
-                addRange(coverage, start, end + 1);
+                if (!addRange(coverage, start, end + 1)) {
+                    return false;
+                }
             } else {
                 for (uint32_t j = start; j < end + 1; j++) {
                     if (((j + delta) & 0xffff) != 0) {
-                        addRange(coverage, j, j + 1);
+                        if (!addRange(coverage, j, j + 1)) {
+                            return false;
+                        }
                     }
                 }
             }
@@ -197,7 +211,9 @@ static bool getCoverageFormat4(vector<uint32_t>& coverage, const uint8_t* data, 
                 }
                 uint32_t glyphId = readU16(data, actualRangeOffset);
                 if (glyphId != 0) {
-                    addRange(coverage, j, j + 1);
+                    if (!addRange(coverage, j, j + 1)) {
+                        return false;
+                    }
                 }
             }
         }
@@ -238,10 +254,14 @@ static bool getCoverageFormat12(vector<uint32_t>& coverage, const uint8_t* data,
         }
         if (end > MAX_UNICODE_CODE_POINT) {
             // file is inclusive, vector is exclusive
-            addRange(coverage, start, MAX_UNICODE_CODE_POINT + 1);
-            return true;
+            if (end == 0xFFFFFFFF) {
+                android_errorWriteLog(0x534e4554, "62134807");
+            }
+            return addRange(coverage, start, MAX_UNICODE_CODE_POINT + 1);
         }
-        addRange(coverage, start, end + 1);  // file is inclusive, vector is exclusive
+        if (!addRange(coverage, start, end + 1)) {  // file is inclusive, vector is exclusive
+            return false;
+        }
     }
     return true;
 }
@@ -306,7 +326,9 @@ static bool getVSCoverage(std::vector<uint32_t>* out_ranges, const uint8_t* data
         for (uint32_t i = 0; i < numRecords; ++i) {
             const size_t recordOffset = kHeaderSize + kUVSMappingRecordSize * i;
             const uint32_t codePoint = readU24(nonDefaultUVSTable, recordOffset);
-            addRange(rangesFromNonDefaultUVSTable, codePoint, codePoint + 1);
+            if (!addRange(rangesFromNonDefaultUVSTable, codePoint, codePoint + 1)) {
+                return false;
+            }
         }
     }
 
@@ -342,7 +364,9 @@ static bool getVSCoverage(std::vector<uint32_t>* out_ranges, const uint8_t* data
                 // without variation selectors. We need to check the default glyph availability and
                 // exclude the codepoint if it is not supported by defualt cmap table.
                 if (baseCoverage.get(cp)) {
-                    addRange(rangesFromDefaultUVSTable, cp, cp + 1 /* exclusive */);
+                    if (!addRange(rangesFromDefaultUVSTable, cp, cp + 1 /* exclusive */)) {
+                        return false;
+                    }
                 }
             }
         }

@@ -37,6 +37,9 @@ public class MockConnection extends Connection {
     public static final int ON_CALL_EVENT = 2;
     public static final int ON_PULL_EXTERNAL_CALL = 3;
     public static final int ON_EXTRAS_CHANGED = 4;
+    public static final int ON_START_RTT = 5;
+    public static final int ON_RTT_REQUEST_RESPONSE = 6;
+    public static final int ON_STOP_RTT = 7;
 
     private CallAudioState mCallAudioState =
             new CallAudioState(false, CallAudioState.ROUTE_EARPIECE, ROUTE_EARPIECE | ROUTE_SPEAKER);
@@ -46,6 +49,7 @@ public class MockConnection extends Connection {
     private MockVideoProvider mMockVideoProvider;
     private PhoneAccountHandle mPhoneAccountHandle;
     private RemoteConnection mRemoteConnection = null;
+    private RttTextStream mRttTextStream;
 
     private SparseArray<InvokeCounter> mInvokeCounterMap = new SparseArray<>(10);
 
@@ -187,6 +191,36 @@ public class MockConnection extends Connection {
         }
     }
 
+    @Override
+    public void onStartRtt(RttTextStream rttTextStream) {
+        super.onStartRtt(rttTextStream);
+        if (mInvokeCounterMap.get(ON_START_RTT) != null) {
+            mInvokeCounterMap.get(ON_START_RTT).invoke(rttTextStream);
+        }
+    }
+
+    @Override
+    public void handleRttUpgradeResponse(RttTextStream rttTextStream) {
+        super.handleRttUpgradeResponse(rttTextStream);
+        if (rttTextStream != null) {
+            setRttTextStream(rttTextStream);
+            setConnectionProperties(getConnectionProperties() | PROPERTY_IS_RTT);
+        }
+
+        if (mInvokeCounterMap.get(ON_RTT_REQUEST_RESPONSE) != null) {
+            mInvokeCounterMap.get(ON_RTT_REQUEST_RESPONSE).invoke(rttTextStream);
+        }
+    }
+
+    @Override
+    public void onStopRtt() {
+        super.onStopRtt();
+
+        if (mInvokeCounterMap.get(ON_STOP_RTT) != null) {
+            mInvokeCounterMap.get(ON_STOP_RTT).invoke();
+        }
+    }
+
     public int getCurrentState()  {
         return mState;
     }
@@ -264,6 +298,14 @@ public class MockConnection extends Connection {
         return mRemoteConnection;
     }
 
+    public void setRttTextStream(RttTextStream rttTextStream) {
+        mRttTextStream = rttTextStream;
+    }
+
+    public RttTextStream getRttTextStream() {
+        return mRttTextStream;
+    }
+
     private static String getCounterLabel(int counterIndex) {
         switch (counterIndex) {
             case ON_POST_DIAL_WAIT:
@@ -274,6 +316,12 @@ public class MockConnection extends Connection {
                 return "onPullExternalCall";
             case ON_EXTRAS_CHANGED:
                 return "onExtrasChanged";
+            case ON_START_RTT:
+                return "onStartRtt";
+            case ON_RTT_REQUEST_RESPONSE:
+                return "onRttRequestResponse";
+            case ON_STOP_RTT:
+                return "onStopRtt";
             default:
                 return "Callback";
         }

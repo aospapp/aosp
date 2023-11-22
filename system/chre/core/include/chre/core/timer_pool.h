@@ -58,6 +58,8 @@ class TimerPool : public NonCopyable {
    * @param duration The duration of the timer.
    * @param cookie A cookie to pass to the app when the timer elapses.
    * @param oneShot false if the timer is expected to auto-reload.
+   * @return TimerHandle of the requested timer. Returns CHRE_TIMER_INVALID if
+   *         not successful.
    */
   TimerHandle setTimer(const Nanoapp *nanoapp, Nanoseconds duration,
       const void *cookie, bool oneShot);
@@ -82,8 +84,8 @@ class TimerPool : public NonCopyable {
    * Tracks metadata associated with a request for a timed event.
    */
   struct TimerRequest {
-    //! The nanoapp from which this request was made.
-    const Nanoapp *requestingNanoapp;
+    //! The nanoapp instance ID from which this request was made.
+    uint32_t nanoappInstanceId;
 
     //! The TimerHandle assigned to this request.
     TimerHandle timerHandle;
@@ -132,6 +134,9 @@ class TimerPool : public NonCopyable {
   //! The next timer handle for generateTimerHandle() to return.
   TimerHandle mLastTimerHandle = CHRE_TIMER_INVALID;
 
+  //! Max number of timers that can be requested for all apps
+  static constexpr size_t kMaxTimerRequests = 64;
+
   //! Whether or not the timer handle generation logic needs to perform a
   //! search for a vacant timer handle.
   bool mGenerateTimerHandleMustCheckUniqueness = false;
@@ -172,8 +177,9 @@ class TimerPool : public NonCopyable {
    * closest expiration time is at the front of the list.
    *
    * @param timerRequest The timer request being inserted into the list.
+   * @return true if insertion of timer succeeds.
    */
-   void insertTimerRequest(const TimerRequest& timerRequest);
+   bool insertTimerRequest(const TimerRequest& timerRequest);
 
    /**
     * Handles a completion callback for a timer by scheduling the next timer if

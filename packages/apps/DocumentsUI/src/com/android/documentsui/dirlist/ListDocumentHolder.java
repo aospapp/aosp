@@ -18,6 +18,7 @@ package com.android.documentsui.dirlist;
 
 import static com.android.documentsui.base.DocumentInfo.getCursorString;
 
+import android.annotation.Nullable;
 import android.content.Context;
 import android.database.Cursor;
 import android.graphics.Rect;
@@ -31,25 +32,30 @@ import android.widget.TextView;
 import com.android.documentsui.R;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.Events.InputEvent;
+import com.android.documentsui.base.Lookup;
 import com.android.documentsui.base.Shared;
 import com.android.documentsui.roots.RootCursorWrapper;
 
 final class ListDocumentHolder extends DocumentHolder {
 
     private final TextView mTitle;
-    private final LinearLayout mDetails;  // Container of date/size/summary
+    private final @Nullable LinearLayout mDetails;  // Container of date/size/summary
     private final TextView mDate;
     private final TextView mSize;
+    private final TextView mType;
     private final TextView mSummary;
     private final ImageView mIconMime;
     private final ImageView mIconThumb;
     private final ImageView mIconCheck;
-    private final IconHelper mIconHelper;
     private final View mIconLayout;
+
+    private final IconHelper mIconHelper;
+    private final Lookup<String, String> mFileTypeLookup;
     // This is used in as a convenience in our bind method.
     private final DocumentInfo mDoc;
 
-    public ListDocumentHolder(Context context, ViewGroup parent, IconHelper iconHelper) {
+    public ListDocumentHolder(Context context, ViewGroup parent, IconHelper iconHelper,
+            Lookup<String, String> fileTypeLookup) {
         super(context, parent, R.layout.item_doc_list);
 
         mIconLayout = itemView.findViewById(android.R.id.icon);
@@ -60,10 +66,12 @@ final class ListDocumentHolder extends DocumentHolder {
         mSummary = (TextView) itemView.findViewById(android.R.id.summary);
         mSize = (TextView) itemView.findViewById(R.id.size);
         mDate = (TextView) itemView.findViewById(R.id.date);
+        mType = (TextView) itemView.findViewById(R.id.file_type);
         // Warning: mDetails view doesn't exists in layout-sw720dp-land layout
         mDetails = (LinearLayout) itemView.findViewById(R.id.line2);
 
         mIconHelper = iconHelper;
+        mFileTypeLookup = fileTypeLookup;
         mDoc = new DocumentInfo();
     }
 
@@ -130,11 +138,18 @@ final class ListDocumentHolder extends DocumentHolder {
         return rect.contains((int) event.getRawX(), (int) event.getRawY());
     }
 
+    @Override
+    public boolean isOverDocIcon(InputEvent event) {
+        Rect iconRect = new Rect();
+        mIconLayout.getGlobalVisibleRect(iconRect);
+
+        return iconRect.contains((int) event.getRawX(), (int) event.getRawY());
+    }
+
     /**
      * Bind this view to the given document for display.
      * @param cursor Pointing to the item to be bound.
      * @param modelId The model ID of the item.
-     * @param state Current display state.
      */
     @Override
     public void bind(Cursor cursor, String modelId) {
@@ -182,8 +197,10 @@ final class ListDocumentHolder extends DocumentHolder {
                 mSize.setVisibility(View.VISIBLE);
                 mSize.setText(Formatter.formatFileSize(mContext, mDoc.size));
             } else {
-                mSize.setVisibility(View.GONE);
+                mSize.setVisibility(View.INVISIBLE);
             }
+
+            mType.setText(mFileTypeLookup.lookup(mDoc.mimeType));
         }
 
         // mDetails view doesn't exists in layout-sw720dp-land layout

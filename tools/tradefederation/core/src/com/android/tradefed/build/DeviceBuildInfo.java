@@ -24,6 +24,7 @@ import java.io.IOException;
  */
 public class DeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo {
 
+    private static final long serialVersionUID = BuildSerializedVersion.VERSION;
     private static final String DEVICE_IMAGE_NAME = "device";
     private static final String USERDATA_IMAGE_NAME = "userdata";
     private static final String TESTDIR_IMAGE_NAME = "testsdir";

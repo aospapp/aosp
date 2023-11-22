@@ -24,6 +24,8 @@ LOCAL_AAPT_FLAGS = -c xx_YY -c cs
 
 LOCAL_SRC_FILES := $(call all-subdir-java-files)
 
+LOCAL_STATIC_JAVA_LIBRARIES := legacy-android-test junit
+
 LOCAL_PACKAGE_NAME := ProcessTests
 
 LOCAL_DEX_PREOPT := false

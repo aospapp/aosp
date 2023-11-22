@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import os
 import re
 import logging
 
@@ -91,28 +92,10 @@ class TestCase(object):
         """Set the test case's name."""
         self._testname = testname
 
-    def InternalAddLtpPathToCommand(self, command):
-        """Internal function to change binary in commands to their full path"""
-        tokens = command.strip().split()
-
-        # If not ltp executables:
-        if (tokens[0] in ltp_configs.INTERNAL_BINS or
-                tokens[0] in ltp_configs.INTERNAL_SHELL_COMMANDS or
-                tokens[0].find('=') > 0):
-            return command
-        else:  # Is Ltp executable
-            tokens[0] = path_utils.JoinTargetPath(ltp_configs.LTPBINPATH,
-                                                  tokens[0])
-            return ' '.join(tokens)
-
-    def GetCommand(self):
-        """Get test case's command.
-
-        Get the test case's command where ltp test binary names have been
-        replaced with their full paths
-        """
-        return '&&'.join((self.InternalAddLtpPathToCommand(command)
-                          for command in self._command.split('&&')))
+    @property
+    def command(self):
+        """Get the test case's command."""
+        return self._command
 
     def InternalGetExecutableNames(self):
         """Get a generator of all required executable file names"""
@@ -126,8 +109,8 @@ class TestCase(object):
                 if executable.find('=') > 0 else executable
                 for executable in executables)
 
-    def GetRequiredExecutablePaths(self, ltp_bin_path=ltp_configs.LTPBINPATH):
-        """Get required executables' paths.
+    def GetRequiredExecutablePaths(self, ltp_bin_host_path):
+        """Get required executables' paths on host.
 
         Returns:
             A list of all executables' paths that will be needed
@@ -135,7 +118,7 @@ class TestCase(object):
             returned. For binaries in system's PATH, only the name will be
             returned.
         """
-        return [path_utils.JoinTargetPath(ltp_bin_path, executable)
+        return [os.path.join(ltp_bin_host_path, executable)
                 if executable not in ltp_configs.INTERNAL_BINS else executable
                 for executable in self.InternalGetExecutableNames()
                 if executable not in ltp_configs.INTERNAL_SHELL_COMMANDS]

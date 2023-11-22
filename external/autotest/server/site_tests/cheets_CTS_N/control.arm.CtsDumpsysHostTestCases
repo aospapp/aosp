@@ -13,7 +13,7 @@ TEST_TYPE = 'server'
 TIME = 'LENGTHY'
 
 DOC = ('Run module CtsDumpsysHostTestCases of the '
-       'Android 7.1_r3 Compatibility Test Suite (CTS), build 3764431,'
+       'Android 7.1_r7 Compatibility Test Suite (CTS), build 4120758,'
        'using arm ABI in the ARC++ container.')
 
 def run_CTS(machine):
@@ -22,11 +22,12 @@ def run_CTS(machine):
         'cheets_CTS_N',
         host=host,
         iterations=1,
-        max_retry=3,
+        max_retry=10,
         needs_push_media=False,
         tag='CtsDumpsysHostTestCases',
         target_module='CtsDumpsysHostTestCases',
         bundle='arm',
+        warn_on_test_retry=False,
         timeout=3600)
 
 parallel_simple(run_CTS, machines)

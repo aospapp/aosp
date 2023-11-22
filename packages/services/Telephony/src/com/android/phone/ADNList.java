@@ -28,7 +28,10 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.text.BidiFormatter;
+import android.text.TextDirectionHeuristics;
 import android.util.Log;
+import android.view.View;
 import android.view.Window;
 import android.widget.CursorAdapter;
 import android.widget.SimpleCursorAdapter;
@@ -161,9 +164,31 @@ public class ADNList extends ListActivity {
     }
 
     protected CursorAdapter newAdapter() {
-        return new SimpleCursorAdapter(this,
-                    android.R.layout.simple_list_item_2,
-                    mCursor, COLUMN_NAMES, VIEW_NAMES);
+        SimpleCursorAdapter sca = new SimpleCursorAdapter(this,
+                android.R.layout.simple_list_item_2,
+                mCursor, COLUMN_NAMES, VIEW_NAMES);
+
+        // This code block is for displaying a phone number including "+ country code" correctly
+        // in bidirectional language (b/35180168).
+        // Without this code, e.g. "+0123456789" is wrongly displayed as "0123456789+".
+        sca.setViewBinder(new SimpleCursorAdapter.ViewBinder() {
+            public boolean setViewValue(View view, Cursor cursor, int columnIndex) {
+                view.setTextAlignment(View.TEXT_ALIGNMENT_VIEW_START);
+                if (columnIndex == NUMBER_COLUMN) {
+                    String num = cursor.getString(NUMBER_COLUMN);
+                    if (num != null) {
+                        BidiFormatter bf = BidiFormatter.getInstance();
+                        num = bf.unicodeWrap(num, TextDirectionHeuristics.LTR, true);
+                    }
+                    if (view instanceof TextView) {
+                        ((TextView) view).setText(num);
+                    }
+                    return true;
+                }
+                return false;
+            }
+        });
+        return sca;
     }
 
     private void displayProgress(boolean loading) {

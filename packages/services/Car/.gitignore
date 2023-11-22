@@ -3,3 +3,5 @@
 .classpath
 *.iml
 gen/
+*.pyc
+__pycache__

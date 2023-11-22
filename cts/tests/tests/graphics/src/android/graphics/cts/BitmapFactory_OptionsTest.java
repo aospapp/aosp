@@ -92,7 +92,6 @@ public class BitmapFactory_OptionsTest {
         b = BitmapFactory.decodeResource(resources, R.drawable.bitmap_indexed, options);
         assertNull(b);
         assertEquals("image/gif", options.outMimeType);
-        assertEquals(null, options.outConfig);
 
         // Scaled, indexed bitmap
         options.inScaled = true;

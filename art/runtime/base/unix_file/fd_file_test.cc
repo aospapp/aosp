@@ -186,6 +186,20 @@ TEST_F(FdFileTest, MoveConstructor) {
   ASSERT_EQ(file2.Close(), 0);
 }
 
+TEST_F(FdFileTest, OperatorMoveEquals) {
+  // Make sure the read_only_ flag is correctly copied
+  // over.
+  art::ScratchFile tmp;
+  FdFile file(tmp.GetFilename(), O_RDONLY, false);
+  ASSERT_TRUE(file.ReadOnlyMode());
+
+  FdFile file2(tmp.GetFilename(), O_RDWR, false);
+  ASSERT_FALSE(file2.ReadOnlyMode());
+
+  file2 = std::move(file);
+  ASSERT_TRUE(file2.ReadOnlyMode());
+}
+
 TEST_F(FdFileTest, EraseWithPathUnlinks) {
   // New scratch file, zero-length.
   art::ScratchFile tmp;
@@ -204,6 +218,71 @@ TEST_F(FdFileTest, EraseWithPathUnlinks) {
   EXPECT_FALSE(file.IsOpened());
 
   EXPECT_FALSE(art::OS::FileExists(filename.c_str())) << filename;
+}
+
+TEST_F(FdFileTest, Compare) {
+  std::vector<uint8_t> buffer;
+  constexpr int64_t length = 17 * art::KB;
+  for (size_t i = 0; i < length; ++i) {
+    buffer.push_back(static_cast<uint8_t>(i));
+  }
+
+  auto reset_compare = [&](art::ScratchFile& a, art::ScratchFile& b) {
+    a.GetFile()->ResetOffset();
+    b.GetFile()->ResetOffset();
+    return a.GetFile()->Compare(b.GetFile());
+  };
+
+  art::ScratchFile tmp;
+  EXPECT_TRUE(tmp.GetFile()->WriteFully(&buffer[0], length));
+  EXPECT_EQ(tmp.GetFile()->GetLength(), length);
+
+  art::ScratchFile tmp2;
+  EXPECT_TRUE(tmp2.GetFile()->WriteFully(&buffer[0], length));
+  EXPECT_EQ(tmp2.GetFile()->GetLength(), length);
+
+  // Basic equality check.
+  tmp.GetFile()->ResetOffset();
+  tmp2.GetFile()->ResetOffset();
+  // Files should be the same.
+  EXPECT_EQ(reset_compare(tmp, tmp2), 0);
+
+  // Change a byte near the start.
+  ++buffer[2];
+  art::ScratchFile tmp3;
+  EXPECT_TRUE(tmp3.GetFile()->WriteFully(&buffer[0], length));
+  --buffer[2];
+  EXPECT_NE(reset_compare(tmp, tmp3), 0);
+
+  // Change a byte near the middle.
+  ++buffer[length / 2];
+  art::ScratchFile tmp4;
+  EXPECT_TRUE(tmp4.GetFile()->WriteFully(&buffer[0], length));
+  --buffer[length / 2];
+  EXPECT_NE(reset_compare(tmp, tmp4), 0);
+
+  // Change a byte near the end.
+  ++buffer[length - 5];
+  art::ScratchFile tmp5;
+  EXPECT_TRUE(tmp5.GetFile()->WriteFully(&buffer[0], length));
+  --buffer[length - 5];
+  EXPECT_NE(reset_compare(tmp, tmp5), 0);
+
+  // Reference check
+  art::ScratchFile tmp6;
+  EXPECT_TRUE(tmp6.GetFile()->WriteFully(&buffer[0], length));
+  EXPECT_EQ(reset_compare(tmp, tmp6), 0);
+}
+
+TEST_F(FdFileTest, PipeFlush) {
+  int pipefd[2];
+  ASSERT_EQ(0, pipe2(pipefd, O_CLOEXEC));
+
+  FdFile file(pipefd[1], true);
+  ASSERT_TRUE(file.WriteFully("foo", 3));
+  ASSERT_EQ(0, file.Flush());
+  ASSERT_EQ(0, file.FlushCloseOrErase());
+  close(pipefd[0]);
 }
 
 }  // namespace unix_file

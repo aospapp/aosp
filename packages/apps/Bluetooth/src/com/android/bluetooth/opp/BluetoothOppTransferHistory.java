@@ -39,6 +39,7 @@ import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.ContentResolver;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
@@ -118,11 +119,12 @@ public class BluetoothOppTransferHistory extends Activity implements
 
         final String sortOrder = BluetoothShare.TIMESTAMP + " DESC";
 
-        mTransferCursor = managedQuery(BluetoothShare.CONTENT_URI, new String[] {
-                "_id", BluetoothShare.FILENAME_HINT, BluetoothShare.STATUS,
-                BluetoothShare.TOTAL_BYTES, BluetoothShare._DATA, BluetoothShare.TIMESTAMP,
-                BluetoothShare.VISIBILITY, BluetoothShare.DESTINATION, BluetoothShare.DIRECTION
-        }, selection, sortOrder);
+        mTransferCursor = getContentResolver().query(BluetoothShare.CONTENT_URI,
+                new String[] {"_id", BluetoothShare.FILENAME_HINT, BluetoothShare.STATUS,
+                        BluetoothShare.TOTAL_BYTES, BluetoothShare._DATA, BluetoothShare.TIMESTAMP,
+                        BluetoothShare.VISIBILITY, BluetoothShare.DESTINATION,
+                        BluetoothShare.DIRECTION},
+                selection, null, sortOrder);
 
         // only attach everything to the listbox if we can access
         // the transfer database. Otherwise, just show it empty
@@ -190,6 +192,14 @@ public class BluetoothOppTransferHistory extends Activity implements
                 return true;
         }
         return false;
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (mTransferCursor != null) {
+            mTransferCursor.close();
+        }
+        super.onDestroy();
     }
 
     @Override

@@ -32,13 +32,6 @@
             android:layout_gravity="top"
             android:scaleType="centerCrop"/>
 
-        <View android:id="@+id/image_gradient"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_gravity="center_horizontal"
-            android:background="@drawable/card_image_gradient"
-            android:visibility="gone" />
-
         <!-- The bottom margin specified in the redline is 8dp, but the redline doesn't consider
              the descenders. So actually, if the bottom margin is set to 8dp, the bottom line of
              the text lies 11dp above the bottom of the poster art due to the descenders.

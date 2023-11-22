@@ -20,7 +20,7 @@
     <string name="button_etws_earthquake_type" msgid="5391060421937195923">"ETWS 地震ブロードキャストを送信"</string>
     <string name="button_etws_tsunami_type" msgid="5866338269041475786">"ETWS 津波ブロードキャストを送信"</string>
     <string name="button_etws_earthquake_tsunami_type" msgid="8045617992086252152">"ETWS 地震津波ブロードキャストを送信"</string>
-    <string name="button_etws_other_type" msgid="4129451610585426791">"ETWS その他の緊急ブロードキャストを送信"</string>
+    <string name="button_etws_other_type" msgid="4129451610585426791">"ETWS その他の緊急速報メールを送信"</string>
     <string name="button_etws_cancel_type" msgid="4770911191572322801">"ETWS キャンセル ブロードキャストを送信"</string>
     <string name="button_etws_test_type" msgid="5520113823851979673">"ETWS テスト ブロードキャストを送信"</string>
     <string name="button_cmas_pres_alert" msgid="1269455100893365889">"CMAS の国家レベルの警報を送信"</string>

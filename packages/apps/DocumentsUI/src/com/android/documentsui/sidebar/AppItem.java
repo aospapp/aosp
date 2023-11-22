@@ -74,7 +74,7 @@ class AppItem extends Item {
     }
 
     @Override
-    boolean isDropTarget() {
+    boolean isRoot() {
         // We won't support drag n' drop in pickers, and apps only show up there.
         return false;
     }
@@ -82,5 +82,13 @@ class AppItem extends Item {
     @Override
     void open() {
         mActionHandler.openRoot(info);
+    }
+
+    @Override
+    public String toString() {
+        return "AppItem{"
+                + "id=" + stringId
+                + ", resolveInfo=" + info
+                + "}";
     }
 }

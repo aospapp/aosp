@@ -16,6 +16,8 @@
 
 package com.android.documentsui;
 
+import com.android.documentsui.DragAndDropManager.State;
+
 import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.LayerDrawable;
@@ -27,11 +29,10 @@ import android.widget.ImageView;
  * Provides a way to encapsulate droppable badge toggling logic into a single class.
  */
 public final class DropBadgeView extends ImageView {
-    private static final int[] STATE_DROPPABLE = {R.attr.state_droppable};
-    private static final int[] STATE_DROP_HOVERED = {R.attr.state_drop_hovered};
+    private static final int[] STATE_REJECT_DROP = { R.attr.state_reject_drop };
+    private static final int[] STATE_COPY = { R.attr.state_copy };
 
-    private boolean mDroppable = false;
-    private boolean mDropHovered = false;
+    private @State int mState;
     private LayerDrawable mBackground;
 
     public DropBadgeView(Context context, AttributeSet attrs) {
@@ -60,30 +61,27 @@ public final class DropBadgeView extends ImageView {
 
     @Override
     public int[] onCreateDrawableState(int extraSpace) {
-        final int[] drawableState = super.onCreateDrawableState(extraSpace + 2);
+        // STATE_REJECT_DROP and STATE_COPY can't exist at the same time.
+        final int[] drawableState = super.onCreateDrawableState(extraSpace + 1);
 
-        if (mDroppable) {
-            mergeDrawableStates(drawableState, STATE_DROPPABLE);
-        }
-
-        if (mDropHovered) {
-            mergeDrawableStates(drawableState, STATE_DROP_HOVERED);
+        switch (mState) {
+            case DragAndDropManager.STATE_NOT_ALLOWED:
+                mergeDrawableStates(drawableState, STATE_REJECT_DROP);
+                break;
+            case DragAndDropManager.STATE_COPY:
+                mergeDrawableStates(drawableState, STATE_COPY);
+                break;
         }
 
         return drawableState;
     }
 
-    public void setDroppable(boolean droppable) {
-        mDroppable = droppable;
+    void updateState(@State int state) {
+        mState = state;
         refreshDrawableState();
     }
 
-    public void setDropHovered(boolean hovered) {
-        mDropHovered = hovered;
-        refreshDrawableState();
-    }
-
-    public void updateIcon(Drawable icon) {
+    void updateIcon(Drawable icon) {
         mBackground.setDrawable(0, icon);
     }
 }

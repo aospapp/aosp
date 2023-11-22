@@ -19,6 +19,8 @@ package android.permission.cts;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.os.Environment;
+import android.system.ErrnoException;
+import android.util.Pair;
 import android.system.Os;
 import android.system.OsConstants;
 import android.system.StructStatVfs;
@@ -28,6 +30,7 @@ import android.test.suitebuilder.annotation.LargeTest;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileDescriptor;
 import java.io.FileFilter;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -36,6 +39,9 @@ import java.io.FileReader;
 import java.io.InputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.math.BigInteger;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -43,9 +49,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
@@ -160,6 +169,24 @@ public class FileSystemPermissionTest extends AndroidTestCase {
         assertFalse(f.canExecute());
     }
 
+    /* b/26813932 */
+    @MediumTest
+    public void testProcInterruptsNotReadable() throws Exception {
+        File f = new File("/proc/interrupts");
+        assertFalse(f.canRead());
+        assertFalse(f.canWrite());
+        assertFalse(f.canExecute());
+    }
+
+    /* b/26813932 */
+    @MediumTest
+    public void testProcStatNotReadable() throws Exception {
+        File f = new File("/proc/stat");
+        assertFalse(f.canRead());
+        assertFalse(f.canWrite());
+        assertFalse(f.canExecute());
+    }
+
     @MediumTest
     public void testDevMemSane() throws Exception {
         File f = new File("/dev/mem");
@@ -258,17 +285,82 @@ public class FileSystemPermissionTest extends AndroidTestCase {
         assertFalse(f.canExecute());
     }
 
-    @MediumTest
-    public void testProcSelfPagemapNotAccessible() {
-        // Note: can't use f.canRead() here, since the security check is done
-        // during the open() process. access(R_OK) return OK even through
-        // open() eventually fails.
+    private static List<Pair<Long, Long>> mappedPageRanges() throws IOException {
+        final BigInteger PAGE_SIZE = new BigInteger("4096");
+
+        final Pattern mapsPattern = Pattern.compile("^(\\p{XDigit}+)-(\\p{XDigit}+)");
+        List<Pair<Long, Long>> ret = new LinkedList<>();
+
+        BufferedReader reader = new BufferedReader(new FileReader("/proc/self/maps"));
+        String line;
         try {
-            new FileInputStream("/proc/self/pagemap");
-            fail("Device is missing the following kernel security patch: "
-                 + "https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ab676b7d6fbf4b294bf198fb27ade5b0e865c7ce");
-        } catch (FileNotFoundException e) {
-            // expected
+            while ((line = reader.readLine()) != null) {
+                Matcher m = mapsPattern.matcher(line);
+                m.find();
+
+                long start = new BigInteger(m.group(1), 16).divide(PAGE_SIZE).longValue();
+                long end = new BigInteger(m.group(2), 16).divide(PAGE_SIZE).longValue();
+
+                ret.add(new Pair<>(start, end));
+            }
+
+            return ret;
+        } finally {
+            reader.close();
+        }
+    }
+
+    private static boolean pfnIsZero(FileDescriptor pagemap, long start, long end) throws ErrnoException, IOException {
+        // Note: reads from /proc/self/pagemap *must* be 64-bit aligned.  Use low-level android.system.Os routines to
+        // ensure this.
+        final int SIZEOF_U64 = 8;
+        final long PAGE_PRESENT = 1L << 63;
+        final long PFN_MASK = (1L << 55) - 1;
+
+        for (long page = start; page < end; page++) {
+            long offset = page * SIZEOF_U64;
+            long seek = Os.lseek(pagemap, offset, OsConstants.SEEK_SET);
+            if (offset != seek)
+                throw new IOException("lseek(" + offset + ") returned " + seek);
+
+            byte bytes[] = new byte[SIZEOF_U64];
+            ByteBuffer buf = ByteBuffer.wrap(bytes).order(ByteOrder.nativeOrder());
+            int read = Os.read(pagemap, buf);
+            if (read != bytes.length)
+                throw new IOException("read(" + bytes.length + ") returned " + read);
+
+            buf.position(0);
+            long entry = buf.getLong();
+            if ((entry & PAGE_PRESENT) == PAGE_PRESENT && (entry & PFN_MASK) != 0)
+                return false;
+        }
+
+        return true;
+    }
+
+    @MediumTest
+    public void testProcSelfPagemapSane() throws ErrnoException, IOException {
+        FileDescriptor pagemap = null;
+        int dumpable = Os.prctl(OsConstants.PR_GET_DUMPABLE, 0, 0, 0, 0);
+        Os.prctl(OsConstants.PR_SET_DUMPABLE, 1, 0, 0, 0);
+
+        try {
+            pagemap = Os.open("/proc/self/pagemap", OsConstants.O_RDONLY, 0);
+
+            for (Pair<Long, Long> range : mappedPageRanges())
+                if (!pfnIsZero(pagemap, range.first, range.second))
+                    fail("Device is missing the following kernel security patch: "
+                         + "https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ab676b7d6fbf4b294bf198fb27ade5b0e865c7ce");
+        } catch (ErrnoException e) {
+            if (e.errno == OsConstants.EPERM)
+                // expected before 4.2
+                return;
+
+            throw e;
+        } finally {
+            if (pagemap != null)
+                Os.close(pagemap);
+            Os.prctl(OsConstants.PR_SET_DUMPABLE, dumpable, 0, 0, 0);
         }
     }
 

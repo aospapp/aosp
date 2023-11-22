@@ -76,4 +76,13 @@ public class MimeUtilsTest extends TestCase {
     assertEquals("video/3gpp2", MimeUtils.guessMimeTypeFromExtension("3gpp2"));
     assertEquals("video/3gpp2", MimeUtils.guessMimeTypeFromExtension("3g2"));
   }
+
+  public void test_37167977() {
+    // https://tools.ietf.org/html/rfc5334#section-10.1
+    assertEquals("audio/ogg", MimeUtils.guessMimeTypeFromExtension("ogg"));
+    assertEquals("audio/ogg", MimeUtils.guessMimeTypeFromExtension("oga"));
+    assertEquals("audio/ogg", MimeUtils.guessMimeTypeFromExtension("spx"));
+    assertEquals("video/ogg", MimeUtils.guessMimeTypeFromExtension("ogv"));
+  }
+
 }

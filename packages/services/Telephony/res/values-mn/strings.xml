@@ -78,7 +78,6 @@
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"Дуут шуудан ( <xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g> )"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"ДШ:"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"Мэдэгдэл"</string>
-    <string name="networks" msgid="8873030692174541976">"Сүлжээний операторууд"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"Онцгой байдлын нэвтрүүлэг"</string>
     <string name="call_settings" msgid="6112441768261754562">"Дуудлагын тохиргоо"</string>
     <string name="additional_gsm_call_settings" msgid="1391795981938800617">"Нэмэлт тохиргоо"</string>
@@ -164,20 +163,18 @@
     <string name="label_available" msgid="1181658289009300430">"Боломжтой сүлжээнүүд"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"Хайж байна..."</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"Сүлжээ олдсонгүй."</string>
-    <string name="search_networks" msgid="1601136049300882441">"Сүлжээ хайх"</string>
     <string name="network_query_error" msgid="6828516148953325006">"Сүлжээ хайх явцад алдаа гарлаа."</string>
     <string name="register_on_network" msgid="9055203954040805084">"Бүртгэж байна <xliff:g id="NETWORK">%s</xliff:g>…"</string>
     <string name="not_allowed" msgid="5613353860205691579">"Таны SIM карт энэ сүлжээнд холбогдохыг зөвшөөрөхгүй байна."</string>
     <string name="connect_later" msgid="2308119155752343975">"Сүлжээнд одоо холбогдох боломжгүй байна. Дараа дахин оролдоно уу."</string>
     <string name="registration_done" msgid="495135664535876612">"Сүлжээнд бүртгэгдсэн."</string>
-    <string name="sum_carrier_select" msgid="3494252551249882718">"Сүлжээний операторыг сонгоно уу"</string>
-    <string name="sum_search_networks" msgid="2921092249873272715">"Боломжит бүх сүлжээг хайх"</string>
-    <string name="select_automatically" msgid="5628402124471810174">"Автоматаар сонгох"</string>
-    <string name="sum_select_automatically" msgid="5614890115123292400">"Давуу сүлжээг автоматаар сонгох"</string>
+    <string name="select_automatically" msgid="1046727200631770962">"Сүлжээг автоматаар сонгох"</string>
+    <string name="network_select_title" msgid="7733107364757544558">"Сүлжээ"</string>
     <string name="register_automatically" msgid="6017849844573519637">"Автомат бүртгэл…"</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"Сүлжээний үндсэн төрөл"</string>
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"Сүлжээний ажиллах төлвийг өөрчлөх"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"Сүлжээний үндсэн төрөл"</string>
+    <string name="forbidden_network" msgid="4384929668343563440">"(хориотой)"</string>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"Давуу сүлжээний төлөв: WCDMA давуутай"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"Давуу сүлжээний төлөв: зөвхөн GSM"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"Давуу сүлжээний төлөв: зөвхөн WCDMA"</string>
@@ -210,18 +207,34 @@
     <item msgid="1524224863879435516">"Зөвхөн GSM"</item>
     <item msgid="3817924849415716259">"GSM/WCDMA эхэнд нь"</item>
   </string-array>
+    <string name="call_category" msgid="5863978196309462052">"Залгаж байна"</string>
+    <string name="network_operator_category" msgid="4830701959205735636">"Сүлжээ"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"Сайжруулсан 4G LTE горим"</string>
     <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"Сайжруулсан дуудлага"</string>
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"LTE-г ашиглан дуут болон бусад төрлийн харилцаа холбооны хэрэгслийг сайжруул (зөвлөхүйц)"</string>
     <string name="data_enabled" msgid="5972538663568715366">"Өгөгдөл идэвхжсэн"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"Дата ашиглалтыг зөвшөөрөх"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"Анхааруулга"</string>
-    <string name="roaming" msgid="8871412572928323707">"Дата роуминг"</string>
+    <string name="roaming" msgid="7894878421600247140">"Роуминг"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"Роумингтэй үед дата үйлчилгээнд холбогдох"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"Роумингтэй үед дата үйлчилгээнд холбогдох"</string>
     <string name="roaming_reenable_message" msgid="8913735676127858115">"Та төрөлх сүлжээнээс дата роумингыг унтраагаад гарсан тул дата холболтоо алдлаа."</string>
     <string name="roaming_warning" msgid="1603164667540144353">"Таны төлбөр өндөр гарах магадлалтайг анхааруулж байна."</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"Дата роуминг үйлчилгээг идэвхжүүлэх үү?"</string>
+    <string name="data_usage_title" msgid="8759619109516889802">"Дата ашиглалт"</string>
+    <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_1">%1$s</xliff:g> мобайл дата ашигласан <xliff:g id="ID_2">%2$s</xliff:g>"</string>
+    <string name="advanced_options_title" msgid="8074895510265488035">"Нарийвчилсан"</string>
+    <string name="carrier_settings_euicc" msgid="6714062862127226405">"Оператор компани"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"carrier, esim, sim, euicc"</string>
+    <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> — <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
+    <string name="mobile_data_settings_title" msgid="4661165467914727157">"Мобайл дата"</string>
+    <string name="mobile_data_settings_summary" msgid="5087255915840576895">"Мобайл сүлжээг ашиглан датанд хандах"</string>
+    <string name="data_usage_disable_mobile" msgid="3577275288809667615">"Мобайл датаг унтраах уу?"</string>
+    <string name="sim_selection_required_pref" msgid="7049424902961844236">"Сонгох шаардлагатай"</string>
+    <string name="sim_change_data_title" msgid="5332425991853799280">"Дата SIM солих уу?"</string>
+    <string name="sim_change_data_message" msgid="2163963581444907496">"Мобайл дата ашиглахын тулд <xliff:g id="OLD_SIM">%2$s</xliff:g>-н оронд <xliff:g id="NEW_SIM">%1$s</xliff:g>-г ашиглах уу?"</string>
+    <string name="wifi_calling_settings_title" msgid="7741961465416430470">"Wi-Fi дуудлага"</string>
+    <string name="video_calling_settings_title" msgid="539714564273795574">"Үүрэн компанийн видео дуудлага"</string>
     <string name="gsm_umts_options" msgid="6538311689850981686">"GSM/UMTS Тохиргоо"</string>
     <string name="cdma_options" msgid="4016822858172249884">"CDMA Тохиргоо"</string>
     <string name="throttle_data_usage" msgid="3715677828160555808">"Дата ашиглалт"</string>
@@ -452,7 +465,7 @@
     <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"Мобайл сүлжээнд холбогдох боломжгүй байна. Дуудлага хийхийн тулд утасгүй интернетэд холбогдоно уу."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"Дуудлага хийхийн тулд хүчин төгөлдөр дугаар оруулна уу."</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"Дуудлага амжилтгүй болсон."</string>
-    <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"Одоо дуудлага нэмэх боломжгүй."</string>
+    <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"Дуудлагыг энэ удаад нэмэх боломжгүй. Та зурвас илгээн холбоо тогтоохыг оролдох боломжтой."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"Үйлчилгээг дэмждэггүй байна"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"Дуудлагыг солих боломжгүй байна."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"Дуудлагыг салгаж чадахгүй байна."</string>
@@ -572,6 +585,8 @@
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"Хэт олон идэвхтэй дуудлага байна. Шинэ дуудлага хийхийн өмнө одоогийн дуудлагуудыг таслах буюу нэгтгэнэ үү."</string>
     <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"Холбох боломжгүй, хүчинтэй SIM карт оруулна уу."</string>
     <string name="callFailed_wifi_lost" msgid="5968076625137297184">"Wi-Fi холболт тасарсан. Дуудлага дууссан."</string>
+    <string name="dialFailed_low_battery" msgid="8760548177088774268">"Цэнэг бага байгаа тул видео дуудлагыг хийх боломжгүй."</string>
+    <string name="callFailed_low_battery" msgid="4913582435905872616">"Цэнэг бага байгаа тул видео дуудлагыг дуусгасан."</string>
     <string name="change_pin_title" msgid="7790232089699034029">"Дуут шуудангийн PIN-г өөрчлөх"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"Үргэлжлүүлэх"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"Цуцлах"</string>
@@ -584,4 +599,18 @@
     <string name="change_pin_confirm_pins_dont_match" msgid="4795052654904027909">"PIN код таарахгүй байна"</string>
     <string name="change_pin_succeeded" msgid="2022852286442211151">"Дуут шуудангийн PIN шинэчлэгдсэн"</string>
     <string name="change_pin_system_error" msgid="8308462387154257840">"PIN тохируулах боломжгүй"</string>
+    <string name="mobile_data_status_roaming_turned_off_subtext" msgid="935636805765823307">"Дата роумингийг идэвхгүй болгосон"</string>
+    <string name="mobile_data_status_roaming_turned_on_subtext" msgid="1335176927083781041">"Дата роумингийг асаасан"</string>
+    <string name="mobile_data_status_roaming_without_plan_subtext" msgid="3568412513831673037">"Одоо роумингтэй байна, дата багц шаардлагатай"</string>
+    <string name="mobile_data_status_roaming_with_plan_subtext" msgid="8721998948811064377">"Одоогоор роуминг, дата багц идэвхтэй"</string>
+    <string name="mobile_data_status_no_plan_subtext" msgid="4887747337017565725">"Мобайл дата үлдээгүй байна"</string>
+    <string name="mobile_data_activate_prepaid" msgid="7447025165850512683">"Мобайл дата үлдээгүй байна"</string>
+    <string name="mobile_data_activate_prepaid_summary" msgid="5705389791791637666">"<xliff:g id="PROVIDER_NAME">%s</xliff:g>-р дамжуулан мобайл дата нэмэх"</string>
+    <string name="mobile_data_activate_roaming_plan" msgid="5998161536947086264">"Роумингийн багц байхгүй"</string>
+    <string name="mobile_data_activate_roaming_plan_summary" msgid="511202908883425459">"<xliff:g id="PROVIDER_NAME">%s</xliff:g>-р дамжуулан роумингийн багц нэмэх"</string>
+    <string name="mobile_data_activate_footer" msgid="5979019929980140594">"Та өөрийн үүрэн компани <xliff:g id="PROVIDER_NAME">%s</xliff:g>-р дамжуулан мобайл дата эсвэл роумингийн багц нэмэх боломжтой."</string>
+    <string name="mobile_data_activate_diag_title" msgid="9044252207707864493">"Дата нэмэх үү?"</string>
+    <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"Та <xliff:g id="PROVIDER_NAME">%s</xliff:g>-р дамжуулан дата нэмэх шаардлагатай болж магадгүй"</string>
+    <string name="mobile_data_activate_button" msgid="3682400969184405446">"ДАТА НЭМЭХ"</string>
+    <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"ЦУЦЛАХ"</string>
 </resources>

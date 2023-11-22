@@ -30,7 +30,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
 /** Unit tests for {@link com.android.tradefed.testtype.suite.TestFailureListener} */
 @RunWith(JUnit4.class)
@@ -39,15 +41,18 @@ public class TestFailureListenerTest {
     private TestFailureListener mFailureListener;
     private ITestInvocationListener mMockListener;
     private ITestDevice mMockDevice;
+    private List<ITestDevice> mListDevice;
 
     @Before
     public void setUp() {
         mMockListener = EasyMock.createMock(ITestInvocationListener.class);
         mMockDevice = EasyMock.createStrictMock(ITestDevice.class);
+        mListDevice = new ArrayList<>();
+        mListDevice.add(mMockDevice);
         EasyMock.expect(mMockDevice.getSerialNumber()).andStubReturn("SERIAL");
         // Create base failure listener with all option ON and default logcat size.
-        mFailureListener = new TestFailureListener(mMockListener, mMockDevice,
-                true, true, true, true, -1);
+        mFailureListener =
+                new TestFailureListener(mMockListener, mListDevice, true, true, true, true, -1);
     }
 
     /**
@@ -63,16 +68,22 @@ public class TestFailureListenerTest {
         EasyMock.expect(mMockDevice.getDeviceDate()).andReturn(startDate);
         // Screenshot routine
         EasyMock.expect(mMockDevice.getScreenshot()).andReturn(fakeSource);
-        mMockListener.testLog(EasyMock.eq(testId.toString() + "-screenshot"),
-                EasyMock.eq(LogDataType.PNG), EasyMock.eq(fakeSource));
+        mMockListener.testLog(
+                EasyMock.eq(testId.toString() + "-SERIAL-screenshot"),
+                EasyMock.eq(LogDataType.PNG),
+                EasyMock.eq(fakeSource));
         // Bugreport routine
-        EasyMock.expect(mMockDevice.getBugreport()).andReturn(fakeSource);
-        mMockListener.testLog(EasyMock.eq(testId.toString() + "-bugreport"),
-                EasyMock.eq(LogDataType.BUGREPORT), EasyMock.eq(fakeSource));
+        EasyMock.expect(mMockDevice.getBugreportz()).andReturn(fakeSource);
+        mMockListener.testLog(
+                EasyMock.eq(testId.toString() + "-SERIAL-bugreport"),
+                EasyMock.eq(LogDataType.BUGREPORTZ),
+                EasyMock.eq(fakeSource));
         // logcat routine
         EasyMock.expect(mMockDevice.getLogcatSince(EasyMock.eq(startDate))).andReturn(fakeSource);
-        mMockListener.testLog(EasyMock.eq(testId.toString() + "-logcat"),
-                EasyMock.eq(LogDataType.LOGCAT), EasyMock.eq(fakeSource));
+        mMockListener.testLog(
+                EasyMock.eq(testId.toString() + "-SERIAL-logcat"),
+                EasyMock.eq(LogDataType.LOGCAT),
+                EasyMock.eq(fakeSource));
         // Reboot routine
         EasyMock.expect(mMockDevice.getProperty(EasyMock.eq("ro.build.type")))
                 .andReturn("userdebug");
@@ -90,13 +101,13 @@ public class TestFailureListenerTest {
      */
     @Test
     public void testTestFailed_notAvailable() throws Exception {
-        mFailureListener = new TestFailureListener(mMockListener, mMockDevice,
-                false, true, true, true, -1) {
-            @Override
-            IRunUtil getRunUtil() {
-                return EasyMock.createMock(IRunUtil.class);
-            }
-        };
+        mFailureListener =
+                new TestFailureListener(mMockListener, mListDevice, false, true, true, true, -1) {
+                    @Override
+                    IRunUtil getRunUtil() {
+                        return EasyMock.createMock(IRunUtil.class);
+                    }
+                };
         TestIdentifier testId = new TestIdentifier("com.fake", "methodfake");
         final String trace = "oups it failed";
         final byte[] fakeData = "fakeData".getBytes();
@@ -107,8 +118,10 @@ public class TestFailureListenerTest {
         EasyMock.expect(mMockDevice.getScreenshot()).andThrow(dnae);
         // logcat routine
         EasyMock.expect(mMockDevice.getLogcat(EasyMock.anyInt())).andReturn(fakeSource);
-        mMockListener.testLog(EasyMock.eq(testId.toString() + "-logcat"),
-                EasyMock.eq(LogDataType.LOGCAT), EasyMock.eq(fakeSource));
+        mMockListener.testLog(
+                EasyMock.eq(testId.toString() + "-SERIAL-logcat"),
+                EasyMock.eq(LogDataType.LOGCAT),
+                EasyMock.eq(fakeSource));
         // Reboot routine
         EasyMock.expect(mMockDevice.getProperty(EasyMock.eq("ro.build.type")))
                 .andReturn("userdebug");
@@ -126,8 +139,8 @@ public class TestFailureListenerTest {
      */
     @Test
     public void testTestFailed_userBuild() throws Exception {
-        mFailureListener = new TestFailureListener(mMockListener, mMockDevice,
-                false, false, false, true, -1);
+        mFailureListener =
+                new TestFailureListener(mMockListener, mListDevice, false, false, false, true, -1);
         final String trace = "oups it failed";
         TestIdentifier testId = new TestIdentifier("com.fake", "methodfake");
         EasyMock.expect(mMockDevice.getProperty(EasyMock.eq("ro.build.type"))).andReturn("user");
@@ -136,5 +149,30 @@ public class TestFailureListenerTest {
         mFailureListener.testFailed(testId, trace);
         mFailureListener.testEnded(testId, Collections.emptyMap());
         EasyMock.verify(mMockListener, mMockDevice);
+    }
+
+    /**
+     * Test when a test failure occurs during a multi device run. Each device should capture the
+     * logs.
+     */
+    @Test
+    public void testFailed_multiDevice() throws Exception {
+        ITestDevice device2 = EasyMock.createMock(ITestDevice.class);
+        mListDevice.add(device2);
+        mFailureListener =
+                new TestFailureListener(mMockListener, mListDevice, false, false, false, true, -1);
+        final String trace = "oups it failed";
+        TestIdentifier testId = new TestIdentifier("com.fake", "methodfake");
+        EasyMock.expect(mMockDevice.getProperty(EasyMock.eq("ro.build.type"))).andReturn("debug");
+        mMockDevice.reboot();
+        EasyMock.expect(device2.getSerialNumber()).andStubReturn("SERIAL2");
+        EasyMock.expect(device2.getProperty(EasyMock.eq("ro.build.type"))).andReturn("debug");
+        device2.reboot();
+
+        EasyMock.replay(mMockListener, mMockDevice, device2);
+        mFailureListener.testStarted(testId);
+        mFailureListener.testFailed(testId, trace);
+        mFailureListener.testEnded(testId, Collections.emptyMap());
+        EasyMock.verify(mMockListener, mMockDevice, device2);
     }
 }

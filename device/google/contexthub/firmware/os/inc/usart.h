@@ -63,6 +63,7 @@ void usartOpen(struct usart* __restrict usart, UsartPort port, /* port number is
                 UsatStopBitsCfg stop_bits, UsartParityCfg parity,
                 UsartFlowControlCfg flow_control);
 void usartClose(const struct usart* __restrict usart);
+void usartFlush(const struct usart* __restrict usart);
 void usartPutchar(const struct usart* __restrict usart, char c);
 
 #ifdef __cplusplus

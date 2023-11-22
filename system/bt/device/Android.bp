@@ -27,6 +27,7 @@ cc_library_static {
 // ========================================================
 cc_test {
     name: "net_test_device",
+    test_suites: ["device-tests"],
     defaults: ["fluoride_defaults"],
     include_dirs: ["system/bt"],
     srcs: [
@@ -42,5 +43,6 @@ cc_test {
         "libosi",
         "libosi-AllocationTestHarness",
         "libcutils",
+        "libbluetooth-types",
     ],
 }

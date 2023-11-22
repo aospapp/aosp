@@ -34,11 +34,11 @@
 #include "art_jvmti.h"
 #include "base/macros.h"
 #include "events-inl.h"
+#include "nativehelper/ScopedLocalRef.h"
 #include "runtime.h"
 #include "runtime_callbacks.h"
-#include "ScopedLocalRef.h"
 #include "scoped_thread_state_change-inl.h"
-#include "thread-inl.h"
+#include "thread-current-inl.h"
 #include "thread_list.h"
 #include "ti_thread.h"
 

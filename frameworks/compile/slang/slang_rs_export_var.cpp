@@ -29,7 +29,7 @@ namespace slang {
 RSExportVar::RSExportVar(RSContext *Context,
                          const clang::VarDecl *VD,
                          const RSExportType *ET)
-    : RSExportable(Context, RSExportable::EX_VAR),
+    : RSExportable(Context, RSExportable::EX_VAR, VD->getLocation()),
       mName(VD->getName().data(), VD->getName().size()),
       mET(ET),
       mIsConst(false),

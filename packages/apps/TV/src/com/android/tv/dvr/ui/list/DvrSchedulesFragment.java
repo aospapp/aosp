@@ -18,12 +18,9 @@ package com.android.tv.dvr.ui.list;
 
 import android.os.Bundle;
 import android.support.v17.leanback.widget.ClassPresenterSelector;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
 
 import com.android.tv.R;
-import com.android.tv.dvr.ScheduledRecording;
+import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.dvr.ui.list.SchedulesHeaderRowPresenter.DateHeaderRowPresenter;
 
 /**

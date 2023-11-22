@@ -23,9 +23,8 @@
 #include <unordered_map>
 #include <vector>
 
-#include "fuzz_tester/FuzzerBase.h"
-#include "test/vts-testcase/fuzz/iface_fuzzer/proto/ExecutionSpecificationMessage.pb.h"
-#include "test/vts/proto/ComponentSpecificationMessage.pb.h"
+#include "driver_base/DriverBase.h"
+#include "test/vts/proto/ExecutionSpecificationMessage.pb.h"
 
 namespace android {
 namespace vts {
@@ -34,6 +33,7 @@ namespace fuzzer {
 // Use shorter names for convenience.
 using CompSpec = ComponentSpecificationMessage;
 using ExecSpec = ExecutionSpecificationMessage;
+using FuncCall = FunctionCallMessage;
 using FuncSpec = FunctionSpecificationMessage;
 using IfaceSpec = InterfaceSpecificationMessage;
 
@@ -69,32 +69,31 @@ struct ProtoFuzzerParams {
   size_t exec_size_;
   // VTS specs supplied to the fuzzer.
   std::vector<CompSpec> comp_specs_;
-  // Service name of target interface, e.g. "INfc".
-  std::string service_name_ = "default";
-  // Name of target interface, e.g. "default".
+  // Name of target interface, e.g. "INfc".
   std::string target_iface_;
   // Controls whether HAL is opened in passthrough or binder mode.
-  // Passthrough mode is default. Used for testsing.
-  bool get_stub_ = true;
+  // Passthrough mode is default. Used for testing.
+  bool binder_mode_ = false;
 };
 
 // Parses command-line flags to create a ProtoFuzzerParams instance.
 ProtoFuzzerParams ExtractProtoFuzzerParams(int, char **);
 
-// Returns CompSpec corresponding to targeted interface.
-CompSpec FindTargetCompSpec(const std::vector<CompSpec> &, const std::string &);
-
-// Loads VTS HAL driver library.
-FuzzerBase *InitHalDriver(const CompSpec &, std::string, bool);
+// Returns CompSpec corresponding to given interface name.
+const CompSpec &FindCompSpec(const std::vector<CompSpec> &,
+                             const std::string &);
 
 // Creates a key, value look-up table with keys being names of predefined types,
 // and values being their definitions.
 std::unordered_map<std::string, TypeSpec> ExtractPredefinedTypes(
     const std::vector<CompSpec> &);
 
-// Call every API from call sequence specified by the
-// ExecutionSpecificationMessage.
-void Execute(FuzzerBase *, const ExecutionSpecificationMessage &);
+// Serializes ExecSpec into byte form and writes it to buffer. Returns number of
+// written bytes.
+size_t ToArray(uint8_t *, size_t, ExecSpec *);
+
+// Deserializes given buffer to an ExecSpec. Returns true on success.
+bool FromArray(const uint8_t *, size_t, ExecSpec *);
 
 }  // namespace fuzzer
 }  // namespace vts

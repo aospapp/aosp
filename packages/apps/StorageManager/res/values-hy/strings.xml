@@ -38,7 +38,7 @@
     <string name="deletion_helper_clear_dialog_message" msgid="4896104662649947320">"Ձեր սարքից կհեռացվի <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g>"</string>
     <string name="deletion_helper_clear_dialog_remove" msgid="3386502418767917932">"Հեռացնել"</string>
     <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"Կառավարե՞լ հիշողությունն ավտոմատ կերպով:"</string>
-    <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"<xliff:g id="USED">%1$s</xliff:g> տարածքն այժմ ազատ է: Թույլ տա՞լ Հիշողության կառավարիչին ավտոմատ կերպով ազատել տարածք՝ հեռացնելով սարքից պահուստավորված բովանդակությունը:"</string>
+    <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"<xliff:g id="USED">%1$s</xliff:g> այժմ ազատ է: Թույլ տա՞լ Հիշողության կառավարիչին տարածք ազատել՝ հեռացնելով սարքից պահուստավորված բովանդակությունը:"</string>
     <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"Ոչ"</string>
     <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"Միացնել"</string>
     <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"Հազվադեպ օգտագործվող հավելվածներ"</string>
@@ -55,9 +55,12 @@
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"Միացնել"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"Պահուստավորված լուսանկարներ և տեսանյութեր"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"Տարրերի որոնում…"</string>
+    <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"Ցուցադրել բոլոր տարրերը"</string>
+    <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"Թաքցնել վերջին տարրերը"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="386144597646356521">"Ձեր սարքից կհեռացվի <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g>"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"Ձեր սարքի հիշողությունն այժմ կառավարվում է հիշողության կառավարիչի կողմից"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"Հեռացնելու բան չկա"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"Դիտել վերջին տարրերը"</string>
     <string name="empty_state_summary" msgid="8439893007424243790">"Չկան ավելի հին ֆայլեր, որոնք հնարավոր է հեռացնել: Տեղ ազատելու համար հեռացրեք վերջին լուսանկարները, տեսանյութերը և հավելվածները:"</string>
+    <string name="app_requesting_space" msgid="857425181289960167">"<xliff:g id="APP">%1$s</xliff:g>-ին անհրաժեշտ է <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> տարածք"</string>
 </resources>

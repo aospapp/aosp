@@ -10,6 +10,7 @@
 
 #include "../private/SkMessageBus.h"
 #include "SkCanvas.h"
+#include "SkClipOpPriv.h"
 #include "SkDeque.h"
 #include "SkPath.h"
 #include "SkRRect.h"
@@ -20,8 +21,6 @@
 #if SK_SUPPORT_GPU
 #include "GrResourceKey.h"
 #endif
-
-class SkCanvasClipVisitor;
 
 // Because a single save/restore state can have multiple clips, this class
 // stores the stack depth (fSaveCount) and clips (fDeque) separately.
@@ -59,7 +58,7 @@ public:
         static const int kTypeCnt = kLastType + 1;
 
         Element() {
-            this->initCommon(0, SkClipOp::kReplace_deprecated, false);
+            this->initCommon(0, kReplace_SkClipOp, false);
             this->setEmpty();
         }
 
@@ -130,7 +129,7 @@ public:
             stack not to the element itself. That is the same clip path in different stacks will
             have a different ID since the elements produce different clip result in the context of
             their stacks. */
-        int32_t getGenID() const { SkASSERT(kInvalidGenID != fGenID); return fGenID; }
+        uint32_t getGenID() const { SkASSERT(kInvalidGenID != fGenID); return fGenID; }
 
         /**
          * Gets the bounds of the clip element, either the rect or path bounds. (Whether the shape
@@ -196,11 +195,6 @@ public:
             return kPath_Type == fType && fPath.get()->isInverseFillType();
         }
 
-        /**
-        * Replay this clip into the visitor.
-        */
-        void replay(SkCanvasClipVisitor*) const;
-
 #ifdef SK_DEBUG
         /**
          * Dumps the element to SkDebugf. This is intended for Skia development debugging
@@ -247,12 +241,12 @@ public:
         // equivalent to a single rect intersection? IIOW, is the clip effectively a rectangle.
         bool fIsIntersectionOfRects;
 
-        int fGenID;
+        uint32_t fGenID;
 #if SK_SUPPORT_GPU
         mutable SkTArray<std::unique_ptr<GrUniqueKeyInvalidatedMessage>> fMessages;
 #endif
         Element(int saveCount) {
-            this->initCommon(saveCount, SkClipOp::kReplace_deprecated, false);
+            this->initCommon(saveCount, kReplace_SkClipOp, false);
             this->setEmpty();
         }
 
@@ -436,13 +430,13 @@ public:
      * The generation ID has three reserved values to indicate special
      * (potentially ignorable) cases
      */
-    static const int32_t kInvalidGenID = 0;     //!< Invalid id that is never returned by
-                                                //!< SkClipStack. Useful when caching clips
-                                                //!< based on GenID.
-    static const int32_t kEmptyGenID = 1;       // no pixels writeable
-    static const int32_t kWideOpenGenID = 2;    // all pixels writeable
+    static const uint32_t kInvalidGenID  = 0;    //!< Invalid id that is never returned by
+                                                 //!< SkClipStack. Useful when caching clips
+                                                 //!< based on GenID.
+    static const uint32_t kEmptyGenID    = 1;    // no pixels writeable
+    static const uint32_t kWideOpenGenID = 2;    // all pixels writeable
 
-    int32_t getTopmostGenID() const;
+    uint32_t getTopmostGenID() const;
 
 #ifdef SK_DEBUG
     /**
@@ -567,13 +561,13 @@ private:
     void restoreTo(int saveCount);
 
     inline bool hasClipRestriction(SkClipOp op) {
-        return op >= SkClipOp::kUnion_deprecated && !fClipRestrictionRect.isEmpty();
+        return op >= kUnion_SkClipOp && !fClipRestrictionRect.isEmpty();
     }
 
     /**
      * Return the next unique generation ID.
      */
-    static int32_t GetNextGenID();
+    static uint32_t GetNextGenID();
 };
 
 #endif

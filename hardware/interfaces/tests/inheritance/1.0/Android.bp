@@ -56,7 +56,7 @@ genrule {
     ],
 }
 
-cc_library_shared {
+cc_library {
     name: "android.hardware.tests.inheritance@1.0",
     defaults: ["hidl-module-defaults"],
     generated_sources: ["android.hardware.tests.inheritance@1.0_genc++"],
@@ -70,13 +70,11 @@ cc_library_shared {
         "liblog",
         "libutils",
         "libcutils",
-        "android.hidl.base@1.0",
     ],
     export_shared_lib_headers: [
         "libhidlbase",
         "libhidltransport",
         "libhwbinder",
         "libutils",
-        "android.hidl.base@1.0",
     ],
 }

@@ -50,26 +50,49 @@ class MnsService {
 
     static private MapClientService mContext;
     private volatile boolean mShutdown = false;         // Used to interrupt socket accept thread
+    private int mSdpHandle = -1;
 
     MnsService(MapClientService context) {
         if (VDBG) Log.v(TAG, "MnsService()");
         mContext = context;
         mAcceptThread = new SocketAcceptor();
         mServerSockets = ObexServerSockets.create(mAcceptThread);
-        SdpManager.getDefaultManager().createMapMnsRecord(
-                "MAP Message Notification Service", mServerSockets.getRfcommChannel(), -1,
-                MNS_VERSION, MNS_FEATURE_BITS);
+        SdpManager sdpManager = SdpManager.getDefaultManager();
+        if (sdpManager == null) {
+            Log.e(TAG, "SdpManager is null");
+            return;
+        }
+        mSdpHandle = sdpManager.createMapMnsRecord("MAP Message Notification Service",
+                mServerSockets.getRfcommChannel(), -1, MNS_VERSION, MNS_FEATURE_BITS);
     }
 
     void stop() {
         if (VDBG) Log.v(TAG, "stop()");
         mShutdown = true;
+        cleanUpSdpRecord();
         if (mServerSockets != null) {
             mServerSockets.shutdown(false);
             mServerSockets = null;
         }
     }
 
+    private void cleanUpSdpRecord() {
+        if (mSdpHandle < 0) {
+            Log.e(TAG, "cleanUpSdpRecord, SDP record never created");
+            return;
+        }
+        int sdpHandle = mSdpHandle;
+        mSdpHandle = -1;
+        SdpManager sdpManager = SdpManager.getDefaultManager();
+        if (sdpManager == null) {
+            Log.e(TAG, "cleanUpSdpRecord failed, sdpManager is null, sdpHandle=" + sdpHandle);
+            return;
+        }
+        Log.i(TAG, "cleanUpSdpRecord, mSdpHandle=" + sdpHandle);
+        if (!sdpManager.removeSdpRecord(sdpHandle)) {
+            Log.e(TAG, "cleanUpSdpRecord, removeSdpRecord failed, sdpHandle=" + sdpHandle);
+        }
+    }
 
     private class SocketAcceptor implements IObexConnectionHandler {
 

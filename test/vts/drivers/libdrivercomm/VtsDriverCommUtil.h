@@ -34,7 +34,6 @@ class VtsDriverCommUtil {
   explicit VtsDriverCommUtil(int sockfd) : sockfd_(sockfd) {}
 
   ~VtsDriverCommUtil() {
-    cout << __func__ << endl;
     //    if (sockfd_ != -1) Close();
   }
 
@@ -43,7 +42,6 @@ class VtsDriverCommUtil {
 
   // sets sockfd_
   void SetSockfd(int sockfd) {
-    cout << __func__ << endl;
     sockfd_ = sockfd;
   }
 

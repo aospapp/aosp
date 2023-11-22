@@ -29,6 +29,7 @@
 #include "slang_assert.h"
 #include "slang_rs_export_type.h"
 #include "slang_rs_reflect_utils.h"
+#include "slang_rs_reflection_state.h"
 
 namespace slang {
 
@@ -40,6 +41,13 @@ class RSExportForEach;
 class RSReflectionJava {
 private:
   const RSContext *mRSContext;
+
+  ReflectionState *mState;
+
+  // If we're in the "collecting" state (according to mState), we
+  // don't actually generate code, but we do want to keep track of
+  // some information about what we WOULD generate.
+  const bool mCollecting;
 
   // The name of the Java package name we're creating this file for,
   // e.g. com.example.android.rs.flashlight
@@ -69,7 +77,6 @@ private:
   // e.g. ScriptC_flashlight
   std::string mScriptClassName;
 
-
   // This is set by startClass() and will change for the multiple classes generated.
   std::string mClassName;
 
@@ -90,10 +97,16 @@ private:
 
   // A mapping from a field in a record type to its index in the rsType
   // instance. Only used when generates TypeClass (ScriptField_*).
-  typedef std::map<const RSExportRecordType::Field *, unsigned> FieldIndexMapTy;
+  //
+  // .first = field index
+  // .second = when compiling for both 32-bit and 64-bit (RSCCOptions::mEmit3264),
+  //           and we are reflecting 64-bit code, this is field index for 32-bit;
+  //           otherwise, it is undefined
+  typedef std::map<const RSExportRecordType::Field *, std::pair<unsigned,unsigned> > FieldIndexMapTy;
   FieldIndexMapTy mFieldIndexMap;
   // Field index of current processing TypeClass.
-  unsigned mFieldIndex;
+  unsigned mFieldIndex;    // corresponds to FieldIndexMapTy::mapped_type.first
+  unsigned mField32Index;  // corresponds to FieldIndexMapTy::mapped_type.second
 
   inline void setError(const std::string &Error) { mLastError = Error; }
 
@@ -152,17 +165,22 @@ public:
   void startTypeClass(const std::string &ClassName);
   void endTypeClass();
 
-  inline void incFieldIndex() { mFieldIndex++; }
+  enum { FieldIndex = 0x1, Field32Index = 0x2 };  // bitmask
+  inline void incFieldIndex(unsigned Which) {
+    slangAssert(!(Which & ~(FieldIndex | Field32Index)));
+    if (Which & FieldIndex  ) mFieldIndex++;
+    if (Which & Field32Index) mField32Index++;
+  }
 
-  inline void resetFieldIndex() { mFieldIndex = 0; }
+  inline void resetFieldIndex() { mFieldIndex = mField32Index = 0; }
 
   inline void addFieldIndexMapping(const RSExportRecordType::Field *F) {
     slangAssert((mFieldIndexMap.find(F) == mFieldIndexMap.end()) &&
                 "Nested structure never occurs in C language.");
-    mFieldIndexMap.insert(std::make_pair(F, mFieldIndex));
+    mFieldIndexMap.insert(std::make_pair(F, std::make_pair(mFieldIndex, mField32Index)));
   }
 
-  inline unsigned getFieldIndex(const RSExportRecordType::Field *F) const {
+  inline std::pair<unsigned, unsigned> getFieldIndex(const RSExportRecordType::Field *F) const {
     FieldIndexMapTy::const_iterator I = mFieldIndexMap.find(F);
     slangAssert((I != mFieldIndexMap.end()) &&
                 "Requesting field is out of scope.");
@@ -170,6 +188,22 @@ public:
   }
 
   inline void clearFieldIndexMap() { mFieldIndexMap.clear(); }
+
+  enum {
+    TypeNameWithConstantArrayBrackets = 0x01,
+    TypeNameWithRecordElementName     = 0x02,
+
+    // Three major flavors of types:
+    // - Java
+    // - C
+    // - PseudoC -- Identical to C for all types supported by C;
+    //              for other types, uses a simplified C-like syntax
+    TypeNameC                         = 0x04,
+    TypeNamePseudoC                   = 0x08,
+
+    TypeNameDefault                   = TypeNameWithConstantArrayBrackets|TypeNameWithRecordElementName
+  };
+  static std::string GetTypeName(const RSExportType *ET, unsigned Style = TypeNameDefault);
 
 private:
   static bool exportableReduce(const RSExportType *ResultType);
@@ -189,11 +223,12 @@ private:
   void genPointerTypeExportVariable(const RSExportVar *EV);
   void genVectorTypeExportVariable(const RSExportVar *EV);
   void genMatrixTypeExportVariable(const RSExportVar *EV);
-  void genConstantArrayTypeExportVariable(const RSExportVar *EV);
-  void genRecordTypeExportVariable(const RSExportVar *EV);
+  void genConstantArrayTypeExportVariable(const RSExportVar *EV, ReflectionState::Val32 AllocSize32);
+  void genRecordTypeExportVariable(const RSExportVar *EV, ReflectionState::Val32 AllocSize32);
   void genPrivateExportVariable(const std::string &TypeName,
                                 const std::string &VarName);
-  void genSetExportVariable(const std::string &TypeName, const RSExportVar *EV, unsigned Dimension);
+  void genSetExportVariable(const std::string &TypeName, const RSExportVar *EV, unsigned Dimension,
+                            ReflectionState::Val32 AllocSize32 = ReflectionState::NoVal32());
   void genGetExportVariable(const std::string &TypeName,
                             const std::string &VarName);
   void genGetFieldID(const std::string &VarName);
@@ -227,6 +262,14 @@ private:
   void genTypeClassCopyAll(const RSExportRecordType *ERT);
   void genTypeClassResize();
 
+  // emits an expression that evaluates to true on a 64-bit target and
+  // false on a 32-bit target
+  void genCheck64Bit(bool Parens);
+
+  // emits a fragment of the class definition needed to set up for
+  // genCheck64Bit()
+  void genCompute64Bit();
+
   void genBuildElement(const char *ElementBuilderName,
                        const RSExportRecordType *ERT,
                        const char *RenderScriptVar, bool IsInline);
@@ -236,7 +279,8 @@ private:
                                      const char *RenderScriptVar,
                                      unsigned ArraySize);
 
-  bool genCreateFieldPacker(const RSExportType *T, const char *FieldPackerName);
+  bool genCreateFieldPacker(const RSExportType *T, const char *FieldPackerName,
+                            ReflectionState::Val32 AllocSize32);
   void genPackVarOfType(const RSExportType *T, const char *VarName,
                         const char *FieldPackerName);
   void genAllocateVarOfType(const RSExportType *T, const std::string &VarName);
@@ -247,13 +291,26 @@ private:
   void genVectorLengthCompatibilityCheck(const std::string &ArrayName, unsigned VecSize);
   void genNullArrayCheck(const std::string &ArrayName);
 
+  // NOTE
+  //
+  // If there's a nonempty Prefix, then:
+  // - If there's a nonzero value to emit, then emit the prefix followed by the value.
+  // - Otherwise, emit nothing.
+  //
+  // If there's an empty Prefix, then
+  // - Always emit a value, even if zero.
+  //
+  void genConditionalVal(const std::string &Prefix, bool Parens,
+                         size_t Val, ReflectionState::Val32 Val32);
+
 public:
   RSReflectionJava(const RSContext *Context,
                    std::vector<std::string> *GeneratedFileNames,
                    const std::string &OutputBaseDirectory,
                    const std::string &RSSourceFilename,
                    const std::string &BitCodeFileName,
-                   bool EmbedBitcodeInJava);
+                   bool EmbedBitcodeInJava,
+                   ReflectionState *RState);
 
   bool reflect();
 

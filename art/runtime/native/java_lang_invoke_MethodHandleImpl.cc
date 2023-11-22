@@ -16,12 +16,15 @@
 
 #include "java_lang_invoke_MethodHandleImpl.h"
 
+#include "nativehelper/jni_macros.h"
+
 #include "art_method.h"
 #include "handle_scope-inl.h"
 #include "jni_internal.h"
 #include "mirror/field.h"
 #include "mirror/method.h"
 #include "mirror/method_handle_impl.h"
+#include "native_util.h"
 #include "runtime.h"
 #include "scoped_thread_state_change-inl.h"
 

@@ -89,7 +89,7 @@ class test_init(unittest.TestCase):
             'pkgmgr', 'profilers', 'resultdir', 'run_test_cleanup',
             'sysinfo', 'tag', 'user', 'use_sequence_number',
             'warning_loggers', 'warning_manager', 'label', 'test_retry',
-            'parent_job_id', 'in_lab', 'machine_dict_list'
+            'parent_job_id', 'in_lab', 'machine_dict_list', 'max_result_size_KB'
             ])
 
         OPTIONAL_ATTRIBUTES = set([
@@ -97,7 +97,8 @@ class test_init(unittest.TestCase):
 
             'automatic_test_tag', 'control', 'harness', 'num_tests_run',
             'num_tests_failed', 'tag', 'warning_manager',
-            'warning_loggers', 'label', 'test_retry', 'parent_job_id'
+            'warning_loggers', 'label', 'test_retry', 'parent_job_id',
+            'max_result_size_KB'
             ])
 
         OPTIONAL_ATTRIBUTES_DEVICE_ERROR = set(['failed_with_device_error'])

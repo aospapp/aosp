@@ -23,13 +23,14 @@
 #include "art_method.h"
 #include "base/array_slice.h"
 #include "base/length_prefixed_array.h"
-#include "class_linker-inl.h"
+#include "class_linker.h"
 #include "class_loader.h"
 #include "common_throws.h"
+#include "dex_cache.h"
 #include "dex_file-inl.h"
 #include "gc/heap-inl.h"
 #include "iftable.h"
-#include "object_array-inl.h"
+#include "object_array.h"
 #include "object-inl.h"
 #include "read_barrier-inl.h"
 #include "reference-inl.h"
@@ -98,7 +99,7 @@ inline DexCache* Class::GetDexCache() {
 inline uint32_t Class::GetCopiedMethodsStartOffset() {
   // Object::GetFieldShort returns an int16_t value, but
   // Class::copied_methods_offset_ is an uint16_t value; cast the
-  // latter to int16_t before returning it as an uint32_t value, so
+  // latter to uint16_t before returning it as an uint32_t value, so
   // that uint16_t values between 2^15 and 2^16-1 are correctly
   // handled.
   return static_cast<uint16_t>(
@@ -112,7 +113,7 @@ inline uint32_t Class::GetDirectMethodsStartOffset() {
 inline uint32_t Class::GetVirtualMethodsStartOffset() {
   // Object::GetFieldShort returns an int16_t value, but
   // Class::virtual_method_offset_ is an uint16_t value; cast the
-  // latter to int16_t before returning it as an uint32_t value, so
+  // latter to uint16_t before returning it as an uint32_t value, so
   // that uint16_t values between 2^15 and 2^16-1 are correctly
   // handled.
   return static_cast<uint16_t>(
@@ -126,11 +127,9 @@ inline ArraySlice<ArtMethod> Class::GetDirectMethodsSlice(PointerSize pointer_si
 }
 
 inline ArraySlice<ArtMethod> Class::GetDirectMethodsSliceUnchecked(PointerSize pointer_size) {
-  return ArraySlice<ArtMethod>(GetMethodsPtr(),
-                               GetDirectMethodsStartOffset(),
-                               GetVirtualMethodsStartOffset(),
-                               ArtMethod::Size(pointer_size),
-                               ArtMethod::Alignment(pointer_size));
+  return GetMethodsSliceRangeUnchecked(pointer_size,
+                                       GetDirectMethodsStartOffset(),
+                                       GetVirtualMethodsStartOffset());
 }
 
 template<VerifyObjectFlags kVerifyFlags>
@@ -140,11 +139,9 @@ inline ArraySlice<ArtMethod> Class::GetDeclaredMethodsSlice(PointerSize pointer_
 }
 
 inline ArraySlice<ArtMethod> Class::GetDeclaredMethodsSliceUnchecked(PointerSize pointer_size) {
-  return ArraySlice<ArtMethod>(GetMethodsPtr(),
-                               GetDirectMethodsStartOffset(),
-                               GetCopiedMethodsStartOffset(),
-                               ArtMethod::Size(pointer_size),
-                               ArtMethod::Alignment(pointer_size));
+  return GetMethodsSliceRangeUnchecked(pointer_size,
+                                       GetDirectMethodsStartOffset(),
+                                       GetCopiedMethodsStartOffset());
 }
 template<VerifyObjectFlags kVerifyFlags>
 inline ArraySlice<ArtMethod> Class::GetDeclaredVirtualMethodsSlice(PointerSize pointer_size) {
@@ -154,11 +151,9 @@ inline ArraySlice<ArtMethod> Class::GetDeclaredVirtualMethodsSlice(PointerSize p
 
 inline ArraySlice<ArtMethod> Class::GetDeclaredVirtualMethodsSliceUnchecked(
     PointerSize pointer_size) {
-  return ArraySlice<ArtMethod>(GetMethodsPtr(),
-                               GetVirtualMethodsStartOffset(),
-                               GetCopiedMethodsStartOffset(),
-                               ArtMethod::Size(pointer_size),
-                               ArtMethod::Alignment(pointer_size));
+  return GetMethodsSliceRangeUnchecked(pointer_size,
+                                       GetVirtualMethodsStartOffset(),
+                                       GetCopiedMethodsStartOffset());
 }
 
 template<VerifyObjectFlags kVerifyFlags>
@@ -168,12 +163,9 @@ inline ArraySlice<ArtMethod> Class::GetVirtualMethodsSlice(PointerSize pointer_s
 }
 
 inline ArraySlice<ArtMethod> Class::GetVirtualMethodsSliceUnchecked(PointerSize pointer_size) {
-  LengthPrefixedArray<ArtMethod>* methods = GetMethodsPtr();
-  return ArraySlice<ArtMethod>(methods,
-                               GetVirtualMethodsStartOffset(),
-                               NumMethods(),
-                               ArtMethod::Size(pointer_size),
-                               ArtMethod::Alignment(pointer_size));
+  return GetMethodsSliceRangeUnchecked(pointer_size,
+                                       GetVirtualMethodsStartOffset(),
+                                       NumMethods());
 }
 
 template<VerifyObjectFlags kVerifyFlags>
@@ -183,12 +175,7 @@ inline ArraySlice<ArtMethod> Class::GetCopiedMethodsSlice(PointerSize pointer_si
 }
 
 inline ArraySlice<ArtMethod> Class::GetCopiedMethodsSliceUnchecked(PointerSize pointer_size) {
-  LengthPrefixedArray<ArtMethod>* methods = GetMethodsPtr();
-  return ArraySlice<ArtMethod>(methods,
-                               GetCopiedMethodsStartOffset(),
-                               NumMethods(),
-                               ArtMethod::Size(pointer_size),
-                               ArtMethod::Alignment(pointer_size));
+  return GetMethodsSliceRangeUnchecked(pointer_size, GetCopiedMethodsStartOffset(), NumMethods());
 }
 
 inline LengthPrefixedArray<ArtMethod>* Class::GetMethodsPtr() {
@@ -199,14 +186,28 @@ inline LengthPrefixedArray<ArtMethod>* Class::GetMethodsPtr() {
 template<VerifyObjectFlags kVerifyFlags>
 inline ArraySlice<ArtMethod> Class::GetMethodsSlice(PointerSize pointer_size) {
   DCHECK(IsLoaded() || IsErroneous());
-  LengthPrefixedArray<ArtMethod>* methods = GetMethodsPtr();
-  return ArraySlice<ArtMethod>(methods,
-                               0,
-                               NumMethods(),
-                               ArtMethod::Size(pointer_size),
-                               ArtMethod::Alignment(pointer_size));
+  return GetMethodsSliceRangeUnchecked(pointer_size, 0, NumMethods());
 }
 
+inline ArraySlice<ArtMethod> Class::GetMethodsSliceRangeUnchecked(PointerSize pointer_size,
+                                                                  uint32_t start_offset,
+                                                                  uint32_t end_offset) {
+  DCHECK_LE(start_offset, end_offset);
+  DCHECK_LE(end_offset, NumMethods());
+  uint32_t size = end_offset - start_offset;
+  if (size == 0u) {
+    return ArraySlice<ArtMethod>();
+  }
+  LengthPrefixedArray<ArtMethod>* methods = GetMethodsPtr();
+  DCHECK(methods != nullptr);
+  DCHECK_LE(end_offset, methods->size());
+  size_t method_size = ArtMethod::Size(pointer_size);
+  size_t method_alignment = ArtMethod::Alignment(pointer_size);
+  ArraySlice<ArtMethod> slice(&methods->At(0u, method_size, method_alignment),
+                              methods->size(),
+                              method_size);
+  return slice.SubArray(start_offset, size);
+}
 
 inline uint32_t Class::NumMethods() {
   LengthPrefixedArray<ArtMethod>* methods = GetMethodsPtr();
@@ -215,12 +216,12 @@ inline uint32_t Class::NumMethods() {
 
 inline ArtMethod* Class::GetDirectMethodUnchecked(size_t i, PointerSize pointer_size) {
   CheckPointerSize(pointer_size);
-  return &GetDirectMethodsSliceUnchecked(pointer_size).At(i);
+  return &GetDirectMethodsSliceUnchecked(pointer_size)[i];
 }
 
 inline ArtMethod* Class::GetDirectMethod(size_t i, PointerSize pointer_size) {
   CheckPointerSize(pointer_size);
-  return &GetDirectMethodsSlice(pointer_size).At(i);
+  return &GetDirectMethodsSlice(pointer_size)[i];
 }
 
 inline void Class::SetMethodsPtr(LengthPrefixedArray<ArtMethod>* new_methods,
@@ -263,7 +264,7 @@ inline ArtMethod* Class::GetVirtualMethodDuringLinking(size_t i, PointerSize poi
 
 inline ArtMethod* Class::GetVirtualMethodUnchecked(size_t i, PointerSize pointer_size) {
   CheckPointerSize(pointer_size);
-  return &GetVirtualMethodsSliceUnchecked(pointer_size).At(i);
+  return &GetVirtualMethodsSliceUnchecked(pointer_size)[i];
 }
 
 template<VerifyObjectFlags kVerifyFlags,
@@ -409,25 +410,24 @@ inline bool Class::IsAssignableFromArray(ObjPtr<Class> src) {
   return IsArrayAssignableFromArray(src);
 }
 
-template <bool throw_on_failure, bool use_referrers_cache>
+template <bool throw_on_failure>
 inline bool Class::ResolvedFieldAccessTest(ObjPtr<Class> access_to,
                                            ArtField* field,
-                                           uint32_t field_idx,
-                                           ObjPtr<DexCache> dex_cache) {
-  DCHECK_EQ(use_referrers_cache, dex_cache == nullptr);
+                                           ObjPtr<DexCache> dex_cache,
+                                           uint32_t field_idx) {
+  DCHECK(dex_cache != nullptr);
   if (UNLIKELY(!this->CanAccess(access_to))) {
     // The referrer class can't access the field's declaring class but may still be able
     // to access the field if the FieldId specifies an accessible subclass of the declaring
     // class rather than the declaring class itself.
-    ObjPtr<DexCache> referrer_dex_cache = use_referrers_cache ? this->GetDexCache() : dex_cache;
-    dex::TypeIndex class_idx = referrer_dex_cache->GetDexFile()->GetFieldId(field_idx).class_idx_;
+    dex::TypeIndex class_idx = dex_cache->GetDexFile()->GetFieldId(field_idx).class_idx_;
     // The referenced class has already been resolved with the field, but may not be in the dex
     // cache. Use LookupResolveType here to search the class table if it is not in the dex cache.
     // should be no thread suspension due to the class being resolved.
     ObjPtr<Class> dex_access_to = Runtime::Current()->GetClassLinker()->LookupResolvedType(
-        *referrer_dex_cache->GetDexFile(),
+        *dex_cache->GetDexFile(),
         class_idx,
-        referrer_dex_cache,
+        dex_cache,
         access_to->GetClassLoader());
     DCHECK(dex_access_to != nullptr);
     if (UNLIKELY(!this->CanAccess(dex_access_to))) {
@@ -446,25 +446,25 @@ inline bool Class::ResolvedFieldAccessTest(ObjPtr<Class> access_to,
   return false;
 }
 
-template <bool throw_on_failure, bool use_referrers_cache, InvokeType throw_invoke_type>
+template <bool throw_on_failure>
 inline bool Class::ResolvedMethodAccessTest(ObjPtr<Class> access_to,
                                             ArtMethod* method,
+                                            ObjPtr<DexCache> dex_cache,
                                             uint32_t method_idx,
-                                            ObjPtr<DexCache> dex_cache) {
-  static_assert(throw_on_failure || throw_invoke_type == kStatic, "Non-default throw invoke type");
-  DCHECK_EQ(use_referrers_cache, dex_cache == nullptr);
+                                            InvokeType throw_invoke_type) {
+  DCHECK(throw_on_failure || throw_invoke_type == kStatic);
+  DCHECK(dex_cache != nullptr);
   if (UNLIKELY(!this->CanAccess(access_to))) {
     // The referrer class can't access the method's declaring class but may still be able
     // to access the method if the MethodId specifies an accessible subclass of the declaring
     // class rather than the declaring class itself.
-    ObjPtr<DexCache> referrer_dex_cache = use_referrers_cache ? this->GetDexCache() : dex_cache;
-    dex::TypeIndex class_idx = referrer_dex_cache->GetDexFile()->GetMethodId(method_idx).class_idx_;
+    dex::TypeIndex class_idx = dex_cache->GetDexFile()->GetMethodId(method_idx).class_idx_;
     // The referenced class has already been resolved with the method, but may not be in the dex
     // cache.
     ObjPtr<Class> dex_access_to = Runtime::Current()->GetClassLinker()->LookupResolvedType(
-        *referrer_dex_cache->GetDexFile(),
+        *dex_cache->GetDexFile(),
         class_idx,
-        referrer_dex_cache,
+        dex_cache,
         access_to->GetClassLoader());
     DCHECK(dex_access_to != nullptr);
     if (UNLIKELY(!this->CanAccess(dex_access_to))) {
@@ -490,30 +490,30 @@ inline bool Class::CanAccessResolvedField(ObjPtr<Class> access_to,
                                           ArtField* field,
                                           ObjPtr<DexCache> dex_cache,
                                           uint32_t field_idx) {
-  return ResolvedFieldAccessTest<false, false>(access_to, field, field_idx, dex_cache);
+  return ResolvedFieldAccessTest<false>(access_to, field, dex_cache, field_idx);
 }
 
 inline bool Class::CheckResolvedFieldAccess(ObjPtr<Class> access_to,
                                             ArtField* field,
+                                            ObjPtr<DexCache> dex_cache,
                                             uint32_t field_idx) {
-  return ResolvedFieldAccessTest<true, true>(access_to, field, field_idx, nullptr);
+  return ResolvedFieldAccessTest<true>(access_to, field, dex_cache, field_idx);
 }
 
 inline bool Class::CanAccessResolvedMethod(ObjPtr<Class> access_to,
                                            ArtMethod* method,
                                            ObjPtr<DexCache> dex_cache,
                                            uint32_t method_idx) {
-  return ResolvedMethodAccessTest<false, false, kStatic>(access_to, method, method_idx, dex_cache);
+  return ResolvedMethodAccessTest<false>(access_to, method, dex_cache, method_idx, kStatic);
 }
 
-template <InvokeType throw_invoke_type>
 inline bool Class::CheckResolvedMethodAccess(ObjPtr<Class> access_to,
                                              ArtMethod* method,
-                                             uint32_t method_idx) {
-  return ResolvedMethodAccessTest<true, true, throw_invoke_type>(access_to,
-                                                                 method,
-                                                                 method_idx,
-                                                                 nullptr);
+                                             ObjPtr<DexCache> dex_cache,
+                                             uint32_t method_idx,
+                                             InvokeType throw_invoke_type) {
+  return ResolvedMethodAccessTest<true>(
+      access_to, method, dex_cache, method_idx, throw_invoke_type);
 }
 
 inline bool Class::IsSubClass(ObjPtr<Class> klass) {
@@ -533,7 +533,11 @@ inline ArtMethod* Class::FindVirtualMethodForInterface(ArtMethod* method,
                                                        PointerSize pointer_size) {
   ObjPtr<Class> declaring_class = method->GetDeclaringClass();
   DCHECK(declaring_class != nullptr) << PrettyClass();
-  DCHECK(declaring_class->IsInterface()) << method->PrettyMethod();
+  if (UNLIKELY(!declaring_class->IsInterface())) {
+    DCHECK(declaring_class->IsObjectClass()) << method->PrettyMethod();
+    DCHECK(method->IsPublic() && !method->IsStatic());
+    return FindVirtualMethodForVirtual(method, pointer_size);
+  }
   DCHECK(!method->IsCopied());
   // TODO cache to improve lookup speed
   const int32_t iftable_count = GetIfTableCount();
@@ -673,11 +677,7 @@ inline uint32_t Class::GetReferenceInstanceOffsets() {
 }
 
 inline void Class::SetClinitThreadId(pid_t new_clinit_thread_id) {
-  if (Runtime::Current()->IsActiveTransaction()) {
-    SetField32<true>(OFFSET_OF_OBJECT_MEMBER(Class, clinit_thread_id_), new_clinit_thread_id);
-  } else {
-    SetField32<false>(OFFSET_OF_OBJECT_MEMBER(Class, clinit_thread_id_), new_clinit_thread_id);
-  }
+  SetField32Transaction(OFFSET_OF_OBJECT_MEMBER(Class, clinit_thread_id_), new_clinit_thread_id);
 }
 
 inline String* Class::GetName() {
@@ -685,11 +685,7 @@ inline String* Class::GetName() {
 }
 
 inline void Class::SetName(ObjPtr<String> name) {
-  if (Runtime::Current()->IsActiveTransaction()) {
-    SetFieldObject<true>(OFFSET_OF_OBJECT_MEMBER(Class, name_), name);
-  } else {
-    SetFieldObject<false>(OFFSET_OF_OBJECT_MEMBER(Class, name_), name);
-  }
+    SetFieldObjectTransaction(OFFSET_OF_OBJECT_MEMBER(Class, name_), name);
 }
 
 template<VerifyObjectFlags kVerifyFlags>
@@ -943,38 +939,36 @@ inline uint32_t Class::NumDirectInterfaces() {
   }
 }
 
-inline IterationRange<StrideIterator<ArtMethod>> Class::GetDirectMethods(PointerSize pointer_size) {
+inline ArraySlice<ArtMethod> Class::GetDirectMethods(PointerSize pointer_size) {
   CheckPointerSize(pointer_size);
-  return GetDirectMethodsSliceUnchecked(pointer_size).AsRange();
+  return GetDirectMethodsSliceUnchecked(pointer_size);
 }
 
-inline IterationRange<StrideIterator<ArtMethod>> Class::GetDeclaredMethods(
+inline ArraySlice<ArtMethod> Class::GetDeclaredMethods(
       PointerSize pointer_size) {
-  return GetDeclaredMethodsSliceUnchecked(pointer_size).AsRange();
+  return GetDeclaredMethodsSliceUnchecked(pointer_size);
 }
 
-inline IterationRange<StrideIterator<ArtMethod>> Class::GetDeclaredVirtualMethods(
+inline ArraySlice<ArtMethod> Class::GetDeclaredVirtualMethods(
       PointerSize pointer_size) {
-  return GetDeclaredVirtualMethodsSliceUnchecked(pointer_size).AsRange();
+  return GetDeclaredVirtualMethodsSliceUnchecked(pointer_size);
 }
 
-inline IterationRange<StrideIterator<ArtMethod>> Class::GetVirtualMethods(
+inline ArraySlice<ArtMethod> Class::GetVirtualMethods(
     PointerSize pointer_size) {
   CheckPointerSize(pointer_size);
-  return GetVirtualMethodsSliceUnchecked(pointer_size).AsRange();
+  return GetVirtualMethodsSliceUnchecked(pointer_size);
 }
 
-inline IterationRange<StrideIterator<ArtMethod>> Class::GetCopiedMethods(PointerSize pointer_size) {
+inline ArraySlice<ArtMethod> Class::GetCopiedMethods(PointerSize pointer_size) {
   CheckPointerSize(pointer_size);
-  return GetCopiedMethodsSliceUnchecked(pointer_size).AsRange();
+  return GetCopiedMethodsSliceUnchecked(pointer_size);
 }
 
 
-inline IterationRange<StrideIterator<ArtMethod>> Class::GetMethods(PointerSize pointer_size) {
+inline ArraySlice<ArtMethod> Class::GetMethods(PointerSize pointer_size) {
   CheckPointerSize(pointer_size);
-  return MakeIterationRangeFromLengthPrefixedArray(GetMethodsPtr(),
-                                                   ArtMethod::Size(pointer_size),
-                                                   ArtMethod::Alignment(pointer_size));
+  return GetMethodsSliceRangeUnchecked(pointer_size, 0u, NumMethods());
 }
 
 inline IterationRange<StrideIterator<ArtField>> Class::GetIFields() {

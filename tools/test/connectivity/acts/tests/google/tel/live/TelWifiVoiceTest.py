@@ -377,8 +377,8 @@ class TelWifiVoiceTest(TelephonyBaseTest):
     def _phone_wait_for_not_wfc(self):
         result = wait_for_wfc_disabled(self.log, self.android_devices[0],
                                        MAX_WAIT_TIME_NW_SELECTION)
-        self.log.info("_phone_wait_for_not_wfc: WFC_disabled is {}".format(
-            result))
+        self.log.info(
+            "_phone_wait_for_not_wfc: WFC_disabled is {}".format(result))
         if not result:
             return False
         # TODO: b/26338343 Need to check Data RAT. Data RAT should not be iwlan.
@@ -554,8 +554,8 @@ class TelWifiVoiceTest(TelephonyBaseTest):
                              is_airplane_mode)
 
         if ensure_wifi_connected(self.log, self.android_devices[0],
-                                 self.live_network_ssid,
-                                 self.live_network_pwd, 1):
+                                 self.live_network_ssid, self.live_network_pwd,
+                                 1):
             self.log.error("{} connect WiFI succeed, expected not succeed".
                            format(self.android_devices[0].serial))
             return False
@@ -593,8 +593,8 @@ class TelWifiVoiceTest(TelephonyBaseTest):
             return False
 
         if ensure_wifi_connected(self.log, self.android_devices[0],
-                                 self.live_network_ssid,
-                                 self.live_network_pwd, 1):
+                                 self.live_network_ssid, self.live_network_pwd,
+                                 1):
             self.log.error("{} connect WiFI succeed, expected not succeed".
                            format(self.android_devices[0].serial))
             return False
@@ -2421,15 +2421,13 @@ class TelWifiVoiceTest(TelephonyBaseTest):
             ads, DIRECTION_MOBILE_ORIGINATED,
             self._wfc_set_wifi_strong_cell_absent,
             self._wfc_phone_setup_cellular_absent_wfc_disabled, None,
-            self._is_phone_not_in_call, None,
-            "initiate_call fail.")
+            self._is_phone_not_in_call, None, "initiate_call fail.")
 
         mt_result = self._wfc_call_sequence(
             ads, DIRECTION_MOBILE_TERMINATED,
             self._wfc_set_wifi_strong_cell_absent,
             self._wfc_phone_setup_cellular_absent_wfc_disabled, None,
-            self._is_phone_not_in_call, None,
-            "wait_and_answer_call fail.")
+            self._is_phone_not_in_call, None, "wait_and_answer_call fail.")
 
         self.log.info("MO: {}, MT: {}".format(mo_result, mt_result))
         return ((mo_result is True) and (mt_result is True))
@@ -2493,8 +2491,8 @@ class TelWifiVoiceTest(TelephonyBaseTest):
             return False
 
         if ensure_wifi_connected(self.log, self.android_devices[0],
-                                 self.live_network_ssid,
-                                 self.live_network_pwd, 1):
+                                 self.live_network_ssid, self.live_network_pwd,
+                                 1):
             self.log.error("{} connect WiFI succeed, expected not succeed".
                            format(self.android_devices[0].serial))
             return False
@@ -3123,11 +3121,9 @@ class TelWifiVoiceTest(TelephonyBaseTest):
         """
         # Decrease WiFi RSSI to MIN_RSSI_RESERVED_VALUE
         set_rssi(self.log, self.attens[ATTEN_NAME_FOR_WIFI_2G],
-                 self.wifi_rssi_with_no_atten,
-                 MIN_RSSI_RESERVED_VALUE, 2, 1)
+                 self.wifi_rssi_with_no_atten, MIN_RSSI_RESERVED_VALUE, 2, 1)
         set_rssi(self.log, self.attens[ATTEN_NAME_FOR_WIFI_5G],
-                 self.wifi_rssi_with_no_atten,
-                 MIN_RSSI_RESERVED_VALUE, 2, 1)
+                 self.wifi_rssi_with_no_atten, MIN_RSSI_RESERVED_VALUE, 2, 1)
         # Make sure phone hand-out, not drop call
         if not self._phone_wait_for_not_wfc():
             self.log.error("Phone should hand out.")
@@ -3391,31 +3387,27 @@ class TelWifiVoiceTest(TelephonyBaseTest):
             self._wfc_phone_setup_wifi_preferred, self._phone_idle_volte,
             self._is_phone_in_call_volte, self._hand_in_hand_out_stress, True)
 
-    def _increase_cellular_rssi_check_phone_hand_out(self):
+    def _decrease_cellular_rssi_check_phone_hand_out(self):
         """Private Test utility for hand_out test.
 
-        Increase Cellular RSSI to CELL_STRONG_RSSI_VALUE, in 30s.
-        PhoneA should still be in call. PhoneA should hand-out to LTE.
-        PhoneA should have data on WiFi.
+        Decrease Cellular RSSI to MIN_RSSI_RESERVED_VALUE 1db per sec
+        PhoneA should still be in call. PhoneA should hand-out to iWLAN.
         """
-        # Increase Cellular RSSI to CELL_STRONG_RSSI_VALUE
+        time.sleep(60)
+        # Decrease Cellular RSSI to MIN_RSSI_RESERVED_VALUE
         set_rssi(self.log, self.attens[ATTEN_NAME_FOR_CELL_3G],
-                 self.cell_rssi_with_no_atten, MAX_RSSI_RESERVED_VALUE, 1, 1)
+                 self.cell_rssi_with_no_atten, MIN_RSSI_RESERVED_VALUE)
         set_rssi(self.log, self.attens[ATTEN_NAME_FOR_CELL_4G],
-                 self.cell_rssi_with_no_atten, MAX_RSSI_RESERVED_VALUE, 1, 1)
-        # Make sure phone hand-out, not drop call
-        if not self._phone_wait_for_not_wfc():
-            self.log.error("Phone should hand out.")
+                 self.cell_rssi_with_no_atten, MIN_RSSI_RESERVED_VALUE, 1, 1)
+        # Make sure phone hand-out to iWLAN, not drop call
+        if not self._phone_wait_for_wfc():
+            self.log.error("Phone should hand out to iWLAN.")
             return False
-        if not self._is_phone_in_call_volte():
-            self.log.error("Phone should be in volte call.")
+        time.sleep(30)
+        if not self._is_phone_in_call_iwlan():
+            self.log.error("Phone should be in iWLAN call.")
             return False
-        # Make sure WiFi still connected and have data.
-        if (not wait_for_wifi_data_connection(self.log,
-                                              self.android_devices[0], True) or
-                not verify_http_connection(self.log, self.android_devices[0])):
-            self.log.error("No Data on Wifi")
-            return False
+        time.sleep(30)
         return True
 
     @test_tracker_info(uuid="2242aa49-474c-496b-be1b-ccd900523a54")
@@ -3423,19 +3415,18 @@ class TelWifiVoiceTest(TelephonyBaseTest):
     def test_hand_out_cellular_preferred(self):
         """WiFi Hand-Out Threshold - Cellular Preferred
 
-        Cellular signal absent, WiFi signal strong.
+        Cellular signal strong, WiFi signal strong.
         PhoneA VoLTE enabled, WFC Cellular preferred, WiFi associated.
-        Call from PhoneA to PhoneB, PhoneA should be on iwlan.
-        Increase Cellular RSSI to CELL_STRONG_RSSI_VALUE, in 30s.
-        PhoneA should still be in call. PhoneA should hand-out to LTE.
-        PhoneA should have data on WiFi.
+        Call from PhoneA to PhoneB, PhoneA should be on LTE.
+        Decrease Cellular RSSI to MIN using 1db every sec
+        PhoneA should still be in call. PhoneA should hand-out to iWLAN.
         """
         return self._wfc_call_sequence(
             [self.android_devices[0], self.android_devices[1]],
-            DIRECTION_MOBILE_ORIGINATED, self._wfc_set_wifi_strong_cell_absent,
-            self._wfc_phone_setup_cellular_absent_cellular_preferred,
-            self._phone_idle_iwlan, self._is_phone_in_call_iwlan,
-            self._increase_cellular_rssi_check_phone_hand_out, True)
+            DIRECTION_MOBILE_ORIGINATED, self._wfc_set_wifi_strong_cell_strong,
+            self._wfc_phone_setup_cellular_preferred, self._phone_idle_volte,
+            self._is_phone_in_call_volte,
+            self._decrease_cellular_rssi_check_phone_hand_out, True)
 
     def _decrease_wifi_rssi_check_phone_not_hand_out(self):
         """Private Test utility for hand_out test.
@@ -3605,9 +3596,10 @@ class TelWifiVoiceTest(TelephonyBaseTest):
             rssi_monitoring_id_lower = ad.droid.connectivitySetRssiThresholdMonitor(
                 LOWER_RSSI_THRESHOLD)
 
-            self.log.info("Initial RSSI: {},"
-                          "rssi_monitoring_id_lower should be available.".
-                          format(INITIAL_RSSI))
+            self.log.info(
+                "Initial RSSI: {},"
+                "rssi_monitoring_id_lower should be available.".format(
+                    INITIAL_RSSI))
             try:
                 event = ad.ed.wait_for_event(
                     EventNetworkCallback,

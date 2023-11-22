@@ -28,7 +28,7 @@
 #include "jvm.h"
 #include "nio.h"
 #include "nio_util.h"
-#include "JNIHelp.h"
+#include <nativehelper/JNIHelp.h>
 
 #define NATIVE_METHOD(className, functionName, signature) \
 { #functionName, signature, (void*)(className ## _ ## functionName) }

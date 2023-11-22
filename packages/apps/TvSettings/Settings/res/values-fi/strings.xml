@@ -75,7 +75,7 @@
     <string name="accessory_change_name" msgid="8958916008739792785">"Muuta nimeä"</string>
     <string name="accessory_change_name_title" msgid="4630819456923061184">"Varusteen nimeäminen"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Etsitään lisälaitteita…"</string>
-    <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Varmista ennen Bluetooth-laitteiden laiteparin muodostusta, että laitteet ovat parin muodostustilassa"</string>
+    <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Varmista ennen Bluetooth-laitteiden laiteparin muodostusta, että laitteet ovat parinmuodostustilassa"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"Laite löydettiin, ja laitepari muodostetaan <xliff:g id="COUNTDOWN">%1$s</xliff:g> sekunnin kuluttua"</string>
     <string name="error_action_not_supported" msgid="300552308104354666">"Toimintoa ei tueta"</string>
     <string name="bluetooth_pairing_request" msgid="4523088117471287665">"Bluetooth-laiteparipyyntö"</string>
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"Palvelut"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Palveluasetukset"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Suurikontrastinen teksti"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Esteettömyystilan pikanäppäin"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Ota esteettömyystilan pikakuvake käyttöön"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Pikanäppäinpalvelu"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Kun pikanäppäin on käytössä, voit käynnistää esteettömyysominaisuuden pitämällä Takaisin- ja Alas-näppäimiä painettuina kolmen sekunnin ajan."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Tekstitykset"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Videon päällä näytettävän tekstityksen asetukset"</string>
     <string name="captions_display" msgid="735692527287125548">"Ruutu"</string>
@@ -628,7 +632,7 @@
     <string name="device_daydreams_sleep" msgid="7676938708373592766">"Näytönsäästäjän käynnistäminen"</string>
     <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"Näytönsäästäjä käynnistyy, kun laite on ollut käyttämättä valitsemasi ajan. Jos näytönsäästäjää ei ole valittuna, näyttö sammuu."</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"Kun laite on käyttämättä <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>"</string>
-    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Aseta laite virransäästötilaan."</string>
+    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Aseta laite virransäästötilaan"</string>
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"Näyttö sammuu tämän ajan kuluttua, jos laitetta ei käytetä."</string>
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"Millään tilillä ei ole tällä hetkellä varmuuskopiota"</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
@@ -640,7 +644,7 @@
     <string name="factory_reset_description" msgid="5381170999141355891">"Toiminto poistaa kaikki tiedot laitteesi sisäisestä tallennustilasta. Poistettavia tietoja ovat muun muassa Google-tilisi, järjestelmän ja sovelluksien tiedot ja asetukset sekä ladatut sovellukset."</string>
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Haluatko poistaa kaikki henkilökohtaiset tietosi ja lataamasi sovellukset? Toimintoa ei voi peruuttaa!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Poista kaikki"</string>
-    <string name="select_device_name_title" msgid="5165800500130943604">"Anna nimi laitteelle <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
+    <string name="select_device_name_title" msgid="5165800500130943604">"Nimeä <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="select_device_name_description" msgid="6890879006777364213">"Nimeä <xliff:g id="DEVICEMODEL">%1$s</xliff:g>, niin se on helpompi tunnistaa, kun haluat suoratoistaa tai yhdistää siihen muista laitteista."</string>
   <string-array name="rooms">
     <item msgid="9056203990862307284">"Android TV"</item>
@@ -650,7 +654,7 @@
   </string-array>
     <string name="custom_room" msgid="8655516733933892458">"Anna muokattu nimi..."</string>
     <string name="device_rename_title" msgid="2629557295786267185">"Anna uusi nimi laitteelle <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
-    <string name="device_rename_description" msgid="2461752788563877107">"Laitteen <xliff:g id="DEVICEMODEL">%1$s</xliff:g> nimi on tällä hetkellä <xliff:g id="DEVICENAME">%2$s</xliff:g>."</string>
+    <string name="device_rename_description" msgid="2461752788563877107">"<xliff:g id="DEVICEMODEL">%1$s</xliff:g> on tällä hetkellä nimeltään <xliff:g id="DEVICENAME">%2$s</xliff:g>."</string>
     <string name="change_setting" msgid="2047402388786162246">"Vaihda"</string>
     <string name="keep_settings" msgid="6798327196645732517">"Älä vaihda"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"Käyttöoikeudet"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Luodaan virheraporttia."</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Käytettävissä olevat virtuaaliset näppäimistöt"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Näppäimistöjen hallinnointi"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Sallittu"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Ei sallittu"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Käyttöoikeus"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Käyttöoikeus antaa sovellukselle luvan seurata, mitä muita sovelluksia käytät ja kuinka usein, sekä nähdä operaattorisi, kieliasetuksesi ja muita tietoja."</string>
 </resources>

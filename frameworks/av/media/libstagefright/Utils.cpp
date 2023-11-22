@@ -237,6 +237,11 @@ static void parseAvcProfileLevelFromAvcc(const uint8_t *ptr, size_t size, sp<AMe
     OMX_VIDEO_AVCPROFILETYPE codecProfile;
     OMX_VIDEO_AVCLEVELTYPE codecLevel;
     if (profiles.map(profile, &codecProfile)) {
+        if (profile == 66 && (constraints & 0x40)) {
+            codecProfile = (OMX_VIDEO_AVCPROFILETYPE)OMX_VIDEO_AVCProfileConstrainedBaseline;
+        } else if (profile == 100 && (constraints & 0x0C) == 0x0C) {
+            codecProfile = (OMX_VIDEO_AVCPROFILETYPE)OMX_VIDEO_AVCProfileConstrainedHigh;
+        }
         format->setInt32("profile", codecProfile);
         if (levels.map(level, &codecLevel)) {
             // for 9 && 11 decide level based on profile and constraint_set3 flag
@@ -1069,6 +1074,16 @@ status_t convertMetaDataToMessage(
         buffer->meta()->setInt32("csd", true);
         buffer->meta()->setInt64("timeUs", 0);
         msg->setBuffer("csd-2", buffer);
+    } else if (meta->findData(kKeyFlacMetadata, &type, &data, &size)) {
+        sp<ABuffer> buffer = new (std::nothrow) ABuffer(size);
+        if (buffer.get() == NULL || buffer->base() == NULL) {
+            return NO_MEMORY;
+        }
+        memcpy(buffer->data(), data, size);
+
+        buffer->meta()->setInt32("csd", true);
+        buffer->meta()->setInt64("timeUs", 0);
+        msg->setBuffer("csd-0", buffer);
     } else if (meta->findData(kKeyVp9CodecPrivate, &type, &data, &size)) {
         sp<ABuffer> buffer = new (std::nothrow) ABuffer(size);
         if (buffer.get() == NULL || buffer->base() == NULL) {
@@ -1552,6 +1567,7 @@ static const struct mime_conv_t mimeLookup[] = {
     { MEDIA_MIMETYPE_AUDIO_VORBIS,      AUDIO_FORMAT_VORBIS },
     { MEDIA_MIMETYPE_AUDIO_OPUS,        AUDIO_FORMAT_OPUS},
     { MEDIA_MIMETYPE_AUDIO_AC3,         AUDIO_FORMAT_AC3},
+    { MEDIA_MIMETYPE_AUDIO_FLAC,        AUDIO_FORMAT_FLAC},
     { 0, AUDIO_FORMAT_INVALID }
 };
 
@@ -1861,6 +1877,14 @@ AString nameForFd(int fd) {
         result.append(buffer);
     }
     return result;
+}
+
+void MakeFourCCString(uint32_t x, char *s) {
+    s[0] = x >> 24;
+    s[1] = (x >> 16) & 0xff;
+    s[2] = (x >> 8) & 0xff;
+    s[3] = x & 0xff;
+    s[4] = '\0';
 }
 
 }  // namespace android

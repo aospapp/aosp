@@ -83,20 +83,20 @@ public class Utils {
     public Utils() {}
 
     /**
-     * Returns the currently installed system apps on a given user.
+     * Returns the system apps currently available to a given user.
      *
-     * <p>Calls into the {@link IPackageManager} to retrieve all installed packages on the given
-     * user and returns the package names of all system apps.
+     * <p>Calls the {@link IPackageManager} to retrieve all system apps available to a user and
+     * returns their package names.
      *
      * @param ipm an {@link IPackageManager} object
-     * @param userId the id of the user we are interested in
+     * @param userId the id of the user to check the apps for
      */
     public Set<String> getCurrentSystemApps(IPackageManager ipm, int userId) {
-        Set<String> apps = new HashSet<String>();
+        Set<String> apps = new HashSet<>();
         List<ApplicationInfo> aInfos = null;
         try {
             aInfos = ipm.getInstalledApplications(
-                    PackageManager.GET_UNINSTALLED_PACKAGES, userId).getList();
+                    PackageManager.MATCH_UNINSTALLED_PACKAGES, userId).getList();
         } catch (RemoteException neverThrown) {
             ProvisionLogger.loge("This should not happen.", neverThrown);
         }

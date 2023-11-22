@@ -19,6 +19,9 @@ cc_library_static {
         "smp",
         "srvc",
     ],
+    header_libs: [
+        "libhardware_headers",
+    ],
     include_dirs: [
         "external/aac/libAACenc/include",
         "external/aac/libSYS/include",
@@ -99,10 +102,8 @@ cc_library_static {
         "btu/btu_hcif.cc",
         "btu/btu_init.cc",
         "btu/btu_task.cc",
-        "gap/gap_api.cc",
         "gap/gap_ble.cc",
         "gap/gap_conn.cc",
-        "gap/gap_utils.cc",
         "gatt/att_protocol.cc",
         "gatt/gatt_api.cc",
         "gatt/gatt_attr.cc",
@@ -197,6 +198,7 @@ cc_test {
     srcs: ["test/stack_a2dp_test.cc"],
     shared_libs: [
         "liblog",
+        "libcutils",
     ],
     static_libs: [
         "libbt-stack",
@@ -268,6 +270,7 @@ cc_test {
         "libcutils",
     ],
     static_libs: [
+        "libbluetooth-types",
         "liblog",
         "libgmock",
     ],
@@ -285,7 +288,40 @@ cc_test {
         "test/ad_parser_unittest.cc",
     ],
     static_libs: [
+        "libbluetooth-types",
         "liblog",
         "libgmock",
+    ],
+}
+
+// Bluetooth stack message loop tests for target
+// ========================================================
+cc_test {
+    name: "net_test_btu_message_loop",
+    defaults: ["fluoride_defaults"],
+    local_include_dirs: [
+        "include",
+        "btm",
+    ],
+    include_dirs: [
+        "system/bt/",
+        "system/bt/include",
+        "system/bt/btcore/include",
+        "system/bt/bta/include",
+    ],
+    srcs: [
+        "btu/btu_task.cc",
+        "test/stack_btu_test.cc",
+    ],
+    shared_libs: [
+        "liblog",
+        "libcutils",
+        "libprotobuf-cpp-lite",
+    ],
+    static_libs: [
+        "libbluetooth-types",
+        "libgmock",
+        "libosi",
+        "libbt-protos",
     ],
 }

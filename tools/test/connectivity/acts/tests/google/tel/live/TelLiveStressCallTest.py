@@ -43,6 +43,7 @@ from acts.test_utils.tel.tel_voice_utils import phone_setup_iwlan
 from acts.test_utils.tel.tel_voice_utils import phone_setup_voice_3g
 from acts.test_utils.tel.tel_voice_utils import phone_setup_voice_2g
 from acts.test_utils.tel.tel_voice_utils import phone_setup_volte
+from acts.test_utils.tel.tel_voice_utils import phone_idle_iwlan
 from acts.test_utils.tel.tel_video_utils import phone_setup_video
 from acts.test_utils.tel.tel_video_utils import video_call_setup
 from acts.test_utils.tel.tel_video_utils import \
@@ -57,9 +58,11 @@ class TelLiveStressCallTest(TelephonyBaseTest):
         self.callee = self.android_devices[1]
         self.user_params["telephony_auto_rerun"] = False
         self.wifi_network_ssid = self.user_params.get(
-            "wifi_network_ssid") or self.user_params.get("wifi_network_ssid_2g")
+            "wifi_network_ssid") or self.user_params.get(
+                "wifi_network_ssid_2g")
         self.wifi_network_pass = self.user_params.get(
-            "wifi_network_pass") or self.user_params.get("wifi_network_pass_2g")
+            "wifi_network_pass") or self.user_params.get(
+                "wifi_network_pass_2g")
         self.phone_call_iteration = int(
             self.user_params.get("phone_call_iteration", 500))
         self.phone_call_duration = int(
@@ -76,7 +79,7 @@ class TelLiveStressCallTest(TelephonyBaseTest):
                     ad,
                     self.wifi_network_ssid,
                     self.wifi_network_pass,
-                    retry=3):
+                    retries=3):
                 ad.log.error("Phone Wifi connection fails.")
                 return False
             ad.log.info("Phone WIFI is connected successfully.")
@@ -84,7 +87,7 @@ class TelLiveStressCallTest(TelephonyBaseTest):
                 ad.log.error("Phone failed to enable Wifi-Calling.")
                 return False
             ad.log.info("Phone is set in Wifi-Calling successfully.")
-            if not phone_idle_iwlan(self.log, self.ad):
+            if not phone_idle_iwlan(self.log, ad):
                 ad.log.error("Phone is not in WFC enabled state.")
                 return False
             ad.log.info("Phone is in WFC enabled state.")
@@ -176,15 +179,15 @@ class TelLiveStressCallTest(TelephonyBaseTest):
                 iteration_result = False
                 self.log.error("%s call dialing failure.", msg)
             else:
-                if network_check_func and not network_check_func(
-                        self.log, self.caller):
+                if network_check_func and not network_check_func(self.log,
+                                                                 self.caller):
                     fail_count["caller_network_check"] += 1
                     iteration_result = False
                     self.log.error("%s network check %s failure.", msg,
                                    network_check_func.__name__)
 
-                if network_check_func and not network_check_func(
-                        self.log, self.callee):
+                if network_check_func and not network_check_func(self.log,
+                                                                 self.callee):
                     fail_count["callee_network_check"] += 1
                     iteration_result = False
                     self.log.error("%s network check failure.", msg)

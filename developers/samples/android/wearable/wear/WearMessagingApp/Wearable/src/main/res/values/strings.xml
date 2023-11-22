@@ -17,6 +17,8 @@
 <resources>
     <string name="app_name">Wear Messaging App</string>
 
+    <string name="default_web_client_id">Enter your id here (from Google Developer console)</string>
+
     <string name="holder_text">This is long holder text given the display on a watch</string>
     <string name="plus_icon">plus icon</string>
 

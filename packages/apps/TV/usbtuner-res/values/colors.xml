@@ -16,15 +16,9 @@
   -->
 
 <resources>
-    <color name="ut_guidedstep_background">#01579B</color>
-    <color name="ut_guidance_title_text">#EEEEEE</color>
-    <color name="ut_guidance_breadcrumb_text">#EEEEEE</color>
-    <color name="ut_guidance_description_text">#B3EEEEEE</color>
-    <color name="ut_guidedactions_title_text">#EEEEEE</color>
     <color name="ut_scan_title_text">#EEEEEE</color>
     <color name="ut_scan_description_text">#B3EEEEEE</color>
     <color name="ut_scan_progress">#EEEEEE</color>
     <color name="ut_scan_progress_background">#26EEEEEE</color>
     <color name="ut_scan_button_text">#EEEEEE</color>
-    <color name="ut_scan_channellist_background">#26EEEEEE</color>
 </resources>

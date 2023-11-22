@@ -7,24 +7,26 @@ with this utilility. Otherwise, you cannot mount f2fs.
 Before compilation
 ------------------
 
-Your should install the following packages.
+You should install the following packages.
  - libuuid-devel or uuid-dev
  - pkg-config
  - autoconf
  - libtool
+ - libselinux1-dev
 
 Initial compilation
 -------------------
 
 Before compilation initially, autoconf/automake tools should be run.
 
- # autoreconf --install
+ # ./autogen.sh
 
 How to compile
 --------------
 
  # ./configure
  # make
+ # make install
 
 How to cross-compile (e.g., for ARM)
 ------------------------------------
@@ -43,6 +45,6 @@ How to cross-compile (e.g., for ARM)
 How to run by default
 ---------------------
 
- $ ./mkfs.f2fs -l [LABEL] $DEV
+ $ mkfs.f2fs -l [LABEL] $DEV
 
 For more mkfs options, see man page.

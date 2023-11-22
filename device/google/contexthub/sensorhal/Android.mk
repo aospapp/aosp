@@ -88,6 +88,11 @@ LOCAL_CFLAGS += -DDYNAMIC_SENSOR_EXT_ENABLED
 LOCAL_SHARED_LIBRARIES += libdynamic_sensor_ext
 endif
 
+ifeq ($(NANOHUB_SENSORHAL_LEFTY_SERVICE_ENABLED), true)
+LOCAL_CFLAGS += -DLEFTY_SERVICE_ENABLED
+LOCAL_SHARED_LIBRARIES += liblefty_service_nanohub
+endif
+
 include $(BUILD_SHARED_LIBRARY)
 
 ################################################################################

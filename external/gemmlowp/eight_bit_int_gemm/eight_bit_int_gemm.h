@@ -24,8 +24,6 @@
 namespace std {
 using ::uint8_t;
 using ::int32_t;
-using ::int64_t;
-using ::uint64_t;
 }
 #endif
 
@@ -46,7 +44,7 @@ namespace eight_bit_int_gemm {
 // Users who prefer a state-less, singleton-less interface,
 // should use the main gemmlowp interface (public/gemmlowp.h) instead.
 
-// The main entry point to compute a Gemm. This is the standard
+// The BitDepthSetting enum lists supported a/b bit-depth combinations.
 enum class BitDepthSetting {
   A8B8,  // 8-bit a, 8-bit b
   A5B7   // 5-bit a, 7-bit b

@@ -22,6 +22,7 @@ import com.android.tradefed.log.LogUtil.CLog;
 
 import junit.framework.AssertionFailedError;
 
+import java.util.Collections;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -61,6 +62,12 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
             = "content://com.android.cts.contact.directory.provider/";
     private static final String SET_CUSTOM_DIRECTORY_PREFIX_METHOD = "set_prefix";
 
+    private static final String NOTIFICATION_APK = "CtsNotificationSenderApp.apk";
+    private static final String NOTIFICATION_PKG =
+            "com.android.cts.managedprofiletests.notificationsender";
+    private static final String NOTIFICATION_ACTIVITY =
+            NOTIFICATION_PKG + ".SendNotification";
+
     private static final String ADMIN_RECEIVER_TEST_CLASS =
             MANAGED_PROFILE_PKG + ".BaseManagedProfileTest$BasicAdminReceiver";
 
@@ -73,7 +80,12 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
     private static final String SIMPLE_APP_APK = "CtsSimpleApp.apk";
     private static final String SIMPLE_APP_PKG = "com.android.cts.launcherapps.simpleapp";
 
-    private static final long TIMEOUT_USER_LOCKED_MILLIS = TimeUnit.SECONDS.toMillis(15);
+    private static final long TIMEOUT_USER_LOCKED_MILLIS = TimeUnit.SECONDS.toMillis(30);
+
+    private static final String PARAM_PROFILE_ID = "profile-id";
+
+    // Password needs to be in sync with ResetPasswordWithTokenTest.PASSWORD1
+    private static final String RESET_PASSWORD_TEST_DEFAULT_PASSWORD = "123456";
 
     private int mParentUserId;
 
@@ -112,6 +124,7 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
             getDevice().uninstallPackage(MANAGED_PROFILE_PKG);
             getDevice().uninstallPackage(INTENT_SENDER_PKG);
             getDevice().uninstallPackage(INTENT_RECEIVER_PKG);
+            getDevice().uninstallPackage(NOTIFICATION_PKG);
         }
         super.tearDown();
     }
@@ -147,6 +160,10 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
         changeUserCredential("1234", null, mProfileUserId);
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG, MANAGED_PROFILE_PKG + ".LockNowTest",
                 "testLockNowWithKeyEviction", mProfileUserId);
+        waitUntilProfileLocked();
+    }
+
+    private void waitUntilProfileLocked() throws Exception {
         final String cmd = "dumpsys activity | grep 'User #" + mProfileUserId + ": state='";
         final Pattern p = Pattern.compile("state=([\\p{Upper}_]+)$");
         SuccessCondition userLocked = () -> {
@@ -351,6 +368,60 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
                 "testAddParentCanAccessManagedFilters", mProfileUserId);
         runDeviceTestsAsUser(INTENT_SENDER_PKG, ".ContentTest", mProfileUserId);
 
+    }
+
+    public void testCrossProfileNotificationListeners_EmptyWhitelist() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+
+        installAppAsUser(NOTIFICATION_APK, mProfileUserId);
+        installAppAsUser(NOTIFICATION_APK, mParentUserId);
+
+        // Profile owner in the profile sets an empty whitelist
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".NotificationListenerTest",
+                "testSetEmptyWhitelist", mProfileUserId,
+                Collections.singletonMap(PARAM_PROFILE_ID, Integer.toString(mProfileUserId)));
+        // Listener outside the profile can only see personal notifications.
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".NotificationListenerTest",
+                "testCannotReceiveProfileNotifications", mParentUserId,
+                Collections.singletonMap(PARAM_PROFILE_ID, Integer.toString(mProfileUserId)));
+    }
+
+    public void testCrossProfileNotificationListeners_NullWhitelist() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+
+        installAppAsUser(NOTIFICATION_APK, mProfileUserId);
+        installAppAsUser(NOTIFICATION_APK, mParentUserId);
+
+        // Profile owner in the profile sets a null whitelist
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".NotificationListenerTest",
+                "testSetNullWhitelist", mProfileUserId,
+                Collections.singletonMap(PARAM_PROFILE_ID, Integer.toString(mProfileUserId)));
+        // Listener outside the profile can see profile and personal notifications
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".NotificationListenerTest",
+                "testCanReceiveNotifications", mParentUserId,
+                Collections.singletonMap(PARAM_PROFILE_ID, Integer.toString(mProfileUserId)));
+    }
+
+    public void testCrossProfileNotificationListeners_InWhitelist() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+
+        installAppAsUser(NOTIFICATION_APK, mProfileUserId);
+        installAppAsUser(NOTIFICATION_APK, mParentUserId);
+
+        // Profile owner in the profile adds listener to the whitelist
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".NotificationListenerTest",
+                "testAddListenerToWhitelist", mProfileUserId,
+                Collections.singletonMap(PARAM_PROFILE_ID, Integer.toString(mProfileUserId)));
+        // Listener outside the profile can see profile and personal notifications
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".NotificationListenerTest",
+                "testCanReceiveNotifications", mParentUserId,
+                Collections.singletonMap(PARAM_PROFILE_ID, Integer.toString(mProfileUserId)));
     }
 
     public void testCrossProfileCopyPaste() throws Exception {
@@ -767,6 +838,9 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
         if (!shouldRunTelecomTest()) {
             return;
         }
+        getDevice().setSetting(
+            mProfileUserId, "secure", "dialer_default_application", MANAGED_PROFILE_PKG);
+
         // Place a outgoing call through work phone account using TelecomManager and verify the
         // call is inserted properly.
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".PhoneAccountTest",
@@ -796,6 +870,16 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".PhoneAccountTest",
                 "testEnsureCallNotInserted",
                 mParentUserId);
+
+        // Add an incoming missed call with parent user's phone account and verify the call is
+        // inserted properly.
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".PhoneAccountTest",
+            "testIncomingMissedCall",
+            mProfileUserId);
+        // Make sure the call is not inserted into parent user.
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".PhoneAccountTest",
+            "testEnsureCallNotInserted",
+            mParentUserId);
     }
 
     private void givePackageWriteSettingsPermission(int userId, String pkg) throws Exception {
@@ -893,6 +977,55 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
         // Managed profile owner should be able to control it via DISALLOW_BLUETOOTH_SHARING.
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".BluetoothSharingRestrictionTest",
                 "testOppDisabledWhenRestrictionSet", mProfileUserId);
+    }
+
+    public void testResetPasswordWithTokenBeforeUnlock() throws Exception {
+        if (!mHasFeature || !mSupportsFbe) {
+            return;
+        }
+
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ResetPasswordWithTokenTest",
+                "testSetupWorkProfileAndLock", mProfileUserId);
+        waitUntilProfileLocked();
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ResetPasswordWithTokenTest",
+                "testResetPasswordBeforeUnlock", mProfileUserId);
+        // Password needs to be in sync with ResetPasswordWithTokenTest.PASSWORD1
+        verifyUserCredential(RESET_PASSWORD_TEST_DEFAULT_PASSWORD, mProfileUserId);
+    }
+
+    /**
+     * Test password reset token is still functional after the primary user clears and
+     * re-adds back its device lock. This is to detect a regression where the work profile
+     * undergoes an untrusted credential reset (causing synthetic password to change, invalidating
+     * existing password reset token) if it has unified work challenge and the primary user clears
+     * the device lock.
+     */
+    public void testResetPasswordTokenUsableAfterClearingLock() throws Exception {
+        if (!mHasFeature || !mSupportsFbe) {
+            return;
+        }
+        final String devicePassword = "1234";
+
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ResetPasswordWithTokenTest",
+                "testSetResetPasswordToken", mProfileUserId);
+        try {
+            changeUserCredential(devicePassword, null, mParentUserId);
+            changeUserCredential(null, devicePassword, mParentUserId);
+            changeUserCredential(devicePassword, null, mParentUserId);
+
+            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ResetPasswordWithTokenTest",
+                    "testLockWorkProfile", mProfileUserId);
+            waitUntilProfileLocked();
+            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ResetPasswordWithTokenTest",
+                    "testResetPasswordBeforeUnlock", mProfileUserId);
+            verifyUserCredential(RESET_PASSWORD_TEST_DEFAULT_PASSWORD, mProfileUserId);
+        } finally {
+            changeUserCredential(null, devicePassword, mParentUserId);
+            // Cycle the device screen to flush stale password information from keyguard,
+            // otherwise it will still ask for the non-existent password.
+            executeShellCommand("input keyevent KEYCODE_WAKEUP");
+            executeShellCommand("input keyevent KEYCODE_SLEEP");
+        }
     }
 
     private void disableActivityForUser(String activityName, int userId)

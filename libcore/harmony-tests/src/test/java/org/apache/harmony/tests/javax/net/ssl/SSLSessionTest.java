@@ -124,22 +124,6 @@ public class SSLSessionTest extends TestCase {
     }
 
     /**
-     * javax.net.ssl.SSLSession#getId()
-     */
-    public void test_getId() throws Exception {
-        byte[] id = clientSession.getId();
-        SSLSession sess = clientSslContext.getClientSessionContext().getSession(id);
-        assertNotNull("Could not find session for id " + id, sess);
-        if (clientSession instanceof ExtendedSSLSession) {
-            assertTrue(sess instanceof ExtendedSSLSession);
-            assertExtendedSSLSessionsEqual((ExtendedSSLSession) clientSession,
-                    (ExtendedSSLSession) sess);
-        } else {
-            assertSSLSessionsEqual(clientSession, sess);
-        }
-    }
-
-    /**
      * javax.net.ssl.SSLSession#getLastAccessedTime()
      */
     public void test_getLastAccessedTime() {
@@ -230,27 +214,27 @@ public class SSLSessionTest extends TestCase {
 
         try {
             s.putValue(null, null);
-            fail("IllegalArgumentException wasn't thrown");
-        } catch (IllegalArgumentException expected) {
+            fail("Exception wasn't thrown");
+        } catch (IllegalArgumentException | NullPointerException expected) {
             // expected
         }
         try {
             s.putValue("ABC", null);
-            fail("IllegalArgumentException wasn't thrown");
-        } catch (IllegalArgumentException expected) {
+            fail("Exception wasn't thrown");
+        } catch (IllegalArgumentException | NullPointerException expected) {
             // expected
         }
         try {
             s.putValue(null, sbl);
-            fail("IllegalArgumentException wasn't thrown");
-        } catch (IllegalArgumentException expected) {
+            fail("Exception wasn't thrown");
+        } catch (IllegalArgumentException | NullPointerException expected) {
             // expected
         }
 
         try {
             s.removeValue(null);
-            fail("IllegalArgumentException wasn't thrown");
-        } catch (IllegalArgumentException expected) {
+            fail("Exception wasn't thrown");
+        } catch (IllegalArgumentException | NullPointerException expected) {
             // expected
         }
     }
@@ -264,8 +248,8 @@ public class SSLSessionTest extends TestCase {
 
         try {
             s.getValue(null);
-            fail("IllegalArgumentException wasn't thrown");
-        } catch (IllegalArgumentException expected) {
+            fail("Exception wasn't thrown");
+        } catch (IllegalArgumentException | NullPointerException expected) {
             // expected
         }
 

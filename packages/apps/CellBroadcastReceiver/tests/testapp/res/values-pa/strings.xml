@@ -23,11 +23,11 @@
     <string name="button_etws_other_type" msgid="4129451610585426791">"ETWS ਹੋਰ ਐਮਰਜੈਂਸ਼ੀ ਪ੍ਰਸਾਰਣ ਭੇਜੋ"</string>
     <string name="button_etws_cancel_type" msgid="4770911191572322801">"ETWS ਰੱਦ ਕਰਨ ਦਾ ਪ੍ਰਸਾਰਨ ਭੇਜੋ"</string>
     <string name="button_etws_test_type" msgid="5520113823851979673">"ETWS ਜਾਂਚ ਪ੍ਰਸਾਰਨ ਭੇਜੋ"</string>
-    <string name="button_cmas_pres_alert" msgid="1269455100893365889">"CMAS Presidential ਚੇਤਾਵਨੀ ਭੇਜੋ"</string>
-    <string name="button_cmas_extreme_alert" msgid="5922644977169679386">"CMAS Extreme ਚੇਤਾਵਨੀ ਭੇਜੋ"</string>
-    <string name="button_cmas_severe_alert" msgid="5197711586353552255">"CMAS Severe ਚੇਤਾਵਨੀ ਭੇਜੋ"</string>
-    <string name="button_cmas_amber_alert" msgid="860091654456014191">"CMAS AMBER ਚੇਤਾਵਨੀ ਭੇਜੋ"</string>
-    <string name="button_cmas_monthly_test" msgid="6797479769988491996">"CMAS ਮਹੀਨਾਵਾਰ ਜਾਂਚ ਚੇਤਾਵਨੀ ਭੇਜੋ"</string>
+    <string name="button_cmas_pres_alert" msgid="1269455100893365889">"CMAS Presidential  ਚਿਤਾਵਨੀ  ਭੇਜੋ"</string>
+    <string name="button_cmas_extreme_alert" msgid="5922644977169679386">"CMAS Extreme  ਚਿਤਾਵਨੀ  ਭੇਜੋ"</string>
+    <string name="button_cmas_severe_alert" msgid="5197711586353552255">"CMAS Severe  ਚਿਤਾਵਨੀ  ਭੇਜੋ"</string>
+    <string name="button_cmas_amber_alert" msgid="860091654456014191">"CMAS AMBER  ਚਿਤਾਵਨੀ  ਭੇਜੋ"</string>
+    <string name="button_cmas_monthly_test" msgid="6797479769988491996">"CMAS ਮਹੀਨਾਵਾਰ ਜਾਂਚ  ਚਿਤਾਵਨੀ  ਭੇਜੋ"</string>
     <string name="button_gsm_7bit_type" msgid="4902292221458231081">"GSM 7 Bit ਜਾਂਚ ਪ੍ਰਸਾਰਨ ਭੇਜੋ"</string>
     <string name="button_gsm_7bit_umts_type" msgid="5871195118138691977">"UMTS 7 Bit ਜਾਂਚ ਪ੍ਰਸਾਰਨ ਭੇਜੋ"</string>
     <string name="button_gsm_7bit_nopadding_type" msgid="5003490670292596214">"GSM 7 Bit ਪੂਰੀ ਸਮਾਂ ਅਵਧੀ ਦਾ ਪ੍ਰਸਾਰਨ ਭੇਜੋ"</string>

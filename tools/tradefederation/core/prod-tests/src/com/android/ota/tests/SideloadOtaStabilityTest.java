@@ -293,15 +293,15 @@ public class SideloadOtaStabilityTest implements IDeviceTest, IBuildReceiver,
         listener.testStarted(test);
         try {
             mKmsgReceiver.start();
-            CLog.i("Pushing OTA package %s", otaBuild.getOtaPackageFile().getAbsolutePath());
-            Assert.assertTrue(mDevice.pushFile(otaBuild.getOtaPackageFile(), mPackageDataPath));
-            // this file needs to be uncrypted, since /data isn't mounted in recovery
-            // block.map should be empty since cache should be cleared
-            mDevice.pushString(mPackageDataPath + "\n", UNCRYPT_FILE_PATH);
-            // Flushing the file to flash.
-            mDevice.executeShellCommand("sync");
-
             try {
+                CLog.i("Pushing OTA package %s", otaBuild.getOtaPackageFile().getAbsolutePath());
+                Assert.assertTrue(mDevice.pushFile(otaBuild.getOtaPackageFile(), mPackageDataPath));
+                // this file needs to be uncrypted, since /data isn't mounted in recovery
+                // block.map should be empty since cache should be cleared
+                mDevice.pushString(mPackageDataPath + "\n", UNCRYPT_FILE_PATH);
+                // Flushing the file to flash.
+                mDevice.executeShellCommand("sync");
+
                 mUncryptDuration = doUncrypt(SocketFactory.getInstance(), listener);
                 metrics.put("uncrypt_duration", Long.toString(mUncryptDuration));
                 String installOtaCmd = String.format("--update_package=%s\n", BLOCK_MAP_PATH);
@@ -397,12 +397,14 @@ public class SideloadOtaStabilityTest implements IDeviceTest, IBuildReceiver,
         double elapsedTime = 0;
         // last_log contains a timing metric in its last line, capture it here and return it
         // for the metrics map to report
-        if (lastLog == null || lastKmsg == null) {
-            CLog.w("Could not find last_log at directory %s, "
-                    + "or last_kmsg at directory %s", LOG_RECOV, LOG_KMSG);
-            return elapsedTime;
-        }
         try {
+            if (lastLog == null || lastKmsg == null) {
+                CLog.w(
+                        "Could not find last_log at directory %s, or last_kmsg at directory %s",
+                        LOG_RECOV, LOG_KMSG);
+                return elapsedTime;
+            }
+
             try {
                 String[] lastLogLines = StreamUtil.getStringFromSource(lastLog).split("\n");
                 String endLine = lastLogLines[lastLogLines.length - 1];

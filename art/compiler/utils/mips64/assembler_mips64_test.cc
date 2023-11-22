@@ -1970,6 +1970,50 @@ TEST_F(AssemblerMIPS64Test, LoadFpuFromOffset) {
   __ LoadFpuFromOffset(mips64::kLoadDoubleword, mips64::F0, mips64::A0, -32768);
   __ LoadFpuFromOffset(mips64::kLoadDoubleword, mips64::F0, mips64::A0, 0xABCDEF00);
 
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 0);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 1);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 2);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 4);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 8);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 511);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 512);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 513);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 514);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 516);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 1022);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 1024);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 1025);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 1026);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 1028);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 2044);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 2048);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 2049);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 2050);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 2052);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 4088);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 4096);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 4097);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 4098);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 4100);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 4104);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 0x7FFC);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 0x8000);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 0x10000);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 0x12345678);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 0x12350078);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, -256);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, -511);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, -513);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, -1022);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, -1026);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, -2044);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, -2052);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, -4096);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, -4104);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, -32768);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 0xABCDEF00);
+  __ LoadFpuFromOffset(mips64::kLoadQuadword, mips64::F0, mips64::A0, 0x7FFFABCD);
+
   const char* expected =
       "lwc1 $f0, 0($a0)\n"
       "lwc1 $f0, 4($a0)\n"
@@ -2010,7 +2054,78 @@ TEST_F(AssemblerMIPS64Test, LoadFpuFromOffset) {
       "ldc1 $f0, -256($a0)\n"
       "ldc1 $f0, -32768($a0)\n"
       "daui $at, $a0, 0xABCE\n"
-      "ldc1 $f0, -0x1100($at) # 0xEF00\n";
+      "ldc1 $f0, -0x1100($at) # 0xEF00\n"
+
+      "ld.d $w0, 0($a0)\n"
+      "ld.b $w0, 1($a0)\n"
+      "ld.h $w0, 2($a0)\n"
+      "ld.w $w0, 4($a0)\n"
+      "ld.d $w0, 8($a0)\n"
+      "ld.b $w0, 511($a0)\n"
+      "ld.d $w0, 512($a0)\n"
+      "daddiu $at, $a0, 513\n"
+      "ld.b $w0, 0($at)\n"
+      "ld.h $w0, 514($a0)\n"
+      "ld.w $w0, 516($a0)\n"
+      "ld.h $w0, 1022($a0)\n"
+      "ld.d $w0, 1024($a0)\n"
+      "daddiu $at, $a0, 1025\n"
+      "ld.b $w0, 0($at)\n"
+      "daddiu $at, $a0, 1026\n"
+      "ld.h $w0, 0($at)\n"
+      "ld.w $w0, 1028($a0)\n"
+      "ld.w $w0, 2044($a0)\n"
+      "ld.d $w0, 2048($a0)\n"
+      "daddiu $at, $a0, 2049\n"
+      "ld.b $w0, 0($at)\n"
+      "daddiu $at, $a0, 2050\n"
+      "ld.h $w0, 0($at)\n"
+      "daddiu $at, $a0, 2052\n"
+      "ld.w $w0, 0($at)\n"
+      "ld.d $w0, 4088($a0)\n"
+      "daddiu $at, $a0, 4096\n"
+      "ld.d $w0, 0($at)\n"
+      "daddiu $at, $a0, 4097\n"
+      "ld.b $w0, 0($at)\n"
+      "daddiu $at, $a0, 4098\n"
+      "ld.h $w0, 0($at)\n"
+      "daddiu $at, $a0, 4100\n"
+      "ld.w $w0, 0($at)\n"
+      "daddiu $at, $a0, 4104\n"
+      "ld.d $w0, 0($at)\n"
+      "daddiu $at, $a0, 0x7FFC\n"
+      "ld.w $w0, 0($at)\n"
+      "daddiu $at, $a0, 0x7FF8\n"
+      "ld.d $w0, 8($at)\n"
+      "daui $at, $a0, 0x1\n"
+      "ld.d $w0, 0($at)\n"
+      "daui $at, $a0, 0x1234\n"
+      "daddiu $at, $at, 0x6000\n"
+      "ld.d $w0, -2440($at) # 0xF678\n"
+      "daui $at, $a0, 0x1235\n"
+      "ld.d $w0, 0x78($at)\n"
+      "ld.d $w0, -256($a0)\n"
+      "ld.b $w0, -511($a0)\n"
+      "daddiu $at, $a0, -513\n"
+      "ld.b $w0, 0($at)\n"
+      "ld.h $w0, -1022($a0)\n"
+      "daddiu $at, $a0, -1026\n"
+      "ld.h $w0, 0($at)\n"
+      "ld.w $w0, -2044($a0)\n"
+      "daddiu $at, $a0, -2052\n"
+      "ld.w $w0, 0($at)\n"
+      "ld.d $w0, -4096($a0)\n"
+      "daddiu $at, $a0, -4104\n"
+      "ld.d $w0, 0($at)\n"
+      "daddiu $at, $a0, -32768\n"
+      "ld.d $w0, 0($at)\n"
+      "daui $at, $a0, 0xABCE\n"
+      "daddiu $at, $at, -8192 # 0xE000\n"
+      "ld.d $w0, 0xF00($at)\n"
+      "daui $at, $a0, 0x8000\n"
+      "dahi $at, $at, 1\n"
+      "daddiu $at, $at, -21504 # 0xAC00\n"
+      "ld.b $w0, -51($at) # 0xFFCD\n";
   DriverStr(expected, "LoadFpuFromOffset");
 }
 
@@ -2200,6 +2315,50 @@ TEST_F(AssemblerMIPS64Test, StoreFpuToOffset) {
   __ StoreFpuToOffset(mips64::kStoreDoubleword, mips64::F0, mips64::A0, -32768);
   __ StoreFpuToOffset(mips64::kStoreDoubleword, mips64::F0, mips64::A0, 0xABCDEF00);
 
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 0);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 1);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 2);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 4);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 8);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 511);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 512);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 513);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 514);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 516);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 1022);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 1024);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 1025);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 1026);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 1028);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 2044);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 2048);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 2049);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 2050);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 2052);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 4088);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 4096);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 4097);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 4098);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 4100);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 4104);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 0x7FFC);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 0x8000);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 0x10000);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 0x12345678);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 0x12350078);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, -256);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, -511);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, -513);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, -1022);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, -1026);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, -2044);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, -2052);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, -4096);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, -4104);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, -32768);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 0xABCDEF00);
+  __ StoreFpuToOffset(mips64::kStoreQuadword, mips64::F0, mips64::A0, 0x7FFFABCD);
+
   const char* expected =
       "swc1 $f0, 0($a0)\n"
       "swc1 $f0, 4($a0)\n"
@@ -2240,7 +2399,78 @@ TEST_F(AssemblerMIPS64Test, StoreFpuToOffset) {
       "sdc1 $f0, -256($a0)\n"
       "sdc1 $f0, -32768($a0)\n"
       "daui $at, $a0, 0xABCE\n"
-      "sdc1 $f0, -0x1100($at)\n";
+      "sdc1 $f0, -0x1100($at)\n"
+
+      "st.d $w0, 0($a0)\n"
+      "st.b $w0, 1($a0)\n"
+      "st.h $w0, 2($a0)\n"
+      "st.w $w0, 4($a0)\n"
+      "st.d $w0, 8($a0)\n"
+      "st.b $w0, 511($a0)\n"
+      "st.d $w0, 512($a0)\n"
+      "daddiu $at, $a0, 513\n"
+      "st.b $w0, 0($at)\n"
+      "st.h $w0, 514($a0)\n"
+      "st.w $w0, 516($a0)\n"
+      "st.h $w0, 1022($a0)\n"
+      "st.d $w0, 1024($a0)\n"
+      "daddiu $at, $a0, 1025\n"
+      "st.b $w0, 0($at)\n"
+      "daddiu $at, $a0, 1026\n"
+      "st.h $w0, 0($at)\n"
+      "st.w $w0, 1028($a0)\n"
+      "st.w $w0, 2044($a0)\n"
+      "st.d $w0, 2048($a0)\n"
+      "daddiu $at, $a0, 2049\n"
+      "st.b $w0, 0($at)\n"
+      "daddiu $at, $a0, 2050\n"
+      "st.h $w0, 0($at)\n"
+      "daddiu $at, $a0, 2052\n"
+      "st.w $w0, 0($at)\n"
+      "st.d $w0, 4088($a0)\n"
+      "daddiu $at, $a0, 4096\n"
+      "st.d $w0, 0($at)\n"
+      "daddiu $at, $a0, 4097\n"
+      "st.b $w0, 0($at)\n"
+      "daddiu $at, $a0, 4098\n"
+      "st.h $w0, 0($at)\n"
+      "daddiu $at, $a0, 4100\n"
+      "st.w $w0, 0($at)\n"
+      "daddiu $at, $a0, 4104\n"
+      "st.d $w0, 0($at)\n"
+      "daddiu $at, $a0, 0x7FFC\n"
+      "st.w $w0, 0($at)\n"
+      "daddiu $at, $a0, 0x7FF8\n"
+      "st.d $w0, 8($at)\n"
+      "daui $at, $a0, 0x1\n"
+      "st.d $w0, 0($at)\n"
+      "daui $at, $a0, 0x1234\n"
+      "daddiu $at, $at, 0x6000\n"
+      "st.d $w0, -2440($at) # 0xF678\n"
+      "daui $at, $a0, 0x1235\n"
+      "st.d $w0, 0x78($at)\n"
+      "st.d $w0, -256($a0)\n"
+      "st.b $w0, -511($a0)\n"
+      "daddiu $at, $a0, -513\n"
+      "st.b $w0, 0($at)\n"
+      "st.h $w0, -1022($a0)\n"
+      "daddiu $at, $a0, -1026\n"
+      "st.h $w0, 0($at)\n"
+      "st.w $w0, -2044($a0)\n"
+      "daddiu $at, $a0, -2052\n"
+      "st.w $w0, 0($at)\n"
+      "st.d $w0, -4096($a0)\n"
+      "daddiu $at, $a0, -4104\n"
+      "st.d $w0, 0($at)\n"
+      "daddiu $at, $a0, -32768\n"
+      "st.d $w0, 0($at)\n"
+      "daui $at, $a0, 0xABCE\n"
+      "daddiu $at, $at, -8192 # 0xE000\n"
+      "st.d $w0, 0xF00($at)\n"
+      "daui $at, $a0, 0x8000\n"
+      "dahi $at, $at, 1\n"
+      "daddiu $at, $at, -21504 # 0xAC00\n"
+      "st.b $w0, -51($at) # 0xFFCD\n";
   DriverStr(expected, "StoreFpuToOffset");
 }
 
@@ -2668,6 +2898,186 @@ TEST_F(AssemblerMIPS64Test, Mod_uD) {
             "mod_u.d");
 }
 
+TEST_F(AssemblerMIPS64Test, Add_aB) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Add_aB, "add_a.b ${reg1}, ${reg2}, ${reg3}"),
+            "add_a.b");
+}
+
+TEST_F(AssemblerMIPS64Test, Add_aH) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Add_aH, "add_a.h ${reg1}, ${reg2}, ${reg3}"),
+            "add_a.h");
+}
+
+TEST_F(AssemblerMIPS64Test, Add_aW) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Add_aW, "add_a.w ${reg1}, ${reg2}, ${reg3}"),
+            "add_a.w");
+}
+
+TEST_F(AssemblerMIPS64Test, Add_aD) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Add_aD, "add_a.d ${reg1}, ${reg2}, ${reg3}"),
+            "add_a.d");
+}
+
+TEST_F(AssemblerMIPS64Test, Ave_sB) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Ave_sB, "ave_s.b ${reg1}, ${reg2}, ${reg3}"),
+            "ave_s.b");
+}
+
+TEST_F(AssemblerMIPS64Test, Ave_sH) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Ave_sH, "ave_s.h ${reg1}, ${reg2}, ${reg3}"),
+            "ave_s.h");
+}
+
+TEST_F(AssemblerMIPS64Test, Ave_sW) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Ave_sW, "ave_s.w ${reg1}, ${reg2}, ${reg3}"),
+            "ave_s.w");
+}
+
+TEST_F(AssemblerMIPS64Test, Ave_sD) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Ave_sD, "ave_s.d ${reg1}, ${reg2}, ${reg3}"),
+            "ave_s.d");
+}
+
+TEST_F(AssemblerMIPS64Test, Ave_uB) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Ave_uB, "ave_u.b ${reg1}, ${reg2}, ${reg3}"),
+            "ave_u.b");
+}
+
+TEST_F(AssemblerMIPS64Test, Ave_uH) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Ave_uH, "ave_u.h ${reg1}, ${reg2}, ${reg3}"),
+            "ave_u.h");
+}
+
+TEST_F(AssemblerMIPS64Test, Ave_uW) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Ave_uW, "ave_u.w ${reg1}, ${reg2}, ${reg3}"),
+            "ave_u.w");
+}
+
+TEST_F(AssemblerMIPS64Test, Ave_uD) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Ave_uD, "ave_u.d ${reg1}, ${reg2}, ${reg3}"),
+            "ave_u.d");
+}
+
+TEST_F(AssemblerMIPS64Test, Aver_sB) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Aver_sB, "aver_s.b ${reg1}, ${reg2}, ${reg3}"),
+            "aver_s.b");
+}
+
+TEST_F(AssemblerMIPS64Test, Aver_sH) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Aver_sH, "aver_s.h ${reg1}, ${reg2}, ${reg3}"),
+            "aver_s.h");
+}
+
+TEST_F(AssemblerMIPS64Test, Aver_sW) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Aver_sW, "aver_s.w ${reg1}, ${reg2}, ${reg3}"),
+            "aver_s.w");
+}
+
+TEST_F(AssemblerMIPS64Test, Aver_sD) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Aver_sD, "aver_s.d ${reg1}, ${reg2}, ${reg3}"),
+            "aver_s.d");
+}
+
+TEST_F(AssemblerMIPS64Test, Aver_uB) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Aver_uB, "aver_u.b ${reg1}, ${reg2}, ${reg3}"),
+            "aver_u.b");
+}
+
+TEST_F(AssemblerMIPS64Test, Aver_uH) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Aver_uH, "aver_u.h ${reg1}, ${reg2}, ${reg3}"),
+            "aver_u.h");
+}
+
+TEST_F(AssemblerMIPS64Test, Aver_uW) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Aver_uW, "aver_u.w ${reg1}, ${reg2}, ${reg3}"),
+            "aver_u.w");
+}
+
+TEST_F(AssemblerMIPS64Test, Aver_uD) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Aver_uD, "aver_u.d ${reg1}, ${reg2}, ${reg3}"),
+            "aver_u.d");
+}
+
+TEST_F(AssemblerMIPS64Test, Max_sB) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Max_sB, "max_s.b ${reg1}, ${reg2}, ${reg3}"),
+            "max_s.b");
+}
+
+TEST_F(AssemblerMIPS64Test, Max_sH) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Max_sH, "max_s.h ${reg1}, ${reg2}, ${reg3}"),
+            "max_s.h");
+}
+
+TEST_F(AssemblerMIPS64Test, Max_sW) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Max_sW, "max_s.w ${reg1}, ${reg2}, ${reg3}"),
+            "max_s.w");
+}
+
+TEST_F(AssemblerMIPS64Test, Max_sD) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Max_sD, "max_s.d ${reg1}, ${reg2}, ${reg3}"),
+            "max_s.d");
+}
+
+TEST_F(AssemblerMIPS64Test, Max_uB) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Max_uB, "max_u.b ${reg1}, ${reg2}, ${reg3}"),
+            "max_u.b");
+}
+
+TEST_F(AssemblerMIPS64Test, Max_uH) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Max_uH, "max_u.h ${reg1}, ${reg2}, ${reg3}"),
+            "max_u.h");
+}
+
+TEST_F(AssemblerMIPS64Test, Max_uW) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Max_uW, "max_u.w ${reg1}, ${reg2}, ${reg3}"),
+            "max_u.w");
+}
+
+TEST_F(AssemblerMIPS64Test, Max_uD) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Max_uD, "max_u.d ${reg1}, ${reg2}, ${reg3}"),
+            "max_u.d");
+}
+
+TEST_F(AssemblerMIPS64Test, Min_sB) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Min_sB, "min_s.b ${reg1}, ${reg2}, ${reg3}"),
+            "min_s.b");
+}
+
+TEST_F(AssemblerMIPS64Test, Min_sH) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Min_sH, "min_s.h ${reg1}, ${reg2}, ${reg3}"),
+            "min_s.h");
+}
+
+TEST_F(AssemblerMIPS64Test, Min_sW) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Min_sW, "min_s.w ${reg1}, ${reg2}, ${reg3}"),
+            "min_s.w");
+}
+
+TEST_F(AssemblerMIPS64Test, Min_sD) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Min_sD, "min_s.d ${reg1}, ${reg2}, ${reg3}"),
+            "min_s.d");
+}
+
+TEST_F(AssemblerMIPS64Test, Min_uB) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Min_uB, "min_u.b ${reg1}, ${reg2}, ${reg3}"),
+            "min_u.b");
+}
+
+TEST_F(AssemblerMIPS64Test, Min_uH) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Min_uH, "min_u.h ${reg1}, ${reg2}, ${reg3}"),
+            "min_u.h");
+}
+
+TEST_F(AssemblerMIPS64Test, Min_uW) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Min_uW, "min_u.w ${reg1}, ${reg2}, ${reg3}"),
+            "min_u.w");
+}
+
+TEST_F(AssemblerMIPS64Test, Min_uD) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::Min_uD, "min_u.d ${reg1}, ${reg2}, ${reg3}"),
+            "min_u.d");
+}
+
 TEST_F(AssemblerMIPS64Test, FaddW) {
   DriverStr(RepeatVVV(&mips64::Mips64Assembler::FaddW, "fadd.w ${reg1}, ${reg2}, ${reg3}"),
             "fadd.w");
@@ -2706,6 +3116,26 @@ TEST_F(AssemblerMIPS64Test, FdivW) {
 TEST_F(AssemblerMIPS64Test, FdivD) {
   DriverStr(RepeatVVV(&mips64::Mips64Assembler::FdivD, "fdiv.d ${reg1}, ${reg2}, ${reg3}"),
             "fdiv.d");
+}
+
+TEST_F(AssemblerMIPS64Test, FmaxW) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::FmaxW, "fmax.w ${reg1}, ${reg2}, ${reg3}"),
+            "fmax.w");
+}
+
+TEST_F(AssemblerMIPS64Test, FmaxD) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::FmaxD, "fmax.d ${reg1}, ${reg2}, ${reg3}"),
+            "fmax.d");
+}
+
+TEST_F(AssemblerMIPS64Test, FminW) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::FminW, "fmin.w ${reg1}, ${reg2}, ${reg3}"),
+            "fmin.w");
+}
+
+TEST_F(AssemblerMIPS64Test, FminD) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::FminD, "fmin.d ${reg1}, ${reg2}, ${reg3}"),
+            "fmin.d");
 }
 
 TEST_F(AssemblerMIPS64Test, Ffint_sW) {
@@ -2888,6 +3318,26 @@ TEST_F(AssemblerMIPS64Test, StW) {
 TEST_F(AssemblerMIPS64Test, StD) {
   DriverStr(RepeatVRIb(&mips64::Mips64Assembler::StD, -10, "st.d ${reg1}, {imm}(${reg2})", 0, 8),
             "st.d");
+}
+
+TEST_F(AssemblerMIPS64Test, IlvrB) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::IlvrB, "ilvr.b ${reg1}, ${reg2}, ${reg3}"),
+            "ilvr.b");
+}
+
+TEST_F(AssemblerMIPS64Test, IlvrH) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::IlvrH, "ilvr.h ${reg1}, ${reg2}, ${reg3}"),
+            "ilvr.h");
+}
+
+TEST_F(AssemblerMIPS64Test, IlvrW) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::IlvrW, "ilvr.w ${reg1}, ${reg2}, ${reg3}"),
+            "ilvr.w");
+}
+
+TEST_F(AssemblerMIPS64Test, IlvrD) {
+  DriverStr(RepeatVVV(&mips64::Mips64Assembler::IlvrD, "ilvr.d ${reg1}, ${reg2}, ${reg3}"),
+            "ilvr.d");
 }
 
 #undef __

@@ -369,6 +369,10 @@
     <string name="system_services" msgid="7230571820151215779">"Pakalpojumi"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Pakalpojumu iestatījumi"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Liela kontrasta teksts"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Pieejamības īsinājumtaustiņš"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Iespējot pieejamības īsinājumtaustiņu"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Īsinājumtaustiņa pakalpojums"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Kad īsinājumtaustiņš ir ieslēgts, varat uz 3 sekundēm nospiest pogu Atpakaļ un skaļuma samazināšanas pogu, lai aktivizētu pieejamības funkciju."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Subtitri"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Videoklipa slēgto parakstu teksta pārklājuma iestatījumi"</string>
     <string name="captions_display" msgid="735692527287125548">"Displejs"</string>
@@ -408,7 +412,7 @@
     <string name="color_magenta" msgid="6395786485839439122">"Fuksīnsarkana"</string>
     <string name="system_accessibility_status" msgid="6150600992901856367">"Iespējot"</string>
     <string name="system_accessibility_config" msgid="3216531917536720277">"Konfigurācija"</string>
-    <string name="system_accessibility_service_on_confirm_title" msgid="8200707259067035823">"Vai izmantot pakalpojumu <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
+    <string name="system_accessibility_service_on_confirm_title" msgid="8200707259067035823">"Izmantot <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
     <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"Pakalpojumā <xliff:g id="SERVICE">%1$s</xliff:g> var tikt apkopots viss jūsu ievadītais teksts, izņemot paroles. Tas attiecas arī uz personas datiem, piemēram, kredītkartes numuru."</string>
     <string name="system_accessibility_service_off_confirm_title" msgid="963297812889694832">"Vai apturēt pakalpojuma <xliff:g id="SERVICE">%1$s</xliff:g> darbību?"</string>
     <string name="system_accessibility_service_off_confirm_desc" msgid="6714782635926048678">"Atlasot “Labi”, pakalpojuma <xliff:g id="SERVICE">%1$s</xliff:g> darbība tiks pārtraukta."</string>
@@ -671,4 +675,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Notiek kļūdas pārskata izveide"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Pieejamās virtuālās tastatūras"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Pārvaldīt tastatūras"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Atļauta"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Nav atļauta"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Piekļuve lietojuma datiem"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Piekļuve lietojuma datiem ļauj lietotnei izsekot, kādas lietotnes un cik bieži izmantojat, kā arī iegūt informāciju par jūsu mobilo sakaru operatoru, valodas iestatījumiem un citus datus."</string>
 </resources>

@@ -6,6 +6,8 @@
 
 #include <net/if.h>
 #include <sys/crypto/ioctl.h>
+#include <sys/dditypes.h>
+#include <sys/devinfo_impl.h>
 #include <sys/dtrace.h>
 #include <sys/filio.h>
 #include <sys/stat.h>		/* for _ST_FSTYPSZ */
@@ -25,6 +27,46 @@ static void sys_ioctl_POOL_STATUSQ(void)
 }
 
 /* mntio */
+__attribute__((noinline))
+static void sys_ioctl_MNTIOC_GETEXTMNTENT(void)
+{
+   GO(SYS_ioctl, "(MNTIOC_GETEXTMNTENT) 3s 1m");
+   SY(SYS_ioctl, x0 - 1, x0 + MNTIOC_GETEXTMNTENT, x0 + 1); FAIL;
+}
+
+__attribute__((noinline))
+static void sys_ioctl_MNTIOC_GETEXTMNTENT_2(void)
+{
+   struct mntentbuf embuf;
+
+   embuf.mbuf_emp = (void *) (x0 + 1);
+   embuf.mbuf_buf = (void *) (x0 + 1);
+   embuf.mbuf_bufsize = x0 + 1;
+
+   GO(SYS_ioctl, "(MNTIOC_GETEXTMNTENT) 4s 2m");
+   SY(SYS_ioctl, x0 - 1, x0 + MNTIOC_GETEXTMNTENT, &embuf + x0); FAIL;
+}
+
+__attribute__((noinline))
+static void sys_ioctl_MNTIOC_GETEXTMNTENT_3(void)
+{
+   struct extmnttab mnt;
+   struct mntentbuf embuf;
+
+   mnt.mnt_special = (void *) (x0 + 1);
+   mnt.mnt_mountp = (void *) (x0 + 1);
+   mnt.mnt_fstype = (void *) (x0 + 1);
+   mnt.mnt_mntopts = (void *) (x0 + 1);
+   mnt.mnt_time = (void *) (x0 + 1);
+
+   embuf.mbuf_emp = x0 + &mnt;
+   embuf.mbuf_buf = (void *) (x0 + 1);
+   embuf.mbuf_bufsize = x0 + 1;
+
+   GO(SYS_ioctl, "(MNTIOC_GETEXTMNTENT) 5s 6m");
+   SY(SYS_ioctl, x0 - 1, x0 + MNTIOC_GETEXTMNTENT, &embuf + x0); FAIL;
+}
+
 __attribute__((noinline))
 static void sys_ioctl_MNTIOC_GETMNTANY(void)
 {
@@ -159,6 +201,13 @@ static void sys_ioctl_I_PUSH(void)
 }
 
 __attribute__((noinline))
+static void sys_ioctl_I_FLUSH(void)
+{
+   GO(SYS_ioctl, "(I_FLUSH) 3s 0m");
+   SY(SYS_ioctl, x0 - 1, x0 + I_FLUSH, x0 + FLUSHR); FAIL;
+}
+
+__attribute__((noinline))
 static void sys_ioctl_I_STR(void)
 {
    GO(SYS_ioctl, "(I_STR) 3s 1m");
@@ -177,6 +226,13 @@ static void sys_ioctl_I_STR_2(void)
 
    GO(SYS_ioctl, "(I_STR) 4s 1m");
    SY(SYS_ioctl, x0 - 1, x0 + I_STR, &str + x0); FAIL;
+}
+
+__attribute__((noinline))
+static void sys_ioctl_I_FIND(void)
+{
+   GO(SYS_ioctl, "(I_FIND) 3s 1m");
+   SY(SYS_ioctl, x0 - 1, x0 + I_FIND, x0 + 1); FAIL;
 }
 
 __attribute__((noinline))
@@ -444,6 +500,20 @@ static void sys_ioctl_DTRACEHIOC_ADDDOF(void)
    SY(SYS_ioctl, x0 - 1, x0 + DTRACEHIOC_ADDDOF, x0 + &dh); FAIL;
 }
 
+__attribute__((noinline))
+static void sys_ioctl_DINFOUSRLD(void)
+{
+   GO(SYS_ioctl, "(DINFOUSRLD) 3s 0m");
+   SY(SYS_ioctl, x0 - 1, x0 + DINFOUSRLD, x0 + 1); FAIL;
+}
+
+__attribute__((noinline))
+static void sys_ioctl_DINFOIDENT(void)
+{
+   GO(SYS_ioctl, "(DINFOIDENT) 2s 0m");
+   SY(SYS_ioctl, x0 - 1, x0 + DINFOIDENT); FAIL;
+}
+
 int main(void)
 {
    /* Uninitialised, but we know px[0] is 0x0. */
@@ -454,6 +524,9 @@ int main(void)
    sys_ioctl_POOL_STATUSQ();
 
    /* mntio */
+   sys_ioctl_MNTIOC_GETEXTMNTENT();
+   sys_ioctl_MNTIOC_GETEXTMNTENT_2();
+   sys_ioctl_MNTIOC_GETEXTMNTENT_3();
    sys_ioctl_MNTIOC_GETMNTANY();
    sys_ioctl_MNTIOC_GETMNTANY_2();
    sys_ioctl_MNTIOC_GETMNTANY_3();
@@ -474,8 +547,10 @@ int main(void)
 
    /* STREAMS */
    sys_ioctl_I_PUSH();
+   sys_ioctl_I_FLUSH();
    sys_ioctl_I_STR();
    sys_ioctl_I_STR_2();
+   sys_ioctl_I_FIND();
    sys_ioctl_I_PEEK();
    sys_ioctl_I_PEEK_2();
    sys_ioctl_I_CANPUT();
@@ -510,6 +585,10 @@ int main(void)
    /* dtrace */
    sys_ioctl_DTRACEHIOC_REMOVE();
    sys_ioctl_DTRACEHIOC_ADDDOF();
+
+   /* devinfo */
+   sys_ioctl_DINFOUSRLD();
+   sys_ioctl_DINFOIDENT();
 
    return 0;
 }

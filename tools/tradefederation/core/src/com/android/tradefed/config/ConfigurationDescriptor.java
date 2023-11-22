@@ -15,10 +15,13 @@
  */
 package com.android.tradefed.config;
 
+import com.android.tradefed.build.BuildSerializedVersion;
+import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.util.MultiMap;
 
 import com.google.common.annotations.VisibleForTesting;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,7 +31,8 @@ import java.util.List;
  * xml.
  */
 @OptionClass(alias = "config-descriptor")
-public class ConfigurationDescriptor {
+public class ConfigurationDescriptor implements Serializable {
+    private static final long serialVersionUID = BuildSerializedVersion.VERSION;
 
     @Option(name = "test-suite-tag", description = "A membership tag to suite. Can be repeated.")
     private List<String> mSuiteTags = new ArrayList<>();
@@ -45,6 +49,24 @@ public class ConfigurationDescriptor {
                         + "sense."
     )
     private boolean mNotShardable = false;
+
+    @Option(
+        name = "not-strict-shardable",
+        description =
+                "A metadata to allows a suite configuration to specify that it cannot be "
+                        + "sharded in a strict context (independent shards). If a config is already "
+                        + "not-shardable, it will be not-strict-shardable."
+    )
+    private boolean mNotStrictShardable = false;
+
+    @Option(
+        name = "use-sandboxing",
+        description = "Option used to notify an invocation that it is running in a sandbox."
+    )
+    private boolean mUseSandboxing = false;
+
+    /** Optional Abi information the configuration will be run against. */
+    private IAbi mAbi = null;
 
     /** Returns the list of suite tags the test is part of. */
     public List<String> getSuiteTags() {
@@ -74,5 +96,30 @@ public class ConfigurationDescriptor {
     /** Returns if the configuration is shardable or not as part of a suite */
     public boolean isNotShardable() {
         return mNotShardable;
+    }
+
+    /** Returns if the configuration is strict shardable or not as part of a suite */
+    public boolean isNotStrictShardable() {
+        return mNotStrictShardable;
+    }
+
+    /** Sets the abi the configuration is going to run against. */
+    public void setAbi(IAbi abi) {
+        mAbi = abi;
+    }
+
+    /** Returns the abi the configuration is running against if known, null otherwise. */
+    public IAbi getAbi() {
+        return mAbi;
+    }
+
+    /** Returns true if the invocation should run in sandboxed mode. False otherwise. */
+    public boolean shouldUseSandbox() {
+        return mUseSandboxing;
+    }
+
+    /** Sets whether or not a config will run in sandboxed mode or not. */
+    public void setSandboxed(boolean useSandboxed) {
+        mUseSandboxing = useSandboxed;
     }
 }

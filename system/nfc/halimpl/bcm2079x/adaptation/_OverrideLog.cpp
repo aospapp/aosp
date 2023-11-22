@@ -26,6 +26,7 @@
  ******************************************************************************/
 #include "_OverrideLog.h"
 #include <cutils/properties.h>
+#include <stdio.h>
 #include <string.h>
 #include "android_logmsg.h"
 #include "config.h"

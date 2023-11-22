@@ -16,17 +16,18 @@
 
 #define LOG_TAG "Memory"
 
-#include "JNIHelp.h"
-#include "JniConstants.h"
-#include "nativehelper/jni_macros.h"
-#include "Portability.h"
-#include "ScopedBytes.h"
-#include "ScopedPrimitiveArray.h"
-
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+
+#include <nativehelper/JNIHelp.h>
+#include <nativehelper/JniConstants.h>
+#include <nativehelper/ScopedBytes.h>
+#include <nativehelper/ScopedPrimitiveArray.h>
+
+#include "nativehelper/jni_macros.h"
+#include "Portability.h"
 
 // Use packed structures for access to unaligned data on targets with alignment restrictions.
 // The compiler will generate appropriate code to access these structures without

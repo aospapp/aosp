@@ -33,9 +33,8 @@ namespace vts {
 
 class HalSubmoduleCodeGen : public HalCodeGen {
  public:
-  HalSubmoduleCodeGen(const char* input_vts_file_path, const string& vts_name)
-      : HalCodeGen(input_vts_file_path, vts_name) {
-  }
+  HalSubmoduleCodeGen(const char* input_vts_file_path)
+      : HalCodeGen(input_vts_file_path) {}
 
  protected:
   void GenerateClassConstructionFunction(Formatter& out,

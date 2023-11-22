@@ -16,7 +16,7 @@ import sys
 import common
 
 import django.core.exceptions
-from autotest_lib.client.common_lib import base_utils as utils
+from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.global_config import global_config
 from autotest_lib.frontend.server import models as server_models
 from autotest_lib.site_utils.lib import infra
@@ -189,6 +189,15 @@ def format_servers_summary(servers):
         result_lines.append(
                 _format_role_servers_summary('No Role', servers_without_roles))
     return '\n'.join(result_lines)
+
+
+def format_servers_nameonly(servers):
+    """format servers for printing names only
+
+    @param servers: Sequence of Server instances.
+    @returns: Formatted output as string.
+    """
+    return '\n'.join(s.hostname for s in servers)
 
 
 def _get_servers_by_role(servers):

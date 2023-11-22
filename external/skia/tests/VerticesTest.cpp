@@ -50,8 +50,8 @@ static bool equal(const SkVertices* v0, const SkVertices* v1) {
 }
 
 DEF_TEST(Vertices, reporter) {
-    int vCount = 4;
-    int iCount = 6;
+    int vCount = 5;
+    int iCount = 9; // odd value exercises padding logic in encode()
 
     const uint32_t texFlags[] = { 0, SkVertices::kHasTexCoords_BuilderFlag };
     const uint32_t colFlags[] = { 0, SkVertices::kHasColors_BuilderFlag };
@@ -59,7 +59,7 @@ DEF_TEST(Vertices, reporter) {
         for (auto colF : colFlags) {
             uint32_t flags = texF | colF;
 
-            SkVertices::Builder builder(SkCanvas::kTriangles_VertexMode, vCount, iCount, flags);
+            SkVertices::Builder builder(SkVertices::kTriangles_VertexMode, vCount, iCount, flags);
 
             for (int i = 0; i < vCount; ++i) {
                 float x = (float)i;

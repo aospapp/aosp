@@ -24,6 +24,7 @@ import android.content.AsyncTaskLoader;
 import android.content.ContentProviderClient;
 import android.content.Context;
 import android.database.Cursor;
+import android.database.CursorWrapper;
 import android.database.MatrixCursor;
 import android.database.MergeCursor;
 import android.net.Uri;
@@ -35,6 +36,7 @@ import android.util.Log;
 
 import com.android.documentsui.base.Features;
 import com.android.documentsui.base.FilteringCursorWrapper;
+import com.android.documentsui.base.Lookup;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.State;
 import com.android.documentsui.roots.ProvidersAccess;
@@ -54,6 +56,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
@@ -84,6 +87,8 @@ public class RecentsLoader extends AsyncTaskLoader<DirectoryResult> {
     private final ProvidersAccess mProviders;
     private final State mState;
     private final Features mFeatures;
+    private final Lookup<String, Executor> mExecutors;
+    private final Lookup<String, String> mFileTypeMap;
 
     @GuardedBy("mTasks")
     /** A authority -> RecentsTask map */
@@ -94,11 +99,15 @@ public class RecentsLoader extends AsyncTaskLoader<DirectoryResult> {
 
     private DirectoryResult mResult;
 
-    public RecentsLoader(Context context, ProvidersAccess providers, State state, Features features) {
+    public RecentsLoader(Context context, ProvidersAccess providers, State state, Features features,
+            Lookup<String, Executor> executors, Lookup<String, String> fileTypeMap) {
+
         super(context);
         mProviders = providers;
         mState = state;
         mFeatures = features;
+        mExecutors = executors;
+        mFileTypeMap = fileTypeMap;
 
         // Keep clients around on high-RAM devices, since we'd be spinning them
         // up moments later to fetch thumbnails anyway.
@@ -127,7 +136,7 @@ public class RecentsLoader extends AsyncTaskLoader<DirectoryResult> {
 
             mFirstPassLatch = new CountDownLatch(mTasks.size());
             for (RecentsTask task : mTasks.values()) {
-                ProviderExecutor.forAuthority(task.authority).execute(task);
+                mExecutors.lookup(task.authority).execute(task);
             }
 
             try {
@@ -196,7 +205,8 @@ public class RecentsLoader extends AsyncTaskLoader<DirectoryResult> {
             merged = new MatrixCursor(new String[0]);
         }
 
-        final Cursor sorted = mState.sortModel.sortCursor(merged);
+        final Cursor notMovableMasked = new NotMovableMaskCursor(merged);
+        final Cursor sorted = mState.sortModel.sortCursor(notMovableMasked, mFileTypeMap);
 
         // Tell the UI if this is an in-progress result. When loading is complete, another update is
         // sent with EXTRA_LOADING set to false.
@@ -292,7 +302,7 @@ public class RecentsLoader extends AsyncTaskLoader<DirectoryResult> {
     // TODO: create better transfer of ownership around cursor to ensure its
     // closed in all edge cases.
 
-    public class RecentsTask extends AbstractFuture<Cursor[]> implements Runnable, Closeable {
+    private class RecentsTask extends AbstractFuture<Cursor[]> implements Runnable, Closeable {
         public final String authority;
         public final List<String> rootIds;
 
@@ -321,7 +331,7 @@ public class RecentsLoader extends AsyncTaskLoader<DirectoryResult> {
             }
         }
 
-        public synchronized void runInternal() {
+        private synchronized void runInternal() {
             if (mIsClosed) {
                 return;
             }
@@ -377,6 +387,24 @@ public class RecentsLoader extends AsyncTaskLoader<DirectoryResult> {
             }
 
             mIsClosed = true;
+        }
+    }
+
+    private static class NotMovableMaskCursor extends CursorWrapper {
+        private static final int NOT_MOVABLE_MASK =
+                ~(Document.FLAG_SUPPORTS_DELETE
+                        | Document.FLAG_SUPPORTS_REMOVE
+                        | Document.FLAG_SUPPORTS_MOVE);
+
+        private NotMovableMaskCursor(Cursor cursor) {
+            super(cursor);
+        }
+
+        @Override
+        public int getInt(int index) {
+            final int flagIndex = getWrappedCursor().getColumnIndex(Document.COLUMN_FLAGS);
+            final int value = super.getInt(index);
+            return (index == flagIndex) ? (value & NOT_MOVABLE_MASK) : value;
         }
     }
 }

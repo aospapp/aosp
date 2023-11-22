@@ -4,5 +4,7 @@
 set -e
 
 # Build and run the CHRE unit test binary.
-make google_x86_googletest -j
-./out/google_x86_googletest/libchre $1
+JOB_COUNT=$((`grep -c ^processor /proc/cpuinfo`))
+
+make google_x86_googletest_debug -j$JOB_COUNT
+./out/google_x86_googletest_debug/libchre $1

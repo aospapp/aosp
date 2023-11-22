@@ -98,52 +98,13 @@ public class VmMirror {
     }
 
     /**
-     * Sets breakpoint to given location.
-     * 
-     * @param typeTag
-     * @param breakpoint
-     * @return ReplyPacket for corresponding command
-     */
-    public ReplyPacket setBreakpoint(byte typeTag, Breakpoint breakpoint) {
-
-        return setBreakpoint(typeTag, breakpoint,
-                JDWPConstants.SuspendPolicy.ALL);
-    }
-
-    /**
-     * Sets breakpoint to given location.
-     * 
-     * @param typeTag
-     * @param breakpoint
-     * @param suspendPolicy
-     *            Suspend policy for a breakpoint being created
-     * @return ReplyPacket for corresponding command
-     */
-    public ReplyPacket setBreakpoint(byte typeTag, Breakpoint breakpoint,
-            byte suspendPolicy) {
-        // Get Class reference ID
-        long typeID = getTypeID(breakpoint.className, typeTag);
-
-        // Get Method reference ID
-        long methodID = getMethodID(typeID, breakpoint.methodName);
-
-        // Fill location
-        Location location = new Location(typeTag, typeID, methodID,
-                breakpoint.index);
-
-        // Set breakpoint
-        return setBreakpoint(location, suspendPolicy);
-    }
-
-    /**
-     * Sets breakpoint to given location.
-     * 
+     * Sets breakpoint to given location with suspend policy ALL.
+     *
      * @param location
      *            Location of breakpoint
      * @return ReplyPacket for corresponding command
      */
     public ReplyPacket setBreakpoint(Location location) {
-
         return setBreakpoint(location, JDWPConstants.SuspendPolicy.ALL);
     }
 
@@ -157,17 +118,9 @@ public class VmMirror {
      * @return ReplyPacket for corresponding command
      */
     public ReplyPacket setBreakpoint(Location location, byte suspendPolicy) {
-        // Prepare corresponding event
-        byte eventKind = JDWPConstants.EventKind.BREAKPOINT;
-
-        // EventMod[] mods = new EventMod[1];
-        EventMod[] mods = new EventMod[] { new EventMod() };
-
-        mods[0].loc = location;
-        mods[0].modKind = EventMod.ModKind.LocationOnly;
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
-        // Set breakpoint
+        Event event = Event.builder(JDWPConstants.EventKind.BREAKPOINT, suspendPolicy)
+                .setLocationOnly(location)
+                .build();
         return setEvent(event);
     }
 
@@ -187,30 +140,19 @@ public class VmMirror {
     public ReplyPacket setCountableBreakpoint(byte typeTag,
             Breakpoint breakpoint, byte suspendPolicy, int count) {
         long typeID = getTypeID(breakpoint.className, typeTag);
-
-        // Get Method reference ID
         long methodID = getMethodID(typeID, breakpoint.methodName);
 
-        byte eventKind = JDWPConstants.EventKind.BREAKPOINT;
-
-        EventMod mod1 = new EventMod();
-        mod1.modKind = EventMod.ModKind.LocationOnly;
-        mod1.loc = new Location(typeTag, typeID, methodID, breakpoint.index);
-
-        EventMod mod2 = new EventMod();
-        mod2.modKind = EventMod.ModKind.Count;
-        mod2.count = count;
-
-        EventMod[] mods = new EventMod[] { mod1, mod2 };
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
-        // Set breakpoint
+        Event event = Event.builder(JDWPConstants.EventKind.BREAKPOINT, suspendPolicy)
+                .setLocationOnly(new Location(typeTag, typeID, methodID, breakpoint.index))
+                .setCount(count)
+                .build();
         return setEvent(event);
     }
 
     /**
-     * Sets breakpoint at the beginning of method with name <i>methodName</i>.
-     * 
+     * Sets breakpoint at the beginning of method with name <i>methodName</i> with suspend policy
+     * ALL.
+     *
      * @param classID
      *            id of class with required method
      * @param methodName
@@ -993,8 +935,8 @@ public class VmMirror {
     }
 
     /**
-     * Sets ClassPrepare event request for given class name pattern.
-     * 
+     * Sets ClassPrepare event request for given class name pattern with suspend policy ALL.
+     *
      * @param classRegexp
      *            Required class pattern. Matches are limited to exact matches
      *            of the given class pattern and matches of patterns that begin
@@ -1002,43 +944,25 @@ public class VmMirror {
      * @return ReplyPacket for setting request.
      */
     public ReplyPacket setClassPrepared(String classRegexp) {
-        // Prepare corresponding event
-        byte eventKind = JDWPConstants.EventKind.CLASS_PREPARE;
-        byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        // EventMod[] mods = new EventMod[1];
-        EventMod[] mods = new EventMod[] { new EventMod() };
-        mods[0].classPattern = classRegexp;
-        mods[0].modKind = EventMod.ModKind.ClassMatch;
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
-        // Set event
-        return setEvent(event);
+        return setClassMatchEvent(JDWPConstants.EventKind.CLASS_PREPARE,
+                JDWPConstants.SuspendPolicy.ALL, classRegexp);
     }
 
     /**
-     * Set ClassPrepare event request for given class ID.
-     * 
+     * Set ClassPrepare event request for given class ID with suspend policy ALL.
+     *
      * @param referenceTypeID
      *            class referenceTypeID
      * @return ReplyPacket for setting request
      */
     public ReplyPacket setClassPrepared(long referenceTypeID) {
-        // Prepare corresponding event
-        byte eventKind = JDWPConstants.EventKind.CLASS_PREPARE;
-        byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        // EventMod[] mods = new EventMod[1];
-        EventMod[] mods = new EventMod[] { new EventMod() };
-        mods[0].clazz = referenceTypeID;
-        mods[0].modKind = EventMod.ModKind.ClassOnly;
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
-        // Set event
-        return setEvent(event);
+        return setClassOnlyEvent(JDWPConstants.EventKind.CLASS_PREPARE,
+                JDWPConstants.SuspendPolicy.ALL, referenceTypeID);
     }
     
     /**
-     * Sets ClassPrepare event request for given source name pattern.
-     * 
+     * Sets ClassPrepare event request for given source name pattern with suspend policy ALL.
+     *
      * @param sourceNamePattern
      *            Required source name pattern. Matches are limited to exact matches
      *            of the given source name pattern and matches of patterns that begin
@@ -1046,63 +970,41 @@ public class VmMirror {
      * @return ReplyPacket for setting request.
      */
     public ReplyPacket setClassPreparedForSourceNameMatch(String sourceNamePattern) {
-        // Prepare corresponding event
         byte eventKind = JDWPConstants.EventKind.CLASS_PREPARE;
         byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        EventMod[] mods = new EventMod[] { new EventMod() };
-        mods[0].sourceNamePattern = sourceNamePattern; 
-        mods[0].modKind = EventMod.ModKind.SourceNameMatch;
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
-        // Set event
+        Event event = Event.builder(eventKind, suspendPolicy)
+                .setSourceNameMatch(sourceNamePattern)
+                .build();
         return setEvent(event);
     }
 
     /**
-     * Sets ClassUnload event request for given class name pattern.
+     * Sets ClassUnload event request for given class name pattern with suspend policy ALL.
      *
      * @param classRegexp
-     *            class pattern
+     *            class name pattern
      * @return ReplyPacket for setting request
      */
     public ReplyPacket setClassUnload(String classRegexp) {
-        // Prepare corresponding event
-        byte eventKind = JDWPConstants.EventKind.CLASS_UNLOAD;
-        byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        // EventMod[] mods = new EventMod[1];
-        EventMod[] mods = new EventMod[] { new EventMod() };
-        mods[0].classPattern = classRegexp;
-        mods[0].modKind = EventMod.ModKind.ClassMatch;
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
-        // Set event
-        return setEvent(event);
+        return setClassMatchEvent(JDWPConstants.EventKind.CLASS_UNLOAD,
+                JDWPConstants.SuspendPolicy.ALL, classRegexp);
     }
 
     /**
-     * Set ClassUnload event request for given class ID.
-     * 
+     * Set ClassUnload event request for given class ID with suspend policy ALL.
+     *
      * @param referenceTypeID
      *            class referenceTypeID
      * @return ReplyPacket for setting request
      */
     public ReplyPacket setClassUnload(long referenceTypeID) {
-        // Prepare corresponding event
-        byte eventKind = JDWPConstants.EventKind.CLASS_UNLOAD;
-        byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        // EventMod[] mods = new EventMod[1];
-        EventMod[] mods = new EventMod[] { new EventMod() };
-        mods[0].clazz = referenceTypeID;
-        mods[0].modKind = EventMod.ModKind.ClassOnly;
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
-        // Set event
-        return setEvent(event);
+        return setClassOnlyEvent(JDWPConstants.EventKind.CLASS_UNLOAD,
+                JDWPConstants.SuspendPolicy.ALL, referenceTypeID);
     }
 
     /**
-     * Sets ClassLoad event request for given class signature.
-     * 
+     * Sets ClassLoad event request for given class signature with suspend policy ALL.
+     *
      * @param classSignature
      *            class signature
      * @return ReplyPacket for setting request
@@ -1118,23 +1020,15 @@ public class VmMirror {
     }
 
     /**
-     * Set ClassLoad event request for given class ID.
-     * 
+     * Set ClassLoad event request for given class ID with suspend policy ALL.
+     *
      * @param referenceTypeID
      *            class referenceTypeID
      * @return ReplyPacket for setting request
      */
     public ReplyPacket setClassLoad(long referenceTypeID) {
-        // Prepare corresponding event
-        byte eventKind = JDWPConstants.EventKind.CLASS_LOAD;
-        byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        EventMod[] mods = new EventMod[] { new EventMod() };
-        mods[0].clazz = referenceTypeID;
-        mods[0].modKind = EventMod.ModKind.ClassOnly;
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
-        // Set event
-        return setEvent(event);
+        return setClassOnlyEvent(JDWPConstants.EventKind.CLASS_LOAD,
+                JDWPConstants.SuspendPolicy.ALL, referenceTypeID);
     }
     
     /**
@@ -1145,29 +1039,20 @@ public class VmMirror {
      * @return ReplyPacket for setting request
      */
     public ReplyPacket setMonitorContendedEnterForClassOnly(long referenceTypeID) {
-        // Prepare corresponding event
-        byte eventKind = JDWPConstants.EventKind.MONITOR_CONTENDED_ENTER;
-        byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        EventMod[] mods = new EventMod[] { new EventMod() };
-        mods[0].clazz = referenceTypeID;
-        mods[0].modKind = EventMod.ModKind.ClassOnly;
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
-        // Set event
-        return setEvent(event);
+        return setClassOnlyEvent(JDWPConstants.EventKind.MONITOR_CONTENDED_ENTER,
+                JDWPConstants.SuspendPolicy.ALL, referenceTypeID);
     }
 
+    /**
+     * Set MonitorContendedEnter event request for given class's name pattern
+     *
+     * @param classRegexp
+     *            class name pattern
+     * @return ReplyPacket for setting request
+     */
     public ReplyPacket setMonitorContendedEnterForClassMatch(String classRegexp) {
-        // Prepare corresponding event
-        byte eventKind = JDWPConstants.EventKind.MONITOR_CONTENDED_ENTER;
-        byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        EventMod[] mods = new EventMod[] { new EventMod() };
-        mods[0].classPattern = classRegexp;
-        mods[0].modKind = EventMod.ModKind.ClassMatch;
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
-        // Set event
-        return setEvent(event);
+        return setClassMatchEvent(JDWPConstants.EventKind.MONITOR_CONTENDED_ENTER,
+                JDWPConstants.SuspendPolicy.ALL, classRegexp);
     }
 
     /**
@@ -1178,29 +1063,20 @@ public class VmMirror {
      * @return ReplyPacket for setting request
      */
     public ReplyPacket setMonitorContendedEnteredForClassOnly(long referenceTypeID) {
-        // Prepare corresponding event
-        byte eventKind = JDWPConstants.EventKind.MONITOR_CONTENDED_ENTERED;
-        byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        EventMod[] mods = new EventMod[] { new EventMod() };
-        mods[0].clazz = referenceTypeID;
-        mods[0].modKind = EventMod.ModKind.ClassOnly;
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
-        // Set event
-        return setEvent(event);
+        return setClassOnlyEvent(JDWPConstants.EventKind.MONITOR_CONTENDED_ENTERED,
+                JDWPConstants.SuspendPolicy.ALL, referenceTypeID);
     }
 
+    /**
+     * Set MonitorContendedEntered event request for given class's name pattern
+     *
+     * @param classRegexp
+     *            class name pattern
+     * @return ReplyPacket for setting request
+     */
     public ReplyPacket setMonitorContendedEnteredForClassMatch(String classRegexp) {
-        // Prepare corresponding event
-        byte eventKind = JDWPConstants.EventKind.MONITOR_CONTENDED_ENTERED;
-        byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        EventMod[] mods = new EventMod[] { new EventMod() };
-        mods[0].classPattern = classRegexp;
-        mods[0].modKind = EventMod.ModKind.ClassMatch;
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
-        // Set event
-        return setEvent(event);
+        return setClassMatchEvent(JDWPConstants.EventKind.MONITOR_CONTENDED_ENTERED,
+                JDWPConstants.SuspendPolicy.ALL, classRegexp);
     }
     
     /**
@@ -1211,16 +1087,8 @@ public class VmMirror {
      * @return ReplyPacket for setting request
      */
     public ReplyPacket setMonitorWaitForClassOnly(long referenceTypeID) {
-        // Prepare corresponding event
-        byte eventKind = JDWPConstants.EventKind.MONITOR_WAIT;
-        byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        EventMod[] mods = new EventMod[] { new EventMod() };
-        mods[0].clazz = referenceTypeID;
-        mods[0].modKind = EventMod.ModKind.ClassOnly;
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
-        // Set event
-        return setEvent(event);
+        return setClassOnlyEvent(JDWPConstants.EventKind.MONITOR_WAIT,
+                JDWPConstants.SuspendPolicy.ALL, referenceTypeID);
     }
 
     /**
@@ -1233,16 +1101,8 @@ public class VmMirror {
      * @return ReplyPacket for setting request.
      */
     public ReplyPacket setMonitorWaitForClassMatch(String classRegexp) {
-        // Prepare corresponding event
-        byte eventKind = JDWPConstants.EventKind.MONITOR_WAIT;
-        byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        EventMod[] mods = new EventMod[] { new EventMod() };
-        mods[0].classPattern = classRegexp;
-        mods[0].modKind = EventMod.ModKind.ClassMatch;
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
-        // Set event
-        return setEvent(event);
+        return setClassMatchEvent(JDWPConstants.EventKind.MONITOR_WAIT,
+                JDWPConstants.SuspendPolicy.ALL, classRegexp);
     }
     
     /**
@@ -1256,16 +1116,8 @@ public class VmMirror {
      * @return ReplyPacket for setting request.
      */
     public ReplyPacket setMonitorWaitForClassExclude (String classRegexp) {
-        // Prepare corresponding event
-        byte eventKind = JDWPConstants.EventKind.MONITOR_WAIT;
-        byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        EventMod[] mods = new EventMod[] { new EventMod() };
-        mods[0].classPattern = classRegexp;
-        mods[0].modKind = EventMod.ModKind.ClassExclude;
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
-        // Set event
-        return setEvent(event);
+        return setClassExcludeEvent(JDWPConstants.EventKind.MONITOR_WAIT,
+                JDWPConstants.SuspendPolicy.ALL, classRegexp);
     }
     
     /**
@@ -1276,16 +1128,8 @@ public class VmMirror {
      * @return ReplyPacket for setting request
      */
     public ReplyPacket setMonitorWaitedForClassOnly(long referenceTypeID) {
-        // Prepare corresponding event
-        byte eventKind = JDWPConstants.EventKind.MONITOR_WAITED;
-        byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        EventMod[] mods = new EventMod[] { new EventMod() };
-        mods[0].clazz = referenceTypeID;
-        mods[0].modKind = EventMod.ModKind.ClassOnly;
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
-        // Set event
-        return setEvent(event);
+        return setClassOnlyEvent(JDWPConstants.EventKind.MONITOR_WAITED,
+                JDWPConstants.SuspendPolicy.ALL, referenceTypeID);
     }
     
     /**
@@ -1298,16 +1142,8 @@ public class VmMirror {
      * @return ReplyPacket for setting request.
      */
     public ReplyPacket setMonitorWaitedForClassMatch(String classRegexp) {
-        // Prepare corresponding event
-        byte eventKind = JDWPConstants.EventKind.MONITOR_WAITED;
-        byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        EventMod[] mods = new EventMod[] { new EventMod() };
-        mods[0].classPattern = classRegexp;
-        mods[0].modKind = EventMod.ModKind.ClassMatch;
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
-        // Set event
-        return setEvent(event);
+        return setClassMatchEvent(JDWPConstants.EventKind.MONITOR_WAITED,
+                JDWPConstants.SuspendPolicy.ALL, classRegexp);
     }
     
     /**
@@ -1321,16 +1157,8 @@ public class VmMirror {
      * @return ReplyPacket for setting request.
      */
     public ReplyPacket setMonitorWaitedForClassExclude (String classRegexp) {
-        // Prepare corresponding event
-        byte eventKind = JDWPConstants.EventKind.MONITOR_WAITED;
-        byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        EventMod[] mods = new EventMod[] { new EventMod() };
-        mods[0].classPattern = classRegexp;
-        mods[0].modKind = EventMod.ModKind.ClassExclude;
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
-        // Set event
-        return setEvent(event);
+        return setClassExcludeEvent(JDWPConstants.EventKind.MONITOR_WAITED,
+                JDWPConstants.SuspendPolicy.ALL, classRegexp);
     }
 
     /**
@@ -1352,79 +1180,79 @@ public class VmMirror {
         commandPacket.setNextValueAsByte(event.suspendPolicy);
 
         // Set modifiers
-        commandPacket.setNextValueAsInt(event.modifiers);
+        commandPacket.setNextValueAsInt(event.mods.size());
 
-        for (int i = 0; i < event.modifiers; i++) {
+        for (EventMod eventModifier : event.mods) {
 
-            commandPacket.setNextValueAsByte(event.mods[i].modKind);
+            commandPacket.setNextValueAsByte(eventModifier.modKind);
 
-            switch (event.mods[i].modKind) {
-            case EventMod.ModKind.Count: {
-                // Case Count
-                commandPacket.setNextValueAsInt(event.mods[i].count);
-                break;
-            }
-            case EventMod.ModKind.Conditional: {
-                // Case Conditional
-                commandPacket.setNextValueAsInt(event.mods[i].exprID);
-                break;
-            }
-            case EventMod.ModKind.ThreadOnly: {
-                // Case ThreadOnly
-                commandPacket.setNextValueAsThreadID(event.mods[i].thread);
-                break;
-            }
-            case EventMod.ModKind.ClassOnly: {
-                // Case ClassOnly
-                commandPacket
-                        .setNextValueAsReferenceTypeID(event.mods[i].clazz);
-                break;
-            }
-            case EventMod.ModKind.ClassMatch: {
-                // Case ClassMatch
-                commandPacket.setNextValueAsString(event.mods[i].classPattern);
-                break;
-            }
-            case EventMod.ModKind.ClassExclude: {
-                // Case ClassExclude
-                commandPacket.setNextValueAsString(event.mods[i].classPattern);
-                break;
-            }
-            case EventMod.ModKind.LocationOnly: {
-                // Case LocationOnly
-                commandPacket.setNextValueAsLocation(event.mods[i].loc);
-                break;
-            }
-            case EventMod.ModKind.ExceptionOnly:
-                // Case ExceptionOnly
-                commandPacket
-                        .setNextValueAsReferenceTypeID(event.mods[i].exceptionOrNull);
-                commandPacket.setNextValueAsBoolean(event.mods[i].caught);
-                commandPacket.setNextValueAsBoolean(event.mods[i].uncaught);
-                break;
-            case EventMod.ModKind.FieldOnly: {
-                // Case FieldOnly
-                commandPacket
-                        .setNextValueAsReferenceTypeID(event.mods[i].declaring);
-                commandPacket.setNextValueAsFieldID(event.mods[i].fieldID);
-                break;
-            }
-            case EventMod.ModKind.Step: {
-                // Case Step
-                commandPacket.setNextValueAsThreadID(event.mods[i].thread);
-                commandPacket.setNextValueAsInt(event.mods[i].size);
-                commandPacket.setNextValueAsInt(event.mods[i].depth);
-                break;
-            }
-            case EventMod.ModKind.InstanceOnly: {
-                // Case InstanceOnly
-                commandPacket.setNextValueAsObjectID(event.mods[i].instance);
-                break;
-            }
-            case EventMod.ModKind.SourceNameMatch: {
-                // Case SourceNameMatch 
-                commandPacket.setNextValueAsString(event.mods[i].sourceNamePattern);
-            }
+            switch (eventModifier.modKind) {
+                case EventMod.ModKind.Count: {
+                    // Case Count
+                    commandPacket.setNextValueAsInt(eventModifier.count);
+                    break;
+                }
+                case EventMod.ModKind.Conditional: {
+                    // Case Conditional
+                    commandPacket.setNextValueAsInt(eventModifier.exprID);
+                    break;
+                }
+                case EventMod.ModKind.ThreadOnly: {
+                    // Case ThreadOnly
+                    commandPacket.setNextValueAsThreadID(eventModifier.thread);
+                    break;
+                }
+                case EventMod.ModKind.ClassOnly: {
+                    // Case ClassOnly
+                    commandPacket
+                    .setNextValueAsReferenceTypeID(eventModifier.clazz);
+                    break;
+                }
+                case EventMod.ModKind.ClassMatch: {
+                    // Case ClassMatch
+                    commandPacket.setNextValueAsString(eventModifier.classPattern);
+                    break;
+                }
+                case EventMod.ModKind.ClassExclude: {
+                    // Case ClassExclude
+                    commandPacket.setNextValueAsString(eventModifier.classPattern);
+                    break;
+                }
+                case EventMod.ModKind.LocationOnly: {
+                    // Case LocationOnly
+                    commandPacket.setNextValueAsLocation(eventModifier.loc);
+                    break;
+                }
+                case EventMod.ModKind.ExceptionOnly:
+                    // Case ExceptionOnly
+                    commandPacket
+                    .setNextValueAsReferenceTypeID(eventModifier.exceptionOrNull);
+                    commandPacket.setNextValueAsBoolean(eventModifier.caught);
+                    commandPacket.setNextValueAsBoolean(eventModifier.uncaught);
+                    break;
+                case EventMod.ModKind.FieldOnly: {
+                    // Case FieldOnly
+                    commandPacket
+                    .setNextValueAsReferenceTypeID(eventModifier.declaring);
+                    commandPacket.setNextValueAsFieldID(eventModifier.fieldID);
+                    break;
+                }
+                case EventMod.ModKind.Step: {
+                    // Case Step
+                    commandPacket.setNextValueAsThreadID(eventModifier.thread);
+                    commandPacket.setNextValueAsInt(eventModifier.size);
+                    commandPacket.setNextValueAsInt(eventModifier.depth);
+                    break;
+                }
+                case EventMod.ModKind.InstanceOnly: {
+                    // Case InstanceOnly
+                    commandPacket.setNextValueAsObjectID(eventModifier.instance);
+                    break;
+                }
+                case EventMod.ModKind.SourceNameMatch: {
+                    // Case SourceNameMatch
+                    commandPacket.setNextValueAsString(eventModifier.sourceNamePattern);
+                }
             }
         }
 
@@ -1521,52 +1349,11 @@ public class VmMirror {
      */
     public ReplyPacket setException(long exceptionID, boolean caught,
             boolean uncaught) {
-        // Prepare corresponding event
         byte eventKind = JDWPConstants.EventKind.EXCEPTION;
         byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        EventMod[] mods = new EventMod[1];
-        mods[0] = new EventMod();
-        mods[0].modKind = EventMod.ModKind.ExceptionOnly;
-        mods[0].caught = caught;
-        mods[0].uncaught = uncaught;
-        mods[0].exceptionOrNull = exceptionID;
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
-        return setEvent(event);
-    }
-
-    /**
-     * Sets exception event request for given exception class signature.
-     * 
-     * @param exceptionSignature
-     *            exception signature.
-     * @param caught
-     *            is exception caught
-     * @param uncaught
-     *            is exception uncaught
-     * @param count
-     *            Limit the requested event to be reported at most once after a
-     *            given number of occurrences
-     * @return ReplyPacket for corresponding command
-     */
-    public ReplyPacket setCountableException(String exceptionSignature,
-            boolean caught, boolean uncaught, int count) {
-        // Request referenceTypeID for exception
-        long exceptionID = getClassID(exceptionSignature);
-        byte eventKind = JDWPConstants.EventKind.EXCEPTION;
-        byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        EventMod[] mods = new EventMod[2];
-        mods[0] = new EventMod();
-        mods[0].modKind = EventMod.ModKind.ExceptionOnly;
-        mods[0].caught = caught;
-        mods[0].uncaught = uncaught;
-        mods[0].exceptionOrNull = exceptionID;
-
-        mods[1] = new EventMod();
-        mods[1].modKind = EventMod.ModKind.Count;
-        mods[1].count = count;
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
+        Event event = Event.builder(eventKind, suspendPolicy)
+                .setExceptionOnly(exceptionID, caught, uncaught)
+                .build();
         return setEvent(event);
     }
 
@@ -1579,53 +1366,13 @@ public class VmMirror {
      * @return ReplyPacket for corresponding command
      */
     public ReplyPacket setMethodEntry(String classRegexp) {
-        // Prepare corresponding event
         byte eventKind = JDWPConstants.EventKind.METHOD_ENTRY;
         byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        EventMod[] mods = null;
-        if (classRegexp == null) {
-            mods = new EventMod[0];
-        } else {
-            mods = new EventMod[1];
-            mods[0] = new EventMod();
-            mods[0].modKind = EventMod.ModKind.ClassMatch;
-            mods[0].classPattern = classRegexp;
+        EventBuilder builder = Event.builder(eventKind, suspendPolicy);
+        if (classRegexp != null) {
+            builder = builder.setClassMatch(classRegexp);
         }
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
-        return setEvent(event);
-    }
-
-    /**
-     * Sets METHOD_ENTRY event request for specified class name pattern.
-     * 
-     * @param classRegexp
-     *            class name pattern or null for no pattern
-     * @param count
-     *            Limit the requested event to be reported at most once after a
-     *            given number of occurrences
-     * @return ReplyPacket for corresponding command
-     */
-    public ReplyPacket setCountableMethodEntry(String classRegexp, int count) {
-        byte eventKind = JDWPConstants.EventKind.METHOD_ENTRY;
-        byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        EventMod[] mods = null;
-        if (classRegexp == null) {
-            mods = new EventMod[] { new EventMod() };
-            mods[0].modKind = EventMod.ModKind.Count;
-            mods[0].count = count;
-        } else {
-            mods = new EventMod[2];
-            mods[0] = new EventMod();
-            mods[0].modKind = EventMod.ModKind.ClassMatch;
-            mods[0].classPattern = classRegexp;
-
-            mods[1] = new EventMod();
-            mods[1].modKind = EventMod.ModKind.Count;
-            mods[1].count = count;
-        }
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
+        Event event = builder.build();
         return setEvent(event);
     }
 
@@ -1638,20 +1385,13 @@ public class VmMirror {
      * @return ReplyPacket for corresponding command
      */
     public ReplyPacket setMethodExit(String classRegexp) {
-        // Prepare corresponding event
         byte eventKind = JDWPConstants.EventKind.METHOD_EXIT;
         byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        EventMod[] mods = null;
-        if (classRegexp == null) {
-            mods = new EventMod[0];
-        } else {
-            mods = new EventMod[1];
-            mods[0] = new EventMod();
-            mods[0].modKind = EventMod.ModKind.ClassMatch;
-            mods[0].classPattern = classRegexp;
+        EventBuilder builder = Event.builder(eventKind, suspendPolicy);
+        if (classRegexp != null) {
+            builder = builder.setClassMatch(classRegexp);
         }
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
+        Event event = builder.build();
         return setEvent(event);
     }
     
@@ -1664,55 +1404,14 @@ public class VmMirror {
      * @return ReplyPacket for corresponding command
      */
     public ReplyPacket setMethodExitWithReturnValue(String classRegexp) {
-        // Prepare corresponding event
         byte eventKind = JDWPConstants.EventKind.METHOD_EXIT_WITH_RETURN_VALUE;
         byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        EventMod[] mods = null;
-        if (classRegexp == null) {
-            mods = new EventMod[0];
-        } else {
-            mods = new EventMod[1];
-            mods[0] = new EventMod();
-            mods[0].modKind = EventMod.ModKind.ClassMatch;
-            mods[0].classPattern = classRegexp;
+        EventBuilder builder = Event.builder(eventKind, suspendPolicy);
+        if (classRegexp != null) {
+            builder = builder.setClassMatch(classRegexp);
         }
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
+        Event event = builder.build();
         return setEvent(event);
-    }
-
-    /**
-     * Sets METHOD_EXIT event request for specified class name pattern.
-     * 
-     * @param classRegexp
-     *            classRegexp class name pattern or null for no pattern
-     * @param count
-     *            Limit the requested event to be reported at most once after a
-     *            given number of occurrences
-     * @return ReplyPacket for corresponding command
-     */
-    public ReplyPacket setCountableMethodExit(String classRegexp, int count) {
-        byte eventKind = JDWPConstants.EventKind.METHOD_EXIT;
-        byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        EventMod[] mods = null;
-        if (classRegexp == null) {
-            mods = new EventMod[] { new EventMod() };
-            mods[0].modKind = EventMod.ModKind.Count;
-            mods[0].count = count;
-        } else {
-            mods = new EventMod[2];
-            mods[0] = new EventMod();
-            mods[0].modKind = EventMod.ModKind.ClassMatch;
-            mods[0].classPattern = classRegexp;
-
-            mods[1] = new EventMod();
-            mods[1].modKind = EventMod.ModKind.Count;
-            mods[1].count = count;
-        }
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
-        return setEvent(event);
-
     }
 
     /**
@@ -1726,34 +1425,20 @@ public class VmMirror {
      * @param fieldName
      *            field name
      * @return ReplyPacket if breakpoint is set
-     * @throws ReplyErrorCodeException
      */
     public ReplyPacket setFieldAccess(String classSignature, byte classTypeTag,
-            String fieldName) throws ReplyErrorCodeException {
-        ReplyPacket request = null;
-        long typeID = -1;
-        long fieldID = -1;
-
+            String fieldName) {
         // Request referenceTypeID for class
-        typeID = getClassID(classSignature);
-
-        // Request fields in class
-        request = getFieldsInClass(typeID);
+        long typeID = getClassID(classSignature);
 
         // Get fieldID from received packet
-        fieldID = getFieldID(request, fieldName);
+        long fieldID = getFieldID(typeID, fieldName);
 
-        // Prepare corresponding event
         byte eventKind = JDWPConstants.EventKind.FIELD_ACCESS;
         byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        // EventMod[] mods = new EventMod[1];
-        EventMod[] mods = new EventMod[] { new EventMod() };
-        mods[0].fieldID = fieldID;
-        mods[0].declaring = typeID;
-        mods[0].modKind = EventMod.ModKind.FieldOnly;
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
-        // Set exception
+        Event event = Event.builder(eventKind, suspendPolicy)
+                .setFieldOnly(typeID, fieldID)
+                .build();
         return setEvent(event);
     }
 
@@ -1768,34 +1453,20 @@ public class VmMirror {
      * @param fieldName
      *            field name
      * @return ReplyPacket for corresponding command
-     * @throws ReplyErrorCodeException
      */
     public ReplyPacket setFieldModification(String classSignature,
-            byte classTypeTag, String fieldName) throws ReplyErrorCodeException {
-        ReplyPacket request = null;
-        long typeID = -1;
-        long fieldID = -1;
-
+            byte classTypeTag, String fieldName) {
         // Request referenceTypeID for class
-        typeID = getClassID(classSignature);
-
-        // Request fields in class
-        request = getFieldsInClass(typeID);
+        long typeID = getClassID(classSignature);
 
         // Get fieldID from received packet
-        fieldID = getFieldID(request, fieldName);
+        long fieldID = getFieldID(typeID, fieldName);
 
-        // Prepare corresponding event
         byte eventKind = JDWPConstants.EventKind.FIELD_MODIFICATION;
         byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        // EventMod[] mods = new EventMod[1];
-        EventMod[] mods = new EventMod[] { new EventMod() };
-        mods[0].fieldID = fieldID;
-        mods[0].declaring = typeID;
-        mods[0].modKind = EventMod.ModKind.FieldOnly;
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
-        // Set event
+        Event event = Event.builder(eventKind, suspendPolicy)
+                .setFieldOnly(typeID, fieldID)
+                .build();
         return setEvent(event);
     }
 
@@ -1811,17 +1482,11 @@ public class VmMirror {
      * @return ReplyPacket for corresponding command
      */
     public ReplyPacket setStep(long threadID, int stepSize, int stepDepth) {
-        // Prepare corresponding event
         byte eventKind = JDWPConstants.EventKind.SINGLE_STEP;
         byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        EventMod[] mods = new EventMod[] { new EventMod() };
-        mods[0].thread = threadID;
-        mods[0].modKind = EventMod.ModKind.Step;
-        mods[0].size = stepSize;
-        mods[0].depth = stepDepth;
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
-        // Set event
+        Event event = Event.builder(eventKind, suspendPolicy)
+                .setStep(threadID, stepSize, stepDepth)
+                .build();
         return setEvent(event);
     }
 
@@ -1839,27 +1504,13 @@ public class VmMirror {
      */
     public ReplyPacket setStep(String[] classRegexp, long threadID,
             int stepSize, int stepDepth) {
-        // Prepare corresponding event
         byte eventKind = JDWPConstants.EventKind.SINGLE_STEP;
         byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        int modsSize = classRegexp.length + 1;
-        EventMod[] mods = new EventMod[modsSize];
-        for (int i = 0; i < classRegexp.length; i++) {
-            mods[i] = new EventMod();
-            mods[i].classPattern = classRegexp[i];
-            mods[i].modKind = EventMod.ModKind.ClassExclude;
+        EventBuilder builder = Event.builder(eventKind, suspendPolicy);
+        for (String pattern : classRegexp) {
+            builder.setClassExclude(pattern);
         }
-
-        int index = modsSize - 1;
-        mods[index] = new EventMod();
-        mods[index].modKind = EventMod.ModKind.Step;
-        mods[index].thread = threadID;
-        mods[index].size = stepSize;
-        mods[index].depth = stepDepth;
-
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
-        // Set event
+        Event event = builder.setStep(threadID, stepSize, stepDepth).build();
         return setEvent(event);
     }
 
@@ -1868,28 +1519,42 @@ public class VmMirror {
      * 
      * @return ReplyPacket for corresponding command
      */
-    public ReplyPacket setThreadStart() {
-        // Prepare corresponding event
+    public ReplyPacket setThreadStart(byte suspendPolicy) {
         byte eventKind = JDWPConstants.EventKind.THREAD_START;
-        byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        EventMod[] mods = new EventMod[0];
-        Event event = new Event(eventKind, suspendPolicy, mods);
-
+        Event event = Event.builder(eventKind, suspendPolicy).build();
         return setEvent(event);
     }
 
     /**
      * Sets THREAD_END event request.
-     * 
+     *
+     * @param suspendPolicy the suspend policy
      * @return ReplyPacket for corresponding command
      */
-    public ReplyPacket setThreadEnd() {
-        // Prepare corresponding event
+    public ReplyPacket setThreadEnd(byte suspendPolicy) {
         byte eventKind = JDWPConstants.EventKind.THREAD_END;
-        byte suspendPolicy = JDWPConstants.SuspendPolicy.ALL;
-        EventMod[] mods = new EventMod[0];
-        Event event = new Event(eventKind, suspendPolicy, mods);
+        Event event = Event.builder(eventKind, suspendPolicy).build();
+        return setEvent(event);
+    }
 
+    private ReplyPacket setClassOnlyEvent(byte eventKind, byte suspendPolicy, long classId) {
+        Event event = Event.builder(eventKind, suspendPolicy)
+                .setClassOnly(classId)
+                .build();
+        return setEvent(event);
+    }
+
+    private ReplyPacket setClassMatchEvent(byte eventKind, byte suspendPolicy, String pattern) {
+        Event event = Event.builder(eventKind, suspendPolicy)
+                .setClassMatch(pattern)
+                .build();
+        return setEvent(event);
+    }
+
+    private ReplyPacket setClassExcludeEvent(byte eventKind, byte suspendPolicy, String pattern) {
+        Event event = Event.builder(eventKind, suspendPolicy)
+                .setClassExclude(pattern)
+                .build();
         return setEvent(event);
     }
 

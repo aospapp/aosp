@@ -50,6 +50,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cutils/atomic.h>
 #include <qdMetaData.h>
 #include <color_metadata.h>
+#include <media/msm_media_info.h>
 
 static ptrdiff_t x;
 
@@ -67,8 +68,6 @@ static ptrdiff_t x;
 //#include <binder/MemoryHeapIon.h>
 //#else
 #endif
-#include <binder/MemoryHeapBase.h>
-#include <ui/ANativeObjectBase.h>
 extern "C" {
 #include <utils/Log.h>
 }
@@ -79,6 +78,7 @@ extern "C" {
 #endif // _ANDROID_
 
 #if defined (_ANDROID_HONEYCOMB_) || defined (_ANDROID_ICS_)
+#define STRINGIFY_ENUMS
 #include <media/hardware/HardwareAPI.h>
 #endif
 
@@ -108,6 +108,7 @@ extern "C" {
 #include "ts_parser.h"
 #include "vidc_color_converter.h"
 #include "vidc_debug.h"
+#include "vidc_vendor_extensions.h"
 #ifdef _ANDROID_
 #include <cutils/properties.h>
 #else
@@ -117,32 +118,14 @@ extern "C" {
     OMX_API void * get_omx_component_factory_fn(void);
 }
 
-#ifdef _ANDROID_
-using namespace android;
-#ifdef USE_ION
-class VideoHeap : public MemoryHeapBase
-{
-    public:
-        VideoHeap(int devicefd, size_t size, void* base,ion_user_handle_t handle,int mapfd);
-        virtual ~VideoHeap() {}
-    private:
-        int m_ion_device_fd;
-        ion_user_handle_t m_ion_handle;
-};
-#else
-// local pmem heap object
-class VideoHeap : public MemoryHeapBase
-{
-    public:
-        VideoHeap(int fd, size_t size, void* base);
-        virtual ~VideoHeap() {}
-};
-#endif
-#endif // _ANDROID_
 //////////////////////////////////////////////////////////////////////////////
 //                       Module specific globals
 //////////////////////////////////////////////////////////////////////////////
 #define OMX_SPEC_VERSION  0x00000101
+#define OMX_INIT_STRUCT(_s_, _name_)         \
+    memset((_s_), 0x0, sizeof(_name_));      \
+(_s_)->nSize = sizeof(_name_);               \
+(_s_)->nVersion.nVersion = OMX_SPEC_VERSION  \
 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -187,6 +170,8 @@ class VideoHeap : public MemoryHeapBase
 #ifdef _ANDROID_
 #define MAX_NUM_INPUT_OUTPUT_BUFFERS 64
 #endif
+
+#define MIN_NUM_INPUT_OUTPUT_EXTRADATA_BUFFERS 32 // 32 (max cap when VPP enabled)
 
 #define OMX_FRAMEINFO_EXTRADATA 0x00010000
 #define OMX_INTERLACE_EXTRADATA 0x00020000
@@ -237,7 +222,9 @@ class VideoHeap : public MemoryHeapBase
 
 enum port_indexes {
     OMX_CORE_INPUT_PORT_INDEX        =0,
-    OMX_CORE_OUTPUT_PORT_INDEX       =1
+    OMX_CORE_OUTPUT_PORT_INDEX       =1,
+    OMX_CORE_INPUT_EXTRADATA_INDEX   =2,
+    OMX_CORE_OUTPUT_EXTRADATA_INDEX  =3
 };
 enum vidc_perf_level {
     VIDC_SVS = 0,
@@ -640,6 +627,7 @@ class omx_vdec: public qc_omx_component
         bool allocate_done(void);
         bool allocate_input_done(void);
         bool allocate_output_done(void);
+        bool allocate_output_extradata_done(void);
 
         OMX_ERRORTYPE free_input_buffer(OMX_BUFFERHEADERTYPE *bufferHdr);
         OMX_ERRORTYPE free_input_buffer(unsigned int bufferindex,
@@ -647,6 +635,7 @@ class omx_vdec: public qc_omx_component
         OMX_ERRORTYPE free_output_buffer(OMX_BUFFERHEADERTYPE *bufferHdr);
         void free_output_buffer_header();
         void free_input_buffer_header();
+        void free_output_extradata_buffer_header();
 
         OMX_ERRORTYPE allocate_input_heap_buffer(OMX_HANDLETYPE       hComp,
                 OMX_BUFFERHEADERTYPE **bufferHdr,
@@ -671,13 +660,21 @@ class omx_vdec: public qc_omx_component
                 OMX_PTR                appData,
                 OMX_U32                bytes,
                 OMX_U8                 *buffer);
+        OMX_ERRORTYPE use_client_output_extradata_buffer(OMX_HANDLETYPE hComp,
+                OMX_BUFFERHEADERTYPE   **bufferHdr,
+                OMX_U32                port,
+                OMX_PTR                appData,
+                OMX_U32                bytes,
+                OMX_U8                 *buffer);
         OMX_ERRORTYPE get_supported_profile_level(OMX_VIDEO_PARAM_PROFILELEVELTYPE *profileLevelType);
 
         OMX_ERRORTYPE allocate_desc_buffer(OMX_U32 index);
         OMX_ERRORTYPE allocate_output_headers();
+        OMX_ERRORTYPE allocate_client_output_extradata_headers();
         bool execute_omx_flush(OMX_U32);
         bool execute_output_flush();
         bool execute_input_flush();
+        void notify_flush_done(void *ctxt);
         OMX_ERRORTYPE empty_buffer_done(OMX_HANDLETYPE hComp,
                 OMX_BUFFERHEADERTYPE * buffer);
 
@@ -702,6 +699,7 @@ class omx_vdec: public qc_omx_component
 
         bool release_output_done();
         bool release_input_done();
+        bool release_output_extradata_done();
         OMX_ERRORTYPE get_buffer_req(vdec_allocatorproperty *buffer_prop);
         OMX_ERRORTYPE set_buffer_req(vdec_allocatorproperty *buffer_prop);
         OMX_ERRORTYPE start_port_reconfig();
@@ -881,6 +879,8 @@ class omx_vdec: public qc_omx_component
         OMX_BUFFERHEADERTYPE  *m_inp_mem_ptr;
         // Output memory pointer
         OMX_BUFFERHEADERTYPE  *m_out_mem_ptr;
+        // Client extradata memory pointer
+        OMX_BUFFERHEADERTYPE  *m_client_output_extradata_mem_ptr;
         // number of input bitstream error frame count
         unsigned int m_inp_err_count;
 #ifdef _ANDROID_
@@ -903,6 +903,8 @@ class omx_vdec: public qc_omx_component
         uint64_t m_out_bm_count;
         // bitmask array size for input side
         uint64_t m_inp_bm_count;
+        // bitmask array size for extradata
+        uint64_t m_out_extradata_bm_count;
         //Input port Populated
         OMX_BOOL m_inp_bPopulated;
         //Output port Populated
@@ -910,14 +912,6 @@ class omx_vdec: public qc_omx_component
         // encapsulate the waiting states.
         uint64_t m_flags;
 
-#ifdef _ANDROID_
-        // Heap pointer to frame buffers
-        struct vidc_heap {
-            sp<MemoryHeapBase>    video_heap_ptr;
-        };
-        struct vidc_heap *m_heap_ptr;
-        unsigned int m_heap_count;
-#endif //_ANDROID_
         // store I/P PORT state
         OMX_BOOL m_inp_bEnabled;
         // store O/P PORT state
@@ -1051,6 +1045,7 @@ class omx_vdec: public qc_omx_component
         OMX_U32 m_reconfig_width;
         OMX_U32 m_reconfig_height;
         bool m_smoothstreaming_mode;
+        bool m_decode_order_mode;
 
         bool m_input_pass_buffer_fd;
         DescribeColorAspectsParams m_client_color_space;
@@ -1128,11 +1123,6 @@ class omx_vdec: public qc_omx_component
 #endif
                 unsigned char *pmem_baseaddress[MAX_COUNT];
                 int pmem_fd[MAX_COUNT];
-                struct vidc_heap {
-                    sp<MemoryHeapBase>    video_heap_ptr;
-                };
-                struct vidc_heap m_heap_ptr[MAX_COUNT];
-
                 OMX_ERRORTYPE cache_ops(unsigned int index, unsigned int cmd);
                 inline OMX_ERRORTYPE cache_clean_buffer(unsigned int index) {
                     return cache_ops(index, ION_IOC_CLEAN_CACHES);
@@ -1253,57 +1243,49 @@ class omx_vdec: public qc_omx_component
 
         class client_extradata_info {
             private:
-                int fd;
-                OMX_U32 total_size;
-                OMX_U32 size;
-                void *vaddr;
+                OMX_U32 size; // size of extradata of each frame
+                OMX_U32 buffer_count;
+                OMX_BOOL enable;
+
             public:
                 client_extradata_info() {
-                    fd = -1;
-                    size = 0;
-                    total_size = 0;
-                    vaddr = NULL;
-                }
-
-                void reset() {
-                    if (vaddr) {
-                        munmap(vaddr, total_size);
-                        vaddr = NULL;
-                    }
-                    if (fd != -1) {
-                        close(fd);
-                        fd = -1;
-                    }
+                    size = VENUS_EXTRADATA_SIZE(4096, 2160);;
+                    buffer_count = 0;
+                    enable = OMX_FALSE;
                 }
 
                 ~client_extradata_info() {
-                    reset();
                 }
 
-                bool set_extradata_info(int fd, OMX_U32 total_size, OMX_U32 size) {
-                    reset();
-                    this->fd = fd;
+                bool set_extradata_info(OMX_U32 size, OMX_U32 buffer_count) {
                     this->size = size;
-                    this->total_size = total_size;
-                    vaddr = (OMX_U8*)mmap(0, total_size,
-                            PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
-                    if (vaddr == MAP_FAILED) {
-                        vaddr = NULL;
-                        reset();
-                        return false;
-                    }
+                    this->buffer_count = buffer_count;
                     return true;
                 }
-
-                OMX_U8 *getBase() const {
-                    return (OMX_U8 *)vaddr;
+                void enable_client_extradata(OMX_BOOL enable) {
+                    this->enable = enable;
                 }
-
+                bool is_client_extradata_enabled() {
+                    return enable;
+                }
                 OMX_U32 getSize() const {
                     return size;
                 }
+                OMX_U32 getBufferCount() const {
+                    return buffer_count;
+                }
         };
-        client_extradata_info m_client_extradata_info;
+        client_extradata_info m_client_out_extradata_info;
+
+        OMX_ERRORTYPE get_vendor_extension_config(
+                OMX_CONFIG_ANDROID_VENDOR_EXTENSIONTYPE *ext);
+        OMX_ERRORTYPE set_vendor_extension_config(
+                OMX_CONFIG_ANDROID_VENDOR_EXTENSIONTYPE *ext);
+
+        void init_vendor_extensions (VendorExtensionStore&);
+
+        // list of extensions is not mutable after initialization
+        const VendorExtensionStore mVendorExtensionStore;
 };
 
 #ifdef _MSM8974_

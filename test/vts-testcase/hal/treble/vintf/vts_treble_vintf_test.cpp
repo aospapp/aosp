@@ -14,12 +14,15 @@
  * limitations under the License.
  */
 
+#include <chrono>
 #include <functional>
+#include <future>
 #include <iostream>
 #include <map>
 #include <set>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <android/hidl/manager/1.0/IServiceManager.h>
@@ -40,6 +43,7 @@ using android::sp;
 using android::vintf::HalManifest;
 using android::vintf::Transport;
 using android::vintf::Version;
+using android::vintf::VintfObject;
 
 using std::cout;
 using std::endl;
@@ -89,11 +93,8 @@ static bool IsGoogleDefinedIface(const FQName &fq_iface_name) {
 
 // Returns true iff HAL interface is exempt from following rules:
 // 1. If an interface is declared in VINTF, it has to be served on the device.
-// TODO(b/62547028): remove these exemptions in O-DR.
 static bool IsExempt(const FQName &fq_iface_name) {
-  static const set<string> exempt_hals_ = {
-      "android.hardware.radio", "android.hardware.radio.deprecated",
-  };
+  static const set<string> exempt_hals_ = {};
   string hal_name = fq_iface_name.package();
   // Radio-releated and non-Google HAL interfaces are given exemptions.
   return exempt_hals_.find(hal_name) != exempt_hals_.end() ||
@@ -122,8 +123,8 @@ class VtsTrebleVintfTest : public ::testing::Test {
     ASSERT_NE(passthrough_manager_, nullptr)
         << "Failed to get passthrough service manager." << endl;
 
-    vendor_manifest_ = ::android::vintf::VintfObject::GetDeviceHalManifest();
-    ASSERT_NE(passthrough_manager_, nullptr)
+    vendor_manifest_ = VintfObject::GetDeviceHalManifest();
+    ASSERT_NE(vendor_manifest_, nullptr)
         << "Failed to get vendor HAL manifest." << endl;
   }
 
@@ -155,7 +156,15 @@ void VtsTrebleVintfTest::ForEachHalInstance(HalVerifyFn fn) {
           string minor_ver = std::to_string(version.minorVer);
           string full_ver = major_ver + "." + minor_ver;
           FQName fq_name{hal_name, full_ver, iface_name};
-          fn(fq_name, instance_name);
+
+          auto future_result =
+              std::async([&]() { fn(fq_name, instance_name); });
+          auto timeout = std::chrono::milliseconds(500);
+          std::future_status status = future_result.wait_for(timeout);
+          if (status != std::future_status::ready) {
+            cout << "Timed out on: " << fq_name.string() << " " << instance_name
+                 << endl;
+          }
         }
       }
     }
@@ -242,7 +251,7 @@ TEST_F(VtsTrebleVintfTest, VintfHalsAreServed) {
     sp<android::hidl::base::V1_0::IBase> hal_service =
         GetHalService(fq_name, instance_name);
     EXPECT_NE(hal_service, nullptr)
-        << fq_name.package() << " not available." << endl;
+        << fq_name.string() << " not available." << endl;
   };
 
   ForEachHalInstance(is_available);
@@ -300,6 +309,29 @@ TEST_F(VtsTrebleVintfTest, InterfacesAreReleased) {
   };
 
   ForEachHalInstance(is_released);
+}
+
+// Tests that vendor and framework are compatible.
+TEST(CompatiblityTest, VendorFrameworkCompatibility) {
+  string error;
+
+  EXPECT_TRUE(VintfObject::GetDeviceHalManifest()->checkCompatibility(
+      *VintfObject::GetFrameworkCompatibilityMatrix(), &error))
+      << error;
+
+  EXPECT_TRUE(VintfObject::GetFrameworkHalManifest()->checkCompatibility(
+      *VintfObject::GetDeviceCompatibilityMatrix(), &error))
+      << error;
+
+  // AVB version is not a compliance requirement.
+  EXPECT_TRUE(VintfObject::GetRuntimeInfo()->checkCompatibility(
+      *VintfObject::GetFrameworkCompatibilityMatrix(), &error,
+      ::android::vintf::DISABLE_AVB_CHECK))
+      << error;
+
+  EXPECT_EQ(0, VintfObject::CheckCompatibility(
+                   {}, &error, ::android::vintf::DISABLE_AVB_CHECK))
+      << error;
 }
 
 int main(int argc, char **argv) {

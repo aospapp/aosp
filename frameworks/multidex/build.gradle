@@ -66,9 +66,18 @@ ext.supportRepoOut = new File(buildDir, 'support_repo')
 
 // upload anchor for subprojects to upload their artifacts
 // to the local repo.
-task(dist) {
+task dist(type: Zip)  {
     group = BasePlugin.BUILD_GROUP
     description 'Builds distribution artifacts.'
+
+    from project.ext.supportRepoOut
+    into 'm2repository'
+    destinationDir project.ext.distDir
+    baseName = String.format("top-of-tree-m2repository-%s", project.multidexVersion)
+
+    doLast {
+        logger.warn "Compressed maven artifacts to ${archivePath}"
+    }
 }
 
 subprojects {
@@ -80,27 +89,7 @@ subprojects {
     version = rootProject.multidexVersion
     group = 'com.android.support'
 
-    task release(type: Upload) {
-        configuration = configurations.archives
-        repositories {
-            mavenDeployer {
-                repository(url: uri("$rootProject.supportRepoOut"))
-            }
-        }
-    }
-
-    task createArtifactZip(type: Zip, dependsOn: release)  {
-        from release.artifacts
-        into archivesBaseName
-        destinationDir project.parent.distDir
-        baseName = archivesBaseName
-
-        doLast {
-            logger.warn "Compressed maven artifacts to ${archivePath}"
-        }
-    }
-
-    dist.dependsOn createArtifactZip
+    dist.dependsOn project.tasks.uploadArchives
 
     project.plugins.whenPluginAdded { plugin ->
         if ("com.android.build.gradle.LibraryPlugin".equals(plugin.class.name)) {

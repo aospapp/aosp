@@ -48,7 +48,9 @@ struct ManifestHal {
         return transportArch.transport;
     }
 
-private:
+    inline const std::string& getName() const { return name; }
+
+   private:
     friend struct LibVintfTest;
     friend struct ManifestHalConverter;
     friend struct HalManifest;

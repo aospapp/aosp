@@ -95,7 +95,11 @@ public class SocketTransportWrapper implements TransportWrapper {
             iAddress = InetAddress.getLocalHost();
         }
 
-        address = iAddress.getHostName() + ":" + serverSocket.getLocalPort();
+        // Older Android runtimes may fail to resolve 'localhost' on a host machine. The workaround
+        // is to use the address instead of the hostname.
+        String hostNameOrAddress =
+                iAddress.isLoopbackAddress() ? iAddress.getHostAddress() : iAddress.getHostName();
+        address = hostNameOrAddress + ":" + serverSocket.getLocalPort();
         return address;
     }
 

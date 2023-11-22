@@ -17,18 +17,18 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
   <string-array name="sleep_timeout_entries">
-    <item msgid="1213527366819650274">"5 мин."</item>
+    <item msgid="1213527366819650274">"5 минут"</item>
     <item msgid="6561800022721381078">"15 минут"</item>
     <item msgid="7718735533503035428">"30 минут"</item>
     <item msgid="8784595382489738498">"1 час"</item>
     <item msgid="1529312035777735084">"2 часа"</item>
   </string-array>
   <string-array name="screen_off_timeout_entries">
-    <item msgid="8244337465472020927">"30 мин."</item>
-    <item msgid="1001586019759702505">"1 ч."</item>
-    <item msgid="5216959047515554188">"3 ч."</item>
-    <item msgid="4152882798140628647">"6 ч."</item>
-    <item msgid="412984226950404956">"12 ч."</item>
+    <item msgid="8244337465472020927">"30 минут"</item>
+    <item msgid="1001586019759702505">"1 час"</item>
+    <item msgid="5216959047515554188">"3 часа"</item>
+    <item msgid="4152882798140628647">"6 часов"</item>
+    <item msgid="412984226950404956">"12 часов"</item>
     <item msgid="2178434662173258997">"Не выключать экран"</item>
   </string-array>
   <string-array name="captioning_typeface_selector_titles">

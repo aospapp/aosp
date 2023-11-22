@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -19,7 +19,8 @@ import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Field;
 import java.security.ProtectionDomain;
 
-import org.jacoco.core.JaCoCo;
+import org.jacoco.core.internal.Java9Support;
+import org.jacoco.core.internal.instr.InstrSupport;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -28,7 +29,7 @@ import org.objectweb.asm.Opcodes;
 
 /**
  * This {@link IRuntime} implementation works with a modified system class. A
- * new static method is added to a bootstrap class that will be used by
+ * new static field is added to a bootstrap class that will be used by
  * instrumented classes. As the system class itself needs to be instrumented
  * this runtime requires a Java agent.
  */
@@ -83,7 +84,7 @@ public class ModifiedSystemClassRuntime extends AbstractRuntime {
 
 	/**
 	 * Creates a new {@link ModifiedSystemClassRuntime} using the given class as
-	 * the data container. Members are creates with internal default names. The
+	 * the data container. Member is created with internal default name. The
 	 * given class must not have been loaded before by the agent.
 	 * 
 	 * @param inst
@@ -143,8 +144,7 @@ public class ModifiedSystemClassRuntime extends AbstractRuntime {
 	}
 
 	/**
-	 * Adds the static access method and data field to the given class
-	 * definition.
+	 * Adds the static data field to the given class definition.
 	 * 
 	 * @param source
 	 *            class definition source
@@ -154,9 +154,9 @@ public class ModifiedSystemClassRuntime extends AbstractRuntime {
 	 */
 	public static byte[] instrument(final byte[] source,
 			final String accessFieldName) {
-		final ClassReader reader = new ClassReader(source);
+		final ClassReader reader = new ClassReader(Java9Support.downgradeIfRequired(source));
 		final ClassWriter writer = new ClassWriter(reader, 0);
-		reader.accept(new ClassVisitor(JaCoCo.ASM_API_VERSION, writer) {
+		reader.accept(new ClassVisitor(InstrSupport.ASM_API_VERSION, writer) {
 
 			@Override
 			public void visitEnd() {

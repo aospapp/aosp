@@ -19,6 +19,7 @@ import android.app.Notification;
 import android.app.NotificationManager;
 import android.content.Intent;
 import android.support.test.runner.AndroidJUnit4;
+import android.util.Log;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,12 +29,13 @@ import org.junit.runner.RunWith;
  */
 @RunWith(AndroidJUnit4.class)
 public class BatteryStatsProcessStateTests extends BatteryStatsDeviceTestBase {
-    private static final String TAG = "BatteryStatsWakeLockTests";
+    private static final String TAG = "BatteryStatsProcessStateTests";
 
     @Test
     public void testForegroundService() throws Exception {
         Intent intent = new Intent();
         intent.setClass(mContext, SimpleForegroundService.class);
+        Log.i(TAG, "Starting foreground service.");
         mContext.startForegroundService(intent);
         Thread.sleep(3000);
     }

@@ -186,24 +186,22 @@ public class DragScrollListenerTest {
     private static class TestDragHost implements ItemDragListener.DragHost {
 
         @Override
-        public void setDropTargetHighlight(View v, Object localState, boolean highlight) {
-        }
+        public void setDropTargetHighlight(View v, boolean highlight) {}
 
         @Override
-        public void runOnUiThread(Runnable runnable) {
-        }
+        public void runOnUiThread(Runnable runnable) {}
 
         @Override
-        public void onViewHovered(View v) {
-        }
+        public void onViewHovered(View v) {}
 
         @Override
-        public void onDragEntered(View v, Object localState) {
-        }
+        public void onDragEntered(View v) {}
 
         @Override
-        public void onDragExited(View v, Object localState) {
-        }
+        public void onDragExited(View v) {}
+
+        @Override
+        public void onDragEnded() {}
     }
 
     private class TestScrollActionDelegate implements ScrollActionDelegate {

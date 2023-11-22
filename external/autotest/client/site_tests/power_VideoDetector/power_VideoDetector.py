@@ -6,7 +6,7 @@ import os
 import time
 
 from autotest_lib.client.bin import test, utils
-from autotest_lib.client.common_lib import base_utils, error
+from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros import power_utils, upstart
 
@@ -45,7 +45,7 @@ class power_VideoDetector(test.test):
             power_utils.BacklightController().set_brightness_to_max()
             backlight = power_utils.Backlight()
             initial_brightness = \
-                base_utils.wait_for_value(backlight.get_max_level)
+                utils.wait_for_value(backlight.get_max_level)
 
             # Open a tab to play video.
             cr.browser.platform.SetHTTPServerDirectories(self.bindir)

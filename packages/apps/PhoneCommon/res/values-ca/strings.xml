@@ -35,7 +35,7 @@
     <string name="callFailed_limitExceeded" msgid="8796663077702587664">"Límit d\'ACM superat"</string>
     <string name="callFailed_powerOff" msgid="9179061328562234362">"Senyal mòbil desactivat"</string>
     <string name="callFailed_simError" msgid="3307159523385380486">"Cap SIM o error de la SIM"</string>
-    <string name="callFailed_outOfService" msgid="4535901975891969115">"La xarxa de telefonia mòbil no està disponible."</string>
+    <string name="callFailed_outOfService" msgid="4535901975891969115">"La xarxa mòbil no està disponible."</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"FDN restringeix les trucades de sortida."</string>
     <string name="callFailed_dialToUssd" msgid="2093563828737170617">"La sol·licitud DIAL s\'ha transformat en una sol·licitud USSD."</string>
     <string name="callFailed_dialToSs" msgid="3144952834772702469">"La sol·licitud DIAL s\'ha transformat en una sol·licitud SS."</string>

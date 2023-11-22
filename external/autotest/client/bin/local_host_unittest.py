@@ -1,92 +1,144 @@
 #!/usr/bin/python
 
+import mock
 import os
 import unittest
 
 import common
-from autotest_lib.client.common_lib.test_utils import mock
 from autotest_lib.client.common_lib import autotemp
+from autotest_lib.client.common_lib import error
 from autotest_lib.client.bin import local_host
 
 
 class test_local_host_class(unittest.TestCase):
     def setUp(self):
-        self.god = mock.mock_god()
-        self.god.stub_function(local_host.utils, 'run')
-
         self.tmpdir = autotemp.tempdir(unique_id='localhost_unittest')
+        self.addCleanup(self.tmpdir.clean)
 
 
-    def tearDown(self):
-        self.god.unstub_all()
-        self.tmpdir.clean()
-
-
-    def test_init(self):
-        self.god.stub_function(local_host.platform, 'node')
-        local_host.platform.node.expect_call().and_return('foo')
-
-        # run the actual test
+    @mock.patch('autotest_lib.client.bin.local_host.platform.node')
+    def test_init_default_hostname(self, mock_node):
+        mock_node.return_value = 'foo'
         host = local_host.LocalHost()
         self.assertEqual(host.hostname, 'foo')
-        self.god.check_playback()
 
+
+    @mock.patch('autotest_lib.client.bin.local_host.platform.node')
+    def test_init_with_hostname(self, mock_node):
+        mock_node.return_value = 'foo'
         host = local_host.LocalHost(hostname='bar')
         self.assertEqual(host.hostname, 'bar')
-        self.god.check_playback()
 
 
     def test_wait_up(self):
         # just test that wait_up always works
         host = local_host.LocalHost()
         host.wait_up(1)
-        self.god.check_playback()
 
 
-    def _setup_run(self, result):
+    @mock.patch('autotest_lib.client.bin.local_host.utils.run')
+    def test_run_success(self, mock_run):
+        result = local_host.utils.CmdResult(
+                command='yes',
+                stdout='y',
+                stderr='',
+                exit_status=0,
+                duration=1,
+        )
+        mock_run.return_value = result
+
         host = local_host.LocalHost()
-
-        (local_host.utils.run.expect_call(result.command, timeout=123,
-                ignore_status=True, stdout_tee=local_host.utils.TEE_TO_LOGS,
-                stderr_tee=local_host.utils.TEE_TO_LOGS, stdin=None,
-                ignore_timeout=False, args=())
-                .and_return(result))
-
-        return host
-
-
-    def test_run_success(self):
-        result = local_host.utils.CmdResult(command='yes', stdout='y',
-                stderr='', exit_status=0, duration=1)
-
-        host = self._setup_run(result)
-
-        self.assertEqual(host.run('yes', timeout=123, ignore_status=True,
+        got = host.run(
+                'yes',
+                timeout=123,
+                ignore_status=True,
                 stdout_tee=local_host.utils.TEE_TO_LOGS,
-                stderr_tee=local_host.utils.TEE_TO_LOGS, stdin=None), result)
-        self.god.check_playback()
+                stderr_tee=local_host.utils.TEE_TO_LOGS,
+                stdin=None,
+        )
+
+        self.assertEqual(got, result)
+        mock_run.assert_called_once_with(
+                result.command,
+                timeout=123,
+                ignore_status=True,
+                stdout_tee=local_host.utils.TEE_TO_LOGS,
+                stderr_tee=local_host.utils.TEE_TO_LOGS,
+                stdin=None,
+                ignore_timeout=False,
+                args=(),
+        )
 
 
-    def test_run_failure_raised(self):
-        result = local_host.utils.CmdResult(command='yes', stdout='',
-                stderr='err', exit_status=1, duration=1)
+    @mock.patch('autotest_lib.client.bin.local_host.utils.run')
+    def test_run_cmd_failure_raised(self, mock_run):
+        mock_result = mock.MagicMock()
+        mock_run.side_effect = error.CmdError('yes', mock_result)
 
-        host = self._setup_run(result)
+        host = local_host.LocalHost()
+        with self.assertRaises(error.AutotestHostRunCmdError) as exc_cm:
+            host.run('yes', timeout=123)
 
-        self.assertRaises(local_host.error.AutotestHostRunError, host.run,
-                          'yes', timeout=123)
-        self.god.check_playback()
+        self.assertEqual(exc_cm.exception.result_obj, mock_result)
+        mock_run.assert_called_once_with(
+                'yes',
+                timeout=123,
+                ignore_status=False,
+                stdout_tee=local_host.utils.TEE_TO_LOGS,
+                stderr_tee=local_host.utils.TEE_TO_LOGS,
+                stdin=None,
+                ignore_timeout=False,
+                args=(),
+        )
 
 
-    def test_run_failure_ignored(self):
-        result = local_host.utils.CmdResult(command='yes', stdout='',
-                stderr='err', exit_status=1, duration=1)
+    @mock.patch('autotest_lib.client.bin.local_host.utils.run')
+    def test_run_cmd_timeout_raised(self, mock_run):
+        mock_result = mock.MagicMock()
+        mock_run.side_effect = error.CmdTimeoutError('yes', mock_result)
 
-        host = self._setup_run(result)
+        host = local_host.LocalHost()
+        with self.assertRaises(error.AutotestHostRunTimeoutError) as exc_cm:
+            host.run('yes', timeout=123)
 
-        self.assertEqual(host.run('yes', timeout=123, ignore_status=True),
-                         result)
-        self.god.check_playback()
+        self.assertEqual(exc_cm.exception.result_obj, mock_result)
+        mock_run.assert_called_once_with(
+                'yes',
+                timeout=123,
+                ignore_status=False,
+                stdout_tee=local_host.utils.TEE_TO_LOGS,
+                stderr_tee=local_host.utils.TEE_TO_LOGS,
+                stdin=None,
+                ignore_timeout=False,
+                args=(),
+        )
+
+
+    @mock.patch('autotest_lib.client.bin.local_host.utils.run')
+    def test_run_failure_ignored(self, mock_run):
+        result = local_host.utils.CmdResult(
+                command='yes',
+                stdout='',
+                stderr='err',
+                exit_status=1,
+                duration=1,
+        )
+        mock_run.return_value = result
+
+        host = local_host.LocalHost()
+        got = host.run('yes', timeout=123, ignore_status=True)
+
+        self.assertEqual(got, result)
+        mock_run.assert_called_once_with(
+                result.command,
+                timeout=123,
+                ignore_status=True,
+                stdout_tee=local_host.utils.TEE_TO_LOGS,
+                stderr_tee=local_host.utils.TEE_TO_LOGS,
+                stdin=None,
+                ignore_timeout=False,
+                args=(),
+        )
 
 
     def test_list_files_glob(self):

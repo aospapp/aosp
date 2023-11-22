@@ -69,7 +69,7 @@ def gwt_forward(request, forward_addr):
         headers, content = httplib2.Http().request(url, 'GET')
     else:
         headers, content = httplib2.Http().request(url, 'POST',
-                                                   body=request.raw_post_data)
+                                                   body=request.body)
     http_response = HttpResponse(content)
     for header, value in headers.iteritems():
         if header not in ('connection',):

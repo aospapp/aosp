@@ -16,6 +16,7 @@
 package com.android.documentsui.testing;
 
 import android.provider.DocumentsContract.Root;
+import com.android.documentsui.InspectorProvider;
 import com.android.documentsui.base.Providers;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.State;
@@ -36,6 +37,7 @@ public class TestProvidersAccess implements ProvidersAccess {
     public static final RootInfo HAMMY;
     public static final RootInfo PICKLES;
     public static final RootInfo RECENTS;
+    public static final RootInfo INSPECTOR;
 
     static {
         DOWNLOADS = new RootInfo() {{
@@ -43,10 +45,18 @@ public class TestProvidersAccess implements ProvidersAccess {
         }};
         DOWNLOADS.authority = Providers.AUTHORITY_DOWNLOADS;
         DOWNLOADS.rootId = Providers.ROOT_ID_DOWNLOADS;
+        DOWNLOADS.flags = Root.FLAG_LOCAL_ONLY
+                | Root.FLAG_SUPPORTS_CREATE
+                | Root.FLAG_SUPPORTS_IS_CHILD
+                | Root.FLAG_SUPPORTS_RECENTS;
 
         HOME = new RootInfo();
         HOME.authority = Providers.AUTHORITY_STORAGE;
         HOME.rootId = Providers.ROOT_ID_HOME;
+        HOME.flags = Root.FLAG_LOCAL_ONLY
+                | Root.FLAG_SUPPORTS_CREATE
+                | Root.FLAG_SUPPORTS_IS_CHILD
+                | Root.FLAG_SUPPORTS_RECENTS;
 
         HAMMY = new RootInfo();
         HAMMY.authority = "yummies";
@@ -62,6 +72,12 @@ public class TestProvidersAccess implements ProvidersAccess {
             flags = Root.FLAG_LOCAL_ONLY | Root.FLAG_SUPPORTS_IS_CHILD;
             availableBytes = -1;
         }};
+
+        INSPECTOR = new RootInfo();
+        INSPECTOR.authority = InspectorProvider.AUTHORITY;
+        INSPECTOR.rootId = InspectorProvider.ROOT_ID;
+        INSPECTOR.flags = Root.FLAG_LOCAL_ONLY
+            | Root.FLAG_SUPPORTS_CREATE;
     }
 
     public final Map<String, Collection<RootInfo>> roots = new HashMap<>();

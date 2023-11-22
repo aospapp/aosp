@@ -49,7 +49,7 @@ class power_ProbeDriver(test.test):
         """
         if not ac_paths:
             raise error.TestFail('No line power devices found in %s' %
-                                 power_supply_path)
+                                 power_ProbeDriver.power_supply_path)
 
         if not any([self._online(ac_path) for ac_path in ac_paths]):
             raise error.TestFail('Line power is not connected')

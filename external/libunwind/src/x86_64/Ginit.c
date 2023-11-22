@@ -179,11 +179,12 @@ access_mem (unw_addr_space_t as, unw_word_t addr, unw_word_t *val, int write,
     }
   else
     {
-      /* validate address */
-      const struct cursor *c = (const struct cursor *)arg;
-      if (likely (c != NULL) && unlikely (c->validate)
-          && unlikely (validate_mem (addr)))
+      /* ANDROID support update. */
+#ifdef CONSERVATIVE_CHECKS
+      if (unlikely (validate_mem (addr)))
         return -1;
+#endif
+      /* End of ANDROID update. */
 
       /* ANDROID support update. */
 #ifdef UNW_LOCAL_ONLY

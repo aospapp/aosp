@@ -61,7 +61,6 @@ static void local_memcpy(void* dst, const void* src, size_t size) {
     }
 }
 
-#ifndef RS_DEBUG_RUNTIME
 uint8_t*
 rsOffset(rs_allocation a, uint32_t sizeOf, uint32_t x, uint32_t y,
          uint32_t z) {
@@ -73,7 +72,6 @@ rsOffset(rs_allocation a, uint32_t sizeOf, uint32_t x, uint32_t y,
                      (z * stride * dimY)];
     return dp;
 }
-#endif
 
 uint8_t*
 rsOffsetNs(rs_allocation a, uint32_t x, uint32_t y, uint32_t z) {
@@ -134,64 +132,6 @@ rsOffsetNs(rs_allocation a, uint32_t x, uint32_t y, uint32_t z) {
     }
 #else  // NOT RS_DEBUG_RUNTIME
 
-// The functions rsSetElementAtImpl_T and rsGetElementAtImpl_T are implemented in bitcode
-// in ll32/allocation.ll and ll64/allocation.ll. To be able to provide debug info for
-// these functions define them here instead, if we are linking with the debug library.
-#ifdef RS_G_RUNTIME
-
-#define SET_ELEMENT_AT_IMPL_TYPE_SIZE(typename, size)                               \
-     void rsSetElementAtImpl_##typename                                             \
-            (rs_allocation a, typename val, uint32_t x, uint32_t y, uint32_t z) {   \
-        typename* val_ptr = (typename*)rsOffset(a, size, x, y, z);                  \
-        *val_ptr = val;                                                             \
-    }
-
-#define GET_ELEMENT_AT_IMPL_TYPE_SIZE(typename, size)                               \
-     typename rsGetElementAtImpl_##typename                                         \
-            (rs_allocation a, uint32_t x, uint32_t y, uint32_t z) {                 \
-        typename *val_ptr = (typename*)rsOffset(a, size, x, y, z);                  \
-        return *val_ptr;                                                            \
-    }
-
-#define SET_ELEMENT_AT_IMPL_TYPE(typename)          \
-    SET_ELEMENT_AT_IMPL_TYPE_SIZE(typename, sizeof(typename))        \
-    SET_ELEMENT_AT_IMPL_TYPE_SIZE(typename##2, sizeof(typename)*2)   \
-    SET_ELEMENT_AT_IMPL_TYPE_SIZE(typename##3, sizeof(typename)*4)   \
-    SET_ELEMENT_AT_IMPL_TYPE_SIZE(typename##4, sizeof(typename)*4)
-
-#define GET_ELEMENT_AT_IMPL_TYPE(typename)          \
-    GET_ELEMENT_AT_IMPL_TYPE_SIZE(typename, sizeof(typename))        \
-    GET_ELEMENT_AT_IMPL_TYPE_SIZE(typename##2, sizeof(typename)*2)   \
-    GET_ELEMENT_AT_IMPL_TYPE_SIZE(typename##3, sizeof(typename)*4)   \
-    GET_ELEMENT_AT_IMPL_TYPE_SIZE(typename##4, sizeof(typename)*4)
-
-#define ELEMENT_AT_IMPL_TYPE(typename)  \
-    SET_ELEMENT_AT_IMPL_TYPE(typename)  \
-    GET_ELEMENT_AT_IMPL_TYPE(typename)
-
-ELEMENT_AT_IMPL_TYPE(char)
-ELEMENT_AT_IMPL_TYPE(uchar)
-ELEMENT_AT_IMPL_TYPE(short)
-ELEMENT_AT_IMPL_TYPE(ushort)
-ELEMENT_AT_IMPL_TYPE(int)
-ELEMENT_AT_IMPL_TYPE(uint)
-ELEMENT_AT_IMPL_TYPE(long)
-ELEMENT_AT_IMPL_TYPE(ulong)
-ELEMENT_AT_IMPL_TYPE(half)
-ELEMENT_AT_IMPL_TYPE(float)
-ELEMENT_AT_IMPL_TYPE(double)
-
-#undef ELEMENT_AT_IMPL_TYPE
-#undef GET_ELEMENT_AT_IMPL_TYPE
-#undef SET_ELEMENT_AT_IMPL_TYPE
-#undef GET_ELEMENT_AT_IMPL_TYPE_SIZE
-#undef SET_ELEMENT_AT_IMPL_TYPE_SIZE
-
-#define SET_ELEMENT_AT_TYPE_IMPL(T, typename) /* nothing */
-#define GET_ELEMENT_AT_TYPE_IMPL(T, typename) /* nothing */
-
-#else  //NOT RS_G_RUNTIME
-
 #define SET_ELEMENT_AT_TYPE_IMPL(T, typename)                                    \
     void                                                                \
     rsSetElementAtImpl_##typename(rs_allocation a, typename val, uint32_t x,   \
@@ -201,8 +141,6 @@ ELEMENT_AT_IMPL_TYPE(double)
     typename                                                            \
     rsGetElementAtImpl_##typename(rs_allocation a, uint32_t x, uint32_t y, \
                                   uint32_t z);
-
-#endif //RS_G_RUNTIME
 
 #define SET_ELEMENT_AT_TYPE_DEF(T, typename)                                    \
     extern void __attribute__((overloadable))                           \
@@ -402,32 +340,9 @@ extern uchar __attribute__((overloadable))
     return pin[((x >> shift) * cstep) + ((y >> shift) * stride)];
 }
 
-// The functions rsAllocationVLoadXImpl_T and rsAllocationVStoreXImpl_T are implemented in
-// bitcode in ll32/allocation.ll and ll64/allocation.ll. To be able to provide debug info
-// for these functions define them here instead, if we are linking with the debug library.
-#ifdef RS_G_RUNTIME
-
-#define VOP_IMPL(T)                                                             \
-    void __rsAllocationVStoreXImpl_##T                                          \
-            (rs_allocation a, const T val, uint32_t x, uint32_t y, uint32_t z) {\
-        T *val_ptr = (T*)rsOffsetNs(a, x, y, z);                                \
-        local_memcpy(val_ptr, &val, sizeof(T));                                       \
-    }                                                                           \
-    T __rsAllocationVLoadXImpl_##T                                              \
-            (rs_allocation a, uint32_t x, uint32_t y, uint32_t z) {             \
-        T result = {};                                                          \
-        T* val_ptr = (T*)rsOffsetNs(a, x, y, z);                                \
-        local_memcpy(&result, val_ptr, sizeof(T));                                    \
-        return result;                                                          \
-    }
-
-#else
-
 #define VOP_IMPL(T)                                                          \
     extern void __rsAllocationVStoreXImpl_##T(rs_allocation a, const T val, uint32_t x, uint32_t y, uint32_t z); \
     extern T __rsAllocationVLoadXImpl_##T(rs_allocation a, uint32_t x, uint32_t y, uint32_t z);
-
-#endif // RS_G_RUNTIME
 
 #define VOP_DEF(T)                                                      \
     extern void __attribute__((overloadable))                           \

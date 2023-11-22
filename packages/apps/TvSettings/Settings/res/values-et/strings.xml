@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"Teenused"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Teenuse seaded"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Suure kontrastsusega tekst"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Juurdepääsetavuse otsetee"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Luba juurdepääsetavuse otsetee"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Otsetee teenus"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Kui otsetee on sisse lülitatud, saab juurdepääsufunktsiooni käivitada nuppe Tagasi ja Alla kolm sekundit vajutades."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Subtiitrid"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Video subtiitrite teksti ülekatte seaded"</string>
     <string name="captions_display" msgid="735692527287125548">"Kuvamine"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Veaaruande jäädvustamine"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Saadaolevad virtuaalsed klaviatuurid"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Klaviatuuride haldamine"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Lubatud"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Ei ole lubatud"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Juurdepääs kasutusele"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Juurdepääs kasutusele võimaldab rakendusel jälgida, milliseid teisi rakendusi (ja kui sageli), operaatorit ja keeleseadeid te kasutate, ning vaadata teisi üksikasju."</string>
 </resources>

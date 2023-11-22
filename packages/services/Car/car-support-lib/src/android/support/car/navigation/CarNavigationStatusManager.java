@@ -16,6 +16,7 @@
 package android.support.car.navigation;
 
 import android.graphics.Bitmap;
+import android.os.Bundle;
 import android.support.annotation.IntDef;
 import android.support.car.CarManagerBase;
 import android.support.car.CarNotConnectedException;
@@ -188,10 +189,28 @@ public abstract class CarNavigationStatusManager implements CarManagerBase {
     public @interface DistanceUnit {}
 
     /**
+     * Event type that holds information about next maneuver.
+     * @hide
+     */
+    public static final int EVENT_TYPE_NEXT_MANEUVER_INFO = 1;
+    /**
+     * Event type that holds information regarding distance/time to the next maneuver.
+     * @hide
+     */
+    public static final int EVENT_TYPE_NEXT_MANEUVER_COUNTDOWN = 2;
+    /**
+     * All custom (vendor-specific) event types should be equal or greater than this constant.
+     * @hide
+     */
+    public static final int EVENT_TYPE_VENDOR_FIRST = 1024;
+
+    /**
      * Inform the instrument cluster if navigation is active or not.
      * @param status New instrument cluster navigation status, one of the STATUS_* constants in
      * this class.
      * @throws CarNotConnectedException if the connection to the car service has been lost.
+     *
+     * @deprecated Use {@link #sendEvent(int, Bundle)} instead.
      */
     public abstract void sendNavigationStatus(@Status int status) throws CarNotConnectedException;
 
@@ -216,6 +235,8 @@ public abstract class CarNavigationStatusManager implements CarManagerBase {
      * @param turnSide Turn side ({@link #TURN_SIDE_LEFT}, {@link #TURN_SIDE_RIGHT} or {@link
      * #TURN_SIDE_UNSPECIFIED}).
      * @throws CarNotConnectedException if the connection to the car service has been lost.
+     *
+     * @deprecated Use {@link #sendEvent(int, Bundle)} instead.
      */
     public abstract void sendNavigationTurnEvent(@TurnEvent int turnEvent, CharSequence eventName,
             int turnAngle, int turnNumber, @TurnSide int turnSide) throws CarNotConnectedException;
@@ -231,6 +252,7 @@ public abstract class CarNavigationStatusManager implements CarManagerBase {
      * imageColorDepthBits) in the initial NavigationStatusService call.
      *
      * @hide only first party applications may send a custom image to the cluster.
+     * @deprecated Use {@link #sendEvent(int, Bundle)} instead.
      */
     public abstract void sendNavigationTurnEvent(@TurnEvent int turnEvent, CharSequence eventName,
             int turnAngle, int turnNumber, Bitmap image, @TurnSide int turnSide)
@@ -247,9 +269,29 @@ public abstract class CarNavigationStatusManager implements CarManagerBase {
      * file.
      * @return Returns {@code true} if successful.
      * @throws CarNotConnectedException if the connection to the car service has been lost.
+     *
+     * @deprecated Use {@link #sendEvent(int, Bundle)} instead.
      */
     public abstract void sendNavigationTurnDistanceEvent(int distanceMeters, int timeSeconds,
             int displayDistanceMillis, int displayDistanceUnit) throws CarNotConnectedException;
+
+    /**
+     * Sends events from navigation app to instrument cluster.
+     *
+     * @param eventType event type, the value could be either
+     * {@link #EVENT_TYPE_NEXT_MANEUVER_INFO}, {@link EVENT_TYPE_NEXT_MANEUVER_COUNTDOWN}, or
+     * vendor-specific code.
+     *
+     * @param bundle object that holds data about the event
+     * @throws android.car.CarNotConnectedException if the connection to the car service has been lost.
+     *
+     * @see #EVENT_TYPE_NEXT_MANEUVER_INFO
+     * @see #EVENT_TYPE_NEXT_MANEUVER_COUNTDOWN
+     *
+     * @hide
+     */
+    public abstract void sendEvent(int eventType, Bundle bundle)
+            throws CarNotConnectedException;
 
     /**
      * @param callback {@link CarNavigationCallback} to be registered, replacing any existing

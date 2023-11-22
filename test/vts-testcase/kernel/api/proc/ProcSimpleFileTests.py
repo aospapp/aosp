@@ -16,7 +16,7 @@
 
 from vts.testcases.kernel.api.proc import KernelProcFileTestBase
 
-from vts.utils.python.file import file_utils
+from vts.utils.python.file import target_file_utils
 
 
 class ProcKptrRestrictTest(KernelProcFileTestBase.KernelProcFileTestBase):
@@ -36,7 +36,7 @@ class ProcKptrRestrictTest(KernelProcFileTestBase.KernelProcFileTestBase):
     def get_permission_checker(self):
         """Get r/w file permission checker.
         """
-        return file_utils.IsReadWrite
+        return target_file_utils.IsReadWrite
 
 
 class ProcRandomizeVaSpaceTest(KernelProcFileTestBase.KernelProcFileTestBase):
@@ -56,7 +56,7 @@ class ProcRandomizeVaSpaceTest(KernelProcFileTestBase.KernelProcFileTestBase):
     def get_permission_checker(self):
         """Get r/w file permission checker.
         """
-        return file_utils.IsReadWrite
+        return target_file_utils.IsReadWrite
 
 
 class ProcOverCommitMemoryTest(KernelProcFileTestBase.KernelProcFileTestBase):
@@ -75,7 +75,7 @@ class ProcOverCommitMemoryTest(KernelProcFileTestBase.KernelProcFileTestBase):
     def get_permission_checker(self):
         """Get r/w file permission checker.
         """
-        return file_utils.IsReadWrite
+        return target_file_utils.IsReadWrite
 
 
 class ProcMmapMinAddrTest(KernelProcFileTestBase.KernelProcFileTestBase):
@@ -91,7 +91,7 @@ class ProcMmapMinAddrTest(KernelProcFileTestBase.KernelProcFileTestBase):
     def get_permission_checker(self):
         """Get r/w file permission checker.
         """
-        return file_utils.IsReadWrite
+        return target_file_utils.IsReadWrite
 
 
 class ProcMmapRndBitsTest(KernelProcFileTestBase.KernelProcFileTestBase):
@@ -111,7 +111,7 @@ class ProcMmapRndBitsTest(KernelProcFileTestBase.KernelProcFileTestBase):
     def get_permission_checker(self):
         """Get r/w file permission checker.
         """
-        return file_utils.IsReadWrite
+        return target_file_utils.IsReadWrite
 
 
 class ProcMmapRndCompatBitsTest(ProcMmapRndBitsTest):

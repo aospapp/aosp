@@ -67,5 +67,5 @@ final public class HeadsetHalConstants {
 
     // Match up with bthf_hf_ind_type_t of bt_hf.h
     final static int HF_INDICATOR_ENHANCED_DRIVER_SAFETY = 1;
-    final static int HF_INDICATOR_BATTERY_LEVEL_STATUS = 2;
+    public final static int HF_INDICATOR_BATTERY_LEVEL_STATUS = 2;
 }

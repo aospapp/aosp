@@ -8,6 +8,10 @@
 #include "ok.h"
 #include "Test.h"
 
+#if SK_SUPPORT_GPU
+    #include "GrContextFactory.h"
+#endif
+
 struct TestStream : Stream {
     const skiatest::TestRegistry* registry = skiatest::TestRegistry::Head();
     bool extended = false, verbose = false;
@@ -27,27 +31,31 @@ struct TestStream : Stream {
         std::string name() override { return test.name; }
         SkISize     size() override { return {0,0}; }
 
-        bool draw(SkCanvas*) override {
-            // TODO(mtklein): GrContext
+        Status draw(SkCanvas*) override {
 
             struct : public skiatest::Reporter {
-                bool ok = true;
-                const char* name;
+                Status status = Status::OK;
                 bool extended, verbose_;
 
                 void reportFailed(const skiatest::Failure& failure) override {
-                    SkDebugf("%s: %s\n", name, failure.toString().c_str());
-                    ok = false;
+                    ok_log(failure.toString().c_str());
+                    status = Status::Failed;
                 }
                 bool allowExtendedTest() const override { return extended; }
                 bool           verbose() const override { return verbose_; }
             } reporter;
-            reporter.name     = test.name;
             reporter.extended = extended;
             reporter.verbose_ = verbose;
 
-            test.proc(&reporter, nullptr);
-            return reporter.ok;
+            sk_gpu_test::GrContextFactory* factory = nullptr;
+        #if SK_SUPPORT_GPU
+            GrContextOptions options;
+            sk_gpu_test::GrContextFactory a_real_factory(options);
+            factory = &a_real_factory;
+        #endif
+
+            test.proc(&reporter, factory);
+            return reporter.status;
         }
     };
 
@@ -63,7 +71,7 @@ struct TestStream : Stream {
         return move_unique(src);
     }
 };
-static Register test{"test", TestStream::Create};
+static Register test{"test", "run unit tests linked into this binary", TestStream::Create};
 
 // Hey, now why were these defined in DM.cpp?  That's kind of weird.
 namespace skiatest {

@@ -23,9 +23,9 @@ TEST(AdvertiseDataParserTest, IsValidEmpty) {
   const std::vector<uint8_t> data0;
   EXPECT_TRUE(AdvertiseDataParser::IsValid(data0));
 
-  // Single empty field not allowed.
+  // Single empty field allowed (treated as zero padding).
   const std::vector<uint8_t> data1{0x00};
-  EXPECT_FALSE(AdvertiseDataParser::IsValid(data1));
+  EXPECT_TRUE(AdvertiseDataParser::IsValid(data1));
 }
 
 TEST(AdvertiseDataParserTest, IsValidBad) {
@@ -44,6 +44,16 @@ TEST(AdvertiseDataParserTest, IsValidBad) {
   // Two fields, second field empty.
   const std::vector<uint8_t> data3{0x02, 0x02, 0x00, 0x01};
   EXPECT_FALSE(AdvertiseDataParser::IsValid(data3));
+
+  // Non-zero padding at end of packet.
+  const std::vector<uint8_t> data4{0x03, 0x02, 0x01, 0x02, 0x02, 0x03, 0x01,
+                                   0x00, 0x00, 0xBA, 0xBA, 0x00, 0x00};
+  EXPECT_FALSE(AdvertiseDataParser::IsValid(data1));
+
+  // Non-zero padding at end of packet.
+  const std::vector<uint8_t> data5{0x03, 0x02, 0x01, 0x02, 0x02,
+                                   0x03, 0x01, 0x00, 0xBA};
+  EXPECT_FALSE(AdvertiseDataParser::IsValid(data1));
 }
 
 TEST(AdvertiseDataParserTest, IsValidGood) {
@@ -54,6 +64,45 @@ TEST(AdvertiseDataParserTest, IsValidGood) {
   // Two fields.
   const std::vector<uint8_t> data1{0x03, 0x02, 0x01, 0x02, 0x02, 0x03, 0x01};
   EXPECT_TRUE(AdvertiseDataParser::IsValid(data1));
+
+  // Zero padding at end of packet.
+  const std::vector<uint8_t> data2{0x03, 0x02, 0x01, 0x02,
+                                   0x02, 0x03, 0x01, 0x00};
+  EXPECT_TRUE(AdvertiseDataParser::IsValid(data2));
+
+  // zero padding at end of packet, sample data from real device
+  const std::vector<uint8_t> data3{
+      0x10, 0x096, 0x85, 0x44, 0x32, 0x04, 0x74, 0x32, 0x03, 0x13, 0x93,
+      0xa,  0x32,  0x39, 0x3a, 0x65, 0x32, 0x05, 0x12, 0x50, 0x00, 0x50,
+      0x00, 0x02,  0x0a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+  EXPECT_TRUE(AdvertiseDataParser::IsValid(data3));
+
+  // Test Quirk for Traxxas (bad name length, should be 0x11 is 0x14)
+  const std::vector<uint8_t> data4{0x14, 0x09, 0x54, 0x52, 0x58, 0x20,
+                                   0x42, 0x4C, 0x45, 0x05, 0x12, 0x60,
+                                   0x00, 0xE8, 0x03, 0x02, 0x0A, 0x00};
+  EXPECT_TRUE(AdvertiseDataParser::IsValid(data4));
+
+  // Test Quirk for Traxxas (bad name length, should be 0x11 is 0x14)
+  const std::vector<uint8_t> data5{0x14, 0x09, 0x54, 0x51, 0x69, 0x20,
+                                   0x42, 0x4C, 0x45, 0x05, 0x12, 0x64,
+                                   0x00, 0xE8, 0x03, 0x02, 0x0A, 0x00};
+  EXPECT_TRUE(AdvertiseDataParser::IsValid(data5));
+
+  // Test Quirk for Traxxas (bad name length, should be 0x11 is 0x14)
+  const std::vector<uint8_t> data6{0x14, 0x09, 0x54, 0x51, 0x69, 0x20,
+                                   0x42, 0x4C, 0x45, 0x05, 0x12, 0x60,
+                                   0x00, 0xE8, 0x03, 0x02, 0x0A, 0x00};
+  EXPECT_TRUE(AdvertiseDataParser::IsValid(data6));
+
+  // Test Quirk for Traxxas (bad length, should be 0x11 is 0x14)
+  // scan response glued after advertise data
+  const std::vector<uint8_t> data7{
+      0x02, 0x01, 0x06, 0x11, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x64, 0xB1, 0x73, 0x41, 0xE7, 0xF3, 0xC4, 0xB4, 0x80,
+      0x08, 0x14, 0x09, 0x54, 0x51, 0x69, 0x20, 0x42, 0x4C, 0x45,
+      0x05, 0x12, 0x60, 0x00, 0xE8, 0x03, 0x02, 0x0A, 0x00};
+  EXPECT_TRUE(AdvertiseDataParser::IsValid(data7));
 }
 
 TEST(AdvertiseDataParserTest, GetFieldByType) {
@@ -78,4 +127,25 @@ TEST(AdvertiseDataParserTest, GetFieldByType) {
   data = AdvertiseDataParser::GetFieldByType(data1, 0x03, &p_length);
   EXPECT_EQ(nullptr, data);
   EXPECT_EQ(0, p_length);
+}
+
+// This test makes sure that RemoveTrailingZeros is working correctly. It does
+// run the RemoveTrailingZeros for ad data, then glue scan response at end of
+// it, and checks that the resulting data is good.
+TEST(AdvertiseDataParserTest, RemoveTrailingZeros) {
+  std::vector<uint8_t> podo_ad_data{
+      0x02, 0x01, 0x02, 0x11, 0x06, 0x66, 0x9a, 0x0c, 0x20, 0x00, 0x08,
+      0x37, 0xa8, 0xe5, 0x11, 0x81, 0x8b, 0xd0, 0xf0, 0xf0, 0xf0, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+  const std::vector<uint8_t> podo_scan_resp{
+      0x03, 0x19, 0x00, 0x80, 0x09, 0x09, 0x50, 0x6f, 0x64, 0x6f, 0x51,
+      0x35, 0x56, 0x47, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+  AdvertiseDataParser::RemoveTrailingZeros(podo_ad_data);
+
+  std::vector<uint8_t> glued(podo_ad_data);
+  glued.insert(glued.end(), podo_ad_data.begin(), podo_ad_data.end());
+
+  EXPECT_TRUE(AdvertiseDataParser::IsValid(glued));
 }

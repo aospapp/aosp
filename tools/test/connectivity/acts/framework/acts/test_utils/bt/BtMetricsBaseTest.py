@@ -27,6 +27,8 @@ class BtMetricsBaseTest(BluetoothBaseTest):
     def __init__(self, controllers):
         BluetoothBaseTest.__init__(self, controllers)
         self.bluetooth_proto_path = None
+        self.dongle = self.relay_devices[0]
+        self.ad = self.android_devices[0]
 
     def setup_class(self):
         """
@@ -35,7 +37,7 @@ class BtMetricsBaseTest(BluetoothBaseTest):
         :return: True on success, False on failure
         """
         super(BtMetricsBaseTest, self).setup_class()
-        self.bluetooth_proto_path = self.user_params["bluetooth_proto_path"]
+        self.bluetooth_proto_path = self.user_params["bluetooth_proto_path"][0]
         if not os.path.isfile(self.bluetooth_proto_path):
             try:
                 self.bluetooth_proto_path = "{}/bluetooth.proto".format(
@@ -67,7 +69,39 @@ class BtMetricsBaseTest(BluetoothBaseTest):
         # Clear all metrics
         for ad in self.android_devices:
             get_bluetooth_metrics(ad, ad.bluetooth_proto_module)
+        self.dongle.setup()
+        tries = 5
+        # Since we are not concerned with pairing in this test, try 5 times.
+        while tries > 0:
+            if self._pair_devices():
+                return True
+            else:
+                tries -= 1
+        return False
+
+    def teardown_test(self):
+        super(BtMetricsBaseTest, self).teardown_test()
+        self.dongle.clean_up()
         return True
+
+    def _pair_devices(self):
+        self.ad.droid.bluetoothStartPairingHelper(False)
+        self.dongle.enter_pairing_mode()
+
+        self.ad.droid.bluetoothBond(self.dongle.mac_address)
+
+        end_time = time.time() + 20
+        self.ad.log.info("Verifying devices are bonded")
+        while time.time() < end_time:
+            bonded_devices = self.ad.droid.bluetoothGetBondedDevices()
+
+            for d in bonded_devices:
+                if d['address'] == self.dongle.mac_address:
+                    self.ad.log.info("Successfully bonded to device.")
+                    self.log.info("Bonded devices:\n{}".format(bonded_devices))
+                return True
+        self.ad.log.info("Failed to bond devices.")
+        return False
 
     def collect_bluetooth_manager_metrics_logs(self, ads):
         """

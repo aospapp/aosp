@@ -93,8 +93,7 @@ class SchedulerLoggingConfig(logging_config.LoggingConfig):
                 CONFIG_SECTION, "notify_email_from", default=getpass.getuser())
 
         self._notify_address = global_config.global_config.get_config_value(
-                CONFIG_SECTION, "notify_email",
-                default='chromeos-lab-admins@google.com')
+                CONFIG_SECTION, "notify_email")
 
         self._smtp_server = global_config.global_config.get_config_value(
                 CONFIG_SECTION_SERVER, "smtp_server", default='localhost')

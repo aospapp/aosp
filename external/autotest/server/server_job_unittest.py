@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+import os
+import tempfile
 import unittest
 
 import common
@@ -37,10 +39,14 @@ class test_init(base_job_unittest.test_init.generic_tests, unittest.TestCase):
 
     def setUp(self):
         self.god = mock.mock_god()
-        self.job = server_job.base_server_job.__new__(
-            server_job.base_server_job)
+        self.job = server_job.server_job.__new__(
+            server_job.server_job)
         self.job._job_directory = base_job_unittest.stub_job_directory
+        _, self.control_file = tempfile.mkstemp()
 
+    def tearDown(self):
+        """Cleanup the test control file."""
+        os.remove(self.control_file)
 
     def call_init(self):
         # TODO(jadmanski): refactor more of the __init__ code to not need to
@@ -54,7 +60,7 @@ class test_init(base_job_unittest.test_init.generic_tests, unittest.TestCase):
             log_per_reboot_data = lambda self: None
         self.god.stub_with(server_job.sysinfo, 'sysinfo', lambda r: sysi())
 
-        self.job.__init__('/control', (), None, 'job_label',
+        self.job.__init__(self.control_file, (), None, 'job_label',
                           'auser', ['mach1', 'mach2'])
         self.god.unstub_all()
 

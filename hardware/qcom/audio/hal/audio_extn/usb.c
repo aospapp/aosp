@@ -22,6 +22,7 @@
 #include <cutils/log.h>
 #include <cutils/str_parms.h>
 #include <sys/ioctl.h>
+#include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <system/audio.h>
@@ -42,9 +43,12 @@
 #define SAMPLE_RATE_11025         11025
 /* TODO: dynamically populate supported sample rates */
 static uint32_t supported_sample_rates[] =
-    {44100, 48000, 64000, 88200, 96000, 176400, 192000, 384000};
+    {192000, 176400, 96000, 88200, 64000, 48000, 44100};
+static uint32_t supported_sample_rates_mask[2];
+static const uint32_t MAX_SAMPLE_RATE_SIZE =
+        (sizeof(supported_sample_rates)/sizeof(supported_sample_rates[0]));
 
-#define  MAX_SAMPLE_RATE_SIZE  sizeof(supported_sample_rates)/sizeof(supported_sample_rates[0])
+// assert on sizeof bm v/s size of rates if needed
 
 enum usb_usecase_type{
     USB_PLAYBACK = 0,
@@ -211,7 +215,7 @@ static int usb_set_dev_id_mixer_ctl(unsigned int usb_usecase_type, int card,
     return 0;
 }
 
-static int usb_get_sample_rates(char *rates_str,
+static int usb_get_sample_rates(int type, char *rates_str,
                                 struct usb_device_config *config)
 {
     uint32_t i;
@@ -242,6 +246,7 @@ static int usb_get_sample_rates(char *rates_str,
             if (supported_sample_rates[i] >= min_sr &&
                 supported_sample_rates[i] <= max_sr) {
                 config->rates[sr_size++] = supported_sample_rates[i];
+                supported_sample_rates_mask[type] |= (1<<i);
                 ALOGI_IF(usb_audio_debug_enable,
                     "%s: continuous sample rate supported_sample_rates[%d] %d",
                     __func__, i, supported_sample_rates[i]);
@@ -256,6 +261,7 @@ static int usb_get_sample_rates(char *rates_str,
                         "%s: sr %d, supported_sample_rates[%d] %d -> matches!!",
                         __func__, sr, i, supported_sample_rates[i]);
                     config->rates[sr_size++] = supported_sample_rates[i];
+                    supported_sample_rates_mask[type] |= (1<<i);
                 }
             }
             next_sr_string = strtok_r(NULL, " ,.-", &temp_ptr);
@@ -285,6 +291,7 @@ static int usb_get_capability(int type,
     char *bit_width_str = NULL;
     struct usb_device_config * usb_device_info;
     bool check = false;
+    int tries=5;
 
     memset(path, 0, sizeof(path));
     ALOGV("%s: for %s", __func__, (type == USB_PLAYBACK) ?
@@ -293,10 +300,19 @@ static int usb_get_capability(int type,
     /* TODO: convert the below to using alsa_utils */
     ret = snprintf(path, sizeof(path), "/proc/asound/card%u/stream0",
              card);
-    if(ret < 0) {
+    if (ret < 0) {
         ALOGE("%s: failed on snprintf (%d) to path %s\n",
           __func__, ret, path);
         goto done;
+    }
+
+    // TODO: figure up if this wait is needed any more
+    while (tries--) {
+        if (access(path, F_OK) < 0) {
+            ALOGW("stream %s doesn't exist retrying\n", path);
+            sleep(1);
+            continue;
+        }
     }
 
     fd = open(path, O_RDONLY);
@@ -418,7 +434,7 @@ static int usb_get_capability(int type,
         }
         memcpy(rates_str, rates_str_start, size);
         rates_str[size] = '\0';
-        ret = usb_get_sample_rates(rates_str, usb_device_info);
+        ret = usb_get_sample_rates(type, rates_str, usb_device_info);
         if (rates_str)
             free(rates_str);
         if (ret < 0) {
@@ -491,9 +507,12 @@ static void usb_get_sidetone_mixer(struct usb_card_config *usb_card_info)
             usb_card_info->usb_sidetone_index[USB_SIDETONE_ENABLE_INDEX] = index;
             /* Disable device sidetone by default */
             mixer_ctl_set_value(ctl, 0, false);
+            ALOGV("%s:: sidetone mixer Control found(%s) ... disabling by default",
+                   __func__, usb_sidetone_enable_str[index]);
             break;
         }
     }
+#ifdef USB_SIDETONE_VOLUME
     for (index = 0;
          index < sizeof(usb_sidetone_volume_str)/sizeof(usb_sidetone_volume_str[0]);
          index++) {
@@ -506,25 +525,33 @@ static void usb_get_sidetone_mixer(struct usb_card_config *usb_card_info)
             break;
         }
     }
-
+#endif // USB_SIDETONE_VOLUME
     if ((usb_card_info->usb_snd_mixer != NULL) && (usb_audio_debug_enable))
         usb_soundcard_list_controls(usb_card_info->usb_snd_mixer);
 
     return;
 }
 
+static inline bool usb_output_device(audio_devices_t device) {
+    // ignore accessory for now
+    if (device == AUDIO_DEVICE_OUT_USB_ACCESSORY) {
+        return false;
+    }
+    return audio_is_usb_out_device(device);
+}
+
+static inline bool usb_input_device(audio_devices_t device) {
+    // ignore accessory for now
+    if (device == AUDIO_DEVICE_IN_USB_ACCESSORY) {
+        return false;
+    }
+    return audio_is_usb_in_device(device);
+}
+
 static bool usb_valid_device(audio_devices_t device)
 {
-    if ((popcount(device) == 1) && (device & AUDIO_DEVICE_OUT_USB_DEVICE))
-        return true;
-
-    if ((device & AUDIO_DEVICE_BIT_IN) != 0) {
-        device &= ~AUDIO_DEVICE_BIT_IN;
-        if (popcount(device) == 1 && (device & AUDIO_DEVICE_IN_USB_DEVICE) != 0)
-            return true;
-    }
-
-    return false;
+    return usb_output_device(device) ||
+           usb_input_device(device);
 }
 
 static void usb_print_active_device(void){
@@ -548,7 +575,7 @@ static void usb_print_active_device(void){
     }
 }
 
-static bool usb_get_best_match_for_bit_width(
+static bool usb_get_best_bit_width(
                             struct listnode *dev_list,
                             unsigned int stream_bit_width,
                             unsigned int *bit_width)
@@ -563,29 +590,17 @@ static bool usb_get_best_match_for_bit_width(
                  "%s: USB bw(%d), stream bw(%d), candidate(%d)",
                  __func__, dev_info->bit_width,
                  stream_bit_width, candidate);
-        if (dev_info->bit_width == stream_bit_width) {
-            *bit_width = dev_info->bit_width;
-            ALOGV("%s: Found match bit-width (%d)",
+        if (candidate == 0) {
+            ALOGV("%s: candidate bit-width (%d)",
                   __func__, dev_info->bit_width);
-            goto exit;
-        } else if (candidate == 0) {
-                candidate = dev_info->bit_width;
-        }
-        /*
-        * If stream bit is 24, USB supports both 16 bit and 32 bit, then
-        *  higher bit width 32 is picked up instead of 16-bit
-        */
-        else if (ABS_SUB(stream_bit_width, dev_info->bit_width) <
-                 ABS_SUB(stream_bit_width, candidate)) {
             candidate = dev_info->bit_width;
-        }
-        else if ((ABS_SUB(stream_bit_width, dev_info->bit_width) ==
-                  ABS_SUB(stream_bit_width, candidate)) &&
-                 (dev_info->bit_width > candidate)) {
+        } else if (dev_info->bit_width > candidate) {
             candidate = dev_info->bit_width;
+            ALOGV("%s: Found better candidate bit-width (%d)",
+                  __func__, dev_info->bit_width);
         }
     }
-    ALOGV("%s: No match found, use the best candidate bw(%d)",
+    ALOGV("%s: Use the best candidate bw(%d)",
           __func__, candidate);
     *bit_width = candidate;
 exit:
@@ -763,7 +778,7 @@ static bool usb_audio_backend_apply_policy(struct listnode *dev_list,
         ALOGE("%s: list is empty,fall back to default setting", __func__);
         goto exit;
     }
-    usb_get_best_match_for_bit_width(dev_list, *bit_width, bit_width);
+    usb_get_best_bit_width(dev_list, *bit_width, bit_width);
     usb_get_best_match_for_channels(dev_list,
                                     *bit_width,
                                     *channel_count,
@@ -816,7 +831,7 @@ int audio_extn_usb_enable_sidetone(int device, bool enable)
         card_info = node_to_item(node_i, struct usb_card_config, list);
         ALOGV("%s: card_dev_type (0x%x), card_no(%d)",
                __func__,  card_info->usb_device_type, card_info->usb_card);
-        if (card_info->usb_device_type == AUDIO_DEVICE_OUT_USB_DEVICE) {
+        if (usb_output_device(card_info->usb_device_type)) {
             if ((i = card_info->usb_sidetone_index[USB_SIDETONE_ENABLE_INDEX]) != -1) {
                 struct mixer_ctl *ctl = mixer_get_ctl_by_name(
                                 card_info->usb_snd_mixer,
@@ -826,6 +841,7 @@ int audio_extn_usb_enable_sidetone(int device, bool enable)
                 else
                     break;
 
+#ifdef USB_SIDETONE_VOLUME
                 if ((i = card_info->usb_sidetone_index[USB_SIDETONE_VOLUME_INDEX]) != -1) {
                     ctl = mixer_get_ctl_by_name(
                                 card_info->usb_snd_mixer,
@@ -837,6 +853,7 @@ int audio_extn_usb_enable_sidetone(int device, bool enable)
                         mixer_ctl_set_value(ctl, 0,
                                             usb_get_sidetone_gain(card_info));
                 }
+#endif // USB_SIDETONE_VOLUME
                 ret = 0;
                 break;
             }
@@ -861,8 +878,8 @@ bool audio_extn_usb_is_config_supported(unsigned int *bit_width,
                  "%s: card_dev_type (0x%x), card_no(%d)",
                  __func__,  card_info->usb_device_type, card_info->usb_card);
         /* Currently only apply the first playback sound card configuration */
-        if ((is_playback && card_info->usb_device_type == AUDIO_DEVICE_OUT_USB_DEVICE) ||
-            ((!is_playback) && card_info->usb_device_type == AUDIO_DEVICE_IN_USB_DEVICE)){
+        if ((is_playback && usb_output_device(card_info->usb_device_type)) ||
+            (!is_playback && usb_input_device(card_info->usb_device_type))) {
             usb_audio_backend_apply_policy(&card_info->usb_device_conf_list,
                                            bit_width,
                                            sample_rate,
@@ -874,6 +891,77 @@ bool audio_extn_usb_is_config_supported(unsigned int *bit_width,
            __func__, *bit_width, *sample_rate, *channel_count);
 
     return true;
+}
+
+#define _MAX(x, y) (((x) >= (y)) ? (x) : (y))
+#define _MIN(x, y) (((x) <= (y)) ? (x) : (y))
+
+int audio_extn_usb_get_max_channels(bool is_playback)
+{
+    struct listnode *node_i, *node_j;
+    struct usb_device_config *dev_info;
+    struct usb_card_config *card_info;
+    unsigned int max_ch = 1;
+    list_for_each(node_i, &usbmod->usb_card_conf_list) {
+            card_info = node_to_item(node_i, struct usb_card_config, list);
+            if (usb_output_device(card_info->usb_device_type) && !is_playback)
+                continue;
+            else if (usb_input_device(card_info->usb_device_type) && is_playback)
+                continue;
+
+            list_for_each(node_j, &card_info->usb_device_conf_list) {
+                dev_info = node_to_item(node_j, struct usb_device_config, list);
+                max_ch = _MAX(max_ch, dev_info->channel_count);
+            }
+    }
+
+    return max_ch;
+}
+
+int audio_extn_usb_get_max_bit_width(bool is_playback)
+{
+    struct listnode *node_i, *node_j;
+    struct usb_device_config *dev_info;
+    struct usb_card_config *card_info;
+    unsigned int max_bw = 16;
+    list_for_each(node_i, &usbmod->usb_card_conf_list) {
+            card_info = node_to_item(node_i, struct usb_card_config, list);
+            if (usb_output_device(card_info->usb_device_type) && !is_playback)
+                continue;
+            else if (usb_input_device(card_info->usb_device_type) && is_playback)
+                continue;
+
+            list_for_each(node_j, &card_info->usb_device_conf_list) {
+                dev_info = node_to_item(node_j, struct usb_device_config, list);
+                max_bw = _MAX(max_bw, dev_info->bit_width);
+            }
+    }
+
+    return max_bw;
+}
+
+int audio_extn_usb_sup_sample_rates(bool is_playback,
+                                    uint32_t *sample_rates,
+                                    uint32_t sample_rate_size)
+{
+    struct listnode *node_i, *node_j;
+    struct usb_device_config *dev_info;
+    struct usb_card_config *card_info;
+
+    int type = is_playback ? USB_PLAYBACK : USB_CAPTURE;
+
+    ALOGV("%s supported_sample_rates_mask 0x%x", __func__, supported_sample_rates_mask[type]);
+    uint32_t bm = supported_sample_rates_mask[type];
+    uint32_t tries = _MIN(sample_rate_size, (uint32_t)__builtin_popcount(bm));
+
+    int i = 0;
+    while (tries--) {
+        int idx = __builtin_ffs(bm) - 1;
+        sample_rates[i++] = supported_sample_rates[idx];
+        bm &= ~(1<<idx);
+    }
+
+    return i;
 }
 
 bool audio_extn_usb_is_capture_supported()
@@ -930,22 +1018,24 @@ void audio_extn_usb_add_device(audio_devices_t device, int card)
         goto exit;
     }
     list_init(&usb_card_info->usb_device_conf_list);
-    if (device & AUDIO_DEVICE_OUT_USB_DEVICE) {
+    if (usb_output_device(device)) {
         if (!usb_get_device_playback_config(usb_card_info, card)){
             usb_card_info->usb_card = card;
-            usb_card_info->usb_device_type = AUDIO_DEVICE_OUT_USB_DEVICE;
+            usb_card_info->usb_device_type = device;
             usb_get_sidetone_mixer(usb_card_info);
             list_add_tail(&usbmod->usb_card_conf_list, &usb_card_info->list);
             goto exit;
         }
-    } else if (device & AUDIO_DEVICE_IN_USB_DEVICE) {
+    } else if (usb_input_device(device)) {
         if (!usb_get_device_capture_config(usb_card_info, card)) {
             usb_card_info->usb_card = card;
-            usb_card_info->usb_device_type = AUDIO_DEVICE_IN_USB_DEVICE;
+            usb_card_info->usb_device_type = device;
             usbmod->is_capture_supported = true;
             list_add_tail(&usbmod->usb_card_conf_list, &usb_card_info->list);
             goto exit;
         }
+    } else {
+        ALOGW("%s: unknown device 0x%x", __func__, device);
     }
     /* free memory in error case */
     if (usb_card_info != NULL)
@@ -993,15 +1083,31 @@ void audio_extn_usb_remove_device(audio_devices_t device, int card)
                 free(node_to_item(node_j, struct usb_device_config, list));
             }
             list_remove(node_i);
+            if (card_info->usb_snd_mixer) {
+                mixer_close(card_info->usb_snd_mixer);
+            }
             free(node_to_item(node_i, struct usb_card_config, list));
         }
     }
-    usbmod->is_capture_supported = false;
+    if (audio_is_usb_in_device(device)) { // XXX not sure if we need to check for card
+        usbmod->is_capture_supported = false;
+        supported_sample_rates_mask[USB_CAPTURE] = 0;
+    } else {
+        supported_sample_rates_mask[USB_PLAYBACK] = 0;
+    }
+
 exit:
     if (usb_audio_debug_enable)
         usb_print_active_device();
 
     return;
+}
+
+bool audio_extn_usb_alive(int card) {
+    char path[PATH_MAX] = {0};
+    // snprintf should never fail
+    (void) snprintf(path, sizeof(path), "/proc/asound/card%u/stream0", card);
+    return access(path, F_OK) == 0;
 }
 
 void audio_extn_usb_init(void *adev)

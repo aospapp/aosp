@@ -150,9 +150,7 @@ class TestCaseCreator(object):
         target = os.path.join(self.test_dir, ANDROID_MK_FILE_NAME)
         with open(target, 'w') as f:
             print 'Creating %s' % target
-            f.write(
-                LICENSE_STATEMENT_POUND.format(
-                    year=self.current_year))
+            f.write(LICENSE_STATEMENT_POUND.format(year=self.current_year))
             f.write('\n')
             f.write(
                 ANDROID_MK_TEMPLATE.format(
@@ -166,8 +164,7 @@ class TestCaseCreator(object):
                 print 'Creating %s' % target
                 with open(target, 'w') as f:
                     f.write(
-                        LICENSE_STATEMENT_POUND.format(
-                            year=self.current_year))
+                        LICENSE_STATEMENT_POUND.format(year=self.current_year))
                     f.write(ANDROID_MK_CALL_SUB)
             path = os.path.dirname(path)
 
@@ -177,14 +174,13 @@ class TestCaseCreator(object):
         with open(target, 'w') as f:
             print 'Creating %s' % target
             f.write(XML_HEADER)
-            f.write(
-                LICENSE_STATEMENT_XML.format(year=self.current_year))
+            f.write(LICENSE_STATEMENT_XML.format(year=self.current_year))
             f.write(
                 ANDROID_TEST_XML_TEMPLATE.format(
                     test_name=self.test_name,
                     test_type=self.test_type,
-                    test_path_under_vts=self.test_dir[len(
-                        os.path.join(self.build_top, VTS_PATH)) + 1:],
+                    test_path_under_vts=self.test_dir[
+                        len(os.path.join(self.build_top, VTS_PATH)) + 1:],
                     test_case_file_without_extension=self.test_name))
 
     def CreateTestCasePy(self):
@@ -193,13 +189,9 @@ class TestCaseCreator(object):
         with open(target, 'w') as f:
             print 'Creating %s' % target
             f.write(PY_HEADER)
-            f.write(
-                LICENSE_STATEMENT_POUND.format(
-                    year=self.current_year))
+            f.write(LICENSE_STATEMENT_POUND.format(year=self.current_year))
             f.write('\n')
-            f.write(
-                TEST_CASE_PY_TEMPLATE.format(
-                    test_name=self.test_name))
+            f.write(TEST_CASE_PY_TEMPLATE.format(test_name=self.test_name))
 
 
 def main():
@@ -300,28 +292,26 @@ from vts.runners.host import asserts
 from vts.runners.host import base_test
 from vts.runners.host import const
 from vts.runners.host import test_runner
-from vts.utils.python.controllers import android_device
+
 
 
 class {test_name}(base_test.BaseTestClass):
     """Two hello world test cases which use the shell driver."""
 
     def setUpClass(self):
-        self.dut = self.registerController(android_device)[0]
+        self.dut = self.android_devices[0]
+        self.shell = self.dut.shell
 
     def testEcho1(self):
         """A simple testcase which sends a command."""
-        self.dut.shell.InvokeTerminal("my_shell1")  # creates a remote shell instance.
-        results = self.dut.shell.my_shell1.Execute("echo hello_world")  # runs a shell command.
+        results = self.shell.Execute("echo hello_world")  # runs a shell command.
         logging.info(str(results[const.STDOUT]))  # prints the stdout
         asserts.assertEqual(results[const.STDOUT][0].strip(), "hello_world")  # checks the stdout
         asserts.assertEqual(results[const.EXIT_CODE][0], 0)  # checks the exit code
 
     def testEcho2(self):
         """A simple testcase which sends two commands."""
-        self.dut.shell.InvokeTerminal("my_shell2")
-        my_shell = getattr(self.dut.shell, "my_shell2")
-        results = my_shell.Execute(["echo hello", "echo world"])
+        results = self.shell.Execute(["echo hello", "echo world"])
         logging.info(str(results[const.STDOUT]))
         asserts.assertEqual(len(results[const.STDOUT]), 2)  # check the number of processed commands
         asserts.assertEqual(results[const.STDOUT][0].strip(), "hello")

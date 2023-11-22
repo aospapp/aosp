@@ -58,8 +58,8 @@ def provision_machine(machine):
         start_time = datetime.datetime.now()
         try:
             host.update_labels()
-        except Exception as e:
-            logging.exception('Exception while updating labels: %s', e)
+        except Exception:
+            logging.exception('Exception while updating labels.')
             label_update_success = False
 
         end_time = datetime.datetime.now()
@@ -71,8 +71,8 @@ def provision_machine(machine):
                             if not utils.machine_is_testbed(machine)
                             else host.get_platform())}
         _LABEL_UPDATE_DURATION_METRIC.add(duration, fields=fields)
-    except Exception as e:
-        logging.exception(e)
+    except Exception:
+        logging.exception('Provision failed due to Exception.')
         job.record('END FAIL', None, 'provision')
         # Raising a blank exception is done here because any message we can
         # give here would be less useful than whatever the failing test left as

@@ -164,7 +164,7 @@ static const unsigned int hevc_profile_level_table[][MAX_PROFILE_PARAMS]= {
 #define Log2(number, power)  { OMX_U32 temp = number; power = 0; while( (0 == (temp & 0x1)) &&  power < 16) { temp >>=0x1; power++; } }
 #define Q16ToFraction(q,num,den) { OMX_U32 power; Log2(q,power);  num = q >> power; den = 0x1 << (16 - power); }
 
-#define BUFFER_LOG_LOC "/data/misc/media"
+#define BUFFER_LOG_LOC "/data/vendor/media"
 
 //constructor
 venc_dev::venc_dev(class omx_venc *venc_class)
@@ -198,6 +198,7 @@ venc_dev::venc_dev(class omx_venc *venc_class)
     memset (&slice_mode, 0 , sizeof(slice_mode));
     memset(&m_sVenc_cfg, 0, sizeof(m_sVenc_cfg));
     memset(&rate_ctrl, 0, sizeof(rate_ctrl));
+    rate_ctrl.rcmode = V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_VBR_CFR;
     memset(&bitrate, 0, sizeof(bitrate));
     memset(&intra_period, 0, sizeof(intra_period));
     memset(&codec_profile, 0, sizeof(codec_profile));
@@ -229,13 +230,13 @@ venc_dev::venc_dev(class omx_venc *venc_class)
     memset(&temporal_layers_config, 0x0, sizeof(temporal_layers_config));
 
     char property_value[PROPERTY_VALUE_MAX] = {0};
-    property_get("vidc.enc.log.in", property_value, "0");
+    property_get("vendor.vidc.enc.log.in", property_value, "0");
     m_debug.in_buffer_log = atoi(property_value);
 
-    property_get("vidc.enc.log.out", property_value, "0");
+    property_get("vendor.vidc.enc.log.out", property_value, "0");
     m_debug.out_buffer_log = atoi(property_value);
 
-    property_get("vidc.enc.log.extradata", property_value, "0");
+    property_get("vendor.vidc.enc.log.extradata", property_value, "0");
     m_debug.extradata_log = atoi(property_value);
 
 #ifdef _UBWC_
@@ -250,7 +251,7 @@ venc_dev::venc_dev(class omx_venc *venc_class)
     is_gralloc_source_ubwc = 0;
 #endif
 
-    property_get("persist.vidc.enc.csc.enable", property_value, "0");
+    property_get("persist.vendor.vidc.enc.csc.enable", property_value, "0");
     if(!(strncmp(property_value, "1", PROPERTY_VALUE_MAX)) ||
             !(strncmp(property_value, "true", PROPERTY_VALUE_MAX))) {
         is_csc_enabled = 1;
@@ -259,7 +260,7 @@ venc_dev::venc_dev(class omx_venc *venc_class)
     }
 
 #ifdef _PQ_
-    property_get("vidc.enc.disable.pq", property_value, "0");
+    property_get("vendor.vidc.enc.disable.pq", property_value, "0");
     if(!(strncmp(property_value, "1", PROPERTY_VALUE_MAX)) ||
         !(strncmp(property_value, "true", PROPERTY_VALUE_MAX))) {
         m_pq.is_pq_force_disable = 1;
@@ -270,6 +271,8 @@ venc_dev::venc_dev(class omx_venc *venc_class)
 
     snprintf(m_debug.log_loc, PROPERTY_VALUE_MAX,
              "%s", BUFFER_LOG_LOC);
+
+    mUseAVTimerTimestamps = false;
 }
 
 venc_dev::~venc_dev()
@@ -353,7 +356,7 @@ void* venc_dev::async_venc_message_thread (void *input)
         }
 
         if ((pfds[1].revents & POLLIN) || (pfds[1].revents & POLLERR)) {
-            DEBUG_PRINT_ERROR("async_venc_message_thread interrupted to be exited");
+            DEBUG_PRINT_HIGH("async_venc_message_thread interrupted to be exited");
             break;
         }
 
@@ -1276,7 +1279,7 @@ bool venc_dev::venc_open(OMX_U32 codec)
     char buffer[10];
 
     property_get("ro.board.platform", platform_name, "0");
-    property_get("vidc.enc.narrow.searchrange", property_value, "0");
+    property_get("vendor.vidc.enc.narrow.searchrange", property_value, "0");
     enable_mv_narrow_searchrange = atoi(property_value);
 
     if (!strncmp(platform_name, "msm8610", 7)) {
@@ -1504,7 +1507,7 @@ bool venc_dev::venc_open(OMX_U32 codec)
             DEBUG_PRINT_ERROR("Failed to set V4L2_CID_MPEG_VIDC_VIDEO_NUM_P_FRAME\n");
     }
 
-    property_get("vidc.debug.turbo", property_value, "0");
+    property_get("vendor.vidc.debug.turbo", property_value, "0");
     if (atoi(property_value)) {
         DEBUG_PRINT_HIGH("Turbo mode debug property enabled");
         control.id = V4L2_CID_MPEG_VIDC_SET_PERF_LEVEL;
@@ -1649,6 +1652,22 @@ bool venc_dev::venc_get_seq_hdr(void *buffer,
         unsigned buffer_size, unsigned *header_len)
 {
     (void) buffer, (void) buffer_size, (void) header_len;
+    return true;
+}
+
+bool venc_dev::venc_get_dimensions(OMX_U32 portIndex, OMX_U32 *w, OMX_U32 *h) {
+    struct v4l2_format fmt;
+    memset(&fmt, 0, sizeof(fmt));
+    fmt.type = portIndex == PORT_INDEX_OUT ? V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE :
+            V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+
+    if (ioctl(m_nDriver_fd, VIDIOC_G_FMT, &fmt)) {
+        DEBUG_PRINT_ERROR("Failed to get format on %s port",
+                portIndex == PORT_INDEX_OUT ? "capture" : "output");
+        return false;
+    }
+    *w = fmt.fmt.pix_mp.width;
+    *h = fmt.fmt.pix_mp.height;
     return true;
 }
 
@@ -2068,6 +2087,7 @@ bool venc_dev::venc_set_param(void *paramData, OMX_INDEXTYPE index)
                         return false;
                     } else {
                         if ((pParam->eProfile != OMX_VIDEO_AVCProfileBaseline) &&
+                            (pParam->eProfile != (OMX_VIDEO_AVCPROFILETYPE) OMX_VIDEO_AVCProfileConstrainedBaseline) &&
                             (pParam->eProfile != (OMX_VIDEO_AVCPROFILETYPE) QOMX_VIDEO_AVCProfileConstrainedBaseline)) {
                             if (pParam->nBFrames) {
                                 bFrames = pParam->nBFrames;
@@ -2650,6 +2670,13 @@ bool venc_dev::venc_set_param(void *paramData, OMX_INDEXTYPE index)
                     DEBUG_PRINT_ERROR("ERROR: Setting OMX_QTIIndexParamIframeSizeType failed");
                     return OMX_ErrorUnsupportedSetting;
                 }
+                break;
+            }
+        case OMX_QTIIndexParamEnableAVTimerTimestamps:
+            {
+                QOMX_ENABLETYPE *pParam = (QOMX_ENABLETYPE *)paramData;
+                mUseAVTimerTimestamps = pParam->bEnable == OMX_TRUE;
+                DEBUG_PRINT_INFO("AVTimer timestamps enabled");
                 break;
             }
         case OMX_IndexParamVideoSliceFMO:
@@ -3963,12 +3990,21 @@ bool venc_dev::venc_empty_buf(void *buffer, void *pmem_data_buf, unsigned index,
                         return false;
                     }
 
+                    if (mUseAVTimerTimestamps) {
+                        uint64_t avTimerTimestampNs = bufhdr->nTimeStamp * 1000;
+                        if (getMetaData(handle, GET_VT_TIMESTAMP, &avTimerTimestampNs) == 0
+                                && avTimerTimestampNs > 0) {
+                            bufhdr->nTimeStamp = avTimerTimestampNs / 1000;
+                            DEBUG_PRINT_LOW("AVTimer TS : %llu us", (unsigned long long)bufhdr->nTimeStamp);
+                        }
+                    }
+
                     if (!streaming[OUTPUT_PORT]) {
                         int color_space = 0;
                         // Moment of truth... actual colorspace is known here..
                         ColorSpace_t colorSpace = ITU_R_601;
                         if (getMetaData(handle, GET_COLOR_SPACE, &colorSpace) == 0) {
-                            DEBUG_PRINT_INFO("ENC_CONFIG: gralloc ColorSpace = %d (601=%d 601_FR=%d 709=%d)",
+                            DEBUG_PRINT_HIGH("ENC_CONFIG: gralloc ColorSpace = %d (601=%d 601_FR=%d 709=%d)",
                                     colorSpace, ITU_R_601, ITU_R_601_FR, ITU_R_709);
                         }
 
@@ -3979,7 +4015,7 @@ bool venc_dev::venc_empty_buf(void *buffer, void *pmem_data_buf, unsigned index,
                         bool isUBWC = (handle->flags & private_handle_t::PRIV_FLAGS_UBWC_ALIGNED) && is_gralloc_source_ubwc;
                         if (handle->format == HAL_PIXEL_FORMAT_NV12_ENCODEABLE) {
                             m_sVenc_cfg.inputformat = isUBWC ? V4L2_PIX_FMT_NV12_UBWC : V4L2_PIX_FMT_NV12;
-                            DEBUG_PRINT_INFO("ENC_CONFIG: Input Color = NV12 %s", isUBWC ? "UBWC" : "Linear");
+                            DEBUG_PRINT_HIGH("ENC_CONFIG: Input Color = NV12 %s", isUBWC ? "UBWC" : "Linear");
                         } else if (handle->format == HAL_PIXEL_FORMAT_RGBA_8888) {
                             // In case of RGB, conversion to YUV is handled within encoder.
                             // Disregard the Colorspace in gralloc-handle in case of RGB and use
@@ -3987,10 +4023,10 @@ bool venc_dev::venc_empty_buf(void *buffer, void *pmem_data_buf, unsigned index,
                             //   [b] 601 for UBWC case     : Venus can convert to 601-LR or FR. use LR for now.
                             colorSpace = ITU_R_601;
                             m_sVenc_cfg.inputformat = isUBWC ? V4L2_PIX_FMT_RGBA8888_UBWC : V4L2_PIX_FMT_RGB32;
-                            DEBUG_PRINT_INFO("ENC_CONFIG: Input Color = RGBA8888 %s", isUBWC ? "UBWC" : "Linear");
+                            DEBUG_PRINT_HIGH("ENC_CONFIG: Input Color = RGBA8888 %s", isUBWC ? "UBWC" : "Linear");
                         } else if (handle->format == QOMX_COLOR_FORMATYUV420PackedSemiPlanar32m) {
                             m_sVenc_cfg.inputformat = V4L2_PIX_FMT_NV12;
-                            DEBUG_PRINT_INFO("ENC_CONFIG: Input Color = NV12 Linear");
+                            DEBUG_PRINT_HIGH("ENC_CONFIG: Input Color = NV12 Linear");
                         }
 
                         // If device recommendation (persist.vidc.enc.csc.enable) is to use 709, force CSC
@@ -4045,7 +4081,7 @@ bool venc_dev::venc_empty_buf(void *buffer, void *pmem_data_buf, unsigned index,
                                 break;
                             }
                         }
-                        DEBUG_PRINT_INFO("ENC_CONFIG: selected ColorSpace = %d (601=%d 601_FR=%d 709=%d)",
+                        DEBUG_PRINT_HIGH("ENC_CONFIG: selected ColorSpace = %d (601=%d 601_FR=%d 709=%d)",
                                     colorSpace, ITU_R_601, ITU_R_601_FR, ITU_R_709);
                         venc_set_colorspace(primary, range, transfer, matrix);
 
@@ -4070,6 +4106,13 @@ bool venc_dev::venc_empty_buf(void *buffer, void *pmem_data_buf, unsigned index,
                                 ": filled %d of %d format 0x%lx", fd, plane[0].bytesused, plane[0].length, m_sVenc_cfg.inputformat);
                 }
             } else {
+                // color_format == 1 ==> RGBA to YUV Color-converted buffer
+                // Buffers color-converted via C2D have 601-Limited color
+                if (!streaming[OUTPUT_PORT]) {
+                    DEBUG_PRINT_HIGH("Setting colorspace 601-L for Color-converted buffer");
+                    venc_set_colorspace(MSM_VIDC_BT601_6_625, 0 /*range-limited*/,
+                            MSM_VIDC_TRANSFER_601_6_525, MSM_VIDC_MATRIX_601_6_525);
+                }
                 plane[0].m.userptr = (unsigned long) bufhdr->pBuffer;
                 plane[0].data_offset = bufhdr->nOffset;
                 plane[0].length = bufhdr->nAllocLen;
@@ -4124,6 +4167,24 @@ bool venc_dev::venc_empty_buf(void *buffer, void *pmem_data_buf, unsigned index,
     }
 #endif // _PQ_
 
+    if (!streaming[OUTPUT_PORT]) {
+        enum v4l2_buf_type buf_type;
+        buf_type=V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+        int ret;
+
+        ret = ioctl(m_nDriver_fd, VIDIOC_STREAMON, &buf_type);
+
+        if (ret) {
+            DEBUG_PRINT_ERROR("Failed to call streamon");
+            if (errno == EBUSY) {
+                hw_overload = true;
+            }
+            return false;
+        } else {
+            streaming[OUTPUT_PORT] = true;
+        }
+    }
+
     buf.index = index;
     buf.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
     buf.memory = V4L2_MEMORY_USERPTR;
@@ -4158,24 +4219,6 @@ bool venc_dev::venc_empty_buf(void *buffer, void *pmem_data_buf, unsigned index,
     }
 
     etb++;
-
-    if (!streaming[OUTPUT_PORT]) {
-        enum v4l2_buf_type buf_type;
-        buf_type=V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
-        int ret;
-
-        ret = ioctl(m_nDriver_fd, VIDIOC_STREAMON, &buf_type);
-
-        if (ret) {
-            DEBUG_PRINT_ERROR("Failed to call streamon");
-            if (errno == EBUSY) {
-                hw_overload = true;
-            }
-            return false;
-        } else {
-            streaming[OUTPUT_PORT] = true;
-        }
-    }
 
     return true;
 }
@@ -5094,9 +5137,11 @@ bool venc_dev::venc_set_profile_level(OMX_U32 eProfile,OMX_U32 eLevel)
     } else if (m_sVenc_cfg.codectype == V4L2_PIX_FMT_H264) {
         if (eProfile == OMX_VIDEO_AVCProfileBaseline) {
             requested_profile.profile = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE;
-        } else if(eProfile == QOMX_VIDEO_AVCProfileConstrainedBaseline) {
+        } else if(eProfile == QOMX_VIDEO_AVCProfileConstrainedBaseline ||
+                  eProfile == OMX_VIDEO_AVCProfileConstrainedBaseline) {
             requested_profile.profile = V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE;
-        } else if(eProfile == QOMX_VIDEO_AVCProfileConstrainedHigh) {
+        } else if(eProfile == QOMX_VIDEO_AVCProfileConstrainedHigh ||
+                  eProfile == OMX_VIDEO_AVCProfileConstrainedHigh) {
             requested_profile.profile = V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_HIGH;
         } else if (eProfile == OMX_VIDEO_AVCProfileMain) {
             requested_profile.profile = V4L2_MPEG_VIDEO_H264_PROFILE_MAIN;
@@ -5397,7 +5442,7 @@ bool venc_dev::venc_set_intra_period(OMX_U32 nPFrames, OMX_U32 nBFrames)
     }
 
     if (m_sVenc_cfg.input_width * m_sVenc_cfg.input_height >= 3840 * 2160 &&
-        (property_get("vidc.enc.disable_bframes", property_value, "0") && atoi(property_value))) {
+        (property_get("vendor.vidc.enc.disable_bframes", property_value, "0") && atoi(property_value))) {
         intra_period.num_pframes = intra_period.num_pframes + intra_period.num_bframes;
         intra_period.num_bframes = 0;
         DEBUG_PRINT_LOW("Warning: Disabling B frames for UHD recording pFrames = %lu bFrames = %lu",
@@ -5405,7 +5450,7 @@ bool venc_dev::venc_set_intra_period(OMX_U32 nPFrames, OMX_U32 nBFrames)
     }
 
     if (m_sVenc_cfg.input_width * m_sVenc_cfg.input_height >= 5376 * 2688 &&
-        (property_get("vidc.enc.disable_pframes", property_value, "0") && atoi(property_value))) {
+        (property_get("vendor.vidc.enc.disable_pframes", property_value, "0") && atoi(property_value))) {
           intra_period.num_pframes = 0;
           DEBUG_PRINT_LOW("Warning: Disabling P frames for 5k/6k resolutions pFrames = %lu bFrames = %lu",
           intra_period.num_pframes, intra_period.num_bframes);
@@ -6371,6 +6416,15 @@ bool venc_dev::venc_set_vpe_rotation(OMX_S32 rotation_angle)
 
     memset(&fmt, 0, sizeof(fmt));
     fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+    if (rotation_angle == 90 || rotation_angle == 270) {
+        OMX_U32 nWidth = m_sVenc_cfg.dvs_height;
+        OMX_U32 nHeight = m_sVenc_cfg.dvs_width;
+        m_sVenc_cfg.dvs_height = nHeight;
+        m_sVenc_cfg.dvs_width = nWidth;
+        DEBUG_PRINT_LOW("Rotation (%u) Flipping wxh to %lux%lu",
+                rotation_angle, m_sVenc_cfg.dvs_width, m_sVenc_cfg.dvs_height);
+    }
+ 
     fmt.fmt.pix_mp.height = m_sVenc_cfg.dvs_height;
     fmt.fmt.pix_mp.width = m_sVenc_cfg.dvs_width;
     fmt.fmt.pix_mp.pixelformat = m_sVenc_cfg.codectype;
@@ -6542,6 +6596,15 @@ bool venc_dev::venc_set_ratectrl_cfg(OMX_VIDEO_CONTROLRATETYPE eControlRate)
         }
     }
 #endif
+
+    // force re-calculation of level since RC is updated
+    {
+        m_level_set = false;
+        if (venc_set_profile_level(codec_profile.profile, 0)) {
+            DEBUG_PRINT_HIGH("updated level=%lu after setting RC mode",
+                    profile_level.level);
+        }
+    }
 
     return status;
 }

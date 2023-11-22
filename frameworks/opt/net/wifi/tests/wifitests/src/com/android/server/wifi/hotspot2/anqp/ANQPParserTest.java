@@ -18,6 +18,7 @@ package com.android.server.wifi.hotspot2.anqp;
 
 import static org.junit.Assert.assertEquals;
 
+import android.net.wifi.WifiSsid;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import org.junit.Test;
@@ -213,6 +214,22 @@ public class ANQPParserTest {
         stream.write((byte) ((port >> 8) & 0xFF));
         stream.write((byte) status);
         return stream.toByteArray();
+    }
+
+    /**
+     * Helper function for generating payload for a Hotspot 2.0 OSU Providers List ANQP
+     * element.
+     *
+     * @param osuSsidBytes Bytes of OSU SSID
+     * @return byte[]
+     */
+    private static byte[] getHSOsuProvidersPayload(byte[] osuSsidBytes) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        out.write((byte) osuSsidBytes.length);
+        out.write(osuSsidBytes);
+        out.write((byte) 1);
+        out.write(OsuProviderInfoTestUtil.TEST_OSU_PROVIDER_INFO_RAW_BYTES);
+        return out.toByteArray();
     }
 
     /**
@@ -473,10 +490,12 @@ public class ANQPParserTest {
      */
     @Test
     public void parseHSOUSProvidersElement() throws Exception {
-        byte[] data = new byte[10];
+        byte[] osuSsidBytes = "Test SSID".getBytes(StandardCharsets.UTF_8);
+        byte[] data = getHSOsuProvidersPayload(osuSsidBytes);
 
-        RawByteElement expected =
-                new RawByteElement(Constants.ANQPElementType.HSOSUProviders, data);
+        HSOsuProvidersElement expected = new HSOsuProvidersElement(
+                WifiSsid.createFromByteArray(osuSsidBytes),
+                Arrays.asList(OsuProviderInfoTestUtil.TEST_OSU_PROVIDER_INFO));
 
         ByteBuffer buffer = ByteBuffer.wrap(data);
         assertEquals(expected,

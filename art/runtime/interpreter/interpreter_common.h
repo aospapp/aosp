@@ -241,7 +241,7 @@ static inline bool DoInvokeVirtualQuick(Thread* self, ShadowFrame& shadow_frame,
   }
   CHECK(receiver->GetClass()->ShouldHaveEmbeddedVTable());
   ArtMethod* const called_method = receiver->GetClass()->GetEmbeddedVTableEntry(
-      vtable_idx, kRuntimePointerSize);
+      vtable_idx, Runtime::Current()->GetClassLinker()->GetImagePointerSize());
   if (UNLIKELY(called_method == nullptr)) {
     CHECK(self->IsExceptionPending());
     result->SetJ(0);
@@ -527,10 +527,11 @@ static inline void AssignRegister(ShadowFrame* new_shadow_frame, const ShadowFra
   }
 }
 
+// The arg_offset is the offset to the first input register in the frame.
 void ArtInterpreterToCompiledCodeBridge(Thread* self,
                                         ArtMethod* caller,
-                                        const DexFile::CodeItem* code_item,
                                         ShadowFrame* shadow_frame,
+                                        uint16_t arg_offset,
                                         JValue* result);
 
 // Set string value created from StringFactory.newStringFromXXX() into all aliases of

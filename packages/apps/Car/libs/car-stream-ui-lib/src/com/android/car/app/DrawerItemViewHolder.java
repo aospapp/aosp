@@ -36,14 +36,14 @@ public class DrawerItemViewHolder extends RecyclerView.ViewHolder {
 
     DrawerItemViewHolder(View view) {
         super(view);
-        mIcon = (ImageView)view.findViewById(R.id.icon);
-        mTitle = (TextView)view.findViewById(R.id.title);
+        mIcon = view.findViewById(R.id.icon);
+        mTitle = view.findViewById(R.id.title);
         if (mIcon == null || mTitle == null) {
             throw new IllegalArgumentException("Missing required elements in provided view!");
         }
         // Next two are optional and may be null.
-        mText = (TextView)view.findViewById(R.id.text);
-        mRightIcon = (ImageView)view.findViewById(R.id.right_icon);
+        mText = view.findViewById(R.id.text);
+        mRightIcon = view.findViewById(R.id.right_icon);
     }
 
     /**
@@ -63,7 +63,8 @@ public class DrawerItemViewHolder extends RecyclerView.ViewHolder {
     }
 
     /**
-     * @return Main text TextView from inflated layout. May be null.
+     * @return Main text TextView from inflated layout. Will be {@code null} for small and empty
+     *      item layouts.
      */
     @Nullable
     public TextView getText() {
@@ -71,7 +72,8 @@ public class DrawerItemViewHolder extends RecyclerView.ViewHolder {
     }
 
     /**
-     * @return Right-Icon ImageView from inflated layout. May be null.
+     * @return Right-Icon ImageView from inflated layout. Will be {@code null} for empty-item
+     *      layout.
      */
     @Nullable
     public ImageView getRightIcon() {

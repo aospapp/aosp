@@ -47,10 +47,10 @@ def main():
 
     tests = tko_models.Test.objects.select_related('job'
             ).filter(started_time__gte=cutoff_date
-            ).exclude(test__contains='/'
-            ).exclude(test__contains='_JOB'
+            ).exclude(test__icontains='/'
+            ).exclude(test__icontains='_JOB'
             ).exclude(test='provision'
-            ).exclude(test__contains='try_new_image')
+            ).exclude(test__icontains='try_new_image')
     tests = list(tests)
     # These prints are vague profiling work.  We're handling a lot of data, so I
     # had to dump some decent work into making sure things chug along at a

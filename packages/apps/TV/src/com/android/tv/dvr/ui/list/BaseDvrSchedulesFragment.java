@@ -29,7 +29,7 @@ import com.android.tv.R;
 import com.android.tv.TvApplication;
 import com.android.tv.dvr.DvrDataManager;
 import com.android.tv.dvr.DvrScheduleManager;
-import com.android.tv.dvr.ScheduledRecording;
+import com.android.tv.dvr.data.ScheduledRecording;
 
 /**
  * A  base fragment to show the list of schedule recordings.
@@ -40,7 +40,8 @@ public abstract class BaseDvrSchedulesFragment extends DetailsFragment
     /**
      * The key for scheduled recording which has be selected in the list.
      */
-    public static String SCHEDULES_KEY_SCHEDULED_RECORDING = "schedules_key_scheduled_recording";
+    public static final String SCHEDULES_KEY_SCHEDULED_RECORDING =
+            "schedules_key_scheduled_recording";
 
     private ScheduleRowAdapter mRowsAdapter;
     private TextView mEmptyInfoScreenView;

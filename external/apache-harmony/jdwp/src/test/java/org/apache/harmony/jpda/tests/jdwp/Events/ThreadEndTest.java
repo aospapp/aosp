@@ -26,8 +26,6 @@
 package org.apache.harmony.jpda.tests.jdwp.Events;
 
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
-import org.apache.harmony.jpda.tests.framework.jdwp.Event;
-import org.apache.harmony.jpda.tests.framework.jdwp.EventMod;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.ParsedEvent;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
@@ -50,13 +48,8 @@ public class ThreadEndTest extends JDWPEventTestCase {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
         logWriter.println("=> set ThreadEndEvent...");
-        ReplyPacket reply;
-        byte eventKind = JDWPConstants.EventKind.THREAD_END;
-        byte suspendPolicy = JDWPConstants.SuspendPolicy.NONE;
-        EventMod[] mods = new EventMod[0];
-        Event eventToSet = new Event(eventKind, suspendPolicy, mods);
-
-        reply = debuggeeWrapper.vmMirror.setEvent(eventToSet);
+        ReplyPacket reply =
+                debuggeeWrapper.vmMirror.setThreadEnd(JDWPConstants.SuspendPolicy.NONE);
         checkReplyPacket(reply, "Set THREAD_END event");
 
         logWriter.println("=> set ThreadEndEvent - DONE");

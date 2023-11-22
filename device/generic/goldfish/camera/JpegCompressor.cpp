@@ -46,7 +46,7 @@ typedef size_t (*GetCompressedSizeFunc)(JpegStub* stub);
 
 NV21JpegCompressor::NV21JpegCompressor()
 {
-    const char dlName[] = "/system/lib/hw/camera.goldfish.jpeg.so";
+    const char dlName[] = "/vendor/lib/hw/camera.goldfish.jpeg.so";
     if (mDl == NULL) {
         mDl = dlopen(dlName, RTLD_NOW);
     }

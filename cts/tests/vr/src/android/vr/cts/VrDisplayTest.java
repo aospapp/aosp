@@ -53,7 +53,7 @@ public class VrDisplayTest extends ActivityInstrumentationTestCase2<OpenGLESActi
     public void testRefreshRateIsAtLeast60Hz() throws Throwable {
         final int NUM_FRAMES = 200;
         // Add an extra frame to allow the activity to start up.
-        mActivity = getGlEsActivity(NUM_FRAMES + 1, 3);
+        mActivity = getGlEsActivity(NUM_FRAMES + 1, OpenGLESActivity.RENDERER_REFRESHRATE);
         if (!mActivity.supportsVrHighPerformance())
             return;
 
@@ -75,7 +75,7 @@ public class VrDisplayTest extends ActivityInstrumentationTestCase2<OpenGLESActi
      * Tests that the display resolution is at least 1080p.
      */
     public void testDisplayResolution() {
-        mActivity = getGlEsActivity(1, 1);
+        mActivity = getGlEsActivity(1, OpenGLESActivity.RENDERER_BASIC);
         if (!mActivity.supportsVrHighPerformance())
             return;
 
@@ -102,7 +102,7 @@ public class VrDisplayTest extends ActivityInstrumentationTestCase2<OpenGLESActi
      * Tests that the display dimensions are between 4.7" and 6".
      */
     public void testDisplayDimensions() {
-        mActivity = getGlEsActivity(1, 1);
+        mActivity = getGlEsActivity(1, OpenGLESActivity.RENDERER_BASIC);
         if (!mActivity.supportsVrHighPerformance())
             return;
 

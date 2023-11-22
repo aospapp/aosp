@@ -375,6 +375,11 @@ class SockDiag(netlink.NetlinkSocket):
     sock_id = InetDiagSockId((sport, dport, src, dst, iface, "\x00" * 8))
     return InetDiagReqV2((family, protocol, 0, 0xffffffff, sock_id))
 
+  @staticmethod
+  def GetSocketCookie(s):
+    cookie = s.getsockopt(net_test.SOL_SOCKET, net_test.SO_COOKIE, 8)
+    return struct.unpack("=Q", cookie)[0]
+
   def FindSockInfoFromFd(self, s):
     """Gets a diag_msg and attrs from the kernel for the specified socket."""
     req = self.DiagReqFromSocket(s)

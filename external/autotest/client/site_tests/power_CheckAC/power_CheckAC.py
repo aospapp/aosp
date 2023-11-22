@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 from autotest_lib.client.bin import test
-from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import error, utils
 from autotest_lib.client.cros import power_status
 
 class power_CheckAC(test.test):
@@ -16,8 +16,6 @@ class power_CheckAC(test.test):
 
 
     def run_once(self, power_on=True):
-        status = power_status.get_status()
-        if power_on and not status.on_ac():
-            raise error.TestError('AC line status is not on but should be')
-        elif not power_on and status.on_ac():
-            raise error.TestError('AC line status is on but should not be')
+        utils.poll_for_condition(
+            lambda: power_status.get_status().on_ac() == power_on,
+            timeout=10, exception=error.TestError('AC power not %d' % power_on))

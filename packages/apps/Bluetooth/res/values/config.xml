@@ -58,10 +58,14 @@
 
     <bool name="headset_client_initial_audio_route_allowed">true</bool>
 
-    <!-- For AVRCP absolute volume feature. If the threshold is non-zero,
-         restrict the initial volume to the threshold.
-         Valid value is 1-14, and recommended value is 8 -->
+    <!-- @deprecated: use a2dp_absolute_volume_initial_threshold_percent
+         instead. -->
     <integer name="a2dp_absolute_volume_initial_threshold">8</integer>
+
+    <!-- AVRCP absolute volume initial value as percent of the maximum value.
+         Valid values are in the interval [0, 100].
+         Recommended value is 50. -->
+    <integer name="a2dp_absolute_volume_initial_threshold_percent">50</integer>
 
     <!-- For A2DP sink ducking volume feature. -->
     <integer name="a2dp_sink_duck_percent">25</integer>

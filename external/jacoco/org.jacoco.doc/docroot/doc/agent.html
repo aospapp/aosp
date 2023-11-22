@@ -3,8 +3,8 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-  <link rel="stylesheet" href=".resources/doc.css" charset="UTF-8" type="text/css" />
-  <link rel="shortcut icon" href=".resources/report.gif" type="image/gif" />
+  <link rel="stylesheet" href="resources/doc.css" charset="UTF-8" type="text/css" />
+  <link rel="shortcut icon" href="resources/report.gif" type="image/gif" />
   <title>JaCoCo - Java Agent</title>
 </head>
 <body>
@@ -33,7 +33,7 @@
 
 <p>
   The JaCoCo agent collects execution information and dumps it on request or
-  when the JVM exits. There are three different modes for execution data ouput:
+  when the JVM exits. There are three different modes for execution data output:
 </p>
 
 <ul>
@@ -121,6 +121,14 @@
       <td>Specifies whether also classes from the bootstrap classloader should
           be instrumented. Use this feature with caution, it needs heavy
           includes/excludes tuning. 
+      </td>
+      <td><code>false</code></td>
+    </tr>
+    <tr>
+      <td><code>inclnolocationclasses</code></td>
+      <td>Specifies whether also classes without a source location should be
+          instrumented. Normally such classes are generated at runtime e.g. by
+          mocking frameworks and are therefore excluded by default. 
       </td>
       <td><code>false</code></td>
     </tr>

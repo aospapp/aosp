@@ -17,6 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"அவசரத் தகவல்"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"மருத்துவத் தகவல்"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"தகவலைத் திருத்து"</string>
     <string name="edit_info" msgid="5973929805855224805">"அவசரத் தகவலைத் திருத்தும் ஐகான்"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"தகவல்"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"தொடர்புகள்"</string>
@@ -81,7 +83,7 @@
     <string name="organ_donor" msgid="5953509460007124827">"உறுப்பு தானம் செய்பவர்"</string>
     <string name="unknown_organ_donor" msgid="2780515342875494225">"தெரியவில்லை"</string>
     <string name="yes" msgid="5829765567799916128">"ஆம்"</string>
-    <string name="no" msgid="1681689233660683509">"வேண்டாம்"</string>
+    <string name="no" msgid="1681689233660683509">"இல்லை"</string>
     <!-- no translation found for organ_donor_entries:0 (4680498266537823362) -->
     <!-- no translation found for organ_donor_entries:1 (4906312680266515592) -->
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
@@ -96,12 +98,12 @@
     <string name="cancel" msgid="7401575239009060939">"ரத்துசெய்"</string>
     <string name="ok" msgid="163967937451981024">"சரி"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"அவசரத் தகவல்"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"இங்கே உள்ளிடும் தகவலானது அவசரச் சூழல்களில் முதலில் உங்களுக்கு உதவ முன்வருபவர்களுக்கு உதவும். இது உங்கள் சாதனத்தில் மட்டும் சேமிக்கப்பட்டிருக்கும், மேலும் உங்கள் மொபைலைத் திறக்காமல் அவசர அழைப்பு டயலரில் எவரும் படிக்கலாம்."</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"தொடரவும்"</string>
     <string name="no_info_provided" msgid="716200382010821001">"மொபைலின் உரிமையாளர் பற்றிய தகவல் இல்லை"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"இது உங்கள் மொபைலாக இருந்தால், அவசரச் சூழலில் இங்கே காட்டப்பட வேண்டிய தகவலைச் சேர்க்க, பென்சில் ஐகானைத் தட்டவும்"</string>
     <string name="clear_all" msgid="8899013032870561633">"அனைத்தையும் அழி"</string>
     <string name="clear" msgid="3648880442502887163">"அழி"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"எல்லா தகவலையும் தொடர்புகளையும் அழிக்கவா?"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"மருத்துவத் தகவலையும் அவசரகாலத் தொடர்புகளையும் சேர்ப்பதால், அவசரகாலத்தில் முதலில் உதவ முன்வருபவர்களுக்கு அந்தத் தகவல் உதவலாம்.\n\nஉங்கள் மொபைலைத் திறக்காமலேயே, பூட்டுத் திரையிலிருந்து இந்தத் தகவலை எவரும் பார்க்க முடியும். அத்துடன் உங்கள் தொடர்புகளின் பெயர்களைத் தட்டி, அவர்களை அழைக்க முடியும்."</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"அவசரத் தகவலைச் சேர்க்கவும்"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"முதலில் உதவுபவர்கள் முக்கியமான தகவலைப் பெற உதவவும்"</string>
 </resources>

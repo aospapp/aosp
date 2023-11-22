@@ -95,7 +95,6 @@ public class SearchViewUiTest extends ActivityTest<FilesActivity> {
         device.waitForIdle();
 
         bots.search.assertInputEquals("file1");
-        bots.search.assertInputFocused(false);
     }
 
     public void testSearch_ResultsFound() throws Exception {

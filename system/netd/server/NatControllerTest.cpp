@@ -32,6 +32,7 @@
 #include "NatController.h"
 #include "IptablesBaseTest.h"
 
+using android::base::Join;
 using android::base::StringPrintf;
 
 class NatControllerTest : public IptablesBaseTest {
@@ -87,46 +88,78 @@ protected:
                 "COMMIT\n" },
     };
 
-    const ExpectedIptablesCommands TWIDDLE_COMMANDS = {
-        { V4, "-D natctrl_FORWARD -j DROP" },
-        { V4, "-A natctrl_FORWARD -j DROP" },
-    };
-
     ExpectedIptablesCommands firstNatCommands(const char *extIf) {
+        std::string v4Cmd = StringPrintf(
+            "*nat\n"
+            "-A natctrl_nat_POSTROUTING -o %s -j MASQUERADE\n"
+            "COMMIT\n", extIf);
+        std::string v6Cmd =
+            "*filter\n"
+            "-A natctrl_FORWARD -g natctrl_tether_counters\n"
+            "COMMIT\n";
         return {
-            { V4, StringPrintf("-t nat -A natctrl_nat_POSTROUTING -o %s -j MASQUERADE", extIf) },
-            { V6, "-A natctrl_FORWARD -g natctrl_tether_counters" },
+            { V4, v4Cmd },
+            { V6, v6Cmd },
         };
     }
 
     ExpectedIptablesCommands startNatCommands(const char *intIf, const char *extIf) {
+        std::string rpfilterCmd = StringPrintf(
+            "*raw\n"
+            "-A natctrl_raw_PREROUTING -i %s -m rpfilter --invert ! -s fe80::/64 -j DROP\n"
+            "COMMIT\n", intIf);
+
+        std::vector<std::string> v4Cmds = {
+            "*filter",
+            StringPrintf("-A natctrl_FORWARD -i %s -o %s -m state --state"
+                         " ESTABLISHED,RELATED -g natctrl_tether_counters", extIf, intIf),
+            StringPrintf("-A natctrl_FORWARD -i %s -o %s -m state --state INVALID -j DROP",
+                         intIf, extIf),
+            StringPrintf("-A natctrl_FORWARD -i %s -o %s -g natctrl_tether_counters",
+                         intIf, extIf),
+            StringPrintf("-A natctrl_tether_counters -i %s -o %s -j RETURN", intIf, extIf),
+            StringPrintf("-A natctrl_tether_counters -i %s -o %s -j RETURN", extIf, intIf),
+            "-D natctrl_FORWARD -j DROP",
+            "-A natctrl_FORWARD -j DROP",
+            "COMMIT\n",
+        };
+
+        std::vector<std::string> v6Cmds = {
+            "*filter",
+            StringPrintf("-A natctrl_tether_counters -i %s -o %s -j RETURN", intIf, extIf),
+            StringPrintf("-A natctrl_tether_counters -i %s -o %s -j RETURN", extIf, intIf),
+            "COMMIT\n",
+        };
+
         return {
-            { V4,   StringPrintf("-A natctrl_FORWARD -i %s -o %s -m state --state"
-                                 " ESTABLISHED,RELATED -g natctrl_tether_counters", extIf, intIf) },
-            { V4,   StringPrintf("-A natctrl_FORWARD -i %s -o %s -m state --state INVALID -j DROP",
-                                 intIf, extIf) },
-            { V4,   StringPrintf("-A natctrl_FORWARD -i %s -o %s -g natctrl_tether_counters",
-                                 intIf, extIf) },
-            { V6,   StringPrintf("-t raw -A natctrl_raw_PREROUTING -i %s -m rpfilter --invert"
-                                 " ! -s fe80::/64 -j DROP", intIf) },
-            { V4V6, StringPrintf("-A natctrl_tether_counters -i %s -o %s -j RETURN",
-                                 intIf, extIf) },
-            { V4V6, StringPrintf("-A natctrl_tether_counters -i %s -o %s -j RETURN",
-                                 extIf, intIf) },
+            { V6, rpfilterCmd },
+            { V4, Join(v4Cmds, '\n') },
+            { V6, Join(v6Cmds, '\n') },
         };
     }
 
     ExpectedIptablesCommands stopNatCommands(const char *intIf, const char *extIf) {
-        return {
-            { V4, StringPrintf("-D natctrl_FORWARD -i %s -o %s -m state --state"
-                               " ESTABLISHED,RELATED -g natctrl_tether_counters", extIf, intIf) },
-            { V4, StringPrintf("-D natctrl_FORWARD -i %s -o %s -m state --state INVALID -j DROP",
-                               intIf, extIf) },
-            { V4, StringPrintf("-D natctrl_FORWARD -i %s -o %s -g natctrl_tether_counters",
-                               intIf, extIf) },
-            { V6, StringPrintf("-t raw -D natctrl_raw_PREROUTING -i %s -m rpfilter --invert"
-                               " ! -s fe80::/64 -j DROP", intIf) },
+        std::string rpfilterCmd = StringPrintf(
+            "*raw\n"
+            "-D natctrl_raw_PREROUTING -i %s -m rpfilter --invert ! -s fe80::/64 -j DROP\n"
+            "COMMIT\n", intIf);
+
+        std::vector<std::string> v4Cmds = {
+            "*filter",
+            StringPrintf("-D natctrl_FORWARD -i %s -o %s -m state --state"
+                         " ESTABLISHED,RELATED -g natctrl_tether_counters", extIf, intIf),
+            StringPrintf("-D natctrl_FORWARD -i %s -o %s -m state --state INVALID -j DROP",
+                         intIf, extIf),
+            StringPrintf("-D natctrl_FORWARD -i %s -o %s -g natctrl_tether_counters",
+                         intIf, extIf),
+            "COMMIT\n",
         };
+
+        return {
+            { V6, rpfilterCmd },
+            { V4, Join(v4Cmds, '\n') },
+        };
+
     }
 };
 
@@ -141,28 +174,24 @@ TEST_F(NatControllerTest, TestSetDefaults) {
 }
 
 TEST_F(NatControllerTest, TestAddAndRemoveNat) {
-
-    std::vector<ExpectedIptablesCommands> startFirstNat = {
-        firstNatCommands("rmnet0"),
-        startNatCommands("wlan0", "rmnet0"),
-        TWIDDLE_COMMANDS,
-    };
+    ExpectedIptablesCommands expected;
+    ExpectedIptablesCommands setupFirstNatCommands = firstNatCommands("rmnet0");
+    ExpectedIptablesCommands startFirstNatCommands = startNatCommands("wlan0", "rmnet0");
+    expected.insert(expected.end(), setupFirstNatCommands.begin(), setupFirstNatCommands.end());
+    expected.insert(expected.end(), startFirstNatCommands.begin(), startFirstNatCommands.end());
     mNatCtrl.enableNat("wlan0", "rmnet0");
-    expectIptablesCommands(startFirstNat);
+    expectIptablesRestoreCommands(expected);
 
-    std::vector<ExpectedIptablesCommands> startOtherNat = {
-         startNatCommands("usb0", "rmnet0"),
-         TWIDDLE_COMMANDS,
-    };
+    ExpectedIptablesCommands startOtherNat = startNatCommands("usb0", "rmnet0");
     mNatCtrl.enableNat("usb0", "rmnet0");
-    expectIptablesCommands(startOtherNat);
+    expectIptablesRestoreCommands(startOtherNat);
 
     ExpectedIptablesCommands stopOtherNat = stopNatCommands("wlan0", "rmnet0");
     mNatCtrl.disableNat("wlan0", "rmnet0");
-    expectIptablesCommands(stopOtherNat);
+    expectIptablesRestoreCommands(stopOtherNat);
 
-    ExpectedIptablesCommands stopLastNat = stopNatCommands("usb0", "rmnet0");
+    expected = stopNatCommands("usb0", "rmnet0");
+    expected.insert(expected.end(), FLUSH_COMMANDS.begin(), FLUSH_COMMANDS.end());
     mNatCtrl.disableNat("usb0", "rmnet0");
-    expectIptablesCommands(stopLastNat);
-    expectIptablesRestoreCommands(FLUSH_COMMANDS);
+    expectIptablesRestoreCommands(expected);
 }

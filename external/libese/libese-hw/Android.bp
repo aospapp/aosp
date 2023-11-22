@@ -16,19 +16,21 @@
 
 cc_library {
     name: "libese-hw-fake",
-    vendor: true,
+    proprietary: true,
+    defaults: ["libese-defaults"],
     srcs: ["ese_hw_fake.c"],
     host_supported: true,
-    cflags: ["-DLOG_NDEBUG=0", "-std=c99"],
+    cflags: ["-DLOG_NDEBUG=0"],
     shared_libs: ["liblog", "libese"],
 }
 
 cc_library {
     name: "libese-hw-echo",
-    vendor: true,
+    proprietary: true,
+    defaults: ["libese-defaults"],
     host_supported: true,
     srcs: ["ese_hw_echo.c"],
-    cflags: ["-DLOG_NDEBUG=0", "-std=c99"],
+    cflags: ["-DLOG_NDEBUG=0"],
     shared_libs: ["liblog", "libese", "libese-teq1"],
 }
 

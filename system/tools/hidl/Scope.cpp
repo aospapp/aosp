@@ -24,10 +24,8 @@
 
 namespace android {
 
-Scope::Scope(const char *localName,
-        const Location &location)
-    : NamedType(localName, location) {
-}
+Scope::Scope(const char* localName, const Location& location, Scope* parent)
+    : NamedType(localName, location, parent) {}
 Scope::~Scope(){}
 
 bool Scope::addType(NamedType *type, std::string *errorMsg) {
@@ -93,17 +91,6 @@ Interface *Scope::getInterface() const {
     }
 
     return NULL;
-}
-
-bool Scope::containsSingleInterface(std::string *ifaceName) const {
-    Interface *iface = getInterface();
-
-    if (iface != NULL) {
-        *ifaceName = iface->localName();
-        return true;
-    }
-
-    return false;
 }
 
 bool Scope::containsInterfaces() const {
@@ -196,6 +183,14 @@ void Scope::appendToExportedTypesVector(
         type->appendToExportedTypesVector(exportedTypes);
         return OK;
     });
+}
+
+RootScope::RootScope(const char* localName, const Location& location, Scope* parent)
+    : Scope(localName, location, parent) {}
+RootScope::~RootScope() {}
+
+std::string RootScope::typeName() const {
+    return "(root scope)";
 }
 
 LocalIdentifier::LocalIdentifier(){}

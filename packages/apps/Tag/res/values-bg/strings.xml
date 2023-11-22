@@ -28,4 +28,5 @@
     <string name="import_vcard" msgid="5104299047930666528">"Импортиране на ^1"</string>
     <string name="mime_display_name" msgid="5926357152623764485">"Данни от маркер с NFC"</string>
     <string name="vcard_title" msgid="7122634780732426007">"Информация за контакт за ^1"</string>
+    <string name="call_phone_permission_denied" msgid="8515177111984654599">"За да може да извършва обаждания, това приложение има нужда от достъп до разрешението за телефон. Можете да управлявате разрешението за маркиране от настройките"</string>
 </resources>

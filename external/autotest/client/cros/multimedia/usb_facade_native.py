@@ -10,7 +10,6 @@ import os
 import time
 
 from autotest_lib.client.bin import utils
-from autotest_lib.client.common_lib import base_utils
 from autotest_lib.client.cros.audio import cras_dbus_utils
 from autotest_lib.client.cros.audio import cras_utils
 
@@ -149,9 +148,9 @@ class HostControllerDriver(object):
 
     def reset(self):
         """Resets HCD by unbinding and binding driver."""
-        base_utils.open_write_close(
+        utils.open_write_close(
             os.path.join(self._hcd_path, 'unbind'), self._hcd_id)
-        base_utils.open_write_close(
+        utils.open_write_close(
             os.path.join(self._hcd_path, 'bind'), self._hcd_id)
 
 
@@ -322,7 +321,7 @@ class USBDeviceDriversManager(object):
             @returns: True if the product name matches, False otherwise.
 
             """
-            read_product_name = base_utils.read_one_line(path)
+            read_product_name = utils.read_one_line(path)
             logging.debug('Read product at %s = %s', path, read_product_name)
             return read_product_name == product_name
 
@@ -411,7 +410,7 @@ class USBDeviceDriversManager(object):
             raise USBDeviceDriversManagerError('USB Bus ID is not set yet.')
         if self.drivers_are_bound():
             return
-        base_utils.open_write_close(self._USB_BIND_FILE_PATH,
+        utils.open_write_close(self._USB_BIND_FILE_PATH,
                 self._device_bus_id)
 
 
@@ -429,5 +428,5 @@ class USBDeviceDriversManager(object):
             raise USBDeviceDriversManagerError('USB Bus ID is not set yet.')
         if not self.drivers_are_bound():
             return
-        base_utils.open_write_close(self._USB_UNBIND_FILE_PATH,
+        utils.open_write_close(self._USB_UNBIND_FILE_PATH,
                                     self._device_bus_id)

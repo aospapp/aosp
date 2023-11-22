@@ -14,170 +14,159 @@
 */
 
 body {
-    font-family:arial,sans-serif;
-    color:#000;
-    font-size:13px;
-    color:#333;
-    padding:10;
-    margin:10;
+  color: #333;
+  font-family: arial,sans-serif;
+  font-size: 13px;
+  margin: 10;
+  padding: 10;
 }
 
 /* Report logo and device name */
 table.title {
-    padding:5px;
-    border-width: 0px;
-    margin-left:auto;
-    margin-right:auto;
-    vertical-align:middle;
+  border-width: 0;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 5px;
+  vertical-align: middle;
 }
 
 table.summary {
-    background-color: rgb(212, 233, 169);
-    border-collapse:collapse;
-    border: 0px solid #A5C639;
-    margin-left:auto;
-    margin-right:auto;
+  background-color: #d4e9a9;
+  border: 0 solid #a5c639;
+  border-collapse: collapse;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 table.summary th {
-    background-color: #A5C639;
-    font-size: 1.2em;
-    padding: 0.5em;
+  background-color: #a5c639;
+  font-size: 1.2em;
+  padding: .5em;
 }
 
 table.summary td {
-    border-width: 0px 0px 0px 0px;
-    border-color: gray;
-    border-style: inset;
-    font-size: 1em;
-    padding: 0.5em;
-    vertical-align: top;
+  border: 0 inset #808080;
+  font-size: 1em;
+  padding: .5em;
+  vertical-align: top;
 }
 
 table.testsummary {
-    background-color: rgb(212, 233, 169);
-    border-collapse:collapse;
-    margin-left:auto;
-    margin-right:auto;
+  background-color: #d4e9a9;
+  border-collapse: collapse;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 table.testsummary th {
-    background-color: #A5C639;
-    border: 1px outset gray;
-    padding: 0.5em;
+  background-color: #a5c639;
+  border: 1px outset #808080;
+  padding: .5em;
 }
 
 table.testsummary td {
-    border: 1px outset #A5C639;
-    padding: 0.5em;
-    text-align: center;
+  border: 1px outset #a5c639;
+  padding: .5em;
+  text-align: center;
 }
 
 table.testdetails {
-    background-color: rgb(212, 233, 169);
-    border-collapse:collapse;
-    border-width:1;
-    border-color: #A5C639;
-    margin-left:auto;
-    margin-right:auto;
-    margin-bottom: 2em;
-    vertical-align: top;
-    width: 95%;
+  background-color: #d4e9a9;
+  border-collapse: collapse;
+  border-color: #a5c639;
+  border-width: 1;
+  margin-bottom: 2em;
+  margin-left: auto;
+  margin-right: auto;
+  vertical-align: top;
+  width: 95%;
 }
 
 table.testdetails th {
-    background-color: #A5C639;
-    border-width: 1px;
-    border-color: gray;
-    border-style: outset;
-    height: 2em;
-    padding: 0.2em;
+  background-color: #a5c639;
+  border: 1px outset #808080;
+  height: 2em;
+  padding: .2em;
 }
 
 table.testdetails td {
-    border-width: 1px;
-    border-color: #A5C639;
-    border-style: outset;
-    text-align: left;
-    vertical-align: top;
-    padding: 0.2em;
+  border: 1px outset #a5c639;
+  padding: .2em;
+  text-align: left;
+  vertical-align: top;
 }
 
 table.testdetails td.module {
-    background-color: white;
-    border: 0px;
-    font-weight: bold;
+  background-color: #fff;
+  border: 0;
+  font-weight: bold;
 }
 
 table.incompletemodules {
-    background-color: rgb(212, 233, 169);
-    border-collapse:collapse;
-    margin-left:auto;
-    margin-right:auto;
+  background-color: #d4e9a9;
+  border-collapse: collapse;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 table.incompletemodules th {
-    background-color: #A5C639;
-    border: 1px outset gray;
-    padding: 0.5em;
+  background-color: #a5c639;
+  border: 1px outset #808080;
+  padding: .5em;
 }
 
 table.incompletemodules td {
-    border: 1px outset #A5C639;
-    padding: 0.5em;
-    text-align: center;
+  border: 1px outset #a5c639;
+  padding: .5em;
+  text-align: center;
 }
 
 /* Test cell details */
 td.failed {
-    background-color: #FA5858;
-    font-weight:bold;
-    vertical-align: top;
-    text-align: center;
+  background-color: #fa5858;
+  font-weight: bold;
+  text-align: center;
+  vertical-align: top;
 }
 
 td.failuredetails {
-    text-align: left;
+  text-align: left;
 }
 
 td.pass {
-    text-align: center;
-    margin-left:auto;
-    margin-right:auto;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
 }
 
 td.not_executed {
-    background-color: #A5C639;
-    vertical-align: top;
-    text-align: center;
+  background-color: #a5c639;
+  text-align: center;
+  vertical-align: top;
 }
 
 td.testname {
-    border-width: 1px;
-    border-color: #A5C639;
-    border-style: outset;
-    text-align: left;
-    vertical-align: top;
-    padding:1;
-    overflow:hidden;
+  border: 1px outset #a5c639;
+  overflow: hidden;
+  padding: 1;
+  text-align: left;
+  vertical-align: top;
 }
 
 td.testcase {
-    border-width: 1px;
-    border-color: #A5C639;
-    border-style: outset;
-    text-align: left;
-    vertical-align: top;
-    padding:1;
-    overflow:hidden;
-    font-weight:bold;
+  border: 1px outset #a5c639;
+  font-weight: bold;
+  overflow: hidden;
+  padding: 1;
+  text-align: left;
+  vertical-align: top;
 }
 
 div.details {
-    white-space: pre-wrap;       /* css-3 */
-    white-space: -moz-pre-wrap;  /* Mozilla, since 1999 */
-    white-space: -pre-wrap;      /* Opera 4-6 */
-    white-space: -o-pre-wrap;    /* Opera 7 */
-    word-wrap: break-word;       /* Internet Explorer 5.5+ */
-    overflow:auto;
+  overflow: auto;
+  white-space: pre-wrap;       /* css-3 */
+  white-space: -moz-pre-wrap;  /* Mozilla, since 1999 */
+  white-space: -pre-wrap;      /* Opera 4-6 */
+  white-space: -o-pre-wrap;    /* Opera 7 */
+  word-wrap: break-word;       /* Internet Explorer 5.5+ */
 }

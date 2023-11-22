@@ -7,7 +7,7 @@ LOCAL_SRC_FILES := $(filter-out %.h,$(PLANETEST_COMMON_FILES) $(PLANETEST_FILES)
 
 LOCAL_MODULE := planetest
 
-LOCAL_SHARED_LIBRARIES := libdrm
+LOCAL_SHARED_LIBRARIES := libdrm_platform
 
 include $(BUILD_EXECUTABLE)
 
@@ -18,6 +18,6 @@ LOCAL_SRC_FILES := $(filter-out %.h,$(PLANETEST_COMMON_FILES) $(ATOMICTEST_FILES
 
 LOCAL_MODULE := atomictest
 
-LOCAL_SHARED_LIBRARIES := libdrm
+LOCAL_SHARED_LIBRARIES := libdrm_platform
 
 include $(BUILD_EXECUTABLE)

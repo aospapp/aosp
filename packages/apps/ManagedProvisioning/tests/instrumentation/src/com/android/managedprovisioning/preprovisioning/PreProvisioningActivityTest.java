@@ -27,18 +27,26 @@ import static com.android.managedprovisioning.model.CustomizationParams.DEFAULT_
 import static com.android.managedprovisioning.model.CustomizationParams.DEFAULT_COLOR_ID_MP;
 import static com.android.managedprovisioning.model.CustomizationParams.DEFAULT_COLOR_ID_SWIPER;
 
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.junit.Assert.assertThat;
+
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
+import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.SmallTest;
 import android.support.test.rule.ActivityTestRule;
+import android.view.View;
 
+import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.TestInstrumentationRunner;
 import com.android.managedprovisioning.common.CustomizationVerifier;
 import com.android.managedprovisioning.common.UriBitmap;
 import com.android.managedprovisioning.preprovisioning.terms.TermsActivity;
 
 import org.junit.AfterClass;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
@@ -126,6 +134,23 @@ public class PreProvisioningActivityTest {
                         EXTRA_PROVISIONING_LOGO_URI, expectedLogo.getUri()));
         CustomizationVerifier v = new CustomizationVerifier(activity);
         v.assertCustomLogoCorrect(expectedLogo.getBitmap());
+    }
+
+    @Test
+    public void profileOwnerWholeLayoutIsAdjusted() {
+        Activity activity = mActivityRule.launchActivity(
+                createIntent(ACTION_PROVISION_MANAGED_PROFILE, null));
+        View content = activity.findViewById(R.id.intro_po_content);
+        View viewport = activity.findViewById(R.id.suw_layout_content);
+        assertThat("Width", content.getWidth(), lessThanOrEqualTo(viewport.getWidth()));
+
+        int animationHeight = activity.findViewById(R.id.animated_info).getHeight();
+        int minHeight = activity.getResources().getDimensionPixelSize(
+                R.dimen.intro_animation_min_height);
+
+        if (animationHeight >= minHeight) {
+            assertThat("Height", content.getHeight(), lessThanOrEqualTo(viewport.getHeight()));
+        }
     }
 
     private Intent createIntent(String provisioningAction, Integer mainColor) {

@@ -27,7 +27,7 @@ import com.android.tv.TvApplication;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.data.Channel;
 import com.android.tv.dvr.DvrManager;
-import com.android.tv.dvr.ScheduledRecording;
+import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.dvr.ui.DvrConflictFragment.DvrChannelRecordConflictFragment;
 
 import java.util.ArrayList;
@@ -85,7 +85,7 @@ public class DvrChannelRecordDurationOptionFragment extends DvrGuidedStepFragmen
     }
 
     @Override
-    public void onGuidedActionClicked(GuidedAction action) {
+    public void onTrackedGuidedActionClicked(GuidedAction action) {
         DvrManager dvrManager = TvApplication.getSingletons(getContext()).getDvrManager();
         long duration = mDurations.get((int) action.getId());
         long startTimeMs = System.currentTimeMillis();
@@ -104,6 +104,27 @@ public class DvrChannelRecordDurationOptionFragment extends DvrGuidedStepFragmen
             fragment.setArguments(args);
             GuidedStepFragment.add(getFragmentManager(), fragment,
                     R.id.halfsized_dialog_host);
+        }
+    }
+
+    @Override
+    public String getTrackerPrefix() {
+        return "DvrChannelRecordDurationOptionFragment";
+    }
+
+    @Override
+    public String getTrackerLabelForGuidedAction(GuidedAction action) {
+        long actionId = action.getId();
+        if (actionId == 0) {
+            return "record-10-minutes";
+        } else if (actionId == 1) {
+            return "record-30-minutes";
+        } else if (actionId == 2) {
+            return "record-1-hour";
+        } else if (actionId == 3) {
+            return "record-3-hour";
+        } else {
+            return super.getTrackerLabelForGuidedAction(action);
         }
     }
 }

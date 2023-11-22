@@ -192,6 +192,106 @@ public class CompilationTargetActivity extends Activity {
             case 97: return m97();
             case 98: return m98();
             case 99: return m99();
+            case 100: return m100();
+            case 101: return m101();
+            case 102: return m102();
+            case 103: return m103();
+            case 104: return m104();
+            case 105: return m105();
+            case 106: return m106();
+            case 107: return m107();
+            case 108: return m108();
+            case 109: return m109();
+            case 110: return m110();
+            case 111: return m111();
+            case 112: return m112();
+            case 113: return m113();
+            case 114: return m114();
+            case 115: return m115();
+            case 116: return m116();
+            case 117: return m117();
+            case 118: return m118();
+            case 119: return m119();
+            case 120: return m120();
+            case 121: return m121();
+            case 122: return m122();
+            case 123: return m123();
+            case 124: return m124();
+            case 125: return m125();
+            case 126: return m126();
+            case 127: return m127();
+            case 128: return m128();
+            case 129: return m129();
+            case 130: return m130();
+            case 131: return m131();
+            case 132: return m132();
+            case 133: return m133();
+            case 134: return m134();
+            case 135: return m135();
+            case 136: return m136();
+            case 137: return m137();
+            case 138: return m138();
+            case 139: return m139();
+            case 140: return m140();
+            case 141: return m141();
+            case 142: return m142();
+            case 143: return m143();
+            case 144: return m144();
+            case 145: return m145();
+            case 146: return m146();
+            case 147: return m147();
+            case 148: return m148();
+            case 149: return m149();
+            case 150: return m150();
+            case 151: return m151();
+            case 152: return m152();
+            case 153: return m153();
+            case 154: return m154();
+            case 155: return m155();
+            case 156: return m156();
+            case 157: return m157();
+            case 158: return m158();
+            case 159: return m159();
+            case 160: return m160();
+            case 161: return m161();
+            case 162: return m162();
+            case 163: return m163();
+            case 164: return m164();
+            case 165: return m165();
+            case 166: return m166();
+            case 167: return m167();
+            case 168: return m168();
+            case 169: return m169();
+            case 170: return m170();
+            case 171: return m171();
+            case 172: return m172();
+            case 173: return m173();
+            case 174: return m174();
+            case 175: return m175();
+            case 176: return m176();
+            case 177: return m177();
+            case 178: return m178();
+            case 179: return m179();
+            case 180: return m180();
+            case 181: return m181();
+            case 182: return m182();
+            case 183: return m183();
+            case 184: return m184();
+            case 185: return m185();
+            case 186: return m186();
+            case 187: return m187();
+            case 188: return m188();
+            case 189: return m189();
+            case 190: return m190();
+            case 191: return m191();
+            case 192: return m192();
+            case 193: return m193();
+            case 194: return m194();
+            case 195: return m195();
+            case 196: return m196();
+            case 197: return m197();
+            case 198: return m198();
+            case 199: return m199();
             default: throw new AssertionError(v + " out of bounds");
         }
     }
@@ -296,5 +396,104 @@ public class CompilationTargetActivity extends Activity {
     public int m97() { return new Random(97).nextInt(); }
     public int m98() { return new Random(98).nextInt(); }
     public int m99() { return new Random(99).nextInt(); }
-
+    public int m100() { return new Random(100).nextInt(); }
+    public int m101() { return new Random(101).nextInt(); }
+    public int m102() { return new Random(102).nextInt(); }
+    public int m103() { return new Random(103).nextInt(); }
+    public int m104() { return new Random(104).nextInt(); }
+    public int m105() { return new Random(105).nextInt(); }
+    public int m106() { return new Random(106).nextInt(); }
+    public int m107() { return new Random(107).nextInt(); }
+    public int m108() { return new Random(108).nextInt(); }
+    public int m109() { return new Random(109).nextInt(); }
+    public int m110() { return new Random(110).nextInt(); }
+    public int m111() { return new Random(111).nextInt(); }
+    public int m112() { return new Random(112).nextInt(); }
+    public int m113() { return new Random(113).nextInt(); }
+    public int m114() { return new Random(114).nextInt(); }
+    public int m115() { return new Random(115).nextInt(); }
+    public int m116() { return new Random(116).nextInt(); }
+    public int m117() { return new Random(117).nextInt(); }
+    public int m118() { return new Random(118).nextInt(); }
+    public int m119() { return new Random(119).nextInt(); }
+    public int m120() { return new Random(120).nextInt(); }
+    public int m121() { return new Random(121).nextInt(); }
+    public int m122() { return new Random(122).nextInt(); }
+    public int m123() { return new Random(123).nextInt(); }
+    public int m124() { return new Random(124).nextInt(); }
+    public int m125() { return new Random(125).nextInt(); }
+    public int m126() { return new Random(126).nextInt(); }
+    public int m127() { return new Random(127).nextInt(); }
+    public int m128() { return new Random(128).nextInt(); }
+    public int m129() { return new Random(129).nextInt(); }
+    public int m130() { return new Random(130).nextInt(); }
+    public int m131() { return new Random(131).nextInt(); }
+    public int m132() { return new Random(132).nextInt(); }
+    public int m133() { return new Random(133).nextInt(); }
+    public int m134() { return new Random(134).nextInt(); }
+    public int m135() { return new Random(135).nextInt(); }
+    public int m136() { return new Random(136).nextInt(); }
+    public int m137() { return new Random(137).nextInt(); }
+    public int m138() { return new Random(138).nextInt(); }
+    public int m139() { return new Random(139).nextInt(); }
+    public int m140() { return new Random(140).nextInt(); }
+    public int m141() { return new Random(141).nextInt(); }
+    public int m142() { return new Random(142).nextInt(); }
+    public int m143() { return new Random(143).nextInt(); }
+    public int m144() { return new Random(144).nextInt(); }
+    public int m145() { return new Random(145).nextInt(); }
+    public int m146() { return new Random(146).nextInt(); }
+    public int m147() { return new Random(147).nextInt(); }
+    public int m148() { return new Random(148).nextInt(); }
+    public int m149() { return new Random(149).nextInt(); }
+    public int m150() { return new Random(150).nextInt(); }
+    public int m151() { return new Random(151).nextInt(); }
+    public int m152() { return new Random(152).nextInt(); }
+    public int m153() { return new Random(153).nextInt(); }
+    public int m154() { return new Random(154).nextInt(); }
+    public int m155() { return new Random(155).nextInt(); }
+    public int m156() { return new Random(156).nextInt(); }
+    public int m157() { return new Random(157).nextInt(); }
+    public int m158() { return new Random(158).nextInt(); }
+    public int m159() { return new Random(159).nextInt(); }
+    public int m160() { return new Random(160).nextInt(); }
+    public int m161() { return new Random(161).nextInt(); }
+    public int m162() { return new Random(162).nextInt(); }
+    public int m163() { return new Random(163).nextInt(); }
+    public int m164() { return new Random(164).nextInt(); }
+    public int m165() { return new Random(165).nextInt(); }
+    public int m166() { return new Random(166).nextInt(); }
+    public int m167() { return new Random(167).nextInt(); }
+    public int m168() { return new Random(168).nextInt(); }
+    public int m169() { return new Random(169).nextInt(); }
+    public int m170() { return new Random(170).nextInt(); }
+    public int m171() { return new Random(171).nextInt(); }
+    public int m172() { return new Random(172).nextInt(); }
+    public int m173() { return new Random(173).nextInt(); }
+    public int m174() { return new Random(174).nextInt(); }
+    public int m175() { return new Random(175).nextInt(); }
+    public int m176() { return new Random(176).nextInt(); }
+    public int m177() { return new Random(177).nextInt(); }
+    public int m178() { return new Random(178).nextInt(); }
+    public int m179() { return new Random(179).nextInt(); }
+    public int m180() { return new Random(180).nextInt(); }
+    public int m181() { return new Random(181).nextInt(); }
+    public int m182() { return new Random(182).nextInt(); }
+    public int m183() { return new Random(183).nextInt(); }
+    public int m184() { return new Random(184).nextInt(); }
+    public int m185() { return new Random(185).nextInt(); }
+    public int m186() { return new Random(186).nextInt(); }
+    public int m187() { return new Random(187).nextInt(); }
+    public int m188() { return new Random(188).nextInt(); }
+    public int m189() { return new Random(189).nextInt(); }
+    public int m190() { return new Random(190).nextInt(); }
+    public int m191() { return new Random(191).nextInt(); }
+    public int m192() { return new Random(192).nextInt(); }
+    public int m193() { return new Random(193).nextInt(); }
+    public int m194() { return new Random(194).nextInt(); }
+    public int m195() { return new Random(195).nextInt(); }
+    public int m196() { return new Random(196).nextInt(); }
+    public int m197() { return new Random(197).nextInt(); }
+    public int m198() { return new Random(198).nextInt(); }
+    public int m199() { return new Random(199).nextInt(); }
 }

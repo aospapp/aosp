@@ -108,7 +108,7 @@ public class PixelCopyViewProducerActivity extends Activity implements OnDrawLis
             mCurrentOrientation = (mCurrentOrientation + 1) % ORIENTATIONS.length;
             setRequestedOrientation(ORIENTATIONS[mCurrentOrientation]);
         });
-        waitForFirstDrawCompleted(3, TimeUnit.SECONDS);
+        waitForFirstDrawCompleted(10, TimeUnit.SECONDS);
         return mCurrentOrientation != 0;
     }
 

@@ -16,11 +16,15 @@
 
 package com.android.tv.recommendation;
 
+import static org.junit.Assert.assertEquals;
+
 import android.support.test.filters.SmallTest;
 import android.test.MoreAsserts;
 
 import com.android.tv.data.Program;
 import com.android.tv.recommendation.RoutineWatchEvaluator.ProgramTime;
+
+import org.junit.Test;
 
 import java.util.Arrays;
 import java.util.Calendar;
@@ -61,6 +65,7 @@ public class RoutineWatchEvaluatorTest extends EvaluatorTestCase<RoutineWatchEva
         return new RoutineWatchEvaluator();
     }
 
+    @Test
     public void testSplitTextToWords() {
         assertSplitTextToWords("");
         assertSplitTextToWords("Google", "Google");
@@ -71,6 +76,7 @@ public class RoutineWatchEvaluatorTest extends EvaluatorTestCase<RoutineWatchEva
         assertSplitTextToWords("A.I.", "A.I");
     }
 
+    @Test
     public void testCalculateMaximumMatchedWordSequenceLength() {
         assertMaximumMatchedWordSequenceLength(0, "", "Google");
         assertMaximumMatchedWordSequenceLength(2, "The Big Bang Theory", "Big Bang");
@@ -82,25 +88,29 @@ public class RoutineWatchEvaluatorTest extends EvaluatorTestCase<RoutineWatchEva
         assertMaximumMatchedWordSequenceLength(0, "Dexter", "Friends");
     }
 
+    @Test
     public void testCalculateTitleMatchScore_empty() {
-        assertEquals(0.0, RoutineWatchEvaluator.calculateTitleMatchScore("", ""));
-        assertEquals(0.0, RoutineWatchEvaluator.calculateTitleMatchScore("foo", ""));
-        assertEquals(0.0, RoutineWatchEvaluator.calculateTitleMatchScore("", "foo"));
+        assertEqualScores(0.0, RoutineWatchEvaluator.calculateTitleMatchScore("", ""));
+        assertEqualScores(0.0, RoutineWatchEvaluator.calculateTitleMatchScore("foo", ""));
+        assertEqualScores(0.0, RoutineWatchEvaluator.calculateTitleMatchScore("", "foo"));
     }
 
+    @Test
     public void testCalculateTitleMatchScore_spaces() {
-        assertEquals(0.0, RoutineWatchEvaluator.calculateTitleMatchScore(" ", " "));
-        assertEquals(0.0, RoutineWatchEvaluator.calculateTitleMatchScore("foo", " "));
-        assertEquals(0.0, RoutineWatchEvaluator.calculateTitleMatchScore(" ", "foo"));
+        assertEqualScores(0.0, RoutineWatchEvaluator.calculateTitleMatchScore(" ", " "));
+        assertEqualScores(0.0, RoutineWatchEvaluator.calculateTitleMatchScore("foo", " "));
+        assertEqualScores(0.0, RoutineWatchEvaluator.calculateTitleMatchScore(" ", "foo"));
     }
 
 
+    @Test
     public void testCalculateTitleMatchScore_null() {
-        assertEquals(0.0, RoutineWatchEvaluator.calculateTitleMatchScore(null, null));
-        assertEquals(0.0, RoutineWatchEvaluator.calculateTitleMatchScore("foo", null));
-        assertEquals(0.0, RoutineWatchEvaluator.calculateTitleMatchScore(null, "foo"));
+        assertEqualScores(0.0, RoutineWatchEvaluator.calculateTitleMatchScore(null, null));
+        assertEqualScores(0.0, RoutineWatchEvaluator.calculateTitleMatchScore("foo", null));
+        assertEqualScores(0.0, RoutineWatchEvaluator.calculateTitleMatchScore(null, "foo"));
     }
 
+    @Test
     public void testCalculateTitleMatchScore_longerMatchIsBetter() {
         String base = "foo bar baz";
         assertInOrder(
@@ -110,6 +120,7 @@ public class RoutineWatchEvaluatorTest extends EvaluatorTestCase<RoutineWatchEva
                 score(base, "foo bar baz"));
     }
 
+    @Test
     public void testProgramTime_createFromProgram() {
         Calendar time = Calendar.getInstance();
         int todayDayOfWeek = time.get(Calendar.DAY_OF_WEEK);
@@ -149,6 +160,7 @@ public class RoutineWatchEvaluatorTest extends EvaluatorTestCase<RoutineWatchEva
                 programTimeToday1800_3600);
     }
 
+    @Test
     public void testCalculateOverlappedIntervalScore() {
         // Today 21:00 - 24:00.
         ProgramTime programTimeToday2100_2400 = ProgramTime.createFromProgram(
@@ -179,6 +191,7 @@ public class RoutineWatchEvaluatorTest extends EvaluatorTestCase<RoutineWatchEva
                 programTimeTomorrow2000_2300);
     }
 
+    @Test
     public void testGetTimeOfDayInSec() {
         // Time was set as 00:00:00. So, getTimeOfDay must returns 0 (= 0 * 60 * 60 + 0 * 60 + 0).
         assertEquals("TimeOfDayInSec", hourMinuteToSec(0, 0),
@@ -222,9 +235,9 @@ public class RoutineWatchEvaluatorTest extends EvaluatorTestCase<RoutineWatchEva
             score *= RoutineWatchEvaluator.MULTIPLIER_FOR_UNMATCHED_DAY_OF_WEEK;
         }
         // Two tests for testing commutative law.
-        assertEquals("OverlappedIntervalScore", score,
+        assertEqualScores("OverlappedIntervalScore", score,
                 RoutineWatchEvaluator.calculateOverlappedIntervalScore(t1, t2));
-        assertEquals("OverlappedIntervalScore", score,
+        assertEqualScores("OverlappedIntervalScore", score,
                 RoutineWatchEvaluator.calculateOverlappedIntervalScore(t2, t1));
     }
 

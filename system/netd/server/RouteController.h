@@ -40,6 +40,8 @@ public:
 
     static const int ROUTE_TABLE_OFFSET_FROM_INDEX = 1000;
 
+    static const char* const LOCAL_MANGLE_INPUT;
+
     static int Init(unsigned localNetId) WARN_UNUSED_RESULT;
 
     static int addInterfaceToLocalNetwork(unsigned netId, const char* interface) WARN_UNUSED_RESULT;

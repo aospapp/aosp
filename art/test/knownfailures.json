@@ -100,6 +100,19 @@
         "bug": "http://b/35800768"
     },
     {
+        "tests": "163-app-image-methods",
+        "variant": "gcstress",
+        "description": ["This test sometimes runs out of memory initializing the boot classpath."]
+    },
+    {
+        "tests": "164-resolution-trampoline-dex-cache",
+        "variant": "interp-ac | interpreter",
+        "description": ["This test requires AOT mixed with JIT and enables the JIT by the ",
+                        "runtime option -Xusejit:true. This conflicts with -Xint passed for ",
+                        "interpreter configurations (interp-ac | interpreter). The 'jit' ",
+                        "configuration succeeds even though it does not test anything useful."]
+    },
+    {
         "tests": ["908-gc-start-finish",
                   "913-heaps"],
         "variant": "gcstress",
@@ -108,18 +121,17 @@
                         "non-deterministic. Same for 913."]
     },
     {
-        "tests": "961-default-iface-resolution-gen",
+        "tests": ["961-default-iface-resolution-gen",
+                  "964-default-iface-init-gen",
+                  "968-default-partial-compile-gen"],
         "variant": "gcstress",
-        "description": ["961-default-iface-resolution-gen and",
-                        "964-default-iface-init-genare very long tests that",
+        "description": ["961-default-iface-resolution-gen,",
+                        "968-default-partial-compile-gen and",
+                        "964-default-iface-init-gen are very long tests that",
                         "often will take more than the timeout to run when",
                         "gcstress is enabled. This is because gcstress slows",
                         "down allocations significantly which these tests do a",
                         "lot."]
-    },
-    {
-        "tests": "964-default-iface-init-gen",
-        "variant": "gcstress"
     },
     {
         "tests": "154-gc-loop",
@@ -142,15 +154,6 @@
                        "combinations, this is more about testing actual ART",
                        "code. A gtest is very hard to write here, as (for a",
                        "complete test) JDWP must be set up."]
-    },
-    {
-        "tests": "131-structural-change",
-        "variant": "debug",
-        "description": ["131 is an old test. The functionality has been",
-                        "implemented at an earlier stage and is checked",
-                        "in tests 138. Blacklisted for debug builds since",
-                        "these builds have duplicate classes checks which",
-                        "punt to interpreter"]
     },
     {
         "tests": "138-duplicate-classes-check",
@@ -258,7 +261,7 @@
                   "602-deoptimizeable"],
         "description": ["Tests that should fail when the optimizing compiler ",
                         "compiles them non-debuggable."],
-        "variant": "optimizing & ndebuggable | regalloc_gc & ndebuggable | speed-profile & ndebuggable"
+        "variant": "optimizing & ndebuggable | regalloc_gc & ndebuggable | speed-profile & ndebuggable | jit & ndebuggable"
     },
     {
         "tests": "596-app-images",
@@ -334,11 +337,6 @@
                   "508-referrer-method",
                   "637-checker-throw-inline"],
         "bug": "http://b/36365552",
-        "variant": "no-image & jit"
-    },
-    {
-        "tests": ["597-deopt-new-string"],
-        "bug": "http://b/36467228",
         "variant": "no-image & jit"
     },
     {
@@ -517,7 +515,7 @@
             "645-checker-abs-simd",
             "706-checker-scheduler"],
         "description": ["Checker tests are not compatible with jvmti."],
-        "variant": "jvmti-stress"
+        "variant": "jvmti-stress | redefine-stress | trace-stress | field-stress | step-stress"
     },
     {
         "tests": [
@@ -525,7 +523,7 @@
             "964-default-iface-init-gen"
         ],
         "description": ["Tests that just take too long with jvmti-stress"],
-        "variant": "jvmti-stress"
+        "variant": "jvmti-stress | redefine-stress | trace-stress | step-stress"
     },
     {
         "tests": [
@@ -545,7 +543,7 @@
             "dexter/slicer."
         ],
         "bug": "b/37272822",
-        "variant": "jvmti-stress"
+        "variant": "jvmti-stress | redefine-stress"
     },
     {
         "tests": [
@@ -553,22 +551,25 @@
             "595-profile-saving",
             "900-hello-plugin",
             "909-attach-agent",
-            "981-dedup-original-dex"
+            "981-dedup-original-dex",
+            "1900-track-alloc"
         ],
         "description": ["Tests that require exact knowledge of the number of plugins and agents."],
-        "variant": "jvmti-stress"
+        "variant": "jvmti-stress | redefine-stress | trace-stress | field-stress | step-stress"
     },
     {
         "tests": [
             "097-duplicate-method",
             "138-duplicate-classes-check2",
+            "159-app-image-fields",
+            "649-vdex-duplicate-method",
             "804-class-extends-itself",
             "921-hello-failure"
         ],
         "description": [
             "Tests that use illegal dex files or otherwise break dexter assumptions"
         ],
-        "variant": "jvmti-stress"
+        "variant": "jvmti-stress | redefine-stress"
     },
     {
         "tests": [
@@ -578,13 +579,21 @@
             "087-gc-after-link",
             "626-const-class-linking",
             "629-vdex-speed",
+            "647-jni-get-field-id",
             "944-transform-classloaders"
         ],
         "description": [
             "Tests that use custom class loaders or other features not supported ",
             "by our JVMTI implementation"
         ],
-        "variant": "jvmti-stress"
+        "variant": "jvmti-stress | redefine-stress"
+    },
+    {
+        "tests": [
+            "004-ThreadStress"
+        ],
+        "description": "The thread stress test just takes too long with field-stress",
+        "variant": "jvmti-stress | field-stress | step-stress"
     },
     {
         "tests": [
@@ -595,7 +604,16 @@
             "Tests that use annotations and debug data that is not kept around by dexter."
         ],
         "bug": "b/37239009",
-        "variant": "jvmti-stress"
+        "variant": "jvmti-stress | redefine-stress"
+    },
+    {
+        "tests": [
+            "567-checker-compare",
+            "988-method-trace"
+        ],
+        "description": "Checker tests fail because desugar lowers Long.compare to lcmp",
+        "env_vars": {"ANDROID_COMPILE_WITH_JACK": "false"},
+        "bug": "b/63078894"
     },
     {
         "tests": [
@@ -610,9 +628,112 @@
         "variant": "speed-profile"
     },
     {
+        "tests": "648-many-direct-methods",
+        "variant": "debug",
+        "description": "Test disabled in debug mode because of dex2oatd timeouts.",
+        "bug": "b/33650497"
+    },
+    {
+        "tests": "640-checker-integer-valueof",
+        "description": [
+            "The java.lang.Integer.valueOf intrinsic is not supported in PIC mode."
+        ],
+        "variant": "optimizing & pictest | speed-profile & pictest"
+    },
+    {
+        "tests": "202-thread-oome",
+        "description": "ASAN aborts when large thread stacks are requested.",
+        "variant": "host",
+        "env_vars": {"SANITIZE_HOST": "address"}
+    },
+    {
+        "tests": "202-thread-oome",
+        "description": "ASAN aborts when large thread stacks are requested.",
+        "variant": "target",
+        "env_vars": {"SANITIZE_TARGET": "address"}
+    },
+    {
+        "tests": [
+            "059-finalizer-throw",
+            "074-gc-thrash",
+            "911-get-stack-trace",
+            "913-heaps",
+            "980-redefine-object"
+        ],
+        "description": [
+            "Interpreter with access checks stack frames are too large and result in",
+            "StackOverFlow errors being thrown."
+        ],
+        "variant": "interp-ac & host",
+        "env_vars": {"SANITIZE_HOST": "address"}
+    },
+    {
+        "tests": [
+            "059-finalizer-throw",
+            "074-gc-thrash",
+            "911-get-stack-trace",
+            "913-heaps",
+            "980-redefine-object"
+        ],
+        "description": [
+            "Interpreter with access checks stack frames are too large and result in",
+            "StackOverFlow errors being thrown."
+        ],
+        "variant": "interp-ac & target",
+        "env_vars": {"SANITIZE_TARGET": "address"}
+    },
+    {
+        "tests": "071-dexfile-map-clean",
+        "description": [ "We use prebuilt zipalign on master-art-host to avoid pulling in a lot",
+                         "of the framework. But a non-sanitized zipalign binary does not work with",
+                         "a sanitized libc++."],
+        "env_vars": {"SANITIZE_HOST": "address"}
+    },
+    {
+        "tests": "141-class-unload",
+        "description": "Segmentation fault",
+        "bug": "b/31098949",
+        "env_vars": {"SANITIZE_HOST": "address"}
+    },
+    {
+        "tests": "104-growth-limit",
+        "description": "Flake",
+        "bug": "b/63514331",
+        "env_vars": {"SANITIZE_HOST": "address"}
+    },
+    {
+        "tests": ["988-method-trace"],
+        "variant": "redefine-stress | jvmti-stress",
+        "description": "Test disabled due to redefine-stress disabling intrinsics which changes the trace output slightly."
+    },
+    {
         "tests": ["137-cfi", "629-vdex-speed"],
         "description": [ "Tests require speed compilation which is no longer the default for",
-                          "no-prebuild configs."],
-        "variant": "no-prebuild"
+                          "no-prebuild or no-image configs."],
+        "variant": "no-prebuild | no-image"
+    },
+    {
+        "tests": ["059-finalizer-throw", "063-process-manager"],
+        "description": [ "Tests that take too long on target with gcstress and debug" ],
+        "variant": "gcstress & target & debug"
+    },
+    {
+        "tests": ["905-object-free"],
+        "description": [ "Flake on gcstress" ],
+        "bug": "b/62562923",
+        "variant": "gcstress & jit & target"
+    },
+    {
+        "tests": [
+            "1902-suspend",
+            "1903-suspend-self",
+            "1904-double-suspend",
+            "1905-suspend-native",
+            "1906-suspend-list-me-first",
+            "1907-suspend-list-self-twice",
+            "1908-suspend-native-resume-self"
+        ],
+        "description": [ "Disable the jvmti can_suspend cap and associated tests" ],
+        "bug": "b/63579748"
     }
 ]

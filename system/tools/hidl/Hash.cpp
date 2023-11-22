@@ -156,7 +156,6 @@ private:
     std::map<std::string,std::vector<std::string>> hashes;
 };
 
-//static
 std::vector<std::string> Hash::lookupHash(const std::string &path,
                                           const std::string &interfaceName,
                                           std::string *err) {

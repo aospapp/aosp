@@ -26,29 +26,35 @@ import com.android.documentsui.R;
  * Debug menu tools requested by QA Fred.
  */
 public class DebugHelper {
+
     private static final String TAG = "DebugHelper";
-    private static final int[][] code = new int[][] {
+
+    private static final int[][] sCode = new int[][] {
             {19, 19, 20, 20, 21, 22, 21, 22, 30, 29},
             {51, 51, 47, 47, 29, 32, 29, 32, 30, 29}
     };
-    private static final int[][] colors = new int[][] {
+
+    private static final int[][] sColors = new int[][] {
             {0xFFDB3236, 0xFFB71C1C},
             {0xFF3cba54, 0xFF1B5E20},
             {0xFFf4c20d, 0xFFF9A825},
             {0xFF4885ed, 0xFF0D47A1}
     };
-    private static final Pair[] messages = new Pair[]{
+
+    @SuppressWarnings("unchecked")
+    private static final Pair<String, Integer>[] sMessages = new Pair[]{
             new Pair<>("Woof Woof", R.drawable.debug_msg_1),
             new Pair<>("ワンワン", R.drawable.debug_msg_2)
     };
 
-    private boolean debugEnabled = false;
-    private long lastTime = 0;
-    private int position = 0;
-    private int codeIndex = 0;
-    private int colorIndex = 0;
-    private int messageIndex = 0;
-    private Injector<?> mInjector;
+    private final Injector<?> mInjector;
+
+    private boolean mDebugEnabled;
+    private long mLastTime;
+    private int mPosition;
+    private int mCodeIndex;
+    private int mColorIndex;
+    private int mMessageIndex;
 
     public DebugHelper(Injector<?> injector) {
         mInjector = injector;
@@ -57,56 +63,60 @@ public class DebugHelper {
     public int[] getNextColors() {
         assert (mInjector.features.isDebugSupportEnabled());
 
-        if (colorIndex == colors.length) {
-            colorIndex = 0;
+        if (mColorIndex == sColors.length) {
+            mColorIndex = 0;
         }
 
-        return colors[colorIndex++];
+        return sColors[mColorIndex++];
     }
 
     public Pair<String, Integer> getNextMessage() {
         assert (mInjector.features.isDebugSupportEnabled());
 
-        if (messageIndex == messages.length) {
-            messageIndex = 0;
+        if (mMessageIndex == sMessages.length) {
+            mMessageIndex = 0;
         }
 
-        return messages[messageIndex++];
+        return sMessages[mMessageIndex++];
     }
 
     public void debugCheck(long time, int keyCode) {
-        if (time == lastTime) {
+        if (time == mLastTime) {
             return;
         }
-        lastTime = time;
+        mLastTime = time;
 
-        if (position == 0) {
-            for (int i = 0; i < code.length; i++) {
-                if (keyCode == code[i][0]) {
-                    codeIndex = i;
+        if (mPosition == 0) {
+            for (int i = 0; i < sCode.length; i++) {
+                if (keyCode == sCode[i][0]) {
+                    mCodeIndex = i;
                     break;
                 }
             }
         }
 
-        if (keyCode == code[codeIndex][position]) {
-            position++;
-        } else if (position  > 2 || (position == 2 && keyCode != code[codeIndex][0])) {
-            position = 0;
+        if (keyCode == sCode[mCodeIndex][mPosition]) {
+            mPosition++;
+        } else if (mPosition  > 2 || (mPosition == 2 && keyCode != sCode[mCodeIndex][0])) {
+            mPosition = 0;
         }
 
-        if (position == code[codeIndex].length) {
-            position = 0;
-            debugEnabled = !debugEnabled;
-            // Actions is content-scope, so it can technically be null, though
-            // not likely.
-            if (mInjector.actions != null) {
-                mInjector.actions.setDebugMode(debugEnabled);
-            }
+        if (mPosition == sCode[mCodeIndex].length) {
+            mPosition = 0;
+            toggleDebugMode();
+        }
+    }
 
-            if (Shared.VERBOSE) {
-                Log.v(TAG, "Debug mode " + (debugEnabled ? "on" : "off"));
-            }
+    public void toggleDebugMode() {
+        mDebugEnabled = !mDebugEnabled;
+        // Actions is content-scope, so it can technically be null, though
+        // not likely.
+        if (mInjector.actions != null) {
+            mInjector.actions.setDebugMode(mDebugEnabled);
+        }
+
+        if (Shared.VERBOSE) {
+            Log.v(TAG, "Debug mode " + (mDebugEnabled ? "on" : "off"));
         }
     }
 }

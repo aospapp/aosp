@@ -23,7 +23,7 @@ import time
 from queue import Empty
 from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
-from acts.test_utils.bt.BtEnum import BluetoothScanModeType
+from acts.test_utils.bt.bt_constants import bt_scan_mode_types
 from acts.test_utils.bt.bt_test_utils import check_device_supported_profiles
 from acts.test_utils.bt.bt_test_utils import reset_bluetooth
 from acts.test_utils.bt.bt_test_utils import set_device_name
@@ -53,7 +53,7 @@ class BtBasicFunctionalityTest(BluetoothBaseTest):
         return True
 
     def on_fail(self, test_name, begin_time):
-        take_btsnoop_logs(self.android_devices, self, test_name, begin_time)
+        take_btsnoop_logs(self.android_devices, self, test_name)
         reset_bluetooth(self.android_devices)
 
     @BluetoothBaseTest.bt_test_wrap
@@ -106,8 +106,7 @@ class BtBasicFunctionalityTest(BluetoothBaseTest):
         """
         self.droid_ad.droid.bluetoothMakeDiscoverable()
         scan_mode = self.droid_ad.droid.bluetoothGetScanMode()
-        if (scan_mode ==
-                BluetoothScanModeType.SCAN_MODE_CONNECTABLE_DISCOVERABLE):
+        if (scan_mode == bt_scan_mode_types['connectable_discoverable']):
             self.log.debug("Android device1 scan mode is "
                            "SCAN_MODE_CONNECTABLE_DISCOVERABLE")
         else:
@@ -170,9 +169,9 @@ class BtBasicFunctionalityTest(BluetoothBaseTest):
         Priority: 1
         """
         self.droid_ad.droid.bluetoothMakeUndiscoverable()
-        set_bt_scan_mode(self.droid1_ad, BluetoothScanModeType.SCAN_MODE_NONE)
+        set_bt_scan_mode(self.droid1_ad, bt_scan_mode_types['none'])
         scan_mode = self.droid1_ad.droid.bluetoothGetScanMode()
-        if scan_mode == BluetoothScanModeType.SCAN_MODE_NONE:
+        if scan_mode == bt_scan_mode_types['none']:
             self.log.debug("Android device1 scan mode is SCAN_MODE_NONE")
         else:
             self.log.debug("Android device1 scan mode is not SCAN_MODE_NONE")
@@ -254,7 +253,7 @@ class BtBasicFunctionalityTest(BluetoothBaseTest):
         Priority: 1
         """
         self.log.debug("Test scan mode STATE_OFF.")
-        return set_bt_scan_mode(self.droid_ad, BluetoothScanModeType.STATE_OFF)
+        return set_bt_scan_mode(self.droid_ad, bt_scan_mode_types['state_off'])
 
     #@BluetoothTest(UUID=27576aa8-d52f-45ad-986a-f44fb565167d)
     @BluetoothBaseTest.bt_test_wrap
@@ -280,8 +279,7 @@ class BtBasicFunctionalityTest(BluetoothBaseTest):
         Priority: 1
         """
         self.log.debug("Test scan mode SCAN_MODE_NONE.")
-        return set_bt_scan_mode(self.droid_ad,
-                                BluetoothScanModeType.SCAN_MODE_NONE)
+        return set_bt_scan_mode(self.droid_ad, bt_scan_mode_types['none'])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='cb998a99-31a6-46b6-9de6-a9a17081a604')
@@ -307,7 +305,7 @@ class BtBasicFunctionalityTest(BluetoothBaseTest):
         """
         self.log.debug("Test scan mode SCAN_MODE_CONNECTABLE.")
         return set_bt_scan_mode(self.droid_ad,
-                                BluetoothScanModeType.SCAN_MODE_CONNECTABLE)
+                                bt_scan_mode_types['connectable'])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='59bec55c-c64e-43e4-9a9a-e44408a801d7')
@@ -332,9 +330,8 @@ class BtBasicFunctionalityTest(BluetoothBaseTest):
         Priority: 2
         """
         self.log.debug("Test scan mode SCAN_MODE_CONNECTABLE_DISCOVERABLE.")
-        return set_bt_scan_mode(
-            self.droid_ad,
-            BluetoothScanModeType.SCAN_MODE_CONNECTABLE_DISCOVERABLE)
+        return set_bt_scan_mode(self.droid_ad,
+                                bt_scan_mode_types['connectable_discoverable'])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='cd20a09d-a68d-4f55-b016-ba283b0460df')

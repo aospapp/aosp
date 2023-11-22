@@ -69,6 +69,7 @@ struct ConfigCmd
     uint8_t sensorType;
     uint8_t cmd;
     uint16_t flags;
+    uint8_t data[];
 } __attribute__((packed));
 
 struct App
@@ -78,6 +79,11 @@ struct App
     uint32_t version;
     uint32_t size;
 };
+
+struct LedsCfg {
+    uint32_t led_num;
+    uint32_t value;
+} __attribute__((packed));
 
 static int setType(struct ConfigCmd *cmd, char *sensor)
 {
@@ -153,6 +159,12 @@ static int setType(struct ConfigCmd *cmd, char *sensor)
     } else if (strcmp(sensor, "twist") == 0) {
         cmd->sensorType = SENS_TYPE_DOUBLE_TWIST;
         cmd->rate = SENSOR_RATE_ONCHANGE;
+    } else if (strcmp(sensor, "leds") == 0) {
+        cmd->sensorType = SENS_TYPE_LEDS;
+    } else if (strcmp(sensor, "leds_i2c") == 0) {
+        cmd->sensorType = SENS_TYPE_LEDS_I2C;
+    } else if (strcmp(sensor, "humidity") == 0) {
+        cmd->sensorType = SENS_TYPE_HUMIDITY;
     } else {
         return 1;
     }
@@ -349,18 +361,21 @@ void resetHub()
 int main(int argc, char *argv[])
 {
     struct ConfigCmd mConfigCmd;
+    struct ConfigCmd *pConfigCmd = &mConfigCmd;
+    size_t length = sizeof(mConfigCmd);
     int fd;
     int i;
 
     if (argc < 3 && (argc < 2 || strcmp(argv[1], "download") != 0)) {
         printf("usage: %s <action> <sensor> <data> -d\n", argv[0]);
-        printf("       action: config|calibrate|flush|download\n");
+        printf("       action: config|cfgdata|calibrate|flush|download\n");
         printf("       sensor: accel|(uncal_)gyro|(uncal_)mag|als|prox|baro|temp|orien\n");
         printf("               gravity|geomag|linear_acc|rotation|game\n");
         printf("               win_orien|tilt|step_det|step_cnt|double_tap\n");
         printf("               flat|anymo|nomo|sigmo|gesture|hall|vsync\n");
-        printf("               activity|twist\n");
+        printf("               activity|twist|leds|leds_i2c|humidity\n");
         printf("       data: config: <true|false> <rate in Hz> <latency in u-sec>\n");
+        printf("             cfgdata: leds: led_num value\n");
         printf("             calibrate: [N.A.]\n");
         printf("             flush: [N.A.]\n");
         printf("       -d: if specified, %s will keep draining /dev/nanohub until cancelled.\n", argv[0]);
@@ -392,6 +407,35 @@ int main(int argc, char *argv[])
         mConfigCmd.rate = SENSOR_HZ((float)atoi(argv[4]));
         mConfigCmd.latency = atoi(argv[5]) * 1000ull;
         if (setType(&mConfigCmd, argv[2])) {
+            printf("Unsupported sensor: %s For action: %s\n", argv[2], argv[1]);
+            return 1;
+        }
+    } else if (strcmp(argv[1], "cfgdata") == 0) {
+        mConfigCmd.evtType = EVT_NO_SENSOR_CONFIG_EVENT;
+        mConfigCmd.rate = 0;
+        mConfigCmd.latency = 0;
+        mConfigCmd.cmd = CONFIG_CMD_CFG_DATA;
+        if (setType(&mConfigCmd, argv[2])) {
+            printf("Unsupported sensor: %s For action: %s\n", argv[2], argv[1]);
+            return 1;
+        }
+        if (mConfigCmd.sensorType == SENS_TYPE_LEDS ||
+            mConfigCmd.sensorType == SENS_TYPE_LEDS_I2C) {
+            struct LedsCfg mLedsCfg;
+
+            if (argc != 5) {
+                printf("Wrong arg number\n");
+                return 1;
+            }
+            length = sizeof(struct ConfigCmd) + sizeof(struct LedsCfg *);
+            pConfigCmd = (struct ConfigCmd *)malloc(length);
+            if (!pConfigCmd)
+                return 1;
+            mLedsCfg.led_num = atoi(argv[3]);
+            mLedsCfg.value = atoi(argv[4]);
+            memcpy(pConfigCmd, &mConfigCmd, sizeof(mConfigCmd));
+            memcpy(pConfigCmd->data, &mLedsCfg, sizeof(mLedsCfg));
+        } else {
             printf("Unsupported sensor: %s For action: %s\n", argv[2], argv[1]);
             return 1;
         }
@@ -436,7 +480,7 @@ int main(int argc, char *argv[])
                     LOGE("Download failed after %d retries; erasing all apps "
                          "before final attempt", i);
                     eraseSharedArea();
-                    uninstallCnt = 0;
+                    parseConfigAppInfo(&installCnt, &uninstallCnt);
                 }
                 removeApps(uninstallCnt);
                 downloadApps(installCnt);
@@ -455,8 +499,11 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    while (!fileWriteData("/dev/nanohub", &mConfigCmd, sizeof(mConfigCmd)))
+    while (!fileWriteData("/dev/nanohub", pConfigCmd, length))
         continue;
+
+    if (pConfigCmd != &mConfigCmd)
+        free(pConfigCmd);
 
     if (drain) {
         signal(SIGINT, sig_handle);

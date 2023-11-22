@@ -15,5 +15,4 @@
 subdirs = [
     "func_fuzzer",
     "iface_fuzzer",
-    "iface_fuzzer/proto",
 ]

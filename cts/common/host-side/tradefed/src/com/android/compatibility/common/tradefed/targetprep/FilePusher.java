@@ -42,11 +42,20 @@ public class FilePusher extends PushFilePreparer implements IAbiReceiver {
 
     private IAbi mAbi;
 
-    protected File getTestsDir(IBuildInfo buildInfo) throws FileNotFoundException {
+    private void setBuildHelper(IBuildInfo buildInfo) {
         if (mBuildHelper == null) {
             mBuildHelper = new CompatibilityBuildHelper(buildInfo);
         }
+    }
+
+    protected File getTestsDir(IBuildInfo buildInfo) throws FileNotFoundException {
+        setBuildHelper(buildInfo);
         return mBuildHelper.getTestsDir();
+    }
+
+    protected File getTestFile(IBuildInfo buildInfo, String filename) throws FileNotFoundException {
+        setBuildHelper(buildInfo);
+        return mBuildHelper.getTestFile(filename);
     }
 
     /**
@@ -71,7 +80,7 @@ public class FilePusher extends PushFilePreparer implements IAbiReceiver {
     @Override
     public File resolveRelativeFilePath(IBuildInfo buildInfo, String fileName) {
         try {
-            File f = new File(getTestsDir(buildInfo),
+            File f = getTestFile(buildInfo,
                     String.format("%s%s", fileName, mAppendBitness ? mAbi.getBitness() : ""));
             CLog.logAndDisplay(LogLevel.INFO, "Copying from %s", f.getAbsolutePath());
             return f;

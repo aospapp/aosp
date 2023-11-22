@@ -17,6 +17,7 @@ package com.android.tv.testing.uihelper;
 
 import static com.android.tv.testing.uihelper.Constants.FOCUSED_VIEW;
 import static junit.framework.Assert.assertEquals;
+import static junit.framework.Assert.assertNotNull;
 import static junit.framework.Assert.assertTrue;
 
 import android.support.test.uiautomator.By;
@@ -36,6 +37,12 @@ public final class UiDeviceAsserts {
 
     public static void assertHas(UiDevice uiDevice, BySelector bySelector, boolean expected) {
         assertEquals("Has " + bySelector, expected, uiDevice.hasObject(bySelector));
+    }
+
+    public static void assertWaitUntilFocused(UiDevice uiDevice, BySelector bySelector) {
+        UiObject2 uiObject = uiDevice.findObject(bySelector);
+        assertNotNull(uiObject);
+        assertTrue(uiObject.wait(Until.focused(true), Constants.MAX_FOCUSED_DELAY_MILLIS));
     }
 
     /**

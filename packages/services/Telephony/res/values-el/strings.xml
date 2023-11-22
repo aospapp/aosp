@@ -78,7 +78,6 @@
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"Τηλεφωνητής (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"ΑΤ:"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"Ειδοποιήσεις"</string>
-    <string name="networks" msgid="8873030692174541976">"Εταιρείες δικτύου"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"Εκπομπές έκτακτης ανάγκης"</string>
     <string name="call_settings" msgid="6112441768261754562">"Ρυθμίσεις κλήσης"</string>
     <string name="additional_gsm_call_settings" msgid="1391795981938800617">"Πρόσθετες ρυθμίσεις"</string>
@@ -164,20 +163,18 @@
     <string name="label_available" msgid="1181658289009300430">"Διαθέσιμα δίκτυα"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"Αναζήτηση..."</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"Δεν βρέθηκαν δίκτυα."</string>
-    <string name="search_networks" msgid="1601136049300882441">"Αναζήτηση δικτύων"</string>
     <string name="network_query_error" msgid="6828516148953325006">"Προέκυψε σφάλμα κατά την αναζήτηση δικτύων."</string>
     <string name="register_on_network" msgid="9055203954040805084">"Εγγραφή στο δίκτυο <xliff:g id="NETWORK">%s</xliff:g>…"</string>
     <string name="not_allowed" msgid="5613353860205691579">"Η κάρτα SIM δεν επιτρέπει τη σύνδεση με αυτό το δίκτυο."</string>
     <string name="connect_later" msgid="2308119155752343975">"Δεν είναι δυνατή η σύνδεση στο δίκτυο αυτήν τη στιγμή. Παρακαλούμε ξαναπροσπαθήστε αργότερα."</string>
     <string name="registration_done" msgid="495135664535876612">"Έγινε εγγραφή στο δίκτυο."</string>
-    <string name="sum_carrier_select" msgid="3494252551249882718">"Επιλέξτε μια εταιρεία δικτύου"</string>
-    <string name="sum_search_networks" msgid="2921092249873272715">"Αναζήτηση διαθέσιμων δικτύων"</string>
-    <string name="select_automatically" msgid="5628402124471810174">"Αυτόματη επιλογή"</string>
-    <string name="sum_select_automatically" msgid="5614890115123292400">"Αυτόματη επιλογή προτιμώμενου δικτύου"</string>
+    <string name="select_automatically" msgid="1046727200631770962">"Αυτόματη επιλογή δικτύου"</string>
+    <string name="network_select_title" msgid="7733107364757544558">"Δίκτυο"</string>
     <string name="register_automatically" msgid="6017849844573519637">"Αυτόματη εγγραφή..."</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"Προτιμώμενος τύπος δικτύου"</string>
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"Αλλαγή κατάστασης λειτουργίας δικτύου"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"Προτιμώμενος τύπος δικτύου"</string>
+    <string name="forbidden_network" msgid="4384929668343563440">"(απαγορευμένο)"</string>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"Προτιμώμενη λειτουργία δικτύου: προτιμώμενο WCDMA"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"Προτιμώμενη λειτουργία δικτύου: μόνο GSM"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"Προτιμώμενη λειτουργία δικτύου: μόνο WCDMA"</string>
@@ -210,18 +207,34 @@
     <item msgid="1524224863879435516">"Μόνο GSM"</item>
     <item msgid="3817924849415716259">"Προτιμώνται GSM/WCDMA"</item>
   </string-array>
+    <string name="call_category" msgid="5863978196309462052">"Κλήση"</string>
+    <string name="network_operator_category" msgid="4830701959205735636">"Δίκτυο"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"Βελτιωμένη λειτουργία 4G LTE"</string>
     <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"Προηγμένες λειτουργίες κλήσης"</string>
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"Χρήση υπηρεσιών LTE για τη βελτίωση της φωνητικής επικοινωνίας και άλλου είδους επικοινωνιών (συνιστάται)"</string>
     <string name="data_enabled" msgid="5972538663568715366">"Ενεργοποίηση δεδομένων"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"Επιτρέπεται η χρήση δεδομένων"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"Προσοχή"</string>
-    <string name="roaming" msgid="8871412572928323707">"Περιαγωγή δεδομένων"</string>
+    <string name="roaming" msgid="7894878421600247140">"Περιαγωγή"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"Σύνδεση στις υπηρεσίες δεδομένων κατά την περιαγωγή"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"Σύνδεση στις υπηρεσίες δεδομένων κατά την περιαγωγή"</string>
     <string name="roaming_reenable_message" msgid="8913735676127858115">"Χάσατε τη σύνδεση δεδομένων επειδή φύγατε από το οικείο δίκτυο έχοντας την περιαγωγή δεδομένων απενεργοποιημένη."</string>
     <string name="roaming_warning" msgid="1603164667540144353">"Ενδέχεται να επιβαρυνθείτε με σημαντικές χρεώσεις."</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"Να επιτρέπεται η περιαγωγή δεδομένων;"</string>
+    <string name="data_usage_title" msgid="8759619109516889802">"Χρήση δεδομένων"</string>
+    <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_1">%1$s</xliff:g> δεδομένα κινητής τηλεφωνίας σε χρήση μεταξύ <xliff:g id="ID_2">%2$s</xliff:g>"</string>
+    <string name="advanced_options_title" msgid="8074895510265488035">"Σύνθετες ρυθμίσεις"</string>
+    <string name="carrier_settings_euicc" msgid="6714062862127226405">"Εταιρεία κινητής τηλεφωνίας"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"εταιρεία κινητής τηλεφωνίας, esim, sim, euicc"</string>
+    <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> — <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
+    <string name="mobile_data_settings_title" msgid="4661165467914727157">"Δεδομένα κινητής τηλεφωνίας"</string>
+    <string name="mobile_data_settings_summary" msgid="5087255915840576895">"Πρόσβαση σε δεδομένα μέσω δικτύου κινητής τηλεφωνίας"</string>
+    <string name="data_usage_disable_mobile" msgid="3577275288809667615">"Απενεργοποίηση δεδομένων κινητής τηλεφωνίας;"</string>
+    <string name="sim_selection_required_pref" msgid="7049424902961844236">"Απαιτείται επιλογή"</string>
+    <string name="sim_change_data_title" msgid="5332425991853799280">"Αλλαγή SIM δεδομένων;"</string>
+    <string name="sim_change_data_message" msgid="2163963581444907496">"Χρήση <xliff:g id="NEW_SIM">%1$s</xliff:g> αντί για <xliff:g id="OLD_SIM">%2$s</xliff:g> για τα δεδομένα κινητής τηλεφωνίας;"</string>
+    <string name="wifi_calling_settings_title" msgid="7741961465416430470">"Κλήσεις μέσω Wi-Fi"</string>
+    <string name="video_calling_settings_title" msgid="539714564273795574">"Βιντεοκλήση μέσω εταιρείας κινητής τηλεφωνίας"</string>
     <string name="gsm_umts_options" msgid="6538311689850981686">"Επιλογές GSM/UMTS"</string>
     <string name="cdma_options" msgid="4016822858172249884">"Επιλογές CDMA"</string>
     <string name="throttle_data_usage" msgid="3715677828160555808">"Χρήση δεδομένων"</string>
@@ -396,8 +409,8 @@
     <string name="enable_pin" msgid="5422767284133234860">"Ενεργοποίηση/απενεργοποίηση αριθμού PIN της κάρτας SIM"</string>
     <string name="change_pin" msgid="9174186126330785343">"Αλλαγή αριθμού PIN της κάρτας SIM"</string>
     <string name="enter_pin_text" msgid="8532615714751931951">"Αριθμός PIN της κάρτας SIM:"</string>
-    <string name="oldPinLabel" msgid="5287773661246368314">"Παλιός αριθμός PIN"</string>
-    <string name="newPinLabel" msgid="207488227285336897">"Νέος αριθμός PIN"</string>
+    <string name="oldPinLabel" msgid="5287773661246368314">"Παλιό PIN"</string>
+    <string name="newPinLabel" msgid="207488227285336897">"Νέο PIN"</string>
     <string name="confirmPinLabel" msgid="257597715098070206">"Επιβεβαίωση νέου αριθμού PIN"</string>
     <string name="badPin" msgid="8955102849303984935">"Το παλιό PIN που πληκτρολογήσατε δεν είναι σωστό. Δοκιμάστε ξανά."</string>
     <string name="mismatchPin" msgid="5923253370683071889">"Τα PIN που πληκτρολογήσατε δεν ταιριάζουν. Δοκιμάστε ξανά."</string>
@@ -452,7 +465,7 @@
     <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"Το δίκτυο κινητής τηλεφωνίας δεν είναι διαθέσιμο. Συνδεθείτε σε ένα ασύρματο δίκτυο για να πραγματοποιήσετε μια κλήση."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"Για να πραγματοποιήσετε κλήση, εισαγάγετε έναν έγκυρο αριθμό."</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"Η κλήση απέτυχε."</string>
-    <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"Δεν είναι δυνατή η προσθήκη κλήσης αυτήν τη στιγμή."</string>
+    <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"Δεν είναι δυνατή η προσθήκη της κλήσης αυτήν τη στιγμή. Δοκιμάστε να επικοινωνήσετε με αποστολή μηνύματος."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"Η υπηρεσία δεν υποστηρίζεται"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"Δεν είναι δυνατή η εναλλαγή κλήσεων."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"Δεν είναι δυνατός ο διαχωρισμός της κλήσης."</string>
@@ -572,6 +585,8 @@
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"Υπάρχουν πάρα πολλές ενεργές κλήσεις. Τερματίστε ή να συγχωνεύστε τις υπάρχουσες κλήσεις πριν πραγματοποιήσετε νέα."</string>
     <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"Δεν είναι δυνατή η σύνδεση. Τοποθετήστε μια έγκυρη κάρτα SIM."</string>
     <string name="callFailed_wifi_lost" msgid="5968076625137297184">"Η σύνδεση Wi-Fi χάθηκε. Η κλήση τερματίστηκε."</string>
+    <string name="dialFailed_low_battery" msgid="8760548177088774268">"Η βιντεοκλήση δεν μπορεί να πραγματοποιηθεί λόγω χαμηλής στάθμης μπαταρίας"</string>
+    <string name="callFailed_low_battery" msgid="4913582435905872616">"Η βιντεοκλήση τερματίστηκε λόγω χαμηλής στάθμης μπαταρίας"</string>
     <string name="change_pin_title" msgid="7790232089699034029">"Αλλαγή PIN αυτόματου τηλεφωνητή"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"Συνέχεια"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"Ακύρωση"</string>
@@ -584,4 +599,18 @@
     <string name="change_pin_confirm_pins_dont_match" msgid="4795052654904027909">"Τα PIN δεν ταιριάζουν"</string>
     <string name="change_pin_succeeded" msgid="2022852286442211151">"Το PIN αυτόματου τηλεφωνητή ενημερώθηκε"</string>
     <string name="change_pin_system_error" msgid="8308462387154257840">"Δεν είναι δυνατή η ρύθμιση του PIN"</string>
+    <string name="mobile_data_status_roaming_turned_off_subtext" msgid="935636805765823307">"Η περιαγωγή δεδομένων είναι απενεργοποιημένη"</string>
+    <string name="mobile_data_status_roaming_turned_on_subtext" msgid="1335176927083781041">"Η περιαγωγή δεδομένων είναι ενεργοποιημένη"</string>
+    <string name="mobile_data_status_roaming_without_plan_subtext" msgid="3568412513831673037">"Επί του παρόντος σε κατάσταση περιαγωγής, απαιτείται πρόγραμμα δεδομένων"</string>
+    <string name="mobile_data_status_roaming_with_plan_subtext" msgid="8721998948811064377">"Επί του παρόντος σε κατάσταση περιαγωγής, πρόγραμμα δεδομένων ενεργό"</string>
+    <string name="mobile_data_status_no_plan_subtext" msgid="4887747337017565725">"Δεν υπάρχει υπόλοιπο δεδομένων κινητής τηλεφωνίας"</string>
+    <string name="mobile_data_activate_prepaid" msgid="7447025165850512683">"Δεν υπάρχει υπόλοιπο δεδομένων κινητής τηλεφωνίας"</string>
+    <string name="mobile_data_activate_prepaid_summary" msgid="5705389791791637666">"Προσθήκη δεδομένων κινητής τηλεφωνίας μέσω <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
+    <string name="mobile_data_activate_roaming_plan" msgid="5998161536947086264">"Δεν υπάρχει πρόγραμμα περιαγωγής"</string>
+    <string name="mobile_data_activate_roaming_plan_summary" msgid="511202908883425459">"Προσθήκη προγράμματος περιαγωγής μέσω <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
+    <string name="mobile_data_activate_footer" msgid="5979019929980140594">"Μπορείτε να προσθέσετε δεδομένα κινητής τηλεφωνίας ή κάποιο πρόγραμμα περιαγωγής μέσω της εταιρείας κινητής τηλεφωνίας, <xliff:g id="PROVIDER_NAME">%s</xliff:g>, που χρησιμοποιείτε."</string>
+    <string name="mobile_data_activate_diag_title" msgid="9044252207707864493">"Προσθήκη δεδομένων;"</string>
+    <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"Μπορεί να χρειαστεί να προσθέσετε δεδομένα μέσω <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
+    <string name="mobile_data_activate_button" msgid="3682400969184405446">"ΠΡΟΣΘΗΚΗ ΔΕΔΟΜΕΝΩΝ"</string>
+    <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"ΑΚΥΡΩΣΗ"</string>
 </resources>

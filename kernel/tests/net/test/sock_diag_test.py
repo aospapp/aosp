@@ -18,15 +18,14 @@
 from errno import *  # pylint: disable=wildcard-import
 import os
 import random
-import re
 from socket import *  # pylint: disable=wildcard-import
+import struct
 import threading
 import time
 import unittest
 
 import multinetwork_base
 import net_test
-import netlink
 import packets
 import sock_diag
 import tcp_test
@@ -34,6 +33,7 @@ import tcp_test
 
 NUM_SOCKETS = 30
 NO_BYTECODE = ""
+HAVE_KERNEL_SUPPORT = net_test.LINUX_VERSION >= (4, 9, 0)
 
 
 class SockDiagBaseTest(multinetwork_base.MultiNetworkBaseTest):
@@ -304,6 +304,19 @@ class SockDiagTest(SockDiagBaseTest):
     op = sock_diag.SOCK_DIAG_BY_FAMILY
     DiagDump(op)  # No errors? Good.
     self.assertRaisesErrno(EINVAL, DiagDump, op + 17)
+
+  def CheckSocketCookie(self, inet, addr):
+    """Tests that getsockopt SO_COOKIE can get cookie for all sockets."""
+    socketpair = net_test.CreateSocketPair(inet, SOCK_STREAM, addr)
+    for sock in socketpair:
+      diag_msg = self.sock_diag.FindSockDiagFromFd(sock)
+      cookie = sock.getsockopt(net_test.SOL_SOCKET, net_test.SO_COOKIE, 8)
+      self.assertEqual(diag_msg.id.cookie, cookie)
+
+  @unittest.skipUnless(HAVE_KERNEL_SUPPORT, "SO_COOKIE not supported")
+  def testGetsockoptcookie(self):
+    self.CheckSocketCookie(AF_INET, "127.0.0.1")
+    self.CheckSocketCookie(AF_INET6, "::1")
 
 
 class SockDestroyTest(SockDiagBaseTest):

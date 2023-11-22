@@ -14,8 +14,6 @@
      limitations under the License.
 -->
 <resources>
-    <dimen name="ongoing_call_rotary_dialpad_width">520dp</dimen>
-
     <!-- Dialer -->
     <dimen name="dial_container_vertical_margin">48dp</dimen>
     <dimen name="dial_number_call_button_width">80dp</dimen>
@@ -67,4 +65,19 @@
     <dimen name="call_log_icon_size">@dimen/car_list_item_icon_size</dimen>
 
     <dimen name="icon_container_height">@dimen/car_list_item_icon_size</dimen>
+
+    <dimen name="contact_detail_image_size">@dimen/in_call_small_contact_photo_size</dimen>
+    <dimen name="contact_detail_vertical_margin">16dp</dimen>
+
+    <!-- The height of the container that contains the contact search field. -->
+    <dimen name="search_container_height">128dp</dimen>
+
+    <!-- The corner radius of the contact search container. -->
+    <dimen name="search_container_radius">16dp</dimen>
+
+    <!-- The elevation of the container when the contact list scrolls underneath it. -->
+    <dimen name="search_container_elevation">8dp</dimen>
+
+    <!-- The height of each of the cards that list the contact search results. -->
+    <dimen name="contact_result_card_height">128dp</dimen>
 </resources>

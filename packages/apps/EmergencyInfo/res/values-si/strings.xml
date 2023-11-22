@@ -17,6 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"හදිසි අවස්ථා තොරතුරු"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"වෛද්‍යමය තොරතුරු"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"තොරතුරු සංස්කරණය කරන්න"</string>
     <string name="edit_info" msgid="5973929805855224805">"හදිසි අවස්ථා තොරතුරු සංස්කරණය කිරීම"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"තොරතුරු"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"සම්බන්ධතා"</string>
@@ -96,12 +98,12 @@
     <string name="cancel" msgid="7401575239009060939">"අවලංගු කරන්න"</string>
     <string name="ok" msgid="163967937451981024">"හරි"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"හදිසි අවස්ථා තොරතුරු"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"ඔබ මෙහි ඇතුළු කළ තොරතුරු හදිසි අවස්ථාවකදී පළමු ප්‍රතිචාර දක්වන්නන්ට උදවු විය හැකිය. එය ඔබේ උපාංගය මත පමණක් ගබඩා වනු ඇත, නමුත් ඕනෑම කෙනෙකුට ඔබේ දුරකථනය අගුලු හැරීමෙන් තොරව හදිසි අවස්ථා අමතනය වෙතින් එය කියවිය හැකිය."</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"දිගටම කර ගෙන යන්න"</string>
     <string name="no_info_provided" msgid="716200382010821001">"දුරකථනයේ හිමිකරු ගැන තොරතුරු නැත"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"මෙය ඔබේ දුරකථනය නම්, හදිසි අවස්ථාවක මෙහි දර්ශනය වනු ලබන තොරතුරු එක් කිරීමට පැන්සල් නිරූපකය තට්ටු කරන්න"</string>
     <string name="clear_all" msgid="8899013032870561633">"සියල්ල හිස් කරන්න"</string>
     <string name="clear" msgid="3648880442502887163">"හිස් කරන්න"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"සියලු තොරතුරු හා සම්බන්ධතා හිස් කරන්නද?"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"වෛද්‍යමය තොරතුරු සහ හදිසි අවස්ථා සම්බන්ධතා එක් කිරීම හදිසි අවස්ථාවකදී පළමු ප්‍රතිචාර දක්වන්නන්ට උදවු විය හැකිය.\n\nඕනෑම කෙනෙකුට ඔබේ දුරකථනය අගුලු හැරීමෙන් තොරව අගුලු තිරය මත මෙම තොරතුරු කියවීමට සහ ඔවුන්ගේ නම්වලට තට්ටු කිරීමෙන් ඔබේ සම්බන්ධතා ඩයල් කිරීමට හැකිය."</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"හදිසි අවස්ථා තොරතුරු එක් කරන්න"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"පළමු ප්‍රතිචාර දක්වන්නන්ට වැදගත් තොරතුරු සොයා ගැනීමට උදවු වන්න"</string>
 </resources>

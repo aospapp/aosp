@@ -40,16 +40,34 @@ public class Movie33897722 extends AndroidTestCase {
      * color map, which would be reading memory that we do not control, and may be uninitialized.
      */
     public void test_android_bug_33897722() {
-        InputStream exploitImage = mContext.getResources().openRawResource(R.raw.bug_33897722);
-        Movie movie = Movie.decodeStream(exploitImage);
-        assertNotNull(movie);
-        assertEquals(movie.width(), 600);
-        assertEquals(movie.height(), 752);
-
         // The image has a 10 x 10 frame on top of a transparent background. Only test the
         // 10 x 10 frame, since the original bug would never have used uninitialized memory
         // outside of it.
-        Bitmap bitmap = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888);
+        test_movie(R.raw.bug_33897722, 600, 752, 10, 10);
+    }
+
+    public void test_android_bug_37662286() {
+        // The image has a background color that is out of range. Arbitrarily test
+        // the upper left corner. (Most of the image is transparent.)
+        test_movie(R.raw.bug_37662286, 453, 272, 10, 10);
+    }
+
+    /**
+     * Test that a Movie draws transparent where it should.
+     *
+     * Old code read uninitialized memory. This ensures that we fall back to transparent.
+     */
+    private void test_movie(int resId, int screenWidth, int screenHeight,
+                            int drawWidth, int drawHeight) {
+        assertTrue(drawWidth <= screenWidth && drawHeight <= screenHeight);
+
+        InputStream exploitImage = mContext.getResources().openRawResource(resId);
+        Movie movie = Movie.decodeStream(exploitImage);
+        assertNotNull(movie);
+        assertEquals(movie.width(), screenWidth);
+        assertEquals(movie.height(), screenHeight);
+
+        Bitmap bitmap = Bitmap.createBitmap(drawWidth, drawHeight, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
 
         // Use Src PorterDuff mode, to see exactly what the Movie creates.
@@ -58,8 +76,8 @@ public class Movie33897722 extends AndroidTestCase {
 
         movie.draw(canvas, 0, 0, paint);
 
-        for (int x = 0; x < 10; x++) {
-            for (int y = 0; y < 10; y++) {
+        for (int x = 0; x < drawWidth; x++) {
+            for (int y = 0; y < drawHeight; y++) {
                 assertEquals(bitmap.getPixel(x, y), Color.TRANSPARENT);
             }
         }

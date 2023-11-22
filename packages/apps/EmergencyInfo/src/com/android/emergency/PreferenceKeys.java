@@ -20,11 +20,17 @@ package com.android.emergency;
  */
 public interface PreferenceKeys {
 
+    /** Key for the medical info preference category in the edit screen. */
+    public static final String KEY_MEDICAL_INFO = "medical_info";
+
+    /** Key for the medical info preference */
+    public static final String KEY_EDIT_MEDICAL_INFO = "edit_medical_info";
+
     /** Key for emergency contacts preference */
     public static final String KEY_EMERGENCY_CONTACTS = "emergency_contacts";
 
-    /** Key for the add contact preference */
-    public static final String KEY_ADD_CONTACT = "add_contact";
+    /** Key for the add emergency contact preference */
+    public static final String KEY_ADD_EMERGENCY_CONTACT = "add_emergency_contact";
 
     /** Key to store and read the name of the user. */
     public static final String KEY_NAME = "name";

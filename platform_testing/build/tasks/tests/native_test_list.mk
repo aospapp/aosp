@@ -31,9 +31,13 @@ native_tests := \
     dumpstate_test \
     dumpstate_test_fixture \
     dumpsys_test \
+    dvr_api-test \
     hello_world_test \
     hwui_unit_tests \
     init_tests \
+    installd_cache_test \
+    installd_service_test \
+    installd_utils_test \
     JniInvocation_test \
     libappfuse_test \
     libbase_test \
@@ -44,6 +48,7 @@ native_tests := \
     liblog-unit-tests \
     libminijail_unittest_gtest \
     libtextclassifier_tests \
+    libvintf_test \
     libwifi-system_tests \
     linker-unit-tests \
     logcat-unit-tests \
@@ -51,6 +56,7 @@ native_tests := \
     kernel-config-unit-tests \
     malloc_debug_unit_tests \
     memory_replay_tests \
+    memunreachable_test \
     minadbd_test \
     minikin_tests \
     mtp_ffs_handle_test \
@@ -71,7 +77,24 @@ native_tests := \
     syscall_filter_unittest_gtest \
     time-unit-tests \
     update_engine_unittests \
+    vintf_object_test \
     wificond_unit_test \
     wifilogd_unit_test \
     ziparchive-tests \
     SurfaceFlinger_test
+
+# Android Things specific tests
+ifeq ($(PRODUCT_IOT),true)
+
+native_tests += \
+    audio_userdriver_test \
+    crash_reporter_tests \
+    libandroidthings_pio_tests \
+    libbrillo_test \
+    libchrome_test \
+    libusersensors_binder_test \
+    peripheralman_unittests \
+    sensors_userdriver_test \
+    userinputdriver_test
+
+endif  # PRODUCT_IOT == true

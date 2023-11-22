@@ -31,7 +31,6 @@
 
 package org.jf.dexlib2.writer.pool;
 
-import com.google.common.collect.Maps;
 import org.jf.dexlib2.writer.OffsetSection;
 import org.jf.util.ExceptionWithContext;
 
@@ -39,8 +38,11 @@ import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Map;
 
-public abstract class BaseOffsetPool<Key> implements OffsetSection<Key> {
-    @Nonnull protected final Map<Key, Integer> internedItems = Maps.newHashMap();
+public abstract class BaseOffsetPool<Key> extends BasePool<Key, Integer> implements OffsetSection<Key> {
+
+    public BaseOffsetPool(@Nonnull DexPool dexPool) {
+        super(dexPool);
+    }
 
     @Nonnull @Override public Collection<? extends Map.Entry<? extends Key, Integer>> getItems() {
         return internedItems.entrySet();

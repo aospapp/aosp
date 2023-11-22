@@ -92,7 +92,9 @@ struct MapIterTypes {
             return IteratorImpl<is_const>(mMap.end());
         }
 
-    private:
+        bool empty() const { return begin() == end(); }
+
+       private:
         map_ref mMap;
     };
 

@@ -35,6 +35,7 @@ LOCAL_NO_EMMA_INSTRUMENT := true
 LOCAL_NO_EMMA_COMPILE := true
 LOCAL_CTS_TEST_PACKAGE := android.jdwp
 LOCAL_CTS_TARGET_RUNTIME_ARGS := $(cts_jdwp_test_target_runtime_args)
+LOCAL_ERROR_PRONE_FLAGS := -Xep:ArrayToString:ERROR
 include $(BUILD_CTS_TARGET_JAVA_LIBRARY)
 
 include $(CLEAR_VARS)

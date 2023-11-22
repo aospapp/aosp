@@ -64,6 +64,7 @@ public class SensorTest extends SensorTestCase {
     private NullSensorEventListener mNullSensorEventListener;
     private Sensor mTriggerSensor;
     private List<Sensor> mSensorList;
+    private List<Sensor> mAndroidSensorList;
 
     @Override
     protected void setUp() throws Exception {
@@ -81,6 +82,13 @@ public class SensorTest extends SensorTestCase {
             // several devices will not have sensors, so we need to skip the tests in those cases
             throw new SensorTestStateNotSupportedException(
                     "Sensors are not available in the system.");
+        }
+
+        mAndroidSensorList = new ArrayList<>();
+        for (Sensor s : mSensorList) {
+            if (s.getType() < Sensor.TYPE_DEVICE_PRIVATE_BASE) {
+                mAndroidSensorList.add(s);
+            }
         }
 
         mWakeLock.acquire();
@@ -303,7 +311,7 @@ public class SensorTest extends SensorTestCase {
     //       verification is added to default verifications
     public void testSensorTimeStamps() throws Exception {
         ArrayList<Throwable> errorsFound = new ArrayList<>();
-        for (Sensor sensor : mSensorList) {
+        for (Sensor sensor : mAndroidSensorList) {
             // test both continuous and batching mode sensors
             verifyLongActivation(sensor, 0 /* maxReportLatencyUs */, errorsFound);
             verifyLongActivation(sensor, (int) TimeUnit.SECONDS.toMicros(10), errorsFound);
@@ -313,14 +321,10 @@ public class SensorTest extends SensorTestCase {
 
     // TODO: remove when parameterized tests are supported (see SensorBatchingTests.java)
     public void testBatchAndFlush() throws Exception {
-        // TODO - replace this constant once method to do so is made available
-        final int SENSOR_TYPE_DEVICE_PRIVATE_BASE = 0x10000;
         SensorCtsHelper.sleep(3, TimeUnit.SECONDS);
         ArrayList<Throwable> errorsFound = new ArrayList<>();
-        for (Sensor sensor : mSensorList) {
-            if (sensor.getType() < SENSOR_TYPE_DEVICE_PRIVATE_BASE) {
-                verifyRegisterListenerCallFlush(sensor, null /* handler */, errorsFound);
-            }
+        for (Sensor sensor : mAndroidSensorList) {
+            verifyRegisterListenerCallFlush(sensor, null /* handler */, errorsFound);
         }
         assertOnErrors(errorsFound);
     }
@@ -331,7 +335,7 @@ public class SensorTest extends SensorTestCase {
     public void testBatchAndFlushWithHandler() throws Exception {
         SensorCtsHelper.sleep(3, TimeUnit.SECONDS);
         Sensor sensor = null;
-        for (Sensor s : mSensorList) {
+        for (Sensor s : mAndroidSensorList) {
             if (s.getReportingMode() == Sensor.REPORTING_MODE_CONTINUOUS) {
                 sensor = s;
                 break;
@@ -367,7 +371,7 @@ public class SensorTest extends SensorTestCase {
     public void testBatchAndFlushUseDefaultHandler() throws Exception {
         SensorCtsHelper.sleep(3, TimeUnit.SECONDS);
         Sensor sensor = null;
-        for (Sensor s : mSensorList) {
+        for (Sensor s : mAndroidSensorList) {
             if (s.getReportingMode() == Sensor.REPORTING_MODE_CONTINUOUS) {
                 sensor = s;
                 break;
@@ -402,7 +406,7 @@ public class SensorTest extends SensorTestCase {
         final int maxSensors = 3;
         final int maxReportLatencyUs = (int) TimeUnit.SECONDS.toMicros(10);
         List<Sensor> sensorsToTest = new ArrayList<Sensor>();
-        for (Sensor sensor : mSensorList) {
+        for (Sensor sensor : mAndroidSensorList) {
             if (sensor.getReportingMode() == Sensor.REPORTING_MODE_CONTINUOUS) {
                 sensorsToTest.add(sensor);
                 if (sensorsToTest.size()  == maxSensors) break;

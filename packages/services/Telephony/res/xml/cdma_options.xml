@@ -33,21 +33,23 @@
         android:entryValues="@array/cdma_subscription_values"
         android:dialogTitle="@string/cdma_subscription_dialogtitle" />
 
-    <PreferenceScreen
-        android:key="button_apn_key_cdma"
-        android:title="@string/apn_settings"
-        android:persistent="false">
-
+    <!--We want separate APN setting from reset of settings because-->
+    <!--we want user to change it with caution.-->
+    <PreferenceCategory
+        android:key="category_cdma_apn_key">
         <!-- The launching Intent will be defined thru code as we need to pass some Extra -->
+        <Preference
+            android:key="button_cdma_apn_key"
+            android:title="@string/apn_settings"
+            android:persistent="false"/>
+    </PreferenceCategory>
 
-    </PreferenceScreen>
-
-    <PreferenceScreen
+    <Preference
         android:key="carrier_settings_key"
         android:title="@string/carrier_settings_title">
         <intent android:action="android.intent.action.MAIN"
                 android:targetPackage="@string/carrier_settings"
                 android:targetClass="@string/carrier_settings_menu" />
-    </PreferenceScreen>
+    </Preference>
 
 </PreferenceScreen>

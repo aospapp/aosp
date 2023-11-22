@@ -23,9 +23,9 @@ IS			(u|U|l|L)*
 
 COMPONENT               {L}({L}|{D})*
 DOT                     [.]
-PATH                    {COMPONENT}({DOT}{COMPONENT})*
 AT                      [@]
 VERSION                 {AT}{D}+{DOT}{D}+
+FQNAME                  ({COMPONENT}|{VERSION})(({DOT}|":"+){COMPONENT}|{VERSION})*
 
 %{
 
@@ -52,8 +52,6 @@ VERSION                 {AT}{D}+{DOT}{D}+
 
 using namespace android;
 using token = yy::parser::token;
-
-int check_type(yyscan_t yyscanner, struct yyguts_t *yyg);
 
 #define SCALAR_TYPE(kind)                                       \
     do {                                                        \
@@ -157,15 +155,8 @@ int check_type(yyscan_t yyscanner, struct yyguts_t *yyg);
 "?"			{ return('?'); }
 "@"			{ return('@'); }
 
-{PATH}{VERSION}"::"{PATH}       { yylval->str = strdup(yytext); return token::FQNAME; }
-{VERSION}"::"{PATH}             { yylval->str = strdup(yytext); return token::FQNAME; }
-{PATH}{VERSION}                 { yylval->str = strdup(yytext); return token::FQNAME; }
-{COMPONENT}({DOT}{COMPONENT})+  { yylval->str = strdup(yytext); return token::FQNAME; }
 {COMPONENT}                     { yylval->str = strdup(yytext); return token::IDENTIFIER; }
-
-{PATH}{VERSION}"::"{PATH}":"{COMPONENT}       { yylval->str = strdup(yytext); return token::FQNAME; }
-{VERSION}"::"{PATH}":"{COMPONENT}             { yylval->str = strdup(yytext); return token::FQNAME; }
-{PATH}":"{COMPONENT}                          { yylval->str = strdup(yytext); return token::FQNAME; }
+{FQNAME}                        { yylval->str = strdup(yytext); return token::FQNAME; }
 
 0[xX]{H}+{IS}?		{ yylval->str = strdup(yytext); return token::INTEGER; }
 0{D}+{IS}?		{ yylval->str = strdup(yytext); return token::INTEGER; }
@@ -186,22 +177,22 @@ L?\"(\\.|[^\\"])*\"	{ yylval->str = strdup(yytext); return token::STRING_LITERAL
 status_t parseFile(AST *ast) {
     FILE *file = fopen(ast->getFilename().c_str(), "rb");
 
-    if (file == NULL) {
+    if (file == nullptr) {
         return -errno;
     }
 
     yyscan_t scanner;
-    yylex_init_extra(ast, &scanner);
-    ast->setScanner(scanner);
+    yylex_init(&scanner);
 
     yyset_in(file, scanner);
-    int res = yy::parser(ast).parse();
+
+    Scope* scopeStack = ast->getRootScope();
+    int res = yy::parser(scanner, ast, &scopeStack).parse();
 
     yylex_destroy(scanner);
-    ast->setScanner(NULL);
 
     fclose(file);
-    file = NULL;
+    file = nullptr;
 
     if (res != 0 || ast->syntaxErrors() != 0) {
         return UNKNOWN_ERROR;

@@ -78,7 +78,6 @@
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"Mailbox (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"MB:"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"Benachrichtigungen"</string>
-    <string name="networks" msgid="8873030692174541976">"Mobilfunkanbieter"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"Notfallbenachrichtigungen"</string>
     <string name="call_settings" msgid="6112441768261754562">"Anrufeinstellungen"</string>
     <string name="additional_gsm_call_settings" msgid="1391795981938800617">"Zusätzliche Einstellungen"</string>
@@ -164,20 +163,18 @@
     <string name="label_available" msgid="1181658289009300430">"Verfügbare Netzwerke"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"Suche läuft..."</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"Keine Netzwerke gefunden"</string>
-    <string name="search_networks" msgid="1601136049300882441">"Netzwerke suchen"</string>
     <string name="network_query_error" msgid="6828516148953325006">"Fehler bei der Netzwerksuche"</string>
     <string name="register_on_network" msgid="9055203954040805084">"Registrierung in <xliff:g id="NETWORK">%s</xliff:g> läuft..."</string>
     <string name="not_allowed" msgid="5613353860205691579">"Deine SIM-Karte unterstützt keine Verbindung mit diesem Netzwerk."</string>
     <string name="connect_later" msgid="2308119155752343975">"Momentan kann keine Verbindung zu diesem Netzwerk aufgebaut werden. Bitte versuche es später erneut."</string>
     <string name="registration_done" msgid="495135664535876612">"In Netzwerk registriert."</string>
-    <string name="sum_carrier_select" msgid="3494252551249882718">"Mobilfunkanbieter auswählen"</string>
-    <string name="sum_search_networks" msgid="2921092249873272715">"Nach allen verfügbaren Netzwerken suchen"</string>
-    <string name="select_automatically" msgid="5628402124471810174">"Automatisch auswählen"</string>
-    <string name="sum_select_automatically" msgid="5614890115123292400">"Bevorzugtes Netzwerk automatisch auswählen"</string>
+    <string name="select_automatically" msgid="1046727200631770962">"Netzwerk automatisch auswählen"</string>
+    <string name="network_select_title" msgid="7733107364757544558">"Netzwerk"</string>
     <string name="register_automatically" msgid="6017849844573519637">"Automatische Registrierung..."</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"Bevorzugter Netzwerktyp"</string>
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"Netzwerkbetriebsmodus ändern"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"Bevorzugter Netzwerktyp"</string>
+    <string name="forbidden_network" msgid="4384929668343563440">"(nicht zulässig)"</string>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"Bevorzugter Netzwerkmodus: WCDMA bevorzugt"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"Bevorzugter Netzwerkmodus: nur GSM"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"Bevorzugter Netzwerkmodus: nur WCDMA"</string>
@@ -210,18 +207,34 @@
     <item msgid="1524224863879435516">"Nur GSM"</item>
     <item msgid="3817924849415716259">"GSM/WCDMA bevorzugt"</item>
   </string-array>
+    <string name="call_category" msgid="5863978196309462052">"Anrufe"</string>
+    <string name="network_operator_category" msgid="4830701959205735636">"Netzwerk"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"Erweiterter 4G LTE-Modus"</string>
     <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"Erweiterte Anruffunktionen"</string>
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"Zur Verbesserung von Sprache und Kommunikation LTE-Dienste verwenden (empfohlen)"</string>
     <string name="data_enabled" msgid="5972538663568715366">"Daten aktiviert"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"Datennutzung zulassen"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"Achtung"</string>
-    <string name="roaming" msgid="8871412572928323707">"Daten-Roaming"</string>
+    <string name="roaming" msgid="7894878421600247140">"Roaming"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"Bei Roaming mit Datendienst verbinden"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"Bei Roaming mit Datendienst verbinden"</string>
     <string name="roaming_reenable_message" msgid="8913735676127858115">"Die Datenverbindung wurde unterbrochen, weil du dein privates Netzwerk verlassen hast und Daten-Roaming nicht aktiviert ist."</string>
     <string name="roaming_warning" msgid="1603164667540144353">"Es können hohe Gebühren anfallen."</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"Daten-Roaming zulassen?"</string>
+    <string name="data_usage_title" msgid="8759619109516889802">"Datennutzung"</string>
+    <string name="data_usage_template" msgid="8526428824844656364">"Im Zeitraum <xliff:g id="ID_2">%2$s</xliff:g> genutzte mobile Daten: <xliff:g id="ID_1">%1$s</xliff:g>"</string>
+    <string name="advanced_options_title" msgid="8074895510265488035">"Erweitert"</string>
+    <string name="carrier_settings_euicc" msgid="6714062862127226405">"Mobilfunkanbieter"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"Anbieter, esim, sim, euicc"</string>
+    <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> – <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
+    <string name="mobile_data_settings_title" msgid="4661165467914727157">"Mobile Daten"</string>
+    <string name="mobile_data_settings_summary" msgid="5087255915840576895">"Datenzugriff über Mobilfunknetz"</string>
+    <string name="data_usage_disable_mobile" msgid="3577275288809667615">"Mobile Daten deaktivieren?"</string>
+    <string name="sim_selection_required_pref" msgid="7049424902961844236">"Auswahl erforderlich"</string>
+    <string name="sim_change_data_title" msgid="5332425991853799280">"SIM für mobile Daten ändern?"</string>
+    <string name="sim_change_data_message" msgid="2163963581444907496">"<xliff:g id="NEW_SIM">%1$s</xliff:g> anstelle von <xliff:g id="OLD_SIM">%2$s</xliff:g> für mobile Daten verwenden?"</string>
+    <string name="wifi_calling_settings_title" msgid="7741961465416430470">"Anrufe über WLAN"</string>
+    <string name="video_calling_settings_title" msgid="539714564273795574">"Videoanrufe über Mobilfunkanbieter"</string>
     <string name="gsm_umts_options" msgid="6538311689850981686">"GSM-/UMTS-Optionen"</string>
     <string name="cdma_options" msgid="4016822858172249884">"CDMA-Optionen"</string>
     <string name="throttle_data_usage" msgid="3715677828160555808">"Datenverbrauch"</string>
@@ -456,7 +469,7 @@
     <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"Es ist kein Mobilfunknetz verfügbar. Stelle zum Telefonieren eine WLAN-Verbindung her."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"Gib eine gültige Nummer ein."</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"Fehler beim Anruf."</string>
-    <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"Der Anruf kann momentan nicht hinzugefügt werden."</string>
+    <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"Der Anruf kann momentan nicht hinzugefügt werden. Versuche stattdessen, eine Nachricht zu senden."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"Dienst wird nicht unterstützt"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"Anruf kann nicht gewechselt werden."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"Anruf kann nicht getrennt werden."</string>
@@ -576,6 +589,8 @@
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"Zu viele aktive Anrufe. Beende aktive Anrufe oder führe sie zusammen, bevor du einen neuen Anruf tätigst."</string>
     <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"Verbindung kann nicht hergestellt werden. Lege eine gültige SIM-Karte ein."</string>
     <string name="callFailed_wifi_lost" msgid="5968076625137297184">"WLAN-Verbindung unterbrochen. Anruf beendet."</string>
+    <string name="dialFailed_low_battery" msgid="8760548177088774268">"Der Videoanruf kann aufgrund des niedrigen Akkustands nicht getätigt werden."</string>
+    <string name="callFailed_low_battery" msgid="4913582435905872616">"Der Videoanruf wurde aufgrund des niedrigen Akkustands beendet."</string>
     <string name="change_pin_title" msgid="7790232089699034029">"Mailbox-PIN ändern"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"Weiter"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"Abbrechen"</string>
@@ -588,4 +603,18 @@
     <string name="change_pin_confirm_pins_dont_match" msgid="4795052654904027909">"Die PINs stimmen nicht überein"</string>
     <string name="change_pin_succeeded" msgid="2022852286442211151">"Mailbox-PIN aktualisiert"</string>
     <string name="change_pin_system_error" msgid="8308462387154257840">"Festlegen der PIN nicht möglich"</string>
+    <string name="mobile_data_status_roaming_turned_off_subtext" msgid="935636805765823307">"Daten-Roaming ist deaktiviert"</string>
+    <string name="mobile_data_status_roaming_turned_on_subtext" msgid="1335176927083781041">"Daten-Roaming ist aktiviert"</string>
+    <string name="mobile_data_status_roaming_without_plan_subtext" msgid="3568412513831673037">"Roaming aktiv, Datentarif benötigt"</string>
+    <string name="mobile_data_status_roaming_with_plan_subtext" msgid="8721998948811064377">"Roaming läuft, Datentarif aktiv"</string>
+    <string name="mobile_data_status_no_plan_subtext" msgid="4887747337017565725">"Keine mobile Daten mehr verfügbar"</string>
+    <string name="mobile_data_activate_prepaid" msgid="7447025165850512683">"Keine mobile Daten mehr verfügbar"</string>
+    <string name="mobile_data_activate_prepaid_summary" msgid="5705389791791637666">"Mobile Daten über <xliff:g id="PROVIDER_NAME">%s</xliff:g> hinzufügen"</string>
+    <string name="mobile_data_activate_roaming_plan" msgid="5998161536947086264">"Kein Roamingtarif"</string>
+    <string name="mobile_data_activate_roaming_plan_summary" msgid="511202908883425459">"Roamingtarif über <xliff:g id="PROVIDER_NAME">%s</xliff:g> hinzufügen"</string>
+    <string name="mobile_data_activate_footer" msgid="5979019929980140594">"Du kannst über deinen Anbieter (<xliff:g id="PROVIDER_NAME">%s</xliff:g>) mobile Daten oder einen Roamingtarif hinzufügen."</string>
+    <string name="mobile_data_activate_diag_title" msgid="9044252207707864493">"Daten hinzufügen?"</string>
+    <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"Möglicherweise musst du über <xliff:g id="PROVIDER_NAME">%s</xliff:g> Daten hinzufügen"</string>
+    <string name="mobile_data_activate_button" msgid="3682400969184405446">"DATEN HINZUFÜGEN"</string>
+    <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"ABBRECHEN"</string>
 </resources>

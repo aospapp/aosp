@@ -3,7 +3,8 @@
 #include "json.h"
 #define FIO_DU_NAME_SZ		64
 
-extern volatile int helper_exit;
+#include "lib/output_buffer.h"
+#include "helper_thread.h"
 
 struct disk_util_stats {
 	uint64_t ios[2];
@@ -45,7 +46,6 @@ struct disk_util {
 	 */
 	struct flist_head slavelist;
 
-	char *name;
 	char *sysfs_root;
 	char path[PATH_MAX];
 	int major, minor;
@@ -105,8 +105,8 @@ extern struct flist_head disk_list;
  * disk util stuff
  */
 #ifdef FIO_HAVE_DISK_UTIL
-extern void print_disk_util(struct disk_util_stat *, struct disk_util_agg *, int terse);
-extern void show_disk_util(int terse, struct json_object *parent);
+extern void print_disk_util(struct disk_util_stat *, struct disk_util_agg *, int terse, struct buf_output *);
+extern void show_disk_util(int terse, struct json_object *parent, struct buf_output *);
 extern void json_array_add_disk_util(struct disk_util_stat *dus,
 		struct disk_util_agg *agg, struct json_array *parent);
 extern void init_disk_util(struct thread_data *);
@@ -114,11 +114,13 @@ extern int update_io_ticks(void);
 extern void setup_disk_util(void);
 extern void disk_util_prune_entries(void);
 #else
+/* keep this as a function to avoid a warning in handle_du() */
 static inline void print_disk_util(struct disk_util_stat *du,
-				   struct disk_util_agg *agg, int terse)
+				   struct disk_util_agg *agg, int terse,
+				   struct buf_output *out)
 {
 }
-#define show_disk_util(terse, parent)
+#define show_disk_util(terse, parent, out)
 #define disk_util_prune_entries()
 #define init_disk_util(td)
 #define setup_disk_util()
@@ -126,7 +128,7 @@ static inline void print_disk_util(struct disk_util_stat *du,
 
 static inline int update_io_ticks(void)
 {
-	return helper_exit;
+	return helper_should_exit();
 }
 #endif
 

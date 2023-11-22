@@ -58,7 +58,7 @@
     <string name="device_calibration" msgid="8632962533376605191">"စံကိုက်ညှိမှု"</string>
     <string name="device_storage_clear_cache_title" msgid="3365635664766067643">"ကရှ်ဒေတာများကို ရှင်းမည်လား?"</string>
     <string name="device_storage_clear_cache_message" msgid="6495570470005696210">"apps အားလုံးအတွက် ကရှ်ဒေတာများကို ရှင်းမည်။"</string>
-    <string name="apps_downloaded" msgid="4222190849854323480">"ဒေါင်းလုဒ် လုပ်ထားသည့် အက်ပ်များ"</string>
+    <string name="apps_downloaded" msgid="4222190849854323480">"ဒေါင်းလုဒ် လုပ်ထားသည့်အက်ပ်များ"</string>
     <string name="apps_system" msgid="2499191125802829425">"စနစ် အက်ပ်များ"</string>
     <string name="apps_running" msgid="6430310491739956228">"ဖွင့်သုံးနေသည့် အက်ပ်များ"</string>
     <string name="accessories_add" msgid="1347802656349218830">"အသုံးအဆောင်များ ထည့်ရန်"</string>
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"ဝန်ဆောင်မှုများ"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"ဝန်ဆောင်မှု ဆက်တင်များ"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"ဖြူမဲခြားနားချက် မြင့် စာသား"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"ရယူသုံးစွဲရန် ဖြတ်လမ်း"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"ရယူသုံးစွဲမှု ဖြတ်လမ်းကို ဖွင့်မည်"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"ဖြတ်လမ်း ဝန်ဆောင်မှု"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"ဖြတ်လမ်းလင့်ခ် ဖွင့်ထားလျှင် အနောက်နှင့် အောက်သို့ ခလုတ်နှစ်ခုစလုံးကို ၃ စက္ကန့်ကြာသည့်တိုင် ဖိထားခြင်းဖြင့် အများသုံးစွဲနိုင်မှုဆိုင်ရာ ဝန်ဆောင်မှုများ စတင်ပါလိမ့်မည်။"</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"စာတန်းများ"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"ဗီဒီယိုမှာ အပိတ် စာတန်း စာသား အတွက် ဆက်တင်များ"</string>
     <string name="captions_display" msgid="735692527287125548">"မြင်ကွင်း"</string>
@@ -628,7 +632,7 @@
     <string name="device_daydreams_sleep" msgid="7676938708373592766">"ဘယ်အချိန် စမလဲ"</string>
     <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"အသုံးမပြုသည့် ဤအချိန်ကာလပြီးနောက် ဖန်သားပြင်အသုံးပြုမှု ချွေတာမှုစနစ်ကို စတင်ပါမည်။ ဖန်သားပြင်အသုံးပြုမှု ချွေတာမှုစနစ်တစ်ခုကို ရွေးချယ်ထားခြင်း မရှိလျှင်၊ ဖန်သားပြင် ပိတ်သွားပါမည်။"</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"လှုပ်ရှားမှုမရှိခြင်း၏ <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> ပြီးနောက်"</string>
-    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"စက်ပစ္စည်းကို နားသည့်မုဒ်တွင် ထားပါ"</string>
+    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"စက်ကို နားနေမုဒ်တွင် ထားပါ"</string>
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"မလှုပ်ရှားမှု ဒီကာလ နောက်မှာ မျက်နှာပြင် ပိတ်သွားမည်။"</string>
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"မည်သည့်အကောင့်မှ ဒေတာအရံသင့်သိမ်းဆည်းခြင်းကို လောလောဆယ်မှာ သိုလှောင်ခြင်း မပြုလုပ်ပါ။"</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"ချွတ်ယွင်းချက်အစီရင်ခံစာကို သိမ်းဆည်းနေပါသည်"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"ရရှိနိုင်သော ပကတိအသွင် ကီးဘုတ်များ"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"ကီးဘုတ်များကို စီမံခန့်ခွဲရန်"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"ခွင့်ပြုသည်"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"ခွင့်မပြုပါ"</string>
+    <string name="usage_access" msgid="1914242907684452328">"သုံးစွဲမှုကို ကြည့်ရှုခြင်း"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"သင့်ဖုန်း၏ ဝန်ဆောင်မှုပေးသူ၊ ဘာသာစကား ဆက်တင်များနှင့် အခြားအသေးစိတ်များအပါအဝင် အခြားမည်သည့်အက်ပ်များကို သင်သုံးစွဲနေပြီး မည်မျှကြာကြာတစ်ခါ သုံးစွဲနေကြောင်း မှတ်သားရန်အတွက် သုံးစွဲမှုကိုကြည့်ရှုခြင်းက အက်ပ်တစ်ခုအား ခွင့်ပြုသည်။"</string>
 </resources>

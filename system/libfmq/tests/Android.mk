@@ -68,4 +68,4 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := VtsFmqUnitTests
 VTS_CONFIG_SRC_DIR := system/libfmq/tests
-include test/vts/tools/build/Android.host_config.mk
+-include test/vts/tools/build/Android.host_config.mk

@@ -42,7 +42,7 @@ class SpacerItem extends Item {
     }
 
     @Override
-    boolean isDropTarget() {
+    boolean isRoot() {
         return false;
     }
 

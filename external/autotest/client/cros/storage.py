@@ -9,7 +9,6 @@ import logging, re, os, time, hashlib
 
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib import base_utils
 from autotest_lib.client.cros import liststorage
 
 
@@ -377,7 +376,7 @@ class StorageTester(test.test):
         return (storages[0], waited_time)
 
 
-# Some helpers not present in base_utils.py to abstract normal file operations.
+# Some helpers not present in utils.py to abstract normal file operations.
 
 def create_file(path, size):
     """Create a file using /dev/urandom.
@@ -421,7 +420,7 @@ def args_to_storage_dict(args):
             dictionary for storage filtering and rest_of_args is a dictionary
             of keys which do not match storage dict keys.
     """
-    args_dict = base_utils.args_to_dict(args)
+    args_dict = utils.args_to_dict(args)
     storage_dict = {}
 
     # A list of all allowed keys and their type.

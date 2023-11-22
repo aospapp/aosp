@@ -118,7 +118,7 @@ public class DynamicConfigHandlerTest extends TestCase {
                     .contains("override-config-list-val-2-1"));
         } finally {
             FileUtil.deleteFile(localConfigFile);
-            FileUtil.recursiveDelete(mergedFile.getParentFile());
+            FileUtil.recursiveDelete(mergedFile);
         }
     }
 

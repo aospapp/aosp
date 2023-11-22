@@ -22,6 +22,7 @@
 #include <android/frameworks/sensorservice/1.0/IEventQueueCallback.h>
 #include <android/looper.h>
 #include <android/sensor.h>
+#include <android-base/macros.h>
 #include <sensors/convert.h>
 #include <utils/Mutex.h>
 

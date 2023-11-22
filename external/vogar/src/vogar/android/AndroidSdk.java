@@ -23,9 +23,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import vogar.Classpath;
 import vogar.HostFileCache;
+import vogar.Language;
 import vogar.Log;
 import vogar.Md5Cache;
 import vogar.ModeId;
@@ -42,16 +44,12 @@ public class AndroidSdk {
     private final Mkdir mkdir;
     private final File[] compilationClasspath;
     private final String androidJarPath;
+    private final String desugarJarPath;
     private final Md5Cache dexCache;
+    private final Language language;
 
     public static Collection<File> defaultExpectations() {
-        File[] files = new File("libcore/expectations").listFiles(new FilenameFilter() {
-            // ignore obviously temporary files
-            public boolean accept(File dir, String name) {
-                return !name.endsWith("~") && !name.startsWith(".");
-            }
-        });
-        return (files != null) ? Arrays.asList(files) : Collections.<File>emptyList();
+        return Collections.singletonList(new File("libcore/expectations/knownfailures.txt"));
     }
 
     /**
@@ -61,7 +59,7 @@ public class AndroidSdk {
      * compilation class path and android jar path.
      */
     public static AndroidSdk createAndroidSdk(
-            Log log, Mkdir mkdir, ModeId modeId, boolean useJack) {
+            Log log, Mkdir mkdir, ModeId modeId, boolean useJack, Language language) {
         List<String> path = new Command.Builder(log).args("which", "dx")
                 .permitNonZeroExitStatus(true)
                 .execute();
@@ -96,12 +94,14 @@ public class AndroidSdk {
          *  ${ANDROID_BUILD_TOP}/out/host/linux-x86/bin/aapt
          *  ${ANDROID_BUILD_TOP}/out/host/linux-x86/bin/adb
          *  ${ANDROID_BUILD_TOP}/out/host/linux-x86/bin/dx
+         *  ${ANDROID_BUILD_TOP}/out/host/linux-x86/bin/desugar.jar
          *  ${ANDROID_BUILD_TOP}/out/target/common/obj/JAVA_LIBRARIES/core-libart_intermediates
          *      /classes.jar
          */
 
         File[] compilationClasspath;
         String androidJarPath;
+        String desugarJarPath = null;
 
         // Accept that we are running in an SDK if the user has added the build-tools or
         // platform-tools to their path.
@@ -117,6 +117,16 @@ public class AndroidSdk {
             androidJarPath = new File(newestPlatform.getAbsolutePath(), "android.jar")
                     .getAbsolutePath();
             log.verbose("using android sdk: " + sdkRoot);
+
+            if (!useJack) {
+              // There must be a desugar.jar in the same directory as dx.
+              String dxParentFileName = getParentFileNOrLast(dx, 1).getName();
+              desugarJarPath = dxParentFileName + "/desugar.jar";
+              File desugarJarFile = new File(desugarJarPath);
+              if (!desugarJarFile.exists()) {
+                  throw new RuntimeException("Could not find " + desugarJarPath);
+              }
+            }
         } else if ("bin".equals(parentFileName)) {
             log.verbose("Using android source build mode to find dependencies.");
             String tmpJarPath = "prebuilts/sdk/current/android.jar";
@@ -143,6 +153,18 @@ public class AndroidSdk {
                 outDir += "/";
             }
 
+            if (!useJack) {
+                File desugarJar = null;
+                String desugarPattern = outDir + "host/linux-x86/framework/desugar.jar";
+                desugarJar = new File(desugarPattern);
+
+                if (!desugarJar.exists()) {
+                    throw new RuntimeException("Could not find " + desugarPattern);
+                }
+
+                desugarJarPath = desugarJar.getPath();
+            }
+
             String pattern = outDir + "target/common/obj/JAVA_LIBRARIES/%s_intermediates/classes";
             if (modeId.isHost()) {
                 pattern = outDir + "host/common/obj/JAVA_LIBRARIES/%s_intermediates/classes";
@@ -159,18 +181,20 @@ public class AndroidSdk {
             throw new RuntimeException("Couldn't derive Android home from " + dx);
         }
 
-        return new AndroidSdk(log, mkdir, compilationClasspath, androidJarPath,
-                new HostFileCache(log, mkdir));
+        return new AndroidSdk(log, mkdir, compilationClasspath, androidJarPath, desugarJarPath,
+                new HostFileCache(log, mkdir), language);
     }
 
     @VisibleForTesting
     AndroidSdk(Log log, Mkdir mkdir, File[] compilationClasspath, String androidJarPath,
-               HostFileCache hostFileCache) {
+               String desugarJarPath, HostFileCache hostFileCache, Language language) {
         this.log = log;
         this.mkdir = mkdir;
         this.compilationClasspath = compilationClasspath;
         this.androidJarPath = androidJarPath;
+        this.desugarJarPath = desugarJarPath;
         this.dexCache = new Md5Cache(log, "dex", hostFileCache);
+        this.language = language;
     }
 
     // Goes up N levels in the filesystem hierarchy. Return the last file that exists if this goes
@@ -238,8 +262,19 @@ public class AndroidSdk {
 
     /**
      * Converts all the .class files on 'classpath' into a dex file written to 'output'.
+     *
+     * @param multidex could the output be more than 1 dex file?
+     * @param output the File for the classes.dex that will be generated as a result of this call.
+     * @param outputTempDir a temporary directory which can store intermediate files generated.
+     * @param classpath a list of files/directories containing .class files that are
+     *                  merged together and converted into the output (dex) file.
+     * @param dependentCp classes that are referenced in classpath but are not themselves on the
+     *                    classpath must be listed in dependentCp, this is required to be able
+     *                    resolve all class dependencies. The classes in dependentCp are <i>not</i>
+     *                    included in the output dex file.
      */
-    public void dex(boolean multidex, File output, Classpath classpath) {
+    public void dex(boolean multidex, File output, File outputTempDir,
+            Classpath classpath, Classpath dependentCp) {
         mkdir.mkdirs(output.getParentFile());
 
         String classpathSubKey = dexCache.makeKey(classpath);
@@ -253,6 +288,10 @@ public class AndroidSdk {
                 return;
             }
         }
+
+        // Call desugar first to remove invoke-dynamic LambdaMetaFactory usage,
+        // which ART doesn't support.
+        List<String> desugarOutputFilePaths = desugar(outputTempDir, classpath, dependentCp);
 
         /*
          * We pass --core-library so that we can write tests in the
@@ -268,16 +307,84 @@ public class AndroidSdk {
         Command.Builder builder = new Command.Builder(log)
                 .args("dx")
                 .args("-JXms16M")
-                .args("-JXmx1536M");
+                .args("-JXmx1536M")
+                .args("--min-sdk-version=" + language.getMinApiLevel());
         if (multidex) {
             builder.args("--multi-dex");
         }
         builder.args("--dex")
                 .args("--output=" + output)
                 .args("--core-library")
-                .args((Object[]) Strings.objectsToStrings(classpath.getElements()));
+                .args(desugarOutputFilePaths);
         builder.execute();
         dexCache.insert(cacheKey, output);
+    }
+
+    // Runs desugar on classpath as the input with dependentCp as the classpath_entry.
+    // Returns the generated output list of files.
+    private List<String> desugar(File outputTempDir, Classpath classpath, Classpath dependentCp) {
+        Command.Builder builder = new Command.Builder(log)
+                .args("java", "-jar", desugarJarPath);
+
+        // Ensure that libcore is on the bootclasspath for desugar,
+        // otherwise it tries to use the java command's bootclasspath.
+        for (File f : compilationClasspath) {
+            builder.args("--bootclasspath_entry", f.getPath());
+        }
+
+        // Desugar needs to actively resolve classes that the original inputs
+        // were compiled against. Dx does not; so it doesn't use dependentCp.
+        for (File f : dependentCp.getElements()) {
+            builder.args("--classpath_entry", f.getPath());
+        }
+
+        builder.args("--core_library")
+                .args("--min_sdk_version", language.getMinApiLevel());
+
+        // Build the -i (input) and -o (output) arguments.
+        // Every input from classpath corresponds to a new output temp file into
+        // desugarTempDir.
+        File desugarTempDir;
+        {
+            // Generate a temporary list of files that correspond to the 'classpath';
+            // desugar will then convert the files in 'classpath' into 'desugarClasspath'.
+            if (!outputTempDir.isDirectory()) {
+                throw new AssertionError(
+                        "outputTempDir must be a directory: " + outputTempDir.getPath());
+            }
+
+            String desugarTempDirPath = outputTempDir.getPath() + "/desugar";
+            desugarTempDir = new File(desugarTempDirPath);
+            desugarTempDir.mkdirs();
+            if (!desugarTempDir.exists()) {
+                throw new AssertionError(
+                        "desugarTempDir; failed to create " + desugarTempDirPath);
+            }
+        }
+
+        // Create unique file names to support non-unique classpath base names.
+        //
+        // For example:
+        //
+        // Classpath("/x/y.jar:/z/y.jar:/a/b.jar") ->
+        // Output Files("${tmp}/0y.jar:${tmp}/1y.jar:${tmp}/2b.jar")
+        int uniqueCounter = 0;
+        List<String> desugarOutputFilePaths = new ArrayList<String>();
+
+        for (File desugarInput : classpath.getElements()) {
+            String tmpName = uniqueCounter + desugarInput.getName();
+            ++uniqueCounter;
+
+            String desugarOutputPath = desugarTempDir.getPath() + "/" + tmpName;
+            desugarOutputFilePaths.add(desugarOutputPath);
+
+            builder.args("-i", desugarInput.getPath())
+                    .args("-o", desugarOutputPath);
+        }
+
+        builder.execute();
+
+        return desugarOutputFilePaths;
     }
 
     public void packageApk(File apk, File manifest) {

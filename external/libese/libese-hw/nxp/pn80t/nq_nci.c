@@ -53,6 +53,7 @@
 /* From kernel/drivers/nfc/nq-nci.h */
 #define ESE_SET_PWR _IOW(0xE9, 0x02, unsigned int)
 #define ESE_GET_PWR _IOR(0xE9, 0x03, unsigned int)
+#define ESE_CLEAR_GPIO _IOW(0xE9, 0x11, unsigned int)
 
 static const char kDevicePath[] = "/dev/pn81a";
 
@@ -60,8 +61,19 @@ struct PlatformHandle {
   int fd;
 };
 
+int platform_toggle_bootloader(void *blob, int val) {
+  const struct PlatformHandle *handle = blob;
+  if (!handle) {
+    return -1;
+  }
+  return ioctl(handle->fd, ESE_CLEAR_GPIO, val);
+}
+
 int platform_toggle_reset(void *blob, int val) {
   const struct PlatformHandle *handle = blob;
+  if (!handle) {
+    return -1;
+  }
   /* 0=power and 1=no power in the kernel. */
   return ioctl(handle->fd, ESE_SET_PWR, !val);
 }
@@ -89,6 +101,9 @@ void *platform_init(void *hwopts) {
 
 int platform_release(void *blob) {
   struct PlatformHandle *handle = blob;
+  if (!handle) {
+    return -1;
+  }
   /* Power off and cooldown should've happened via common code. */
   close(handle->fd);
   free(handle);
@@ -171,6 +186,7 @@ static const struct Pn80tPlatform kPn80tNqNciPlatform = {
     .toggle_reset = &platform_toggle_reset,
     .toggle_ven = NULL,
     .toggle_power_req = NULL,
+    .toggle_bootloader = &platform_toggle_bootloader,
     .wait = &platform_wait,
 };
 

@@ -20,7 +20,6 @@ import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
-import android.bluetooth.IBluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattDescriptor;
@@ -39,12 +38,11 @@ import com.googlecode.android_scripting.rpc.Rpc;
 import com.googlecode.android_scripting.rpc.RpcParameter;
 import com.googlecode.android_scripting.rpc.RpcStopEvent;
 
-import java.lang.reflect.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.UUID;
+import java.util.concurrent.Callable;
 
 public class GattClientFacade extends RpcReceiver {
     private final EventFacade mEventFacade;
@@ -99,6 +97,9 @@ public class GattClientFacade extends RpcReceiver {
      * @param macAddress the mac address of the ble device
      * @param autoConnect Whether to directly connect to the remote device (false) or to
      *       automatically connect as soon as the remote device becomes available (true)
+     * @param opportunistic Whether this GATT client is opportunistic. An opportunistic GATT client
+     *                      does not hold a GATT connection. It automatically disconnects when no
+     *                      other GATT connections are active for the remote device.
      * @param transport preferred transport for GATT connections to remote dual-mode devices
      *       TRANSPORT_AUTO or TRANSPORT_BREDR or TRANSPORT_LE
      * @return the index of the BluetoothGatt object
@@ -110,19 +111,15 @@ public class GattClientFacade extends RpcReceiver {
             @RpcParameter(name = "macAddress") String macAddress,
             @RpcParameter(name = "autoConnect") Boolean autoConnect,
             @RpcParameter(name = "transport") Integer transport,
+            @RpcParameter(name = "opportunistic") Boolean opportunistic,
             @RpcParameter(name = "phy") Integer phy)
             throws Exception {
         if (mGattCallbackList.get(index) != null) {
             BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(macAddress);
             if (phy == null) phy = BluetoothDevice.PHY_LE_1M;
 
-            BluetoothGatt mBluetoothGatt =
-                    device.connectGatt(
-                            mService.getApplicationContext(),
-                            autoConnect,
-                            mGattCallbackList.get(index),
-                            transport,
-                            phy);
+            BluetoothGatt mBluetoothGatt = device.connectGatt(mService.getApplicationContext(),
+                    autoConnect, mGattCallbackList.get(index), transport, opportunistic, phy, null);
             BluetoothGattCount += 1;
             mBluetoothGattList.put(BluetoothGattCount, mBluetoothGatt);
             return BluetoothGattCount;
@@ -1788,7 +1785,7 @@ public class GattClientFacade extends RpcReceiver {
     /**
      * Sets the characteristic notification of a bluetooth gatt
      *
-     * @param index the bluetooth gatt index
+     * @param gattIndex the bluetooth gatt index
      * @param characteristicIndex the characteristic index
      * @param enable Enable or disable notifications/indications for a given characteristic
      * @return true, if the requested notification status was set successfully

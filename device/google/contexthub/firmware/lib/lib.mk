@@ -75,11 +75,17 @@ CFLAGS += -DNANOHUB_PROVIDES_CXX_SUPPORT
 
 BUILTINS_PATH := $(NANOHUB_DIR)/lib/builtins
 
-#SRCS += $(BUILTINS_PATH)/aeabi_ldivmod.S
-#SRCS += $(BUILTINS_PATH)/aeabi_uldivmod.S
+SRCS += $(BUILTINS_PATH)/aeabi_ldivmod.S
+SRCS += $(BUILTINS_PATH)/aeabi_uldivmod.S
 SRCS += $(BUILTINS_PATH)/divdi3.c
 SRCS += $(BUILTINS_PATH)/divmoddi4.c
 SRCS += $(BUILTINS_PATH)/moddi3.c
 SRCS += $(BUILTINS_PATH)/udivmoddi4.c
 SRCS += $(BUILTINS_PATH)/umoddi3.c
+SRCS += $(BUILTINS_PATH)/aeabi_f2d.c
+SRCS += $(BUILTINS_PATH)/aeabi_llsl.c
+SRCS += $(BUILTINS_PATH)/aeabi_llsr.c
+SRCS += $(BUILTINS_PATH)/aeabi_ul2f.c
+SRCS += $(BUILTINS_PATH)/aeabi_l2f.c
+SRCS += $(BUILTINS_PATH)/aeabi_f2ulz.c
 CFLAGS += -I$(BUILTINS_PATH)

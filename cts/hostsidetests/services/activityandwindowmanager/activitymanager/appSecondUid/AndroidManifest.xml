@@ -19,9 +19,16 @@
           package="android.server.cts.second">
 
     <application>
-        <activity android:name=".SecondActivity"
-                  android:resizeableActivity="true"
-                  android:exported="true" />
+        <activity
+            android:name=".SecondActivity"
+            android:resizeableActivity="true"
+            android:allowEmbedded="true"
+            android:exported="true" />
+        <activity
+            android:name=".SecondActivityNoEmbedding"
+            android:resizeableActivity="true"
+            android:allowEmbedded="false"
+            android:exported="true" />
         <receiver
             android:name=".LaunchBroadcastReceiver"
             android:enabled="true"

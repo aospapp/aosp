@@ -20,6 +20,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import com.android.annotations.Nullable;
+import com.android.annotations.VisibleForTesting;
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.ddmlib.Log.LogLevel;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
@@ -140,7 +141,7 @@ public class CompatibilityHostTestBase implements IAbiReceiver, IBuildReceiver, 
         options = optList.toArray(new String[optList.size()]);
 
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mBuild);
-        File testFile = new File(buildHelper.getTestsDir(), fileName);
+        File testFile = buildHelper.getTestFile(fileName);
         // Install the APK on the device.
         String installResult = mDevice.installPackage(testFile, true, options);
 
@@ -236,8 +237,13 @@ public class CompatibilityHostTestBase implements IAbiReceiver, IBuildReceiver, 
             testRunner.setClassName(testClassName);
         }
 
-        CollectingTestListener listener = new CollectingTestListener();
+        CollectingTestListener listener = createCollectingListener();
         assertTrue(mDevice.runInstrumentationTests(testRunner, listener));
         return listener.getCurrentRunResults();
+    }
+
+    @VisibleForTesting
+    protected CollectingTestListener createCollectingListener() {
+        return new CollectingTestListener();
     }
 }

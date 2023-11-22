@@ -147,7 +147,33 @@ static const int32_t keyCodeRotationMap[][4] = {
 static const size_t keyCodeRotationMapSize =
         sizeof(keyCodeRotationMap) / sizeof(keyCodeRotationMap[0]);
 
+static int32_t rotateStemKey(int32_t value, int32_t orientation,
+        const int32_t map[][2], size_t mapSize) {
+    if (orientation == DISPLAY_ORIENTATION_180) {
+        for (size_t i = 0; i < mapSize; i++) {
+            if (value == map[i][0]) {
+                return map[i][1];
+            }
+        }
+    }
+    return value;
+}
+
+// The mapping can be defined using input device configuration properties keyboard.rotated.stem_X
+static int32_t stemKeyRotationMap[][2] = {
+        // key codes enumerated with the original (unrotated) key first
+        // no rotation,           180 degree rotation
+        { AKEYCODE_STEM_PRIMARY, AKEYCODE_STEM_PRIMARY },
+        { AKEYCODE_STEM_1,       AKEYCODE_STEM_1 },
+        { AKEYCODE_STEM_2,       AKEYCODE_STEM_2 },
+        { AKEYCODE_STEM_3,       AKEYCODE_STEM_3 },
+};
+static const size_t stemKeyRotationMapSize =
+        sizeof(stemKeyRotationMap) / sizeof(stemKeyRotationMap[0]);
+
 static int32_t rotateKeyCode(int32_t keyCode, int32_t orientation) {
+    keyCode = rotateStemKey(keyCode, orientation,
+            stemKeyRotationMap, stemKeyRotationMapSize);
     return rotateValueUsingRotationMap(keyCode, orientation,
             keyCodeRotationMap, keyCodeRotationMapSize);
 }
@@ -231,7 +257,7 @@ bool InputReaderConfiguration::getDisplayViewport(ViewportType viewportType,
         const String8* uniqueDisplayId, DisplayViewport* outViewport) const {
     const DisplayViewport* viewport = NULL;
     if (viewportType == ViewportType::VIEWPORT_VIRTUAL && uniqueDisplayId != NULL) {
-        for (DisplayViewport currentViewport : mVirtualDisplays) {
+        for (const DisplayViewport& currentViewport : mVirtualDisplays) {
             if (currentViewport.uniqueId == *uniqueDisplayId) {
                 viewport = &currentViewport;
                 break;
@@ -835,6 +861,18 @@ void InputReader::cancelVibrate(int32_t deviceId, int32_t token) {
     }
 }
 
+bool InputReader::isInputDeviceEnabled(int32_t deviceId) {
+    AutoMutex _l(mLock);
+
+    ssize_t deviceIndex = mDevices.indexOfKey(deviceId);
+    if (deviceIndex >= 0) {
+        InputDevice* device = mDevices.valueAt(deviceIndex);
+        return device->isEnabled();
+    }
+    ALOGW("Ignoring invalid device id %" PRId32 ".", deviceId);
+    return false;
+}
+
 void InputReader::dump(String8& dump) {
     AutoMutex _l(mLock);
 
@@ -1011,6 +1049,26 @@ InputDevice::~InputDevice() {
     mMappers.clear();
 }
 
+bool InputDevice::isEnabled() {
+    return getEventHub()->isDeviceEnabled(mId);
+}
+
+void InputDevice::setEnabled(bool enabled, nsecs_t when) {
+    if (isEnabled() == enabled) {
+        return;
+    }
+
+    if (enabled) {
+        getEventHub()->enableDevice(mId);
+        reset(when);
+    } else {
+        reset(when);
+        getEventHub()->disableDevice(mId);
+    }
+    // Must change generation to flag this device as changed
+    bumpGeneration();
+}
+
 void InputDevice::dump(String8& dump) {
     InputDeviceInfo deviceInfo;
     getDeviceInfo(& deviceInfo);
@@ -1080,6 +1138,12 @@ void InputDevice::configure(nsecs_t when, const InputReaderConfiguration* config
                     bumpGeneration();
                 }
             }
+        }
+
+        if (!changes || (changes & InputReaderConfiguration::CHANGE_ENABLED_STATE)) {
+            ssize_t index = config->disabledDevices.indexOf(mId);
+            bool enabled = index < 0;
+            setEnabled(enabled, when);
         }
 
         size_t numMappers = mMappers.size();
@@ -2222,18 +2286,36 @@ void KeyboardInputMapper::configure(nsecs_t when,
     }
 }
 
+static void mapStemKey(int32_t keyCode, const PropertyMap& config, char const *property) {
+    int32_t mapped = 0;
+    if (config.tryGetProperty(String8(property), mapped) && mapped > 0) {
+        for (size_t i = 0; i < stemKeyRotationMapSize; i++) {
+            if (stemKeyRotationMap[i][0] == keyCode) {
+                stemKeyRotationMap[i][1] = mapped;
+                return;
+            }
+        }
+    }
+}
+
 void KeyboardInputMapper::configureParameters() {
     mParameters.orientationAware = false;
-    getDevice()->getConfiguration().tryGetProperty(String8("keyboard.orientationAware"),
+    const PropertyMap& config = getDevice()->getConfiguration();
+    config.tryGetProperty(String8("keyboard.orientationAware"),
             mParameters.orientationAware);
 
     mParameters.hasAssociatedDisplay = false;
     if (mParameters.orientationAware) {
         mParameters.hasAssociatedDisplay = true;
+
+        mapStemKey(AKEYCODE_STEM_PRIMARY, config, "keyboard.rotated.stem_primary");
+        mapStemKey(AKEYCODE_STEM_1, config, "keyboard.rotated.stem_1");
+        mapStemKey(AKEYCODE_STEM_2, config, "keyboard.rotated.stem_2");
+        mapStemKey(AKEYCODE_STEM_3, config, "keyboard.rotated.stem_3");
     }
 
     mParameters.handlesKeyRepeat = false;
-    getDevice()->getConfiguration().tryGetProperty(String8("keyboard.handlesKeyRepeat"),
+    config.tryGetProperty(String8("keyboard.handlesKeyRepeat"),
             mParameters.handlesKeyRepeat);
 }
 
@@ -2289,6 +2371,35 @@ bool KeyboardInputMapper::isKeyboardOrGamepadKey(int32_t scanCode) {
         || scanCode >= KEY_OK
         || (scanCode >= BTN_MISC && scanCode < BTN_MOUSE)
         || (scanCode >= BTN_JOYSTICK && scanCode < BTN_DIGI);
+}
+
+bool KeyboardInputMapper::isMediaKey(int32_t keyCode) {
+    switch (keyCode) {
+    case AKEYCODE_MEDIA_PLAY:
+    case AKEYCODE_MEDIA_PAUSE:
+    case AKEYCODE_MEDIA_PLAY_PAUSE:
+    case AKEYCODE_MUTE:
+    case AKEYCODE_HEADSETHOOK:
+    case AKEYCODE_MEDIA_STOP:
+    case AKEYCODE_MEDIA_NEXT:
+    case AKEYCODE_MEDIA_PREVIOUS:
+    case AKEYCODE_MEDIA_REWIND:
+    case AKEYCODE_MEDIA_RECORD:
+    case AKEYCODE_MEDIA_FAST_FORWARD:
+    case AKEYCODE_MEDIA_SKIP_FORWARD:
+    case AKEYCODE_MEDIA_SKIP_BACKWARD:
+    case AKEYCODE_MEDIA_STEP_FORWARD:
+    case AKEYCODE_MEDIA_STEP_BACKWARD:
+    case AKEYCODE_MEDIA_AUDIO_TRACK:
+    case AKEYCODE_VOLUME_UP:
+    case AKEYCODE_VOLUME_DOWN:
+    case AKEYCODE_VOLUME_MUTE:
+    case AKEYCODE_TV_AUDIO_DESCRIPTION:
+    case AKEYCODE_TV_AUDIO_DESCRIPTION_MIX_UP:
+    case AKEYCODE_TV_AUDIO_DESCRIPTION_MIX_DOWN:
+        return true;
+    }
+    return false;
 }
 
 void KeyboardInputMapper::processKey(nsecs_t when, bool down, int32_t scanCode,
@@ -2364,7 +2475,7 @@ void KeyboardInputMapper::processKey(nsecs_t when, bool down, int32_t scanCode,
     // For internal keyboards, the key layout file should specify the policy flags for
     // each wake key individually.
     // TODO: Use the input device configuration to control this behavior more finely.
-    if (down && getDevice()->isExternal()) {
+    if (down && getDevice()->isExternal() && !isMediaKey(keyCode)) {
         policyFlags |= POLICY_FLAG_WAKE;
     }
 
@@ -2859,7 +2970,7 @@ void CursorInputMapper::fadePointer() {
 // --- RotaryEncoderInputMapper ---
 
 RotaryEncoderInputMapper::RotaryEncoderInputMapper(InputDevice* device) :
-        InputMapper(device) {
+        InputMapper(device), mOrientation(DISPLAY_ORIENTATION_0) {
     mSource = AINPUT_SOURCE_ROTARY_ENCODER;
 }
 
@@ -2901,6 +3012,14 @@ void RotaryEncoderInputMapper::configure(nsecs_t when,
     if (!changes) {
         mRotaryEncoderScrollAccumulator.configure(getDevice());
     }
+    if (!changes || (InputReaderConfiguration::CHANGE_DISPLAY_INFO)) {
+        DisplayViewport v;
+        if (config->getDisplayViewport(ViewportType::VIEWPORT_INTERNAL, NULL, &v)) {
+            mOrientation = v.orientation;
+        } else {
+            mOrientation = DISPLAY_ORIENTATION_0;
+        }
+    }
 }
 
 void RotaryEncoderInputMapper::reset(nsecs_t when) {
@@ -2936,6 +3055,10 @@ void RotaryEncoderInputMapper::sync(nsecs_t when) {
     uint32_t policyFlags = 0;
     if (scrolled && getDevice()->isExternal()) {
         policyFlags |= POLICY_FLAG_WAKE;
+    }
+
+    if (mOrientation == DISPLAY_ORIENTATION_180) {
+        scroll = -scroll;
     }
 
     // Send motion event.

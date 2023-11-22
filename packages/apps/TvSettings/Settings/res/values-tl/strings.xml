@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"Mga Serbisyo"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Mga setting ng serbisyo"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Text na high contrast"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Shortcut sa pagiging naa-access"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"I-enable ang shortcut sa pagiging naa-access"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Serbisyo ng shortcut"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Kapag naka-on ang shortcut, maaari mong pindutin nang 3 segundo ang parehong button na bumalik at button na pababa nang 3 segundo upang magsimula ng feature ng pagiging naa-access."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Mga Caption"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Mga setting para sa text overlay para sa paglalagay ng mga nakasarang caption sa video"</string>
     <string name="captions_display" msgid="735692527287125548">"Display"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Kinukuha ang ulat ng bug"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Mga available na virtual keyboard"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Pamahalaan ang mga keyboard"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Pinapayagan"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Hindi pinapayagan"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Access sa paggamit"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Ang access sa paggamit ay nagbibigay-daan sa isang app na subaybayan kung ano ang iba pang app na ginagamit mo at kung gaano kadalas mo ginagamit ang mga iyon, gayundin ang iyong carrier, mga setting ng wika, at iba pang detalye."</string>
 </resources>

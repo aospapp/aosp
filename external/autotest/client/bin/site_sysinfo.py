@@ -8,11 +8,11 @@ import os
 from autotest_lib.client.common_lib import log
 from autotest_lib.client.common_lib import error, utils, global_config
 from autotest_lib.client.bin import base_sysinfo, utils
-from autotest_lib.client.cros import constants, tpm_dam
+from autotest_lib.client.cros import constants
 
 get_value = global_config.global_config.get_config_value
 collect_corefiles = get_value('CLIENT', 'collect_corefiles',
-                              type=bool, default=True)
+                              type=bool, default=False)
 
 
 logfile = base_sysinfo.logfile
@@ -376,9 +376,15 @@ class site_sysinfo(base_sysinfo.base_sysinfo):
         keyval["CHROME_VERSION"], keyval["MILESTONE"] = (
                 self._get_chrome_version())
 
+        # TODO(kinaba): crbug.com/707448 Import at the head of this file.
+        # Currently a server-side script server/server_job.py is indirectly
+        # importing this file, so we cannot globaly import cryptohome that
+        # has dependency to a client-only library.
+        from autotest_lib.client.cros import cryptohome
         # Get the dictionary attack counter.
         keyval["TPM_DICTIONARY_ATTACK_COUNTER"] = (
-                tpm_dam.get_dictionary_attack_counter())
+                cryptohome.get_tpm_more_status().get(
+                    'dictionary_attack_counter', 'Failed to query cryptohome'))
 
         # Return the updated keyvals.
         return keyval

@@ -15,24 +15,53 @@
  */
 package org.conscrypt;
 
-import java.io.FileDescriptor;
 import java.io.UnsupportedEncodingException;
-import java.net.SocketException;
 import java.nio.ByteBuffer;
+import java.security.KeyManagementException;
 import java.security.PrivateKey;
 import java.security.Provider;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLContextSpi;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLEngineResult;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLServerSocketFactory;
+import javax.net.ssl.SSLSessionContext;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.X509TrustManager;
 
 /**
  * Core API for creating and configuring all Conscrypt types.
  */
 public final class Conscrypt {
     private Conscrypt() {}
+
+    /**
+     * Returns {@code true} if the Conscrypt native library has been successfully loaded.
+     */
+    public static boolean isAvailable() {
+        try {
+            checkAvailability();
+            return true;
+        } catch (Throwable e) {
+            return false;
+        }
+    }
+
+    /**
+     * Checks that the Conscrypt support is available for the system.
+     *
+     * @throws UnsatisfiedLinkError if unavailable
+     */
+    public static void checkAvailability() {
+        try {
+            NativeCrypto.checkAvailability();
+        } catch (Throwable e) {
+            throw (Error) new UnsatisfiedLinkError("failed to load the required native library")
+                    .initCause(e);
+        }
+    }
 
     /**
      * Constructs a new {@link Provider} with the default name.
@@ -46,6 +75,74 @@ public final class Conscrypt {
      */
     public static Provider newProvider(String providerName) {
         return new OpenSSLProvider(providerName);
+    }
+
+    /**
+     * Constructs a new instance of the preferred {@link SSLContextSpi}.
+     */
+    public static SSLContextSpi newPreferredSSLContextSpi() {
+        return OpenSSLContextImpl.getPreferred();
+    }
+
+    /**
+     * Gets the default X.509 trust manager.
+     */
+    @ExperimentalApi
+    public static X509TrustManager getDefaultX509TrustManager() throws KeyManagementException {
+        return SSLParametersImpl.getDefaultX509TrustManager();
+    }
+
+    /**
+     * Utility that exposes common TLS constants.
+     */
+    @ExperimentalApi
+    public static final class Constants {
+        private Constants() {}
+
+        /**
+         * Returns the maximum length (in bytes) of an encrypted packet.
+         */
+        public static int maxEncryptedPacketLength() {
+            return NativeConstants.SSL3_RT_MAX_PACKET_SIZE;
+        }
+    }
+
+    /**
+     * Utility methods for configuring Conscrypt {@link SSLContext} instances.
+     */
+    public static final class Contexts {
+        private Contexts() {}
+
+        /**
+         * Indicates whether the given object is a Conscrypt client-side session context.
+         */
+        public static boolean isConscrypt(SSLContext context) {
+            return context.getProvider() instanceof OpenSSLProvider;
+        }
+
+        /**
+         * Sets the client-side persistent cache to be used by the context.
+         */
+        public static void setClientSessionCache(SSLContext context, SSLClientSessionCache cache) {
+            SSLSessionContext clientContext = context.getClientSessionContext();
+            if (!(clientContext instanceof ClientSessionContext)) {
+                throw new IllegalArgumentException(
+                        "Not a conscrypt client context: " + clientContext.getClass().getName());
+            }
+            ((ClientSessionContext) clientContext).setPersistentCache(cache);
+        }
+
+        /**
+         * Sets the server-side persistent cache to be used by the context.
+         */
+        public static void setServerSessionCache(SSLContext context, SSLServerSessionCache cache) {
+            SSLSessionContext serverContext = context.getServerSessionContext();
+            if (!(serverContext instanceof ServerSessionContext)) {
+                throw new IllegalArgumentException(
+                        "Not a conscrypt client context: " + serverContext.getClass().getName());
+            }
+            ((ServerSessionContext) serverContext).setPersistentCache(cache);
+        }
     }
 
     /**
@@ -135,15 +232,43 @@ public final class Conscrypt {
          * Indicates whether the given socket is a Conscrypt socket.
          */
         public static boolean isConscrypt(SSLSocket socket) {
-            return socket instanceof OpenSSLSocketImpl;
+            return socket instanceof AbstractConscryptSocket;
         }
 
-        private static OpenSSLSocketImpl toConscrypt(SSLSocket socket) {
+        private static AbstractConscryptSocket toConscrypt(SSLSocket socket) {
             if (!isConscrypt(socket)) {
                 throw new IllegalArgumentException(
                         "Not a conscrypt socket: " + socket.getClass().getName());
             }
-            return (OpenSSLSocketImpl) socket;
+            return (AbstractConscryptSocket) socket;
+        }
+
+        /**
+         * This method enables Server Name Indication (SNI) and overrides the hostname supplied
+         * during socket creation.
+         *
+         * @param socket the socket
+         * @param hostname the desired SNI hostname, or null to disable
+         */
+        public static void setHostname(SSLSocket socket, String hostname) {
+            toConscrypt(socket).setHostname(hostname);
+        }
+
+        /**
+         * Returns either the hostname supplied during socket creation or via
+         * {@link #setHostname(SSLSocket, String)}. No DNS resolution is attempted before
+         * returning the hostname.
+         */
+        public static String getHostname(SSLSocket socket) {
+            return toConscrypt(socket).getHostname();
+        }
+
+        /**
+         * This method attempts to create a textual representation of the peer host or IP. Does
+         * not perform a reverse DNS lookup. This is typically used during session creation.
+         */
+        public static String getHostnameOrIP(SSLSocket socket) {
+            return toConscrypt(socket).getHostnameOrIP();
         }
 
         /**
@@ -154,64 +279,6 @@ public final class Conscrypt {
          */
         public static void setUseSessionTickets(SSLSocket socket, boolean useSessionTickets) {
             toConscrypt(socket).setUseSessionTickets(useSessionTickets);
-        }
-
-        /**
-         * This method enables Server Name Indication
-         *
-         * @param socket the socket
-         * @param hostname the desired SNI hostname, or null to disable
-         */
-        public static void setHostname(SSLSocket socket, String hostname) {
-            toConscrypt(socket).setHostname(hostname);
-        }
-
-        /**
-         * Returns the hostname that was supplied during socket creation. No DNS resolution is
-         * attempted before returning the hostname.
-         */
-        public static String getHostname(SSLSocket socket) {
-            return toConscrypt(socket).getHostname();
-        }
-
-        /**
-         * For the purposes of an SSLSession, we want a way to represent the supplied hostname
-         * or the IP address in a textual representation. We do not want to perform reverse DNS
-         * lookups on this address.
-         */
-        public static String getHostnameOrIP(SSLSocket socket) {
-            return toConscrypt(socket).getHostnameOrIP();
-        }
-
-        /**
-         * Note write timeouts are not part of the javax.net.ssl.SSLSocket API
-         */
-        public static void setSoWriteTimeout(SSLSocket socket, int writeTimeoutMilliseconds)
-                throws SocketException {
-            toConscrypt(socket).setSoWriteTimeout(writeTimeoutMilliseconds);
-        }
-
-        /**
-         * Note write timeouts are not part of the javax.net.ssl.SSLSocket API
-         */
-        public static int getSoWriteTimeout(SSLSocket socket) throws SocketException {
-            return toConscrypt(socket).getSoWriteTimeout();
-        }
-
-        /**
-         * Set the handshake timeout on this socket.  This timeout is specified in
-         * milliseconds and will be used only during the handshake process.
-         */
-        public static void setHandshakeTimeout(SSLSocket socket, int handshakeTimeoutMilliseconds)
-                throws SocketException {
-            toConscrypt(socket).setHandshakeTimeout(handshakeTimeoutMilliseconds);
-        }
-
-        /**
-         * Gets the underlying file descriptor for the given socket.
-         */
-        public static FileDescriptor getFileDescriptor(SSLSocket socket) {
-            return toConscrypt(socket).getFileDescriptor$();
         }
 
         /**
@@ -291,34 +358,44 @@ public final class Conscrypt {
          * Indicates whether the given engine is a Conscrypt engine.
          */
         public static boolean isConscrypt(SSLEngine engine) {
-            return engine instanceof OpenSSLEngineImpl;
+            return engine instanceof ConscryptEngine;
         }
 
-        private static OpenSSLEngineImpl toConscrypt(SSLEngine engine) {
+        private static ConscryptEngine toConscrypt(SSLEngine engine) {
             if (!isConscrypt(engine)) {
                 throw new IllegalArgumentException(
                         "Not a conscrypt engine: " + engine.getClass().getName());
             }
-            return (OpenSSLEngineImpl) engine;
+            return (ConscryptEngine) engine;
         }
 
         /**
-         * This method enables Server Name Indication (SNI) and sets the host name used for
-         * SNI.
+         * Provides the given engine with the provided bufferAllocator.
+         * @param engine
+         * @param bufferAllocator
+         */
+        public static void setBufferAllocator(SSLEngine engine, BufferAllocator bufferAllocator) {
+            toConscrypt(engine).setBufferAllocator(bufferAllocator);
+        }
+
+        /**
+         * This method enables Server Name Indication (SNI) and overrides the hostname supplied
+         * during engine creation.
          *
          * @param engine the engine
          * @param hostname the desired SNI hostname, or {@code null} to disable
          */
         public static void setHostname(SSLEngine engine, String hostname) {
-            toConscrypt(engine).setSniHostname(hostname);
+            toConscrypt(engine).setHostname(hostname);
         }
 
         /**
-         * Returns the SNI hostname that was set for the {@code engine}. If no SNI hostname
-         * was set, it will return the hostname supplied during creation of the {@code engine}.
+         * Returns either the hostname supplied during socket creation or via
+         * {@link #setHostname(SSLEngine, String)}. No DNS resolution is attempted before
+         * returning the hostname.
          */
         public static String getHostname(SSLEngine engine) {
-            return toConscrypt(engine).getSniHostname();
+            return toConscrypt(engine).getHostname();
         }
 
         /**

@@ -316,19 +316,70 @@ static int _print_swath(pcl_job_info_t *job_info, char *rgb_pixels, int start_ro
     return OK;
 }
 
+/*
+ * Allocate and fill a blank page of PackBits data. Writes size into buffer_size. The buffer
+ * must be free'd by the caller.
+ */
+unsigned char *_generate_blank_data(int pixel_width, int pixel_height, uint8 monochrome, size_t *buffer_size) {
+    if (pixel_width == 0 || pixel_height == 0) return NULL;
+
+    /* PWG Raster's PackBits-like algorithm allows for a maximum of:
+     * 256 repeating rows and is encoded using a single octet containing (count - 1)
+     * 128 repeating color value and is run length encoded using a single octet containing (count - 1)
+     */
+    int rows_full = pixel_height / 256;
+    int columns_full = pixel_width / 128;
+    int row_fraction = ((pixel_height % 256) != 0) ? 1 : 0;
+    int column_fraction = ((pixel_width % 128) != 0) ? 1 : 0;
+    int column_data_size = 1 + (columns_full + column_fraction) * (monochrome ? 2 : 4);
+
+    *buffer_size = (size_t) ((rows_full + row_fraction) * column_data_size);
+    unsigned char *buffer = (unsigned char *) malloc(*buffer_size);
+    if (buffer == NULL) return NULL;
+
+    int i = 0;
+    for (int y = 0; y < rows_full + row_fraction; y++) {
+        // Add row-repeat command
+        if (y < rows_full) {
+            buffer[i++] = 0xFF;
+        } else {
+            buffer[i++] = (unsigned char) ((pixel_height % 256) - 1);
+        }
+
+        for (int x = 0; x < columns_full + column_fraction; x++) {
+            // Add column-repeat command
+            if (x < columns_full) {
+                buffer[i++] = 0x7F;
+            } else {
+                buffer[i++] = (unsigned char) ((pixel_width % 128) - 1);
+            }
+
+            // Pixel color to repeat
+            buffer[i++] = 0xFF;
+            if (!monochrome) {
+                // Add rest of RGB for color output
+                buffer[i++] = 0xFF;
+                buffer[i++] = 0xFF;
+            }
+        }
+    }
+    return buffer;
+}
+
 static int _end_page(pcl_job_info_t *job_info, int page_number) {
     if (page_number == -1) {
-        LOGI("lib_pclm: _end_page(): writing blank page");
-        /* PWG Raster's PackBits-like algorithm allows for a maximum of:
-         * 256 repeating rows and is encoded using a single octet containing (count - 1)
-         * 128 repeating color value and is run length encoded using a single octect
-         * containing (count - 1). Therefore we create a small white 128x256 block using:
-         * (255 repeating rows)0xFF, (128 repeating colors)0x7F, (white)0xFF, 0xFF, 0xFF
-         * and when sending monochrome we just send the first 3 bytes instead of all 5
-         */
-        _start_page(job_info, 128, 256);
-        unsigned char blank_data[5] = {0xFF, 0x7F, 0xFF, 0xFF, 0xFF};
-        _pwg_io_write(job_info, blank_data, job_info->monochrome ? 3 : 5);
+        LOGD("lib_pclm: _end_page(): writing blank page");
+
+        size_t buffer_size;
+        unsigned char *buffer;
+        _start_page(job_info, header_pwg.cupsWidth, header_pwg.cupsHeight);
+        buffer = _generate_blank_data(header_pwg.cupsWidth, header_pwg.cupsHeight, job_info->monochrome, &buffer_size);
+        if (buffer == NULL) {
+            return ERROR;
+        } else {
+            _pwg_io_write(job_info, buffer, buffer_size);
+            free(buffer);
+        }
     }
     LOGI("lib_pcwg: _end_page()");
     _END_PAGE(job_info);

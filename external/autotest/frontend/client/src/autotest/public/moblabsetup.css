@@ -59,29 +59,32 @@
 
 .run_suite_selector {
   align-content: center;
-  margin: auto;
   min-width: 300px;
   height: 35px;
+}
+
+.run_suite_test_args {
+  align-content: center;
+  margin-bottom: 2px;
+  min-width: 450px;
+  height: 100px;
 }
 
 .run_suite_label {
   padding: 10px;
   margin: auto;
-  min-width: 200px;
+  min-width: 220px;
   text-align: right;
 }
 
 .run_suite_textbox {
   padding: 1px;
-
 }
 
 .run_suite_button {
   padding: 1px;
-
 }
 
 .run_suite_spacer {
   min-width: 5px;
 }
-

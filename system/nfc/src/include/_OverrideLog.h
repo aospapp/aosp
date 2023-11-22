@@ -40,6 +40,10 @@ extern "C" {
 
 extern unsigned char appl_trace_level;
 extern uint32_t ScrProtocolTraceFlag;
+/* defined for run time DTA mode selection */
+extern unsigned char appl_dta_mode_flag;
+
+void initializeGlobalAppDtaMode();
 
 /*******************************************************************************
 **

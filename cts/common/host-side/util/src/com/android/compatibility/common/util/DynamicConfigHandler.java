@@ -37,7 +37,7 @@ import java.util.Map;
 
 public class DynamicConfigHandler {
 
-    private final static String MERGED_CONFIG_FILE_FOLDER = "dynamic-config-files-merged";
+    private final static String FILE_EXT = ".dynamic";
     private static final String NS = null; //xml constant representing null namespace
     private static final String ENCODING = "UTF-8";
 
@@ -76,8 +76,7 @@ public class DynamicConfigHandler {
     private static File storeMergedConfigFile(Map<String, List<String>> configMap,
             String moduleName) throws XmlPullParserException, IOException {
 
-        File folder = FileUtil.createTempDir(MERGED_CONFIG_FILE_FOLDER);
-        File mergedConfigFile = new File(folder, moduleName + ".dynamic");
+        File mergedConfigFile = FileUtil.createTempFile(moduleName, FILE_EXT);
         OutputStream stream = new FileOutputStream(mergedConfigFile);
         XmlSerializer serializer = XmlPullParserFactory.newInstance().newSerializer();
         serializer.setOutput(stream, ENCODING);

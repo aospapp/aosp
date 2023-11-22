@@ -30,6 +30,7 @@ import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.util.StreamUtil;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 
 import java.awt.Image;
 import java.awt.image.BufferedImage;
@@ -88,6 +89,11 @@ public class TestDevice extends NativeDevice {
     private static final int API_LEVEL_GET_CURRENT_USER = 24;
     /** Timeout to wait for a screenshot before giving up to avoid hanging forever */
     private static final long MAX_SCREENSHOT_TIMEOUT = 5 * 60 * 1000; // 5 min
+
+    /** adb shell am dumpheap <service pid> <dump file path> */
+    private static final String DUMPHEAP_CMD = "am dumpheap %s %s";
+    /** Time given to a file to be dumped on device side */
+    private static final long DUMPHEAP_TIME = 5000l;
 
     /**
      * @param device
@@ -796,10 +802,8 @@ public class TestDevice extends NativeDevice {
             } catch (NumberFormatException e) {
                 CLog.e("Failed to parse result: %s", output);
             }
-        } else {
-            CLog.e("Failed to create user: %s", output);
         }
-        throw new IllegalStateException();
+        throw new IllegalStateException(String.format("Failed to create user: %s", output));
     }
 
     /**
@@ -1145,7 +1149,7 @@ public class TestDevice extends NativeDevice {
      */
     @Override
     IWifiHelper createWifiHelper() throws DeviceNotAvailableException {
-        return new WifiHelper(this);
+        return new WifiHelper(this, mOptions.getWifiUtilAPKPath());
     }
 
     /** {@inheritDoc} */
@@ -1216,5 +1220,34 @@ public class TestDevice extends NativeDevice {
             throw new IllegalArgumentException(String.format("%s not supported on %s. "
                     + "Must be API %d.", feature, getSerialNumber(), strictMinLevel));
         }
+    }
+
+    @Override
+    public File dumpHeap(String process, String devicePath) throws DeviceNotAvailableException {
+        if (Strings.isNullOrEmpty(devicePath) || Strings.isNullOrEmpty(process)) {
+            throw new IllegalArgumentException("devicePath or process cannot be null or empty.");
+        }
+        String pid = getProcessPid(process);
+        if (pid == null) {
+            return null;
+        }
+        File dump = dumpAndPullHeap(pid, devicePath);
+        // Clean the device.
+        executeShellCommand(String.format("rm %s", devicePath));
+        return dump;
+    }
+
+    /** Dump the heap file and pull it from the device. */
+    private File dumpAndPullHeap(String pid, String devicePath) throws DeviceNotAvailableException {
+        executeShellCommand(String.format(DUMPHEAP_CMD, pid, devicePath));
+        // Allow a little bit of time for the file to populate on device side.
+        int attempt = 0;
+        // TODO: add an API to check device file size
+        while (!doesFileExist(devicePath) && attempt < 3) {
+            getRunUtil().sleep(DUMPHEAP_TIME);
+            attempt++;
+        }
+        File dumpFile = pullFile(devicePath);
+        return dumpFile;
     }
 }

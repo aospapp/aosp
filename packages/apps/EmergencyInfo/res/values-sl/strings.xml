@@ -17,6 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Informacije za nujne primere"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"Zdravstveni podatki"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"Urejanje podatkov"</string>
     <string name="edit_info" msgid="5973929805855224805">"Urejanje informacij za nujne primere"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Informacije"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Stiki"</string>
@@ -96,12 +98,12 @@
     <string name="cancel" msgid="7401575239009060939">"Prekliči"</string>
     <string name="ok" msgid="163967937451981024">"V REDU"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"Informacije za nujne primere"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"Podatki, ki jih vnesete tukaj, lahko v nujnih primerih pomagajo prvim, ki priskočijo na pomoč. Shranjeni so samo v napravi in jih lahko v klicalniku za nujne primere brez odklepanja telefona prebere vsakdo."</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"Naprej"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Ni podatkov o lastniku telefona"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"Če je to vaš telefon, se dotaknite ikone svinčnika, da dodate podatke, ki bodo prikazani tukaj za nujne primere."</string>
     <string name="clear_all" msgid="8899013032870561633">"Izbriši vse"</string>
     <string name="clear" msgid="3648880442502887163">"Izbriši"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Želite izbrisati vse informacije in stike?"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"Zdravstveni podatki in stiki za nujne primere, ki jih dodate v telefon, so lahko koristni za osebe, ki prve priskočijo na pomoč v nujnih primerih.\n\nTe podatke lahko vsakdo prebere na zaklenjenem zaslonu in pokliče stike tako, da se dotakne njihovih imen, ne da bi pred tem moral odkleniti telefon."</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"Dodajanje podatkov za nujne primere"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"Osebam, ki prve priskočijo na pomoč, pomagajte priti do pomembnih podatkov"</string>
 </resources>

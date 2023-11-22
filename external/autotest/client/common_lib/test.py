@@ -77,8 +77,7 @@ class base_test(object):
 
 
     def write_test_keyval(self, attr_dict):
-        utils.write_keyval(self.outputdir, attr_dict,
-                           tap_report=self.job._tap)
+        utils.write_keyval(self.outputdir, attr_dict)
 
 
     @staticmethod
@@ -91,7 +90,8 @@ class base_test(object):
 
 
     def output_perf_value(self, description, value, units=None,
-                          higher_is_better=None, graph=None, replacement='_'):
+                          higher_is_better=None, graph=None,
+                          replacement='_', replace_existing_values=False):
         """
         Records a measured performance value in an output file.
 
@@ -125,6 +125,8 @@ class base_test(object):
                 value should be displayed individually on a separate graph.
         @param replacement: string to replace illegal characters in
                 |description| and |units| with.
+        @param replace_existing_values: A boolean indicating whether or not a
+                new added perf value should replace existing perf.
         """
         if len(description) > 256:
             raise ValueError('The description must be at most 256 characters.')
@@ -184,13 +186,16 @@ class base_test(object):
             if first_level in charts and second_level in charts[first_level]:
                 if 'values' in charts[first_level][second_level]:
                     result_value = charts[first_level][second_level]['values']
-                    result_value.extend(value)
                 elif 'value' in charts[first_level][second_level]:
                     result_value = [charts[first_level][second_level]['value']]
+                if replace_existing_values:
+                    result_value = value
+                else:
                     result_value.extend(value)
             else:
                 result_value = value
-        elif first_level in charts and second_level in charts[first_level]:
+        elif (first_level in charts and second_level in charts[first_level] and
+              not replace_existing_values):
             result_type = 'list_of_scalar_values'
             value_key = 'values'
             if 'values' in charts[first_level][second_level]:
@@ -218,29 +223,25 @@ class base_test(object):
 
 
     def write_perf_keyval(self, perf_dict):
-        self.write_iteration_keyval({}, perf_dict,
-                                    tap_report=self.job._tap)
+        self.write_iteration_keyval({}, perf_dict)
 
 
     def write_attr_keyval(self, attr_dict):
-        self.write_iteration_keyval(attr_dict, {},
-                                    tap_report=self.job._tap)
+        self.write_iteration_keyval(attr_dict, {})
 
 
-    def write_iteration_keyval(self, attr_dict, perf_dict, tap_report=None):
+    def write_iteration_keyval(self, attr_dict, perf_dict):
         # append the dictionaries before they have the {perf} and {attr} added
         self._keyvals.append({'attr':attr_dict, 'perf':perf_dict})
         self._new_keyval = True
 
         if attr_dict:
             attr_dict = self._append_type_to_keys(attr_dict, "attr")
-            utils.write_keyval(self.resultsdir, attr_dict, type_tag="attr",
-                               tap_report=tap_report)
+            utils.write_keyval(self.resultsdir, attr_dict, type_tag="attr")
 
         if perf_dict:
             perf_dict = self._append_type_to_keys(perf_dict, "perf")
-            utils.write_keyval(self.resultsdir, perf_dict, type_tag="perf",
-                               tap_report=tap_report)
+            utils.write_keyval(self.resultsdir, perf_dict, type_tag="perf")
 
         keyval_path = os.path.join(self.resultsdir, "keyval")
         print >> open(keyval_path, "a"), ""

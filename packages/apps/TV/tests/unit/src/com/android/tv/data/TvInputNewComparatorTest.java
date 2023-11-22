@@ -19,8 +19,6 @@ package com.android.tv.data;
 import android.content.pm.ResolveInfo;
 import android.media.tv.TvInputInfo;
 import android.support.test.filters.SmallTest;
-import android.support.test.filters.Suppress;
-import android.test.AndroidTestCase;
 import android.util.Pair;
 
 import com.android.tv.testing.ComparatorTester;
@@ -28,6 +26,7 @@ import com.android.tv.util.SetupUtils;
 import com.android.tv.util.TestUtils;
 import com.android.tv.util.TvInputManagerHelper;
 
+import org.junit.Test;
 import org.mockito.Matchers;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
@@ -40,16 +39,16 @@ import java.util.LinkedHashMap;
  * Test for {@link TvInputNewComparator}
  */
 @SmallTest
-public class TvInputNewComparatorTest extends AndroidTestCase {
+public class TvInputNewComparatorTest {
+    @Test
     public void testComparator() throws Exception {
-        final LinkedHashMap<String, Pair<Boolean, Boolean>> INPUT_ID_TO_NEW_INPUT =
-                new LinkedHashMap<>();
-        INPUT_ID_TO_NEW_INPUT.put("2_new_input", new Pair(true, false));
-        INPUT_ID_TO_NEW_INPUT.put("4_new_input", new Pair(true, false));
-        INPUT_ID_TO_NEW_INPUT.put("4_old_input", new Pair(false, false));
-        INPUT_ID_TO_NEW_INPUT.put("0_old_input", new Pair(false, true));
-        INPUT_ID_TO_NEW_INPUT.put("1_old_input", new Pair(false, true));
-        INPUT_ID_TO_NEW_INPUT.put("3_old_input", new Pair(false, true));
+        LinkedHashMap<String, Pair<Boolean, Boolean>> inputIdToNewInput = new LinkedHashMap<>();
+        inputIdToNewInput.put("2_new_input", new Pair<>(true, false));
+        inputIdToNewInput.put("4_new_input", new Pair<>(true, false));
+        inputIdToNewInput.put("4_old_input", new Pair<>(false, false));
+        inputIdToNewInput.put("0_old_input", new Pair<>(false, true));
+        inputIdToNewInput.put("1_old_input", new Pair<>(false, true));
+        inputIdToNewInput.put("3_old_input", new Pair<>(false, true));
 
         SetupUtils setupUtils = Mockito.mock(SetupUtils.class);
         Mockito.when(setupUtils.isNewInput(Matchers.anyString())).thenAnswer(
@@ -57,7 +56,7 @@ public class TvInputNewComparatorTest extends AndroidTestCase {
                     @Override
                     public Boolean answer(InvocationOnMock invocation) throws Throwable {
                         String inputId = (String) invocation.getArguments()[0];
-                        return INPUT_ID_TO_NEW_INPUT.get(inputId).first;
+                        return inputIdToNewInput.get(inputId).first;
                     }
                 }
         );
@@ -66,7 +65,7 @@ public class TvInputNewComparatorTest extends AndroidTestCase {
                     @Override
                     public Boolean answer(InvocationOnMock invocation) throws Throwable {
                         String inputId = (String) invocation.getArguments()[0];
-                        return INPUT_ID_TO_NEW_INPUT.get(inputId).second;
+                        return inputIdToNewInput.get(inputId).second;
                     }
                 }
         );
@@ -83,7 +82,7 @@ public class TvInputNewComparatorTest extends AndroidTestCase {
         ComparatorTester<TvInputInfo> comparatorTester =
                 ComparatorTester.withoutEqualsTest(comparator);
         ResolveInfo resolveInfo = TestUtils.createResolveInfo("test", "test");
-        for (String id : INPUT_ID_TO_NEW_INPUT.keySet()) {
+        for (String id : inputIdToNewInput.keySet()) {
             // Put mock resolveInfo to prevent NPE in {@link TvInputInfo#toString}
             TvInputInfo info1 = TestUtils.createTvInputInfo(
                     resolveInfo, id, "test1", TvInputInfo.TYPE_TUNER, false);

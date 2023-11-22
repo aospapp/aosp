@@ -117,7 +117,6 @@
 /system/lib/arm/libprocessgroup.so
 /system/lib/arm/libprotobuf-cpp-lite.so
 /system/lib/arm/libradio_metadata.so
-/system/lib/arm/libradio.so
 /system/lib/arm/libRScpp.so
 /system/lib/arm/libRSCpuRef.so
 /system/lib/arm/libRSDriver.so
@@ -147,7 +146,7 @@
 /system/lib/arm/libutils.so
 /system/lib/arm/libvorbisidec.so
 /system/lib/arm/libvulkan.so
-/system/lib/libwebrtc_audio_preprocessing.so
+/system/vendor/lib/libwebrtc_audio_preprocessing.so
 /system/lib/arm/libwebviewchromium_plat_support.so
 /system/lib/arm/libwilhelm.so
 /system/lib/arm/libz.so

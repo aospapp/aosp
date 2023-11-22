@@ -21,6 +21,7 @@
     <application>
         <activity android:name=".ThirdActivity"
                   android:resizeableActivity="true"
+                  android:allowEmbedded="true"
                   android:exported="true" />
     </application>
 

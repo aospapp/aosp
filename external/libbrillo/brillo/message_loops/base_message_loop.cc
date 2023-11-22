@@ -9,6 +9,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#ifndef __APPLE__
+#include <sys/sysmacros.h>
+#endif
+
 #ifndef __ANDROID_HOST__
 // Used for MISC_MAJOR. Only required for the target and not always available
 // for the host.

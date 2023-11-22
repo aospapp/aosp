@@ -16,7 +16,22 @@
   -->
 <defaultsMap>
     <entry>
+        <key>live_channels_ac3_software_decoder</key>
+        <value>false</value>
+    </entry>
+
+    <entry>
         <key>live_channels_epg_host_and_port</key>
         <value>datamixer-pa.googleapis.com:443</value>
+    </entry>
+
+    <entry>
+        <key>live_channels_epg_fetcher_interval_hour</key>
+        <value>4</value>
+    </entry>
+
+    <entry>
+        <key>live_channels_epg_reader_max_channels_per_program_fetch</key>
+        <value>20</value>
     </entry>
 </defaultsMap>

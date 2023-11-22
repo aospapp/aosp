@@ -20,10 +20,11 @@
 #include <numeric>
 #include <sys/mman.h>
 
+#include "base/bit_utils.h"
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/mutex.h"
-#include "thread-inl.h"
+#include "thread-current-inl.h"
 
 namespace art {
 

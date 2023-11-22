@@ -41,6 +41,7 @@ public abstract class GTestParserTestBase extends TestCase {
     protected static final String GTEST_OUTPUT_FILE_6 = "gtest_output6.txt";
     protected static final String GTEST_OUTPUT_FILE_7 = "gtest_output7.txt";
     protected static final String GTEST_OUTPUT_FILE_8 = "gtest_output8.txt";
+    protected static final String GTEST_OUTPUT_FILE_9 = "gtest_output9.txt";
     protected static final String GTEST_LIST_FILE_1 = "gtest_list1.txt";
     protected static final String GTEST_LIST_FILE_2 = "gtest_list2.txt";
     protected static final String GTEST_LIST_FILE_3 = "gtest_list3.txt";

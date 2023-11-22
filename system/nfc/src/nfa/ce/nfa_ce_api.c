@@ -245,6 +245,7 @@ tNFA_STATUS NFA_CeConfigureUiccListenTech(tNFA_HANDLE ee_handle,
 *******************************************************************************/
 tNFA_STATUS NFA_CeRegisterFelicaSystemCodeOnDH(uint16_t system_code,
                                                uint8_t nfcid2[NCI_RF_F_UID_LEN],
+                                               uint8_t t3tPmm[NCI_T3T_PMM_LEN],
                                                tNFA_CONN_CBACK* p_conn_cback) {
   tNFA_CE_MSG* p_msg;
 
@@ -261,6 +262,7 @@ tNFA_STATUS NFA_CeRegisterFelicaSystemCodeOnDH(uint16_t system_code,
 
     /* Listen info */
     memcpy(p_msg->reg_listen.nfcid2, nfcid2, NCI_RF_F_UID_LEN);
+    memcpy(p_msg->reg_listen.t3tPmm, t3tPmm, NCI_T3T_PMM_LEN);
     p_msg->reg_listen.system_code = system_code;
 
     nfa_sys_sendmsg(p_msg);

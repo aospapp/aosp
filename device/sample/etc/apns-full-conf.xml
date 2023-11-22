@@ -4660,23 +4660,11 @@
       type="default,supl,mms"
   />
 
-  <apn carrier="TelenorMobilsurf"
+  <apn carrier="Com4"
       mcc="240"
       mnc="09"
-      apn="services.telenor.se"
-      proxy="173.30.253.241"
-      port="8799"
+      apn="com4"
       type="default,supl"
-  />
-
-  <apn carrier="Telenor MMS"
-      mcc="240"
-      mnc="09"
-      apn="services.telenor.se"
-      mmsc="http://mms"
-      mmsproxy="173.30.253.241"
-      mmsport="8799"
-      type="mms"
   />
 
   <apn carrier="Spring data"
@@ -4862,6 +4850,13 @@
       mmsproxy="188.149.250.10"
       mmsport="80"
       type="mms"
+  />
+
+  <apn carrier="Com4"
+      mcc="242"
+      mnc="09"
+      apn="com4"
+      type="default,supl"
   />
 
   <apn carrier="DNA Internet"
@@ -6943,6 +6938,31 @@
       mmsproxy="78.40.0.1"
       mmsport="8080"
       type="mms"
+  />
+
+  <apn carrier="EMnify"
+      mcc="295"
+      mnc="05"
+      apn="em"
+      mvno_match_data="EMnify"
+      mvno_type="spn"
+      type="default"
+  />
+
+  <apn carrier="EMnify"
+      mcc="295"
+      mnc="09"
+      apn="em"
+      type="default"
+  />
+
+  <apn carrier="BICS"
+      mcc="295"
+      mnc="09"
+      apn="bicsapn"
+      mvno_match_data="BICS"
+      mvno_type="spn"
+      type="default"
   />
 
   <apn carrier="T-Mobile MMS"
@@ -15708,11 +15728,9 @@
   <apn carrier="Orange World Caraïbe"
       mcc="340"
       mnc="01"
-      apn="orangewap"
+      apn="orangeweb"
       user="orange"
-      password="wap"
-      proxy="10.0.0.10"
-      port="8082"
+      password="orange"
       type="default,supl"
   />
 
@@ -26408,6 +26426,13 @@
       mmsport="80"
   />
 
+    <apn carrier="Telstra Tethering"
+        mcc="505"
+        mnc="01"
+        apn="telstra.internet"
+        type="dun"
+    />
+
   <apn carrier="Optus Yes Internet"
       mcc="505"
       mnc="02"
@@ -27366,6 +27391,15 @@
       mmsproxy="10.149.83.116"
       mmsport="8080"
       type="mms"
+  />
+
+  <apn carrier="EMnify"
+      mcc="537"
+      mnc="03"
+      apn="em"
+      mvno_match_data="EMnify"
+      mvno_type="spn"
+      type="default"
   />
 
   <apn carrier="U-Call"
@@ -31950,15 +31984,6 @@
       type="default"
   />
 
-  <apn carrier="Orangeweb"
-      mcc="340"
-      mnc="01"
-      apn="orangeweb"
-      user="orange"
-      password="orange"
-      type="default"
-  />
-
   <apn carrier="Orange CM"
       mcc="624"
       mnc="02"
@@ -32012,11 +32037,17 @@
       type="default"
   />
 
-
   <apn carrier="mobiledata"
       mcc="901"
       mnc="37"
       apn="mobiledata"
       type="default,supl"
+  />
+
+  <apn carrier="EMnify"
+      mcc="901"
+      mnc="43"
+      apn="em"
+      type="default"
   />
 </apns>

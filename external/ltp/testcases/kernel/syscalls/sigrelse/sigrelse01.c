@@ -502,7 +502,9 @@ static void child(void)
 	 */
 
 	if (exit_val == EXIT_OK) {
-		(void)memcpy(note, (char *)sig_array, sizeof(sig_array));
+		(void)memcpy(note, (char *)sig_array,
+                            sizeof(note) < sizeof(sig_array) ?
+                            sizeof(note) : sizeof(sig_array));
 	}
 
 	/* send note to parent and exit */

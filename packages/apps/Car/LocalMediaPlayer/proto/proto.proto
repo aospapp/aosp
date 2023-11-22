@@ -24,6 +24,7 @@ message Playlist {
     repeated Song songs = 1;
     optional int64 current_queue_id = 2;
     optional string name = 3;
+    optional int32 current_song_position = 4;
 }
 
 message Song {

@@ -44,7 +44,10 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteCursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.support.test.espresso.DataInteraction;
+import android.support.test.filters.LargeTest;
 import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.support.v7.appcompat.test.R;
 import android.support.v7.testutils.TestUtilsMatchers;
 import android.view.View;
@@ -56,13 +59,17 @@ import android.widget.ListView;
 import org.hamcrest.Matcher;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.File;
 
 @MediumTest
-public class AlertDialogCursorTest
-        extends BaseInstrumentationTestCase<AlertDialogTestActivity> {
+@RunWith(AndroidJUnit4.class)
+public class AlertDialogCursorTest {
+    @Rule
+    public final ActivityTestRule<AlertDialogTestActivity> mActivityTestRule;
 
     private Button mButton;
 
@@ -82,7 +89,7 @@ public class AlertDialogCursorTest
     private AlertDialog mAlertDialog;
 
     public AlertDialogCursorTest() {
-        super(AlertDialogTestActivity.class);
+        mActivityTestRule = new ActivityTestRule<>(AlertDialogTestActivity.class);
     }
 
     @Before
@@ -289,6 +296,7 @@ public class AlertDialogCursorTest
         verifyMultiChoiceItemsState(expectedContent, expectedAfterClickLast);
     }
 
+    @LargeTest
     @Test
     public void testMultiChoiceItemsFromCursor() {
         mCursor = mDatabase.query("test", mProjectionWithChecked,
@@ -399,6 +407,7 @@ public class AlertDialogCursorTest
         verifySingleChoiceItemsState(expectedContent, currentlyExpectedSelectionIndex);
     }
 
+    @LargeTest
     @Test
     public void testSingleChoiceItemsFromCursor() {
         mCursor = mDatabase.query("test", mProjectionWithoutChecked,

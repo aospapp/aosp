@@ -113,10 +113,10 @@ void FakeBluetoothInterface::NotifyAdapterNamePropertyChanged(
 }
 
 void FakeBluetoothInterface::NotifyAdapterAddressPropertyChanged(
-    const bt_bdaddr_t* address) {
+    const RawAddress* address) {
   bt_property_t property;
-  property.len = sizeof(bt_bdaddr_t);
-  property.val = (void*)address;
+  property.len = RawAddress::kLength;
+  property.val = (void*)address->address;
   property.type = BT_PROPERTY_BDADDR;
 
   NotifyAdapterPropertiesChanged(1, &property);
@@ -133,8 +133,7 @@ void FakeBluetoothInterface::NotifyAdapterLocalLeFeaturesPropertyChanged(
 }
 
 void FakeBluetoothInterface::NotifyAclStateChangedCallback(
-    bt_status_t status, const bt_bdaddr_t& remote_bdaddr,
-    bt_acl_state_t state) {
+    bt_status_t status, const RawAddress& remote_bdaddr, bt_acl_state_t state) {
   FOR_EACH_OBSERVER(Observer, observers_,
                     AclStateChangedCallback(status, remote_bdaddr, state));
 }

@@ -98,7 +98,8 @@ public class SetDevicePolicyTask extends AbstractProvisioningTask {
 
     private void enableDevicePolicyApp(String packageName) {
         int enabledSetting = mPackageManager.getApplicationEnabledSetting(packageName);
-        if (enabledSetting != PackageManager.COMPONENT_ENABLED_STATE_DEFAULT) {
+        if (enabledSetting != PackageManager.COMPONENT_ENABLED_STATE_DEFAULT
+                && enabledSetting != PackageManager.COMPONENT_ENABLED_STATE_ENABLED) {
             mPackageManager.setApplicationEnabledSetting(packageName,
                     PackageManager.COMPONENT_ENABLED_STATE_DEFAULT,
                     // Device policy app may have launched ManagedProvisioning, play nice and don't

@@ -239,6 +239,21 @@ SIMPLE_FREQUENCY_TEST_FILE = AudioTestData(
                          rate=48000),
         frequencies=[440, 440])
 
+"""
+This test data contains fixed frequency sine wave in two channels.
+Left and right channel are both 1330 Hz. The duration is 10 seconds.
+The file format is two-channel raw data with each sample being a signed
+16-bit integer in little-endian with sampling rate 48000 samples/sec.
+The volume is 0.1. The small volume is to avoid distortion when played
+on Chameleon.
+"""
+SIMPLE_FREQUENCY_TEST_1330_FILE = AudioTestData(
+        path=os.path.join(AUDIO_PATH, 'fix_1330_16.raw'),
+        data_format=dict(file_type='raw',
+                         sample_format='S16_LE',
+                         channel=2,
+                         rate=48000),
+        frequencies=[1330, 1330])
 
 """
 This test data contains fixed frequency sine wave in two channels.

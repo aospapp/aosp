@@ -2,37 +2,36 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from datetime import datetime, timedelta
 import collections
 import json
 import logging
 import os
-import socket
 import time
-import urllib2
 import urlparse
 
-from autotest_lib.client.bin import utils as client_utils
-from autotest_lib.client.common_lib import error, global_config
-from autotest_lib.client.common_lib.cros import autoupdater, dev_server
-from autotest_lib.server import afe_utils, autotest, hosts, test
+from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib.cros import dev_server
+from autotest_lib.server import autotest, test
 from autotest_lib.server.cros.dynamic_suite import tools
 
 
-def _wait(secs, desc=None):
-    """Emits a log message and sleeps for a given number of seconds."""
-    msg = 'Waiting %s seconds' % secs
-    if desc:
-        msg += ' (%s)' % desc
-    logging.info(msg)
-    time.sleep(secs)
+def snippet(text):
+    """Returns the text with start/end snip markers around it.
 
+    @param text: The snippet text.
 
-class ExpectedUpdateEventChainFailed(error.TestFail):
-    """Raised if we fail to receive an expected event in a chain."""
+    @return The text with start/end snip markers around it.
+    """
+    snip = '---8<---' * 10
+    start = '-- START -'
+    end = '-- END -'
+    return ('%s%s\n%s\n%s%s' %
+            (start, snip[len(start):], text, end, snip[len(end):]))
 
-class RequiredArgumentMissing(error.TestError):
-    """Raised if the test is missing a required argument."""
-
+UPDATE_ENGINE_PERF_PATH = '/mnt/stateful_partition/unencrypted/preserve'
+UPDATE_ENGINE_PERF_SCRIPT = 'update_engine_performance_monitor.py'
+UPDATE_ENGINE_PERF_RESULTS_FILE = 'perf_data_results.json'
 
 # Update event types.
 EVENT_TYPE_DOWNLOAD_COMPLETE = '1'
@@ -67,18 +66,8 @@ EVENT_RESULT_DICT = {
 }
 
 
-def snippet(text):
-    """Returns the text with start/end snip markers around it.
-
-    @param text: The snippet text.
-
-    @return The text with start/end snip markers around it.
-    """
-    snip = '---8<---' * 10
-    start = '-- START -'
-    end = '-- END -'
-    return ('%s%s\n%s\n%s%s' %
-            (start, snip[len(start):], text, end, snip[len(end):]))
+class ExpectedUpdateEventChainFailed(error.TestFail):
+    """Raised if we fail to receive an expected event in a chain."""
 
 
 class ExpectedUpdateEvent(object):
@@ -171,11 +160,11 @@ class ExpectedUpdateEvent(object):
 
         """
         mismatched_attrs = [
-                attr_name for attr_name, expected_attr_val
-                in self._expected_attrs.iteritems()
-                if (expected_attr_val and
-                    not self._verify_attr(attr_name, expected_attr_val,
-                                          actual_event.get(attr_name)))]
+            attr_name for attr_name, expected_attr_val
+            in self._expected_attrs.iteritems()
+            if (expected_attr_val and
+                not self._verify_attr(attr_name, expected_attr_val,
+                                      actual_event.get(attr_name)))]
         if not mismatched_attrs:
             return None
         if callable(self._on_error):
@@ -223,6 +212,7 @@ class ExpectedUpdateEventChain(object):
     """Defines a chain of expected update events."""
     def __init__(self):
         self._expected_events_chain = []
+        self._current_timestamp = None
 
 
     def add_event(self, expected_events, timeout, on_timeout=None):
@@ -279,8 +269,7 @@ class ExpectedUpdateEventChain(object):
                 raise ExpectedUpdateEventChainFailed(err_msg)
 
 
-    @staticmethod
-    def _verify_event_with_timeout(expected_events, timeout, on_timeout,
+    def _verify_event_with_timeout(self, expected_events, timeout, on_timeout,
                                    get_next_event):
         """Verify an expected event occurs within a given timeout.
 
@@ -292,20 +281,29 @@ class ExpectedUpdateEventChain(object):
         @return None if event complies, an error string otherwise.
 
         """
-        base_timestamp = curr_timestamp = time.time()
-        expired_timestamp = base_timestamp + timeout
-        while curr_timestamp <= expired_timestamp:
-            new_event = get_next_event()
-            if new_event:
-                logging.info('Event received after %s seconds',
-                             round(curr_timestamp - base_timestamp, 1))
-                results = [event.verify(new_event) for event in expected_events]
-                return None if None in results else ' AND '.join(results)
+        new_event = get_next_event()
+        if new_event:
+            # If this is the first event, set it as the current time
+            if self._current_timestamp is None:
+                self._current_timestamp = datetime.strptime(new_event[
+                                                                'timestamp'],
+                                                            '%Y-%m-%d %H:%M:%S')
 
-            # No new events, sleep for one second only (so we don't miss
-            # events at the end of the allotted timeout).
-            time.sleep(1)
-            curr_timestamp = time.time()
+            # Get the time stamp for the current event and convert to datetime
+            timestamp = new_event['timestamp']
+            event_timestamp = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
+
+            # Add the timeout onto the timestamp to get its expiry
+            event_timeout = self._current_timestamp + timedelta(seconds=timeout)
+
+            # If the event happened before the timeout
+            if event_timestamp < event_timeout:
+                difference = event_timestamp - self._current_timestamp
+                logging.info('Event took %s seconds to fire during the '
+                             'update', difference.seconds)
+                results = [event.verify(new_event) for event in expected_events]
+                self._current_timestamp = event_timestamp
+                return None if None in results else ' AND '.join(results)
 
         logging.error('Timeout expired')
         if on_timeout is None:
@@ -316,9 +314,8 @@ class ExpectedUpdateEventChain(object):
 
 class UpdateEventLogVerifier(object):
     """Verifies update event chains on a devserver update log."""
-    def __init__(self, event_log_url, url_request_timeout=None):
-        self._event_log_url = event_log_url
-        self._url_request_timeout = url_request_timeout
+    def __init__(self, event_log_filename):
+        self._event_log_filename = event_log_filename
         self._event_log = []
         self._num_consumed_events = 0
 
@@ -337,32 +334,21 @@ class UpdateEventLogVerifier(object):
     def _get_next_log_event(self):
         """Returns the next event in an event log.
 
-        Uses the URL handed to it during initialization to obtain the host log
-        from a devserver. If new events are encountered, the first of them is
-        consumed and returned.
+        Uses the filename handed to it during initialization to read the
+        host log from devserver used during the update.
 
         @return The next new event in the host log, as reported by devserver;
                 None if no such event was found or an error occurred.
 
         """
-        # (Re)read event log from devserver, if necessary.
+        # (Re)read event log from hostlog file, if necessary.
         if len(self._event_log) <= self._num_consumed_events:
             try:
-                if self._url_request_timeout:
-                    conn = urllib2.urlopen(self._event_log_url,
-                                           timeout=self._url_request_timeout)
-                else:
-                    conn = urllib2.urlopen(self._event_log_url)
-            except urllib2.URLError, e:
-                logging.warning('Failed to read event log url: %s', e)
-                return None
-            except socket.timeout, e:
-                logging.warning('Timed out reading event log url: %s', e)
-                return None
-
-            event_log_resp = conn.read()
-            conn.close()
-            self._event_log = json.loads(event_log_resp)
+                with open(self._event_log_filename, 'r') as out_log:
+                  self._event_log = json.loads(out_log.read())
+            except Exception as e:
+                raise error.TestFail('Error while reading the hostlogs '
+                                     'from devserver: %s' % e)
 
         # Return next new event, if one is found.
         if len(self._event_log) > self._num_consumed_events:
@@ -373,308 +359,6 @@ class UpdateEventLogVerifier(object):
             self._num_consumed_events += 1
             logging.info('Consumed new event: %s', new_event)
             return new_event
-
-
-class OmahaDevserverFailedToStart(error.TestError):
-    """Raised when a omaha devserver fails to start."""
-
-
-class OmahaDevserver(object):
-    """Spawns a test-private devserver instance."""
-    # How long to wait for a devserver to start.
-    _WAIT_FOR_DEVSERVER_STARTED_SECONDS = 30
-
-    # How long to sleep (seconds) between checks to see if a devserver is up.
-    _WAIT_SLEEP_INTERVAL = 1
-
-    # Max devserver execution time (seconds); used with timeout(1) to ensure we
-    # don't have defunct instances hogging the system.
-    _DEVSERVER_TIMELIMIT_SECONDS = 12 * 60 * 60
-
-
-    def __init__(self, omaha_host, devserver_dir, update_payload_staged_url):
-        """Starts a private devserver instance, operating at Omaha capacity.
-
-        @param omaha_host: host address where the devserver is spawned.
-        @param devserver_dir: path to the devserver source directory
-        @param update_payload_staged_url: URL to provision for update requests.
-
-        """
-        if not update_payload_staged_url:
-            raise error.TestError('Missing update payload url')
-
-        self._omaha_host = omaha_host
-        self._devserver_pid = 0
-        self._devserver_port = 0  # Determined later from devserver portfile.
-        self._devserver_dir = devserver_dir
-        self._update_payload_staged_url = update_payload_staged_url
-
-        self._devserver_ssh = hosts.SSHHost(self._omaha_host,
-                                            user=os.environ['USER'])
-
-        # Temporary files for various devserver outputs.
-        self._devserver_logfile = None
-        self._devserver_stdoutfile = None
-        self._devserver_portfile = None
-        self._devserver_pidfile = None
-        self._devserver_static_dir = None
-
-
-    def _cleanup_devserver_files(self):
-        """Cleans up the temporary devserver files."""
-        for filename in (self._devserver_logfile, self._devserver_stdoutfile,
-                         self._devserver_portfile, self._devserver_pidfile):
-            if filename:
-                self._devserver_ssh.run('rm -f %s' % filename,
-                                        ignore_status=True)
-
-        if self._devserver_static_dir:
-            self._devserver_ssh.run('rm -rf %s' % self._devserver_static_dir,
-                                    ignore_status=True)
-
-
-    def _create_tempfile_on_devserver(self, label, dir=False):
-        """Creates a temporary file/dir on the devserver and returns its path.
-
-        @param label: Identifier for the file context (string, no whitespaces).
-        @param dir: If True, create a directory instead of a file.
-
-        @raises test.TestError: If we failed to invoke mktemp on the server.
-        @raises OmahaDevserverFailedToStart: If tempfile creation failed.
-        """
-        remote_cmd = 'mktemp --tmpdir devserver-%s.XXXXXX' % label
-        if dir:
-            remote_cmd += ' --directory'
-
-        try:
-            result = self._devserver_ssh.run(remote_cmd, ignore_status=True)
-        except error.AutoservRunError as e:
-            self._log_and_raise_remote_ssh_error(e)
-        if result.exit_status != 0:
-            raise OmahaDevserverFailedToStart(
-                    'Could not create a temporary %s file on the devserver, '
-                    'error output: "%s"' % (label, result.stderr))
-        return result.stdout.strip()
-
-    @staticmethod
-    def _log_and_raise_remote_ssh_error(e):
-        """Logs failure to ssh remote, then raises a TestError."""
-        logging.debug('Failed to ssh into the devserver: %s', e)
-        logging.error('If you are running this locally it means you did not '
-                      'configure ssh correctly.')
-        raise error.TestError('Failed to ssh into the devserver: %s' % e)
-
-
-    def _read_int_from_devserver_file(self, filename):
-        """Reads and returns an integer value from a file on the devserver."""
-        return int(self._get_devserver_file_content(filename).strip())
-
-
-    def _wait_for_devserver_to_start(self):
-        """Waits until the devserver starts within the time limit.
-
-        Infers and sets the devserver PID and serving port.
-
-        Raises:
-            OmahaDevserverFailedToStart: If the time limit is reached and we
-                                         cannot connect to the devserver.
-        """
-        # Compute the overall timeout.
-        deadline = time.time() + self._WAIT_FOR_DEVSERVER_STARTED_SECONDS
-
-        # First, wait for port file to be filled and determine the server port.
-        logging.warning('Waiting for devserver to start up.')
-        while time.time() < deadline:
-            try:
-                self._devserver_pid = self._read_int_from_devserver_file(
-                        self._devserver_pidfile)
-                self._devserver_port = self._read_int_from_devserver_file(
-                        self._devserver_portfile)
-                logging.info('Devserver pid is %d, serving on port %d',
-                             self._devserver_pid, self._devserver_port)
-                break
-            except Exception:  # Couldn't read file or corrupt content.
-                time.sleep(self._WAIT_SLEEP_INTERVAL)
-        else:
-            try:
-                self._devserver_ssh.run_output('uptime')
-            except error.AutoservRunError as e:
-                logging.debug('Failed to run uptime on the devserver: %s', e)
-            raise OmahaDevserverFailedToStart(
-                    'The test failed to find the pid/port of the omaha '
-                    'devserver after %d seconds. Check the dumped devserver '
-                    'logs and devserver load for more information.' %
-                    self._WAIT_FOR_DEVSERVER_STARTED_SECONDS)
-
-        # Check that the server is reponsding to network requests.
-        logging.warning('Waiting for devserver to accept network requests.')
-        url = 'http://%s' % self.get_netloc()
-        while time.time() < deadline:
-            if dev_server.ImageServer.devserver_healthy(url, timeout_min=0.1):
-                break
-
-            # TODO(milleral): Refactor once crbug.com/221626 is resolved.
-            time.sleep(self._WAIT_SLEEP_INTERVAL)
-        else:
-            raise OmahaDevserverFailedToStart(
-                    'The test failed to establish a connection to the omaha '
-                    'devserver it set up on port %d. Check the dumped '
-                    'devserver logs for more information.' %
-                    self._devserver_port)
-
-
-    def start_devserver(self):
-        """Starts the devserver and confirms it is up.
-
-        Raises:
-            test.TestError: If we failed to spawn the remote devserver.
-            OmahaDevserverFailedToStart: If the time limit is reached and we
-                                         cannot connect to the devserver.
-        """
-        update_payload_url_base, update_payload_path = self._split_url(
-                self._update_payload_staged_url)
-
-        # Allocate temporary files for various server outputs.
-        self._devserver_logfile = self._create_tempfile_on_devserver('log')
-        self._devserver_stdoutfile = self._create_tempfile_on_devserver(
-                'stdout')
-        self._devserver_portfile = self._create_tempfile_on_devserver('port')
-        self._devserver_pidfile = self._create_tempfile_on_devserver('pid')
-        self._devserver_static_dir = self._create_tempfile_on_devserver(
-                'static', dir=True)
-
-        # Invoke the Omaha/devserver on the remote server. Will attempt to kill
-        # it with a SIGTERM after a predetermined timeout has elapsed, followed
-        # by SIGKILL if not dead within 30 seconds from the former signal.
-        cmdlist = [
-                'timeout', '-s', 'TERM', '-k', '30',
-                str(self._DEVSERVER_TIMELIMIT_SECONDS),
-                '%s/devserver.py' % self._devserver_dir,
-                '--payload=%s' % update_payload_path,
-                '--port=0',
-                '--pidfile=%s' % self._devserver_pidfile,
-                '--portfile=%s' % self._devserver_portfile,
-                '--logfile=%s' % self._devserver_logfile,
-                '--remote_payload',
-                '--urlbase=%s' % update_payload_url_base,
-                '--max_updates=1',
-                '--host_log',
-                '--static_dir=%s' % self._devserver_static_dir,
-                '--critical_update',
-        ]
-        remote_cmd = '( %s ) </dev/null >%s 2>&1 &' % (
-                ' '.join(cmdlist), self._devserver_stdoutfile)
-
-        logging.info('Starting devserver with %r', remote_cmd)
-        try:
-            self._devserver_ssh.run_output(remote_cmd)
-        except error.AutoservRunError as e:
-            self._log_and_raise_remote_ssh_error(e)
-
-        try:
-            self._wait_for_devserver_to_start()
-        except OmahaDevserverFailedToStart:
-            self._kill_remote_process()
-            self._dump_devserver_log()
-            self._cleanup_devserver_files()
-            raise
-
-
-    def _kill_remote_process(self):
-        """Kills the devserver and verifies it's down; clears the remote pid."""
-        def devserver_down():
-            """Ensure that the devserver process is down."""
-            return not self._remote_process_alive()
-
-        if devserver_down():
-            return
-
-        for signal in 'SIGTERM', 'SIGKILL':
-            remote_cmd = 'kill -s %s %s' % (signal, self._devserver_pid)
-            self._devserver_ssh.run(remote_cmd)
-            try:
-                client_utils.poll_for_condition(
-                        devserver_down, sleep_interval=1, desc='devserver down')
-                break
-            except client_utils.TimeoutError:
-                logging.warning('Could not kill devserver with %s.', signal)
-        else:
-            logging.warning('Failed to kill devserver, giving up.')
-
-        self._devserver_pid = None
-
-
-    def _remote_process_alive(self):
-        """Tests whether the remote devserver process is running."""
-        if not self._devserver_pid:
-            return False
-        remote_cmd = 'test -e /proc/%s' % self._devserver_pid
-        result = self._devserver_ssh.run(remote_cmd, ignore_status=True)
-        return result.exit_status == 0
-
-
-    def get_netloc(self):
-        """Returns the netloc (host:port) of the devserver."""
-        if not (self._devserver_pid and self._devserver_port):
-            raise error.TestError('No running omaha/devserver')
-
-        return '%s:%s' % (self._omaha_host, self._devserver_port)
-
-
-    def get_update_url(self):
-        """Returns the update_url you can use to update via this server."""
-        return urlparse.urlunsplit(('http', self.get_netloc(), '/update',
-                                    '', ''))
-
-
-    def _get_devserver_file_content(self, filename):
-        """Returns the content of a file on the devserver."""
-        return self._devserver_ssh.run_output('cat %s' % filename,
-                                              stdout_tee=None)
-
-
-    def _get_devserver_log(self):
-        """Obtain the devserver output."""
-        return self._get_devserver_file_content(self._devserver_logfile)
-
-
-    def _get_devserver_stdout(self):
-        """Obtain the devserver output in stdout and stderr."""
-        return self._get_devserver_file_content(self._devserver_stdoutfile)
-
-
-    def _dump_devserver_log(self, logging_level=logging.ERROR):
-        """Dump the devserver log to the autotest log.
-
-        @param logging_level: logging level (from logging) to log the output.
-        """
-        logging.log(logging_level, "Devserver stdout and stderr:\n" +
-                    snippet(self._get_devserver_stdout()))
-        logging.log(logging_level, "Devserver log file:\n" +
-                    snippet(self._get_devserver_log()))
-
-
-    @staticmethod
-    def _split_url(url):
-        """Splits a URL into the URL base and path."""
-        split_url = urlparse.urlsplit(url)
-        url_base = urlparse.urlunsplit(
-                (split_url.scheme, split_url.netloc, '', '', ''))
-        url_path = split_url.path
-        return url_base, url_path.lstrip('/')
-
-
-    def stop_devserver(self):
-        """Kill remote process and wait for it to die, dump its output."""
-        if not self._devserver_pid:
-            logging.error('No running omaha/devserver.')
-            return
-
-        logging.info('Killing omaha/devserver')
-        self._kill_remote_process()
-        logging.debug('Final devserver log before killing')
-        self._dump_devserver_log(logging.DEBUG)
-        self._cleanup_devserver_files()
 
 
 class TestPlatform(object):
@@ -708,21 +392,18 @@ class TestPlatform(object):
         @return A TestPlatform implementation.
         """
         os_type = host.get_os_type()
-        if os_type == 'cros':
+        if os_type in ('cros', 'moblab'):
             return ChromiumOSTestPlatform(host)
-        if os_type == 'brillo':
-            return BrilloTestPlatform(host)
 
         raise error.TestError('Unknown OS type reported by host: %s' % os_type)
 
 
-    def initialize(self, autotest_devserver, devserver_dir):
+    def initialize(self, autotest_devserver):
         """Initialize the object.
 
         @param autotest_devserver: Instance of client.common_lib.dev_server to
                                    use to reach the devserver instance for this
                                    build.
-        @param devserver_dir: Path to devserver source tree.
         """
         raise NotImplementedError
 
@@ -748,10 +429,10 @@ class TestPlatform(object):
         raise NotImplementedError
 
 
-    def prep_device_for_update(self, source_release):
+    def prep_device_for_update(self, source_payload_uri):
         """Prepares the device for update.
 
-        @param source_release: Source release version (string), or None.
+        @param source_payload_uri: Source payload GS URI to install.
 
         @raise error.TestError on failure.
         """
@@ -771,18 +452,19 @@ class TestPlatform(object):
         raise NotImplementedError
 
 
-    def stop_update_perf(self):
+    def stop_update_perf(self, resultdir):
         """Stops performance monitoring and returns data (if available).
 
+        @param resultdir: Directory containing test result files.
         @return Dictionary containing performance attributes.
         """
         raise NotImplementedError
 
 
-    def trigger_update(self, omaha_devserver):
+    def trigger_update(self, target_payload_uri):
         """Kicks off an update.
 
-        @param omaha_devserver: OmahaDevserver instance.
+        @param target_payload_uri: The GS URI to use for the update.
         """
         raise NotImplementedError
 
@@ -802,42 +484,61 @@ class TestPlatform(object):
         raise NotImplementedError
 
 
-    def check_device_after_update(self, target_release):
+    def check_device_after_update(self):
         """Runs final sanity checks.
-
-        @param target_release: Target release version (string), or None.
 
         @raise error.TestError on failure.
         """
         raise NotImplementedError
 
 
+    def oobe_triggers_update(self):
+        """Returns True if this host has an OOBE flow during which
+        it will perform an update check and perhaps an update.
+        One example of such a flow is Hands-Off Zero-Touch Enrollment.
+
+        @return Boolean indicating whether the DUT's OOBE triggers an update.
+        """
+        raise NotImplementedError
+
+
+    def verify_version(self, version):
+        """Compares the OS version on the DUT with the provided version.
+
+        @param version: The version to compare with (string).
+        @raise error.TestFail if the versions differ.
+        """
+        actual_version = self._host.get_release_version()
+        if actual_version != version:
+            err_msg = 'Failed to verify OS version. Expected %s, was %s' % (
+                version, actual_version)
+            logging.error(err_msg)
+            raise error.TestFail(err_msg)
+
+
 class ChromiumOSTestPlatform(TestPlatform):
     """A TestPlatform implementation for Chromium OS."""
 
     _STATEFUL_UPDATE_FILENAME = 'stateful.tgz'
-    _LOGINABLE_MINIMUM_RELEASE = 5110
 
     def __init__(self, host):
         self._host = host
         self._autotest_devserver = None
-        self._devserver_dir = None
         self._staged_urls = None
         self._perf_mon_pid = None
 
 
-    def _stage_payload(self, devserver_label, filename, archive_url=None):
+    def _stage_payload(self, build_name, filename, archive_url=None):
         """Stage the given payload onto the devserver.
 
         Works for either a stateful or full/delta test payload. Expects the
-        gs_path or a combo of devserver_label + filename.
+        gs_path or a combo of build_name + filename.
 
-        @param devserver_label: The build name e.g. x86-mario-release/<version>.
-                                If set, assumes default gs archive bucket and
-                                requires filename to be specified.
-        @param filename: In conjunction with devserver_label, if just specifying
-                         the devserver label name, this is which file are you
-                         downloading.
+        @param build_name: The build name e.g. x86-mario-release/<version>.
+                           If set, assumes default gs archive bucket and
+                           requires filename to be specified.
+        @param filename: In conjunction with build_name, this is the file you
+                         are downloading.
         @param archive_url: An optional GS archive location, if not using the
                             devserver's default.
 
@@ -847,11 +548,11 @@ class ChromiumOSTestPlatform(TestPlatform):
 
         """
         try:
-            self._autotest_devserver.stage_artifacts(
-                    image=devserver_label, files=[filename],
-                    archive_url=archive_url)
+            self._autotest_devserver.stage_artifacts(image=build_name,
+                                                     files=[filename],
+                                                     archive_url=archive_url)
             return self._autotest_devserver.get_staged_file_url(filename,
-                                                                devserver_label)
+                                                                build_name)
         except dev_server.DevServerException, e:
             raise error.TestError('Failed to stage payload: %s' % e)
 
@@ -870,18 +571,9 @@ class ChromiumOSTestPlatform(TestPlatform):
 
         """
         archive_url, _, filename = payload_uri.rpartition('/')
-        devserver_label = urlparse.urlsplit(archive_url).path.strip('/')
-        return self._stage_payload(devserver_label, filename,
+        build_name = urlparse.urlsplit(archive_url).path.strip('/')
+        return self._stage_payload(build_name, filename,
                                    archive_url=archive_url)
-
-
-    @staticmethod
-    def _payload_to_update_url(payload_url):
-        """Given a update or stateful payload url, returns the update url."""
-        # We want to transform it to the correct omaha url which is
-        # <hostname>/update/...LABEL.
-        base_url = payload_url.rpartition('/')[0]
-        return base_url.replace('/static/', '/update/')
 
 
     def _get_stateful_uri(self, build_uri):
@@ -897,83 +589,60 @@ class ChromiumOSTestPlatform(TestPlatform):
         return self._get_stateful_uri(build_uri)
 
 
-    def _update_via_test_payloads(self, omaha_host, payload_url, stateful_url,
-                                  clobber):
-        """Given the following update and stateful urls, update the DUT.
+    @staticmethod
+    def _get_update_parameters_from_uri(payload_uri):
+        """Extract the two vars needed for cros_au from the Google Storage URI.
 
-        Only updates the rootfs/stateful if the respective url is provided.
+        dev_server.auto_update needs two values from this test:
+        (1) A build_name string e.g samus-release/R60-9583.0.0
+        (2) A filename of the exact payload file to use for the update. This
+        payload needs to have already been staged on the devserver.
 
-        @param omaha_host: If updating rootfs, redirect updates through this
-            host. Should be None iff payload_url is None.
-        @param payload_url: If set, the specified url to find the update
-            payload.
-        @param stateful_url: If set, the specified url to find the stateful
-            payload.
-        @param clobber: If True, do a clean install of stateful.
+        This function extracts those two values from a Google Storage URI.
+
+        @param payload_uri: Google Storage URI to extract values from
         """
-        def perform_update(url, is_stateful):
-            """Perform a rootfs/stateful update using given URL.
+        archive_url, _, payload_file = payload_uri.rpartition('/')
+        build_name = urlparse.urlsplit(archive_url).path.strip('/')
 
-            @param url: URL to update from.
-            @param is_stateful: Whether this is a stateful or rootfs update.
-            """
-            if url:
-                updater = autoupdater.ChromiumOSUpdater(url, host=self._host)
-                if is_stateful:
-                    updater.update_stateful(clobber=clobber)
-                else:
-                    updater.update_image()
+        # This test supports payload uris from two Google Storage buckets.
+        # They store their payloads slightly differently. One stores them in
+        # a separate payloads directory. E.g
+        # gs://chromeos-image-archive/samus-release/R60-9583.0.0/blah.bin
+        # gs://chromeos-releases/dev-channel/samus/9334.0.0/payloads/blah.bin
+        if build_name.endswith('payloads'):
+            build_name = build_name.rpartition('/')[0]
+            payload_file = 'payloads/' + payload_file
 
-        # We create a OmahaDevserver to redirect blah.bin to update/. This
-        # allows us to use any payload filename to serve an update.
-        temp_devserver = None
-        try:
-            if payload_url:
-                temp_devserver = OmahaDevserver(
-                        omaha_host, self._devserver_dir, payload_url)
-                temp_devserver.start_devserver()
-                payload_url = temp_devserver.get_update_url()
-
-            stateful_url = self._payload_to_update_url(stateful_url)
-
-            perform_update(payload_url, False)
-            perform_update(stateful_url, True)
-        finally:
-            if temp_devserver:
-                temp_devserver.stop_devserver()
+        logging.debug('Extracted build_name: %s, payload_file: %s from %s.',
+                      build_name, payload_file, payload_uri)
+        return build_name, payload_file
 
 
-    def _install_source_version(self, devserver_hostname, image_url,
-                                stateful_url):
-        """Prepare the specified host with the image given by the urls.
+    def _install_version(self, payload_uri, clobber_stateful=False):
+        """Install the specified host with the image given by the url.
 
-        @param devserver_hostname: If updating rootfs, redirect updates
-                                   through this host. Should be None iff
-                                   image_url is None.
-        @param image_url: If set, the specified url to find the source image
-                          or full payload for the source image.
-        @param stateful_url: If set, the specified url to find the stateful
-                             payload.
+        @param payload_uri: GS URI used to compute values for devserver cros_au
+        @param clobber_stateful: force a reinstall of the stateful image.
         """
+
+        build_name, payload_file = self._get_update_parameters_from_uri(
+            payload_uri)
+        logging.info('Installing image %s on the DUT', payload_uri)
+
         try:
-            # Reboot to get us into a clean state.
-            self._host.reboot()
-            # Since we are installing the source image of the test, clobber
-            # stateful.
-            self._update_via_test_payloads(devserver_hostname, image_url,
-                                           stateful_url, True)
-            self._host.reboot()
-        except OmahaDevserverFailedToStart as e:
-            logging.fatal('Failed to start private devserver for installing '
-                          'the source image (%s) on the DUT', image_url)
-            raise error.TestError(
-                    'Failed to start private devserver for installing the '
-                    'source image on the DUT: %s' % e)
-        except error.AutoservRunError as e:
-            logging.fatal('Error re-imaging or rebooting the DUT with the '
-                          'source image from %s', image_url)
-            raise error.TestError('Failed to install the source image or '
-                                  'reboot the DUT: %s' % e)
+            ds = self._autotest_devserver
+            _, pid =  ds.auto_update(host_name=self._host.hostname,
+                                     build_name=build_name,
+                                     force_update=True,
+                                     full_update=True,
+                                     log_dir=self._results_dir,
+                                     payload_filename=payload_file,
+                                     clobber_stateful=clobber_stateful)
+        except:
+            logging.fatal('ERROR: Failed to install image on the DUT.')
+            raise
+        return pid
 
 
     def _stage_artifacts_onto_devserver(self, test_conf):
@@ -987,13 +656,8 @@ class ChromiumOSTestPlatform(TestPlatform):
                      self._autotest_devserver.url())
 
         staged_source_url = None
-        staged_source_stateful_url = None
-        try:
-            source_payload_uri = test_conf['source_payload_uri']
-        except KeyError:
-            # TODO(garnold) Remove legacy key support once control files on all
-            # release branches have caught up.
-            source_payload_uri = test_conf['source_image_uri']
+        source_payload_uri = test_conf['source_payload_uri']
+
         if source_payload_uri:
             staged_source_url = self._stage_payload_by_uri(source_payload_uri)
 
@@ -1028,18 +692,8 @@ class ChromiumOSTestPlatform(TestPlatform):
         if target_archive_uri:
             target_stateful_uri = self._get_stateful_uri(target_archive_uri)
         else:
-            # Attempt to get the job_repo_url to find the stateful payload for
-            # the target image.
-            job_repo_url = afe_utils.get_host_attribute(
-                    self._host, self._host.job_repo_url_attribute)
-            if not job_repo_url:
-                target_stateful_uri = self._payload_to_stateful_uri(
+            target_stateful_uri = self._payload_to_stateful_uri(
                     target_payload_uri)
-            else:
-                _, devserver_label = tools.get_devserver_build_from_package_url(
-                        job_repo_url)
-                staged_target_stateful_url = self._stage_payload(
-                        devserver_label, self._STATEFUL_UPDATE_FILENAME)
 
         if not staged_target_stateful_url and target_stateful_uri:
             staged_target_stateful_url = self._stage_payload_by_uri(
@@ -1050,75 +704,23 @@ class ChromiumOSTestPlatform(TestPlatform):
                      test_conf['update_type'], target_payload_uri,
                      staged_target_url)
         logging.info('Target stateful update from %s staged at %s',
-                     target_stateful_uri or 'standard location',
-                     staged_target_stateful_url)
+                     target_stateful_uri, staged_target_stateful_url)
 
         return self.StagedURLs(staged_source_url, staged_source_stateful_url,
                                staged_target_url, staged_target_stateful_url)
 
 
-    def _run_login_test(self, release_string):
-        """Runs login_LoginSuccess test if it is supported by the release."""
-        # Only do login tests with recent builds, since they depend on
-        # some binary compatibility with the build itself.
-        # '5116.0.0' -> ('5116', '0', '0') -> 5116
-        if not release_string:
-            logging.info('No release provided, skipping login test.')
-        elif int(release_string.split('.')[0]) > self._LOGINABLE_MINIMUM_RELEASE:
-            # Login, to prove we can before/after the update.
-            logging.info('Attempting to login (release %s).', release_string)
-
-            client_at = autotest.Autotest(self._host)
-            client_at.run_test('login_LoginSuccess', arc_mode='enabled')
-        else:
-            logging.info('Not attempting login test because %s is older than '
-                         '%d.', release_string, self._LOGINABLE_MINIMUM_RELEASE)
-
-
-    def _start_perf_mon(self, bindir):
-        """Starts monitoring performance and resource usage on a DUT.
-
-        Call _stop_perf_mon() with the returned PID to stop monitoring
-        and collect the results.
-
-        @param bindir: Directoy containing monitoring script.
-
-        @return The PID of the newly created DUT monitoring process.
-        """
-        # We can't assume much about the source image so we copy the
-        # performance monitoring script to the DUT directly.
-        path = os.path.join(bindir, 'update_engine_performance_monitor.py')
-        self._host.send_file(path, '/tmp')
-        cmd = 'python /tmp/update_engine_performance_monitor.py --start-bg'
-        return int(self._host.run(cmd).stdout)
-
-
-    def _stop_perf_mon(self, perf_mon_pid):
-        """Stops monitoring performance and resource usage on a DUT.
-
-        @param perf_mon_pid: the PID returned from _start_perf_mon().
-
-        @return Dictionary containing performance attributes, or None if
-                unavailable.
-        """
-        # Gracefully handle problems with performance monitoring by
-        # just returning None.
-        try:
-            cmd = ('python /tmp/update_engine_performance_monitor.py '
-                   '--stop-bg=%d') % perf_mon_pid
-            perf_json_txt = self._host.run(cmd).stdout
-            return json.loads(perf_json_txt)
-        except Exception as e:
-            logging.warning('Failed to parse output from '
-                            'update_engine_performance_monitor.py: %s', e)
-        return None
+    def _run_login_test(self, tag):
+        """Runs login_LoginSuccess test on the DUT."""
+        client_at = autotest.Autotest(self._host)
+        client_at.run_test('login_LoginSuccess', tag=tag)
 
 
     # Interface overrides.
     #
-    def initialize(self, autotest_devserver, devserver_dir):
+    def initialize(self, autotest_devserver, results_dir):
         self._autotest_devserver = autotest_devserver
-        self._devserver_dir = devserver_dir
+        self._results_dir = results_dir
 
 
     def reboot_device(self):
@@ -1130,18 +732,13 @@ class ChromiumOSTestPlatform(TestPlatform):
         return self._staged_urls
 
 
-    def prep_device_for_update(self, source_release):
+    def prep_device_for_update(self, source_payload_uri):
         # Install the source version onto the DUT.
         if self._staged_urls.source_url:
-            logging.info('Installing a source image on the DUT')
-            devserver_hostname = urlparse.urlparse(
-                    self._autotest_devserver.url()).hostname
-            self._install_source_version(devserver_hostname,
-                                         self._staged_urls.source_url,
-                                         self._staged_urls.source_stateful_url)
+            self._install_version(source_payload_uri, clobber_stateful=True)
 
-        # Make sure we can login before the update.
-        self._run_login_test(source_release)
+        # Make sure we can login before the target update.
+        self._run_login_test('source_update')
 
 
     def get_active_slot(self):
@@ -1149,28 +746,36 @@ class ChromiumOSTestPlatform(TestPlatform):
 
 
     def start_update_perf(self, bindir):
-        if self._perf_mon_pid is None:
-            self._perf_mon_pid = self._start_perf_mon(bindir)
+        """Copy performance monitoring script to DUT.
+
+        The updater will kick off the script during the update.
+        """
+        path = os.path.join(bindir, UPDATE_ENGINE_PERF_SCRIPT)
+        self._host.send_file(path, UPDATE_ENGINE_PERF_PATH)
 
 
-    def stop_update_perf(self):
-        perf_data = None
-        if self._perf_mon_pid is not None:
-            perf_data = self._stop_perf_mon(self._perf_mon_pid)
-            self._perf_mon_pid = None
+    def stop_update_perf(self, resultdir):
+        """ Copy the performance metrics back from the DUT."""
+        try:
+            path = os.path.join('/var/log', UPDATE_ENGINE_PERF_RESULTS_FILE)
+            self._host.get_file(path, resultdir)
+            self._host.run('rm %s' % path)
+            script = os.path.join(UPDATE_ENGINE_PERF_PATH,
+                                  UPDATE_ENGINE_PERF_SCRIPT)
+            self._host.run('rm %s' % script)
+            return os.path.join(resultdir, UPDATE_ENGINE_PERF_RESULTS_FILE)
+        except:
+            logging.debug('Failed to copy performance metrics from DUT.')
+            return None
 
-        return perf_data
 
-
-    def trigger_update(self, omaha_devserver):
-        updater = autoupdater.ChromiumOSUpdater(
-                omaha_devserver.get_update_url(), host=self._host)
-        updater.trigger_update()
-
+    def trigger_update(self, target_payload_uri):
+        logging.info('Updating device to target image.')
+        return self._install_version(target_payload_uri)
 
     def finalize_update(self):
-        self._update_via_test_payloads(
-                None, None, self._staged_urls.target_stateful_url, False)
+        # Stateful update is controlled by cros_au
+        pass
 
 
     def get_update_log(self, num_lines):
@@ -1179,194 +784,13 @@ class ChromiumOSTestPlatform(TestPlatform):
                 stdout_tee=None)
 
 
-    def check_device_after_update(self, target_release):
+    def check_device_after_update(self):
         # Make sure we can login after update.
-        self._run_login_test(target_release)
+        self._run_login_test('target_update')
 
 
-class BrilloTestPlatform(TestPlatform):
-    """A TestPlatform implementation for Brillo."""
-
-    _URL_DEFAULT_PORT = 80
-    _DUT_LOCALHOST = '127.0.0.1'
-
-    def __init__(self, host):
-        self._host = host
-        self._autotest_devserver = None
-        self._devserver_dir = None
-        self._staged_urls = None
-        self._forwarding_ports = set()
-
-
-    @classmethod
-    def _get_host_port(cls, url):
-        """Returns the host and port values from a given URL.
-
-        @param url: The URL from which the values are extracted.
-
-        @return A pair consisting of the host and port strings.
-        """
-        host, _, port = urlparse.urlsplit(url).netloc.partition(':')
-        return host, port or str(cls._URL_DEFAULT_PORT)
-
-
-    def _install_rev_forwarding(self, port=None):
-        """Installs reverse forwarding rules via ADB.
-
-        @param port: The TCP port we want forwarded; if None, installs all
-                     previously configured ports.
-        """
-        ports = self._forwarding_ports if port is None else [port]
-        for port in ports:
-            port_spec = 'tcp:%s' % port
-            self._host.add_forwarding(port_spec, port_spec, reverse=True)
-
-
-    def _add_rev_forwarding(self, url):
-        """Configures reverse port forwarding and adjusts the given URL.
-
-        This extracts the port from the URL, adds it to the set of configured
-        forwarding ports, installs it to the DUT, then returns the adjusted URL
-        for use by the DUT.
-
-        @param url: The URL for which we need to establish forwarding.
-
-        @return: The adjusted URL for use on the DUT.
-        """
-        if url:
-            host, port = self._get_host_port(url)
-            if port not in self._forwarding_ports:
-                self._forwarding_ports.add(port)
-                self._install_rev_forwarding(port=port)
-            url = url.replace(host, self._DUT_LOCALHOST, 1)
-        return url
-
-
-    def _remove_rev_forwarding(self, url=None):
-        """Removes a reverse port forwarding.
-
-        @param url: The URL for which forwarding was established; if None,
-                    removes all previously configured ports.
-        """
-        ports = set()
-        if url is None:
-            ports.update(self._forwarding_ports)
-        else:
-            _, port = self._get_host_port(url)
-            if port in self._forwarding_ports:
-                ports.add(port)
-
-        # TODO(garnold) Enable once ADB port removal is fixed (b/24771474):
-        # for port in ports:
-        #     self._host.remove_forwarding(src='tcp:%s' % port, reverse=True)
-
-        self._forwarding_ports.difference_update(ports)
-
-
-    def _install_source_version(self, devserver_hostname, payload_url):
-        """Installs a source version onto the test device.
-
-        @param devserver_hostname: Redirect updates through this host.
-        @param payload_url: URL of staged payload for installing a source image.
-        """
-        try:
-            # Start a private Omaha server and update the DUT.
-            temp_devserver = None
-            url = None
-            try:
-                temp_devserver = OmahaDevserver(
-                        devserver_hostname, self._devserver_dir, payload_url)
-                temp_devserver.start_devserver()
-                url = self._add_rev_forwarding(temp_devserver.get_update_url())
-                updater = autoupdater.BrilloUpdater(url, host=self._host)
-                updater.update_image()
-            finally:
-                if url:
-                    self._remove_rev_forwarding(url)
-                if temp_devserver:
-                    temp_devserver.stop_devserver()
-
-            # Reboot the DUT.
-            self.reboot_device()
-        except OmahaDevserverFailedToStart as e:
-            logging.fatal('Failed to start private devserver for installing '
-                          'the source payload (%s) on the DUT', payload_url)
-            raise error.TestError(
-                    'Failed to start private devserver for installing the '
-                    'source image on the DUT: %s' % e)
-        except error.AutoservRunError as e:
-            logging.fatal('Error re-imaging or rebooting the DUT with the '
-                          'source image from %s', payload_url)
-            raise error.TestError('Failed to install the source image or '
-                                  'reboot the DUT: %s' % e)
-
-
-    # Interface overrides.
-    #
-    def initialize(self, autotest_devserver, devserver_dir):
-        self._autotest_devserver = autotest_devserver
-        self._devserver_dir = devserver_dir
-
-
-    def reboot_device(self):
-        self._host.reboot()
-        self._install_rev_forwarding()
-
-
-    def prep_artifacts(self, test_conf):
-        # TODO(garnold) Currently we don't stage anything and assume that the
-        # provided URLs are of pre-staged payloads. We should implement staging
-        # support once a release scheme for Brillo is finalized.
-        self._staged_urls = self.StagedURLs(
-                self._add_rev_forwarding(test_conf['source_payload_uri']), None,
-                self._add_rev_forwarding(test_conf['target_payload_uri']), None)
-        return self._staged_urls
-
-
-    def prep_device_for_update(self, source_release):
-        # Install the source version onto the DUT.
-        if self._staged_urls.source_url:
-            logging.info('Installing a source image on the DUT')
-            devserver_hostname = urlparse.urlparse(
-                    self._autotest_devserver.url()).hostname
-            self._install_source_version(devserver_hostname,
-                                         self._staged_urls.source_url)
-
-
-    def get_active_slot(self):
-        return self._host.run('rootdev -s /system').stdout.strip()
-
-
-    def start_update_perf(self, bindir):
-        pass
-
-
-    def stop_update_perf(self):
-        pass
-
-
-    def trigger_update(self, omaha_devserver):
-        url = self._add_rev_forwarding(omaha_devserver.get_update_url())
-        updater = autoupdater.BrilloUpdater(url, host=self._host)
-        updater.trigger_update()
-
-
-    def finalize_update(self):
-        pass
-
-
-    def get_update_log(self, num_lines):
-        return self._host.run_output(
-                'logcat -d -s update_engine | tail -n %d' % num_lines,
-                stdout_tee=None)
-
-
-    def check_device_after_update(self, target_release):
-        self._remove_rev_forwarding()
-        # TODO(garnold) Port forwarding removal is broken in ADB (b/24771474).
-        # Instead we reboot the device, which has the side-effect of flushing
-        # all forwarding rules. Once fixed, the following should be removed.
-        self.reboot_device()
+    def oobe_triggers_update(self):
+        return self._host.oobe_triggers_update()
 
 
 class autoupdate_EndToEndTest(test.test):
@@ -1377,14 +801,16 @@ class autoupdate_EndToEndTest(test.test):
 
       1. Stages the source (full) and target update payload on the central
          devserver.
-      2. Spawns a private Omaha-like devserver instance, configured to return
-         the target (update) payload URL in response for an update check.
-      3. Reboots the DUT.
-      4. Installs a source image on the DUT (if provided) and reboots to it.
-      5. Triggers an update check at the DUT.
-      6. Watches as the DUT obtains an update and applies it.
-      7. Reboots and repeats steps 5-6, ensuring that the next update check
+      2. Installs a source image on the DUT (if provided) and reboots to it.
+      3. Then starts the target update by calling cros_au RPC on the devserver.
+      4. This copies the devserver code and all payloads to the DUT.
+      5. Starts a devserver on the DUT.
+      6. Starts an update pointing to this local devserver.
+      7. Watches as the DUT applies the update to rootfs and stateful.
+      8. Reboots and repeats steps 5-6, ensuring that the next update check
          shows the new image version.
+      9. Returns the hostlogs collected during each update check for
+         verification against expected update events.
 
     Some notes on naming:
       devserver: Refers to a machine running the Chrome OS Update Devserver.
@@ -1393,50 +819,23 @@ class autoupdate_EndToEndTest(test.test):
                           this can also be used to update a machine, we do not
                           use it for that purpose in this test as we manage
                           updates with out own devserver instances (see below).
-      omaha_devserver: This test's wrapper of a devserver running for the
-                       purposes of emulating omaha. This test controls the
-                       lifetime of this devserver instance and is separate
-                       from the autotest lab's devserver's instances which are
-                       only used for staging and hosting artifacts (because they
-                       scale). These are run on the same machines as the actual
-                       autotest devservers which are used for staging but on
-                       different ports.
       *staged_url's: In this case staged refers to the fact that these items
                      are available to be downloaded statically from these urls
                      e.g. 'localhost:8080/static/my_file.gz'. These are usually
                      given after staging an artifact using a autotest_devserver
                      though they can be re-created given enough assumptions.
-      *update_url's: Urls refering to the update RPC on a given omaha devserver.
-                     Since we always use an instantiated omaha devserver to run
-                     updates, these will always reference an existing instance
-                     of an omaha devserver that we just created for the purposes
-                     of updating.
-      devserver_hostname: At the start of each test, we choose a devserver
-                          machine in the lab for the test. We use the devserver
-                          instance there (access by autotest_devserver) to stage
-                          artifacts. However, we also use the same host to start
-                          omaha devserver instances for updating machines with
-                          (that reference the staged paylaods on the autotest
-                          devserver instance). This hostname refers to that
-                          machine we are using (since it's always the same for
-                          both staging/omaha'ing).
-
     """
     version = 1
 
     # Timeout periods, given in seconds.
-    _WAIT_AFTER_SHUTDOWN_SECONDS = 10
-    _WAIT_AFTER_UPDATE_SECONDS = 20
-    _WAIT_FOR_USB_INSTALL_SECONDS = 4 * 60
-    _WAIT_FOR_MP_RECOVERY_SECONDS = 8 * 60
     _WAIT_FOR_INITIAL_UPDATE_CHECK_SECONDS = 12 * 60
     # TODO(sosa): Investigate why this needs to be so long (this used to be
     # 120 and regressed).
     _WAIT_FOR_DOWNLOAD_STARTED_SECONDS = 4 * 60
-    _WAIT_FOR_DOWNLOAD_COMPLETED_SECONDS = 10 * 60
+    # See https://crbug.com/731214 before changing WAIT_FOR_DOWNLOAD
+    _WAIT_FOR_DOWNLOAD_COMPLETED_SECONDS = 20 * 60
     _WAIT_FOR_UPDATE_COMPLETED_SECONDS = 4 * 60
     _WAIT_FOR_UPDATE_CHECK_AFTER_REBOOT_SECONDS = 15 * 60
-    _DEVSERVER_HOSTLOG_REQUEST_TIMEOUT_SECONDS = 30
 
     # Logs and their whereabouts.
     _WHERE_UPDATE_LOG = ('update_engine log (in sysinfo or on the DUT, also '
@@ -1450,13 +849,6 @@ class autoupdate_EndToEndTest(test.test):
         self._omaha_devserver = None
         self._source_image_installed = False
 
-        self._devserver_dir = global_config.global_config.get_config_value(
-                'CROS', 'devserver_dir', default=None)
-        if self._devserver_dir is None:
-            raise error.TestError(
-                    'Path to devserver source tree not provided; please define '
-                    'devserver_dir under [CROS] in your shadow_config.ini')
-
 
     def cleanup(self):
         """Kill the omaha devserver if it's still around."""
@@ -1464,6 +856,24 @@ class autoupdate_EndToEndTest(test.test):
             self._omaha_devserver.stop_devserver()
 
         self._omaha_devserver = None
+
+
+    def _get_hostlog_file(self, filename, pid):
+        """Return the hostlog file location.
+
+        @param filename: The partial filename to look for.
+        @param pid: The pid of the update.
+
+        """
+        hosts = [self._host.hostname, self._host.ip]
+        for host in hosts:
+            hostlog = '%s_%s_%s' % (filename, host, pid)
+            file_url = os.path.join(self.job.resultdir,
+                                    dev_server.AUTO_UPDATE_LOG_DIR,
+                                    hostlog)
+            if os.path.exists(file_url):
+                return file_url
+        raise error.TestFail('Could not find %s for pid %s' % (filename, pid))
 
 
     def _dump_update_engine_log(self, test_platform):
@@ -1477,14 +887,22 @@ class autoupdate_EndToEndTest(test.test):
             pass
 
 
-    def _report_perf_data(self, perf_data):
+    def _report_perf_data(self, perf_file):
         """Reports performance and resource data.
 
         Currently, performance attributes are expected to include 'rss_peak'
         (peak memory usage in bytes).
 
-        @param perf_data: A dictionary containing performance attributes.
+        @param perf_file: A file with performance metrics.
         """
+        logging.debug('Reading perf results from %s.' % perf_file)
+        try:
+            with open(perf_file, 'r') as perf_file_handle:
+                perf_data = json.loads(perf_file_handle.read())
+        except Exception as e:
+            logging.warning('Error while reading the perf data file: %s' % e)
+            return
+
         rss_peak = perf_data.get('rss_peak')
         if rss_peak:
             rss_peak_kib = rss_peak / 1024
@@ -1494,8 +912,8 @@ class autoupdate_EndToEndTest(test.test):
                                    units='KiB',
                                    higher_is_better=False)
         else:
-            logging.warning('No rss_peak key in JSON returned by '
-                            'update_engine_performance_monitor.py')
+            logging.warning('No rss_peak key in JSON returned by %s',
+                            UPDATE_ENGINE_PERF_SCRIPT)
 
 
     def _error_initial_check(self, expected, actual, mismatched_attrs):
@@ -1622,22 +1040,17 @@ class autoupdate_EndToEndTest(test.test):
         source_release = test_conf['source_release']
         target_release = test_conf['target_release']
 
-        # Start the performance monitoring process on the DUT.
         test_platform.start_update_perf(self.bindir)
         try:
-            # Trigger an update.
-            test_platform.trigger_update(self._omaha_devserver)
+            # Update the DUT to the target image.
+            pid = test_platform.trigger_update(test_conf['target_payload_uri'])
 
-            # Track update progress.
-            omaha_netloc = self._omaha_devserver.get_netloc()
-            omaha_hostlog_url = urlparse.urlunsplit(
-                    ['http', omaha_netloc, '/api/hostlog',
-                     'ip=' + self._host.ip, ''])
-            logging.info('Polling update progress from omaha/devserver: %s',
-                         omaha_hostlog_url)
-            log_verifier = UpdateEventLogVerifier(
-                    omaha_hostlog_url,
-                    self._DEVSERVER_HOSTLOG_REQUEST_TIMEOUT_SECONDS)
+            # Verify the host log that was returned from the update.
+            file_url = self._get_hostlog_file('devserver_hostlog_rootfs', pid)
+
+            logging.info('Checking update steps with devserver hostlog file: '
+                         '%s' % file_url)
+            log_verifier = UpdateEventLogVerifier(file_url)
 
             # Verify chain of events in a successful update process.
             chain = ExpectedUpdateEventChain()
@@ -1685,51 +1098,58 @@ class autoupdate_EndToEndTest(test.test):
 
             log_verifier.verify_expected_events_chain(chain)
 
-            # Wait after an update completion (safety margin).
-            _wait(self._WAIT_AFTER_UPDATE_SECONDS, 'after update completion')
-        finally:
-            # Terminate perf monitoring process and collect its output.
-            perf_data = test_platform.stop_update_perf()
-            if perf_data:
-                self._report_perf_data(perf_data)
+        except:
+            logging.fatal('ERROR: Failure occurred during the target update.')
+            raise
 
-        # Only update the stateful partition (the test updated the rootfs).
-        test_platform.finalize_update()
+        perf_file = test_platform.stop_update_perf(self.job.resultdir)
+        if perf_file is not None:
+            self._report_perf_data(perf_file)
 
-        # Reboot the DUT after the update.
-        test_platform.reboot_device()
+        if test_platform.oobe_triggers_update():
+            # If DUT automatically checks for update during OOBE,
+            # checking the post-update CrOS version and slot is sufficient.
+            # This command checks the OS version.
+            # The slot is checked a little later, after the else block.
+            logging.info('Skipping post reboot update check.')
+            test_platform.verify_version(target_release)
+        else:
+            # Observe post-reboot update check, which should indicate that the
+            # image version has been updated.
+            # Verify the host log that was returned from the update.
+            file_url = self._get_hostlog_file('devserver_hostlog_reboot', pid)
 
-        # Trigger a second update check (again, test vs MP).
-        test_platform.trigger_update(self._omaha_devserver)
+            logging.info('Checking post-reboot devserver hostlogs: %s' %
+                         file_url)
+            log_verifier = UpdateEventLogVerifier(file_url)
 
-        # Observe post-reboot update check, which should indicate that the
-        # image version has been updated.
-        chain = ExpectedUpdateEventChain()
-        expected_events = [
-            ExpectedUpdateEvent(
-                event_type=EVENT_TYPE_UPDATE_COMPLETE,
-                event_result=EVENT_RESULT_SUCCESS_REBOOT,
-                version=target_release,
-                previous_version=source_release,
-                on_error=self._error_reboot_after_update),
-            # Newer versions send a "rebooted_after_update" message after reboot
-            # with the previous version instead of another "update_complete".
-            ExpectedUpdateEvent(
-                event_type=EVENT_TYPE_REBOOTED_AFTER_UPDATE,
-                event_result=EVENT_RESULT_SUCCESS,
-                version=target_release,
-                previous_version=source_release,
-                on_error=self._error_reboot_after_update),
-        ]
-        chain.add_event(
-                expected_events,
-                self._WAIT_FOR_UPDATE_CHECK_AFTER_REBOOT_SECONDS,
-                on_timeout=self._timeout_err(
-                        'a successful reboot notification',
-                        self._WAIT_FOR_UPDATE_CHECK_AFTER_REBOOT_SECONDS,
-                        event_type=EVENT_TYPE_UPDATE_COMPLETE))
+            chain = ExpectedUpdateEventChain()
+            expected_events = [
+                ExpectedUpdateEvent(
+                    event_type=EVENT_TYPE_UPDATE_COMPLETE,
+                    event_result=EVENT_RESULT_SUCCESS_REBOOT,
+                    version=target_release,
+                    previous_version=source_release,
+                    on_error=self._error_reboot_after_update),
+                # Newer versions send a "rebooted_after_update" message
+                # after reboot with the previous version instead of another
+                # "update_complete".
+                ExpectedUpdateEvent(
+                    event_type=EVENT_TYPE_REBOOTED_AFTER_UPDATE,
+                    event_result=EVENT_RESULT_SUCCESS,
+                    version=target_release,
+                    previous_version=source_release,
+                    on_error=self._error_reboot_after_update),
+            ]
+            chain.add_event(
+                    expected_events,
+                    self._WAIT_FOR_UPDATE_CHECK_AFTER_REBOOT_SECONDS,
+                    on_timeout=self._timeout_err(
+                            'a successful reboot notification',
+                            self._WAIT_FOR_UPDATE_CHECK_AFTER_REBOOT_SECONDS,
+                            event_type=EVENT_TYPE_UPDATE_COMPLETE))
 
-        log_verifier.verify_expected_events_chain(chain)
+            log_verifier.verify_expected_events_chain(chain)
 
         # Make sure we're using a different slot after the update.
         target_active_slot = test_platform.get_active_slot()
@@ -1757,21 +1177,17 @@ class autoupdate_EndToEndTest(test.test):
         logging.info('Update successful, test completed')
 
 
-    # TODO(garnold) Remove the use_servo argument once control files on all
-    # release branches have caught up.
-    def run_once(self, host, test_conf, use_servo=False):
+    def run_once(self, host, test_conf):
         """Performs a complete auto update test.
 
         @param host: a host object representing the DUT
         @param test_conf: a dictionary containing test configuration values
-        @param use_servo: DEPRECATED
 
         @raise error.TestError if anything went wrong with setting up the test;
                error.TestFail if any part of the test has failed.
-
         """
-
         self._host = host
+        logging.debug('The test configuration supplied: %s', test_conf)
 
         # Find a devserver to use. We first try to pick a devserver with the
         # least load. In case all devservers' load are higher than threshold,
@@ -1779,43 +1195,41 @@ class autoupdate_EndToEndTest(test.test):
         # payload URI, with which ImageServer.resolve will return a random
         # devserver based on the hash of the URI.
         # The picked devserver needs to respect the location of the host if
-        # `prefer_local_devserver` is set to True or `restricted_subnets` is
+        # 'prefer_local_devserver' is set to True or 'restricted_subnets' is
         # set.
         hostname = self._host.hostname if self._host else None
         least_loaded_devserver = dev_server.get_least_loaded_devserver(
                 hostname=hostname)
         if least_loaded_devserver:
-            logging.debug('Choose the least loaded devserver: %s',
+            logging.debug('Choosing the least loaded devserver: %s',
                           least_loaded_devserver)
             autotest_devserver = dev_server.ImageServer(least_loaded_devserver)
         else:
             logging.warning('No devserver meets the maximum load requirement. '
-                            'Pick a random devserver to use.')
+                            'Picking a random devserver to use.')
             autotest_devserver = dev_server.ImageServer.resolve(
                     test_conf['target_payload_uri'], host.hostname)
         devserver_hostname = urlparse.urlparse(
                 autotest_devserver.url()).hostname
 
+        logging.info('Devserver chosen for this run: %s', devserver_hostname)
+
         # Obtain a test platform implementation.
         test_platform = TestPlatform.create(host)
-        test_platform.initialize(autotest_devserver, self._devserver_dir)
+        test_platform.initialize(autotest_devserver, self.job.resultdir)
 
-        # Stage source images and update payloads onto a devserver.
+        # Stage source images and update payloads onto the devserver.
         staged_urls = test_platform.prep_artifacts(test_conf)
         self._source_image_installed = bool(staged_urls.source_url)
 
         # Prepare the DUT (install source version etc).
-        test_platform.prep_device_for_update(test_conf['source_release'])
+        test_platform.prep_device_for_update(test_conf['source_payload_uri'])
 
-        self._omaha_devserver = OmahaDevserver(
-                devserver_hostname, self._devserver_dir,
-                staged_urls.target_url)
-        self._omaha_devserver.start_devserver()
-
+        # Start the update.
         try:
             self.run_update_test(test_platform, test_conf)
         except ExpectedUpdateEventChainFailed:
             self._dump_update_engine_log(test_platform)
             raise
 
-        test_platform.check_device_after_update(test_conf['target_release'])
+        test_platform.check_device_after_update()

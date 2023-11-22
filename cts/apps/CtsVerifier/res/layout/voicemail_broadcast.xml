@@ -14,81 +14,86 @@
      limitations under the License.
 -->
 
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-  android:orientation="vertical"
-  android:layout_width="match_parent"
-  android:layout_height="match_parent">
-  <TextView
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:text="@string/voicemail_broadcast_instructions"/>
+    android:layout_height="match_parent"
+    style="@style/RootLayoutPadding">
   <LinearLayout
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:layout_marginTop="@dimen/js_padding"
-    android:layout_marginBottom="@dimen/js_padding">
-    <ImageView
-      android:id="@+id/set_default_dialer_image"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:src="@drawable/fs_indeterminate"
-      android:layout_marginRight="@dimen/js_padding"/>
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:orientation="vertical">
     <TextView
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:text="@string/voicemail_broadcast_instructions"/>
+    <LinearLayout
       android:layout_width="wrap_content"
       android:layout_height="wrap_content"
-      android:text="@string/voicemail_set_default_dialer_description"
-      android:textSize="16dp"/>
+      android:layout_marginTop="@dimen/js_padding"
+      android:layout_marginBottom="@dimen/js_padding">
+      <ImageView
+        android:id="@+id/set_default_dialer_image"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/fs_indeterminate"
+        android:layout_marginRight="@dimen/js_padding"/>
+      <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/voicemail_set_default_dialer_description"
+        android:textSize="16dp"/>
+    </LinearLayout>
+
+    <Button
+      android:id="@+id/set_default_dialer"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:text="@string/voicemail_set_default_dialer_button"/>
+
+    <LinearLayout
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="@dimen/js_padding"
+      android:layout_marginBottom="@dimen/js_padding">
+      <ImageView
+        android:id="@+id/leave_voicemail_image"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/fs_indeterminate"
+        android:layout_marginRight="@dimen/js_padding"/>
+      <TextView
+        android:id="@+id/leave_voicemail_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/voicemail_leave_voicemail"
+        android:textSize="16dp"/>
+    </LinearLayout>
+
+    <LinearLayout
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="@dimen/js_padding"
+      android:layout_marginBottom="@dimen/js_padding">
+      <ImageView
+        android:id="@+id/restore_default_dialer_image"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/fs_indeterminate"
+        android:layout_marginRight="@dimen/js_padding"/>
+      <TextView
+        android:id="@+id/restore_default_dialer_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/voicemail_restore_default_dialer_description"
+        android:textSize="16dp"/>
+    </LinearLayout>
+
+    <Button
+      android:id="@+id/restore_default_dialer"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:text="@string/voicemail_restore_default_dialer_button"/>
+
+    <include layout="@layout/pass_fail_buttons" />
   </LinearLayout>
-
-  <Button
-    android:id="@+id/set_default_dialer"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:text="@string/voicemail_set_default_dialer_button"/>
-
-  <LinearLayout
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:layout_marginTop="@dimen/js_padding"
-    android:layout_marginBottom="@dimen/js_padding">
-    <ImageView
-      android:id="@+id/leave_voicemail_image"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:src="@drawable/fs_indeterminate"
-      android:layout_marginRight="@dimen/js_padding"/>
-    <TextView
-      android:id="@+id/leave_voicemail_text"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:text="@string/voicemail_leave_voicemail"
-      android:textSize="16dp"/>
-  </LinearLayout>
-
-  <LinearLayout
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:layout_marginTop="@dimen/js_padding"
-    android:layout_marginBottom="@dimen/js_padding">
-    <ImageView
-      android:id="@+id/restore_default_dialer_image"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:src="@drawable/fs_indeterminate"
-      android:layout_marginRight="@dimen/js_padding"/>
-    <TextView
-      android:id="@+id/restore_default_dialer_text"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:text="@string/voicemail_restore_default_dialer_description"
-      android:textSize="16dp"/>
-  </LinearLayout>
-
-  <Button
-    android:id="@+id/restore_default_dialer"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:text="@string/voicemail_restore_default_dialer_button"/>
-
-  <include layout="@layout/pass_fail_buttons" />
-</LinearLayout>
+</ScrollView>

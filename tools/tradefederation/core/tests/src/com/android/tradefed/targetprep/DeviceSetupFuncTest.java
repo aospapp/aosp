@@ -16,38 +16,51 @@
 
 package com.android.tradefed.targetprep;
 
+import static org.junit.Assert.*;
+
 import com.android.ddmlib.Log;
 import com.android.tradefed.build.DeviceBuildInfo;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.build.IDeviceBuildInfo;
 import com.android.tradefed.device.ITestDevice;
-import com.android.tradefed.testtype.DeviceTestCase;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.testtype.IDeviceTest;
 
-/**
- * Functional tests for {@link DeviceSetup}.
- */
-public class DeviceSetupFuncTest extends DeviceTestCase {
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+/** Functional tests for {@link DeviceSetup}. */
+@RunWith(DeviceJUnit4ClassRunner.class)
+public class DeviceSetupFuncTest implements IDeviceTest {
 
     private static final String LOG_TAG = "DeviceSetupFuncTest";
     private DeviceSetup mDeviceSetup;
+    private ITestDevice mDevice;
     private IDeviceBuildInfo mMockBuildInfo;
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    public void setDevice(ITestDevice device) {
+        mDevice = device;
+    }
 
+    @Override
+    public ITestDevice getDevice() {
+        return mDevice;
+    }
+
+    @Before
+    public void setUp() throws Exception {
         mMockBuildInfo = new DeviceBuildInfo("0", "");
         mDeviceSetup = new DeviceSetup();
     }
 
     /**
      * Simple normal case test for {@link DeviceSetup#setUp(ITestDevice, IBuildInfo)}.
-     * <p/>
-     * Do setup and verify a few expected properties
+     *
+     * <p>Do setup and verify a few expected properties
      */
+    @Test
     public void testSetup() throws Exception {
         Log.i(LOG_TAG, "testSetup()");
 

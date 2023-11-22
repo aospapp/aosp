@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2015-2017 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -83,7 +84,7 @@
 #if GNUC_PREREQ(4, 1)
 # define ALIGNOF(t_)	__alignof__(t_)
 #else
-# define ALIGNOF(t_)	(sizeof(struct {char x_; t_ y_;}) - sizeof(t_))
+# define ALIGNOF(t_)	(sizeof(struct { char x_; t_ y_; }) - sizeof(t_))
 #endif
 
 #if GNUC_PREREQ(4, 3)

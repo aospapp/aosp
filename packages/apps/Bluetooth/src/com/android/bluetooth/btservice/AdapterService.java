@@ -122,6 +122,7 @@ public class AdapterService extends Service {
     public static final String BLUETOOTH_PRIVILEGED =
                 android.Manifest.permission.BLUETOOTH_PRIVILEGED;
     static final String BLUETOOTH_PERM = android.Manifest.permission.BLUETOOTH;
+    static final String LOCAL_MAC_ADDRESS_PERM = android.Manifest.permission.LOCAL_MAC_ADDRESS;
     static final String RECEIVE_MAP_PERM = android.Manifest.permission.RECEIVE_BLUETOOTH_MAP;
 
     private static final String PHONEBOOK_ACCESS_PERMISSION_PREFERENCE_FILE =
@@ -216,12 +217,6 @@ public class AdapterService extends Service {
                 debugLog("AdapterService() - REFCOUNT: CREATED. INSTANCE_COUNT" + sRefCount);
             }
         }
-
-        // This is initialized at the beginning in order to prevent
-        // NullPointerException from happening if AdapterService
-        // functions are called before BLE is turned on due to
-        // |mRemoteDevices| being null.
-        mRemoteDevices = new RemoteDevices(this);
     }
 
     public void addProfile(ProfileService profile) {
@@ -393,6 +388,8 @@ public class AdapterService extends Service {
     public void onCreate() {
         super.onCreate();
         debugLog("onCreate()");
+        mRemoteDevices = new RemoteDevices(this);
+        mRemoteDevices.init();
         mBinder = new AdapterServiceBinder(this);
         mAdapterProperties = new AdapterProperties(this);
         mAdapterStateMachine =  AdapterState.make(this, mAdapterProperties);
@@ -486,7 +483,7 @@ public class AdapterService extends Service {
         // turned off then on. The same effect can be achieved by
         // calling cleanup but this may not be necessary at all
         // We should figure out why this is needed later
-        mRemoteDevices.cleanup();
+        mRemoteDevices.reset();
         mAdapterProperties.init(mRemoteDevices);
 
         debugLog("BleOnProcessStart() - Make Bond State Machine");
@@ -1273,6 +1270,17 @@ public class AdapterService extends Service {
             return service.sdpSearch(device,uuid);
         }
 
+        public int getBatteryLevel(BluetoothDevice device) {
+            if (!Utils.checkCaller()) {
+                Log.w(TAG, "getBatteryLevel(): not allowed for non-active user");
+                return BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
+            }
+
+            AdapterService service = getService();
+            if (service == null) return BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
+            return service.getBatteryLevel(device);
+        }
+
         public boolean factoryReset() {
             AdapterService service = getService();
             if (service == null) return false;
@@ -1431,6 +1439,7 @@ public class AdapterService extends Service {
 
      String getAddress() {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        enforceCallingOrSelfPermission(LOCAL_MAC_ADDRESS_PERM, "Need LOCAL_MAC_ADDRESS permission");
 
         String addrString = null;
         byte[] address = mAdapterProperties.getAddress();
@@ -1490,6 +1499,7 @@ public class AdapterService extends Service {
     }
 
      boolean startDiscovery() {
+        debugLog("startDiscovery");
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM,
                                        "Need BLUETOOTH ADMIN permission");
 
@@ -1497,6 +1507,7 @@ public class AdapterService extends Service {
     }
 
      boolean cancelDiscovery() {
+        debugLog("cancelDiscovery");
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM,
                                        "Need BLUETOOTH ADMIN permission");
 
@@ -1685,6 +1696,13 @@ public class AdapterService extends Service {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         mRemoteDevices.fetchUuids(device);
         return true;
+    }
+
+    int getBatteryLevel(BluetoothDevice device) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
+        if (deviceProp == null) return BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
+        return deviceProp.getBatteryLevel();
     }
 
     boolean setPin(BluetoothDevice device, boolean accept, int len, byte[] pinCode) {

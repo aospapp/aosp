@@ -24,4 +24,4 @@ This test verifies VP9 non-resolution-changing video can seek on machines with V
 """
 
 video = 'http://commondatastorage.googleapis.com/chromiumos-test-assets-public/Shaka-Dash/720.webm'
-job.run_test('video_VideoSeek', video=video)
+job.run_test('video_VideoSeek', codec='vp9', is_switchres=False, video=video)

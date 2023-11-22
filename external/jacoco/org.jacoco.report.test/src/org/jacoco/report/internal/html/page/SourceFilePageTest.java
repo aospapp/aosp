@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -52,15 +52,15 @@ public class SourceFilePageTest extends PageTestBase {
 				.getFile("SourceFilePageTest.java.html"));
 
 		// additional style sheet
-		assertEquals(".resources/report.css", support.findStr(result,
+		assertEquals("jacoco-resources/report.css", support.findStr(result,
 				"/html/head/link[@rel='stylesheet'][1]/@href"));
-		assertEquals(".resources/prettify.css", support.findStr(result,
+		assertEquals("jacoco-resources/prettify.css", support.findStr(result,
 				"/html/head/link[@rel='stylesheet'][2]/@href"));
 
 		// highlighting script
 		assertEquals("text/javascript",
 				support.findStr(result, "/html/head/script/@type"));
-		assertEquals(".resources/prettify.js",
+		assertEquals("jacoco-resources/prettify.js",
 				support.findStr(result, "/html/head/script/@src"));
 		assertEquals("window['PR_TAB_WIDTH']=4;prettyPrint()",
 				support.findStr(result, "/html/body/@onload"));

@@ -9,7 +9,7 @@ from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.test_utils import mock
 from autotest_lib.frontend import setup_django_lite_environment
 from autotest_lib.scheduler import drone_manager, drone_utility, drones
-from autotest_lib.scheduler import scheduler_config, site_drone_manager
+from autotest_lib.scheduler import scheduler_config, drone_manager
 from autotest_lib.scheduler import thread_lib
 from autotest_lib.scheduler import pidfile_monitor
 from autotest_lib.server.hosts import ssh_host
@@ -322,9 +322,9 @@ class DroneManager(unittest.TestCase):
 
 
     def test_copy_to_results_repository(self):
-        site_drone_manager.ENABLE_ARCHIVING = True
-        self.manager.copy_to_results_repository(self.mock_drone_process,
-                                                self._SOURCE_PATH)
+        drone_manager.ENABLE_ARCHIVING = True
+        self.manager._copy_to_results_repository(self.mock_drone_process,
+                                                 self._SOURCE_PATH)
         self.assert_(self.mock_drone.was_file_sent(
                 self.results_drone,
                 os.path.join(self._DRONE_RESULTS_DIR, self._SOURCE_PATH),

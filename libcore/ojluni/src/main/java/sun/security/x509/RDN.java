@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2014 The Android Open Source Project
- * Copyright (c) 2002, 2006, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2002, 2011, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -28,6 +28,8 @@ package sun.security.x509;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.util.Arrays;
+import java.util.StringJoiner;
 import java.util.*;
 
 import sun.security.util.*;
@@ -443,31 +445,19 @@ public class RDN {
                                assertion[0].toRFC2253String(oidMap);
         }
 
-        StringBuilder relname = new StringBuilder();
-        if (!canonical) {
-            for (int i = 0; i < assertion.length; i++) {
-                if (i > 0) {
-                    relname.append('+');
-                }
-                relname.append(assertion[i].toRFC2253String(oidMap));
-            }
-        } else {
+        AVA[] toOutput = assertion;
+        if (canonical) {
             // order the string type AVA's alphabetically,
             // followed by the oid type AVA's numerically
-            List<AVA> avaList = new ArrayList<AVA>(assertion.length);
-            for (int i = 0; i < assertion.length; i++) {
-                avaList.add(assertion[i]);
-            }
-            java.util.Collections.sort(avaList, AVAComparator.getInstance());
-
-            for (int i = 0; i < avaList.size(); i++) {
-                if (i > 0) {
-                    relname.append('+');
-                }
-                relname.append(avaList.get(i).toRFC2253CanonicalString());
-            }
+            toOutput = assertion.clone();
+            Arrays.sort(toOutput, AVAComparator.getInstance());
         }
-        return relname.toString();
+        StringJoiner sj = new StringJoiner("+");
+        for (AVA ava : toOutput) {
+            sj.add(canonical ? ava.toRFC2253CanonicalString()
+                             : ava.toRFC2253String(oidMap));
+        }
+        return sj.toString();
     }
 
 }
@@ -488,11 +478,11 @@ class AVAComparator implements Comparator<AVA> {
      * AVA's containing a standard keyword are ordered alphabetically,
      * followed by AVA's containing an OID keyword, ordered numerically
      */
-    @Override
     public int compare(AVA a1, AVA a2) {
         boolean a1Has2253 = a1.hasRFC2253Keyword();
         boolean a2Has2253 = a2.hasRFC2253Keyword();
 
+        // BEGIN Android-changed: Keep sort order of RDN from Android M
         if (a1Has2253) {
             if (a2Has2253) {
                 return a1.toRFC2253CanonicalString().compareTo
@@ -516,6 +506,7 @@ class AVAComparator implements Comparator<AVA> {
                         a1Oid[pos] - a2Oid[pos];
             }
         }
+        // BEGIN Android-changed: Keep sort order of RDN from prev impl
     }
 
 }

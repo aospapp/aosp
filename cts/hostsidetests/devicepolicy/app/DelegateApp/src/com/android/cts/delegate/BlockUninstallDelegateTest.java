@@ -16,6 +16,7 @@
 package com.android.cts.delegate;
 
 import static android.app.admin.DevicePolicyManager.DELEGATION_BLOCK_UNINSTALL;
+import static com.android.cts.delegate.DelegateTestUtils.assertExpectException;
 
 import android.app.admin.DevicePolicyManager;
 import android.content.Context;
@@ -45,14 +46,11 @@ public class BlockUninstallDelegateTest extends InstrumentationTestCase {
     public void testCannotAccessApis() {
         assertFalse("DelegateApp should not be a block uninstall delegate",
             amIBlockUninstallDelegate());
-        try {
-            mDpm.setUninstallBlocked(null, TEST_APP_PKG, true);
-            fail("Expected SecurityException not thrown");
-        } catch (SecurityException expected) {
-            MoreAsserts.assertContainsRegex(
-                    "Caller with uid \\d+ is not a delegate of scope delegation-block-uninstall.",
-                    expected.getMessage());
-        }
+
+        assertExpectException(SecurityException.class,
+                "Caller with uid \\d+ is not a delegate of scope", () -> {
+                    mDpm.setUninstallBlocked(null, TEST_APP_PKG, true);
+                });
     }
 
     public void testCanAccessApis() {

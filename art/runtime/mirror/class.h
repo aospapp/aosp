@@ -17,6 +17,7 @@
 #ifndef ART_RUNTIME_MIRROR_CLASS_H_
 #define ART_RUNTIME_MIRROR_CLASS_H_
 
+#include "base/bit_utils.h"
 #include "base/enums.h"
 #include "base/iteration_range.h"
 #include "dex_file.h"
@@ -29,7 +30,6 @@
 #include "modifiers.h"
 #include "object.h"
 #include "object_array.h"
-#include "object_callbacks.h"
 #include "primitive.h"
 #include "read_barrier_option.h"
 #include "stride_iterator.h"
@@ -138,9 +138,10 @@ class MANAGED Class FINAL : public Object {
     kStatusRetryVerificationAtRuntime = 6,  // Compile time verification failed, retry at runtime.
     kStatusVerifyingAtRuntime = 7,  // Retrying verification at runtime.
     kStatusVerified = 8,  // Logically part of linking; done pre-init.
-    kStatusInitializing = 9,  // Class init in progress.
-    kStatusInitialized = 10,  // Ready to go.
-    kStatusMax = 11,
+    kStatusSuperclassValidated = 9,  // Superclass validation part of init done.
+    kStatusInitializing = 10,  // Class init in progress.
+    kStatusInitialized = 11,  // Ready to go.
+    kStatusMax = 12,
   };
 
   template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags>
@@ -408,7 +409,7 @@ class MANAGED Class FINAL : public Object {
     DCHECK_EQ(v32 & kPrimitiveTypeMask, v32) << "upper 16 bits aren't zero";
     // Store the component size shift in the upper 16 bits.
     v32 |= Primitive::ComponentSizeShift(new_type) << kPrimitiveTypeSizeShiftShift;
-    SetField32<false>(OFFSET_OF_OBJECT_MEMBER(Class, primitive_type_), v32);
+    SetField32Transaction(OFFSET_OF_OBJECT_MEMBER(Class, primitive_type_), v32);
   }
 
   template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags>
@@ -643,7 +644,10 @@ class MANAGED Class FINAL : public Object {
                               ObjPtr<DexCache> dex_cache,
                               uint32_t field_idx)
       REQUIRES_SHARED(Locks::mutator_lock_);
-  bool CheckResolvedFieldAccess(ObjPtr<Class> access_to, ArtField* field, uint32_t field_idx)
+  bool CheckResolvedFieldAccess(ObjPtr<Class> access_to,
+                                ArtField* field,
+                                ObjPtr<DexCache> dex_cache,
+                                uint32_t field_idx)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Can this class access a resolved method?
@@ -654,10 +658,11 @@ class MANAGED Class FINAL : public Object {
                                ObjPtr<DexCache> dex_cache,
                                uint32_t method_idx)
       REQUIRES_SHARED(Locks::mutator_lock_);
-  template <InvokeType throw_invoke_type>
   bool CheckResolvedMethodAccess(ObjPtr<Class> access_to,
                                  ArtMethod* resolved_method,
-                                 uint32_t method_idx)
+                                 ObjPtr<DexCache> dex_cache,
+                                 uint32_t method_idx,
+                                 InvokeType throw_invoke_type)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   bool IsSubClass(ObjPtr<Class> klass) REQUIRES_SHARED(Locks::mutator_lock_);
@@ -716,7 +721,7 @@ class MANAGED Class FINAL : public Object {
   // Also updates the dex_cache_strings_ variable from new_dex_cache.
   void SetDexCache(ObjPtr<DexCache> new_dex_cache) REQUIRES_SHARED(Locks::mutator_lock_);
 
-  ALWAYS_INLINE IterationRange<StrideIterator<ArtMethod>> GetDirectMethods(PointerSize pointer_size)
+  ALWAYS_INLINE ArraySlice<ArtMethod> GetDirectMethods(PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   ALWAYS_INLINE LengthPrefixedArray<ArtMethod>* GetMethodsPtr()
@@ -726,7 +731,7 @@ class MANAGED Class FINAL : public Object {
     return MemberOffset(OFFSETOF_MEMBER(Class, methods_));
   }
 
-  ALWAYS_INLINE IterationRange<StrideIterator<ArtMethod>> GetMethods(PointerSize pointer_size)
+  ALWAYS_INLINE ArraySlice<ArtMethod> GetMethods(PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   void SetMethodsPtr(LengthPrefixedArray<ArtMethod>* new_methods,
@@ -763,7 +768,7 @@ class MANAGED Class FINAL : public Object {
   ALWAYS_INLINE ArraySlice<ArtMethod> GetDeclaredMethodsSlice(PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  ALWAYS_INLINE IterationRange<StrideIterator<ArtMethod>> GetDeclaredMethods(
+  ALWAYS_INLINE ArraySlice<ArtMethod> GetDeclaredMethods(
         PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -784,7 +789,7 @@ class MANAGED Class FINAL : public Object {
   ALWAYS_INLINE ArraySlice<ArtMethod> GetDeclaredVirtualMethodsSlice(PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  ALWAYS_INLINE IterationRange<StrideIterator<ArtMethod>> GetDeclaredVirtualMethods(
+  ALWAYS_INLINE ArraySlice<ArtMethod> GetDeclaredVirtualMethods(
         PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -792,14 +797,14 @@ class MANAGED Class FINAL : public Object {
   ALWAYS_INLINE ArraySlice<ArtMethod> GetCopiedMethodsSlice(PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  ALWAYS_INLINE IterationRange<StrideIterator<ArtMethod>> GetCopiedMethods(PointerSize pointer_size)
+  ALWAYS_INLINE ArraySlice<ArtMethod> GetCopiedMethods(PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags>
   ALWAYS_INLINE ArraySlice<ArtMethod> GetVirtualMethodsSlice(PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  ALWAYS_INLINE IterationRange<StrideIterator<ArtMethod>> GetVirtualMethods(
+  ALWAYS_INLINE ArraySlice<ArtMethod> GetVirtualMethods(
       PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -910,6 +915,13 @@ class MANAGED Class FINAL : public Object {
   ArtMethod* FindVirtualMethodForVirtualOrInterface(ArtMethod* method, PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
+  // Find a method with the given name and signature in an interface class.
+  //
+  // Search for the method declared in the class, then search for a method declared in any
+  // superinterface, then search the superclass java.lang.Object (implicitly declared methods
+  // in an interface without superinterfaces, see JLS 9.2, can be inherited, see JLS 9.4.1).
+  // TODO: Implement search for a unique maximally-specific non-abstract superinterface method.
+
   ArtMethod* FindInterfaceMethod(const StringPiece& name,
                                  const StringPiece& signature,
                                  PointerSize pointer_size)
@@ -925,49 +937,46 @@ class MANAGED Class FINAL : public Object {
                                  PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  ArtMethod* FindDeclaredDirectMethod(const StringPiece& name,
-                                      const StringPiece& signature,
-                                      PointerSize pointer_size)
+  // Find a method with the given name and signature in a non-interface class.
+  //
+  // Search for the method in the class, following the JLS rules which conflict with the RI
+  // in some cases. The JLS says that inherited methods are searched (JLS 15.12.2.1) and
+  // these can come from a superclass or a superinterface (JLS 8.4.8). We perform the
+  // following search:
+  //   1. Search the methods declared directly in the class. If we find a method with the
+  //      given name and signature, return that method.
+  //   2. Search the methods declared in superclasses until we find a method with the given
+  //      signature or complete the search in java.lang.Object. If we find a method with the
+  //      given name and signature, check if it's been inherited by the class where we're
+  //      performing the lookup (qualifying type). If it's inherited, return it. Otherwise,
+  //      just remember the method and its declaring class and proceed to step 3.
+  //   3. Search "copied" methods (containing methods inherited from interfaces) in the class
+  //      and its superclass chain. If we found a method in step 2 (which was not inherited,
+  //      otherwise we would not be performing step 3), end the search when we reach its
+  //      declaring class, otherwise search the entire superclass chain. If we find a method
+  //      with the given name and signature, return that method.
+  //   4. Return the method found in step 2 if any (not inherited), or null.
+  //
+  // It's the responsibility of the caller to throw exceptions if the returned method (or null)
+  // does not satisfy the request. Special consideration should be given to the case where this
+  // function returns a method that's not inherited (found in step 2, returned in step 4).
+
+  ArtMethod* FindClassMethod(const StringPiece& name,
+                             const StringPiece& signature,
+                             PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  ArtMethod* FindDeclaredDirectMethod(const StringPiece& name,
-                                      const Signature& signature,
-                                      PointerSize pointer_size)
+  ArtMethod* FindClassMethod(const StringPiece& name,
+                             const Signature& signature,
+                             PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  ArtMethod* FindDeclaredDirectMethod(ObjPtr<DexCache> dex_cache,
-                                      uint32_t dex_method_idx,
-                                      PointerSize pointer_size)
+  ArtMethod* FindClassMethod(ObjPtr<DexCache> dex_cache,
+                             uint32_t dex_method_idx,
+                             PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  ArtMethod* FindDirectMethod(const StringPiece& name,
-                              const StringPiece& signature,
-                              PointerSize pointer_size)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-
-  ArtMethod* FindDirectMethod(const StringPiece& name,
-                              const Signature& signature,
-                              PointerSize pointer_size)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-
-  ArtMethod* FindDirectMethod(ObjPtr<DexCache> dex_cache,
-                              uint32_t dex_method_idx,
-                              PointerSize pointer_size)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-
-  ArtMethod* FindDeclaredVirtualMethod(const StringPiece& name,
-                                       const StringPiece& signature,
-                                       PointerSize pointer_size)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-
-  ArtMethod* FindDeclaredVirtualMethod(const StringPiece& name,
-                                       const Signature& signature,
-                                       PointerSize pointer_size)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-
-  ArtMethod* FindDeclaredVirtualMethod(ObjPtr<DexCache> dex_cache,
-                                       uint32_t dex_method_idx,
-                                       PointerSize pointer_size)
+  ArtMethod* FindConstructor(const StringPiece& signature, PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   ArtMethod* FindDeclaredVirtualMethodByName(const StringPiece& name,
@@ -976,21 +985,6 @@ class MANAGED Class FINAL : public Object {
 
   ArtMethod* FindDeclaredDirectMethodByName(const StringPiece& name,
                                             PointerSize pointer_size)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-
-  ArtMethod* FindVirtualMethod(const StringPiece& name,
-                               const StringPiece& signature,
-                               PointerSize pointer_size)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-
-  ArtMethod* FindVirtualMethod(const StringPiece& name,
-                               const Signature& signature,
-                               PointerSize pointer_size)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-
-  ArtMethod* FindVirtualMethod(ObjPtr<DexCache> dex_cache,
-                               uint32_t dex_method_idx,
-                               PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   ArtMethod* FindClassInitializer(PointerSize pointer_size) REQUIRES_SHARED(Locks::mutator_lock_);
@@ -1165,8 +1159,7 @@ class MANAGED Class FINAL : public Object {
   }
 
   void SetDexClassDefIndex(uint16_t class_def_idx) REQUIRES_SHARED(Locks::mutator_lock_) {
-    // Not called within a transaction.
-    SetField32<false>(OFFSET_OF_OBJECT_MEMBER(Class, dex_class_def_idx_), class_def_idx);
+    SetField32Transaction(OFFSET_OF_OBJECT_MEMBER(Class, dex_class_def_idx_), class_def_idx);
   }
 
   dex::TypeIndex GetDexTypeIndex() REQUIRES_SHARED(Locks::mutator_lock_) {
@@ -1175,8 +1168,7 @@ class MANAGED Class FINAL : public Object {
   }
 
   void SetDexTypeIndex(dex::TypeIndex type_idx) REQUIRES_SHARED(Locks::mutator_lock_) {
-    // Not called within a transaction.
-    SetField32<false>(OFFSET_OF_OBJECT_MEMBER(Class, dex_type_idx_), type_idx.index_);
+    SetField32Transaction(OFFSET_OF_OBJECT_MEMBER(Class, dex_type_idx_), type_idx.index_);
   }
 
   dex::TypeIndex FindTypeIndexInOtherDexFile(const DexFile& dex_file)
@@ -1347,18 +1339,24 @@ class MANAGED Class FINAL : public Object {
   ALWAYS_INLINE void SetMethodsPtrInternal(LengthPrefixedArray<ArtMethod>* new_methods)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  template <bool throw_on_failure, bool use_referrers_cache>
-  bool ResolvedFieldAccessTest(ObjPtr<Class> access_to,
-                               ArtField* field,
-                               uint32_t field_idx,
-                               ObjPtr<DexCache> dex_cache)
+  ALWAYS_INLINE ArraySlice<ArtMethod> GetMethodsSliceRangeUnchecked(PointerSize pointer_size,
+                                                                    uint32_t start_offset,
+                                                                    uint32_t end_offset)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  template <bool throw_on_failure, bool use_referrers_cache, InvokeType throw_invoke_type>
+  template <bool throw_on_failure>
+  bool ResolvedFieldAccessTest(ObjPtr<Class> access_to,
+                               ArtField* field,
+                               ObjPtr<DexCache> dex_cache,
+                               uint32_t field_idx)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  template <bool throw_on_failure>
   bool ResolvedMethodAccessTest(ObjPtr<Class> access_to,
                                 ArtMethod* resolved_method,
+                                ObjPtr<DexCache> dex_cache,
                                 uint32_t method_idx,
-                                ObjPtr<DexCache> dex_cache)
+                                InvokeType throw_invoke_type)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   bool Implements(ObjPtr<Class> klass) REQUIRES_SHARED(Locks::mutator_lock_);

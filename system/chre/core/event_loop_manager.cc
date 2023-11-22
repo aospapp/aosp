@@ -16,79 +16,61 @@
 
 #include "chre/core/event_loop_manager.h"
 
-#include "chre/platform/context.h"
 #include "chre/platform/fatal_error.h"
+#include "chre/platform/memory.h"
 #include "chre/util/lock_guard.h"
 
 namespace chre {
 
+void freeEventDataCallback(uint16_t /*eventType*/, void *eventData) {
+  memoryFree(eventData);
+}
+
 Nanoapp *EventLoopManager::validateChreApiCall(const char *functionName) {
-  chre::EventLoop *eventLoop = getCurrentEventLoop();
-  CHRE_ASSERT(eventLoop);
-
-  chre::Nanoapp *currentNanoapp = eventLoop->getCurrentNanoapp();
-  CHRE_ASSERT_LOG(currentNanoapp, "%s called with no CHRE app context", __func__);
-
+  chre::Nanoapp *currentNanoapp = EventLoopManagerSingleton::get()
+      ->getEventLoop().getCurrentNanoapp();
+  CHRE_ASSERT_LOG(currentNanoapp, "%s called with no CHRE app context",
+                  functionName);
   return currentNanoapp;
 }
 
-EventLoop *EventLoopManager::createEventLoop() {
-  // TODO: The current EventLoop implementation requires refactoring to properly
-  // support multiple EventLoop instances, for example the Event freeing
-  // mechanism is not thread-safe.
-  CHRE_ASSERT(mEventLoops.empty());
-  if (!mEventLoops.emplace_back(MakeUnique<EventLoop>())) {
-    return nullptr;
+UniquePtr<char> EventLoopManager::debugDump() {
+  constexpr size_t kDebugStringSize = 4096;
+  char *debugStr = static_cast<char *>(memoryAlloc(kDebugStringSize));
+  if (debugStr != nullptr) {
+    size_t debugStrPos = 0;
+    if (!mMemoryManager.logStateToBuffer(debugStr, &debugStrPos,
+                                         kDebugStringSize)) {
+      LOGE("Memory manager debug dump failed.");
+    } else if (!mEventLoop.logStateToBuffer(debugStr, &debugStrPos,
+                                            kDebugStringSize)) {
+      LOGE("Event loop debug dump failed.");
+    } else if (!mSensorRequestManager.logStateToBuffer(debugStr, &debugStrPos,
+                                                       kDebugStringSize)) {
+      LOGE("Sensor request manager debug dump failed.");
+    } else if (!mGnssRequestManager.logStateToBuffer(debugStr, &debugStrPos,
+                                                     kDebugStringSize)) {
+      LOGE("GNSS request manager debug dump failed.");
+    } else if (!mWifiRequestManager.logStateToBuffer(debugStr, &debugStrPos,
+                                                     kDebugStringSize)) {
+      LOGE("Wifi request manager debug dump failed.");
+    } else if (!mWwanRequestManager.logStateToBuffer(debugStr, &debugStrPos,
+                                                     kDebugStringSize)) {
+      LOGE("WWAN request manager debug dump failed.");
+    }
+    LOGD("Debug dump used %zu bytes of log buffer", debugStrPos);
   }
 
-  return mEventLoops.back().get();
+  return UniquePtr<char>(debugStr);
 }
 
 bool EventLoopManager::deferCallback(SystemCallbackType type, void *data,
                                      SystemCallbackFunction *callback) {
-  // TODO: when multiple EventLoops are supported, consider allowing the
-  // platform to define which EventLoop is used to process system callbacks.
-  CHRE_ASSERT(!mEventLoops.empty());
-  return mEventLoops[0]->postEvent(static_cast<uint16_t>(type), data, callback,
-                                   kSystemInstanceId, kSystemInstanceId);
-}
-
-bool EventLoopManager::findNanoappInstanceIdByAppId(
-    uint64_t appId, uint32_t *instanceId, EventLoop **eventLoop) {
-  bool found = false;
-
-  for (size_t i = 0; i < mEventLoops.size(); i++) {
-    if (mEventLoops[i]->findNanoappInstanceIdByAppId(appId, instanceId)) {
-      found = true;
-      if (eventLoop != nullptr) {
-        *eventLoop = mEventLoops[i].get();
-      }
-      break;
-    }
-  }
-
-  return found;
-}
-
-Nanoapp *EventLoopManager::findNanoappByInstanceId(uint32_t instanceId,
-                                                   EventLoop **eventLoop) {
-  Nanoapp *nanoapp = nullptr;
-  for (size_t i = 0; i < mEventLoops.size(); i++) {
-    nanoapp = mEventLoops[i]->findNanoappByInstanceId(instanceId);
-    if (nanoapp != nullptr) {
-      if (eventLoop != nullptr) {
-        *eventLoop = mEventLoops[i].get();
-      }
-      break;
-    }
-  }
-
-  return nanoapp;
+  return mEventLoop.postEvent(static_cast<uint16_t>(type), data, callback,
+                              kSystemInstanceId, kSystemInstanceId);
 }
 
 uint32_t EventLoopManager::getNextInstanceId() {
-  // TODO: this needs to be an atomic integer when we have > 1 event loop, or
-  // use a mutex
   ++mLastInstanceId;
 
   // ~4 billion instance IDs should be enough for anyone... if we need to
@@ -103,41 +85,13 @@ uint32_t EventLoopManager::getNextInstanceId() {
   return mLastInstanceId;
 }
 
-bool EventLoopManager::postEvent(uint16_t eventType, void *eventData,
-                                 chreEventCompleteFunction *freeCallback,
-                                 uint32_t senderInstanceId,
-                                 uint32_t targetInstanceId) {
-  LockGuard<Mutex> lock(mMutex);
-
-  // TODO: for unicast events, ideally we'd just post the event to the EventLoop
-  // that has the target
-  bool success = true;
-  for (size_t i = 0; i < mEventLoops.size(); i++) {
-    success &= mEventLoops[i]->postEvent(eventType, eventData, freeCallback,
-                                         senderInstanceId, targetInstanceId);
-  }
-
-  return success;
+void EventLoopManager::lateInit() {
+  mGnssRequestManager.init();
+  mWifiRequestManager.init();
+  mWwanRequestManager.init();
 }
 
-GnssRequestManager& EventLoopManager::getGnssRequestManager() {
-  return mGnssRequestManager;
-}
-
-HostCommsManager& EventLoopManager::getHostCommsManager() {
-  return mHostCommsManager;
-}
-
-SensorRequestManager& EventLoopManager::getSensorRequestManager() {
-  return mSensorRequestManager;
-}
-
-WifiRequestManager& EventLoopManager::getWifiRequestManager() {
-  return mWifiRequestManager;
-}
-
-WwanRequestManager& EventLoopManager::getWwanRequestManager() {
-  return mWwanRequestManager;
-}
+// Explicitly instantiate the EventLoopManagerSingleton to reduce codesize.
+template class Singleton<EventLoopManager>;
 
 }  // namespace chre

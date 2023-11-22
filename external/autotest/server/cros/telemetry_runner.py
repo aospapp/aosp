@@ -12,6 +12,7 @@ from autotest_lib.client.common_lib.cros import dev_server
 
 TELEMETRY_RUN_BENCHMARKS_SCRIPT = 'tools/perf/run_benchmark'
 TELEMETRY_RUN_TESTS_SCRIPT = 'tools/telemetry/run_tests'
+TELEMETRY_RUN_GPU_TESTS_SCRIPT = 'content/test/gpu/run_gpu_integration_test.py'
 TELEMETRY_TIMEOUT_MINS = 120
 
 DUT_CHROME_ROOT = '/usr/local/telemetry/src'
@@ -401,6 +402,40 @@ class TelemetryRunner(object):
         if perf_value_writer:
             self._run_scp(perf_value_writer.resultsdir)
         return result
+
+
+    def run_gpu_integration_test(self, test, *args):
+        """Runs a gpu test on a dut.
+
+        @param test: Gpu test we want to run.
+        @param args: additional list of arguments to pass to the telemetry
+                     execution script.
+
+         @returns A TelemetryResult instance with the results of this telemetry
+                  execution.
+        """
+        script = os.path.join(DUT_CHROME_ROOT,
+                              TELEMETRY_RUN_GPU_TESTS_SCRIPT)
+        cmd = []
+        if self._devserver:
+            devserver_hostname = self._devserver.hostname
+            cmd.extend(['ssh', devserver_hostname])
+
+        cmd.extend(
+                ['ssh',
+                 DUT_SSH_OPTIONS,
+                 self._host.hostname,
+                 'python',
+                 script])
+
+        cmd.extend(args)
+        cmd.append(test)
+        cmd = ' '.join(cmd)
+        stdout, stderr, exit_code = self._run_cmd(cmd)
+
+        return TelemetryResult(exit_code=exit_code, stdout=stdout,
+                               stderr=stderr)
+
 
     def _ensure_deps(self, dut, test_name):
         """

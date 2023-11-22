@@ -18,33 +18,37 @@ package com.android.tv;
 
 import static com.android.tv.TimeShiftManager.INVALID_TIME;
 import static com.android.tv.TimeShiftManager.REQUEST_TIMEOUT_MS;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotSame;
 
+import android.support.test.annotation.UiThreadTest;
 import android.support.test.filters.MediumTest;
-import android.test.UiThreadTest;
+
+import org.junit.Before;
+import org.junit.Test;
 
 @MediumTest
 public class CurrentPositionMediatorTest extends BaseMainActivityTestCase {
     private TimeShiftManager.CurrentPositionMediator mMediator;
 
-    public CurrentPositionMediatorTest() {
-        super(MainActivity.class);
-    }
-
     @Override
-    protected void setUp() throws Exception {
+    @Before
+    public void setUp() {
         super.setUp();
         mMediator = mActivity.getTimeShiftManager().mCurrentPositionMediator;
     }
 
     @UiThreadTest
-    public void testInitialize() throws Throwable {
+    @Test
+    public void testInitialize() {
         long currentTimeMs = System.currentTimeMillis();
         mMediator.initialize(currentTimeMs);
         assertCurrentPositionMediator(INVALID_TIME, currentTimeMs);
     }
 
     @UiThreadTest
-    public void testOnSeekRequested() throws Throwable {
+    @Test
+    public void testOnSeekRequested() {
         long seekToTimeMs = System.currentTimeMillis() - REQUEST_TIMEOUT_MS * 3;
         mMediator.onSeekRequested(seekToTimeMs);
         assertNotSame("Seek request time", INVALID_TIME, mMediator.mSeekRequestTimeMs);
@@ -52,7 +56,8 @@ public class CurrentPositionMediatorTest extends BaseMainActivityTestCase {
     }
 
     @UiThreadTest
-    public void testOnCurrentPositionChangedInvalidInput() throws Throwable {
+    @Test
+    public void testOnCurrentPositionChangedInvalidInput() {
         long seekToTimeMs = System.currentTimeMillis() - REQUEST_TIMEOUT_MS * 3;
         long newCurrentTimeMs = seekToTimeMs + REQUEST_TIMEOUT_MS;
         mMediator.onSeekRequested(seekToTimeMs);
@@ -63,7 +68,8 @@ public class CurrentPositionMediatorTest extends BaseMainActivityTestCase {
     }
 
     @UiThreadTest
-    public void testOnCurrentPositionChangedValidInput() throws Throwable {
+    @Test
+    public void testOnCurrentPositionChangedValidInput() {
         long seekToTimeMs = System.currentTimeMillis() - REQUEST_TIMEOUT_MS * 3;
         long newCurrentTimeMs = seekToTimeMs + REQUEST_TIMEOUT_MS - 1;
         mMediator.onSeekRequested(seekToTimeMs);

@@ -49,17 +49,18 @@
   // std::function) aren't strictly required, so setting it for now.
   #define FLATBUFFERS_CPP98_STL
 
-  #include "chre/platform/assert.h"
+  #include "chre/util/container_support.h"
   #include "chre/util/dynamic_vector.h"
   #include "chre/util/unique_ptr.h"
 
-  #ifdef assert
-    #define FLATBUFFERS_PRIOR_ASSERT assert
-    #undef assert
-  #endif
-  #define assert CHRE_ASSERT
+  #ifndef CHRE_ASSERT_USES_STDLIB_ASSERT
+    #ifdef assert
+      #define FLATBUFFERS_PRIOR_ASSERT assert
+      #undef assert
+    #endif
+    #define assert CHRE_ASSERT
+  #endif  // CHRE_ASSERT_USES_STDLIB_ASSERT
 #endif  // FLATBUFFERS_CHRE
-
 #ifdef _STLPORT_VERSION
   #define FLATBUFFERS_CPP98_STL
 #endif
@@ -592,7 +593,7 @@ class vector_downward {
 
   uoffset_t size() const {
     assert(cur_ != nullptr && buf_ != nullptr);
-    return static_cast<uoffset_t>(reserved_ - (cur_ - buf_));
+    return static_cast<uoffset_t>(reserved_ - static_cast<size_t>(cur_ - buf_));
   }
 
   uint8_t *data() const {
@@ -1943,11 +1944,12 @@ volatile __attribute__((weak)) const char *flatbuffer_version_string =
 }  // namespace flatbuffers
 
 #ifdef FLATBUFFERS_CHRE
-  #undef assert
-
-  #ifdef FLATBUFFERS_PRIOR_ASSERT
-    #define assert FLATBUFFERS_PRIOR_ASSERT
-  #endif
+  #ifndef CHRE_ASSERT_USES_STDLIB_ASSERT
+    #undef assert
+    #ifdef FLATBUFFERS_PRIOR_ASSERT
+      #define assert FLATBUFFERS_PRIOR_ASSERT
+    #endif
+  #endif  // define CHRE_ASSERT_USES_STDLIB_ASSERT
 #endif
 
 #endif  // FLATBUFFERS_H_

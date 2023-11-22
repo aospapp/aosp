@@ -16,15 +16,21 @@
 
 <selector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <!-- state when we can't drop -->
     <item
-        app:state_droppable="true"
-        app:state_drop_hovered="true"
-        android:drawable="@drawable/ic_drop_ok_badge" />
+        app:state_reject_drop="true"
+        android:drawable="@drawable/ic_reject_drop_badge"/>
+
+    <!-- state when we can drop, and it will be a copy -->
     <item
-        app:state_droppable="false"
-        app:state_drop_hovered="true"
-        android:drawable="@drawable/ic_drop_not_ok_badge" />
+        app:state_reject_drop="false"
+        app:state_copy="true"
+        android:drawable="@drawable/ic_drop_copy_badge"/>
+
+    <!-- default state. Also used to show state when we can drop, and it will be a move -->
     <item
-        app:state_drop_hovered="false"
+        app:state_reject_drop="false"
+        app:state_copy="false"
         android:drawable="@android:color/transparent" />
 </selector>

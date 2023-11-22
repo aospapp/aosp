@@ -185,17 +185,21 @@ static inline size_t GrSizeAlignDown(size_t x, uint32_t alignment) {
  * Possible 3D APIs that may be used by Ganesh.
  */
 enum GrBackend {
+    kMetal_GrBackend,
     kOpenGL_GrBackend,
     kVulkan_GrBackend,
-
-    kLast_GrBackend = kVulkan_GrBackend
+    /**
+     * Mock is a backend that does not draw anything. It is used for unit tests
+     * and to measure CPU overhead.
+     */
+    kMock_GrBackend,
 };
-const int kBackendCount = kLast_GrBackend + 1;
 
 /**
  * Backend-specific 3D context handle
- *      GrGLInterface* for OpenGL. If NULL will use the default GL interface.
- *      GrVkBackendContext* for Vulkan.
+ *      OpenGL: const GrGLInterface*. If null will use the result of GrGLCreateNativeInterface().
+ *      Vulkan: GrVkBackendContext*.
+ *      Mock: const GrMockOptions* or null for default constructed GrMockContextOptions.
  */
 typedef intptr_t GrBackendContext;
 
@@ -216,24 +220,31 @@ static inline GrAA GrBoolToAA(bool aa) { return aa ? GrAA::kYes : GrAA::kNo; }
 /**
 * Geometric primitives used for drawing.
 */
-enum GrPrimitiveType {
-    kTriangles_GrPrimitiveType,
-    kTriangleStrip_GrPrimitiveType,
-    kTriangleFan_GrPrimitiveType,
-    kPoints_GrPrimitiveType,
-    kLines_GrPrimitiveType,     // 1 pix wide only
-    kLineStrip_GrPrimitiveType, // 1 pix wide only
-    kLast_GrPrimitiveType = kLineStrip_GrPrimitiveType
+enum class GrPrimitiveType {
+    kTriangles,
+    kTriangleStrip,
+    kTriangleFan,
+    kPoints,
+    kLines,     // 1 pix wide only
+    kLineStrip, // 1 pix wide only
+    kLinesAdjacency // requires geometry shader support.
 };
+static constexpr int kNumGrPrimitiveTypes = (int) GrPrimitiveType::kLinesAdjacency + 1;
 
-static inline bool GrIsPrimTypeLines(GrPrimitiveType type) {
-    return kLines_GrPrimitiveType == type || kLineStrip_GrPrimitiveType == type;
+static constexpr bool GrIsPrimTypeLines(GrPrimitiveType type) {
+    return GrPrimitiveType::kLines == type ||
+           GrPrimitiveType::kLineStrip == type ||
+           GrPrimitiveType::kLinesAdjacency == type;
 }
 
-static inline bool GrIsPrimTypeTris(GrPrimitiveType type) {
-    return kTriangles_GrPrimitiveType == type     ||
-           kTriangleStrip_GrPrimitiveType == type ||
-           kTriangleFan_GrPrimitiveType == type;
+static constexpr bool GrIsPrimTypeTris(GrPrimitiveType type) {
+    return GrPrimitiveType::kTriangles == type     ||
+           GrPrimitiveType::kTriangleStrip == type ||
+           GrPrimitiveType::kTriangleFan == type;
+}
+
+static constexpr bool GrPrimTypeRequiresGeometryShaderSupport(GrPrimitiveType type) {
+    return GrPrimitiveType::kLinesAdjacency == type;
 }
 
 /**
@@ -298,10 +309,7 @@ enum GrPixelConfig {
      * 8 bit signed integers per-channel. Byte order is b,g,r,a.
      */
     kRGBA_8888_sint_GrPixelConfig,
-    /**
-     * ETC1 Compressed Data
-     */
-    kETC1_GrPixelConfig,
+
     /**
      * Byte order is r, g, b, a.  This color format is 32 bits per channel
      */
@@ -337,58 +345,6 @@ static const int kGrPixelConfigCnt = kLast_GrPixelConfig + 1;
     #error "SK_*32_SHIFT values must correspond to GL_BGRA or GL_RGBA format."
 #endif
 
-// Returns true if the pixel config is a GPU-specific compressed format
-// representation.
-static inline bool GrPixelConfigIsCompressed(GrPixelConfig config) {
-    switch (config) {
-        case kETC1_GrPixelConfig:
-            return true;
-        case kUnknown_GrPixelConfig:
-        case kAlpha_8_GrPixelConfig:
-        case kGray_8_GrPixelConfig:
-        case kRGB_565_GrPixelConfig:
-        case kRGBA_4444_GrPixelConfig:
-        case kRGBA_8888_GrPixelConfig:
-        case kBGRA_8888_GrPixelConfig:
-        case kSRGBA_8888_GrPixelConfig:
-        case kSBGRA_8888_GrPixelConfig:
-        case kRGBA_8888_sint_GrPixelConfig:
-        case kRGBA_float_GrPixelConfig:
-        case kRG_float_GrPixelConfig:
-        case kAlpha_half_GrPixelConfig:
-        case kRGBA_half_GrPixelConfig:
-            return false;
-    }
-    SkFAIL("Invalid pixel config");
-    return false;
-}
-
-/** If the pixel config is compressed, return an equivalent uncompressed format. */
-static inline GrPixelConfig GrMakePixelConfigUncompressed(GrPixelConfig config) {
-    switch (config) {
-        case kETC1_GrPixelConfig:
-            return kRGBA_8888_GrPixelConfig;
-        case kUnknown_GrPixelConfig:
-        case kAlpha_8_GrPixelConfig:
-        case kGray_8_GrPixelConfig:
-        case kRGB_565_GrPixelConfig:
-        case kRGBA_4444_GrPixelConfig:
-        case kRGBA_8888_GrPixelConfig:
-        case kBGRA_8888_GrPixelConfig:
-        case kSRGBA_8888_GrPixelConfig:
-        case kSBGRA_8888_GrPixelConfig:
-        case kRGBA_8888_sint_GrPixelConfig:
-        case kRGBA_float_GrPixelConfig:
-        case kRG_float_GrPixelConfig:
-        case kAlpha_half_GrPixelConfig:
-        case kRGBA_half_GrPixelConfig:
-            SkASSERT(!GrPixelConfigIsCompressed(config));
-            return config;
-    }
-    SkFAIL("Invalid pixel config");
-    return config;
-}
-
 // Returns true if the pixel config is 32 bits per pixel
 static inline bool GrPixelConfigIs8888Unorm(GrPixelConfig config) {
     switch (config) {
@@ -403,7 +359,6 @@ static inline bool GrPixelConfigIs8888Unorm(GrPixelConfig config) {
         case kRGB_565_GrPixelConfig:
         case kRGBA_4444_GrPixelConfig:
         case kRGBA_8888_sint_GrPixelConfig:
-        case kETC1_GrPixelConfig:
         case kRGBA_float_GrPixelConfig:
         case kRG_float_GrPixelConfig:
         case kAlpha_half_GrPixelConfig:
@@ -429,7 +384,6 @@ static inline bool GrPixelConfigIsSRGB(GrPixelConfig config) {
         case kRGBA_8888_GrPixelConfig:
         case kBGRA_8888_GrPixelConfig:
         case kRGBA_8888_sint_GrPixelConfig:
-        case kETC1_GrPixelConfig:
         case kRGBA_float_GrPixelConfig:
         case kRG_float_GrPixelConfig:
         case kAlpha_half_GrPixelConfig:
@@ -458,7 +412,6 @@ static inline GrPixelConfig GrPixelConfigSwapRAndB(GrPixelConfig config) {
         case kRGB_565_GrPixelConfig:
         case kRGBA_4444_GrPixelConfig:
         case kRGBA_8888_sint_GrPixelConfig:
-        case kETC1_GrPixelConfig:
         case kRGBA_float_GrPixelConfig:
         case kRG_float_GrPixelConfig:
         case kAlpha_half_GrPixelConfig:
@@ -470,7 +423,6 @@ static inline GrPixelConfig GrPixelConfigSwapRAndB(GrPixelConfig config) {
 }
 
 static inline size_t GrBytesPerPixel(GrPixelConfig config) {
-    SkASSERT(!GrPixelConfigIsCompressed(config));
     switch (config) {
         case kAlpha_8_GrPixelConfig:
         case kGray_8_GrPixelConfig:
@@ -492,7 +444,6 @@ static inline size_t GrBytesPerPixel(GrPixelConfig config) {
         case kRG_float_GrPixelConfig:
             return 8;
         case kUnknown_GrPixelConfig:
-        case kETC1_GrPixelConfig:
             return 0;
     }
     SkFAIL("Invalid pixel config");
@@ -501,9 +452,9 @@ static inline size_t GrBytesPerPixel(GrPixelConfig config) {
 
 static inline bool GrPixelConfigIsOpaque(GrPixelConfig config) {
     switch (config) {
-        case kETC1_GrPixelConfig:
         case kRGB_565_GrPixelConfig:
         case kGray_8_GrPixelConfig:
+        case kRG_float_GrPixelConfig:
             return true;
         case kAlpha_8_GrPixelConfig:
         case kRGBA_4444_GrPixelConfig:
@@ -515,7 +466,6 @@ static inline bool GrPixelConfigIsOpaque(GrPixelConfig config) {
         case kRGBA_8888_sint_GrPixelConfig:
         case kRGBA_half_GrPixelConfig:
         case kRGBA_float_GrPixelConfig:
-        case kRG_float_GrPixelConfig:
         case kUnknown_GrPixelConfig:
             return false;
     }
@@ -537,7 +487,6 @@ static inline bool GrPixelConfigIsAlphaOnly(GrPixelConfig config) {
         case kSRGBA_8888_GrPixelConfig:
         case kSBGRA_8888_GrPixelConfig:
         case kRGBA_8888_sint_GrPixelConfig:
-        case kETC1_GrPixelConfig:
         case kRGBA_float_GrPixelConfig:
         case kRG_float_GrPixelConfig:
         case kRGBA_half_GrPixelConfig:
@@ -564,7 +513,6 @@ static inline bool GrPixelConfigIsFloatingPoint(GrPixelConfig config) {
         case kSRGBA_8888_GrPixelConfig:
         case kSBGRA_8888_GrPixelConfig:
         case kRGBA_8888_sint_GrPixelConfig:
-        case kETC1_GrPixelConfig:
             return false;
     }
     SkFAIL("Invalid pixel config");
@@ -575,25 +523,44 @@ static inline bool GrPixelConfigIsSint(GrPixelConfig config) {
     return config == kRGBA_8888_sint_GrPixelConfig;
 }
 
+static inline bool GrPixelConfigIsUnorm(GrPixelConfig config) {
+    switch (config) {
+        case kAlpha_8_GrPixelConfig:
+        case kGray_8_GrPixelConfig:
+        case kRGB_565_GrPixelConfig:
+        case kRGBA_4444_GrPixelConfig:
+        case kRGBA_8888_GrPixelConfig:
+        case kBGRA_8888_GrPixelConfig:
+        case kSRGBA_8888_GrPixelConfig:
+        case kSBGRA_8888_GrPixelConfig:
+            return true;
+        case kUnknown_GrPixelConfig:
+        case kAlpha_half_GrPixelConfig:
+        case kRGBA_8888_sint_GrPixelConfig:
+        case kRGBA_float_GrPixelConfig:
+        case kRG_float_GrPixelConfig:
+        case kRGBA_half_GrPixelConfig:
+            return false;
+    }
+    SkFAIL("Invalid pixel config.");
+    return false;
+}
+
 /**
  * Optional bitfield flags that can be set on GrSurfaceDesc (below).
  */
 enum GrSurfaceFlags {
-    kNone_GrSurfaceFlags            = 0x0,
+    kNone_GrSurfaceFlags = 0x0,
     /**
      * Creates a texture that can be rendered to as a GrRenderTarget. Use
      * GrTexture::asRenderTarget() to access.
      */
-    kRenderTarget_GrSurfaceFlag     = 0x1,
+    kRenderTarget_GrSurfaceFlag = 0x1,
     /**
-     * Placeholder for managing zero-copy textures
+     * Clears to zero on creation. It will cause creation failure if initial data is supplied to the
+     * texture. This only affects the base level if the texture is created with MIP levels.
      */
-    kZeroCopy_GrSurfaceFlag         = 0x2,
-    /**
-     * Indicates that all allocations (color buffer, FBO completeness, etc)
-     * should be verified.
-     */
-    kCheckAllocation_GrSurfaceFlag  = 0x4,
+    kPerformInitialClear_GrSurfaceFlag = 0x2
 };
 
 GR_MAKE_BITFIELD_OPS(GrSurfaceFlags)
@@ -676,9 +643,6 @@ enum GrWrapOwnership {
 
     /** Skia will assume ownership of the resource and free it. */
     kAdopt_GrWrapOwnership,
-
-    /** Skia will assume ownership of the resource, free it, and reuse it within the cache. */
-    kAdoptAndCache_GrWrapOwnership,
 };
 
 /**
@@ -790,41 +754,6 @@ enum GrGLBackendState {
     kPathRendering_GrGLBackendState    = 1 << 11,
     kALL_GrGLBackendState              = 0xffff
 };
-
-/**
- * Returns the data size for the given compressed pixel config
- */
-static inline size_t GrCompressedFormatDataSize(GrPixelConfig config,
-                                                int width, int height) {
-    SkASSERT(GrPixelConfigIsCompressed(config));
-
-    switch (config) {
-        case kETC1_GrPixelConfig:
-            SkASSERT((width & 3) == 0);
-            SkASSERT((height & 3) == 0);
-            return (width >> 2) * (height >> 2) * 8;
-
-        case kUnknown_GrPixelConfig:
-        case kAlpha_8_GrPixelConfig:
-        case kGray_8_GrPixelConfig:
-        case kRGB_565_GrPixelConfig:
-        case kRGBA_4444_GrPixelConfig:
-        case kRGBA_8888_GrPixelConfig:
-        case kBGRA_8888_GrPixelConfig:
-        case kSRGBA_8888_GrPixelConfig:
-        case kSBGRA_8888_GrPixelConfig:
-        case kRGBA_8888_sint_GrPixelConfig:
-        case kRGBA_float_GrPixelConfig:
-        case kRG_float_GrPixelConfig:
-        case kAlpha_half_GrPixelConfig:
-        case kRGBA_half_GrPixelConfig:
-            SkFAIL("Unknown compressed pixel config");
-            return 4 * width * height;
-    }
-
-    SkFAIL("Invalid pixel config");
-    return 4 * width * height;
-}
 
 /**
  * This value translates to reseting all the context state for any backend.

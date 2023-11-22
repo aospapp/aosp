@@ -15,7 +15,11 @@
 # Set of error prone rules to ensure code quality of tests
 
 # Goal is to eventually merge with error_prone_rules.mk
-LOCAL_ERROR_PRONE_FLAGS:= -Xep:JUnit3TestNotRun:ERROR \
-                          -Xep:JUnitAmbiguousTestClass:ERROR \
+LOCAL_ERROR_PRONE_FLAGS:= -Xep:ArrayToString:ERROR \
+                          -Xep:CollectionIncompatibleType:ERROR \
+                          -Xep:EqualsNaN:ERROR \
+                          -Xep:FormatString:ERROR \
+                          -Xep:JUnit3TestNotRun:ERROR \
+                          -Xep:SizeGreaterThanOrEqualsZero:ERROR \
                           -Xep:TryFailThrowable:ERROR
 

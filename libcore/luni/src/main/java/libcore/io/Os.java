@@ -28,6 +28,7 @@ import android.system.StructIfaddrs;
 import android.system.StructLinger;
 import android.system.StructPasswd;
 import android.system.StructPollfd;
+import android.system.StructRlimit;
 import android.system.StructStat;
 import android.system.StructStatVfs;
 import android.system.StructTimeval;
@@ -84,6 +85,7 @@ public interface Os {
     public int getppid();
     public StructPasswd getpwnam(String name) throws ErrnoException;
     public StructPasswd getpwuid(int uid) throws ErrnoException;
+    public StructRlimit getrlimit(int resource) throws ErrnoException;
     public SocketAddress getsockname(FileDescriptor fd) throws ErrnoException;
     public int getsockoptByte(FileDescriptor fd, int level, int option) throws ErrnoException;
     public InetAddress getsockoptInAddr(FileDescriptor fd, int level, int option) throws ErrnoException;

@@ -318,13 +318,13 @@
     <string name="move_error_device_admin" msgid="2060627704270836951">"نمی‌توان «سرپرست دستگاه» را در رسانه خارجی نصب کرد."</string>
     <string name="learn_more_action" msgid="7015991954404958779">"بیشتر بدانید"</string>
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"سعی مجدد"</string>
-    <string name="wifi_wps_title" msgid="1872305810119408482">"در حال جستجو برای مسیریاب WPS..."</string>
-    <string name="wifi_wps_instructions" msgid="3618110962669110034">"دکمه راه‌اندازی حفاظت‌شده Wi‑Fi را در رهیابتان فشار دهید.\nاین دکمه ممکن است WPS نامیده شود یا نماد آن در سمت راست باشد."</string>
-    <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"پین <xliff:g id="NUMBER">%1$s</xliff:g> را در رهیاب Wi-Fi خود وارد کنید"</string>
+    <string name="wifi_wps_title" msgid="1872305810119408482">"درحال جستجو برای رهیاب WPS…"</string>
+    <string name="wifi_wps_instructions" msgid="3618110962669110034">"دکمه راه‌اندازی حفاظت‌شده Wi‑Fi را در رهیاب فشار دهید.\nاین دکمه ممکن است WPS نامیده شود یا نماد آن در سمت راست باشد."</string>
+    <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"پین <xliff:g id="NUMBER">%1$s</xliff:g> را در رهیاب Wi-Fi وارد کنید"</string>
     <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"بعد از آنکه پین را وارد کردید، ممکن است تا ۲ دقیقه طول بکشد تا راه‌اندازی به پایان برسد"</string>
-    <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"روتر Wi-Fi یافت نشد"</string>
-    <string name="wifi_wps_failed_wep" msgid="9158670824165143348">"تنظیم امنیتی روتر Wi-Fi (‏WEP) پشتیبانی نمی‌شود"</string>
-    <string name="wifi_wps_failed_tkip" msgid="1712545345594227319">"تنظیم امنیت روتر Wi-Fi (‏TKIP) پشتیبانی نمی‌شود"</string>
+    <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"رهیاب Wi-Fi پیدا نشد"</string>
+    <string name="wifi_wps_failed_wep" msgid="9158670824165143348">"تنظیم امنیتی رهیاب Wi-Fi (‏WEP) پشتیبانی نمی‌شود"</string>
+    <string name="wifi_wps_failed_tkip" msgid="1712545345594227319">"تنظیم امنیت رهیاب Wi-Fi (‏TKIP) پشتیبانی نمی‌شود"</string>
     <string name="wifi_wps_failed_overlap" msgid="3091222818050940041">"جلسه WPS دیگری در حال انجام است. چند دقیقه دوباره امتحان کنید."</string>
     <string name="system_date" msgid="2767108116769558081">"تاریخ"</string>
     <string name="system_time" msgid="6726022312605226285">"زمان"</string>
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"سرویس‌ها"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"تنظیمات سرویس"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"نوشتار با کنتراست بالا"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"میان‌بر دسترس‌پذیری"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"فعال کردن میان‌بر دسترسی‌پذیری"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"سرویس میان‌بر"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"وقتی میان‌بر روشن است، اگر دکمه‌های برگشت و پایین را با هم فشار دهید و ۳ ثانیه نگه دارید یک قابلیت دسترس‌پذیری شروع خواهد شد."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"زیرنویس"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"تنظیمات وضعیت متن زیرنویس روی ویدئو"</string>
     <string name="captions_display" msgid="735692527287125548">"نمایشگر"</string>
@@ -436,7 +440,7 @@
     <string name="system_email_address" msgid="8669468986250302378">"آدرس رایانامه"</string>
     <string name="system_usb_debugging" msgid="3777895294421924323">"اشکال‌زدایی USB"</string>
     <string name="system_allow_mock_locations" msgid="3635672039775772910">"مکان‌های کاذب مجاز هستند"</string>
-    <string name="system_select_debug_app" msgid="8592021815119618485">"انتخاب برنامه رفع اشکال"</string>
+    <string name="system_select_debug_app" msgid="8592021815119618485">"انتخاب برنامه اشکال‌زدایی"</string>
     <string name="system_wait_for_debugger" msgid="4007354935701089555">"انتظار برای اشکال‌زدا"</string>
     <string name="system_verify_apps_over_usb" msgid="7340861918835270609">"تأیید برنامه‌های نصب شده از طریق USB"</string>
     <string name="system_desc_verify_apps_over_usb" msgid="6722973410408262393">"‫بررسی برنامه‌های نصب شده از طریق ADB/ADT از نظر رفتار مضر"</string>
@@ -462,7 +466,7 @@
     <string name="system_desc_hdcp_checking" msgid="6879753401058891183">"استفاده فقط برای محتوای DRM"</string>
     <string name="system_desc_hdmi_optimization" msgid="4400727262768931480">"بهینه‌سازی نمایشگر برای حداکثر وضوح تصویر یا حداکثر نرخ فریم. تنها برای نمایشگرهای Ultra HD کاربرد دارد. با تغییر این تنظیم دستگاه شما راه‌اندازی مجدد می‌شود."</string>
     <string name="system_desc_bt_hci_log" msgid="4219265203570411773">"فعال کردن گزارش‌گیری مخفیانه HCI بلوتوث"</string>
-    <string name="system_desc_usb_debugging" msgid="5168830368191788731">"با اتصال USB، حالت رفع‌اشکال فعال شود"</string>
+    <string name="system_desc_usb_debugging" msgid="5168830368191788731">"با اتصال USB، حالت اشکال‌زدایی فعال شود"</string>
     <string name="system_desc_wait_for_debugger" msgid="2342968959255039368">"برنامه اشکال‌زدایی شده منتظر پیوست شدن اشکال‌زدا قبل از اجرا است"</string>
     <string name="system_desc_show_layout_bounds" msgid="3449386884226708985">"نمایش محدوده کلیپ، حاشیه‌ها، غیره"</string>
     <string name="system_desc_show_gpu_view_updates" msgid="8045162296029336710">"در طراحی با GPU، نماها در داخل پنجره‌ها فلش شوند"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"درحال ثبت گزارش اشکال"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"صفحه‌کلیدهای مجازی دردسترس"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"مدیریت صفحه‌کلیدها"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"مجاز"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"غیرمجاز"</string>
+    <string name="usage_access" msgid="1914242907684452328">"دسترسی به میزان استفاده"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"دسترسی به میزان استفاده، امکان ردیابی اینکه از چه برنامه‌های دیگری و چند وقت یک‌بار استفاده می‌کنید و همچنین شرکت مخابراتی‌تان، تنظیمات زبان و سایر جزئیات را به برنامه می‌دهد."</string>
 </resources>

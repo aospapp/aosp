@@ -32,6 +32,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -103,6 +104,12 @@ public class AndroidJUnitTest extends InstrumentationTest implements IRuntimeHin
     @Option(name = "test-filter-dir",
             description="The device directory path to which the test filtering files are pushed")
     private String mTestFilterDir = "/data/local/tmp/ajur";
+
+    @Option(
+        name = "ajur-max-shard",
+        description = "The maximum number of shard we want to allow the AJUR test to shard into"
+    )
+    private Integer mMaxShard = null;
 
     private String mDeviceIncludeFile = null;
     private String mDeviceExcludeFile = null;
@@ -217,13 +224,13 @@ public class AndroidJUnitTest extends InstrumentationTest implements IRuntimeHin
         // if mIncludeTestFile is set, perform filtering with this file
         if (mIncludeTestFile != null) {
             mDeviceIncludeFile = mTestFilterDir.replaceAll("/$", "") + "/" + INCLUDE_FILE;
-            pushTestFile(mIncludeTestFile, mDeviceIncludeFile);
+            pushTestFile(mIncludeTestFile, mDeviceIncludeFile, listener);
         }
 
         // if mExcludeTestFile is set, perform filtering with this file
         if (mExcludeTestFile != null) {
             mDeviceExcludeFile = mTestFilterDir.replaceAll("/$", "") + "/" + EXCLUDE_FILE;
-            pushTestFile(mExcludeTestFile, mDeviceExcludeFile);
+            pushTestFile(mExcludeTestFile, mDeviceExcludeFile, listener);
         }
         if (mTotalShards > 0 && !isShardable() && mShardIndex != 0) {
             // If not shardable, only first shard can run.
@@ -305,27 +312,48 @@ public class AndroidJUnitTest extends InstrumentationTest implements IRuntimeHin
         }
     }
 
-    /*
+    /**
+     * Push the testFile to the requested destination. This should only be called for a non-null
+     * testFile
+     *
      * @param testFile file to be pushed from the host to the device.
      * @param destination the path on the device to which testFile is pushed
-     * This should only be called for a non-null testFile
+     * @param listener {@link ITestInvocationListener} to report failures.
      */
-    private void pushTestFile(File testFile, String destination) throws DeviceNotAvailableException {
+    private void pushTestFile(File testFile, String destination, ITestInvocationListener listener)
+            throws DeviceNotAvailableException {
         if (!testFile.canRead() || !testFile.isFile()) {
-            throw new IllegalArgumentException(
-                    String.format("Cannot read test file %s", testFile.getAbsolutePath()));
+            String message = String.format("Cannot read test file %s", testFile.getAbsolutePath());
+            reportEarlyFailure(listener, message);
+            throw new IllegalArgumentException(message);
         }
         ITestDevice device = getDevice();
-        if (!device.pushFile(testFile, destination)) {
-            throw new RuntimeException(String.format("Failed to push file %s to %s for %s "
-                    + "in pushTestFile", testFile.getAbsolutePath(), destination,
-                    device.getSerialNumber()));
+        try {
+            if (!device.pushFile(testFile, destination)) {
+                String message =
+                        String.format(
+                                "Failed to push file %s to %s for %s in pushTestFile",
+                                testFile.getAbsolutePath(), destination, device.getSerialNumber());
+                reportEarlyFailure(listener, message);
+                throw new RuntimeException(message);
+            }
+            // in case the folder was created as 'root' we make is usable.
+            device.executeShellCommand(String.format("chown -R shell:shell %s", mTestFilterDir));
+        } catch (DeviceNotAvailableException e) {
+            reportEarlyFailure(listener, e.getMessage());
+            throw e;
         }
     }
 
     private void removeTestFile(String deviceTestFile) throws DeviceNotAvailableException {
         ITestDevice device = getDevice();
         device.executeShellCommand(String.format("rm %s", deviceTestFile));
+    }
+
+    private void reportEarlyFailure(ITestInvocationListener listener, String errorMessage) {
+        listener.testRunStarted("AndroidJUnitTest_setupError", 0);
+        listener.testRunFailed(errorMessage);
+        listener.testRunEnded(0, Collections.emptyMap());
     }
 
     /**
@@ -359,6 +387,9 @@ public class AndroidJUnitTest extends InstrumentationTest implements IRuntimeHin
     public Collection<IRemoteTest> split(int shardCount) {
         if (!isShardable()) {
             return null;
+        }
+        if (mMaxShard != null) {
+            shardCount = Math.min(shardCount, mMaxShard);
         }
         if (!mIsSharded && shardCount > 1) {
             mIsSharded = true;

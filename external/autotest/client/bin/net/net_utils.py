@@ -5,27 +5,26 @@ This library is to release in the public repository.
 
 import commands, os, re, socket, sys, time, struct
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.bin import utils as client_utils
-import utils
+from autotest_lib.client.bin import utils as bin_utils
 
 TIMEOUT = 10 # Used for socket timeout and barrier timeout
 
 
 class network_utils(object):
     def reset(self, ignore_status=False):
-        utils.system('service network restart', ignore_status=ignore_status)
+        bin_utils.system('service network restart', ignore_status=ignore_status)
 
 
     def start(self, ignore_status=False):
-        utils.system('service network start', ignore_status=ignore_status)
+        bin_utils.system('service network start', ignore_status=ignore_status)
 
 
     def stop(self, ignore_status=False):
-        utils.system('service network stop', ignore_status=ignore_status)
+        bin_utils.system('service network stop', ignore_status=ignore_status)
 
 
     def list(self):
-        utils.system('ifconfig -a')
+        bin_utils.system('ifconfig -a')
 
 
     def get_ip_local(self, query_ip, netmask="24"):
@@ -36,7 +35,7 @@ class network_utils(object):
                 autotest machine.
         @return: IP address which can communicate with query_ip
         """
-        ip = client_utils.system_output("ip addr show to %s/%s" %
+        ip = bin_utils.system_output("ip addr show to %s/%s" %
                                         (query_ip, netmask))
         ip = re.search(r"inet ([0-9.]*)/",ip)
         if ip is None:
@@ -45,16 +44,18 @@ class network_utils(object):
 
 
     def disable_ip_local_loopback(self, ignore_status=False):
-        utils.system("echo '1' > /proc/sys/net/ipv4/route/no_local_loopback",
-                     ignore_status=ignore_status)
-        utils.system('echo 1 > /proc/sys/net/ipv4/route/flush',
+        bin_utils.system(
+                "echo '1' > /proc/sys/net/ipv4/route/no_local_loopback",
+                ignore_status=ignore_status)
+        bin_utils.system('echo 1 > /proc/sys/net/ipv4/route/flush',
                      ignore_status=ignore_status)
 
 
     def enable_ip_local_loopback(self, ignore_status=False):
-        utils.system("echo '0' > /proc/sys/net/ipv4/route/no_local_loopback",
-                     ignore_status=ignore_status)
-        utils.system('echo 1 > /proc/sys/net/ipv4/route/flush',
+        bin_utils.system(
+                "echo '0' > /proc/sys/net/ipv4/route/no_local_loopback",
+                ignore_status=ignore_status)
+        bin_utils.system('echo 1 > /proc/sys/net/ipv4/route/flush',
                      ignore_status=ignore_status)
 
 
@@ -145,7 +146,7 @@ class network_interface(object):
 
 
     def parse_ethtool(self, field, match, option='', next_field=''):
-        output = utils.system_output('%s %s %s' % (self.ethtool,
+        output = bin_utils.system_output('%s %s %s' % (self.ethtool,
                                                    option, self._name))
         if output:
             match = re.search('\n\s*%s:\s*(%s)%s' %
@@ -265,7 +266,7 @@ class network_interface(object):
 
 
     def _set_loopback(self, mode, enable_disable):
-        return utils.system('%s -L %s %s %s' %
+        return bin_utils.system('%s -L %s %s %s' %
                       (self.ethtool, self._name, mode, enable_disable),
                       ignore_status=True)
 
@@ -300,18 +301,19 @@ class network_interface(object):
         # Don't try ethtool -l on a bonded host
         if bond().is_enabled():
             return False
-        output = utils.system_output('%s -l %s' % (self.ethtool, self._name))
+        output = bin_utils.system_output('%s -l %s'
+                                         % (self.ethtool, self._name))
         if output:
             return 'enabled' in output
         return False
 
 
     def enable_promisc(self):
-        utils.system('ifconfig %s promisc' % self._name)
+        bin_utils.system('ifconfig %s promisc' % self._name)
 
 
     def disable_promisc(self):
-        utils.system('ifconfig %s -promisc' % self._name)
+        bin_utils.system('ifconfig %s -promisc' % self._name)
 
 
     def get_hwaddr(self):
@@ -322,20 +324,20 @@ class network_interface(object):
 
 
     def set_hwaddr(self, hwaddr):
-        utils.system('ifconfig %s hw ether %s' % (self._name, hwaddr))
+        bin_utils.system('ifconfig %s hw ether %s' % (self._name, hwaddr))
 
 
     def add_maddr(self, maddr):
-        utils.system('ip maddr add %s dev %s' % (maddr, self._name))
+        bin_utils.system('ip maddr add %s dev %s' % (maddr, self._name))
 
 
     def del_maddr(self, maddr):
-        utils.system('ip maddr del %s dev %s' % (maddr, self._name))
+        bin_utils.system('ip maddr del %s dev %s' % (maddr, self._name))
 
 
     def get_ipaddr(self):
         ipaddr = "0.0.0.0"
-        output = utils.system_output('ifconfig %s' % self._name)
+        output = bin_utils.system_output('ifconfig %s' % self._name)
         if output:
             match = re.search("inet addr:([\d\.]+)", output)
             if match:
@@ -344,21 +346,21 @@ class network_interface(object):
 
 
     def set_ipaddr(self, ipaddr):
-        utils.system('ifconfig %s %s' % (self._name, ipaddr))
+        bin_utils.system('ifconfig %s %s' % (self._name, ipaddr))
 
 
     def is_down(self):
-        output = utils.system_output('ifconfig %s' % self._name)
+        output = bin_utils.system_output('ifconfig %s' % self._name)
         if output:
             return 'UP' not in output
         return False
 
     def up(self):
-        utils.system('ifconfig %s up' % self._name)
+        bin_utils.system('ifconfig %s up' % self._name)
 
 
     def down(self):
-        utils.system('ifconfig %s down' % self._name)
+        bin_utils.system('ifconfig %s down' % self._name)
 
 
     def wait_for_carrier(self, timeout=60):
@@ -435,7 +437,7 @@ class bonding(object):
         wait_time = 0
         while wait_time < 100:
             time.sleep(10)
-            if not utils.ping_default_gateway():
+            if not bin_utils.ping_default_gateway():
                 return True
             wait_time += 10
         return False

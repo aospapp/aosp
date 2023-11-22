@@ -45,6 +45,7 @@ import com.googlecode.android_scripting.facade.telephony.InCallServiceImpl;
 import com.googlecode.android_scripting.facade.telephony.TelephonyConstants;
 import com.googlecode.android_scripting.facade.telephony.TelephonyUtils;
 
+import android.annotation.NonNull;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattDescriptor;
@@ -101,6 +102,8 @@ import android.telephony.gsm.GsmCellLocation;
 import android.util.Base64;
 import android.util.DisplayMetrics;
 import android.util.SparseArray;
+
+import static com.googlecode.android_scripting.ConvertUtils.toNonNullString;
 
 public class JsonBuilder {
 
@@ -733,6 +736,8 @@ public class JsonBuilder {
         result.put("mnc", cellidentity.getMnc());
         result.put("cid", cellidentity.getCid());
         result.put("lac", cellidentity.getLac());
+        result.put("bsic", cellidentity.getBsic());
+        result.put("arfcn", cellidentity.getArfcn());
         result.put("signal_strength", signalstrength.getDbm());
         result.put("asulevel", signalstrength.getAsuLevel());
         return result;
@@ -826,15 +831,20 @@ public class JsonBuilder {
         return url;
     }
 
-    private static JSONObject buildPhoneAccount(PhoneAccount data)
+    /**
+     * Builds a json representation of a {@link PhoneAccount}.
+     * @param data The PhoneAccount convert to JSON.
+     * @return A JSONObject representation of a {@link PhoneAccount}.
+     * @throws JSONException
+     */
+    private static JSONObject buildPhoneAccount(@NonNull PhoneAccount data)
             throws JSONException {
         JSONObject acct = new JSONObject();
-        acct.put("Address", data.getAddress().toSafeString());
-        acct.put("SubscriptionAddress", data.getSubscriptionAddress()
-                .toSafeString());
-        acct.put("Label", ((data.getLabel() != null) ? data.getLabel().toString() : ""));
-        acct.put("ShortDescription", ((data.getShortDescription() != null) ? data
-                .getShortDescription().toString() : ""));
+        acct.put("Address", toNonNullString(data.getAddress(), Uri::toSafeString));
+        acct.put("SubscriptionAddress", toNonNullString(data.getSubscriptionAddress(),
+                Uri::toSafeString));
+        acct.put("Label", toNonNullString(data.getLabel()));
+        acct.put("ShortDescription", toNonNullString(data.getShortDescription()));
         return acct;
     }
 

@@ -72,7 +72,7 @@ extern "C" {
  * an event with the result of an asynchronous request, unless specified
  * otherwise
  */
-#define CHRE_GNSS_ASYNC_RESULT_TIMEOUT_NS  (5 * CHRE_NSEC_PER_SEC_U64)
+#define CHRE_GNSS_ASYNC_RESULT_TIMEOUT_NS  (5 * CHRE_NSEC_PER_SEC)
 
 /**
  * Produce an event ID in the block of IDs reserved for GNSS

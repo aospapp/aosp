@@ -8,6 +8,7 @@
 #include "src/compiler/node.h"
 #include "src/compiler/types.h"
 #include "src/globals.h"
+#include "src/zone/zone-handle-set.h"
 
 namespace v8 {
 namespace internal {
@@ -123,6 +124,20 @@ class V8_EXPORT_PRIVATE NodeProperties final {
   //  - Switch: [ IfValue, ..., IfDefault ]
   static void CollectControlProjections(Node* node, Node** proj, size_t count);
 
+  // Checks if two nodes are the same, looking past {CheckHeapObject}.
+  static bool IsSame(Node* a, Node* b);
+
+  // Walks up the {effect} chain to find a witness that provides map
+  // information about the {receiver}. Can look through potentially
+  // side effecting nodes.
+  enum InferReceiverMapsResult {
+    kNoReceiverMaps,         // No receiver maps inferred.
+    kReliableReceiverMaps,   // Receiver maps can be trusted.
+    kUnreliableReceiverMaps  // Receiver maps might have changed (side-effect).
+  };
+  static InferReceiverMapsResult InferReceiverMaps(
+      Node* receiver, Node* effect, ZoneHandleSet<Map>* maps_return);
+
   // ---------------------------------------------------------------------------
   // Context.
 
@@ -131,6 +146,11 @@ class V8_EXPORT_PRIVATE NodeProperties final {
   // {context}.
   static MaybeHandle<Context> GetSpecializationContext(
       Node* node, MaybeHandle<Context> context = MaybeHandle<Context>());
+
+  // Walk up the context chain from the given {node} until we reduce the {depth}
+  // to 0 or hit a node that does not extend the context chain ({depth} will be
+  // updated accordingly).
+  static Node* GetOuterContext(Node* node, size_t* depth);
 
   // ---------------------------------------------------------------------------
   // Type.

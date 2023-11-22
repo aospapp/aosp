@@ -31,6 +31,9 @@ import android.telecom.TelecomManager;
  */
 public class DummyConnectionService extends ConnectionService {
 
+    public static final String MISSED_PHONE_NUMBER = "520";
+    public static final String NORMAL_PHONE_NUMBER = "886";
+
     @Override
     public Connection onCreateOutgoingConnection(PhoneAccountHandle connectionManagerPhoneAccount,
             ConnectionRequest request) {
@@ -112,17 +115,28 @@ public class DummyConnectionService extends ConnectionService {
         }
     }
 
+    private static int convertNumberToCause(String number) {
+        switch (number) {
+            case NORMAL_PHONE_NUMBER:
+                return DisconnectCause.LOCAL;
+            case MISSED_PHONE_NUMBER:
+                return DisconnectCause.MISSED;
+        }
+        throw new IllegalArgumentException("Should not happen");
+    }
+
     /**
      * Hang up the call after 1 second in a background thread.
      * TODO: It is better if we could have a callback to know when we can disconnect the call.
      */
     private static void hangUpAsync(final Connection connection) {
+        final int cause = convertNumberToCause(connection.getAddress().getSchemeSpecificPart());
         new Thread(new Runnable() {
             @Override
             public void run() {
                 try {
                     Thread.sleep(1000);
-                    connection.onDisconnect();
+                    connection.setDisconnected(new DisconnectCause(cause));
                 } catch (InterruptedException ex) {
                     // let it be
                 }

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2016 Google Inc.
+<!-- Copyright (C) 2016 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -17,4 +17,17 @@
   <include name="vts-base" />
   <option name="plan" value="vts" />
   <option name="test-tag" value="vts-star" />
+  <option name="vts-plan-result:plan-name" value="vts-fuzz" />
+
+  <option name="compatibility:primary-abi-only" value="true" />
+  <option name="compatibility:include-filter" value="VtsHalAudioV2_0IfaceFuzzer" />
+  <option name="compatibility:include-filter" value="VtsHalAudioEffectV2_0IfaceFuzzer" />
+  <option name="compatibility:include-filter" value="VtsHalConfigstoreV1_0IfaceFuzzer" />
+  <option name="compatibility:include-filter" value="VtsHalGatekeeperV1_0IfaceFuzzer" />
+  <option name="compatibility:include-filter" value="VtsHalLightV2_0IfaceFuzzer" />
+  <option name="compatibility:include-filter" value="VtsHalMemtrackV1_0IfaceFuzzer" />
+  <option name="compatibility:include-filter" value="VtsHalPowerV1_0IfaceFuzzer" />
+  <option name="compatibility:include-filter" value="VtsHalThermalV1_0IfaceFuzzer" />
+  <option name="compatibility:include-filter" value="VtsHalVibratorV1_0IfaceFuzzer" />
+  <option name="compatibility:include-filter" value="VtsHalVrV1_0IfaceFuzzer" />
 </configuration>

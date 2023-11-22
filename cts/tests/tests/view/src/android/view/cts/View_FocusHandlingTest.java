@@ -33,12 +33,10 @@ import android.support.test.runner.AndroidJUnit4;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewRootImpl;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 
-import org.junit.Assume;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -153,7 +151,7 @@ public class View_FocusHandlingTest {
         v2.setVisibility(View.VISIBLE);
         v3.setVisibility(View.VISIBLE);
         v4.setVisibility(View.VISIBLE);
-        assertEquals(ViewRootImpl.sAlwaysAssignFocus, v1.isFocused());
+        assertEquals(true, v1.isFocused());
         assertFalse(v2.isFocused());
         assertFalse(v3.isFocused());
         assertFalse(v4.isFocused());
@@ -344,32 +342,6 @@ public class View_FocusHandlingTest {
         return new View[]{initial, first};
     }
 
-    @Test
-    public void testNoInitialFocus() throws Throwable {
-        Assume.assumeFalse(ViewRootImpl.sAlwaysAssignFocus);
-        Activity activity = mActivityRule.getActivity();
-        View[] result = getInitialAndFirstFocus(R.layout.focus_handling_focusables);
-        assertNull(result[0]);
-        assertSame(result[1], activity.findViewById(R.id.focusable1));
-    }
-
-    @Test
-    public void testDefaultFocus() throws Throwable {
-        Assume.assumeFalse(ViewRootImpl.sAlwaysAssignFocus);
-        Activity activity = mActivityRule.getActivity();
-        View[] result = getInitialAndFirstFocus(R.layout.focus_handling_default_focus);
-        assertNull(result[0]);
-        assertSame(result[1], activity.findViewById(R.id.focusable2));
-    }
-
-    @Test
-    public void testInitialFocus() throws Throwable {
-        Assume.assumeFalse(ViewRootImpl.sAlwaysAssignFocus);
-        Activity activity = mActivityRule.getActivity();
-        View[] result = getInitialAndFirstFocus(R.layout.focus_handling_initial_focus);
-        assertSame(result[0], activity.findViewById(R.id.focusable3));
-    }
-
     @UiThreadTest
     @Test
     public void testFocusAfterDescendantsTransfer() throws Throwable {
@@ -384,6 +356,8 @@ public class View_FocusHandlingTest {
 
         LinearLayout mid = new LinearLayout(activity);
         Button but = new Button(activity);
+        but.setRight(but.getLeft() + 10);
+        but.setBottom(but.getTop() + 10);
         but.setFocusableInTouchMode(true);
         but.setVisibility(View.INVISIBLE);
         mid.addView(but, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);

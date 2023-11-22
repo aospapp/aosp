@@ -15,7 +15,7 @@
 #ifndef	sw_FrameBuffer_hpp
 #define	sw_FrameBuffer_hpp
 
-#include "Reactor/Nucleus.hpp"
+#include "Reactor/Reactor.hpp"
 #include "Renderer/Surface.hpp"
 #include "Common/Thread.hpp"
 
@@ -34,12 +34,12 @@ namespace sw
 		int cursorHeight;
 	};
 
-	class FrameBuffer
+	class [[clang::lto_visibility_public]] FrameBuffer
 	{
 	public:
 		FrameBuffer(int width, int height, bool fullscreen, bool topLeftOrigin);
 
-		virtual ~FrameBuffer();
+		virtual ~FrameBuffer() = 0;
 
 		int getWidth() const;
 		int getHeight() const;
@@ -75,21 +75,26 @@ namespace sw
 
 		void *target;   // Render target buffer
 
-		void (*blitFunction)(void *dst, void *src);
+		struct Cursor
+		{
+			void *image;
+			int x;
+			int y;
+			int width;
+			int height;
+			int hotspotX;
+			int hotspotY;
+			int positionX;
+			int positionY;
+		};
+
+		static Cursor cursor;
+
+		void (*blitFunction)(void *dst, void *src, Cursor *cursor);
 		Routine *blitRoutine;
 		BlitState blitState;
 
 		static void blend(const BlitState &state, const Pointer<Byte> &d, const Pointer<Byte> &s, const Pointer<Byte> &c);
-
-		static void *cursor;
-		static int cursorWidth;
-		static int cursorHeight;
-		static int cursorHotspotX;
-		static int cursorHotspotY;
-		static int cursorPositionX;
-		static int cursorPositionY;
-		static int cursorX;
-		static int cursorY;
 
 		Thread *blitThread;
 		Event syncEvent;

@@ -26,6 +26,7 @@ import java.util.List;
  */
 public class DeviceFolderBuildInfo extends BuildInfo implements IDeviceBuildInfo, IFolderBuildInfo {
 
+    private static final long serialVersionUID = BuildSerializedVersion.VERSION;
     private IDeviceBuildInfo mDeviceBuild;
     private IFolderBuildInfo mFolderBuild;
 

@@ -26,7 +26,10 @@ import android.util.Log;
 
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.common.feature.CommonFeatures;
-import com.android.tv.dvr.ScheduledRecording.RecordingState;
+import com.android.tv.dvr.data.RecordedProgram;
+import com.android.tv.dvr.data.ScheduledRecording;
+import com.android.tv.dvr.data.ScheduledRecording.RecordingState;
+import com.android.tv.dvr.data.SeriesRecording;
 import com.android.tv.util.Clock;
 
 import java.util.ArrayList;
@@ -315,6 +318,42 @@ public abstract class BaseDvrDataManager implements WritableDvrDataManager {
             }
         }
         return result;
+    }
+
+    @Override
+    public void checkAndRemoveEmptySeriesRecording(long... seriesRecordingIds) {
+        List<SeriesRecording> toRemove = new ArrayList<>();
+        for (long rId : seriesRecordingIds) {
+            SeriesRecording seriesRecording = getSeriesRecording(rId);
+            if (seriesRecording != null && isEmptySeriesRecording(seriesRecording)) {
+                toRemove.add(seriesRecording);
+            }
+        }
+        removeSeriesRecording(SeriesRecording.toArray(toRemove));
+    }
+
+    /**
+     * Returns {@code true}, if the series recording is empty and can be removed. If a series
+     * recording is in NORMAL state or has recordings or schedules, it is not empty and cannot be
+     * removed.
+     */
+    protected final boolean isEmptySeriesRecording(@NonNull SeriesRecording seriesRecording) {
+        if (!seriesRecording.isStopped()) {
+            return false;
+        }
+        long seriesRecordingId = seriesRecording.getId();
+        for (ScheduledRecording r : getAvailableScheduledRecordings()) {
+            if (r.getSeriesRecordingId() == seriesRecordingId) {
+                return false;
+            }
+        }
+        String seriesId = seriesRecording.getSeriesId();
+        for (RecordedProgram r : getRecordedPrograms()) {
+            if (seriesId.equals(r.getSeriesId())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override

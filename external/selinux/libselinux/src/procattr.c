@@ -22,8 +22,8 @@ static pthread_key_t destructor_key;
 static int destructor_key_initialized = 0;
 static __thread char destructor_initialized;
 
-#ifndef __ANDROID__
-/* Android declares this in unistd.h and has a definition for it */
+#ifndef __BIONIC__
+/* Bionic declares this in unistd.h and has a definition for it */
 static pid_t gettid(void)
 {
 	return syscall(__NR_gettid);
@@ -143,7 +143,7 @@ static int getprocattrcon_raw(char ** context,
 		return 0;
 	}
 
-	fd = openattr(pid, attr, O_RDONLY);
+	fd = openattr(pid, attr, O_RDONLY | O_CLOEXEC);
 	if (fd < 0)
 		return -1;
 
@@ -235,7 +235,7 @@ static int setprocattrcon_raw(const char * context,
 	    && !strcmp(context, *prev_context))
 		return 0;
 
-	fd = openattr(pid, attr, O_RDWR);
+	fd = openattr(pid, attr, O_RDWR | O_CLOEXEC);
 	if (fd < 0)
 		return -1;
 	if (context) {

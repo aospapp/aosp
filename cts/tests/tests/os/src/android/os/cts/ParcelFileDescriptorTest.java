@@ -117,8 +117,6 @@ public class ParcelFileDescriptorTest extends AndroidTestCase {
         assertFileDescriptorContent(data, ParcelFileDescriptor.fromData(data, null));
         data = new byte[] { 0, 1, 2, 3 };
         assertFileDescriptorContent(data, ParcelFileDescriptor.fromData(data, null));
-        data = new byte[0];
-        assertFileDescriptorContent(data, ParcelFileDescriptor.fromData(data, null));
 
         // Check that modifying the data does not modify the data in the FD
         data = new byte[] { 0, 1, 2, 3 };

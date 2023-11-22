@@ -15,16 +15,19 @@
   ~ limitations under the License.
   -->
 
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item>
-        <shape android:shape="oval">
-            <solid android:color="@color/shortcut_background" />
-        </shape>
-    </item>
-    <item
-        android:drawable="@drawable/ic_images_white"
-        android:top="16dp"
-        android:right="16dp"
-        android:bottom="16dp"
-        android:left="16dp" />
-</layer-list>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/shortcut_background" />
+    <foreground>
+      <inset android:inset="33%">
+        <vector xmlns:android="http://schemas.android.com/apk/res/android"
+          android:width="24dp"
+          android:height="24dp"
+          android:viewportHeight="24"
+          android:viewportWidth="24">
+        <path
+          android:fillColor="@color/shortcut_foreground"
+          android:pathData="M21 19V5c0,-1.1,-.9,-2,-2,-2H5c-1.1 0,-2 .9,-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2,-.9 2,-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5,-4.5z" />
+        </vector>
+      </inset>
+    </foreground>
+</adaptive-icon>

@@ -22,7 +22,7 @@
 #include <keymaster/authorization_set.h>
 #include <hardware/keymaster_defs.h>
 
-#include <UniquePtr.h>
+#include <keymaster/UniquePtr.h>
 
 #include "openssl_utils.h"
 

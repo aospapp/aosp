@@ -25,7 +25,6 @@ from autotest_lib.client.common_lib import control_data
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import utils
-from autotest_lib.client.common_lib.cros.graphite import autotest_es
 
 try:
     from chromite.lib import metrics
@@ -53,7 +52,7 @@ from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
 from autotest_lib.site_utils import job_directories
 from autotest_lib.site_utils import job_overhead
 from autotest_lib.site_utils import lxc
-from autotest_lib.site_utils import lxc_utils
+from autotest_lib.site_utils.lxc import utils as lxc_utils
 from autotest_lib.client.common_lib import pidfile, logging_manager
 
 
@@ -225,13 +224,6 @@ def _run_with_ssp(job, container_name, job_id, results, parser, ssp_url,
         metrics.Counter(
             'chromeos/autotest/experimental/execute_job_in_ssp').increment(
                 fields={'success': success})
-        # metadata is uploaded separately so it can use http to upload.
-        metadata = {'drone': socket.gethostname(),
-                    'job_id': job_id,
-                    'success': success}
-        autotest_es.post(use_http=True,
-                         type_str=lxc.CONTAINER_RUN_TEST_METADB_TYPE,
-                         metadata=metadata)
         test_container.destroy()
 
 
@@ -250,16 +242,8 @@ def correct_results_folder_permission(results):
     if not results:
         return
 
-    try:
-        utils.run('sudo -n chown -R %s "%s"' % (os.getuid(), results))
-        utils.run('sudo -n chgrp -R %s "%s"' % (os.getgid(), results))
-    except error.CmdError as e:
-        metadata = {'error': str(e),
-                    'result_folder': results,
-                    'drone': socket.gethostname()}
-        autotest_es.post(use_http=True, type_str='correct_results_folder_failure',
-                         metadata=metadata)
-        raise
+    utils.run('sudo -n chown -R %s "%s"' % (os.getuid(), results))
+    utils.run('sudo -n chgrp -R %s "%s"' % (os.getgid(), results))
 
 
 def _start_servod(machine):
@@ -364,29 +348,17 @@ def run_autoserv(pid_file_manager, results, parser, ssp_url, use_ssp):
         if use_ssp:
             logging.debug('Destroy container %s before aborting the autoserv '
                           'process.', container_name)
-            metadata = {'drone': socket.gethostname(),
-                        'job_id': job_or_task_id,
-                        'container_name': container_name,
-                        'action': 'abort',
-                        'success': True}
             try:
                 bucket = lxc.ContainerBucket()
                 container = bucket.get(container_name)
                 if container:
                     container.destroy()
                 else:
-                    metadata['success'] = False
-                    metadata['error'] = 'container not found'
                     logging.debug('Container %s is not found.', container_name)
             except:
-                metadata['success'] = False
-                metadata['error'] = 'Exception: %s' % str(sys.exc_info())
                 # Handle any exception so the autoserv process can be aborted.
                 logging.exception('Failed to destroy container %s.',
                                   container_name)
-            autotest_es.post(use_http=True,
-                             type_str=lxc.CONTAINER_RUN_TEST_METADB_TYPE,
-                             metadata=metadata)
             # Try to correct the result file permission again after the
             # container is destroyed, as the container might have created some
             # new files in the result folder.
@@ -557,9 +529,11 @@ def run_autoserv(pid_file_manager, results, parser, ssp_url, use_ssp):
                         c['success'] = True
 
         finally:
-            while job.hosts:
-                host = job.hosts.pop()
-                host.close()
+            job.close()
+            # Special task doesn't run parse, so result summary needs to be
+            # built here.
+            if results and (repair or verify or reset or cleanup or provision):
+                site_utils.collect_result_sizes(results)
     except:
         exit_code = 1
         traceback.print_exc()
@@ -616,21 +590,6 @@ def main():
         parser.parser.print_help()
         sys.exit(1)
 
-    # If the job requires to run with server-side package, try to stage server-
-    # side package first. If that fails with error that autotest server package
-    # does not exist, fall back to run the job without using server-side
-    # packaging. If option warn_no_ssp is specified, that means autoserv is
-    # running in a drone does not support SSP, thus no need to stage server-side
-    # package.
-    ssp_url = None
-    ssp_url_warning = False
-    if (not parser.options.warn_no_ssp and parser.options.require_ssp):
-        ssp_url, ssp_error_msg = _stage_ssp(parser)
-        # The build does not have autotest server package. Fall back to not
-        # to use server-side package. Logging is postponed until logging being
-        # set up.
-        ssp_url_warning = not ssp_url
-
     if parser.options.no_logging:
         results = None
     else:
@@ -652,6 +611,21 @@ def main():
         # needs to create the log file in there.
         if not os.path.isdir(results):
             os.makedirs(results)
+
+    # If the job requires to run with server-side package, try to stage server-
+    # side package first. If that fails with error that autotest server package
+    # does not exist, fall back to run the job without using server-side
+    # packaging. If option warn_no_ssp is specified, that means autoserv is
+    # running in a drone does not support SSP, thus no need to stage server-side
+    # package.
+    ssp_url = None
+    ssp_url_warning = False
+    if (not parser.options.warn_no_ssp and parser.options.require_ssp):
+        ssp_url, ssp_error_msg = _stage_ssp(parser)
+        # The build does not have autotest server package. Fall back to not
+        # to use server-side package. Logging is postponed until logging being
+        # set up.
+        ssp_url_warning = not ssp_url
 
     # Server-side packaging will only be used if it's required and the package
     # is available. If warn_no_ssp is specified, it means that autoserv is
@@ -762,11 +736,11 @@ def main():
         except SystemExit as e:
             exit_code = e.code
             if exit_code:
-                logging.exception(e)
-        except Exception as e:
+                logging.exception('Uncaught SystemExit with code %s', exit_code)
+        except Exception:
             # If we don't know what happened, we'll classify it as
             # an 'abort' and return 1.
-            logging.exception(e)
+            logging.exception('Uncaught Exception, exit_code = 1.')
             exit_code = 1
     finally:
         if pid_file_manager:

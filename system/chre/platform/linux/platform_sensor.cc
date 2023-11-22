@@ -18,6 +18,10 @@
 
 namespace chre {
 
+PlatformSensor::PlatformSensor(PlatformSensor&& other) {
+  *this = std::move(other);
+}
+
 PlatformSensor::~PlatformSensor() {}
 
 void PlatformSensor::init() {
@@ -30,7 +34,7 @@ void PlatformSensor::deinit() {
   // by init.
 }
 
-bool PlatformSensor::getSensors(DynamicVector<PlatformSensor> *sensors) {
+bool PlatformSensor::getSensors(DynamicVector<Sensor> *sensors) {
   CHRE_ASSERT(sensors);
 
   // TODO: Implement this. Perhaps look at all sensor trace files provided and
@@ -38,7 +42,7 @@ bool PlatformSensor::getSensors(DynamicVector<PlatformSensor> *sensors) {
   return false;
 }
 
-bool PlatformSensor::setRequest(const SensorRequest& request) {
+bool PlatformSensor::applyRequest(const SensorRequest& request) {
   // TODO: Implement this. Perhaps consider the request and start to pass in
   // sensor samples from mock sensor data once the sensor has transitioned to
   // being enabled. Maybe consider resampling input data if the provided mock
@@ -71,8 +75,10 @@ ChreSensorData *PlatformSensor::getLastEvent() const {
   return nullptr;
 }
 
-void PlatformSensor::setLastEvent(const ChreSensorData *event) {
+bool PlatformSensor::getSamplingStatus(
+    struct chreSensorSamplingStatus *status) const {
   // TODO: Implement this.
+  return false;
 }
 
 }  // namespace chre

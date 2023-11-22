@@ -27,9 +27,9 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"Aplikacja, która będzie potrzebować dostępu do tego profilu:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Ta aplikacja będzie zarządzać urządzeniem:"</string>
     <string name="next" msgid="1004321437324424398">"Dalej"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"Konfiguruję profil do pracy…"</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"Konfiguruję profil do pracy…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"Administrator może monitorować ustawienia, firmowe uprawnienia dostępu, aplikacje, uprawnienia i dane powiązane z profilem (w tym aktywność w sieci, lokalizację urządzenia, historię połączeń i historię wyszukiwania kontaktów) oraz nimi zarządzać.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Skontaktuj się z administratorem, by uzyskać więcej informacji, w tym politykę prywatności obowiązującą w Twojej organizacji."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"Administrator może monitorować ustawienia, firmowe uprawnienia dostępu, aplikacje, uprawnienia i dane powiązane z urządzeniem (w tym aktywność w sieci, lokalizację urządzenia, historię połączeń i historię wyszukiwania kontaktów) oraz nimi zarządzać.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Skontaktuj się z administratorem, by uzyskać więcej informacji, w tym politykę prywatności obowiązującą w Twojej organizacji."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"Administrator może monitorować ustawienia, firmowe uprawnienia dostępu, aplikacje, uprawnienia i dane powiązane z urządzeniem (w tym aktywność w sieci, lokalizację urządzenia, historię połączeń i historię wyszukiwania kontaktów) oraz nimi zarządzać.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Skontaktuj się z administratorem, by uzyskać więcej informacji, w tym politykę prywatności obowiązującą w Twojej organizacji."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Aby korzystać z funkcji ochrony przed kradzieżą, musisz włączyć na urządzeniu blokadę ekranu zabezpieczoną hasłem."</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Aby dowiedzieć się więcej i poznać politykę prywatności swojej organizacji, skontaktuj się z administratorem."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Więcej informacji"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Profil do pracy"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"Główny użytkownik"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Usunąć istniejący profil?"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"Masz już profil do pracy, którym zarządza ta aplikacja:"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Masz już profil do pracy, którym zarządza ta aplikacja:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Zanim przejdziesz dalej, "<a href="#read_this_link">"przeczytaj to"</a>"."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Pamiętaj, że wszystkie aplikacje i dane w tym profilu zostaną usunięte."</string>
     <string name="delete_profile" msgid="2299218578684663459">"Usuń"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"Kliknij, by kontynuować konfigurowanie profilu do pracy"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Nie można skonfigurować profilu do pracy. Skontaktuj się z działem IT lub spróbuj później jeszcze raz."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Nie można dodać profilu do pracy"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"Ten użytkownik nie może mieć profilu do pracy. Skontaktuj się z administratorem, aby uzyskać pomoc."</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"Ten użytkownik nie może mieć profili do pracy. Skontaktuj się z administratorem."</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"Profili do pracy nie można skonfigurować na urządzeniu zarządzanym"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"Na tym urządzeniu może być zbyt wiele kont użytkowników. Usuń konto użytkownika i spróbuj ponownie."</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Nie można zastąpić lub usunąć profilu do pracy"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"Nie można dodać profilu do pracy na tym urządzeniu. Jeśli masz pytania, skontaktuj się z administratorem."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Zmień program uruchamiający na urządzeniu"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Tego programu uruchamiającego nie można używać w profilu do pracy"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Anuluj"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"OK"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Instalacja użytkownika nie została ukończona"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Użytkownik urządzenia służbowego"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"Skonfiguruj urządzenie do pracy"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"Konfiguruję urządzenie do pracy…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Przetwarzam dane konfiguracji…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Łączę z Wi-Fi…"</string>
     <string name="progress_download" msgid="3522436271691064624">"Pobieram aplikację administratora…"</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"Anuluj"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"Resetuj urządzenie"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> i <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> i <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> i <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

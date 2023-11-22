@@ -34,6 +34,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -242,7 +243,7 @@ public class BuildDalvikSuite {
     }
 
     private String getShellExecJavaLine(String classpath, String mainclass) {
-      String cmd = String.format("ANDROID_DATA=%s dalvikvm|#ABI#| -Xmx512M -Xss32K " +
+      String cmd = String.format("ANDROID_DATA=%s dalvikvm|#ABI#| -Xmx512M -Xss32K -Xnodex2oat " +
               "-Djava.io.tmpdir=%s -classpath %s %s", TARGET_JAR_ROOT_PATH, TARGET_JAR_ROOT_PATH,
               classpath, mainclass);
       StringBuilder code = new StringBuilder();
@@ -261,7 +262,7 @@ public class BuildDalvikSuite {
     }
 
     private void addCTSHostMethod(String pName, String method, MethodData md,
-            Set<String> dependentTestClassNames) {
+            Collection<String> dependentTestClassNames) {
         curJunitFileData += "public void " + method + "() throws Exception {\n";
         final String targetCoreJarPath = String.format("%s/dot/junit/dexcore.jar",
                 TARGET_JAR_ROOT_PATH);
@@ -344,7 +345,7 @@ public class BuildDalvikSuite {
                 MethodData md = parseTestMethod(pName, classOnlyName, method);
                 String methodContent = md.methodBody;
 
-                Set<String> dependentTestClassNames = parseTestClassName(pName,
+                List<String> dependentTestClassNames = parseTestClassName(pName,
                         classOnlyName, methodContent);
 
                 addCTSHostMethod(pName, method, md, dependentTestClassNames);
@@ -490,7 +491,7 @@ public class BuildDalvikSuite {
     }
 
     private void generateBuildStepFor(String pName, String method,
-            Set<String> dependentTestClassNames, Set<BuildStep> targets) {
+            Collection<String> dependentTestClassNames, Set<BuildStep> targets) {
 
 
         for (String dependentTestClassName : dependentTestClassNames) {
@@ -640,9 +641,9 @@ public class BuildDalvikSuite {
      * @param methodSource
      * @return testclass names
      */
-    private Set<String> parseTestClassName(String pName, String classOnlyName,
+    private List<String> parseTestClassName(String pName, String classOnlyName,
             String methodSource) {
-        Set<String> entries = new HashSet<String>();
+        List<String> entries = new ArrayList<String>(2);
         String opcodeName = classOnlyName.substring(5);
 
         Scanner scanner = new Scanner(methodSource);
@@ -673,7 +674,7 @@ public class BuildDalvikSuite {
         Matcher m = p.matcher(methodSource);
         while (m.find()) {
             String res = m.group(1);
-            entries.add(res.trim());
+            entries.add(0, res.trim());
         }
 
         // search for " load(\"...\" " and add as dependency

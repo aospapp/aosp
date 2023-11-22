@@ -24,14 +24,16 @@ namespace chre {
 class PlatformWifi : public PlatformWifiBase {
  public:
   /**
-   * Performs platform-specific initialization of the PlatformWifi instance.
-   */
-  PlatformWifi();
-
-  /**
    * Performs platform-specific deinitialization of the PlatformWifi instance.
    */
   ~PlatformWifi();
+
+  /**
+   * Initializes the platform-specific WiFi implementation. This is potentially
+   * called at a later stage of initialization than the constructor, so platform
+   * implementations are encouraged to put any blocking initialization here.
+   */
+  void init();
 
   /**
    * Returns the set of WiFi capabilities that the platform has exposed. This

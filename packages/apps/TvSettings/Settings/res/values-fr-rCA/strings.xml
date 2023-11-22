@@ -19,7 +19,7 @@
     <string name="settings_app_name" msgid="4243616485579754401">"Paramètres"</string>
     <string name="launcher_settings_app_name" msgid="5782771766725939392">"Paramètres"</string>
     <string name="launcher_network_app_name" msgid="5107150533945388559">"Réseau"</string>
-    <string name="launcher_restricted_profile_app_name" msgid="671448012575234643">"Profil restreint"</string>
+    <string name="launcher_restricted_profile_app_name" msgid="671448012575234643">"Profil limité"</string>
     <string name="header_category_device" msgid="4855983928659541345">"Appareil"</string>
     <string name="header_category_preferences" msgid="175105555164713972">"Préférences"</string>
     <string name="header_category_accessories" msgid="823295909353025991">"Télécommande et accessoires"</string>
@@ -54,7 +54,7 @@
     <string name="device_apps" msgid="9180435229638772838">"Applications"</string>
     <string name="device_storage_reset" msgid="1425978936501134425">"Stockage et réinitialisation"</string>
     <string name="device_backup_restore" msgid="5627523987587511884">"Sauvegarde et restauration"</string>
-    <string name="device_reset" msgid="2827002349560023125">"Rétablir config. par défaut"</string>
+    <string name="device_reset" msgid="2827002349560023125">"Rétablir configuration par défaut"</string>
     <string name="device_calibration" msgid="8632962533376605191">"Étalonnage"</string>
     <string name="device_storage_clear_cache_title" msgid="3365635664766067643">"Effacer les données mises en cache?"</string>
     <string name="device_storage_clear_cache_message" msgid="6495570470005696210">"Les données en cache des applis seront effacées."</string>
@@ -73,7 +73,7 @@
     <string name="accessory_unpairing" msgid="7568241162181184667">"Dissociation de l\'appareil en cours…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Connecté"</string>
     <string name="accessory_change_name" msgid="8958916008739792785">"Modifier le nom"</string>
-    <string name="accessory_change_name_title" msgid="4630819456923061184">"Entrez un nouveau nom pour cet accessoire"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"Entrer un nouveau nom pour cet accessoire"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Recherche d\'accessoires…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Avant d\'associer vos appareils Bluetooth, assurez-vous qu\'ils sont en mode d\'association."</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"Un appareil a été détecté. L\'association aura automatiquement lieu dans <xliff:g id="COUNTDOWN">%1$s</xliff:g> secondes."</string>
@@ -160,7 +160,7 @@
     <string name="title_mac_address" msgid="3428401680168668544">"Adresse MAC"</string>
     <string name="title_signal_strength" msgid="205478650262078041">"Intensité du signal"</string>
     <string name="title_ip_address" msgid="4533523100923004711">"Adresse IP"</string>
-    <string name="title_ssid" msgid="4858945903642469730">"Entrez le nom du réseau Wi-Fi"</string>
+    <string name="title_ssid" msgid="4858945903642469730">"Entrer le nom du réseau Wi-Fi"</string>
     <string name="title_internet_connection" msgid="8710084774588697646">"Connexion Internet"</string>
     <string name="connected" msgid="7563100162902079938">"Connecté"</string>
     <string name="not_connected" msgid="6858480380326923017">"Non connecté"</string>
@@ -210,8 +210,8 @@
     <string name="wifi_action_dont_change_network" msgid="1449920958930251977">"Ne pas changer"</string>
     <string name="wifi_action_advanced_yes" msgid="8586473568311558982">"OK"</string>
     <string name="wifi_action_advanced_no" msgid="8165601242122651326">"Non (recommandé)"</string>
-    <string name="wifi_action_proxy_none" msgid="4457231399674182650">"Aucune"</string>
-    <string name="wifi_action_proxy_manual" msgid="8402002777441261064">"Manuelle"</string>
+    <string name="wifi_action_proxy_none" msgid="4457231399674182650">"Aucun"</string>
+    <string name="wifi_action_proxy_manual" msgid="8402002777441261064">"Manuel"</string>
     <string name="wifi_action_dhcp" msgid="6338911832360962268">"DHCP"</string>
     <string name="wifi_action_static" msgid="1025855501453321749">"Statique"</string>
     <string name="wifi_action_status_info" msgid="7664354971197839253">"État de la connexion"</string>
@@ -232,7 +232,7 @@
     <string name="proxy_error_invalid_port" msgid="1434922103959603993">"Le port n\'est pas valide"</string>
     <string name="proxy_warning_limited_support" msgid="6160239282535986523">"Le mandataire HTTP est utilisé par le navigateur, mais ne peut pas l\'être par les autres applications"</string>
     <string name="proxy_port_description" msgid="6791098212244367568">"Entrez un port valide.\nPar exemple : <xliff:g id="ID_1">8080</xliff:g>"</string>
-    <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"Séparez les noms de domaine exclus par une virgule ou laissez ce champ vide.\n Par exemple : <xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g>"</string>
+    <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"Entrez une liste de domaines exclus séparés par des virgules ou laissez le champ vide.\n Par exemple : <xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g>"</string>
     <string name="proxy_hostname_description" msgid="5824391500254472447">"Entrez un nom d\'hôte valide.\nPar exemple : <xliff:g id="ID_1">proxy.example.com</xliff:g>"</string>
     <string name="wifi_summary_title_connected" msgid="8329216588732277139">"Vous êtes connecté à un réseau"</string>
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"Vous n\'êtes pas connecté au réseau"</string>
@@ -348,7 +348,7 @@
     <string name="system_desc_location" msgid="4243551425631207495">"Permettre aux applications ayant demandé l\'autorisation d\'utiliser vos données de localisation"</string>
     <string name="system_network_location_confirm" msgid="8435144328428634060">"Votre position sera enregistrée"</string>
     <string name="location_mode_title" msgid="6573195849329396150">"Mode"</string>
-    <string name="location_category_recent_location_requests" msgid="3437903422445812245">"Demandes localisation récentes"</string>
+    <string name="location_category_recent_location_requests" msgid="3437903422445812245">"Demandes de localisation récentes"</string>
     <string name="location_no_recent_apps" msgid="4218851908476344030">"Aucune application n\'a récemment demandé l\'accès à votre position"</string>
     <string name="location_high_battery_use" msgid="576143332793626088">"Forte consommation de la pile"</string>
     <string name="location_low_battery_use" msgid="5756040390248358148">"Faible utilisation de la pile"</string>
@@ -367,7 +367,11 @@
     <string name="delete_location_history_desc" msgid="4142806827237093397">"Cette opération irréversible supprime l\'historique des positions de cet appareil pour ce compte Google. Certaines applications telles que Google Now ne fonctionneront plus."</string>
     <string name="system_services" msgid="7230571820151215779">"Services"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Paramètres du service"</string>
-    <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Texte de contraste élevé"</string>
+    <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Texte avec contraste élevé"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Raccourci d\'accessibilité"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Activer le raccourci d\'accessibilité"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Service de raccourcis"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Lorsque le raccourci est activé, appuyez simultanément sur les boutons Arrière et Bas pour démarrer une fonction d\'accessibilité de votre choix."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Sous-titres"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Paramètres de superposition du texte des sous-titres sur la vidéo"</string>
     <string name="captions_display" msgid="735692527287125548">"Affichage"</string>
@@ -519,7 +523,7 @@
     <string name="title_configure" msgid="6929522003149212388">"Configurer"</string>
     <string name="desc_configure_keyboard" msgid="7187242843867404657">"Options du clavier"</string>
     <string name="computing_size" msgid="2955133568424704042">"Calcul en cours…"</string>
-    <string name="title_select_wifi_network" msgid="1038871400014761952">"Sélectionnez un réseau Wi-Fi"</string>
+    <string name="title_select_wifi_network" msgid="1038871400014761952">"Sélectionner un réseau Wi-Fi"</string>
     <string name="accessories_wifi_display_rename_device" msgid="7416728299196887186">"Renommer"</string>
     <string name="accessories_wifi_display_enable" msgid="4779506305656453262">"Affichage Wi-Fi"</string>
     <string name="accessories_wifi_display_pin_required" msgid="3242645267864813273">"Exiger un NIP"</string>
@@ -561,15 +565,15 @@
       <item quantity="other">Entrées non connectées</item>
     </plurals>
     <string name="user_add_profile_item_summary" msgid="2946168478936086933">"Limiter l\'accès aux applications et autres contenus de votre compte"</string>
-    <string name="user_new_profile_name" msgid="336521054830056189">"Profil restreint"</string>
+    <string name="user_new_profile_name" msgid="336521054830056189">"Profil limité"</string>
     <string name="user_restrictions_controlled_by" msgid="2107349341393761750">"Dépend de <xliff:g id="APP">%1$s</xliff:g>"</string>
     <string name="app_not_supported_in_limited" msgid="6818309827329010677">"Cette application n\'est pas prise en charge dans les profils restreints"</string>
     <string name="app_sees_restricted_accounts" msgid="1967195038085624916">"Cette application peut accéder à vos comptes"</string>
     <string name="restriction_location_enable_title" msgid="2575116135395354938">"Position"</string>
     <string name="restriction_location_enable_summary" msgid="4195349388342385870">"Autoriser les applications à utiliser les données de localisation"</string>
-    <string name="restricted_profile_switch_to" msgid="1926433350907032138">"Activer le profil restreint"</string>
-    <string name="restricted_profile_switch_out" msgid="1893784095623209495">"Quitter le profil restreint"</string>
-    <string name="restricted_profile_delete_title" msgid="3445944923018324707">"Supprimer le profil restreint"</string>
+    <string name="restricted_profile_switch_to" msgid="1926433350907032138">"Activer le profil limité"</string>
+    <string name="restricted_profile_switch_out" msgid="1893784095623209495">"Quitter le profil limité"</string>
+    <string name="restricted_profile_delete_title" msgid="3445944923018324707">"Supprimer le profil limité"</string>
     <string name="restricted_profile_create_title" msgid="1392190365829029390">"Créer un profil limité"</string>
     <string name="restricted_profile_configure_title" msgid="4684188123147519620">"Paramètres"</string>
     <string name="restricted_profile_configure_apps_title" msgid="11507255932348492">"Applications autorisées"</string>
@@ -588,18 +592,18 @@
     <string name="pin_enter_unlock_program" msgid="52453773316071511">"Entrez le NIP pour regarder ce programme"</string>
     <string name="pin_enter_pin" msgid="821552376577935497">"Entrez le NIP"</string>
     <string name="pin_enter_new_pin" msgid="4788218421265924211">"Définir un nouveau NIP"</string>
-    <string name="pin_enter_again" msgid="1510456697040826496">"Veuillez entrer le nouveau NIP"</string>
-    <string name="pin_enter_old_pin" msgid="851029058127630869">"Entrez l\'ancien NIP"</string>
+    <string name="pin_enter_again" msgid="1510456697040826496">"Entrer le nouveau NIP"</string>
+    <string name="pin_enter_old_pin" msgid="851029058127630869">"Entrer l\'ancien NIP"</string>
     <string name="pin_enter_wrong_seconds" msgid="7541208202846169755">"Vous avez entré un NIP erroné cinq fois.\nRéessayez dans <xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g> secondes."</string>
     <string name="pin_toast_wrong" msgid="4628358195224633248">"Le NIP est incorrect. Veuillez réessayer."</string>
     <string name="pin_toast_not_match" msgid="5886041789737632996">"Le NIP est incorrect. Veuillez réessayer."</string>
-    <string name="wifi_setup_input_password" msgid="1596168874369038536">"Entrez le mot de passe associé au réseau <xliff:g id="SSID">%1$s</xliff:g>"</string>
-    <string name="wifi_setup_connection_success" msgid="3846993789166071184">"Vous êtes bien connecté"</string>
+    <string name="wifi_setup_input_password" msgid="1596168874369038536">"Entrer le mot de passe associé au réseau <xliff:g id="SSID">%1$s</xliff:g>"</string>
+    <string name="wifi_setup_connection_success" msgid="3846993789166071184">"Vous êtes maintenant connecté"</string>
     <string name="wifi_setup_save_success" msgid="4785799603638549254">"L\'enregistrement a été effectué"</string>
     <string name="device_apps_app_management_version" msgid="2267065043941006486">"Version : <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
     <string name="device_apps_app_management_open" msgid="8009823973422120839">"Disponible"</string>
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Forcer l\'arrêt"</string>
-    <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Si vous forcez l\'arrêt d\'une application, cela peut provoquer son dysfonctionnement."</string>
+    <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Si vous forcez l\'arrêt d\'une application, son fonctionnement peut en être affecté."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"Désinstaller"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Désinstaller les mises à jour"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"Toutes les mises à jour pour cette application système Android seront désinstallées."</string>
@@ -610,7 +614,7 @@
     <string name="device_apps_app_management_storage_used" msgid="4611351576179140634">"Espace de stockage utilisé"</string>
     <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"<xliff:g id="SIZE">%1$s</xliff:g> utilisé dans <xliff:g id="VOLUME">%2$s</xliff:g>"</string>
     <string name="device_apps_app_management_clear_data" msgid="4439114679323274127">"Effacer les données"</string>
-    <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"Toutes les données de cette application seront définitivement supprimées, \ny compris tous les fichiers, les paramètres, les comptes, les bases de données, etc."</string>
+    <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"Toutes les données de cette application seront définitivement supprimées, y compris tous les fichiers, les paramètres, les comptes, les bases de données, etc.\n"</string>
     <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"Effacer les actions par défaut"</string>
     <string name="device_apps_app_management_clear_default_set" msgid="4191720055364731307">"Cette appli sera util. pour cert. actions"</string>
     <string name="device_apps_app_management_clear_default_none" msgid="196932966641339141">"Aucune action par défaut définie"</string>
@@ -625,7 +629,7 @@
     <string name="device_daydreams_none" msgid="2767107052779579259">"Désactiver l\'écran"</string>
     <string name="device_daydreams_select" msgid="2112338101206187695">"Écran de veille"</string>
     <string name="device_daydreams_test" msgid="9038920213402659591">"Commencer maintenant"</string>
-    <string name="device_daydreams_sleep" msgid="7676938708373592766">"Quand commencer"</string>
+    <string name="device_daydreams_sleep" msgid="7676938708373592766">"Durée écoulée avant l\'activation"</string>
     <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"L\'écran de veille s\'active après la période d\'inactivité définie. Si vous n\'avez sélectionné aucun écran de veille, l\'écran se désactive."</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"Après <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> d\'inactivité"</string>
     <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Mettre l\'appareil en veille"</string>
@@ -640,7 +644,7 @@
     <string name="factory_reset_description" msgid="5381170999141355891">"Toutes les données de votre mémoire de stockage interne seront effacées, y compris les paramètres et les données de votre compte Google, de votre système et de vos applications, ainsi que les applications que vous aviez téléchargées."</string>
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Effacer toutes vos données personnelles et les applications téléchargées? Cette action est irréversible."</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Tout effacer"</string>
-    <string name="select_device_name_title" msgid="5165800500130943604">"Choisissez un nom pour votre <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
+    <string name="select_device_name_title" msgid="5165800500130943604">"Choisir un nom pour votre <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="select_device_name_description" msgid="6890879006777364213">"Donnez un nom à votre <xliff:g id="DEVICEMODEL">%1$s</xliff:g> pour le reconnaître plus facilement lors de la diffusion ou lorsque vous le connectez à d\'autres appareils."</string>
   <string-array name="rooms">
     <item msgid="9056203990862307284">"Android TV"</item>
@@ -648,13 +652,13 @@
     <item msgid="8122798759665439456">"Téléviseur de la salle familiale"</item>
     <item msgid="1389347662738182100">"Téléviseur de la chambre"</item>
   </string-array>
-    <string name="custom_room" msgid="8655516733933892458">"Entrez un nom personnalisé…"</string>
+    <string name="custom_room" msgid="8655516733933892458">"Entrer un nom personnalisé…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"Renommer cet appareil <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"Cet appareil <xliff:g id="DEVICEMODEL">%1$s</xliff:g> porte actuellement le nom « <xliff:g id="DEVICENAME">%2$s</xliff:g> »"</string>
     <string name="change_setting" msgid="2047402388786162246">"Modifier"</string>
     <string name="keep_settings" msgid="6798327196645732517">"Ne pas modifier"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"Autorisations"</string>
-    <string name="device_apps_permissions" msgid="2966387603529725982">"Autoris. des applis"</string>
+    <string name="device_apps_permissions" msgid="2966387603529725982">"Autorisations applis"</string>
     <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_0">%d</xliff:g> applications autorisées sur <xliff:g id="COUNT_1">%d</xliff:g>"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"Demande d\'autorisation Bluetooth"</string>
     <string name="security_patch" msgid="2131617390189164481">"Niveau du correctif de sécurité Android"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Collecte du rapport d\'erreur en cours…"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Claviers virtuels disponibles"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Gérer les claviers"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Autorisée"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Non autorisée"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Accès aux données d\'utilisation"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"L\'accès aux données d\'utilisation permet à une application d\'effectuer le suivi des applications que vous utilisez, de la fréquence d\'utilisation, du fournisseur de services, des paramètres de langue et d\'autres détails."</string>
 </resources>

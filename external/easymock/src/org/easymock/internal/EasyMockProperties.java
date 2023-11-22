@@ -73,8 +73,8 @@ public final class EasyMockProperties {
             }
         }
         // Then overload it with system properties
-        for (Map.Entry<Object, Object> entry : System.getProperties()
-                .entrySet()) {
+        for (Map.Entry<Object, Object> entry : ((Properties)System.getProperties()
+                 .clone()).entrySet()) {
             if (entry.getKey() instanceof String
                     && entry.getKey().toString().startsWith(PREFIX)) {
                 properties.put(entry.getKey(), entry.getValue());

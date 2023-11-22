@@ -48,6 +48,7 @@ public class TestDocumentsProvider extends DocumentsProvider {
     };
 
     private Cursor mNextChildDocuments;
+    private Cursor mNextRecentDocuments;
 
     public TestDocumentsProvider(String authority) {
         ProviderInfo info = new ProviderInfo();
@@ -84,6 +85,11 @@ public class TestDocumentsProvider extends DocumentsProvider {
     }
 
     @Override
+    public Cursor queryRecentDocuments(String rootId, String[] projection) {
+        return mNextRecentDocuments;
+    }
+
+    @Override
     public boolean onCreate() {
         return true;
     }
@@ -94,6 +100,10 @@ public class TestDocumentsProvider extends DocumentsProvider {
      */
     public void setNextChildDocumentsReturns(DocumentInfo... docs) {
         mNextChildDocuments = createDocumentsCursor(docs);
+    }
+
+    public void setNextRecentDocumentsReturns(DocumentInfo... docs) {
+        mNextRecentDocuments = createDocumentsCursor(docs);
     }
 
     private Cursor createDocumentsCursor(DocumentInfo... docs) {

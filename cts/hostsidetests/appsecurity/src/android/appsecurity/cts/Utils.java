@@ -27,6 +27,7 @@ import com.android.tradefed.result.CollectingTestListener;
 
 import java.util.Arrays;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 public class Utils {
     public static final int USER_SYSTEM = 0;
@@ -70,12 +71,22 @@ public class Utils {
     public static void runDeviceTests(ITestDevice device, String packageName, String testClassName,
             String testMethodName, int userId, Map<String, String> testArgs)
                     throws DeviceNotAvailableException {
+        // 60 min timeout per test by default
+        runDeviceTests(device, packageName, testClassName, testMethodName, userId, testArgs,
+                60L, TimeUnit.MINUTES);
+    }
+
+    public static void runDeviceTests(ITestDevice device, String packageName, String testClassName,
+            String testMethodName, int userId, Map<String, String> testArgs, long timeout,
+            TimeUnit unit)
+                    throws DeviceNotAvailableException {
         if (testClassName != null && testClassName.startsWith(".")) {
             testClassName = packageName + testClassName;
         }
-
         RemoteAndroidTestRunner testRunner = new RemoteAndroidTestRunner(packageName,
                 "android.support.test.runner.AndroidJUnitRunner", device.getIDevice());
+        // timeout_msec is the timeout per test for instrumentation
+        testRunner.addInstrumentationArg("timeout_msec", Long.toString(unit.toMillis(timeout)));
         if (testClassName != null && testMethodName != null) {
             testRunner.setMethodName(testClassName, testMethodName);
         } else if (testClassName != null) {

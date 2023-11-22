@@ -55,7 +55,7 @@ public class VrSetFIFOThreadTest extends ActivityInstrumentationTestCase2<OpenGL
 
     public void testSetVrThreadAPISuccess() throws Throwable {
         mContext = getInstrumentation().getTargetContext();
-        setIntent(1, 1, 0, 0);
+        setIntent(OpenGLESActivity.RENDERER_BASIC, 1, 0, 0);
         ComponentName requestedComponent = new ComponentName(mContext, MockVrListenerService.class);
         String old_vr_listener = Settings.Secure.getString(mContext.getContentResolver(), ENABLED_VR_LISTENERS);
         Settings.Secure.putString(mContext.getContentResolver(),
@@ -82,7 +82,7 @@ public class VrSetFIFOThreadTest extends ActivityInstrumentationTestCase2<OpenGL
 
     public void testSetVrThreadAPIFailure() throws Throwable {
         mContext = getInstrumentation().getTargetContext();
-        setIntent(1, 1, 0, 0);
+        setIntent(OpenGLESActivity.RENDERER_BASIC, 1, 0, 0);
         ComponentName requestedComponent = new ComponentName(mContext, MockVrListenerService.class);
         String old_vr_listener = Settings.Secure.getString(mContext.getContentResolver(), ENABLED_VR_LISTENERS);
         Settings.Secure.putString(mContext.getContentResolver(),

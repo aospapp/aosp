@@ -43,6 +43,10 @@ TaskRunner::~TaskRunner() {
     }
 }
 
+bool TaskRunner::push(const Task &t) {
+    return (mQueue != nullptr) && (!!t) && this->mQueue->push(t);
+}
+
 } // namespace details
 } // namespace hardware
 } // namespace android

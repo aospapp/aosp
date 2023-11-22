@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "EvsManager"
-
 #include "VirtualCamera.h"
 #include "HalCamera.h"
 #include "Enumerator.h"

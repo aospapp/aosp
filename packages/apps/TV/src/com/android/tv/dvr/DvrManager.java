@@ -46,7 +46,9 @@ import com.android.tv.data.Program;
 import com.android.tv.dvr.DvrDataManager.OnRecordedProgramLoadFinishedListener;
 import com.android.tv.dvr.DvrDataManager.RecordedProgramListener;
 import com.android.tv.dvr.DvrScheduleManager.OnInitializeListener;
-import com.android.tv.dvr.SeriesRecording.SeriesState;
+import com.android.tv.dvr.data.RecordedProgram;
+import com.android.tv.dvr.data.ScheduledRecording;
+import com.android.tv.dvr.data.SeriesRecording;
 import com.android.tv.util.AsyncDbTask;
 import com.android.tv.util.Utils;
 
@@ -142,7 +144,7 @@ public class DvrManager {
     }
 
     private void createSeriesRecordingForRecordedProgramIfNeeded(RecordedProgram recordedProgram) {
-        if (recordedProgram.getSeriesId() != null) {
+        if (recordedProgram.isEpisodic()) {
             SeriesRecording seriesRecording =
                     mDataManager.getSeriesRecording(recordedProgram.getSeriesId());
             if (seriesRecording == null) {
@@ -234,7 +236,7 @@ public class DvrManager {
      * Adds a new series recording and schedules for the programs with the initial state.
      */
     public SeriesRecording addSeriesRecording(Program selectedProgram,
-            List<Program> programsToSchedule, @SeriesState int initialState) {
+            List<Program> programsToSchedule, @SeriesRecording.SeriesState int initialState) {
         Log.i(TAG, "Adding series recording for program " + selectedProgram + ", and schedules: "
                 + programsToSchedule);
         if (!SoftPreconditions.checkState(mDataManager.isInitialized())) {
@@ -308,8 +310,7 @@ public class DvrManager {
             ScheduledRecording scheduleWithSameProgram =
                     mDataManager.getScheduledRecordingForProgramId(program.getId());
             if (scheduleWithSameProgram != null) {
-                if (scheduleWithSameProgram.getState()
-                        == ScheduledRecording.STATE_RECORDING_NOT_STARTED) {
+                if (scheduleWithSameProgram.isNotStarted()) {
                     ScheduledRecording r = ScheduledRecording.buildFrom(scheduleWithSameProgram)
                             .setSeriesRecordingId(series.getId())
                             .build();
@@ -337,10 +338,10 @@ public class DvrManager {
      */
     public void updateSeriesRecording(SeriesRecording series) {
         if (SoftPreconditions.checkState(mDataManager.isDvrScheduleLoadFinished())) {
-            SeriesRecordingScheduler scheduler = SeriesRecordingScheduler.getInstance(mAppContext);
-            scheduler.pauseUpdate();
             SeriesRecording previousSeries = mDataManager.getSeriesRecording(series.getId());
             if (previousSeries != null) {
+                // If the channel option of series changed, remove the existing schedules. The new
+                // schedules will be added by SeriesRecordingScheduler or by SeriesSettingsFragment.
                 if (previousSeries.getChannelOption() != series.getChannelOption()
                         || (previousSeries.getChannelOption() == SeriesRecording.OPTION_CHANNEL_ONE
                         && previousSeries.getChannelId() != series.getChannelId())) {
@@ -350,6 +351,18 @@ public class DvrManager {
                     for (ScheduledRecording schedule : schedules) {
                         if (schedule.isNotStarted()) {
                             schedulesToRemove.add(schedule);
+                        } else if (schedule.isInProgress()
+                                && series.getChannelOption() == SeriesRecording.OPTION_CHANNEL_ONE
+                                && schedule.getChannelId() != series.getChannelId()) {
+                            stopRecording(schedule);
+                        }
+                    }
+                    List<ScheduledRecording> deletedSchedules =
+                            new ArrayList<>(mDataManager.getDeletedSchedules());
+                    for (ScheduledRecording deletedSchedule : deletedSchedules) {
+                        if (deletedSchedule.getSeriesRecordingId() == series.getId()
+                                && deletedSchedule.getEndTimeMs() > System.currentTimeMillis()) {
+                            schedulesToRemove.add(deletedSchedule);
                         }
                     }
                     mDataManager.removeScheduledRecording(true,
@@ -363,7 +376,7 @@ public class DvrManager {
                 List<ScheduledRecording> schedulesToUpdate = new ArrayList<>();
                 for (ScheduledRecording schedule
                         : mDataManager.getScheduledRecordings(series.getId())) {
-                    if (schedule.isNotStarted()) {
+                    if (schedule.isNotStarted() || schedule.isInProgress()) {
                         schedulesToUpdate.add(ScheduledRecording.buildFrom(schedule)
                                 .setPriority(priority).build());
                     }
@@ -373,7 +386,6 @@ public class DvrManager {
                             ScheduledRecording.toArray(schedulesToUpdate));
                 }
             }
-            scheduler.resumeUpdate();
         }
     }
 
@@ -397,33 +409,6 @@ public class DvrManager {
             }
         }
         mDataManager.removeSeriesRecording(series);
-    }
-
-    /**
-     * Returns true, if the series recording can be removed. If a series recording is NORMAL state
-     * or has recordings or schedules, it cannot be removed.
-     */
-    public boolean canRemoveSeriesRecording(long seriesRecordingId) {
-        SeriesRecording seriesRecording = mDataManager.getSeriesRecording(seriesRecordingId);
-        if (seriesRecording == null) {
-            return false;
-        }
-        if (!seriesRecording.isStopped()) {
-            return false;
-        }
-        for (ScheduledRecording r : mDataManager.getAvailableScheduledRecordings()) {
-            if (r.getSeriesRecordingId() == seriesRecordingId) {
-                return false;
-            }
-        }
-        String seriesId = seriesRecording.getSeriesId();
-        SoftPreconditions.checkNotNull(seriesId);
-        for (RecordedProgram r : mDataManager.getRecordedPrograms()) {
-            if (seriesId.equals(r.getSeriesId())) {
-                return false;
-            }
-        }
-        return true;
     }
 
     /**
@@ -509,13 +494,16 @@ public class DvrManager {
         if (!SoftPreconditions.checkState(mDataManager.isInitialized())) {
             return;
         }
-        new AsyncDbTask<Void, Void, Void>() {
+        new AsyncDbTask<Void, Void, Integer>() {
             @Override
-            protected Void doInBackground(Void... params) {
+            protected Integer doInBackground(Void... params) {
                 ContentResolver resolver = mAppContext.getContentResolver();
-                int deletedCounts = resolver.delete(recordedProgram.getUri(), null, null);
+                return resolver.delete(recordedProgram.getUri(), null, null);
+            }
+
+            @Override
+            protected void onPostExecute(Integer deletedCounts) {
                 if (deletedCounts > 0) {
-                    // TODO: executeOnExecutor should be called on the main thread.
                     new AsyncTask<Void, Void, Void>() {
                         @Override
                         protected Void doInBackground(Void... params) {
@@ -524,7 +512,6 @@ public class DvrManager {
                         }
                     }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
                 }
-                return null;
             }
         }.executeOnDbThread();
     }
@@ -539,13 +526,22 @@ public class DvrManager {
                 dbOperations.add(ContentProviderOperation.newDelete(r.getUri()).build());
             }
         }
-        new AsyncDbTask<Void, Void, Void>() {
+        new AsyncDbTask<Void, Void, Boolean>() {
             @Override
-            protected Void doInBackground(Void... params) {
+            protected Boolean doInBackground(Void... params) {
                 ContentResolver resolver = mAppContext.getContentResolver();
                 try {
                     resolver.applyBatch(TvContract.AUTHORITY, dbOperations);
-                    // TODO: executeOnExecutor should be called on the main thread.
+                } catch (RemoteException | OperationApplicationException e) {
+                    Log.w(TAG, "Remove recorded programs from DB failed.", e);
+                    return false;
+                }
+                return true;
+            }
+
+            @Override
+            protected void onPostExecute(Boolean success) {
+                if (success) {
                     new AsyncTask<Void, Void, Void>() {
                         @Override
                         protected Void doInBackground(Void... params) {
@@ -555,10 +551,7 @@ public class DvrManager {
                             return null;
                         }
                     }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
-                } catch (RemoteException | OperationApplicationException e) {
-                    Log.w(TAG, "Remove reocrded programs from DB failed.", e);
                 }
-                return null;
             }
         }.executeOnDbThread();
     }
@@ -657,6 +650,9 @@ public class DvrManager {
         if (!mDataManager.isDvrScheduleLoadFinished() || channel == null) {
             return false;
         }
+        if (channel.isRecordingProhibited()) {
+            return false;
+        }
         TvInputInfo info = Utils.getTvInputInfoForChannelId(mAppContext, channel.getId());
         if (info == null) {
             Log.w(TAG, "Could not find TvInputInfo for " + channel);
@@ -680,7 +676,12 @@ public class DvrManager {
         if (!mDataManager.isInitialized()) {
             return false;
         }
-        TvInputInfo info = Utils.getTvInputInfoForProgram(mAppContext, program);
+        Channel channel = TvApplication.getSingletons(mAppContext).getChannelDataManager()
+                .getChannel(program.getChannelId());
+        if (channel == null || channel.isRecordingProhibited()) {
+            return false;
+        }
+        TvInputInfo info = Utils.getTvInputInfoForChannelId(mAppContext, channel.getId());
         if (info == null) {
             Log.w(TAG, "Could not find TvInputInfo for " + program);
             return false;
@@ -731,6 +732,17 @@ public class DvrManager {
             return null;
         }
         return mDataManager.getSeriesRecording(program.getSeriesId());
+    }
+
+    /**
+     * Returns if there are valid items. Valid item contains {@link RecordedProgram},
+     * available {@link ScheduledRecording} and {@link SeriesRecording}.
+     */
+    public boolean hasValidItems() {
+        return !(mDataManager.getRecordedPrograms().isEmpty()
+                && mDataManager.getStartedRecordings().isEmpty()
+                && mDataManager.getNonStartedScheduledRecordings().isEmpty()
+                && mDataManager.getSeriesRecordings().isEmpty());
     }
 
     @WorkerThread
@@ -840,9 +852,10 @@ public class DvrManager {
     }
 
     /**
-     * Listener internally used inside dvr package.
+     * Listener to stop recording request. Should only be internally used inside dvr and its
+     * sub-package.
      */
-    interface Listener {
+    public interface Listener {
         void onStopRecordingRequested(ScheduledRecording scheduledRecording);
     }
 }

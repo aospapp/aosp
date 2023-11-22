@@ -190,6 +190,8 @@ public final class Events {
         /** Returns the adapter position of the item under the finger/cursor. */
         int getItemPosition();
 
+        boolean isOverDocIcon();
+
         /** Returns the DocumentDetails for the item under the event, or null. */
         @Nullable DocumentDetails getDocumentDetails();
     }
@@ -350,12 +352,17 @@ public final class Events {
 
         @Override
         public boolean isOverDragHotspot() {
-            return isOverItem() ? getDocumentDetails().isInDragHotspot(this) : false;
+            return isOverItem() && getDocumentDetails().isInDragHotspot(this);
         }
 
         @Override
         public boolean isOverItem() {
             return getItemPosition() != RecyclerView.NO_POSITION;
+        }
+
+        @Override
+        public boolean isOverDocIcon() {
+            return isOverItem() && getDocumentDetails().isOverDocIcon(this);
         }
 
         @Override
@@ -379,8 +386,8 @@ public final class Events {
             if (mDocDetails == null) {
                 View childView = mRecView.findChildViewUnder(mEvent.getX(), mEvent.getY());
                 mDocDetails = (childView != null)
-                ? (DocumentHolder) mRecView.getChildViewHolder(childView)
-                        : null;
+                    ? (DocumentHolder) mRecView.getChildViewHolder(childView)
+                    : null;
             }
             if (isOverItem()) {
                 assert(mDocDetails != null);

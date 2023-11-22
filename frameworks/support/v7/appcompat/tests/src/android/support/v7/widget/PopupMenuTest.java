@@ -48,11 +48,12 @@ import android.support.test.InstrumentationRegistry;
 import android.support.test.espresso.Root;
 import android.support.test.espresso.UiController;
 import android.support.test.espresso.ViewAction;
-import android.support.test.filters.FlakyTest;
 import android.support.test.filters.LargeTest;
 import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
+import android.support.testutils.PollingCheck;
 import android.support.v4.view.MenuItemCompat;
-import android.support.v7.app.BaseInstrumentationTestCase;
 import android.support.v7.appcompat.test.R;
 import android.text.TextUtils;
 import android.view.MenuInflater;
@@ -69,9 +70,16 @@ import org.hamcrest.Matchers;
 import org.hamcrest.TypeSafeMatcher;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class PopupMenuTest extends BaseInstrumentationTestCase<PopupTestActivity> {
+@RunWith(AndroidJUnit4.class)
+public class PopupMenuTest {
+    @Rule
+    public final ActivityTestRule<PopupTestActivity> mActivityTestRule =
+            new ActivityTestRule<>(PopupTestActivity.class);
+
     // Since PopupMenu doesn't expose any access to the underlying
     // implementation (like ListPopupWindow.getListView), we're relying on the
     // class name of the list view from MenuPopupWindow that is being used
@@ -89,15 +97,11 @@ public class PopupMenuTest extends BaseInstrumentationTestCase<PopupTestActivity
 
     private View mMainDecorView;
 
-    public PopupMenuTest() {
-        super(PopupTestActivity.class);
-    }
-
     @Before
     public void setUp() throws Exception {
         final PopupTestActivity activity = mActivityTestRule.getActivity();
-        mContainer = (FrameLayout) activity.findViewById(R.id.container);
-        mButton = (Button) mContainer.findViewById(R.id.test_button);
+        mContainer = activity.findViewById(R.id.container);
+        mButton = mContainer.findViewById(R.id.test_button);
         mResources = mActivityTestRule.getActivity().getResources();
         mMainDecorView = mActivityTestRule.getActivity().getWindow().getDecorView();
     }
@@ -301,7 +305,6 @@ public class PopupMenuTest extends BaseInstrumentationTestCase<PopupTestActivity
         };
     }
 
-    @FlakyTest(bugId = 33669575)
     @Test
     @LargeTest
     public void testAnchoring() {
@@ -318,6 +321,17 @@ public class PopupMenuTest extends BaseInstrumentationTestCase<PopupTestActivity
         mButton.getLocationOnScreen(anchorOnScreenXY);
 
         // Allow for off-by-one mismatch in anchoring
+
+        // See if Anchoring Y gets animated to the expected value.
+        PollingCheck.waitFor(1000, new PollingCheck.PollingCheckCondition() {
+            @Override
+            public boolean canProceed() {
+                final int y = anchorOnScreenXY[1] + popupInWindowXY[1] + mButton.getHeight()
+                        - popupPadding.top;
+                return Math.abs(y - popupOnScreenXY[1]) <= 1;
+            }
+        });
+
         assertEquals("Anchoring X", anchorOnScreenXY[0] + popupInWindowXY[0],
                 popupOnScreenXY[0], 1);
         assertEquals("Anchoring Y",

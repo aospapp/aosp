@@ -16,16 +16,14 @@ import matplotlib
 matplotlib.use('Agg')
 
 import its.error
-from matplotlib import pylab
 import sys
 from PIL import Image
 import numpy
 import math
 import unittest
 import cStringIO
-import scipy.stats
 import copy
-import os
+import random
 
 DEFAULT_YUV_TO_RGB_CCM = numpy.matrix([
                                 [1.000,  0.000,  1.402],
@@ -86,6 +84,7 @@ def convert_capture_to_rgb_image(cap,
     else:
         raise its.error.Error('Invalid format %s' % (cap["format"]))
 
+
 def unpack_rawstats_capture(cap):
     """Unpack a rawStats capture to the mean and variance images.
 
@@ -104,6 +103,7 @@ def unpack_rawstats_capture(cap):
     mean_image = analysis_image[0,:,:,:].reshape(h,w,4)
     var_image = analysis_image[1,:,:,:].reshape(h,w,4)
     return mean_image, var_image
+
 
 def unpack_raw10_capture(cap, props):
     """Unpack a raw-10 capture to a raw-16 capture.
@@ -124,6 +124,7 @@ def unpack_raw10_capture(cap, props):
     cap["data"] = unpack_raw10_image(cap["data"].reshape(h,w*5/4))
     cap["format"] = "raw"
     return cap
+
 
 def unpack_raw10_image(img):
     """Unpack a raw-10 image to a raw-16 image.
@@ -150,10 +151,13 @@ def unpack_raw10_image(img):
     lsbs = img[::, 4::5].reshape(h,w/4)
     lsbs = numpy.right_shift(
             numpy.packbits(numpy.unpackbits(lsbs).reshape(h,w/4,4,2),3), 6)
+    # Pair the LSB bits group to pixel 0 instead of pixel 3
+    lsbs = lsbs.reshape(h,w/4,4)[:,:,::-1]
     lsbs = lsbs.reshape(h,w)
     # Fuse the MSBs and LSBs back together
     img16 = numpy.bitwise_or(msbs, lsbs).reshape(h,w)
     return img16
+
 
 def unpack_raw12_capture(cap, props):
     """Unpack a raw-12 capture to a raw-16 capture.
@@ -174,6 +178,7 @@ def unpack_raw12_capture(cap, props):
     cap["data"] = unpack_raw12_image(cap["data"].reshape(h,w*3/2))
     cap["format"] = "raw"
     return cap
+
 
 def unpack_raw12_image(img):
     """Unpack a raw-12 image to a raw-16 image.
@@ -200,10 +205,13 @@ def unpack_raw12_image(img):
     lsbs = img[::, 2::3].reshape(h,w/2)
     lsbs = numpy.right_shift(
             numpy.packbits(numpy.unpackbits(lsbs).reshape(h,w/2,2,4),3), 4)
+    # Pair the LSB bits group to pixel 0 instead of pixel 1
+    lsbs = lsbs.reshape(h,w/2,2)[:,:,::-1]
     lsbs = lsbs.reshape(h,w)
     # Fuse the MSBs and LSBs back together
     img16 = numpy.bitwise_or(msbs, lsbs).reshape(h,w)
     return img16
+
 
 def convert_capture_to_planes(cap, props=None):
     """Convert a captured image object to separate image planes.
@@ -303,6 +311,7 @@ def convert_capture_to_planes(cap, props=None):
     else:
         raise its.error.Error('Invalid format %s' % (cap["format"]))
 
+
 def get_canonical_cfa_order(props):
     """Returns a mapping from the Bayer 2x2 top-left grid in the CFA to
     the standard order R,Gr,Gb,B.
@@ -333,6 +342,7 @@ def get_canonical_cfa_order(props):
     else:
         raise its.error.Error("Not supported")
 
+
 def get_gains_in_canonical_order(props, gains):
     """Reorders the gains tuple to the canonical R,Gr,Gb,B order.
 
@@ -352,6 +362,7 @@ def get_gains_in_canonical_order(props, gains):
         return [gains[0], gains[2], gains[1], gains[3]]
     else:
         raise its.error.Error("Not supported")
+
 
 def convert_raw_to_rgb_image(r_plane, gr_plane, gb_plane, b_plane,
                              props, cap_res):
@@ -402,6 +413,7 @@ def convert_raw_to_rgb_image(r_plane, gr_plane, gb_plane, b_plane,
     img = numpy.dot(img.reshape(w*h,3), ccm.T).reshape(h,w,3).clip(0.0,1.0)
     return img
 
+
 def get_black_level(chan, props, cap_res):
     """Return the black level to use for a given capture.
 
@@ -424,6 +436,7 @@ def get_black_level(chan, props, cap_res):
     idxs = its.image.get_canonical_cfa_order(props)
     ordered_black_levels = [black_levels[i] for i in idxs]
     return ordered_black_levels[chan]
+
 
 def convert_yuv420_planar_to_rgb_image(y_plane, u_plane, v_plane,
                                        w, h,
@@ -456,6 +469,7 @@ def convert_yuv420_planar_to_rgb_image(y_plane, u_plane, v_plane,
     rgb.reshape(w*h*3)[:] = flt.reshape(w*h*3)[:]
     return rgb.astype(numpy.float32) / 255.0
 
+
 def load_rgb_image(fname):
     """Load a standard image file (JPG, PNG, etc.).
 
@@ -477,6 +491,7 @@ def load_rgb_image(fname):
         return a.reshape(h*w).repeat(3).reshape(h,w,3) / 255.0
     else:
         raise its.error.Error('Unsupported image type')
+
 
 def load_yuv420_to_rgb_image(yuv_fname,
                              w, h,
@@ -517,6 +532,7 @@ def load_yuv420_to_rgb_image(yuv_fname,
         return convert_yuv420_planar_to_rgb_image(
                 y,u,v,w,h,ccm_yuv_to_rgb,yuv_off)
 
+
 def load_yuv420_planar_to_yuv_planes(yuv_fname, w, h):
     """Load a YUV420 planar image file, and return Y, U, and V plane images.
 
@@ -539,6 +555,7 @@ def load_yuv420_planar_to_yuv_planes(yuv_fname, w, h):
                 (u.astype(numpy.float32) / 255.0).reshape(h/2, w/2, 1),
                 (v.astype(numpy.float32) / 255.0).reshape(h/2, w/2, 1))
 
+
 def decompress_jpeg_to_rgb_image(jpeg_buffer):
     """Decompress a JPEG-compressed image, returning as an RGB image.
 
@@ -552,6 +569,7 @@ def decompress_jpeg_to_rgb_image(jpeg_buffer):
     w = img.size[0]
     h = img.size[1]
     return numpy.array(img).reshape(h,w,3) / 255.0
+
 
 def apply_lut_to_image(img, lut):
     """Applies a LUT to every pixel in a float image array.
@@ -586,6 +604,7 @@ def apply_lut_to_image(img, lut):
     m = float(n-1)
     return (lut[(img * m).astype(numpy.uint16)] / m).astype(numpy.float32)
 
+
 def apply_matrix_to_image(img, mat):
     """Multiplies a 3x3 matrix with each float-3 image pixel.
 
@@ -610,6 +629,7 @@ def apply_matrix_to_image(img, mat):
                              ).reshape(w*h*3)[:]
     return img2
 
+
 def get_image_patch(img, xnorm, ynorm, wnorm, hnorm):
     """Get a patch (tile) of an image.
 
@@ -628,6 +648,7 @@ def get_image_patch(img, xnorm, ynorm, wnorm, hnorm):
     htile = math.floor(hnorm * hfull)
     return img[ytile:ytile+htile,xtile:xtile+wtile,:].copy()
 
+
 def compute_image_means(img):
     """Calculate the mean of each color channel in the image.
 
@@ -642,6 +663,7 @@ def compute_image_means(img):
     for i in xrange(chans):
         means.append(numpy.mean(img[:,:,i], dtype=numpy.float64))
     return means
+
 
 def compute_image_variances(img):
     """Calculate the variance of each color channel in the image.
@@ -658,6 +680,7 @@ def compute_image_variances(img):
         variances.append(numpy.var(img[:,:,i], dtype=numpy.float64))
     return variances
 
+
 def compute_image_snrs(img):
     """Calculate the SNR (db) of each color channel in the image.
 
@@ -672,6 +695,7 @@ def compute_image_snrs(img):
     std_devs = [math.sqrt(v) for v in variances]
     snr = [20 * math.log10(m/s) for m,s in zip(means, std_devs)]
     return snr
+
 
 def write_image(img, fname, apply_gamma=False):
     """Save a float-3 numpy array image to a file.
@@ -700,6 +724,7 @@ def write_image(img, fname, apply_gamma=False):
         Image.fromarray(img3, "RGB").save(fname)
     else:
         raise its.error.Error('Unsupported image type')
+
 
 def downscale_image(img, f):
     """Shrink an image by a given integer factor.
@@ -842,5 +867,40 @@ class __UnitTest(unittest.TestCase):
         passed = all([math.fabs(y[i] - y_ref[i]) < 0.001 for i in xrange(3)])
         self.assertTrue(passed)
 
-if __name__ == '__main__':
+    def test_unpack_raw10_image(self):
+        """Unit test for unpack_raw10_image.
+
+        RAW10 bit packing format
+                bit 7   bit 6   bit 5   bit 4   bit 3   bit 2   bit 1   bit 0
+        Byte 0: P0[9]   P0[8]   P0[7]   P0[6]   P0[5]   P0[4]   P0[3]   P0[2]
+        Byte 1: P1[9]   P1[8]   P1[7]   P1[6]   P1[5]   P1[4]   P1[3]   P1[2]
+        Byte 2: P2[9]   P2[8]   P2[7]   P2[6]   P2[5]   P2[4]   P2[3]   P2[2]
+        Byte 3: P3[9]   P3[8]   P3[7]   P3[6]   P3[5]   P3[4]   P3[3]   P3[2]
+        Byte 4: P3[1]   P3[0]   P2[1]   P2[0]   P1[1]   P1[0]   P0[1]   P0[0]
+        """
+        # test by using a random 4x4 10-bit image
+        H = 4
+        W = 4
+        check_list = random.sample(range(0, 1024), H*W)
+        img_check = numpy.array(check_list).reshape(H, W)
+        # pack bits
+        for row_start in range(0, len(check_list), W):
+            msbs = []
+            lsbs = ""
+            for pixel in range(W):
+                val = numpy.binary_repr(check_list[row_start+pixel], 10)
+                msbs.append(int(val[:8], base=2))
+                lsbs = val[8:] + lsbs
+            packed = msbs
+            packed.append(int(lsbs, base=2))
+            chunk_raw10 = numpy.array(packed, dtype="uint8").reshape(1, 5)
+            if row_start == 0:
+                img_raw10 = chunk_raw10
+            else:
+                img_raw10 = numpy.vstack((img_raw10, chunk_raw10))
+        # unpack and check against original
+        self.assertTrue(numpy.array_equal(unpack_raw10_image(img_raw10),
+                                          img_check))
+
+if __name__ == "__main__":
     unittest.main()

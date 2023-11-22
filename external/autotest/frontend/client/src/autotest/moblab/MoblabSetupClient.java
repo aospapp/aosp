@@ -15,7 +15,7 @@ public class MoblabSetupClient implements EntryPoint {
   private DutManagementView dutManagementView;
   private SuiteRunnerView suiteRunnerView;
 
-  public CustomTabPanel mainTabPanel = new CustomTabPanel();
+  public CustomTabPanel mainTabPanel = new CustomTabPanel(true);
 
   /**
    * Application entry point.

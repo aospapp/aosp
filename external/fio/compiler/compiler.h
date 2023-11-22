@@ -1,5 +1,6 @@
 #ifndef FIO_COMPILER_H
 #define FIO_COMPILER_H
+#include <assert.h>
 
 #if __GNUC__ >= 4
 #include "compiler-gcc4.h"
@@ -33,9 +34,16 @@
 	1; \
 })
 
+
+#if defined(CONFIG_STATIC_ASSERT)
+#define compiletime_assert(condition, msg) _Static_assert(condition, msg)
+
+#elif !defined(CONFIG_DISABLE_OPTIMIZATIONS)
+
 #ifndef __compiletime_error
 #define __compiletime_error(message)
 #endif
+
 #ifndef __compiletime_error_fallback
 #define __compiletime_error_fallback(condition)	do { } while (0)
 #endif
@@ -54,5 +62,11 @@
 
 #define compiletime_assert(condition, msg) \
 	_compiletime_assert(condition, msg, __compiletime_assert_, __LINE__)
+
+#else
+
+#define compiletime_assert(condition, msg)	do { } while (0)
+
+#endif
 
 #endif

@@ -9,6 +9,7 @@ def CheckDirExists(dir, dirname):
     print "Couldn't find %s (%s)!" % (dirname, dir)
     sys.exit(1)
 
+
 def GetAndroidRootOrDie():
   value = os.environ.get('ANDROID_BUILD_TOP')
   if not value:
@@ -17,7 +18,19 @@ def GetAndroidRootOrDie():
   CheckDirExists(value, '$ANDROID_BUILD_TOP')
   return value
 
+
+def GetAndroidHostOutOrDie():
+  value = os.environ.get('ANDROID_HOST_OUT')
+  if not value:
+    print "ANDROID_HOST_OUT not defined: run envsetup.sh / lunch"
+    sys.exit(1);
+  CheckDirExists(value, '$ANDROID_HOST_OUT')
+  return value
+
+
 def SwitchToNewTemporaryDirectory():
   tmp_dir = tempfile.mkdtemp('-i18n')
   os.chdir(tmp_dir)
   print 'Created temporary directory "%s"...' % tmp_dir
+
+

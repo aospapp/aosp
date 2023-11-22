@@ -39,6 +39,11 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <activity android:name="com.android.managedprovisioning.provisioning.EmptyActivity">
+            <intent-filter>
+                <action android:name="android.app.action.STATE_USER_SETUP_COMPLETE" />
+            </intent-filter>
+        </activity>
     </application>
 
     <instrumentation android:name="com.android.managedprovisioning.TestInstrumentationRunner"

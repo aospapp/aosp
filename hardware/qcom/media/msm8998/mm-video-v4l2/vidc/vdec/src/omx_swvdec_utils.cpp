@@ -1,7 +1,7 @@
 /**
  * @copyright
  *
- *   Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *   Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  *   Redistribution and use in source and binary forms, with or without
  *   modification, are permitted provided that the following conditions are met:
@@ -61,7 +61,7 @@ void omx_swvdec_log_init()
 
     char property_value[PROPERTY_VALUE_MAX] = {0};
 
-    if (property_get("omx_swvdec.log.level", property_value, NULL))
+    if (property_get("vendor.omx_swvdec.log.level", property_value, NULL))
     {
         omx_swvdec_loglevel = atoi(property_value);
 
@@ -76,7 +76,7 @@ void omx_swvdec_log_init()
         }
 
         OMX_SWVDEC_LOG_HIGH(
-            "omx_swvdec.log.level: %d; %s",
+            "vendor.omx_swvdec.log.level: %d; %s",
             omx_swvdec_loglevel,
             (omx_swvdec_loglevel == 3) ? "error, high, & low logs" :
             ((omx_swvdec_loglevel == 2) ? "error & high logs" :
@@ -198,21 +198,21 @@ omx_swvdec_diag::omx_swvdec_diag():
              DIAG_FILE_PATH,
              time_string);
 
-    if (property_get("omx_swvdec.dump.ip", property_value, NULL))
+    if (property_get("vendor.omx_swvdec.dump.ip", property_value, NULL))
     {
         m_dump_ip = atoi(property_value);
 
-        OMX_SWVDEC_LOG_HIGH("omx_swvdec.dump.ip: %d", m_dump_ip);
+        OMX_SWVDEC_LOG_HIGH("vendor.omx_swvdec.dump.ip: %d", m_dump_ip);
     }
 
-    if (property_get("omx_swvdec.dump.op", property_value, NULL))
+    if (property_get("vendor.omx_swvdec.dump.op", property_value, NULL))
     {
         m_dump_op = atoi(property_value);
 
-        OMX_SWVDEC_LOG_HIGH("omx_swvdec.dump.op: %d", m_dump_op);
+        OMX_SWVDEC_LOG_HIGH("vendor.omx_swvdec.dump.op: %d", m_dump_op);
     }
 
-    if (m_dump_ip && property_get("omx_swvdec.filename.ip",
+    if (m_dump_ip && property_get("vendor.omx_swvdec.filename.ip",
                                   property_value,
                                   filename_ip) && (strlen(property_value) > 0 ) )
     {
@@ -228,7 +228,7 @@ omx_swvdec_diag::omx_swvdec_diag():
         else
         {
             strlcpy(m_filename_ip, property_value,m_filename_ip_size);
-            OMX_SWVDEC_LOG_HIGH("omx_swvdec.filename.ip: %s", m_filename_ip);
+            OMX_SWVDEC_LOG_HIGH("vendor.omx_swvdec.filename.ip: %s", m_filename_ip);
             if ((m_file_ip = fopen(m_filename_ip, "wb")) == NULL)
             {
                 OMX_SWVDEC_LOG_ERROR("cannot open input file '%s' logging erro is : %d",
@@ -237,7 +237,7 @@ omx_swvdec_diag::omx_swvdec_diag():
         }
     }
 
-    if (m_dump_op && property_get("omx_swvdec.filename.op",
+    if (m_dump_op && property_get("vendor.omx_swvdec.filename.op",
                                   property_value,
                                   filename_op) && (strlen(property_value) > 0 ))
     {
@@ -253,7 +253,7 @@ omx_swvdec_diag::omx_swvdec_diag():
         else
         {
             strlcpy(m_filename_op, property_value,m_filename_op_size);
-            OMX_SWVDEC_LOG_HIGH("omx_swvdec.filename.op: %s", m_filename_op);
+            OMX_SWVDEC_LOG_HIGH("vendor.omx_swvdec.filename.op: %s", m_filename_op);
             if ((m_file_op = fopen(m_filename_op, "wb")) == NULL)
             {
                 OMX_SWVDEC_LOG_ERROR("cannot open output file '%s' logging error : %d",

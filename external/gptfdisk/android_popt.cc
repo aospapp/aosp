@@ -98,7 +98,7 @@ int poptGetNextOpt(poptContext con) {
 #ifdef LOCAL_DEBUG
     fprintf(stderr, "getopt_long()=%c\n", res);
 #endif
-    if (res == 0 || res == '?') {
+    if (res <= 0 || res == '?' || i == -1) {
         return -1;
     }
 

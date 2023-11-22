@@ -55,22 +55,22 @@ static std::shared_timed_mutex interface_mutex;
 static jobject mCallbacksObj = NULL;
 static std::shared_timed_mutex callbacks_mutex;
 
-static jbyteArray marshall_bda(bt_bdaddr_t* bd_addr) {
+static jbyteArray marshall_bda(RawAddress* bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return NULL;
 
-  jbyteArray addr = sCallbackEnv->NewByteArray(sizeof(bt_bdaddr_t));
+  jbyteArray addr = sCallbackEnv->NewByteArray(sizeof(RawAddress));
   if (!addr) {
     ALOGE("Fail to new jbyteArray bd addr");
     return NULL;
   }
-  sCallbackEnv->SetByteArrayRegion(addr, 0, sizeof(bt_bdaddr_t),
+  sCallbackEnv->SetByteArrayRegion(addr, 0, sizeof(RawAddress),
                                    (jbyte*)bd_addr);
   return addr;
 }
 
 static void connection_state_callback(bthf_connection_state_t state,
-                                      bt_bdaddr_t* bd_addr) {
+                                      RawAddress* bd_addr) {
   ALOGI("%s", __func__);
 
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
@@ -85,7 +85,7 @@ static void connection_state_callback(bthf_connection_state_t state,
 }
 
 static void audio_state_callback(bthf_audio_state_t state,
-                                 bt_bdaddr_t* bd_addr) {
+                                 RawAddress* bd_addr) {
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid() || mCallbacksObj == NULL) return;
@@ -98,7 +98,7 @@ static void audio_state_callback(bthf_audio_state_t state,
 }
 
 static void voice_recognition_callback(bthf_vr_state_t state,
-                                       bt_bdaddr_t* bd_addr) {
+                                       RawAddress* bd_addr) {
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid() || mCallbacksObj == NULL) return;
@@ -113,7 +113,7 @@ static void voice_recognition_callback(bthf_vr_state_t state,
                                (jint)state, addr.get());
 }
 
-static void answer_call_callback(bt_bdaddr_t* bd_addr) {
+static void answer_call_callback(RawAddress* bd_addr) {
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid() || mCallbacksObj == NULL) return;
@@ -127,7 +127,7 @@ static void answer_call_callback(bt_bdaddr_t* bd_addr) {
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onAnswerCall, addr.get());
 }
 
-static void hangup_call_callback(bt_bdaddr_t* bd_addr) {
+static void hangup_call_callback(RawAddress* bd_addr) {
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid() || mCallbacksObj == NULL) return;
@@ -142,7 +142,7 @@ static void hangup_call_callback(bt_bdaddr_t* bd_addr) {
 }
 
 static void volume_control_callback(bthf_volume_type_t type, int volume,
-                                    bt_bdaddr_t* bd_addr) {
+                                    RawAddress* bd_addr) {
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid() || mCallbacksObj == NULL) return;
@@ -157,7 +157,7 @@ static void volume_control_callback(bthf_volume_type_t type, int volume,
                                (jint)type, (jint)volume, addr.get());
 }
 
-static void dial_call_callback(char* number, bt_bdaddr_t* bd_addr) {
+static void dial_call_callback(char* number, RawAddress* bd_addr) {
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid() || mCallbacksObj == NULL) return;
@@ -174,7 +174,7 @@ static void dial_call_callback(char* number, bt_bdaddr_t* bd_addr) {
                                js_number.get(), addr.get());
 }
 
-static void dtmf_cmd_callback(char dtmf, bt_bdaddr_t* bd_addr) {
+static void dtmf_cmd_callback(char dtmf, RawAddress* bd_addr) {
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid() || mCallbacksObj == NULL) return;
@@ -190,7 +190,7 @@ static void dtmf_cmd_callback(char dtmf, bt_bdaddr_t* bd_addr) {
                                addr.get());
 }
 
-static void noice_reduction_callback(bthf_nrec_t nrec, bt_bdaddr_t* bd_addr) {
+static void noice_reduction_callback(bthf_nrec_t nrec, RawAddress* bd_addr) {
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid() || mCallbacksObj == NULL) return;
@@ -204,7 +204,7 @@ static void noice_reduction_callback(bthf_nrec_t nrec, bt_bdaddr_t* bd_addr) {
                                nrec == BTHF_NREC_START, addr.get());
 }
 
-static void wbs_callback(bthf_wbs_config_t wbs_config, bt_bdaddr_t* bd_addr) {
+static void wbs_callback(bthf_wbs_config_t wbs_config, RawAddress* bd_addr) {
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid() || mCallbacksObj == NULL) return;
@@ -216,25 +216,25 @@ static void wbs_callback(bthf_wbs_config_t wbs_config, bt_bdaddr_t* bd_addr) {
                                addr.get());
 }
 
-static void at_chld_callback(bthf_chld_type_t chld, bt_bdaddr_t* bd_addr) {
+static void at_chld_callback(bthf_chld_type_t chld, RawAddress* bd_addr) {
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid() || mCallbacksObj == NULL) return;
 
   ScopedLocalRef<jbyteArray> addr(
-      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(bt_bdaddr_t)));
+      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(RawAddress)));
   if (!addr.get()) {
     ALOGE("Fail to new jbyteArray bd addr for audio state");
     return;
   }
 
-  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(bt_bdaddr_t),
+  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
                                    (jbyte*)bd_addr);
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onAtChld, chld,
                                addr.get());
 }
 
-static void at_cnum_callback(bt_bdaddr_t* bd_addr) {
+static void at_cnum_callback(RawAddress* bd_addr) {
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid() || mCallbacksObj == NULL) return;
@@ -248,7 +248,7 @@ static void at_cnum_callback(bt_bdaddr_t* bd_addr) {
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onAtCnum, addr.get());
 }
 
-static void at_cind_callback(bt_bdaddr_t* bd_addr) {
+static void at_cind_callback(RawAddress* bd_addr) {
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid() || mCallbacksObj == NULL) return;
@@ -262,7 +262,7 @@ static void at_cind_callback(bt_bdaddr_t* bd_addr) {
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onAtCind, addr.get());
 }
 
-static void at_cops_callback(bt_bdaddr_t* bd_addr) {
+static void at_cops_callback(RawAddress* bd_addr) {
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid() || mCallbacksObj == NULL) return;
@@ -276,7 +276,7 @@ static void at_cops_callback(bt_bdaddr_t* bd_addr) {
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onAtCops, addr.get());
 }
 
-static void at_clcc_callback(bt_bdaddr_t* bd_addr) {
+static void at_clcc_callback(RawAddress* bd_addr) {
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid() || mCallbacksObj == NULL) return;
@@ -290,7 +290,7 @@ static void at_clcc_callback(bt_bdaddr_t* bd_addr) {
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onAtClcc, addr.get());
 }
 
-static void unknown_at_callback(char* at_string, bt_bdaddr_t* bd_addr) {
+static void unknown_at_callback(char* at_string, RawAddress* bd_addr) {
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid() || mCallbacksObj == NULL) return;
@@ -307,7 +307,7 @@ static void unknown_at_callback(char* at_string, bt_bdaddr_t* bd_addr) {
                                js_at_string.get(), addr.get());
 }
 
-static void key_pressed_callback(bt_bdaddr_t* bd_addr) {
+static void key_pressed_callback(RawAddress* bd_addr) {
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid() || mCallbacksObj == NULL) return;
@@ -321,7 +321,7 @@ static void key_pressed_callback(bt_bdaddr_t* bd_addr) {
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onKeyPressed, addr.get());
 }
 
-static void at_bind_callback(char* at_string, bt_bdaddr_t* bd_addr) {
+static void at_bind_callback(char* at_string, RawAddress* bd_addr) {
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid() || mCallbacksObj == NULL) return;
@@ -337,7 +337,7 @@ static void at_bind_callback(char* at_string, bt_bdaddr_t* bd_addr) {
 }
 
 static void at_biev_callback(bthf_hf_ind_type_t ind_id, int ind_value,
-                             bt_bdaddr_t* bd_addr) {
+                             RawAddress* bd_addr) {
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid() || mCallbacksObj == NULL) return;
@@ -479,7 +479,7 @@ static jboolean connectHfpNative(JNIEnv* env, jobject object,
     return JNI_FALSE;
   }
 
-  bt_status_t status = sBluetoothHfpInterface->connect((bt_bdaddr_t*)addr);
+  bt_status_t status = sBluetoothHfpInterface->connect((RawAddress*)addr);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed HF connection, status: %d", status);
   }
@@ -498,7 +498,7 @@ static jboolean disconnectHfpNative(JNIEnv* env, jobject object,
     return JNI_FALSE;
   }
 
-  bt_status_t status = sBluetoothHfpInterface->disconnect((bt_bdaddr_t*)addr);
+  bt_status_t status = sBluetoothHfpInterface->disconnect((RawAddress*)addr);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed HF disconnection, status: %d", status);
   }
@@ -517,8 +517,7 @@ static jboolean connectAudioNative(JNIEnv* env, jobject object,
     return JNI_FALSE;
   }
 
-  bt_status_t status =
-      sBluetoothHfpInterface->connect_audio((bt_bdaddr_t*)addr);
+  bt_status_t status = sBluetoothHfpInterface->connect_audio((RawAddress*)addr);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed HF audio connection, status: %d", status);
   }
@@ -538,7 +537,7 @@ static jboolean disconnectAudioNative(JNIEnv* env, jobject object,
   }
 
   bt_status_t status =
-      sBluetoothHfpInterface->disconnect_audio((bt_bdaddr_t*)addr);
+      sBluetoothHfpInterface->disconnect_audio((RawAddress*)addr);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed HF audio disconnection, status: %d", status);
   }
@@ -558,7 +557,7 @@ static jboolean startVoiceRecognitionNative(JNIEnv* env, jobject object,
   }
 
   bt_status_t status =
-      sBluetoothHfpInterface->start_voice_recognition((bt_bdaddr_t*)addr);
+      sBluetoothHfpInterface->start_voice_recognition((RawAddress*)addr);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed to start voice recognition, status: %d", status);
   }
@@ -578,7 +577,7 @@ static jboolean stopVoiceRecognitionNative(JNIEnv* env, jobject object,
   }
 
   bt_status_t status =
-      sBluetoothHfpInterface->stop_voice_recognition((bt_bdaddr_t*)addr);
+      sBluetoothHfpInterface->stop_voice_recognition((RawAddress*)addr);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed to stop voice recognition, status: %d", status);
   }
@@ -598,7 +597,7 @@ static jboolean setVolumeNative(JNIEnv* env, jobject object, jint volume_type,
   }
 
   bt_status_t status = sBluetoothHfpInterface->volume_control(
-      (bthf_volume_type_t)volume_type, volume, (bt_bdaddr_t*)addr);
+      (bthf_volume_type_t)volume_type, volume, (RawAddress*)addr);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("FAILED to control volume, status: %d", status);
   }
@@ -635,7 +634,7 @@ static jboolean copsResponseNative(JNIEnv* env, jobject object,
   const char* operator_name = env->GetStringUTFChars(operator_str, NULL);
 
   bt_status_t status =
-      sBluetoothHfpInterface->cops_response(operator_name, (bt_bdaddr_t*)addr);
+      sBluetoothHfpInterface->cops_response(operator_name, (RawAddress*)addr);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed sending cops response, status: %d", status);
   }
@@ -661,7 +660,7 @@ static jboolean cindResponseNative(JNIEnv* env, jobject object, jint service,
 
   bt_status_t status = sBluetoothHfpInterface->cind_response(
       service, num_active, num_held, (bthf_call_state_t)call_state, signal,
-      roam, battery_charge, (bt_bdaddr_t*)addr);
+      roam, battery_charge, (RawAddress*)addr);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed cind_response, status: %d", status);
   }
@@ -685,7 +684,7 @@ static jboolean bindResponseNative(JNIEnv* env, jobject object, jint ind_id,
   bt_status_t status = sBluetoothHfpInterface->bind_response(
       (bthf_hf_ind_type_t)ind_id,
       ind_status ? BTHF_HF_IND_ENABLED : BTHF_HF_IND_DISABLED,
-      (bt_bdaddr_t*)addr);
+      (RawAddress*)addr);
 
   if (status != BT_STATUS_SUCCESS)
     ALOGE("%s: Failed bind_response, status: %d", __func__, status);
@@ -709,7 +708,7 @@ static jboolean atResponseStringNative(JNIEnv* env, jobject object,
   const char* response = env->GetStringUTFChars(response_str, NULL);
 
   bt_status_t status = sBluetoothHfpInterface->formatted_at_response(
-      response, (bt_bdaddr_t*)addr);
+      response, (RawAddress*)addr);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed formatted AT response, status: %d", status);
   }
@@ -731,7 +730,7 @@ static jboolean atResponseCodeNative(JNIEnv* env, jobject object,
   }
 
   bt_status_t status = sBluetoothHfpInterface->at_response(
-      (bthf_at_response_t)response_code, cmee_code, (bt_bdaddr_t*)addr);
+      (bthf_at_response_t)response_code, cmee_code, (RawAddress*)addr);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed AT response, status: %d", status);
   }
@@ -759,7 +758,7 @@ static jboolean clccResponseNative(JNIEnv* env, jobject object, jint index,
       index, (bthf_call_direction_t)dir, (bthf_call_state_t)callStatus,
       (bthf_call_mode_t)mode,
       mpty ? BTHF_CALL_MPTY_TYPE_MULTI : BTHF_CALL_MPTY_TYPE_SINGLE, number,
-      (bthf_call_addrtype_t)type, (bt_bdaddr_t*)addr);
+      (bthf_call_addrtype_t)type, (RawAddress*)addr);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed sending CLCC response, status: %d", status);
   }
@@ -799,11 +798,23 @@ static jboolean configureWBSNative(JNIEnv* env, jobject object,
   }
 
   bt_status_t status = sBluetoothHfpInterface->configure_wbs(
-      (bt_bdaddr_t*)addr, (bthf_wbs_config_t)codec_config);
+      (RawAddress*)addr, (bthf_wbs_config_t)codec_config);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed HF WBS codec config, status: %d", status);
   }
   env->ReleaseByteArrayElements(address, addr, 0);
+  return (status == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
+}
+
+static jboolean setScoAllowedNative(JNIEnv* env, jobject object,
+                                    jboolean value) {
+  if (!sBluetoothHfpInterface) return JNI_FALSE;
+
+  bt_status_t status =
+      sBluetoothHfpInterface->set_sco_allowed(value == JNI_TRUE);
+  if (status != BT_STATUS_SUCCESS) {
+    ALOGE("Failed HF set sco allowed, status: %d", status);
+  }
   return (status == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
 }
 
@@ -832,6 +843,7 @@ static JNINativeMethod sMethods[] = {
     {"phoneStateChangeNative", "(IIILjava/lang/String;I)Z",
      (void*)phoneStateChangeNative},
     {"configureWBSNative", "([BI)Z", (void*)configureWBSNative},
+    {"setScoAllowedNative", "(Z)Z", (void*)setScoAllowedNative},
 };
 
 int register_com_android_bluetooth_hfp(JNIEnv* env) {

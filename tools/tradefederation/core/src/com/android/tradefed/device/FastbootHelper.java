@@ -81,8 +81,8 @@ public class FastbootHelper {
      * @return a set of device serials.
      */
     public Set<String> getDevices() {
-        CommandResult fastbootResult = mRunUtil.runTimedCmd(FASTBOOT_CMD_TIMEOUT,
-                mFastbootPath, "devices");
+        CommandResult fastbootResult =
+                mRunUtil.runTimedCmdSilently(FASTBOOT_CMD_TIMEOUT, mFastbootPath, "devices");
         if (fastbootResult.getStatus().equals(CommandStatus.SUCCESS)) {
             CLog.v("fastboot devices returned\n %s",
                     fastbootResult.getStdout());

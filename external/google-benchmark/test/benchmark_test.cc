@@ -150,7 +150,7 @@ static void BM_LongTest(benchmark::State& state) {
 BENCHMARK(BM_LongTest)->Range(1 << 16, 1 << 28);
 
 static void BM_ParallelMemset(benchmark::State& state) {
-  int size = state.range(0) / sizeof(int);
+  int size = state.range(0) / static_cast<int>(sizeof(int));
   int thread_size = size / state.threads;
   int from = thread_size * state.thread_index;
   int to = from + thread_size;
@@ -209,8 +209,7 @@ BENCHMARK_CAPTURE(BM_with_args, string_and_pair_test, std::string("abc"),
                   std::pair<int, double>(42, 3.8));
 
 void BM_non_template_args(benchmark::State& state, int, double) {
-  while (state.KeepRunning()) {
-  }
+  while(state.KeepRunning()) {}
 }
 BENCHMARK_CAPTURE(BM_non_template_args, basic_test, 0, 0);
 

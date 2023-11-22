@@ -42,13 +42,13 @@ static void app_registration_state_callback(int app_id,
                                app_id, (jint)state);
 }
 
-static void channel_state_callback(int app_id, bt_bdaddr_t* bd_addr,
+static void channel_state_callback(int app_id, RawAddress* bd_addr,
                                    int mdep_cfg_index, int channel_id,
                                    bthl_channel_state_t state, int fd) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
   ScopedLocalRef<jbyteArray> addr(
-      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(bt_bdaddr_t)));
+      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(RawAddress)));
   if (!addr.get()) {
     ALOGE("Fail to new jbyteArray bd addr for channel state");
     return;
@@ -64,7 +64,7 @@ static void channel_state_callback(int app_id, bt_bdaddr_t* bd_addr,
     }
   }
 
-  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(bt_bdaddr_t),
+  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
                                    (jbyte*)bd_addr);
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onChannelStateChanged,
                                app_id, addr.get(), mdep_cfg_index, channel_id,
@@ -203,7 +203,7 @@ static jint connectChannelNative(JNIEnv* env, jobject object,
 
   jint chan_id;
   bt_status_t status = sBluetoothHdpInterface->connect_channel(
-      app_id, (bt_bdaddr_t*)addr, 0, &chan_id);
+      app_id, (RawAddress*)addr, 0, &chan_id);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed HDP channel connection, status: %d", status);
     chan_id = -1;

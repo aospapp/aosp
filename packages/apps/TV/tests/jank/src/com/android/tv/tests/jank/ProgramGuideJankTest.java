@@ -17,29 +17,21 @@ package com.android.tv.tests.jank;
 
 import static com.android.tv.testing.uihelper.UiDeviceAsserts.assertWaitForCondition;
 
-import android.content.res.Resources;
 import android.support.test.filters.MediumTest;
 import android.support.test.jank.GfxMonitor;
 import android.support.test.jank.JankTest;
-import android.support.test.jank.JankTestBase;
-import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.Until;
 
 import com.android.tv.R;
 import com.android.tv.testing.uihelper.ByResource;
 import com.android.tv.testing.uihelper.Constants;
-import com.android.tv.testing.uihelper.LiveChannelsUiDeviceHelper;
 import com.android.tv.testing.uihelper.MenuHelper;
-import com.android.tv.testing.uihelper.UiDeviceUtils;
 
 /**
  * Jank tests for the program guide.
  */
 @MediumTest
-public class ProgramGuideJankTest extends JankTestBase {
-    private static final boolean DEBUG = false;
-    private static final String TAG = "ProgramGuideJank";
-
+public class ProgramGuideJankTest extends LiveChannelsTestCase {
     private static final String STARTING_CHANNEL = "13";
 
     /**
@@ -53,20 +45,12 @@ public class ProgramGuideJankTest extends JankTestBase {
      */
     private static final int EXPECTED_FRAMES = 200;
 
-    private UiDevice mDevice;
-
-    private Resources mTargetResources;
     private MenuHelper mMenuHelper;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mDevice = UiDevice.getInstance(getInstrumentation());
-        mTargetResources = getInstrumentation().getTargetContext().getResources();
         mMenuHelper = new MenuHelper(mDevice, mTargetResources);
-        LiveChannelsUiDeviceHelper liveChannelsHelper = new LiveChannelsUiDeviceHelper(mDevice,
-                mTargetResources, getInstrumentation().getContext());
-        liveChannelsHelper.assertAppStarted();
         Utils.pressKeysForChannelNumber(STARTING_CHANNEL, mDevice);
     }
 
@@ -83,7 +67,7 @@ public class ProgramGuideJankTest extends JankTestBase {
     }
 
     @JankTest(expectedFrames = EXPECTED_FRAMES,
-            beforeLoop = "showProgramGuide",
+            beforeLoop = "showAndFocusProgramGuide",
             afterLoop = "clearProgramGuide")
     @GfxMonitor(processName = Utils.LIVE_CHANNELS_PROCESS_NAME)
     public void testScrollDown() {
@@ -95,7 +79,7 @@ public class ProgramGuideJankTest extends JankTestBase {
     }
 
     @JankTest(expectedFrames = EXPECTED_FRAMES,
-            beforeLoop = "showProgramGuide",
+            beforeLoop = "showAndFocusProgramGuide",
             afterLoop = "clearProgramGuide")
     @GfxMonitor(processName = Utils.LIVE_CHANNELS_PROCESS_NAME)
     public void testScrollRight() {
@@ -128,8 +112,14 @@ public class ProgramGuideJankTest extends JankTestBase {
         assertWaitForCondition(mDevice, Until.gone(Constants.PROGRAM_GUIDE));
     }
 
-    // It's public to be used with @JankTest annotation.
     public void showProgramGuide() {
+        selectProgramGuideMenuItem();
+        mDevice.pressDPadCenter();
+        assertWaitForCondition(mDevice, Until.hasObject(Constants.PROGRAM_GUIDE));
+    }
+
+    // It's public to be used with @JankTest annotation.
+    public void showAndFocusProgramGuide() {
         selectProgramGuideMenuItem();
         mDevice.pressDPadCenter();
         assertWaitForCondition(mDevice, Until.hasObject(Constants.PROGRAM_GUIDE));

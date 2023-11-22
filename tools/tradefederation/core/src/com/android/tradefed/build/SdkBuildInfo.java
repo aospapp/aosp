@@ -30,6 +30,7 @@ import java.io.IOException;
  */
 public class SdkBuildInfo extends BuildInfo implements ISdkBuildInfo {
 
+    private static final long serialVersionUID = BuildSerializedVersion.VERSION;
     private File mTestDir = null;
     private File mSdkDir = null;
     private boolean mDeleteSdkDirParent;

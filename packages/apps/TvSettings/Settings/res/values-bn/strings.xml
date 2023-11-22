@@ -92,7 +92,7 @@
     <string name="system_language" msgid="2337138146114609247">"ভাষা"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"কীবোর্ড"</string>
     <string name="system_home" msgid="2858989138172296012">"হোম স্ক্রীন"</string>
-    <string name="system_search" msgid="2837264654143247611">"অনুসন্ধান করুন"</string>
+    <string name="system_search" msgid="2837264654143247611">"খুঁজুন"</string>
     <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"নিরাপত্তা ও সীমাবদ্ধতাগুলি"</string>
     <string name="system_speech" msgid="8128688499687306982">"কথন"</string>
@@ -150,7 +150,7 @@
     <string name="terms_title" msgid="8480859222932736291">"চুক্তি এবং শর্তাবলী"</string>
     <string name="webview_license_title" msgid="8843666223583780825">"সিস্টেম ওয়েবদর্শন লাইসেন্স"</string>
     <string name="wallpaper_attributions" msgid="8622098625739634898">"ওয়ালপেপারগুলি"</string>
-    <string name="wallpaper_attributions_values" msgid="1565931506291182879">"উপগ্রহ চিত্র প্রদানকারী\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
+    <string name="wallpaper_attributions_values" msgid="1565931506291182879">"উপগ্রহ ছবি প্রদানকারী\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="6926038943588801452">"দুর্বল"</item>
     <item msgid="5986166866411161790">"ভালো"</item>
@@ -288,7 +288,7 @@
     <string name="storage_wizard_migrate_progress_title" msgid="8063255124619498728">"<xliff:g id="NAME">%1$s</xliff:g> -এ ডেটা সরানো হচ্ছে…"</string>
     <string name="storage_wizard_migrate_progress_description" msgid="3337889465416363170">"এতে কিছুটা সময় লাগতে পারে। অনুগ্রহ করে ড্রাইভ সরাবেন না।\nসরানোর সময়ে কিছু অ্যাপ্লিকেশান ঠিক ভাবে কাজ করবে না।"</string>
     <string name="storage_wizard_format_slow_title" msgid="2483634437996887661">"এই ড্রাইভটিকে দেখে ধীর বলে মনে হচ্ছে৷"</string>
-    <string name="storage_wizard_format_slow_summary" msgid="1949177940762639885">"আপনি চালিয়ে যেতে পারেন, কিন্তু এই অবস্থানে অ্যাপ্লিকেশানগুলিকে সরানোর সময় তা আটকে যতে পারেন বা ডেটা স্থানান্তর হতে বেশি সময় লাগতে পারে৷ আরো ভাল কার্য সম্পাদনার জন্য একটি দ্রুততর ড্রাইভ ব্যবহার করার কথা বিবেচনা করুন৷"</string>
+    <string name="storage_wizard_format_slow_summary" msgid="1949177940762639885">"আপনি চালিয়ে যেতে পারেন, কিন্তু এই অবস্থানে অ্যাপ্লিকেশানগুলিকে সরানোর সময় তা আটকে যতে পারেন বা ডেটা স্থানান্তর হতে বেশি সময় লাগতে পারে৷ আরও ভাল কার্য সম্পাদনার জন্য একটি দ্রুততর ড্রাইভ ব্যবহার করার কথা বিবেচনা করুন৷"</string>
     <string name="storage_wizard_format_action" msgid="3986485572528374905">"ফর্ম্যাট করুন"</string>
     <string name="storage_wizard_backup_apps_action" msgid="7246092320517630760">"অ্যাপ্লিকেশানগুলির ব্যাক আপ নিন"</string>
     <string name="storage_wizard_back_up_apps_title" msgid="452805102278225533">"<xliff:g id="NAME">%1$s</xliff:g> এ সংরক্ষিত অ্যাপ্লিকেশানগুলি"</string>
@@ -316,7 +316,7 @@
     <string name="invalid_location" msgid="5269044848535157307">"ইনস্টল করা অবস্থান বৈধ নয়।"</string>
     <string name="system_package" msgid="9200255718634512790">"সিস্টেম আপডেটগুলি বহিরাগত মিডিয়াতে ইনস্টল করা যাবে না।"</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"বাহ্যিক মিডিয়াতে ডিভাইস প্রশাসক ইনস্টল করা যাবে না৷"</string>
-    <string name="learn_more_action" msgid="7015991954404958779">"আরো জানুন"</string>
+    <string name="learn_more_action" msgid="7015991954404958779">"আরও জানুন"</string>
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"আবার চেষ্টা করুন"</string>
     <string name="wifi_wps_title" msgid="1872305810119408482">"WPS রাউটার অনুসন্ধান করছে..."</string>
     <string name="wifi_wps_instructions" msgid="3618110962669110034">"আপনার রাউটারে \'ওয়াই-ফাই সুরক্ষিত সেটআপ\' বোতামটি টিপুন।\nএকে \"WPS\" নামে উল্লেখ করা থাকতে পারে অথবা বাঁদিকে তার প্রতীক থাকতে পারে।"</string>
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"পরিষেবাগুলি"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"পরিষেবা সেটিংস"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"উচ্চ কনট্রাস্ট যুক্ত পাঠ্য"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"অ্যাক্সেসযোগ্যতার শর্টকাট"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"অ্যাক্সেসযোগ্যতা শর্টকাট সক্ষম করুন"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"শর্টকাট পরিষেবা"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"শর্টকাটটি চালু থাকলে ফিরে যাওয়ার এবং নিচে যাওয়ার বোতামদুটি একসাথে ৩ সেকেন্ড টিপে ধরে রেখে আপনি একটি অ্যাক্সেসিবিলিটি বৈশিষ্ট্য চালু করতে পারবেন।"</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"ক্যাপশন"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"ভিডিওতে ক্লোজড ক্যাপশনিং পাঠ্য ওভারলের জন্য সেটিংস"</string>
     <string name="captions_display" msgid="735692527287125548">"প্রদর্শন"</string>
@@ -436,7 +440,7 @@
     <string name="system_email_address" msgid="8669468986250302378">"ইমেল ঠিকানা"</string>
     <string name="system_usb_debugging" msgid="3777895294421924323">"USB ডিবাগিং"</string>
     <string name="system_allow_mock_locations" msgid="3635672039775772910">"নকল অবস্থানের অনুমতি দিন"</string>
-    <string name="system_select_debug_app" msgid="8592021815119618485">"ডিবাগ অ্যাপ্লিকেশান নির্বাচন করুন"</string>
+    <string name="system_select_debug_app" msgid="8592021815119618485">"ডিবাগ অ্যাপ্লিকেশান বেছে নিন"</string>
     <string name="system_wait_for_debugger" msgid="4007354935701089555">"ডিবাগারের জন্য অপেক্ষা করুন"</string>
     <string name="system_verify_apps_over_usb" msgid="7340861918835270609">"USB মাধ্যমে অ্যাপ্লিকেশানগুলি যাচাই করুন"</string>
     <string name="system_desc_verify_apps_over_usb" msgid="6722973410408262393">"ক্ষতিকর আচরণের জন্য ইনস্টল করা অ্যাপ্লিকেশানগুলি ADB/ADT মাধ্যমে পরীক্ষা করুন"</string>
@@ -519,7 +523,7 @@
     <string name="title_configure" msgid="6929522003149212388">"কনফিগার করুন"</string>
     <string name="desc_configure_keyboard" msgid="7187242843867404657">"কীবোর্ড বিকল্পগুলি"</string>
     <string name="computing_size" msgid="2955133568424704042">"হিসাব করছে..."</string>
-    <string name="title_select_wifi_network" msgid="1038871400014761952">"আপনার ওয়াই-ফাই নেটওয়ার্ক নির্বাচন করুন"</string>
+    <string name="title_select_wifi_network" msgid="1038871400014761952">"আপনার ওয়াই-ফাই নেটওয়ার্ক বেছে নিন"</string>
     <string name="accessories_wifi_display_rename_device" msgid="7416728299196887186">"পুনঃনামকরণ"</string>
     <string name="accessories_wifi_display_enable" msgid="4779506305656453262">"ওয়াই-ফাই প্রদর্শন"</string>
     <string name="accessories_wifi_display_pin_required" msgid="3242645267864813273">"পিন প্রয়োজন"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"ত্রুটির প্রতিবেদন ক্যাপচার করা হচ্ছে"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"উপলব্ধ ভার্চুয়াল কীবোর্ড"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"কীবোর্ডগুলি পরিচালনা করুন"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"অনুমতি আছে"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"অনুমতি নেই"</string>
+    <string name="usage_access" msgid="1914242907684452328">"ব্যবহারের অ্যাক্সেস"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"একটি অ্যাপকে ব্যবহারের অ্যাক্সেস দিলে, আপনি অন্য কোন অ্যাপ কত ঘন ঘন ব্যবহার করছেন, এবং আপনার পরিষেবা প্রদানকারী, ভাষার সেটিংস, ও অন্যান্য বিশদ বিবরণ সেই অ্যাপটি ট্র্যাক করতে পারে।"</string>
 </resources>

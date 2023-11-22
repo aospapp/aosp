@@ -8,7 +8,7 @@ ParameterTest.
 Regenerate the .dex files with:
 
 make smali
-smali libcore/luni/src/test/java/libcore/java/lang/reflect/parameter/ParameterMetdataTestClasses*.smali \
+smali assemble libcore/luni/src/test/java/libcore/java/lang/reflect/parameter/ParameterMetdataTestClasses*.smali \
     -o libcore/luni/src/test/resources/libcore/java/lang/reflect/parameter/parameter_metadata_test_classes.dex
 
 For reference, the valid smali code should be (roughly) the equivalent of the

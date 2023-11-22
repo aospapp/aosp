@@ -18,7 +18,6 @@
 
 #include "gatt/gatt_test.h"
 #include "adapter/bluetooth_test.h"
-#include "btcore/include/bdaddr.h"
 
 namespace bttest {
 
@@ -99,8 +98,8 @@ void GattTest::RegisterClientCallback(
 }
 
 void GattTest::ScanResultCallback(
-    bluetooth::hal::BluetoothGattInterface* /* unused */,
-    const bt_bdaddr_t& bda, int rssi, std::vector<uint8_t> adv_data) {
+    bluetooth::hal::BluetoothGattInterface* /* unused */, const RawAddress& bda,
+    int rssi, std::vector<uint8_t> adv_data) {
   semaphore_post(scan_result_callback_sem_);
 }
 

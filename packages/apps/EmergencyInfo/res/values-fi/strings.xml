@@ -17,6 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Hätätilannetiedot"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"Lääketieteelliset tiedot"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"Muokkaa tietoja"</string>
     <string name="edit_info" msgid="5973929805855224805">"Muokkaa hätätilannetietoja"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Tiedot"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Yhteystiedot"</string>
@@ -96,12 +98,12 @@
     <string name="cancel" msgid="7401575239009060939">"Peruuta"</string>
     <string name="ok" msgid="163967937451981024">"Ok"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"Hätätilannetiedot"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"Tässä antamasi tiedot voivat auttaa ensiavun antajia hätätilanteessa. Tiedot tallennetaan vain laitteellesi, mutta kuka tahansa voi lukea ne hätäpuhelunäytöltä avaamatta puhelimen lukitusta."</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"Jatka"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Ei tietoja puhelimen omistajasta"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"Jos tämä on sinun puhelimesi, kosketa kynäkuvaketta ja anna tietoja, jotka näytetään hätätilanteessa tässä näytössä."</string>
     <string name="clear_all" msgid="8899013032870561633">"Tyhjennä kaikki"</string>
     <string name="clear" msgid="3648880442502887163">"Tyhjennä"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Tyhjennetäänkö kaikki tiedot ja yhteystiedot?"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"Kun lisäät terveystiedot ja hätäyhteystiedot, ensihoitajien työ helpottuu hätätilanteissa.\n\nKuka tahansa voi lukea nämä tiedot lukitusnäytöltä ja soittaa yhteystiedoillesi napauttamalla heidän nimiään avaamatta puhelintasi."</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"Hätätilannetietojen lisääminen"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"Auta ensihoitajia löytämään tärkeät tiedot."</string>
 </resources>

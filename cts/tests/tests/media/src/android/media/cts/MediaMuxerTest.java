@@ -490,7 +490,11 @@ public class MediaMuxerTest extends AndroidTestCase {
         int index = Math.max(minusIndex, plusIndex);
 
         float latitude = Float.parseFloat(location.substring(0, index - 1));
-        float longitude = Float.parseFloat(location.substring(index));
+        int lastIndex = location.lastIndexOf('/', index);
+        if (lastIndex == -1) {
+            lastIndex = location.length();
+        }
+        float longitude = Float.parseFloat(location.substring(index, lastIndex - 1));
         assertTrue("Incorrect latitude: " + latitude + " [" + location + "]",
                 Math.abs(latitude - LATITUDE) <= TOLERANCE);
         assertTrue("Incorrect longitude: " + longitude + " [" + location + "]",

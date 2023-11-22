@@ -15,11 +15,16 @@
  */
 package com.android.tv.menu;
 
+import static android.support.test.InstrumentationRegistry.getTargetContext;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import android.support.test.filters.SmallTest;
-import android.test.AndroidTestCase;
 
 import com.android.tv.menu.Menu.OnMenuVisibilityChangeListener;
 
+import org.junit.Before;
+import org.junit.Test;
 import org.mockito.Matchers;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
@@ -29,23 +34,23 @@ import org.mockito.stubbing.Answer;
  * Tests for {@link Menu}.
  */
 @SmallTest
-public class MenuTest extends AndroidTestCase {
+public class MenuTest {
     private Menu mMenu;
     private IMenuView mMenuView;
     private OnMenuVisibilityChangeListener mVisibilityChangeListener;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() {
         mMenuView = Mockito.mock(IMenuView.class);
         MenuRowFactory factory = Mockito.mock(MenuRowFactory.class);
         Mockito.when(factory.createMenuRow(Mockito.any(Menu.class), Mockito.any(Class.class)))
                 .thenReturn(null);
         mVisibilityChangeListener = Mockito.mock(OnMenuVisibilityChangeListener.class);
-        mMenu = new Menu(getContext(), mMenuView, factory, mVisibilityChangeListener);
+        mMenu = new Menu(getTargetContext(), mMenuView, factory, mVisibilityChangeListener);
         mMenu.disableAnimationForTest();
     }
 
+    @Test
     public void testScheduleHide() {
         mMenu.show(Menu.REASON_NONE);
         setMenuVisible(true);
@@ -67,6 +72,7 @@ public class MenuTest extends AndroidTestCase {
         assertFalse("Hide is scheduled", mMenu.isHideScheduled());
     }
 
+    @Test
     public void testShowHide_ReasonNone() {
         // Show with REASON_NONE
         mMenu.show(Menu.REASON_NONE);
@@ -87,6 +93,7 @@ public class MenuTest extends AndroidTestCase {
         Mockito.verify(mMenuView).onHide();
     }
 
+    @Test
     public void testShowHide_ReasonGuide() {
         // Show with REASON_GUIDE
         mMenu.show(Menu.REASON_GUIDE);
@@ -107,6 +114,7 @@ public class MenuTest extends AndroidTestCase {
         Mockito.verify(mMenuView).onHide();
     }
 
+    @Test
     public void testShowHide_ReasonPlayControlsFastForward() {
         // Show with REASON_PLAY_CONTROLS_FAST_FORWARD
         mMenu.show(Menu.REASON_PLAY_CONTROLS_FAST_FORWARD);

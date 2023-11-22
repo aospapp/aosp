@@ -18,7 +18,7 @@
 
 #include <limits.h>
 
-#include <new>
+#include <keymaster/new>
 
 #include <openssl/err.h>
 
@@ -307,7 +307,7 @@ keymaster_error_t RsaSignOperation::Finish(const AuthorizationSet& additional_pa
 static keymaster_error_t zero_pad_left(UniquePtr<uint8_t[]>* dest, size_t padded_len, Buffer& src) {
     assert(padded_len > src.available_read());
 
-    dest->reset(new uint8_t[padded_len]);
+    dest->reset(new(std::nothrow) uint8_t[padded_len]);
     if (!dest->get())
         return KM_ERROR_MEMORY_ALLOCATION_FAILED;
 

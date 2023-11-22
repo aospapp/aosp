@@ -17,16 +17,6 @@
 <configuration description="Config for CTS External Sources test cases">
     <option name="config-descriptor:metadata" key="component" value="framework" />
 
-    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
-        <option name="run-command" value="mkdir -p /data/local/tmp/cts/externalsources" />
-        <option name="teardown-command" value="rm -rf /data/local/tmp/cts"/>
-    </target_preparer>
-
-    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
-        <option name="cleanup" value="true" />
-        <option name="push" value="CtsEmptyTestApp.apk->/data/local/tmp/cts/externalsources/CtsEmptyTestApp.apk" />
-    </target_preparer>
-
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsExternalSourcesTestCases.apk" />
@@ -34,7 +24,7 @@
 
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.packageinstaller.externalsources.cts" />
-        <option name="runtime-hint" value="1m" />
+        <option name="runtime-hint" value="10s" />
     </test>
 
 </configuration>

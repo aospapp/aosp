@@ -133,7 +133,7 @@ extern tNFA_STATUS NFA_CeConfigureUiccListenTech(
 *******************************************************************************/
 extern tNFA_STATUS NFA_CeRegisterFelicaSystemCodeOnDH(
     uint16_t system_code, uint8_t nfcid2[NCI_RF_F_UID_LEN],
-    tNFA_CONN_CBACK* p_conn_cback);
+    uint8_t t3tPmm[NCI_T3T_PMM_LEN], tNFA_CONN_CBACK* p_conn_cback);
 
 /*******************************************************************************
 **

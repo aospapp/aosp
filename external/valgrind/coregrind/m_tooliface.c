@@ -8,7 +8,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2000-2015 Nicholas Nethercote
+   Copyright (C) 2000-2017 Nicholas Nethercote
       njn@valgrind.org
 
    This program is free software; you can redistribute it and/or
@@ -88,6 +88,7 @@ VgNeeds VG_(needs) = {
    .core_errors          = False,
    .tool_errors          = False,
    .libc_freeres         = False,
+   .cxx_freeres          = False,
    .superblock_discards  = False,
    .command_line_options = False,
    .client_requests      = False,
@@ -216,6 +217,7 @@ Bool VG_(sanity_check_needs)(const HChar** failmsg)
 
 // These ones don't require any tool-supplied functions
 NEEDS(libc_freeres)
+NEEDS(cxx_freeres)
 NEEDS(core_errors)
 NEEDS(var_info)
 

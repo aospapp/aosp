@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import ConfigParser
+import error
 
 
 def forgive_config_error(func):
@@ -12,6 +13,8 @@ def forgive_config_error(func):
             return func(*args, **kwargs)
         except ConfigParser.Error:
             return None
+        except ValueError as e:
+            raise error.MalformedConfigEntry(str(e))
     return wrapper
 
 

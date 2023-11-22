@@ -47,13 +47,7 @@
   * produced under gcc with optimizations set -O3 or higher. Dunno why.
   *
   /////////////////////////////////////////////////////////////////////// */
-
-/* In OpenSSH, this file is compiled twice, with different #defines set on the
- * command line. Since we don't want to stretch the Android build system, in
- * Android this file is duplicated as umac.c and umac128.c. The latter contains
- * the #defines (that were set in OpenSSH's Makefile) at the top of the
- * file. */
-
+ 
 /* ---------------------------------------------------------------------- */
 /* --- User Switches ---------------------------------------------------- */
 /* ---------------------------------------------------------------------- */

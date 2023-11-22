@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -19,25 +19,21 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.maven.plugin.MojoExecutionException;
-import org.jacoco.core.analysis.IBundleCoverage;
+import org.apache.maven.plugins.annotations.LifecyclePhase;
+import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
 import org.jacoco.core.analysis.ICoverageNode;
-import org.jacoco.core.data.ExecutionDataStore;
-import org.jacoco.core.tools.ExecFileLoader;
 import org.jacoco.report.IReportVisitor;
 import org.jacoco.report.check.IViolationsOutput;
 import org.jacoco.report.check.Limit;
 import org.jacoco.report.check.Rule;
-import org.jacoco.report.check.RulesChecker;
 
 /**
  * Checks that the code coverage metrics are being met.
  * 
- * @goal check
- * @phase verify
- * @requiresProject true
- * @threadSafe
  * @since 0.6.1
  */
+@Mojo(name = "check", defaultPhase = LifecyclePhase.VERIFY, threadSafe = true)
 public class CheckMojo extends AbstractJacocoMojo implements IViolationsOutput {
 
 	private static final String MSG_SKIPPING = "Skipping JaCoCo execution due to missing execution data file:";
@@ -54,7 +50,19 @@ public class CheckMojo extends AbstractJacocoMojo implements IViolationsOutput {
 	 * If a limit refers to a ratio the range is from 0.0 to 1.0 where the
 	 * number of decimal places will also determine the precision in error
 	 * messages.
+	 * </p>
 	 * 
+	 * <p>
+	 * If not specified the following defaults are assumed:
+	 * </p>
+	 * 
+	 * <ul>
+	 * <li>rule element: BUNDLE</li>
+	 * <li>limit counter: INSTRUCTION</li>
+	 * <li>limit value: COVEREDRATIO</li>
+	 * </ul>
+	 * 
+	 * <p>
 	 * Note that you <b>must</b> use <tt>implementation</tt> hints for
 	 * <tt>rule</tt> and <tt>limit</tt> when using Maven 2, with Maven 3 you do
 	 * not need to specify the attributes.
@@ -109,25 +117,20 @@ public class CheckMojo extends AbstractJacocoMojo implements IViolationsOutput {
 	 *   </rule>
 	 * </rules>}
 	 * </pre>
-	 * 
-	 * @parameter
-	 * @required
 	 */
+	@Parameter(required = true)
 	private List<RuleConfiguration> rules;
 
 	/**
 	 * Halt the build if any of the checks fail.
-	 * 
-	 * @parameter property="jacoco.haltOnFailure" default-value="true"
-	 * @required
 	 */
+	@Parameter(property = "jacoco.haltOnFailure", defaultValue = "true", required = true)
 	private boolean haltOnFailure;
 
 	/**
 	 * File with execution data.
-	 * 
-	 * @parameter default-value="${project.build.directory}/jacoco.exec"
 	 */
+	@Parameter(defaultValue = "${project.build.directory}/jacoco.exec")
 	private File dataFile;
 
 	private boolean violations;
@@ -158,19 +161,22 @@ public class CheckMojo extends AbstractJacocoMojo implements IViolationsOutput {
 	}
 
 	private void executeCheck() throws MojoExecutionException {
-		final IBundleCoverage bundle = loadBundle();
 		violations = false;
 
-		final RulesChecker checker = new RulesChecker();
+		final ReportSupport support = new ReportSupport(getLog());
+
 		final List<Rule> checkerrules = new ArrayList<Rule>();
 		for (final RuleConfiguration r : rules) {
 			checkerrules.add(r.rule);
 		}
-		checker.setRules(checkerrules);
+		support.addRulesChecker(checkerrules, this);
 
-		final IReportVisitor visitor = checker.createVisitor(this);
 		try {
-			visitor.visitBundle(bundle, null);
+			final IReportVisitor visitor = support.initRootVisitor();
+			support.loadExecutionData(dataFile);
+			support.processProject(visitor, getProject(), this.getIncludes(),
+					this.getExcludes());
+			visitor.visitEnd();
 		} catch (final IOException e) {
 			throw new MojoExecutionException(
 					"Error while checking code coverage: " + e.getMessage(), e);
@@ -184,26 +190,6 @@ public class CheckMojo extends AbstractJacocoMojo implements IViolationsOutput {
 		} else {
 			this.getLog().info(CHECK_SUCCESS);
 		}
-	}
-
-	private IBundleCoverage loadBundle() throws MojoExecutionException {
-		final FileFilter fileFilter = new FileFilter(this.getIncludes(),
-				this.getExcludes());
-		final BundleCreator creator = new BundleCreator(getProject(),
-				fileFilter, getLog());
-		try {
-			final ExecutionDataStore executionData = loadExecutionData();
-			return creator.createBundle(executionData);
-		} catch (final IOException e) {
-			throw new MojoExecutionException(
-					"Error while reading code coverage: " + e.getMessage(), e);
-		}
-	}
-
-	private ExecutionDataStore loadExecutionData() throws IOException {
-		final ExecFileLoader loader = new ExecFileLoader();
-		loader.load(dataFile);
-		return loader.getExecutionDataStore();
 	}
 
 	public void onViolation(final ICoverageNode node, final Rule rule,

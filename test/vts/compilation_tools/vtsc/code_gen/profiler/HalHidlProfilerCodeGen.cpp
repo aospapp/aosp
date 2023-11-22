@@ -15,34 +15,34 @@
  */
 
 #include "HalHidlProfilerCodeGen.h"
+#include "VtsCompilerUtils.h"
 #include "utils/InterfaceSpecUtil.h"
 #include "utils/StringUtil.h"
-#include "VtsCompilerUtils.h"
 
 namespace android {
 namespace vts {
 
-void HalHidlProfilerCodeGen::GenerateProfilerForScalarVariable(Formatter& out,
-  const VariableSpecificationMessage& val, const std::string& arg_name,
-  const std::string& arg_value) {
+void HalHidlProfilerCodeGen::GenerateProfilerForScalarVariable(
+    Formatter& out, const VariableSpecificationMessage& val,
+    const std::string& arg_name, const std::string& arg_value) {
   out << arg_name << "->set_type(TYPE_SCALAR);\n";
   out << arg_name << "->mutable_scalar_value()->set_" << val.scalar_type()
       << "(" << arg_value << ");\n";
 }
 
-void HalHidlProfilerCodeGen::GenerateProfilerForStringVariable(Formatter& out,
-  const VariableSpecificationMessage&, const std::string& arg_name,
-  const std::string& arg_value) {
+void HalHidlProfilerCodeGen::GenerateProfilerForStringVariable(
+    Formatter& out, const VariableSpecificationMessage&,
+    const std::string& arg_name, const std::string& arg_value) {
   out << arg_name << "->set_type(TYPE_STRING);\n";
-  out << arg_name << "->mutable_string_value()->set_message" << "(" << arg_value
-      << ".c_str());\n";
-  out << arg_name << "->mutable_string_value()->set_length" << "(" << arg_value
-      << ".size());\n";
+  out << arg_name << "->mutable_string_value()->set_message"
+      << "(" << arg_value << ".c_str());\n";
+  out << arg_name << "->mutable_string_value()->set_length"
+      << "(" << arg_value << ".size());\n";
 }
 
-void HalHidlProfilerCodeGen::GenerateProfilerForEnumVariable(Formatter& out,
-  const VariableSpecificationMessage& val, const std::string& arg_name,
-  const std::string& arg_value) {
+void HalHidlProfilerCodeGen::GenerateProfilerForEnumVariable(
+    Formatter& out, const VariableSpecificationMessage& val,
+    const std::string& arg_name, const std::string& arg_value) {
   out << arg_name << "->set_type(TYPE_ENUM);\n";
 
   // For predefined type, call the corresponding profile method.
@@ -59,15 +59,16 @@ void HalHidlProfilerCodeGen::GenerateProfilerForEnumVariable(Formatter& out,
   }
 }
 
-void HalHidlProfilerCodeGen::GenerateProfilerForVectorVariable(Formatter& out,
-  const VariableSpecificationMessage& val, const std::string& arg_name,
-  const std::string& arg_value) {
+void HalHidlProfilerCodeGen::GenerateProfilerForVectorVariable(
+    Formatter& out, const VariableSpecificationMessage& val,
+    const std::string& arg_name, const std::string& arg_value) {
   out << arg_name << "->set_type(TYPE_VECTOR);\n";
   out << arg_name << "->set_vector_size(" << arg_value << ".size());\n";
   out << "for (int i = 0; i < (int)" << arg_value << ".size(); i++) {\n";
   out.indent();
   std::string vector_element_name = arg_name + "_vector_i";
-  out << "auto *" << vector_element_name << " = " << arg_name
+  out << "auto *" << vector_element_name
+      << " __attribute__((__unused__)) = " << arg_name
       << "->add_vector_value();\n";
   GenerateProfilerForTypedVariable(out, val.vector_value(0),
                                    vector_element_name, arg_value + "[i]");
@@ -75,15 +76,16 @@ void HalHidlProfilerCodeGen::GenerateProfilerForVectorVariable(Formatter& out,
   out << "}\n";
 }
 
-void HalHidlProfilerCodeGen::GenerateProfilerForArrayVariable(Formatter& out,
-  const VariableSpecificationMessage& val, const std::string& arg_name,
-  const std::string& arg_value) {
+void HalHidlProfilerCodeGen::GenerateProfilerForArrayVariable(
+    Formatter& out, const VariableSpecificationMessage& val,
+    const std::string& arg_name, const std::string& arg_value) {
   out << arg_name << "->set_type(TYPE_ARRAY);\n";
   out << arg_name << "->set_vector_size(" << val.vector_size() << ");\n";
   out << "for (int i = 0; i < " << val.vector_size() << "; i++) {\n";
   out.indent();
   std::string array_element_name = arg_name + "_array_i";
-  out << "auto *" << array_element_name << " = " << arg_name
+  out << "auto *" << array_element_name
+      << " __attribute__((__unused__)) = " << arg_name
       << "->add_vector_value();\n";
   GenerateProfilerForTypedVariable(out, val.vector_value(0), array_element_name,
                                    arg_value + "[i]");
@@ -91,9 +93,9 @@ void HalHidlProfilerCodeGen::GenerateProfilerForArrayVariable(Formatter& out,
   out << "}\n";
 }
 
-void HalHidlProfilerCodeGen::GenerateProfilerForStructVariable(Formatter& out,
-  const VariableSpecificationMessage& val, const std::string& arg_name,
-  const std::string& arg_value) {
+void HalHidlProfilerCodeGen::GenerateProfilerForStructVariable(
+    Formatter& out, const VariableSpecificationMessage& val,
+    const std::string& arg_name, const std::string& arg_value) {
   out << arg_name << "->set_type(TYPE_STRUCT);\n";
   // For predefined type, call the corresponding profile method.
   if (val.struct_value().size() == 0 && val.has_predefined_type()) {
@@ -104,7 +106,8 @@ void HalHidlProfilerCodeGen::GenerateProfilerForStructVariable(Formatter& out,
   } else {
     for (const auto struct_field : val.struct_value()) {
       std::string struct_field_name = arg_name + "_" + struct_field.name();
-      out << "auto *" << struct_field_name << " = " << arg_name
+      out << "auto *" << struct_field_name
+          << " __attribute__((__unused__)) = " << arg_name
           << "->add_struct_value();\n";
       GenerateProfilerForTypedVariable(out, struct_field, struct_field_name,
                                        arg_value + "." + struct_field.name());
@@ -112,9 +115,9 @@ void HalHidlProfilerCodeGen::GenerateProfilerForStructVariable(Formatter& out,
   }
 }
 
-void HalHidlProfilerCodeGen::GenerateProfilerForUnionVariable(Formatter& out,
-  const VariableSpecificationMessage& val, const std::string& arg_name,
-  const std::string& arg_value) {
+void HalHidlProfilerCodeGen::GenerateProfilerForUnionVariable(
+    Formatter& out, const VariableSpecificationMessage& val,
+    const std::string& arg_name, const std::string& arg_value) {
   out << arg_name << "->set_type(TYPE_UNION);\n";
   // For predefined type, call the corresponding profile method.
   if (val.union_value().size() == 0 && val.has_predefined_type()) {
@@ -134,56 +137,181 @@ void HalHidlProfilerCodeGen::GenerateProfilerForUnionVariable(Formatter& out,
 }
 
 void HalHidlProfilerCodeGen::GenerateProfilerForHidlCallbackVariable(
-  Formatter& out, const VariableSpecificationMessage&,
-  const std::string& arg_name, const std::string&) {
+    Formatter& out, const VariableSpecificationMessage& val,
+    const std::string& arg_name, const std::string&) {
   out << arg_name << "->set_type(TYPE_HIDL_CALLBACK);\n";
-  // TODO(zhuoyao): figure the right way to profile hidl callback type.
+  out << arg_name << "->set_predefined_type(\"" << val.predefined_type()
+      << "\");\n";
 }
 
 void HalHidlProfilerCodeGen::GenerateProfilerForHidlInterfaceVariable(
-  Formatter& out, const VariableSpecificationMessage&,
-  const std::string& arg_name, const std::string&) {
+    Formatter& out, const VariableSpecificationMessage& val,
+    const std::string& arg_name, const std::string&) {
   out << arg_name << "->set_type(TYPE_HIDL_INTERFACE);\n";
-  // TODO(zhuoyao): figure the right way to profile hidl interface type.
+  out << arg_name << "->set_predefined_type(\"" << val.predefined_type()
+      << "\");\n";
 }
 
-void HalHidlProfilerCodeGen::GenerateProfilerForMaskVariable(Formatter& out,
-    const VariableSpecificationMessage&, const std::string& arg_name,
-    const std::string&) {
+void HalHidlProfilerCodeGen::GenerateProfilerForMaskVariable(
+    Formatter& out, const VariableSpecificationMessage& val,
+    const std::string& arg_name, const std::string& arg_value) {
   out << arg_name << "->set_type(TYPE_MASK);\n";
-  // TODO(zhuoyao): figure the right way to profile mask type.
+  out << arg_name << "->set_scalar_type(\"" << val.scalar_type() << "\");\n";
+  out << arg_name << "->mutable_scalar_value()->set_" << val.scalar_type()
+      << "(" << arg_value << ");\n";
+}
+
+void HalHidlProfilerCodeGen::GenerateProfilerForHandleVariable(
+    Formatter& out, const VariableSpecificationMessage&,
+    const std::string& arg_name, const std::string& arg_value) {
+  out << arg_name << "->set_type(TYPE_HANDLE);\n";
+  std::string handle_name = arg_name + "_h";
+  out << "auto " << handle_name << " = " << arg_value
+      << ".getNativeHandle();\n";
+  out << "if (!" << handle_name << ") {\n";
+  out.indent();
+  out << "LOG(WARNING) << \"null handle\";\n";
+  out << "return;\n";
+  out.unindent();
+  out << "}\n";
+  out << arg_name << "->mutable_handle_value()->set_version(" << handle_name
+      << "->version);\n";
+  out << arg_name << "->mutable_handle_value()->set_num_ints(" << handle_name
+      << "->numInts);\n";
+  out << arg_name << "->mutable_handle_value()->set_num_fds(" << handle_name
+      << "->numFds);\n";
+  out << "for (int i = 0; i < " << handle_name << "->numInts + " << handle_name
+      << "->numFds; i++) {\n";
+  out.indent();
+  out << "if(i < " << handle_name << "->numFds) {\n";
+  out.indent();
+  out << "auto* fd_val_i = " << arg_name
+      << "->mutable_handle_value()->add_fd_val();\n";
+  out << "char filePath[PATH_MAX];\n";
+  out << "string procPath = \"/proc/self/fd/\" + to_string(" << handle_name
+      << "->data[i]);\n";
+  out << "ssize_t r = readlink(procPath.c_str(), filePath, "
+         "sizeof(filePath));\n";
+  out << "if (r == -1) {\n";
+  out.indent();
+  out << "LOG(ERROR) << \"Unable to get file path\";\n";
+  out << "continue;\n";
+  out.unindent();
+  out << "}\n";
+  out << "filePath[r] = '\\0';\n";
+  out << "fd_val_i->set_file_name(filePath);\n";
+  out << "struct stat statbuf;\n";
+  out << "fstat(" << handle_name << "->data[i], &statbuf);\n";
+  out << "fd_val_i->set_mode(statbuf.st_mode);\n";
+  out << "if(S_ISREG(statbuf.st_mode) || S_ISDIR(statbuf.st_mode)){\n";
+  out.indent();
+  out << "fd_val_i->set_type(S_ISREG(statbuf.st_mode)? FILE_TYPE: DIR_TYPE);\n";
+  out << "int flags = fcntl(" << handle_name << "->data[i], F_GETFL);\n";
+  out << "fd_val_i->set_flags(flags);\n";
+  out.unindent();
+  out << "}\n";
+  out << "else if(S_ISCHR(statbuf.st_mode) || S_ISBLK(statbuf.st_mode)){\n";
+  out.indent();
+  out << "fd_val_i->set_type(DEV_TYPE);\n";
+  out << "if(strcmp(filePath, \"/dev/ashmem\") == 0) {\n";
+  out.indent();
+  out << "int size = ashmem_get_size_region(" << handle_name << "->data[i]);\n";
+  out << "fd_val_i->mutable_memory()->set_size(size);\n";
+  out.unindent();
+  out << "}\n";
+  out.unindent();
+  out << "}\n";
+  out << "else if(S_ISFIFO(statbuf.st_mode)){\n";
+  out.indent();
+  out << "fd_val_i->set_type(PIPE_TYPE);\n";
+  out.unindent();
+  out << "}\n";
+  out << "else if(S_ISSOCK(statbuf.st_mode)){\n";
+  out.indent();
+  out << "fd_val_i->set_type(SOCKET_TYPE);\n";
+  out.unindent();
+  out << "}\n";
+  out << "else {\n";
+  out.indent();
+  out << "fd_val_i->set_type(LINK_TYPE);\n";
+  out.unindent();
+  out << "}\n";
+  out.unindent();
+  out << "} else {\n";
+  out.indent();
+  out << arg_name << "->mutable_handle_value()->add_int_val(" << handle_name
+      << "->data[i]);\n";
+  out.unindent();
+  out << "}\n";
+  out.unindent();
+  out << "}\n";
 }
 
 void HalHidlProfilerCodeGen::GenerateProfilerForHidlMemoryVariable(
     Formatter& out, const VariableSpecificationMessage&,
-    const std::string& arg_name, const std::string&) {
+    const std::string& arg_name, const std::string& arg_value) {
   out << arg_name << "->set_type(TYPE_HIDL_MEMORY);\n";
-  // TODO(zhuoyao): figure the right way to profile hidl memory type.
+  out << arg_name << "->mutable_hidl_memory_value()->set_size"
+      << "(" << arg_value << ".size());\n";
+  // TODO(zhuoyao): dump the memory contents as well.
 }
 
-void HalHidlProfilerCodeGen::GenerateProfilerForPointerVariable(Formatter& out,
-    const VariableSpecificationMessage&, const std::string& arg_name,
-    const std::string&) {
+void HalHidlProfilerCodeGen::GenerateProfilerForPointerVariable(
+    Formatter& out, const VariableSpecificationMessage&,
+    const std::string& arg_name, const std::string&) {
   out << arg_name << "->set_type(TYPE_POINTER);\n";
   // TODO(zhuoyao): figure the right way to profile pointer type.
 }
 
-void HalHidlProfilerCodeGen::GenerateProfilerForFMQSyncVariable(Formatter& out,
-    const VariableSpecificationMessage&, const std::string& arg_name,
-    const std::string&) {
+void HalHidlProfilerCodeGen::GenerateProfilerForFMQSyncVariable(
+    Formatter& out, const VariableSpecificationMessage& val,
+    const std::string& arg_name, const std::string& arg_value) {
   out << arg_name << "->set_type(TYPE_FMQ_SYNC);\n";
-  // TODO(zhuoyao): figure the right way to profile fmq sync type.
+  string element_type = GetCppVariableType(val.fmq_value(0), nullptr);
+  std::string queue_name = arg_name + "_q";
+  std::string temp_result_name = arg_name + "_result";
+  out << "MessageQueue<" << element_type << ", kSynchronizedReadWrite> "
+      << queue_name << "(" << arg_value << ", false);\n";
+  out << "for (int i = 0; i < (int)" << queue_name
+      << ".availableToRead(); i++) {\n";
+  out.indent();
+  std::string fmq_item_name = arg_name + "_item_i";
+  out << "auto *" << fmq_item_name << " = " << arg_name
+      << "->add_fmq_value();\n";
+  out << element_type << " " << temp_result_name << ";\n";
+  out << queue_name << ".read(&" << temp_result_name << ");\n";
+  out << queue_name << ".write(&" << temp_result_name << ");\n";
+  GenerateProfilerForTypedVariable(out, val.fmq_value(0), fmq_item_name,
+                                   temp_result_name);
+  out.unindent();
+  out << "}\n";
 }
 
 void HalHidlProfilerCodeGen::GenerateProfilerForFMQUnsyncVariable(
-    Formatter& out, const VariableSpecificationMessage&,
-    const std::string& arg_name, const std::string&) {
+    Formatter& out, const VariableSpecificationMessage& val,
+    const std::string& arg_name, const std::string& arg_value) {
   out << arg_name << "->set_type(TYPE_FMQ_UNSYNC);\n";
-  // TODO(zhuoyao): figure the right way to profile fmq unsync type.
+  string element_type = GetCppVariableType(val.fmq_value(0), nullptr);
+  std::string queue_name = arg_name + "_q";
+  std::string temp_result_name = arg_name + "_result";
+  out << "MessageQueue<" << element_type << ", kUnsynchronizedWrite> "
+      << queue_name << "(" << arg_value << ");\n";
+  out << "for (int i = 0; i < (int)" << queue_name
+      << ".availableToRead(); i++) {\n";
+  out.indent();
+  std::string fmq_item_name = arg_name + "_item_i";
+  out << "auto *" << fmq_item_name << " = " << arg_name
+      << "->add_fmq_value();\n";
+  out << element_type << " " << temp_result_name << ";\n";
+  out << queue_name << ".read(&" << temp_result_name << ");\n";
+  GenerateProfilerForTypedVariable(out, val.fmq_value(0), fmq_item_name,
+                                   temp_result_name);
+  out.unindent();
+  out << "}\n";
 }
 
-void HalHidlProfilerCodeGen::GenerateProfilerForMethod(Formatter& out,
-  const FunctionSpecificationMessage& method) {
+void HalHidlProfilerCodeGen::GenerateProfilerForMethod(
+    Formatter& out, const FunctionSpecificationMessage& method) {
   out << "FunctionSpecificationMessage msg;\n";
   out << "msg.set_name(\"" << method.name() << "\");\n";
   out << "if (!args) {\n";
@@ -201,12 +329,11 @@ void HalHidlProfilerCodeGen::GenerateProfilerForMethod(Formatter& out,
   out << "{\n";
   out.indent();
   ComponentSpecificationMessage message;
-  out << "if ((*args).size() != " <<  method.arg().size() << ") {\n";
+  out << "if ((*args).size() != " << method.arg().size() << ") {\n";
   out.indent();
   out << "LOG(ERROR) << \"Number of arguments does not match. expect: "
       << method.arg().size()
-      << ", actual: \" << (*args).size() << \", method name: "
-      << method.name()
+      << ", actual: \" << (*args).size() << \", method name: " << method.name()
       << ", event type: \" << event;\n";
   out << "break;\n";
   out.unindent();
@@ -215,11 +342,11 @@ void HalHidlProfilerCodeGen::GenerateProfilerForMethod(Formatter& out,
     const VariableSpecificationMessage arg = method.arg(i);
     std::string arg_name = "arg_" + std::to_string(i);
     std::string arg_value = "arg_val_" + std::to_string(i);
-    out << "auto *" << arg_name << " = msg.add_arg();\n";
-    // TODO(zhuoyao): GetCppVariableType does not support array type for now.
+    out << "auto *" << arg_name
+        << " __attribute__((__unused__)) = msg.add_arg();\n";
     out << GetCppVariableType(arg, &message) << " *" << arg_value
-        << " = reinterpret_cast<" << GetCppVariableType(arg, &message)
-        << "*> ((*args)[" << i << "]);\n";
+        << " __attribute__((__unused__)) = reinterpret_cast<"
+        << GetCppVariableType(arg, &message) << "*> ((*args)[" << i << "]);\n";
     GenerateProfilerForTypedVariable(out, arg, arg_name,
                                      "(*" + arg_value + ")");
   }
@@ -227,18 +354,17 @@ void HalHidlProfilerCodeGen::GenerateProfilerForMethod(Formatter& out,
   out.unindent();
   out << "}\n";
 
-  // TODO(b/32141398): Support profiling in passthrough mode.
   out << "case details::HidlInstrumentor::CLIENT_API_EXIT:\n";
   out << "case details::HidlInstrumentor::SERVER_API_EXIT:\n";
   out << "case details::HidlInstrumentor::PASSTHROUGH_EXIT:\n";
   out << "{\n";
   out.indent();
-  out << "if ((*args).size() != " <<  method.return_type_hidl().size() << ") {\n";
+  out << "if ((*args).size() != " << method.return_type_hidl().size()
+      << ") {\n";
   out.indent();
   out << "LOG(ERROR) << \"Number of return values does not match. expect: "
       << method.return_type_hidl().size()
-      << ", actual: \" << (*args).size() << \", method name: "
-      << method.name()
+      << ", actual: \" << (*args).size() << \", method name: " << method.name()
       << ", event type: \" << event;\n";
   out << "break;\n";
   out.unindent();
@@ -247,10 +373,11 @@ void HalHidlProfilerCodeGen::GenerateProfilerForMethod(Formatter& out,
     const VariableSpecificationMessage arg = method.return_type_hidl(i);
     std::string result_name = "result_" + std::to_string(i);
     std::string result_value = "result_val_" + std::to_string(i);
-    out << "auto *" << result_name << " = msg.add_return_type_hidl();\n";
+    out << "auto *" << result_name
+        << " __attribute__((__unused__)) = msg.add_return_type_hidl();\n";
     out << GetCppVariableType(arg, &message) << " *" << result_value
-        << " = reinterpret_cast<" << GetCppVariableType(arg, &message)
-        << "*> ((*args)[" << i << "]);\n";
+        << " __attribute__((__unused__)) = reinterpret_cast<"
+        << GetCppVariableType(arg, &message) << "*> ((*args)[" << i << "]);\n";
     GenerateProfilerForTypedVariable(out, arg, result_name,
                                      "(*" + result_value + ")");
   }
@@ -271,8 +398,8 @@ void HalHidlProfilerCodeGen::GenerateProfilerForMethod(Formatter& out,
   out << "profiler.AddTraceEvent(event, package, version, interface, msg);\n";
 }
 
-void HalHidlProfilerCodeGen::GenerateHeaderIncludeFiles(Formatter& out,
-    const ComponentSpecificationMessage& message) {
+void HalHidlProfilerCodeGen::GenerateHeaderIncludeFiles(
+    Formatter& out, const ComponentSpecificationMessage& message) {
   // Basic includes.
   out << "#include <android-base/logging.h>\n";
   out << "#include <hidl/HidlSupport.h>\n";
@@ -281,11 +408,8 @@ void HalHidlProfilerCodeGen::GenerateHeaderIncludeFiles(Formatter& out,
   out << "#include \"VtsProfilingInterface.h\"\n";
   out << "\n";
 
-  std::string package_path = GetPackage(message);
-  ReplaceSubString(package_path, ".", "/");
-
   // Include generated hal classes.
-  out << "#include <" << package_path << "/" << GetPackageVersion(message)
+  out << "#include <" << GetPackagePath(message) << "/" << GetVersion(message)
       << "/" << GetComponentName(message) << ".h>\n";
 
   // Include imported classes.
@@ -311,42 +435,43 @@ void HalHidlProfilerCodeGen::GenerateHeaderIncludeFiles(Formatter& out,
   out << "\n\n";
 }
 
-void HalHidlProfilerCodeGen::GenerateSourceIncludeFiles(Formatter& out,
-    const ComponentSpecificationMessage& /*message*/) {
+void HalHidlProfilerCodeGen::GenerateSourceIncludeFiles(
+    Formatter& out, const ComponentSpecificationMessage& message) {
   // Include the corresponding profiler header file.
-  out << "#include \"" << input_vts_file_path_ << ".h\"\n";
+  out << "#include \"" << GetPackagePath(message) << "/" << GetVersion(message)
+      << "/" << GetComponentBaseName(message) << ".vts.h\"\n";
+  out << "#include <cutils/ashmem.h>\n";
+  out << "#include <fcntl.h>\n";
+  out << "#include <fmq/MessageQueue.h>\n";
+  out << "#include <sys/stat.h>\n";
   out << "\n";
 }
 
-void HalHidlProfilerCodeGen::GenerateUsingDeclaration(Formatter& out,
-  const ComponentSpecificationMessage& message) {
-  std::string package_path = GetPackage(message);
-  ReplaceSubString(package_path, ".", "::");
-
+void HalHidlProfilerCodeGen::GenerateUsingDeclaration(
+    Formatter& out, const ComponentSpecificationMessage& message) {
   out << "using namespace ";
-  out << package_path << "::"
-      << GetVersionString(message.component_type_version(), true) << ";\n";
+  out << GetPackageNamespaceToken(message) << "::" << GetVersion(message, true)
+      << ";\n";
   out << "using namespace android::hardware;\n";
   out << "\n";
 }
 
-void HalHidlProfilerCodeGen::GenerateMacros(Formatter& out,
-    const ComponentSpecificationMessage&) {
+void HalHidlProfilerCodeGen::GenerateMacros(
+    Formatter& out, const ComponentSpecificationMessage&) {
   out << "#define TRACEFILEPREFIX \"/data/local/tmp\"\n";
   out << "\n";
 }
 
-void HalHidlProfilerCodeGen::GenerateProfierSanityCheck(Formatter& out,
-  const ComponentSpecificationMessage& message) {
-  out << "if (strcmp(package, \"" << GetPackage(message) << "\") != 0) {\n";
+void HalHidlProfilerCodeGen::GenerateProfilerSanityCheck(
+    Formatter& out, const ComponentSpecificationMessage& message) {
+  out << "if (strcmp(package, \"" << GetPackageName(message) << "\") != 0) {\n";
   out.indent();
   out << "LOG(WARNING) << \"incorrect package.\";\n";
   out << "return;\n";
   out.unindent();
   out << "}\n";
 
-  out << "if (strcmp(version, \"" << GetPackageVersion(message)
-      << "\") != 0) {\n";
+  out << "if (strcmp(version, \"" << GetVersion(message) << "\") != 0) {\n";
   out.indent();
   out << "LOG(WARNING) << \"incorrect version.\";\n";
   out << "return;\n";
@@ -363,8 +488,8 @@ void HalHidlProfilerCodeGen::GenerateProfierSanityCheck(Formatter& out,
   out << "\n";
 }
 
-void HalHidlProfilerCodeGen::GenerateLocalVariableDefinition(Formatter& out,
-  const ComponentSpecificationMessage&) {
+void HalHidlProfilerCodeGen::GenerateLocalVariableDefinition(
+    Formatter& out, const ComponentSpecificationMessage&) {
   // generate the name of file to store the trace.
   out << "char trace_file[PATH_MAX];\n";
   out << "sprintf(trace_file, \"%s/%s_%s\", TRACEFILEPREFIX, package, version);"

@@ -165,7 +165,7 @@ public class NavTree {
 
     for (ClassInfo cl : classes) {
       if (cl.checkLevel()) {
-        children.add(new Node(cl.name(), cl.htmlPage(), null, cl.getSince()));
+        children.add(new Node(cl.name(), cl.htmlPage(), null, cl.getSince(), cl.getArtifact()));
       }
     }
 
@@ -179,12 +179,18 @@ public class NavTree {
     private String mLink;
     List<Node> mChildren;
     private String mSince;
+    private String mArtifact;
 
     Node(String label, String link, List<Node> children, String since) {
+      this(label, link, children, since, null);
+    }
+
+    Node(String label, String link, List<Node> children, String since, String artifact) {
       mLabel = label;
       mLink = link;
       mChildren = children;
       mSince = since;
+      mArtifact = artifact;
     }
 
     static void renderString(StringBuilder buf, String s) {
@@ -243,6 +249,8 @@ public class NavTree {
       renderChildren(buf);
       buf.append(", ");
       renderString(buf, mSince);
+      buf.append(", ");
+      renderString(buf, mArtifact);
       buf.append(" ]");
     }
   }

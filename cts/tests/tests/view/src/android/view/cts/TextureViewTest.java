@@ -114,7 +114,7 @@ public class TextureViewTest {
 
     private int waitForChange(Point point, int color)
             throws InterruptedException, TimeoutException {
-        for (int i = 0; i < 20; i++) {
+        for (int i = 0; i < 30; i++) {
             int pixel = getPixel(point);
             if (pixel != color) {
                 return pixel;

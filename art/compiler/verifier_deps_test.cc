@@ -25,15 +25,15 @@
 #include "dex/verified_method.h"
 #include "dex_file.h"
 #include "dex_file_types.h"
+#include "driver/compiler_driver-inl.h"
 #include "driver/compiler_options.h"
-#include "driver/compiler_driver.h"
 #include "handle_scope-inl.h"
 #include "indenter.h"
 #include "mirror/class_loader.h"
 #include "runtime.h"
 #include "scoped_thread_state_change-inl.h"
 #include "thread.h"
-#include "utils/atomic_method_ref_map-inl.h"
+#include "utils/atomic_dex_ref_map-inl.h"
 #include "verifier/method_verifier-inl.h"
 
 namespace art {
@@ -87,19 +87,19 @@ class VerifierDepsTest : public CommonCompilerTest {
     TimingLogger timings("Verify", false, false);
     // The compiler driver handles the verifier deps in the callbacks, so
     // remove what this class did for unit testing.
-    verifier_deps_.reset(nullptr);
+    if (deps == nullptr) {
+      // Create some verifier deps by default if they are not already specified.
+      deps = new verifier::VerifierDeps(dex_files_);
+      verifier_deps_.reset(deps);
+    }
     callbacks_->SetVerifierDeps(deps);
     compiler_driver_->Verify(class_loader_, dex_files_, &timings);
-    // The compiler driver may have updated the VerifierDeps in the callback object.
-    if (callbacks_->GetVerifierDeps() != deps) {
-      verifier_deps_.reset(callbacks_->GetVerifierDeps());
-    }
     callbacks_->SetVerifierDeps(nullptr);
     // Clear entries in the verification results to avoid hitting a DCHECK that
     // we always succeed inserting a new entry after verifying.
-    AtomicMethodRefMap<const VerifiedMethod*>* map =
+    AtomicDexRefMap<const VerifiedMethod*>* map =
         &compiler_driver_->GetVerificationResults()->atomic_verified_methods_;
-    map->Visit([](const MethodReference& ref ATTRIBUTE_UNUSED, const VerifiedMethod* method) {
+    map->Visit([](const DexFileReference& ref ATTRIBUTE_UNUSED, const VerifiedMethod* method) {
       delete method;
     });
     map->ClearEntries();
@@ -128,6 +128,7 @@ class VerifierDepsTest : public CommonCompilerTest {
     for (const DexFile* dex_file : dex_files_) {
       compiler_driver_->GetVerificationResults()->AddDexFile(dex_file);
     }
+    compiler_driver_->SetDexFilesForOatFile(dex_files_);
   }
 
   void LoadDexFile(ScopedObjectAccess* soa) REQUIRES_SHARED(Locks::mutator_lock_) {
@@ -151,19 +152,18 @@ class VerifierDepsTest : public CommonCompilerTest {
     CHECK(class_data != nullptr);
 
     ClassDataItemIterator it(*primary_dex_file_, class_data);
-    while (it.HasNextStaticField() || it.HasNextInstanceField()) {
-      it.Next();
-    }
+    it.SkipAllFields();
 
     ArtMethod* method = nullptr;
     while (it.HasNextDirectMethod()) {
-      ArtMethod* resolved_method = class_linker_->ResolveMethod<ClassLinker::kNoICCECheckForCache>(
-          *primary_dex_file_,
-          it.GetMemberIndex(),
-          dex_cache_handle,
-          class_loader_handle,
-          nullptr,
-          it.GetMethodInvokeType(*class_def));
+      ArtMethod* resolved_method =
+          class_linker_->ResolveMethod<ClassLinker::ResolveMode::kNoChecks>(
+              *primary_dex_file_,
+              it.GetMemberIndex(),
+              dex_cache_handle,
+              class_loader_handle,
+              nullptr,
+              it.GetMethodInvokeType(*class_def));
       CHECK(resolved_method != nullptr);
       if (method_name == resolved_method->GetName()) {
         method = resolved_method;
@@ -229,8 +229,7 @@ class VerifierDepsTest : public CommonCompilerTest {
         hs.NewHandle(soa.Decode<mirror::ClassLoader>(class_loader_)));
     MutableHandle<mirror::Class> cls(hs.NewHandle<mirror::Class>(nullptr));
     for (const DexFile* dex_file : dex_files_) {
-      const std::vector<dex::TypeIndex>& unverified_classes = deps.GetUnverifiedClasses(*dex_file);
-      std::set<dex::TypeIndex> set(unverified_classes.begin(), unverified_classes.end());
+      const std::set<dex::TypeIndex>& unverified_classes = deps.GetUnverifiedClasses(*dex_file);
       for (uint32_t i = 0; i < dex_file->NumClassDefs(); ++i) {
         const DexFile::ClassDef& class_def = dex_file->GetClassDef(i);
         const char* descriptor = dex_file->GetClassDescriptor(class_def);
@@ -238,7 +237,7 @@ class VerifierDepsTest : public CommonCompilerTest {
         if (cls == nullptr) {
           CHECK(soa.Self()->IsExceptionPending());
           soa.Self()->ClearException();
-        } else if (set.find(class_def.class_idx_) == set.end()) {
+        } else if (unverified_classes.find(class_def.class_idx_) == unverified_classes.end()) {
           ASSERT_EQ(cls->GetStatus(), mirror::Class::kStatusVerified);
         } else {
           ASSERT_LT(cls->GetStatus(), mirror::Class::kStatusVerified);
@@ -371,18 +370,14 @@ class VerifierDepsTest : public CommonCompilerTest {
 
   // Iterates over all method resolution records, finds an entry which matches
   // the given field kind+class+name+signature and tests its properties.
-  bool HasMethod(const std::string& expected_kind,
-                 const std::string& expected_klass,
+  bool HasMethod(const std::string& expected_klass,
                  const std::string& expected_name,
                  const std::string& expected_signature,
                  bool expected_resolved,
                  const std::string& expected_access_flags = "",
                  const std::string& expected_decl_klass = "") {
     for (auto& dex_dep : verifier_deps_->dex_deps_) {
-      auto& storage = (expected_kind == "direct") ? dex_dep.second->direct_methods_
-                          : (expected_kind == "virtual") ? dex_dep.second->virtual_methods_
-                              : dex_dep.second->interface_methods_;
-      for (auto& entry : storage) {
+      for (const VerifierDeps::MethodResolution& entry : dex_dep.second->methods_) {
         if (expected_resolved != entry.IsResolved()) {
           continue;
         }
@@ -443,9 +438,7 @@ class VerifierDepsTest : public CommonCompilerTest {
       has_assignability |= !entry.second->unassignable_types_.empty();
       has_classes |= !entry.second->classes_.empty();
       has_fields |= !entry.second->fields_.empty();
-      has_methods |= !entry.second->direct_methods_.empty();
-      has_methods |= !entry.second->virtual_methods_.empty();
-      has_methods |= !entry.second->interface_methods_.empty();
+      has_methods |= !entry.second->methods_.empty();
       has_unverified_classes |= !entry.second->unverified_classes_.empty();
     }
 
@@ -455,18 +448,6 @@ class VerifierDepsTest : public CommonCompilerTest {
            has_fields &&
            has_methods &&
            has_unverified_classes;
-  }
-
-  static std::set<VerifierDeps::MethodResolution>* GetMethods(
-      VerifierDeps::DexFileDeps* deps, MethodResolutionKind resolution_kind) {
-    if (resolution_kind == kDirectMethodResolution) {
-      return &deps->direct_methods_;
-    } else if (resolution_kind == kVirtualMethodResolution) {
-      return &deps->virtual_methods_;
-    } else {
-      DCHECK_EQ(resolution_kind, kInterfaceMethodResolution);
-      return &deps->interface_methods_;
-    }
   }
 
   std::unique_ptr<verifier::VerifierDeps> verifier_deps_;
@@ -606,11 +587,10 @@ TEST_F(VerifierDepsTest, InvokeArgumentType) {
   ASSERT_TRUE(VerifyMethod("InvokeArgumentType"));
   ASSERT_TRUE(HasClass("Ljava/text/SimpleDateFormat;", true, "public"));
   ASSERT_TRUE(HasClass("Ljava/util/SimpleTimeZone;", true, "public"));
-  ASSERT_TRUE(HasMethod("virtual",
-                        "Ljava/text/SimpleDateFormat;",
+  ASSERT_TRUE(HasMethod("Ljava/text/SimpleDateFormat;",
                         "setTimeZone",
                         "(Ljava/util/TimeZone;)V",
-                        true,
+                        /* expect_resolved */ true,
                         "public",
                         "Ljava/text/DateFormat;"));
   ASSERT_TRUE(HasAssignable("Ljava/util/TimeZone;", "Ljava/util/SimpleTimeZone;", true));
@@ -842,11 +822,10 @@ TEST_F(VerifierDepsTest, InstanceField_Unresolved_ReferrerInDex) {
 TEST_F(VerifierDepsTest, InvokeStatic_Resolved_DeclaredInReferenced) {
   ASSERT_TRUE(VerifyMethod("InvokeStatic_Resolved_DeclaredInReferenced"));
   ASSERT_TRUE(HasClass("Ljava/net/Socket;", true, "public"));
-  ASSERT_TRUE(HasMethod("direct",
-                        "Ljava/net/Socket;",
+  ASSERT_TRUE(HasMethod("Ljava/net/Socket;",
                         "setSocketImplFactory",
                         "(Ljava/net/SocketImplFactory;)V",
-                        true,
+                        /* expect_resolved */ true,
                         "public static",
                         "Ljava/net/Socket;"));
 }
@@ -854,22 +833,20 @@ TEST_F(VerifierDepsTest, InvokeStatic_Resolved_DeclaredInReferenced) {
 TEST_F(VerifierDepsTest, InvokeStatic_Resolved_DeclaredInSuperclass1) {
   ASSERT_TRUE(VerifyMethod("InvokeStatic_Resolved_DeclaredInSuperclass1"));
   ASSERT_TRUE(HasClass("Ljavax/net/ssl/SSLSocket;", true, "public"));
-  ASSERT_TRUE(HasMethod("direct",
-                        "Ljavax/net/ssl/SSLSocket;",
+  ASSERT_TRUE(HasMethod("Ljavax/net/ssl/SSLSocket;",
                         "setSocketImplFactory",
                         "(Ljava/net/SocketImplFactory;)V",
-                        true,
+                        /* expect_resolved */ true,
                         "public static",
                         "Ljava/net/Socket;"));
 }
 
 TEST_F(VerifierDepsTest, InvokeStatic_Resolved_DeclaredInSuperclass2) {
   ASSERT_TRUE(VerifyMethod("InvokeStatic_Resolved_DeclaredInSuperclass2"));
-  ASSERT_TRUE(HasMethod("direct",
-                        "LMySSLSocket;",
+  ASSERT_TRUE(HasMethod("LMySSLSocket;",
                         "setSocketImplFactory",
                         "(Ljava/net/SocketImplFactory;)V",
-                        true,
+                        /* expect_resolved */ true,
                         "public static",
                         "Ljava/net/Socket;"));
 }
@@ -877,11 +854,10 @@ TEST_F(VerifierDepsTest, InvokeStatic_Resolved_DeclaredInSuperclass2) {
 TEST_F(VerifierDepsTest, InvokeStatic_DeclaredInInterface1) {
   ASSERT_TRUE(VerifyMethod("InvokeStatic_DeclaredInInterface1"));
   ASSERT_TRUE(HasClass("Ljava/util/Map$Entry;", true, "public interface"));
-  ASSERT_TRUE(HasMethod("direct",
-                        "Ljava/util/Map$Entry;",
+  ASSERT_TRUE(HasMethod("Ljava/util/Map$Entry;",
                         "comparingByKey",
                         "()Ljava/util/Comparator;",
-                        true,
+                        /* expect_resolved */ true,
                         "public static",
                         "Ljava/util/Map$Entry;"));
 }
@@ -889,68 +865,85 @@ TEST_F(VerifierDepsTest, InvokeStatic_DeclaredInInterface1) {
 TEST_F(VerifierDepsTest, InvokeStatic_DeclaredInInterface2) {
   ASSERT_FALSE(VerifyMethod("InvokeStatic_DeclaredInInterface2"));
   ASSERT_TRUE(HasClass("Ljava/util/AbstractMap$SimpleEntry;", true, "public"));
-  ASSERT_TRUE(HasMethod("direct",
-                        "Ljava/util/AbstractMap$SimpleEntry;",
+  ASSERT_TRUE(HasMethod("Ljava/util/AbstractMap$SimpleEntry;",
                         "comparingByKey",
                         "()Ljava/util/Comparator;",
-                        false));
+                        /* expect_resolved */ false));
 }
 
 TEST_F(VerifierDepsTest, InvokeStatic_Unresolved1) {
   ASSERT_FALSE(VerifyMethod("InvokeStatic_Unresolved1"));
   ASSERT_TRUE(HasClass("Ljavax/net/ssl/SSLSocket;", true, "public"));
-  ASSERT_TRUE(HasMethod("direct", "Ljavax/net/ssl/SSLSocket;", "x", "()V", false));
+  ASSERT_TRUE(HasMethod("Ljavax/net/ssl/SSLSocket;",
+                        "x",
+                        "()V",
+                        /* expect_resolved */ false));
 }
 
 TEST_F(VerifierDepsTest, InvokeStatic_Unresolved2) {
   ASSERT_FALSE(VerifyMethod("InvokeStatic_Unresolved2"));
-  ASSERT_TRUE(HasMethod("direct", "LMySSLSocket;", "x", "()V", false));
+  ASSERT_TRUE(HasMethod("LMySSLSocket;",
+                        "x",
+                        "()V",
+                        /* expect_resolved */ false));
 }
 
 TEST_F(VerifierDepsTest, InvokeDirect_Resolved_DeclaredInReferenced) {
   ASSERT_TRUE(VerifyMethod("InvokeDirect_Resolved_DeclaredInReferenced"));
   ASSERT_TRUE(HasClass("Ljava/net/Socket;", true, "public"));
-  ASSERT_TRUE(HasMethod(
-      "direct", "Ljava/net/Socket;", "<init>", "()V", true, "public", "Ljava/net/Socket;"));
+  ASSERT_TRUE(HasMethod("Ljava/net/Socket;",
+                        "<init>",
+                        "()V",
+                        /* expect_resolved */ true,
+                        "public",
+                        "Ljava/net/Socket;"));
 }
 
 TEST_F(VerifierDepsTest, InvokeDirect_Resolved_DeclaredInSuperclass1) {
   ASSERT_FALSE(VerifyMethod("InvokeDirect_Resolved_DeclaredInSuperclass1"));
   ASSERT_TRUE(HasClass("Ljavax/net/ssl/SSLSocket;", true, "public"));
-  ASSERT_TRUE(HasMethod("direct",
-                        "Ljavax/net/ssl/SSLSocket;",
+  ASSERT_TRUE(HasMethod("Ljavax/net/ssl/SSLSocket;",
                         "checkOldImpl",
                         "()V",
-                        true,
+                        /* expect_resolved */ true,
                         "private",
                         "Ljava/net/Socket;"));
 }
 
 TEST_F(VerifierDepsTest, InvokeDirect_Resolved_DeclaredInSuperclass2) {
   ASSERT_FALSE(VerifyMethod("InvokeDirect_Resolved_DeclaredInSuperclass2"));
-  ASSERT_TRUE(HasMethod(
-      "direct", "LMySSLSocket;", "checkOldImpl", "()V", true, "private", "Ljava/net/Socket;"));
+  ASSERT_TRUE(HasMethod("LMySSLSocket;",
+                        "checkOldImpl",
+                        "()V",
+                        /* expect_resolved */ true,
+                        "private",
+                        "Ljava/net/Socket;"));
 }
 
 TEST_F(VerifierDepsTest, InvokeDirect_Unresolved1) {
   ASSERT_FALSE(VerifyMethod("InvokeDirect_Unresolved1"));
   ASSERT_TRUE(HasClass("Ljavax/net/ssl/SSLSocket;", true, "public"));
-  ASSERT_TRUE(HasMethod("direct", "Ljavax/net/ssl/SSLSocket;", "x", "()V", false));
+  ASSERT_TRUE(HasMethod("Ljavax/net/ssl/SSLSocket;",
+                        "x",
+                        "()V",
+                        /* expect_resolved */ false));
 }
 
 TEST_F(VerifierDepsTest, InvokeDirect_Unresolved2) {
   ASSERT_FALSE(VerifyMethod("InvokeDirect_Unresolved2"));
-  ASSERT_TRUE(HasMethod("direct", "LMySSLSocket;", "x", "()V", false));
+  ASSERT_TRUE(HasMethod("LMySSLSocket;",
+                        "x",
+                        "()V",
+                        /* expect_resolved */ false));
 }
 
 TEST_F(VerifierDepsTest, InvokeVirtual_Resolved_DeclaredInReferenced) {
   ASSERT_TRUE(VerifyMethod("InvokeVirtual_Resolved_DeclaredInReferenced"));
   ASSERT_TRUE(HasClass("Ljava/lang/Throwable;", true, "public"));
-  ASSERT_TRUE(HasMethod("virtual",
-                        "Ljava/lang/Throwable;",
+  ASSERT_TRUE(HasMethod("Ljava/lang/Throwable;",
                         "getMessage",
                         "()Ljava/lang/String;",
-                        true,
+                        /* expect_resolved */ true,
                         "public",
                         "Ljava/lang/Throwable;"));
   // Type dependency on `this` argument.
@@ -960,11 +953,10 @@ TEST_F(VerifierDepsTest, InvokeVirtual_Resolved_DeclaredInReferenced) {
 TEST_F(VerifierDepsTest, InvokeVirtual_Resolved_DeclaredInSuperclass1) {
   ASSERT_TRUE(VerifyMethod("InvokeVirtual_Resolved_DeclaredInSuperclass1"));
   ASSERT_TRUE(HasClass("Ljava/io/InterruptedIOException;", true, "public"));
-  ASSERT_TRUE(HasMethod("virtual",
-                        "Ljava/io/InterruptedIOException;",
+  ASSERT_TRUE(HasMethod("Ljava/io/InterruptedIOException;",
                         "getMessage",
                         "()Ljava/lang/String;",
-                        true,
+                        /* expect_resolved */ true,
                         "public",
                         "Ljava/lang/Throwable;"));
   // Type dependency on `this` argument.
@@ -973,22 +965,20 @@ TEST_F(VerifierDepsTest, InvokeVirtual_Resolved_DeclaredInSuperclass1) {
 
 TEST_F(VerifierDepsTest, InvokeVirtual_Resolved_DeclaredInSuperclass2) {
   ASSERT_TRUE(VerifyMethod("InvokeVirtual_Resolved_DeclaredInSuperclass2"));
-  ASSERT_TRUE(HasMethod("virtual",
-                        "LMySocketTimeoutException;",
+  ASSERT_TRUE(HasMethod("LMySocketTimeoutException;",
                         "getMessage",
                         "()Ljava/lang/String;",
-                        true,
+                        /* expect_resolved */ true,
                         "public",
                         "Ljava/lang/Throwable;"));
 }
 
 TEST_F(VerifierDepsTest, InvokeVirtual_Resolved_DeclaredInSuperinterface) {
   ASSERT_TRUE(VerifyMethod("InvokeVirtual_Resolved_DeclaredInSuperinterface"));
-  ASSERT_TRUE(HasMethod("virtual",
-                        "LMyThreadSet;",
+  ASSERT_TRUE(HasMethod("LMyThreadSet;",
                         "size",
                         "()I",
-                        true,
+                        /* expect_resolved */ true,
                         "public",
                         "Ljava/util/Set;"));
 }
@@ -996,61 +986,59 @@ TEST_F(VerifierDepsTest, InvokeVirtual_Resolved_DeclaredInSuperinterface) {
 TEST_F(VerifierDepsTest, InvokeVirtual_Unresolved1) {
   ASSERT_FALSE(VerifyMethod("InvokeVirtual_Unresolved1"));
   ASSERT_TRUE(HasClass("Ljava/io/InterruptedIOException;", true, "public"));
-  ASSERT_TRUE(HasMethod("virtual", "Ljava/io/InterruptedIOException;", "x", "()V", false));
+  ASSERT_TRUE(HasMethod("Ljava/io/InterruptedIOException;",
+                        "x",
+                        "()V",
+                        /* expect_resolved */ false));
 }
 
 TEST_F(VerifierDepsTest, InvokeVirtual_Unresolved2) {
   ASSERT_FALSE(VerifyMethod("InvokeVirtual_Unresolved2"));
-  ASSERT_TRUE(HasMethod("virtual", "LMySocketTimeoutException;", "x", "()V", false));
-}
-
-TEST_F(VerifierDepsTest, InvokeVirtual_ActuallyDirect) {
-  ASSERT_FALSE(VerifyMethod("InvokeVirtual_ActuallyDirect"));
-  ASSERT_TRUE(HasMethod("virtual", "LMyThread;", "activeCount", "()I", false));
-  ASSERT_TRUE(HasMethod("direct",
-                        "LMyThread;",
-                        "activeCount",
-                        "()I",
-                        true,
-                        "public static",
-                        "Ljava/lang/Thread;"));
+  ASSERT_TRUE(HasMethod("LMySocketTimeoutException;",
+                        "x",
+                        "()V",
+                        /* expect_resolved */ false));
 }
 
 TEST_F(VerifierDepsTest, InvokeInterface_Resolved_DeclaredInReferenced) {
   ASSERT_TRUE(VerifyMethod("InvokeInterface_Resolved_DeclaredInReferenced"));
   ASSERT_TRUE(HasClass("Ljava/lang/Runnable;", true, "public interface"));
-  ASSERT_TRUE(HasMethod("interface",
-                        "Ljava/lang/Runnable;",
+  ASSERT_TRUE(HasMethod("Ljava/lang/Runnable;",
                         "run",
                         "()V",
-                        true,
+                        /* expect_resolved */ true,
                         "public",
                         "Ljava/lang/Runnable;"));
 }
 
 TEST_F(VerifierDepsTest, InvokeInterface_Resolved_DeclaredInSuperclass) {
   ASSERT_FALSE(VerifyMethod("InvokeInterface_Resolved_DeclaredInSuperclass"));
-  ASSERT_TRUE(HasMethod("interface", "LMyThread;", "join", "()V", false));
+  // TODO: Maybe we should not record dependency if the invoke type does not match the lookup type.
+  ASSERT_TRUE(HasMethod("LMyThread;",
+                        "join",
+                        "()V",
+                        /* expect_resolved */ true,
+                        "public",
+                        "Ljava/lang/Thread;"));
 }
 
 TEST_F(VerifierDepsTest, InvokeInterface_Resolved_DeclaredInSuperinterface1) {
   ASSERT_FALSE(VerifyMethod("InvokeInterface_Resolved_DeclaredInSuperinterface1"));
-  ASSERT_TRUE(HasMethod("interface",
-                        "LMyThreadSet;",
+  // TODO: Maybe we should not record dependency if the invoke type does not match the lookup type.
+  ASSERT_TRUE(HasMethod("LMyThreadSet;",
                         "run",
                         "()V",
-                        true,
+                        /* expect_resolved */ true,
                         "public",
-                        "Ljava/lang/Runnable;"));
+                        "Ljava/lang/Thread;"));
 }
 
 TEST_F(VerifierDepsTest, InvokeInterface_Resolved_DeclaredInSuperinterface2) {
   ASSERT_FALSE(VerifyMethod("InvokeInterface_Resolved_DeclaredInSuperinterface2"));
-  ASSERT_TRUE(HasMethod("interface",
-                        "LMyThreadSet;",
+  ASSERT_TRUE(HasMethod("LMyThreadSet;",
                         "isEmpty",
                         "()Z",
-                        true,
+                        /* expect_resolved */ true,
                         "public",
                         "Ljava/util/Set;"));
 }
@@ -1058,23 +1046,25 @@ TEST_F(VerifierDepsTest, InvokeInterface_Resolved_DeclaredInSuperinterface2) {
 TEST_F(VerifierDepsTest, InvokeInterface_Unresolved1) {
   ASSERT_FALSE(VerifyMethod("InvokeInterface_Unresolved1"));
   ASSERT_TRUE(HasClass("Ljava/lang/Runnable;", true, "public interface"));
-  ASSERT_TRUE(HasMethod("interface", "Ljava/lang/Runnable;", "x", "()V", false));
+  ASSERT_TRUE(HasMethod("Ljava/lang/Runnable;",
+                        "x",
+                        "()V",
+                        /* expect_resolved */ false));
 }
 
 TEST_F(VerifierDepsTest, InvokeInterface_Unresolved2) {
   ASSERT_FALSE(VerifyMethod("InvokeInterface_Unresolved2"));
-  ASSERT_TRUE(HasMethod("interface", "LMyThreadSet;", "x", "()V", false));
+  ASSERT_TRUE(HasMethod("LMyThreadSet;", "x", "()V", /* expect_resolved */ false));
 }
 
 TEST_F(VerifierDepsTest, InvokeSuper_ThisAssignable) {
   ASSERT_TRUE(VerifyMethod("InvokeSuper_ThisAssignable"));
   ASSERT_TRUE(HasClass("Ljava/lang/Runnable;", true, "public interface"));
   ASSERT_TRUE(HasAssignable("Ljava/lang/Runnable;", "Ljava/lang/Thread;", true));
-  ASSERT_TRUE(HasMethod("interface",
-                        "Ljava/lang/Runnable;",
+  ASSERT_TRUE(HasMethod("Ljava/lang/Runnable;",
                         "run",
                         "()V",
-                        true,
+                        /* expect_resolved */ true,
                         "public",
                         "Ljava/lang/Runnable;"));
 }
@@ -1083,8 +1073,10 @@ TEST_F(VerifierDepsTest, InvokeSuper_ThisNotAssignable) {
   ASSERT_FALSE(VerifyMethod("InvokeSuper_ThisNotAssignable"));
   ASSERT_TRUE(HasClass("Ljava/lang/Integer;", true, "public"));
   ASSERT_TRUE(HasAssignable("Ljava/lang/Integer;", "Ljava/lang/Thread;", false));
-  ASSERT_TRUE(HasMethod(
-      "virtual", "Ljava/lang/Integer;", "intValue", "()I", true, "public", "Ljava/lang/Integer;"));
+  ASSERT_TRUE(HasMethod("Ljava/lang/Integer;",
+                        "intValue", "()I",
+                        /* expect_resolved */ true,
+                        "public", "Ljava/lang/Integer;"));
 }
 
 TEST_F(VerifierDepsTest, ArgumentType_ResolvedReferenceArray) {
@@ -1152,16 +1144,37 @@ TEST_F(VerifierDepsTest, UnverifiedClasses) {
   ASSERT_TRUE(HasUnverifiedClass("LMyClassWithNoSuperButFailures;"));
 }
 
-// Returns the next resolution kind in the enum.
-static MethodResolutionKind GetNextResolutionKind(MethodResolutionKind resolution_kind) {
-  if (resolution_kind == kDirectMethodResolution) {
-    return kVirtualMethodResolution;
-  } else if (resolution_kind == kVirtualMethodResolution) {
-    return kInterfaceMethodResolution;
-  } else {
-    DCHECK_EQ(resolution_kind, kInterfaceMethodResolution);
-    return kDirectMethodResolution;
-  }
+TEST_F(VerifierDepsTest, UnverifiedOrder) {
+  ScopedObjectAccess soa(Thread::Current());
+  jobject loader = LoadDex("VerifierDeps");
+  std::vector<const DexFile*> dex_files = GetDexFiles(loader);
+  ASSERT_GT(dex_files.size(), 0u);
+  const DexFile* dex_file = dex_files[0];
+  VerifierDeps deps1(dex_files);
+  Thread* const self = Thread::Current();
+  ASSERT_TRUE(self->GetVerifierDeps() == nullptr);
+  self->SetVerifierDeps(&deps1);
+  deps1.MaybeRecordVerificationStatus(*dex_file,
+                                      dex::TypeIndex(0),
+                                      verifier::FailureKind::kHardFailure);
+  deps1.MaybeRecordVerificationStatus(*dex_file,
+                                      dex::TypeIndex(1),
+                                      verifier::FailureKind::kHardFailure);
+  VerifierDeps deps2(dex_files);
+  self->SetVerifierDeps(nullptr);
+  self->SetVerifierDeps(&deps2);
+  deps2.MaybeRecordVerificationStatus(*dex_file,
+                                      dex::TypeIndex(1),
+                                      verifier::FailureKind::kHardFailure);
+  deps2.MaybeRecordVerificationStatus(*dex_file,
+                                      dex::TypeIndex(0),
+                                      verifier::FailureKind::kHardFailure);
+  self->SetVerifierDeps(nullptr);
+  std::vector<uint8_t> buffer1;
+  deps1.Encode(dex_files, &buffer1);
+  std::vector<uint8_t> buffer2;
+  deps2.Encode(dex_files, &buffer2);
+  EXPECT_EQ(buffer1, buffer2);
 }
 
 TEST_F(VerifierDepsTest, VerifyDeps) {
@@ -1340,131 +1353,82 @@ TEST_F(VerifierDepsTest, VerifyDeps) {
   }
 
   // Mess up with methods.
-  for (MethodResolutionKind resolution_kind :
-            { kDirectMethodResolution, kVirtualMethodResolution, kInterfaceMethodResolution }) {
-    {
-      VerifierDeps decoded_deps(dex_files_, ArrayRef<const uint8_t>(buffer));
-      VerifierDeps::DexFileDeps* deps = decoded_deps.GetDexFileDeps(*primary_dex_file_);
-      bool found = false;
-      std::set<VerifierDeps::MethodResolution>* methods = GetMethods(deps, resolution_kind);
-      for (const auto& entry : *methods) {
-        if (entry.IsResolved()) {
-          methods->insert(VerifierDeps::MethodResolution(entry.GetDexMethodIndex(),
-                                                         VerifierDeps::kUnresolvedMarker,
-                                                         entry.GetDeclaringClassIndex()));
-          found = true;
-          break;
-        }
+  {
+    VerifierDeps decoded_deps(dex_files_, ArrayRef<const uint8_t>(buffer));
+    VerifierDeps::DexFileDeps* deps = decoded_deps.GetDexFileDeps(*primary_dex_file_);
+    bool found = false;
+    std::set<VerifierDeps::MethodResolution>* methods = &deps->methods_;
+    for (const auto& entry : *methods) {
+      if (entry.IsResolved()) {
+        methods->insert(VerifierDeps::MethodResolution(entry.GetDexMethodIndex(),
+                                                       VerifierDeps::kUnresolvedMarker,
+                                                       entry.GetDeclaringClassIndex()));
+        found = true;
+        break;
       }
-      ASSERT_TRUE(found);
-      new_class_loader.Assign(soa.Decode<mirror::ClassLoader>(LoadDex("VerifierDeps")));
-      ASSERT_FALSE(decoded_deps.ValidateDependencies(new_class_loader, soa.Self()));
     }
+    ASSERT_TRUE(found);
+    new_class_loader.Assign(soa.Decode<mirror::ClassLoader>(LoadDex("VerifierDeps")));
+    ASSERT_FALSE(decoded_deps.ValidateDependencies(new_class_loader, soa.Self()));
+  }
 
-    {
-      VerifierDeps decoded_deps(dex_files_, ArrayRef<const uint8_t>(buffer));
-      VerifierDeps::DexFileDeps* deps = decoded_deps.GetDexFileDeps(*primary_dex_file_);
-      bool found = false;
-      std::set<VerifierDeps::MethodResolution>* methods = GetMethods(deps, resolution_kind);
-      for (const auto& entry : *methods) {
-        if (!entry.IsResolved()) {
-          constexpr dex::StringIndex kStringIndexZero(0);  // We know there is a class there.
-          methods->insert(VerifierDeps::MethodResolution(0 /* we know there is a method there */,
-                                                         VerifierDeps::kUnresolvedMarker - 1,
-                                                         kStringIndexZero));
-          found = true;
-          break;
-        }
+  {
+    VerifierDeps decoded_deps(dex_files_, ArrayRef<const uint8_t>(buffer));
+    VerifierDeps::DexFileDeps* deps = decoded_deps.GetDexFileDeps(*primary_dex_file_);
+    bool found = false;
+    std::set<VerifierDeps::MethodResolution>* methods = &deps->methods_;
+    for (const auto& entry : *methods) {
+      if (!entry.IsResolved()) {
+        constexpr dex::StringIndex kStringIndexZero(0);  // We know there is a class there.
+        methods->insert(VerifierDeps::MethodResolution(0 /* we know there is a method there */,
+                                                       VerifierDeps::kUnresolvedMarker - 1,
+                                                       kStringIndexZero));
+        found = true;
+        break;
       }
-      ASSERT_TRUE(found);
-      new_class_loader.Assign(soa.Decode<mirror::ClassLoader>(LoadDex("VerifierDeps")));
-      ASSERT_FALSE(decoded_deps.ValidateDependencies(new_class_loader, soa.Self()));
     }
+    ASSERT_TRUE(found);
+    new_class_loader.Assign(soa.Decode<mirror::ClassLoader>(LoadDex("VerifierDeps")));
+    ASSERT_FALSE(decoded_deps.ValidateDependencies(new_class_loader, soa.Self()));
+  }
 
-    {
-      VerifierDeps decoded_deps(dex_files_, ArrayRef<const uint8_t>(buffer));
-      VerifierDeps::DexFileDeps* deps = decoded_deps.GetDexFileDeps(*primary_dex_file_);
-      bool found = false;
-      std::set<VerifierDeps::MethodResolution>* methods = GetMethods(deps, resolution_kind);
-      for (const auto& entry : *methods) {
-        if (entry.IsResolved()) {
-          methods->insert(VerifierDeps::MethodResolution(entry.GetDexMethodIndex(),
-                                                         entry.GetAccessFlags() - 1,
-                                                         entry.GetDeclaringClassIndex()));
-          found = true;
-          break;
-        }
+  {
+    VerifierDeps decoded_deps(dex_files_, ArrayRef<const uint8_t>(buffer));
+    VerifierDeps::DexFileDeps* deps = decoded_deps.GetDexFileDeps(*primary_dex_file_);
+    bool found = false;
+    std::set<VerifierDeps::MethodResolution>* methods = &deps->methods_;
+    for (const auto& entry : *methods) {
+      if (entry.IsResolved()) {
+        methods->insert(VerifierDeps::MethodResolution(entry.GetDexMethodIndex(),
+                                                       entry.GetAccessFlags() - 1,
+                                                       entry.GetDeclaringClassIndex()));
+        found = true;
+        break;
       }
-      ASSERT_TRUE(found);
-      new_class_loader.Assign(soa.Decode<mirror::ClassLoader>(LoadDex("VerifierDeps")));
-      ASSERT_FALSE(decoded_deps.ValidateDependencies(new_class_loader, soa.Self()));
     }
+    ASSERT_TRUE(found);
+    new_class_loader.Assign(soa.Decode<mirror::ClassLoader>(LoadDex("VerifierDeps")));
+    ASSERT_FALSE(decoded_deps.ValidateDependencies(new_class_loader, soa.Self()));
+  }
 
-    {
-      VerifierDeps decoded_deps(dex_files_, ArrayRef<const uint8_t>(buffer));
-      VerifierDeps::DexFileDeps* deps = decoded_deps.GetDexFileDeps(*primary_dex_file_);
-      bool found = false;
-      std::set<VerifierDeps::MethodResolution>* methods = GetMethods(deps, resolution_kind);
-      for (const auto& entry : *methods) {
-        constexpr dex::StringIndex kNewTypeIndex(0);
-        if (entry.IsResolved() && entry.GetDeclaringClassIndex() != kNewTypeIndex) {
-          methods->insert(VerifierDeps::MethodResolution(entry.GetDexMethodIndex(),
-                                                         entry.GetAccessFlags(),
-                                                         kNewTypeIndex));
-          found = true;
-          break;
-        }
+  {
+    VerifierDeps decoded_deps(dex_files_, ArrayRef<const uint8_t>(buffer));
+    VerifierDeps::DexFileDeps* deps = decoded_deps.GetDexFileDeps(*primary_dex_file_);
+    bool found = false;
+    std::set<VerifierDeps::MethodResolution>* methods = &deps->methods_;
+    for (const auto& entry : *methods) {
+      constexpr dex::StringIndex kNewTypeIndex(0);
+      if (entry.IsResolved() && entry.GetDeclaringClassIndex() != kNewTypeIndex) {
+        methods->insert(VerifierDeps::MethodResolution(entry.GetDexMethodIndex(),
+                                                       entry.GetAccessFlags(),
+                                                       kNewTypeIndex));
+        found = true;
+        break;
       }
-      ASSERT_TRUE(found);
-      new_class_loader.Assign(soa.Decode<mirror::ClassLoader>(LoadDex("VerifierDeps")));
-      ASSERT_FALSE(decoded_deps.ValidateDependencies(new_class_loader, soa.Self()));
     }
-
-    // The two tests below make sure that fiddling with the method kind
-    // (static, virtual, interface) is detected by `ValidateDependencies`.
-
-    // An interface method lookup can succeed with a virtual method lookup on the same class.
-    // That's OK, as we only want to make sure there is a method being defined with the right
-    // flags. Therefore, polluting the interface methods with virtual methods does not have
-    // to fail verification.
-    if (resolution_kind != kVirtualMethodResolution) {
-      VerifierDeps decoded_deps(dex_files_, ArrayRef<const uint8_t>(buffer));
-      VerifierDeps::DexFileDeps* deps = decoded_deps.GetDexFileDeps(*primary_dex_file_);
-      bool found = false;
-      std::set<VerifierDeps::MethodResolution>* methods = GetMethods(deps, resolution_kind);
-      for (const auto& entry : *methods) {
-        if (entry.IsResolved()) {
-          GetMethods(deps, GetNextResolutionKind(resolution_kind))->insert(
-              VerifierDeps::MethodResolution(entry.GetDexMethodIndex(),
-                                             entry.GetAccessFlags(),
-                                             entry.GetDeclaringClassIndex()));
-          found = true;
-        }
-      }
-      ASSERT_TRUE(found);
-      new_class_loader.Assign(soa.Decode<mirror::ClassLoader>(LoadDex("VerifierDeps")));
-      ASSERT_FALSE(decoded_deps.ValidateDependencies(new_class_loader, soa.Self()));
-    }
-
-    // See comment above that applies the same way.
-    if (resolution_kind != kInterfaceMethodResolution) {
-      VerifierDeps decoded_deps(dex_files_, ArrayRef<const uint8_t>(buffer));
-      VerifierDeps::DexFileDeps* deps = decoded_deps.GetDexFileDeps(*primary_dex_file_);
-      bool found = false;
-      std::set<VerifierDeps::MethodResolution>* methods = GetMethods(deps, resolution_kind);
-      for (const auto& entry : *methods) {
-        if (entry.IsResolved()) {
-          GetMethods(deps, GetNextResolutionKind(GetNextResolutionKind(resolution_kind)))->insert(
-              VerifierDeps::MethodResolution(entry.GetDexMethodIndex(),
-                                             entry.GetAccessFlags(),
-                                             entry.GetDeclaringClassIndex()));
-          found = true;
-        }
-      }
-      ASSERT_TRUE(found);
-      new_class_loader.Assign(soa.Decode<mirror::ClassLoader>(LoadDex("VerifierDeps")));
-      ASSERT_FALSE(decoded_deps.ValidateDependencies(new_class_loader, soa.Self()));
-    }
+    ASSERT_TRUE(found);
+    new_class_loader.Assign(soa.Decode<mirror::ClassLoader>(LoadDex("VerifierDeps")));
+    ASSERT_FALSE(decoded_deps.ValidateDependencies(new_class_loader, soa.Self()));
   }
 }
 
@@ -1510,7 +1474,6 @@ TEST_F(VerifierDepsTest, CompilerDriver) {
         ASSERT_FALSE(verifier_deps_ == nullptr);
         ASSERT_FALSE(verifier_deps_->Equals(decoded_deps));
       } else {
-        ASSERT_TRUE(verifier_deps_ == nullptr);
         VerifyClassStatus(decoded_deps);
       }
     }

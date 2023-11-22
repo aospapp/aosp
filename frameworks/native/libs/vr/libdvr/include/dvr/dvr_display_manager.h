@@ -1,5 +1,5 @@
-#ifndef DVR_DISPLAY_MANAGER_CLIENT_H_
-#define DVR_DISPLAY_MANAGER_CLIENT_H_
+#ifndef ANDROID_DVR_DISPLAY_MANAGER_H_
+#define ANDROID_DVR_DISPLAY_MANAGER_H_
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -24,13 +24,6 @@ int dvrDisplayManagerCreate(DvrDisplayManager** client_out);
 
 // Destroys the display manager client object.
 void dvrDisplayManagerDestroy(DvrDisplayManager* client);
-
-// Sets up a named buffer for shared memory data transfer between display
-// clients and the display manager.
-// @return 0 on success. Otherwise returns a negative error value.
-int dvrDisplayManagerSetupNamedBuffer(DvrDisplayManager* client,
-                                      const char* name, size_t size,
-                                      uint64_t usage, DvrBuffer** buffer_out);
 
 // Returns an fd used to signal when surface updates occur. Note that depending
 // on the underlying transport, only a subset of the real event bits may be
@@ -76,7 +69,7 @@ int dvrSurfaceStateGetSurfaceCount(DvrSurfaceState* surface_state,
                                    size_t* count_out);
 
 // Returns the update flags for the surface at |surface_index| in the state
-// object. The flags may be used to determine what changes, if any, occured to
+// object. The flags may be used to determine what changes, if any, occurred to
 // the surface since the last state update.
 // @return 0 on success. Otherwise returns a negative error value.
 int dvrSurfaceStateGetUpdateFlags(DvrSurfaceState* surface_state,
@@ -137,4 +130,4 @@ ssize_t dvrSurfaceStateGetAttributes(DvrSurfaceState* surface_state,
 
 __END_DECLS
 
-#endif  // DVR_DISPLAY_MANAGER_CLIENT_H_
+#endif  // ANDROID_DVR_DISPLAY_MANAGER_H_

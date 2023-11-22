@@ -23,11 +23,13 @@
 #include "atomic.h"
 #include "base/arena_object.h"
 #include "base/arena_containers.h"
+#include "bit_memory_region.h"
 #include "dex_cache_resolved_classes.h"
 #include "dex_file.h"
 #include "dex_file_types.h"
 #include "method_reference.h"
 #include "safe_map.h"
+#include "type_reference.h"
 
 namespace art {
 
@@ -36,37 +38,25 @@ namespace art {
  *  without the need to hold GC-able objects.
  */
 struct ProfileMethodInfo {
-  struct ProfileClassReference {
-    ProfileClassReference() : dex_file(nullptr) {}
-    ProfileClassReference(const DexFile* dex, const dex::TypeIndex index)
-        : dex_file(dex), type_index(index) {}
-
-    const DexFile* dex_file;
-    dex::TypeIndex type_index;
-  };
-
   struct ProfileInlineCache {
     ProfileInlineCache(uint32_t pc,
                        bool missing_types,
-                       const std::vector<ProfileClassReference>& profile_classes)
+                       const std::vector<TypeReference>& profile_classes)
         : dex_pc(pc), is_missing_types(missing_types), classes(profile_classes) {}
 
     const uint32_t dex_pc;
     const bool is_missing_types;
-    const std::vector<ProfileClassReference> classes;
+    const std::vector<TypeReference> classes;
   };
 
-  ProfileMethodInfo(const DexFile* dex, uint32_t method_index)
-      : dex_file(dex), dex_method_index(method_index) {}
+  explicit ProfileMethodInfo(MethodReference reference) : ref(reference) {}
 
-  ProfileMethodInfo(const DexFile* dex,
-                    uint32_t method_index,
-                    const std::vector<ProfileInlineCache>& caches)
-      : dex_file(dex), dex_method_index(method_index), inline_caches(caches) {}
+  ProfileMethodInfo(MethodReference reference, const std::vector<ProfileInlineCache>& caches)
+      : ref(reference),
+        inline_caches(caches) {}
 
-  const DexFile* dex_file;
-  const uint32_t dex_method_index;
-  const std::vector<ProfileInlineCache> inline_caches;
+  MethodReference ref;
+  std::vector<ProfileInlineCache> inline_caches;
 };
 
 /**
@@ -87,13 +77,15 @@ class ProfileCompilationInfo {
 
   // A dex location together with its checksum.
   struct DexReference {
-    DexReference() : dex_checksum(0) {}
+    DexReference() : dex_checksum(0), num_method_ids(0) {}
 
-    DexReference(const std::string& location, uint32_t checksum)
-        : dex_location(location), dex_checksum(checksum) {}
+    DexReference(const std::string& location, uint32_t checksum, uint32_t num_methods)
+        : dex_location(location), dex_checksum(checksum), num_method_ids(num_methods) {}
 
     bool operator==(const DexReference& other) const {
-      return dex_checksum == other.dex_checksum && dex_location == other.dex_location;
+      return dex_checksum == other.dex_checksum &&
+          dex_location == other.dex_location &&
+          num_method_ids == other.num_method_ids;
     }
 
     bool MatchesDex(const DexFile* dex_file) const {
@@ -103,6 +95,7 @@ class ProfileCompilationInfo {
 
     std::string dex_location;
     uint32_t dex_checksum;
+    uint32_t num_method_ids;
   };
 
   // Encodes a class reference in the profile.
@@ -175,6 +168,55 @@ class ProfileCompilationInfo {
   // Maps a method dex index to its inline cache.
   using MethodMap = ArenaSafeMap<uint16_t, InlineCacheMap>;
 
+  // Profile method hotness information for a single method. Also includes a pointer to the inline
+  // cache map.
+  class MethodHotness {
+   public:
+    enum Flag {
+      kFlagHot = 0x1,
+      kFlagStartup = 0x2,
+      kFlagPostStartup = 0x4,
+    };
+
+    bool IsHot() const {
+      return (flags_ & kFlagHot) != 0;
+    }
+
+    bool IsStartup() const {
+      return (flags_ & kFlagStartup) != 0;
+    }
+
+    bool IsPostStartup() const {
+      return (flags_ & kFlagPostStartup) != 0;
+    }
+
+    void AddFlag(Flag flag) {
+      flags_ |= flag;
+    }
+
+    uint8_t GetFlags() const {
+      return flags_;
+    }
+
+    bool IsInProfile() const {
+      return flags_ != 0;
+    }
+
+   private:
+    const InlineCacheMap* inline_cache_map_ = nullptr;
+    uint8_t flags_ = 0;
+
+    const InlineCacheMap* GetInlineCacheMap() const {
+      return inline_cache_map_;
+    }
+
+    void SetInlineCacheMap(const InlineCacheMap* info) {
+      inline_cache_map_ = info;
+    }
+
+    friend class ProfileCompilationInfo;
+  };
+
   // Encodes the full set of inline caches for a given method.
   // The dex_references vector is indexed according to the ClassReference::dex_profile_index.
   // i.e. the dex file of any ClassReference present in the inline caches can be found at
@@ -195,9 +237,58 @@ class ProfileCompilationInfo {
 
   ~ProfileCompilationInfo();
 
-  // Add the given methods and classes to the current profile object.
-  bool AddMethodsAndClasses(const std::vector<ProfileMethodInfo>& methods,
-                            const std::set<DexCacheResolvedClasses>& resolved_classes);
+  // Add the given methods to the current profile object.
+  bool AddMethods(const std::vector<ProfileMethodInfo>& methods);
+
+  // Add the given classes to the current profile object.
+  bool AddClasses(const std::set<DexCacheResolvedClasses>& resolved_classes);
+
+  // Add multiple type ids for classes in a single dex file. Iterator is for type_ids not
+  // class_defs.
+  template <class Iterator>
+  bool AddClassesForDex(const DexFile* dex_file, Iterator index_begin, Iterator index_end) {
+    DexFileData* data = GetOrAddDexFileData(dex_file);
+    if (data == nullptr) {
+      return false;
+    }
+    data->class_set.insert(index_begin, index_end);
+    return true;
+  }
+
+  // Add a method index to the profile (without inline caches). The method flags determine if it is
+  // hot, startup, or post startup, or a combination of the previous.
+  bool AddMethodIndex(MethodHotness::Flag flags,
+                      const std::string& dex_location,
+                      uint32_t checksum,
+                      uint16_t method_idx,
+                      uint32_t num_method_ids);
+  bool AddMethodIndex(MethodHotness::Flag flags, const MethodReference& ref);
+
+  // Add a method to the profile using its online representation (containing runtime structures).
+  bool AddMethod(const ProfileMethodInfo& pmi);
+
+  // Bulk add sampled methods and/or hot methods for a single dex, fast since it only has one
+  // GetOrAddDexFileData call.
+  template <class Iterator>
+  bool AddMethodsForDex(MethodHotness::Flag flags,
+                        const DexFile* dex_file,
+                        Iterator index_begin,
+                        Iterator index_end) {
+    DexFileData* data = GetOrAddDexFileData(dex_file);
+    if (data == nullptr) {
+      return false;
+    }
+    for (Iterator it = index_begin; it != index_end; ++it) {
+      DCHECK_LT(*it, data->num_method_ids);
+      if (!data->AddMethod(flags, *it)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // Add hotness flags for a simple method.
+  bool AddMethodHotness(const MethodReference& method_ref, const MethodHotness& hotness);
 
   // Load profile information from the given file descriptor.
   // If the current profile is non-empty the load will fail.
@@ -209,8 +300,10 @@ class ProfileCompilationInfo {
   // the file and returns true.
   bool Load(const std::string& filename, bool clear_if_invalid);
 
-  // Merge the data from another ProfileCompilationInfo into the current object.
-  bool MergeWith(const ProfileCompilationInfo& info);
+  // Merge the data from another ProfileCompilationInfo into the current object. Only merges
+  // classes if merge_classes is true. This is used for creating the boot profile since
+  // we don't want all of the classes to be image classes.
+  bool MergeWith(const ProfileCompilationInfo& info, bool merge_classes = true);
 
   // Save the profile data to the given file descriptor.
   bool Save(int fd);
@@ -224,8 +317,11 @@ class ProfileCompilationInfo {
   // Return the number of resolved classes that were profiled.
   uint32_t GetNumberOfResolvedClasses() const;
 
-  // Return true if the method reference is present in the profiling info.
-  bool ContainsMethod(const MethodReference& method_ref) const;
+  // Returns the profile method info for a given method reference.
+  MethodHotness GetMethodHotness(const MethodReference& method_ref) const;
+  MethodHotness GetMethodHotness(const std::string& dex_location,
+                                 uint32_t dex_checksum,
+                                 uint16_t dex_method_index) const;
 
   // Return true if the class's type is present in the profiling info.
   bool ContainsClass(const DexFile& dex_file, dex::TypeIndex type_idx) const;
@@ -252,7 +348,9 @@ class ProfileCompilationInfo {
   // file is register and has a matching checksum, false otherwise.
   bool GetClassesAndMethods(const DexFile& dex_file,
                             /*out*/std::set<dex::TypeIndex>* class_set,
-                            /*out*/std::set<uint16_t>* method_set) const;
+                            /*out*/std::set<uint16_t>* hot_method_set,
+                            /*out*/std::set<uint16_t>* startup_method_set,
+                            /*out*/std::set<uint16_t>* post_startup_method_method_set) const;
 
   // Perform an equality test with the `other` profile information.
   bool Equals(const ProfileCompilationInfo& other);
@@ -284,6 +382,9 @@ class ProfileCompilationInfo {
 
   ArenaAllocator* GetArena() { return &arena_; }
 
+  // Return all of the class descriptors in the profile for a set of dex files.
+  std::unordered_set<std::string> GetClassDescriptors(const std::vector<const DexFile*>& dex_files);
+
  private:
   enum ProfileLoadSatus {
     kProfileLoadWouldOverwiteData,
@@ -292,6 +393,9 @@ class ProfileCompilationInfo {
     kProfileLoadBadData,
     kProfileLoadSuccess
   };
+
+  const uint32_t kProfileSizeWarningThresholdInBytes = 500000U;
+  const uint32_t kProfileSizeErrorThresholdInBytes = 1000000U;
 
   // Internal representation of the profile information belonging to a dex file.
   // Note that we could do without profile_key (the key used to encode the dex
@@ -303,13 +407,39 @@ class ProfileCompilationInfo {
     DexFileData(ArenaAllocator* arena,
                 const std::string& key,
                 uint32_t location_checksum,
-                uint16_t index)
+                uint16_t index,
+                uint32_t num_methods)
         : arena_(arena),
           profile_key(key),
           profile_index(index),
           checksum(location_checksum),
           method_map(std::less<uint16_t>(), arena->Adapter(kArenaAllocProfile)),
-          class_set(std::less<dex::TypeIndex>(), arena->Adapter(kArenaAllocProfile)) {}
+          class_set(std::less<dex::TypeIndex>(), arena->Adapter(kArenaAllocProfile)),
+          num_method_ids(num_methods),
+          bitmap_storage(arena->Adapter(kArenaAllocProfile)) {
+      const size_t num_bits = num_method_ids * kBitmapIndexCount;
+      bitmap_storage.resize(RoundUp(num_bits, kBitsPerByte) / kBitsPerByte);
+      if (!bitmap_storage.empty()) {
+        method_bitmap =
+            BitMemoryRegion(MemoryRegion(&bitmap_storage[0], bitmap_storage.size()), 0, num_bits);
+      }
+    }
+
+    bool operator==(const DexFileData& other) const {
+      return checksum == other.checksum && method_map == other.method_map;
+    }
+
+    // Mark a method as executed at least once.
+    bool AddMethod(MethodHotness::Flag flags, size_t index);
+
+    void MergeBitmap(const DexFileData& other) {
+      DCHECK_EQ(bitmap_storage.size(), other.bitmap_storage.size());
+      for (size_t i = 0; i < bitmap_storage.size(); ++i) {
+        bitmap_storage[i] |= other.bitmap_storage[i];
+      }
+    }
+
+    MethodHotness GetHotnessInfo(uint32_t dex_method_index) const;
 
     // The arena used to allocate new inline cache maps.
     ArenaAllocator* arena_;
@@ -324,44 +454,60 @@ class ProfileCompilationInfo {
     // The classes which have been profiled. Note that these don't necessarily include
     // all the classes that can be found in the inline caches reference.
     ArenaSet<dex::TypeIndex> class_set;
-
-    bool operator==(const DexFileData& other) const {
-      return checksum == other.checksum && method_map == other.method_map;
-    }
-
     // Find the inline caches of the the given method index. Add an empty entry if
     // no previous data is found.
     InlineCacheMap* FindOrAddMethod(uint16_t method_index);
+    // Num method ids.
+    uint32_t num_method_ids;
+    ArenaVector<uint8_t> bitmap_storage;
+    BitMemoryRegion method_bitmap;
+
+   private:
+    enum BitmapIndex {
+      kBitmapIndexStartup,
+      kBitmapIndexPostStartup,
+      kBitmapIndexCount,
+    };
+
+    size_t MethodBitIndex(bool startup, size_t index) const {
+      DCHECK_LT(index, num_method_ids);
+      // The format is [startup bitmap][post startup bitmap]
+      // This compresses better than ([startup bit][post statup bit])*
+
+      return index + (startup
+          ? kBitmapIndexStartup * num_method_ids
+          : kBitmapIndexPostStartup * num_method_ids);
+    }
   };
 
   // Return the profile data for the given profile key or null if the dex location
   // already exists but has a different checksum
-  DexFileData* GetOrAddDexFileData(const std::string& profile_key, uint32_t checksum);
+  DexFileData* GetOrAddDexFileData(const std::string& profile_key,
+                                   uint32_t checksum,
+                                   uint32_t num_method_ids);
 
-  // Add a method index to the profile (without inline caches).
-  bool AddMethodIndex(const std::string& dex_location, uint32_t checksum, uint16_t method_idx);
-
-  // Add a method to the profile using its online representation (containing runtime structures).
-  bool AddMethod(const ProfileMethodInfo& pmi);
+  DexFileData* GetOrAddDexFileData(const DexFile* dex_file) {
+    return GetOrAddDexFileData(GetProfileDexFileKey(dex_file->GetLocation()),
+                               dex_file->GetLocationChecksum(),
+                               dex_file->NumMethodIds());
+  }
 
   // Add a method to the profile using its offline representation.
   // This is mostly used to facilitate testing.
   bool AddMethod(const std::string& dex_location,
                  uint32_t dex_checksum,
                  uint16_t method_index,
+                 uint32_t num_method_ids,
                  const OfflineProfileMethodInfo& pmi);
 
   // Add a class index to the profile.
-  bool AddClassIndex(const std::string& dex_location, uint32_t checksum, dex::TypeIndex type_idx);
+  bool AddClassIndex(const std::string& dex_location,
+                     uint32_t checksum,
+                     dex::TypeIndex type_idx,
+                     uint32_t num_method_ids);
 
   // Add all classes from the given dex cache to the the profile.
   bool AddResolvedClasses(const DexCacheResolvedClasses& classes);
-
-  // Search for the given method in the profile.
-  // If found, its inline cache map is returned, otherwise the method returns null.
-  const InlineCacheMap* FindMethod(const std::string& dex_location,
-                                   uint32_t dex_checksum,
-                                   uint16_t dex_method_index) const;
 
   // Encode the known dex_files into a vector. The index of a dex_reference will
   // be the same as the profile index of the dex file (used to encode the ClassReferences).
@@ -369,10 +515,31 @@ class ProfileCompilationInfo {
 
   // Return the dex data associated with the given profile key or null if the profile
   // doesn't contain the key.
-  const DexFileData* FindDexData(const std::string& profile_key) const;
+  const DexFileData* FindDexData(const std::string& profile_key,
+                                 uint32_t checksum,
+                                 bool verify_checksum = true) const;
+
+  // Return the dex data associated with the given dex file or null if the profile doesn't contain
+  // the key or the checksum mismatches.
+  const DexFileData* FindDexData(const DexFile* dex_file) const;
 
   // Checks if the profile is empty.
   bool IsEmpty() const;
+
+  // Inflate the input buffer (in_buffer) of size in_size. It returns a buffer of
+  // compressed data for the input buffer of "compressed_data_size" size.
+  std::unique_ptr<uint8_t[]> DeflateBuffer(const uint8_t* in_buffer,
+                                           uint32_t in_size,
+                                           /*out*/uint32_t* compressed_data_size);
+
+  // Inflate the input buffer(in_buffer) of size in_size. out_size is the expected output
+  // size of the buffer. It puts the output in out_buffer. It returns Z_STREAM_END on
+  // success. On error, it returns Z_STREAM_ERROR if the compressed data is inconsistent
+  // and Z_DATA_ERROR if the stream ended prematurely or the stream has extra data.
+  int InflateBuffer(const uint8_t* in_buffer,
+                    uint32_t in_size,
+                    uint32_t out_size,
+                    /*out*/uint8_t* out_buffer);
 
   // Parsing functionality.
 
@@ -382,6 +549,7 @@ class ProfileCompilationInfo {
     uint16_t class_set_size;
     uint32_t method_region_size_bytes;
     uint32_t checksum;
+    uint32_t num_method_ids;
   };
 
   // A helper structure to make sure we don't read past our buffers in the loops.
@@ -397,6 +565,10 @@ class ProfileCompilationInfo {
                                 const std::string& source,
                                 /*out*/std::string* error);
 
+    ProfileLoadSatus FillFromBuffer(uint8_t* buffer_ptr,
+                                    const std::string& source,
+                                    /*out*/std::string* error);
+
     // Reads an uint value (high bits to low bits) and advances the current pointer
     // with the number of bits read.
     template <typename T> bool ReadUintAndAdvance(/*out*/ T* value);
@@ -405,16 +577,22 @@ class ProfileCompilationInfo {
     // equal it advances the current pointer by data_size.
     bool CompareAndAdvance(const uint8_t* data, size_t data_size);
 
-    // Returns true if the buffer has more data to read.
-    bool HasMoreData();
+    // Advances current pointer by data_size.
+    void Advance(size_t data_size);
+
+    // Returns the count of unread bytes.
+    size_t CountUnreadBytes();
+
+    // Returns the current pointer.
+    const uint8_t* GetCurrentPtr();
 
     // Get the underlying raw buffer.
     uint8_t* Get() { return storage_.get(); }
 
    private:
     std::unique_ptr<uint8_t[]> storage_;
-    uint8_t* ptr_current_;
     uint8_t* ptr_end_;
+    uint8_t* ptr_current_;
   };
 
   // Entry point for profile loding functionality.
@@ -424,10 +602,12 @@ class ProfileCompilationInfo {
   // lines into number_of_dex_files.
   ProfileLoadSatus ReadProfileHeader(int fd,
                                      /*out*/uint8_t* number_of_dex_files,
+                                     /*out*/uint32_t* size_uncompressed_data,
+                                     /*out*/uint32_t* size_compressed_data,
                                      /*out*/std::string* error);
 
   // Read the header of a profile line from the given fd.
-  ProfileLoadSatus ReadProfileLineHeader(int fd,
+  ProfileLoadSatus ReadProfileLineHeader(SafeBuffer& buffer,
                                          /*out*/ProfileLineHeader* line_header,
                                          /*out*/std::string* error);
 
@@ -438,14 +618,13 @@ class ProfileCompilationInfo {
                                      /*out*/std::string* error);
 
   // Read a single profile line from the given fd.
-  ProfileLoadSatus ReadProfileLine(int fd,
+  ProfileLoadSatus ReadProfileLine(SafeBuffer& buffer,
                                    uint8_t number_of_dex_files,
                                    const ProfileLineHeader& line_header,
                                    /*out*/std::string* error);
 
   // Read all the classes from the buffer into the profile `info_` structure.
   bool ReadClasses(SafeBuffer& buffer,
-                   uint16_t classes_to_read,
                    const ProfileLineHeader& line_header,
                    /*out*/std::string* error);
 

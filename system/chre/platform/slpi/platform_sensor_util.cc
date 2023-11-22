@@ -16,6 +16,8 @@
 
 #include "chre/platform/slpi/platform_sensor_util.h"
 
+#include <algorithm>
+
 #ifdef GTEST
 // This value is taken from the SMGR API definition.
 #define SNS_SMGR_SAMPLING_RATE_INVERSION_POINT_V01 1000
@@ -26,23 +28,38 @@
 namespace chre {
 
 uint16_t intervalToSmgrSamplingRate(Nanoseconds interval) {
+  constexpr uint64_t kInversionPoint =
+      SNS_SMGR_SAMPLING_RATE_INVERSION_POINT_V01;
+  uint16_t smgrRate = 0;
   Milliseconds millis = Milliseconds(interval);
-  if (millis.getMilliseconds() > SNS_SMGR_SAMPLING_RATE_INVERSION_POINT_V01) {
-    return millis.getMilliseconds();
+
+  if (millis.getMilliseconds() > kInversionPoint) {
+    constexpr uint64_t kMaxInterval = INT16_MAX;
+
+    smgrRate = static_cast<uint16_t>(
+        std::min(millis.getMilliseconds(), kMaxInterval));
   } else if (interval != Nanoseconds(0)) {
-    return static_cast<uint16_t>(
-        Seconds(1).toRawNanoseconds() / interval.toRawNanoseconds());
-  } else {
-    return 0;
+    constexpr uint64_t kMaxRate = kInversionPoint;
+
+    uint64_t rateHz =
+        (Seconds(1).toRawNanoseconds() / interval.toRawNanoseconds());
+    smgrRate = static_cast<uint16_t>(std::min(rateHz, kMaxRate));
   }
+
+  return smgrRate;
 }
 
 uint32_t intervalToSmgrQ16ReportRate(Nanoseconds interval) {
-  uint64_t freq = UINT32_MAX;
+  // Q16 is interpreted as a signed integer by SMGR, but passed through QMI as a
+  // uint32_t
+  constexpr uint32_t kMaxFreq = INT32_MAX;
+  uint64_t freq = kMaxFreq;
+
   if (interval != Nanoseconds(0)) {
     freq = (Seconds(1).toRawNanoseconds() << 16) / interval.toRawNanoseconds();
   }
-  return (freq > UINT32_MAX) ? UINT32_MAX : static_cast<uint32_t>(freq);
+
+  return (freq > kMaxFreq) ? kMaxFreq : static_cast<uint32_t>(freq);
 }
 
 }  // namespace chre

@@ -46,6 +46,7 @@ void tst_checkpoint_init(const char *file, const int lineno,
 		tst_brkm(TBROK, cleanup_fn,
 		         "%s: %d checkopoints allready initialized",
 		         file, lineno);
+		return;
 	}
 
 	/*
@@ -63,6 +64,7 @@ void tst_checkpoint_init(const char *file, const int lineno,
 		tst_brkm(TBROK, cleanup_fn,
 		         "%s:%d You have to create test temporary directory "
 		         "first (call tst_tmpdir())", file, lineno);
+		return;
 	}
 
 	page_size = getpagesize();
@@ -126,14 +128,20 @@ int tst_checkpoint_wake(unsigned int id, unsigned int nr_wake,
 }
 
 void tst_safe_checkpoint_wait(const char *file, const int lineno,
-                              void (*cleanup_fn)(void), unsigned int id)
+                              void (*cleanup_fn)(void), unsigned int id,
+			      unsigned int msec_timeout)
 {
-	int ret = tst_checkpoint_wait(id, DEFAULT_MSEC_TIMEOUT);
+	int ret;
+
+	if (!msec_timeout)
+		msec_timeout = DEFAULT_MSEC_TIMEOUT;
+
+	ret = tst_checkpoint_wait(id, msec_timeout);
 
 	if (ret) {
 		tst_brkm(TBROK | TERRNO, cleanup_fn,
 		         "%s:%d: tst_checkpoint_wait(%u, %i)",
-		         file, lineno, id, DEFAULT_MSEC_TIMEOUT);
+		         file, lineno, id, msec_timeout);
 	}
 }
 

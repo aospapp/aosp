@@ -47,6 +47,10 @@ std::vector<Command> COMMANDS = {
     {VALID,   "/system/bin/ndc network interface add oem10 oem9"},
     {INVALID, "/system/bin/ndc network interface add 100 v_oem9"},
     {VALID,   "/system/bin/ndc network interface add oem10 r_rmnet_data0"},
+    {VALID,   "/system/bin/ndc network interface add handle42966108894 v_oem9"},
+    {VALID,   "/system/bin/ndc network interface add handle42966108894 oem9"},
+    {VALID,   "/system/bin/ndc network interface add handle42966108894 r_rmnet_data0"},
+    {INVALID, "/system/bin/ndc network interface add handle42966108894"},
     {VALID,   "/system/bin/ip xfrm state"},
 };
 

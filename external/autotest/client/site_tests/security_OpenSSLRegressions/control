@@ -8,7 +8,9 @@ DOC = """
 Ensures that local patches aren't dropped.
 """
 NAME = 'security_OpenSSLRegressions'
-PURPOSE = 'Ensure that local patches aren\'t dropped.'
+PURPOSE = """
+Ensure that local patches aren't dropped.
+"""
 CRITERIA = """
 Tests that local patches are not dropped when updating. See the source for which
 patches.
@@ -17,7 +19,6 @@ TEST_CLASS = 'security'
 TEST_CATEGORY = 'Functional'
 TEST_TYPE = 'client'
 JOB_RETRIES = 2
-ATTRIBUTES = "suite:bvt-inline, suite:smoke"
+ATTRIBUTES = ""
 
 job.run_test('security_OpenSSLRegressions', opts=args)
-

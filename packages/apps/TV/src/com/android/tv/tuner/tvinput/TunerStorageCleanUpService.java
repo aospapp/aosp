@@ -24,6 +24,7 @@ import android.database.Cursor;
 import android.media.tv.TvContract;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.util.Log;
 
 import com.android.tv.TvApplication;
 import com.android.tv.dvr.DvrStorageStatusManager;
@@ -40,10 +41,17 @@ import java.util.concurrent.TimeUnit;
  * from database.
  */
 public class TunerStorageCleanUpService extends JobService {
+    private static final String TAG = "TunerStorageCleanUpService";
+
     private CleanUpStorageTask mTask;
 
     @Override
     public void onCreate() {
+        if (!TvApplication.getSingletons(this).getTvInputManagerHelper().hasTvInputManager()) {
+            Log.wtf(TAG, "Stopping because device does not have a TvInputManager");
+            this.stopSelf();
+            return;
+        }
         TvApplication.setCurrentRunningProcess(this, false);
         super.onCreate();
         mTask = new CleanUpStorageTask(this, this);

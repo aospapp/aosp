@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "AAudioService"
+#define LOG_TAG "AAudioServiceEndpointPlay"
 //#define LOG_NDEBUG 0
 #include <utils/Log.h>
 
@@ -33,6 +33,7 @@
 #include "AAudioServiceEndpoint.h"
 #include "AAudioServiceStreamShared.h"
 #include "AAudioServiceEndpointPlay.h"
+#include "AAudioServiceEndpointShared.h"
 
 using namespace android;  // TODO just import names needed
 using namespace aaudio;   // TODO just import names needed
@@ -41,13 +42,14 @@ using namespace aaudio;   // TODO just import names needed
 
 AAudioServiceEndpointPlay::AAudioServiceEndpointPlay(AAudioService &audioService)
         : mStreamInternalPlay(audioService, true) {
+    mStreamInternal = &mStreamInternalPlay;
 }
 
 AAudioServiceEndpointPlay::~AAudioServiceEndpointPlay() {
 }
 
-aaudio_result_t AAudioServiceEndpointPlay::open(int32_t deviceId) {
-    aaudio_result_t result = AAudioServiceEndpoint::open(deviceId);
+aaudio_result_t AAudioServiceEndpointPlay::open(const aaudio::AAudioStreamRequest &request) {
+    aaudio_result_t result = AAudioServiceEndpointShared::open(request);
     if (result == AAUDIO_OK) {
         mMixer.allocate(getStreamInternal()->getSamplesPerFrame(),
                         getStreamInternal()->getFramesPerBurst());
@@ -57,7 +59,6 @@ aaudio_result_t AAudioServiceEndpointPlay::open(int32_t deviceId) {
             mLatencyTuningEnabled = true;
             burstsPerBuffer = BURSTS_PER_BUFFER_DEFAULT;
         }
-        ALOGD("AAudioServiceEndpoint(): burstsPerBuffer = %d", burstsPerBuffer);
         int32_t desiredBufferSize = burstsPerBuffer * getStreamInternal()->getFramesPerBurst();
         getStreamInternal()->setBufferSize(desiredBufferSize);
     }
@@ -66,26 +67,61 @@ aaudio_result_t AAudioServiceEndpointPlay::open(int32_t deviceId) {
 
 // Mix data from each application stream and write result to the shared MMAP stream.
 void *AAudioServiceEndpointPlay::callbackLoop() {
-    ALOGD("AAudioServiceEndpointPlay(): callbackLoop() entering");
-    int32_t underflowCount = 0;
-
-    aaudio_result_t result = getStreamInternal()->requestStart();
-
+    aaudio_result_t result = AAUDIO_OK;
     int64_t timeoutNanos = getStreamInternal()->calculateReasonableTimeout();
 
     // result might be a frame count
     while (mCallbackEnabled.load() && getStreamInternal()->isActive() && (result >= 0)) {
         // Mix data from each active stream.
         mMixer.clear();
-        { // use lock guard
+
+        { // brackets are for lock_guard
+            int index = 0;
+            int64_t mmapFramesWritten = getStreamInternal()->getFramesWritten();
+
             std::lock_guard <std::mutex> lock(mLockStreams);
-            for (AAudioServiceStreamShared *sharedStream : mRunningStreams) {
-                FifoBuffer *fifo = sharedStream->getDataFifoBuffer();
-                float volume = 0.5; // TODO get from system
-                bool underflowed = mMixer.mix(fifo, volume);
-                underflowCount += underflowed ? 1 : 0;
-                // TODO log underflows in each stream
-                sharedStream->markTransferTime(AudioClock::getNanoseconds());
+            for (const auto clientStream : mRegisteredStreams) {
+                int64_t clientFramesRead = 0;
+
+                if (!clientStream->isRunning()) {
+                    continue;
+                }
+
+                sp<AAudioServiceStreamShared> streamShared =
+                        static_cast<AAudioServiceStreamShared *>(clientStream.get());
+
+                {
+                    // Lock the AudioFifo to protect against close.
+                    std::lock_guard <std::mutex> lock(streamShared->getAudioDataQueueLock());
+
+                    FifoBuffer *fifo = streamShared->getAudioDataFifoBuffer_l();
+                    if (fifo != nullptr) {
+
+                        // Determine offset between framePosition in client's stream
+                        // vs the underlying MMAP stream.
+                        clientFramesRead = fifo->getReadCounter();
+                        // These two indices refer to the same frame.
+                        int64_t positionOffset = mmapFramesWritten - clientFramesRead;
+                        streamShared->setTimestampPositionOffset(positionOffset);
+
+                        float volume = 1.0; // to match legacy volume
+                        bool underflowed = mMixer.mix(index, fifo, volume);
+                        if (underflowed) {
+                            streamShared->incrementXRunCount();
+                        }
+                        clientFramesRead = fifo->getReadCounter();
+                    }
+                }
+
+                if (clientFramesRead > 0) {
+                    // This timestamp represents the completion of data being read out of the
+                    // client buffer. It is sent to the client and used in the timing model
+                    // to decide when the client has room to write more data.
+                    Timestamp timestamp(clientFramesRead, AudioClock::getNanoseconds());
+                    streamShared->markTransferTime(timestamp);
+                }
+
+                index++; // just used for labelling tracks in systrace
             }
         }
 
@@ -93,7 +129,7 @@ void *AAudioServiceEndpointPlay::callbackLoop() {
         result = getStreamInternal()->write(mMixer.getOutputBuffer(),
                                             getFramesPerBurst(), timeoutNanos);
         if (result == AAUDIO_ERROR_DISCONNECTED) {
-            disconnectRegisteredStreams();
+            AAudioServiceEndpointShared::disconnectRegisteredStreams();
             break;
         } else if (result != getFramesPerBurst()) {
             ALOGW("AAudioServiceEndpoint(): callbackLoop() wrote %d / %d",
@@ -102,8 +138,5 @@ void *AAudioServiceEndpointPlay::callbackLoop() {
         }
     }
 
-    result = getStreamInternal()->requestStop();
-
-    ALOGD("AAudioServiceEndpointPlay(): callbackLoop() exiting, %d underflows", underflowCount);
     return NULL; // TODO review
 }

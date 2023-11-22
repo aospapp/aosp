@@ -35,9 +35,8 @@ namespace vts {
 
 class DriverCodeGenBase : public CodeGenBase {
  public:
-  explicit DriverCodeGenBase(
-      const char* input_vts_file_path, const string& vts_name) :
-      CodeGenBase(input_vts_file_path, vts_name) {}
+  explicit DriverCodeGenBase(const char* input_vts_file_path)
+      : CodeGenBase(input_vts_file_path) {}
 
   // Generate both a C/C++ file and its header file.
   virtual void GenerateAll(Formatter& header_out, Formatter& source_out,
@@ -83,10 +82,14 @@ class DriverCodeGenBase : public CodeGenBase {
       const ComponentSpecificationMessage& message,
       const string& fuzzer_extended_class_name);
 
-  // Generates C/C++ code for callback functions.
-  virtual void GenerateCppBodyCallbackFunction(Formatter& /*out*/,
-      const ComponentSpecificationMessage& /*message*/,
-      const string& /*fuzzer_extended_class_name*/) {};
+  // Generates C/C++ code for interface implemetation class.
+  virtual void GenerateCppBodyInterfaceImpl(
+      Formatter& /*out*/, const ComponentSpecificationMessage& /*message*/,
+      const string& /*fuzzer_extended_class_name*/){};
+
+  // Generates header code for interface impl class.
+  virtual void GenerateHeaderInterfaceImpl(
+      Formatter& /*out*/, const ComponentSpecificationMessage& /*message*/){};
 
   // Generates header code for construction function.
   virtual void GenerateClassConstructionFunction(Formatter& /*out*/,
@@ -100,12 +103,14 @@ class DriverCodeGenBase : public CodeGenBase {
 
   // Generates header code to declare the C/C++ global functions.
   virtual void GenerateHeaderGlobalFunctionDeclarations(Formatter& out,
-      const ComponentSpecificationMessage& message);
+      const ComponentSpecificationMessage& message,
+      const bool print_extern_block = true);
 
   // Generates code for the bodies of the C/C++ global functions.
   virtual void GenerateCppBodyGlobalFunctions(Formatter& out,
       const ComponentSpecificationMessage& message,
-      const string& fuzzer_extended_class_name);
+      const string& fuzzer_extended_class_name,
+      const bool print_extern_block = true);
 
   // Generates header code for include declarations.
   virtual void GenerateHeaderIncludeFiles(Formatter& out,
@@ -116,6 +121,10 @@ class DriverCodeGenBase : public CodeGenBase {
   virtual void GenerateSourceIncludeFiles(Formatter& out,
       const ComponentSpecificationMessage& message,
       const string& fuzzer_extended_class_name);
+
+  // Generates header code for public function declarations if any.
+  virtual void GeneratePublicFunctionDeclarations(
+      Formatter& /*out*/, const ComponentSpecificationMessage& /*message*/) {};
 
   // Generates header code for private member declarations if any.
   virtual void GeneratePrivateMemberDeclarations(Formatter& /*out*/,

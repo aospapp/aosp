@@ -32,12 +32,15 @@ import android.graphics.Color;
 import android.graphics.ColorSpace;
 import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.os.Debug;
 import android.os.Parcel;
 import android.os.StrictMode;
 import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.LargeTest;
 import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
 import android.util.DisplayMetrics;
+import android.view.Surface;
 
 import com.android.compatibility.common.util.ColorUtils;
 import com.android.compatibility.common.util.WidgetTestUtils;
@@ -51,6 +54,8 @@ import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
@@ -1445,6 +1450,114 @@ public class BitmapTest {
         bitmap.recycle();
         nValidateBitmapInfo(bitmap, 10, 20, true);
         nValidateNdkAccessAfterRecycle(bitmap);
+    }
+
+    private void runGcAndFinalizersSync() {
+        final CountDownLatch fence = new CountDownLatch(1);
+        new Object() {
+            @Override
+            protected void finalize() throws Throwable {
+                try {
+                    fence.countDown();
+                } finally {
+                    super.finalize();
+                }
+            }
+        };
+        try {
+            do {
+                Runtime.getRuntime().gc();
+                Runtime.getRuntime().runFinalization();
+            } while (!fence.await(100, TimeUnit.MILLISECONDS));
+        } catch (InterruptedException ex) {
+            throw new RuntimeException(ex);
+        }
+        Runtime.getRuntime().gc();
+    }
+
+    private void assertNotLeaking(int iteration, Debug.MemoryInfo start, Debug.MemoryInfo end) {
+        Debug.getMemoryInfo(end);
+        if (end.getTotalPss() - start.getTotalPss() > 2000 /* kB */) {
+            runGcAndFinalizersSync();
+            Debug.getMemoryInfo(end);
+            if (end.getTotalPss() - start.getTotalPss() > 2000 /* kB */) {
+                // Guarded by if so we don't continually generate garbage for the
+                // assertion string.
+                assertEquals("Memory leaked, iteration=" + iteration,
+                        start.getTotalPss(), end.getTotalPss(),
+                        2000 /* kb */);
+            }
+        }
+    }
+
+    @Test
+    @LargeTest
+    public void testHardwareBitmapNotLeaking() {
+        Debug.MemoryInfo meminfoStart = new Debug.MemoryInfo();
+        Debug.MemoryInfo meminfoEnd = new Debug.MemoryInfo();
+        BitmapFactory.Options opts = new BitmapFactory.Options();
+        opts.inPreferredConfig = Config.HARDWARE;
+        opts.inScaled = false;
+
+        for (int i = 0; i < 2000; i++) {
+            if (i == 2) {
+                // Not really the "start" but by having done a couple
+                // we've fully initialized any state that may be required,
+                // so memory usage should be stable now
+                runGcAndFinalizersSync();
+                Debug.getMemoryInfo(meminfoStart);
+            }
+            if (i % 100 == 5) {
+                assertNotLeaking(i, meminfoStart, meminfoEnd);
+            }
+            Bitmap bitmap = BitmapFactory.decodeResource(mRes, R.drawable.robot, opts);
+            assertNotNull(bitmap);
+            // Make sure nothing messed with the bitmap
+            assertEquals(128, bitmap.getWidth());
+            assertEquals(128, bitmap.getHeight());
+            assertEquals(Config.HARDWARE, bitmap.getConfig());
+            bitmap.recycle();
+        }
+
+        assertNotLeaking(2000, meminfoStart, meminfoEnd);
+    }
+
+    @Test
+    @LargeTest
+    public void testDrawingHardwareBitmapNotLeaking() {
+        Debug.MemoryInfo meminfoStart = new Debug.MemoryInfo();
+        Debug.MemoryInfo meminfoEnd = new Debug.MemoryInfo();
+        BitmapFactory.Options opts = new BitmapFactory.Options();
+        opts.inPreferredConfig = Config.HARDWARE;
+        opts.inScaled = false;
+        RenderTarget renderTarget = RenderTarget.create();
+        renderTarget.setDefaultSize(128, 128);
+        final Surface surface = renderTarget.getSurface();
+
+        for (int i = 0; i < 2000; i++) {
+            if (i == 2) {
+                // Not really the "start" but by having done a couple
+                // we've fully initialized any state that may be required,
+                // so memory usage should be stable now
+                runGcAndFinalizersSync();
+                Debug.getMemoryInfo(meminfoStart);
+            }
+            if (i % 100 == 5) {
+                assertNotLeaking(i, meminfoStart, meminfoEnd);
+            }
+            Bitmap bitmap = BitmapFactory.decodeResource(mRes, R.drawable.robot, opts);
+            assertNotNull(bitmap);
+            // Make sure nothing messed with the bitmap
+            assertEquals(128, bitmap.getWidth());
+            assertEquals(128, bitmap.getHeight());
+            assertEquals(Config.HARDWARE, bitmap.getConfig());
+            Canvas canvas = surface.lockHardwareCanvas();
+            canvas.drawBitmap(bitmap, 0, 0, null);
+            surface.unlockCanvasAndPost(canvas);
+            bitmap.recycle();
+        }
+
+        assertNotLeaking(2000, meminfoStart, meminfoEnd);
     }
 
     private void strictModeTest(Runnable runnable) {

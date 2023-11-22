@@ -16,6 +16,8 @@
 
 package android.autofillservice.cts;
 
+import static android.autofillservice.cts.CannedFillResponse.ResponseType.NULL;
+
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.app.Activity;
@@ -26,6 +28,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Parcelable;
 import android.util.Log;
 import android.util.SparseArray;
@@ -34,6 +38,8 @@ import android.view.autofill.AutofillManager;
 import com.google.common.base.Preconditions;
 
 import java.util.ArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * This class simulates authentication at the dataset at reponse level
@@ -44,6 +50,8 @@ public class AuthenticationActivity extends AbstractAutoFillActivity {
     private static final String EXTRA_DATASET_ID = "dataset_id";
     private static final String EXTRA_RESPONSE_ID = "response_id";
 
+    private static final int MSG_WAIT_FOR_LATCH = 1;
+
     private static Bundle sData;
     private static final SparseArray<CannedDataset> sDatasets = new SparseArray<>();
     private static final SparseArray<CannedFillResponse> sResponses = new SparseArray<>();
@@ -53,6 +61,12 @@ public class AuthenticationActivity extends AbstractAutoFillActivity {
 
     // Guarded by sLock
     private static int sResultCode;
+
+    // Guarded by sLock
+    // Used to block response until it's counted down.
+    private static CountDownLatch sResponseLatch;
+
+    private Handler mHandler;
 
     static void resetStaticState() {
         setResultCode(RESULT_OK);
@@ -121,10 +135,54 @@ public class AuthenticationActivity extends AbstractAutoFillActivity {
         }
     }
 
+    /**
+     * Sets the value that's passed to {@link Activity#setResult(int, Intent)}, but only calls it
+     * after the {@code latch}'s countdown reaches {@code 0}.
+     */
+    public static void setResultCode(CountDownLatch latch, int resultCode) {
+        synchronized (sLock) {
+            sResponseLatch = latch;
+            sResultCode = resultCode;
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        mHandler = new Handler(Looper.getMainLooper(), (m) -> {
+            switch (m.what) {
+                case MSG_WAIT_FOR_LATCH:
+                    waitForLatchAndDoIt();
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid message: " + m);
+            }
+            return true;
+        });
+
+        if (sResponseLatch != null) {
+            Log.d(TAG, "Delaying message until latch is counted down");
+            mHandler.dispatchMessage(mHandler.obtainMessage(MSG_WAIT_FOR_LATCH));
+        } else {
+            doIt();
+        }
+    }
+
+    private void waitForLatchAndDoIt() {
+        try {
+            final boolean called = sResponseLatch.await(5, TimeUnit.SECONDS);
+            if (!called) {
+                throw new IllegalStateException("latch not called in 5 seconds");
+            }
+            doIt();
+        } catch (InterruptedException e) {
+            Thread.interrupted();
+            throw new IllegalStateException("interrupted");
+        }
+    }
+
+    private void doIt() {
         // We should get the assist structure...
         final AssistStructure structure = getIntent().getParcelableExtra(
                 AutofillManager.EXTRA_ASSIST_STRUCTURE);
@@ -140,7 +198,12 @@ public class AuthenticationActivity extends AbstractAutoFillActivity {
         final Parcelable result;
 
         if (response != null) {
-            result = response.asFillResponse((id) -> Helper.findNodeByResourceId(structure, id));
+            if (response.getResponseType() == NULL) {
+                result = null;
+            } else {
+                result = response
+                        .asFillResponse((id) -> Helper.findNodeByResourceId(structure, id));
+            }
         } else if (dataset != null) {
             result = dataset.asDataset((id) -> Helper.findNodeByResourceId(structure, id));
         } else {

@@ -15,7 +15,7 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "audio"
 TEST_TYPE = "server"
 ATTRIBUTES = "suite:chameleon_audio_nightly, suite:chameleon_audio"
-DEPENDENCIES = "chameleon, audio_board, audio_box"
+DEPENDENCIES = "chameleon, audio_board, audio_box, test_audiojack"
 JOB_RETRIES = 2
 
 DOC = """
@@ -39,7 +39,7 @@ def run(machine):
                  golden_data=(audio_test_data.SIMPLE_FREQUENCY_TEST_FILE, 2000),
                  bind_from=chameleon_audio_ids.ChameleonIds.LINEOUT,
                  bind_to=chameleon_audio_ids.CrosIds.EXTERNAL_MIC,
-                 audio_nodes=(['HEADPHONE'], ['MIC']),
+                 audio_nodes=(None, ['MIC']),
                  plug_status=plug_status, tag = "external_mic.unplug")
 
 parallel_simple(run, machines)

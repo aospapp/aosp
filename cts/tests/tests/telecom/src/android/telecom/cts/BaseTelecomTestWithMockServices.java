@@ -68,6 +68,10 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
     TestUtils.InvokeCounter mOnConnectionEventCounter;
     TestUtils.InvokeCounter mOnExtrasChangedCounter;
     TestUtils.InvokeCounter mOnPropertiesChangedCounter;
+    TestUtils.InvokeCounter mOnRttModeChangedCounter;
+    TestUtils.InvokeCounter mOnRttStatusChangedCounter;
+    TestUtils.InvokeCounter mOnRttInitiationFailedCounter;
+    TestUtils.InvokeCounter mOnRttRequestCounter;
     Bundle mPreviousExtras;
     int mPreviousProperties = -1;
 
@@ -228,6 +232,27 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
                 Log.i(TAG, "onSilenceRinger");
                 mOnSilenceRingerCounter.invoke();
             }
+
+            @Override
+            public void onRttModeChanged(Call call, int mode) {
+                mOnRttModeChangedCounter.invoke(call, mode);
+            }
+
+            @Override
+            public void onRttStatusChanged(Call call, boolean enabled, Call.RttCall rttCall) {
+                mOnRttStatusChangedCounter.invoke(call, enabled, rttCall);
+            }
+
+            @Override
+            public void onRttRequest(Call call, int id) {
+                mOnRttRequestCounter.invoke(call, id);
+            }
+
+            @Override
+            public void onRttInitiationFailure(Call call, int reason) {
+                mOnRttInitiationFailedCounter.invoke(call, reason);
+            }
+
         };
 
         MockInCallService.setCallbacks(mInCallCallbacks);
@@ -242,6 +267,11 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
         mOnConnectionEventCounter = new TestUtils.InvokeCounter("OnConnectionEvent");
         mOnExtrasChangedCounter = new TestUtils.InvokeCounter("OnDetailsChangedCounter");
         mOnPropertiesChangedCounter = new TestUtils.InvokeCounter("OnPropertiesChangedCounter");
+        mOnRttModeChangedCounter = new TestUtils.InvokeCounter("mOnRttModeChangedCounter");
+        mOnRttStatusChangedCounter = new TestUtils.InvokeCounter("mOnRttStatusChangedCounter");
+        mOnRttInitiationFailedCounter =
+                new TestUtils.InvokeCounter("mOnRttInitiationFailedCounter");
+        mOnRttRequestCounter = new TestUtils.InvokeCounter("mOnRttRequestCounter");
     }
 
     /**

@@ -16,18 +16,30 @@
 
 package android.systemui.cts;
 
+import static android.support.test.InstrumentationRegistry.getInstrumentation;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.app.ActivityManager;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.UiAutomation;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
-import android.support.test.InstrumentationRegistry;
-import android.test.ActivityInstrumentationTestCase2;
-import android.util.Log;
+import android.os.SystemClock;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
+import android.view.InputDevice;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 
-import java.io.FileOutputStream;
-import java.io.IOException;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test for light status bar.
@@ -35,26 +47,30 @@ import java.io.IOException;
  * mmma cts/tests/tests/systemui
  * cts-tradefed run commandAndExit cts-dev --module CtsSystemUiTestCases --test android.systemui.cts.LightBarTests --disable-reboot --skip-device-info --skip-all-system-status-check --skip-preconditions
  */
-public class LightBarTests extends ActivityInstrumentationTestCase2<LightBarActivity> {
+@RunWith(AndroidJUnit4.class)
+public class LightBarTests extends LightBarTestBase {
 
     public static final String TAG = "LightStatusBarTests";
 
-    public static final String DUMP_PATH = "/sdcard/lightstatustest.png";
+    private static final int WAIT_TIME = 2000;
 
-    public LightBarTests() {
-        super(LightBarActivity.class);
-    }
+    private final String NOTIFICATION_TAG = "TEST_TAG";
+    private final String NOTIFICATION_CHANNEL_ID = "test_channel";
+    private final String NOTIFICATION_GROUP_KEY = "test_group";
+    private NotificationManager mNm;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        // As the way to access Instrumentation is changed in the new runner, we need to inject it
-        // manually into ActivityInstrumentationTestCase2. ActivityInstrumentationTestCase2 will
-        // be marked as deprecated and replaced with ActivityTestRule.
-        injectInstrumentation(InstrumentationRegistry.getInstrumentation());
-    }
+    @Rule
+    public ActivityTestRule<LightBarActivity> mActivityRule = new ActivityTestRule<>(
+            LightBarActivity.class);
 
+    @Test
     public void testLightStatusBarIcons() throws Throwable {
+        mNm = (NotificationManager) getInstrumentation().getContext()
+                .getSystemService(Context.NOTIFICATION_SERVICE);
+        NotificationChannel channel1 = new NotificationChannel(NOTIFICATION_CHANNEL_ID,
+                NOTIFICATION_CHANNEL_ID, NotificationManager.IMPORTANCE_LOW);
+        mNm.createNotificationChannel(channel1);
+
         PackageManager pm = getInstrumentation().getContext().getPackageManager();
         if (pm.hasSystemFeature(PackageManager.FEATURE_WATCH)
                 || pm.hasSystemFeature(PackageManager.FEATURE_TELEVISION)
@@ -68,14 +84,29 @@ public class LightBarTests extends ActivityInstrumentationTestCase2<LightBarActi
             return;
         }
 
-        requestLightBars(Color.RED /* background */);
-        Thread.sleep(1000);
+        // post 10 notifications to ensure enough icons in the status bar
+        for (int i = 0; i < 10; i++) {
+            Notification.Builder noti1 = new Notification.Builder(getInstrumentation().getContext(),
+                    NOTIFICATION_CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_save)
+                    .setChannelId(NOTIFICATION_CHANNEL_ID)
+                    .setPriority(Notification.PRIORITY_LOW)
+                    .setGroup(NOTIFICATION_GROUP_KEY);
+            mNm.notify(NOTIFICATION_TAG, i, noti1.build());
+        }
 
-        Bitmap bitmap = takeStatusBarScreenshot();
+        requestLightBars(Color.RED /* background */);
+        Thread.sleep(WAIT_TIME);
+
+        Bitmap bitmap = takeStatusBarScreenshot(mActivityRule.getActivity());
         Stats s = evaluateLightBarBitmap(bitmap, Color.RED /* background */);
         assertLightStats(bitmap, s);
+
+        mNm.cancelAll();
+        mNm.deleteNotificationChannel(NOTIFICATION_CHANNEL_ID);
     }
 
+    @Test
     public void testLightNavigationBar() throws Throwable {
         PackageManager pm = getInstrumentation().getContext().getPackageManager();
         if (pm.hasSystemFeature(PackageManager.FEATURE_WATCH)
@@ -96,11 +127,32 @@ public class LightBarTests extends ActivityInstrumentationTestCase2<LightBarActi
         }
 
         requestLightBars(Color.RED /* background */);
-        Thread.sleep(1000);
+        Thread.sleep(WAIT_TIME);
 
-        Bitmap bitmap = takeNavigationBarScreenshot();
+        // Inject a cancelled interaction with the nav bar to ensure it is at full opacity.
+        int x = mActivityRule.getActivity().getWidth() / 2;
+        int y = mActivityRule.getActivity().getBottom() + 10;
+        injectCanceledTap(x, y);
+        Thread.sleep(WAIT_TIME);
+
+        Bitmap bitmap = takeNavigationBarScreenshot(mActivityRule.getActivity());
         Stats s = evaluateLightBarBitmap(bitmap, Color.RED /* background */);
         assertLightStats(bitmap, s);
+    }
+
+    private void injectCanceledTap(int x, int y) {
+        long downTime = SystemClock.uptimeMillis();
+        injectEvent(MotionEvent.ACTION_DOWN, x, y, downTime);
+        injectEvent(MotionEvent.ACTION_CANCEL, x, y, downTime);
+    }
+
+    private void injectEvent(int action, int x, int y, long downTime) {
+        final UiAutomation automation = getInstrumentation().getUiAutomation();
+        final long eventTime = SystemClock.uptimeMillis();
+        MotionEvent event = MotionEvent.obtain(downTime, eventTime, action, x, y, 0);
+        event.setSource(InputDevice.SOURCE_TOUCHSCREEN);
+        assertTrue(automation.injectInputEvent(event, true));
+        event.recycle();
     }
 
     private boolean hasVirtualNavigationBar() {
@@ -132,7 +184,6 @@ public class LightBarTests extends ActivityInstrumentationTestCase2<LightBarActi
             success = true;
         } finally {
             if (!success) {
-                Log.e(TAG, "Dumping failed bitmap to " + DUMP_PATH);
                 dumpBitmap(bitmap);
             }
         }
@@ -153,8 +204,8 @@ public class LightBarTests extends ActivityInstrumentationTestCase2<LightBarActi
     }
 
     private void requestLightBars(final int background) throws Throwable {
-        final LightBarActivity activity = getActivity();
-        runTestOnUiThread(() -> {
+        final LightBarActivity activity = mActivityRule.getActivity();
+        activity.runOnUiThread(() -> {
             activity.getWindow().setStatusBarColor(background);
             activity.getWindow().setNavigationBarColor(background);
             activity.setLightStatusBar(true);
@@ -231,25 +282,6 @@ public class LightBarTests extends ActivityInstrumentationTestCase2<LightBarActi
         return s;
     }
 
-    private void dumpBitmap(Bitmap bitmap) {
-        FileOutputStream fileStream = null;
-        try {
-            fileStream = new FileOutputStream(DUMP_PATH);
-            bitmap.compress(Bitmap.CompressFormat.PNG, 85, fileStream);
-            fileStream.flush();
-        } catch (Exception e) {
-            Log.e(TAG, "Dumping bitmap failed.", e);
-        } finally {
-            if (fileStream != null) {
-                try {
-                    fileStream.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-    }
-
     private int mixSrcOver(int background, int foreground) {
         int bgAlpha = Color.alpha(background);
         int bgRed = Color.red(background);
@@ -265,17 +297,5 @@ public class LightBarTests extends ActivityInstrumentationTestCase2<LightBarActi
                     fgRed + (255 - fgAlpha) * bgRed / 255,
                     fgGreen + (255 - fgAlpha) * bgGreen / 255,
                     fgBlue + (255 - fgAlpha) * bgBlue / 255);
-    }
-
-    private Bitmap takeStatusBarScreenshot() {
-        Bitmap fullBitmap = getInstrumentation().getUiAutomation().takeScreenshot();
-        return Bitmap.createBitmap(fullBitmap, 0, 0,
-                getActivity().getWidth(), getActivity().getTop());
-    }
-
-    private Bitmap takeNavigationBarScreenshot() {
-        Bitmap fullBitmap = getInstrumentation().getUiAutomation().takeScreenshot();
-        return Bitmap.createBitmap(fullBitmap, 0, getActivity().getBottom(),
-                getActivity().getWidth(), fullBitmap.getHeight() - getActivity().getBottom());
     }
 }

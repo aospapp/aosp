@@ -16,7 +16,6 @@
 
 #define LOG_TAG "drm_hal_vendor_test@1.0"
 
-#include <android-base/logging.h>
 #include <android/hardware/drm/1.0/ICryptoFactory.h>
 #include <android/hardware/drm/1.0/ICryptoPlugin.h>
 #include <android/hardware/drm/1.0/IDrmFactory.h>
@@ -27,8 +26,8 @@
 #include <gtest/gtest.h>
 #include <hidlmemory/mapping.h>
 #include <log/log.h>
-#include <openssl/aes.h>
 #include <memory>
+#include <openssl/aes.h>
 #include <random>
 
 #include "drm_hal_vendor_module_api.h"
@@ -114,7 +113,7 @@ class DrmHalVendorFactoryTest : public testing::TestWithParam<std::string> {
               test_info->test_case_name(), test_info->name(),
               GetParam().c_str());
 
-        ASSERT_NE(vendorModule, nullptr);
+        ASSERT_NE(nullptr, vendorModule.get());
 
         // First try the binderized service name provided by the vendor module.
         // If that fails, which it can on non-binderized devices, try the default
@@ -124,14 +123,14 @@ class DrmHalVendorFactoryTest : public testing::TestWithParam<std::string> {
         if (drmFactory == nullptr) {
             drmFactory = VtsTestBase::getService<IDrmFactory>();
         }
-        ASSERT_NE(drmFactory, nullptr);
+        ASSERT_NE(nullptr, drmFactory.get());
 
         // Do the same for the crypto factory
         cryptoFactory = VtsTestBase::getService<ICryptoFactory>(name);
         if (cryptoFactory == nullptr) {
             cryptoFactory = VtsTestBase::getService<ICryptoFactory>();
         }
-        ASSERT_NE(cryptoFactory, nullptr);
+        ASSERT_NE(nullptr, cryptoFactory.get());
 
         // If drm scheme not installed skip subsequent tests
         if (!drmFactory->isCryptoSchemeSupported(getVendorUUID())) {
@@ -240,7 +239,7 @@ TEST_P(DrmHalVendorFactoryTest, CreateVendorDrmPlugin) {
             getVendorUUID(), packageName,
             [&](Status status, const sp<IDrmPlugin>& plugin) {
                 EXPECT_EQ(Status::OK, status);
-                EXPECT_NE(plugin, nullptr);
+                EXPECT_NE(nullptr, plugin.get());
             });
     EXPECT_OK(res);
 }
@@ -255,7 +254,7 @@ TEST_P(DrmHalVendorFactoryTest, CreateVendorCryptoPlugin) {
             getVendorUUID(), initVec,
             [&](Status status, const sp<ICryptoPlugin>& plugin) {
                 EXPECT_EQ(Status::OK, status);
-                EXPECT_NE(plugin, nullptr);
+                EXPECT_NE(nullptr, plugin.get());
             });
     EXPECT_OK(res);
 }
@@ -270,7 +269,7 @@ TEST_P(DrmHalVendorFactoryTest, CreateInvalidDrmPlugin) {
             kInvalidUUID, packageName,
             [&](Status status, const sp<IDrmPlugin>& plugin) {
                 EXPECT_EQ(Status::ERROR_DRM_CANNOT_HANDLE, status);
-                EXPECT_EQ(plugin, nullptr);
+                EXPECT_EQ(nullptr, plugin.get());
             });
     EXPECT_OK(res);
 }
@@ -285,7 +284,7 @@ TEST_P(DrmHalVendorFactoryTest, CreateInvalidCryptoPlugin) {
             kInvalidUUID, initVec,
             [&](Status status, const sp<ICryptoPlugin>& plugin) {
                 EXPECT_EQ(Status::ERROR_DRM_CANNOT_HANDLE, status);
-                EXPECT_EQ(plugin, nullptr);
+                EXPECT_EQ(nullptr, plugin.get());
             });
     EXPECT_OK(res);
 }
@@ -303,7 +302,7 @@ class DrmHalVendorPluginTest : public DrmHalVendorFactoryTest {
                 getVendorUUID(), packageName,
                 [this](Status status, const sp<IDrmPlugin>& plugin) {
                     EXPECT_EQ(Status::OK, status);
-                    ASSERT_NE(plugin, nullptr);
+                    ASSERT_NE(nullptr, plugin.get());
                     drmPlugin = plugin;
                 });
         ASSERT_OK(res);
@@ -313,7 +312,7 @@ class DrmHalVendorPluginTest : public DrmHalVendorFactoryTest {
                 getVendorUUID(), initVec,
                 [this](Status status, const sp<ICryptoPlugin>& plugin) {
                     EXPECT_EQ(Status::OK, status);
-                    ASSERT_NE(plugin, nullptr);
+                    ASSERT_NE(nullptr, plugin.get());
                     cryptoPlugin = plugin;
                 });
         ASSERT_OK(res);
@@ -1186,7 +1185,7 @@ TEST_P(DrmHalVendorPluginTest, NotifyResolution) {
 sp<IMemory> DrmHalVendorPluginTest::getDecryptMemory(size_t size,
                                                      size_t index) {
     sp<IAllocator> ashmemAllocator = IAllocator::getService("ashmem");
-    EXPECT_NE(ashmemAllocator, nullptr);
+    EXPECT_NE(nullptr, ashmemAllocator.get());
 
     hidl_memory hidlMemory;
     auto res = ashmemAllocator->allocate(
@@ -1199,7 +1198,7 @@ sp<IMemory> DrmHalVendorPluginTest::getDecryptMemory(size_t size,
     EXPECT_OK(res);
 
     sp<IMemory> mappedMemory = mapMemory(hidlMemory);
-    EXPECT_NE(mappedMemory, nullptr);
+    EXPECT_NE(nullptr, mappedMemory.get());
     res = cryptoPlugin->setSharedBufferBase(hidlMemory, index);
     EXPECT_OK(res);
     return mappedMemory;
@@ -1407,8 +1406,6 @@ void DrmHalVendorDecryptTest::aes_cbc_decrypt(uint8_t* dest, uint8_t* src,
     AES_set_encrypt_key(&key[0], 128, &decryptionKey);
 
     size_t offset = 0;
-    size_t num = 0;
-    size_t ecount_buf = 0;
     for (size_t i = 0; i < subSamples.size(); i++) {
         const SubSample& subSample = subSamples[i];
 
@@ -1598,9 +1595,8 @@ int main(int argc, char** argv) {
 #endif
     gVendorModules = new drm_vts::VendorModules(kModulePath);
     if (gVendorModules->getPathList().size() == 0) {
-        std::cerr << "No vendor modules found in " << kModulePath <<
-                ", exiting" << std::endl;
-        exit(-1);
+        std::cerr << "WARNING: No vendor modules found in " << kModulePath <<
+                ", all vendor tests will be skipped" << std::endl;
     }
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

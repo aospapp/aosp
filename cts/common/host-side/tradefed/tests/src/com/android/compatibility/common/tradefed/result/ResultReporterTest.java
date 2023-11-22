@@ -408,6 +408,40 @@ public class ResultReporterTest extends TestCase {
                 result1.getResultStatus());
     }
 
+    public void testResultReporting_moduleNotDone_noTests() throws Exception {
+        mReporter.invocationStarted(mContext);
+        mReporter.testRunStarted(ID, 0);
+        mReporter.testRunFailed("error"); // test run failure should prevent marking module "done"
+        mReporter.testRunEnded(10, new HashMap<String, String>());
+        mReporter.invocationEnded(10);
+        IInvocationResult result = mReporter.getResult();
+        assertEquals("Expected 0 pass", 0, result.countResults(TestStatus.PASS));
+        assertEquals("Expected 0 failures", 0, result.countResults(TestStatus.FAIL));
+        List<IModuleResult> modules = result.getModules();
+        assertEquals("Expected 1 module", 1, modules.size());
+        IModuleResult module = modules.get(0);
+        assertEquals("Incorrect ID", ID, module.getId());
+        // Ensure module is reported as not done
+        assertFalse(module.isDone());
+    }
+
+    public void testResultReporting_moduleDone_noTests() throws Exception {
+        mReporter.invocationStarted(mContext);
+        mReporter.testRunStarted(ID, 0);
+        // Lack of test run failure should allow module to be marked "done"
+        mReporter.testRunEnded(10, new HashMap<String, String>());
+        mReporter.invocationEnded(10);
+        IInvocationResult result = mReporter.getResult();
+        assertEquals("Expected 0 pass", 0, result.countResults(TestStatus.PASS));
+        assertEquals("Expected 0 failures", 0, result.countResults(TestStatus.FAIL));
+        List<IModuleResult> modules = result.getModules();
+        assertEquals("Expected 1 module", 1, modules.size());
+        IModuleResult module = modules.get(0);
+        assertEquals("Incorrect ID", ID, module.getId());
+        // Ensure module is reported as done
+        assertTrue(module.isDone());
+    }
+
     public void testCopyFormattingFiles() throws Exception {
         File resultDir = new File(mBuildHelper.getResultsDir(), RESULT_DIR);
         resultDir.mkdirs();

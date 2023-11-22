@@ -342,6 +342,24 @@ public class FileUtilFuncTest extends TestCase {
         }
     }
 
+    /** Test that {@link FileUtil#recursiveSimlink(File, File)} properly simlink files. */
+    public void testRecursiveSimlink() throws IOException {
+        File dir1 = null;
+        File dest = null;
+        try {
+            dir1 = FileUtil.createTempDir("orig-dir");
+            File subdir1 = FileUtil.createTempDir("sub-dir", dir1);
+            File testFile = FileUtil.createTempFile("test", "file", subdir1);
+            dest = FileUtil.createTempDir("dest-dir");
+            FileUtil.recursiveSimlink(dir1, dest);
+            // check that file is in dest dir
+            assertNotNull(FileUtil.findFile(dest, testFile.getName()));
+        } finally {
+            FileUtil.recursiveDelete(dir1);
+            FileUtil.recursiveDelete(dest);
+        }
+    }
+
     // Assertions
     private String assertUnixPerms(File file, String expPerms) {
         String perms = ls(file.getPath());
@@ -352,7 +370,8 @@ public class FileUtilFuncTest extends TestCase {
 
     // Helpers
     private String ls(String path) {
-        CommandResult result = RunUtil.getDefault().runTimedCmd(10 * 1000, "ls", "-ld", path);
+        CommandResult result =
+                RunUtil.getDefault().runTimedCmdRetry(10 * 1000, 0, 3, "ls", "-ld", path);
         return result.getStdout();
     }
 

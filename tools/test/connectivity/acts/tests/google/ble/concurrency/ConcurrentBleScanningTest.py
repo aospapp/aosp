@@ -24,14 +24,14 @@ import time
 from queue import Empty
 from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
-from acts.test_utils.bt.BleEnum import AdvertiseSettingsAdvertiseMode
-from acts.test_utils.bt.BleEnum import ScanSettingsCallbackType
-from acts.test_utils.bt.BleEnum import ScanSettingsScanMode
-from acts.test_utils.bt.bt_test_utils import adv_succ
+from acts.test_utils.bt.bt_constants import ble_advertise_settings_modes
+from acts.test_utils.bt.bt_constants import ble_scan_settings_callback_types
+from acts.test_utils.bt.bt_constants import ble_scan_settings_modes
+from acts.test_utils.bt.bt_constants import adv_succ
 from acts.test_utils.bt.bt_test_utils import generate_ble_advertise_objects
 from acts.test_utils.bt.bt_test_utils import reset_bluetooth
 from acts.test_utils.bt.bt_test_utils import scan_failed
-from acts.test_utils.bt.bt_test_utils import scan_result
+from acts.test_utils.bt.bt_constants import scan_result
 from acts.test_utils.bt.bt_test_utils import take_btsnoop_logs
 
 
@@ -83,11 +83,11 @@ class ConcurrentBleScanningTest(BluetoothBaseTest):
         test_result = True
         self.adv_ad.droid.bleSetAdvertiseDataIncludeDeviceName(True)
         self.scn_ad.droid.bleSetScanSettingsCallbackType(
-            ScanSettingsCallbackType.CALLBACK_TYPE_ALL_MATCHES.value)
-        self.scn_ad.droid.bleSetScanSettingsScanMode(
-            ScanSettingsScanMode.SCAN_MODE_LOW_LATENCY.value)
+            ble_scan_settings_callback_types['all_matches'])
+        self.scn_ad.droid.bleSetScanSettingsScanMode(ble_scan_settings_modes[
+            'low_latency'])
         self.adv_ad.droid.bleSetAdvertiseSettingsAdvertiseMode(
-            AdvertiseSettingsAdvertiseMode.ADVERTISE_MODE_LOW_LATENCY.value)
+            ble_advertise_settings_modes['low_latency'])
         advertise_callback, advertise_data, advertise_settings = (
             generate_ble_advertise_objects(self.adv_ad.droid))
         self.adv_ad.droid.bleSetAdvertiseSettingsIsConnectable(False)
@@ -169,11 +169,11 @@ class ConcurrentBleScanningTest(BluetoothBaseTest):
         """
         self.adv_ad.droid.bleSetAdvertiseDataIncludeDeviceName(True)
         self.scn_ad.droid.bleSetScanSettingsCallbackType(
-            ScanSettingsCallbackType.CALLBACK_TYPE_ALL_MATCHES.value)
-        self.scn_ad.droid.bleSetScanSettingsScanMode(
-            ScanSettingsScanMode.SCAN_MODE_LOW_LATENCY.value)
+            ble_scan_settings_callback_types['all_matches'])
+        self.scn_ad.droid.bleSetScanSettingsScanMode(ble_scan_settings_modes[
+            'low_latency'])
         self.adv_ad.droid.bleSetAdvertiseSettingsAdvertiseMode(
-            AdvertiseSettingsAdvertiseMode.ADVERTISE_MODE_LOW_LATENCY.value)
+            ble_advertise_settings_modes['low_latency'])
         advertise_callback, advertise_data, advertise_settings = (
             generate_ble_advertise_objects(self.adv_ad.droid))
         filter_list = self.scn_ad.droid.bleGenFilterList()
@@ -245,9 +245,9 @@ class ConcurrentBleScanningTest(BluetoothBaseTest):
         """
         test_result = True
         self.scn_ad.droid.bleSetScanSettingsCallbackType(
-            ScanSettingsCallbackType.CALLBACK_TYPE_ALL_MATCHES.value)
-        self.scn_ad.droid.bleSetScanSettingsScanMode(
-            ScanSettingsScanMode.SCAN_MODE_LOW_LATENCY.value)
+            ble_scan_settings_callback_types['all_matches'])
+        self.scn_ad.droid.bleSetScanSettingsScanMode(ble_scan_settings_modes[
+            'low_latency'])
         filter_list = self.scn_ad.droid.bleGenFilterList()
         self.scn_ad.droid.bleBuildScanFilter(filter_list)
         scan_settings = self.scn_ad.droid.bleBuildScanSetting()
@@ -305,11 +305,11 @@ class ConcurrentBleScanningTest(BluetoothBaseTest):
         """
         self.adv_ad.droid.bleSetAdvertiseDataIncludeDeviceName(True)
         self.scn_ad.droid.bleSetScanSettingsCallbackType(
-            ScanSettingsCallbackType.CALLBACK_TYPE_ALL_MATCHES.value)
-        self.scn_ad.droid.bleSetScanSettingsScanMode(
-            ScanSettingsScanMode.SCAN_MODE_LOW_LATENCY.value)
+            ble_scan_settings_callback_types['all_matches'])
+        self.scn_ad.droid.bleSetScanSettingsScanMode(ble_scan_settings_modes[
+            'low_latency'])
         self.adv_ad.droid.bleSetAdvertiseSettingsAdvertiseMode(
-            AdvertiseSettingsAdvertiseMode.ADVERTISE_MODE_LOW_LATENCY.value)
+            ble_advertise_settings_modes['low_latency'])
         advertise_callback, advertise_data, advertise_settings = (
             generate_ble_advertise_objects(self.adv_ad.droid))
         filter_list = self.scn_ad.droid.bleGenFilterList()

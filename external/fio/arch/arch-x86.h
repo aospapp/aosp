@@ -12,22 +12,7 @@ static inline void do_cpuid(unsigned int *eax, unsigned int *ebx,
 
 #include "arch-x86-common.h"
 
-#define FIO_ARCH	(arch_i386)
-
-#ifndef __NR_ioprio_set
-#define __NR_ioprio_set		289
-#define __NR_ioprio_get		290
-#endif
-
-#ifndef __NR_fadvise64
-#define __NR_fadvise64		250
-#endif
-
-#ifndef __NR_sys_splice
-#define __NR_sys_splice		313
-#define __NR_sys_tee		315
-#define __NR_sys_vmsplice	316
-#endif
+#define FIO_ARCH	(arch_x86)
 
 #define	FIO_HUGE_PAGE		4194304
 

@@ -30,29 +30,8 @@
     <option name="compatibility:exclude-filter" value="CtsAccessibilityServiceTestCases android.accessibilityservice.cts.AccessibilityTextTraversalTest#testActionNextAndPreviousAtGranularityPageOverText" />
     <option name="compatibility:exclude-filter" value="CtsAccessibilityServiceTestCases android.accessibilityservice.cts.AccessibilityTextTraversalTest#testActionNextAndPreviousAtGranularityPageOverTextExtend" />
 
-    <!-- b/17993121 -->
-    <option name="compatibility:exclude-filter" value="CtsAppWidgetTestCases android.appwidget.cts.AppWidgetTest#testAppWidgetProviderCallbacks" />
-    <option name="compatibility:exclude-filter" value="CtsAppWidgetTestCases android.appwidget.cts.AppWidgetTest#testBindAppWidget" />
-    <option name="compatibility:exclude-filter" value="CtsAppWidgetTestCases android.appwidget.cts.AppWidgetTest#testCollectionWidgets" />
-    <option name="compatibility:exclude-filter" value="CtsAppWidgetTestCases android.appwidget.cts.AppWidgetTest#testDeleteHost" />
-    <option name="compatibility:exclude-filter" value="CtsAppWidgetTestCases android.appwidget.cts.AppWidgetTest#testDeleteHosts" />
-    <option name="compatibility:exclude-filter" value="CtsAppWidgetTestCases android.appwidget.cts.AppWidgetTest#testGetAppWidgetIds" />
-    <option name="compatibility:exclude-filter" value="CtsAppWidgetTestCases android.appwidget.cts.AppWidgetTest#testGetAppWidgetInfo" />
-    <option name="compatibility:exclude-filter" value="CtsAppWidgetTestCases android.appwidget.cts.AppWidgetTest#testGetAppWidgetOptions" />
-    <option name="compatibility:exclude-filter" value="CtsAppWidgetTestCases android.appwidget.cts.AppWidgetTest#testPartiallyUpdateAppWidgetViaWidgetId" />
-    <option name="compatibility:exclude-filter" value="CtsAppWidgetTestCases android.appwidget.cts.AppWidgetTest#testPartiallyUpdateAppWidgetViaWidgetIds" />
-    <option name="compatibility:exclude-filter" value="CtsAppWidgetTestCases android.appwidget.cts.AppWidgetTest#testTwoAppWidgetProviderCallbacks" />
-    <option name="compatibility:exclude-filter" value="CtsAppWidgetTestCases android.appwidget.cts.AppWidgetTest#testUpdateAppWidgetViaComponentName" />
-    <option name="compatibility:exclude-filter" value="CtsAppWidgetTestCases android.appwidget.cts.AppWidgetTest#testUpdateAppWidgetViaWidgetId" />
-    <option name="compatibility:exclude-filter" value="CtsAppWidgetTestCases android.appwidget.cts.AppWidgetTest#testUpdateAppWidgetViaWidgetIds" />
-
-    <!-- b/17530117 -->
-    <option name="compatibility:exclude-filter" value="CtsCameraTestCases android.hardware.camera2.cts.AllocationTest#testBlackWhite" />
-    <option name="compatibility:exclude-filter" value="CtsCameraTestCases android.hardware.camera2.cts.AllocationTest#testParamSensitivity" />
     <!-- b/17989532 -->
     <option name="compatibility:exclude-filter" value="CtsCameraTestCases android.hardware.camera2.cts.SurfaceViewPreviewTest#testPreparePerformance" />
-    <!-- b/23008511 -->
-    <option name="compatibility:exclude-filter" value="CtsCameraTestCases android.hardware.cts.CameraTest#testPreviewFpsRange" />
 
     <!-- These test cases are only applicable to Android Auto Embedded targets.-->
     <option name="compatibility:exclude-filter" value="CtsCarTestCases" />
@@ -87,26 +66,14 @@
     <option name="compatibility:exclude-filter" value="CtsJdwp org.apache.harmony.jpda.tests.jdwp.VirtualMachine.HoldEventsTest#testHoldEvents001" />
     <option name="compatibility:exclude-filter" value="CtsJdwp org.apache.harmony.jpda.tests.jdwp.VirtualMachine.ReleaseEventsTest#testReleaseEvents001" />
 
-    <!-- b/18117279 b/21262226 b/23144425 -->
+    <!-- b/21262226 -->
     <option name="compatibility:exclude-filter" value="CtsJobSchedulerTestCases android.jobscheduler.cts.ConnectivityConstraintTest#testConnectivityConstraintExecutes_withMobile" />
-    <option name="compatibility:exclude-filter" value="CtsJobSchedulerTestCases android.jobscheduler.cts.ConnectivityConstraintTest#testConnectivityConstraintExecutes_withWifi" />
-    <option name="compatibility:exclude-filter" value="CtsJobSchedulerTestCases android.jobscheduler.cts.ConnectivityConstraintTest#testUnmeteredConstraintExecutes_withWifi" />
     <option name="compatibility:exclude-filter" value="CtsJobSchedulerTestCases android.jobscheduler.cts.ConnectivityConstraintTest#testUnmeteredConstraintFails_withMobile" />
-    <option name="compatibility:exclude-filter" value="CtsJobSchedulerTestCases android.jobscheduler.cts.TimingConstraintsTest#testJobParameters_unexpiredDeadline" />
 
     <!-- b/62616944 -->
     <option name="compatibility:exclude-filter" value="CtsLibcoreJavaUtilCollectionsTestCases" />
 
-    <!-- b/17144778 -->
-    <option name="compatibility:exclude-filter" value="CtsMediaTestCases android.media.cts.ImageReaderDecoderTest#testHwAVCDecode360pForFlexibleYuv" />
-    <!-- b/23827982 -->
-    <option name="compatibility:exclude-filter" value="CtsMediaTestCases android.media.cts.VideoEncoderTest#testGoogH264FlexArbitraryW" />
-    <option name="compatibility:exclude-filter" value="CtsMediaTestCases android.media.cts.VideoEncoderTest#testGoogH264SurfArbitraryW" />
-
-    <!-- b/25651805 -->
-    <option name="compatibility:exclude-filter" value="CtsNetTestCases android.net.cts.ConnectivityManagerTest#testRestrictedNetworks" />
     <!-- b/18682315 -->
-    <option name="compatibility:exclude-filter" value="CtsNetTestCases android.net.cts.SSLCertificateSocketFactoryTest#testCreateSocket" />
     <option name="compatibility:exclude-filter" value="CtsNetTestCases android.net.cts.SSLCertificateSocketFactoryTest#test_createSocket_bind" />
     <option name="compatibility:exclude-filter" value="CtsNetTestCases android.net.cts.SSLCertificateSocketFactoryTest#test_createSocket_simple" />
     <option name="compatibility:exclude-filter" value="CtsNetTestCases android.net.cts.SSLCertificateSocketFactoryTest#test_createSocket_wrapping" />
@@ -114,15 +81,6 @@
     <!-- b/17394321 -->
     <option name="compatibility:exclude-filter" value="CtsOpenGlPerfTestCases android.openglperf.cts.GlAppSwitchTest#testGlActivitySwitchingFast" />
     <option name="compatibility:exclude-filter" value="CtsOpenGlPerfTestCases android.openglperf.cts.GlAppSwitchTest#testGlActivitySwitchingSlow" />
-
-    <!-- b/18091590 -->
-    <option name="compatibility:exclude-filter" value="CtsOpenGlPerfTestCases android.openglperf.cts.GlVboPerfTest#testVboWithVaryingIndexBufferNumbers" />
-
-    <!-- b/23192492 -->
-    <option name="compatibility:exclude-filter" value="CtsPermission2TestCases android.permission2.cts.ProtectedBroadcastsTest#testSendProtectedBroadcasts" />
-
-    <option name="compatibility:exclude-filter" value="CtsSampleDeviceTestCases" />
-    <option name="compatibility:exclude-filter" value="CtsSampleHostTestCases" />
 
     <!-- b/18461670 -->
     <option name="compatibility:exclude-filter" value="CtsSecurityTestCases android.security.cts.AudioPolicyBinderTest#test_getStreamVolumeLeak" />
@@ -143,21 +101,8 @@
     <option name="compatibility:exclude-filter" value="x86_64 CtsRenderscriptLegacyTestCases" />
     <option name="compatibility:exclude-filter" value="mips64 CtsRenderscriptLegacyTestCases" />
 
-    <!-- b/23604254 -->
-    <option name="compatibility:exclude-filter" value="CtsTelecomTestCases android.telecom.cts.ExtendedInCallServiceTest#testAddNewOutgoingCallAndThenDisconnect" />
-    <option name="compatibility:exclude-filter" value="CtsTelecomTestCases android.telecom.cts.RemoteConferenceTest#testRemoteConferenceCallbacks_ConferenceableConnections" />
-
-    <!-- b/23779020 -->
-    <option name="compatibility:exclude-filter" value="CtsTransitionTestCases android.transition.cts.ChangeScrollTest#testChangeScroll" />
-
     <!-- b/17536113 -->
     <option name="compatibility:exclude-filter" value="CtsUsageStatsTestCases android.app.usage.cts.UsageStatsTest#testNoAccessSilentlyFails" />
-    <option name="compatibility:exclude-filter" value="CtsUsageStatsTestCases android.app.usage.cts.UsageStatsTest#testOrderedActivityLaunchSequenceInEventLog" />
-    <option name="compatibility:exclude-filter" value="CtsUsageStatsTestCases android.app.usage.cts.UsageStatsTest#testPackageUsageStatsIntervals" />
-    <option name="compatibility:exclude-filter" value="CtsUsageStatsTestCases android.app.usage.cts.UsageStatsTest#testUsageEventsParceling" />
-
-    <!-- b/23238984 -->
-    <option name="compatibility:exclude-filter" value="CtsVoiceSettingsTestCases android.voicesettings.cts.ZenModeTest#testAll" />
 
     <!-- b/26235244 -->
     <option name="compatibility:exclude-filter" value="android.util.cts.EventLogTest#testWriteEventWithOversizeValue" />
@@ -165,17 +110,16 @@
     <!-- b/31803630 -->
     <option name="compatibility:exclude-filter" value="CtsSecurityTestCases android.security.cts.ListeningPortsTest" />
 
+    <!-- b/63115400 -->
+    <option name="compatibility:exclude-filter" value="CtsSecurityHostTestCases android.security.cts.SELinuxHostTest#testAospFileContexts" />
+    <!-- b/64221494 -->
+    <option name="compatibility:exclude-filter" value="CtsSecurityHostTestCases android.security.cts.SELinuxHostTest#testAospPropertyContexts" />
+
+    <!-- b/63378294 b/64382381 -->
+    <option name="compatibility:exclude-filter" value="CtsSecurityHostTestCases android.security.cts.SELinuxNeverallowRulesTest#testNeverallowRules440" />
+
     <!-- b/36686383 -->
     <option name="compatibility:exclude-filter" value="CtsIncidentHostTestCases com.android.server.cts.ErrorsTest#testANR" />
-
-    <!-- b/33090965 -->
-    <option name="compatibility:exclude-filter" value="CtsVideoTestCases android.video.cts.VideoEncoderDecoderTest#testVp9Goog0Perf0320x0180" />
-    <option name="compatibility:exclude-filter" value="CtsVideoTestCases android.video.cts.VideoEncoderDecoderTest#testVp9Goog0Perf0640x0360" />
-    <option name="compatibility:exclude-filter" value="CtsVideoTestCases android.video.cts.VideoEncoderDecoderTest#testVp9Goog0Perf1280x0720" />
-    <option name="compatibility:exclude-filter" value="CtsVideoTestCases android.video.cts.VideoEncoderDecoderTest#testVp9Goog0Perf1920x1080" />
-
-    <!-- b/37545399 -->
-    <option name="compatibility:exclude-filter" value="CtsSystemUiTestCases android.systemui.cts.LightBarTests#testLightNavigationBar" />
 
     <!-- b/37482372 -->
     <option name="compatibility:exclude-filter" value="CtsPreference2TestCases android.preference2.cts.PreferenceActivityFlowPortraitTest#multiWindowHistoryPreservePortraitTest" />
@@ -184,6 +128,9 @@
     <option name="compatibility:exclude-filter" value="CtsPreference2TestCases android.preference2.cts.PreferenceActivityFlowPortraitTest#multiWindowInnerFragmentInOutPortraitTest" />
     <option name="compatibility:exclude-filter" value="CtsPreference2TestCases android.preference2.cts.PreferenceActivityFlowPortraitTest#startWithFragmentAndInitTitleMultiWindowPortraitTest" />
     <option name="compatibility:exclude-filter" value="CtsPreference2TestCases android.preference2.cts.PreferenceActivityFlowPortraitTest#startWithFragmentNoHeadersMultiWindowPortraitTest" />
+
+    <!-- b/63916274 -->
+    <option name="compatibility:exclude-filter" value="CtsTelecomTestCases android.telecom.cts.WiredHeadsetTest" />
 
     <!-- b/38177396 -->
     <option name="compatibility:exclude-filter" value="CtsPreference2TestCases android.preference2.cts.PreferenceActivityFlowLandscapeTest#multiWindowHistoryPreserveLandscapeTest" />
@@ -200,6 +147,8 @@
     <!-- b/62924649 -->
     <option name="compatibility:exclude-filter" value="CtsPreference2TestCases android.preference2.cts.PreferenceActivityLegacyFlowTest#legacyActivityMultiWindowTest" />
     <option name="compatibility:exclude-filter" value="CtsPreference2TestCases android.preference2.cts.PreferenceActivityLegacyFlowTest#legacyActivityMultiWindowToggleTest" />
+    <!-- b/67738829 -->
+    <option name="compatibility:exclude-filter" value="CtsPreference2TestCases android.preference2.cts.PreferenceActivityLegacyFlowTest#legacyActivityRecreateTest" />
 
     <!-- b/38224690 -->
     <option name="compatibility:exclude-filter" value="CtsMediaTestCases android.media.cts.NativeEncoderTest" />
@@ -216,10 +165,41 @@
     <!-- b/62481870 -->
     <option name="compatibility:exclude-filter" value="CtsNativeMediaAAudioTestCases android.nativemedia.aaudio.AAudioOutputStreamCallbackTest#testPlayback" />
 
-    <!-- b/62844160 -->
-    <option name="compatibility:exclude-filter" value="CtsWidgetTestCases android.widget.cts.TextViewTest#testAutoSizeCallers_setText" />
-    <option name="compatibility:exclude-filter" value="CtsWidgetTestCases android.widget.cts.TextViewTest#testGetOffsetForPositionSingleLineLtr" />
-    <option name="compatibility:exclude-filter" value="CtsWidgetTestCases android.widget.cts.TextViewTest#testGetOffsetForPositionMultiLineLtr" />
-    <option name="compatibility:exclude-filter" value="CtsWidgetTestCases android.widget.cts.TextViewTest#testGetOffsetForPositionMultiLineRtl" />
+    <!-- b/62976713 -->
+    <option name="compatibility:exclude-filter" value="arm64-v8a CtsMediaBitstreamsTestCases" />
+    <option name="compatibility:exclude-filter" value="x86_64 CtsMediaBitstreamsTestCases" />
+    <option name="compatibility:exclude-filter" value="mips64 CtsMediaBitstreamsTestCases" />
+
+    <!-- b/38420898 -->
+    <option name="compatibility:exclude-filter" value="CtsSensorTestCases android.hardware.cts.SensorDirectReportTest#testRateIndependencyAccelMultiChannel" />
+    <option name="compatibility:exclude-filter" value="CtsSensorTestCases android.hardware.cts.SensorDirectReportTest#testRateIndependencyGyroMultiChannel" />
+    <option name="compatibility:exclude-filter" value="CtsSensorTestCases android.hardware.cts.SensorDirectReportTest#testRateIndependencyMagMultiChannel" />
+    <option name="compatibility:exclude-filter" value="CtsSensorTestCases android.hardware.cts.SensorDirectReportTest#testRateIndependencyAccelMultiMode" />
+    <option name="compatibility:exclude-filter" value="CtsSensorTestCases android.hardware.cts.SensorDirectReportTest#testRateIndependencyGyroMultiMode" />
+    <option name="compatibility:exclude-filter" value="CtsSensorTestCases android.hardware.cts.SensorDirectReportTest#testRateIndependencyMagMultiMode" />
+    <option name="compatibility:exclude-filter" value="CtsSensorTestCases android.hardware.cts.SensorDirectReportTest#testRegisterMultipleChannelsUsingSameMemory" />
+    <option name="compatibility:exclude-filter" value="CtsSensorTestCases android.hardware.cts.SensorDirectReportTest#testCloseWithoutConfigStop" />
+    <option name="compatibility:exclude-filter" value="CtsSensorTestCases android.hardware.cts.SensorDirectReportTest#testRateIndependencyAccelGyroSingleChannel" />
+    <option name="compatibility:exclude-filter" value="CtsSensorTestCases android.hardware.cts.SensorDirectReportTest#testRateIndependencyAccelMagSingleChannel" />
+    <option name="compatibility:exclude-filter" value="CtsSensorTestCases android.hardware.cts.SensorDirectReportTest#testRateIndependencyGyroMagSingleChannel" />
+    <option name="compatibility:exclude-filter" value="CtsSensorTestCases android.hardware.cts.SensorDirectReportTest#testRateIndependencyAccelUncalAccelSingleChannel" />
+    <option name="compatibility:exclude-filter" value="CtsSensorTestCases android.hardware.cts.SensorDirectReportTest#testRateIndependencyGyroUncalGyroSingleChannel" />
+    <option name="compatibility:exclude-filter" value="CtsSensorTestCases android.hardware.cts.SensorDirectReportTest#testRateIndependencyMagUncalMagSingleChannel" />
+    <option name="compatibility:exclude-filter" value="CtsSensorTestCases android.hardware.cts.SensorDirectReportTest#testTimestampAccel" />
+    <option name="compatibility:exclude-filter" value="CtsSensorTestCases android.hardware.cts.SensorDirectReportTest#testTimestampGyro" />
+    <option name="compatibility:exclude-filter" value="CtsSensorTestCases android.hardware.cts.SensorDirectReportTest#testTimestampMag" />
+    <option name="compatibility:exclude-filter" value="CtsSensorTestCases android.hardware.cts.SensorDirectReportTest#testAtomicCounterAccel" />
+    <option name="compatibility:exclude-filter" value="CtsSensorTestCases android.hardware.cts.SensorDirectReportTest#testAtomicCounterGyro" />
+    <option name="compatibility:exclude-filter" value="CtsSensorTestCases android.hardware.cts.SensorDirectReportTest#testAtomicCounterMag" />
+    <option name="compatibility:exclude-filter" value="CtsSensorTestCases android.hardware.cts.SensorDirectReportTest#testRegisterMultipleChannels" />
+    <option name="compatibility:exclude-filter" value="CtsSensorTestCases android.hardware.cts.SensorDirectReportTest#testReconfigure" />
+
+    <!-- b/65843095 -->
+    <option name="compatibility:exclude-filter" value="CtsLogdTestCases logd#statistics" />
+    <option name="compatibility:exclude-filter" value="CtsLogdTestCases logd#sepolicy_rate_limiter" />
+
+    <!-- b/67377433 -->
+    <!-- fails only on angler/bullhead userdebug -->
+    <option name="compatibility:exclude-filter" value="CtsLiblogTestCases liblog#wrap_mode_blocks" />
 
 </configuration>

@@ -137,6 +137,17 @@ public class CarSensorEvent implements Parcelable {
      * Pressure in kPa.
      */
     public static final int INDEX_ENVIRONMENT_PRESSURE = 1;
+    /**
+     * Index for {@link CarSensorManager#SENSOR_TYPE_WHEEL_TICK_DISTANCE} in longValues. RESET_COUNT
+     * is incremented whenever the HAL detects that a sensor reset has occurred.  It represents to
+     * the upper layer that the WHEEL_DISTANCE values will not be contiguous with other values
+     * reported with a different RESET_COUNT.
+     */
+    public static final int INDEX_WHEEL_DISTANCE_RESET_COUNT = 0;
+    public static final int INDEX_WHEEL_DISTANCE_FRONT_LEFT = 1;
+    public static final int INDEX_WHEEL_DISTANCE_FRONT_RIGHT = 2;
+    public static final int INDEX_WHEEL_DISTANCE_REAR_RIGHT = 3;
+    public static final int INDEX_WHEEL_DISTANCE_REAR_LEFT = 4;
 
     private static final long MILLI_IN_NANOS = 1000000L;
 
@@ -144,8 +155,8 @@ public class CarSensorEvent implements Parcelable {
     public int sensorType;
 
     /**
-     * When this data was acquired in car or received from car. It is elapsed real-time of data
-     * reception from car in nanoseconds since system boot.
+     * When this data was received from car. It is elapsed real-time of data reception from car in
+     * nanoseconds since system boot.
      */
     public long timestamp;
     /**
@@ -154,6 +165,8 @@ public class CarSensorEvent implements Parcelable {
     public final float[] floatValues;
     /** array holding int type of sensor data */
     public final int[] intValues;
+    /** array holding long int type of sensor data */
+    public final long[] longValues;
 
     /** @hide */
     public CarSensorEvent(Parcel in) {
@@ -166,6 +179,9 @@ public class CarSensorEvent implements Parcelable {
         intValues = new int[len];
         in.readIntArray(intValues);
         // version 1 up to here
+        len = in.readInt();
+        longValues = new long[len];
+        in.readLongArray(longValues);
     }
 
     @Override
@@ -181,6 +197,8 @@ public class CarSensorEvent implements Parcelable {
         dest.writeFloatArray(floatValues);
         dest.writeInt(intValues.length);
         dest.writeIntArray(intValues);
+        dest.writeInt(longValues.length);
+        dest.writeLongArray(longValues);
     }
 
     public static final Parcelable.Creator<CarSensorEvent> CREATOR
@@ -195,19 +213,23 @@ public class CarSensorEvent implements Parcelable {
     };
 
     /** @hide */
-    public CarSensorEvent(int sensorType, long timestamp, int floatValueSize, int intValueSize) {
+    public CarSensorEvent(int sensorType, long timestamp, int floatValueSize, int intValueSize,
+                          int longValueSize) {
         this.sensorType = sensorType;
         this.timestamp = timestamp;
         floatValues = new float[floatValueSize];
         intValues = new int[intValueSize];
+        longValues = new long[longValueSize];
     }
 
     /** @hide */
-    CarSensorEvent(int sensorType, long timestamp, float[] floatValues, int[] intValues) {
+    CarSensorEvent(int sensorType, long timestamp, float[] floatValues, int[] intValues,
+                   long[] longValues) {
         this.sensorType = sensorType;
         this.timestamp = timestamp;
         this.floatValues = floatValues;
         this.intValues = intValues;
+        this.longValues = longValues;
     }
 
     private void checkType(int type) {
@@ -493,6 +515,100 @@ public class CarSensorEvent implements Parcelable {
     }
 
     /** @hide */
+    public static class CarWheelTickDistanceData {
+        public long timestamp;
+        public long sensorResetCount;
+        public long frontLeftWheelDistanceMm;
+        public long frontRightWheelDistanceMm;
+        public long rearRightWheelDistanceMm;
+        public long rearLeftWheelDistanceMm;
+
+        /** @hide */
+        private CarWheelTickDistanceData() {};
+    }
+
+    /**
+     * Convenience method for obtaining a {@link CarWheelTickDistanceData} object from a
+     * CarSensorEvent object with type {@link CarSensorManager#SENSOR_TYPE_WHEEL_TICK_DISTANCE}.
+     *
+     * @param data an optional output parameter which, if non-null, will be used by this method
+     *     instead of a newly created object.
+     * @return CarWheelTickDistanceData object corresponding to data contained in the CarSensorEvent
+     * @hide
+     */
+    public CarWheelTickDistanceData getCarWheelTickDistanceData(CarWheelTickDistanceData data) {
+        checkType(CarSensorManager.SENSOR_TYPE_WHEEL_TICK_DISTANCE);
+        if (data == null) {
+            data = new CarWheelTickDistanceData();
+        }
+        data.timestamp = timestamp;
+        data.sensorResetCount = longValues[INDEX_WHEEL_DISTANCE_RESET_COUNT];
+        data.frontLeftWheelDistanceMm = longValues[INDEX_WHEEL_DISTANCE_FRONT_LEFT];
+        data.frontRightWheelDistanceMm = longValues[INDEX_WHEEL_DISTANCE_FRONT_RIGHT];
+        data.rearRightWheelDistanceMm = longValues[INDEX_WHEEL_DISTANCE_REAR_RIGHT];
+        data.rearLeftWheelDistanceMm = longValues[INDEX_WHEEL_DISTANCE_REAR_LEFT];
+        return data;
+    }
+
+    /** @hide */
+    public static class CarAbsActiveData {
+        public long timestamp;
+        public boolean absIsActive;
+
+        /** @hide */
+        private CarAbsActiveData() {};
+    }
+
+    /**
+     * Convenience method for obtaining a {@link CarAbsActiveData} object from a CarSensorEvent
+     * object with type {@link CarSensorManager#SENSOR_TYPE_ABS_ACTIVE}.
+     *
+     * @param data an optional output parameter which, if non-null, will be used by this method
+     *     instead of a newly created object.
+     * @return a CarAbsActiveData object corresponding to data contained in the CarSensorEvent.
+     * @hide
+     */
+    public CarAbsActiveData getCarAbsActiveData(CarAbsActiveData data) {
+        checkType(CarSensorManager.SENSOR_TYPE_ABS_ACTIVE);
+        if (data == null) {
+            data = new CarAbsActiveData();
+        }
+        data.timestamp = timestamp;
+        data.absIsActive = intValues[0] == 1;
+        return data;
+    }
+
+    /** @hide */
+    public static class CarTractionControlActiveData {
+        public long timestamp;
+        public boolean tractionControlIsActive;
+
+        /** @hide */
+        private CarTractionControlActiveData() {};
+    }
+
+    /**
+     * Convenience method for obtaining a {@link CarTractionControlActiveData} object from a
+     * CarSensorEvent object with type {@link CarSensorManager#SENSOR_TYPE_TRACTION_CONTROL_ACTIVE}.
+     *
+     * @param data an optional output parameter which, if non-null, will be used by this method
+     *     instead of a newly created object.
+     * @return a CarTractionControlActiveData object corresponding to data contained in the
+     *     CarSensorEvent.
+     * @hide
+     */
+    public CarTractionControlActiveData getCarTractionControlActiveData(
+            CarTractionControlActiveData data) {
+        checkType(CarSensorManager.SENSOR_TYPE_TRACTION_CONTROL_ACTIVE);
+        if (data == null) {
+            data = new CarTractionControlActiveData();
+        }
+        data.timestamp = timestamp;
+        data.tractionControlIsActive = intValues[0] == 1;
+        return data;
+    }
+
+    /** @hide */
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
@@ -507,6 +623,12 @@ public class CarSensorEvent implements Parcelable {
         if (intValues != null && intValues.length > 0) {
             sb.append(" int values:");
             for (int v: intValues) {
+                sb.append(" " + v);
+            }
+        }
+        if (longValues != null && longValues.length > 0) {
+            sb.append(" long values:");
+            for (long v: longValues) {
                 sb.append(" " + v);
             }
         }

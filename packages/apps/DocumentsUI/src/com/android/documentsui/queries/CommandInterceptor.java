@@ -47,7 +47,9 @@ public final class CommandInterceptor implements EventHandler<String> {
 
         mCommands.add(this::quickViewer);
         mCommands.add(this::gestureScale);
+        mCommands.add(this::jobProgressDialog);
         mCommands.add(this::archiveCreation);
+        mCommands.add(this::docInspector);
         mCommands.add(this::docDetails);
         mCommands.add(this::forcePaging);
     }
@@ -58,6 +60,10 @@ public final class CommandInterceptor implements EventHandler<String> {
 
     @Override
     public boolean accept(String query) {
+        if (!mFeatures.isDebugSupportEnabled()) {
+            return false;
+        }
+
         if (!mFeatures.isCommandInterceptorEnabled()) {
             if (DEBUG) Log.v(TAG, "Skipping input, command interceptor disabled.");
             return false;
@@ -105,6 +111,19 @@ public final class CommandInterceptor implements EventHandler<String> {
         return false;
     }
 
+    private boolean jobProgressDialog(String[] tokens) {
+        if ("jpd".equals(tokens[0])) {
+            if (tokens.length == 2 && !TextUtils.isEmpty(tokens[1])) {
+                boolean enabled = asBool(tokens[1]);
+                mFeatures.forceFeature(R.bool.feature_job_progress_dialog, enabled);
+                Log.i(TAG, "Set job progress dialog enabled to: " + enabled);
+                return true;
+            }
+            Log.w(TAG, "Invalid command structure: " + TextUtils.join(" ", tokens));
+        }
+        return false;
+    }
+
     private boolean archiveCreation(String[] tokens) {
         if ("zip".equals(tokens[0])) {
             if (tokens.length == 2 && !TextUtils.isEmpty(tokens[1])) {
@@ -118,12 +137,25 @@ public final class CommandInterceptor implements EventHandler<String> {
         return false;
     }
 
+    private boolean docInspector(String[] tokens) {
+        if ("inspect".equals(tokens[0])) {
+            if (tokens.length == 2 && !TextUtils.isEmpty(tokens[1])) {
+                boolean enabled = asBool(tokens[1]);
+                mFeatures.forceFeature(R.bool.feature_inspector, enabled);
+                Log.i(TAG, "Set doc inspector enabled to: " + enabled);
+                return true;
+            }
+            Log.w(TAG, "Invalid command structure: " + TextUtils.join(" ", tokens));
+        }
+        return false;
+    }
+
     private boolean docDetails(String[] tokens) {
         if ("docinfo".equals(tokens[0])) {
             if (tokens.length == 2 && !TextUtils.isEmpty(tokens[1])) {
                 boolean enabled = asBool(tokens[1]);
                 DebugFlags.setDocumentDetailsEnabled(enabled);
-                Log.i(TAG, "Set gesture scale enabled to: " + enabled);
+                Log.i(TAG, "Set doc details enabled to: " + enabled);
                 return true;
             }
             Log.w(TAG, "Invalid command structure: " + TextUtils.join(" ", tokens));
@@ -181,5 +213,36 @@ public final class CommandInterceptor implements EventHandler<String> {
             }
             return false;
         }
+    }
+
+    /**
+     * Wraps {@link CommandInterceptor} in a tiny decorator that adds support for
+     * enabling CommandInterceptor feature based on some magic query input.
+     *
+     * <p>It's like super meta, maaaannn.
+     */
+    public static final EventHandler<String> createDebugModeFlipper(
+            Features features,
+            Runnable debugFlipper,
+            CommandInterceptor interceptor) {
+
+        if (!features.isDebugSupportEnabled()) {
+            return interceptor;
+        }
+
+        String magicString1 = COMMAND_PREFIX + "wwssadadba";
+        String magicString2 = "up up down down left right left right b a";
+
+        return new EventHandler<String>() {
+            @Override
+            public boolean accept(String query) {
+                assert(features.isDebugSupportEnabled());
+
+                if (magicString1.equals(query) || magicString2.equals(query)) {
+                    debugFlipper.run();
+                }
+                return interceptor.accept(query);
+            }
+        };
     }
 }

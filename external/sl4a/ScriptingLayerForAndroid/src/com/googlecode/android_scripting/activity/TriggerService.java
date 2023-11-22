@@ -18,6 +18,8 @@ package com.googlecode.android_scripting.activity;
 
 import android.app.AlarmManager;
 import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
@@ -53,6 +55,7 @@ import com.googlecode.android_scripting.trigger.TriggerRepository.TriggerReposit
  *
  */
 public class TriggerService extends ForegroundService {
+  private static final String CHANNEL_ID = "trigger_service_channel";
   private static final int NOTIFICATION_ID = NotificationIdFactory.create();
   private static final long PING_MILLIS = 10 * 1000 * 60;
 
@@ -100,11 +103,24 @@ public class TriggerService extends ForegroundService {
     }
   }
 
+  protected void createNotificationChannel() {
+    NotificationManager notificationManager = getNotificationManager();
+    CharSequence name = getString(R.string.notification_channel_name);
+    String description = getString(R.string.notification_channel_description);
+    int importance = NotificationManager.IMPORTANCE_DEFAULT;
+    NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
+    channel.setDescription(description);
+    channel.enableLights(false);
+    channel.enableVibration(false);
+    notificationManager.createNotificationChannel(channel);
+  }
+
   /** Returns the notification to display whenever the service is running. */
   @Override
   protected Notification createNotification() {
+    createNotificationChannel();
     Intent notificationIntent = new Intent(this, TriggerManager.class);
-    Notification.Builder builder = new Notification.Builder(this);
+    Notification.Builder builder = new Notification.Builder(this, CHANNEL_ID);
     builder.setSmallIcon(R.drawable.sl4a_logo_48)
            .setTicker("SL4A Trigger Service started.")
            .setWhen(System.currentTimeMillis())

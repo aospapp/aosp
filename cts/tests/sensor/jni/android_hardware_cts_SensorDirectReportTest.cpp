@@ -46,8 +46,8 @@ jboolean readHardwareBuffer(JNIEnv* env, jclass,
     if (AHardwareBuffer_lock(hardwareBuffer, AHARDWAREBUFFER_USAGE_CPU_READ_RARELY,
                              fence, nullptr, &address) == 0) {
         if (address != nullptr) {
-            env->SetByteArrayRegion(
-                    buffer, destOffset, count, reinterpret_cast<const jbyte *>(address));
+            env->SetByteArrayRegion(buffer, destOffset, count,
+                                    reinterpret_cast<const jbyte *>(address) + srcOffset);
             ret = true;
         } else {
             ALOGE("AHardwareBuffer locked but address is invalid");

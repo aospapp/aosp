@@ -27,7 +27,7 @@ import java.util.Optional;
 import java.util.Set;
 
 public class Obd2LiveFrameGenerator {
-    public static final int FRAME_TYPE_LIVE = 1;
+    public static final String FRAME_TYPE_LIVE = "live";
     public static final String TAG = Obd2LiveFrameGenerator.class.getSimpleName();
 
     private final Obd2Connection mConnection;
@@ -56,6 +56,16 @@ public class Obd2LiveFrameGenerator {
                                 mFloatCommands.add(
                                         Obd2Command.getLiveFrameCommand(
                                                 Obd2Command.getFloatCommand(pid))));
+        Log.i(
+                TAG,
+                String.format(
+                        "connectionPids = %s\napiIntegerPids=%s\napiFloatPids = %s\n"
+                                + "mIntegerCommands = %s\nmFloatCommands = %s\n",
+                        connectionPids,
+                        apiIntegerPids,
+                        apiFloatPids,
+                        mIntegerCommands,
+                        mFloatCommands));
     }
 
     public JsonWriter generate(JsonWriter jsonWriter) throws IOException {

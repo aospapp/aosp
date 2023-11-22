@@ -17,7 +17,6 @@
 package com.android.managedprovisioning.common;
 
 import static android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
-
 import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.VIEW_UNKNOWN;
 
 import android.app.Activity;
@@ -29,13 +28,14 @@ import android.app.FragmentTransaction;
 import android.content.pm.ActivityInfo;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.os.SystemProperties;
 import android.support.annotation.VisibleForTesting;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
-
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.analytics.TimeLogger;
+import com.android.setupwizardlib.util.WizardManagerHelper;
 
 /**
  * Base class for setting up the layout.
@@ -57,6 +57,7 @@ public abstract class SetupLayoutActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setDefaultTheme();
         mTimeLogger = new TimeLogger(this, getMetricsCategory());
         mTimeLogger.start();
 
@@ -131,4 +132,13 @@ public abstract class SetupLayoutActivity extends Activity {
         Fragment fragment = getFragmentManager().findFragmentByTag(tag);
         return (fragment != null) && (fragment.isAdded());
     }
+
+    private void setDefaultTheme() {
+        // Take Glif light as default theme like
+        // com.google.android.setupwizard.util.ThemeHelper.getDefaultTheme
+        setTheme(WizardManagerHelper.getThemeRes(SystemProperties.get("setupwizard.theme"),
+                R.style.SuwThemeGlif_Light));
+    }
+
+
 }

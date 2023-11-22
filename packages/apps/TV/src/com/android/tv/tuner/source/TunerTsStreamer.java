@@ -18,6 +18,7 @@ package com.android.tv.tuner.source;
 
 import android.content.Context;
 import android.util.Log;
+import android.util.Pair;
 
 import com.google.android.exoplayer.C;
 import com.google.android.exoplayer.upstream.DataSpec;
@@ -30,6 +31,7 @@ import com.android.tv.tuner.tvinput.EventDetector;
 import com.android.tv.tuner.tvinput.EventDetector.EventListener;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -42,23 +44,27 @@ public class TunerTsStreamer implements TsStreamer {
     private static final int MIN_READ_UNIT = 1500;
     private static final int READ_BUFFER_SIZE = MIN_READ_UNIT * 10; // ~15KB
     private static final int CIRCULAR_BUFFER_SIZE = MIN_READ_UNIT * 20000;  // ~ 30MB
+    private static final int TS_PACKET_SIZE = 188;
 
     private static final int READ_TIMEOUT_MS = 5000; // 5 secs.
     private static final int BUFFER_UNDERRUN_SLEEP_MS = 10;
+    private static final int READ_ERROR_STREAMING_ENDED = -1;
+    private static final int READ_ERROR_BUFFER_OVERWRITTEN = -2;
 
     private final Object mCircularBufferMonitor = new Object();
     private final byte[] mCircularBuffer = new byte[CIRCULAR_BUFFER_SIZE];
     private long mBytesFetched;
     private final AtomicLong mLastReadPosition = new AtomicLong();
-    private boolean mEndOfStreamSent;
     private boolean mStreaming;
 
     private final TunerHal mTunerHal;
     private TunerChannel mChannel;
     private Thread mStreamingThread;
     private final EventDetector mEventDetector;
+    private final List<Pair<EventListener, Boolean>> mEventListenerActions = new ArrayList<>();
 
     private final TsStreamWriter mTsStreamWriter;
+    private String mChannelNumber;
 
     public static class TunerDataSource extends TsDataSource {
         private final TunerTsStreamer mTsStreamer;
@@ -103,6 +109,15 @@ public class TunerTsStreamer implements TsStreamer {
                     offset, readLength);
             if (ret > 0) {
                 mLastReadPosition.addAndGet(ret);
+            } else if (ret == READ_ERROR_BUFFER_OVERWRITTEN) {
+                long currentPosition = mStartBufferedPosition + mLastReadPosition.get();
+                long endPosition = mTsStreamer.getBufferedPosition();
+                long diff = ((endPosition - currentPosition + TS_PACKET_SIZE - 1) / TS_PACKET_SIZE)
+                        * TS_PACKET_SIZE;
+                Log.w(TAG, "Demux position jump by overwritten buffer: " + diff);
+                mStartBufferedPosition = currentPosition + diff;
+                mLastReadPosition.set(0);
+                return 0;
             }
             return ret;
         }
@@ -114,7 +129,10 @@ public class TunerTsStreamer implements TsStreamer {
      */
     public TunerTsStreamer(TunerHal tunerHal, EventListener eventListener, Context context) {
         mTunerHal = tunerHal;
-        mEventDetector = new EventDetector(mTunerHal, eventListener);
+        mEventDetector = new EventDetector(mTunerHal);
+        if (eventListener != null) {
+            mEventDetector.registerListener(eventListener);
+        }
         mTsStreamWriter = context != null && TunerPreferences.getStoreTsStream(context) ?
                 new TsStreamWriter(context) : null;
     }
@@ -125,7 +143,8 @@ public class TunerTsStreamer implements TsStreamer {
 
     @Override
     public boolean startStream(TunerChannel channel) {
-        if (mTunerHal.tune(channel.getFrequency(), channel.getModulation())) {
+        if (mTunerHal.tune(channel.getFrequency(), channel.getModulation(),
+                channel.getDisplayNumber(false))) {
             if (channel.hasVideo()) {
                 mTunerHal.addPidFilter(channel.getVideoPid(),
                         TunerHal.FILTER_TYPE_VIDEO);
@@ -148,6 +167,7 @@ public class TunerTsStreamer implements TsStreamer {
                         channel.getProgramNumber());
             }
             mChannel = channel;
+            mChannelNumber = channel.getDisplayNumber();
             synchronized (mCircularBufferMonitor) {
                 if (mStreaming) {
                     Log.w(TAG, "Streaming should be stopped before start streaming");
@@ -156,7 +176,6 @@ public class TunerTsStreamer implements TsStreamer {
                 mStreaming = true;
                 mBytesFetched = 0;
                 mLastReadPosition.set(0L);
-                mEndOfStreamSent = false;
             }
             if (mTsStreamWriter != null) {
                 mTsStreamWriter.setChannel(mChannel);
@@ -172,7 +191,7 @@ public class TunerTsStreamer implements TsStreamer {
 
     @Override
     public boolean startStream(ChannelScanFileParser.ScanChannel channel) {
-        if (mTunerHal.tune(channel.frequency, channel.modulation)) {
+        if (mTunerHal.tune(channel.frequency, channel.modulation, null)) {
             mEventDetector.startDetecting(
                     channel.frequency, channel.modulation, EventDetector.ALL_PROGRAM_NUMBERS);
             synchronized (mCircularBufferMonitor) {
@@ -183,7 +202,6 @@ public class TunerTsStreamer implements TsStreamer {
                 mStreaming = true;
                 mBytesFetched = 0;
                 mLastReadPosition.set(0L);
-                mEndOfStreamSent = false;
             }
             mStreamingThread = new StreamingThread();
             mStreamingThread.start();
@@ -258,6 +276,26 @@ public class TunerTsStreamer implements TsStreamer {
         }
     }
 
+    public String getStreamerInfo() {
+        return "Channel: " + mChannelNumber + ", Streaming: " + mStreaming;
+    }
+
+    public void registerListener(EventListener listener) {
+        if (mEventDetector != null && listener != null) {
+            synchronized (mEventListenerActions) {
+                mEventListenerActions.add(new Pair<>(listener, true));
+            }
+        }
+    }
+
+    public void unregisterListener(EventListener listener) {
+        if (mEventDetector != null) {
+            synchronized (mEventListenerActions) {
+                mEventListenerActions.add(new Pair(listener, false));
+            }
+        }
+    }
+
     private class StreamingThread extends Thread {
         @Override
         public void run() {
@@ -268,6 +306,20 @@ public class TunerTsStreamer implements TsStreamer {
                 synchronized (mCircularBufferMonitor) {
                     if (!mStreaming) {
                         break;
+                    }
+                }
+
+                if (mEventDetector != null) {
+                    synchronized (mEventListenerActions) {
+                        for (Pair listenerAction : mEventListenerActions) {
+                            EventListener listener = (EventListener) listenerAction.first;
+                            if ((boolean) listenerAction.second) {
+                                mEventDetector.registerListener(listener);
+                            } else {
+                                mEventDetector.unregisterListener(listener);
+                            }
+                        }
+                        mEventListenerActions.clear();
                     }
                 }
 
@@ -321,21 +373,14 @@ public class TunerTsStreamer implements TsStreamer {
      * @throws IOException
      */
     public int readAt(long pos, byte[] buffer, int offset, int amount) throws IOException {
-        long readStartTime = System.currentTimeMillis();
         while (true) {
             synchronized (mCircularBufferMonitor) {
-                if (mEndOfStreamSent || !mStreaming) {
-                    return -1;
+                if (!mStreaming) {
+                    return READ_ERROR_STREAMING_ENDED;
                 }
                 if (mBytesFetched - CIRCULAR_BUFFER_SIZE > pos) {
-                    Log.e(TAG, "Demux is requesting the data which is already overwritten.");
-                    return -1;
-                }
-                if (System.currentTimeMillis() - readStartTime > READ_TIMEOUT_MS) {
-                    // Nothing was received during READ_TIMEOUT_MS before.
-                    mEndOfStreamSent = true;
-                    mCircularBufferMonitor.notifyAll();
-                    return -1;
+                    Log.w(TAG, "Demux is requesting the data which is already overwritten.");
+                    return READ_ERROR_BUFFER_OVERWRITTEN;
                 }
                 if (mBytesFetched < pos + amount) {
                     try {

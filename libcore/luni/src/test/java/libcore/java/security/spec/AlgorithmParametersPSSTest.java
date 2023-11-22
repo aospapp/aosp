@@ -37,31 +37,31 @@ public class AlgorithmParametersPSSTest extends TestCase {
     // Bouncy Castle 1.52 AlgorithmParameters of type "PSS" and checked for correctness using ASN.1
     // DER decoder.
     private static final PSSParameterSpec DEFAULT_SPEC = PSSParameterSpec.DEFAULT;
-    private static final byte[] DEFAULT_SPEC_DER_ENCODED = hexDecode("3000");
+    private static final byte[] DEFAULT_SPEC_DER_ENCODED = HexEncoding.decode("3000");
 
     private static final PSSParameterSpec WEIRD_SPEC =
             new PSSParameterSpec("SHA-512", "MGF1", MGF1ParameterSpec.SHA384, 27, 3);
     private static final byte[] WEIRD_SPEC_DER_ENCODED =
-            hexDecode(
+            HexEncoding.decode(
                     "3039a00f300d06096086480165030402030500a11c301a06092a864886f70d010108300d060960"
                     + "86480165030402020500a20302011ba303020103");
 
     private static final PSSParameterSpec WEIRD2_SPEC =
             new PSSParameterSpec("SHA-224", "MGF1", MGF1ParameterSpec.SHA256, 32, 1);
     private static final byte[] WEIRD2_SPEC_DER_ENCODED =
-            hexDecode(
+            HexEncoding.decode(
                     "3034a00f300d06096086480165030402040500a11c301a06092a864886f70d010108300d060960"
                     + "86480165030402010500a203020120");
 
     /** Truncated SEQUENCE (one more byte needed at the end) */
     private static final byte[] BROKEN_SPEC1_DER_ENCODED =
-            hexDecode(
+            HexEncoding.decode(
                     "303aa00f300d06096086480165030402030500a11c301a06092a864886f70d010108300d060960"
                     + "86480165030402020500a20302011ba303020103");
 
     /** Payload of SEQUENCE extends beyond the SEQUENCE. */
     private static final byte[] BROKEN_SPEC2_DER_ENCODED =
-            hexDecode(
+            HexEncoding.decode(
                     "3037a00f300d06096086480165030402030500a11c301a06092a864886f70d010108300d060960"
                     + "86480165030402020500a20302011ba303020103");
 
@@ -205,10 +205,6 @@ public class AlgorithmParametersPSSTest extends TestCase {
                 getDigestAlgorithmCanonicalName(spec2Mgf1Params.getDigestAlgorithm()));
         assertEquals(spec1.getSaltLength(), spec2.getSaltLength());
         assertEquals(spec1.getTrailerField(), spec2.getTrailerField());
-    }
-
-    private static final byte[] hexDecode(String encoded) {
-        return HexEncoding.decode(encoded.toCharArray(), false);
     }
 
     // All the craziness with supporting OIDs is needed because Bouncy Castle, when parsing from

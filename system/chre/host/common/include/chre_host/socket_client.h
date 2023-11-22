@@ -146,7 +146,7 @@ class SocketClient {
   bool receiveThreadRunning() const;
   bool reconnect();
   void startReceiveThread();
-  bool tryConnect();
+  bool tryConnect(bool suppressErrorLogs = false);
 };
 
 }  // namespace chre

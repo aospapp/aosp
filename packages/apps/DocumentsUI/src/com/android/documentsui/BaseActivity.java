@@ -45,6 +45,7 @@ import com.android.documentsui.AbstractActionHandler.CommonAddons;
 import com.android.documentsui.Injector.Injected;
 import com.android.documentsui.NavigationViewManager.Breadcrumb;
 import com.android.documentsui.base.DocumentInfo;
+import com.android.documentsui.base.EventHandler;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.Shared;
 import com.android.documentsui.base.State;
@@ -178,9 +179,17 @@ public abstract class BaseActivity
         // We piggy back on search input as it is the only text input
         // area in the app. But the functionality is independent
         // of "regular" search query processing.
-        CommandInterceptor dbgCommands = new CommandInterceptor(mInjector.features);
-        dbgCommands.add(new CommandInterceptor.DumpRootsCacheHandler(this));
-        mSearchManager = new SearchViewManager(searchListener, dbgCommands, icicle);
+        final CommandInterceptor cmdInterceptor = new CommandInterceptor(mInjector.features);
+        cmdInterceptor.add(new CommandInterceptor.DumpRootsCacheHandler(this));
+
+        // A tiny decorator that adds support for enabling CommandInterceptor
+        // based on query input. It's sorta like CommandInterceptor, but its metaaahhh.
+        EventHandler<String> queryInterceptor =
+                CommandInterceptor.createDebugModeFlipper(
+                        mInjector.features,
+                        mInjector.debugHelper::toggleDebugMode,
+                        cmdInterceptor);
+        mSearchManager = new SearchViewManager(searchListener, queryInterceptor, icicle);
         mSortController = SortController.create(this, mState.derivedMode, mState.sortModel);
 
         mPreferencesMonitor = new PreferencesMonitor(
@@ -292,7 +301,6 @@ public abstract class BaseActivity
         }
 
         mInjector.actionModeController.finishActionMode();
-        mState.derivedMode = LocalPreferences.getViewMode(this, root, MODE_GRID);
         mSortController.onViewModeChanged(mState.derivedMode);
 
         // Set summary header's visibility. Only recents and downloads root may have summary in
@@ -325,31 +333,31 @@ public abstract class BaseActivity
                 onBackPressed();
                 return true;
 
-            case R.id.menu_create_dir:
-                showCreateDirectoryDialog();
+            case R.id.option_menu_create_dir:
+                getInjector().actions.showCreateDirectoryDialog();
                 return true;
 
-            case R.id.menu_search:
+            case R.id.option_menu_search:
                 // SearchViewManager listens for this directly.
                 return false;
 
-            case R.id.menu_grid:
+            case R.id.option_menu_grid:
                 setViewMode(State.MODE_GRID);
                 return true;
 
-            case R.id.menu_list:
+            case R.id.option_menu_list:
                 setViewMode(State.MODE_LIST);
                 return true;
 
-            case R.id.menu_advanced:
+            case R.id.option_menu_advanced:
                 onDisplayAdvancedDevices();
                 return true;
 
-            case R.id.menu_select_all:
+            case R.id.option_menu_select_all:
                 getInjector().actions.selectAllFiles();
                 return true;
 
-            case R.id.menu_debug:
+            case R.id.option_menu_debug:
                 getInjector().actions.showDebugMessage();
                 return true;
 
@@ -360,12 +368,6 @@ public abstract class BaseActivity
 
     protected final @Nullable DirectoryFragment getDirectoryFragment() {
         return DirectoryFragment.get(getFragmentManager());
-    }
-
-    protected void showCreateDirectoryDialog() {
-        Metrics.logUserAction(this, Metrics.USER_ACTION_CREATE_DIR);
-
-        CreateDirectoryFragment.show(getFragmentManager());
     }
 
     /**
@@ -387,6 +389,17 @@ public abstract class BaseActivity
         mNavigator.update();
     }
 
+    @Override
+    public void restoreRootAndDirectory() {
+        // We're trying to restore stuff in document stack from saved instance. If we didn't have a
+        // chance to spawn a fragment before we need to do it now. However if we spawned a fragment
+        // already, system will automatically restore the fragment for us so we don't need to do
+        // that manually this time.
+        if (DirectoryFragment.get(getFragmentManager()) == null) {
+            refreshCurrentRootAndDirectory(AnimationView.ANIM_NONE);
+        }
+    }
+
     /**
      * Refreshes the content of the director and the menu/action bar.
      * The current directory name and selection will get updated.
@@ -401,6 +414,8 @@ public abstract class BaseActivity
         // refreshCurrentRootAndDirectory() from being called while we're restoring the state of UI
         // from the saved state passed in onCreate().
         mSearchManager.cancelSearch();
+
+        mState.derivedMode = LocalPreferences.getViewMode(this, mState.stack.getRoot(), MODE_GRID);
 
         refreshDirectory(anim);
 
@@ -445,11 +460,6 @@ public abstract class BaseActivity
         return mState;
     }
 
-    public DragShadowBuilder getShadowBuilder() {
-        throw new UnsupportedOperationException(
-                "Drag and drop not supported, can't get shadow builder");
-    }
-
     /**
      * Set internal storage visible based on explicit user action.
      */
@@ -466,6 +476,7 @@ public abstract class BaseActivity
         mState.showAdvanced = display;
         @Nullable RootsFragment fragment = RootsFragment.get(getFragmentManager());
         if (fragment != null) {
+            // This also takes care of updating launcher shortcuts (which are roots :)
             fragment.onDisplayStateChanged();
         }
         invalidateOptionsMenu();
@@ -580,6 +591,9 @@ public abstract class BaseActivity
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
             mInjector.debugHelper.debugCheck(event.getDownTime(), event.getKeyCode());
         }
+
+        DocumentsApplication.getDragAndDropManager(this).onKeyEvent(event);
+
         return super.dispatchKeyEvent(event);
     }
 

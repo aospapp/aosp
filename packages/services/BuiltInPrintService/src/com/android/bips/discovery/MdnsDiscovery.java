@@ -28,8 +28,11 @@ import android.util.Log;
 import com.android.bips.BuiltInPrintService;
 
 import java.net.Inet4Address;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
 
 /**
  * Search the local network for devices advertising IPP print services
@@ -37,6 +40,7 @@ import java.util.Map;
 public class MdnsDiscovery extends Discovery {
     private static final String TAG = MdnsDiscovery.class.getSimpleName();
     private static final boolean DEBUG = false;
+    private static final long IPPS_DELAY = 150;
 
     // Prepend this to a UUID to create a proper URN
     private static final String PREFIX_URN_UUID = "urn:uuid:";
@@ -49,7 +53,11 @@ public class MdnsDiscovery extends Discovery {
     private static final String VALUE_PRINT_WFDS_OPT_OUT = "F";
 
     // Service name of interest
-    private static final String SERVICE_IPP = "_ipp._tcp";
+    private static final String SERVICE_IPP =  "_ipp._tcp";
+    private static final String SERVICE_IPPS = "_ipps._tcp";
+
+    private static final String SCHEME_IPP = "ipp";
+    private static final String SCHEME_IPPS = "ipps";
 
     /** Network Service Discovery Manager */
     private final NsdManager mNsdManager;
@@ -58,7 +66,10 @@ public class MdnsDiscovery extends Discovery {
     private final Handler mMainHandler;
 
     /** Handle to listener when registered */
-    private NsdServiceListener mServiceListener;
+    private NsdServiceListener mIppServiceListener;
+    private NsdServiceListener mIppsServiceListener;
+
+    private Map<Uri, IppsDelay> mIppsDelays = new HashMap<>();
 
     public MdnsDiscovery(BuiltInPrintService printService) {
         this(printService, (NsdManager) printService.getSystemService(Context.NSD_SERVICE));
@@ -102,8 +113,9 @@ public class MdnsDiscovery extends Discovery {
             return null;
         }
 
-        Uri path = Uri.parse("ipp://" + info.getHost().getHostAddress() +
-                ":" + info.getPort() + "/" + resourcePath);
+        String scheme = info.getServiceType().contains(SERVICE_IPPS) ? SCHEME_IPPS : SCHEME_IPP;
+        Uri path = Uri.parse(scheme + "://" + info.getHost().getHostAddress() + ":" + info.getPort() + "/" +
+                resourcePath);
         String location = getStringAttribute(info, ATTRIBUTE_NOTE);
 
         return new DiscoveredPrinter(uuidUri, info.getServiceName(), path, location);
@@ -123,18 +135,44 @@ public class MdnsDiscovery extends Discovery {
     @Override
     void onStart() {
         if (DEBUG) Log.d(TAG, "onStart()");
-        mServiceListener = new NsdServiceListener();
-        mNsdManager.discoverServices(SERVICE_IPP, NsdManager.PROTOCOL_DNS_SD, mServiceListener);
+        mIppServiceListener = new NsdServiceListener() {
+            @Override
+            public void onStartDiscoveryFailed(String s, int i) {
+                mIppServiceListener = null;
+            }
+        };
+
+        mNsdManager.discoverServices(SERVICE_IPP, NsdManager.PROTOCOL_DNS_SD, mIppServiceListener);
+
+        mIppsServiceListener = new NsdServiceListener() {
+            @Override
+            public void onStartDiscoveryFailed(String s, int i) {
+                mIppServiceListener = null;
+            }
+        };
+        mNsdManager.discoverServices(SERVICE_IPPS, NsdManager.PROTOCOL_DNS_SD, mIppsServiceListener);
     }
 
     @Override
     void onStop() {
         if (DEBUG) Log.d(TAG, "onStop()");
 
-        if (mServiceListener != null) {
-            mNsdManager.stopServiceDiscovery(mServiceListener);
-            mServiceListener = null;
+        NsdResolveQueue.getInstance(getPrintService()).clear();
+        for (IppsDelay ippsDelay : mIppsDelays.values()) {
+            mMainHandler.removeCallbacks(ippsDelay);
         }
+        mIppsDelays.clear();
+
+        if (mIppServiceListener != null) {
+            mNsdManager.stopServiceDiscovery(mIppServiceListener);
+            mIppServiceListener = null;
+        }
+
+        if (mIppsServiceListener != null) {
+            mNsdManager.stopServiceDiscovery(mIppsServiceListener);
+            mIppsServiceListener = null;
+        }
+
         mMainHandler.removeCallbacksAndMessages(null);
         NsdResolveQueue.getInstance(getPrintService()).clear();
     }
@@ -142,13 +180,8 @@ public class MdnsDiscovery extends Discovery {
     /**
      * Manage notifications from NsdManager
      */
-    private class NsdServiceListener implements NsdManager.DiscoveryListener,
+    private abstract class NsdServiceListener implements NsdManager.DiscoveryListener,
             NsdManager.ResolveListener {
-        @Override
-        public void onStartDiscoveryFailed(String serviceType, int errorCode) {
-            Log.w(TAG, "onStartDiscoveryFailed: " + errorCode);
-            mServiceListener = null;
-        }
 
         @Override
         public void onStopDiscoveryFailed(String s, int errorCode) {
@@ -182,6 +215,7 @@ public class MdnsDiscovery extends Discovery {
             mMainHandler.post(() -> {
                 for (DiscoveredPrinter printer : getPrinters()) {
                     if (TextUtils.equals(printer.name, info.getServiceName())) {
+                        cancelIppsDelay(printer.getUri());
                         printerLost(printer.getUri());
                         return;
                     }
@@ -201,7 +235,41 @@ public class MdnsDiscovery extends Discovery {
                 return;
             }
 
+            Uri printerUri = printer.getUri();
+            if (printer.path.getScheme().equals(SCHEME_IPPS)) {
+                DiscoveredPrinter oldPrinter = getPrinter(printerUri);
+                IppsDelay ippsDelay = mIppsDelays.get(printerUri);
+                if (oldPrinter == null && ippsDelay == null) {
+                    // This IPPS printer is not known yet so delay a short time to see if IPP arrives
+                    mIppsDelays.put(printerUri, new IppsDelay(printer));
+                }
+                return;
+            } else {
+                // IPP discovered, so cancel any outstanding IPPS delay
+                cancelIppsDelay(printerUri);
+            }
+
             mMainHandler.post(() -> printerFound(printer));
+        }
+    }
+
+    private void cancelIppsDelay(Uri printerUri) {
+        IppsDelay ippsDelay = mIppsDelays.get(printerUri);
+        mMainHandler.removeCallbacks(ippsDelay);
+        mIppsDelays.remove(printerUri);
+    }
+
+    private class IppsDelay implements Runnable {
+        final DiscoveredPrinter printer;
+
+        IppsDelay(DiscoveredPrinter printer) {
+            this.printer = printer;
+            mMainHandler.postDelayed(this, IPPS_DELAY);
+        }
+
+        @Override
+        public void run() {
+            printerFound(printer);
         }
     }
 }

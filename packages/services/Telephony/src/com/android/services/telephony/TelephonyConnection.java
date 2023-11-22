@@ -44,20 +44,19 @@ import com.android.internal.telephony.Call;
 import com.android.internal.telephony.CallStateException;
 import com.android.internal.telephony.Connection.Capability;
 import com.android.internal.telephony.Connection.PostDialListener;
+import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.gsm.SuppServiceNotification;
-
-import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.imsphone.ImsPhone;
 import com.android.internal.telephony.imsphone.ImsPhoneCallTracker;
+import com.android.internal.telephony.imsphone.ImsPhoneConnection;
 import com.android.phone.ImsUtil;
 import com.android.phone.PhoneGlobals;
 import com.android.phone.PhoneUtils;
 import com.android.phone.R;
 
-import java.lang.Override;
-import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -150,21 +149,19 @@ abstract class TelephonyConnection extends Connection {
                     notifyConferenceMergeFailed();
                     break;
                 case MSG_SUPP_SERVICE_NOTIFY:
+                    Phone phone = getPhone();
                     Log.v(TelephonyConnection.this, "MSG_SUPP_SERVICE_NOTIFY on phoneId : "
-                            + getPhone() != null ? Integer.toString(getPhone().getPhoneId())
-                            : "null");
+                            + (phone != null ? Integer.toString(phone.getPhoneId())
+                            : "null"));
                     SuppServiceNotification mSsNotification = null;
                     if (msg.obj != null && ((AsyncResult) msg.obj).result != null) {
                         mSsNotification =
                                 (SuppServiceNotification)((AsyncResult) msg.obj).result;
-                        if (mOriginalConnection != null && mSsNotification.history != null) {
-                            Bundle lastForwardedNumber = new Bundle();
-                            Log.v(TelephonyConnection.this,
-                                    "Updating call history info in extras.");
-                            lastForwardedNumber.putStringArrayList(
-                                Connection.EXTRA_LAST_FORWARDED_NUMBER,
-                                new ArrayList(Arrays.asList(mSsNotification.history)));
-                            putExtras(lastForwardedNumber);
+                        if (mOriginalConnection != null) {
+                            if (mSsNotification.code
+                                    == SuppServiceNotification.MO_CODE_CALL_FORWARDED) {
+                                sendConnectionEvent(TelephonyManager.EVENT_CALL_FORWARDED, null);
+                            }
                         }
                     }
                     break;
@@ -418,6 +415,20 @@ abstract class TelephonyConnection extends Connection {
         public void onConnectionEvent(String event, Bundle extras) {
             sendConnectionEvent(event, extras);
         }
+
+        @Override
+        public void onRttModifyRequestReceived() {
+            sendRemoteRttRequest();
+        }
+
+        @Override
+        public void onRttModifyResponseReceived(int status) {
+            if (status == RttModifyStatus.SESSION_MODIFY_REQUEST_SUCCESS) {
+                sendRttInitiationSuccess();
+            } else {
+                sendRttInitiationFailure(status);
+            }
+        }
     };
 
     protected com.android.internal.telephony.Connection mOriginalConnection;
@@ -623,6 +634,31 @@ abstract class TelephonyConnection extends Connection {
         if (mOriginalConnection != null) {
             mOriginalConnection.pullExternalCall();
         }
+    }
+
+    @Override
+    public void onStartRtt(RttTextStream textStream) {
+        if (isImsConnection()) {
+            ImsPhoneConnection originalConnection = (ImsPhoneConnection) mOriginalConnection;
+            originalConnection.sendRttModifyRequest(textStream);
+        } else {
+            Log.w(this, "onStartRtt - not in IMS, so RTT cannot be enabled.");
+        }
+    }
+
+    @Override
+    public void onStopRtt() {
+        // This is not supported by carriers/vendor yet. No-op for now.
+    }
+
+    @Override
+    public void handleRttUpgradeResponse(RttTextStream textStream) {
+        if (!isImsConnection()) {
+            Log.w(this, "handleRttUpgradeResponse - not in IMS, so RTT cannot be enabled.");
+            return;
+        }
+        ImsPhoneConnection originalConnection = (ImsPhoneConnection) mOriginalConnection;
+        originalConnection.sendRttModifyResponse(textStream);
     }
 
     public void performHold() {
@@ -1711,6 +1747,15 @@ abstract class TelephonyConnection extends Connection {
     private void refreshConferenceSupported() {
         boolean isVideoCall = VideoProfile.isVideo(getVideoState());
         Phone phone = getPhone();
+        if (phone == null) {
+            Log.w(this, "refreshConferenceSupported = false; phone is null");
+            if (isConferenceSupported()) {
+                setConferenceSupported(false);
+                notifyConferenceSupportedChanged(false);
+            }
+            return;
+        }
+
         boolean isIms = phone.getPhoneType() == PhoneConstants.PHONE_TYPE_IMS;
         boolean isVoWifiEnabled = false;
         if (isIms) {
@@ -1724,20 +1769,24 @@ abstract class TelephonyConnection extends Connection {
                 .getInstance(getPhone().getContext());
         boolean isConferencingSupported = telecomAccountRegistry
                 .isMergeCallSupported(phoneAccountHandle);
+        boolean isImsConferencingSupported = telecomAccountRegistry
+                .isMergeImsCallSupported(phoneAccountHandle);
         mIsCarrierVideoConferencingSupported = telecomAccountRegistry
                 .isVideoConferencingSupported(phoneAccountHandle);
         boolean isMergeOfWifiCallsAllowedWhenVoWifiOff = telecomAccountRegistry
                 .isMergeOfWifiCallsAllowedWhenVoWifiOff(phoneAccountHandle);
 
-        Log.v(this, "refreshConferenceSupported : isConfSupp=%b, isVidConfSupp=%b, " +
-                "isMergeOfWifiAllowed=%b, isWifi=%b, isVoWifiEnabled=%b", isConferencingSupported,
+        Log.v(this, "refreshConferenceSupported : isConfSupp=%b, isImsConfSupp=%b, " +
+                "isVidConfSupp=%b, isMergeOfWifiAllowed=%b, " +
+                "isWifi=%b, isVoWifiEnabled=%b",
+                isConferencingSupported, isImsConferencingSupported,
                 mIsCarrierVideoConferencingSupported, isMergeOfWifiCallsAllowedWhenVoWifiOff,
                 isWifi(), isVoWifiEnabled);
         boolean isConferenceSupported = true;
         if (mTreatAsEmergencyCall) {
             isConferenceSupported = false;
             Log.d(this, "refreshConferenceSupported = false; emergency call");
-        } else if (!isConferencingSupported) {
+        } else if (!isConferencingSupported || isIms && !isImsConferencingSupported) {
             isConferenceSupported = false;
             Log.d(this, "refreshConferenceSupported = false; carrier doesn't support conf.");
         } else if (isVideoCall && !mIsCarrierVideoConferencingSupported) {

@@ -19,7 +19,7 @@ package com.android.nfc;
 import android.annotation.Nullable;
 import android.nfc.NdefMessage;
 import android.os.Bundle;
-
+import java.io.FileDescriptor;
 import java.io.IOException;
 
 public interface DeviceHost {
@@ -183,7 +183,7 @@ public interface DeviceHost {
 
     public boolean sendRawFrame(byte[] data);
 
-    public boolean routeAid(byte[] aid, int route);
+    public boolean routeAid(byte[] aid, int route, int aidInfo);
 
     public boolean unrouteAid(byte[] aid);
 
@@ -232,9 +232,17 @@ public interface DeviceHost {
 
     int getDefaultLlcpRwSize();
 
-    String dump();
+    void dump(FileDescriptor fd);
 
     boolean enableScreenOffSuspend();
 
     boolean disableScreenOffSuspend();
+
+    public void doSetScreenState(int screen_state_mask);
+
+    public int getNciVersion();
+
+    public void enableDtaMode();
+
+    public void disableDtaMode();
 }

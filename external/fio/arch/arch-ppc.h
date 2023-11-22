@@ -8,21 +8,6 @@
 
 #define FIO_ARCH	(arch_ppc)
 
-#ifndef __NR_ioprio_set
-#define __NR_ioprio_set		273
-#define __NR_ioprio_get		274
-#endif
-
-#ifndef __NR_fadvise64
-#define __NR_fadvise64		233
-#endif
-
-#ifndef __NR_sys_splice
-#define __NR_sys_splice		283
-#define __NR_sys_tee		284
-#define __NR_sys_vmsplice	285
-#endif
-
 #define nop	do { } while (0)
 
 #ifdef __powerpc64__
@@ -33,18 +18,24 @@
 
 #define write_barrier()	__asm__ __volatile__ ("sync" : : : "memory")
 
+#ifdef __powerpc64__
+#define PPC_CNTLZL "cntlzd"
+#else
+#define PPC_CNTLZL "cntlzw"
+#endif
+
 static inline int __ilog2(unsigned long bitmask)
 {
 	int lz;
 
-	asm ("cntlzw %0,%1" : "=r" (lz) : "r" (bitmask));
-	return 31 - lz;
+	asm (PPC_CNTLZL " %0,%1" : "=r" (lz) : "r" (bitmask));
+	return BITS_PER_LONG - 1 - lz;
 }
 
 static inline int arch_ffz(unsigned long bitmask)
 {
 	if ((bitmask = ~bitmask) == 0)
-		return 32;
+		return BITS_PER_LONG;
 	return  __ilog2(bitmask & -bitmask);
 }
 
@@ -61,6 +52,21 @@ static inline unsigned int mfspr(unsigned int reg)
 #define SPRN_ATBL  0x20E /* Alternate Time Base Lower */
 #define SPRN_ATBU  0x20F /* Alternate Time Base Upper */
 
+#ifdef __powerpc64__
+static inline unsigned long long get_cpu_clock(void)
+{
+	unsigned long long rval;
+
+	asm volatile(
+		"90:	mfspr %0, %1;\n"
+		"	cmpwi %0,0;\n"
+		"	beq-  90b;\n"
+	: "=r" (rval)
+	: "i" (SPRN_TBRL));
+
+	return rval;
+}
+#else
 static inline unsigned long long get_cpu_clock(void)
 {
 	unsigned int tbl, tbu0, tbu1;
@@ -81,6 +87,7 @@ static inline unsigned long long get_cpu_clock(void)
 	ret = (((unsigned long long)tbu0) << 32) | tbl;
 	return ret;
 }
+#endif
 
 #if 0
 static void atb_child(void)
@@ -129,5 +136,13 @@ static inline int arch_init(char *envp[])
  *
  * #define ARCH_HAVE_CPU_CLOCK
  */
+
+/*
+ * Let's have it defined for ppc64
+ */
+
+#ifdef __powerpc64__
+#define ARCH_HAVE_CPU_CLOCK
+#endif
 
 #endif

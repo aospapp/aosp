@@ -113,34 +113,9 @@ public class LensPickerUtils {
         return new AppLaunchInformation(facetId, packageName, intentString);
     }
 
-    @Nullable
-    public static Intent getLaunchIntentCached(PackageManager pm, String packageName,
-            SharedPreferences prefs, boolean forceRefresh) {
-        if (!forceRefresh) {
-            try {
-                String cachedUri = prefs.getString(getPackageKey(packageName), null);
-                if (cachedUri != null) {
-                    return Intent.parseUri(cachedUri, Intent.URI_INTENT_SCHEME);
-                }
-            } catch (URISyntaxException e) {
-                // We got a corrupted uri, recover from this situation by re-querying package
-                // manager and refreshing the cached uri.
-            }
-        }
-
-        Intent launchIntent = pm.getLaunchIntentForPackage(packageName);
-        if (launchIntent != null) {
-            SharedPreferences.Editor editor = prefs.edit();
-            editor.putString(getPackageKey(packageName),
-                    launchIntent.toUri(Intent.URI_INTENT_SCHEME));
-            editor.commit();
-        }
-        return launchIntent;
-    }
-
-    public static Intent getMediaLaunchIntentCached(PackageManager pm, String packageName,
-            String className, SharedPreferences prefs) {
-        Intent intent = getLaunchIntentCached(pm, MEDIA_TEMPLATE_COMPONENT, prefs, false);
+    public static Intent getMediaLaunchIntent(PackageManager pm, String packageName,
+            String className) {
+        Intent intent = pm.getLaunchIntentForPackage(MEDIA_TEMPLATE_COMPONENT);
         intent.putExtra(KEY_MEDIA_PACKAGE, packageName);
         intent.putExtra(KEY_MEDIA_CLASS, className);
         return intent;
@@ -162,13 +137,13 @@ public class LensPickerUtils {
     }
 
     @Nullable
-    public static Intent getLaunchIntent(String packageName, ResolveInfo rInfo,
-            PackageManager pm, SharedPreferences prefs) {
+    public static Intent getLaunchIntent(String packageName, ResolveInfo rInfo, PackageManager pm) {
         if (LensPickerUtils.isMediaService(rInfo)) {
-            return LensPickerUtils.getMediaLaunchIntentCached(pm, packageName,
-                    rInfo.serviceInfo.name, prefs);
+            return LensPickerUtils.getMediaLaunchIntent(pm, packageName,
+                    rInfo.serviceInfo.name);
         }
-        return LensPickerUtils.getLaunchIntentCached(pm, packageName, prefs, false /* refresh */);
+
+        return pm.getLaunchIntentForPackage(packageName);
     }
 
     /**

@@ -16,9 +16,11 @@
 
 package com.android.tv.testing;
 
+import android.content.ContentResolver;
 import android.content.Context;
 import android.database.Cursor;
 import android.media.tv.TvContract;
+import android.net.Uri;
 import android.support.annotation.Nullable;
 import android.util.SparseArray;
 
@@ -37,11 +39,6 @@ public final class ChannelInfo {
         VIDEO_HEIGHT_TO_FORMAT_MAP.put(2160, TvContract.Channels.VIDEO_FORMAT_2160P);
         VIDEO_HEIGHT_TO_FORMAT_MAP.put(4320, TvContract.Channels.VIDEO_FORMAT_4320P);
     }
-
-    /**
-     * If this is specify for logo, it will be selected randomly including null.
-     */
-    public static final String GENERATE_LOGO = "GEN";
 
     public static final String[] PROJECTION = {
             TvContract.Channels.COLUMN_DISPLAY_NUMBER,
@@ -80,13 +77,18 @@ public final class ChannelInfo {
                 .setOriginalNetworkId(channelNumber);
         if (context != null) {
             // tests/input/tools/get_test_logos.sh only stores 1000 logos.
-            int logo_num = (channelNumber % 1000);
-            builder.setLogoUrl(
-                    "android.resource://com.android.tv.testinput/drawable/ch_" + logo_num
-                            + "_logo"
-            );
+            builder.setLogoUrl(getUriStringForChannelLogo(context, channelNumber));
         }
         return builder.build();
+    }
+
+    public static String getUriStringForChannelLogo(Context context, int logoIndex) {
+        int index = (logoIndex % 1000) + 1;
+        return new Uri.Builder()
+                .scheme(ContentResolver.SCHEME_ANDROID_RESOURCE)
+                .authority(context.getPackageName())
+                .path("drawable")
+                .appendPath("ch_" + index + "_logo").build().toString();
     }
 
     public static ChannelInfo fromCursor(Cursor c) {

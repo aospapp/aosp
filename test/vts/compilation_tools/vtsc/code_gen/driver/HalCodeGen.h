@@ -34,8 +34,8 @@ namespace vts {
 
 class HalCodeGen : public DriverCodeGenBase {
  public:
-  HalCodeGen(const char* input_vts_file_path, const string& vts_name)
-      : DriverCodeGenBase(input_vts_file_path, vts_name) {}
+  HalCodeGen(const char* input_vts_file_path)
+      : DriverCodeGenBase(input_vts_file_path) {}
 
  protected:
   void GenerateCppBodyFuzzFunction(Formatter& out,
@@ -46,8 +46,8 @@ class HalCodeGen : public DriverCodeGenBase {
       const ComponentSpecificationMessage& message,
       const string& fuzzer_extended_class_name) override;
 
-  void GenerateCppBodyCallbackFunction(Formatter& out,
-      const ComponentSpecificationMessage& message,
+  void GenerateCppBodyInterfaceImpl(
+      Formatter& out, const ComponentSpecificationMessage& message,
       const string& fuzzer_extended_class_name) override;
 
   void GenerateClassConstructionFunction(Formatter& out,

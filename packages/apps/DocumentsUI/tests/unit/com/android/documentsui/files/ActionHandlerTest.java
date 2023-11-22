@@ -38,6 +38,7 @@ import android.provider.DocumentsContract.Path;
 import android.support.test.filters.MediumTest;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.runner.AndroidJUnit4;
+import android.util.Pair;
 import android.view.DragEvent;
 
 import com.android.documentsui.AbstractActionHandler;
@@ -52,8 +53,8 @@ import com.android.documentsui.testing.ClipDatas;
 import com.android.documentsui.testing.DocumentStackAsserts;
 import com.android.documentsui.testing.Roots;
 import com.android.documentsui.testing.TestActivityConfig;
-import com.android.documentsui.testing.TestConfirmationCallback;
 import com.android.documentsui.testing.TestDocumentClipper;
+import com.android.documentsui.testing.TestDragAndDropManager;
 import com.android.documentsui.testing.TestEnv;
 import com.android.documentsui.testing.TestProvidersAccess;
 import com.android.documentsui.ui.TestDialogController;
@@ -62,9 +63,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 
 @RunWith(AndroidJUnit4.class)
 @MediumTest
@@ -74,9 +73,9 @@ public class ActionHandlerTest {
     private TestActivity mActivity;
     private TestActionModeAddons mActionModeAddons;
     private TestDialogController mDialogs;
-    private TestConfirmationCallback mCallback;
     private ActionHandler<TestActivity> mHandler;
     private TestDocumentClipper mClipper;
+    private TestDragAndDropManager mDragAndDropManager;
     private boolean refreshAnswer = false;
 
     @Before
@@ -85,11 +84,12 @@ public class ActionHandlerTest {
         mActivity = TestActivity.create(mEnv);
         mActionModeAddons = new TestActionModeAddons();
         mDialogs = new TestDialogController();
-        mCallback = new TestConfirmationCallback();
-        mEnv.roots.configurePm(mActivity.packageMgr);
+        mClipper = new TestDocumentClipper();
+        mDragAndDropManager = new TestDragAndDropManager();
+
+        mEnv.providers.configurePm(mActivity.packageMgr);
         ((TestActivityConfig) mEnv.injector.config).nextDocumentEnabled = true;
         mEnv.injector.dialogs = mDialogs;
-        mClipper = new TestDocumentClipper();
 
         mHandler = createHandler();
 
@@ -125,6 +125,17 @@ public class ActionHandlerTest {
         mEnv.selectionMgr.clearSelection();
         mHandler.cutToClipboard();
         mDialogs.assertDocumentsClippedNotShown();
+    }
+
+    @Test
+    public void testCutSelectedDocuments_ContainsNonMovableItem() {
+        mEnv.populateStack();
+        mEnv.selectDocument(TestEnv.FILE_READ_ONLY);
+
+        mHandler.cutToClipboard();
+        mDialogs.assertDocumentsClippedNotShown();
+        mDialogs.assertShowOperationUnsupported();
+        mClipper.clipForCut.assertNotCalled();
     }
 
     @Test
@@ -218,6 +229,10 @@ public class ActionHandlerTest {
 
     @Test
     public void testShareSelectedDocuments_VirtualFiles() {
+        if (!mEnv.features.isVirtualFilesSharingEnabled()) {
+            return;
+        }
+
         mActivity.resources.strings.put(R.string.share_via, "Sharezilla!");
         mEnv.selectionMgr.clearSelection();
         mEnv.selectDocument(TestEnv.FILE_VIRTUAL);
@@ -239,9 +254,14 @@ public class ActionHandlerTest {
 
         Intent intent = assertHasExtraIntent(mActivity.startActivity.getLastValue());
         assertHasAction(intent, Intent.ACTION_SEND_MULTIPLE);
-        assertTrue(intent.hasCategory(Intent.CATEGORY_TYPED_OPENABLE));
+
         assertFalse(intent.hasCategory(Intent.CATEGORY_OPENABLE));
-        assertHasExtraList(intent, Intent.EXTRA_STREAM, 3);
+        if (mEnv.features.isVirtualFilesSharingEnabled()) {
+            assertTrue(intent.hasCategory(Intent.CATEGORY_TYPED_OPENABLE));
+            assertHasExtraList(intent, Intent.EXTRA_STREAM, 3);
+        }else {
+            assertHasExtraList(intent, Intent.EXTRA_STREAM, 2);
+        }
     }
 
     @Test
@@ -342,6 +362,23 @@ public class ActionHandlerTest {
     }
 
     @Test
+    public void testInitLocation_RestoresIfStackIsLoaded() throws Exception {
+        mEnv.state.stack.changeRoot(TestProvidersAccess.DOWNLOADS);
+        mEnv.state.stack.push(TestEnv.FOLDER_0);
+
+        mHandler.initLocation(mActivity.getIntent());
+        mActivity.restoreRootAndDirectory.assertCalled();
+    }
+
+    @Test
+    public void testInitLocation_LoadsRootDocIfStackOnlyHasRoot() throws Exception {
+        mEnv.state.stack.changeRoot(TestProvidersAccess.HAMMY);
+
+        mHandler.initLocation(mActivity.getIntent());
+        assertRootPicked(TestProvidersAccess.HAMMY.getUri());
+    }
+
+    @Test
     public void testInitLocation_DefaultsToDownloads() throws Exception {
         mActivity.resources.bools.put(R.bool.show_documents_root, false);
 
@@ -352,6 +389,7 @@ public class ActionHandlerTest {
     @Test
     public void testInitLocation_DocumentsRootEnabled() throws Exception {
         mActivity.resources.bools.put(R.bool.show_documents_root, true);
+        mActivity.resources.strings.put(R.string.default_root_uri, TestProvidersAccess.HOME.getUri().toString());
 
         mHandler.initLocation(mActivity.getIntent());
         assertRootPicked(TestProvidersAccess.HOME.getUri());
@@ -369,6 +407,10 @@ public class ActionHandlerTest {
 
     @Test
     public void testInitLocation_LaunchToDocuments() throws Exception {
+        if (!mEnv.features.isLaunchToDocumentEnabled()) {
+            return;
+        }
+
         mEnv.docs.nextIsDocumentsUri = true;
         mEnv.docs.nextPath = new Path(
                 TestProvidersAccess.HOME.rootId,
@@ -407,63 +449,21 @@ public class ActionHandlerTest {
     }
 
     @Test
-    public void testClipper_suppliedCorrectClipData() throws Exception {
+    public void testDragAndDrop_DropsOnWritableRoot() throws Exception {
         // DragEvent gets recycled in Android, so it is possible that by the time the callback is
         // called, event.getLocalState() and event.getClipData() returns null. This tests to ensure
         // our Clipper is getting the original CipData passed in.
-        mEnv.docs.nextRootDocument = TestEnv.FOLDER_0;
-        mHandler = new ActionHandler<>(
-                mActivity,
-                mEnv.state,
-                mEnv.roots,
-                mEnv.docs,
-                mEnv.searchViewManager,
-                mEnv::lookupExecutor,
-                mActionModeAddons,
-                mClipper,
-                null,
-                mEnv.injector
-        );
         Object localState = new Object();
         ClipData clipData = ClipDatas.createTestClipData();
         DragEvent event = DragEvent.obtain(DragEvent.ACTION_DROP, 1, 1, localState, null, clipData,
                 null, true);
-        assertSame(localState, event.getLocalState());
-        assertSame(clipData, event.getClipData());
 
         mHandler.dropOn(event, TestProvidersAccess.DOWNLOADS);
         event.recycle();
 
-        mEnv.beforeAsserts();
-
-        mClipper.assertSameClipData(clipData);
-    }
-
-    @Test
-    public void testClipper_notCalledIfDestInSelection() throws Exception {
-        mHandler = new ActionHandler<>(
-                mActivity,
-                mEnv.state,
-                mEnv.roots,
-                mEnv.docs,
-                mEnv.searchViewManager,
-                mEnv::lookupExecutor,
-                mActionModeAddons,
-                mClipper,
-                null,
-                mEnv.injector
-        );
-        List<DocumentInfo> localState = new ArrayList<>();
-        localState.add(mEnv.docs.getRootDocument(TestProvidersAccess.DOWNLOADS));
-        ClipData clipData = ClipDatas.createTestClipData();
-        DragEvent event = DragEvent.obtain(DragEvent.ACTION_DROP, 1, 1, localState, null, clipData,
-                null, true);
-
-        mHandler.dropOn(event, TestProvidersAccess.DOWNLOADS);
-
-        mEnv.beforeAsserts();
-
-        mClipper.assertNoClipData();
+        Pair<ClipData, RootInfo> actual = mDragAndDropManager.dropOnRootHandler.getLastValue();
+        assertSame(clipData, actual.first);
+        assertSame(TestProvidersAccess.DOWNLOADS, actual.second);
     }
 
     @Test
@@ -498,7 +498,11 @@ public class ActionHandlerTest {
         });
 
         mEnv.beforeAsserts();
-        assertTrue(refreshAnswer);
+        if (mEnv.features.isContentRefreshEnabled()) {
+            assertTrue(refreshAnswer);
+        } else {
+            assertFalse(refreshAnswer);
+        }
     }
 
     @Test
@@ -543,13 +547,14 @@ public class ActionHandlerTest {
         return new ActionHandler<>(
                 mActivity,
                 mEnv.state,
-                mEnv.roots,
+                mEnv.providers,
                 mEnv.docs,
                 mEnv.searchViewManager,
                 mEnv::lookupExecutor,
                 mActionModeAddons,
-                new TestDocumentClipper(),
+                mClipper,
                 null,  // clip storage, not utilized unless we venture into *jumbo* clip territory.
+                mDragAndDropManager,
                 mEnv.injector
         );
     }

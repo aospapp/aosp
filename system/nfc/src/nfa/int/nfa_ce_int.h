@@ -87,6 +87,7 @@ typedef struct {
   /* For registering Felica */
   uint16_t system_code;
   uint8_t nfcid2[NCI_RF_F_UID_LEN];
+  uint8_t t3tPmm[NCI_T3T_PMM_LEN];
 
   /* For registering Type-4 */
   uint8_t aid[NFC_MAX_AID_LEN]; /* AID to listen for (For type-4 only)  */
@@ -147,6 +148,7 @@ typedef struct {
 
   /* For host tag emulation (NFA_CeRegisterVirtualT4tSE and
    * NFA_CeRegisterT4tAidOnDH) */
+  uint8_t t3t_pmm[NCI_T3T_PMM_LEN];
   uint8_t t3t_nfcid2[NCI_RF_F_UID_LEN];
   uint16_t t3t_system_code; /* Type-3 system code */
   uint8_t
@@ -197,6 +199,8 @@ extern tNFA_CE_CB nfa_ce_cb;
 
 /* type definition for action functions */
 typedef bool (*tNFA_CE_ACTION)(tNFA_CE_MSG* p_data);
+
+extern uint8_t NFC_GetNCIVersion();
 
 /* Action function prototypes */
 bool nfa_ce_api_cfg_local_tag(tNFA_CE_MSG* p_ce_msg);

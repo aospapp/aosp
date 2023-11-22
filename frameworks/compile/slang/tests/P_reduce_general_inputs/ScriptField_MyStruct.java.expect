@@ -21,6 +21,9 @@
 
 package inputs;
 
+import android.os.Build;
+import android.os.Process;
+import java.lang.reflect.Field;
 import android.renderscript.*;
 import inputs.reduce_general_inputsBitCode;
 

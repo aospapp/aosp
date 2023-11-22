@@ -20,15 +20,15 @@ public class Main {
     try {
       doTopCall(true);
     } catch (Error e) {
-      e.printStackTrace();
+      e.printStackTrace(System.out);
     }
   }
 
   /// CHECK-START: void Main.doTopCall(boolean) inliner (before)
-  /// CHECK-NOT:   InvokeStaticOrDirect method_load_kind:recursive
+  /// CHECK-NOT:   InvokeStaticOrDirect method_load_kind:Recursive
 
   /// CHECK-START: void Main.doTopCall(boolean) inliner (after)
-  /// CHECK:       InvokeStaticOrDirect method_load_kind:recursive
+  /// CHECK:       InvokeStaticOrDirect method_load_kind:Recursive
   public static void doTopCall(boolean first_call) {
     if (first_call) {
       inline1();

@@ -29,12 +29,12 @@
 
 #include <android/native_window_jni.h>
 
-#include "NdkCameraError.h"
-#include "NdkCameraManager.h"
-#include "NdkCameraDevice.h"
-#include "NdkCameraCaptureSession.h"
-#include "NdkImage.h"
-#include "NdkImageReader.h"
+#include "camera/NdkCameraError.h"
+#include "camera/NdkCameraManager.h"
+#include "camera/NdkCameraDevice.h"
+#include "camera/NdkCameraCaptureSession.h"
+#include "media/NdkImage.h"
+#include "media/NdkImageReader.h"
 
 #define LOG_ERROR(buf, ...) sprintf(buf, __VA_ARGS__); \
                             ALOGE("%s", buf);
@@ -238,9 +238,11 @@ class CaptureSessionListener {
     int mOnActive = 0;
 };
 
+
 class ImageReaderListener {
   public:
-    static void onImageAvailable(void* obj, AImageReader* reader) {
+    // count, acquire, validate, and delete AImage when a new image is available
+    static void validateImageCb(void* obj, AImageReader* reader) {
         ALOGV("%s", __FUNCTION__);
         if (obj == nullptr) {
             return;
@@ -320,6 +322,27 @@ class ImageReaderListener {
         AImage_delete(img);
     }
 
+    // count, acquire image but not delete the image
+    static void acquireImageCb(void* obj, AImageReader* reader) {
+        ALOGV("%s", __FUNCTION__);
+        if (obj == nullptr) {
+            return;
+        }
+        ImageReaderListener* thiz = reinterpret_cast<ImageReaderListener*>(obj);
+        std::lock_guard<std::mutex> lock(thiz->mMutex);
+        thiz->mOnImageAvailableCount++;
+
+        // Acquire, but not closing.
+        AImage* img = nullptr;
+        media_status_t ret = AImageReader_acquireNextImage(reader, &img);
+        if (ret != AMEDIA_OK || img == nullptr) {
+            ALOGE("%s: acquire image from reader %p failed! ret: %d, img %p",
+                    __FUNCTION__, reader, ret, img);
+            return;
+        }
+        return;
+    }
+
     int onImageAvailableCount() {
         std::lock_guard<std::mutex> lock(mMutex);
         return mOnImageAvailableCount;
@@ -328,12 +351,6 @@ class ImageReaderListener {
     void setDumpFilePathBase(const char* path) {
         std::lock_guard<std::mutex> lock(mMutex);
         mDumpFilePathBase = path;
-    }
-
-    void reset() {
-        std::lock_guard<std::mutex> lock(mMutex);
-        mOnImageAvailableCount = 0;
-        mDumpFilePathBase = nullptr;
     }
 
   private:
@@ -383,7 +400,6 @@ class PreviewTestCase {
 
     // Free all resources except camera manager
     void resetCamera() {
-        mReaderListener.reset();
         mSessionListener.reset();
         if (mSession) {
             ACameraCaptureSession_close(mSession);
@@ -509,7 +525,8 @@ class PreviewTestCase {
     }
 
     media_status_t initImageReaderWithErrorLog(
-            int32_t width, int32_t height, int32_t format, int32_t maxImages) {
+            int32_t width, int32_t height, int32_t format, int32_t maxImages,
+            AImageReader_ImageListener* listener) {
         if (mImgReader || mImgReaderAnw) {
             LOG_ERROR(errorString, "Cannot init image reader before closing existing one");
             return AMEDIA_ERROR_UNKNOWN;
@@ -527,8 +544,7 @@ class PreviewTestCase {
             return AMEDIA_ERROR_UNKNOWN;
         }
 
-        ret = AImageReader_setImageListener(
-                mImgReader, &mReaderCb);
+        ret = AImageReader_setImageListener(mImgReader, listener);
         if (ret != AMEDIA_OK) {
             LOG_ERROR(errorString, "Set AImageReader listener failed. ret %d", ret);
             return ret;
@@ -749,14 +765,9 @@ class PreviewTestCase {
                 mSession, nullptr, 1, &mStillRequest, &seqId);
     }
 
-    int getReaderImageCount() {
-        return mReaderListener.onImageAvailableCount();
-    }
-
     camera_status_t resetWithErrorLog() {
         camera_status_t ret;
 
-        mReaderListener.reset();
         closeSession();
 
         for (int i = 0; i < 50; i++) {
@@ -783,10 +794,6 @@ class PreviewTestCase {
 
         resetCamera();
         return ACAMERA_OK;
-    }
-
-    void setDumpFilePathBase(const char* path) {
-        mReaderListener.setDumpFilePathBase(path);
     }
 
     CaptureSessionListener* getSessionListener() {
@@ -819,13 +826,6 @@ class PreviewTestCase {
         CaptureSessionListener::onClosed,
         CaptureSessionListener::onReady,
         CaptureSessionListener::onActive
-    };
-
-    // TODO: capture listeners
-    ImageReaderListener mReaderListener;
-    AImageReader_ImageListener mReaderCb {
-        &mReaderListener,
-        ImageReaderListener::onImageAvailable
     };
 
     ACameraIdList* mCameraIdList = nullptr;
@@ -1577,11 +1577,8 @@ cleanup:
     return pass;
 }
 
-extern "C" jboolean
-Java_android_hardware_camera2_cts_NativeImageReaderTest_\
-testJpegNative(
-        JNIEnv* env, jclass /*clazz*/, jstring jOutPath) {
-    ALOGV("%s", __FUNCTION__);
+bool nativeImageReaderTestBase(
+        JNIEnv* env, jstring jOutPath, AImageReader_ImageCallback cb) {
     const int NUM_TEST_IMAGES = 10;
     const int TEST_WIDTH  = 640;
     const int TEST_HEIGHT = 480;
@@ -1590,9 +1587,11 @@ testJpegNative(
     bool pass = false;
     PreviewTestCase testCase;
 
-    const char* outPath = env->GetStringUTFChars(jOutPath, nullptr);
-    testCase.setDumpFilePathBase(outPath);
-    ALOGI("%s: out path is %s", __FUNCTION__, outPath);
+    const char* outPath = (jOutPath == nullptr) ? nullptr :
+            env->GetStringUTFChars(jOutPath, nullptr);
+    if (outPath != nullptr) {
+        ALOGI("%s: out path is %s", __FUNCTION__, outPath);
+    }
 
     camera_status_t ret = testCase.initWithErrorLog();
     if (ret != ACAMERA_OK) {
@@ -1626,8 +1625,13 @@ testJpegNative(
             goto cleanup;
         }
 
+        ImageReaderListener readerListener;
+        AImageReader_ImageListener readerCb { &readerListener, cb };
+        readerListener.setDumpFilePathBase(outPath);
+
         mediaRet = testCase.initImageReaderWithErrorLog(
-                TEST_WIDTH, TEST_HEIGHT, AIMAGE_FORMAT_JPEG, NUM_TEST_IMAGES);
+                TEST_WIDTH, TEST_HEIGHT, AIMAGE_FORMAT_JPEG, NUM_TEST_IMAGES,
+                &readerCb);
         if (mediaRet != AMEDIA_OK) {
             // Don't log error here. testcase did it
             goto cleanup;
@@ -1658,16 +1662,16 @@ testJpegNative(
         // wait until all capture finished
         for (int i = 0; i < 50; i++) {
             usleep(100000); // sleep 100ms
-            if (testCase.getReaderImageCount() == NUM_TEST_IMAGES) {
+            if (readerListener.onImageAvailableCount() == NUM_TEST_IMAGES) {
                 ALOGI("Session take ~%d ms to capture %d images",
                         i*100, NUM_TEST_IMAGES);
                 break;
             }
         }
 
-        if (testCase.getReaderImageCount() != NUM_TEST_IMAGES) {
+        if (readerListener.onImageAvailableCount() != NUM_TEST_IMAGES) {
             LOG_ERROR(errorString, "Camera %s timeout capturing %d images. Got %d",
-                    cameraId, NUM_TEST_IMAGES, testCase.getReaderImageCount());
+                    cameraId, NUM_TEST_IMAGES, readerListener.onImageAvailableCount());
             goto cleanup;
         }
 
@@ -1694,12 +1698,31 @@ testJpegNative(
     pass = true;
 
 cleanup:
-    env->ReleaseStringUTFChars(jOutPath, outPath);
+    if (outPath != nullptr) {
+        env->ReleaseStringUTFChars(jOutPath, outPath);
+    }
     ALOGI("%s %s", __FUNCTION__, pass ? "pass" : "failed");
     if (!pass) {
         throwAssertionError(env, errorString);
     }
     return pass;
+}
+
+extern "C" jboolean
+Java_android_hardware_camera2_cts_NativeImageReaderTest_\
+testJpegNative(
+        JNIEnv* env, jclass /*clazz*/, jstring jOutPath) {
+    ALOGV("%s", __FUNCTION__);
+    return nativeImageReaderTestBase(env, jOutPath, ImageReaderListener::validateImageCb);
+}
+
+
+extern "C" jboolean
+Java_android_hardware_camera2_cts_NativeImageReaderTest_\
+testImageReaderCloseAcquiredImagesNative(
+        JNIEnv* env, jclass /*clazz*/) {
+    ALOGV("%s", __FUNCTION__);
+    return nativeImageReaderTestBase(env, nullptr, ImageReaderListener::acquireImageCb);
 }
 
 
@@ -1717,7 +1740,6 @@ testStillCaptureNative(
     PreviewTestCase testCase;
 
     const char* outPath = env->GetStringUTFChars(jOutPath, nullptr);
-    testCase.setDumpFilePathBase(outPath);
     ALOGI("%s: out path is %s", __FUNCTION__, outPath);
 
     camera_status_t ret = testCase.initWithErrorLog();
@@ -1752,8 +1774,15 @@ testStillCaptureNative(
             goto cleanup;
         }
 
+        ImageReaderListener readerListener;
+        AImageReader_ImageListener readerCb {
+            &readerListener,
+            ImageReaderListener::validateImageCb
+        };
+        readerListener.setDumpFilePathBase(outPath);
         mediaRet = testCase.initImageReaderWithErrorLog(
-                TEST_WIDTH, TEST_HEIGHT, AIMAGE_FORMAT_JPEG, NUM_TEST_IMAGES);
+                TEST_WIDTH, TEST_HEIGHT, AIMAGE_FORMAT_JPEG, NUM_TEST_IMAGES,
+                &readerCb);
         if (mediaRet != AMEDIA_OK) {
             // Don't log error here. testcase did it
             goto cleanup;
@@ -1799,16 +1828,16 @@ testStillCaptureNative(
         // wait until all capture finished
         for (int i = 0; i < 50; i++) {
             usleep(100000); // sleep 100ms
-            if (testCase.getReaderImageCount() == NUM_TEST_IMAGES) {
+            if (readerListener.onImageAvailableCount() == NUM_TEST_IMAGES) {
                 ALOGI("Session take ~%d ms to capture %d images",
                         i*100, NUM_TEST_IMAGES);
                 break;
             }
         }
 
-        if (testCase.getReaderImageCount() != NUM_TEST_IMAGES) {
+        if (readerListener.onImageAvailableCount() != NUM_TEST_IMAGES) {
             LOG_ERROR(errorString, "Camera %s timeout capturing %d images. Got %d",
-                    cameraId, NUM_TEST_IMAGES, testCase.getReaderImageCount());
+                    cameraId, NUM_TEST_IMAGES, readerListener.onImageAvailableCount());
             goto cleanup;
         }
 

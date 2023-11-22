@@ -11,3 +11,4 @@ It includes a stock code generator for class proxies. If you just want to do AOP
 Local Modifications:
         Support mocking of package private classes using dexmaker.share_classloader
         Scan for methods in extra interface hierarchy
+        Update stack trace cleaner to use new dex package name

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -23,8 +23,10 @@ import java.util.zip.ZipInputStream;
 import org.jacoco.core.data.ExecutionData;
 import org.jacoco.core.data.ExecutionDataStore;
 import org.jacoco.core.internal.ContentTypeDetector;
+import org.jacoco.core.internal.Java9Support;
 import org.jacoco.core.internal.Pack200Streams;
 import org.jacoco.core.internal.analysis.ClassAnalyzer;
+import org.jacoco.core.internal.analysis.ClassCoverageImpl;
 import org.jacoco.core.internal.analysis.StringPool;
 import org.jacoco.core.internal.data.CRC64;
 import org.jacoco.core.internal.flow.ClassProbesAdapter;
@@ -84,12 +86,14 @@ public class Analyzer {
 			probes = data.getProbes();
 			noMatch = false;
 		}
-		final ClassAnalyzer analyzer = new ClassAnalyzer(classid, noMatch,
-				probes, stringPool) {
+		final ClassCoverageImpl coverage = new ClassCoverageImpl(className,
+				classid, noMatch);
+		final ClassAnalyzer analyzer = new ClassAnalyzer(coverage, probes,
+				stringPool) {
 			@Override
 			public void visitEnd() {
 				super.visitEnd();
-				coverageVisitor.visitCoverage(getCoverage());
+				coverageVisitor.visitCoverage(coverage);
 			}
 		};
 		return new ClassProbesAdapter(analyzer, false);
@@ -112,17 +116,18 @@ public class Analyzer {
 	 * 
 	 * @param buffer
 	 *            class definitions
-	 * @param name
-	 *            a name used for exception messages
+	 * @param location
+	 *            a location description used for exception messages
 	 * @throws IOException
 	 *             if the class can't be analyzed
 	 */
-	public void analyzeClass(final byte[] buffer, final String name)
+	public void analyzeClass(final byte[] buffer, final String location)
 			throws IOException {
 		try {
-			analyzeClass(new ClassReader(buffer));
+			analyzeClass(
+					new ClassReader(Java9Support.downgradeIfRequired(buffer)));
 		} catch (final RuntimeException cause) {
-			throw analyzerError(name, cause);
+			throw analyzerError(location, cause);
 		}
 	}
 
@@ -131,24 +136,24 @@ public class Analyzer {
 	 * 
 	 * @param input
 	 *            stream to read class definition from
-	 * @param name
-	 *            a name used for exception messages
+	 * @param location
+	 *            a location description used for exception messages
 	 * @throws IOException
 	 *             if the stream can't be read or the class can't be analyzed
 	 */
-	public void analyzeClass(final InputStream input, final String name)
+	public void analyzeClass(final InputStream input, final String location)
 			throws IOException {
 		try {
-			analyzeClass(new ClassReader(input));
+			analyzeClass(Java9Support.readFully(input), location);
 		} catch (final RuntimeException e) {
-			throw analyzerError(name, e);
+			throw analyzerError(location, e);
 		}
 	}
 
-	private IOException analyzerError(final String name,
-			final RuntimeException cause) {
+	private IOException analyzerError(final String location,
+			final Exception cause) {
 		final IOException ex = new IOException(String.format(
-				"Error while analyzing class %s.", name));
+				"Error while analyzing %s.", location));
 		ex.initCause(cause);
 		return ex;
 	}
@@ -161,25 +166,30 @@ public class Analyzer {
 	 * 
 	 * @param input
 	 *            input data
-	 * @param name
-	 *            a name used for exception messages
+	 * @param location
+	 *            a location description used for exception messages
 	 * @return number of class files found
 	 * @throws IOException
 	 *             if the stream can't be read or a class can't be analyzed
 	 */
-	public int analyzeAll(final InputStream input, final String name)
+	public int analyzeAll(final InputStream input, final String location)
 			throws IOException {
-		final ContentTypeDetector detector = new ContentTypeDetector(input);
+		final ContentTypeDetector detector;
+		try {
+			detector = new ContentTypeDetector(input);
+		} catch (IOException e) {
+			throw analyzerError(location, e);
+		}
 		switch (detector.getType()) {
 		case ContentTypeDetector.CLASSFILE:
-			analyzeClass(detector.getInputStream(), name);
+			analyzeClass(detector.getInputStream(), location);
 			return 1;
 		case ContentTypeDetector.ZIPFILE:
-			return analyzeZip(detector.getInputStream(), name);
+			return analyzeZip(detector.getInputStream(), location);
 		case ContentTypeDetector.GZFILE:
-			return analyzeGzip(detector.getInputStream(), name);
+			return analyzeGzip(detector.getInputStream(), location);
 		case ContentTypeDetector.PACK200FILE:
-			return analyzePack200(detector.getInputStream(), name);
+			return analyzePack200(detector.getInputStream(), location);
 		default:
 			return 0;
 		}
@@ -230,32 +240,54 @@ public class Analyzer {
 	public int analyzeAll(final String path, final File basedir)
 			throws IOException {
 		int count = 0;
-		final StringTokenizer st = new StringTokenizer(path, File.pathSeparator);
+		final StringTokenizer st = new StringTokenizer(path,
+				File.pathSeparator);
 		while (st.hasMoreTokens()) {
 			count += analyzeAll(new File(basedir, st.nextToken()));
 		}
 		return count;
 	}
 
-	private int analyzeZip(final InputStream input, final String name)
+	private int analyzeZip(final InputStream input, final String location)
 			throws IOException {
 		final ZipInputStream zip = new ZipInputStream(input);
 		ZipEntry entry;
 		int count = 0;
-		while ((entry = zip.getNextEntry()) != null) {
-			count += analyzeAll(zip, name + "@" + entry.getName());
+		while ((entry = nextEntry(zip, location)) != null) {
+			count += analyzeAll(zip, location + "@" + entry.getName());
 		}
 		return count;
 	}
 
-	private int analyzeGzip(final InputStream input, final String name)
+	private ZipEntry nextEntry(ZipInputStream input, String location)
 			throws IOException {
-		return analyzeAll(new GZIPInputStream(input), name);
+		try {
+			return input.getNextEntry();
+		} catch (IOException e) {
+			throw analyzerError(location, e);
+		}
 	}
 
-	private int analyzePack200(final InputStream input, final String name)
+	private int analyzeGzip(final InputStream input, final String location)
 			throws IOException {
-		return analyzeAll(Pack200Streams.unpack(input), name);
+		GZIPInputStream gzipInputStream;
+		try {
+			gzipInputStream = new GZIPInputStream(input);
+		} catch (IOException e) {
+			throw analyzerError(location, e);
+		}
+		return analyzeAll(gzipInputStream, location);
+	}
+
+	private int analyzePack200(final InputStream input, final String location)
+			throws IOException {
+		InputStream unpackedInput;
+		try {
+			unpackedInput = Pack200Streams.unpack(input);
+		} catch (IOException e) {
+			throw analyzerError(location, e);
+		}
+		return analyzeAll(unpackedInput, location);
 	}
 
 }

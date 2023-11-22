@@ -130,9 +130,11 @@ func (h *hal2vts) GeneratedSourceFiles() android.Paths {
 	return h.generatedHeaders
 }
 
-func hal2vtsFactory() (blueprint.Module, []interface{}) {
+func hal2vtsFactory() android.Module {
 	h := &hal2vts{}
-	return android.InitAndroidModule(h, &h.properties)
+	h.AddProperties(&h.properties)
+	android.InitAndroidModule(h)
+	return h
 }
 
 func vtsList(config android.Config) *android.Paths {

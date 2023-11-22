@@ -21,17 +21,17 @@
     <group
         android:id="@+id/menu_clipboard_group">
         <item
-            android:id="@+id/menu_cut_to_clipboard"
+            android:id="@+id/dir_menu_cut_to_clipboard"
             android:title="@string/menu_cut_to_clipboard" />
         <item
-            android:id="@+id/menu_copy_to_clipboard"
+            android:id="@+id/dir_menu_copy_to_clipboard"
             android:title="@string/menu_copy_to_clipboard" />
     </group>
 
     <group
         android:id="@+id/menu_modifier_group">
         <item
-            android:id="@+id/menu_delete"
+            android:id="@+id/dir_menu_delete"
             android:title="@string/menu_delete" />
     </group>
 </menu>

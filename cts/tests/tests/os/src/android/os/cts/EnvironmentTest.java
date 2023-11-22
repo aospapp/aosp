@@ -79,15 +79,16 @@ public class EnvironmentTest extends TestCase {
         // wider range, but we want to make sure the device isn't going totally
         // crazy; too few inodes can result in system instability, and too many
         // inodes can result in wasted space.
-        final long size = stat.f_blocks * stat.f_frsize;
-        final long minInodes = size / 32768;
-        final long maxInodes = size / 8192;
+        final long maxsize = stat.f_blocks * stat.f_frsize;
+        final long maxInodes = maxsize / 4096;
+        final long minsize = stat.f_bavail * stat.f_frsize;
+        final long minInodes = minsize / 32768;
 
-        if (stat.f_files >= minInodes && stat.f_files <= maxInodes) {
+        if (stat.f_ffree >= minInodes && stat.f_ffree <= maxInodes) {
             // Sweet, sounds great!
         } else {
-            fail("Number of inodes " + stat.f_files + " not within sane range for partition of "
-                    + size + " bytes; expected [" + minInodes + "," + maxInodes + "]");
+            fail("Number of inodes " + stat.f_ffree + " not within sane range for partition of "
+                    + minsize + "," + maxsize + " bytes; expected [" + minInodes + "," + maxInodes + "]");
         }
     }
 }

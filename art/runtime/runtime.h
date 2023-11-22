@@ -34,10 +34,7 @@
 #include "experimental_flags.h"
 #include "gc_root.h"
 #include "instrumentation.h"
-#include "jobject_comparator.h"
-#include "method_reference.h"
 #include "obj_ptr.h"
-#include "object_callbacks.h"
 #include "offsets.h"
 #include "process_state.h"
 #include "quick/quick_method_frame_info.h"
@@ -48,9 +45,6 @@ namespace art {
 namespace gc {
   class AbstractSystemWeakHolder;
   class Heap;
-  namespace collector {
-    class GarbageCollector;
-  }  // namespace collector
 }  // namespace gc
 
 namespace jit {
@@ -77,14 +71,15 @@ namespace verifier {
 }  // namespace verifier
 class ArenaPool;
 class ArtMethod;
-class ClassHierarchyAnalysis;
+enum class CalleeSaveType: uint32_t;
 class ClassLinker;
-class Closure;
 class CompilerCallbacks;
 class DexFile;
 class InternTable;
+class IsMarkedVisitor;
 class JavaVMExt;
 class LinearAlloc;
+class MemMap;
 class MonitorList;
 class MonitorPool;
 class NullPointerHandler;
@@ -340,11 +335,6 @@ class Runtime {
   void VisitTransactionRoots(RootVisitor* visitor)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  // Flip thread roots from from-space refs to to-space refs.
-  size_t FlipThreadRoots(Closure* thread_flip_visitor, Closure* flip_callback,
-                         gc::collector::GarbageCollector* collector)
-      REQUIRES(!Locks::mutator_lock_);
-
   // Sweep system weaks, the system weak is deleted if the visitor return null. Otherwise, the
   // system weak is updated to be the visitor's returned value.
   void SweepSystemWeaks(IsMarkedVisitor* visitor)
@@ -387,17 +377,8 @@ class Runtime {
     imt_unimplemented_method_ = nullptr;
   }
 
-  // Returns a special method that describes all callee saves being spilled to the stack.
-  enum CalleeSaveType {
-    kSaveAllCalleeSaves,  // All callee-save registers.
-    kSaveRefsOnly,        // Only those callee-save registers that can hold references.
-    kSaveRefsAndArgs,     // References (see above) and arguments (usually caller-save registers).
-    kSaveEverything,      // All registers, including both callee-save and caller-save.
-    kLastCalleeSaveType   // Value used for iteration
-  };
-
   bool HasCalleeSaveMethod(CalleeSaveType type) const {
-    return callee_save_methods_[type] != 0u;
+    return callee_save_methods_[static_cast<size_t>(type)] != 0u;
   }
 
   ArtMethod* GetCalleeSaveMethod(CalleeSaveType type)
@@ -407,14 +388,14 @@ class Runtime {
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   QuickMethodFrameInfo GetCalleeSaveMethodFrameInfo(CalleeSaveType type) const {
-    return callee_save_method_frame_infos_[type];
+    return callee_save_method_frame_infos_[static_cast<size_t>(type)];
   }
 
   QuickMethodFrameInfo GetRuntimeMethodFrameInfo(ArtMethod* method)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   static size_t GetCalleeSaveMethodOffset(CalleeSaveType type) {
-    return OFFSETOF_MEMBER(Runtime, callee_save_methods_[type]);
+    return OFFSETOF_MEMBER(Runtime, callee_save_methods_[static_cast<size_t>(type)]);
   }
 
   InstructionSet GetInstructionSet() const {
@@ -663,13 +644,6 @@ class Runtime {
   void AddSystemWeakHolder(gc::AbstractSystemWeakHolder* holder);
   void RemoveSystemWeakHolder(gc::AbstractSystemWeakHolder* holder);
 
-  ClassHierarchyAnalysis* GetClassHierarchyAnalysis() {
-    return cha_;
-  }
-
-  NO_RETURN
-  static void Aborter(const char* abort_message);
-
   void AttachAgent(const std::string& agent_arg);
 
   const std::list<ti::Agent>& GetAgents() const {
@@ -695,6 +669,12 @@ class Runtime {
       result += deoptimization_counts_[i];
     }
     return result;
+  }
+
+  // Whether or not we use MADV_RANDOM on files that are thought to have random access patterns.
+  // This is beneficial for low RAM devices since it reduces page cache thrashing.
+  bool MAdviseRandomAccess() const {
+    return madvise_random_access_;
   }
 
  private:
@@ -734,8 +714,10 @@ class Runtime {
   static constexpr int kProfileForground = 0;
   static constexpr int kProfileBackground = 1;
 
+  static constexpr uint32_t kCalleeSaveSize = 4u;
+
   // 64 bit so that we can share the same asm offsets for both 32 and 64 bits.
-  uint64_t callee_save_methods_[kLastCalleeSaveType];
+  uint64_t callee_save_methods_[kCalleeSaveSize];
   GcRoot<mirror::Throwable> pre_allocated_OutOfMemoryError_;
   GcRoot<mirror::Throwable> pre_allocated_NoClassDefFoundError_;
   ArtMethod* resolution_method_;
@@ -749,7 +731,7 @@ class Runtime {
   GcRoot<mirror::Object> sentinel_;
 
   InstructionSet instruction_set_;
-  QuickMethodFrameInfo callee_save_method_frame_infos_[kLastCalleeSaveType];
+  QuickMethodFrameInfo callee_save_method_frame_infos_[kCalleeSaveSize];
 
   CompilerCallbacks* compiler_callbacks_;
   bool is_zygote_;
@@ -799,6 +781,13 @@ class Runtime {
   ClassLinker* class_linker_;
 
   SignalCatcher* signal_catcher_;
+
+  // If true, the runtime will connect to tombstoned via a socket to
+  // request an open file descriptor to write its traces to.
+  bool use_tombstoned_traces_;
+
+  // Location to which traces must be written on SIGQUIT. Only used if
+  // tombstoned_traces_ == false.
   std::string stack_trace_file_;
 
   std::unique_ptr<JavaVMExt> java_vm_;
@@ -919,6 +908,10 @@ class Runtime {
   // Whether or not we are on a low RAM device.
   bool is_low_memory_mode_;
 
+  // Whether or not we use MADV_RANDOM on files that are thought to have random access patterns.
+  // This is beneficial for low RAM devices since it reduces page cache thrashing.
+  bool madvise_random_access_;
+
   // Whether the application should run in safe mode, that is, interpreter only.
   bool safe_mode_;
 
@@ -951,16 +944,15 @@ class Runtime {
   // Generic system-weak holders.
   std::vector<gc::AbstractSystemWeakHolder*> system_weak_holders_;
 
-  ClassHierarchyAnalysis* cha_;
-
   std::unique_ptr<RuntimeCallbacks> callbacks_;
 
   std::atomic<uint32_t> deoptimization_counts_[
       static_cast<uint32_t>(DeoptimizationKind::kLast) + 1];
 
+  std::unique_ptr<MemMap> protected_fault_page_;
+
   DISALLOW_COPY_AND_ASSIGN(Runtime);
 };
-std::ostream& operator<<(std::ostream& os, const Runtime::CalleeSaveType& rhs);
 
 }  // namespace art
 

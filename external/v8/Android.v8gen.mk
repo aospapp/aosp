@@ -11,7 +11,6 @@ V8_LOCAL_JS_LIBRARY_FILES := \
 	src/js/prologue.js \
 	src/js/runtime.js \
 	src/js/v8natives.js \
-	src/js/symbol.js \
 	src/js/array.js \
 	src/js/string.js \
 	src/js/arraybuffer.js \
@@ -24,16 +23,14 @@ V8_LOCAL_JS_LIBRARY_FILES := \
 	src/js/templates.js \
 	src/js/spread.js \
 	src/js/proxy.js \
-	src/js/async-await.js \
+	src/js/harmony-string-padding.js \
 	src/debug/mirrors.js \
 	src/debug/debug.js \
 	src/debug/liveedit.js
 V8_LOCAL_JS_EXPERIMENTAL_LIBRARY_FILES := \
 	src/js/macros.py \
 	src/messages.h \
-	src/js/harmony-atomics.js \
-	src/js/harmony-simd.js \
-	src/js/harmony-string-padding.js
+	src/js/harmony-atomics.js
 LOCAL_SRC_FILES += src/snapshot/snapshot-empty.cc
 LOCAL_JS_LIBRARY_FILES := $(addprefix $(LOCAL_PATH)/, $(V8_LOCAL_JS_LIBRARY_FILES))
 LOCAL_JS_EXPERIMENTAL_LIBRARY_FILES := $(addprefix $(LOCAL_PATH)/, $(V8_LOCAL_JS_EXPERIMENTAL_LIBRARY_FILES))

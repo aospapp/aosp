@@ -50,7 +50,7 @@
     <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Bekor qilish"</string>
     <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> ilovasi qo‘ng‘iroq qilishga yodam beradi va qo‘ng‘iroqlarga tegishli boshqa barcha parametrlarni boshqaradi. Qo‘ng‘iroqlar uchun faqat ishonarli ilovani asosiy ilova qilib o‘rnatish lozim."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Bloklangan raqamlar"</string>
-    <string name="blocked_numbers_msg" msgid="1045015186124965643">"Bloklangan raqamlardan keladigan chaqiruv yoki SMS xabarlar qabul qilinmaydi."</string>
+    <string name="blocked_numbers_msg" msgid="1045015186124965643">"Bloklangan telefon raqamlaridan chaqiruv yoki matnli xabarlar qabul qilib bo‘lmaydi."</string>
     <string name="block_number" msgid="1101252256321306179">"Biror raqamni bloklash"</string>
     <string name="unblock_dialog_body" msgid="1614238499771862793">"<xliff:g id="NUMBER_TO_BLOCK">%1$s</xliff:g> raqami blokdan chiqarilsinmi?"</string>
     <string name="unblock_button" msgid="3078048901972674170">"Blokdan chiqarish"</string>

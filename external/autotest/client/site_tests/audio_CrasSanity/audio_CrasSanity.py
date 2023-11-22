@@ -13,20 +13,16 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.audio import cras_utils
 
 _CRASH_PATH = '/var/spool/crash'
-_DOWNLOAD_BASE = ('http://commondatastorage.googleapis.com/'
-                  'chromiumos-test-assets-public/')
-
+_JS = """
+var c = new AudioContext();
+var o = c.createOscillator();
+o.connect(c.destination); o.start();
+"""
 
 class audio_CrasSanity(test.test):
     """Verifies cras sanity using its status, active streams and crashes"""
 
     version = 1
-
-    _audio = ('audio.mp3', 'audio.wav', 'audio.m4a')
-    _video = ('traffic-1920x1080-8005020218f6b86bfa978e550d04956e.mp4',
-              'traffic-1920x1080-ad53f821ff3cf8ffa7e991c9d2e0b854.vp8.webm',
-              'traffic-1920x1080-83a1e5f8b7944577425f039034e64c76.vp9.webm')
-
     _check = {'crashes_on_boot': False,
               'stream_activation': False,
               'cras_status': False,
@@ -50,29 +46,20 @@ class audio_CrasSanity(test.test):
         cras_pid_1 = utils.get_oldest_pid_by_name('/usr/bin/cras')
 
         with chrome.Chrome(init_network_controller=True) as self._cr:
-            try:
-                # This will be used on Chrome PFQ since it's using a more recent
-                # version of Chrome. crbug.com/537655.
-                self._cr.browser.platform.SetHTTPServerDirectories(self.bindir)
-            except:
-                # This will be used on ChromeOS CQ since Chrome hasn't uprev'ed
-                # yet. crbug.com/538140.
-                self._cr.browser.SetHTTPServerDirectories(self.bindir)
-            for test_file in self._audio:
-                url = _DOWNLOAD_BASE + 'audio_test/' + test_file
-                self.push_new_stream(self._cr.browser.tabs.New(), url)
+            # Push the 1st stream
+            self.push_new_stream(self._cr.browser.tabs.New())
 
             # Capturing cras pid before opening a new set of audio streams.
             cras_pid_2 = utils.get_oldest_pid_by_name('/usr/bin/cras')
-            for test_file in self._video:
-                url = _DOWNLOAD_BASE + 'traffic/' + test_file
-                self.push_new_stream(self._cr.browser.tabs.New(), url)
+
+            # Push the 2nd stream
+            self.push_new_stream(self._cr.browser.tabs.New())
 
             # Let's play audio for sometime to ensure that
             # long playback is good.
             time.sleep(10)
 
-            total_tests = len(self._audio) + len(self._video)
+            total_tests = 2
             active_streams = cras_utils.get_active_stream_count()
             logging.debug(
                 'Number of active streams after opening all tabs: %d.',
@@ -122,18 +109,14 @@ class audio_CrasSanity(test.test):
             raise error.TestError(err_msg)
 
 
-    def push_new_stream(self, tab, url):
+    def push_new_stream(self, tab):
         """Starts next audio stream from self._streams list.
 
         @param tab: tab to open an audio stream.
-        @param url: audio/video test url.
         """
         tab.Activate()
-        tab.Navigate(url)
-        tab.ExecuteJavaScript(
-                "document.getElementsByTagName('video')[0].loop=true")
-        tab.ExecuteJavaScript(
-                "document.getElementsByTagName('video')[0].volume=0.1")
+        tab.Navigate("file:///")
+        tab.ExecuteJavaScript(_JS)
         time.sleep(1) # Adding a delay so cras can update the active count.
 
 

@@ -22,6 +22,7 @@ import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
+import android.net.wifi.aware.DiscoverySession;
 import android.net.wifi.aware.PeerHandle;
 import android.net.wifi.aware.PublishConfig;
 import android.net.wifi.aware.PublishDiscoverySession;
@@ -92,6 +93,7 @@ public class DataPathOutOfBandTestCase extends BaseTestCase {
 
     private String mFailureReason;
     private WifiAwareSession mWifiAwareSession;
+    private DiscoverySession mWifiAwareDiscoverySession;
     private byte[] mDiscoveryMac;
 
     public DataPathOutOfBandTestCase(Context context, boolean isSecurityOpen,
@@ -168,6 +170,10 @@ public class DataPathOutOfBandTestCase extends BaseTestCase {
 
     @Override
     protected void tearDown() {
+        if (mWifiAwareDiscoverySession != null) {
+            mWifiAwareDiscoverySession.close();
+            mWifiAwareDiscoverySession = null;
+        }
         if (mWifiAwareSession != null) {
             mWifiAwareSession.close();
             mWifiAwareSession = null;
@@ -200,6 +206,7 @@ public class DataPathOutOfBandTestCase extends BaseTestCase {
                 return false;
         }
         PublishDiscoverySession discoverySession = callbackData.publishDiscoverySession;
+        mWifiAwareDiscoverySession = discoverySession;
         if (discoverySession == null) {
             setFailureReason(mContext.getString(R.string.aware_status_publish_null_session));
             Log.e(TAG, "executeTestResponder: publish succeeded but null session returned");
@@ -261,6 +268,7 @@ public class DataPathOutOfBandTestCase extends BaseTestCase {
 
         // 5. Destroy discovery session
         discoverySession.close();
+        mWifiAwareDiscoverySession = null;
 
         // 6. Request network (as Responder) and wait for network
         ConnectivityManager cm = (ConnectivityManager) mContext.getSystemService(
@@ -315,6 +323,7 @@ public class DataPathOutOfBandTestCase extends BaseTestCase {
                 return false;
         }
         SubscribeDiscoverySession discoverySession = callbackData.subscribeDiscoverySession;
+        mWifiAwareDiscoverySession = discoverySession;
         if (discoverySession == null) {
             setFailureReason(mContext.getString(R.string.aware_status_subscribe_null_session));
             Log.e(TAG, "executeTestInitiator: subscribe succeeded but null session returned");
@@ -388,6 +397,7 @@ public class DataPathOutOfBandTestCase extends BaseTestCase {
 
         // 6. Destroy discovery session
         discoverySession.close();
+        mWifiAwareDiscoverySession = null;
 
         // 7. Sleep for 5 seconds to let Responder time to set up
         mListener.onTestMsgReceived(

@@ -15,13 +15,14 @@
  */
 package android.support.car.navigation;
 
-import android.support.annotation.IntDef;
-import android.support.annotation.RestrictTo;
+import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
 
+import android.os.Bundle;
+import android.support.annotation.IntDef;
+import android.support.annotation.Nullable;
+import android.support.annotation.RestrictTo;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-
-import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
 
 /**
  * Holds options related to navigation for the car's instrument cluster.
@@ -44,13 +45,15 @@ public class CarNavigationInstrumentCluster {
     private int mMinIntervalMillis;
 
     @ClusterType
-    private int mType;
+    private final int mType;
 
-    private int mImageWidth;
+    private final int mImageWidth;
 
-    private int mImageHeight;
+    private final int mImageHeight;
 
-    private int mImageColorDepthBits;
+    private final int mImageColorDepthBits;
+
+    private final Bundle mExtra;
 
     /** @hide */
     @RestrictTo(GROUP_ID)
@@ -99,6 +102,12 @@ public class CarNavigationInstrumentCluster {
     }
 
     /**
+     * Contains extra information about instrument cluster.
+     * @hide
+     */
+    public Bundle getExtra() { return mExtra; }
+
+    /**
      * @return If instrument cluster is image, number of bits of colour depth it supports (8, 16,
      * or  32), 0 otherwise.
      */
@@ -133,11 +142,24 @@ public class CarNavigationInstrumentCluster {
             int imageWidth,
             int imageHeight,
             int imageColorDepthBits) {
-        this.mMinIntervalMillis = minIntervalMillis;
-        this.mType = type;
-        this.mImageWidth = imageWidth;
-        this.mImageHeight = imageHeight;
-        this.mImageColorDepthBits = imageColorDepthBits;
+        this(minIntervalMillis, type, imageWidth, imageHeight, imageColorDepthBits, null);
+    }
+
+    /** @hide */
+    @RestrictTo(GROUP_ID)
+    CarNavigationInstrumentCluster(
+            int minIntervalMillis,
+            @ClusterType int type,
+            int imageWidth,
+            int imageHeight,
+            int imageColorDepthBits,
+            @Nullable Bundle extra) {
+        mMinIntervalMillis = minIntervalMillis;
+        mType = type;
+        mImageWidth = imageWidth;
+        mImageHeight = imageHeight;
+        mImageColorDepthBits = imageColorDepthBits;
+        mExtra = extra == null ? new Bundle() : new Bundle(extra);
     }
 
 
@@ -149,6 +171,7 @@ public class CarNavigationInstrumentCluster {
                 "type: " + mType + ", " +
                 "imageWidth: " + mImageWidth + ", " +
                 "imageHeight: " + mImageHeight + ", " +
-                "imageColourDepthBits: " + mImageColorDepthBits + " }";
+                "imageColourDepthBits: " + mImageColorDepthBits + ", " +
+                "extra: " + mExtra + " }";
     }
 }

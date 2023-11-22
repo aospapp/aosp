@@ -68,7 +68,8 @@ class FrontendTestMixin(object):
     def _create_job(self, hosts=[], metahosts=[], priority=0, active=False,
                     synchronous=False, hostless=False,
                     drone_set=None, control_file='control',
-                    owner='autotest_system', parent_job_id=None):
+                    owner='autotest_system', parent_job_id=None,
+                    shard=None):
         """
         Create a job row in the test database.
 
@@ -86,6 +87,7 @@ class FrontendTestMixin(object):
                 acquire hosts change with the aclgroups of the owners.
         @param parent_job_id - The id of a parent_job. If a job with the id
                 doesn't already exist one will be created.
+        @param shard - shard object to assign the job to.
 
         @raises model.DoesNotExist: If parent_job_id is specified but a job with
             id=parent_job_id does not exist.
@@ -109,7 +111,8 @@ class FrontendTestMixin(object):
             synch_count=synch_count, created_on=created_on,
             reboot_before=model_attributes.RebootBefore.NEVER,
             drone_set=drone_set, control_file=control_file,
-            parent_job=parent_job, require_ssp=None)
+            parent_job=parent_job, require_ssp=None,
+            shard=shard)
 
         # Update the job's dependencies to include the metahost.
         for metahost_label in metahosts:

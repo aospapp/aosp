@@ -1,13 +1,14 @@
+#!/usr/bin/env python
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import common
 import logging
 import math
 import numpy
 import unittest
 
+import common
 from autotest_lib.client.cros.audio import audio_data
 from autotest_lib.client.cros.audio import audio_quality_measurement
 

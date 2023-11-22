@@ -15,11 +15,11 @@
  */
 package com.android.car.dialer;
 
-import android.support.car.ui.CarListItemViewHolder;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import com.android.car.view.CarListItemViewHolder;
 
 public class CallLogViewHolder extends CarListItemViewHolder {
     public View card;

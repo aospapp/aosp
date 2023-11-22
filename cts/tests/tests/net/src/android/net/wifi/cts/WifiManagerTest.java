@@ -77,6 +77,10 @@ public class WifiManagerTest extends AndroidTestCase {
     private static final String SSID2 = "\"WifiManagerTestModified\"";
     private static final String PROXY_TEST_SSID = "SomeProxyAp";
     private static final String ADD_NETWORK_EXCEPTION_SUBSTR = "addNetwork";
+    // A full single scan duration is about 6-7 seconds if country code is set
+    // to US. If country code is set to world mode (00), we would expect a scan
+    // duration of roughly 8 seconds. So we set scan timeout as 9 seconds here.
+    private static final int SCAN_TIMEOUT_MSEC = 9000;
     private static final int TIMEOUT_MSEC = 6000;
     private static final int WAIT_MSEC = 60;
     private static final int DURATION = 10000;
@@ -202,7 +206,7 @@ public class WifiManagerTest extends AndroidTestCase {
             mMySync.expectedState = STATE_SCANNING;
             mScanResults = null;
             assertTrue(mWifiManager.startScan());
-            long timeout = System.currentTimeMillis() + TIMEOUT_MSEC;
+            long timeout = System.currentTimeMillis() + SCAN_TIMEOUT_MSEC;
             while (System.currentTimeMillis() < timeout && mMySync.expectedState == STATE_SCANNING)
                 mMySync.wait(WAIT_MSEC);
         }
@@ -801,7 +805,11 @@ public class WifiManagerTest extends AndroidTestCase {
      * Note: Location mode must be enabled for this test.
      */
     public void testStartLocalOnlyHotspotSuccess() {
-        // first check that softap mode is supported by the device
+        if (!WifiFeature.isWifiSupported(getContext())) {
+            // skip the test if WiFi is not supported
+            return;
+        }
+        // check that softap mode is supported by the device
         if (!mWifiManager.isPortableHotspotSupported()) {
             return;
         }
@@ -826,7 +834,11 @@ public class WifiManagerTest extends AndroidTestCase {
      * Note: Location mode must be enabled for this test.
      */
     public void testSetWifiEnabledByAppDoesNotStopHotspot() {
-        // first check that softap mode is supported by the device
+        if (!WifiFeature.isWifiSupported(getContext())) {
+            // skip the test if WiFi is not supported
+            return;
+        }
+        // check that softap mode is supported by the device
         if (!mWifiManager.isPortableHotspotSupported()) {
             return;
         }
@@ -850,7 +862,11 @@ public class WifiManagerTest extends AndroidTestCase {
      * Note: Location mode must be enabled for this test.
      */
     public void testStartLocalOnlyHotspotSingleRequestByApps() {
-        // first check that softap mode is supported by the device
+        if (!WifiFeature.isWifiSupported(getContext())) {
+            // skip the test if WiFi is not supported
+            return;
+        }
+        // check that softap mode is supported by the device
         if (!mWifiManager.isPortableHotspotSupported()) {
             return;
         }

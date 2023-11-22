@@ -151,7 +151,9 @@ public class TestCallList extends Call.Callback {
         call.unregisterCallback(this);
 
         for (Listener l : mListeners) {
-            l.onCallRemoved(call);
+            if (l != null) {
+                l.onCallRemoved(call);
+            }
         }
     }
 

@@ -52,7 +52,7 @@
   <string-array name="captioning_edge_type_selector_titles">
     <item msgid="5333047169042840730">"Tidak ada"</item>
     <item msgid="7663488423233018922">"Garis batas"</item>
-    <item msgid="7891048730741670843">"Bayangan jatuh"</item>
+    <item msgid="7891048730741670843">"Drop shadow"</item>
     <item msgid="6613725572146700438">"Dinaikkan"</item>
     <item msgid="1007736533206905292">"Diturunkan"</item>
   </string-array>

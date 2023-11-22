@@ -74,6 +74,8 @@ public class ConnectivityConstants {
         public static final String MAX_MS_TO_LIVE = "maxMsToLive";
         public static final String RSSI = "rssi";
         public static final String INTERFACE_NAME = "interfaceName";
+        public static final String CREATE_TIMESTAMP = "creation_timestamp";
+        public static final String CURRENT_TIMESTAMP = "current_timestamp";
     }
 
     /**

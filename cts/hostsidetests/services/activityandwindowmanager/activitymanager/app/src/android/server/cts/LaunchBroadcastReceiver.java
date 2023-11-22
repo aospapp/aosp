@@ -20,11 +20,18 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.server.cts.tools.ActivityLauncher;
+import android.util.Log;
 
 /** Broadcast receiver that can launch activities. */
 public class LaunchBroadcastReceiver extends BroadcastReceiver {
+    private static final String TAG = LaunchBroadcastReceiver.class.getSimpleName();
+
     @Override
     public void onReceive(Context context, Intent intent) {
-        ActivityLauncher.launchActivityFromExtras(context, intent.getExtras());
+        try {
+            ActivityLauncher.launchActivityFromExtras(context, intent.getExtras());
+        } catch (SecurityException e) {
+            Log.e(TAG, "SecurityException launching activity");
+        }
     }
 }

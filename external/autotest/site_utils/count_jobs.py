@@ -31,7 +31,7 @@ def number_of_jobs_since(delta):
 
 
 def main():
-    """Counts the number of AFE jobs in the last day, then pushes the count to statsd"""
+    """Counts the number of AFE jobs in the last day and report to monarch."""
     parser = argparse.ArgumentParser(
         description=('A script which records the number of afe jobs run in a time interval.'))
     parser.parse_args(sys.argv[1:])

@@ -20,11 +20,12 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 LOCAL_CFLAGS := -Werror
 LOCAL_MODULE := recovery_unit_test
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
+LOCAL_COMPATIBILITY_SUITE := device-tests
 LOCAL_STATIC_LIBRARIES := \
     libverifier \
     libminui \
     libotautil \
+    libupdater \
     libziparchive \
     libutils \
     libz \
@@ -35,9 +36,9 @@ LOCAL_SRC_FILES := \
     unit/asn1_decoder_test.cpp \
     unit/dirutil_test.cpp \
     unit/locale_test.cpp \
+    unit/rangeset_test.cpp \
     unit/sysutil_test.cpp \
     unit/zip_test.cpp \
-    unit/ziputil_test.cpp
 
 LOCAL_C_INCLUDES := bootable/recovery
 LOCAL_SHARED_LIBRARIES := liblog
@@ -45,10 +46,8 @@ include $(BUILD_NATIVE_TEST)
 
 # Manual tests
 include $(CLEAR_VARS)
-LOCAL_CLANG := true
 LOCAL_CFLAGS := -Werror
 LOCAL_MODULE := recovery_manual_test
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_STATIC_LIBRARIES := \
     libminui \
     libbase
@@ -85,13 +84,20 @@ LOCAL_CFLAGS := \
     -Werror \
     -D_FILE_OFFSET_BITS=64
 
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
-
 ifeq ($(AB_OTA_UPDATER),true)
 LOCAL_CFLAGS += -DAB_OTA_UPDATER=1
 endif
 
+ifeq ($(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_SUPPORTS_VERITY),true)
+LOCAL_CFLAGS += -DPRODUCT_SUPPORTS_VERITY=1
+endif
+
+ifeq ($(BOARD_AVB_ENABLE),true)
+LOCAL_CFLAGS += -DBOARD_AVB_ENABLE=1
+endif
+
 LOCAL_MODULE := recovery_component_test
+LOCAL_COMPATIBILITY_SUITE := device-tests
 LOCAL_C_INCLUDES := bootable/recovery
 LOCAL_SRC_FILES := \
     component/applypatch_test.cpp \
@@ -102,9 +108,11 @@ LOCAL_SRC_FILES := \
     component/sideload_test.cpp \
     component/uncrypt_test.cpp \
     component/updater_test.cpp \
+    component/update_verifier_test.cpp \
     component/verifier_test.cpp
 
-LOCAL_FORCE_STATIC_EXECUTABLE := true
+LOCAL_SHARED_LIBRARIES := \
+    libhidlbase
 
 tune2fs_static_libraries := \
     libext2_com_err \
@@ -122,6 +130,7 @@ LOCAL_STATIC_LIBRARIES := \
     libimgpatch \
     libbsdiff \
     libbspatch \
+    libfusesideload \
     libotafault \
     librecovery \
     libupdater \
@@ -129,6 +138,7 @@ LOCAL_STATIC_LIBRARIES := \
     libverifier \
     libotautil \
     libmounts \
+    libupdate_verifier \
     libdivsufsort \
     libdivsufsort64 \
     libfs_mgr \
@@ -151,6 +161,7 @@ LOCAL_STATIC_LIBRARIES := \
     libfec_rs \
     libsquashfs_utils \
     libcutils \
+    libbrotli \
     $(tune2fs_static_libraries)
 
 testdata_files := $(call find-subdir-files, testdata/*)

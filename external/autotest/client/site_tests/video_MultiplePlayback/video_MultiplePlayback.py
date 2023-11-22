@@ -9,6 +9,7 @@ from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros.video import youtube_helper
+from autotest_lib.client.cros.video import helper_logger
 
 
 FLASH_PROCESS_NAME = 'chrome/chrome --type=ppapi'
@@ -18,7 +19,7 @@ PLAYBACK_TEST_TIME_S = 10
 
 class video_MultiplePlayback(test.test):
     """This test verify simultaneous video playback.
-    We are testing using Youtube html5, flash and a local video.
+    We are testing using Youtube html5 and a local video.
 
     """
     version = 1
@@ -45,7 +46,7 @@ class video_MultiplePlayback(test.test):
 
 
     def run_video_tests(self, browser):
-        """Play youtube html5, flash and a loca video, and verify the playback.
+        """Play youtube html5 and a local video, and verify the playback.
 
         @param browser: The Browser object to run the test with.
 
@@ -72,29 +73,19 @@ class video_MultiplePlayback(test.test):
         if prc:
             raise error.TestFail('Tab2: Running YouTube in Flash mode.')
 
-        tab3 = browser.tabs.New()
-        tab3.Navigate(browser.platform.http_server.UrlOf(
-                os.path.join(self.bindir, 'youtube.html')))
-        yh1 = youtube_helper.YouTubeHelper(tab3)
-        # Waiting for test video to load.
-        yh1.wait_for_player_state(PLAYER_PLAYING_STATE)
-        yh1.set_video_duration()
-        # Verify that YouTube is running in html5 mode.
-        prc1 = utils.get_process_list('chrome', '--type=ppapi')
-        if not prc1:
-            raise error.TestFail('Tab3: No flash process is Running .')
-
         # Verifying video playback.
         self.verify_localvideo_playback(tab1)
         yh.verify_video_playback()
-        yh1.verify_video_playback()
 
 
+    @helper_logger.video_log_wrapper
     def run_once(self):
         # TODO(scottz): Remove this when crbug.com/220147 is fixed.
         dut_board = utils.get_current_board()
         if dut_board == 'x86-mario':
            raise error.TestNAError('This test is not available on %s' %
                                     dut_board)
-        with chrome.Chrome(init_network_controller=True) as cr:
+        with chrome.Chrome(
+                extra_browser_args=helper_logger.chrome_vmodule_flag(),
+                init_network_controller=True) as cr:
             self.run_video_tests(cr.browser)

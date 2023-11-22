@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2013, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,13 +25,7 @@
 
 package sun.util.calendar;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-import java.security.PrivilegedActionException;
-import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -60,6 +54,7 @@ public class LocalGregorianCalendar extends BaseCalendar {
 
         private int gregorianYear = FIELD_UNDEFINED;
 
+        @Override
         public Date setEra(Era era) {
             if (getEra() != era) {
                 super.setEra(era);
@@ -68,12 +63,14 @@ public class LocalGregorianCalendar extends BaseCalendar {
             return this;
         }
 
+        @Override
         public Date addYear(int localYear) {
             super.addYear(localYear);
             gregorianYear += localYear;
             return this;
         }
 
+        @Override
         public Date setYear(int localYear) {
             if (getYear() != localYear) {
                 super.setYear(localYear);
@@ -82,10 +79,12 @@ public class LocalGregorianCalendar extends BaseCalendar {
             return this;
         }
 
+        @Override
         public int getNormalizedYear() {
             return gregorianYear;
         }
 
+        @Override
         public void setNormalizedYear(int normalizedYear) {
             this.gregorianYear = normalizedYear;
         }
@@ -98,6 +97,7 @@ public class LocalGregorianCalendar extends BaseCalendar {
             super.setYear(year);
         }
 
+        @Override
         public String toString() {
             String time = super.toString();
             time = time.substring(time.indexOf('T'));
@@ -118,20 +118,18 @@ public class LocalGregorianCalendar extends BaseCalendar {
     }
 
     static LocalGregorianCalendar getLocalGregorianCalendar(String name) {
-        // Android-changed: use getCalendarProperties()
         Properties calendarProps;
         try {
-            calendarProps = getCalendarProperties();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+            calendarProps = CalendarSystem.getCalendarProperties();
+        } catch (IOException | IllegalArgumentException e) {
+            throw new InternalError(e);
         }
-
         // Parse calendar.*.eras
         String props = calendarProps.getProperty("calendar." + name + ".eras");
         if (props == null) {
             return null;
         }
-        List<Era> eras = new ArrayList<Era>();
+        List<Era> eras = new ArrayList<>();
         StringTokenizer eraTokens = new StringTokenizer(props, ";");
         while (eraTokens.hasMoreTokens()) {
             String items = eraTokens.nextToken().trim();
@@ -168,11 +166,12 @@ public class LocalGregorianCalendar extends BaseCalendar {
             Era era = new Era(eraName, abbr, since, localTime);
             eras.add(era);
         }
-        // Android-changed: Throw if no eras were found, as other code depends on there being
-        // at least one era.
+        // BEGIN Android-changed: Require at least one era.
+        // Other code depends on there being at least one era.
         if (eras.isEmpty()) {
             throw new RuntimeException("No eras for " + name);
         }
+        // END Android-changed: Require at least one era.
         Era[] eraArray = new Era[eras.size()];
         eras.toArray(eraArray);
 
@@ -185,22 +184,27 @@ public class LocalGregorianCalendar extends BaseCalendar {
         setEras(eras);
     }
 
+    @Override
     public String getName() {
         return name;
     }
 
+    @Override
     public Date getCalendarDate() {
         return getCalendarDate(System.currentTimeMillis(), newCalendarDate());
     }
 
+    @Override
     public Date getCalendarDate(long millis) {
         return getCalendarDate(millis, newCalendarDate());
     }
 
+    @Override
     public Date getCalendarDate(long millis, TimeZone zone) {
         return getCalendarDate(millis, newCalendarDate(zone));
     }
 
+    @Override
     public Date getCalendarDate(long millis, CalendarDate date) {
         Date ldate = (Date) super.getCalendarDate(millis, date);
         return adjustYear(ldate, millis, ldate.getZoneOffset());
@@ -229,14 +233,17 @@ public class LocalGregorianCalendar extends BaseCalendar {
         return ldate;
     }
 
+    @Override
     public Date newCalendarDate() {
         return new Date();
     }
 
+    @Override
     public Date newCalendarDate(TimeZone zone) {
         return new Date(zone);
     }
 
+    @Override
     public boolean validate(CalendarDate date) {
         Date ldate = (Date) date;
         Era era = ldate.getEra();
@@ -270,6 +277,7 @@ public class LocalGregorianCalendar extends BaseCalendar {
         return false;
     }
 
+    @Override
     public boolean normalize(CalendarDate date) {
         if (date.isNormalized()) {
             return true;
@@ -343,6 +351,7 @@ public class LocalGregorianCalendar extends BaseCalendar {
         return true;
     }
 
+    @Override
     void normalizeMonth(CalendarDate date) {
         normalizeYear(date);
         super.normalizeMonth(date);
@@ -364,6 +373,7 @@ public class LocalGregorianCalendar extends BaseCalendar {
      * Returns whether the specified Gregorian year is a leap year.
      * @see #isLeapYear(Era, int)
      */
+    @Override
     public boolean isLeapYear(int gregorianYear) {
         return CalendarUtils.isGregorianLeapYear(gregorianYear);
     }
@@ -376,6 +386,7 @@ public class LocalGregorianCalendar extends BaseCalendar {
         return isLeapYear(gyear);
     }
 
+    @Override
     public void getCalendarDateFromFixedDate(CalendarDate date, long fixedDate) {
         Date ldate = (Date) date;
         super.getCalendarDateFromFixedDate(ldate, fixedDate);

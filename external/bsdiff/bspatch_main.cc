@@ -5,7 +5,7 @@
 #include <err.h>
 #include <stdlib.h>
 
-#include "bspatch.h"
+#include "bsdiff/bspatch.h"
 
 #define USAGE_TEMPLATE_STR                                          \
   "usage: %s oldfile newfile patchfile [old-extents new-extents]\n" \

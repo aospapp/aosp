@@ -33,15 +33,14 @@
 #include "base/mutex.h"
 #include "entrypoints/jni/jni_entrypoints.h"
 #include "entrypoints/quick/quick_entrypoints.h"
-#include "gc_root.h"
 #include "globals.h"
 #include "handle_scope.h"
 #include "instrumentation.h"
 #include "jvalue.h"
-#include "object_callbacks.h"
+#include "managed_stack.h"
 #include "offsets.h"
 #include "runtime_stats.h"
-#include "stack.h"
+#include "suspend_reason.h"
 #include "thread_state.h"
 
 class BacktraceMap;
@@ -87,12 +86,14 @@ class FrameIdToShadowFrame;
 class JavaVMExt;
 struct JNIEnvExt;
 class Monitor;
+class RootVisitor;
 class ScopedObjectAccessAlreadyRunnable;
 class ShadowFrame;
 class SingleStepControl;
 class StackedShadowFrameRecord;
 class Thread;
 class ThreadList;
+enum VisitRootFlags : uint8_t;
 
 // Thread priorities. These must match the Thread.MIN_PRIORITY,
 // Thread.NORM_PRIORITY, and Thread.MAX_PRIORITY constants.
@@ -149,6 +150,7 @@ static constexpr size_t kNumRosAllocThreadLocalSizeBracketsInThread = 16;
 class Thread {
  public:
   static const size_t kStackOverflowImplicitCheckSize;
+  static constexpr bool kVerifyStack = kIsDebugBuild;
 
   // Creates a new native thread corresponding to the given managed peer.
   // Used to implement Thread.start.
@@ -226,6 +228,11 @@ class Thread {
     return tls32_.suspend_count;
   }
 
+  int GetUserCodeSuspendCount() const REQUIRES(Locks::thread_suspend_count_lock_,
+                                               Locks::user_code_suspension_lock_) {
+    return tls32_.user_code_suspend_count;
+  }
+
   int GetDebugSuspendCount() const REQUIRES(Locks::thread_suspend_count_lock_) {
     return tls32_.debug_suspend_count;
   }
@@ -243,14 +250,16 @@ class Thread {
   bool ModifySuspendCount(Thread* self,
                           int delta,
                           AtomicInteger* suspend_barrier,
-                          bool for_debugger)
+                          SuspendReason reason)
       WARN_UNUSED
       REQUIRES(Locks::thread_suspend_count_lock_);
 
   bool RequestCheckpoint(Closure* function)
       REQUIRES(Locks::thread_suspend_count_lock_);
-  void RequestSynchronousCheckpoint(Closure* function)
-      REQUIRES(!Locks::thread_suspend_count_lock_, !Locks::thread_list_lock_);
+  bool RequestSynchronousCheckpoint(Closure* function)
+      REQUIRES_SHARED(Locks::mutator_lock_)
+      REQUIRES(Locks::thread_list_lock_)
+      REQUIRES(!Locks::thread_suspend_count_lock_);
   bool RequestEmptyCheckpoint()
       REQUIRES(Locks::thread_suspend_count_lock_);
 
@@ -487,15 +496,12 @@ class Thread {
   }
 
   // Implements java.lang.Thread.interrupted.
-  bool Interrupted() REQUIRES(!*wait_mutex_);
+  bool Interrupted();
   // Implements java.lang.Thread.isInterrupted.
-  bool IsInterrupted() REQUIRES(!*wait_mutex_);
-  bool IsInterruptedLocked() REQUIRES(wait_mutex_) {
-    return interrupted_;
-  }
+  bool IsInterrupted();
   void Interrupt(Thread* self) REQUIRES(!*wait_mutex_);
-  void SetInterruptedLocked(bool i) REQUIRES(wait_mutex_) {
-    interrupted_ = i;
+  void SetInterrupted(bool i) {
+    tls32_.interrupted.StoreSequentiallyConsistent(i);
   }
   void Notify() REQUIRES(!*wait_mutex_);
 
@@ -563,10 +569,14 @@ class Thread {
     return tlsPtr_.frame_id_to_shadow_frame != nullptr;
   }
 
-  void VisitRoots(RootVisitor* visitor, VisitRootFlags flags = kVisitRootFlagAllRoots)
+  void VisitRoots(RootVisitor* visitor, VisitRootFlags flags)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  ALWAYS_INLINE void VerifyStack() REQUIRES_SHARED(Locks::mutator_lock_);
+  void VerifyStack() REQUIRES_SHARED(Locks::mutator_lock_) {
+    if (kVerifyStack) {
+      VerifyStackImpl();
+    }
+  }
 
   //
   // Offsets of various members of native Thread class, used by compiled code.
@@ -577,6 +587,13 @@ class Thread {
     return ThreadOffset<pointer_size>(
         OFFSETOF_MEMBER(Thread, tls32_) +
         OFFSETOF_MEMBER(tls_32bit_sized_values, thin_lock_thread_id));
+  }
+
+  template<PointerSize pointer_size>
+  static ThreadOffset<pointer_size> InterruptedOffset() {
+    return ThreadOffset<pointer_size>(
+        OFFSETOF_MEMBER(Thread, tls32_) +
+        OFFSETOF_MEMBER(tls_32bit_sized_values, interrupted));
   }
 
   template<PointerSize pointer_size>
@@ -642,6 +659,17 @@ class Thread {
   static ThreadOffset<pointer_size> JniEntryPointOffset(size_t jni_entrypoint_offset) {
     return ThreadOffsetFromTlsPtr<pointer_size>(
         OFFSETOF_MEMBER(tls_ptr_sized_values, jni_entrypoints) + jni_entrypoint_offset);
+  }
+
+  // Return the entry point offset integer value for ReadBarrierMarkRegX, where X is `reg`.
+  template <PointerSize pointer_size>
+  static int32_t ReadBarrierMarkEntryPointsOffset(size_t reg) {
+    // The entry point list defines 30 ReadBarrierMarkRegX entry points.
+    DCHECK_LT(reg, 30u);
+    // The ReadBarrierMarkRegX entry points are ordered by increasing
+    // register number in Thread::tls_Ptr_.quick_entrypoints.
+    return QUICK_ENTRYPOINT_OFFSET(pointer_size, pReadBarrierMarkReg00).Int32Value()
+        + static_cast<size_t>(pointer_size) * reg;
   }
 
   template<PointerSize pointer_size>
@@ -789,13 +817,8 @@ class Thread {
     tlsPtr_.managed_stack.PopManagedStackFragment(fragment);
   }
 
-  ShadowFrame* PushShadowFrame(ShadowFrame* new_top_frame) {
-    return tlsPtr_.managed_stack.PushShadowFrame(new_top_frame);
-  }
-
-  ShadowFrame* PopShadowFrame() {
-    return tlsPtr_.managed_stack.PopShadowFrame();
-  }
+  ALWAYS_INLINE ShadowFrame* PushShadowFrame(ShadowFrame* new_top_frame);
+  ALWAYS_INLINE ShadowFrame* PopShadowFrame();
 
   template<PointerSize pointer_size>
   static ThreadOffset<pointer_size> TopShadowFrameOffset() {
@@ -1159,11 +1182,11 @@ class Thread {
     return debug_disallow_read_barrier_;
   }
 
-  const void* GetCustomTLS() const {
+  void* GetCustomTLS() const REQUIRES(Locks::thread_list_lock_) {
     return custom_tls_;
   }
 
-  void SetCustomTLS(const void* data) {
+  void SetCustomTLS(void* data) REQUIRES(Locks::thread_list_lock_) {
     custom_tls_ = data;
   }
 
@@ -1179,6 +1202,9 @@ class Thread {
     }
     return false;
   }
+
+  // Set to the read barrier marking entrypoints to be non-null.
+  void SetReadBarrierEntrypoints();
 
   static jobject CreateCompileTimePeer(JNIEnv* env,
                                        const char* name,
@@ -1243,9 +1269,10 @@ class Thread {
 
   static void* CreateCallback(void* arg);
 
-  void HandleUncaughtExceptions(ScopedObjectAccess& soa)
+  void HandleUncaughtExceptions(ScopedObjectAccessAlreadyRunnable& soa)
       REQUIRES_SHARED(Locks::mutator_lock_);
-  void RemoveFromThreadGroup(ScopedObjectAccess& soa) REQUIRES_SHARED(Locks::mutator_lock_);
+  void RemoveFromThreadGroup(ScopedObjectAccessAlreadyRunnable& soa)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Initialize a thread.
   //
@@ -1290,7 +1317,7 @@ class Thread {
   bool ModifySuspendCountInternal(Thread* self,
                                   int delta,
                                   AtomicInteger* suspend_barrier,
-                                  bool for_debugger)
+                                  SuspendReason reason)
       WARN_UNUSED
       REQUIRES(Locks::thread_suspend_count_lock_);
 
@@ -1370,7 +1397,7 @@ class Thread {
       thread_exit_check_count(0), handling_signal_(false),
       is_transitioning_to_runnable(false), ready_for_debug_invoke(false),
       debug_method_entry_(false), is_gc_marking(false), weak_ref_access_enabled(true),
-      disable_thread_flip_count(0) {
+      disable_thread_flip_count(0), user_code_suspend_count(0) {
     }
 
     union StateAndFlags state_and_flags;
@@ -1429,6 +1456,9 @@ class Thread {
     // GC roots.
     bool32_t is_gc_marking;
 
+    // Thread "interrupted" status; stays raised until queried or thrown.
+    Atomic<bool32_t> interrupted;
+
     // True if the thread is allowed to access a weak ref (Reference::GetReferent() and system
     // weaks) and to potentially mark an object alive/gray. This is used for concurrent reference
     // processing of the CC collector only. This is thread local so that we can enable/disable weak
@@ -1442,6 +1472,12 @@ class Thread {
     // levels of (nested) JNI critical sections the thread is in and is used to detect a nested JNI
     // critical section enter.
     uint32_t disable_thread_flip_count;
+
+    // How much of 'suspend_count_' is by request of user code, used to distinguish threads
+    // suspended by the runtime from those suspended by user code.
+    // This should have GUARDED_BY(Locks::user_code_suspension_lock_) but auto analysis cannot be
+    // told that AssertHeld should be good enough.
+    int user_code_suspend_count GUARDED_BY(Locks::thread_suspend_count_lock_);
   } tls32_;
 
   struct PACKED(8) tls_64bit_sized_values {
@@ -1628,16 +1664,13 @@ class Thread {
     gc::accounting::AtomicStack<mirror::Object>* thread_local_mark_stack;
   } tlsPtr_;
 
-  // Guards the 'interrupted_' and 'wait_monitor_' members.
+  // Guards the 'wait_monitor_' members.
   Mutex* wait_mutex_ DEFAULT_MUTEX_ACQUIRED_AFTER;
 
   // Condition variable waited upon during a wait.
   ConditionVariable* wait_cond_ GUARDED_BY(wait_mutex_);
   // Pointer to the monitor lock we're currently waiting on or null if not waiting.
   Monitor* wait_monitor_ GUARDED_BY(wait_mutex_);
-
-  // Thread "interrupted" status; stays raised until queried or thrown.
-  bool interrupted_ GUARDED_BY(wait_mutex_);
 
   // Debug disable read barrier count, only is checked for debug builds and only in the runtime.
   uint8_t debug_disallow_read_barrier_ = 0;
@@ -1650,7 +1683,7 @@ class Thread {
 
   // Custom TLS field that can be used by plugins.
   // TODO: Generalize once we have more plugins.
-  const void* custom_tls_;
+  void* custom_tls_;
 
   // True if the thread is allowed to call back into java (for e.g. during class resolution).
   // By default this is true.

@@ -218,6 +218,8 @@ class JMIDataV3Helper(cfm_jmidata_helper_base.JMIDataHelperBase):
                     elif (cpu_type in global_obj and
                             self.IsFloat(global_obj[cpu_type])):
                         data_list.append(float(global_obj[cpu_type]))
+        if not data_list:
+            data_list = [0]
         return data_list
 
     def GetNumOfProcessors(self):

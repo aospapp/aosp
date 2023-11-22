@@ -23,18 +23,32 @@
 
 #define LOG_TAG "InterfaceController"
 #include <android-base/file.h>
+#include <android-base/properties.h>
 #include <android-base/stringprintf.h>
 #include <cutils/log.h>
 #include <logwrap/logwrap.h>
 #include <netutils/ifc.h>
 
+#include <android/net/INetd.h>
+#include <netdutils/Misc.h>
+#include <netdutils/Slice.h>
+#include <netdutils/Syscalls.h>
+
 #include "InterfaceController.h"
 #include "RouteController.h"
 
-using android::base::StringPrintf;
 using android::base::ReadFileToString;
+using android::base::StringPrintf;
 using android::base::WriteStringToFile;
+using android::net::INetd;
 using android::net::RouteController;
+using android::netdutils::Status;
+using android::netdutils::StatusOr;
+using android::netdutils::makeSlice;
+using android::netdutils::sSyscalls;
+using android::netdutils::status::ok;
+using android::netdutils::statusFromErrno;
+using android::netdutils::toString;
 
 namespace {
 
@@ -53,6 +67,21 @@ constexpr int kRouteInfoMinPrefixLen = 48;
 
 // RFC 7421 prefix length.
 constexpr int kRouteInfoMaxPrefixLen = 64;
+
+// Property used to persist RFC 7217 stable secret. Protected by SELinux policy.
+const char kStableSecretProperty[] = "persist.netd.stable_secret";
+
+// RFC 7217 stable secret on linux is formatted as an IPv6 address.
+// This function uses 128 bits of high quality entropy to generate an
+// address for this purpose. This function should be not be called
+// frequently.
+StatusOr<std::string> randomIPv6Address() {
+    in6_addr addr = {};
+    const auto& sys = sSyscalls.get();
+    ASSIGN_OR_RETURN(auto fd, sys.open("/dev/random", O_RDONLY));
+    RETURN_IF_NOT_OK(sys.read(fd, makeSlice(addr)));
+    return toString(addr);
+}
 
 inline bool isNormalPathComponent(const char *component) {
     return (strcmp(component, ".") != 0) &&
@@ -141,7 +170,60 @@ void setAcceptIPv6RIO(int min, int max) {
     forEachInterface(ipv6_proc_path, fn);
 }
 
+// Ideally this function would return StatusOr<std::string>, however
+// there is no safe value for dflt that will always differ from the
+// stored property. Bugs code could conceivably end up persisting the
+// reserved value resulting in surprising behavior.
+std::string getProperty(const std::string& key, const std::string& dflt) {
+    return android::base::GetProperty(key, dflt);
+};
+
+Status setProperty(const std::string& key, const std::string& val) {
+    // SetProperty does not dependably set errno to a meaningful value. Use our own error code so
+    // callers don't get confused.
+    return android::base::SetProperty(key, val)
+        ? ok
+        : statusFromErrno(EREMOTEIO, "SetProperty failed, see libc logs");
+};
+
+
 }  // namespace
+
+android::netdutils::Status InterfaceController::enableStablePrivacyAddresses(
+        const std::string& iface, GetPropertyFn getProperty, SetPropertyFn setProperty) {
+    const auto& sys = sSyscalls.get();
+    const std::string procTarget = std::string(ipv6_proc_path) + "/" + iface + "/stable_secret";
+    auto procFd = sys.open(procTarget, O_CLOEXEC | O_WRONLY);
+
+    // Devices with old kernels (typically < 4.4) don't support
+    // RFC 7217 stable privacy addresses.
+    if (equalToErrno(procFd, ENOENT)) {
+        return statusFromErrno(EOPNOTSUPP,
+                               "Failed to open stable_secret. Assuming unsupported kernel version");
+    }
+
+    // If stable_secret exists but we can't open it, something strange is going on.
+    RETURN_IF_NOT_OK(procFd);
+
+    const char kUninitialized[] = "uninitialized";
+    const auto oldSecret = getProperty(kStableSecretProperty, kUninitialized);
+    std::string secret = oldSecret;
+
+    // Generate a new secret if no persistent property existed.
+    if (oldSecret == kUninitialized) {
+        ASSIGN_OR_RETURN(secret, randomIPv6Address());
+    }
+
+    // Ask the OS to generate SLAAC addresses on iface using secret.
+    RETURN_IF_NOT_OK(sys.write(procFd.value(), makeSlice(secret)));
+
+    // Don't persist an existing secret.
+    if (oldSecret != kUninitialized) {
+        return ok;
+    }
+
+    return setProperty(kStableSecretProperty, secret);
+}
 
 void InterfaceController::initializeAll() {
     // Initial IPv6 settings.
@@ -179,6 +261,31 @@ int InterfaceController::setEnableIPv6(const char *interface, const int on) {
     return writeValueToPath(ipv6_proc_path, interface, "disable_ipv6", disable_ipv6);
 }
 
+// Changes to addrGenMode will not fully take effect until the next
+// time disable_ipv6 transitions from 1 to 0.
+Status InterfaceController::setIPv6AddrGenMode(const std::string& interface, int mode) {
+    if (!isIfaceName(interface)) {
+        return statusFromErrno(ENOENT, "invalid iface name: " + interface);
+    }
+
+    switch (mode) {
+        case INetd::IPV6_ADDR_GEN_MODE_EUI64:
+            // Ignore return value. If /proc/.../stable_secret is
+            // missing we're probably in EUI64 mode already.
+            writeValueToPath(ipv6_proc_path, interface.c_str(), "stable_secret", "");
+            break;
+        case INetd::IPV6_ADDR_GEN_MODE_STABLE_PRIVACY: {
+            return enableStablePrivacyAddresses(interface, getProperty, setProperty);
+        }
+        case INetd::IPV6_ADDR_GEN_MODE_NONE:
+        case INetd::IPV6_ADDR_GEN_MODE_RANDOM:
+        default:
+            return statusFromErrno(EOPNOTSUPP, "unsupported addrGenMode");
+    }
+
+    return ok;
+}
+
 int InterfaceController::setAcceptIPv6Ra(const char *interface, const int on) {
     if (!isIfaceName(interface)) {
         errno = ENOENT;
@@ -213,7 +320,7 @@ int InterfaceController::setIPv6PrivacyExtensions(const char *interface, const i
         return -1;
     }
     // 0: disable IPv6 privacy addresses
-    // 0: enable IPv6 privacy addresses and prefer them over non-privacy ones.
+    // 2: enable IPv6 privacy addresses and prefer them over non-privacy ones.
     return writeValueToPath(ipv6_proc_path, interface, "use_tempaddr", on ? "2" : "0");
 }
 

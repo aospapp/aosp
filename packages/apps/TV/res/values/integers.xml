@@ -35,7 +35,10 @@
     <integer name="menu_row_selection_anim_duration">250</integer>
     <integer name="menu_previous_contents_fade_out_duration">50</integer>
     <integer name="menu_current_contents_fade_in_duration">200</integer>
-    
+
+    <!-- Option item -->
+    <integer name="option_item_description_max_lines">3</integer>
+
     <!-- Side panel -->
     <integer name="side_panel_show_duration">60000</integer>
     <integer name="side_panel_anim_duration">250</integer>
@@ -74,6 +77,9 @@
     <integer name="pin_dialog_exit_offset_y">32</integer>
     <integer name="pin_number_scroll_duration">250</integer>
 
+    <!-- Trickplay Setting -->
+    <integer name="trickplay_description_max_lines">5</integer>
+
     <!-- Max recycle view pool size -->
     <integer name="max_recycled_view_pool_epg_table_item">50</integer>
     <integer name="max_recycled_view_pool_epg_table_row">15</integer>
@@ -87,4 +93,5 @@
 
     <!-- DVR library -->
     <integer name="dvr_details_full_text_animation_duration">500</integer>
+    <integer name="dvr_card_title_max_lines_folded">1</integer>
 </resources>

@@ -52,6 +52,12 @@ bsdiff_common_unittests := \
     extents_unittest.cc \
     test_utils.cc
 
+# TODO(deymo): Remove include/bsdiff when all callers use the "bsdiff/" prefix
+# when including code.
+lib_export_includes := \
+    $(LOCAL_PATH)/include \
+    $(LOCAL_PATH)/include/bsdiff
+
 # Target static libraries.
 
 include $(CLEAR_VARS)
@@ -59,7 +65,8 @@ LOCAL_MODULE := libbspatch
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := $(bspatch_src_files)
 LOCAL_CFLAGS := $(bsdiff_common_cflags)
-LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(lib_export_includes)
 LOCAL_STATIC_LIBRARIES := $(bsdiff_common_static_libs)
 include $(BUILD_STATIC_LIBRARY)
 
@@ -68,7 +75,8 @@ LOCAL_MODULE := libbsdiff
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := $(bsdiff_src_files)
 LOCAL_CFLAGS := $(bsdiff_common_cflags)
-LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(lib_export_includes)
 LOCAL_STATIC_LIBRARIES := $(bsdiff_static_libs)
 include $(BUILD_STATIC_LIBRARY)
 
@@ -79,7 +87,8 @@ LOCAL_MODULE := libbspatch
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := $(bspatch_src_files)
 LOCAL_CFLAGS := $(bsdiff_common_cflags)
-LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(lib_export_includes)
 LOCAL_STATIC_LIBRARIES := $(bsdiff_common_static_libs)
 include $(BUILD_HOST_STATIC_LIBRARY)
 
@@ -88,7 +97,8 @@ LOCAL_MODULE := libbsdiff
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := $(bsdiff_src_files)
 LOCAL_CFLAGS := $(bsdiff_common_cflags)
-LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(lib_export_includes)
 LOCAL_STATIC_LIBRARIES := $(bsdiff_static_libs)
 include $(BUILD_HOST_STATIC_LIBRARY)
 
@@ -130,6 +140,7 @@ include $(BUILD_HOST_EXECUTABLE)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := bsdiff_unittest
+LOCAL_COMPATIBILITY_SUITE := device-tests
 LOCAL_MODULE_TAGS := debug tests
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := $(bsdiff_common_unittests) \

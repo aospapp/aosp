@@ -15,24 +15,21 @@
  */
 package com.android.compatibility.common.util;
 
-import junit.framework.Test;
-import junit.framework.TestSuite;
-
+import org.junit.runner.RunWith;
+import org.junit.runners.Suite;
+import org.junit.runners.Suite.SuiteClasses;
 /**
  * A test suite for all host util unit tests.
  * <p/>
  * All tests listed here should be self-contained, and do not require any external dependencies.
  */
-public class HostUnitTests extends TestSuite {
-
-    public HostUnitTests() {
-        super();
-        addTestSuite(DynamicConfigHandlerTest.class);
-        addTestSuite(ModuleResultTest.class);
-        addTestSuite(TestFilterTest.class);
-    }
-
-    public static Test suite() {
-        return new HostUnitTests();
-    }
+@RunWith(Suite.class)
+@SuiteClasses({
+    BusinessLogicHostExecutorTest.class,
+    DynamicConfigHandlerTest.class,
+    ModuleResultTest.class,
+    TestFilterTest.class,
+})
+public class HostUnitTests {
+    // empty on purpose
 }

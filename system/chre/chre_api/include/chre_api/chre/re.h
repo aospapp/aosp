@@ -227,6 +227,67 @@ void chreLog(enum chreLogLevel level, const char *formatStr, ...);
 uint64_t chreGetTime(void);
 
 /**
+ * Retrieves CHRE's current estimated offset between the local CHRE clock
+ * exposed in chreGetTime(), and the host-side clock exposed in the Android API
+ * SystemClock.elapsedRealtimeNanos().  This offset is formed as host time minus
+ * CHRE time, so that it can be added to the value returned by chreGetTime() to
+ * determine the current estimate of the host time.
+ *
+ * A call to this function must not require waking up the host and should return
+ * quickly.
+ *
+ * This function must always return a valid value from the earliest point that
+ * it can be called by a nanoapp.  In other words, it is not valid to return
+ * some fixed/invalid value while waiting for the initial offset estimate to be
+ * determined - this initial offset must be ready before nanoapps are started.
+ *
+ * @returns An estimate of the offset between CHRE's time returned in
+ *     chreGetTime() and the time on the host given in the Android API
+ *     SystemClock.elapsedRealtimeNanos(), accurate to within +/- 10
+ *     milliseconds, such that adding this offset to chreGetTime() produces the
+ *     estimated current time on the host.  This value may change over time to
+ *     account for drift, etc., so multiple calls to this API may produce
+ *     different results.
+ *
+ * @since v1.1
+ */
+int64_t chreGetEstimatedHostTimeOffset(void);
+
+/**
+ * Convenience function to retrieve CHRE's estimate of the current time on the
+ * host, corresponding to the Android API SystemClock.elapsedRealtimeNanos().
+ *
+ * @returns An estimate of the current time on the host, accurate to within
+ *     +/- 10 milliseconds.  This estimate is *not* guaranteed to be
+ *     monotonically increasing, and may move backwards as a result of receiving
+ *     new information from the host.
+ *
+ * @since v1.1
+ */
+static inline uint64_t chreGetEstimatedHostTime(void) {
+    int64_t offset = chreGetEstimatedHostTimeOffset();
+    uint64_t time = chreGetTime();
+
+    // Just casting time to int64_t and adding the (potentially negative) offset
+    // should be OK under most conditions, but this way avoids issues if
+    // time >= 2^63, which is technically allowed since we don't specify a start
+    // value for chreGetTime(), though one would assume 0 is roughly boot time.
+    if (offset >= 0) {
+        time += (uint64_t) offset;
+    } else {
+        // Assuming chreGetEstimatedHostTimeOffset() is implemented properly,
+        // this will never underflow, because offset = hostTime - chreTime,
+        // and both times are monotonically increasing (e.g. when determining
+        // the offset, if hostTime is 0 and chreTime is 100 we'll have
+        // offset = -100, but chreGetTime() will always return >= 100 after that
+        // point).
+        time -= (uint64_t) (offset * -1);
+    }
+
+    return time;
+}
+
+/**
  * Set a timer.
  *
  * When the timer fires, nanoappHandleEvent will be invoked with

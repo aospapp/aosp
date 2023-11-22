@@ -21,6 +21,7 @@ import android.os.ConditionVariable;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
+import android.util.ArraySet;
 import android.util.Log;
 import android.util.Pair;
 
@@ -31,7 +32,9 @@ import com.android.tv.common.SoftPreconditions;
 import com.android.tv.tuner.exoplayer.buffer.RecordingSampleBuffer.BufferReason;
 
 import java.io.IOException;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
@@ -46,11 +49,13 @@ public class SampleChunkIoHelper implements Handler.Callback {
 
     private static final int MSG_OPEN_READ = 1;
     private static final int MSG_OPEN_WRITE = 2;
-    private static final int MSG_CLOSE_WRITE = 3;
-    private static final int MSG_READ = 4;
-    private static final int MSG_WRITE = 5;
-    private static final int MSG_RELEASE = 6;
+    private static final int MSG_CLOSE_READ = 3;
+    private static final int MSG_CLOSE_WRITE = 4;
+    private static final int MSG_READ = 5;
+    private static final int MSG_WRITE = 6;
+    private static final int MSG_RELEASE = 7;
 
+    private final long mSampleChunkDurationUs;
     private final int mTrackCount;
     private final List<String> mIds;
     private final List<MediaFormat> mMediaFormats;
@@ -62,9 +67,11 @@ public class SampleChunkIoHelper implements Handler.Callback {
     private Handler mIoHandler;
     private final ConcurrentLinkedQueue<SampleHolder> mReadSampleBuffers[];
     private final ConcurrentLinkedQueue<SampleHolder> mHandlerReadSampleBuffers[];
-    private final long[] mWriteEndPositionUs;
+    private final long[] mWriteIndexEndPositionUs;
+    private final long[] mWriteChunkEndPositionUs;
     private final SampleChunk.IoState[] mReadIoStates;
     private final SampleChunk.IoState[] mWriteIoStates;
+    private final Set<Integer> mSelectedTracks = new ArraySet<>();
     private long mBufferDurationUs = 0;
     private boolean mWriteEnded;
     private boolean mErrorNotified;
@@ -129,11 +136,20 @@ public class SampleChunkIoHelper implements Handler.Callback {
 
         mReadSampleBuffers = new ConcurrentLinkedQueue[mTrackCount];
         mHandlerReadSampleBuffers = new ConcurrentLinkedQueue[mTrackCount];
-        mWriteEndPositionUs = new long[mTrackCount];
+        mWriteIndexEndPositionUs = new long[mTrackCount];
+        mWriteChunkEndPositionUs = new long[mTrackCount];
         mReadIoStates = new SampleChunk.IoState[mTrackCount];
         mWriteIoStates = new SampleChunk.IoState[mTrackCount];
+
+        // Small chunk duration for live playback will give more fine grained storage usage
+        // and eviction handling for trickplay.
+        mSampleChunkDurationUs =
+                bufferReason == RecordingSampleBuffer.BUFFER_REASON_LIVE_PLAYBACK ?
+                        RecordingSampleBuffer.MIN_SEEK_DURATION_US :
+                        RecordingSampleBuffer.RECORDING_CHUNK_DURATION_US;
         for (int i = 0; i < mTrackCount; ++i) {
-            mWriteEndPositionUs[i] = RecordingSampleBuffer.CHUNK_DURATION_US;
+            mWriteIndexEndPositionUs[i] = RecordingSampleBuffer.MIN_SEEK_DURATION_US;
+            mWriteChunkEndPositionUs[i] = mSampleChunkDurationUs;
             mReadIoStates[i] = new SampleChunk.IoState();
             mWriteIoStates[i] = new SampleChunk.IoState();
         }
@@ -204,6 +220,15 @@ public class SampleChunkIoHelper implements Handler.Callback {
     }
 
     /**
+     * Closes read from the specified track.
+     *
+     * @param index track index
+     */
+    public void closeRead(int index) {
+        mIoHandler.sendMessage(mIoHandler.obtainMessage(MSG_CLOSE_READ, index));
+    }
+
+    /**
      * Notifies writes are finished.
      */
     public void closeWrite() {
@@ -229,21 +254,19 @@ public class SampleChunkIoHelper implements Handler.Callback {
         try {
             if (mBufferReason == RecordingSampleBuffer.BUFFER_REASON_RECORDING && mTrackCount > 0) {
                 // Saves meta information for recording.
-                Pair<String, android.media.MediaFormat> audio = null, video = null;
+                List<BufferManager.TrackFormat> audios = new LinkedList<>();
+                List<BufferManager.TrackFormat> videos = new LinkedList<>();
                 for (int i = 0; i < mTrackCount; ++i) {
                     android.media.MediaFormat format =
                             mMediaFormats.get(i).getFrameworkMediaFormatV16();
                     format.setLong(android.media.MediaFormat.KEY_DURATION, mBufferDurationUs);
-                    if (audio == null && MimeTypes.isAudio(mMediaFormats.get(i).mimeType)) {
-                        audio = new Pair<>(mIds.get(i), format);
-                    } else if (video == null && MimeTypes.isVideo(mMediaFormats.get(i).mimeType)) {
-                        video = new Pair<>(mIds.get(i), format);
-                    }
-                    if (audio != null && video != null) {
-                        break;
+                    if (MimeTypes.isAudio(mMediaFormats.get(i).mimeType)) {
+                        audios.add(new BufferManager.TrackFormat(mIds.get(i), format));
+                    } else if (MimeTypes.isVideo(mMediaFormats.get(i).mimeType)) {
+                        videos.add(new BufferManager.TrackFormat(mIds.get(i), format));
                     }
                 }
-                mBufferManager.writeMetaFiles(audio, video);
+                mBufferManager.writeMetaFiles(audios, videos);
             }
         } finally {
             mBufferManager.release();
@@ -264,6 +287,9 @@ public class SampleChunkIoHelper implements Handler.Callback {
                     return true;
                 case MSG_OPEN_WRITE:
                     doOpenWrite((int) message.obj);
+                    return true;
+                case MSG_CLOSE_READ:
+                    doCloseRead((int) message.obj);
                     return true;
                 case MSG_CLOSE_WRITE:
                     doCloseWrite();
@@ -291,14 +317,16 @@ public class SampleChunkIoHelper implements Handler.Callback {
     private void doOpenRead(IoParams params) throws IOException {
         int index = params.index;
         mIoHandler.removeMessages(MSG_READ, index);
-        SampleChunk chunk = mBufferManager.getReadFile(mIds.get(index), params.positionUs);
-        if (chunk == null) {
+        Pair<SampleChunk, Integer> readPosition =
+                mBufferManager.getReadFile(mIds.get(index), params.positionUs);
+        if (readPosition == null) {
             String errorMessage = "Chunk ID:" + mIds.get(index) + " pos:" + params.positionUs
                     + "is not found";
-            SoftPreconditions.checkNotNull(chunk, TAG, errorMessage);
+            SoftPreconditions.checkNotNull(readPosition, TAG, errorMessage);
             throw new IOException(errorMessage);
         }
-        mReadIoStates[index].openRead(chunk);
+        mSelectedTracks.add(index);
+        mReadIoStates[index].openRead(readPosition.first, (long) readPosition.second);
         if (mHandlerReadSampleBuffers[index] != null) {
             SampleHolder sample;
             while ((sample = mHandlerReadSampleBuffers[index].poll()) != null) {
@@ -310,8 +338,20 @@ public class SampleChunkIoHelper implements Handler.Callback {
     }
 
     private void doOpenWrite(int index) throws IOException {
-        SampleChunk chunk = mBufferManager.createNewWriteFile(mIds.get(index), 0, mSamplePool);
+        SampleChunk chunk = mBufferManager.createNewWriteFileIfNeeded(mIds.get(index), 0,
+                mSamplePool, null, 0);
         mWriteIoStates[index].openWrite(chunk);
+    }
+
+    private void doCloseRead(int index) {
+        mSelectedTracks.remove(index);
+        if (mHandlerReadSampleBuffers[index] != null) {
+            SampleHolder sample;
+            while ((sample = mHandlerReadSampleBuffers[index].poll()) != null) {
+                mSamplePool.releaseSample(sample);
+            }
+        }
+        mIoHandler.removeMessages(MSG_READ, index);
     }
 
     private void doRead(int index) throws IOException {
@@ -357,13 +397,21 @@ public class SampleChunkIoHelper implements Handler.Callback {
                 if (sample.timeUs > mBufferDurationUs) {
                     mBufferDurationUs = sample.timeUs;
                 }
-
-                if (sample.timeUs >= mWriteEndPositionUs[index]) {
-                    nextChunk = mBufferManager.createNewWriteFile(mIds.get(index),
-                            mWriteEndPositionUs[index], mSamplePool);
-                    mWriteEndPositionUs[index] =
-                            ((sample.timeUs / RecordingSampleBuffer.CHUNK_DURATION_US) + 1) *
-                                    RecordingSampleBuffer.CHUNK_DURATION_US;
+                if (sample.timeUs >= mWriteIndexEndPositionUs[index]) {
+                    SampleChunk currentChunk = sample.timeUs >= mWriteChunkEndPositionUs[index] ?
+                            null : mWriteIoStates[params.index].getChunk();
+                    int currentOffset = (int) mWriteIoStates[params.index].getOffset();
+                    nextChunk = mBufferManager.createNewWriteFileIfNeeded(
+                            mIds.get(index), mWriteIndexEndPositionUs[index], mSamplePool,
+                            currentChunk, currentOffset);
+                    mWriteIndexEndPositionUs[index] =
+                            ((sample.timeUs / RecordingSampleBuffer.MIN_SEEK_DURATION_US) + 1) *
+                                    RecordingSampleBuffer.MIN_SEEK_DURATION_US;
+                    if (nextChunk != null) {
+                        mWriteChunkEndPositionUs[index] =
+                                ((sample.timeUs / mSampleChunkDurationUs) + 1)
+                                        * mSampleChunkDurationUs;
+                    }
                 }
             }
             mWriteIoStates[params.index].write(params.sample, nextChunk);
@@ -391,15 +439,22 @@ public class SampleChunkIoHelper implements Handler.Callback {
         mIoHandler.removeCallbacksAndMessages(null);
         mFinished = true;
         conditionVariable.open();
+        mSelectedTracks.clear();
     }
 
     private void releaseEvictedChunks() {
-        if (mBufferReason != RecordingSampleBuffer.BUFFER_REASON_LIVE_PLAYBACK) {
+        if (mBufferReason != RecordingSampleBuffer.BUFFER_REASON_LIVE_PLAYBACK
+                || mSelectedTracks.isEmpty()) {
             return;
+        }
+        long currentStartPositionUs = Long.MAX_VALUE;
+        for (int trackIndex : mSelectedTracks) {
+            currentStartPositionUs = Math.min(currentStartPositionUs,
+                    mReadIoStates[trackIndex].getStartPositionUs());
         }
         for (int i = 0; i < mTrackCount; ++i) {
             long evictEndPositionUs = Math.min(mBufferManager.getStartPositionUs(mIds.get(i)),
-                    mReadIoStates[i].getStartPositionUs());
+                    currentStartPositionUs);
             mBufferManager.evictChunks(mIds.get(i), evictEndPositionUs);
         }
     }

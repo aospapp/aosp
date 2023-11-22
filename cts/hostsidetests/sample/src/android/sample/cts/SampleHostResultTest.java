@@ -110,7 +110,7 @@ public class SampleHostResultTest extends DeviceTestCase implements IAbiReceiver
         // Create the device side path where the file will be transfered.
         final String devicePath = String.format(FILE_PATH, "tmp_testPushPull.txt");
         // Get this test's module config file from the build.
-        final File testFile = new File(mBuildHelper.getTestsDir(), FILE_NAME);
+        final File testFile = mBuildHelper.getTestFile(FILE_NAME);
         double[] result = MeasureTime.measure(REPEAT, new MeasureRun() {
             @Override
             public void prepare(int i) throws Exception {

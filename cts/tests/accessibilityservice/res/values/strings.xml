@@ -139,7 +139,9 @@
 
     <string name="foo_bar_baz">Foo bar baz.</string>
 
-    <string name="stub_gesture_a11y_service_description">com.android.accessibilityservice.cts.StubGestureAccessibilityService</string>
+    <string name="stub_gesture_dispatch_a11y_service_description">com.android.accessibilityservice.cts.StubGestureAccessibilityService</string>
+
+    <string name="stub_gesture_detector_a11y_service_description">com.android.accessibilityservice.cts.StubService</string>
 
     <string name="stub_fprint_a11y_service_description">com.android.accessibilityservice.cts.StubFingerprintGestureAccessibilityService</string>
 

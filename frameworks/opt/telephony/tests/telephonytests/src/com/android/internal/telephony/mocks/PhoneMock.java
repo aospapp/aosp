@@ -17,21 +17,21 @@
 package com.android.internal.telephony;
 
 import android.content.Context;
+import android.net.LinkProperties;
+import android.net.NetworkCapabilities;
 import android.os.AsyncResult;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
-import android.os.Messenger;
 import android.os.Registrant;
 import android.os.RegistrantList;
 import android.os.ResultReceiver;
 import android.os.WorkSource;
-import android.net.LinkProperties;
-import android.net.NetworkCapabilities;
 import android.service.carrier.CarrierIdentifier;
 import android.telephony.CellInfo;
 import android.telephony.CellLocation;
 import android.telephony.DataConnectionRealTimeInfo;
+import android.telephony.NetworkScanRequest;
 import android.telephony.ServiceState;
 import android.telephony.SignalStrength;
 import android.telephony.VoLteServiceState;
@@ -802,11 +802,7 @@ public class PhoneMock extends Phone {
         throw new RuntimeException("not implemented");
     }
 
-    public boolean isDataConnectivityPossible() {
-        throw new RuntimeException("not implemented");
-    }
-
-    public boolean isDataConnectivityPossible(String apnType) {
+    public boolean isDataAllowed() {
         throw new RuntimeException("not implemented");
     }
 
@@ -1237,6 +1233,14 @@ public class PhoneMock extends Phone {
     }
 
     public void getAvailableNetworks(Message response) {
+        throw new RuntimeException("not implemented");
+    }
+
+    public void startNetworkScan(NetworkScanRequest nsr, Message response) {
+        throw new RuntimeException("not implemented");
+    }
+
+    public void stopNetworkScan(Message response) {
         throw new RuntimeException("not implemented");
     }
 

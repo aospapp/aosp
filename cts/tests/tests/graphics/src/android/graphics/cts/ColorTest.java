@@ -15,8 +15,11 @@
  */
 package android.graphics.cts;
 
+import static android.support.test.InstrumentationRegistry.getInstrumentation;
+
 import static org.junit.Assert.assertEquals;
 
+import android.content.res.Resources;
 import android.graphics.Color;
 import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
@@ -27,6 +30,54 @@ import org.junit.runner.RunWith;
 @SmallTest
 @RunWith(AndroidJUnit4.class)
 public class ColorTest {
+
+    @Test
+    public void resourceColor() {
+        int colors [][] = {
+                { 0xff000000, android.R.color.background_dark  },
+                { 0xffffffff, android.R.color.background_light },
+                { 0xff000000, android.R.color.black },
+                { 0xffaaaaaa, android.R.color.darker_gray },
+                { 0xff00ddff, android.R.color.holo_blue_bright },
+                { 0xff0099cc, android.R.color.holo_blue_dark },
+                { 0xff33b5e5, android.R.color.holo_blue_light },
+                { 0xff669900, android.R.color.holo_green_dark },
+                { 0xff99cc00, android.R.color.holo_green_light },
+                { 0xffff8800, android.R.color.holo_orange_dark },
+                { 0xffffbb33, android.R.color.holo_orange_light },
+                { 0xffaa66cc, android.R.color.holo_purple },
+                { 0xffcc0000, android.R.color.holo_red_dark },
+                { 0xffff4444, android.R.color.holo_red_light },
+                { 0xffffffff, android.R.color.primary_text_dark },
+                { 0xffffffff, android.R.color.primary_text_dark_nodisable },
+                { 0xff000000, android.R.color.primary_text_light },
+                { 0xff000000, android.R.color.primary_text_light_nodisable },
+                { 0xffbebebe, android.R.color.secondary_text_dark },
+                { 0xffbebebe, android.R.color.secondary_text_dark_nodisable },
+                { 0xff323232, android.R.color.secondary_text_light },
+                { 0xffbebebe, android.R.color.secondary_text_light_nodisable },
+                { 0xff808080, android.R.color.tab_indicator_text },
+                { 0xff808080, android.R.color.tertiary_text_dark },
+                { 0xff808080, android.R.color.tertiary_text_light },
+                { 0x00000000, android.R.color.transparent },
+                { 0xffffffff, android.R.color.white },
+                { 0xff000000, android.R.color.widget_edittext_dark },
+        };
+
+        Resources resources = getInstrumentation().getTargetContext().getResources();
+        for (int[] pair : colors) {
+            int value = resources.getColor(pair[1], null);
+            assertEquals("Color = " + Integer.toHexString(value) + ", "
+                            + Integer.toHexString(pair[0]) + " expected",
+                    pair[0],
+                    value);
+
+        }
+        assertEquals("Test no longer in sync with colors in android.R.color",
+                colors.length,
+                android.R.color.class.getDeclaredFields().length);
+    }
+
     @Test
     public void testAlpha() {
         assertEquals(0xff, Color.alpha(Color.RED));

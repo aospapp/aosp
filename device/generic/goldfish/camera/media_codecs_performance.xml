@@ -100,10 +100,10 @@
             <Limit name="measured-frame-rate-320x180" range="968-1101" />
             <!-- 3 runs, min 291 max 338 gmean 319 -->
             <Limit name="measured-frame-rate-640x360" range="291-338" />
-            <!-- 3 runs, min 109 max 128 gmean 118 -->
-            <Limit name="measured-frame-rate-1280x720" range="109-128" />
-            <!-- 5 runs, min 69 max 76 gmean 73 -->
-            <Limit name="measured-frame-rate-1920x1080" range="69-76" />
+            <!-- Those values are from buildbots -->
+            <Limit name="measured-frame-rate-1280x720" range="280-400" />
+            <!-- Buildbot gets ~180 if it is in the first run, ~230 if it is the second run -->
+            <Limit name="measured-frame-rate-1920x1080" range="178-240" />
         </MediaCodec>
     </Decoders>
 </MediaCodecs>

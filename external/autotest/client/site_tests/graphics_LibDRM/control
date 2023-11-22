@@ -12,9 +12,8 @@ TIME = "FAST"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "graphics"
 TEST_TYPE = "client"
-JOB_RETRIES = 2
 
-ATTRIBUTES = "suite:bvt-cq, suite:graphics, suite:graphics_per-day, suite:graphics_system"
+ATTRIBUTES = "suite:bvt-perbuild, suite:graphics, suite:graphics_per-day, suite:graphics_system"
 BUG_TEMPLATE = {
     'components': ['OS>Kernel>Graphics'],
 }

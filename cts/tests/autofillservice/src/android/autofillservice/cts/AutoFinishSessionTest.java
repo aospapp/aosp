@@ -18,6 +18,7 @@ package android.autofillservice.cts;
 
 import static android.autofillservice.cts.FragmentContainerActivity.FRAGMENT_TAG;
 import static android.autofillservice.cts.Helper.findNodeByResourceId;
+import static android.autofillservice.cts.Helper.getContext;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_GENERIC;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -28,7 +29,6 @@ import android.content.Intent;
 import android.service.autofill.SaveInfo;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.test.rule.ActivityTestRule;
 import android.view.ViewGroup;
 import android.widget.EditText;
 
@@ -41,8 +41,8 @@ import org.junit.Test;
  */
 public class AutoFinishSessionTest extends AutoFillServiceTestCase {
     @Rule
-    public final ActivityTestRule<FragmentContainerActivity> mActivityRule =
-            new ActivityTestRule<>(FragmentContainerActivity.class);
+    public final AutofillActivityTestRule<FragmentContainerActivity> mActivityRule =
+            new AutofillActivityTestRule<>(FragmentContainerActivity.class);
     private FragmentContainerActivity mActivity;
     private EditText mEditText1;
     private EditText mEditText2;

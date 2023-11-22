@@ -326,11 +326,16 @@ public class TestTvInputService extends TvInputService {
                     if (currentSurface != null) {
                         String now = new Date(mCurrentPositionMs).toString();
                         String name = currentChannel == null ? "Null" : currentChannel.name;
-                        Canvas c = currentSurface.lockCanvas(null);
-                        c.drawColor(0xFF888888);
-                        c.drawText(name, 100f, 200f, mTextPaint);
-                        c.drawText(now, 100f, 400f, mTextPaint);
-                        currentSurface.unlockCanvasAndPost(c);
+                        try {
+                            Canvas c = currentSurface.lockCanvas(null);
+                            c.drawColor(0xFF888888);
+                            c.drawText(name, 100f, 200f, mTextPaint);
+                            c.drawText(now, 100f, 400f, mTextPaint);
+                            // Assuming c.drawXXX will never fail.
+                            currentSurface.unlockCanvasAndPost(c);
+                        } catch (IllegalArgumentException e) {
+                            // The surface might have been abandoned. Ignore the exception.
+                        }
                         if (DEBUG) {
                             Log.v(TAG, "Post to canvas");
                         }

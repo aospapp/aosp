@@ -27,7 +27,7 @@
             android:dividerHeight="4px">
     </ListView>
     <GridLayout
-        android:columnCount="4"
+        android:columnCount="3"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="horizontal">
@@ -66,5 +66,10 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/acceptRttButton"/>
+        <Button
+            android:id="@+id/request_handover_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/handoverButton"/>
     </GridLayout>
 </LinearLayout>

@@ -27,9 +27,9 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"Programu ifuatayo itahitaji kufikia wasifu huu:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Programu zifuatazo zitadhibiti kifaa chako:"</string>
     <string name="next" msgid="1004321437324424398">"Inayofuata"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"Inaweka mipangilio ya wasifu wako wa kazi..."</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"Inaweka mipangilio ya wasifu wa kazini..."</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"Msimamizi wako ana uwezo wa kufuatilia na kudhibiti mipangilio, ufikiaji wa mashirika, ruhusa za programu na data inayohusiana na wasifu huu, ikijumuisha shughuli zako za mtandaoni, pamoja na mahali kilipo kifaa chako, rekodi ya simu zilizopigwa na historia ya anwani ulizotafuta.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Wasiliana na msimamizi wako kwa maelezo zaidi, ikiwa ni pamoja na sera za faragha za shirika lako."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"Msimamizi wako ana uwezo wa kufuatilia na kudhibiti mipangilio, ufikiaji wa mashirika, ruhusa za programu na data inayohusiana na kifaa hiki, ikijumuisha shughuli zako za mtandaoni, pamoja na mahali kilipo kifaa chako, rekodi ya simu zilizopigwa na historia ya anwani ulizotafuta.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Wasiliana na msimamizi wako kwa maelezo zaidi, ikiwa ni pamoja na sera za faragha za shirika lako."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"Msimamizi wako ana uwezo wa kufuatilia na kudhibiti mipangilio, ufikiaji wa vipengele vya shirika, ruhusa za programu na data inayohusiana na kifaa hiki, ikijumuisha shughuli zako za mtandaoni, pamoja na mahali kilipo kifaa chako, rekodi ya simu zilizopigwa na historia ya anwani ulizotafuta.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Wasiliana na msimamizi wako kwa maelezo zaidi, ikiwa ni pamoja na sera za faragha za shirika lako."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Ili utumie vipengele vya kifaa vya kuzuia wizi, lazima uwe na skrini inayoweza kufungwa kwa nenosiri kwenye kifaa chako."</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Wasiliana na msimamizi wako kwa maelezo zaidi, ikiwa ni pamoja na sera za faragha za shirika lako."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Pata maelezo zaidi"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Wasifu wa kazini"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"Mtumiaji wa kwanza"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Futa wasifu uliopo?"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"Tayari una wasifu wa kazini ambao unadhibitiwa kwa kutumia programu ifuatayo:"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Tayari una wasifu wa kazini. Unadhibitiwa kwa kutumia programu ifuatayo:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Kabla ya kuendelea, "<a href="#read_this_link">"soma hapa"</a>"."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Ukiendelea, utafuta data na programu zote zilizo kwenye wasifu huu."</string>
     <string name="delete_profile" msgid="2299218578684663459">"Futa"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"Gonga ili uendelee kuweka mipangilio ya wasifu wako wa kazini"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Haikuweza kusanidi wasifu wako wa kazi. Wasiliana na idara yako ya Teknolojia ya Habari au ujaribu tena baadaye."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Imeshindwa kuongeza wasifu wa kazini"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"Mtumiaji huyu hapaswi kuwa na wasifu wa kazini. Wasiliana na msimamizi wako ili upate usaidizi."</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"Mtumiaji huyu hapaswi kuwa na wasifu wa kazini. Wasiliana na msimamizi wako."</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"Wasifu wa kazini hauwezi kusanidiwa kwenye kifaa kinachosimamiwa"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"Huenda kuna watu wengi mno wanaotumia kifaa hiki. Ondoa mtumiaji kisha ujaribu tena."</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Huwezi kubadilisha au kuondoa wasifu wa kazini"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"Wasifu wa kazini hauwezi kuongezwa kwenye klifaa hiki. Ikiwa una maswali, wasiliana na msimamizi wako."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Badilisha kifungua programu cha kifaa"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Wasifu wako wa kazini hauwezi kutumia kifungua programu hiki"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Ghairi"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"Sawa"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Usanidi wa Mtumiaji Hujakamilika"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Mtumiaji wa kifaa cha kazini"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"Weka mipangilio ya kifaa cha kazi"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"Inaweka mipangilio kwenye kifaa cha kazini..."</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Inachakata data ya kuweka mipangilio..."</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Inaunganisha kwenye Wi-Fi..."</string>
     <string name="progress_download" msgid="3522436271691064624">"Inapakua programu ya msimamizi..."</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"Ghairi"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"Weka mipangilio ya kifaa upya"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> na <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> na <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> na <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

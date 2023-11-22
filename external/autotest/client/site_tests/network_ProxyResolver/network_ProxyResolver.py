@@ -221,10 +221,6 @@ class network_ProxyResolver(test.test):
        self._shill = shill_proxy.ShillProxy.get_proxy()
        if self._shill is None:
          raise error.TestFail('Could not connect to shill')
-       # Listen for ProxyResolve responses
-       self._listener.listen_for_signal('ProxyChange',
-                                        'org.chromium.AutotestProxyInterface',
-                                        '/org/chromium/LibCrosService')
        # Listen for network property changes
        self._listener.listen_for_signal('PropertyChanged',
                                         'org.chromium.flimflam.Service',
@@ -281,23 +277,19 @@ class network_ProxyResolver(test.test):
         @return True if a matching response is seen and False otherwise
         """
         bus = dbus.SystemBus()
-        dbus_proxy = bus.get_object('org.chromium.LibCrosService',
-                                    '/org/chromium/LibCrosService')
-        cros_service = dbus.Interface(dbus_proxy,
-                                      'org.chromium.LibCrosServiceInterface')
+        dbus_proxy = bus.get_object('org.chromium.NetworkProxyService',
+                                    '/org/chromium/NetworkProxyService')
+        service = dbus.Interface(dbus_proxy,
+                                 'org.chromium.NetworkProxyServiceInterface')
+
         attempts = timeout
         while attempts > 0:
-          cros_service.ResolveNetworkProxy(
-                                       'https://clients3.google.com',
-                                       'org.chromium.AutotestProxyInterface',
-                                       'ProxyChange')
-          signals = self._listener.wait_for_signals(
-                        'waiting for proxy resolution from Chrome')
-          if signals['ProxyChange'][0][1] == proxy_type + ' ' + proxy_config:
+          result, _ = service.ResolveProxy('https://clients3.google.com')
+          if str(result) == proxy_type + ' ' + proxy_config:
             return True
           attempts -= 1
           time.sleep(1)
-        logging.error('Last DBus signal seen before giving up: ' + str(signals))
+        logging.error('Last response seen before giving up: ' + str(result))
         return False
 
     def check_tlsdated(self, timeout):

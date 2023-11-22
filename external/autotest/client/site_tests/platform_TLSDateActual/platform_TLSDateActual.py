@@ -20,6 +20,8 @@ import test
 import socket
 from threading import Thread
 
+from autotest_lib.client.common_lib import error
+
 SOCKTIMEOUT=5
 RESENDTIMEOUT=300
 
@@ -29,8 +31,10 @@ class Forwarder(Thread):
         self.src=src
         self.dest=dest
 
+
     def __str__(self):
         return '<Forwarder from %s to %s>' % (self.src, self.dest)
+
 
     def run(self):
         print '%s: starting' % self
@@ -43,6 +47,7 @@ class Forwarder(Thread):
         finally:
             print '%s: exiting' % self
 
+
     def forward(self):
         BUFSIZE = 1024
         data = self.src.recv(BUFSIZE)
@@ -53,6 +58,7 @@ class Forwarder(Thread):
         self.dest.close()
         print '%s: client quit normally' % self
 
+
 class ProxyForwarder(Forwarder):
     def __init__(self, src, dest_addr):
         Forwarder.__init__(self, src, None)
@@ -60,9 +66,11 @@ class ProxyForwarder(Forwarder):
         self.src = src
         self.dest = None
 
+
     def __str__(self):
         return '<ProxyForwarder between %s and %s (%s:%d)' % (
             self.src, self.dest, self.dest_addr[0], self.dest_addr[1])
+
 
     def forward(self):
         self.dest = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
@@ -72,13 +80,16 @@ class ProxyForwarder(Forwarder):
         Forwarder(self.src,self.dest).start()
         Forwarder(self.dest,self.src).start()
 
+
 def recvbytes(sock, n):
     bs = sock.recv(n)
     return [ ord(x) for x in bs ]
 
+
 def recvshort(sock):
     x = recvbytes(sock, 2)
     return x[0] * 256 + x[1]
+
 
 def create_server(ip,port):
     SOCKS5_VER = "\x05"
@@ -127,17 +138,21 @@ def create_server(ip,port):
             sock.sendall(SOCKS5_VER + ERR_UNSUPP + network_ip + network_port)
             sock.close()
 
-class ServingThread(Thread):
-	def __init__(self, ip, port):
-		Thread.__init__(self)
-		self.ip = ip
-		self.port = port
 
-	def run(self):
-		create_server(self.ip, self.port)
+class ServingThread(Thread):
+    def __init__(self, ip, port):
+        Thread.__init__(self)
+        self.ip = ip
+        self.port = port
+
+
+    def run(self):
+        create_server(self.ip, self.port)
+
 
 class platform_TLSDateActual(test.test):
     version = 1
+
 
     def tlsdate(self, host, proxy):
         args = ['/usr/bin/tlsdate', '-v', '-l', '-H', host]
@@ -147,6 +162,7 @@ class platform_TLSDateActual(test.test):
         out = p.communicate()[1]
         print out
         return p.returncode
+
 
     def run_once(self):
         t = ServingThread("127.0.0.1", 8083)

@@ -28,9 +28,6 @@ import com.google.android.exoplayer.audio.AudioCapabilities;
 import com.google.android.exoplayer.audio.AudioCapabilitiesReceiver;
 import com.android.tv.TvApplication;
 import com.android.tv.common.feature.CommonFeatures;
-import com.android.tv.tuner.exoplayer.buffer.BufferManager;
-import com.android.tv.tuner.exoplayer.buffer.TrickplayStorageManager;
-import com.android.tv.tuner.util.SystemPropertiesProxy;
 
 import java.util.Collections;
 import java.util.Set;
@@ -45,9 +42,6 @@ public class TunerTvInputService extends TvInputService
     private static final String TAG = "TunerTvInputService";
     private static final boolean DEBUG = false;
 
-    private static final String MAX_BUFFER_SIZE_KEY = "tv.tuner.buffersize_mbytes";
-    private static final int MAX_BUFFER_SIZE_DEF = 2 * 1024;  // 2GB
-    private static final int MIN_BUFFER_SIZE_DEF = 256;  // 256MB
     private static final int DVR_STORAGE_CLEANUP_JOB_ID = 100;
 
     // WeakContainer for {@link TvInputSessionImpl}
@@ -55,17 +49,20 @@ public class TunerTvInputService extends TvInputService
     private ChannelDataManager mChannelDataManager;
     private AudioCapabilitiesReceiver mAudioCapabilitiesReceiver;
     private AudioCapabilities mAudioCapabilities;
-    private BufferManager mBufferManager;
 
     @Override
     public void onCreate() {
+        if (!TvApplication.getSingletons(this).getTvInputManagerHelper().hasTvInputManager()) {
+            Log.wtf(TAG, "Stopping because device does not have a TvInputManager");
+            this.stopSelf();
+            return;
+        }
         TvApplication.setCurrentRunningProcess(this, false);
         super.onCreate();
         if (DEBUG) Log.d(TAG, "onCreate");
         mChannelDataManager = new ChannelDataManager(getApplicationContext());
         mAudioCapabilitiesReceiver = new AudioCapabilitiesReceiver(getApplicationContext(), this);
         mAudioCapabilitiesReceiver.register();
-        mBufferManager = createBufferManager();
         if (CommonFeatures.DVR.isEnabled(this)) {
             JobScheduler jobScheduler =
                     (JobScheduler) getSystemService(Context.JOB_SCHEDULER_SERVICE);
@@ -79,11 +76,6 @@ public class TunerTvInputService extends TvInputService
                 jobScheduler.schedule(job);
             }
         }
-        if (mBufferManager == null) {
-            Log.i(TAG, "Trickplay is disabled");
-        } else {
-            Log.i(TAG, "Trickplay is enabled");
-        }
     }
 
     @Override
@@ -92,9 +84,6 @@ public class TunerTvInputService extends TvInputService
         super.onDestroy();
         mChannelDataManager.release();
         mAudioCapabilitiesReceiver.unregister();
-        if (mBufferManager != null) {
-            mBufferManager.close();
-        }
     }
 
     @Override
@@ -106,8 +95,7 @@ public class TunerTvInputService extends TvInputService
     public Session onCreateSession(String inputId) {
         if (DEBUG) Log.d(TAG, "onCreateSession");
         try {
-            final TunerSession session = new TunerSession(
-                    this, mChannelDataManager, mBufferManager);
+            final TunerSession session = new TunerSession(this, mChannelDataManager);
             mTunerSessions.add(session);
             session.setAudioCapabilities(mAudioCapabilities);
             session.setOverlayViewEnabled(true);
@@ -127,17 +115,6 @@ public class TunerTvInputService extends TvInputService
                 session.setAudioCapabilities(audioCapabilities);
             }
         }
-    }
-
-    private BufferManager createBufferManager() {
-        int maxBufferSizeMb =
-                SystemPropertiesProxy.getInt(MAX_BUFFER_SIZE_KEY, MAX_BUFFER_SIZE_DEF);
-        if (maxBufferSizeMb >= MIN_BUFFER_SIZE_DEF) {
-            return new BufferManager(
-                    new TrickplayStorageManager(getApplicationContext(), getCacheDir(),
-                            1024L * 1024 * maxBufferSizeMb));
-        }
-        return null;
     }
 
     public static String getInputId(Context context) {

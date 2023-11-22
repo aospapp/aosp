@@ -25,17 +25,25 @@
 
 class IptablesProcess;
 
-class IptablesRestoreController {
-public:
+class IptablesRestoreInterface {
+  public:
+    virtual ~IptablesRestoreInterface() = default;
+
+    // Execute |commands| on the given |target|, and populate |output| with stdout.
+    virtual int execute(const IptablesTarget target, const std::string& commands,
+                        std::string* output) = 0;
+};
+
+class IptablesRestoreController final : public IptablesRestoreInterface {
+  public:
     // Not for general use. Use gCtls->iptablesRestoreCtrl
     // to get an instance of this class.
     IptablesRestoreController();
 
-    // Execute |commands| on the given |target|.
-    int execute(const IptablesTarget target, const std::string& commands);
+    ~IptablesRestoreController() override;
 
-    // Execute |commands| on the given |target|, and populate |output| with stdout.
-    int execute(const IptablesTarget target, const std::string& commands, std::string *output);
+    int execute(const IptablesTarget target, const std::string& commands,
+                std::string* output) override;
 
     enum IptablesProcessType {
         IPTABLES_PROCESS,
@@ -46,8 +54,6 @@ public:
     // Called by the SIGCHLD signal handler when it detects that one
     // of the forked iptables[6]-restore process has died.
     IptablesProcessType notifyChildTermination(pid_t pid);
-
-    virtual ~IptablesRestoreController();
 
 protected:
     friend class IptablesRestoreControllerTest;
@@ -61,6 +67,8 @@ protected:
     // The timeout (in millis) for each call to poll. The maximum wait is
     // |POLL_TIMEOUT_MS * MAX_RETRIES|. Chosen so that the overall timeout is 1s.
     static int POLL_TIMEOUT_MS;
+
+    void Init();
 
 private:
     static IptablesProcess* forkAndExec(const IptablesProcessType type);

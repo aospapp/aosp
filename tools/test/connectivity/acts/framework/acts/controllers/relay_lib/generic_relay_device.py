@@ -39,7 +39,8 @@ class GenericRelayDevice(RelayDevice):
         """Sets all relays to their default state (off)."""
         with SynchronizeRelays():
             for relay in self.relays.values():
-                relay.set_no()
+                if relay.is_dirty():
+                    relay.set_no()
 
     def press(self, button_name):
         """Presses the button with name 'button_name'."""

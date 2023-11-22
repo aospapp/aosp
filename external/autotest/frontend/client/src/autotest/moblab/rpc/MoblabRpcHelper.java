@@ -325,7 +325,7 @@ public class MoblabRpcHelper {
   }
 
   public static void runSuite(String board, String build, String suite, String pool, String rwFirmware,
-      String roFirmware, final MoblabRpcCallbacks.RunSuiteCallback callback) {
+      String roFirmware, String suiteArgs, final MoblabRpcCallbacks.RunSuiteCallback callback) {
     JsonRpcProxy rpcProxy = JsonRpcProxy.getProxy();
     JSONObject params = new JSONObject();
     params.put("board", new JSONString(board));
@@ -334,6 +334,7 @@ public class MoblabRpcHelper {
     params.put("pool", new JSONString(pool));
     params.put("rw_firmware", new JSONString(rwFirmware));
     params.put("ro_firmware", new JSONString(roFirmware));
+    params.put("suite_args", new JSONString(suiteArgs));
     rpcProxy.rpcCall("run_suite", params, new JsonRpcCallback() {
       @Override
       public void onSuccess(JSONValue result) {

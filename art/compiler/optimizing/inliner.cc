@@ -140,6 +140,17 @@ void HInliner::Run() {
   DCHECK_NE(total_number_of_instructions_, 0u);
   DCHECK_NE(inlining_budget_, 0u);
 
+  // If we're compiling with a core image (which is only used for
+  // test purposes), honor inlining directives in method names:
+  // - if a method's name contains the substring "$inline$", ensure
+  //   that this method is actually inlined;
+  // - if a method's name contains the substring "$noinline$", do not
+  //   inline that method.
+  // We limit this to AOT compilation, as the JIT may or may not inline
+  // depending on the state of classes at runtime.
+  const bool honor_inlining_directives =
+      IsCompilingWithCoreImage() && Runtime::Current()->IsAotCompiler();
+
   // Keep a copy of all blocks when starting the visit.
   ArenaVector<HBasicBlock*> blocks = graph_->GetReversePostOrder();
   DCHECK(!blocks.empty());
@@ -152,7 +163,7 @@ void HInliner::Run() {
       HInvoke* call = instruction->AsInvoke();
       // As long as the call is not intrinsified, it is worth trying to inline.
       if (call != nullptr && call->GetIntrinsic() == Intrinsics::kNone) {
-        if (kIsDebugBuild && IsCompilingWithCoreImage()) {
+        if (honor_inlining_directives) {
           // Debugging case: directives in method names control or assert on inlining.
           std::string callee_name = outer_compilation_unit_.GetDexFile()->PrettyMethod(
               call->GetDexMethodIndex(), /* with_signature */ false);
@@ -1501,8 +1512,13 @@ bool HInliner::TryPatternSubstitution(HInvoke* invoke_instruction,
         }
       }
       if (needs_constructor_barrier) {
-        HMemoryBarrier* barrier = new (graph_->GetArena()) HMemoryBarrier(kStoreStore, kNoDexPc);
-        invoke_instruction->GetBlock()->InsertInstructionBefore(barrier, invoke_instruction);
+        // See CompilerDriver::RequiresConstructorBarrier for more details.
+        DCHECK(obj != nullptr) << "only non-static methods can have a constructor fence";
+
+        HConstructorFence* constructor_fence =
+            new (graph_->GetArena()) HConstructorFence(obj, kNoDexPc, graph_->GetArena());
+        invoke_instruction->GetBlock()->InsertInstructionBefore(constructor_fence,
+                                                                invoke_instruction);
       }
       *return_replacement = nullptr;
       break;
@@ -1870,7 +1886,7 @@ void HInliner::RunOptimizations(HGraph* callee_graph,
   HDeadCodeElimination dce(callee_graph, inline_stats_, "dead_code_elimination$inliner");
   HConstantFolding fold(callee_graph, "constant_folding$inliner");
   HSharpening sharpening(callee_graph, codegen_, dex_compilation_unit, compiler_driver_, handles_);
-  InstructionSimplifier simplify(callee_graph, codegen_, inline_stats_);
+  InstructionSimplifier simplify(callee_graph, codegen_, compiler_driver_, inline_stats_);
   IntrinsicsRecognizer intrinsics(callee_graph, inline_stats_);
 
   HOptimization* optimizations[] = {

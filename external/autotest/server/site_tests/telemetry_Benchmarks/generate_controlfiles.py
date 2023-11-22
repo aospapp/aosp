@@ -35,7 +35,6 @@ PERF_DAILY_RUN_TESTS = (
     'dromaeo.domcorequery',
     'dromaeo.domcoretraverse',
     'image_decoding.image_decoding_measurement',
-    'memory.top_7_stress',
     'page_cycler_v2.typical_25',
     'robohornet_pro',
     'smoothness.tough_animation_cases',
@@ -45,9 +44,7 @@ PERF_DAILY_RUN_TESTS = (
     'smoothness.tough_scrolling_cases',
     'smoothness.tough_webgl_cases',
     'sunspider',
-    'tab_switching.top_10',
-    'webrtc.peerconnection',
-    'webrtc.stress',
+    'webrtc',
 )
 
 PERF_NO_SUITE = (

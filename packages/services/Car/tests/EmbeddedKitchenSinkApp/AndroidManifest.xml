@@ -18,8 +18,8 @@
         package="com.google.android.car.kitchensink"
         android:sharedUserId="android.uid.system">
     <uses-sdk
-        android:minSdkVersion="22"
-        android:targetSdkVersion='23'/>
+        android:minSdkVersion="24"
+        android:targetSdkVersion='25'/>
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
@@ -31,6 +31,8 @@
     <uses-permission android:name="android.car.permission.CAR_CAMERA" />
     <uses-permission android:name="android.car.permission.CAR_NAVIGATION_MANAGER"/>
     <uses-permission android:name="android.car.permission.CAR_CONTROL_AUDIO_VOLUME"/>
+    <uses-permission android:name="android.car.permission.VEHICLE_DYNAMICS_STATE"/>
+    <uses-permission android:name="android.car.permission.CAR_DISPLAY_IN_CLUSTER"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.MANAGE_USB" />
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
@@ -88,12 +90,17 @@
                   android:launchMode="singleTop">
         </activity>
 
-        <receiver android:name=".bluetooth.MapReceiver"
-            android:permission="android.permission.READ_SMS">
+        <activity android:name=".cluster.FakeClusterNavigationActivity"
+                  android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
+                  android:launchMode="singleInstance"
+                  android:resizeableActivity="true"
+                  android:allowEmbedded="true"
+                  android:permission="android.car.permission.CAR_INSTRUMENT_CLUSTER_CONTROL">
             <intent-filter>
-                <action android:name="android.bluetooth.mapmce.profile.action.MESSAGE_RECEIVED"/>
-                <action android:name="android.provider.action.VOICE_SEND_MESSAGE_TO_CONTACTS"/>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.car.cluster.NAVIGATION"/>
             </intent-filter>
-        </receiver>
+        </activity>
     </application>
 </manifest>

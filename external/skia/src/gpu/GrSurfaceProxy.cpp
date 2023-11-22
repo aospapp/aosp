@@ -21,38 +21,57 @@
 #include "SkMathPriv.h"
 
 GrSurfaceProxy::GrSurfaceProxy(sk_sp<GrSurface> surface, SkBackingFit fit)
-    : INHERITED(std::move(surface))
-    , fDesc(fTarget->desc())
-    , fFit(fit)
-    , fBudgeted(fTarget->resourcePriv().isBudgeted())
-    , fFlags(0)
-    , fUniqueID(fTarget->uniqueID()) // Note: converting from unique resource ID to a proxy ID!
-    , fGpuMemorySize(kInvalidGpuMemorySize)
-    , fLastOpList(nullptr) {
-}
+        : INHERITED(std::move(surface))
+        , fConfig(fTarget->config())
+        , fWidth(fTarget->width())
+        , fHeight(fTarget->height())
+        , fOrigin(fTarget->origin())
+        , fFit(fit)
+        , fBudgeted(fTarget->resourcePriv().isBudgeted())
+        , fFlags(0)
+        , fUniqueID(fTarget->uniqueID())  // Note: converting from unique resource ID to a proxy ID!
+        , fNeedsClear(false)
+        , fGpuMemorySize(kInvalidGpuMemorySize)
+        , fLastOpList(nullptr) {}
 
 GrSurfaceProxy::~GrSurfaceProxy() {
-    if (fLastOpList) {
-        fLastOpList->clearTarget();
-    }
-    SkSafeUnref(fLastOpList);
+    // For this to be deleted the opList that held a ref on it (if there was one) must have been
+    // deleted. Which would have cleared out this back pointer.
+    SkASSERT(!fLastOpList);
 }
 
-GrSurface* GrSurfaceProxy::instantiate(GrResourceProvider* resourceProvider) {
-    if (fTarget) {
-        return fTarget;
+sk_sp<GrSurface> GrSurfaceProxy::createSurfaceImpl(
+                                                GrResourceProvider* resourceProvider, int sampleCnt,
+                                                GrSurfaceFlags flags, bool isMipMapped,
+                                                SkDestinationSurfaceColorMode mipColorMode) const {
+    GrSurfaceDesc desc;
+    desc.fConfig = fConfig;
+    desc.fWidth = fWidth;
+    desc.fHeight = fHeight;
+    desc.fOrigin = fOrigin;
+    desc.fSampleCnt = sampleCnt;
+    desc.fIsMipMapped = isMipMapped;
+    desc.fFlags = flags;
+    if (fNeedsClear) {
+        desc.fFlags |= kPerformInitialClear_GrSurfaceFlag;
     }
 
+    sk_sp<GrSurface> surface;
     if (SkBackingFit::kApprox == fFit) {
-        fTarget = resourceProvider->createApproxTexture(fDesc, fFlags);
+        surface.reset(resourceProvider->createApproxTexture(desc, fFlags).release());
     } else {
-        fTarget = resourceProvider->createTexture(fDesc, fBudgeted, fFlags);
+        surface.reset(resourceProvider->createTexture(desc, fBudgeted, fFlags).release());
     }
-    if (!fTarget) {
-        return nullptr;
+    if (surface) {
+        surface->asTexture()->texturePriv().setMipColorMode(mipColorMode);
     }
 
-    fTarget->asTexture()->texturePriv().setMipColorMode(fMipColorMode);
+    return surface;
+}
+
+void GrSurfaceProxy::assign(sk_sp<GrSurface> surface) {
+    SkASSERT(!fTarget && surface);
+    fTarget = surface.release();
     this->INHERITED::transferRefs();
 
 #ifdef SK_DEBUG
@@ -60,52 +79,34 @@ GrSurface* GrSurfaceProxy::instantiate(GrResourceProvider* resourceProvider) {
         SkASSERT(fTarget->gpuMemorySize() <= this->getRawGpuMemorySize_debugOnly());
     }
 #endif
-
-    return fTarget;
 }
 
-int GrSurfaceProxy::worstCaseWidth(const GrCaps& caps) const {
+bool GrSurfaceProxy::instantiateImpl(GrResourceProvider* resourceProvider, int sampleCnt,
+                                     GrSurfaceFlags flags, bool isMipMapped,
+                                     SkDestinationSurfaceColorMode mipColorMode) {
     if (fTarget) {
-        return fTarget->width();
+        return true;
     }
 
-    if (SkBackingFit::kExact == fFit) {
-        return fDesc.fWidth;
+    sk_sp<GrSurface> surface = this->createSurfaceImpl(resourceProvider, sampleCnt, flags,
+                                                       isMipMapped, mipColorMode);
+    if (!surface) {
+        return false;
     }
 
-    if (caps.reuseScratchTextures() || fDesc.fFlags & kRenderTarget_GrSurfaceFlag) {
-        return SkTMax(GrResourceProvider::kMinScratchTextureSize, GrNextPow2(fDesc.fWidth));
-    }
-
-    return fDesc.fWidth;
-}
-
-int GrSurfaceProxy::worstCaseHeight(const GrCaps& caps) const {
-    if (fTarget) {
-        return fTarget->height();
-    }
-
-    if (SkBackingFit::kExact == fFit) {
-        return fDesc.fHeight;
-    }
-
-    if (caps.reuseScratchTextures() || fDesc.fFlags & kRenderTarget_GrSurfaceFlag) {
-        return SkTMax(GrResourceProvider::kMinScratchTextureSize, GrNextPow2(fDesc.fHeight));
-    }
-
-    return fDesc.fHeight;
+    this->assign(std::move(surface));
+    return true;
 }
 
 void GrSurfaceProxy::setLastOpList(GrOpList* opList) {
+#ifdef SK_DEBUG
     if (fLastOpList) {
-        // The non-MDB world never closes so we can't check this condition
-#ifdef ENABLE_MDB
         SkASSERT(fLastOpList->isClosed());
-#endif
-        fLastOpList->clearTarget();
     }
+#endif
 
-    SkRefCnt_SafeAssign(fLastOpList, opList);
+    // Un-reffed
+    fLastOpList = opList;
 }
 
 GrRenderTargetOpList* GrSurfaceProxy::getLastRenderTargetOpList() {
@@ -147,8 +148,6 @@ sk_sp<GrTextureProxy> GrSurfaceProxy::MakeWrapped(sk_sp<GrTexture> tex) {
     }
 }
 
-#include "GrResourceProvider.h"
-
 sk_sp<GrTextureProxy> GrSurfaceProxy::MakeDeferred(GrResourceProvider* resourceProvider,
                                                    const GrSurfaceDesc& desc,
                                                    SkBackingFit fit,
@@ -160,18 +159,6 @@ sk_sp<GrTextureProxy> GrSurfaceProxy::MakeDeferred(GrResourceProvider* resourceP
 
     // TODO: move this logic into GrResourceProvider!
     // TODO: share this testing code with check_texture_creation_params
-    if (GrPixelConfigIsCompressed(desc.fConfig)) {
-        if (SkBackingFit::kApprox == fit || kBottomLeft_GrSurfaceOrigin == desc.fOrigin) {
-            // We don't allow scratch compressed textures and, apparently can't Y-flip compressed
-            // textures
-            return nullptr;
-        }
-
-        if (!caps->npotTextureTileSupport() && (!SkIsPow2(desc.fWidth) || !SkIsPow2(desc.fHeight))) {
-            return nullptr;
-        }
-    }
-
     if (!caps->isConfigTexturable(desc.fConfig)) {
         return nullptr;
     }
@@ -193,12 +180,12 @@ sk_sp<GrTextureProxy> GrSurfaceProxy::MakeDeferred(GrResourceProvider* resourceP
         maxSize = caps->maxTextureSize();
     }
 
-    if (desc.fWidth > maxSize || desc.fHeight > maxSize) {
+    if (desc.fWidth > maxSize || desc.fHeight > maxSize || desc.fWidth <= 0 || desc.fHeight <= 0) {
         return nullptr;
     }
 
     GrSurfaceDesc copyDesc = desc;
-    copyDesc.fSampleCnt = SkTMin(desc.fSampleCnt, caps->maxSampleCount());
+    copyDesc.fSampleCnt = caps->getSampleCount(desc.fSampleCnt, desc.fConfig);
 
     if (willBeRT) {
         // We know anything we instantiate later from this deferred path will be
@@ -216,17 +203,53 @@ sk_sp<GrTextureProxy> GrSurfaceProxy::MakeDeferred(GrResourceProvider* resourceP
                                                    const void* srcData,
                                                    size_t rowBytes) {
     if (srcData) {
-        // If we have srcData, for now, we create a wrapped GrTextureProxy
-        sk_sp<GrTexture> tex(resourceProvider->createTexture(desc, budgeted, srcData, rowBytes));
-        return GrSurfaceProxy::MakeWrapped(std::move(tex));
+        GrMipLevel mipLevel = { srcData, rowBytes };
+
+        return resourceProvider->createTextureProxy(desc, budgeted, mipLevel);
     }
 
     return GrSurfaceProxy::MakeDeferred(resourceProvider, desc, SkBackingFit::kExact, budgeted);
 }
 
-sk_sp<GrSurfaceProxy> GrSurfaceProxy::MakeWrappedBackend(GrContext* context,
-                                                         GrBackendTextureDesc& desc) {
-    sk_sp<GrTexture> tex(context->resourceProvider()->wrapBackendTexture(desc));
+sk_sp<GrTextureProxy> GrSurfaceProxy::MakeDeferredMipMap(
+                                                    GrResourceProvider* resourceProvider,
+                                                    const GrSurfaceDesc& desc,
+                                                    SkBudgeted budgeted,
+                                                    const GrMipLevel texels[],
+                                                    int mipLevelCount,
+                                                    SkDestinationSurfaceColorMode mipColorMode) {
+    if (!mipLevelCount) {
+        if (texels) {
+            return nullptr;
+        }
+        return GrSurfaceProxy::MakeDeferred(resourceProvider, desc, budgeted, nullptr, 0);
+    } else if (1 == mipLevelCount) {
+        if (!texels) {
+            return nullptr;
+        }
+        return resourceProvider->createTextureProxy(desc, budgeted, texels[0]);
+    }
+
+    for (int i = 0; i < mipLevelCount; ++i) {
+        if (!texels[i].fPixels) {
+            return nullptr;
+        }
+    }
+
+    sk_sp<GrTexture> tex(resourceProvider->createTexture(desc, budgeted,
+                                                         texels, mipLevelCount, mipColorMode));
+    if (!tex) {
+        return nullptr;
+    }
+
+    return GrSurfaceProxy::MakeWrapped(std::move(tex));
+}
+
+sk_sp<GrTextureProxy> GrSurfaceProxy::MakeWrappedBackend(GrContext* context,
+                                                         GrBackendTexture& backendTex,
+                                                         GrSurfaceOrigin origin) {
+    sk_sp<GrTexture> tex(context->resourceProvider()->wrapBackendTexture(
+            backendTex, origin, kNone_GrBackendTextureFlag, 0));
     return GrSurfaceProxy::MakeWrapped(std::move(tex));
 }
 
@@ -248,9 +271,11 @@ sk_sp<GrTextureProxy> GrSurfaceProxy::Copy(GrContext* context,
         return nullptr;
     }
 
-    GrSurfaceDesc dstDesc = src->desc();
+    GrSurfaceDesc dstDesc;
+    dstDesc.fConfig = src->config();
     dstDesc.fWidth = srcRect.width();
     dstDesc.fHeight = srcRect.height();
+    dstDesc.fOrigin = src->origin();
 
     sk_sp<GrSurfaceContext> dstContext(context->contextPriv().makeDeferredSurfaceContext(
                                                                             dstDesc,
@@ -303,8 +328,8 @@ void GrSurfaceProxyPriv::exactify() {
         // obliterating the area of interest information. This call (exactify) only used 
         // when converting an SkSpecialImage to an SkImage so the proxy shouldn't be
         // used for additional draws.
-        fProxy->fDesc.fWidth = fProxy->fTarget->width();
-        fProxy->fDesc.fHeight = fProxy->fTarget->height();
+        fProxy->fWidth = fProxy->fTarget->width();
+        fProxy->fHeight = fProxy->fTarget->height();
         return;
     }
 
@@ -312,7 +337,7 @@ void GrSurfaceProxyPriv::exactify() {
     // It could mess things up if prior decisions were based on the approximate size.
     fProxy->fFit = SkBackingFit::kExact;
     // If fGpuMemorySize is used when caching specialImages for the image filter DAG. If it has
-    // already been computed we want to leave it alone so that amount will be removed when 
+    // already been computed we want to leave it alone so that amount will be removed when
     // the special image goes away. If it hasn't been computed yet it might as well compute the
     // exact amount.
 }

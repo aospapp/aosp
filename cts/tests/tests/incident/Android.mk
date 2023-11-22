@@ -27,12 +27,13 @@ LOCAL_SRC_FILES := \
 LOCAL_PACKAGE_NAME := CtsIncidentTestCases
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 #LOCAL_SDK_VERSION := current
 LOCAL_JAVA_LIBRARIES += android.test.runner
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-        ctstestrunner
+        ctstestrunner \
+	legacy-android-test
 
 include $(BUILD_CTS_PACKAGE)

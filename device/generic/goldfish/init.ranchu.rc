@@ -12,6 +12,7 @@ on init
 on post-fs-data
     setprop vold.post_fs_data_done 1
 
+
 on boot
     setprop net.eth0.gw 10.0.2.2
     setprop net.eth0.dns1 10.0.2.3
@@ -71,13 +72,13 @@ on property:qemu.adbd=start
     chown root system /sys/power/wake_lock
     chown root system /sys/power/wake_unlock
 
-service ranchu-setup /system/bin/init.ranchu-core.sh
+service ranchu-setup /vendor/bin/init.ranchu-core.sh
     class core
     user root
     group root
     oneshot
 
-service ranchu-net /system/bin/init.ranchu-net.sh
+service ranchu-net /vendor/bin/init.ranchu-net.sh
     class late_start
     user root
     group root wakelock
@@ -89,7 +90,7 @@ service ranchu-net /system/bin/init.ranchu-net.sh
 # might read them (e.g. surface flinger), so define it in
 # class 'core'
 #
-service qemu-props /system/bin/qemu-props
+service qemu-props /vendor/bin/qemu-props
     class core
     user root
     group root
@@ -115,7 +116,7 @@ service fingerprintd /system/bin/fingerprintd
     user system
 
 service bugreport /system/bin/dumpstate -d -p -B \
-        -o /data/data/com.android.shell/files/bugreports/bugreport
+        -o /data/user_de/0/com.android.shell/files/bugreports/bugreport
     class main
     disabled
     oneshot

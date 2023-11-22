@@ -30,6 +30,8 @@
         <has_handheld_app>true</has_handheld_app>
     </wearable>
 
+    <dependency>com.android.support.constraint:constraint-layout:1.0.2</dependency>
+
     <strings>
         <intro>
             <![CDATA[

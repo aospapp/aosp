@@ -23,6 +23,7 @@
 #include <cinttypes>
 #include <vector>
 
+#include <unistd.h>
 #include <utils/Log.h>
 
 namespace android {
@@ -46,9 +47,6 @@ namespace {
 
 constexpr uint32_t kDefaultHubId = 0;
 
-// TODO: remove this macro once all methods are implemented
-#define UNUSED(param) (void) (param)
-
 constexpr uint8_t extractChreApiMajorVersion(uint32_t chreVersion) {
   return static_cast<uint8_t>(chreVersion >> 24);
 }
@@ -61,7 +59,24 @@ constexpr uint16_t extractChrePatchVersion(uint32_t chreVersion) {
   return static_cast<uint16_t>(chreVersion);
 }
 
+/**
+ * @return file descriptor contained in the hidl_handle, or -1 if there is none
+ */
+int hidlHandleToFileDescriptor(const hidl_handle& hh) {
+  const native_handle_t *handle = hh.getNativeHandle();
+  return (handle->numFds >= 1) ? handle->data[0] : -1;
+}
+
 }  // anonymous namespace
+
+GenericContextHub::DeathRecipient::DeathRecipient(
+    sp<GenericContextHub> contexthub) : mGenericContextHub(contexthub){}
+
+void GenericContextHub::DeathRecipient::serviceDied(
+    uint64_t cookie, const wp<::android::hidl::base::V1_0::IBase>& /* who */) {
+  uint32_t hubId = static_cast<uint32_t>(cookie);
+  mGenericContextHub->handleServiceDeath(hubId);
+}
 
 GenericContextHub::GenericContextHub() {
   constexpr char kChreSocketName[] = "chre";
@@ -70,6 +85,44 @@ GenericContextHub::GenericContextHub() {
   if (!mClient.connectInBackground(kChreSocketName, mSocketCallbacks)) {
     ALOGE("Couldn't start socket client");
   }
+
+  mDeathRecipient = new DeathRecipient(this);
+}
+
+Return<void> GenericContextHub::debug(
+    const hidl_handle& hh_fd, const hidl_vec<hidl_string>& /*options*/) {
+  // Timeout inside CHRE is typically 5 seconds, grant 500ms extra here to let
+  // the data reach us
+  constexpr auto kDebugDumpTimeout = std::chrono::milliseconds(5500);
+
+  mDebugFd = hidlHandleToFileDescriptor(hh_fd);
+  if (mDebugFd < 0) {
+    ALOGW("Can't dump debug info to invalid fd");
+  } else {
+    writeToDebugFile("-- Dumping CHRE/ASH debug info --\n");
+
+    ALOGV("Sending debug dump request");
+    FlatBufferBuilder builder;
+    HostProtocolHost::encodeDebugDumpRequest(builder);
+    std::unique_lock<std::mutex> lock(mDebugDumpMutex);
+    mDebugDumpPending = true;
+    if (!mClient.sendMessage(builder.GetBufferPointer(), builder.GetSize())) {
+      ALOGW("Couldn't send debug dump request");
+    } else {
+      mDebugDumpCond.wait_for(lock, kDebugDumpTimeout,
+                              [this]() { return !mDebugDumpPending; });
+      if (mDebugDumpPending) {
+        ALOGI("Timed out waiting on debug dump data");
+        mDebugDumpPending = false;
+      }
+    }
+    writeToDebugFile("\n-- End of CHRE/ASH debug info --\n");
+
+    mDebugFd = kInvalidFd;
+    ALOGV("Debug dump complete");
+  }
+
+  return Void();
 }
 
 Return<void> GenericContextHub::getHubs(getHubs_cb _hidl_cb) {
@@ -78,9 +131,10 @@ Return<void> GenericContextHub::getHubs(getHubs_cb _hidl_cb) {
   ALOGV("%s", __func__);
 
   // If we're not connected yet, give it some time
-  int maxSleepIterations = 50;
+  // TODO refactor from polling into conditional wait
+  int maxSleepIterations = 250;
   while (!mHubInfoValid && !mClient.isConnected() && --maxSleepIterations > 0) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
   }
 
   if (!mClient.isConnected()) {
@@ -118,7 +172,20 @@ Return<Result> GenericContextHub::registerCallback(
 
   // TODO: currently we only support 1 hub behind this HAL implementation
   if (hubId == kDefaultHubId) {
-    mCallbacks = cb; // TODO: special handling for null?
+    std::lock_guard<std::mutex> lock(mCallbacksLock);
+
+    if (cb != nullptr) {
+      if (mCallbacks != nullptr) {
+        ALOGD("Modifying callback for hubId %" PRIu32, hubId);
+        mCallbacks->unlinkToDeath(mDeathRecipient);
+      }
+      Return<bool> linkReturn = cb->linkToDeath(mDeathRecipient, hubId);
+      if (!linkReturn.withDefault(false)) {
+        ALOGW("Could not link death recipient to hubId %" PRIu32, hubId);
+      }
+    }
+
+    mCallbacks = cb;
     result = Result::OK;
   } else {
     result = Result::BAD_PARAMS;
@@ -180,32 +247,43 @@ Return<Result> GenericContextHub::loadNanoApp(
 
 Return<Result> GenericContextHub::unloadNanoApp(
     uint32_t hubId, uint64_t appId, uint32_t transactionId) {
-  // TODO
-  UNUSED(hubId);
-  UNUSED(appId);
-  UNUSED(transactionId);
+  Result result;
   ALOGV("%s", __func__);
-  return Result::UNKNOWN_FAILURE;
+
+  if (hubId != kDefaultHubId) {
+    result = Result::BAD_PARAMS;
+  } else {
+    FlatBufferBuilder builder(64);
+    HostProtocolHost::encodeUnloadNanoappRequest(
+        builder, transactionId, appId, false /* allowSystemNanoappUnload */);
+    if (!mClient.sendMessage(builder.GetBufferPointer(), builder.GetSize())) {
+      result = Result::UNKNOWN_FAILURE;
+    } else {
+      result = Result::OK;
+    }
+  }
+
+  ALOGD("Attempted to send unload nanoapp request for app ID 0x%016" PRIx64
+        " as transaction ID %" PRIu32 ": result %" PRIu32, appId, transactionId,
+        result);
+
+  return result;
 }
 
 Return<Result> GenericContextHub::enableNanoApp(
-    uint32_t hubId, uint64_t appId, uint32_t transactionId) {
+    uint32_t /* hubId */, uint64_t appId, uint32_t /* transactionId */) {
   // TODO
-  UNUSED(hubId);
-  UNUSED(appId);
-  UNUSED(transactionId);
-  ALOGV("%s", __func__);
-  return Result::UNKNOWN_FAILURE;
+  ALOGW("Attempted to enable app ID 0x%016" PRIx64 ", but not supported",
+        appId);
+  return Result::TRANSACTION_FAILED;
 }
 
 Return<Result> GenericContextHub::disableNanoApp(
-    uint32_t hubId, uint64_t appId, uint32_t transactionId) {
+    uint32_t /* hubId */, uint64_t appId, uint32_t /* transactionId */) {
   // TODO
-  UNUSED(hubId);
-  UNUSED(appId);
-  UNUSED(transactionId);
-  ALOGV("%s", __func__);
-  return Result::UNKNOWN_FAILURE;
+  ALOGW("Attempted to disable app ID 0x%016" PRIx64 ", but not supported",
+        appId);
+  return Result::TRANSACTION_FAILED;
 }
 
 Return<Result> GenericContextHub::queryApps(uint32_t hubId) {
@@ -224,7 +302,7 @@ Return<Result> GenericContextHub::queryApps(uint32_t hubId) {
     }
   }
 
-  return Result::UNKNOWN_FAILURE;
+  return result;
 }
 
 GenericContextHub::SocketCallbacks::SocketCallbacks(GenericContextHub& parent)
@@ -240,9 +318,9 @@ void GenericContextHub::SocketCallbacks::onMessageReceived(const void *data,
 void GenericContextHub::SocketCallbacks::onConnected() {
   if (mHaveConnected) {
     ALOGI("Reconnected to CHRE daemon");
-    if (mParent.mCallbacks != nullptr) {
+    invokeClientCallback([&]() {
       mParent.mCallbacks->handleHubEvent(AsyncEventType::RESTARTED);
-    }
+    });
   }
   mHaveConnected = true;
 }
@@ -254,24 +332,20 @@ void GenericContextHub::SocketCallbacks::onDisconnected() {
 void GenericContextHub::SocketCallbacks::handleNanoappMessage(
     uint64_t appId, uint32_t messageType, uint16_t hostEndpoint,
     const void *messageData, size_t messageDataLen) {
-  // TODO: this is not thread-safe w/registerCallback... we need something else
-  // to confirm that it's safe for us to invoke the callback, and likely a lock
-  // on stuff
-  if (mParent.mCallbacks != nullptr) {
-    ContextHubMsg msg;
-    msg.appName = appId;
-    msg.hostEndPoint = hostEndpoint;
-    msg.msgType = messageType;
+  ContextHubMsg msg;
+  msg.appName = appId;
+  msg.hostEndPoint = hostEndpoint;
+  msg.msgType = messageType;
 
-    // Dropping const from messageData when we wrap it in hidl_vec here. This is
-    // safe because we won't modify it here, and the ContextHubMsg we pass to
-    // the callback is const.
-    msg.msg.setToExternal(
-        const_cast<uint8_t *>(static_cast<const uint8_t *>(messageData)),
-        messageDataLen, false /* shouldOwn */);
-
+  // Dropping const from messageData when we wrap it in hidl_vec here. This is
+  // safe because we won't modify it here, and the ContextHubMsg we pass to
+  // the callback is const.
+  msg.msg.setToExternal(
+      const_cast<uint8_t *>(static_cast<const uint8_t *>(messageData)),
+      messageDataLen, false /* shouldOwn */);
+  invokeClientCallback([&]() {
     mParent.mCallbacks->handleClientMsg(msg);
-  }
+  });
 }
 
 void GenericContextHub::SocketCallbacks::handleHubInfoResponse(
@@ -337,8 +411,9 @@ void GenericContextHub::SocketCallbacks::handleNanoappListResponse(
     }
   }
 
-  // TODO: make this thread-safe w/setCallback
-  mParent.mCallbacks->handleAppsInfo(appInfoList);
+  invokeClientCallback([&]() {
+    mParent.mCallbacks->handleAppsInfo(appInfoList);
+  });
 }
 
 void GenericContextHub::SocketCallbacks::handleLoadNanoappResponse(
@@ -346,9 +421,74 @@ void GenericContextHub::SocketCallbacks::handleLoadNanoappResponse(
   ALOGV("Got load nanoapp response for transaction %" PRIu32 " with result %d",
         response.transaction_id, response.success);
 
-  TransactionResult result = (response.success) ?
-      TransactionResult::SUCCESS : TransactionResult::FAILURE;
-  mParent.mCallbacks->handleTxnResult(response.transaction_id, result);
+  invokeClientCallback([&]() {
+    TransactionResult result = (response.success) ?
+        TransactionResult::SUCCESS : TransactionResult::FAILURE;
+    mParent.mCallbacks->handleTxnResult(response.transaction_id, result);
+  });
+}
+
+void GenericContextHub::SocketCallbacks::handleUnloadNanoappResponse(
+    const ::chre::fbs::UnloadNanoappResponseT& response) {
+  ALOGV("Got unload nanoapp response for transaction %" PRIu32 " with result "
+        "%d", response.transaction_id, response.success);
+
+  invokeClientCallback([&]() {
+    TransactionResult result = (response.success) ?
+        TransactionResult::SUCCESS : TransactionResult::FAILURE;
+    mParent.mCallbacks->handleTxnResult(response.transaction_id, result);
+  });
+}
+
+void GenericContextHub::SocketCallbacks::handleDebugDumpData(
+    const ::chre::fbs::DebugDumpDataT& data) {
+  ALOGV("Got debug dump data, size %zu", data.debug_str.size());
+  if (mParent.mDebugFd == kInvalidFd) {
+    ALOGW("Got unexpected debug dump data message");
+  } else {
+    mParent.writeToDebugFile(
+        reinterpret_cast<const char *>(data.debug_str.data()),
+        data.debug_str.size());
+  }
+}
+
+void GenericContextHub::SocketCallbacks::handleDebugDumpResponse(
+    const ::chre::fbs::DebugDumpResponseT& response) {
+  ALOGV("Got debug dump response, success %d, data count %" PRIu32,
+        response.success, response.data_count);
+  std::lock_guard<std::mutex> lock(mParent.mDebugDumpMutex);
+  if (!mParent.mDebugDumpPending) {
+    ALOGI("Ignoring duplicate/unsolicited debug dump response");
+  } else {
+    mParent.mDebugDumpPending = false;
+    mParent.mDebugDumpCond.notify_all();
+  }
+}
+
+void GenericContextHub::SocketCallbacks::invokeClientCallback(
+    std::function<void()> callback) {
+  std::lock_guard<std::mutex> lock(mParent.mCallbacksLock);
+  if (mParent.mCallbacks != nullptr) {
+    callback();
+  }
+}
+
+void GenericContextHub::writeToDebugFile(const char *str) {
+  writeToDebugFile(str, strlen(str));
+}
+
+void GenericContextHub::writeToDebugFile(const char *str, size_t len) {
+  ssize_t written = write(mDebugFd, str, len);
+  if (written != (ssize_t) len) {
+    ALOGW("Couldn't write to debug header: returned %zd, expected %zu "
+          "(errno %d)", written, len, errno);
+  }
+}
+
+void GenericContextHub::handleServiceDeath(uint32_t hubId) {
+  std::lock_guard<std::mutex> lock(mCallbacksLock);
+  ALOGI("Context hub service died for hubId %" PRIu32, hubId);
+  mCallbacks.clear();
 }
 
 IContexthub* HIDL_FETCH_IContexthub(const char* /* name */) {

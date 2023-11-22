@@ -20,7 +20,6 @@ import android.content.res.Configuration;
 import android.os.Bundle;
 import android.support.annotation.LayoutRes;
 import android.support.annotation.NonNull;
-import android.support.car.ui.PagedListView;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.app.AppCompatActivity;
@@ -33,6 +32,7 @@ import android.view.ViewGroup;
 import android.widget.ProgressBar;
 
 import com.android.car.stream.ui.R;
+import com.android.car.view.PagedListView;
 
 import java.util.Stack;
 
@@ -92,6 +92,12 @@ public abstract class CarDrawerActivity extends AppCompatActivity {
         mDrawerList.setAdapter(rootAdapter);
 
         setupDrawerToggling();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        mDrawerLayout.closeDrawer(Gravity.LEFT, false /* animation */);
     }
 
     private void setToolbarTitleFrom(CarDrawerAdapter adapter) {
@@ -204,10 +210,8 @@ public abstract class CarDrawerActivity extends AppCompatActivity {
         mDrawerToggle = new ActionBarDrawerToggle(
                 this,                  /* host Activity */
                 mDrawerLayout,         /* DrawerLayout object */
-                // The string id's below are for accessibility. However
-                // since they won't be used in cars, we just pass car_drawer_unused.
-                R.string.car_drawer_unused,
-                R.string.car_drawer_unused
+                R.string.car_drawer_open,
+                R.string.car_drawer_close
         );
         mDrawerLayout.addDrawerListener(mDrawerToggle);
         mDrawerLayout.addDrawerListener(new DrawerLayout.DrawerListener() {
@@ -221,7 +225,7 @@ public abstract class CarDrawerActivity extends AppCompatActivity {
             public void onDrawerClosed(View drawerView) {
                 // If drawer is closed for any reason, revert stack/drawer to initial root state.
                 cleanupStackAndShowRoot();
-                mDrawerList.getRecyclerView().scrollToPosition(0);
+                scrollToPosition(0);
             }
             @Override
             public void onDrawerStateChanged(int newState) {}
@@ -279,7 +283,11 @@ public abstract class CarDrawerActivity extends AppCompatActivity {
         // NOTE: We don't use swapAdapter() since different levels in the Drawer may switch between
         // car_menu_list_item_normal, car_menu_list_item_small and car_list_empty layouts.
         mDrawerList.getRecyclerView().setAdapter(adapter);
-        mDrawerList.getRecyclerView().scrollToPosition(0);
+        scrollToPosition(0);
+    }
+
+    public void scrollToPosition(int position) {
+        mDrawerList.getRecyclerView().smoothScrollToPosition(position);
     }
 
     private boolean maybeHandleUpClick() {

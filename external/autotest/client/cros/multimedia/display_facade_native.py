@@ -4,6 +4,7 @@
 
 """Facade to access the display-related functionality."""
 
+import logging
 import multiprocessing
 import numpy
 import os
@@ -11,6 +12,7 @@ import re
 import time
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import utils as common_utils
 from autotest_lib.client.common_lib.cros import retry
 from autotest_lib.client.cros import constants, sys_power
 from autotest_lib.client.cros.graphics import graphics_utils
@@ -41,6 +43,7 @@ class DisplayFacadeNative(object):
     CALIBRATION_IMAGE_PATH = '/tmp/calibration.svg'
     MINIMUM_REFRESH_RATE_EXPECTED = 25.0
     DELAY_TIME = 3
+    MAX_TYPEC_PORT = 6
 
     def __init__(self, resource):
         """Initializes a DisplayFacadeNative.
@@ -86,164 +89,115 @@ class DisplayFacadeNative(object):
         return extension.EvaluateJavaScript("window.__window_info")
 
 
-    def _wait_for_display_options_to_appear(self, tab, display_index,
-                                            timeout=16):
-        """Waits for option.DisplayOptions to appear.
+    def _get_display_by_id(self, display_id):
+        """Gets a display by ID.
 
-        The function waits until options.DisplayOptions appears or is timed out
-                after the specified time.
+        @param display_id: id of the display.
 
-        @param tab: the tab where the display options dialog is shown.
-        @param display_index: index of the display.
-        @param timeout: time wait for display options appear.
-
-        @raise RuntimeError when display_index is out of range
-        @raise TimeoutException when the operation is timed out.
+        @return: A dict of various display info.
         """
-
-        tab.WaitForJavaScriptCondition(
-                    "typeof options !== 'undefined' &&"
-                    "typeof options.DisplayOptions !== 'undefined' &&"
-                    "typeof options.DisplayOptions.instance_ !== 'undefined' &&"
-                    "typeof options.DisplayOptions.instance_"
-                    "       .displays_ !== 'undefined'", timeout=timeout)
-
-        if not tab.EvaluateJavaScript(
-                    "options.DisplayOptions.instance_.displays_.length > %d"
-                    % (display_index)):
-            raise RuntimeError('Display index out of range: '
-                    + str(tab.EvaluateJavaScript(
-                    "options.DisplayOptions.instance_.displays_.length")))
-
-        tab.WaitForJavaScriptCondition(
-                "typeof options.DisplayOptions.instance_"
-                "         .displays_[%(index)d] !== 'undefined' &&"
-                "typeof options.DisplayOptions.instance_"
-                "         .displays_[%(index)d].id !== 'undefined' &&"
-                "typeof options.DisplayOptions.instance_"
-                "         .displays_[%(index)d].resolutions !== 'undefined'"
-                % {'index': display_index}, timeout=timeout)
+        for display in self.get_display_info():
+            if display['id'] == display_id:
+                return display
+        raise RuntimeError('Cannot find display ' + display_id)
 
 
-    def _evaluate_display_expression(self, expression, display_index):
-        """Evaluate an expression on Chrome display settings page.
-
-        The result of the expression is obtained from
-        chrome://settings-frame/display via telemetry.
-
-        @param expression: Javascript expression.
-        @param display_index: index of the display to get modes from.
-
-        @return: A object of the result.
-
-        @raise TimeoutException when the operation is timed out.
-        """
-        try:
-            tab_descriptor = self.load_url('chrome://settings-frame/display')
-            tab = self._resource.get_tab_by_descriptor(tab_descriptor)
-            self._wait_for_display_options_to_appear(tab, display_index)
-            return tab.EvaluateJavaScript(expression % {'index': display_index})
-        finally:
-            self.close_tab(tab_descriptor)
-
-
-    def get_display_modes(self, display_index):
+    def get_display_modes(self, display_id):
         """Gets all the display modes for the specified display.
 
-        @param display_index: index of the display to get modes from.
+        @param display_id: id of the display to get modes from.
 
         @return: A list of DisplayMode dicts.
         """
-        return self._evaluate_display_expression(
-                "options.DisplayOptions.instance_"
-                "         .displays_[%(index)d].resolutions",
-                display_index)
+        display = self._get_display_by_id(display_id)
+        return display['modes']
 
 
-    def get_display_rotation(self, display_index):
+    def get_display_rotation(self, display_id):
         """Gets the display rotation for the specified display.
 
-        @param display_index: index of the display to get modes from.
+        @param display_id: id of the display to get modes from.
 
         @return: Degree of rotation.
         """
-        return self._evaluate_display_expression(
-                "options.DisplayOptions.instance_"
-                "         .displays_[%(index)d].rotation",
-                display_index)
+        display = self._get_display_by_id(display_id)
+        return display['rotation']
 
 
-    def set_display_rotation(self, display_index, rotation,
+    def set_display_rotation(self, display_id, rotation,
                              delay_before_rotation=0, delay_after_rotation=0):
         """Sets the display rotation for the specified display.
 
-        @param display_index: index of the display to get modes from.
+        @param display_id: id of the display to get modes from.
         @param rotation: degree of rotation
         @param delay_before_rotation: time in second for delay before rotation
         @param delay_after_rotation: time in second for delay after rotation
         """
-        try:
-            tab_descriptor = self.load_url('chrome://settings-frame/display')
-            tab = self._resource.get_tab_by_descriptor(tab_descriptor)
-            self._wait_for_display_options_to_appear(tab, display_index)
+        time.sleep(delay_before_rotation)
+        extension = self._resource.get_extension(
+                constants.MULTIMEDIA_TEST_EXTENSION)
+        extension.ExecuteJavaScript(
+                """
+                window.__set_display_rotation_has_error = null;
+                chrome.system.display.setDisplayProperties('%(id)s',
+                    {"rotation": %(rotation)d}, () => {
+                    if (runtime.lastError) {
+                        console.error('Failed to set display rotation',
+                            runtime.lastError);
+                        window.__set_display_rotation_has_error = "failure";
+                    } else {
+                        window.__set_display_rotation_has_error = "success";
+                    }
+                });
+                """
+                % {'id': display_id, 'rotation': rotation}
+        )
+        utils.wait_for_value(lambda: (
+                extension.EvaluateJavaScript(
+                    'window.__set_display_rotation_has_error') != None),
+                expected_value="success")
+        time.sleep(delay_after_rotation)
 
-            # Hide the typing cursor to reduce interference.
-            self.hide_typing_cursor()
 
-            time.sleep(delay_before_rotation)
-            tab.ExecuteJavaScript(
-                    """
-                    var display = options.DisplayOptions.instance_
-                            .displays_[%(index)d];
-                    chrome.send('setRotation', [display.id, %(rotation)d]);
-                    """
-                    % {'index': display_index, 'rotation': rotation}
-            )
-            time.sleep(delay_after_rotation)
-        finally:
-            self.close_tab(tab_descriptor)
-
-
-    def get_available_resolutions(self, display_index):
+    def get_available_resolutions(self, display_id):
         """Gets the resolutions from the specified display.
 
         @return a list of (width, height) tuples.
         """
-        # Start from M38 (refer to http://codereview.chromium.org/417113012),
-        # a DisplayMode dict contains 'originalWidth'/'originalHeight'
-        # in addition to 'width'/'height'.
-        # OriginalWidth/originalHeight is what is supported by the display
-        # while width/height is what is shown to users in the display setting.
-        modes = self.get_display_modes(display_index)
-        if modes:
-            if 'originalWidth' in modes[0]:
-                # M38 or newer
-                # TODO(tingyuan): fix loading image for cases where original
-                #                 width/height is different from width/height.
-                return list(set([(mode['originalWidth'], mode['originalHeight'])
-                        for mode in modes]))
-
-        # pre-M38
-        return [(mode['width'], mode['height']) for mode in modes
-                if 'scale' not in mode]
+        modes = self.get_display_modes(display_id)
+        if 'widthInNativePixels' not in modes[0]:
+            raise RuntimeError('Cannot find widthInNativePixels attribute')
+        return list(set([(mode['widthInNativePixels'],
+                          mode['heightInNativePixels']) for mode in modes]))
 
 
-    def get_first_external_display_index(self):
-        """Gets the first external display index.
+    def get_internal_display_id(self):
+        """Gets the internal display id.
 
-        @return the index of the first external display; False if not found.
+        @return the id of the internal display.
+        """
+        for display in self.get_display_info():
+            if display['isInternal']:
+                return display['id']
+        raise RuntimeError('Cannot find internal display')
+
+
+    def get_first_external_display_id(self):
+        """Gets the first external display id.
+
+        @return the id of the first external display; -1 if not found.
         """
         # Get the first external and enabled display
-        for index, display in enumerate(self.get_display_info()):
+        for display in self.get_display_info():
             if display['isEnabled'] and not display['isInternal']:
-                return index
-        return False
+                return display['id']
+        return -1
 
 
-    def set_resolution(self, display_index, width, height, timeout=3):
+    def set_resolution(self, display_id, width, height, timeout=3):
         """Sets the resolution of the specified display.
 
-        @param display_index: index of the display to set resolution for.
+        @param display_id: id of the display to set resolution for.
         @param width: width of the resolution
         @param height: height of the resolution
         @param timeout: maximal time in seconds waiting for the new resolution
@@ -251,56 +205,52 @@ class DisplayFacadeNative(object):
         @raise TimeoutException when the operation is timed out.
         """
 
-        try:
-            tab_descriptor = self.load_url('chrome://settings-frame/display')
-            tab = self._resource.get_tab_by_descriptor(tab_descriptor)
-            self._wait_for_display_options_to_appear(tab, display_index)
-
-            tab.ExecuteJavaScript(
-                    # Start from M38 (refer to CR:417113012), a DisplayMode dict
-                    # contains 'originalWidth'/'originalHeight' in addition to
-                    # 'width'/'height'. OriginalWidth/originalHeight is what is
-                    # supported by the display while width/height is what is
-                    # shown to users in the display setting.
-                    """
-                    var display = options.DisplayOptions.instance_
-                              .displays_[%(index)d];
-                    var modes = display.resolutions;
-                    for (index in modes) {
-                        var mode = modes[index];
-                        if (mode.originalWidth == %(width)d &&
-                                mode.originalHeight == %(height)d) {
-                            chrome.send('setDisplayMode', [display.id, mode]);
+        extension = self._resource.get_extension(
+                constants.MULTIMEDIA_TEST_EXTENSION)
+        extension.ExecuteJavaScript(
+                """
+                window.__set_resolution_progress = null;
+                chrome.system.display.getInfo((info_array) => {
+                    var mode;
+                    for (var info of info_array) {
+                        if (info['id'] == '%(id)s') {
+                            for (var m of info['modes']) {
+                                if (m['width'] == %(width)d &&
+                                    m['height'] == %(height)d) {
+                                    window.__set_resolution_progress =
+                                        "found_mode";
+                                    mode = m;
+                                    break;
+                                }
+                            }
                             break;
                         }
                     }
-                    """
-                    % {'index': display_index, 'width': width, 'height': height}
-            )
+                    if (mode === undefined) {
+                        console.error('Failed to select the resolution ' +
+                            '%(width)dx%(height)d');
+                        window.__set_resolution_progress = "mode not found";
+                        return;
+                    }
 
-            def _get_selected_resolution():
-                modes = tab.EvaluateJavaScript(
-                        """
-                        options.DisplayOptions.instance_
-                                 .displays_[%(index)d].resolutions
-                        """
-                        % {'index': display_index})
-                for mode in modes:
-                    if mode['selected']:
-                        return (mode['originalWidth'], mode['originalHeight'])
-
-            # TODO(tingyuan):
-            # Support for multiple external monitors (i.e. for chromebox)
-            end_time = time.time() + timeout
-            while time.time() < end_time:
-                r = _get_selected_resolution()
-                if (width, height) == (r[0], r[1]):
-                    return True
-                time.sleep(0.1)
-            raise TimeoutException('Failed to change resolution to %r (%r'
-                                   ' detected)' % ((width, height), r))
-        finally:
-            self.close_tab(tab_descriptor)
+                    chrome.system.display.setDisplayProperties('%(id)s',
+                        {'displayMode': mode}, () => {
+                            if (runtime.lastError) {
+                                window.__set_resolution_progress = "failed " +
+                                    runtime.lastError;
+                            } else {
+                                window.__set_resolution_progress = "succeeded";
+                            }
+                        }
+                    );
+                });
+                """
+                % {'id': display_id, 'width': width, 'height': height}
+        )
+        utils.wait_for_value(lambda: (
+                extension.EvaluateJavaScript(
+                    'window.__set_resolution_progress') != None),
+                expected_value="success")
 
 
     @_retry_display_call
@@ -358,36 +308,12 @@ class DisplayFacadeNative(object):
         return graphics_utils.get_internal_crtc()
 
 
-    def get_output_rect(self, output):
-        """Gets the size and position of the given output on the screen buffer.
-
-        @param output: The output name as a string.
-
-        @return A tuple of the rectangle (width, height, fb_offset_x,
-                fb_offset_y) of ints.
-        """
-        regexp = re.compile(
-                r'^([-A-Za-z0-9]+)\s+connected\s+(\d+)x(\d+)\+(\d+)\+(\d+)',
-                re.M)
-        match = regexp.findall(graphics_utils.call_xrandr())
-        for m in match:
-            if m[0] == output:
-                return (int(m[1]), int(m[2]), int(m[3]), int(m[4]))
-        return (0, 0, 0, 0)
-
-
     def take_internal_screenshot(self, path):
         """Takes internal screenshot.
 
         @param path: path to image file.
         """
-        if utils.is_freon():
-            self.take_screenshot_crtc(path, self.get_internal_crtc())
-        else:
-            output = self.get_internal_connector_name()
-            box = self.get_output_rect(output)
-            graphics_utils.take_screenshot_crop_x(path, box)
-            return output, box  # for logging/debugging
+        self.take_screenshot_crtc(path, self.get_internal_crtc())
 
 
     def take_external_screenshot(self, path):
@@ -395,13 +321,7 @@ class DisplayFacadeNative(object):
 
         @param path: path to image file.
         """
-        if utils.is_freon():
-            self.take_screenshot_crtc(path, self.get_external_crtc())
-        else:
-            output = self.get_external_connector_name()
-            box = self.get_output_rect(output)
-            graphics_utils.take_screenshot_crop_x(path, box)
-            return output, box  # for logging/debugging
+        self.take_screenshot_crtc(path, self.get_external_crtc())
 
 
     def take_screenshot_crtc(self, path, id):
@@ -549,20 +469,18 @@ class DisplayFacadeNative(object):
 
 
     @facade_resource.retry_chrome_call
-    def move_to_display(self, display_index):
+    def move_to_display(self, display_id):
         """Moves the current window to the indicated display.
 
-        @param display_index: The index of the indicated display.
+        @param display_id: The id of the indicated display.
         @return True if success.
 
         @raise TimeoutException if it fails.
         """
-        display_info = self.get_display_info()
-        if (display_index is False or
-            display_index not in xrange(0, len(display_info)) or
-            not display_info[display_index]['isEnabled']):
+        display_info = self._get_display_by_id(display_id)
+        if not display_info['isEnabled']:
             raise RuntimeError('Cannot find the indicated display')
-        target_bounds = display_info[display_index]['bounds']
+        target_bounds = display_info['bounds']
 
         extension = self._resource.get_extension()
         # If the area of bounds is empty (here we achieve this by setting
@@ -730,3 +648,36 @@ class DisplayFacadeNative(object):
         self.set_fullscreen(False)
         self._resource.close_tab(tab_descriptor)
         return True
+
+
+    def reset_connector_if_applicable(self, connector_type):
+        """Resets Type-C video connector from host end if applicable.
+
+        It's the workaround sequence since sometimes Type-C dongle becomes
+        corrupted and needs to be re-plugged.
+
+        @param connector_type: A string, like "VGA", "DVI", "HDMI", or "DP".
+        """
+        if connector_type != 'HDMI' and connector_type != 'DP':
+            return
+        # Decide if we need to add --name=cros_pd
+        usbpd_command = 'ectool --name=cros_pd usbpd'
+        try:
+            common_utils.run('%s 0' % usbpd_command)
+        except error.CmdError:
+            usbpd_command = 'ectool usbpd'
+
+        port = 0
+        while port < self.MAX_TYPEC_PORT:
+            # We use usbpd to get Role information and then power cycle the
+            # SRC one.
+            command = '%s %d' % (usbpd_command, port)
+            try:
+                output = common_utils.run(command).stdout
+                if re.compile('Role.*SRC').search(output):
+                    logging.info('power-cycle Type-C port %d', port)
+                    common_utils.run('%s sink' % command)
+                    common_utils.run('%s auto' % command)
+                port += 1
+            except error.CmdError:
+                break

@@ -147,6 +147,7 @@ typedef struct {
 
     wprint_job_params_t job_params;
     bool cancel_ok;
+    bool use_secure_uri;
 
     const ifc_status_monitor_t *status_ifc;
     char debug_path[MAX_PATHNAME_LENGTH + 1];
@@ -740,7 +741,12 @@ static void *_job_thread(void *param) {
                 connect_info.printer_addr = jq->printer_addr;
                 connect_info.uri_path = jq->printer_uri;
                 connect_info.port_num = jq->port_num;
-                connect_info.uri_scheme = IPP_PREFIX;
+                if (jq->use_secure_uri) {
+                    connect_info.uri_scheme = IPPS_PREFIX;
+                } else {
+                    connect_info.uri_scheme = IPP_PREFIX;
+                }
+                connect_info.timeout = DEFAULT_IPP_TIMEOUT;
                 jq->status_ifc->init(jq->status_ifc, &connect_info);
             }
             // wait for the printer to be idle
@@ -834,7 +840,7 @@ static void *_job_thread(void *param) {
             if (job_result == OK) {
                 if (jq->print_ifc) {
                     job_result = jq->print_ifc->init(jq->print_ifc, jq->printer_addr,
-                            jq->port_num, jq->printer_uri);
+                            jq->port_num, jq->printer_uri, jq->use_secure_uri);
                     if (job_result == ERROR) {
                         jq->blocked_reasons = BLOCKED_REASON_UNABLE_TO_CONNECT;
                     }
@@ -1726,7 +1732,7 @@ status_t wprintGetFinalJobParams(wprint_job_params_t *job_params,
 wJob_t wprintStartJob(const char *printer_addr, port_t port_num,
         const wprint_job_params_t *job_params, const printer_capabilities_t *printer_cap,
         const char *mime_type, const char *pathname, wprint_status_cb_t cb_fn,
-        const char *debugDir) {
+        const char *debugDir, const char *scheme) {
     wJob_t job_handle = WPRINT_BAD_JOB_HANDLE;
     _msg_t msg;
     struct stat stat_buf;
@@ -1808,6 +1814,8 @@ wJob_t wprintStartJob(const char *printer_addr, port_t port_num,
         jq->status_ifc = _get_status_ifc(((port_num == 0) ? PORT_FILE : PORT_IPP));
 
         memcpy((char *) &(jq->job_params), job_params, sizeof(wprint_job_params_t));
+
+        jq->use_secure_uri = (strstr(scheme, IPPS_PREFIX) != NULL);
 
         size_t useragent_len = strlen(USERAGENT_PREFIX) + strlen(jq->job_params.docCategory) + 1;
         char *useragent = (char *) malloc(useragent_len);

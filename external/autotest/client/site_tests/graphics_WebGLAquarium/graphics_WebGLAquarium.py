@@ -38,7 +38,7 @@ POWER_DESCRIPTION = 'avg_energy_rate_1000_fishes'
 STABILIZATION_DURATION = 10
 
 
-class graphics_WebGLAquarium(test.test):
+class graphics_WebGLAquarium(graphics_utils.GraphicsTest):
     """WebGL aquarium graphics test."""
     version = 1
 
@@ -48,7 +48,6 @@ class graphics_WebGLAquarium(test.test):
     _test_power = False
     active_tab = None
     flip_stats = {}
-    GSC = None
     kernel_sampler = None
     perf_keyval = {}
     sampler_lock = None
@@ -65,7 +64,7 @@ class graphics_WebGLAquarium(test.test):
         utils.extract_tarball_to_dir(tarball_path, self.srcdir)
 
     def initialize(self):
-        self.GSC = graphics_utils.GraphicsStateChecker()
+        super(graphics_WebGLAquarium, self).initialize()
         self.sampler_lock = threading.Lock()
         # TODO: Create samplers for other platforms (e.g. x86).
         if utils.get_board().lower() in ['daisy', 'daisy_spring']:
@@ -84,8 +83,9 @@ class graphics_WebGLAquarium(test.test):
             self._backlight.restore()
         if self._service_stopper:
             self._service_stopper.restore_services()
-        if self.GSC:
-            keyvals = self.GSC.get_memory_keyvals()
+
+        if self._GSC:
+            keyvals = self._GSC.get_memory_difference_keyvals()
             if not self._test_power:
                 for key, val in keyvals.iteritems():
                     self.output_perf_value(
@@ -93,8 +93,8 @@ class graphics_WebGLAquarium(test.test):
                         value=val,
                         units='bytes',
                         higher_is_better=False)
-            self.GSC.finalize()
             self.write_perf_keyval(keyvals)
+        super(graphics_WebGLAquarium, self).cleanup()
 
     def run_fish_test(self, browser, test_url, num_fishes, perf_log=True):
         """Run the test with the given number of fishes.
@@ -115,13 +115,15 @@ class graphics_WebGLAquarium(test.test):
         # Set the number of fishes when document finishes loading.  Also reset
         # our own FPS counter and start recording FPS and rendering time.
         utils.wait_for_value(
-            lambda: tab.EvaluateJavaScript('if (document.readyState === "complete") {'
-                                           '  setSetting(document.getElementById("%s"), %d);'
-                                           '  g_crosFpsCounter.reset();'
-                                           '  true;'
-                                           '} else {'
-                                           '  false;'
-                                           '}' % self.test_settings[num_fishes]),
+            lambda: tab.EvaluateJavaScript(
+                'if (document.readyState === "complete") {'
+                '  setSetting(document.getElementById("%s"), %d);'
+                '  g_crosFpsCounter.reset();'
+                '  true;'
+                '} else {'
+                '  false;'
+                '}' % self.test_settings[num_fishes]
+            ),
             expected_value=True,
             timeout_sec=30)
 
@@ -271,12 +273,13 @@ class graphics_WebGLAquarium(test.test):
                                                stats['wait_kds'][1],
                                                stats['flipped'][1]))
 
+    @graphics_utils.GraphicsTest.failure_report_decorator('graphics_WebGLAquarium')
     def run_once(self,
                  test_duration_secs=30,
                  test_setting_num_fishes=(50, 1000),
                  power_test=False,
                  ac_ok=False):
-        """Find a brower with telemetry, and run the test.
+        """Find a browser with telemetry, and run the test.
 
         @param test_duration_secs: The duration in seconds to run each scenario
                 for.

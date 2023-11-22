@@ -25,7 +25,6 @@ import com.android.tv.tuner.exoplayer.buffer.RecordingSampleBuffer;
 import com.android.tv.tuner.tvinput.PlaybackBufferListener;
 
 import android.os.Handler;
-import android.util.Pair;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -61,18 +60,17 @@ public class FileSampleExtractor implements SampleExtractor{
 
     @Override
     public boolean prepare() throws IOException {
-        ArrayList<Pair<String, android.media.MediaFormat>> trackInfos =
-                mBufferManager.readTrackInfoFiles();
-        if (trackInfos == null || trackInfos.isEmpty()) {
+        List<BufferManager.TrackFormat> trackFormatList = mBufferManager.readTrackInfoFiles();
+        if (trackFormatList == null || trackFormatList.isEmpty()) {
             throw new IOException("Cannot find meta files for the recording.");
         }
-        mTrackCount = trackInfos.size();
+        mTrackCount = trackFormatList.size();
         List<String> ids = new ArrayList<>();
         mTrackFormats.clear();
         for (int i = 0; i < mTrackCount; ++i) {
-            Pair<String, android.media.MediaFormat> pair = trackInfos.get(i);
-            ids.add(pair.first);
-            mTrackFormats.add(MediaFormatUtil.createMediaFormat(pair.second));
+            BufferManager.TrackFormat trackFormat = trackFormatList.get(i);
+            ids.add(trackFormat.trackId);
+            mTrackFormats.add(MediaFormatUtil.createMediaFormat(trackFormat.format));
         }
         mSampleBuffer = new RecordingSampleBuffer(mBufferManager, mBufferListener, true,
                 RecordingSampleBuffer.BUFFER_REASON_RECORDED_PLAYBACK);

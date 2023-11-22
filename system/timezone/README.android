@@ -1,0 +1,21 @@
+This directory contains tools for time zone updates.
+
+Data update tools
+=================
+
+download-iana-data.py
+  - A helper script run before update-tzdata.py.
+    It downloads the latest tzdata update from IANA and puts it in
+    the system/timezone/input_data/iana directory for use by the
+    update-tzdata.py script.
+
+    There are sometimes code and metadata changes associated
+    with tzdata updates that should be applied to ICU at the same time.
+    e.g. see http://bugs.icu-project.org/trac/search?q=2015d
+
+update-tzdata.py
+  - Regenerates the external/icu and system/timezone/output_data timezone
+    data files.
+
+    CTS tests for ICU, bionic and libcore should be run before and after.
+

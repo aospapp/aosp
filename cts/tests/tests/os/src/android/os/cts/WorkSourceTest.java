@@ -19,6 +19,8 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
+import java.util.Arrays;
+
 import android.os.WorkSource;
 import android.test.AndroidTestCase;
 
@@ -142,7 +144,7 @@ public class WorkSourceTest extends AndroidTestCase {
                 fail(op + ": WorkSource is not null " + ws +", but expected null");
             }
             if (uids != null) {
-                fail(op + "WorkSource is null, but expected non-null: " + uids);
+                fail(op + "WorkSource is null, but expected non-null: " + Arrays.toString(uids));
             }
             return;
         }
@@ -162,7 +164,7 @@ public class WorkSourceTest extends AndroidTestCase {
                 fail(op + ": WorkSource is not null " + ws +", but expected null");
             }
             if (uids != null) {
-                fail(op + "WorkSource is null, but expected non-null: " + uids);
+                fail(op + "WorkSource is null, but expected non-null: " + Arrays.toString(uids));
             }
             return;
         }

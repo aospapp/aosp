@@ -100,11 +100,10 @@ Running the test suite:
                                 Path to the lldb-server executable on host (if using
                                 -run-emu).
           --log-file-path LOG_FILE_PATH
-                                The path to the folder where the log file will be
-                                placed.
+                                The path to the file where the log will be written.
           --results-file-path RESULTS_FILE_PATH
-                                Output folder where junit results.xml file will be
-                                placed.
+                                The path to the file where junit results.xml will be
+                                written.
           --timeout TIMEOUT     Timeout period for a single command, expressed in
                                 seconds
 

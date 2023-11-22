@@ -17,6 +17,10 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     android:title="@string/deletion_helper_title">
 
+    <com.android.storagemanager.deletionhelper.GaugePreference
+        android:key="deletion_gauge"
+        android:icon="@drawable/ic_info_outline_24dp"/>
+
     <com.android.storagemanager.deletionhelper.PhotosDeletionPreference
         android:key="delete_photos"
         android:icon="@drawable/ic_photos_24"/>

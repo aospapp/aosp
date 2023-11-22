@@ -62,6 +62,7 @@ class ConfigurationXmlParser {
         private final ConfigurationDef mConfigDef;
         private final Map<String, String> mTemplateMap;
         private final String mName;
+        private final boolean mInsideParentDeviceTag;
 
         // State-holding members
         private String mCurrentConfigObject;
@@ -72,11 +73,17 @@ class ConfigurationXmlParser {
 
         private Boolean isLocalConfig = null;
 
-        ConfigHandler(ConfigurationDef def, String name, IConfigDefLoader loader,
+        ConfigHandler(
+                ConfigurationDef def,
+                String name,
+                IConfigDefLoader loader,
+                String parentDeviceObject,
                 Map<String, String> templateMap) {
             mName = name;
             mConfigDef = def;
             mConfigDefLoader = loader;
+            mCurrentDeviceObject = parentDeviceObject;
+            mInsideParentDeviceTag = (parentDeviceObject != null) ? true : false;
 
             if (templateMap == null) {
                 mTemplateMap = Collections.<String, String>emptyMap();
@@ -141,7 +148,7 @@ class ConfigurationXmlParser {
                     // if it turns out we are in multi mode, we will throw an exception.
                     mOutsideTag.add(localName);
                 }
-                //if we are inside a device object, some tags are not allowed.
+                // if we are inside a device object, some tags are not allowed.
                 if (mCurrentDeviceObject != null) {
                     if (!Configuration.doesBuiltInObjSupportMultiDevice(localName)) {
                         // Prevent some tags to be inside of a device in multi device mode.
@@ -202,13 +209,9 @@ class ConfigurationXmlParser {
                 if (includeName == null) {
                     throwException("Missing 'name' attribute for include");
                 }
-                if (mCurrentDeviceObject != null) {
-                    // TODO: Add this use case.
-                    throwException("<include> inside device object currently not supported.");
-                }
                 try {
-                    mConfigDefLoader.loadIncludedConfiguration(mConfigDef, mName, includeName,
-                            mTemplateMap);
+                    mConfigDefLoader.loadIncludedConfiguration(
+                            mConfigDef, mName, includeName, mCurrentDeviceObject, mTemplateMap);
                 } catch (ConfigurationException e) {
                     if (e instanceof TemplateResolutionError) {
                         throwException(String.format(INNER_TEMPLATE_INCLUDE_ERROR,
@@ -236,8 +239,8 @@ class ConfigurationXmlParser {
                 // Removing the used template from the map to avoid re-using it.
                 mTemplateMap.remove(templateName);
                 try {
-                    mConfigDefLoader.loadIncludedConfiguration(mConfigDef, mName, includeName,
-                            mTemplateMap);
+                    mConfigDefLoader.loadIncludedConfiguration(
+                            mConfigDef, mName, includeName, null, mTemplateMap);
                 } catch (ConfigurationException e) {
                     if (e instanceof TemplateResolutionError) {
                         throwException(String.format(INNER_TEMPLATE_INCLUDE_ERROR,
@@ -257,7 +260,8 @@ class ConfigurationXmlParser {
                     || GlobalConfiguration.isBuiltInObjType(localName)) {
                 mCurrentConfigObject = null;
             }
-            if (DEVICE_TAG.equals(localName)) {
+            if (DEVICE_TAG.equals(localName) && !mInsideParentDeviceTag) {
+                // Only unset if it was not the parent device tag.
                 mCurrentDeviceObject = null;
             }
         }
@@ -301,9 +305,15 @@ class ConfigurationXmlParser {
     }
 
     private final IConfigDefLoader mConfigDefLoader;
+    /**
+     * If we are loading a config from inside a <device> tag, this will contain the name of the
+     * current device tag to properly load in context.
+     */
+    private final String mParentDeviceObject;
 
-    ConfigurationXmlParser(IConfigDefLoader loader) {
+    ConfigurationXmlParser(IConfigDefLoader loader, String parentDeviceObject) {
         mConfigDefLoader = loader;
+        mParentDeviceObject = parentDeviceObject;
     }
 
     /**
@@ -323,8 +333,9 @@ class ConfigurationXmlParser {
             SAXParserFactory parserFactory = SAXParserFactory.newInstance();
             parserFactory.setNamespaceAware(true);
             SAXParser parser = parserFactory.newSAXParser();
-            ConfigHandler configHandler = new ConfigHandler(configDef, name, mConfigDefLoader,
-                    templateMap);
+            ConfigHandler configHandler =
+                    new ConfigHandler(
+                            configDef, name, mConfigDefLoader, mParentDeviceObject, templateMap);
             parser.parse(new InputSource(xmlInput), configHandler);
             checkValidMultiConfiguration(configHandler);
         } catch (ParserConfigurationException e) {

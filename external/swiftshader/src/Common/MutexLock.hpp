@@ -17,32 +17,29 @@
 
 #include "Thread.hpp"
 
-#ifdef __ANDROID__
-/* Use an actual mutex on android. Since many processes may use switchshader
-   at the same time it's best to just have the scheduler overhead. */
+#if defined(__linux__)
+// Use a pthread mutex on Linux. Since many processes may use SwiftShader
+// at the same time it's best to just have the scheduler overhead.
 #include <pthread.h>
 
 namespace sw
 {
-	class BackoffLock
+	class MutexLock
 	{
 	public:
-		BackoffLock()
+		MutexLock()
 		{
 			pthread_mutex_init(&mutex, NULL);
 		}
-		~BackoffLock()
+
+		~MutexLock()
 		{
 			pthread_mutex_destroy(&mutex);
 		}
 
 		bool attemptLock()
 		{
-                	if (pthread_mutex_trylock(&mutex) == 0)
-                        {
-                        	return true;
-                        }
-			return false;
+			return pthread_mutex_trylock(&mutex) == 0;
 		}
 
 		void lock()
@@ -56,18 +53,13 @@ namespace sw
 		}
 
 	private:
-		struct
-		{
-			// Ensure that the mutex variable is on its own 64-byte cache line to avoid false sharing
-			// Padding must be public to avoid compiler warnings
-			volatile int padding1[16];
-			pthread_mutex_t mutex;
-			volatile int padding2[15];
-		};
+		pthread_mutex_t mutex;
 	};
 }
 
-#else
+#else   // !__ANDROID__
+
+#include <atomic>
 
 namespace sw
 {
@@ -83,7 +75,7 @@ namespace sw
 		{
 			if(!isLocked())
 			{
-				if(atomicExchange(&mutex, 1) == 0)
+				if(mutex.exchange(true) == false)
 				{
 					return true;
 				}
@@ -158,12 +150,12 @@ namespace sw
 
 		void unlock()
 		{
-			mutex = 0;
+			mutex.store(false, std::memory_order_release);
 		}
 
 		bool isLocked()
 		{
-			return mutex != 0;
+			return mutex.load(std::memory_order_acquire);
 		}
 
 	private:
@@ -172,11 +164,31 @@ namespace sw
 			// Ensure that the mutex variable is on its own 64-byte cache line to avoid false sharing
 			// Padding must be public to avoid compiler warnings
 			volatile int padding1[16];
-			volatile int mutex;
+			std::atomic<bool> mutex;
 			volatile int padding2[15];
 		};
 	};
+
+	using MutexLock = BackoffLock;
 }
-#endif   // __android
+
+#endif   // !__ANDROID__
+
+class LockGuard
+{
+public:
+	explicit LockGuard(sw::MutexLock &mutex) : mutex(mutex)
+	{
+		mutex.lock();
+	}
+
+	~LockGuard()
+	{
+		mutex.unlock();
+	}
+
+protected:
+	sw::MutexLock &mutex;
+};
 
 #endif   // sw_MutexLock_hpp

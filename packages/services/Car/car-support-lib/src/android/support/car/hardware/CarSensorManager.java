@@ -124,6 +124,23 @@ public abstract class CarSensorManager implements CarManagerBase {
     public static final int SENSOR_TYPE_RESERVED21 = 21;
     /** @hide */
     public static final int SENSOR_TYPE_RESERVED22 = 22;
+    /**
+     * Represents wheel distance in millimeters.  Some cars may not have individual sensors on each
+     * wheel.  If a value is not available, -1 will be reported.  The wheel distance accumulates
+     * over time.
+     * Requires {@link Car#PERMISSION_MILEAGE} permission.
+     */
+    public static final int SENSOR_TYPE_WHEEL_TICK_DISTANCE         = 23;
+    /**
+     * Set to true when ABS is active.  This sensor is event driven.
+     * Requires {@link Car#PERMISSION_VEHICLE_DYNAMICS_STATE} permission.
+     */
+    public static final int SENSOR_TYPE_ABS_ACTIVE                  = 24;
+    /**
+     * Set to true when traction control is active.  This sensor is event driven.
+     * Requires {@link Car#PERMISSION_VEHICLE_DYNAMICS_STATE} permission.
+     */
+    public static final int SENSOR_TYPE_TRACTION_CONTROL_ACTIVE     = 25;
 
     /**
      * Sensors defined in this range [{@link #SENSOR_TYPE_VENDOR_EXTENSION_START},
@@ -155,7 +172,10 @@ public abstract class CarSensorManager implements CarManagerBase {
         SENSOR_TYPE_ENVIRONMENT,
         SENSOR_TYPE_ACCELEROMETER,
         SENSOR_TYPE_GPS_SATELLITE,
-        SENSOR_TYPE_GYROSCOPE
+        SENSOR_TYPE_GYROSCOPE,
+        SENSOR_TYPE_WHEEL_TICK_DISTANCE,
+        SENSOR_TYPE_ABS_ACTIVE,
+        SENSOR_TYPE_TRACTION_CONTROL_ACTIVE
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface SensorType {}
@@ -230,7 +250,8 @@ public abstract class CarSensorManager implements CarManagerBase {
      * @throws SecurityException if missing the appropriate permission.
      */
     @RequiresPermission(anyOf={Manifest.permission.ACCESS_FINE_LOCATION, Car.PERMISSION_SPEED,
-            Car.PERMISSION_MILEAGE, Car.PERMISSION_FUEL}, conditional=true)
+            Car.PERMISSION_MILEAGE, Car.PERMISSION_FUEL, Car.PERMISSION_VEHICLE_DYNAMICS_STATE},
+            conditional=true)
     public abstract boolean addListener(OnSensorChangedListener listener,
             @SensorType int sensorType, @SensorRate int rate)
                     throws CarNotConnectedException, IllegalArgumentException;
@@ -259,4 +280,15 @@ public abstract class CarSensorManager implements CarManagerBase {
      */
     public abstract CarSensorEvent getLatestSensorEvent(@SensorType int type)
             throws CarNotConnectedException;
+
+    /**
+     * Get the config data for the given type.
+     * @param sensor type to request
+     * @return CarSensorConfig object
+     * @throws CarNotConnectedException if the connection to the car service has been lost.
+     * @hide
+     */
+    public abstract CarSensorConfig getSensorConfig(@SensorType int type)
+            throws CarNotConnectedException;
+
 }

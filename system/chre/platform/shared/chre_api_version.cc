@@ -17,16 +17,17 @@
 #include "chre_api/chre/version.h"
 
 #include "chre/platform/platform_id.h"
+#include "chre/util/macros.h"
 
-uint32_t chreGetApiVersion(void) {
+DLL_EXPORT uint32_t chreGetApiVersion(void) {
   return CHRE_API_VERSION_1_1;
 }
 
-uint32_t chreGetVersion(void) {
+DLL_EXPORT uint32_t chreGetVersion(void) {
   return chreGetApiVersion() | chre::kPatchVersion;
 }
 
-uint64_t chreGetPlatformId(void) {
+DLL_EXPORT uint64_t chreGetPlatformId(void) {
   return chre::createPlatformIdFromVendorPlatform(chre::kVendorId,
                                                   chre::kPlatformId);
 }

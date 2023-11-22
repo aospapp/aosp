@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 AUTHOR = "mohsinally"
-NAME = "login_LoginSuccessStress"
+NAME = "login_LoginSuccess.stress2"
 ATTRIBUTES = "suite:stress2"
 TIME = "LONG"
 TEST_CATEGORY = "Stress"
@@ -15,5 +15,10 @@ This test stress tests and verifies that signing in via the UI (using Telemetry)
 works correctly. This includes listening to DBus to verify that the session_manager
 announces the start of a user session upon sign in, as well as the end of one on sign out.
 """
-
-job.run_test('login_LoginSuccess', iterations=50, stress_run=True)
+iterations = 50
+timeout_per_iteration = 120
+job.run_test('login_LoginSuccess',
+             tag='stress',
+             iterations=iterations,
+             timeout=iterations * timeout_per_iteration,
+             stress_run=True)

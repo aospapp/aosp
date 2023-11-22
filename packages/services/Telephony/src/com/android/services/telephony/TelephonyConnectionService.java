@@ -334,8 +334,7 @@ public class TelephonyConnectionService extends ConnectionService {
 
         // Convert into emergency number if necessary
         // This is required in some regions (e.g. Taiwan).
-        if (!PhoneNumberUtils.isLocalEmergencyNumber(this, number) &&
-                PhoneNumberUtils.isConvertToEmergencyNumberEnabled()) {
+        if (!PhoneNumberUtils.isLocalEmergencyNumber(this, number)) {
             final Phone phone = getPhoneForAccount(request.getAccountHandle(), false);
             // We only do the conversion if the phone is not in service. The un-converted
             // emergency numbers will go to the correct destination when the phone is in-service,
@@ -343,7 +342,7 @@ public class TelephonyConnectionService extends ConnectionService {
             // service.
             if (phone == null || phone.getServiceState().getState()
                     != ServiceState.STATE_IN_SERVICE) {
-                String convertedNumber = PhoneNumberUtils.convertToEmergencyNumber(number);
+                String convertedNumber = PhoneNumberUtils.convertToEmergencyNumber(this, number);
                 if (!TextUtils.equals(convertedNumber, number)) {
                     Log.i(this, "onCreateOutgoingConnection, converted to emergency number");
                     number = convertedNumber;
@@ -918,7 +917,7 @@ public class TelephonyConnectionService extends ConnectionService {
         } catch (CallStateException e) {
             Log.e(this, e, "placeOutgoingConnection, phone.dial exception: " + e);
             int cause = android.telephony.DisconnectCause.OUTGOING_FAILURE;
-            if (e.getError() == CallStateException.ERROR_DISCONNECTED) {
+            if (e.getError() == CallStateException.ERROR_OUT_OF_SERVICE) {
                 cause = android.telephony.DisconnectCause.OUT_OF_SERVICE;
             } else if (e.getError() == CallStateException.ERROR_POWER_OFF) {
                 cause = android.telephony.DisconnectCause.POWER_OFF;

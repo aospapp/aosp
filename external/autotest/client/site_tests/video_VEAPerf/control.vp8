@@ -40,4 +40,4 @@ test_cases = [
     ('tulip2/tulip2-640x360-094bd827de18ca196a83cc6442b7b02f.yuv', True, 640, 360, 500000, 11, 30),
 ]
 
-job.run_test('video_VEAPerf', test_cases=test_cases)
+job.run_test('video_VEAPerf', test_cases=test_cases, tag='vp8')

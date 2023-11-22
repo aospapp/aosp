@@ -90,7 +90,6 @@ class ContexthubHidlTest(base_test.BaseTestClass):
             target_version=1.0,
             target_package="android.hardware.contexthub",
             target_component_name="IContexthub",
-            hw_binder_service_name="contexthub",
             bits=int(self.abi_bitness))
 
         self.types = self.dut.hal.contexthub.GetHidlTypeInterface("types")

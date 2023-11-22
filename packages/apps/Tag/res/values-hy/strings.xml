@@ -28,4 +28,5 @@
     <string name="import_vcard" msgid="5104299047930666528">"Ներմուծել ^1"</string>
     <string name="mime_display_name" msgid="5926357152623764485">"Տվյալներ NFC պիտակից"</string>
     <string name="vcard_title" msgid="7122634780732426007">"Կոնտակտային տվյալներ ^1-ի համար"</string>
+    <string name="call_phone_permission_denied" msgid="8515177111984654599">"Զանգեր կատարելու համար այս հավելվածին անհրաժեշտ է «Հեռախոս» հավելվածն օգտագործելու թույլտվություն։ Կարող եք կառավարել պիտակների թույլտվությունները Կարգավորումներում"</string>
 </resources>

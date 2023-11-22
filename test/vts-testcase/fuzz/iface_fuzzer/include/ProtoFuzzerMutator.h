@@ -22,9 +22,8 @@
 #include <string>
 #include <unordered_map>
 
+#include "ProtoFuzzerRunner.h"
 #include "ProtoFuzzerUtils.h"
-#include "test/vts-testcase/fuzz/iface_fuzzer/proto/ExecutionSpecificationMessage.pb.h"
-#include "test/vts/proto/ComponentSpecificationMessage.pb.h"
 
 namespace android {
 namespace vts {
@@ -47,6 +46,8 @@ struct ProtoFuzzerMutatorConfig {
   Odds func_mutated_ = {100, 1};
   // Default size used to randomly generate a vector.
   size_t default_vector_size_ = 64;
+  // Default size used to randomly generate a string.
+  size_t default_string_size_ = 16;
 };
 
 // Provides methods for mutation or random generation.
@@ -55,9 +56,9 @@ class ProtoFuzzerMutator {
   ProtoFuzzerMutator(Random &, std::unordered_map<std::string, TypeSpec>,
                      ProtoFuzzerMutatorConfig);
   // Generates a random ExecSpec.
-  ExecSpec RandomGen(const IfaceSpec &, size_t);
+  ExecSpec RandomGen(const IfaceDescTbl &, size_t);
   // Mutates in-place an ExecSpec.
-  void Mutate(const IfaceSpec &, ExecSpec *);
+  void Mutate(const IfaceDescTbl &, ExecSpec *);
   // Generates a random FuncSpec.
   FuncSpec RandomGen(const FuncSpec &);
   // Mutates a FuncSpec.
@@ -68,6 +69,9 @@ class ProtoFuzzerMutator {
   VarInstance Mutate(const VarInstance &);
 
  private:
+  // Randomly selects an interface.
+  const CompSpec *RandomSelectIface(const IfaceDescTbl &);
+
   // Used for mutation/random generation of VarInstance.
   VarInstance ArrayRandomGen(const VarSpec &);
   VarInstance ArrayMutate(const VarInstance &);
@@ -75,6 +79,8 @@ class ProtoFuzzerMutator {
   VarInstance EnumMutate(const VarInstance &);
   VarInstance ScalarRandomGen(const VarSpec &);
   VarInstance ScalarMutate(const VarInstance &);
+  VarInstance StringRandomGen(const VarSpec &);
+  VarInstance StringMutate(const VarInstance &);
   VarInstance StructRandomGen(const VarSpec &);
   VarInstance StructMutate(const VarInstance &);
   VarInstance UnionRandomGen(const VarSpec &);
@@ -95,6 +101,8 @@ class ProtoFuzzerMutator {
   bool Mutate(bool);
   float Mutate(float);
   double Mutate(double);
+  // Generates a random ASCII character.
+  char RandomAsciiChar();
 
   // Looks up predefined type by name.
   const TypeSpec &FindPredefinedType(std::string);

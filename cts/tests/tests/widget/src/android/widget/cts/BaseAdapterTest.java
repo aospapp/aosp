@@ -123,6 +123,23 @@ public class BaseAdapterTest {
         assertFalse(baseAdapter.isEmpty());
     }
 
+    @Test
+    public void testGetAutofillOptions() {
+        MockBaseAdapter baseAdapter = new MockBaseAdapter();
+        assertNull(baseAdapter.getAutofillOptions());
+
+        baseAdapter.setAutofillOptions("single");
+        CharSequence[] single = baseAdapter.getAutofillOptions();
+        assertEquals(1, single.length);
+        assertEquals("single", single[0]);
+
+        baseAdapter.setAutofillOptions("mult1", "mult2");
+        CharSequence[] multiple = baseAdapter.getAutofillOptions();
+        assertEquals(2, multiple.length);
+        assertEquals("mult1", multiple[0]);
+        assertEquals("mult2", multiple[1]);
+    }
+
     private static class MockBaseAdapter extends BaseAdapter {
         private int mCount = 0;
 

@@ -28,4 +28,5 @@
     <string name="import_vcard" msgid="5104299047930666528">"^1 ಆಮದು ಮಾಡಿ"</string>
     <string name="mime_display_name" msgid="5926357152623764485">"NFC ಟ್ಯಾಗ್‌ನಿಂದ ಡೇಟಾ"</string>
     <string name="vcard_title" msgid="7122634780732426007">"^1 ಗಾಗಿ ಸಂಪರ್ಕ ಮಾಹಿತಿ"</string>
+    <string name="call_phone_permission_denied" msgid="8515177111984654599">"ಕರೆಗಳನ್ನು ಮಾಡಲು ಈ ಅಪ್ಲಿಕೇಶನ್ ಟೆಲಿಫೋನ್ ಅನುಮತಿಗೆ ಪ್ರವೇಶ ಹೊಂದುವುದು ಅಗತ್ಯವಿದೆ. ನೀವು ಸೆಟ್ಟಿಂಗ್‌ಗಳಲ್ಲಿರುವ ಟ್ಯಾಗ್ ಅನುಮತಿಯನ್ನು ನಿರ್ವಹಿಸಬಹುದು"</string>
 </resources>

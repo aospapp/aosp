@@ -37,7 +37,7 @@ void HalSubmoduleCodeGen::GenerateClassConstructionFunction(Formatter& out,
     const ComponentSpecificationMessage& /*message*/,
     const string& fuzzer_extended_class_name) {
   out << fuzzer_extended_class_name
-      << "() : FuzzerBase(HAL_CONVENTIONAL_SUBMODULE) {}\n";
+      << "() : DriverBase(HAL_CONVENTIONAL_SUBMODULE) {}\n";
 }
 
 void HalSubmoduleCodeGen::GenerateAdditionalFuctionDeclarations(Formatter& out,

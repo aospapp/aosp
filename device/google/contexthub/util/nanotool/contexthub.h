@@ -70,6 +70,7 @@ enum class SensorType {
     Vsync,
     CompressedAccel,
     WristTilt = 39,
+    Humidity = 61,
 
     Max_
 };

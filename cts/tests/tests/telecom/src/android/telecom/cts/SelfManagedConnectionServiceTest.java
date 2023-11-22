@@ -260,6 +260,21 @@ public class SelfManagedConnectionServiceTest extends BaseTelecomTestWithMockSer
         setActiveAndVerify(connection);
 
         TestUtils.InvokeCounter counter = connection.getCallAudioStateChangedInvokeCounter();
+        counter.waitForCount(WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
+        CallAudioState callAudioState = (CallAudioState) counter.getArgs(0)[0];
+        int availableRoutes = callAudioState.getSupportedRouteMask();
+
+        // Both the speaker and either wired or earpiece are required to test changing the audio
+        // route. Skip this test if either of these routes is unavailable.
+        if ((availableRoutes & CallAudioState.ROUTE_SPEAKER) == 0
+                || (availableRoutes & CallAudioState.ROUTE_WIRED_OR_EARPIECE) == 0) {
+            return;
+        }
+
+        // Determine what the second route after SPEAKER should be, depending on what's supported.
+        int secondRoute = (availableRoutes & CallAudioState.ROUTE_EARPIECE) == 0
+                ? CallAudioState.ROUTE_WIRED_HEADSET
+                : CallAudioState.ROUTE_EARPIECE;
 
         connection.setAudioRoute(CallAudioState.ROUTE_SPEAKER);
         counter.waitForPredicate(new Predicate<CallAudioState>() {
@@ -269,11 +284,11 @@ public class SelfManagedConnectionServiceTest extends BaseTelecomTestWithMockSer
                 }
             }, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
 
-        connection.setAudioRoute(CallAudioState.ROUTE_EARPIECE);
+        connection.setAudioRoute(secondRoute);
         counter.waitForPredicate(new Predicate<CallAudioState>() {
             @Override
             public boolean test(CallAudioState cas) {
-                return cas.getRoute() == CallAudioState.ROUTE_EARPIECE;
+                return cas.getRoute() == secondRoute;
             }
         }, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
 

@@ -49,6 +49,7 @@ include $(BUILD_STATIC_LIBRARY)
 ###
 include $(CLEAR_VARS)
 LOCAL_MODULE := wifilogd_unit_test
+LOCAL_COMPATIBILITY_SUITE := device-tests
 LOCAL_CPPFLAGS := $(wifilogd_cpp_flags) $(wifilogd_gtest_cpp_flags)
 LOCAL_C_INCLUDES := $(wifilogd_includes)
 LOCAL_SRC_FILES := \

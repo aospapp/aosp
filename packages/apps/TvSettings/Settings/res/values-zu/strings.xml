@@ -75,7 +75,7 @@
     <string name="accessory_change_name" msgid="8958916008739792785">"Shintsha igama"</string>
     <string name="accessory_change_name_title" msgid="4630819456923061184">"Faka igama elisha lalokhu okokusebenza"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Iseshela izinto…"</string>
-    <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Ngaphambi kokubhanqa amadivayisi wakho we-Bluetooth, qinisekisa ukuthi akumodi yokubhanqa"</string>
+    <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Ngaphambi kokubhangqa amadivayisi wakho we-Bluetooth, qinisekisa ukuthi akumodi yokubhangqa"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"Idivayisi itholakele futhi izobhanqa ngokuzenzakalelayo kumasekhondi angu-<xliff:g id="COUNTDOWN">%1$s</xliff:g>"</string>
     <string name="error_action_not_supported" msgid="300552308104354666">"Lesi senzo asisekelwe"</string>
     <string name="bluetooth_pairing_request" msgid="4523088117471287665">"Isicelo sokubhanqa i-Bluetooth"</string>
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"Amasevisi"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Izilungiselelo zesevisi"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Umbhala ogqame kakhulu"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Isinqamuleli sokufinyeleleka"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Nika amandla isinqamuleli sokufinyelela"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Isevisi yesinqamuleli"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Uma isinqamuleli sivuliwe, ungacindezela zombili izinkinobho ezingemuva neziphansi ngamasekhondi angu-3 ukuze uqale isici sokufinyelela."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Amazwibela"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Izilungiselelo zombhalo wamazwibela avaliwe kuzimbondela ezikuvidiyo"</string>
     <string name="captions_display" msgid="735692527287125548">"Isibonisi"</string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"Ishutha umbiko wesiphazamisi"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Amakhibhodi atholakalayo abonakalayo"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"Phatha amakhibhodi"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Kuvumelekile"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Akuvunyelwe"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Ukufinyelela ukusetshenziswa"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Ukufinyelela kokusebenzisa kuvumela uhlelo lokusebenza ukuthi lulandelele ukuthi yiziphi ezinye izinhlelo zokusebenza ozisebenzisayo nokuthi kaningi kangakanani, kanye nenkampani yakho yenethiwekhi, izilungiselelo zolimi neminye imininingwane."</string>
 </resources>

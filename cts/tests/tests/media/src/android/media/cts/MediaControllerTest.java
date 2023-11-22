@@ -84,6 +84,11 @@ public class MediaControllerTest extends AndroidTestCase {
         }
     }
 
+    public void testAdjustVolumeWithIllegalDirection() {
+        // Call the method with illegal direction. System should not reboot.
+        mController.adjustVolume(37, 0);
+    }
+
     public void testVolumeControl() throws Exception {
         VolumeProvider vp = new VolumeProvider(VolumeProvider.VOLUME_CONTROL_ABSOLUTE, 11, 5) {
             @Override

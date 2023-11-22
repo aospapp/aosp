@@ -22,6 +22,7 @@ import android.content.Context;
  * Stub Remote Config.
  */
 public class DefaultConfigManager {
+    public static final long DEFAULT_LONG_VALUE = 0;
     public static DefaultConfigManager createInstance(Context context) {
         return new DefaultConfigManager();
     }
@@ -46,6 +47,11 @@ public class DefaultConfigManager {
         @Override
         public boolean getBoolean(String key) {
             return false;
+        }
+
+        @Override
+        public long getLong(String key) {
+            return DEFAULT_LONG_VALUE;
         }
     }
 }

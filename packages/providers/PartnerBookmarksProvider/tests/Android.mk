@@ -24,8 +24,8 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := PartnerBookmarksProviderTest
 
-LOCAL_JAVA_LIBRARIES := ext android.test.runner
-LOCAL_STATIC_JAVA_LIBRARIES := junit legacy-android-test
+LOCAL_JAVA_LIBRARIES := ext legacy-android-test
+LOCAL_STATIC_JAVA_LIBRARIES := junit
 
 LOCAL_INSTRUMENTATION_FOR := PartnerBookmarksProvider
 

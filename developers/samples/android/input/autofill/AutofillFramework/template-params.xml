@@ -22,9 +22,9 @@
     <package>com.example.android.autofillframework</package>
 
     <!-- change minSdk if needed-->
-    <minSdk>"O"</minSdk>
-    <compileSdkVersion>"android-O"</compileSdkVersion>
-    <targetSdkVersion>"O"</targetSdkVersion>
+    <minSdk>26</minSdk>
+    <compileSdkVersion>26</compileSdkVersion>
+    <targetSdkVersion>26</targetSdkVersion>
     <!-- Include additional dependencies here.-->
     <!-- dependency>com.google.android.gms:play-services:5.0.+</dependency -->
 
@@ -69,15 +69,17 @@
         <icon>screenshots/icon-web.png</icon>
         <!-- Path to screenshots. Use <img> tags for each. -->
         <screenshots>
-            <img>screenshots/1_HomePage.png</img>
-            <img>screenshots/2_StandardViewAutofillable.png</img>
-            <img>screenshots/3_StandardViewAutofilled.png</img>
-            <img>screenshots/4_WelcomeActivity.png</img>
-            <img>screenshots/5_CustomViewAutofillable.png</img>
-            <img>screenshots/6_CustomViewAutofilled.png</img>
-            <img>screenshots/7_SettingsActivity.png</img>
-            <img>screenshots/8_AuthNeeded.png</img>
-            <img>screenshots/9_AuthActivity.png</img>
+            <img>screenshots/1_MainPage.png</img>
+            <img>screenshots/2_SampleLoginEditTexts.png</img>
+            <img>screenshots/3_SampleLoginEditTextsAutofilled.png</img>
+	    <img>screenshots/4_WelcomeActivity.png</img>
+	    <img>screenshots/5_SampleLoginCustomVirtualView.png</img>
+	    <img>screenshots/6_SampleLoginCustomVirtualViewAutofilled.png</img>
+	    <img>screenshots/7_SampleCheckOutSpinnersAutofillable.png</img>
+	    <img>screenshots/8_SampleCheckOutSpinnersAutofilled.png</img>
+	    <img>screenshots/9_SettingsActivity.png</img>
+	    <img>screenshots/10_AuthNeeded.png</img>
+	    <img>screenshots/11_AuthActivity.png</img>
         </screenshots>
         <!-- List of APIs that this sample should be cross-referenced under. Use <android>
         for fully-qualified Framework class names ("android:" namespace).

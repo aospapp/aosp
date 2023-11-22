@@ -57,6 +57,9 @@ class LegacyVpnTest(base_test.BaseTestClass):
         """
         wifi_test_utils.reset_wifi(self.dut)
 
+    def on_fail(self, test_name, begin_time):
+        self.dut.take_bug_report(test_name, begin_time)
+
     def download_load_certs(self, vpn_type, vpn_server_addr, ipsec_server_type):
         """ Download the certificates from VPN server and push to sdcard of DUT
 
@@ -119,18 +122,14 @@ class LegacyVpnTest(base_test.BaseTestClass):
             Args:
                 connected_vpn_info which specifies the VPN connection status
         """
+        ping_result = None
+        pkt_loss = "100% packet loss"
         try:
             ping_result = self.dut.adb.shell("ping -c 3 -W 2 %s"
                                              % self.vpn_verify_address)
-            if not connected_vpn_info and "100% packet loss" \
-                not in "%s" % ping_result:
-                  asserts.fail("VPN is disconnected.\
-                               Ping to the internal IP expected to fail")
-        except adb.AdbError as ping_error:
-            ping_error = "%s" % ping_error
-            if connected_vpn_info and "100% packet loss" in ping_error:
-                asserts.fail("Ping to the internal IP failed.\
-                             Expected to pass as VPN is connected")
+        except adb.AdbError:
+            pass
+        return ping_result and pkt_loss not in ping_result
 
     def legacy_vpn_connection_test_logic(self, vpn_profile):
         """ Test logic for each legacy VPN connection
@@ -147,6 +146,9 @@ class LegacyVpnTest(base_test.BaseTestClass):
             Args:
                 VpnProfileType (1 of the 6 types supported by Android)
         """
+        # Wait for sometime so that VPN server flushes all interfaces and
+        # connections after graceful termination
+        time.sleep(10)
         self.dut.adb.shell("ip xfrm state flush")
         logging.info("Connecting to: %s", vpn_profile)
         self.dut.droid.vpnStartLegacyVpn(vpn_profile)
@@ -156,53 +158,170 @@ class LegacyVpnTest(base_test.BaseTestClass):
                              connectivity_const.VPN_STATE_CONNECTED,
                              "Unable to establish VPN connection for %s"
                              % vpn_profile)
-        self.verify_ping_to_vpn_ip(connected_vpn_info)
+        ping_result = self.verify_ping_to_vpn_ip(connected_vpn_info)
         ip_xfrm_state = self.dut.adb.shell("ip xfrm state")
         match_obj = re.search(r'hmac(.*)', "%s" % ip_xfrm_state)
         if match_obj:
             ip_xfrm_state = format(match_obj.group(0)).split()
             self.log.info("HMAC for ESP is %s " % ip_xfrm_state[0])
         self.dut.droid.vpnStopLegacyVpn()
+        asserts.assert_true(ping_result,
+                            "Ping to the internal IP failed. "
+                            "Expected to pass as VPN is connected")
         connected_vpn_info = self.dut.droid.vpnGetLegacyVpnInfo()
         asserts.assert_true(not connected_vpn_info,
                             "Unable to terminate VPN connection for %s"
                             % vpn_profile)
-        self.verify_ping_to_vpn_ip(connected_vpn_info)
 
     """ Test Cases """
-
     @test_tracker_info(uuid="d2ac5a65-41fb-48de-a0a9-37e589b5456b")
-    def test_connection_to_legacy_vpn(self):
-        """ Verify VPN connection for all configurations.
-            Supported VPN configurations are
-            1.) PPTP            2.) L2TP IPSEC PSK
-            3.) IPSEC XAUTH PSK 4.) L2TP IPSEC RSA
-            5.) IPSEC XAUTH RSA 6.) IPSec Hybrid RSA
+    def test_legacy_vpn_pptp(self):
+        """ Verify PPTP VPN connection """
+        vpn = VPN_TYPE.PPTP
+        vpn_profile = self.generate_legacy_vpn_profile(
+            vpn, self.vpn_server_addresses[vpn.name][0],
+            self.ipsec_server_type[2])
+        self.legacy_vpn_connection_test_logic(vpn_profile)
 
-            Steps:
-                1. Call legacy_vpn_connection_test_logic() for each VPN which
-                tests the connection to the corresponding server
-
-            Return:
-                Pass: if all VPNs pass
-                Fail: if any one VPN fails
+    @test_tracker_info(uuid="99af78dd-40b8-483a-8344-cd8f67594971")
+    def legacy_vpn_l2tp_ipsec_psk_libreswan(self):
+        """ Verify L2TP IPSec PSK VPN connection to
+            libreSwan server
         """
-        def gen_name(vpn_profile):
-            return "test_legacy_vpn_" + vpn_profile[VPN_CONST.NAME][5:]
+        vpn = VPN_TYPE.L2TP_IPSEC_PSK
+        vpn_profile = self.generate_legacy_vpn_profile(
+            vpn, self.vpn_server_addresses[vpn.name][2],
+            self.ipsec_server_type[2])
+        self.legacy_vpn_connection_test_logic(vpn_profile)
 
-        vpn_profiles = []
-        for vpn in VPN_TYPE:
-            for i in range(len(self.ipsec_server_type)):
-                vpn_profiles.append(
-                    self.generate_legacy_vpn_profile(vpn,
-                                                     self.vpn_server_addresses[vpn.name][i],
-                                                     self.ipsec_server_type[i]))
-                # PPTP does not depend on ipsec and only strongswan supports Hybrid RSA
-                if vpn.name =="PPTP" or vpn.name =="IPSEC_HYBRID_RSA":
-                    break
-        result = self.run_generated_testcases(self.legacy_vpn_connection_test_logic,
-                                              vpn_profiles,
-                                              name_func=gen_name,)
-        msg = ("The following configs failed vpn connection %s"
-               % pprint.pformat(result))
-        asserts.assert_equal(len(result), 0, msg)
+    @test_tracker_info(uuid="e67d8c38-92c3-4167-8b6c-a49ef939adce")
+    def legacy_vpn_l2tp_ipsec_rsa_libreswan(self):
+        """ Verify L2TP IPSec RSA VPN connection to
+            libreSwan server
+        """
+        vpn = VPN_TYPE.L2TP_IPSEC_RSA
+        vpn_profile = self.generate_legacy_vpn_profile(
+            vpn, self.vpn_server_addresses[vpn.name][2],
+            self.ipsec_server_type[2])
+        self.legacy_vpn_connection_test_logic(vpn_profile)
+
+    @test_tracker_info(uuid="8b3517dc-6a3b-44c2-a85d-bd7b969df3cf")
+    def legacy_vpn_ipsec_xauth_psk_libreswan(self):
+        """ Verify IPSec XAUTH PSK VPN connection to
+            libreSwan server
+        """
+        vpn = VPN_TYPE.IPSEC_XAUTH_PSK
+        vpn_profile = self.generate_legacy_vpn_profile(
+            vpn, self.vpn_server_addresses[vpn.name][2],
+            self.ipsec_server_type[2])
+        self.legacy_vpn_connection_test_logic(vpn_profile)
+
+    @test_tracker_info(uuid="abac663d-1d91-4b87-8e94-11c6e44fb07b")
+    def legacy_vpn_ipsec_xauth_rsa_libreswan(self):
+        """ Verify IPSec XAUTH RSA VPN connection to
+            libreSwan server
+        """
+        vpn = VPN_TYPE.IPSEC_XAUTH_RSA
+        vpn_profile = self.generate_legacy_vpn_profile(
+            vpn, self.vpn_server_addresses[vpn.name][2],
+            self.ipsec_server_type[2])
+        self.legacy_vpn_connection_test_logic(vpn_profile)
+
+    @test_tracker_info(uuid="84140d24-53c0-4f6c-866f-9d66e04442cc")
+    def test_legacy_vpn_l2tp_ipsec_psk_openswan(self):
+        """ Verify L2TP IPSec PSK VPN connection to
+            openSwan server
+        """
+        vpn = VPN_TYPE.L2TP_IPSEC_PSK
+        vpn_profile = self.generate_legacy_vpn_profile(
+            vpn, self.vpn_server_addresses[vpn.name][1],
+            self.ipsec_server_type[1])
+        self.legacy_vpn_connection_test_logic(vpn_profile)
+
+    @test_tracker_info(uuid="f7087592-7eed-465d-bfe3-ed7b6d9d5f9a")
+    def test_legacy_vpn_l2tp_ipsec_rsa_openswan(self):
+        """ Verify L2TP IPSec RSA VPN connection to
+            openSwan server
+        """
+        vpn = VPN_TYPE.L2TP_IPSEC_RSA
+        vpn_profile = self.generate_legacy_vpn_profile(
+            vpn, self.vpn_server_addresses[vpn.name][1],
+            self.ipsec_server_type[1])
+        self.legacy_vpn_connection_test_logic(vpn_profile)
+
+    @test_tracker_info(uuid="ed78973b-13ee-4dd4-b998-693ab741c6f8")
+    def test_legacy_vpn_ipsec_xauth_psk_openswan(self):
+        """ Verify IPSec XAUTH PSK VPN connection to
+            openSwan server
+        """
+        vpn = VPN_TYPE.IPSEC_XAUTH_PSK
+        vpn_profile = self.generate_legacy_vpn_profile(
+            vpn, self.vpn_server_addresses[vpn.name][1],
+            self.ipsec_server_type[1])
+        self.legacy_vpn_connection_test_logic(vpn_profile)
+
+    @test_tracker_info(uuid="cfd125c4-b64c-4c49-b8e4-fbf05a9be8ec")
+    def test_legacy_vpn_ipsec_xauth_rsa_openswan(self):
+        """ Verify IPSec XAUTH RSA VPN connection to
+            openSwan server
+        """
+        vpn = VPN_TYPE.IPSEC_XAUTH_RSA
+        vpn_profile = self.generate_legacy_vpn_profile(
+            vpn, self.vpn_server_addresses[vpn.name][1],
+            self.ipsec_server_type[1])
+        self.legacy_vpn_connection_test_logic(vpn_profile)
+
+    @test_tracker_info(uuid="419370de-0aa1-4a56-8c22-21567fa1cbb7")
+    def test_legacy_vpn_l2tp_ipsec_psk_strongswan(self):
+        """ Verify L2TP IPSec PSk VPN connection to
+            strongSwan server
+        """
+        vpn = VPN_TYPE.L2TP_IPSEC_PSK
+        vpn_profile = self.generate_legacy_vpn_profile(
+            vpn, self.vpn_server_addresses[vpn.name][0],
+            self.ipsec_server_type[0])
+        self.legacy_vpn_connection_test_logic(vpn_profile)
+
+    @test_tracker_info(uuid="f7694081-8bd6-4e31-86ec-d538c4ff1f2e")
+    def test_legacy_vpn_l2tp_ipsec_rsa_strongswan(self):
+        """ Verify L2TP IPSec RSA VPN connection to
+            strongSwan server
+        """
+        vpn = VPN_TYPE.L2TP_IPSEC_RSA
+        vpn_profile = self.generate_legacy_vpn_profile(
+            vpn, self.vpn_server_addresses[vpn.name][0],
+            self.ipsec_server_type[0])
+        self.legacy_vpn_connection_test_logic(vpn_profile)
+
+    @test_tracker_info(uuid="2f86eb98-1e05-42cb-b6a6-fd90789b6cde")
+    def test_legacy_vpn_ipsec_xauth_psk_strongswan(self):
+        """ Verify IPSec XAUTH PSK connection to
+            strongSwan server
+        """
+        vpn = VPN_TYPE.IPSEC_XAUTH_PSK
+        vpn_profile = self.generate_legacy_vpn_profile(
+            vpn, self.vpn_server_addresses[vpn.name][0],
+            self.ipsec_server_type[0])
+        self.legacy_vpn_connection_test_logic(vpn_profile)
+
+    @test_tracker_info(uuid="af0cd7b1-e86c-4327-91b4-e9062758f2cf")
+    def test_legacy_vpn_ipsec_xauth_rsa_strongswan(self):
+        """ Verify IPSec XAUTH RSA connection to
+            strongswan server
+        """
+        vpn = VPN_TYPE.IPSEC_XAUTH_RSA
+        vpn_profile = self.generate_legacy_vpn_profile(
+            vpn, self.vpn_server_addresses[vpn.name][0],
+            self.ipsec_server_type[0])
+        self.legacy_vpn_connection_test_logic(vpn_profile)
+
+    @test_tracker_info(uuid="7b970d0a-1c7d-4a5a-b406-4815e190ef26")
+    def test_legacy_vpn_ipsec_hybrid_rsa_strongswan(self):
+        """ Verify IPSec Hybrid RSA connection to
+            strongswan server
+        """
+        vpn = VPN_TYPE.IPSEC_HYBRID_RSA
+        vpn_profile = self.generate_legacy_vpn_profile(
+            vpn, self.vpn_server_addresses[vpn.name][0],
+            self.ipsec_server_type[0])
+        self.legacy_vpn_connection_test_logic(vpn_profile)

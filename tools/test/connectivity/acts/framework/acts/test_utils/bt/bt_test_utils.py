@@ -26,78 +26,51 @@ from acts import utils
 
 from subprocess import call
 
-from acts.test_utils.bt.BleEnum import AdvertiseSettingsAdvertiseMode
-from acts.test_utils.bt.BleEnum import ScanSettingsCallbackType
-from acts.test_utils.bt.BleEnum import ScanSettingsMatchMode
-from acts.test_utils.bt.BleEnum import ScanSettingsMatchNum
-from acts.test_utils.bt.BleEnum import ScanSettingsScanResultType
-from acts.test_utils.bt.BleEnum import ScanSettingsScanMode
-from acts.test_utils.bt.BleEnum import ScanSettingsReportDelaySeconds
-from acts.test_utils.bt.BleEnum import AdvertiseSettingsAdvertiseType
-from acts.test_utils.bt.BleEnum import AdvertiseSettingsAdvertiseTxPower
-from acts.test_utils.bt.BleEnum import ScanSettingsMatchNum
-from acts.test_utils.bt.BleEnum import ScanSettingsScanResultType
-from acts.test_utils.bt.BleEnum import ScanSettingsScanMode
-from acts.test_utils.bt.BtEnum import BluetoothProfile
-from acts.test_utils.bt.BtEnum import BluetoothProfileState
-from acts.test_utils.bt.BtEnum import BluetoothScanModeType
-from acts.test_utils.bt.BtEnum import RfcommUuid
+from acts.test_utils.bt.bt_constants import adv_fail
+from acts.test_utils.bt.bt_constants import adv_succ
+from acts.test_utils.bt.bt_constants import advertising_set_started
+from acts.test_utils.bt.bt_constants import advertising_set_stopped
+from acts.test_utils.bt.bt_constants import advertising_set_on_own_address_read
+from acts.test_utils.bt.bt_constants import advertising_set_stopped
+from acts.test_utils.bt.bt_constants import advertising_set_enabled
+from acts.test_utils.bt.bt_constants import advertising_set_data_set
+from acts.test_utils.bt.bt_constants import advertising_set_scan_response_set
+from acts.test_utils.bt.bt_constants import advertising_set_parameters_update
+from acts.test_utils.bt.bt_constants import \
+    advertising_set_periodic_parameters_updated
+from acts.test_utils.bt.bt_constants import advertising_set_periodic_data_set
+from acts.test_utils.bt.bt_constants import advertising_set_periodic_enable
+from acts.test_utils.bt.bt_constants import batch_scan_not_supported_list
+from acts.test_utils.bt.bt_constants import batch_scan_result
+from acts.test_utils.bt.bt_constants import ble_advertise_settings_modes
+from acts.test_utils.bt.bt_constants import ble_advertise_settings_tx_powers
+from acts.test_utils.bt.bt_constants import bluetooth_off
+from acts.test_utils.bt.bt_constants import bluetooth_on
+from acts.test_utils.bt.bt_constants import \
+    bluetooth_profile_connection_state_changed
+from acts.test_utils.bt.bt_constants import bt_default_timeout
+from acts.test_utils.bt.bt_constants import bt_discovery_timeout
+from acts.test_utils.bt.bt_constants import bt_profile_states
+from acts.test_utils.bt.bt_constants import bt_profile_constants
+from acts.test_utils.bt.bt_constants import bt_rfcomm_uuids
+from acts.test_utils.bt.bt_constants import bt_scan_mode_types
+from acts.test_utils.bt.bt_constants import btsnoop_last_log_path_on_device
+from acts.test_utils.bt.bt_constants import btsnoop_log_path_on_device
+from acts.test_utils.bt.bt_constants import default_rfcomm_timeout_ms
+from acts.test_utils.bt.bt_constants import mtu_changed
+from acts.test_utils.bt.bt_constants import pairing_variant_passkey_confirmation
+from acts.test_utils.bt.bt_constants import pan_connect_timeout
+from acts.test_utils.bt.bt_constants import small_timeout
+from acts.test_utils.bt.bt_constants import scan_result
+from acts.test_utils.bt.bt_constants import scan_failed
 from acts.test_utils.tel.tel_test_utils import toggle_airplane_mode_by_adb
 from acts.test_utils.tel.tel_test_utils import verify_http_connection
 from acts.utils import exe_cmd
 from acts.utils import create_dir
 
-DEFAULT_TIMEOUT = 15
-DEFAULT_RFCOMM_TIMEOUT = 10000
-MAGIC_PAN_CONNECT_TIMEOUT = 5
-DEFAULT_DISCOVERY_TIMEOUT = 3
-TIMEOUT_SMALL = 0.0001
-
-PAIRING_VARIANT_PASSKEY_CONFIRMATION = 2
-
-BTSNOOP_LOG_PATH_ON_DEVICE = "/data/misc/bluetooth/logs/btsnoop_hci.log"
-BTSNOOP_LAST_LOG_PATH_ON_DEVICE = \
-    "/data/misc/bluetooth/logs/btsnoop_hci.log.last"
-
 log = logging
 
-# Callback strings
-scan_result = "BleScan{}onScanResults"
-scan_failed = "BleScan{}onScanFailed"
-batch_scan_result = "BleScan{}onBatchScanResult"
-adv_fail = "BleAdvertise{}onFailure"
-adv_succ = "BleAdvertise{}onSuccess"
-bluetooth_off = "BluetoothStateChangedOff"
-bluetooth_on = "BluetoothStateChangedOn"
-mtu_changed = "GattConnect{}onMtuChanged"
-bluetooth_profile_connection_state_changed = \
-    "BluetoothProfileConnectionStateChanged"
-advertising_set_started = "AdvertisingSet{}onAdvertisingSetStarted"
-advertising_set_stopped = "AdvertisingSet{}onAdvertisingSetStopped"
-advertising_set_on_own_address_read = "AdvertisingSet{}onOwnAddressRead"
-advertising_set_stopped = "AdvertisingSet{}onAdvertisingSetStopped"
-advertising_set_enabled = "AdvertisingSet{}onAdvertisingEnabled"
-advertising_set_data_set = "AdvertisingSet{}onAdvertisingDataSet"
-advertising_set_scan_response_set = "AdvertisingSet{}onScanResponseDataSet"
-advertising_set_parameters_update = \
-    "AdvertisingSet{}onAdvertisingParametersUpdated"
-advertising_set_periodic_parameters_updated = \
-    "AdvertisingSet{}onPeriodicAdvertisingParametersUpdated"
-advertising_set_periodic_data_set = \
-    "AdvertisingSet{}onPeriodicAdvertisingDataSet"
-advertising_set_periodic_enable = "AdvertisingSet{}onPeriodicAdvertisingEnable"
-
-# rfcomm test uuids
-rfcomm_secure_uuid = "fa87c0d0-afac-11de-8a39-0800200c9a66"
-rfcomm_insecure_uuid = "8ce255c0-200a-11e0-ac64-0800200c9a66"
-
 advertisements_to_devices = {}
-
-batch_scan_not_supported_list = [
-    "Nexus 4",
-    "Nexus 5",
-    "Nexus 7",
-]
 
 
 class BtTestUtilsError(Exception):
@@ -124,11 +97,11 @@ def scan_and_verify_n_advertisements(scn_ad, max_advertisements):
     scan_callback = scn_ad.droid.bleGenScanCallback()
     scn_ad.droid.bleStartBleScan(filter_list, scan_settings, scan_callback)
     start_time = time.time()
-    while (start_time + DEFAULT_TIMEOUT) > time.time():
+    while (start_time + bt_default_timeout) > time.time():
         event = None
         try:
             event = scn_ad.ed.pop_event(
-                scan_result.format(scan_callback), DEFAULT_TIMEOUT)
+                scan_result.format(scan_callback), bt_default_timeout)
         except Empty as error:
             raise BtTestUtilsError("Failed to find scan event: {}".format(
                 error))
@@ -153,7 +126,7 @@ def setup_n_advertisements(adv_ad, num_advertisements):
         advertise_callback_list: List of advertisement callback ids.
     """
     adv_ad.droid.bleSetAdvertiseSettingsAdvertiseMode(
-        AdvertiseSettingsAdvertiseMode.ADVERTISE_MODE_LOW_LATENCY.value)
+        ble_advertise_settings_modes['low_latency'])
     advertise_data = adv_ad.droid.bleBuildAdvertiseData()
     advertise_settings = adv_ad.droid.bleBuildAdvertiseSettings()
     advertise_callback_list = []
@@ -164,7 +137,7 @@ def setup_n_advertisements(adv_ad, num_advertisements):
                                             advertise_settings)
         try:
             adv_ad.ed.pop_event(
-                adv_succ.format(advertise_callback), DEFAULT_TIMEOUT)
+                adv_succ.format(advertise_callback), bt_default_timeout)
             adv_ad.log.info("Advertisement {} started.".format(i + 1))
         except Empty as error:
             adv_ad.log.error("Advertisement {} failed to start.".format(i + 1))
@@ -289,7 +262,8 @@ def bluetooth_enabled_check(ad):
         ad.droid.bluetoothToggleState(True)
         expected_bluetooth_on_event_name = bluetooth_on
         try:
-            ad.ed.pop_event(expected_bluetooth_on_event_name, DEFAULT_TIMEOUT)
+            ad.ed.pop_event(expected_bluetooth_on_event_name,
+                            bt_default_timeout)
         except Empty:
             ad.log.info(
                 "Failed to toggle Bluetooth on(no broadcast received).")
@@ -319,7 +293,7 @@ def reset_bluetooth(android_devices):
             expected_bluetooth_off_event_name = bluetooth_off
             try:
                 ed.pop_event(expected_bluetooth_off_event_name,
-                             DEFAULT_TIMEOUT)
+                             bt_default_timeout)
             except Exception:
                 a.log.error("Failed to toggle Bluetooth off.")
                 return False
@@ -348,7 +322,7 @@ def determine_max_advertisements(android_device):
         android_device.droid.bluetoothToggleState(True)
     try:
         android_device.ed.pop_event(expected_bluetooth_on_event_name,
-                                    DEFAULT_TIMEOUT)
+                                    bt_default_timeout)
     except Exception:
         android_device.log.info(
             "Failed to toggle Bluetooth on(no broadcast received).")
@@ -375,8 +349,8 @@ def determine_max_advertisements(android_device):
             advertise_callback) + "|" + adv_fail.format(
                 advertise_callback) + ")"
         # wait for either success or failure event
-        evt = android_device.ed.pop_events(regex, DEFAULT_TIMEOUT,
-                                           TIMEOUT_SMALL)
+        evt = android_device.ed.pop_events(regex, bt_default_timeout,
+                                           small_timeout)
         if evt[0]["name"] == adv_succ.format(advertise_callback):
             advertisement_count += 1
             android_device.log.info("Advertisement {} started.".format(
@@ -506,17 +480,17 @@ def get_mac_address_of_generic_advertisement(scan_ad, adv_ad):
     """
     adv_ad.droid.bleSetAdvertiseDataIncludeDeviceName(True)
     adv_ad.droid.bleSetAdvertiseSettingsAdvertiseMode(
-        AdvertiseSettingsAdvertiseMode.ADVERTISE_MODE_LOW_LATENCY.value)
+        ble_advertise_settings_modes['low_latency'])
     adv_ad.droid.bleSetAdvertiseSettingsIsConnectable(True)
     adv_ad.droid.bleSetAdvertiseSettingsTxPowerLevel(
-        AdvertiseSettingsAdvertiseTxPower.ADVERTISE_TX_POWER_HIGH.value)
+        ble_advertise_settings_tx_powers['high'])
     advertise_callback, advertise_data, advertise_settings = (
         generate_ble_advertise_objects(adv_ad.droid))
     adv_ad.droid.bleStartBleAdvertising(advertise_callback, advertise_data,
                                         advertise_settings)
     try:
         adv_ad.ed.pop_event(
-            adv_succ.format(advertise_callback), DEFAULT_TIMEOUT)
+            adv_succ.format(advertise_callback), bt_default_timeout)
     except Empty as err:
         raise BtTestUtilsError(
             "Advertiser did not start successfully {}".format(err))
@@ -529,7 +503,7 @@ def get_mac_address_of_generic_advertisement(scan_ad, adv_ad):
     scan_ad.droid.bleStartBleScan(filter_list, scan_settings, scan_callback)
     try:
         event = scan_ad.ed.pop_event(
-            "BleScan{}onScanResults".format(scan_callback), DEFAULT_TIMEOUT)
+            "BleScan{}onScanResults".format(scan_callback), bt_default_timeout)
     except Empty as err:
         raise BtTestUtilsError("Scanner did not find advertisement {}".format(
             err))
@@ -545,7 +519,7 @@ def enable_bluetooth(droid, ed):
     droid.bluetoothToggleState(True)
     expected_bluetooth_on_event_name = bluetooth_on
     try:
-        ed.pop_event(expected_bluetooth_on_event_name, DEFAULT_TIMEOUT)
+        ed.pop_event(expected_bluetooth_on_event_name, bt_default_timeout)
     except Exception:
         log.info("Failed to toggle Bluetooth on (no broadcast received)")
         if droid.bluetoothCheckState() is True:
@@ -584,25 +558,24 @@ def set_bt_scan_mode(ad, scan_mode_value):
         True if successful, false if unsuccessful.
     """
     droid, ed = ad.droid, ad.ed
-    if scan_mode_value == BluetoothScanModeType.STATE_OFF.value:
+    if scan_mode_value == bt_scan_mode_types['state_off']:
         disable_bluetooth(droid)
         scan_mode = droid.bluetoothGetScanMode()
         reset_bluetooth([ad])
         if scan_mode != scan_mode_value:
             return False
-    elif scan_mode_value == BluetoothScanModeType.SCAN_MODE_NONE.value:
+    elif scan_mode_value == bt_scan_mode_types['none']:
         droid.bluetoothMakeUndiscoverable()
         scan_mode = droid.bluetoothGetScanMode()
         if scan_mode != scan_mode_value:
             return False
-    elif scan_mode_value == BluetoothScanModeType.SCAN_MODE_CONNECTABLE.value:
+    elif scan_mode_value == bt_scan_mode_types['connectable']:
         droid.bluetoothMakeUndiscoverable()
         droid.bluetoothMakeConnectable()
         scan_mode = droid.bluetoothGetScanMode()
         if scan_mode != scan_mode_value:
             return False
-    elif (scan_mode_value ==
-          BluetoothScanModeType.SCAN_MODE_CONNECTABLE_DISCOVERABLE.value):
+    elif (scan_mode_value == bt_scan_mode_types['connectable_discoverable']):
         droid.bluetoothMakeDiscoverable()
         scan_mode = droid.bluetoothGetScanMode()
         if scan_mode != scan_mode_value:
@@ -673,13 +646,13 @@ def set_profile_priority(host_ad, client_ad, profiles, priority):
             profile,
             host_ad.droid.bluetoothGetLocalName(),
             client_ad.droid.bluetoothGetLocalAddress(), priority.value))
-        if BluetoothProfile.A2DP_SINK.value == profile:
+        if bt_profile_constants['a2dp_sink'] == profile:
             host_ad.droid.bluetoothA2dpSinkSetPriority(
                 client_ad.droid.bluetoothGetLocalAddress(), priority.value)
-        elif BluetoothProfile.HEADSET_CLIENT.value == profile:
+        elif bt_profile_constants['headset_client'] == profile:
             host_ad.droid.bluetoothHfpClientSetPriority(
                 client_ad.droid.bluetoothGetLocalAddress(), priority.value)
-        elif BluetoothProfile.PBAP_CLIENT.value == profile:
+        elif bt_profile_constants['pbap_client'] == profile:
             host_ad.droid.bluetoothPbapClientSetPriority(
                 client_ad.droid.bluetoothGetLocalAddress(), priority.value)
         else:
@@ -732,14 +705,14 @@ def _wait_for_passkey_match(pri_ad, sec_ad):
     try:
         pri_pairing_req = pri_ad.ed.pop_event(
             event_name="BluetoothActionPairingRequest",
-            timeout=DEFAULT_TIMEOUT)
+            timeout=bt_default_timeout)
         pri_variant = pri_pairing_req["data"]["PairingVariant"]
         pri_pin = pri_pairing_req["data"]["Pin"]
         pri_ad.log.info("Primary device received Pin: {}, Variant: {}"
                         .format(pri_pin, pri_variant))
         sec_pairing_req = sec_ad.ed.pop_event(
             event_name="BluetoothActionPairingRequest",
-            timeout=DEFAULT_TIMEOUT)
+            timeout=bt_default_timeout)
         sec_variant = sec_pairing_req["data"]["PairingVariant"]
         sec_pin = sec_pairing_req["data"]["Pin"]
         sec_ad.log.info("Secondary device received Pin: {}, Variant: {}"
@@ -749,7 +722,7 @@ def _wait_for_passkey_match(pri_ad, sec_ad):
         log.error("Pairing request state, Primary: {}, Secondary: {}"
                   .format(pri_pairing_req, sec_pairing_req))
         return False
-    if pri_variant == sec_variant == PAIRING_VARIANT_PASSKEY_CONFIRMATION:
+    if pri_variant == sec_variant == pairing_variant_passkey_confirmation:
         confirmation = pri_pin == sec_pin
         if confirmation:
             log.info("Pairing code matched, accepting connection")
@@ -778,7 +751,7 @@ def _pair_pri_to_sec(pri_ad, sec_ad, auto_confirm):
     log.info("Bonding device {} to {}".format(
         pri_droid.bluetoothGetLocalAddress(),
         sec_droid.bluetoothGetLocalAddress()))
-    sec_droid.bluetoothMakeDiscoverable(DEFAULT_TIMEOUT)
+    sec_droid.bluetoothMakeDiscoverable(bt_default_timeout)
     target_address = sec_droid.bluetoothGetLocalAddress()
     log.debug("Starting paring helper on each device")
     pri_droid.bluetoothStartPairingHelper(auto_confirm)
@@ -789,7 +762,7 @@ def _pair_pri_to_sec(pri_ad, sec_ad, auto_confirm):
         if not _wait_for_passkey_match(pri_ad, sec_ad):
             return False
     # Loop until we have bonded successfully or timeout.
-    end_time = time.time() + DEFAULT_TIMEOUT
+    end_time = time.time() + bt_default_timeout
     pri_ad.log.info("Verifying devices are bonded")
     while time.time() < end_time:
         bonded_devices = pri_droid.bluetoothGetBondedDevices()
@@ -844,7 +817,7 @@ def _connect_pri_to_sec(pri_ad, sec_ad, profiles_set):
         True of connection is successful, false if unsuccessful.
     """
     # Check if we support all profiles.
-    supported_profiles = [i.value for i in BluetoothProfile]
+    supported_profiles = bt_profile_constants.values()
     for profile in profiles_set:
         if profile not in supported_profiles:
             pri_ad.log.info("Profile {} is not supported list {}".format(
@@ -875,33 +848,33 @@ def _connect_pri_to_sec(pri_ad, sec_ad, profiles_set):
     # First use APIs to check profile connection state
     while (time.time() < end_time and
            not profile_connected.issuperset(profiles_set)):
-        if (BluetoothProfile.HEADSET_CLIENT.value not in profile_connected and
-                BluetoothProfile.HEADSET_CLIENT.value in profiles_set):
+        if (bt_profile_constants['headset_client'] not in profile_connected and
+                bt_profile_constants['headset_client'] in profiles_set):
             if is_hfp_client_device_connected(pri_ad, sec_addr):
-                profile_connected.add(BluetoothProfile.HEADSET_CLIENT.value)
-        if (BluetoothProfile.A2DP.value not in profile_connected and
-                BluetoothProfile.A2DP.value in profiles_set):
+                profile_connected.add(bt_profile_constants['headset_client'])
+        if (bt_profile_constants['a2dp'] not in profile_connected and
+                bt_profile_constants['a2dp'] in profiles_set):
             if is_a2dp_src_device_connected(pri_ad, sec_addr):
-                profile_connected.add(BluetoothProfile.A2DP.value)
-        if (BluetoothProfile.A2DP_SINK.value not in profile_connected and
-                BluetoothProfile.A2DP_SINK.value in profiles_set):
+                profile_connected.add(bt_profile_constants['a2dp'])
+        if (bt_profile_constants['a2dp_sink'] not in profile_connected and
+                bt_profile_constants['a2dp_sink'] in profiles_set):
             if is_a2dp_snk_device_connected(pri_ad, sec_addr):
-                profile_connected.add(BluetoothProfile.A2DP_SINK.value)
-        if (BluetoothProfile.MAP_MCE.value not in profile_connected and
-                BluetoothProfile.MAP_MCE.value in profiles_set):
+                profile_connected.add(bt_profile_constants['a2dp_sink'])
+        if (bt_profile_constants['map_mce'] not in profile_connected and
+                bt_profile_constants['map_mce'] in profiles_set):
             if is_map_mce_device_connected(pri_ad, sec_addr):
-                profile_connected.add(BluetoothProfile.MAP_MCE.value)
-        if (BluetoothProfile.MAP.value not in profile_connected and
-                BluetoothProfile.MAP.value in profiles_set):
+                profile_connected.add(bt_profile_constants['map_mce'])
+        if (bt_profile_constants['map'] not in profile_connected and
+                bt_profile_constants['map'] in profiles_set):
             if is_map_mse_device_connected(pri_ad, sec_addr):
-                profile_connected.add(BluetoothProfile.MAP.value)
+                profile_connected.add(bt_profile_constants['map'])
         time.sleep(0.1)
     # If APIs fail, try to find the connection broadcast receiver.
     while not profile_connected.issuperset(profiles_set):
         try:
             profile_event = pri_ad.ed.pop_event(
                 bluetooth_profile_connection_state_changed,
-                DEFAULT_TIMEOUT + 10)
+                bt_default_timeout + 10)
             pri_ad.log.info("Got event {}".format(profile_event))
         except Exception:
             pri_ad.log.error("Did not get {} profiles left {}".format(
@@ -912,7 +885,7 @@ def _connect_pri_to_sec(pri_ad, sec_ad, profiles_set):
         state = profile_event['data']['state']
         device_addr = profile_event['data']['addr']
 
-        if state == BluetoothProfileState.STATE_CONNECTED.value and \
+        if state == bt_profile_states['connected'] and \
             device_addr == sec_ad.droid.bluetoothGetLocalAddress():
             profile_connected.add(profile)
         pri_ad.log.info("Profiles connected until now {}".format(
@@ -936,7 +909,7 @@ def disconnect_pri_from_sec(pri_ad, sec_ad, profiles_list):
         False on Failure
     """
     # Sanity check to see if all the profiles in the given set is supported
-    supported_profiles = [i.value for i in BluetoothProfile]
+    supported_profiles = bt_profile_constants.values()
     for profile in profiles_list:
         if profile not in supported_profiles:
             pri_ad.log.info("Profile {} is not in supported list {}".format(
@@ -971,7 +944,7 @@ def disconnect_pri_from_sec(pri_ad, sec_ad, profiles_list):
         state = profile_event['data']['state']
         device_addr = profile_event['data']['addr']
 
-        if state == BluetoothProfileState.STATE_DISCONNECTED.value and \
+        if state == bt_profile_states['disconnected'] and \
             device_addr == sec_ad.droid.bluetoothGetLocalAddress():
             profile_disconnected.add(profile)
         pri_ad.log.info("Profiles disconnected so far {}".format(
@@ -1012,17 +985,17 @@ def take_btsnoop_log(ad, testcase, testname):
     out_name = ','.join((testname, device_model, serial))
     snoop_path = ad.log_path + "/BluetoothSnoopLogs"
     utils.create_dir(snoop_path)
-    cmd = ''.join(("adb -s ", serial, " pull ", BTSNOOP_LOG_PATH_ON_DEVICE,
+    cmd = ''.join(("adb -s ", serial, " pull ", btsnoop_log_path_on_device,
                    " ", snoop_path + '/' + out_name, ".btsnoop_hci.log"))
     exe_cmd(cmd)
     try:
         cmd = ''.join(
-            ("adb -s ", serial, " pull ", BTSNOOP_LAST_LOG_PATH_ON_DEVICE, " ",
+            ("adb -s ", serial, " pull ", btsnoop_last_log_path_on_device, " ",
              snoop_path + '/' + out_name, ".btsnoop_hci.log.last"))
         exe_cmd(cmd)
     except Exception as err:
         testcase.log.info("File does not exist {}".format(
-            BTSNOOP_LAST_LOG_PATH_ON_DEVICE))
+            btsnoop_last_log_path_on_device))
 
 
 def kill_bluetooth_process(ad):
@@ -1039,7 +1012,7 @@ def kill_bluetooth_process(ad):
 
 def orchestrate_rfcomm_connection(client_ad,
                                   server_ad,
-                                  accept_timeout_ms=DEFAULT_RFCOMM_TIMEOUT,
+                                  accept_timeout_ms=default_rfcomm_timeout_ms,
                                   uuid=None):
     """Sets up the RFCOMM connection between two Android devices.
 
@@ -1053,16 +1026,16 @@ def orchestrate_rfcomm_connection(client_ad,
     client_ad.droid.bluetoothStartPairingHelper()
     if not uuid:
         server_ad.droid.bluetoothRfcommBeginAcceptThread(
-            RfcommUuid.DEFAULT_UUID.value, accept_timeout_ms)
+            bt_rfcomm_uuids['default_uuid'], accept_timeout_ms)
         client_ad.droid.bluetoothRfcommBeginConnectThread(
             server_ad.droid.bluetoothGetLocalAddress(),
-            RfcommUuid.DEFAULT_UUID.value)
+            bt_rfcomm_uuids['default_uuid'])
     else:
         server_ad.droid.bluetoothRfcommBeginAcceptThread(uuid,
                                                          accept_timeout_ms)
         client_ad.droid.bluetoothRfcommBeginConnectThread(
             server_ad.droid.bluetoothGetLocalAddress(), uuid)
-    end_time = time.time() + DEFAULT_TIMEOUT
+    end_time = time.time() + bt_default_timeout
     result = False
     test_result = True
     while time.time() < end_time:
@@ -1177,6 +1150,8 @@ def orchestrate_and_verify_pan_connection(pan_dut, panu_dut):
         return False
     if not bluetooth_enabled_check(panu_dut):
         return False
+    if not bluetooth_enabled_check(pan_dut):
+        return False
     pan_dut.droid.bluetoothPanSetBluetoothTethering(True)
     if not (pair_pri_to_sec(pan_dut, panu_dut)):
         return False
@@ -1185,7 +1160,7 @@ def orchestrate_and_verify_pan_connection(pan_dut, panu_dut):
         return False
     # Magic sleep needed to give the stack time in between bonding and
     # connecting the PAN profile.
-    time.sleep(MAGIC_PAN_CONNECT_TIMEOUT)
+    time.sleep(pan_connect_timeout)
     panu_dut.droid.bluetoothConnectBonded(
         pan_dut.droid.bluetoothGetLocalAddress())
     if not verify_http_connection(log, panu_dut):

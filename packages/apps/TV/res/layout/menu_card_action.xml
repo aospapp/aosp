@@ -19,50 +19,43 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="@dimen/action_card_width"
     android:layout_height="@dimen/action_card_height"
-    android:orientation="vertical"
     android:focusable="true"
     android:background="@drawable/action_card_background">
 
-    <LinearLayout
-        android:orientation="vertical"
+    <TextView
+        android:id="@+id/action_card_label"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="@dimen/action_card_padding"
-        android:clipChildren="false"
-        android:clipToPadding="false"
-        android:layout_gravity="top">
+        android:layout_alignParentTop="true"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:layout_marginTop="6dp"
+        android:fontFamily="@string/condensed_font"
+        android:maxLines="1"
+        android:textColor="@color/action_card_label_color"
+        android:textSize="@dimen/action_card_label_font_size" />
 
-        <TextView
-            android:id="@+id/action_card_label"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="-6dp"
-            android:singleLine="true"
-            android:fontFamily="@string/condensed_font"
-            android:textColor="@color/action_card_label_color"
-            android:textSize="@dimen/action_card_label_font_size" />
-
-        <TextView
-            android:id="@+id/action_card_state"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingTop="4dp"
-            android:singleLine="true"
-            android:fontFamily="@string/condensed_font"
-            android:textColor="@color/action_card_state_color"
-            android:textSize="@dimen/action_card_state_font_size" />
-
-    </LinearLayout>
+    <TextView
+        android:id="@+id/action_card_state"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/action_card_label"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:paddingTop="4dp"
+        android:fontFamily="@string/condensed_font"
+        android:maxLines="1"
+        android:textColor="@color/action_card_state_color"
+        android:textSize="@dimen/action_card_state_font_size" />
 
     <ImageView
         android:id="@+id/action_card_icon"
         android:layout_width="@dimen/action_card_icon_width"
         android:layout_height="@dimen/action_card_icon_height"
         android:layout_margin="@dimen/action_card_icon_padding"
-        android:layout_gravity="end|bottom"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentEnd="true"
         android:contentDescription="@null"
-        android:scaleType="fitCenter"
-        android:src="@drawable/ic_tvoption_aspect"
-        android:duplicateParentState="true" />
+        android:scaleType="fitCenter" />
 
 </com.android.tv.menu.ActionCardView>

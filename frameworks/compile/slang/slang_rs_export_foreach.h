@@ -34,8 +34,7 @@ namespace clang {
 
 namespace slang {
 
-// Base class for reflecting control-side forEach (currently for root()
-// functions that fit appropriate criteria)
+// Base class for reflecting control-side forEach
 class RSExportForEach : public RSExportable {
  public:
 
@@ -47,6 +46,11 @@ class RSExportForEach : public RSExportable {
 
  private:
   std::string mName;
+
+  // For diagnostic purposes, we record the order in which we parse
+  // foreach kernels.  Does not apply to a dummy root.
+  unsigned mOrdinal;
+
   RSExportRecordType *mParamPacketType;
   llvm::SmallVector<const RSExportType*, 16> mInTypes;
   RSExportType *mOutType;
@@ -68,9 +72,10 @@ class RSExportForEach : public RSExportable {
   bool mDummyRoot;
 
   // TODO(all): Add support for LOD/face when we have them
-  RSExportForEach(RSContext *Context, const llvm::StringRef &Name)
-    : RSExportable(Context, RSExportable::EX_FOREACH),
-      mName(Name.data(), Name.size()), mParamPacketType(nullptr),
+  RSExportForEach(RSContext *Context, const llvm::StringRef &Name, clang::SourceLocation Loc)
+    : RSExportable(Context, RSExportable::EX_FOREACH, Loc),
+      mName(Name.data(), Name.size()), mOrdinal(~unsigned(0)),
+      mParamPacketType(nullptr),
       mOutType(nullptr), numParams(0), mSignatureMetadata(0),
       mOut(nullptr), mUsrData(nullptr), mSpecialParameterSignatureMetadata(0),
       mResultType(clang::QualType()), mHasReturnType(false),
@@ -100,6 +105,11 @@ class RSExportForEach : public RSExportable {
 
   inline const std::string &getName() const {
     return mName;
+  }
+
+  inline unsigned getOrdinal() const {
+    slangAssert(!mDummyRoot);
+    return mOrdinal;
   }
 
   inline size_t getNumParameters() const {
@@ -146,6 +156,11 @@ class RSExportForEach : public RSExportable {
     return mDummyRoot;
   }
 
+  // is this a pass-by-value kernel?
+  inline bool isKernelStyle() const {
+    return mIsKernelStyle;
+  }
+
   typedef RSExportRecordType::const_field_iterator const_param_iterator;
 
   inline const_param_iterator params_begin() const {
@@ -158,6 +173,9 @@ class RSExportForEach : public RSExportable {
     slangAssert((mParamPacketType != nullptr) &&
                 "Get parameter from export foreach having no parameter!");
     return mParamPacketType->fields_end();
+  }
+  inline size_t params_count() const {
+    return (mParamPacketType ? mParamPacketType->fields_size() : 0);
   }
 
   static bool isRSForEachFunc(unsigned int targetAPI,

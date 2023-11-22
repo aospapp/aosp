@@ -21,13 +21,17 @@ from queue import Empty
 
 from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
-from acts.test_utils.bt.BleEnum import BluetoothAdapterState
 from acts.test_utils.bt.bt_test_utils import bluetooth_off
 from acts.test_utils.bt.bt_test_utils import bluetooth_on
 from acts.test_utils.bt.bt_test_utils import cleanup_scanners_and_advertisers
 from acts.test_utils.bt.bt_test_utils import generate_ble_advertise_objects
 from acts.test_utils.bt.bt_test_utils import generate_ble_scan_objects
-from acts.test_utils.bt.bt_test_utils import scan_result
+from acts.test_utils.bt.bt_constants import bluetooth_le_off
+from acts.test_utils.bt.bt_constants import bluetooth_le_on
+from acts.test_utils.bt.bt_constants import bt_adapter_states
+from acts.test_utils.bt.bt_constants import scan_result
+
+import time
 
 
 class BleBackgroundScanTest(BluetoothBaseTest):
@@ -39,9 +43,6 @@ class BleBackgroundScanTest(BluetoothBaseTest):
     active_scan_callback_list = []
     active_adv_callback_list = []
 
-    bluetooth_le_on = "BleStateChangedOn"
-    bluetooth_le_off = "BleStateChangedOff"
-
     def __init__(self, controllers):
         BluetoothBaseTest.__init__(self, controllers)
         self.scn_ad = self.android_devices[0]
@@ -49,9 +50,9 @@ class BleBackgroundScanTest(BluetoothBaseTest):
 
     def setup_test(self):
         if (self.scn_ad.droid.bluetoothGetLeState() ==
-                BluetoothAdapterState.STATE_OFF.value):
+                bt_adapter_states['off']):
             self.scn_ad.droid.bluetoothEnableBLE()
-            self.scn_ad.ed.pop_event(self.bluetooth_le_on)
+            self.scn_ad.ed.pop_event(bluetooth_le_on)
         for a in self.android_devices:
             a.ed.clear_all_events()
         return True
@@ -225,8 +226,7 @@ class BleBackgroundScanTest(BluetoothBaseTest):
         """
         ble_state_error_msg = "Bluetooth LE State not OK {}. Expected {} got {}"
         # Enable BLE always available (effectively enabling BT in location)
-        self.scn_ad.adb.shell(
-            "shell settings put global ble_scan_always_enabled 1")
+        self.scn_ad.adb.shell("settings put global ble_scan_always_enabled 1")
 
         self.scn_ad.droid.bluetoothToggleState(False)
         try:
@@ -239,46 +239,41 @@ class BleBackgroundScanTest(BluetoothBaseTest):
         # Sleep because LE turns off after the bluetooth off event fires
         time.sleep(self.default_timeout)
         state = self.scn_ad.droid.bluetoothGetLeState()
-        if state != BluetoothAdapterState.STATE_OFF.value:
+        if state != bt_adapter_states['off']:
             self.log.error(
-                ble_state_error_msg.format(
-                    "after BT Disable", BluetoothAdapterState.STATE_OFF.value,
-                    state))
+                ble_state_error_msg.format("after BT Disable",
+                                           bt_adapter_states['off'], state))
             return False
 
         # TODO: BleStateChangedOn got generated as we shut off bluetooth above?
         self.scn_ad.ed.clear_all_events()
         result = self.scn_ad.droid.bluetoothEnableBLE()
         try:
-            self.scn_ad.ed.pop_event(self.bluetooth_le_on,
-                                     self.default_timeout)
+            self.scn_ad.ed.pop_event(bluetooth_le_on, self.default_timeout)
         except Empty:
             self.log.error("Bluetooth LE On event not found. Expected {}".
-                           format(self.bluetooth_le_on))
+                           format(bluetooth_le_on))
             return False
         state = self.scn_ad.droid.bluetoothGetLeState()
-        if state != BluetoothAdapterState.STATE_BLE_ON.value:
+        if state != bt_adapter_states['ble_on']:
             self.log.error(
-                ble_state_error_msg.format(
-                    "before Airplane Mode OFF",
-                    BluetoothAdapterState.STATE_BLE_ON.value, state))
+                ble_state_error_msg.format("before Airplane Mode OFF",
+                                           bt_adapter_states['ble_on'], state))
             return False
 
         self.scn_ad.droid.bluetoothListenForBleStateChange()
         self.scn_ad.droid.connectivityToggleAirplaneMode(True)
         try:
-            self.scn_ad.ed.pop_event(self.bluetooth_le_off,
-                                     self.default_timeout)
+            self.scn_ad.ed.pop_event(bluetooth_le_off, self.default_timeout)
         except Empty:
             self.log.error("Bluetooth LE Off event not found. Expected {}".
-                           format(self.bluetooth_le_off))
+                           format(bluetooth_le_off))
             return False
         state = self.scn_ad.droid.bluetoothGetLeState()
-        if state != BluetoothAdapterState.STATE_OFF.value:
+        if state != bt_adapter_states['off']:
             self.log.error(
-                ble_state_error_msg.format(
-                    "after Airplane Mode ON",
-                    BluetoothAdapterState.STATE_OFF.value, state))
+                ble_state_error_msg.format("after Airplane Mode ON",
+                                           bt_adapter_states['off'], state))
             return False
         result = self.scn_ad.droid.bluetoothEnableBLE()
         if result:
@@ -287,19 +282,18 @@ class BleBackgroundScanTest(BluetoothBaseTest):
             )
             return False
         state = self.scn_ad.droid.bluetoothGetLeState()
-        if state != BluetoothAdapterState.STATE_OFF.value:
+        if state != bt_adapter_states['off']:
             self.log.error(
                 "Bluetooth LE State not OK after attempted enable. Expected {} got {}".
-                format(BluetoothAdapterState.STATE_OFF.value, state))
+                format(bt_adapter_states['off'], state))
             return False
         self.scn_ad.droid.connectivityToggleAirplaneMode(False)
         # Sleep to let Airplane Mode disable propogate through the system
         time.sleep(self.default_timeout)
         state = self.scn_ad.droid.bluetoothGetLeState()
-        if state != BluetoothAdapterState.STATE_OFF.value:
+        if state != bt_adapter_states['off']:
             self.log.error(
-                ble_state_error_msg.format(
-                    "after Airplane Mode OFF",
-                    BluetoothAdapterState.STATE_OFF.value, state))
+                ble_state_error_msg.format("after Airplane Mode OFF",
+                                           bt_adapter_states['off'], state))
             return False
         return True

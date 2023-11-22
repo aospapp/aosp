@@ -38,6 +38,12 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/radio_close" />
+        <ToggleButton
+                android:id="@+id/togglebutton_mute_radio"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textOn="@string/radio_muted"
+                android:textOff="@string/radio_unmuted" />
     </LinearLayout>
     <LinearLayout
             android:layout_width="match_parent"
@@ -70,6 +76,33 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/radio_release_focus" />
+    </LinearLayout>
+    <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_weight="1" >
+        <EditText
+                android:id="@+id/edittext_station_frequency"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:hint="@string/radio_enter_station_hint"
+                android:inputType="number" />
+        <Button
+                android:id="@+id/button_radio_tune_to_station"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/radio_tune_to_station" />
+        <Button
+                android:id="@+id/button_radio_step_up"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/radio_step_up" />
+        <Button
+                android:id="@+id/button_radio_step_down"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/radio_step_down" />
     </LinearLayout>
     <LinearLayout
             android:layout_width="match_parent"

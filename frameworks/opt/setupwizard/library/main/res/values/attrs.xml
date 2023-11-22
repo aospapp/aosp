@@ -39,6 +39,7 @@
     </attr>
 
     <attr name="suwCardBackground" format="color|reference" />
+    <attr name="suwFillContentLayoutStyle" format="reference" />
     <attr name="suwDividerCondition">
         <enum name="either" value="0" />
         <enum name="both" value="1" />
@@ -72,8 +73,13 @@
     <!-- Custom view attributes -->
     <attr name="suwColorPrimary" format="color" />
     <attr name="suwHeader" format="reference" />
+    <!-- Deprecated. Use suwDividerInsetStart and suwDividerInsetEnd instead -->
     <attr name="suwDividerInset" format="dimension|reference" />
+    <attr name="suwDividerInsetEnd" format="dimension|reference" />
+    <attr name="suwDividerInsetStart" format="dimension|reference" />
+    <attr name="suwDividerInsetStartNoIcon" format="dimension|reference" />
     <attr name="suwItemDescriptionStyle" format="reference" />
+    <attr name="suwItemDescriptionTitleStyle" format="reference" />
 
     <declare-styleable name="SuwIllustration">
         <attr name="suwAspectRatio" format="float" />
@@ -87,6 +93,10 @@
         <attr name="suwHeader" />
     </declare-styleable>
 
+    <declare-styleable name="SuwIllustrationVideoView">
+        <attr name="suwVideo" format="reference" />
+    </declare-styleable>
+
     <declare-styleable name="SuwGlifLayout">
         <attr name="suwBackgroundPatterned" format="boolean" />
         <attr name="suwBackgroundBaseColor" format="color" />
@@ -98,9 +108,14 @@
         <attr name="suwStatusBarBackground" format="color|reference" />
     </declare-styleable>
 
-    <declare-styleable name="SuwMaxSizeFrameLayout">
+    <declare-styleable name="SuwIntrinsicSizeFrameLayout">
         <attr name="android:height" />
         <attr name="android:width" />
+    </declare-styleable>
+
+    <declare-styleable name="SuwFillContentLayout">
+        <attr name="android:maxHeight" />
+        <attr name="android:maxWidth" />
     </declare-styleable>
 
     <declare-styleable name="SuwSetupWizardLayout">
@@ -159,6 +174,8 @@
     <declare-styleable name="SuwListMixin">
         <attr name="android:entries" />
         <attr name="suwDividerInset" />
+        <attr name="suwDividerInsetEnd" />
+        <attr name="suwDividerInsetStart" />
     </declare-styleable>
 
 </resources>

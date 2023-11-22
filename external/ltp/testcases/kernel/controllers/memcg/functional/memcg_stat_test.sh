@@ -26,36 +26,36 @@
 # History:      2012/01/16 - Created.
 #
 
-export TCID="memcg_stat_test"
-export TST_TOTAL=8
-export TST_COUNT=0
+TCID="memcg_stat_test"
+TST_TOTAL=8
 
-. memcg_lib.sh || exit 1
-
-MEM_SWAP_FLAG=0
+. memcg_lib.sh
 
 # Test cache
 testcase_1()
 {
-	test_mem_stat "--shm -k 3" $PAGESIZE "cache" $PAGESIZE 0
+	test_mem_stat "--shm -k 3" $PAGESIZE $PAGESIZE "cache" $PAGESIZE false
 }
 
 # Test mapped_file
 testcase_2()
 {
-	test_mem_stat "--mmap-file" $PAGESIZE "mapped_file" $PAGESIZE 0
+	test_mem_stat "--mmap-file" $PAGESIZE $PAGESIZE \
+		"mapped_file" $PAGESIZE false
 }
 
 # Test unevictable with MAP_LOCKED
 testcase_3()
 {
-	test_mem_stat "--mmap-lock1" $PAGESIZE "unevictable" $PAGESIZE 0
+	test_mem_stat "--mmap-lock1" $PAGESIZE $PAGESIZE \
+		"unevictable" $PAGESIZE false
 }
 
 # Test unevictable with mlock
 testcase_4()
 {
-	test_mem_stat "--mmap-lock2" $PAGESIZE "unevictable" $PAGESIZE 0
+	test_mem_stat "--mmap-lock2" $PAGESIZE $PAGESIZE \
+		"unevictable" $PAGESIZE false
 }
 
 # Test hierarchical_memory_limit with enabling hierarchical accounting
@@ -93,7 +93,7 @@ testcase_6()
 # Test hierarchical_memsw_limit with enabling hierarchical accounting
 testcase_7()
 {
-	if [ $MEM_SWAP_FLAG -eq 0 ]; then
+	if [ "$MEMSW_LIMIT_FLAG" -eq 0 ]; then
 		tst_resm TCONF "mem+swap is not enabled"
 		return
 	fi
@@ -116,7 +116,7 @@ testcase_7()
 # Test hierarchical_memsw_limit with disabling hierarchical accounting
 testcase_8()
 {
-	if [ $MEM_SWAP_FLAG -eq 0 ]; then
+	if [ "$MEMSW_LIMIT_FLAG" -eq 0 ]; then
 		tst_resm TCONF "mem+swap is not enabled"
 		return
 	fi
@@ -136,39 +136,7 @@ testcase_8()
 	rmdir subgroup
 }
 
-# Run all the test cases
-for i in $(seq 1 $TST_TOTAL)
-do
-	export TST_COUNT=$(( $TST_COUNT + 1 ))
-	cur_id=$i
+run_tests
 
-	do_mount
-	if [ $? -ne 0 ]; then
-		echo "Cannot create memcg"
-		exit 1
-	fi
+tst_exit
 
-	# prepare
-	mkdir /dev/memcg/$i 2> /dev/null
-	cd /dev/memcg/$i
-
-	if [ -e memory.memsw.limit_in_bytes ]; then
-		MEM_SWAP_FLAG=1
-	fi
-
-	# run the case
-	testcase_$i
-
-	# clean up
-	sleep 1
-	cd $TEST_PATH
-	rmdir /dev/memcg/$i
-
-	cleanup
-done
-
-if [ $failed -ne 0 ]; then
-	exit $failed
-else
-	exit 0
-fi

@@ -15,6 +15,8 @@
  */
 package com.android.tradefed.util;
 
+import com.android.tradefed.build.BuildSerializedVersion;
+
 import java.util.Collection;
 
 /**
@@ -24,6 +26,8 @@ import java.util.Collection;
  * @param <K>
  */
 public class UniqueMultiMap<K, V> extends MultiMap<K, V> {
+
+    private static final long serialVersionUID = BuildSerializedVersion.VERSION;
 
     @Override
     public V put(K key, V value) {

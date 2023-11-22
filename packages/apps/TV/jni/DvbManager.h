@@ -31,6 +31,9 @@ class DvbManager {
     static const int DVB_TUNE_STOP_DELAY_MS = 100 * 1000;
     static const int FE_POLL_TIMEOUT_MS = 100;
     static const int PAT_PID = 0;
+    static const int DVB_API_VERSION_UNDEFINED = -1;
+    static const int DVB_API_VERSION3 = 3;
+    static const int DVB_API_VERSION5 = 5;
 
     static const int FILTER_TYPE_OTHER =
             com_android_tv_tuner_TunerHal_FILTER_TYPE_OTHER;
@@ -41,10 +44,28 @@ class DvbManager {
     static const int FILTER_TYPE_PCR =
             com_android_tv_tuner_TunerHal_FILTER_TYPE_PCR;
 
+    static const int DELIVERY_SYSTEM_UNDEFINED =
+            com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_UNDEFINED;
+    static const int DELIVERY_SYSTEM_ATSC =
+            com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_ATSC;
+    static const int DELIVERY_SYSTEM_DVBC =
+            com_android_tv_tuner_TunerHal_DDELIVERY_SYSTEM_DVBC;
+    static const int DELIVERY_SYSTEM_DVBS =
+            com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_DVBS;
+    static const int DELIVERY_SYSTEM_DVBS2 =
+            com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_DVBS2;
+    static const int DELIVERY_SYSTEM_DVBT =
+            com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_DVBT;
+    static const int DELIVERY_SYSTEM_DVBT2 =
+            com_android_tv_tuner_TunerHal_DELIVERY_SYSTEM_DVBT2;
+
+
     int mFeFd;
     int mDemuxFd;
     int mDvrFd;
     int mPatFilterFd;
+    int mDvbApiVersion;
+    int mDeliverySystemType;
     bool mFeHasLock;
     // Flag for pending tune request. Used for canceling the current tune operation.
     bool volatile mHasPendingTune;
@@ -65,6 +86,7 @@ public:
     int startTsPidFilter(JNIEnv *env, jobject thiz, int pid, int filterType);
     void closeAllDvbPidFilter();
     void setHasPendingTune(bool hasPendingTune);
+    int getDeliverySystemType(JNIEnv *env, jobject thiz);
 
 private:
     int openDvbFe(JNIEnv *env, jobject thiz);

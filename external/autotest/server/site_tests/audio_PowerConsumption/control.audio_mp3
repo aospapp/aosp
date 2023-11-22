@@ -7,7 +7,8 @@ NAME = "audio_PowerConsumption.mp3"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "audio"
-ATTRIBUTES = "suite:bvt-perbuild"
+# TODO(ihf): enable once crbug.com/710338 is fixed.
+#ATTRIBUTES = "suite:bvt-perbuild"
 TEST_TYPE = "server"
 DEPENDENCIES = "rpm, power:battery"
 BUG_TEMPLATE = {

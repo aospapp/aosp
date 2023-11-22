@@ -26,6 +26,7 @@
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/sysmacros.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -87,6 +88,8 @@ const char *VolumeManager::ASECDIR           = "/mnt/asec";
  * Path to where OBBs are mounted
  */
 const char *VolumeManager::LOOPDIR           = "/mnt/obb";
+
+bool VolumeManager::shutting_down = false;
 
 static const char* kPathUserMount = "/mnt/user";
 static const char* kPathVirtualDisk = "/data/misc/vold/virtual_disk";
@@ -180,7 +183,7 @@ static int setupDevMapperDevice(char* buffer, size_t len, const char* loopDevice
         }
         *createdDMDevice = true;
     } else {
-        strcpy(buffer, loopDevice);
+        strlcpy(buffer, loopDevice, len);
         *createdDMDevice = false;
     }
     return 0;
@@ -422,7 +425,10 @@ std::shared_ptr<android::vold::Disk> VolumeManager::findDisk(const std::string& 
 }
 
 std::shared_ptr<android::vold::VolumeBase> VolumeManager::findVolume(const std::string& id) {
-    if (mInternalEmulated->getId() == id) {
+    // Vold could receive "mount" after "shutdown" command in the extreme case.
+    // If this happens, mInternalEmulated will equal nullptr and
+    // we need to deal with it in order to avoid null pointer crash.
+    if (mInternalEmulated != nullptr && mInternalEmulated->getId() == id) {
         return mInternalEmulated;
     }
     for (const auto& disk : mDisks) {
@@ -686,8 +692,10 @@ next:
 int VolumeManager::reset() {
     // Tear down all existing disks/volumes and start from a blank slate so
     // newly connected framework hears all events.
-    mInternalEmulated->destroy();
-    mInternalEmulated->create();
+    if (mInternalEmulated != nullptr) {
+        mInternalEmulated->destroy();
+        mInternalEmulated->create();
+    }
     for (const auto& disk : mDisks) {
         disk->destroy();
         disk->create();
@@ -703,12 +711,14 @@ int VolumeManager::shutdown() {
     if (mInternalEmulated == nullptr) {
         return 0; // already shutdown
     }
+    shutting_down = true;
     mInternalEmulated->destroy();
     mInternalEmulated = nullptr;
     for (const auto& disk : mDisks) {
         disk->destroy();
     }
     mDisks.clear();
+    shutting_down = false;
     return 0;
 }
 
@@ -931,7 +941,7 @@ int VolumeManager::createAsec(const char *id, unsigned long numSectors, const ch
         cleanupDm = true;
     } else {
         sb.c_cipher = ASEC_SB_C_CIPHER_NONE;
-        strcpy(dmDevice, loopDevice);
+        strlcpy(dmDevice, loopDevice, sizeof(dmDevice));
     }
 
     /*
@@ -1895,7 +1905,7 @@ int VolumeManager::listMountedObbs(SocketClient* cli) {
     // Create a string to compare against that has a trailing slash
     int loopDirLen = strlen(VolumeManager::LOOPDIR);
     char loopDir[loopDirLen + 2];
-    strcpy(loopDir, VolumeManager::LOOPDIR);
+    strlcpy(loopDir, VolumeManager::LOOPDIR, sizeof(loopDir));
     loopDir[loopDirLen++] = '/';
     loopDir[loopDirLen] = '\0';
 

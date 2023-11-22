@@ -75,6 +75,7 @@ struct JniConstants {
     static jclass structStatClass;
     static jclass structStatVfsClass;
     static jclass structTimevalClass;
+    static jclass structTimespecClass;
     static jclass structUcredClass;
     static jclass structUtsnameClass;
     static jclass unixSocketAddressClass;

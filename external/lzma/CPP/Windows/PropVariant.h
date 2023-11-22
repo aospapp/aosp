@@ -5,9 +5,12 @@
 
 #include "../Common/MyTypes.h"
 #include "../Common/MyWindows.h"
+#include "../Common/MyString.h"
 
 namespace NWindows {
 namespace NCOM {
+
+BSTR AllocBstrFromAscii(const char *s) throw();
 
 HRESULT PropVariant_Clear(PROPVARIANT *p) throw();
 
@@ -57,7 +60,7 @@ public:
   CPropVariant(const CPropVariant &varSrc);
   CPropVariant(BSTR bstrSrc);
   CPropVariant(LPCOLESTR lpszSrc);
-  CPropVariant(bool bSrc) { vt = VT_BOOL; wReserved1 = 0; boolVal = (bSrc ? VARIANT_TRUE : VARIANT_FALSE); };
+  CPropVariant(bool bSrc) { vt = VT_BOOL; wReserved1 = 0; boolVal = (bSrc ? VARIANT_TRUE : VARIANT_FALSE); }
   CPropVariant(Byte value) { vt = VT_UI1; wReserved1 = 0; bVal = value; }
 
 private:
@@ -74,6 +77,8 @@ public:
   CPropVariant& operator=(const PROPVARIANT &varSrc);
   CPropVariant& operator=(BSTR bstrSrc);
   CPropVariant& operator=(LPCOLESTR lpszSrc);
+  CPropVariant& operator=(const UString &s);
+  CPropVariant& operator=(const UString2 &s);
   CPropVariant& operator=(const char *s);
   
   CPropVariant& operator=(bool bSrc) throw();

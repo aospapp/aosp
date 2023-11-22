@@ -251,6 +251,9 @@ cron_dirs_check
 nfs05_make_tree
 test
 check_tray
+# build error due to unavailability of eaccess()
+prot_hsymlinks
+setpriority01
 
 # The following test prebuilds are disabled due to build error on AOSP
 ldmain.obj

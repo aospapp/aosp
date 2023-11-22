@@ -428,7 +428,11 @@ void impeg2d_fill_mem_rec(impeg2d_fill_mem_rec_ip_t *ps_ip,
     UWORD32 u4_deinterlace;
     UNUSED(u4_deinterlace);
     max_frm_width = ALIGN16(ps_ip->s_ivd_fill_mem_rec_ip_t.u4_max_frm_wd);
-    max_frm_height = ALIGN16(ps_ip->s_ivd_fill_mem_rec_ip_t.u4_max_frm_ht);
+    /* In error clips with field prediction, the mv may incorrectly refer to
+    * the last MB row, causing an out of bounds read access. Allocating 8 extra
+    * rows to handle this. Adding another extra row to handle half_y prediction.
+    */
+    max_frm_height = ALIGN32(ps_ip->s_ivd_fill_mem_rec_ip_t.u4_max_frm_ht) + 9;
 
     max_frm_size = (max_frm_width * max_frm_height * 3) >> 1;/* 420 P */
 
@@ -1022,6 +1026,7 @@ IV_API_CALL_STATUS_T impeg2d_api_reset(iv_obj_t *ps_dechdl,
 
             ps_dec_state->u2_header_done    = 0;  /* Header decoding not done */
             ps_dec_state->u4_frm_buf_stride = 0;
+            ps_dec_state->i4_pic_count      = 0;
             ps_dec_state->u2_is_mpeg2       = 0;
             ps_dec_state->aps_ref_pics[0] = NULL;
             ps_dec_state->aps_ref_pics[1] = NULL;
@@ -1876,6 +1881,7 @@ IV_API_CALL_STATUS_T impeg2d_api_init(iv_obj_t *ps_dechdl,
 
     ps_dec_state->pv_jobq_buf = ps_mem_rec->pv_base;
     ps_dec_state->i4_jobq_buf_size = ps_mem_rec->u4_mem_size;
+    u4_num_mem_rec++;
     ps_mem_rec++;
 
     if(u4_num_mem_rec > ps_dec_init_ip->s_ivd_init_ip_t.u4_num_mem_rec)
@@ -1891,9 +1897,11 @@ IV_API_CALL_STATUS_T impeg2d_api_init(iv_obj_t *ps_dechdl,
 
 
     ps_dec_state->pv_deinterlacer_ctxt = ps_mem_rec->pv_base;
+    u4_num_mem_rec++;
     ps_mem_rec++;
 
     ps_dec_state->pu1_deint_fmt_buf = ps_mem_rec->pv_base;
+    u4_num_mem_rec++;
     ps_mem_rec++;
 
 

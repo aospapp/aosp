@@ -57,15 +57,17 @@ public class BluetoothHeadsetFragment extends Fragment {
     Button mScoConnect;
     Button mScoDisconnect;
     Button mEnableQuietMode;
+    Button mHoldCall;
 
     BluetoothHeadsetClient mHfpClientProfile;
 
     // Intent for picking a Bluetooth device
-    public static final String DEVICE_PICKER_ACTION = "android.bluetooth.devicepicker.action.LAUNCH";
+    public static final String DEVICE_PICKER_ACTION =
+        "android.bluetooth.devicepicker.action.LAUNCH";
 
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
-            @Nullable Bundle savedInstanceState) {
+        @Nullable Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.bluetooth_headset, container, false);
 
         mPickedDeviceText = (TextView) v.findViewById(R.id.bluetooth_device);
@@ -73,8 +75,9 @@ public class BluetoothHeadsetFragment extends Fragment {
         mConnect = (Button) v.findViewById(R.id.bluetooth_headset_connect);
         mDisconnect = (Button) v.findViewById(R.id.bluetooth_headset_disconnect);
         mScoConnect = (Button) v.findViewById(R.id.bluetooth_sco_connect);
-        mScoDisconnect= (Button) v.findViewById(R.id.bluetooth_sco_disconnect);
+        mScoDisconnect = (Button) v.findViewById(R.id.bluetooth_sco_disconnect);
         mEnableQuietMode = (Button) v.findViewById(R.id.bluetooth_quiet_mode_enable);
+        mHoldCall = (Button) v.findViewById(R.id.bluetooth_hold_call);
 
         // Pick a bluetooth device
         mDevicePicker.setOnClickListener(new View.OnClickListener() {
@@ -121,6 +124,14 @@ public class BluetoothHeadsetFragment extends Fragment {
             @Override
             public void onClick(View view) {
                 mBluetoothAdapter.enableNoAutoConnect();
+            }
+        });
+
+        // Place the current call on hold
+        mHoldCall.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                holdCall();
             }
         });
         return v;
@@ -190,6 +201,20 @@ public class BluetoothHeadsetFragment extends Fragment {
             return;
         }
         mHfpClientProfile.disconnectAudio(mPickedDevice);
+    }
+
+    void holdCall() {
+        if (mPickedDevice == null) {
+            Log.w(TAG, "Device null when trying to put the call on hold!");
+            return;
+        }
+
+        if (mHfpClientProfile == null) {
+            Log.w(TAG, "HFP Profile proxy not available, cannot put the call on hold " +
+                mPickedDevice);
+            return;
+        }
+        mHfpClientProfile.holdCall(mPickedDevice);
     }
 
     private final BroadcastReceiver mPickerReceiver = new BroadcastReceiver() {

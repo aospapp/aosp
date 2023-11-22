@@ -55,9 +55,12 @@
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"Inschakelen"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"Foto\'s en video\'s waarvan een back-up is gemaakt"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"Items zoeken…"</string>
+    <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"Alle items weergeven"</string>
+    <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"Recente items verbergen"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="386144597646356521">"Er wordt <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> verwijderd van je apparaat"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"Je opslag wordt nu beheerd door de opslagbeheerder"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"Niets om te verwijderen"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"Recente items bekijken"</string>
     <string name="empty_state_summary" msgid="8439893007424243790">"Er zijn geen oudere bestanden die je kunt verwijderen. Als je ruimte wilt vrijmaken, verwijder je recente foto\'s, video\'s en apps."</string>
+    <string name="app_requesting_space" msgid="857425181289960167">"<xliff:g id="APP">%1$s</xliff:g> heeft <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> ruimte nodig"</string>
 </resources>

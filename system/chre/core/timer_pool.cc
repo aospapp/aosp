@@ -35,7 +35,7 @@ TimerHandle TimerPool::setTimer(const Nanoapp *nanoapp, Nanoseconds duration,
   LockGuard<Mutex> lock(mMutex);
 
   TimerRequest timerRequest;
-  timerRequest.requestingNanoapp = nanoapp;
+  timerRequest.nanoappInstanceId = nanoapp->getInstanceId();
   timerRequest.timerHandle = generateTimerHandle();
   timerRequest.expirationTime = SystemTime::getMonotonicTime() + duration;
   timerRequest.duration = duration;
@@ -44,23 +44,25 @@ TimerHandle TimerPool::setTimer(const Nanoapp *nanoapp, Nanoseconds duration,
 
   bool newTimerExpiresEarliest =
       (!mTimerRequests.empty() && mTimerRequests.top() > timerRequest);
-  insertTimerRequest(timerRequest);
+  bool success = insertTimerRequest(timerRequest);
 
-  LOGD("App %" PRIx64 " requested timer with duration %" PRIu64 "ns",
-      nanoapp->getAppId(), duration.toRawNanoseconds());
+  if (success) {
+    LOGD("App %" PRIx64 " requested timer with duration %" PRIu64 "ns",
+         nanoapp->getAppId(), duration.toRawNanoseconds());
 
-  if (newTimerExpiresEarliest) {
-    if (mSystemTimer.isActive()) {
-      mSystemTimer.cancel();
+    if (newTimerExpiresEarliest) {
+      if (mSystemTimer.isActive()) {
+        mSystemTimer.cancel();
+      }
+
+      mSystemTimer.set(handleSystemTimerCallback, this, duration);
+    } else if (mTimerRequests.size() == 1) {
+      // If this timer request was the first, schedule it.
+      handleExpiredTimersAndScheduleNext();
     }
-
-    mSystemTimer.set(handleSystemTimerCallback, this, duration);
-  } else if (mTimerRequests.size() == 1) {
-    // If this timer request was the first, schedule it.
-    handleExpiredTimersAndScheduleNext();
   }
 
-  return timerRequest.timerHandle;
+  return success ? timerRequest.timerHandle : CHRE_TIMER_INVALID;
 }
 
 bool TimerPool::cancelTimer(const Nanoapp *nanoapp, TimerHandle timerHandle) {
@@ -74,7 +76,7 @@ bool TimerPool::cancelTimer(const Nanoapp *nanoapp, TimerHandle timerHandle) {
 
   if (timerRequest == nullptr) {
     LOGW("Failed to cancel timer ID %" PRIu32 ": not found", timerHandle);
-  } else if (timerRequest->requestingNanoapp != nanoapp) {
+  } else if (timerRequest->nanoappInstanceId != nanoapp->getInstanceId()) {
     LOGW("Failed to cancel timer ID %" PRIu32 ": permission denied",
          timerHandle);
   } else {
@@ -133,7 +135,7 @@ TimerHandle TimerPool::generateTimerHandle() {
 }
 
 TimerHandle TimerPool::generateUniqueTimerHandle() {
-  size_t timerHandle = mLastTimerHandle;
+  TimerHandle timerHandle = mLastTimerHandle;
   while (1) {
     timerHandle++;
     if (timerHandle != CHRE_TIMER_INVALID) {
@@ -145,11 +147,15 @@ TimerHandle TimerPool::generateUniqueTimerHandle() {
   }
 }
 
-void TimerPool::insertTimerRequest(const TimerRequest& timerRequest) {
+bool TimerPool::insertTimerRequest(const TimerRequest& timerRequest) {
   // If the timer request was not inserted, simply append it to the list.
-  if (!mTimerRequests.push(timerRequest)) {
-    FATAL_ERROR("Failed to insert a timer request: out of memory");
+  bool success = (mTimerRequests.size() < kMaxTimerRequests) &&
+      mTimerRequests.push(timerRequest);
+  if (!success) {
+    LOGE("Failed to insert a timer request: out of memory");
   }
+
+  return success;
 }
 
 void TimerPool::onSystemTimerCallback() {
@@ -162,35 +168,47 @@ void TimerPool::onSystemTimerCallback() {
 }
 
 bool TimerPool::handleExpiredTimersAndScheduleNext() {
-  bool eventWasPosted = false;
+  bool success = false;
   while (!mTimerRequests.empty()) {
     Nanoseconds currentTime = SystemTime::getMonotonicTime();
     TimerRequest& currentTimerRequest = mTimerRequests.top();
     if (currentTime >= currentTimerRequest.expirationTime) {
       // Post an event for an expired timer.
-      mEventLoop.postEvent(CHRE_EVENT_TIMER,
+      success = mEventLoop.postEvent(CHRE_EVENT_TIMER,
           const_cast<void *>(currentTimerRequest.cookie), nullptr,
           kSystemInstanceId,
-          currentTimerRequest.requestingNanoapp->getInstanceId());
-      eventWasPosted = true;
-
-      // Reschedule the timer if needed.
-      if (!currentTimerRequest.isOneShot) {
-        currentTimerRequest.expirationTime = currentTime
-            + currentTimerRequest.duration;
-        insertTimerRequest(currentTimerRequest);
+          currentTimerRequest.nanoappInstanceId);
+      if (!success) {
+        FATAL_ERROR("Failed to post timer event");
       }
 
-      // Release the current request.
-      mTimerRequests.pop();
+      // Reschedule the timer if needed, and release the current request.
+      if (!currentTimerRequest.isOneShot) {
+        // Important: we need to make a copy of currentTimerRequest here,
+        // because it's a reference to memory that may get moved during the
+        // insert operation (thereby invalidating it).
+        TimerRequest cyclicTimerRequest = currentTimerRequest;
+        cyclicTimerRequest.expirationTime = currentTime
+            + currentTimerRequest.duration;
+        mTimerRequests.pop();
+        CHRE_ASSERT(insertTimerRequest(cyclicTimerRequest));
+      } else {
+        mTimerRequests.pop();
+      }
     } else {
       Nanoseconds duration = currentTimerRequest.expirationTime - currentTime;
       mSystemTimer.set(handleSystemTimerCallback, this, duration);
+
+      // Assign success to true here to handle timers that tick before their
+      // expiration time. This should be rarely required, but for systems where
+      // a timer may tick earlier than requested the request is rescheduled with
+      // the remaining time as computed above.
+      success = true;
       break;
     }
   }
 
-  return eventWasPosted;
+  return success;
 }
 
 void TimerPool::handleSystemTimerCallback(void *timerPoolPtr) {

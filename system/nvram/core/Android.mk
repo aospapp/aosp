@@ -39,7 +39,7 @@ LOCAL_CFLAGS := -Wall -Werror -Wextra -DNVRAM_WIPE_STORAGE_SUPPORT
 LOCAL_CLANG := true
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
-LOCAL_SHARED_LIBRARIES := libnvram-messages-host libcrypto
+LOCAL_SHARED_LIBRARIES := libnvram-messages libcrypto
 include $(BUILD_HOST_STATIC_LIBRARY)
 
 include $(call all-makefiles-under,$(LOCAL_PATH))

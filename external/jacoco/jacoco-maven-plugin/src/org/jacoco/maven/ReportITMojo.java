@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,7 +13,13 @@
 package org.jacoco.maven;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Locale;
+
+import org.apache.maven.plugins.annotations.LifecyclePhase;
+import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
+import org.jacoco.report.IReportGroupVisitor;
 
 /**
  * Same as <code>report</code>, but provides default values suitable for
@@ -23,12 +29,9 @@ import java.util.Locale;
  * <li>different <code>dataFile</code></li>
  * </ul>
  * 
- * @phase verify
- * @goal report-integration
- * @requiresProject true
- * @threadSafe
  * @since 0.6.4
  */
+@Mojo(name = "report-integration", defaultPhase = LifecyclePhase.VERIFY, threadSafe = true)
 public class ReportITMojo extends AbstractReportMojo {
 
 	/**
@@ -37,17 +40,44 @@ public class ReportITMojo extends AbstractReportMojo {
 	 * build lifecycle. If the goal is run indirectly as part of a site
 	 * generation, the output directory configured in the Maven Site Plugin is
 	 * used instead.
-	 * 
-	 * @parameter default-value="${project.reporting.outputDirectory}/jacoco-it"
 	 */
+	@Parameter(defaultValue = "${project.reporting.outputDirectory}/jacoco-it")
 	private File outputDirectory;
 
 	/**
 	 * File with execution data.
-	 * 
-	 * @parameter default-value="${project.build.directory}/jacoco-it.exec"
 	 */
+	@Parameter(defaultValue = "${project.build.directory}/jacoco-it.exec")
 	private File dataFile;
+
+	@Override
+	boolean canGenerateReportRegardingDataFiles() {
+		return dataFile.exists();
+	}
+
+	@Override
+	boolean canGenerateReportRegardingClassesDirectory() {
+		return new File(getProject().getBuild().getOutputDirectory()).exists();
+	}
+
+	@Override
+	void loadExecutionData(final ReportSupport support) throws IOException {
+		support.loadExecutionData(dataFile);
+	}
+
+	@Override
+	void addFormatters(final ReportSupport support, final Locale locale)
+			throws IOException {
+		support.addAllFormatters(outputDirectory, outputEncoding, footer,
+				locale);
+	}
+
+	@Override
+	void createReport(final IReportGroupVisitor visitor,
+			final ReportSupport support) throws IOException {
+		support.processProject(visitor, title, getProject(), getIncludes(),
+				getExcludes(), sourceEncoding);
+	}
 
 	@Override
 	protected String getOutputDirectory() {
@@ -65,22 +95,10 @@ public class ReportITMojo extends AbstractReportMojo {
 		}
 	}
 
-	@Override
-	File getDataFile() {
-		return dataFile;
-	}
-
-	@Override
-	File getOutputDirectoryFile() {
-		return outputDirectory;
-	}
-
-	@Override
 	public String getOutputName() {
 		return "jacoco-it/index";
 	}
 
-	@Override
 	public String getName(final Locale locale) {
 		return "JaCoCo IT";
 	}

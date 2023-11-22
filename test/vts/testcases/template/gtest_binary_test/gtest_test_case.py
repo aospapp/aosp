@@ -15,13 +15,12 @@
 #
 
 import logging
-import ntpath
-import os
 import re
 import uuid
 
 from vts.runners.host import utils
 from vts.testcases.template.binary_test import binary_test_case
+from vts.utils.python.os import path_utils
 
 
 class GtestTestCase(binary_test_case.BinaryTestCase):
@@ -33,7 +32,7 @@ class GtestTestCase(binary_test_case.BinaryTestCase):
         path: string, absolute test binary path on device
         tag: string, test tag
         put_tag_func: function that takes a name and tag to output a combination
-        output_file_path: string, gtest output xml file name
+        output_file_path: string, gtest output xml path on device
     '''
 
     # @Override
@@ -49,7 +48,7 @@ class GtestTestCase(binary_test_case.BinaryTestCase):
         if output_file_path:
             self.output_file_path = output_file_path
         if not test_name:
-            test_name = self.GetFullName()
+            test_name = self.full_name
         return [('{cmd} --gtest_filter={test} '
                  '--gtest_output=xml:{output_file_path}').format(
                      cmd=super(GtestTestCase, self).GetRunCommand(),
@@ -64,7 +63,7 @@ class GtestTestCase(binary_test_case.BinaryTestCase):
         if not hasattr(self,
                        '_output_file_path') or self._output_file_path is None:
             self.output_file_path = '{directory}/gtest_output_{name}.xml'.format(
-                directory=ntpath.dirname(self.path),
+                directory=path_utils.TargetDirName(self.path),
                 name=re.sub(r'\W+', '_', str(self)))
         return self._output_file_path
 
@@ -79,23 +78,22 @@ class GtestTestCase(binary_test_case.BinaryTestCase):
         Args:
             output_file_path: string, intended path of output xml file
         """
-        output_file_path = os.path.normpath(output_file_path.strip())
+        output_file_path = path_utils.TargetNormPath(output_file_path.strip())
+        output_base_name = path_utils.TargetBaseName(output_file_path)
+        output_dir_name = path_utils.TargetDirName(output_file_path)
 
-        if len(ntpath.basename(output_file_path)) > utils.MAX_FILENAME_LEN:
-            logging.error(
-                'File name of output file "{}" is longer than {}.'.format(
-                    output_file_path), utils.MAX_FILENAME_LEN)
-            output_file_path = os.path.join(
-                ntpath.dirname(output_file_path),
-                '{}.xml'.format(uuid.uuid4()))
+        if len(output_base_name) > utils.MAX_FILENAME_LEN:
+            logging.warn('File name of output file "{}" is longer than {}.'.
+                         format(output_file_path, utils.MAX_FILENAME_LEN))
+            output_base_name = '{}.xml'.format(uuid.uuid4())
+            output_file_path = path_utils.JoinTargetPath(
+                output_dir_name, output_base_name)
             logging.info('Output file path is set as "%s".', output_file_path)
 
         if len(output_file_path) > utils.MAX_PATH_LEN:
-            logging.error(
-                'File path of output file "{}" is longer than {}.'.format(
-                    output_file_path), utils.MAX_PATH_LEN)
-            output_file_path = ntpath.basename(output_file_path)
-            logging.info('Output file path is set as "%s".',
-                         os.path.abspath(output_file_path))
+            logging.warn('File path of output file "{}" is longer than {}.'.
+                         format(output_file_path, utils.MAX_PATH_LEN))
+            output_file_path = output_base_name
+            logging.info('Output file path is set as "%s".', output_file_path)
 
         self._output_file_path = output_file_path

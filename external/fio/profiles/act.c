@@ -1,6 +1,7 @@
 #include "../fio.h"
 #include "../profile.h"
 #include "../parse.h"
+#include "../optgroup.h"
 
 /*
  * 1x loads
@@ -129,21 +130,21 @@ static struct fio_option options[] = {
 	},
 	{
 		.name	= "read-req-num-512-blocks",
-		.lname	= "Number of 512b blocks to read",
+		.lname	= "Number of 512B blocks to read",
 		.type	= FIO_OPT_INT,
 		.off1	= offsetof(struct act_options, num_read_blocks),
-		.help	= "Number of 512b blocks to read at the time",
+		.help	= "Number of 512B blocks to read at the time",
 		.def	= "3",
 		.category = FIO_OPT_C_PROFILE,
 		.group	= FIO_OPT_G_ACT,
 	},
 	{
 		.name	= "large-block-op-kbytes",
-		.lname	= "Size of large block ops (writes)",
+		.lname	= "Size of large block ops in KiB (writes)",
 		.type	= FIO_OPT_INT,
 		.off1	= offsetof(struct act_options, write_size),
-		.help	= "Size of large block ops (writes)",
-		.def	= "128k",
+		.help	= "Size of large block ops in KiB (writes)",
+		.def	= "131072",
 		.category = FIO_OPT_C_PROFILE,
 		.group	= FIO_OPT_G_ACT,
 	},
@@ -219,7 +220,7 @@ static int act_add_dev_prep(const char *dev)
 		return 1;
 	if (act_add_opt("filename=%s", dev))
 		return 1;
-	if (act_add_opt("bs=1M"))
+	if (act_add_opt("bs=1048576"))
 		return 1;
 	if (act_add_opt("zero_buffers"))
 		return 1;
@@ -233,7 +234,7 @@ static int act_add_dev_prep(const char *dev)
 		return 1;
 	if (act_add_opt("filename=%s", dev))
 		return 1;
-	if (act_add_opt("bs=4k"))
+	if (act_add_opt("bs=4096"))
 		return 1;
 	if (act_add_opt("ioengine=libaio"))
 		return 1;

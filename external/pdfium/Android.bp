@@ -1,0 +1,43 @@
+cc_defaults {
+    name: "pdfium-defaults",
+    cflags: [
+        "-O3",
+        "-fstrict-aliasing",
+        "-fprefetch-loop-arrays",
+        "-fexceptions",
+
+        "-Wno-non-virtual-dtor",
+        "-Wall",
+    ],
+
+    arch: {
+        arm: {
+            instruction_set: "arm",
+        },
+    },
+
+    header_libs: ["pdfium-headers"],
+}
+
+cc_library_headers {
+    name: "pdfium-headers",
+    export_include_dirs: ["."],
+}
+
+build = [
+    "pdfiumfdrm.bp",
+    "pdfiumfpdfapi.bp",
+    "pdfiumfpdfdoc.bp",
+    "pdfiumfpdftext.bp",
+    "pdfiumfxcodec.bp",
+    "pdfiumfxcrt.bp",
+    "pdfiumfxge.bp",
+
+    "pdfiumjavascript.bp",
+    "pdfiumformfiller.bp",
+    "pdfiumfxedit.bp",
+    "pdfiumpdfwindow.bp",
+    "pdfium.bp",
+]
+
+subdirs = ["third_party"]

@@ -902,6 +902,19 @@ public class AudioManagerTest extends InstrumentationTestCase {
         }
     }
 
+    public void testAdjustVolumeWithIllegalDirection() throws Exception {
+        // Call the method with illegal direction. System should not reboot.
+        mAudioManager.adjustVolume(37, 0);
+    }
+
+    public void testAdjustSuggestedStreamVolumeWithIllegalArguments() throws Exception {
+        // Call the method with illegal direction. System should not reboot.
+        mAudioManager.adjustSuggestedStreamVolume(37, AudioManager.STREAM_MUSIC, 0);
+
+        // Call the method with illegal stream. System should not reboot.
+        mAudioManager.adjustSuggestedStreamVolume(AudioManager.ADJUST_RAISE, 66747, 0);
+    }
+
     private void setInterruptionFilter(int filter) throws Exception {
         mNm.setInterruptionFilter(filter);
         for (int i = 0; i < 5; i++) {

@@ -21,6 +21,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.PermissionGroupInfo;
 import android.content.pm.PermissionInfo;
 import android.test.AndroidTestCase;
+import android.text.TextUtils;
 import android.util.ArrayMap;
 import android.util.ArraySet;
 import android.util.Log;
@@ -29,15 +30,24 @@ import org.xmlpull.v1.XmlPullParser;
 
 import java.io.InputStream;
 import java.lang.String;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import static android.os.Build.VERSION.SECURITY_PATCH;
 
 /**
  * Tests for permission policy on the platform.
  */
 public class PermissionPolicyTest extends AndroidTestCase {
+    private static final Date HIDE_NON_SYSTEM_OVERLAY_WINDOWS_PATCH_DATE = parseDate("2017-09-05");
+    private static final String HIDE_NON_SYSTEM_OVERLAY_WINDOWS_PERMISSION
+            = "android.permission.HIDE_NON_SYSTEM_OVERLAY_WINDOWS";
+
     private static final String LOG_TAG = "PermissionProtectionTest";
 
     private static final String PLATFORM_PACKAGE_NAME = "android";
@@ -54,6 +64,8 @@ public class PermissionPolicyTest extends AndroidTestCase {
         PackageInfo platformPackage = getContext().getPackageManager()
                 .getPackageInfo(PLATFORM_PACKAGE_NAME, PackageManager.GET_PERMISSIONS);
         Map<String, PermissionInfo> declaredPermissionsMap = new ArrayMap<>();
+        List<String> offendingList = new ArrayList<String>();
+
         for (PermissionInfo declaredPermission : platformPackage.permissions) {
             declaredPermissionsMap.put(declaredPermission.name, declaredPermission);
         }
@@ -68,11 +80,17 @@ public class PermissionPolicyTest extends AndroidTestCase {
         Set<String> expectedPermissionGroups = new ArraySet<String>();
 
         for (PermissionInfo expectedPermission : loadExpectedPermissions()) {
-            // OEMs cannot remove permissions
             String expectedPermissionName = expectedPermission.name;
+            if (shouldSkipPermission(expectedPermissionName)) {
+                continue;
+            }
+
+            // OEMs cannot remove permissions
             PermissionInfo declaredPermission = declaredPermissionsMap.get(expectedPermissionName);
-            assertNotNull("Permission " + expectedPermissionName
-                    + " must be declared", declaredPermission);
+            if (declaredPermission == null) {
+                offendingList.add("Permission " + expectedPermissionName + " must be declared");
+                continue;
+            }
 
             // We want to end up with OEM defined permissions and groups to check their namespace
             declaredPermissionsMap.remove(expectedPermissionName);
@@ -84,48 +102,79 @@ public class PermissionPolicyTest extends AndroidTestCase {
                     & PermissionInfo.PROTECTION_MASK_BASE;
             final int declaredProtection = declaredPermission.protectionLevel
                     & PermissionInfo.PROTECTION_MASK_BASE;
-            assertEquals("Permission " + expectedPermissionName + " invalid protection level",
-                    expectedProtection, declaredProtection);
+            if (expectedProtection != declaredProtection) {
+                offendingList.add(
+                        String.format(
+                                "Permission %s invalid protection level %x, expected %x",
+                                expectedPermissionName, declaredProtection, expectedProtection));
+            }
 
             // OEMs cannot change permission protection flags
             final int expectedProtectionFlags = expectedPermission.protectionLevel
                     & PermissionInfo.PROTECTION_MASK_FLAGS;
             final int declaredProtectionFlags = declaredPermission.protectionLevel
                     & PermissionInfo.PROTECTION_MASK_FLAGS;
-            assertEquals("Permission " + expectedPermissionName + " invalid enforced protection"
-                    + " level flags", expectedProtectionFlags, declaredProtectionFlags);
+            if (expectedProtectionFlags != declaredProtectionFlags) {
+                offendingList.add(
+                        String.format(
+                                "Permission %s invalid enforced protection %x, expected %x",
+                                expectedPermissionName,
+                                declaredProtectionFlags,
+                                expectedProtectionFlags));
+            }
 
             // OEMs cannot change permission grouping
             if ((declaredPermission.protectionLevel & PermissionInfo.PROTECTION_DANGEROUS) != 0) {
-                assertEquals("Permission " + expectedPermissionName + " not in correct group",
-                        expectedPermission.group, declaredPermission.group);
-                assertTrue("Permission group " + expectedPermission.group + "must be defined",
-                        declaredGroupsSet.contains(declaredPermission.group));
+                if (!expectedPermission.group.equals(declaredPermission.group)) {
+                    offendingList.add(
+                            "Permission " + expectedPermissionName + " not in correct group");
+                }
+
+                if (!declaredGroupsSet.contains(declaredPermission.group)) {
+                    offendingList.add(
+                            "Permission group " + expectedPermission.group + "must be defined");
+                }
             }
         }
 
         // OEMs cannot define permissions in the platform namespace
         for (String permission : declaredPermissionsMap.keySet()) {
-            assertFalse("Cannot define permission in android namespace:" + permission,
-                    permission.startsWith(PLATFORM_ROOT_NAMESPACE));
+            if (permission.startsWith(PLATFORM_ROOT_NAMESPACE)) {
+                offendingList.add("Cannot define permission in android namespace:" + permission);
+            }
         }
 
         // OEMs cannot define groups in the platform namespace
         for (PermissionGroupInfo declaredGroup : declaredGroups) {
             if (!expectedPermissionGroups.contains(declaredGroup.name)) {
-                assertFalse("Cannot define group " + declaredGroup.name + " in android namespace",
-                        declaredGroup.name != null
-                                && declaredGroup.packageName.equals(PLATFORM_PACKAGE_NAME)
-                                && declaredGroup.name.startsWith(PLATFORM_ROOT_NAMESPACE));
+                if (declaredGroup.name != null) {
+                    if (declaredGroup.packageName.equals(PLATFORM_PACKAGE_NAME)
+                            || declaredGroup.name.startsWith(PLATFORM_ROOT_NAMESPACE)) {
+                        offendingList.add(
+                                "Cannot define group "
+                                        + declaredGroup.name
+                                        + ", package "
+                                        + declaredGroup.packageName
+                                        + " in android namespace");
+                    }
+                }
             }
         }
 
         // OEMs cannot define new ephemeral permissions
         for (String permission : declaredPermissionsMap.keySet()) {
             PermissionInfo info = declaredPermissionsMap.get(permission);
-            assertFalse("Cannot define new ephemeral permission " + permission,
-                    (info.protectionLevel & PermissionInfo.PROTECTION_FLAG_EPHEMERAL) != 0);
+            if ((info.protectionLevel & PermissionInfo.PROTECTION_FLAG_INSTANT) != 0) {
+                offendingList.add("Cannot define new instant permission " + permission);
+            }
         }
+
+        // Fail on any offending item
+        String errMsg =
+                String.format(
+                        "Platform Permission Policy Unaltered:\n%s",
+                        TextUtils.join("\n", offendingList));
+        assertTrue(errMsg, offendingList.isEmpty());
     }
 
     private List<PermissionInfo> loadExpectedPermissions() throws Exception {
@@ -204,8 +253,8 @@ public class PermissionPolicyTest extends AndroidTestCase {
                 case "setup": {
                     protectionLevel |= PermissionInfo.PROTECTION_FLAG_SETUP;
                 } break;
-                case "ephemeral": {
-                    protectionLevel |= PermissionInfo.PROTECTION_FLAG_EPHEMERAL;
+                case "instant": {
+                    protectionLevel |= PermissionInfo.PROTECTION_FLAG_INSTANT;
                 } break;
                 case "runtime": {
                     protectionLevel |= PermissionInfo.PROTECTION_FLAG_RUNTIME_ONLY;
@@ -213,5 +262,22 @@ public class PermissionPolicyTest extends AndroidTestCase {
             }
         }
         return protectionLevel;
+    }
+
+    private static Date parseDate(String date) {
+        Date patchDate = new Date();
+        try {
+            SimpleDateFormat template = new SimpleDateFormat("yyyy-MM-dd");
+            patchDate = template.parse(date);
+        } catch (ParseException e) {
+        }
+
+        return patchDate;
+    }
+
+    private boolean shouldSkipPermission(String permissionName) {
+        return parseDate(SECURITY_PATCH).before(HIDE_NON_SYSTEM_OVERLAY_WINDOWS_PATCH_DATE) &&
+                HIDE_NON_SYSTEM_OVERLAY_WINDOWS_PERMISSION.equals(permissionName);
+
     }
 }

@@ -22,10 +22,10 @@ import android.car.CarManagerBase;
 import android.car.CarNotConnectedException;
 import android.car.cluster.renderer.IInstrumentClusterNavigation;
 import android.graphics.Bitmap;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.util.Log;
-
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
@@ -114,6 +114,22 @@ public final class CarNavigationStatusManager implements CarManagerBase {
     @Retention(RetentionPolicy.SOURCE)
     public @interface TurnEvent {}
 
+    /**
+     * Event type that holds information about next maneuver.
+     * @hide
+     */
+    public static final int EVENT_TYPE_NEXT_MANEUVER_INFO = 1;
+    /**
+     * Event type that holds information regarding distance/time to the next maneuver.
+     * @hide
+     */
+    public static final int EVENT_TYPE_NEXT_MANEUVER_COUNTDOWN = 2;
+    /**
+     * All custom (vendor-specific) event types should be equal or greater than this constant.
+     * @hide
+     */
+    public static final int EVENT_TYPE_VENDOR_FIRST = 1024;
+
     /* Turn Side */
     /** Turn is on the left side of the vehicle. */
     public static final int TURN_SIDE_LEFT = 1;
@@ -198,7 +214,7 @@ public final class CarNavigationStatusManager implements CarManagerBase {
      * drives on the left-hand side of the road, such as Australia; anti-clockwise for roads where
      * the car drives on the right, such as the USA).
      *
-     * @param event event type ({@link #TURN_TURN}, {@link #TURN_U_TURN},
+     * @param turnEvent turn event like ({@link #TURN_TURN}, {@link #TURN_U_TURN},
      *        {@link #TURN_ROUNDABOUT_ENTER_AND_EXIT}, etc).
      * @param eventName Name of the turn event like road name to turn. For example "Charleston road"
      *        in "Turn right to Charleston road"
@@ -212,6 +228,7 @@ public final class CarNavigationStatusManager implements CarManagerBase {
      *        {@link #TURN_SIDE_UNSPECIFIED}).
      * @throws CarNotConnectedException if the connection to the car service has been lost.
      *
+     * @deprecated Use {@link #sendEvent(int, Bundle)} instead.
      */
     public void sendNavigationTurnEvent(@TurnEvent int turnEvent, CharSequence eventName,
             int turnAngle, int turnNumber, Bitmap image, @TurnSide int turnSide)
@@ -238,6 +255,8 @@ public final class CarNavigationStatusManager implements CarManagerBase {
      * @param displayDistanceUnit units for {@param displayDistanceMillis} param.
      * See {@link DistanceUnit} for acceptable values.
      * @throws CarNotConnectedException if the connection to the car service has been lost.
+     *
+     * @deprecated Use {@link #sendEvent(int, Bundle)} instead.
      */
     public void sendNavigationTurnDistanceEvent(int distanceMeters, int timeSeconds,
             int displayDistanceMillis, @DistanceUnit int displayDistanceUnit)
@@ -245,6 +264,28 @@ public final class CarNavigationStatusManager implements CarManagerBase {
         try {
             mService.onNextManeuverDistanceChanged(distanceMeters, timeSeconds,
                     displayDistanceMillis, displayDistanceUnit);
+        } catch (IllegalStateException e) {
+            CarApiUtil.checkCarNotConnectedExceptionFromCarService(e);
+        } catch (RemoteException e) {
+            handleCarServiceRemoteExceptionAndThrow(e);
+        }
+    }
+
+    /**
+     * Sends events from navigation app to instrument cluster.
+     *
+     * @param eventType event type
+     * @param bundle object that holds data about the event
+     * @throws CarNotConnectedException if the connection to the car service has been lost.
+     *
+     * @see #EVENT_TYPE_NEXT_MANEUVER_INFO
+     * @see #EVENT_TYPE_NEXT_MANEUVER_COUNTDOWN
+     *
+     * @hide
+     */
+    public void sendEvent(int eventType, Bundle bundle) throws CarNotConnectedException {
+        try {
+            mService.onEvent(eventType, bundle);
         } catch (IllegalStateException e) {
             CarApiUtil.checkCarNotConnectedExceptionFromCarService(e);
         } catch (RemoteException e) {

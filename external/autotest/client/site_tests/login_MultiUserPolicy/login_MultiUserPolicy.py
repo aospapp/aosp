@@ -44,8 +44,7 @@ class login_MultiUserPolicy(test.test):
 
         # Start a session for the first user, and verify that no policy exists
         # for that user yet.
-        if not sm.StartSession(self._user1, ''):
-            raise error.TestError('Could not start session')
+        sm.StartSession(self._user1, '')
         policy_blob = sm.RetrievePolicyForUser(self._user1, byte_arrays=True)
         if policy_blob:
             raise error.TestError('session_manager already has user policy!')
@@ -61,38 +60,32 @@ class login_MultiUserPolicy(test.test):
                                                  public_key,
                                                  policy_data)
         try:
-          result = sm.StorePolicyForUser(self._user1,
-                                         dbus.ByteArray(policy_response))
-          if not result:
-              raise error.TestFail('Failed to store user policy')
-        except dbus.exceptions.DBusException, e:
-          raise error.TestFail('Call to StorePolicyForUser failed', e)
+            sm.StorePolicyForUser(self._user1, dbus.ByteArray(policy_response))
+        except dbus.exceptions.DBusException as e:
+            raise error.TestFail('Call to StorePolicyForUser failed', e)
 
         # Storing policy for the second user fails before his session starts.
         try:
-          result = sm.StorePolicyForUser(self._user2,
-                                         dbus.ByteArray(policy_response))
-          raise error.TestFail('Storing policy should fail before the session '
-                               'is started')
-        except dbus.exceptions.DBusException, e:
-          pass
+            sm.StorePolicyForUser(self._user2, dbus.ByteArray(policy_response))
+        except dbus.exceptions.DBusException:
+            pass
+        else:
+            raise error.TestFail('Storing policy should fail before the '
+                                 'session is started')
+
 
         # Now start the second user's session, and verify that he has no
         # policy stored yet.
-        if not sm.StartSession(self._user2, ''):
-            raise error.TestError('Could not start second session')
+        sm.StartSession(self._user2, '')
         policy_blob = sm.RetrievePolicyForUser(self._user2, byte_arrays=True)
         if policy_blob:
             raise error.TestError('session_manager already has user policy!')
 
         # Storing works now.
         try:
-          result = sm.StorePolicyForUser(self._user2,
-                                         dbus.ByteArray(policy_response))
-          if not result:
-              raise error.TestFail('Failed to store user policy')
-        except dbus.exceptions.DBusException, e:
-          raise error.TestFail('Call to StorePolicyForUser failed', e)
+            sm.StorePolicyForUser(self._user2, dbus.ByteArray(policy_response))
+        except dbus.exceptions.DBusException as e:
+            raise error.TestFail('Call to StorePolicyForUser failed', e)
 
         # Verify that retrieving policy works too.
         policy_blob = sm.RetrievePolicyForUser(self._user2, byte_arrays=True)

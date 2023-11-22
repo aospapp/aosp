@@ -143,6 +143,10 @@ public class BluetoothRestrictionTest extends BaseDeviceOwnerTest {
      * Behavior of getState() and isEnabled() are validated along the way.
      */
     private void disable() {
+        // Can't disable a bluetooth adapter that does not exist.
+        if (mBluetoothAdapter == null)
+            return;
+
         sleep(CHECK_WAIT_TIME_MS);
         if (mBluetoothAdapter.getState() == BluetoothAdapter.STATE_OFF) {
             assertFalse(mBluetoothAdapter.isEnabled());
@@ -200,6 +204,10 @@ public class BluetoothRestrictionTest extends BaseDeviceOwnerTest {
      * Behavior of getState() and isEnabled() are validated along the way.
      */
     private void enable() {
+        // Can't enable a bluetooth adapter that does not exist.
+        if (mBluetoothAdapter == null)
+            return;
+
         sleep(CHECK_WAIT_TIME_MS);
         if (mBluetoothAdapter.getState() == BluetoothAdapter.STATE_ON) {
             assertTrue(mBluetoothAdapter.isEnabled());

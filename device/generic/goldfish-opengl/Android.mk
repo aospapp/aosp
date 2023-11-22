@@ -32,6 +32,10 @@ ifeq ($(shell test $(PLATFORM_SDK_VERSION) -gt 25 && echo isApi26OrHigher),isApi
 EMUGL_COMMON_CFLAGS += -DGOLDFISH_HIDL_GRALLOC
 endif
 
+ifdef IS_AT_LEAST_OPD1
+    EMUGL_COMMON_CFLAGS += -DEMULATOR_OPENGL_POST_O=1
+endif
+
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -lt 18 && echo PreJellyBeanMr2),PreJellyBeanMr2)
     ifeq ($(ARCH_ARM_HAVE_TLS_REGISTER),true)
         EMUGL_COMMON_CFLAGS += -DHAVE_ARM_TLS_REGISTER
@@ -81,7 +85,6 @@ include $(EMUGL_PATH)/system/GLESv1/Android.mk
 include $(EMUGL_PATH)/system/GLESv2/Android.mk
 
 include $(EMUGL_PATH)/system/gralloc/Android.mk
-include $(EMUGL_PATH)/system/surfaceInterface/Android.mk
 include $(EMUGL_PATH)/system/egl/Android.mk
 
 endif # BUILD_EMULATOR_OPENGL == true

@@ -375,6 +375,8 @@ get_cores(void)
 }
 #endif
 
+extern char *blockdev_name;
+
 static void
 get_blockdev_name(char *bdev)
 {
@@ -402,9 +404,11 @@ get_blockdev_name(char *bdev)
 	} else if (strncmp(dev_name, "marlin", strlen("marlin")) == 0 ||
 		   strncmp(dev_name, "sailfish", strlen("sailfish")) == 0) {
 		strcpy(bdev, "sda");
+	} else if (blockdev_name != NULL) {
+		strcpy(bdev, blockdev_name);
 	} else {
 		fprintf(stderr,
-			"%s: Unknown device %s\n",
+			"%s: Unknown device %s, please specify block device name with -b\n",
 			progname, dev_name);
 		exit(1);
 	}

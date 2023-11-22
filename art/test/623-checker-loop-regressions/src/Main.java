@@ -280,7 +280,23 @@ public class Main {
     }
   }
 
-  // If vectorized, string encoding should be dealt with.
+  /// CHECK-START: void Main.string2Bytes(char[], java.lang.String) loop_optimization (before)
+  /// CHECK-DAG: Phi      loop:<<Loop:B\d+>> outer_loop:none
+  /// CHECK-DAG: ArrayGet loop:<<Loop>>      outer_loop:none
+  /// CHECK-DAG: ArraySet loop:<<Loop>>      outer_loop:none
+  //
+  /// CHECK-START-ARM: void Main.string2Bytes(char[], java.lang.String) loop_optimization (after)
+  /// CHECK-NOT: VecLoad
+  //
+  /// CHECK-START-ARM64: void Main.string2Bytes(char[], java.lang.String) loop_optimization (after)
+  /// CHECK-DAG: Phi      loop:<<Loop:B\d+>> outer_loop:none
+  /// CHECK-DAG: VecLoad  loop:<<Loop>>      outer_loop:none
+  /// CHECK-DAG: VecStore loop:<<Loop>>      outer_loop:none
+  //
+  // NOTE: should correctly deal with compressed and uncompressed cases.
+  //
+  /// CHECK-START-MIPS64: void Main.string2Bytes(char[], java.lang.String) loop_optimization (after)
+  /// CHECK-NOT: VecLoad
   private static void string2Bytes(char[] a, String b) {
     int min = Math.min(a.length, b.length());
     for (int i = 0; i < min; i++) {
@@ -316,7 +332,21 @@ public class Main {
   /// CHECK-DAG:               ArraySet [{{l\d+}},<<Phi>>,<<One>>] loop:<<Loop>>      outer_loop:none
   /// CHECK-DAG:               ArraySet [{{l\d+}},<<Phi>>,<<One>>] loop:<<Loop>>      outer_loop:none
   //
+  /// CHECK-START-ARM: void Main.oneBoth(short[], char[]) loop_optimization (after)
+  /// CHECK-DAG: <<One:i\d+>>  IntConstant 1                        loop:none
+  /// CHECK-DAG: <<Repl:d\d+>> VecReplicateScalar [<<One>>]         loop:none
+  /// CHECK-DAG: <<Phi:i\d+>>  Phi                                  loop:<<Loop:B\d+>> outer_loop:none
+  /// CHECK-DAG:               VecStore [{{l\d+}},<<Phi>>,<<Repl>>] loop:<<Loop>>      outer_loop:none
+  /// CHECK-DAG:               VecStore [{{l\d+}},<<Phi>>,<<Repl>>] loop:<<Loop>>      outer_loop:none
+  //
   /// CHECK-START-ARM64: void Main.oneBoth(short[], char[]) loop_optimization (after)
+  /// CHECK-DAG: <<One:i\d+>>  IntConstant 1                        loop:none
+  /// CHECK-DAG: <<Repl:d\d+>> VecReplicateScalar [<<One>>]         loop:none
+  /// CHECK-DAG: <<Phi:i\d+>>  Phi                                  loop:<<Loop:B\d+>> outer_loop:none
+  /// CHECK-DAG:               VecStore [{{l\d+}},<<Phi>>,<<Repl>>] loop:<<Loop>>      outer_loop:none
+  /// CHECK-DAG:               VecStore [{{l\d+}},<<Phi>>,<<Repl>>] loop:<<Loop>>      outer_loop:none
+  //
+  /// CHECK-START-MIPS64: void Main.oneBoth(short[], char[]) loop_optimization (after)
   /// CHECK-DAG: <<One:i\d+>>  IntConstant 1                        loop:none
   /// CHECK-DAG: <<Repl:d\d+>> VecReplicateScalar [<<One>>]         loop:none
   /// CHECK-DAG: <<Phi:i\d+>>  Phi                                  loop:<<Loop:B\d+>> outer_loop:none
@@ -338,6 +368,61 @@ public class Main {
       for (int i = 0, u = a[0]; i < u; i++) {
         b[i] += 2;
       }
+    }
+  }
+
+  /// CHECK-START: void Main.typeConv(byte[], byte[]) loop_optimization (before)
+  /// CHECK-DAG: <<One:i\d+>>  IntConstant 1                       loop:none
+  /// CHECK-DAG: <<Phi:i\d+>>  Phi                                 loop:<<Loop:B\d+>> outer_loop:none
+  /// CHECK-DAG: <<Get:b\d+>>  ArrayGet [{{l\d+}},<<Phi>>]         loop:<<Loop>>      outer_loop:none
+  /// CHECK-DAG: <<Add:i\d+>>  Add [<<Get>>,<<One>>]               loop:<<Loop>>      outer_loop:none
+  /// CHECK-DAG: <<Cnv:b\d+>>  TypeConversion [<<Add>>]            loop:<<Loop>>      outer_loop:none
+  /// CHECK-DAG:               ArraySet [{{l\d+}},<<Phi>>,<<Cnv>>] loop:<<Loop>>      outer_loop:none
+  //
+  /// CHECK-START-ARM: void Main.typeConv(byte[], byte[]) loop_optimization (after)
+  /// CHECK-DAG: <<One:i\d+>>  IntConstant 1                         loop:none
+  /// CHECK-DAG: <<Repl:d\d+>> VecReplicateScalar [<<One>>]          loop:none
+  /// CHECK-DAG: <<Phi1:i\d+>> Phi                                   loop:<<Loop1:B\d+>> outer_loop:none
+  /// CHECK-DAG: <<Load:d\d+>> VecLoad [{{l\d+}},<<Phi1>>]           loop:<<Loop1>>      outer_loop:none
+  /// CHECK-DAG: <<Vadd:d\d+>> VecAdd [<<Load>>,<<Repl>>]            loop:<<Loop1>>      outer_loop:none
+  /// CHECK-DAG:               VecStore [{{l\d+}},<<Phi1>>,<<Vadd>>] loop:<<Loop1>>      outer_loop:none
+  /// CHECK-DAG: <<Phi2:i\d+>> Phi                                   loop:<<Loop2:B\d+>> outer_loop:none
+  /// CHECK-DAG: <<Get:b\d+>>  ArrayGet [{{l\d+}},<<Phi2>>]          loop:<<Loop2>>      outer_loop:none
+  /// CHECK-DAG: <<Add:i\d+>>  Add [<<Get>>,<<One>>]                 loop:<<Loop2>>      outer_loop:none
+  /// CHECK-DAG: <<Cnv:b\d+>>  TypeConversion [<<Add>>]              loop:<<Loop2>>      outer_loop:none
+  /// CHECK-DAG:               ArraySet [{{l\d+}},<<Phi2>>,<<Cnv>>]  loop:<<Loop2>>      outer_loop:none
+  //
+  /// CHECK-START-ARM64: void Main.typeConv(byte[], byte[]) loop_optimization (after)
+  /// CHECK-DAG: <<One:i\d+>>  IntConstant 1                         loop:none
+  /// CHECK-DAG: <<Repl:d\d+>> VecReplicateScalar [<<One>>]          loop:none
+  /// CHECK-DAG: <<Phi1:i\d+>> Phi                                   loop:<<Loop1:B\d+>> outer_loop:none
+  /// CHECK-DAG: <<Load:d\d+>> VecLoad [{{l\d+}},<<Phi1>>]           loop:<<Loop1>>      outer_loop:none
+  /// CHECK-DAG: <<Vadd:d\d+>> VecAdd [<<Load>>,<<Repl>>]            loop:<<Loop1>>      outer_loop:none
+  /// CHECK-DAG:               VecStore [{{l\d+}},<<Phi1>>,<<Vadd>>] loop:<<Loop1>>      outer_loop:none
+  /// CHECK-DAG: <<Phi2:i\d+>> Phi                                   loop:<<Loop2:B\d+>> outer_loop:none
+  /// CHECK-DAG: <<Get:b\d+>>  ArrayGet [{{l\d+}},<<Phi2>>]          loop:<<Loop2>>      outer_loop:none
+  /// CHECK-DAG: <<Add:i\d+>>  Add [<<Get>>,<<One>>]                 loop:<<Loop2>>      outer_loop:none
+  /// CHECK-DAG: <<Cnv:b\d+>>  TypeConversion [<<Add>>]              loop:<<Loop2>>      outer_loop:none
+  /// CHECK-DAG:               ArraySet [{{l\d+}},<<Phi2>>,<<Cnv>>]  loop:<<Loop2>>      outer_loop:none
+  //
+  /// CHECK-START-MIPS64: void Main.typeConv(byte[], byte[]) loop_optimization (after)
+  /// CHECK-DAG: <<One:i\d+>>  IntConstant 1                         loop:none
+  /// CHECK-DAG: <<Repl:d\d+>> VecReplicateScalar [<<One>>]          loop:none
+  /// CHECK-DAG: <<Phi1:i\d+>> Phi                                   loop:<<Loop1:B\d+>> outer_loop:none
+  /// CHECK-DAG: <<Load:d\d+>> VecLoad [{{l\d+}},<<Phi1>>]           loop:<<Loop1>>      outer_loop:none
+  /// CHECK-DAG: <<Vadd:d\d+>> VecAdd [<<Load>>,<<Repl>>]            loop:<<Loop1>>      outer_loop:none
+  /// CHECK-DAG:               VecStore [{{l\d+}},<<Phi1>>,<<Vadd>>] loop:<<Loop1>>      outer_loop:none
+  /// CHECK-DAG: <<Phi2:i\d+>> Phi                                   loop:<<Loop2:B\d+>> outer_loop:none
+  /// CHECK-DAG: <<Get:b\d+>>  ArrayGet [{{l\d+}},<<Phi2>>]          loop:<<Loop2>>      outer_loop:none
+  /// CHECK-DAG: <<Add:i\d+>>  Add [<<Get>>,<<One>>]                 loop:<<Loop2>>      outer_loop:none
+  /// CHECK-DAG: <<Cnv:b\d+>>  TypeConversion [<<Add>>]              loop:<<Loop2>>      outer_loop:none
+  /// CHECK-DAG:               ArraySet [{{l\d+}},<<Phi2>>,<<Cnv>>]  loop:<<Loop2>>      outer_loop:none
+  //
+  // Scalar code in cleanup loop uses correct byte type on array get and type conversion.
+  private static void typeConv(byte[] a, byte[] b) {
+    int len = Math.min(a.length, b.length);
+    for (int i = 0; i < len; i++) {
+      a[i] = (byte) (b[i] + 1);
     }
   }
 
@@ -421,6 +506,11 @@ public class Main {
     for (int i = 0; i < aa.length; i++) {
       expectEquals(aa[i], bb.charAt(i));
     }
+    String cc = "\u1010\u2020llo world how are y\u3030\u4040";
+    string2Bytes(aa, cc);
+    for (int i = 0; i < aa.length; i++) {
+      expectEquals(aa[i], cc.charAt(i));
+    }
 
     envUsesInCond();
 
@@ -436,6 +526,17 @@ public class Main {
     arrayInTripCount(xx, bt, 20);
     for (int i = 0; i < bt.length; i++) {
       expectEquals(40, bt[i]);
+    }
+
+    byte[] b1 = new byte[259];  // few extra iterations
+    byte[] b2 = new byte[259];
+    for (int i = 0; i < 259; i++) {
+      b1[i] = 0;
+      b2[i] = (byte) i;
+    }
+    typeConv(b1, b2);
+    for (int i = 0; i < 259; i++) {
+      expectEquals((byte)(i + 1), b1[i]);
     }
 
     System.out.println("passed");

@@ -4,10 +4,6 @@
 
 """Utility functions for interacting with devices supporting adb commands. The
 functions only work with an Autotest instance setup, e.g., in a lab.
-
-The functions here calls methods in afe_utils to get host attributes and other
-information through AFE RPC. Therefore, they are not included in adb_host.py.
-For methods does not rely on AFE RPC, they should be included in ADBHost class.
 """
 
 
@@ -17,7 +13,6 @@ import logging
 import common
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import dev_server
-from autotest_lib.server import afe_utils
 
 
 def install_apk_from_build(host, apk, build_artifact, package_name=None,
@@ -50,8 +45,8 @@ def install_apk_from_build(host, apk, build_artifact, package_name=None,
         # Return devserver_url given Android build path
         job_repo_url = os.path.join(host_devserver_url, build_name)
     else:
-        job_repo_url = afe_utils.get_host_attribute(
-                host, host.job_repo_url_attribute)
+        info = host.host_info_store.get()
+        job_repo_url = info.attributes.get(host.job_repo_url_attribute, '')
     if not job_repo_url:
         raise error.AutoservError(
                 'The host %s has no attribute %s. `install_apk_from_build` '

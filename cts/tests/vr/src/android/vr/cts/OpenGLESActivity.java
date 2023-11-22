@@ -54,6 +54,10 @@ public class OpenGLESActivity extends Activity {
     public static final int EGL_MUTABLE_RENDER_BUFFER_BIT = 0x1000;
     private static final int EGL_OPENGL_ES3_BIT_KHR = 0x40;
 
+    public static final int RENDERER_BASIC = 1;
+    public static final int RENDERER_PROTECTEDTEXTURES = 2;
+    public static final int RENDERER_REFRESHRATE = 3;
+
     OpenGLES20View mView;
     Renderer mRenderer;
     int mRendererType;
@@ -183,7 +187,7 @@ public class OpenGLESActivity extends Activity {
 
     class OpenGLES20View extends GLSurfaceView {
 
-        public OpenGLES20View(Context context, int index, int protectedAttribute,
+        public OpenGLES20View(Context context, int renderer, int protectedAttribute,
             int priorityAttribute, int mutableAttribute, CountDownLatch latch) {
             super(context);
             setEGLContextClientVersion(2);
@@ -198,11 +202,11 @@ public class OpenGLESActivity extends Activity {
             }
 
 
-            if (index == 1) {
+            if (renderer == RENDERER_BASIC) {
                 mRenderer = new RendererBasicTest(latch);
-            } else  if (index == 2) {
+            } else if (renderer == RENDERER_PROTECTEDTEXTURES) {
                 mRenderer = new RendererProtectedTexturesTest(latch);
-            } else  if (index == 3) {
+            } else if (renderer == RENDERER_REFRESHRATE) {
                 mRenderer = new RendererRefreshRateTest(latch);
             } else {
                 throw new RuntimeException();

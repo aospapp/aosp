@@ -83,9 +83,7 @@ public class BitmapAsserter {
             String testName, String debugMessage) {
         int width = bitmap.getWidth();
         int height = bitmap.getHeight();
-        int[] pixels = new int[width * height];
-        bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
-        boolean success = bitmapVerifier.verify(pixels, 0, width, width, height);
+        boolean success = bitmapVerifier.verify(bitmap);
         if (!success) {
             Bitmap croppedBitmap = Bitmap.createBitmap(bitmap, 0, 0, width, height);
             BitmapDumper.dumpBitmap(croppedBitmap, testName, mClassName);

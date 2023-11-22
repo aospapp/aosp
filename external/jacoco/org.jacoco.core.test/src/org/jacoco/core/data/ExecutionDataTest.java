@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2015 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -51,6 +51,22 @@ public class ExecutionDataTest {
 		assertFalse(e.getProbes()[0]);
 		assertFalse(e.getProbes()[1]);
 		assertFalse(e.getProbes()[2]);
+	}
+
+	@Test
+	public void testHasHits() {
+		final boolean[] probes = new boolean[] { false, false, false };
+		final ExecutionData e = new ExecutionData(5, "Example", probes);
+		assertFalse(e.hasHits());
+		probes[1] = true;
+		assertTrue(e.hasHits());
+	}
+
+	@Test
+	public void testHasHits_empty() {
+		final boolean[] probes = new boolean[] {};
+		final ExecutionData e = new ExecutionData(5, "Example", probes);
+		assertFalse(e.hasHits());
 	}
 
 	@Test

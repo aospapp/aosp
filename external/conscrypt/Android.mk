@@ -72,15 +72,14 @@ $(conscrypt_gen_java_files): $(conscrypt_generate_constants_exe)
 	mkdir -p $(dir $@)
 	$< > $@
 
-common_java_files := $(filter-out \
-	%/org/conscrypt/Platform.java \
-	%/org/conscrypt/NativeCryptoJni.java \
-	, $(call all-java-files-under,common/src/main/java))
+common_java_files := $(call all-java-files-under,common/src/main/java)
+
+bundled_main_java_files := $(common_java_files)
+bundled_main_java_files += $(call all-java-files-under,platform/src/main/java)
 
 # Create the conscrypt library
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(common_java_files)
-LOCAL_SRC_FILES += $(call all-java-files-under,platform/src/main/java)
+LOCAL_SRC_FILES := $(bundled_main_java_files)
 LOCAL_GENERATED_SOURCES := $(conscrypt_gen_java_files)
 LOCAL_JAVA_LIBRARIES := core-oj core-libart
 LOCAL_NO_STANDARD_LIBRARIES := true
@@ -96,8 +95,7 @@ include $(BUILD_JAVA_LIBRARY)
 # The build system may or may not strip the conscrypt jar, but this one will
 # not be stripped. See b/24535627.
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(common_java_files)
-LOCAL_SRC_FILES += $(call all-java-files-under,platform/src/main/java)
+LOCAL_SRC_FILES := $(bundled_main_java_files)
 LOCAL_GENERATED_SOURCES := $(conscrypt_gen_java_files)
 LOCAL_JAVA_LIBRARIES := core-oj core-libart
 LOCAL_NO_STANDARD_LIBRARIES := true
@@ -111,8 +109,7 @@ include $(BUILD_JAVA_LIBRARY)
 
 # Create the conscrypt library without jarjar for tests
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(common_java_files)
-LOCAL_SRC_FILES += $(call all-java-files-under,platform/src/main/java)
+LOCAL_SRC_FILES := $(bundled_main_java_files)
 LOCAL_GENERATED_SOURCES := $(conscrypt_gen_java_files)
 LOCAL_JAVA_LIBRARIES := core-oj core-libart
 LOCAL_NO_STANDARD_LIBRARIES := true
@@ -122,11 +119,7 @@ LOCAL_MODULE := conscrypt-nojarjar
 LOCAL_JAVA_LANGUAGE_VERSION := 1.7
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
-bundled_test_java_files := $(filter-out \
-	%/org/conscrypt/NativeCryptoTest.java \
-	%/org/conscrypt/OpenSSLSocketImplTest.java \
-	, $(call all-java-files-under,openjdk/src/test/java))
-bundled_test_java_files += $(call all-java-files-under,platform/src/test/java)
+bundled_test_java_files := $(call all-java-files-under,platform/src/test/java)
 bundled_test_java_files += $(call all-java-files-under,testing/src/main/java)
 bundled_test_java_files := $(foreach j,$(bundled_test_java_files),\
 	$(if $(findstring testing/src/main/java/libcore/,$(j)),,$(j)))
@@ -218,8 +211,7 @@ ifeq ($(HOST_OS),linux)
 
 # Make the conscrypt-hostdex library
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(common_java_files)
-LOCAL_SRC_FILES += $(call all-java-files-under,platform/src/main/java)
+LOCAL_SRC_FILES := $(bundled_main_java_files)
 LOCAL_GENERATED_SOURCES := $(conscrypt_gen_java_files)
 LOCAL_JAVACFLAGS := $(local_javac_flags)
 LOCAL_JARJAR_RULES := $(LOCAL_PATH)/jarjar-rules.txt
@@ -231,8 +223,7 @@ include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
 
 # Make the conscrypt-hostdex-nojarjar for tests
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(common_java_files)
-LOCAL_SRC_FILES += $(call all-java-files-under,platform/src/main/java)
+LOCAL_SRC_FILES := $(bundled_main_java_files)
 LOCAL_GENERATED_SOURCES := $(conscrypt_gen_java_files)
 LOCAL_JAVACFLAGS := $(local_javac_flags)
 LOCAL_BUILD_HOST_DEX := true

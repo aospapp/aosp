@@ -18,11 +18,14 @@ class platform_CryptohomeStress(test.test):
        states, and interrupt disk activity.
     """
     version = 1
+
     def initialize(self):
         for signal_file in [SUSPEND_END]:
             if os.path.exists(signal_file):
                 logging.warning('removing existing stop file %s', signal_file)
                 os.unlink(signal_file)
+        self.d_ratio = utils.system_output('cat /proc/sys/vm/dirty_ratio')
+        utils.system('echo 1 > /proc/sys/vm/dirty_ratio')
     random.seed() # System time is fine.
 
 
@@ -33,12 +36,16 @@ class platform_CryptohomeStress(test.test):
             error.TestFail('fiostress not triggered.'),
             timeout=30, sleep_interval=1)
         open(SUSPEND_START, 'w').close()
-        # Pad disk stress runtime by 60s for safety.
-        runtime = runtime + 60
+        # Pad disk stress runtime for safety.
+        runtime = runtime*3
         utils.poll_for_condition(
             lambda: os.path.exists(CRYPTOHOMESTRESS_END),
             error.TestFail('fiostress runtime exceeded.'),
             timeout=runtime, sleep_interval=10)
 
+
     def cleanup(self):
         open(SUSPEND_END, 'w').close()
+        command = 'echo %s > /proc/sys/vm/dirty_ratio' % self.d_ratio
+        utils.system(command)
+

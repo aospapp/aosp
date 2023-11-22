@@ -24,14 +24,16 @@ namespace chre {
 class PlatformWwan : public PlatformWwanBase {
  public:
   /**
-   * Performs platform-specific initialization of the PlatformWwan instance.
-   */
-  PlatformWwan();
-
-  /**
    * Performs platform-specific deinitialization of the PlatformWwan instance.
    */
   ~PlatformWwan();
+
+  /**
+   * Initializes the platform-specific WWAN implementation. This is potentially
+   * called at a later stage of initialization than the constructor, so platform
+   * implementations are encouraged to put any blocking initialization here.
+   */
+  void init();
 
   /**
    * Returns the set of WWAN capabilities that the platform has exposed. This
@@ -40,6 +42,24 @@ class PlatformWwan : public PlatformWwanBase {
    * @return the WWAN capabilities exposed by this platform.
    */
   uint32_t getCapabilities();
+
+  /**
+   * Requests information about the current cell tower and neighbors. Refer to
+   * the {@link chrePalWwanApi} struct of the CHRE API which includes further
+   * documentation. The semantics of this implementation must be the same as
+   * those provided by the CHRE PAL.
+   *
+   * @return true if the request was accepted.
+   */
+  bool requestCellInfo();
+
+  /**
+   * Releases a previously published cell info result. Refer to the
+   * {@link chrePalWwanApi} struct of the CHRE API for further documentation.
+   *
+   * @param result a pointer to a result to be released.
+   */
+  void releaseCellInfoResult(chreWwanCellInfoResult *result);
 };
 
 }  // namespace chre

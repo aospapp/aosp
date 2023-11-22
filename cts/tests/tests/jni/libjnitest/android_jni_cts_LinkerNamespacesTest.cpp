@@ -77,7 +77,9 @@ static bool is_directory(const std::string& path) {
 
 static bool not_accessible(const std::string& library, const std::string& err) {
   return err.find("dlopen failed: library \"" + library + "\"") == 0 &&
-         err.find("is not accessible for the namespace \"classloader-namespace\"") != std::string::npos;
+         (err.find("is not accessible for the namespace \"classloader-namespace\"") != std::string::npos ||
+          err.find("is not accessible for the namespace \"sphal\"") != std::string::npos ||
+          err.find("is not accessible for the namespace \"(default)\"") != std::string::npos);
 }
 
 static bool not_found(const std::string& library, const std::string& err) {

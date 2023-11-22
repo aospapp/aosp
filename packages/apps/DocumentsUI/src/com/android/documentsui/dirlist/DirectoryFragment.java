@@ -31,12 +31,9 @@ import android.app.ActivityManager;
 import android.app.Fragment;
 import android.app.FragmentManager;
 import android.app.FragmentTransaction;
-import android.content.ClipData;
 import android.content.Context;
 import android.content.Intent;
-import android.content.res.Resources;
 import android.database.Cursor;
-import android.graphics.drawable.StateListDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -53,7 +50,6 @@ import android.support.v7.widget.RecyclerView.ViewHolder;
 import android.util.Log;
 import android.util.SparseArray;
 import android.view.ContextMenu;
-import android.view.DragEvent;
 import android.view.HapticFeedbackConstants;
 import android.view.LayoutInflater;
 import android.view.MenuInflater;
@@ -69,16 +65,15 @@ import com.android.documentsui.BaseActivity;
 import com.android.documentsui.BaseActivity.RetainedState;
 import com.android.documentsui.DirectoryReloadLock;
 import com.android.documentsui.DocumentsApplication;
-import com.android.documentsui.DragAndDropHelper;
 import com.android.documentsui.FocusManager;
 import com.android.documentsui.Injector;
 import com.android.documentsui.Injector.ContentScoped;
 import com.android.documentsui.Injector.Injected;
-import com.android.documentsui.ItemDragListener;
 import com.android.documentsui.Metrics;
 import com.android.documentsui.Model;
 import com.android.documentsui.R;
 import com.android.documentsui.ThumbnailCache;
+import com.android.documentsui.base.DocumentFilters;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.base.EventHandler;
@@ -117,8 +112,7 @@ import javax.annotation.Nullable;
 /**
  * Display the documents inside a single directory.
  */
-public class DirectoryFragment extends Fragment
-        implements ItemDragListener.DragHost, SwipeRefreshLayout.OnRefreshListener {
+public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.OnRefreshListener {
 
     static final int TYPE_NORMAL = 1;
     static final int TYPE_RECENT_OPEN = 2;
@@ -170,7 +164,6 @@ public class DirectoryFragment extends Fragment
     private IconHelper mIconHelper;
     private SwipeRefreshLayout mRefreshLayout;
     private RecyclerView mRecView;
-    private View mFileList;
 
     private DocumentsAdapter mAdapter;
     private DocumentClipper mClipper;
@@ -184,6 +177,8 @@ public class DirectoryFragment extends Fragment
 
     private DirectoryState mLocalState;
     private DirectoryReloadLock mReloadLock = new DirectoryReloadLock();
+
+    private Runnable mBandSelectStarted;
 
     // Note, we use !null to indicate that selection was restored (from rotation).
     // So don't fiddle with this field unless you've got the bigger picture in mind.
@@ -202,7 +197,7 @@ public class DirectoryFragment extends Fragment
     public View onCreateView(
             LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
 
-        BaseActivity activity = (BaseActivity) getActivity();
+        mActivity = (BaseActivity) getActivity();
         final View view = inflater.inflate(R.layout.fragment_directory, container, false);
 
         mProgressBar = view.findViewById(R.id.progressbar);
@@ -219,30 +214,32 @@ public class DirectoryFragment extends Fragment
 
         mRefreshLayout = (SwipeRefreshLayout) view.findViewById(R.id.refresh_layout);
         mRefreshLayout.setOnRefreshListener(this);
+        mRecView.setItemAnimator(new DirectoryItemAnimator(mActivity));
 
-        Resources resources = getContext().getResources();
-        new FastScroller(mRecView,
-                (StateListDrawable) resources.getDrawable(R.drawable.fast_scroll_thumb_drawable),
-                resources.getDrawable(R.drawable.fast_scroll_track_drawable),
-                (StateListDrawable) resources.getDrawable(R.drawable.fast_scroll_thumb_drawable),
-                resources.getDrawable(R.drawable.fast_scroll_track_drawable),
-                resources.getDimensionPixelSize(R.dimen.fastscroll_default_thickness),
-                resources.getDimensionPixelSize(R.dimen.fastscroll_minimum_range),
-                resources.getDimensionPixelOffset(R.dimen.fastscroll_margin)
-                );
-        mRecView.setItemAnimator(new DirectoryItemAnimator(activity));
-        mFileList = view.findViewById(R.id.file_list);
-
-        mInjector = activity.getInjector();
+        mInjector = mActivity.getInjector();
         mModel = mInjector.getModel();
         mModel.reset();
 
         mInjector.actions.registerDisplayStateChangedListener(mOnDisplayStateChanged);
 
-        mDragHoverListener = mInjector.config.dragAndDropEnabled()
-                ? DragHoverListener.create(new DirectoryDragListener(this), mRecView)
-                : null;
-
+        mClipper = DocumentsApplication.getDocumentClipper(getContext());
+        if (mInjector.config.dragAndDropEnabled()) {
+            DirectoryDragListener listener = new DirectoryDragListener(
+                    new DragHost<>(
+                            mActivity,
+                            DocumentsApplication.getDragAndDropManager(mActivity),
+                            mInjector.selectionMgr,
+                            mInjector.actions,
+                            mActivity.getDisplayState(),
+                            mInjector.dialogs,
+                            (View v) -> {
+                                return getModelId(v) != null;
+                            },
+                            this::getDocumentHolder,
+                            this::getDestination
+                    ));
+            mDragHoverListener = DragHoverListener.create(listener, mRecView);
+        }
         // Make the recycler and the empty views responsive to drop events when allowed.
         mRecView.setOnDragListener(mDragHoverListener);
 
@@ -264,6 +261,10 @@ public class DirectoryFragment extends Fragment
         mModel.removeUpdateListener(mModelUpdateListener);
         mModel.removeUpdateListener(mAdapter.getModelUpdateListener());
 
+        if (mBandController != null) {
+            mBandController.removeBandSelectStartedListener(mBandSelectStarted);
+        }
+
         super.onDestroyView();
     }
 
@@ -271,7 +272,6 @@ public class DirectoryFragment extends Fragment
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
 
-        mActivity = (BaseActivity) getActivity();
         mState = mActivity.getDisplayState();
 
         // Read arguments when object created for the first time.
@@ -291,10 +291,11 @@ public class DirectoryFragment extends Fragment
         }
 
         mIconHelper = new IconHelper(mActivity, MODE_GRID);
-        mClipper = DocumentsApplication.getDocumentClipper(getContext());
 
         mAdapter = new DirectoryAddonsAdapter(
-                mAdapterEnv, new ModelBackedDocumentsAdapter(mAdapterEnv, mIconHelper));
+                mAdapterEnv,
+                new ModelBackedDocumentsAdapter(mAdapterEnv, mIconHelper, mInjector.fileTypeLookup)
+        );
 
         mRecView.setAdapter(mAdapter);
 
@@ -339,20 +340,20 @@ public class DirectoryFragment extends Fragment
                         RecyclerView.ViewHolder vh = mRecView.findViewHolderForAdapterPosition(pos);
                         return ModelBackedDocumentsAdapter.isContentType(vh.getItemViewType());
                     });
+            mBandSelectStarted = mFocusManager::clearFocus;
+            mBandController.addBandSelectStartedListener(mBandSelectStarted);
         }
 
         DragStartListener mDragStartListener = mInjector.config.dragAndDropEnabled()
                 ? DragStartListener.create(
                         mIconHelper,
-                        mActivity,
                         mModel,
                         mSelectionMgr,
-                        mClipper,
+                        mSelectionMetadata,
                         mState,
                         this::getModelId,
                         mRecView::findChildViewUnder,
-                        getContext().getDrawable(R.drawable.ic_doc_generic),
-                        mActivity.getShadowBuilder())
+                        DocumentsApplication.getDragAndDropManager(mActivity))
                 : DragStartListener.DUMMY;
 
         EventHandler<InputEvent> gestureHandler = mState.allowMultiple
@@ -460,7 +461,7 @@ public class DirectoryFragment extends Fragment
         return handleMenuItemClick(item);
     }
 
-    private void handleCopyResult(int resultCode, Intent data) {
+    private void onCopyDestinationPicked(int resultCode, Intent data) {
 
         FileOperation operation = mLocalState.claimPendingOperation();
 
@@ -472,10 +473,13 @@ public class DirectoryFragment extends Fragment
         }
 
         operation.setDestination(data.getParcelableExtra(Shared.EXTRA_STACK));
+        final String jobId = FileOperations.createJobId();
+        mInjector.dialogs.showProgressDialog(jobId, operation);
         FileOperations.start(
                 mActivity,
                 operation,
-                mInjector.dialogs::showFileOperationStatus);
+                mInjector.dialogs::showFileOperationStatus,
+                jobId);
     }
 
     protected boolean onContextMenuClick(InputEvent e) {
@@ -605,37 +609,41 @@ public class DirectoryFragment extends Fragment
         Selection selection = mSelectionMgr.getSelection(new Selection());
 
         switch (item.getItemId()) {
-            case R.id.menu_open:
+            case R.id.action_menu_open:
+            case R.id.dir_menu_open:
                 openDocuments(selection);
                 mActionModeController.finishActionMode();
                 return true;
 
-            case R.id.menu_open_with:
+            case R.id.action_menu_open_with:
+            case R.id.dir_menu_open_with:
                 showChooserForDoc(selection);
                 return true;
 
-            case R.id.menu_open_in_new_window:
+            case R.id.dir_menu_open_in_new_window:
                 mActions.openSelectedInNewWindow();
                 return true;
 
-            case R.id.menu_share:
+            case R.id.action_menu_share:
+            case R.id.dir_menu_share:
                 mActions.shareSelectedDocuments();
                 return true;
 
-            case R.id.menu_delete:
+            case R.id.action_menu_delete:
+            case R.id.dir_menu_delete:
                 // deleteDocuments will end action mode if the documents are deleted.
                 // It won't end action mode if user cancels the delete.
                 mActions.deleteSelectedDocuments();
                 return true;
 
-            case R.id.menu_copy_to:
+            case R.id.action_menu_copy_to:
                 transferDocuments(selection, null, FileOperationService.OPERATION_COPY);
                 // TODO: Only finish selection mode if copy-to is not canceled.
                 // Need to plum down into handling the way we do with deleteDocuments.
                 mActionModeController.finishActionMode();
                 return true;
 
-            case R.id.menu_compress:
+            case R.id.action_menu_compress:
                 transferDocuments(selection, mState.stack,
                         FileOperationService.OPERATION_COMPRESS);
                 // TODO: Only finish selection mode if compress is not canceled.
@@ -644,57 +652,70 @@ public class DirectoryFragment extends Fragment
                 return true;
 
             // TODO: Implement extract (to the current directory).
-            case R.id.menu_extract_to:
+            case R.id.action_menu_extract_to:
                 transferDocuments(selection, null, FileOperationService.OPERATION_EXTRACT);
                 // TODO: Only finish selection mode if compress-to is not canceled.
                 // Need to plum down into handling the way we do with deleteDocuments.
                 mActionModeController.finishActionMode();
                 return true;
 
-            case R.id.menu_move_to:
+            case R.id.action_menu_move_to:
+                if (mModel.hasDocuments(selection, DocumentFilters.NOT_MOVABLE)) {
+                    mInjector.dialogs.showOperationUnsupported();
+                    return true;
+                }
                 // Exit selection mode first, so we avoid deselecting deleted documents.
                 mActionModeController.finishActionMode();
                 transferDocuments(selection, null, FileOperationService.OPERATION_MOVE);
                 return true;
 
-            case R.id.menu_cut_to_clipboard:
+            case R.id.action_menu_inspector:
+                mActionModeController.finishActionMode();
+                assert(selection.size() == 1);
+                DocumentInfo doc = mModel.getDocuments(selection).get(0);
+                mActions.showInspector(doc);
+                return true;
+
+            case R.id.dir_menu_cut_to_clipboard:
                 mActions.cutToClipboard();
                 return true;
 
-            case R.id.menu_copy_to_clipboard:
+            case R.id.dir_menu_copy_to_clipboard:
                 mActions.copyToClipboard();
                 return true;
 
-            case R.id.menu_paste_from_clipboard:
+            case R.id.dir_menu_paste_from_clipboard:
                 pasteFromClipboard();
                 return true;
 
-            case R.id.menu_paste_into_folder:
+            case R.id.dir_menu_paste_into_folder:
                 pasteIntoFolder();
                 return true;
 
-            case R.id.menu_select_all:
+            case R.id.action_menu_select_all:
+            case R.id.dir_menu_select_all:
                 mActions.selectAllFiles();
                 return true;
 
-            case R.id.menu_rename:
+            case R.id.action_menu_rename:
+            case R.id.dir_menu_rename:
                 // Exit selection mode first, so we avoid deselecting deleted
                 // (renamed) documents.
                 mActionModeController.finishActionMode();
                 renameDocuments(selection);
                 return true;
 
-            case R.id.menu_view_in_owner:
+            case R.id.dir_menu_create_dir:
+                mActions.showCreateDirectoryDialog();
+                return true;
+
+            case R.id.dir_menu_view_in_owner:
                 mActions.viewInOwner();
                 return true;
 
             default:
-                // See if BaseActivity can handle this particular MenuItem
-                if (!mActivity.onOptionsItemSelected(item)) {
-                    if (DEBUG) Log.d(TAG, "Unhandled menu item selected: " + item);
-                    return false;
-                }
-                return true;
+                if (DEBUG) Log.d(TAG, "Unhandled menu item selected: " + item);
+                return false;
         }
     }
 
@@ -768,10 +789,13 @@ public class DirectoryFragment extends Fragment
 
         if (destination != null) {
             operation.setDestination(destination);
+            final String jobId = FileOperations.createJobId();
+            mInjector.dialogs.showProgressDialog(jobId, operation);
             FileOperations.start(
                     mActivity,
                     operation,
-                    mInjector.dialogs::showFileOperationStatus);
+                    mInjector.dialogs::showFileOperationStatus,
+                    jobId);
             return;
         }
 
@@ -826,7 +850,7 @@ public class DirectoryFragment extends Fragment
     public void onActivityResult(@RequestCode int requestCode, int resultCode, Intent data) {
         switch (requestCode) {
             case REQUEST_COPY_DESTINATION:
-                handleCopyResult(resultCode, data);
+                onCopyDestinationPicked(resultCode, data);
                 break;
             default:
                 throw new UnsupportedOperationException("Unknown request code: " + requestCode);
@@ -901,92 +925,7 @@ public class DirectoryFragment extends Fragment
         }
     }
 
-    void dragStopped(boolean result) {
-        if (result) {
-            mSelectionMgr.clearSelection();
-        }
-    }
-
-    @Override
-    public void runOnUiThread(Runnable runnable) {
-        getActivity().runOnUiThread(runnable);
-    }
-
-    // In DirectoryFragment, we close the roots drawer right away.
-    // We also want to update the Drag Shadow to indicate whether the
-    // item is droppable or not.
-    @Override
-    public void onDragEntered(View v, Object localState) {
-        mActivity.setRootsDrawerOpen(false);
-        mActivity.getShadowBuilder()
-                .setAppearDroppable(DragAndDropHelper.canCopyTo(localState, getDestination(v)));
-        v.updateDragShadow(mActivity.getShadowBuilder());
-    }
-
-    // In DirectoryFragment, we always reset the background of the Drag Shadow once it
-    // exits.
-    @Override
-    public void onDragExited(View v, Object localState) {
-        mActivity.getShadowBuilder().resetBackground();
-        v.updateDragShadow(mActivity.getShadowBuilder());
-        if (v.getParent() == mRecView) {
-            DocumentHolder holder = getDocumentHolder(v);
-            if (holder != null) {
-                holder.resetDropHighlight();
-            }
-        }
-    }
-
-    // In DirectoryFragment, we spring loads the hovered folder.
-    @Override
-    public void onViewHovered(View view) {
-        BaseActivity activity = mActivity;
-        if (getModelId(view) != null) {
-            mActions.springOpenDirectory(getDestination(view));
-        }
-        activity.setRootsDrawerOpen(false);
-    }
-
-    boolean handleDropEvent(View v, DragEvent event) {
-        BaseActivity activity = (BaseActivity) getActivity();
-        activity.setRootsDrawerOpen(false);
-
-        ClipData clipData = event.getClipData();
-        assert (clipData != null);
-
-        assert(mClipper.getOpType(clipData) == FileOperationService.OPERATION_COPY);
-
-        if (!DragAndDropHelper.canCopyTo(event.getLocalState(), getDestination(v))) {
-            return false;
-        }
-
-        // Recognize multi-window drag and drop based on the fact that localState is not
-        // carried between processes. It will stop working when the localsState behavior
-        // is changed. The info about window should be passed in the localState then.
-        // The localState could also be null for copying from Recents in single window
-        // mode, but Recents doesn't offer this functionality (no directories).
-        Metrics.logUserAction(getContext(),
-                event.getLocalState() == null ? Metrics.USER_ACTION_DRAG_N_DROP_MULTI_WINDOW
-                        : Metrics.USER_ACTION_DRAG_N_DROP);
-
-        DocumentInfo dst = getDestination(v);
-        // If destination is already at top of stack, no need to pass it in
-        if (dst.equals(mState.stack.peek())) {
-            mClipper.copyFromClipData(
-                    mState.stack,
-                    clipData,
-                    mInjector.dialogs::showFileOperationStatus);
-        } else {
-            mClipper.copyFromClipData(
-                    dst,
-                    mState.stack,
-                    clipData,
-                    mInjector.dialogs::showFileOperationStatus);
-        }
-        return true;
-    }
-
-    DocumentInfo getDestination(View v) {
+    private DocumentInfo getDestination(View v) {
         String id = getModelId(v);
         if (id != null) {
             Cursor dstCursor = mModel.getItem(id);
@@ -1004,30 +943,13 @@ public class DirectoryFragment extends Fragment
         return null;
     }
 
-    @Override
-    public void setDropTargetHighlight(View v, Object localState, boolean highlight) {
-        // Note: use exact comparison - this code is searching for views which are children of
-        // the RecyclerView instance in the UI.
-        if (v.getParent() == mRecView) {
-            DocumentHolder holder = getDocumentHolder(v);
-            if (holder != null) {
-                if (!highlight) {
-                    holder.resetDropHighlight();
-                } else {
-                    holder.setDroppableHighlight(
-                            DragAndDropHelper.canCopyTo(localState, getDestination(v)));
-                }
-            }
-        }
-    }
-
     /**
      * Gets the model ID for a given RecyclerView item.
      * @param view A View that is a document item view, or a child of a document item view.
      * @return The Model ID for the given document, or null if the given view is not associated with
      *     a document item view.
      */
-    protected @Nullable String getModelId(View view) {
+    private @Nullable String getModelId(View view) {
         View itemView = mRecView.findContainingItemView(view);
         if (itemView != null) {
             RecyclerView.ViewHolder vh = mRecView.getChildViewHolder(itemView);
@@ -1159,9 +1081,7 @@ public class DirectoryFragment extends Fragment
 
             if (mRestoredSelection != null) {
                 mSelectionMgr.restoreSelection(mRestoredSelection);
-                // Note, we'll take care of cleaning up retained selection
-                // in the selection handler where we already have some
-                // specialized code to handle when selection was restored.
+                mRestoredSelection = null;
             }
 
             // Restore any previous instance state

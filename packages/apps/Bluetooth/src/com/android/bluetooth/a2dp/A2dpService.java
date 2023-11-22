@@ -48,7 +48,9 @@ public class A2dpService extends ProfileService {
     private A2dpStateMachine mStateMachine;
     private Avrcp mAvrcp;
 
-    private BroadcastReceiver mConnectionStateChangedReceiver = new BroadcastReceiver() {
+    private BroadcastReceiver mConnectionStateChangedReceiver = null;
+
+    private class CodecSupportReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (!BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED.equals(intent.getAction())) {
@@ -108,9 +110,12 @@ public class A2dpService extends ProfileService {
         mAvrcp = Avrcp.make(this);
         mStateMachine = A2dpStateMachine.make(this, this);
         setA2dpService(this);
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
-        registerReceiver(mConnectionStateChangedReceiver, filter);
+        if (mConnectionStateChangedReceiver == null) {
+            IntentFilter filter = new IntentFilter();
+            filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
+            mConnectionStateChangedReceiver = new CodecSupportReceiver();
+            registerReceiver(mConnectionStateChangedReceiver, filter);
+        }
         return true;
     }
 
@@ -125,9 +130,13 @@ public class A2dpService extends ProfileService {
     }
 
     protected boolean cleanup() {
-        unregisterReceiver(mConnectionStateChangedReceiver);
-        if (mStateMachine!= null) {
+        if (mConnectionStateChangedReceiver != null) {
+            unregisterReceiver(mConnectionStateChangedReceiver);
+            mConnectionStateChangedReceiver = null;
+        }
+        if (mStateMachine != null) {
             mStateMachine.cleanup();
+            mStateMachine = null;
         }
         if (mAvrcp != null) {
             mAvrcp.cleanup();

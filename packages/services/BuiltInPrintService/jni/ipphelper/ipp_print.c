@@ -26,7 +26,7 @@
 #define TAG "ipp_print"
 
 static status_t _init(const ifc_print_job_t *this_p, const char *printer_address, int port,
-        const char *printer_uri);
+        const char *printer_uri, bool use_secure_uri);
 
 static status_t _validate_job(const ifc_print_job_t *this_p, wprint_job_params_t *job_params);
 
@@ -75,7 +75,7 @@ const ifc_print_job_t *ipp_get_print_ifc(const ifc_wprint_t *wprint_ifc) {
 }
 
 static status_t _init(const ifc_print_job_t *this_p, const char *printer_address, int port,
-        const char *printer_uri) {
+        const char *printer_uri, bool use_secure_uri) {
     LOGD("_init: Enter");
     ipp_print_job_t *ipp_job;
     const char *ipp_scheme;
@@ -95,12 +95,21 @@ static status_t _init(const ifc_print_job_t *this_p, const char *printer_address
 
     int ippPortNumber = ((port == IPP_PORT) ? ippPort() : port);
     LOGD("Normal URI for %s:%d", printer_address, ippPortNumber);
-    ipp_scheme = IPP_PREFIX;
+    ipp_scheme = (use_secure_uri) ? IPPS_PREFIX : IPP_PREFIX;
 
     httpAssembleURIf(HTTP_URI_CODING_ALL, ipp_job->printer_uri, sizeof(ipp_job->printer_uri),
             ipp_scheme, NULL, printer_address, ippPortNumber, printer_uri);
     getResourceFromURI(ipp_job->printer_uri, ipp_job->http_resource, 1024);
-    ipp_job->http = httpConnect(printer_address, ippPortNumber);
+    if (use_secure_uri) {
+        ipp_job->http = httpConnectEncrypt(printer_address, ippPortNumber, HTTP_ENCRYPTION_ALWAYS);
+
+        // If ALWAYS doesn't work, fall back to REQUIRED
+        if (ipp_job->http == NULL) {
+            ipp_job->http = httpConnectEncrypt(printer_address, ippPortNumber, HTTP_ENCRYPT_REQUIRED);
+        }
+    } else {
+        ipp_job->http = httpConnectEncrypt(printer_address, ippPortNumber, HTTP_ENCRYPTION_IF_REQUESTED);
+    }
 
     httpSetTimeout(ipp_job->http, DEFAULT_IPP_TIMEOUT, NULL, 0);
 

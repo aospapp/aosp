@@ -99,6 +99,8 @@ def build_cmd(device_id, chart_host_id, result_device_id, camera_id, scene_id):
     # scene 5 is not automated and no chart is needed
     if scene_id != '5':
         cmd.append('chart=%s' % chart_host_id)
+    else:
+        cmd.append('skip_scene_validation')
 
     return cmd
 

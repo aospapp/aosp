@@ -23,7 +23,7 @@
     <string name="button_etws_other_type" msgid="4129451610585426791">"ETWS பிற அவசரகால எச்சரிக்கையை அனுப்பு"</string>
     <string name="button_etws_cancel_type" msgid="4770911191572322801">"ETWS ரத்துசெய்தல் அலைபரப்பை அனுப்பு"</string>
     <string name="button_etws_test_type" msgid="5520113823851979673">"ETWS சோதனை அலைபரப்பை அனுப்பு"</string>
-    <string name="button_cmas_pres_alert" msgid="1269455100893365889">"CMAS ஜனாதிபதி விழிப்பூட்டலை அனுப்பு"</string>
+    <string name="button_cmas_pres_alert" msgid="1269455100893365889">"CMAS ஜனாதிபதியின் எச்சரிக்கை அனுப்பு"</string>
     <string name="button_cmas_extreme_alert" msgid="5922644977169679386">"CMAS எக்ஸ்ட்ரீம் விழிப்பூட்டலை அனுப்பு"</string>
     <string name="button_cmas_severe_alert" msgid="5197711586353552255">"CMAS கடுமையான விழிப்பூட்டலை அனுப்பு"</string>
     <string name="button_cmas_amber_alert" msgid="860091654456014191">"CMAS AMBER விழிப்பூட்டலை அனுப்பு"</string>

@@ -20,8 +20,8 @@
 
 #include "log/log.h"
 
-#include "JniConstants.h"
-#include "ScopedLocalFrame.h"
+#include <nativehelper/JniConstants.h>
+#include <nativehelper/ScopedLocalFrame.h>
 
 // DalvikVM calls this on startup, so we can statically register all our native methods.
 jint JNI_OnLoad(JavaVM* vm, void*) {

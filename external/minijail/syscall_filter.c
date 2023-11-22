@@ -254,7 +254,7 @@ int compile_atom(struct filter_block *head, char *atom,
 
 int compile_errno(struct filter_block *head, char *ret_errno, int use_ret_trap)
 {
-	char *errno_ptr;
+	char *errno_ptr = NULL;
 
 	/* Splits the 'return' keyword and the actual errno value. */
 	char *ret_str = strtok_r(ret_errno, " ", &errno_ptr);
@@ -550,6 +550,7 @@ int compile_file(FILE *policy_file, struct filter_block *head,
 			goto free_line;
 		}
 
+		syscall_name = strip(syscall_name);
 		int nr = lookup_syscall(syscall_name);
 		if (nr < 0) {
 			warn("compile_file: nonexistent syscall '%s'",

@@ -35,6 +35,7 @@ cc_library_static {
         "src/commandlineflags.cc",
         "src/complexity.cc",
         "src/console_reporter.cc",
+        "src/counter.cc",
         "src/csv_reporter.cc",
         "src/json_reporter.cc",
         "src/reporter.cc",

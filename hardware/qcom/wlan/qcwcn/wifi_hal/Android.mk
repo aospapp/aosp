@@ -58,6 +58,7 @@ LOCAL_SRC_FILES := \
 	roam.cpp
 
 LOCAL_MODULE := libwifi-hal-qcom
+LOCAL_PROPRIETARY_MODULE := true
 LOCAL_CLANG := true
 LOCAL_SHARED_LIBRARIES += libnetutils liblog libwpa_client libcld80211
 
@@ -68,6 +69,8 @@ else
 LOCAL_SHARED_LIBRARIES += libnl_2
 LOCAL_C_INCLUDES += external/libnl-headers
 endif
+
+LOCAL_HEADER_LIBRARIES := libcutils_headers libutils_headers
 
 include $(BUILD_STATIC_LIBRARY)
 
@@ -129,4 +132,5 @@ LOCAL_SHARED_LIBRARIES += libnl_2
 LOCAL_C_INCLUDES += external/libnl-headers
 endif
 
+LOCAL_HEADER_LIBRARIES := libcutils_headers libutils_headers
 include $(BUILD_SHARED_LIBRARY)

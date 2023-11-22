@@ -105,7 +105,7 @@
     <string name="about_system_update" msgid="7282772247661356586">"प्रणाली अद्यावधिक"</string>
     <string name="about_preference" msgid="4131396784531360434">"बारेमा"</string>
     <string name="device_name" msgid="2670488158531273028">"उपकरण नाम"</string>
-    <string name="restart_button_label" msgid="8153112858638352970">"पुन: सुरू गर्नुहोस्"</string>
+    <string name="restart_button_label" msgid="8153112858638352970">"पुन: सुरु गर्नुहोस्"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"कानूनी जानकारी"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"खुला स्रोतका इजाजतपत्रहरू"</string>
     <string name="about_terms_of_service" msgid="7743088207977334874">"Google कानुनी"</string>
@@ -147,7 +147,7 @@
     <string name="legal_information" msgid="2346024659831852038">"कानूनी जानकारी"</string>
     <string name="copyright_title" msgid="5564228453228549353">"प्रतिलिपि अधिकार"</string>
     <string name="license_title" msgid="4482927105870812604">"इजाजतपत्र"</string>
-    <string name="terms_title" msgid="8480859222932736291">"सेवा सर्तहरू"</string>
+    <string name="terms_title" msgid="8480859222932736291">"सेवाका सर्तहरू"</string>
     <string name="webview_license_title" msgid="8843666223583780825">"प्रणाली वेबभ्यु इजाजतपत्र"</string>
     <string name="wallpaper_attributions" msgid="8622098625739634898">"वालपेपरहरु"</string>
     <string name="wallpaper_attributions_values" msgid="1565931506291182879">"स्याटेलाइट इमेजरी प्रदायकहरू:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
@@ -368,6 +368,10 @@
     <string name="system_services" msgid="7230571820151215779">"सेवाहरू"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"सेवा सेटिङ्हरू"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"उच्च कन्ट्रास्ट पाठ"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"पहुँचको सर्टकट"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"पहुँचको सर्टकटलाई सक्षम पार्नुहोस्"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"सर्टकट सम्बन्धी सेवा"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"सर्टकट सक्रिय हुँदा, तपाईं पहुँचसम्बन्धी कुनै सुविधा सुरु गर्न पछाडि र तल दुवै बटनहरूलाई ३ सेकेन्डसम्म थिची राख्न सक्नुहुन्छ।"</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"क्याप्सन"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"भिडियोमा मिलेका क्याप्सन पाठ ओभरलेका लागि सेटिङ्"</string>
     <string name="captions_display" msgid="735692527287125548">"प्रदर्शन गर्नुहोस्"</string>
@@ -628,7 +632,7 @@
     <string name="device_daydreams_sleep" msgid="7676938708373592766">"सुरु गर्ने समय"</string>
     <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"यस निष्क्रियताको अवधि पछि स्क्रिन सेभर सुरु हुन्छ। यदि कुनै पनि स्क्रिन सेभरलाई चयन गरिएको छैन भने प्रदर्शन अफ हुन्छ।"</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"<xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> को निष्क्रियता पछि"</string>
-    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"यन्त्रलाई शयन अवस्थामा राख्नुहोस्"</string>
+    <string name="device_daydreams_screen_off" msgid="1765925964376076171">"यन्त्रलाई शयन अवस्थामा लानु .."</string>
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"यो अवधिको निष्क्रियताले स्क्रिन बन्द हुन्छ।"</string>
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"कुनैपनि खाताले ब्याकअप गरेको डाटा भण्डार गरेको छैन"</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
@@ -666,4 +670,8 @@
     <string name="capturing_bugreport" msgid="3291125403411239592">"बग रिपोर्ट समावेश गर्दै"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"उपलब्ध भर्चुअल किबोर्ड"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"किबोर्डहरूको व्यवस्थापन गर्नुहोस्"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"अनुमति प्राप्त"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"अनुमतिमा रोक लगाइएका"</string>
+    <string name="usage_access" msgid="1914242907684452328">"प्रयोगसम्बन्धी पहुँच"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"प्रयोगसम्बन्धी पहुँचले कुनै अनुप्रयोगलाई तपाईंका सेवा प्रदायक, भाषाका सेटिङहरू र अन्य विवरणहरू ट्र्याक गर्न दिनुका साथै तपाईंले प्रयोग गरिरहनुभएका अन्य अनुप्रयोगहरू र तिनीहरूको प्रयोगबीचको अन्तराल पहिल्याउन दिन्छ।"</string>
 </resources>

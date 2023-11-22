@@ -776,7 +776,7 @@ extern void rw_t4t_process_timeout(TIMER_LIST_ENT* p_tle);
 
 extern tNFC_STATUS rw_i93_select(uint8_t* p_uid);
 extern void rw_i93_process_timeout(TIMER_LIST_ENT* p_tle);
-
+extern void rw_t4t_handle_isodep_nak_rsp(uint8_t status, bool is_ntf);
 #if (RW_STATS_INCLUDED == TRUE)
 /* Internal fcns for statistics (from rw_main.c) */
 void rw_main_reset_stats(void);

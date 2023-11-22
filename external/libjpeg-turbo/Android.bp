@@ -173,7 +173,17 @@ cc_defaults {
 // Also build as a shared library.
 cc_library {
     name: "libjpeg",
+    host_supported: true,
     vendor_available: true,
+    target: {
+        // TODO(b/67474260) Turn this back on
+        darwin: {
+            enabled: false,
+        },
+    },
+    vndk: {
+        enabled: true,
+    },
     defaults: ["libjpeg-defaults"],
     export_include_dirs: ["."],
 }

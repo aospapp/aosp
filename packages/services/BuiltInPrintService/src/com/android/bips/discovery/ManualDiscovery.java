@@ -48,10 +48,9 @@ public class ManualDiscovery extends Discovery implements AutoCloseable {
     private static final String CACHE_FILE = TAG + ".json";
 
     // Likely paths at which a print service may be found
-    private static final String[] IPP_PATHS = {"ipp/printer", "ipp/print", "ipp", ""};
-
-    private static final int DEFAULT_IPP_PORT = 631;
-    private static final String DEFAULT_IPP_SCHEME = "ipp";
+    private static final Uri[] IPP_URIS = { Uri.parse("ipp://path:631/ipp/print"),
+            Uri.parse("ipp://path:80/ipp/print"), Uri.parse("ipp://path:631/ipp/printer"),
+            Uri.parse("ipp://path:631/ipp"), Uri.parse("ipp://path:631/")};
 
     private final List<DiscoveredPrinter> mManualPrinters = new ArrayList<>();
 
@@ -86,11 +85,7 @@ public class ManualDiscovery extends Discovery implements AutoCloseable {
      */
     public void addManualPrinter(String hostname, PrinterAddCallback callback) {
         if (DEBUG) Log.d(TAG, "addManualPrinter " + hostname);
-
-        // Repair supplied hostname as much as possible
-        Uri base = Uri.parse(DEFAULT_IPP_SCHEME + "://" + hostname + ":" + DEFAULT_IPP_PORT);
-
-        new CapabilitiesFinder(base, callback).startNext();
+        new CapabilitiesFinder(hostname, callback);
     }
 
     private void addManualPrinter(DiscoveredPrinter printer) {
@@ -198,62 +193,56 @@ public class ManualDiscovery extends Discovery implements AutoCloseable {
      * Search common printer paths for a successful response
      */
     private class CapabilitiesFinder implements CapabilitiesCache.OnLocalPrinterCapabilities {
-        private final LinkedList<String> mPaths = new LinkedList<>();
+        private final LinkedList<Uri> mUris = new LinkedList<>();
         private final PrinterAddCallback mFinalCallback;
-        private final Uri mBase;
+        private final String mHostname;
 
         /**
-         * Constructs a new callback handler
+         * Constructs a new finder
          *
-         * @param base     Base URI for print service to find
+         * @param hostname Hostname to crawl for IPP endpoints
          * @param callback Callback to issue when the first successful response arrives, or
          *                 when all responses have failed.
          */
-        CapabilitiesFinder(Uri base, PrinterAddCallback callback) {
-            mPaths.addAll(Arrays.asList(IPP_PATHS));
+        CapabilitiesFinder(String hostname, PrinterAddCallback callback) {
             mFinalCallback = callback;
-            mBase = base;
-        }
+            mHostname = hostname;
 
-        /** Move on to the next path or report failure if none remain */
-        void startNext() {
-            if (mPaths.isEmpty()) {
-                mFinalCallback.onNotFound();
-            } else {
-                Uri uriToTry = mBase.buildUpon().encodedPath(mPaths.pop()).build();
-                DiscoveredPrinter printer = new DiscoveredPrinter(null, "unknown", uriToTry, null);
-                getPrintService().getCapabilitiesCache().request(printer, false, this);
+            for (Uri uri : IPP_URIS) {
+                uri = uri.buildUpon().encodedAuthority(mHostname + ":" + uri.getPort()).build();
+                mUris.add(uri);
+                DiscoveredPrinter printer = new DiscoveredPrinter(null, "unknown", uri, null);
+                getPrintService().getCapabilitiesCache().request(printer, true, this);
             }
         }
 
         @Override
-        public void onCapabilities(LocalPrinterCapabilities capabilities) {
+        public void onCapabilities(DiscoveredPrinter printer, LocalPrinterCapabilities capabilities) {
             if (DEBUG) Log.d(TAG, "onCapabilities: " + capabilities);
-
+            mUris.remove(printer.getUri());
             if (capabilities == null) {
-                startNext();
+                if (mUris.isEmpty()) {
+                    mFinalCallback.onNotFound();
+                }
                 return;
             }
 
-            // Deliver a successful response
-            Uri path = Uri.parse(capabilities.path);
-            if (path.getPort() == -1) {
-                // Fix missing port
-                path = path.buildUpon().encodedAuthority(path.getAuthority() + ":" +
-                        DEFAULT_IPP_PORT).build();
-            }
-            Uri uuid = TextUtils.isEmpty(capabilities.uuid) ? null : Uri.parse(capabilities.uuid);
-            String name = TextUtils.isEmpty(capabilities.name) ? path.getHost() : capabilities.name;
+            // Success, so cancel all other requests
+            getPrintService().getCapabilitiesCache().cancel(this);
 
-            DiscoveredPrinter printer = new DiscoveredPrinter(uuid, name, path,
+            // Deliver a successful response
+            Uri uuid = TextUtils.isEmpty(capabilities.uuid) ? null : Uri.parse(capabilities.uuid);
+            String name = TextUtils.isEmpty(capabilities.name) ? printer.getUri().getHost() : capabilities.name;
+
+            DiscoveredPrinter resolvedPrinter = new DiscoveredPrinter(uuid, name, printer.getUri(),
                     capabilities.location);
 
             // Only add supported printers
             if (capabilities.isSupported) {
-                addManualPrinter(printer);
+                addManualPrinter(resolvedPrinter);
             }
 
-            mFinalCallback.onFound(printer, capabilities.isSupported);
+            mFinalCallback.onFound(resolvedPrinter, capabilities.isSupported);
         }
     }
 }

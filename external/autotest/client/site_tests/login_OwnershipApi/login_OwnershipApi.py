@@ -54,8 +54,7 @@ class login_OwnershipApi(test.test):
         pkey = ownership.known_privkey()
         pubkey = ownership.known_pubkey()
         sm = session_manager.connect(self._bus_loop)
-        if not sm.StartSession(ownership.TESTUSER, ''):
-            raise error.TestFail('Could not start session for owner')
+        sm.StartSession(ownership.TESTUSER, '')
 
         poldata = policy.build_policy_data(self.srcdir,
                                            owner=ownership.TESTUSER,

@@ -131,7 +131,7 @@ public class Correlation {
             }
         }
 
-        log(String.format(" Threshold: %.3f, ignored:%d/%d (%%.2f)", threshold, ignored, N,
+        log(String.format(" Threshold: %.3f, ignored:%d/%d (%.2f)", threshold, ignored, N,
                 (double) ignored/(double)N));
 
         status = true;

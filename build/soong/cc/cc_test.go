@@ -1,9 +1,60 @@
 package cc
 
 import (
+	"android/soong/android"
 	"reflect"
 	"testing"
 )
+
+var firstUniqueElementsTestCases = []struct {
+	in  []string
+	out []string
+}{
+	{
+		in:  []string{"a"},
+		out: []string{"a"},
+	},
+	{
+		in:  []string{"a", "b"},
+		out: []string{"a", "b"},
+	},
+	{
+		in:  []string{"a", "a"},
+		out: []string{"a"},
+	},
+	{
+		in:  []string{"a", "b", "a"},
+		out: []string{"a", "b"},
+	},
+	{
+		in:  []string{"b", "a", "a"},
+		out: []string{"b", "a"},
+	},
+	{
+		in:  []string{"a", "a", "b"},
+		out: []string{"a", "b"},
+	},
+	{
+		in:  []string{"a", "b", "a", "b"},
+		out: []string{"a", "b"},
+	},
+	{
+		in:  []string{"liblog", "libdl", "libc++", "libdl", "libc", "libm"},
+		out: []string{"liblog", "libdl", "libc++", "libc", "libm"},
+	},
+}
+
+func TestFirstUniqueElements(t *testing.T) {
+	for _, testCase := range firstUniqueElementsTestCases {
+		out := firstUniqueElements(testCase.in)
+		if !reflect.DeepEqual(out, testCase.out) {
+			t.Errorf("incorrect output:")
+			t.Errorf("     input: %#v", testCase.in)
+			t.Errorf("  expected: %#v", testCase.out)
+			t.Errorf("       got: %#v", out)
+		}
+	}
+}
 
 var lastUniqueElementsTestCases = []struct {
 	in  []string
@@ -142,13 +193,23 @@ var splitListForSizeTestCases = []struct {
 
 func TestSplitListForSize(t *testing.T) {
 	for _, testCase := range splitListForSizeTestCases {
-		out, _ := splitListForSize(testCase.in, testCase.size)
-		if !reflect.DeepEqual(out, testCase.out) {
+		out, _ := splitListForSize(android.PathsForTesting(testCase.in), testCase.size)
+
+		var outStrings [][]string
+
+		if len(out) > 0 {
+			outStrings = make([][]string, len(out))
+			for i, o := range out {
+				outStrings[i] = o.Strings()
+			}
+		}
+
+		if !reflect.DeepEqual(outStrings, testCase.out) {
 			t.Errorf("incorrect output:")
 			t.Errorf("     input: %#v", testCase.in)
 			t.Errorf("      size: %d", testCase.size)
 			t.Errorf("  expected: %#v", testCase.out)
-			t.Errorf("       got: %#v", out)
+			t.Errorf("       got: %#v", outStrings)
 		}
 	}
 }

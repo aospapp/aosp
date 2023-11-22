@@ -39,12 +39,14 @@
 
 namespace sdm {
 
-int HWCDisplayExternal::Create(CoreInterface *core_intf, HWCCallbacks *callbacks,
-                               qService::QService *qservice, HWCDisplay **hwc_display) {
-  return Create(core_intf, callbacks, 0, 0, qservice, false, hwc_display);
+int HWCDisplayExternal::Create(CoreInterface *core_intf, HWCBufferAllocator *buffer_allocator,
+                               HWCCallbacks *callbacks, qService::QService *qservice,
+                               HWCDisplay **hwc_display) {
+  return Create(core_intf, buffer_allocator, callbacks, 0, 0, qservice, false, hwc_display);
 }
 
-int HWCDisplayExternal::Create(CoreInterface *core_intf, HWCCallbacks *callbacks,
+int HWCDisplayExternal::Create(CoreInterface *core_intf, HWCBufferAllocator *buffer_allocator,
+                               HWCCallbacks *callbacks,
                                uint32_t primary_width, uint32_t primary_height,
                                qService::QService *qservice, bool use_primary_res,
                                HWCDisplay **hwc_display) {
@@ -52,7 +54,8 @@ int HWCDisplayExternal::Create(CoreInterface *core_intf, HWCCallbacks *callbacks
   uint32_t external_height = 0;
   DisplayError error = kErrorNone;
 
-  HWCDisplay *hwc_display_external = new HWCDisplayExternal(core_intf, callbacks, qservice);
+  HWCDisplay *hwc_display_external = new HWCDisplayExternal(core_intf, buffer_allocator, callbacks,
+                                                            qservice);
   int status = hwc_display_external->Init();
   if (status) {
     delete hwc_display_external;
@@ -95,10 +98,12 @@ void HWCDisplayExternal::Destroy(HWCDisplay *hwc_display) {
   delete hwc_display;
 }
 
-HWCDisplayExternal::HWCDisplayExternal(CoreInterface *core_intf, HWCCallbacks *callbacks,
+HWCDisplayExternal::HWCDisplayExternal(CoreInterface *core_intf,
+                                       HWCBufferAllocator *buffer_allocator,
+                                       HWCCallbacks *callbacks,
                                        qService::QService *qservice)
     : HWCDisplay(core_intf, callbacks, kHDMI, HWC_DISPLAY_EXTERNAL, false, qservice,
-                 DISPLAY_CLASS_EXTERNAL) {
+                 DISPLAY_CLASS_EXTERNAL, buffer_allocator) {
 }
 
 HWC2::Error HWCDisplayExternal::Validate(uint32_t *out_num_types, uint32_t *out_num_requests) {
@@ -134,20 +139,12 @@ HWC2::Error HWCDisplayExternal::Present(int32_t *out_retire_fence) {
 }
 
 void HWCDisplayExternal::ApplyScanAdjustment(hwc_rect_t *display_frame) {
-  if (display_intf_->IsUnderscanSupported()) {
+  if ((underscan_width_ <= 0) || (underscan_height_ <= 0)) {
     return;
   }
 
-  // Read user defined width and height ratio
-  int width = 0, height = 0;
-  HWCDebugHandler::Get()->GetProperty("sdm.external_action_safe_width", &width);
-  float width_ratio = FLOAT(width) / 100.0f;
-  HWCDebugHandler::Get()->GetProperty("sdm.external_action_safe_height", &height);
-  float height_ratio = FLOAT(height) / 100.0f;
-
-  if (width_ratio == 0.0f || height_ratio == 0.0f) {
-    return;
-  }
+  float width_ratio = FLOAT(underscan_width_) / 100.0f;
+  float height_ratio = FLOAT(underscan_height_) / 100.0f;
 
   uint32_t mixer_width = 0;
   uint32_t mixer_height = 0;
@@ -205,6 +202,14 @@ void HWCDisplayExternal::GetDownscaleResolution(uint32_t primary_width, uint32_t
       std::swap(primary_height, primary_width);
     }
     AdjustSourceResolution(primary_width, primary_height, non_primary_width, non_primary_height);
+  }
+}
+
+void HWCDisplayExternal::GetUnderScanConfig() {
+  if (!display_intf_->IsUnderscanSupported()) {
+    // Read user defined underscan width and height
+    HWCDebugHandler::Get()->GetProperty("sdm.external_action_safe_width", &underscan_width_);
+    HWCDebugHandler::Get()->GetProperty("sdm.external_action_safe_height", &underscan_height_);
   }
 }
 

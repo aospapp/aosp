@@ -96,12 +96,11 @@
 #include <fcntl.h>
 #include <sys/syscall.h>
 #include <unistd.h>
-#include <error.h>
 #include <inttypes.h>
 #include <sys/utsname.h>
 
 #include "test.h"
-#include "fallocate.h"
+#include "lapi/fallocate.h"
 #include "lapi/fcntl.h"
 
 #define BLOCKS_WRITTEN 12

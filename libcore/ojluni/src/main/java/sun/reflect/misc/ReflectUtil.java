@@ -33,20 +33,22 @@ public final class ReflectUtil {
     private ReflectUtil() {
     }
 
-    public static Class forName(String name)
+    public static Class<?> forName(String name)
         throws ClassNotFoundException {
         checkPackageAccess(name);
         return Class.forName(name);
     }
 
-    public static Object newInstance(Class cls)
+    public static Object newInstance(Class<?> cls)
         throws InstantiationException, IllegalAccessException {
         checkPackageAccess(cls);
         return cls.newInstance();
     }
 
-    private static boolean isSubclassOf(Class queryClass,
-                                Class ofClass)
+    // Android-removed: Dead code: Unused method ensureMemberAccess()
+
+    private static boolean isSubclassOf(Class<?> queryClass,
+                                        Class<?> ofClass)
     {
         while (queryClass != null) {
             if (queryClass == ofClass) {
@@ -56,6 +58,8 @@ public final class ReflectUtil {
         }
         return false;
     }
+
+    // Android-removed: Dead code: Unused method conservativeCheckMemberAccess()
 
     /**
      * Checks package access on the given class.
@@ -94,7 +98,7 @@ public final class ReflectUtil {
         }
     }
 
-    public static boolean isPackageAccessible(Class clazz) {
+    public static boolean isPackageAccessible(Class<?> clazz) {
         try {
             checkPackageAccess(clazz);
         } catch (SecurityException e) {
@@ -177,6 +181,13 @@ public final class ReflectUtil {
         }
     }
 
+    // Android-changed: Proxy classes are generated in the default package on Android.
+    /*
+    // Note that bytecode instrumentation tools may exclude 'sun.*'
+    // classes but not generated proxy classes and so keep it in com.sun.*
+    public static final String PROXY_PACKAGE = "com.sun.proxy";
+    */
+
     /**
      * Test if the given class is a proxy class that implements
      * non-public interface.  Such proxy class may be in a non-restricted
@@ -186,10 +197,14 @@ public final class ReflectUtil {
         String name = cls.getName();
         int i = name.lastIndexOf('.');
         String pkg = (i != -1) ? name.substring(0, i) : "";
-
-        // NOTE: Android creates proxies in the "default" package (and not com.sun.proxy), which
-        // makes this check imprecise. However, this function is only ever called if there's
-        // a security manager installed (which is the never case on android).
+        // Android-changed: Proxy classes are generated in the default package on Android.
+        // The use of the default package (as opposed to com.sun.proxy) makes this check
+        // imprecise. However, this function is only ever called if there's
+        // a security manager installed (which is the never case on Android).
+        // return Proxy.isProxyClass(cls) && !pkg.equals(PROXY_PACKAGE);
         return Proxy.isProxyClass(cls) && !pkg.isEmpty();
     }
+
+    // Android-removed: Dead code: unused method checkProxyMethod()
+    // Android-removed: Dead code: unused method isVMAnonymousClass()
 }

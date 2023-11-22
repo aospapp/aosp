@@ -51,7 +51,10 @@ MAX_WAIT_TIME_ACCEPT_CALL_TO_OFFHOOK_EVENT = 30
 MAX_WAIT_TIME_CALL_IDLE_EVENT = 60
 
 # Max time to wait after initiating a call for telecom to report in-call
-MAX_WAIT_TIME_CALL_INITIATION = 25
+MAX_WAIT_TIME_CALL_INITIATION = 90
+
+# Time to wait after change Mode Pref for Stress Test
+WAIT_TIME_AFTER_MODE_CHANGE = 60
 
 # Max time to wait after toggle airplane mode and before
 # get expected event
@@ -150,6 +153,9 @@ WAIT_TIME_VOICE_MAIL_SERVER_RESPONSE = 10
 
 # Time to wait for radio to up and running after reboot
 WAIT_TIME_AFTER_REBOOT = 10
+
+# Time to wait for radio to up and running after force crash
+WAIT_TIME_AFTER_CRASH = 30
 
 # Time to wait for tethering test after reboot
 WAIT_TIME_TETHERING_AFTER_REBOOT = 10

@@ -69,8 +69,40 @@ const Version &RuntimeInfo::bootAvbVersion() const {
     return mBootAvbVersion;
 }
 
-bool RuntimeInfo::checkCompatibility(const CompatibilityMatrix &mat,
-            std::string *error) const {
+bool RuntimeInfo::matchKernelConfigs(const std::vector<KernelConfig>& matrixConfigs,
+                                     std::string* error) const {
+    for (const KernelConfig& matrixConfig : matrixConfigs) {
+        const std::string& key = matrixConfig.first;
+        auto it = this->mKernelConfigs.find(key);
+        if (it == this->mKernelConfigs.end()) {
+            // special case: <value type="tristate">n</value> matches if the config doesn't exist.
+            if (matrixConfig.second == KernelConfigTypedValue::gMissingConfig) {
+                continue;
+            }
+            if (error != nullptr) {
+                *error = "Missing config " + key;
+            }
+            return false;
+        }
+        const std::string& kernelValue = it->second;
+        if (!matrixConfig.second.matchValue(kernelValue)) {
+            if (error != nullptr) {
+                *error = "For config " + key + ", value = " + kernelValue + " but required " +
+                         to_string(matrixConfig.second);
+            }
+            return false;
+        }
+    }
+    return true;
+}
+
+bool RuntimeInfo::matchKernelVersion(const KernelVersion& minLts) const {
+    return minLts.version == mKernelVersion.version && minLts.majorRev == mKernelVersion.majorRev &&
+           minLts.minorRev <= mKernelVersion.minorRev;
+}
+
+bool RuntimeInfo::checkCompatibility(const CompatibilityMatrix& mat, std::string* error,
+                                     DisabledChecks disabledChecks) const {
     if (mat.mType != SchemaType::FRAMEWORK) {
         if (error != nullptr) {
             *error = "Should not check runtime info against " + to_string(mat.mType)
@@ -86,57 +118,70 @@ bool RuntimeInfo::checkCompatibility(const CompatibilityMatrix &mat,
         return false;
     }
 
-    // mat.mSepolicy.sepolicyVersion() is checked against static HalManifest.device.mSepolicyVersion
+    // mat.mSepolicy.sepolicyVersion() is checked against static
+    // HalManifest.device.mSepolicyVersion in HalManifest::checkCompatibility.
 
-    const MatrixKernel *matrixKernel = mat.findKernel(this->mKernelVersion);
-    if (matrixKernel == nullptr) {
-        if (error != nullptr) {
-            *error = "Cannot find suitable kernel entry for " + to_string(mKernelVersion);
+    bool foundMatchedKernelVersion = false;
+    bool foundMatchedConditions = false;
+    for (const MatrixKernel& matrixKernel : mat.framework.mKernels) {
+        if (!matchKernelVersion(matrixKernel.minLts())) {
+            continue;
         }
-        return false;
-    }
-    for (const KernelConfig &matrixConfig : matrixKernel->configs()) {
-        const std::string &key = matrixConfig.first;
-        auto it = this->mKernelConfigs.find(key);
-        if (it == this->mKernelConfigs.end()) {
-            // special case: <value type="tristate">n</value> matches if the config doesn't exist.
-            if (matrixConfig.second == KernelConfigTypedValue::gMissingConfig) {
-                continue;
-            }
-            if (error != nullptr) {
-                *error = "Missing config " + key;
-            }
-            return false;
+        foundMatchedKernelVersion = true;
+        // ignore this fragment if not all conditions are met.
+        if (!matchKernelConfigs(matrixKernel.conditions(), error)) {
+            continue;
         }
-        const std::string &kernelValue = it->second;
-        if (!matrixConfig.second.matchValue(kernelValue)) {
-            if (error != nullptr) {
-                *error = "For config " + key + ", value = " + kernelValue
-                        + " but required " + to_string(matrixConfig.second);
-            }
+        foundMatchedConditions = true;
+        if (!matchKernelConfigs(matrixKernel.configs(), error)) {
             return false;
         }
     }
-
-    const Version &matAvb = mat.framework.mAvbMetaVersion;
-    if (mBootAvbVersion.majorVer != matAvb.majorVer || mBootAvbVersion.minorVer < matAvb.minorVer) {
+    if (!foundMatchedKernelVersion) {
         if (error != nullptr) {
             std::stringstream ss;
-            ss << "AVB version " << mBootAvbVersion << " does not match framework matrix "
-               << matAvb;
+            ss << "Framework is incompatible with kernel version " << mKernelVersion
+               << ", compatible kernel versions are";
+            for (const MatrixKernel& matrixKernel : mat.framework.mKernels)
+                ss << " " << matrixKernel.minLts();
             *error = ss.str();
         }
         return false;
     }
-    if (mBootVbmetaAvbVersion.majorVer != matAvb.majorVer ||
-        mBootVbmetaAvbVersion.minorVer < matAvb.minorVer) {
+    if (!foundMatchedConditions) {
+        // This should not happen because first <conditions> for each <kernel> must be
+        // empty. Reject here for inconsistency.
         if (error != nullptr) {
-            std::stringstream ss;
-            ss << "Vbmeta version " << mBootVbmetaAvbVersion << " does not match framework matrix "
-               << matAvb;
-            *error = ss.str();
+            error->insert(0, "Framework match kernel version with unmet conditions:");
         }
         return false;
+    }
+    if (error != nullptr) {
+        error->clear();
+    }
+
+    if ((disabledChecks & DISABLE_AVB_CHECK) == 0) {
+        const Version& matAvb = mat.framework.mAvbMetaVersion;
+        if (mBootAvbVersion.majorVer != matAvb.majorVer ||
+            mBootAvbVersion.minorVer < matAvb.minorVer) {
+            if (error != nullptr) {
+                std::stringstream ss;
+                ss << "AVB version " << mBootAvbVersion << " does not match framework matrix "
+                   << matAvb;
+                *error = ss.str();
+            }
+            return false;
+        }
+        if (mBootVbmetaAvbVersion.majorVer != matAvb.majorVer ||
+            mBootVbmetaAvbVersion.minorVer < matAvb.minorVer) {
+            if (error != nullptr) {
+                std::stringstream ss;
+                ss << "Vbmeta version " << mBootVbmetaAvbVersion
+                   << " does not match framework matrix " << matAvb;
+                *error = ss.str();
+            }
+            return false;
+        }
     }
 
     return true;

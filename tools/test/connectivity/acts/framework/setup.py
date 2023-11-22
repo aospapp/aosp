@@ -1,6 +1,6 @@
 #!/usr/bin/env python3.4
 #
-# Copyright 2016 - The Android Open Source Project
+# Copyright 2017 - The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,13 +24,16 @@ from setuptools.command import test
 import sys
 
 install_requires = [
-    'future',
+    # Future needs to have a newer version that contains urllib.
+    'future>=0.16.0',
     # mock-1.0.1 is the last version compatible with setuptools <17.1,
     # which is what comes with Ubuntu 14.04 LTS.
     'mock<=1.0.1',
     'pyserial',
     'shellescape',
     'protobuf',
+    'roman',
+    'scapy-python3',
 ]
 
 if sys.version_info < (3, ):
@@ -76,6 +79,8 @@ class ActsInstallDependencies(cmd.Command):
         pass
 
     def run(self):
+        import pip
+        pip.main(['install', '--upgrade', 'pip'])
         required_packages = self.distribution.install_requires
 
         for package in required_packages:

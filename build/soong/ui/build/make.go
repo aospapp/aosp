@@ -16,7 +16,6 @@ package build
 
 import (
 	"fmt"
-	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -38,7 +37,7 @@ func DumpMakeVars(ctx Context, config Config, goals, extra_targets, vars []strin
 	ctx.BeginTrace("dumpvars")
 	defer ctx.EndTrace()
 
-	cmd := exec.CommandContext(ctx.Context,
+	cmd := Command(ctx, config, "make",
 		"make",
 		"--no-print-directory",
 		"-f", "build/core/config.mk",
@@ -48,11 +47,10 @@ func DumpMakeVars(ctx Context, config Config, goals, extra_targets, vars []strin
 		"MAKECMDGOALS="+strings.Join(goals, " "),
 		"DUMP_MANY_VARS="+strings.Join(vars, " "),
 		"OUT_DIR="+config.OutDir())
-	cmd.Env = config.Environment().Environ()
 	cmd.Args = append(cmd.Args, extra_targets...)
+	cmd.Sandbox = makeSandbox
 	// TODO: error out when Stderr contains any content
 	cmd.Stderr = ctx.Stderr()
-	ctx.Verboseln(cmd.Path, cmd.Args)
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, err
@@ -83,12 +81,15 @@ func runMakeProductConfig(ctx Context, config Config) {
 	// Variables to export into the environment of Kati/Ninja
 	exportEnvVars := []string{
 		// So that we can use the correct TARGET_PRODUCT if it's been
-		// modified by PRODUCT-* arguments
+		// modified by PRODUCT-*/APP-* arguments
 		"TARGET_PRODUCT",
+		"TARGET_BUILD_VARIANT",
+		"TARGET_BUILD_APPS",
 
 		// compiler wrappers set up by make
 		"CC_WRAPPER",
 		"CXX_WRAPPER",
+		"JAVAC_WRAPPER",
 
 		// ccache settings
 		"CCACHE_COMPILERCHECK",
@@ -130,6 +131,9 @@ func runMakeProductConfig(ctx Context, config Config) {
 		// Used to execute Kati and Ninja
 		"NINJA_GOALS",
 		"KATI_GOALS",
+
+		// To find target/product/<DEVICE>
+		"TARGET_DEVICE",
 	}, exportEnvVars...), bannerVars...)
 
 	make_vars, err := DumpMakeVars(ctx, config, config.Arguments(), []string{
@@ -160,4 +164,5 @@ func runMakeProductConfig(ctx Context, config Config) {
 
 	config.SetKatiArgs(strings.Fields(make_vars["KATI_GOALS"]))
 	config.SetNinjaArgs(strings.Fields(make_vars["NINJA_GOALS"]))
+	config.SetTargetDevice(make_vars["TARGET_DEVICE"])
 }

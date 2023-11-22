@@ -78,7 +78,6 @@
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"留言信箱 (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"留言信箱："</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"通知"</string>
-    <string name="networks" msgid="8873030692174541976">"網絡供應商"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"緊急廣播"</string>
     <string name="call_settings" msgid="6112441768261754562">"通話設定"</string>
     <string name="additional_gsm_call_settings" msgid="1391795981938800617">"其他設定"</string>
@@ -164,20 +163,18 @@
     <string name="label_available" msgid="1181658289009300430">"可用的網絡"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"正在搜尋..."</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"找不到網絡。"</string>
-    <string name="search_networks" msgid="1601136049300882441">"搜尋網絡"</string>
     <string name="network_query_error" msgid="6828516148953325006">"搜尋網絡時發生錯誤。"</string>
     <string name="register_on_network" msgid="9055203954040805084">"正在註冊 <xliff:g id="NETWORK">%s</xliff:g>..."</string>
     <string name="not_allowed" msgid="5613353860205691579">"您的 SIM 卡無法連接這個網絡。"</string>
     <string name="connect_later" msgid="2308119155752343975">"目前無法連接這個網絡，請稍後再試。"</string>
     <string name="registration_done" msgid="495135664535876612">"已在網絡上完成註冊。"</string>
-    <string name="sum_carrier_select" msgid="3494252551249882718">"選擇網絡供應商"</string>
-    <string name="sum_search_networks" msgid="2921092249873272715">"搜尋所有可用的網絡"</string>
-    <string name="select_automatically" msgid="5628402124471810174">"自動選擇"</string>
-    <string name="sum_select_automatically" msgid="5614890115123292400">"自動選擇偏好網絡"</string>
+    <string name="select_automatically" msgid="1046727200631770962">"自動選取網絡"</string>
+    <string name="network_select_title" msgid="7733107364757544558">"網絡"</string>
     <string name="register_automatically" msgid="6017849844573519637">"自動註冊..."</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"偏好的網絡類型"</string>
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"更改網絡操作模式"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"偏好的網絡類型"</string>
+    <string name="forbidden_network" msgid="4384929668343563440">"(禁止)"</string>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"慣用網絡模式：偏好 WCDMA"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"慣用網絡模式：僅限 GSM"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"慣用網絡模式：僅限 WCDMA"</string>
@@ -210,18 +207,34 @@
     <item msgid="1524224863879435516">"只限 GSM"</item>
     <item msgid="3817924849415716259">"首選 GSM/WCDMA"</item>
   </string-array>
+    <string name="call_category" msgid="5863978196309462052">"通話"</string>
+    <string name="network_operator_category" msgid="4830701959205735636">"網絡"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"強化 4G LTE 模式"</string>
     <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"進階通話功能"</string>
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"使用 LTE 服務改善語音及其他通訊 (建議)"</string>
     <string name="data_enabled" msgid="5972538663568715366">"啟用流動數據"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"允許使用數據"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"注意"</string>
-    <string name="roaming" msgid="8871412572928323707">"數據漫遊服務"</string>
-    <string name="roaming_enable" msgid="7331106985174381987">"漫遊時連線到數據傳輸服務"</string>
-    <string name="roaming_disable" msgid="1843417228755568110">"漫遊時連線到數據傳輸服務"</string>
-    <string name="roaming_reenable_message" msgid="8913735676127858115">"您已離開主網絡覆蓋範圍，且已關閉數據漫遊服務，因此數據連線已中斷。"</string>
+    <string name="roaming" msgid="7894878421600247140">"漫遊"</string>
+    <string name="roaming_enable" msgid="7331106985174381987">"漫遊時連線到數據服務"</string>
+    <string name="roaming_disable" msgid="1843417228755568110">"漫遊時連線到數據服務"</string>
+    <string name="roaming_reenable_message" msgid="8913735676127858115">"您已離開主網絡覆蓋範圍，且已關閉數據漫遊，因此數據連線已中斷。"</string>
     <string name="roaming_warning" msgid="1603164667540144353">"您可能需要支付龐大的費用。"</string>
-    <string name="roaming_alert_title" msgid="3654815360303826008">"要允許數據漫遊服務嗎？"</string>
+    <string name="roaming_alert_title" msgid="3654815360303826008">"要允許數據漫遊嗎？"</string>
+    <string name="data_usage_title" msgid="8759619109516889802">"數據用量"</string>
+    <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_2">%2$s</xliff:g>期間使用了 <xliff:g id="ID_1">%1$s</xliff:g>流動數據"</string>
+    <string name="advanced_options_title" msgid="8074895510265488035">"進階設定"</string>
+    <string name="carrier_settings_euicc" msgid="6714062862127226405">"流動網絡供應商"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"流動網絡供應商, esim, sim, euicc"</string>
+    <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> — <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
+    <string name="mobile_data_settings_title" msgid="4661165467914727157">"流動數據"</string>
+    <string name="mobile_data_settings_summary" msgid="5087255915840576895">"使用流動網絡數據"</string>
+    <string name="data_usage_disable_mobile" msgid="3577275288809667615">"要關閉流動數據嗎？"</string>
+    <string name="sim_selection_required_pref" msgid="7049424902961844236">"請選取偏好設定"</string>
+    <string name="sim_change_data_title" msgid="5332425991853799280">"要變更用於數據連線的 SIM 卡嗎？"</string>
+    <string name="sim_change_data_message" msgid="2163963581444907496">"要改用「<xliff:g id="NEW_SIM">%1$s</xliff:g>」連接流動數據網絡 (而非「<xliff:g id="OLD_SIM">%2$s</xliff:g>」) 嗎？"</string>
+    <string name="wifi_calling_settings_title" msgid="7741961465416430470">"Wi-Fi 通話"</string>
+    <string name="video_calling_settings_title" msgid="539714564273795574">"流動網絡供應商視像通話"</string>
     <string name="gsm_umts_options" msgid="6538311689850981686">"GSM/UMTS 選項"</string>
     <string name="cdma_options" msgid="4016822858172249884">"CDMA 選項"</string>
     <string name="throttle_data_usage" msgid="3715677828160555808">"數據用量"</string>
@@ -350,7 +363,7 @@
     <item msgid="6043847456049107742">"1"</item>
   </string-array>
     <string name="cdma_activate_device" msgid="3793805892364814518">"啟動裝置"</string>
-    <string name="cdma_lte_data_service" msgid="4255018217292548962">"設定數據傳輸服務"</string>
+    <string name="cdma_lte_data_service" msgid="4255018217292548962">"設定數據服務"</string>
     <string name="carrier_settings_title" msgid="9028166176523012300">"流動網絡供應商設定"</string>
     <string name="fdn" msgid="7878832555095183202">"固定撥號號碼"</string>
     <string name="fdn_with_label" msgid="187084204115493366">"固定撥號 (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -458,7 +471,7 @@
     <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"無法使用流動網絡。請連接無線網絡，以撥打電話。"</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"要撥打電話，請輸入有效的號碼。"</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"無法接通。"</string>
-    <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"目前無法新增通話。"</string>
+    <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"目前無法新增通話。您可以改以傳送短訊聯絡對方。"</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"不支援的服務"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"無法切換通話。"</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"無法分開通話。"</string>
@@ -578,6 +591,8 @@
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"進行中的通話過多。請先結束或合併現有通話，再重新撥打。"</string>
     <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"無法連線，請插入有效的 SIM 卡。"</string>
     <string name="callFailed_wifi_lost" msgid="5968076625137297184">"已失去 Wi-Fi 連線。通話已結束。"</string>
+    <string name="dialFailed_low_battery" msgid="8760548177088774268">"電量過低，因此您無法撥打視像通話。"</string>
+    <string name="callFailed_low_battery" msgid="4913582435905872616">"電量過低，因此視像通話已結束。"</string>
     <string name="change_pin_title" msgid="7790232089699034029">"變更留言信箱 PIN"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"繼續"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"取消"</string>
@@ -590,4 +605,18 @@
     <string name="change_pin_confirm_pins_dont_match" msgid="4795052654904027909">"PIN 碼不符"</string>
     <string name="change_pin_succeeded" msgid="2022852286442211151">"已更新留言信箱 PIN"</string>
     <string name="change_pin_system_error" msgid="8308462387154257840">"無法設定 PIN 碼"</string>
+    <string name="mobile_data_status_roaming_turned_off_subtext" msgid="935636805765823307">"數據漫遊已關閉"</string>
+    <string name="mobile_data_status_roaming_turned_on_subtext" msgid="1335176927083781041">"數據漫遊已開啟"</string>
+    <string name="mobile_data_status_roaming_without_plan_subtext" msgid="3568412513831673037">"目前正在漫遊，需要數據方案"</string>
+    <string name="mobile_data_status_roaming_with_plan_subtext" msgid="8721998948811064377">"目前正在漫遊，數據方案使用中"</string>
+    <string name="mobile_data_status_no_plan_subtext" msgid="4887747337017565725">"流動數據已用盡"</string>
+    <string name="mobile_data_activate_prepaid" msgid="7447025165850512683">"流動數據已用盡"</string>
+    <string name="mobile_data_activate_prepaid_summary" msgid="5705389791791637666">"透過「<xliff:g id="PROVIDER_NAME">%s</xliff:g>」增加流動數據"</string>
+    <string name="mobile_data_activate_roaming_plan" msgid="5998161536947086264">"沒有漫遊計劃"</string>
+    <string name="mobile_data_activate_roaming_plan_summary" msgid="511202908883425459">"透過「<xliff:g id="PROVIDER_NAME">%s</xliff:g>」增加漫遊計劃"</string>
+    <string name="mobile_data_activate_footer" msgid="5979019929980140594">"您可以透過您的流動網絡供應商「<xliff:g id="PROVIDER_NAME">%s</xliff:g>」增加流動數據或漫遊計劃。"</string>
+    <string name="mobile_data_activate_diag_title" msgid="9044252207707864493">"要增加數據嗎？"</string>
+    <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"您可以透過「<xliff:g id="PROVIDER_NAME">%s</xliff:g>」增加數據"</string>
+    <string name="mobile_data_activate_button" msgid="3682400969184405446">"增加數據"</string>
+    <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"取消"</string>
 </resources>

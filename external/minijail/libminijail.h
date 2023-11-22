@@ -58,10 +58,14 @@ void minijail_log_seccomp_filter_failures(struct minijail *j);
 /* 'minijail_use_caps' and 'minijail_capbset_drop' are mutually exclusive. */
 void minijail_use_caps(struct minijail *j, uint64_t capmask);
 void minijail_capbset_drop(struct minijail *j, uint64_t capmask);
+/* 'minijail_set_ambient_caps' requires 'minijail_use_caps'. */
+void minijail_set_ambient_caps(struct minijail *j);
 void minijail_reset_signal_mask(struct minijail *j);
 void minijail_namespace_vfs(struct minijail *j);
 void minijail_namespace_enter_vfs(struct minijail *j, const char *ns_path);
 void minijail_new_session_keyring(struct minijail *j);
+void minijail_skip_setting_securebits(struct minijail *j,
+				      uint64_t securebits_skip_mask);
 
 /*
  * This option is *dangerous* as it negates most of the functionality of
@@ -69,6 +73,8 @@ void minijail_new_session_keyring(struct minijail *j);
  */
 void minijail_skip_remount_private(struct minijail *j);
 void minijail_namespace_ipc(struct minijail *j);
+void minijail_namespace_uts(struct minijail *j);
+int minijail_namespace_set_hostname(struct minijail *j, const char *name);
 void minijail_namespace_net(struct minijail *j);
 void minijail_namespace_enter_net(struct minijail *j, const char *ns_path);
 void minijail_namespace_cgroups(struct minijail *j);
@@ -93,6 +99,9 @@ void minijail_inherit_usergroups(struct minijail *j);
  */
 int minijail_use_alt_syscall(struct minijail *j, const char *table);
 
+/* Sets the given runtime limit. See getrlimit(2). */
+int minijail_rlimit(struct minijail *j, int type, uint32_t cur, uint32_t max);
+
 /*
  * Adds the jailed process to the cgroup given by |path|.  |path| should be the
  * full path to the cgroups "tasks" file.
@@ -100,6 +109,12 @@ int minijail_use_alt_syscall(struct minijail *j, const char *table);
  * cgroup.
  */
 int minijail_add_to_cgroup(struct minijail *j, const char *path);
+
+/*
+ * Install signal handlers in the minijail process that forward received
+ * signals to the jailed child process.
+ */
+int minijail_forward_signals(struct minijail *j);
 
 /*
  * minijail_enter_chroot: enables chroot() restriction for @j

@@ -19,7 +19,11 @@
 
 #include "EvsStateControl.h"
 
-
+/*
+ * This class listens for asynchronous updates from the Vehicle HAL.  While the EVS
+ * applications is active, it can poll the vehicle state directly.  However, when it goes to
+ * sleep, we need these notifications to bring it active again.
+ */
 class EvsVehicleListener : public IVehicleCallback {
 public:
     // Methods from ::android::hardware::automotive::vehicle::V2_0::IVehicleCallback follow.
@@ -59,7 +63,12 @@ public:
             waitForEvents(5000);
 
             // If we were delivered an event (or it's been a while) update as necessary
-            pStateController->configureForVehicleState();
+            EvsStateControl::Command cmd = {
+                .operation = EvsStateControl::Op::CHECK_VEHICLE_STATE,
+                .arg1      = 0,
+                .arg2      = 0,
+            };
+            pStateController->postCommand(cmd);
         }
     }
 

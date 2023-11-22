@@ -22,6 +22,7 @@
 #include <phNfcCompId.h>
 #include <phNxpLog.h>
 #include <phNxpExtns_MifareStd.h>
+#include <nfc_int.h>
 
 phNxpExtns_Context_t       gphNxpExtns_Context;
 phNciNfc_TransceiveInfo_t  tNciTranscvInfo;
@@ -1213,8 +1214,6 @@ phNciNfc_RecvMfResp(phNciNfc_Buff_t* RspBuffInfo,
     NFCSTATUS               status = NFCSTATUS_SUCCESS;
     uint16_t                wPldDataSize = 0;
     phNciNfc_ExtnRespId_t   RecvdExtnRspId = phNciNfc_e_InvalidRsp;
-    uint16_t                wRecvDataSz = 0;
-
     if(NULL == RspBuffInfo)
     {
       status = NFCSTATUS_FAILED;
@@ -1236,10 +1235,25 @@ phNciNfc_RecvMfResp(phNciNfc_Buff_t* RspBuffInfo,
             {
                 case phNciNfc_e_MfXchgDataRsp:
                 {
-                        /* check the status byte */
-                    if( PH_NCINFC_STATUS_OK == RspBuffInfo->pBuff[RspBuffInfo->wLen-1] )
+                    NFCSTATUS writeResponse = NFCSTATUS_SUCCESS;
+                    /* check the status byte */
+                    if (NFC_GetNCIVersion() == NCI_VERSION_2_0 &&
+                        (NdefMap->State == PH_FRINFC_NDEFMAP_STATE_WR_TLV ||
+                        NdefMap->State == PH_FRINFC_NDEFMAP_STATE_WRITE ||
+                        NdefMap->State == PH_FRINFC_NDEFMAP_STATE_WR_NDEF_LEN ||
+                        NdefMap->State == PH_FRINFC_NDEFMAP_STATE_INIT))
+                    {
+                        uint8_t rspAck = RspBuffInfo->pBuff[RspBuffInfo->wLen-2];
+                        uint8_t rspAckMask = ((RspBuffInfo->pBuff[RspBuffInfo->wLen-1]) & MAX_NUM_VALID_BITS_FOR_ACK);
+                        NCI_CALCULATE_ACK(rspAck, rspAckMask);
+                        writeResponse = (rspAck == T2T_RSP_ACK)?NFCSTATUS_SUCCESS:NFC_STATUS_FAILED;
+                    } else {
+                        writeResponse = RspBuffInfo->pBuff[RspBuffInfo->wLen-1];
+                    }
+                    if (PH_NCINFC_STATUS_OK == writeResponse)
                     {
                         status = NFCSTATUS_SUCCESS;
+                        uint16_t wRecvDataSz = 0;
 
                         /* DataLen = TotalRecvdLen - (sizeof(RspId) + sizeof(Status)) */
                         wPldDataSize = ((RspBuffInfo->wLen) -

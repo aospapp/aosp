@@ -33,19 +33,17 @@
 #include "smalloc.h"
 #include "os/os.h"
 #include "filelock.h"
+#include "helper_thread.h"
+#include "filehash.h"
 
-/*
- * Just expose an empty list, if the OS does not support disk util stats
- */
-#ifndef FIO_HAVE_DISK_UTIL
 FLIST_HEAD(disk_list);
-#endif
 
 unsigned long arch_flags = 0;
 
 uintptr_t page_mask = 0;
 uintptr_t page_size = 0;
 
+/* see os/os.h */
 static const char *fio_os_strings[os_nr] = {
 	"Invalid",
 	"Linux",
@@ -61,6 +59,7 @@ static const char *fio_os_strings[os_nr] = {
 	"DragonFly",
 };
 
+/* see arch/arch.h */
 static const char *fio_arch_strings[arch_nr] = {
 	"Invalid",
 	"x86-64",
@@ -74,21 +73,29 @@ static const char *fio_arch_strings[arch_nr] = {
 	"arm",
 	"sh",
 	"hppa",
+	"mips",
+	"aarch64",
 	"generic"
 };
 
-static void reset_io_counters(struct thread_data *td)
+static void reset_io_counters(struct thread_data *td, int all)
 {
 	int ddir;
 
-	for (ddir = 0; ddir < DDIR_RWDIR_CNT; ddir++) {
-		td->stat_io_bytes[ddir] = 0;
-		td->this_io_bytes[ddir] = 0;
-		td->stat_io_blocks[ddir] = 0;
-		td->this_io_blocks[ddir] = 0;
-		td->rate_bytes[ddir] = 0;
-		td->rate_blocks[ddir] = 0;
+	if (all) {
+		for (ddir = 0; ddir < DDIR_RWDIR_CNT; ddir++) {
+			td->stat_io_bytes[ddir] = 0;
+			td->this_io_bytes[ddir] = 0;
+			td->stat_io_blocks[ddir] = 0;
+			td->this_io_blocks[ddir] = 0;
+			td->rate_bytes[ddir] = 0;
+			td->rate_blocks[ddir] = 0;
+			td->bytes_done[ddir] = 0;
+			td->rate_io_issue_bytes[ddir] = 0;
+			td->rate_next_io_time[ddir] = 0;
+		}
 	}
+
 	td->zone_bytes = 0;
 
 	td->last_was_sync = 0;
@@ -101,12 +108,12 @@ static void reset_io_counters(struct thread_data *td)
 		td->nr_done_files = 0;
 }
 
-void clear_io_state(struct thread_data *td)
+void clear_io_state(struct thread_data *td, int all)
 {
 	struct fio_file *f;
 	unsigned int i;
 
-	reset_io_counters(td);
+	reset_io_counters(td, all);
 
 	close_files(td);
 	for_each_file(td, f, i) {
@@ -115,17 +122,17 @@ void clear_io_state(struct thread_data *td)
 	}
 
 	/*
-	 * Set the same seed to get repeatable runs
+	 * Re-Seed random number generator if rand_repeatable is true
 	 */
-	td_fill_rand_seeds(td);
+	if (td->o.rand_repeatable)
+		td_fill_rand_seeds(td);
 }
 
 void reset_all_stats(struct thread_data *td)
 {
-	struct timeval tv;
 	int i;
 
-	reset_io_counters(td);
+	reset_io_counters(td, 1);
 
 	for (i = 0; i < DDIR_RWDIR_CNT; i++) {
 		td->io_bytes[i] = 0;
@@ -136,11 +143,15 @@ void reset_all_stats(struct thread_data *td)
 		td->rwmix_issues = 0;
 	}
 
-	fio_gettime(&tv, NULL);
-	memcpy(&td->epoch, &tv, sizeof(tv));
-	memcpy(&td->start, &tv, sizeof(tv));
+	set_epoch_time(td, td->o.log_unix_epoch);
+	memcpy(&td->start, &td->epoch, sizeof(struct timeval));
+	memcpy(&td->iops_sample_time, &td->epoch, sizeof(struct timeval));
+	memcpy(&td->bw_sample_time, &td->epoch, sizeof(struct timeval));
+	memcpy(&td->ss.prev_time, &td->epoch, sizeof(struct timeval));
 
 	lat_target_reset(td);
+	clear_rusage_stat(td);
+	helper_reset();
 }
 
 void reset_fio_state(void)
@@ -167,13 +178,38 @@ const char *fio_get_arch_string(int nr)
 	return NULL;
 }
 
+static const char *td_runstates[] = {
+	"NOT_CREATED",
+	"CREATED",
+	"INITIALIZED",
+	"RAMP",
+	"SETTING_UP",
+	"RUNNING",
+	"PRE_READING",
+	"VERIFYING",
+	"FSYNCING",
+	"FINISHING",
+	"EXITED",
+	"REAPED",
+};
+
+const char *runstate_to_name(int runstate)
+{
+	compiletime_assert(TD_LAST == 12, "td runstate list");
+	if (runstate >= 0 && runstate < TD_LAST)
+		return td_runstates[runstate];
+
+	return "invalid";
+}
+
 void td_set_runstate(struct thread_data *td, int runstate)
 {
 	if (td->runstate == runstate)
 		return;
 
-	dprint(FD_PROCESS, "pid=%d: runstate %d -> %d\n", (int) td->pid,
-						td->runstate, runstate);
+	dprint(FD_PROCESS, "pid=%d: runstate %s -> %s\n", (int) td->pid,
+						runstate_to_name(td->runstate),
+						runstate_to_name(runstate));
 	td->runstate = runstate;
 }
 
@@ -197,7 +233,7 @@ void fio_mark_td_terminate(struct thread_data *td)
 	td->terminate = 1;
 }
 
-void fio_terminate_threads(int group_id)
+void fio_terminate_threads(unsigned int group_id)
 {
 	struct thread_data *td;
 	pid_t pid = getpid();
@@ -206,7 +242,7 @@ void fio_terminate_threads(int group_id)
 	dprint(FD_PROCESS, "terminate group_id=%d\n", group_id);
 
 	for_each_td(td, i) {
-		if (group_id == TERMINATE_ALL || groupid == td->groupid) {
+		if (group_id == TERMINATE_ALL || group_id == td->groupid) {
 			dprint(FD_PROCESS, "setting terminate on %s/%d\n",
 						td->o.name, (int) td->pid);
 
@@ -237,14 +273,18 @@ int fio_running_or_pending_io_threads(void)
 {
 	struct thread_data *td;
 	int i;
+	int nr_io_threads = 0;
 
 	for_each_td(td, i) {
-		if (td->flags & TD_F_NOIO)
+		if (td->io_ops_init && td_ioengine_flagged(td, FIO_NOIO))
 			continue;
+		nr_io_threads++;
 		if (td->runstate < TD_EXITED)
 			return 1;
 	}
 
+	if (!nr_io_threads)
+		return -1; /* we only had cpuio threads to begin with */
 	return 0;
 }
 
@@ -266,6 +306,13 @@ int fio_set_fd_nonblocking(int fd, const char *who)
 	return flags;
 }
 
+enum {
+	ENDIAN_INVALID_BE = 1,
+	ENDIAN_INVALID_LE,
+	ENDIAN_INVALID_CONFIG,
+	ENDIAN_BROKEN,
+};
+
 static int endian_check(void)
 {
 	union {
@@ -282,16 +329,16 @@ static int endian_check(void)
 
 #if defined(CONFIG_LITTLE_ENDIAN)
 	if (be)
-		return 1;
+		return ENDIAN_INVALID_BE;
 #elif defined(CONFIG_BIG_ENDIAN)
 	if (le)
-		return 1;
+		return ENDIAN_INVALID_LE;
 #else
-	return 1;
+	return ENDIAN_INVALID_CONFIG;
 #endif
 
 	if (!le && !be)
-		return 1;
+		return ENDIAN_BROKEN;
 
 	return 0;
 }
@@ -299,6 +346,7 @@ static int endian_check(void)
 int initialize_fio(char *envp[])
 {
 	long ps;
+	int err;
 
 	/*
 	 * We need these to be properly 64-bit aligned, otherwise we
@@ -314,8 +362,26 @@ int initialize_fio(char *envp[])
 	compiletime_assert((offsetof(struct thread_options_pack, percentile_list) % 8) == 0, "percentile_list");
 	compiletime_assert((offsetof(struct thread_options_pack, latency_percentile) % 8) == 0, "latency_percentile");
 
-	if (endian_check()) {
+	err = endian_check();
+	if (err) {
 		log_err("fio: endianness settings appear wrong.\n");
+		switch (err) {
+		case ENDIAN_INVALID_BE:
+			log_err("fio: got big-endian when configured for little\n");
+			break;
+		case ENDIAN_INVALID_LE:
+			log_err("fio: got little-endian when configured for big\n");
+			break;
+		case ENDIAN_INVALID_CONFIG:
+			log_err("fio: not configured to any endianness\n");
+			break;
+		case ENDIAN_BROKEN:
+			log_err("fio: failed to detect endianness\n");
+			break;
+		default:
+			assert(0);
+			break;
+		}
 		log_err("fio: please report this to fio@vger.kernel.org\n");
 		return 1;
 	}
@@ -332,6 +398,8 @@ int initialize_fio(char *envp[])
 		log_err("fio: failed initializing filelock subsys\n");
 		return 1;
 	}
+
+	file_hash_init();
 
 	/*
 	 * We need locale for number printing, if it isn't set then just
@@ -351,4 +419,9 @@ int initialize_fio(char *envp[])
 
 	fio_keywords_init();
 	return 0;
+}
+
+void deinitialize_fio(void)
+{
+	fio_keywords_exit();
 }

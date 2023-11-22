@@ -12,6 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+cc_library_headers {
+    name: "jni_headers",
+    host_supported: true,
+    export_include_dirs: ["include_jni"],
+    vendor_available: true,
+}
+
 cc_library {
     name: "libnativehelper",
     host_supported: true,
@@ -31,7 +38,10 @@ cc_library {
             srcs: ["AsynchronousCloseMonitor.cpp"],
             host_ldlibs: ["-ldl"],
         },
-   },
+    },
+
+    header_libs: ["jni_headers"],
+    export_header_lib_headers: ["jni_headers"],
 
     shared_libs: [
         "liblog",
@@ -41,6 +51,7 @@ cc_library {
         "-Werror",
         "-fvisibility=protected",
     ],
+
     export_include_dirs: ["include", "platform_include"],
 }
 
@@ -71,9 +82,9 @@ cc_library_shared {
 
 ndk_headers {
     name: "ndk_jni.h",
-    from: "include/nativehelper",
+    from: "include_jni",
     to: "",
-    srcs: ["include/nativehelper/jni.h"],
+    srcs: ["include_jni/jni.h"],
     license: "NOTICE",
 }
 

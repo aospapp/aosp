@@ -19,7 +19,7 @@
 
 #include <math.h>
 #include <audio_utils/mono_blend.h>
-#include <utils/Log.h>
+#include <log/log.h>
 #include <audio_utils/limiter.h>
 
 // TODO: Speed up for special case of 2 channels?

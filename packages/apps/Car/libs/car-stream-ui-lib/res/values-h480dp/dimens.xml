@@ -18,4 +18,8 @@ limitations under the License.
     <dimen name="action_panel_height">128dp</dimen>
     <dimen name="stream_fab_size">100dp</dimen>
     <dimen name="stream_button_size">96dp</dimen>
+
+    <!-- Height of items in a list. -->
+    <dimen name="double_line_item_height">96dp</dimen>
+    <dimen name="single_line_item_height">76dp</dimen>
 </resources>

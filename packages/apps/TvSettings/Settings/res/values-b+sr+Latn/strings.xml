@@ -27,7 +27,7 @@
     <string name="accounts_category_title" msgid="7591072907146317425">"Nalozi"</string>
     <string name="add_account" msgid="4098060223200619258">"Dodaj nalog"</string>
     <string name="account_header_remove_account" msgid="3288957118207682685">"Uklanjanje naloga"</string>
-    <string name="account_sync" msgid="773808124331714965">"Izaberite sinhron. aplikacije"</string>
+    <string name="account_sync" msgid="773808124331714965">"Izaberite sinhronizovane aplikacije"</string>
     <string name="sync_now" msgid="8732244492880016471">"Sinhronizuj odmah"</string>
     <string name="sync_in_progress" msgid="1330721038775646022">"Sinhronizovanje…"</string>
     <string name="last_synced" msgid="6178494892357077274">"Poslednji put sinhronizovano <xliff:g id="TIME">%1s</xliff:g>"</string>
@@ -54,7 +54,7 @@
     <string name="device_apps" msgid="9180435229638772838">"Aplikacije"</string>
     <string name="device_storage_reset" msgid="1425978936501134425">"Skladištenje i resetovanje"</string>
     <string name="device_backup_restore" msgid="5627523987587511884">"Pravljenje rezervne kopije i vraćanje"</string>
-    <string name="device_reset" msgid="2827002349560023125">"Resetovanje na fabrička podešavanja"</string>
+    <string name="device_reset" msgid="2827002349560023125">"Resetujte na fabrička podešavanja"</string>
     <string name="device_calibration" msgid="8632962533376605191">"Kalibracija"</string>
     <string name="device_storage_clear_cache_title" msgid="3365635664766067643">"Želite li da obrišete keširane podatke?"</string>
     <string name="device_storage_clear_cache_message" msgid="6495570470005696210">"Biće obrisani keširani podaci za sve aplikacije."</string>
@@ -74,9 +74,9 @@
     <string name="accessory_connected" msgid="2156489304110030393">"Povezano je"</string>
     <string name="accessory_change_name" msgid="8958916008739792785">"Promeni naziv"</string>
     <string name="accessory_change_name_title" msgid="4630819456923061184">"Unesite novi naziv za ovu dodatnu opremu"</string>
-    <string name="accessories_add_title" msgid="6940361421891873321">"Pretražuju se pom.uređaji…"</string>
+    <string name="accessories_add_title" msgid="6940361421891873321">"Pretražuju se pomoćni uređaji…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Pre nego što uparite Bluetooth uređaje, proverite da li su u režimu uparivanja"</string>
-    <string name="accessories_autopair_msg" msgid="8618829246837821752">"Pronađen je uređaj i automatski će se upariti za <xliff:g id="COUNTDOWN">%1$s</xliff:g> sekunde(i)"</string>
+    <string name="accessories_autopair_msg" msgid="8618829246837821752">"Pronađen je uređaj i automatski će se upariti za <xliff:g id="COUNTDOWN">%1$s</xliff:g> sekunde/i"</string>
     <string name="error_action_not_supported" msgid="300552308104354666">"Ova radnja nije podržana"</string>
     <string name="bluetooth_pairing_request" msgid="4523088117471287665">"Zahtev za Bluetooth uparivanje"</string>
     <string name="bluetooth_confirm_passkey_msg" msgid="7031117992819855434">"Da biste uparili sa uređajem &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;, uverite se da prikazuje ovaj pristupni kôd: &lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>&lt;/b&gt;"</string>
@@ -105,7 +105,7 @@
     <string name="about_system_update" msgid="7282772247661356586">"Ažuriranje sistema"</string>
     <string name="about_preference" msgid="4131396784531360434">"Osnovni podaci"</string>
     <string name="device_name" msgid="2670488158531273028">"Naziv uređaja"</string>
-    <string name="restart_button_label" msgid="8153112858638352970">"Ponovo pokreni"</string>
+    <string name="restart_button_label" msgid="8153112858638352970">"Ponovno pokretanje"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"Pravne informacije"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"Licence otvorenog koda"</string>
     <string name="about_terms_of_service" msgid="7743088207977334874">"Google pravne informacije"</string>
@@ -201,7 +201,7 @@
     <string name="title_wifi_known_network" msgid="819998498700202436">"<xliff:g id="SSID">%1$s</xliff:g> je sačuvana mreža"</string>
     <string name="wifi_action_try_again" msgid="3308643222864163092">"Probaj ponovo"</string>
     <string name="wifi_action_view_available_networks" msgid="560074338908947419">"Prikaži dostupne mreže"</string>
-    <string name="wifi_connecting" msgid="1299861268647323455">"Povezivanje sa <xliff:g id="SSID">%1$s</xliff:g>"</string>
+    <string name="wifi_connecting" msgid="1299861268647323455">"Povezuje sa <xliff:g id="SSID">%1$s</xliff:g>"</string>
     <string name="wifi_saving" msgid="1269061570772019215">"Čuvanje konfiguracije za <xliff:g id="SSID">%1$s</xliff:g>"</string>
     <string name="wifi_connect" msgid="8570424816865506077">"Poveži"</string>
     <string name="wifi_forget_network" msgid="7302755141573045803">"Zaboravi mrežu"</string>
@@ -264,7 +264,7 @@
     <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"Da biste koristili aplikacije ili podatke koje ovaj disk sadrži, umetnite ga ponovo. Kao drugo rešenje, možete da izaberete da zaboravite ovu memoriju ako disk nije dostupan.\n\nAko izaberete Zaboravi, svi podaci koje disk sadrži će zauvek biti izgubljeni.\n\nMožete ponovo da instalirate aplikacije kasnije, ali podaci uskladišteni na ovom disku će biti izgubljeni."</string>
     <string name="storage_device_storage_section" msgid="7797805634316822741">"Memorija uređaja"</string>
     <string name="storage_removable_storage_section" msgid="3264955106565590076">"Prenosiva memorija"</string>
-    <string name="storage_reset_section" msgid="7324235036547192861">"Resetujte"</string>
+    <string name="storage_reset_section" msgid="7324235036547192861">"Resetovanje"</string>
     <string name="storage_mount_success" msgid="4624254886950093443">"Uređaj <xliff:g id="NAME">%1$s</xliff:g> je priključen"</string>
     <string name="storage_mount_failure" msgid="2469026716895846633">"Priključivanje uređaja <xliff:g id="NAME">%1$s</xliff:g> nije uspelo"</string>
     <string name="storage_mount_adopted" msgid="3360994581083675640">"USB memorija je ponovo povezana"</string>
@@ -369,6 +369,10 @@
     <string name="system_services" msgid="7230571820151215779">"Usluge"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Podešavanja usluge"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Tekst visokog kontrasta"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"Prečica za pristupačnost"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Omogući prečicu za pristupačnost"</string>
+    <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Usluga prečice"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"Kada je prečica uključena, možete da pritisnete dugme Nazad i dugme sa strelicom nadole i da ih zadržite 3 sekunde da biste pokrenuli funkciju pristupačnosti."</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Titl"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Podešavanja za postavljanje teksta opcionalnog titla preko video snimka"</string>
     <string name="captions_display" msgid="735692527287125548">"Ekran"</string>
@@ -630,7 +634,7 @@
     <string name="device_daydreams_none" msgid="2767107052779579259">"Isključite ekran"</string>
     <string name="device_daydreams_select" msgid="2112338101206187695">"Čuvar ekrana"</string>
     <string name="device_daydreams_test" msgid="9038920213402659591">"Pokreni odmah"</string>
-    <string name="device_daydreams_sleep" msgid="7676938708373592766">"Kada se pokreće"</string>
+    <string name="device_daydreams_sleep" msgid="7676938708373592766">"Pokreni ga"</string>
     <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"Čuvar ekrana se pokreće posle ovog perioda neaktivnosti. Ako nikakav čuvar ekrana nije izabran, ekran se isključuje."</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"Posle <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> neaktivnosti"</string>
     <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Prebaci uređaj u režim spavanja"</string>
@@ -660,7 +664,7 @@
     <string name="keep_settings" msgid="6798327196645732517">"Ne menjaj"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"Dozvole"</string>
     <string name="device_apps_permissions" msgid="2966387603529725982">"Dozvole za aplikacije"</string>
-    <string name="app_permissions_group_summary" msgid="7906834786705287901">"Aplikacije sa dozvolom (<xliff:g id="COUNT_0">%d</xliff:g> od <xliff:g id="COUNT_1">%d</xliff:g>)"</string>
+    <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_0">%d</xliff:g> od <xliff:g id="COUNT_1">%d</xliff:g> aplikacija ima dozvolu"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"Zahtev za dozvolu za Bluetooth"</string>
     <string name="security_patch" msgid="2131617390189164481">"Nivo bezbednosne zakrpe za Android"</string>
     <string name="choose_application" msgid="5662960665577780353">"Izaberite aplikaciju"</string>
@@ -670,5 +674,9 @@
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"Ovo će onemogućiti sve instalirane aplikacije nezavisnih proizvođača. One će biti vraćene kada ponovo restartujete sistem."</string>
     <string name="capturing_bugreport" msgid="3291125403411239592">"Izveštaj o grešci se pravi"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Dostupne virtuelne tastature"</string>
-    <string name="manage_keyboards" msgid="1905379263117016795">"Upravljajte tastaturama"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"Upravljanje tastaturama"</string>
+    <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Dozvoljeno"</string>
+    <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Nije dozvoljeno"</string>
+    <string name="usage_access" msgid="1914242907684452328">"Pristup podacima o korišćenju"</string>
+    <string name="usage_access_description" msgid="6290001769893747651">"Pristup podacima o korišćenju omogućava aplikaciji da prati koje druge aplikacije koristite i koliko često, kao i da vidi mobilnog operatera, jezička podešavanja i druge detalje."</string>
 </resources>

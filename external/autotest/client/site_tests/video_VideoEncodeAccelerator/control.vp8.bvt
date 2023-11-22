@@ -28,5 +28,6 @@ This is a wrapper test for Chrome video_encode_accelerator_unittest.
 # Format of each stream: (filename, width, height, request_bit_rate)
 streams = [('media/test/data/bear_320x192_40frames.yuv', 320, 192, 200000)]
 
+args_dict = utils.args_to_dict(args)
 job.run_test('video_VideoEncodeAccelerator', in_cloud=False, streams=streams,
-        profile=11)
+        profile=11, tag='vp8', **args_dict)

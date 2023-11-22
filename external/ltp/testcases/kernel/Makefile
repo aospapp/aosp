@@ -18,7 +18,7 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
-# Garrett Cooper, July 2009
+# Ngie Cooper, July 2009
 #
 
 top_srcdir		?= ../..
@@ -59,6 +59,11 @@ ifeq ($(WITH_POWER_MANAGEMENT_TESTSUITE),yes)
 SUBDIRS			+= power_management
 endif
 
+endif
+
+ifeq ($(ANDROID),1)
+FILTER_OUT_DIRS		+= containers controllers device-drivers fs io ipc mem \
+				sched security timers
 endif
 
 MAKE_DEPS		:= include/linux_syscall_numbers.h

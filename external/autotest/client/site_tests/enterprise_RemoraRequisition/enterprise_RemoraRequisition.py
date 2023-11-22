@@ -6,7 +6,7 @@ import logging, os, time
 
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib.cros import chrome, enrollment, cfm_util
+from autotest_lib.client.common_lib.cros import chrome, enrollment, kiosk_utils
 
 TIMEOUT = 20
 
@@ -17,7 +17,7 @@ class enterprise_RemoraRequisition(test.test):
     _HANGOUTS_EXT_ID = 'ikfcpmgefdpheiiomgmhlmmkihchmdlj'
 
     def _CheckHangoutsExtensionContexts(self, browser):
-        ext_contexts = cfm_util.wait_for_kiosk_ext(
+        ext_contexts = kiosk_utils.wait_for_kiosk_ext(
                 browser, self._HANGOUTS_EXT_ID)
         ext_urls = set([context.EvaluateJavaScript('location.href;')
                        for context in ext_contexts])

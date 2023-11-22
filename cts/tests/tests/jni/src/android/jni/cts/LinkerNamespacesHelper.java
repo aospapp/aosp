@@ -50,6 +50,7 @@ class LinkerNamespacesHelper {
         "libmediandk.so",
         "libm.so",
         "libnativewindow.so",
+        "libneuralnetworks.so",
         "libOpenMAXAL.so",
         "libOpenSLES.so",
         "libRS.so",

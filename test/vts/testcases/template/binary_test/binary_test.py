@@ -15,7 +15,8 @@
 #
 
 import logging
-import os
+import os.path
+import posixpath as targetpath
 import time
 
 from vts.runners.host import asserts
@@ -23,13 +24,15 @@ from vts.runners.host import base_test
 from vts.runners.host import const
 from vts.runners.host import keys
 from vts.runners.host import test_runner
-from vts.utils.python.controllers import android_device
 from vts.utils.python.common import list_utils
 from vts.utils.python.os import path_utils
 from vts.utils.python.precondition import precondition_utils
 from vts.utils.python.web import feature_utils
 
 from vts.testcases.template.binary_test import binary_test_case
+
+DATA_NATIVETEST = 'data/nativetest'
+DATA_NATIVETEST64 = '%s64' % DATA_NATIVETEST
 
 
 class BinaryTest(base_test.BaseTestClass):
@@ -53,8 +56,8 @@ class BinaryTest(base_test.BaseTestClass):
     DEVICE_TMP_DIR = '/data/local/tmp'
     TAG_DELIMITER = '::'
     PUSH_DELIMITER = '->'
-    DEFAULT_TAG_32 = '_32bit'
-    DEFAULT_TAG_64 = '_64bit'
+    DEFAULT_TAG_32 = '_%s' % const.SUFFIX_32BIT
+    DEFAULT_TAG_64 = '_%s' % const.SUFFIX_64BIT
     DEFAULT_LD_LIBRARY_PATH_32 = '/data/local/tmp/32/'
     DEFAULT_LD_LIBRARY_PATH_64 = '/data/local/tmp/64/'
     DEFAULT_PROFILING_LIBRARY_PATH_32 = '/data/local/tmp/32/'
@@ -62,7 +65,9 @@ class BinaryTest(base_test.BaseTestClass):
 
     def setUpClass(self):
         '''Prepare class, push binaries, set permission, create test cases.'''
-        required_params = [keys.ConfigKeys.IKEY_DATA_FILE_PATH, ]
+        required_params = [
+            keys.ConfigKeys.IKEY_DATA_FILE_PATH,
+        ]
         opt_params = [
             keys.ConfigKeys.IKEY_BINARY_TEST_SOURCE,
             keys.ConfigKeys.IKEY_BINARY_TEST_WORKING_DIRECTORY,
@@ -104,8 +109,10 @@ class BinaryTest(base_test.BaseTestClass):
             for token in self.binary_test_envp:
                 tag = ''
                 path = token
-                if self.TAG_DELIMITER in token:
-                    tag, path = token.split(self.TAG_DELIMITER)
+                split = token.find(self.TAG_DELIMITER)
+                if split >= 0:
+                    tag, arg = token[:split], token[
+                        split + len(self.TAG_DELIMITER):]
                 if tag in self.envp:
                     self.envp[tag] += ' %s' % path
                 else:
@@ -117,8 +124,10 @@ class BinaryTest(base_test.BaseTestClass):
             for token in self.binary_test_args:
                 tag = ''
                 arg = token
-                if self.TAG_DELIMITER in token:
-                    tag, arg = token.split(self.TAG_DELIMITER)
+                split = token.find(self.TAG_DELIMITER)
+                if split >= 0:
+                    tag, arg = token[:split], token[
+                        split + len(self.TAG_DELIMITER):]
                 if tag in self.args:
                     self.args[tag] += ' %s' % arg
                 else:
@@ -157,13 +166,10 @@ class BinaryTest(base_test.BaseTestClass):
                     tag, path = token.split(self.TAG_DELIMITER)
                 self.profiling_library_path[tag] = path
 
-        if not hasattr(self, "_dut"):
-            self._dut = self.registerController(android_device)[0]
+        self._dut = self.android_devices[0]
+        self.shell = self._dut.shell
 
-        self._dut.shell.InvokeTerminal("one", int(self.abi_bitness))
-        self.shell = self._dut.shell.one
-
-        if self.coverage.enabled:
+        if self.coverage.enabled and self.coverage.global_coverage:
             self.coverage.LoadArtifacts()
             self.coverage.InitializeDeviceCoverage(self._dut)
 
@@ -171,7 +177,7 @@ class BinaryTest(base_test.BaseTestClass):
         self.shell.Execute("setenforce 0")  # SELinux permissive mode
 
         if not precondition_utils.CanRunHidlHalTest(self, self._dut,
-                                                    self._dut.shell.one):
+                                                    self.shell):
             self._skip_all_testcases = True
 
         self.testcases = []
@@ -185,20 +191,18 @@ class BinaryTest(base_test.BaseTestClass):
             logging.error('Failed to set permission to some of the binaries:\n'
                           '%s\n%s', cmd, cmd_results)
 
-        self.include_filter = self.ExpandListItemTags(self.include_filter)
-        self.exclude_filter = self.ExpandListItemTags(self.exclude_filter)
-
         stop_requested = False
 
         if getattr(self, keys.ConfigKeys.IKEY_BINARY_TEST_DISABLE_FRAMEWORK,
                    False):
             # Stop Android runtime to reduce interference.
+            logging.debug("Stops the Android framework.")
             self._dut.stop()
             stop_requested = True
 
         if getattr(self, keys.ConfigKeys.IKEY_BINARY_TEST_STOP_NATIVE_SERVERS,
                    False):
-            # Stops all (properly configured) native servers.
+            logging.debug("Stops all properly configured native servers.")
             results = self._dut.setProp(self.SYSPROP_VTS_NATIVE_SERVER, "1")
             stop_requested = True
 
@@ -213,8 +217,8 @@ class BinaryTest(base_test.BaseTestClass):
                             logging.error("ps command failed (exit code: %s",
                                           cmd_result[const.EXIT_CODE][0])
                             break
-                        if (native_server_process_name not in
-                            cmd_result[const.STDOUT][0]):
+                        if (native_server_process_name not in cmd_result[
+                                const.STDOUT][0]):
                             logging.info("Process %s not running",
                                          native_server_process_name)
                             break
@@ -252,6 +256,9 @@ class BinaryTest(base_test.BaseTestClass):
                     self.testcases.extend(testcase)
                 else:
                     self.testcases.append(testcase)
+
+        if type(self.testcases) is not list or len(self.testcases) == 0:
+            asserts.fail("No test case is found or generated.")
 
     def PutTag(self, name, tag):
         '''Put tag on name and return the resulting string.
@@ -294,28 +301,30 @@ class BinaryTest(base_test.BaseTestClass):
         '''Perform clean-up tasks'''
         if getattr(self, keys.ConfigKeys.IKEY_BINARY_TEST_STOP_NATIVE_SERVERS,
                    False):
-            # Restarts all (properly configured) native servers.
+            logging.debug("Restarts all properly configured native servers.")
             results = self._dut.setProp(self.SYSPROP_VTS_NATIVE_SERVER, "0")
 
         # Restart Android runtime.
         if getattr(self, keys.ConfigKeys.IKEY_BINARY_TEST_DISABLE_FRAMEWORK,
                    False):
+            logging.debug("Starts the Android framework.")
             self._dut.start()
 
         # Retrieve coverage if applicable
-        if self.coverage.enabled:
+        if self.coverage.enabled and self.coverage.global_coverage:
             self.coverage.SetCoverageData(dut=self._dut, isGlobal=True)
 
         # Clean up the pushed binaries
         logging.info('Start class cleaning up jobs.')
         # Delete pushed files
 
-        sources = [self.ParseTestSource(src)
-                   for src in self.binary_test_source]
+        sources = [
+            self.ParseTestSource(src) for src in self.binary_test_source
+        ]
         sources = set(filter(bool, sources))
         paths = [dst for src, dst, tag in sources if src and dst]
         cmd = ['rm -rf %s' % dst for dst in paths]
-        cmd_results = self.shell.Execute(cmd)
+        cmd_results = self.shell.Execute(cmd, no_except=True)
         if not cmd_results or any(cmd_results[const.EXIT_CODE]):
             logging.warning('Failed to clean up test class: %s', cmd_results)
 
@@ -325,7 +334,7 @@ class BinaryTest(base_test.BaseTestClass):
         dirs = list(dir_set)
         dirs.sort(lambda x, y: cmp(len(y), len(x)))
         cmd = ['rmdir %s' % d for d in dirs]
-        cmd_results = self.shell.Execute(cmd)
+        cmd_results = self.shell.Execute(cmd, no_except=True)
         if not cmd_results or any(cmd_results[const.EXIT_CODE]):
             logging.warning('Failed to remove: %s', cmd_results)
 
@@ -367,18 +376,42 @@ class BinaryTest(base_test.BaseTestClass):
         push_only = dst is not None and dst == ''
 
         if not dst:
-            if tag in self.working_directory:
-                dst = path_utils.JoinTargetPath(self.working_directory[tag],
-                                                os.path.basename(src))
-            else:
-                dst = path_utils.JoinTargetPath(
-                    self.DEVICE_TMP_DIR, 'binary_test_temp_%s' %
-                    self.__class__.__name__, tag, os.path.basename(src))
+            parent = self.working_directory[
+                tag] if tag in self.working_directory else self._GetDefaultBinaryPushDstPath(
+                    src, tag)
+            dst = path_utils.JoinTargetPath(parent, os.path.basename(src))
 
         if push_only:
             tag = None
 
         return str(src), str(dst), tag
+
+    def _GetDefaultBinaryPushDstPath(self, src, tag):
+        '''Get default binary push destination path.
+
+        This method is called to get default push destination path when
+        it is not specified.
+
+        If binary source path contains 'data/nativetest[64]', then the binary
+        will be pushed to /data/nativetest[64] instead of /data/local/tmp
+
+        Args:
+            src: string, source path of binary
+            tag: string, tag of binary source
+
+        Returns:
+            string, default push path
+        '''
+        src_lower = src.lower()
+        if DATA_NATIVETEST64 in src_lower:
+            parent_path = targetpath.sep + DATA_NATIVETEST64
+        elif DATA_NATIVETEST in src_lower:
+            parent_path = targetpath.sep + DATA_NATIVETEST
+        else:
+            parent_path = self.DEVICE_TMP_DIR
+
+        return targetpath.join(
+            parent_path, 'vts_binary_test_%s' % self.__class__.__name__, tag)
 
     def CreateTestCase(self, path, tag=''):
         '''Create a list of TestCase objects from a binary path.
@@ -412,9 +445,10 @@ class BinaryTest(base_test.BaseTestClass):
             args=args)
 
     def VerifyTestResult(self, test_case, command_results):
-        '''Parse command result.
+        '''Parse test case command result.
 
         Args:
+            test_case: BinaryTestCase object, the test case whose command
             command_results: dict of lists, shell command result
         '''
         asserts.assertTrue(command_results, 'Empty command response.')

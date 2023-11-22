@@ -17,6 +17,7 @@
 #include <sys/ptrace.h>
 
 #include <elf.h>
+#include <err.h>
 #include <fcntl.h>
 #include <sched.h>
 #include <sys/prctl.h>
@@ -26,10 +27,15 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <chrono>
+#include <thread>
+
 #include <gtest/gtest.h>
 
 #include <android-base/macros.h>
 #include <android-base/unique_fd.h>
+
+using namespace std::chrono_literals;
 
 using android::base::unique_fd;
 
@@ -60,14 +66,28 @@ static bool is_hw_feature_supported(pid_t child, HwFeature feature) {
   long result = ptrace(PTRACE_GETHBPREGS, child, 0, &capabilities);
   if (result == -1) {
     EXPECT_EQ(EIO, errno);
+    GTEST_LOG_(INFO) << "Hardware debug support disabled at kernel configuration time.";
     return false;
   }
-  switch (feature) {
-    case HwFeature::Watchpoint:
-      return ((capabilities >> 8) & 0xff) > 0;
-    case HwFeature::Breakpoint:
-      return (capabilities & 0xff) > 0;
+  uint8_t hb_count = capabilities & 0xff;
+  capabilities >>= 8;
+  uint8_t wp_count = capabilities & 0xff;
+  capabilities >>= 8;
+  uint8_t max_wp_size = capabilities & 0xff;
+  if (max_wp_size == 0) {
+    GTEST_LOG_(INFO)
+        << "Kernel reports zero maximum watchpoint size. Hardware debug support missing.";
+    return false;
   }
+  if (feature == HwFeature::Watchpoint && wp_count == 0) {
+    GTEST_LOG_(INFO) << "Kernel reports zero hardware watchpoints";
+    return false;
+  }
+  if (feature == HwFeature::Breakpoint && hb_count == 0) {
+    GTEST_LOG_(INFO) << "Kernel reports zero hardware breakpoints";
+    return false;
+  }
+  return true;
 #elif defined(__aarch64__)
   user_hwdebug_state dreg_state;
   iovec iov;
@@ -367,31 +387,39 @@ TEST(sys_ptrace, hardware_breakpoint) {
 
 class PtraceResumptionTest : public ::testing::Test {
  public:
+  unique_fd worker_pipe_write;
+
   pid_t worker = -1;
+  pid_t tracer = -1;
+
   PtraceResumptionTest() {
+    unique_fd worker_pipe_read;
+    int pipefd[2];
+    if (pipe2(pipefd, O_CLOEXEC) != 0) {
+      err(1, "failed to create pipe");
+    }
+
+    worker_pipe_read.reset(pipefd[0]);
+    worker_pipe_write.reset(pipefd[1]);
+
+    worker = fork();
+    if (worker == -1) {
+      err(1, "failed to fork worker");
+    } else if (worker == 0) {
+      char buf;
+      worker_pipe_write.reset();
+      TEMP_FAILURE_RETRY(read(worker_pipe_read.get(), &buf, sizeof(buf)));
+      exit(0);
+    }
   }
 
   ~PtraceResumptionTest() {
   }
 
   void AssertDeath(int signo);
-  void Start(std::function<void()> f) {
-    unique_fd worker_pipe_read, worker_pipe_write;
-    int pipefd[2];
-    ASSERT_EQ(0, pipe2(pipefd, O_CLOEXEC));
-    worker_pipe_read.reset(pipefd[0]);
-    worker_pipe_write.reset(pipefd[1]);
 
-    worker = fork();
-    ASSERT_NE(-1, worker);
-    if (worker == 0) {
-      char buf;
-      worker_pipe_write.reset();
-      TEMP_FAILURE_RETRY(read(worker_pipe_read.get(), &buf, sizeof(buf)));
-      exit(0);
-    }
-
-    pid_t tracer = fork();
+  void StartTracer(std::function<void()> f) {
+    tracer = fork();
     ASSERT_NE(-1, tracer);
     if (tracer == 0) {
       f();
@@ -400,26 +428,66 @@ class PtraceResumptionTest : public ::testing::Test {
       }
       exit(0);
     }
+  }
+
+  bool WaitForTracer() {
+    if (tracer == -1) {
+      errx(1, "tracer not started");
+    }
 
     int result;
     pid_t rc = waitpid(tracer, &result, 0);
-    ASSERT_EQ(tracer, rc);
-    EXPECT_TRUE(WIFEXITED(result) || WIFSIGNALED(result));
+    if (rc != tracer) {
+      printf("waitpid returned %d (%s)\n", rc, strerror(errno));
+      return false;
+    }
+
+    if (!WIFEXITED(result) && !WIFSIGNALED(result)) {
+      printf("!WIFEXITED && !WIFSIGNALED\n");
+      return false;
+    }
+
     if (WIFEXITED(result)) {
       if (WEXITSTATUS(result) != 0) {
-        FAIL() << "tracer failed";
+        printf("tracer failed\n");
+        return false;
       }
     }
 
-    rc = waitpid(worker, &result, WNOHANG);
-    ASSERT_EQ(0, rc);
+    return true;
+  }
+
+  bool WaitForWorker() {
+    if (worker == -1) {
+      errx(1, "worker not started");
+    }
+
+    int result;
+    pid_t rc = waitpid(worker, &result, WNOHANG);
+    if (rc != 0) {
+      printf("worker exited prematurely\n");
+      return false;
+    }
 
     worker_pipe_write.reset();
 
     rc = waitpid(worker, &result, 0);
-    ASSERT_EQ(worker, rc);
-    EXPECT_TRUE(WIFEXITED(result));
-    EXPECT_EQ(WEXITSTATUS(result), 0);
+    if (rc != worker) {
+      printf("waitpid for worker returned %d (%s)\n", rc, strerror(errno));
+      return false;
+    }
+
+    if (!WIFEXITED(result)) {
+      printf("worker didn't exit\n");
+      return false;
+    }
+
+    if (WEXITSTATUS(result) != 0) {
+      printf("worker exited with status %d\n", WEXITSTATUS(result));
+      return false;
+    }
+
+    return true;
   }
 };
 
@@ -436,22 +504,74 @@ static void wait_for_ptrace_stop(pid_t pid) {
   }
 }
 
+TEST_F(PtraceResumptionTest, smoke) {
+  // Make sure that the worker doesn't exit before the tracer stops tracing.
+  StartTracer([this]() {
+    ASSERT_EQ(0, ptrace(PTRACE_SEIZE, worker, 0, 0)) << strerror(errno);
+    ASSERT_EQ(0, ptrace(PTRACE_INTERRUPT, worker, 0, 0)) << strerror(errno);
+    wait_for_ptrace_stop(worker);
+    std::this_thread::sleep_for(500ms);
+  });
+
+  worker_pipe_write.reset();
+  std::this_thread::sleep_for(250ms);
+
+  int result;
+  ASSERT_EQ(0, waitpid(worker, &result, WNOHANG));
+  ASSERT_TRUE(WaitForTracer());
+  ASSERT_EQ(worker, waitpid(worker, &result, 0));
+}
+
 TEST_F(PtraceResumptionTest, seize) {
-  Start([this]() { ASSERT_EQ(0, ptrace(PTRACE_SEIZE, worker, 0, 0)) << strerror(errno); });
+  StartTracer([this]() { ASSERT_EQ(0, ptrace(PTRACE_SEIZE, worker, 0, 0)) << strerror(errno); });
+  ASSERT_TRUE(WaitForTracer());
+  ASSERT_TRUE(WaitForWorker());
 }
 
 TEST_F(PtraceResumptionTest, seize_interrupt) {
-  Start([this]() {
+  StartTracer([this]() {
     ASSERT_EQ(0, ptrace(PTRACE_SEIZE, worker, 0, 0)) << strerror(errno);
     ASSERT_EQ(0, ptrace(PTRACE_INTERRUPT, worker, 0, 0)) << strerror(errno);
+    wait_for_ptrace_stop(worker);
   });
+  ASSERT_TRUE(WaitForTracer());
+  ASSERT_TRUE(WaitForWorker());
 }
 
 TEST_F(PtraceResumptionTest, seize_interrupt_cont) {
-  Start([this]() {
+  StartTracer([this]() {
     ASSERT_EQ(0, ptrace(PTRACE_SEIZE, worker, 0, 0)) << strerror(errno);
     ASSERT_EQ(0, ptrace(PTRACE_INTERRUPT, worker, 0, 0)) << strerror(errno);
     wait_for_ptrace_stop(worker);
     ASSERT_EQ(0, ptrace(PTRACE_CONT, worker, 0, 0)) << strerror(errno);
   });
+  ASSERT_TRUE(WaitForTracer());
+  ASSERT_TRUE(WaitForWorker());
+}
+
+TEST_F(PtraceResumptionTest, zombie_seize) {
+  StartTracer([this]() { ASSERT_EQ(0, ptrace(PTRACE_SEIZE, worker, 0, 0)) << strerror(errno); });
+  ASSERT_TRUE(WaitForWorker());
+  ASSERT_TRUE(WaitForTracer());
+}
+
+TEST_F(PtraceResumptionTest, zombie_seize_interrupt) {
+  StartTracer([this]() {
+    ASSERT_EQ(0, ptrace(PTRACE_SEIZE, worker, 0, 0)) << strerror(errno);
+    ASSERT_EQ(0, ptrace(PTRACE_INTERRUPT, worker, 0, 0)) << strerror(errno);
+    wait_for_ptrace_stop(worker);
+  });
+  ASSERT_TRUE(WaitForWorker());
+  ASSERT_TRUE(WaitForTracer());
+}
+
+TEST_F(PtraceResumptionTest, zombie_seize_interrupt_cont) {
+  StartTracer([this]() {
+    ASSERT_EQ(0, ptrace(PTRACE_SEIZE, worker, 0, 0)) << strerror(errno);
+    ASSERT_EQ(0, ptrace(PTRACE_INTERRUPT, worker, 0, 0)) << strerror(errno);
+    wait_for_ptrace_stop(worker);
+    ASSERT_EQ(0, ptrace(PTRACE_CONT, worker, 0, 0)) << strerror(errno);
+  });
+  ASSERT_TRUE(WaitForWorker());
+  ASSERT_TRUE(WaitForTracer());
 }

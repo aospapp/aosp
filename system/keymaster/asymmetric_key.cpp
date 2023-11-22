@@ -16,7 +16,7 @@
 
 #include "asymmetric_key.h"
 
-#include <new>
+#include <keymaster/new>
 
 #include <openssl/asn1.h>
 #include <openssl/stack.h>
@@ -76,7 +76,7 @@ static keymaster_error_t add_key_usage_extension(const AuthorizationSet& tee_enf
     if (len < 0) {
         return TranslateLastOpenSslError();
     }
-    UniquePtr<uint8_t[]> asn1_key_usage(new uint8_t[len]);
+    UniquePtr<uint8_t[]> asn1_key_usage(new(std::nothrow) uint8_t[len]);
     if (!asn1_key_usage.get()) {
         return KM_ERROR_MEMORY_ALLOCATION_FAILED;
     }
@@ -128,7 +128,7 @@ keymaster_error_t AsymmetricKey::formatted_key_material(keymaster_key_format_t f
     if (key_data_length <= 0)
         return TranslateLastOpenSslError();
 
-    material->reset(new (std::nothrow) uint8_t[key_data_length]);
+    material->reset(new(std::nothrow) uint8_t[key_data_length]);
     if (material->get() == NULL)
         return KM_ERROR_MEMORY_ALLOCATION_FAILED;
 
@@ -205,7 +205,7 @@ static keymaster_error_t get_certificate_blob(X509* certificate, keymaster_blob_
     if (len < 0)
         return TranslateLastOpenSslError();
 
-    uint8_t* data = new uint8_t[len];
+    uint8_t* data = new(std::nothrow) uint8_t[len];
     if (!data)
         return KM_ERROR_MEMORY_ALLOCATION_FAILED;
 
@@ -227,7 +227,7 @@ static bool allocate_cert_chain(size_t entry_count, keymaster_cert_chain_t* chai
     }
 
     chain->entry_count = entry_count;
-    chain->entries = new keymaster_blob_t[entry_count];
+    chain->entries = new(std::nothrow) keymaster_blob_t[entry_count];
     if (!chain->entries) {
         *error = KM_ERROR_MEMORY_ALLOCATION_FAILED;
         return false;
@@ -354,7 +354,9 @@ keymaster_error_t AsymmetricKey::GenerateAttestation(const KeymasterContext& con
         return TranslateLastOpenSslError();
     }
 
-    UniquePtr<X509V3_CTX> x509v3_ctx(new X509V3_CTX);
+    UniquePtr<X509V3_CTX> x509v3_ctx(new(std::nothrow) X509V3_CTX);
+    if (!x509v3_ctx.get())
+        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
     *x509v3_ctx = {};
     X509V3_set_ctx(x509v3_ctx.get(), signing_cert.get(), certificate.get(), nullptr /* req */,
                    nullptr /* crl */, 0 /* flags */);

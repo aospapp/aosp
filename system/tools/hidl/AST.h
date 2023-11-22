@@ -25,6 +25,7 @@
 #include <string>
 #include <vector>
 
+#include "Scope.h"
 #include "Type.h"
 
 namespace android {
@@ -36,44 +37,35 @@ struct Location;
 struct Method;
 struct NamedType;
 struct TypedVar;
-struct Scope;
 struct EnumValue;
 
 struct AST {
-    AST(Coordinator *coordinator, const std::string &path);
-    ~AST();
+    AST(const Coordinator *coordinator, const std::string &path);
 
     bool setPackage(const char *package);
     bool addImport(const char *import);
 
     // package and version really.
     FQName package() const;
-    bool isInterface(std::string *ifaceName) const;
+    bool isInterface() const;
     bool containsInterfaces() const;
 
-    void enterScope(Scope *container);
-    void leaveScope();
-    Scope *scope();
+    // Returns true iff successful.
+    bool addTypeDef(const char* localName, Type* type, const Location& location,
+                    std::string* errorMsg, Scope* scope);
 
     // Returns true iff successful.
-    bool addTypeDef(const char *localName, Type *type, const Location &location,
-            std::string *errorMsg);
-
-    // Returns true iff successful.
-    bool addScopedType(NamedType *type, std::string *errorMsg);
-
-    void *scanner();
-    void setScanner(void *scanner);
+    bool addScopedType(NamedType* type, std::string* errorMsg, Scope* scope);
 
     const std::string &getFilename() const;
 
     // Look up an enum value by "FQName:valueName".
-    EnumValue *lookupEnumValue(const FQName &fqName, std::string *errorMsg);
+    EnumValue* lookupEnumValue(const FQName& fqName, std::string* errorMsg, Scope* scope);
 
     // Look up a type by FQName, "pure" names, i.e. those without package
     // or version are first looked up in the current scope chain.
     // After that lookup proceeds to imports.
-    Type *lookupType(const FQName &fqName);
+    Type* lookupType(const FQName& fqName, Scope* scope);
 
     void addImportedAST(AST *ast);
 
@@ -81,6 +73,8 @@ struct AST {
     status_t generateCppHeaders(const std::string &outputPath) const;
     status_t generateCppSources(const std::string &outputPath) const;
     status_t generateCppImpl(const std::string &outputPath) const;
+    status_t generateStubImplHeader(const std::string& outputPath) const;
+    status_t generateStubImplSource(const std::string& outputPath) const;
 
     status_t generateJava(
             const std::string &outputPath,
@@ -118,15 +112,19 @@ struct AST {
 
     bool isIBase() const;
 
+    // or nullptr if not isInterface
     const Interface *getInterface() const;
 
-private:
-    Coordinator *mCoordinator;
-    std::string mPath;
-    std::vector<Scope *> mScopePath;
+    // types or Interface base name (e.x. Foo)
+    std::string getBaseName() const;
 
-    void *mScanner;
-    Scope *mRootScope;
+    Scope* getRootScope();
+
+   private:
+    const Coordinator *mCoordinator;
+    std::string mPath;
+
+    RootScope mRootScope;
 
     FQName mPackage;
 
@@ -149,12 +147,10 @@ private:
     // used by the parser.
     size_t mSyntaxErrors = 0;
 
-    bool addScopedTypeInternal(
-            NamedType *type,
-            std::string *errorMsg);
+    bool addScopedTypeInternal(NamedType* type, std::string* errorMsg, Scope* scope);
 
     // Helper functions for lookupType.
-    Type *lookupTypeLocally(const FQName &fqName);
+    Type* lookupTypeLocally(const FQName& fqName, Scope* scope);
     status_t lookupAutofilledType(const FQName &fqName, Type **returnedType);
     Type *lookupTypeFromImports(const FQName &fqName);
 
@@ -193,15 +189,17 @@ private:
     // is effectively useless.
     using MethodGenerator = std::function<status_t(const Method *, const Interface *)>;
 
-    status_t generateStubImplHeader(const std::string &outputPath) const;
-    status_t generateStubImplSource(const std::string &outputPath) const;
+    void generateTemplatizationLink(Formatter& out) const;
 
-    status_t generateMethods(Formatter &out, MethodGenerator gen) const;
+    status_t generateMethods(Formatter &out, MethodGenerator gen, bool includeParents = true) const;
     status_t generateStubImplMethod(Formatter &out,
                                     const std::string &className,
                                     const Method *method) const;
     status_t generatePassthroughMethod(Formatter &out,
                                        const Method *method) const;
+    status_t generateStaticProxyMethodSource(Formatter &out,
+                                             const std::string &className,
+                                             const Method *method) const;
     status_t generateProxyMethodSource(Formatter &out,
                                        const std::string &className,
                                        const Method *method,
@@ -215,8 +213,12 @@ private:
     status_t generateStubSource(
             Formatter &out, const Interface *iface) const;
 
-    status_t generateStubSourceForMethod(
-            Formatter &out, const Interface *iface, const Method *method) const;
+    status_t generateStubSourceForMethod(Formatter &out,
+                                         const Method *method,
+                                         const Interface *superInterface) const;
+    status_t generateStaticStubMethodSource(Formatter &out,
+                                            const std::string &className,
+                                            const Method *method) const;
 
     status_t generatePassthroughSource(Formatter &out) const;
 
@@ -235,12 +237,12 @@ private:
         PASSTHROUGH_EXIT,
     };
 
-    status_t generateCppAtraceCall(
+    void generateCppAtraceCall(
             Formatter &out,
             InstrumentationEvent event,
             const Method *method) const;
 
-    status_t generateCppInstrumentationCall(
+    void generateCppInstrumentationCall(
             Formatter &out,
             InstrumentationEvent event,
             const Method *method) const;

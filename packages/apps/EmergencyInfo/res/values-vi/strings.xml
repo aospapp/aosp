@@ -17,6 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Thông tin khẩn cấp"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"Thông tin y tế"</string>
+    <string name="edit_medical_info" msgid="6733720353375319476">"Chỉnh sửa thông tin"</string>
     <string name="edit_info" msgid="5973929805855224805">"Chỉnh sửa thông tin khẩn cấp"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Thông tin"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Liên hệ"</string>
@@ -72,7 +74,7 @@
     <string name="allergies" msgid="2789200777539258165">"Dị ứng"</string>
     <string name="unknown_allergies" msgid="4383115953418061237">"Không xác định"</string>
     <string name="allergies_hint" msgid="5488918780522184147">"Ví dụ: đậu phộng"</string>
-    <string name="medications" msgid="644428945685557183">"Dược phẩm"</string>
+    <string name="medications" msgid="644428945685557183">"Thuốc"</string>
     <string name="unknown_medications" msgid="2764171064510423734">"Không xác định"</string>
     <string name="medications_hint" msgid="3221620025945593723">"Ví dụ: aspirin"</string>
     <string name="medical_conditions" msgid="3555690011498283592">"Ghi chú y tế"</string>
@@ -96,12 +98,12 @@
     <string name="cancel" msgid="7401575239009060939">"Hủy"</string>
     <string name="ok" msgid="163967937451981024">"OK"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"Thông tin khẩn cấp"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"Thông tin bạn nhập ở đây có thể giúp người trả lời đầu tiên trong trường hợp khẩn cấp. Thông tin này chỉ được lưu trữ trên thiết bị của bạn nhưng bất cứ ai đều có thể đọc được từ trình quay số khẩn cấp mà không cần mở khóa điện thoại của bạn."</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"Tiếp tục"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Không có thông tin nào về chủ sở hữu điện thoại"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"Nếu đây là điện thoại của bạn, hãy nhấn vào biểu tượng bút chì để thêm thông tin sẽ được hiển thị tại đây trong trường hợp khẩn cấp"</string>
     <string name="clear_all" msgid="8899013032870561633">"Xóa tất cả"</string>
     <string name="clear" msgid="3648880442502887163">"Xóa"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Xóa tất cả thông tin và liên hệ?"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"Thêm thông tin y tế và liên hệ khẩn cấp có thể giúp ích cho những người ứng cứu đầu tiên trong trường hợp khẩn cấp.\n\nBất cứ ai cũng có thể đọc được thông tin này từ màn hình khóa và quay số gọi cho các liên hệ của bạn bằng cách nhấn vào tên của họ mà không cần mở khóa điện thoại của bạn."</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"Thêm thông tin khẩn cấp"</string>
+    <string name="settings_suggestion_body" msgid="6623265155762787567">"Giúp những người ứng cứu đầu tiên tìm thấy thông tin quan trọng"</string>
 </resources>

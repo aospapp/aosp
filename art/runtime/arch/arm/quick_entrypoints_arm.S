@@ -67,6 +67,9 @@
      * Runtime::CreateCalleeSaveMethod(kSaveRefsOnly).
      */
 .macro SETUP_SAVE_REFS_ONLY_FRAME rTemp
+    // Note: We could avoid saving R8 in the case of Baker read
+    // barriers, as it is overwritten by REFRESH_MARKING_REGISTER
+    // later; but it's not worth handling this special case.
     push {r5-r8, r10-r11, lr}                     @ 7 words of callee saves
     .cfi_adjust_cfa_offset 28
     .cfi_rel_offset r5, 0
@@ -93,6 +96,9 @@
 .macro RESTORE_SAVE_REFS_ONLY_FRAME
     add sp, #4               @ bottom word holds Method*
     .cfi_adjust_cfa_offset -4
+    // Note: Likewise, we could avoid restoring R8 in the case of Baker
+    // read barriers, as it is overwritten by REFRESH_MARKING_REGISTER
+    // later; but it's not worth handling this special case.
     pop {r5-r8, r10-r11, lr} @ 7 words of callee saves
     .cfi_restore r5
     .cfi_restore r6
@@ -104,16 +110,14 @@
     .cfi_adjust_cfa_offset -28
 .endm
 
-.macro RESTORE_SAVE_REFS_ONLY_FRAME_AND_RETURN
-    RESTORE_SAVE_REFS_ONLY_FRAME
-    bx  lr                   @ return
-.endm
-
     /*
      * Macro that sets up the callee save frame to conform with
      * Runtime::CreateCalleeSaveMethod(kSaveRefsAndArgs).
      */
 .macro SETUP_SAVE_REFS_AND_ARGS_FRAME_REGISTERS_ONLY
+    // Note: We could avoid saving R8 in the case of Baker read
+    // barriers, as it is overwritten by REFRESH_MARKING_REGISTER
+    // later; but it's not worth handling this special case.
     push {r1-r3, r5-r8, r10-r11, lr}   @ 10 words of callee saves and args.
     .cfi_adjust_cfa_offset 40
     .cfi_rel_offset r1, 0
@@ -156,6 +160,9 @@
     .cfi_adjust_cfa_offset -8
     vpop {s0-s15}
     .cfi_adjust_cfa_offset -64
+    // Note: Likewise, we could avoid restoring X20 in the case of Baker
+    // read barriers, as it is overwritten by REFRESH_MARKING_REGISTER
+    // later; but it's not worth handling this special case.
     pop {r1-r3, r5-r8, r10-r11, lr}  @ 10 words of callee saves
     .cfi_restore r1
     .cfi_restore r2
@@ -227,6 +234,7 @@
     .cfi_restore r1
     .cfi_restore r2
     .cfi_restore r3
+    .cfi_restore r4
     .cfi_restore r5
     .cfi_restore r6
     .cfi_restore r7
@@ -251,6 +259,7 @@
     .cfi_restore r1
     .cfi_restore r2
     .cfi_restore r3
+    .cfi_restore r4
     .cfi_restore r5
     .cfi_restore r6
     .cfi_restore r7
@@ -261,6 +270,17 @@
     .cfi_restore r12
     .cfi_restore lr
     .cfi_adjust_cfa_offset -52
+.endm
+
+// Macro to refresh the Marking Register (R8).
+//
+// This macro must be called at the end of functions implementing
+// entrypoints that possibly (directly or indirectly) perform a
+// suspend check (before they return).
+.macro REFRESH_MARKING_REGISTER
+#if defined(USE_READ_BARRIER) && defined(USE_BAKER_READ_BARRIER)
+    ldr rMR, [rSELF, #THREAD_IS_GC_MARKING_OFFSET]
+#endif
 .endm
 
 .macro RETURN_IF_RESULT_IS_ZERO
@@ -359,6 +379,7 @@ ENTRY \name
     mov    r1, r9                        @ pass Thread::Current
     bl     \entrypoint                   @ (uint32_t field_idx, Thread*)
     RESTORE_SAVE_REFS_ONLY_FRAME
+    REFRESH_MARKING_REGISTER
     \return
 END \name
 .endm
@@ -370,6 +391,7 @@ ENTRY \name
     mov    r2, r9                        @ pass Thread::Current
     bl     \entrypoint                   @ (field_idx, Object*, Thread*)
     RESTORE_SAVE_REFS_ONLY_FRAME
+    REFRESH_MARKING_REGISTER
     \return
 END \name
 .endm
@@ -381,6 +403,7 @@ ENTRY \name
     mov    r3, r9                        @ pass Thread::Current
     bl     \entrypoint                   @ (field_idx, Object*, new_val, Thread*)
     RESTORE_SAVE_REFS_ONLY_FRAME         @ TODO: we can clearly save an add here
+    REFRESH_MARKING_REGISTER
     \return
 END \name
 .endm
@@ -464,6 +487,8 @@ NO_ARG_RUNTIME_EXCEPTION art_quick_throw_stack_overflow, artThrowStackOverflowFr
      *
      * On success this wrapper will restore arguments and *jump* to the target, leaving the lr
      * pointing back to the original caller.
+     *
+     * Clobbers IP (R12).
      */
 .macro INVOKE_TRAMPOLINE_BODY cxx_name
     .extern \cxx_name
@@ -473,6 +498,7 @@ NO_ARG_RUNTIME_EXCEPTION art_quick_throw_stack_overflow, artThrowStackOverflowFr
     bl     \cxx_name                      @ (method_idx, this, Thread*, SP)
     mov    r12, r1                        @ save Method*->code_
     RESTORE_SAVE_REFS_AND_ARGS_FRAME
+    REFRESH_MARKING_REGISTER
     cbz    r0, 1f                         @ did we find the target? if not go to exception delivery
     bx     r12                            @ tail call to target
 1:
@@ -549,6 +575,8 @@ ENTRY art_quick_invoke_stub_internal
     mov    r4, #SUSPEND_CHECK_INTERVAL     @ reset r4 to suspend check interval
 #endif
 
+    REFRESH_MARKING_REGISTER
+
     ldr    ip, [r0, #ART_METHOD_QUICK_CODE_OFFSET_32]  @ get pointer to the code
     blx    ip                              @ call the method
 
@@ -580,7 +608,8 @@ ENTRY art_quick_osr_stub
     mov    r11, sp                         @ Save the stack pointer
     mov    r10, r1                         @ Save size of stack
     ldr    r9, [r11, #40]                  @ Move managed thread pointer into r9
-    mov    r8, r2                          @ Save the pc to call
+    REFRESH_MARKING_REGISTER
+    mov    r6, r2                          @ Save the pc to call
     sub    r7, sp, #12                     @ Reserve space for stack pointer,
                                            @    JValue* result, and ArtMethod* slot.
     and    r7, #0xFFFFFFF0                 @ Align stack pointer
@@ -612,7 +641,7 @@ ENTRY art_quick_osr_stub
 .Losr_entry:
     sub r10, r10, #4
     str lr, [sp, r10]                     @ Store link register per the compiler ABI
-    bx r8
+    bx r6
 END art_quick_osr_stub
 
     /*
@@ -624,6 +653,7 @@ ARM_ENTRY art_quick_do_long_jump
     ldr  r14, [r0, #56]   @ (LR from gprs_ 56=4*14)
     add  r0, r0, #12      @ increment r0 to skip gprs_[0..2] 12=4*3
     ldm  r0, {r3-r13}     @ load remaining gprs from argument gprs_
+    REFRESH_MARKING_REGISTER
     ldr  r0, [r0, #-12]   @ load r0 value
     mov  r1, #0           @ clear result register r1
     bx   r2               @ do long jump
@@ -677,6 +707,7 @@ ENTRY art_quick_lock_object
     mov    r1, r9                     @ pass Thread::Current
     bl     artLockObjectFromCode      @ (Object* obj, Thread*)
     RESTORE_SAVE_REFS_ONLY_FRAME
+    REFRESH_MARKING_REGISTER
     RETURN_IF_RESULT_IS_ZERO
     DELIVER_PENDING_EXCEPTION
 END art_quick_lock_object
@@ -686,6 +717,7 @@ ENTRY art_quick_lock_object_no_inline
     mov    r1, r9                     @ pass Thread::Current
     bl     artLockObjectFromCode      @ (Object* obj, Thread*)
     RESTORE_SAVE_REFS_ONLY_FRAME
+    REFRESH_MARKING_REGISTER
     RETURN_IF_RESULT_IS_ZERO
     DELIVER_PENDING_EXCEPTION
 END art_quick_lock_object_no_inline
@@ -743,6 +775,7 @@ ENTRY art_quick_unlock_object
     mov    r1, r9                     @ pass Thread::Current
     bl     artUnlockObjectFromCode    @ (Object* obj, Thread*)
     RESTORE_SAVE_REFS_ONLY_FRAME
+    REFRESH_MARKING_REGISTER
     RETURN_IF_RESULT_IS_ZERO
     DELIVER_PENDING_EXCEPTION
 END art_quick_unlock_object
@@ -753,6 +786,7 @@ ENTRY art_quick_unlock_object_no_inline
     mov    r1, r9                     @ pass Thread::Current
     bl     artUnlockObjectFromCode    @ (Object* obj, Thread*)
     RESTORE_SAVE_REFS_ONLY_FRAME
+    REFRESH_MARKING_REGISTER
     RETURN_IF_RESULT_IS_ZERO
     DELIVER_PENDING_EXCEPTION
 END art_quick_unlock_object_no_inline
@@ -872,7 +906,7 @@ ENTRY art_quick_aput_obj
     POISON_HEAP_REF r2
     str r2, [r3, r1, lsl #2]
     ldr r3, [r9, #THREAD_CARD_TABLE_OFFSET]
-    lsr r0, r0, #7
+    lsr r0, r0, #CARD_TABLE_CARD_SHIFT
     strb r3, [r3, r0]
     blx lr
 .Ldo_aput_null:
@@ -900,7 +934,7 @@ ENTRY art_quick_aput_obj
     POISON_HEAP_REF r2
     str r2, [r3, r1, lsl #2]
     ldr r3, [r9, #THREAD_CARD_TABLE_OFFSET]
-    lsr r0, r0, #7
+    lsr r0, r0, #CARD_TABLE_CARD_SHIFT
     strb r3, [r3, r0]
     blx lr
 .Lthrow_array_store_exception:
@@ -921,6 +955,7 @@ ENTRY \name
     mov    r1, r9                     @ pass Thread::Current
     bl     \entrypoint     @ (uint32_t type_idx, Method* method, Thread*)
     RESTORE_SAVE_REFS_ONLY_FRAME
+    REFRESH_MARKING_REGISTER
     \return
 END \name
 .endm
@@ -933,6 +968,7 @@ ENTRY \name
     mov    r2, r9                     @ pass Thread::Current
     bl     \entrypoint     @ (uint32_t type_idx, Method* method, Thread*)
     RESTORE_SAVE_REFS_ONLY_FRAME
+    REFRESH_MARKING_REGISTER
     \return
 END \name
 .endm
@@ -946,6 +982,7 @@ ENTRY \name
     @ (uint32_t type_idx, Method* method, int32_t component_count, Thread*)
     bl     \entrypoint
     RESTORE_SAVE_REFS_ONLY_FRAME
+    REFRESH_MARKING_REGISTER
     \return
 END \name
 .endm
@@ -961,6 +998,7 @@ ENTRY \name
     add    sp, #16                    @ strip the extra frame
     .cfi_adjust_cfa_offset -16
     RESTORE_SAVE_REFS_ONLY_FRAME
+    REFRESH_MARKING_REGISTER
     \return
 END \name
 .endm
@@ -975,6 +1013,7 @@ ENTRY \name
     cbz    r0, 1f                     @ If result is null, deliver the OOME.
     .cfi_remember_state
     RESTORE_SAVE_EVERYTHING_FRAME_KEEP_R0
+    REFRESH_MARKING_REGISTER
     bx     lr
     .cfi_restore_state
 1:
@@ -986,6 +1025,9 @@ ONE_ARG_SAVE_EVERYTHING_DOWNCALL art_quick_initialize_static_storage, artInitial
 ONE_ARG_SAVE_EVERYTHING_DOWNCALL art_quick_initialize_type, artInitializeTypeFromCode
 ONE_ARG_SAVE_EVERYTHING_DOWNCALL art_quick_initialize_type_and_verify_access, artInitializeTypeAndVerifyAccessFromCode
 ONE_ARG_SAVE_EVERYTHING_DOWNCALL art_quick_resolve_string, artResolveStringFromCode
+
+// Note: Functions `art{Get,Set}<Kind>{Static,Instance>FromCompiledCode` are
+// defined by macros in runtime/entrypoints/quick/quick_field_entrypoints.cc.
 
     /*
      * Called by managed code to resolve a static field and load a non-wide value.
@@ -1006,6 +1048,7 @@ ENTRY art_quick_get64_static
     bl     artGet64StaticFromCompiledCode        @ (uint32_t field_idx, Thread*)
     ldr    r2, [r9, #THREAD_EXCEPTION_OFFSET]  @ load Thread::Current()->exception_
     RESTORE_SAVE_REFS_ONLY_FRAME
+    REFRESH_MARKING_REGISTER
     cbnz   r2, 1f                        @ success if no exception pending
     bx     lr                            @ return on success
 1:
@@ -1031,6 +1074,7 @@ ENTRY art_quick_get64_instance
     bl     artGet64InstanceFromCompiledCode      @ (field_idx, Object*, Thread*)
     ldr    r2, [r9, #THREAD_EXCEPTION_OFFSET]  @ load Thread::Current()->exception_
     RESTORE_SAVE_REFS_ONLY_FRAME
+    REFRESH_MARKING_REGISTER
     cbnz   r2, 1f                        @ success if no exception pending
     bx     lr                            @ return on success
 1:
@@ -1066,6 +1110,7 @@ ENTRY art_quick_set64_instance
     add    sp, #16                       @ release out args
     .cfi_adjust_cfa_offset -16
     RESTORE_SAVE_REFS_ONLY_FRAME         @ TODO: we can clearly save an add here
+    REFRESH_MARKING_REGISTER
     RETURN_IF_RESULT_IS_ZERO
     DELIVER_PENDING_EXCEPTION
 END art_quick_set64_instance
@@ -1080,6 +1125,7 @@ ENTRY art_quick_set64_static
     add    sp, #16                        @ release out args
     .cfi_adjust_cfa_offset -16
     RESTORE_SAVE_REFS_ONLY_FRAME          @ TODO: we can clearly save an add here
+    REFRESH_MARKING_REGISTER
     RETURN_IF_RESULT_IS_ZERO
     DELIVER_PENDING_EXCEPTION
 END art_quick_set64_static
@@ -1112,7 +1158,10 @@ GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_CHARS(_tlab, TLAB)
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_STRING(_tlab, TLAB)
 
 // A hand-written override for GENERATE_ALLOC_ENTRYPOINTS_ALLOC_RESOLVED_OBJECT(_rosalloc, RosAlloc).
-.macro ART_QUICK_ALLOC_OBJECT_ROSALLOC c_name, cxx_name
+//
+// If isInitialized=1 then the compiler assumes the object's class has already been initialized.
+// If isInitialized=0 the compiler can only assume it's been at least resolved.
+.macro ART_QUICK_ALLOC_OBJECT_ROSALLOC c_name, cxx_name, isInitialized
 ENTRY \c_name
     // Fast path rosalloc allocation.
     // r0: type/return value, r9: Thread::Current
@@ -1128,6 +1177,11 @@ ENTRY \c_name
     cmp    r3, #ROSALLOC_MAX_THREAD_LOCAL_BRACKET_SIZE        // Check if the size is for a thread
                                                               // local allocation. Also does the
                                                               // initialized and finalizable checks.
+    // When isInitialized == 0, then the class is potentially not yet initialized.
+    // If the class is not yet initialized, the object size will be very large to force the branch
+    // below to be taken.
+    //
+    // See InitializeClassVisitors in class-inl.h for more details.
     bhs    .Lslow_path\c_name
                                                               // Compute the rosalloc bracket index
                                                               // from the size. Since the size is
@@ -1157,18 +1211,6 @@ ENTRY \c_name
 #endif
     POISON_HEAP_REF r0
     str    r0, [r3, #MIRROR_OBJECT_CLASS_OFFSET]
-                                                              // Fence. This is "ish" not "ishst" so
-                                                              // that it also ensures ordering of
-                                                              // the class status load with respect
-                                                              // to later accesses to the class
-                                                              // object. Alternatively we could use
-                                                              // "ishst" if we use load-acquire for
-                                                              // the object size load.
-                                                              // Needs to be done before pushing on
-                                                              // allocation since Heap::VisitObjects
-                                                              // relies on seeing the class pointer.
-                                                              // b/28790624
-    dmb    ish
                                                               // Push the new object onto the thread
                                                               // local allocation stack and
                                                               // increment the thread local
@@ -1177,6 +1219,28 @@ ENTRY \c_name
     str    r3, [r1], #COMPRESSED_REFERENCE_SIZE               // (Increment r1 as a side effect.)
     str    r1, [r9, #THREAD_LOCAL_ALLOC_STACK_TOP_OFFSET]
                                                               // Decrement the size of the free list
+
+    // After this "STR" the object is published to the thread local allocation stack,
+    // and it will be observable from a runtime internal (eg. Heap::VisitObjects) point of view.
+    // It is not yet visible to the running (user) compiled code until after the return.
+    //
+    // To avoid the memory barrier prior to the "STR", a trick is employed, by differentiating
+    // the state of the allocation stack slot. It can be a pointer to one of:
+    // 0) Null entry, because the stack was bumped but the new pointer wasn't written yet.
+    //       (The stack initial state is "null" pointers).
+    // 1) A partially valid object, with an invalid class pointer to the next free rosalloc slot.
+    // 2) A fully valid object, with a valid class pointer pointing to a real class.
+    // Other states are not allowed.
+    //
+    // An object that is invalid only temporarily, and will eventually become valid.
+    // The internal runtime code simply checks if the object is not null or is partial and then
+    // ignores it.
+    //
+    // (Note: The actual check is done by seeing if a non-null object has a class pointer pointing
+    // to ClassClass, and that the ClassClass's class pointer is self-cyclic. A rosalloc free slot
+    // "next" pointer is not-cyclic.)
+    //
+    // See also b/28790624 for a listing of CLs dealing with this race.
     ldr    r1, [r12, #(ROSALLOC_RUN_FREE_LIST_OFFSET + ROSALLOC_RUN_FREE_LIST_SIZE_OFFSET)]
     sub    r1, #1
                                                               // TODO: consider combining this store
@@ -1185,6 +1249,19 @@ ENTRY \c_name
     str    r1, [r12, #(ROSALLOC_RUN_FREE_LIST_OFFSET + ROSALLOC_RUN_FREE_LIST_SIZE_OFFSET)]
 
     mov    r0, r3                                             // Set the return value and return.
+.if \isInitialized == 0
+    // This barrier is only necessary when the allocation also requires
+    // a class initialization check.
+    //
+    // If the class is already observably initialized, then new-instance allocations are protected
+    // from publishing by the compiler which inserts its own StoreStore barrier.
+    dmb    ish
+    // Use a "dmb ish" fence here because if there are later loads of statics (e.g. class size),
+    // they should happen-after the implicit initialization check.
+    //
+    // TODO: Remove this dmb for class initialization checks (b/36692143) by introducing
+    // a new observably-initialized class state.
+.endif
     bx     lr
 
 .Lslow_path\c_name:
@@ -1192,22 +1269,26 @@ ENTRY \c_name
     mov    r1, r9                     @ pass Thread::Current
     bl     \cxx_name                  @ (mirror::Class* cls, Thread*)
     RESTORE_SAVE_REFS_ONLY_FRAME
+    REFRESH_MARKING_REGISTER
     RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
 END \c_name
 .endm
 
-ART_QUICK_ALLOC_OBJECT_ROSALLOC art_quick_alloc_object_resolved_rosalloc, artAllocObjectFromCodeResolvedRosAlloc
-ART_QUICK_ALLOC_OBJECT_ROSALLOC art_quick_alloc_object_initialized_rosalloc, artAllocObjectFromCodeInitializedRosAlloc
+ART_QUICK_ALLOC_OBJECT_ROSALLOC art_quick_alloc_object_resolved_rosalloc, artAllocObjectFromCodeResolvedRosAlloc, /* isInitialized */ 0
+ART_QUICK_ALLOC_OBJECT_ROSALLOC art_quick_alloc_object_initialized_rosalloc, artAllocObjectFromCodeInitializedRosAlloc, /* isInitialized */ 1
 
 // The common fast path code for art_quick_alloc_object_resolved/initialized_tlab
 // and art_quick_alloc_object_resolved/initialized_region_tlab.
 //
 // r0: type r9: Thread::Current, r1, r2, r3, r12: free.
 // Need to preserve r0 to the slow path.
-.macro ALLOC_OBJECT_RESOLVED_TLAB_FAST_PATH slowPathLabel
-                                                              // Load thread_local_pos (r12) and
-                                                              // thread_local_end (r3) with ldrd.
-                                                              // Check constraints for ldrd.
+//
+// If isInitialized=1 then the compiler assumes the object's class has already been initialized.
+// If isInitialized=0 the compiler can only assume it's been at least resolved.
+.macro ALLOC_OBJECT_RESOLVED_TLAB_FAST_PATH slowPathLabel isInitialized
+                                                             // Load thread_local_pos (r12) and
+                                                             // thread_local_end (r3) with ldrd.
+                                                             // Check constraints for ldrd.
 #if !((THREAD_LOCAL_POS_OFFSET + 4 == THREAD_LOCAL_END_OFFSET) && (THREAD_LOCAL_POS_OFFSET % 8 == 0))
 #error "Thread::thread_local_pos/end must be consecutive and are 8 byte aligned for performance"
 #endif
@@ -1215,6 +1296,11 @@ ART_QUICK_ALLOC_OBJECT_ROSALLOC art_quick_alloc_object_initialized_rosalloc, art
     sub    r12, r3, r12                                       // Compute the remaining buf size.
     ldr    r3, [r0, #MIRROR_CLASS_OBJECT_SIZE_ALLOC_FAST_PATH_OFFSET]  // Load the object size (r3).
     cmp    r3, r12                                            // Check if it fits.
+    // When isInitialized == 0, then the class is potentially not yet initialized.
+    // If the class is not yet initialized, the object size will be very large to force the branch
+    // below to be taken.
+    //
+    // See InitializeClassVisitors in class-inl.h for more details.
     bhi    \slowPathLabel
     // "Point of no slow path". Won't go to the slow path from here on. OK to clobber r0 and r1.
                                                               // Reload old thread_local_pos (r0)
@@ -1222,6 +1308,23 @@ ART_QUICK_ALLOC_OBJECT_ROSALLOC art_quick_alloc_object_initialized_rosalloc, art
     ldr    r2, [r9, #THREAD_LOCAL_POS_OFFSET]
     add    r1, r2, r3
     str    r1, [r9, #THREAD_LOCAL_POS_OFFSET]                 // Store new thread_local_pos.
+    // After this "STR" the object is published to the thread local allocation stack,
+    // and it will be observable from a runtime internal (eg. Heap::VisitObjects) point of view.
+    // It is not yet visible to the running (user) compiled code until after the return.
+    //
+    // To avoid the memory barrier prior to the "STR", a trick is employed, by differentiating
+    // the state of the object. It can be either:
+    // 1) A partially valid object, with a null class pointer
+    //       (because the initial state of TLAB buffers is all 0s/nulls).
+    // 2) A fully valid object, with a valid class pointer pointing to a real class.
+    // Other states are not allowed.
+    //
+    // An object that is invalid only temporarily, and will eventually become valid.
+    // The internal runtime code simply checks if the object is not null or is partial and then
+    // ignores it.
+    //
+    // (Note: The actual check is done by checking that the object's class pointer is non-null.
+    // Also, unlike rosalloc, the object can never be observed as null).
     ldr    r1, [r9, #THREAD_LOCAL_OBJECTS_OFFSET]             // Increment thread_local_objects.
     add    r1, r1, #1
     str    r1, [r9, #THREAD_LOCAL_OBJECTS_OFFSET]
@@ -1231,34 +1334,43 @@ ART_QUICK_ALLOC_OBJECT_ROSALLOC art_quick_alloc_object_initialized_rosalloc, art
                                                               // that the code after this allocation
                                                               // site will see the right values in
                                                               // the fields of the class.
-                                                              // Alternatively we could use "ishst"
-                                                              // if we use load-acquire for the
-                                                              // object size load.)
     mov    r0, r2
+.if \isInitialized == 0
+    // This barrier is only necessary when the allocation also requires
+    // a class initialization check.
+    //
+    // If the class is already observably initialized, then new-instance allocations are protected
+    // from publishing by the compiler which inserts its own StoreStore barrier.
     dmb    ish
+    // Use a "dmb ish" fence here because if there are later loads of statics (e.g. class size),
+    // they should happen-after the implicit initialization check.
+    //
+    // TODO: Remove dmb for class initialization checks (b/36692143)
+.endif
     bx     lr
 .endm
 
 // The common code for art_quick_alloc_object_*region_tlab
-.macro GENERATE_ALLOC_OBJECT_RESOLVED_TLAB name, entrypoint
+.macro GENERATE_ALLOC_OBJECT_RESOLVED_TLAB name, entrypoint, isInitialized
 ENTRY \name
     // Fast path tlab allocation.
     // r0: type, r9: Thread::Current
     // r1, r2, r3, r12: free.
-    ALLOC_OBJECT_RESOLVED_TLAB_FAST_PATH .Lslow_path\name
+    ALLOC_OBJECT_RESOLVED_TLAB_FAST_PATH .Lslow_path\name, \isInitialized
 .Lslow_path\name:
     SETUP_SAVE_REFS_ONLY_FRAME r2                             // Save callee saves in case of GC.
     mov    r1, r9                                             // Pass Thread::Current.
     bl     \entrypoint                                        // (mirror::Class* klass, Thread*)
     RESTORE_SAVE_REFS_ONLY_FRAME
+    REFRESH_MARKING_REGISTER
     RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
 END \name
 .endm
 
-GENERATE_ALLOC_OBJECT_RESOLVED_TLAB art_quick_alloc_object_resolved_region_tlab, artAllocObjectFromCodeResolvedRegionTLAB
-GENERATE_ALLOC_OBJECT_RESOLVED_TLAB art_quick_alloc_object_initialized_region_tlab, artAllocObjectFromCodeInitializedRegionTLAB
-GENERATE_ALLOC_OBJECT_RESOLVED_TLAB art_quick_alloc_object_resolved_tlab, artAllocObjectFromCodeResolvedTLAB
-GENERATE_ALLOC_OBJECT_RESOLVED_TLAB art_quick_alloc_object_initialized_tlab, artAllocObjectFromCodeInitializedTLAB
+GENERATE_ALLOC_OBJECT_RESOLVED_TLAB art_quick_alloc_object_resolved_region_tlab, artAllocObjectFromCodeResolvedRegionTLAB, /* isInitialized */ 0
+GENERATE_ALLOC_OBJECT_RESOLVED_TLAB art_quick_alloc_object_initialized_region_tlab, artAllocObjectFromCodeInitializedRegionTLAB, /* isInitialized */ 1
+GENERATE_ALLOC_OBJECT_RESOLVED_TLAB art_quick_alloc_object_resolved_tlab, artAllocObjectFromCodeResolvedTLAB, /* isInitialized */ 0
+GENERATE_ALLOC_OBJECT_RESOLVED_TLAB art_quick_alloc_object_initialized_tlab, artAllocObjectFromCodeInitializedTLAB, /* isInitialized */ 1
 
 
 // The common fast path code for art_quick_alloc_array_resolved/initialized_tlab
@@ -1267,7 +1379,7 @@ GENERATE_ALLOC_OBJECT_RESOLVED_TLAB art_quick_alloc_object_initialized_tlab, art
 // r0: type r1: component_count r2: total_size r9: Thread::Current, r3, r12: free.
 // Need to preserve r0 and r1 to the slow path.
 .macro ALLOC_ARRAY_TLAB_FAST_PATH_RESOLVED_WITH_SIZE slowPathLabel
-    and    r2, r2, #OBJECT_ALIGNMENT_MASK_TOGGLED             // Apply alignemnt mask
+    and    r2, r2, #OBJECT_ALIGNMENT_MASK_TOGGLED             // Apply alignment mask
                                                               // (addr + 7) & ~7.
 
                                                               // Load thread_local_pos (r3) and
@@ -1279,6 +1391,8 @@ GENERATE_ALLOC_OBJECT_RESOLVED_TLAB art_quick_alloc_object_initialized_tlab, art
     ldrd   r3, r12, [r9, #THREAD_LOCAL_POS_OFFSET]
     sub    r12, r12, r3                                       // Compute the remaining buf size.
     cmp    r2, r12                                            // Check if the total_size fits.
+    // The array class is always initialized here. Unlike new-instance,
+    // this does not act as a double test.
     bhi    \slowPathLabel
     // "Point of no slow path". Won't go to the slow path from here on. OK to clobber r0 and r1.
     add    r2, r2, r3
@@ -1293,11 +1407,13 @@ GENERATE_ALLOC_OBJECT_RESOLVED_TLAB art_quick_alloc_object_initialized_tlab, art
                                                               // that the code after this allocation
                                                               // site will see the right values in
                                                               // the fields of the class.
-                                                              // Alternatively we could use "ishst"
-                                                              // if we use load-acquire for the
-                                                              // object size load.)
     mov    r0, r3
-    dmb    ish
+// new-array is special. The class is loaded and immediately goes to the Initialized state
+// before it is published. Therefore the only fence needed is for the publication of the object.
+// See ClassLinker::CreateArrayClass() for more details.
+
+// For publication of the new array, we don't need a 'dmb ishst' here.
+// The compiler generates 'dmb ishst' for all new-array insts.
     bx     lr
 .endm
 
@@ -1318,6 +1434,7 @@ ENTRY \name
     mov    r2, r9                  // pass Thread::Current
     bl     \entrypoint
     RESTORE_SAVE_REFS_ONLY_FRAME
+    REFRESH_MARKING_REGISTER
     RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
 END \name
 .endm
@@ -1394,8 +1511,8 @@ END \name
     add    r2, r2, #(MIRROR_WIDE_ARRAY_DATA_OFFSET + OBJECT_ALIGNMENT_MASK)
 .endm
 
-# TODO(ngeoffray): art_quick_alloc_array_resolved_region_tlab is not used for arm, remove
-# the entrypoint once all backends have been updated to use the size variants.
+// TODO(ngeoffray): art_quick_alloc_array_resolved_region_tlab is not used for arm, remove
+// the entrypoint once all backends have been updated to use the size variants.
 GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved_region_tlab, artAllocArrayFromCodeResolvedRegionTLAB, COMPUTE_ARRAY_SIZE_UNKNOWN
 GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved8_region_tlab, artAllocArrayFromCodeResolvedRegionTLAB, COMPUTE_ARRAY_SIZE_8
 GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved16_region_tlab, artAllocArrayFromCodeResolvedRegionTLAB, COMPUTE_ARRAY_SIZE_16
@@ -1424,6 +1541,7 @@ ENTRY art_quick_test_suspend
     mov    r0, rSELF
     bl     artTestSuspendFromCode               @ (Thread*)
     RESTORE_SAVE_EVERYTHING_FRAME
+    REFRESH_MARKING_REGISTER
     bx     lr
 END art_quick_test_suspend
 
@@ -1431,7 +1549,9 @@ ENTRY art_quick_implicit_suspend
     mov    r0, rSELF
     SETUP_SAVE_REFS_ONLY_FRAME r1             @ save callee saves for stack crawl
     bl     artTestSuspendFromCode             @ (Thread*)
-    RESTORE_SAVE_REFS_ONLY_FRAME_AND_RETURN
+    RESTORE_SAVE_REFS_ONLY_FRAME
+    REFRESH_MARKING_REGISTER
+    bx     lr
 END art_quick_implicit_suspend
 
     /*
@@ -1450,6 +1570,7 @@ ENTRY art_quick_proxy_invoke_handler
     add     sp, #(FRAME_SIZE_SAVE_REFS_AND_ARGS - FRAME_SIZE_SAVE_REFS_ONLY)
     .cfi_adjust_cfa_offset -(FRAME_SIZE_SAVE_REFS_AND_ARGS - FRAME_SIZE_SAVE_REFS_ONLY)
     RESTORE_SAVE_REFS_ONLY_FRAME
+    REFRESH_MARKING_REGISTER
     cbnz    r2, 1f                 @ success if no exception is pending
     vmov    d0, r0, r1             @ store into fpr, for when it's a fpr return...
     bx      lr                     @ return on success
@@ -1464,31 +1585,98 @@ END art_quick_proxy_invoke_handler
      *
      * Note that this stub writes to r0, r4, and r12.
      */
+    .extern artLookupResolvedMethod
 ENTRY art_quick_imt_conflict_trampoline
-    ldr r4, [sp, #0]  // Load referrer
-    ldr r4, [r4, #ART_METHOD_DEX_CACHE_METHODS_OFFSET_32]   // Load dex cache methods array
-    ldr r12, [r4, r12, lsl #POINTER_SIZE_SHIFT]  // Load interface method
-    ldr r0, [r0, #ART_METHOD_JNI_OFFSET_32]  // Load ImtConflictTable
-    ldr r4, [r0]  // Load first entry in ImtConflictTable.
+    push    {r1-r2}
+    .cfi_adjust_cfa_offset (2 * 4)
+    .cfi_rel_offset r1, 0
+    .cfi_rel_offset r2, 4
+    ldr     r4, [sp, #(2 * 4)]  // Load referrer.
+    ubfx    r1, r12, #0, #METHOD_DEX_CACHE_HASH_BITS  // Calculate DexCache method slot index.
+    ldr     r4, [r4, #ART_METHOD_DEX_CACHE_METHODS_OFFSET_32]   // Load dex cache methods array
+    add     r4, r4, r1, lsl #(POINTER_SIZE_SHIFT + 1)  // Load DexCache method slot address.
+    ldr     r2, [r0, #ART_METHOD_JNI_OFFSET_32]  // Load ImtConflictTable
+
+// FIXME: Configure the build to use the faster code when appropriate.
+//        Currently we fall back to the slower version.
+#if HAS_ATOMIC_LDRD
+    ldrd    r0, r1, [r4]
+#else
+    push    {r3}
+    .cfi_adjust_cfa_offset 4
+    .cfi_rel_offset r3, 0
+.Limt_conflict_trampoline_retry_load:
+    ldrexd  r0, r1, [r4]
+    strexd  r3, r0, r1, [r4]
+    cmp     r3, #0
+    bne     .Limt_conflict_trampoline_retry_load
+    pop     {r3}
+    .cfi_adjust_cfa_offset -4
+    .cfi_restore r3
+#endif
+
+    ldr     r4, [r2]  // Load first entry in ImtConflictTable.
+    cmp     r1, r12   // Compare method index to see if we had a DexCache method hit.
+    bne     .Limt_conflict_trampoline_dex_cache_miss
 .Limt_table_iterate:
-    cmp r4, r12
+    cmp     r4, r0
     // Branch if found. Benchmarks have shown doing a branch here is better.
-    beq .Limt_table_found
+    beq     .Limt_table_found
     // If the entry is null, the interface method is not in the ImtConflictTable.
-    cbz r4, .Lconflict_trampoline
+    cbz     r4, .Lconflict_trampoline
     // Iterate over the entries of the ImtConflictTable.
-    ldr r4, [r0, #(2 * __SIZEOF_POINTER__)]!
+    ldr     r4, [r2, #(2 * __SIZEOF_POINTER__)]!
     b .Limt_table_iterate
 .Limt_table_found:
     // We successfully hit an entry in the table. Load the target method
     // and jump to it.
-    ldr r0, [r0, #__SIZEOF_POINTER__]
-    ldr pc, [r0, #ART_METHOD_QUICK_CODE_OFFSET_32]
+    ldr     r0, [r2, #__SIZEOF_POINTER__]
+    .cfi_remember_state
+    pop     {r1-r2}
+    .cfi_adjust_cfa_offset -(2 * 4)
+    .cfi_restore r1
+    .cfi_restore r2
+    ldr     pc, [r0, #ART_METHOD_QUICK_CODE_OFFSET_32]
+    .cfi_restore_state
 .Lconflict_trampoline:
     // Call the runtime stub to populate the ImtConflictTable and jump to the
     // resolved method.
-    mov r0, r12  // Load interface method
+    .cfi_remember_state
+    pop     {r1-r2}
+    .cfi_adjust_cfa_offset -(2 * 4)
+    .cfi_restore r1
+    .cfi_restore r2
     INVOKE_TRAMPOLINE_BODY artInvokeInterfaceTrampoline
+    .cfi_restore_state
+.Limt_conflict_trampoline_dex_cache_miss:
+    // We're not creating a proper runtime method frame here,
+    // artLookupResolvedMethod() is not allowed to walk the stack.
+
+    // Save ImtConflictTable (r2), remaining arg (r3), first entry (r4), return address (lr).
+    push    {r2-r4, lr}
+    .cfi_adjust_cfa_offset (4 * 4)
+    .cfi_rel_offset r3, 4
+    .cfi_rel_offset lr, 12
+    // Save FPR args.
+    vpush   {d0-d7}
+    .cfi_adjust_cfa_offset (8 * 8)
+
+    mov     r0, ip                      // Pass method index.
+    ldr     r1, [sp, #(8 * 8 + 6 * 4)]  // Pass referrer.
+    bl      artLookupResolvedMethod     // (uint32_t method_index, ArtMethod* referrer)
+
+    // Restore FPR args.
+    vpop    {d0-d7}
+    .cfi_adjust_cfa_offset -(8 * 8)
+    // Restore ImtConflictTable (r2), remaining arg (r3), first entry (r4), return address (lr).
+    pop     {r2-r4, lr}
+    .cfi_adjust_cfa_offset -(4 * 4)
+    .cfi_restore r3
+    .cfi_restore lr
+
+    cmp     r0, #0                  // If the method wasn't resolved,
+    beq     .Lconflict_trampoline   //   skip the lookup and go to artInvokeInterfaceTrampoline().
+    b       .Limt_table_iterate
 END art_quick_imt_conflict_trampoline
 
     .extern artQuickResolutionTrampoline
@@ -1499,8 +1687,9 @@ ENTRY art_quick_resolution_trampoline
     blx     artQuickResolutionTrampoline  @ (Method* called, receiver, Thread*, SP)
     cbz     r0, 1f                 @ is code pointer null? goto exception
     mov     r12, r0
-    ldr  r0, [sp, #0]              @ load resolved method in r0
+    ldr     r0, [sp, #0]           @ load resolved method in r0
     RESTORE_SAVE_REFS_AND_ARGS_FRAME
+    REFRESH_MARKING_REGISTER
     bx      r12                    @ tail-call into actual code
 1:
     RESTORE_SAVE_REFS_AND_ARGS_FRAME
@@ -1581,6 +1770,7 @@ ENTRY art_quick_generic_jni_trampoline
     add     sp, #FRAME_SIZE_SAVE_REFS_AND_ARGS-FRAME_SIZE_SAVE_REFS_ONLY
     .cfi_adjust_cfa_offset -(FRAME_SIZE_SAVE_REFS_AND_ARGS-FRAME_SIZE_SAVE_REFS_ONLY)
     RESTORE_SAVE_REFS_ONLY_FRAME
+    REFRESH_MARKING_REGISTER
 
     // store into fpr, for when it's a fpr return...
     vmov d0, r0, r1
@@ -1607,6 +1797,7 @@ ENTRY art_quick_to_interpreter_bridge
     add     sp, #(FRAME_SIZE_SAVE_REFS_AND_ARGS - FRAME_SIZE_SAVE_REFS_ONLY)
     .cfi_adjust_cfa_offset -(FRAME_SIZE_SAVE_REFS_AND_ARGS - FRAME_SIZE_SAVE_REFS_ONLY)
     RESTORE_SAVE_REFS_ONLY_FRAME
+    REFRESH_MARKING_REGISTER
     cbnz    r2, 1f                 @ success if no exception is pending
     vmov    d0, r0, r1             @ store into fpr, for when it's a fpr return...
     bx      lr                     @ return on success
@@ -1630,11 +1821,14 @@ ENTRY art_quick_instrumentation_entry
     @ preserve r0 (not normally an arg) knowing there is a spare slot in kSaveRefsAndArgs.
     str   r0, [sp, #4]
     mov   r2, r9         @ pass Thread::Current
-    mov   r3, lr         @ pass LR
-    blx   artInstrumentationMethodEntryFromCode  @ (Method*, Object*, Thread*, LR)
+    mov   r3, sp         @ pass SP
+    blx   artInstrumentationMethodEntryFromCode  @ (Method*, Object*, Thread*, SP)
+    cbz   r0, .Ldeliver_instrumentation_entry_exception
+                         @ Deliver exception if we got nullptr as function.
     mov   r12, r0        @ r12 holds reference to code
     ldr   r0, [sp, #4]   @ restore r0
     RESTORE_SAVE_REFS_AND_ARGS_FRAME
+    REFRESH_MARKING_REGISTER
     blx   r12            @ call method with lr set to art_quick_instrumentation_exit
 @ Deliberate fall-through into art_quick_instrumentation_exit.
     .type art_quick_instrumentation_exit, #function
@@ -1647,19 +1841,13 @@ art_quick_instrumentation_exit:
     .cfi_adjust_cfa_offset 8
     .cfi_rel_offset r0, 0
     .cfi_rel_offset r1, 4
+    mov   r2, sp         @ store gpr_res pointer.
     vpush {d0}           @ save fp return value
     .cfi_adjust_cfa_offset 8
-    sub   sp, #8         @ space for return value argument. Note: AAPCS stack alignment is 8B, no
-                         @ need to align by 16.
-    .cfi_adjust_cfa_offset 8
-    vstr  d0, [sp]       @ d0 -> [sp] for fpr_res
-    mov   r2, r0         @ pass return value as gpr_res
-    mov   r3, r1
-    mov   r0, r9         @ pass Thread::Current
+    mov   r3, sp         @ store fpr_res pointer
     mov   r1, r12        @ pass SP
-    blx   artInstrumentationMethodExitFromCode  @ (Thread*, SP, gpr_res, fpr_res)
-    add   sp, #8
-    .cfi_adjust_cfa_offset -8
+    mov   r0, r9         @ pass Thread::Current
+    blx   artInstrumentationMethodExitFromCode  @ (Thread*, SP, gpr_res*, fpr_res*)
 
     mov   r2, r0         @ link register saved by instrumentation
     mov   lr, r1         @ r1 is holding link register if we're to bounce to deoptimize
@@ -1669,9 +1857,17 @@ art_quick_instrumentation_exit:
     .cfi_adjust_cfa_offset -8
     .cfi_restore r0
     .cfi_restore r1
-    add sp, #32          @ remove callee save frame
-    .cfi_adjust_cfa_offset -32
-    bx    r2             @ return
+    RESTORE_SAVE_REFS_ONLY_FRAME
+    REFRESH_MARKING_REGISTER
+    cbz   r2, .Ldo_deliver_instrumentation_exception
+                         @ Deliver exception if we got nullptr as function.
+    bx    r2             @ Otherwise, return
+.Ldeliver_instrumentation_entry_exception:
+    @ Deliver exception for art_quick_instrumentation_entry placed after
+    @ art_quick_instrumentation_exit so that the fallthrough works.
+    RESTORE_SAVE_REFS_AND_ARGS_FRAME
+.Ldo_deliver_instrumentation_exception:
+    DELIVER_PENDING_EXCEPTION
 END art_quick_instrumentation_entry
 
     /*
@@ -1716,7 +1912,7 @@ END art_quick_deoptimize_from_compiled_code
      */
     /* mul-long vAA, vBB, vCC */
 ENTRY art_quick_mul_long
-    push    {r9 - r10}
+    push    {r9-r10}
     .cfi_adjust_cfa_offset 8
     .cfi_rel_offset r9, 0
     .cfi_rel_offset r10, 4
@@ -1726,7 +1922,7 @@ ENTRY art_quick_mul_long
     add     r10, r2, r10                @  r10<- r10 + low(ZxW + (YxX))
     mov     r0,r9
     mov     r1,r10
-    pop     {r9 - r10}
+    pop     {r9-r10}
     .cfi_adjust_cfa_offset -8
     .cfi_restore r9
     .cfi_restore r10
@@ -2146,6 +2342,289 @@ READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg09, r9
 READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg10, r10
 READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg11, r11
 
+// Helper macros for Baker CC read barrier mark introspection (BRBMI).
+.macro BRBMI_FOR_12_REGISTERS macro_for_register, macro_for_reserved_register
+    \macro_for_register r0
+    \macro_for_register r1
+    \macro_for_register r2
+    \macro_for_register r3
+    \macro_for_reserved_register  // R4 is reserved for the entrypoint address.
+    \macro_for_register r5
+    \macro_for_register r6
+    \macro_for_register r7
+    \macro_for_register r8
+    \macro_for_register r9
+    \macro_for_register r10
+    \macro_for_register r11
+.endm
+
+.macro BRBMI_FOR_REGISTERS macro_for_register, macro_for_reserved_register
+    BRBMI_FOR_12_REGISTERS \macro_for_register, \macro_for_reserved_register
+    \macro_for_reserved_register  // IP is reserved.
+    \macro_for_reserved_register  // SP is reserved.
+    \macro_for_reserved_register  // LR is reserved.
+    \macro_for_reserved_register  // PC is reserved.
+.endm
+
+.macro BRBMI_RETURN_SWITCH_CASE reg
+.Lmark_introspection_return_switch_case_\reg:
+    mov     \reg, ip
+    bx      lr
+.endm
+
+.macro BRBMI_BAD_RETURN_SWITCH_CASE
+.Lmark_introspection_return_switch_case_bad:
+    BRBMI_BKPT_FILL_4B
+.endm
+
+.macro BRBMI_RETURN_SWITCH_CASE_OFFSET reg
+    .byte   (.Lmark_introspection_return_switch_case_\reg - .Lmark_introspection_return_table) / 2
+.endm
+
+.macro BRBMI_BAD_RETURN_SWITCH_CASE_OFFSET
+    .byte   (.Lmark_introspection_return_switch_case_bad - .Lmark_introspection_return_table) / 2
+.endm
+
+#if BAKER_MARK_INTROSPECTION_FIELD_LDR_WIDE_OFFSET != BAKER_MARK_INTROSPECTION_ARRAY_LDR_OFFSET
+#error "Array and field introspection code sharing requires same LDR offset."
+#endif
+.macro BRBMI_ARRAY_LOAD index_reg
+    ldr     ip, [ip, \index_reg, lsl #2]                // 4 bytes.
+    b       art_quick_read_barrier_mark_introspection   // Should be 2 bytes, encoding T2.
+    .balign 8                                           // Add padding to 8 bytes.
+.endm
+
+.macro BRBMI_BKPT_FILL_4B
+    bkpt    0
+    bkpt    0
+.endm
+
+.macro BRBMI_BKPT_FILL_8B
+    BRBMI_BKPT_FILL_4B
+    BRBMI_BKPT_FILL_4B
+.endm
+
+.macro BRBMI_RUNTIME_CALL
+    // Note: This macro generates exactly 22 bytes of code. The core register
+    // PUSH and the MOVs are 16-bit instructions, the rest is 32-bit instructions.
+
+    push   {r0-r3, r7, lr}            // Save return address and caller-save registers.
+    .cfi_adjust_cfa_offset 24
+    .cfi_rel_offset r0, 0
+    .cfi_rel_offset r1, 4
+    .cfi_rel_offset r2, 8
+    .cfi_rel_offset r3, 12
+    .cfi_rel_offset r7, 16
+    .cfi_rel_offset lr, 20
+
+    mov     r0, ip                    // Pass the reference.
+    vpush {s0-s15}                    // save floating-point caller-save registers
+    .cfi_adjust_cfa_offset 64
+    bl      artReadBarrierMark        // r0 <- artReadBarrierMark(obj)
+    vpop    {s0-s15}                  // restore floating-point registers
+    .cfi_adjust_cfa_offset -64
+    mov     ip, r0                    // Move reference to ip in preparation for return switch.
+
+    pop     {r0-r3, r7, lr}           // Restore registers.
+    .cfi_adjust_cfa_offset -24
+    .cfi_restore r0
+    .cfi_restore r1
+    .cfi_restore r2
+    .cfi_restore r3
+    .cfi_restore r7
+    .cfi_restore lr
+.endm
+
+.macro BRBMI_CHECK_NULL_AND_MARKED label_suffix
+    // If reference is null, just return it in the right register.
+    cmp     ip, #0
+    beq     .Lmark_introspection_return\label_suffix
+    // Use R4 as temp and check the mark bit of the reference.
+    ldr     r4, [ip, #MIRROR_OBJECT_LOCK_WORD_OFFSET]
+    tst     r4, #LOCK_WORD_MARK_BIT_MASK_SHIFTED
+    beq     .Lmark_introspection_unmarked\label_suffix
+.Lmark_introspection_return\label_suffix:
+.endm
+
+.macro BRBMI_UNMARKED_FORWARDING_ADDRESS_CHECK label_suffix
+.Lmark_introspection_unmarked\label_suffix:
+    // Check if the top two bits are one, if this is the case it is a forwarding address.
+#if (LOCK_WORD_STATE_SHIFT != 30) || (LOCK_WORD_STATE_FORWARDING_ADDRESS != 3)
+    // To use "CMP ip, #modified-immediate; BHS", we need the lock word state in
+    // the highest bits and the "forwarding address" state to have all bits set.
+#error "Unexpected lock word state shift or forwarding address state value."
+#endif
+    cmp     r4, #(LOCK_WORD_STATE_FORWARDING_ADDRESS << LOCK_WORD_STATE_SHIFT)
+    bhs     .Lmark_introspection_forwarding_address\label_suffix
+.endm
+
+.macro BRBMI_EXTRACT_FORWARDING_ADDRESS label_suffix
+.Lmark_introspection_forwarding_address\label_suffix:
+    // Note: This macro generates exactly 22 bytes of code, the branch is near.
+
+    // Shift left by the forwarding address shift. This clears out the state bits since they are
+    // in the top 2 bits of the lock word.
+    lsl     ip, r4, #LOCK_WORD_STATE_FORWARDING_ADDRESS_SHIFT
+    b       .Lmark_introspection_return\label_suffix
+.endm
+
+.macro BRBMI_LOAD_RETURN_REG_FROM_CODE_wide ldr_offset
+    // Load the half of the instruction that contains Rt. Adjust for the thumb state in LR.
+    ldrh    r4, [lr, #(-1 + \ldr_offset + 2)]
+.endm
+
+.macro BRBMI_LOAD_RETURN_REG_FROM_CODE_narrow ldr_offset
+    // Load the 16-bit instruction. Adjust for the thumb state in LR.
+    ldrh    r4, [lr, #(-1 + \ldr_offset)]
+.endm
+
+.macro BRBMI_GC_ROOT_AND_FIELD_SLOW_PATH gc_root_ldr_offset, label_suffix
+    .balign 64
+    .thumb_func
+    .type art_quick_read_barrier_mark_introspection_gc_roots\label_suffix, #function
+    .hidden art_quick_read_barrier_mark_introspection_gc_roots\label_suffix
+    .global art_quick_read_barrier_mark_introspection_gc_roots\label_suffix
+art_quick_read_barrier_mark_introspection_gc_roots\label_suffix:
+    BRBMI_RUNTIME_CALL
+    // Load the LDR (or the half of it) that contains Rt.
+    BRBMI_LOAD_RETURN_REG_FROM_CODE\label_suffix \gc_root_ldr_offset
+    b       .Lmark_introspection_extract_register_and_return\label_suffix
+    // We've used 28 bytes since the "gc_roots" entrypoint (22 bytes for
+    // BRBMI_RUNTIME_CALL, 4 bytes for LDRH and 2 bytes for the branch). Squeeze
+    // the 6 byte forwarding address extraction here across the 32-byte boundary.
+    BRBMI_EXTRACT_FORWARDING_ADDRESS \label_suffix
+    // And the slow path taking exactly 30 bytes (6 bytes for the forwarding
+    // address check, 22 bytes for BRBMI_RUNTIME_CALL and 2 bytes for the near
+    // branch) shall take the rest of the 32-byte section (within a cache line).
+    BRBMI_UNMARKED_FORWARDING_ADDRESS_CHECK \label_suffix
+    BRBMI_RUNTIME_CALL
+    b       .Lmark_introspection_return\label_suffix
+.endm
+
+    /*
+     * Use introspection to load a reference from the same address as the LDR
+     * instruction in generated code would load (unless loaded by the thunk,
+     * see below), call ReadBarrier::Mark() with that reference if needed
+     * and return it in the same register as the LDR instruction would load.
+     *
+     * The entrypoint is called through a thunk that differs across load kinds.
+     * For field and array loads the LDR instruction in generated code follows
+     * the branch to the thunk, i.e. the LDR is (ignoring the heap poisoning)
+     * at [LR, #(-4 - 1)] (encoding T3) or [LR, #(-2 - 1)] (encoding T1) where
+     * the -1 is an adjustment for the Thumb mode bit in LR, and the thunk
+     * knows the holder and performs the gray bit check, returning to the LDR
+     * instruction if the object is not gray, so this entrypoint no longer
+     * needs to know anything about the holder. For GC root loads, the LDR
+     * instruction in generated code precedes the branch to the thunk, i.e. the
+     * LDR is at [LR, #(-8 - 1)] (encoding T3) or [LR, #(-6 - 1)] (encoding T1)
+     * where the -1 is again the Thumb mode bit adjustment, and the thunk does
+     * not do the gray bit check.
+     *
+     * For field accesses and array loads with a constant index the thunk loads
+     * the reference into IP using introspection and calls the main entrypoint,
+     * art_quick_read_barrier_mark_introspection. With heap poisoning enabled,
+     * the passed reference is poisoned.
+     *
+     * For array accesses with non-constant index, the thunk inserts the bits
+     * 0-5 of the LDR instruction to the entrypoint address, effectively
+     * calculating a switch case label based on the index register (bits 0-3)
+     * and adding an extra offset (bits 4-5 hold the shift which is always 2
+     * for reference loads) to differentiate from the main entrypoint, then
+     * moves the base register to IP and jumps to the switch case. Therefore
+     * we need to align the main entrypoint to 512 bytes, accounting for
+     * a 256-byte offset followed by 16 array entrypoints starting at
+     * art_quick_read_barrier_mark_introspection_arrays, each containing an LDR
+     * (register) and a branch to the main entrypoint.
+     *
+     * For GC root accesses we cannot use the main entrypoint because of the
+     * different offset where the LDR instruction in generated code is located.
+     * (And even with heap poisoning enabled, GC roots are not poisoned.)
+     * To re-use the same entrypoint pointer in generated code, we make sure
+     * that the gc root entrypoint (a copy of the entrypoint with a different
+     * offset for introspection loads) is located at a known offset (128 bytes,
+     * or BAKER_MARK_INTROSPECTION_GC_ROOT_ENTRYPOINT_OFFSET) from the main
+     * entrypoint and the GC root thunk adjusts the entrypoint pointer, moves
+     * the root register to IP and jumps to the customized entrypoint,
+     * art_quick_read_barrier_mark_introspection_gc_roots. The thunk also
+     * performs all the fast-path checks, so we need just the slow path.
+     *
+     * The code structure is
+     *   art_quick_read_barrier_mark_introspection:
+     *     Up to 32 bytes code for main entrypoint fast-path code for fields
+     *     (and array elements with constant offset) with LDR encoding T3;
+     *     jumps to the switch in the "narrow" entrypoint.
+     *     Padding to 32 bytes if needed.
+     *   art_quick_read_barrier_mark_introspection_narrow:
+     *     Up to 48 bytes code for fast path code for fields (and array
+     *     elements with constant offset) with LDR encoding T1, ending in the
+     *     return switch instruction TBB and the table with switch offsets.
+     *     Padding to 80 bytes if needed.
+     *   .Lmark_introspection_return_switch_case_r0:
+     *     Exactly 48 bytes of code for the return switch cases (12 cases,
+     *     including BKPT for the reserved registers).
+     *     Ends at 128 bytes total.
+     *   art_quick_read_barrier_mark_introspection_gc_roots_wide:
+     *     GC root entrypoint code for LDR encoding T3 (28 bytes).
+     *     Forwarding address extraction for LDR encoding T3 (6 bytes).
+     *     Slow path for main entrypoint for LDR encoding T3 (30 bytes).
+     *     Ends at 192 bytes total.
+     *   art_quick_read_barrier_mark_introspection_gc_roots_narrow:
+     *     GC root entrypoint code for LDR encoding T1 (28 bytes).
+     *     Forwarding address extraction for LDR encoding T1 (6 bytes).
+     *     Slow path for main entrypoint for LDR encoding T1 (30 bytes).
+     *     Ends at 256 bytes total.
+     *   art_quick_read_barrier_mark_introspection_arrays:
+     *     Exactly 128 bytes for array load switch cases (16x2 instructions).
+     */
+    .balign 512
+ENTRY art_quick_read_barrier_mark_introspection
+    // At this point, IP contains the reference, R4 can be freely used.
+    // (R4 is reserved for the entrypoint address.)
+    // For heap poisoning, the reference is poisoned, so unpoison it first.
+    UNPOISON_HEAP_REF ip
+    // Check for null or marked, lock word is loaded into IP.
+    BRBMI_CHECK_NULL_AND_MARKED _wide
+    // Load the half of the instruction that contains Rt.
+    BRBMI_LOAD_RETURN_REG_FROM_CODE_wide BAKER_MARK_INTROSPECTION_FIELD_LDR_WIDE_OFFSET
+.Lmark_introspection_extract_register_and_return_wide:
+    lsr     r4, r4, #12               // Extract `ref_reg`.
+    b       .Lmark_introspection_return_switch
+
+    .balign 32
+    .thumb_func
+    .type art_quick_read_barrier_mark_introspection_narrow, #function
+    .hidden art_quick_read_barrier_mark_introspection_narrow
+    .global art_quick_read_barrier_mark_introspection_narrow
+art_quick_read_barrier_mark_introspection_narrow:
+    // At this point, IP contains the reference, R4 can be freely used.
+    // (R4 is reserved for the entrypoint address.)
+    // For heap poisoning, the reference is poisoned, so unpoison it first.
+    UNPOISON_HEAP_REF ip
+    // Check for null or marked, lock word is loaded into R4.
+    BRBMI_CHECK_NULL_AND_MARKED _narrow
+    // Load the 16-bit instruction.
+    BRBMI_LOAD_RETURN_REG_FROM_CODE_narrow BAKER_MARK_INTROSPECTION_FIELD_LDR_NARROW_OFFSET
+.Lmark_introspection_extract_register_and_return_narrow:
+    and     r4, r4, #7                // Extract `ref_reg`.
+.Lmark_introspection_return_switch:
+    tbb     [pc, r4]                  // Jump to the switch case.
+.Lmark_introspection_return_table:
+    BRBMI_FOR_REGISTERS BRBMI_RETURN_SWITCH_CASE_OFFSET, BRBMI_BAD_RETURN_SWITCH_CASE_OFFSET
+    .balign 16
+    BRBMI_FOR_12_REGISTERS BRBMI_RETURN_SWITCH_CASE, BRBMI_BAD_RETURN_SWITCH_CASE
+
+    BRBMI_GC_ROOT_AND_FIELD_SLOW_PATH BAKER_MARK_INTROSPECTION_GC_ROOT_LDR_WIDE_OFFSET, _wide
+    BRBMI_GC_ROOT_AND_FIELD_SLOW_PATH BAKER_MARK_INTROSPECTION_GC_ROOT_LDR_NARROW_OFFSET, _narrow
+
+    .balign 256
+    .thumb_func
+    .type art_quick_read_barrier_mark_introspection_arrays, #function
+    .hidden art_quick_read_barrier_mark_introspection_arrays
+    .global art_quick_read_barrier_mark_introspection_arrays
+art_quick_read_barrier_mark_introspection_arrays:
+    BRBMI_FOR_REGISTERS BRBMI_ARRAY_LOAD, BRBMI_BKPT_FILL_8B
+END art_quick_read_barrier_mark_introspection
+
 .extern artInvokePolymorphic
 ENTRY art_quick_invoke_polymorphic
     SETUP_SAVE_REFS_AND_ARGS_FRAME r2
@@ -2190,6 +2669,7 @@ ENTRY art_quick_invoke_polymorphic
     add     sp, #8
     .cfi_adjust_cfa_offset -8
     RESTORE_SAVE_REFS_AND_ARGS_FRAME
+    REFRESH_MARKING_REGISTER
     RETURN_OR_DELIVER_PENDING_EXCEPTION_REG r2
 
 .macro HANDLER_TABLE_OFFSET handler_label

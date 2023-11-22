@@ -16,6 +16,7 @@
 
 #include "event_type.h"
 
+#include <inttypes.h>
 #include <unistd.h>
 #include <algorithm>
 #include <string>
@@ -23,22 +24,56 @@
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
+#include <android-base/parseint.h>
+#include <android-base/stringprintf.h>
+#include <android-base/strings.h>
 
 #include "event_attr.h"
 #include "utils.h"
 
-#define EVENT_TYPE_TABLE_ENTRY(name, type, config) {name, type, config},
+#define EVENT_TYPE_TABLE_ENTRY(name, type, config, description, limited_arch) \
+          {name, type, config, description, limited_arch},
 
 static const std::vector<EventType> static_event_type_array = {
 #include "event_type_table.h"
 };
 
-static const std::vector<EventType> GetTracepointEventTypes() {
-  std::vector<EventType> result;
-  if (!IsRoot()) {
-    // Not having permission to profile tracing events.
-    return result;
+static std::string tracepoint_events;
+
+bool SetTracepointEventsFilePath(const std::string& filepath) {
+  if (!android::base::ReadFileToString(filepath, &tracepoint_events)) {
+    PLOG(ERROR) << "Failed to read " << filepath;
+    return false;
   }
+  return true;
+}
+
+std::string GetTracepointEvents() {
+  std::string result;
+  for (const EventType& event : GetAllEventTypes()) {
+    if (!result.empty()) {
+      result.push_back('\n');
+    }
+    result += android::base::StringPrintf("%s %" PRIu64, event.name.c_str(), event.config);
+  }
+  return result;
+}
+
+static std::vector<EventType> GetTracepointEventTypesFromString(const std::string& s) {
+  std::vector<EventType> result;
+  for (auto& line : android::base::Split(s, "\n")) {
+    std::vector<std::string> items = android::base::Split(line, " ");
+    CHECK_EQ(items.size(), 2u);
+    std::string event_name = items[0];
+    uint64_t id;
+    CHECK(android::base::ParseUint(items[1].c_str(), &id));
+    result.push_back(EventType(event_name, PERF_TYPE_TRACEPOINT, id, "", ""));
+  }
+  return result;
+}
+
+static std::vector<EventType> GetTracepointEventTypesFromTraceFs() {
+  std::vector<EventType> result;
   const std::string tracepoint_dirname = "/sys/kernel/debug/tracing/events";
   for (const auto& system_name : GetSubDirs(tracepoint_dirname)) {
     std::string system_path = tracepoint_dirname + "/" + system_name;
@@ -54,8 +89,18 @@ static const std::vector<EventType> GetTracepointEventTypes() {
         LOG(DEBUG) << "unexpected id '" << id_content << "' in " << id_path;
         continue;
       }
-      result.push_back(EventType(system_name + ":" + event_name, PERF_TYPE_TRACEPOINT, id));
+      result.push_back(EventType(system_name + ":" + event_name, PERF_TYPE_TRACEPOINT, id, "", ""));
     }
+  }
+  return result;
+}
+
+static std::vector<EventType> GetTracepointEventTypes() {
+  std::vector<EventType> result;
+  if (!tracepoint_events.empty()) {
+    result = GetTracepointEventTypesFromString(tracepoint_events);
+  } else {
+    result = GetTracepointEventTypesFromTraceFs();
   }
   std::sort(result.begin(), result.end(),
             [](const EventType& type1, const EventType& type2) { return type1.name < type2.name; });
@@ -67,7 +112,7 @@ const std::vector<EventType>& GetAllEventTypes() {
   if (event_type_array.empty()) {
     event_type_array.insert(event_type_array.end(), static_event_type_array.begin(),
                             static_event_type_array.end());
-    const std::vector<EventType> tracepoint_array = GetTracepointEventTypes();
+    std::vector<EventType> tracepoint_array = GetTracepointEventTypes();
     event_type_array.insert(event_type_array.end(), tracepoint_array.begin(),
                             tracepoint_array.end());
   }
@@ -77,7 +122,7 @@ const std::vector<EventType>& GetAllEventTypes() {
 const EventType* FindEventTypeByName(const std::string& name) {
   const EventType* result = nullptr;
   for (auto& event_type : GetAllEventTypes()) {
-    if (event_type.name == name) {
+    if (android::base::EqualsIgnoreCase(event_type.name, name)) {
       result = &event_type;
       break;
     }

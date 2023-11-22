@@ -63,15 +63,21 @@ endif
 LOCAL_INIT_RC := netd.rc
 
 LOCAL_SHARED_LIBRARIES := \
+        android.system.net.netd@1.0 \
         libbinder \
+        libcrypto \
         libcutils \
         libdl \
+        libhidlbase \
+        libhidltransport \
         liblog \
         liblogwrap \
         libmdnssd \
         libnetdaidl \
         libnetutils \
+        libnetdutils \
         libnl \
+        libssl \
         libsysutils \
         libbase \
         libutils \
@@ -96,12 +102,15 @@ LOCAL_SRC_FILES := \
         NatController.cpp \
         NetdCommand.cpp \
         NetdConstants.cpp \
+        NetdHwService.cpp \
         NetdNativeService.cpp \
         NetlinkHandler.cpp \
         NetlinkManager.cpp \
         NetlinkCommands.cpp \
+        NetlinkListener.cpp \
         Network.cpp \
         NetworkController.cpp \
+        NFLogListener.cpp \
         PhysicalNetwork.cpp \
         PppController.cpp \
         ResolverController.cpp \
@@ -111,11 +120,13 @@ LOCAL_SRC_FILES := \
         TetherController.cpp \
         UidRanges.cpp \
         VirtualNetwork.cpp \
+        WakeupController.cpp \
         XfrmController.cpp \
         main.cpp \
         oem_iptables_hook.cpp \
         binder/android/net/UidRange.cpp \
         binder/android/net/metrics/INetdEventListener.aidl \
+        dns/DnsTlsTransport.cpp \
 
 LOCAL_AIDL_INCLUDES := $(LOCAL_PATH)/binder
 
@@ -141,6 +152,7 @@ include $(BUILD_EXECUTABLE)
 ###
 include $(CLEAR_VARS)
 LOCAL_MODULE := netd_unit_test
+LOCAL_COMPATIBILITY_SUITE := device-tests
 LOCAL_SANITIZE := unsigned-integer-overflow
 LOCAL_CFLAGS := -Wall -Werror -Wunused-parameter
 # Bug: http://b/29823425 Disable -Wvarargs for Clang update to r271374
@@ -155,32 +167,42 @@ LOCAL_C_INCLUDES := \
         system/core/logwrapper/include \
 
 LOCAL_SRC_FILES := \
-        Controllers.cpp \
+        InterfaceController.cpp InterfaceControllerTest.cpp \
+        Controllers.cpp ControllersTest.cpp \
         NetdConstants.cpp IptablesBaseTest.cpp \
         IptablesRestoreController.cpp IptablesRestoreControllerTest.cpp \
         BandwidthController.cpp BandwidthControllerTest.cpp \
         FirewallControllerTest.cpp FirewallController.cpp \
-        IdletimerController.cpp \
+        IdletimerController.cpp IdletimerControllerTest.cpp \
         NatControllerTest.cpp NatController.cpp \
-        NetlinkCommands.cpp \
+        NetlinkCommands.cpp NetlinkManager.cpp \
         RouteController.cpp RouteControllerTest.cpp \
         SockDiagTest.cpp SockDiag.cpp \
         StrictController.cpp StrictControllerTest.cpp \
         UidRanges.cpp \
+        NetlinkListener.cpp \
+        WakeupController.cpp WakeupControllerTest.cpp \
+        NFLogListener.cpp NFLogListenerTest.cpp \
         binder/android/net/UidRange.cpp \
         binder/android/net/metrics/INetdEventListener.aidl \
         ../tests/tun_interface.cpp \
 
 LOCAL_MODULE_TAGS := tests
+LOCAL_STATIC_LIBRARIES := libgmock libpcap
 LOCAL_SHARED_LIBRARIES := \
+        libnetdaidl \
         libbase \
         libbinder \
+        libcrypto \
         libcutils \
         liblog \
         liblogwrap \
         libnetutils \
+        libnetdutils \
+        libnl \
         libsysutils \
         libutils \
+        libssl \
 
 include $(BUILD_NATIVE_TEST)
 

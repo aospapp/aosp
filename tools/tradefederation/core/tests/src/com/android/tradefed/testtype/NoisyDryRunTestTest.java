@@ -15,6 +15,11 @@
  */
 package com.android.tradefed.testtype;
 
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
+
+import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.util.FileUtil;
 
@@ -26,6 +31,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.io.File;
+import java.io.IOException;
 
 /**
  * Unit test for {@link NoisyDryRunTest}.
@@ -66,7 +72,8 @@ public class NoisyDryRunTestTest {
         replayMocks();
 
         NoisyDryRunTest noisyDryRunTest = new NoisyDryRunTest();
-        noisyDryRunTest.setCmdFile(mFile.getAbsolutePath());
+        OptionSetter setter = new OptionSetter(noisyDryRunTest);
+        setter.setOptionValue("cmdfile", mFile.getAbsolutePath());
         noisyDryRunTest.run(mMockListener);
         verifyMocks();
     }
@@ -82,7 +89,8 @@ public class NoisyDryRunTestTest {
         replayMocks();
 
         NoisyDryRunTest noisyDryRunTest = new NoisyDryRunTest();
-        noisyDryRunTest.setCmdFile(mFile.getAbsolutePath());
+        OptionSetter setter = new OptionSetter(noisyDryRunTest);
+        setter.setOptionValue("cmdfile", mFile.getAbsolutePath());
         noisyDryRunTest.run(mMockListener);
         verifyMocks();
     }
@@ -107,9 +115,83 @@ public class NoisyDryRunTestTest {
         replayMocks();
 
         NoisyDryRunTest noisyDryRunTest = new NoisyDryRunTest();
-        noisyDryRunTest.setCmdFile(mFile.getAbsolutePath());
+        OptionSetter setter = new OptionSetter(noisyDryRunTest);
+        setter.setOptionValue("cmdfile", mFile.getAbsolutePath());
         noisyDryRunTest.run(mMockListener);
         verifyMocks();
+    }
+
+    @Test
+    public void testCheckFileWithTimeout() throws Exception {
+        NoisyDryRunTest noisyDryRunTest = new NoisyDryRunTest() {
+            long mCurrentTime = 0;
+            @Override
+            void sleep() {
+            }
+
+            @Override
+            long currentTimeMillis() {
+                mCurrentTime += 5 * 1000;
+                return mCurrentTime;
+            }
+        };
+        OptionSetter setter = new OptionSetter(noisyDryRunTest);
+        setter.setOptionValue("timeout", "100");
+        noisyDryRunTest.checkFileWithTimeout(mFile);
+    }
+
+    @Test
+    public void testCheckFileWithTimeout_missingFile() throws Exception {
+        NoisyDryRunTest noisyDryRunTest = new NoisyDryRunTest() {
+            long mCurrentTime = 0;
+
+            @Override
+            void sleep() {
+            }
+
+            @Override
+            long currentTimeMillis() {
+                mCurrentTime += 5 * 1000;
+                return mCurrentTime;
+            }
+        };
+        OptionSetter setter = new OptionSetter(noisyDryRunTest);
+        setter.setOptionValue("timeout", "100");
+        File missingFile = new File("missing_file");
+        try {
+            noisyDryRunTest.checkFileWithTimeout(missingFile);
+            fail("Should have thrown IOException");
+        } catch (IOException e) {
+            assertEquals(missingFile.getAbsoluteFile() + " doesn't exist.", e.getMessage());
+            assertTrue(true);
+        }
+    }
+
+    @Test
+    public void testCheckFileWithTimeout_delayFile() throws Exception {
+        FileUtil.deleteFile(mFile);
+        NoisyDryRunTest noisyDryRunTest = new NoisyDryRunTest() {
+            long mCurrentTime = 0;
+
+            @Override
+            void sleep() {
+            }
+
+            @Override
+            long currentTimeMillis() {
+                mCurrentTime += 5 * 1000;
+                if (mCurrentTime > 10 * 1000) {
+                    try {
+                        mFile.createNewFile();
+                    } catch (IOException e) {
+                    }
+                }
+                return mCurrentTime;
+            }
+        };
+        OptionSetter setter = new OptionSetter(noisyDryRunTest);
+        setter.setOptionValue("timeout", "100000");
+        noisyDryRunTest.checkFileWithTimeout(mFile);
     }
 
     private void replayMocks() {

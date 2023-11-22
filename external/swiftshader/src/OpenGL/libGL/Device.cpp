@@ -25,6 +25,7 @@
 #include "Main/FrameBuffer.hpp"
 #include "Common/Math.hpp"
 #include "Common/Configurator.hpp"
+#include "Common/Memory.hpp"
 #include "Common/Timer.hpp"
 #include "../common/debug.h"
 
@@ -181,6 +182,18 @@ namespace gl
 		delete context;
 	}
 
+	// This object has to be mem aligned
+	void* Device::operator new(size_t size)
+	{
+		ASSERT(size == sizeof(Device)); // This operator can't be called from a derived class
+		return sw::allocate(sizeof(gl::Device), 16);
+	}
+
+	void Device::operator delete(void * mem)
+	{
+		sw::deallocate(mem);
+	}
+
 	void Device::clearColor(float red, float green, float blue, float alpha, unsigned int rgbaMask)
 	{
 		if(!renderTarget || !rgbaMask)
@@ -188,7 +201,7 @@ namespace gl
 			return;
 		}
 
-		sw::SliceRect clearRect = renderTarget->getRect();
+		sw::Rect clearRect = renderTarget->getRect();
 
 		if(scissorEnable)
 		{
@@ -212,7 +225,7 @@ namespace gl
 		}
 
 		z = clamp01(z);
-		sw::SliceRect clearRect = depthStencil->getRect();
+		sw::Rect clearRect = depthStencil->getRect();
 
 		if(scissorEnable)
 		{
@@ -229,7 +242,7 @@ namespace gl
 			return;
 		}
 
-		sw::SliceRect clearRect = depthStencil->getRect();
+		sw::Rect clearRect = depthStencil->getRect();
 
 		if(scissorEnable)
 		{
@@ -557,8 +570,8 @@ namespace gl
 
 			if(source->hasStencil())
 			{
-				sw::byte *sourceBuffer = (sw::byte*)source->lockStencil(0, PUBLIC);
-				sw::byte *destBuffer = (sw::byte*)dest->lockStencil(0, PUBLIC);
+				sw::byte *sourceBuffer = (sw::byte*)source->lockStencil(0, 0, 0, PUBLIC);
+				sw::byte *destBuffer = (sw::byte*)dest->lockStencil(0, 0, 0, PUBLIC);
 
 				unsigned int width = source->getWidth();
 				unsigned int height = source->getHeight();

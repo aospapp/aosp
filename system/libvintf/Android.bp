@@ -40,6 +40,7 @@ cc_library {
         "CompatibilityMatrix.cpp",
         "HalManifest.cpp",
         "HalInterface.cpp",
+        "KernelConfigParser.cpp",
         "KernelConfigTypedValue.cpp",
         "RuntimeInfo.cpp",
         "ManifestHal.cpp",
@@ -47,6 +48,7 @@ cc_library {
         "MatrixKernel.cpp",
         "TransportArch.cpp",
         "VintfObject.cpp",
+        "XmlFile.cpp",
         "utils.cpp",
     ],
 
@@ -54,7 +56,10 @@ cc_library {
         host: {
             srcs: [
                 "RuntimeInfo-host.cpp"
-            ]
+            ],
+            cflags: [
+                "-DLIBVINTF_HOST",
+            ],
         },
         android: {
             shared_libs: [
@@ -85,7 +90,8 @@ cc_binary_host {
     name: "assemble_vintf",
     cflags: libvintf_flags,
     shared_libs: [
-        "libvintf"
+        "libvintf",
+        "libbase",
     ],
     srcs: [
         "assemble_vintf.cpp"
@@ -117,6 +123,7 @@ cc_library {
         "MatrixKernel.cpp",
         "TransportArch.cpp",
         "VintfObject.cpp",
+        "XmlFile.cpp",
         "test/RuntimeInfo-fake.cpp",
         "test/utils-fake.cpp",
     ],

@@ -31,15 +31,17 @@
 #include <android-base/strings.h>
 #include <cutils/properties.h>
 #include <cutils/sockets.h>
+#include <keyutils.h>
 #include <logwrap/logwrap.h>
 
 #include "ext4_utils/ext4_crypt.h"
-#include "ext4_utils/key_control.h"
 
 #define TAG "ext4_utils"
 
 static const std::string arbitrary_sequence_number = "42";
 static const int vold_command_timeout_ms = 60 * 1000;
+
+static int set_system_de_policy_on(char const* dir);
 
 int e4crypt_install_keyring()
 {
@@ -56,22 +58,24 @@ int e4crypt_install_keyring()
     return 0;
 }
 
-int e4crypt_do_init_user0()
-{
-    const char* argv[] = { "/system/bin/vdc", "--wait", "cryptfs", "init_user0" };
-    int rc = android_fork_execvp_ext(arraysize(argv), (char**) argv, NULL, false,
-                                     LOG_KLOG, false, NULL, NULL, 0);
-    LOG(INFO) << "init_user0 result: " << rc;
-    return rc;
-}
-
 int e4crypt_set_directory_policy(const char* dir)
 {
+    if (!dir || strncmp(dir, "/data/", 6)) {
+        return 0;
+    }
+
+    // Special-case /data/media/obb per b/64566063
+    if (strcmp(dir, "/data/media/obb") == 0) {
+        // Try to set policy on this directory, but if it is non-empty this may fail.
+        set_system_de_policy_on(dir);
+        return 0;
+    }
+
     // Only set policy on first level /data directories
     // To make this less restrictive, consider using a policy file.
     // However this is overkill for as long as the policy is simply
     // to apply a global policy to all /data folders created via makedir
-    if (!dir || strncmp(dir, "/data/", 6) || strchr(dir + 6, '/')) {
+    if (strchr(dir + 6, '/')) {
         return 0;
     }
 
@@ -92,7 +96,10 @@ int e4crypt_set_directory_policy(const char* dir)
             return 0;
         }
     }
+    return set_system_de_policy_on(dir);
+}
 
+static int set_system_de_policy_on(char const* dir) {
     std::string ref_filename = std::string("/data") + e4crypt_key_ref;
     std::string policy;
     if (!android::base::ReadFileToString(ref_filename, &policy)) {

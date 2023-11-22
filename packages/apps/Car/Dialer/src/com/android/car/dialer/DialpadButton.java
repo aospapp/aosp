@@ -31,7 +31,7 @@ public class DialpadButton extends FrameLayout {
 
     private String mNumberText;
     private String mLetterText;
-    private int mImageRes;
+    private int mImageRes = INVALID_IMAGE_RES;
 
     public DialpadButton(Context context) {
         super(context);

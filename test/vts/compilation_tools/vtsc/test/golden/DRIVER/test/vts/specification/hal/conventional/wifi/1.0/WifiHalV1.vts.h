@@ -1,5 +1,5 @@
-#ifndef __VTS_DRIVER__WifiHalV1.driver__
-#define __VTS_DRIVER__WifiHalV1.driver__
+#ifndef __VTS_DRIVER__hal_legacy_wifi_V1_0__
+#define __VTS_DRIVER__hal_legacy_wifi_V1_0__
 
 #undef LOG_TAG
 #define LOG_TAG "FuzzerExtended_wifi"
@@ -12,14 +12,14 @@
 #include <string.h>
 #include <utils/Log.h>
 
-#include <fuzz_tester/FuzzerBase.h>
-#include <fuzz_tester/FuzzerCallbackBase.h>
+#include <driver_base/DriverBase.h>
+#include <driver_base/DriverCallbackBase.h>
 
 namespace android {
 namespace vts {
-class FuzzerExtended_wifi : public FuzzerBase {
+class FuzzerExtended_wifi : public DriverBase {
  public:
-    FuzzerExtended_wifi() : FuzzerBase(HAL_LEGACY) {}
+    FuzzerExtended_wifi() : DriverBase(HAL_LEGACY) {}
  protected:
     bool Fuzz(FunctionSpecificationMessage* func_msg, void** result, const string& callback_socket_name);
     bool CallFunction(const FunctionSpecificationMessage& func_msg, const string& callback_socket_name, FunctionSpecificationMessage* result_msg);
@@ -30,7 +30,7 @@ class FuzzerExtended_wifi : public FuzzerBase {
 
 
 extern "C" {
-extern android::vts::FuzzerBase* vts_func_3_5_1_();
+extern android::vts::DriverBase* vts_func_3_5_V1_0_();
 }
 }  // namespace vts
 }  // namespace android

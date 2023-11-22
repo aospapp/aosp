@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundataion. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -36,6 +36,9 @@
 #include <utils/constants.h>
 #include <core/sdm_types.h>
 #include <core/display_interface.h>
+
+#include <string>
+
 #include "hw_info_types.h"
 
 namespace sdm {
@@ -51,8 +54,53 @@ enum PendingAction {
   kEnableFrameCapture = BITMAP(6),
   kDisableFrameCapture = BITMAP(7),
   kConfigureDetailedEnhancer = BITMAP(8),
+  kInvalidatingAndkSetPanelBrightness = BITMAP(9),
   kGetDetailedEnhancerData = BITMAP(21),
   kNoAction = BITMAP(31),
+};
+
+static const uint32_t kOpsEnable = BITMAP(0);
+static const uint32_t kOpsRead = BITMAP(1);
+static const uint32_t kOpsWrite = BITMAP(2);
+static const uint32_t kOpsDisable = BITMAP(3);
+
+static const uint32_t kOpsGc8BitRoundEnable = BITMAP(4);
+
+static const uint32_t kPaHueEnable = BITMAP(4);
+static const uint32_t kPaSatEnable = BITMAP(5);
+static const uint32_t kPaValEnable = BITMAP(6);
+static const uint32_t kPaContEnable = BITMAP(7);
+
+static const uint32_t kPaSixZoneEnable = BITMAP(8);
+static const uint32_t kPaSkinEnable = BITMAP(9);
+static const uint32_t kPaSkyEnable = BITMAP(10);
+static const uint32_t kPaFoliageEnable = BITMAP(11);
+
+static const uint32_t kLeftSplitMode = BITMAP(28);   // 0x10000000
+static const uint32_t kRightSplitMode = BITMAP(29);  // 0x20000000
+
+static const int32_t kInvalidModeId = -1;
+
+static const std::string kDynamicRangeAttribute = "DynamicRange";
+static const std::string kColorGamutAttribute = "ColorGamut";
+static const std::string kPictureQualityAttribute = "PictureQuality";
+
+static const std::string kHdr = "hdr";
+static const std::string kSdr = "sdr";
+
+static const std::string kNative = "native";
+static const std::string kDcip3 = "dcip3";
+static const std::string kSrgb = "srgb";
+static const std::string kDisplayP3 = "display_p3";
+
+static const std::string kVivid = "vivid";
+static const std::string kSharp = "sharp";
+static const std::string kStandard = "standard";
+
+// Enum to identify type of dynamic range of color mode.
+enum DynamicRangeType {
+  kSdrType,
+  kHdrType,
 };
 
 // ENUM to identify different Postprocessing feature block to program.
@@ -98,6 +146,7 @@ struct PPColorFillParams {
 
 struct PPFeatureVersion {
   // SDE ASIC versioning its PP block at each specific feature level.
+  static const uint32_t kSDEPpVersionInvalid = 0;
   static const uint32_t kSDEIgcV17 = 1;
   static const uint32_t kSDEPgcV17 = 5;
   static const uint32_t kSDEDitherV17 = 7;
@@ -107,6 +156,7 @@ struct PPFeatureVersion {
   static const uint32_t kSDELegacyPP = 15;
   static const uint32_t kSDEPADitherV17 = 16;
   static const uint32_t kSDEIgcV30 = 17;
+  static const uint32_t kSDEGamutV4 = 18;
 
   uint32_t version[kMaxNumPPFeatures];
   PPFeatureVersion() { memset(version, 0, sizeof(version)); }
@@ -382,6 +432,7 @@ class SDEGamutCfgWrapper : private SDEGamutCfg {
   enum GamutMode {
     GAMUT_FINE_MODE = 0x01,
     GAMUT_COARSE_MODE,
+    GAMUT_COARSE_MODE_13,
   };
 
   // This factory method will be used by libsdm-color.so data producer to be populated with
@@ -527,9 +578,13 @@ class PPFeaturesConfig {
   // from ColorManager, containing all physical features to be programmed and also compute
   // metadata/populate into T.
   inline DisplayError AddFeature(uint32_t feature_id, PPFeatureInfo *feature) {
-    if (feature_id < kMaxNumPPFeatures)
+    if (feature_id < kMaxNumPPFeatures) {
+      if (feature_[feature_id]) {
+        delete feature_[feature_id];
+        feature_[feature_id] = NULL;
+      }
       feature_[feature_id] = feature;
-
+    }
     return kErrorNone;
   }
 

@@ -36,6 +36,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdio.h>
 #include <inttypes.h>
+#include <pthread.h>
 
 #ifdef _ANDROID_
 extern "C" {

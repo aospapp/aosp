@@ -77,11 +77,7 @@ public class SendCdmaCmasMessages {
                 SmsCbCmasInfo.CMAS_RESPONSE_TYPE_PREPARE, SmsCbCmasInfo.CMAS_SEVERITY_EXTREME,
                 SmsCbCmasInfo.CMAS_URGENCY_EXPECTED, SmsCbCmasInfo.CMAS_CERTAINTY_OBSERVED);
 
-        Intent intent = new Intent(Telephony.Sms.Intents.SMS_EMERGENCY_CB_RECEIVED_ACTION);
-        intent.putExtra("message", cbMessage);
-        activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL,
-                Manifest.permission.RECEIVE_EMERGENCY_BROADCAST,
-                AppOpsManager.OP_RECEIVE_EMERGECY_SMS, null, null, Activity.RESULT_OK, null, null);
+        sendBroadcast(activity, cbMessage);
     }
 
     public static void testSendCmasSevereAlert(Activity activity, int messageId) {

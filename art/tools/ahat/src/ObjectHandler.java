@@ -19,10 +19,10 @@ package com.android.ahat;
 import com.android.ahat.heapdump.AhatArrayInstance;
 import com.android.ahat.heapdump.AhatClassInstance;
 import com.android.ahat.heapdump.AhatClassObj;
-import com.android.ahat.heapdump.AhatHeap;
 import com.android.ahat.heapdump.AhatInstance;
 import com.android.ahat.heapdump.AhatSnapshot;
-import com.android.ahat.heapdump.Diff;
+import com.android.ahat.heapdump.DiffFields;
+import com.android.ahat.heapdump.DiffedFieldValue;
 import com.android.ahat.heapdump.FieldValue;
 import com.android.ahat.heapdump.PathElement;
 import com.android.ahat.heapdump.Site;
@@ -72,16 +72,6 @@ class ObjectHandler implements AhatHandler {
     doc.descriptions();
     doc.description(DocString.text("Class"), Summarizer.summarize(cls));
 
-    DocString sizeDescription = DocString.format("%,14d ", inst.getSize());
-    sizeDescription.appendDelta(false, base.isPlaceHolder(),
-        inst.getSize(), base.getSize());
-    doc.description(DocString.text("Size"), sizeDescription);
-
-    DocString rsizeDescription = DocString.format("%,14d ", inst.getTotalRetainedSize());
-    rsizeDescription.appendDelta(false, base.isPlaceHolder(),
-        inst.getTotalRetainedSize(), base.getTotalRetainedSize());
-    doc.description(DocString.text("Retained Size"), rsizeDescription);
-
     doc.description(DocString.text("Heap"), DocString.text(inst.getHeap().getName()));
 
     Collection<String> rootTypes = inst.getRootTypes();
@@ -98,6 +88,13 @@ class ObjectHandler implements AhatHandler {
 
     doc.end();
 
+    doc.section("Object Size");
+    SizeTable.table(doc, new Column(""), inst != base && !base.isPlaceHolder());
+    SizeTable.row(doc, DocString.text("Shallow"), inst.getSize(), base.getSize());
+    SizeTable.row(doc, DocString.text("Retained"),
+        inst.getTotalRetainedSize(), base.getTotalRetainedSize());
+    SizeTable.end(doc);
+
     printBitmap(doc, inst);
     if (inst.isClassInstance()) {
       printClassInstanceFields(doc, query, inst.asClassInstance());
@@ -113,13 +110,9 @@ class ObjectHandler implements AhatHandler {
   private static void printClassInstanceFields(Doc doc, Query query, AhatClassInstance inst) {
     doc.section("Fields");
     AhatInstance base = inst.getBaseline();
-    List<FieldValue> fields = inst.getInstanceFields();
-    if (!base.isPlaceHolder()) {
-      Diff.fields(fields, base.asClassInstance().getInstanceFields());
-    }
-    SubsetSelector<FieldValue> selector = new SubsetSelector(query, INSTANCE_FIELDS_ID, fields);
-    printFields(doc, inst != base && !base.isPlaceHolder(), selector.selected());
-    selector.render(doc);
+    printFields(doc, query, INSTANCE_FIELDS_ID, !base.isPlaceHolder(),
+        inst.asClassInstance().getInstanceFields(),
+        base.isPlaceHolder() ? null : base.asClassInstance().getInstanceFields());
   }
 
   private static void printArrayElements(Doc doc, Query query, AhatArrayInstance array) {
@@ -150,36 +143,61 @@ class ObjectHandler implements AhatHandler {
     selector.render(doc);
   }
 
-  private static void printFields(Doc doc, boolean diff, List<FieldValue> fields) {
+  /**
+   * Helper function for printing static or instance fields.
+   * @param id - id to use for the field subset selector.
+   * @param diff - whether a diff should be shown for the fields.
+   * @param current - the fields to show.
+   * @param baseline - the baseline fields to diff against if diff is true,
+   *                   ignored otherwise.
+   */
+  private static void printFields(Doc doc, Query query, String id, boolean diff,
+      List<FieldValue> current, List<FieldValue> baseline) {
+
+    if (!diff) {
+      // To avoid having to special case when diff is disabled, always diff
+      // the fields, but diff against an empty list.
+      baseline = Collections.emptyList();
+    }
+
+    List<DiffedFieldValue> fields = DiffFields.diff(current, baseline);
+    SubsetSelector<DiffedFieldValue> selector = new SubsetSelector(query, id, fields);
+
     doc.table(
         new Column("Type"),
         new Column("Name"),
         new Column("Value"),
         new Column("Δ", Column.Align.LEFT, diff));
 
-    for (FieldValue field : fields) {
-      Value current = field.getValue();
-      DocString value;
-      if (field.isPlaceHolder()) {
-        value = DocString.removed("del");
-      } else {
-        value = Summarizer.summarize(current);
-      }
+    for (DiffedFieldValue field : selector.selected()) {
+      Value previous = Value.getBaseline(field.baseline);
+      DocString was = DocString.text("was ");
+      was.append(Summarizer.summarize(previous));
+      switch (field.status) {
+        case ADDED:
+          doc.row(DocString.text(field.type),
+                  DocString.text(field.name),
+                  Summarizer.summarize(field.current),
+                  DocString.added("new"));
+          break;
 
-      DocString delta = new DocString();
-      FieldValue basefield = field.getBaseline();
-      if (basefield.isPlaceHolder()) {
-        delta.append(DocString.added("new"));
-      } else {
-        Value previous = Value.getBaseline(basefield.getValue());
-        if (!Objects.equals(current, previous)) {
-          delta.append("was ");
-          delta.append(Summarizer.summarize(previous));
-        }
+        case MATCHED:
+          doc.row(DocString.text(field.type),
+                  DocString.text(field.name),
+                  Summarizer.summarize(field.current),
+                  Objects.equals(field.current, previous) ? new DocString() : was);
+          break;
+
+        case DELETED:
+          doc.row(DocString.text(field.type),
+                  DocString.text(field.name),
+                  DocString.removed("del"),
+                  was);
+          break;
       }
-      doc.row(DocString.text(field.getType()), DocString.text(field.getName()), value, delta);
     }
     doc.end();
+    selector.render(doc);
   }
 
   private static void printClassInfo(Doc doc, Query query, AhatClassObj clsobj) {
@@ -193,13 +211,9 @@ class ObjectHandler implements AhatHandler {
 
     doc.section("Static Fields");
     AhatInstance base = clsobj.getBaseline();
-    List<FieldValue> fields = clsobj.getStaticFieldValues();
-    if (!base.isPlaceHolder()) {
-      Diff.fields(fields, base.asClassObj().getStaticFieldValues());
-    }
-    SubsetSelector<FieldValue> selector = new SubsetSelector(query, STATIC_FIELDS_ID, fields);
-    printFields(doc, clsobj != base && !base.isPlaceHolder(), selector.selected());
-    selector.render(doc);
+    printFields(doc, query, STATIC_FIELDS_ID, !base.isPlaceHolder(),
+        clsobj.getStaticFieldValues(),
+        base.isPlaceHolder() ? null : base.asClassObj().getStaticFieldValues());
   }
 
   private static void printReferences(Doc doc, Query query, AhatInstance inst) {
@@ -249,47 +263,16 @@ class ObjectHandler implements AhatHandler {
   private void printGcRootPath(Doc doc, Query query, AhatInstance inst) {
     doc.section("Sample Path from GC Root");
     List<PathElement> path = inst.getPathFromGcRoot();
-
-    // Add a dummy PathElement as a marker for the root.
-    final PathElement root = new PathElement(null, null);
-    path.add(0, root);
-
-    HeapTable.TableConfig<PathElement> table = new HeapTable.TableConfig<PathElement>() {
-      public String getHeapsDescription() {
-        return "Bytes Retained by Heap (Dominators Only)";
-      }
-
-      public long getSize(PathElement element, AhatHeap heap) {
-        if (element == root) {
-          return heap.getSize();
-        }
-        if (element.isDominator) {
-          return element.instance.getRetainedSize(heap);
-        }
-        return 0;
-      }
-
-      public List<HeapTable.ValueConfig<PathElement>> getValueConfigs() {
-        HeapTable.ValueConfig<PathElement> value = new HeapTable.ValueConfig<PathElement>() {
-          public String getDescription() {
-            return "Path Element";
-          }
-
-          public DocString render(PathElement element) {
-            if (element == root) {
-              return DocString.link(DocString.uri("rooted"), DocString.text("ROOT"));
-            } else {
-              DocString label = DocString.text("→ ");
-              label.append(Summarizer.summarize(element.instance));
-              label.append(element.field);
-              return label;
-            }
-          }
-        };
-        return Collections.singletonList(value);
-      }
+    doc.table(new Column(""), new Column("Path Element"));
+    doc.row(DocString.text("(rooted)"),
+        DocString.link(DocString.uri("root"), DocString.text("ROOT")));
+    for (PathElement element : path) {
+      DocString label = DocString.text("→ ");
+      label.append(Summarizer.summarize(element.instance));
+      label.append(element.field);
+      doc.row(DocString.text(element.isDominator ? "(dominator)" : ""), label);
     };
-    HeapTable.render(doc, query, DOMINATOR_PATH_ID, table, mSnapshot, path);
+    doc.end();
   }
 
   public void printDominatedObjects(Doc doc, Query query, AhatInstance inst) {

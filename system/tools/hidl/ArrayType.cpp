@@ -46,10 +46,6 @@ size_t ArrayType::countDimensions() const {
     return mSizes.size();
 }
 
-void ArrayType::addNamedTypesToSet(std::set<const FQName> &set) const {
-    mElementType->addNamedTypesToSet(set);
-}
-
 bool ArrayType::isArray() const {
     return true;
 }
@@ -60,6 +56,14 @@ bool ArrayType::canCheckEquality() const {
 
 Type *ArrayType::getElementType() const {
     return mElementType;
+}
+
+std::string ArrayType::typeName() const {
+    if (dimension() == 1) {
+        return "array of " + mElementType->typeName();
+    }
+
+    return std::to_string(dimension()) + "d array of " + mElementType->typeName();
 }
 
 std::string ArrayType::getCppType(StorageMode mode,

@@ -74,19 +74,25 @@ public class CheckoutActivity extends AbstractAutoFillActivity {
     private FillExpectation mExpectation;
     private CountDownLatch mBuyLatch;
 
+    private static CheckoutActivity sInstance;
+
+    public CheckoutActivity() {
+        sInstance = this;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         setContentView(getContentView());
 
-        mCcNumber = (EditText) findViewById(R.id.cc_number);
-        mCcExpiration = (Spinner) findViewById(R.id.cc_expiration);
-        mAddress = (RadioGroup) findViewById(R.id.address);
-        mHomeAddress = (RadioButton ) findViewById(R.id.home_address);
-        mSaveCc = (CheckBox) findViewById(R.id.save_cc);
-        mBuyButton = (Button) findViewById(R.id.buy);
-        mClearButton = (Button) findViewById(R.id.clear);
+        mCcNumber = findViewById(R.id.cc_number);
+        mCcExpiration = findViewById(R.id.cc_expiration);
+        mAddress = findViewById(R.id.address);
+        mHomeAddress = findViewById(R.id.home_address);
+        mSaveCc = findViewById(R.id.save_cc);
+        mBuyButton = findViewById(R.id.buy);
+        mClearButton = findViewById(R.id.clear);
 
         mCcExpirationAdapter = createFromResource(this,
                 R.array.cc_expiration_values, android.R.layout.simple_spinner_item);
@@ -96,6 +102,12 @@ public class CheckoutActivity extends AbstractAutoFillActivity {
 
         mBuyButton.setOnClickListener((v) -> buy());
         mClearButton.setOnClickListener((v) -> resetFields());
+    }
+
+    static void finishIt() {
+        if (sInstance != null) {
+            sInstance.finish();
+        }
     }
 
     protected int getContentView() {
@@ -201,6 +213,18 @@ public class CheckoutActivity extends AbstractAutoFillActivity {
         boolean called = mBuyLatch.await(BUY_TIMEOUT_MS, TimeUnit.MILLISECONDS);
         assertWithMessage("Timeout (%s ms) waiting for buy action", BUY_TIMEOUT_MS)
                 .that(called).isTrue();
+    }
+
+    EditText getCcNumber() {
+        return mCcNumber;
+    }
+
+    Spinner getCcExpiration() {
+        return mCcExpiration;
+    }
+
+    ArrayAdapter<CharSequence> getCcExpirationAdapter() {
+        return mCcExpirationAdapter;
     }
 
     /**

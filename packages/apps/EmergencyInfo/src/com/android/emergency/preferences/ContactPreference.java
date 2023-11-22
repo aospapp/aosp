@@ -28,11 +28,13 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.preference.Preference;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.PreferenceViewHolder;
 import android.text.BidiFormatter;
 import android.text.TextDirectionHeuristics;
+import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
 import android.widget.Toast;
@@ -54,6 +56,14 @@ public class ContactPreference extends Preference {
 
     private static final String TAG = "ContactPreference";
 
+    static final ContactFactory DEFAULT_CONTACT_FACTORY = new ContactFactory() {
+        @Override
+        public EmergencyContactManager.Contact getContact(Context context, Uri phoneUri) {
+            return EmergencyContactManager.getContact(context, phoneUri);
+        }
+    };
+
+    private final ContactFactory mContactFactory;
     private EmergencyContactManager.Contact mContact;
     @Nullable private RemoveContactPreferenceListener mRemoveContactPreferenceListener;
     @Nullable private AlertDialog mRemoveContactDialog;
@@ -69,11 +79,37 @@ public class ContactPreference extends Preference {
     }
 
     /**
+     * Interface for getting a contact for a phone number Uri.
+     */
+    public interface ContactFactory {
+        /**
+         * Gets a {@link EmergencyContactManager.Contact} for a phone {@link Uri}.
+         *
+         * @param context The context to use.
+         * @param phoneUri The phone uri.
+         * @return a contact for the given phone uri.
+         */
+        EmergencyContactManager.Contact getContact(Context context, Uri phoneUri);
+    }
+
+    public ContactPreference(Context context, AttributeSet attributes) {
+        super(context, attributes);
+        mContactFactory = DEFAULT_CONTACT_FACTORY;
+    }
+
+    /**
      * Instantiates a ContactPreference that displays an emergency contact, taking in a Context and
      * the Uri.
      */
     public ContactPreference(Context context, @NonNull Uri phoneUri) {
+        this(context, phoneUri, DEFAULT_CONTACT_FACTORY);
+    }
+
+    @VisibleForTesting
+    ContactPreference(Context context, @NonNull Uri phoneUri,
+            @NonNull ContactFactory contactFactory) {
         super(context);
+        mContactFactory = contactFactory;
         setOrder(DEFAULT_ORDER);
 
         setPhoneUri(phoneUri);
@@ -87,7 +123,7 @@ public class ContactPreference extends Preference {
                 mRemoveContactDialog != null) {
             mRemoveContactDialog.dismiss();
         }
-        mContact = EmergencyContactManager.getContact(getContext(), phoneUri);
+        mContact = mContactFactory.getContact(getContext(), phoneUri);
 
         setTitle(mContact.getName());
         setKey(mContact.getPhoneUri().toString());
@@ -113,7 +149,7 @@ public class ContactPreference extends Preference {
             icon = new CircleFramedDrawable(mContact.getPhoto(),
                     (int) getContext().getResources().getDimension(R.dimen.circle_avatar_size));
         } else {
-            icon = getContext().getResources().getDrawable(R.drawable.ic_person_black_24dp);
+            icon = getContext().getResources().getDrawable(R.drawable.ic_account_circle);
         }
         setIcon(icon);
     }
@@ -149,9 +185,9 @@ public class ContactPreference extends Preference {
     }
 
     @Override
-    protected void onBindView(View view) {
-        super.onBindView(view);
-        View deleteContactIcon = view.findViewById(R.id.delete_contact);
+    public void onBindViewHolder(PreferenceViewHolder holder) {
+        super.onBindViewHolder(holder);
+        View deleteContactIcon = holder.findViewById(R.id.delete_contact);
         if (mRemoveContactPreferenceListener == null) {
             deleteContactIcon.setVisibility(View.GONE);
         } else {

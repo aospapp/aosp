@@ -21,6 +21,7 @@ import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.ConditionVariable;
 import android.os.Handler;
@@ -35,25 +36,21 @@ import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-import com.android.tv.common.AutoCloseableUtils;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.common.ui.setup.SetupFragment;
 import com.android.tv.tuner.ChannelScanFileParser;
-import com.android.tv.tuner.TunerHal;
 import com.android.tv.tuner.R;
+import com.android.tv.tuner.TunerHal;
 import com.android.tv.tuner.TunerPreferences;
-import com.android.tv.tuner.data.nano.Channel;
 import com.android.tv.tuner.data.PsipData;
 import com.android.tv.tuner.data.TunerChannel;
+import com.android.tv.tuner.data.nano.Channel;
 import com.android.tv.tuner.source.FileTsStreamer;
 import com.android.tv.tuner.source.TsDataSource;
 import com.android.tv.tuner.source.TsStreamer;
 import com.android.tv.tuner.source.TunerTsStreamer;
 import com.android.tv.tuner.tvinput.ChannelDataManager;
 import com.android.tv.tuner.tvinput.EventDetector;
-import com.android.tv.tuner.util.TunerInputInfoUtils;
-
-import junit.framework.Assert;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -67,6 +64,7 @@ import java.util.concurrent.TimeUnit;
 public class ScanFragment extends SetupFragment {
     private static final String TAG = "ScanFragment";
     private static final boolean DEBUG = false;
+
     // In the fake mode, the connection to antenna or cable is not necessary.
     // Instead dummy channels are added.
     private static final boolean FAKE_MODE = false;
@@ -98,6 +96,7 @@ public class ScanFragment extends SetupFragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
+        if (DEBUG) Log.d(TAG, "onCreateView");
         View view = super.onCreateView(inflater, container, savedInstanceState);
         mChannelDataManager = new ChannelDataManager(getActivity());
         mChannelDataManager.checkDataVersion(getActivity());
@@ -120,13 +119,19 @@ public class ScanFragment extends SetupFragment {
             }
         });
         Bundle args = getArguments();
+        int tunerType = (args == null ? 0 : args.getInt(TunerSetupActivity.KEY_TUNER_TYPE, 0));
         // TODO: Handle the case when the fragment is restored.
         startScan(args == null ? 0 : args.getInt(EXTRA_FOR_CHANNEL_SCAN_FILE, 0));
         TextView scanTitleView = (TextView) view.findViewById(R.id.tune_title);
-        if (TunerInputInfoUtils.isBuiltInTuner(getActivity())){
-            scanTitleView.setText(R.string.bt_channel_scan);
-        } else {
-            scanTitleView.setText(R.string.ut_channel_scan);
+        switch (tunerType) {
+            case TunerHal.TUNER_TYPE_USB:
+                scanTitleView.setText(R.string.ut_channel_scan);
+                break;
+            case TunerHal.TUNER_TYPE_NETWORK:
+                scanTitleView.setText(R.string.nt_channel_scan);
+                break;
+            default:
+                scanTitleView.setText(R.string.bt_channel_scan);
         }
         return view;
     }
@@ -147,12 +152,14 @@ public class ScanFragment extends SetupFragment {
     }
 
     @Override
-    public void onDetach() {
+    public void onPause() {
+        Log.d(TAG, "onPause");
         if (mChannelScanTask != null) {
             // Ensure scan task will stop.
+            Log.w(TAG, "The activity went to the background. Stopping channel scan.");
             mChannelScanTask.stopScan();
         }
-        super.onDetach();
+        super.onPause();
     }
 
     /**
@@ -168,7 +175,9 @@ public class ScanFragment extends SetupFragment {
             new Handler().postDelayed(new Runnable() {
                 @Override
                 public void run() {
-                    mChannelScanTask.showFinishingProgressDialog();
+                    if (mChannelScanTask != null) {
+                        mChannelScanTask.showFinishingProgressDialog();
+                    }
                 }
             }, SHOW_PROGRESS_DIALOG_DELAY_MS);
 
@@ -255,13 +264,13 @@ public class ScanFragment extends SetupFragment {
             if (FAKE_MODE) {
                 mScanTsStreamer = new FakeTsStreamer(this);
             } else {
-                TunerHal hal = TunerHal.createInstance(mActivity.getApplicationContext());
+                TunerHal hal = ((TunerSetupActivity) mActivity).getTunerHal();
                 if (hal == null) {
                     throw new RuntimeException("Failed to open a DVB device");
                 }
                 mScanTsStreamer = new TunerTsStreamer(hal, this);
             }
-            mFileTsStreamer = SCAN_LOCAL_STREAMS ? new FileTsStreamer(this) : null;
+            mFileTsStreamer = SCAN_LOCAL_STREAMS ? new FileTsStreamer(this, mActivity) : null;
             mConditionStopped = new ConditionVariable();
             mChannelDataManager.setChannelScanListener(this, new Handler());
         }
@@ -316,10 +325,17 @@ public class ScanFragment extends SetupFragment {
 
         @Override
         protected void onProgressUpdate(Integer... values) {
-            mProgressBar.setProgress(values[0]);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                mProgressBar.setProgress(values[0], true);
+            } else {
+                mProgressBar.setProgress(values[0]);
+            }
         }
 
         private void stopScan() {
+            if (mLatch != null) {
+                mLatch.countDown();
+            }
             mConditionStopped.open();
         }
 
@@ -340,8 +356,8 @@ public class ScanFragment extends SetupFragment {
                 Log.i(TAG, "Tuning to " + frequency + " " + modulation);
 
                 TsStreamer streamer = getStreamer(scanChannel.type);
-                Assert.assertNotNull(streamer);
-                if (streamer.startStream(scanChannel)) {
+                SoftPreconditions.checkNotNull(streamer);
+                if (streamer != null && streamer.startStream(scanChannel)) {
                     mLatch = new CountDownLatch(1);
                     try {
                         mLatch.await(CHANNEL_SCAN_PERIOD_MS, TimeUnit.MILLISECONDS);
@@ -360,11 +376,7 @@ public class ScanFragment extends SetupFragment {
                 if (mConditionStopped.block(-1)) {
                     break;
                 }
-                onProgressUpdate(MAX_PROGRESS * i++ / mScanChannelList.size());
-            }
-            if (mScanTsStreamer instanceof TunerTsStreamer) {
-                AutoCloseableUtils.closeQuietly(
-                        ((TunerTsStreamer) mScanTsStreamer).getTunerHal());
+                publishProgress(MAX_PROGRESS * i++ / mScanChannelList.size());
             }
             mChannelDataManager.notifyScanCompleted();
             if (!mConditionStopped.block(-1)) {
@@ -427,8 +439,8 @@ public class ScanFragment extends SetupFragment {
                 // Playbacks with video-only stream have not been tested yet.
                 // No video-only channel has been found.
                 addChannel(channel);
+                mChannelDataManager.notifyChannelDetected(channel, channelArrivedAtFirstTime);
             }
-            mChannelDataManager.notifyChannelDetected(channel, channelArrivedAtFirstTime);
         }
 
         public void showFinishingProgressDialog() {
@@ -446,15 +458,21 @@ public class ScanFragment extends SetupFragment {
             mIsFinished = true;
             TunerPreferences.setScannedChannelCount(mActivity.getApplicationContext(),
                     mChannelDataManager.getScannedChannelCount());
-            // Cancel a previously shown recommendation card.
-            TunerSetupActivity.cancelRecommendationCard(mActivity.getApplicationContext());
+            // Cancel a previously shown notification.
+            TunerSetupActivity.cancelNotification(mActivity.getApplicationContext());
             // Mark scan as done
             TunerPreferences.setScanDone(mActivity.getApplicationContext());
             // finishing will be done manually.
             if (mFinishingProgressDialog != null) {
                 mFinishingProgressDialog.dismiss();
             }
-            onActionClick(ACTION_CATEGORY, mIsCanceled ? ACTION_CANCEL : ACTION_FINISH);
+            // If the fragment is not resumed, the next fragment (scan result page) can't be
+            // displayed. In that case, just close the activity.
+            if (isResumed()) {
+                onActionClick(ACTION_CATEGORY, mIsCanceled ? ACTION_CANCEL : ACTION_FINISH);
+            } else if (getActivity() != null) {
+                getActivity().finish();
+            }
             mChannelScanTask = null;
         }
     }

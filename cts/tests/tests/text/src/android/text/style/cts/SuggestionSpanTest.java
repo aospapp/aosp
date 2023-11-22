@@ -21,15 +21,19 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.os.LocaleList;
 import android.os.Parcel;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.StaticLayout;
+import android.text.TextPaint;
 import android.text.style.SuggestionSpan;
 
 import org.junit.Test;
@@ -203,6 +207,31 @@ public class SuggestionSpanTest {
         verifyGetLocaleObject(Locale.forLanguageTag(""));
         verifyGetLocaleObject(null);
         verifyGetLocaleObject(new Locale(" an  ", " i n v a l i d ", "data"));
+    }
+
+    // Measures the width of some potentially-spanned text, assuming it's not too wide.
+    private float textWidth(CharSequence text) {
+        final TextPaint tp = new TextPaint();
+        tp.setTextSize(100.0f); // Large enough so that the difference in kerning is visible.
+        final int largeWidth = 10000; // Enough width so the whole text fits in one line.
+        final StaticLayout layout = StaticLayout.Builder.obtain(
+                text, 0, text.length(), tp, largeWidth).build();
+        return layout.getLineWidth(0);
+    }
+
+    @Test
+    public void testDoesntAffectWidth() {
+        // Roboto kerns between "P" and "."
+        final SpannableString text = new SpannableString("P.");
+        final float origLineWidth = textWidth(text);
+
+        final String[] suggestions = new String[]{"suggestion1", "suggestion2"};
+        final SuggestionSpan span = new SuggestionSpan(Locale.US, suggestions,
+                SuggestionSpan.FLAG_AUTO_CORRECTION);
+        // Put just the "P" in a suggestion span.
+        text.setSpan(span, 0, 1, Spanned.SPAN_INCLUSIVE_INCLUSIVE);
+        final float underlinedLineWidth = textWidth(text);
+        assertEquals(origLineWidth, underlinedLineWidth, 0.0f);
     }
 
     @NonNull

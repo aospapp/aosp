@@ -58,7 +58,7 @@
 
     <string name="inputService">android.car.input.service/.DefaultInputService</string>
 
-    <string name="instrumentClusterRendererService">android.car.cluster.loggingrenderer/.LoggingClusterRenderingService</string>
+    <string name="instrumentClusterRendererService">android.car.cluster.sample/.SampleClusterServiceImpl</string>
 
     <!--  Whether to enable Avtivity blocking for safety. When Activity blocking is enabled,
           only whitelisted safe Activities will be allowed while car is not parked. -->
@@ -74,8 +74,4 @@
     <string name="defauiltActivityWhitelist">android,com.android.systemui</string>
     <!-- Default home activity -->
     <string name="defaultHomeActivity">com.android.car.overview/com.android.car.overview.StreamOverviewActivity</string>
-    <!--  The com.android.car.VmsPublisherService will bind to this list of clients -->
-    <string-array translatable="false" name="vmsPublisherClients">
-        <item>"com.google.android.car.vms.publisher/.VmsPublisherClientSampleService"</item>
-    </string-array>
 </resources>

@@ -57,7 +57,7 @@ public class MagnitudeVerificationTest extends TestCase {
         } else {
             try {
                 verification.verify(stats);
-                fail("Expected an AssertionError");
+                throw new Error("Expected an AssertionError");
             } catch (AssertionError e) {
                 // Expected;
             }

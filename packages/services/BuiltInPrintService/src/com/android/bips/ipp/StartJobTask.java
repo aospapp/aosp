@@ -167,7 +167,7 @@ class StartJobTask extends AsyncTask<Void, Void, Integer> {
             }
             // Initiate job
             result = mBackend.nativeStartJob(Backend.getIp(address), mDestination.getPort(),
-                    MIME_TYPE_PDF, mJobParams, mCapabilities, files, null);
+                    MIME_TYPE_PDF, mJobParams, mCapabilities, files, null, mDestination.getScheme());
             if (result < 0) {
                 Log.w(TAG, "nativeStartJob failure: " + result);
                 return Backend.ERROR_UNKNOWN;

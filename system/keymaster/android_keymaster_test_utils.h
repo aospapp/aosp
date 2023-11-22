@@ -219,7 +219,8 @@ class Keymaster2Test : public testing::TestWithParam<InstanceCreatorPtr> {
 
     keymaster_error_t AbortOperation();
 
-    keymaster_error_t AttestKey(const std::string& attest_challenge, keymaster_cert_chain_t* chain);
+    keymaster_error_t AttestKey(const std::string& attest_challenge,
+                                const std::string& attest_app_id, keymaster_cert_chain_t* chain);
 
     keymaster_error_t UpgradeKey(const AuthorizationSet& upgrade_params);
 

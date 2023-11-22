@@ -25,6 +25,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
 import android.widget.Toast;
@@ -41,7 +42,6 @@ import android.widget.Toast;
 public class MessengerService extends Service {
     static final String TAG = "MessengerService";
     static final boolean DBG = Log.isLoggable(TAG, Log.DEBUG);
-    static final boolean VDBG = Log.isLoggable(TAG, Log.VERBOSE);
 
     // Used to start this service at boot-complete. Takes no arguments.
     static final String ACTION_START = "com.android.car.messenger.ACTION_START";
@@ -49,6 +49,12 @@ public class MessengerService extends Service {
     static final String ACTION_AUTO_REPLY = "com.android.car.messenger.ACTION_AUTO_REPLY";
     // Used to play-out messages from a sender (invoked from Notification).
     static final String ACTION_PLAY_MESSAGES = "com.android.car.messenger.ACTION_PLAY_MESSAGES";
+    // Used to stop further audio notifications from the conversation.
+    static final String ACTION_MUTE_CONVERSATION =
+            "com.android.car.messenger.ACTION_MUTE_CONVERSATION";
+    // Used to resume further audio notifications from the conversation.
+    static final String ACTION_UNMUTE_CONVERSATION =
+            "com.android.car.messenger.ACTION_UNMUTE_CONVERSATION";
     // Used to clear notification state when user dismisses notification.
     static final String ACTION_CLEAR_NOTIFICATION_STATE =
             "com.android.car.messenger.ACTION_CLEAR_NOTIFICATION_STATE";
@@ -58,9 +64,26 @@ public class MessengerService extends Service {
     // Common extra for ACTION_AUTO_REPLY and ACTION_PLAY_MESSAGES.
     static final String EXTRA_SENDER_KEY = "com.android.car.messenger.EXTRA_SENDER_KEY";
 
+    static final String EXTRA_REPLY_MESSAGE = "com.android.car.messenger.EXTRA_REPLY_MESSAGE";
+
+    // Used to notify that this service started to play out the messages.
+    static final String ACTION_PLAY_MESSAGES_STARTED =
+            "com.android.car.messenger.ACTION_PLAY_MESSAGES_STARTED";
+
+    // Used to notify that this service finished playing out the messages.
+    static final String ACTION_PLAY_MESSAGES_STOPPED =
+            "com.android.car.messenger.ACTION_PLAY_MESSAGES_STOPPED";
+
     private MapMessageMonitor mMessageMonitor;
     private MapDeviceMonitor mDeviceMonitor;
     private BluetoothMapClient mMapClient;
+    private final IBinder mBinder = new LocalBinder();
+
+    public class LocalBinder extends Binder {
+        MessengerService getService() {
+            return MessengerService.this;
+        }
+    }
 
     @Override
     public void onCreate() {
@@ -94,7 +117,7 @@ public class MessengerService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (DBG) {
-            Log.d(TAG, "Handling intent: " + intent.getAction());
+            Log.d(TAG, "Handling intent: " + intent);
         }
 
         // Service will be restarted even if its killed/dies. It will never stop itself.
@@ -114,7 +137,9 @@ public class MessengerService extends Service {
                 boolean success;
                 if (mMapClient != null) {
                     success = mMessageMonitor.sendAutoReply(
-                            intent.getParcelableExtra(EXTRA_SENDER_KEY), mMapClient);
+                            intent.getParcelableExtra(EXTRA_SENDER_KEY),
+                            mMapClient,
+                            intent.getStringExtra(EXTRA_REPLY_MESSAGE));
                 } else {
                     Log.e(TAG, "Unable to send reply; MAP profile disconnected!");
                     success = false;
@@ -126,6 +151,14 @@ public class MessengerService extends Service {
                 break;
             case ACTION_PLAY_MESSAGES:
                 mMessageMonitor.playMessages(intent.getParcelableExtra(EXTRA_SENDER_KEY));
+                break;
+            case ACTION_MUTE_CONVERSATION:
+                mMessageMonitor.toggleMuteConversation(
+                        intent.getParcelableExtra(EXTRA_SENDER_KEY), true);
+                break;
+            case ACTION_UNMUTE_CONVERSATION:
+                mMessageMonitor.toggleMuteConversation(
+                        intent.getParcelableExtra(EXTRA_SENDER_KEY), false);
                 break;
             case ACTION_STOP_PLAYOUT:
                 mMessageMonitor.stopPlayout();
@@ -139,10 +172,18 @@ public class MessengerService extends Service {
         return result;
     }
 
+    /**
+     * @return {code true} if the service is playing the TTS of the message.
+     */
+    public boolean isPlaying() {
+        return mMessageMonitor.isPlaying();
+    }
+
     private boolean hasRequiredArgs(Intent intent) {
         switch (intent.getAction()) {
             case ACTION_AUTO_REPLY:
             case ACTION_PLAY_MESSAGES:
+            case ACTION_MUTE_CONVERSATION:
             case ACTION_CLEAR_NOTIFICATION_STATE:
                 if (!intent.hasExtra(EXTRA_SENDER_KEY)) {
                     Log.w(TAG, "Intent is missing sender-key extra: " + intent.getAction());
@@ -172,7 +213,7 @@ public class MessengerService extends Service {
 
     @Override
     public IBinder onBind(Intent intent) {
-        return null;
+        return mBinder;
     }
 
     // NOTE: These callbacks are invoked on the main thread.

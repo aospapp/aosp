@@ -21,45 +21,40 @@ import com.android.tradefed.command.remote.RemoteManagerFuncTest;
 import com.android.tradefed.device.TestDeviceFuncTest;
 import com.android.tradefed.targetprep.AppSetupFuncTest;
 import com.android.tradefed.targetprep.DeviceSetupFuncTest;
-import com.android.tradefed.testtype.DeviceTestSuite;
+import com.android.tradefed.testtype.DeviceSuite;
 import com.android.tradefed.testtype.InstrumentationTestFuncTest;
 import com.android.tradefed.util.FileUtilFuncTest;
 import com.android.tradefed.util.RunUtilFuncTest;
 import com.android.tradefed.util.net.HttpHelperFuncTest;
 
-import junit.framework.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Suite.SuiteClasses;
 
 /**
  * A test suite for all Trade Federation functional tests.
- * <p/>
- * This suite requires a device.
+ *
+ * <p>This suite requires a device.
  */
-public class FuncTests extends DeviceTestSuite {
-
-    public FuncTests() {
-        super();
-        // build
-        this.addTestSuite(FileDownloadCacheFuncTest.class);
-        // command
-        this.addTestSuite(CommandSchedulerFuncTest.class);
-        // command.remote
-        this.addTestSuite(RemoteManagerFuncTest.class);
-        // device
-        this.addTestSuite(TestDeviceFuncTest.class);
-        // targetprep
-        this.addTestSuite(AppSetupFuncTest.class);
-        this.addTestSuite(DeviceSetupFuncTest.class);
-        // testtype
-        this.addTestSuite(InstrumentationTestFuncTest.class);
-        // util
-        this.addTestSuite(FileUtilFuncTest.class);
-        // TODO: temporarily remove from suite until we figure out how to install gtest data
-        //this.addTestSuite(GTestFuncTest.class);
-        this.addTestSuite(HttpHelperFuncTest.class);
-        this.addTestSuite(RunUtilFuncTest.class);
-    }
-
-    public static Test suite() {
-        return new FuncTests();
-    }
-}
+@RunWith(DeviceSuite.class)
+@SuiteClasses({
+    // build
+    FileDownloadCacheFuncTest.class,
+    // command
+    CommandSchedulerFuncTest.class,
+    // command.remote
+    RemoteManagerFuncTest.class,
+    // device
+    TestDeviceFuncTest.class,
+    // targetprep
+    AppSetupFuncTest.class,
+    DeviceSetupFuncTest.class,
+    // testtype
+    InstrumentationTestFuncTest.class,
+    // util
+    FileUtilFuncTest.class,
+    // TODO: temporarily remove from suite until we figure out how to install gtest data
+    //this.addTestSuite(GTestFuncTest.class);
+    HttpHelperFuncTest.class,
+    RunUtilFuncTest.class,
+})
+public class FuncTests {}

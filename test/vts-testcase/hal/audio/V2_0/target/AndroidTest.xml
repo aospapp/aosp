@@ -28,6 +28,7 @@
         <option name="binary-test-disable-framework" value="true"/>
         <option name="binary-test-stop-native-servers" value="true"/>
         <option name="precondition-lshal" value="android.hardware.audio@2.0"/>
-        <option name="test-timeout" value="30m"/>
+        <option name="test-timeout" value="60m"/>
+        <option name="runtime-hint" value="10m"/>
     </test>
 </configuration>

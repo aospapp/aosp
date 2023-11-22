@@ -28,16 +28,15 @@ import android.support.annotation.Nullable;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentTransaction;
 import android.support.v4.graphics.ColorUtils;
-import android.telecom.DisconnectCause;
 import android.telephony.TelephonyManager;
 import android.view.KeyEvent;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import com.android.dialer.common.Assert;
-import com.android.dialer.common.ConfigProviderBindings;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.compat.ActivityCompat;
+import com.android.dialer.configprovider.ConfigProviderBindings;
 import com.android.dialer.logging.Logger;
 import com.android.dialer.logging.ScreenEvent;
 import com.android.incallui.answer.bindings.AnswerBindings;
@@ -48,6 +47,7 @@ import com.android.incallui.answerproximitysensor.PseudoScreenState;
 import com.android.incallui.call.CallList;
 import com.android.incallui.call.DialerCall;
 import com.android.incallui.call.DialerCall.State;
+import com.android.incallui.disconnectdialog.DisconnectMessage;
 import com.android.incallui.incall.bindings.InCallBindings;
 import com.android.incallui.incall.protocol.InCallButtonUiDelegate;
 import com.android.incallui.incall.protocol.InCallButtonUiDelegateFactory;
@@ -393,8 +393,8 @@ public class InCallActivity extends TransactionSafeFragmentActivity
     common.showPostCharWaitDialog(callId, chars);
   }
 
-  public void maybeShowErrorDialogOnDisconnect(DisconnectCause disconnectCause) {
-    common.maybeShowErrorDialogOnDisconnect(disconnectCause);
+  public void maybeShowErrorDialogOnDisconnect(DisconnectMessage disconnectMessage) {
+    common.maybeShowErrorDialogOnDisconnect(disconnectMessage);
   }
 
   public void dismissPendingDialogs() {
@@ -630,12 +630,22 @@ public class InCallActivity extends TransactionSafeFragmentActivity
       AnswerScreen answerScreen = getAnswerScreen();
       if (answerScreen.getCallId().equals(call.getId())
           && answerScreen.isVideoCall() == call.isVideoCall()
-          && answerScreen.isVideoUpgradeRequest() == isVideoUpgradeRequest) {
+          && answerScreen.isVideoUpgradeRequest() == isVideoUpgradeRequest
+          && !answerScreen.isActionTimeout()) {
+        LogUtil.d(
+            "InCallActivity.showAnswerScreenFragment",
+            "answer fragment exists for same call and has NOT been accepted/rejected/timed out");
         return false;
       }
-      LogUtil.i(
-          "InCallActivity.showAnswerScreenFragment",
-          "answer fragment exists but arguments do not match");
+      if (answerScreen.isActionTimeout()) {
+        LogUtil.i(
+            "InCallActivity.showAnswerScreenFragment",
+            "answer fragment exists but has been accepted/rejected and timed out");
+      } else {
+        LogUtil.i(
+            "InCallActivity.showAnswerScreenFragment",
+            "answer fragment exists but arguments do not match");
+      }
       hideAnswerScreenFragment(transaction);
     }
 
@@ -694,13 +704,8 @@ public class InCallActivity extends TransactionSafeFragmentActivity
     if (didShowInCallScreen) {
       return false;
     }
-    InCallScreen inCallScreen = getInCallScreen();
-    if (inCallScreen == null) {
-      inCallScreen = InCallBindings.createInCallScreen();
-      transaction.add(R.id.main, inCallScreen.getInCallScreenFragment(), TAG_IN_CALL_SCREEN);
-    } else {
-      transaction.show(inCallScreen.getInCallScreenFragment());
-    }
+    InCallScreen inCallScreen = InCallBindings.createInCallScreen();
+    transaction.add(R.id.main, inCallScreen.getInCallScreenFragment(), TAG_IN_CALL_SCREEN);
     Logger.get(this).logScreenView(ScreenEvent.Type.INCALL, this);
     didShowInCallScreen = true;
     return true;
@@ -712,7 +717,7 @@ public class InCallActivity extends TransactionSafeFragmentActivity
     }
     InCallScreen inCallScreen = getInCallScreen();
     if (inCallScreen != null) {
-      transaction.hide(inCallScreen.getInCallScreenFragment());
+      transaction.remove(inCallScreen.getInCallScreenFragment());
     }
     didShowInCallScreen = false;
     return true;

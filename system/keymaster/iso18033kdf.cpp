@@ -17,8 +17,6 @@
 #include "iso18033kdf.h"
 #include "openssl_utils.h"
 
-#include <algorithm>
-
 #include <openssl/evp.h>
 
 namespace keymaster {

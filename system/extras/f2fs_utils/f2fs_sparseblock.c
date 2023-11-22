@@ -28,9 +28,9 @@
       #member, le64_to_cpu((ptr)->member), le64_to_cpu((ptr)->member) );  \
   } while (0);
 
-#define segno_in_journal(sum, i)    ((sum)->sit_j.entries[i].segno)
+#define segno_in_journal(jnl, i)    ((jnl)->sit_j.entries[i].segno)
 
-#define sit_in_journal(sum, i)      ((sum)->sit_j.entries[i].se)
+#define sit_in_journal(jnl, i)      ((jnl)->sit_j.entries[i].se)
 
 static void dbg_print_raw_sb_info(struct f2fs_super_block *sb)
 {
@@ -132,27 +132,28 @@ static void dbg_print_info_struct(struct f2fs_info *info)
     SLOGD("+--------------------------------------------------------+\n");
     SLOGD("| F2FS_INFO                                              |\n");
     SLOGD("+--------------------------------------------------------+\n");
-    SLOGD("blocks_per_segment: %"PRIu64, info->blocks_per_segment);
+    SLOGD("blocks_per_segment: %" PRIu64, info->blocks_per_segment);
     SLOGD("block_size: %d", info->block_size);
     SLOGD("sit_bmp loc: %p", info->sit_bmp);
     SLOGD("sit_bmp_size: %d", info->sit_bmp_size);
-    SLOGD("blocks_per_sit: %"PRIu64, info->blocks_per_sit);
+    SLOGD("blocks_per_sit: %" PRIu64, info->blocks_per_sit);
     SLOGD("sit_blocks loc: %p", info->sit_blocks);
     SLOGD("sit_sums loc: %p", info->sit_sums);
-    SLOGD("sit_sums num: %d", le16_to_cpu(info->sit_sums->n_sits));
+    SLOGD("sit_sums num: %d", le16_to_cpu(info->sit_sums->journal.n_sits));
     unsigned int i;
-    for(i = 0; i < (le16_to_cpu(info->sit_sums->n_sits)); i++) {
-        SLOGD("entry %d in journal entries is for segment %d",i, le32_to_cpu(segno_in_journal(info->sit_sums, i)));
+    for(i = 0; i < (le16_to_cpu(info->sit_sums->journal.n_sits)); i++) {
+        SLOGD("entry %d in journal entries is for segment %d", i,
+              le32_to_cpu(segno_in_journal(&info->sit_sums->journal, i)));
     }
 
-    SLOGD("cp_blkaddr: %"PRIu64, info->cp_blkaddr);
-    SLOGD("cp_valid_cp_blkaddr: %"PRIu64, info->cp_valid_cp_blkaddr);
-    SLOGD("sit_blkaddr: %"PRIu64, info->sit_blkaddr);
-    SLOGD("nat_blkaddr: %"PRIu64, info->nat_blkaddr);
-    SLOGD("ssa_blkaddr: %"PRIu64, info->ssa_blkaddr);
-    SLOGD("main_blkaddr: %"PRIu64, info->main_blkaddr);
-    SLOGD("total_user_used: %"PRIu64, info->total_user_used);
-    SLOGD("total_blocks: %"PRIu64, info->total_blocks);
+    SLOGD("cp_blkaddr: %" PRIu64, info->cp_blkaddr);
+    SLOGD("cp_valid_cp_blkaddr: %" PRIu64, info->cp_valid_cp_blkaddr);
+    SLOGD("sit_blkaddr: %" PRIu64, info->sit_blkaddr);
+    SLOGD("nat_blkaddr: %" PRIu64, info->nat_blkaddr);
+    SLOGD("ssa_blkaddr: %" PRIu64, info->ssa_blkaddr);
+    SLOGD("main_blkaddr: %" PRIu64, info->main_blkaddr);
+    SLOGD("total_user_used: %" PRIu64, info->total_user_used);
+    SLOGD("total_blocks: %" PRIu64, info->total_blocks);
     SLOGD("\n\n");
 }
 
@@ -362,7 +363,7 @@ static int get_sit_summary(int fd, struct f2fs_info *info, struct f2fs_checkpoin
     if (is_set_ckpt_flags(cp, CP_COMPACT_SUM_FLAG)) {
         if (read_structure_blk(fd, info->cp_valid_cp_blkaddr + le32_to_cpu(cp->cp_pack_start_sum), buffer, 1))
             return -1;
-        memcpy(&info->sit_sums->n_sits, &buffer[SUM_JOURNAL_SIZE], SUM_JOURNAL_SIZE);
+        memcpy(&info->sit_sums->journal.n_sits, &buffer[SUM_JOURNAL_SIZE], SUM_JOURNAL_SIZE);
     } else {
         u64 blk_addr;
         if (is_set_ckpt_flags(cp, CP_UMOUNT_FLAG))
@@ -505,9 +506,9 @@ int run_on_used_blocks(u64 startblock, struct f2fs_info *info, int (*func)(u64 p
 
             /* check the SIT entries in the journal */
             found = 0;
-            for(i = 0; i < le16_to_cpu(info->sit_sums->n_sits); i++) {
-                if (le32_to_cpu(segno_in_journal(info->sit_sums, i)) == segnum) {
-                    sit_entry = &sit_in_journal(info->sit_sums, i);
+            for(i = 0; i < le16_to_cpu(info->sit_sums->journal.n_sits); i++) {
+                if (le32_to_cpu(segno_in_journal(&info->sit_sums->journal, i)) == segnum) {
+                    sit_entry = &sit_in_journal(&info->sit_sums->journal, i);
                     found = 1;
                     break;
                 }

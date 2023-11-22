@@ -27,9 +27,9 @@
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"A seguinte aplicación ten que acceder ao teu perfil:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"A seguinte aplicación xestionará o teu dispositivo:"</string>
     <string name="next" msgid="1004321437324424398">"Seguinte"</string>
-    <string name="setting_up_workspace" msgid="4517537806569988620">"Configurando o teu perfil de traballo..."</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"Configurando o perfil de traballo..."</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"O teu administrador pode controlar e xestionar a configuración, o acceso corporativo, as aplicacións, os permisos e os datos asociados con este perfil, mesmo a actividade da túa rede; así como a localización do dispositivo, o historial de chamadas e o historial de busca de contactos.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Contacta co teu administrador para obter máis información e consultar as políticas de privacidade da túa organización."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="2375961046794109749">"O teu administrador pode controlar e xestionar a configuración, o acceso corporativo, as aplicacións, os permisos e os datos asociados con este dispositivo, mesmo a actividade da túa rede; así como a localización do dispositivo, o historial de chamadas e o historial de busca de contactos.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Contacta co teu administrador para obter máis información e consultar as políticas de privacidade da túa organización."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"O teu administrador pode controlar e xestionar a configuración, o acceso corporativo, as aplicacións, os permisos e os datos asociados con este dispositivo, mesmo a actividade da túa rede, así como a localización do dispositivo, o historial de chamadas e o historial de busca de contactos.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Contacta co teu administrador para obter máis información e consultar as políticas de privacidade da túa organización."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Para usar as funcións antirroubo, o teu dispositivo debe contar cun bloqueo da pantalla protexido por contrasinal."</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Contacta co teu administrador para obter máis información, incluídas as políticas de privacidade da túa organización."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Máis información"</string>
@@ -43,7 +43,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Perfil do traballo"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"Usuario principal"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Queres eliminar o perfil existente?"</string>
-    <string name="opening_paragraph_delete_profile" msgid="7846971308431780139">"Xa tes un perfil de traballo que se xestiona mediante a seguinte aplicación:"</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Xa tes un perfil de traballo que se xestiona mediante a seguinte aplicación:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Antes de proceder, "<a href="#read_this_link">"le esta información"</a>"."</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Se continúas, eliminaranse todas as aplicacións e os datos deste perfil."</string>
     <string name="delete_profile" msgid="2299218578684663459">"Eliminar"</string>
@@ -56,17 +56,15 @@
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"Toca para continuar coa configuración do teu perfil de traballo"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Non se puido configurar o teu perfil de traballo. Ponte en contacto co departamento de TI ou téntao de novo máis tarde."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Produciuse un erro ao engadir o perfil de traballo"</string>
-    <string name="user_cant_have_work_profile_contact_admin" msgid="1014351338944641678">"Este usuario non pode ter un perfil de traballo. Contacta co administrador para obter axuda."</string>
-    <string name="user_cannot_have_work_profiles_contact_admin" msgid="4386452918273443379">"Este usuario non pode ter perfís de traballo. Contacta co administrador."</string>
-    <string name="device_owner_exists" msgid="8020080296133337023">"Os perfís de traballo non se poden configurar nun dispositivo xestionado"</string>
-    <string name="too_many_users_on_device_remove_user_try_again" msgid="2795045208576680027">"Este dispositivo ten demasiados usuarios. Quita un e téntao de novo."</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Non se pode substituír nin eliminar o perfil de traballo"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"Non se pode engadir un perfil de traballo a este dispositivo. Se tes preguntas, contacta co administrador."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Cambia o launcher do dispositivo"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"O teu perfil de traballo non pode utilizar este launcher"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Cancelar"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"Aceptar"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Configuración do usuario incompleta"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Usuario do dispositivo de traballo"</string>
-    <string name="setup_work_device" msgid="4243324420514896773">"Configurar o dispositivo de traballo"</string>
+    <string name="setup_work_device" msgid="6003988351437862369">"Configurando o dispositivo de traballo..."</string>
     <string name="progress_data_process" msgid="1707745321954672971">"Procesando datos de configuración..."</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"Conectando coa wifi..."</string>
     <string name="progress_download" msgid="3522436271691064624">"Descargando a aplicación de administración..."</string>
@@ -153,7 +151,7 @@
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"Cancelar"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"Restablecer dispositivo"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> e <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>
-    <string name="join_many_items_last" msgid="3953431463001211545">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> e <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
+    <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> e <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
 </resources>

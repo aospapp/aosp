@@ -119,6 +119,8 @@ class AndroidImageFiles(object):
     BOOT = 'boot.img'
     SYSTEM = 'system.img'
     VENDOR = 'vendor.img'
+    VBMETA = 'vbmeta.img'
+    DTBO = 'dtbo.img'
 
     # Image files not inside the image zip file. These files should be
     # downloaded directly from devserver.
@@ -126,7 +128,7 @@ class AndroidImageFiles(object):
 
     # Default image files that are packaged in a zip file, e.g.,
     # shamu-img-123456.zip
-    DEFAULT_ZIPPED_IMAGES = [BOOT, SYSTEM, VENDOR]
+    DEFAULT_ZIPPED_IMAGES = [BOOT, SYSTEM, VENDOR, VBMETA, DTBO]
 
     # Default image files to be flashed to an Android device.
     DEFAULT_IMAGES = DEFAULT_STANDALONE_IMAGES + DEFAULT_ZIPPED_IMAGES

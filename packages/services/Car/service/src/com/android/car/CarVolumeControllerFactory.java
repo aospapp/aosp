@@ -17,6 +17,7 @@
 package com.android.car;
 
 import android.content.Context;
+import android.hardware.automotive.vehicle.V2_0.VehicleAudioContextFlag;
 import android.media.AudioManager;
 import android.media.IAudioService;
 import android.media.IVolumeController;
@@ -254,7 +255,8 @@ public class CarVolumeControllerFactory {
                         AudioHalService.carContextToCarUsage(carContext));
                 return physicalStream;
             } else {
-                return carContext;
+                return carContext == VehicleAudioContextFlag.UNKNOWN_FLAG ?
+                        mCurrentContext : carContext;
             }
         }
 
@@ -533,7 +535,7 @@ public class CarVolumeControllerFactory {
             synchronized (this) {
                 int flag = getVolumeUpdateFlag(true);
                 if (DBG) {
-                    Log.d(TAG, "onVolumeChange carStream:" + carStream + " volume: " + volume
+                    Log.d(TAG, "onVolumeChange carStream: " + carStream + " volume: " + volume
                             + " volumeState: " + volumeState
                             + " suppressUI? " + mShouldSuppress
                             + " stream: " + mSuppressUiForVolume[0]
@@ -543,6 +545,13 @@ public class CarVolumeControllerFactory {
                 if (mMasterVolumeOnly) { //for master volume only H/W, always assume current stream
                     carStream = currentCarStream;
                 }
+
+                // Map the UNKNOWN context to the current context.
+                if (mSupportedAudioContext != 0
+                        && carStream == VehicleAudioContextFlag.UNKNOWN_FLAG) {
+                    carStream = mCurrentContext;
+                }
+
                 if (currentCarStream == carStream) {
                     mCurrentCarContextVolume.put(mCurrentContext, volume);
                     writeVolumeToSettings(mCurrentContext, volume);
@@ -552,6 +561,7 @@ public class CarVolumeControllerFactory {
                 } else {
                     // Hal is telling us a car stream volume has changed, but it is not the current
                     // stream.
+                    // TODO:  b/63778359
                     Log.w(TAG, "Car stream" + carStream
                             + " volume changed, but it is not current stream, ignored.");
                 }

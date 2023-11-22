@@ -47,6 +47,7 @@ public class SelfManagedCallingActivity extends Activity {
     private CheckBox mCheckIfPermittedBeforeCalling;
     private Button mPlaceOutgoingCallButton;
     private Button mPlaceIncomingCallButton;
+    private Button mHandoverFrom;
     private RadioButton mUseAcct1Button;
     private RadioButton mUseAcct2Button;
     private RadioButton mVideoCallButton;
@@ -100,9 +101,13 @@ public class SelfManagedCallingActivity extends Activity {
         mPlaceIncomingCallButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                placeIncomingCall();
+                placeIncomingCall(false /* isHandoverFrom */);
             }
         });
+        mHandoverFrom = (Button) findViewById(R.id.handoverFrom);
+        mHandoverFrom.setOnClickListener((v -> {
+            placeIncomingCall(true /* isHandoverFrom */);
+        }));
 
         mUseAcct1Button = (RadioButton) findViewById(R.id.useAcct1Button);
         mUseAcct2Button = (RadioButton) findViewById(R.id.useAcct2Button);
@@ -148,7 +153,7 @@ public class SelfManagedCallingActivity extends Activity {
         tm.placeCall(Uri.parse(mNumber.getText().toString()), extras);
     }
 
-    private void placeIncomingCall() {
+    private void placeIncomingCall(boolean isHandoverFrom) {
         TelecomManager tm = TelecomManager.from(this);
         PhoneAccountHandle phoneAccountHandle = getSelectedPhoneAccountHandle();
 
@@ -165,6 +170,9 @@ public class SelfManagedCallingActivity extends Activity {
         if (mVideoCallButton.isChecked()) {
             extras.putInt(TelecomManager.EXTRA_INCOMING_VIDEO_STATE,
                     VideoProfile.STATE_BIDIRECTIONAL);
+        }
+        if (isHandoverFrom) {
+            extras.putBoolean(TelecomManager.EXTRA_IS_HANDOVER, true);
         }
         tm.addNewIncomingCall(getSelectedPhoneAccountHandle(), extras);
     }

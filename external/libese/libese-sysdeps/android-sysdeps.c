@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <endian.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -24,3 +25,15 @@ void *ese_memcpy(void *__dest, const void *__src, uint64_t __n) {
 void *ese_memset(void *__s, int __c, uint64_t __n) {
   return memset(__s, __c, __n);
 }
+
+uint32_t ese_be32toh(uint32_t big_endian_32bits) {
+  return be32toh(big_endian_32bits);
+}
+
+uint32_t ese_htobe32(uint32_t host_32bits) { return htobe32(host_32bits); }
+
+uint32_t ese_le32toh(uint32_t little_endian_32bits) {
+  return le32toh(little_endian_32bits);
+}
+
+uint32_t ese_htole32(uint32_t host_32bits) { return htole32(host_32bits); }

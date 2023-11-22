@@ -73,6 +73,36 @@ tNFC_STATUS NFC_RegVSCback(bool is_register, tNFC_VS_CBACK* p_cback) {
 
 /*******************************************************************************
 **
+** Function         NFC_SendRawVsCommand
+**
+** Description      This function is called to send the raw vendor specific
+**                  command to NFCC. The response from NFCC is reported to the
+**                  given tNFC_VS_CBACK.
+**
+** Parameters       p_data - The command buffer
+**
+** Returns          tNFC_STATUS
+**
+*******************************************************************************/
+tNFC_STATUS NFC_SendRawVsCommand(NFC_HDR* p_data, tNFC_VS_CBACK* p_cback) {
+  /* Validate parameters */
+  if (p_data == NULL || (p_data->len > NCI_MAX_VSC_SIZE)) {
+    NFC_TRACE_ERROR1("buffer offset must be >= %d", NCI_VSC_MSG_HDR_SIZE);
+    if (p_data) GKI_freebuf(p_data);
+    return NFC_STATUS_INVALID_PARAM;
+  }
+
+  p_data->event = BT_EVT_TO_NFC_NCI;
+  p_data->layer_specific = NFC_WAIT_RSP_RAW_VS;
+  /* save the callback function in the BT_HDR, to receive the response */
+  ((tNFC_NCI_VS_MSG*)p_data)->p_cback = p_cback;
+
+  nfc_ncif_check_cmd_queue(p_data);
+  return NFC_STATUS_OK;
+}
+
+/*******************************************************************************
+**
 ** Function         NFC_SendVsCommand
 **
 ** Description      This function is called to send the given vendor specific

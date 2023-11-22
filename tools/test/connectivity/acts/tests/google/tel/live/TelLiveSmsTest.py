@@ -495,7 +495,7 @@ class TelLiveSmsTest(TelephonyBaseTest):
 
         return self._sms_test_mt(ads)
 
-    @test_tracker_info(uuid="57db830c-71eb-46b3-adaa-915c641de18d")
+    @test_tracker_info(uuid="bb8e1a06-a4b5-4f9b-9ab2-408ace9a1deb")
     @TelephonyBaseTest.tel_test_wrap
     def test_mms_mo_general(self):
         """Test MMS basic function between two phone. Phones in any network.
@@ -886,7 +886,7 @@ class TelLiveSmsTest(TelephonyBaseTest):
 
         return self._sms_test_mt(ads)
 
-    @test_tracker_info(uuid="eae3c1cb-dc9d-4682-9ab5-ef39d207766d")
+    @test_tracker_info(uuid="90fc6775-de19-49d1-8b8e-e3bc9384c733")
     @TelephonyBaseTest.tel_test_wrap
     def test_mms_mo_4g(self):
         """Test MMS text function between two phone. Phones in LTE network.
@@ -910,7 +910,7 @@ class TelLiveSmsTest(TelephonyBaseTest):
 
         return self._mms_test_mo(ads)
 
-    @test_tracker_info(uuid="2f4b3f56-6995-4d11-9a03-67c18a126c4e")
+    @test_tracker_info(uuid="274572bb-ec9f-4c30-aab4-1f4c3f16b372")
     @TelephonyBaseTest.tel_test_wrap
     def test_mms_mt_4g(self):
         """Test MMS text function between two phone. Phones in LTE network.

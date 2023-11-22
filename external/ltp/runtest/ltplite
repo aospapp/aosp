@@ -57,7 +57,7 @@ sem02 sem02
 
 
 #DESCRIPTION:Kernel system calls
-abort01 ulimit -c 1024;abort01
+abort01 abort01
 
 accept01 accept01
 
@@ -65,8 +65,6 @@ access01 access01
 access02 access02
 access03 access03
 access04 access04
-access05 access05
-access06 access06
 
 acct01 acct01
 
@@ -378,12 +376,15 @@ kill07 kill07
 kill08 kill08
 kill09 kill09
 kill10 kill10
-kill11 ulimit -c 1024;kill11
+kill11 kill11
 kill12 kill12
 
 lchown01 lchown01
 lchown02 lchown02
 lchown03 lchown03
+
+lgetxattr01 lgetxattr01
+lgetxattr02 lgetxattr02
 
 link01 symlink01 -T link01
 link02 link02
@@ -414,6 +415,7 @@ lseek07 lseek07
 lseek08 lseek08
 lseek09 lseek09
 lseek10 lseek10
+lseek11 lseek11
 
 lstat01A symlink01 -T lstat01
 lstat01 lstat01
@@ -501,7 +503,6 @@ msgctl09 msgctl09
 msgget01 msgget01
 msgget02 msgget02
 msgget03 msgget03
-msgget04 msgget04
 
 msgrcv01 msgrcv01
 msgrcv02 msgrcv02
@@ -514,8 +515,6 @@ msgrcv08 msgrcv08
 
 msgsnd01 msgsnd01
 msgsnd02 msgsnd02
-msgsnd03 msgsnd03
-msgsnd04 msgsnd04
 msgsnd05 msgsnd05
 msgsnd06 msgsnd06
 
@@ -545,7 +544,6 @@ nice01 nice01
 nice02 nice02
 nice03 nice03
 nice04 nice04
-nice05 nice05
 
 open01 open01
 open01A symlink01 -T open01
@@ -603,6 +601,7 @@ profil01 profil01
 
 pselect01 pselect01
 pselect02 pselect02
+pselect03 pselect03
 
 ptrace01 ptrace01
 ptrace02 ptrace02
@@ -706,6 +705,7 @@ sched_getscheduler02 sched_getscheduler02
 
 sched_setscheduler01 sched_setscheduler01
 sched_setscheduler02 sched_setscheduler02
+sched_setscheduler03 sched_setscheduler03
 
 sched_yield01 sched_yield01
 
@@ -785,9 +785,6 @@ setpgrp02 setpgrp02
 
 setpriority01 setpriority01
 setpriority02 setpriority02
-setpriority03 setpriority03
-setpriority04 setpriority04
-setpriority05 setpriority05
 
 setregid01 setregid01
 setregid02 setregid02
@@ -969,8 +966,6 @@ truncate03 truncate03
 # ulimit01 ulimit01
 
 umask01 umask01
-umask02 umask02
-umask03 umask03
 
 uname01 uname01
 uname02 uname02
@@ -1040,10 +1035,9 @@ write05 write05
 
 writev01 writev01
 writev02 writev02
-writev03 writev03
-writev04 writev04
 writev05 writev05
 writev06 writev06
+writev07 writev07
 
 #DESCRIPTION:Memory Mgmt tests
 mm01 mmap001 -m 10000

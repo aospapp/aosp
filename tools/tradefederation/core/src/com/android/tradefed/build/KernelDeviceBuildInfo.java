@@ -22,6 +22,7 @@ import java.io.File;
  */
 public class KernelDeviceBuildInfo extends BuildInfo implements IDeviceBuildInfo,
         IKernelBuildInfo {
+    private static final long serialVersionUID = BuildSerializedVersion.VERSION;
     private IDeviceBuildInfo mDeviceBuild = new DeviceBuildInfo();
     private IKernelBuildInfo mKernelBuild = new KernelBuildInfo();
 

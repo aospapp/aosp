@@ -59,7 +59,7 @@ int _ilog(unsigned int v){
 }
 
 static ogg_uint32_t decpack(long entry,long used_entry,long quantvals,
-			    codebook *b,oggpack_buffer *opb,int maptype){
+                            codebook *b,oggpack_buffer *opb,int maptype){
   ogg_uint32_t ret=0;
   int j;
 
@@ -72,13 +72,13 @@ static ogg_uint32_t decpack(long entry,long used_entry,long quantvals,
     if(maptype==1){
       /* vals are already read into temporary column vector here */
       for(j=0;j<b->dim;j++){
-	ogg_uint32_t off=entry%quantvals;
-	entry/=quantvals;
-	ret|=((ogg_uint16_t *)(b->q_val))[off]<<(b->q_bits*j);
+        ogg_uint32_t off=entry%quantvals;
+        entry/=quantvals;
+        ret|=((ogg_uint16_t *)(b->q_val))[off]<<(b->q_bits*j);
       }
     }else{
       for(j=0;j<b->dim;j++)
-	ret|=oggpack_read(opb,b->q_bits)<<(b->q_bits*j);
+        ret|=oggpack_read(opb,b->q_bits)<<(b->q_bits*j);
     }
     return ret;
 
@@ -144,7 +144,7 @@ static int _determine_leaf_words(int nodeb, int leafwidth){
 /* given a list of word lengths, number of used entries, and byte
    width of a leaf, generate the decode table */
 static int _make_words(char *l,long n,ogg_uint32_t *r,long quantvals,
-		       codebook *b, oggpack_buffer *opb,int maptype){
+                       codebook *b, oggpack_buffer *opb,int maptype){
   long i,j,count=0;
   long top=0;
   ogg_uint32_t marker[MARKER_SIZE];
@@ -164,54 +164,54 @@ static int _make_words(char *l,long n,ogg_uint32_t *r,long quantvals,
           ALOGE("b/23881715");
           return 1;
         }
-	ogg_uint32_t entry=marker[length];
-	long chase=0;
-	if(count && !entry)return -1; /* overpopulated tree! */
+        ogg_uint32_t entry=marker[length];
+        long chase=0;
+        if(count && !entry)return -1; /* overpopulated tree! */
 
-	/* chase the tree as far as it's already populated, fill in past */
-	for(j=0;j<length-1;j++){
-	  int bit=(entry>>(length-j-1))&1;
-	  if(chase>=top){
-	    if (chase < 0 || chase >= n) return 1;
-	    top++;
-	    r[chase*2]=top;
-	    r[chase*2+1]=0;
-	  }else
-	    if (chase < 0 || chase >= n || chase*2+bit > n*2+1) return 1;
-	    if(!r[chase*2+bit])
-	      r[chase*2+bit]=top;
-	  chase=r[chase*2+bit];
-	  if (chase < 0 || chase >= n) return 1;
-	}
-	{
-	  int bit=(entry>>(length-j-1))&1;
-	  if(chase>=top){
-	    top++;
-	    r[chase*2+1]=0;
-	  }
-	  r[chase*2+bit]= decpack(i,count++,quantvals,b,opb,maptype) |
-	    0x80000000;
-	}
+        /* chase the tree as far as it's already populated, fill in past */
+        for(j=0;j<length-1;j++){
+          int bit=(entry>>(length-j-1))&1;
+          if(chase>=top){
+            if (chase < 0 || chase >= n) return 1;
+            top++;
+            r[chase*2]=top;
+            r[chase*2+1]=0;
+          }else
+            if (chase < 0 || chase >= n || chase*2+bit > n*2+1) return 1;
+            if(!r[chase*2+bit])
+              r[chase*2+bit]=top;
+          chase=r[chase*2+bit];
+          if (chase < 0 || chase >= n) return 1;
+        }
+        {
+          int bit=(entry>>(length-j-1))&1;
+          if(chase>=top){
+            top++;
+            r[chase*2+1]=0;
+          }
+          r[chase*2+bit]= decpack(i,count++,quantvals,b,opb,maptype) |
+            0x80000000;
+        }
 
-	/* Look to see if the next shorter marker points to the node
-	   above. if so, update it and repeat.  */
-	for(j=length;j>0;j--){
-	  if(marker[j]&1){
-	    marker[j]=marker[j-1]<<1;
-	    break;
-	  }
-	  marker[j]++;
-	}
+        /* Look to see if the next shorter marker points to the node
+           above. if so, update it and repeat.  */
+        for(j=length;j>0;j--){
+          if(marker[j]&1){
+            marker[j]=marker[j-1]<<1;
+            break;
+          }
+          marker[j]++;
+        }
 
-	/* prune the tree; the implicit invariant says all the longer
-	   markers were dangling from our just-taken node.  Dangle them
-	   from our *new* node. */
-	for(j=length+1;j<MARKER_SIZE;j++)
-	  if((marker[j]>>1) == entry){
-	    entry=marker[j];
-	    marker[j]=marker[j-1]<<1;
-	  }else
-	    break;
+        /* prune the tree; the implicit invariant says all the longer
+           markers were dangling from our just-taken node.  Dangle them
+           from our *new* node. */
+        for(j=length+1;j<MARKER_SIZE;j++)
+          if((marker[j]>>1) == entry){
+            entry=marker[j];
+            marker[j]=marker[j-1]<<1;
+          }else
+            break;
       }
     }
   }
@@ -234,7 +234,7 @@ static int _make_words(char *l,long n,ogg_uint32_t *r,long quantvals,
 }
 
 static int _make_decode_table(codebook *s,char *lengthlist,long quantvals,
-			      oggpack_buffer *opb,int maptype){
+                              oggpack_buffer *opb,int maptype){
   int i;
   ogg_uint32_t *work;
 
@@ -251,7 +251,7 @@ static int _make_decode_table(codebook *s,char *lengthlist,long quantvals,
     /* +1 (rather than -2) is to accommodate 0 and 1 sized books,
        which are specialcased to nodeb==4 */
     if(_make_words(lengthlist,s->entries,
-		   s->dec_table,quantvals,s,opb,maptype))return 1;
+                   s->dec_table,quantvals,s,opb,maptype))return 1;
 
     return 0;
   }
@@ -265,20 +265,20 @@ static int _make_decode_table(codebook *s,char *lengthlist,long quantvals,
   if (s->used_entries > INT_MAX/(s->dec_leafw+1)) goto error_out;
   if (s->dec_nodeb && s->used_entries * (s->dec_leafw+1) > INT_MAX/s->dec_nodeb) goto error_out;
   s->dec_table=_ogg_malloc((s->used_entries*(s->dec_leafw+1)-2)*
-			   s->dec_nodeb);
+                           s->dec_nodeb);
   if (!s->dec_table) goto error_out;
 
   if(s->dec_leafw==1){
     switch(s->dec_nodeb){
     case 1:
       for(i=0;i<s->used_entries*2-2;i++)
-	  ((unsigned char *)s->dec_table)[i]=(unsigned char)
-	    (((work[i] & 0x80000000UL) >> 24) | work[i]);
+          ((unsigned char *)s->dec_table)[i]=(unsigned char)
+            (((work[i] & 0x80000000UL) >> 24) | work[i]);
       break;
     case 2:
       for(i=0;i<s->used_entries*2-2;i++)
-	  ((ogg_uint16_t *)s->dec_table)[i]=(ogg_uint16_t)
-	    (((work[i] & 0x80000000UL) >> 16) | work[i]);
+          ((ogg_uint16_t *)s->dec_table)[i]=(ogg_uint16_t)
+            (((work[i] & 0x80000000UL) >> 16) | work[i]);
       break;
     }
 
@@ -290,62 +290,62 @@ static int _make_decode_table(codebook *s,char *lengthlist,long quantvals,
       unsigned char *out=(unsigned char *)s->dec_table;
 
       for(i=s->used_entries*2-4;i>=0;i-=2){
-	if(work[i]&0x80000000UL){
-	  if(work[i+1]&0x80000000UL){
-	    top-=4;
-	    out[top]=(work[i]>>8 & 0x7f)|0x80;
-	    out[top+1]=(work[i+1]>>8 & 0x7f)|0x80;
-	    out[top+2]=work[i] & 0xff;
-	    out[top+3]=work[i+1] & 0xff;
-	  }else{
-	    top-=3;
-	    out[top]=(work[i]>>8 & 0x7f)|0x80;
-	    out[top+1]=work[work[i+1]*2];
-	    out[top+2]=work[i] & 0xff;
-	  }
-	}else{
-	  if(work[i+1]&0x80000000UL){
-	    top-=3;
-	    out[top]=work[work[i]*2];
-	    out[top+1]=(work[i+1]>>8 & 0x7f)|0x80;
-	    out[top+2]=work[i+1] & 0xff;
-	  }else{
-	    top-=2;
-	    out[top]=work[work[i]*2];
-	    out[top+1]=work[work[i+1]*2];
-	  }
-	}
-	work[i]=top;
+        if(work[i]&0x80000000UL){
+          if(work[i+1]&0x80000000UL){
+            top-=4;
+            out[top]=(work[i]>>8 & 0x7f)|0x80;
+            out[top+1]=(work[i+1]>>8 & 0x7f)|0x80;
+            out[top+2]=work[i] & 0xff;
+            out[top+3]=work[i+1] & 0xff;
+          }else{
+            top-=3;
+            out[top]=(work[i]>>8 & 0x7f)|0x80;
+            out[top+1]=work[work[i+1]*2];
+            out[top+2]=work[i] & 0xff;
+          }
+        }else{
+          if(work[i+1]&0x80000000UL){
+            top-=3;
+            out[top]=work[work[i]*2];
+            out[top+1]=(work[i+1]>>8 & 0x7f)|0x80;
+            out[top+2]=work[i+1] & 0xff;
+          }else{
+            top-=2;
+            out[top]=work[work[i]*2];
+            out[top+1]=work[work[i+1]*2];
+          }
+        }
+        work[i]=top;
       }
     }else{
       ogg_uint16_t *out=(ogg_uint16_t *)s->dec_table;
       for(i=s->used_entries*2-4;i>=0;i-=2){
-	if(work[i]&0x80000000UL){
-	  if(work[i+1]&0x80000000UL){
-	    top-=4;
-	    out[top]=(work[i]>>16 & 0x7fff)|0x8000;
-	    out[top+1]=(work[i+1]>>16 & 0x7fff)|0x8000;
-	    out[top+2]=work[i] & 0xffff;
-	    out[top+3]=work[i+1] & 0xffff;
-	  }else{
-	    top-=3;
-	    out[top]=(work[i]>>16 & 0x7fff)|0x8000;
-	    out[top+1]=work[work[i+1]*2];
-	    out[top+2]=work[i] & 0xffff;
-	  }
-	}else{
-	  if(work[i+1]&0x80000000UL){
-	    top-=3;
-	    out[top]=work[work[i]*2];
-	    out[top+1]=(work[i+1]>>16 & 0x7fff)|0x8000;
-	    out[top+2]=work[i+1] & 0xffff;
-	  }else{
-	    top-=2;
-	    out[top]=work[work[i]*2];
-	    out[top+1]=work[work[i+1]*2];
-	  }
-	}
-	work[i]=top;
+        if(work[i]&0x80000000UL){
+          if(work[i+1]&0x80000000UL){
+            top-=4;
+            out[top]=(work[i]>>16 & 0x7fff)|0x8000;
+            out[top+1]=(work[i+1]>>16 & 0x7fff)|0x8000;
+            out[top+2]=work[i] & 0xffff;
+            out[top+3]=work[i+1] & 0xffff;
+          }else{
+            top-=3;
+            out[top]=(work[i]>>16 & 0x7fff)|0x8000;
+            out[top+1]=work[work[i+1]*2];
+            out[top+2]=work[i] & 0xffff;
+          }
+        }else{
+          if(work[i+1]&0x80000000UL){
+            top-=3;
+            out[top]=work[work[i]*2];
+            out[top+1]=(work[i+1]>>16 & 0x7fff)|0x8000;
+            out[top+2]=work[i+1] & 0xffff;
+          }else{
+            top-=2;
+            out[top]=work[work[i]*2];
+            out[top+1]=work[work[i+1]*2];
+          }
+        }
+        work[i]=top;
       }
     }
   }
@@ -436,23 +436,23 @@ int vorbis_book_unpack(oggpack_buffer *opb,codebook *s){
       /* yes, unused entries */
 
       for(i=0;i<s->entries;i++){
-	if(oggpack_read(opb,1)){
-	  long num=oggpack_read(opb,5);
-	  if(num==-1)goto _eofout;
-	  lengthlist[i]=(char)(num+1);
-	  s->used_entries++;
-	  if(num+1>s->dec_maxlength)s->dec_maxlength=num+1;
-	}else
-	  lengthlist[i]=0;
+        if(oggpack_read(opb,1)){
+          long num=oggpack_read(opb,5);
+          if(num==-1)goto _eofout;
+          lengthlist[i]=(char)(num+1);
+          s->used_entries++;
+          if(num+1>s->dec_maxlength)s->dec_maxlength=num+1;
+        }else
+          lengthlist[i]=0;
       }
     }else{
       /* all entries used; no tagging */
       s->used_entries=s->entries;
       for(i=0;i<s->entries;i++){
-	long num=oggpack_read(opb,5);
-	if(num==-1)goto _eofout;
-	lengthlist[i]=(char)(num+1);
-	if(num+1>s->dec_maxlength)s->dec_maxlength=num+1;
+        long num=oggpack_read(opb,5);
+        if(num==-1)goto _eofout;
+        lengthlist[i]=(char)(num+1);
+        if(num+1>s->dec_maxlength)s->dec_maxlength=num+1;
       }
     }
 
@@ -467,12 +467,12 @@ int vorbis_book_unpack(oggpack_buffer *opb,codebook *s){
       if (!lengthlist) goto _eofout;
 
       for(i=0;i<s->entries;){
-	long num=oggpack_read(opb,_ilog(s->entries-i));
-	if(num<0)goto _eofout;
-	for(j=0;j<num && i<s->entries;j++,i++)
-	  lengthlist[i]=(char)length;
-	s->dec_maxlength=length;
-	length++;
+        long num=oggpack_read(opb,_ilog(s->entries-i));
+        if(num<0)goto _eofout;
+        for(j=0;j<num && i<s->entries;j++,i++)
+          lengthlist[i]=(char)length;
+        s->dec_maxlength=length;
+        length++;
       }
     }
     break;
@@ -524,55 +524,55 @@ int vorbis_book_unpack(oggpack_buffer *opb,codebook *s){
 
 
       if(total1<=4 && total1<=total2){
-	/* use dec_type 1: vector of packed values */
+        /* use dec_type 1: vector of packed values */
 
-	/* need quantized values before  */
-	s->q_val=calloc(sizeof(ogg_uint16_t), quantvals);
-	if (!s->q_val) goto _eofout;
-	for(i=0;i<quantvals;i++)
-	  ((ogg_uint16_t *)s->q_val)[i]=(ogg_uint16_t)oggpack_read(opb,s->q_bits);
+        /* need quantized values before  */
+        s->q_val=calloc(sizeof(ogg_uint16_t), quantvals);
+        if (!s->q_val) goto _eofout;
+        for(i=0;i<quantvals;i++)
+          ((ogg_uint16_t *)s->q_val)[i]=(ogg_uint16_t)oggpack_read(opb,s->q_bits);
 
-	if(oggpack_eop(opb)){
-	  goto _eofout;
-	}
+        if(oggpack_eop(opb)){
+          goto _eofout;
+        }
 
-	s->dec_type=1;
-	s->dec_nodeb=_determine_node_bytes(s->used_entries,
-					   (s->q_bits*s->dim+8)/8);
-	s->dec_leafw=_determine_leaf_words(s->dec_nodeb,
-					   (s->q_bits*s->dim+8)/8);
-	if(_make_decode_table(s,lengthlist,quantvals,opb,maptype)){
-	  goto _errout;
-	}
+        s->dec_type=1;
+        s->dec_nodeb=_determine_node_bytes(s->used_entries,
+                                           (s->q_bits*s->dim+8)/8);
+        s->dec_leafw=_determine_leaf_words(s->dec_nodeb,
+                                           (s->q_bits*s->dim+8)/8);
+        if(_make_decode_table(s,lengthlist,quantvals,opb,maptype)){
+          goto _errout;
+        }
 
-	free(s->q_val);
-	s->q_val=0;
+        free(s->q_val);
+        s->q_val=0;
 
       }else{
-	/* use dec_type 2: packed vector of column offsets */
+        /* use dec_type 2: packed vector of column offsets */
 
-	/* need quantized values before */
-	if(s->q_bits<=8){
-	  s->q_val=_ogg_malloc(quantvals);
-	  if (!s->q_val) goto _eofout;
-	  for(i=0;i<quantvals;i++)
-	    ((unsigned char *)s->q_val)[i]=(unsigned char)oggpack_read(opb,s->q_bits);
-	}else{
-	  s->q_val=_ogg_malloc(quantvals*2);
-	  if (!s->q_val) goto _eofout;
-	  for(i=0;i<quantvals;i++)
-	    ((ogg_uint16_t *)s->q_val)[i]=(ogg_uint16_t)oggpack_read(opb,s->q_bits);
-	}
+        /* need quantized values before */
+        if(s->q_bits<=8){
+          s->q_val=_ogg_malloc(quantvals);
+          if (!s->q_val) goto _eofout;
+          for(i=0;i<quantvals;i++)
+            ((unsigned char *)s->q_val)[i]=(unsigned char)oggpack_read(opb,s->q_bits);
+        }else{
+          s->q_val=_ogg_malloc(quantvals*2);
+          if (!s->q_val) goto _eofout;
+          for(i=0;i<quantvals;i++)
+            ((ogg_uint16_t *)s->q_val)[i]=(ogg_uint16_t)oggpack_read(opb,s->q_bits);
+        }
 
-	if(oggpack_eop(opb))goto _eofout;
+        if(oggpack_eop(opb))goto _eofout;
 
-	s->q_pack=_ilog(quantvals-1);
-	s->dec_type=2;
-	s->dec_nodeb=_determine_node_bytes(s->used_entries,
-					   (_ilog(quantvals-1)*s->dim+8)/8);
-	s->dec_leafw=_determine_leaf_words(s->dec_nodeb,
-					   (_ilog(quantvals-1)*s->dim+8)/8);
-	if(_make_decode_table(s,lengthlist,quantvals,opb,maptype))goto _errout;
+        s->q_pack=_ilog(quantvals-1);
+        s->dec_type=2;
+        s->dec_nodeb=_determine_node_bytes(s->used_entries,
+                                           (_ilog(quantvals-1)*s->dim+8)/8);
+        s->dec_leafw=_determine_leaf_words(s->dec_nodeb,
+                                           (_ilog(quantvals-1)*s->dim+8)/8);
+        if(_make_decode_table(s,lengthlist,quantvals,opb,maptype))goto _errout;
 
       }
     }
@@ -604,11 +604,11 @@ int vorbis_book_unpack(oggpack_buffer *opb,codebook *s){
       s->q_val=_ogg_malloc(s->q_pack*s->used_entries);
 
       if(s->q_bits<=8){
-	for(i=0;i<s->used_entries*s->dim;i++)
-	  ((unsigned char *)(s->q_val))[i]=(unsigned char)oggpack_read(opb,s->q_bits);
+        for(i=0;i<s->used_entries*s->dim;i++)
+          ((unsigned char *)(s->q_val))[i]=(unsigned char)oggpack_read(opb,s->q_bits);
       }else{
-	for(i=0;i<s->used_entries*s->dim;i++)
-	  ((ogg_uint16_t *)(s->q_val))[i]=(ogg_uint16_t)oggpack_read(opb,s->q_bits);
+        for(i=0;i<s->used_entries*s->dim;i++)
+          ((ogg_uint16_t *)(s->q_val))[i]=(ogg_uint16_t)oggpack_read(opb,s->q_bits);
       }
     }
     break;
@@ -646,7 +646,7 @@ ogg_uint32_t decode_packed_entry_number(codebook *book,
                                         oggpack_buffer *b);
 #else
 static inline ogg_uint32_t decode_packed_entry_number(codebook *book,
-						      oggpack_buffer *b){
+                                                      oggpack_buffer *b){
   ogg_uint32_t chase=0;
   int  read=book->dec_maxlength;
   long lok = oggpack_look(b,read),i;
@@ -669,8 +669,8 @@ static inline ogg_uint32_t decode_packed_entry_number(codebook *book,
       unsigned char *t=(unsigned char *)book->dec_table;
 
       for(i=0;i<read;i++){
-	chase=t[chase*2+((lok>>i)&1)];
-	if(chase&0x80UL)break;
+        chase=t[chase*2+((lok>>i)&1)];
+        if(chase&0x80UL)break;
       }
       chase&=0x7fUL;
       break;
@@ -681,13 +681,13 @@ static inline ogg_uint32_t decode_packed_entry_number(codebook *book,
       /* 8/16 - Used by infile2 */
       unsigned char *t=(unsigned char *)book->dec_table;
       for(i=0;i<read;i++){
-	int bit=(lok>>i)&1;
-	int next=t[chase+bit];
-	if(next&0x80){
-	  chase= (next<<8) | t[chase+bit+1+(!bit || t[chase]&0x80)];
-	  break;
-	}
-	chase=next;
+        int bit=(lok>>i)&1;
+        int next=t[chase+bit];
+        if(next&0x80){
+          chase= (next<<8) | t[chase+bit+1+(!bit || t[chase]&0x80)];
+          break;
+        }
+        chase=next;
       }
       //chase&=0x7fffUL;
       chase&=~0x8000UL;
@@ -698,8 +698,8 @@ static inline ogg_uint32_t decode_packed_entry_number(codebook *book,
       /* book->dec_nodeb==2, book->dec_leafw==1 */
       /* 16/16 - Used */
       for(i=0;i<read;i++){
-	chase=((ogg_uint16_t *)(book->dec_table))[chase*2+((lok>>i)&1)];
-	if(chase&0x8000UL)break;
+        chase=((ogg_uint16_t *)(book->dec_table))[chase*2+((lok>>i)&1)];
+        if(chase&0x8000UL)break;
       }
       //chase&=0x7fffUL;
       chase&=~0x8000UL;
@@ -711,13 +711,13 @@ static inline ogg_uint32_t decode_packed_entry_number(codebook *book,
       /* 16/32 - Used by infile2 */
       ogg_uint16_t *t=(ogg_uint16_t *)book->dec_table;
       for(i=0;i<read;i++){
-	int bit=(lok>>i)&1;
-	int next=t[chase+bit];
-	if(next&0x8000){
-	  chase= (next<<16) | t[chase+bit+1+(!bit || t[chase]&0x8000)];
-	  break;
-	}
-	chase=next;
+        int bit=(lok>>i)&1;
+        int next=t[chase+bit];
+        if(next&0x8000){
+          chase= (next<<16) | t[chase+bit+1+(!bit || t[chase]&0x8000)];
+          break;
+        }
+        chase=next;
       }
       //chase&=0x7fffffffUL;
       chase&=~0x80000000UL;
@@ -727,8 +727,8 @@ static inline ogg_uint32_t decode_packed_entry_number(codebook *book,
     {
       //Output("32/32");
       for(i=0;i<read;i++){
-	chase=((ogg_uint32_t *)(book->dec_table))[chase*2+((lok>>i)&1)];
-	if(chase&0x80000000UL)break;
+        chase=((ogg_uint32_t *)(book->dec_table))[chase*2+((lok>>i)&1)];
+        if(chase&0x80000000UL)break;
       }
       //chase&=0x7fffffffUL;
       chase&=~0x80000000UL;
@@ -777,9 +777,9 @@ static int decode_map(codebook *s, oggpack_buffer *b, ogg_int32_t *v, int point)
     int mask=(1<<s->q_pack)-1;
     for(i=0;i<s->dim;i++){
       if(s->q_bits<=8)
-	v[i]=((unsigned char *)(s->q_val))[entry&mask];
+        v[i]=((unsigned char *)(s->q_val))[entry&mask];
       else
-	v[i]=((ogg_uint16_t *)(s->q_val))[entry&mask];
+        v[i]=((ogg_uint16_t *)(s->q_val))[entry&mask];
       entry>>=s->q_pack;
     }
     break;
@@ -790,10 +790,10 @@ static int decode_map(codebook *s, oggpack_buffer *b, ogg_int32_t *v, int point)
 
     if(s->q_bits<=8){
       for(i=0;i<s->dim;i++)
-	v[i]=((unsigned char *)ptr)[i];
+        v[i]=((unsigned char *)ptr)[i];
     }else{
       for(i=0;i<s->dim;i++)
-	v[i]=((ogg_uint16_t *)ptr)[i];
+        v[i]=((ogg_uint16_t *)ptr)[i];
     }
     break;
   }
@@ -823,7 +823,7 @@ static int decode_map(codebook *s, oggpack_buffer *b, ogg_int32_t *v, int point)
 
     if(s->q_seq)
       for(i=1;i<s->dim;i++)
-	v[i]+=v[i-1];
+        v[i]+=v[i-1];
   }
 
   return 0;
@@ -832,7 +832,7 @@ static int decode_map(codebook *s, oggpack_buffer *b, ogg_int32_t *v, int point)
 
 /* returns 0 on OK or -1 on eof *************************************/
 long vorbis_book_decodevs_add(codebook *book,ogg_int32_t *a,
-			      oggpack_buffer *b,int n,int point){
+                              oggpack_buffer *b,int n,int point){
   if(book->used_entries>0){
     int step=n/book->dim;
     ogg_int32_t *v = book->dec_buf;//(ogg_int32_t *)alloca(sizeof(*v)*book->dim);
@@ -842,14 +842,14 @@ long vorbis_book_decodevs_add(codebook *book,ogg_int32_t *a,
     for (j=0;j<step;j++){
       if(decode_map(book,b,v,point))return -1;
       for(i=0,o=j;i<book->dim;i++,o+=step)
-	a[o]+=v[i];
+        a[o]+=v[i];
     }
   }
   return 0;
 }
 
 long vorbis_book_decodev_add(codebook *book,ogg_int32_t *a,
-			     oggpack_buffer *b,int n,int point){
+                             oggpack_buffer *b,int n,int point){
   if(book->used_entries>0){
     ogg_int32_t *v = book->dec_buf;//(ogg_int32_t *)alloca(sizeof(*v)*book->dim);
     int i,j;
@@ -857,15 +857,15 @@ long vorbis_book_decodev_add(codebook *book,ogg_int32_t *a,
     if (!v) return -1;
     for(i=0;i<n;){
       if(decode_map(book,b,v,point))return -1;
-      for (j=0;j<book->dim;j++)
-	a[i++]+=v[j];
+      for (j=0;j<book->dim && i < n;j++)
+        a[i++]+=v[j];
     }
   }
   return 0;
 }
 
 long vorbis_book_decodev_set(codebook *book,ogg_int32_t *a,
-			     oggpack_buffer *b,int n,int point){
+                             oggpack_buffer *b,int n,int point){
   if(book->used_entries>0){
     ogg_int32_t *v = book->dec_buf;//(ogg_int32_t *)alloca(sizeof(*v)*book->dim);
     int i,j;
@@ -873,15 +873,15 @@ long vorbis_book_decodev_set(codebook *book,ogg_int32_t *a,
     if (!v) return -1;
     for(i=0;i<n;){
       if(decode_map(book,b,v,point))return -1;
-      for (j=0;j<book->dim;j++)
-	a[i++]=v[j];
+      for (j=0;j<book->dim && i < n;j++)
+        a[i++]=v[j];
     }
   }else{
     int i,j;
 
     for(i=0;i<n;){
-      for (j=0;j<book->dim;j++)
-	a[i++]=0;
+      for (j=0;j<book->dim && i < n;j++)
+        a[i++]=0;
     }
   }
 
@@ -890,12 +890,12 @@ long vorbis_book_decodev_set(codebook *book,ogg_int32_t *a,
 
 #ifndef ONLY_C
 long vorbis_book_decodevv_add(codebook *book,ogg_int32_t **a,
-			      long offset,int ch,
-			      oggpack_buffer *b,int n,int point);
+                              long offset,int ch,
+                              oggpack_buffer *b,int n,int point);
 #else
 long vorbis_book_decodevv_add(codebook *book,ogg_int32_t **a,
-			      long offset,int ch,
-			      oggpack_buffer *b,int n,int point){
+                              long offset,int ch,
+                              oggpack_buffer *b,int n,int point){
   if(book->used_entries>0){
 
     ogg_int32_t *v = book->dec_buf;//(ogg_int32_t *)alloca(sizeof(*v)*book->dim);
@@ -905,12 +905,12 @@ long vorbis_book_decodevv_add(codebook *book,ogg_int32_t **a,
     if (!v) return -1;
     for(i=offset;i<offset+n;){
       if(decode_map(book,b,v,point))return -1;
-      for (j=0;j<book->dim;j++){
-	a[chptr++][i]+=v[j];
-	if(chptr==ch){
-	  chptr=0;
-	  i++;
-	}
+      for (j=0;j<book->dim && i < offset + n;j++){
+        a[chptr++][i]+=v[j];
+        if(chptr==ch){
+          chptr=0;
+          i++;
+        }
       }
     }
   }

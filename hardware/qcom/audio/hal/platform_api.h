@@ -50,6 +50,8 @@ int platform_get_snd_device_index(char *snd_device_index_name);
 int platform_set_snd_device_acdb_id(snd_device_t snd_device, unsigned int acdb_id);
 int platform_get_snd_device_acdb_id(snd_device_t snd_device);
 int platform_send_audio_calibration(void *platform, snd_device_t snd_device);
+int platform_send_audio_calibration_v2(void *platform, struct audio_usecase *usecase,
+                                       int app_type, int sample_rate);
 int platform_get_default_app_type_v2(void *platform, enum usecase_type_t type, int *app_type);
 int platform_switch_voice_call_device_pre(void *platform);
 int platform_switch_voice_call_enable_device_config(void *platform,
@@ -105,10 +107,14 @@ int platform_set_snd_device_backend(snd_device_t snd_device, const char * backen
 /* From platform_info.c */
 int platform_info_init(const char *filename, void *);
 
+typedef int (*set_parameters_fn)(void *platform, struct str_parms *parms);
+int snd_card_info_init(const char *filename, void *, set_parameters_fn);
+
 int platform_get_usecase_index(const char * usecase);
 int platform_set_usecase_pcm_id(audio_usecase_t usecase, int32_t type, int32_t pcm_id);
 void platform_set_echo_reference(struct audio_device *adev, bool enable, audio_devices_t out_device);
-int platform_swap_lr_channels(struct audio_device *adev, bool swap_channels);
+int platform_check_and_set_swap_lr_channels(struct audio_device *adev, bool swap_channels);
+int platform_set_swap_channels(struct audio_device *adev, bool swap_channels);
 
 int platform_can_split_snd_device(snd_device_t in_snd_device,
                                   int *num_devices,
@@ -125,4 +131,21 @@ bool platform_check_and_set_capture_backend_cfg(struct audio_device* adev,
                    struct audio_usecase *usecase, snd_device_t snd_device);
 
 int platform_snd_card_update(void *platform, enum card_status_t status);
+void platform_check_and_update_copp_sample_rate(void *platform, snd_device_t snd_device,
+     unsigned int stream_sr,int *sample_rate);
+int platform_get_snd_device_backend_index(snd_device_t snd_device);
+bool platform_supports_app_type_cfg();
+int platform_get_app_type_v2(void *platform,
+                             enum usecase_type_t type,
+                             const char *mode,
+                             int bw, int sr, int *app_type);
+void platform_add_app_type(const char *uc_type,
+                           const char *mode,
+                           int bw, int app_type, int max_sr);
+int platform_get_snd_device_backend_index(snd_device_t snd_device);
+int platform_set_sidetone(struct audio_device *adev,
+                          snd_device_t out_snd_device,
+                          bool enable, char * str);
+int platform_get_mmap_data_fd(void *platform, int dev, int dir,
+                              int *fd, uint32_t *size);
 #endif // AUDIO_PLATFORM_API_H

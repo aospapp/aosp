@@ -20,6 +20,7 @@ Test script to execute Bluetooth basic functionality test cases relevant to car.
 import time
 
 from queue import Empty
+from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.BtEnum import BluetoothScanModeType
 from acts.test_utils.bt.bt_test_utils import check_device_supported_profiles
@@ -42,7 +43,7 @@ class BtCarBasicFunctionalityTest(BluetoothBaseTest):
     def setup_class(self):
         return setup_multiple_devices_for_bt_test(self.android_devices)
 
-    #@BluetoothTest(UUID=b52a032a-3438-4b84-863f-c46a969882a4)
+    @test_tracker_info(uuid='b52a032a-3438-4b84-863f-c46a969882a4')
     @BluetoothBaseTest.bt_test_wrap
     def test_if_support_a2dp_sink_profile(self):
         """ Test that a single device can support A2DP SNK profile.
@@ -59,7 +60,7 @@ class BtCarBasicFunctionalityTest(BluetoothBaseTest):
             return False
         return True
 
-    #@BluetoothTest(UUID=3c2cb613-6c8a-4ed7-8783-37fb47bff5f2)
+    @test_tracker_info(uuid='3c2cb613-6c8a-4ed7-8783-37fb47bff5f2')
     @BluetoothBaseTest.bt_test_wrap
     def test_if_support_hfp_client_profile(self):
         """ Test that a single device can support HFP HF profile.
@@ -76,7 +77,7 @@ class BtCarBasicFunctionalityTest(BluetoothBaseTest):
             return False
         return True
 
-    #@BluetoothTest(UUID=c3854e74-33da-4e4d-a9cb-4f5170ef7d10)
+    @test_tracker_info(uuid='c3854e74-33da-4e4d-a9cb-4f5170ef7d10')
     @BluetoothBaseTest.bt_test_wrap
     def test_if_support_pbap_client_profile(self):
         """ Test that a single device can support PBAP PCE profile.

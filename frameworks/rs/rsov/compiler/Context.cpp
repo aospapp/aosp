@@ -18,7 +18,12 @@
 
 #include "llvm/ADT/Triple.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+
+#include <limits>
+
+#define DEBUG_TYPE "rs2spirv-context"
 
 namespace rs2spirv {
 
@@ -61,5 +66,15 @@ bool Context::Initialize(std::unique_ptr<bcinfo::MetadataExtractor> ME) {
 
   return true;
 }
+
+void Context::addExportVarIndex(const char *varName, uint32_t index) {
+  DEBUG(llvm::dbgs() << varName << " index=" << index << '\n');
+  const uint32_t slot = getSlotForExportVar(varName);
+  if (slot == std::numeric_limits<uint32_t>::max()) {
+    return;
+  }
+  addExportVarIndex(slot, index);
+}
+
 
 } // namespace rs2spirv

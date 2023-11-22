@@ -35,8 +35,10 @@ def main():
         # Get the timestamps of motion events.
         print "Reading sensor measurements"
         cam.start_sensor_events()
-        time.sleep(0.5)
+        time.sleep(2.0)
         events = cam.get_sensor_events()
+        print "Lens of gyro %d, accel %d, mag %d"%(
+                len(events["gyro"]), len(events["accel"]), len(events["mag"]))
         assert(len(events["gyro"]) > 0)
         assert(len(events["accel"]) > 0)
         assert(len(events["mag"]) > 0)

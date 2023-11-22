@@ -469,13 +469,15 @@ public class String2Test extends junit.framework.TestCase {
         }
 
         bytes = "-".getBytes("UTF-16");
-        expected = new byte[] { (byte) 0xff, (byte) 0xfe };
+        expected = new byte[] { (byte) 0xfe, (byte) 0xff, (byte) 0x00, (byte) 0x2d };
         assertEquals(expected[0], bytes[0]);
         assertEquals(expected[1], bytes[1]);
+        assertEquals(expected[2], bytes[2]);
+        assertEquals(expected[3], bytes[3]);
 
         byte[] bytes2 = "-".getBytes("UTF-16LE");
-        assertEquals(bytes2[0], bytes[2]);
-        assertEquals(bytes2[1], bytes[3]);
+        assertEquals(bytes2[0], bytes[3]);
+        assertEquals(bytes2[1], bytes[2]);
     }
 
     /*

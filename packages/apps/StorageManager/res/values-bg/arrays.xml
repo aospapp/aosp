@@ -19,6 +19,6 @@
   <string-array name="automatic_storage_management_days">
     <item msgid="4262697175462957945">"На повече от 30 дни"</item>
     <item msgid="2920779420892632946">"На повече от 60 дни"</item>
-    <item msgid="1402081670011072896">"На повече от 90 дни"</item>
+    <item msgid="1402081670011072896">"По-стари от 90 дни"</item>
   </string-array>
 </resources>

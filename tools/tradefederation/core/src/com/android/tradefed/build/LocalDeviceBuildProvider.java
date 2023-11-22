@@ -282,7 +282,8 @@ public class LocalDeviceBuildProvider extends StubBuildProvider {
         this.mBuildDir = buildDir;
     }
 
-    File getTestDir() {
+    /** Returns the directory where the tests are located. */
+    public File getTestDir() {
         return mTestDir;
     }
 

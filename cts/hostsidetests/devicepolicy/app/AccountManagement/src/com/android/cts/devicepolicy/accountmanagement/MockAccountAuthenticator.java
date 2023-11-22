@@ -30,7 +30,7 @@ import android.os.Bundle;
             = "com.android.cts.devicepolicy.accountmanagement.account.name";
     static final String ACCOUNT_TYPE
             = "com.android.cts.devicepolicy.accountmanagement.account.type";
-    private static final String AUTH_TOKEN = "mockAuthToken";
+    static final String AUTH_TOKEN = "mockAuthToken";
     private static final String AUTH_TOKEN_LABEL = "mockAuthTokenLabel";
 
     private MockAccountAuthenticator(Context context) {
@@ -42,7 +42,6 @@ import android.os.Bundle;
         result.putString(AccountManager.KEY_ACCOUNT_NAME, ACCOUNT_NAME);
         result.putString(AccountManager.KEY_ACCOUNT_TYPE, ACCOUNT_TYPE);
         result.putString(AccountManager.KEY_AUTHTOKEN, AUTH_TOKEN);
-
         return result;
     }
 

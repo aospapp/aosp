@@ -30,7 +30,6 @@
 #include "gc_root.h"
 #include "handle_scope.h"
 #include "obj_ptr.h"
-#include "object_callbacks.h"
 #include "primitive.h"
 
 namespace art {
@@ -268,6 +267,52 @@ class RegType {
   static void* operator new(size_t size, ArenaAllocator* arena) = delete;
   static void* operator new(size_t size, ScopedArenaAllocator* arena);
 
+  enum class AssignmentType {
+    kBoolean,
+    kByte,
+    kShort,
+    kChar,
+    kInteger,
+    kFloat,
+    kLongLo,
+    kDoubleLo,
+    kConflict,
+    kReference,
+    kNotAssignable,
+  };
+
+  ALWAYS_INLINE
+  inline AssignmentType GetAssignmentType() const {
+    AssignmentType t = GetAssignmentTypeImpl();
+    if (kIsDebugBuild) {
+      if (IsBoolean()) {
+        CHECK(AssignmentType::kBoolean == t);
+      } else if (IsByte()) {
+        CHECK(AssignmentType::kByte == t);
+      } else if (IsShort()) {
+        CHECK(AssignmentType::kShort == t);
+      } else if (IsChar()) {
+        CHECK(AssignmentType::kChar == t);
+      } else if (IsInteger()) {
+        CHECK(AssignmentType::kInteger == t);
+      } else if (IsFloat()) {
+        CHECK(AssignmentType::kFloat == t);
+      } else if (IsLongLo()) {
+        CHECK(AssignmentType::kLongLo == t);
+      } else if (IsDoubleLo()) {
+        CHECK(AssignmentType::kDoubleLo == t);
+      } else if (IsConflict()) {
+        CHECK(AssignmentType::kConflict == t);
+      } else if (IsReferenceTypes()) {
+        CHECK(AssignmentType::kReference == t);
+      } else {
+        LOG(FATAL) << "Unreachable";
+        UNREACHABLE();
+      }
+    }
+    return t;
+  }
+
  protected:
   RegType(mirror::Class* klass,
           const StringPiece& descriptor,
@@ -284,6 +329,8 @@ class RegType {
       CheckInvariants();
     }
   }
+
+  virtual AssignmentType GetAssignmentTypeImpl() const = 0;
 
   const StringPiece descriptor_;
   mutable GcRoot<mirror::Class> klass_;  // Non-const only due to moving classes.
@@ -307,6 +354,10 @@ class RegType {
    * types until an invoke-interface call on the interface typed reference at runtime and allow
    * the perversion of Object being assignable to an interface type (note, however, that we don't
    * allow assignment of Object or Interface to any concrete class and are therefore type safe).
+   *
+   * Note: This may return null in case of internal errors, e.g., OOME when a new class would have
+   *       to be created but there is no heap space. The exception will stay pending, and it is
+   *       the job of the caller to handle it.
    *
    * [1] Java bytecode verification: algorithms and formalizations, Xavier Leroy
    */
@@ -341,6 +392,10 @@ class ConflictType FINAL : public RegType {
   // Destroy the singleton instance.
   static void Destroy();
 
+  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+    return AssignmentType::kConflict;
+  }
+
  private:
   ConflictType(mirror::Class* klass, const StringPiece& descriptor,
                uint16_t cache_id) REQUIRES_SHARED(Locks::mutator_lock_)
@@ -371,6 +426,10 @@ class UndefinedType FINAL : public RegType {
 
   // Destroy the singleton instance.
   static void Destroy();
+
+  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+    return AssignmentType::kNotAssignable;
+  }
 
  private:
   UndefinedType(mirror::Class* klass, const StringPiece& descriptor,
@@ -407,6 +466,10 @@ class IntegerType FINAL : public Cat1Type {
   static const IntegerType* GetInstance() PURE;
   static void Destroy();
 
+  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+    return AssignmentType::kInteger;
+  }
+
  private:
   IntegerType(mirror::Class* klass, const StringPiece& descriptor,
               uint16_t cache_id) REQUIRES_SHARED(Locks::mutator_lock_)
@@ -426,6 +489,10 @@ class BooleanType FINAL : public Cat1Type {
       REQUIRES_SHARED(Locks::mutator_lock_);
   static const BooleanType* GetInstance() PURE;
   static void Destroy();
+
+  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+    return AssignmentType::kBoolean;
+  }
 
  private:
   BooleanType(mirror::Class* klass, const StringPiece& descriptor,
@@ -448,6 +515,10 @@ class ByteType FINAL : public Cat1Type {
   static const ByteType* GetInstance() PURE;
   static void Destroy();
 
+  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+    return AssignmentType::kByte;
+  }
+
  private:
   ByteType(mirror::Class* klass, const StringPiece& descriptor,
            uint16_t cache_id) REQUIRES_SHARED(Locks::mutator_lock_)
@@ -467,6 +538,10 @@ class ShortType FINAL : public Cat1Type {
       REQUIRES_SHARED(Locks::mutator_lock_);
   static const ShortType* GetInstance() PURE;
   static void Destroy();
+
+  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+    return AssignmentType::kShort;
+  }
 
  private:
   ShortType(mirror::Class* klass, const StringPiece& descriptor,
@@ -488,6 +563,10 @@ class CharType FINAL : public Cat1Type {
   static const CharType* GetInstance() PURE;
   static void Destroy();
 
+  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+    return AssignmentType::kChar;
+  }
+
  private:
   CharType(mirror::Class* klass, const StringPiece& descriptor,
            uint16_t cache_id) REQUIRES_SHARED(Locks::mutator_lock_)
@@ -507,6 +586,10 @@ class FloatType FINAL : public Cat1Type {
       REQUIRES_SHARED(Locks::mutator_lock_);
   static const FloatType* GetInstance() PURE;
   static void Destroy();
+
+  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+    return AssignmentType::kFloat;
+  }
 
  private:
   FloatType(mirror::Class* klass, const StringPiece& descriptor,
@@ -535,6 +618,10 @@ class LongLoType FINAL : public Cat2Type {
   static const LongLoType* GetInstance() PURE;
   static void Destroy();
 
+  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+    return AssignmentType::kLongLo;
+  }
+
  private:
   LongLoType(mirror::Class* klass, const StringPiece& descriptor,
              uint16_t cache_id) REQUIRES_SHARED(Locks::mutator_lock_)
@@ -554,6 +641,10 @@ class LongHiType FINAL : public Cat2Type {
       REQUIRES_SHARED(Locks::mutator_lock_);
   static const LongHiType* GetInstance() PURE;
   static void Destroy();
+
+  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+    return AssignmentType::kNotAssignable;
+  }
 
  private:
   LongHiType(mirror::Class* klass, const StringPiece& descriptor,
@@ -576,6 +667,10 @@ class DoubleLoType FINAL : public Cat2Type {
   static const DoubleLoType* GetInstance() PURE;
   static void Destroy();
 
+  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+    return AssignmentType::kDoubleLo;
+  }
+
  private:
   DoubleLoType(mirror::Class* klass, const StringPiece& descriptor,
                uint16_t cache_id) REQUIRES_SHARED(Locks::mutator_lock_)
@@ -595,6 +690,10 @@ class DoubleHiType FINAL : public Cat2Type {
       REQUIRES_SHARED(Locks::mutator_lock_);
   static const DoubleHiType* GetInstance() PURE;
   static void Destroy();
+
+  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+    return AssignmentType::kNotAssignable;
+  }
 
  private:
   DoubleHiType(mirror::Class* klass, const StringPiece& descriptor,
@@ -658,6 +757,10 @@ class ConstantType : public RegType {
   }
   virtual bool IsConstantTypes() const OVERRIDE { return true; }
 
+  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+    return AssignmentType::kNotAssignable;
+  }
+
  private:
   const uint32_t constant_;
 };
@@ -673,6 +776,10 @@ class PreciseConstType FINAL : public ConstantType {
   bool IsPreciseConstant() const OVERRIDE { return true; }
 
   std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+
+  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+    return AssignmentType::kNotAssignable;
+  }
 };
 
 class PreciseConstLoType FINAL : public ConstantType {
@@ -684,6 +791,10 @@ class PreciseConstLoType FINAL : public ConstantType {
   }
   bool IsPreciseConstantLo() const OVERRIDE { return true; }
   std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+
+  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+    return AssignmentType::kNotAssignable;
+  }
 };
 
 class PreciseConstHiType FINAL : public ConstantType {
@@ -695,6 +806,10 @@ class PreciseConstHiType FINAL : public ConstantType {
   }
   bool IsPreciseConstantHi() const OVERRIDE { return true; }
   std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+
+  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+    return AssignmentType::kNotAssignable;
+  }
 };
 
 class ImpreciseConstType FINAL : public ConstantType {
@@ -706,6 +821,10 @@ class ImpreciseConstType FINAL : public ConstantType {
   }
   bool IsImpreciseConstant() const OVERRIDE { return true; }
   std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+
+  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+    return AssignmentType::kNotAssignable;
+  }
 };
 
 class ImpreciseConstLoType FINAL : public ConstantType {
@@ -717,6 +836,10 @@ class ImpreciseConstLoType FINAL : public ConstantType {
   }
   bool IsImpreciseConstantLo() const OVERRIDE { return true; }
   std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+
+  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+    return AssignmentType::kNotAssignable;
+  }
 };
 
 class ImpreciseConstHiType FINAL : public ConstantType {
@@ -728,6 +851,10 @@ class ImpreciseConstHiType FINAL : public ConstantType {
   }
   bool IsImpreciseConstantHi() const OVERRIDE { return true; }
   std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+
+  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+    return AssignmentType::kNotAssignable;
+  }
 };
 
 // Common parent of all uninitialized types. Uninitialized types are created by
@@ -745,6 +872,10 @@ class UninitializedType : public RegType {
   uint32_t GetAllocationPc() const {
     DCHECK(IsUninitializedTypes());
     return allocation_pc_;
+  }
+
+  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+    return AssignmentType::kReference;
   }
 
  private:
@@ -848,6 +979,10 @@ class ReferenceType FINAL : public RegType {
   bool HasClassVirtual() const OVERRIDE { return true; }
 
   std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+
+  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+    return AssignmentType::kReference;
+  }
 };
 
 // A type of register holding a reference to an Object of type GetClass and only
@@ -866,6 +1001,10 @@ class PreciseReferenceType FINAL : public RegType {
   bool HasClassVirtual() const OVERRIDE { return true; }
 
   std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+
+  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+    return AssignmentType::kReference;
+  }
 };
 
 // Common parent of unresolved types.
@@ -876,6 +1015,10 @@ class UnresolvedType : public RegType {
       : RegType(nullptr, descriptor, cache_id) {}
 
   bool IsNonZeroReferenceTypes() const OVERRIDE;
+
+  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+    return AssignmentType::kReference;
+  }
 };
 
 // Similar to ReferenceType except the Class couldn't be loaded. Assignability

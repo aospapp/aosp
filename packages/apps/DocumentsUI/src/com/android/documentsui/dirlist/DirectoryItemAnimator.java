@@ -100,29 +100,6 @@ class DirectoryItemAnimator extends DefaultItemAnimator {
     }
 
     @Override
-    public boolean animateChange(final RecyclerView.ViewHolder oldHolder,
-            RecyclerView.ViewHolder newHolder, ItemHolderInfo preInfo,
-            ItemHolderInfo postInfo) {
-        if (oldHolder != newHolder) {
-            return super.animateChange(oldHolder, newHolder, preInfo, postInfo);
-        }
-
-        ItemInfo pre = (ItemInfo)preInfo;
-        ItemInfo post = (ItemInfo)postInfo;
-
-        if (pre.isActivated == post.isActivated) {
-            dispatchAnimationFinished(oldHolder);
-            return false;
-        } else {
-            Integer startColor = pre.isActivated ? mSelectedColor : mDefaultColor;
-            Integer endColor = post.isActivated ? mSelectedColor : mDefaultColor;
-            oldHolder.itemView.setBackgroundColor(startColor);
-            mPendingAnimations.add(new ColorAnimation(oldHolder, startColor, endColor));
-        }
-        return true;
-    }
-
-    @Override
     public ItemHolderInfo obtainHolderInfo() {
         return new ItemInfo();
     }

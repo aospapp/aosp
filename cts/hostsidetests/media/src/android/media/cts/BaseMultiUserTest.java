@@ -17,7 +17,6 @@
 package android.media.cts;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
-import com.android.ddmlib.Log.LogLevel;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.ddmlib.testrunner.TestResult;
@@ -85,64 +84,57 @@ public class BaseMultiUserTest extends DeviceTestCase implements IBuildReceiver 
     private Set<String> mExistingPackages;
     private List<Integer> mExistingUsers;
     private HashSet<String> mAvailableFeatures;
-    protected boolean mHasManagedUsersFeature;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
         // Ensure that build has been set before test is run.
         assertNotNull(mCtsBuild);
-        mHasManagedUsersFeature = hasDeviceFeature("android.software.managed_users");
+        mExistingPackages = getDevice().getInstalledPackageNames();
 
-        if (mHasManagedUsersFeature) {
-            mExistingPackages = getDevice().getInstalledPackageNames();
+        // Disable the package verifier to avoid the dialog when installing an app
+        mPackageVerifier =
+                getSettings(
+                        SETTINGS_PACKAGE_VERIFIER_NAMESPACE,
+                        SETTINGS_PACKAGE_VERIFIER_NAME,
+                        USER_ALL);
+        putSettings(
+                SETTINGS_PACKAGE_VERIFIER_NAMESPACE,
+                SETTINGS_PACKAGE_VERIFIER_NAME,
+                "0",
+                USER_ALL);
 
-            // Disable the package verifier to avoid the dialog when installing an app
-            mPackageVerifier =
-                    getSettings(
-                            SETTINGS_PACKAGE_VERIFIER_NAMESPACE,
-                            SETTINGS_PACKAGE_VERIFIER_NAME,
-                            USER_ALL);
-            putSettings(
-                    SETTINGS_PACKAGE_VERIFIER_NAMESPACE,
-                    SETTINGS_PACKAGE_VERIFIER_NAME,
-                    "0",
-                    USER_ALL);
+        mExistingUsers = new ArrayList();
+        int primaryUserId = getDevice().getPrimaryUserId();
+        mExistingUsers.add(primaryUserId);
+        mExistingUsers.add(USER_SYSTEM);
 
-            mExistingUsers = new ArrayList();
-            int primaryUserId = getDevice().getPrimaryUserId();
-            mExistingUsers.add(primaryUserId);
-            mExistingUsers.add(USER_SYSTEM);
-
-            executeShellCommand("am switch-user " + primaryUserId);
-            executeShellCommand("wm dismiss-keyguard");
-        }
+        executeShellCommand("am switch-user " + primaryUserId);
+        executeShellCommand("wm dismiss-keyguard");
     }
 
     @Override
     protected void tearDown() throws Exception {
-        if (mHasManagedUsersFeature) {
-            // Reset the package verifier setting to its original value.
-            putSettings(
-                    SETTINGS_PACKAGE_VERIFIER_NAMESPACE,
-                    SETTINGS_PACKAGE_VERIFIER_NAME,
-                    mPackageVerifier,
-                    USER_ALL);
+        // Reset the package verifier setting to its original value.
+        putSettings(
+                SETTINGS_PACKAGE_VERIFIER_NAMESPACE,
+                SETTINGS_PACKAGE_VERIFIER_NAME,
+                mPackageVerifier,
+                USER_ALL);
 
-            // Remove users created during the test.
-            for (int userId : getDevice().listUsers()) {
-                if (!mExistingUsers.contains(userId)) {
-                    removeUser(userId);
-                }
+        // Remove users created during the test.
+        for (int userId : getDevice().listUsers()) {
+            if (!mExistingUsers.contains(userId)) {
+                removeUser(userId);
             }
-            // Remove packages installed during the test.
-            for (String packageName : getDevice().getUninstallablePackageNames()) {
-                if (mExistingPackages.contains(packageName)) {
-                    continue;
-                }
-                CLog.d("Removing leftover package: " + packageName);
-                getDevice().uninstallPackage(packageName);
+        }
+        // Remove packages installed during the test.
+        for (String packageName : getDevice().getUninstallablePackageNames()) {
+            if (mExistingPackages.contains(packageName)) {
+                continue;
             }
+            CLog.d("Removing leftover package: " + packageName);
+            getDevice().uninstallPackage(packageName);
         }
         super.tearDown();
     }
@@ -368,13 +360,6 @@ public class BaseMultiUserTest extends DeviceTestCase implements IBuildReceiver 
             }
         }
         boolean result = mAvailableFeatures.contains(requiredFeature);
-        if (!result) {
-            CLog.logAndDisplay(
-                    LogLevel.INFO,
-                    "Device doesn't have required feature "
-                            + requiredFeature
-                            + ". Test won't run.");
-        }
         return result;
     }
 }

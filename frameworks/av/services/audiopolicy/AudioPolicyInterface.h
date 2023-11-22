@@ -122,7 +122,7 @@ public:
                                         uid_t uid,
                                         const audio_config_t *config,
                                         audio_output_flags_t flags,
-                                        int selectedDeviceId,
+                                        audio_port_handle_t *selectedDeviceId,
                                         audio_port_handle_t *portId) = 0;
     // indicates to the audio policy manager that the output starts being used by corresponding stream.
     virtual status_t startOutput(audio_io_handle_t output,
@@ -144,7 +144,7 @@ public:
                                      uid_t uid,
                                      const audio_config_base_t *config,
                                      audio_input_flags_t flags,
-                                     audio_port_handle_t selectedDeviceId,
+                                     audio_port_handle_t *selectedDeviceId,
                                      input_type_t *inputType,
                                      audio_port_handle_t *portId) = 0;
     // indicates to the audio policy manager that the input starts being used.
@@ -241,6 +241,9 @@ public:
 
     virtual status_t setMasterMono(bool mono) = 0;
     virtual status_t getMasterMono(bool *mono) = 0;
+
+    virtual float    getStreamVolumeDB(
+                audio_stream_type_t stream, int index, audio_devices_t device) = 0;
 };
 
 
@@ -346,8 +349,8 @@ public:
 
     virtual void onDynamicPolicyMixStateUpdate(String8 regId, int32_t state) = 0;
 
-    virtual void onRecordingConfigurationUpdate(int event, audio_session_t session,
-                    audio_source_t source,
+    virtual void onRecordingConfigurationUpdate(int event,
+                    const record_client_info_t *clientInfo,
                     const struct audio_config_base *clientConfig,
                     const struct audio_config_base *deviceConfig,
                     audio_patch_handle_t patchHandle) = 0;

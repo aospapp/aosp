@@ -15,15 +15,13 @@
  */
 package android.autofillservice.cts;
 
-import android.support.test.rule.ActivityTestRule;
-
 import org.junit.Rule;
 
 public class TimePickerClockActivityTest extends TimePickerTestCase<TimePickerClockActivity> {
 
     @Rule
-    public final ActivityTestRule<TimePickerClockActivity> mActivityRule =
-        new ActivityTestRule<TimePickerClockActivity>(TimePickerClockActivity.class);
+    public final AutofillActivityTestRule<TimePickerClockActivity> mActivityRule =
+        new AutofillActivityTestRule<TimePickerClockActivity>(TimePickerClockActivity.class);
 
     @Override
     protected TimePickerClockActivity getTimePickerActivity() {

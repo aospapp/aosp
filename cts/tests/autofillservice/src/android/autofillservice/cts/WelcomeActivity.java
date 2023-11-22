@@ -15,8 +15,12 @@
  */
 package android.autofillservice.cts;
 
+import static com.google.common.truth.Truth.assertWithMessage;
+
 import android.content.Intent;
 import android.os.Bundle;
+import android.support.annotation.Nullable;
+import android.support.test.uiautomator.UiObject2;
 import android.text.TextUtils;
 import android.util.Log;
 import android.widget.TextView;
@@ -31,6 +35,7 @@ public class WelcomeActivity extends AbstractAutoFillActivity {
     private static final String TAG = "WelcomeActivity";
 
     static final String EXTRA_MESSAGE = "message";
+    static final String ID_OUTPUT = "output";
 
     private TextView mOutput;
 
@@ -61,5 +66,20 @@ public class WelcomeActivity extends AbstractAutoFillActivity {
             Log.d(TAG, "So long and thanks for all the fish!");
             sInstance.finish();
         }
+    }
+
+    // TODO: reuse in other places
+    static void assertShowingDefaultMessage(UiBot uiBot) throws Exception {
+        assertShowing(uiBot, null);
+    }
+
+    // TODO: reuse in other places
+    static void assertShowing(UiBot uiBot, @Nullable String expectedMessage) throws Exception {
+        final UiObject2 activity = uiBot.assertShownByRelativeId(ID_OUTPUT);
+        if (expectedMessage == null) {
+            expectedMessage = "Welcome to the jungle!";
+        }
+        assertWithMessage("wrong text on '%s'", activity).that(activity.getText())
+                .isEqualTo(expectedMessage);
     }
 }

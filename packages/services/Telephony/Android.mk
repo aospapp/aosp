@@ -30,10 +30,20 @@ LOCAL_SRC_FILES += \
         src/com/android/phone/INetworkQueryServiceCallback.aidl
 LOCAL_RESOURCE_DIR := $(addprefix $(LOCAL_PATH)/, $(res_dirs))
 
+LOCAL_RESOURCE_DIR += \
+    frameworks/support/v7/appcompat/res \
+    frameworks/support/v7/preference/res \
+    frameworks/support/v7/recyclerview/res \
+    frameworks/support/v14/preference/res
+
 LOCAL_AAPT_FLAGS := \
     --auto-add-overlay \
     --extra-packages com.android.phone.common \
-    --extra-packages com.android.services.telephony.sip
+    --extra-packages com.android.services.telephony.sip \
+    --extra-packages android.support.v7.appcompat \
+    --extra-packages android.support.v7.preference \
+    --extra-packages android.support.v7.recyclerview \
+    --extra-packages android.support.v14.preference
 
 LOCAL_PACKAGE_NAME := TeleService
 

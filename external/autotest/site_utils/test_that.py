@@ -71,12 +71,10 @@ def validate_arguments(arguments):
         if arguments.ssh_verbosity:
             raise ValueError('--ssh_verbosity flag not supported when running '
                              'against :lab:')
-        if not arguments.board or not arguments.build:
+        if not arguments.board or arguments.build == test_runner_utils.NO_BUILD:
             raise ValueError('--board and --build are both required when '
                              'running against :lab:')
     else:
-        if arguments.build is None:
-            arguments.build = test_runner_utils.NO_BUILD
         if arguments.web:
             raise ValueError('--web flag not supported when running locally')
 

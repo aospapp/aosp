@@ -83,8 +83,8 @@ public class SupplicantP2pIfaceCallbackTest {
      */
     @Test
     public void testOnDeviceFound_success() throws Exception {
-        byte[] fakePrimaryDeviceTypeBytes = { 0x01, 0x02, 0x03 };
-        String fakePrimaryDeviceTypeString = "010203";
+        byte[] fakePrimaryDeviceTypeBytes = { 0x00, 0x01, 0x02, -1, 0x04, 0x05, 0x06, 0x07 };
+        String fakePrimaryDeviceTypeString = "1-02FF0405-1543";
         String fakeDeviceName = "test device name";
         short fakeConfigMethods = 0x1234;
         byte fakeCapabilities = 123;
@@ -131,8 +131,8 @@ public class SupplicantP2pIfaceCallbackTest {
      */
     @Test
     public void testOnDeviceFound_invalidArguments() throws Exception {
-        byte[] fakePrimaryDeviceTypeBytes = { 0x01, 0x02, 0x03 };
-        String fakePrimaryDeviceTypeString = "010203";
+        byte[] fakePrimaryDeviceTypeBytes = { 0x0, 0x01, 0x02, -1, 0x04, 0x05, 0x06, 0x07 };
+        String fakePrimaryDeviceTypeString = "1-02FF0405-1543";
         String fakeDeviceName = "test device name";
         short fakeConfigMethods = 0x1234;
         byte fakeCapabilities = 123;

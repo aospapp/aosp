@@ -18,12 +18,14 @@ package com.android.tv.tuner.exoplayer;
 
 import android.content.Context;
 
+import com.google.android.exoplayer.MediaCodecSelector;
 import com.google.android.exoplayer.SampleSource;
 import com.google.android.exoplayer.TrackRenderer;
 import com.google.android.exoplayer.upstream.DataSource;
+import com.android.tv.Features;
 import com.android.tv.tuner.exoplayer.MpegTsPlayer.RendererBuilder;
 import com.android.tv.tuner.exoplayer.MpegTsPlayer.RendererBuilderCallback;
-import com.android.tv.tuner.exoplayer.ac3.Ac3PassthroughTrackRenderer;
+import com.android.tv.tuner.exoplayer.audio.MpegTsDefaultAudioTrackRenderer;
 import com.android.tv.tuner.exoplayer.buffer.BufferManager;
 import com.android.tv.tuner.tvinput.PlaybackBufferListener;
 
@@ -44,7 +46,7 @@ public class MpegTsRendererBuilder implements RendererBuilder {
 
     @Override
     public void buildRenderers(MpegTsPlayer mpegTsPlayer, DataSource dataSource,
-            RendererBuilderCallback callback) {
+            boolean mHasSoftwareAudioDecoder, RendererBuilderCallback callback) {
         // Build the video and audio renderers.
         SampleExtractor extractor = dataSource == null ?
                 new MpegTsSampleExtractor(mBufferManager, mBufferListener) :
@@ -52,10 +54,16 @@ public class MpegTsRendererBuilder implements RendererBuilder {
         SampleSource sampleSource = new MpegTsSampleSource(extractor);
         MpegTsVideoTrackRenderer videoRenderer = new MpegTsVideoTrackRenderer(mContext,
                 sampleSource, mpegTsPlayer.getMainHandler(), mpegTsPlayer);
-        // TODO: Only using Ac3PassthroughTrackRenderer for A/V sync issue. We will use
-        // {@link Ac3TrackRenderer} when we use ExoPlayer's extractor.
-        TrackRenderer audioRenderer = new Ac3PassthroughTrackRenderer(sampleSource,
-                mpegTsPlayer.getMainHandler(), mpegTsPlayer);
+        // TODO: Only using MpegTsDefaultAudioTrackRenderer for A/V sync issue. We will use
+        // {@link MpegTsMediaCodecAudioTrackRenderer} when we use ExoPlayer's extractor.
+        TrackRenderer audioRenderer =
+                new MpegTsDefaultAudioTrackRenderer(
+                        sampleSource,
+                        MediaCodecSelector.DEFAULT,
+                        mpegTsPlayer.getMainHandler(),
+                        mpegTsPlayer,
+                        mHasSoftwareAudioDecoder,
+                        !Features.AC3_SOFTWARE_DECODE.isEnabled(mContext));
         Cea708TextTrackRenderer textRenderer = new Cea708TextTrackRenderer(sampleSource);
 
         TrackRenderer[] renderers = new TrackRenderer[MpegTsPlayer.RENDERER_COUNT];

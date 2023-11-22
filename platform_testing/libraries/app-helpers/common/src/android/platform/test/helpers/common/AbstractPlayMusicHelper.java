@@ -26,7 +26,7 @@ public abstract class AbstractPlayMusicHelper extends AbstractStandardAppHelper 
 
     /**
      * Setup expectations: PlayMusic is open and the navigation bar is visible.
-     *
+     * <br/>
      * This method will open the navigation bar, press "My Library," and navigate to the songs tab.
      * This method blocks until the process is complete.
      */
@@ -34,7 +34,7 @@ public abstract class AbstractPlayMusicHelper extends AbstractStandardAppHelper 
 
     /**
      * Setup expectations: PlayMusic is open and the navigation bar is visible.
-     *
+     * <br/>
      * This method will open the navigation bar, press "Home".
      * This method blocks until the process is complete.
      */
@@ -43,7 +43,7 @@ public abstract class AbstractPlayMusicHelper extends AbstractStandardAppHelper 
 
     /**
      * Setup expectations: PlayMusic is open and in Listen Now.
-     *
+     * <br/>
      * This method will open the first available thumbnail and play the first visible radio.
      * This method blocks until the process is complete.
      */
@@ -60,43 +60,55 @@ public abstract class AbstractPlayMusicHelper extends AbstractStandardAppHelper 
 
     /**
      * Setup expectations: PlayMusic is open and the navigation bar is visible.
-     *
+     * <br/>
      * This method will navigate to the Albums tab, select the album, and then select the song. The
      * method will block until the song is playing.
      */
     public abstract void selectSong(String album, String song);
 
     /**
+     * Setup expectations: PlayMusic is open and the navigation bar is visible.
+     * <br/>
+     * This method will navigate to the Library tab, select the Album tab, and then select the
+     * album. The method will block until the song is playing.
+     */
+    public void selectAlbum(String album) {
+        throw new UnsupportedOperationException(
+                "Cannot select a single album as playback for Google Play Music.");
+    }
+
+
+    /**
      * Setup expectations: PlayMusic is open with a song playing.
-     *
+     * <br/>
      * This method will pause the song and block until the song is paused.
      */
     public abstract void pauseSong();
 
     /**
      * Setup expectations: PlayMusic is open with a song paused.
-     *
+     * <br/>
      * This method will play the song and block until the song is playing.
      */
     public abstract void playSong();
 
     /**
      * Setup expectations: PlayMusic is open with a song playing the controls minimized.
-     *
+     * <br/>
      * This method will press the header and block until the song is expanded.
      */
     public abstract void expandMediaControls();
 
     /**
      * Setup expectations: PlayMusic is open and on the Songs library tab
-     *
+     * <br/>
      * This method will press the "Shuffle All" button and block until the song is playing.
      */
     public abstract void pressShuffleAll();
 
     /**
      * Setup expectations: PlayMusic is open with a song open and expanded.
-     *
+     * <br/>
      * This method will press the repeat button and cycle to the next state. Unfortunately, the
      * limitations of the Accessibility for Play Music means that we cannot tell what state it
      * currently is in.

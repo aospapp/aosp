@@ -621,4 +621,16 @@ public interface ITestDevice extends INativeDevice {
      * on non-secure ones only)
      */
     public void disableKeyguard() throws DeviceNotAvailableException;
+
+    /**
+     * Attempt to dump the heap from the system_server. It is the caller responsibility to clean up
+     * the dumped file.
+     *
+     * @param process the name of the device process to dumpheap on.
+     * @param devicePath the path on the device where to put the dump. This must be a location where
+     *     permissions allow it.
+     * @return the {@link File} containing the report. Null if something failed.
+     * @throws DeviceNotAvailableException
+     */
+    public File dumpHeap(String process, String devicePath) throws DeviceNotAvailableException;
 }

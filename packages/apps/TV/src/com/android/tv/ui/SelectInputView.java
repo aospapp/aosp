@@ -18,7 +18,6 @@ package com.android.tv.ui;
 
 import android.content.Context;
 import android.content.res.Resources;
-import android.hardware.hdmi.HdmiDeviceInfo;
 import android.media.tv.TvInputInfo;
 import android.media.tv.TvInputManager;
 import android.media.tv.TvInputManager.TvInputCallback;
@@ -37,14 +36,13 @@ import android.widget.TextView;
 import com.android.tv.ApplicationSingletons;
 import com.android.tv.R;
 import com.android.tv.TvApplication;
-import com.android.tv.analytics.DurationTimer;
+import com.android.tv.util.DurationTimer;
 import com.android.tv.analytics.Tracker;
 import com.android.tv.data.Channel;
 import com.android.tv.util.TvInputManagerHelper;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,7 +56,7 @@ public class SelectInputView extends VerticalGridView implements
 
     private final TvInputManagerHelper mTvInputManagerHelper;
     private final List<TvInputInfo> mInputList = new ArrayList<>();
-    private final InputsComparator mComparator = new InputsComparator();
+    private final TvInputManagerHelper.HardwareInputComparator mComparator;
     private final Tracker mTracker;
     private final DurationTimer mViewDurationTimer = new DurationTimer();
     private final TvInputCallback mTvInputCallback = new TvInputCallback() {
@@ -149,6 +147,8 @@ public class SelectInputView extends VerticalGridView implements
         ApplicationSingletons appSingletons = TvApplication.getSingletons(context);
         mTracker = appSingletons.getTracker();
         mTvInputManagerHelper = appSingletons.getTvInputManagerHelper();
+        mComparator =
+                new TvInputManagerHelper.HardwareInputComparator(context, mTvInputManagerHelper);
 
         Resources resources = context.getResources();
         mInputItemHeight = resources.getDimensionPixelSize(R.dimen.input_banner_item_height);
@@ -381,72 +381,6 @@ public class SelectInputView extends VerticalGridView implements
                 super(v);
                 inputLabelView = (TextView) v.findViewById(R.id.input_label);
                 secondaryInputLabelView = (TextView) v.findViewById(R.id.secondary_input_label);
-            }
-        }
-    }
-
-    private class InputsComparator implements Comparator<TvInputInfo> {
-        @Override
-        public int compare(TvInputInfo lhs, TvInputInfo rhs) {
-            if (lhs == null) {
-                return (rhs == null) ? 0 : 1;
-            }
-            if (rhs == null) {
-                return -1;
-            }
-
-            boolean enabledL = isInputEnabled(lhs);
-            boolean enabledR = isInputEnabled(rhs);
-            if (enabledL != enabledR) {
-                return enabledL ? -1 : 1;
-            }
-
-            int priorityL = getPriority(lhs);
-            int priorityR = getPriority(rhs);
-            if (priorityL != priorityR) {
-                return priorityR - priorityL;
-            }
-
-            String customLabelL = (String) lhs.loadCustomLabel(getContext());
-            String customLabelR = (String) rhs.loadCustomLabel(getContext());
-            if (!TextUtils.equals(customLabelL, customLabelR)) {
-                customLabelL = customLabelL == null ? "" : customLabelL;
-                customLabelR = customLabelR == null ? "" : customLabelR;
-                return customLabelL.compareToIgnoreCase(customLabelR);
-            }
-
-            String labelL = (String) lhs.loadLabel(getContext());
-            String labelR = (String) rhs.loadLabel(getContext());
-            labelL = labelL == null ? "" : labelL;
-            labelR = labelR == null ? "" : labelR;
-            return labelL.compareToIgnoreCase(labelR);
-        }
-
-        private int getPriority(TvInputInfo info) {
-            switch (info.getType()) {
-                case TvInputInfo.TYPE_TUNER:
-                    return 9;
-                case TvInputInfo.TYPE_HDMI:
-                    HdmiDeviceInfo hdmiInfo = info.getHdmiDeviceInfo();
-                    if (hdmiInfo != null && hdmiInfo.isCecDevice()) {
-                        return 8;
-                    }
-                    return 7;
-                case TvInputInfo.TYPE_DVI:
-                    return 6;
-                case TvInputInfo.TYPE_COMPONENT:
-                    return 5;
-                case TvInputInfo.TYPE_SVIDEO:
-                    return 4;
-                case TvInputInfo.TYPE_COMPOSITE:
-                    return 3;
-                case TvInputInfo.TYPE_DISPLAY_PORT:
-                    return 2;
-                case TvInputInfo.TYPE_VGA:
-                    return 1;
-                case TvInputInfo.TYPE_SCART:
-                default:
-                    return 0;
             }
         }
     }

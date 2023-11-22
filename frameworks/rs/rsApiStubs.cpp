@@ -19,7 +19,8 @@
 #include "rsFallbackAdaptation.h"
 #include "cpp/rsDispatch.h"
 
-#include <android_runtime/AndroidRuntime.h>
+#include <log/log.h>
+#include <dlfcn.h>
 
 #include <mutex>
 #include <map>
@@ -110,40 +111,31 @@ extern "C" void rsDeviceSetConfig(RsDevice dev, RsDeviceParam p, int32_t value)
 extern "C" int gDebuggerPresent = 0;
 
 namespace{
-// Use reflection to query the default cache dir.
-std::string queryCacheDir() {
-    std::string cacheDir;
-    // First check if we have JavaVM running in this process.
-    if (android::AndroidRuntime::getJavaVM()) {
-        JNIEnv* env = android::AndroidRuntime::getJNIEnv();
-        if (env) {
-            jclass cacheDirClass = env->FindClass("android/renderscript/RenderScriptCacheDir");
-            jfieldID cacheDirID = env->GetStaticFieldID(cacheDirClass, "mCacheDir", "Ljava/io/File;");
-            jobject cache_dir = env->GetStaticObjectField(cacheDirClass, cacheDirID);
-
-            if (cache_dir) {
-                jclass fileClass = env->FindClass("java/io/File");
-                jmethodID getPath = env->GetMethodID(fileClass, "getPath", "()Ljava/lang/String;");
-                jstring path_string = (jstring)env->CallObjectMethod(cache_dir, getPath);
-                const char *path_chars = env->GetStringUTFChars(path_string, NULL);
-
-                ALOGD("Successfully queried cache dir: %s", path_chars);
-                cacheDir = std::string(path_chars);
-                env->ReleaseStringUTFChars(path_string, path_chars);
-            } else {
-                ALOGD("Cache dir not initialized");
-            }
-        } else {
-            ALOGD("Failed to query the default cache dir.");
-        }
-    } else {
-        ALOGD("Non JavaVM found in the process.");
+// Check if the calling process is a vendor process or not.
+static bool isVendorProcess() {
+    char path[PATH_MAX];
+    ssize_t path_len = readlink("/proc/self/exe", path, sizeof(path));
+    if (path_len == -1) {
+        return false;
     }
-
-    return cacheDir;
+    // Vendor process will return "/vendor/*"
+    static const char vendor_path[] = "/vendor/";
+    return !strncmp(path, vendor_path, sizeof(vendor_path)-1);
 }
-}
 
+typedef const char* (*QueryCacheDirFnPtr)();
+// Dynamically load the queryCacheDir function pointer, so that for vendor
+// processes, libandroid_runtime.so will not be loaded.
+static QueryCacheDirFnPtr loadQueryCacheFnPtr() {
+    QueryCacheDirFnPtr queryCacheDir = nullptr;
+    void* handle = dlopen("libRSCacheDir.so", RTLD_LAZY | RTLD_LOCAL);
+    if (!handle ||
+        !(queryCacheDir = (QueryCacheDirFnPtr)dlsym(handle, "rsQueryCacheDir"))) {
+        ALOGW("Not able to query cache dir: %s", dlerror());
+    }
+    return queryCacheDir;
+}
+} // anonymous namespace
 
 // Context
 extern "C" RsContext rsContextCreate(RsDevice vdev, uint32_t version, uint32_t sdkVersion,
@@ -167,15 +159,18 @@ extern "C" RsContext rsContextCreate(RsDevice vdev, uint32_t version, uint32_t s
         context = instance.GetEntryFuncs()->ContextCreate(vdev, version, sdkVersion, ct, flags);
         ctxWrapper = new RsContextWrapper{context, instance.GetEntryFuncs()};
 
-        static std::string defaultCacheDir = queryCacheDir();
-        if (defaultCacheDir.size() > 0) {
-            ALOGD("Setting cache dir: %s", defaultCacheDir.c_str());
-            rsContextSetCacheDir(ctxWrapper,
+        // Use function local static variables to ensure thread safety.
+        static QueryCacheDirFnPtr queryCacheDir = isVendorProcess() ? nullptr : loadQueryCacheFnPtr();
+        if (queryCacheDir) {
+            static std::string defaultCacheDir = std::string(queryCacheDir());
+            if (defaultCacheDir.size() > 0) {
+                ALOGD("Setting cache dir: %s", defaultCacheDir.c_str());
+                rsContextSetCacheDir(ctxWrapper,
                                  defaultCacheDir.c_str(),
                                  defaultCacheDir.size());
+            }
         }
     }
-
 
     // Wait for debugger to attach if RS_CONTEXT_WAIT_FOR_ATTACH flag set.
     if (flags & RS_CONTEXT_WAIT_FOR_ATTACH) {

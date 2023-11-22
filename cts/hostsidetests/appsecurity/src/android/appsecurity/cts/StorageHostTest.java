@@ -27,6 +27,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.concurrent.TimeUnit;
+
 /**
  * Tests that exercise various storage APIs.
  */
@@ -234,6 +236,7 @@ public class StorageHostTest extends CompatibilityHostTestBase {
 
     public void runDeviceTests(String packageName, String testClassName, String testMethodName,
             int userId) throws DeviceNotAvailableException {
-        Utils.runDeviceTests(getDevice(), packageName, testClassName, testMethodName, userId);
+        Utils.runDeviceTests(getDevice(), packageName, testClassName, testMethodName, userId, null,
+                20L, TimeUnit.MINUTES);
     }
 }

@@ -97,12 +97,13 @@ public class ChannelsPosterPrefetcher {
 
         // This executes on the main thread, but since the item list is expected to be about 5 items
         // and ImageLoader spawns an async task so this is fast enough. 1 ms in local testing.
-        List<Channel> channelList = mChannelsAdapter.getItemList();
-        if (channelList != null) {
-            for (Channel channel : channelList) {
+        List<ChannelsRowItem> items = mChannelsAdapter.getItemList();
+        if (items != null) {
+            for (ChannelsRowItem item : items) {
                 if (isCanceled) {
                     return;
                 }
+                Channel channel = item.getChannel();
                 if (!Channel.isValid(channel)) {
                     continue;
                 }
@@ -116,7 +117,7 @@ public class ChannelsPosterPrefetcher {
         }
         if (DEBUG) {
             Log.d(TAG, "doPrefetchImages() finished. ImageLoader may still have async tasks for "
-                            + "channels " + channelList);
+                            + "channels " + items);
         }
     }
 

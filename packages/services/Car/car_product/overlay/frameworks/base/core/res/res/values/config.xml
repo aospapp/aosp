@@ -48,7 +48,25 @@
     <integer name="config_jobSchedulerIdleWindowSlop">0</integer>
 
     <bool name="config_supportsMultiWindow">false</bool>
+
     <!-- Automotive Bluetooth pairing option -->
     <bool name="enable_pbap_pce_profile">true</bool>
 
+    <!-- Component name of a custom ResolverActivity (Intent resolver) to be used instead of
+         the default framework version. -->
+    <string name="config_customResolverActivity" translatable="false">com.android.support.car.lenspicker/.LensResolverActivity</string>
+
+    <!-- Flag indicating that the entire notification header can be clicked to expand the
+         notification. If false, then the expand icon has to be clicked in order for the expand
+         to occur. -->
+    <bool name="config_notificationHeaderClickableForExpand">true</bool>
+
+    <!-- Night mode should be enabled. -->
+    <bool name="config_enableNightMode">true</bool>
+
+    <!-- The action buttons should always take the default color. -->
+    <bool name="config_tintNotificationActionButtons">false</bool>
+
+    <!-- Home screen(Launcher) app presence -->
+    <bool name="config_noHomeScreen">true</bool>
 </resources>

@@ -18,27 +18,40 @@ bootstrap_go_package {
     deps: [
         "soong-ui-logger",
         "soong-ui-tracer",
+        "soong-shared",
     ],
     srcs: [
         "build.go",
+        "cleanbuild.go",
         "config.go",
         "context.go",
         "environment.go",
+        "exec.go",
+        "java.go",
         "kati.go",
         "make.go",
         "ninja.go",
+        "proc_sync.go",
         "signal.go",
         "soong.go",
         "util.go",
     ],
     testSrcs: [
+        "config_test.go",
         "environment_test.go",
         "util_test.go",
+        "proc_sync_test.go",
     ],
     darwin: {
-        srcs: ["util_darwin.go"],
+        srcs: [
+            "sandbox_darwin.go",
+            "util_darwin.go"
+        ],
     },
     linux: {
-        srcs: ["util_linux.go"],
+        srcs: [
+            "sandbox_linux.go",
+            "util_linux.go"
+        ],
     },
 }

@@ -16,6 +16,8 @@
 
 #include "dalvik_system_VMStack.h"
 
+#include "nativehelper/jni_macros.h"
+
 #include "art_method-inl.h"
 #include "gc/task_processor.h"
 #include "jni_internal.h"
@@ -23,6 +25,7 @@
 #include "mirror/class-inl.h"
 #include "mirror/class_loader.h"
 #include "mirror/object-inl.h"
+#include "native_util.h"
 #include "scoped_fast_native_object_access-inl.h"
 #include "scoped_thread_state_change-inl.h"
 #include "thread_list.h"
@@ -48,7 +51,10 @@ static jobject GetThreadStack(const ScopedFastNativeObjectAccess& soa, jobject p
     ScopedThreadSuspension sts(soa.Self(), kNative);
     ThreadList* thread_list = Runtime::Current()->GetThreadList();
     bool timed_out;
-    Thread* thread = thread_list->SuspendThreadByPeer(peer, true, false, &timed_out);
+    Thread* thread = thread_list->SuspendThreadByPeer(peer,
+                                                      /* request_suspension */ true,
+                                                      SuspendReason::kInternal,
+                                                      &timed_out);
     if (thread != nullptr) {
       // Must be runnable to create returned array.
       {
@@ -56,7 +62,8 @@ static jobject GetThreadStack(const ScopedFastNativeObjectAccess& soa, jobject p
         trace = thread->CreateInternalStackTrace<false>(soa);
       }
       // Restart suspended thread.
-      thread_list->Resume(thread, false);
+      bool resumed = thread_list->Resume(thread, SuspendReason::kInternal);
+      DCHECK(resumed);
     } else if (timed_out) {
       LOG(ERROR) << "Trying to get thread's stack failed as the thread failed to suspend within a "
           "generous timeout.";

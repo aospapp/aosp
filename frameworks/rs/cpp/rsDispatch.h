@@ -18,7 +18,6 @@
 #define ANDROID_RSDISPATCH_H
 
 #include "rsInternalDefines.h"
-#include "jni.h"
 
 typedef void (*SetNativeLibDirFnPtr)(RsContext con, const char *nativeLibDir, size_t length);
 typedef const void* (*AllocationGetTypeFnPtr)(RsContext con, RsAllocation va);
@@ -263,6 +262,9 @@ struct dispatchTable {
 
 bool loadSymbols(void* handle, dispatchTable& dispatchTab, int device_api = 0);
 
+#ifdef RS_COMPATIBILITY_LIB
+#include "jni.h"
+
 // USAGE_IO for RS Support lib
 typedef void (*sAllocationSetSurfaceFnPtr) (JNIEnv *, jobject, RsContext, RsAllocation, RsNativeWindow, dispatchTable);
 struct ioSuppDT {
@@ -271,4 +273,6 @@ struct ioSuppDT {
 };
 
 bool loadIOSuppSyms(void* handleIO, ioSuppDT& ioDispatch);
+#endif // RS_COMPATIBILITY_LIB
+
 #endif

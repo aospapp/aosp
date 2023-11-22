@@ -347,18 +347,19 @@ TEST_F(LayoutTest, doLayoutTest_negativeWordSpacing) {
     }
 }
 
+// Test that a forced-RTL layout correctly mirros a forced-LTR layout.
 TEST_F(LayoutTest, doLayoutTest_rtlTest) {
     MinikinPaint paint;
 
     std::vector<uint16_t> text = parseUnicodeString("'a' 'b' U+3042 U+3043 'c' 'd'");
 
     Layout ltrLayout;
-    ltrLayout.doLayout(text.data(), 0, text.size(), text.size(), kBidi_LTR, FontStyle(), paint,
-            mCollection);
+    ltrLayout.doLayout(text.data(), 0, text.size(), text.size(), kBidi_Force_LTR, FontStyle(),
+            paint, mCollection);
 
     Layout rtlLayout;
-    rtlLayout.doLayout(text.data(), 0, text.size(), text.size(), kBidi_RTL, FontStyle(), paint,
-            mCollection);
+    rtlLayout.doLayout(text.data(), 0, text.size(), text.size(), kBidi_Force_RTL, FontStyle(),
+            paint, mCollection);
 
     ASSERT_EQ(ltrLayout.nGlyphs(), rtlLayout.nGlyphs());
     ASSERT_EQ(6u, ltrLayout.nGlyphs());
@@ -367,6 +368,38 @@ TEST_F(LayoutTest, doLayoutTest_rtlTest) {
     for (size_t i = 0; i < nGlyphs; ++i) {
         EXPECT_EQ(ltrLayout.getFont(i), rtlLayout.getFont(nGlyphs - i - 1));
         EXPECT_EQ(ltrLayout.getGlyphId(i), rtlLayout.getGlyphId(nGlyphs - i - 1));
+    }
+}
+
+// Test that single-run RTL layouts of LTR-only text is laid out identical to an LTR layout.
+TEST_F(LayoutTest, singleRunBidiTest) {
+    MinikinPaint paint;
+
+    std::vector<uint16_t> text = parseUnicodeString("'1' '2' '3'");
+
+    Layout ltrLayout;
+    ltrLayout.doLayout(text.data(), 0, text.size(), text.size(), kBidi_LTR, FontStyle(),
+            paint, mCollection);
+
+    Layout rtlLayout;
+    rtlLayout.doLayout(text.data(), 0, text.size(), text.size(), kBidi_RTL, FontStyle(),
+            paint, mCollection);
+
+    Layout defaultRtlLayout;
+    defaultRtlLayout.doLayout(text.data(), 0, text.size(), text.size(), kBidi_Default_RTL,
+            FontStyle(), paint, mCollection);
+
+    const size_t nGlyphs = ltrLayout.nGlyphs();
+    ASSERT_EQ(3u, nGlyphs);
+
+    ASSERT_EQ(nGlyphs, rtlLayout.nGlyphs());
+    ASSERT_EQ(nGlyphs, defaultRtlLayout.nGlyphs());
+
+    for (size_t i = 0; i < nGlyphs; ++i) {
+        EXPECT_EQ(ltrLayout.getFont(i), rtlLayout.getFont(i));
+        EXPECT_EQ(ltrLayout.getGlyphId(i), rtlLayout.getGlyphId(i));
+        EXPECT_EQ(ltrLayout.getFont(i), defaultRtlLayout.getFont(i));
+        EXPECT_EQ(ltrLayout.getGlyphId(i), defaultRtlLayout.getGlyphId(i));
     }
 }
 

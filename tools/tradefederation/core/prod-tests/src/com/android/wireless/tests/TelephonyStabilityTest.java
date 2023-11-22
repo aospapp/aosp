@@ -155,12 +155,9 @@ public class TelephonyStabilityTest implements IRemoteTest, IDeviceTest {
 
             if (shouldTakeReport) {
                 lastBugreportIteration = currentIteration - 1;
-                InputStreamSource bugreport = mTestDevice.getBugreport();
-                try {
+                try (InputStreamSource bugreport = mTestDevice.getBugreport()) {
                     listener.testLog(String.format("bugreport_%04d", lastBugreportIteration),
                             LogDataType.BUGREPORT, bugreport);
-                } finally {
-                    bugreport.cancel();
                 }
             }
 

@@ -21,6 +21,8 @@ import socket
 import subprocess
 import time
 
+from vts.runners.host import const
+
 
 class AdbError(Exception):
     """Raised when there is an error in adb operations."""
@@ -121,7 +123,7 @@ class AdbProxy():
             self.adb_str = "adb"
         self.log = log
 
-    def _exec_cmd(self, cmd):
+    def _exec_cmd(self, cmd, no_except=False):
         """Executes adb commands in a new shell.
 
         This is specific to executing adb binary because stderr is not a good
@@ -129,12 +131,16 @@ class AdbProxy():
 
         Args:
             cmd: string, the adb command to execute.
+            no_except: bool, controls whether exception can be thrown.
 
         Returns:
-            The output of the adb command run if the exit code is 0.
+            The output of the adb command run if the exit code is 0 and if
+            exceptions are allowed. Otherwise, returns a dictionary containing
+            stdout, stderr, and exit code.
 
         Raises:
-            AdbError if the adb command exit code is not 0.
+            AdbError if the adb command exit code is not 0 and exceptions are
+            allowed.
         """
         proc = subprocess.Popen(cmd,
                                 stdout=subprocess.PIPE,
@@ -144,13 +150,17 @@ class AdbProxy():
         ret = proc.returncode
         logging.debug("cmd: %s, stdout: %s, stderr: %s, ret: %s", cmd, out,
                       err, ret)
-        if ret == 0:
-            return out
+        if no_except:
+            return {
+                const.STDOUT: out,
+                const.STDERR: err,
+                const.EXIT_CODE: ret,
+            }
         else:
-            raise AdbError(cmd=cmd, stdout=out, stderr=err, ret_code=ret)
-
-    def _exec_adb_cmd(self, name, arg_str):
-        return self._exec_cmd(' '.join((self.adb_str, name, arg_str)))
+            if ret == 0:
+                return out
+            else:
+                raise AdbError(cmd=cmd, stdout=out, stderr=err, ret_code=ret)
 
     def tcp_forward(self, host_port, device_port):
         """Starts TCP forwarding.
@@ -172,9 +182,10 @@ class AdbProxy():
 
     def __getattr__(self, name):
 
-        def adb_call(*args):
+        def adb_call(*args, **kwargs):
             clean_name = name.replace('_', '-')
             arg_str = ' '.join(str(elem) for elem in args)
-            return self._exec_adb_cmd(clean_name, arg_str)
+            return self._exec_cmd(' '.join((self.adb_str, clean_name, arg_str)),
+                                  kwargs)
 
         return adb_call

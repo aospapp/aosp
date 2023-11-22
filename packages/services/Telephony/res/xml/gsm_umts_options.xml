@@ -17,21 +17,31 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
         xmlns:settings="http://schemas.android.com/apk/res/com.android.phone">
 
-    <PreferenceScreen
-        android:key="button_apn_key"
-        android:title="@string/apn_settings"
+    <com.android.phone.NetworkOperators
+        android:key="network_operators_category_key"
+        android:title="@string/network_operator_category"
         android:persistent="false">
 
-        <!-- The launching Intent will be defined thru code as we need to pass some Extra -->
+        <SwitchPreference
+            android:key="button_auto_select_key"
+            android:title="@string/select_automatically"
+            android:persistent="false"/>
 
-    </PreferenceScreen>
+        <com.android.phone.NetworkSelectListPreference
+            android:key="button_network_select_key"
+            android:title="@string/network_select_title"
+            android:persistent="false"/>
+    </com.android.phone.NetworkOperators>
 
-    <PreferenceScreen
-        android:key="button_carrier_sel_key"
-        android:title="@string/networks"
-        android:summary="@string/sum_carrier_select"
-        android:persistent="false">
-    </PreferenceScreen>
+    <!--We want separate APN setting from reset of settings because-->
+    <!--we want user to change it with caution.-->
+    <PreferenceCategory
+        android:key="category_gsm_apn_key">
+        <Preference
+            android:key="button_gsm_apn_key"
+            android:title="@string/apn_settings"
+            android:persistent="false" />
+    </PreferenceCategory>
 
     <PreferenceScreen
         android:key="carrier_settings_key"

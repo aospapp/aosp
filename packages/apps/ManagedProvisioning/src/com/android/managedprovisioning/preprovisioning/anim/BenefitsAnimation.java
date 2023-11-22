@@ -26,6 +26,8 @@ import android.graphics.drawable.Animatable2;
 import android.graphics.drawable.AnimatedVectorDrawable;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.NonNull;
+import android.view.View;
+import android.view.ViewGroup.LayoutParams;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -56,6 +58,7 @@ public class BenefitsAnimation {
     private static final int ID_ANIMATED_DOTS = R.id.animated_dots;
 
     private static final int SLIDE_COUNT = 3;
+    private static final int ANIMATION_ORIGINAL_WIDTH_PX = 1080;
 
     private final AnimatedVectorDrawable mTopAnimation;
     private final AnimatedVectorDrawable mDotsAnimation;
@@ -66,8 +69,10 @@ public class BenefitsAnimation {
 
     /**
      * @param captions slide captions for the animation
+     * @param contentDescription for accessibility
      */
-    public BenefitsAnimation(Activity activity, @NonNull List<Integer> captions) {
+    public BenefitsAnimation(@NonNull Activity activity, @NonNull List<Integer> captions,
+            int contentDescription) {
         if (captions.size() != SLIDE_COUNT) {
             throw new IllegalArgumentException(
                     "Wrong number of slide captions. Expected: " + SLIDE_COUNT);
@@ -75,11 +80,15 @@ public class BenefitsAnimation {
         mActivity = checkNotNull(activity);
         mTextAnimation = checkNotNull(assembleTextAnimation());
         applySlideCaptions(captions);
+        applyContentDescription(contentDescription);
         mDotsAnimation = checkNotNull(extractAnimationFromImageView(ID_ANIMATED_DOTS));
         mTopAnimation = checkNotNull(extractAnimationFromImageView(ID_ANIMATED_GRAPHIC));
 
         // chain all animations together
         chainAnimations();
+
+        // once the screen is ready, adjust size
+        mActivity.findViewById(android.R.id.content).post(this::adjustToScreenSize);
     }
 
     /** Starts playing the animation in a loop. */
@@ -92,6 +101,51 @@ public class BenefitsAnimation {
     public void stop() {
         mStopped = true;
         mTopAnimation.stop();
+    }
+
+    /**
+     * Adjust animation and text to match actual screen size
+     */
+    private void adjustToScreenSize() {
+        if (mActivity.isDestroyed()) {
+            return;
+        }
+
+        ImageView animatedInfo = mActivity.findViewById(R.id.animated_info);
+        int widthPx = animatedInfo.getWidth();
+        float scaleRatio = (float) widthPx / ANIMATION_ORIGINAL_WIDTH_PX;
+
+        // adjust animation height; width happens automatically
+        LayoutParams layoutParams = animatedInfo.getLayoutParams();
+        int originalHeight = animatedInfo.getHeight();
+        int adjustedHeight = (int) (originalHeight * scaleRatio);
+        layoutParams.height = adjustedHeight;
+        animatedInfo.setLayoutParams(layoutParams);
+
+        // adjust captions size only if downscaling
+        if (scaleRatio < 1) {
+            for (int textViewId : SLIDE_CAPTION_TEXT_VIEWS) {
+                View view = mActivity.findViewById(textViewId);
+                view.setScaleX(scaleRatio);
+                view.setScaleY(scaleRatio);
+            }
+        }
+
+        // if the content is bigger than the screen, try to shrink just the animation
+        int offset = adjustedHeight - originalHeight;
+        int contentHeight = mActivity.findViewById(R.id.intro_po_content).getHeight() + offset;
+        int viewportHeight = mActivity.findViewById(R.id.suw_layout_content).getHeight();
+        if (contentHeight > viewportHeight) {
+            int targetHeight = layoutParams.height - (contentHeight - viewportHeight);
+            int minHeight = mActivity.getResources().getDimensionPixelSize(
+                    R.dimen.intro_animation_min_height);
+
+            // if the animation becomes too small, leave it as is and the scrollbar will show
+            if (targetHeight >= minHeight) {
+                layoutParams.height = targetHeight;
+                animatedInfo.setLayoutParams(layoutParams);
+            }
+        }
     }
 
     /**
@@ -157,9 +211,14 @@ public class BenefitsAnimation {
         }
     }
 
+    private void applyContentDescription(int contentDescription) {
+        mActivity.findViewById(R.id.animation_top_level_frame).setContentDescription(
+                mActivity.getString(contentDescription));
+    }
+
     /** Extracts an {@link AnimatedVectorDrawable} from a containing {@link ImageView}. */
     private AnimatedVectorDrawable extractAnimationFromImageView(int id) {
-        ImageView imageView = (ImageView) mActivity.findViewById(id);
+        ImageView imageView = mActivity.findViewById(id);
         return (AnimatedVectorDrawable) imageView.getDrawable();
     }
 }

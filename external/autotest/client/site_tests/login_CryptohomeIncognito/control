@@ -9,8 +9,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "login"
 TEST_TYPE = "client"
-# TODO(crbug.com/631640): Revert to 2 retries.
-JOB_RETRIES = 5
+JOB_RETRIES = 2
 
 DOC = """
 This test will fail if guest cryptohome is not mounted when logged in as guest,

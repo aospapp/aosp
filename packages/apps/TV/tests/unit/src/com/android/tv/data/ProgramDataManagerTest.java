@@ -16,14 +16,20 @@
 
 package com.android.tv.data;
 
+import static android.support.test.InstrumentationRegistry.getTargetContext;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import android.content.Context;
 import android.database.ContentObserver;
 import android.database.Cursor;
 import android.media.tv.TvContract;
 import android.net.Uri;
 import android.os.HandlerThread;
+import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.SmallTest;
-import android.test.AndroidTestCase;
 import android.test.mock.MockContentProvider;
 import android.test.mock.MockContentResolver;
 import android.test.mock.MockCursor;
@@ -35,6 +41,10 @@ import com.android.tv.testing.FakeClock;
 import com.android.tv.testing.ProgramInfo;
 import com.android.tv.util.Utils;
 
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -45,7 +55,7 @@ import java.util.concurrent.TimeUnit;
  * Test for {@link com.android.tv.data.ProgramDataManager}
  */
 @SmallTest
-public class ProgramDataManagerTest extends AndroidTestCase {
+public class ProgramDataManagerTest {
     private static final boolean DEBUG = false;
     private static final String TAG = "ProgramDataManagerTest";
 
@@ -66,31 +76,28 @@ public class ProgramDataManagerTest extends AndroidTestCase {
     private FakeContentResolver mContentResolver;
     private FakeContentProvider mContentProvider;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
+    @Before
+    public void setUp() {
         mClock = FakeClock.createWithCurrentTime();
         mListener = new TestProgramDataManagerListener();
-        mContentProvider = new FakeContentProvider(getContext());
+        mContentProvider = new FakeContentProvider(getTargetContext());
         mContentResolver = new FakeContentResolver();
         mContentResolver.addProvider(TvContract.AUTHORITY, mContentProvider);
         mHandlerThread = new HandlerThread(TAG);
         mHandlerThread.start();
         mProgramDataManager = new ProgramDataManager(
-                mContentResolver, mClock, mHandlerThread.getLooper(), null);
+                mContentResolver, mClock, mHandlerThread.getLooper());
         mProgramDataManager.setPrefetchEnabled(true);
         mProgramDataManager.addListener(mListener);
     }
 
-    @Override
-    protected void tearDown() throws Exception {
-        super.tearDown();
+    @After
+    public void tearDown() {
         mHandlerThread.quitSafely();
         mProgramDataManager.stop();
     }
 
-    private void startAndWaitForComplete() throws Exception {
+    private void startAndWaitForComplete() throws InterruptedException {
         mProgramDataManager.start();
         assertTrue(mListener.programUpdatedLatch.await(WAIT_TIME_OUT_MS, TimeUnit.MILLISECONDS));
     }
@@ -98,12 +105,13 @@ public class ProgramDataManagerTest extends AndroidTestCase {
     /**
      * Test for {@link ProgramInfo#getIndex} and {@link ProgramInfo#getStartTimeMs}.
      */
+    @Test
     public void testProgramUtils() {
         ProgramInfo stub = ProgramInfo.create();
         for (long channelId = 1; channelId < Constants.UNIT_TEST_CHANNEL_COUNT; channelId++) {
             int index = stub.getIndex(mClock.currentTimeMillis(), channelId);
             long startTimeMs = stub.getStartTimeMs(index, channelId);
-            ProgramInfo programAt = stub.build(getContext(), index);
+            ProgramInfo programAt = stub.build(InstrumentationRegistry.getContext(), index);
             assertTrue(startTimeMs <= mClock.currentTimeMillis());
             assertTrue(mClock.currentTimeMillis() < startTimeMs + programAt.durationMs);
         }
@@ -118,7 +126,8 @@ public class ProgramDataManagerTest extends AndroidTestCase {
      * {@link ProgramDataManager#setPrefetchTimeRange(long)}.
      * </p>
      */
-    public void testGetPrograms() throws Exception {
+    @Test
+    public void testGetPrograms() throws InterruptedException {
         // Initial setup to test {@link ProgramDataManager#setPrefetchTimeRange(long)}.
         long preventSnapDelayMs = ProgramDataManager.PROGRAM_GUIDE_SNAP_TIME_MS * 2;
         long prefetchTimeRangeStartMs = System.currentTimeMillis() + preventSnapDelayMs;
@@ -140,7 +149,7 @@ public class ProgramDataManagerTest extends AndroidTestCase {
             ProgramInfo stub = ProgramInfo.create();
             int index = stub.getIndex(mClock.currentTimeMillis(), channelId);
             for (Program program : programs) {
-                ProgramInfo programInfoAt = stub.build(getContext(), index);
+                ProgramInfo programInfoAt = stub.build(InstrumentationRegistry.getContext(), index);
                 long startTimeMs = stub.getStartTimeMs(index, channelId);
                 assertProgramEquals(startTimeMs, programInfoAt, program);
                 index++;
@@ -167,14 +176,15 @@ public class ProgramDataManagerTest extends AndroidTestCase {
      * {@link ProgramDataManager#removeOnCurrentProgramUpdatedListener}.
      * </p>
      */
-    public void testCurrentProgramListener() throws Exception {
+    @Test
+    public void testCurrentProgramListener() throws InterruptedException {
         final long testChannelId = 1;
         ProgramInfo stub = ProgramInfo.create();
         int index = stub.getIndex(mClock.currentTimeMillis(), testChannelId);
         // Set current time to few seconds before the current program ends,
         // so we can see if callback is called as expected.
         long nextProgramStartTimeMs = stub.getStartTimeMs(index + 1, testChannelId);
-        ProgramInfo nextProgramInfo = stub.build(getContext(), index + 1);
+        ProgramInfo nextProgramInfo = stub.build(InstrumentationRegistry.getContext(), index + 1);
         mClock.setCurrentTimeMillis(nextProgramStartTimeMs - (WAIT_TIME_OUT_MS / 2));
 
         startAndWaitForComplete();
@@ -196,7 +206,8 @@ public class ProgramDataManagerTest extends AndroidTestCase {
     /**
      * Test if program data is refreshed after the program insertion.
      */
-    public void testContentProviderUpdate() throws Exception {
+    @Test
+    public void testContentProviderUpdate() throws InterruptedException {
         final long testChannelId = 1;
         startAndWaitForComplete();
         // Force program data manager to update program data whenever it's changes.
@@ -217,7 +228,8 @@ public class ProgramDataManagerTest extends AndroidTestCase {
     /**
      * Test for {@link ProgramDataManager#setPauseProgramUpdate(boolean)}.
      */
-    public void testSetPauseProgramUpdate() throws Exception {
+    @Test
+    public void testSetPauseProgramUpdate() throws InterruptedException {
         final long testChannelId = 1;
         startAndWaitForComplete();
         // Force program data manager to update program data whenever it's changes.
@@ -290,7 +302,7 @@ public class ProgramDataManagerTest extends AndroidTestCase {
                 int index = stub.getIndex(startTimeMs, i);
                 long programStartTimeMs = stub.getStartTimeMs(index, i);
                 while (programStartTimeMs < endTimeMs) {
-                    ProgramInfo programAt = stub.build(getContext(), index);
+                    ProgramInfo programAt = stub.build(InstrumentationRegistry.getContext(), index);
                     programInfoList.add(
                             new ProgramInfoWrapper(index, programStartTimeMs, programAt));
                     index++;
@@ -340,7 +352,8 @@ public class ProgramDataManagerTest extends AndroidTestCase {
             ProgramInfo stub = ProgramInfo.create();
             ProgramInfoWrapper last = programList.get(programList.size() - 1);
             while (last.startTimeMs < endTimeMs) {
-                ProgramInfo nextProgramInfo = stub.build(getContext(), last.index + 1);
+                ProgramInfo nextProgramInfo = stub.build(InstrumentationRegistry.getContext(),
+                        last.index + 1);
                 ProgramInfoWrapper next = new ProgramInfoWrapper(last.index + 1,
                         last.startTimeMs + last.programInfo.durationMs, nextProgramInfo);
                 programList.add(next);

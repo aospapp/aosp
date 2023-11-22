@@ -16,8 +16,10 @@
 
 import time
 import unittest
+import enum
 
 from acts import utils
+from acts.controllers.adb import AdbError
 
 
 class ActsUtilsTest(unittest.TestCase):
@@ -36,6 +38,97 @@ class ActsUtilsTest(unittest.TestCase):
         with self.assertRaisesRegexp(utils.ActsUtilsError,
                                      "Process .* has terminated"):
             utils.stop_standing_subprocess(p)
+
+    def test_bypass_setup_wizard_no_complications(self):
+        ad = MockAd()
+        ad.adb.return_state = BypassSetupWizardReturn.NO_COMPLICATIONS
+        self.assertTrue(utils.bypass_setup_wizard(ad, 0))
+        self.assertFalse(ad.adb.root_adb_called)
+
+    def test_bypass_setup_wizard_unrecognized_error(self):
+        ad = MockAd()
+        ad.adb.return_state = BypassSetupWizardReturn.UNRECOGNIZED_ERR
+        with self.assertRaises(AdbError):
+            utils.bypass_setup_wizard(ad, 0)
+        self.assertFalse(ad.adb.root_adb_called)
+
+    def test_bypass_setup_wizard_need_root_access(self):
+        ad = MockAd()
+        ad.adb.return_state = BypassSetupWizardReturn.ROOT_ADB_NO_COMP
+        self.assertTrue(utils.bypass_setup_wizard(ad, 0))
+        self.assertTrue(ad.adb.root_adb_called)
+
+    def test_bypass_setup_wizard_need_root_already_skipped(self):
+        ad = MockAd()
+        ad.adb.return_state = BypassSetupWizardReturn.ROOT_ADB_SKIPPED
+        self.assertTrue(utils.bypass_setup_wizard(ad, 0))
+        self.assertTrue(ad.adb.root_adb_called)
+
+    def test_bypass_setup_wizard_root_access_still_fails(self):
+        ad = MockAd()
+        ad.adb.return_state = BypassSetupWizardReturn.ROOT_ADB_FAILS
+        with self.assertRaises(AdbError):
+            utils.bypass_setup_wizard(ad, 0)
+        self.assertTrue(ad.adb.root_adb_called)
+
+
+class BypassSetupWizardReturn:
+    # No complications. Bypass works the first time without issues.
+    NO_COMPLICATIONS = AdbError("", "", "", 1)
+    # Fail with doesn't need to be skipped/was skipped already.
+    ALREADY_BYPASSED = AdbError("", "ADB_CMD_OUTPUT:0", "Error type 3\n"
+                                "Error: Activity class", 1)
+    # Fail with different error.
+    UNRECOGNIZED_ERR = AdbError("", "ADB_CMD_OUTPUT:0", "Error type 4\n"
+                                "Error: Activity class", 0)
+    # Fail, get root access, then no complications arise.
+    ROOT_ADB_NO_COMP = AdbError("", "ADB_CMD_OUTPUT:255",
+                                "Security exception: Permission Denial: "
+                                "starting Intent { flg=0x10000000 "
+                                "cmp=com.google.android.setupwizard/"
+                                ".SetupWizardExitActivity } from null "
+                                "(pid=5045, uid=2000) not exported from uid "
+                                "10000", 0)
+    # Even with root access, the bypass setup wizard doesn't need to be skipped.
+    ROOT_ADB_SKIPPED = AdbError("", "ADB_CMD_OUTPUT:255",
+                                "Security exception: Permission Denial: "
+                                "starting Intent { flg=0x10000000 "
+                                "cmp=com.google.android.setupwizard/"
+                                ".SetupWizardExitActivity } from null "
+                                "(pid=5045, uid=2000) not exported from "
+                                "uid 10000", 0)
+    # Even with root access, the bypass setup wizard fails
+    ROOT_ADB_FAILS = AdbError(
+        "", "ADB_CMD_OUTPUT:255", "Security exception: Permission Denial: "
+        "starting Intent { flg=0x10000000 "
+        "cmp=com.google.android.setupwizard/"
+        ".SetupWizardExitActivity } from null (pid=5045, "
+        "uid=2000) not exported from uid 10000", 0)
+
+
+class MockAd:
+    def __init__(self):
+        self.adb = MockAdb()
+
+
+class MockAdb:
+    def __init__(self):
+        self.return_state = BypassSetupWizardReturn.NO_COMPLICATIONS
+        self.root_adb_called = False
+
+    def shell(self, string):
+        if string == "settings get global device_provisioned":
+            return self.return_state.ret_code
+        raise self.return_state
+
+    def root_adb(self):
+        self.root_adb_called = True
+        if self.return_state is BypassSetupWizardReturn.ROOT_ADB_FAILS:
+            self.return_state = BypassSetupWizardReturn.UNRECOGNIZED_ERR
+        elif self.return_state is not BypassSetupWizardReturn.ROOT_ADB_SKIPPED:
+            self.return_state = BypassSetupWizardReturn.ALREADY_BYPASSED
+        else:
+            self.return_state = BypassSetupWizardReturn.NO_COMPLICATIONS
 
 
 if __name__ == "__main__":

@@ -13,13 +13,15 @@
 #include "hash.h"
 #include "os/os.h"
 
-#if defined(ARCH_HAVE_CPU_CLOCK) && !defined(ARCH_CPU_CLOCK_CYCLES_PER_USEC)
+#if defined(ARCH_HAVE_CPU_CLOCK)
+#ifndef ARCH_CPU_CLOCK_CYCLES_PER_USEC
 static unsigned long cycles_per_usec;
 static unsigned long inv_cycles_per_usec;
 static uint64_t max_cycles_for_mult;
 #endif
 #ifdef ARCH_CPU_CLOCK_WRAPS
 static unsigned long long cycles_start, cycles_wrap;
+#endif
 #endif
 int tsc_reliable = 0;
 
@@ -131,7 +133,9 @@ static void fio_init gtod_init(void)
 #ifdef CONFIG_CLOCK_GETTIME
 static int fill_clock_gettime(struct timespec *ts)
 {
-#ifdef CONFIG_CLOCK_MONOTONIC
+#if defined(CONFIG_CLOCK_MONOTONIC_RAW)
+	return clock_gettime(CLOCK_MONOTONIC_RAW, ts);
+#elif defined(CONFIG_CLOCK_MONOTONIC)
 	return clock_gettime(CLOCK_MONOTONIC, ts);
 #else
 	return clock_gettime(CLOCK_REALTIME, ts);
@@ -228,6 +232,7 @@ static unsigned long get_cycles_per_usec(void)
 	struct timeval s, e;
 	uint64_t c_s, c_e;
 	enum fio_cs old_cs = fio_clock_source;
+	uint64_t elapsed;
 
 #ifdef CONFIG_CLOCK_GETTIME
 	fio_clock_source = CS_CGETTIME;
@@ -238,8 +243,6 @@ static unsigned long get_cycles_per_usec(void)
 
 	c_s = get_cpu_clock();
 	do {
-		uint64_t elapsed;
-
 		__fio_gettime(&e);
 
 		elapsed = utime_since(&s, &e);
@@ -250,7 +253,7 @@ static unsigned long get_cycles_per_usec(void)
 	} while (1);
 
 	fio_clock_source = old_cs;
-	return (c_e - c_s + 127) >> 7;
+	return (c_e - c_s) / elapsed;
 }
 
 #define NR_TIME_ITERS	50
@@ -296,16 +299,11 @@ static int calibrate_cpu_clock(void)
 	}
 
 	S /= (double) NR_TIME_ITERS;
-	mean /= 10.0;
 
 	for (i = 0; i < NR_TIME_ITERS; i++)
-		dprint(FD_TIME, "cycles[%d]=%llu\n", i,
-					(unsigned long long) cycles[i] / 10);
+		dprint(FD_TIME, "cycles[%d]=%llu\n", i, (unsigned long long) cycles[i]);
 
 	avg /= samples;
-	avg = (avg + 5) / 10;
-	minc /= 10;
-	maxc /= 10;
 	dprint(FD_TIME, "avg: %llu\n", (unsigned long long) avg);
 	dprint(FD_TIME, "min=%llu, max=%llu, mean=%f, S=%f\n",
 			(unsigned long long) minc,
@@ -383,8 +381,7 @@ void fio_clock_init(void)
 
 uint64_t utime_since(const struct timeval *s, const struct timeval *e)
 {
-	long sec, usec;
-	uint64_t ret;
+	int64_t sec, usec;
 
 	sec = e->tv_sec - s->tv_sec;
 	usec = e->tv_usec - s->tv_usec;
@@ -399,22 +396,26 @@ uint64_t utime_since(const struct timeval *s, const struct timeval *e)
 	if (sec < 0 || (sec == 0 && usec < 0))
 		return 0;
 
-	ret = sec * 1000000ULL + usec;
-
-	return ret;
+	return usec + (sec * 1000000);
 }
 
 uint64_t utime_since_now(const struct timeval *s)
 {
 	struct timeval t;
+#ifdef FIO_DEBUG_TIME
+	void *p = __builtin_return_address(0);
 
+	fio_gettime(&t, p);
+#else
 	fio_gettime(&t, NULL);
+#endif
+
 	return utime_since(s, &t);
 }
 
 uint64_t mtime_since(const struct timeval *s, const struct timeval *e)
 {
-	long sec, usec, ret;
+	long sec, usec;
 
 	sec = e->tv_sec - s->tv_sec;
 	usec = e->tv_usec - s->tv_usec;
@@ -426,19 +427,22 @@ uint64_t mtime_since(const struct timeval *s, const struct timeval *e)
 	if (sec < 0 || (sec == 0 && usec < 0))
 		return 0;
 
-	sec *= 1000UL;
-	usec /= 1000UL;
-	ret = sec + usec;
-
-	return ret;
+	sec *= 1000;
+	usec /= 1000;
+	return sec + usec;
 }
 
 uint64_t mtime_since_now(const struct timeval *s)
 {
 	struct timeval t;
+#ifdef FIO_DEBUG_TIME
 	void *p = __builtin_return_address(0);
 
 	fio_gettime(&t, p);
+#else
+	fio_gettime(&t, NULL);
+#endif
+
 	return mtime_since(s, &t);
 }
 
@@ -481,6 +485,7 @@ static void *clock_thread_fn(void *data)
 	struct clock_entry *c;
 	os_cpu_mask_t cpu_mask;
 	uint32_t last_seq;
+	unsigned long long first;
 	int i;
 
 	if (fio_cpuset_init(&cpu_mask)) {
@@ -502,6 +507,7 @@ static void *clock_thread_fn(void *data)
 	pthread_mutex_lock(&t->lock);
 	pthread_mutex_unlock(&t->started);
 
+	first = get_cpu_clock();
 	last_seq = 0;
 	c = &t->entries[0];
 	for (i = 0; i < t->nr_entries; i++, c++) {
@@ -524,7 +530,8 @@ static void *clock_thread_fn(void *data)
 		unsigned long long clocks;
 
 		clocks = t->entries[i - 1].tsc - t->entries[0].tsc;
-		log_info("cs: cpu%3d: %llu clocks seen\n", t->cpu, clocks);
+		log_info("cs: cpu%3d: %llu clocks seen, first %llu\n", t->cpu,
+							clocks, first);
 	}
 
 	/*
@@ -636,6 +643,8 @@ int fio_monotonic_clocktest(int debug)
 
 	qsort(entries, tentries, sizeof(struct clock_entry), clock_cmp);
 
+	/* silence silly gcc */
+	prev = NULL;
 	for (failed = i = 0; i < tentries; i++) {
 		this = &entries[i];
 

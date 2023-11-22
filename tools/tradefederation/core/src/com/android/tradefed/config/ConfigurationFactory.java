@@ -193,8 +193,8 @@ public class ConfigurationFactory implements IConfigurationFactory {
      *     on the value of environment variables.
      */
     @VisibleForTesting
-    List<File> getTestCasesDirs() {
-        return SystemUtil.getTestCasesDirs();
+    List<File> getExternalTestCasesDirs() {
+        return SystemUtil.getExternalTestCasesDirs();
     }
 
     /**
@@ -216,10 +216,11 @@ public class ConfigurationFactory implements IConfigurationFactory {
     @VisibleForTesting
     File getTestCaseConfigPath(String name) {
         String[] possibleConfigFileNames = {name + ".xml", name + ".config"};
-        for (File testCasesDir : getTestCasesDirs()) {
+        for (File testCasesDir : getExternalTestCasesDirs()) {
             for (String configFileName : possibleConfigFileNames) {
                 File config = FileUtil.findFile(testCasesDir, configFileName);
                 if (config != null) {
+                    CLog.d("Using config: %s/%s", testCasesDir.getAbsoluteFile(), configFileName);
                     return config;
                 }
             }
@@ -267,14 +268,12 @@ public class ConfigurationFactory implements IConfigurationFactory {
 
             if (def == null || def.isStale()) {
                 def = new ConfigurationDef(configName);
-                loadConfiguration(configName, def, templateMap);
+                loadConfiguration(configName, def, null, templateMap);
                 mConfigDefMap.put(configId, def);
             } else {
                 if (templateMap != null) {
                     // Clearing the map before returning the cached config to
-                    // avoid seeing them as
-                    // unused.
-                    CLog.d("Using cached configuration, ensuring map is clean.");
+                    // avoid seeing them as unused.
                     templateMap.clear();
                 }
             }
@@ -316,15 +315,19 @@ public class ConfigurationFactory implements IConfigurationFactory {
             }
         }
 
-        @Override
         /**
-         * Configs that are bundled inside the tradefed.jar can only include
-         * other configs also bundled inside tradefed.jar. However, local
-         * (external) configs can include both local (external) and bundled
-         * configs.
+         * Configs that are bundled inside the tradefed.jar can only include other configs also
+         * bundled inside tradefed.jar. However, local (external) configs can include both local
+         * (external) and bundled configs.
          */
-        public void loadIncludedConfiguration(ConfigurationDef def, String parentName, String name,
-                Map<String, String> templateMap) throws ConfigurationException {
+        @Override
+        public void loadIncludedConfiguration(
+                ConfigurationDef def,
+                String parentName,
+                String name,
+                String deviceTagObject,
+                Map<String, String> templateMap)
+                throws ConfigurationException {
 
             String config_name = name;
             if (!isBundledConfig(name)) {
@@ -362,25 +365,31 @@ public class ConfigurationFactory implements IConfigurationFactory {
                         "Circular configuration include: config '%s' is already included",
                         config_name));
             }
-            loadConfiguration(config_name, def, templateMap);
+            loadConfiguration(config_name, def, deviceTagObject, templateMap);
         }
 
         /**
          * Loads a configuration.
          *
-         * @param name the name of a built-in configuration to load or a file
-         *            path to configuration xml to load
+         * @param name the name of a built-in configuration to load or a file path to configuration
+         *     xml to load
          * @param def the loaded {@link ConfigurationDef}
-         * @param templateMap map from template-include names to their
-         *            respective concrete configuration files
-         * @throws ConfigurationException if a configuration with given
-         *             name/file path cannot be loaded or parsed
+         * @param deviceTagObject name of the current deviceTag if we are loading from a config
+         *     inside an <include>. Null otherwise.
+         * @param templateMap map from template-include names to their respective concrete
+         *     configuration files
+         * @throws ConfigurationException if a configuration with given name/file path cannot be
+         *     loaded or parsed
          */
-        void loadConfiguration(String name, ConfigurationDef def, Map<String, String> templateMap)
+        void loadConfiguration(
+                String name,
+                ConfigurationDef def,
+                String deviceTagObject,
+                Map<String, String> templateMap)
                 throws ConfigurationException {
-            Log.d(LOG_TAG, String.format("Loading configuration '%s'", name));
+            //Log.d(LOG_TAG, String.format("Loading configuration '%s'", name));
             BufferedInputStream bufStream = getConfigStream(name);
-            ConfigurationXmlParser parser = new ConfigurationXmlParser(this);
+            ConfigurationXmlParser parser = new ConfigurationXmlParser(this, deviceTagObject);
             parser.parse(def, name, bufStream, templateMap);
 
             // Track local config source files
@@ -415,13 +424,14 @@ public class ConfigurationFactory implements IConfigurationFactory {
     /**
      * Retrieve the {@link ConfigurationDef} for the given name
      *
-     * @param name the name of a built-in configuration to load or a file path
-     *            to configuration xml to load
+     * @param name the name of a built-in configuration to load or a file path to configuration xml
+     *     to load
      * @return {@link ConfigurationDef}
      * @throws ConfigurationException if an error occurred loading the config
      */
-    private ConfigurationDef getConfigurationDef(String name, boolean isGlobal,
-            Map<String, String> templateMap) throws ConfigurationException {
+    ConfigurationDef getConfigurationDef(
+            String name, boolean isGlobal, Map<String, String> templateMap)
+            throws ConfigurationException {
         return new ConfigLoader(isGlobal).getConfigurationDef(name, templateMap);
     }
 
@@ -597,9 +607,17 @@ public class ConfigurationFactory implements IConfigurationFactory {
      */
     @Override
     public List<String> getConfigList(String subPath) {
+        return getConfigList(subPath, true);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<String> getConfigList(String subPath, boolean loadFromEnv) {
         Set<String> configNames = getConfigSetFromClasspath(subPath);
-        // list config on variable path too
-        configNames.addAll(getConfigNamesFromTestCases(subPath));
+        if (loadFromEnv) {
+            // list config on variable path too
+            configNames.addAll(getConfigNamesFromTestCases(subPath));
+        }
         // sort the configs by name before adding to list
         SortedSet<String> configDefs = new TreeSet<String>();
         configDefs.addAll(configNames);
@@ -623,7 +641,7 @@ public class ConfigurationFactory implements IConfigurationFactory {
      */
     @VisibleForTesting
     Set<String> getConfigNamesFromTestCases(String subPath) {
-        return ConfigurationUtil.getConfigNamesFromDirs(subPath, getTestCasesDirs());
+        return ConfigurationUtil.getConfigNamesFromDirs(subPath, getExternalTestCasesDirs());
     }
 
     /**

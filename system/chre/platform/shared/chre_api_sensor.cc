@@ -16,8 +16,8 @@
 
 #include "chre/core/event_loop_manager.h"
 #include "chre/core/sensor_request.h"
-#include "chre/platform/context.h"
 #include "chre/util/time.h"
+#include "chre/util/macros.h"
 #include "chre_api/chre/sensor.h"
 
 using chre::EventLoopManager;
@@ -30,14 +30,15 @@ using chre::SensorType;
 using chre::getSensorModeFromEnum;
 using chre::getSensorTypeFromUnsignedInt;
 
-bool chreSensorFindDefault(uint8_t sensorType, uint32_t *handle) {
+DLL_EXPORT bool chreSensorFindDefault(uint8_t sensorType, uint32_t *handle) {
   SensorType validatedSensorType = getSensorTypeFromUnsignedInt(sensorType);
   return (validatedSensorType != SensorType::Unknown
       && EventLoopManagerSingleton::get()->getSensorRequestManager()
           .getSensorHandle(validatedSensorType, handle));
 }
 
-bool chreGetSensorInfo(uint32_t sensorHandle, struct chreSensorInfo *info) {
+DLL_EXPORT bool chreGetSensorInfo(uint32_t sensorHandle,
+                                  struct chreSensorInfo *info) {
   CHRE_ASSERT(info);
 
   chre::Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
@@ -45,14 +46,26 @@ bool chreGetSensorInfo(uint32_t sensorHandle, struct chreSensorInfo *info) {
   bool success = false;
   if (info != nullptr) {
     success = EventLoopManagerSingleton::get()->getSensorRequestManager().
-        getSensorInfo(sensorHandle, nanoapp, info);
+        getSensorInfo(sensorHandle, *nanoapp, info);
   }
   return success;
 }
 
-bool chreSensorConfigure(uint32_t sensorHandle,
-                         enum chreSensorConfigureMode mode,
-                         uint64_t interval, uint64_t latency) {
+DLL_EXPORT bool chreGetSensorSamplingStatus(
+    uint32_t sensorHandle, struct chreSensorSamplingStatus *status) {
+  CHRE_ASSERT(status);
+
+  bool success = false;
+  if (status != nullptr) {
+    success = EventLoopManagerSingleton::get()->getSensorRequestManager().
+        getSensorSamplingStatus(sensorHandle, status);
+  }
+  return success;
+}
+
+DLL_EXPORT bool chreSensorConfigure(uint32_t sensorHandle,
+                                    enum chreSensorConfigureMode mode,
+                                    uint64_t interval, uint64_t latency) {
   chre::Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
   SensorMode sensorMode = getSensorModeFromEnum(mode);
   SensorRequest sensorRequest(nanoapp, sensorMode, Nanoseconds(interval),

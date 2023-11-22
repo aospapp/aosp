@@ -204,6 +204,11 @@ public class TestEvent implements InputEvent {
     }
 
     @Override
+    public boolean isOverDocIcon() {
+        return mDetails.isOverDocIcon(this);
+    }
+
+    @Override
     public boolean isOverDragHotspot() {
         return isOverItem() && mDetails.isInDragHotspot(this);
     }
@@ -266,6 +271,7 @@ public class TestEvent implements InputEvent {
         private String mModelId;
         private boolean mInSelectionHotspot;
         private boolean mInDragHotspot;
+        private boolean mOverDocIcon;
 
         public Details() {
            mPosition = Integer.MIN_VALUE;
@@ -276,6 +282,7 @@ public class TestEvent implements InputEvent {
             mModelId = source.mModelId;
             mInSelectionHotspot = source.mInSelectionHotspot;
             mInDragHotspot = source.mInDragHotspot;
+            mOverDocIcon = source.mOverDocIcon;
         }
 
 
@@ -306,6 +313,11 @@ public class TestEvent implements InputEvent {
         @Override
         public boolean isInDragHotspot(InputEvent event) {
             return mInDragHotspot;
+        }
+
+        @Override
+        public boolean isOverDocIcon(InputEvent event) {
+            return mOverDocIcon;
         }
 
         @Override
@@ -434,6 +446,16 @@ public class TestEvent implements InputEvent {
 
         public Builder notInDragHotspot() {
             mState.mDetails.mInDragHotspot = false;
+            return this;
+        }
+
+        public Builder overDocIcon() {
+            mState.mDetails.mOverDocIcon = true;
+            return this;
+        }
+
+        public Builder notOverDocIcon() {
+            mState.mDetails.mOverDocIcon = false;
             return this;
         }
 

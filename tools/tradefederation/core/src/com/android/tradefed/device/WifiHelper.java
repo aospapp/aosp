@@ -21,6 +21,8 @@ import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.RunUtil;
 
+import com.google.common.annotations.VisibleForTesting;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -61,10 +63,17 @@ public class WifiHelper implements IWifiHelper {
     private static final long DEFAULT_WIFI_STATE_TIMEOUT = 30*1000;
 
     private final ITestDevice mDevice;
+    private File mWifiUtilApkFile;
 
     public WifiHelper(ITestDevice device) throws DeviceNotAvailableException {
         mDevice = device;
-        ensureDeviceSetup();
+        ensureDeviceSetup(null);
+    }
+
+    public WifiHelper(ITestDevice device, String wifiUtilApkPath)
+            throws DeviceNotAvailableException {
+        mDevice = device;
+        ensureDeviceSetup(wifiUtilApkPath);
     }
 
     /**
@@ -76,7 +85,7 @@ public class WifiHelper implements IWifiHelper {
         return RunUtil.getDefault();
     }
 
-    void ensureDeviceSetup() throws DeviceNotAvailableException {
+    void ensureDeviceSetup(String wifiUtilApkPath) throws DeviceNotAvailableException {
         final String inst = mDevice.executeShellCommand(CHECK_PACKAGE_CMD);
         if (inst != null) {
             Matcher matcher = PACKAGE_VERSION_PAT.matcher(inst);
@@ -92,11 +101,10 @@ public class WifiHelper implements IWifiHelper {
         }
 
         // Attempt to install utility
-        File apkTempFile = null;
         try {
-            apkTempFile = extractWifiUtilApk();
+            setupWifiUtilApkFile(wifiUtilApkPath);
 
-            final String error = mDevice.installPackage(apkTempFile, true);
+            final String error = mDevice.installPackage(mWifiUtilApkFile, true);
             if (error == null) {
                 // Installed successfully; good to go.
                 return;
@@ -108,8 +116,29 @@ public class WifiHelper implements IWifiHelper {
             throw new RuntimeException(String.format(
                     "Failed to unpack WifiUtil utility: %s", e.getMessage()));
         } finally {
-            FileUtil.deleteFile(apkTempFile);
+            // Delete the tmp file only if the APK is copied from classpath
+            if (wifiUtilApkPath == null) {
+                FileUtil.deleteFile(mWifiUtilApkFile);
+            }
         }
+    }
+
+    private void setupWifiUtilApkFile(String wifiUtilApkPath) throws IOException {
+        if (wifiUtilApkPath != null) {
+            mWifiUtilApkFile = new File(wifiUtilApkPath);
+        } else {
+            mWifiUtilApkFile = extractWifiUtilApk();
+        }
+    }
+
+    /**
+     * Get the {@link File} object of the APK file.
+     *
+     * <p>Exposed for unit testing.
+     */
+    @VisibleForTesting
+    File getWifiUtilApkFile() {
+        return mWifiUtilApkFile;
     }
 
     /**

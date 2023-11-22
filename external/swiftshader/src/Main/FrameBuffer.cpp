@@ -15,7 +15,6 @@
 #include "FrameBuffer.hpp"
 
 #include "Timer.hpp"
-#include "CPUID.hpp"
 #include "Renderer/Surface.hpp"
 #include "Reactor/Reactor.hpp"
 #include "Common/Debug.hpp"
@@ -34,15 +33,7 @@ namespace sw
 {
 	extern bool forceWindowed;
 
-	void *FrameBuffer::cursor;
-	int FrameBuffer::cursorWidth = 0;
-	int FrameBuffer::cursorHeight = 0;
-	int FrameBuffer::cursorHotspotX;
-	int FrameBuffer::cursorHotspotY;
-	int FrameBuffer::cursorPositionX;
-	int FrameBuffer::cursorPositionY;
-	int FrameBuffer::cursorX;
-	int FrameBuffer::cursorY;
+	FrameBuffer::Cursor FrameBuffer::cursor = {};
 	bool FrameBuffer::topLeftOrigin = false;
 
 	FrameBuffer::FrameBuffer(int width, int height, bool fullscreen, bool topLeftOrigin)
@@ -114,29 +105,29 @@ namespace sw
 	{
 		if(cursorImage)
 		{
-			cursor = cursorImage->lockExternal(0, 0, 0, sw::LOCK_READONLY, sw::PUBLIC);
+			cursor.image = cursorImage->lockExternal(0, 0, 0, sw::LOCK_READONLY, sw::PUBLIC);
 			cursorImage->unlockExternal();
 
-			cursorWidth = cursorImage->getWidth();
-			cursorHeight = cursorImage->getHeight();
+			cursor.width = cursorImage->getWidth();
+			cursor.height = cursorImage->getHeight();
 		}
 		else
 		{
-			cursorWidth = 0;
-			cursorHeight = 0;
+			cursor.width = 0;
+			cursor.height = 0;
 		}
 	}
 
 	void FrameBuffer::setCursorOrigin(int x0, int y0)
 	{
-		cursorHotspotX = x0;
-		cursorHotspotY = y0;
+		cursor.hotspotX = x0;
+		cursor.hotspotY = y0;
 	}
 
 	void FrameBuffer::setCursorPosition(int x, int y)
 	{
-		cursorPositionX = x;
-		cursorPositionY = y;
+		cursor.positionX = x;
+		cursor.positionY = y;
 	}
 
 	void FrameBuffer::copy(void *source, Format format, size_t stride)
@@ -162,8 +153,8 @@ namespace sw
 			target = (byte*)source + (height - 1) * stride;
 		}
 
-		cursorX = cursorPositionX - cursorHotspotX;
-		cursorY = cursorPositionY - cursorHotspotY;
+		cursor.x = cursor.positionX - cursor.hotspotX;
+		cursor.y = cursor.positionY - cursor.hotspotY;
 
 		if(ASYNCHRONOUS_BLIT)
 		{
@@ -188,8 +179,8 @@ namespace sw
 		update.destFormat = destFormat;
 		update.sourceFormat = sourceFormat;
 		update.stride = stride;
-		update.cursorWidth = cursorWidth;
-		update.cursorHeight = cursorHeight;
+		update.cursorWidth = cursor.width;
+		update.cursorHeight = cursor.height;
 
 		if(memcmp(&blitState, &update, sizeof(BlitState)) != 0)
 		{
@@ -197,10 +188,10 @@ namespace sw
 			delete blitRoutine;
 
 			blitRoutine = copyRoutine(blitState);
-			blitFunction = (void(*)(void*, void*))blitRoutine->getEntry();
+			blitFunction = (void(*)(void*, void*, Cursor*))blitRoutine->getEntry();
 		}
 
-		blitFunction(locked, target);
+		blitFunction(locked, target, &cursor);
 	}
 
 	Routine *FrameBuffer::copyRoutine(const BlitState &state)
@@ -213,10 +204,11 @@ namespace sw
 		const int sBytes = Surface::bytes(state.sourceFormat);
 		const int sStride = topLeftOrigin ? (sBytes * width2) : -(sBytes * width2);
 
-		Function<Void(Pointer<Byte>, Pointer<Byte>)> function;
+		Function<Void(Pointer<Byte>, Pointer<Byte>, Pointer<Byte>)> function;
 		{
 			Pointer<Byte> dst(function.Arg<0>());
 			Pointer<Byte> src(function.Arg<1>());
+			Pointer<Byte> cursor(function.Arg<2>());
 
 			For(Int y = 0, y < height, y++)
 			{
@@ -271,17 +263,16 @@ namespace sw
 							}
 							break;
 						case FORMAT_R5G6B5:
-							For(, x < width, x++)
+							For(, x < width - 3, x += 4)
 							{
-								Int rgb = Int(*Pointer<Short>(s));
+								Int4 rgb = Int4(*Pointer<Short4>(s));
 
-								*Pointer<Int>(d) = 0xFF000000 |
-								                   ((rgb & 0xF800) << 8) | ((rgb & 0xE01F) << 3) |
-								                   ((rgb & 0x07E0) << 5) | ((rgb & 0x0600) >> 1) |
-								                   ((rgb & 0x001C) >> 2);
+								*Pointer<Int4>(d) = (((rgb & Int4(0xF800)) << 8) | ((rgb & Int4(0xE01F)) << 3)) |
+								                    (((rgb & Int4(0x07E0)) << 5) | ((rgb & Int4(0x0600)) >> 1)) |
+								                    (((rgb & Int4(0x001C)) >> 2) | Int4(0xFF000000));
 
-								s += sBytes;
-								d += dBytes;
+								s += 4 * sBytes;
+								d += 4 * dBytes;
 							}
 							break;
 						default:
@@ -380,17 +371,17 @@ namespace sw
 							}
 							break;
 						case FORMAT_R5G6B5:
-							For(, x < width, x++)
+							For(, x < width - 3, x += 4)
 							{
-								Int rgb = Int(*Pointer<Short>(s));
+								Int4 rgb = Int4(*Pointer<Short4>(s));
 
-								*Pointer<Int>(d) = 0xFF000000 |
-								                   ((rgb & 0x001F) << 19) | ((rgb & 0x001C) << 14) |
-								                   ((rgb & 0x07E0) << 5) | ((rgb & 0x0600) >> 1) |
-								                   ((rgb & 0xF800) >> 8) | ((rgb & 0xE000) >> 13);
+								*Pointer<Int4>(d) = Int4(0xFF000000) |
+                                                    (((rgb & Int4(0x001F)) << 19) | ((rgb & Int4(0x001C)) << 14)) |
+								                    (((rgb & Int4(0x07E0)) << 5) | ((rgb & Int4(0x0600)) >> 1)) |
+								                    (((rgb & Int4(0xF800)) >> 8) | ((rgb & Int4(0xE000)) >> 13));
 
-								s += sBytes;
-								d += dBytes;
+								s += 4 * sBytes;
+								d += 4 * dBytes;
 							}
 							break;
 						default:
@@ -539,31 +530,34 @@ namespace sw
 				}
 			}
 
-			Int x0 = *Pointer<Int>(&cursorX);
-			Int y0 = *Pointer<Int>(&cursorY);
-
-			For(Int y1 = 0, y1 < cursorHeight, y1++)
+			if(state.cursorWidth > 0 && state.cursorHeight > 0)
 			{
-				Int y = y0 + y1;
+				Int x0 = *Pointer<Int>(cursor + OFFSET(Cursor,x));
+				Int y0 = *Pointer<Int>(cursor + OFFSET(Cursor,y));
 
-				If(y >= 0 && y < height)
+				For(Int y1 = 0, y1 < state.cursorHeight, y1++)
 				{
-					Pointer<Byte> d = dst + y * dStride + x0 * dBytes;
-					Pointer<Byte> s = src + y * sStride + x0 * sBytes;
-					Pointer<Byte> c = *Pointer<Pointer<Byte> >(&cursor) + y1 * cursorWidth * 4;
+					Int y = y0 + y1;
 
-					For(Int x1 = 0, x1 < cursorWidth, x1++)
+					If(y >= 0 && y < height)
 					{
-						Int x = x0 + x1;
+						Pointer<Byte> d = dst + y * dStride + x0 * dBytes;
+						Pointer<Byte> s = src + y * sStride + x0 * sBytes;
+						Pointer<Byte> c = *Pointer<Pointer<Byte>>(cursor + OFFSET(Cursor,image)) + y1 * state.cursorWidth * 4;
 
-						If(x >= 0 && x < width)
+						For(Int x1 = 0, x1 < state.cursorWidth, x1++)
 						{
-							blend(state, d, s, c);
-						}
+							Int x = x0 + x1;
 
-						c += 4;
-						s += sBytes;
-						d += dBytes;
+							If(x >= 0 && x < width)
+							{
+								blend(state, d, s, c);
+							}
+
+							c += 4;
+							s += sBytes;
+							d += dBytes;
+						}
 					}
 				}
 			}
@@ -577,17 +571,17 @@ namespace sw
 		Short4 c1;
 		Short4 c2;
 
-		c1 = UnpackLow(As<Byte8>(c1), *Pointer<Byte8>(c));
+		c1 = Unpack(*Pointer<Byte4>(c));
 
 		switch(state.sourceFormat)
 		{
 		case FORMAT_X8R8G8B8:
 		case FORMAT_A8R8G8B8:
-			c2 = UnpackLow(As<Byte8>(c2), *Pointer<Byte8>(s));
+			c2 = Unpack(*Pointer<Byte4>(s));
 			break;
 		case FORMAT_X8B8G8R8:
 		case FORMAT_A8B8G8R8:
-			c2 = Swizzle(UnpackLow(As<Byte8>(c2), *Pointer<Byte8>(s)), 0xC6);
+			c2 = Swizzle(Unpack(*Pointer<Byte4>(s)), 0xC6);
 			break;
 		case FORMAT_A16B16G16R16:
 			c2 = Swizzle(*Pointer<Short4>(s), 0xC6);
@@ -621,7 +615,7 @@ namespace sw
 		{
 		case FORMAT_X8R8G8B8:
 		case FORMAT_A8R8G8B8:
-			*Pointer<UInt>(d) = UInt(As<Long>(Pack(As<UShort4>(c1), As<UShort4>(c1))));
+			*Pointer<Byte4>(d) = Byte4(Pack(As<UShort4>(c1), As<UShort4>(c1)));
 			break;
 		case FORMAT_X8B8G8R8:
 		case FORMAT_A8B8G8R8:
@@ -630,7 +624,7 @@ namespace sw
 			{
 				c1 = Swizzle(c1, 0xC6);
 
-				*Pointer<UInt>(d) = UInt(As<Long>(Pack(As<UShort4>(c1), As<UShort4>(c1))));
+				*Pointer<Byte4>(d) = Byte4(Pack(As<UShort4>(c1), As<UShort4>(c1)));
 			}
 			break;
 		case FORMAT_R8G8B8:

@@ -20,21 +20,27 @@ package android.platform.test.helpers;
 import android.app.Instrumentation;
 
 /**
- * AbstractAutoUiProviderHelper used to open menu in different applications like Dial,
+ * AbstractAutoUiProviderHelper used to open drawer in different applications like Dialer,
  * Bluetooth Media and Local Media player.
  */
 
 public abstract class AbstractAutoUiProviderHelper extends AbstractStandardAppHelper {
 
     public AbstractAutoUiProviderHelper(Instrumentation instr) {
-    super(instr);
-  }
+        super(instr);
+    }
 
     /**
-     * Setup expectations: The applications like dial,Media should be open.
+     * Setup expectations: The applications like Dialer,Media should be open.
      *
-     * This method is used to open menu in different applications like Dial and Media.
+     * This method is used to open drawer in different applications like Dialer and Media.
      */
-    public abstract void openMenu();
+    public abstract void openDrawer();
 
+    /**
+     * Setup expectations: The drawer in applications like Dialer,Media should be open.
+     *
+     * This method is used to close drawer in different applications like Dialer and Media.
+     */
+    public abstract void closeDrawer();
 }

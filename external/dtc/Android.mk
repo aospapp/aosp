@@ -3,6 +3,10 @@
 LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
+LOCAL_CFLAGS := \
+  -Wno-sign-compare \
+  -Wno-missing-field-initializers \
+  -Wno-unused-parameter
 LOCAL_SRC_FILES := \
   checks.c \
   data.c \
@@ -24,4 +28,4 @@ LOCAL_MODULE := dtc
 
 include $(BUILD_HOST_EXECUTABLE)
 
-include $(LOCAL_PATH)/libfdt/Android.mk
+$(call dist-for-goals, dist_files, $(ALL_MODULES.dtc.BUILT):dtc/dtc)

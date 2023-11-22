@@ -17,22 +17,22 @@
 #include "Ext4Crypt.h"
 
 #include "KeyStorage.h"
+#include "KeyUtil.h"
 #include "Utils.h"
 
 #include <algorithm>
-#include <iomanip>
 #include <map>
 #include <set>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <limits.h>
-#include <openssl/sha.h>
 #include <selinux/android.h>
-#include <stdio.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -45,15 +45,19 @@
 #define MANAGE_MISC_DIRS 0
 
 #include <cutils/fs.h>
+#include <cutils/properties.h>
+
 #include <ext4_utils/ext4_crypt.h>
-#include <ext4_utils/key_control.h>
+#include <keyutils.h>
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/stringprintf.h>
 
 using android::base::StringPrintf;
+using android::base::WriteStringToFile;
 using android::vold::kEmptyAuthentication;
+using android::vold::KeyBuffer;
 
 // NOTE: keep in sync with StorageManager
 static constexpr int FLAG_STORAGE_DE = 1 << 0;
@@ -77,21 +81,8 @@ std::set<userid_t> s_ephemeral_users;
 std::map<userid_t, std::string> s_de_key_raw_refs;
 std::map<userid_t, std::string> s_ce_key_raw_refs;
 // TODO abolish this map, per b/26948053
-std::map<userid_t, std::string> s_ce_keys;
+std::map<userid_t, KeyBuffer> s_ce_keys;
 
-// ext4enc:TODO get this const from somewhere good
-const int EXT4_KEY_DESCRIPTOR_SIZE = 8;
-
-// ext4enc:TODO Include structure from somewhere sensible
-// MUST be in sync with ext4_crypto.c in kernel
-constexpr int EXT4_ENCRYPTION_MODE_AES_256_XTS = 1;
-constexpr int EXT4_AES_256_XTS_KEY_SIZE = 64;
-constexpr int EXT4_MAX_KEY_SIZE = 64;
-struct ext4_encryption_key {
-    uint32_t mode;
-    char raw[EXT4_MAX_KEY_SIZE];
-    uint32_t size;
-};
 }
 
 static bool e4crypt_is_emulated() {
@@ -100,78 +91,6 @@ static bool e4crypt_is_emulated() {
 
 static const char* escape_null(const char* value) {
     return (value == nullptr) ? "null" : value;
-}
-
-// Get raw keyref - used to make keyname and to pass to ioctl
-static std::string generate_key_ref(const char* key, int length) {
-    SHA512_CTX c;
-
-    SHA512_Init(&c);
-    SHA512_Update(&c, key, length);
-    unsigned char key_ref1[SHA512_DIGEST_LENGTH];
-    SHA512_Final(key_ref1, &c);
-
-    SHA512_Init(&c);
-    SHA512_Update(&c, key_ref1, SHA512_DIGEST_LENGTH);
-    unsigned char key_ref2[SHA512_DIGEST_LENGTH];
-    SHA512_Final(key_ref2, &c);
-
-    static_assert(EXT4_KEY_DESCRIPTOR_SIZE <= SHA512_DIGEST_LENGTH,
-                  "Hash too short for descriptor");
-    return std::string((char*)key_ref2, EXT4_KEY_DESCRIPTOR_SIZE);
-}
-
-static bool fill_key(const std::string& key, ext4_encryption_key* ext4_key) {
-    if (key.size() != EXT4_AES_256_XTS_KEY_SIZE) {
-        LOG(ERROR) << "Wrong size key " << key.size();
-        return false;
-    }
-    static_assert(EXT4_AES_256_XTS_KEY_SIZE <= sizeof(ext4_key->raw), "Key too long!");
-    ext4_key->mode = EXT4_ENCRYPTION_MODE_AES_256_XTS;
-    ext4_key->size = key.size();
-    memset(ext4_key->raw, 0, sizeof(ext4_key->raw));
-    memcpy(ext4_key->raw, key.data(), key.size());
-    return true;
-}
-
-static std::string keyname(const std::string& raw_ref) {
-    std::ostringstream o;
-    o << "ext4:";
-    for (unsigned char i : raw_ref) {
-        o << std::hex << std::setw(2) << std::setfill('0') << (int)i;
-    }
-    return o.str();
-}
-
-// Get the keyring we store all keys in
-static bool e4crypt_keyring(key_serial_t* device_keyring) {
-    *device_keyring = keyctl_search(KEY_SPEC_SESSION_KEYRING, "keyring", "e4crypt", 0);
-    if (*device_keyring == -1) {
-        PLOG(ERROR) << "Unable to find device keyring";
-        return false;
-    }
-    return true;
-}
-
-// Install password into global keyring
-// Return raw key reference for use in policy
-static bool install_key(const std::string& key, std::string* raw_ref) {
-    ext4_encryption_key ext4_key;
-    if (!fill_key(key, &ext4_key)) return false;
-    *raw_ref = generate_key_ref(ext4_key.raw, ext4_key.size);
-    auto ref = keyname(*raw_ref);
-    key_serial_t device_keyring;
-    if (!e4crypt_keyring(&device_keyring)) return false;
-    key_serial_t key_id =
-        add_key("logon", ref.c_str(), (void*)&ext4_key, sizeof(ext4_key), device_keyring);
-    if (key_id == -1) {
-        PLOG(ERROR) << "Failed to insert key into keyring " << device_keyring;
-        return false;
-    }
-    LOG(DEBUG) << "Added key " << key_id << " (" << ref << ") to keyring " << device_keyring
-               << " in process " << getpid();
-
-    return true;
 }
 
 static std::string get_de_key_path(userid_t user_id) {
@@ -252,7 +171,7 @@ static void fixate_user_ce_key(const std::string& directory_path, const std::str
 
 static bool read_and_fixate_user_ce_key(userid_t user_id,
                                         const android::vold::KeyAuthentication& auth,
-                                        std::string *ce_key) {
+                                        KeyBuffer *ce_key) {
     auto const directory_path = get_ce_key_directory_path(user_id);
     auto const paths = get_ce_key_paths(directory_path);
     for (auto const ce_key_path: paths) {
@@ -270,11 +189,11 @@ static bool read_and_fixate_user_ce_key(userid_t user_id,
 static bool read_and_install_user_ce_key(userid_t user_id,
                                          const android::vold::KeyAuthentication& auth) {
     if (s_ce_key_raw_refs.count(user_id) != 0) return true;
-    std::string ce_key;
+    KeyBuffer ce_key;
     if (!read_and_fixate_user_ce_key(user_id, auth, &ce_key)) return false;
     std::string ce_raw_ref;
-    if (!install_key(ce_key, &ce_raw_ref)) return false;
-    s_ce_keys[user_id] = ce_key;
+    if (!android::vold::installKey(ce_key, &ce_raw_ref)) return false;
+    s_ce_keys[user_id] = std::move(ce_key);
     s_ce_key_raw_refs[user_id] = ce_raw_ref;
     LOG(DEBUG) << "Installed ce key for user " << user_id;
     return true;
@@ -298,43 +217,12 @@ static bool destroy_dir(const std::string& dir) {
     return true;
 }
 
-static bool random_key(std::string* key) {
-    if (android::vold::ReadRandomBytes(EXT4_AES_256_XTS_KEY_SIZE, *key) != 0) {
-        // TODO status_t plays badly with PLOG, fix it.
-        LOG(ERROR) << "Random read failed";
-        return false;
-    }
-    return true;
-}
-
-static bool path_exists(const std::string& path) {
-    return access(path.c_str(), F_OK) == 0;
-}
-
 // NB this assumes that there is only one thread listening for crypt commands, because
 // it creates keys in a fixed location.
-static bool store_key(const std::string& key_path, const std::string& tmp_path,
-                      const android::vold::KeyAuthentication& auth, const std::string& key) {
-    if (path_exists(key_path)) {
-        LOG(ERROR) << "Already exists, cannot create key at: " << key_path;
-        return false;
-    }
-    if (path_exists(tmp_path)) {
-        android::vold::destroyKey(tmp_path);  // May be partially created so ignore errors
-    }
-    if (!android::vold::storeKey(tmp_path, auth, key)) return false;
-    if (rename(tmp_path.c_str(), key_path.c_str()) != 0) {
-        PLOG(ERROR) << "Unable to move new key to location: " << key_path;
-        return false;
-    }
-    LOG(DEBUG) << "Created key " << key_path;
-    return true;
-}
-
 static bool create_and_install_user_keys(userid_t user_id, bool create_ephemeral) {
-    std::string de_key, ce_key;
-    if (!random_key(&de_key)) return false;
-    if (!random_key(&ce_key)) return false;
+    KeyBuffer de_key, ce_key;
+    if (!android::vold::randomKey(&de_key)) return false;
+    if (!android::vold::randomKey(&ce_key)) return false;
     if (create_ephemeral) {
         // If the key should be created as ephemeral, don't store it.
         s_ephemeral_users.insert(user_id);
@@ -344,18 +232,18 @@ static bool create_and_install_user_keys(userid_t user_id, bool create_ephemeral
         auto const paths = get_ce_key_paths(directory_path);
         std::string ce_key_path;
         if (!get_ce_key_new_path(directory_path, paths, &ce_key_path)) return false;
-        if (!store_key(ce_key_path, user_key_temp,
+        if (!android::vold::storeKeyAtomically(ce_key_path, user_key_temp,
                 kEmptyAuthentication, ce_key)) return false;
         fixate_user_ce_key(directory_path, ce_key_path, paths);
         // Write DE key second; once this is written, all is good.
-        if (!store_key(get_de_key_path(user_id), user_key_temp,
+        if (!android::vold::storeKeyAtomically(get_de_key_path(user_id), user_key_temp,
                 kEmptyAuthentication, de_key)) return false;
     }
     std::string de_raw_ref;
-    if (!install_key(de_key, &de_raw_ref)) return false;
+    if (!android::vold::installKey(de_key, &de_raw_ref)) return false;
     s_de_key_raw_refs[user_id] = de_raw_ref;
     std::string ce_raw_ref;
-    if (!install_key(ce_key, &ce_raw_ref)) return false;
+    if (!android::vold::installKey(ce_key, &ce_raw_ref)) return false;
     s_ce_keys[user_id] = ce_key;
     s_ce_key_raw_refs[user_id] = ce_raw_ref;
     LOG(DEBUG) << "Created keys for user " << user_id;
@@ -419,10 +307,10 @@ static bool load_all_de_keys() {
         userid_t user_id = atoi(entry->d_name);
         if (s_de_key_raw_refs.count(user_id) == 0) {
             auto key_path = de_dir + "/" + entry->d_name;
-            std::string key;
+            KeyBuffer key;
             if (!android::vold::retrieveKey(key_path, kEmptyAuthentication, &key)) return false;
             std::string raw_ref;
-            if (!install_key(key, &raw_ref)) return false;
+            if (!android::vold::installKey(key, &raw_ref)) return false;
             s_de_key_raw_refs[user_id] = raw_ref;
             LOG(DEBUG) << "Installed de key for user " << user_id;
         }
@@ -451,28 +339,16 @@ bool e4crypt_initialize_global_de() {
         return false;
     }
 
-    std::string device_key;
-    if (path_exists(device_key_path)) {
-        if (!android::vold::retrieveKey(device_key_path,
-                kEmptyAuthentication, &device_key)) return false;
-    } else {
-        LOG(INFO) << "Creating new key";
-        if (!random_key(&device_key)) return false;
-        if (!store_key(device_key_path, device_key_temp,
-                kEmptyAuthentication, device_key)) return false;
-    }
-
     std::string device_key_ref;
-    if (!install_key(device_key, &device_key_ref)) {
-        LOG(ERROR) << "Failed to install device key";
-        return false;
-    }
+    if (!android::vold::retrieveAndInstallKey(true,
+        device_key_path, device_key_temp, &device_key_ref)) return false;
 
     std::string ref_filename = std::string("/data") + e4crypt_key_ref;
     if (!android::base::WriteStringToFile(device_key_ref, ref_filename)) {
-        PLOG(ERROR) << "Cannot save key reference";
+        PLOG(ERROR) << "Cannot save key reference to:" << ref_filename;
         return false;
     }
+    LOG(INFO) << "Wrote system DE key reference to:" << ref_filename;
 
     s_global_de_initialized = true;
     return true;
@@ -484,7 +360,7 @@ bool e4crypt_init_user0() {
         if (!prepare_dir(user_key_dir, 0700, AID_ROOT, AID_ROOT)) return false;
         if (!prepare_dir(user_key_dir + "/ce", 0700, AID_ROOT, AID_ROOT)) return false;
         if (!prepare_dir(user_key_dir + "/de", 0700, AID_ROOT, AID_ROOT)) return false;
-        if (!path_exists(get_de_key_path(0))) {
+        if (!android::vold::pathExists(get_de_key_path(0))) {
             if (!create_and_install_user_keys(0, false)) return false;
         }
         // TODO: switch to loading only DE_0 here once framework makes
@@ -526,22 +402,13 @@ bool e4crypt_vold_create_user_key(userid_t user_id, int serial, bool ephemeral) 
     return true;
 }
 
-static bool evict_key(const std::string &raw_ref) {
-    auto ref = keyname(raw_ref);
-    key_serial_t device_keyring;
-    if (!e4crypt_keyring(&device_keyring)) return false;
-    auto key_serial = keyctl_search(device_keyring, "logon", ref.c_str(), 0);
-
-    // Unlink the key from the keyring.  Prefer unlinking to revoking or
-    // invalidating, since unlinking is actually no less secure currently, and
-    // it avoids bugs in certain kernel versions where the keyring key is
-    // referenced from places it shouldn't be.
-    if (keyctl_unlink(key_serial, device_keyring) != 0) {
-        PLOG(ERROR) << "Failed to unlink key with serial " << key_serial << " ref " << ref;
-        return false;
+static void drop_caches() {
+    // Clean any dirty pages (otherwise they won't be dropped).
+    sync();
+    // Drop inode and page caches.
+    if (!WriteStringToFile("3", "/proc/sys/vm/drop_caches")) {
+        PLOG(ERROR) << "Failed to drop caches during key eviction";
     }
-    LOG(DEBUG) << "Unlinked key with serial " << key_serial << " ref " << ref;
-    return true;
 }
 
 static bool evict_ce_key(userid_t user_id) {
@@ -550,7 +417,8 @@ static bool evict_ce_key(userid_t user_id) {
     std::string raw_ref;
     // If we haven't loaded the CE key, no need to evict it.
     if (lookup_key_ref(s_ce_key_raw_refs, user_id, &raw_ref)) {
-        success &= evict_key(raw_ref);
+        success &= android::vold::evictKey(raw_ref);
+        drop_caches();
     }
     s_ce_key_raw_refs.erase(user_id);
     return success;
@@ -564,7 +432,8 @@ bool e4crypt_destroy_user_key(userid_t user_id) {
     bool success = true;
     std::string raw_ref;
     success &= evict_ce_key(user_id);
-    success &= lookup_key_ref(s_de_key_raw_refs, user_id, &raw_ref) && evict_key(raw_ref);
+    success &= lookup_key_ref(s_de_key_raw_refs, user_id, &raw_ref)
+        && android::vold::evictKey(raw_ref);
     s_de_key_raw_refs.erase(user_id);
     auto it = s_ephemeral_users.find(user_id);
     if (it != s_ephemeral_users.end()) {
@@ -574,7 +443,7 @@ bool e4crypt_destroy_user_key(userid_t user_id) {
             success &= android::vold::destroyKey(path);
         }
         auto de_key_path = get_de_key_path(user_id);
-        if (path_exists(de_key_path)) {
+        if (android::vold::pathExists(de_key_path)) {
             success &= android::vold::destroyKey(de_key_path);
         } else {
             LOG(INFO) << "Not present so not erasing: " << de_key_path;
@@ -641,12 +510,12 @@ bool e4crypt_add_user_key_auth(userid_t user_id, int serial, const char* token_h
         LOG(ERROR) << "Key not loaded into memory, can't change for user " << user_id;
         return false;
     }
-    auto ce_key = it->second;
+    const auto &ce_key = it->second;
     auto const directory_path = get_ce_key_directory_path(user_id);
     auto const paths = get_ce_key_paths(directory_path);
     std::string ce_key_path;
     if (!get_ce_key_new_path(directory_path, paths, &ce_key_path)) return false;
-    if (!store_key(ce_key_path, user_key_temp, auth, ce_key)) return false;
+    if (!android::vold::storeKeyAtomically(ce_key_path, user_key_temp, auth, ce_key)) return false;
     return true;
 }
 
@@ -743,8 +612,7 @@ bool e4crypt_prepare_user_storage(const char* volume_uuid, userid_t user_id, int
         if (!prepare_dir(misc_de_path, 01771, AID_SYSTEM, AID_MISC)) return false;
         if (!prepare_dir(user_de_path, 0771, AID_SYSTEM, AID_SYSTEM)) return false;
 
-        // For now, FBE is only supported on internal storage
-        if (e4crypt_is_native() && volume_uuid == nullptr) {
+        if (e4crypt_is_native()) {
             std::string de_raw_ref;
             if (!lookup_key_ref(s_de_key_raw_refs, user_id, &de_raw_ref)) return false;
             if (!ensure_policy(de_raw_ref, system_de_path)) return false;
@@ -765,8 +633,7 @@ bool e4crypt_prepare_user_storage(const char* volume_uuid, userid_t user_id, int
         if (!prepare_dir(media_ce_path, 0770, AID_MEDIA_RW, AID_MEDIA_RW)) return false;
         if (!prepare_dir(user_ce_path, 0771, AID_SYSTEM, AID_SYSTEM)) return false;
 
-        // For now, FBE is only supported on internal storage
-        if (e4crypt_is_native() && volume_uuid == nullptr) {
+        if (e4crypt_is_native()) {
             std::string ce_raw_ref;
             if (!lookup_key_ref(s_ce_key_raw_refs, user_id, &ce_raw_ref)) return false;
             if (!ensure_policy(ce_raw_ref, system_ce_path)) return false;

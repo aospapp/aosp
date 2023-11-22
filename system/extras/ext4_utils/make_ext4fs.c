@@ -628,6 +628,13 @@ static void extract_base_fs_allocations(const char *directory, const char *mount
 			int start_block, end_block;
 			u32 block_file_size;
 			u32 real_file_block_size;
+			struct stat buf;
+
+			if (lstat(real_file_name, &buf) == -1)
+				critical_error(err_msg);
+
+			if (!S_ISREG(buf.st_mode))
+				continue;
 
 			real_file_fd = open(real_file_name, O_RDONLY);
 			if (real_file_fd == -1) {

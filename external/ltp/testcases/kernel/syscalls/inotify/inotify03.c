@@ -36,7 +36,7 @@
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/fcntl.h>
+#include <fcntl.h>
 #include <errno.h>
 #include <string.h>
 #include <sys/syscall.h>
@@ -165,6 +165,8 @@ int main(int argc, char *argv[])
 static void setup(void)
 {
 	int ret;
+
+	tst_require_root();
 
 	tst_sig(NOFORK, DEF_HANDLER, cleanup);
 

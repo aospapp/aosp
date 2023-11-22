@@ -23,7 +23,6 @@
 #include <base/logging.h>
 #include <string.h>
 
-#include "btcore/include/bdaddr.h"
 #include "osi/include/allocator.h"
 #include "osi/include/buffer.h"
 #include "osi/include/list.h"
@@ -127,17 +126,16 @@ void l2cap_client_free(l2cap_client_t* client) {
 }
 
 bool l2cap_client_connect(l2cap_client_t* client,
-                          const bt_bdaddr_t* remote_bdaddr, uint16_t psm) {
+                          const RawAddress& remote_bdaddr, uint16_t psm) {
   CHECK(client != NULL);
-  CHECK(remote_bdaddr != NULL);
   CHECK(psm != 0);
-  CHECK(!bdaddr_is_empty(remote_bdaddr));
+  CHECK(!remote_bdaddr.IsEmpty());
   CHECK(client->local_channel_id == 0);
   CHECK(!client->configured_self);
   CHECK(!client->configured_peer);
   CHECK(!L2C_INVALID_PSM(psm));
 
-  client->local_channel_id = L2CA_ConnectReq(psm, (uint8_t*)remote_bdaddr);
+  client->local_channel_id = L2CA_ConnectReq(psm, remote_bdaddr);
   if (!client->local_channel_id) {
     LOG_ERROR(LOG_TAG, "%s unable to create L2CAP connection.", __func__);
     return false;
@@ -393,7 +391,7 @@ static void fragment_packet(l2cap_client_t* client, buffer_t* packet) {
 
   // TODO(sharvil): eliminate copy into BT_HDR.
   BT_HDR* bt_packet = static_cast<BT_HDR*>(
-      osi_malloc(buffer_length(packet) + L2CAP_MIN_OFFSET));
+      osi_malloc(buffer_length(packet) + L2CAP_MIN_OFFSET + sizeof(BT_HDR)));
   bt_packet->offset = L2CAP_MIN_OFFSET;
   bt_packet->len = buffer_length(packet);
   memcpy(bt_packet->data + bt_packet->offset, buffer_ptr(packet),
@@ -408,8 +406,8 @@ static void fragment_packet(l2cap_client_t* client, buffer_t* packet) {
       break;
     }
 
-    BT_HDR* fragment =
-        static_cast<BT_HDR*>(osi_malloc(client->remote_mtu + L2CAP_MIN_OFFSET));
+    BT_HDR* fragment = static_cast<BT_HDR*>(
+        osi_malloc(client->remote_mtu + L2CAP_MIN_OFFSET + sizeof(BT_HDR)));
     fragment->offset = L2CAP_MIN_OFFSET;
     fragment->len = client->remote_mtu;
     memcpy(fragment->data + fragment->offset,

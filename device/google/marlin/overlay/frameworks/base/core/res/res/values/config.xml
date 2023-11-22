@@ -61,6 +61,7 @@
 
          Must be overridden in platform specific overlays -->
     <integer-array name="config_autoBrightnessLevels">
+        <item>5</item>
         <item>20</item>
         <item>40</item>
         <item>100</item>
@@ -69,7 +70,6 @@
         <item>1250</item>
         <item>2200</item>
         <item>4000</item>
-        <item>10000</item>
     </integer-array>
 
     <!-- Array of output values for LCD backlight corresponding to the LUX values
@@ -77,16 +77,16 @@
          than the size of the config_autoBrightnessLevels array.
          This must be overridden in platform specific overlays -->
     <integer-array name="config_autoBrightnessLcdBacklightValues">
-        <item>20</item>   <!-- 0-20 -->
-        <item>45</item>   <!-- 20-40 -->
-        <item>65</item>   <!-- 40-100 -->
-        <item>90</item>   <!-- 100-325 -->
-        <item>120</item>  <!-- 325-600 -->
-        <item>150</item>  <!-- 600-1250 -->
-        <item>180</item>  <!-- 1250-2200 -->
-        <item>210</item>  <!-- 2200-4000 -->
-        <item>230</item>  <!-- 4000-10000 -->
-        <item>255</item>  <!-- 10000+ -->
+        <item>10</item>   <!-- 0-5 -->
+        <item>33</item>   <!-- 5-20 -->
+        <item>49</item>   <!-- 20-40 -->
+        <item>68</item>   <!-- 40-100 -->
+        <item>87</item>   <!-- 100-325 -->
+        <item>108</item>  <!-- 325-600 -->
+        <item>132</item>  <!-- 600-1250 -->
+        <item>167</item>  <!-- 1250-2200 -->
+        <item>206</item>  <!-- 2200-4000 -->
+        <item>255</item>  <!-- 4000+ -->
     </integer-array>
 
     <!-- Array of output values for button backlight corresponding to the LUX values
@@ -245,11 +245,15 @@
         <item>"9,1"</item>
     </string-array>
 
+    <!-- If the hardware supports specially marking packets that caused a wakeup of the
+         main CPU, set this value to the mark used. -->
+    <integer name="config_networkWakeupPacketMark">0x80000000</integer>
+
+    <!-- Mask to use when checking skb mark defined in config_networkWakeupPacketMark above. -->
+    <integer name="config_networkWakeupPacketMask">0x80000000</integer>
+
     <!-- Boolean indicating whether the wifi chipset has dual frequency band support -->
     <bool translatable="false" name="config_wifi_dual_band_support">true</bool>
-
-    <!-- Boolean indicating whether Hotspot 2.0/Passpoint and ANQP queries is enabled -->
-    <bool translatable="false" name="config_wifi_hotspot2_enabled">true</bool>
 
     <!-- Boolean indicating whether 802.11r Fast BSS Transition is enabled on this platform -->
     <bool translatable="false" name="config_wifi_fast_bss_transition_enabled">true</bool>
@@ -258,8 +262,11 @@
     <bool translatable="false" name="config_wifi_background_scan_support">true</bool>
 
     <!-- Integer thresholds, do not connect to APs with RSSI lower than these values  -->
-    <integer translatable="false" name="config_wifi_framework_wifi_score_bad_rssi_threshold_5GHz">-77</integer>
-    <integer translatable="false" name="config_wifi_framework_wifi_score_bad_rssi_threshold_24GHz">-80</integer>
+    <integer translatable="false" name="config_wifi_framework_wifi_score_entry_rssi_threshold_5GHz">-77</integer>
+    <integer translatable="false" name="config_wifi_framework_wifi_score_entry_rssi_threshold_24GHz">-80</integer>
+    <!-- Integer thresholds for low network score, should be somewhat less than the entry threshholds -->
+    <integer translatable="false" name="config_wifi_framework_wifi_score_bad_rssi_threshold_5GHz">-80</integer>
+    <integer translatable="false" name="config_wifi_framework_wifi_score_bad_rssi_threshold_24GHz">-83</integer>
 
     <!-- Setting this true forces the headset jack switches to use the/dev/input/event subsystem
          rather than the uevent framework. -->

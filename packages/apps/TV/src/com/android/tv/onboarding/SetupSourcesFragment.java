@@ -38,6 +38,7 @@ import com.android.tv.common.ui.setup.SetupGuidedStepFragment;
 import com.android.tv.common.ui.setup.SetupMultiPaneFragment;
 import com.android.tv.data.ChannelDataManager;
 import com.android.tv.data.TvInputNewComparator;
+import com.android.tv.tuner.TunerInputController;
 import com.android.tv.ui.GuidedActionsStylistWithDivider;
 import com.android.tv.util.SetupUtils;
 import com.android.tv.util.TvInputManagerHelper;
@@ -204,6 +205,7 @@ public class SetupSourcesFragment extends SetupMultiPaneFragment {
             mChannelDataManager.addListener(mChannelDataManagerListener);
             super.onCreate(savedInstanceState);
             mParentFragment = (SetupSourcesFragment) getParentFragment();
+            TunerInputController.executeNetworkTunerDiscoveryAsyncTask(getContext());
         }
 
         @Override

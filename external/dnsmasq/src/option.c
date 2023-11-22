@@ -611,7 +611,6 @@ static void do_usage(void)
     { '*', EDNS_PKTSZ },
     { '&', MAXLEASES },
     { '!', FTABSIZ },
-    { '#', TFTP_MAX_CONNECTIONS },
     { '\0', 0 }
   };
 
@@ -1585,33 +1584,7 @@ static char *one_opt(int option, char *arg, char *gen_prob, int nest)
 	option = '?';
       break;
 #endif
-      
-#ifdef HAVE_TFTP
-    case LOPT_TFTP_MAX:  /*  --tftp-max */
-      if (!atoi_check(arg, &daemon->tftp_max))
-	option = '?';
-      break;  
 
-    case LOPT_PREFIX: /* --tftp-prefix */
-      daemon->tftp_prefix = opt_string_alloc(arg);
-      break;
-
-    case LOPT_TFTPPORTS: /* --tftp-port-range */
-      if (!(comma = split(arg)) || 
-	  !atoi_check16(arg, &daemon->start_tftp_port) ||
-	  !atoi_check16(comma, &daemon->end_tftp_port))
-	problem = _("bad port range");
-      
-      if (daemon->start_tftp_port > daemon->end_tftp_port)
-	{
-	  int tmp = daemon->start_tftp_port;
-	  daemon->start_tftp_port = daemon->end_tftp_port;
-	  daemon->end_tftp_port = tmp;
-	} 
-      
-      break;
-#endif
-	      
     case LOPT_BRIDGE:   /* --bridge-interface */
       {
 	struct dhcp_bridge *new = opt_malloc(sizeof(struct dhcp_bridge));
@@ -2506,17 +2479,17 @@ static char *one_opt(int option, char *arg, char *gen_prob, int nest)
       {
 	char *endptr;
 	uint32_t mark = strtoul(arg, &endptr, 0);
-my_syslog(LOG_WARNING, "passed-in mark: %s", arg);
+        // my_syslog(LOG_WARNING, "passed-in mark: %s", arg);
 	if (!*endptr)
 	  daemon->listen_mark = mark;
 	else
 	  problem = _("invalid mark");
-my_syslog(LOG_WARNING, "daemon->listen_mark: 0x%x, *endptr=%d", daemon->listen_mark, *endptr);
+        // my_syslog(LOG_WARNING, "daemon->listen_mark: 0x%x, *endptr=%d", daemon->listen_mark, *endptr);
 	break;
       }
 
     default:
-      return _("unsupported option (check that dnsmasq was compiled with DHCP/TFTP/DBus support)");
+      return _("unsupported option (check that dnsmasq was compiled with DHCP support)");
 
     }
 
@@ -2802,7 +2775,6 @@ void read_opts(int argc, char **argv, char *compile_opts)
   daemon->username = CHUSER;
   daemon->runfile =  RUNFILE;
   daemon->dhcp_max = MAXLEASES;
-  daemon->tftp_max = TFTP_MAX_CONNECTIONS;
   daemon->edns_pktsz = EDNS_PKTSZ;
   daemon->log_fac = -1;
   add_txt("version.bind", "dnsmasq-" VERSION );

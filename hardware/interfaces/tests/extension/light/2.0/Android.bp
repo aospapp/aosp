@@ -39,7 +39,7 @@ genrule {
     ],
 }
 
-cc_library_shared {
+cc_library {
     name: "android.hardware.tests.extension.light@2.0",
     defaults: ["hidl-module-defaults"],
     generated_sources: ["android.hardware.tests.extension.light@2.0_genc++"],
@@ -54,7 +54,6 @@ cc_library_shared {
         "libutils",
         "libcutils",
         "android.hardware.light@2.0",
-        "android.hidl.base@1.0",
     ],
     export_shared_lib_headers: [
         "libhidlbase",
@@ -62,6 +61,5 @@ cc_library_shared {
         "libhwbinder",
         "libutils",
         "android.hardware.light@2.0",
-        "android.hidl.base@1.0",
     ],
 }

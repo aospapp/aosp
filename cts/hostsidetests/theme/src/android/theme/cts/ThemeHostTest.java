@@ -16,21 +16,17 @@
 
 package android.theme.cts;
 
-import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.ddmlib.Log;
 import com.android.ddmlib.Log.LogLevel;
-import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.CollectingOutputReceiver;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.result.FileInputStreamSource;
+import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
-import com.android.tradefed.result.LogFileSaver;
 import com.android.tradefed.testtype.DeviceTestCase;
-import com.android.tradefed.testtype.IAbi;
-import com.android.tradefed.testtype.IAbiReceiver;
-import com.android.tradefed.testtype.IBuildReceiver;
-import com.android.tradefed.util.AbiUtils;
 import com.android.tradefed.util.Pair;
+import com.android.tradefed.util.StreamUtil;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -51,10 +47,9 @@ import java.util.zip.ZipInputStream;
 /**
  * Test to check non-modifiable themes have not been changed.
  */
-public class ThemeHostTest extends DeviceTestCase implements IAbiReceiver, IBuildReceiver {
+public class ThemeHostTest extends DeviceTestCase {
 
     private static final String LOG_TAG = "ThemeHostTest";
-    private static final String APK_NAME = "CtsThemeDeviceApp";
     private static final String APP_PACKAGE_NAME = "android.theme.app";
 
     private static final String GENERATED_ASSETS_ZIP = "/sdcard/cts-theme-assets.zip";
@@ -81,12 +76,6 @@ public class ThemeHostTest extends DeviceTestCase implements IAbiReceiver, IBuil
     /** Map of reference image names and files. */
     private Map<String, File> mReferences;
 
-    /** The ABI to use. */
-    private IAbi mAbi;
-
-    /** A reference to the build. */
-    private IBuildInfo mBuildInfo;
-
     /** A reference to the device under test. */
     private ITestDevice mDevice;
 
@@ -97,33 +86,12 @@ public class ThemeHostTest extends DeviceTestCase implements IAbiReceiver, IBuil
     /** the string identifying the hardware type. */
     private String mHardwareType;
 
-    private LogFileSaver mDiffsFileSaver;
-
-    @Override
-    public void setAbi(IAbi abi) {
-        mAbi = abi;
-    }
-
-    @Override
-    public void setBuild(IBuildInfo buildInfo) {
-        mBuildInfo = buildInfo;
-    }
-
     @Override
     protected void setUp() throws Exception {
         super.setUp();
 
         mDevice = getDevice();
-        mDevice.uninstallPackage(APP_PACKAGE_NAME);
         mHardwareType = mDevice.executeShellCommand(HARDWARE_TYPE_CMD).trim();
-
-        final CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mBuildInfo);
-        final File diffsDir = new File(buildHelper.getResultDir(), "diffs");
-        mDiffsFileSaver = new LogFileSaver(diffsDir);
-
-        final File testApk = buildHelper.getTestFile(String.format("%s.apk", APK_NAME));
-        final String abiFlag = AbiUtils.createAbiFlag(mAbi.getName());
-        mDevice.installPackage(testApk, true, true, abiFlag);
 
         final String density = getDensityBucketForDevice(mDevice, mHardwareType);
         final String referenceZipAssetPath = String.format("/%s.zip", density);
@@ -144,7 +112,6 @@ public class ThemeHostTest extends DeviceTestCase implements IAbiReceiver, IBuil
                     final String name = ze.getName();
                     final File tmp = File.createTempFile("ref_" + name, ".png");
                     tmp.deleteOnExit();
-
                     try (FileOutputStream out = new FileOutputStream(tmp)) {
                         for (int count; (count = in.read(buffer)) != -1; ) {
                             out.write(buffer, 0, count);
@@ -171,9 +138,6 @@ public class ThemeHostTest extends DeviceTestCase implements IAbiReceiver, IBuil
     @Override
     protected void tearDown() throws Exception {
         mExecutionService.shutdown();
-
-        // Remove the APK.
-        mDevice.uninstallPackage(APP_PACKAGE_NAME);
 
         // Remove generated images.
         mDevice.executeShellCommand(CLEAR_GENERATED_CMD);
@@ -206,8 +170,12 @@ public class ThemeHostTest extends DeviceTestCase implements IAbiReceiver, IBuil
         for (int i = numTasks; i > 0; i--) {
             final Pair<String, File> comparison = mCompletionService.take().get();
             if (comparison != null) {
-                try (InputStream inputStream = new FileInputStream(comparison.second)) {
-                    mDiffsFileSaver.saveLogData(comparison.first, LogDataType.PNG, inputStream);
+                InputStreamSource inputStream = new FileInputStreamSource(comparison.second);
+                try{
+                    // Log the diff file
+                    addTestLog(comparison.first, LogDataType.PNG, inputStream);
+                } finally {
+                    StreamUtil.cancel(inputStream);
                 }
                 failureCount++;
             }

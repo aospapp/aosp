@@ -39,9 +39,9 @@ public:
     virtual status_t requestBuffer(int slot, sp<GraphicBuffer>* buf);
     virtual status_t setMaxDequeuedBufferCount(int maxDequeuedBuffers);
     virtual status_t setAsyncMode(bool async);
-    virtual status_t dequeueBuffer(int* slot, sp<Fence>* fence, uint32_t w,
-            uint32_t h, PixelFormat format, uint32_t usage,
-            FrameEventHistoryDelta* outTimestamps);
+    virtual status_t dequeueBuffer(int* slot, sp<Fence>* fence, uint32_t w, uint32_t h,
+                                   PixelFormat format, uint64_t usage, uint64_t* outBufferAge,
+                                   FrameEventHistoryDelta* outTimestamps);
     virtual status_t detachBuffer(int slot);
     virtual status_t detachNextBuffer(sp<GraphicBuffer>* outBuffer,
             sp<Fence>* outFence);
@@ -56,7 +56,7 @@ public:
     virtual status_t disconnect(int api, DisconnectMode mode);
     virtual status_t setSidebandStream(const sp<NativeHandle>& stream);
     virtual void allocateBuffers(uint32_t width, uint32_t height,
-            PixelFormat format, uint32_t usage);
+            PixelFormat format, uint64_t usage);
     virtual status_t allowAllocation(bool allow);
     virtual status_t setGenerationNumber(uint32_t generationNumber);
     virtual String8 getConsumerName() const override;
@@ -68,6 +68,7 @@ public:
     virtual status_t setAutoRefresh(bool autoRefresh) override;
     virtual void getFrameTimestamps(FrameEventHistoryDelta *outDelta) override;
     virtual status_t getUniqueId(uint64_t* outId) const override;
+    virtual status_t getConsumerUsage(uint64_t* outUsage) const override;
 
     // The Layer which created this producer, and on which queued Buffer's will be displayed.
     sp<Layer> getLayer() const;

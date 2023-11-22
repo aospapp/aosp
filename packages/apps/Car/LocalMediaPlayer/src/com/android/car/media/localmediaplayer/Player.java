@@ -213,6 +213,7 @@ public class Player extends MediaSession.Callback {
             idx++;
         }
         playlist.currentQueueId = mQueue.get(mCurrentQueueIdx).getQueueId();
+        playlist.currentSongPosition = mMediaPlayer.getCurrentPosition();
         playlist.name = CURRENT_PLAYLIST_KEY;
 
         // Go to Base64 to ensure that we can actually store the string in a sharedpref. This is
@@ -277,8 +278,9 @@ public class Player extends MediaSession.Callback {
 
             requestAudioFocus(() -> {
                 try {
-                    updatePlaybackStatePlaying();
                     playCurrentQueueIndex();
+                    mMediaPlayer.seekTo(playlist.currentSongPosition);
+                    updatePlaybackStatePlaying();
                 } catch (IOException e) {
                     Log.e(TAG, "Restored queue, but couldn't resume playback.");
                 }
@@ -317,7 +319,7 @@ public class Player extends MediaSession.Callback {
             return;
         }
 
-        mQueue = queue;
+        mQueue = new ArrayList<>(queue);
         mCurrentQueueIdx = foundIdx;
         QueueItem current = mQueue.get(mCurrentQueueIdx);
         String path = current.getDescription().getExtras().getString(DataModel.PATH_KEY);
@@ -354,6 +356,7 @@ public class Player extends MediaSession.Callback {
                 .setStyle(new Notification.MediaStyle().setMediaSession(mSession.getSessionToken()))
                 .setContentTitle(current.getTitle())
                 .setContentText(current.getSubtitle())
+                .setShowWhen(false)
                 .build();
         notification.flags |= Notification.FLAG_NO_CLEAR;
         mNotificationManager.notify(NOTIFICATION_ID, notification);
@@ -426,7 +429,7 @@ public class Player extends MediaSession.Callback {
         // playing and a loading MediaPlayer and juggled between them while also calling
         // setNextMediaPlayer.
 
-        if (mQueue != null) {
+        if (mQueue != null && !mQueue.isEmpty()) {
             // Keep looping around when we run off the end of our current queue.
             mCurrentQueueIdx = (mCurrentQueueIdx + 1) % mQueue.size();
             playCurrentQueueIndex();
@@ -471,12 +474,20 @@ public class Player extends MediaSession.Callback {
         mMediaPlayer.reset();
         mMediaPlayer.setDataSource(path);
         mMediaPlayer.prepare();
-        mMediaPlayer.start();
 
         if (metadata != null) {
             mSession.setMetadata(metadata);
         }
-        updatePlaybackStatePlaying();
+        boolean wasGrantedAudio = requestAudioFocus(() -> {
+            mMediaPlayer.start();
+            updatePlaybackStatePlaying();
+        });
+        if (!wasGrantedAudio) {
+            // player.pause() isn't needed since it should not actually be playing, the
+            // other steps like, updating the notification and play state are needed, thus we
+            // call the pause method.
+            pausePlayback();
+        }
     }
 
     private void safeAdvance() {
@@ -506,13 +517,19 @@ public class Player extends MediaSession.Callback {
             Log.d(TAG, "Shuffling");
         }
 
-        if (mQueue != null) {
+        // rebuild the the queue in a shuffled form.
+        if (mQueue != null && mQueue.size() > 2) {
             QueueItem current = mQueue.remove(mCurrentQueueIdx);
             Collections.shuffle(mQueue);
             mQueue.add(0, current);
+            // A QueueItem contains a queue id that's used as the key for when the user selects
+            // the current play list. This means the QueueItems must be rebuilt to have their new
+            // id's set.
+            for (int i = 0; i < mQueue.size(); i++) {
+                mQueue.set(i, new QueueItem(mQueue.get(i).getDescription(), i));
+            }
             mCurrentQueueIdx = 0;
             updateSessionQueueState();
-            updatePlaybackStatePlaying();
         }
     }
 
@@ -544,16 +561,9 @@ public class Player extends MediaSession.Callback {
 
     @Override
     public void onSkipToQueueItem(long id) {
-        int idx = (int) id;
-        MediaSession.QueueItem item = mQueue.get(idx);
-        MediaDescription description = item.getDescription();
-
-        String path = description.getExtras().getString(DataModel.PATH_KEY);
-        MediaMetadata metadata = mDataModel.getMetadata(description.getMediaId());
-
         try {
-            play(path, metadata);
-            mCurrentQueueIdx = idx;
+            mCurrentQueueIdx = (int) id;
+            playCurrentQueueIndex();
         } catch (IOException e) {
             Log.e(TAG, "Failed to play.", e);
             mSession.setPlaybackState(mErrorState);

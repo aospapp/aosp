@@ -153,10 +153,10 @@
     <!-- Class name for the default main Dialer activity [DO NOT TRANSLATE] -->
     <string name="dialer_default_class" translatable="false">com.android.dialer.DialtactsActivity</string>
 
-    <!-- Package name for the network operator settings [DO NOT TRANSLATE] -->
-    <string name="network_operator_settings_package" translatable="false">com.android.phone</string>
-    <!-- Class name for the network operator settings activity [DO NOT TRANSLATE] -->
-    <string name="network_operator_settings_class" translatable="false">com.android.phone.NetworkSetting</string>
+    <!-- Package name for the mobile network settings [DO NOT TRANSLATE] -->
+    <string name="mobile_network_settings_package" translatable="false">com.android.phone</string>
+    <!-- Class name for the mobile network settings activity [DO NOT TRANSLATE] -->
+    <string name="mobile_network_settings_class" translatable="false">com.android.phone.MobileNetworkSettings</string>
 
     <!-- CDMA activation goes through HFA -->
     <!-- DEPRECATED: Use CarrierConfigManager#KEY_USE_HFA_FOR_PROVISIONING_BOOL -->
@@ -225,4 +225,14 @@
 
     <!-- The package name for the platform carrier config app, bundled with system image. -->
     <string name="platform_carrier_config_package" translatable="false">com.android.carrierconfig</string>
+
+    <!-- Flag indicating whether the TelephonyConnectionService supports the handover of calls from
+         the TelephonyConnectionService to another ConnectionService defined in the system.
+         Telecom performs the handover by placing a call using the "to" ConnectionService, and then
+         disconnecting the ongoing Telephony call when the call goes active. -->
+    <bool name="config_support_handover_from">false</bool>
+
+    <!-- Flag indicating whether a system app can use video calling fallback if carrier video
+         calling is not available. -->
+    <bool name="config_support_video_calling_fallback">false</bool>
 </resources>

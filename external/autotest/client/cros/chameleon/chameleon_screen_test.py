@@ -86,7 +86,7 @@ class ChameleonScreenTest(object):
             self._display_facade.load_calibration_image(image_size)
         if not test_mirrored:
             self._display_facade.move_to_display(
-                    self._display_facade.get_first_external_display_index())
+                    self._display_facade.get_first_external_display_id())
         self._display_facade.set_fullscreen(True)
         logging.info('Waiting for calibration image to stabilize...')
         time.sleep(self._TEST_IMAGE_STABILIZE_TIME)

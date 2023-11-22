@@ -17,10 +17,28 @@
 #include <stdint.h>
 #include <string.h>
 
+#include <libkern/OSByteOrder.h>
+
 void *ese_memcpy(void *__dest, const void *__src, uint64_t __n) {
   return memcpy(__dest, __src, __n);
 }
 
 void *ese_memset(void *__s, int __c, uint64_t __n) {
   return memset(__s, __c, __n);
+}
+
+uint32_t ese_be32toh(uint32_t big_endian_32bits) {
+  return OSSwapBigToHostInt32(big_endian_32bits);
+}
+
+uint32_t ese_htobe32(uint32_t host_32bits) {
+  return OSSwapHostToBigInt32(host_32bits);
+}
+
+uint32_t ese_le32toh(uint32_t little_endian_32bits) {
+  return OSSwapLittleToHostInt32(little_endian_32bits);
+}
+
+uint32_t ese_htole32(uint32_t host_32bits) {
+  return OSSwapHostToLittleInt32(host_32bits);
 }

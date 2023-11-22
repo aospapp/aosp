@@ -19,8 +19,10 @@ import android.car.Car;
 import android.car.CarAppFocusManager;
 import android.car.CarAppFocusManager.OnAppFocusOwnershipCallback;
 import android.car.navigation.CarNavigationStatusManager;
+import android.os.Bundle;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.util.Log;
+import com.google.android.collect.Lists;
 
 /**
  * Unit tests for {@link CarNavigationStatusManager}
@@ -79,8 +81,19 @@ public class CarNavigationManagerTest extends CarApiTestBase {
         assertTrue(mCarAppFocusManager.isOwningFocus(ownershipCallback,
                 CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION));
 
+        Log.i(TAG, "Instrument cluster: " + mCarNavigationManager.getInstrumentClusterInfo());
+
         // TODO: we should use mocked HAL to be able to verify this, right now just make sure that
         // it is not crashing and logcat has appropriate traces.
         mCarNavigationManager.sendNavigationStatus(1);
+
+        Bundle bundle = new Bundle();
+        bundle.putInt("BUNDLE_INTEGER_VALUE", 1234);
+        bundle.putFloat("BUNDLE_FLOAT_VALUE", 12.3456f);
+        bundle.putStringArrayList("BUNDLE_ARRAY_OF_STRINGS",
+                Lists.newArrayList("Value A", "Value B", "Value Z"));
+
+        mCarNavigationManager.sendEvent
+                (CarNavigationStatusManager.EVENT_TYPE_NEXT_MANEUVER_INFO, bundle);
     }
 }
